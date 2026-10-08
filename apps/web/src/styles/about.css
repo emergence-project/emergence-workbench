@@ -1,0 +1,167 @@
+/* 소개 (AboutPage · aboutContent) — 앱 사이드바의 쪽 목록 + 본문 */
+.about-nav-row { text-decoration: none; }
+.about-nav-row .n { min-width: var(--sp-4); flex: none; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-normal); }
+.about .sec-head { align-items: center; }
+.about .sec-head .icon-btn { flex: none; }
+
+.about code { font: var(--fs-sm) "SF Mono", Menlo, monospace; background: var(--bg-sunken); border-radius: var(--r-xs); padding: 0 var(--sp-1); }
+.about .props { grid-template-columns: 140px 1fr; }
+.about .props dd { display: block; }
+.about-open { display: flex; gap: var(--sp-4); margin: var(--sp-2) 0 0; font-size: var(--fs-sm); }
+.about-lead { color: var(--text-2); font-size: var(--fs-sm); line-height: 1.7; margin: 0 0 var(--sp-3); }
+.about-vision { color: var(--text); font-size: var(--fs-lg); font-weight: var(--fw-medium); line-height: 1.6; margin: 0 0 var(--sp-2); }
+.about-note { color: var(--text-3); font-size: var(--fs-xs); margin: var(--sp-2) 0 0; }
+.about-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); line-height: 1.6; }
+/* 10/4 17:56 "볼드 글씨가 붕 뜬다": 이름표가 글 기준선에 얹혀 떠 보였다. 줄 가운데에 맞춘다 */
+.about-unsure { display: inline-block; vertical-align: middle; line-height: 1.5; position: relative; top: -1px; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; margin: 0 6px 0 0; background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
+
+/* 읽는 법 */
+.about-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px var(--sp-4); font-size: var(--fs-sm); color: var(--text-2); padding: var(--sp-3) var(--sp-4); background: var(--bg-sunken); border-radius: var(--r-md); }
+.about-legend b { color: var(--text); margin-right: 6px; }
+
+/* 화면 구조 그림: 실제 화면의 영역을 작게 그린 것. 영역마다 그 쪽으로 가는 링크 */
+.about-map { display: grid; grid-template-columns: max-content minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); font-size: var(--fs-xs); }
+.about-map a, .about-map > div { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--text-2); text-decoration: none; padding: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.about-map a:hover { border-color: var(--line-strong); background: var(--bg-hover); color: var(--text); }
+.about-map b { color: var(--text); font-weight: var(--fw-strong); }
+.about-map i { font-style: normal; color: var(--text-3); margin-top: auto; font-size: var(--fs-2xs); }
+.about-map .m-title { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-3); }
+.about-map .m-title b { flex: none; }
+.about-map .m-title-actions { margin-left: auto; }
+.about-map .m-rail, .about-map .m-side { background: var(--bg-side); }
+.about-map .m-rail { align-items: center; padding: var(--sp-2) var(--sp-1); }
+.about-map :is(.m-rail, .m-side) .sp { flex: 1; }
+.about-map .m-rail a, .about-map .m-side a { border: none; background: none; padding: 3px var(--sp-1); border-radius: var(--r-xs); }
+.about-map .m-rail a:hover, .about-map .m-side a:hover { background: var(--bg-hover); }
+.about-map .m-rail i { text-align: center; }
+.about-map .m-side a { color: var(--text); font-weight: var(--fw-medium); }
+.about-map .m-side small { display: block; color: var(--text-3); font-weight: var(--fw-normal); font-size: var(--fs-2xs); }
+
+/* 소개 › 내가 이해한 것 */
+.about-understood { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: var(--sp-2); line-height: 1.7; }
+.about-understood b { margin-right: var(--sp-1); }
+.about-understood .a { margin-left: var(--sp-1); font-size: var(--fs-xs); }
+
+/* 요청 → 이해 → 만든 것 */
+.about-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.about-row { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--sp-2) var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); line-height: 1.65; }
+.about-row .k { color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-strong); padding-top: 2px; }
+.about-row .v { font-size: var(--fs-md); min-width: 0; }
+.about-row .asked { color: var(--text-2); font-size: var(--fs-sm); }
+.about-row .asked p { margin: 0 0 2px; }
+.about-row .when { color: var(--text-3); font-size: var(--fs-xs); margin-right: var(--sp-2); white-space: nowrap; }
+
+.about-pager { display: flex; justify-content: space-between; padding-top: var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.about a.a { text-decoration: none; } .about a.a:hover { text-decoration: underline; }
+.about-nav-flag { margin-left: auto; flex: none; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 var(--sp-2); background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
+.about-legend { grid-template-columns: 1fr; }
+/* 쪽 맨 위 "확인해 주실 것" 알림 (막힘 색 = 사용자 차례, 피드백의 주황 수와 같은 뜻) */
+.about-ask { margin: 0 0 var(--sp-5); padding: var(--sp-3) var(--sp-4); border: 1px solid color-mix(in srgb, var(--s-blocked) 40%, transparent); border-radius: var(--r-md); background: color-mix(in srgb, var(--s-blocked) 7%, transparent); font-size: var(--fs-md); }
+.about-ask > b { color: var(--s-blocked); }
+.about-ask ul { margin: var(--sp-2) 0; padding-left: 1.2em; }
+.about-ask li { margin: var(--sp-1) 0; }
+.about-ask p { margin: 0; font-size: var(--fs-sm); }
+
+/* 확인할 것: 질문마다 맞아요·답하기 (10/4 17:55) */
+.about-ask-row { display: flex; align-items: center; gap: var(--sp-3); }
+.about-ask-q { flex: 1; min-width: 0; }
+.about-ask-tools { display: flex; gap: var(--sp-2); flex: none; }
+.about-ask-row.sent .about-ask-q { color: var(--text-3); }
+.about-ask-sent { flex: none; font-size: var(--fs-sm); }
+
+/* 기호와 뜻 표 (10/4 17:57) */
+.about-symbols { margin-bottom: var(--sp-4); }
+.about-symbols h3 { font-size: var(--fs-sm); font-weight: var(--fw-strong); margin: 0 0 var(--sp-2); }
+.about-symbols h3 .muted { font-weight: var(--fw-normal); margin-left: var(--sp-2); }
+.about-sym-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); table-layout: fixed; }
+.about-sym-table th:nth-child(1) { width: 56px; }
+.about-sym-table th:nth-child(2) { width: 22%; }
+.about-sym-table th:nth-child(4) { width: 28%; }
+.about-sym-table th { text-align: left; font-weight: var(--fw-normal); color: var(--text-3); border-bottom: 1px solid var(--line); padding: 6px var(--sp-2); }
+.about-sym-table td { border-bottom: 1px solid var(--line); padding: 6px var(--sp-2); vertical-align: middle; }
+.about-sym-table td.about-sym { width: 56px; text-align: center; font-size: var(--fs-md); color: var(--text-2); }
+.about-sym-table td.about-sym svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
+/* 색과 뜻 표 (10/4) */
+.about-color-table th:nth-child(1) { width: 22%; }
+.about-color-table th:nth-child(2) { width: 16%; }
+.about-color-table th:nth-child(4) { width: 24%; }
+.about-color-table td.about-sym { width: auto; text-align: left; font-size: var(--fs-sm); color: var(--text); }
+.about-swatch { display: inline-block; width: 12px; height: 12px; border-radius: var(--r-xs); vertical-align: -1px; margin: 0 2px; }
+.about-color-name { margin-left: var(--sp-2); }
+
+/* 그림과 표 (aboutFigures.tsx, 10/8 "기호와 구조는 표와 그림으로도") */
+.about-figs { display: flex; flex-direction: column; gap: var(--sp-3); margin: 0 0 var(--sp-3); }
+.about-fig { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.about-fig figcaption { font-size: var(--fs-xs); }
+:is(.about-figs, .about-trees, .about-fig) svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; flex: none; }
+.about .muted { color: var(--text-3); }
+
+/* 글의 짜임 */
+.about-docmap { font-size: var(--fs-sm); }
+.dm-box { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); display: flex; flex-direction: column; gap: 2px; background: var(--bg); min-width: 0; }
+.dm-box > .muted { font-size: var(--fs-xs); }
+.dm-project, .dm-library { background: var(--bg-side); }
+.dm-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--sp-2); margin-top: var(--sp-2); }
+.dm-row.dm-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dm-col { display: flex; flex-direction: column; gap: var(--sp-2); }
+.dm-small { padding: var(--sp-1) var(--sp-2); }
+.dm-notes { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
+.dm-note { display: inline-flex; align-items: center; gap: var(--sp-1); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 2px var(--sp-2); font-size: var(--fs-xs); background: var(--bg); }
+.dm-foot { margin-top: var(--sp-1); font-size: var(--fs-xs); }
+.dm-link { text-align: center; font-size: var(--fs-xs); }
+.dm-link::before, .dm-link::after { content: ' ↕ '; }
+
+/* 표 공통: 첫 열이 기호가 아닌 표 */
+.about-kinds th:nth-child(1), .about-states th:nth-child(1) { width: 84px; }
+.about-kinds th:nth-child(3) { width: 18%; }
+.about-kinds th:nth-child(4) { width: 26%; }
+.about-states th:nth-child(3) { width: 24%; }
+.about-syntax th:nth-child(1) { width: 40%; }
+.about-sym-table td { line-height: 1.55; }
+.about-state { display: inline-flex; align-items: center; gap: var(--sp-1); margin: 0 var(--sp-3) 2px 0; white-space: nowrap; }
+.about-sym.about-due { color: var(--s-blocked); }
+
+/* 사용자 차례 · 에이전트 차례 */
+.about-turn { display: inline-block; min-width: 16px; height: 16px; padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--s-blocked); color: var(--bg); font-size: var(--fs-2xs); font-weight: var(--fw-strong); line-height: 16px; text-align: center; vertical-align: middle; }
+.about-turn-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--s-blocked); vertical-align: middle; }
+.about-wait { font-size: var(--fs-xs); color: var(--text-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 0 var(--sp-2); }
+.about-turns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); font-size: var(--fs-sm); }
+.about-turns > div { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); }
+.about-turns .muted { flex-basis: 100%; font-size: var(--fs-xs); }
+
+/* 노트 툴바 그림 */
+.tb-zones { display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: var(--fs-2xs); }
+.tb-zones span:nth-child(2) { text-align: center; } .tb-zones span:nth-child(3) { text-align: right; }
+.tb-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-1) var(--sp-3); min-height: 36px; font-size: var(--fs-sm); background: var(--bg); }
+.tb-l, .tb-r { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.tb-r { justify-content: flex-end; color: var(--text-2); }
+.tb-r i { display: inline-flex; font-style: normal; }
+.tb-r .muted { font-size: var(--fs-xs); }
+.tb-input { border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 var(--sp-2); color: var(--text-3); font-size: var(--fs-xs); }
+.tb-bar .segmented button { cursor: default; }
+.tb-bar .btn { pointer-events: none; }
+
+/* 흐름 그림: 화살표로 잇는 단계. 주황 테두리가 사용자 차례 */
+.about-flow { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-4); font-size: var(--fs-sm); }
+.about-flow li { position: relative; border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); display: flex; flex-direction: column; gap: 2px; background: var(--bg); }
+.about-flow li b { display: flex; align-items: center; gap: var(--sp-1); }
+.about-flow li span { color: var(--text-2); font-size: var(--fs-xs); line-height: 1.5; }
+.about-flow li + li::before { content: '→'; position: absolute; left: calc(-1 * var(--sp-4)); width: var(--sp-4); top: 50%; transform: translateY(-50%); text-align: center; color: var(--text-3); }
+.about-flow li.turn { border-color: color-mix(in srgb, var(--s-blocked) 55%, transparent); }
+.about-verdicts { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-3); background: var(--bg-sunken); border-radius: var(--r-md); }
+.about-verdicts > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.about-verdicts .muted { display: inline-flex; align-items: center; gap: var(--sp-1); }
+
+/* 파일 나무 */
+.about-trees { display: flex; flex-direction: column; gap: var(--sp-3); font-size: var(--fs-sm); }
+.about-tree ul { list-style: none; margin: var(--sp-1) 0 0; padding: 0 0 0 var(--sp-3); border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
+.about-tree li { display: grid; grid-template-columns: minmax(0, 46%) minmax(0, 1fr); gap: var(--sp-3); align-items: baseline; }
+.about-tree li code { overflow-wrap: anywhere; justify-self: start; }
+.about-tree li .muted { font-size: var(--fs-xs); }
+
+@media (max-width: 900px) {
+  .about-flow { grid-auto-flow: row; gap: var(--sp-3); }
+  .about-flow li + li::before { content: '↓'; left: 50%; top: calc(-1 * var(--sp-3)); width: auto; transform: translate(-50%, -2px); }
+  .dm-row, .dm-row.dm-three, .about-turns { grid-template-columns: 1fr; }
+  .about-tree li { grid-template-columns: 1fr; gap: 0; }
+}

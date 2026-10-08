@@ -1,0 +1,14 @@
+% ---
+% title: 기본
+% description: 한글 글꼴 · 여백 · 수식·정리·그림 패키지
+% place: first
+% ---
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{kotex}
+% XeLaTeX·LuaLaTeX에서만 글꼴을 고른다 (macOS 기본 글꼴)
+\ifdefined\setmainhangulfont
+  \setmainhangulfont{AppleMyungjo}
+  \setsanshangulfont{Apple SD Gothic Neo}
+\fi

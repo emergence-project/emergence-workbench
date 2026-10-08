@@ -1,0 +1,112 @@
+% rw-research-note.sty — 연구노트 서식 (설정 › LaTeX 서식 › 연구노트 (rw-research-note))
+% 모양의 원본: 작성자의 연구노트 서식 (2026-10-04).
+% 그 연구에만 맞는 글(머리말의 연구 제목, 꼬리말의 "In review")은 빼고
+% 머리말에는 문서 제목(\thetitle)을 넣는다. XeLaTeX(또는 LuaLaTeX)로 컴파일한다.
+% setting.tex(amsmath·amssymb·graphicx) 다음에 불러야 unicode-math가 amsmath 뒤에 온다.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{rw-research-note}[2026/10/04 research-workspace research note style]
+
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
+\RequirePackage{xcolor}
+\RequirePackage[left=25mm,right=25mm,top=25mm,bottom=25mm]{geometry}
+\RequirePackage{iftex}
+\ifPDFTeX
+  \RequirePackage[T1]{fontenc}
+  \RequirePackage{lmodern}
+\else
+  \RequirePackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+  % TeX Gyre 글꼴(MacTeX에 들어 있음)이 없으면 기본 글꼴(Latin Modern)로 둔다
+  \IfFontExistsTF{texgyrepagella-regular.otf}{%
+    \setmainfont[BoldFont=texgyrepagella-bold.otf,ItalicFont=texgyrepagella-italic.otf,BoldItalicFont=texgyrepagella-bolditalic.otf]{texgyrepagella-regular.otf}}{}
+  \IfFontExistsTF{texgyreheros-regular.otf}{%
+    \setsansfont[BoldFont=texgyreheros-bold.otf,ItalicFont=texgyreheros-italic.otf]{texgyreheros-regular.otf}}{}
+  \IfFontExistsTF{texgyrecursor-regular.otf}{%
+    \setmonofont[BoldFont=texgyrecursor-bold.otf]{texgyrecursor-regular.otf}}{}
+  \IfFontExistsTF{texgyrepagella-math.otf}{%
+    \setmathfont{texgyrepagella-math.otf}
+    \setmathfont{texgyrepagella-math.otf}[version=bold,FakeBold=1.3]}{}
+\fi
+\IfFileExists{upquote.sty}{\RequirePackage{upquote}}{}
+\IfFileExists{microtype.sty}{\RequirePackage{microtype}\UseMicrotypeSet[protrusion]{basicmath}}{}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{1}
+
+\RequirePackage{longtable,booktabs,array}
+\RequirePackage{multirow}
+\RequirePackage{calc}
+\RequirePackage{etoolbox}
+\RequirePackage{float}
+\RequirePackage{fancyhdr}
+\RequirePackage{lastpage}
+\RequirePackage{titlesec}
+\RequirePackage{titling}
+\RequirePackage{enumitem}
+\RequirePackage{caption}
+\IfFileExists{subcaption.sty}{\RequirePackage{subcaption}}{}
+\IfFileExists{xurl.sty}{\RequirePackage{xurl}}{\RequirePackage{url}}
+\RequirePackage{bookmark}
+
+% 색: 본문 남색, 강조 청록, 흐린 회색
+\definecolor{NoteInk}{HTML}{24384A}
+\definecolor{NoteAccent}{HTML}{126B78}
+\definecolor{NoteMuted}{HTML}{63717B}
+\definecolor{NotePale}{HTML}{F1F6F6}
+\hypersetup{colorlinks=true,pdflang={en}}
+\AtBeginDocument{\hypersetup{linkcolor=NoteAccent,urlcolor=NoteAccent,citecolor=NoteAccent,pdftitle={\thetitle}}}
+\urlstyle{same}
+\color{NoteInk}
+
+% 글줄과 여백
+\linespread{1.035}
+\setlength{\parskip}{5pt plus 1pt minus 1pt}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\setlength{\headheight}{24pt}
+\setlength{\headsep}{8mm}
+\setlength{\footskip}{12mm}
+\setlength{\textfloatsep}{15pt plus 2pt minus 2pt}
+\setlength{\intextsep}{14pt plus 2pt minus 2pt}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.08}
+\renewcommand{\floatpagefraction}{0.85}
+\setlist{leftmargin=1.6em,itemsep=4pt,parsep=2pt,topsep=5pt}
+\floatplacement{figure}{htbp}
+\AtBeginEnvironment{longtable}{\small\setlength{\tabcolsep}{4pt}}
+\renewcommand{\arraystretch}{1.2}
+\captionsetup{font=small,labelfont={bf,sf,color=NoteAccent},labelsep=period,
+  skip=9pt,justification=raggedright,singlelinecheck=false}
+\captionsetup[figure]{position=bottom}
+\captionsetup[table]{position=bottom}
+
+% 제목과 절
+\titleformat{\section}{\sffamily\bfseries\Large\color{NoteAccent}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\sffamily\bfseries\normalsize\color{NoteInk}}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{20pt plus 3pt minus 2pt}{9pt}
+\titlespacing*{\subsection}{0pt}{13pt plus 2pt minus 1pt}{6pt}
+\pretitle{\begin{flushleft}\sffamily\bfseries\fontsize{26}{30}\selectfont\color{NoteInk}}
+\posttitle{\par\end{flushleft}\vspace{3pt}}
+% titling은 \author를 표(tabular)에 넣는다: 여는 것과 닫는 것을 여기서 맞춘다 (\and는 다음 표를 연다)
+\preauthor{\begin{flushleft}\sffamily\small\color{NoteMuted}\begin{tabular}[t]{@{}l@{}}}
+\postauthor{\end{tabular}\par\end{flushleft}}
+\predate{\begin{flushleft}\sffamily\small\color{NoteMuted}}
+\postdate{\par\end{flushleft}\vspace{4pt}{\color{NoteAccent}\hrule height .6pt}\vspace{12pt}}
+\setlength{\droptitle}{-20pt}
+\renewcommand*\contentsname{Table of contents}
+
+% 머리말·꼬리말: 왼쪽 위 문서 제목, 오른쪽 위 RESEARCH NOTE, 오른쪽 아래 쪽 / 전체 쪽
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\fontsize{8}{10}\selectfont\color{NoteMuted}\thetitle}
+\fancyhead[R]{\sffamily\fontsize{8}{10}\selectfont\color{NoteMuted}RESEARCH NOTE}
+\fancyfoot[R]{\sffamily\small\color{NoteMuted}\thepage\enspace /\enspace\pageref*{LastPage}}
+\renewcommand{\headrulewidth}{0.3pt}
+
+% 제목이 없는 노트(본문만 있는 연구노트)는 머리말을 비워 둔다
+\providecommand\thetitle{}
+
+\endinput

@@ -1,0 +1,20 @@
+/* 전역 검색 창 (Search.tsx, 10/4 19:33 피드백) */
+.sr-overlay { padding-top: 12vh; }
+.sr-box { width: min(640px, 94vw); max-height: 72vh; overflow: hidden; }
+.sr-input { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); color: var(--text-3); }
+.sr-input svg { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sr-input input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text); font-size: var(--fs-lg); padding: var(--sp-1) 0; }
+.sr-list { overflow: auto; min-height: 0; padding: var(--sp-1) var(--sp-2) var(--sp-2); }
+.sr-group + .sr-group { margin-top: var(--sp-1); }
+.sr-head { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-medium); }
+.sr-row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 6px var(--sp-2); border-radius: var(--r-sm); text-align: left; font-size: var(--fs-md); color: var(--text); }
+.sr-row.on { background: var(--bg-hover); }
+.sr-icon { flex: none; display: grid; place-items: center; width: 18px; height: 18px; color: var(--text-3); }
+.sr-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sr-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-medium); }
+.sr-where { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
+.sr-kind { flex: none; margin-left: auto; font-size: var(--fs-xs); color: var(--text-3); }
+.sr-empty { margin: 0; padding: var(--sp-4); color: var(--text-3); font-size: var(--fs-sm); }
+.sr-foot { display: flex; gap: var(--sp-4); flex-wrap: wrap; padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
+.sr-foot kbd + kbd { margin-left: 2px; }
+.sr-foot kbd { margin-right: var(--sp-1); }

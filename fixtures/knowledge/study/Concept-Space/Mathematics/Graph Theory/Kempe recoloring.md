@@ -1,0 +1,1 @@
+Given a coloring $c$, the swap $s_{ij}$ exchanges colors $i$ and $j$ on one Kempe chain $K_{ij}(v)$ and keeps $c$ proper; it frees a color for $v$ once the [[Euler formula]] gives a vertex of degree five.

@@ -1,0 +1,25 @@
+/* 주제 · 프로젝트 고치기에서 함께 쓰는 카드 그림 선택기 */
+.cip-overlay { z-index: var(--z-card-picker); }
+.dialog.cip-dialog { width: min(var(--card-picker-width), calc(100% - var(--sp-6))); }
+.cip-dialog .td-head { padding: var(--sp-4) var(--sp-5); flex: none; }
+.cip-body { display: flex; flex-direction: column; gap: var(--sp-3); padding: 0 var(--sp-5) var(--sp-4); overflow: auto; min-height: 0; }
+.cip-body .segmented { align-self: flex-start; flex: none; }
+.cip-body .segmented button { white-space: nowrap; }
+.cip-search { height: var(--input-h); flex: none; }
+.cip-help { margin: 0; font-size: var(--fs-xs); color: var(--text-3); }
+.cip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-picker-column)), 1fr)); gap: var(--sp-2); }
+.cip-grid .fg-card { min-width: 0; }
+.cip-grid .fg-pv { height: var(--card-picker-preview-height); }
+.cip-grid .fg-card:focus-visible { outline: var(--card-picker-border) solid var(--text); outline-offset: var(--card-picker-border); }
+.cip-dialog .dialog-foot { flex: none; }
+.cip-drop { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); padding: var(--sp-6) var(--sp-3); border: var(--card-picker-border) dashed var(--line-strong); border-radius: var(--r-md); font-size: var(--fs-sm); text-align: center; }
+.cip-drop.on { background: var(--bg-hover); }
+.cip-drop .btn { white-space: nowrap; }
+.cip-field { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; max-width: 100%; height: var(--input-h-lg); box-sizing: border-box; border: var(--card-picker-border) solid var(--line); border-radius: var(--r-sm); background: var(--bg); padding-inline: var(--sp-1); }
+.cip-picked { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; flex: 1; height: 100%; padding: 0; color: var(--text-2); text-align: left; }
+.cip-name { font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cip-thumb { display: flex; align-items: center; justify-content: center; width: var(--card-picker-thumb-width); height: var(--sp-5); flex: none; overflow: hidden; }
+.cip-thumb > img, .cip-thumb .fg-pv, .cip-thumb .card-image { width: 100%; height: 100%; padding: 0; margin: 0; border: 0; object-fit: contain; }
+.cip-field .icon-btn { flex: none; }
+.td-pics { flex-wrap: wrap; }
+.td-pics .td-sws { flex: none; }

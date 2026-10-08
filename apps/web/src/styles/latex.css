@@ -1,0 +1,73 @@
+/* LaTeX 서식 화면 (LatexSetupPage)과 설정의 저자와 소속 (AuthorSettings) */
+.tex-form { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
+.tex-form .field:first-child { margin-top: 0; }
+.tex-code { font-family: var(--editor-font); font-size: var(--fs-sm); }
+.tex-note { margin: 0 0 var(--sp-2); max-width: none; }
+.tex-packages .tex-pkg { grid-template-columns: 16px 110px 1fr; align-items: center; }
+.tex-packages .tex-pkg input { margin: 0; }
+.tex-packages .tex-pkg .muted { font-size: var(--fs-sm); }
+.tex-authors { margin: 0; padding-left: 20px; font-size: var(--fs-md); line-height: 1.8; }
+.tex-files { display: flex; flex-direction: column; gap: var(--sp-3); }
+.tex-file { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.tex-file-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
+.tex-file-head .sp { flex: 1; }
+.tex-file-head a.btn { text-decoration: none; }
+.tex-extra { margin-top: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.tex-extra .tex-note { padding: var(--sp-2) var(--sp-3) 0; }
+.tex-extra .tex-file-head:last-child { border-bottom: 0; }
+.tex-pre { margin: 0; padding: var(--sp-3) var(--sp-4); background: var(--code-bg); color: var(--text); font-family: var(--editor-font); font-size: var(--fs-xs); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.authors { display: flex; flex-direction: column; gap: var(--sp-3); }
+.author-card { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); }
+.author-top { display: grid; grid-template-columns: 22px 1fr 1fr; gap: var(--sp-3); align-items: end; }
+.author-n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-2xs); font-weight: var(--fw-strong); background: var(--bg-sunken); color: var(--text-2); margin-bottom: var(--sp-1); }
+.author-card textarea { resize: vertical; }
+.author-foot { display: flex; align-items: center; gap: var(--sp-3); }
+.author-foot .sp, .author-actions .sp { flex: 1; }
+.author-foot .check { align-items: center; }
+.author-actions { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* 서식 모음 (10/4 12:58) */
+.tex-templates .tex-tpl { display: flex; align-items: center; gap: var(--sp-3); width: 100%; padding: var(--sp-2) var(--sp-4); background: none; border: 0; text-align: left; cursor: pointer; font: inherit; color: var(--text); }
+.tex-templates .tex-tpl + .tex-tpl { border-top: 1px solid var(--line); }
+.tex-templates .tex-tpl:hover, .tex-templates .tex-tpl.on { background: var(--bg-hover); }
+.tex-tpl-name { font-weight: var(--fw-medium); font-size: var(--fs-md); }
+.tex-tpl code { font-size: var(--fs-xs); }
+.tex-tpl .sp, .tex-actions .sp { flex: 1; }
+.tex-actions { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+.tex-pick { font-size: var(--fs-sm); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding: 2px var(--sp-1); }
+.tex-form .field .segmented { align-self: flex-start; }
+
+/* 서식 카드 모음 (10/4 19:30 "라이브러리 카드, 미리보기, documentclass별, 이름표, 설정은 누를 때만") */
+#latex-editor, #latex-templates { scroll-margin-top: var(--sp-4); }
+#latex-templates { margin-top: var(--sp-6); }
+.tpl-group { margin-top: var(--sp-4); }
+.tpl-group-name { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
+.tpl-group-name code { font-weight: var(--fw-strong); }
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--sp-3); }
+.tpl-card { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); text-align: left; cursor: pointer; font: inherit; color: var(--text); min-width: 0; }
+.tpl-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.tpl-card.on { background: var(--bg-hover); border-color: var(--line-strong); }
+.tpl-thumb { position: relative; display: grid; place-items: center; aspect-ratio: 1 / 1; overflow: hidden; background: var(--bg-sunken); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.tpl-thumb canvas { position: absolute; top: 0; left: 0; width: 100%; height: auto; }
+.tpl-thumb canvas.hidden { display: none; }
+.tpl-thumb-note { padding: var(--sp-3); font-size: var(--fs-xs); text-align: center; }
+.tpl-card-name { font-weight: var(--fw-medium); font-size: var(--fs-sm); padding: 0 var(--sp-1); }
+.tpl-card-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: 0 var(--sp-1) var(--sp-1); min-height: 1.4em; }
+.tpl-card-tags .tag { margin-right: 0; }
+.tpl-detail { margin-top: var(--sp-5); padding: var(--sp-4); border: 1px solid var(--line-strong); border-radius: var(--r-lg); background: var(--bg); display: flex; flex-direction: column; gap: var(--sp-4); scroll-margin-top: var(--sp-4); }
+.tpl-detail-head { display: flex; align-items: center; gap: var(--sp-2); }
+.tpl-detail-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-title); }
+.tpl-detail-head .sp { flex: 1; }
+.tpl-h { margin: 0 0 var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-strong); }
+.tpl-h .muted { font-weight: var(--fw-normal); font-size: var(--fs-sm); }
+
+/* 설정 › LaTeX › 기호 */
+#latex-macros { margin-top: var(--sp-6); }
+.mac-edit { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.mac-edit textarea { display: block; width: 100%; border: 0; border-radius: 0; padding: var(--sp-3) var(--sp-4); resize: vertical; outline: none; }
+.mac-actions { display: flex; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--line); }
+.mac-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.mac-table th { text-align: left; font-weight: var(--fw-medium); color: var(--text-2); padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line); }
+.mac-table td { padding: var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.mac-body { font-size: var(--fs-xs); overflow-wrap: anywhere; }

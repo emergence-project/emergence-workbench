@@ -1,0 +1,17 @@
+/* 노트 화면 (NotesPage, 2026-10-03 17:59 코멘트) */
+.page-body.notes-page { max-width: 860px; gap: var(--sp-5); }
+.notes-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
+.notes-sec { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.notes-sec h2 { font-size: var(--fs-lg); font-weight: var(--fw-title); margin: 0; }
+.notes-sec h2 .muted { font-size: var(--fs-sm); font-weight: var(--fw-normal); margin-left: var(--sp-1); }
+.notes-sec > .muted { margin: 0; font-size: var(--fs-sm); }
+.notes-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.notes-list li + li { border-top: 1px solid var(--line); }
+.notes-row { display: flex; align-items: baseline; gap: var(--sp-2); width: 100%; padding: 9px var(--sp-3); text-align: left; font-size: var(--fs-sm); }
+.notes-row:hover { background: var(--bg-hover); }
+.notes-row .t { flex: 1; min-width: 0; color: var(--text); }
+.notes-row .muted { font-size: var(--fs-xs); flex: none; }
+.notes-proof { display: inline-flex; justify-content: center; width: var(--sp-4); flex: none; }
+.notes-kind { min-width: 4em; width: 4em; flex: none; font-size: var(--fs-xs); white-space: nowrap; }
+.notes-sec .note-cards > .kc-new { width: 100%; min-height: calc(var(--sp-5) * 5); aspect-ratio: auto; border-radius: var(--r-lg); }
+.notes-head .mini-select { max-width: none; }

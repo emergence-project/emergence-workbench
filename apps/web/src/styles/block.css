@@ -1,0 +1,60 @@
+/* 보조 노트 편집과 노트 표시 (BlockPage, StatementTab) */
+/* ---------- 블록 편집 ---------- */
+.doc-head { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); border-bottom: 1px solid var(--line); flex: none; }
+.doc-title { display: flex; align-items: center; gap: var(--sp-3); }
+.doc-title input { font-size: var(--fs-xl); font-weight: var(--fw-title); letter-spacing: -.01em; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; padding: 0 var(--sp-1); margin-left: -5px; min-width: 0; flex: 1; }
+.doc-title input:hover { border-color: var(--line); }
+.doc-title input:focus { border-color: var(--line-strong); outline: none; background: var(--bg); }
+.inline-input { border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; padding: 1px var(--sp-1); margin-left: -5px; flex: 1; min-width: 0; font-size: var(--fs-sm); }
+.inline-input:hover { border-color: var(--line-strong); }
+.inline-input:focus { border-color: var(--line-strong); outline: none; background: var(--bg); }
+.inline-input::placeholder { color: var(--text-3); }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-sm); border: 1px solid var(--line-strong); border-radius: var(--r-pill); padding: 0 var(--sp-2); background: var(--bg); }
+.chip .x { color: var(--text-3); margin-left: 2px; }
+.chip .x:hover { color: var(--danger); }
+.mini-select { border: 1px dashed var(--line-strong); border-radius: var(--r-pill); padding: 0 6px; background: transparent; font-size: var(--fs-sm); color: var(--text-2); height: 22px; width: auto; max-width: 104px; }
+
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 9px 1px 7px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); font-size: var(--fs-sm); color: var(--text); white-space: nowrap; background: var(--bg); }
+.pill:hover { background: var(--bg-hover); }
+.menu { position: absolute; z-index: 40; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-1); min-width: 150px; }
+.menu button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 6px 10px; border-radius: var(--r-sm); text-align: left; font-size: var(--fs-sm); }
+.menu button:hover { background: var(--bg-hover); }
+.menu button.on { font-weight: var(--fw-strong); }
+
+.editor-host { flex: 1; min-height: 0; overflow: hidden; }
+.problems { flex: none; max-height: 30%; overflow: auto; border-top: 1px solid var(--line); background: var(--bg); }
+.problems-head { padding: 6px var(--sp-4); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--danger); }
+.problem { display: flex; gap: var(--sp-3); width: 100%; text-align: left; padding: 5px var(--sp-4); font-size: var(--fs-sm); }
+.problem:hover:not(:disabled) { background: var(--bg-hover); }
+.problem .where { color: var(--danger); font-family: "SF Mono", Menlo, monospace; font-size: var(--fs-sm); min-width: 56px; }
+.statusline { height: 28px; flex: none; display: flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-4); font-size: var(--fs-xs); color: var(--text-3); border-top: 1px solid var(--line); background: var(--bg); }
+.statusline .ok { color: var(--text-2); }
+.statusline .bad { color: var(--danger); }
+.statusline .sp { flex: 1; }
+.save-state.conflict, .save-state.error { color: var(--danger); font-weight: var(--fw-strong); }
+
+.tabs { display: flex; gap: var(--sp-1); align-items: center; }
+.tab { padding: var(--sp-1) 10px; border-radius: var(--r-sm); color: var(--text-2); display: inline-flex; gap: 6px; align-items: center; }
+.tab.on { background: var(--bg-hover); color: var(--text); font-weight: var(--fw-strong); }
+.tab:disabled { cursor: default; }
+
+.banner { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); background: var(--bg-sunken); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); flex: none; }
+.banner.danger { background: var(--danger-bg); }
+.banner .sp { flex: 1; }
+
+.pdf-area { flex: 1; min-height: 0; overflow: auto; background: var(--bg-sunken); padding: var(--sp-5); display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); }
+.pdf-empty { color: var(--text-3); margin-top: 20%; text-align: center; }
+.pdf-page { position: relative; flex: none; background: var(--paper); box-shadow: var(--shadow); cursor: crosshair; }
+.pdf-page canvas { display: block; }
+.pdf-highlight { position: absolute; background: var(--hl-bg); outline: 1.5px solid var(--focus-line); border-radius: 3px; pointer-events: none; }
+
+/* 노트: 진술 종류 표시와 증명 상태 */
+.kind-chip { display: inline-block; flex: none; font-size: var(--fs-2xs); font-weight: var(--fw-title); color: var(--bg); border-radius: var(--r-xs); padding: 0 6px; line-height: 17px; vertical-align: 1px; }
+.kind-chip.deriv { background: var(--s-progress); }
+.kind-dot { flex: none; width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+.proof-mark { flex: none; font-size: var(--fs-xs); color: var(--text-3); }
+.dep-chip { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); border: 1px solid var(--line-strong); border-radius: var(--r-pill); padding: 0 var(--sp-2); margin: 1px var(--sp-1) 1px 0; color: var(--text-2); background: var(--bg); white-space: nowrap; }
+.dep-chip:hover { border-color: var(--text-3); color: var(--text); }
+.tag-chip.disabled { opacity: .55; cursor: default; }
+.nav .label .muted { font-weight: var(--fw-normal); }
+.chip > .muted { white-space: nowrap; }

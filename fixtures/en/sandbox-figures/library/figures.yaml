@@ -1,0 +1,9 @@
+three-countries.svg:
+  name: Three-country map
+  description: A map divided into three countries A, B, C. Used in Euler formula and Kempe chain arguments.
+enclosed-country.svg:
+  name: Enclosed country (disk)
+  description: Country B and the ring C around it. Touching countries need different colors, so B and C differ.
+single-country.tikz:
+  name: Single country
+  description: Country B and its border. The Mac's TeX turns the tikz source into SVG.

@@ -1,0 +1,5 @@
+name: Kempe 사슬로 다시 칠하기
+summary: 차수 5인 꼭짓점의 이웃을 Kempe 사슬로 다시 칠해 색칠을 잇는 논증 (Markdown 예)
+topics: [kempe]
+kind: summary
+star: true

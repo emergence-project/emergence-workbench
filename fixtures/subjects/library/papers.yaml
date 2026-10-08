@@ -1,0 +1,5 @@
+doeStructurePlanar2004:
+  projects: [sample-research]
+  subjects: [math/graph]
+readerGraph2010:
+  subjects: [math/graph, cs/ml]

@@ -1,0 +1,36 @@
+/* 노트가 인용한 논문 (작업노트·메인 노트 장 화면, 10/3 피드백) */
+.cited { margin: 0; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); container: cited / inline-size; }
+.cited-head { display: flex; align-items: baseline; gap: var(--sp-1); width: 100%; text-align: left; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); white-space: nowrap; }
+.cited-head:hover { color: var(--text); }
+.cited-head .chev { display: inline-block; width: 1em; color: var(--text-3); transition: transform .12s; }
+.cited.open .cited-head .chev { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .cited-head .chev { transition: none; } }
+.cited-src { font-weight: var(--fw-normal); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cited-body { overflow: auto; margin-top: var(--sp-1); }
+.cited-row { display: flex; align-items: center; gap: var(--sp-2); padding: 3px 0; font-size: var(--fs-sm); }
+.cited-row .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cited-row .a, .cited-row > .muted { flex: none; font-size: var(--fs-xs); }
+.cited-docked { margin: 0 var(--sp-4) var(--sp-2); display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; max-height: 33%; overflow: hidden; }
+.cited-docked .cited-head { flex: none; }
+.cited-docked .cited-body { flex: 0 1 auto; min-height: 0; }
+/* 칸 안에서 골라 보기 (10/4 17:19): 왼쪽 목록, 오른쪽 고른 논문 하나 */
+.cited-split { display: grid; grid-template-columns: minmax(0, 30%) minmax(0, 1fr); gap: var(--sp-3); overflow: hidden; }
+.cited-list { list-style: none; margin: 0; padding: 0; min-height: 0; max-height: calc(var(--sp-6) * 6); overflow: auto; border-right: 1px solid var(--line); }
+.cited-docked .cited-list { max-height: none; }
+.cited-item { display: flex; gap: var(--sp-1); width: 100%; text-align: left; padding: 2px var(--sp-2); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); }
+.cited-item:hover { background: var(--bg-hover); color: var(--text); }
+.cited-item.on { background: var(--bg-hover); color: var(--text); }
+.cited-item.flash { animation: cn-flash 1.6s ease-out; }
+.cited-item .num { flex: none; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cited-item .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cited-detail { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); min-width: 0; min-height: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.cited-docked .cited-detail { overflow: auto; }
+.cited-detail .cd-title { font-weight: var(--fw-strong); color: var(--text); }
+.cd-actions { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); }
+.cd-actions > * { flex: none; white-space: nowrap; }
+@container cited (max-width: 36em) {
+  .cited-split { display: flex; flex-direction: column; overflow: auto; }
+  .cited-list, .cited-detail { flex: none; }
+  .cited-list, .cited-docked .cited-list { max-height: calc(var(--sp-6) * 4); border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: var(--sp-2); }
+  .cited-docked .cited-detail { overflow: visible; }
+}

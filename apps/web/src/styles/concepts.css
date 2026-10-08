@@ -1,0 +1,205 @@
+/* 개념노트 (2026-10-04 재설계): 왼쪽 사이드바 목록과 읽기 화면 (ConceptNotes.tsx) */
+.cn-side { display: flex; flex-direction: column; gap: var(--sp-1); padding-top: var(--sp-2); }
+.cn-search { width: 100%; height: var(--input-h); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-2); font: inherit; font-size: var(--fs-sm); background: var(--bg); color: var(--text); }
+.cn-search:focus { outline: none; border-color: var(--line-strong); }
+.cn-row { font-size: var(--fs-sm); }
+.cn-row.cn-study { color: var(--text-2); }
+.cn-marks { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); }
+.cn-mark { font-size: var(--fs-2xs); color: var(--text-3); border: 1px dashed var(--line-strong); border-radius: var(--r-pill); padding: 0 6px; white-space: nowrap; font-weight: var(--fw-normal); }
+.cn-ok { font-size: var(--fs-xs); color: var(--text); font-weight: var(--fw-strong); }
+.cn-more { align-self: flex-start; font-size: var(--fs-xs); padding: var(--sp-1) var(--sp-2); }
+
+.kn-page > .lib-view { flex: 1; }
+.cn-doc { flex: 1; }
+.cn-state { font-size: var(--fs-xs); color: var(--text-2); border: 1px dashed var(--line-strong); border-radius: var(--r-pill); padding: 0 var(--sp-2); white-space: nowrap; }
+.cn-state.ok { color: var(--s-solved); border: 0; background: color-mix(in srgb, var(--s-solved) 14%, transparent); font-weight: var(--fw-strong); }
+.page-body.cn-body { gap: var(--sp-5); }
+.cn-head { display: flex; flex-direction: column; gap: var(--sp-1); }
+.cn-head .h-title { margin: 0 0 var(--sp-1); }
+.cn-facts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
+.cn-why { font-size: var(--fs-xs); color: var(--text-3); margin: 0; }
+.cn-body .ob-md { margin-top: 0; }
+
+/* 본문 아래: 출처와 이 개념을 쓰는 개념 (앱이 모음, 본문 글이 아님) */
+.cn-links { display: flex; flex-direction: column; gap: var(--sp-4); border-top: 1px solid var(--line); padding-top: var(--sp-4); font-size: var(--fs-sm); }
+.cn-links section { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cn-links .muted { margin: 0; font-size: var(--fs-xs); }
+.cn-links-h { margin: 0; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
+.cn-src { margin: 0; padding: 0; list-style: none; counter-reset: cn-src; display: flex; flex-direction: column; gap: var(--sp-1); }
+.cn-src > li { counter-increment: cn-src; position: relative; padding-left: var(--sp-6); }
+.cn-src > li::before { content: "[" counter(cn-src) "]"; position: absolute; left: 0; color: var(--text-3); }
+.cn-src-title { font-style: italic; }
+.cn-unsorted ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-5); color: var(--text-2); font-size: var(--fs-xs); }
+.ob-cite { color: var(--text-2); text-decoration: none; cursor: pointer; }
+.ob-cite:hover { color: var(--text); text-decoration: underline; }
+.cn-src > li.flash { animation: cn-flash 1.6s ease-out; border-radius: var(--r-xs); }
+@keyframes cn-flash { from { background: var(--hl-bg); } to { background: transparent; } }
+
+/* 메모 · 할 일 (concepts/<id>.memo.md) */
+.cn-memo-head { display: flex; align-items: center; gap: var(--sp-2); }
+.cn-memo-head .sp { flex: 1; }
+.cn-memo-edit { width: 100%; box-sizing: border-box; font-family: var(--editor-font); font-size: var(--fs-sm); padding: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); resize: vertical; }
+.cn-memo-actions { display: flex; gap: var(--sp-2); }
+/* 10/8 11:47: 할 일 · 메모 두 묶음, 항목 오른쪽 위에 늘 보이는 연필 · 휴지통 */
+.cn-memo-grp { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cn-memo-grp-h { margin: 0; display: flex; align-items: baseline; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-3); }
+.cn-memo-grp-h .n { font-size: var(--fs-xs); font-weight: var(--fw-normal); color: var(--text-3); }
+.cn-memo-form { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cn-unit.cn-unit-task, .cn-unit.cn-memo-text { display: flex; align-items: flex-start; gap: var(--sp-1); }
+.cn-unit-main { flex: 1; min-width: 0; }
+.cn-unit-main > :first-child { margin-top: 0; }
+.cn-unit-main > :last-child { margin-bottom: 0; }
+.cn-unit-acts { flex: none; display: flex; margin: -4px -6px 0 0; }
+.cn-unit-acts .icon-btn { width: 24px; height: 24px; color: var(--text-3); }
+.cn-unit-acts .icon-btn svg { width: 14px; height: 14px; }
+.cn-unit-editing { padding: var(--sp-2); }
+.cn-tasks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); }
+.cn-tasks li.done span { color: var(--text-3); text-decoration: line-through; }
+.cn-memo-text { color: var(--text-2); }
+/* 메모·할 일 하나가 상자 하나 (10/4 19:17) */
+.cn-units { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
+.cn-unit { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); padding: var(--sp-2) 10px; font-size: var(--fs-sm); min-width: 0; overflow-wrap: anywhere; }
+.cn-unit > :first-child { margin-top: 0; }
+.cn-unit > :last-child { margin-bottom: 0; }
+.cn-unit p, .cn-unit ul, .cn-unit ol { margin: 0; }
+.cn-unit ul, .cn-unit ol { padding-left: var(--sp-4); }
+.cn-unit p + p, .cn-unit p + ul, .cn-unit ul + p { margin-top: var(--sp-1); }
+.cn-unit-task label { display: flex; align-items: baseline; gap: 6px; color: var(--text); }
+.cn-unit-task.done label span { color: var(--text-3); text-decoration: line-through; }
+.cn-unit-more { margin-top: var(--sp-1); padding-left: 22px; }
+/* 본문에서 고른 글 (10/8 11:47): 하이라이트 색 왼쪽 선, 누르면 본문의 그 자리로 */
+.cn-unit-quote { width: 100%; margin: 0 0 var(--sp-1); padding: 0 0 0 var(--sp-2); border: 0; border-left: 3px solid var(--line-strong); background: none; color: var(--text-2); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.cn-unit-quote:hover { color: var(--text); }
+.cn-memo-form > .cn-unit-quote { margin: 0; }
+
+
+/* 사이드바: 찾기 먼저, 접힌 분류 나무 (2026-10-04, 노트가 수만 개여도) */
+.cn-loading { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
+.cn-tree-head { padding: var(--sp-2) var(--sp-2) 0; font-size: var(--fs-xs); color: var(--text-3); }
+.cn-subj-in { border-top: 0; margin-left: var(--sp-3); }
+.cn-results { display: flex; flex-direction: column; }
+
+/* 본문 고치기 (2026-10-04): 바로 보기(기본, Obsidian처럼) 또는 왼쪽 원문 + 오른쪽 미리보기 */
+.cn-edit { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cn-edit-panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
+.cn-edit-split .cn-edit-panes { grid-template-columns: 1fr 1fr; }
+.cn-edit-src { min-height: 0; overflow: hidden; }
+.cn-edit-split .cn-edit-src { border-right: 1px solid var(--line); }
+.cn-edit-preview { min-height: 0; overflow: auto; padding: var(--sp-3) var(--sp-4); }
+
+.cn-edit .cm-editor { height: 100%; color: var(--text); }
+.cn-edit .cm-editor.cm-focused { outline: none; }
+.cn-edit .cm-cursor { border-left-color: var(--text); }
+.cn-edit .cm-editor .cm-selectionBackground, .cn-edit .cm-editor.cm-focused .cm-selectionBackground { background: color-mix(in srgb, var(--link) 22%, transparent); }
+.cn-edit .cm-activeLine { background: color-mix(in srgb, var(--bg-hover) 60%, transparent); }
+.cn-edit .cm-placeholder { color: var(--text-3); }
+
+/* 원문과 미리보기: 고정폭 원문 */
+.cn-edit-split .cm-editor { background: var(--code-bg); }
+.cn-edit-split .cm-scroller { font-family: var(--editor-font); font-size: var(--editor-size); line-height: var(--editor-lh); }
+.cn-edit-split .cm-content { padding: var(--sp-3) 0; }
+.cn-edit-split .cm-line { padding: 0 var(--sp-3); }
+
+/* 바로 보기: 읽기 화면과 같은 글꼴·폭 */
+.cn-edit-live .cm-scroller { font: inherit; font-size: var(--fs-md); line-height: 1.7; }
+.cn-edit-live .cm-content { max-width: 760px; margin: 0 auto; padding: var(--sp-5) var(--sp-6) 64px; box-sizing: border-box; width: 100%; }
+.cn-edit-live .cm-activeLine { background: none; }
+.cn-edit-live .cm-h { font-weight: var(--fw-strong); line-height: 1.3; padding-top: .6em; }
+.cn-edit-live .cm-h1 { font-size: 1.5em; } .cn-edit-live .cm-h2 { font-size: 1.25em; } .cn-edit-live .cm-h3 { font-size: 1.1em; }
+.cn-edit .cm-math-src { font-family: var(--editor-font); font-size: .92em; color: var(--code-math); }
+.cn-edit .cm-math { cursor: text; }
+.cn-edit .cm-math-block { text-align: center; padding: var(--sp-1) 0; }
+.cn-edit .cm-wikilink { text-decoration: underline; text-decoration-color: var(--text-3); cursor: text; }
+.cn-edit .cm-cite { color: var(--text-2); }
+.cn-edit .cm-bullet { color: var(--text-2); }
+/* 하위 항목: 빈칸 두 개가 글머리표 하나 폭 남짓으로 보이게 (10/8 11:55) */
+.cn-edit-live .cm-list-indent { letter-spacing: .55em; }
+.cn-edit .cm-icode { font-family: var(--editor-font); font-size: .9em; background: var(--bg-sunken); border-radius: var(--r-xs); }
+.cn-edit .cm-emphasis { font-style: italic; }
+.cn-edit .cm-strong { font-weight: var(--fw-strong); }
+
+/* 증명 접기 (10/4 17:09): **Proof.** … ∎ 를 접어 둔다 */
+.ob-proof { margin: .5em 0; padding-left: var(--sp-3); border-left: 2px solid var(--line); }
+.ob-proof > summary { cursor: pointer; font-style: italic; font-weight: var(--fw-medium); color: var(--text-2); }
+.ob-proof > summary:hover { color: var(--text); }
+.ob-proof[open] > summary { margin-bottom: .3em; }
+
+/* 명령 메뉴("/", ⌘K)·[[ 찾기·[@ 찾기 */
+.cn-edit .cm-editor .cm-tooltip { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--shadow); color: var(--text); }
+.cn-edit .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul { font-family: inherit; min-width: 16em; font-size: var(--fs-sm); max-height: 18em; }
+.cn-edit .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > completion-section { padding: var(--sp-1) var(--sp-3); border-bottom: 1px solid var(--line); color: var(--text-2); font-size: var(--fs-xs); opacity: 1; }
+.cn-edit .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li { display: flex; align-items: baseline; padding: var(--sp-1) var(--sp-3); }
+.cn-edit .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--bg-hover); color: var(--text); }
+.cn-edit .cm-completionDetail { color: var(--text-3); font-style: normal; margin-left: auto; padding-left: var(--sp-4); font-family: var(--editor-font); font-size: var(--fs-xs); }
+.cn-edit .cm-completionMatchedText { text-decoration: none; font-weight: var(--fw-strong); }
+.cn-edit .cm-completionInfo { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); font-size: var(--fs-xs); color: var(--text-2); padding: var(--sp-1) var(--sp-2); }
+
+/* 오른쪽 사이드바: 메모·할 일, 쓰는 개념, 가리키는 개념 (2026-10-04 15:18) */
+.cn-layout { container-type: inline-size; }
+.cn-layout.with-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); min-height: 100%; align-items: stretch; }
+.cn-layout > .cn-body { width: 100%; min-width: 0; }
+.cn-layout > .cn-edit { min-width: 0; }
+.cn-layout > .cn-edit-live .cm-content { padding-top: var(--sp-6); }
+.cn-layout > .cn-edit-live .cm-line { padding-inline: 0; }
+.cn-editing .cn-layout { height: 100%; }
+.cn-editing .cn-layout:not(.with-side) { display: flex; }
+.cn-editing .cn-side-col { overflow: auto; }
+/* 넓을 때는 본문과 사이드바가 따로 스크롤한다 (10/7 20:52): 바깥 .scroll 대신 두 칸이 각자 */
+.cn-side-col { border-left: 1px solid var(--line); padding: var(--sp-4) var(--sp-3); min-height: 100%; }
+.cn-layout.with-side { height: 100%; min-height: 0; }
+.cn-layout.with-side > .cn-body, .cn-layout.with-side > .cn-side-col { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+/* 스크롤 막대가 본문 칸 오른쪽 끝에 오도록 폭 제한 대신 안쪽 여백으로 가운데 (글 폭은 .page-body와 같게) */
+.cn-layout.with-side > .cn-body { max-width: none; margin: 0; padding-inline: max(var(--sp-6), calc((100% - 760px) / 2 + var(--sp-6))); }
+@container (max-width: 880px) {
+  .cn-layout.with-side { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .cn-layout.with-side > .cn-body, .cn-layout.with-side > .cn-side-col { overflow: visible; }
+  .cn-layout.with-side > .cn-body { max-width: 760px; margin: 0 auto; padding-inline: var(--sp-6); }
+  .cn-side-col { border-left: 0; border-top: 1px solid var(--line); }
+}
+.cn-side-panel { display: flex; flex-direction: column; gap: var(--sp-4); font-size: var(--fs-sm); }
+.cn-side-panel section { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cn-side-panel .muted { margin: 0; font-size: var(--fs-xs); }
+/* 쓰는 곳과 인용 (10/4 16:59): 프로젝트마다 기대는 노트와 출처가 그 bib에 있는지 */
+.cn-use { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
+.cn-use-head { display: flex; align-items: center; gap: var(--sp-1); }
+.cn-use-name { font-weight: var(--fw-medium); text-align: left; }
+.cn-use-head .hover-actions { margin-left: auto; }
+.cn-use-cites { margin: 0; font-size: var(--fs-xs); color: var(--text-2); }
+.cn-use-add { align-self: flex-start; }
+.cn-ctx { padding: var(--sp-3); }
+
+/* 읽기와 고치기 모두 같은 머리줄: 대상 · 보기 · 행동 (D8). */
+.cn-toolbar-host { flex: none; container: concept-toolbar / inline-size; padding: var(--sp-1) var(--sp-4); border-bottom: 1px solid var(--line); color: var(--text-2); }
+.cn-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--sp-2); min-height: calc(var(--input-h) + var(--sp-2)); font-size: var(--fs-sm); }
+.cn-toolbar-left, .cn-toolbar-right { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.cn-toolbar-right { justify-content: flex-end; }
+.cn-toolbar-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-medium); color: var(--text); }
+.cn-confirm { display: inline-flex; flex: none; align-items: center; gap: var(--sp-1); white-space: nowrap; }
+.cn-toolbar-view { justify-self: center; }
+.cn-toolbar button { flex: none; white-space: nowrap; }
+.cn-toolbar .save-state { flex: none; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
+.cn-toolbar .save-state.error { color: var(--danger); }
+@container concept-toolbar (max-width: 600px) {
+  .cn-toolbar { display: flex; flex-wrap: wrap; }
+  .cn-toolbar-left { flex: 1; }
+  .cn-toolbar-view { flex: none; }
+  .cn-toolbar-right { flex: 1 0 auto; }
+}
+
+/* 문서 정보 (10/4 18:09): 상태·미완성 까닭·분류·파일을 오른쪽 칸 맨 위에 */
+.cn-info { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cn-info ul.cn-why { margin: 0; padding-left: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-1); }
+.cn-info-list { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); margin: 0; font-size: var(--fs-xs); }
+.cn-info-list dt { color: var(--text-3); }
+.cn-info-list dd { margin: 0; color: var(--text-2); }
+.cn-info-list .cn-info-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-info.compact { gap: var(--sp-1); }
+.cn-info.compact .cn-info-list { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
+.cn-info.compact .cn-info-list dt { display: none; }
+.cn-review { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); }
+/* 프로젝트 탭의 개념노트: 절 목차가 제목 위치를 이 스크롤 칸 기준으로 잰다 (10/7 15:54) */
+.cn-toc-scroll { position: relative; }
+
+/* 10/8 12:02 피드백: 지식 사이드바 맨 아래 절 목차. 목록이 길어도 사이드바 아래에 붙어 있다 */
+.cn-side { min-height: 100%; }
+.cn-side > .side-toc-box { position: sticky; bottom: calc(-1 * var(--sp-3)); margin-top: auto; padding-bottom: var(--sp-3); background: var(--bg-side); }

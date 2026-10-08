@@ -1,0 +1,37 @@
+/* 할 일·일지 (LogPage) */
+
+/* 고치기·지우기는 늘 보인다 (10/4 피드백: 마우스를 올려야 보여서 없는 줄 알았다) */
+.fbp-edit { display: flex; gap: var(--sp-3); margin-top: var(--sp-1); }
+.fbp-edit.on { justify-content: flex-end; gap: var(--sp-2); margin-top: 6px; }
+.fbp-input { width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: var(--sp-2) 10px; font: inherit; color: var(--text); background: var(--bg); }
+
+/* 할 일: 프로젝트 작업 목록 · 검토 대기 */
+.todo-sec { margin: 0 0 var(--sp-4); }
+.todo-sec-h { font-size: var(--fs-sm); font-weight: var(--fw-title); margin: var(--sp-2) 0 6px; }
+.todo-sec-h .muted { font-weight: var(--fw-normal); font-size: var(--fs-xs); margin-left: 6px; }
+.task-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.task-table th { text-align: left; color: var(--text-3); font-weight: var(--fw-strong); padding: 5px var(--sp-2); background: var(--bg-sunken); white-space: nowrap; }
+.task-table td { padding: 5px var(--sp-2); border-top: 1px solid var(--line); vertical-align: top; max-width: 360px; overflow: hidden; text-overflow: ellipsis; display: table-cell; }
+.review-group { font-size: var(--fs-sm); margin: 2px 0; }
+.review-group summary { cursor: pointer; }
+.review-group ul { margin: var(--sp-1) 0 6px; padding-left: 18px; }
+.review-group li { margin: 2px 0; }
+
+/* 작업 화면: 할 일 위, 작업 일지 아래 (10/3 피드백) */
+.work-h { font-size: var(--fs-lg); font-weight: var(--fw-title); margin: var(--sp-2) 0 var(--sp-2); }
+.work-h .muted { font-size: var(--fs-xs); font-weight: var(--fw-normal); margin-left: var(--sp-2); }
+.work-page > form { margin: var(--sp-3) 0; }
+.work-log { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+
+/* 작업 화면도 적기의 기록 줄을 쓴다. 넓은 목록의 행동은 가리키거나 초점을 둘 때 보인다. */
+.work-records { min-width: 0; }
+.record-row-work:is(:hover, :focus-within) .hover-actions { opacity: 1; }
+.record-row-work .record-place { display: flex; align-items: center; gap: var(--sp-2); flex: 1; }
+.record-row-work .record-place > :not(.record-source) { flex: none; }
+.record-row-work .record-source { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.record-latest-answer { margin-top: var(--sp-2); }
+.record-latest-answer summary { color: var(--text-3); font-size: var(--fs-xs); cursor: pointer; }
+
+/* 첫 화면 작업 패널에서 누른 할 일을 잠깐 표시 (10/7 15:31) */
+.memo-item.flash { animation: todo-flash 1.6s ease-out; }
+@keyframes todo-flash { from { background: var(--hl-bg); } to { background: var(--bg); } }

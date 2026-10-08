@@ -1,0 +1,1 @@
+Planar graph coloring extends a coloring of a smaller graph to the whole graph by local recoloring, so the global coloring is built from local pieces. Key tools: [[Kempe chain]], [[Euler formula]], [[Unavoidable set]].

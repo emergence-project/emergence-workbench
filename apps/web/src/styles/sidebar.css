@@ -1,0 +1,130 @@
+/* 사이드바 목차·자료·원고·메인 노트 (Workspace) */
+/* 사이드바: 지금 프로젝트의 목차 */
+.group-label button.a { color: var(--text-3); font-size: var(--fs-md); line-height: 1; padding: 0 var(--sp-1); border-radius: var(--r-xs); }
+.group-label button.a:hover { color: var(--text); background: var(--bg-hover); }
+
+/* 사이드바 자료 */
+.materials { border-radius: var(--r-md); }
+.materials.drop { outline: 2px dashed var(--primary); outline-offset: 2px; background: var(--bg-hover); }
+.nav.mat { cursor: pointer; }
+.mat-row { display: flex; align-items: center; min-width: 0; }
+.mat-row > .nav { flex: 1; }
+.mat-row > .mat-act { white-space: nowrap; }
+.nav.mat .label .muted { font-weight: var(--fw-normal); }
+.mat-ico { flex: none; width: 12px; text-align: center; color: var(--text-3); font-size: var(--fs-xs); }
+.mat-act { flex: none; font-size: var(--fs-xs); color: var(--text-2); padding: 0 var(--sp-1); border-radius: var(--r-xs); }
+.mat-act:hover { background: var(--bg-hover); }
+.fbp-theme { font-size: var(--fs-xs); color: var(--text-3); }
+.fbp-understood { font-size: var(--fs-sm); color: var(--text-2); border-left: 2px solid var(--line-strong); padding-left: var(--sp-2); }
+.fbp-understood b { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); margin-right: var(--sp-1); }
+.fbp-raw { font-size: var(--fs-xs); margin-top: 2px; }
+.fbp-groupby { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-4); font-size: var(--fs-sm); flex-wrap: wrap; }
+.fbp-groupby-hint { font-size: var(--fs-xs); }
+.fbp-group + .fbp-group { margin-top: var(--sp-5); }
+.fbp-counts { font-size: var(--fs-xs); margin-left: auto; }
+.fbp-short { display: flex; align-items: baseline; gap: var(--sp-2); width: 100%; text-align: left; padding: 7px var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-sm); min-width: 0; }
+.fbp-list > .fbp-short:first-child { border-top: 0; }
+.fbp-short:hover { background: var(--bg-hover); }
+.fbp-short-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.fbp-short-when { flex: none; font-size: var(--fs-xs); }
+.fbp-fold { border-top: 1px solid var(--line); }
+.fbp-list > .fbp-fold:first-child { border-top: 0; }
+.fbp-fold > summary { cursor: pointer; padding: 7px var(--sp-4); font-size: var(--fs-sm); color: var(--text-2); }
+.fbp-fold > summary:hover { background: var(--bg-hover); }
+.fbp-foldback { margin-left: auto; flex: none; }
+
+/* 사이드바 원고 */
+.part-open { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-xs); background: var(--bg-side); }
+
+/* ---------- 사이드바: 메인 노트 고정 + 접는 묶음 (R16·R17) ---------- */
+.main-note { display: block; width: 100%; margin: var(--sp-1) 0 var(--sp-2); }
+button.main-note.empty { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); }
+button.main-note.empty:hover { border-color: var(--text-3); }
+.main-note .k { font-size: var(--fs-xs); color: var(--text-3); }
+.main-note .t { font-weight: var(--fw-strong); min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button.main-note.empty { border-style: dashed; color: var(--text-2); }
+.side-quick { display: flex; gap: 2px; margin-bottom: var(--sp-2); }
+.side-quick button { flex: 1; padding: 5px 0; border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); text-align: center; }
+.side-quick button:hover, .side-quick button.on { background: var(--bg-hover); color: var(--text); }
+.side-quick b { margin-left: var(--sp-1); font-weight: var(--fw-strong); color: var(--text); font-variant-numeric: tabular-nums; }
+.side-grp { border-top: 1px solid var(--line); }
+.side-grp > summary { list-style: none; display: flex; align-items: center; gap: 6px; padding: 7px var(--sp-2); border-radius: var(--r-sm); cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); user-select: none; }
+.side-grp > summary::-webkit-details-marker { display: none; }
+.side-grp > summary:hover { background: var(--bg-hover); color: var(--text); }
+.side-grp > summary .chev { width: 10px; color: var(--text-3); transition: transform .12s; }
+.side-grp[open] > summary .chev { transform: rotate(90deg); }
+.side-grp > summary .label { flex: 1; min-width: 0; }
+.side-grp > summary .n { font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.side-grp > summary .warn { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.side-grp-body { padding-bottom: var(--sp-2); }
+.side-grp-body .nav { padding-left: 20px; }
+.side-grp-body .nav.more { color: var(--text-3); font-size: var(--fs-sm); }
+.side-grp-body .materials > .group-label { display: none; }
+@media (prefers-reduced-motion: reduce) { .side-grp > summary .chev { transition: none; } }
+/* 사이드바 다시 짜기 (10/2): 쓰기 · 재료 · 지식, 메인 노트 여럿, 보조 노트는 장 아래 */
+button.main-note.empty .t.add { font-weight: var(--fw-medium); font-size: var(--fs-sm); color: var(--text-3); }
+button.main-note.empty:has(.add) { padding: var(--sp-1) 10px; border-color: var(--line); }
+.main-notes { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
+.main-empty.more { border: 0; padding: 0; }
+
+/* ---------- 사이드바 점검 (10/3): 바로 가기는 세로 줄, 메인 노트는 접는 줄, 묶음은 노트 · 참고 자료 ---------- */
+.side-quick { flex-direction: column; gap: 0; margin-bottom: var(--sp-1); }
+.side-quick .nav { flex: none; text-align: left; padding: 6px var(--sp-2); }
+.side-quick .nav .n { font-size: var(--fs-xs); color: var(--text-2); font-weight: var(--fw-strong); font-variant-numeric: tabular-nums; }
+.q-ico { flex: none; width: 14px; text-align: center; color: var(--text-3); font-size: var(--fs-sm); }
+
+/* 맨 위 블록 넷: 할 일·작업 일지는 화면을 열고, 노트·참고 자료는 아래 목록을 고른다 (10/3 피드백 "탭처럼") */
+.side-quick.side-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 2px 0 var(--sp-3); }
+.side-tabs .side-tab { display: flex; flex-direction: row; align-items: center; gap: var(--sp-2); min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--text-2); text-align: left; }
+.side-tabs .side-tab:hover { background: var(--bg-hover); color: var(--text); }
+.side-tabs .side-tab .q-ico { width: auto; font-size: var(--fs-md); }
+.side-tabs .side-tab .label { flex: 1; font-size: var(--fs-md); font-weight: var(--fw-strong); color: var(--text); white-space: nowrap; }
+.side-tabs .side-tab .n { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.side-tabs .side-tab.on { background: var(--bg-hover); }
+.side-tabs .side-tab.sel { border-color: var(--line-strong); background: var(--bg-hover); }
+.side-tabs .side-tab.wide { grid-column: 1 / -1; }
+.nav.note-sub { margin-top: var(--sp-2); border-top: 1px solid var(--line); border-radius: 0; padding-top: var(--sp-2); color: var(--text-2); }
+.side-quick.side-tabs { margin-top: var(--sp-2); }
+
+/* 블록을 더 크게: 아이콘 위, 이름 아래 (10/3 피드백 "블럭이 너무 작아, 아이콘·제목도 더 크게") */
+.side-tabs .side-tab { flex-direction: column; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); min-height: 84px; padding: var(--sp-3) 14px; border-radius: var(--r-lg); position: relative; }
+.side-tabs .side-tab .q-ico { font-size: var(--fs-xl); line-height: 1; color: var(--text-2); }
+.side-tabs .side-tab .label { flex: none; font-size: var(--fs-lg); font-weight: var(--fw-title); }
+.side-tabs .side-tab .n { position: absolute; top: 12px; right: 14px; font-size: var(--fs-md); }
+.side-tabs .side-tab.wide { flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; min-height: 56px; }
+.side-quick.side-tabs { gap: var(--sp-2); }
+
+/* 블록을 모두 프로젝트 정보와 같은 크기의 한 줄로 (10/3 피드백 "통일성 있게") */
+.side-quick.side-tabs { grid-template-columns: 1fr; gap: 6px; }
+.side-tabs .side-tab { flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; min-height: 56px; padding: 0 14px; }
+.side-tabs .side-tab .label { flex: 1; }
+.side-tabs .side-tab .n { position: static; }
+/* 노트·참고 자료 블록 바로 아래에 하위 목록 (10/3 코멘트) */
+.side-tabs .side-tab .tab-chev { color: var(--text-3); font-size: var(--fs-lg); line-height: 1; transition: transform .15s; }
+.side-tabs .side-tab[aria-expanded="true"] .tab-chev { transform: rotate(90deg); }
+.side-quick.side-tabs:has(+ .side-tab-body) { margin-bottom: var(--sp-1); }
+.side-tab-body { margin: 0 0 var(--sp-2) var(--sp-3); padding-left: var(--sp-2); border-left: 2px solid var(--line); }
+.side-quick.side-tabs.side-tabs-next { margin-top: 0; }
+.side-tab-body .nav.note-sub { margin-top: var(--sp-1); }
+
+/* 10/4 08:42 피드백: 네 블록을 조금 작게, 아이콘은 선 아이콘으로 */
+.side-quick.side-tabs { gap: var(--sp-1); }
+.side-tabs .side-tab { min-height: 40px; gap: var(--sp-2); padding: 0 var(--sp-3); border-radius: var(--r-md); }
+.side-tabs .side-tab .label { font-size: var(--fs-md); font-weight: var(--fw-strong); }
+.side-tabs .side-tab .q-ico { display: flex; color: var(--text-2); }
+.side-tabs .side-tab .q-ico svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.side-tabs .side-tab .tab-chev { font-size: var(--fs-md); }
+
+/* 열어 둔 카드·원고의 목차: 사이드바 아래쪽 칸 (노트 하위 목록 밖) */
+.project-side-scroll { display: flex; flex: 1 1 0; flex-direction: column; overflow: hidden; }
+.project-toc { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
+.project-nav { flex: 1 1 0; min-height: 0; overflow: auto; }
+.side-toc-box { flex: none; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+.side-toc-title { padding: 0 var(--sp-2) var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }
+.side-toc-box .side-toc { margin: 0; padding-left: 0; border-left: 0; overflow-y: auto; }
+.side-toc-box .toc-row { flex: none; }
+.side-toc-box > .row-resizer { margin-top: calc(-1 * var(--sp-2)); margin-bottom: var(--sp-1); }
+.side-row .tree-chev { width: auto; height: auto; }
+.side-row[aria-expanded='true'] .tree-chev span { transform: rotate(90deg); }
+.note-sub .q-ico { display: inline-grid; place-items: center; }
+.note-sub .q-ico svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }

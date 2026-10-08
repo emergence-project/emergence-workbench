@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" width="200" height="160">
+  <circle cx="100" cy="80" r="62" stroke="#222" stroke-width="2" fill="none"/>
+  <path d="M100 80 L100 18 M100 80 L46.3 111 M100 80 L153.7 111" stroke="#222" stroke-width="2" fill="none"/>
+  <text x="70" y="66" font-family="Times, serif" font-style="italic" font-size="18" fill="#222" text-anchor="middle">A</text><text x="130" y="66" font-family="Times, serif" font-style="italic" font-size="18" fill="#222" text-anchor="middle">B</text><text x="100" y="128" font-family="Times, serif" font-style="italic" font-size="18" fill="#222" text-anchor="middle">C</text>
+</svg>

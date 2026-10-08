@@ -1,0 +1,136 @@
+/* 네트워킹: 사이드바의 사람 목록과 사람 페이지 (10/4 피드백) */
+.net-side-h { font-size: var(--fs-xs); color: var(--text-3); padding: var(--sp-3) var(--sp-2) var(--sp-1); }
+.net-add .label { color: var(--text-3); }
+.net-head { margin-bottom: var(--sp-5); }
+.net-head .h-title { margin-bottom: var(--sp-1); }
+.net-head p { margin: 0 0 var(--sp-1); }
+.net-tools { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); font-size: var(--fs-sm); }
+.net-papers { margin: 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+.net-title { font-weight: var(--fw-strong); }
+.net-meta { font-size: var(--fs-sm); margin-top: 2px; }
+.net-where { display: flex; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-xs); margin-top: 2px; }
+
+/* 네트워킹 첫 화면: 사람 카드 (10/4 14:46). 얼굴 대신 무채색 머리글자 */
+.net-avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--bg-sunken); color: var(--text-2); font-size: var(--fs-2xs); font-weight: var(--fw-strong); }
+.net-avatar.big { width: 44px; height: 44px; font-size: var(--fs-md); }
+.nav.net-me { gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.nav.net-me .net-avatar { width: 22px; height: 22px; }
+.net-head-row { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-1); }
+.net-head-row .h-title { margin: 0; }
+.net-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.net-group { margin-bottom: var(--sp-4); }
+.net-group-h { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); margin: 0 0 var(--sp-2); }
+.net-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-2); }
+.net-card { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); text-align: left; cursor: pointer; color: inherit; font: inherit; min-width: 0; }
+.net-card:hover { background: var(--bg-hover); }
+.net-card-body { display: flex; flex-direction: column; min-width: 0; }
+.net-card-name { display: flex; align-items: center; gap: var(--sp-1); font-weight: var(--fw-strong); }
+.net-card-sub { font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 저자 순서 (10/4 15:38): 첫 화면은 순서만, 고치기는 사람 페이지에서 */
+.author-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r-lg); }
+.author-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); }
+.author-row + .author-row { border-top: 1px solid var(--line); }
+.author-row .author-n { margin-bottom: 0; }
+.author-row > * { flex-shrink: 0; white-space: nowrap; }
+.author-row > .author-row-aff { flex: 1 1 0; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-size: var(--fs-sm); }
+.net-author-sec { margin-bottom: var(--sp-6); }
+
+/* 사람 카드 즐겨찾기와 저자 순서 줄 (10/4 16:19) */
+.net-card-wrap { position: relative; display: flex; min-width: 0; }
+.net-card-wrap > .net-card { flex: 1; padding-right: var(--sp-6); }
+.net-star { position: absolute; top: var(--sp-1); right: var(--sp-1); width: 24px; height: 24px; border-radius: var(--r-sm); color: var(--text-3); font-size: var(--fs-md); }
+.net-star:hover { background: var(--bg-hover); color: var(--text); }
+.net-star.on { color: var(--text-2); }
+.net-authors { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); }
+.net-authors-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+.net-authors-line .sp { flex: 1; }
+/* 나는 사람들 칸 위에 따로 (10/4 16:52) */
+.net-me { margin-bottom: var(--sp-4); }
+/* 연구 분야 이름표 (10/4 17:05) */
+.net-card-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: 2px; }
+/* 분야 이름표 고치기 (10/4): 이름표마다 ×, 칸에 적거나 골라 더하기 */
+.tag-edit { align-items: center; margin: var(--sp-1) 0; }
+.tag-x { display: inline-flex; align-items: center; gap: 2px; padding-right: 0; }
+.tag-x .icon-btn { width: auto; height: auto; padding: 0 var(--sp-1); font-size: var(--fs-2xs); }
+
+/* 사람 카드의 분야: 첫 이름표 + 나머지 수 (10/4 19:07) */
+.net-more { font-size: var(--fs-2xs); color: var(--text-3); align-self: center; cursor: default; }
+
+/* 노트 저자 한 줄: 나 카드 아래, 고르기는 내 페이지에서 (10/4 19:08) */
+.net-me .net-authors-line { margin-top: var(--sp-2); }
+.net-go { margin-left: auto; }
+
+/* 등록 추천 카드 (10/4 19:08): 사람 카드보다 작게, 이름·편 수·최근 논문, ＋ 더하기와 × 빼기 */
+.net-suggest { margin-top: var(--sp-5); }
+.net-suggest .net-group-h .muted { font-weight: var(--fw-normal); margin-left: var(--sp-1); }
+.net-sug-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--sp-2); }
+.net-sug { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); border: 1px dashed var(--line-strong); border-radius: var(--r-md); min-width: 0; }
+.net-sug-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.net-sug-name { font-weight: var(--fw-medium); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.net-sug-sub { font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.net-sug-actions { display: flex; flex: none; }
+.net-sug-actions .icon-btn { width: 24px; height: 24px; }
+
+/* 분야별 묶기의 분야 차례 (10/4 19:20): 분류의 맨 위 단계마다 한 줄, 하나를 고르면 그 분야 사람만 */
+.net-field-index { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0 0 var(--sp-4); padding: var(--sp-2) var(--sp-3); background: var(--bg-sunken); border-radius: var(--r-md); font-size: var(--fs-xs); }
+.net-field-index > .net-field { align-self: flex-start; }
+.net-field-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-1); }
+.net-field-root { min-width: 8em; }
+.net-field { padding: 2px var(--sp-2); border-radius: var(--r-sm); color: var(--text-2); }
+.net-field:hover { background: var(--bg-hover); color: var(--text); }
+.net-field.on { background: var(--bg); color: var(--text); font-weight: var(--fw-strong); box-shadow: var(--shadow-sm); }
+.net-group-h > .muted:first-child { font-weight: var(--fw-normal); }
+
+/* 사람 프로필 (10/4 18:55): 큰 머리글자, 주소속·보조 소속, 이메일 등. 고치기·빼기는 오른쪽 위 아이콘 */
+.net-avatar.xl { width: 64px; height: 64px; font-size: var(--fs-xl); }
+.net-profile { position: relative; border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-5); margin-bottom: var(--sp-6); }
+.net-profile:is(:hover, :focus-within) .hover-actions { opacity: 1; }
+.net-profile-actions { position: absolute; top: var(--sp-2); right: var(--sp-2); display: flex; }
+.net-profile-top { display: flex; align-items: center; gap: var(--sp-4); }
+.net-profile-id { min-width: 0; }
+.net-profile-id .h-title { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-1); }
+.net-profile-id .h-title .tag { font-weight: var(--fw-medium); }
+.net-profile-id p { margin: 0; }
+.net-aff { color: var(--text-2); font-size: var(--fs-md); }
+.net-aff2 { font-size: var(--fs-sm); }
+.net-facts { display: grid; grid-template-columns: 7.5em 1fr; gap: var(--sp-2) var(--sp-4); margin: var(--sp-4) 0 0; font-size: var(--fs-sm); align-items: baseline; }
+.net-facts dt { color: var(--text-3); }
+.net-facts dd { margin: 0; min-width: 0; }
+.net-facts .tag-edit { margin: 0; }
+.net-inline { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); }
+.net-edit { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-4); }
+.net-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.net-edit-hint { font-size: var(--fs-xs); margin: 0; }
+@media (max-width: 640px) { .net-edit-grid { grid-template-columns: 1fr; } .net-facts { grid-template-columns: 1fr; } }
+
+/* 분야 더하기: 찾는 칸이 먼저 (10/4 18:53 "전체를 펼치면 찾기가 힘들어") */
+.net-pick { position: relative; display: inline-block; }
+.net-pick > .a { font-size: var(--fs-xs); }
+.net-pick-menu { top: calc(100% + var(--sp-1)); right: 0; width: 300px; display: flex; flex-direction: column; }
+.net-pick-input { margin: 2px 2px var(--sp-1); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-sm); }
+.net-pick-input:focus { outline: 2px solid color-mix(in srgb, var(--link) 35%, transparent); outline-offset: -1px; }
+.net-pick-h { font-size: var(--fs-2xs); padding: 2px 10px; }
+.net-pick-menu button { flex-direction: column; align-items: flex-start; gap: 0; }
+.net-pick-menu button.on { background: var(--bg-hover); font-weight: var(--fw-normal); }
+.net-pick-name { color: var(--text); }
+.net-pick-path { font-size: var(--fs-2xs); }
+/* 사람 카드의 빼기 × (노트 저자 목록, 10/4 20:53): 즐겨찾기 자리에, 가리킬 때만 */
+.net-card-actions { position: absolute; top: var(--sp-1); right: var(--sp-1); }
+.net-card-actions .icon-btn { width: 24px; height: 24px; }
+.net-author-sec .net-group + .net-group { margin-top: var(--sp-4); }
+.net-facts dd .net-aff, .net-facts dd .net-aff2 { display: block; font-size: var(--fs-sm); }
+.net-facts dd .net-aff { color: var(--text); }
+.net-card-wrap:is(:hover, :focus-within) .hover-actions { opacity: 1; }
+.net-card-name { min-width: 0; }
+.net-card-n { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.net-card-name .tag { flex: none; }
+/* 노트 저자는 내 프로필 카드 안 맨 아래 (10/4 20:51 반려) */
+.net-profile-authors { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.net-sub-head { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-2); font-size: var(--fs-sm); }
+.net-sub-head b { font-weight: var(--fw-strong); }
+.net-sub-head .sp { flex: 1; }
+/* 카드의 분야 이름표는 한 줄로 (길면 말줄임) */
+.net-card-tags { flex-wrap: nowrap; min-width: 0; align-items: center; }
+.net-card-tags .tag { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.net-card-tags .net-more { flex: none; }

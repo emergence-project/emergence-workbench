@@ -1,0 +1,126 @@
+/* 홈: 프로젝트 목록 · 카드, 한 일 달력 (HomePage, WeekCalendar) */
+/* ---------- 홈: 프로젝트 목록 · 카드, 연구 등록 카드 ---------- */
+.page-body.home-body { max-width: 1320px; }
+
+.today-sub { font-size: var(--fs-sm); }
+.week .sec-head { flex-wrap: wrap; }
+.week .sec-head h2 { white-space: nowrap; }
+
+.due { display: inline-block; font-size: var(--fs-xs); border-radius: var(--r-xs); padding: 0 6px; margin-left: var(--sp-2); white-space: nowrap; background: var(--bg-sunken); color: var(--text-3); }
+
+/* 한 일 달력 (한 주) */
+.week { margin-top: var(--sp-6); }
+.home-projects .add-card { min-height: 0; }
+.week .sec-head { align-items: center; }
+.week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.week-day { border-left: 1px solid var(--line); min-height: 200px; display: flex; flex-direction: column; min-width: 0; }
+.week-day:first-child { border-left: 0; }
+.week-dh { display: flex; align-items: baseline; gap: 6px; padding: 7px 10px; background: var(--bg-sunken); border-bottom: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
+.week-dh b { font-size: var(--fs-sm); color: var(--text); }
+.week-dh .cnt { margin-left: auto; }
+.week-day.is-today .week-dh { background: var(--focus); border-bottom-color: var(--focus-line); }
+.week-day.future .week-dh b { color: var(--text-2); }
+.week-db { padding: var(--sp-2); display: flex; flex-direction: column; gap: 6px; }
+.week-chip { --rc: var(--s-progress); display: flex; flex-direction: column; gap: 1px; text-align: left; border-left: 3px solid var(--rc); padding: 2px 0 2px 7px; border-radius: 2px; min-width: 0; }
+.week-chip:hover { background: var(--bg-hover); }
+.week-chip.c1 { --rc: var(--proj-1); } .week-chip.c2 { --rc: var(--proj-2); } .week-chip.c3 { --rc: var(--proj-3); } .week-chip.c4 { --rc: var(--proj-4); } .week-chip.c5 { --rc: var(--proj-5); }
+.week-rt { font-size: var(--fs-2xs); font-weight: var(--fw-strong); color: var(--text-2); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.week-ev { font-size: var(--fs-xs); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.week-ev i { font-style: normal; display: inline-block; width: 13px; color: var(--text-3); }
+.week-ev.ev-done i { color: var(--text-2); }
+.week-ev.ev-due { color: var(--text); }
+.week-ev.ev-due i { color: var(--s-blocked); }
+.week-more { font-size: var(--fs-2xs); }
+.week-legend { font-size: var(--fs-xs); color: var(--text-3); }
+@media (max-width: 860px) {
+  .week-grid { grid-template-columns: minmax(0, 1fr); }
+  .week-day { border-left: 0; border-top: 1px solid var(--line); min-height: 0; }
+  .week-day:first-child { border-top: 0; }
+}
+.add-card { min-height: 0; }
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--s-solved); }
+.home-card { cursor: pointer; transition: background .08s; }
+.home-card:not(.off):hover { background: var(--bg); }
+.home-card:not(.off):active { background: var(--bg-sunken); }
+.home-card.off { cursor: default; opacity: .7; }
+.add-card { border-style: dashed; color: var(--text-2); justify-content: center; align-items: center; text-align: center; min-height: 120px; }
+.add-card:hover { color: var(--text); }
+
+/* 프로젝트 머리: 제목 · 보기 고르기(목록 | 카드), 거르기: 왼쪽 성격, 오른쪽 진행 상태 (10/5 시안 "홈") */
+.hp-head { align-items: center; }
+.hp-view { margin-left: auto; }
+.hp-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.hp-filters .count { color: var(--text-3); font-size: var(--fs-xs); margin-left: 2px; }
+.hp-filters .on .count { color: var(--text-2); }
+
+/* 목록 보기: 상태 · 프로젝트 · 분야 · 최근 작업 */
+.hp-list { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--card-bg); }
+.hp-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) minmax(0, 220px) 110px; align-items: center; gap: var(--sp-3); padding: 10px var(--sp-4) 10px 0; border-top: 1px solid var(--line); min-width: 0; width: 100%; text-align: left; cursor: pointer; }
+.hp-row:first-child { border-top: 0; }
+.hp-row:not(.hp-th):not(.off):hover { background: var(--bg-hover); }
+.hp-row.off { cursor: default; opacity: .7; }
+.hp-th { cursor: default; background: var(--bg-sunken); font-size: var(--fs-xs); color: var(--text-3); padding-top: 7px; padding-bottom: 7px; }
+.hp-th > :first-child { text-align: center; }
+.hp-mark { display: flex; justify-content: center; }
+/* 머리 글자 네모(40px)가 두 줄을 차지하고, 이름 · 설명은 그 오른쪽 (10/7 작업 탭 시안 "홈") */
+.hp-main { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: var(--sp-3); row-gap: 2px; align-items: center; min-width: 0; }
+.hp-main > :not(.hp-av) { grid-column: 2; }
+.hp-main > .hp-name { align-self: end; }
+.hp-main > .hp-desc { align-self: start; }
+.hp-name { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.hp-name .t-name { font-size: var(--fs-md); font-weight: var(--fw-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+.hp-desc { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.hp-desc b { color: var(--text); font-weight: var(--fw-strong); }
+.hp-fields { display: flex; min-width: 0; }
+.hp-fields .kc-tags { flex: 1; margin-top: 0; }
+.hp-time { text-align: right; font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hp-add { display: flex; gap: var(--sp-2); align-items: baseline; padding-left: var(--sp-4); color: var(--text-2); font-size: var(--fs-sm); }
+.hp-add:hover { color: var(--text); }
+.hp-empty { margin: 0; padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.hp-row.dragging, .pcard.dragging { opacity: .5; }
+.hp-row.over { box-shadow: inset 0 2px 0 var(--text-3); }
+.pcard.over { outline: 2px dashed var(--line-strong); outline-offset: 2px; }
+@media (max-width: 860px) {
+  .hp-row { grid-template-columns: 40px minmax(0, 1fr) 90px; }
+  .hp-fields { display: none; }
+}
+
+/* 분야 이름표: 둥근 회색 (목록 · 카드) */
+.pc-field { font-size: var(--fs-2xs); color: var(--text-2); background: var(--bg-sunken); border-radius: var(--r-pill); padding: 0 7px; line-height: 18px; white-space: nowrap; }
+
+/* 상태 기호: 주황 점 = 확인 필요, 돌아가는 화살표 = 업데이트 필요, 둘 다면 화살표 오른쪽 위에 주황 점 */
+.am-dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--s-blocked); flex: none; }
+.am-sync { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 0; background: none; color: var(--text-2); flex: none; }
+.am-sync svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+button.am-sync { cursor: pointer; border-radius: var(--r-sm); }
+button.am-sync:hover { background: var(--bg-hover); color: var(--text); }
+.am-badge { position: absolute; top: 0; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: var(--s-blocked); box-shadow: 0 0 0 1.5px var(--card-bg); }
+.hp-legend { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-3); margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-3); }
+.hp-legend > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.hp-legend .am-dot { width: 9px; height: 9px; }
+.hp-legend .am-sync { width: 18px; height: 18px; }
+.hp-legend .am-sync svg { width: 15px; height: 15px; }
+.hp-legend .am-badge { box-shadow: 0 0 0 1.5px var(--bg); }
+
+/* 카드 보기: 프로젝트 카드 (10/5 시안 "프로젝트 카드") */
+.hp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.pcard { position: relative; display: flex; min-height: 118px; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card-bg); color: var(--text); text-align: left; cursor: pointer; overflow: hidden; }
+.pcard:not(.off):hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.pcard:focus-visible { outline: 2px solid var(--focus-line); outline-offset: 1px; }
+.pcard.off { cursor: default; opacity: .7; }
+.pcard-band { width: 60px; flex: none; display: flex; align-items: center; justify-content: center; padding: var(--sp-2); box-sizing: border-box; background: color-mix(in srgb, var(--pc) var(--tc-mix), var(--card-bg)); cursor: grab; }
+.pcard-band:active { cursor: grabbing; }
+.pcard-band img { display: block; max-width: 100%; max-height: 48px; object-fit: contain; pointer-events: none; }
+.pcard-band > .card-image.fg-pv { width: 100%; height: calc(var(--sp-5) * 2); padding: 0; margin: 0; border: 0; background: transparent; pointer-events: none; }
+.pcard-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 10px var(--sp-3); }
+.pcard-title { font-size: var(--fs-md); font-weight: var(--fw-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard-desc { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard .kc-tags { margin-top: 0; }
+.pcard-foot { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 5px; border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
+.pcard-foot .kc-time { margin-left: 0; margin-right: auto; }
+.pcard-mark { display: inline-flex; align-items: center; min-height: 22px; }
+.hp-add-card { min-height: 118px; }
+/* 목록의 머리 글자 네모 (왼쪽 띠와 같은 프로젝트 색) */
+.card-av { flex: none; width: 30px; height: 30px; border-radius: var(--r-sm); display: grid; place-items: center; color: var(--on-color); font-size: var(--fs-xs); font-weight: var(--fw-title); letter-spacing: .02em; }
+.card-av.hp-av { grid-column: 1; grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: var(--r-md); font-size: var(--fs-md); cursor: grab; }

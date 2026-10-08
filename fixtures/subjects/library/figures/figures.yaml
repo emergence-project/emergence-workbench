@@ -1,0 +1,4 @@
+three-countries.svg:
+  name: 세 나라 지도
+  description: A, B, C로 나눈 지도
+  subjects: [math/graph/coloring]

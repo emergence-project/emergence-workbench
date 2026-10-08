@@ -1,0 +1,74 @@
+/* 그림 라이브러리 (FiguresPage.tsx) */
+.stage.fg.with-side { grid-template-columns: minmax(0, 1fr) 320px; }
+.fg-scroll { overflow: auto; }
+.fg-empty { padding: var(--sp-4); }
+.fg-scroll > .banner { margin: var(--sp-3) var(--sp-4) 0; }
+
+/* 왼쪽 사이드바 */
+.fg-side .cn-search { margin-bottom: var(--sp-2); }
+.fg-side .nav .meta { font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.fg-side-head { margin: var(--sp-3) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); }
+
+/* 카드 */
+.fg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--sp-3); padding: var(--sp-4); align-items: stretch; }
+.fg-card { display: flex; flex-direction: column; gap: 2px; padding: 0 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); text-align: left; cursor: pointer; overflow: hidden; }
+.fg-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.fg-card.on { border-color: var(--text); }
+.fg-card-name { padding: 0 var(--sp-3); font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fg-card-meta { display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-3); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fg-card-scope { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.fg-kind { flex: none; font-size: var(--fs-2xs); border: 1px solid var(--line-strong); border-radius: var(--r-xs); padding: 0 var(--sp-1); color: var(--text-2); }
+
+/* 미리보기: 그림 원본 색 그대로, 늘 흰 바탕 (다크 모드에서도 원본이 보이게) */
+.fg-pv { display: flex; align-items: center; justify-content: center; height: 140px; padding: var(--sp-3); margin-bottom: var(--sp-2); background: var(--paper); border-bottom: 1px solid var(--line); overflow: hidden; }
+.fg-pv img, .fg-pv canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+.fg-pv.big { height: auto; min-height: 160px; max-height: 320px; border: 1px solid var(--line); border-radius: var(--r-md); margin: 0; }
+.fg-pv.big img, .fg-pv.big canvas { max-height: 296px; }
+.fg-pv-fail { font-size: var(--fs-xs); color: var(--text-3); text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; word-break: break-word; }
+
+/* 목록 */
+.fg-table { font-size: var(--fs-sm); padding-bottom: var(--sp-4); }
+.fg-tr { display: grid; grid-template-columns: minmax(160px, 2fr) 70px minmax(100px, 1fr) 80px minmax(140px, 1.4fr); align-items: center; border-bottom: 1px solid var(--line); cursor: default; }
+.fg-tr > span { padding: 6px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fg-tr .num { text-align: right; font-variant-numeric: tabular-nums; }
+.fg-tr:not(.fg-th):hover, .fg-tr.on { background: var(--bg-hover); }
+.fg-tr:focus-visible { outline: 2px solid var(--focus-line); outline-offset: -2px; }
+.fg-th { position: sticky; top: 0; background: var(--bg); color: var(--text-2); font-weight: var(--fw-medium); }
+.fg-tr .mono { font-size: var(--fs-xs); color: var(--text-2); }
+
+/* 더하기: 맨 앞 점선 카드 · 표 맨 위 점선 줄 */
+.fg-add { display: flex; flex-direction: column; border: 1px dashed var(--line-strong); border-radius: var(--r-lg); color: var(--text-2); font-size: var(--fs-sm); }
+.fg-add.card { min-height: 200px; }
+.fg-add.row { margin: var(--sp-2); padding: 0; max-width: 900px; border-radius: var(--r-md); }
+.fg-add-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-1); padding: var(--sp-3); color: inherit; font: inherit; text-align: center; }
+.fg-add.row .fg-add-btn { flex-direction: row; justify-content: flex-start; padding: var(--sp-2) var(--sp-3); }
+.fg-add:hover, .fg-add.hover { border-color: var(--text-3); color: var(--text); background: var(--bg-hover); }
+.fg-add .muted { color: var(--text-3); font-size: var(--fs-xs); }
+.fg-add-err { padding: 0 var(--sp-3) var(--sp-2); color: var(--danger); font-size: var(--fs-xs); }
+
+/* 오른쪽 사이드바: 고른 그림 */
+.fg-rs { background: var(--bg-side); }
+.fg-rs .rs-head .sp { flex: 1; }
+.fg-rs-body { display: flex; flex-direction: column; gap: var(--sp-3); }
+.fg-rs-body p { margin: 0; }
+.fg-rs-about { position: relative; display: flex; flex-direction: column; gap: var(--sp-1); }
+.fg-rs-about .hover-actions { position: absolute; top: 0; right: 0; }
+.fg-rs-about:is(:hover, :focus-within) .hover-actions { opacity: 1; }
+.fg-rs-title { margin: 0; padding-right: var(--sp-6); font-size: var(--fs-md); font-weight: var(--fw-strong); line-height: 1.4; }
+.fg-rs-sub { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); }
+.fg-rs-desc { font-size: var(--fs-sm); color: var(--text); white-space: pre-wrap; }
+.fg-rs-edit { display: flex; flex-direction: column; gap: var(--sp-1); }
+.fg-rs-edit input, .fg-rs-edit textarea { padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); font: inherit; font-size: var(--fs-sm); color: var(--text); resize: vertical; }
+.fg-rs-edit .muted { font-size: var(--fs-xs); }
+.fg-rs-row { display: flex; align-items: center; gap: var(--sp-3); }
+.fg-rs-row .a { font-size: var(--fs-sm); }
+.fg-embed { display: flex; align-items: stretch; gap: var(--sp-2); }
+.fg-embed code { flex: 1; min-width: 0; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fg-embed .btn { height: auto; }
+.fg-uses { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); }
+.fg-use { text-align: left; }
+.fg-rs-path { min-width: 0; font-size: var(--fs-xs); }
+.fg-rs-path .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 노트 안의 그림 라이브러리 그림 (![[이름]]) */
+.ob-md .ob-fig { display: block; margin: var(--sp-3) auto; max-width: 100%; background: var(--paper); }

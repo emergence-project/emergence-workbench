@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120" viewBox="0 0 360 120" font-family="serif" font-size="20">
+  <rect x="10" y="20" width="100" height="80" fill="#e8eef7" stroke="#567"/>
+  <rect x="130" y="20" width="100" height="80" fill="#f4f1e6" stroke="#567"/>
+  <line x1="180" y1="20" x2="180" y2="100" stroke="#567" stroke-dasharray="4 3"/>
+  <rect x="250" y="20" width="100" height="80" fill="#eaf4ea" stroke="#567"/>
+  <text x="50" y="66">v₁</text><text x="140" y="66" font-size="16">K₁₃</text><text x="190" y="66" font-size="16">K₂₄</text><text x="290" y="66">v₃</text>
+</svg>

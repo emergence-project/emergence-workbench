@@ -1,0 +1,881 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{knowledge-factory-beamer}[2026/08/18 v0.1.1 Knowledge Factory standard-Beamer-first academic theme]
+\makeatletter
+
+% -----------------------------------------------------------------------------
+% Package mode: talk is the readable projection default; note is denser.
+% -----------------------------------------------------------------------------
+\newif\ifkfb@note
+\kfb@notefalse
+\DeclareOption{talk}{\kfb@notefalse}
+\DeclareOption{note}{\kfb@notetrue}
+\DeclareOption*{\PackageWarning{knowledge-factory-beamer}{Unknown option `\CurrentOption'}}
+\ProcessOptions\relax
+
+% The presentation source owns compiler, language, font, and math choices. Fail
+% clearly when it omits one of those author-selected dependencies.
+\newcommand{\kfb@requireloaded}[1]{%
+  \@ifpackageloaded{#1}{}{%
+    \PackageError{knowledge-factory-beamer}
+      {Required package `#1' is not loaded}
+      {Load `#1' in main.tex before knowledge-factory-beamer.}%
+  }%
+}
+\kfb@requireloaded{fontspec}
+\kfb@requireloaded{kotex}
+\kfb@requireloaded{unicode-math}
+
+% The theme owns the packages and libraries required only by its visual
+% implementation. Documents still own content-specific TikZ options/libraries.
+\RequirePackage{etoolbox}
+\RequirePackage{tikz}
+\RequirePackage{tcolorbox}
+\usetikzlibrary{calc}
+\tcbuselibrary{skins}
+
+% -----------------------------------------------------------------------------
+% Portable font selection. Users may redefine the three family names before
+% loading the package. No machine-specific path is required.
+% -----------------------------------------------------------------------------
+\providecommand{\KFBLatinFont}{Noto Sans}
+\providecommand{\KFBHangulFont}{Noto Sans CJK KR}
+\providecommand{\KFBMathFont}{STIX Two Math}
+\providecommand{\KFBFontPath}{}
+\def\kfb@macuserfontpath{\string~/Library/Fonts/}
+
+\defaultfontfeatures{Ligatures=TeX}
+
+\newif\ifkfb@latinfontset
+\newif\ifkfb@hangulfontset
+\newif\ifkfb@latinbundlecomplete
+\newif\ifkfb@hangulbundlecomplete
+\kfb@latinfontsetfalse
+\kfb@hangulfontsetfalse
+
+\newcommand{\kfb@checklatinbundleatpath}[1]{%
+  \kfb@latinbundlecompletetrue
+  \IfFileExists{#1NotoSans-Regular.ttf}{}{\kfb@latinbundlecompletefalse}%
+  \IfFileExists{#1NotoSans-Bold.ttf}{}{\kfb@latinbundlecompletefalse}%
+  \IfFileExists{#1NotoSans-Italic.ttf}{}{\kfb@latinbundlecompletefalse}%
+  \IfFileExists{#1NotoSans-BoldItalic.ttf}{}{\kfb@latinbundlecompletefalse}%
+}
+
+\newcommand{\kfb@checkhangulbundleatpath}[1]{%
+  \kfb@hangulbundlecompletetrue
+  \IfFileExists{#1NotoSansCJKkr-Regular.otf}{}{\kfb@hangulbundlecompletefalse}%
+  \IfFileExists{#1NotoSansCJKkr-Bold.otf}{}{\kfb@hangulbundlecompletefalse}%
+}
+
+% Optional relative path for a project-bundled Noto distribution. This keeps
+% pixel-identical local/Overleaf output possible without imposing font files on
+% the lightweight core package.
+\ifdefempty{\KFBFontPath}{}{%
+  \kfb@checklatinbundleatpath{\KFBFontPath}%
+  \ifkfb@latinbundlecomplete
+    \setsansfont[
+      Path=\KFBFontPath,
+      UprightFont=NotoSans-Regular.ttf,
+      BoldFont=NotoSans-Bold.ttf,
+      ItalicFont=NotoSans-Italic.ttf,
+      BoldItalicFont=NotoSans-BoldItalic.ttf
+    ]{NotoSans-Regular.ttf}%
+    \kfb@latinfontsettrue
+  \else
+    \PackageWarningNoLine{knowledge-factory-beamer}
+      {Incomplete Latin font bundle in \KFBFontPath; using installed-font fallback}%
+  \fi
+  \kfb@checkhangulbundleatpath{\KFBFontPath}%
+  \ifkfb@hangulbundlecomplete
+    \setmainhangulfont[
+      Path=\KFBFontPath,
+      UprightFont=NotoSansCJKkr-Regular.otf,
+      BoldFont=NotoSansCJKkr-Bold.otf,
+      ItalicFont=NotoSansCJKkr-Regular.otf,
+      BoldItalicFont=NotoSansCJKkr-Bold.otf,
+      ItalicFeatures={FakeSlant=0.15},
+      BoldItalicFeatures={FakeSlant=0.15}
+    ]{NotoSansCJKkr-Regular.otf}%
+    \setsanshangulfont[
+      Path=\KFBFontPath,
+      UprightFont=NotoSansCJKkr-Regular.otf,
+      BoldFont=NotoSansCJKkr-Bold.otf,
+      ItalicFont=NotoSansCJKkr-Regular.otf,
+      BoldItalicFont=NotoSansCJKkr-Bold.otf,
+      ItalicFeatures={FakeSlant=0.15},
+      BoldItalicFeatures={FakeSlant=0.15}
+    ]{NotoSansCJKkr-Regular.otf}%
+    \setmonohangulfont[
+      Path=\KFBFontPath,
+      UprightFont=NotoSansCJKkr-Regular.otf,
+      BoldFont=NotoSansCJKkr-Bold.otf,
+      ItalicFont=NotoSansCJKkr-Regular.otf,
+      BoldItalicFont=NotoSansCJKkr-Bold.otf,
+      ItalicFeatures={FakeSlant=0.15},
+      BoldItalicFeatures={FakeSlant=0.15}
+    ]{NotoSansCJKkr-Regular.otf}%
+    \kfb@hangulfontsettrue
+  \else
+    \PackageWarningNoLine{knowledge-factory-beamer}
+      {Incomplete Korean font bundle in \KFBFontPath; using installed-font fallback}%
+  \fi
+}
+
+% Default Noto families use explicit faces whenever the files are available.
+% This avoids platform font metadata resolving \bfseries to SemiBold on one
+% build and Bold on another. User-supplied family names retain fontspec's native
+% family resolution.
+\newcommand{\kfb@setlatinnotofiles}[1]{%
+  \setsansfont[
+    #1%
+    UprightFont=NotoSans-Regular.ttf,
+    BoldFont=NotoSans-Bold.ttf,
+    ItalicFont=NotoSans-Italic.ttf,
+    BoldItalicFont=NotoSans-BoldItalic.ttf
+  ]{NotoSans-Regular.ttf}%
+}
+\newcommand{\kfb@setlatinheros}{%
+  \setsansfont[
+    UprightFont=texgyreheros-regular.otf,
+    BoldFont=texgyreheros-bold.otf,
+    ItalicFont=texgyreheros-italic.otf,
+    BoldItalicFont=texgyreheros-bolditalic.otf
+  ]{texgyreheros-regular.otf}%
+  \PackageWarningNoLine{knowledge-factory-beamer}
+    {Requested Latin font `\KFBLatinFont' unavailable; using TeX Live TeX Gyre Heros}%
+}
+\newcommand{\kfb@sethangulnotofiles}[1]{%
+  \setmainhangulfont[
+    #1%
+    UprightFont=NotoSansCJKkr-Regular.otf,
+    BoldFont=NotoSansCJKkr-Bold.otf,
+    ItalicFont=NotoSansCJKkr-Regular.otf,
+    BoldItalicFont=NotoSansCJKkr-Bold.otf,
+    ItalicFeatures={FakeSlant=0.15},
+    BoldItalicFeatures={FakeSlant=0.15}
+  ]{NotoSansCJKkr-Regular.otf}%
+  \setsanshangulfont[
+    #1%
+    UprightFont=NotoSansCJKkr-Regular.otf,
+    BoldFont=NotoSansCJKkr-Bold.otf,
+    ItalicFont=NotoSansCJKkr-Regular.otf,
+    BoldItalicFont=NotoSansCJKkr-Bold.otf,
+    ItalicFeatures={FakeSlant=0.15},
+    BoldItalicFeatures={FakeSlant=0.15}
+  ]{NotoSansCJKkr-Regular.otf}%
+  \setmonohangulfont[
+    #1%
+    UprightFont=NotoSansCJKkr-Regular.otf,
+    BoldFont=NotoSansCJKkr-Bold.otf,
+    ItalicFont=NotoSansCJKkr-Regular.otf,
+    BoldItalicFont=NotoSansCJKkr-Bold.otf,
+    ItalicFeatures={FakeSlant=0.15},
+    BoldItalicFeatures={FakeSlant=0.15}
+  ]{NotoSansCJKkr-Regular.otf}%
+}
+\newcommand{\kfb@sethangulfamily}[1]{%
+  \setmainhangulfont[AutoFakeSlant=0.15]{#1}%
+  \setsanshangulfont[AutoFakeSlant=0.15]{#1}%
+  \setmonohangulfont[AutoFakeSlant=0.15]{#1}%
+}
+\newcommand{\kfb@sethangulundotum}{%
+  \setmainhangulfont[
+    BoldFont=UnDotumBold.ttf,
+    ItalicFont=UnDotum.ttf,
+    BoldItalicFont=UnDotumBold.ttf,
+    ItalicFeatures={FakeSlant=0.15},
+    BoldItalicFeatures={FakeSlant=0.15}
+  ]{UnDotum.ttf}%
+  \setsanshangulfont[
+    BoldFont=UnDotumBold.ttf,
+    ItalicFont=UnDotum.ttf,
+    BoldItalicFont=UnDotumBold.ttf,
+    ItalicFeatures={FakeSlant=0.15},
+    BoldItalicFeatures={FakeSlant=0.15}
+  ]{UnDotum.ttf}%
+  \setmonohangulfont[
+    BoldFont=UnDotumBold.ttf,
+    ItalicFont=UnDotum.ttf,
+    BoldItalicFont=UnDotumBold.ttf,
+    ItalicFeatures={FakeSlant=0.15},
+    BoldItalicFeatures={FakeSlant=0.15}
+  ]{UnDotum.ttf}%
+  \PackageWarningNoLine{knowledge-factory-beamer}
+    {Noto Sans CJK KR unavailable; using TeX Live UnDotum}%
+}
+
+\ifkfb@latinfontset\else
+  \ifdefstring{\KFBLatinFont}{Noto Sans}{%
+    \IfFontExistsTF{NotoSans-Regular.ttf}{%
+      \kfb@setlatinnotofiles{}%
+      \PackageInfo{knowledge-factory-beamer}
+        {Using explicit Noto Sans font files discovered by XeTeX}%
+    }{%
+      \kfb@checklatinbundleatpath{\kfb@macuserfontpath}%
+      \ifkfb@latinbundlecomplete
+        \kfb@setlatinnotofiles{Path=\kfb@macuserfontpath,}%
+        \PackageInfo{knowledge-factory-beamer}
+          {Using explicit Noto Sans faces from the standard macOS user font folder}%
+      \else
+        \IfFontExistsTF{\KFBLatinFont}{%
+          \setsansfont{\KFBLatinFont}%
+        }{%
+          \kfb@setlatinheros
+        }%
+      \fi
+    }%
+  }{%
+    \IfFontExistsTF{\KFBLatinFont}{%
+      \setsansfont{\KFBLatinFont}%
+    }{%
+      \kfb@setlatinheros
+    }%
+  }%
+\fi
+
+\ifkfb@hangulfontset\else
+  \ifdefstring{\KFBHangulFont}{Noto Sans CJK KR}{%
+    \IfFontExistsTF{NotoSansCJKkr-Regular.otf}{%
+      \kfb@sethangulnotofiles{}%
+      \PackageInfo{knowledge-factory-beamer}
+        {Using explicit Noto Sans CJK KR font files discovered by XeTeX}%
+    }{%
+      \kfb@checkhangulbundleatpath{\kfb@macuserfontpath}%
+      \ifkfb@hangulbundlecomplete
+        \kfb@sethangulnotofiles{Path=\kfb@macuserfontpath,}%
+        \PackageInfo{knowledge-factory-beamer}
+          {Using explicit Noto Sans CJK KR faces from the standard macOS user font folder}%
+      \else
+        \IfFontExistsTF{\KFBHangulFont}{%
+          \kfb@sethangulfamily{\KFBHangulFont}%
+        }{%
+          \kfb@sethangulundotum
+        }%
+      \fi
+    }%
+  }{%
+    \IfFontExistsTF{\KFBHangulFont}{%
+      \kfb@sethangulfamily{\KFBHangulFont}%
+    }{%
+      \kfb@sethangulundotum
+    }%
+  }%
+\fi
+
+\IfFontExistsTF{\KFBMathFont}{%
+  \setmathfont{\KFBMathFont}%
+}{%
+  \IfFontExistsTF{STIX Two Math}{%
+    \setmathfont{STIX Two Math}%
+    \PackageWarningNoLine{knowledge-factory-beamer}
+      {Requested math font unavailable; using STIX Two Math}%
+  }{%
+    \setmathfont{latinmodern-math.otf}%
+    \PackageWarningNoLine{knowledge-factory-beamer}
+      {STIX Two Math unavailable; using Latin Modern Math}%
+  }%
+}
+
+% -----------------------------------------------------------------------------
+% Density tokens. Layout geometry and public syntax are shared by both modes.
+% -----------------------------------------------------------------------------
+\ifkfb@note
+  \def\kfb@bodyfont{\fontsize{9.2}{11.2}\selectfont}
+  \def\kfb@boxtitlefont{\fontsize{9.2}{10.5}\selectfont\mdseries}
+  \def\kfb@frametitlefont{\fontsize{15}{17}\selectfont\mdseries}
+  \def\kfb@sectionfont{\fontsize{12.2}{14.0}\selectfont\mdseries}
+  \def\kfb@mutedfont{\fontsize{7.8}{9.2}\selectfont}
+  \def\kfb@sourcefont{\fontsize{5.8}{6.6}\selectfont}
+  \def\kfb@boxskip{0.10cm}
+\else
+  \def\kfb@bodyfont{\fontsize{10.4}{12.8}\selectfont}
+  \def\kfb@boxtitlefont{\fontsize{10.2}{11.8}\selectfont\mdseries}
+  \def\kfb@frametitlefont{\fontsize{16.2}{18.2}\selectfont\mdseries}
+  \def\kfb@sectionfont{\fontsize{13.0}{15.0}\selectfont\mdseries}
+  \def\kfb@mutedfont{\fontsize{8.6}{10.2}\selectfont}
+  \def\kfb@sourcefont{\fontsize{6.2}{7.0}\selectfont}
+  \def\kfb@boxskip{0.14cm}
+\fi
+
+% -----------------------------------------------------------------------------
+% Design tokens.
+% -----------------------------------------------------------------------------
+\definecolor{KFBNavy}{HTML}{18324C}
+\definecolor{KFBNavyDark}{HTML}{0B152E}
+\definecolor{KFBCoverRight}{HTML}{5B7894}
+\definecolor{KFBGold}{HTML}{FFC94D}
+\definecolor{KFBGoldDeep}{HTML}{D99A12}
+% Dark gold reserved for small text on light surfaces (WCAG AA contrast).
+\definecolor{KFBGoldText}{HTML}{8F6000}
+\definecolor{KFBOrange}{HTML}{FF7043}
+\definecolor{KFBOrangeDeep}{HTML}{C54B27}
+\definecolor{KFBBlue}{HTML}{2E95F3}
+\definecolor{KFBLine}{HTML}{D8E0E7}
+\definecolor{KFBBlockLine}{HTML}{B8C8D6}
+\definecolor{KFBMuted}{HTML}{62778B}
+\definecolor{KFBInk}{HTML}{142C43}
+\definecolor{KFBBody}{HTML}{24394D}
+
+% Restrained semantic palette. Warning and definition are dark enough for
+% white small text while retaining the original visual family.
+\definecolor{KFBNote}{HTML}{46657D}
+\definecolor{KFBNoteSurface}{HTML}{F4F7F9}
+\definecolor{KFBNoteLine}{HTML}{CAD6DE}
+\definecolor{KFBWarning}{HTML}{7F5B1F}
+\definecolor{KFBWarningSurface}{HTML}{FBF7EF}
+\definecolor{KFBWarningLine}{HTML}{E2D3B8}
+\definecolor{KFBResult}{HTML}{39796F}
+\definecolor{KFBResultSurface}{HTML}{F1F7F5}
+\definecolor{KFBResultLine}{HTML}{C5DCD6}
+\definecolor{KFBTheorem}{HTML}{294B6B}
+\definecolor{KFBTheoremSurface}{HTML}{F2F5F8}
+\definecolor{KFBTheoremLine}{HTML}{C6D2DC}
+\definecolor{KFBLemma}{HTML}{58758D}
+\definecolor{KFBLemmaSurface}{HTML}{F4F6F8}
+\definecolor{KFBLemmaLine}{HTML}{D0D8DE}
+\definecolor{KFBCorollary}{HTML}{4F7C76}
+\definecolor{KFBCorollarySurface}{HTML}{F2F7F6}
+\definecolor{KFBCorollaryLine}{HTML}{CBDDD9}
+\definecolor{KFBDefinition}{HTML}{75572D}
+\definecolor{KFBDefinitionSurface}{HTML}{FAF7F1}
+\definecolor{KFBDefinitionLine}{HTML}{E1D5C2}
+\definecolor{KFBExample}{HTML}{5F6871}
+\definecolor{KFBExampleSurface}{HTML}{F5F6F7}
+\definecolor{KFBExampleLine}{HTML}{D7DBDF}
+
+% -----------------------------------------------------------------------------
+% Beamer chrome.
+% -----------------------------------------------------------------------------
+\setbeamercolor{normal text}{fg=KFBBody,bg=white}
+\setbeamercolor{frametitle}{fg=white,bg=KFBNavy}
+\setbeamercolor{framesubtitle}{fg=white!78,bg=KFBNavy}
+\setbeamercolor{footline}{fg=white,bg=KFBNavy}
+% Typography stays at the regular face unless the document author explicitly
+% requests emphasis with \textbf or a local bold declaration.
+\setbeamerfont{title}{series=\mdseries}
+\setbeamerfont{subtitle}{series=\mdseries}
+\setbeamerfont{frametitle}{size=\kfb@frametitlefont,series=\mdseries}
+\setbeamerfont{framesubtitle}{size=\small,series=\mdseries}
+\setbeamerfont{block body}{size=\kfb@bodyfont}
+\setbeamerfont{block body alerted}{parent=block body}
+\setbeamerfont{block body example}{parent=block body}
+\setbeamerfont{block title}{size=\kfb@boxtitlefont,series=\mdseries}
+\setbeamerfont{block title alerted}{parent=block title,series=\mdseries}
+\setbeamerfont{block title example}{parent=block title,series=\mdseries}
+\setbeamercolor{block title}{fg=white,bg=KFBNavy}
+\setbeamercolor{block body}{fg=KFBBody,bg=white}
+\setbeamercolor{block title alerted}{fg=white,bg=KFBWarning}
+\setbeamercolor{block body alerted}{fg=KFBBody,bg=KFBWarningSurface}
+\setbeamercolor{block title example}{fg=white,bg=KFBResult}
+\setbeamercolor{block body example}{fg=KFBBody,bg=KFBResultSurface}
+\setbeamerfont{section in toc}{size=\kfb@sectionfont,series=\mdseries}
+\setbeamercolor{section in toc}{fg=KFBInk}
+\setbeamerfont{subsection in toc}{size=\kfb@bodyfont,series=\mdseries}
+\setbeamercolor{subsection in toc}{fg=KFBBody}
+\setbeamertemplate{section in toc}[sections numbered]
+\defbeamertemplate{subsection in toc}{knowledge-factory section page}{%
+  \leavevmode
+  \makebox[2.2em][l]{%
+    \usebeamercolor[fg]{section page subsection number}%
+    \inserttocsubsectionnumber%
+  }%
+  \inserttocsubsection\par\vspace{0.16em}%
+}
+\setbeamerfont{section page subsection}{size=\kfb@bodyfont,series=\mdseries}
+\setbeamercolor{section page subsection}{fg=KFBInk}
+\setbeamercolor{section page subsection number}{fg=KFBGoldText}
+\setbeamersize{text margin left=0.54cm,text margin right=0.54cm}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize item}{\color{KFBNavy}\raise0.15ex\hbox{\scriptsize$\bullet$}}
+\setbeamertemplate{itemize subitem}{\color{KFBGoldDeep}\raise0.18ex\hbox{\tiny$\bullet$}}
+\setlength{\leftmargini}{1.10em}
+\setlength{\leftmarginii}{1.05em}
+
+% Keep standard LaTeX/Beamer citation commands while replacing Beamer's large
+% document icon and bright default bibliography colors with a compact inline
+% entry and the theme's restrained academic palette.
+\setbeamertemplate{bibliography item}[text]
+\setbeamertemplate{bibliography entry title}{\hspace{0.28em}}
+\setbeamertemplate{bibliography entry location}{\hspace{0.28em}}
+\setbeamertemplate{bibliography entry note}{\hspace{0.28em}}
+\setbeamercolor{bibliography item}{fg=KFBNavy}
+\setbeamercolor{bibliography entry author}{fg=KFBNavy}
+\setbeamercolor{bibliography entry title}{fg=KFBInk}
+\setbeamercolor{bibliography entry location}{fg=KFBMuted}
+\setbeamercolor{bibliography entry note}{fg=KFBMuted}
+\setbeamerfont{bibliography item}{size=\scriptsize,series=\mdseries}
+\setbeamerfont{bibliography entry author}{size=\scriptsize,series=\mdseries}
+\setbeamerfont{bibliography entry title}{size=\scriptsize,series=\mdseries,shape=\upshape}
+\setbeamerfont{bibliography entry location}{size=\scriptsize,series=\mdseries}
+\setbeamerfont{bibliography entry note}{size=\scriptsize,series=\mdseries,shape=\upshape}
+\newlength{\kfb@bibliographyitemsep}
+\setlength{\kfb@bibliographyitemsep}{-0.11em}
+\NewDocumentCommand{\KFBSetBibliographyItemSep}{m}{%
+  \setlength{\kfb@bibliographyitemsep}{#1}%
+}
+\apptocmd{\thebibliography}{%
+  \setlength{\itemsep}{\kfb@bibliographyitemsep}%
+  \setlength{\parsep}{0pt}%
+  \setlength{\parskip}{0pt}%
+}{}{%
+  \PackageWarningNoLine{knowledge-factory-beamer}
+    {KFB-BIB-PATCH-FAILED: Could not apply compact bibliography spacing}%
+}
+
+\newcommand{\kfbaccent}{KFBGold}
+\NewDocumentCommand{\KFBSetAccent}{m}{\gdef\kfbaccent{#1}}
+\newbox\kfb@frametitlebox
+\newbox\kfb@frametitleonlybox
+\newdimen\kfb@frametitletopskip
+\newdimen\kfb@frametitlebottomskip
+\newdimen\kfb@frameaccenttopskip
+\newdimen\kfb@frametitleleftskip
+\newdimen\kfb@frameaccentwidth
+\newdimen\kfb@frametitlegap
+\newdimen\kfb@frametitlerightskip
+\newdimen\kfb@frametitletextwidth
+\kfb@frametitletopskip=1.9mm
+\kfb@frametitlebottomskip=0.3mm
+\kfb@frameaccenttopskip=\dimexpr
+  \kfb@frametitletopskip+\kfb@frametitlebottomskip\relax
+\divide\kfb@frameaccenttopskip by 2
+\kfb@frametitleleftskip=1.8mm
+\kfb@frameaccentwidth=1.2mm
+\kfb@frametitlegap=1.0mm
+\kfb@frametitlerightskip=4.4mm
+\kfb@frametitletextwidth=\dimexpr
+  \paperwidth-\kfb@frametitleleftskip-\kfb@frameaccentwidth
+  -\kfb@frametitlegap-\kfb@frametitlerightskip\relax
+
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  % Measure the title separately and keep the accent at the same vertical
+  % position whether or not a subtitle deepens the navy header.
+  \setbox\kfb@frametitleonlybox=\vbox{%
+    \hsize=\kfb@frametitletextwidth
+    \parindent=0pt
+    {\usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\raggedright
+      \strut\insertframetitle\strut\par}%
+  }%
+  \setbox\kfb@frametitlebox=\vbox{%
+    \hsize=\kfb@frametitletextwidth
+    \parindent=0pt
+    \vskip\kfb@frametitletopskip
+    \copy\kfb@frametitleonlybox
+    \ifx\insertframesubtitle\@empty
+      \vskip\kfb@frametitlebottomskip
+    \else
+      \vskip0.45mm
+      {\usebeamerfont{framesubtitle}\usebeamercolor[fg]{framesubtitle}\raggedright
+        \strut\insertframesubtitle\strut\par}%
+      \vskip0.7mm
+    \fi
+  }%
+  \begin{beamercolorbox}[wd=\paperwidth,sep=0pt]{frametitle}%
+    \hbox to \paperwidth{%
+      \hskip\kfb@frametitleleftskip
+      \vbox to \dimexpr\ht\kfb@frametitlebox+\dp\kfb@frametitlebox\relax{%
+        \vskip\kfb@frameaccenttopskip
+        \hbox{{\color{\kfbaccent}\rule{\kfb@frameaccentwidth}{%
+          \dimexpr\ht\kfb@frametitleonlybox+\dp\kfb@frametitleonlybox\relax}}}%
+        \vfil
+      }%
+      \hskip\kfb@frametitlegap
+      \box\kfb@frametitlebox
+      \hfil
+      \hskip\kfb@frametitlerightskip
+    }%
+  \end{beamercolorbox}%
+}
+
+% \secname is plain text; \insertsectionhead can inherit hyperlink colors when
+% a user enables colorlinks through hyperref.
+\providecommand{\lastsection}{}
+\newcommand{\kfbfooterlabel}{\lastsection}
+\newcommand{\kfbfootercenter}{\insertshortinstitute}
+\NewDocumentCommand{\KFBSetFooterLabel}{m}{\gdef\kfbfooterlabel{#1}}
+\NewDocumentCommand{\KFBSetFooterCenter}{m}{\gdef\kfbfootercenter{#1}}
+
+\setbeamertemplate{footline}{%
+  \leavevmode
+  \hbox{%
+    \begin{beamercolorbox}[wd=.34\paperwidth,ht=0.30cm,dp=0.09cm,leftskip=0.54cm]{footline}%
+      \fontsize{6.9}{7.7}\selectfont\mdseries\kfbfooterlabel
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.32\paperwidth,ht=0.30cm,dp=0.09cm,center]{footline}%
+      \fontsize{6.9}{7.7}\selectfont\mdseries\kfbfootercenter
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.34\paperwidth,ht=0.30cm,dp=0.09cm,rightskip=0.54cm plus1fil]{footline}%
+      \hfill\fontsize{6.9}{7.7}\selectfont\mdseries
+      \insertframenumber\ / \inserttotalframenumber
+    \end{beamercolorbox}%
+  }%
+}
+
+% -----------------------------------------------------------------------------
+% Standard metadata drives the custom title page.
+% -----------------------------------------------------------------------------
+\newcommand{\kfbcoverlabel}{PRESENTATION}
+\NewDocumentCommand{\KFBSetCoverLabel}{m}{\gdef\kfbcoverlabel{#1}}
+
+\setbeamertemplate{title page}{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \shade[left color=KFBNavyDark,right color=KFBCoverRight]
+      (current page.south west) rectangle (current page.north east);
+
+    \node[anchor=north west,inner sep=0pt,text width=.84\paperwidth,align=left]
+      at ($(current page.south west)+(0.80cm,6.06cm)$) {%
+        \raggedright\hyphenpenalty=10000\exhyphenpenalty=10000
+        {\fontsize{27}{31}\selectfont\mdseries\color{white}\inserttitle\par}%
+        \ifdefempty{\insertsubtitle}{}{%
+          \vspace{0.25cm}%
+          {\fontsize{13.0}{15.5}\selectfont\mdseries\color{KFBOrange}\insertsubtitle\par}%
+        }%
+        \expandafter\ifblank\expandafter{\beamer@andstripped}{}{%
+          \vspace{0.32cm}%
+          {\fontsize{9.8}{11.4}\selectfont\color{white}\insertauthor\par}%
+        }%
+      };
+    \node[anchor=south west,text=white]
+      at ($(current page.south west)+(0.30cm,0.30cm)$) {%
+        \fontsize{7.1}{8.1}\selectfont\mdseries\kfbcoverlabel%
+      };
+    \node[anchor=south east,text=white,align=right]
+      at ($(current page.south east)+(-0.30cm,0.30cm)$) {%
+        \fontsize{7.0}{8.2}\selectfont
+        \ifdefempty{\insertinstitute}{%
+          \insertdate
+        }{%
+          \insertinstitute
+          \ifdefempty{\insertdate}{}{\enspace\textperiodcentered\enspace\insertdate}%
+        }%
+      };
+  \end{tikzpicture}%
+}
+
+% Keep Beamer's own \titlepage and \maketitle commands unchanged. Authors who
+% want the branded unnumbered cover declare the frame options explicitly:
+% \begin{frame}[plain,noframenumbering]\titlepage\end{frame}.
+
+% -----------------------------------------------------------------------------
+% Standard Beamer section page. Documents opt in with \sectionpage, commonly
+% through \AtBeginSection in main.tex. Both named variants use a fixed 2:3:2
+% vertical ratio. The default keeps the lower band empty; the optional variant
+% renders the current section's subsections there through Beamer's native TOC.
+% -----------------------------------------------------------------------------
+\newcommand{\kfb@sectionpageart}{%
+  \fill[KFBNoteSurface]
+    (current page.south west) rectangle (current page.north east);
+  \fill[KFBNavy]
+    ($(current page.south west)!2/7!(current page.north west)$) rectangle
+    ($(current page.south east)!5/7!(current page.north east)$);
+
+  \node[anchor=center,text=white]
+    at ($(current page.west)!1/12!(current page.east)$) {%
+      \fontsize{30}{32}\selectfont\mdseries\insertsectionnumber%
+    };
+  \node[anchor=center,inner sep=0pt]
+    at ($(current page.west)!1/6!(current page.east)$) {%
+      \color{KFBGold}\rule{1.2mm}{\dimexpr\paperheight/5\relax}%
+    };
+  % Match the title's left and right clear space: both are 1/12 of the page.
+  \node[anchor=west,inner sep=0pt,
+    text width=\dimexpr2\paperwidth/3\relax,align=left,text=white]
+    at ($(current page.west)!1/4!(current page.east)$) {%
+      \raggedright\hyphenpenalty=10000\exhyphenpenalty=10000
+      \fontsize{21}{25}\selectfont\mdseries\secname\par%
+    };
+}
+
+\defbeamertemplate{section page}{knowledge-factory minimal}{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \kfb@sectionpageart
+  \end{tikzpicture}%
+}
+
+\defbeamertemplate{section page}{knowledge-factory with subsections}{%
+  \begingroup
+    \setbeamerfont*{subsection in toc}{parent=section page subsection}
+    \setbeamercolor*{subsection in toc}{parent=section page subsection}
+    \setbeamertemplate{subsection in toc}[knowledge-factory section page]
+    \begin{tikzpicture}[remember picture,overlay]
+      \kfb@sectionpageart
+      \node[anchor=center,inner sep=0pt,
+        text width=\dimexpr\paperwidth/2\relax,align=left,text=KFBInk]
+        at ($(current page.south)+(0,0.142857\paperheight)$) {%
+          \begin{minipage}{\dimexpr\paperwidth/2\relax}
+            \raggedright
+            \usebeamerfont{subsection in toc}%
+            \tableofcontents[
+              currentsection,
+              sectionstyle=hide,
+              subsectionstyle=show/show/hide
+            ]
+          \end{minipage}%
+        };
+    \end{tikzpicture}%
+  \endgroup
+}
+\setbeamertemplate{section page}[knowledge-factory minimal]
+
+% -----------------------------------------------------------------------------
+% Public content roles. Names describe what the author writes rather than the
+% package brand or an implementation detail.
+% -----------------------------------------------------------------------------
+\NewDocumentCommand{\contentsubheading}{m}{%
+  {\kfb@sectionfont\color{KFBOrangeDeep}#1\par}%
+}
+\NewDocumentCommand{\supportingtext}{m}{%
+  {\kfb@mutedfont\color{KFBMuted}#1}%
+}
+
+% -----------------------------------------------------------------------------
+% Standard Beamer blocks are the single general-purpose titled-box API. Their
+% geometry preserves the established KFB titled-box design while block,
+% alertblock, and exampleblock remain native Beamer environments.
+% -----------------------------------------------------------------------------
+\tcbset{
+  kfb standard block/.style={
+    enhanced,
+    boxrule=0.55pt,
+    arc=1.5mm,
+    left=2.8mm,
+    right=2.8mm,
+    top=2.2mm,
+    bottom=2.2mm,
+    lefttitle=2.8mm,
+    righttitle=2.8mm,
+    toptitle=1.7mm,
+    bottomtitle=1.2mm,
+    boxsep=0mm,
+    before upper={\raggedright},
+    before skip=\kfb@boxskip,
+    after skip=\kfb@boxskip
+  }
+}
+
+\newcommand{\kfb@beginstandardblock}[3]{%
+  \begingroup
+  \usebeamercolor*{#1}%
+  \colorlet{kfb@blocktitlefg}{fg}%
+  \colorlet{kfb@blocktitlebg}{bg}%
+  \usebeamercolor*{#2}%
+  \colorlet{kfb@blockbodyfg}{fg}%
+  \colorlet{kfb@blockbodybg}{bg}%
+  \begin{tcolorbox}[
+    kfb standard block,
+    coltitle=kfb@blocktitlefg,
+    coltext=kfb@blockbodyfg,
+    colback=kfb@blockbodybg,
+    colframe=#3,
+    colbacktitle=kfb@blocktitlebg,
+    fontupper={\usebeamerfont{#2}},
+    fonttitle={\usebeamerfont{#1}},
+    adjusted title={\insertblocktitle}
+  ]%
+}
+\setbeamertemplate{block begin}{%
+  \kfb@beginstandardblock{block title}{block body}{KFBBlockLine}%
+}
+\setbeamertemplate{block end}{\end{tcolorbox}\endgroup}
+\setbeamertemplate{block alerted begin}{%
+  \kfb@beginstandardblock{block title alerted}{block body alerted}{KFBWarningLine}%
+}
+\setbeamertemplate{block alerted end}{\end{tcolorbox}\endgroup}
+\setbeamertemplate{block example begin}{%
+  \kfb@beginstandardblock{block title example}{block body example}{KFBResultLine}%
+}
+\setbeamertemplate{block example end}{\end{tcolorbox}\endgroup}
+
+\newtcolorbox{band}[2][]{
+  enhanced,
+  colback=KFBNavyDark,
+  colframe=KFBNavyDark,
+  coltext=white,
+  fontupper=\kfb@bodyfont,
+  boxrule=0pt,
+  arc=1.5mm,
+  left=3.4mm,
+  right=3.4mm,
+  top=2.4mm,
+  bottom=2.4mm,
+  boxsep=0mm,
+  before upper={\raggedright{\kfb@boxtitlefont #2\par}},
+  before skip=\kfb@boxskip,
+  after skip=\kfb@boxskip,
+  #1
+}
+
+% -----------------------------------------------------------------------------
+% Semantic callouts and standard theorem compatibility.
+% -----------------------------------------------------------------------------
+\tcbset{
+  kfb semantic base/.style={
+    enhanced,
+    boxrule=0.42pt,
+    arc=1.2mm,
+    left=2.8mm,
+    right=2.8mm,
+    top=1.7mm,
+    bottom=1.7mm,
+    boxsep=0mm,
+    before upper={\raggedright},
+    before skip=\kfb@boxskip,
+    after skip=\kfb@boxskip
+  },
+  kfb theorem base/.style={
+    kfb semantic base,
+    coltext=KFBBody,
+    fontupper=\kfb@bodyfont,
+    fonttitle=\normalfont\kfb@boxtitlefont,
+    coltitle=white,
+    lefttitle=2.8mm,
+    righttitle=2.8mm,
+    toptitle=1.4mm,
+    bottomtitle=1.0mm,
+    titlerule=0pt
+  }
+}
+
+\newcommand{\mdselectcalloutpalette}[1]{%
+  \def\mdcalloutcolor{KFBNote}%
+  \def\mdcalloutsurface{KFBNoteSurface}%
+  \def\mdcalloutline{KFBNoteLine}%
+  \ifboolexpr{test {\ifstrequal{#1}{warning}} or test {\ifstrequal{#1}{danger}}}{%
+    \def\mdcalloutcolor{KFBWarning}%
+    \def\mdcalloutsurface{KFBWarningSurface}%
+    \def\mdcalloutline{KFBWarningLine}%
+  }{}%
+  \ifboolexpr{test {\ifstrequal{#1}{result}} or test {\ifstrequal{#1}{success}}}{%
+    \def\mdcalloutcolor{KFBResult}%
+    \def\mdcalloutsurface{KFBResultSurface}%
+    \def\mdcalloutline{KFBResultLine}%
+  }{}%
+  \ifboolexpr{
+    test {\ifstrequal{#1}{note}} or
+    test {\ifstrequal{#1}{warning}} or
+    test {\ifstrequal{#1}{danger}} or
+    test {\ifstrequal{#1}{result}} or
+    test {\ifstrequal{#1}{success}}
+  }{}{%
+    \PackageWarning{knowledge-factory-beamer}
+      {Unknown mdcallout type `#1'; using `note'}%
+  }%
+}
+
+\NewDocumentEnvironment{mdcallout}{O{note} O{} m}{%
+  \mdselectcalloutpalette{#1}%
+  \ifstrempty{#2}{%
+    \tcbset{kfb current callout height/.style={}}%
+  }{%
+    \tcbset{kfb current callout height/.style={equal height group={#2}}}%
+  }%
+  \begin{tcolorbox}[
+    kfb semantic base,
+    colback=\mdcalloutsurface,
+    colframe=\mdcalloutline,
+    colbacktitle=\mdcalloutcolor,
+    coltitle=white,
+    fontupper=\kfb@bodyfont,
+    fonttitle=\kfb@boxtitlefont,
+    adjusted title={#3},
+    lefttitle=2.8mm,
+    righttitle=2.8mm,
+    toptitle=1.4mm,
+    bottomtitle=1.0mm,
+    titlerule=0pt,
+    kfb current callout height
+  ]%
+}{%
+  \end{tcolorbox}%
+}
+
+\newcommand{\kfb@selecttheorempalette}{%
+  \def\kfb@theoremback{KFBTheoremSurface}%
+  \def\kfb@theoremline{KFBTheoremLine}%
+  \def\kfb@theoremtitle{KFBTheorem}%
+  \let\kfb@currenttheoremname\inserttheoremname
+  \def\kfb@lemmaname{\translate{Lemma}}%
+  \def\kfb@corollaryname{\translate{Corollary}}%
+  \def\kfb@definitionname{\translate{Definition}}%
+  \def\kfb@definitionsname{\translate{Definitions}}%
+  \def\kfb@examplename{\translate{Example}}%
+  \def\kfb@examplesname{\translate{Examples}}%
+  \ifdefstrequal{\kfb@currenttheoremname}{\kfb@lemmaname}{%
+    \def\kfb@theoremback{KFBLemmaSurface}%
+    \def\kfb@theoremline{KFBLemmaLine}%
+    \def\kfb@theoremtitle{KFBLemma}%
+  }{}%
+  \ifdefstrequal{\kfb@currenttheoremname}{\kfb@corollaryname}{%
+    \def\kfb@theoremback{KFBCorollarySurface}%
+    \def\kfb@theoremline{KFBCorollaryLine}%
+    \def\kfb@theoremtitle{KFBCorollary}%
+  }{}%
+  \ifdefstrequal{\kfb@currenttheoremname}{\kfb@definitionname}{%
+    \def\kfb@theoremback{KFBDefinitionSurface}%
+    \def\kfb@theoremline{KFBDefinitionLine}%
+    \def\kfb@theoremtitle{KFBDefinition}%
+  }{}%
+  \ifdefstrequal{\kfb@currenttheoremname}{\kfb@definitionsname}{%
+    \def\kfb@theoremback{KFBDefinitionSurface}%
+    \def\kfb@theoremline{KFBDefinitionLine}%
+    \def\kfb@theoremtitle{KFBDefinition}%
+  }{}%
+  \ifdefstrequal{\kfb@currenttheoremname}{\kfb@examplename}{%
+    \def\kfb@theoremback{KFBExampleSurface}%
+    \def\kfb@theoremline{KFBExampleLine}%
+    \def\kfb@theoremtitle{KFBExample}%
+  }{}%
+  \ifdefstrequal{\kfb@currenttheoremname}{\kfb@examplesname}{%
+    \def\kfb@theoremback{KFBExampleSurface}%
+    \def\kfb@theoremline{KFBExampleLine}%
+    \def\kfb@theoremtitle{KFBExample}%
+  }{}%
+}
+
+% This environment mirrors Beamer's overlay-aware block contract. Beamer appends
+% the theorem overlay specification after the begin template, so the template
+% must end in an environment that consumes <...> rather than wrapping the
+% theorem externally with tcolorboxenvironment.
+\newenvironment<>{kfbtheoremblock}[1]{%
+  \begin{actionenv}#2%
+  \kfb@selecttheorempalette
+  \begin{tcolorbox}[
+    kfb theorem base,
+    colback=\kfb@theoremback,
+    colframe=\kfb@theoremline,
+    colbacktitle=\kfb@theoremtitle,
+    adjusted title={#1}
+  ]%
+}{%
+  \end{tcolorbox}%
+  \end{actionenv}%
+}
+
+\setbeamertemplate{theorem begin}{%
+  \begin{kfbtheoremblock}{%
+    \inserttheoremname\inserttheoremnumber
+    \ifx\inserttheoremaddition\@empty\else\ (\inserttheoremaddition)\fi
+  }%
+}
+\setbeamertemplate{theorem end}{\end{kfbtheoremblock}}
+
+% Short sources only. For multiple references, use an ordinary Sources block
+% or a references frame so text can wrap naturally.
+\NewDocumentCommand{\slidesource}{m}{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=south east,text=KFBMuted,text width=.48\paperwidth,
+      align=right,font=\kfb@sourcefont,execute at begin node=\raggedleft]
+      at ($(current page.south east)+(-0.54cm,0.50cm)$) {#1};
+  \end{tikzpicture}%
+}
+
+\NewDocumentCommand{\slidesourceondark}{m}{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=south east,text=white!68,text width=.48\paperwidth,
+      align=right,font=\kfb@sourcefont,execute at begin node=\raggedleft]
+      at ($(current page.south east)+(-0.54cm,0.50cm)$) {#1};
+  \end{tikzpicture}%
+}
+
+\makeatother
+\endinput

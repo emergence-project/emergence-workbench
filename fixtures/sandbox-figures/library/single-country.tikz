@@ -1,0 +1,6 @@
+% 나라 하나와 그 둘레
+\begin{tikzpicture}
+  \draw[thick] (0,0) circle (1);
+  \node at (0,0) {$B$};
+  \draw[thick, dashed] (0,0) circle (1.5);
+\end{tikzpicture}

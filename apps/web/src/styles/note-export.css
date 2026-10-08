@@ -1,0 +1,70 @@
+/* 노트 내보내기: 노트 골라 한 번에 내보내기 (10/4 사용자 요청) */
+.ex-path { font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.btn[download] { text-decoration: none; }
+.nk-actions a.a { text-decoration: none; }
+
+/* 내보낼 노트·저자: 차례는 표에서 ↑ ↓ ×, 더하기는 ＋ 칩 (10/4 17:06, 18:46) */
+.export-pick { display: flex; flex-direction: column; gap: var(--sp-4); }
+.ex-sec { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ex-h { margin: 0; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }
+.ex-note { font-size: var(--fs-xs); margin: 0; }
+.ex-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-md); }
+.ex-table th { text-align: left; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line-strong); }
+.ex-table td { padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ex-table tr:last-child td { border-bottom: 0; }
+.ex-n { width: 3em; color: var(--text-3); font-size: var(--fs-xs); }
+.ex-aff { font-size: var(--fs-xs); }
+.ex-tools { width: 1%; white-space: nowrap; }
+.ex-tools .icon-btn { display: inline-grid; }
+.ex-tools .icon-btn svg { stroke-width: 2.4; }
+.ex-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+.ex-chip { cursor: pointer; }
+.ex-chip:hover { background: var(--bg-hover); }
+.ex-pop-wrap { position: relative; display: inline-flex; }
+/* 컴파일 설정 · 내보내기 창: 가운데 (10/7 19:49). 머리 · 아래 버튼은 고정, 가운데 한 곳만 스크롤 (저자 후보 칸을 따로 스크롤하지 않는다) */
+.ex-overlay { align-items: center; padding-top: 0; }
+.ex-pop { width: min(680px, 92vw); max-height: 84vh; display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow); text-align: left; }
+.ex-pop-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--sp-3); }
+.ex-pop-foot { flex: none; }
+.ex-pop .ex-cands { max-height: none; overflow: visible; }
+/* 저자 표는 창 폭 안에: 소속은 한 줄 … (가리키면 전체) */
+.ex-pop .ex-table { table-layout: fixed; }
+.ex-pop .ex-table th:nth-child(2) { width: 34%; }
+.ex-pop .ex-aff { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-table th, .ex-n { white-space: nowrap; }
+.ex-table th:first-child { width: 3.5em; }
+.ex-kind { width: 5em; }
+
+/* 저자 더하기: 찾기 칸 + 기관별 후보 카드 (10/4 18:58 "더 심미적으로") */
+.ex-person { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.ex-add { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); overflow: hidden; }
+.ex-search { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); color: var(--text-3); }
+.ex-search:focus-within { color: var(--text); background: var(--bg-hover); }
+.ex-search svg { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.ex-search input { flex: 1; min-width: 0; border: 0; background: transparent; font-size: var(--fs-sm); outline: none; }
+.ex-count { font-size: var(--fs-xs); }
+.ex-cands { max-height: 260px; overflow: auto; padding: var(--sp-2) var(--sp-3) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
+.ex-empty { padding: var(--sp-2) 0; }
+.ex-cgroup { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ex-gname { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
+.ex-cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-1); }
+.ex-cand { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); text-align: left; cursor: pointer; min-width: 0; }
+.ex-cand:hover, .ex-cand.first { border-color: var(--line-strong); background: var(--bg-hover); }
+.ex-cname { display: flex; flex-direction: column; min-width: 0; flex: 1; font-size: var(--fs-sm); }
+.ex-cname b { font-weight: var(--fw-strong); }
+.ex-cname .muted { font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-cplus { flex: none; color: var(--text-3); display: grid; }
+.ex-cplus svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.ex-cand:hover .ex-cplus { color: var(--text); }
+
+/* 내보내기 설정: 서식·저자·날짜 (10/4 16:16, 18:14 반려 "옵션으로 선택") */
+.ex-title { font-size: var(--fs-sm); font-weight: var(--fw-strong); }
+.ex-opts { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-md); }
+.ex-label { font-size: var(--fs-xs); color: var(--text-3); }
+.ex-opts .segmented { justify-self: start; }
+.ex-select { justify-self: start; max-width: 100%; font-size: var(--fs-sm); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); }
+.ex-date-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.ex-date { font-size: var(--fs-sm); padding: 2px var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); }
+
+/* 컴파일 설정 단추: 지금 서식 이름 (10/4 20:56) */
+.cs-btn { max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

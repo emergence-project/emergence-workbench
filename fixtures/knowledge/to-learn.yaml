@@ -1,0 +1,24 @@
+# 공부할 것 — 연구 작업대의 "모름"이 쌓이는 곳. 앱이 쓰고, 사람·에이전트가 고쳐도 된다.
+items:
+  - id: l-20261003-2140
+    term: planar graph
+    at: 2026-10-03 21:40
+    concept: planar-graph
+  - id: l-20261004-1012
+    term: Discharging method
+    at: 2026-10-04 10:12
+    from:
+      project: 예제 연구
+      title: 자료 sample2007.pdf
+      page: 3
+      quote: the discharging rule sends charge to small faces
+    concept: discharging-method
+  - id: l-20261004-2215
+    term: Sample–Tester bound
+    at: 2026-10-04 22:15
+    note: 색 수 상한이 곡면의 종수에 어떻게 의존하는지
+    from:
+      project: 예제 연구
+      title: 자료 sample2007.pdf
+      page: 4
+      quote: the Sample–Tester bound limits the colors needed on a torus

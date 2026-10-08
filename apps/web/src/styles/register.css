@@ -1,0 +1,28 @@
+/* 프로젝트 등록 창 (RegisterDialog): GitHub에서 / 이 컴퓨터 폴더 */
+.reg-way { align-self: flex-start; }
+.reg-hint { margin: 0; font-size: var(--fs-sm); }
+.reg-hint code { font-size: var(--fs-xs); }
+.reg-search { display: flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 10px; background: var(--bg); }
+.reg-search:focus-within { outline: 2px solid color-mix(in srgb, var(--link) 35%, transparent); outline-offset: -1px; }
+.reg-search svg { width: 14px; height: 14px; stroke: var(--text-3); fill: none; stroke-width: 1.7; flex: none; }
+.reg-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: 6px 0; font-size: var(--fs-md); }
+.reg-search .muted { font-size: var(--fs-xs); white-space: nowrap; }
+
+.repo-list { border: 1px solid var(--line-strong); border-radius: var(--r-md); overflow: auto; max-height: 300px; background: var(--bg); }
+.repo-row { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--sp-3); width: 100%; text-align: left; padding: var(--sp-2) var(--sp-3); }
+.repo-row + .repo-row { border-top: 1px solid var(--line); }
+.repo-row:hover:not(:disabled) { background: var(--bg-hover); }
+.repo-row.on { background: var(--bg-hover); }
+.repo-row:disabled { cursor: default; }
+.repo-row:disabled .repo-main, .repo-row:disabled .repo-desc { opacity: .55; }
+.repo-main { display: flex; align-items: center; gap: 6px; min-width: 0; grid-column: 1; }
+.repo-name { font-size: var(--fs-md); font-weight: var(--fw-medium); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repo-row.on .repo-name { font-weight: var(--fw-strong); }
+.repo-owner { color: var(--text-3); font-weight: var(--fw-normal); }
+.repo-when { margin-left: auto; padding-left: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.repo-desc { grid-column: 1; font-size: var(--fs-sm); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repo-mark { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-size: var(--fs-2xs); color: var(--text-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); padding: 1px var(--sp-2); white-space: nowrap; }
+.reg-empty { margin: 0; padding: var(--sp-3); font-size: var(--fs-sm); }
+
+.reg-chosen { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-sm); flex-wrap: wrap; }
+.reg-path { color: var(--text); overflow-wrap: anywhere; }

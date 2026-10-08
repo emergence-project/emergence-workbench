@@ -1,0 +1,18 @@
+/* 설정 (SettingsPage) */
+/* ---------- 설정 ---------- */
+.set-rows { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-lg); }
+.set-page .app-info .props { background: transparent; border: 1px solid var(--line); border-radius: var(--r-lg); }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-3) var(--sp-4); }
+.set-row + .set-row { border-top: 1px solid var(--line); }
+.set-name { font-weight: var(--fw-strong); font-size: var(--fs-md); }
+.set-desc { color: var(--text-3); font-size: var(--fs-xs); margin-top: 2px; max-width: 380px; }
+.set-row .segmented { flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 2px; }
+.editor-sample { margin: var(--sp-3) 0 0; padding: var(--sp-3) var(--sp-4); background: var(--code-bg); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text);
+  font-family: var(--editor-font); font-size: var(--editor-size); line-height: var(--editor-lh); white-space: pre-wrap; }
+.editor-sample .k { color: var(--code-cmd); }
+.editor-sample .m { color: var(--code-math); }
+.editor-sample .c { color: var(--code-comment); font-style: italic; }
+
+/* 설정 › 계정의 GitHub·구글 소제목 (10/4 19:43) */
+.set-h3 { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); margin: var(--sp-4) 0 var(--sp-2); }

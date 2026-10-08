@@ -1,0 +1,6 @@
+/* 위쪽 경계를 끌어 높이를 바꾸는 칸의 손잡이 (dragHeight.ts, 10/4 피드백) */
+.row-resizer { height: 5px; margin: -3px 0 -2px; cursor: row-resize; position: relative; flex: none; }
+.row-resizer::after { content: ""; position: absolute; left: 0; right: 0; top: 2px; height: 1px; background: transparent; }
+.row-resizer:hover::after, body.resizing-rows .row-resizer::after { top: 1px; height: 3px; background: var(--line-strong); }
+body.resizing-rows { cursor: row-resize; user-select: none; }
+body.resizing-rows iframe, body.resizing-rows canvas { pointer-events: none; }

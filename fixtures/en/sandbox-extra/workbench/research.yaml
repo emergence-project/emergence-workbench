@@ -1,0 +1,27 @@
+title: Sample research — Re-deriving the five-color theorem
+question: Re-derive the argument that every planar graph can be colored with five colors.
+started: 2026-09-30
+# Picture in the center of the home project card (path relative to the repository)
+image: workbench/figures/project.svg
+sources:
+  manuscript: docs/note/main.tex — Five-color theorem
+# Topics (10/5): a note's topic goes in the note's own front matter under topics:. blocks: shows the older record shape
+topics:
+  - id: coloring
+    title: Five-color theorem
+    star: true
+    description: |-
+      Coloring planar graphs with five colors
+      - Induction and Kempe chains
+    preview:
+      text: Euler $V-E+F=2$
+      color: violet
+    parts: [docs/note/chapters/02-five-color.tex]
+  - id: kempe
+    title: Kempe chains
+    description: Color swaps and Kempe chains
+    parts: []
+    blocks: [degree-five]
+  - id: four-color
+    title: Getting down to four colors
+    parts: []

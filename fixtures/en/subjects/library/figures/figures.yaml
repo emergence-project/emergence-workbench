@@ -1,0 +1,4 @@
+three-countries.svg:
+  name: Three-country map
+  description: A map divided into A, B and C
+  subjects: [math/graph/coloring]

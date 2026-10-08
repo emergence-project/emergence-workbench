@@ -1,0 +1,128 @@
+/* 프로젝트 첫 화면 (OverviewPage) */
+/* 왼쪽 제목·설명·카드와 오른쪽 작업은 같은 높이에서 시작한다. */
+.page-body.landing { max-width: calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap) + var(--sp-5) + var(--landing-work-width) + 2 * var(--sp-6)); gap: var(--sp-5); container-type: inline-size; }
+.issues > summary { cursor: pointer; }
+/* 카드 네 장을 우선 확보하고 작업 칸부터 최소 폭까지 줄인다. 그보다 좁으면 카드 칸도 줄인다. */
+.landing-cols {
+  display: grid;
+  grid-template-columns:
+    minmax(min(calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap)), calc(100% - var(--landing-work-min-width) - var(--sp-5))), 1fr)
+    minmax(var(--landing-work-min-width), var(--landing-work-width));
+  gap: var(--sp-5);
+  align-items: start;
+}
+@container (max-width: 760px) { .landing-cols { grid-template-columns: minmax(0, 1fr); } .landing-cols .now { order: -1; } }
+.main-chapters, .main-empty { min-width: 0; }
+.chapters { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.chapter-wrap + .chapter-wrap .chapter, .chapter-wrap + .chapter.loose { border-top: 1px solid var(--line); }
+.chapter-sub { padding: var(--sp-1) var(--sp-3); background: var(--bg-sunken); border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
+.chapter { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: center; width: 100%; text-align: left; padding: 9px var(--sp-3); }
+.chapter:hover { background: var(--bg-hover); }
+.chapter .num { color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums; }
+.chapter .t { min-width: 0; }
+.chapter .open { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
+.chapter .open b { color: var(--text); font-variant-numeric: tabular-nums; }
+.chapter .open .bl { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.chapter .none { font-size: var(--fs-xs); color: var(--text-3); }
+.chapter.loose { color: var(--text-2); }
+.chapter .counts { display: inline-flex; gap: var(--sp-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.aux { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; padding: 3px var(--sp-3) 3px 44px; font-size: var(--fs-sm); color: var(--text-2); }
+.aux:last-child { padding-bottom: var(--sp-2); }
+.aux:hover { background: var(--bg-hover); color: var(--text); }
+.aux .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aux.blocked .t { color: var(--text); }
+.main-chapters .hint { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); }
+.main-empty { border: 1px dashed var(--line-strong); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start; }
+.main-empty h2 { font-size: var(--fs-lg); margin: 0; }
+.main-empty p { margin: 0; color: var(--text-2); max-width: 60ch; }
+.main-pick { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
+.main-pick-list { display: flex; flex-direction: column; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.main-pick-it { display: flex; align-items: baseline; gap: 6px; padding: 6px var(--sp-3); font-size: var(--fs-sm); cursor: pointer; min-width: 0; overflow-wrap: anywhere; }
+.main-pick-it + .main-pick-it { border-top: 1px solid var(--line); }
+.main-pick-it.on { background: var(--bg-hover); }
+.main-pick-name { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
+.main-pick-name input { flex: 1; max-width: 320px; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font: inherit; }
+.main-pick-act { display: flex; gap: var(--sp-2); }
+.now { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4) var(--sp-4); min-width: 0; scroll-margin-top: var(--sp-4); }
+.now h2 { font-size: var(--fs-lg); margin: 0; font-weight: var(--fw-title); }
+.now h3 { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); letter-spacing: .02em; margin: var(--sp-4) 0 var(--sp-1); }
+.now .empty { padding: 2px 0; margin: 0; }
+button.t:hover { text-decoration: underline; }
+/* 작업 패널: 할 일 · 멈춤 · 검토 대기 모두 같은 줄 (10/7 15:31·17:02). 제목 한 줄 + 설명 한 줄, 넘치면 … (전체는 툴팁) */
+.now h3 .count { font-weight: var(--fw-normal); margin-left: 2px; }
+.now-group:first-of-type h3 { margin-top: var(--sp-2); }
+.now-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.now-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: baseline; margin: 0 -8px; padding: 6px var(--sp-2); border-radius: var(--r-sm); cursor: pointer; }
+.now-row:hover { background: var(--bg-hover); }
+.now-row > .g { justify-self: center; }
+.now-text { display: flex; flex-direction: column; min-width: 0; }
+.now-title, .now-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now-title { font-weight: var(--fw-medium); }
+/* 할 일 제목은 MemoText(div · p)라 안쪽을 한 줄 글로 펴야 끝에 …가 붙는다 */
+.now-title .memo-text, .now-title .memo-text p { display: inline; }
+.now-sub { font-size: var(--fs-xs); color: var(--text-3); }
+.now-sub .a { font-size: inherit; color: inherit; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.now-end { display: flex; align-items: center; align-self: center; }
+.now-more { font-size: var(--fs-xs); margin-top: 2px; }
+.now-act { flex: none; color: var(--text-3); }
+
+/* 첫 화면 왼쪽: 제목 · 설명 · 성격과 분야 · 연구 내용 */
+.landing-desc p { margin: 0; color: var(--text-2); line-height: 1.6; max-width: 62ch; }
+.landing-desc p.muted { color: var(--text-3); }
+.main-notes { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.land-h { font-size: var(--fs-lg); margin: 0; font-weight: var(--fw-title); }
+.main-chapters .sec-head { display: flex; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-2); min-width: 0; }
+.main-chapters .sec-head h3 { font-size: var(--fs-md); margin: 0; font-weight: var(--fw-strong); }
+.main-chapters .sec-head .count { font-size: var(--fs-xs); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main-notes .hint { margin: 0; font-size: var(--fs-xs); }
+.now .sec-head { display: flex; align-items: baseline; gap: var(--sp-3); }
+.now .sec-head h2 .count { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-normal); }
+.now .sec-head h2 .a { font: inherit; color: inherit; }
+.now-note { margin: 2px 0 var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
+.checklist { list-style: none; margin: 0 0 var(--sp-3); padding: 0; display: flex; flex-direction: column; }
+.check-it { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-2); align-items: baseline; padding: 6px 0; }
+.check-it + .check-it { border-top: 1px solid var(--line); }
+.check-it .mi-icon { position: relative; top: 2px; }
+.check-it .t { min-width: 0; overflow-wrap: anywhere; }
+.check-it .t .a { margin-left: 6px; font-size: var(--fs-xs); }
+.now-row .due, .check-it .due { font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.now-row .due.late, .check-it .due.late { color: var(--s-blocked); font-weight: var(--fw-strong); }
+/* 첫 화면만 보일 때(열린 탭이 없을 때)는 빈 탭 줄을 숨긴다 */
+
+/* 제목·설명을 누르면 프로젝트 정보로 (10/3) */
+.landing .to-info { cursor: pointer; }
+.landing .to-info:hover { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px; }
+.now-mark { flex: none; width: 14px; text-align: center; color: var(--text-3); font-weight: var(--fw-title); }
+
+/* ---------- 첫 화면 연구 내용: 메인 노트 하나 = 카드 하나 (2026-10-03 피드백) ---------- */
+.note-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-3); }
+.note-card { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 120px; padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); text-align: left; }
+.note-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.note-card .nc-title { font-size: var(--fs-md); font-weight: var(--fw-strong); line-height: 1.35; }
+.note-card .nc-path { font-size: var(--fs-xs); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-card .nc-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-2); }
+.note-card .counts { display: inline-flex; gap: var(--sp-2); font-variant-numeric: tabular-nums; }
+.note-card .none { color: var(--text-3); }
+
+/* ---------- 첫 화면 왼쪽: 주제 섹션 · 노트 섹션 (10/5 시안 "프로젝트 첫 화면", OverviewPage ProjectCards) ---------- */
+.ov-sec { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.ov-sec + .ov-sec { margin-top: var(--sp-4); }
+.ov-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); min-width: 0; }
+.ov-head .land-h { margin: 0; }
+.ov-head .sp { flex: 1; }
+.ov-head .segmented button { white-space: nowrap; }
+.ov-sort { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.ov-star-note { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.ov-loose { font-size: var(--fs-xs); color: var(--text-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); padding: 1px 10px; white-space: nowrap; }
+.ov-loose:hover { color: var(--text); background: var(--bg-hover); }
+.ov-empty { margin: 0; font-size: var(--fs-xs); color: var(--text-3); }
+.ov-sec .note-trash { margin-top: var(--sp-2); }
+
+/* 머리의 성격 · 분야 (10/5 시안 "프로젝트 성격 · 분야"): 성격은 글자로, 분야는 성격 다음 줄. 연필로 고친다 */
+.landing-title { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.landing-title .h-title { min-width: 0; margin: 0; }
+.ov-actions { display: flex; align-items: center; gap: var(--sp-1); margin-left: auto; flex: none; }
+.ov-profile { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); margin: 0; font-size: var(--fs-sm); align-items: center; }
+.ov-profile dt { color: var(--text-3); }
+.ov-profile dd { margin: 0; display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; min-width: 0; }
+.ov-state { display: inline-flex; align-items: center; gap: 3px; margin-left: var(--sp-2); color: var(--text-2); }

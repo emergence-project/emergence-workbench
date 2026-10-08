@@ -1,0 +1,25 @@
+/* 주제 화면 (10/5 시안 "주제 화면", Topics.tsx TopicPage): 머리(이름 · ★, 오른쪽 연필 · 휴지통, 아래 설명), 개수와 정렬 줄, 노트 카드 격자, 해결·폐기 접는 칸 */
+.page-body.topic-screen { max-width: calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap) + 2 * var(--sp-6)); display: flex; flex-direction: column; gap: var(--sp-4); }
+.ts-head { display: flex; flex-direction: column; gap: var(--sp-2); max-width: 760px; }
+.ts-title { display: flex; align-items: flex-start; gap: var(--sp-1); min-width: 0; }
+.ts-title .h-title { margin: 0 var(--sp-1) 0 0; min-width: 0; overflow-wrap: anywhere; line-height: var(--input-h); }
+.ts-title .icon-btn { height: var(--input-h); }
+.ts-actions { display: flex; align-items: center; gap: var(--sp-1); flex: none; margin-left: auto; }
+.ts-star { flex: none; font-size: var(--fs-lg); color: var(--text-3); line-height: 1; }
+.ts-star.starred { color: var(--text-2); }
+.ts-desc { font-size: var(--fs-md); color: var(--text-2); line-height: 1.6; }
+.ts-desc p { margin: 0; }
+.ts-desc ul { margin: 2px 0 0; padding-left: 1.3em; }
+.ts-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-3); }
+.ts-bar .sp { flex: 1; }
+.ts-sum, .ts-sort { display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; }
+.ts-sort-l { font-size: var(--fs-xs); }
+.ts-fold { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ts-fold-h { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--text-2); }
+.ts-fold-h:hover { color: var(--text); }
+.ts-chev { display: inline-block; transition: transform .12s; }
+.ts-chev.open { transform: rotate(90deg); }
+.ts-parts { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-sm); }
+.ts-parts > .a { align-self: flex-start; }
+.ts-bar .segmented button { white-space: nowrap; }
+.ts-sum, .ts-sort-l { white-space: nowrap; }

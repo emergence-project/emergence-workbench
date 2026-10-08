@@ -1,0 +1,5 @@
+wheel.svg:
+  name: Wheel partition
+  description: 원판을 여덟 조각으로 나눈 것. 바퀴 그래프의 면별 계산에 쓴다.
+ring-map.svg:
+  name: 고리 지도 (ring map)

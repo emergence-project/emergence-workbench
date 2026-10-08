@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- 맥 Dock 아이콘 크기에 맞춘 둥근 사각형(여백 100). 그림은 scripts/app-icon.svg와 같다 -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#111111"/>
+  <g transform="translate(512 512) scale(0.8046875) translate(-512 -512)">
+  <path d="M352 332 V692" stroke="#ffffff" stroke-width="44" fill="none" stroke-linecap="round"/>
+  <path d="M352 404 C352 508, 486 512, 660 512" stroke="#ffffff" stroke-width="44" fill="none" stroke-linecap="round"/>
+  <circle cx="352" cy="312" r="68" fill="#ffffff"/>
+  <circle cx="352" cy="712" r="68" fill="#ffffff"/>
+  <circle cx="712" cy="512" r="68" fill="#e0a340"/>
+  </g>
+</svg>

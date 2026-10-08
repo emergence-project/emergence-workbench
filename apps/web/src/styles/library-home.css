@@ -1,0 +1,22 @@
+/* 논문 · 그림 첫 화면 (라이브러리 L2, LibraryHome.tsx). 틀은 지식 첫 화면(.kh-*, knowledge-home.css)과 같다 */
+/* 최근 더한 것: 작은 카드 한 줄(더하기 카드가 맨 앞). 목록 카드에는 적용하지 않는다 */
+.lh-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--lib-card-min), 1fr)); gap: var(--sp-3); align-items: stretch; }
+/* 카드 안의 긴 한 줄(프로젝트 이름)이 칸을 넓히지 않게 */
+.lh-cards > * { min-width: 0; }
+.lh-h-link { color: inherit; font: inherit; }
+.lh-card { width: 100%; min-height: var(--lib-card-min-h); gap: 0; padding: 0; border-radius: var(--r-md); background: var(--card-bg); overflow: hidden; }
+.lh-card .pl-cover, .lh-card .fg-pv { flex: none; width: 100%; height: var(--lib-cover-h); box-sizing: border-box; aspect-ratio: auto; margin: 0; border: 0; border-radius: 0; }
+.lh-card .pl-cover-text { display: flex; align-items: center; justify-content: center; text-align: center; font-size: var(--fs-sm); font-weight: var(--fw-normal); }
+.lh-card-text { display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; padding: var(--sp-2) 10px; }
+.lh-card-title, .lh-card-meta { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lh-card-title { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); }
+.lh-card-meta { min-height: 1lh; font-size: var(--fs-xs); color: var(--text-3); }
+.lh-add.card { width: 100%; min-height: var(--lib-card-min-h); border-radius: var(--r-md); gap: var(--sp-1); }
+.lh-add .muted { font-size: var(--fs-xs); }
+
+/* 라이브러리 목록의 머리줄 세 구역: 왼쪽 무엇 · 가운데 보기(가운데 고정) · 오른쪽 정렬 · 열 고르기 (디자인 시스템 6절) */
+.pane-head.lib-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; }
+.lib-head-left { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-head-mid { justify-self: center; }
+.lib-head-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); min-width: 0; }
+.lib-head-right .segmented { flex: none; }

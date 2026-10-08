@@ -1,0 +1,147 @@
+/* 디자인 토큰. 쓰는 법은 docs/design-system.md, 화면의 정본은 main의 pnpm shots 그림이다 (v0.html 목업은 첫 기록일 뿐).
+   여기 밖의 스타일 파일에 색·글자 크기·굵기·모서리 값을 직접 쓰면 pnpm test(scripts/ci/check-design.mjs)가 실패한다. */
+:root {
+  --bg: #ffffff;
+  --bg-side: #f9f9f8;
+  --bg-sunken: #f4f4f3;
+  --bg-hover: #efefee;
+  --line: #ebebea;
+  --line-strong: #dcdcda;
+  --text: #0d0d0d;
+  --text-2: #5c5c59;
+  --text-3: #8e8e8a;
+  --primary: #0d0d0d;
+  --on-primary: #ffffff;
+  --link: #5c5c59; /* 입력칸 초점 테두리에만. 무채색: 파랑은 상태(진행)에만 */
+  --focus: #fff4c2;
+  --focus-line: #e9c84a;
+  --danger: #d14343;
+  --danger-bg: #fdecec;
+  /* 상태 색 넷 (10/4): 색을 잘 못 가리는 눈에도 서로 갈리게 골랐다. 폐기는 고리 모양이 함께 구별한다 */
+  --s-progress: #1d5fd6;
+  --s-blocked: #b45309;
+  --s-stopped: #4b5563;
+  --s-solved: #0d9488;
+  --code-bg: #fbfbfa;
+  --code-cmd: #7c3aed;
+  --code-math: #0e7490;
+  --code-comment: #8e8e8a;
+  --paper: #ffffff;
+  --record-menu-ink: #0d0d0d; /* 검은 고른 글 메뉴와 흰 하이라이트 메뉴는 두 테마에서 같은 대비 */
+  --banner-bg: #ffe08a; --banner-stripe: #ffd55c; --banner-text: #3d2c00;
+  --mark-bg: #fff1a8;
+  --on-color: #ffffff;
+  --scrim: rgba(0,0,0,.28);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.08);
+  --hl-bg: rgba(255,213,64,.3);
+  --paint-yellow: rgba(255,208,40,.38); --paint-green: rgba(110,200,100,.34); --paint-blue: rgba(90,145,240,.3); --paint-pink: rgba(240,110,165,.3);
+  --select-bg: rgba(37,99,235,.28);
+  --proj-1: #7c3aed; --proj-2: #0e7490; --proj-3: #c2410c; --proj-4: #15803d; --proj-5: #be185d;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 20px rgba(0,0,0,.06);
+  /* 카드 (10/5 주제·노트 카드): 카드 바탕, 주제 카드 미리보기 바탕색 다섯(정해 둔 색만, 고치기 창에서 고름), 기본 = 프로젝트 색을 이만큼 섞은 옅은 색 */
+  --card-bg: #fcfcfb;
+  --tc-violet: #ede7fb; --tc-blue: #e3eefb; --tc-teal: #e0f2ef; --tc-orange: #fbefe0; --tc-gray: #efefee;
+  --tc-mix: 14%;
+  /* 주제·노트 카드와 프로젝트 첫 화면: 카드 크기는 촘촘함과 무관하게 고정 */
+  --kc-card-width: 184px;
+  --kc-card-gap: 14px;
+  --landing-work-min-width: 260px;
+  --landing-work-width: 300px;
+  /* 프로젝트 고치기 창: 홈 카드와 입력 칸을 나란히 놓을 폭 */
+  --project-dialog-width: 760px;
+  --project-preview-width: 280px;
+  /* 공통 카드 그림 선택기: 창, 격자, 작은 선택값 미리보기 */
+  --subject-menu-width: 320px;
+  --card-picker-width: 520px;
+  --card-picker-column: 136px;
+  --card-picker-preview-height: 96px;
+  --card-picker-thumb-width: 36px;
+  --card-picker-border: 1px;
+  --z-card-picker: 51;
+  /* 논문 표: 제목은 최소 폭이며 남는 폭을 채운다. 크기는 라이트·다크가 함께 쓴다. */
+  --pl-col-title: 200px; --pl-col-authors: 170px; --pl-col-year: 64px;
+  --pl-col-venue: 190px; --pl-col-arxiv: 100px; --pl-col-projects: 150px;
+  --pl-col-pdf: 80px; --pl-col-comments: 100px; --pl-col-opened: 100px;
+  --pl-col-kind: 64px; --pl-col-key: 150px;
+  --pl-card-width: 184px;
+  /* 라이브러리 첫 화면: 본문 폭과 작은 카드 (라이트·다크 공용) */
+  --lib-page-width: 1080px;
+  --lib-card-min: 180px;
+  --lib-cover-h: 112px;
+  --lib-card-min-h: 160px;
+  /* 지식 표: 기본 열 합계 760px. 좁으면 프로젝트, 링크 순으로 숨긴다. */
+  --kl-col-subject: 144px; --kl-col-projects: 128px; --kl-col-num: 56px;
+  --kl-col-issues: 112px; --kl-col-date: 64px; --kl-col-aliases: 160px;
+  --kl-col-checked: 120px;
+
+  /* 글자 크기·여백은 설정 화면의 배율(--ui-scale, --density)을 곱한다. 기준값은 목업 그대로 */
+  --ui-scale: 1; --density: 1;
+  --input-h: calc(28px * var(--ui-scale)); --input-h-lg: calc(34px * var(--ui-scale));
+  --fs-2xs: calc(10.5px * var(--ui-scale)); --fs-xs: calc(11.5px * var(--ui-scale)); --fs-sm: calc(12.5px * var(--ui-scale)); --fs-md: calc(13.5px * var(--ui-scale));
+  --fs-lg: calc(16px * var(--ui-scale)); --fs-xl: calc(21px * var(--ui-scale));
+  /* 글자 굵기는 네 단계: 본문 · 이름 · 강조(선택·칩·버튼) · 제목 */
+  --fw-normal: 400; --fw-medium: 500; --fw-strong: 600; --fw-title: 650;
+  --sp-1: calc(4px * var(--density)); --sp-2: calc(8px * var(--density)); --sp-3: calc(12px * var(--density));
+  --sp-4: calc(16px * var(--density)); --sp-5: calc(24px * var(--density)); --sp-6: calc(32px * var(--density));
+  --editor-font: Menlo, monospace; --editor-size: 12.5px; --editor-lh: 1.8;
+  --r-xs: 4px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-pill: 999px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* 밝은 다크 (10/5 시안 확정): 바탕 #2b2b2a · 카드 #363634 · 그림 칸 #4a4a47, 글자는 예전 다크보다 한 단계 밝게 */
+    --bg: #2b2b2a; --bg-side: #302f2e; --bg-sunken: #3b3b38; --bg-hover: #3f3f3c;
+    --line: #42423f; --line-strong: #555552;
+    --text: #f0f0ee; --text-2: #b4b4af; --text-3: #9a9a95;
+    --primary: #f0f0ee; --on-primary: #1c1c1b; --link: #b4b4af;
+    --focus: #4a4322; --focus-line: #a8923a;
+    --danger: #f28b8b; --danger-bg: #4a2b2a;
+    --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
+    --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: #9a9a95;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+    --banner-bg: #5a4810; --banner-stripe: #665218; --banner-text: #ffe8a8;
+    --mark-bg: #685a1c;
+    --record-menu-ink: #0d0d0d;
+    --scrim: rgba(0,0,0,.45);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --hl-bg: rgba(255,213,64,.25);
+    --paint-yellow: rgba(255,208,40,.32); --paint-green: rgba(110,200,100,.3); --paint-blue: rgba(110,160,250,.32); --paint-pink: rgba(245,120,175,.3);
+    --proj-1: #a78bfa; --proj-2: #22a5c4; --proj-3: #f97316; --proj-4: #4ade80; --proj-5: #f472b6;
+    --card-bg: #363634;
+    --tc-violet: #463f5c; --tc-blue: #35465a; --tc-teal: #324a46; --tc-orange: #54432f; --tc-gray: #4a4a47;
+    --tc-mix: 24%;
+  }
+}
+:root[data-theme="dark"] {
+    /* 밝은 다크 (10/5 시안 확정): 바탕 #2b2b2a · 카드 #363634 · 그림 칸 #4a4a47, 글자는 예전 다크보다 한 단계 밝게 */
+    --bg: #2b2b2a; --bg-side: #302f2e; --bg-sunken: #3b3b38; --bg-hover: #3f3f3c;
+    --line: #42423f; --line-strong: #555552;
+    --text: #f0f0ee; --text-2: #b4b4af; --text-3: #9a9a95;
+    --primary: #f0f0ee; --on-primary: #1c1c1b; --link: #b4b4af;
+    --focus: #4a4322; --focus-line: #a8923a;
+    --danger: #f28b8b; --danger-bg: #4a2b2a;
+    --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
+    --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: #9a9a95;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+    --banner-bg: #5a4810; --banner-stripe: #665218; --banner-text: #ffe8a8;
+    --mark-bg: #685a1c;
+    --record-menu-ink: #0d0d0d;
+    --scrim: rgba(0,0,0,.45);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --hl-bg: rgba(255,213,64,.25);
+    --paint-yellow: rgba(255,208,40,.32); --paint-green: rgba(110,200,100,.3); --paint-blue: rgba(110,160,250,.32); --paint-pink: rgba(245,120,175,.3);
+    --proj-1: #a78bfa; --proj-2: #22a5c4; --proj-3: #f97316; --proj-4: #4ade80; --proj-5: #f472b6;
+    --card-bg: #363634;
+    --tc-violet: #463f5c; --tc-blue: #35465a; --tc-teal: #324a46; --tc-orange: #54432f; --tc-gray: #4a4a47;
+    --tc-mix: 24%;
+  }
+
+/* 강조 색 (설정 화면). 기본은 흑백이고, 고르면 주 버튼·선택 표시의 색만 바뀐다.
+   상태 색(파랑 진행, 주황 멈춤, 청록 해결, 회색 고리 폐기)과 헷갈리지 않는 색만 둔다. */
+:root[data-accent="indigo"] { --primary: #4338ca; --on-primary: #ffffff; }
+:root[data-accent="plum"] { --primary: #86198f; --on-primary: #ffffff; }
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="indigo"]:not([data-theme="light"]) { --primary: #a5b4fc; --on-primary: #111111; }
+  :root[data-accent="plum"]:not([data-theme="light"]) { --primary: #e9a8f0; --on-primary: #111111; }
+}
+:root[data-theme="dark"][data-accent="indigo"] { --primary: #a5b4fc; --on-primary: #111111; }
+:root[data-theme="dark"][data-accent="plum"] { --primary: #e9a8f0; --on-primary: #111111; }

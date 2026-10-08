@@ -1,0 +1,12 @@
+math:
+  name: Mathematics
+math/graph:
+  name: Graph Theory
+math/graph/coloring:
+  name: Coloring
+math/combinatorics:
+  name: Combinatorics
+cs:
+  name: Computer Science
+cs/ml:
+  name: Machine Learning

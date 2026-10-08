@@ -1,0 +1,14 @@
+/* 라이브러리 관리: 같은 폭의 제목 · 설명 · 입력 줄, 빈 상태는 상자 없는 한 줄. */
+.library-settings { display: flex; flex-direction: column; gap: var(--sp-6); }
+.library-settings section { min-width: 0; scroll-margin-top: var(--sp-4); }
+.library-settings .set-desc { max-width: none; margin: var(--sp-2) 0; overflow-wrap: anywhere; }
+.library-path-row { min-width: 0; color: var(--text-2); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: text; }
+.library-cloud-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); padding: var(--sp-2) 0; }
+.library-cloud-row .set-desc { margin: 0; flex: 1; }
+.library-cloud-row .set-name, .library-cloud-row .btn { flex: none; white-space: nowrap; }
+.library-cloud-row .btn { height: var(--input-h); color: var(--text-3); }
+.library-settings .pl-folder { flex-wrap: wrap; gap: var(--sp-2); }
+.library-settings .pl-folder .mono { flex: 1; }
+/* 좁은 라이브러리 정보 칸에서도 연결하기가 말줄임에 가려지지 않는다. */
+.kh-store-sub:has(> .a) { white-space: normal; }
+.kh-store-sub > .a { white-space: nowrap; }

@@ -1,0 +1,26 @@
+/* 구글 계정: 설정의 연결 묶음(GoogleSettings), 한 일 달력의 구글 일정(WeekCalendar) */
+.g-set .btn.disabled { opacity: .5; pointer-events: none; }
+.g-set a.btn { text-decoration: none; }
+.g-actions { display: flex; gap: var(--sp-2); flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.g-client { align-items: stretch; }
+.g-fields { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
+.g-fields .input { width: 100%; }
+.g-fields .g-actions { justify-content: flex-start; }
+.g-missing { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.g-mrow { display: flex; align-items: center; gap: var(--sp-3); }
+.g-mt { font-weight: var(--fw-strong); }
+.g-mr { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); }
+.g-msg { margin-top: var(--sp-2); color: var(--text-2); font-size: var(--fs-sm); }
+.g-err { color: var(--danger); font-size: var(--fs-sm); }
+p.g-err { margin-top: var(--sp-2); }
+.g-help { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); }
+.g-help summary { cursor: pointer; font-weight: var(--fw-strong); color: var(--text); }
+.g-help ol { margin: var(--sp-2) 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: var(--sp-1); }
+
+/* 한 일 달력의 구글 일정: 무채색 (색은 상태에만 쓴다) */
+.week-gcal { display: flex; flex-direction: column; gap: 1px; padding: 2px 0 2px 7px; border-left: 3px solid var(--line-strong); text-decoration: none; color: inherit; min-width: 0; border-radius: 2px; }
+.week-gcal:hover { background: var(--bg-hover); }
+.week-gcal .week-ev { color: var(--text-2); }
+.week-gcal .week-ev b { font-weight: var(--fw-medium); color: var(--text-3); margin-right: var(--sp-1); font-variant-numeric: tabular-nums; }
+.week-gnote { font-size: var(--fs-xs); color: var(--text-3); }
+.week-gnote a { color: inherit; }

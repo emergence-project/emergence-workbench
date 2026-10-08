@@ -1,0 +1,28 @@
+/* 에이전트 고침 검토 (AgentEditsPage, 10/8 첫 판): 문단마다 전 · 후 두 칸과 승인 · 되돌리기 · 고치기 */
+.ae-page { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-5); }
+.ae-sec { display: flex; flex-direction: column; gap: var(--sp-2); max-width: 1100px; }
+.ae-h { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-strong); margin: 0; }
+.ae-hint { font-size: var(--fs-sm); margin: 0; }
+.ae-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ae-row { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); min-width: 0; }
+.ae-dot { flex: none; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--s-blocked); }
+.ae-title { font-weight: var(--fw-medium); white-space: nowrap; }
+.ae-where, .ae-when { color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; }
+.ae-sum { flex: 1; min-width: 0; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ae-row .ae-when { margin-left: auto; }
+.ae-tabs { flex-wrap: wrap; align-self: flex-start; }
+.ae-review { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-2); }
+.ae-review-head { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.ae-review-title { font-size: var(--fs-lg); font-weight: var(--fw-title); }
+.ae-notes { margin: 0; padding-left: var(--sp-4); color: var(--text-2); font-size: var(--fs-sm); }
+.ae-hunk { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card-bg); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.ae-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
+.ae-col { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.ae-label { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); }
+.ae-text { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; padding: var(--sp-2); border-radius: var(--r-sm); border-left: 2px solid var(--line-strong); }
+.ae-text.base { background: var(--bg-sunken); color: var(--text-2); border-left-color: var(--line); }
+.ae-none { margin: 0; color: var(--text-3); font-size: var(--fs-sm); padding: var(--sp-2); }
+.ae-edit { width: 100%; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; resize: vertical; }
+.ae-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+.ae-actions .btn svg { width: 14px; height: 14px; margin-right: var(--sp-1); vertical-align: -2px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 760px) { .ae-cols { grid-template-columns: minmax(0, 1fr); } }

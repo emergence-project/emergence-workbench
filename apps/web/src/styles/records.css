@@ -1,0 +1,15 @@
+.record-menu-host { position: absolute; display: block; width: var(--sp-1); height: var(--sp-1); pointer-events: none; }
+.record-menu { position: fixed; z-index: 40; display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1); max-width: calc(100vw - 2 * var(--sp-1)); box-sizing: border-box; overflow-x: auto; color: var(--paper); background: var(--record-menu-ink); border: 1px solid var(--record-menu-ink); border-radius: var(--r-sm); box-shadow: var(--shadow); }
+.record-menu-highlight { color: var(--record-menu-ink); background: var(--paper); border-color: var(--line-strong); }
+.record-menu button:not(.record-swatch) { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); height: var(--input-h); padding: 0 var(--sp-2); color: inherit; border: 0; background: transparent; border-radius: var(--r-xs); font-size: var(--fs-sm); flex: none; white-space: nowrap; }
+.record-menu button:not(.record-swatch):hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.record-menu button:not(.record-swatch):disabled { opacity: .5; cursor: default; }
+.record-menu button:not(.record-swatch):focus-visible, .record-swatch:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.record-menu > .record-colors + button { margin-left: var(--sp-1); }
+.record-menu .record-separator, .record-menu .record-menu-sep { align-self: stretch; width: 1px; background: color-mix(in srgb, currentColor 30%, transparent); }
+.record-colors { display: flex; flex: none; align-items: center; gap: var(--sp-2); padding: var(--sp-1); }
+.record-colors .record-swatch { display: block; width: var(--fs-lg); height: var(--fs-lg); flex: none; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; color: inherit; }
+.record-colors .record-swatch[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+.record-colors .record-swatch:disabled { cursor: default; opacity: .5; }
+.record-highlight { color: inherit; padding: 0; cursor: pointer; }
+.md-note-editing > .note-ask { display: flex; flex: 1; min-height: 0; flex-direction: column; }

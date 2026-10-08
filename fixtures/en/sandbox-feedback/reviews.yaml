@@ -1,0 +1,23 @@
+# Approvals and send-backs in sample mode. Unrelated to the real feedback/reviews.yaml
+2026-10-04 09:30 홈 › 할 일:
+  verdict: 반려
+  at: 2026-10-04T10:40
+  note: The dates are too faint to read.
+  history:
+    - verdict: 반려
+      at: 2026-10-04T10:00
+      note: I meant enlarge only the titles and leave the dates as they are.
+2026-10-04 10:15 사이드바 › 목차:
+  verdict: 반려
+  at: 2026-10-04T11:00
+  note: I can't see where to drag.
+2026-10-04 11:40 작업 화면 › 머리줄 › 컴파일:
+  verdict: 승인
+  at: 2026-10-04T12:30
+  history:
+    - verdict: 반려
+      at: 2026-10-04T12:10
+      note: Tell me where errors show up, too.
+  comments:
+    - at: 2026-10-04T12:40
+      note: Can I widen the PDF column?

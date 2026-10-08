@@ -1,0 +1,148 @@
+/* 피드백 모드와 피드백 모아 보기 (FeedbackMode, FeedbackPage) */
+/* ---------- 피드백 모드: 화면 부위를 눌러 코멘트 남기기 ---------- */
+body.feedback-on, body.feedback-on * { cursor: help !important; }
+body.feedback-on [data-feedback-ui], body.feedback-on [data-feedback-ui] * { cursor: auto !important; }
+body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] button * { cursor: pointer !important; }
+.fb-box { position: fixed; z-index: 70; pointer-events: none; border: 2px solid var(--focus-line); border-radius: var(--r-sm); background: color-mix(in srgb, var(--focus) 35%, transparent); transition: all .06s; }
+.fb-label { position: fixed; z-index: 71; pointer-events: none; max-width: min(560px, calc(100vw - 8px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-strong); padding: 3px var(--sp-2); border-radius: var(--r-sm); box-shadow: var(--shadow); }
+.fb-bar { position: fixed; z-index: 72; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: var(--sp-3); max-width: calc(100vw - 32px); background: var(--bg); color: var(--text-2); border: 1px solid var(--focus-line); border-radius: var(--r-md); box-shadow: var(--shadow); padding: 7px var(--sp-2) 7px 14px; font-size: var(--fs-sm); }
+.fb-bar b { color: var(--text); white-space: nowrap; }
+.fb-bar > span:not(.sp) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-link { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; }
+.fb-link:hover { text-decoration: underline; }
+.fb-link:disabled { opacity: .5; text-decoration: none; cursor: default; }
+.fb-btn { font-size: var(--fs-sm); white-space: nowrap; background: var(--primary); color: var(--on-primary); border-radius: var(--r-sm); padding: var(--sp-1) 10px; }
+.fb-btn kbd { font: inherit; font-size: var(--fs-2xs); opacity: .7; margin-left: var(--sp-1); }
+.fb-pop { position: fixed; z-index: 73; width: 360px; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: var(--sp-2); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3); }
+.fb-target { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text); }
+.fb-snippet { font-size: var(--fs-xs); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-pop textarea { min-height: 84px; resize: vertical; font: inherit; font-size: var(--fs-md); color: var(--text); background: var(--bg-sunken); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2) 10px; }
+.fb-pop textarea:focus { outline: none; border-color: var(--line-strong); background: var(--bg); }
+.fb-pop { overflow: auto; }
+.fb-pop > * { flex-shrink: 0; }
+.fb-preview { min-height: 0; max-height: calc(var(--sp-6) * 3); overflow: auto; font-size: var(--fs-sm); color: var(--text-2); }
+.fb-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+/* GitHub에 보내기는 저장·취소와 떨어진 왼쪽에 (공개로 나가는 행동이라 저장과 헷갈리지 않게) */
+.fb-actions .fb-send { margin-right: auto; }
+.fb-list { position: fixed; z-index: 72; right: 16px; bottom: 70px; width: 380px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); }
+.fb-list-head { display: flex; align-items: center; margin-bottom: var(--sp-2);; justify-content: space-between; }
+.fb-entry { padding: var(--sp-2) 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
+.fb-entry-head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); }
+body.feedback-on .toast { bottom: 76px; }
+
+/* 피드백 모아 보기 */
+.fbp-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); height: auto; min-height: calc(var(--input-h) + var(--sp-4)); padding-block: var(--sp-2); white-space: nowrap; }
+.fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; }
+.fbp-toolbar .segmented button { flex: none; white-space: nowrap; }
+.fbp-tools { display: flex; justify-self: end; justify-content: flex-end; align-items: center; gap: var(--sp-2); min-width: 0; }
+.fbp-filters { justify-self: start; justify-content: flex-start; flex-wrap: nowrap; }
+@media (max-width: 900px) {
+  .fbp-toolbar { display: flex; flex-wrap: wrap; }
+  .fbp-toolbar .segmented { flex-wrap: wrap; }
+  .fbp-tools { margin-left: auto; }
+}
+.fbp-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.fbp-entry { padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); }
+.fbp-entry:first-child { border-top: 0; }
+.fbp-head { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.fbp-target { color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbp-target[data-tip] { position: relative; overflow: visible; text-align: left; }
+.fbp-target-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbp-target[data-tip]:hover::after, .fbp-target[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + var(--sp-1)); left: 0; z-index: 1; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-normal); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
+.fbp-state { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 1px var(--sp-2); background: var(--bg-sunken); color: var(--text-2); }
+.fbp-text { color: var(--text); overflow-wrap: anywhere; }
+.fbp-status { display: flex; align-items: baseline; gap: var(--sp-2); padding: 6px 10px; border-radius: var(--r-md); background: var(--bg-sunken); color: var(--text-2); }
+.fbp-status .memo-text { flex: 1; min-width: 0; }
+.fbp-meta { font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbp-merged-count { flex: none; font-size: var(--fs-xs); }
+.fbp-merged { font-size: var(--fs-sm); color: var(--text-2); }
+.fbp-merged > summary { cursor: pointer; font-size: var(--fs-xs); color: var(--text-3); }
+.fbp-merged-one { display: flex; flex-direction: column; gap: 2px; padding: 6px 0 0 var(--sp-3); border-left: 2px solid var(--line); margin-top: 6px; }
+.fbp-merged-one > .muted { font-size: var(--fs-xs); }
+/* 시각 보기의 표 (10/4 피드백) */
+.fbp-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
+.fbp-table th { text-align: left; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line-strong); }
+.fbp-table th:nth-child(1) { width: calc(var(--fs-xs) * 10 + var(--sp-4)); } .fbp-table th:nth-child(2) { width: calc(var(--fs-xs) * 7 + var(--sp-5)); } .fbp-table th:nth-child(4) { width: 96px; }
+.fbp-table th:nth-child(5) { width: 120px; } .fbp-table th:nth-child(6), .fbp-table th:nth-child(7) { width: 80px; white-space: nowrap; }
+.fbp-table td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: baseline; }
+.fbp-row { cursor: pointer; }
+.fbp-row:hover, .fbp-row.on { background: var(--bg-hover); }
+.fbp-when { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+/* 줄을 펼치는 단추 (키보드·에이전트용). 모양은 글자 그대로, 누르면 줄의 onClick이 받는다 */
+.fbp-open { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: inherit; }
+.fbp-cell, .fbp-cell-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbp-cell { font-size: var(--fs-xs); color: var(--text-2); }
+.fbp-cell-text { color: var(--text); }
+.fbp-cell-state, .fbp-row .fbp-state { white-space: nowrap; }
+/* Longer English labels ("Applied · Request changes") stay inside their column */
+.fbp-cell-state { overflow: hidden; text-overflow: ellipsis; }
+.fbp-row-open > td { padding: 0; background: var(--bg-sunken); }
+.fbp-row-open .fbp-entry { border-top: 0; }
+/* 승인·반려 (10/4 피드백) */
+.fbp-verdict { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-sm); }
+.fbp-verdict .btn { padding: 2px var(--sp-2); font-size: var(--fs-xs); }
+.fbp-verdict-done { font-weight: var(--fw-strong); }
+.fbp-verdict-done.back { color: var(--text-2); }
+.fbp-verdict-mark { font-size: var(--fs-xs); }
+
+/* 피드백 글 고치기·지우기: 항목 오른쪽 위 아이콘 (10/4 15:54) */
+.fbp-entry { position: relative; }
+.fbp-entry .fbp-head { padding-right: calc(var(--sp-6) * 2); }
+.fbp-edit.fbp-edit-icons { gap: var(--sp-1); margin-top: 0; }
+.fbp-entry .fbp-edit.fbp-edit-icons { position: absolute; top: var(--sp-2); right: var(--sp-3); }
+/* 승인·반려는 머리줄 오른쪽 (10/4 16:55): 고치기·지우기 아이콘 바로 왼쪽 */
+.fbp-head .sp { flex: 1; }
+.fbp-head .fbp-verdict { flex-shrink: 0; flex-wrap: nowrap; gap: var(--sp-1); }
+.fbp-head .fbp-foldback { flex-shrink: 0; align-self: center; width: 24px; height: 24px; }
+/* 고치기·지우기 아이콘이 없는 항목은 머리줄 오른쪽 끝까지 쓴다 (10/4 20:43 접기 오른쪽 정렬) */
+.fbp-entry:not(:has(.fbp-edit-icons)) .fbp-head { padding-right: 0; }
+/* 주고받은 기록: 처리 → 반려 → 다시 처리 → 승인 (10/4 18:11 "반려한 지적을 댓글처럼") */
+.fbp-thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.fbp-say { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); color: var(--text-2); }
+.fbp-say.me { margin-left: var(--sp-6); }
+.fbp-say-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-xs); }
+.fbp-say-head b { color: var(--text); font-weight: var(--fw-strong); }
+/* 10/8 11:28 대화 형식: 앞의 주고받음은 접고, 다시 처리마다 고친 칸을 보인다 */
+.fbp-thread-box { display: flex; flex-direction: column; gap: var(--sp-2); }
+.fbp-earlier > summary { cursor: pointer; font-size: var(--fs-xs); color: var(--text-3); }
+.fbp-earlier[open] > summary { margin-bottom: var(--sp-2); }
+.fbp-change { font-size: var(--fs-xs); color: var(--text-2); }
+.fbp-change b { font-weight: var(--fw-medium); color: var(--text); }
+.fbp-change del { color: var(--text-3); }
+
+/* 승인·반려 기호 버튼 (10/4 19:06) */
+.fbp-head .fbp-verdict-btn { width: 24px; height: 24px; align-self: center; }
+/* 찾아간 부위를 잠깐 칠한다 (feedbackJump.ts) */
+.ui-jump { outline: 2px solid var(--focus-line); outline-offset: 2px; background-color: var(--focus); transition: background-color .3s; animation: ui-jump-fade 2.4s ease-out forwards; }
+@keyframes ui-jump-fade { 0%, 60% { outline-color: var(--focus-line); } 100% { outline-color: transparent; } }
+.fbp-head .fbp-verdict { align-self: center; }
+/* 머리줄의 이름표·시각은 줄지 않게 (10/5 10:36 "미분류 글자가 줄이 넘어갔어"): 한글은 글자마다 끊길 수 있어, 긴 부위 이름이 있으면 "미분류"가 두 줄로 갈렸다. 줄어드는 것은 부위 이름(말줄임)뿐 */
+.fbp-head > .tag, .fbp-head > .muted, .fbp-head > .fbp-theme { flex: none; white-space: nowrap; }
+/* 피드백 모드 버튼은 창(대화 상자·빠른 메모·검색)의 어두운 막 위에 둔다 (10/5 10:57 "팝업 창에서 코멘트를 달 수 없다") */
+.fb-toggle { position: relative; z-index: 51; }
+body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); }
+
+/* 대화 화면 (10/8 시안): 처리 요약 · 대화 · 아래 입력란 */
+/* 이름 칸은 가장 긴 이름에 맞춘다 (영어 "Understood request"가 80px를 넘어 글과 겹쳤다, 10/8 18:32). 줄은 칸을 나눠 쓰도록 display: contents */
+.fbp-summary { display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr) max-content; gap: var(--sp-1) var(--sp-2); align-items: baseline; padding: 2px 10px; border-left: 2px solid var(--line-strong); color: var(--text-2); }
+.fbp-summary-row { display: contents; }
+.fbp-summary > .fbp-earlier { grid-column: 1 / -1; }
+.fbp-summary-row > b { color: var(--text-3); font-weight: var(--fw-medium); font-size: var(--fs-xs); white-space: nowrap; }
+.fbp-summary-row > .muted { font-size: var(--fs-xs); white-space: nowrap; }
+.fbp-summary-text .memo-text p { margin: 0; }
+.fbp-summary-old { display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr) max-content; gap: 2px var(--sp-2); align-items: baseline; padding: var(--sp-1) 0; border-top: 1px solid var(--line); font-size: var(--fs-xs); }
+.fbp-summary-old > .muted { grid-column: 1 / -1; }
+.fbp-summary .fbp-earlier[open] > summary { margin-bottom: 0; }
+.fbp-say-head .sp { flex: 1; }
+.fbp-say-when { white-space: nowrap; }
+.fbp-say-head .fbp-say-edit { width: 20px; height: 20px; align-self: center; color: var(--text-3); }
+.fbp-say-version { font-size: var(--fs-xs); }
+.fbp-say-wait { font-size: var(--fs-xs); padding: 0 10px; }
+.fbp-pictures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); margin-top: var(--sp-1); }
+.fbp-pictures figure { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.fbp-pictures img { display: block; width: 100%; max-height: 240px; object-fit: contain; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-side); }
+.fbp-pictures figcaption { font-size: var(--fs-xs); }
+.fbp-compose { display: flex; flex-direction: column; gap: var(--sp-1); padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); }
+.fbp-compose textarea { border: 0; resize: none; outline: none; background: transparent; font: inherit; color: var(--text); padding: 0; }
+.fbp-compose-row { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
+.fbp-compose-row .sp { flex: 1; }

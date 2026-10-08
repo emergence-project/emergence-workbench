@@ -1,0 +1,24 @@
+# To learn — where the workbench's "don't know" items pile up. The app writes it; people and agents may edit it too.
+items:
+  - id: l-20261003-2140
+    term: planar graph
+    at: 2026-10-03 21:40
+    concept: planar-graph
+  - id: l-20261004-1012
+    term: Discharging method
+    at: 2026-10-04 10:12
+    from:
+      project: Sample research
+      title: Material sample2007.pdf
+      page: 3
+      quote: the discharging rule sends charge to small faces
+    concept: discharging-method
+  - id: l-20261004-2215
+    term: Sample–Tester bound
+    at: 2026-10-04 22:15
+    note: How the bound on the number of colors depends on the genus of the surface
+    from:
+      project: Sample research
+      title: Material sample2007.pdf
+      page: 4
+      quote: the Sample–Tester bound limits the colors needed on a torus

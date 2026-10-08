@@ -1,0 +1,7 @@
+/* 소개 글 고치기 (10/4 14:51): 칸 머리의 "고치기"와 고친 글 상자 */
+.about .sec-head .about-fix { font-size: var(--fs-sm); color: var(--text-3); }
+.about .sec-head .about-fix:hover { color: var(--text); }
+.about-fix-box { display: flex; flex-direction: column; gap: var(--sp-2); }
+.about-fix-box p { margin: 0; font-size: var(--fs-sm); }
+.about-fix-text { width: 100%; font: inherit; font-size: var(--fs-md); line-height: 1.6; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); resize: vertical; }
+.about-fix-tools { display: flex; justify-content: flex-end; gap: var(--sp-2); }

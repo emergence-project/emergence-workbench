@@ -1,0 +1,51 @@
+name: Bug / 버그
+description: Something does not work as expected. 앱이 기대·설명대로 동작하지 않을 때.
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is **public**. Do not paste unpublished research, manuscripts, coauthor details or screenshots that show them.
+        이 이슈는 **공개**됩니다. 공개하지 않은 연구 내용·원고·공저자 정보가 보이는 그림은 붙이지 마세요.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / 무엇이 일어났나
+      description: What you did and what you saw. A screenshot helps if it shows nothing private.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected / 기대한 것
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 다시 일으키는 순서
+      placeholder: |
+        1. Open a project
+        2. ...
+  - type: input
+    id: area
+    attributes:
+      label: Screen part / 화면 부위
+      description: The part name shown in feedback mode (e.g. 노트 › 툴바), or a short description.
+  - type: input
+    id: route
+    attributes:
+      label: Screen address / 화면 주소
+      description: The part after `#` in the address bar (e.g. `#/r/my-project/notes`).
+  - type: input
+    id: version
+    attributes:
+      label: App version / 앱 버전
+      description: Settings › 앱 기본정보.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, window size, theme / 운영체제·창 크기·테마
+      placeholder: macOS 15, 1440×900, light

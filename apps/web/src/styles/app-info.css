@@ -1,0 +1,8 @@
+/* 설정 › 앱 기본정보 */
+.app-info { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+.app-info-h { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); margin: var(--sp-2) 0 0; }
+.app-history { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.app-history th { text-align: left; font-weight: var(--fw-strong); color: var(--text-2); padding: 6px var(--sp-3) 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.app-history td { padding: 6px var(--sp-3) 6px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+.app-history tr:last-child td { border-bottom: 0; }
+.app-history td:first-child, .app-history-num { white-space: nowrap; font-variant-numeric: tabular-nums; }

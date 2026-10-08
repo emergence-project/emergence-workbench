@@ -1,0 +1,9 @@
+/* 노트 구분(원고·연구노트·계산 노트)과 새 노트 만들기 (10/4 피드백) */
+.new-note { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-side); margin: var(--sp-2) 0 var(--sp-3); }
+.nn-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; font-size: var(--fs-sm); }
+.nn-name { flex: 1; min-width: 200px; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); }
+.new-note .mini-select { max-width: none; }
+.nk-tag { font-size: var(--fs-2xs); color: var(--text-3); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 0 var(--sp-1); margin-right: var(--sp-1); white-space: nowrap; }
+.nk-actions { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); font-size: var(--fs-sm); }
+.tr-head .nk-actions { margin-top: 0; }
+.nk-add { align-self: flex-start; display: block; margin-top: var(--sp-2); }

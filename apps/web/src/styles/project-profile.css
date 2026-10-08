@@ -1,0 +1,9 @@
+/* 프로젝트 성격 · 분야 · 진행 상태 고르기 (ProjectProfile.tsx): 첫 화면 머리의 고치기, 프로젝트 정보, 등록 창 */
+.pp-fields { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--sp-2) var(--sp-3); align-items: center; margin: 0; }
+.pp-fields dt { font-size: var(--fs-sm); color: var(--text-3); }
+.pp-fields dd { margin: 0; min-width: 0; }
+.pp-fields .tag-edit { margin: 0; }
+/* 프로젝트의 분야 메뉴는 왼쪽 스크롤 경계를 넘지 않도록 버튼 왼쪽에 맞춘다. */
+.pp-fields .net-pick-menu { left: 0; right: auto; }
+.pp-fields .segmented { width: fit-content; }
+.pp-fields .segmented .g-name { margin-left: 2px; }

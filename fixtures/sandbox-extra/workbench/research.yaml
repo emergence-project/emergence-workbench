@@ -1,0 +1,27 @@
+title: 예제 연구 — 5색 정리 재유도
+question: 평면 그래프를 다섯 색으로 칠할 수 있다는 논증을 다시 유도한다.
+started: 2026-09-30
+# 홈 프로젝트 카드 가운데 그림 (저장소 기준 경로)
+image: workbench/figures/project.svg
+sources:
+  manuscript: docs/note/main.tex — 5색 정리
+# 주제 (10/5): 노트의 소속은 노트 머리말 topics:에 적는다. blocks:는 예전 기록 모양의 예
+topics:
+  - id: coloring
+    title: 5색 정리
+    star: true
+    description: |-
+      평면 그래프를 다섯 색으로 칠하기
+      - 귀납과 Kempe 사슬
+    preview:
+      text: 오일러 $V-E+F=2$
+      color: violet
+    parts: [docs/note/chapters/02-five-color.tex]
+  - id: kempe
+    title: Kempe 사슬
+    description: 색 바꾸기와 Kempe 사슬
+    parts: []
+    blocks: [degree-five]
+  - id: four-color
+    title: 네 색으로 줄이기
+    parts: []

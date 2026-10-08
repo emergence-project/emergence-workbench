@@ -1,0 +1,4 @@
+.part-open > .part-records { min-width: 0; }
+.part-open > .part-records > summary { cursor: pointer; color: var(--text-2); }
+.part-open > .part-records[open] { flex-basis: 100%; }
+.part-open > .part-records > .part-record-list { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }

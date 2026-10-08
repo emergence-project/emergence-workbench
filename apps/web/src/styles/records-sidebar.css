@@ -1,0 +1,64 @@
+/* 오른쪽 적기: 목록만 스크롤하고 입력칸은 아래에 고정한다. */
+.rs-col[hidden] { display: none; }
+.records-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.records-filters { flex: none; display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
+.records-filters .memo-chip.on { background: var(--bg-hover); color: var(--text); border-color: var(--line-strong); }
+.records-classify { flex: none; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); }
+.records-classify .a { white-space: nowrap; }
+.records-classify .a:disabled { color: var(--text-3); cursor: default; text-decoration: none; }
+.records-list { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-3) var(--sp-3); }
+.record-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.record-group + .record-group { margin-top: var(--sp-4); }
+.record-group-title { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); min-width: 0; }
+.record-group-title .a { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.records-empty { font-size: var(--fs-sm); margin: var(--sp-2) 0; }
+.record-row { min-width: 0; padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); }
+.record-row-head { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.record-marker { display: inline-flex; flex: none; width: var(--sp-4); height: var(--sp-4); align-items: center; justify-content: center; margin: 0; color: var(--text-2); font-size: var(--fs-sm); font-weight: var(--fw-strong); }
+.record-marker svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.record-marker.unsorted { border: 1px dashed var(--text-3); border-radius: var(--r-xs); }
+.record-place { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; min-width: 0; }
+.record-actions { margin-left: auto; display: flex; flex: none; align-items: center; }
+.record-actions .icon-btn { width: var(--sp-5); height: var(--sp-5); color: var(--text-3); }
+.record-actions .icon-btn:hover { color: var(--text); }
+.record-actions .icon-btn svg { width: var(--sp-4); height: var(--sp-4); }
+.record-content { margin-left: calc(var(--sp-4) + var(--sp-1)); min-width: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.record-quote { margin: 0 0 var(--sp-1); padding-left: var(--sp-2); border-left: 3px solid var(--line-strong); color: var(--text-3); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 4.5em; overflow: auto; }
+.record-row.done .record-body, .record-row.split .record-body { color: var(--text-3); }
+.record-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
+.record-meta > * { white-space: nowrap; flex: none; }
+.record-meta .tag { padding: 0 var(--sp-1); font-size: var(--fs-2xs); }
+.record-edit textarea, .record-composer textarea { display: block; width: 100%; box-sizing: border-box; padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); font: inherit; line-height: 1.5; color: var(--text); background: var(--bg); resize: vertical; }
+.record-edit textarea:focus, .record-composer textarea:focus { outline: none; border-color: var(--text-3); }
+.record-edit-actions { display: flex; justify-content: flex-end; gap: var(--sp-1); margin-top: var(--sp-1); }
+.record-composer { flex: none; min-width: 0; border-top: 1px solid var(--line); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-sm); max-height: 60%; overflow: auto; }
+.record-composer .segmented { display: flex; }
+.record-composer .segmented button { flex: 1; white-space: nowrap; min-width: 0; padding-inline: var(--sp-1); justify-content: center; text-align: center; }
+.record-composer textarea { resize: none; min-height: calc(var(--input-h) * 2); }
+.record-paint { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
+.record-paint > span { white-space: nowrap; }
+.record-attached { display: flex; align-items: center; min-width: 0; padding-left: var(--sp-2); border-left: 2px solid var(--line-strong); color: var(--text-3); font-size: var(--fs-xs); }
+.record-attached > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.record-attached .icon-btn { flex: none; width: var(--sp-5); height: var(--sp-5); }
+.record-composer-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
+.record-composer-actions > span { white-space: nowrap; color: var(--text-3); font-size: var(--fs-xs); }
+.record-lost { margin-top: var(--sp-3); color: var(--text-3); font-size: var(--fs-xs); }
+.record-lost summary { cursor: pointer; }
+.record-lost-row { display: flex; align-items: flex-start; gap: var(--sp-1); margin-top: var(--sp-2); }
+.record-lost-row .record-quote { flex: 1; }
+.record-lost-row .icon-btn { flex: none; }
+
+.record-row.on { background: var(--bg-hover); }
+input.record-marker { accent-color: var(--text); }
+.record-conflict { padding: var(--sp-2); margin-bottom: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); }
+.record-conflict p { margin: 0 0 var(--sp-2); color: var(--text-2); }
+.record-conflict .btn { margin-top: var(--sp-2); }
+/* Claude 답의 고침 제안: 바꿀 글(흐리게) → 바꾼 글, 아래 "노트에 적용" */
+.record-fixes { display: grid; gap: var(--sp-1); margin-top: var(--sp-1); }
+.record-fix { display: grid; gap: 2px; }
+.record-fix pre { margin: 0; padding: var(--sp-1) var(--sp-2); border-left: 3px solid var(--line-strong); background: var(--bg); font-family: inherit; font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12em; overflow: auto; }
+.record-fix-before { color: var(--text-3); }
+.record-fix-before::before { content: '바꿀 글\A'; color: var(--text-3); }
+.record-fix-after { color: var(--text); }
+.record-fix-after::before { content: '바꾼 글\A'; color: var(--text-3); }
+.record-fixes > .btn { justify-self: start; }

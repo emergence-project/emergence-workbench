@@ -1,0 +1,46 @@
+/* 소문제 카드 (Topics.tsx, 2026-10-03 미리보기 코멘트) */
+.topic-card .tc-parts { font-size: var(--fs-xs); color: var(--text-2); line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.topic-rest .tr-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-2); font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); }
+.topic-rest .tr-head .a { font-size: var(--fs-xs); font-weight: var(--fw-normal); }
+.topic-tools { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
+.chapter.topic-pick { cursor: pointer; }
+.chapter.topic-pick input { margin: 0; justify-self: end; }
+.chapter.topic-pick .muted { font-size: var(--fs-xs); }
+.topic-foot { display: flex; gap: var(--sp-4); font-size: var(--fs-sm); }
+
+/* 사이드바: 연구노트 줄 밑의 목차 */
+.side-toc { display: flex; flex-direction: column; margin: 2px 0 var(--sp-1) var(--sp-5); padding-left: var(--sp-2); border-left: 1px solid var(--line); min-width: 0; }
+.side-toc .toc-head, .side-toc .toc-row { display: flex; align-items: baseline; gap: var(--sp-2); width: 100%; min-width: 0; padding: 3px var(--sp-2); border-radius: var(--r-xs); text-align: left; font-size: var(--fs-xs); color: var(--text-2); }
+.side-toc .toc-head { font-weight: var(--fw-strong); color: var(--text); }
+.side-toc .toc-head:hover, .side-toc .toc-row:hover { background: var(--bg-hover); }
+.side-toc .on { background: var(--bg-hover); color: var(--text); }
+.side-toc .num { flex: none; min-width: 1.2em; text-align: right; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.side-toc .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 중요 표시 (★): 무채색. 카드 오른쪽 위에 겹쳐 둔다 */
+.topic-card-wrap { position: relative; min-width: 0; display: flex; }
+.topic-card-wrap > .note-card { flex: 1; padding-right: var(--sp-6); }
+.topic-star { position: absolute; top: var(--sp-2); right: var(--sp-2); width: var(--sp-6); height: var(--sp-6); border-radius: var(--r-sm); font-size: var(--fs-lg); color: var(--text-3); line-height: 1; }
+.topic-star:hover { background: var(--bg-hover); color: var(--text); }
+.topic-star.on { color: var(--text); }
+.topic-star-mark { color: var(--text-2); }
+.topic-rest + .topic-rest { margin-top: var(--sp-3); }
+
+/* 원고 카드: 제목 폭은 모두 쓰고 행동은 오른쪽 위에 겹쳐 둔다 */
+.note-card-wrap { flex-direction: column; gap: var(--sp-1); }
+.note-card-wrap > .note-card { padding-right: var(--sp-3); }
+.note-card-wrap .nc-foot > * { white-space: nowrap; }
+/* 복사·내보내기·빼기는 원고 카드 오른쪽 위 아이콘 (디자인 문서 4절) */
+.note-card-icons { position: absolute; top: var(--sp-1); right: var(--sp-1); display: flex; gap: 2px; background: var(--bg); border-radius: var(--r-sm); }
+.note-card-icons .icon-btn[aria-pressed="true"] { color: var(--text); }
+.note-card-wrap:is(:hover, :focus-within) .hover-actions { opacity: 1; }
+.note-trash { margin-top: var(--sp-3); font-size: var(--fs-sm); }
+.note-trash li { display: flex; gap: var(--sp-2); align-items: baseline; }
+.tr-toggle { align-self: flex-start; font-size: var(--fs-xs); }
+/* 카드 상태 고르기 (10/4): 상태 아이콘을 누르면 넷 중 고르는 작은 목록 */
+.note-card-icons.open { opacity: 1; }
+.note-state-menu { position: absolute; top: calc(var(--sp-6) + var(--sp-2)); right: var(--sp-1); z-index: 5; display: flex; flex-direction: column; min-width: 9em; padding: var(--sp-1); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--shadow); }
+.note-state-it { display: flex; gap: var(--sp-2); align-items: center; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); font-size: var(--fs-sm); text-align: left; }
+.note-state-it:hover { background: var(--bg-hover); }
+.note-state-it.on { font-weight: var(--fw-strong); }
+.nc-resume { font-size: var(--fs-xs); }

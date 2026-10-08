@@ -1,0 +1,73 @@
+# 컴파일(TeX)이 걸린 서버 테스트. TeX 설치가 오래 걸리므로 컴파일·원고·서식과 관련된 파일이 바뀐 PR에서만 돈다.
+# main 푸시에서는 돌리지 않는다 (ci.yml과 같은 이유). ci.yml에서는 TeX가 없어 이 테스트들이 건너뛰어진다 (apps/server/src/app.test.ts의 hasLatex).
+name: TeX
+
+on:
+  pull_request:
+    paths:
+      - apps/server/src/latex.ts
+      - apps/server/src/latexFiles.ts
+      - apps/server/src/latexPreview.ts
+      - apps/server/src/conceptNotes.ts
+      - apps/server/src/figureEmbeds.ts
+      - apps/server/src/figures.ts
+      - apps/server/src/manuscriptFreshness.ts
+      - apps/server/src/libraryNotes.ts
+      - apps/server/src/noteBody.ts
+      - apps/server/src/noteBib.ts
+      - apps/server/src/noteMeta.ts
+      - apps/server/src/noteCopy.ts
+      - packages/core/src/latex-*.ts
+      - packages/core/src/md-latex*.ts
+      - packages/core/src/block-header*.ts
+      - apps/server/src/manuscript.ts
+      - apps/server/src/mainNote.ts
+      - apps/server/src/workbench.ts
+      - apps/server/src/library.ts
+      - apps/server/src/noteExport.ts
+      - apps/server/src/routes/blocks.ts
+      - apps/server/src/routes/latexChoice.ts
+      - apps/server/src/routes/latexSetup.ts
+      - apps/server/src/routes/manuscript.ts
+      - apps/server/src/routes/library.ts
+      # TeX가 있어야 도는 테스트 (testkit.ts의 hasLatex)
+      - apps/server/src/app.test.ts
+      - apps/server/src/backup.test.ts
+      - apps/server/src/bodyOnly.test.ts
+      - apps/server/src/blockCompile.test.ts
+      - apps/server/src/latexSetup.test.ts
+      - apps/server/src/markdownNotes.test.ts
+      - apps/server/src/noteExport.test.ts
+      - apps/server/src/project.test.ts
+      - apps/server/src/sharedMacros.test.ts
+      - apps/server/src/testkit.ts
+      - templates/latex/**
+      - templates/research-library/**
+      - fixtures/sample-research/**
+      - scripts/ci/mac-fonts.py
+      - .github/workflows/tex.yml
+  workflow_dispatch:
+
+concurrency:
+  group: tex-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: sudo rm -f /var/lib/man-db/auto-update && sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update -qq
+      - run: sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y -qq --no-install-recommends zsh latexmk texlive-xetex texlive-lang-korean texlive-latex-extra texlive-publishers texlive-pictures texlive-fonts-recommended texlive-plain-generic texlive-science fonts-nanum python3-fonttools
+      - run: python3 scripts/ci/mac-fonts.py && fc-cache -f
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @rw/server test

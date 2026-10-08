@@ -1,0 +1,49 @@
+# Processing records for sample mode (pnpm dev, pnpm shots). Unrelated to the real feedback/status.yaml
+2026-10-04 09:30 홈 › 할 일:
+  state: 반영
+  commit: "#103"
+  area: Home
+  kind: 디자인
+  clean: The text in the to-do list is too small.
+  understood: Enlarge only the to-do titles to body size and keep dates and project names one step smaller.
+  note: Made dates and project names a darker gray.
+  cause: Dates and project names used the faintest gray, so they had low contrast with the background.
+  handled_at: 2026-10-04T11:20
+  by: claude
+  rework: 2026-10-04T10:40
+  revised:
+    - at: 2026-10-04T10:00
+      understood: Enlarge the text of the home to-do list to body size.
+      note: Enlarged all text in the to-do list to body size.
+      commit: "#99"
+      handled_at: 2026-10-04T09:50
+      by: claude
+    - at: 2026-10-04T10:40
+      understood: Enlarge only the to-do titles to body size and keep dates and project names one step smaller.
+      note: Fixed again after the send-back. To-do titles are now body size; dates and project names are one step smaller in gray.
+      commit: "#101"
+      handled_at: 2026-10-04T10:20
+      by: claude
+2026-10-04 10:15 사이드바 › 목차:
+  state: 반영
+  commit: "#102"
+  area: Sidebar
+  kind: 디자인
+  clean: Please make the width of the contents column adjustable.
+  understood: Drag the border between the sidebar and the body to change the width of the contents column.
+  note: Dragging the right border of the sidebar changes its width.
+2026-10-04 11:40 작업 화면 › 머리줄 › 컴파일:
+  state: 답변
+  area: Workspace
+  kind: 질문
+  clean: Where do I see the compile result?
+  understood: Wants to know where the compiled PDF and errors appear.
+  note: The PDF opens in the right column; errors, if any, appear below the header row with line numbers.
+  rework: 2026-10-04T12:10
+  handled_at: 2026-10-04T12:20
+  by: claude
+  replies:
+    - at: 2026-10-04T13:05
+      to: 2026-10-04T12:40
+      note: Yes. Drag the left border of the PDF column to widen it.
+      by: codex

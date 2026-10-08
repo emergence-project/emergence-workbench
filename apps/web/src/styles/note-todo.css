@@ -1,0 +1,5 @@
+/* 노트 머리줄의 "할 일 적기" 칸 (10/4 08:51 피드백) */
+.note-todo { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); background: var(--bg-sunken); }
+.note-todo .mi-icon { margin-top: 0; flex: none; cursor: default; }
+.note-todo input { flex: 1; min-width: 0; font-size: var(--fs-sm); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); }
+.note-todo .a { font-size: var(--fs-xs); }

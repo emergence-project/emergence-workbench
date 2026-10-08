@@ -1,0 +1,5 @@
+wheel.svg:
+  name: Wheel partition
+  description: A disk cut into eight slices. Used for face-by-face calculations on a wheel graph.
+ring-map.svg:
+  name: Ring map

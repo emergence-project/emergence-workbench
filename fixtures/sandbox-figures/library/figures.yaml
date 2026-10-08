@@ -1,0 +1,9 @@
+three-countries.svg:
+  name: 세 나라 지도
+  description: 지도를 A, B, C 세 나라로 나눈 그림. 오일러 공식과 Kempe 사슬 논증에 쓴다.
+enclosed-country.svg:
+  name: 둘러싼 나라 (원판)
+  description: 나라 B와 그 바깥 고리 C. 맞닿은 두 나라는 색이 달라야 한다는 그림, B와 C에 서로 다른 색.
+single-country.tikz:
+  name: 나라 하나
+  description: 나라 B와 그 둘레. tikz 원본은 맥의 TeX로 SVG를 만든다.

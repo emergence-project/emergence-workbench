@@ -1,0 +1,96 @@
+/* PDF 도구 막대·코멘트·에이전트 함 (PdfView, Comments) */
+/* ---------- PDF 도구 막대와 코멘트 (Comments.tsx, PdfView.tsx) ---------- */
+.pdf-shell { flex: 1; min-height: 0; min-width: 0; position: relative; display: flex; flex-direction: column; container-type: inline-size; }
+.pdf-shell > .pdf-area { padding-top: calc(var(--sp-5) + 40px); }
+.pdf-tools { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-pill); box-shadow: var(--shadow); white-space: nowrap; max-width: calc(100% - 16px); }
+.pdf-tool { height: 28px; min-width: 28px; padding: 0 var(--sp-2); border-radius: var(--r-pill); font-size: var(--fs-sm); color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); }
+.pdf-tool:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+.pdf-tool:disabled { opacity: .35; }
+.pdf-tool.labeled { color: var(--text); font-weight: var(--fw-medium); padding: 0 var(--sp-3); }
+.pdf-tool.labeled:disabled { opacity: 1; color: var(--text-3); }
+.pdf-tool.zoom { min-width: 52px; font-variant-numeric: tabular-nums; }
+.pdf-tool.count { font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pdf-tool.count.on { background: var(--bg-sunken); color: var(--text); }
+.pdf-pending { margin-left: var(--sp-1); min-width: 16px; height: 16px; padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--bg-sunken); color: var(--text-2); font-size: var(--fs-2xs); display: inline-grid; place-items: center; }
+.pdf-tools { overflow-x: auto; scrollbar-width: none; }
+.pdf-tools > * { flex-shrink: 0; }
+/* 두 칸으로 나눠 PDF 칸이 좁을 때 (10/5 피드백 "pdf의 코멘트 기능이 깨짐"): 글자 이름을 빼고 기호만, 더 좁으면 확대·축소도 뺀다 */
+@container (max-width: 540px) { .pdf-tool-label { display: none; } .pdf-tool.labeled { padding: 0 var(--sp-2); } }
+@container (max-width: 400px) { .pdf-tools [data-ui="축소"], .pdf-tools [data-ui="확대"], .pdf-tools [data-ui="이전 쪽"], .pdf-tools [data-ui="다음 쪽"], .pdf-tools-sep { display: none; } .pdf-tools { gap: 0; } }
+@container (max-width: 260px) { .pdf-tools [data-ui="폭에 맞춤"] { display: none; } }
+.pdf-tools-sep { width: 1px; height: 18px; background: var(--line-strong); margin: 0 var(--sp-1); }
+.pdf-pageno { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.pdf-pageno input { width: 34px; height: 22px; text-align: right; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font-size: var(--fs-sm); padding: 0 var(--sp-1); }
+
+/* 고를 수 있는 글자 층 (보이지 않는 글자) */
+.pdf-text { position: absolute; inset: 0; overflow: hidden; line-height: 1; z-index: 2; cursor: text; }
+.pdf-text span { position: absolute; white-space: pre; color: transparent; transform-origin: 0 0; font-family: sans-serif; }
+.pdf-text span::selection { background: var(--select-bg); color: transparent; }
+.pdf-mark { position: absolute; border-radius: 2px; pointer-events: none; z-index: 1; }
+.pdf-mark-group.comment .pdf-mark { background: var(--hl-bg); }
+.pdf-mark-group.question .pdf-mark { background: color-mix(in srgb, var(--text-2) 16%, transparent); border-bottom: 2px solid var(--line-strong); }
+.pdf-mark-group.on .pdf-mark { outline: 2px solid var(--focus-line); }
+.pdf-pin { position: absolute; right: -11px; z-index: 3; width: 22px; height: 22px; border-radius: 50%; background: var(--bg); border: 1px solid var(--line-strong); box-shadow: var(--shadow); font-size: var(--fs-sm); display: grid; place-items: center; color: var(--text-2); cursor: pointer; }
+.pdf-mark-group.question .pdf-pin { color: var(--text-2); border-color: var(--line-strong); font-weight: var(--fw-title); }
+.pdf-mark-group.on .pdf-pin { background: var(--focus); }
+.pdf-selmenu { position: absolute; z-index: 5; display: flex; gap: 2px; padding: 3px; background: var(--text); border-radius: var(--r-sm); box-shadow: var(--shadow); }
+.pdf-selmenu button { color: var(--bg); font-size: var(--fs-sm); padding: 3px 10px; border-radius: var(--r-sm); white-space: nowrap; }
+.pdf-selmenu button:hover { background: color-mix(in srgb, var(--bg) 16%, transparent); }
+
+/* 도구 막대 아래 뜨는 칸: 코멘트 쓰기, 목록 */
+.pdf-pop { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 7; width: min(460px, calc(100% - 24px)); max-height: calc(100% - 70px); overflow: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.pdf-pop.composer.question { border-top: 3px solid var(--line-strong); }
+.pdf-pop-head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.pdf-pop-head .sp, .cmt-actions .sp { flex: 1; }
+.pdf-pop textarea { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 6px var(--sp-2); background: var(--bg); color: var(--text); font: var(--fs-md)/1.5 -apple-system, "Apple SD Gothic Neo", sans-serif; resize: vertical; }
+.cmt-actions { display: flex; align-items: center; gap: var(--sp-2); }
+.cmt-actions .mono { font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pdf-pop .cmt-list { padding: 0; }
+
+/* 코멘트 목록 (맥락 칸·PDF 위) */
+.ctx-comments { flex: 0 1 auto; max-height: 55%; display: flex; flex-direction: column; min-height: 0; border-bottom: 1px solid var(--line); }
+.ctx-comments .cmt-list { overflow: auto; }
+.cmt-list { padding: var(--sp-2) var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.cmt-empty { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-4) var(--sp-3); margin: 0; }
+.cmt { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 6px var(--sp-2); font-size: var(--fs-sm); background: var(--bg); }
+.cmt.question { border-left: 3px solid var(--line-strong); }
+.cmt.comment { border-left: 3px solid var(--focus-line); }
+.cmt.on { background: color-mix(in srgb, var(--focus) 55%, var(--bg)); }
+.cmt.done { opacity: .6; }
+.cmt-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) 6px; }
+.cmt-meta, .cmt-head-actions { display: flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.cmt-head-actions { margin-left: auto; }
+.cmt-kind, .cmt-state, .cmt-head-actions > button { flex: none; white-space: nowrap; }
+.cmt-where, .cmt-head-actions > .cmt-ask { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmt-head-actions > .cmt-ask { display: block; }
+.cmt-kind { font-weight: var(--fw-strong); font-size: var(--fs-xs); }
+.cmt-where { font-size: var(--fs-xs); color: var(--text-2); }
+.cmt-where:disabled { color: var(--text-3); }
+.cmt-state { font-size: var(--fs-xs); border-radius: var(--r-pill); padding: 0 6px; background: var(--bg-sunken); color: var(--text-2); }
+.btn.sm { height: 22px; padding: 0 6px; font-size: var(--fs-xs); }
+.cmt-quote { margin: var(--sp-1) 0; padding: 2px var(--sp-2); border-left: 2px solid var(--line-strong); color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; max-height: 7.5em; overflow: hidden; }
+.cmt-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmt-answer { margin-top: 6px; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); background: var(--bg-sunken); }
+.cmt-answer-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); margin-bottom: 2px; }
+.cmt-answer-head > span { flex: none; white-space: nowrap; }
+.cmt-answer-head > .cmt-answer-by { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+/* 에이전트 함 (맥락 칸 아래) */
+.agent-inbox { flex: none; max-height: 35%; overflow: auto; border-top: 1px solid var(--line); }
+.inbox-item { display: flex; flex-direction: column; gap: 1px; width: calc(100% - 2 * var(--sp-3)); margin: var(--sp-1) var(--sp-3); text-align: left; padding: 5px var(--sp-2); border-radius: var(--r-sm); font-size: var(--fs-sm); border-left: 3px solid var(--line-strong); }
+.inbox-item:hover { background: var(--bg-hover); }
+.inbox-where { font-size: var(--fs-xs); color: var(--text-3); }
+.inbox-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 확대해 칸보다 넓어져도 왼쪽이 잘리지 않게: 가운데 맞춤을 여백으로 */
+.pdf-shell > .pdf-area { align-items: flex-start; }
+.pdf-shell .pdf-page { margin-inline: auto; }
+/* 논문 하이라이트 (칠한 곳): 글자 위에 옅게, 누르면 색 바꾸기 · 지우기 메뉴 */
+.pdf-paint-menu { display: contents; }
+.pdf-paint { position: absolute; border-radius: 2px; pointer-events: none; mix-blend-mode: multiply; }
+.pdf-paint-group.on .pdf-paint { box-shadow: 0 0 0 1.5px var(--text-2); }
+.pdf-swatch { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 2px solid transparent; }
+.pdf-selmenu button.pdf-swatch { padding: 0; margin: 2px 1px; border-radius: var(--r-pill); }
+.pdf-selmenu button.pdf-swatch.on { border-color: var(--bg); }
+.pdf-selmenu .pdf-sep { width: 1px; margin: 3px 2px; background: color-mix(in srgb, var(--bg) 30%, transparent); }
+.pdf-selmenu .ico svg { width: 14px; height: 14px; }
+.pdf-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px var(--line-strong); margin-left: -2px; }

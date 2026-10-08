@@ -1,0 +1,64 @@
+/* 지식 첫 화면 (라이브러리 L1, KnowledgeHome.tsx): 최근 노트 · 점검 · 통계 · 라이브러리 정보 */
+.kh-page { flex: 1; }
+.kh-layout.no-right { grid-template-columns: minmax(0, 1fr); }
+.kh-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 260px); container-type: inline-size; }
+.kh-main { width: 100%; max-width: var(--lib-page-width); min-width: 0; box-sizing: border-box; margin: 0 auto; padding: var(--sp-5) var(--sp-6) calc(var(--sp-6) + var(--sp-2)); display: flex; flex-direction: column; gap: var(--sp-5); }
+.kh-main > * { width: 100%; flex-shrink: 0; }
+.kh-sec { display: flex; flex-direction: column; min-width: 0; }
+.kh-h { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0 0 var(--sp-3); font-size: var(--fs-lg); font-weight: var(--fw-strong); color: var(--text); }
+.kh-h-n { font-size: var(--fs-xs); font-weight: var(--fw-normal); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.kh-h .sp { flex: 1; }
+.kh-h .icon-btn { align-self: center; width: 22px; height: 22px; color: var(--text-3); }
+.kh-empty { margin: 0; padding: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); color: var(--text-3); }
+
+/* 줄 목록: 제목 · 분류 · 시각 (한 줄, 넘치면 …) */
+.kh-rows { display: flex; flex-direction: column; }
+.kh-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); width: 100%; min-height: 30px; padding: var(--sp-2); border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; font-size: var(--fs-sm); color: var(--text); }
+.kh-row:hover, .kh-row.on { background: var(--bg-hover); }
+.kh-title, .kh-subject { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kh-subject { font-size: var(--fs-sm); color: var(--text-3); }
+.kh-when { flex: none; white-space: nowrap; font-size: var(--fs-sm); color: var(--text-3); }
+.kh-make { grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2); margin-bottom: var(--sp-1); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); color: var(--text-2); }
+.kh-make:hover { border-color: var(--text-3); color: var(--text); }
+.kh-plus { display: inline-grid; place-items: center; }
+.kh-plus svg, .kh-pop svg, .kh-store-ico svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 점검 · 통계 두 칸 */
+.kh-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-5); }
+@container (max-width: 560px) { .kh-cols { grid-template-columns: minmax(0, 1fr); } }
+.kh-stat { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 30px; padding: var(--sp-2); border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; font-size: var(--fs-sm); color: var(--text); }
+.kh-stat:hover:not(:disabled), .kh-stat.on { background: var(--bg-hover); }
+.kh-stat:disabled { cursor: default; color: var(--text-3); }
+.kh-stat-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kh-count { flex: none; font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; }
+/* 사용자 차례는 주황 하나 (디자인 시스템 2절): 수 · 제목 앞 점. 회색 점은 쓰지 않는 것 */
+.kh-turn { color: var(--s-blocked); font-weight: var(--fw-strong); }
+/* 사용자 차례 수: 레일 배지(.rail-count)와 같은 주황 알약 (디자인 시스템 2절 "사용자 차례") */
+.kh-count.turn { min-width: 16px; height: 16px; padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--s-blocked); color: var(--bg); font-size: var(--fs-2xs); font-weight: var(--fw-strong); line-height: 16px; text-align: center; }
+.kh-dot { display: inline-block; flex: none; width: 7px; height: 7px; margin-right: var(--sp-2); border-radius: var(--r-pill); background: var(--s-blocked); vertical-align: middle; }
+.kh-h .kh-dot { align-self: center; margin-right: 0; }
+.kh-dot.idle { background: var(--line-strong); }
+.kh-hint { font-size: var(--fs-xs); color: var(--text-3); }
+
+/* "개념노트 만들기" 팝업 (맨 위 층) */
+.kh-pop { position: fixed; z-index: 50; min-width: 220px; }
+.kh-pop button { white-space: nowrap; }
+.kh-pop.form { width: 320px; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); }
+.kh-pop.form button { width: auto; }
+.kh-pop-title { font-size: var(--fs-sm); font-weight: var(--fw-strong); }
+.kh-input { width: 100%; height: var(--input-h); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-sm); }
+.kh-input:focus { outline: none; border-color: var(--line-strong); }
+.kh-pop-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+
+/* 오른쪽 칸: 라이브러리 정보 */
+.kh-side { border-left: 1px solid var(--line); padding: var(--sp-5) var(--sp-4); overflow: auto; min-width: 0; }
+.kh-info { display: flex; flex-direction: column; gap: var(--sp-3); font-size: var(--fs-sm); }
+.kh-side-h { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
+.kh-side-label { font-size: var(--fs-xs); color: var(--text-3); }
+.kh-store { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.kh-store-ico { flex: none; display: inline-grid; place-items: center; height: 20px; color: var(--text-2); }
+.kh-store-body { min-width: 0; display: flex; flex-direction: column; }
+.kh-store-name { font-weight: var(--fw-medium); color: var(--text); }
+.kh-store-sub { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kh-manage { display: inline-flex; align-items: center; gap: var(--sp-2); align-self: flex-start; margin-top: var(--sp-2); font-size: var(--fs-sm); }
+@media (max-width: 900px) { .kh-layout { grid-template-columns: minmax(0, 1fr); } .kh-side { border-left: 0; border-top: 1px solid var(--line); } }

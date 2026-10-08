@@ -1,0 +1,18 @@
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask how to do something with the app. This page is **public**: leave out unpublished research.
+        앱 사용법을 묻는 곳입니다. **공개**되니 공개하지 않은 연구 내용은 빼 주세요.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question / 질문
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version / 앱 버전
+      description: Settings › 앱 기본정보.

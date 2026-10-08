@@ -1,0 +1,16 @@
+/* 앱으로 설치한 창에서 "창 제어 오버레이"를 켜면 제목 줄이 사라지고 상단바가 그 자리에 온다 (manifest display_override).
+   창 버튼(맥의 빨강·노랑·초록)과 Chrome 버튼 자리를 비우고, 빈 곳을 끌면 창이 움직인다 */
+@media (display-mode: window-controls-overlay) {
+  .titlebar.topbar {
+    padding-left: env(titlebar-area-x, 0px);
+    padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+    app-region: drag;
+    -webkit-app-region: drag;
+  }
+  .titlebar.topbar button,
+  .titlebar.topbar a,
+  .titlebar.topbar input {
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
+  }
+}

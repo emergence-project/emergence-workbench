@@ -1,0 +1,5 @@
+name: Recoloring along Kempe chains
+summary: Argument that recolors the neighbours of a degree-five vertex along Kempe chains to extend a coloring (Markdown example)
+topics: [kempe]
+kind: summary
+star: true

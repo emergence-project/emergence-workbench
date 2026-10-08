@@ -1,0 +1,46 @@
+/* 지도·나무 그림 (MapPage) */
+/* ---------- 나무 그림 ---------- */
+.node rect.box { fill: var(--bg); stroke: var(--line-strong); stroke-width: 1; }
+.node:hover rect.box { stroke: var(--text-3); }
+.node.sel rect.box { stroke: var(--text); stroke-width: 1.6; }
+.node text { fill: var(--text); font-size: var(--fs-sm); font-family: inherit; }
+.node text.sub { fill: var(--text-3); font-size: var(--fs-2xs); }
+.node { cursor: pointer; }
+.edge { stroke: var(--line-strong); stroke-width: 1.5; fill: none; }
+.edge.alt { stroke-dasharray: 4 4; }
+.hint { font-size: var(--fs-sm); color: var(--text-3); }
+
+/* 지도 */
+.map-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.map-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; column-gap: var(--sp-1); font-size: var(--fs-xs); }
+.map-counts > span { white-space: nowrap; }
+.map-empty { padding: var(--sp-5); }
+.map-trail { font-size: var(--fs-xs); color: var(--text-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-trail .link-like { color: var(--text-2); text-decoration: underline; font-size: var(--fs-xs); }
+.map-focus { display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1.15fr) 28px minmax(0, 1fr); align-items: center; gap: var(--sp-1); padding: var(--sp-5) var(--sp-4); min-height: 100%; }
+@container (max-width: 760px) { .map-focus { grid-template-columns: minmax(0, 1fr); } .map-arrow { transform: rotate(90deg); } }
+.map-col-h { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); margin: 0 0 6px; }
+.map-stack { display: flex; flex-direction: column; gap: 6px; }
+.map-node { display: flex; align-items: center; gap: var(--sp-2); width: 100%; text-align: left; border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 6px 10px; background: var(--bg); min-width: 0; }
+.map-node:hover { border-color: var(--text-3); box-shadow: var(--shadow); }
+.map-node-t { min-width: 0; flex: 1; }
+.map-node-t b { display: block; font-size: var(--fs-sm); }
+.map-node-t span { display: block; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.map-more { flex: none; font-size: var(--fs-2xs); color: var(--text-3); }
+.map-arrow { text-align: center; color: var(--text-3); font-size: var(--fs-lg); pointer-events: none; }
+.map-center { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3) 14px; background: var(--bg-hover); display: flex; flex-direction: column; gap: 6px; }
+.map-center h3 { margin: 0; font-size: var(--fs-lg); }
+.map-center h3 .a { position: relative; color: inherit; font-weight: inherit; }
+.map-center h3 .a[data-tip]:hover::after, .map-center h3 .a[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + var(--sp-1) * .5); left: 0; z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-normal); padding: calc(var(--sp-1) * .5) var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
+.map-center p { margin: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.map-proofs { border-top: 1px solid var(--line); padding-top: var(--sp-2); display: flex; flex-direction: column; gap: 3px; }
+.map-proof { text-align: left; font-size: var(--fs-sm); padding: 2px var(--sp-1); margin: 0 -4px; border-radius: var(--r-sm); display: flex; gap: 6px; align-items: baseline; }
+.map-proof:hover { background: var(--bg-hover); }
+.map-list { padding: var(--sp-3) var(--sp-4) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-5); }
+.map-list table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.map-list th { font-size: var(--fs-xs); color: var(--text-3); text-align: left; font-weight: var(--fw-strong); padding: 6px 10px; background: var(--bg-sunken); }
+.map-list td { padding: 6px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+.map-list tr.grp td { background: var(--bg-side); font-size: var(--fs-xs); font-weight: var(--fw-title); color: var(--text-2); }
+.map-list tr.sel td { background: color-mix(in srgb, var(--primary) 6%, var(--bg)); }
+.map-list .link-like { text-align: left; }
+.map-list td:nth-child(1), .map-list td:nth-child(3) { white-space: nowrap; }

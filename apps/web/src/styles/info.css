@@ -1,0 +1,27 @@
+/* 프로젝트 정보 (ProjectInfoPage) */
+.page-body.info-page { max-width: 860px; gap: var(--sp-5); }
+.info-desc { margin: var(--sp-2) 0 0; color: var(--text-2); line-height: 1.6; }
+.info-desc.muted { color: var(--text-3); }
+.info-sec h2 { font-size: var(--fs-lg); font-weight: var(--fw-title); margin: 0 0 var(--sp-2); }
+.info-sec h2 .muted { font-size: var(--fs-xs); font-weight: var(--fw-normal); margin-left: var(--sp-2); }
+.info-sec dl { display: grid; align-items: baseline; grid-template-columns: 9em minmax(0, 1fr); gap: var(--sp-2) var(--sp-4); margin: 0; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); font-size: var(--fs-sm); }
+.info-sec dt { color: var(--text-3); }
+.info-sec dd { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.info-sec dd.codes { flex-direction: row; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); }
+.info-path { display: inline-block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.info-manuscript { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.info-manuscript svg { flex: none; width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* 읽기 제목 옆 연필 하나로 공용 프로젝트 창을 연다 (10/6 D3). */
+.info-head { display: flex; flex-direction: column; gap: var(--sp-2); }
+.info-title { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.info-title .h-title { min-width: 0; margin: 0; }
+.info-title .icon-btn { flex: none; color: var(--text-3); }
+.info-sec dd.info-fields { flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+.info-state { display: inline-flex; align-items: center; gap: var(--sp-1); }
+/* 프로젝트 정보: 저장소 칸 (10/4 19:25 피드백) */
+.repo-compare { display: flex; flex-direction: column; gap: var(--sp-1); }
+.repo-line { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.repo-line .btn { height: 24px; }
+.repo-ok { color: var(--text-2); font-weight: var(--fw-strong); }
+.repo-err { color: var(--danger); }
+.repo-commit code { margin-right: 2px; }

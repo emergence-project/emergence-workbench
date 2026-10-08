@@ -1,0 +1,194 @@
+/* 노트 화면 (10/5 시안 "노트 화면"): 상단바 · 탭 줄 · 노트 도구 줄 · 본문 머리 · 왼쪽 사이드바 나무와 절 목차 · 오른쪽 사이드바 */
+
+/* ---------- 상단바: 왼쪽 버튼 · 가운데 위치 · 오른쪽 버튼 ---------- */
+.titlebar.topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.topbar .tb-left { flex: none; }
+.topbar .tb-where { margin: 0; justify-content: center; max-width: 60vw; overflow: hidden; }
+.topbar .tb-c { display: inline-flex; align-items: center; min-width: 0; }
+.topbar .tb-crumb { font-size: var(--fs-sm); color: var(--text-2); padding: 2px var(--sp-1); border-radius: var(--r-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch; }
+.topbar button.tb-crumb:hover { background: var(--bg-hover); color: var(--text); }
+.topbar .tb-crumb.tb-proj { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); margin: 0; }
+.topbar .tb-c:last-child .tb-crumb { color: var(--text); font-weight: var(--fw-medium); }
+.topbar .tb-sepch { color: var(--text-3); }
+/* 양 끝 버튼의 이름표가 창 밖으로 나가지 않게 */
+.icon-btn[data-tip].tip-start:hover::after, .icon-btn[data-tip].tip-start:focus-visible::after { left: 0; transform: none; }
+.icon-btn[data-tip].tip-end:hover::after, .icon-btn[data-tip].tip-end:focus-visible::after { left: auto; right: 0; transform: none; }
+.icon-btn svg path[fill], .icon-btn svg circle[fill] { stroke-width: 0; }
+
+/* 칸 머리(탭 줄)는 늘 보이고, 두 칸이면 끌어서 맞바꾼다 */
+.ws-tabs[draggable='true'] { cursor: grab; }
+.ws-tabs[draggable='true'] .ws-tab { cursor: pointer; }
+
+/* ---------- 노트 도구 줄 ---------- */
+.note-toolbar { flex: none; container: note-toolbar / inline-size; padding: var(--sp-1) var(--sp-3); border-bottom: 1px solid var(--line); background: var(--bg); }
+.nt-row { display: flex; align-items: center; gap: var(--sp-2); min-height: calc(var(--input-h) + var(--sp-2)); }
+.nt-left { display: flex; align-items: center; gap: var(--sp-2); flex: 1; min-width: 0; }
+.nt-with-view { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.nt-view { justify-self: center; }
+.nt-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); margin-left: auto; min-width: 0; }
+.nt-actions { display: flex; align-items: center; gap: var(--sp-1); flex: none; white-space: nowrap; }
+.nt-actions > * { flex: none; }
+.note-toolbar .segmented button { white-space: nowrap; }
+.note-toolbar .nt-state { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
+.note-toolbar .save-state { flex: none; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
+.note-toolbar .save-state.conflict, .note-toolbar .save-state.error { color: var(--danger); font-weight: var(--fw-strong); }
+.note-toolbar .nt-pdf { color: var(--s-blocked); word-break: keep-all; }
+.note-toolbar .nt-pdf.bad { color: var(--danger); }
+.note-toolbar .nt-pdf::before { content: '· '; color: var(--text-3); }
+.note-toolbar .icon-btn { width: calc(var(--input-h) + var(--sp-1)); height: calc(var(--input-h) + var(--sp-1)); border: 1px solid var(--line); background: var(--bg); }
+.note-toolbar .icon-btn:hover:not(:disabled), .note-toolbar .icon-btn.on { background: var(--bg-hover); }
+.note-toolbar .nt-play { width: calc(var(--input-h) + var(--sp-1)); height: calc(var(--input-h) + var(--sp-1)); padding: 0; }
+.note-toolbar .nt-more { position: relative; display: inline-flex; }
+.note-toolbar .nt-menu { top: calc(100% + 4px); right: 0; min-width: 190px; }
+.note-toolbar .nt-menu button:disabled { color: var(--text-3); cursor: default; background: transparent; }
+.note-toolbar .nt-menu button.danger { color: var(--danger); }
+.note-toolbar .ex-pop-wrap { position: absolute; right: 0; top: 100%; width: 0; height: 0; }
+/* 도구 줄 자체의 폭으로 판단한다. 먼저 시각만 감추고, 더 좁으면 보기 무리를 제목 뒤로 흘린다. */
+@container note-toolbar (max-width: 760px) { .nt-save-time { display: none; } }
+@container note-toolbar (max-width: 600px) {
+  .nt-with-view { display: flex; flex-wrap: wrap; }
+  .nt-with-view .nt-left { flex: 1 1 auto; max-width: 40%; }
+  .nt-view { flex: none; }
+  .nt-with-view .nt-right { flex: 1 0 auto; }
+}
+/* 아주 좁은 두 칸에서도 행동 아이콘은 한 묶음으로만 내려간다. */
+@container note-toolbar (max-width: 360px) {
+  .nt-row { flex-wrap: wrap; }
+  .nt-with-view .nt-left { max-width: 100%; }
+  .nt-right { flex-wrap: wrap; }
+}
+
+/* ---------- 본문 머리: 제목 (상태는 도구 줄 첫 자리, 10/6 피드백) ---------- */
+.note-head { display: flex; align-items: baseline; flex-wrap: nowrap; gap: var(--sp-3); min-width: 0; }
+/* 긴 제목은 제 칸 안에서 줄을 바꾼다 */
+.note-head > .note-title { flex: 0 1 auto; }
+.note-head > :not(.note-title):not(.note-title-input) { flex: none; }
+.md-note-read > .note-head, .md-note-editing > .note-head { max-width: 760px; width: 100%; margin: 0 auto; padding: var(--sp-6) var(--sp-6) 0; box-sizing: border-box; }
+.md-note-read > .note-head + .page-body { padding-top: var(--sp-4); }
+.md-note-editing > .note-head { padding: var(--sp-3) var(--sp-4); max-width: none; border-bottom: 1px solid var(--line); }
+.pane > .note-head { flex: none; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.note-title { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-title); color: var(--text); line-height: 1.3; min-width: 0; overflow-wrap: anywhere; }
+.pane > .note-head .note-title, .md-note-editing .note-title { font-size: var(--fs-lg); }
+/* 고칠 때의 제목 칸: 제목과 같은 크기·굵기·자리에 밑줄 하나만 (10/5 피드백 "제목 영역 편집이 못생겼다") */
+.note-title-input { flex: 0 1 auto; field-sizing: content; min-width: 8em; max-width: 100%; margin: 0; font: inherit; font-size: var(--fs-xl); font-weight: var(--fw-title); line-height: 1.3; color: var(--text); padding: 0 0 1px; border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0; background: transparent; }
+.pane > .note-head .note-title-input, .md-note-editing .note-title-input { font-size: var(--fs-lg); }
+@supports not (field-sizing: content) { .note-title-input { flex: 1 1 auto; } }
+.note-title-input:hover { border-bottom-color: var(--text-3); }
+.note-title-input:focus { outline: none; border-bottom-color: var(--link); }
+.note-toolbar .note-title-input { flex: 0 1 auto; width: auto; min-width: 0; max-width: 40cqw; font-size: var(--fs-sm); text-overflow: ellipsis; }
+.note-status { position: relative; display: inline-flex; flex: none; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; }
+.note-status-control { display: inline-flex; align-items: center; gap: var(--sp-1); height: var(--input-h); padding: 0 var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); border-radius: var(--r-sm); white-space: nowrap; }
+button.note-status-control:hover { background: var(--bg-hover); }
+.note-status-chevron { display: inline-flex; width: var(--sp-3); transform: rotate(90deg); }
+.note-status-menu { left: 0; top: calc(100% + var(--sp-1)); }
+.md-note-editing { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* 진술에는 전용 오른쪽 정보 슬롯이 없어 관계를 제목 아래에 간결하게 둔다. */
+.statement-head { flex: none; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.statement-relations { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); margin: var(--sp-2) 0 0; font-size: var(--fs-sm); }
+.statement-relations dt { color: var(--text-3); white-space: nowrap; }
+.statement-relations dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+/* 고칠 때 보기 "원문": 미리보기 칸 없이 원문만 */
+.cn-edit-source .cn-edit-panes { grid-template-columns: 1fr; }
+
+/* ---------- 왼쪽 사이드바 S2: 바로 가기 · 주제 나무 · 자료 ---------- */
+.side-quick .nav.side-row { gap: var(--sp-2); padding: 6px var(--sp-2); }
+.side-quick .nav.side-row .n { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-normal); font-variant-numeric: tabular-nums; }
+.side-label { padding: var(--sp-3) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
+.side-tree { display: flex; flex-direction: column; gap: 1px; }
+.tree-head { display: flex; align-items: center; gap: 2px; border-radius: var(--r-sm); min-width: 0; }
+.tree-head:hover { background: var(--bg-hover); }
+.tree-head.on { background: var(--bg-hover); }
+.tree-chev { flex: none; width: 22px; height: 26px; display: grid; place-items: center; color: var(--text-3); border-radius: var(--r-xs); }
+.tree-chev span { display: inline-block; transition: transform .12s; }
+.tree-head.open .tree-chev span { transform: rotate(90deg); }
+.tree-name { flex: 1; min-width: 0; text-align: left; padding: 5px 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-head.open .tree-name, .tree-head.on .tree-name { font-weight: var(--fw-strong); }
+.tree-head .n { flex: none; padding-right: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.tree-notes { margin: 1px 0 var(--sp-1) 10px; padding-left: var(--sp-2); border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 1px; }
+.nav.tree-note { gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
+.nav.tree-note.on { color: var(--text); }
+.nav.tree-note .num { flex: none; min-width: 1.4em; color: var(--text-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.nav.tree-part { padding-left: var(--sp-3); }
+.side-papers { margin-left: 14px; }
+@media (prefers-reduced-motion: reduce) { .tree-chev span { transition: none; } }
+
+/* 맨 아래 절 목차 (모양 B): 지금 절에 검은 세로 막대 */
+button.side-toc-title { display: flex; align-items: center; gap: var(--sp-1); width: 100%; text-align: left; padding: 0 var(--sp-2) var(--sp-1); }
+.side-toc-title .chev { display: inline-block; width: 10px; transition: transform .12s; }
+.side-toc-title .chev.open { transform: rotate(90deg); }
+.side-toc.sec-toc { gap: 0; }
+.side-toc.sec-toc .toc-row { position: relative; border-radius: 0; padding: 3px var(--sp-2) 3px var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); }
+.side-toc.sec-toc .toc-row.sub { padding-left: var(--sp-5); font-size: var(--fs-xs); }
+.side-toc.sec-toc .toc-row .label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-toc.sec-toc .toc-row.on { background: transparent; color: var(--text); font-weight: var(--fw-strong); }
+.side-toc.sec-toc .toc-row.on::before { content: ''; position: absolute; left: 0; top: 3px; bottom: 3px; width: 2px; background: var(--text); }
+@media (prefers-reduced-motion: reduce) { .side-toc-title .chev { transition: none; } }
+
+/* ---------- 오른쪽 사이드바: 정보 | 메모 | 코멘트 ---------- */
+.rs { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.rs-head { flex: none; display: flex; align-items: center; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
+.rs-scroll { flex: 1; min-height: 0; overflow: auto; }
+.rs-col { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.rs-pad { padding: var(--sp-3); }
+.note-info { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-3) var(--sp-3) 0; min-height: 100%; box-sizing: border-box; font-size: var(--fs-sm); }
+.rs-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+/* 칸 이름: 모든 칸이 같은 굵은 소제목 (10/5 피드백 "섹션처럼 볼드체로"). 접는 칸은 오른쪽 끝에 꺾쇠 */
+.rs-label, .props dt.rs-label { display: flex; align-items: center; gap: var(--sp-1); margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
+.rs-label .muted, .rs-label .rs-n { font-size: var(--fs-xs); font-weight: var(--fw-normal); color: var(--text-3); }
+.rs-field { gap: 6px; }
+.rs-resume { color: var(--text-2); }
+.rs-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+.tag.rs-topic { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; height: 24px; box-sizing: border-box; }
+.tag.rs-topic .a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag.rs-topic .x { width: 16px; height: 16px; line-height: 1; border-radius: var(--r-xs); color: var(--text-3); }
+.tag.rs-topic .x:hover { background: var(--bg-hover); color: var(--text); }
+.tag.rs-topic:first-child { font-weight: var(--fw-strong); }
+/* 이름 줄 오른쪽 버튼(설명 고치기 연필): 접기 화살표 앞에 */
+.rs-sec-act { margin-left: auto; display: inline-flex; }
+.rs-sec-act + .chev { margin-left: 0; }
+.rs-desc .rs-desc-act .icon-btn { width: 22px; height: 22px; }
+.rs-desc .rs-desc-act .icon-btn svg { width: 13px; height: 13px; }
+.rs-desc:hover .hover-actions, .rs-desc:focus-within .hover-actions { opacity: 1; }
+.rs-desc-text { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.rs-desc-text .b { padding-left: var(--sp-3); text-indent: calc(-1 * var(--sp-3)); }
+.rs-desc-text .b::before { content: "• "; }
+/* 고치는 칸은 모두 한 모양: 같은 테두리(--line, 가리키면 --line-strong, 초점 --link) · 모서리 · 왼쪽 끝 (10/5 피드백 "문서 정보 수정의 디자인") */
+.rs-select { display: block; width: 100%; box-sizing: border-box; height: var(--input-h); margin: 0; padding: 0 var(--sp-2); font: inherit; font-size: var(--fs-sm); color: var(--text); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); cursor: pointer; }
+.rs-select.rs-add { color: var(--text-2); }
+.rs-select:hover, .rs-desc-input:hover { border-color: var(--line-strong); }
+.rs-select:focus, .rs-select:focus-visible { outline: none; border-color: var(--link); }
+.rs-chips .rs-add { flex: 1 1 100%; }
+.rs-desc-input { display: block; width: 100%; box-sizing: border-box; margin: 0; font: inherit; font-size: var(--fs-sm); line-height: 1.5; padding: 6px var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--text); resize: vertical; }
+.rs-desc-input:focus { outline: none; border-color: var(--link); }
+.rs-desc-bar { display: flex; align-items: center; gap: var(--sp-1); margin-top: 2px; }
+.rs-desc-bar .sp { flex: 1; }
+.rs-count { font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.rs-count.over { color: var(--danger); font-weight: var(--fw-strong); }
+.rs-sec > summary { list-style: none; align-items: baseline; cursor: pointer; user-select: none; }
+.rs-sec > summary::-webkit-details-marker { display: none; }
+.rs-sec > summary .chev { margin-left: auto; display: inline-grid; place-items: center; width: 16px; color: var(--text-3); font-weight: var(--fw-normal); transition: transform .12s; }
+.rs-sec[open] > summary .chev { transform: rotate(90deg); }
+.rs-sec > summary:hover .chev { color: var(--text); }
+.rs-sec-body { padding-top: 6px; }
+.rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.rs-list .a { text-align: left; }
+.rs-note { display: inline-flex; align-items: center; gap: 6px; }
+.rs-more { margin-top: var(--sp-1); color: var(--text-3); font-size: var(--fs-xs); }
+.rs-empty { margin: 0; font-size: var(--fs-xs); }
+.rs-slot .props.side-props { display: flex; flex-direction: column; align-items: stretch; gap: 3px; margin: 0; padding: 0; grid-template-columns: none; background: none; border: 0; text-align: left; }
+.rs-slot .props.side-props dt { margin-top: var(--sp-3); text-align: left; }
+.rs-slot .props.side-props dt:not(.rs-label) { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text-2); }
+.rs-slot .props.side-props dt:first-child { margin-top: 0; }
+.rs-slot .props.side-props dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); justify-content: flex-start; text-align: left; }
+.rs-path { margin-top: auto; padding: var(--sp-3) 0; border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) { .rs-sec > summary .chev { transition: none; } }
+
+/* 왼쪽 사이드바 줄의 선 그림 */
+.side-row .q-ico { display: inline-grid; place-items: center; width: 16px; color: var(--text-2); }
+.side-row .q-ico svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 두 칸으로 나눠 노트 칸이 좁을 때: 제목 옆 부가 정보는 다음 줄로 내린다 */
+.ws-slot { container-type: inline-size; }
+@container (max-width: 420px) { .note-head { flex-wrap: wrap; row-gap: var(--sp-1); } }

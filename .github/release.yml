@@ -1,0 +1,11 @@
+# Release notes are drafted from merged pull request titles (Releases › Draft a new release › Generate release notes).
+changelog:
+  exclude:
+    labels: [duplicate, wontfix]
+  categories:
+    - title: Fixes
+      labels: [bug]
+    - title: New and changed
+      labels: [enhancement]
+    - title: Other changes
+      labels: ["*"]

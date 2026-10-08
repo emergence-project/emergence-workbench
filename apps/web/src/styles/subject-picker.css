@@ -1,0 +1,15 @@
+.subject-picker { min-width: 0; }
+.subject-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.subject-chip { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; min-width: 0; }
+.subject-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subject-primary { color: var(--text-3); font-size: var(--fs-2xs); flex: none; white-space: nowrap; }
+.subject-chip button { color: var(--text-2); border: 0; background: none; cursor: pointer; flex: none; }
+.subject-menu { position: fixed; inset: auto; margin: 0; width: var(--subject-menu-width); min-width: 0; max-width: calc(100vw - var(--sp-5)); max-height: min(60vh, var(--card-picker-width)); padding: var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); box-shadow: var(--shadow); overflow: auto; }
+.subject-menu .rs-select { width: 100%; margin-bottom: var(--sp-2); }
+.subject-options .nav { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+.subject-options .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subject-options .muted { flex: none; font-size: var(--fs-xs); white-space: nowrap; }
+.subject-links { display: flex; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); flex-wrap: wrap; }
+.subject-links .a { white-space: nowrap; }
+.subject-title { display: flex; align-items: center; gap: var(--sp-2); }
+.subject-title .kl-subject-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

@@ -1,0 +1,36 @@
+name: Request / 요청
+description: Something you want to do but cannot, or that is harder than it should be. 하려는 일이 안 되거나 불편할 때.
+labels: [enhancement, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is **public**. Do not paste unpublished research or screenshots that show it.
+        이 이슈는 **공개**됩니다. 공개하지 않은 연구 내용이 보이는 그림은 붙이지 마세요.
+  - type: textarea
+    id: goal
+    attributes:
+      label: What you were trying to do / 하려던 일
+      description: The research task, not the feature you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What gets in the way now / 지금 불편한 점
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help / 바라는 모양
+      description: Optional. A sketch or an app you like is welcome.
+  - type: input
+    id: area
+    attributes:
+      label: Screen part / 화면 부위
+  - type: input
+    id: version
+    attributes:
+      label: App version / 앱 버전
+      description: Settings › 앱 기본정보.

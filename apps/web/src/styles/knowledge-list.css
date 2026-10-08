@@ -1,0 +1,22 @@
+/* 지식 목록: 논문 표 부품을 쓰고, 거르기 이름표와 분류 정보만 더한다. */
+.kl-main { min-width: 0; min-height: 0; }
+.kl-main .lib-head-right { grid-column: 3; }
+.kl-main .lib-head-right > .btn { height: var(--input-h); }
+.kl-tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); }
+.kl-tags:empty { display: none; }
+.kl-tags .tag { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; white-space: nowrap; }
+.kl-tags .tag > span { overflow: hidden; text-overflow: ellipsis; }
+.kl-tags .tag button { flex: none; color: var(--text-2); padding: 0 var(--sp-1); }
+.kl-scroll { flex: 1; min-height: 0; }
+.kl-table .kl-date .pl-sort { padding-inline: var(--sp-1); }
+.kl-table .pl-tr:not(.pl-th) { cursor: pointer; }
+.kl-add { border-bottom: 1px solid var(--line); padding: var(--sp-2); }
+.kl-add .kh-make { border: 1px dashed var(--line-strong); border-radius: var(--r-sm); }
+.kl-scroll .more-bar { margin: var(--sp-4); }
+.kl-column-menu { position: fixed; inset: auto; margin: 0; min-width: var(--pl-col-title); max-width: calc(100vw - var(--sp-4)); max-height: calc(100vh - var(--sp-4)); overflow: auto; }
+.kl-column-menu .kh-hint { margin: var(--sp-1) var(--sp-2); }
+.kl-subject-title { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-title); overflow-wrap: anywhere; }
+.kl-subject-path { margin: 0; color: var(--text-3); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.kl-subject-name { text-align: left; color: inherit; font: inherit; }
+.cn-subj > summary.on { background: var(--bg-hover); }
+.kl-no-chevron { visibility: hidden; }

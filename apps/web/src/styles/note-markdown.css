@@ -1,0 +1,26 @@
+/* 연구노트·보조 노트 읽기 화면: 그림·각주 (MarkdownNote.tsx NoteMarkdown) */
+.md-fig { margin: var(--sp-4) 0; text-align: center; }
+.md-fig img, .md-fig canvas { display: block; max-width: 100%; margin: 0 auto; border-radius: var(--r-sm); background: var(--paper); }
+.md-fig figcaption { margin-top: var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); text-align: left; }
+.md-fig figcaption b { font-weight: var(--fw-medium); color: var(--text); }
+.md-fig-missing { display: inline-block; padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-3); }
+.md-fn { font-size: var(--fs-2xs); color: var(--text-2); cursor: help; }
+.md-fns { margin-top: var(--sp-5); padding-top: var(--sp-3); border-top: 1px solid var(--line); font-size: var(--fs-sm); color: var(--text-2); }
+/* 읽기·미리보기의 넓은 식: 본문과 함께 움직이는 덮개가 양 끝 그림자를 가려, 더 밀 수 있는 쪽에만 단서를 남긴다. */
+:is(.md-note-body, .md-note-preview) .katex-display {
+  overflow-x: auto; overflow-y: hidden;
+  background:
+    linear-gradient(to right, var(--bg) var(--sp-3), transparent) left / var(--sp-6) 100% local,
+    linear-gradient(to left, var(--bg) var(--sp-3), transparent) right / var(--sp-6) 100% local,
+    linear-gradient(to right, var(--line-strong), transparent) left / var(--sp-3) 100% scroll,
+    linear-gradient(to left, var(--line-strong), transparent) right / var(--sp-3) 100% scroll;
+  background-repeat: no-repeat;
+}
+/* KaTeX의 번호를 식 옆 자리에 두고 오른쪽에 붙잡는다. 여러 줄 align의 번호 높이는 KaTeX 그대로 둔다. */
+:is(.md-note-body, .md-note-preview) .katex-display > .katex > .katex-html { width: max-content; min-width: 100%; }
+:is(.md-note-body, .md-note-preview) .katex-display > .katex > .katex-html:has(> .katex-tag) { display: flex; align-items: baseline; }
+:is(.md-note-body, .md-note-preview) .katex-display > .katex > .katex-html:has(> .katex-tag)::before { content: ''; flex: 1 0 0; }
+:is(.md-note-body, .md-note-preview) .katex-display > .katex > .katex-html > .katex-tag {
+  position: sticky; right: 0; flex: 1 0 0; padding-left: var(--sp-3); text-align: right;
+  background: linear-gradient(to right, transparent, var(--bg) var(--sp-3));
+}

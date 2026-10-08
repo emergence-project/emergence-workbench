@@ -1,0 +1,35 @@
+{
+  "name": "emergence-workbench",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter \"./apps/*\" dev",
+    "dev:en": "RW_SAMPLE_LANG=en pnpm dev",
+    "test": "node scripts/ci/test-all.mjs",
+    "agent:status": "node scripts/agent-status.mjs",
+    "agent:check-tasks": "node scripts/agent-check-tasks.mjs",
+    "mcp": "node scripts/mcp.mjs",
+    "design:check": "node scripts/ci/check-design.mjs",
+    "type-check": "pnpm -r run type-check",
+    "start": "pnpm build && zsh scripts/serve.sh",
+    "build": "pnpm --filter @rw/web build",
+    "service:install": "zsh scripts/service.sh install",
+    "service:restart": "zsh scripts/service.sh restart",
+    "service:status": "zsh scripts/service.sh status",
+    "service:logs": "zsh scripts/service.sh logs",
+    "service:uninstall": "zsh scripts/service.sh uninstall",
+    "test:autosave-close": "node scripts/shots/autosave-close.mjs",
+    "test:scripts": "node --test scripts/remote/*.test.mjs",
+    "shots": "node scripts/shots/shots.mjs",
+    "safety:check": "node scripts/safety/check-repo.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
