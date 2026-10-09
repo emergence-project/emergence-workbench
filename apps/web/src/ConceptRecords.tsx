@@ -28,10 +28,14 @@ export function ConceptRecords({ id, source, contentOffset, children }: { id: st
   const reveal = slot.reveal && { id: slot.reveal.anchor.id, line: slot.reveal.anchor.line, quote: slot.reveal.anchor.quote, prefix: slot.reveal.anchor.prefix, suffix: slot.reveal.anchor.suffix, nonce: slot.reveal.nonce }
   useRecordSelection(box, source, contentOffset, (selection) => { setSel(selection); if (selection) setActive(null) })
   const done = () => { setSel(null); window.getSelection()?.removeAllRanges() }
+  // 되돌리기처럼 나중에 부르는 쓰기도 그때의 메모(hash)를 쓰게 한다. 렌더 때의 slot.memo를 쓰면 지운 뒤 hash가 낡아 409가 난다
+  const latest = useRef(slot.memo)
+  latest.current = slot.memo
   const write = async (next: (text: string) => string, message?: string) => {
-    if (!slot.memo || busy) return
+    const memo = latest.current
+    if (!memo || busy) return
     setBusy(true)
-    try { await saveConceptMemo(id, slot.memo, next(slot.memo.text)); if (message) flash(message) }
+    try { await saveConceptMemo(id, memo, next(memo.text)); if (message) flash(message) }
     catch (e) { flash((e as Error).message) } finally { setBusy(false) }
   }
   const anchorOf = (s: RecordSelection, paint: PaintColor): MemoAnchor => ({ id: newAnchorId(text), color: paint, quote: s.quote, line: s.line, prefix: s.prefix, suffix: s.suffix })

@@ -181,10 +181,13 @@ export function App() {
     else if (route.page === 'home') bumpHome()
     if (e.type === 'research') void loadResearches()
   }
+  // 다시 붙었을 때(서버 재시작·잠자기 뒤): 끊긴 동안 바뀐 것을 한 번 다시 읽는다
+  const onReconnect = useRef<() => void>(() => undefined)
+  onReconnect.current = () => { void loadResearches(); changedSoon(); bumpHome() }
   useEffect(() => subscribeEvents((e: WorkbenchEvent) => {
     bus.dispatchEvent(new CustomEvent('rw', { detail: e }))
     onWorkbenchEvent.current(e)
-  }), [bus])
+  }, () => onReconnect.current()), [bus])
 
   // 최근 연 블록 (이 브라우저에만)
   useEffect(() => {

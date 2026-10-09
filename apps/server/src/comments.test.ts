@@ -396,6 +396,16 @@ describe('본문 선택 다시 찾기', () => {
     expect(readComments(root, 'note-repeated').comments[0]!.line).toBe(5)
   })
 
+  it('짧은 인용이 긴 노트에 수천 번 나와도 빨리 다시 찾는다 (일치마다 앞부분을 다시 세지 않음)', () => {
+    const source = 'workbench/notes/long/note.md'
+    writeSource(source, Array.from({ length: 3000 }, (_, i) => `the line ${i} of the note with the word the`).join('\n') + '\n')
+    for (let i = 0; i < 10; i++) addComment(root, 'note-long', { kind: '메모', title: '노트', source, text: `메모 ${i}`, line: 2500, quote: 'the', prefix: '사라진 ', suffix: ' 문맥' }, at)
+    const t0 = performance.now()
+    const { comments } = readComments(root, 'note-long')
+    expect(performance.now() - t0).toBeLessThan(1000)
+    expect(comments.map((c) => c.line)).toEqual(Array(10).fill(2500))
+  })
+
   it('여러 줄 선택은 줄바꿈을 보존해 다시 찾는다', () => {
     const source = 'workbench/notes/multiline/note.md'
     writeSource(source, '추가\n앞 첫 줄\n둘째 줄 뒤\n')

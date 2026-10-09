@@ -48,15 +48,24 @@ export function LibraryNoteEditor({ kind, id, info, rid, project, onChanged, onS
   const [template, setTemplate] = useState(() => readPick(kind, id))
   useEffect(() => { latexApi.get().then((v) => setTemplates(v.templates.filter((t) => t.kind === 'document'))).catch(() => undefined) }, [])
   useEffect(() => setTemplate(readPick(kind, id)), [kind, id])
+  // 앞 컴파일이 도는 중이면 겹쳐 돌리지 않고, 끝난 뒤 한 번만 다시 돈다(그사이 저장한 글로)
+  const busy = useRef(false)
+  const again = useRef(false)
   const compile = useCallback(async (tpl?: string) => {
     window.clearTimeout(compileTimer.current)
+    if (busy.current) { again.current = true; return }
+    busy.current = true
     setCompiling(true)
     try {
       const r = await api.compileLibraryNote(kind, id, tpl ?? template)
       setResult(r)
       if (r.hasPdf) setPdfVersion(Date.now())
     } catch (e) { setResult({ ok: false, durationMs: 0, hasPdf: false, problems: [{ file: '', line: 0, message: (e as Error).message, inBlock: false }], logTail: '' }) }
-    finally { setCompiling(false) }
+    finally {
+      busy.current = false
+      setCompiling(false)
+      if (again.current) { again.current = false; void compileRef.current() }
+    }
   }, [kind, id, template])
   const compileRef = useRef(compile)
   compileRef.current = compile
