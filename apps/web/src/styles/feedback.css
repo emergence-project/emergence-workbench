@@ -146,3 +146,6 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbp-compose textarea { border: 0; resize: none; outline: none; background: transparent; font: inherit; color: var(--text); padding: 0; }
 .fbp-compose-row { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
 .fbp-compose-row .sp { flex: 1; }
+.fb-pop-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
+.fb-actions .fb-kind { margin-right: auto; }
+.fb-actions .fb-kind ~ .fb-send { margin-right: 0; }

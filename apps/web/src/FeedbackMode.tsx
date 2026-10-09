@@ -1,3 +1,4 @@
+import { Icon } from './icons'
 import { feedbackNote } from './feedbackNote'
 import { useEffect, useRef, useState } from 'react'
 import { feedbackChanged, req } from './api'
@@ -7,7 +8,7 @@ import { go } from './router'
 import { onListKey } from './listInput'
 import { MemoText } from './memo'
 import { hasFeedbackList, issueDraftUrl } from './feedbackFormat'
-import { t } from './i18n'
+import { shown, t } from './i18n'
 
 /**
  * 피드백 모드: 화면 부위(data-ui가 붙은 요소)에 마우스를 올리면 이름표가 뜨고,
@@ -68,6 +69,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   const [showList, setShowList] = useState(false)
   const [publishable, setPublishable] = useState(false)
   /** 공개 저장소의 새 이슈 주소와 앱 버전: 다른 사용자가 관리자에게 보내는 곳 (docs/maintaining.md) */
+  const [kind, setKind] = useState<'수정' | '질문' | '제안' | null>(null)
   const [issues, setIssues] = useState<{ url: string; version: string | null } | null>(null)
   const hoverEl = useRef<Element | null>(null)
   const shot = useRef<Promise<string | null> | null>(null)
@@ -102,7 +104,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       if (!el) return
       shot.current = captureScreen()
       setPending({ path: uiPath(el), snippet: snippetOf(el), x: e.clientX, y: e.clientY })
-      setText(''); setError(null)
+      setText(''); setKind(null); setError(null)
     }
     const refresh = () => { const el = hoverEl.current; if (el) setHover({ rect: el.getBoundingClientRect(), path: uiPath(el) }) }
     const key = (e: KeyboardEvent) => {
@@ -136,23 +138,23 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
 
   /** 공개 이슈 초안을 새 탭에 열고, 같은 코멘트를 여기에도 저장한다. 창은 누른 순간에 열어야 막히지 않는다 */
   const sendToGithub = () => {
-    if (!pending || !text.trim() || !issues) return
+    if (!pending || !text.trim() || !issues || !kind) return
     const url = issueDraftUrl(issues.url, {
       text, area: uiShown(pending.path) === pending.path ? pending.path : `${uiShown(pending.path)} (${pending.path})`, snippet: pending.snippet, route: location.hash || '#/', version: issues.version,
       environment: `${navigator.platform} · ${innerWidth}×${innerHeight} · ${themeName()}`,
     })
     window.open(url, '_blank', 'noopener')
-    void save()
+    void save(kind)
   }
 
-  const save = async () => {
+  const save = async (kind: '수정' | '질문' | '제안') => {
     if (!pending || !text.trim()) return
     try {
       const image = (await shot.current) ?? undefined
       const res = await req('/api/feedback', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          kind: '미분류', target: pending.path, text, snippet: pending.snippet, route: location.hash || '#/', note: feedbackNote(),
+          kind, target: pending.path, text, snippet: pending.snippet, route: location.hash || '#/', note: feedbackNote(),
           viewport: `${innerWidth}×${innerHeight}`, theme: themeName(), image,
         }),
       })
@@ -191,19 +193,21 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
 
       {pending && pop && (
         <div className="fb-pop" data-feedback-ui style={{ ...pop, maxHeight: `calc(100dvh - ${pop.top}px - var(--sp-3))` }} role="dialog" aria-label={t('피드백 남기기', 'Leave feedback')}>
-          <div className="fb-target">{uiShown(pending.path)}</div>
+          <div className="fb-pop-head"><div className="fb-target">{uiShown(pending.path)}</div><button className="icon-btn" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={() => setPending(null)}>{Icon.x}</button></div>
           {pending.snippet && <div className="fb-snippet">“{pending.snippet}”</div>}
           <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={t('무엇이 어떤지, 어떻게 되면 좋겠는지 (- 로 목록, Tab 들여쓰기 · ⌘↵ 저장)', 'What is wrong and how it should be (- for a list, Tab to indent · ⌘↵ to save)')}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else onListKey(e, setText) }} />
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (kind) void save(kind) } else onListKey(e, setText) }} />
           {hasFeedbackList(text) && <div className="fb-preview" aria-label={t('피드백 미리보기', 'Feedback preview')}><MemoText text={text} /></div>}
           {error && <div className="error-text">{error}</div>}
           <div className="fb-actions">
+            <div className="segmented small fb-kind" role="radiogroup" aria-label={t('코멘트 유형', 'Comment type')}>
+              {(['수정', '질문', '제안'] as const).map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{shown(k)}</button>)}
+            </div>
             {issues && (
-              <button className="btn fb-send" disabled={!text.trim()} onClick={sendToGithub}
+              <button className="btn fb-send" disabled={!text.trim() || !kind} onClick={sendToGithub}
                 title={t('공개 저장소에 이슈 초안을 새 탭으로 엽니다. 여기에도 저장합니다. 화면 그림은 붙이지 않으니, 연구 내용이 보이지 않는 그림만 직접 붙이세요', 'Opens an issue draft on the public repository in a new tab. It is also saved here. Screenshots are not attached; add only pictures that show no research content.')}>{t('GitHub에 보내기', 'Send to GitHub')}</button>
             )}
-            <button className="btn" onClick={() => setPending(null)}>{t('취소', 'Cancel')}</button>
-            <button className="btn primary" disabled={!text.trim()} onClick={() => void save()}>{t('저장', 'Save')} <span className="kbd">⌘↵</span></button>
+            <button className="btn primary" disabled={!text.trim() || !kind} data-tip={kind ? undefined : t('유형을 고르면 등록됩니다', 'Choose a type to post')} onClick={() => kind && void save(kind)}>{t('코멘트 등록', 'Post comment')} <span className="kbd">⌘↵</span></button>
           </div>
         </div>
       )}
@@ -213,7 +217,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
           <div className="fb-list-head"><b>{t('이번에 남긴 피드백', 'Feedback this session')}</b><button className="fb-link" onClick={() => setShowList(false)}>{t('닫기', 'Close')}</button></div>
           {entries.length === 0 ? <p className="muted">{t('아직 없습니다.', 'None yet.')}</p> : entries.map((e, i) => (
             <div key={i} className="fb-entry">
-              <div className="fb-entry-head"><span className="tag">{e.kind === '미분류' ? t('미분류', 'Unsorted') : e.kind}</span><span className="muted">{e.time}</span></div>
+              <div className="fb-entry-head"><span className="tag">{shown(e.kind)}</span><span className="muted">{e.time}</span></div>
               <div className="fb-target">{e.target}</div>
               <FeedbackText e={e} onChanged={(text) => setEntries((prev) => text === null ? prev.filter((x) => x !== e) : prev.map((x) => (x === e ? { ...x, text } : x)))} />
             </div>
