@@ -66,6 +66,8 @@ export interface AppOptions {
   feedbackSync?: () => Promise<{ ok: boolean; error?: string }>
   /** 앱 자신의 업데이트(설정 화면). 실사용만: 저장소 위치, 지금 돌고 있는 커밋, 설치·빌드·재시작 방법 */
   appRepo?: { root: string; running: string; steps: UpdateSteps }
+  /** 앱 자동 업데이트 (실사용 서비스만): 이만큼마다 받고 빌드해 두고, 열린 화면이 없고 쓰기 요청이 idleMs 동안 없으면 다시 시작한다 */
+  appAutoUpdate?: { everyMs: number; idleMs: number }
   /** arXiv에서 논문을 받을 때 쓰는 fetch (테스트에서 바꿈) */
   fetch?: typeof fetch
   /** PDF 질문에 답할 Claude (기본: 맥의 `claude -p`, 테스트에서 바꿈) */
@@ -96,6 +98,7 @@ export const READ_ONLY_REQUESTS = new Set([
   'PUT /api/feedback/review',
   'POST /api/feedback/publish',
   'POST /api/app/update',
+  'POST /api/app/restart',
   // 컴파일은 결과를 .build/·설정 폴더에만 쓴다(원본·캐시 stamp에 안 걸림). GitHub 주소 읽기는 아무것도 쓰지 않는다
   'POST /api/researches/:rid/blocks/:bid/compile',
   'POST /api/researches/:rid/manuscript/compile',
@@ -244,7 +247,8 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
     if (['/api/concepts/list', '/api/concepts/subjects', '/api/concepts/resolve', '/api/concepts/search', '/api/concepts/rows', '/api/concepts/brief',
       '/api/concepts/:id/links', '/api/researches/:rid/notes/links'].includes(req.routeOptions.url ?? '')) await conceptIndex()?.ready()
   })
-  const ctx: RouteContext = { registry, opts, broadcast, wbOf, ensureWatch, watchers, repoPath, conceptIndex, libraryReads }
+  const clients = () => [...sockets].filter((s) => s.readyState === 1).length
+  const ctx: RouteContext = { registry, opts, broadcast, clients, wbOf, ensureWatch, watchers, repoPath, conceptIndex, libraryReads }
   registerApiIndex(app, ctx) // 맨 앞: 뒤에 등록되는 경로를 모아 GET /api로 보여 준다
   registerResearches(app, ctx)
   registerSettings(app, ctx)

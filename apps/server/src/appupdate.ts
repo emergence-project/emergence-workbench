@@ -1,4 +1,6 @@
 import { execFile, spawn } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 import { promisify } from 'node:util'
 import YAML from 'yaml'
 import { withRepoLock } from './repoLock.js'
@@ -28,6 +30,8 @@ export interface AppStatus {
   incoming: string[]
   /** 이번 업데이트로 처리 기록이 새로 생기거나 바뀐 피드백 (지금 도는 버전과 받을 버전의 feedback/status.yaml 비교) */
   resolved: ResolvedFeedback[]
+  /** 받은 커밋(head)을 미리 빌드해 두어 다시 시작만 하면 되는지 */
+  prepared: boolean
 }
 
 export interface ResolvedFeedback {
@@ -107,13 +111,15 @@ async function inspect(root: string, running: string, fetch: boolean): Promise<A
     branch = await git(root, 'rev-parse', '--abbrev-ref', 'HEAD')
     upstream = await git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')
   } catch {
-    return { running, head, branch, upstream: null, behind: 0, blocked: t('이 브랜치가 GitHub 브랜치를 추적하지 않습니다', 'This branch does not track a GitHub branch'), incoming: [], resolved: [] }
+    return { running, head, branch, upstream: null, behind: 0, blocked: t('이 브랜치가 GitHub 브랜치를 추적하지 않습니다', 'This branch does not track a GitHub branch'), incoming: [], resolved: [], prepared: false }
   }
   let fetchError: string | undefined
   if (fetch) fetchError = await fetchOnce(root, upstream.split('/')[0]!)
   const behind = Number(await git(root, 'rev-list', '--count', 'HEAD..@{upstream}'))
   // 합치기 커밋(Merge pull request …)은 내용이 없어 뺀다
-  const incoming = behind ? (await git(root, 'log', '--no-merges', '--format=%s', '-n', '10', 'HEAD..@{upstream}')).split('\n').filter(Boolean) : []
+  // 받기 전이면 GitHub에만 있는 것, 받아 두었으면(다시 시작 전) 지금 도는 버전 뒤의 것
+  const range = behind ? 'HEAD..@{upstream}' : head !== running ? `${running}..${head}` : null
+  const incoming = range ? (await git(root, 'log', '--no-merges', '--format=%s', '-n', '10', range).catch(() => '')).split('\n').filter(Boolean) : []
   // 지금 도는 버전에서 받을(또는 받아 두고 아직 다시 시작하지 않은) 버전까지 처리된 피드백
   const target = behind ? '@{upstream}' : head
   const resolved = target === running ? [] : await resolvedBetween(root, running, target)
@@ -125,7 +131,8 @@ async function inspect(root: string, running: string, fetch: boolean): Promise<A
     : localCommits.length
       ? t(`이 맥에만 있는 커밋이 코드를 바꿔 자동으로 받지 않습니다 (${localCommits.slice(0, 3).join(', ')}). 터미널에서 git pull로 합쳐 주세요`, `Not pulling automatically because commits only on this Mac change the code (${localCommits.slice(0, 3).join(', ')}). Merge them with git pull in a terminal`)
       : null
-  return { running, head, branch, upstream, behind, blocked, fetchError, incoming, resolved }
+  const prepared = head !== running && behind === 0 && nextBuildOf(root) === head
+  return { running, head, branch, upstream, behind, blocked, fetchError, incoming, resolved, prepared }
 }
 
 export function appStatus(root: string, running: string, opts: { fetch?: boolean } = {}): Promise<AppStatus> {
@@ -135,22 +142,49 @@ export function appStatus(root: string, running: string, opts: { fetch?: boolean
 export interface UpdateSteps {
   /** 의존성 설치 (package.json·잠금 파일이 바뀌었을 때만) */
   install(root: string): Promise<void>
-  /** 화면 빌드 */
+  /** 화면 빌드: 지금 내보내는 apps/web/dist는 그대로 두고 apps/web/dist-next에 만든다 (다시 시작할 때 바꿔 단다) */
   build(root: string): Promise<void>
   /** 서비스 다시 시작. 서비스로 돌고 있지 않으면 false */
   restart(): boolean
+  /** 스스로 다시 시작할 수 있는지 (launchd 서비스로 돌 때만). 자동 업데이트는 이때만 돈다 */
+  canRestart(): boolean
+}
+
+/**
+ * 미리 빌드한 화면 (10/9 자동 업데이트): 받은 새 커밋의 화면을 dist-next에 빌드하고 그 커밋을 .commit에 적는다.
+ * 지금 도는 서버는 계속 dist를 내보내므로, 창을 새로 읽어도 옛 서버와 새 화면이 섞이지 않는다.
+ * 서버가 그 커밋으로 다시 켜질 때 promoteNextBuild가 dist-next를 dist로 바꿔 단다.
+ */
+const NEXT_DIR = 'apps/web/dist-next'
+const nextMarker = (root: string) => path.join(root, NEXT_DIR, '.commit')
+export function nextBuildOf(root: string): string | null {
+  try { return fs.readFileSync(nextMarker(root), 'utf8').trim() || null } catch { return null }
+}
+
+/** 서버가 켜질 때: 지금 커밋으로 미리 빌드해 둔 화면이 있으면 dist로 바꿔 단다. 바꿔 달았으면 true */
+export function promoteNextBuild(root: string, running: string): boolean {
+  if (nextBuildOf(root) !== running) return false
+  const next = path.join(root, NEXT_DIR)
+  const dist = path.join(root, 'apps/web/dist')
+  fs.rmSync(nextMarker(root), { force: true })
+  fs.rmSync(dist, { recursive: true, force: true })
+  fs.renameSync(next, dist)
+  return true
 }
 
 export class UpdateError extends Error {}
 
 export interface UpdateResult { status: AppStatus; restarting: boolean; message: string }
 
-/** GitHub의 새 커밋을 받아 의존성·화면을 갖추고 다시 시작한다. 받을 것이 없어도 아직 반영 안 된 커밋이 있으면 다시 시작한다. */
-export function updateApp(root: string, running: string, steps: UpdateSteps): Promise<UpdateResult> {
-  return withRepoLock(root, () => updateAppNow(root, running, steps))
+/**
+ * GitHub의 새 커밋을 받아 의존성·화면을 갖추고 다시 시작한다. 받을 것이 없어도 아직 반영 안 된 커밋이 있으면 다시 시작한다.
+ * restart: false면 받고 빌드까지만 한다 (자동 업데이트: 다시 시작은 쉴 때나 상단바 버튼으로)
+ */
+export function updateApp(root: string, running: string, steps: UpdateSteps, opts: { restart?: boolean } = {}): Promise<UpdateResult> {
+  return withRepoLock(root, () => updateAppNow(root, running, steps, opts.restart ?? true))
 }
 
-async function updateAppNow(root: string, running: string, steps: UpdateSteps): Promise<UpdateResult> {
+async function updateAppNow(root: string, running: string, steps: UpdateSteps, restart: boolean): Promise<UpdateResult> {
   const before = await inspect(root, running, true)
   if (before.fetchError) throw new UpdateError(t(`GitHub를 확인하지 못했습니다: ${before.fetchError}`, `Could not check GitHub: ${before.fetchError}`))
   if (before.blocked) throw new UpdateError(before.blocked)
@@ -174,13 +208,19 @@ async function updateAppNow(root: string, running: string, steps: UpdateSteps): 
 
   const head = await git(root, 'rev-parse', 'HEAD')
   if (head === running) return { status: await inspect(root, running, false), restarting: false, message: t('이미 최신입니다', 'Already up to date') }
-  const deps = (await git(root, 'diff', '--name-only', running, head, '--', 'package.json', 'pnpm-lock.yaml', '*/package.json', '*/*/package.json')).trim()
-  try {
-    if (deps) await steps.install(root)
-    await steps.build(root)
-  } catch (e) {
-    throw new UpdateError(t(`코드는 받았지만 ${deps ? '설치·' : ''}빌드에 실패했습니다. 지금 앱은 이전 버전으로 계속 돕니다: ${buildReason(e)}`, `The code was pulled, but the ${deps ? 'install or ' : ''}build failed. The app keeps running the previous version: ${buildReason(e)}`))
+  if (nextBuildOf(root) !== head) {
+    const deps = (await git(root, 'diff', '--name-only', running, head, '--', 'package.json', 'pnpm-lock.yaml', '*/package.json', '*/*/package.json')).trim()
+    try {
+      if (deps) await steps.install(root)
+      fs.rmSync(nextMarker(root), { force: true })
+      await steps.build(root)
+      fs.mkdirSync(path.dirname(nextMarker(root)), { recursive: true })
+      fs.writeFileSync(nextMarker(root), `${head}\n`)
+    } catch (e) {
+      throw new UpdateError(t(`코드는 받았지만 ${deps ? '설치·' : ''}빌드에 실패했습니다. 지금 앱은 이전 버전으로 계속 돕니다: ${buildReason(e)}`, `The code was pulled, but the ${deps ? 'install or ' : ''}build failed. The app keeps running the previous version: ${buildReason(e)}`))
+    }
   }
+  if (!restart) return { status: await inspect(root, running, false), restarting: false, message: t('새 버전을 받아 두었습니다. 다시 시작하면 반영됩니다', 'The new version is ready. Restart to apply it') }
   const restarting = steps.restart()
   return {
     status: await inspect(root, running, false), restarting,
@@ -191,12 +231,13 @@ async function updateAppNow(root: string, running: string, steps: UpdateSteps): 
 /** 실제 맥에서 쓰는 단계: pnpm으로 설치·빌드하고, 백그라운드 서비스면 launchd에 다시 시작을 맡긴다 */
 export const macSteps = (serviceLabel = 'com.research-workspace.app'): UpdateSteps => ({
   async install(root) { await exec('pnpm', ['install', '--frozen-lockfile'], { cwd: root, timeout: 600_000, env }) },
-  async build(root) { await exec('pnpm', ['--filter', '@rw/web', 'build'], { cwd: root, timeout: 600_000, env }) },
+  async build(root) { await exec('pnpm', ['--filter', '@rw/web', 'exec', 'vite', 'build', '--outDir', 'dist-next', '--emptyOutDir'], { cwd: root, timeout: 600_000, env }) },
+  // launchd가 띄운 서비스일 때만 (터미널의 pnpm start는 사용자가 다시 켠다)
+  canRestart: () => process.env.XPC_SERVICE_NAME === serviceLabel && typeof process.getuid === 'function',
   restart() {
-    // launchd가 띄운 서비스일 때만 (터미널의 pnpm start는 사용자가 다시 켠다)
-    if (process.env.XPC_SERVICE_NAME !== serviceLabel || typeof process.getuid !== 'function') return false
+    if (!this.canRestart()) return false
     // 응답을 보낸 뒤에 스스로를 다시 시작한다. 서비스는 KeepAlive라 꺼져도 다시 켜진다
-    spawn('/bin/zsh', ['-c', `sleep 1; launchctl kickstart -k gui/${process.getuid()}/${serviceLabel}`], { detached: true, stdio: 'ignore' }).unref()
+    spawn('/bin/zsh', ['-c', `sleep 1; launchctl kickstart -k gui/${process.getuid!()}/${serviceLabel}`], { detached: true, stdio: 'ignore' }).unref()
     return true
   },
 })
