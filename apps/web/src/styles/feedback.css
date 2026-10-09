@@ -62,8 +62,8 @@ body.feedback-on .toast { bottom: 76px; }
 /* 시각 보기의 표 (10/4 피드백) */
 .fbp-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
 .fbp-table th { text-align: left; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line-strong); }
-.fbp-table th:nth-child(1) { width: calc(var(--fs-xs) * 10 + var(--sp-4)); } .fbp-table th:nth-child(2) { width: calc(var(--fs-xs) * 7 + var(--sp-5)); } .fbp-table th:nth-child(4) { width: 96px; }
-.fbp-table th:nth-child(5) { width: 120px; } .fbp-table th:nth-child(6), .fbp-table th:nth-child(7) { width: 80px; white-space: nowrap; }
+.fbp-table th:nth-child(1) { width: calc(var(--fs-xs) * 10 + var(--sp-4)); } .fbp-table th:nth-child(2) { width: calc(var(--fs-xs) * 9.5 + var(--sp-5)); } .fbp-table th:nth-child(4) { width: 96px; }
+.fbp-table th:nth-child(5) { width: 96px; } .fbp-table th:nth-child(6), .fbp-table th:nth-child(7) { width: 80px; white-space: nowrap; }
 .fbp-table td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: baseline; }
 .fbp-row { cursor: pointer; }
 .fbp-row:hover, .fbp-row.on { background: var(--bg-hover); }

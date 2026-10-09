@@ -4,7 +4,7 @@ import { go } from './router'
 import { plural, t } from './i18n'
 
 /** 피드백 처리 상태의 화면 이름 (값은 status.yaml 그대로) */
-const STATE_TEXT: Record<string, string> = { 반영: t('반영', 'Applied'), 답변: t('답변', 'Answered'), 보류: t('보류', 'On hold'), 승인: t('승인', 'Approved') }
+const STATE_TEXT: Record<string, string> = { 반영: t('반영', 'Applied'), 답변: t('답변', 'Answered'), 보류: t('보류', 'On hold'), 승인: t('승인', 'Approved'), 거절: t('거절', 'Declined'), '확인 필요': t('확인 필요', 'Needs review'), 동의: t('동의', 'Agreed'), 나중에: t('나중에', 'Later') }
 const stateText = (s: string) => STATE_TEXT[s] ?? s
 
 interface AppStatus {

@@ -132,7 +132,7 @@ export function parseFeedback(md: string, date: string): FeedbackEntry[] {
  * 맥은 날짜 파일 끝에 계속 덧붙이므로, 처리 기록을 날짜 파일 안에 쓰면 앱 업데이트의 rebase에서 부딪힐 수 있다. 그래서 따로 둔다.
  *
  *   "2026-10-01 15:45 홈 › 제목":
- *     state: 반영        # 반영 | 답변 | 보류
+ *     state: 반영        # 유형별 답 (10/9): 수정 → 반영 | 거절 | 확인 필요, 질문 → 답변, 제안 → 동의 | 나중에 | 거절. 보류 · 승인은 이전 기록
  *     commit: 1bd6963
  *     cause: 홈 머리줄이 제목·부제로 두 줄을 차지했다
  *     note: 제목·부제를 빼고 날짜를 머리줄로
@@ -142,7 +142,7 @@ export function parseFeedback(md: string, date: string): FeedbackEntry[] {
  *
  * 같은 날 같은 키(같은 분·같은 부위)가 또 나오면 뒤의 것은 키 끝에 " #2"를 붙인다.
  */
-export const FEEDBACK_STATES = ['반영', '답변', '보류', '승인'] as const
+export const FEEDBACK_STATES = ['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류', '승인'] as const
 export type FeedbackState = (typeof FEEDBACK_STATES)[number]
 export interface FeedbackStatus {
   state: FeedbackState; commit?: string; note?: string

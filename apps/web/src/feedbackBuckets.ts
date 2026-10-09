@@ -16,11 +16,15 @@ export const stateOf = (e: FeedbackItem): FeedbackState | '대기' =>
 
 const CONFIRM_DAYS = 7
 const recent = (e: FeedbackItem, now: number) => now - new Date(`${e.date}T00:00`).getTime() < CONFIRM_DAYS * 86_400_000
-/** 답할 것: 에이전트가 물은 보류 항목. */
-export const needsAnswer = (e: FeedbackItem) => stateOf(e) === '보류' && !!e.status?.ask
-/** 확인할 것: 최근 반영·답변 중 미확인 항목, 또는 반려 뒤 다시 처리한 항목. */
+/** 답할 것: 에이전트가 다시 확인을 물은 수정, 만들지 승인을 기다리는 제안(동의), 물은 보류 항목. */
+export const needsAnswer = (e: FeedbackItem) => {
+  const st = stateOf(e)
+  return st === '확인 필요' || st === '동의' || (st === '보류' && !!e.status?.ask)
+}
+/** 확인할 것: 최근 반영·거절·답변·나중에 중 미확인 항목, 또는 반려 뒤 다시 처리한 항목. */
+const CONFIRMED_BY_USER = ['반영', '거절', '답변', '나중에']
 export const needsConfirm = (e: FeedbackItem, now = Date.now()) =>
-  (stateOf(e) === '반영' || stateOf(e) === '답변') && ((!e.review && recent(e, now)) || reworked(e))
+  CONFIRMED_BY_USER.includes(stateOf(e)) && ((!e.review && recent(e, now)) || reworked(e))
 
 export type FeedbackBucket = '확인 필요' | '대기' | '완료'
 
