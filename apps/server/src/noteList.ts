@@ -79,7 +79,7 @@ function cachedNoteSources(wb: Workbench): Source[] {
 }
 
 function noteSources(wb: Workbench): Source[] {
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   const manuscripts = wb.readResearch().sources.manuscripts
   const out: Source[] = []
   for (const n of wb.ownNotes()) {
@@ -221,7 +221,7 @@ export function writeNoteHead(wb: Workbench, file: unknown, patch: NoteHeadPatch
     if (title.length > 120) throw new WorkbenchError(400, t('이름은 120자까지', 'Names are up to 120 characters'))
   }
 
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   if (src.row.type === 'block') {
     const mp: MetaPatch = {}
     if (title !== undefined) mp.title = title

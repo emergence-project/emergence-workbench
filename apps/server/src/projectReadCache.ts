@@ -10,7 +10,7 @@ import type { Workbench } from './workbench.js'
 const NOT_SOURCES = ['STATUS.md', 'log', 'tasks', 'comments']
 
 function bibFiles(wb: Workbench): string[] {
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   const sources = wb.readResearch().sources
   return (sources.bib.length ? sources.bib : fs.readdirSync(repo).filter((n) => n.endsWith('.bib'))).map((f) => path.join(repo, f))
 }
@@ -26,7 +26,7 @@ function cachedStamp(stamps: WeakMap<Workbench, DerivedCache<string>>, wb: Workb
 const stamps = new WeakMap<Workbench, DerivedCache<string>>()
 export function projectStamp(wb: Workbench): string {
   return cachedStamp(stamps, wb, () => {
-    const repo = path.dirname(wb.root)
+    const repo = wb.repo
     return treeStamp([wb.root, ...bibFiles(wb), ...wb.readResearch().sources.manuscripts.map((m) => path.join(repo, m.path))],
       { skip: NOT_SOURCES.map((n) => path.join(wb.root, n)), dirStats: false })
   })

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { isOutside } from './fsutil.js'
 import { fileURLToPath } from 'node:url'
 import { buildApp } from './app.js'
 import { tikzCachePath } from './figures.js'
@@ -24,7 +25,7 @@ function cpSample(src: string, dst: string, opts: { recursive?: boolean; filter?
   fs.cpSync(src, dst, { recursive: true, ...opts })
   const rel = path.relative(path.join(repoRoot, 'fixtures'), src)
   const overlay = path.join(repoRoot, 'fixtures/en', rel)
-  if (sampleEn && !rel.startsWith('..') && fs.existsSync(overlay)) fs.cpSync(overlay, dst, { recursive: true, force: true, ...(opts.filter && { filter: (s: string) => opts.filter!(s) }) })
+  if (sampleEn && !isOutside(rel) && fs.existsSync(overlay)) fs.cpSync(overlay, dst, { recursive: true, force: true, ...(opts.filter && { filter: (s: string) => opts.filter!(s) }) })
 }
 
 /**

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { commentsApi, ConflictError, papersApi, type CommentEntry, type CommentFile, type CommentKind, type CommentState, type NewComment, type PaintColor, type NoteHighlight, type PdfBox, type PendingQuestion } from './api'
+import { commentsApi, ConflictError, papersApi, type CommentEntry, type CommentFile, type CommentKind, type CommentState, type NewComment, type PaintColor, type NoteHighlight, type PdfBox } from './api'
 import { PdfView, type PdfMark, type PdfPaint, type PdfSelection } from './PdfView'
 import { MemoText } from './memo'
-import { go } from './router'
 import type { Tab } from './Workspace'
 import { onListKey } from './listInput'
 import { Icon } from './icons'
@@ -477,32 +476,6 @@ export function CommentsPanel({ rid, target }: { rid: string; target: CommentTar
       {draft && <div className="cmt-inline"><Composer rid={rid} target={target} draft={draft} onClose={() => setDraft(null)}
         onSaved={(id) => patch(keyOf(rid, target.target), { active: id })} /></div>}
       <CommentList rid={rid} target={target.target} />
-    </section>
-  )
-}
-
-/** 에이전트 함: 이 프로젝트의 답을 기다리는 질문. 누르면 그 PDF의 그 자리로 */
-export function AgentInbox({ rid, version, firstPartOf }: { rid: string; version: number; firstPartOf(target: string): string | undefined }) {
-  const [items, setItems] = useState<PendingQuestion[] | null>(null)
-  const tick = useSyncExternalStore((f) => { pendingListeners.add(f); return () => { pendingListeners.delete(f) } }, () => pendingTick)
-  useEffect(() => { commentsApi(rid).overview().then((r) => setItems(r.pending)).catch(() => setItems([])) }, [rid, version, tick])
-  if (!items?.length) return null
-  const openQ = (q: PendingQuestion) => {
-    if (q.target.startsWith('paper-') && q.source) go({ page: 'doc', rid, name: q.source })
-    else if (q.target.startsWith('block-')) go({ page: 'block', rid, bid: q.source ?? q.target.slice(6) })
-    else if ((q.target.startsWith('note-') || q.target.startsWith('calc-')) && q.source) go({ page: 'part', rid, file: q.source })
-    else if (q.target === 'manuscript' || q.target.startsWith('manuscript-')) { const f = firstPartOf(q.target); if (f) go({ page: 'part', rid, file: f }) }
-    revealComment(rid, q.target, q.id)
-  }
-  return (
-    <section className="agent-inbox" data-ui="에이전트 함">
-      <div className="pane-head" data-ui="머리줄"><span className="crumb" title={t('이 저장소에서 Claude Code에 "에이전트 함 처리해"라고 하면 workbench/STATUS.md를 읽고 답을 적습니다.', 'Tell Claude Code in this repository "process the agent inbox" and it reads workbench/STATUS.md and writes the answers.')}><b>{t('에이전트 함', 'Agent inbox')}</b> · {t(`답을 기다리는 질문 ${items.length}`, `Questions awaiting an answer: ${items.length}`)}</span></div>
-      {items.map((q) => (
-        <button key={`${q.target}/${q.id}`} className="inbox-item" title={q.file} onClick={() => openQ(q)}>
-          <span className="inbox-where">{q.title}{q.where !== '전체' ? ` · ${shown(q.where)}` : ''}</span>
-          <span className="inbox-text">{q.body || (q.quote && `"${q.quote}"`)}</span>
-        </button>
-      ))}
     </section>
   )
 }

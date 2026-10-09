@@ -12,7 +12,7 @@ export function noteBibFiles(wb: Workbench, mainAbs: string, latexBody: string):
   const dir = path.dirname(mainAbs)
   const own = fs.readdirSync(dir).filter((f) => f.endsWith('.bib')).sort().map((f) => path.join(dir, f))
   if (own.length) return own
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   return wb.readResearch().sources.bib.map((b) => path.join(repo, b)).filter((f) => f.endsWith('.bib') && fs.existsSync(f))
 }
 

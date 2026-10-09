@@ -2,9 +2,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
 import { charCount, parseCardFigureRef } from '@rw/core'
-import { hashOf, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tx } from './i18n.js'
+import { editResearchYaml, researchHash } from './researchYaml.js'
 
 /**
  * 주제(Topic, 10/5 "주제와 노트"): 노트를 묶기만 하는 한 단계 묶음. 예전 이름은 카드(10/3).
@@ -162,7 +162,7 @@ export function topicIdOf(title: string, taken: string[]): string {
   return id
 }
 
-export const topicsHash = (wb: Workbench) => hashOf(fs.existsSync(wb.researchPath) ? fs.readFileSync(wb.researchPath, 'utf8') : '')
+export const topicsHash = researchHash
 
 /** 읽을 때 받은 baseHash 뒤로 research.yaml이 바뀌지 않았는지 본다 (없으면 거절: 바깥 수정을 모르고 덮지 않게) */
 export function checkTopicsHash(wb: Workbench, baseHash: unknown): void {
@@ -206,52 +206,48 @@ function flowShort(node: unknown): void {
  */
 export function saveTopics(wb: Workbench, list: unknown): Topic[] {
   if (!Array.isArray(list)) throw new WorkbenchError(400, tx('topics(목록)가 필요함', 'topics (a list) is required'))
-  const text = fs.existsSync(wb.researchPath) ? fs.readFileSync(wb.researchPath, 'utf8') : ''
-  const doc = YAML.parseDocument(text)
-  if (doc.errors.length) throw new WorkbenchError(409, tx('research.yaml을 읽지 못해 고치지 않음', 'Not changed: could not read research.yaml'))
-  if (doc.contents != null && !YAML.isMap(doc.contents)) throw new WorkbenchError(409, tx('research.yaml 모양이 달라 고치지 않음', 'Not changed: research.yaml has an unexpected shape'))
-  const got = doc.get('topics', true)
-  // 'topics:'처럼 값이 빈 칸은 없는 것으로 본다
-  const seq = YAML.isScalar(got) && got.value == null ? undefined : got
-  if (seq != null && !YAML.isSeq(seq)) throw new WorkbenchError(409, tx('research.yaml의 topics:가 목록이 아니어서 고치지 않음', 'Not changed: topics: in research.yaml is not a list'))
-  const items: unknown[] = seq ? [...seq.items] : []
-  const read = normalizeIndexed(items.map((n) => (YAML.isNode(n) ? n.toJSON() : n)), false)
-  const topics = normalize(list, true, read.map((x) => x.topic))
-  const wanted = new Map(topics.map((t) => [t.id, t]))
-  const was = new Map(read.map((x) => [x.topic.id, x]))
-
-  // 남는 (읽은) 주제의 칸에 새 순서대로 다시 넣는다. 읽지 못한 항목은 제자리
-  const keptSlots = read.filter((x) => wanted.has(x.topic.id)).map((x) => x.at)
-  const keptOrder = topics.filter((t) => was.has(t.id))
-  const removed = new Set(read.filter((x) => !wanted.has(x.topic.id)).map((x) => x.at))
-  const next: unknown[] = items.map((n, i) => (removed.has(i) ? undefined : n))
-  keptSlots.forEach((slot, k) => {
-    const t = keptOrder[k]!
-    const old = was.get(t.id)!
-    const node = items[old.at]
-    if (!YAML.isMap(node)) { next[slot] = doc.createNode(topicYaml(t)); return }
-    for (const [key, valueOf] of Object.entries(TOPIC_FIELDS)) {
-      const v = valueOf(t)
-      if (JSON.stringify(v) === JSON.stringify(valueOf(old.topic)) && !(key === 'id' && !node.has('id'))) continue
-      if (v === undefined) node.delete(key)
-      else { const vn = doc.createNode(v); flowShort(vn); node.set(key, vn) }
-    }
-    next[slot] = node
-  })
-  for (const t of topics) {
-    if (was.has(t.id)) continue
-    const node = doc.createNode(topicYaml(t))
-    flowShort(node)
-    next.push(node)
-  }
-  const out_ = next.filter((n) => n !== undefined)
-  if (out_.length) {
-    if (seq) seq.items = out_ as typeof seq.items
-    else { const s_ = doc.createNode([]) as YAML.YAMLSeq; s_.items = out_ as typeof s_.items; doc.set('topics', s_) }
-  } else doc.delete('topics')
   // [a, b]처럼 사람이 쓴 모양을 지킨다 (기본값은 [ a, b ]). 긴 설명을 접지 않는다
-  const out = doc.toString({ flowCollectionPadding: false, lineWidth: 0 })
-  if (out !== text) writeAtomic(wb.researchPath, out)
+  editResearchYaml(wb, (doc) => {
+    const got = doc.get('topics', true)
+    // 'topics:'처럼 값이 빈 칸은 없는 것으로 본다
+    const seq = YAML.isScalar(got) && got.value == null ? undefined : got
+    if (seq != null && !YAML.isSeq(seq)) throw new WorkbenchError(409, tx('research.yaml의 topics:가 목록이 아니어서 고치지 않음', 'Not changed: topics: in research.yaml is not a list'))
+    const items: unknown[] = seq ? [...seq.items] : []
+    const read = normalizeIndexed(items.map((n) => (YAML.isNode(n) ? n.toJSON() : n)), false)
+    const topics = normalize(list, true, read.map((x) => x.topic))
+    const wanted = new Map(topics.map((t) => [t.id, t]))
+    const was = new Map(read.map((x) => [x.topic.id, x]))
+
+    // 남는 (읽은) 주제의 칸에 새 순서대로 다시 넣는다. 읽지 못한 항목은 제자리
+    const keptSlots = read.filter((x) => wanted.has(x.topic.id)).map((x) => x.at)
+    const keptOrder = topics.filter((t) => was.has(t.id))
+    const removed = new Set(read.filter((x) => !wanted.has(x.topic.id)).map((x) => x.at))
+    const next: unknown[] = items.map((n, i) => (removed.has(i) ? undefined : n))
+    keptSlots.forEach((slot, k) => {
+      const t = keptOrder[k]!
+      const old = was.get(t.id)!
+      const node = items[old.at]
+      if (!YAML.isMap(node)) { next[slot] = doc.createNode(topicYaml(t)); return }
+      for (const [key, valueOf] of Object.entries(TOPIC_FIELDS)) {
+        const v = valueOf(t)
+        if (JSON.stringify(v) === JSON.stringify(valueOf(old.topic)) && !(key === 'id' && !node.has('id'))) continue
+        if (v === undefined) node.delete(key)
+        else { const vn = doc.createNode(v); flowShort(vn); node.set(key, vn) }
+      }
+      next[slot] = node
+    })
+    for (const t of topics) {
+      if (was.has(t.id)) continue
+      const node = doc.createNode(topicYaml(t))
+      flowShort(node)
+      next.push(node)
+    }
+    const out_ = next.filter((n) => n !== undefined)
+    if (out_.length) {
+      if (seq) seq.items = out_ as typeof seq.items
+      else { const s_ = doc.createNode([]) as YAML.YAMLSeq; s_.items = out_ as typeof s_.items; doc.set('topics', s_) }
+    } else doc.delete('topics')
+  }, { flowCollectionPadding: false, lineWidth: 0 })
   return readTopics(wb)
 }
 
@@ -342,7 +338,7 @@ export function setTopicImage(wb: Workbench, id: string, name: unknown, bytes: u
   const tmp = `${file}.${process.pid}.tmp`
   fs.writeFileSync(tmp, bytes)
   fs.renameSync(tmp, file)
-  return patchTopic(wb, id, { preview: { image: path.relative(path.dirname(wb.root), file).split(path.sep).join('/') } })
+  return patchTopic(wb, id, { preview: { image: path.relative(wb.repo, file).split(path.sep).join('/') } })
 }
 
 /** 주제 미리보기 그림의 실제 파일 (저장소 안, 그림만). 없으면 404 */
@@ -350,7 +346,7 @@ export function topicImageFile(wb: Workbench, id: string): string {
   const t = readTopics(wb).find((x) => x.id === id)
   if (!t) throw new WorkbenchError(404, tx(`없는 주제: ${id}`, `No such topic: ${id}`))
   if (!t.preview?.image) throw new WorkbenchError(404, tx('이 주제에는 그림이 없음', 'This topic has no picture'))
-  const repo = fs.realpathSync(path.dirname(wb.root))
+  const repo = fs.realpathSync(wb.repo)
   const abs = path.resolve(repo, t.preview.image)
   if (!fs.existsSync(abs)) throw new WorkbenchError(404, tx(`그림이 없음: ${t.preview.image}`, `No such picture: ${t.preview.image}`))
   const real = fs.realpathSync(abs)

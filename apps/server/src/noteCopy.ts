@@ -2,11 +2,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Author, LatexSetup, LatexTemplate } from '@rw/core'
 import YAML from 'yaml'
-import { writeAtomic } from './fsutil.js'
+import { isOutside, writeAtomic } from './fsutil.js'
 import { allManuscripts } from './manuscript.js'
 import { expandHeadInputs, NOTE_MACROS, needsBodyOnly, noteMacrosText, toBodyOnly } from './noteBody.js'
 import { NOTE_DIRS, NOTE_MD, WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
+import { editResearchYaml } from './researchYaml.js'
 
 /**
  * 연구노트·계산 노트 만들기 (10/4 피드백 "논문 원문 말고, 복사해서 내가 변형하려고 해").
@@ -57,7 +58,7 @@ export function collectTexFiles(mainAbs: string, options: { baseDir?: string; se
     if (files.has(rel)) continue
     const abs = path.join(baseDir, rel)
     const realRel = path.relative(fs.realpathSync(baseDir), fs.realpathSync(abs))
-    if (rel.startsWith('..') || path.isAbsolute(rel) || realRel.startsWith('..') || path.isAbsolute(realRel)) { skipped.push(rel); continue }
+    if (isOutside(rel) || isOutside(realRel)) { skipped.push(rel); continue }
     files.add(rel)
     if (/\.(?:tex|sty|cls)$/.test(rel)) todo.push(...referencedFiles(fs.readFileSync(abs, 'utf8'), baseDir, options.searchDirs, options.graphicsDirs))
   }
@@ -109,7 +110,7 @@ export function createNote(wb: Workbench, input: { kind?: unknown; name?: unknow
   if (!kind) throw new WorkbenchError(400, t('kind는 note 또는 calc', 'kind must be note or calc'))
   const name = typeof input.name === 'string' ? input.name.replace(/\s+/g, ' ').trim().slice(0, 120) : ''
   if (!name) throw new WorkbenchError(400, t('노트 이름이 필요함', 'A note name is required'))
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   const parent = path.join(wb.root, NOTE_DIRS[kind])
   const dest = path.join(parent, folderFor(parent, name))
   const skipped: string[] = []
@@ -180,7 +181,7 @@ export function createNote(wb: Workbench, input: { kind?: unknown; name?: unknow
 /** 프로젝트 기호 파일: research.yaml의 latex-macros:, 없으면 workbench/macros.tex */
 const projectMacrosFile = (wb: Workbench) => {
   const own = wb.readResearch().latexMacros
-  return own ? path.join(path.dirname(wb.root), own) : path.join(wb.root, 'macros.tex')
+  return own ? path.join(wb.repo, own) : path.join(wb.root, 'macros.tex')
 }
 
 /** 이미 정의된 이름(\ADA 등)과 같은 줄은 빼고 기호 파일 끝에 더한다. 더한 줄 수 */
@@ -208,9 +209,7 @@ function placeHead(wb: Workbench, noteDir: string, from: string, text: string, f
   if (wb.readResearch().latexTemplate) return { macros: n }
   const id = guessTemplate(text, templates)
   if (!id) return { macros: n }
-  const doc = YAML.parseDocument(fs.existsSync(wb.researchPath) ? fs.readFileSync(wb.researchPath, 'utf8') : '')
-  doc.set('latex-template', id)
-  writeAtomic(wb.researchPath, doc.toString())
+  editResearchYaml(wb, (doc) => { doc.set('latex-template', id) })
   return { macros: n, template: id }
 }
 
@@ -240,7 +239,7 @@ export function makeBodyOnly(wb: Workbench, key: string, templates: LatexTemplat
   const m = allManuscripts(wb).find((x) => x.key === key)
   if (!m) throw new WorkbenchError(404, t(`그런 노트가 없음: ${key}`, `No such note: ${key}`))
   if (m.kind === 'paper') throw new WorkbenchError(400, t('원고는 고치지 않습니다. 연구노트·계산 노트만 본문만 남길 수 있습니다', 'Manuscripts are not changed. Only research notes and calculation notes can be reduced to the body'))
-  const abs = path.join(path.dirname(wb.root), m.main)
+  const abs = path.join(wb.repo, m.main)
   const own = fs.readFileSync(abs, 'utf8')
   if (!needsBodyOnly(own)) return { path: m.main, removedHead: false, removedFront: 0, macros: 0 }
   // 머리를 옆 파일(setting.tex 등)로 빼 둔 노트: 그 파일을 펼쳐 정의와 문서 종류를 함께 옮기고, 다 옮긴 뒤 그 파일은 지운다

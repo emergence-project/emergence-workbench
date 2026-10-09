@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { hashOf, writeAtomic } from './fsutil.js'
+import { hashOf, isInside as inside, writeAtomic } from './fsutil.js'
 import { splitFrontmatter } from './conceptNotes.js'
 import { acceptedSubjects, parseSubjects, readSubjects, subjectSlug } from './subjects.js'
 import { parseBib } from './materials.js'
@@ -15,7 +15,6 @@ export interface SubjectProposal {
   mappings: { before: string; after: string; depth: number; warning?: string }[]
   notes: NotePlan[]; figures: { file: string; subjects: string[] }[]; papers: { key: string; subjects: string[] }[]
 }
-const inside = (dir: string, file: string) => file === dir || file.startsWith(dir + path.sep)
 /** Resolve existing ancestors too, so a symlink cannot redirect output into the library. */
 function physical(file: string): string {
   const abs = path.resolve(file)

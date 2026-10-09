@@ -2,11 +2,18 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import YAML from 'yaml'
 import { buildApp } from './app.js'
 import { bodyHash } from './conceptNotes.js'
 import { draftPrompt } from './learn.js'
+import { REFRESH_MS } from './readCache.js'
+
+// 읽기 캐시는 REFRESH_MS(1초)마다 파일을 다시 본다. 기다리지 않고 시계만 앞으로 돌린다
+let skew = 0
+const realNow = Date.now.bind(Date)
+vi.spyOn(Date, 'now').mockImplementation(() => realNow() + skew)
+const later = () => { skew += REFRESH_MS + 10 }
 
 const sample = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../fixtures/sample-research')
 const LONG = 'A sentence that is long enough to count as real prose for this note.'
@@ -90,7 +97,7 @@ describe('지식 첫 화면 (GET /api/concepts/brief)', () => {
     note('ghost', { title: 'Ghost' }, `# Ghost\n\n${LONG} [@k5]\n`, 1_700_000_100)
     const delta = path.join(lib, 'concepts', 'delta.md')
     fs.writeFileSync(delta, fs.readFileSync(delta, 'utf8').replace('[@k3]', '[@k3] More.'))
-    await new Promise((r) => setTimeout(r, 1100))
+    later()
     const b = (await app.inject({ method: 'GET', url: '/api/concepts/brief' })).json()
     expect(b.stats.brokenLink.count).toBe(0)
     expect(b.check.changedAfterCheck.ids).toEqual(['beta', 'delta'])
@@ -103,14 +110,14 @@ describe('지식 첫 화면 (GET /api/concepts/brief)', () => {
     // bib가 없으면 대 볼 것이 없어 세지 않는다 (위 첫 요청)
     const bib = path.join(lib, 'references.bib')
     fs.writeFileSync(bib, ['k1', 'k2', 'k3'].map((k) => `@article{${k},\n  title = {T ${k}},\n  year = {2022}\n}\n`).join('\n'))
-    await new Promise((r) => setTimeout(r, 1100))
+    later()
     let b = (await app.inject({ method: 'GET', url: '/api/concepts/brief' })).json()
     // sect는 머리말 sources: [k4], ghost는 본문 [@k5]
     expect(b.stats.unknownCite).toEqual({ count: 2, ids: ['ghost', 'sect'] })
     const list = (await app.inject({ method: 'GET', url: '/api/concepts/list?issue=unknownCite&showEmpty=1' })).json()
     expect(list.items.map((i: { id: string }) => i.id)).toEqual(['ghost', 'sect'])
     fs.appendFileSync(bib, '\n@book{k4,\n  title = {T k4}\n}\n')
-    await new Promise((r) => setTimeout(r, 1100))
+    later()
     b = (await app.inject({ method: 'GET', url: '/api/concepts/brief' })).json()
     expect(b.stats.unknownCite).toEqual({ count: 1, ids: ['ghost'] })
   })

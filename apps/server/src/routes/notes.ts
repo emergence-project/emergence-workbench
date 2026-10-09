@@ -25,7 +25,7 @@ export function registerNotes(app: FastifyInstance, ctx: RouteContext): void {
     const wb = wbOf(req.params.rid)
     const row = listNotes(wb).find((n) => n.file === req.body?.file)
     if (!row) throw new WorkbenchError(404, t(`노트가 아님: ${String(req.body?.file)}`, `Not a note: ${String(req.body?.file)}`))
-    await revealInFinder(path.join(path.dirname(wb.root), row.file))
+    await revealInFinder(path.join(wb.repo, row.file))
     return { ok: true }
   })
 }

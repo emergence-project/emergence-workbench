@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
+import { ANSWER_RE, COMMENT_STATES, type CommentState } from './commentFormat.js'
 import { Workbench, ConflictError, WorkbenchError } from './workbench.js'
 import { HIGHLIGHT_COLORS, type HighlightColor } from './paperComments.js'
 import { appendTodoJournal, linkedTodoJournal, prepareTodoJournalChange, todoJournalTarget } from './commentJournal.js'
@@ -60,9 +61,7 @@ export const COMMENTS_DIR = 'comments'
 /** 코멘트는 예전 입력과 논문 라이브러리의 호환 타입. 노트에는 메모로 저장한다. */
 export type CommentKind = '메모' | '할 일' | '질문' | '하이라이트' | '코멘트'
 export const COMMENT_KINDS: CommentKind[] = ['메모', '할 일', '질문', '하이라이트', '코멘트']
-/** 질문은 대기·답함·끝냄, 할 일은 대기·끝냄. 나머지는 상태가 없다(null) */
-export type CommentState = '대기' | '답함' | '끝냄'
-export const COMMENT_STATES: CommentState[] = ['대기', '답함', '끝냄']
+export { COMMENT_STATES, type CommentState } from './commentFormat.js'
 
 export interface CommentAnswer { by: string; at: string; body: string }
 export interface CommentEntry {
@@ -102,7 +101,6 @@ export interface PendingQuestion { target: string; title: string; source?: strin
 
 const TARGET_RE = /^[a-z]+(?:-[A-Za-z0-9._-]{1,160})?$/
 const HEAD_RE = /^## (c-[\w-]+) · (.+?) · (.*)$/
-const ANSWER_RE = /^### 답 · (.+?) · (.+)$/
 const STATE_RE = /^- 상태: (\S+)\s*$/
 const META_RE = /^<!-- rw: (\{.*\}) -->$/
 const SOURCE_RE = /^<!-- rw-source: (.+) -->$/

@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { isOutside } from './fsutil.js'
 import { escapeLatexText, markdownToLatex } from '@rw/core'
 import { FIGURES_META, LIBRARY_SCOPE, TIKZ_LIBS, figureFile, listFigureSources, resolveFigure, type FigureKind } from './figures.js'
 import type { Registry } from './registry.js'
@@ -21,7 +22,7 @@ export type FigureEmbedResolver = (text: string, dirs: string[], allowParent?: b
 /** 기존 Markdown 첨부 파일을 먼저 쓴다. 컴파일 때는 graphicx가 찾는 확장자도 살핀다. */
 function localFile(name: string, dirs: string[], allowParent: boolean, graphicsExtensions: boolean): string | undefined {
   const rel = path.normalize(name)
-  if (path.isAbsolute(rel) || (!allowParent && rel.startsWith('..'))) return undefined
+  if (path.isAbsolute(rel) || (!allowParent && isOutside(rel))) return undefined
   const variants = [rel, ...(graphicsExtensions && !path.extname(rel) ? ['.pdf', '.png', '.jpg', '.jpeg'].map((ext) => `${rel}${ext}`) : [])]
   for (const dir of dirs) for (const file of variants) {
     const abs = path.resolve(dir, file)

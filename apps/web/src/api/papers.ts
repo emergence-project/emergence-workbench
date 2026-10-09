@@ -1,7 +1,6 @@
 // ---------- 논문 라이브러리 (서버 routes/papers.ts) ----------
 import type { CommentFile, CommentKind, CommentState } from './comments'
 import { enc, json, req, send } from './http'
-import { t } from '../i18n'
 
 export type PdfWhere = 'local' | 'cloud' | 'none'
 export interface PaperRow {
@@ -47,7 +46,6 @@ export interface PaperFolder { path: string; exists: boolean; cloud: PaperBrief[
 export interface PaperAdded { key: string; existed: boolean; pdf?: string; pdfError?: string }
 
 export type PaintColor = 'yellow' | 'green' | 'blue' | 'pink'
-export const PAINT_COLORS: { id: PaintColor; label: string }[] = [{ id: 'yellow', label: t('노랑', 'Yellow') }, { id: 'green', label: t('초록', 'Green') }, { id: 'blue', label: t('파랑', 'Blue') }, { id: 'pink', label: t('분홍', 'Pink') }]
 export interface PaperHighlight { id: string; page: number; rects: number[][]; pageHeight: number; color: PaintColor; quote?: string }
 /** 논문의 코멘트 파일: 연구노트 PDF와 같은 모양 + 하이라이트, 코멘트마다 남긴 프로젝트 */
 export interface PaperCommentFile extends CommentFile { highlights: PaperHighlight[]; projects: Record<string, string> }

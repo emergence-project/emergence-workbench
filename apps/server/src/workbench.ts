@@ -6,7 +6,7 @@ import {
 } from '@rw/core'
 import YAML from 'yaml'
 import { fileCache } from './readCache.js'
-import { hashOf, localDate, writeAtomic, writeIfMissing } from './fsutil.js'
+import { hashOf, isOutside, localDate, writeAtomic, writeIfMissing } from './fsutil.js'
 import { t } from './i18n.js'
 
 export interface ResearchInfo {
@@ -99,6 +99,8 @@ export class Workbench {
     this.root = fs.realpathSync(root)
   }
 
+  /** 연구 저장소 (workbench/의 부모) */
+  get repo() { return path.dirname(this.root) }
   get blocksDir() { return path.join(this.root, 'blocks') }
   get figuresDir() { return path.join(this.root, 'figures') }
   get logDir() { return path.join(this.root, 'log') }
@@ -118,7 +120,7 @@ export class Workbench {
   /** workbench 기준 상대 경로. 밖이면 null. */
   relative(absPath: string): string | null {
     const rel = path.relative(this.root, absPath)
-    return rel.startsWith('..') || path.isAbsolute(rel) ? null : rel
+    return isOutside(rel) ? null : rel
   }
 
   // ---------- 연구 ----------
@@ -128,7 +130,7 @@ export class Workbench {
     const image = parseCardFigureRef(raw.image) ? String(raw.image)
       : /\.(svg|png|jpe?g|webp|gif)$/i.test(String(raw.image)) ? this.repoPath(raw.image) : null
     return {
-      title: String(raw.title ?? path.basename(path.dirname(this.root))),
+      title: String(raw.title ?? path.basename(this.repo)),
       question: String(raw.question ?? ''),
       started: raw.started ? String(raw.started) : '',
       sources: this.readSources(raw.sources),
@@ -143,7 +145,7 @@ export class Workbench {
   /** 저장소 안의 실제 경로만 남긴다 */
   private repoPath(p: unknown): string | null {
     if (typeof p !== 'string' || !p.trim()) return null
-    const repo = path.dirname(this.root)
+    const repo = this.repo
     const rel = path.normalize(p.trim()).replace(/\/$/, '')
     const abs = path.resolve(repo, rel)
     if (abs !== repo && !abs.startsWith(repo + path.sep)) return null
@@ -163,7 +165,7 @@ export class Workbench {
    * 10/4 결정: 연구노트·계산 노트는 Markdown + KaTeX(note.md). 아직 바꾸지 않은 LaTeX 노트(main.tex)도 그대로 연다
    */
   ownNotes(): { path: string; name: string; kind: NoteKind }[] {
-    const repo = path.dirname(this.root)
+    const repo = this.repo
     return (['note', 'calc'] as const).flatMap((kind) => {
       const dir = path.join(this.root, NOTE_DIRS[kind])
       if (!fs.existsSync(dir)) return []

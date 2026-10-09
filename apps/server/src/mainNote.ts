@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { hashOf, writeAtomic } from './fsutil.js'
+import { writeAtomic } from './fsutil.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
+import { editResearchYaml, researchHash } from './researchYaml.js'
 
 /**
  * 메인 노트 정하기: 프로젝트의 원고 main .tex를 research.yaml의 sources.manuscript에 적는다.
@@ -20,7 +21,7 @@ const MAX_CANDIDATES = 40
 export interface MainNoteCandidate { path: string; title: string }
 
 export function mainNoteCandidates(wb: Workbench): { candidates: MainNoteCandidate[]; hash: string } {
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   const out: MainNoteCandidate[] = []
   const walk = (dir: string, depth: number) => {
     if (depth > MAX_DEPTH || out.length >= MAX_SCAN) return
@@ -48,7 +49,7 @@ export function mainNoteCandidates(wb: Workbench): { candidates: MainNoteCandida
 }
 
 export function setMainNote(wb: Workbench, input: { path: unknown; name: unknown; baseHash: unknown }): { ok: true } | { ok: false; currentHash: string } {
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   if (typeof input.path !== 'string' || !/\.tex$/.test(input.path)) throw new WorkbenchError(400, t('path(.tex)가 필요함', 'path (.tex) is required'))
   const rel = path.normalize(input.path.trim())
   const abs = path.resolve(repo, rel)
@@ -135,7 +136,7 @@ function appendManuscript(text: string, value: string): string {
 
 const yamlScalar = (value: string) => (/^[^\s"'{[&*!|>%@`#-][^#]*$/.test(value) && !/:\s/.test(value) ? value : JSON.stringify(value))
 
-export const researchHash = (wb: Workbench) => hashOf(fs.existsSync(wb.researchPath) ? fs.readFileSync(wb.researchPath, 'utf8') : '')
+export { researchHash }
 
 function readHead(file: string): string {
   const fd = fs.openSync(file, 'r')
@@ -158,23 +159,20 @@ function titleOf(head: string): string {
 export function unsetMainNote(wb: Workbench, input: { path: unknown }): { ok: true } {
   if (typeof input.path !== 'string' || !input.path.trim()) throw new WorkbenchError(400, t('path가 필요함', 'path is required'))
   const rel = path.normalize(input.path.trim())
-  const text = fs.existsSync(wb.researchPath) ? fs.readFileSync(wb.researchPath, 'utf8') : ''
-  const doc = YAML.parseDocument(text)
-  if (doc.errors.length) throw new WorkbenchError(409, t('research.yaml을 읽지 못해 고치지 않음', 'Could not read research.yaml, so nothing was changed'))
-  const pathOf = (v: unknown) => (typeof v === 'string' ? path.normalize(v.split(/\s+—\s+/)[0]!.trim()) : '')
-  const node = doc.getIn(['sources', 'manuscript'], true)
-  if (YAML.isSeq(node)) {
-    const i = node.items.findIndex((it) => pathOf(YAML.isScalar(it) ? it.value : it) === rel)
-    if (i < 0) throw new WorkbenchError(404, t(`메인 노트 목록에 없음: ${rel}`, `Not in the main note list: ${rel}`))
-    node.items.splice(i, 1)
-    if (!node.items.length) doc.deleteIn(['sources', 'manuscript'])
-  } else if (YAML.isScalar(node) && pathOf(node.value) === rel) {
-    doc.deleteIn(['sources', 'manuscript'])
-  } else throw new WorkbenchError(404, t(`메인 노트 목록에 없음: ${rel}`, `Not in the main note list: ${rel}`))
-  const next = doc.toString({ lineWidth: 0 })
   // manuscript 밖은 그대로인지 확인
   const rest = (s: string) => { const j = (YAML.parse(s) ?? {}) as Record<string, unknown>; const src = { ...((j.sources ?? {}) as object) } as Record<string, unknown>; delete src.manuscript; return JSON.stringify({ ...j, sources: src }) }
-  if (rest(next) !== rest(text)) throw new WorkbenchError(409, t('research.yaml의 다른 곳이 바뀔 것 같아 손대지 않음', 'Other parts of research.yaml would change, so it was left alone'))
-  writeAtomic(wb.researchPath, next)
+  editResearchYaml(wb, (doc, text) => {
+    const pathOf = (v: unknown) => (typeof v === 'string' ? path.normalize(v.split(/\s+—\s+/)[0]!.trim()) : '')
+    const node = doc.getIn(['sources', 'manuscript'], true)
+    if (YAML.isSeq(node)) {
+      const i = node.items.findIndex((it) => pathOf(YAML.isScalar(it) ? it.value : it) === rel)
+      if (i < 0) throw new WorkbenchError(404, t(`메인 노트 목록에 없음: ${rel}`, `Not in the main note list: ${rel}`))
+      node.items.splice(i, 1)
+      if (!node.items.length) doc.deleteIn(['sources', 'manuscript'])
+    } else if (YAML.isScalar(node) && pathOf(node.value) === rel) {
+      doc.deleteIn(['sources', 'manuscript'])
+    } else throw new WorkbenchError(404, t(`메인 노트 목록에 없음: ${rel}`, `Not in the main note list: ${rel}`))
+    if (rest(doc.toString({ lineWidth: 0 })) !== rest(text)) throw new WorkbenchError(409, t('research.yaml의 다른 곳이 바뀔 것 같아 손대지 않음', 'Other parts of research.yaml would change, so it was left alone'))
+  }, { lineWidth: 0 })
   return { ok: true }
 }

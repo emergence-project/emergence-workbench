@@ -1,4 +1,4 @@
-import { RESEARCH_TARGET, todoDue, type JournalEntry } from '@rw/core'
+import { todoDue, type JournalEntry } from '@rw/core'
 import type { ResearchListItem, ResearchSummary } from './api'
 import { localDate } from './format'
 import { t } from './i18n'
@@ -39,39 +39,6 @@ export interface TodayRow {
   next: NextStep[]
   /** 마지막으로 손댄 날 (블록 수정·일지 기록 중 가장 최근) */
   lastActive: string | null
-}
-
-export function todayRow(r: ResearchListItem, l: Loaded): TodayRow {
-  const byId = new Map(l.summary.blocks.map((b) => [b.id, b]))
-  const open = oldestFirst(l.entries.filter((e) => e.kind === 'todo' && !e.done)).map((entry) => {
-    const due = todoDue(entry.text, entry.date)
-    return {
-      key: `${entry.date}-${entry.index}`, entry, due, text: due ? stripDue(entry.text) : entry.text,
-      where: entry.target === RESEARCH_TARGET ? null : byId.get(entry.target)?.title ?? entry.target.split('/').pop()!,
-    }
-  })
-  // 마감이 있는 것을 가까운 순으로 먼저, 나머지는 적은 순서대로
-  const todos = [...open.filter((t) => t.due).sort((a, b) => a.due!.localeCompare(b.due!)), ...open.filter((t) => !t.due)]
-  const next: NextStep[] = [
-    ...l.summary.tree.frontier.flatMap((id) => {
-      const b = byId.get(id)
-      return b?.next ? [{ key: `n-${id}`, bid: id, title: b.title ?? id, text: b.next, blocked: false }] : []
-    }),
-    ...l.summary.blocks.filter((b) => b.status === 'blocked' && b.resumeCondition).map((b) => ({
-      key: `b-${b.id}`, bid: b.id, title: b.title ?? b.id, text: b.resumeCondition!, blocked: true,
-    })),
-  ]
-  const blockDays = l.summary.blocks.map((b) => localDate(new Date(b.mtime)))
-  const lastActive = [...blockDays, ...l.entries.map((e) => e.date)].sort().pop() ?? null
-  return { r, todos, next, lastActive }
-}
-
-/** 표의 줄 순서: 할 일이 있는 줄 → 가까운 마감 → 최근에 손댄 순. 할 일도 그다음도 없는 줄은 맨 아래 */
-export function sortRows(rows: TodayRow[]): TodayRow[] {
-  const empty = (x: TodayRow) => x.todos.length === 0 && x.next.length === 0
-  const firstDue = (x: TodayRow) => x.todos.find((t) => t.due)?.due ?? '9999'
-  return [...rows].sort((a, b) =>
-    Number(empty(a)) - Number(empty(b)) || firstDue(a).localeCompare(firstDue(b)) || (b.lastActive ?? '').localeCompare(a.lastActive ?? ''))
 }
 
 /** 한 일 달력의 기록 하나 */

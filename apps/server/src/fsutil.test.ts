@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { writeAtomic } from './fsutil.js'
+import { isInside, isOutside, writeAtomic } from './fsutil.js'
 
 describe('writeAtomic', () => {
   it('링크는 따라가지 않고 그 자리에 새 파일을 둔다 (STATUS.md → ~/.zshrc 같은 링크)', () => {
@@ -30,5 +30,17 @@ describe('writeAtomic', () => {
     expect(fs.lstatSync(link).isSymbolicLink()).toBe(true)
     expect(fs.readFileSync(real, 'utf8')).toBe('@misc{a,}\n')
     fs.rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('isOutside · isInside', () => {
+  it('treats names starting with two dots as inside', () => {
+    for (const rel of ['..notes', 'a/..b', 'a', '']) expect(isOutside(rel)).toBe(false)
+    for (const rel of ['..', '../a', path.join('..', 'a'), '/abs']) expect(isOutside(rel)).toBe(true)
+    expect(isOutside(path.relative('/r/w', '/r/w/..notes/x'))).toBe(false)
+    expect(isOutside(path.relative('/r/w', '/r/other'))).toBe(true)
+    expect(isInside('/r/w', '/r/w')).toBe(true)
+    expect(isInside('/r/w', '/r/w/x')).toBe(true)
+    expect(isInside('/r/w', '/r/wx')).toBe(false)
   })
 })

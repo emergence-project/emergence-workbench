@@ -90,6 +90,8 @@ export function checkStateOf(meta: ConceptMeta, body: string): CheckState {
 const TODO = /\bTODO\b|\bTBD\b|\bFIXME\b|작성\s?중|작성\s?예정|\[!todo\]/i
 /** 체크하지 않은 할 일 상자 (- [ ] · * [ ] · + [ ], 10/6 승인: TODO와 같은 갈래로 센다) */
 const TASK = /^\s*[-*+]\s+\[ \]/
+/** 미완성 이유 ①: 저장 값이자 판정 표시다. 화면에 보일 때만 번역한다(이 문자열을 바꾸면 빈 노트 판정이 꺼진다) */
+export const EMPTY_NOTE = '제목·틀뿐'
 
 /**
  * 미완성인 이유 (없으면 빈 배열). 기계적으로만 판단한다 (10/04 사용자 확인, 10/6 "지식 점검 기준"):
@@ -102,7 +104,7 @@ export function unfinishedReasons(body: string): string[] {
   const lines = text.split('\n')
   const heading = (l: string) => /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(l)
   const prose = lines.filter((l) => !heading(l) && !/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(l)).join(' ').replace(/\s+/g, ' ').trim()
-  if (prose.length < 40) return ['제목·틀뿐']
+  if (prose.length < 40) return [EMPTY_NOTE]
   const out: string[] = []
   const empty: string[] = []
   for (let i = 0; i < lines.length; i++) {

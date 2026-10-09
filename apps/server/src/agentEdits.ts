@@ -208,7 +208,7 @@ export function readTarget(io: TargetIo, t0: EditTarget): TargetState {
 }
 
 // 연구노트 · 계산 노트 본문 파일 (file은 노트 목록이 준 저장소 기준 경로)
-const noteAbs = (wb: Workbench, file: string) => path.join(path.dirname(wb.root), file)
+const noteAbs = (wb: Workbench, file: string) => path.join(wb.repo, file)
 function readNoteFile(wb: Workbench, file: string): { content: string; hash: string } {
   const content = fs.readFileSync(noteAbs(wb, file), 'utf8')
   return { content, hash: hashOf(content) }

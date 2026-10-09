@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { isOutside } from './fsutil.js'
 import { buildExportMainTex, buildSettingTex, inputBlockPreamble, markdownToLatex, MD_PREAMBLE, parseBlock, type Author, type LatexTemplate } from '@rw/core'
 import { SHARED_MACROS } from './latexFiles.js'
 import { allManuscripts, frontFor, isBodyOnly, NO_TITLE_BLOCK, type ManuscriptInfo } from './manuscript.js'
@@ -49,7 +50,7 @@ function markdownAssets(text: string, dir: string, allowParent = false): string[
   const out: string[] = []
   for (const m of text.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)|!\[\[([^\]|]+)/g)) {
     const rel = path.normalize((m[1] ?? m[2]!).trim())
-    if ((allowParent || !rel.startsWith('..')) && !path.isAbsolute(rel) && fs.existsSync(path.join(dir, rel)) && fs.statSync(path.join(dir, rel)).isFile()) out.push(rel)
+    if ((allowParent || !isOutside(rel)) && !path.isAbsolute(rel) && fs.existsSync(path.join(dir, rel)) && fs.statSync(path.join(dir, rel)).isFile()) out.push(rel)
   }
   return out
 }
@@ -120,7 +121,7 @@ function filesOf(m: ExportSource, repo: string): { mainAbs: string; text: string
     for (const file of fs.readdirSync(wb.blocksDir)) if (file.endsWith('.bib')) files.add(`blocks/${file}`)
     const safe = [...files].filter((file) => {
       const rel = path.relative(wb.root, fs.realpathSync(path.join(wb.root, file)))
-      if (rel.startsWith('..') || path.isAbsolute(rel)) { skipped.push(file); return false }
+      if (isOutside(rel)) { skipped.push(file); return false }
       return true
     })
     return { mainAbs, text, files: safe, skipped, dir: wb.root, prefix: 'block-files/' }
@@ -150,7 +151,7 @@ export function exportBlock(wb: Workbench, id: string, latex: ExportLatex): Expo
   const { content } = wb.readBlock(id)
   const name = parseBlock(content).meta.title || id
   return exportSources(wb, [{
-    main: path.relative(path.dirname(wb.root), wb.blockPath(id)),
+    main: path.relative(wb.repo, wb.blockPath(id)),
     name,
     kind: 'note',
     ...(wb.blockFormat(id) === 'md' ? { format: 'md' as const } : {}),
@@ -159,7 +160,7 @@ export function exportBlock(wb: Workbench, id: string, latex: ExportLatex): Expo
 }
 
 function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex): ExportedNotes {
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   const research = wb.readResearch()
   const t = latex.template
   const hasPaper = picked.some((m) => m.kind === 'paper')
@@ -223,7 +224,7 @@ function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex
       const bibFiles = (m.format === 'md' ? noteBibFiles(wb, mainAbs, body) : []).filter((file) => {
         if (!m.block) return true
         const rel = path.relative(repo, fs.realpathSync(file))
-        if (rel.startsWith('..') || path.isAbsolute(rel)) { skippedAll.push(`${m.name}: ${file}`); return false }
+        if (isOutside(rel)) { skippedAll.push(`${m.name}: ${file}`); return false }
         return true
       })
       const bibName = (f: string) => files.includes(path.relative(dir, f)) ? `${prefix}${path.relative(dir, f)}` : path.basename(f)

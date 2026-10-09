@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { listConceptMd, splitFrontmatter, unfinishedReasons } from './conceptNotes.js'
+import { EMPTY_NOTE, listConceptMd, splitFrontmatter, unfinishedReasons } from './conceptNotes.js'
 import { findStudyAsset, listLibraryNotes, slugOf } from './libraryNotes.js'
 import { topicKey } from './knowledge.js'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
@@ -325,8 +325,8 @@ export function importReport(items: ImportItem[], newBib: NewBib[] = []): string
   // 책·강의의 장·절 노트로 보이는 것 (개념 하나가 아니라 장 하나) — 옮길지 사용자가 정한다
   const chapters = items.filter((i) => i.skip === CHAPTER_SKIP)
   const merged = items.filter((i) => i.skip?.startsWith('같은 제목'))
-  const empty = todo.filter((i) => i.unfinished.includes('제목·틀뿐'))
-  const partial = todo.filter((i) => i.unfinished.length && !i.unfinished.includes('제목·틀뿐'))
+  const empty = todo.filter((i) => i.unfinished.includes(EMPTY_NOTE))
+  const partial = todo.filter((i) => i.unfinished.length && !i.unfinished.includes(EMPTY_NOTE))
   const dup = todo.filter((i) => i.sameName.length)
   const missing = todo.filter((i) => i.missingImages.length || i.imageClash.length)
   const subjects = new Map<string, number>()
