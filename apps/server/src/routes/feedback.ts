@@ -156,7 +156,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!item) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     if (b.verdict !== null && !item.status) throw new WorkbenchError(400, t('아직 처리하지 않은 항목입니다', 'This item has not been handled yet'))
     // 보류(제안 · 물음)는 수정 요청으로 답한다: 그 글을 Claude가 읽고 다시 처리한다 (10/5 22:35, 10/7 17:09). 승인은 처리한 것만
-    if (b.verdict === '승인' && item.status?.state === '보류') throw new WorkbenchError(400, t('보류 항목은 승인하지 않고 수정 요청으로 답합니다', 'An item on hold (보류) is not approved: answer it with Request changes'))
+    if (b.verdict === '승인' && (item.status?.state === '보류' || item.status?.state === '확인 필요')) throw new WorkbenchError(400, t('보류 · 확인 필요 항목은 승인하지 않고 코멘트나 수정 요청으로 답합니다', 'An item on hold or needing confirmation is not approved: answer it with a comment or Request changes'))
     const review = setFeedbackReview(opts.feedbackDir, b.key, b.verdict, typeof b.note === 'string' ? b.note : undefined)
     scheduleAutoPublish()
     return { review }

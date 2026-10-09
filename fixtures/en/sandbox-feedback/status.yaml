@@ -47,3 +47,42 @@
       to: 2026-10-04T12:40
       note: Yes. Drag the left border of the PDF column to widen it.
       by: codex
+2026-10-04 14:10 피드백 › 피드백 묶음:
+  state: 거절
+  area: Feedback
+  kind: 수정
+  clean: Change the filter names to English.
+  understood: Show filter names in English even on the Korean screen.
+  cause: The design standard writes screen text in the one chosen language.
+  note: Not changed. To see English, choose English as the screen language in Settings.
+  handled_at: 2026-10-04T14:20
+  by: claude
+2026-10-04 14:30 홈 › 프로젝트 카드:
+  state: 확인 필요
+  area: Home
+  kind: 수정
+  clean: When I delete a card, delete the project folder too.
+  understood: Deleting a project card also deletes the research folder.
+  cause: Today it only removes the registration and keeps the folder.
+  note: Not changed yet, because deleting a folder cannot be undone.
+  ask: Should it really delete the folder? Removing only the registration was chosen to keep folders safe.
+  handled_at: 2026-10-04T14:40
+  by: claude
+2026-10-04 15:00 노트 화면 › 툴바:
+  state: 동의
+  area: Notes
+  kind: 제안
+  clean: A button to export a note as a Markdown file would be nice.
+  understood: Download a note as a .md file from the note toolbar.
+  note: Do it (small). One line in the ⋯ menu at the right of the toolbar. Will build once approved.
+  handled_at: 2026-10-04T15:10
+  by: claude
+2026-10-04 15:20 지식 › 지식 보기 › 지도:
+  state: 나중에
+  area: Knowledge
+  kind: 제안
+  clean: It would be nice to rotate the knowledge map in 3D.
+  understood: View and rotate the knowledge map in three dimensions.
+  note: Later (large). Knowledge map work is paused during the trial period. Revisit after it ends.
+  handled_at: 2026-10-04T15:30
+  by: claude
