@@ -25,7 +25,6 @@ export type RightMode = 'info' | 'records'
 export const normalizeRightMode = (value: string): RightMode => value === 'info' ? 'info' : 'records'
 const MODE_KEY = 'rw-right-mode'
 const mode = tiny<RightMode>(normalizeRightMode(store.get<string>(MODE_KEY, 'info')))
-export const getRightMode = mode.get
 export function setRightMode(m: RightMode) { mode.set(m); store.set(MODE_KEY, m) }
 export const useRightMode = () => useSyncExternalStore(mode.subscribe, mode.get)
 

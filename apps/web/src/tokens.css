@@ -85,6 +85,8 @@
   --sp-4: calc(16px * var(--density)); --sp-5: calc(24px * var(--density)); --sp-6: calc(32px * var(--density));
   --editor-font: Menlo, monospace; --editor-size: 12.5px; --editor-lh: 1.8;
   --r-xs: 4px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-pill: 999px;
+  /* 강조 색 (라이트 값). 설정 화면의 견본은 두 테마에서 이 색 그대로 보인다 */
+  --accent-indigo: #4338ca; --accent-plum: #86198f;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -137,8 +139,8 @@
 
 /* 강조 색 (설정 화면). 기본은 흑백이고, 고르면 주 버튼·선택 표시의 색만 바뀐다.
    상태 색(파랑 진행, 주황 멈춤, 청록 해결, 회색 고리 폐기)과 헷갈리지 않는 색만 둔다. */
-:root[data-accent="indigo"] { --primary: #4338ca; --on-primary: #ffffff; }
-:root[data-accent="plum"] { --primary: #86198f; --on-primary: #ffffff; }
+:root[data-accent="indigo"] { --primary: var(--accent-indigo); --on-primary: #ffffff; }
+:root[data-accent="plum"] { --primary: var(--accent-plum); --on-primary: #ffffff; }
 @media (prefers-color-scheme: dark) {
   :root[data-accent="indigo"]:not([data-theme="light"]) { --primary: #a5b4fc; --on-primary: #111111; }
   :root[data-accent="plum"]:not([data-theme="light"]) { --primary: #e9a8f0; --on-primary: #111111; }

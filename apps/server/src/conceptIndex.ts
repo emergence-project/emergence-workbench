@@ -7,7 +7,7 @@ import type { LibraryNote } from './libraryNotes.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { CONCEPTS_DIR, MEMO_SUFFIX, checkStateOf, hasSource, inlineCites, metaOf, splitFrontmatter, unfinishedReasons } from './conceptNotes.js'
+import { CONCEPTS_DIR, MEMO_SUFFIX, checkStateOf, EMPTY_NOTE, hasSource, inlineCites, metaOf, splitFrontmatter, unfinishedReasons } from './conceptNotes.js'
 import { parseBib } from './materials.js'
 import { parseKnowledgeMarkdown, topicKey, wikiTargets, type Parsed } from './knowledge.js'
 
@@ -232,10 +232,10 @@ export class ConceptIndex {
         const checked = checkStateOf(meta, body)
         const cites = new Set([...meta.sources, ...inlineCites(body)])
         const library: LibraryNote = { kind: 'concept', id: c.id, title: meta.title, status: checked === 'ok' ? 'reviewed' : 'draft',
-          empty: unf.includes('제목·틀뿐'), study: meta.study, mtime: c.mtime, hash: hashOf(raw), format: 'md', unfinished: unf, checked, locked: meta.locked }
+          empty: unf.includes(EMPTY_NOTE), study: meta.study, mtime: c.mtime, hash: hashOf(raw), format: 'md', unfinished: unf, checked, locked: meta.locked }
         const knowledge = parseKnowledgeMarkdown(raw, c.mtime, c.size, fm)
         const { lastInsertRowid } = insNote.run(c.id, key, meta.title, subject, JSON.stringify(meta.aliases), JSON.stringify(unf), unf.length ? 1 : 0,
-          unf.includes('제목·틀뿐') ? 1 : 0, checked, meta.locked ? 1 : 0, c.mtime, c.size, hasSource(meta, body) ? 1 : 0, cites.size, JSON.stringify(ids))
+          unf.includes(EMPTY_NOTE) ? 1 : 0, checked, meta.locked ? 1 : 0, c.mtime, c.size, hasSource(meta, body) ? 1 : 0, cites.size, JSON.stringify(ids))
         for (const k of cites) insCite.run(c.id, k)
         ids.forEach((id, position) => insSubject.run(c.id, id, position))
         insDetails.run(c.id, JSON.stringify(library), JSON.stringify(knowledge))

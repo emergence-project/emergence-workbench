@@ -4,7 +4,6 @@ import fs from 'node:fs'
 import { contentTypeOf } from '../materials.js'
 import { dropTopicsFromNotes, topicsOverview } from '../noteList.js'
 import { checkTopicsHash, createTopic, deleteTopic, patchTopic, readTopics, saveTopics, setTopicImage, topicImageFile, topicsHash, type TopicPatch } from '../topics.js'
-import { WorkbenchError } from '../workbench.js'
 import { cardFigureRef } from '../figures.js'
 import type { RouteContext } from './context.js'
 

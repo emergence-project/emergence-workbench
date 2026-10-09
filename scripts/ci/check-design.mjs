@@ -35,6 +35,29 @@ for (const f of files) {
   })
 }
 
+// 화면 코드(.ts · .tsx)의 색 글자: '#4338ca' 같은 값은 tokens.css의 변수로 (스타일 파일과 같은 규칙)
+const COLOR_LITERAL = /['"`]#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?['"`]/
+const code = []
+const walkCode = (dir) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name)
+    if (e.isDirectory()) walkCode(p)
+    else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) code.push(p)
+  }
+}
+walkCode(root)
+for (const f of code) readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+  if (!line.includes('디자인 예외:') && COLOR_LITERAL.test(line)) problems.push(`${f.slice(root.length)}:${i + 1}  색은 tokens.css의 변수로 (var(--…))\n    ${line.trim().slice(0, 140)}`)
+})
+
+// 다크 값은 tokens.css의 두 곳(시스템 다크 · data-theme="dark")에 같은 내용으로 있어야 한다
+{
+  const tokens = readFileSync(join(root, 'tokens.css'), 'utf8')
+  const block = (start) => { const i = tokens.indexOf(start); if (i < 0) return null; const open = tokens.indexOf('{', i); return tokens.slice(open + 1, tokens.indexOf('}', open)).replace(/\/\*[^]*?\*\//g, '').replace(/\s+/g, ' ').trim() }
+  const system = block(':root:not([data-theme="light"]) {'), chosen = block(':root[data-theme="dark"] {')
+  if (!system || !chosen || system !== chosen) problems.push('tokens.css  다크 값 두 곳(prefers-color-scheme · data-theme="dark")이 다르다. 함께 고친다')
+}
+
 // 기호와 행동 말 (docs/design-system.md "기호와 행동"): 화면 코드(.tsx)에서 한 행동에 다른 이름·기호를 쓰지 않는다.
 // 버튼 줄(<button … 이 있는 줄)의 글자와 title·aria-label만 본다. 설명 글·주석은 보지 않는다.
 const WORDS = [

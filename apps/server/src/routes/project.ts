@@ -18,7 +18,7 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/project', async (req) => {
     const wb = wbOf(req.params.rid)
     const info = wb.readResearch()
-    const repo = path.dirname(wb.root)
+    const repo = wb.repo
     return { hash: researchHash(wb), sources: info.sources, agentStatus: info.agentStatus, tasks: readTaskTable(repo, info.sources), reviews: listReviews(repo, info.sources) }
   })
   /** 프로젝트 카드 그림 (research.yaml의 image:). 없으면 404 */
@@ -28,7 +28,7 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
     if (!rel) throw new WorkbenchError(404, t('프로젝트 그림이 없음', 'This project has no picture'))
     const ref = cardFigureRef(registry, req.params.rid, rel)
     if (ref) return reply.header('cache-control', 'no-store').redirect(`/api/figures/file?id=${encodeURIComponent(ref.id)}`)
-    return reply.type(contentTypeOf(rel)).header('cache-control', 'no-store').send(fs.createReadStream(path.join(path.dirname(wb.root), rel)))
+    return reply.type(contentTypeOf(rel)).header('cache-control', 'no-store').send(fs.createReadStream(path.join(wb.repo, rel)))
   })
   /** 제목·설명·시작일·카드 그림 고치기 (workbench/research.yaml만 씀) */
   app.patch<{ Params: { rid: string }; Body: { title?: unknown; question?: unknown; started?: unknown; image?: unknown; baseHash?: unknown } }>('/api/researches/:rid/info', async (req, reply) => {

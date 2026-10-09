@@ -73,7 +73,7 @@ function msOf(wb: Workbench, key = ''): { repo: string; main: string; dir: strin
   const list = wb.readResearch().sources.manuscripts
   const i = list.findIndex((m, n) => msKeyOf(m, n) === key)
   if (i < 0) throw new WorkbenchError(404, key ? t(`이 프로젝트에 그런 메인 노트가 없음: ${key}`, `This project has no such main note: ${key}`) : t('이 프로젝트에는 원고(research.yaml sources.manuscript)가 없음', 'This project has no manuscript (research.yaml sources.manuscript)'))
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   const main = path.join(repo, list[i]!.path)
   return { repo, main, dir: path.dirname(main), name: list[i]!.name, kind: list[i]!.kind, key }
 }
@@ -188,7 +188,7 @@ export function allManuscripts(wb: Workbench): ManuscriptInfo[] {
 function partOf(wb: Workbench, file: string): { abs: string; key: string } {
   const hit = allManuscripts(wb).find((info) => file === info.main || info.parts.some((p) => p.file === file))
   if (!hit) throw new WorkbenchError(400, t(`원고에 속한 파일이 아님: ${file}`, `Not a file of the manuscript: ${file}`))
-  return { abs: path.join(path.dirname(wb.root), file), key: hit.key }
+  return { abs: path.join(wb.repo, file), key: hit.key }
 }
 const partFile = (wb: Workbench, file: string) => partOf(wb, file).abs
 

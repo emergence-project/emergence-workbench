@@ -2,10 +2,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
 import { parseCardFigureRef } from '@rw/core'
-import { writeAtomic } from './fsutil.js'
-import { researchHash } from './mainNote.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
+import { editResearchYaml, researchHash } from './researchYaml.js'
 
 /** 앱에서 바로 고칠 수 있는 프로젝트 정보 (workbench/research.yaml의 맨 위 칸) */
 export interface InfoPatch { title?: unknown; question?: unknown; started?: unknown; image?: unknown }
@@ -38,7 +37,7 @@ export function setResearchInfo(wb: Workbench, patch: InfoPatch, baseHash: unkno
     if (typeof patch.image !== 'string') throw new WorkbenchError(400, t('그림은 라이브러리 참조 또는 저장소 기준 경로', 'The picture must be a library reference or a path in the repository'))
     const rel = patch.image.trim()
     if (rel && !parseCardFigureRef(rel)) {
-      const repo = path.dirname(wb.root)
+      const repo = wb.repo
       const abs = path.resolve(repo, rel)
       if (!abs.startsWith(repo + path.sep) || !PROJECT_IMAGE_EXT.test(rel) || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`저장소 안의 그림 파일(svg·png·jpg)이 아님: ${rel}`, `Not a picture file (svg, png, jpg) in the repository: ${rel}`))
     }
@@ -48,23 +47,20 @@ export function setResearchInfo(wb: Workbench, patch: InfoPatch, baseHash: unkno
 
   const current = researchHash(wb)
   if (baseHash !== current) return { ok: false, currentHash: current }
-  const text = fs.existsSync(wb.researchPath) ? fs.readFileSync(wb.researchPath, 'utf8') : ''
-  const doc = YAML.parseDocument(text)
-  if (doc.errors.length) throw new WorkbenchError(409, t('research.yaml을 읽지 못해 고치지 않음', 'Not changed: could not read research.yaml'))
-  if (doc.contents != null && !YAML.isMap(doc.contents)) throw new WorkbenchError(409, t('research.yaml 모양이 달라 고치지 않음', 'Not changed: research.yaml has an unexpected shape'))
-  const before = (doc.toJS() ?? {}) as Record<string, unknown>
-  for (const [k, v] of Object.entries(next)) {
-    if (k === 'image' && !v) doc.delete(k)
-    else doc.set(k, v)
-  }
-  // 다른 칸의 모양(흐름 목록 [a] · 긴 줄)을 바꾸지 않게 주제 저장(topics.ts)과 같은 설정으로 쓴다
-  const out = doc.toString({ flowCollectionPadding: false, lineWidth: 0 })
-  // 고친 칸 말고는 그대로인지 확인
-  const after = (YAML.parse(out) ?? {}) as Record<string, unknown>
   const rest = (j: Record<string, unknown>) => JSON.stringify(Object.fromEntries(Object.entries(j).filter(([k]) => !(k in next))))
-  if (rest(after) !== rest(before) || Object.entries(next).some(([k, v]) => String(after[k] ?? '') !== v)) {
-    throw new WorkbenchError(409, t('research.yaml을 안전하게 고치지 못해 그대로 둠', 'Left as is: research.yaml could not be changed safely'))
-  }
-  if (out !== text) writeAtomic(wb.researchPath, out)
+  // 다른 칸의 모양(흐름 목록 [a] · 긴 줄)을 바꾸지 않게 주제 저장(topics.ts)과 같은 설정으로 쓴다
+  const toString = { flowCollectionPadding: false, lineWidth: 0 }
+  editResearchYaml(wb, (doc) => {
+    const before = (doc.toJS() ?? {}) as Record<string, unknown>
+    for (const [k, v] of Object.entries(next)) {
+      if (k === 'image' && !v) doc.delete(k)
+      else doc.set(k, v)
+    }
+    // 고친 칸 말고는 그대로인지 확인 (쓰기 전에)
+    const after = (YAML.parse(doc.toString(toString)) ?? {}) as Record<string, unknown>
+    if (rest(after) !== rest(before) || Object.entries(next).some(([k, v]) => String(after[k] ?? '') !== v)) {
+      throw new WorkbenchError(409, t('research.yaml을 안전하게 고치지 못해 그대로 둠', 'Left as is: research.yaml could not be changed safely'))
+    }
+  }, toString)
   return { ok: true, hash: researchHash(wb) }
 }

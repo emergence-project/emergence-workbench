@@ -82,7 +82,7 @@ function folders(registry: Registry): Folder[] {
       // 프로젝트 카드 그림(research.yaml image:)은 노트 그림이 아니라서 뺀다
       let skip: string | undefined
       try { skip = wb.readResearch().image } catch { /* 없음 */ }
-      out.push({ scope: r.id, dir: wb.figuresDir, repo: path.dirname(wb.root), ...(skip && { skip }) })
+      out.push({ scope: r.id, dir: wb.figuresDir, repo: wb.repo, ...(skip && { skip }) })
     } catch { /* 읽지 못하는 프로젝트는 건너뜀 */ }
   }
   return out
@@ -156,7 +156,7 @@ function notesWithEmbeds(registry: Registry): (FigureUse & { names: string[] })[
       let hit = projectEmbeds.get(wb)
       if (!hit || hit.stamp !== stamp) {
         const notes = listNotes(wb).filter((n) => n.format === 'md').flatMap((n) => {
-          const { names } = cachedEmbeds(path.join(path.dirname(wb.root), n.file))
+          const { names } = cachedEmbeds(path.join(wb.repo, n.file))
           return names.length ? [{ rid: r.id, type: n.type, id: n.id, file: n.file, title: n.title, names }] : []
         })
         hit = { stamp, notes }; projectEmbeds.set(wb, hit)

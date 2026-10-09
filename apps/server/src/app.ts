@@ -160,7 +160,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
     try {
       const wb = registry.get(rid)
       const src = wb.readResearch().sources
-      const repo = path.dirname(wb.root)
+      const repo = wb.repo
       const paths = [src.tasks, ...src.bib, ...src.reviews].filter((x): x is string => !!x).map((x) => path.join(repo, x))
       if (!paths.length) return
       const w = chokidar.watch(paths, { ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 } })

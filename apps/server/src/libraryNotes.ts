@@ -4,7 +4,7 @@ import path from 'node:path'
 import { parseBlock, parseList } from '@rw/core'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
 import { WorkbenchError, type SaveResult } from './workbench.js'
-import { conceptMdExists, createConceptMd, listConceptMd, type CheckState } from './conceptNotes.js'
+import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd, type CheckState } from './conceptNotes.js'
 import { t } from './i18n.js'
 
 /**
@@ -61,7 +61,7 @@ export function listLibraryNotes(lib: string | undefined, indexed?: LibraryNote[
   if (!lib) return []
   const md: LibraryNote[] = indexed ?? listConceptMd(lib).map((n) => ({
     kind: 'concept', id: n.id, title: n.meta.title, status: n.checked === 'ok' ? 'reviewed' : 'draft',
-    empty: n.unfinished.includes('제목·틀뿐'), study: n.meta.study, mtime: n.mtime, hash: n.hash,
+    empty: n.unfinished.includes(EMPTY_NOTE), study: n.meta.study, mtime: n.mtime, hash: n.hash,
     format: 'md', unfinished: n.unfinished, checked: n.checked, locked: n.meta.locked,
   }))
   const mdIds = new Set(md.map((n) => n.id))

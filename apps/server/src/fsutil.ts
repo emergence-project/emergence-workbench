@@ -2,6 +2,11 @@ import { createHash, randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+/** path.relative·normalize가 준 상대 경로가 기준 폴더 밖인지. `..notes` 같은 이름은 안이다 */
+export const isOutside = (rel: string): boolean => rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)
+/** file이 dir 자신이거나 그 안인지 (둘 다 절대 경로) */
+export const isInside = (dir: string, file: string): boolean => file === dir || file.startsWith(dir + path.sep)
+
 export function hashOf(content: string): string {
   return createHash('sha256').update(content, 'utf8').digest('hex').slice(0, 16)
 }

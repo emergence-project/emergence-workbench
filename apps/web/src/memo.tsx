@@ -1,8 +1,7 @@
-import { JOURNAL_LABEL, parseInline, parseMemo, RESEARCH_TARGET, type Inline, type JournalEntry } from '@rw/core'
+import { JOURNAL_LABEL, parseMemo, RESEARCH_TARGET, type Inline, type JournalEntry } from '@rw/core'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import type { ResearchApi, ResearchSummary } from './api'
 import { journalWhen } from './format'
 import { go } from './router'
 import { onListKey } from './listInput'
@@ -26,13 +25,6 @@ function InlineText({ parts }: { parts: Inline[] }) {
 
 /** 같은 이름의 줄 단추를 가려 부르게 이름 뒤에 붙이는 글 (도구·화면 읽기 프로그램용) */
 const short = (t: string) => { const x = t.replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x }
-
-/** 한 줄로 줄여 보여 줄 때 (홈 카드의 할 일 등): 첫 줄만, 목록 기호는 뗀다 */
-export function MemoLine({ text }: { text: string }) {
-  const first = text.split('\n').find((l) => l.trim()) ?? ''
-  const parts = useMemo(() => parseInline(first.replace(/^\s*(?:[-*]|\d+\.)\s+/, '')), [first])
-  return <InlineText parts={parts} />
-}
 
 /** 메모 본문: 목록(-, *, 1.)·굵게·코드·수식을 그린다 */
 export function MemoText({ text }: { text: string }) {
@@ -107,27 +99,6 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, onSave, 
  */
 export const targetTitle = (target: string, titleOf: (id: string) => string) => isNoteTarget(target) ? target.split('/').pop()! : titleOf(target)
 export const openTarget = (rid: string, target: string) => go(journalTargetRoute(rid, target))
-
-/** 노트 머리줄의 "할 일 적기" 칸: 적으면 이 노트에 붙은 할 일로 작업 목록에 들어간다 */
-export function NoteTodoInput({ target, initial = '', onSave, onClose }: { target: string; initial?: string; onSave(text: string, target: string): Promise<void>; onClose(): void }) {
-  const [text, setText] = useState(initial)
-  const [busy, setBusy] = useState(false)
-  const save = async () => {
-    if (!text.trim() || busy) return
-    setBusy(true)
-    try { await onSave(text.trim(), target); setText('') } finally { setBusy(false) }
-  }
-  return (
-    <div className="note-todo" data-ui="할 일 적기 칸">
-      <span className="mi-icon todo" aria-hidden />
-      <input autoFocus value={text} disabled={busy} aria-label={t('할 일', 'To-do')} onFocus={(e) => { const n = e.currentTarget.value.length; e.currentTarget.setSelectionRange(n, n) }} placeholder={t('이 노트에서 할 일을 적고 Enter. 작업 목록에 이 노트 이름과 함께 들어갑니다 ($수식$ 가능)', 'Write a to-do for this note and press Enter. It goes to the to-do list with this note name ($math$ works)')}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void save() } else if (e.key === 'Escape') onClose() }} />
-      <button className="btn" disabled={!text.trim() || busy} onClick={() => void save()}>{t('넣기', 'Add')}</button>
-      <button className="a" onClick={onClose}>{t('닫기', 'Close')}</button>
-    </div>
-  )
-}
 
 /** 화면 아래쪽에 뜨는 빠른 메모 창 */
 export function QuickMemo({ target, targetLabel, onClose, onSave }: {
@@ -205,49 +176,6 @@ function MemoItem({ e, rid, titleOf, onToggle, onEdit, onDelete, hideTodoKind }:
               </span>}
         </div>
       </div>
-    </div>
-  )
-}
-
-/** 오른쪽 칸의 메모 탭: 목록 + 아래 입력칸 */
-export function MemoPanel({ rid, rapi, summary, version, block, onSaved }: {
-  rid: string
-  rapi: ResearchApi
-  summary: ResearchSummary
-  version: number
-  /** 블록 화면이면 그 블록 id */
-  block?: string
-  onSaved(message: string): void
-}) {
-  const [entries, setEntries] = useState<JournalEntry[]>([])
-  const [scope, setScope] = useState<'block' | 'research'>(block ? 'block' : 'research')
-  const byId = useMemo(() => new Map(summary.blocks.map((b) => [b.id, b])), [summary.blocks])
-  const titleOf = (id: string) => byId.get(id)?.title ?? id
-  const reload = () => rapi.journal(90).then((r) => setEntries(r.entries.filter((e) => e.kind !== 'status'))).catch(() => setEntries([]))
-  useEffect(() => { void reload() }, [rapi, version]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const shown = scope === 'block' && block ? entries.filter((e) => e.target === block) : entries
-  const target = scope === 'block' && block ? block : RESEARCH_TARGET
-  return (
-    <div className="tabpanel" data-ui="메모">
-      {block && (
-        <div className="memo-tools" data-ui="범위 전환">
-          <button className={`memo-chip${scope === 'block' ? ' on' : ''}`} aria-pressed={scope === 'block'} onClick={() => setScope('block')}>{t('이 노트', 'This note')}</button>
-          <button className={`memo-chip${scope === 'research' ? ' on' : ''}`} aria-pressed={scope === 'research'} onClick={() => setScope('research')}>{t('연구 전체', 'Whole project')}</button>
-        </div>
-      )}
-      <div className="memo-list" data-ui="메모 목록">
-        <MemoList entries={shown} rid={rid} titleOf={titleOf} empty={t('아직 메모가 없습니다.', 'No memos yet.')}
-          onToggle={(e) => { rapi.setTodo(e, !e.done).then(reload).catch(() => undefined) }}
-          onEdit={async (e, text) => { await rapi.editJournal(e, text).catch((err: Error) => { onSaved(err.message); throw err }); await reload() }}
-          onDelete={(e) => { rapi.deleteJournal(e).then(reload).catch((err: Error) => onSaved(err.message)) }} />
-      </div>
-      <MemoComposer compact target={target} targetLabel={target === RESEARCH_TARGET ? t('이 프로젝트', 'This project') : titleOf(target)}
-        onSave={async (kind, text, g) => {
-          await rapi.addJournal(kind, text, g)
-          await reload()
-          onSaved(kind === 'todo' ? t('할 일 저장됨 — 오늘 일지', "To-do saved to today's journal") : t('메모 저장됨 — 오늘 일지', "Memo saved to today's journal"))
-        }} />
     </div>
   )
 }

@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { commentSourceFile, commentsFile, guardBody, unguardBody, parseComments, type CommentFile } from './comments.js'
-import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
+import { answerHead } from './commentFormat.js'
+import { hashOf, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 
@@ -106,7 +107,7 @@ export function appendAnswer(root: string, target: string, id: string, by: strin
   let end = lines.findIndex((l, i) => i > head && /^## /.test(l))
   if (end === -1) end = lines.length
   while (end > head + 1 && !lines[end - 1]!.trim()) end--
-  const block = ['', `### 답 · ${by} · ${localDate(now)} ${localTime(now)}`, '', guardBody(body), '', `- 상태: ${state}`]
+  const block = ['', answerHead(by, now), '', guardBody(body), '', `- 상태: ${state}`]
   lines.splice(end, 0, ...block)
   const text = lines.join('\n')
   writeAtomic(file, text.endsWith('\n') ? text : `${text}\n`)

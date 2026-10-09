@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { isInside as inside } from './fsutil.js'
 
 /** stamp: 해시를 잰 때의 파일 상태 (fileStamp). 같으면 다시 읽지 않는다. 10/5 전 기록에는 없다 */
 export interface InputHash { file: string; hash: string | null; stamp?: string }
@@ -25,7 +26,6 @@ export interface ShownPdf extends SuccessfulInputs { ok: boolean }
 
 const SKIP_DIRS = new Set(['.git', '.build', '.conda', '.venv', 'venv', 'node_modules', '__pycache__', '.cache', '.mypy_cache', '.pytest_cache', '.tox', '.nox', '.next', 'site-packages', '.lake'])
 const MAX_FILES = 30_000
-const inside = (dir: string, file: string) => file === dir || file.startsWith(dir + path.sep)
 
 /** Include ctime and inode so atomic replacements and restored mtimes are detected. */
 export function fileStamp(file: string): string | null {

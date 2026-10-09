@@ -48,7 +48,7 @@ export function initials(title: string): string {
 }
 
 /** 프로젝트마다 고정된 색 (id에서). 상태 색(진행·막힘·해결)과 겹치지 않는 것만 */
-const PROJECT_COLORS = ['#4f46e5', '#7c3aed', '#0e7490', '#be185d', '#0f766e', '#9333ea', '#475569', '#b45309']
+const PROJECT_COLORS = ['#4f46e5', '#7c3aed', '#0e7490', '#be185d', '#0f766e', '#9333ea', '#475569', '#b45309'] // 디자인 예외: 프로젝트 아바타 색은 데이터 (design-system.md 색 표)
 export function projectColor(id: string): string {
   let h = 0
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0

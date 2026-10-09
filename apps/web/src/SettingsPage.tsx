@@ -26,7 +26,7 @@ const LABEL: { [K in keyof UiSettings]?: Record<string, string> } = {
   editorLineHeight: { 1.5: t('좁게', 'Tight'), 1.65: t('조금 좁게', 'Snug'), 1.8: t('보통', 'Normal'), 2: t('넓게', 'Loose') },
 }
 
-const SWATCH: Record<UiSettings['accent'], string> = { mono: 'var(--text)', indigo: '#4338ca', plum: '#86198f' }
+const SWATCH: Record<UiSettings['accent'], string> = { mono: 'var(--text)', indigo: 'var(--accent-indigo)', plum: 'var(--accent-plum)' }
 
 /**
  * 설정의 부분 (왼쪽 사이드바, 10/4 피드백 "설정 페이지에 사이드바를 넣자").

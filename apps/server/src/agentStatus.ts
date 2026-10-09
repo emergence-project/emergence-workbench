@@ -61,6 +61,8 @@ export function listReviews(repo: string, sources: ProjectSources): ReviewDoc[] 
 }
 
 export const STATUS_FILE = 'STATUS.md'
+/** STATUS.md 첫 안내 줄의 앞부분 (뒤에 쓴 시각이 붙는다). 같은 내용을 다시 쓰지 않으려고 비교할 때 이 줄을 뺀다 */
+const STATUS_HEAD = '> 연구 작업대 앱이 자동으로 쓰는 요약이다'
 const GLYPH: Record<string, string> = { 'in-progress': '●', blocked: '⏸︎', stopped: '■', solved: '✓' }
 const LABEL: Record<string, string> = { 'in-progress': '진행', blocked: '멈춤', stopped: '폐기', solved: '해결' }
 /** 표 칸 안의 마크다운 링크를 글자만 남긴다 */
@@ -69,7 +71,7 @@ const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…`
 
 export function generateStatus(wb: Workbench, now = new Date()): string {
   const info = wb.readResearch()
-  const repo = path.dirname(wb.root)
+  const repo = wb.repo
   const src = info.sources
   const blocks = wb.listBlocks()
   const tree = buildTree(blocks)
@@ -81,7 +83,7 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
   const p = (...l: string[]) => out.push(...l)
 
   p(`# STATUS — ${info.title}`, '',
-    `> 연구 작업대 앱이 자동으로 쓰는 요약이다 (${today} ${now.toTimeString().slice(0, 5)}). **고치지 말 것** — 고칠 것은 아래 정본 파일에서.`,
+    `${STATUS_HEAD} (${today} ${now.toTimeString().slice(0, 5)}). **고치지 말 것** — 고칠 것은 아래 정본 파일에서.`,
     '> 이 저장소의 에이전트는 이 파일을 먼저 읽어 지금 어디까지 왔는지 파악한 뒤, 저장소 자체 규칙(AGENTS.md·CLAUDE.md)을 따른다.',
     `> 사용자가 맡긴 일(\`workbench/tasks/\`)은 공통 규칙 \`${RULES_DOC}\`을 따른다: 종결 조건을 먼저, 결과는 같은 파일에, 승인은 사용자만.`, '')
   if (info.question) p(`**목표.** ${info.question}`, '')
@@ -242,7 +244,8 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
 export function writeStatus(wb: Workbench, now = new Date()): { written: boolean; file: string } {
   const file = path.join(wb.root, STATUS_FILE)
   const body = generateStatus(wb, now)
-  const strip = (s: string) => s.replace(/^> 연구 작업대 앱이 자동으로 쓰는 요약이다 \([^)]*\)/m, '')
+  // 첫 안내 줄의 시각만 다르면 같은 내용이다
+  const strip = (s: string) => s.split('\n').filter((l) => !l.startsWith(STATUS_HEAD)).join('\n')
   if (fs.existsSync(file) && strip(fs.readFileSync(file, 'utf8')) === strip(body)) return { written: false, file }
   writeAtomic(file, body)
   return { written: true, file }

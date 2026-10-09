@@ -108,7 +108,7 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
     const info = manuscriptInfo(wb, msq(req.query))
     if (info.kind === 'paper') throw new WorkbenchError(400, t('원고에는 카드 설명을 적지 않음', 'Manuscripts do not take a card description'))
     const { baseHash, ...patch } = req.body ?? {}
-    writeNoteMeta(path.join(path.dirname(wb.root), info.main), patch, requireHash(baseHash, t('노트 목록 줄의 hash', 'the hash of the note list line')))
+    writeNoteMeta(path.join(wb.repo, info.main), patch, requireHash(baseHash, t('노트 목록 줄의 hash', 'the hash of the note list line')))
     return manuscriptInfo(wb, msq(req.query))
   })
   app.post<{ Params: { rid: string }; Body: { kind?: unknown; name?: unknown; from?: unknown } }>('/api/researches/:rid/notes', async (req) =>

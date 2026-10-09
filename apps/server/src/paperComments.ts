@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import type { CommentEntry, CommentFile, CommentState } from './comments.js'
+import type { CommentEntry, CommentFile } from './comments.js'
+import { ANSWER_RE, answerHead, isCommentState } from './commentFormat.js'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { PAPER_COMMENTS_DIR, isSafeKey } from './papers.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
@@ -49,7 +50,6 @@ interface Front {
 }
 
 const ID_RE = /^c-[\w-]{1,60}$/
-const ANSWER_RE = /^### 답 · (.+?) · (.+)$/
 
 function dirOf(lib: string, key: string): string {
   if (!isSafeKey(key)) throw new WorkbenchError(400, t(`올바르지 않은 키: ${key}`, `Invalid key: ${key}`))
@@ -114,7 +114,7 @@ export function readPaperComments(lib: string, key: string, title = key): PaperC
       const m = ANSWER_RE.exec(head)
       return { by: m?.[1] ?? '?', at: m?.[2] ?? '', body: lines.join('\n').trim() }
     })
-    const state = kind === '질문' ? ((['대기', '답함', '끝냄'] as const).find((s) => s === front.state) ?? (answers.length ? '답함' : '대기')) : null
+    const state = kind === '질문' ? ((isCommentState(front.state) ? front.state : undefined) ?? (answers.length ? '답함' : '대기')) : null
     if (front.project) projects[id] = front.project
     comments.push({ id, kind, where: page ? `p.${page}` : '전체', ...(page && { page }), rects, ...(quote && { quote }), ...(color && { color }), body: main.trim(), state, answers })
   }
@@ -174,8 +174,8 @@ export function updatePaperNote(lib: string, key: string, id: string, change: { 
   const file = fileOf(lib, key, id)
   const { front, body } = splitForWrite(fs.readFileSync(file, 'utf8'))
   if (change.state !== undefined) {
-    if (front.kind !== '질문' || !['대기', '답함', '끝냄'].includes(change.state as string)) throw new WorkbenchError(400, t('질문의 상태는 대기 · 답함 · 끝냄', 'A question state must be 대기 · 답함 · 끝냄 (waiting · answered · closed)'))
-    front.state = change.state as CommentState
+    if (front.kind !== '질문' || !isCommentState(change.state)) throw new WorkbenchError(400, t('질문의 상태는 대기 · 답함 · 끝냄', 'A question state must be 대기 · 답함 · 끝냄 (waiting · answered · closed)'))
+    front.state = change.state
   }
   if (change.color !== undefined) {
     if (front.kind !== '하이라이트' || !HIGHLIGHT_COLORS.includes(change.color as HighlightColor)) throw new WorkbenchError(400, t(`색은 ${HIGHLIGHT_COLORS.join(' · ')}`, `color must be ${HIGHLIGHT_COLORS.join(' · ')}`))
@@ -194,5 +194,5 @@ export function appendPaperAnswer(lib: string, key: string, id: string, by: stri
   const file = fileOf(lib, key, id)
   const { front, body } = splitForWrite(fs.readFileSync(file, 'utf8'))
   front.state = '답함'
-  writeAtomic(file, join(front, `${body.replace(/\s*$/, '')}\n\n### 답 · ${by} · ${localDate(now)} ${localTime(now)}\n${answer.trim()}\n`))
+  writeAtomic(file, join(front, `${body.replace(/\s*$/, '')}\n\n${answerHead(by, now)}\n${answer.trim()}\n`))
 }
