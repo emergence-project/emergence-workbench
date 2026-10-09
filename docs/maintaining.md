@@ -17,7 +17,7 @@
 
 1. **General › Features**: Discussions 켜기. 카테고리 Q&A(슬러그 `q-a`)와 Ideas만 남긴다.
 2. **Labels**: 아래 표대로 만든다. 양식의 라벨은 저장소에 있어야 붙는다.
-3. **Rules › Rulesets › main**: PR 필수, 승인 1 + Code owners 승인 필수, 강제 푸시·지우기 금지, 상태 검사 `check`(ci.yml) 필수. Bypass 목록에 관리자(Repository admin)를 넣어 에이전트 PR은 검사 통과 뒤 바로 합칠 수 있게 한다.
+3. **Rules › Rulesets › main** (기본 브랜치, Active): 지우기 금지(Restrict deletions)와 강제 푸시 금지(Block force pushes)만 켠다. 바깥 사람은 쓰기 권한이 없어 fork PR만 보낼 수 있으므로, 이 규칙은 우리 쪽 실수를 막는 용도다. 상태 검사 필수는 켜지 않는다(문서만 바뀐 PR은 CI가 돌지 않아 검사 결과가 오지 않는다). 승인 필수도 켜지 않는다(관리자 혼자라 자기 PR을 승인할 수 없다).
 4. **Actions › General**: "Require approval for first-time contributors" (기본값 유지).
 5. **Watch → Custom: Issues, Pull requests, Discussions**: 메일·GitHub 모바일 앱으로 알림을 받는다.
 
@@ -40,6 +40,6 @@
 
 ## 바깥 PR
 
-- CODEOWNERS(`* @sungmin-park-dev`) 승인 없이는 합쳐지지 않는다.
+- 쓰기 권한은 관리자에게만 있어 바깥 PR은 관리자가 합쳐야 들어간다. CODEOWNERS(`* @sungmin-park-dev`)는 검토 요청을 관리자에게 자동으로 보낸다.
 - 에이전트는 바깥 PR을 검토해 의견 초안을 관리자에게 올리고, 승인·합치기는 관리자가 한다. 바깥 PR 브랜치에 에이전트가 푸시하지 않는다.
 - 원고 무손실·바깥 수정 덮어쓰기 금지(`CONTRIBUTING.md` "Rules that keep research safe")를 어기는 변경은 받지 않는다.
