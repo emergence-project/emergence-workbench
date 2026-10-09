@@ -23,7 +23,7 @@ export interface PdfState {
 /** 지금 빌드 폴더에 있는 PDF를 만든 컴파일의 입력. ok: 그 컴파일이 오류 없이 끝났는지 */
 export interface ShownPdf extends SuccessfulInputs { ok: boolean }
 
-const SKIP_DIRS = new Set(['.git', '.build', '.conda', '.venv', 'venv', 'node_modules', '__pycache__', '.cache', '.mypy_cache', '.pytest_cache', '.tox', '.nox', '.next', 'site-packages'])
+const SKIP_DIRS = new Set(['.git', '.build', '.conda', '.venv', 'venv', 'node_modules', '__pycache__', '.cache', '.mypy_cache', '.pytest_cache', '.tox', '.nox', '.next', 'site-packages', '.lake'])
 const MAX_FILES = 30_000
 const inside = (dir: string, file: string) => file === dir || file.startsWith(dir + path.sep)
 
