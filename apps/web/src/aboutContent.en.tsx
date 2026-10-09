@@ -396,7 +396,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         title: 'Leaving feedback',
         figure: <FeedbackFlowFigure />,
         items: [
-          { text: <>Turn on feedback mode with the Feedback button in the top bar (a location pin with text lines), and click a part of the screen to leave a comment. Before posting, choose Change request or Question at the bottom left (you cannot post without choosing, so a question is not read as a request). The Feedback button still works while a dialog (such as Register project, search or quick memo) is open, and you can leave feedback on parts inside the dialog. The speech bubble is used only for comments on research content.</> },
+          { text: <>Turn on feedback mode with the Feedback button in the top bar (a location pin with text lines), and click a part of the screen to leave a comment. Before posting, choose Fix or Question at the bottom left (you cannot post without choosing, so a question is not read as a request). The Feedback button still works while a dialog (such as Register project, search or quick memo) is open, and you can leave feedback on parts inside the dialog. The speech bubble is used only for comments on research content.</> },
           { text: <>Each comment saves a picture of the screen at that moment in {c('feedback/pictures/')}, so Claude sees the same screen. 30 seconds after the last comment it is pushed to GitHub automatically. An app update first commits any feedback not yet pushed and then pulls the new version, so the two do not collide. Only when an agent has just deleted approved originals and the same date file has comments not yet pushed does the update stop with "nothing was changed" (the app keeps running).</> },
         ],
       },
