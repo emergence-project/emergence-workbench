@@ -238,13 +238,18 @@ export function researchApi(rid: string) {
 
 export type ResearchApi = ReturnType<typeof researchApi>
 
-/** 파일 변경 알림을 받는다. 연결이 끊기면 다시 붙는다. 반환값을 부르면 그만 받는다. */
-export function subscribeEvents(onEvent: (e: WorkbenchEvent) => void): () => void {
+/**
+ * 파일 변경 알림을 받는다. 연결이 끊기면 다시 붙는다. 반환값을 부르면 그만 받는다.
+ * 다시 붙었을 때(서버 재시작·잠자기 뒤) 끊긴 동안 바뀐 것은 알림이 없으므로 onReconnect로 한 번 다시 읽게 한다.
+ */
+export function subscribeEvents(onEvent: (e: WorkbenchEvent) => void, onReconnect?: () => void): () => void {
   let ws: WebSocket | null = null
   let stopped = false
   let retry: number | undefined
+  let opened = false
   const connect = () => {
     ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/events`)
+    ws.onopen = () => { if (opened) onReconnect?.(); opened = true }
     ws.onmessage = (m) => { try { onEvent(JSON.parse(String(m.data))) } catch { /* 무시 */ } }
     ws.onclose = () => { if (!stopped) retry = window.setTimeout(connect, 1500) }
   }

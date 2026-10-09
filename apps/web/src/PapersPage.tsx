@@ -446,6 +446,8 @@ function PaperCover({ paper }: { paper: PaperRow }) {
     const el = canvas.current
     if (!el || paper.pdf.where !== 'local') return
     let cancelled = false
+    // 일찍 끝나거나(카드가 사라짐·오류) 다 그린 뒤 모두 PDF 문서를 닫는다
+    let task: { destroy: () => Promise<void> } | undefined
     const io = new IntersectionObserver(async (seen) => {
       if (!seen.some((s) => s.isIntersecting)) return
       io.disconnect()
@@ -453,7 +455,9 @@ function PaperCover({ paper }: { paper: PaperRow }) {
         const pdfjs = await import('pdfjs-dist')
         const worker = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
         pdfjs.GlobalWorkerOptions.workerSrc = worker
-        const doc = await pdfjs.getDocument({ url: `${papersApi.pdfUrl(paper.key)}?peek=1` }).promise
+        const loading = pdfjs.getDocument({ url: `${papersApi.pdfUrl(paper.key)}?peek=1` })
+        task = loading
+        const doc = await loading.promise
         const page = await doc.getPage(1)
         const vp0 = page.getViewport({ scale: 1 })
         const vp = page.getViewport({ scale: (el.clientWidth * window.devicePixelRatio) / vp0.width })
@@ -462,11 +466,10 @@ function PaperCover({ paper }: { paper: PaperRow }) {
         if (!g || cancelled) return
         await page.render({ canvasContext: g, viewport: vp, canvas: el }).promise
         if (!cancelled) setDrawn(true)
-        void doc.destroy()
-      } catch { /* 표지 없이 저널 · 연도로 */ }
+      } catch { /* 표지 없이 저널 · 연도로 */ } finally { void task?.destroy() }
     })
     io.observe(el)
-    return () => { cancelled = true; io.disconnect() }
+    return () => { cancelled = true; io.disconnect(); void task?.destroy() }
   }, [paper.key, paper.pdf.where])
   return (
     <span className={`pl-cover${drawn ? ' drawn' : ''}`} aria-hidden>

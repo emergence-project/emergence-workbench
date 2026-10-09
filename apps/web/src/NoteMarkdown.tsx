@@ -18,10 +18,14 @@ export function NoteMarkdown({ text, options, asset }: { text: string; options: 
   // 그림 PDF는 첫 쪽을 그린다
   useEffect(() => {
     let live = true
+    // 그린 뒤와 화면이 바뀔 때 PDF 문서를 닫는다(닫지 않으면 다시 그릴 때마다 문서·워커 자원이 쌓인다)
+    const tasks: { destroy: () => Promise<void> }[] = []
     for (const c of ref.current?.querySelectorAll<HTMLCanvasElement>('canvas.md-fig-pdf') ?? []) {
       void (async () => {
+        const task = pdfjs.getDocument({ url: c.dataset.src! })
+        tasks.push(task)
         try {
-          const doc = await pdfjs.getDocument({ url: c.dataset.src! }).promise
+          const doc = await task.promise
           const page = await doc.getPage(1)
           const box = page.getViewport({ scale: 1 })
           const scale = Math.min(2, (c.parentElement?.clientWidth || 600) / box.width) * (window.devicePixelRatio || 1)
@@ -32,11 +36,11 @@ export function NoteMarkdown({ text, options, asset }: { text: string; options: 
           c.style.width = `${vp.width / (window.devicePixelRatio || 1)}px`
           await page.render({ canvas: c, canvasContext: c.getContext('2d')!, viewport: vp }).promise
         } catch {
-          c.replaceWith(Object.assign(document.createElement('span'), { className: 'md-fig-missing', textContent: c.getAttribute('aria-label') ?? '' }))
-        }
+          if (live) c.replaceWith(Object.assign(document.createElement('span'), { className: 'md-fig-missing', textContent: c.getAttribute('aria-label') ?? '' }))
+        } finally { void task.destroy() }
       })()
     }
-    return () => { live = false }
+    return () => { live = false; for (const task of tasks) void task.destroy() }
   }, [html])
   return <div className="ob-md" ref={ref} onClick={(event) => {
     if (!openMark(event) && (event.target as Element).closest('.ob-cite')) event.preventDefault()

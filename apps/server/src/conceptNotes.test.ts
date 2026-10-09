@@ -215,4 +215,14 @@ describe('개념노트 API', () => {
     expect(fs.existsSync(path.join(lib, 'concepts/planar-graph.memo.md'))).toBe(false)
     expect((await app.inject({ url: '/api/concepts/nope/memo' })).statusCode).toBe(404)
   })
+
+  it('메모: 다른 편집기가 CRLF로 저장해도 줄은 \\n으로 주고, 그 hash로 고칠 수 있다', async () => {
+    const lib = path.join(tmp, 'library')
+    fs.writeFileSync(path.join(lib, 'concepts/planar-graph.memo.md'), '> 인용\r\n<!-- rw: {} -->\r\n메모\r\n')
+    const got = (await app.inject({ url: '/api/concepts/planar-graph/memo' })).json()
+    expect(got.text).toBe('> 인용\n<!-- rw: {} -->\n메모\n')
+    const put = await app.inject({ method: 'PUT', url: '/api/concepts/planar-graph/memo', payload: { text: got.text + '더함', baseHash: got.hash } })
+    expect(put.statusCode).toBe(200)
+    fs.rmSync(path.join(lib, 'concepts/planar-graph.memo.md'))
+  })
 })

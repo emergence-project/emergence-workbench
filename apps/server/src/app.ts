@@ -96,6 +96,11 @@ export const READ_ONLY_REQUESTS = new Set([
   'PUT /api/feedback/review',
   'POST /api/feedback/publish',
   'POST /api/app/update',
+  // 컴파일은 결과를 .build/·설정 폴더에만 쓴다(원본·캐시 stamp에 안 걸림). GitHub 주소 읽기는 아무것도 쓰지 않는다
+  'POST /api/researches/:rid/blocks/:bid/compile',
+  'POST /api/researches/:rid/manuscript/compile',
+  'POST /api/library/notes/:kind/:id/compile',
+  'POST /api/researches/github',
 ])
 
 export function buildApp(opts: AppOptions): FastifyInstance & { registry: Registry } {
@@ -226,13 +231,15 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registry.onSave(watchLibraryNow)
   app.addHook('onClose', async () => { await libraryWatcher?.close() })
   // HTTP로 저장한 것은 watcher가 없는 예제 모드에서도 바로 보인다. 자료를 쓰지 않는 요청(검사·열기·피드백·백업)은 캐시를 비우지 않는다
-  app.addHook('onResponse', async (req) => {
+  app.addHook('onResponse', async (req, reply) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || READ_ONLY_REQUESTS.has(`${req.method} ${req.routeOptions.url ?? ''}`)) return
+    // 거절된 요청(400·404·409 …)은 쓰기 전에 멈춘 것이다. 5xx는 중간에 썼을 수 있어 비운다
+    if (reply.statusCode >= 400 && reply.statusCode < 500) return
     libraryReads?.invalidate()
   })
   // 같은 SQLite 연결의 쓰기 트랜잭션이 나눠 돌아갈 때는 색인을 쓰는 요청만 기다린다.
   app.addHook('preHandler', async (req) => {
-    if (['/api/concepts/list', '/api/concepts/subjects', '/api/concepts/resolve', '/api/concepts/rows', '/api/concepts/brief',
+    if (['/api/concepts/list', '/api/concepts/subjects', '/api/concepts/resolve', '/api/concepts/search', '/api/concepts/rows', '/api/concepts/brief',
       '/api/concepts/:id/links', '/api/researches/:rid/notes/links'].includes(req.routeOptions.url ?? '')) await conceptIndex()?.ready()
   })
   const ctx: RouteContext = { registry, opts, broadcast, wbOf, ensureWatch, watchers, repoPath, conceptIndex, libraryReads }

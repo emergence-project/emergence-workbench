@@ -8,7 +8,8 @@ import { conceptBrief, conceptChecks, directConceptProjects } from '../conceptBr
 import { conceptSources } from '../conceptSources.js'
 import { conceptUsage } from '../conceptUsage.js'
 import { conceptAsset, inlineCites, writeConceptBody, readConceptMd, readConceptMemo, readMacros, setConceptChecked, setConceptLocked, setConceptReview, writeConceptMemo } from '../conceptNotes.js'
-import { contentTypeOf, parseBib } from '../materials.js'
+import { contentTypeOf } from '../materials.js'
+import { libraryBibEntries } from '../papers.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
@@ -61,12 +62,10 @@ export function registerConcepts(app: FastifyInstance, ctx: RouteContext): void 
   app.get('/api/concepts/macros', async () => readMacros(registry.libraryPath))
   /** 편집기의 [@ 찾기: references.bib에서 키·제목·저자·연도로. 띄어 쓴 낱말은 모두 들어 있어야 하고(순서 무관), 키가 그 말로 시작하는 것이 앞 (많아도 20개까지) */
   app.get<{ Querystring: { q?: string } }>('/api/concepts/bib', async (req) => {
-    const lib = registry.libraryPath
-    const bibFile = lib ? path.join(lib, 'references.bib') : ''
-    if (!bibFile || !fs.existsSync(bibFile)) return { items: [] }
     const words = String(req.query.q ?? '').toLowerCase().split(/\s+/).filter(Boolean)
     const text = (e: { key: string; title?: string; author?: string; year?: string }) => [e.key, e.title, e.author, e.year].join(' ').toLowerCase().replace(/[{}]/g, '')
-    const all = parseBib(fs.readFileSync(bibFile, 'utf8')).filter((e) => { const t = text(e); return words.every((w) => t.includes(w)) })
+    // 글자를 칠 때마다 불리므로, 파일이 그대로면 파싱한 것을 다시 쓴다
+    const all = libraryBibEntries(registry.libraryPath).filter((e) => { const t = text(e); return words.every((w) => t.includes(w)) })
     const first = words[0]
     const ranked = first ? [...all.filter((e) => e.key.toLowerCase().startsWith(first)), ...all.filter((e) => !e.key.toLowerCase().startsWith(first))] : all
     const items = ranked.slice(0, 20).map(({ key, title, author, year }) => ({ key, title, author, year }))

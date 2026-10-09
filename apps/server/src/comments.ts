@@ -225,6 +225,14 @@ function reanchor(root: string, file: CommentFile): CommentFile {
   if (!source) return file
   let text: string
   try { text = fs.readFileSync(source, 'utf8').replace(/\r\n/g, '\n') } catch { return file }
+  // 줄 시작 위치. 일치마다 앞부분을 잘라 세지 않고 이진 탐색으로 줄 번호를 얻는다(짧은 인용은 일치가 수백 개)
+  const starts = [0]
+  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1)
+  const lineAt = (pos: number): number => {
+    let lo = 0, hi = starts.length - 1
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (starts[mid]! <= pos) lo = mid; else hi = mid - 1 }
+    return lo + 1
+  }
   for (const entry of entries) {
     const quote = entry.quote!.replace(/\r\n/g, '\n')
     const prefix = (entry.prefix ?? '').replace(/\r\n/g, '\n')
@@ -233,7 +241,7 @@ function reanchor(root: string, file: CommentFile): CommentFile {
       let found: number | undefined
       let distance = Infinity
       for (let at = text.indexOf(needle); at !== -1; at = text.indexOf(needle, at + 1)) {
-        const line = text.slice(0, at + offset).split('\n').length
+        const line = lineAt(at + offset)
         const d = Math.abs(line - (entry.line ?? 1))
         if (d < distance) { found = line; distance = d }
       }
