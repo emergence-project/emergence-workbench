@@ -153,7 +153,7 @@ export function FeedbackFlowFigure() {
         { title: <>{Icon.feedback} {t('남기기', 'Leave')}</>, sub: t('피드백 모드에서 부위를 누름. 화면 그림이 함께 남고 30초 뒤 GitHub에', 'Click a part in feedback mode. A screen picture is saved with it and goes to GitHub after 30 seconds') },
         { title: t('처리', 'Handle'), sub: <>{t('Claude가 고치고', 'Claude fixes it and writes in')} {c('feedback/status.yaml')}{t('에 이해한 요구 · 원인 · 처리를 적음', ' the understood request · cause · handling')}</> },
         { title: t('반영', 'Ship'), sub: t('검사(CI)를 통과하면 합침. 맥에서 업데이트를 누르면 앱에 들어옴', 'Merged once checks (CI) pass. Pressing Update on the Mac brings it into the app') },
-        { title: <>{turn} {t('확인', 'Review')}</>, sub: t('처리된 항목을 승인하거나 수정 요청', 'Approve or request changes on handled items'), turn: true },
+        { title: <>{turn} {t('확인', 'Review')}</>, sub: t('결과는 승인 · 수정, 물음은 진행 · 중단', 'Approve or revise results; proceed or stop on questions'), turn: true },
         { title: t('소개로', 'Into About'), sub: t('승인된 내용은 이 소개의 설명이 되고 원문은 지움', 'Approved content becomes a description on this page and the original is deleted') },
       ]} />
     </figure>

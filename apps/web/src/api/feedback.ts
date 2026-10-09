@@ -3,7 +3,8 @@ import { enc, json, req, send } from './http'
 
 /** 피드백 하나와 처리 기록 (feedback/status.yaml). 기록이 없으면 처리 대기 */
 export type FeedbackState = '반영' | '거절' | '확인 필요' | '답변' | '동의' | '나중에' | '보류' | '승인'
-export type FeedbackVerdict = '승인' | '반려'
+/** 결과를 알린 답에는 승인 · 반려, 결정을 묻는 답에는 진행 · 중단 (10/9) */
+export type FeedbackVerdict = '승인' | '반려' | '진행' | '중단'
 /** 승인·반려 한 번 */
 export interface FeedbackVerdictEntry { verdict: FeedbackVerdict; at: string; note?: string; edited?: string }
 /** 코멘트 한 번 (reviews.yaml comments): 승인·반려를 바꾸지 않는 말 */

@@ -27,6 +27,15 @@ describe('feedbackThread', () => {
     expect(reworked(e)).toBe(true)
   })
 
+  it('진행도 반려처럼 다시 처리를 기다리고, 다시 처리하면 그 뒤에 놓인다 (10/9)', () => {
+    const asked = { state: '확인 필요' as const, ask: '지울까요?', note: '아직 안 고침' }
+    expect(feedbackThread({ status: asked, review: { verdict: '진행' as const, at: '2026-10-04T14:00' } }).map((s) => s.kind)).toEqual(['처리', '진행', '대기'])
+    const done = { status: { ...status, rework: '2026-10-04T14:00' }, review: { verdict: '진행' as const, at: '2026-10-04T14:00', note: '휴지통으로' } }
+    expect(feedbackThread(done).map((s) => s.kind)).toEqual(['처리', '진행', '다시 처리'])
+    expect(reworked(done)).toBe(true)
+    expect(feedbackThread({ status: asked, review: { verdict: '중단' as const, at: '2026-10-04T14:00' } }).map((s) => s.kind)).toEqual(['처리', '중단'])
+  })
+
   it('history의 반려들과 최신 승인을 시각순으로', () => {
     const e = {
       status: { ...status, rework: '2026-10-04T15:00' },
