@@ -55,7 +55,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         title: 'Design principles',
         items: [
           { text: <><b>Neutral by default, color only for status.</b> Status shows as a colored dot and a short name: blue In progress · orange Blocked · gray ring Dropped · teal Solved. Your turn is orange, the agent's turn is gray. The accent color is used only for the primary button and for selection.</> },
-          { text: <><b>One name and one symbol per action.</b> Add ＋, Edit pencil, Delete trash can, Remove/Close ×, Compile ▶, Export ⤓, Comment speech bubble, and Approve / Request changes as a check in a circle / a return arrow. <a className="a" href="#/about/design">Screen standards ›</a></> },
+          { text: <><b>One name and one symbol per action.</b> Add ＋, Edit pencil, Delete trash can, Remove/Close ×, Compile ▶, Export ⤓, Comment speech bubble, and Approve / Revise as a check in a circle / a return arrow. <a className="a" href="#/about/design">Screen standards ›</a></> },
           { text: <><b>One place for each job.</b> To-dos are edited in the Work screen, author details on the person's page. The pencil on the project home screen and on the project info screen opens the same edit dialog.</> },
           { text: <><b>Buttons sit next to what they act on.</b> An item's Edit and Delete sit at its top right, and a button that opens or closes a side area sits on that area's side.</> },
           { text: <><b>Clean and clear at a glance.</b> The same name is not shown large twice on one screen, and cards carry only a title and a one-line description.</> },
@@ -140,7 +140,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         figure: <TaskFlowFigure />,
         items: [
           { text: <>The filter at the left of the toolbar is <b>To decide</b> (the default when opened, with an orange count) · <b>Delegated tasks</b> · <b>To-dos</b> · <b>Memos</b> · <b>Questions</b>, and on the right is "＋ Delegate". At the bottom the <b>work journal</b> (finished to-dos, status changes) builds up by date.</> },
-          { text: <><b>To decide</b>: on top, a one-line briefing (n awaiting decision · in progress · due this week · last result) and a week calendar (click a date to see that day in detail); below, decision cards. A card shows the conclusion, what was done, requests for your review, open problems and "Open report", and at the bottom right Approve · Request changes · ⋯ (leave as blocked · drop).</> },
+          { text: <><b>To decide</b>: on top, a one-line briefing (n awaiting decision · in progress · due this week · last result) and a week calendar (click a date to see that day in detail); below, decision cards. A card shows the conclusion, what was done, requests for your review, open problems and "Open report", and at the bottom right Approve · Revise · ⋯ (leave as blocked · drop).</> },
           { text: <>In the <b>Delegate</b> dialog you write the title, topic, agent (Claude Code · Codex), task description, completion criteria (the agent proposes first / write them yourself), reference materials, and what not to do. Each task is one file, {c('workbench/tasks/<date>-<name>.md')}, and that file is the report. The work runs outside the app (Claude Code or Codex on the Mac); hand it over with "Copy prompt for agent".</> },
           { text: <>The <b>Delegated tasks</b> list is grouped by status; click a row to open its report in a tab. A report has conclusion, review requests, open problems, next instructions and grounds, and its section outline attaches to the left sidebar. Approving the next instructions turns them into a new task as is.</> },
           { text: <><b>To-dos, memos and questions</b> are written in the input below. Starting the text with a date such as "10/20까지 —" (by 10/20) sets a deadline. To-dos go in {c('workbench/log/')}, memos and questions in the project records ({c('workbench/comments/')}), and Claude on this Mac answers questions. Checked-off to-dos move down into the work journal.</> },
@@ -496,8 +496,8 @@ export const SYMBOL_GROUPS_EN = (g: { icons: Record<'pencil' | 'trash' | 'play' 
       { mark: g.icons.reopen, name: 'Reopen', meaning: 'A blocked note back to In progress, a finished question back to waiting', where: 'Work panel, Records' },
       { mark: '?', name: 'Ask Claude', meaning: 'Send a record as a question for Claude on this Mac to answer', where: 'Top right of a record row' },
       { mark: g.icons.search, name: 'Search', meaning: 'Find by name across the whole app (/ key)', where: 'Right of the top bar' },
-      { mark: g.icons.approve, name: 'Approve', meaning: 'The understood request and the handling are right', where: 'Feedback item top right' },
-      { mark: g.icons.sendBack, name: 'Request changes', meaning: 'Not right; send it back to be handled again (not deleted)', where: 'Feedback item top right' },
+      { mark: g.icons.approve, name: 'Approve', meaning: 'The result is right', where: 'Decision cards in the Work tab' },
+      { mark: g.icons.sendBack, name: 'Revise', meaning: 'Not right; send it back to be done again (not deleted)', where: 'Decision cards in the Work tab' },
       { mark: '★ ☆', name: 'Favorite', meaning: 'Show first / unset', where: 'Cards, people' },
     ],
   },

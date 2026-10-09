@@ -103,7 +103,7 @@ export function taskLine(t: Task): string {
     case 'proposed': return tr('종결 조건 승인 대기', 'Awaiting criteria approval')
     case 'result': return t.endCheck === 'pass' ? tr('종결 조건 통과', 'Criteria met') : t.endCheck === 'fail' ? tr('종결 조건 미달', 'Criteria not met') : tr('결과 도착', 'Result in')
     case 'working':
-      if (last?.verdict === 'send-back') return `${tr('수정 요청', 'Changes requested')}: ${last.note ?? ''}`
+      if (last?.verdict === 'send-back') return `${tr('수정', 'Revise')}: ${last.note ?? ''}`
       return t.endCondition ? `${tr('종결', 'Done when')}: ${t.endCondition}` : tr('종결 조건 제안을 기다림', 'Waiting for proposed criteria')
     case 'paused': return t.issues[0] ? `${tr('남은 문제', 'Open issue')}: ${t.issues[0].text}` : tr('멈춤', 'Blocked')
     case 'done': return `${tr('해결', 'Solved')}${last?.seconds ? ` · ${tr(`판단 ${Math.max(1, Math.round(last.seconds / 60))}분`, `decided in ${Math.max(1, Math.round(last.seconds / 60))} min`)}` : ''}`

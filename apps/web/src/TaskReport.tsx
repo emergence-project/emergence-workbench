@@ -134,7 +134,7 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
             </dl>
           </details>
           {t.judged.length > 0 && <details className="tk-fold"><summary>{tr('판단 기록', 'Decisions')} {t.judged.length}</summary>
-            <ul className="tk-judged">{t.judged.map((j, k) => <li key={k}><span className="muted">{j.at}</span> {({ approve: tr('승인', 'Approved'), 'send-back': tr('수정 요청', 'Changes requested'), pause: tr('멈춤', 'Blocked'), discard: tr('폐기', 'Dropped') })[j.verdict]}{j.note ? ` · ${j.note}` : ''}</li>)}</ul>
+            <ul className="tk-judged">{t.judged.map((j, k) => <li key={k}><span className="muted">{j.at}</span> {({ approve: tr('승인', 'Approved'), 'send-back': tr('수정', 'Revise'), pause: tr('멈춤', 'Blocked'), discard: tr('폐기', 'Dropped') })[j.verdict]}{j.note ? ` · ${j.note}` : ''}</li>)}</ul>
           </details>}
         </div>
       </section>
@@ -181,7 +181,7 @@ function Asks({ rid, t, onSaved, reload }: { rid: string; t: Task; onSaved(m: st
             <span className="q">{a.q}</span>
             {real ? <span className="segmented small" role="group" aria-label={tr(`${n}번 답`, `Answer ${n}`)}>
               {askOptions(a).map((o) => <button key={o} className={got?.answer === o ? 'on' : ''} aria-pressed={got?.answer === o} onClick={() => void send(n, o)}>{askOptionLabel(o)}</button>)}
-            </span> : <span className="muted tk-ask-hint">{tr('위의 승인 · 수정 요청으로 답합니다', 'Answer with Approve or Request changes above')}</span>}
+            </span> : <span className="muted tk-ask-hint">{tr('위의 승인 · 수정으로 답합니다', 'Answer with Approve or Revise above')}</span>}
             {real && <input className="tk-ask-note" value={notes[key]?.text ?? ''} placeholder={tr('덧붙일 말 (선택)', 'Note (optional)')} aria-label={tr(`${n}번에 덧붙일 말`, `Note for ${n}`)}
               onChange={(e) => { const text = e.target.value; setNotes((drafts) => editAnswerNote(drafts, key, text, got?.note)) }} onBlur={() => { if (got && (notes[key]?.text ?? '') !== (got.note ?? '')) void send(n, got.answer) }} />}
           </div>

@@ -42,23 +42,23 @@ export function copyAgentPrompt(file: string, onSaved: Saved) {
 }
 export const agentAction = (file: string, onSaved: Saved): FlashAction => ({ label: t('에이전트에게 줄 말 복사', 'Copy prompt for agent'), run: () => copyAgentPrompt(file, onSaved) })
 
-/** 판단 하나를 보내고, 다른 곳에서 파일이 바뀌었으면 다시 읽으라고 알린다. 에이전트가 이어서 할 판단(종결 조건 승인 · 수정 요청)이면 깨울 말 복사를 붙인다 */
+/** 판단 하나를 보내고, 다른 곳에서 파일이 바뀌었으면 다시 읽으라고 알린다. 에이전트가 이어서 할 판단(종결 조건 승인 · 수정)이면 깨울 말 복사를 붙인다 */
 export async function sendJudgment(rid: string, tk: Task, verdict: Verdict, extra: { note?: string; seconds?: number; endCondition?: string }, onSaved: Saved, reload: () => unknown) {
   try {
     await tasksApi(rid).judge(tk.id, { verdict, ...extra, baseHash: tk.hash })
     const wake = verdict === 'send-back' || (verdict === 'approve' && tk.state === 'proposed') ? agentAction(tk.file, onSaved) : undefined
-    onSaved(verdict === 'approve' ? (tk.state === 'proposed' ? t('종결 조건을 승인했습니다', 'Approved the completion criteria') : t('승인했습니다', 'Approved')) : verdict === 'send-back' ? t('수정 요청을 보냈습니다', 'Sent change request') : verdict === 'pause' ? t('멈춤으로 두었습니다', 'Set to blocked') : t('폐기했습니다', 'Dropped'), wake)
+    onSaved(verdict === 'approve' ? (tk.state === 'proposed' ? t('종결 조건을 승인했습니다', 'Approved the completion criteria') : t('승인했습니다', 'Approved')) : verdict === 'send-back' ? t('수정으로 돌려보냈습니다', 'Sent back to revise') : verdict === 'pause' ? t('멈춤으로 두었습니다', 'Set to blocked') : t('폐기했습니다', 'Dropped'), wake)
   } catch (e) {
     onSaved(e instanceof ConflictError ? t('에이전트가 파일을 고쳤습니다. 새 내용을 보고 다시 판단하세요', 'The agent edited the file. Read the new content and decide again') : (e as Error).message)
   }
   await reload()
 }
 
-/** 판단 버튼: 승인 · 수정 요청 (동그라미 둘). 수정 요청은 고칠 것 한 줄을 받는다 */
+/** 판단 버튼: 승인 · 수정 (동그라미 둘, 10/9 피드백과 같은 이름). 수정은 고칠 것 한 줄을 받는다. data-ui는 예전 이름 그대로 */
 export function JudgeButtons({ onApprove, onSendBack, approveTip = t('승인', 'Approve') }: { onApprove(): void; onSendBack(): void; approveTip?: string }) {
   return <>
     <button className="icon-btn" data-ui="승인" data-tip={approveTip} aria-label={approveTip} onClick={onApprove}>{Icon.approve}</button>
-    <button className="icon-btn" data-ui="수정 요청" data-tip={t('수정 요청', 'Request changes')} aria-label={t('수정 요청', 'Request changes')} onClick={onSendBack}>{Icon.sendBack}</button>
+    <button className="icon-btn" data-ui="수정 요청" data-tip={t('수정', 'Revise')} aria-label={t('수정', 'Revise')} onClick={onSendBack}>{Icon.sendBack}</button>
   </>
 }
 
@@ -82,14 +82,14 @@ export function TaskMoreMenu({ items }: { items: { label: string; dot?: 'blocked
   )
 }
 
-/** 수정 요청 한 줄 */
+/** 수정할 것 한 줄 */
 export function SendBackRow({ onSend, onCancel }: { onSend(note: string): void; onCancel(): void }) {
   const [note, setNote] = useState('')
   return (
     <form className="tk-return" data-ui="수정 요청 입력란" onSubmit={(e) => { e.preventDefault(); if (note.trim()) onSend(note.trim()) }}>
       <input autoFocus value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}
-        placeholder={t('무엇을 고칠지 한 줄 (그만둘 일이면 "하지 마")', 'What to change, in one line ("don\'t do it" to stop the task)')} aria-label={t('수정 요청 내용', 'Change request')} />
-      <button className="btn" type="submit" disabled={!note.trim()}>{t('수정 요청', 'Request changes')}</button>
+        placeholder={t('무엇을 고칠지 한 줄 (그만둘 일이면 "하지 마")', 'What to change, in one line ("don\'t do it" to stop the task)')} aria-label={t('수정할 내용', 'What to revise')} />
+      <button className="btn" type="submit" disabled={!note.trim()}>{t('수정', 'Revise')}</button>
       <button className="icon-btn" type="button" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={onCancel}>{Icon.x}</button>
     </form>
   )
