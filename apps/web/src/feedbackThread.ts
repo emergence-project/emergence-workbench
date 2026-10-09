@@ -1,5 +1,8 @@
 import type { FeedbackItem, FeedbackVerdict } from './api'
 
+/** 다시 처리하게 하는 답: 수정(자료 값 반려)과 진행(10/9) */
+const sendsBack = (v: FeedbackVerdict | string) => v === '반려' || v === '진행'
+
 /**
  * 처리와 승인·반려를 댓글처럼 시각순으로 (10/4 18:11 "반려한 지적을 댓글처럼 볼 수 있게").
  * status.yaml에는 마지막 처리(note·commit)만 있으므로, 다시 처리했으면(rework = 그 반려의 at) 그 글은 그 반려 뒤에 놓고
@@ -27,18 +30,18 @@ export function feedbackThread(e: Pick<FeedbackItem, 'status' | 'review'>): Thre
   if (!st) return []
   const verdicts = e.review ? [...(e.review.history ?? []), e.review] : []
   if (st.revised?.length) return revisedThread(st, verdicts)
-  const reworkAt = st.rework && verdicts.some((v) => v.verdict === '반려' && v.at === st.rework) ? st.rework : undefined
+  const reworkAt = st.rework && verdicts.some((v) => sendsBack(v.verdict) && v.at === st.rework) ? st.rework : undefined
   const out: ThreadStep[] = [reworkAt ? { who: 'Claude', kind: '처리' } : { who: 'Claude', kind: '처리', ...(st.note && { note: st.note }), ...(st.commit && { commit: st.commit }), ...meta(st) }]
   let placed = false
   for (const v of verdicts) {
     out.push(mine(v))
-    if (!placed && v.verdict === '반려' && v.at === reworkAt) {
+    if (!placed && sendsBack(v.verdict) && v.at === reworkAt) {
       placed = true
       out.push({ who: 'Claude', kind: '다시 처리', ...(st.note && { note: st.note }), ...(st.commit && { commit: st.commit }), ...meta(st) })
     }
   }
   const last = verdicts.at(-1)
-  if (last?.verdict === '반려' && last.at !== reworkAt) out.push({ who: 'Claude', kind: '대기' })
+  if (last && sendsBack(last.verdict) && last.at !== reworkAt) out.push({ who: 'Claude', kind: '대기' })
   return out
 }
 
@@ -62,12 +65,12 @@ function revisedThread(st: NonNullable<FeedbackItem['status']>, verdicts: Verdic
   let next = 1
   for (const v of verdicts) {
     out.push(mine(v))
-    if (next < handlings.length && v.verdict === '반려' && v.at === revised[next - 1]!.at) out.push(step(next++))
+    if (next < handlings.length && sendsBack(v.verdict) && v.at === revised[next - 1]!.at) out.push(step(next++))
   }
   // 기록이 어긋나도(반려 기록이 없는 다시 처리) 처리 글은 잃지 않는다
   while (next < handlings.length) out.push(step(next++))
   const last = out.at(-1)
-  if (last?.who === '나' && last.kind === '반려') out.push({ who: 'Claude', kind: '대기' })
+  if (last?.who === '나' && sendsBack(last.kind)) out.push({ who: 'Claude', kind: '대기' })
   return out
 }
 
@@ -84,7 +87,7 @@ export function splitThread(steps: ThreadStep[]): { earlier: ThreadStep[]; lates
 
 /** 다시 처리해서 사용자가 새 답을 승인·반려할 차례: 최신이 반려이고 Claude가 그 반려를 다시 처리했다 */
 export const reworked = (e: Pick<FeedbackItem, 'status' | 'review'>) =>
-  e.review?.verdict === '반려' && !!e.status?.rework && e.status.rework === e.review.at
+  !!e.review && sendsBack(e.review.verdict) && !!e.status?.rework && e.status.rework === e.review.at
 
 /**
  * 대화 (10/8 시안): 처리 · 승인 · 수정 요청에 코멘트(reviews.yaml comments)와 그 답(status.yaml replies)을 시각순으로 끼운다.

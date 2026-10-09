@@ -37,6 +37,18 @@ describe('feedbackBucket', () => {
     expect(groups.flat()).toHaveLength(entries.length)
   })
 
+  it('결정을 묻는 답은 진행이면 다시 처리할 때까지 대기, 중단이면 끝, 물음이 붙은 답변은 답할 것 (10/9)', () => {
+    const asked = { state: '확인 필요' as const, ask: '폴더까지 지울까요?' }
+    expect(feedbackBucket(entry('질의', { status: asked }), NOW)).toBe('확인 필요')
+    expect(feedbackBucket(entry('질의 진행', { status: asked, review: { verdict: '진행', at: REJECTED_AT } }), NOW)).toBe('대기')
+    expect(feedbackBucket(entry('진행 뒤 처리', { status: { state: '반영', rework: REJECTED_AT }, review: { verdict: '진행', at: REJECTED_AT } }), NOW)).toBe('확인 필요')
+    expect(feedbackBucket(entry('질의 중단', { status: asked, review: { verdict: '중단', at: REJECTED_AT } }), NOW)).toBe('완료')
+    expect(feedbackBucket(entry('동의 중단', { status: { state: '동의' }, review: { verdict: '중단', at: REJECTED_AT } }), NOW)).toBe('완료')
+    const bug = entry('답하다 버그', { date: '2026-09-20', status: { state: '답변', ask: '수정으로 바꿀까요?' } })
+    expect(feedbackBucket(bug, NOW)).toBe('확인 필요')
+    expect(stateOf(bug)).toBe('답변')
+  })
+
   it.each(['반영', '답변'] as const)('%s의 확인 기간은 남긴 날짜 0시부터 정확히 7일 미만이다', (state) => {
     const e = entry('확인 기간 경계', { date: '2026-09-30', time: '23:59', status: { state } })
     const expires = new Date(`${e.date}T00:00`).getTime() + 7 * 86_400_000

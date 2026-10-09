@@ -2,7 +2,7 @@
 import type { FastifyInstance } from 'fastify'
 import fs from 'node:fs'
 import path from 'node:path'
-import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, FEEDBACK_KINDS, FEEDBACK_VERDICTS, feedbackStatusError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback, type FeedbackInput, type FeedbackVerdict } from '../feedback.js'
+import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, FEEDBACK_KINDS, FEEDBACK_VERDICTS, feedbackAsks, feedbackStatusError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback, type FeedbackInput, type FeedbackVerdict } from '../feedback.js'
 import { locate, pendingPaths, PathSyncError, publishPaths } from '../pathsync.js'
 import { WorkbenchError } from '../workbench.js'
 import { commitChecker } from '../commitsInApp.js'
@@ -155,8 +155,10 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const item = listAllFeedback(opts.feedbackDir).find((e) => e.key === b.key)
     if (!item) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     if (b.verdict !== null && !item.status) throw new WorkbenchError(400, t('아직 처리하지 않은 항목입니다', 'This item has not been handled yet'))
-    // 보류(제안 · 물음)는 수정 요청으로 답한다: 그 글을 Claude가 읽고 다시 처리한다 (10/5 22:35, 10/7 17:09). 승인은 처리한 것만
-    if (b.verdict === '승인' && (item.status?.state === '보류' || item.status?.state === '확인 필요')) throw new WorkbenchError(400, t('보류 · 확인 필요 항목은 승인하지 않고 코멘트나 수정 요청으로 답합니다', 'An item on hold or needing confirmation is not approved: answer it with a comment or Request changes'))
+    // 결정을 묻는 답에는 진행 · 중단으로, 결과를 알린 답에는 승인 · 반려로 답한다 (10/9). 예전 보류에 단 반려는 그대로 받는다
+    const asks = feedbackAsks(item.status)
+    if (b.verdict === '승인' && (asks || item.status?.state === '보류')) throw new WorkbenchError(400, t('묻는 답은 승인하지 않고 진행이나 중단으로 답합니다', 'An answer that asks you is not approved: answer it with Proceed or Stop'))
+    if ((b.verdict === '진행' || b.verdict === '중단') && !asks) throw new WorkbenchError(400, t('진행 · 중단은 에이전트가 물은 답에만 씁니다', 'Proceed and Stop are only for answers where the agent asks you'))
     const review = setFeedbackReview(opts.feedbackDir, b.key, b.verdict, typeof b.note === 'string' ? b.note : undefined)
     scheduleAutoPublish()
     return { review }

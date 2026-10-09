@@ -8,7 +8,7 @@ import { askConfirm } from './askText'
 import { feedbackConversation, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
-import { feedbackBucket, needsAnswer, needsConfirm, stateOf, unansweredComments, type FeedbackBucket } from './feedbackBuckets'
+import { asksUser, feedbackBucket, needsAnswer, needsConfirm, stateOf, unansweredComments, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
@@ -23,8 +23,8 @@ export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
 type Filter = FeedbackBucket | '전체'
 const FILTERS: Filter[] = ['확인 필요', '대기', '완료', '전체']
 const FILTER_TITLES: Record<FeedbackBucket, string> = {
-  '확인 필요': t('답하거나 승인·수정 요청할 것: 에이전트가 물은 것과 처리한 것', 'To answer, approve or request changes: what the agent asked and what it handled'),
-  '대기': t('에이전트가 처리할 것: 새 피드백, 수정 요청한 것, 묻지 않은 보류', 'For the agent to handle: new feedback, change requests, holds without a question'),
+  '확인 필요': t('진행 · 중단하거나 승인 · 수정할 것: 에이전트가 물은 것과 처리한 것', 'To proceed, stop, approve or revise: what the agent asked and what it handled'),
+  '대기': t('에이전트가 처리할 것: 새 피드백, 수정 · 진행한 것, 질문, 묻지 않은 보류', 'For the agent to handle: new feedback, revisions and go-aheads, questions, holds without a question'),
   '완료': t('승인했거나 확인 기간(7일)이 지난 반영·답변', 'Approved, or applied and answered items past the 7-day review period'),
 }
 /** 필터 · 묶기 · 상태의 화면 이름 (값은 한국어 그대로 저장한다) */
@@ -43,12 +43,20 @@ const TAG: Record<string, string> = {
 const stateName = (s: FeedbackState | '대기') => TAG[s] ?? label(s)
 const kindName = (k: string) => TAG[k] ?? shown(k)
 /** 표의 답 칸: 에이전트가 적은 상태. 사용자의 승인 · 수정 요청은 확인 칸에 따로 (10/9) */
-const answerOf = (e: FeedbackItem): FeedbackState | '대기' => { const st = stateOf(e); return st === '승인' && e.review?.verdict === '승인' ? e.status?.state ?? '대기' : st }
+const answerOf = (e: FeedbackItem): FeedbackState | '대기' => { const st = stateOf(e); return st === '승인' && (e.review?.verdict === '승인' || e.review?.verdict === '중단') ? e.status?.state ?? '대기' : st }
+/** 항목 머리의 상태: 사용자가 중단해 끝난 것은 "중단" */
+const headName = (e: FeedbackItem, st: FeedbackState | '대기') => (st === '승인' && e.review?.verdict === '중단' ? t('중단', 'Stopped') : stateName(st))
 /** 종류는 둘로 나눠 보인다 (10/9): 요소(디자인 · 버그 · 기능, 10/9 전 분류)와 유형(수정 · 질문 · 제안, 사용자가 고른 것) */
 const ELEMENTS = ['디자인', '버그', '기능']
 const TYPES = ['수정', '질문', '제안']
-/** 자료 값 '반려'는 화면에서 "수정 요청" (10/7 사용자 결정) */
-const verdictName = (v: string) => (v === '반려' ? t('수정 요청', 'Request changes') : label(v))
+/**
+ * 재답변 이름 (10/9 사용자 결정, 1안 두 글자): 처음 고르는 유형과 같은 말을 쓴다.
+ * 결과를 알린 답에는 질문 · 수정 · 승인, 결정을 묻는 답에는 질문 · 중단 · 진행. 자료 값은 코멘트 · 반려 · 승인 · 중단 · 진행
+ */
+const REPLY: Record<string, string> = {
+  '코멘트': t('질문', 'Ask'), '반려': t('수정', 'Revise'), '승인': t('승인', 'Approve'), '진행': t('진행', 'Proceed'), '중단': t('중단', 'Stop'),
+}
+const verdictName = (v: string) => REPLY[v] ?? label(v)
 /** 종류는 Claude가 처리하며 가린다 (status.yaml의 kind). 아직이면 날짜 파일의 종류(새 코멘트는 미분류) */
 const kindOf = (e: FeedbackItem): string => e.status?.kind ?? e.kind
 const matches = (f: Filter, e: FeedbackItem) => f === '전체' || feedbackBucket(e) === f
@@ -236,7 +244,7 @@ function Short({ e, showDate }: { e: FeedbackItem; showDate: boolean }) {
   return (
     <button className="fbp-short" data-ui="피드백 한 줄" data-ui-item={`${e.time} ${e.target}`} onClick={() => setOpen(true)} title={e.status?.understood ?? text}>
       <span className="tag">{kindName(kindOf(e))}</span>
-      <span className={`fbp-state st-${st}`}>{stateName(st)}</span>
+      <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
       <span className="fbp-short-text">{text}</span>
       {e.merged && <span className="muted fbp-merged-count" title={t('같은 지적을 합친 수', 'Merged duplicates')}>+{e.merged.length}</span>}
       <span className="muted fbp-short-when">{showDate ? feedbackWhen(e.date, e.time) : e.time}</span>
@@ -249,7 +257,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
   return (
     <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`}>
       <div className="fbp-head">
-        <span className={`fbp-state st-${st}`}>{stateName(st)}</span>
+        <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
         <span className="tag">{kindName(kindOf(e))}</span>
         {e.source && <span className="tag" title={t('채팅의 앱 미리보기에 남긴 댓글', 'Comment left in the app preview in chat')}>{e.source}</span>}
         {e.status?.theme && <span className="fbp-theme">#{e.status.theme}</span>}
@@ -330,7 +338,7 @@ function Conversation({ e }: { e: FeedbackItem }) {
   const lastMine = steps.map((s) => s.who === '나').lastIndexOf(true)
   let rejects = 0
   const numbered = steps.map((s) => (s.who === '나' && s.kind === '반려' ? ++rejects : 0))
-  const say = (s: ThreadStep, i: number) => <Say key={i} e={e} s={s} n={numbered[i]!} latestHandling={i === lastHandling} undo={i === lastMine && i === steps.length - 1 && (s.kind === '승인' || s.kind === '반려')} />
+  const say = (s: ThreadStep, i: number) => <Say key={i} e={e} s={s} n={numbered[i]!} latestHandling={i === lastHandling} undo={i === lastMine && i === steps.length - 1 && (s.kind === '승인' || s.kind === '반려' || s.kind === '진행' || s.kind === '중단')} />
   return (
     <div className="fbp-thread-box" data-ui="주고받은 기록">
       {folded > 0 && (
@@ -353,9 +361,8 @@ function Say({ e, s, n, latestHandling, undo }: { e: FeedbackItem; s: ThreadStep
   if (s.kind === '대기') return <li className="fbp-say-wait muted">{t('관리자가 다시 처리하기를 기다립니다', 'Waiting for the maintainer to rework it')}</li>
   const me = s.who === '나'
   const name = me ? (user ? `${t('사용자', 'User')} (${user})` : t('사용자', 'User')) : ('by' in s && s.by ? `${t('관리자', 'Maintainer')} (${s.by})` : t('관리자', 'Maintainer'))
-  const what = s.kind === '반려' ? t(`${n}번째 수정 요청`, `Change request ${n}`)
-    : s.kind === '승인' ? label('승인')
-      : s.kind === '코멘트' ? t('코멘트', 'Comment')
+  const what = s.kind === '반려' ? t(`${n}번째 수정`, `Revision ${n}`)
+    : s.kind === '승인' || s.kind === '진행' || s.kind === '중단' || s.kind === '코멘트' ? verdictName(s.kind)
         : s.kind === '답' ? t('답만 함', 'Answered only')
           : 'commit' in s && s.commit ? t('앱에 반영됨', 'Applied to the app') : t('답만 함', 'Answered only')
   const at = 'at' in s ? s.at : undefined
@@ -371,7 +378,7 @@ function Say({ e, s, n, latestHandling, undo }: { e: FeedbackItem; s: ThreadStep
       <div className="fbp-say-head">
         <b>{name}</b>
         <span>{what}</span>
-        {undo && <button className="fb-link" title={t('마지막 승인·수정 요청을 되돌립니다', 'Undo the last approval or change request')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
+        {undo && <button className="fb-link" title={t('마지막 답(승인 · 수정 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
         <span className="sp" />
         {at && <span className="muted fbp-say-when">{whenOf(at)}{edited && ` · ${t('고침', 'edited')} ${edited.slice(11, 16)}`}</span>}
         {me && at && s.kind !== '승인' && !editing && <button className="icon-btn fbp-say-edit" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}
@@ -407,10 +414,10 @@ function Say({ e, s, n, latestHandling, undo }: { e: FeedbackItem; s: ThreadStep
 }
 
 /**
- * 아래 입력란 (10/8 시안): 코멘트 · 수정 요청 · 승인을 한곳에.
- * 비었으면 승인만 켜지고, 글을 쓰면 승인은 꺼지고 코멘트 · 수정 요청이 켜진다.
- * 코멘트는 처리를 그대로 두고 묻거나 덧붙인다(관리자가 답만 한다). 수정 요청은 다시 처리하게 돌려보낸다(자료 값 반려).
- * 보류는 승인하지 않고 수정 요청으로 답한다 (10/5 22:35).
+ * 아래 입력란 (10/8 시안, 10/9 재답변 정리): 버튼은 늘 셋이고 답의 종류에 따라 이름이 바뀐다.
+ * - 결과를 알린 답(반영 · 답변 · 거절 · 나중에): 질문 · 수정 · 승인. 비었으면 승인만, 글을 쓰면 질문 · 수정이 켜진다.
+ * - 결정을 묻는 답(확인 필요 · 동의 · 물음이 붙은 보류 · 답변): 질문 · 중단 · 진행. 진행 · 중단은 글이 없어도 되고, 글이 있으면 함께 적힌다.
+ * 질문(자료 값 코멘트)은 처리를 그대로 두고 묻는다(관리자가 답만 한다). 수정(반려) · 진행은 다시 처리하게 돌려보낸다. 중단은 그대로 끝낸다.
  */
 function Compose({ e }: { e: FeedbackItem }) {
   const [text, setText] = useState('')
@@ -418,25 +425,36 @@ function Compose({ e }: { e: FeedbackItem }) {
   const [error, setError] = useState<string | null>(null)
   const st = stateOf(e)
   const typed = !!text.trim()
-  const canApprove = !typed && (st === '반영' || st === '답변' || st === '거절' || st === '동의' || st === '나중에')
-  // 다시 처리를 기다리는 동안에는 또 돌려보내지 않는다 (코멘트나 글 고치기는 된다)
-  const canReject = typed && !!e.status && st !== '대기'
+  const asks = asksUser(e)
+  // 결정을 기다리는 동안에만 진행 · 중단 (승인 · 중단으로 끝났거나 다시 처리를 기다리면 끔)
+  const canDecide = asks && st !== '대기' && st !== '승인'
+  const canApprove = !asks && !typed && (st === '반영' || st === '답변' || st === '거절' || st === '나중에')
+  // 다시 처리를 기다리는 동안에는 또 돌려보내지 않는다 (질문이나 글 고치기는 된다)
+  const canReject = !asks && typed && !!e.status && st !== '대기'
   const run = (p: Promise<unknown>) => {
     setBusy(true)
     p.then(() => { setText(''); setError(null) }).catch((err: Error) => setError(err.message)).finally(() => setBusy(false))
   }
   const waiting = unansweredComments(e).length > 0
+  const hint = asks ? t('덧붙일 말 (진행 · 중단에 함께 적힘)', 'Anything to add (saved with Proceed or Stop)') : t('질문이나 고칠 점', 'Question or what to change')
   return (
     <div className="fbp-compose" data-ui="코멘트 입력란">
-      <textarea rows={2} value={text} placeholder={t('코멘트나 고칠 점', 'Comment or what to change')} aria-label={t('코멘트나 고칠 점', 'Comment or what to change')}
+      <textarea rows={2} value={text} placeholder={hint} aria-label={hint}
         onChange={(ev) => setText(ev.target.value)} onKeyDown={(ev) => onListKey(ev, setText)} />
       <div className="fbp-compose-row" data-ui="승인·반려">
         {waiting && <span className="muted">{t('관리자의 답을 기다립니다', 'Waiting for the maintainer to answer')}</span>}
         {error && <span className="error-text">{error}</span>}
         <span className="sp" />
-        <button className="btn" disabled={busy || !typed} onClick={() => run(api.commentFeedback(e.key, text))}>{t('코멘트', 'Comment')}</button>
-        <button className="btn" disabled={busy || !canReject} onClick={() => run(api.reviewFeedback(e.key, '반려', text))}>{t('수정 요청', 'Request changes')}</button>
-        <button className="btn primary" disabled={busy || !canApprove} onClick={() => run(api.reviewFeedback(e.key, '승인'))}>{t('승인', 'Approve')}</button>
+        <button className="btn" disabled={busy || !typed} onClick={() => run(api.commentFeedback(e.key, text))}>{REPLY['코멘트']}</button>
+        {asks
+          ? <>
+            <button className="btn" disabled={busy || !canDecide} onClick={() => run(api.reviewFeedback(e.key, '중단', text))}>{REPLY['중단']}</button>
+            <button className="btn primary" disabled={busy || !canDecide} onClick={() => run(api.reviewFeedback(e.key, '진행', text))}>{REPLY['진행']}</button>
+          </>
+          : <>
+            <button className="btn" disabled={busy || !canReject} onClick={() => run(api.reviewFeedback(e.key, '반려', text))}>{REPLY['반려']}</button>
+            <button className="btn primary" disabled={busy || !canApprove} onClick={() => run(api.reviewFeedback(e.key, '승인'))}>{REPLY['승인']}</button>
+          </>}
       </div>
     </div>
   )
