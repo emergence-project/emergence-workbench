@@ -9,6 +9,7 @@ import { go } from './router'
 import { store } from './store'
 import { tableHiddenColumns } from './tableColumns'
 import { t } from './i18n'
+import { loadPdfjs } from './pdfjs'
 
 /**
  * 논문 라이브러리 (planning/proposal-2026-10-05-libraries.md §6, 10/6 L2: 첫 화면은 LibraryHome.tsx, 이 파일은 "목록").
@@ -452,9 +453,7 @@ function PaperCover({ paper }: { paper: PaperRow }) {
       if (!seen.some((s) => s.isIntersecting)) return
       io.disconnect()
       try {
-        const pdfjs = await import('pdfjs-dist')
-        const worker = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
-        pdfjs.GlobalWorkerOptions.workerSrc = worker
+        const pdfjs = await loadPdfjs()
         const loading = pdfjs.getDocument({ url: `${papersApi.pdfUrl(paper.key)}?peek=1` })
         task = loading
         const doc = await loading.promise

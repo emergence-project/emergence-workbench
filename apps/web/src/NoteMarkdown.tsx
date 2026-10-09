@@ -1,11 +1,8 @@
-import * as pdfjs from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { useEffect, useMemo, useRef } from 'react'
 import type { RenderOptions } from './ObsidianMarkdown'
 import { renderNote } from './noteRender'
+import { loadPdfjs } from './pdfjs'
 import { useRecordPaint } from './recordPaint'
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
 
 /**
  * 연구노트·보조 노트 읽기 화면: 개념노트처럼 그리고, 식·그림·절·표 번호와 \\ref·\\eqref, 각주, 그림(PDF도)을 더한다.
@@ -22,10 +19,14 @@ export function NoteMarkdown({ text, options, asset }: { text: string; options: 
     const tasks: { destroy: () => Promise<void> }[] = []
     for (const c of ref.current?.querySelectorAll<HTMLCanvasElement>('canvas.md-fig-pdf') ?? []) {
       void (async () => {
-        const task = pdfjs.getDocument({ url: c.dataset.src! })
-        tasks.push(task)
+        let task: { destroy: () => Promise<void> } | undefined
         try {
-          const doc = await task.promise
+          const pdfjs = await loadPdfjs()
+          if (!live) return
+          const loading = pdfjs.getDocument({ url: c.dataset.src! })
+          task = loading
+          tasks.push(loading)
+          const doc = await loading.promise
           const page = await doc.getPage(1)
           const box = page.getViewport({ scale: 1 })
           const scale = Math.min(2, (c.parentElement?.clientWidth || 600) / box.width) * (window.devicePixelRatio || 1)
@@ -37,7 +38,7 @@ export function NoteMarkdown({ text, options, asset }: { text: string; options: 
           await page.render({ canvas: c, canvasContext: c.getContext('2d')!, viewport: vp }).promise
         } catch {
           if (live) c.replaceWith(Object.assign(document.createElement('span'), { className: 'md-fig-missing', textContent: c.getAttribute('aria-label') ?? '' }))
-        } finally { void task.destroy() }
+        } finally { void task?.destroy() }
       })()
     }
     return () => { live = false; for (const task of tasks) void task.destroy() }

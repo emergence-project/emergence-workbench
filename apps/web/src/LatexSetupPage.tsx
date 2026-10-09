@@ -1,10 +1,9 @@
 import type { LatexTemplate } from '@rw/core'
-import * as pdfjs from 'pdfjs-dist'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { latexApi, type LatexSetupView } from './api'
 import { Icon } from './icons'
 import { LatexMacros } from './LatexMacros'
-import './PdfView'
+import { loadPdfjs } from './pdfjs'
 import { askConfirm } from './askText'
 import { shown as stored, t } from './i18n'
 
@@ -181,7 +180,7 @@ function TemplateThumb({ id, version }: { id: string; version: string }) {
         const res = await fetch(latexApi.previewUrl(id, version))
         // 만들지 못하면 서버가 PDF 대신 { error }를 보낸다
         if (!res.ok || !res.headers.get('content-type')?.includes('pdf')) { const b = await res.json().catch(() => ({})) as { error?: string }; throw new Error(b.error ?? t(`미리보기를 만들지 못했습니다 (${res.status})`, `Could not make the preview (${res.status})`)) }
-        const doc = await pdfjs.getDocument({ data: new Uint8Array(await res.arrayBuffer()) }).promise
+        const doc = await (await loadPdfjs()).getDocument({ data: new Uint8Array(await res.arrayBuffer()) }).promise
         const page = await doc.getPage(1)
         const c = canvas.current
         if (dead || !c) return
