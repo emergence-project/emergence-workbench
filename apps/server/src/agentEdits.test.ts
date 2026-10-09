@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { carryUserEdits, diffBlocks, joinBlocks, splitBlocks } from './agentEdits.js'
+import { AgentEditStore, carryUserEdits, diffBlocks, joinBlocks, splitBlocks } from './agentEdits.js'
 import { buildApp } from './app.js'
 import { bodyHash } from './conceptNotes.js'
 import { fixture } from './testkit.js'
@@ -15,6 +15,27 @@ describe('문단 나누기와 비교', () => {
     expect(b.join('')).toBe(text)
     expect(b.map((x) => x.trim())).toEqual(['# T', 'One\nline two', '- a\n\n- b', '```\nx\n\ny\n```', '$$\na\n\nb\n$$', '\\begin{align}\nx\n\ny\n\\end{align}', 'last'])
     expect(joinBlocks(b)).toBe(text)
+  })
+  it('짝 없는 $$ 하나가 그 뒤 전체를 한 조각으로 만들지 않는다', () => {
+    const text = 'A\n\nprice $$5\n\nB\n\nC\n\n$$\nx\n\ny\n$$\n\nD\n'
+    const ok = splitBlocks('A\n\n$$\nx\n\ny\n$$\n\nD\n')
+    expect(ok.map((x) => x.trim())).toEqual(['A', '$$\nx\n\ny\n$$', 'D'])
+    const b = splitBlocks('A\n\nprice $$5\n\nB\n\nC\n')
+    expect(b.join('')).toBe('A\n\nprice $$5\n\nB\n\nC\n')
+    expect(b.map((x) => x.trim())).toEqual(['A', 'price $$5', 'B', 'C'])
+    expect(splitBlocks(text).join('')).toBe(text)
+  })
+  it('깨진 고침 기록 파일은 덮어쓰지 않고 옆에 보관한다', () => {
+    const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-store-'))
+    const file = path.join(dir, 'edits.json')
+    fs.writeFileSync(file, '{"pending": [ broken')
+    const store = new AgentEditStore(file)
+    store.update((d) => { d.attempts.push({ at: 'now' } as never) })
+    const kept = fs.readdirSync(dir).filter((n) => n.startsWith('edits.json.broken-'))
+    expect(kept).toHaveLength(1)
+    expect(fs.readFileSync(path.join(dir, kept[0]!), 'utf8')).toBe('{"pending": [ broken')
+    expect(store.read().attempts).toHaveLength(1)
+    fs.rmSync(dir, { recursive: true, force: true })
   })
   it('바뀐 곳만 묶는다', () => {
     const base = splitBlocks('A\n\nB\n\nC\n\nD\n')
@@ -94,6 +115,15 @@ describe('에이전트 고침 API', () => {
     expect(ok.statusCode).toBe(200)
     expect(ok.json().review).toBeNull()
     expect(fs.readFileSync(path.join(lib, 'concepts/draft.md'), 'utf8')).toContain('Second paragraph, revised again.')
+  })
+
+  it('검토를 기다리던 개념노트를 잠그면 검토가 닫힌다', async () => {
+    concept('tolock', { title: 'To lock' }, '# To lock\n\nOne.\n')
+    expect((await write({ target: { kind: 'concept', id: 'tolock' }, baseHash: await conceptHash('tolock'), edits: [{ old: 'One.', new: 'Two.' }] })).statusCode).toBe(200)
+    concept('tolock', { title: 'To lock', locked: true }, '# To lock\n\nTwo.\n')
+    const list = (await app.inject({ method: 'GET', url: '/api/agent-edits?scope=library' })).json()
+    expect(list.reviews.map((r: { key: string }) => r.key)).not.toContain('concept:tolock')
+    expect(await review('concept:tolock')).toBeNull()
   })
 
   it('되돌리기는 그 문단만 기준판 글로, 직접 고치기는 사용자 글로 바꾼다', async () => {
