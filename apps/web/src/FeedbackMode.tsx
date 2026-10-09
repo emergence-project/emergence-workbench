@@ -145,14 +145,14 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     void save()
   }
 
-  const save = async () => {
+  const save = async (kind: '질문' | '요청' = '요청') => {
     if (!pending || !text.trim()) return
     try {
       const image = (await shot.current) ?? undefined
       const res = await req('/api/feedback', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          kind: '미분류', target: pending.path, text, snippet: pending.snippet, route: location.hash || '#/', note: feedbackNote(),
+          kind, target: pending.path, text, snippet: pending.snippet, route: location.hash || '#/', note: feedbackNote(),
           viewport: `${innerWidth}×${innerHeight}`, theme: themeName(), image,
         }),
       })
@@ -203,7 +203,8 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
                 title={t('공개 저장소에 이슈 초안을 새 탭으로 엽니다. 여기에도 저장합니다. 화면 그림은 붙이지 않으니, 연구 내용이 보이지 않는 그림만 직접 붙이세요', 'Opens an issue draft on the public repository in a new tab. It is also saved here. Screenshots are not attached; add only pictures that show no research content.')}>{t('GitHub에 보내기', 'Send to GitHub')}</button>
             )}
             <button className="btn" onClick={() => setPending(null)}>{t('취소', 'Cancel')}</button>
-            <button className="btn primary" disabled={!text.trim()} onClick={() => void save()}>{t('저장', 'Save')} <span className="kbd">⌘↵</span></button>
+            <button className="btn" disabled={!text.trim()} onClick={() => void save('질문')}>{t('질문하기', 'Ask')}</button>
+            <button className="btn primary" disabled={!text.trim()} onClick={() => void save('요청')}>{t('수정 요청', 'Request change')} <span className="kbd">⌘↵</span></button>
           </div>
         </div>
       )}
