@@ -36,12 +36,17 @@ const LABEL: Record<string, string> = {
   '처리': t('처리', 'Handled'), '다시 처리': t('다시 처리', 'Reworked'), '나': t('나', 'Me'),
 }
 const label = (v: string) => LABEL[v] ?? shown(v)
-const stateName = (s: FeedbackState | '대기') => label(s)
+/** 태그는 두 글자로 (10/9): 상태 · 요소 · 유형 태그에 세 글자 넘는 이름을 쓰지 않는다. 필터 이름은 그대로 */
+const TAG: Record<string, string> = {
+  '확인 필요': t('질의', 'Asked'), '나중에': t('추후', 'Later'), '디자인': t('모양', 'Design'), '미분류': t('미정', 'None'),
+}
+const stateName = (s: FeedbackState | '대기') => TAG[s] ?? label(s)
+const kindName = (k: string) => TAG[k] ?? shown(k)
 /** 표의 답 칸: 에이전트가 적은 상태. 사용자의 승인 · 수정 요청은 확인 칸에 따로 (10/9) */
 const answerOf = (e: FeedbackItem): FeedbackState | '대기' => { const st = stateOf(e); return st === '승인' && e.review?.verdict === '승인' ? e.status?.state ?? '대기' : st }
-/** 의견 유형(수정 · 질문 · 제안, 10/9)이 있으면 에이전트 답 앞에 붙인다: "수정 · 반영" */
-const TYPED = ['수정', '질문', '제안']
-const stateLabel = (e: FeedbackItem, s: FeedbackState | '대기') => (TYPED.includes(e.kind) ? `${shown(e.kind)} · ${stateName(s)}` : stateName(s))
+/** 종류는 둘로 나눠 보인다 (10/9): 요소(디자인 · 버그 · 기능, 10/9 전 분류)와 유형(수정 · 질문 · 제안, 사용자가 고른 것) */
+const ELEMENTS = ['디자인', '버그', '기능']
+const TYPES = ['수정', '질문', '제안']
 /** 자료 값 '반려'는 화면에서 "수정 요청" (10/7 사용자 결정) */
 const verdictName = (v: string) => (v === '반려' ? t('수정 요청', 'Request changes') : label(v))
 /** 종류는 Claude가 처리하며 가린다 (status.yaml의 kind). 아직이면 날짜 파일의 종류(새 코멘트는 미분류) */
@@ -158,7 +163,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
       <thead>
         <tr>
           <th><button className="fb-link" title={t('순서 바꾸기', 'Reverse order')} onClick={() => setNewest((v) => !v)}>{t('시각', 'Time')} {newest ? '↓' : '↑'}</button></th>
-          <th>{t('유형', 'Type')}</th><th>{t('답', 'Answer')}</th><th>{t('확인', 'Review')}</th><th>{t('피드백', 'Feedback')}</th><th>{t('화면', 'Screen')}</th><th>{t('부위', 'Part')}</th><th>{t('남긴 버전', 'Left in')}</th><th>{t('반영 버전', 'Fixed in')}</th>
+          <th>{t('요소', 'Element')}</th><th>{t('유형', 'Type')}</th><th>{t('답', 'Answer')}</th><th>{t('확인', 'Review')}</th><th>{t('피드백', 'Feedback')}</th><th>{t('화면', 'Screen')}</th><th>{t('부위', 'Part')}</th><th>{t('남긴 버전', 'Left in')}</th><th>{t('반영 버전', 'Fixed in')}</th>
         </tr>
       </thead>
       <tbody>
@@ -169,7 +174,8 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
           return [
             <tr key={k} className={`fbp-row${open === k ? ' on' : ''}`} data-ui="피드백 줄" data-ui-item={`${e.date} ${e.time} ${e.target}`} onClick={() => setOpen(open === k ? null : k)}>
               <td className="mono fbp-when"><button type="button" className="fbp-open" aria-expanded={open === k} aria-label={`${open === k ? t('접기', 'Collapse') : t('펼치기', 'Expand')}: ${e.date} ${e.time} ${text.slice(0, 40)}`}>{feedbackWhen(e.date, e.time)}</button></td>
-              <td className="fbp-cell">{shown(kindOf(e))}</td>
+              <td className="fbp-cell">{ELEMENTS.includes(kindOf(e)) ? kindName(kindOf(e)) : ''}</td>
+              <td className="fbp-cell">{TYPES.includes(kindOf(e)) ? kindName(kindOf(e)) : ''}</td>
               <td className="fbp-cell-state"><span className={`fbp-state st-${st}`}>{stateName(answerOf(e))}</span></td>
               <td className="fbp-cell" title={e.review?.note}>{e.review ? verdictName(e.review.verdict) : ''}</td>
               <td className="fbp-cell-text" title={e.status?.understood ?? text}>{text}{e.merged && <span className="muted"> +{e.merged.length}</span>}</td>
@@ -178,7 +184,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
               <td className="mono fbp-cell">{e.version ?? '—'}</td>
               <td className="mono fbp-cell">{e.status?.version ?? e.status?.commit ?? ''}<InApp e={e} /></td>
             </tr>,
-            open === k && <tr key={`${k}-open`} className="fbp-row-open"><td colSpan={9}><Entry e={e} showDate onFold={() => setOpen(null)} /></td></tr>,
+            open === k && <tr key={`${k}-open`} className="fbp-row-open"><td colSpan={10}><Entry e={e} showDate onFold={() => setOpen(null)} /></td></tr>,
           ]
         })}
       </tbody>
@@ -229,7 +235,8 @@ function Short({ e, showDate }: { e: FeedbackItem; showDate: boolean }) {
   const text = feedbackSummary(e.status?.clean ?? e.text)
   return (
     <button className="fbp-short" data-ui="피드백 한 줄" data-ui-item={`${e.time} ${e.target}`} onClick={() => setOpen(true)} title={e.status?.understood ?? text}>
-      <span className={`fbp-state st-${st}`}>{stateLabel(e, st)}</span>
+      <span className="tag">{kindName(kindOf(e))}</span>
+      <span className={`fbp-state st-${st}`}>{stateName(st)}</span>
       <span className="fbp-short-text">{text}</span>
       {e.merged && <span className="muted fbp-merged-count" title={t('같은 지적을 합친 수', 'Merged duplicates')}>+{e.merged.length}</span>}
       <span className="muted fbp-short-when">{showDate ? feedbackWhen(e.date, e.time) : e.time}</span>
@@ -243,7 +250,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
     <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`}>
       <div className="fbp-head">
         <span className={`fbp-state st-${st}`}>{stateName(st)}</span>
-        <span className="tag">{shown(kindOf(e))}</span>
+        <span className="tag">{kindName(kindOf(e))}</span>
         {e.source && <span className="tag" title={t('채팅의 앱 미리보기에 남긴 댓글', 'Comment left in the app preview in chat')}>{e.source}</span>}
         {e.status?.theme && <span className="fbp-theme">#{e.status.theme}</span>}
         <span className="muted">{showDate ? feedbackWhen(e.date, e.time) : e.time}</span>
