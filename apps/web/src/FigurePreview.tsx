@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PDFDocumentLoadingTask, RenderTask } from 'pdfjs-dist'
 import { figuresApi, type FigureRow } from './api/figures'
 import { t } from './i18n'
+import { loadPdfjs } from './pdfjs'
 
 export type FigurePreviewData = Pick<FigureRow, 'id' | 'kind' | 'name'> & Partial<Pick<FigureRow, 'mtime'>>
 
@@ -30,10 +31,8 @@ function FigurePreviewContent({ fig, url, big, className }: { fig: FigurePreview
     }
     void (async () => {
       try {
-        const pdfjs = await import('pdfjs-dist')
-        const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+        const pdfjs = await loadPdfjs()
         if (!live) return
-        pdfjs.GlobalWorkerOptions.workerSrc = worker.default
         loading = pdfjs.getDocument({ url })
         const doc = await loading.promise
         if (!live) return
