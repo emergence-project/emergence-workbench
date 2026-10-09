@@ -1,4 +1,4 @@
-import { projectStamp } from './projectReadCache.js'
+import { projectRefsStamp } from './projectReadCache.js'
 import type { Workbench } from './workbench.js'
 // 공유 라이브러리 노트의 "쓰는 곳": 어느 프로젝트(와 노트)가 그 개념·논문에 기대는가
 import { listMaterials } from './materials.js'
@@ -18,7 +18,7 @@ export function libraryUsage(registry: Registry, notes: LibraryNote[]): Record<s
   const paperIds = new Set(notes.filter((n) => n.kind === 'paper').map((n) => n.id))
   for (const r of registry.list().filter((x) => x.available)) {
     const wb = registry.get(r.id)
-    const stamp = projectStamp(wb)
+    const stamp = projectRefsStamp(wb)
     let hit = projectUses.get(wb)
     if (!hit || hit.stamp !== stamp) {
       const info = wb.readResearch()
