@@ -279,8 +279,10 @@ function memoFile(lib: string | undefined, id: string): string {
 export function readConceptMemo(lib: string | undefined, id: string): ConceptMemo {
   if (!conceptMdExists(lib, id)) throw new WorkbenchError(404, t(`개념노트가 없음: ${id}`, `No such concept note: ${id}`))
   const file = memoFile(lib, id)
-  const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
-  return { id, text, hash: hashOf(text), exists: fs.existsSync(file) }
+  const raw = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
+  // 화면은 줄을 \n으로 나눠 하이라이트를 찾는다. 다른 편집기가 CRLF로 저장해도 하이라이트가 사라지지 않게 글은 \n으로 준다
+  // (hash는 파일 그대로의 것이라 baseHash 확인은 바뀌지 않는다)
+  return { id, text: raw.replace(/\r\n/g, '\n'), hash: hashOf(raw), exists: fs.existsSync(file) }
 }
 
 /** 메모를 통째로 쓴다. baseHash가 지금 메모와 다르면 쓰지 않는다 (바깥 수정을 덮지 않게) */
