@@ -8,7 +8,7 @@ import { wikiTargets } from './knowledge.js'
 import { msKeyOf } from './manuscript.js'
 import { readNoteMeta, summaryOf, summaryOfMarkdown } from './noteMeta.js'
 import { readTopics, saveTopics, takeDescription, type Topic } from './topics.js'
-import { WorkbenchError, type Workbench } from './workbench.js'
+import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
 
 /**
@@ -194,7 +194,7 @@ export function writeNoteHead(wb: Workbench, file: unknown, patch: NoteHeadPatch
   const src = noteSources(wb).find((s) => s.row.file === file)
   if (!src) throw new WorkbenchError(404, t(`노트가 아님: ${file}`, `Not a note: ${file}`))
   if (baseHash !== undefined && baseHash !== null && baseHash !== src.row.hash) {
-    throw Object.assign(new WorkbenchError(409, t('다른 곳에서 노트가 바뀌어 고치지 않았음', 'The note changed elsewhere, so it was not edited')), { currentHash: src.row.hash })
+    throw new ConflictError(t('다른 곳에서 노트가 바뀌어 고치지 않았음', 'The note changed elsewhere, so it was not edited'), src.row.hash)
   }
   for (const k of Object.keys(patch)) if (!['title', 'topics', 'kind', 'description', 'star'].includes(k)) throw new WorkbenchError(400, t(`고칠 수 없는 키: ${k}`, `Key cannot be edited: ${k}`))
 
@@ -230,7 +230,7 @@ export function writeNoteHead(wb: Workbench, file: unknown, patch: NoteHeadPatch
     if (description !== undefined) mp.description = description || null
     if (star !== undefined) mp.star = star ? 'true' : null
     const r = wb.patchMeta(src.row.id, mp, src.row.hash)
-    if (!r.ok) throw Object.assign(new WorkbenchError(409, t('다른 곳에서 노트가 바뀌어 고치지 않았음', 'The note changed elsewhere, so it was not edited')), { currentHash: r.currentHash })
+    if (!r.ok) throw new ConflictError(t('다른 곳에서 노트가 바뀌어 고치지 않았음', 'The note changed elsewhere, so it was not edited'), r.currentHash)
     // 예전 기록에서 뺀다: 이제 머리말이 정본
     if (nextTopics && topics.some((t) => t.blocks.includes(src.row.id))) {
       saveTopics(wb, topics.map((t) => ({ ...t, blocks: t.blocks.filter((b) => b !== src.row.id) })))

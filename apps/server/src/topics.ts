@@ -3,7 +3,7 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { charCount, parseCardFigureRef } from '@rw/core'
 import { hashOf, writeAtomic } from './fsutil.js'
-import { WorkbenchError, type Workbench } from './workbench.js'
+import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tx } from './i18n.js'
 
 /**
@@ -168,7 +168,7 @@ export const topicsHash = (wb: Workbench) => hashOf(fs.existsSync(wb.researchPat
 export function checkTopicsHash(wb: Workbench, baseHash: unknown): void {
   if (typeof baseHash !== 'string' || !baseHash) throw new WorkbenchError(400, tx('baseHash(주제 목록을 읽을 때 받은 hash)가 필요함', 'baseHash (the hash you got when reading the topic list) is required'))
   const now = topicsHash(wb)
-  if (baseHash !== now) throw Object.assign(new WorkbenchError(409, tx('다른 곳에서 research.yaml이 바뀌어 고치지 않았음', 'Not changed: research.yaml was changed elsewhere')), { currentHash: now })
+  if (baseHash !== now) throw new ConflictError(tx('다른 곳에서 research.yaml이 바뀌어 고치지 않았음', 'Not changed: research.yaml was changed elsewhere'), now)
 }
 
 /** 주제 하나를 research.yaml에 적을 모양 (새로 더하는 주제) */

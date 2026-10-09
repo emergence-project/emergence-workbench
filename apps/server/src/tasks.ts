@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { RESEARCH_TARGET } from '@rw/core'
 import YAML from 'yaml'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
-import { WorkbenchError, type Workbench } from './workbench.js'
+import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { inspectTask, TASK_FRONT as FRONT, TASK_ID as ID, TASK_STATES, type TaskDiagnostic, type TaskInspection } from './taskValidation.js'
 import { t as tl } from './i18n.js'
 
@@ -313,7 +313,7 @@ export function createTask(wb: Workbench, input: NewTask, now = new Date()): Tas
 function checkHash(t: Task, baseHash: unknown) {
   if (typeof baseHash !== 'string' || !baseHash) throw new WorkbenchError(400, tl('baseHash(읽을 때 받은 hash)가 필요함', 'baseHash (the hash received when reading) is required'))
   if (baseHash !== t.hash) {
-    throw Object.assign(new WorkbenchError(409, tl('그새 파일이 바뀌었습니다. 다시 읽은 뒤 고치세요', 'The file changed in the meantime. Read it again, then edit')), { currentHash: t.hash })
+    throw new ConflictError(tl('그새 파일이 바뀌었습니다. 다시 읽은 뒤 고치세요', 'The file changed in the meantime. Read it again, then edit'), t.hash)
   }
 }
 

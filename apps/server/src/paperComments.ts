@@ -4,7 +4,7 @@ import YAML from 'yaml'
 import type { CommentEntry, CommentFile, CommentState } from './comments.js'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { PAPER_COMMENTS_DIR, isSafeKey } from './papers.js'
-import { WorkbenchError } from './workbench.js'
+import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 
 /**
@@ -165,7 +165,7 @@ function fileOf(lib: string, key: string, id: string): string {
 
 function checkHash(lib: string, key: string, baseHash: unknown): void {
   const now = readPaperComments(lib, key).hash
-  if (baseHash !== now) throw Object.assign(new WorkbenchError(409, t('그사이 코멘트가 바뀌었음', 'The comment changed in the meantime')), { currentHash: now })
+  if (baseHash !== now) throw new ConflictError(t('그사이 코멘트가 바뀌었음', 'The comment changed in the meantime'), now)
 }
 
 /** 질문의 상태나 하이라이트의 색을 바꾼다 (그 파일의 머리말만) */

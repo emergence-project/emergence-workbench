@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
-import { Workbench, WorkbenchError } from './workbench.js'
+import { Workbench, ConflictError, WorkbenchError } from './workbench.js'
 import { HIGHLIGHT_COLORS, type HighlightColor } from './paperComments.js'
 import { appendTodoJournal, linkedTodoJournal, prepareTodoJournalChange, todoJournalTarget } from './commentJournal.js'
 import { writeLinkedTodoFiles, type LinkedTodoFileChange } from './linkedTodoWrite.js'
@@ -404,10 +404,10 @@ function rewrite(root: string, target: string, baseHash: string, edit: (lines: s
   const file = commentsFile(root, target)
   if (!fs.existsSync(file)) throw new WorkbenchError(404, t('코멘트 파일이 없음', 'No comment file'))
   const text = fs.readFileSync(file, 'utf8')
-  if (hashOf(text) !== baseHash) throw Object.assign(new WorkbenchError(409, t('다른 곳에서 코멘트 파일이 바뀌었음', 'The comment file was changed elsewhere')), { currentHash: hashOf(text) })
+  if (hashOf(text) !== baseHash) throw new ConflictError(t('다른 곳에서 코멘트 파일이 바뀌었음', 'The comment file was changed elsewhere'), hashOf(text))
   const next = edit(text.split('\n')).join('\n')
   const currentHash = hashOf(fs.readFileSync(file, 'utf8'))
-  if (currentHash !== baseHash) throw Object.assign(new WorkbenchError(409, t('다른 곳에서 코멘트 파일이 바뀌었음', 'The comment file was changed elsewhere')), { currentHash })
+  if (currentHash !== baseHash) throw new ConflictError(t('다른 곳에서 코멘트 파일이 바뀌었음', 'The comment file was changed elsewhere'), currentHash)
   const linked = extra?.(text, next) ?? []
   if (linked.length) writeLinkedTodoFiles(root, [{ file, before: text, after: next }, ...linked])
   else writeAtomic(file, next)
@@ -449,7 +449,7 @@ function classifyHeader(lines: string[], id: string, meta: Record<string, unknow
 /** One user-triggered model call; apply only unchanged, still-unsorted records to the latest file. */
 export async function classifyComments(root: string, target: string, baseHash: string, runner: AskRunner, cwd: string): Promise<CommentFile> {
   const before = readComments(root, target)
-  if (before.hash !== baseHash) throw Object.assign(new WorkbenchError(409, t('다른 곳에서 코멘트 파일이 바뀌었음', 'The comment file was changed elsewhere')), { currentHash: before.hash })
+  if (before.hash !== baseHash) throw new ConflictError(t('다른 곳에서 코멘트 파일이 바뀌었음', 'The comment file was changed elsewhere'), before.hash)
   const entries = before.comments.filter((entry) => entry.unsorted)
   if (!entries.length) throw new WorkbenchError(400, t('분류할 기록이 없습니다', 'No records to sort'))
   let classified: ReturnType<typeof parseClassification>
