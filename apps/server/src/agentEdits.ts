@@ -60,10 +60,17 @@ export class AgentEditStore {
     return path.join(configDir, 'agent-edits', `edits-${h}.json`)
   }
   read(): StoreData {
+    let raw: string
+    try { raw = fs.readFileSync(this.file, 'utf8') } catch { return { pending: [], attempts: [] } }
     try {
-      const v = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<StoreData>
+      const v = JSON.parse(raw) as Partial<StoreData>
       return { pending: Array.isArray(v.pending) ? v.pending : [], attempts: Array.isArray(v.attempts) ? v.attempts : [] }
-    } catch { return { pending: [], attempts: [] } }
+    } catch {
+      // 깨진 기록을 빈 것으로 덮어쓰면 검토 기준판을 모두 잃는다(되돌리기 불가). 옆에 보관하고 새로 시작한다
+      const kept = `${this.file}.broken-${new Date().toISOString().replace(/[:.]/g, '-')}`
+      try { fs.renameSync(this.file, kept); console.warn(`[agent-edits] 깨진 기록을 보관함: ${kept}`) } catch { /* 이미 옮겨짐 */ }
+      return { pending: [], attempts: [] }
+    }
   }
   private write(d: StoreData): void {
     fs.mkdirSync(path.dirname(this.file), { recursive: true })
@@ -84,7 +91,7 @@ export class AgentEditStore {
  * 글을 문단 조각으로 나눈다. 조각을 이어 붙이면 원래 글과 바이트까지 같다 (조각은 뒤따르는 빈 줄을 갖는다).
  * 빈 줄이 문단을 나누지만 머리말(---), 코드 블록(```), 표시 수식($$ … $$), 빈 줄로 띄운 목록은 한 조각이다.
  */
-export function splitBlocks(text: string): string[] {
+export function splitBlocks(text: string, ignoreMath = false): string[] {
   const lines = text.match(/[^\n]*\n|[^\n]+$/g) ?? []
   const out: string[] = []
   let cur = ''
@@ -94,6 +101,8 @@ export function splitBlocks(text: string): string[] {
   let list = false
   let env = 0
   let blankRun = false
+  // 수식·환경이 열린 조각의 자리. 끝까지 닫히지 않으면(짝 없는 $$ 하나) 그 뒤 전체가 한 조각이 되므로, 거기서부터 수식을 보지 않고 다시 나눈다
+  let openedAt = -1
   const isBlank = (l: string) => !l.trim()
   const isListLine = (l: string) => /^\s*(?:[-*+]|\d+[.)])\s/.test(l) || /^\s{2,}\S/.test(l)
   for (let i = 0; i < lines.length; i++) {
@@ -109,17 +118,23 @@ export function splitBlocks(text: string): string[] {
     if (!cur.trim() && !isBlank(l)) list = isListLine(l)
     cur += l
     if (/^\s*(```|~~~)/.test(l)) fence = !fence
-    else if (!fence) {
+    else if (!fence && !ignoreMath) {
+      const wasOpen = math || env > 0
       const n = (l.match(/\$\$/g) ?? []).length
       if (n % 2 === 1) math = !math
       // LaTeX 환경 (\begin{…} … \end{…}) 안의 빈 줄도 나누지 않는다. document는 글 전체라 세지 않는다
       const code = l.replace(/(^|[^\\])%.*$/, '$1')
       env += (code.match(/\\begin\{(?!document\})/g) ?? []).length - (code.match(/\\end\{(?!document\})/g) ?? []).length
       if (env < 0) env = 0
+      if (!wasOpen && (math || env > 0)) openedAt = out.length
     }
     if (isBlank(l) && !fence && !math && !env && cur.trim()) blankRun = true
   }
   if (cur) out.push(cur)
+  if ((math || env > 0) && openedAt >= 0) {
+    const head = out.slice(0, openedAt)
+    return [...head, ...splitBlocks(text.slice(head.join('').length), true)]
+  }
   return out
 }
 
@@ -344,7 +359,8 @@ export function reviewOf(io: TargetIo, store: AgentEditStore, key: string): Revi
   let st: TargetState
   try { st = readTarget(io, found.target) } catch (e) {
     // 노트가 없어졌으면 검토도 닫는다
-    if (e instanceof WorkbenchError && e.status === 404) { store.update((d) => { d.pending = d.pending.filter((x) => x.key !== key) }); return null }
+    // 잠근 개념노트(423)는 사용자가 지금 글로 고정한 것이니 검토를 닫는다(남기면 영원히 대기로 보인다)
+    if (e instanceof WorkbenchError && (e.status === 404 || e.status === 423)) { store.update((d) => { d.pending = d.pending.filter((x) => x.key !== key) }); return null }
     throw e
   }
   const p = syncPending(store, key, st.text)!
