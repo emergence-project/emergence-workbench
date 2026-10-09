@@ -59,11 +59,13 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-merged > summary { cursor: pointer; font-size: var(--fs-xs); color: var(--text-3); }
 .fbp-merged-one { display: flex; flex-direction: column; gap: 2px; padding: 6px 0 0 var(--sp-3); border-left: 2px solid var(--line); margin-top: 6px; }
 .fbp-merged-one > .muted { font-size: var(--fs-xs); }
-/* 시각 보기의 표 (10/4 피드백) */
+/* 시각 보기의 표 (10/4 피드백). 칸이 많아 본문 폭을 넓힌다 (10/9) */
+.page-body.fbp-wide { max-width: 1120px; }
 .fbp-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
 .fbp-table th { text-align: left; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line-strong); }
-.fbp-table th:nth-child(1) { width: calc(var(--fs-xs) * 10 + var(--sp-4)); } .fbp-table th:nth-child(2) { width: calc(var(--fs-xs) * 9.5 + var(--sp-5)); } .fbp-table th:nth-child(4) { width: 96px; }
-.fbp-table th:nth-child(5) { width: 96px; } .fbp-table th:nth-child(6), .fbp-table th:nth-child(7) { width: 80px; white-space: nowrap; }
+.fbp-table th:nth-child(1) { width: calc(var(--fs-xs) * 7 + var(--sp-4)); } .fbp-table th:nth-child(2) { width: calc(var(--fs-xs) * 3 + var(--sp-4)); } .fbp-table th:nth-child(3) { width: calc(var(--fs-xs) * 6 + var(--sp-5)); } .fbp-table th:nth-child(4) { width: calc(var(--fs-xs) * 5 + var(--sp-4)); }
+.fbp-table th:nth-child(6), .fbp-table th:nth-child(7) { width: 88px; } .fbp-table th:nth-child(8), .fbp-table th:nth-child(9) { width: 80px; white-space: nowrap; }
+.fbp-table td:nth-child(6), .fbp-table td:nth-child(7), .fbp-table td:nth-child(8), .fbp-table td:nth-child(9) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fbp-table td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: baseline; }
 .fbp-row { cursor: pointer; }
 .fbp-row:hover, .fbp-row.on { background: var(--bg-hover); }

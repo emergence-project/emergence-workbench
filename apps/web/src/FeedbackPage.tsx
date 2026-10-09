@@ -36,7 +36,9 @@ const LABEL: Record<string, string> = {
   '처리': t('처리', 'Handled'), '다시 처리': t('다시 처리', 'Reworked'), '나': t('나', 'Me'),
 }
 const label = (v: string) => LABEL[v] ?? shown(v)
-const stateName = (s: FeedbackState | '대기') => (s === '승인' ? `✓ ${label('승인')}` : label(s))
+const stateName = (s: FeedbackState | '대기') => label(s)
+/** 표의 답 칸: 에이전트가 적은 상태. 사용자의 승인 · 수정 요청은 확인 칸에 따로 (10/9) */
+const answerOf = (e: FeedbackItem): FeedbackState | '대기' => { const st = stateOf(e); return st === '승인' && e.review?.verdict === '승인' ? e.status?.state ?? '대기' : st }
 /** 의견 유형(수정 · 질문 · 제안, 10/9)이 있으면 에이전트 답 앞에 붙인다: "수정 · 반영" */
 const TYPED = ['수정', '질문', '제안']
 const stateLabel = (e: FeedbackItem, s: FeedbackState | '대기') => (TYPED.includes(e.kind) ? `${shown(e.kind)} · ${stateName(s)}` : stateName(s))
@@ -123,7 +125,7 @@ export function FeedbackPage({ version }: { version: number }) {
           </div>
         </div>
         <div className="scroll">
-          <div className="page-body">
+          <div className={`page-body${group === '시각' ? ' fbp-wide' : ''}`}>
             {error && <p className="error-text">{error}</p>}
             {statusError && <div className="banner danger" data-ui="처리 기록 오류">{t('feedback/status.yaml을 읽지 못해 처리 기록 없이 보여 줍니다 (모두 대기로 보임)', 'Could not read feedback/status.yaml, so items are shown without handling records (all appear as waiting)')}: {statusError}</div>}
             {!entries && !error && <p className="muted">{t('불러오는 중…', 'Loading…')}</p>}
@@ -156,7 +158,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
       <thead>
         <tr>
           <th><button className="fb-link" title={t('순서 바꾸기', 'Reverse order')} onClick={() => setNewest((v) => !v)}>{t('시각', 'Time')} {newest ? '↓' : '↑'}</button></th>
-          <th>{t('상태', 'Status')}</th><th>{t('피드백', 'Feedback')}</th><th>{t('화면', 'Screen')}</th><th>{t('부위', 'Part')}</th><th>{t('남긴 버전', 'Left in')}</th><th>{t('반영 버전', 'Fixed in')}</th>
+          <th>{t('유형', 'Type')}</th><th>{t('답', 'Answer')}</th><th>{t('확인', 'Review')}</th><th>{t('피드백', 'Feedback')}</th><th>{t('화면', 'Screen')}</th><th>{t('부위', 'Part')}</th><th>{t('남긴 버전', 'Left in')}</th><th>{t('반영 버전', 'Fixed in')}</th>
         </tr>
       </thead>
       <tbody>
@@ -167,14 +169,16 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
           return [
             <tr key={k} className={`fbp-row${open === k ? ' on' : ''}`} data-ui="피드백 줄" data-ui-item={`${e.date} ${e.time} ${e.target}`} onClick={() => setOpen(open === k ? null : k)}>
               <td className="mono fbp-when"><button type="button" className="fbp-open" aria-expanded={open === k} aria-label={`${open === k ? t('접기', 'Collapse') : t('펼치기', 'Expand')}: ${e.date} ${e.time} ${text.slice(0, 40)}`}>{feedbackWhen(e.date, e.time)}</button></td>
-              <td className="fbp-cell-state"><span className={`fbp-state st-${st}`}>{stateLabel(e, st)}</span>{e.review && <span className="muted fbp-verdict-mark" title={e.review.note}> · {verdictName(e.review.verdict)}</span>}</td>
+              <td className="fbp-cell">{shown(kindOf(e))}</td>
+              <td className="fbp-cell-state"><span className={`fbp-state st-${st}`}>{stateName(answerOf(e))}</span></td>
+              <td className="fbp-cell" title={e.review?.note}>{e.review ? verdictName(e.review.verdict) : ''}</td>
               <td className="fbp-cell-text" title={e.status?.understood ?? text}>{text}{e.merged && <span className="muted"> +{e.merged.length}</span>}</td>
               <td className="fbp-cell" title={e.route}>{e.status?.area ?? <span className="muted">{uiShown(e.target).split(' › ')[0] || (e.source ? t('미리보기', 'Preview') : '—')}</span>}</td>
               <td className="fbp-cell" title={uiShown(e.target)}>{uiShown(e.target).split(' › ').pop()}</td>
               <td className="mono fbp-cell">{e.version ?? '—'}</td>
               <td className="mono fbp-cell">{e.status?.version ?? e.status?.commit ?? ''}<InApp e={e} /></td>
             </tr>,
-            open === k && <tr key={`${k}-open`} className="fbp-row-open"><td colSpan={7}><Entry e={e} showDate onFold={() => setOpen(null)} /></td></tr>,
+            open === k && <tr key={`${k}-open`} className="fbp-row-open"><td colSpan={9}><Entry e={e} showDate onFold={() => setOpen(null)} /></td></tr>,
           ]
         })}
       </tbody>
@@ -238,7 +242,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
   return (
     <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`}>
       <div className="fbp-head">
-        <span className={`fbp-state st-${st}`}>{stateLabel(e, st)}</span>
+        <span className={`fbp-state st-${st}`}>{stateName(st)}</span>
         <span className="tag">{shown(kindOf(e))}</span>
         {e.source && <span className="tag" title={t('채팅의 앱 미리보기에 남긴 댓글', 'Comment left in the app preview in chat')}>{e.source}</span>}
         {e.status?.theme && <span className="fbp-theme">#{e.status.theme}</span>}
@@ -343,7 +347,7 @@ function Say({ e, s, n, latestHandling, undo }: { e: FeedbackItem; s: ThreadStep
   const me = s.who === '나'
   const name = me ? (user ? `${t('사용자', 'User')} (${user})` : t('사용자', 'User')) : ('by' in s && s.by ? `${t('관리자', 'Maintainer')} (${s.by})` : t('관리자', 'Maintainer'))
   const what = s.kind === '반려' ? t(`${n}번째 수정 요청`, `Change request ${n}`)
-    : s.kind === '승인' ? `✓ ${label('승인')}`
+    : s.kind === '승인' ? label('승인')
       : s.kind === '코멘트' ? t('코멘트', 'Comment')
         : s.kind === '답' ? t('답만 함', 'Answered only')
           : 'commit' in s && s.commit ? t('앱에 반영됨', 'Applied to the app') : t('답만 함', 'Answered only')
