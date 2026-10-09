@@ -1,3 +1,4 @@
+import { Icon } from './icons'
 import { feedbackNote } from './feedbackNote'
 import { useEffect, useRef, useState } from 'react'
 import { feedbackChanged, req } from './api'
@@ -68,7 +69,6 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   const [showList, setShowList] = useState(false)
   const [publishable, setPublishable] = useState(false)
   /** 공개 저장소의 새 이슈 주소와 앱 버전: 다른 사용자가 관리자에게 보내는 곳 (docs/maintaining.md) */
-  const [kind, setKind] = useState<'질문' | '요청'>('요청')
   const [issues, setIssues] = useState<{ url: string; version: string | null } | null>(null)
   const hoverEl = useRef<Element | null>(null)
   const shot = useRef<Promise<string | null> | null>(null)
@@ -103,7 +103,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       if (!el) return
       shot.current = captureScreen()
       setPending({ path: uiPath(el), snippet: snippetOf(el), x: e.clientX, y: e.clientY })
-      setText(''); setKind('요청'); setError(null)
+      setText(''); setError(null)
     }
     const refresh = () => { const el = hoverEl.current; if (el) setHover({ rect: el.getBoundingClientRect(), path: uiPath(el) }) }
     const key = (e: KeyboardEvent) => {
@@ -192,13 +192,10 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
 
       {pending && pop && (
         <div className="fb-pop" data-feedback-ui style={{ ...pop, maxHeight: `calc(100dvh - ${pop.top}px - var(--sp-3))` }} role="dialog" aria-label={t('피드백 남기기', 'Leave feedback')}>
-          <div className="fb-target">{uiShown(pending.path)}</div>
+          <div className="fb-pop-head"><div className="fb-target">{uiShown(pending.path)}</div><button className="icon-btn" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={() => setPending(null)}>{Icon.x}</button></div>
           {pending.snippet && <div className="fb-snippet">“{pending.snippet}”</div>}
-          <div className="segmented small fb-kind" role="radiogroup" aria-label={t('코멘트 유형', 'Comment type')}>
-            {(['요청', '질문'] as const).map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{k === '요청' ? t('수정 요청', 'Request change') : t('질문', 'Question')}</button>)}
-          </div>
           <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={t('무엇이 어떤지, 어떻게 되면 좋겠는지 (- 로 목록, Tab 들여쓰기 · ⌘↵ 저장)', 'What is wrong and how it should be (- for a list, Tab to indent · ⌘↵ to save)')}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save(kind) } else onListKey(e, setText) }} />
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else onListKey(e, setText) }} />
           {hasFeedbackList(text) && <div className="fb-preview" aria-label={t('피드백 미리보기', 'Feedback preview')}><MemoText text={text} /></div>}
           {error && <div className="error-text">{error}</div>}
           <div className="fb-actions">
@@ -206,8 +203,8 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
               <button className="btn fb-send" disabled={!text.trim()} onClick={sendToGithub}
                 title={t('공개 저장소에 이슈 초안을 새 탭으로 엽니다. 여기에도 저장합니다. 화면 그림은 붙이지 않으니, 연구 내용이 보이지 않는 그림만 직접 붙이세요', 'Opens an issue draft on the public repository in a new tab. It is also saved here. Screenshots are not attached; add only pictures that show no research content.')}>{t('GitHub에 보내기', 'Send to GitHub')}</button>
             )}
-            <button className="btn" onClick={() => setPending(null)}>{t('취소', 'Cancel')}</button>
-            <button className="btn primary" disabled={!text.trim()} onClick={() => void save(kind)}>{t('코멘트 등록', 'Post comment')} <span className="kbd">⌘↵</span></button>
+            <button className="btn primary" disabled={!text.trim()} onClick={() => void save('요청')}>{t('수정 요청', 'Request change')} <span className="kbd">⌘↵</span></button>
+            <button className="btn" disabled={!text.trim()} onClick={() => void save('질문')}>{t('질문', 'Question')}</button>
           </div>
         </div>
       )}
