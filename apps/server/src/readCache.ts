@@ -18,16 +18,21 @@ export function fileCache<T>(parse: (text: string, file: string, stat: fs.Stats)
   }
 }
 
-/** 내용은 읽지 않고 폴더 추가·삭제와 파일 교체를 감지한다. 숨김·빌드 폴더는 제외. */
-export function treeStamp(roots: string[]): string {
+/**
+ * 내용은 읽지 않고 폴더 추가·삭제와 파일 교체를 감지한다. 숨김·빌드 폴더는 제외.
+ * skip: 빼는 경로(절대). dirStats: false면 폴더는 이름만 적는다 — 빼 둔 파일을 바꿔 써도(rename) 부모 폴더의 mtime 때문에 바뀐 것으로 보지 않게.
+ * 폴더 안 항목의 추가·삭제는 항목 이름으로 잡힌다.
+ */
+export function treeStamp(roots: string[], opts: { skip?: string[]; dirStats?: boolean } = {}): string {
   const parts: string[] = []
-  const seen = new Set<string>()
+  const seen = new Set<string>(opts.skip)
+  const dirStats = opts.dirStats ?? true
   const walk = (file: string) => {
     if (seen.has(file)) return
     seen.add(file)
     try {
       const s = fs.statSync(file)
-      parts.push(`${file}:${s.mtimeMs}:${s.size}:${s.ctimeMs}:${s.ino}:${s.blocks}`)
+      parts.push(s.isDirectory() && !dirStats ? `${file}/` : `${file}:${s.mtimeMs}:${s.size}:${s.ctimeMs}:${s.ino}:${s.blocks}`)
       if (s.isDirectory()) {
         // 디렉터리 심볼릭 링크는 순환하지 않는다. 파일 심볼릭 링크는 stat으로 바뀜을 감지한다.
         for (const e of fs.readdirSync(file, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {

@@ -8,7 +8,7 @@ import { libraryUsage } from './libraryUsage.js'
 import { listFigures, figureBrief, type FigureBrief } from './figures.js'
 import { listPapers, paperBrief, readPapersYaml, type PaperBrief } from './papers.js'
 import { DerivedCache, treeStamp } from './readCache.js'
-import { invalidateProjects, registryStamp } from './projectReadCache.js'
+import { invalidateProjects, projectRefsStamp, registryStamp } from './projectReadCache.js'
 import type { Registry } from './registry.js'
 
 /** 서버마다 하나. 원본은 읽기만 하고 목록/첫 화면은 같은 스냅샷을 공유한다. */
@@ -69,7 +69,7 @@ export class LibraryReadIndex {
     }
     const revision = `${ix?.lib}:${ix?.revision}`
     if (this.indexedRevision !== revision) { this.indexedRevision = revision; this.libraryCache.invalidate() }
-    return this.libraryCache.get(() => `${ix?.lib}:${ix?.revision}:${this.registry.studyPath}:${this.legacyStamp()}:${registryStamp(this.registry)}`, () => this.buildLibrary())
+    return this.libraryCache.get(() => `${ix?.lib}:${ix?.revision}:${this.registry.studyPath}:${this.legacyStamp()}:${registryStamp(this.registry, projectRefsStamp)}`, () => this.buildLibrary())
   }
 
   async knowledge() {
@@ -98,7 +98,7 @@ export class LibraryReadIndex {
 
   papers() {
     const r = this.registry
-    return this.papersCache.get(() => `${r.libraryPath}:${registryStamp(r)}:${treeStamp([
+    return this.papersCache.get(() => `${r.libraryPath}:${registryStamp(r, projectRefsStamp)}:${treeStamp([
       ...(r.libraryPath ? ['subjects.yaml', 'references.bib', 'papers.yaml', 'papers', 'comments'].map((f) => path.join(r.libraryPath!, f)) : []),
       ...(r.libraryPath ? Object.values(readPapersYaml(r.libraryPath)).flatMap((m) => m.pdf && path.isAbsolute(m.pdf) ? [m.pdf, path.join(path.dirname(m.pdf), `.${path.basename(m.pdf)}.icloud`)] : []) : []),
       ...r.pdfFolders, path.join(r.configDir, 'papers-opened.json'),

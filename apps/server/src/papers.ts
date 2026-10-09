@@ -177,15 +177,32 @@ export function markOpened(configDir: string, key: string, now = Date.now()): vo
 export { isSafeKey }
 
 /** PDF 파일 경로: papers.yaml의 pdf:(절대 경로이거나 PDF 폴더 기준), 없으면 PDF 폴더들의 <키>.pdf, 그다음 프로젝트 자료 폴더의 <키>.pdf */
-export function findPdf(key: string, meta: PaperMeta | undefined, folders: string[], projectDirs: string[]): string | undefined {
+export function findPdf(key: string, meta: PaperMeta | undefined, folders: string[], projectDirs: string[], listing?: FolderListing): string | undefined {
   const candidates: string[] = []
   if (meta?.pdf) {
     if (path.isAbsolute(meta.pdf)) candidates.push(meta.pdf)
     else for (const f of folders) candidates.push(path.join(f, meta.pdf))
   }
-  for (const f of folders) candidates.push(path.join(f, `${key}.pdf`))
-  for (const d of projectDirs) candidates.push(path.join(d, `${key}.pdf`))
+  // <키>.pdf는 폴더 목록에 이름(또는 iCloud 자리표시)이 없으면 건너뛴다. 목록은 걸러 내기만 하고 판정은 pdfWhere
+  const name = `${key}.pdf`
+  for (const d of [...folders, ...projectDirs]) if (listing?.has(d, name) ?? true) candidates.push(path.join(d, name))
   return candidates.find((c) => pdfWhere(c) !== 'none')
+}
+
+/** 한 번 읽은 폴더 목록 (목록 한 번에 쓰고 버린다). 대소문자는 구분하지 않는다(맥 파일 시스템). 못 읽은 폴더는 모름(undefined) */
+export class FolderListing {
+  private dirs = new Map<string, Set<string> | undefined>()
+  has(dir: string, name: string): boolean | undefined {
+    if (!this.dirs.has(dir)) {
+      let names: Set<string> | undefined
+      try { names = new Set(fs.readdirSync(dir).map((n) => n.toLowerCase())) } catch (e) { names = (e as NodeJS.ErrnoException).code === 'ENOENT' ? new Set() : undefined }
+      this.dirs.set(dir, names)
+    }
+    const names = this.dirs.get(dir)
+    if (!names) return undefined
+    const n = name.toLowerCase()
+    return names.has(n) || names.has(`.${n}.icloud`)
+  }
 }
 
 function projectBibKeys(registry: Registry): { id: string; title: string; keys: Set<string>; materials: string }[] {
@@ -210,11 +227,12 @@ export function listPapers(registry: Registry): { library: string | null; folder
   const notesDir = path.join(lib, 'papers')
   const notes = new Set(fs.existsSync(notesDir) ? fs.readdirSync(notesDir) : [])
   const known = new Set(projects.map((p) => p.id))
+  const listing = new FolderListing()
   const papers = libraryBibEntries(lib).map((e, added): PaperRow => {
     const m = meta[e.key]
     const autoProjects = projects.filter((p) => p.keys.has(e.key)).map((p) => p.id)
     const manual = (m?.projects ?? []).filter((p) => known.has(p))
-    const file = findPdf(e.key, m, folders, projects.map((p) => p.materials))
+    const file = findPdf(e.key, m, folders, projects.map((p) => p.materials), listing)
     const cf = paperComments(lib, e.key)
     const note = notes.has(`${e.key}.tex`) || notes.has(`${e.key}.md`)
     const venue = e.journal ?? e.booktitle ?? e.publisher

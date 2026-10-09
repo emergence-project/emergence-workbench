@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { detex, lastNames, pdfWhere, useCloudDownloader } from './papers.js'
+import { detex, findPdf, FolderListing, lastNames, pdfWhere, useCloudDownloader } from './papers.js'
 import { app, repo, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -143,3 +143,18 @@ describe('iCloud에만 있는 PDF (10/5 검토)', () => {
   })
 })
 
+
+describe('findPdf folder listing', () => {
+  it('finds the same files with and without the listing', () => {
+    const a = path.join(tmp, 'listing-a'), b = path.join(tmp, 'listing-b')
+    fs.mkdirSync(a, { recursive: true }); fs.mkdirSync(b, { recursive: true })
+    fs.writeFileSync(path.join(a, 'k1.pdf'), 'x')
+    fs.writeFileSync(path.join(b, '.k2.pdf.icloud'), '')
+    fs.writeFileSync(path.join(b, 'k3.pdf'), 'x')
+    const dirs = [a, path.join(tmp, 'listing-none'), b]
+    const listing = new FolderListing()
+    for (const key of ['k1', 'k2', 'k3', 'k4']) expect(findPdf(key, undefined, dirs, [], listing)).toBe(findPdf(key, undefined, dirs, []))
+    expect(findPdf('k2', undefined, dirs, [], listing)).toBe(path.join(b, 'k2.pdf'))
+    expect(findPdf('k4', undefined, dirs, [], listing)).toBeUndefined()
+  })
+})

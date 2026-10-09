@@ -302,6 +302,15 @@ let runner: Runner = execRun
 export function useTikzRunner(r: Runner | null): void { runner = r ?? execRun }
 
 const making = new Map<string, Promise<string>>()
+/** 그림 첫 화면이 tikz 여러 개를 한꺼번에 부르면 latex가 한꺼번에 뜬다. 동시에 둘까지만 */
+const TIKZ_AT_ONCE = 2
+let tikzRunning = 0
+const tikzWaiting: (() => void)[] = []
+async function withTikzSlot<T>(work: () => Promise<T>): Promise<T> {
+  if (tikzRunning >= TIKZ_AT_ONCE) await new Promise<void>((go) => tikzWaiting.push(go))
+  tikzRunning++
+  try { return await work() } finally { tikzRunning--; tikzWaiting.shift()?.() }
+}
 /** tikz 그림의 SVG (캐시: <설정 폴더>/figure-cache/<내용 해시>.svg). 만들지 못하면 422와 로그 끝 */
 const tikzHash = fileCache((raw) => crypto.createHash('sha1').update(tikzDocument(raw)).digest('hex').slice(0, 20))
 export function tikzCachePath(configDir: string, abs: string): string {
@@ -329,8 +338,10 @@ export function tikzSvg(configDir: string, abs: string): Promise<string> {
     try {
       fs.writeFileSync(path.join(dir, 'fig.tex'), doc)
       try {
-        await runner('latex', ['-interaction=nonstopmode', '-halt-on-error', 'fig.tex'], dir)
-        await runner('dvisvgm', ['--no-fonts', '--exact-bbox', '-o', 'fig.svg', 'fig.dvi'], dir)
+        await withTikzSlot(async () => {
+          await runner('latex', ['-interaction=nonstopmode', '-halt-on-error', 'fig.tex'], dir)
+          await runner('dvisvgm', ['--no-fonts', '--exact-bbox', '-o', 'fig.svg', 'fig.dvi'], dir)
+        })
       } catch (e) {
         const log = fs.existsSync(path.join(dir, 'fig.log')) ? fs.readFileSync(path.join(dir, 'fig.log'), 'utf8') : String((e as Error).message)
         const err = /^! .*$/m.exec(log)?.[0] ?? ((e as NodeJS.ErrnoException).code === 'ENOENT' ? tl('TeX(latex · dvisvgm)가 없음', 'TeX (latex · dvisvgm) is not installed') : log.split('\n').slice(-6).join('\n'))

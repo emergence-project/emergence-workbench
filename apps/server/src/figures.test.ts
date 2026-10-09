@@ -93,6 +93,19 @@ describe('figures', () => {
     expect(bad.json().error).toContain('TeX')
   })
 
+  it('runs at most two tikz compilations at once', async () => {
+    const { lib } = setup('tikz-limit')
+    for (let i = 0; i < 5; i++) fs.writeFileSync(path.join(lib, 'figures', `many${i}.tikz`), `\\draw (0,0) circle (${i + 1});`)
+    let now = 0, most = 0
+    useTikzRunner(async (cmd, _args, cwd) => {
+      if (cmd === 'latex') { now++; most = Math.max(most, now); await new Promise((r) => setTimeout(r, 20)); return }
+      fs.writeFileSync(path.join(cwd, 'fig.svg'), SVG); now--
+    })
+    const res = await Promise.all([0, 1, 2, 3, 4].map((i) => app.inject({ method: 'GET', url: `/api/figures/file?id=library%2Fmany${i}.tikz` })))
+    expect(res.map((r) => r.statusCode)).toEqual([200, 200, 200, 200, 200])
+    expect(most).toBe(2)
+  })
+
   it('adds dropped figures and edits the name and description', async () => {
     const { lib } = setup('add')
     const up = await app.inject({ method: 'PUT', url: '/api/figures/upload?scope=library&name=ring.svg', headers: { 'content-type': 'application/octet-stream' }, payload: Buffer.from(SVG) })
