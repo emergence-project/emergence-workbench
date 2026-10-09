@@ -25,7 +25,7 @@ describe('맡긴 일 화면 말', () => {
 
   it('목록 줄은 지금 무엇을 기다리는지 쓴다', () => {
     expect(taskLine(task({ endCondition: '1e-8 이내' }))).toBe('종결: 1e-8 이내')
-    expect(taskLine(task({ judged: [{ at: '', verdict: 'send-back', note: 'L=48도' }] }))).toBe('수정 요청: L=48도')
+    expect(taskLine(task({ judged: [{ at: '', verdict: 'send-back', note: 'L=48도' }] }))).toBe('수정: L=48도')
     expect(taskLine(task({ state: 'result', endCheck: 'pass' }))).toBe('종결 조건 통과')
     expect(taskLine(task({ state: 'done', judged: [{ at: '', verdict: 'approve', seconds: 240 }] }))).toBe('해결 · 판단 4분')
   })

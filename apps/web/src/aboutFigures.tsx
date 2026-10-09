@@ -75,11 +75,11 @@ export function StatesTable() {
       <thead><tr><th>{t('대상', 'Item')}</th><th>{t('상태 (색 점과 이름)', 'Status (colored dot and name)')}</th><th>{t('사용자가 고르는 곳', 'Where you set it')}</th></tr></thead>
       <tbody>
         <tr><td><b>{t('노트', 'Notes')}</b></td><td>{d('in-progress', IP)} {d('blocked', BL)} {d('stopped', DR)} {d('solved', SO)}</td><td className="muted">{t('노트 툴바 왼쪽의 상태. 멈춤·폐기는 다시 열 조건을 적음', 'Status at the left of the note toolbar. Blocked and Dropped get a reopen condition')}</td></tr>
-        <tr><td><b>{t('맡긴 일', 'Delegated tasks')}</b></td><td>{d('in-progress', IP)} {d('blocked', t('판단 대기', 'Awaiting decision'))} {d('blocked', BL)} {d('stopped', DR)} {d('solved', SO)}</td><td className="muted">{t('작업 탭의 판단(승인 · 수정 요청 · ⋯ 멈춤 · 폐기)', 'To decide in the Work tab (Approve · Request changes · ⋯ Blocked · Dropped)')}</td></tr>
+        <tr><td><b>{t('맡긴 일', 'Delegated tasks')}</b></td><td>{d('in-progress', IP)} {d('blocked', t('판단 대기', 'Awaiting decision'))} {d('blocked', BL)} {d('stopped', DR)} {d('solved', SO)}</td><td className="muted">{t('작업 탭의 판단(승인 · 수정 · ⋯ 멈춤 · 폐기)', 'To decide in the Work tab (Approve · Revise · ⋯ Blocked · Dropped)')}</td></tr>
         <tr><td><b>{t('프로젝트', 'Projects')}</b></td><td>{d('in-progress', IP)} {d('blocked', BL)} {d('solved', t('완료', 'Done'))}</td><td className="muted">{t('프로젝트 고치기 창', 'Edit project dialog')}</td></tr>
         <tr><td><b>{t('진술', 'Statements')}</b></td><td><span className="about-state"><ProofMark p="solved" /> {t('증명 작업의 상태', 'status of the proof work')}</span> <span className="about-state"><ProofMark p="none" /> {t('증명 작업 없음', 'no proof work')}</span> <span className="about-state"><ProofMark p="given" /> {t('공리·정의', 'axiom or definition')}</span></td><td className="muted">{t('증명하는 노트의 상태를 따라감', 'Follows the status of the note that proves it')}</td></tr>
         <tr><td><b>{t('개념노트', 'Concept notes')}</b></td><td><span className="about-state">✓ {t('확인함', 'Reviewed')}</span> <span className="about-state">○ {t('확인 전', 'Not reviewed')}</span> <span className="about-state muted">{t('미완성 · 잠김', 'Incomplete · Locked')}</span></td><td className="muted">{t('개념노트 툴바의 확인 (미완성은 앱이 붙임)', 'Review in the concept note toolbar (Incomplete is set by the app)')}</td></tr>
-        <tr><td><b>{t('피드백', 'Feedback')}</b></td><td><span className="about-state">{turn} {t('확인 필요', 'Needs review')}</span> <span className="about-state muted">{t('대기 · 수정(반영 · 거절 · 확인 필요) · 질문(답변) · 제안(동의 · 나중에 · 거절)', 'Waiting · Fix (Applied · Declined · Needs review) · Question (Answered) · Suggestion (Agreed · Later · Declined)')}</span> <span className="about-state">{Icon.approve} {t('승인', 'Approve')} · {Icon.sendBack} {t('수정 요청', 'Request changes')}</span></td><td className="muted">{t('피드백 화면 항목 오른쪽 위', 'Top right of an item on the Feedback screen')}</td></tr>
+        <tr><td><b>{t('피드백', 'Feedback')}</b></td><td><span className="about-state">{turn} {t('확인 필요', 'Needs review')}</span> <span className="about-state muted">{t('대기 · 수정(반영 · 거절 · 확인 필요) · 질문(답변) · 제안(동의 · 나중에 · 거절)', 'Waiting · Fix (Applied · Declined · Needs review) · Question (Answered) · Suggestion (Agreed · Later · Declined)')}</span> <span className="about-state">{t('질문 · 수정 · 승인', 'Ask · Revise · Approve')} / {t('질문 · 중단 · 진행', 'Ask · Stop · Proceed')}</span></td><td className="muted">{t('피드백 화면 항목 아래 입력란의 버튼', 'Buttons under an item on the Feedback screen')}</td></tr>
       </tbody>
     </table>
   )
@@ -137,7 +137,7 @@ export function TaskFlowFigure() {
       ]} />
       <div className="about-verdicts">
         <span>{Icon.approve}<b>{t('승인', 'Approve')}</b><span className="muted">→ <StatusDot s="solved" label /></span></span>
-        <span>{Icon.sendBack}<b>{t('수정 요청', 'Request changes')}</b><span className="muted">{t('고칠 것 한 줄', 'one line on what to fix')} → <StatusDot s="in-progress" label /></span></span>
+        <span>{Icon.sendBack}<b>{t('수정', 'Revise')}</b><span className="muted">{t('고칠 것 한 줄', 'one line on what to fix')} → <StatusDot s="in-progress" label /></span></span>
         <span>{Icon.more}<b>{t('멈춤으로 두기 · 폐기', 'Leave as blocked · Drop')}</b><span className="muted">→ <StatusDot s="blocked" label /> · <StatusDot s="stopped" label /></span></span>
       </div>
       <figcaption className="muted">{t('주황 단계가 사용자 차례입니다. 승인은 사용자만 하고, 판단에 쓴 시간은 일지에 남습니다. 규칙:', 'Orange steps are your turn. Only you approve, and the time spent deciding is kept in the journal. Rules:')} {c('docs/agent-delegated-work.md')}</figcaption>
@@ -233,7 +233,7 @@ export function FileTreeFigure() {
       </div>
       <div className="about-tree"><b>{t('앱과 설정', 'App and settings')}</b>
         <ul>
-          {r('research-workspace/feedback/', t('날짜.md(원문) · status.yaml(처리) · reviews.yaml(승인·수정 요청) · pictures/', '<date>.md (original) · status.yaml (handling) · reviews.yaml (approve, request changes) · pictures/'))}
+          {r('research-workspace/feedback/', t('날짜.md(원문) · status.yaml(처리) · reviews.yaml(승인 · 수정 · 진행 · 중단) · pictures/', '<date>.md (original) · status.yaml (handling) · reviews.yaml (approve, request changes) · pictures/'))}
           {r('~/.config/research-workspace/config.yaml', t('등록한 프로젝트 · 화면 설정 · LaTeX 서식 · 사람들 · 논문 PDF 폴더', 'Registered projects · display settings · LaTeX templates · people · paper PDF folders'))}
           {r('~/.config/research-workspace/google.yaml', t('구글 연결', 'Google connection'))}
         </ul>
