@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { req } from './api'
+import { anyPending } from './autosave'
 import { go } from './router'
 import { plural, t } from './i18n'
 
@@ -12,6 +13,8 @@ interface AppStatus {
   behind: number; blocked: string | null; fetchError?: string; incoming: string[]
   /** 이번 업데이트로 처리 기록이 생기거나 바뀐 피드백 */
   resolved?: { key: string; state: string; text: string; note?: string }[]
+  /** 받은 새 버전을 빌드해 두어 다시 시작만 하면 되는지 (서버의 자동 업데이트) */
+  prepared?: boolean
 }
 
 type Phase = 'idle' | 'checking' | 'updating' | 'restarting'
@@ -31,6 +34,9 @@ const POLL_MS = 5 * 60_000
 const FOCUS_MIN_MS = 60_000
 /** 받기·설치·빌드가 이보다 오래 걸리면 기다리기를 그만두고 이유를 보여 준다 (서버의 설치·빌드 제한은 각 10분) */
 const UPDATE_WAIT_MS = 22 * 60_000
+/** 자동 업데이트 (10/9 "쉴 때 · 버튼"): 입력 없이 이만큼 지나고 저장할 것이 없으면, 빌드해 둔 새 버전으로 다시 시작한다 */
+export const IDLE_RESTART_MS = 5 * 60_000
+const IDLE_CHECK_MS = 30_000
 
 let state: State = { enabled: null, status: null, phase: 'idle', message: null, error: null, failed: null }
 const listeners = new Set<() => void>()
@@ -43,8 +49,34 @@ export async function checkAppUpdate(): Promise<void> {
   set({ phase: 'checking', error: null })
   try {
     const b = await (await req('/api/app/status?fetch=1')).json()
+    // 다른 창(또는 쉴 때)이 앱을 다시 시작했으면 새 코드로 화면을 다시 읽는다
+    if (state.status && b.status && b.status.running !== state.status.running && !anyPending()) { location.reload(); return }
     set({ enabled: !!b.enabled, status: b.status ?? null })
   } catch (e) { set({ error: (e as Error).message }) } finally { set({ phase: 'idle' }) }
+}
+
+const RESTART_TIMEOUT = t('2분 안에 다시 켜지지 않았습니다. 터미널에서 pnpm service:logs로 확인해 주세요', 'The app did not come back within 2 minutes. Check pnpm service:logs in a terminal')
+
+/** 새 코드로 다시 켜질 때까지 기다렸다가 화면을 새로 읽는다. 2분 안에 켜지지 않으면 false */
+async function waitForRestart(old: string): Promise<boolean> {
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 1000))
+    try {
+      const s = await (await fetch('/api/app/status')).json()
+      if (s.status && s.status.running !== old) { location.reload(); return true }
+    } catch { /* 다시 시작하는 중 */ }
+  }
+  return false
+}
+
+/** 쉴 때 다시 시작: 서버가 처리 중인 일이 있거나 빌드해 둔 새 버전이 없으면 거절하고, 그때는 다음에 다시 본다 */
+async function restartWhenIdle(): Promise<void> {
+  const status = state.status
+  if (!status?.prepared || state.phase !== 'idle' || anyPending()) return
+  const res = await req('/api/app/restart', { method: 'POST' }).catch(() => null)
+  if (!res?.ok) return
+  set({ phase: 'restarting', message: t('쉬는 동안 새 버전으로 다시 시작합니다', 'Restarting into the new version while idle') })
+  if (!(await waitForRestart(status.running))) { set({ phase: 'idle' }); await checkAppUpdate(); set({ failed: RESTART_TIMEOUT }) }
 }
 
 export async function runAppUpdate(): Promise<void> {
@@ -62,16 +94,7 @@ export async function runAppUpdate(): Promise<void> {
     set({ message: b.message })
     if (!b.restarting) { set({ status: b.status, phase: 'idle', failed: b.status && b.status.head !== b.status.running ? b.message : null }); return }
     set({ phase: 'restarting' })
-    // 새 코드로 다시 켜질 때까지 기다렸다가 화면을 새로 읽는다
-    const old = status.running
-    for (let i = 0; i < 120; i++) {
-      await new Promise((r) => setTimeout(r, 1000))
-      try {
-        const s = await (await fetch('/api/app/status')).json()
-        if (s.status && s.status.running !== old) { location.reload(); return }
-      } catch { /* 다시 시작하는 중 */ }
-    }
-    await fail(t('2분 안에 다시 켜지지 않았습니다. 터미널에서 pnpm service:logs로 확인해 주세요', 'The app did not come back within 2 minutes. Check pnpm service:logs in a terminal'))
+    if (!(await waitForRestart(status.running))) await fail(RESTART_TIMEOUT)
   } catch (e) {
     await fail(abort.signal.aborted ? t(`${UPDATE_WAIT_MS / 60_000}분이 지나도 업데이트가 끝나지 않았습니다. 터미널에서 pnpm service:logs로 확인해 주세요`, `The update did not finish within ${UPDATE_WAIT_MS / 60_000} minutes. Check pnpm service:logs in a terminal`) : (e as Error).message)
   } finally { clearTimeout(timer) }
@@ -107,7 +130,17 @@ export function AppUpdateButton() {
     const onFocus = () => { if (document.visibilityState === 'visible' && Date.now() - lastCheck > FOCUS_MIN_MS) void checkAppUpdate() }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
-    return () => { clearInterval(timer); window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus) }
+    // 쉬는지: 마지막 입력(키 · 누르기 · 휠)에서 IDLE_RESTART_MS가 지났는지
+    let lastInput = Date.now()
+    const onInput = () => { lastInput = Date.now() }
+    const inputs = ['keydown', 'pointerdown', 'wheel'] as const
+    for (const e of inputs) window.addEventListener(e, onInput, { passive: true, capture: true })
+    const idle = setInterval(() => { if (Date.now() - lastInput >= IDLE_RESTART_MS) void restartWhenIdle() }, IDLE_CHECK_MS)
+    return () => {
+      clearInterval(timer); clearInterval(idle)
+      window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus)
+      for (const e of inputs) window.removeEventListener(e, onInput, { capture: true })
+    }
   }, [])
 
   if (!s.enabled) return null
@@ -122,11 +155,12 @@ export function AppUpdateButton() {
   else if (s.phase === 'restarting') label = t('다시 시작 중…', 'Restarting…')
   else if (s.failed) label = t('업데이트 안 됨 · 이유 보기', 'Update failed · See why')
   else if (!ok) label = t('새 버전 · 확인 필요', 'New version · Needs review')
+  else if (st?.prepared && !fixed) label = t('새 버전 · 다시 시작', 'New version · Restart')
   const title = busy ? t('받아서 빌드하고 앱을 다시 시작합니다. 켜지면 화면을 새로 읽습니다', 'Pulling, building, and restarting the app. The page reloads when it is back')
     : s.failed ? s.failed
     : s.error ? s.error
       : st?.blocked ?? (st?.fetchError ? t(`GitHub를 확인하지 못했습니다: ${st.fetchError}`, `Could not check GitHub: ${st.fetchError}`) : null)
-        ?? `${t('눌러서 업데이트하고 다시 시작', 'Click to update and restart')}${fixed ? `\n\n${t('처리된 피드백', 'Handled feedback')}\n${st!.resolved!.map((r) => `· ${stateText(r.state)} · ${r.text}`).join('\n')}` : ''}${st && st.incoming.length ? `\n\n${t('바뀐 것', 'Changes')}\n${st.incoming.map((c) => `· ${c}`).join('\n')}` : ''}`
+        ?? `${st?.prepared ? t('받아 두었습니다. 눌러서 다시 시작합니다 (쉬는 동안에는 저절로 다시 시작합니다)', 'Ready. Click to restart (it also restarts on its own while you are idle)') : t('눌러서 업데이트하고 다시 시작', 'Click to update and restart')}${fixed ? `\n\n${t('처리된 피드백', 'Handled feedback')}\n${st!.resolved!.map((r) => `· ${stateText(r.state)} · ${r.text}`).join('\n')}` : ''}${st && st.incoming.length ? `\n\n${t('바뀐 것', 'Changes')}\n${st.incoming.map((c) => `· ${c}`).join('\n')}` : ''}`
 
   return (
     <>
@@ -158,6 +192,7 @@ export function AppUpdate() {
   else if (!status) line = t('상태를 알 수 없습니다', 'Status unknown')
   else if (status.fetchError) line = t(`GitHub를 확인하지 못했습니다: ${status.fetchError}`, `Could not check GitHub: ${status.fetchError}`)
   else if (status.behind > 0) line = t(`새 버전이 있습니다 (커밋 ${status.behind}개)`, `A new version is available (${plural(status.behind, 'commit')})`)
+  else if (pending && status.prepared) line = t('새 버전을 받아 두었습니다. 쉬는 동안 저절로 다시 시작합니다', 'The new version is ready. It restarts on its own while you are idle')
   else if (pending) line = t('받은 새 버전이 아직 반영되지 않았습니다', 'The pulled version is not applied yet')
   else line = t('최신입니다', 'Up to date')
 

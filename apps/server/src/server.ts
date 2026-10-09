@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { buildApp } from './app.js'
 import { tikzCachePath } from './figures.js'
 import { Google, mockGoogleFetch } from './google.js'
-import { macSteps } from './appupdate.js'
+import { macSteps, promoteNextBuild } from './appupdate.js'
 import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
 import { Registry } from './registry.js'
 import { serveStatic } from './static.js'
@@ -151,11 +151,15 @@ if (process.env.RW_SANDBOX === '1') {
 // 맥에만 있는 workbench/ 백업: 실사용만. 개인 저장소에 올린다
 const backupRemote = appRepo ? personal : null
 const backup = backupRemote ? { dir: path.join(configDir, 'backup'), remote: backupRemote, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
-const app = buildApp({ configDir, google, watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, appRepo, appVersion: running?.slice(0, 7), backup })
+const app = buildApp({ configDir, google, watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, appVersion: running?.slice(0, 7), backup })
 
 // RW_STATIC=1 (실사용 서비스): 빌드한 화면을 이 서버가 함께 내보낸다
 if (process.env.RW_STATIC === '1') {
   const dist = path.join(repoRoot, 'apps/web/dist')
+  // 자동 업데이트가 이 커밋으로 미리 빌드해 둔 화면이 있으면 바꿔 단다 (appupdate.ts)
+  try {
+    if (running && promoteNextBuild(repoRoot, running)) console.log('미리 빌드한 화면으로 바꿨습니다 (apps/web/dist-next → dist)')
+  } catch (e) { console.error(`미리 빌드한 화면을 바꿔 달지 못했습니다: ${(e as Error).message}`) }
   if (!fs.existsSync(path.join(dist, 'index.html'))) throw new Error(`화면이 빌드되지 않았습니다: ${dist} — pnpm build 먼저`)
   serveStatic(app, dist)
 }

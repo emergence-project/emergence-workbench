@@ -17,6 +17,8 @@ pnpm service:uninstall  # remove the service (research files and settings stay)
 
 The update button in Settings does the same as `service:restart`: it fast-forwards to the new version on GitHub, rebuilds and restarts the service. It stops if the app folder has local commits.
 
+Automatic updates (2026-10-09): when running as the service, the app pulls new versions every 10 minutes and builds them into `apps/web/dist-next` (the served `dist` stays as is). It restarts only while idle: an open window has had no input for 5 minutes and nothing left to save, or no window is open and no write request came for 5 minutes. Running requests (compile, paper download, questions) postpone it. "New version · Restart" in the top bar restarts right away. When the server starts on the new commit it swaps `dist-next` in as `dist`. Local code edits on the Mac stop the pull.
+
 **Opening it.** `zsh scripts/make-app.sh` makes an app launcher in `~/Applications` with a shortcut on the Desktop (icon source: `scripts/app-icon.svg`). It opens the app in a window without an address bar.
 
 **A Dock icon of its own.** In the Chrome window that shows the app, choose ⋮ › Cast, save and share › **Install page as app** (install details: `apps/web/public/manifest.webmanifest`). The app then opens in its own window with its own Dock icon; right-click it in the Dock › Options › Keep in Dock. The launcher opens the installed app when there is one. In Safari (macOS 14 or later), File › Add to Dock does the same.

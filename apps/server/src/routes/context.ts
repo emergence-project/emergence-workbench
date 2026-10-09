@@ -13,6 +13,8 @@ export interface RouteContext {
   opts: AppOptions
   /** 열린 화면들에 실시간 알림을 보낸다 */
   broadcast: (e: WorkbenchEvent) => void
+  /** 지금 열려 있는 화면(실시간 알림 연결) 수 */
+  clients: () => number
   wbOf: (rid: string) => Workbench
   /** 연구의 파일 감시를 켠다 (등록할 때) */
   ensureWatch: (rid: string) => void

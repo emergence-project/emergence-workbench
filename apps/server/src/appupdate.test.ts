@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
-import { appIssuesUrl, buildReason, numberVersions, parseSubject, webRemote } from './appupdate.js'
+import { appIssuesUrl, buildReason, nextBuildOf, numberVersions, parseSubject, promoteNextBuild, webRemote } from './appupdate.js'
 import { fixture, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -65,14 +65,14 @@ describe('앱 업데이트', () => {
     execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
     for (const d of [mac, cloud]) execFileSync('git', ['clone', '-q', remote, d])
     for (const d of [mac, cloud]) { g(d, 'config', 'user.name', 't'); g(d, 'config', 'user.email', 't@t') }
-    fs.writeFileSync(path.join(mac, 'app.ts'), 'v1\n'); fs.mkdirSync(path.join(mac, 'feedback'))
+    fs.writeFileSync(path.join(mac, 'app.ts'), 'v1\n'); fs.writeFileSync(path.join(mac, '.gitignore'), 'apps/web/dist-next/\n'); fs.mkdirSync(path.join(mac, 'feedback'))
     fs.writeFileSync(path.join(mac, 'feedback/2026-10-01.md'), '# 피드백\n')
     g(mac, 'add', '.'); g(mac, 'commit', '-qm', 'v1'); g(mac, 'push', '-q', '-u', 'origin', 'main')
     const running = g(mac, 'rev-parse', 'HEAD')
     g(cloud, 'pull', '-q')
 
     const calls: string[] = []
-    const steps = { install: async () => { calls.push('install') }, build: async () => { calls.push('build') }, restart: () => { calls.push('restart'); return true } }
+    const steps = { install: async () => { calls.push('install') }, build: async () => { calls.push('build') }, restart: () => { calls.push('restart'); return true }, canRestart: () => true }
     const ua = buildApp({ configDir: path.join(tmp, 'config-app'), appRepo: { root: mac, running, steps } })
     const status = async () => (await ua.inject({ method: 'GET', url: '/api/app/status?fetch=1' })).json().status
     const update = () => ua.inject({ method: 'POST', url: '/api/app/update' })
@@ -114,6 +114,61 @@ describe('앱 업데이트', () => {
     expect((await off.inject({ method: 'POST', url: '/api/app/update' })).statusCode).toBe(404)
     await Promise.all([ua.close(), off.close()])
   })
+
+  it('자동 업데이트는 받고 빌드까지만 하고, 다시 시작은 처리 중인 요청이 없을 때 따로 한다 (10/9 "쉴 때 · 버튼")', async () => {
+    const g = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd }).toString().trim()
+    const remote = path.join(tmp, 'auto-remote.git')
+    const mac = path.join(tmp, 'auto-mac')
+    const cloud = path.join(tmp, 'auto-cloud')
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+    for (const d of [mac, cloud]) execFileSync('git', ['clone', '-q', remote, d])
+    for (const d of [mac, cloud]) { g(d, 'config', 'user.name', 't'); g(d, 'config', 'user.email', 't@t') }
+    fs.writeFileSync(path.join(mac, 'app.ts'), 'v1\n'); fs.writeFileSync(path.join(mac, '.gitignore'), 'apps/web/dist-next/\n')
+    g(mac, 'add', '.'); g(mac, 'commit', '-qm', 'v1'); g(mac, 'push', '-q', '-u', 'origin', 'main')
+    const running = g(mac, 'rev-parse', 'HEAD')
+    g(cloud, 'pull', '-q'); fs.writeFileSync(path.join(cloud, 'app.ts'), 'v2\n'); g(cloud, 'commit', '-qam', 'v2'); g(cloud, 'push', '-q')
+
+    const calls: string[] = []
+    const steps = {
+      install: async () => { calls.push('install') },
+      // 진짜 빌드처럼 dist-next에 화면을 만든다
+      build: async (root: string) => { calls.push('build'); fs.mkdirSync(path.join(root, 'apps/web/dist-next'), { recursive: true }); fs.writeFileSync(path.join(root, 'apps/web/dist-next/index.html'), 'v2') },
+      restart: () => { calls.push('restart'); return true },
+      canRestart: () => true,
+    }
+    const ua = buildApp({ configDir: path.join(tmp, 'config-auto'), appRepo: { root: mac, running, steps } })
+    const restart = () => ua.inject({ method: 'POST', url: '/api/app/restart' })
+
+    // 받을 것만 있고 빌드해 둔 것이 없으면 다시 시작하지 않는다
+    expect((await restart()).statusCode).toBe(409)
+
+    const { updateApp } = await import('./appupdate.js')
+    const r = await updateApp(mac, running, steps, { restart: false })
+    expect(r.restarting).toBe(false)
+    expect(calls).toEqual(['build'])
+    const head = g(mac, 'rev-parse', 'HEAD')
+    expect(nextBuildOf(mac)).toBe(head)
+    expect((await ua.inject({ method: 'GET', url: '/api/app/status' })).json().status).toMatchObject({ behind: 0, prepared: true })
+
+    // 상단바 버튼(업데이트)은 이미 빌드했으면 다시 빌드하지 않고 다시 시작만 한다
+    calls.length = 0
+    expect((await ua.inject({ method: 'POST', url: '/api/app/update' })).json()).toMatchObject({ restarting: true })
+    expect(calls).toEqual(['restart'])
+
+    // 쉴 때 다시 시작
+    calls.length = 0
+    expect((await restart()).json()).toEqual({ restarting: true })
+    expect(calls).toEqual(['restart'])
+
+    // 새 커밋으로 켜지면 미리 빌드한 화면을 dist로 바꿔 단다. 다른 커밋이면 그대로 둔다
+    fs.mkdirSync(path.join(mac, 'apps/web/dist'), { recursive: true }); fs.writeFileSync(path.join(mac, 'apps/web/dist/index.html'), 'v1')
+    expect(promoteNextBuild(mac, running)).toBe(false)
+    expect(promoteNextBuild(mac, head)).toBe(true)
+    expect(fs.readFileSync(path.join(mac, 'apps/web/dist/index.html'), 'utf8')).toBe('v2')
+    expect(fs.existsSync(path.join(mac, 'apps/web/dist-next'))).toBe(false)
+    expect(fs.existsSync(path.join(mac, 'apps/web/dist/.commit'))).toBe(false)
+    await ua.close()
+  })
 })
 
 describe('앱 기본정보', () => {
@@ -127,7 +182,7 @@ describe('앱 기본정보', () => {
       fs.writeFileSync(path.join(repo, 'f.txt'), s); g(repo, 'add', '.'); g(repo, 'commit', '-qm', s)
     }
     const running = g(repo, 'rev-parse', 'HEAD')
-    const steps = { install: async () => {}, build: async () => {}, restart: () => true }
+    const steps = { install: async () => {}, build: async () => {}, restart: () => true, canRestart: () => true }
     const ua = buildApp({ configDir: path.join(tmp, 'config-info'), appRepo: { root: repo, running, steps } })
     const b = (await ua.inject({ method: 'GET', url: '/api/app/info' })).json()
     expect(b.enabled).toBe(true)
