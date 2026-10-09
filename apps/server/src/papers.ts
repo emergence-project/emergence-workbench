@@ -5,7 +5,7 @@ import YAML from 'yaml'
 import { acceptedSubjects, readSubjects, readYamlHash } from './subjects.js'
 import { fileCache } from './readCache.js'
 import { writeAtomic } from './fsutil.js'
-import { listMaterials, parseBib, type BibEntry } from './materials.js'
+import { isSafeKey, listMaterials, parseBib, type BibEntry } from './materials.js'
 import type { Registry } from './registry.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
@@ -174,7 +174,7 @@ export function markOpened(configDir: string, key: string, now = Date.now()): vo
 }
 
 /** bib 키로 쓸 수 있는 이름인지 (파일·폴더 이름으로도 쓰므로 좁게) */
-export const isSafeKey = (k: string): boolean => /^[A-Za-z0-9][A-Za-z0-9_:.+-]{0,120}$/.test(k) && !k.includes('..')
+export { isSafeKey }
 
 /** PDF 파일 경로: papers.yaml의 pdf:(절대 경로이거나 PDF 폴더 기준), 없으면 PDF 폴더들의 <키>.pdf, 그다음 프로젝트 자료 폴더의 <키>.pdf */
 export function findPdf(key: string, meta: PaperMeta | undefined, folders: string[], projectDirs: string[]): string | undefined {

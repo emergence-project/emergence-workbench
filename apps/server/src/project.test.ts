@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
-import { openWithSystem } from './materials.js'
+import { fetchArxiv, openWithSystem } from './materials.js'
 import { app, hasLatex, makeRepo, R, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -11,6 +11,21 @@ useSampleApp()
 describe('자료 (논문·발표자료)', () => {
   it('시스템 앱으로 여는 것은 문서·그림·글뿐이고, 실행 파일은 열지 않는다', async () => {
     for (const f of ['/x/run.command', '/x/Tool.app', '/x/a.sh', '/x/notebook.nb']) await expect(openWithSystem(f)).rejects.toMatchObject({ status: 415 })
+  })
+
+  it('이름이 문서여도 링크의 실제 대상이 실행 파일이면 열지 않는다', async () => {
+    const dir = fs.mkdtempSync(path.join(tmp, 'open-'))
+    fs.writeFileSync(path.join(dir, 'run.command'), '#!/bin/sh\n')
+    fs.symlinkSync(path.join(dir, 'run.command'), path.join(dir, 'paper.pdf'))
+    await expect(openWithSystem(path.join(dir, 'paper.pdf'))).rejects.toMatchObject({ status: 415 })
+  })
+
+  it('arXiv PDF는 파일 이름으로 쓸 수 있는 bib 키에만 받는다 (../x 같은 키로 폴더 밖에 쓰지 않음)', async () => {
+    const proj = makeRepo('materials-badkey')
+    fs.writeFileSync(path.join(proj, 'refs.bib'), ['@article{../escape,', '  title = {Bad},', '  eprint = {0000.00009},', '}'].join('\n'))
+    const fakeFetch = (async () => new Response(Buffer.from('%PDF-1.5 fake'), { status: 200 })) as unknown as typeof fetch
+    await expect(fetchArxiv(path.join(proj, 'workbench'), '../escape', fakeFetch)).rejects.toMatchObject({ status: 400 })
+    expect(fs.existsSync(path.join(proj, 'escape.pdf'))).toBe(false)
   })
 
   it('refs.bib를 읽고, arXiv PDF를 materials/에 받고, 끌어다 놓은 파일을 두며, 저장소 git에는 넣지 않는다', async () => {

@@ -13,10 +13,15 @@ import { t } from '../i18n.js'
 const LOOPBACK = /^(127\.0\.0\.1|localhost|\[::1\]):\d{2,5}$/
 
 /** 저장소의 GitHub 주소 (origin). 없으면 null */
+/** 구글에 올릴 원격 주소. https://user:token@host/… 꼴이면 로그인 정보를 뺀다(드라이브에 토큰이 남지 않게) */
+export function publicRemote(url: string): string | null {
+  return parseGitHubRepo(url)?.url ?? (url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@]*@/i, '$1') || null)
+}
+
 function remoteOf(repoPath: string): string | null {
   try {
     const url = execFileSync('git', ['-C', repoPath, 'config', '--get', 'remote.origin.url'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
-    return parseGitHubRepo(url)?.url ?? (url || null)
+    return publicRemote(url)
   } catch { return null }
 }
 
@@ -71,7 +76,7 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
   app.get<{ Querystring: { return?: string } }>('/api/google/connect', async (req, reply) => {
     const host = req.headers.host ?? ''
     if (!LOOPBACK.test(host)) throw new WorkbenchError(400, t('이 컴퓨터의 앱(127.0.0.1)에서만 구글에 연결할 수 있습니다.', 'You can connect to Google only from the app on this computer (127.0.0.1).'))
-    const ret = typeof req.query.return === 'string' && req.query.return.startsWith('/') && !req.query.return.startsWith('//') ? req.query.return : '/#/settings'
+    const ret = typeof req.query.return === 'string' && /^\/(?![/\\])/.test(req.query.return) ? req.query.return : '/#/settings'
     return reply.redirect(google.authUrl(`http://${host}/api/google/callback`, ret))
   })
 

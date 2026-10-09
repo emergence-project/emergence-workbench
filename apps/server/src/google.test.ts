@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { Google, mockGoogleFetch } from './google.js'
 import { localDate } from './fsutil.js'
+import { publicRemote } from './routes/google.js'
 
 // 진짜 구글 코드 경로(로그인 주소, 토큰 교환, 달력, 드라이브)를 가짜 fetch로 돈다
 let tmp: string
@@ -62,6 +63,22 @@ describe('구글 연결', () => {
     const res = await app.inject({ url: '/api/google/callback?code=abc&state=zzz', headers: host })
     expect(res.statusCode).toBe(400)
     expect(res.body).toContain('다시 연결')
+  })
+
+  it('로그인 뒤 돌아갈 주소는 이 앱 안의 경로만 받는다 (/\\evil.com 같은 바깥 주소는 설정으로)', async () => {
+    for (const [ret, expected] of [['/%5Cevil.com', '/#/settings'], ['//evil.com', '/#/settings'], ['/%23/home', '/#/home']] as const) {
+      const go = await app.inject({ url: `/api/google/connect?return=${ret}`, headers: host })
+      const state = new URL(go.headers.location as string).searchParams.get('state')!
+      const back = await app.inject({ url: `/api/google/callback?code=abc&state=${state}`, headers: host })
+      expect(back.headers.location).toBe(expected)
+    }
+  })
+
+  it('구글에 올리는 원격 주소에서 로그인 정보(토큰)를 뺀다', () => {
+    expect(publicRemote('https://someone:ghp_secret@github.com/someone/alpha.git')).toBe('https://github.com/someone/alpha.git')
+    expect(publicRemote('https://user:tok@gitlab.example.com/a/b.git')).toBe('https://gitlab.example.com/a/b.git')
+    expect(publicRemote('git@github.com:someone/alpha.git')).toBe('https://github.com/someone/alpha.git')
+    expect(publicRemote('')).toBeNull()
   })
 
   it('연결하면 이메일과 이번 주 일정을 보여 준다', async () => {
