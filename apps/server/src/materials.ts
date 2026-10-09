@@ -156,8 +156,13 @@ export const contentTypeOf = (name: string): string => ({
   '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
 } as Record<string, string>)[path.extname(name).toLowerCase()] ?? 'application/octet-stream'
 
+/** bib 키를 파일 이름으로 써도 되는지: 경로 구분자·`..`·앞의 점이 없는 것만 */
+export const isSafeKey = (k: string): boolean => /^[A-Za-z0-9][A-Za-z0-9_:.+-]{0,120}$/.test(k) && !k.includes('..')
+
 /** arXiv 번호가 있는 논문의 PDF를 받아 materials/<키>.pdf로 둔다 */
 export async function fetchArxiv(wbRoot: string, key: string, fetchImpl: typeof fetch = fetch, sources: ProjectSources = NO_SOURCES): Promise<MaterialFile> {
+  // 키가 파일 이름이 되므로(materials/<키>.pdf) `../x` 같은 키로 폴더 밖에 쓰지 않게 한다
+  if (!isSafeKey(key)) throw new WorkbenchError(400, t(`파일 이름으로 쓸 수 없는 키: ${key}`, `Key cannot be used as a file name: ${key}`))
   const entry = listMaterials(wbRoot, sources).bib.find((e) => e.key === key)
   if (!entry) throw new WorkbenchError(404, t(`bib에 없는 키: ${key}`, `Key not in bib: ${key}`))
   if (!entry.eprint) throw new WorkbenchError(400, t(`${key}에는 arXiv 번호(eprint)가 없습니다`, `${key} has no arXiv number (eprint)`))
@@ -187,7 +192,10 @@ export function revealInFinder(file: string): Promise<void> {
 export const OPENABLE = /\.(pdf|key|pages|numbers|pptx?|docx?|xlsx?|png|jpe?g|gif|svg|webp|tiff?|eps|ai|txt|md|csv|tex|bib)$/i
 
 export function openWithSystem(file: string): Promise<void> {
-  if (!OPENABLE.test(file)) return Promise.reject(new WorkbenchError(415, t(`이 종류의 파일은 앱에서 열지 않습니다: ${path.basename(file)}`, `The app does not open this kind of file: ${path.basename(file)}`)))
+  // 이름이 a.pdf인 링크가 실행 파일을 가리킬 수 있으니, 링크를 따라간 실제 대상의 이름도 본다
+  let real = file
+  try { real = fs.realpathSync(file) } catch { /* 없는 파일은 아래 open이 알린다 */ }
+  if (!OPENABLE.test(file) || !OPENABLE.test(real)) return Promise.reject(new WorkbenchError(415, t(`이 종류의 파일은 앱에서 열지 않습니다: ${path.basename(file)}`, `The app does not open this kind of file: ${path.basename(file)}`)))
   if (process.platform !== 'darwin') return Promise.reject(new WorkbenchError(501, t('맥에서만 열 수 있습니다', 'Opening works only on a Mac')))
   return new Promise((resolve, reject) => execFile('open', [file], (e) => (e ? reject(new WorkbenchError(500, e.message)) : resolve())))
 }
