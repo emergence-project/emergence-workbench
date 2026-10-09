@@ -339,7 +339,7 @@ export function App() {
         // 프로젝트 안에서는 메모·연결이 늘 앱의 맥락 칸에 있다: 맥락 칸을 끄면 숨는다 (10/4 19:17 "끄면 하단으로 가" — 노트 안 칸으로 바뀌어 좁은 칸에서 아래로 내려갔다)
         if (t.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md') return <ConceptNoteView key={`md/${t.id}`} id={t.id} info={library} rid={rid} project={summary.research.title} side="external" tocOwner={context?.focused ? tabKey(t) : null} onChanged={libraryChanged} onSaved={flash} />
         return <LibraryNoteEditor key={`${t.k}/${t.id}`} kind={t.k} id={t.id} info={library} rid={rid} project={summary.research.title} onChanged={libraryChanged} onSaved={flash} />
-      case 'mspdf': return <ManuscriptPdfTab key={msKeyOfTab(t)} rid={rid} info={manuscripts.find((m) => m.key === msKeyOfTab(t)) ?? null} rapi={rapi} onSaved={flash}
+      case 'mspdf': return <ManuscriptPdfTab key={msKeyOfTab(t)} rid={rid} info={manuscripts.find((m) => m.key === msKeyOfTab(t)) ?? null} rapi={rapi} onSaved={flash} version={version}
         active={context?.active ?? false} pairedEditor={hasVisibleManuscriptEditor(context?.visibleTabs ?? [], msKeyOfTab(t), (file) => msOfFile(file)?.key)} />
       case 'pdf': return <PdfTab rid={rid} bid={t.bid} title={tabTitle({ k: 'block', bid: t.bid }, summary)} rapi={rapi} />
       case 'todo': return <WorkPage rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />

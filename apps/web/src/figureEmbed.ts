@@ -18,6 +18,14 @@ export function findFigure<T extends Pick<FigureRow, 'scope' | 'name' | 'file'>>
 export const FIGURES_CHANGED = 'rw-figures-changed'
 const CHANGED = FIGURES_CHANGED
 let cache: Promise<FigureList> | null = null
+// 다시 받은 목록이 같으면 이전 객체를 그대로 준다: 창으로 돌아올 때마다 열린 노트를 처음부터 다시 그리지 않게
+let last: { json: string; list: FigureList } | null = null
+export function sameAsBefore(list: FigureList): FigureList {
+  const json = JSON.stringify(list)
+  if (last?.json === json) return last.list
+  last = { json, list }
+  return list
+}
 export function forgetFigures(): void { cache = null; window.dispatchEvent(new Event(CHANGED)) }
 /** 노트·파일이 바뀌었을 때(그림을 쓰는 노트, 에이전트·Finder가 더한 그림): 잠시 모았다가 다시 읽는다 */
 let soon: number | undefined
@@ -30,7 +38,7 @@ export function useFigureListState(): { data: FigureList | null; error: string |
   useEffect(() => {
     let live = true
     const load = () => {
-      const p = (cache ??= figuresApi.list())
+      const p = (cache ??= figuresApi.list().then(sameAsBefore))
       p.then((d) => { if (live) { setData(d); setError(null) } })
         .catch((e: Error) => { if (cache === p) cache = null; if (live) setError(e.message) })
     }

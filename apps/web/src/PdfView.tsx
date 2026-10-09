@@ -1,12 +1,10 @@
-import * as pdfjs from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist'
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import type { PdfBox } from './api'
 import { Icon } from './icons'
+import { loadPdfjs } from './pdfjs'
 import { RecordMenu } from './RecordMenus'
 import { t } from './i18n'
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
 
 /** 끌어서 고른 글: 쪽, 줄마다 사각형 [x, y, w, h] (PDF 포인트, 쪽 왼쪽 위 원점), 글자 */
 export interface PdfSelection { page: number; rects: number[][]; text: string; /** 그 쪽의 높이 (PDF 포인트) */ pageHeight?: number }
@@ -107,7 +105,7 @@ const TextLayer = memo(function TextLayer({ pieces, scale }: { pieces: TextPiece
  */
 export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, tools, selectionMenu, onSelectionDefault, overlay, reveal, paints, paintMenu }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
-  const [doc, setDoc] = useState<pdfjs.PDFDocumentProxy | null>(null)
+  const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [pages, setPages] = useState<RenderedPage[]>([])
   const [texts, setTexts] = useState<Map<number, TextPiece[]>>(new Map())
   const [zoom, setZoom] = useState(1)
@@ -133,9 +131,12 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   useEffect(() => {
     if (!url) { setDoc(null); setPages([]); return }
     let cancelled = false
-    const task = pdfjs.getDocument({ url })
+    let task: PDFDocumentLoadingTask | undefined
     ;(async () => {
       try {
+        const pdfjs = await loadPdfjs()
+        if (cancelled) return
+        task = pdfjs.getDocument({ url })
         const d = await task.promise
         // 쪽 크기만 먼저 읽는다. 글자 조각은 화면 가까이 온 쪽만 (아래)
         const info: RenderedPage[] = []
@@ -154,7 +155,7 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       }
     })()
-    return () => { cancelled = true; void task.destroy() }
+    return () => { cancelled = true; void task?.destroy() }
   }, [url])
 
   const fit = pages.length && width ? Math.min(1.6, (width - 48) / Math.max(...pages.map((p) => p.widthPt))) : 1

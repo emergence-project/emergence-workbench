@@ -400,7 +400,7 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
 }
 
 /** 원고 PDF: 앱이 workbench/.build/manuscript/에 만든 것. 누르면 그 장의 그 줄로 */
-export function ManuscriptPdfTab({ rid, info, rapi, onSaved, active, pairedEditor }: { rid: string; info: ManuscriptInfo | null; rapi: ResearchApi; onSaved(msg: string): void; active: boolean; pairedEditor: boolean }) {
+export function ManuscriptPdfTab({ rid, info, rapi, onSaved, active, pairedEditor, version }: { rid: string; info: ManuscriptInfo | null; rapi: ResearchApi; onSaved(msg: string): void; active: boolean; pairedEditor: boolean; version: number }) {
   const key = msKey(rid, info?.key)
   const s = useSession(key)
   useEffect(() => {
@@ -421,8 +421,9 @@ export function ManuscriptPdfTab({ rid, info, rapi, onSaved, active, pairedEdito
         if (live && !document.hidden && previous) applyManuscriptPdf(key, { ...previous, pdfState: 'unknown' }, request)
       }
     }
+    // 프로젝트 파일 알림(version)과 창으로 돌아올 때 다시 본다. workbench/ 밖 원고를 바깥에서 고친 것은 알림이 없어 1분마다 한 번 더 본다
     void refresh()
-    const timer = window.setInterval(() => void refresh(), 4000)
+    const timer = window.setInterval(() => void refresh(), 60_000)
     const resume = () => { void refresh() }
     window.addEventListener('focus', resume)
     document.addEventListener('visibilitychange', resume)
@@ -432,7 +433,7 @@ export function ManuscriptPdfTab({ rid, info, rapi, onSaved, active, pairedEdito
       window.removeEventListener('focus', resume)
       document.removeEventListener('visibilitychange', resume)
     }
-  }, [active, rid, key, kind, info?.key, rapi])
+  }, [active, rid, key, kind, info?.key, rapi, version])
   const onPick = (page: number, x: number, y: number) => {
     rapi.manuscriptEdit(page, x, y, info?.key).then(({ spot }) => {
       if (!spot) return onSaved(t('이 위치에 대응하는 원고 줄을 찾지 못했습니다 (서식·자동 생성 부분일 수 있음)', 'No manuscript line matches this spot (it may come from the template or be generated)'))
