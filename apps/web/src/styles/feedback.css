@@ -147,3 +147,5 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbp-compose-row { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
 .fbp-compose-row .sp { flex: 1; }
 .fb-pop-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
+.fb-kind { align-self: flex-start; }
+.fb-kind-hint { font-size: var(--fs-xs); margin-right: auto; align-self: center; }
