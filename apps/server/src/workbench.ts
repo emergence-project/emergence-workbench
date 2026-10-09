@@ -427,6 +427,13 @@ export class WorkbenchError extends Error {
   }
 }
 
+/** 읽은 뒤 바깥에서 바뀌어 쓰지 않음(409). 오류 처리기가 currentHash를 함께 보내 화면이 다시 읽고 고르게 한다 */
+export class ConflictError extends WorkbenchError {
+  constructor(message: string, readonly currentHash: string) {
+    super(409, message)
+  }
+}
+
 /** 고치는 API는 읽을 때 받은 hash를 꼭 받는다: 없으면 그새 바깥(에이전트)에서 고친 것을 모르고 덮을 수 있다 */
 export function requireHash(baseHash: unknown, what = t('읽을 때 받은 hash', 'the hash you got when reading')): string {
   if (typeof baseHash !== 'string' || !baseHash) throw new WorkbenchError(400, t(`baseHash(${what})가 필요함`, `baseHash (${what}) is required`))

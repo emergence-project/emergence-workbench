@@ -13,12 +13,6 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   /** 지금 Claude가 답을 쓰고 있는 질문 (같은 질문을 두 번 넘기지 않게) */
   const asking = new Set<string>()
   const classifying = new Set<string>()
-  /** 409에는 지금 파일의 해시를 붙여 보낸다 (화면이 다시 읽고 고르게) */
-  const commentConflict = (reply: { status(n: number): { send(b: unknown): unknown } }, e: unknown) => {
-    const err = e as { status?: number; message?: string; currentHash?: string }
-    if (err.status === 409 && err.currentHash) return reply.status(409).send({ error: err.message, currentHash: err.currentHash })
-    throw e
-  }
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/comments', async (req) => {
     const root = wbOf(req.params.rid).root
     return {
@@ -34,7 +28,7 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     readComments(wbOf(req.params.rid).root, req.params.target))
   app.post<{ Params: { rid: string; target: string }; Body: NewComment }>('/api/researches/:rid/comments/:target', async (req) =>
     addComment(wbOf(req.params.rid).root, req.params.target, req.body ?? ({} as never)))
-  app.post<{ Params: { rid: string; target: string }; Body: { baseHash: string } }>('/api/researches/:rid/comments/:target/classify', async (req, reply) => {
+  app.post<{ Params: { rid: string; target: string }; Body: { baseHash: string } }>('/api/researches/:rid/comments/:target/classify', async (req) => {
     const { rid, target } = req.params
     const { baseHash } = req.body ?? ({} as never)
     if (typeof baseHash !== 'string') throw new WorkbenchError(400, t('baseHash가 필요함', 'baseHash is required'))
@@ -44,18 +38,17 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     classifying.add(key)
     try {
       return await classifyComments(root, target, baseHash, opts.classify ?? claudeClassifierRunner, repoPath(rid))
-    } catch (e) { return commentConflict(reply, e) }
-    finally { classifying.delete(key) }
+    } finally { classifying.delete(key) }
   })
-  app.patch<{ Params: { rid: string; target: string; id: string }; Body: CommentChange & { baseHash: string } }>('/api/researches/:rid/comments/:target/:id', async (req, reply) => {
+  app.patch<{ Params: { rid: string; target: string; id: string }; Body: CommentChange & { baseHash: string } }>('/api/researches/:rid/comments/:target/:id', async (req) => {
     const { state, color, text, baseHash } = req.body ?? ({} as never)
     if (typeof baseHash !== 'string') throw new WorkbenchError(400, t('baseHash가 필요함', 'baseHash is required'))
-    try { return updateComment(wbOf(req.params.rid).root, req.params.target, req.params.id, { state, color, text }, baseHash) } catch (e) { return commentConflict(reply, e) }
+    return updateComment(wbOf(req.params.rid).root, req.params.target, req.params.id, { state, color, text }, baseHash)
   })
-  app.delete<{ Params: { rid: string; target: string; id: string }; Querystring: { baseHash?: string } }>('/api/researches/:rid/comments/:target/:id', async (req, reply) => {
+  app.delete<{ Params: { rid: string; target: string; id: string }; Querystring: { baseHash?: string } }>('/api/researches/:rid/comments/:target/:id', async (req) => {
     const baseHash = req.query.baseHash
     if (typeof baseHash !== 'string') throw new WorkbenchError(400, t('baseHash가 필요함', 'baseHash is required'))
-    try { return deleteComment(wbOf(req.params.rid).root, req.params.target, req.params.id, baseHash) } catch (e) { return commentConflict(reply, e) }
+    return deleteComment(wbOf(req.params.rid).root, req.params.target, req.params.id, baseHash)
   })
   /** 질문을 맥의 Claude에게 넘기고, 답이 오면 질문 아래에 덧붙인다. 답이 올 때까지(몇 분) 기다렸다가 고친 파일을 돌려준다 */
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/answer', async (req) => {
@@ -83,9 +76,9 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     }
   })
   /** 답에 든 고침을 노트에 적용한다 (사용자가 "노트에 적용"을 누를 때). { answer: 답 번호, baseHash: 기록 파일 hash } */
-  app.post<{ Params: { rid: string; target: string; id: string }; Body: { answer?: unknown; baseHash?: unknown } }>('/api/researches/:rid/comments/:target/:id/apply', async (req, reply) => {
+  app.post<{ Params: { rid: string; target: string; id: string }; Body: { answer?: unknown; baseHash?: unknown } }>('/api/researches/:rid/comments/:target/:id/apply', async (req) => {
     const { answer, baseHash } = req.body ?? {}
     if (typeof answer !== 'number' || typeof baseHash !== 'string') throw new WorkbenchError(400, t('answer·baseHash가 필요함', 'answer and baseHash are required'))
-    try { return applyAnswerFixes(wbOf(req.params.rid).root, req.params.target, req.params.id, answer, baseHash) } catch (e) { return commentConflict(reply, e) }
+    return applyAnswerFixes(wbOf(req.params.rid).root, req.params.target, req.params.id, answer, baseHash)
   })
 }

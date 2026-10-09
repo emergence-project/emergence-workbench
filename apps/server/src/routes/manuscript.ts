@@ -11,7 +11,6 @@ import { sharedMacrosTex } from '../latexFiles.js'
 import { LATEX_FILES_DIR } from './latexSetup.js'
 import { requireHash, WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
-import { withConflict } from './topics.js'
 import { latexChoices, queryList as list, type LatexChoiceQuery as Pick } from './latexChoice.js'
 import { figureEmbedResolver } from '../figureEmbeds.js'
 import { figureFile, LIBRARY_SCOPE, listFigureSources, resolveFigure } from '../figures.js'
@@ -104,15 +103,13 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
 
   /** 연구노트·계산 노트 만들기: from(원고 key)이 있으면 그 원고를 복사, 없으면 LaTeX 공통 설정으로 빈 노트 */
   // 연구노트·계산 노트 카드의 한 줄 설명과 완결 (note.yaml). baseHash(노트 목록 줄의 hash)를 주면 그 뒤 바뀐 note.yaml은 고치지 않는다
-  app.patch<{ Params: { rid: string }; Querystring: { ms?: string }; Body: { summary?: unknown; done?: unknown; state?: unknown; resume?: unknown; baseHash?: unknown } }>('/api/researches/:rid/notes/meta', async (req, reply) => {
+  app.patch<{ Params: { rid: string }; Querystring: { ms?: string }; Body: { summary?: unknown; done?: unknown; state?: unknown; resume?: unknown; baseHash?: unknown } }>('/api/researches/:rid/notes/meta', async (req) => {
     const wb = wbOf(req.params.rid)
     const info = manuscriptInfo(wb, msq(req.query))
     if (info.kind === 'paper') throw new WorkbenchError(400, t('원고에는 카드 설명을 적지 않음', 'Manuscripts do not take a card description'))
     const { baseHash, ...patch } = req.body ?? {}
-    return withConflict(reply, () => {
-      writeNoteMeta(path.join(path.dirname(wb.root), info.main), patch, requireHash(baseHash, t('노트 목록 줄의 hash', 'the hash of the note list line')))
-      return manuscriptInfo(wb, msq(req.query))
-    })
+    writeNoteMeta(path.join(path.dirname(wb.root), info.main), patch, requireHash(baseHash, t('노트 목록 줄의 hash', 'the hash of the note list line')))
+    return manuscriptInfo(wb, msq(req.query))
   })
   app.post<{ Params: { rid: string }; Body: { kind?: unknown; name?: unknown; from?: unknown } }>('/api/researches/:rid/notes', async (req) =>
     createNote(wbOf(req.params.rid), { kind: req.body?.kind, name: req.body?.name, from: req.body?.from }, { setup: registry.template(registry.latexDefault), authors: registry.authors }, registry.latexTemplates))

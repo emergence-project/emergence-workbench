@@ -1,5 +1,5 @@
 // 주제 (research.yaml의 topics:, 10/5 "주제와 노트")
-import type { FastifyInstance, FastifyReply } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import fs from 'node:fs'
 import { contentTypeOf } from '../materials.js'
 import { dropTopicsFromNotes, topicsOverview } from '../noteList.js'
@@ -7,15 +7,6 @@ import { checkTopicsHash, createTopic, deleteTopic, patchTopic, readTopics, save
 import { WorkbenchError } from '../workbench.js'
 import { cardFigureRef } from '../figures.js'
 import type { RouteContext } from './context.js'
-
-/** 바깥에서 바뀌어 고치지 않은 것(409)은 지금 해시와 함께 돌려준다 */
-export async function withConflict<T>(reply: FastifyReply, run: () => T): Promise<T | FastifyReply> {
-  try { return run() } catch (e) {
-    const c = e as WorkbenchError & { currentHash?: string }
-    if (c instanceof WorkbenchError && c.status === 409 && c.currentHash) return reply.status(409).send({ error: c.message, currentHash: c.currentHash })
-    throw e
-  }
-}
 
 export function registerTopics(app: FastifyInstance, ctx: RouteContext): void {
   const { wbOf, registry } = ctx
@@ -29,19 +20,17 @@ export function registerTopics(app: FastifyInstance, ctx: RouteContext): void {
     return { topics: readTopics(wb), hash: topicsHash(wb) }
   })
   /** 주제 목록을 통째로 바꾼다 (예전 화면). 빠진 주제는 노트 머리말 topics:에서도 뺀다 */
-  app.put<{ Params: { rid: string }; Body: { topics?: unknown; baseHash?: unknown } }>('/api/researches/:rid/topics', async (req, reply) => {
+  app.put<{ Params: { rid: string }; Body: { topics?: unknown; baseHash?: unknown } }>('/api/researches/:rid/topics', async (req) => {
     const wb = wbOf(req.params.rid)
-    return withConflict(reply, () => {
-      // 읽은 뒤 바뀐 research.yaml은 고치지 않는다 (baseHash 필수) (빠진 주제를 노트에서도 빼므로)
-      checkTopicsHash(wb, req.body?.baseHash)
-      if (Array.isArray(req.body?.topics)) {
-        for (const topic of req.body.topics) if (topic && typeof topic === 'object') checkImage(req.params.rid, topic.preview)
-      }
-      const before = readTopics(wb).map((t) => t.id)
-      const topics = saveTopics(wb, req.body?.topics)
-      dropTopicsFromNotes(wb, before.filter((id) => !topics.some((t) => t.id === id)))
-      return { topics, hash: topicsHash(wb) }
-    })
+    // 읽은 뒤 바뀐 research.yaml은 고치지 않는다 (baseHash 필수) (빠진 주제를 노트에서도 빼므로)
+    checkTopicsHash(wb, req.body?.baseHash)
+    if (Array.isArray(req.body?.topics)) {
+      for (const topic of req.body.topics) if (topic && typeof topic === 'object') checkImage(req.params.rid, topic.preview)
+    }
+    const before = readTopics(wb).map((t) => t.id)
+    const topics = saveTopics(wb, req.body?.topics)
+    dropTopicsFromNotes(wb, before.filter((id) => !topics.some((t) => t.id === id)))
+    return { topics, hash: topicsHash(wb) }
   })
   /** 주제마다 노트 수(상태별)·노트들의 성격·최근 시각, 그리고 주제 없는 노트 묶음("노트들", loose) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/topics/overview', async (req) => {
@@ -49,25 +38,23 @@ export function registerTopics(app: FastifyInstance, ctx: RouteContext): void {
     return { ...topicsOverview(wb), hash: topicsHash(wb) }
   })
   /** 주제 만들기: { title, description?, preview? } */
-  app.post<{ Params: { rid: string }; Body: { title?: unknown; description?: unknown; preview?: unknown; baseHash?: unknown } }>('/api/researches/:rid/topics', async (req, reply) => {
+  app.post<{ Params: { rid: string }; Body: { title?: unknown; description?: unknown; preview?: unknown; baseHash?: unknown } }>('/api/researches/:rid/topics', async (req) => {
     const wb = wbOf(req.params.rid)
-    return withConflict(reply, () => { checkTopicsHash(wb, req.body?.baseHash); checkImage(req.params.rid, req.body?.preview); const topic = createTopic(wb, req.body ?? {}); return { topic, hash: topicsHash(wb) } })
+    checkTopicsHash(wb, req.body?.baseHash); checkImage(req.params.rid, req.body?.preview); const topic = createTopic(wb, req.body ?? {}); return { topic, hash: topicsHash(wb) }
   })
   /** 주제 고치기: 이름(40자) · 설명(200자) · preview { text(30자), image, color } · star · done. 적은 칸만 바꾼다 */
-  app.patch<{ Params: P; Body: TopicPatch & { baseHash?: unknown } }>('/api/researches/:rid/topics/:tid', async (req, reply) => {
+  app.patch<{ Params: P; Body: TopicPatch & { baseHash?: unknown } }>('/api/researches/:rid/topics/:tid', async (req) => {
     const wb = wbOf(req.params.rid)
     const { baseHash, ...patch } = req.body ?? {}
-    return withConflict(reply, () => { checkTopicsHash(wb, baseHash); checkImage(req.params.rid, patch.preview); const topic = patchTopic(wb, req.params.tid, patch); return { topic, hash: topicsHash(wb) } })
+    checkTopicsHash(wb, baseHash); checkImage(req.params.rid, patch.preview); const topic = patchTopic(wb, req.params.tid, patch); return { topic, hash: topicsHash(wb) }
   })
   /** 주제 지우기: research.yaml과 노트 머리말에서만 뺀다. 노트는 "노트들"로 가고 파일은 그대로 */
-  app.delete<{ Params: P; Querystring: { baseHash?: string } }>('/api/researches/:rid/topics/:tid', async (req, reply) => {
+  app.delete<{ Params: P; Querystring: { baseHash?: string } }>('/api/researches/:rid/topics/:tid', async (req) => {
     const wb = wbOf(req.params.rid)
-    return withConflict(reply, () => {
-      checkTopicsHash(wb, req.query.baseHash)
-      const topics = deleteTopic(wb, req.params.tid)
-      const notes = dropTopicsFromNotes(wb, [req.params.tid])
-      return { topics, notes, hash: topicsHash(wb) }
-    })
+    checkTopicsHash(wb, req.query.baseHash)
+    const topics = deleteTopic(wb, req.params.tid)
+    const notes = dropTopicsFromNotes(wb, [req.params.tid])
+    return { topics, notes, hash: topicsHash(wb) }
   })
   /** 주제 그림 올리기 (application/octet-stream, ?name=파일 이름): workbench/figures/topics/<id>.<확장자>에 두고 미리보기에 건다 */
   app.put<{ Params: P; Querystring: { name?: string } }>('/api/researches/:rid/topics/:tid/image', async (req) => {

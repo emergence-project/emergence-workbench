@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { commentSourceFile, commentsFile, guardBody, unguardBody, parseComments, type CommentFile } from './comments.js'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
-import { WorkbenchError } from './workbench.js'
+import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 
 /**
@@ -126,7 +126,7 @@ export function applyAnswerFixes(root: string, target: string, id: string, answe
   const file = commentsFile(root, target)
   if (!fs.existsSync(file)) throw new WorkbenchError(404, t('코멘트 파일이 없음', 'No comment file'))
   const raw = fs.readFileSync(file, 'utf8')
-  if (hashOf(raw) !== baseHash) throw Object.assign(new WorkbenchError(409, t('다른 곳에서 코멘트 파일이 바뀌었음', 'The comment file changed elsewhere')), { currentHash: hashOf(raw) })
+  if (hashOf(raw) !== baseHash) throw new ConflictError(t('다른 곳에서 코멘트 파일이 바뀌었음', 'The comment file changed elsewhere'), hashOf(raw))
   const f = parseComments(target, raw)
   const q = f.comments.find((c) => c.id === id)
   const a = q?.answers[answer]

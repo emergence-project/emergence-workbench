@@ -5,7 +5,6 @@ import { listNotes, noteLinks, writeNoteHead, type NoteHeadPatch } from '../note
 import { revealInFinder } from '../materials.js'
 import { requireHash, WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
-import { withConflict } from './topics.js'
 import { t } from '../i18n.js'
 
 export function registerNotes(app: FastifyInstance, ctx: RouteContext): void {
@@ -13,8 +12,8 @@ export function registerNotes(app: FastifyInstance, ctx: RouteContext): void {
   /** 프로젝트의 노트 전부 (지운 노트 빼고, 최근 고친 것부터): 상태 · 다시 열 조건 · 성격 · 설명 · 주제 · ★ · 고친 때 */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/notes', async (req) => ({ notes: listNotes(wbOf(req.params.rid)) }))
   /** 노트 머리말 고치기: { file, patch: { title, topics, kind, description, star }, baseHash(줄의 hash) } */
-  app.patch<{ Params: { rid: string }; Body: { file?: unknown; patch?: NoteHeadPatch; baseHash?: unknown } }>('/api/researches/:rid/notes/head', async (req, reply) =>
-    withConflict(reply, () => ({ note: writeNoteHead(wbOf(req.params.rid), req.body?.file, req.body?.patch ?? {}, requireHash(req.body?.baseHash, t('노트 목록 줄의 hash', 'hash of the note list row'))) })))
+  app.patch<{ Params: { rid: string }; Body: { file?: unknown; patch?: NoteHeadPatch; baseHash?: unknown } }>('/api/researches/:rid/notes/head', async (req) =>
+    ({ note: writeNoteHead(wbOf(req.params.rid), req.body?.file, req.body?.patch ?? {}, requireHash(req.body?.baseHash, t('노트 목록 줄의 hash', 'hash of the note list row'))) }))
   /** 노트 링크에서 모은 두 목록: 쓰는 개념노트(본문에 처음 나온 순서), 이 노트를 인용한 노트(최근 고친 순) */
   app.get<{ Params: { rid: string }; Querystring: { file?: string } }>('/api/researches/:rid/notes/links', async (req) => {
     if (typeof req.query.file !== 'string' || !req.query.file) throw new WorkbenchError(400, t('file이 필요함', 'file is required'))

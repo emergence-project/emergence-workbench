@@ -3,7 +3,7 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { cleanDescription, takeDescription } from './topics.js'
-import { WorkbenchError } from './workbench.js'
+import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 
 /**
@@ -126,7 +126,7 @@ export function writeNoteMeta(mainAbs: string, patch: { summary?: unknown; done?
   const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
   // baseHash(노트 목록 줄의 hash = note.yaml의 해시)를 주면 그 뒤 바뀐 note.yaml은 고치지 않는다
   if (baseHash !== undefined && baseHash !== null && baseHash !== hashOf(text)) {
-    throw Object.assign(new WorkbenchError(409, t('다른 곳에서 note.yaml이 바뀌어 고치지 않았음', 'note.yaml changed elsewhere, so it was not edited')), { currentHash: hashOf(text) })
+    throw new ConflictError(t('다른 곳에서 note.yaml이 바뀌어 고치지 않았음', 'note.yaml changed elsewhere, so it was not edited'), hashOf(text))
   }
   const doc = text ? YAML.parseDocument(text) : new YAML.Document({})
   if (doc.errors.length) throw new WorkbenchError(400, t(`note.yaml을 읽지 못함: ${doc.errors[0]!.message}`, `Could not read note.yaml: ${doc.errors[0]!.message}`))

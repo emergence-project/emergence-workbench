@@ -17,12 +17,6 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
   const libOf = () => { const lib = registry.libraryPath; if (!lib) throw new WorkbenchError(400, t('공유 라이브러리가 설정되지 않았습니다', 'No shared library is set')); return lib }
   const titleOf = (lib: string, key: string) => { const e = libraryBibEntries(lib).find((x) => x.key === key); if (!e) throw new WorkbenchError(404, t(`references.bib에 없는 키: ${key}`, `Key not in references.bib: ${key}`)); return t(`논문 ${detex(e.title ?? key)}`, `Paper ${detex(e.title ?? key)}`) }
   const read = (key: string) => { const lib = libOf(); return readPaperComments(lib, key, titleOf(lib, key)) }
-  /** 409에는 지금 해시를 붙인다 (화면이 다시 읽고 고르게) */
-  const conflict = (reply: { status(n: number): { send(b: unknown): unknown } }, e: unknown) => {
-    const err = e as { status?: number; message?: string; currentHash?: string }
-    if (err.status === 409 && err.currentHash) return reply.status(409).send({ error: err.message, currentHash: err.currentHash })
-    throw e
-  }
   const asking = new Set<string>()
   /** 라이브러리 bib의 논문 목록: 관련 프로젝트, PDF 위치(이 맥 · 클라우드 · 없음), 코멘트 수 */
   app.get<{ Querystring: { subjectPrefix?: string } }>('/api/papers', async (req) => {
@@ -64,11 +58,11 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
     const { id } = addPaperNote(lib, req.params.key, req.body ?? {})
     return { id, file: read(req.params.key) }
   })
-  app.patch<{ Params: { key: string; id: string }; Body: { state?: unknown; color?: unknown; baseHash?: unknown } }>('/api/papers/:key/comments/:id', async (req, reply) => {
-    try { updatePaperNote(libOf(), req.params.key, req.params.id, req.body ?? {}, req.body?.baseHash); return read(req.params.key) } catch (e) { return conflict(reply, e) }
+  app.patch<{ Params: { key: string; id: string }; Body: { state?: unknown; color?: unknown; baseHash?: unknown } }>('/api/papers/:key/comments/:id', async (req) => {
+    updatePaperNote(libOf(), req.params.key, req.params.id, req.body ?? {}, req.body?.baseHash); return read(req.params.key)
   })
-  app.delete<{ Params: { key: string; id: string }; Querystring: { baseHash?: string } }>('/api/papers/:key/comments/:id', async (req, reply) => {
-    try { deletePaperNote(libOf(), req.params.key, req.params.id, req.query.baseHash); return read(req.params.key) } catch (e) { return conflict(reply, e) }
+  app.delete<{ Params: { key: string; id: string }; Querystring: { baseHash?: string } }>('/api/papers/:key/comments/:id', async (req) => {
+    deletePaperNote(libOf(), req.params.key, req.params.id, req.query.baseHash); return read(req.params.key)
   })
   /** 질문을 맥의 Claude에게 넘기고, 답이 오면 그 파일 끝에 덧붙인다 (PDF가 클라우드에만 있으면 읽는 동안 받아 온다) */
   app.post<{ Params: { key: string; id: string } }>('/api/papers/:key/comments/:id/answer', async (req) => {
