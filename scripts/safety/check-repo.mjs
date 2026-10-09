@@ -13,7 +13,7 @@ const require = createRequire(new URL('../../apps/server/package.json', import.m
 const YAML = require('yaml')
 let appModule
 const loadApp = () => appModule ??= tsxApi().then((api) => api.tsImport('../../apps/server/src/app.ts', { parentURL: import.meta.url, tsconfig: false }))
-const EXCLUDED = new Set(['.git', 'node_modules', '.venv', 'venv', '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.cache', '.build', '.next', '.DS_Store'])
+const EXCLUDED = new Set(['.git', 'node_modules', '.venv', 'venv', '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.cache', '.build', '.next', '.lake', '.DS_Store'])
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex')
 export const isWithin = (root, target) => target === root || (!path.relative(root, target).startsWith(`..${path.sep}`) && path.relative(root, target) !== '..' && !path.isAbsolute(path.relative(root, target)))
 const plainError = (error) => error instanceof Error ? error.message : String(error)
