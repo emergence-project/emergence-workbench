@@ -18,8 +18,8 @@ import { t } from './i18n.js'
  *
  *   칩이 너무 작다
  */
-/** 피드백 모드는 등록 전에 수정 · 질문을 고른다 (10/9: 질문을 요청으로 읽는 일을 막으려고). 처리할 때 status.yaml의 kind에 종류를 적을 수 있다. 디자인 · 버그 · 기능은 이전 기록, 미분류는 10/9 전 기록과 소개의 피드백 */
-export const FEEDBACK_KINDS = ['디자인', '버그', '기능', '수정', '질문', '미분류'] as const
+/** 피드백 모드는 등록 전에 수정 · 질문 · 제안을 고른다 (10/9: 질문을 요청으로 읽는 일을 막으려고). 처리할 때 status.yaml의 kind에 종류를 적을 수 있다. 디자인 · 버그 · 기능은 이전 기록, 미분류는 10/9 전 기록과 소개의 피드백 */
+export const FEEDBACK_KINDS = ['디자인', '버그', '기능', '수정', '질문', '제안', '미분류'] as const
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]
 
 export interface FeedbackInput {

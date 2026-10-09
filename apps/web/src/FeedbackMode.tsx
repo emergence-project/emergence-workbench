@@ -69,7 +69,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   const [showList, setShowList] = useState(false)
   const [publishable, setPublishable] = useState(false)
   /** 공개 저장소의 새 이슈 주소와 앱 버전: 다른 사용자가 관리자에게 보내는 곳 (docs/maintaining.md) */
-  const [kind, setKind] = useState<'수정' | '질문' | null>(null)
+  const [kind, setKind] = useState<'수정' | '질문' | '제안' | null>(null)
   const [issues, setIssues] = useState<{ url: string; version: string | null } | null>(null)
   const hoverEl = useRef<Element | null>(null)
   const shot = useRef<Promise<string | null> | null>(null)
@@ -147,7 +147,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     void save(kind)
   }
 
-  const save = async (kind: '수정' | '질문') => {
+  const save = async (kind: '수정' | '질문' | '제안') => {
     if (!pending || !text.trim()) return
     try {
       const image = (await shot.current) ?? undefined
@@ -201,7 +201,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
           {error && <div className="error-text">{error}</div>}
           <div className="fb-actions">
             <div className="segmented small fb-kind" role="radiogroup" aria-label={t('코멘트 유형', 'Comment type')}>
-              {(['수정', '질문'] as const).map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{shown(k)}</button>)}
+              {(['수정', '질문', '제안'] as const).map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{shown(k)}</button>)}
             </div>
             {issues && (
               <button className="btn fb-send" disabled={!text.trim() || !kind} onClick={sendToGithub}
