@@ -27,7 +27,7 @@ function useSaveLabel(save: ToolbarSave, at?: number | null) {
   return SAVE_LABEL[save] + (save === 'saved' && at ? ` · ${relativeTime(at)}` : '')
 }
 
-export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, pdfNote, editing, view, onView, onEdit, editDisabled, onDone, doneDisabled, onComment, commentOn, onCompile, compiling, compileDisabled, compileTip, compileUi = '컴파일 버튼', menu, anchors, extra }: {
+export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, pdfNote, editing, view, onView, onEdit, editDisabled, onDone, doneDisabled, onComment, commentOn, onCompile, compiling, compileDisabled, compileTip, compileKey, compileUi = '컴파일 버튼', menu, anchors, extra }: {
   /** 고치는 중 본문에서 올라온 제목 입력칸 */
   title?: ReactNode
   /** 왼쪽 첫 자리의 노트 상태 (색 점과 이름, 있는 경우 상태 메뉴도 함께) */
@@ -51,6 +51,8 @@ export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, 
   onComment(): void
   commentOn?: boolean
   onCompile?(): void
+  /** ⌘↵로도 컴파일한다(LaTeX 편집기만). 툴팁에 단축키를 적는다 */
+  compileKey?: boolean
   compiling?: boolean
   compileDisabled?: boolean
   compileTip?: string
@@ -98,7 +100,7 @@ export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, 
                 // The selection menu closes on document pointerdown. Preserve the selection until this button's click attaches it.
                 onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.preventDefault()} onClick={onComment}>{Icon.comment}</button>
               {onEdit && <button className="icon-btn" data-ui="고치기" data-tip={`${t('고치기', 'Edit')} · ${saveLabel}`} aria-label={t('고치기', 'Edit')} disabled={editDisabled} onClick={onEdit}>{Icon.pencil}</button>}
-              {onCompile && <button className="btn primary btn-icon nt-play" data-ui={compileUi} disabled={compileDisabled || compiling} aria-label={compileTip ?? t('컴파일', 'Compile')} title={t(`${compileTip ?? '컴파일'} — 컴파일하고 PDF를 엽니다 (⌘↵)`, `${compileTip ?? 'Compile'}: compile and open the PDF (⌘↵)`)} onClick={onCompile}>{compiling ? '…' : Icon.play}</button>}
+              {onCompile && <button className="btn primary btn-icon nt-play" data-ui={compileUi} disabled={compileDisabled || compiling} aria-label={compileTip ?? t('컴파일', 'Compile')} title={t(`${compileTip ?? '컴파일'} — 컴파일하고 PDF를 엽니다${compileKey ? ' (⌘↵)' : ''}`, `${compileTip ?? 'Compile'}: compile and open the PDF${compileKey ? ' (⌘↵)' : ''}`)} onClick={onCompile}>{compiling ? '…' : Icon.play}</button>}
               <span className="nt-more" ref={box}>
                 <button className={`icon-btn${open ? ' on' : ''}`} data-ui="더 보기 메뉴" data-tip={t('더 보기', 'More')} aria-label={t('더 보기', 'More')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{Icon.more}</button>
                 {open && (

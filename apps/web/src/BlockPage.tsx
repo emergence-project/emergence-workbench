@@ -443,7 +443,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
           view={editing ? view : undefined} onView={(v) => { setView(v); store.set('rw.notes.editView', v) }}
           onEdit={startEdit} editDisabled={!loaded || saveState === 'conflict'} onDone={() => void finish()}
           onComment={() => openRecordComposer(rid, blockTarget(bid, meta?.title), loaded?.md ? undefined : recordSelectionFromLines(content.current, editor.current?.selection() ?? null))} commentOn={mode === 'records'}
-          onCompile={() => void compile()} compiling={compiling} compileDisabled={!loaded || editing} compileTip={`${t('컴파일', 'Compile')}: ${meta?.title ?? bid}`}
+          onCompile={() => void compile()} compiling={compiling} compileDisabled={!loaded || editing} compileTip={`${t('컴파일', 'Compile')}: ${meta?.title ?? bid}`} compileKey={!!loaded && !loaded.md}
           menu={[
             loaded && !loaded.ownHeader && { label: t('컴파일 서식 고르기…', 'Choose compile template…'), ui: '컴파일 설정', tip: t('서식·저자·날짜를 고릅니다. ▶ 컴파일과 내보내기가 같이 씁니다', 'Choose template, author and date. Used by both ▶ Compile and Export'), onClick: () => setCsOpen(true) },
             onShowPdf && { label: t('PDF 보기', 'View PDF'), ui: 'PDF 보기', tip: t('지난번 컴파일한 PDF를 옆 패널에 엽니다', 'Open the last compiled PDF in the side pane'), onClick: onShowPdf, disabled: !s.blockPdf?.hasPdf && pdfVersion === null },
