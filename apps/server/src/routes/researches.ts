@@ -115,7 +115,7 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
       research: wb.readResearch(),
       engine: registry.engine,
       // grounds: 유도가 근거로 적은 원고의 장·부록 (저장소 기준 경로)
-      blocks: blocks.map(({ id, format, meta, hash, mtime, content }) => ({ id, format, hash, mtime, ...meta, grounds: parts.length ? groundsOf(content, parts) : [] })),
+      blocks: blocks.map(({ id, format, meta, hash, mtime, content }) => ({ ...meta, id, format, hash, mtime, grounds: parts.length ? groundsOf(content, parts) : [] })),
       tree: buildTree(blocks),
       statements: listStatements(wb.root),
     }
