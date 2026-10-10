@@ -147,21 +147,25 @@ export function tableCells(line: string): string[] {
 
 /** Markdown 본문 → LaTeX 본문 */
 /**
- * 표의 열 모양. 글이 한 줄 폭에 들어가면 l, 넘치면 글 길이에 비례한 p{…\linewidth} 열로 줄바꿈한다 (10/7 17:05: 긴 한글 표가 쪽 밖으로 나갔다).
- * 길이는 Markdown 원문 기준이고 한글 · 한자는 두 칸으로 센다. $…$ 수식은 짧게 본다
+ * 표의 열 폭. 글이 한 줄 폭에 들어가면 모두 null(줄바꿈 없음), 넘치면 긴 열에 글 길이에 비례한 폭(\linewidth의 몇 배)을 준다
+ * (10/7 17:05: 긴 한글 표가 쪽 밖으로 나갔다). 길이는 Markdown 원문 기준이고 한글 · 한자는 두 칸으로 센다. $…$ 수식은 짧게 본다.
+ * 줄바꿈은 p{} 열 대신 l 열 안의 \parbox로 한다: TeX Live 2025에서 revtex + dcolumn과 p{} 열을 함께 쓰면
+ * 표 머리 해석이 깨져 컴파일이 멈췄다 (10/10 14:01 논문 개요).
  */
-function tableColumns(head: string, body: string[]): string {
+function tableWidths(head: string, body: string[]): (number | null)[] {
   const width = (c: string) => [...c.replace(/\$[^$]*\$/g, 'xxxx').replace(/[*`]/g, '')].reduce((n, ch) => n + (/[\u1100-\u11ff\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/.test(ch) ? 2 : 1), 0)
   const rows = [tableCells(head), ...body.map(tableCells)]
   const n = rows[0]!.length
   const max = Array.from({ length: n }, (_, k) => Math.max(4, ...rows.map((r) => width(r[k] ?? ''))))
-  if (max.reduce((a, b) => a + b, 0) <= 80) return 'l'.repeat(n)
-  // 짧은 열(12칸 이하)은 l 그대로, 남은 폭(열 사이 여백을 뺀 것)을 긴 열이 길이에 비례해 나눈다. 한 줄 폭은 반각 80칸쯤
+  if (max.reduce((a, b) => a + b, 0) <= 80) return max.map(() => null)
+  // 짧은 열(12칸 이하)은 그대로, 남은 폭(열 사이 여백을 뺀 것)을 긴 열이 길이에 비례해 나눈다. 한 줄 폭은 반각 80칸쯤
   const short = (m: number) => m <= 12
   const room = 0.95 - 0.035 * n - max.filter(short).reduce((a, m) => a + m / 80, 0)
   const long = max.filter((m) => !short(m)).reduce((a, b) => a + b, 0)
-  return max.map((m) => (short(m) ? 'l' : `p{${Math.max(0.1, room * m / long).toFixed(2)}\\linewidth}`)).join('')
+  return max.map((m) => (short(m) ? null : Math.max(0.1, room * m / long)))
 }
+
+const tableCell = (text: string, w: number | null | undefined) => (w ? `\\parbox[t]{${w.toFixed(2)}\\linewidth}{\\raggedright ${text}}` : text)
 
 export function markdownToLatex(src: string, opts: MdLatexOptions = {}): string {
   const lines = stripHtmlComments(stripMdFrontMatter(src).replace(/\r\n/g, '\n')).split('\n')
@@ -253,7 +257,9 @@ export function markdownToLatex(src: string, opts: MdLatexOptions = {}): string 
       const head = cells(t)
       const rows: string[][] = []
       for (i += 2; i < lines.length && lines[i]!.trim().startsWith('|'); i++) rows.push(cells(lines[i]!))
-      const tabular = [`\\begin{tabular}{${tableColumns(t, lines.slice(i - rows.length, i))}}`, '\\hline', `${head.join(' & ')} \\\\`, '\\hline', ...rows.map((r) => `${r.join(' & ')} \\\\`), '\\hline', '\\end{tabular}']
+      const widths = tableWidths(t, lines.slice(i - rows.length, i))
+      const row = (r: string[]) => `${r.map((c, k) => tableCell(c, widths[k])).join(' & ')} \\\\`
+      const tabular = [`\\begin{tabular}{${'l'.repeat(widths.length)}}`, '\\hline', row(head), '\\hline', ...rows.map(row), '\\hline', '\\end{tabular}']
       out.push(...(caption != null ? ['\\begin{table}[htbp]', '\\centering', `\\caption{${caption}}`, ...tabular, '\\end{table}'] : ['\\begin{center}', ...tabular, '\\end{center}']), '')
       caption = null
       continue

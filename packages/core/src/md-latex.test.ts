@@ -89,9 +89,12 @@ describe('markdownToLatex', () => {
     expect(markdownToLatex('**표.** 기호 \\label{tab: n}\n\n| $a$ | 공 |\n|---|---|\n| $b$ | 고리 |'))
       .toBe('\\begin{table}[htbp]\n\\centering\n\\caption{기호 \\label{tab: n}}\n\\begin{tabular}{ll}\n\\hline\n$a$ & 공 \\\\\n\\hline\n$b$ & 고리 \\\\\n\\hline\n\\end{tabular}\n\\end{table}\n')
   })
-  it('긴 글의 표는 짧은 열은 l, 긴 열은 폭을 나눈 p 열로 줄바꿈한다 (10/7 17:05)', () => {
+  it('긴 글의 표는 짧은 열은 그대로, 긴 열은 폭을 나눈 \\parbox로 줄바꿈한다 (10/7 17:05, p{} 열은 쓰지 않는다 10/10)', () => {
     const md = '| 유형 | 뜻 | 예 |\n|---|---|---|\n| I | 면이 모두 삼각형인 평면 그래프로 색의 수를 센다. | 정이십면체, 바퀴, 팔면체, 지도 |'
-    expect(markdownToLatex(md)).toContain('\\begin{tabular}{lp{0.49\\linewidth}p{0.31\\linewidth}}')
+    const out = markdownToLatex(md)
+    expect(out).toContain('\\begin{tabular}{lll}')
+    expect(out).toContain('I & \\parbox[t]{0.49\\linewidth}{\\raggedright 면이 모두 삼각형인 평면 그래프로 색의 수를 센다.} & \\parbox[t]{0.31\\linewidth}{\\raggedright 정이십면체, 바퀴, 팔면체, 지도} \\\\')
+    expect(out).not.toContain('p{')
     expect(markdownToLatex('| a | b |\n|---|---|\n| 짧은 | 표 |')).toContain('\\begin{tabular}{ll}')
   })
   it('표 칸 안 수식 · 코드의 |는 칸 경계가 아니다 (10/8 11:30)', () => {
