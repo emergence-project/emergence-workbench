@@ -32,7 +32,7 @@ export function projectStamp(wb: Workbench): string {
   })
 }
 
-/** 라이브러리가 프로젝트에서 읽는 것만: research.yaml(개념·자료), 보조 노트 폴더, bib, 자료 폴더. 노트 본문을 고쳐도 바뀌지 않는다. */
+/** 라이브러리가 프로젝트에서 읽는 것만: research.yaml(개념·자료), 블록 노트 폴더, bib, 자료 폴더. 노트 본문을 고쳐도 바뀌지 않는다. */
 const refStamps = new WeakMap<Workbench, DerivedCache<string>>()
 export function projectRefsStamp(wb: Workbench): string {
   return cachedStamp(refStamps, wb, () => treeStamp([wb.researchPath, wb.blocksDir, ...bibFiles(wb), materialsDir(wb.root)], { dirStats: false }))

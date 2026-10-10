@@ -27,7 +27,7 @@ export function registerJournal(app: FastifyInstance, ctx: RouteContext): void {
     if (typeof text !== 'string' || !text.trim()) throw new WorkbenchError(400, tx('내용이 필요함', 'Text is required'))
     const wb = wbOf(req.params.rid)
     const t = target && target !== RESEARCH_TARGET ? target : RESEARCH_TARGET
-    // 붙일 곳: 연구 전체, 보조 노트 id, 또는 노트 파일(예전 .tex와 Markdown 노트).
+    // 붙일 곳: 연구 전체, 블록 노트 id, 또는 노트 파일(예전 .tex와 Markdown 노트).
     const isNote = (/\.tex$/.test(t) || /^workbench\/notes\/[^/]+\/note\.md$/.test(t)) && !t.split(/[\\/]/).includes('..') && !path.isAbsolute(t) && fs.existsSync(path.join(wb.repo, t))
     if (t !== RESEARCH_TARGET && !isNote && !wb.listBlocks().some((b) => b.id === t)) throw new WorkbenchError(400, tx(`없는 블록: ${t}`, `No such block: ${t}`))
     return { entry: wb.appendJournal({ date: localDate(), time: localTime(), kind, target: t, text }) }

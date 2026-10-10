@@ -50,7 +50,7 @@ describe('예전 기록 읽기', () => {
     expect(phase.descriptionAuto).toBeUndefined()
     expect(typeof phase.ms).toBe('string')
     expect(await row('disp')).toMatchObject({ type: 'calc', kind: 'calc', kindAuto: true, description: '분산 계산 결과.', descriptionAuto: true })
-    // 보조 노트도 한 목록에 (머리말 status → 색 점 값)
+    // 블록 노트도 한 목록에 (머리말 status → 색 점 값)
     expect(await row('kempe-chains')).toMatchObject({ type: 'block', file: 'workbench/blocks/kempe-chains.tex', title: 'Kempe 사슬 이용', status: 'in-progress', topics: [] })
   })
 

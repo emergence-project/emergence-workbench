@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
+import { noteRecordTarget } from './noteList.js'
 
 // 기본은 맥의 실사용 서버(scripts/serve.sh, 5174). 예제 모드(pnpm dev, 8130)는 RW_URL로 준다.
 export const DEFAULT_URL = process.env.RW_URL ?? `http://127.0.0.1:${process.env.RW_PORT ?? 5174}`
@@ -15,9 +16,9 @@ const RULES_FILE = path.join(APP_ROOT, 'docs/agent-delegated-work.md')
 
 /** 모든 도구가 지키는 것. rules 도구가 맡긴 일 규칙과 함께 돌려준다 (도구 이름·설명은 영어, 2026-10-08) */
 export const SAFETY = [
-  '- To change a note or a concept note, use edit_note / edit_concept (the user reviews each changed paragraph in the app). For anything else use the app server API (GET /api lists every route). Always send the hash you read as baseHash; a 409 means the file changed outside, so read it again.',
+  '- To change a note or a concept note, prefer edit_note / edit_concept (the user reviews each changed paragraph in the app). For other writes use the app server API (GET /api lists every route; send the hash you read as baseHash, and read again after a 409), or edit repository files directly following docs/repo-format.md and run pnpm --dir <app folder> agent:check <repository> afterwards.',
   '- A note or concept note the user has reviewed (concept note checked: ok, note status solved) needs the user\'s permission in the conversation. The first attempt is refused and shown to the user; ask, and only after they agree send again with approved: true.',
-  '- Never edit manuscripts (LaTeX manuscripts) or concept notes with locked: true. Do not change bytes outside the part you edit.',
+  '- Edit manuscripts (LaTeX manuscripts) only when the user asks. Never edit concept notes with locked: true. Do not change bytes outside the part you edit.',
   '- The files in each repository are the source of truth. workbench/STATUS.md is a summary the app writes; do not edit it.',
   '- Each research repository\'s own AGENTS.md / CLAUDE.md rules come first (for example: plan first, or proposal and approval before structural changes).',
   '- Only the user approves physics and mathematics. A session never approves its own result.',
@@ -37,7 +38,7 @@ async function get(base: string, f: Fetch, url: string): Promise<{ ok: true; bod
   try {
     res = await f(base + url)
   } catch {
-    return { ok: false, error: fail(`Cannot reach the Emergence Workbench app server at ${base}. The app must be running on the user's Mac. Do not edit files directly as a workaround; tell the user.`) }
+    return { ok: false, error: fail(`Cannot reach the Emergence Workbench app server at ${base}. Tell the user. Without the app you may still edit repository files directly: follow docs/repo-format.md and run \`pnpm --dir <app folder> agent:check <repository>\` afterwards; notes and concept notes the user has reviewed still need permission, and manuscripts are edited only when the user asks.`) }
   }
   const body: unknown = await res.json().catch(() => null)
   if (!res.ok) {
@@ -53,7 +54,7 @@ async function post(base: string, f: Fetch, url: string, payload: unknown): Prom
   try {
     res = await f(base + url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
   } catch {
-    return { ok: false, error: fail(`Cannot reach the Emergence Workbench app server at ${base}. The app must be running on the user's Mac. Do not edit files directly as a workaround; tell the user.`) }
+    return { ok: false, error: fail(`Cannot reach the Emergence Workbench app server at ${base}. Tell the user. Without the app you may still edit repository files directly: follow docs/repo-format.md and run \`pnpm --dir <app folder> agent:check <repository>\` afterwards; notes and concept notes the user has reviewed still need permission, and manuscripts are edited only when the user asks.`) }
   }
   const body: unknown = await res.json().catch(() => null)
   if (!res.ok) {
@@ -134,12 +135,22 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('list_notes', {
     title: 'List notes',
-    description: 'Notes of a project (research, calculation and short notes): file, title, status (in-progress, blocked = paused, stopped = discarded, solved), resume condition, topics. Most recently edited first.',
+    description: 'Notes of a project (research, calculation and block notes): file, record target (when available), title, status (in-progress, blocked = paused, stopped = discarded, solved), resume condition, topics. Most recently edited first.',
     inputSchema: { project, status: z.enum(['in-progress', 'blocked', 'stopped', 'solved']).optional().describe('Only notes with this status') },
     annotations: ro,
   }, async ({ project: rid, status }) => call(`/api/researches/${enc(rid)}/notes`, (b: { notes: NoteRow[] }) =>
     b.notes.filter((n) => !status || n.status === status)
-      .map((n) => pick(n, ['file', 'title', 'type', 'format', 'status', 'resume', 'kind', 'description', 'topics']))))
+      .map((n) => {
+        const target = noteRecordTarget(n)
+        return { ...pick(n, ['file', 'title', 'type', 'format', 'status', 'resume', 'kind', 'description', 'topics']), ...(target && { target }) }
+      })))
+
+  server.registerTool('list_edit_reviews', {
+    title: 'List edit reviews',
+    description: 'Pending agent edits and permission requests for reviewed notes. Pass project to list only that project, or omit it for all projects and concept notes. Do not reintroduce paragraphs the user reverted; read the project journal for those decisions.',
+    inputSchema: { project: project.optional() },
+    annotations: ro,
+  }, async ({ project: rid }) => call(`/api/agent-edits${rid ? `?scope=${enc(rid)}` : ''}`))
 
   server.registerTool('read_note', {
     title: 'Read note',
@@ -147,7 +158,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     inputSchema: { project, file: z.string().describe('Repository-relative path, e.g. workbench/notes/<name>/note.md') },
     annotations: ro,
   }, async ({ project: rid, file }) => {
-    // 보조 노트(workbench/blocks/<id>.md|.tex)는 블록 API, 연구노트·계산 노트·원고 파일은 원고 API가 읽는다
+    // 블록 노트(workbench/blocks/<id>.md|.tex)는 블록 API, 연구노트·계산 노트·원고 파일은 원고 API가 읽는다
     const block = /^workbench\/blocks\/([^/]+)\.(md|tex)$/.exec(file)
     const r = await get(base, f, block ? `/api/researches/${enc(rid)}/blocks/${enc(block[1]!)}` : `/api/researches/${enc(rid)}/manuscript/part?file=${enc(file)}`)
     if (!r.ok) return r.error
@@ -236,7 +247,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('edit_note', {
     title: 'Edit note',
-    description: 'Change a project note (research, calculation or short note; not manuscripts) by exact text replacement. Read it first with read_note and pass its hash as baseHash. The app keeps the text before your first edit as a baseline and the user approves, reverts or edits each changed paragraph. A note with status solved is refused on the first attempt (the user is notified); ask the user in the conversation, then send again with approved: true.',
+    description: 'Change a project note (research, calculation or block note; not manuscripts) by exact text replacement. Read it first with read_note and pass its hash as baseHash. The app keeps the text before your first edit as a baseline and the user approves, reverts or edits each changed paragraph. A note with status solved is refused on the first attempt (the user is notified); ask the user in the conversation, then send again with approved: true.',
     inputSchema: { project, file: z.string().describe('Repository-relative note path from list_notes'), baseHash: z.string().describe('hash from read_note'), edits, approved, summary },
     annotations: w,
   }, async ({ project: rid, file, ...a }) => write({ kind: 'note', rid, file }, a))

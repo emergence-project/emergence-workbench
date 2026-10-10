@@ -9,7 +9,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { readConceptMd, writeConceptBody } from './conceptNotes.js'
-import { hashOf, writeAtomic } from './fsutil.js'
+import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { t } from './i18n.js'
 import { listNotes } from './noteList.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
@@ -53,7 +53,7 @@ export class AgentEditStore {
     const h = crypto.createHash('sha1').update(path.resolve(lib ?? '-')).digest('hex').slice(0, 12)
     return path.join(configDir, 'agent-edits', `edits-${h}.json`)
   }
-  read(): StoreData {
+  read(readOnly = false): StoreData {
     let raw: string
     try { raw = fs.readFileSync(this.file, 'utf8') } catch { return { pending: [], attempts: [] } }
     try {
@@ -61,6 +61,7 @@ export class AgentEditStore {
       return { pending: Array.isArray(v.pending) ? v.pending : [], attempts: Array.isArray(v.attempts) ? v.attempts : [] }
     } catch {
       // 깨진 기록을 빈 것으로 덮어쓰면 검토 기준판을 모두 잃는다(되돌리기 불가). 옆에 보관하고 새로 시작한다
+      if (readOnly) return { pending: [], attempts: [] }
       const kept = `${this.file}.broken-${new Date().toISOString().replace(/[:.]/g, '-')}`
       try { fs.renameSync(this.file, kept); console.warn(`[agent-edits] 깨진 기록을 보관함: ${kept}`) } catch { /* 이미 옮겨짐 */ }
       return { pending: [], attempts: [] }
@@ -384,6 +385,15 @@ export function decide(io: TargetIo, store: AgentEditStore, req: DecideRequest):
     if (cur.slice(h.c0, h.c1).some((b) => yours.has(b.trim()))) throw new WorkbenchError(409, t('에이전트가 고친 뒤 직접 고친 글이 섞여 있어 되돌리지 않았습니다. 직접 고치기로 정해 주세요', 'Not reverted: this part also has your own edits made after the agent. Use Edit instead'))
     written = joinBlocks([...cur.slice(0, h.c0), ...base.slice(h.b0, h.b1), ...cur.slice(h.c1)])
     writeTarget(io, p.target, written, st.hash)
+    if (p.target.kind === 'note') {
+      try {
+        const wb = io.wbOf(p.target.rid)
+        const row = noteRow(io, p.target)
+        const now = new Date()
+        const excerpt = Array.from(h.current.replace(/\s+/g, ' ').trim()).slice(0, 60).join('')
+        wb.appendJournal({ date: localDate(now), time: localTime(now), kind: 'status', target: row.type === 'block' ? row.id : row.file, text: `에이전트 고침 되돌림 · ${agentsOf(p).join(', ') || '—'} · "${excerpt}…"` })
+      } catch (e) { console.error('[agent-edits] 되돌림 일지 기록 실패', e) }
+    }
   } else if (req.action === 'edit') {
     if (typeof req.text !== 'string') throw new WorkbenchError(400, t('text가 필요함', 'text is required'))
     // 고친 글이 뒤 문단과 붙지 않게 끝에 빈 줄 (마지막 조각이면 joinBlocks가 그대로 둔다)
@@ -397,13 +407,20 @@ export function decide(io: TargetIo, store: AgentEditStore, req: DecideRequest):
 }
 
 /** 목록: 검토를 기다리는 노트(바뀐 곳 수)와 확인된 노트 쓰기 시도. rid를 주면 그 프로젝트 노트만, 'library'면 개념노트만 */
-export function listEdits(io: TargetIo, store: AgentEditStore, scope?: string): { reviews: (Omit<ReviewView, 'hunks' | 'hash' | 'notes'> & { changes: number })[]; attempts: EditAttempt[] } {
+export function listEdits(io: TargetIo, store: AgentEditStore, scope?: string, readOnly = false): { reviews: (Omit<ReviewView, 'hunks' | 'hash' | 'notes'> & { changes: number })[]; attempts: EditAttempt[] } {
   const inScope = (t0: EditTarget) => !scope || (scope === 'library' ? t0.kind === 'concept' : t0.kind === 'note' && t0.rid === scope)
   const reviews: (Omit<ReviewView, 'hunks' | 'hash' | 'notes'> & { changes: number })[] = []
-  for (const p of store.read().pending.filter((x) => inScope(x.target))) {
+  for (const p of store.read(readOnly).pending.filter((x) => inScope(x.target))) {
     let v: ReviewView | null = null
-    try { v = reviewOf(io, store, p.key) } catch { continue }
+    try {
+      if (readOnly) {
+        const st = readTarget(io, p.target)
+        const base = carryUserEdits(p, st.text)?.base ?? p.base
+        const hunks = diffBlocks(splitBlocks(base), splitBlocks(st.text))
+        if (hunks.length) v = { key: p.key, target: p.target, title: st.title, since: p.since, updated: p.updated, agents: agentsOf(p), notes: p.notes, hash: st.hash, hunks }
+      } else v = reviewOf(io, store, p.key)
+    } catch { continue }
     if (v) reviews.push({ key: v.key, target: v.target, title: v.title, since: v.since, updated: v.updated, agents: v.agents, changes: v.hunks.length })
   }
-  return { reviews: reviews.sort((a, b) => a.since.localeCompare(b.since)), attempts: store.read().attempts.filter((a) => inScope(a.target)).sort((a, b) => a.at.localeCompare(b.at)) }
+  return { reviews: reviews.sort((a, b) => a.since.localeCompare(b.since)), attempts: store.read(readOnly).attempts.filter((a) => inScope(a.target)).sort((a, b) => a.at.localeCompare(b.at)) }
 }

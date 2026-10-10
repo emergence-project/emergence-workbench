@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import YAML from 'yaml'
 import { AgentEditStore, carryUserEdits, diffBlocks, joinBlocks, splitBlocks } from './agentEdits.js'
 import { buildApp } from './app.js'
@@ -204,6 +204,95 @@ describe('에이전트 고침 API', () => {
     expect((await app.inject({ method: 'GET', url: '/api/research-issues' })).json().edits[RID]).toBe(1)
   })
 
+  it.each(['accept', 'revert', 'edit'] as const)('에이전트 쓰기와 %s 결정 직후 STATUS가 바뀐다 (파일 감시 없이)', async (action) => {
+    const research = path.join(repo, 'workbench/research.yaml')
+    const original = fs.readFileSync(research, 'utf8')
+    fs.writeFileSync(research, `${original}\nagent-status: true\n`)
+    try {
+      const file = `workbench/notes/status-${action}/note.md`
+      fs.mkdirSync(path.dirname(path.join(repo, file)), { recursive: true })
+      fs.writeFileSync(path.join(repo, file), '# Status\n\nBefore.\n')
+      const target = { kind: 'note', rid: RID, file }
+      const res = await write({ target, baseHash: hashOfFile(file), edits: [{ old: 'Before.', new: 'After.' }], agent: 'codex' })
+      expect(res.statusCode).toBe(200)
+      const statusFile = path.join(repo, 'workbench/STATUS.md')
+      const before = fs.readFileSync(statusFile, 'utf8')
+      expect(before).toContain(`**status-${action}** — \`${file}\` · 바뀐 곳 1 · 에이전트 codex`)
+      const preview = (await app.inject({ method: 'GET', url: `/api/researches/${RID}/agent-status` })).json().markdown
+      expect(preview).toContain(`**status-${action}** — \`${file}\` · 바뀐 곳 1`)
+      const r = await review(res.json().key)
+      const changed = await decideOn({ key: r.key, hash: r.hash, hunk: r.hunks[0].id, action, ...(action === 'edit' ? { text: 'User.' } : {}) })
+      expect(changed.statusCode).toBe(200)
+      const after = fs.readFileSync(statusFile, 'utf8')
+      expect(after).not.toContain(`**status-${action}** — \`${file}\` · 바뀐 곳`)
+      expect(hashOfFile(file)).toBe(hashOf(action === 'accept' ? '# Status\n\nAfter.\n' : action === 'revert' ? '# Status\n\nBefore.\n' : '# Status\n\nUser.\n'))
+      if (action === 'revert') expect(after).toContain('에이전트 고침 되돌림 · codex · "After.…"')
+    } finally { fs.writeFileSync(research, original) }
+  })
+
+  it('허락 거절·시도 지우기도 STATUS에 즉시 반영하고 꺼진 프로젝트는 쓰지 않는다', async () => {
+    const research = path.join(repo, 'workbench/research.yaml')
+    const original = fs.readFileSync(research, 'utf8')
+    const statusFile = path.join(repo, 'workbench/STATUS.md')
+    const target = { kind: 'note', rid: RID, file: 'workbench/notes/solved/note.md' }
+    fs.rmSync(statusFile, { force: true })
+    const payload = { target, baseHash: hashOfFile(target.file), edits: [{ old: 'Kept.', new: 'Changed.' }], agent: 'codex' }
+    expect((await write(payload)).statusCode).toBe(428)
+    expect(fs.existsSync(statusFile)).toBe(false)
+    fs.writeFileSync(research, `${original}\nagent-status: true\n`)
+    try {
+      expect((await write(payload)).statusCode).toBe(428)
+      expect(fs.readFileSync(statusFile, 'utf8')).toContain('- 허락 대기: **solved**')
+      expect((await app.inject({ method: 'DELETE', url: `/api/agent-edits/attempts?key=${encodeURIComponent(`note:${RID}:${target.file}`)}` })).statusCode).toBe(200)
+      expect(fs.readFileSync(statusFile, 'utf8')).not.toContain('- 허락 대기: **solved**')
+    } finally { fs.writeFileSync(research, original) }
+  })
+
+  it('노트·블록 노트 되돌림은 같은 일지 형식으로, 개념노트는 일지 없이 남긴다', async () => {
+    const blockFile = 'workbench/blocks/revert-log.md'
+    fs.writeFileSync(path.join(repo, blockFile), '---\nid: revert-log\ntitle: 되돌림\n---\n\nOriginal.\n')
+    const targets = [
+      { kind: 'note' as const, rid: RID, file: noteFile },
+      { kind: 'note' as const, rid: RID, file: blockFile },
+      { kind: 'concept' as const, id: 'revert-log' },
+    ]
+    concept('revert-log', { title: 'Revert' }, '# Revert\n\nOriginal.\n')
+    const wb = new Workbench(path.join(repo, 'workbench'))
+    const excerpt = '가'.repeat(70)
+    for (const target of targets) {
+      const before = wb.recentJournal(365).filter((e) => e.text.startsWith('에이전트 고침 되돌림')).length
+      const res = await write({ target, baseHash: target.kind === 'note' ? hashOfFile(target.file) : await conceptHash(target.id), edits: [{ old: target.kind === 'note' && target.file === noteFile ? 'Alpha.' : 'Original.', new: excerpt }], agent: 'codex' })
+      expect(res.statusCode).toBe(200)
+      let r = await review(res.json().key)
+      await write({ target, baseHash: r.hash, edits: [{ old: excerpt, new: excerpt + '\nline two' }], agent: 'claude-code' })
+      r = await review(res.json().key)
+      const done = await decideOn({ key: r.key, hash: r.hash, hunk: r.hunks[0].id, action: 'revert' })
+      expect(done.statusCode).toBe(200)
+      const entries = wb.recentJournal(365).filter((e) => e.text.startsWith('에이전트 고침 되돌림'))
+      expect(entries.length).toBe(before + (target.kind === 'note' ? 1 : 0))
+      if (target.kind === 'note') {
+        expect(entries[0]).toMatchObject({ kind: 'status', target: target.file === blockFile ? 'revert-log' : noteFile, text: `에이전트 고침 되돌림 · codex, claude-code · "${'가'.repeat(60)}…"` })
+      }
+    }
+  })
+
+  it('일지 쓰기 실패가 되돌림 성공을 취소하지 않는다', async () => {
+    const file = 'workbench/notes/log-failure/note.md'
+    fs.mkdirSync(path.dirname(path.join(repo, file)), { recursive: true })
+    fs.writeFileSync(path.join(repo, file), '# Failure\n\nOriginal.\n')
+    const res = await write({ target: { kind: 'note', rid: RID, file }, baseHash: hashOfFile(file), edits: [{ old: 'Original.', new: 'Changed.' }] })
+    const r = await review(res.json().key)
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const append = vi.spyOn(Workbench.prototype, 'appendJournal').mockImplementation(() => { throw new Error('journal unavailable') })
+    try {
+      const done = await decideOn({ key: r.key, hash: r.hash, hunk: r.hunks[0].id, action: 'revert' })
+      expect(done.statusCode).toBe(200)
+      expect(done.json().review).toBeNull()
+      expect(fs.readFileSync(path.join(repo, file), 'utf8')).toContain('Original.')
+      expect(log).toHaveBeenCalledWith('[agent-edits] 되돌림 일지 기록 실패', expect.any(Error))
+    } finally { append.mockRestore(); log.mockRestore() }
+  })
+
   it('잠긴 노트 · 원고 · 맞지 않는 old는 거절한다', async () => {
     expect((await write({ target: { kind: 'concept', id: 'locked' }, baseHash: 'x', edits: [{ old: 'Text.', new: 'Y' }] })).statusCode).toBe(423)
     expect((await write({ target: { kind: 'note', rid: RID, file: 'src/main.tex' }, baseHash: 'x', edits: [{ old: 'a', new: 'b' }] })).statusCode).toBe(404)
@@ -216,3 +305,4 @@ describe('에이전트 고침 API', () => {
 })
 
 import { hashOf } from './fsutil.js'
+import { Workbench } from './workbench.js'

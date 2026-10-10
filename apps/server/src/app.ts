@@ -7,7 +7,7 @@ import type { UpdateSteps } from './appupdate.js'
 import type { AskRunner } from './ask.js'
 import { asLang, currentLang, setDefaultLang, t, withLang } from './i18n.js'
 import { Registry } from './registry.js'
-import { writeStatus } from './agentStatus.js'
+import { readStatusEdits, writeStatus } from './agentStatus.js'
 import { watchWorkbench, type WorkbenchEvent } from './watcher.js'
 import { watchLibrary } from './libraryWatch.js'
 import { Workbench, ConflictError, WorkbenchError } from './workbench.js'
@@ -180,7 +180,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
     clearTimeout(statusTimers.get(rid))
     statusTimers.set(rid, setTimeout(() => {
       statusTimers.delete(rid)
-      try { const wb = registry.get(rid); if (wb.readResearch().agentStatus) writeStatus(wb) } catch { /* 다음 변경 때 다시 */ }
+      try { const wb = registry.get(rid); if (wb.readResearch().agentStatus) writeStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, rid, registry.libraryPath)) } catch { /* 다음 변경 때 다시 */ }
     }, 1500))
   }
   app.addHook('onClose', async () => { for (const t of statusTimers.values()) clearTimeout(t) })

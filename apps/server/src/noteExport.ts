@@ -69,7 +69,7 @@ function exportBody(m: ExportSource, text: string, files: string[], dir: string,
   }
   let assets = 'note-assets'
   for (let n = 2; files.some((f) => overlaps(f, assets)); n++) assets = `note-assets-${n}`
-  // 보조 노트의 기존 graphicspath 순서. 같은 상대 이름이 여러 곳에 있으면 먼저 찾던 것을 쓴다.
+  // 블록 노트의 기존 graphicspath 순서. 같은 상대 이름이 여러 곳에 있으면 먼저 찾던 것을 쓴다.
   const dirs = m.block ? [m.block.figuresDir, m.block.blocksDir, m.block.root] : [dir]
   for (const local of dirs) for (const ref of markdownAssets(text, local, !!m.block)) {
     if (!figures.files.some((f) => overlaps(ref, f.name))) continue
@@ -146,7 +146,7 @@ export function exportNotes(wb: Workbench, keys: string[], latex: ExportLatex): 
   return exportSources(wb, picked, latex)
 }
 
-/** 보조 노트도 같은 서식·저자·날짜와 zip 묶기를 쓴다. 원문과 기록 파일은 읽기만 한다. */
+/** 블록 노트도 같은 서식·저자·날짜와 zip 묶기를 쓴다. 원문과 기록 파일은 읽기만 한다. */
 export function exportBlock(wb: Workbench, id: string, latex: ExportLatex): ExportedNotes {
   const { content } = wb.readBlock(id)
   const name = parseBlock(content).meta.title || id

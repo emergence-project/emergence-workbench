@@ -2,6 +2,7 @@
 // 앱·서버 없이 돈다(클라우드 에이전트용). 아무것도 쓰지 않는다.
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { tsxApi } from './ci/tsx-api.mjs'
 
 const arg = process.argv[2]
@@ -19,5 +20,7 @@ if (!fs.existsSync(path.join(root, 'research.yaml'))) {
 const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
 const { Workbench } = await tsImport('../apps/server/src/workbench.ts', opts)
-const { generateStatus } = await tsImport('../apps/server/src/agentStatus.ts', opts)
-process.stdout.write(generateStatus(new Workbench(root)))
+const { generateStatus, readStatusEdits } = await tsImport('../apps/server/src/agentStatus.ts', opts)
+const wb = new Workbench(root)
+const configDir = process.env.RW_CONFIG_DIR ?? path.join(os.homedir(), '.config/research-workspace')
+process.stdout.write(generateStatus(wb, new Date(), fs.existsSync(configDir) ? readStatusEdits(wb, configDir) : undefined))

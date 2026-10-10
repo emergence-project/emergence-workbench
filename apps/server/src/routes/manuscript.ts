@@ -126,7 +126,7 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
     noteTemplate: projectTemplate(wbOf(req.params.rid), 'note'),
     templates: registry.latexTemplates.map((t) => ({ id: t.id, name: t.name, kind: t.kind })),
   }))
-  /** 노트 내보내기: ms(메인 노트 key) 하나 또는 여럿, 또는 block(보조 노트 id) 하나를 LaTeX 폴더 zip으로. 여럿이면 main.tex 하나로 모은다 */
+  /** 노트 내보내기: ms(메인 노트 key) 하나 또는 여럿, 또는 block(블록 노트 id) 하나를 LaTeX 폴더 zip으로. 여럿이면 main.tex 하나로 모은다 */
   // 내보내기 상자에서 고른 것 (10/4 반려 "옵션으로 선택하게하자. 1. 디자인 템플릿, 2. 저자 포함 여부, 3. 날짜"): 위의 latexPick.
   // au가 없으면 원고는 설정의 저자 목록 차례 그대로·노트는 저자 없이, date가 없으면 원고는 today, 노트는 none
   app.get<{ Params: { rid: string }; Querystring: { ms?: string | string[]; block?: string } & Pick }>('/api/researches/:rid/export', async (req, reply) => {
