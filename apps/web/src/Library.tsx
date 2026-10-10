@@ -186,18 +186,15 @@ export function LibraryPage({ info, topic, rightOpen = true, onChanged, onSaved 
   const topics = data?.topics ?? []
   // 주소의 topic은 주제 key, 또는 개념노트 id (사이드바는 색인에서 id로 연다)
   const sel = topic ? topics.find((t) => t.key === topic) ?? topics.find((t) => t.concept?.id === topic) : undefined
-  const [bar, setBar] = useState<HTMLDivElement | null>(null)
-  const conceptOpen = sel?.concept?.format === 'md'
 
   if (!info?.path) return <NoLibrary />
   if (!topic) return <KnowledgeHome info={info} rightOpen={rightOpen} onChanged={onChanged} onSaved={onSaved} />
   return (
     <main className="kn-page" data-ui="지식">
-      {conceptOpen && <div className="cn-toolbar-host" data-ui="지식 머리줄"><div className="kn-bar-slot" ref={setBar} /></div>}
       {error && <div className="banner danger">{t('개념노트 목록을 읽지 못했습니다', 'Could not read the concept note list')}: {error}</div>}
       <section className="lib-view" data-ui="지식 보기">
         {!sel ? <div className="ws-empty">{data ? t('이 개념노트를 찾지 못했습니다. 왼쪽 목록에서 고르세요.', 'Concept note not found. Pick one from the list on the left.') : t('읽는 중…', 'Loading…')}</div>
-          : sel.concept?.format === 'md' ? <ConceptNoteView key={sel.concept.id} id={sel.concept.id} info={info} bar={bar} tocOwner={`knowledge/${sel.concept.id}`} onChanged={onChanged} onSaved={onSaved} />
+          : sel.concept?.format === 'md' ? <ConceptNoteView key={sel.concept.id} id={sel.concept.id} info={info} tocOwner={`knowledge/${sel.concept.id}`} onChanged={onChanged} onSaved={onSaved} />
           : sel.concept ? <LibraryNoteEditor key={sel.concept.id} kind="concept" id={sel.concept.id} info={info} onChanged={onChanged} onSaved={onSaved} />
           : sel.study ? <ReadOnlyMd key={sel.key} load={() => api.studyNote(sel.study!.path)} path={t(`Study: ${sel.study.path} · 아직 옮기지 않음 (읽기만)`, `Study: ${sel.study.path} · Not moved yet (read only)`)} onClick={(e) => followLink(e, topics)} />
           : sel.review ? <ReadOnlyMd key={sel.key} load={() => knowledgeApi.review(sel.review!.path)} path={t(`Topic Review (Emergence, 읽기만): ${sel.review.path}`, `Topic Review (Emergence, read only): ${sel.review.path}`)} onClick={(e) => followLink(e, topics)} />

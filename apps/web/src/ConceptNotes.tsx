@@ -1,7 +1,6 @@
 import { SubjectPicker, useSubjects, SUBJECTS_CHANGED } from './SubjectPicker'
 import { subjectsApi, type SubjectCount } from './api/subjects'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, conceptsApi, knowledgeApi, topicKey, type ConceptMd, type ConceptMemo, type ConceptRow, type ConceptSources, type ConceptUse, type KnowledgeInfo, type KnowledgeTopic, type LibraryInfo } from './api'
 import { useConceptMacros } from './conceptMacros'
 import { useFigureUrl } from './figureEmbed'
@@ -13,8 +12,9 @@ import { anchoredById, anchoredUnit, appendUnit, memoUnits, replaceUnit, unitSou
 import { clearConceptCompose, loadConceptMemo, revealConceptMemo, saveConceptMemo, useConceptMemo } from './conceptMemoStore'
 import { ConceptRecords } from './ConceptRecords'
 import { askConfirm } from './askText'
-import { useSaveGuard } from './autosave'
-import { conceptReadResult } from './conceptRead'
+import { onOutside } from './autosave'
+import { useNoteEdit } from './noteEdit'
+import { NoteScreen } from './NoteScreenFrame'
 import { showKnowledgeList } from './knowledgeListState'
 import { subjectTree, type SubjNode } from './knowledgeSubjects'
 import { isListRoute } from './router'
@@ -196,17 +196,17 @@ function dropTitle(body: string, title: string): string {
 }
 
 /**
- * 개념노트 하나 읽기. 머리: 확인함 · 잠금. 제목 아래: 다른 이름 · 분류 · 쓰는 곳 · 미완성인 이유.
- * rid를 주면 (프로젝트 탭) 그 프로젝트 전체를 이 개념에 잇거나 끊을 수 있다.
+ * 개념노트 하나 읽기 · 고치기 (노트 화면 틀, 10/10): 연구노트와 같은 툴바 · 저장 흐름을 쓴다.
+ * 툴바 왼쪽: 확인함 · 잠김. 오른쪽: 저장 상태 · 연필 · ⋯. 고치는 동안 저절로 저장하고 "편집 완료"(Esc)로 마친다.
+ * 잠긴 노트에서 연필을 누르면 고치는 동안만 잠금을 풀고, 편집 완료 때 다시 잠근다. 잠그기는 문서 정보의 체크.
+ * 제목 아래: 다른 이름 · 분류 · 쓰는 곳 · 미완성인 이유.
+ * rid를 주면 (프로젝트 탭) 그 프로젝트 전체를 이 개념에 잇거나 끊을 수 있고, 본문의 [[링크]]도 프로젝트 탭으로 연다.
  */
-export function ConceptNoteView({ id, info, rid, project, side = 'inline', bar, viewSwitch, tocOwner = null, onChanged, onSaved }: {
+export function ConceptNoteView({ id, info, rid, project, side = 'inline', tocOwner = null, onChanged, onSaved }: {
   id: string; info: LibraryInfo | null; rid?: string; project?: string
   /** 메모·연결을 어디에: 노트 오른쪽 칸(inline), 또는 앱의 맥락 칸이 보여 줌(external, 프로젝트 탭) */
   side?: 'inline' | 'external'
-  /** 지식 화면의 노트 도구 줄 자리와 읽기 보기 고르기. */
-  bar?: HTMLElement | null
-  viewSwitch?: ReactNode
-  /** 프로젝트 탭에서 이 노트가 지금 칸에 보이면 그 탭 key: 절(##)을 왼쪽 사이드바 맨 아래 목차에 알린다 (10/7 15:54) */
+  /** 이 노트가 지금 칸에 보이면 그 탭 key: 절(##)을 왼쪽 사이드바 맨 아래 목차에 알린다 (10/7 15:54) */
   tocOwner?: string | null
   onChanged(): void; onSaved(msg: string): void
 }) {
@@ -214,84 +214,100 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', bar, 
   const scroller = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // Keep the body and base hash from the same read throughout this edit session.
-  const [editing, setEditing] = useState<ConceptMd | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const draft = useMemo(() => ({
-    text: '', saved: '', writing: null as Promise<void> | null,
-    get pending() { return this.text !== this.saved || this.writing !== null },
-    async flush() { if (this.writing) await this.writing; return !this.pending },
-  }), [])
-  useSaveGuard(draft)
-  const [localBar, setLocalBar] = useState<HTMLDivElement | null>(null)
+  /** 고치기를 연 때의 본문 (편집기의 처음 글) */
+  const [initial, setInitial] = useState('')
+  /** 잠긴 노트를 고치려고 잠시 풀었다: 편집 완료 때 다시 잠근다 */
+  const relock = useRef(false)
+  /** 저장이 끝날 때마다 하나씩: 저장 전에 시작한 읽기는 바깥 변경으로 보지 않는다 */
+  const writes = useRef(0)
+  const edit = useNoteEdit(`concept/${id}`, {
+    write: async (body, hash) => {
+      const next = await conceptsApi.save(id, body, hash)
+      writes.current++
+      setNote(next)
+      return next.hash
+    },
+  })
+  const { saver, state: save, editing, notice, setNotice } = edit
   useNoteSections(scroller, editing ? null : tocOwner, note?.body ?? '', '.cn-body .ob-md h2, .cn-body .ob-md h3')
   const render = useConceptRender()
   const { data } = useKnowledge(info)
   const [srcs, setSrcs] = useState<ConceptSources | null>(null)
-  // 늦게 온 읽기는 버린다. 고치는 중이면 바깥 변경·읽기 실패로 편집기를 내리지 않고 툴바에 알린다 (고친 글이 사라지지 않게)
+  /** 화면이 가진 노트를 바꾼다 (읽기 · 머리말 고치기). 고치는 중이 아니면 저장기도 그 글로 */
+  const adopt = useCallback((n: ConceptMd) => { setNote(n); setError(null); if (saver.state === 'saved' && !saver.pending) saver.load(n.body, n.hash) }, [saver])
+  // 늦게 온 읽기는 버린다. 고치는 중에 바깥에서 바뀌면 편집기를 내리지 않고 저장을 멈춘다 (고친 글이 사라지지 않게)
   const reads = useRef(0)
   const editingRef = useRef(editing)
   editingRef.current = editing
   const reload = useCallback(() => {
     const n0 = ++reads.current
+    const w0 = writes.current
     conceptsApi.sources(id).then((s) => { if (n0 === reads.current) setSrcs(s) }).catch(() => { if (n0 === reads.current) setSrcs(null) })
-    const apply = (read: { hash: string } | Error, n?: ConceptMd) => {
+    return conceptsApi.read(id).then((n) => {
       if (n0 !== reads.current) return
-      const r = conceptReadResult(editingRef.current, !!draft.writing, read)
-      if (n) { setNote(n); setError(null) }
-      if (r.notice) setSaveError(r.notice)
-      if (r.error) setError(r.error)
-    }
-    return conceptsApi.read(id).then((n) => apply(n, n), (e: Error) => apply(e))
-  }, [id, draft])
+      // 읽는 사이 이 화면이 저장했거나 저장하는 중이면 그 저장의 결과가 더 새것이다 (저장이 끝나면 라이브러리 알림으로 다시 읽는다)
+      if (w0 !== writes.current || saver.state === 'saving') return
+      onOutside(saver, n.hash, {
+        gone: () => undefined,
+        reload: () => { if (editingRef.current) saver.conflict(); else adopt(n) },
+      })
+    }, (e: Error) => {
+      if (n0 !== reads.current) return
+      if (editingRef.current) setNotice(t(`이 노트를 다시 읽지 못했습니다. 바깥에서 지웠거나 옮겼을 수 있습니다. 고친 글을 복사해 두세요. (${e.message})`, `Could not read this note again. It may have been deleted or moved outside the app. Copy your edits. (${e.message})`))
+      else setError(e.message)
+    })
+  }, [id, saver, adopt, setNotice])
   // 본문 인용 [@키]는 [1]로: 그 노트에서 처음 나온 순서 (서버가 본문 인용 → 머리말 sources 순으로 준다)
   const options = useMemo<RenderOptions>(() => ({ ...render, cite: (k: string) => { const i = srcs?.sources.findIndex((x) => x.key === k) ?? -1; return i >= 0 ? String(i + 1) : '?' },
     citeTitle: (k: string) => { const e = srcs?.sources.find((x) => x.key === k); return e && !e.missing ? `${citeLabel(e)} · ${e.title ?? k}` : t(`${k} (references.bib에 없음)`, `${k} (not in references.bib)`) } }), [render, srcs])
   // 라이브러리가 바뀌면(info) 다시 읽는다 — 바깥(에이전트·다른 편집기)에서 고친 것도 보이게
   useEffect(() => { void reload() }, [reload, info])
 
-  const lock = async (on: boolean) => {
-    if (!note) return
+  const setLocked = async (on: boolean, n = note): Promise<ConceptMd | null> => {
+    if (!n) return null
     setBusy(true)
     try {
-      setNote(await conceptsApi.setLocked(id, on, note.hash)); onChanged()
-      onSaved(on ? t('고치기를 잠갔습니다', 'Editing locked') : t('잠금을 풀었습니다', 'Unlocked'))
-    } catch (e) { onSaved((e as Error).message); void reload() } finally { setBusy(false) }
+      const next = await conceptsApi.setLocked(id, on, n.hash)
+      adopt(next); onChanged()
+      return next
+    } catch (e) { onSaved((e as Error).message); void reload(); return null } finally { setBusy(false) }
+  }
+  const lock = async (on: boolean) => {
+    if (await setLocked(on)) onSaved(on ? t('고치기를 잠갔습니다', 'Editing locked') : t('잠금을 풀었습니다', 'Unlocked'))
   }
   const review = async (choice: ReviewChoice) => {
     if (!note) return
     setBusy(true)
     try {
-      setNote(await conceptsApi.setReview(id, choice, note.hash)); onChanged()
+      adopt(await conceptsApi.setReview(id, choice, note.hash)); onChanged()
       onSaved(choice === 'ok' ? t('확인함으로 표시했습니다', 'Marked as reviewed') : choice === 'todo' ? t('확인 전으로 표시했습니다', 'Marked as not reviewed') : t('확인 표시를 뺐습니다', 'Review mark removed'))
     } catch (e) { onSaved((e as Error).message); void reload() } finally { setBusy(false) }
   }
-  const save = (body: string) => {
-    if (!editing || busy || draft.writing) return
-    draft.text = body
-    setBusy(true)
-    setSaveError(null)
-    draft.writing = (async () => {
-      try {
-        const next = await conceptsApi.save(id, body, editing.hash)
-        setNote(next)
-        draft.saved = body
-        // Keep newer input and use the returned hash for the next explicit save.
-        if (draft.text === body) setEditing(null)
-        else setEditing({ ...next, body })
-        onChanged(); onSaved(t('저장했습니다', 'Saved'))
-      } catch (e) { setSaveError((e as Error).message); onSaved((e as Error).message) }
-      finally { draft.writing = null; setBusy(false) }
-    })()
-  }
-  const cancel = (dirty: boolean) => { if (busy) return; void (async () => {
-    if (!dirty || await askConfirm({ title: t('고친 내용을 버릴까요?', 'Discard your edits?'), hint: t('저장하지 않은 고침이 사라집니다.', 'Unsaved edits will be lost.'), ok: t('버리기', 'Discard') })) {
-      draft.text = draft.saved = ''; setEditing(null)
+  const startEdit = async () => {
+    if (!note || busy) return
+    let n: ConceptMd | null = note
+    if (note.meta.locked) {
+      n = await setLocked(false)
+      if (!n) return
+      relock.current = true
+      onSaved(t('고치는 동안 잠금을 풀었습니다. 편집 완료 때 다시 잠급니다', 'Unlocked while you edit. It locks again when you click Done'))
     }
-  })() }
-  // 다른 노트로 가면 고치기를 끝낸다
-  useEffect(() => { draft.text = draft.saved = ''; setEditing(null); setSaveError(null) }, [id, draft])
-  /** 본문의 [[링크]]를 누르면 그 개념으로, [@인용]을 누르면 출처로 */
+    saver.load(n.body, n.hash)
+    setInitial(n.body)
+    edit.start(n.meta.title, true)
+  }
+  const finish = () => edit.finish(async () => {
+    onChanged()
+    if (!relock.current) return
+    relock.current = false
+    // 저장 결과가 화면에 오기 전일 수 있어 지금 파일의 hash로 잠근다
+    const n = await conceptsApi.read(id).catch(() => null)
+    if (n && await setLocked(true, n)) onSaved(t('다시 잠갔습니다', 'Locked again'))
+  })
+  const discardAndReload = () => { edit.setEditing(false); relock.current = false; void conceptsApi.read(id).then((n) => { saver.load(n.body, n.hash); adopt(n); setNotice(t('파일을 다시 읽었습니다. 이 화면에서 저장하지 않은 고침은 버렸습니다.', 'Reloaded the file. Unsaved edits on this screen were discarded.')) }, (e: Error) => setNotice(e.message)) }
+  // 다른 노트로 가면 고치기를 끝낸다 (고치던 것은 저장기가 내려가며 저장한다)
+  useEffect(() => { edit.setEditing(false); relock.current = false; setNotice(null) }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** 본문의 [[링크]]를 누르면 그 개념으로(프로젝트 탭이면 프로젝트 안에서), [@인용]을 누르면 출처로 */
   const follow = (e: React.MouseEvent) => {
     // [1]을 누르면 아래 출처 목록의 그 줄로 (10/4 사용자: 출처로 간 뒤 거기서 논문을 연다)
     const cite = (e.target as HTMLElement).closest('.ob-cite')?.getAttribute('data-keys')?.split(' ')[0]
@@ -305,9 +321,9 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', bar, 
     }
     const target = (e.target as HTMLElement).closest('.ob-link')?.getAttribute('title')?.replace(/#.*$/, '').split('/').pop()
     if (!target) return
-    // 개념노트는 색인에서 찾고, 없으면 아직 옮기지 않은 Study 노트에서
+    // 개념노트는 색인에서 찾고, 없으면 아직 옮기지 않은 Study 노트에서 (Study 노트는 지식 화면에만 있다)
     void conceptsApi.resolve(target).then((r) => {
-      if (r) return go({ page: 'library', topic: r.id })
+      if (r) return go(rid ? { page: 'concept', rid, id: r.id } : { page: 'library', topic: r.id })
       const k = topicKey(target)
       const hit = data?.topics.find((t) => t.names.includes(k))
       if (hit) go({ page: 'library', topic: hit.key })
@@ -319,45 +335,41 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', bar, 
   const m = note.meta
   const setSubjects = async (ids: string[]) => {
     setBusy(true)
-    try { setNote(await subjectsApi.concept(id, ids, note.hash)); onChanged(); onSaved(t('분류를 고쳤습니다', 'Subjects updated')) }
+    try { adopt(await subjectsApi.concept(id, ids, note.hash)); onChanged(); onSaved(t('분류를 고쳤습니다', 'Subjects updated')) }
     catch (e) { await reload(); throw e } finally { setBusy(false) }
   }
-  const doc = { note, onSubjects: setSubjects, busy: busy || !!editing, onReview: (c: ReviewChoice) => void review(c) }
+  const doc: DocState = { note, onSubjects: setSubjects, busy: busy || editing, onReview: (c: ReviewChoice) => void review(c), onLock: (on: boolean) => void lock(on) }
   const confirmation = <span className="cn-confirm" title={note.checked === 'changed' ? t('확인 뒤 고침 — 본문을 다시 확인해 주세요', 'Edited after review. Please review the text again') : undefined}><span aria-hidden="true">{note.checked === 'ok' ? '✓' : '○'}</span>{note.checked === 'ok' ? t('확인함', 'Reviewed') : t('확인 전', 'Not reviewed')}</span>
-  const toolbar = (
-    <div className="cn-toolbar" data-ui="머리줄">
-      <div className="cn-toolbar-left">{confirmation}</div>
-      <div className="cn-toolbar-view">{viewSwitch}</div>
-      <div className="cn-toolbar-right">
-        <button className="btn" disabled={busy} data-ui="고치기 잠금" title={m.locked ? t('잠금을 풀면 다시 고칠 수 있습니다', 'Unlock to edit again') : t('잠그면 앱과 에이전트가 이 노트를 고치지 않습니다', 'When locked, the app and agents do not edit this note')} onClick={() => void lock(!m.locked)}>{m.locked ? t('잠금 풀기', 'Unlock') : t('잠그기', 'Lock')}</button>
-        <button className="btn btn-icon" disabled={busy || m.locked} data-ui="고치기" aria-label={t('고치기', 'Edit')} title={m.locked ? t('잠긴 노트입니다. 잠금을 풀어야 고칠 수 있습니다', 'This note is locked. Unlock it to edit') : t('고치기 — 본문 (머리말은 그대로)', 'Edit the body (front matter stays)')} onClick={() => { draft.text = draft.saved = note.body; setSaveError(null); setEditing(note) }}>{Icon.pencil}</button>
-      </div>
-    </div>
-  )
+  const status = <>{confirmation}{m.locked && <span className="tag" title={t('잠긴 노트는 앱과 에이전트가 고치지 않습니다. 연필을 누르면 고치는 동안만 풀립니다', 'The app and agents do not edit locked notes. The pencil unlocks it while you edit')}>{t('잠김', 'Locked')}</span>}</>
   const shownBody = dropTitle(note.body, m.title)
   return (
-    <div className="ws-doc cn-doc" data-ui="개념노트">
-      <section className="pane">
-        {!bar && <div className="cn-toolbar-host" ref={setLocalBar} />}
-        {!editing && (bar || localBar) && createPortal(toolbar, (bar || localBar)!)}
-        <div ref={scroller} className={`scroll kn-read${editing ? ' cn-editing' : ''}${tocOwner ? ' cn-toc-scroll' : ''}`} onClick={editing ? undefined : follow}>
-          <div className={`cn-layout${side === 'inline' ? ' with-side' : ''}`}>
-          {/* 고른 글 하이라이트 · 메모는 읽기와 고치기 모두에서 (기록은 concepts/<id>.memo.md, 10/8 11:47) */}
-          {editing ? <ConceptRecords id={id} source={editing.body} contentOffset={0}><ConceptEditor initial={editing.body} options={options} saving={busy} onChange={(body) => { draft.text = body }} onSave={save} onCancel={cancel}
-            toolbar={{ target: bar || localBar, start: <><span className="cn-toolbar-title" title={m.title}>{m.title}</span>{confirmation}</>, error: saveError }} /></ConceptRecords> : <div className="page-body cn-body">
-            <header className="cn-head">
-            <h1 className="h-title">{m.title}</h1>
-            {/* 프로젝트 탭에서는 오른쪽 칸이 앱의 맥락 칸이라 문서 정보를 제목 아래에 둔다 */}
-            {side === 'external' && <ConceptDocInfo id={id} doc={doc} compact />}
-            </header>
-            <ConceptRecords id={id} source={note.body} contentOffset={note.body.length - shownBody.length}><ObsidianMarkdown text={shownBody} options={options} /></ConceptRecords>
-            <ConceptSourcesList srcs={srcs} />
-          </div>}
-          {side === 'inline' && <aside className="cn-side-col" data-ui="오른쪽 사이드바"><ConceptSidePanel id={id} info={info} rid={rid} project={project} doc={doc} onChanged={onChanged} onSaved={onSaved} /></aside>}
-          </div>
+    <NoteScreen ui="개념노트" className="cn-doc" notice={notice} onCloseNotice={() => setNotice(null)}
+      toolbar={{
+        ui: '머리줄',
+        title: <span className="cn-toolbar-title" title={m.title}>{m.title}</span>,
+        status, save, editing,
+        saveAction: edit.saveAction(discardAndReload),
+        view: edit.view, onView: edit.setView,
+        onEdit: () => void startEdit(), editDisabled: busy || save === 'conflict', onDone: () => void finish(),
+        menu: [{ label: t('파일 다시 읽기', 'Reload file'), ui: '파일 다시 읽기', tip: t('파일을 다시 읽습니다. 이 화면에서 저장하지 않은 고침은 버립니다', 'Reads the file again. Unsaved edits on this screen are discarded'), onClick: discardAndReload }],
+      }}>
+      <div ref={scroller} className={`scroll kn-read${editing ? ' cn-editing' : ''}${tocOwner ? ' cn-toc-scroll' : ''}`} onClick={editing ? undefined : follow}>
+        <div className={`cn-layout${side === 'inline' ? ' with-side' : ''}`}>
+        {/* 고른 글 하이라이트 · 메모는 읽기와 고치기 모두에서 (기록은 concepts/<id>.memo.md, 10/8 11:47) */}
+        {editing ? <ConceptRecords id={id} source={initial} contentOffset={0}><ConceptEditor initial={initial} options={options} saving={save === 'saving'} editView={edit.view}
+            onChange={(body) => saver.edit(body)} onSave={(body) => { saver.edit(body); void finish() }} onCancel={() => void finish()} /></ConceptRecords> : <div className="page-body cn-body">
+          <header className="cn-head">
+          <h1 className="h-title">{m.title}</h1>
+          {/* 프로젝트 탭에서는 오른쪽 칸이 앱의 맥락 칸이라 문서 정보를 제목 아래에 둔다 */}
+          {side === 'external' && <ConceptDocInfo id={id} doc={doc} compact />}
+          </header>
+          <ConceptRecords id={id} source={note.body} contentOffset={note.body.length - shownBody.length}><ObsidianMarkdown text={shownBody} options={options} /></ConceptRecords>
+          <ConceptSourcesList srcs={srcs} />
+        </div>}
+        {side === 'inline' && <aside className="cn-side-col" data-ui="오른쪽 사이드바"><ConceptSidePanel id={id} info={info} rid={rid} project={project} doc={doc} onChanged={onChanged} onSaved={onSaved} /></aside>}
         </div>
-      </section>
-    </div>
+      </div>
+    </NoteScreen>
   )
 }
 
@@ -366,7 +378,7 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', bar, 
  * 사용자 확인(확인 전·확인함), 상태(미완성·잠김), 미완성인 까닭, 분류, 다른 이름, 파일.
  */
 type ReviewChoice = 'none' | 'todo' | 'ok'
-interface DocState { onSubjects(ids: string[]): Promise<void>; note: ConceptMd; busy: boolean; onReview(c: ReviewChoice): void }
+interface DocState { onSubjects(ids: string[]): Promise<void>; note: ConceptMd; busy: boolean; onReview(c: ReviewChoice): void; onLock(on: boolean): void }
 const REVIEW: { v: ReviewChoice; label: string; title: string }[] = [
   { v: 'none', label: t('확인 전', 'Not reviewed'), title: t('확인 표시를 뺍니다', 'Removes the review mark') },
   { v: 'ok', label: t('✓ 확인함', '✓ Reviewed'), title: t('내용을 읽고 맞다고 확인했을 때. 본문이 바뀌면 "확인 뒤 고침"으로 바뀝니다', 'When you have read and confirmed the content. If the text changes, it becomes "Edited after review"') },
@@ -379,7 +391,6 @@ function ConceptDocInfo({ id, doc, compact }: { id: string; doc: DocState; compa
   const cur: ReviewChoice = note.checked === 'ok' ? 'ok' : 'none'
   const states = [
     note.unfinished.length > 0 && <span key="un" className="cn-state" title={t('빈 절, TODO 표시, 제목·틀뿐인 노트를 앱이 찾아 붙입니다', 'The app adds this for empty sections, TODO marks, and notes with only a title or outline')}>{t('미완성', 'Unfinished')}</span>,
-    m.locked && <span key="lk" className="cn-state" title={t('잠긴 노트는 앱과 에이전트가 고치지 않습니다', 'The app and agents do not edit locked notes')}>{t('잠김', 'Locked')}</span>,
   ].filter(Boolean)
   return (
     <section className={`cn-info${compact ? ' compact' : ''}`} data-ui="문서 정보">
@@ -391,6 +402,9 @@ function ConceptDocInfo({ id, doc, compact }: { id: string; doc: DocState; compa
         {note.checked === 'ok' && m.checked?.at && <span className="muted">{m.checked.at}</span>}
         {note.checked === 'changed' && <span className="muted" title={t(`${m.checked?.at ?? ''}에 확인했습니다`, `Reviewed at ${m.checked?.at ?? ''}`)}>{t('확인 뒤 고침 · 다시 확인하려면 ✓ 확인함', 'Edited after review · Click ✓ Reviewed to review again')}</span>}
       </div>
+      <label className="check" data-ui="고치기 잠금" title={t('잠그면 앱과 에이전트가 이 노트를 고치지 않습니다. 잠긴 노트도 연필을 누르면 고치는 동안만 풀립니다', 'When locked, the app and agents do not edit this note. The pencil still unlocks it while you edit')}>
+        <input type="checkbox" checked={!!m.locked} disabled={busy} onChange={(e) => doc.onLock(e.target.checked)} />{t('잠그기', 'Lock')}
+      </label>
       {states.length > 0 && <div className="cn-facts">{states}</div>}
       {note.unfinished.length > 0 && <ul className="cn-why">{note.unfinished.map((u) => <li key={u}>{u}</li>)}</ul>}
       <dl className="cn-info-list">
