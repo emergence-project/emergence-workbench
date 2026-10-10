@@ -2,25 +2,19 @@ import { execFile, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { buildBlockMainTex, buildLibraryNoteMainTex, buildSettingTex, markdownToLatex, MD_BODY_PRELUDE, MD_PREAMBLE, parseBlock, parseLatexErrors, parseSynctexEdit, parseSynctexView, type Author, type LatexProblem, type LatexTemplate, type PdfBox, type SourceSpot } from '@rw/core'
+import { buildBlockMainTex, buildLibraryNoteMainTex, buildSettingTex, markdownToLatex, MD_BODY_PRELUDE, MD_PREAMBLE, parseBlock, parseLatexErrors, parseSynctexEdit, parseSynctexView, type Author, type LatexTemplate, type PdfBox, type SourceSpot } from '@rw/core'
 import { placeTemplateFiles } from './latexFiles.js'
 import { frontFor, isBodyOnly } from './manuscript.js'
 import { writeFigureEmbeds, type FigureEmbedResolver } from './figureEmbeds.js'
 import type { Workbench } from './workbench.js'
 import { t } from './i18n.js'
+import type { CompileResult } from '@rw/core/contract/research'
 
 const run = promisify(execFile)
 
 export type Engine = 'xelatex' | 'lualatex' | 'pdflatex'
 
-export interface CompileResult {
-  ok: boolean
-  durationMs: number
-  hasPdf: boolean
-  /** 오류 목록. file은 workbench 기준 상대 경로(밖이면 절대 경로) */
-  problems: Array<LatexProblem & { inBlock: boolean }>
-  logTail: string
-}
+export type { CompileResult } from '@rw/core/contract/research'
 
 const COMPILE_TIMEOUT_MS = 120_000
 const queues = new Map<string, Promise<unknown>>()

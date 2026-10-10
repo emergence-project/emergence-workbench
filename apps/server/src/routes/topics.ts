@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/notes'
 import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
+import * as R from '@rw/core/contract/research'
 import { contentTypeOf } from '../materials.js'
 import { dropTopicsFromNotes, topicsOverview } from '../noteList.js'
 import { checkTopicsHash, createTopic, deleteTopic, patchTopic, readTopics, saveTopics, setTopicImage, topicImageFile, topicsHash } from '../topics.js'
@@ -16,12 +17,12 @@ export function registerTopics(app: FastifyInstance, ctx: RouteContext): void {
   }
   type P = { rid: string; tid: string }
   /** 주제 목록 (research.yaml에 적힌 그대로)과 research.yaml의 해시 (고칠 때 baseHash) */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/topics', async (req) => {
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/topics', replies(R.TopicList), async (req): Promise<R.TopicList> => {
     const wb = wbOf(req.params.rid)
     return { topics: readTopics(wb), hash: topicsHash(wb) }
   })
   /** 주제 목록을 통째로 바꾼다 (예전 화면). 빠진 주제는 노트 머리말 topics:에서도 뺀다 */
-  app.put<{ Params: { rid: string }; Body: { topics?: unknown; baseHash?: unknown } }>('/api/researches/:rid/topics', async (req) => {
+  app.put<{ Params: { rid: string }; Body: { topics?: unknown; baseHash?: unknown } }>('/api/researches/:rid/topics', replies(R.TopicList), async (req): Promise<R.TopicList> => {
     const wb = wbOf(req.params.rid)
     // 읽은 뒤 바뀐 research.yaml은 고치지 않는다 (baseHash 필수) (빠진 주제를 노트에서도 빼므로)
     checkTopicsHash(wb, req.body?.baseHash)

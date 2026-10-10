@@ -376,6 +376,9 @@ describe('메인 노트 정하기 (sources.manuscript)', () => {
     // 둘째 메인 노트의 장도 읽고, 근거도 찾는다
     expect((await a.inject({ method: 'GET', url: `${R}/manuscript/part?file=docs/dev/design.tex` })).json().content).toContain('Solver design')
     expect((await a.inject({ method: 'GET', url: R })).json().blocks.find((b: { id: string }) => b.id === 'x').grounds).toEqual(['docs/dev/design.tex'])
+    // PDF가 아직 없으면 위치 이동은 빈 결과
+    expect((await a.inject({ method: 'GET', url: `${R}/manuscript/synctex/view?file=docs/dev/design.tex&line=1` })).json()).toEqual({ boxes: [] })
+    expect((await a.inject({ method: 'GET', url: `${R}/manuscript/synctex/edit?page=1&x=10&y=10&ms=docs-dev-main` })).json()).toEqual({ spot: null })
 
     // 셋째: 목록 끝에 한 항목
     w('docs/other/main.tex', '\\documentclass{article}\n')

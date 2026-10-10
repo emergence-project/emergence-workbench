@@ -2,25 +2,10 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import { promisify } from 'node:util'
 import { t } from './i18n.js'
+import type { RepoSync, RepoInfo } from '@rw/core/contract/research'
+export type { RepoSync, RepoInfo }
 
 const exec = promisify(execFile)
-
-/** 연구 저장소가 GitHub(추적 중인 원격 브랜치)와 얼마나 다른지 */
-export interface RepoSync {
-  branch: string
-  upstream: string
-  /** 이 컴퓨터에만 있는 커밋 수 (푸시 안 함) */
-  ahead: number
-  /** 원격에만 있는 커밋 수 (받아오지 않음) */
-  behind: number
-  /** 커밋하지 않은 추적 파일 변경 수 */
-  dirty: number
-  /** 마지막으로 원격을 확인한 시각 (ms). 확인에 실패했으면 fetchError */
-  fetchedAt: number | null
-  fetchError?: string
-  /** 앱에서 안전하게 받아올 수 있는지: 원격에만 커밋이 있고, 이 컴퓨터에 커밋·변경이 없을 때 */
-  canUpdate: boolean
-}
 
 /** 같은 저장소에 원격 확인을 자주 하지 않는다 */
 const FETCH_EVERY_MS = 60_000
@@ -67,30 +52,6 @@ export function remoteWeb(url: string): { shown: string; web: string | null } {
   m = /^(?:ssh:\/\/)?[^@/\s]+@([^:/\s]+)(?::\d+)?[:/](.+?)(?:\.git)?\/?$/.exec(u)
   if (m) return { shown: `${m[1]}/${m[2]}`, web: `https://${m[1]}/${m[2]}` }
   return { shown: u.replace(/\/\/[^@/]*@/, '//'), web: null }
-}
-
-/** 프로젝트 정보의 저장소 칸: 브랜치, 원격, 마지막 커밋, 커밋 안 한 변경, GitHub와의 차이 (10/4 19:25 피드백) */
-export interface RepoInfo {
-  /** ok: 이 폴더가 저장소 맨 위. none: git 저장소가 아님. inside: 다른 저장소(top) 안의 폴더 */
-  state: 'ok' | 'none' | 'inside'
-  top?: string
-  /** 브랜치 이름. 브랜치가 아닌 커밋을 꺼내 둔 상태면 null */
-  branch?: string | null
-  /** 원격 (추적 브랜치의 원격, 없으면 origin). 주소의 로그인 정보는 지운 것 */
-  remote?: { name: string; shown: string; web: string | null } | null
-  upstream?: string | null
-  /** 마지막 커밋 (커밋이 하나도 없으면 null). date는 ISO */
-  last?: { sha: string; subject: string; date: string } | null
-  /** 커밋하지 않은 추적 파일 변경 수, git이 아직 모르는 새 파일 수 */
-  dirty?: number
-  untracked?: number
-  /** 추적 브랜치와의 차이 (추적 브랜치가 없으면 null). 마지막 확인 때의 원격 기준 */
-  ahead?: number | null
-  behind?: number | null
-  /** 마지막으로 원격을 확인한 시각 (ms). 확인에 실패했으면 fetchError(쉬운 말)와 fetchDetail(git 원문) */
-  fetchedAt?: number | null
-  fetchError?: string
-  fetchDetail?: string
 }
 
 /** 저장소 정보. fetch=true이면 원격을 바로 확인한다(사용자가 "확인"을 눌렀을 때). 받아오기·올리기는 하지 않는다 */

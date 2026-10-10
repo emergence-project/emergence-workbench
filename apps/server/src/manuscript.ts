@@ -13,6 +13,8 @@ import { writeFigureEmbeds, type FigureEmbedResolver } from './figureEmbeds.js'
 import { readNoteMeta, type NoteMeta } from './noteMeta.js'
 import { isMarkdownNote, WorkbenchError, type NoteKind, type SaveResult, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
+import type { ManuscriptPart } from '@rw/core/contract/research'
+export type { ManuscriptPart }
 
 /**
  * 원고: 프로젝트가 이미 가진 LaTeX 원고(research.yaml의 sources.manuscript, 예: docs/model/main.tex).
@@ -20,16 +22,6 @@ import { t } from './i18n.js'
  * - 장 파일을 앱에서 읽고 고친다 (블록과 같은 해시 확인)
  * - 컴파일은 원고 폴더에서 그대로 하되 결과물은 workbench/.build/manuscript/에만 둔다. 프로젝트의 공식 출력물은 건드리지 않는다
  */
-export interface ManuscriptPart {
-  /** 장을 가리키는 이름. 장 파일이면 file, 한 파일 원고의 절이면 "file#라벨" (라벨이 없으면 "file#제목") */
-  id: string
-  /** 저장소 기준 경로 */
-  file: string
-  title: string
-  appendix: boolean
-  /** 한 파일 원고의 절: 그 \\section이 있는 줄 (1부터) */
-  line?: number
-}
 /** key: 메인 노트를 가리키는 이름 — research.yaml에 적은 첫째 원고는 '', 나머지(연구노트·계산 노트 포함)는 main 파일 경로에서 (빌드 폴더·코멘트 대상·주소에 쓴다) */
 export interface ManuscriptInfo extends NoteMeta {
   key: string; main: string; name: string; kind: NoteKind; parts: ManuscriptPart[]; hasPdf: boolean

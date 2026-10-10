@@ -1,7 +1,8 @@
 // 원고와 메인 노트 정하기
 import type { FastifyInstance } from 'fastify'
 import { ExportOptions } from '@rw/core/contract/noteExport'
-import { replies } from '../contract.js'
+import * as C from '@rw/core/contract/research'
+import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { allManuscripts, compileManuscript, manuscriptEdit, manuscriptInfo, manuscriptKind, manuscriptPdfBytes, manuscriptPdfState, manuscriptView, noteAsset, NOTE_ASSET, readPart, writePart, type ManuscriptCompileOptions } from '../manuscript.js'
@@ -35,19 +36,18 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
   const { registry, wbOf } = ctx
   // ms: 메인 노트 key (없으면 첫째). 장 파일을 받는 곳은 파일로 메인 노트를 찾는다
   const msq = (q: { ms?: unknown }) => (typeof q.ms === 'string' ? q.ms : '')
-  app.get<{ Params: { rid: string }; Querystring: { ms?: string } & Pick }>('/api/researches/:rid/manuscript', async (req) => {
+  app.get<{ Params: { rid: string }; Querystring: { ms?: string } & Pick }>('/api/researches/:rid/manuscript', replies(C.ManuscriptView), async (req): Promise<C.ManuscriptView> => {
     const wb = wbOf(req.params.rid)
     const key = msq(req.query)
     return { ...manuscriptInfo(wb, key), ...manuscriptPdfState(wb, key, compileOptions(wb, req.query, req.params.rid)) }
   })
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/manuscripts', async (req) => allManuscripts(wbOf(req.params.rid)))
-  app.get<{ Params: { rid: string }; Querystring: { file: string } }>('/api/researches/:rid/manuscript/part', async (req) => {
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/manuscripts', replies(C.ManuscriptList), async (req): Promise<C.ManuscriptList> => allManuscripts(wbOf(req.params.rid)))
+  app.get<{ Params: { rid: string }; Querystring: { file: string } }>('/api/researches/:rid/manuscript/part', replies(C.PartDoc), async (req): Promise<C.PartDoc> => {
     if (typeof req.query.file !== 'string') throw new WorkbenchError(400, t('file이 필요함', 'file is required'))
     return readPart(wbOf(req.params.rid), req.query.file)
   })
-  app.put<{ Params: { rid: string }; Body: { file: string; content: string; baseHash: string } }>('/api/researches/:rid/manuscript/part', async (req, reply) => {
-    const { file, content, baseHash } = req.body ?? ({} as never)
-    if (typeof file !== 'string' || typeof content !== 'string' || typeof baseHash !== 'string') throw new WorkbenchError(400, t('file·content·baseHash가 필요함', 'file, content, and baseHash are required'))
+  app.put<{ Params: { rid: string } }>('/api/researches/:rid/manuscript/part', replies(C.Saved), async (req, reply) => {
+    const { file, content, baseHash } = parseBody(C.PartSaveBody, req.body)
     const r = writePart(wbOf(req.params.rid), file, content, baseHash)
     if (!r.ok) return reply.status(409).send({ error: t('다른 곳에서 파일이 바뀌어 저장하지 않았음', 'Not saved: the file was changed elsewhere'), currentHash: r.currentHash })
     return { hash: r.hash }
@@ -63,7 +63,7 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
     return { engine: registry.engine, template, authors: registry.authors, shared: sharedMacrosTex(registry.libraryPath), pick, figures: figureEmbedResolver(registry, rid) }
   }
   // 본문만 있는 노트는 고른 서식(없으면 research.yaml의 latex-template:, 그것도 없으면 내보내기 기본 서식)으로 감싼다
-  app.post<{ Params: { rid: string }; Querystring: { ms?: string } & Pick }>('/api/researches/:rid/manuscript/compile', async (req) => {
+  app.post<{ Params: { rid: string }; Querystring: { ms?: string } & Pick }>('/api/researches/:rid/manuscript/compile', replies(C.ManuscriptCompileResult), async (req): Promise<C.ManuscriptCompileResult> => {
     const wb = wbOf(req.params.rid)
     const options = compileOptions(wb, req.query, req.params.rid)
     return compileManuscript(wb, options.engine, msq(req.query), options.template, options.authors, options.shared, options.pick, () => compileOptions(wb, req.query, req.params.rid))
@@ -80,12 +80,12 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
     if (!bytes) return reply.status(404).send({ error: t('아직 완성된 PDF가 없음', 'No finished PDF yet') })
     return reply.type('application/pdf').header('cache-control', 'no-store').send(bytes)
   })
-  app.get<{ Params: { rid: string }; Querystring: { file: string; line: string } }>('/api/researches/:rid/manuscript/synctex/view', async (req) => {
+  app.get<{ Params: { rid: string }; Querystring: { file: string; line: string } }>('/api/researches/:rid/manuscript/synctex/view', replies(C.PdfBoxes), async (req): Promise<C.PdfBoxes> => {
     const line = Number(req.query.line)
     if (typeof req.query.file !== 'string' || !Number.isInteger(line) || line < 1) throw new WorkbenchError(400, t('file과 1 이상의 line이 필요함', 'file and a line of 1 or more are required'))
     return { boxes: await manuscriptView(wbOf(req.params.rid), req.query.file, line) }
   })
-  app.get<{ Params: { rid: string }; Querystring: { page: string; x: string; y: string; ms?: string } }>('/api/researches/:rid/manuscript/synctex/edit', async (req) => {
+  app.get<{ Params: { rid: string }; Querystring: { page: string; x: string; y: string; ms?: string } }>('/api/researches/:rid/manuscript/synctex/edit', replies(C.ManuscriptSpot), async (req): Promise<C.ManuscriptSpot> => {
     const [page, x, y] = [Number(req.query.page), Number(req.query.x), Number(req.query.y)]
     if (![page, x, y].every(Number.isFinite)) throw new WorkbenchError(400, t('page·x·y가 필요함', 'page, x, and y are required'))
     return { spot: await manuscriptEdit(wbOf(req.params.rid), page, x, y, msq(req.query)) }
@@ -93,32 +93,33 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
 
 
   /** 메인 노트로 고를 수 있는 .tex (\documentclass가 있거나 본문만 있는 것)와 지금 research.yaml의 해시 */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/main-note/candidates', async (req) => mainNoteCandidates(wbOf(req.params.rid)))
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/main-note/candidates', replies(C.MainNoteCandidates), async (req): Promise<C.MainNoteCandidates> => mainNoteCandidates(wbOf(req.params.rid)))
   /** research.yaml의 sources.manuscript에 메인 노트를 더한다 (없으면 한 줄, 있으면 목록으로). 있던 것은 바꾸지 않는다 */
-  app.put<{ Params: { rid: string }; Body: { path?: unknown; name?: unknown; baseHash?: unknown } }>('/api/researches/:rid/main-note', async (req, reply) => {
-    const r = setMainNote(wbOf(req.params.rid), { path: req.body?.path, name: req.body?.name, baseHash: req.body?.baseHash })
+  app.put<{ Params: { rid: string } }>('/api/researches/:rid/main-note', replies(C.Ok), async (req, reply) => {
+    const { path, name, baseHash } = parseBody(C.MainNoteBody, req.body)
+    const r = setMainNote(wbOf(req.params.rid), { path, name, baseHash })
     if (!r.ok) return reply.status(409).send({ error: t('다른 곳에서 research.yaml이 바뀌어 쓰지 않았음', 'Not written: research.yaml was changed elsewhere'), currentHash: r.currentHash })
     return r
   })
   /** 원고를 메인 노트 목록에서 뺀다 (research.yaml의 그 항목만). 파일은 그대로 */
-  app.delete<{ Params: { rid: string }; Querystring: { path?: string } }>('/api/researches/:rid/main-note', async (req) => unsetMainNote(wbOf(req.params.rid), { path: req.query.path }))
+  app.delete<{ Params: { rid: string }; Querystring: { path?: string } }>('/api/researches/:rid/main-note', replies(C.Ok), async (req): Promise<C.Ok> => unsetMainNote(wbOf(req.params.rid), { path: req.query.path }))
 
   /** 연구노트·계산 노트 만들기: from(원고 key)이 있으면 그 원고를 복사, 없으면 LaTeX 공통 설정으로 빈 노트 */
   // 연구노트·계산 노트 카드의 한 줄 설명과 완결 (note.yaml). baseHash(노트 목록 줄의 hash)를 주면 그 뒤 바뀐 note.yaml은 고치지 않는다
-  app.patch<{ Params: { rid: string }; Querystring: { ms?: string }; Body: { summary?: unknown; done?: unknown; state?: unknown; resume?: unknown; baseHash?: unknown } }>('/api/researches/:rid/notes/meta', async (req) => {
+  app.patch<{ Params: { rid: string }; Querystring: { ms?: string } }>('/api/researches/:rid/notes/meta', replies(C.ManuscriptInfo), async (req): Promise<C.ManuscriptInfo> => {
     const wb = wbOf(req.params.rid)
     const info = manuscriptInfo(wb, msq(req.query))
     if (info.kind === 'paper') throw new WorkbenchError(400, t('원고에는 카드 설명을 적지 않음', 'Manuscripts do not take a card description'))
-    const { baseHash, ...patch } = req.body ?? {}
+    const { baseHash, ...patch } = parseBody(C.NoteMetaBody, req.body)
     writeNoteMeta(path.join(wb.repo, info.main), patch, requireHash(baseHash, t('노트 목록 줄의 hash', 'the hash of the note list line')))
     return manuscriptInfo(wb, msq(req.query))
   })
-  app.post<{ Params: { rid: string }; Body: { kind?: unknown; name?: unknown; from?: unknown } }>('/api/researches/:rid/notes', async (req) =>
-    createNote(wbOf(req.params.rid), { kind: req.body?.kind, name: req.body?.name, from: req.body?.from }, { setup: registry.template(registry.latexDefault), authors: registry.authors }, registry.latexTemplates))
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/notes', replies(C.CreatedNote), async (req): Promise<C.CreatedNote> =>
+    createNote(wbOf(req.params.rid), parseBody(C.CreateNoteBody, req.body), { setup: registry.template(registry.latexDefault), authors: registry.authors }, registry.latexTemplates))
 
   /** 연구노트·계산 노트를 본문만 남긴 노트로: 머리와 제목·저자 줄을 뗀다 (원고는 거절) */
-  app.post<{ Params: { rid: string }; Querystring: { ms?: string } }>('/api/researches/:rid/manuscript/body-only', async (req) => makeBodyOnly(wbOf(req.params.rid), msq(req.query), registry.latexTemplates))
-  app.post<{ Params: { rid: string } }>('/api/researches/:rid/notes/body-only', async (req) => makeAllBodyOnly(wbOf(req.params.rid), registry.latexTemplates))
+  app.post<{ Params: { rid: string }; Querystring: { ms?: string } }>('/api/researches/:rid/manuscript/body-only', replies(C.BodyOnlyResult), async (req): Promise<C.BodyOnlyResult> => makeBodyOnly(wbOf(req.params.rid), msq(req.query), registry.latexTemplates))
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/notes/body-only', replies(C.AllBodyOnlyResult), async (req): Promise<C.AllBodyOnlyResult> => makeAllBodyOnly(wbOf(req.params.rid), registry.latexTemplates))
   /** 내보내기 상자의 서식 고르기: 고를 수 있는 서식과 이 프로젝트의 서식 (research.yaml의 latex-template:, 없으면 내보내기 기본 서식) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/export/options', replies(ExportOptions), async (req): Promise<ExportOptions> => ({
     template: projectTemplate(wbOf(req.params.rid)),

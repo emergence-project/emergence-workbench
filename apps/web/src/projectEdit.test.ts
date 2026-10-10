@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ProjectInfo, ResearchApi, ResearchSummary } from './api'
 import { projectTextState, readProjectEditSnapshot } from './projectEdit'
 
+const sources = { canon: [], bib: [], materials: [], reviews: [], manuscripts: [] }
 const projectInfo = (hash: string): ProjectInfo => ({
-  hash, sources: { canon: [], bib: [], materials: [], reviews: [] }, agentStatus: false, tasks: null, reviews: [],
+  hash, sources, agentStatus: false, tasks: null, reviews: [],
 })
 const summary: ResearchSummary = {
   id: 'project', root: '/project', engine: 'xelatex',
-  research: { title: '새 이름', question: '새 설명', started: '2026-10-06', image: 'figures/new.svg' },
+  research: { title: '새 이름', question: '새 설명', started: '2026-10-06', image: 'figures/new.svg', sources, agentStatus: false, concepts: [] },
   blocks: [], statements: [],
   tree: { roots: [], children: {}, parentOf: {}, alternatives: [], order: [], counts: { 'in-progress': 0, blocked: 0, stopped: 0, solved: 0 }, frontier: [], issues: [] },
 }
@@ -19,7 +20,7 @@ describe('프로젝트 고치기 읽기', () => {
       summary: vi.fn<ResearchApi['summary']>().mockResolvedValue(summary),
     }
     await expect(readProjectEditSnapshot(rapi)).resolves.toEqual({
-      research: { title: '새 이름', question: '새 설명', started: '2026-10-06', image: 'figures/new.svg' },
+      research: summary.research,
       hash: 'fresh-hash',
     })
     expect(rapi.project.mock.invocationCallOrder[0]).toBeLessThan(rapi.summary.mock.invocationCallOrder[0]!)

@@ -115,6 +115,9 @@ describe('머리말 쓰기', () => {
     // 예전 카드 설명 고치기도 200자
     const key = (await row('phase')).ms!
     expect((await app.inject({ method: 'PATCH', url: `${R}/notes/meta?ms=${encodeURIComponent(key)}`, payload: { summary: 'x'.repeat(201) } })).statusCode).toBe(400)
+    const saved = await app.inject({ method: 'PATCH', url: `${R}/notes/meta?ms=${encodeURIComponent(key)}`, payload: { state: 'paused', resume: '표를 다시 볼 때', baseHash: (await row('phase')).hash } })
+    expect(saved.statusCode).toBe(200)
+    expect(saved.json()).toMatchObject({ key, state: 'paused', resume: '표를 다시 볼 때' })
   })
 })
 
@@ -172,6 +175,9 @@ describe('보조 노트 결과 PDF 상태 (PDF 이전 결과 표시)', () => {
   it('PDF가 없으면 hasPdf: false, 노트를 PDF보다 나중에 고쳤으면 stale', async () => {
     const url = `${R}/blocks/kempe-chains/pdf/state`
     expect((await app.inject({ method: 'GET', url })).json()).toEqual({ hasPdf: false, stale: false })
+    // PDF가 없으면 위치 이동은 빈 결과
+    expect((await app.inject({ method: 'GET', url: `${R}/blocks/kempe-chains/synctex/view?line=1` })).json()).toEqual({ boxes: [] })
+    expect((await app.inject({ method: 'GET', url: `${R}/blocks/kempe-chains/synctex/edit?page=1&x=10&y=10` })).json()).toEqual({ spot: null })
     fs.mkdirSync(wb('.build/kempe-chains'), { recursive: true })
     fs.writeFileSync(wb('.build/kempe-chains/main.pdf'), '%PDF')
     const t = Date.now() / 1000

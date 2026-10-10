@@ -46,7 +46,7 @@ export interface ResearchInfo {
 export interface ProjectSources {
   canon: { path: string; note: string }[]
   /** 첫째 메인 노트(원고) main .tex와 이름. \input한 장·부록을 앱에서 노트로 연다 */
-  manuscript?: { path: string; name: string }
+  manuscript?: ProjectSources['manuscripts'][number]
   /**
    * 메인 노트 전부 (research.yaml의 manuscript가 목록이면 여럿, 첫째 = manuscript).
    * 그 뒤에 workbench/notes/<이름>/main.tex(연구노트)와 workbench/calc/<이름>/main.tex(계산 노트)를 저절로 더한다.

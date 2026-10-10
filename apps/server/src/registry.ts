@@ -7,6 +7,7 @@ import { describeTex, findRepoPreambles, listLibraryPreambles, type TexDefinitio
 import type { Engine } from './latex.js'
 import { Workbench, WorkbenchError } from './workbench.js'
 import { t as tl } from './i18n.js'
+import type { ProjectKind, ProjectState, ResearchListItem } from '@rw/core/contract/research'
 
 /**
  * 이 컴퓨터에만 있는 앱 설정 (~/.config/research-workspace/config.yaml).
@@ -86,8 +87,7 @@ export function normalizeTags(raw: unknown, maxLength = MAX_TAG_LENGTH): string[
  * 예전 설정은 그대로 읽는다: tags의 "업무"(또는 더 예전의 kind: work)는 성격 업무, 나머지 태그는 분야.
  * 앱에서 고칠 때만 새 키(kind · fields · state)로 쓰고 tags를 뺀다.
  */
-export type ProjectKind = 'research' | 'work'
-export type ProjectState = 'active' | 'paused' | 'done'
+export type { ProjectKind, ProjectState, ResearchListItem } from '@rw/core/contract/research'
 export const PROJECT_KINDS: ProjectKind[] = ['research', 'work']
 export const PROJECT_STATES: ProjectState[] = ['active', 'paused', 'done']
 /** 예전 태그 하나로 섞어 쓰던 때 성격 업무를 뜻하던 태그 */
@@ -110,22 +110,6 @@ export function profileOf(r: RegisteredResearch): ProjectProfile {
 
 /** 예전 태그 하나 목록 모양 (구글 동기화 · 검색이 아직 쓴다): 업무면 "업무"를 앞에, 그 뒤에 분야 */
 const legacyTags = (p: ProjectProfile) => [...(p.kind === 'work' ? [LEGACY_WORK_TAG] : []), ...p.fields.filter((f) => f !== LEGACY_WORK_TAG)]
-
-export interface ResearchListItem {
-  id: string
-  path: string
-  title: string
-  /** 성격: 연구 · 업무 */
-  kind: ProjectKind
-  /** 분야 (개념노트 분류에서 고른 이름) */
-  fields: string[]
-  /** 진행 상태: 진행 · 멈춤 · 완료 */
-  state: ProjectState
-  /** 예전 모양(업무 + 분야). 구글 동기화와 검색이 쓴다 */
-  tags: string[]
-  available: boolean
-  problem?: string
-}
 
 const ENGINES: Engine[] = ['xelatex', 'lualatex', 'pdflatex']
 
