@@ -60,7 +60,8 @@ export const GLOBAL_PAGES: {
   {
     page: 'library', label: '지식', name: t('지식', 'Knowledge'), aria: t('지식', 'Knowledge'), tip: t('지식 — 개념노트 라이브러리', 'Knowledge: concept note library'), icon: Icon.library, rail: 'top',
     side: (p) => <ConceptSide info={p.library} route={p.route} />,
-    right: (r) => r.page === 'library' && !r.topic,
+    // 첫 화면의 라이브러리 정보, 목록의 분류 정보, 개념노트의 정보 | 기록 (10/10 노트 화면 틀)
+    right: (r) => r.page === 'library',
     render: (p) => p.route.page === 'library' && isListRoute(p.route)
       ? <KnowledgeList info={p.library} filters={{ subjectPrefix: p.route.subjectPrefix, issue: p.route.issue, check: p.route.check, showEmpty: p.route.showEmpty }} rightOpen={p.rightOpen} onChanged={p.onLibraryChanged} onSaved={p.onSaved} />
       : <LibraryPage info={p.library} topic={p.route.page === 'library' ? p.route.topic : undefined} rightOpen={p.rightOpen} onChanged={p.onLibraryChanged} onSaved={p.onSaved} />,

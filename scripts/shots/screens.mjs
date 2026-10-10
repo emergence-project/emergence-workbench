@@ -77,6 +77,8 @@ export const DEFAULT_SCREENS = [
   // 프로젝트 안의 개념노트 탭 (10/10 노트 화면 틀 하나): 지식 화면(knowledge-note)과 같은 노트를 탭으로 연 모습. 탭 주소는 별칭을 풀지 않아 파일 id(planar-graph)를 쓴다.
   // 앞 화면의 기억(탭 · 오른쪽 사이드바)을 바꾸지 않게 맨 끝에 둔다
   ['concept-tab', '#/r/{rid}/c/planar-graph', '개념노트'],
+  // 개념노트의 오른쪽 사이드바 "기록" = 메모 · 할 일 (말풍선이 기록으로 바꾼다. 갈래가 기억되므로 맨 끝)
+  ['knowledge-records', '#/library/t/planargraph', '메모', '코멘트 버튼'],
 ]
 
 // --sample subjects: a separate .sandbox/subjects-library fixture, preserving the default L2b shots.
