@@ -9,6 +9,7 @@ import { materialPath } from '../materials.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
+import { projectRules } from '../agentRules.js'
 
 export function registerComments(app: FastifyInstance, ctx: RouteContext): void {
   const { wbOf, repoPath, opts } = ctx
@@ -69,7 +70,7 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
         const source = commentSourceFile(wb.root, f)
         if (source) file = path.relative(repo, source)
       }
-      const answer = await (opts.ask ?? claudeRunner)({ cwd: repo, prompt: askPrompt(f, id, { repo, file }) })
+      const answer = await (opts.ask ?? claudeRunner)({ cwd: repo, prompt: askPrompt(f, id, { repo, file, rules: projectRules(repo) }) })
       return appendAnswer(wb.root, target, id, 'claude', answer)
     } finally {
       asking.delete(key)

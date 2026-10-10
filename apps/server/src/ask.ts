@@ -8,11 +8,13 @@ import { answerHead } from './commentFormat.js'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
+import type { RuleFile } from './agentRules.js'
 
 /**
  * PDF를 읽으며 남긴 질문에 맥의 Claude Code(`claude -p`)가 답한다 (2026-10-01 결정: 논문 Q&A는 맥의 claude -p).
  * 답은 질문 아래에 `### 답 · claude · 날짜 시각`으로 덧붙이고 `- 상태: 답함`을 단다 (comments.ts의 형식).
  * Claude는 읽기 도구만 쓴다: 저장소 파일을 고치지 않는다.
+ * 저장소 규칙은 프롬프트로 준다 (--setting-sources user라 CLAUDE.md를 읽지 않으므로).
  */
 
 /** 질문 하나를 Claude에게 넘기고 답 글을 받는다. 테스트에서는 가짜로 바꾼다 */
@@ -20,6 +22,7 @@ export type AskRunner = (job: { cwd: string; prompt: string }) => Promise<string
 
 const ASK_TIMEOUT_MS = 6 * 60_000
 const READ_ONLY_TOOLS = 'Read,Glob,Grep'
+const MAX_RULE_BYTES = 32 * 1024
 
 /** 서비스(launchd)로 돌 때는 PATH가 짧아 claude를 못 찾으므로 흔한 설치 위치를 더한다 */
 function claudeEnv(): NodeJS.ProcessEnv {
@@ -68,6 +71,25 @@ export interface AskContext {
   repo: string
   /** 질문이 가리키는 파일의 저장소 기준 경로 (찾았으면) */
   file?: string
+  /** 연구 저장소의 AGENTS.md · CLAUDE.md */
+  rules?: RuleFile[]
+}
+
+function rulesPrompt(rules: RuleFile[] | undefined): string[] {
+  if (!rules?.length) return []
+  const lines = [t('이 연구 저장소의 규칙 (AGENTS.md · CLAUDE.md). 답할 때 기호·용어·근거·지어내지 않기 같은 규칙을 따른다. 파일을 고치지 말라는 아래 지침이 이 규칙보다 앞선다.', 'Rules of this research repository (AGENTS.md · CLAUDE.md). Follow its rules on notation, terminology, evidence and not inventing content when answering. The instructions below not to edit files take precedence over these rules.')]
+  let remaining = MAX_RULE_BYTES
+  for (const rule of rules) {
+    const bytes = Buffer.from(rule.text, 'utf8')
+    let end = Math.min(bytes.length, remaining)
+    // Keep the combined rule bodies within the UTF-8 byte budget without splitting a character.
+    while (end > 0 && end < bytes.length && (bytes[end]! & 0xc0) === 0x80) end--
+    lines.push(`--- ${rule.file} ---`, bytes.subarray(0, end).toString('utf8'))
+    if (rule.truncated || end < bytes.length) lines.push(t(`(잘림: ${rule.file})`, `(Truncated: ${rule.file})`))
+    remaining -= end
+    if (end < bytes.length) break
+  }
+  return [...lines, '']
 }
 
 /** 노트 기록 파일과 논문 코멘트 파일 둘 다 (하이라이트는 보지 않는다) */
@@ -84,6 +106,7 @@ export function askPrompt(f: Omit<CommentFile, 'highlights'>, id: string, ctx: A
     q.quote ? t(`- 고른 글: "${q.quote}"`, `- Selected text: "${q.quote}"`) : null,
     q.answers.length ? t(`- 앞서 단 답:\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`, `- Earlier answers:\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`) : null,
     '',
+    ...rulesPrompt(ctx.rules),
     t('질문:', 'Question:'),
     q.body || t('(고른 글을 설명해 주세요)', '(Explain the selected text)'),
     '',
