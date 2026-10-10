@@ -19,8 +19,9 @@ export function useJournal(rapi: ResearchApi, version: number) {
   }
   useEffect(() => {
     void reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 정리 때 최신 세대 번호를 올려야 늦게 온 응답을 버린다
     return () => { request.current++ }
-  }, [rapi, version]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rapi, version])
   const toggle = (e: JournalEntry) => { rapi.setTodo(e, !e.done).then(reload).catch(() => undefined) }
   return { entries: journal?.rapi === rapi ? journal.entries : [], loaded: journal?.rapi === rapi && journal.version === version, reload, toggle }
 }

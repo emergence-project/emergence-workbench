@@ -356,10 +356,12 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
   onOpened?(): void
   onCloseFailed(message: string): void
 }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 프로젝트가 바뀌면 새로 만든다
   const groups = useMemo(() => new Map<string, AutosaveGroup>(), [rid])
   const closingTabs = useRef(new Set<string>())
   const current = useRef({ rid, layout })
   current.current = { rid, layout }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 프로젝트가 바뀌면 새로 만든다
   const session = useMemo(() => ({ alive: true }), [rid])
   useEffect(() => { session.alive = true; return () => { session.alive = false } }, [session])
   useEffect(() => registerRouteGuard(() => {

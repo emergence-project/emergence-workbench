@@ -38,6 +38,7 @@ export function StatementTab({ rid, sid, rapi, summary, bus, onChanged }: {
     const record = recordSlot.file?.comments.find((entry) => entry.id === recordSlot.reveal!.id)
     const range = record && recordRevealRange(saver.text, record)
     if (range) editor.current?.revealLines(saver.text.slice(0, range.from).split('\n').length, saver.text.slice(0, range.to).split('\n').length)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 기록 열기(nonce)가 바뀔 때만 그 자리로 간다
   }, [recordSlot.reveal?.nonce, loaded])
 
   const load = useCallback(async (msg?: string) => {

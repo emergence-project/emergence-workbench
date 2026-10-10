@@ -13,6 +13,7 @@ export function useRecordPaint(ref: RefObject<HTMLDivElement | null>, html: stri
   const records = useRecordContext()
   useLayoutEffect(() => {
     if (ref.current && records) return paintRecordMarks(ref.current, records.source, records.contentOffset, records.highlights)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- records 객체는 렌더마다 새로 만들어지므로 쓰는 칸만 본다
   }, [html, records?.source, records?.contentOffset, records?.highlights])
   useEffect(() => {
     const root = ref.current
@@ -29,6 +30,7 @@ export function useRecordPaint(ref: RefObject<HTMLDivElement | null>, html: stri
     const animations = marks.map((mark) => mark.animate([{ backgroundColor: color }, { backgroundColor: getComputedStyle(mark).backgroundColor }], { duration: 1600 }))
     const timer = remove ? setTimeout(remove, 1600) : undefined
     return () => { if (timer) clearTimeout(timer); remove?.(); animations.forEach((animation) => animation.cancel()) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 기록 열기(nonce)가 바뀔 때만 그 자리로 간다
   }, [html, records?.reveal?.nonce])
   /** True when the event hit a highlight and its menu was opened. */
   const openMark = (event: MouseEvent | KeyboardEvent): boolean => {

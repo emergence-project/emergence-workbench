@@ -235,12 +235,14 @@ export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; op
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 정보 창이 열렸는지만 본다
   }, [layout, view, !!opened])
   // 정보 창이 열리면 카드 열 수가 줄어 고른 논문이 화면 밖으로 밀린다: 창이 열린 뒤 고른 것을 보이게 한다
   useEffect(() => {
     if (!picked) return
     const frame = requestAnimationFrame(() => scroll.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }))
     return () => cancelAnimationFrame(frame)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 정보 창이 열렸는지만 본다
   }, [picked, !!paper])
   if (open && opened) return <PaperOpen paper={opened} data={data!} ctx={ctx} onSaved={onSaved} />
   const filterLabel = filter?.startsWith('subject:') ? (tree?.items.find((s) => s.id === filter.slice(8))?.name ?? t('분류 없음', 'No subject')) : filter?.startsWith('project:') ? ctx.projectTitle(filter.slice(8)) : FILTERS.find((f) => f.id === filter)?.label

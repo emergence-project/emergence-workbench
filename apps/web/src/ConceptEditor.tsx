@@ -149,6 +149,7 @@ export function ConceptEditor({ initial, options, saving, onSave, onCancel, comm
       }), true)
     })
     view.current?.dispatch({ effects: parts.current.records.reconfigure(records ? decoration : []) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- records 객체는 렌더마다 새로 만들어지므로 쓰는 칸만 본다
   }, [records?.highlights, records?.contentOffset, records?.source])
 
   useEffect(() => {
@@ -161,6 +162,7 @@ export function ConceptEditor({ initial, options, saving, onSave, onCancel, comm
     const anchor = range.from - offset, head = range.to - offset
     editor.dispatch({ selection: { anchor, head }, effects: EditorView.scrollIntoView(anchor, { y: 'center' }) })
     editor.focus()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 기록 열기(nonce)가 바뀔 때만 그 자리로 간다
   }, [records?.reveal?.nonce])
 
   // 미리보기는 입력이 잠깐 멈춘 뒤에 다시 그린다 (긴 노트에서도 타자가 밀리지 않게)

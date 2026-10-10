@@ -95,6 +95,7 @@ export function KnowledgeList({ info, filters, rightOpen, onChanged, onSaved }: 
       if (generation.current === current) setData(result)
     }).catch((e: Error) => { if (generation.current === current) setError(e.message) })
       .finally(() => { if (generation.current === current) setBusy(false) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 정리 때 최신 세대 번호를 올려야 늦게 온 응답을 버린다
     return () => { generation.current++ }
   }, [queryKey, info, revision, tree?.hash]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {

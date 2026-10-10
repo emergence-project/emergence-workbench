@@ -229,6 +229,14 @@ export function App() {
     return () => window.removeEventListener('keydown', on)
   }, [dialog, quickMemo, feedback, search, rid, setLayout])
 
+  // 레일의 프로젝트 버튼도 끌어서 순서를 바꾼다 (10/7 18:07). 홈 목록·카드와 같은 순서(설정)에 저장한다
+  const [railDrag, setRailDrag] = useState<{ from: string | null; over: string | null }>({ from: null, over: null })
+  // 10/7 18:07 피드백: 끄는 그림은 둥근 네모만, 끄는 동안 다른 버튼이 비켜나 놓일 자리를 보인다
+  const railIds = researches?.map((x) => x.id) ?? []
+  const railShown = railDrag.from && railDrag.over ? moveId(railIds, railDrag.from, railDrag.over) : railIds
+  const railBox = useRef<HTMLDivElement>(null)
+  useRailSlide(railBox, railShown.join('\n'))
+
   if (error && !researches) return <div className="fatal">{t('서버에 연결하지 못했습니다', 'Could not connect to the server')}: {error}</div>
 
   const current = researches?.find((r) => r.id === rid)
@@ -271,13 +279,6 @@ export function App() {
     : `${[...place].reverse().join(' ‹ ')} — Emergence Workbench`
 
   /** 왼쪽 띠의 화면 버튼 (globalPages.tsx) */
-  // 레일의 프로젝트 버튼도 끌어서 순서를 바꾼다 (10/7 18:07). 홈 목록·카드와 같은 순서(설정)에 저장한다
-  const [railDrag, setRailDrag] = useState<{ from: string | null; over: string | null }>({ from: null, over: null })
-  // 10/7 18:07 피드백: 끄는 그림은 둥근 네모만, 끄는 동안 다른 버튼이 비켜나 놓일 자리를 보인다
-  const railIds = researches?.map((x) => x.id) ?? []
-  const railShown = railDrag.from && railDrag.over ? moveId(railIds, railDrag.from, railDrag.over) : railIds
-  const railBox = useRef<HTMLDivElement>(null)
-  useRailSlide(railBox, railShown.join('\n'))
   const railDragProps = (id: string) => ({
     draggable: true,
     onDragStart: (e: React.DragEvent<HTMLElement>) => {

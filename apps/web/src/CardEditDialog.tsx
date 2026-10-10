@@ -22,6 +22,7 @@ export function CardEditDialog({ title, location, pc, ui, className = '', childr
   const opener = useRef(document.activeElement)
 
   // Workspace는 비활성 탭을 지우지 않고 숨긴다. 포털만 숨겨 부모의 초안은 유지한다.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 숨긴 탭이 다시 보일 때를 잡으려고 렌더마다 잰다 (같은 값이면 다시 그리지 않는다)
   useLayoutEffect(() => { setDisplayed(isDialogHostDisplayed(host.current)) })
   useLayoutEffect(() => {
     const sentinel = host.current

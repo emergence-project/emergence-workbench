@@ -254,6 +254,7 @@ function usePopover(control?: PopoverControl) {
     document.addEventListener('mousedown', away)
     document.addEventListener('keydown', esc)
     return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 열고 닫힐 때만 바깥 클릭 · Esc를 단다
   }, [open])
   return { open, setOpen, wrap, pop }
 }

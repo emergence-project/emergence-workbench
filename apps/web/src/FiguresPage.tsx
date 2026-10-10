@@ -237,7 +237,7 @@ function FigureSide({ fig, data, onClose, onSaved }: { fig: FigureRow; data: Fig
     try { await figuresApi.setMeta(fig.id, { name, description: desc }); forgetFigures(); setEditing(false) } catch (e) { onSaved(`${t('고치지 못했습니다', 'Could not save')}: ${(e as Error).message}`) } finally { setBusy(false) }
   }
   const run = (f: () => Promise<unknown>) => { void f().catch((e: Error) => onSaved(e.message)) }
-  const useRow = (u: FigureRow['uses'][number]): ReactNode => (u.rid && u.type !== 'concept'
+  const usageRow = (u: FigureRow['uses'][number]): ReactNode => (u.rid && u.type !== 'concept'
     ? <button className="a fg-use" onClick={() => go(routeOfNote(u.rid!, { ...u, type: u.type as 'note' | 'calc' | 'block' }))}>{u.title}<span className="muted"> · {scopeTitle(data, u.rid)}</span></button>
     : <span className="fg-use">{u.title}<span className="muted"> · {t('개념노트', 'Concept note')}</span></span>)
   return (
@@ -277,7 +277,7 @@ function FigureSide({ fig, data, onClose, onSaved }: { fig: FigureRow; data: Fig
         </div>
         <div className="rs-field">
           <div className="rs-label">{t('쓰는 노트', 'Used in')} · {fig.uses.length}</div>
-          {fig.uses.length ? <ul className="fg-uses">{fig.uses.map((u) => <li key={`${u.rid ?? ''}/${u.file}`}>{useRow(u)}</li>)}</ul> : <p className="muted">{lang === 'ko' ? <>아직 어느 노트도 ![[{fig.name}]]로 쓰지 않습니다.</> : <>No note uses ![[{fig.name}]] yet.</>}</p>}
+          {fig.uses.length ? <ul className="fg-uses">{fig.uses.map((u) => <li key={`${u.rid ?? ''}/${u.file}`}>{usageRow(u)}</li>)}</ul> : <p className="muted">{lang === 'ko' ? <>아직 어느 노트도 ![[{fig.name}]]로 쓰지 않습니다.</> : <>No note uses ![[{fig.name}]] yet.</>}</p>}
         </div>
         <div className="fg-rs-row">
           <button className="btn" onClick={() => run(() => figuresApi.open(fig.id))}>{t('원본 고치기', 'Edit source')}</button>
