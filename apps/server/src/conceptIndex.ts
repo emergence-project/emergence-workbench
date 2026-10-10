@@ -24,19 +24,8 @@ import { parseKnowledgeMarkdown, topicKey, wikiTargets, type Parsed } from './kn
 
 export type ConceptFilter = 'all' | 'unfinished' | 'checked'
 
-export interface ConceptRow {
-  id: string
-  /** 지식 화면의 주제 key (지도·주소와 맞춘다): Study에서 옮긴 노트는 Study 파일 이름, 아니면 제목 */
-  key: string
-  title: string
-  subject: string
-  subjects?: string[]
-  aliases: string[]
-  /** 미완성인 이유 (없으면 빈 배열) */
-  unfinished: string[]
-  checked: 'none' | 'ok' | 'changed'
-  locked: boolean
-}
+export type { ConceptRow, ConceptTableRow, ConceptCheck, ConceptSort } from '@rw/core/contract/concepts'
+import type { ConceptCheck, ConceptIssue as ContractIssue, ConceptRow, ConceptSort, ConceptTableRow } from '@rw/core/contract/concepts'
 
 export const ISSUE_SQL = {
   empty: 'n.is_empty = 1',
@@ -46,17 +35,8 @@ export const ISSUE_SQL = {
   noSource: 'n.is_empty = 0 AND n.has_source = 0',
   // references.bib가 없으면 대 볼 것이 없으니 세지 않는다
   unknownCite: 'EXISTS (SELECT 1 FROM bib_keys) AND EXISTS (SELECT 1 FROM cites c WHERE c.src = n.id AND NOT EXISTS (SELECT 1 FROM bib_keys b WHERE b.key = c.key))',
-} as const
+} as const satisfies Record<ContractIssue, string>
 export type ConceptIssue = keyof typeof ISSUE_SQL
-export type ConceptCheck = 'unchecked' | 'changedAfterCheck' | 'draftsToReview'
-export type ConceptSort = 'title' | 'subject' | 'sources' | 'links' | 'issues' | 'mtime' | 'projects' | 'aliases' | 'checked'
-export interface ConceptTableRow extends ConceptRow {
-  sources: number
-  links: number
-  issues: ConceptIssue[]
-  mtime: number
-  projects: string[]
-}
 
 export interface ListQuery {
   subjectPrefix?: string

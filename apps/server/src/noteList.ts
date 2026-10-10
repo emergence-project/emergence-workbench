@@ -25,41 +25,13 @@ import { t } from './i18n.js'
  * 예전 기록: research.yaml topics[].blocks에 든 보조 노트는 그 주제에도 든 것으로 읽는다 (머리말 주제가 앞).
  * 앱에서 노트의 주제를 고치면 머리말에 쓰고 그 노트를 topics[].blocks에서 뺀다.
  */
-export const NOTE_CATEGORIES = ['proof', 'calc', 'check', 'summary', 'explore', 'design'] as const
+export { NOTE_CATEGORIES } from '@rw/core/contract/notes'
+export type { NoteCategory, NoteRow, TopicStats, NoteLinks } from '@rw/core/contract/notes'
+import { NOTE_CATEGORIES, type NoteCategory, type NoteLinks, type NoteRow, type TopicStats } from '@rw/core/contract/notes'
 /** 머리말 kind: none — 미분류로 정한 것 (calc/ 노트의 폴더 값을 쓰지 않게) */
 const KIND_NONE = 'none'
-export type NoteCategory = (typeof NOTE_CATEGORIES)[number]
 export const isNoteCategory = (v: unknown): v is NoteCategory => NOTE_CATEGORIES.includes(v as NoteCategory)
 
-export interface NoteRow {
-  /** 폴더 이름(연구노트·계산 노트) 또는 보조 노트 id. 갈래가 다르면 겹칠 수 있어 고칠 때는 file로 가리킨다 */
-  id: string
-  /** note = 연구노트, calc = 계산 노트, block = 보조 노트 */
-  type: 'note' | 'calc' | 'block'
-  /** 본문 파일 (저장소 기준) */
-  file: string
-  /** 연구노트·계산 노트를 원고 API(manuscript?ms=)로 열 때의 key */
-  ms?: string
-  format: 'md' | 'tex'
-  title: string
-  /** 색 점에 쓰는 상태 (보조 노트 상태 이름으로 맞춤: 연구노트 진행 중·일시 정지·정지·완결 → in-progress·blocked·stopped·solved) */
-  status: BlockStatus
-  /** 다시 열 조건 (멈춘 노트) */
-  resume?: string
-  kind?: NoteCategory
-  /** kind를 적지 않아 폴더에서 정한 값 (calc/ → calc) */
-  kindAuto?: true
-  description?: string
-  /** description을 적지 않아 본문 첫 문단에서 뽑은 설명 */
-  descriptionAuto?: true
-  /** 주제 id (있는 주제만), 첫째 = 주 주제 */
-  topics: string[]
-  star: boolean
-  /** 본문 파일을 마지막으로 고친 때 (ms) */
-  mtime: number
-  /** 머리말이 든 파일의 해시 (연구노트는 note.yaml, 없으면 빈 글의 해시). 머리말을 고칠 때 baseHash로 보낸다 */
-  hash: string
-}
 
 interface Source { row: NoteRow; body: string; headTopics: string[]; concepts: string[] }
 
@@ -144,16 +116,6 @@ export function listNotes(wb: Workbench, fresh = false): NoteRow[] {
   return sourcesWithTopics(wb, undefined, fresh).map((s) => s.row).sort((a, b) => b.mtime - a.mtime || a.title.localeCompare(b.title))
 }
 
-export interface TopicStats {
-  /** 노트 수 */
-  notes: number
-  /** 상태별 노트 수 */
-  byStatus: Record<BlockStatus, number>
-  /** 노트들이 가진 성격 (자동, null = 미분류). 많은 것부터 */
-  kinds: { kind: NoteCategory | null; count: number }[]
-  /** 노트를 마지막으로 고친 때 (ms). 노트가 없으면 없음 */
-  updated?: number
-}
 
 function statsOf(rows: NoteRow[]): TopicStats {
   const byStatus: Record<BlockStatus, number> = { 'in-progress': 0, blocked: 0, stopped: 0, solved: 0 }
@@ -283,16 +245,6 @@ export interface ConceptLookup {
   rows(ids: string[]): { id: string; title: string }[]
 }
 
-export interface NoteLinks {
-  /** 이 노트가 쓰는 개념노트: 본문 [[링크]]에 처음 나온 순서, 그 뒤에 머리말 concepts: */
-  concepts: { id: string; title: string }[]
-  /** 본문 [[링크]]로 쓴 개념노트만, 처음 나온 순서 */
-  bodyConcepts: { id: string; title: string }[]
-  /** 본문 [[링크]] 가운데 노트도 개념노트도 아닌 이름 */
-  missing: string[]
-  /** 이 노트를 [[링크]]로 인용한 노트: 최근 고친 것부터 */
-  citedBy: Pick<NoteRow, 'id' | 'type' | 'file' | 'title' | 'status' | 'mtime'>[]
-}
 
 /**
  * 노트 링크에서 모으는 두 목록 (노트 화면 오른쪽 사이드바, 10/5). 링크 문법은 앱의 [[이름]]·[[이름|보이는 글]]·[[이름#절]].

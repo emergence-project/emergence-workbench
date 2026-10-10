@@ -19,8 +19,9 @@ import { t } from './i18n.js'
  *   칩이 너무 작다
  */
 /** 피드백 모드는 등록 전에 수정 · 질문 · 제안을 고른다 (10/9: 질문을 요청으로 읽는 일을 막으려고). 처리할 때 status.yaml의 kind에 종류를 적을 수 있다. 디자인 · 버그 · 기능은 이전 기록, 미분류는 10/9 전 기록과 소개의 피드백 */
-export const FEEDBACK_KINDS = ['디자인', '버그', '기능', '수정', '질문', '제안', '미분류'] as const
-export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]
+export { FEEDBACK_KINDS, FEEDBACK_STATES, FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
+export type { FeedbackKind, FeedbackState, FeedbackVerdict, FeedbackEntry, FeedbackStatus, FeedbackRevision, FeedbackReply, FeedbackVerdictEntry, FeedbackReview, FeedbackComment, MergedFeedback, FeedbackItem as FeedbackListItem, FeedbackPublished as PublishResult } from '@rw/core/contract/feedback'
+import { FEEDBACK_KINDS, FEEDBACK_STATES, FEEDBACK_VERDICTS, type FeedbackComment, type FeedbackEntry, type FeedbackItem as FeedbackListItem, type FeedbackKind, type FeedbackPublished as PublishResult, type FeedbackReply, type FeedbackRevision, type FeedbackReview, type FeedbackState, type FeedbackStatus, type FeedbackVerdict, type FeedbackVerdictEntry } from '@rw/core/contract/feedback'
 
 export interface FeedbackInput {
   kind: FeedbackKind
@@ -39,14 +40,6 @@ export interface FeedbackInput {
   image?: string
 }
 
-export interface FeedbackEntry extends Omit<FeedbackInput, 'image'> {
-  date: string
-  time: string
-  /** 화면 그림 경로 (feedback/ 기준, 예: pictures/2026-10-03-1404.jpg) */
-  picture?: string
-  /** 어디서 남긴 코멘트인지. 없으면 맥 앱의 피드백 모드. '미리보기'는 채팅의 앱 미리보기 댓글을 feedback/preview/날짜.md로 옮긴 것 */
-  source?: '미리보기'
-}
 
 const IMAGE = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/
 const MAX_PICTURE = 4 * 1024 * 1024
@@ -142,62 +135,6 @@ export function parseFeedback(md: string, date: string): FeedbackEntry[] {
  *
  * 같은 날 같은 키(같은 분·같은 부위)가 또 나오면 뒤의 것은 키 끝에 " #2"를 붙인다.
  */
-export const FEEDBACK_STATES = ['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류', '승인'] as const
-export type FeedbackState = (typeof FEEDBACK_STATES)[number]
-export interface FeedbackStatus {
-  state: FeedbackState; commit?: string; note?: string
-  /** 주제 (피드백 요구의 묶음) */
-  theme?: string
-  /** 원문을 문법에 맞게 교정한 문장. 원문은 날짜 파일에 그대로 둔다 */
-  clean?: string
-  /** 이 피드백에서 읽어 낸 요구 — 틀렸으면 사용자가 고쳐 준다 */
-  understood?: string
-  /** 왜 그랬는지 (지적 / 원인 / 처리의 원인). 처리는 note와 commit */
-  cause?: string
-  /** 같은 지적이 되풀이되면 최신 항목 하나로 합친다: 합쳐진 쪽에 대표(최신) 항목의 키를 적는다. 원문은 날짜 파일에 그대로 */
-  merged_into?: string
-  /** 지적한 화면 부위 (지금 앱 화면의 이름: 홈, 사이드바, 프로젝트 첫 화면 …). 피드백 화면의 기본 묶기 */
-  area?: string
-  /** Claude가 가린 종류 (디자인·버그·기능·질문). 있으면 날짜 파일의 종류 대신 쓴다 */
-  kind?: FeedbackKind
-  /** 보류 항목에서 사용자에게 묻는 것 (한 문장). 있으면 피드백 화면의 "내 차례"와 왼쪽 띠의 수에 들어간다 */
-  ask?: string
-  /** 사용자가 반려한 처리를 다시 했을 때, 그 반려의 시각(reviews.yaml의 at). 같으면 반려가 처리된 것 */
-  rework?: string
-  /**
-   * 다시 처리하기 전의 처리들 (10/8 11:28 대화 형식). 다시 처리할 때 Claude가 지금의 understood · cause · note · commit을
-   * 그 반려의 at과 함께 여기 끝에 옮겨 적고 위 칸을 새 글로 바꾼다. 피드백 화면이 주고받음마다 예전 글과 고친 칸을 보인다
-   */
-  revised?: FeedbackRevision[]
-  /** 이 처리(understood · cause · note)를 적은 시각 (2026-10-04T11:20). 피드백 화면의 요약 칸 시각. 다시 처리하면 revised로 함께 옮긴다 */
-  handled_at?: string
-  /** 처리한 에이전트 (claude · codex). 피드백 화면에 "관리자 (claude)"로 보인다 */
-  by?: string
-  /** 고친 코드가 들어간 앱 버전 (있으면 commit 대신 보인다) */
-  version?: string
-  /** 화면을 바꾼 처리의 전후 그림 (feedback/ 기준 경로, [전, 뒤]). 합칠 때 에이전트가 찍어 둔 그림을 feedback/pictures/에 옮겨 적는다 */
-  pictures?: string[]
-  /** 사용자의 코멘트(reviews.yaml comments)에 단 답. to = 그 코멘트의 at. 답이 없는 코멘트가 있으면 대기 */
-  replies?: FeedbackReply[]
-}
-export interface FeedbackRevision {
-  /** 이 처리를 되돌려 보낸 반려의 시각 (reviews.yaml의 at) */
-  at: string
-  understood?: string
-  cause?: string
-  note?: string
-  commit?: string
-  handled_at?: string
-  by?: string
-}
-export interface FeedbackReply {
-  /** 답한 시각 */
-  at: string
-  /** 답한 코멘트의 at */
-  to: string
-  note: string
-  by?: string
-}
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : undefined)
 
@@ -255,14 +192,6 @@ export const feedbackAsks = (st: { state?: string; ask?: string } | undefined): 
  * 진행은 반려처럼 Claude가 다시 처리(rework)할 때까지 대기, 중단은 그대로 끝(승인처럼 완료).
  */
 export const REVIEW_FILE = 'reviews.yaml'
-export const FEEDBACK_VERDICTS = ['승인', '반려', '진행', '중단'] as const
-export type FeedbackVerdict = (typeof FEEDBACK_VERDICTS)[number]
-/** 승인·반려 한 번 */
-export interface FeedbackVerdictEntry { verdict: FeedbackVerdict; at: string; note?: string; edited?: string }
-/** 한 항목의 최신 승인·반려와 그 전의 것들(history, 오래된 것부터). history가 없는 예전 파일도 그대로 읽는다 */
-export interface FeedbackReview extends FeedbackVerdictEntry { history?: FeedbackVerdictEntry[] }
-/** 코멘트 한 번: 승인·반려를 바꾸지 않는 말 */
-export interface FeedbackComment { at: string; note: string; edited?: string }
 
 const verdictEntry = (v: unknown): FeedbackVerdictEntry | null => {
   const r = v as { verdict?: unknown; at?: unknown; note?: unknown; edited?: unknown } | null
@@ -420,13 +349,6 @@ export function readFeedbackStatus(dir: string): Map<string, FeedbackStatus> {
   return out
 }
 
-/** 다른 항목으로 합쳐진 원래 코멘트 (대표 항목 아래에 원문 그대로 보인다) */
-export type MergedFeedback = Pick<FeedbackEntry, 'date' | 'time' | 'kind' | 'target' | 'text' | 'source'> & { n: number; picture?: string }
-export type FeedbackListItem = FeedbackEntry & {
-  n: number; key: string; status?: FeedbackStatus; review?: FeedbackReview; comments?: FeedbackComment[]; merged?: MergedFeedback[]
-  /** 반영 커밋이 돌고 있는 앱에 들어 있는가 (서버가 채운다, 모르면 없음) */
-  inApp?: boolean
-}
 
 /**
  * 모든 날짜의 피드백과 처리 기록. 최근 것부터. n은 같은 날 같은 키(분·부위) 중 몇 번째인지 (고치기·지우기에 씀).
@@ -503,12 +425,6 @@ export function editFeedback(dir: string, at: { date: string; time: string; targ
   return true
 }
 
-export interface PublishResult {
-  /** 이번에 새로 만든 커밋 (없으면 null) */
-  commit: string | null
-  pushed: boolean
-  message: string
-}
 
 /**
  * 피드백 폴더만 커밋하고 GitHub(추적 중인 원격 브랜치)에 올린다. 클라우드의 에이전트가 읽을 수 있게.

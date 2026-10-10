@@ -5,16 +5,8 @@ import { conceptsOf } from './libraryNotes.js'
 import { listMaterials, type BibEntry } from './materials.js'
 import type { Registry } from './registry.js'
 
-export interface ConceptUse {
-  rid: string
-  project: string
-  /** research.yaml의 concepts:로 프로젝트 전체가 기댄다 (빼기 가능) */
-  linked: boolean
-  /** 머리말 concepts:로 이 개념에 기대는 연구노트 */
-  notes: { id: string; title: string }[]
-  /** 개념노트의 출처 하나하나가 이 프로젝트 bib에 있는지 (있으면 그 bib의 키) */
-  cites: { key: string; projectKey?: string }[]
-}
+export type { ConceptUse } from '@rw/core/contract/concepts'
+import type { ConceptUse } from '@rw/core/contract/concepts'
 
 const arxiv = (s?: string) => s?.replace(/^arxiv:/i, '').replace(/v\d+$/, '').trim().toLowerCase() || undefined
 const doi = (s?: string) => s?.replace(/^https?:\/\/(dx\.)?doi\.org\//i, '').trim().toLowerCase() || undefined

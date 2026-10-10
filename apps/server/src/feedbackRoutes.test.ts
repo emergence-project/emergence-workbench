@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
 import { buildApp } from './app.js'
 import { addFeedbackComment, editFeedbackNote, readFeedbackComments, readFeedbackReviews, setFeedbackReview } from './feedback.js'
-import { tmp, useSampleApp } from './testkit.js'
+import { fixture, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
 
@@ -185,6 +185,27 @@ describe('피드백 올리기', () => {
     const sandbox = buildApp({ configDir: path.join(tmp, 'config-pub2'), feedbackDir: dir })
     expect((await sandbox.inject({ method: 'POST', url: '/api/feedback/publish' })).statusCode).toBe(404)
     await Promise.all([fb.close(), sandbox.close()])
+  })
+
+  it('연구 저장소의 코멘트(workbench/comments/)만 올린다', async () => {
+    const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' }
+    const g = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, env }).toString().trim()
+    const remote = path.join(tmp, 'rec-remote.git')
+    const local = path.join(tmp, 'rec-local')
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+    execFileSync('git', ['clone', '-q', remote, local])
+    fs.cpSync(fixture, local, { recursive: true, filter: (src) => !src.includes('.build') })
+    g(local, 'add', '.'); g(local, 'commit', '-qm', 'init'); g(local, 'push', '-q', '-u', 'origin', 'main')
+    g(local, 'config', 'user.name', 't'); g(local, 'config', 'user.email', 't@t')
+    const rec = buildApp({ configDir: path.join(tmp, 'config-rec') })
+    const { id } = (await rec.inject({ method: 'POST', url: '/api/researches', payload: { path: local } })).json()
+    fs.mkdirSync(path.join(local, 'workbench/comments'), { recursive: true })
+    fs.writeFileSync(path.join(local, 'workbench/comments/a.md'), '코멘트\n')
+    expect((await rec.inject(`/api/researches/${id}/records/unpublished`)).json().files).toEqual(['workbench/comments/a.md'])
+    const r = await rec.inject({ method: 'POST', url: `/api/researches/${id}/records/publish` })
+    expect(r.statusCode).toBe(200)
+    expect(r.json()).toMatchObject({ pushed: true, files: ['workbench/comments/a.md'] })
+    await rec.close()
   })
 
   it('자동 올리기를 켜면 피드백을 이어 남겨도 마지막 것 뒤에 한 번만 올린다', async () => {

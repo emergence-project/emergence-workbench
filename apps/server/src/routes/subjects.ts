@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/subjects'
+import * as CC from '@rw/core/contract/concepts'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
 import { acceptedSubjects, changeSubject, matchesSubject, readSubjects, readYamlHash, setEntrySubjects } from '../subjects.js'
@@ -34,7 +35,7 @@ export function registerSubjects(app: FastifyInstance, ctx: RouteContext): void 
   })
   app.patch('/api/subjects', replies(C.SubjectTreeSaved), async (req): Promise<C.SubjectTreeSaved> => changeSubject(lib(), parseBody(C.RenameSubjectBody, req.body), false))
   app.post('/api/subjects', replies(C.SubjectTreeSaved), async (req): Promise<C.SubjectTreeSaved> => changeSubject(lib(), parseBody(C.AddSubjectBody, req.body), true))
-  app.put<{ Params: { id: string } }>('/api/concepts/:id/subjects', async (req) => {
+  app.put<{ Params: { id: string } }>('/api/concepts/:id/subjects', replies(CC.ConceptMd), async (req): Promise<CC.ConceptMd> => {
     const { subjects, baseHash } = parseBody(C.SetSubjectsBody, req.body)
     return setConceptSubjects(lib(), req.params.id, subjects, baseHash)
   })

@@ -6,27 +6,8 @@ import { readLearn } from './learn.js'
 import { projectConceptRefs } from './noteList.js'
 import type { Registry } from './registry.js'
 
-export interface IdCount { count: number; ids: string[] }
-
-export interface ConceptBrief {
-  /** 개념노트 수 */
-  total: number
-  /** 최근 고친 개념노트 (최근 연 노트는 화면이 가진 기록과 합친다) */
-  recent: { id: string; title: string; subject: string; mtime: number }[]
-  /** 점검 (사용자 차례) */
-  check: {
-    /** 연구가 쓰는 노트 수 (점검 제목 옆) */
-    used: number
-    /** 연구가 쓰는 노트 중 확인 전 */
-    unchecked: IdCount
-    /** 연구가 쓰는 노트 중 확인 뒤 바뀜 */
-    changedAfterCheck: IdCount
-    /** 초안이 다 된 공부할 것 항목 (개념노트가 이어졌고 아직 확인 전). ids는 공부할 것 항목 id */
-    draftsToReview: IdCount & { concepts: string[] }
-  }
-  /** 통계 (이상, 에이전트 차례) */
-  stats: { empty: IdCount; emptySection: IdCount; todo: IdCount; brokenLink: IdCount; noSource: IdCount; unknownCite: IdCount }
-}
+export type { IdCount, ConceptBrief } from '@rw/core/contract/concepts'
+import type { IdCount, ConceptBrief } from '@rw/core/contract/concepts'
 
 const ofIds = (ids: string[]): IdCount => ({ count: ids.length, ids })
 

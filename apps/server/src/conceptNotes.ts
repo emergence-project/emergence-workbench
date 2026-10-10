@@ -17,35 +17,8 @@ import { frontMatter } from '@rw/core'
  *   확인한 뒤 본문이 바뀌면 "확인 뒤 고침"이 된다.
  * 머리말을 고칠 때 본문 바이트는 그대로 둔다.
  */
-export type CheckState = 'none' | 'ok' | 'changed'
-
-export interface ConceptMeta {
-  title: string
-  aliases: string[]
-  subject?: string
-  subjects?: string[]
-  study?: string
-  checked?: { at: string; hash: string }
-  locked: boolean
-  /** 사람이 "검토 예정"으로 골라 둔 노트 (머리말 review: todo, 10/4 사용자) */
-  review?: 'todo'
-  /** 출처: references.bib 키 (본문 [@키] 말고 노트 전체의 출처) */
-  sources: string[]
-  /** 관련 개념 (제목·별칭). 본문 [[링크]]와 같은 뜻 */
-  related: string[]
-  /** 아직 bib 키로 바꾸지 못한 출처 글 (Study에서 옮긴 것) */
-  sourcesUnsorted: string[]
-}
-
-export interface ConceptMd {
-  id: string
-  meta: ConceptMeta
-  body: string
-  /** 파일 전체의 해시 (저장 충돌 확인) */
-  hash: string
-  unfinished: string[]
-  checked: CheckState
-}
+export type { CheckState, ConceptMeta, ConceptMd } from '@rw/core/contract/concepts'
+import type { CheckState, ConceptMeta, ConceptMd, ConceptMemo } from '@rw/core/contract/concepts'
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 export const CONCEPTS_DIR = 'concepts'
@@ -273,7 +246,7 @@ export function createConceptMd(lib: string | undefined, id: string, input: { ti
  */
 export const MEMO_SUFFIX = '.memo.md'
 
-export interface ConceptMemo { id: string; text: string; hash: string; exists: boolean }
+export type { ConceptMemo } from '@rw/core/contract/concepts'
 
 function memoFile(lib: string | undefined, id: string): string {
   return noteFile(lib, id).replace(/\.md$/, MEMO_SUFFIX)
