@@ -15,14 +15,14 @@ import { MarkdownNoteBody } from './MarkdownNote'
 import { blockTarget, useSlot } from './Comments'
 import { openRecordComposer } from './RecordContext'
 import { recordRevealRange, recordSelectionFromLines } from './recordHelpers'
-import { NoteHead, NoteTitleInput, type EditView } from './NoteToolbar'
+import { NoteHead, NoteTitleInput } from './NoteToolbar'
 import { NoteScreen } from './NoteScreenFrame'
 import { NoteStatus } from './NoteStatus'
 import { latexSections, registerHeadWriter, sectionAtLine, useRightMode } from './noteScreen'
-import { store } from './store'
 import { CompileSettings, ExportLink, savedLatexChoice, type ExportNote } from './NoteExport'
 import { deleteBlockWithConfirm } from './blockDelete'
-import { onOutside, useAutosave } from './autosave'
+import { onOutside } from './autosave'
+import { useNoteEdit } from './noteEdit'
 import { t } from './i18n'
 
 
@@ -52,17 +52,10 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
   const key = sessionKey(rid, bid)
   const { pdfVersion } = useSession(key)
   const [loaded, setLoaded] = useState<{ id: string; content: string; md: boolean; ownHeader?: boolean } | null>(null)
-  /** Markdown 보조 노트에서 고치기를 열었는지 */
-  const [editing, setEditing] = useState(false)
   const [meta, setMeta] = useState<BlockMeta | null>(null)
   const [compiling, setCompiling] = useState(false)
   const [result, setResult] = useState<CompileResult | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const [statusDialog, setStatusDialog] = useState<'blocked' | 'stopped' | null>(null)
-  /** 고치는 중의 이름 (연필을 누르면 제목이 글 칸이 된다, 10/5 사용자 결정) */
-  const [titleDraft, setTitleDraft] = useState<string | null>(null)
-  const [view, setView] = useState<EditView>(() => store.get<EditView>('rw.notes.editView', 'live'))
-  const [savedAt, setSavedAt] = useState<number | null>(null)
   const [csOpen, setCsOpen] = useState(false)
   const [exOpen, setExOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -71,24 +64,25 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
 
   const editor = useRef<EditorHandle>(null)
   const viewTimer = useRef<number | undefined>(undefined)
-  // 저장은 저장기 하나가 맡는다 (autosave.ts): 차례로 저장, 바깥에서 바뀌면 멈춤, 탭을 닫으면 저장
-  const { saver, state: saveState } = useAutosave(key, {
+  const row: BlockRow | undefined = summary.blocks.find((b) => b.id === bid)
+  // 저장은 저장기 하나가 맡는다 (autosave.ts): 차례로 저장, 바깥에서 바뀌면 멈춤, 탭을 닫으면 저장.
+  // 고치기 · 보기 · 이름 초안(연필을 누르면 제목이 글 칸이 된다, 10/5 사용자 결정)은 노트 화면 공통 흐름
+  const edit = useNoteEdit(key, {
     write: async (text, h) => {
       const next = await rapi.saveBlock(bid, text, h)
       setLoaded((l) => l ? { ...l, ownHeader: !l.md && !isBodyOnly(text) } : l)
-      setSavedAt(Date.now())
       return next
     },
     onSaved: () => onChanged(),
-    onError: (e) => setNotice(e.message),
+    mtime: row?.mtime,
+    blocked: () => deleted.current || deletePending.current,
   })
+  const { saver, state: saveState, editing, setEditing, view, titleDraft, setTitleDraft, notice, setNotice } = edit
   /** 편집기의 지금 글과 파일 hash, 저장 상태 (저장기가 가진다) */
   const content = { get current() { return saver.text } }
   const hash = { get current() { return saver.hash } }
   const saveStateRef = { get current() { return saver.state } }
 
-  const row: BlockRow | undefined = summary.blocks.find((b) => b.id === bid)
-  useEffect(() => { if (row?.mtime) setSavedAt((t) => Math.max(t ?? 0, row.mtime)) }, [row?.mtime])
   const byId = useMemo(() => new Map(summary.blocks.map((b) => [b.id, b])), [summary.blocks])
   const titleOf = (id: string) => byId.get(id)?.title ?? id
 
@@ -114,13 +108,10 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
     })()
     // 탭을 닫거나 옮기면 내려간다. 고치던 내용은 저장기가 내려가며 저장한다 (바깥에서 바뀐 경우는 서버가 해시로 막는다)
     return () => { cancelled = true }
-  }, [bid, rapi, key, saver])
+  }, [bid, rapi, key, saver, setEditing, setNotice])
 
   // ---------- 저장 ----------
-  const save = useCallback(async (): Promise<boolean> => {
-    if (deleted.current || deletePending.current) return false
-    return saver.flush()
-  }, [saver])
+  const save = edit.saveNow
 
   const onChange = useCallback((text: string) => {
     if (deleted.current) return
@@ -186,7 +177,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
     setEditing(false)
     setMeta(d.meta)
     setNotice(message)
-  }, [bid, rapi, saver])
+  }, [bid, rapi, saver, setEditing, setNotice])
 
   // 에이전트·다른 편집기가 파일을 바꾸면: 고치던 중이 아니면 새 내용을 불러오고, 고치던 중이면 저장을 멈춘다
   useEffect(() => {
@@ -203,7 +194,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
     }
     bus.addEventListener('rw', on)
     return () => bus.removeEventListener('rw', on)
-  }, [bus, rid, bid, reloadFromDisk, saver])
+  }, [bus, rid, bid, reloadFromDisk, saver, setNotice])
 
   // ---------- 컴파일·이동 ----------
   const compile = useCallback(async () => {
@@ -224,7 +215,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
       setCompiling(false)
       setSession(key, { compiling: false })
     }
-  }, [rid, bid, rapi, compiling, save, saver, key, onShowPdf])
+  }, [rid, bid, rapi, compiling, save, saver, key, onShowPdf, setNotice])
 
   const onCursorLine = useCallback((line: number) => {
     if (pdfVersion === null) return
@@ -245,7 +236,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
       const line = refineSourceLine(saver.text, spot.line, text)
       editor.current?.revealLines(line, line)
     }).catch((e: Error) => setNotice(e.message))
-  }, [bid, rapi, key, saver])
+  }, [bid, rapi, key, saver, setNotice])
 
   const recordSlot = useSlot(rid, blockTarget(bid).target)
   useEffect(() => {
@@ -281,16 +272,13 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
   const parentTitle = meta?.parent ? titleOf(meta.parent) : null
 
   // ---------- 고치기 (Markdown은 저절로 저장하고 "편집 완료"으로 마친다, 10/5 노트 도구 줄) ----------
-  const startEdit = () => { setTitleDraft(meta?.title ?? bid); if (loaded?.md) setEditing(true) }
+  const startEdit = () => edit.start(meta?.title ?? bid, !!loaded?.md)
   const onDraft = useCallback((full: string) => onChange(full), [onChange])
-  const finish = async () => {
-    // 저장하지 못했으면(충돌 포함) 편집기를 닫지 않는다: 닫으면 저장하지 않은 원문으로 돌아갈 길이 없다
-    if (saveStateRef.current !== 'saved' && !(await save())) return
-    const newTitle = titleDraft?.replace(/\s+/g, ' ').trim()
-    setTitleDraft(null)
-    if (loaded?.md) { setLoaded((l) => (l ? { ...l, content: content.current } : l)); setEditing(false) }
+  const finish = () => edit.finish((draft) => {
+    const newTitle = draft?.replace(/\s+/g, ' ').trim()
+    if (loaded?.md) setLoaded((l) => (l ? { ...l, content: content.current } : l))
     if (newTitle && newTitle !== (meta?.title ?? bid)) tryPatch({ title: newTitle })
-  }
+  })
   const editingAny = editing || titleDraft !== null
 
   // 절 목차: LaTeX 보조 노트는 \section 줄 (Markdown은 본문이 알린다)
@@ -434,12 +422,10 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
           onSubmit={async (f) => { await patch(f); setStatusDialog(null) }} />
       )}
       toolbar={{
-        status: toolbarStatus, save: saveState, savedAt, pdfNote, editing: editingAny,
+        status: toolbarStatus, save: saveState, savedAt: edit.savedAt, pdfNote, editing: editingAny,
         title: meta && <NoteTitleInput title={meta.title ?? bid} draft={titleDraft ?? undefined} onDraft={setTitleDraft} />,
-        saveAction: saveState === 'conflict'
-          ? <button className="btn sm" title={t('이 화면에서 저장하지 않은 고침을 버리고 파일을 다시 읽습니다', 'Discard unsaved edits on this screen and reload the file')} onClick={() => void reloadFromDisk()}>{t('파일 다시 읽기', 'Reload file')}</button>
-          : saveState === 'error' ? <button className="btn sm" onClick={() => void save()}>{t('다시 저장', 'Save again')}</button> : undefined,
-        view: editing ? view : undefined, onView: (v) => { setView(v); store.set('rw.notes.editView', v) },
+        saveAction: edit.saveAction(() => void reloadFromDisk()),
+        view: editing ? view : undefined, onView: edit.setView,
         onEdit: startEdit, editDisabled: !loaded || saveState === 'conflict', onDone: () => void finish(),
         onComment: () => openRecordComposer(rid, blockTarget(bid, meta?.title), loaded?.md ? undefined : recordSelectionFromLines(content.current, editor.current?.selection() ?? null)), commentOn: mode === 'records',
         onCompile: () => void compile(), compiling, compileDisabled: !loaded || editing, compileTip: `${t('컴파일', 'Compile')}: ${meta?.title ?? bid}`, compileKey: !!loaded && !loaded.md,
