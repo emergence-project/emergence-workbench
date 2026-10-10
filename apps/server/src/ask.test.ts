@@ -16,6 +16,61 @@ vi.mock('node:child_process', async (importOriginal) => ({
 useSampleApp()
 
 const at = new Date(2026, 9, 3, 14, 30)
+const rulesHeading = '이 연구 저장소의 규칙 (AGENTS.md · CLAUDE.md). 답할 때 기호·용어·근거·지어내지 않기 같은 규칙을 따른다. 파일을 고치지 말라는 아래 지침이 이 규칙보다 앞선다.'
+
+describe('노트 질문의 답에 연구 저장소 규칙을 준다', () => {
+  const agents = '내용을 지어내지 않는다. 이 연구에서 에너지는 E로 쓴다.\n'
+  const maxBytes = 32 * 1024
+  it.each([
+    { name: 'missing', files: {}, expected: [] },
+    { name: 'agents', files: { 'AGENTS.md': agents }, expected: [agents] },
+    { name: 'alias', files: { 'AGENTS.md': agents, 'CLAUDE.md': '\n@AGENTS.md\n' }, expected: [agents] },
+    { name: 'truncated', files: { 'AGENTS.md': agents, 'CLAUDE.md': '한'.repeat(30_000) + 'OMITTED_END' }, expected: [agents, '한'.repeat(Math.floor((maxBytes - Buffer.byteLength(agents)) / 3))] },
+  ])('규칙 $name: 답하는 Claude가 받는 프롬프트', async ({ name, files, expected }) => {
+    const repo = makeRepo(`ask-rules-${name}`)
+    for (const [file, text] of Object.entries(files)) fs.writeFileSync(path.join(repo, file), text!)
+    const ask = vi.fn<AskRunner>().mockResolvedValue('근거에 따른 답입니다.')
+    const a = buildApp({ configDir: path.join(tmp, `config-ask-rules-${name}`), ask })
+    try {
+      const rid = (await a.inject({ method: 'POST', url: '/api/researches', payload: { path: repo } })).json().id as string
+      const R = `/api/researches/${rid}/comments/note-rules`
+      const id = (await a.inject({ method: 'POST', url: R, payload: { kind: '질문', title: '규칙 질문', text: '에너지 기호는?' } })).json().entry.id
+      expect((await a.inject({ method: 'POST', url: `${R}/${id}/answer` })).statusCode).toBe(200)
+      expect(ask).toHaveBeenCalledTimes(1)
+      const { cwd, prompt } = ask.mock.calls[0]![0]
+      expect(cwd).toBe(repo)
+      if (!expected.length) {
+        expect(prompt).not.toContain(rulesHeading)
+        expect(prompt).not.toContain('--- AGENTS.md ---')
+        expect(prompt).not.toContain('--- CLAUDE.md ---')
+      } else {
+        expect(prompt).toContain(`${rulesHeading}\n--- AGENTS.md ---\n${agents}`)
+        expect(prompt.indexOf(rulesHeading)).toBeLessThan(prompt.indexOf('질문:\n에너지 기호는?'))
+        expect(prompt.split(agents)).toHaveLength(2)
+        if (name === 'truncated') {
+          const body = expected[1]!
+          expect(prompt).toContain(`--- CLAUDE.md ---\n${body}\n(잘림: CLAUDE.md)`)
+          const included = prompt.split('--- CLAUDE.md ---\n')[1]!.split('\n(잘림: CLAUDE.md)')[0]!
+          expect(Buffer.byteLength(agents + included)).toBeLessThanOrEqual(maxBytes)
+          expect(prompt).not.toContain('OMITTED_END')
+          expect(prompt).not.toContain('\uFFFD')
+          expect(prompt).toContain('질문:\n에너지 기호는?')
+          expect(prompt).toContain('파일은 고치지 않습니다. 답 글만 출력합니다.')
+        } else {
+          expect(prompt).not.toContain('--- CLAUDE.md ---')
+          expect(prompt).not.toContain('(잘림:')
+        }
+      }
+    } finally { await a.close() }
+  })
+
+  it('읽을 때 이미 잘린 규칙에도 잘림 표시를 붙인다', () => {
+    const root = path.join(makeRepo('ask-rules-reader-truncated'), 'workbench')
+    const { entry } = addComment(root, 'note-rules', { kind: '질문', title: '규칙 질문', text: '왜?' }, at)
+    const prompt = askPrompt(readComments(root, 'note-rules'), entry.id, { repo: '/r', rules: [{ file: 'AGENTS.md', text: '앞부분', truncated: true }] })
+    expect(prompt).toContain('--- AGENTS.md ---\n앞부분\n(잘림: AGENTS.md)')
+  })
+})
 
 describe('Claude 실행 옵션', () => {
   it.each([
