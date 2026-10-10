@@ -2,7 +2,7 @@ export const SHOTS_HELP = `Usage: pnpm shots [--viewport WIDTHxHEIGHT] [--theme 
 
 Defaults: --viewport 1200x735 --theme mixed --sample default --lang ko
   en: English screens on the English sample (.sandbox-en, fixtures/en overlay).
-  mixed: default sample keeps its existing 52 light + 2 dark captures.
+  mixed: default sample keeps its existing 53 light + 2 dark captures.
   light/dark: every screen uses the selected theme.
   subjects: separate taxonomy fixture, 10 screens.
 

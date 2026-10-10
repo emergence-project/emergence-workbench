@@ -1,8 +1,8 @@
 # research-library
 
-연구 작업대(research-workspace)의 **공유 라이브러리**. 여러 연구가 함께 쓰는 것을 둔다. 비공개로 유지한다.
+Emergence Workbench의 **공유 라이브러리** 틀. 여러 연구가 함께 쓰는 것을 둔다. 비공개 저장소로 두는 것을 권한다.
 
-지금은 서식(`preamble/`)만 있다. 개념·논문은 v1에서 추가한다.
+이 틀에는 서식(`preamble/`)만 있다. 개념노트·논문·그림은 앱에서 더하면 생긴다. 폴더 형식은 `docs/repo-format.md` §10.
 
 ## preamble/ — 공통 서식
 

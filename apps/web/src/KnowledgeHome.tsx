@@ -11,7 +11,7 @@ import { showKnowledgeList } from './knowledgeListState'
 import { t } from './i18n'
 
 /**
- * 지식 첫 화면 (라이브러리 L1, requirements §8.1 "라이브러리 첫 화면" · "지식 점검 기준", 시안 planning/mockups/2026-10-06-library-landing/).
+ * 지식 첫 화면 (라이브러리 L1, 설계 결정 2026-10-06 "라이브러리 첫 화면" · "지식 점검 기준").
  * 머리줄 없이 ① 최근 노트(연 것 · 고친 것을 한 목록, 맨 위 줄 "＋ 개념노트 만들기") ② 왼쪽 점검(사용자 차례, 주황 수) · 오른쪽 통계(이상 종류).
  * 오른쪽 칸은 라이브러리 정보(저장 위치 · 라이브러리 관리). 숫자는 서버 색인(GET /api/concepts/brief)에서 온다.
  */

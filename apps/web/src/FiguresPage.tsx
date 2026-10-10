@@ -11,7 +11,7 @@ import { store } from './store'
 import { lang, plural, t } from './i18n'
 
 /**
- * 그림 라이브러리 (planning/proposal-2026-10-05-libraries.md §4 · §6, 10/4 19:10 피드백 "반복해서 쓰는 그림을 공용 자산으로").
+ * 그림 라이브러리 (10/4 19:10 피드백 "반복해서 쓰는 그림을 공용 자산으로").
  * - 공용 research-library/figures/, 프로젝트 전용 workbench/figures/. 이름과 설명은 그 폴더의 figures.yaml.
  * - 10/6 L2: 첫 화면은 LibraryHome.tsx, 이 파일은 "목록". 표 | 카드(기본), 보기 단추는 머리줄 가운데, 정렬(이름 · 최근 더한 순)은 오른쪽.
  * - 왼쪽 사이드바: 맨 위 "그림 라이브러리"(첫 화면) · "목록 n", 찾기, 공용 · 쓰는 노트 없음, 프로젝트별.

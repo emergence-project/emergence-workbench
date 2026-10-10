@@ -12,7 +12,7 @@ import { t } from './i18n'
 import { loadPdfjs } from './pdfjs'
 
 /**
- * 논문 라이브러리 (planning/proposal-2026-10-05-libraries.md §6, 10/6 L2: 첫 화면은 LibraryHome.tsx, 이 파일은 "목록").
+ * 논문 라이브러리 (10/6 L2: 첫 화면은 LibraryHome.tsx, 이 파일은 "목록").
  * - 목록(표) | 카드. 보기 단추는 머리줄 가운데(디자인 시스템 6절 세 구역). 표의 모든 칸은 한 줄, 머리를 누르면 정렬(한 번 더 누르면 거꾸로), 머리를 끌면 순서, 경계를 끌면 폭.
  *   "열 고르기"에서 켜고 끄고 순서를 바꾼다. 폭 · 순서 · 켠 열 · 보기는 이 브라우저가 기억한다.
  * - 왼쪽 사이드바: 맨 위 "논문 라이브러리"(첫 화면) · "목록 n", 찾기와 거르기(논문 · 책 · 코멘트 있는 논문 · 답 기다리는 질문 · 프로젝트에 안 묶임 · 프로젝트별).
@@ -622,7 +622,7 @@ function PaperInfo({ paper, projects, ctx, opened, onSaved }: { paper: PaperRow;
 }
 
 /**
- * 논문 하나 열기 (planning/proposal-2026-10-05-libraries.md §6, 10/5 저녁 고침): 가운데 PDF, 오른쪽에 정보 | 코멘트.
+ * 논문 하나 열기 (10/5 저녁 고침): 가운데 PDF, 오른쪽에 정보 | 코멘트.
  * PDF와 코멘트는 연구노트 PDF와 같은 부품(Comments.tsx). 형광펜 네 색, 글을 고르지 않고 남긴 코멘트·질문은 논문 전체에 대한 것.
  */
 function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: PaperList; ctx: Ctx; onSaved(m: string): void }) {

@@ -7,7 +7,7 @@ import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 
 /**
- * 논문 더하기 (planning/proposal-2026-10-05-libraries.md §6 "더하기"): arXiv 번호나 DOI, 또는 PDF 하나.
+ * 논문 더하기: arXiv 번호나 DOI, 또는 PDF 하나.
  * - arXiv는 export.arxiv.org, DOI는 Crossref에서 정보를 받아 research-library/references.bib 끝에 항목 하나를 덧붙인다.
  * - 키는 Better BibTeX 기본 모양(첫 저자 성 소문자 + 제목 첫 낱말 + 연도, 예: exampleDischarging2022). 겹치면 a, b …를 붙인다.
  * - arXiv 논문은 첫 PDF 폴더에 <키>.pdf로 PDF도 받는다. 올린 PDF는 같은 이름으로 그 폴더에 둔다.

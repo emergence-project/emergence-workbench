@@ -2,10 +2,7 @@
 
 [English](mac-setup.md)
 
-README에서 옮긴 운영 안내 (2026-10-08).
-
-
-Node 22, pnpm, TeX Live(latexmk·xelatex·synctex)가 필요하다.
+Node 22와 pnpm이 필요하다. TeX Live(latexmk·xelatex·synctex)는 컴파일할 때만 필요하다.
 
 **실사용: 백그라운드 서비스.** 앱은 macOS 백그라운드 서비스(LaunchAgent)로 돈다. 로그인하면 켜지고, 꺼지면 다시 켜지며, Claude 세션이나 터미널 창과 무관하다. 서버 하나가 빌드한 화면과 API를 `http://127.0.0.1:5174`로 함께 내보낸다.
 

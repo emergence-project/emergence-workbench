@@ -26,7 +26,7 @@ The maintainer reviews every pull request (`.github/CODEOWNERS`). Pull requests 
 - **Never overwrite an outside change.** Writes send the hash they read (`baseHash`); keep that check on every new write path.
 - Your data is not app code. Settings live in the config folder (`~/.config/research-workspace/`), private records in your own private repository (`personalRepo:` in `config.yaml`), and research in your research repositories. Nothing in them belongs in a pull request.
 
-Coding agents (Claude Code, Codex, …) start from [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md), which also apply to human contributors.
+[AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) are for coding agents (Claude Code, Codex, …) working in this repository and for maintainers. Human contributors follow this file.
 
 By contributing you agree that your contribution is licensed under the [MIT License](LICENSE).
 

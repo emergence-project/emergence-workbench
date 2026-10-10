@@ -12,7 +12,7 @@ import { t } from './i18n.js'
 import { frontMatter } from '@rw/core'
 
 /**
- * 논문 라이브러리 (planning/proposal-2026-10-05-libraries.md §2, §5).
+ * 논문 라이브러리 (형식: docs/repo-format.md §10).
  * - 논문 정보는 research-library/references.bib 하나. 앱은 읽기만 한다(새 항목 더하기는 2단계).
  * - 관련 프로젝트는 research-library/papers.yaml에 bib 키별로 적는다. 프로젝트 bib에 같은 키가 있으면 저절로 이어진다.
  * - PDF는 설정의 PDF 폴더(여러 개, iCloud·Google Drive 가능)에서 <bib 키>.pdf로 찾는다. papers.yaml의 pdf:가 있으면 그 경로.

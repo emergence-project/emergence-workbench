@@ -146,7 +146,7 @@ export const FEEDBACK_STATES = ['반영', '거절', '확인 필요', '답변', '
 export type FeedbackState = (typeof FEEDBACK_STATES)[number]
 export interface FeedbackStatus {
   state: FeedbackState; commit?: string; note?: string
-  /** 주제 (planning/feedback-requirements.md의 묶음) */
+  /** 주제 (피드백 요구의 묶음) */
   theme?: string
   /** 원문을 문법에 맞게 교정한 문장. 원문은 날짜 파일에 그대로 둔다 */
   clean?: string
