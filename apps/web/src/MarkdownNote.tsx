@@ -82,8 +82,8 @@ export function followLink(rid: string, e: React.MouseEvent): void {
  * editing은 바깥이 가진다 (노트 도구 줄의 고치기).
  * view·onDraft를 주면 노트 도구 줄이 보기를 바꾸고 고칠 때마다 파일 전체를 받아 저절로 저장한다 (10/5 노트 도구 줄 "편집 완료").
  */
-export function MarkdownNoteBody({ rid, text, rapi, kind, editing, saving, onSave, onCancel, empty, head, footer, file, target, view, onDraft, tocOwner }: {
-  rid: string; text: string; rapi: ResearchApi; kind: 'note' | 'aux'; editing: boolean; saving: boolean
+export function MarkdownNoteBody({ rid, text, rapi, kind, editing, onSave, onCancel, empty, head, footer, file, target, view, onDraft, tocOwner }: {
+  rid: string; text: string; rapi: ResearchApi; kind: 'note' | 'aux'; editing: boolean
   /** 글을 골라 남기는 질문의 대상 (Comments.tsx) */
   target?: CommentTarget | null
   /** 연구노트 파일 (그 폴더의 그림을 보여 줄 때) */
@@ -112,7 +112,7 @@ export function MarkdownNoteBody({ rid, text, rapi, kind, editing, saving, onSav
     return (
       <div className="md-note-editing">
         {head}
-        <NoteAsk rid={rid} target={target ?? null} source={text} contentOffset={start}><ConceptEditor initial={body} options={options} notePreview asset={asset} saving={saving} editView={view}
+        <NoteAsk rid={rid} target={target ?? null} source={text} contentOffset={start}><ConceptEditor initial={body} options={options} notePreview asset={asset} editView={view ?? 'live'}
           commands={kind === 'note' ? RESEARCH_NOTE_COMMANDS : AUX_NOTE_COMMANDS}
           label={kind === 'note' ? t('연구노트 본문', 'Research note body') : t('노트 본문', 'Note body')}
           hint={kind === 'note' ? t('## 제목으로 절을 나눕니다. "/"로 틀과 수식을 넣을 수 있습니다.', 'Split sections with ## headings. Type "/" to insert outlines and math.') : t('주장 하나를 적습니다. "/"로 틀과 수식을 넣을 수 있습니다.', 'Write one claim. Type "/" to insert outlines and math.')}

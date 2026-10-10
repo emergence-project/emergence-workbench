@@ -170,22 +170,8 @@
 .cn-ctx { padding: var(--sp-3); }
 
 /* 읽기와 고치기 모두 같은 머리줄: 대상 · 보기 · 행동 (D8). */
-.cn-toolbar-host { flex: none; container: concept-toolbar / inline-size; padding: var(--sp-1) var(--sp-4); border-bottom: 1px solid var(--line); color: var(--text-2); }
-.cn-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--sp-2); min-height: calc(var(--input-h) + var(--sp-2)); font-size: var(--fs-sm); }
-.cn-toolbar-left, .cn-toolbar-right { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.cn-toolbar-right { justify-content: flex-end; }
 .cn-toolbar-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-medium); color: var(--text); }
 .cn-confirm { display: inline-flex; flex: none; align-items: center; gap: var(--sp-1); white-space: nowrap; }
-.cn-toolbar-view { justify-self: center; }
-.cn-toolbar button { flex: none; white-space: nowrap; }
-.cn-toolbar .save-state { flex: none; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
-.cn-toolbar .save-state.error { color: var(--danger); }
-@container concept-toolbar (max-width: 600px) {
-  .cn-toolbar { display: flex; flex-wrap: wrap; }
-  .cn-toolbar-left { flex: 1; }
-  .cn-toolbar-view { flex: none; }
-  .cn-toolbar-right { flex: 1 0 auto; }
-}
 
 /* 문서 정보 (10/4 18:09): 상태·미완성 까닭·분류·파일을 오른쪽 칸 맨 위에 */
 .cn-info { display: flex; flex-direction: column; gap: var(--sp-2); }
