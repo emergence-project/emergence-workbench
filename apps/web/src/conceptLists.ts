@@ -1,6 +1,6 @@
-import { indentLess, indentMore } from '@codemirror/commands'
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
 import type { EditorState, StateCommand } from '@codemirror/state'
+import { listKey } from '@rw/core'
 
 const LIST_LINE = /^\s*(?:[-*+]|\d+[.)])(?:\s|$)/
 
@@ -26,5 +26,25 @@ function selectionInList(state: EditorState): boolean {
   })
 }
 
-export const indentListItem: StateCommand = (target) => selectionInList(target.state) && indentMore(target)
-export const outdentListItem: StateCommand = (target) => selectionInList(target.state) && indentLess(target)
+/**
+ * 목록 줄의 Tab · Shift+Tab · Enter는 피드백 · 코멘트 입력란과 같은 규칙(@rw/core listKey)으로 고친다 (10/9 11:21
+ * "문서 편집과 코멘트 다는 설정을 따로 두지 말고 하나로"). 여기서는 코드 블록을 빼는 판정만 더한다.
+ */
+const listCommand = (key: 'Enter' | 'Tab', shift = false): StateCommand => ({ state, dispatch }) => {
+  if (state.selection.ranges.length !== 1 || !selectionInList(state)) return false
+  const { from, to } = state.selection.main
+  const before = state.doc.toString()
+  const r = listKey(before, from, to, key, shift)
+  if (!r) return false
+  // 바뀐 곳만 바꾼다 (되돌리기 · 다른 표시가 문서 전체를 다시 그리지 않게)
+  let a = 0
+  while (a < before.length && a < r.value.length && before[a] === r.value[a]) a++
+  let b = 0
+  while (b < before.length - a && b < r.value.length - a && before[before.length - 1 - b] === r.value[r.value.length - 1 - b]) b++
+  dispatch(state.update({ changes: { from: a, to: before.length - b, insert: r.value.slice(a, r.value.length - b) }, selection: { anchor: r.start, head: r.end }, scrollIntoView: true, userEvent: 'input' }))
+  return true
+}
+
+export const indentListItem = listCommand('Tab')
+export const outdentListItem = listCommand('Tab', true)
+export const continueListItem = listCommand('Enter')
