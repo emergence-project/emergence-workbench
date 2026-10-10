@@ -111,7 +111,8 @@
 .cn-edit .cm-math-block { text-align: center; padding: var(--sp-1) 0; }
 .cn-edit .cm-wikilink { text-decoration: underline; text-decoration-color: var(--text-3); cursor: text; }
 .cn-edit .cm-cite { color: var(--text-2); }
-.cn-edit .cm-bullet { color: var(--text-2); }
+/* 글머리표를 글자보다 조금 크게 (10/9 11:21 "동그라미 크기를 조금 더 키워줘"). 줄 높이는 그대로 */
+.cn-edit .cm-bullet { color: var(--text-2); font-size: 1.4em; line-height: 0; vertical-align: -0.05em; }
 /* 하위 항목: 빈칸 두 개가 글머리표 하나 폭 남짓으로 보이게 (10/8 11:55) */
 .cn-edit-live .cm-list-indent { letter-spacing: .55em; }
 .cn-edit .cm-icode { font-family: var(--editor-font); font-size: .9em; background: var(--bg-sunken); border-radius: var(--r-xs); }

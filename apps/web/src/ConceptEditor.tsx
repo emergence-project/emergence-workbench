@@ -1,13 +1,13 @@
 import { startCompletion } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, Prec } from '@codemirror/state'
 import { Decoration, EditorView, highlightActiveLine, keymap, placeholder } from '@codemirror/view'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { conceptCommands, type Command } from './conceptCommands'
 import { livePreview, macrosFacet, notePreviewFacet, sourceHighlight } from './conceptLive'
-import { indentListItem, outdentListItem } from './conceptLists'
+import { continueListItem, indentListItem, outdentListItem } from './conceptLists'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
 import { NoteMarkdown } from './NoteMarkdown'
 import { RecordContext, useRecordContext } from './RecordContext'
@@ -85,6 +85,8 @@ export function ConceptEditor({ initial, options, saving, onSave, onCancel, comm
         extensions: [
           highlightActiveLine(),
           history(),
+          // markdown()의 Enter(목록 잇기)보다 앞에 둔다: 목록은 코멘트 입력란과 같은 규칙으로. 자동 완성의 Enter(highest)는 그대로 먼저
+          Prec.high(keymap.of([{ key: 'Enter', run: continueListItem }])),
           markdown(),
           conceptCommands(commands),
           parts.current.mode.of(mode === 'live' ? livePreview() : sourceHighlight()),

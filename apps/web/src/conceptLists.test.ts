@@ -1,7 +1,7 @@
-import { insertNewlineContinueMarkup, markdown } from '@codemirror/lang-markdown'
+import { markdown } from '@codemirror/lang-markdown'
 import { EditorState, type StateCommand } from '@codemirror/state'
 import { describe, expect, it } from 'vitest'
-import { indentListItem, outdentListItem } from './conceptLists'
+import { continueListItem, indentListItem, outdentListItem } from './conceptLists'
 
 function run(command: StateCommand, doc: string, anchor = doc.length, head = anchor) {
   let state = EditorState.create({ doc, selection: { anchor, head }, extensions: [markdown()] })
@@ -39,10 +39,15 @@ describe('Markdown list indentation', () => {
     expect(run(indentListItem, doc, 0, doc.length)).toEqual({ handled: false, doc })
   })
 
-  it('keeps the Markdown Enter command continuing nested bullet items', () => {
-    expect(run(insertNewlineContinueMarkup, '- Parent\n  - Child'))
+  it('continues nested bullet items on Enter, like the comment inputs', () => {
+    expect(run(continueListItem, '- Parent\n  - Child'))
       .toEqual({ handled: true, doc: '- Parent\n  - Child\n  - ' })
-    expect(run(insertNewlineContinueMarkup, '- Parent\n  - Child\n    - Grandchild'))
+    expect(run(continueListItem, '- Parent\n  - Child\n    - Grandchild'))
       .toEqual({ handled: true, doc: '- Parent\n  - Child\n    - Grandchild\n    - ' })
+    expect(run(continueListItem, '1. One')).toEqual({ handled: true, doc: '1. One\n2. ' })
+    // 빈 항목에서 Enter: 들여쓴 것은 한 단계 내어쓰고, 맨 바깥은 목록을 끝낸다
+    expect(run(continueListItem, '- Parent\n  - ')).toEqual({ handled: true, doc: '- Parent\n- ' })
+    expect(run(continueListItem, '- Parent\n- ')).toEqual({ handled: true, doc: '- Parent\n' })
+    expect(run(continueListItem, 'Plain paragraph')).toEqual({ handled: false, doc: 'Plain paragraph' })
   })
 })
