@@ -71,7 +71,11 @@
 .dialog.project-dialog { width: min(var(--project-dialog-width), 96vw); max-height: none; flex: none; overflow: visible; }
 .project-dialog .td-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--project-preview-width)), 1fr)); }
 .project-dialog fieldset.td-fields { border: 0; padding: 0; margin: 0; }
-.project-dialog .pp-fields { grid-template-columns: max-content minmax(0, 1fr); gap: var(--td-row-gap) var(--sp-3); grid-auto-rows: minmax(var(--input-h-lg), auto); }
+.project-dialog .pp-fields { grid-template-columns: max-content minmax(0, 1fr); gap: var(--td-row-gap) var(--sp-3); align-items: start; }
+/* 줄마다 첫 칸(입력란 높이) 가운데에 이름과 고르기를 두고, 진행 상태의 레일 확인란은 그 아래에. 오른쪽 모양 칸도 같은 높이로 위에 붙어 줄이 맞는다 */
+.project-dialog .pp-fields dt { display: flex; align-items: center; min-height: var(--input-h-lg); }
+.project-dialog .pp-fields dd { display: grid; grid-template-rows: minmax(var(--input-h-lg), auto); align-items: center; }
+.project-dialog .td-look { align-items: start; }
 .project-dialog .pp-fields dt { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
 .project-dialog .pcard.preview { width: 100%; cursor: default; }
 .project-dialog .pcard.preview:hover { border-color: var(--line); box-shadow: none; }
