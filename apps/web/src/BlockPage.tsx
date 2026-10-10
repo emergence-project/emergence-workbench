@@ -444,7 +444,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
       }}>
         {loaded && !loaded.md && head}
         {loaded?.md && (
-          <MarkdownNoteBody rid={rid} text={loaded.content} rapi={rapi} kind="aux" file={file} editing={editing} saving={saveState === 'saving'} view={view} onDraft={onDraft} tocOwner={tocOwner}
+          <MarkdownNoteBody rid={rid} text={loaded.content} rapi={rapi} kind="aux" file={file} editing={editing} view={view} onDraft={onDraft} tocOwner={tocOwner}
             footer={<CitedPapers rid={rid} rapi={rapi} text={content.current} file={file} library={library} onSaved={setNotice} onLibraryChanged={onLibraryChanged} />}
             head={head} target={{ ...blockTarget(bid), title: `노트 ${meta?.title ?? bid}` }} onSave={(t) => { onDraft(t); void finish() }} onCancel={() => void finish()} empty={t('아직 본문이 없습니다. 고치기를 눌러 주장 하나를 적습니다.', 'No body yet. Click Edit to write one claim.')} />
         )}

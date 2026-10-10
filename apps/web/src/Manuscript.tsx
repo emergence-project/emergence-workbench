@@ -215,7 +215,7 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
             {problems.slice(0, 8).map((p, i) => <div key={i} className="problem"><span>{p.message}</span></div>)}
           </div>
         )}
-        {text !== null && <MarkdownNoteBody rid={rid} text={text} rapi={rapi} kind="note" file={file} target={noteTarget(file, info?.name)} editing={editing} saving={save === 'saving'}
+        {text !== null && <MarkdownNoteBody rid={rid} text={text} rapi={rapi} kind="note" file={file} target={noteTarget(file, info?.name)} editing={editing}
           view={view} onDraft={onDraft} tocOwner={tocOwner}
           head={!editing && <NoteHead title={title} editing={false} />}
           footer={<CitedPapers rid={rid} rapi={rapi} text={text} file={file} library={library} onSaved={onSaved} onLibraryChanged={onLibraryChanged} />}

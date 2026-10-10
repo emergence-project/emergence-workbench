@@ -3,8 +3,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { Compartment, EditorState, Prec } from '@codemirror/state'
 import { Decoration, EditorView, highlightActiveLine, keymap, placeholder } from '@codemirror/view'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import { conceptCommands, type Command } from './conceptCommands'
 import { livePreview, macrosFacet, notePreviewFacet, sourceHighlight } from './conceptLive'
 import { continueListItem, indentListItem, outdentListItem } from './conceptLists'
@@ -22,23 +21,17 @@ import { t } from './i18n'
  * - 바로 보기(기본): Obsidian처럼 커서가 없는 줄은 읽기 화면처럼, 커서가 들어간 줄·수식만 원문이 보인다.
  * - 원문과 미리보기: 왼쪽 원문, 오른쪽 미리보기 (첫 판의 모양. 긴 수식을 고칠 때)
  * - "/"(줄 머리나 빈칸 뒤) 또는 ⌘K로 명령 메뉴, `[[`로 개념노트 찾기, `[@`로 출처 찾기.
- * 머리말은 여기서 고치지 않는다 (서버가 그대로 둔다). ⌘S 저장, Esc 취소.
+ * 머리말은 여기서 고치지 않는다 (서버가 그대로 둔다). ⌘S · Esc는 바깥에 알린다 (노트 화면에서는 둘 다 "편집 완료").
  */
 type Mode = 'live' | 'split' | 'source'
-const MODE_KEY = 'rw.concepts.editMode'
-function savedMode(): Mode {
-  try { return localStorage.getItem(MODE_KEY) === 'split' ? 'split' : 'live' } catch { return 'live' }
-}
 
-export function ConceptEditor({ initial, options, saving, onSave, onCancel, commands, label = t('개념노트 본문', 'Concept note body'), hint = t('정의부터 적어 보세요. "/"로 틀과 수식을 넣을 수 있습니다.', 'Start with the definition. Type "/" to insert outlines and math.'), editView, onChange, notePreview = false, asset, toolbar }: {
-  initial: string; options: RenderOptions; saving: boolean; onSave(body: string): void; onCancel(dirty: boolean): void
+export function ConceptEditor({ initial, options, onSave, onCancel, commands, label = t('개념노트 본문', 'Concept note body'), hint = t('정의부터 적어 보세요. "/"로 틀과 수식을 넣을 수 있습니다.', 'Start with the definition. Type "/" to insert outlines and math.'), editView: mode, onChange, notePreview = false, asset }: {
+  initial: string; options: RenderOptions; onSave(body: string): void; onCancel(dirty: boolean): void
   /**
-   * 보기를 바깥(노트 도구 줄)이 가지면 편집기 위 줄(보기 · 취소 · 저장)을 그리지 않는다 (10/5 노트 도구 줄).
-   * 원문(source) · 원문과 미리보기(split) · 미리보기(live, 커서가 있는 줄만 원문)
+   * 보기는 노트 툴바가 가진다 (10/10 노트 화면 틀): 원문(source) · 원문과 미리보기(split) · 미리보기(live, 커서가 있는 줄만 원문).
+   * 저장 상태 · "편집 완료"도 툴바에 있다
    */
-  editView?: Mode
-  /** Keep the editor state here while its controls use the note's head row. */
-  toolbar?: { target: HTMLElement | null; start: ReactNode; error?: string | null }
+  editView: Mode
   /** 고칠 때마다 (자동 저장) */
   onChange?(body: string): void
   /** "/" 명령 목록 (연구노트·보조 노트는 자기 틀). 빼면 개념노트 틀 */
@@ -57,8 +50,6 @@ export function ConceptEditor({ initial, options, saving, onSave, onCancel, comm
   const records = useRecordContext()
   const recordsRef = useRef(records)
   recordsRef.current = records
-  const [ownMode, setMode] = useState<Mode>(savedMode)
-  const mode = editView ?? ownMode
   const [text, setText] = useState(initial)
   const [shown, setShown] = useState(initial)
   const cb = useRef({ onSave, onCancel, initial, onChange })
@@ -132,8 +123,7 @@ export function ConceptEditor({ initial, options, saving, onSave, onCancel, comm
   // 바로 보기 ↔ 원문과 미리보기
   useEffect(() => {
     view.current?.dispatch({ effects: parts.current.mode.reconfigure(mode === 'live' ? livePreview() : sourceHighlight()) })
-    if (!editView) try { localStorage.setItem(MODE_KEY, mode) } catch { /* 저장하지 못해도 이번에는 그대로 쓴다 */ }
-  }, [mode, editView])
+  }, [mode])
   // 기호 모음(macros)은 나중에 도착할 수 있다
   useEffect(() => { view.current?.dispatch({ effects: parts.current.macros.reconfigure(macrosFacet.of(options.macros)) }) }, [options.macros])
   useEffect(() => { view.current?.dispatch({ effects: parts.current.note.reconfigure(notePreviewFacet.of(notePreview ? { options, asset } : undefined)) }) }, [notePreview, options, asset])
@@ -169,30 +159,13 @@ export function ConceptEditor({ initial, options, saving, onSave, onCancel, comm
 
   // 미리보기는 입력이 잠깐 멈춘 뒤에 다시 그린다 (긴 노트에서도 타자가 밀리지 않게)
   useEffect(() => { if (mode !== 'split') return; const h = setTimeout(() => setShown(text), 200); return () => clearTimeout(h) }, [text, mode])
-  const dirty = text !== initial
   const previewRecords = records && { ...records, source: records.source.slice(0, records.contentOffset) + shown }
   const selectPreview = () => {
     const selection = window.getSelection()
     if (records && preview.current && selection && previewRecords) records.onSelect(readRecordSelection(preview.current, selection, previewRecords.source, records.contentOffset))
   }
-  const saveLabel = saving ? t('저장 중…', 'Saving…') : toolbar?.error ? t('저장 실패', 'Save failed') : dirty ? t('고치는 중…', 'Editing…') : t('저장됨', 'Saved')
-  const controls = !editView && (
-    <div className="cn-toolbar" data-ui="머리줄">
-      <div className="cn-toolbar-left">{toolbar?.start}</div>
-      <div className="segmented small cn-toolbar-view" role="radiogroup" aria-label={t('보기', 'View')} data-ui="편집 보기">
-        <button className={mode === 'live' ? 'on' : ''} role="radio" aria-checked={mode === 'live'} title={t('커서가 있는 줄만 원문이 보입니다', 'Only the line with the cursor shows the source')} onClick={() => setMode('live')}>{t('바로 보기', 'Live')}</button>
-        <button className={mode === 'split' ? 'on' : ''} role="radio" aria-checked={mode === 'split'} title={t('왼쪽 원문, 오른쪽 미리보기', 'Source on the left, preview on the right')} onClick={() => setMode('split')}>{t('원문 | 미리보기', 'Source | Preview')}</button>
-      </div>
-      <div className="cn-toolbar-right">
-        <span className={`save-state${toolbar?.error ? ' error' : ''}`} role="status" title={toolbar?.error ?? saveLabel}>{saveLabel}</span>
-        <button className="btn primary" disabled={saving} title={t(`${saveLabel} — 저장하고 고치기를 마칩니다 (⌘S 저장 · Esc 취소)`, `${saveLabel}. Save and finish editing (⌘S save · Esc cancel)`)} onClick={() => dirty ? onSave(view.current ? keepLineBreaks(view.current.state.doc.toString(), initial) : text) : onCancel(false)}>{t('편집 완료', 'Done')}</button>
-      </div>
-    </div>
-  )
-
   return (
     <div className={`cn-edit ${mode === 'live' ? 'cn-edit-live' : mode === 'split' ? 'cn-edit-split' : 'cn-edit-source'}${notePreview ? ' md-note-preview' : ''}`} data-ui="개념노트 편집기">
-      {controls && (toolbar?.target ? createPortal(controls, toolbar.target) : <div className="cn-toolbar-host">{controls}</div>)}
       <div className="cn-edit-panes">
         <div className="cn-edit-src" ref={host} />
         {mode === 'split' && <div ref={preview} className="cn-edit-preview page-body cn-body" onMouseUp={selectPreview} onKeyUp={(event) => { if (event.key === 'Shift' || event.shiftKey) selectPreview() }}><RecordContext.Provider value={previewRecords}>{notePreview ? <NoteMarkdown text={shown} options={options} asset={asset} /> : <ObsidianMarkdown text={shown} options={options} />}</RecordContext.Provider></div>}
