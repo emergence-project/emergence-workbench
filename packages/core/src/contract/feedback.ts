@@ -123,8 +123,8 @@ export const FeedbackReviewed = z.object({ review: FeedbackReview.nullable() }).
 export const FeedbackCommented = z.object({ comment: FeedbackComment }).strict()
 /** PATCH /feedback · /feedback/review */
 export const FeedbackOk = z.object({ ok: z.literal(true) }).strict()
-/** GET /feedback/unpublished · /researches/:rid/records/unpublished: 아직 GitHub에 없는 파일 */
-export const UnpublishedFiles = z.object({ files: z.array(z.string()) }).strict()
+/** GET /feedback/unpublished · /researches/:rid/records/unpublished: 아직 GitHub에 없는 파일. count: 그 안의 피드백 항목 수 (피드백만) */
+export const UnpublishedFiles = z.object({ files: z.array(z.string()), count: z.number().int().nonnegative().optional() }).strict()
 /** POST /feedback/publish. commit: 이번에 새로 만든 커밋 (없으면 null) */
 export const FeedbackPublished = z.object({ commit: z.string().nullable(), pushed: z.boolean(), message: z.string() }).strict()
 /** POST /researches/:rid/records/publish: 올린 파일도 (서버 pathsync.ts) */
