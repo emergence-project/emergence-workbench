@@ -6,7 +6,6 @@ import YAML from 'yaml'
 import { isLatexSafePath, writeAtomic } from './fsutil.js'
 import { describeTex, findRepoPreambles, listLibraryPreambles, type TexDefinitions } from './library.js'
 import type { Engine } from './latex.js'
-import { migrateLegacyMainKey } from './mainKeyMigration.js'
 import { Workbench, WorkbenchError } from './workbench.js'
 import { t as tl } from './i18n.js'
 
@@ -396,8 +395,6 @@ export class Registry {
       if (!fs.existsSync(root)) throw new WorkbenchError(404, tl(`workbench 폴더가 없음: ${root}`, `No workbench folder: ${root}`))
       wb = new Workbench(root)
       this.workbenches.set(id, wb)
-      // 예전 key ''(이름순 첫 연구노트) 자료를 그 노트의 자리로 (처음 열 때 한 번)
-      migrateLegacyMainKey(wb)
     }
     return wb
   }
