@@ -28,6 +28,19 @@ describe('자료 (논문·발표자료)', () => {
     expect(fs.existsSync(path.join(proj, 'escape.pdf'))).toBe(false)
   })
 
+  it('arXiv PDF는 이미 있는 materials/<키>.pdf를 덮지 않는다 (409)', async () => {
+    const proj = makeRepo('materials-exists')
+    fs.writeFileSync(path.join(proj, 'refs.bib'), ['@article{kept,', '  title = {Kept},', '  eprint = {0000.00008},', '}'].join('\n'))
+    const wb = path.join(proj, 'workbench')
+    fs.mkdirSync(path.join(wb, 'materials'), { recursive: true })
+    fs.writeFileSync(path.join(wb, 'materials', 'kept.pdf'), '%PDF-1.5 annotated')
+    let called = false
+    const fakeFetch = (async () => { called = true; return new Response(Buffer.from('%PDF-1.5 fresh'), { status: 200 }) }) as unknown as typeof fetch
+    await expect(fetchArxiv(wb, 'kept', fakeFetch)).rejects.toMatchObject({ status: 409 })
+    expect(called).toBe(false)
+    expect(fs.readFileSync(path.join(wb, 'materials', 'kept.pdf'), 'utf8')).toBe('%PDF-1.5 annotated')
+  })
+
   it('refs.bib를 읽고, arXiv PDF를 materials/에 받고, 끌어다 놓은 파일을 두며, 저장소 git에는 넣지 않는다', async () => {
     const proj = makeRepo('materials-project')
     fs.writeFileSync(path.join(proj, 'refs.bib'), [
