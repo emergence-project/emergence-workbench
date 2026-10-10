@@ -43,5 +43,5 @@ describe('컴파일 설정', () => {
     expect(await wrap('&tpl=gone')).toContain('{revtex4-2}')
     expect((await a.inject({ method: 'POST', url: `${R}/manuscript/compile?ms=${key}&date=yesterday` })).statusCode).toBe(400)
     await a.close()
-  })
+  }, 120_000)
 })

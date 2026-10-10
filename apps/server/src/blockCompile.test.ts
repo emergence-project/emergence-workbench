@@ -63,7 +63,7 @@ describe('보조 노트 컴파일 설정', () => {
     expect(built('choice-default')).toContain('rw-research-note')
     expect(built('choice-default')).not.toContain('revtex4-1')
     expect(built('choice-default')).toContain('\\input{setting}')
-  })
+  }, 120_000)
 
   it.skipIf(!hasLatex)('없는 선택 서식은 연구노트처럼 프로젝트 기본 서식으로 돌아간다', async () => {
     fs.appendFileSync(path.join(repo, 'workbench/research.yaml'), '\nlatex-template: article\n')

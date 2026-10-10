@@ -26,3 +26,4 @@
 
 - `pnpm test`는 앞 검사가 실패해도 뒤 검사를 모두 돌리고 끝에 실패한 것을 모아 알린다(`scripts/ci/test-all.mjs`).
 - 서버 테스트 시간 한도는 20초다(`apps/server/vitest.config.ts`). 메모리가 작은 맥에서 그래도 시간 초과가 나면 그 파일만 `--maxWorkers=1`로 다시 돌린다.
+- 파일 감시 테스트(`app.test.ts` "파일 감시")는 감시 이벤트가 오면 바로 끝나고, 오지 않으면 15초까지 기다린다. Codex 샌드박스처럼 파일 감시 이벤트가 오지 않는 곳에서는 `CHOKIDAR_USEPOLLING=1 pnpm test`로 돌린다.
