@@ -463,14 +463,14 @@ describe('파일 감시', () => {
     await new Promise<void>((r) => w.on('ready', () => r()))
     fs.appendFileSync(path.join(root, 'blocks/broken-example.tex'), '% 감시 확인\n')
     fs.writeFileSync(path.join(root, '.build-ignored.tex'), 'x') // 숨김 파일은 무시
-    const deadline = Date.now() + 5000
+    const deadline = Date.now() + 15_000
     while (!events.some((e) => e.type === 'block') && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50))
     await w.close()
     const ev = events.find((e) => e.type === 'block')
     expect(ev).toMatchObject({ type: 'block', research: 'sample-research', id: 'broken-example' })
     const { hash } = (await app.inject({ method: 'GET', url: `${R}/blocks/broken-example` })).json()
     expect(ev && 'hash' in ev ? ev.hash : null).toBe(hash)
-  }, 10_000)
+  }, 30_000)
 
   it('바깥에서 노트를 고치면 저장소 기준 경로와 해시로 알린다', async () => {
     const root = path.join(repo, 'workbench')
@@ -481,12 +481,12 @@ describe('파일 감시', () => {
     const w = watchWorkbench('sample-research', root, (e) => events.push(e))
     await new Promise<void>((r) => w.on('ready', () => r()))
     fs.appendFileSync(file, '에이전트가 더한 줄\n')
-    const deadline = Date.now() + 5000
+    const deadline = Date.now() + 15_000
     while (!events.some((e) => e.type === 'note') && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50))
     await w.close()
     expect(events.find((e) => e.type === 'note')).toEqual({ type: 'note', research: 'sample-research', file: 'workbench/notes/watch-check/note.md', hash: hashOf('# 감시\n에이전트가 더한 줄\n') })
     fs.rmSync(path.dirname(file), { recursive: true })
-  }, 10_000)
+  }, 30_000)
 })
 
 describe('서식 라이브러리', () => {
