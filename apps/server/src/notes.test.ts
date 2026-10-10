@@ -167,7 +167,7 @@ describe('링크 두 목록과 STATUS.md', () => {
     expect(md).toContain('- ★ **Wheels** (`wheels`) — 진행 1 — 바퀴 규칙')
     expect(md).toMatch(/- \*\*Isomorphism theorem\*\* \(`iso`\) — 진행 1 · 멈춤 1\n/)
     expect(md).toMatch(/- \*\*노트들\*\* \(주제 없음\) — 진행 \d/)
-    expect(md.indexOf('## 주제')).toBeLessThan(md.indexOf('## 작업노트'))
+    expect(md.indexOf('## 주제')).toBeLessThan(md.indexOf('## 블록 노트'))
   })
 })
 

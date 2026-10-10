@@ -1,8 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { buildTree, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter } from '@rw/core'
+import { buildTree, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter, commentTargetSlug } from '@rw/core'
 import YAML from 'yaml'
 import { localDate, writeAtomic } from './fsutil.js'
+import { appPath, homeShort } from './agentPaths.js'
 import { allManuscripts, groundsOf, lastCompile } from './manuscript.js'
 import { listMaterials } from './materials.js'
 import { listStatements } from './statements.js'
@@ -70,6 +71,7 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
   const repo = wb.repo
   const src = info.sources
   const blocks = wb.listBlocks()
+  const notes = listNotes(wb).filter((n) => n.type !== 'block')
   const tree = buildTree(blocks)
   const byId = new Map(blocks.map((b) => [b.id, b]))
   const statements = listStatements(wb.root)
@@ -81,12 +83,16 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
   p(`# STATUS — ${info.title}`, '',
     `${STATUS_HEAD} (${today} ${now.toTimeString().slice(0, 5)}). **고치지 말 것** — 고칠 것은 아래 정본 파일에서.`,
     '> 이 저장소의 에이전트는 이 파일을 먼저 읽어 지금 어디까지 왔는지 파악한 뒤, 저장소 자체 규칙(AGENTS.md·CLAUDE.md)을 따른다.',
-    `> 사용자가 맡긴 일(\`workbench/tasks/\`)은 공통 규칙 \`${RULES_DOC}\`을 따른다: 종결 조건을 먼저, 결과는 같은 파일에, 승인은 사용자만.`, '')
+    `> 사용자가 맡긴 일(\`workbench/tasks/\`)은 공통 규칙 \`${RULES_DOC}\`을 따른다: 종결 조건을 먼저, 결과는 같은 파일에, 승인은 사용자만.`,
+    `> 파일을 직접 고칠 때는 형식 문서 \`${appPath('docs/repo-format.md')}\`를 따르고, 고친 뒤 \`pnpm --dir ${appPath()} agent:check ${homeShort(repo)}\`로 검사한다.`,
+    '> 사용자가 확인한 것(✓ 해결 노트, `checked` 개념노트)은 고치기 전에 대화에서 허락을 받는다. 원고(`research.yaml` `sources.manuscript`의 `.tex`)는 사용자가 요청할 때만 고치고, `locked: true` 개념노트는 고치지 않는다.',
+    '> MCP 입구 `emergence-workbench`가 연결돼 있으면 노트·개념노트는 `edit_note`·`edit_concept`로 고친다(사용자가 바뀐 문단마다 검토한다).', '')
   if (info.question) p(`**목표.** ${info.question}`, '')
 
   p('## 정본 위치', '')
   for (const c of src.canon) p(`- \`${c.path}\`${c.note ? ` — ${c.note}` : ''}`)
-  p('- `workbench/blocks/*.md` (예전 것은 `*.tex`) — 보조 노트 (과정 기록: 상태·다음 할 일·멈춘 이유)')
+  if (blocks.length) p(`- \`workbench/blocks/*.md\` (예전 것은 \`*.tex\`) — 블록 노트 ${blocks.length}개 (과정 기록: 상태·다음 할 일·멈춘 이유)`)
+  if (notes.length) p(`- ${['note', 'calc'].filter((type) => notes.some((n) => n.type === type)).map((type) => `\`workbench/${type === 'note' ? 'notes' : 'calc'}/<폴더>/\``).join(' · ')} — 연구노트·계산 노트 ${notes.length}개 (본문 \`note.md\` 또는 \`main.tex\`, 정보는 \`note.yaml\`)`)
   if (statements.length) p(`- \`${statements[0]!.file.split('/')[0]}/\` — 진술 ${statements.length}개 (정의·정리; uses·proofs 관계)`)
   p('- `workbench/log/날짜.md` — 할 일과 기록', '')
 
@@ -104,7 +110,7 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     p('')
   }
   p(`### 앱 할 일 — \`workbench/log/\`${open.length ? '' : ' (없음)'}`, '')
-  for (const { e, due } of open) p(`- [ ] ${e.text.split('\n')[0]}${e.target !== RESEARCH_TARGET ? ` (작업노트: ${byId.get(e.target)?.meta.title ?? e.target})` : ''}${due ? ` — 마감 ${due}` : ''}`)
+  for (const { e, due } of open) p(`- [ ] ${e.text.split('\n')[0]}${e.target !== RESEARCH_TARGET ? ` (블록 노트: ${byId.get(e.target)?.meta.title ?? e.target})` : ''}${due ? ` — 마감 ${due}` : ''}`)
   if (open.length) p('')
 
   // ---------- 맡긴 일 (작업 탭) ----------
@@ -147,7 +153,11 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
   }
   for (const m of mss) {
     p(`## 원고 — ${m.name} (\`${m.main}\`)`, '')
-    for (const part of m.parts) p(`- ${partLabel(part.id)} — \`${part.file}${part.line ? `:${part.line}` : ''}\``)
+    if (m.parts.every((part) => part.file === m.main)) {
+      const chapters = m.parts.filter((part) => !part.appendix).length
+      const appendices = m.parts.length - chapters
+      p(`장 ${chapters}${appendices ? ` · 부록 ${appendices}` : ''}`)
+    } else for (const part of m.parts) p(`- ${partLabel(part.id)} — \`${part.file}${part.line ? `:${part.line}` : ''}\``)
     const last = lastCompile(wb, m.key)
     p('', last
       ? `마지막 앱 컴파일: ${last.at.slice(0, 16).replace('T', ' ')} UTC · ${last.ok ? '오류 없음' : `오류 ${last.problems.length}`} · ${(last.durationMs / 1000).toFixed(0)}초 (결과는 workbench/.build/${m.key ? `manuscript-${m.key}` : 'manuscript'}/, 공식 출력물 아님)`
@@ -162,7 +172,7 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     const counts = (t: TopicStats) => t.notes
       ? (['in-progress', 'blocked', 'solved', 'stopped'] as const).filter((k) => t.byStatus[k]).map((k) => `${LABEL[k]} ${t.byStatus[k]}`).join(' · ')
       : '노트 없음'
-    p(`## 주제 ${overview.topics.length}`, '', '> 노트(연구노트·계산 노트·보조 노트)의 주제는 노트 머리말 `topics:`에 적는다 (첫째 = 주 주제). 연구노트·계산 노트는 `note.yaml`, 보조 노트는 파일 맨 위 머리말.', '')
+    p(`## 주제 ${overview.topics.length}`, '', '> 노트(연구노트·계산 노트·블록 노트)의 주제는 노트 머리말 `topics:`에 적는다 (첫째 = 주 주제). 연구노트·계산 노트는 `note.yaml`, 블록 노트는 파일 맨 위 머리말.', '')
     for (const t of [...overview.topics].sort((a, b) => Number(b.star) - Number(a.star))) {
       const first = t.description?.split('\n')[0]?.replace(/^-\s+/, '')
       p(`- ${t.star ? '★ ' : ''}**${t.title}** (\`${t.id}\`)${t.done ? ' · 완결' : ''} — ${counts(t)}${first ? ` — ${clip(first, 120)}` : ''}`)
@@ -171,19 +181,20 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     p('')
   }
 
-  const pausedNotes = listNotes(wb).filter((n) => n.type !== 'block' && n.status === 'blocked')
-  if (pausedNotes.length) {
-    p(`## 멈춘 연구·계산 노트 ${pausedNotes.length}`, '')
-    for (const n of pausedNotes) {
-      p(`- **${n.title}** — 멈춤 · \`${n.file}\``,
-        `  - 다시 시작할 조건: ${n.resume ?? '—'} · 정본: \`${path.posix.join(path.posix.dirname(n.file), 'note.yaml')}\``)
+  if (notes.length) {
+    p(`## 노트 ${notes.length}`, '', '> 상태: ● 진행 · ⏸︎ 멈춤 · ✓ 해결(사용자가 확인함 — 고치기 전에 허락) · ■ 폐기. 상태는 `note.yaml`의 `state:`(paused · stopped · done, 진행이면 키를 두지 않는다)에 적는다.', '')
+    const order = ['in-progress', 'blocked', 'solved', 'stopped']
+    for (const n of [...notes].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status))) {
+      const target = n.file.endsWith('/note.md') ? `${n.type === 'calc' ? 'calc' : 'note'}-${commentTargetSlug(n.id)}` : undefined
+      p(`- ${GLYPH[n.status]} **${n.title}** — ${LABEL[n.status]} · \`${n.file}\`${target ? ` · 기록 \`${target}\`` : ''}${n.topics.length ? ` · 주제 ${n.topics.join(', ')}` : ''}${n.kind ? ` · ${n.kind}` : ''}`)
+      if (n.description) p(`  - ${clip(n.description.split('\n')[0]!.replace(/^-\s+/, ''), 160)}`)
+      if (n.status === 'blocked' || n.status === 'stopped') p(`  - 다시 시작할 조건: ${n.resume ?? '—'} · 정본: \`${path.posix.join(path.posix.dirname(n.file), 'note.yaml')}\``)
     }
     p('')
   }
 
   // ---------- 유도 ----------
-  p(`## 작업노트 ${blocks.length}${ms ? ' — 원고 밖의 열린 문제 (결론은 원고의 해당 장으로 옮긴다)' : ''}`, '')
-  if (!blocks.length) p('(없음)')
+  if (blocks.length) p(`## 블록 노트 ${blocks.length}${ms ? ' — 원고 밖의 열린 문제 (결론은 원고의 해당 장으로 옮긴다)' : ''}`, '')
   for (const { id, depth } of tree.order) {
     const b = byId.get(id)!.meta
     const s = b.status ?? 'in-progress'
@@ -211,7 +222,7 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     }
     const count = (k: string) => statements.filter((x) => status(x) === k).length
     p(`## 진술 ${statements.length}`, '', `공리·정의 ${count('given')} · 증명됨 ${count('solved')} · 증명 작업 중 ${count('working')} · 증명 작업 없음 ${count('none')}`, '')
-    for (const x of statements.filter((y) => status(y) === 'working')) p(`- 작업 중: ${x.label ?? x.id} ${x.title ?? ''} ← 작업노트 ${x.proofs.join(', ')}`)
+    for (const x of statements.filter((y) => status(y) === 'working')) p(`- 작업 중: ${x.label ?? x.id} ${x.title ?? ''} ← 블록 노트 ${x.proofs.join(', ')}`)
     p('')
   }
 
