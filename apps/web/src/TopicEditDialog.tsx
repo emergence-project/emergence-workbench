@@ -13,8 +13,8 @@ const COLOR_LABEL: Record<TopicColor, string> = { violet: t('보라', 'Violet'),
 
 /**
  * 주제 고치기 창 (10/5 시안 `7-주제-고치기-창`, 다안). 주제 화면의 이름 옆 연필로 연다.
- * 왼쪽: 이름(40자) · 설명(200자, "- " 목록) · 같은 높이 세 줄(카드 미리보기 30자 · 그림과 바탕색 · 노트 성격 "자동").
- * 오른쪽: 실제 크기 주제 카드(바꾸는 대로) + 같은 폭의 취소(Esc) · 저장(⌘↵). 아래 띠는 없다. 즐겨찾기는 창에 두지 않는다.
+ * 왼쪽: 이름(80자) · 설명(300자, "- " 목록) · 카드 미리보기 글(30자) · 노트 성격 "자동".
+ * 오른쪽: 실제 크기 주제 카드(바꾸는 대로), 그 바로 아래 그림 · 바탕색, 맨 아래 취소(Esc) · 저장(⌘↵) (10/10 고치기 창 A안). 아래 띠는 없다. 즐겨찾기는 창에 두지 않는다.
  * 저장은 research.yaml의 해시(baseHash)를 함께 보내, 바깥에서 바뀌었으면 고치지 않고 알린다. 그림은 라이브러리 참조만 저장한다.
  */
 export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSaved }: {
@@ -46,7 +46,7 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
 
   const n = { title: charCount(title), description: charCount(description), text: charCount(text) }
   // 이미 넘친 글은 고치지 않으면 막지 않는다 (서버와 같은 규칙)
-  const over = (n.title > LIMITS.topicTitle && title !== topic.title) || (n.description > LIMITS.description && description !== (topic.description ?? ''))
+  const over = (n.title > LIMITS.title && title !== topic.title) || (n.description > LIMITS.cardDescription && description !== (topic.description ?? ''))
     || (n.text > LIMITS.previewText && text !== (topic.preview?.text ?? ''))
   const canSave = !busy && !!title.trim() && !over
 
@@ -81,13 +81,22 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
           title: title.trim(), description, star: topic.star, kinds: topic.kinds, byStatus: topic.byStatus, updated: topic.updated,
           preview: { text, image, imageUrl, ...(color !== 'default' && { color }) },
         }} />
-      }>
+      } look={<>
+        <div className="td-row">
+          <span className="td-rl">{t('그림', 'Image')}</span>
+          <CardImageField value={image} legacyUrl={imageUrl} ui="그림 넣기" previewUi="미리보기 그림" disabled={busy} onOpen={() => setPickingImage(true)} onChange={setImage} />
+        </div>
+        <div className="td-row">
+          <span className="td-rl">{t('바탕색', 'Background')}</span>
+          <span className="td-sws" role="radiogroup" aria-label={t('바탕색', 'Background')}>{(['default', ...TOPIC_COLORS] as const).map(swatch)}</span>
+        </div>
+      </>}>
       <label className="td-f">
-        <span className="td-lab"><span>{t('이름', 'Name')}</span><span className={`td-n${n.title > LIMITS.topicTitle ? ' over' : ''}`}>{n.title} / {LIMITS.topicTitle}</span></span>
+        <span className="td-lab"><span>{t('이름', 'Name')}</span><span className={`td-n${n.title > LIMITS.title ? ' over' : ''}`}>{n.title} / {LIMITS.title}</span></span>
         <input ref={nameInput} className="td-in" value={title} onChange={(e) => setTitle(e.target.value)} data-ui="주제 이름" />
       </label>
-      <label className="td-f">
-        <span className="td-lab"><span>{t('설명', 'Description')}</span><span className={`td-n${n.description > LIMITS.description ? ' over' : ''}`}>{n.description} / {LIMITS.description}</span></span>
+      <label className="td-f grow">
+        <span className="td-lab"><span>{t('설명', 'Description')}</span><span className={`td-n${n.description > LIMITS.cardDescription ? ' over' : ''}`}>{n.description} / {LIMITS.cardDescription}</span></span>
         <textarea className="td-in td-ta" rows={4} value={description} placeholder={t('예: 두 상태를 합치는 보조정리\n- 줄 앞에 "- "를 쓰면 글머리표 목록\n카드에는 앞 세 줄이 보입니다', 'Example: A lemma that merges two states\n- Start a line with "- " for a bulleted list\nThe card shows the first three lines')}
           onChange={(e) => setDescription(e.target.value)} onKeyDown={(e) => { onListKey(e, setDescription) }} data-ui="주제 설명" />
       </label>
@@ -96,13 +105,6 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
         <span className="td-in td-pv-in">
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('비어 있음', 'Empty')} aria-label={t('카드 미리보기 글', 'Card preview text')} data-ui="카드 미리보기 글" />
           <span className={`td-n${n.text > LIMITS.previewText ? ' over' : ''}`}>{n.text} / {LIMITS.previewText}</span>
-        </span>
-      </div>
-      <div className="td-row">
-        <span className="td-rl">{t('그림 · 바탕색', 'Image · Background')}</span>
-        <span className="td-pics">
-          <CardImageField value={image} legacyUrl={imageUrl} ui="그림 넣기" previewUi="미리보기 그림" disabled={busy} onOpen={() => setPickingImage(true)} onChange={setImage} />
-          <span className="td-sws" role="radiogroup" aria-label={t('바탕색', 'Background')}>{(['default', ...TOPIC_COLORS] as const).map(swatch)}</span>
         </span>
       </div>
       <div className="td-row">

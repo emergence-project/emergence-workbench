@@ -60,6 +60,8 @@ export const Topic = z.object({
 export const PROJECT_KINDS = ['research', 'work'] as const
 /** 프로젝트 진행 상태: 진행 · 멈춤 · 완료 */
 export const PROJECT_STATES = ['active', 'paused', 'done'] as const
+/** 프로젝트 색 (레일 버튼 · 홈 카드 · 고치기 창 띠). 없으면 자동. 값은 화면의 format.ts 표 (주황은 "사용자 차례"와 헷갈려 없다) */
+export const PROJECT_COLORS = ['indigo', 'violet', 'cyan', 'pink', 'teal', 'purple', 'slate'] as const
 /** 등록한 프로젝트(연구 저장소). 성격 · 분야 · 진행 상태 · 순서는 이 컴퓨터의 설정에만 있다 */
 export const ResearchListItem = z.object({
   id: z.string(),
@@ -71,6 +73,8 @@ export const ResearchListItem = z.object({
   state: z.enum(PROJECT_STATES),
   /** 왼쪽 띠에 늘 보이기. 띠는 진행 중인 프로젝트와 이것을 켠 프로젝트만 보인다 (10/10 12:59) */
   rail: z.boolean(),
+  /** 고른 색. 없으면 자동 (10/10 12:56) */
+  color: z.enum(PROJECT_COLORS).optional(),
   /** 예전 모양(업무 + 분야). 구글 동기화 · 검색용 */
   tags: z.array(z.string()),
   available: z.boolean(),
@@ -368,12 +372,14 @@ export const TopicList = z.object({ topics: z.array(Topic), hash: z.string() }).
 // ---------- 요청 ----------
 // 값의 뜻(길이·있는 id·해시)은 서버가 본다.
 
-/** 성격 · 분야 · 진행 상태 · 띠에 보이기 중 보낸 것만. tags: 예전 모양 (구글에서 되살리기) */
+/** 성격 · 분야 · 진행 상태 · 띠에 보이기 · 색 중 보낸 것만. tags: 예전 모양 (구글에서 되살리기) */
 export const ProfileBody = z.object({
   kind: z.enum(PROJECT_KINDS).optional(),
   fields: z.array(z.string()).optional(),
   state: z.enum(PROJECT_STATES).optional(),
   rail: z.boolean().optional(),
+  /** null이면 자동으로 */
+  color: z.enum(PROJECT_COLORS).nullable().optional(),
   tags: z.array(z.string()).optional(),
 })
 export const OrderBody = z.object({ ids: z.array(z.string()) })
@@ -405,6 +411,7 @@ export type TopicPreview = z.infer<typeof TopicPreview>
 export type Topic = z.infer<typeof Topic>
 export type ProjectKind = (typeof PROJECT_KINDS)[number]
 export type ProjectState = (typeof PROJECT_STATES)[number]
+export type ProjectColor = (typeof PROJECT_COLORS)[number]
 export type ResearchListItem = z.infer<typeof ResearchListItem>
 export type ResearchList = z.infer<typeof ResearchList>
 export type ResearchOrder = z.infer<typeof ResearchOrder>

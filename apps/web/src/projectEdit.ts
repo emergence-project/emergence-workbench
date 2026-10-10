@@ -15,7 +15,7 @@ export async function readProjectEditSnapshot(rapi: Pick<ResearchApi, 'project' 
 /** 넘친 글이라도 고치지 않은 칸은 막지 않는다: 길게 적어 둔 이름 때문에 다른 것을 못 고치는 일이 없게 (서버의 주제 규칙과 같다) */
 export function projectTextState(title: string, description: string, before?: { title: string; description: string }) {
   const counts = { title: charCount(title), description: charCount(description) }
-  const titleOk = counts.title <= LIMITS.projectTitle || title === before?.title
-  const descriptionOk = counts.description <= LIMITS.description || description === before?.description
+  const titleOk = counts.title <= LIMITS.title || title === before?.title
+  const descriptionOk = counts.description <= LIMITS.cardDescription || description === before?.description
   return { counts, valid: !!title.trim() && titleOk && descriptionOk }
 }

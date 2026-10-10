@@ -67,6 +67,12 @@ describe('연구 등록', () => {
     expect(cfg()).toMatch(/job-project\n(\s+\w+:.*\n|\s+- .*\n)*\s+rail: true/)
     expect((await app.inject({ method: 'PATCH', url, payload: { rail: false } })).json()).toMatchObject({ rail: false })
     expect(cfg()).not.toMatch(/rail:/)
+    // 프로젝트 색 (10/10 12:56): 고른 색만 적고, null이면 지워 자동 색으로
+    expect((await app.inject({ method: 'PATCH', url, payload: { color: 'orange' } })).statusCode).toBe(400)
+    expect((await app.inject({ method: 'PATCH', url, payload: { color: 'teal' } })).json()).toMatchObject({ color: 'teal' })
+    expect(cfg()).toMatch(/color: teal/)
+    expect((await app.inject({ method: 'PATCH', url, payload: { color: null } })).json()).not.toHaveProperty('color')
+    expect(cfg()).not.toMatch(/color:/)
     const back = (await app.inject({ method: 'PATCH', url, payload: { kind: 'research', fields: ['Graph Theory'], state: 'active' } })).json()
     expect(back).toMatchObject({ kind: 'research', fields: ['Graph Theory'], state: 'active', tags: ['Graph Theory'] })
     expect(cfg()).not.toMatch(/job-project\n(\s+\w+:.*\n)*\s+state:/) // 진행(기본)은 적지 않는다

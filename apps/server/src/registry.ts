@@ -7,7 +7,7 @@ import { describeTex, findRepoPreambles, listLibraryPreambles, type TexDefinitio
 import type { Engine } from './latex.js'
 import { Workbench, WorkbenchError } from './workbench.js'
 import { t as tl } from './i18n.js'
-import type { ProjectKind, ProjectState, ResearchListItem } from '@rw/core/contract/research'
+import { PROJECT_COLORS, type ProjectColor, type ProjectKind, type ProjectState, type ResearchListItem } from '@rw/core/contract/research'
 
 /**
  * 이 컴퓨터에만 있는 앱 설정 (~/.config/research-workspace/config.yaml).
@@ -96,9 +96,9 @@ export const LEGACY_WORK_TAG = '업무'
 /** 분야 이름은 개념노트 분류 이름이라 태그보다 길 수 있다 */
 export const MAX_FIELD_LENGTH = 60
 
-interface RegisteredResearch { id: string; path: string; kind?: unknown; fields?: string[]; state?: ProjectState; rail?: boolean; tags?: string[] }
+interface RegisteredResearch { id: string; path: string; kind?: unknown; fields?: string[]; state?: ProjectState; rail?: boolean; color?: string; tags?: string[] }
 
-export interface ProjectProfile { kind: ProjectKind; fields: string[]; state: ProjectState; rail: boolean }
+export interface ProjectProfile { kind: ProjectKind; fields: string[]; state: ProjectState; rail: boolean; color?: ProjectColor }
 
 /** 설정 한 줄에서 성격 · 분야 · 진행 상태를 읽는다 (예전 tags · kind: work 포함) */
 export function profileOf(r: RegisteredResearch): ProjectProfile {
@@ -106,8 +106,10 @@ export function profileOf(r: RegisteredResearch): ProjectProfile {
   const fresh = Array.isArray(r.fields)
   const work = r.kind === 'work' || (!fresh && tags.includes(LEGACY_WORK_TAG))
   const fields = fresh ? r.fields! : tags.filter((t) => t !== LEGACY_WORK_TAG)
-  return { kind: work ? 'work' : 'research', fields, state: PROJECT_STATES.includes(r.state as ProjectState) ? r.state! : 'active', rail: r.rail === true }
+  return { kind: work ? 'work' : 'research', fields, state: PROJECT_STATES.includes(r.state as ProjectState) ? r.state! : 'active', rail: r.rail === true, ...(isColor(r.color) && { color: r.color }) }
 }
+
+const isColor = (v: unknown): v is ProjectColor => PROJECT_COLORS.includes(v as ProjectColor)
 
 /** 예전 태그 하나 목록 모양 (구글 동기화 · 검색이 아직 쓴다): 업무면 "업무"를 앞에, 그 뒤에 분야 */
 const legacyTags = (p: ProjectProfile) => [...(p.kind === 'work' ? [LEGACY_WORK_TAG] : []), ...p.fields.filter((f) => f !== LEGACY_WORK_TAG)]
@@ -293,6 +295,7 @@ export class Registry {
             ...(fields && { fields }),
             ...(PROJECT_STATES.includes(r.state as ProjectState) && r.state !== 'active' && { state: r.state }),
             ...(r.rail === true && { rail: true }),
+            ...(isColor(r.color) && { color: r.color }),
             ...(tags.length && { tags }),
           }
         })
@@ -348,8 +351,8 @@ export class Registry {
     return this.setProfile(id, { kind: tags.includes(LEGACY_WORK_TAG) ? 'work' : 'research', fields: tags.filter((t) => t !== LEGACY_WORK_TAG) })
   }
 
-  /** 성격 · 분야 · 진행 상태 · 띠에 보이기 중 받은 것만 바꾼다. 고치면 새 키로 쓰고 예전 tags는 뺀다 */
-  setProfile(id: string, patch: { kind?: unknown; fields?: unknown; state?: unknown; rail?: unknown }): ResearchListItem {
+  /** 성격 · 분야 · 진행 상태 · 띠에 보이기 · 색 중 받은 것만 바꾼다. 고치면 새 키로 쓰고 예전 tags는 뺀다 */
+  setProfile(id: string, patch: { kind?: unknown; fields?: unknown; state?: unknown; rail?: unknown; color?: unknown }): ResearchListItem {
     const entry = this.config.researches.find((r) => r.id === id)
     if (!entry) throw new WorkbenchError(404, tl(`등록되지 않은 연구: ${id}`, `Project not registered: ${id}`))
     const next = { ...profileOf(entry) }
@@ -370,6 +373,11 @@ export class Registry {
       if (typeof patch.rail !== 'boolean') throw new WorkbenchError(400, tl('rail은 true · false', 'rail must be true or false'))
       next.rail = patch.rail
     }
+    if (patch.color !== undefined) {
+      if (patch.color !== null && !isColor(patch.color)) throw new WorkbenchError(400, tl(`색은 ${PROJECT_COLORS.join(' · ')} 중 하나이거나 null(자동)`, `color must be one of ${PROJECT_COLORS.join(', ')} or null (auto)`))
+      if (patch.color === null) delete next.color
+      else next.color = patch.color
+    }
     delete entry.tags
     entry.kind = next.kind
     entry.fields = next.fields
@@ -377,6 +385,8 @@ export class Registry {
     else entry.state = next.state
     if (next.rail) entry.rail = true
     else delete entry.rail
+    if (next.color) entry.color = next.color
+    else delete entry.color
     this.save()
     return this.list().find((r) => r.id === id)!
   }

@@ -42,7 +42,7 @@ describe('소문제 카드', () => {
 
 describe('주제 기록 (10/5): 설명 · 미리보기 · ★ · 만들기 · 지우기', () => {
   const file = () => path.join(repo, 'workbench', 'research.yaml')
-  it('만들고 고치면 설명(여러 줄)·미리보기를 쓰고, 200·30·40자를 넘으면 거절한다', async () => {
+  it('만들고 고치면 설명(여러 줄)·미리보기를 쓰고, 300·30·80자를 넘으면 거절한다', async () => {
     const made = await app.inject({ method: 'POST', url: `${R}/topics`, payload: { baseHash: await topicsHash(), title: 'Recoloring', description: '  두 색을  맞바꾸기 \n- 정확한 경우\n\n\n- 근사 ' } })
     expect(made.statusCode).toBe(200)
     expect(made.json().topic).toMatchObject({ id: 'recoloring', title: 'Recoloring', description: '두 색을 맞바꾸기\n- 정확한 경우\n\n- 근사' })
@@ -56,12 +56,13 @@ describe('주제 기록 (10/5): 설명 · 미리보기 · ★ · 만들기 · �
     expect(stale.statusCode).toBe(409)
     expect(stale.json().currentHash).toBe(r.json().hash)
     // 제한
-    expect((await patch({ description: '가'.repeat(201) })).statusCode).toBe(400)
-    expect((await patch({ description: `${'가'.repeat(100)}\n${'나'.repeat(100)}` })).statusCode).toBe(200)
+    expect((await patch({ description: '가'.repeat(301) })).statusCode).toBe(400)
+    expect((await patch({ description: `${'가'.repeat(150)}\n${'나'.repeat(150)}` })).statusCode).toBe(200)
     expect((await patch({ preview: { text: 'x'.repeat(31) } })).statusCode).toBe(400)
     expect((await patch({ preview: { color: 'red' } })).statusCode).toBe(400)
     expect((await patch({ preview: { image: '../secret.png' } })).statusCode).toBe(400)
-    expect((await patch({ title: '이'.repeat(41) })).statusCode).toBe(400)
+    expect((await patch({ title: '이'.repeat(80) })).statusCode).toBe(200)
+    expect((await patch({ title: '이'.repeat(81) })).statusCode).toBe(400)
     // 파일 모양: 여러 줄 설명은 블록 글, 미리보기는 칸마다
     const y = YAML.parse(fs.readFileSync(file(), 'utf8')).topics.find((t: { id: string }) => t.id === 'recoloring')
     expect(y).toMatchObject({ star: true, preview: { text: 'CMI $I(A:C|B)$', color: 'violet' } })

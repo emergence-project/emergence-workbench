@@ -16,7 +16,7 @@ import { TOPIC_COLORS, type Topic, type TopicColor, type TopicPreview } from '@r
  *     - id: phase-diagram
  *       title: Example phase diagram
  *       star: true            # 즐겨찾기 (어느 정렬에서도 앞에)
- *       description: |-       # 설명: 여러 줄, "- " 목록, 200자까지 (10/5)
+ *       description: |-       # 설명: 여러 줄, "- " 목록, 300자까지 (10/10)
  *         상도와 그 경계
  *         - 고전 · 조화 근사
  *       preview:              # 주제 카드 위쪽 미리보기 (10/5, 주제 화면에서만 넣는다)
@@ -33,8 +33,11 @@ import { TOPIC_COLORS, type Topic, type TopicColor, type TopicPreview } from '@r
 export { TOPIC_COLORS } from '@rw/core/contract/research'
 export type { Topic, TopicColor, TopicPreview } from '@rw/core/contract/research'
 
-export const TITLE_MAX = 40
+export const TITLE_MAX = 80
+/** 노트 설명 (노트 머리말) */
 export const DESCRIPTION_MAX = 200
+/** 주제 설명: 프로젝트 설명과 같은 300자 (10/10 고치기 창 통일) */
+export const TOPIC_DESCRIPTION_MAX = 300
 export const PREVIEW_TEXT_MAX = 30
 const IMAGE = /\.(png|jpe?g|gif|svg|webp)$/i
 
@@ -54,11 +57,11 @@ export function cleanDescription(v: unknown): string {
 /** 설명 줄 수 한도: 노트 머리말(맨 위 80줄 안에서 찾는다)에 들어가므로 */
 export const DESCRIPTION_MAX_LINES = 20
 
-/** 설명을 받을 때: 글이 아니거나 200자·20줄을 넘으면 거절 */
-export function takeDescription(v: unknown): string {
+/** 설명을 받을 때: 글이 아니거나 max자(노트 200, 주제 300)·20줄을 넘으면 거절 */
+export function takeDescription(v: unknown, max = DESCRIPTION_MAX): string {
   if (typeof v !== 'string') throw new WorkbenchError(400, tx('description은 글이어야 함', 'description must be text'))
   const d = cleanDescription(v)
-  if (charCount(d) > DESCRIPTION_MAX) throw new WorkbenchError(400, tx(`설명은 ${DESCRIPTION_MAX}자까지 (지금 ${charCount(d)}자)`, `The description can have up to ${DESCRIPTION_MAX} characters (now ${charCount(d)})`))
+  if (charCount(d) > max) throw new WorkbenchError(400, tx(`설명은 ${max}자까지 (지금 ${charCount(d)}자)`, `The description can have up to ${max} characters (now ${charCount(d)})`))
   const lines = d ? d.split('\n').length : 0
   if (lines > DESCRIPTION_MAX_LINES) throw new WorkbenchError(400, tx(`설명은 ${DESCRIPTION_MAX_LINES}줄까지 (지금 ${lines}줄)`, `The description can have up to ${DESCRIPTION_MAX_LINES} lines (now ${lines})`))
   return d
@@ -118,7 +121,7 @@ function normalizeIndexed(list: unknown[], strict: boolean, before: Topic[] = []
     const old = was.get(id)
     if (strict) {
       if (title !== old?.title && charCount(title) > TITLE_MAX) bad(tx(`주제 이름은 ${TITLE_MAX}자까지`, `A topic name can have up to ${TITLE_MAX} characters`))
-      if (description !== (old?.description ?? '') && charCount(description) > DESCRIPTION_MAX) bad(tx(`설명은 ${DESCRIPTION_MAX}자까지 (지금 ${charCount(description)}자)`, `The description can have up to ${DESCRIPTION_MAX} characters (now ${charCount(description)})`))
+      if (description !== (old?.description ?? '') && charCount(description) > TOPIC_DESCRIPTION_MAX) bad(tx(`설명은 ${TOPIC_DESCRIPTION_MAX}자까지 (지금 ${charCount(description)}자)`, `The description can have up to ${TOPIC_DESCRIPTION_MAX} characters (now ${charCount(description)})`))
       if (preview?.text && preview.text !== old?.preview?.text && charCount(preview.text) > PREVIEW_TEXT_MAX) bad(tx(`카드 미리보기 글은 ${PREVIEW_TEXT_MAX}자까지`, `Card preview text can have up to ${PREVIEW_TEXT_MAX} characters`))
       const pr = r.preview as Record<string, unknown> | undefined
       if (pr && typeof pr === 'object') {
@@ -233,7 +236,7 @@ export function saveTopics(wb: Workbench, list: unknown): Topic[] {
   return readTopics(wb)
 }
 
-/** 주제 만들기: 이름(40자)은 꼭, 설명·미리보기는 있으면. 맨 뒤에 더한다 */
+/** 주제 만들기: 이름(80자)은 꼭, 설명·미리보기는 있으면. 맨 뒤에 더한다 */
 export function createTopic(wb: Workbench, input: { title?: unknown; description?: unknown; preview?: unknown }): Topic {
   const title = str(input.title)
   if (!title) throw new WorkbenchError(400, tx('주제 이름이 필요함', 'A topic name is required'))
@@ -264,7 +267,7 @@ function applyPatch(t: Topic, patch: TopicPatch): Topic {
     next.title = title
   }
   if (patch.description !== undefined && patch.description !== null) {
-    const d = takeDescription(patch.description)
+    const d = takeDescription(patch.description, TOPIC_DESCRIPTION_MAX)
     if (d) next.description = d; else delete next.description
   } else if (patch.description === null) delete next.description
   for (const k of ['star', 'done'] as const) {

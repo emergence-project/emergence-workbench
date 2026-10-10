@@ -98,8 +98,8 @@ YAML 지도 하나. 깨진 YAML이면 프로젝트가 "열 수 없음"으로 보
 ```yaml
 topics:
   - id: kempe            # [a-z0-9][a-z0-9-]*, 없으면 제목에서 만든다
-    title: Kempe 사슬     # 필수, 40자
-    description: …       # 200자, 20줄
+    title: Kempe 사슬     # 필수, 80자
+    description: …       # 300자, 20줄
     parts: [docs/note/a.tex]
     blocks: [kempe-chains]   # 옛 방식의 블록 소속
     manuscript: …

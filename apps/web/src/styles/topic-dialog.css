@@ -1,4 +1,5 @@
-/* 주제 고치기 창 (10/5 시안 7번, TopicEditDialog.tsx): 머리(프로젝트 색 띠 · 이름 · 위치), 왼쪽 입력, 오른쪽 실제 크기 주제 카드와 취소 · 저장. 아래 띠 없음 */
+/* 주제 · 프로젝트 고치기 창 (TopicEditDialog.tsx · ProjectEditDialog.tsx, 10/10 A안): 머리(프로젝트 색 띠 · 이름 · 위치), 왼쪽 내용, 오른쪽 실제 크기 카드와 그 바로 아래 모양(그림 · 색), 맨 아래 취소 · 저장.
+   빈 곳이 없게 두 칸은 같은 높이로 늘고, 왼쪽은 설명 칸이 남는 높이를 채운다. */
 /* 빈 표시 확인용 요소: 배치는 건드리지 않고 display:none 전환 때 크기 변화를 알린다. */
 .td-host { position: absolute; display: block; inset: 0 auto auto 0; width: var(--sp-1); height: var(--sp-1); pointer-events: none; }
 .dialog.topic-dialog { width: min(680px, 96vw); max-height: 92vh; overflow: auto; }
@@ -10,6 +11,9 @@
 .td-x { margin-left: auto; font-size: var(--fs-lg); color: var(--text-3); }
 .td-grid { display: grid; grid-template-columns: minmax(0, 1fr) 204px; gap: var(--sp-5); padding: var(--sp-1) 22px 20px; }
 .td-fields { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+/* 설명 칸이 남는 높이를 채운다 */
+.td-f.grow { flex: 1; }
+.td-f.grow .td-ta { flex: 1; min-height: 64px; }
 .td-f { display: flex; flex-direction: column; gap: 6px; }
 .td-lab { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
 .td-n { font-size: var(--fs-xs); font-weight: var(--fw-normal); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -23,28 +27,38 @@
 .td-rl { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); white-space: nowrap; }
 .td-pv-in { display: flex; align-items: center; gap: var(--sp-2); height: var(--input-h-lg); padding: 0 10px; }
 .td-pv-in input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text); font-family: var(--editor-font); font-size: var(--fs-sm); }
-.td-pics { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .td-pick { display: inline-flex; align-items: center; gap: 6px; height: var(--input-h-lg); box-sizing: border-box; padding: 0 11px; border: 1px dashed var(--line); border-radius: var(--r-sm); background: var(--card-bg); color: var(--text-2); font-size: var(--fs-sm); font-weight: var(--fw-strong); white-space: nowrap; min-width: 0; }
 .td-pick:focus-visible { outline: none; border-color: var(--text); box-shadow: 0 0 0 3px var(--bg-hover); }
 .td-pick.on { border-style: solid; background: var(--bg); font-weight: var(--fw-normal); max-width: 170px; }
 .td-pick img { width: 36px; height: 24px; object-fit: cover; border-radius: 3px; flex: none; }
 .td-pick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-xs); }
 .td-pick .x { color: var(--text-3); padding: 0 2px; }
-.td-sws { display: inline-flex; gap: 6px; align-items: center; }
+.td-sws { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .td-sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-strong); padding: 0; cursor: pointer; background: color-mix(in srgb, var(--pc) var(--tc-mix), var(--bg)); }
 .td-sw.c-violet { background: var(--tc-violet); }
 .td-sw.c-blue { background: var(--tc-blue); }
 .td-sw.c-teal { background: var(--tc-teal); }
 .td-sw.c-orange { background: var(--tc-orange); }
 .td-sw.c-gray { background: var(--tc-gray); }
+.td-sw.solid { background: var(--sw); border-color: transparent; }
 .td-sw.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text); }
+/* 프로젝트 색 "자동": 자동으로 정해질 색 점 + 이름 */
+.td-sw-auto { display: inline-flex; align-items: center; gap: var(--sp-1); height: 18px; box-sizing: border-box; padding: 0 7px 0 3px; border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--bg); color: var(--text-2); font-size: var(--fs-2xs); cursor: pointer; }
+.td-sw-auto i { width: 12px; height: 12px; border-radius: 50%; background: var(--sw); }
+.td-sw-auto.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text); color: var(--text); }
 .td-auto { font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--text-3); border: 1px solid var(--line-strong); border-radius: var(--r-pill); padding: 0 7px; }
 .td-kinds { display: flex; gap: var(--sp-1); flex-wrap: wrap; align-items: center; font-size: var(--fs-xs); }
 .td-err { margin: 0; font-size: var(--fs-sm); color: var(--danger); }
 /* 오른쪽: 실제 크기 카드 + 같은 폭의 취소 · 저장 (저장 줄은 노트 성격 줄과 같은 높이) */
-.td-side { display: flex; flex-direction: column; gap: var(--sp-2); justify-content: flex-end; }
+.td-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .td-card { background: var(--bg-sunken); border-radius: var(--r-md); padding: 10px; display: flex; justify-content: center; }
-.td-acts { display: flex; gap: 6px; }
+/* 미리보기 바로 아래 모양 칸: 이름 왼쪽 · 고르기 오른쪽 */
+.td-look { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: var(--sp-2) var(--sp-3); }
+.td-look .td-row { display: contents; }
+.td-look .td-pick.on { max-width: 100%; }
+/* 프로젝트 창은 왼쪽 칸이 길어 미리보기 바탕이 남는 높이를 채운다 */
+.project-dialog .td-card { flex: 1; align-items: center; }
+.td-acts { display: flex; gap: 6px; margin-top: auto; }
 .td-acts .btn { flex: 1; justify-content: center; height: var(--input-h-lg); box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; }
 .td-key { font-size: var(--fs-2xs); font-weight: var(--fw-normal); opacity: .6; }
 
@@ -52,7 +66,6 @@
 .overlay:has(> .project-dialog) { overflow: auto; padding-bottom: var(--sp-5); }
 .dialog.project-dialog { width: min(var(--project-dialog-width), 96vw); max-height: none; flex: none; overflow: visible; }
 .project-dialog .td-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--project-preview-width)), 1fr)); }
-.project-dialog .td-side { min-width: 0; justify-content: space-between; }
 .project-dialog fieldset.td-fields { border: 0; padding: 0; margin: 0; }
 .project-dialog .pp-fields { grid-template-columns: max-content minmax(0, 1fr); }
 .project-dialog .pp-fields dt { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
