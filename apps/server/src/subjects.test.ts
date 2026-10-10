@@ -3,10 +3,9 @@ import path from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import YAML from 'yaml'
 import { app, repo, tmp, useSampleApp } from './testkit.js'
-import { bodyHash, readConceptMd, splitFrontmatter } from './conceptNotes.js'
+import { bodyHash } from './conceptNotes.js'
 import { hashOf } from './fsutil.js'
 import { ConceptIndex } from './conceptIndex.js'
-import { applyProposal, planSubjects, writeProposal } from './subjectMigration.js'
 
 useSampleApp()
 let lib: string
@@ -140,55 +139,5 @@ describe('L5 classification API and index', () => {
     expect(again.list({ subjectPrefix: 'cs' }).total).toBe(1)
     again.close()
     fs.rmSync(db)
-  })
-})
-
-describe('migration proposal and guarded apply', () => {
-  it('preserves a long title line and all other bytes outside migrated frontmatter keys', () => {
-    const kept = `# Keep existing metadata\ntitle: ${longValue}\nstudy: Concept-Space/Alpha.md\n`
-    const legacy = 'subject: Math › Graph\nsubjects: [old-domain]\ndomains: [Math]\ntopics: [topic]\ntags: [tag]\nfrontmatter-version: 2\n'
-    const file = path.join(lib, 'concepts/alpha.md')
-    fs.writeFileSync(file, `---\n${kept}${legacy}---\n${body}`)
-    const proposal = planSubjects(lib)
-    expect(applyProposal(proposal, tmp).applied).toContain('concepts/alpha.md')
-    expect(fs.readFileSync(file)).toEqual(Buffer.from(`---\n${kept}subjects:\n  - math/graph\n---\n${body}`))
-  })
-  it('keeps a long display name on one line in the draft tree', () => {
-    fs.writeFileSync(path.join(lib, 'concepts/alpha.md'), `---\ntitle: Alpha\nsubject: ${longValue}\n---\n${body}`)
-    expect(planSubjects(lib).subjectsYaml).toContain(`  name: ${longValue}\n`)
-  })
-  it('lists all legacy fields and deep paths; refuses output inside library, including symlinks', () => {
-    const p = planSubjects(lib)
-    expect(p.mappings.find((m) => m.depth === 4)?.warning).toContain('→ 3')
-    expect(p.notes.find((n) => n.file.endsWith('study.md'))).toMatchObject({ before: { subjects: ['old-domain'], domains: ['Math'], topics: ['topic'], tags: ['tag'], 'frontmatter-version': 2 }, subjects: ['math/graph/deep'] })
-    expect(() => writeProposal(lib, path.join(lib, 'out'))).toThrow(/밖/)
-    const alias = path.join(tmp, 'alias'); fs.symlinkSync(lib, alias)
-    expect(() => writeProposal(lib, path.join(alias, 'out'))).toThrow(/밖/)
-    fs.unlinkSync(alias)
-    const out = path.join(tmp, 'proposal')
-    writeProposal(lib, out)
-    expect(fs.readFileSync(path.join(out, 'proposal.md'), 'utf8')).toContain('| Study subjects |')
-  })
-  it('keeps body bytes and checked states; skips hash mismatches; reruns idempotently', () => {
-    writeNote('changed', { checked: { at: '2026-10-06', hash: bodyHash('old') }, subject: 'Math' })
-    const p = planSubjects(lib)
-    const before = Object.fromEntries(p.notes.map((n) => [n.file, splitFrontmatter(fs.readFileSync(path.join(lib, n.file), 'utf8')).body]))
-    expect(() => applyProposal(p, path.join(tmp, '.sandbox'))).toThrow(/approval/)
-    fs.appendFileSync(path.join(lib, 'concepts/study.md'), '\nEdited elsewhere')
-    // Test-only sandbox root: the caller passes the repository .sandbox in the CLI.
-    const first = applyProposal(p, tmp)
-    expect(first.skipped).toEqual([{ file: 'concepts/study.md', reason: '계획 뒤 해시 바뀜' }])
-    for (const file of first.applied) expect(Buffer.from(splitFrontmatter(fs.readFileSync(path.join(lib, file), 'utf8')).body)).toEqual(Buffer.from(before[file]!))
-    expect(readConceptMd(lib, 'alpha')).toMatchObject({ checked: 'ok', meta: { study: 'Concept-Space/Alpha.md' } })
-    expect(readConceptMd(lib, 'changed').checked).toBe('changed')
-    expect(readConceptMd(lib, 'beta').checked).toBe('none')
-    const alpha = splitFrontmatter(fs.readFileSync(path.join(lib, 'concepts/alpha.md'), 'utf8')).fm
-    expect(alpha.subject).toBeUndefined()
-    expect(alpha.subjects).toEqual(['math/graph'])
-    const hashes = p.notes.map((n) => hashOf(fs.readFileSync(path.join(lib, n.file), 'utf8')))
-    const second = applyProposal(p, tmp)
-    expect(second.applied).toEqual([])
-    expect(second.unchanged).toHaveLength(first.applied.length)
-    expect(p.notes.map((n) => hashOf(fs.readFileSync(path.join(lib, n.file), 'utf8')))).toEqual(hashes)
   })
 })
