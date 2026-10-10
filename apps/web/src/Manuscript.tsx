@@ -13,8 +13,9 @@ import { CitedPapers } from './Materials'
 import { openRecordComposer } from './RecordContext'
 import { recordRevealRange, recordSelectionFromLines } from './recordHelpers'
 import { Icon } from './icons'
-import { NoteHead, NoteTitleInput, NoteToolbar, type EditView, type ToolbarItem, type ToolbarSave } from './NoteToolbar'
-import { latexSections, publishToc, sectionAtLine, useRightMode } from './noteScreen'
+import { NoteHead, NoteTitleInput, type EditView, type ToolbarItem, type ToolbarSave } from './NoteToolbar'
+import { NoteScreen } from './NoteScreenFrame'
+import { latexSections, sectionAtLine, useRightMode } from './noteScreen'
 import { store } from './store'
 import { TRASH_DAYS, trashNoteWithUndo } from './Topics'
 import { CompileSettings, ExportLink, groupOf, savedLatexChoice } from './NoteExport'
@@ -209,25 +210,21 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
   const conflict = save === 'conflict'
   const mode = useRightMode()
   return (
-    <div className="ws-doc md-note note-screen" data-ui="원고 장">
-      <section className="pane">
-        <NoteToolbar title={editing && row ? <NoteTitleInput title={title} draft={titleDraft ?? title} onDraft={setTitleDraft} /> : undefined}
-          status={<ResearchNoteStatus row={row} rapi={rapi} onSaved={onSaved} onChanged={onChanged} />} save={save} savedAt={savedAt} pdfNote={pdfShortNote(ms.manuscriptPdf)} editing={editing}
-          saveAction={conflict ? <button className="a" onClick={reload}>{t('파일 다시 읽기', 'Reload file')}</button> : save === 'error' ? <button className="a" onClick={() => void saveNow()}>{t('다시 저장', 'Save again')}</button> : undefined}
-          view={view} onView={(v) => { setView(v); store.set(VIEW_KEY, v) }}
-          onEdit={startEdit} editDisabled={text === null || conflict} onDone={() => void finish()}
-          onComment={() => openRecordComposer(rid, noteTarget(file, title) ?? manuscriptTarget(undefined, info?.key))} commentOn={mode === 'records'}
-          onCompile={() => void compile()} compiling={ms.compiling} compileDisabled={!info || text === null || conflict} compileTip={t(`컴파일 — ${title}`, `Compile: ${title}`)} compileUi="원고 컴파일"
-          menu={partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, csOpen: () => setCs(true), exOpen: () => setEx(true), reload })}
-          anchors={info && <>
-            {cs && <CompileSettings rid={rid} ms={info} control={{ open: cs, setOpen: setCs }} disabled={ms.compiling || text === null} onCompile={() => void compile()} />}
-            {ex && <ExportLink rid={rid} ms={info} control={{ open: ex, setOpen: setEx }} />}
-          </>} />
-
-        {conflict && (
-          <div className="banner danger">{t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다.', 'Saving stopped because this file changed elsewhere (an agent or another editor). Nothing was overwritten.')}</div>
-        )}
-        {notice && <div className="banner">{notice}<span className="sp" /><button className="btn ghost" onClick={() => setNotice(null)}>{t('닫기', 'Close')}</button></div>}
+    <NoteScreen ui="원고 장" className="md-note" notice={notice} onCloseNotice={() => setNotice(null)} tocOwner={tocOwner}
+      toolbar={{
+        title: editing && row ? <NoteTitleInput title={title} draft={titleDraft ?? title} onDraft={setTitleDraft} /> : undefined,
+        status: <ResearchNoteStatus row={row} rapi={rapi} onSaved={onSaved} onChanged={onChanged} />, save, savedAt, pdfNote: pdfShortNote(ms.manuscriptPdf), editing,
+        saveAction: conflict ? <button className="a" onClick={reload}>{t('파일 다시 읽기', 'Reload file')}</button> : save === 'error' ? <button className="a" onClick={() => void saveNow()}>{t('다시 저장', 'Save again')}</button> : undefined,
+        view, onView: (v) => { setView(v); store.set(VIEW_KEY, v) },
+        onEdit: startEdit, editDisabled: text === null || conflict, onDone: () => void finish(),
+        onComment: () => openRecordComposer(rid, noteTarget(file, title) ?? manuscriptTarget(undefined, info?.key)), commentOn: mode === 'records',
+        onCompile: () => void compile(), compiling: ms.compiling, compileDisabled: !info || text === null || conflict, compileTip: t(`컴파일 — ${title}`, `Compile: ${title}`), compileUi: '원고 컴파일',
+        menu: partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, csOpen: () => setCs(true), exOpen: () => setEx(true), reload }),
+        anchors: info && <>
+          {cs && <CompileSettings rid={rid} ms={info} control={{ open: cs, setOpen: setCs }} disabled={ms.compiling || text === null} onCompile={() => void compile()} />}
+          {ex && <ExportLink rid={rid} ms={info} control={{ open: ex, setOpen: setEx }} />}
+        </>,
+      }}>
         {problems.length > 0 && (
           <div className="problems"><div className="problems-head">{t(`PDF 오류 ${problems.length}`, `PDF errors ${problems.length}`)}</div>
             {problems.slice(0, 8).map((p, i) => <div key={i} className="problem"><span>{p.message}</span></div>)}
@@ -238,8 +235,7 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
           head={!editing && <NoteHead title={title} editing={false} />}
           footer={<CitedPapers rid={rid} rapi={rapi} text={text} file={file} library={library} onSaved={onSaved} onLibraryChanged={onLibraryChanged} />}
           onSave={(t) => { onDraft(t); void finish() }} onCancel={() => void finish()} />}
-      </section>
-    </div>
+    </NoteScreen>
   )
 }
 
@@ -327,11 +323,6 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
   // 절 목차: \section 줄. 커서가 든 절이 지금 절 (편집기는 늘 고치는 중이라 커서를 따라간다)
   const sections = useMemo(() => latexSections(loaded === null ? '' : content.current), [loaded, state]) // eslint-disable-line react-hooks/exhaustive-deps
   const jump = useCallback((i: number) => { const sec = sections[i]; if (sec) editor.current?.revealLines(sec.line, sec.line) }, [sections])
-  useEffect(() => {
-    if (!tocOwner) return
-    publishToc({ owner: tocOwner, sections, current: sectionAtLine(sections, cursorLine), jump }, tocOwner)
-  }, [tocOwner, sections, cursorLine, jump])
-  useEffect(() => () => { if (tocOwner) publishToc(null, tocOwner) }, [tocOwner])
 
   /** 본문만 남긴 노트 (원고 목록이 다시 읽히기 전까지 안내를 숨긴다) */
   const [stripped, setStripped] = useState<string | null>(null)
@@ -347,28 +338,25 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
   const mode = useRightMode()
   const toolbarSave: ToolbarSave = state
   return (
-    <div className="ws-doc note-screen" data-ui="원고 장">
-      <section className="pane">
-        <NoteToolbar title={titleDraft !== null ? <NoteTitleInput title={title} draft={titleDraft} onDraft={setTitleDraft} /> : undefined}
-          status={<ResearchNoteStatus row={row} rapi={rapi} onSaved={onSaved} onChanged={onChanged} />} save={toolbarSave} savedAt={savedAt} pdfNote={pdfShortNote(ms.manuscriptPdf)} editing={titleDraft !== null} onDone={() => void finishTitle()}
-          saveAction={state === 'conflict' ? <button className="a" onClick={() => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.'))}>{t('파일 다시 읽기', 'Reload file')}</button> : state === 'error' ? <button className="a" onClick={() => void save()}>{t('다시 저장', 'Save again')}</button> : undefined}
-          onEdit={row ? () => setTitleDraft(row.title) : undefined}
-          onComment={() => openRecordComposer(rid, noteTarget(file, title) ?? manuscriptTarget(undefined, info?.key), recordSelectionFromLines(content.current, editor.current?.selection() ?? null))} commentOn={mode === 'records'}
-          onCompile={() => void compile()} compiling={ms.compiling} compileDisabled={!info || loaded === null} compileTip={t(`컴파일 — ${info?.name ?? file}`, `Compile: ${info?.name ?? file}`)} compileKey compileUi="원고 컴파일"
-          menu={partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, csOpen: () => setCs(true), exOpen: () => setEx(true), reload: () => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.')),
-          })}
-          anchors={info && <>
-            {cs && <CompileSettings rid={rid} ms={info} control={{ open: cs, setOpen: setCs }} disabled={ms.compiling || loaded === null} onCompile={() => void compile()} />}
-            {ex && <ExportLink rid={rid} ms={info} control={{ open: ex, setOpen: setEx }} />}
-          </>} />
-
-        {titleDraft === null && <NoteHead title={title} editing={false}>
-          {!row && info && <span className="nk-tag">{info.name}</span>}
-        </NoteHead>}
-        {state === 'conflict' && (
-          <div className="banner danger">{t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다.', 'Saving stopped because this file changed elsewhere (an agent or another editor). Nothing was overwritten.')}</div>
-        )}
-        {info?.needsBodyOnly && file === info.main && stripped !== info.key && (
+    <NoteScreen ui="원고 장" notice={notice} onCloseNotice={() => setNotice(null)} tocOwner={tocOwner} toc={{ sections, current: sectionAtLine(sections, cursorLine), jump }}
+      toolbar={{
+        title: titleDraft !== null ? <NoteTitleInput title={title} draft={titleDraft} onDraft={setTitleDraft} /> : undefined,
+        status: <ResearchNoteStatus row={row} rapi={rapi} onSaved={onSaved} onChanged={onChanged} />, save: toolbarSave, savedAt, pdfNote: pdfShortNote(ms.manuscriptPdf), editing: titleDraft !== null, onDone: () => void finishTitle(),
+        saveAction: state === 'conflict' ? <button className="a" onClick={() => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.'))}>{t('파일 다시 읽기', 'Reload file')}</button> : state === 'error' ? <button className="a" onClick={() => void save()}>{t('다시 저장', 'Save again')}</button> : undefined,
+        onEdit: row ? () => setTitleDraft(row.title) : undefined,
+        onComment: () => openRecordComposer(rid, noteTarget(file, title) ?? manuscriptTarget(undefined, info?.key), recordSelectionFromLines(content.current, editor.current?.selection() ?? null)), commentOn: mode === 'records',
+        onCompile: () => void compile(), compiling: ms.compiling, compileDisabled: !info || loaded === null, compileTip: t(`컴파일 — ${info?.name ?? file}`, `Compile: ${info?.name ?? file}`), compileKey: true, compileUi: '원고 컴파일',
+        menu: partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, csOpen: () => setCs(true), exOpen: () => setEx(true), reload: () => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.')),
+        }),
+        anchors: info && <>
+          {cs && <CompileSettings rid={rid} ms={info} control={{ open: cs, setOpen: setCs }} disabled={ms.compiling || loaded === null} onCompile={() => void compile()} />}
+          {ex && <ExportLink rid={rid} ms={info} control={{ open: ex, setOpen: setEx }} />}
+        </>,
+      }}
+      head={titleDraft === null && <NoteHead title={title} editing={false}>
+        {!row && info && <span className="nk-tag">{info.name}</span>}
+      </NoteHead>}
+      banner={info?.needsBodyOnly && file === info.main && stripped !== info.key && (
           // 10/4 15:41 피드백: 머리와 제목·저자는 노트에 두지 않고 앱이 컴파일·내보내기 때 붙인다
           <div className="banner" data-ui="본문만 남기기 안내">{t('이 노트에 머리(문서 종류·패키지 줄)나 제목·저자 줄이 있습니다. 머리는 LaTeX 서식이, 제목·저자는 네트워킹의 저자 정보가 붙이니 노트에는 본문만 둡니다.', 'This note has a preamble (document class and package lines) or title and author lines. The LaTeX template adds the preamble and Networking adds title and authors, so keep only the body in the note.')}
             <span className="sp" /><button className="btn" data-ui="본문만 남기기" disabled={state !== 'saved'} onClick={() => {
@@ -376,8 +364,7 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
                 `Kept only the body (removed ${[r.removedHead && 'the preamble', r.removedFront > 0 && plural(r.removedFront, 'title or author line')].filter(Boolean).join(', ')}${r.macros ? `, moved ${plural(r.macros, 'definition')} to the project macros file` : ''}${r.template ? `, set the project template to "${r.template}"` : ''}).`)) })
                 .catch((e: Error) => onSaved(e.message))
             }}>{t('본문만 남기기', 'Keep body only')}</button></div>
-        )}
-        {notice && <div className="banner">{notice}<span className="sp" /><button className="btn ghost" onClick={() => setNotice(null)}>{t('닫기', 'Close')}</button></div>}
+        )}>
         {(open.length > 0 || records.length > 0) && (
           <div className="part-open" data-ui="이 장의 열린 문제">
             <span className="muted">{t('이 장의 열린 문제', 'Open problems in this chapter')}</span>
@@ -395,8 +382,7 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
           </div>
         )}
         {loaded !== null && <CitedPapers rid={rid} rapi={rapi} text={content.current} file={file} docked library={library} onSaved={onSaved} onLibraryChanged={onLibraryChanged} onReveal={(n) => editor.current?.revealLines(n, n)} />}
-      </section>
-    </div>
+    </NoteScreen>
   )
 }
 

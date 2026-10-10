@@ -74,6 +74,9 @@ export const DEFAULT_SCREENS = [
   // dark-topic은 배치를 비우고, dark-note-info에서 오른쪽 사이드바를 다시 연다.
   ['dark-topic', '#/r/{rid}/t/coloring', '노트 카드 목록'],
   ['dark-note-info', '#/r/{rid}/b/list-coloring', '노트 정보', '맥락 칸 켜고 끄기'],
+  // 프로젝트 안의 개념노트 탭 (10/10 노트 화면 틀 하나): 지식 화면(knowledge-note)과 같은 노트를 탭으로 연 모습. 탭 주소는 별칭을 풀지 않아 파일 id(planar-graph)를 쓴다.
+  // 앞 화면의 기억(탭 · 오른쪽 사이드바)을 바꾸지 않게 맨 끝에 둔다
+  ['concept-tab', '#/r/{rid}/c/planar-graph', '개념노트'],
 ]
 
 // --sample subjects: a separate .sandbox/subjects-library fixture, preserving the default L2b shots.
