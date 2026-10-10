@@ -61,9 +61,9 @@
 .td-look .td-rl, .td-look .td-sws { display: flex; align-items: center; }
 .td-look .td-sws { gap: var(--sp-1) 5px; }
 .td-look .td-pick.on { max-width: 100%; }
-/* 맨 아랫줄: 취소 · 저장은 오른쪽 칸 폭으로 오른쪽 끝에 */
-.td-acts { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 6px; }
-.td-acts .btn { min-width: 96px; justify-content: center; height: var(--input-h-lg); box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; }
+/* 맨 아랫줄 오른쪽 칸: 취소 · 저장이 카드 · 모양 칸과 같은 왼쪽 · 오른쪽 끝을 나눠 쓴다 */
+.td-acts { grid-column: -2 / -1; display: flex; gap: 6px; padding-inline: var(--td-card-pad); }
+.td-acts .btn { flex: 1; justify-content: center; height: var(--input-h-lg); box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; }
 .td-key { font-size: var(--fs-2xs); font-weight: var(--fw-normal); opacity: .6; }
 
 /* 프로젝트 창도 같은 부품을 쓴다. 분야 메뉴는 창 밖으로 펼치고, 긴 창은 배경 영역에서 스크롤한다. */
