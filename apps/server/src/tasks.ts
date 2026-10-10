@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { RESEARCH_TARGET, frontMatter } from '@rw/core'
 import YAML from 'yaml'
-import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
+import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { inspectTask, TASK_ID as ID, TASK_STATES, type TaskDiagnostic, type TaskInspection } from './taskValidation.js'
 import { t as tl } from './i18n.js'
@@ -221,6 +221,7 @@ export function scanTasks(wb: Workbench): TaskScan {
     if (!n.endsWith('.md') || n.startsWith('.')) continue
     const id = n.slice(0, -3)
     const file = repoRel(wb, id)
+    if (isBackupCopy(n)) { out.diagnostics.push({ file, code: 'filename', line: 1, message: tl('백업 동기화가 남긴 GitHub 쪽 사본입니다. 원본과 견주어 합친 뒤 이 파일을 지우세요.', 'A GitHub-side copy left by backup sync. Compare it with the original, merge, then delete this file.') }); continue }
     if (!ID.test(id)) { out.diagnostics.push({ file, code: 'filename', line: 1, message: tl('파일 이름은 YYYY-MM-DD-영문이름.md로 적으세요.', 'Name the file YYYY-MM-DD-name.md (name in English letters).') }); continue }
     const p = path.join(dir, n)
     try {

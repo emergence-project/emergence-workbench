@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {
-  appendJournalEntry, buildTree, hasBlockHeader, isValidBlockId, parseBlock, parseCardFigureRef, parseJournal, setTodoDone, editJournalEntry, suggestBlockId, updateBlockMeta,
+  appendJournalEntry, buildTree, hasBlockHeader, isReservedBlockId, isValidBlockId, parseBlock, parseCardFigureRef, parseJournal, setTodoDone, editJournalEntry, suggestBlockId, updateBlockMeta,
   type BlockFormat, type BlockMeta, type BlockTree, type JournalEntry, type MetaPatch, type NewJournalEntry,
 } from '@rw/core'
 import YAML from 'yaml'
@@ -274,6 +274,7 @@ export class Workbench {
     const existing = this.listBlocks().map((b) => b.id)
     const id = input.id ?? suggestBlockId(title, existing, input.now)
     if (!isValidBlockId(id)) throw new WorkbenchError(400, t(`잘못된 블록 id: ${id}`, `Invalid block id: ${id}`))
+    if (isReservedBlockId(id)) throw new WorkbenchError(400, t(`원고 컴파일 폴더와 겹쳐 쓸 수 없는 블록 id: ${id}`, `Block id clashes with the manuscript build folder: ${id}`))
     if (existing.includes(id) || fs.existsSync(this.blockPath(id)) || fs.existsSync(path.join(this.blocksDir, `${id}.tex`))) throw new WorkbenchError(409, t(`이미 있는 블록: ${id}`, `Block already exists: ${id}`))
     for (const ref of [input.parent, input.alternativeOf]) {
       if (ref && !existing.includes(ref)) throw new WorkbenchError(400, t(`없는 블록: ${ref}`, `No such block: ${ref}`))

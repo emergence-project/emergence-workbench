@@ -216,6 +216,11 @@ describe('suggestBlockId', () => {
     expect(suggestBlockId('Five color 재유도', [], d)).toBe('five-color')
     expect(suggestBlockId('강한 부가법칙으로 직접', [], d)).toBe('b-0930')
   })
+  it('원고 컴파일 폴더와 겹치는 id(manuscript, manuscript-…)는 b-를 붙인다', () => {
+    expect(suggestBlockId('Manuscript notes', [], d)).toBe('b-manuscript-notes')
+    expect(suggestBlockId('Manuscript', [], d)).toBe('b-manuscript')
+    expect(suggestBlockId('Manuscripts', [], d)).toBe('manuscripts')
+  })
   it('겹치면 번호를 붙인다', () => {
     expect(suggestBlockId('Kempe', ['kempe', 'kempe-2'], d)).toBe('kempe-3')
     expect(suggestBlockId('가나다', ['b-0930'], d)).toBe('b-0930-2')

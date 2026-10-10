@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
+import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsutil.js'
 import { ANSWER_RE, COMMENT_STATES, type CommentState } from './commentFormat.js'
 import { Workbench, ConflictError, WorkbenchError } from './workbench.js'
 import { HIGHLIGHT_COLORS, type HighlightColor } from './paperComments.js'
@@ -264,7 +264,7 @@ export function listComments(root: string): CommentFile[] {
   const dir = path.join(root, COMMENTS_DIR)
   if (!fs.existsSync(dir)) return []
   return fs.readdirSync(dir)
-    .filter((n) => n.endsWith('.md') && !n.startsWith('.') && TARGET_RE.test(n.slice(0, -3)))
+    .filter((n) => n.endsWith('.md') && !n.startsWith('.') && !isBackupCopy(n) && TARGET_RE.test(n.slice(0, -3)))
     .sort()
     .map((n) => parseComments(n.slice(0, -3), fs.readFileSync(path.join(dir, n), 'utf8')))
 }
