@@ -106,6 +106,11 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
       className="project-dialog" canSave={canSave} onClose={() => { if (!saving.current) onDone() }} onSave={() => void save()} preview={
         <ProjectCard preview pc={shown} r={{ ...listed, ...profile, color: profile.color ?? undefined, title: title.trim() }} question={question} image={image.trim()}
           last={last} issues={summary.tree.issues.length} mark={summary.tree.issues.length ? 'check' : null} />
+      } lower={
+        <fieldset className="td-fields" disabled={busy || !baseHash}>
+          <ProjectProfileFields kind={profile.kind} fields={profile.fields} state={profile.state} rail={profile.rail} all={all}
+            onChange={(p) => setProfile((cur) => ({ ...cur, ...p }))} />
+        </fieldset>
       } look={<>
         <div className="td-row">
           <span className="td-rl">{t('카드 그림', 'Card image')}</span>
@@ -130,8 +135,6 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
           <textarea className="td-in td-ta" rows={4} value={question} aria-label={t('설명', 'Description')} data-ui="프로젝트 설명" placeholder={t('이 프로젝트가 무엇을 묻는지 한두 문장으로. 줄 앞에 ‘- ’를 쓰면 글머리표 목록이 됩니다. 홈 카드에는 한 줄로 보입니다.', 'One or two sentences on what this project asks. Start a line with ‘- ’ for a bulleted list. The home card shows one line.')}
             onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { onListKey(e, setQuestion) }} />
         </label>
-        <ProjectProfileFields kind={profile.kind} fields={profile.fields} state={profile.state} rail={profile.rail} all={all}
-          onChange={(p) => setProfile((cur) => ({ ...cur, ...p }))} />
       </fieldset>
       {!baseHash && !error && <p className="td-help" role="status">{t('프로젝트 정보를 읽는 중…', 'Reading project info…')}</p>}
       {error && <p className="td-err" role="alert">{error}</p>}
