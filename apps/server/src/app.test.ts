@@ -485,7 +485,7 @@ describe('서식 라이브러리', () => {
     fs.cpSync(templates, lib, { recursive: true })
     app.registry.setLibrary(lib)
     const listed = (await app.inject({ method: 'GET', url: '/api/library' })).json()
-    expect(listed.preambles.map((p: { name: string; place: string }) => `${p.place}:${p.name}`)).toEqual(['first:base', 'last:quantum-info', 'last:theorems'])
+    expect(listed.preambles.map((p: { name: string; place: string }) => `${p.place}:${p.name}`)).toEqual(['first:base', 'last:notation', 'last:theorems'])
 
     // statements/ 폴더의 자기 서식에서 \Tr와 lemma를 이미 정의한 연구
     const alpha = path.join(tmp, 'alpha-like')
@@ -503,14 +503,14 @@ describe('서식 라이브러리', () => {
 
     const reg = await app.inject({ method: 'POST', url: '/api/researches', payload: {
       path: alpha, createWorkbench: true, title: 'Alpha 같은 연구',
-      libraryPreambles: ['base', 'theorems', 'quantum-info'], repoPreambles: ['statements/preamble.tex'],
+      libraryPreambles: ['base', 'theorems', 'notation'], repoPreambles: ['statements/preamble.tex'],
     } })
     expect(reg.statusCode).toBe(200)
     const preamble = fs.readFileSync(path.join(alpha, 'workbench/preamble.tex'), 'utf8')
     const at = (s: string) => preamble.indexOf(s)
     expect(at('\\input{preamble/base.tex}')).toBeGreaterThan(-1)
     expect(at('\\input{preamble/base.tex}')).toBeLessThan(at('\\input{../statements/preamble.tex}'))
-    expect(at('\\input{../statements/preamble.tex}')).toBeLessThan(at('\\input{preamble/quantum-info.tex}'))
+    expect(at('\\input{../statements/preamble.tex}')).toBeLessThan(at('\\input{preamble/notation.tex}'))
     expect(at('\\input{../statements/preamble.tex}')).toBeLessThan(at('\\input{preamble/theorems.tex}'))
   })
 

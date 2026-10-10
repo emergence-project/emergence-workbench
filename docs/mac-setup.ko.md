@@ -25,7 +25,7 @@ Dock에 따로 띄우기: 앱을 연 크롬 창에서 ⋮ → 전송, 저장, �
 
 **iPad에서 코드 열기 (code-server).** `scripts/remote/ipad-code-server.sh`는 Tailscale 주소에서만, 비밀번호 로그인을 켠 채로 이 맥의 code-server(브라우저용 VS Code)를 연다. 백그라운드 서비스(LaunchAgent)로 돌리고, 비밀번호는 code-server 설정 파일에 둔다. Tailscale이 꺼져 있으면 켜질 때까지 기다린다. 시험은 `pnpm test:scripts`.
 
-**설정.** 왼쪽 띠 맨 아래 조절 막대 아이콘. 테마·글자 크기·화면 밀도·강조 색·편집기 글꼴을 바꾸며, 앱 설정 파일(`~/.config/research-workspace/config.yaml`)의 `ui:`에 저장된다. 같은 파일에 등록한 프로젝트와 태그, 공유 라이브러리(`library`), Study vault(`study`, 없으면 iCloud Obsidian의 Study)가 있다. 그 위의 ⓘ는 이 앱 소개, 말풍선은 피드백 모아 보기.
+**설정.** 왼쪽 띠 맨 아래 조절 막대 아이콘. 테마·글자 크기·화면 밀도·강조 색·편집기 글꼴을 바꾸며, 앱 설정 파일(`~/.config/research-workspace/config.yaml`)의 `ui:`에 저장된다. 같은 파일에 등록한 프로젝트와 태그, 공유 라이브러리(`library`), 지식 화면이 읽는 Obsidian vault(`study`)와 Topic Review 폴더(`reviews`)가 있다. 둘은 적어 둔 것만 읽는다. 그 위의 ⓘ는 이 앱 소개, 말풍선은 피드백 모아 보기.
 
 **프로젝트 정본과 STATUS.md.** 프로젝트의 `workbench/research.yaml`에 `sources:`(정본 위치 `canon`, 작업 목록 `tasks`, `bib`, 자료 폴더 `materials`, 검토 문서 폴더 `reviews`, 원고 `manuscript`)를 적으면 앱이 그것을 읽고, `agent-status: true`이면 에이전트가 먼저 읽을 요약 `workbench/STATUS.md`를 바뀔 때마다 다시 쓴다(생성 파일, git 제외).
 
