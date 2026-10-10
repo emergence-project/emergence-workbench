@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import * as C from '@rw/core/contract/knowledge'
 import { buildKnowledge, firstParagraph, readReview, topicKey, wikiTargets } from './knowledge.js'
 import { listLibraryNotes } from './libraryNotes.js'
 
@@ -48,7 +49,7 @@ describe('지식 색인', () => {
   })
 
   it('Topic Review는 그 폴더 안 .md만 읽는다', () => {
-    expect(readReview(reviews, 'learned-graph-coloring.md').title).toBe('Learned graph coloring')
+    expect(C.KnowledgeReview.parse(readReview(reviews, 'learned-graph-coloring.md')).title).toBe('Learned graph coloring')
     expect(() => readReview(reviews, '../library/papers/sample2020kempe.tex')).toThrow()
   })
 

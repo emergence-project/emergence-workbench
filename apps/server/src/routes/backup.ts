@@ -1,5 +1,7 @@
 // 맥에만 있던 작업대 정보(workbench/)와 앱 설정을 GitHub 백업 저장소와 맞춘다 (설정 화면, backup.ts)
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/backup'
+import { replies } from '../contract.js'
 import { backupWorkbenches, type BackupResult } from '../backup.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -19,8 +21,8 @@ export function registerBackup(app: FastifyInstance, ctx: RouteContext): void {
     return running
   }
 
-  app.get('/api/backup', async () => ({ enabled: !!cfg, remote: cfg?.remote ?? null, running: !!running, last }))
-  app.post('/api/backup', async () => run())
+  app.get('/api/backup', replies(C.BackupStatus), async (): Promise<C.BackupStatus> => ({ enabled: !!cfg, remote: cfg?.remote ?? null, running: !!running, last }))
+  app.post('/api/backup', replies(C.BackupResult), async (): Promise<C.BackupResult> => run())
 
   // 시작하고 조금 뒤 한 번, 그다음은 정한 간격마다 저절로
   if (cfg?.intervalMs) {

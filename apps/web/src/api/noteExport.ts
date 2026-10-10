@@ -1,5 +1,8 @@
 // ---------- 노트 내보내기 (서버 noteExport.ts) ----------
+import type { ExportOptions } from '@rw/core/contract/noteExport'
 import { enc, json, req } from './http'
+
+export type { ExportOptions } from '@rw/core/contract/noteExport'
 
 /**
  * 내보내기 상자에서 고른 것 (10/4 반려 "옵션으로 선택: 1. 디자인 템플릿 2. 저자 포함 여부 3. 날짜 등").
@@ -22,14 +25,6 @@ export const choiceParams = (o: ExportChoice): string[] => [
   ...(o.authors === undefined ? [] : o.authors.length ? o.authors.map((n) => `au=${enc(n)}`) : ['au=']),
   ...(o.date ? [`date=${enc(o.date)}`] : []),
 ]
-
-export interface ExportOptions {
-  /** 이 프로젝트의 서식 (research.yaml의 latex-template:, 없으면 내보내기 기본 서식) */
-  template: string
-  /** 노트(연구노트 · 계산 노트 · 보조 노트)를 고르지 않고 낼 때의 서식: latex-template:, 없으면 한 단 연구노트 서식 */
-  noteTemplate?: string
-  templates: { id: string; name: string; kind: 'document' | 'slides' }[]
-}
 
 export const noteExportApi = {
   options: (rid: string) => req(`/api/researches/${enc(rid)}/export/options`).then((r) => json<ExportOptions>(r)),

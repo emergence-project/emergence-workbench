@@ -1,5 +1,7 @@
 // 연구 목록·등록·개괄
 import type { FastifyInstance } from 'fastify'
+import { GitHubRepoList } from '@rw/core/contract/register'
+import { replies } from '../contract.js'
 import path from 'node:path'
 import { buildTree } from '@rw/core'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
@@ -47,7 +49,7 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
    * 등록 창의 "GitHub에서" 목록 (10/4 19:22 피드백). 이 컴퓨터의 gh 또는 git 로그인으로 내 저장소를 읽는다.
    * 로그인을 못 찾으면 ok: false와 이유만 돌려준다 (화면은 주소 칸을 보여 준다). 예제 모드는 예제 목록.
    */
-  app.get('/api/researches/github-repos', async () => {
+  app.get('/api/researches/github-repos', replies(GitHubRepoList), async (): Promise<GitHubRepoList> => {
     const list = registry.list()
     const parent = defaultCloneDir(list.map((r) => r.path))
     return { ...(await listGitHubRepos(io, list, parent, !!opts.sandbox)), parent }

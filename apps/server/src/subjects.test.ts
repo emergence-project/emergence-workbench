@@ -65,6 +65,7 @@ describe('L5 classification API and index', () => {
     enable()
     const raw = `# Keep existing metadata\n${key}:\n  description: ${longValue}\n  subjects: [math/graph]\n`
     fs.writeFileSync(path.join(lib, file), raw)
+    expect((await get(`${url}${'id' in extra ? `?id=${encodeURIComponent(extra.id)}` : ''}`)).hash).toBe(hashOf(raw))
     const response = await put(url, { ...extra, subjects: ['cs/ml'], baseHash: hashOf(raw) })
     expect(response.statusCode, response.body).toBe(200)
     expect(fs.readFileSync(path.join(lib, file))).toEqual(Buffer.from(raw.replace('  subjects: [math/graph]\n', '  subjects:\n    - cs/ml\n')))

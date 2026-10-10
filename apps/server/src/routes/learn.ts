@@ -1,8 +1,10 @@
 // 공부할 것: 읽다가 남긴 "모름"과 개념노트 초안 (research-library/to-learn.yaml)
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/learn'
+import { parseBody, replies } from '../contract.js'
 import { claudeRunner } from '../ask.js'
 import { conceptMdExists, listConceptMd, readConceptMemo, writeConceptMemo } from '../conceptNotes.js'
-import { addLearn, draftMemo, draftPrompt, learnItem, parseDraft, readLearn, removeLearn, setLearnConcept, type NewLearn } from '../learn.js'
+import { addLearn, draftMemo, draftPrompt, learnItem, parseDraft, readLearn, removeLearn, setLearnConcept } from '../learn.js'
 import { createConcept } from '../libraryNotes.js'
 import { readSubjects } from '../subjects.js'
 import { WorkbenchError } from '../workbench.js'
@@ -15,15 +17,15 @@ export function registerLearn(app: FastifyInstance, ctx: RouteContext): void {
   const drafting = new Set<string>()
   const withDrafting = <T extends object>(list: T) => ({ ...list, drafting: [...drafting] })
 
-  app.get('/api/learn', async () => withDrafting(readLearn(registry.libraryPath)))
-  app.post<{ Body: NewLearn }>('/api/learn', async (req) => {
-    const { item, list } = addLearn(registry.libraryPath, req.body ?? {})
+  app.get('/api/learn', replies(C.LearnList), async (): Promise<C.LearnList> => withDrafting(readLearn(registry.libraryPath)))
+  app.post('/api/learn', replies(C.LearnAdded), async (req): Promise<C.LearnAdded> => {
+    const { item, list } = addLearn(registry.libraryPath, parseBody(C.NewLearnBody, req.body))
     return { item, ...withDrafting(list) }
   })
-  app.delete<{ Params: { id: string } }>('/api/learn/:id', async (req) => withDrafting(removeLearn(registry.libraryPath, req.params.id)))
+  app.delete<{ Params: { id: string } }>('/api/learn/:id', replies(C.LearnList), async (req): Promise<C.LearnList> => withDrafting(removeLearn(registry.libraryPath, req.params.id)))
   /** 이미 있는 개념노트에 잇거나(concept), 연결을 푼다(빈 값) */
-  app.post<{ Params: { id: string }; Body: { concept?: unknown } }>('/api/learn/:id/concept', async (req) => {
-    const c = typeof req.body?.concept === 'string' && req.body.concept.trim() ? req.body.concept.trim() : undefined
+  app.post<{ Params: { id: string } }>('/api/learn/:id/concept', replies(C.LearnList), async (req): Promise<C.LearnList> => {
+    const c = parseBody(C.LearnConceptBody, req.body).concept?.trim() || undefined
     if (c && !conceptMdExists(registry.libraryPath, c)) throw new WorkbenchError(404, t(`개념노트가 없음: ${c}`, `No such concept note: ${c}`))
     return withDrafting(setLearnConcept(registry.libraryPath, req.params.id, c))
   })
@@ -31,7 +33,7 @@ export function registerLearn(app: FastifyInstance, ctx: RouteContext): void {
    * 맥의 Claude(claude -p, 읽기 도구만)가 개념노트 초안을 쓰고, 앱이 concepts/<id>.md와 옆 메모로 만든다.
    * 같은 개념이 이미 있다고 답하면 그 노트에 잇기만 한다. 답이 올 때까지(몇 분) 기다린다.
    */
-  app.post<{ Params: { id: string } }>('/api/learn/:id/draft', async (req) => {
+  app.post<{ Params: { id: string } }>('/api/learn/:id/draft', replies(C.LearnDrafted), async (req): Promise<C.LearnDrafted> => {
     const lib = registry.libraryPath
     const it = learnItem(lib, req.params.id)
     if (it.concept && conceptMdExists(lib, it.concept)) throw new WorkbenchError(409, t('이미 개념노트가 이어져 있습니다', 'A concept note is already linked'))

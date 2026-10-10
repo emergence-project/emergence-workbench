@@ -3,58 +3,16 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { isAuthorOf, orgOf, personId, suggestPeople, type Person } from '@rw/core'
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/network'
+import { parseBody, replies } from '../contract.js'
 import { listMaterials, parseBib, type BibEntry } from '../materials.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
 
-export interface PersonView {
-  id: string
-  name: string
-  aliases: string[]
-  note?: string
-  /** 저자와 소속에 있는 사람 (그쪽에서 고친다) */
-  author: boolean
-  affiliations: string[]
-  /** 소속 줄에서 뽑은 기관 이름 (첫 화면에서 기관별로 묶는다) */
-  orgs: string[]
-  /** 연구 분야 이름표 */
-  tags: string[]
-  /** 저자와 소속의 이메일 (앱 사용자 본인을 찾을 때 쓴다) */
-  email?: string
-  /** 그 밖의 이메일 */
-  emails: string[]
-  /** 네트워킹에서 더한 사람 */
-  added: boolean
-  /** 즐겨찾기 */
-  star: boolean
-  /** 홈페이지 (네트워킹에서 적는다) */
-  homepage?: string
-}
-
-/** 등록 추천 한 사람: 참고 문헌(bib)에서 알 수 있는 것만. bib에는 보통 저자 이름만 있고 소속·이메일은 없다 */
-export interface SuggestionView {
-  name: string
-  count: number
-  /** 참고 문헌에 다르게 적힌 이름 */
-  aliases?: string[]
-  /** 가장 최근 논문 */
-  latest?: { title?: string; year?: string }
-  /** 그 논문들이 있는 곳 (공유 라이브러리, 프로젝트 이름) */
-  where: string[]
-}
-
-export interface PersonPaper {
-  key: string
-  title?: string
-  author?: string
-  year?: string
-  journal?: string
-  eprint?: string
-  doi?: string
-  /** 이 논문이 있는 곳: 공유 라이브러리 references.bib, 프로젝트 bib */
-  where: { rid?: string; title: string }[]
-}
+type PersonView = C.PersonView
+type PersonPaper = C.PersonPaper
+type SuggestionView = C.PersonSuggestion
 
 /**
  * 개념노트 분류 정리(research-library#6, 10/4) 전의 분야 이름표를 새 분류 이름으로 읽는다. 다음에 사람 목록을 저장하면 새 이름으로 남는다.
@@ -125,10 +83,10 @@ export function registerNetwork(app: FastifyInstance, ctx: RouteContext): void {
     return out
   }
 
-  app.get('/api/network', async () => ({ people: people() }))
+  app.get('/api/network', replies(C.PeopleList), async (): Promise<C.PeopleList> => ({ people: people() }))
 
   /** 노트 참고 문헌에 자주 나오지만 아직 등록하지 않은 사람 (10/4 16:56 "자주 언급되는 사람은 등록을 추천") */
-  app.get('/api/network/suggestions', async () => {
+  app.get('/api/network/suggestions', replies(C.PersonSuggestions), async (): Promise<C.PersonSuggestions> => {
     const known: Person[] = people().map((p) => ({ name: p.name, aliases: p.aliases }))
     const bib = allBib()
     const suggestions: SuggestionView[] = suggestPeople(bib.map((e) => e.author), known).map((s) => {
@@ -140,12 +98,12 @@ export function registerNetwork(app: FastifyInstance, ctx: RouteContext): void {
   })
 
   /** 네트워킹에서 더한 사람 목록 전체를 바꾼다 (저자와 소속은 그대로) */
-  app.put<{ Body: { people?: unknown } }>('/api/network/people', async (req) => {
-    registry.setPeople(req.body?.people)
+  app.put('/api/network/people', replies(C.PeopleList), async (req): Promise<C.PeopleList> => {
+    registry.setPeople(parseBody(C.SavePeopleBody, req.body).people)
     return { people: people() }
   })
 
-  app.get<{ Params: { id: string } }>('/api/network/people/:id', async (req) => {
+  app.get<{ Params: { id: string } }>('/api/network/people/:id', replies(C.PersonPage), async (req): Promise<C.PersonPage> => {
     const view = people().find((p) => p.id === req.params.id)
     if (!view) throw new WorkbenchError(404, t(`없는 사람: ${req.params.id}`, `No such person: ${req.params.id}`))
     const person: Person = { name: view.name, aliases: view.aliases }

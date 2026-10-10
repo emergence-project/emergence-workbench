@@ -7,6 +7,8 @@ import type { LibraryNote } from './libraryNotes.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 import { frontMatter, stripFrontMatter } from '@rw/core'
+import type { KnowledgeInfo, KnowledgeReview, KnowledgeTopic } from '@rw/core/contract/knowledge'
+import type { LibraryUse as KnowledgeUse } from '@rw/core/contract/library'
 
 /**
  * 지식 — 저장 위치(Study · 개념노트 · 문헌노트 · Topic Review)를 가리지 않고 주제 하나로 모은 색인. 모두 읽기만 한다.
@@ -17,30 +19,8 @@ import { frontMatter, stripFrontMatter } from '@rw/core'
  * - 상태: 개념노트가 있으면 그 status, 없고 Topic Review가 있으면 draft, Study에만 있으면 study, 문헌노트뿐이면 paper.
  */
 
-export type KnowledgeStatus = 'study' | 'draft' | 'reviewed' | 'paper'
-export interface KnowledgeUse { rid: string; project: string; note?: string; noteTitle?: string }
-export interface KnowledgeTopic {
-  key: string
-  title: string
-  /** Study 분류 (Concept-Space 아래 폴더, 앞 두 단계). Study에 없으면 '' */
-  subject: string
-  status: KnowledgeStatus
-  study?: { path: string; size: number }
-  concept?: { id: string; status: string; empty: boolean; format?: 'md'; unfinished?: string[]; checked?: 'none' | 'ok' | 'changed'; locked?: boolean }
-  review?: { path: string; title: string }
-  /** 이 주제에 붙은 문헌노트 id */
-  papers: string[]
-  /** 이 주제를 쓰는 프로젝트 작업노트 (개념노트의 쓰는 곳) */
-  uses: KnowledgeUse[]
-  /** 전제 — 이 주제가 링크하는 주제 key */
-  links: string[]
-  /** 이어지는 개념 — 이 주제를 링크하는 주제 key */
-  linkedBy: string[]
-  /** Study·Topic Review의 첫 문단 (초점 보기의 한 줄 설명) */
-  summary?: string
-  /** 이 주제로 이어지는 이름들의 topicKey (본문의 [[링크]]를 화면에서 주제로 옮길 때) */
-  names: string[]
-}
+export type { KnowledgeStatus, KnowledgeTopic } from '@rw/core/contract/knowledge'
+export type { LibraryUse as KnowledgeUse } from '@rw/core/contract/library'
 
 /** 이름 → 비교용 key: 악센트·대소문자·기호를 뺀다. 한글은 NFKD에서 자모로 풀리므로 NFC로 다시 묶는다 */
 export function topicKey(name: string): string {
@@ -143,7 +123,7 @@ export interface KnowledgeSources {
   usedBy: Record<string, KnowledgeUse[]>
 }
 
-export function buildKnowledge(src: KnowledgeSources): { topics: KnowledgeTopic[]; study: boolean; reviews: boolean } {
+export function buildKnowledge(src: KnowledgeSources): KnowledgeInfo {
   const tree = readSubjects(src.library)
   const byKey = new Map<string, KnowledgeTopic>()
   /** 이름(별칭 포함) → 주제 key */
@@ -266,7 +246,7 @@ export function buildKnowledge(src: KnowledgeSources): { topics: KnowledgeTopic[
 }
 
 /** Topic Review 하나 (그 폴더 안의 .md만). frontmatter는 떼고 본문만 */
-export function readReview(dir: string | undefined, rel: string): { title: string; text: string } {
+export function readReview(dir: string | undefined, rel: string): KnowledgeReview {
   if (!dir) throw new WorkbenchError(404, t('Topic Review 폴더가 없음', 'No Topic Review folder'))
   const abs = path.resolve(dir, rel)
   if (!abs.startsWith(path.resolve(dir) + path.sep) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Topic Review가 아님: ${rel}`, `Not a Topic Review: ${rel}`))

@@ -1,29 +1,13 @@
 // 전역 검색의 목록: 모든 프로젝트의 카드·노트·장·보조 노트·진술 이름, 라이브러리 문헌노트, 네트워킹의 사람 (10/4 19:33 피드백)
 import { personId } from '@rw/core'
+import type { SearchItem } from '@rw/core/contract/search'
 import { listLibraryNotes, type LibraryNote } from './libraryNotes.js'
 import { allManuscripts } from './manuscript.js'
 import type { Registry } from './registry.js'
 import { listStatements } from './statements.js'
 import { readTopics } from './topics.js'
 
-/**
- * 검색 창이 고를 수 있는 것 하나. 화면은 kind로 주소를 만든다.
- * 개념노트(Markdown)는 여기 넣지 않는다: 본문까지 찾는 개념노트 색인(/api/concepts/list?q=)을 화면이 따로 부른다.
- */
-export interface SearchItem {
-  kind: 'project' | 'card' | 'note' | 'part' | 'block' | 'statement' | 'paper' | 'concept' | 'person'
-  id: string
-  title: string
-  /** 이름 말고도 찾는 글 (다른 이름, 파일 이름, 저자, 소속) */
-  also?: string
-  /** 속한 프로젝트 */
-  rid?: string
-  project?: string
-  /** 장·노트의 파일 (저장소 기준 경로) */
-  file?: string
-  /** 노트 구분 (원고·연구노트·계산 노트) */
-  noteKind?: 'paper' | 'note' | 'calc'
-}
+export type { SearchItem } from '@rw/core/contract/search'
 
 /** 검색 창을 열 때 한 번 받는 목록. 프로젝트 하나를 읽지 못해도 나머지는 낸다 */
 export function searchCatalog(registry: Registry, notes: LibraryNote[] = listLibraryNotes(registry.libraryPath)): SearchItem[] {

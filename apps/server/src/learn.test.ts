@@ -96,6 +96,7 @@ describe('공부할 것 (모름 → 개념노트 초안)', () => {
     const res = await a.inject({ method: 'POST', url: `/api/learn/${id}/draft` })
     expect(res.statusCode).toBe(200)
     expect(res.json()).toMatchObject({ concept: 'reducible-configuration', existed: false, drafting: [] })
+    expect((await a.inject({ url: '/api/learn' })).json().items.some((i: { id: string }) => i.id === id)).toBe(true)
     expect(calls[0]!.cwd).toBe(fs.realpathSync(lib))
     expect(calls[0]!.prompt).toContain('- 모르는 말: reducible configuration')
     expect(calls[0]!.prompt).toContain('- 고른 글: "Kempe reducible"')

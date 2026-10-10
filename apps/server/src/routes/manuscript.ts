@@ -1,5 +1,7 @@
 // 원고와 메인 노트 정하기
 import type { FastifyInstance } from 'fastify'
+import { ExportOptions } from '@rw/core/contract/noteExport'
+import { replies } from '../contract.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { allManuscripts, compileManuscript, manuscriptEdit, manuscriptInfo, manuscriptKind, manuscriptPdfBytes, manuscriptPdfState, manuscriptView, noteAsset, NOTE_ASSET, readPart, writePart, type ManuscriptCompileOptions } from '../manuscript.js'
@@ -118,7 +120,7 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
   app.post<{ Params: { rid: string }; Querystring: { ms?: string } }>('/api/researches/:rid/manuscript/body-only', async (req) => makeBodyOnly(wbOf(req.params.rid), msq(req.query), registry.latexTemplates))
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/notes/body-only', async (req) => makeAllBodyOnly(wbOf(req.params.rid), registry.latexTemplates))
   /** 내보내기 상자의 서식 고르기: 고를 수 있는 서식과 이 프로젝트의 서식 (research.yaml의 latex-template:, 없으면 내보내기 기본 서식) */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/export/options', async (req) => ({
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/export/options', replies(ExportOptions), async (req): Promise<ExportOptions> => ({
     template: projectTemplate(wbOf(req.params.rid)),
     noteTemplate: projectTemplate(wbOf(req.params.rid), 'note'),
     templates: registry.latexTemplates.map((t) => ({ id: t.id, name: t.name, kind: t.kind })),

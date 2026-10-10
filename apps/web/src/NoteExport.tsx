@@ -175,7 +175,7 @@ function useExportChoice(rid: string, group: Group, on: boolean, authorsOn = on)
   }, [rid])
   useEffect(() => {
     if (!on || opts) return
-    noteExportApi.options(rid).then(setOpts).catch(() => setOpts({ template: '', templates: [] }))
+    noteExportApi.options(rid).then(setOpts).catch(() => setOpts({ template: '', noteTemplate: '', templates: [] }))
   }, [on, rid, opts])
   const choice: GroupChoice = { ...DEFAULTS[group], ...saved[group] }
   const au = useExportAuthors(rid, authorsOn && choice.withAuthors)

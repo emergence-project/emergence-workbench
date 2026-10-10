@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
+import type * as C from '@rw/core/contract/learn'
+import type { LearnFrom, LearnItem } from '@rw/core/contract/learn'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
@@ -13,32 +15,9 @@ import { t } from './i18n.js'
  */
 export const LEARN_FILE = 'to-learn.yaml'
 
-/** 모름을 남긴 자리 */
-export interface LearnFrom {
-  /** 프로젝트 id와 이름 */
-  rid?: string
-  project?: string
-  /** 읽던 것 (논문·원고·노트 이름)과 코멘트 대상 이름 */
-  title?: string
-  target?: string
-  page?: number
-  /** 고른 글 */
-  quote?: string
-}
-
-export interface LearnItem {
-  id: string
-  /** 모르는 말 */
-  term: string
-  at: string
-  /** 무엇이 막혔는지 (적었으면) */
-  note?: string
-  from?: LearnFrom
-  /** 연결된 개념노트 id (초안을 썼거나 이미 있던 것) */
-  concept?: string
-}
-
-export interface LearnList { items: LearnItem[]; hash: string; exists: boolean }
+export type { LearnFrom, LearnItem } from '@rw/core/contract/learn'
+/** 파일에서 읽은 목록 (화면에 보낼 때 라우트가 drafting을 붙인다) */
+export type LearnList = Omit<C.LearnList, 'drafting'>
 
 function learnFile(lib: string | undefined): string {
   if (!lib) throw new WorkbenchError(404, t('공유 라이브러리가 설정되지 않았음', 'No shared library is set'))
