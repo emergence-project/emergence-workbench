@@ -121,6 +121,18 @@ describe('진술 (저장소의 statements/)', () => {
   })
 })
 
+describe('프로젝트 요약의 보조 노트', () => {
+  it('머리말 id가 파일 이름과 달라도 목록의 id는 파일 이름이다 (열 수 있는 id, 나무의 id-mismatch와 같은 기준)', async () => {
+    const file = path.join(tmp, 'sample-research/workbench/blocks/odd-name.tex')
+    fs.writeFileSync(file, '% ---\n% id: header-id\n% title: 다른 id\n% status: in-progress\n% ---\n본문\n')
+    try {
+      const rows = (await app.inject({ method: 'GET', url: R })).json().blocks as { id: string; title?: string }[]
+      expect(rows.find((b) => b.title === '다른 id')?.id).toBe('odd-name')
+      expect((await app.inject({ method: 'GET', url: `${R}/blocks/odd-name` })).statusCode).toBe(200)
+    } finally { fs.rmSync(file) }
+  })
+})
+
 describe('프로젝트 정본과 STATUS.md', () => {
   it('research.yaml의 sources로 작업 목록·검토 문서·bib·자료 폴더를 읽고, agent-status일 때만 STATUS.md를 쓴다', async () => {
     const proj = makeRepo('gamma-like')
