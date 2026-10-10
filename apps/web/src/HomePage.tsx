@@ -226,7 +226,7 @@ function ProjectRow(p: ProjectRowData) {
 type ProjectCardProps = (ProjectRowData & { preview?: false }) | (
   Pick<ProjectRowData, 'r' | 'question' | 'image' | 'last' | 'error'>
   & Partial<Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'sync'>>
-  & { preview: true }
+  & { preview: true; pc?: string }
 )
 
 export function ProjectCard(p: ProjectCardProps) {
@@ -237,7 +237,7 @@ export function ProjectCard(p: ProjectCardProps) {
   ]
   return (
     <div className={`pcard${r.available ? '' : ' off'}${p.preview ? ' preview' : ''}${!p.preview && p.dragging ? ' dragging' : ''}${!p.preview && p.over ? ' over' : ''}`} data-ui={p.preview ? '프로젝트 카드 미리보기' : '프로젝트 카드'} data-ui-item={r.title}
-      style={{ ['--pc' as string]: projectColor(r.id) }} {...(p.preview ? {} : { ...linkProps(r), ...p.dropTarget })}>
+      style={{ ['--pc' as string]: (p.preview && p.pc) || projectColor(r.id) }} {...(p.preview ? {} : { ...linkProps(r), ...p.dropTarget })}>
       <span className="pcard-band" title={p.preview ? undefined : DRAG_TIP} {...(p.preview ? {} : p.drag)}>
         {p.image && <CardImage image={p.image} legacyUrl={api.imageUrl(r.id, p.image)} />}
       </span>

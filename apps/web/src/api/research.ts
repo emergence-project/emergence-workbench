@@ -11,7 +11,7 @@ import { ConflictError, enc, json, req, send } from './http'
 
 export type {
   BibEntry, BlockDoc, BlockMetaSaved, BlockRow, CompileResult, LatexProblem as Problem, ManuscriptCompileResult, ManuscriptInfo, ManuscriptPart, ManuscriptPdfStatus, ManuscriptView,
-  MaterialFile, NoteKind, NoteState, PdfBox, ProjectInfo, ProjectIssues, ProjectKind, ProjectState, RepoInfo, RepoSync, ResearchListItem, ResearchSummary, SourceSpot, Statement,
+  MaterialFile, NoteKind, NoteState, PdfBox, ProjectColor, ProjectInfo, ProjectIssues, ProjectKind, ProjectState, RepoInfo, RepoSync, ResearchListItem, ResearchSummary, SourceSpot, Statement,
   Topic, TrashedNote,
 } from '@rw/core/contract/research'
 

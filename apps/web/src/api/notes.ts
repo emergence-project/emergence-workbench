@@ -9,7 +9,8 @@ export type { TopicColor } from '@rw/core/contract/research'
 export const TOPIC_COLORS: TopicColor[] = ['violet', 'blue', 'teal', 'orange', 'gray']
 /** 글자 수 제한 (서버와 같게, 줄바꿈은 세지 않는다) */
 /** 카드 글 글자 수 한도. 프로젝트 이름은 논문 제목이 들어가도록 80자 (10/7 17:40 "논문 제목 42자라 고치지도 못한다") */
-export const LIMITS = { topicTitle: 40, projectTitle: 80, description: 200, previewText: 30 } as const
+/** 글자 수 한도 (서버와 같게). 프로젝트 · 주제 고치기 창은 이름 80 · 설명 300으로 같다 (10/10), 노트 설명은 200 */
+export const LIMITS = { title: 80, cardDescription: 300, description: 200, previewText: 30 } as const
 
 /** 주제에서 고칠 칸만. preview는 빈 글·null이면 지운다, color 'default'는 기본색 */
 export type TopicPatch = Omit<TopicPatchBody, 'baseHash'>

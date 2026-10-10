@@ -49,17 +49,17 @@ describe('프로젝트 고치기 읽기', () => {
 })
 
 describe('프로젝트 고치기 글자 수', () => {
-  it('이름 80자와 설명 200자는 허용하고 한 글자 넘으면 저장하지 않는다', () => {
-    expect(projectTextState('가'.repeat(80), '나'.repeat(200)).valid).toBe(true)
+  it('이름 80자와 설명 300자는 허용하고 한 글자 넘으면 저장하지 않는다', () => {
+    expect(projectTextState('가'.repeat(80), '나'.repeat(300)).valid).toBe(true)
     expect(projectTextState('가'.repeat(81), '').valid).toBe(false)
-    expect(projectTextState('이름', '나'.repeat(201)).valid).toBe(false)
+    expect(projectTextState('이름', '나'.repeat(301)).valid).toBe(false)
   })
   it('줄바꿈은 빼고 한글과 유니코드 기호는 한 글자로 센다', () => {
     expect(projectTextState('연구🔬', '가\r\n나\n🔬').counts).toEqual({ title: 3, description: 3 })
     expect(projectTextState('🔬'.repeat(40), '나\n'.repeat(200)).valid).toBe(true)
   })
   it('이미 넘친 글은 고치지 않으면 막지 않는다', () => {
-    const before = { title: '가'.repeat(90), description: '나'.repeat(210) }
+    const before = { title: '가'.repeat(90), description: '나'.repeat(310) }
     expect(projectTextState(before.title, before.description, before).valid).toBe(true)
     expect(projectTextState(before.title + '다', before.description, before).valid).toBe(false)
   })

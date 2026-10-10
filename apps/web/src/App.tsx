@@ -10,7 +10,7 @@ import { ConceptNoteView, ConceptRecordsSide, ConceptSidePanel } from './Concept
 import { GLOBAL_PAGES, globalPageOf } from './globalPages'
 import { NewBlockDialog } from './dialogs'
 import { RegisterDialog } from './RegisterDialog'
-import { initials, projectColor } from './format'
+import { initials, projectColor, setProjectColors } from './format'
 import { Icon } from './icons'
 import { HomePage } from './HomePage'
 import { WorkPage } from './LogPage'
@@ -60,6 +60,8 @@ export function App() {
   /** 연구 하나에 속하지 않는 화면: 홈과 globalPages.tsx의 화면. 연구 사이드바가 필요 없다 */
   const globalPage = route.page === 'home' || !!globalPageOf(route.page)
   const [researches, setResearches] = useState<ResearchListItem[] | null>(null)
+  // 프로젝트 색: 고른 색과 자동 색이 겹치지 않게 목록 전체로 정한다 (자식이 그리기 전에)
+  if (researches) setProjectColors(researches)
   const [summary, setSummary] = useState<ResearchSummary | null>(null)
   const [version, setVersion] = useState(0)
   const [search, setSearch] = useState(false)

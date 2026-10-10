@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import type { ProjectKind, ProjectState, ResearchListItem } from './api'
+import type { ProjectColor, ProjectKind, ProjectState, ResearchListItem } from './api'
 import { FieldTags } from './FieldTags'
 import { PROJECT_KIND_LABEL, PROJECT_KINDS, PROJECT_STATE_DOT, PROJECT_STATE_LABEL, PROJECT_STATES } from './projectProfile'
 import { t } from './i18n'
 
-export interface ProfilePatch { kind?: ProjectKind; fields?: string[]; state?: ProjectState; rail?: boolean }
+export interface ProfilePatch { kind?: ProjectKind; fields?: string[]; state?: ProjectState; rail?: boolean; color?: ProjectColor | null }
 
 /** 진행 상태 색 점 + 이름 (노트 상태와 같은 색, 이름은 진행 · 멈춤 · 완료) */
 export function ProjectStateDot({ state, label }: { state: ProjectState; label?: boolean }) {

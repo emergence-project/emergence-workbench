@@ -385,11 +385,11 @@ function ProjectCards({ rid, rapi, notes, project, pc, version, onChanged, onSav
   const starTopic = (topic: Topic) => data && api.patchTopic(topic.id, { star: !topic.star }, data.hash)
     .then(() => { setTick((x) => x + 1); onChanged(); onSaved(topic.star ? t(`"${topic.title}"를 즐겨찾기에서 뺐습니다`, `Removed "${topic.title}" from favorites`) : t(`"${topic.title}"를 즐겨찾기에 넣었습니다`, `Added "${topic.title}" to favorites`)) }).catch(fail)
   const createTopic = async () => {
-    const title = (await askText({ title: t('새 주제', 'New topic'), label: t('이름', 'Name'), placeholder: t('예: Kempe 사슬', 'e.g. Kempe chains'), hint: t(`${LIMITS.topicTitle}자까지. 만든 뒤 설명과 카드 미리보기를 적습니다.`, `Up to ${LIMITS.topicTitle} characters. Add a description and card preview after creating it.`), ok: t('만들기', 'Create') }))?.trim()
+    const title = (await askText({ title: t('새 주제', 'New topic'), label: t('이름', 'Name'), placeholder: t('예: Kempe 사슬', 'e.g. Kempe chains'), hint: t(`${LIMITS.title}자까지. 만든 뒤 설명과 카드 미리보기를 적습니다.`, `Up to ${LIMITS.title} characters. Add a description and card preview after creating it.`), ok: t('만들기', 'Create') }))?.trim()
     if (!title) return
     try {
       if (!data) return
-      const r = await api.createTopic({ title: title.slice(0, LIMITS.topicTitle) }, data.hash)
+      const r = await api.createTopic({ title: title.slice(0, LIMITS.title) }, data.hash)
       setData(await api.topicsOverview())
       setEditing(r.topic.id)
       onChanged()

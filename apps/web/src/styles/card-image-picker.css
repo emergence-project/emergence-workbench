@@ -21,5 +21,3 @@
 .cip-thumb { display: flex; align-items: center; justify-content: center; width: var(--card-picker-thumb-width); height: var(--sp-5); flex: none; overflow: hidden; }
 .cip-thumb > img, .cip-thumb .fg-pv, .cip-thumb .card-image { width: 100%; height: 100%; padding: 0; margin: 0; border: 0; object-fit: contain; }
 .cip-field .icon-btn { flex: none; }
-.td-pics { flex-wrap: wrap; }
-.td-pics .td-sws { flex: none; }

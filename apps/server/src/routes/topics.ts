@@ -45,7 +45,7 @@ export function registerTopics(app: FastifyInstance, ctx: RouteContext): void {
     const { baseHash, ...input } = parseBody(C.NewTopicBody, req.body)
     checkTopicsHash(wb, baseHash); checkImage(req.params.rid, input.preview); const topic = createTopic(wb, input); return { topic, hash: topicsHash(wb) }
   })
-  /** 주제 고치기: 이름(40자) · 설명(200자) · preview { text(30자), image, color } · star · done. 적은 칸만 바꾼다 */
+  /** 주제 고치기: 이름(80자) · 설명(300자) · preview { text(30자), image, color } · star · done. 적은 칸만 바꾼다 */
   app.patch<{ Params: P }>('/api/researches/:rid/topics/:tid', replies(C.TopicSaved), async (req): Promise<C.TopicSaved> => {
     const wb = wbOf(req.params.rid)
     const { baseHash, ...patch } = parseBody(C.TopicPatchBody, req.body)

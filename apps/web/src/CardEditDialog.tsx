@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom'
 import { isDialogHostDisplayed } from './dialogVisibility'
 import { t } from './i18n'
 
-/** 주제 · 프로젝트 고치기: 같은 머리, 두 칸, 미리보기와 저장 단추. */
-export function CardEditDialog({ title, location, pc, ui, className = '', children, preview, canSave, onSave, onClose }: {
+/** 주제 · 프로젝트 고치기: 같은 머리, 두 칸(왼쪽 내용 · 오른쪽 미리보기와 그 바로 아래 모양), 맨 아래 오른쪽 저장 단추 (10/10 A안). */
+export function CardEditDialog({ title, location, pc, ui, className = '', children, preview, look, canSave, onSave, onClose }: {
   title: string
   location: string
   pc: string
@@ -12,6 +12,8 @@ export function CardEditDialog({ title, location, pc, ui, className = '', childr
   className?: string
   children: ReactNode
   preview: ReactNode
+  /** 미리보기 바로 아래: 카드 그림 · 색처럼 카드 모양을 고르는 칸 (고르는 대로 위 카드가 바뀐다) */
+  look?: ReactNode
   canSave: boolean
   onSave(): void
   onClose(): void
@@ -80,6 +82,7 @@ export function CardEditDialog({ title, location, pc, ui, className = '', childr
             <div className="td-fields">{children}</div>
             <div className="td-side">
               <div className="td-card">{preview}</div>
+              {look && <div className="td-look">{look}</div>}
               <div className="td-acts">
                 <button type="button" className="btn" onClick={onClose}>{t('취소', 'Cancel')} <span className="td-key">Esc</span></button>
                 <button type="button" className="btn primary" disabled={!canSave} onClick={onSave}>{t('저장', 'Save')} <span className="td-key">⌘↵</span></button>
