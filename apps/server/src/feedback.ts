@@ -21,6 +21,7 @@ import { t } from './i18n.js'
 /** 피드백 모드는 등록 전에 수정 · 질문 · 제안을 고른다 (10/9: 질문을 요청으로 읽는 일을 막으려고). 처리할 때 status.yaml의 kind에 종류를 적을 수 있다. 디자인 · 버그 · 기능은 이전 기록, 미분류는 10/9 전 기록과 소개의 피드백 */
 export { FEEDBACK_KINDS, FEEDBACK_STATES, FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
 export type { FeedbackKind, FeedbackState, FeedbackVerdict, FeedbackEntry, FeedbackStatus, FeedbackRevision, FeedbackReply, FeedbackVerdictEntry, FeedbackReview, FeedbackComment, MergedFeedback, FeedbackItem as FeedbackListItem, FeedbackPublished as PublishResult } from '@rw/core/contract/feedback'
+import { asksUser } from '@rw/core'
 import { FEEDBACK_KINDS, FEEDBACK_STATES, FEEDBACK_VERDICTS, type FeedbackComment, type FeedbackEntry, type FeedbackItem as FeedbackListItem, type FeedbackKind, type FeedbackPublished as PublishResult, type FeedbackReply, type FeedbackRevision, type FeedbackReview, type FeedbackState, type FeedbackStatus, type FeedbackVerdict, type FeedbackVerdictEntry } from '@rw/core/contract/feedback'
 
 export interface FeedbackInput {
@@ -168,8 +169,7 @@ export const STATUS_FILE = 'status.yaml'
  * 사용자의 결정을 묻는 답 (10/9): 수정의 확인 필요, 제안의 동의, 물음(ask)이 붙은 보류 · 답변.
  * 이 답에는 진행 · 중단으로 답하고, 결과를 알린 답(반영 · 답변 · 거절 · 나중에)에는 승인 · 반려로 답한다.
  */
-export const feedbackAsks = (st: { state?: string; ask?: string } | undefined): boolean =>
-  !!st && (st.state === '확인 필요' || st.state === '동의' || ((st.state === '보류' || st.state === '답변') && !!st.ask))
+export const feedbackAsks = (st: FeedbackStatus | undefined): boolean => asksUser({ status: st })
 
 /**
  * 사용자의 확인: 반영·답변한 처리를 사용자가 승인하거나 반려한다 (10/4 08:37 피드백 3, 10/4 14:40 "승인/반려로 만들자").

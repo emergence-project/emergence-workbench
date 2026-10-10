@@ -34,7 +34,7 @@ PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)�
 ## 코드 지도 (여러 스레드가 동시에 고쳐도 덜 부딪히게)
 
 - `apps/server/src/app.ts`: 서버 뼈대(파일 감시, 실시간 알림, 오류 처리)만 둔다. API는 화면 갈래마다 `routes/<갈래>.ts`의 `register…(app, ctx)`에 있고, 함께 쓰는 것은 `routes/context.ts`의 `RouteContext`다. 새 갈래는 파일을 만들고 `app.ts`에 등록 한 줄을 더한다.
-- 연구 저장소의 지금 상태(할 일·맡긴 일·질문·검토 대기·최근 기록)는 `pnpm agent:status <연구 저장소 폴더>`로 본다. 맥의 앱이 쓰는 `workbench/STATUS.md`와 같은 내용을 파일에서 바로 뽑으므로 앱·서버가 없는 클라우드에서도 된다(STATUS.md는 git에 없다). 직접 고친 파일 형식은 `pnpm agent:check <연구 저장소 폴더>`로 검사한다(읽기 전용).
+- 연구 저장소의 지금 상태(할 일·맡긴 일·질문·검토 대기·최근 기록)는 `pnpm agent:status <연구 저장소 폴더>`로 본다. 맥의 앱이 쓰는 `workbench/STATUS.md`와 같은 내용을 파일에서 바로 뽑으므로 앱·서버가 없는 클라우드에서도 된다(STATUS.md는 git에 없다). 직접 고친 파일 형식은 `pnpm agent:check <연구 저장소 폴더>`로 검사한다(읽기 전용). 피드백의 에이전트 차례(새 항목·반려·진행·답 없는 코멘트)는 `pnpm agent:feedback <피드백 폴더>`로 본다(화면과 같은 계산, 읽기 전용).
 - 에이전트용 MCP 입구(읽기와 몇 가지 고치기): `apps/server/src/mcp.ts` · `scripts/mcp.mjs`(`pnpm mcp`). 도구는 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다. 등록과 도구 표는 `docs/agent-mcp.md`.
 - 연구 저장소·라이브러리의 파일 형식(앱이 읽고 쓰는 모양)은 `docs/repo-format.md`. 형식을 읽거나 쓰는 코드를 바꾸면 그 문서도 고친다. 파일을 직접 쓰는 에이전트도 이 문서를 따른다.
 - 에이전트는 화면 대신 서버 API를 써도 된다: `GET /api`가 모든 경로와 대표 경로(연구 목록, 연구 요약, 코멘트, 일지, 개념노트)를 돌려준다(`routes/apiIndex.ts`). 고칠 때는 읽을 때 받은 hash를 `baseHash`로 보낸다.

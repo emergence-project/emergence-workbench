@@ -1,7 +1,5 @@
 import type { FeedbackItem, FeedbackVerdict } from './api'
-
-/** 다시 처리하게 하는 답: 수정(자료 값 반려)과 진행(10/9) */
-const sendsBack = (v: FeedbackVerdict | string) => v === '반려' || v === '진행'
+import { reworked, sendsBack } from '@rw/core'
 
 /**
  * 처리와 승인·반려를 댓글처럼 시각순으로 (10/4 18:11 "반려한 지적을 댓글처럼 볼 수 있게").
@@ -92,9 +90,7 @@ export function splitThread(steps: ThreadStep[]): { earlier: ThreadStep[]; lates
 export const lockedBefore = (steps: ThreadStep[]): number =>
   steps.map((s) => s.who === 'Claude' && s.kind !== '대기').lastIndexOf(true)
 
-/** 다시 처리해서 사용자가 새 답을 승인·반려할 차례: 최신이 반려이고 Claude가 그 반려를 다시 처리했다 */
-export const reworked = (e: Pick<FeedbackItem, 'status' | 'review'>) =>
-  !!e.review && sendsBack(e.review.verdict) && !!e.status?.rework && e.status.rework === e.review.at
+export { reworked }
 
 /**
  * 대화 (10/8 시안): 처리 · 승인 · 수정 요청에 코멘트(reviews.yaml comments)와 그 답(status.yaml replies)을 시각순으로 끼운다.
