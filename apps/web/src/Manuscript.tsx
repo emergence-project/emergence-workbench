@@ -354,7 +354,7 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
           saveAction={state === 'conflict' ? <button className="a" onClick={() => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.'))}>{t('파일 다시 읽기', 'Reload file')}</button> : state === 'error' ? <button className="a" onClick={() => void save()}>{t('다시 저장', 'Save again')}</button> : undefined}
           onEdit={row ? () => setTitleDraft(row.title) : undefined}
           onComment={() => openRecordComposer(rid, noteTarget(file, title) ?? manuscriptTarget(undefined, info?.key), recordSelectionFromLines(content.current, editor.current?.selection() ?? null))} commentOn={mode === 'records'}
-          onCompile={() => void compile()} compiling={ms.compiling} compileDisabled={!info || loaded === null} compileTip={t(`컴파일 — ${info?.name ?? file}`, `Compile: ${info?.name ?? file}`)} compileUi="원고 컴파일"
+          onCompile={() => void compile()} compiling={ms.compiling} compileDisabled={!info || loaded === null} compileTip={t(`컴파일 — ${info?.name ?? file}`, `Compile: ${info?.name ?? file}`)} compileKey compileUi="원고 컴파일"
           menu={partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, csOpen: () => setCs(true), exOpen: () => setEx(true), reload: () => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.')),
           })}
           anchors={info && <>
