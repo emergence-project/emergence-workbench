@@ -27,7 +27,8 @@ function useSaveLabel(save: ToolbarSave, at?: number | null) {
   return SAVE_LABEL[save] + (save === 'saved' && at ? ` · ${relativeTime(at)}` : '')
 }
 
-export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, pdfNote, editing, view, onView, onEdit, editDisabled, onDone, doneDisabled, onComment, commentOn, onCompile, compiling, compileDisabled, compileTip, compileKey, compileUi = '컴파일 버튼', menu, anchors, extra }: {
+/** 노트 도구 줄에 넘기는 것. 노트 화면 틀(NoteScreen)도 이 모양으로 받는다 */
+export interface NoteToolbarProps {
   /** 고치는 중 본문에서 올라온 제목 입력칸 */
   title?: ReactNode
   /** 왼쪽 첫 자리의 노트 상태 (색 점과 이름, 있는 경우 상태 메뉴도 함께) */
@@ -62,7 +63,9 @@ export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, 
   anchors?: ReactNode
   /** 오른쪽 기호들 앞에 둘 것 (예: 할 일 칸 여닫기) */
   extra?: ReactNode
-}) {
+}
+
+export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, pdfNote, editing, view, onView, onEdit, editDisabled, onDone, doneDisabled, onComment, commentOn, onCompile, compiling, compileDisabled, compileTip, compileKey, compileUi = '컴파일 버튼', menu, anchors, extra }: NoteToolbarProps) {
   const [open, setOpen] = useState(false)
   const saveLabel = useSaveLabel(save, savedAt)
   const hasView = editing && view && onView

@@ -1,6 +1,5 @@
 import { isBodyOnly, parseBlock, parseList, refineSourceLine, type BlockMeta, type BlockStatus, type MetaPatch } from '@rw/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { api, ConflictError, notesApi, type BlockRow, type NoteHeadPatch, type CompileResult, type LibraryInfo, type ManuscriptInfo, type ResearchApi, type ResearchSummary, type WorkbenchEvent } from './api'
 import { StatusDialog } from './dialogs'
 import { Editor, type EditorHandle } from './Editor'
@@ -16,9 +15,10 @@ import { MarkdownNoteBody } from './MarkdownNote'
 import { blockTarget, useSlot } from './Comments'
 import { openRecordComposer } from './RecordContext'
 import { recordRevealRange, recordSelectionFromLines } from './recordHelpers'
-import { NoteHead, NoteTitleInput, NoteToolbar, type EditView } from './NoteToolbar'
+import { NoteHead, NoteTitleInput, type EditView } from './NoteToolbar'
+import { NoteScreen } from './NoteScreenFrame'
 import { NoteStatus } from './NoteStatus'
-import { latexSections, publishToc, registerHeadWriter, sectionAtLine, useRightMode, useRightSlot } from './noteScreen'
+import { latexSections, registerHeadWriter, sectionAtLine, useRightMode } from './noteScreen'
 import { store } from './store'
 import { CompileSettings, ExportLink, savedLatexChoice, type ExportNote } from './NoteExport'
 import { deleteBlockWithConfirm } from './blockDelete'
@@ -297,11 +297,6 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
   const [cursorLine, setCursorLine] = useState(1)
   const sections = useMemo(() => (loaded && !loaded.md ? latexSections(content.current) : []), [loaded, saveState]) // eslint-disable-line react-hooks/exhaustive-deps
   const jump = useCallback((i: number) => { const sec = sections[i]; if (sec) editor.current?.revealLines(sec.line, sec.line) }, [sections])
-  useEffect(() => {
-    if (!tocOwner || !loaded || loaded.md) return
-    publishToc({ owner: tocOwner, sections, current: sectionAtLine(sections, cursorLine), jump }, tocOwner)
-  }, [tocOwner, loaded, sections, cursorLine, jump])
-  useEffect(() => () => { if (tocOwner) publishToc(null, tocOwner) }, [tocOwner])
 
   // ---------- 결과 PDF가 이전 결과인지 (C3를 보조 노트에도) ----------
   const s = useSession(key)
@@ -310,7 +305,6 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
   const pdfNote = !s.blockPdf?.hasPdf ? null : result && !result.ok ? t('이번 컴파일 실패 · PDF는 이전 결과', 'This compile failed · PDF is from before') : s.blockPdf.stale ? t('PDF는 이전 결과', 'PDF is from before') : null
 
   // ---------- 오른쪽 사이드바에 그리는 연결 (증명할 진술 · 개념 · 기대는 노트 · 다른 방법 · 다음 할 일) ----------
-  const slot = useRightSlot()
   const links = meta && (
     <dl className="props side-props" data-ui="속성 표">
               {summary.statements.length > 0 && <>
@@ -433,38 +427,35 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
   }
   if (deleted.current) return <div className="space-empty" data-ui="작업노트">{t('이 노트를 지웠습니다.', 'This note was deleted.')}</div>
   return (
-    <div className="ws-doc note-screen" data-ui="작업노트">
-      <section className="pane" data-ui="편집 칸">
-        <NoteToolbar status={toolbarStatus} save={saveState} savedAt={savedAt} pdfNote={pdfNote} editing={editingAny}
-          title={meta && <NoteTitleInput title={meta.title ?? bid} draft={titleDraft ?? undefined} onDraft={setTitleDraft} />}
-          saveAction={saveState === 'conflict'
-            ? <button className="btn sm" title={t('이 화면에서 저장하지 않은 고침을 버리고 파일을 다시 읽습니다', 'Discard unsaved edits on this screen and reload the file')} onClick={() => void reloadFromDisk()}>{t('파일 다시 읽기', 'Reload file')}</button>
-            : saveState === 'error' ? <button className="btn sm" onClick={() => void save()}>{t('다시 저장', 'Save again')}</button> : undefined}
-          view={editing ? view : undefined} onView={(v) => { setView(v); store.set('rw.notes.editView', v) }}
-          onEdit={startEdit} editDisabled={!loaded || saveState === 'conflict'} onDone={() => void finish()}
-          onComment={() => openRecordComposer(rid, blockTarget(bid, meta?.title), loaded?.md ? undefined : recordSelectionFromLines(content.current, editor.current?.selection() ?? null))} commentOn={mode === 'records'}
-          onCompile={() => void compile()} compiling={compiling} compileDisabled={!loaded || editing} compileTip={`${t('컴파일', 'Compile')}: ${meta?.title ?? bid}`} compileKey={!!loaded && !loaded.md}
-          menu={[
+    <NoteScreen ui="작업노트" paneUi="편집 칸" conflictUi="저장 충돌 안내" notice={notice} noticeUi="알림" onCloseNotice={() => setNotice(null)}
+      tocOwner={tocOwner} toc={loaded && !loaded.md ? { sections, current: sectionAtLine(sections, cursorLine), jump } : null} side={links}
+      overlay={statusDialog && row && meta && (
+        <StatusDialog block={{ ...row, ...meta }} to={statusDialog} onClose={() => setStatusDialog(null)}
+          onSubmit={async (f) => { await patch(f); setStatusDialog(null) }} />
+      )}
+      toolbar={{
+        status: toolbarStatus, save: saveState, savedAt, pdfNote, editing: editingAny,
+        title: meta && <NoteTitleInput title={meta.title ?? bid} draft={titleDraft ?? undefined} onDraft={setTitleDraft} />,
+        saveAction: saveState === 'conflict'
+          ? <button className="btn sm" title={t('이 화면에서 저장하지 않은 고침을 버리고 파일을 다시 읽습니다', 'Discard unsaved edits on this screen and reload the file')} onClick={() => void reloadFromDisk()}>{t('파일 다시 읽기', 'Reload file')}</button>
+          : saveState === 'error' ? <button className="btn sm" onClick={() => void save()}>{t('다시 저장', 'Save again')}</button> : undefined,
+        view: editing ? view : undefined, onView: (v) => { setView(v); store.set('rw.notes.editView', v) },
+        onEdit: startEdit, editDisabled: !loaded || saveState === 'conflict', onDone: () => void finish(),
+        onComment: () => openRecordComposer(rid, blockTarget(bid, meta?.title), loaded?.md ? undefined : recordSelectionFromLines(content.current, editor.current?.selection() ?? null)), commentOn: mode === 'records',
+        onCompile: () => void compile(), compiling, compileDisabled: !loaded || editing, compileTip: `${t('컴파일', 'Compile')}: ${meta?.title ?? bid}`, compileKey: !!loaded && !loaded.md,
+        menu: [
             loaded && !loaded.ownHeader && { label: t('컴파일 서식 고르기…', 'Choose compile template…'), ui: '컴파일 설정', tip: t('서식·저자·날짜를 고릅니다. ▶ 컴파일과 내보내기가 같이 씁니다', 'Choose template, author and date. Used by both ▶ Compile and Export'), onClick: () => setCsOpen(true) },
             onShowPdf && { label: t('PDF 보기', 'View PDF'), ui: 'PDF 보기', tip: t('지난번 컴파일한 PDF를 옆 패널에 엽니다', 'Open the last compiled PDF in the side pane'), onClick: onShowPdf, disabled: !s.blockPdf?.hasPdf && pdfVersion === null },
             { label: t('내보내기…', 'Export…'), ui: '노트 내보내기', tip: t('그대로 컴파일되는 LaTeX 폴더(zip)로 받습니다', 'Download as a LaTeX folder (zip) that compiles as is'), onClick: () => setExOpen(true), disabled: !loaded },
             { label: t('파일 다시 읽기', 'Reload file'), ui: '파일 다시 읽기', tip: t('파일을 다시 읽습니다. 이 화면에서 저장하지 않은 고침은 버립니다', 'Reload the file. Unsaved edits on this screen are discarded'), onClick: () => void reloadFromDisk() },
             { label: t('Finder에서 보기', 'Show in Finder'), ui: 'Finder에서 보기', onClick: () => { notesApi(rid).reveal(file).catch((e: Error) => setNotice(e.message)) } },
             { label: t('지우기', 'Delete'), ui: '노트 지우기', danger: true, tip: t('원문 파일만 영구히 지웁니다. 기록·링크·기존 PDF는 남습니다', 'Permanently deletes only the source file. Records, links and existing PDFs stay'), disabled: !loaded || deleting || compiling || saveState === 'saving', onClick: () => void remove() },
-          ]}
-          anchors={loaded && <>
-            {csOpen && <CompileSettings rid={rid} ms={exportNote} control={{ open: csOpen, setOpen: setCsOpen }} disabled={compiling || editing} onCompile={() => void compile()} />}
-            {exOpen && <ExportLink rid={rid} ms={exportNote} control={{ open: exOpen, setOpen: setExOpen }} />}
-          </>} />
-
-
-        {saveState === 'conflict' && (
-          <div className="banner danger" data-ui="저장 충돌 안내">
-            {t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다.', 'Saving stopped because this file changed elsewhere (an agent or another editor). Nothing was overwritten.')}
-          </div>
-        )}
-        {notice && <div className="banner" data-ui="알림">{notice}<span className="sp" /><button className="btn ghost" onClick={() => setNotice(null)}>{t('닫기', 'Close')}</button></div>}
-
+        ],
+        anchors: loaded && <>
+          {csOpen && <CompileSettings rid={rid} ms={exportNote} control={{ open: csOpen, setOpen: setCsOpen }} disabled={compiling || editing} onCompile={() => void compile()} />}
+          {exOpen && <ExportLink rid={rid} ms={exportNote} control={{ open: exOpen, setOpen: setExOpen }} />}
+        </>,
+      }}>
         {loaded && !loaded.md && head}
         {loaded?.md && (
           <MarkdownNoteBody rid={rid} text={loaded.content} rapi={rapi} kind="aux" file={file} editing={editing} saving={saveState === 'saving'} view={view} onDraft={onDraft} tocOwner={tocOwner}
@@ -496,14 +487,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
           </div>
         )}
         {loaded && !loaded.md && <CitedPapers rid={rid} rapi={rapi} text={content.current} file={file} docked library={library} onSaved={setNotice} onLibraryChanged={onLibraryChanged} />}
-      </section>
-      {tocOwner && slot && links && createPortal(links, slot)}
-
-      {statusDialog && row && meta && (
-        <StatusDialog block={{ ...row, ...meta }} to={statusDialog} onClose={() => setStatusDialog(null)}
-          onSubmit={async (f) => { await patch(f); setStatusDialog(null) }} />
-      )}
-    </div>
+    </NoteScreen>
   )
 }
 
