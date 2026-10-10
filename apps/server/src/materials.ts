@@ -167,6 +167,8 @@ export async function fetchArxiv(wbRoot: string, key: string, fetchImpl: typeof 
   if (!entry) throw new WorkbenchError(404, t(`bib에 없는 키: ${key}`, `Key not in bib: ${key}`))
   if (!entry.eprint) throw new WorkbenchError(400, t(`${key}에는 arXiv 번호(eprint)가 없습니다`, `${key} has no arXiv number (eprint)`))
   if (!/^[\w.\-/]+$/.test(entry.eprint)) throw new WorkbenchError(400, t(`arXiv 번호가 올바르지 않음: ${entry.eprint}`, `Invalid arXiv number: ${entry.eprint}`))
+  // 이미 있는 PDF(사람이 주석을 단 것일 수 있음)는 덮지 않는다
+  if (fs.existsSync(path.join(materialsDir(wbRoot), `${key}.pdf`))) throw new WorkbenchError(409, t(`materials/${key}.pdf가 이미 있어 받지 않았습니다`, `materials/${key}.pdf already exists, so nothing was downloaded`))
   const res = await fetchImpl(`https://arxiv.org/pdf/${entry.eprint}`, { signal: AbortSignal.timeout(60_000), redirect: 'follow' })
   if (!res.ok) throw new WorkbenchError(502, t(`arXiv에서 받지 못했습니다 (${res.status})`, `Could not download from arXiv (${res.status})`))
   const buf = Buffer.from(await res.arrayBuffer())

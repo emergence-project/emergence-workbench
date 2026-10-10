@@ -47,7 +47,7 @@ Inside the app folder, `pnpm mcp` also starts it (it speaks MCP over stdio, so y
 
 ## Rules it keeps
 
-- To change a note or concept note, use `edit_note` / `edit_concept`. For anything else, call the app server API (`GET /api` lists the routes and how to use them) and send the hash you read as `baseHash`. If the file changed in the meantime, the write is refused with 409.
+- To change a note or concept note, use `edit_note` / `edit_concept`. For anything else, call the app server API (`GET /api` lists the routes and how to use them) and send the hash you read as `baseHash`. If the file changed in the meantime, the write is refused with 409. Creating, appending and one-field changes take no hash, and journal edits send the entry's current text as `was`; `GET /api` and `docs/repo-format.md` §12 list them.
 - Do not work around a stopped app server by editing files directly.
 - Each research repository's own `AGENTS.md` and `CLAUDE.md` come before this entry point.
 - Code: `apps/server/src/mcp.ts` (tools), `scripts/mcp.mjs` (stdio start), tests `apps/server/src/mcp.test.ts`.
