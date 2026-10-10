@@ -1,7 +1,6 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { appPath } from './agentPaths.js'
 import { RESEARCH_TARGET, frontMatter } from '@rw/core'
 import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsutil.js'
@@ -387,11 +386,7 @@ export function nextTask(wb: Workbench, id: string, body: Next, now = new Date()
 }
 
 /** 규칙 문서: 이 앱 저장소의 docs/agent-delegated-work.md (STATUS.md 맨 위 한 줄이 가리킨다). 집 폴더는 ~로 줄인다 */
-export const RULES_DOC = (() => {
-  const abs = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../docs/agent-delegated-work.md')
-  const home = os.homedir()
-  return home && abs.startsWith(home + path.sep) ? `~${abs.slice(home.length)}` : abs
-})()
+export const RULES_DOC = appPath('docs/agent-delegated-work.md')
 
 /** STATUS.md의 "맡긴 일" 절: 끝나지 않은 일과 에이전트가 할 것 */
 export function statusSection(wb: Workbench): string[] {

@@ -13,6 +13,7 @@
     "dev:en": "RW_SAMPLE_LANG=en pnpm dev",
     "test": "node scripts/ci/test-all.mjs",
     "agent:status": "node scripts/agent-status.mjs",
+    "agent:check": "node scripts/agent-check.mjs",
     "agent:check-tasks": "node scripts/agent-check-tasks.mjs",
     "mcp": "node scripts/mcp.mjs",
     "design:check": "node scripts/ci/check-design.mjs",

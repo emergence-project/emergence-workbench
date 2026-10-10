@@ -16,7 +16,7 @@ import { stripFrontMatter } from '@rw/core'
  * paused 일시 정지(무엇을 기다리는 중, 곧 다시) · stopped 정지(그만둠) · done 완결. 예전 done: true는 완결로 읽는다.
  */
 export type NoteState = 'active' | 'paused' | 'stopped' | 'done'
-const STATES: NoteState[] = ['active', 'paused', 'stopped', 'done']
+export const NOTE_STATES: NoteState[] = ['active', 'paused', 'stopped', 'done']
 export interface NoteMeta { summary?: string; summaryAuto?: boolean; done?: boolean; state?: Exclude<NoteState, 'active'>; resume?: string }
 
 const MAX = 140
@@ -112,7 +112,7 @@ export function readNoteMeta(mainAbs: string, text: string, more: () => string |
   const given = [y.description, y.summary].find((v): v is string => typeof v === 'string' && !!v.trim())
   const summary = given === undefined ? undefined : cleanDescription(given)
   const auto = summary ? undefined : mainAbs.endsWith('.md') ? summaryOfMarkdown(text) : summaryOf(text) ?? (() => { const t = more(); return t ? summaryOf(t) : undefined })()
-  const state = STATES.includes(y.state as NoteState) && y.state !== 'active' ? y.state as Exclude<NoteState, 'active'> : y.done === true ? 'done' : undefined
+  const state = NOTE_STATES.includes(y.state as NoteState) && y.state !== 'active' ? y.state as Exclude<NoteState, 'active'> : y.done === true ? 'done' : undefined
   const resume = typeof y.resume === 'string' && y.resume.trim() && (state === 'paused' || state === 'stopped') ? y.resume.trim() : undefined
   return { ...(summary ? { summary } : auto ? { summary: auto, summaryAuto: true } : {}), ...(state === 'done' && { done: true }), ...(state && { state }), ...(resume && { resume }) }
 }
@@ -142,7 +142,7 @@ export function writeNoteMeta(mainAbs: string, patch: { summary?: unknown; done?
     patch = { ...patch, state: patch.done ? 'done' : 'active' }
   }
   if (patch.state !== undefined) {
-    if (!STATES.includes(patch.state as NoteState)) throw new WorkbenchError(400, t(`state는 ${STATES.join('·')} 중 하나`, `state must be one of ${STATES.join('·')}`))
+    if (!NOTE_STATES.includes(patch.state as NoteState)) throw new WorkbenchError(400, t(`state는 ${NOTE_STATES.join('·')} 중 하나`, `state must be one of ${NOTE_STATES.join('·')}`))
     doc.delete('done')
     if (patch.state === 'active') doc.delete('state'); else doc.set('state', patch.state)
     if (patch.state === 'active' || patch.state === 'done') doc.delete('resume')

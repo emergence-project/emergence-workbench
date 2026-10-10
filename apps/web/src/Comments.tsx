@@ -1,3 +1,4 @@
+import { commentTargetSlug as slug } from '@rw/core'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { commentsApi, ConflictError, papersApi, type CommentEntry, type CommentFile, type CommentKind, type CommentState, type NewComment, type PaintColor, type NoteHighlight, type PdfBox } from './api'
 import { PdfView, type PdfMark, type PdfPaint, type PdfSelection } from './PdfView'
@@ -36,7 +37,6 @@ export interface CommentTarget {
   /** 원래 파일 (자료 PDF 이름, 작업노트 id) */
   source?: string
 }
-const slug = (s: string) => s.replace(/[^A-Za-z0-9._-]/g, '_').replace(/\.{2,}/g, '_').slice(0, 160) || '_'
 export const paperTarget = (name: string): CommentTarget => ({ target: `paper-${slug(name.replace(/\.pdf$/i, ''))}`, title: `자료 ${name}`, source: name })
 /** 원고 PDF. 메인 노트가 여럿이면 둘째부터 `manuscript-<key>` */
 export const manuscriptTarget = (name?: string, ms?: string): CommentTarget => ({ target: ms ? `manuscript-${slug(ms)}` : 'manuscript', title: `원고 PDF${name ? ` ${name}` : ''}` })
