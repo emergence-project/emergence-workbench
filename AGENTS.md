@@ -8,7 +8,7 @@
 1. `CLAUDE.md`를 끝까지 읽는다 (반영 흐름, 용어, 화면 기준, 코드 지도). 관리자 맥이면 개인 규칙도 읽는다.
 2. `git fetch origin && git log --oneline -15 origin/main`과 열린 PR을 본다. 열린 PR이 있으면 새 작업을 시작하지 않고 사용자에게 알린다 (열린 PR은 한 번에 하나).
 3. 화면을 바꾸면 `docs/design-system.md`를 먼저 읽는다.
-4. 연구 저장소의 상태가 필요하면 `pnpm agent:status <연구 저장소 폴더>`를 먼저 돌린다(맥의 `workbench/STATUS.md`와 같은 요약, 클라우드에서도 됨). 직접 고친 뒤에는 `pnpm agent:check <연구 저장소 폴더>`로 형식을 검사한다(읽기 전용).
+4. 연구 저장소의 상태가 필요하면 `pnpm agent:status <연구 저장소 폴더>`를 먼저 돌린다(맥의 `workbench/STATUS.md`와 같은 요약, 클라우드에서도 됨). 직접 고친 뒤에는 `pnpm agent:check <연구 저장소 폴더>`로 형식을 검사한다(읽기 전용). 피드백을 처리할 때는 `pnpm agent:feedback <피드백 폴더>`로 에이전트 차례인 항목과 이유를 먼저 본다.
 
 ## 꼭 지킬 것 (요약, 상세는 CLAUDE.md)
 
