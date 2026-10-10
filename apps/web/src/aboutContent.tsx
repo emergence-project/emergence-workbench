@@ -48,7 +48,7 @@ export interface AboutPart {
 
 const c = (s: string) => <code>{s}</code>
 
-const ABOUT_PARTS_KO: AboutPart[] = [
+export const ABOUT_PARTS_KO: AboutPart[] = [
   { id: 'intro', title: '한눈에', sub: '이 앱이 무엇이고 화면이 어떻게 나뉘는지, 그리고 이 소개를 읽는 법입니다.' },
   {
     id: 'principles', title: '정의와 원칙',
@@ -509,7 +509,7 @@ const ABOUT_PARTS_KO: AboutPart[] = [
  * status가 있으면 상태 색 점으로, 없으면 token 색의 네모로 보여 준다. 값은 tokens.css
  */
 export interface ColorRow { status?: 'in-progress' | 'blocked' | 'stopped' | 'solved' | 'none'; token?: string; color: string; name: string; meaning: string; where: string }
-const COLOR_ROWS_KO: ColorRow[] = [
+export const COLOR_ROWS_KO: ColorRow[] = [
   { status: 'in-progress', color: '파랑', name: '진행', meaning: '하고 있는 일', where: '노트, 맡긴 일, 프로젝트, 진술의 증명' },
   { status: 'blocked', color: '주황', name: '멈춤', meaning: '무엇을 기다리는 중, 곧 다시. 다시 시작할 조건을 함께 적습니다. 맡긴 일의 판단 대기도 같은 색(이름은 판단 대기)', where: '노트, 맡긴 일, 프로젝트, 진술의 증명' },
   { status: 'stopped', color: '짙은 회색 고리', name: '폐기', meaning: '그만둔 일 (지우지는 않음). 속이 빈 고리라 색이 안 보여도 구별됩니다', where: '노트, 맡긴 일' },
@@ -525,7 +525,7 @@ const COLOR_ROWS_KO: ColorRow[] = [
 ]
 
 export interface SymbolRow { mark: ReactNode; name: string; meaning: string; where: string }
-const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'download' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
+export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'download' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
   {
     title: '행동', note: '늘 무채색입니다. 한 행동에 이름 하나·기호 하나.',
     rows: [
