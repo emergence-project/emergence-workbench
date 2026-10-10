@@ -342,7 +342,8 @@ export function readFeedbackStatus(dir: string): Map<string, FeedbackStatus> {
       ...(st.handled_at != null && { handled_at: String(st.handled_at) }),
       ...(str(st.by) && { by: st.by as string }),
       ...(st.version != null && { version: String(st.version) }),
-      ...(Array.isArray(st.pictures) && st.pictures.every((x) => typeof x === 'string') && st.pictures.length && { pictures: st.pictures as string[] }),
+      // 전후 그림은 feedback/ 기준 경로. 폴더를 빼고 파일 이름만 적었어도 pictures/ 안에서 찾는다 (10/10 15:07)
+      ...(Array.isArray(st.pictures) && st.pictures.every((x) => typeof x === 'string') && st.pictures.length && { pictures: (st.pictures as string[]).map((x) => (x.includes('/') ? x : `pictures/${x}`)) }),
       ...(readReplies(st.replies) && { replies: readReplies(st.replies) }),
     })
   }

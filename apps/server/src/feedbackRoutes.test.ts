@@ -381,7 +381,7 @@ describe('승인·반려', () => {
     fs.writeFileSync(path.join(dir, 'pictures', 'a.png'), Buffer.from([0x89, 0x50]))
     fs.writeFileSync(path.join(dir, 'status.yaml'), [
       '"2026-10-04 13:54 홈":', '  state: 반영', '  note: 키웠다', '  handled_at: 2026-10-04T14:00', '  by: claude', '  version: 0.1.1',
-      '  pictures: [pictures/a.png, pictures/b.png]', '  replies:', '    - { at: 2026-10-04T15:00, to: 2026-10-04T14:30, note: 네, by: codex }', '    - { at: x, note: 받는 코멘트 없음 }',
+      '  pictures: [pictures/a.png, b.png]', '  replies:', '    - { at: 2026-10-04T15:00, to: 2026-10-04T14:30, note: 네, by: codex }', '    - { at: x, note: 받는 코멘트 없음 }',
     ].join('\n'))
     const fb = buildApp({ configDir: path.join(tmp, 'config-fb-conv'), feedbackDir: dir, sandbox: true })
     const key = '2026-10-04 13:54 홈'
