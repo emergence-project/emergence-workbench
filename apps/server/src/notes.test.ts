@@ -4,7 +4,7 @@ import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import YAML from 'yaml'
 import { generateStatus } from './agentStatus.js'
-import { noteLinks } from './noteList.js'
+import { listNotes, noteLinks } from './noteList.js'
 import { invalidateProjects } from './projectReadCache.js'
 import { app, noteHash, R, repo, topicsHash, useSampleApp } from './testkit.js'
 
@@ -18,6 +18,24 @@ type Row = { id: string; type: string; file: string; title: string; status: stri
 const notes = async () => (await app.inject({ method: 'GET', url: `${R}/notes` })).json().notes as Row[]
 const row = async (id: string) => (await notes()).find((r) => r.id === id)!
 const head = async (file: string, patch: object, baseHash?: string) => app.inject({ method: 'PATCH', url: `${R}/notes/head`, payload: { file, patch, baseHash: baseHash ?? await noteHash(file) } })
+
+describe('블록 노트의 자동 설명', () => {
+  it('본문이 주석뿐인 .md 블록은 노트 목록에 설명이 없다', () => {
+    const file = 'blocks/comment-only.md'
+    const content = '---\nid: comment-only\ntitle: Comment-only note\nstatus: in-progress\n---\n<!-- The conclusion is kept in a research note. -->\n'
+    write(file, content)
+    try {
+      const note = listNotes(app.registry.get('sample-research')).find((n) => n.id === 'comment-only')
+      expect(note).toMatchObject({ type: 'block', file: `workbench/${file}`, format: 'md', title: 'Comment-only note' })
+      expect(note).not.toHaveProperty('description')
+      expect(note).not.toHaveProperty('descriptionAuto')
+      expect(fs.readFileSync(wb(file), 'utf8')).toBe(content)
+    } finally {
+      fs.unlinkSync(wb(file))
+      outside()
+    }
+  })
+})
 
 describe('예전 기록 읽기', () => {
   it('원고에서 옮긴 연구노트 모양: 연구노트 note.yaml의 summary(접힌 줄)를 설명으로, parts만 있는 주제에는 노트가 들지 않는다. calc/는 성격 계산', async () => {
