@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, newTemplateId, normalizeAuthors, normalizePeople, normalizeTemplate, normalizeTemplates, normalizeUi, type Author, type LatexTemplate, type Person, type UiSettings } from '@rw/core'
 import YAML from 'yaml'
@@ -20,9 +19,9 @@ export interface AppConfig {
   engine: Engine
   /** 공유 라이브러리(research-library) 폴더. 없으면 라이브러리 서식을 쓰지 않는다 */
   library?: string
-  /** Obsidian Study vault 폴더 (읽기만). 없으면 iCloud의 기본 위치를 찾아본다 */
+  /** Obsidian vault 폴더 (읽기만, 지식 화면). 없으면 보이지 않는다 */
   study?: string
-  /** Emergence Topic Review 폴더 (읽기만, 지식 화면). 없으면 ~/GitHub/emergence/site/content/reviews/topic */
+  /** Topic Review 폴더 (읽기만, 지식 화면). 없으면 보이지 않는다 */
   reviews?: string
   /** 논문 PDF 폴더 (여러 개, iCloud·Google Drive 폴더 가능). 논문 라이브러리가 <bib 키>.pdf를 여기서 찾는다 */
   pdfFolders?: string[]
@@ -164,16 +163,16 @@ export class Registry {
     this.save()
   }
 
-  /** Study vault (읽기만). 설정에 없으면 iCloud Obsidian의 Study를 쓴다. 없으면 undefined */
+  /** Obsidian vault (읽기만). 설정(config.yaml `study:`)에 없거나 폴더가 없으면 undefined */
   get studyPath(): string | undefined {
-    const p = this.config.study ?? path.join(os.homedir(), 'Library/Mobile Documents/iCloud~md~obsidian/Documents/Study')
-    return fs.existsSync(p) ? p : undefined
+    const p = this.config.study
+    return p && fs.existsSync(p) ? p : undefined
   }
 
-  /** Emergence Topic Review 폴더 (읽기만). 없으면 undefined */
+  /** Topic Review 폴더 (읽기만). 설정(config.yaml `reviews:`)에 없거나 폴더가 없으면 undefined */
   get reviewsPath(): string | undefined {
-    const p = this.config.reviews ?? path.join(os.homedir(), 'GitHub/emergence/site/content/reviews/topic')
-    return fs.existsSync(p) ? p : undefined
+    const p = this.config.reviews
+    return p && fs.existsSync(p) ? p : undefined
   }
 
   setReviews(p: string): void {

@@ -25,7 +25,7 @@ Automatic updates (2026-10-09): when running as the service, the app pulls new v
 
 **iPad access to code (optional).** `scripts/remote/ipad-code-server.sh` serves this Mac's code-server (VS Code in the browser) on the Tailscale address only, with password login on. Run it as a LaunchAgent; the password lives in the code-server config file. It waits for Tailscale to come up. Tests: `pnpm test:scripts`.
 
-**Settings.** The slider icon at the bottom of the rail. Theme, text size, density, accent color, editor font and screen language are saved under `ui:` in the app config (`~/.config/research-workspace/config.yaml`). The same file holds the registered projects and tags, the shared library (`library`) and an Obsidian vault to read (`study`). The ⓘ above it is the About page, and the speech bubble collects feedback.
+**Settings.** The slider icon at the bottom of the rail. Theme, text size, density, accent color, editor font and screen language are saved under `ui:` in the app config (`~/.config/research-workspace/config.yaml`). The same file holds the registered projects and tags, the shared library (`library`) and the folders the Knowledge page reads: an Obsidian vault (`study`) and a Topic Review folder (`reviews`). Only folders listed there are read. The ⓘ above it is the About page, and the speech bubble collects feedback.
 
 **Project sources and STATUS.md.** List `sources:` in a project's `workbench/research.yaml` (canonical folder `canon`, task list `tasks`, `bib`, materials folder `materials`, review documents `reviews`, manuscript `manuscript`) and the app reads them. With `agent-status: true` the app rewrites `workbench/STATUS.md`, a summary for agents to read first, whenever something changes (generated, not tracked by git).
 
