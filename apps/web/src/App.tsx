@@ -39,7 +39,7 @@ import { ProjectRailCount, useProjectIssues } from './projectIssues'
 import { PdfTab } from './PdfTab'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
-import { moveId, PROJECT_KIND_LABEL } from './projectProfile'
+import { moveId, PROJECT_KIND_LABEL, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
 import { setFeedbackNote } from './feedbackNote'
 import type { ProfilePatch } from './ProjectProfileFields'
@@ -232,7 +232,7 @@ export function App() {
   // 레일의 프로젝트 버튼도 끌어서 순서를 바꾼다 (10/7 18:07). 홈 목록·카드와 같은 순서(설정)에 저장한다
   const [railDrag, setRailDrag] = useState<{ from: string | null; over: string | null }>({ from: null, over: null })
   // 10/7 18:07 피드백: 끄는 그림은 둥근 네모만, 끄는 동안 다른 버튼이 비켜나 놓일 자리를 보인다
-  const railIds = researches?.map((x) => x.id) ?? []
+  const railIds = railProjects(researches ?? [], rid).map((x) => x.id)
   const railShown = railDrag.from && railDrag.over ? moveId(railIds, railDrag.from, railDrag.over) : railIds
   const railBox = useRef<HTMLDivElement>(null)
   useRailSlide(railBox, railShown.join('\n'))
@@ -297,7 +297,8 @@ export function App() {
       const { from, over } = railDrag
       setRailDrag({ from: null, over: null })
       if (!from || !over || from === over || !researches) return
-      const ids = moveId(railIds, from, over)
+      // 띠에 없는 프로젝트(멈춤 · 완료)의 자리는 그대로: 전체 순서에서 옮긴다
+      const ids = moveId(researches.map((x) => x.id), from, over)
       const byId = new Map(researches.map((x) => [x.id, x]))
       setResearches(ids.map((x) => byId.get(x)!))
       api.setOrder(ids).then((r) => setResearches(r.researches)).catch((err: Error) => flash(t(`순서를 저장하지 못했습니다 — ${err.message}`, `Could not save the order: ${err.message}`)))

@@ -69,6 +69,8 @@ export const ResearchListItem = z.object({
   /** 분야 (개념노트 분류에서 고른 이름) */
   fields: z.array(z.string()),
   state: z.enum(PROJECT_STATES),
+  /** 왼쪽 띠에 늘 보이기. 띠는 진행 중인 프로젝트와 이것을 켠 프로젝트만 보인다 (10/10 12:59) */
+  rail: z.boolean(),
   /** 예전 모양(업무 + 분야). 구글 동기화 · 검색용 */
   tags: z.array(z.string()),
   available: z.boolean(),
@@ -366,11 +368,12 @@ export const TopicList = z.object({ topics: z.array(Topic), hash: z.string() }).
 // ---------- 요청 ----------
 // 값의 뜻(길이·있는 id·해시)은 서버가 본다.
 
-/** 성격 · 분야 · 진행 상태 중 보낸 것만. tags: 예전 모양 (구글에서 되살리기) */
+/** 성격 · 분야 · 진행 상태 · 띠에 보이기 중 보낸 것만. tags: 예전 모양 (구글에서 되살리기) */
 export const ProfileBody = z.object({
   kind: z.enum(PROJECT_KINDS).optional(),
   fields: z.array(z.string()).optional(),
   state: z.enum(PROJECT_STATES).optional(),
+  rail: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
 })
 export const OrderBody = z.object({ ids: z.array(z.string()) })

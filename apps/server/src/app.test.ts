@@ -60,7 +60,13 @@ describe('연구 등록', () => {
     expect((await app.inject({ method: 'PATCH', url, payload: { fields: ['가'.repeat(61)] } })).statusCode).toBe(400)
     // 보낸 것만 바꾼다
     const paused = (await app.inject({ method: 'PATCH', url, payload: { state: 'paused' } })).json()
-    expect(paused).toMatchObject({ kind: 'work', fields: ['회사'], state: 'paused' })
+    expect(paused).toMatchObject({ kind: 'work', fields: ['회사'], state: 'paused', rail: false })
+    // 띠에 보이기 (10/10 12:59): 켜면 rail: true만 적고, 끄면 줄을 지운다
+    expect((await app.inject({ method: 'PATCH', url, payload: { rail: 'yes' } })).statusCode).toBe(400)
+    expect((await app.inject({ method: 'PATCH', url, payload: { rail: true } })).json()).toMatchObject({ state: 'paused', rail: true })
+    expect(cfg()).toMatch(/job-project\n(\s+\w+:.*\n|\s+- .*\n)*\s+rail: true/)
+    expect((await app.inject({ method: 'PATCH', url, payload: { rail: false } })).json()).toMatchObject({ rail: false })
+    expect(cfg()).not.toMatch(/rail:/)
     const back = (await app.inject({ method: 'PATCH', url, payload: { kind: 'research', fields: ['Graph Theory'], state: 'active' } })).json()
     expect(back).toMatchObject({ kind: 'research', fields: ['Graph Theory'], state: 'active', tags: ['Graph Theory'] })
     expect(cfg()).not.toMatch(/job-project\n(\s+\w+:.*\n)*\s+state:/) // 진행(기본)은 적지 않는다

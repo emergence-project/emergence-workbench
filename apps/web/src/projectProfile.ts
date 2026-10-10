@@ -63,3 +63,11 @@ export function attentionOf(issues: number, behind: number): AttentionMark {
   if (behind > 0) return 'update'
   return null
 }
+
+/**
+ * 왼쪽 띠에 보일 프로젝트 (10/10 12:59): 진행 중인 것, 띠에 보이기를 켠 것, 지금 연 것. 순서는 홈과 같다.
+ * 멈춤 · 완료는 홈 카드에서 연다.
+ */
+export function railProjects<T extends Pick<ResearchListItem, 'id' | 'state' | 'rail'>>(list: T[], open?: string | null): T[] {
+  return list.filter((r) => r.state === 'active' || r.rail || r.id === open)
+}

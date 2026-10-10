@@ -4,7 +4,7 @@ import { FieldTags } from './FieldTags'
 import { PROJECT_KIND_LABEL, PROJECT_KINDS, PROJECT_STATE_DOT, PROJECT_STATE_LABEL, PROJECT_STATES } from './projectProfile'
 import { t } from './i18n'
 
-export interface ProfilePatch { kind?: ProjectKind; fields?: string[]; state?: ProjectState }
+export interface ProfilePatch { kind?: ProjectKind; fields?: string[]; state?: ProjectState; rail?: boolean }
 
 /** 진행 상태 색 점 + 이름 (노트 상태와 같은 색, 이름은 진행 · 멈춤 · 완료) */
 export function ProjectStateDot({ state, label }: { state: ProjectState; label?: boolean }) {
@@ -26,11 +26,13 @@ export function usedFields(all: Pick<ResearchListItem, 'fields'>[]): Map<string,
  * 성격(연구 · 업무 하나) · 분야(개념노트 분류에서 고르는 이름표 여러 개) · 진행 상태(진행 · 멈춤 · 완료) 고르기.
  * 프로젝트 고치기 창과 등록 창이 함께 쓴다. 바꾼 것만 onChange로 알린다.
  */
-export function ProjectProfileFields({ kind, fields, state, all, onChange }: {
+export function ProjectProfileFields({ kind, fields, state, rail, all, onChange }: {
   kind: ProjectKind
   fields: string[]
   /** 없으면 진행 상태 줄을 두지 않는다 (등록 창) */
   state?: ProjectState
+  /** 멈춤 · 완료여도 왼쪽 띠에 보이기. 진행 상태 줄과 함께 */
+  rail?: boolean
   /** 모든 프로젝트 (분야 제안) */
   all: Pick<ResearchListItem, 'fields'>[]
   onChange(patch: ProfilePatch, message: string): void
@@ -58,6 +60,12 @@ export function ProjectProfileFields({ kind, fields, state, all, onChange }: {
                 onClick={() => state !== s && onChange({ state: s }, t(`진행 상태: ${PROJECT_STATE_LABEL[s]}`, `Status: ${PROJECT_STATE_LABEL[s]}`))}><ProjectStateDot state={s} label /></button>
             ))}
           </div>
+          {/* 10/10 12:59: 띠는 진행 중인 프로젝트만. 멈춤 · 완료도 띠에 두려면 켠다 */}
+          <label className="check pp-rail" data-ui="띠에 보이기">
+            <input type="checkbox" checked={state === 'active' || !!rail} disabled={state === 'active'}
+              onChange={(e) => onChange({ rail: e.target.checked }, e.target.checked ? t('왼쪽 띠에 보입니다', 'Shown in the left rail') : t('왼쪽 띠에서 숨깁니다', 'Hidden from the left rail'))} />
+            {state === 'active' ? t('진행 중이라 왼쪽 띠에 보입니다', 'Shown in the left rail while in progress') : t('왼쪽 띠에 보이기', 'Show in the left rail')}
+          </label>
         </dd>
       </>}
     </dl>

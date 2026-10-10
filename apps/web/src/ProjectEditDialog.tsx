@@ -30,7 +30,7 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
   const [started, setStarted] = useState(summary.research.started)
   const [image, setImage] = useState(summary.research.image ?? '')
   const [pickingImage, setPickingImage] = useState(false)
-  const [profile, setProfile] = useState({ kind: listed.kind, fields: listed.fields, state: listed.state })
+  const [profile, setProfile] = useState({ kind: listed.kind, fields: listed.fields, state: listed.state, rail: listed.rail })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const base = useRef({ ...summary.research, image: summary.research.image ?? '' })
@@ -79,6 +79,7 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
       if (profile.kind !== listed.kind) patch.kind = profile.kind
       if (profile.fields.join('\u0000') !== listed.fields.join('\u0000')) patch.fields = profile.fields
       if (profile.state !== listed.state) patch.state = profile.state
+      if (profile.rail !== listed.rail) patch.rail = profile.rail
       if (Object.keys(patch).length) await onProfile(patch, t('저장했습니다 — 성격 · 분야 · 진행 상태는 이 컴퓨터의 설정에', 'Saved. Kind, field and status go to this computer\'s settings'))
       else if (Object.keys(info).length) onSaved(t('저장했습니다 — workbench/research.yaml', 'Saved to workbench/research.yaml'))
       onDone()
@@ -102,7 +103,7 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
           <textarea className="td-in td-ta" rows={4} value={question} aria-label={t('설명', 'Description')} data-ui="프로젝트 설명" placeholder={t('이 프로젝트가 무엇을 묻는지 한두 문장으로. 줄 앞에 ‘- ’를 쓰면 글머리표 목록이 됩니다. 홈 카드에는 한 줄로 보입니다.', 'One or two sentences on what this project asks. Start a line with ‘- ’ for a bulleted list. The home card shows one line.')}
             onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { onListKey(e, setQuestion) }} />
         </label>
-        <ProjectProfileFields kind={profile.kind} fields={profile.fields} state={profile.state} all={all}
+        <ProjectProfileFields kind={profile.kind} fields={profile.fields} state={profile.state} rail={profile.rail} all={all}
           onChange={(p) => setProfile((cur) => ({ ...cur, ...p }))} />
         <label className="td-f">
           <span className="td-lab">{t('시작일', 'Start date')}</span>
