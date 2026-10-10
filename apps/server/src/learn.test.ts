@@ -7,7 +7,7 @@ import YAML from 'yaml'
 import { buildApp } from './app.js'
 import type { AskRunner } from './ask.js'
 import { readConceptMd, readConceptMemo } from './conceptNotes.js'
-import { addLearn, LEARN_FILE, parseDraft, readLearn, removeLearn } from './learn.js'
+import { addLearn, LEARN_FILE, parseDraft, readLearn, removeLearn, setLearnConcept } from './learn.js'
 
 const fixtures = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../fixtures/knowledge')
 
@@ -37,6 +37,41 @@ describe('공부할 것 (모름 → 개념노트 초안)', () => {
     removeLearn(lib, 'l-outside')
     expect(readLearn(lib).items.map((i) => i.id)).toEqual([a.id, b.id])
     expect(() => addLearn(lib, { term: '   ' })).toThrow(/비어/)
+  })
+
+  it('고칠 때 그 항목만 바꾸고 바깥이 남긴 주석·칸·앱이 못 읽는 항목은 그대로 둔다', () => {
+    const file = path.join(lib, LEARN_FILE)
+    const before = [
+      '# 손으로 남긴 주석',
+      'owner: 사람',
+      'items:',
+      '  - id: l-keep',
+      '    term: Kempe swap  # 이 줄 주석',
+      '    at: 2026-10-04 22:16',
+      '    priority: high',
+      '  - term: 아이디 없이 에이전트가 더함',
+      '',
+    ].join('\n')
+    fs.writeFileSync(file, before)
+    const a = addLearn(lib, { term: 'Discharging' }, new Date(2026, 9, 10, 3, 0)).item
+    setLearnConcept(lib, 'l-keep', 'kempe-chain')
+    let text = fs.readFileSync(file, 'utf8')
+    for (const kept of ['# 손으로 남긴 주석', 'owner: 사람', '# 이 줄 주석', 'priority: high', '아이디 없이 에이전트가 더함', 'concept: kempe-chain', 'term: Discharging']) expect(text).toContain(kept)
+    removeLearn(lib, a.id)
+    setLearnConcept(lib, 'l-keep', undefined)
+    text = fs.readFileSync(file, 'utf8')
+    expect(text).not.toContain('Discharging')
+    expect(text).not.toContain('concept:')
+    expect(text).toContain('priority: high')
+    expect(() => removeLearn(lib, 'l-none')).toThrow(/없음/)
+    expect(fs.readFileSync(file, 'utf8')).toBe(text)
+    fs.writeFileSync(file, '# 주석만 남은 파일\n')
+    addLearn(lib, { term: 'Planar dual' })
+    expect(readLearn(lib).items.map((i) => i.term)).toEqual(['Planar dual'])
+    fs.writeFileSync(file, '- 맨 위가 목록\n')
+    expect(() => addLearn(lib, { term: 'x' })).toThrow(/고치지 않았습니다/)
+    expect(fs.readFileSync(file, 'utf8')).toBe('- 맨 위가 목록\n')
+    fs.rmSync(file)
   })
 
   it('Claude 답 읽기: 제목·분류·본문·메모, 이미 있음, 본문 없음', () => {

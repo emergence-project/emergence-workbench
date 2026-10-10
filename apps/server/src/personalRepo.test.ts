@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import YAML from 'yaml'
 import { backupRemoteFor } from './backup.js'
 import { publishFeedback } from './feedback.js'
 import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
@@ -41,6 +42,23 @@ describe('개인 저장소', () => {
     fs.writeFileSync(path.join(dir, 'config.yaml'), 'personalRepo: git@example.com:me/personal.git\nresearches: []\n')
     new Registry(dir).setUi({ theme: 'dark' })
     expect(await personalRemote(dir, tmp)).toBe('git@example.com:me/personal.git')
+  })
+
+  it('설정을 저장해도 이 앱이 모르는 맨 위 키(다른 맥의 새 버전이 더한 설정)는 남는다', () => {
+    const dir = fs.mkdtempSync(path.join(tmp, 'cfg-'))
+    const file = path.join(dir, 'config.yaml')
+    fs.writeFileSync(file, 'futureSetting: { on: true }\nlatex: old\nresearches: []\n')
+    const r = new Registry(dir)
+    r.setUi({ theme: 'dark' })
+    let saved = YAML.parse(fs.readFileSync(file, 'utf8'))
+    expect(saved.futureSetting).toEqual({ on: true })
+    expect(saved.latex).toBeUndefined() // 예전 서식 하나는 latexTemplates로 옮겼다
+    expect(saved.ui.theme).toBe('dark')
+    // 바깥(GitHub 백업에서 받은 설정)이 키를 더한 뒤 저장해도 남는다
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8') + 'otherMac: 1\n')
+    r.setUi({ theme: 'light' })
+    saved = YAML.parse(fs.readFileSync(file, 'utf8'))
+    expect(saved).toMatchObject({ futureSetting: { on: true }, otherMac: 1, ui: { theme: 'light' } })
   })
 
   it('공개 저장소(emergence-workbench)에서는 남의 개인 저장소를 짐작하지 않는다', () => {
