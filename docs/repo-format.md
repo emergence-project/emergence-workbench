@@ -401,7 +401,7 @@ checked:
 
 | 파일 | 무엇 |
 |---|---|
-| `config.yaml` | 등록한 연구(`researches: [{id, path, kind?, fields?, state?}]`), `library`, `pdfFolders`, `engine`, `ui`, 서식, 사람. **앱이 저장할 때 전체를 다시 쓰므로 주석과 모르는 키는 사라진다** |
+| `config.yaml` | 등록한 연구(`researches: [{id, path, kind?, fields?, state?}]`), `library`, `pdfFolders`, `personalRepo`, `engine`, `ui`, 서식, 사람. **앱이 저장할 때 전체를 다시 쓰므로 주석과 모르는 키는 사라진다** |
 | `index/concepts-*.sqlite` | 개념 색인 (지워도 다시 만듦) |
 | `figure-cache/` | tikz 그림 캐시 (지워도 됨) |
 | `agent-edits/edits-*.json` | 에이전트 고침 기록. 깨지면 `.broken-<시각>`으로 옮기고 새로 시작 |

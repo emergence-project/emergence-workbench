@@ -24,6 +24,8 @@ export interface AppConfig {
   reviews?: string
   /** 논문 PDF 폴더 (여러 개, iCloud·Google Drive 폴더 가능). 논문 라이브러리가 <bib 키>.pdf를 여기서 찾는다 */
   pdfFolders?: string[]
+  /** 개인 저장소 주소 (personalRepo.ts가 이 파일에서 바로 읽는다). 저장할 때 잃지 않도록 함께 둔다 */
+  personalRepo?: string
   researches: RegisteredResearch[]
   /** 설정 화면의 화면 설정 (테마, 글자 크기, 편집기 글꼴 등) */
   ui: UiSettings
@@ -289,6 +291,7 @@ export class Registry {
     const library = typeof raw.library === 'string' ? raw.library : undefined
     const study = typeof raw.study === 'string' ? raw.study : undefined
     const reviews = typeof raw.reviews === 'string' ? raw.reviews : undefined
+    const personalRepo = typeof raw.personalRepo === 'string' && raw.personalRepo.trim() ? raw.personalRepo : undefined
     const pdfFolders = Array.isArray(raw.pdfFolders) ? raw.pdfFolders.filter((p: unknown): p is string => typeof p === 'string' && path.isAbsolute(p)) : []
     const researches: RegisteredResearch[] = Array.isArray(raw.researches)
       ? raw.researches
@@ -310,7 +313,7 @@ export class Registry {
     // 예전 설정의 latex:(서식 하나)는 PRL 서식으로 옮긴다
     const latexTemplates = normalizeTemplates(raw.latexTemplates, raw.latex, raw.latexBuiltins)
     const latexBuiltins = BUILTIN_TEMPLATES.map((t) => t.id)
-    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors), people: normalizePeople(raw.people) }
+    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors), people: normalizePeople(raw.people) }
   }
 
   private save(): void {
