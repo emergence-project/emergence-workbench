@@ -1,10 +1,11 @@
+import type { LibraryKind, LibraryNote, StudyNote } from '@rw/core/contract/library'
 import fs from 'node:fs'
 import { fileCache } from './readCache.js'
 import path from 'node:path'
 import { parseBlock, parseList, stripFrontMatter } from '@rw/core'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
 import { WorkbenchError, type SaveResult } from './workbench.js'
-import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd, type CheckState } from './conceptNotes.js'
+import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd } from './conceptNotes.js'
 import { t } from './i18n.js'
 
 /**
@@ -14,32 +15,11 @@ import { t } from './i18n.js'
  * - 문헌노트 papers/<인용 키>.tex — 논문 하나의 요약·핵심 주장·방법·질문. 여러 프로젝트가 함께 본다
  * 머리말 형식은 블록과 같다. 프로젝트의 작업노트는 머리말 concepts: [id, …]로 개념노트에 기댄다.
  */
-export type LibraryKind = 'concept' | 'paper'
+// 응답 모양은 API 계약(@rw/core/contract/library)에 있다
+export type { LibraryKind, LibraryNote, StudyNote } from '@rw/core/contract/library'
 const DIR: Record<LibraryKind, string> = { concept: 'concepts', paper: 'papers' }
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
-export interface LibraryNote {
-  kind: LibraryKind
-  id: string
-  title: string
-  status: string
-  /** 구조만 있고 내용이 없는 노트 (정리할 대상) */
-  empty: boolean
-  /** 개념노트를 가져온 Study 노트 (vault 기준 경로) */
-  study?: string
-  /** 문헌노트: 저자·연도·arXiv */
-  authors?: string
-  year?: string
-  eprint?: string
-  mtime: number
-  hash: string
-  /** 개념노트의 형식. md는 Markdown 개념노트(conceptNotes.ts), 없으면 LaTeX */
-  format?: 'md'
-  /** md: 미완성인 이유 · 확인함 상태 · 고치기 잠금 */
-  unfinished?: string[]
-  checked?: CheckState
-  locked?: boolean
-}
 
 /** 머리말과 \section·\subsection 줄, 주석을 빼고 남는 글이 거의 없으면 빈 노트 */
 export function isEmptyNote(content: string): boolean {
@@ -156,7 +136,6 @@ export function conceptsOf(content: string): string[] {
 
 // ---------- Study (Obsidian vault, 읽기만) ----------
 
-export interface StudyNote { path: string; title: string; subject: string; size: number }
 const STUDY_SPACE = 'Concept-Space'
 
 export function listStudy(study: string | undefined): StudyNote[] {

@@ -64,6 +64,7 @@ describe('papers', () => {
     fs.writeFileSync(path.join(lib, 'comments', 'exampleDischarging2022', 'c-1.md'), '---\nid: c-1\nkind: 코멘트\n---\nhi\n')
     fs.writeFileSync(path.join(lib, 'comments', 'exampleDischarging2022', 'c-2.md'), '---\nid: c-2\nkind: 질문\nstate: 대기\npage: 2\n---\nwhy?\n')
     expect((await app.inject({ method: 'PUT', url: '/api/papers/folders', payload: { folders: [pdfs] } })).statusCode).toBe(200)
+    expect((await app.inject({ method: 'GET', url: '/api/papers/folders' })).json()).toEqual({ folders: [{ path: pdfs, exists: true, cloud: 'local' }] })
 
     const res = (await app.inject({ method: 'GET', url: '/api/papers' })).json()
     const byKey = Object.fromEntries(res.papers.map((p: { key: string }) => [p.key, p]))

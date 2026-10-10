@@ -70,7 +70,8 @@ export interface AskContext {
   file?: string
 }
 
-export function askPrompt(f: CommentFile, id: string, ctx: AskContext): string {
+/** 노트 기록 파일과 논문 코멘트 파일 둘 다 (하이라이트는 보지 않는다) */
+export function askPrompt(f: Omit<CommentFile, 'highlights'>, id: string, ctx: AskContext): string {
   const q = f.comments.find((c) => c.id === id)!
   return [
     f.target.startsWith('paper-') || f.target.startsWith('manuscript')

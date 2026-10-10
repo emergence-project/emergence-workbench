@@ -9,6 +9,8 @@ import { writeLinkedTodoFiles, type LinkedTodoFileChange } from './linkedTodoWri
 import type { JournalEntry } from '@rw/core'
 import type { AskRunner } from './ask.js'
 import { classifyPrompt, parseClassification } from './classify.js'
+import type { z } from 'zod'
+import type { CommentAnswer, CommentEntry, CommentFile, CommentKind, NewCommentBody, NoteHighlight, PendingQuestion, RecordFile as RecordGroup } from '@rw/core/contract/comments'
 import { t } from './i18n.js'
 
 /**
@@ -59,45 +61,12 @@ import { t } from './i18n.js'
 
 export const COMMENTS_DIR = 'comments'
 /** 코멘트는 예전 입력과 논문 라이브러리의 호환 타입. 노트에는 메모로 저장한다. */
-export type CommentKind = '메모' | '할 일' | '질문' | '하이라이트' | '코멘트'
+export type { CommentKind } from '@rw/core/contract/comments'
 export const COMMENT_KINDS: CommentKind[] = ['메모', '할 일', '질문', '하이라이트', '코멘트']
 export { COMMENT_STATES, type CommentState } from './commentFormat.js'
 
-export interface CommentAnswer { by: string; at: string; body: string }
-export interface CommentEntry {
-  id: string
-  kind: CommentKind
-  /** 머리의 위치 그대로 (p.4, L42 …) */
-  where: string
-  page?: number
-  /** 고른 글의 사각형들 [x, y, w, h] — PDF 포인트, 쪽 왼쪽 위 원점 */
-  rects: number[][]
-  quote?: string
-  color?: HighlightColor
-  line?: number
-  prefix?: string
-  suffix?: string
-  unsorted?: true
-  split?: true
-  lost?: true
-  /** 연결한 일지 항목의 날짜와 시각 */
-  journal?: string
-  /** 같은 분에 같은 글을 두 번 적었을 때의 보조 식별자. 날짜·대상·글도 반드시 확인한다. */
-  journalIndex?: number
-  body: string
-  state: CommentState | null
-  answers: CommentAnswer[]
-}
-/** 논문 하이라이트도 같은 선택 좌표 타입을 쓰되, 기록 본문·상태는 노트에만 있다. */
-export interface NoteHighlight extends Omit<Partial<CommentEntry>, 'kind' | 'color'> {
-  id: string
-  kind?: '하이라이트'
-  rects: number[][]
-  color: HighlightColor
-}
-export interface CommentFile { target: string; title: string; source?: string; hash: string; comments: CommentEntry[]; highlights: NoteHighlight[] }
-export type RecordGroup = Omit<CommentFile, 'highlights'>
-export interface PendingQuestion { target: string; title: string; source?: string; file: string; id: string; where: string; quote?: string; body: string }
+// 응답 모양은 API 계약(@rw/core/contract/comments)에 있다
+export type { CommentAnswer, CommentEntry, NoteHighlight, CommentFile, RecordFile as RecordGroup, PendingQuestion } from '@rw/core/contract/comments'
 
 const TARGET_RE = /^[a-z]+(?:-[A-Za-z0-9._-]{1,160})?$/
 const HEAD_RE = /^## (c-[\w-]+) · (.+?) · (.*)$/
@@ -288,21 +257,8 @@ export function pendingQuestions(root: string): PendingQuestion[] {
     .map((c) => ({ target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body })))
 }
 
-export interface NewComment {
-  kind: CommentKind | '자동'
-  /** 파일을 처음 만들 때 머리에 쓸 이름 (예: 논문 sample2007) */
-  title: string
-  /** 대상의 원래 파일 (자료 PDF 이름 등). 파일을 처음 만들 때 숨은 줄로 */
-  source?: string
-  page?: number
-  rects?: number[][]
-  quote?: string
-  color?: HighlightColor
-  line?: number
-  prefix?: string
-  suffix?: string
-  text: string
-}
+/** 서버가 받은 뒤의 모양 (계약 NewCommentBody) */
+export type NewComment = z.output<typeof NewCommentBody>
 
 const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
 /** 사용자가 쓴 글 안의 줄이 코멘트 머리·답 머리·상태 줄로 읽히지 않게 */

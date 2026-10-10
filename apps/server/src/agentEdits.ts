@@ -4,6 +4,7 @@
 // - 확인된 노트(개념노트 확인함, 노트 상태 해결): 첫 쓰기를 거절하고 시도를 사용자 차례로 남긴다.
 //   에이전트는 대화에서 허락을 받은 뒤 approved로 다시 보낸다.
 // - 원고와 잠긴 개념노트는 고치지 않는다.
+import type { DecideBody, EditAttempt, EditTarget } from '@rw/core/contract/agentEdits'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -14,7 +15,8 @@ import { listNotes } from './noteList.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
 import { frontMatterLines } from '@rw/core'
 
-export type EditTarget = { kind: 'concept'; id: string } | { kind: 'note'; rid: string; file: string }
+// 응답 모양은 API 계약(@rw/core/contract/agentEdits)에 있다
+export type { EditTarget, EditAttempt } from '@rw/core/contract/agentEdits'
 
 /** 검토를 기다리는 노트 하나: 기준판(사용자가 마지막으로 본 글)과 그 뒤의 에이전트 고침 */
 export interface PendingEdit {
@@ -38,15 +40,6 @@ export interface PendingEdit {
   notes: string[]
 }
 
-/** 확인된 노트에 대한 쓰기 시도 (사용자 차례) */
-export interface EditAttempt {
-  key: string
-  target: EditTarget
-  title: string
-  at: string
-  agent?: string
-  summary?: string
-}
 
 interface StoreData { pending: PendingEdit[]; attempts: EditAttempt[] }
 
@@ -368,7 +361,7 @@ export function reviewOf(io: TargetIo, store: AgentEditStore, key: string): Revi
   return { key, target: p.target, title: st.title, hash: st.hash, since: p.since, updated: p.updated, agents: agentsOf(p), notes: p.notes, hunks }
 }
 
-export interface DecideRequest { key: string; hash: string; hunk: string; action: 'accept' | 'revert' | 'edit'; text?: string }
+export type DecideRequest = DecideBody
 
 /**
  * 바뀐 곳 하나를 정한다. 승인: 기준판에 지금 글을 받아들인다(파일은 그대로). 되돌리기: 파일의 그 부분을 기준판 글로 되돌린다.

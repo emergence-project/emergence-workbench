@@ -11,6 +11,7 @@ import { commitChecker } from '../commitsInApp.js'
 import { appIssuesUrl } from '../appupdate.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
+// 연구 저장소 기록 올리기(records)의 응답 계약은 코멘트 갈래에 있다
 
 export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void {
   const { opts, repoPath } = ctx

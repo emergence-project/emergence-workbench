@@ -190,6 +190,10 @@ describe('에이전트 고침 API', () => {
     expect(res.json().error).toContain('approved')
     expect(fs.readFileSync(path.join(lib, 'concepts/done.md'), 'utf8')).toContain('Checked text.')
     expect((await app.inject({ method: 'GET', url: '/api/agent-edits' })).json().attempts).toMatchObject([{ key: 'concept:done', summary: 'fix typo' }])
+    // 사용자가 본 시도는 지운다. 다시 시도하면 또 남는다
+    expect((await app.inject({ method: 'DELETE', url: '/api/agent-edits/attempts?key=concept:done' })).json()).toEqual({ ok: true })
+    expect((await app.inject({ method: 'GET', url: '/api/agent-edits' })).json().attempts).toEqual([])
+    expect((await write({ target, baseHash: hash, edits: [{ old: 'Checked text.', new: 'Changed text.' }] })).statusCode).toBe(428)
     const ok = await write({ target, baseHash: hash, edits: [{ old: 'Checked text.', new: 'Changed text.' }], approved: true })
     expect(ok.statusCode).toBe(200)
     expect((await app.inject({ method: 'GET', url: '/api/agent-edits' })).json().attempts).toEqual([])

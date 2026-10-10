@@ -3,7 +3,7 @@ import type { FigureRow } from './api/figures'
 import { cardImageFigures, cardImageFileError } from './cardImagePickerData'
 
 const row = (scope: string, file: string, mtime: number, name = file, description = ''): FigureRow => ({
-  id: `${scope}/${file}`, scope, file, mtime, name, description, kind: 'svg', path: file, uses: [],
+  id: `${scope}/${file}`, scope, file, mtime, name, description, kind: 'svg', path: file, uses: [], subjects: [], subjectsHash: '',
 })
 
 describe('카드 그림 고르기', () => {

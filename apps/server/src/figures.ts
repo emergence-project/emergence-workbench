@@ -1,3 +1,4 @@
+import { LIBRARY_SCOPE, type FigureBrief, type FigureKind, type FigureList, type FigureRow, type FigureUse } from '@rw/core/contract/figures'
 import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -27,41 +28,13 @@ import { t as tl } from './i18n.js'
 
 export const FIGURES_DIR = 'figures'
 export const FIGURES_META = 'figures.yaml'
-export const LIBRARY_SCOPE = 'library'
+export { LIBRARY_SCOPE } from '@rw/core/contract/figures'
 const KINDS = { '.tikz': 'tikz', '.tex': 'tikz', '.svg': 'svg', '.png': 'png', '.jpg': 'jpg', '.jpeg': 'jpg', '.pdf': 'pdf' } as const
-export type FigureKind = (typeof KINDS)[keyof typeof KINDS]
 
-export interface FigureUse {
-  /** 노트가 있는 프로젝트 (개념노트는 없음) */
-  rid?: string
-  type: 'note' | 'calc' | 'block' | 'concept'
-  /** 노트 id (보조 노트 · 개념노트) */
-  id: string
-  /** 저장소 기준 본문 파일 */
-  file: string
-  title: string
-}
-
-export interface FigureRow {
-  /** <scope>/<파일 이름> */
-  id: string
-  /** 'library' 또는 프로젝트 id */
-  scope: string
-  file: string
-  name: string
-  kind: FigureKind
-  description?: string
-  subjects?: string[]
-  subjectsHash?: string
-  /** 저장소 이름부터 적은 경로 (research-library/figures/x.tex) */
-  path: string
-  mtime: number
-  uses: FigureUse[]
-  /** tikz를 그림(SVG)으로 바꾸려다 실패했고 아직 못 바꿈 (그림 첫 화면 점검 "그림으로 못 바꾼 tikz") */
-  broken?: true
-}
-
-export interface FigureList { library: string | null; projects: { id: string; title: string }[]; figures: FigureRow[] }
+// 응답 모양은 API 계약(@rw/core/contract/figures)에 있다
+export type { FigureKind, FigureUse, FigureRow, FigureList, FigureBrief } from '@rw/core/contract/figures'
+/** 그림 원본 하나 (분류 · 쓰는 노트를 읽기 전) */
+export type FigureSource = Omit<FigureRow, 'uses' | 'subjects' | 'subjectsHash'>
 
 /** skip: 그림으로 보이지 않을 파일 (프로젝트 카드 그림, 저장소 기준) */
 interface Folder { scope: string; dir: string; repo: string; skip?: string }
@@ -113,7 +86,7 @@ export function embedNames(text: string, dir?: string): string[] {
   return [...embeds, ...targets]
 }
 
-function figuresIn(f: Folder): Omit<FigureRow, 'uses'>[] {
+function figuresIn(f: Folder): FigureSource[] {
   if (!fs.existsSync(f.dir)) return []
   const meta = readMeta(f.dir)
   return fs.readdirSync(f.dir).flatMap((file) => {
@@ -181,7 +154,7 @@ export function resolveFigure<T extends Pick<FigureRow, 'scope' | 'name' | 'file
 }
 
 /** 원본 목록만 읽는다 (내보내기·컴파일에서는 사용처 노트 전체를 읽을 필요가 없다). */
-export function listFigureSources(registry: Registry, scopes?: readonly string[]): Omit<FigureRow, 'uses'>[] {
+export function listFigureSources(registry: Registry, scopes?: readonly string[]): FigureSource[] {
   return folders(registry).filter((f) => !scopes || scopes.includes(f.scope)).flatMap(figuresIn)
 }
 
@@ -363,19 +336,6 @@ export function tikzSvg(configDir: string, abs: string): Promise<string> {
 
 // ---------- 그림 첫 화면 (라이브러리 L2, requirements §8.1 "라이브러리 첫 화면") ----------
 
-export interface FigureBrief {
-  total: number
-  /** 그림 카드의 "어디" 이름 (프로젝트 id → 이름) */
-  projects: FigureList['projects']
-  /** 최근 더한 그림 (파일 시각 순) */
-  recent: FigureRow[]
-  /** 점검 (사용자 차례) */
-  check: { broken: number }
-  /** 통계 */
-  stats: { tikz: number; svg: number; photo: number; pdf: number; unused: number; unclassified?: number }
-  /** 저장 위치: 공용(research-library/figures)과 프로젝트 전용 */
-  store: { library: number; projects: number; inProjects: number }
-}
 
 /** 화면의 거르기와 같은 조건으로 센다 (FiguresPage.tsx FILTERS) */
 export function figureBrief(list: FigureList, recent = 8): FigureBrief {

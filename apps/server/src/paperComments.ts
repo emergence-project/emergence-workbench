@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import type { CommentEntry, CommentFile } from './comments.js'
+import type { CommentEntry } from './comments.js'
+import type { PaperCommentFile, PaperHighlight } from '@rw/core/contract/papers'
 import { ANSWER_RE, answerHead, isCommentState } from './commentFormat.js'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { PAPER_COMMENTS_DIR, isSafeKey } from './papers.js'
@@ -38,12 +39,7 @@ export type PaperNoteKind = '메모' | '코멘트' | '질문' | '하이라이트
 export const HIGHLIGHT_COLORS = ['yellow', 'green', 'blue', 'pink'] as const
 export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number]
 
-export interface PaperHighlight { id: string; page: number; rects: number[][]; pageHeight: number; color: HighlightColor; quote?: string }
-export interface PaperCommentFile extends CommentFile {
-  /** 코멘트마다 남긴 프로젝트 (화면의 "이 프로젝트만" 거르기) */
-  projects: Record<string, string>
-  highlights: PaperHighlight[]
-}
+export type { PaperHighlight, PaperCommentFile } from '@rw/core/contract/papers'
 
 interface Front {
   id?: string; kind?: string; state?: string; color?: string; project?: string
