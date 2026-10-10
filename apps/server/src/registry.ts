@@ -13,6 +13,9 @@ import { t as tl } from './i18n.js'
  * 이 컴퓨터에만 있는 앱 설정 (~/.config/research-workspace/config.yaml).
  * 연구 저장소 경로는 기기마다 다르므로 git 저장소가 아니라 여기에 둔다.
  */
+/** load()가 읽어 AppConfig로 옮기는 키. latex는 예전 서식 하나(latexTemplates로 옮김). 이 밖의 키는 저장할 때 그대로 둔다 */
+const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex'])
+
 export interface AppConfig {
   engine: Engine
   /** 공유 라이브러리(research-library) 폴더. 없으면 라이브러리 서식을 쓰지 않는다 */
@@ -316,8 +319,19 @@ export class Registry {
   }
 
   private save(): void {
-    writeAtomic(this.file, `# research-workspace 앱 설정 — 이 컴퓨터에만 해당한다.\n${YAML.stringify(this.config)}`)
+    writeAtomic(this.file, `# research-workspace 앱 설정 — 이 컴퓨터에만 해당한다.\n${YAML.stringify({ ...this.unknownKeys(), ...this.config })}`)
     for (const f of this.saveListeners) f()
+  }
+
+  /**
+   * 파일에 있지만 이 앱이 모르는 맨 위 키 (다른 맥의 새 버전이 더한 설정, 손으로 적은 키).
+   * 설정을 저장할 때 함께 써서 잃지 않는다 (10/10: personalRepo가 저장할 때마다 사라지던 것과 같은 종류)
+   */
+  private unknownKeys(): Record<string, unknown> {
+    let raw: unknown
+    try { raw = fs.existsSync(this.file) ? YAML.parse(fs.readFileSync(this.file, 'utf8')) : undefined } catch { return {} }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+    return Object.fromEntries(Object.entries(raw).filter(([k]) => !CONFIG_KEYS.has(k)))
   }
 
   /** 파일에서 설정을 다시 읽는다 (GitHub에서 받은 설정으로 바뀌었을 때, backup.ts) */

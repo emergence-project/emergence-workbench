@@ -80,16 +80,33 @@ export function readLearn(lib: string | undefined): LearnList {
 
 const HEADER = '# 공부할 것 — 연구 작업대의 "모름"이 쌓이는 곳. 앱이 쓰고, 사람·에이전트가 고쳐도 된다.\n'
 
-function writeLearn(lib: string | undefined, items: LearnItem[]): LearnList {
+/**
+ * 한 항목만 바꾼다. 늘 방금 읽은 파일의 YAML 문서 위에서 그 항목만 고쳐,
+ * 바깥(사람·에이전트)이 더한 항목·칸·주석과 앱이 못 읽는 항목을 지우지 않는다.
+ */
+function editLearn(lib: string | undefined, edit: (items: YAML.YAMLSeq, doc: YAML.Document) => void): LearnList {
   const file = learnFile(lib)
-  const text = HEADER + YAML.stringify({ items }, { lineWidth: 0 })
-  writeAtomic(file, text)
-  return { items, hash: hashOf(text), exists: true }
+  const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
+  const doc = YAML.parseDocument(text.trim() ? text : `${HEADER}items: []\n`)
+  if (doc.errors.length) throw new WorkbenchError(500, t(`${LEARN_FILE}을 읽지 못했습니다: ${doc.errors[0]!.message}`, `Could not read ${LEARN_FILE}: ${doc.errors[0]!.message}`))
+  if (doc.contents === null) doc.contents = doc.createNode({}) as never
+  if (!YAML.isMap(doc.contents)) throw new WorkbenchError(500, t(`${LEARN_FILE}의 맨 위가 items: 목록이 아니라 고치지 않았습니다`, `Not changed: the top of ${LEARN_FILE} is not an items: list`))
+  let items = doc.get('items')
+  if (!YAML.isSeq(items)) {
+    if (items !== undefined && items !== null) throw new WorkbenchError(500, t(`${LEARN_FILE}의 items가 목록이 아니라 고치지 않았습니다`, `Not changed: items in ${LEARN_FILE} is not a list`))
+    items = doc.createNode([])
+    doc.set('items', items)
+  }
+  edit(items as YAML.YAMLSeq, doc)
+  writeAtomic(file, doc.toString({ lineWidth: 0 }))
+  return readLearn(lib)
 }
 
-/** 한 항목만 바꾼다. 늘 방금 읽은 파일 위에서 고쳐, 바깥에서 더한 항목을 덮어쓰지 않는다 */
-function update(lib: string | undefined, fn: (items: LearnItem[]) => LearnItem[]): LearnList {
-  return writeLearn(lib, fn(readLearn(lib).items))
+const nodeIndex = (items: YAML.YAMLSeq, id: string) => items.items.findIndex((n) => YAML.isMap(n) && String(n.get('id')) === id)
+function nodeOf(items: YAML.YAMLSeq, id: string): number {
+  const i = nodeIndex(items, id)
+  if (i < 0) throw new WorkbenchError(404, t(`공부할 것이 없음: ${id}`, `No such item to study: ${id}`))
+  return i
 }
 
 export interface NewLearn { term?: unknown; note?: unknown; from?: unknown; concept?: unknown }
@@ -99,27 +116,25 @@ export function addLearn(lib: string | undefined, input: NewLearn, now = new Dat
   if (!term) throw new WorkbenchError(400, t('모르는 말이 비어 있음', 'The unknown term is empty'))
   const stamp = `${localDate(now).replace(/-/g, '')}-${localTime(now).replace(':', '')}`
   let item: LearnItem | null = null
-  const list = update(lib, (items) => {
+  const list = editLearn(lib, (items, doc) => {
     let id = `l-${stamp}`
-    for (let n = 2; items.some((i) => i.id === id); n++) id = `l-${stamp}-${n}`
+    for (let n = 2; nodeIndex(items, id) >= 0; n++) id = `l-${stamp}-${n}`
     item = itemOf({ id, term, at: `${localDate(now)} ${localTime(now)}`, note: input.note, from: input.from, concept: input.concept })!
-    return [...items, item]
+    items.add(doc.createNode(item))
   })
   return { item: item!, list }
 }
 
 export function removeLearn(lib: string | undefined, id: string): LearnList {
-  if (!readLearn(lib).items.some((i) => i.id === id)) throw new WorkbenchError(404, t(`공부할 것이 없음: ${id}`, `No such item to study: ${id}`))
-  return update(lib, (items) => items.filter((i) => i.id !== id))
+  return editLearn(lib, (items) => { items.items.splice(nodeOf(items, id), 1) })
 }
 
 export function setLearnConcept(lib: string | undefined, id: string, concept: string | undefined): LearnList {
-  if (!readLearn(lib).items.some((i) => i.id === id)) throw new WorkbenchError(404, t(`공부할 것이 없음: ${id}`, `No such item to study: ${id}`))
-  return update(lib, (items) => items.map((i) => {
-    if (i.id !== id) return i
-    const { concept: _old, ...rest } = i
-    return concept ? { ...rest, concept } : rest
-  }))
+  return editLearn(lib, (items) => {
+    const node = items.items[nodeOf(items, id)] as YAML.YAMLMap
+    if (concept) node.set('concept', concept)
+    else node.delete('concept')
+  })
 }
 
 export function learnItem(lib: string | undefined, id: string): LearnItem {

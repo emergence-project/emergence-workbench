@@ -350,7 +350,7 @@ star: true
 | `comments/<키>/c-*.md` | 논문 코멘트 (§10.3) |
 | `figures/`, `figures/figures.yaml` | 공용 그림 (§8) |
 | `subjects.yaml` | 분류 나무 (§10.2) |
-| `to-learn.yaml` | 공부할 것 |
+| `to-learn.yaml` | 공부할 것 (`items: [{id, term, at, note?, from?, concept?}]`). 앱은 YAML 문서로 읽어 고친 항목만 바꾼다. 주석, 다른 키, 앱이 못 읽는 항목(id 없는 것 등)은 남는다 |
 | `preamble/*.tex` | 컴파일 머리. 이름 `^[a-z0-9-]+\.tex$`, 머리 `% place: first|last` |
 
 ### 10.1 개념노트 머리말
@@ -401,7 +401,7 @@ checked:
 
 | 파일 | 무엇 |
 |---|---|
-| `config.yaml` | 등록한 연구(`researches: [{id, path, kind?, fields?, state?}]`), `library`, `pdfFolders`, `personalRepo`, `engine`, `ui`, 서식, 사람. **앱이 저장할 때 전체를 다시 쓰므로 주석과 모르는 키는 사라진다** |
+| `config.yaml` | 등록한 연구(`researches: [{id, path, kind?, fields?, state?}]`), `library`, `pdfFolders`, `personalRepo`, `engine`, `ui`, 서식, 사람. 앱이 저장할 때 전체를 다시 쓰므로 주석은 사라진다. 앱이 모르는 맨 위 키(다른 맥의 새 버전이 더한 설정 등)는 저장할 때 그대로 남긴다 |
 | `index/concepts-*.sqlite` | 개념 색인 (지워도 다시 만듦) |
 | `figure-cache/` | tikz 그림 캐시 (지워도 됨) |
 | `agent-edits/edits-*.json` | 에이전트 고침 기록. 깨지면 `.broken-<시각>`으로 옮기고 새로 시작 |
