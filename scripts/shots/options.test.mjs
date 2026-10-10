@@ -38,10 +38,10 @@ test('help is available without starting a browser', () => {
 })
 
 
-test('the existing CI scope stays 55 screens with exactly two dark captures', () => {
+test('the existing CI scope stays 56 screens with exactly two dark captures', () => {
   const defaults = parseShotOptions([], {})
   const screens = selectScreens(defaults.sample)
-  assert.equal(screens.length, 55)
+  assert.equal(screens.length, 56)
   assert.deepEqual(screens.filter(([name]) => screenScheme(defaults.theme, name) === 'dark').map(([name]) => name), ['dark-topic', 'dark-note-info'])
   assert.equal(selectScreens('subjects').length, 10)
   assert.ok(selectScreens('subjects').every(([name]) => name.startsWith('subjects-')))
@@ -67,7 +67,7 @@ test('the actual CI capture command selects the same bounded default scope', () 
   const command = workflow.jobs.check.steps.find((step) => step.run?.startsWith('pnpm shots')).run
   const options = parseShotOptions(command.split(/\s+/).slice(2), {})
   assert.deepEqual(options, { viewport: { width: 1200, height: 735 }, theme: 'mixed', sample: 'default', lang: 'ko', help: false })
-  assert.equal(selectScreens(options.sample).length, 55)
+  assert.equal(selectScreens(options.sample).length, 56)
   assert.equal(selectScreens(options.sample).filter(([name]) => screenScheme(options.theme, name) === 'dark').length, 2)
 })
 
