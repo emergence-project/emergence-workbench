@@ -495,6 +495,7 @@ describe('서식 라이브러리', () => {
       '\\usepackage{amsmath,amssymb,amsthm}',
       '\\newtheorem*{lemma}{Lemma}',
       '\\newcommand{\\Tr}{\\operatorname{Tr}}',
+      '\\newcommand{\\R}{\\mathbb{R}}',
       '\\newcommand{\\ICS}{\\Sigma}',
       '',
     ].join('\n'))
@@ -524,7 +525,7 @@ describe('서식 라이브러리', () => {
   it.skipIf(!hasLatex)('저장소 서식과 라이브러리가 같은 기호·환경을 정의해도 충돌 없이 컴파일된다 (저장소 쪽이 이긴다)', async () => {
     const rid = 'alpha-like'
     const b = (await app.inject({ method: 'POST', url: `/api/researches/${rid}/blocks`, payload: { title: 'Library check', id: 'lib-check' } })).json()
-    const content = `${b.content}\\begin{lemma}한글 보조정리: $\\Tr \\rho = 1$, $\\ket{\\psi}\\bra{\\phi}$, $\\proj{0}$, $\\ICS$\\end{lemma}\n\\begin{theorem}번호 있는 정리.\\end{theorem}\n`
+    const content = `${b.content}\\begin{lemma}한글 보조정리: $\\Tr \\rho = 1$, $x \\in \\R$, $n \\in \\N$, $\\abs{x}$, $\\ICS$\\end{lemma}\n\\begin{theorem}번호 있는 정리.\\end{theorem}\n`
     expect((await app.inject({ method: 'PUT', url: `/api/researches/${rid}/blocks/lib-check`, payload: { content, baseHash: b.hash } })).statusCode).toBe(200)
     const compiled = (await app.inject({ method: 'POST', url: `/api/researches/${rid}/blocks/lib-check/compile` })).json()
     expect(compiled.problems).toEqual([])
