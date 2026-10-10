@@ -1,9 +1,9 @@
 import YAML from 'yaml'
 import { t } from './i18n.js'
+import { frontMatter } from '@rw/core'
 
 export const TASK_STATES = ['working', 'proposed', 'result', 'done', 'paused', 'stopped'] as const
 export const TASK_ID = /^\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*$/
-export const TASK_FRONT = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/
 export interface TaskDiagnostic {
   file: string
   code: 'filename' | 'frontmatter' | 'yaml' | 'schema' | 'read'
@@ -28,20 +28,20 @@ const valueLabel = (v: unknown): string => {
 /** 읽기 전용. 화면·STATUS·제출 전 검사가 같은 진단을 쓴다. */
 export function inspectTask(file: string, content: string): TaskInspection {
   const diagnostics: TaskDiagnostic[] = []
-  const m = TASK_FRONT.exec(content)
+  const m = frontMatter(content)
   if (!m) return { bodyStart: 0, diagnostics: [{ file, code: 'frontmatter', line: 1, message: t('YAML 머리말이 없습니다. 파일 맨 위를 ---로 감싸세요.', 'No YAML front matter. Wrap the top of the file in ---.') }] }
   const counter = new YAML.LineCounter()
-  const doc = YAML.parseDocument(m[1]!, { lineCounter: counter, prettyErrors: false })
+  const doc = YAML.parseDocument(m.yaml, { lineCounter: counter, prettyErrors: false })
   for (const error of doc.errors) {
     const loc = counter.linePos(error.pos[0])
     diagnostics.push({ file, code: 'yaml', line: loc.line + 1, column: loc.col, message: t(`YAML 오류: ${error.message.split('\n')[0]}`, `YAML error: ${error.message.split('\n')[0]}`) })
   }
-  if (diagnostics.length) return { bodyStart: m[0].length, diagnostics }
+  if (diagnostics.length) return { bodyStart: m.head.length, diagnostics }
   let data: unknown
   try { data = doc.toJSON() } catch (e) {
-    return { bodyStart: m[0].length, diagnostics: [{ file, code: 'yaml', line: 2, message: t(`YAML 오류: ${(e as Error).message}`, `YAML error: ${(e as Error).message}`) }] }
+    return { bodyStart: m.head.length, diagnostics: [{ file, code: 'yaml', line: 2, message: t(`YAML 오류: ${(e as Error).message}`, `YAML error: ${(e as Error).message}`) }] }
   }
-  if (!record(data)) return { bodyStart: m[0].length, diagnostics: [{ file, code: 'schema', line: 2, message: t('머리말은 칸 이름과 값으로 적어야 합니다.', 'Front matter must be written as field names and values.') }] }
+  if (!record(data)) return { bodyStart: m.head.length, diagnostics: [{ file, code: 'schema', line: 2, message: t('머리말은 칸 이름과 값으로 적어야 합니다.', 'Front matter must be written as field names and values.') }] }
   const issue = (key: string, message: string) => {
     const pair = YAML.isMap(doc.contents) ? doc.contents.items.find((p) => YAML.isScalar(p.key) && p.key.value === key) : undefined
     const pos = YAML.isScalar(pair?.key) ? pair.key.range?.[0] : undefined
@@ -71,5 +71,5 @@ export function inspectTask(file: string, content: string): TaskInspection {
   validateList('answers', (v) => record(v) && Number.isInteger(v.n) && Number(v.n) > 0 && text(v.answer) && optionalText(v, 'note') && optionalText(v, 'at'), t('{ n: 질문 번호, answer, note, at } 목록으로 적으세요.', 'Give a list of { n: question number, answer, note, at }.'))
   validateList('judged', (v) => record(v) && oneOf(v.verdict, ['approve', 'send-back', 'pause', 'discard']) && optionalText(v, 'note') && optionalText(v, 'at') && (v.seconds === undefined || (Number.isInteger(v.seconds) && Number(v.seconds) >= 0)), t('{ verdict: approve|send-back|pause|discard, note, at, seconds } 목록으로 적으세요.', 'Give a list of { verdict: approve|send-back|pause|discard, note, at, seconds }.'))
   if (data.check !== undefined && (!record(data.check) || !['machine', 'repro', 'human'].every((key) => optionalText(data.check as Record<string, unknown>, key)))) issue('check', t('check: machine · repro · human 칸은 글로 적으세요.', 'check: the machine · repro · human fields must be text.'))
-  return { front: data, bodyStart: m[0].length, diagnostics }
+  return { front: data, bodyStart: m.head.length, diagnostics }
 }

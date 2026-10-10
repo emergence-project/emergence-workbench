@@ -1,3 +1,5 @@
+import { stripFrontMatter } from './front-matter.js'
+
 /**
  * Markdown + KaTeX 노트 본문 → LaTeX 본문 (10/4 결정 "연구노트·보조 노트는 개념노트와 같은 Markdown + KaTeX, PDF는 내보낼 때 프로젝트 서식으로").
  * 노트 파일은 그대로 두고, 컴파일·내보내기 때만 이 글을 만든다.
@@ -19,10 +21,7 @@ const TEXT_ESC: Record<string, string> = {
 export const escapeLatexText = (s: string) => s.replace(/[\\{}#$%&_~^]/g, (c) => TEXT_ESC[c]!)
 
 /** 맨 위 YAML 머리말을 뗀 본문 */
-export function stripMdFrontMatter(src: string): string {
-  const m = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/.exec(src)
-  return m ? src.slice(m[0].length) : src
-}
+export const stripMdFrontMatter = stripFrontMatter
 
 /** $…$ 밖에서 [ ] 짝을 맞춰 ^[…]의 끝을 찾는다 (없으면 -1) */
 export function footnoteEnd(t: string, open: number): number {

@@ -2,7 +2,7 @@ import { execFile, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { buildFrontMatter, buildSettingTex, isBodyOnly, markdownToLatex, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox } from '@rw/core'
+import { buildFrontMatter, buildSettingTex, isBodyOnly, markdownToLatex, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox, frontMatterLines } from '@rw/core'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { hasFrontMatter, hasMaketitle, needsBodyOnly, NOTE_MACROS } from './noteBody.js'
 import { isCompletePdf, type CompileResult, type Engine } from './latex.js'
@@ -104,8 +104,7 @@ export function markdownSections(text: string, file: string): ManuscriptPart[] {
   let appendix = false
   const lines = text.split('\n')
   // 맨 위 머리말은 건너뛴다
-  let i = 0
-  if (/^---\s*$/.test(lines[0] ?? '')) { const end = lines.findIndex((l, n) => n > 0 && /^---\s*$/.test(l)); if (end > 0) i = end + 1 }
+  let i = frontMatterLines(text)
   for (; i < lines.length; i++) {
     const l = lines[i]!
     if (/^\s*(```|~~~)/.test(l)) fence = !fence

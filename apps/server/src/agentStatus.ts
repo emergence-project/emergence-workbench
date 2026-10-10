@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { buildTree, RESEARCH_TARGET, todoDue, type JournalEntry } from '@rw/core'
+import { buildTree, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter } from '@rw/core'
 import YAML from 'yaml'
 import { localDate, writeAtomic } from './fsutil.js'
 import { allManuscripts, groundsOf, lastCompile } from './manuscript.js'
@@ -47,12 +47,12 @@ export function listReviews(repo: string, sources: ProjectSources): ReviewDoc[] 
       if (st.isDirectory()) { if (n !== 'sources' && n !== 'archive') walk(p); continue }
       if (!n.endsWith('.md')) continue
       const text = fs.readFileSync(p, 'utf8')
-      const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)
-      if (!m) continue
+      const f = frontMatter(text)
+      if (!f) continue
       let fm: Record<string, unknown> = {}
-      try { fm = YAML.parse(m[1]!) ?? {} } catch { continue }
+      try { fm = YAML.parse(f.yaml) ?? {} } catch { continue }
       if (typeof fm.status !== 'string') continue
-      const h1 = /^#\s+(.+)$/m.exec(text.slice(m[0].length))?.[1]
+      const h1 = /^#\s+(.+)$/m.exec(f.body)?.[1]
       out.push({ file: path.relative(repo, p), title: String(fm.title ?? h1 ?? n), status: fm.status, updated: fm.updated ? String(fm.updated) : undefined })
     }
   }

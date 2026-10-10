@@ -13,6 +13,7 @@ import { go } from './router'
 import { NoteAsk, type CommentTarget } from './Comments'
 import { askConfirm } from './askText'
 import { t } from './i18n'
+import { frontMatterEnd } from '@rw/core'
 
 /**
  * 연구노트·보조 노트의 Markdown + KaTeX 본문 (10/4 결정: 개념노트와 같은 형식과 편집기).
@@ -41,11 +42,6 @@ export const AUX_NOTE_COMMANDS: Command[] = [
   ...COMMON_COMMANDS,
 ]
 
-/** 머리말 끝 위치 (없으면 0) */
-export function frontMatterEnd(text: string): number {
-  const m = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/.exec(text)
-  return m ? m[0].length : 0
-}
 
 /** 기호 모음(공유 기호 파일) + 이 노트에서 처음 나온 순서의 인용 번호 + bib의 제목 */
 export function useNoteRender(text: string, rapi: ResearchApi, rid?: string): RenderOptions {

@@ -7,6 +7,7 @@ import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { PAPER_COMMENTS_DIR, isSafeKey } from './papers.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
+import { frontMatter } from '@rw/core'
 
 /**
  * 논문의 코멘트 · 질문 · 하이라이트 (planning/proposal-2026-10-05-libraries.md §3, 형식은 10/5 사용자 결정).
@@ -57,18 +58,18 @@ function dirOf(lib: string, key: string): string {
 }
 
 function split(text: string): { front: Front; body: string } {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text)
-  if (!m) return { front: {}, body: text }
+  const f = frontMatter(text)
+  if (!f) return { front: {}, body: text }
   let front: Front = {}
-  try { front = (YAML.parse(m[1]!) as Front) ?? {} } catch { /* 깨진 머리말은 본문만 */ }
-  return { front, body: text.slice(m[0].length) }
+  try { front = (YAML.parse(f.yaml) as Front) ?? {} } catch { /* 깨진 머리말은 본문만 */ }
+  return { front, body: f.body }
 }
 
 /** 고쳐 쓸 때: 머리말이 깨졌으면 쓰지 않는다 (kind · page · rects · quote를 잃지 않게) */
 function splitForWrite(text: string): { front: Front; body: string } {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text)
+  const f = frontMatter(text)
   let ok = false
-  if (m) { try { const v = YAML.parse(m[1]!) as unknown; ok = !!v && typeof v === 'object' && !Array.isArray(v) } catch { ok = false } }
+  if (f) { try { const v = YAML.parse(f.yaml) as unknown; ok = !!v && typeof v === 'object' && !Array.isArray(v) } catch { ok = false } }
   if (!ok) throw new WorkbenchError(422, t('코멘트 파일의 머리말(---)을 읽을 수 없어 고치지 않았습니다. 파일을 먼저 고쳐 주세요', 'Could not read the comment file front matter (---), so nothing was changed. Fix the file first'))
   return split(text)
 }

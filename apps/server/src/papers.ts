@@ -9,6 +9,7 @@ import { isSafeKey, listMaterials, parseBib, type BibEntry } from './materials.j
 import type { Registry } from './registry.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
+import { frontMatter } from '@rw/core'
 
 /**
  * 논문 라이브러리 (planning/proposal-2026-10-05-libraries.md §2, §5).
@@ -35,8 +36,8 @@ function paperComments(lib: string, key: string): { kind?: string; state?: strin
 }
 
 const cachedComment = fileCache((text): { kind?: string; state?: string } => {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)
-  try { const y = m ? YAML.parse(m[1]!) as Record<string, unknown> : {}; return { kind: String(y?.kind ?? ''), state: String(y?.state ?? '') } } catch { return {} }
+  const f = frontMatter(text)
+  try { const y = f ? YAML.parse(f.yaml) as Record<string, unknown> : {}; return { kind: String(y?.kind ?? ''), state: String(y?.state ?? '') } } catch { return {} }
 })
 
 export type PaperKind = 'paper' | 'book'
