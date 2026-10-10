@@ -4,6 +4,7 @@ import { buildTree, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter, co
 import YAML from 'yaml'
 import { localDate, writeAtomic } from './fsutil.js'
 import { appPath, homeShort } from './agentPaths.js'
+import { localSyncState } from './gitSyncState.js'
 import { allManuscripts, groundsOf, lastCompile } from './manuscript.js'
 import { listMaterials } from './materials.js'
 import { listStatements } from './statements.js'
@@ -79,9 +80,19 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
   const today = localDate(now)
   const out: string[] = []
   const p = (...l: string[]) => out.push(...l)
+  const sync = localSyncState(repo)
+  const warnings: string[] = []
+  if (sync?.behind) {
+    const checked = sync.fetchedAt ? `(마지막 확인 ${localDate(sync.fetchedAt)} ${sync.fetchedAt.toTimeString().slice(0, 5)})` : ''
+    const more = sync.conflictCount - sync.conflicts.length
+    const conflicts = sync.conflictCount ? ` 커밋하지 않은 변경과 겹치는 파일: ${sync.conflicts.join(', ')}${more ? ` 외 ${more}개` : ''}.` : ''
+    warnings.push(`> ⚠ 이 사본은 GitHub보다 ${sync.behind}커밋 뒤다${checked}. 일하기 전에 받는다: 앱 홈의 받기 또는 \`git pull --ff-only\`.${conflicts}`)
+  }
+  if (sync?.ahead) warnings.push(`> ⚠ 이 컴퓨터에만 있는 커밋 ${sync.ahead}개가 GitHub에 없다.`)
 
   p(`# STATUS — ${info.title}`, '',
     `${STATUS_HEAD} (${today} ${now.toTimeString().slice(0, 5)}). **고치지 말 것** — 고칠 것은 아래 정본 파일에서.`,
+    ...warnings,
     '> 이 저장소의 에이전트는 이 파일을 먼저 읽어 지금 어디까지 왔는지 파악한 뒤, 저장소 자체 규칙(AGENTS.md·CLAUDE.md)을 따른다.',
     `> 사용자가 맡긴 일(\`workbench/tasks/\`)은 공통 규칙 \`${RULES_DOC}\`을 따른다: 종결 조건을 먼저, 결과는 같은 파일에, 승인은 사용자만.`,
     `> 파일을 직접 고칠 때는 형식 문서 \`${appPath('docs/repo-format.md')}\`를 따르고, 고친 뒤 \`pnpm --dir ${appPath()} agent:check ${homeShort(repo)}\`로 검사한다.`,

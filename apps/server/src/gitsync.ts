@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import { promisify } from 'node:util'
 import { t } from './i18n.js'
+import { syncCommands, syncChanges } from './gitSyncState.js'
 import type { RepoSync, RepoInfo } from '@rw/core/contract/research'
 export type { RepoSync, RepoInfo }
 
@@ -12,8 +13,8 @@ const FETCH_EVERY_MS = 60_000
 const lastFetch = new Map<string, { at: number; error?: string }>()
 
 async function git(root: string, ...args: string[]): Promise<string> {
-  const { stdout } = await exec('git', ['-C', root, ...args], { timeout: 30_000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
-  return stdout.trim()
+  const { stdout } = await exec('git', ['-C', root, ...args], { timeout: 30_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
+  return args.includes('-z') ? stdout : stdout.trim()
 }
 
 const firstLine = (e: unknown) => String((e as { stderr?: string }).stderr || e).split('\n').find((l) => l.trim())?.trim() ?? t('알 수 없는 오류', 'Unknown error')
@@ -58,7 +59,7 @@ export function remoteWeb(url: string): { shown: string; web: string | null } {
 export async function repoInfo(root: string, opts: { fetch?: boolean } = {}): Promise<RepoInfo> {
   let top: string
   try { top = await git(root, 'rev-parse', '--show-toplevel') } catch { return { state: 'none' } }
-  if (fs.realpathSync(top) !== fs.realpathSync(root)) return { state: 'inside', top }
+  if (fs.realpathSync.native(top) !== fs.realpathSync.native(root)) return { state: 'inside', top }
   const opt = (p: Promise<string>) => p.catch(() => null)
   const [head, upstream, remoteList, status] = await Promise.all([
     opt(git(root, 'symbolic-ref', '--quiet', '--short', 'HEAD')),
@@ -102,23 +103,26 @@ export async function repoSync(root: string, opts: { fetch?: boolean; force?: bo
   let upstream: string
   try {
     // 저장소 안의 하위 폴더면(예: 다른 저장소 안의 예제 연구) 바깥 저장소 상태를 보여 주지 않는다
-    if (fs.realpathSync(await git(root, 'rev-parse', '--show-toplevel')) !== fs.realpathSync(root)) return null
-    branch = await git(root, 'rev-parse', '--abbrev-ref', 'HEAD')
-    upstream = await git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')
+    if (fs.realpathSync.native(await git(root, ...syncCommands.top)) !== fs.realpathSync.native(root)) return null
+    branch = await git(root, ...syncCommands.branch)
+    upstream = await git(root, ...syncCommands.upstream)
   } catch { return null }
 
   if (opts.fetch) await fetchRemote(root, upstream.split('/')[0]!, opts.force)
   const [aheadBehind, status] = await Promise.all([
-    git(root, 'rev-list', '--left-right', '--count', 'HEAD...@{upstream}'),
-    git(root, 'status', '--porcelain', '--untracked-files=no'),
+    git(root, ...syncCommands.counts),
+    git(root, ...syncCommands.status),
   ])
   const [ahead, behind] = aheadBehind.split(/\s+/).map(Number) as [number, number]
-  const dirty = status ? status.split('\n').length : 0
+  const incoming = behind > 0 ? await Promise.all([
+    git(root, ...syncCommands.incoming), git(root, ...syncCommands.added), git(root, ...syncCommands.untracked),
+  ]) : []
+  const changes = syncChanges(status, ...incoming)
   const f = lastFetch.get(root)
   return {
-    branch, upstream, ahead, behind, dirty,
+    branch, upstream, ahead, behind, ...changes,
     fetchedAt: f && !f.error ? f.at : null, fetchError: f?.error,
-    canUpdate: behind > 0 && ahead === 0 && dirty === 0,
+    canUpdate: behind > 0 && ahead === 0 && changes.conflictCount === 0,
   }
 }
 
@@ -126,17 +130,21 @@ export class SyncError extends Error {}
 
 /**
  * 원격의 새 커밋을 받아온다. 빨리 감기(fast-forward)만 한다:
- * 이 컴퓨터에 커밋이나 커밋 안 한 변경이 있으면 아무것도 하지 않고 멈춘다. 병합·리베이스·덮어쓰기는 하지 않는다.
+ * 이 컴퓨터에만 있는 커밋이나 겹치는 파일이 있으면 멈춘다. 병합·리베이스·덮어쓰기는 하지 않는다.
  */
 export async function fastForward(root: string): Promise<RepoSync> {
   const s = await repoSync(root, { fetch: true, force: true })
   if (!s) throw new SyncError(t('GitHub 브랜치를 추적하는 git 저장소가 아닙니다', 'Not a git repository that tracks a GitHub branch'))
   if (s.fetchError) throw new SyncError(t(`GitHub를 확인하지 못했습니다: ${s.fetchError}`, `Could not check GitHub: ${s.fetchError}`))
-  if (s.behind === 0) return s
   if (s.ahead > 0) throw new SyncError(t(`이 컴퓨터에만 있는 커밋 ${s.ahead}개가 있어 자동으로 받지 않습니다. 터미널에서 git pull로 합쳐 주세요`, `Not pulled automatically: ${s.ahead} commit${s.ahead === 1 ? ' is' : 's are'} only on this computer. Merge with git pull in a terminal`))
-  if (s.dirty > 0) throw new SyncError(t(`커밋하지 않은 변경 ${s.dirty}개가 있어 받지 않습니다. 먼저 커밋해 주세요`, `Not pulled: ${s.dirty} uncommitted change${s.dirty === 1 ? '' : 's'}. Commit first`))
-  try { await git(root, 'merge', '--ff-only', '--quiet', '@{upstream}') } catch (e) {
-    throw new SyncError(t(`받아오지 못했습니다: ${String((e as { stderr?: string }).stderr ?? e).split('\n').find((l) => l.trim())}`, `Could not pull: ${String((e as { stderr?: string }).stderr ?? e).split('\n').find((l) => l.trim())}`))
+  if (s.behind === 0) return s
+  if (s.conflictCount > 0) {
+    const files = s.conflicts.slice(0, 5).join(', ')
+    const more = s.conflictCount - Math.min(5, s.conflicts.length)
+    throw new SyncError(t(`커밋하지 않은 변경과 GitHub의 새 커밋이 같은 파일을 고쳐 받지 않습니다: ${files}${more ? ` 외 ${more}개` : ''}. 먼저 커밋하거나 합쳐 주세요`, `Not pulled because uncommitted changes and new GitHub commits change the same files: ${files}${more ? ` and ${more} more` : ''}. Commit or merge first`))
+  }
+  try { await git(root, 'merge', '--ff-only', '--no-autostash', '--no-overwrite-ignore', '--quiet', '@{upstream}') } catch (e) {
+    throw new SyncError(t(`받아오지 못했습니다: ${firstLine(e)}`, `Could not pull: ${firstLine(e)}`))
   }
   return (await repoSync(root))!
 }

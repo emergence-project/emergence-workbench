@@ -261,7 +261,10 @@ function Attention({ mark, issues, tasks = 0, edits = 0, sync, onUpdate }: Pick<
   if (!mark) return null
   const tip0 = issueTip(issues - tasks - edits, tasks, edits)
   const checkTip = t(`확인 필요 — ${tip0}`, `Needs review: ${tip0}`)
-  const updateTip = sync ? t(`업데이트 필요 — GitHub에 새 커밋 ${sync.behind}개${sync.canUpdate ? onUpdate ? ' (누르면 받습니다)' : '' : ' · 이 컴퓨터에 커밋이나 변경이 있어 터미널에서 git pull'}`, `Needs update: ${plural(sync.behind, 'new commit')} on GitHub${sync.canUpdate ? onUpdate ? ' (click to pull)' : '' : ' · this computer has commits or changes, so run git pull in a terminal'}`) : ''
+  const updateReason = sync?.ahead ? t(' · 이 컴퓨터에 커밋이나 변경이 있어 터미널에서 git pull', ' · this computer has commits or changes, so run git pull in a terminal')
+    : sync?.conflictCount ? t(` · 이 컴퓨터의 변경과 겹치는 파일: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` 외 ${sync.conflictCount - sync.conflicts.length}개` : ''} (터미널에서 합치기)`, ` · Files overlapping with changes on this computer: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` and ${sync.conflictCount - sync.conflicts.length} more` : ''} (merge in a terminal)`)
+      : sync?.canUpdate && onUpdate ? t(' (누르면 받습니다)', ' (click to pull)') : ''
+  const updateTip = sync ? t(`업데이트 필요 — GitHub에 새 커밋 ${sync.behind}개${updateReason}`, `Needs update: ${plural(sync.behind, 'new commit')} on GitHub${updateReason}`) : ''
   if (mark === 'check') return <span className="am-dot" role="img" aria-label={checkTip} title={checkTip} />
   const tip = mark === 'both' ? `${checkTip}\n${updateTip}` : updateTip
   const icon: ReactNode = <>{Icon.sync}{mark === 'both' && <span className="am-badge" aria-hidden />}</>

@@ -51,7 +51,7 @@ function checkPaths(paths: string[]): void {
 export async function locate(dir: string): Promise<{ top: string; rel: string }> {
   let top: string
   try { top = await git(dir, ['rev-parse', '--show-toplevel']) } catch { throw new PathSyncError(t(`git 저장소 안에 있지 않습니다: ${dir}`, `Not inside a git repository: ${dir}`)) }
-  return { top, rel: path.relative(fs.realpathSync(top), fs.realpathSync(dir)).split(path.sep).join('/') }
+  return { top, rel: path.relative(fs.realpathSync.native(top), fs.realpathSync.native(dir)).split(path.sep).join('/') }
 }
 
 /** 지금 체크아웃된 브랜치 이름. 분리된 HEAD면 '' */
