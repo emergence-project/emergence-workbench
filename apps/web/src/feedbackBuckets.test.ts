@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FeedbackItem } from './api'
-import { feedbackBucket, stateOf, type FeedbackBucket } from './feedbackBuckets'
+import { feedbackBucket, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 
 const NOW = new Date('2026-10-07T12:00').getTime()
 const REJECTED_AT = '2026-10-06T14:00'
@@ -94,5 +94,16 @@ describe('feedbackBucket', () => {
     expect(feedbackBucket(entry('다시 처리함', reworkedOne), NOW)).toBe('확인 필요')
     expect(feedbackBucket(entry('처리 전에 고침', { ...reworkedOne, review: { ...reworkedOne.review, edited: '2026-10-06T14:30' } }), NOW)).toBe('확인 필요')
     expect(feedbackBucket(entry('처리 뒤에 고침', { ...reworkedOne, review: { ...reworkedOne.review, edited: '2026-10-06T16:00' } }), NOW)).toBe('대기')
+  })
+
+  it('왼쪽 띠의 수는 확인 필요 수와 같다: 답을 기다리는 코멘트가 있는 항목은 세지 않는다 (10/10 14:33)', () => {
+    const entries = [
+      entry('물음', { status: { state: '동의' } }),
+      entry('최근 반영', { status: { state: '반영' } }),
+      entry('물음에 코멘트', { status: { state: '답변', ask: '지금 할까요?' }, comments: [{ at: '2026-10-07T11:00', note: '어디에?' }] }),
+      entry('반영에 코멘트', { status: { state: '반영' }, comments: [{ at: '2026-10-07T11:00', note: '왜?' }] }),
+    ]
+    expect(railCount(entries, NOW)).toEqual({ ask: 1, confirm: 1 })
+    expect(entries.filter((e) => feedbackBucket(e, NOW) === '확인 필요')).toHaveLength(2)
   })
 })

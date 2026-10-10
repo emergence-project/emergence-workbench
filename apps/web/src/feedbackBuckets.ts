@@ -45,3 +45,12 @@ export function feedbackBucket(e: FeedbackItem, now = Date.now()): FeedbackBucke
   if (state === '대기' || (state === '보류' && !e.status?.ask)) return '대기'
   return '완료'
 }
+
+/**
+ * 왼쪽 띠의 수: 피드백 화면 "확인 필요"에 드는 항목을 답할 것과 확인할 것으로 나눈다.
+ * 답을 기다리는 코멘트가 있는 항목은 에이전트 차례라 세지 않는다 (10/10 14:33: 띠 5, 확인 필요 0).
+ */
+export function railCount(entries: FeedbackItem[], now = Date.now()) {
+  const mine = entries.filter((e) => feedbackBucket(e, now) === '확인 필요')
+  return { ask: mine.filter(needsAnswer).length, confirm: mine.length - mine.filter(needsAnswer).length }
+}

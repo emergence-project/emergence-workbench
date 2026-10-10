@@ -8,7 +8,7 @@ import { askConfirm } from './askText'
 import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
-import { asksUser, feedbackBucket, needsAnswer, needsConfirm, stateOf, unansweredComments, type FeedbackBucket } from './feedbackBuckets'
+import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, unansweredComments, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
@@ -461,12 +461,12 @@ function Compose({ e }: { e: FeedbackItem }) {
   )
 }
 
-/** 왼쪽 띠의 피드백 버튼에 붙는 수: 답할 것 + 확인할 것. 피드백이 바뀌면 다시 센다 */
+/** 왼쪽 띠의 피드백 버튼에 붙는 수: 답할 것 + 확인할 것. 피드백 화면의 "확인 필요" 수와 같다. 피드백이 바뀌면 다시 센다 */
 export function FeedbackRailCount({ version }: { version: number }) {
   const [n, setN] = useState<{ ask: number; confirm: number } | null>(null)
   const [tick, setTick] = useState(0)
   useEffect(() => {
-    api.feedbackAll().then((b) => setN({ ask: b.entries.filter(needsAnswer).length, confirm: b.entries.filter((e) => needsConfirm(e)).length })).catch(() => setN(null))
+    api.feedbackAll().then((b) => setN(railCount(b.entries))).catch(() => setN(null))
   }, [version, tick])
   useEffect(() => {
     const on = () => setTick((t) => t + 1)
