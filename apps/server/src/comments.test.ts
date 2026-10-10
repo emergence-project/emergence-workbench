@@ -58,6 +58,12 @@ describe('PDF 코멘트 파일', () => {
     expect(pendingQuestions(root)).toEqual([])
   })
 
+  it('백업 동기화가 남긴 사본(이름.github-YYYYMMDD.md)은 별개 대상으로 읽지 않는다', () => {
+    addComment(root, 'project', { kind: '코멘트', title: '프로젝트', text: '원본' }, at)
+    fs.copyFileSync(path.join(root, 'comments/project.md'), path.join(root, 'comments/project.github-20261010.md'))
+    expect(listComments(root).map((x) => x.target)).toEqual(['project'])
+  })
+
   it('에이전트 함은 대기 중인 질문만 모으고, 끝냄으로 바꾸면 빠진다', () => {
     addComment(root, 'block-v-clock', { kind: '질문', title: '작업노트 결과 v-clock', page: 1, text: '왜?' }, at)
     addComment(root, 'block-v-clock', { kind: '코멘트', title: '작업노트 결과 v-clock', page: 1, text: '메모' }, at)

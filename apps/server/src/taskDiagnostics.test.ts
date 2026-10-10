@@ -13,6 +13,13 @@ const task = (extra = '') => `---\ntitle: 점검\ntask: 대조\nstate: working\n
 beforeEach(() => { fs.rmSync(dir(), { recursive: true, force: true }); fs.mkdirSync(dir(), { recursive: true }) })
 
 describe('작업 파일 읽기 진단', () => {
+  it('백업 동기화가 남긴 사본은 이름 오류가 아니라 사본이라고 알린다', async () => {
+    write('2026-10-07-good.md', task())
+    write('2026-10-07-good.github-20261010.md', task())
+    const response = (await app.inject({ method: 'GET', url: `${R}/tasks` })).json()
+    expect(response.tasks.map((t: { id: string }) => t.id)).toEqual(['2026-10-07-good'])
+    expect(response.diagnostics).toEqual([expect.objectContaining({ file: 'workbench/tasks/2026-10-07-good.github-20261010.md', code: 'filename', message: expect.stringContaining('사본') })])
+  })
   it('깨진 YAML·머리말 누락·상태 오타·파일 이름을 누락하지 않고 파일과 줄로 알린다', async () => {
     const files = {
       '2026-10-07-yaml.md': task('conclusion: 결론: 대조 통과\n'),

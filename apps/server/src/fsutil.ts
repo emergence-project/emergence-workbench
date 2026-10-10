@@ -53,3 +53,6 @@ export function localTime(d = new Date()): string {
 export function isLatexSafePath(p: string): boolean {
   return !/[\s{}%\\#~$^&]/.test(p)
 }
+
+/** 백업 동기화가 양쪽에서 고친 파일의 GitHub 쪽을 남긴 사본: `이름.github-YYYYMMDD.확장자` (backup.ts) */
+export const isBackupCopy = (name: string): boolean => /\.github-\d{8}(?:\.[^./]+)?$/.test(name)

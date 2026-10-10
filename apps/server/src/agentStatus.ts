@@ -199,7 +199,7 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     const grounds = mss.length ? groundsOf(content, mss.flatMap((m) => m.parts)) : []
     if (grounds.length) p(`${'  '.repeat(depth)}  - 원고: ${grounds.map(partLabel).join(' · ')}`)
     else {
-      const ref = /^(?:%\s*근거|grounds):\s*(.+)$/m.exec(content)?.[1]
+      const ref = /^(?:%\s*(?:근거|grounds)|grounds):\s*(.+)$/m.exec(content)?.[1]
       if (ref) p(`${'  '.repeat(depth)}  - 근거: ${ref}`)
     }
   }

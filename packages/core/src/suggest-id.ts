@@ -1,4 +1,4 @@
-import { isValidBlockId } from './block-id.js'
+import { isReservedBlockId, isValidBlockId } from './block-id.js'
 
 /**
  * 제목에서 블록 id를 제안한다. 한 번 정하면 바꾸지 않으므로 짧고 읽기 쉬운 이름이 좋다.
@@ -10,6 +10,7 @@ export function suggestBlockId(title: string, existing: Iterable<string>, date: 
   const mmdd = `${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
   let base = words.slice(0, 5).join('-').slice(0, 60).replace(/-+$/, '')
   if (!isValidBlockId(base)) base = `b-${mmdd}`
+  else if (isReservedBlockId(base)) base = `b-${base}`
   let id = base
   for (let n = 2; taken.has(id); n++) id = `${base}-${n}`
   return id

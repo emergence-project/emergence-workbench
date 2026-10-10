@@ -121,6 +121,8 @@ describe('블록과 나무', () => {
     expect(created.meta).toMatchObject({ title: 'Brooks theorem 직접', status: 'in-progress', alternatives: ['kempe-chains'] })
     expect(parseBlock(block('kempe-chains')).meta.alternatives).toContain('brooks-theorem')
     expect((await app.inject({ method: 'POST', url: `${R}/blocks`, payload: { title: 'x', id: 'kempe-chains' } })).statusCode).toBe(409)
+    // 원고 컴파일 폴더(.build/manuscript…)와 겹치는 id는 만들지 않는다
+    expect((await app.inject({ method: 'POST', url: `${R}/blocks`, payload: { title: 'x', id: 'manuscript-notes' } })).statusCode).toBe(400)
   })
 
   it('머리말을 고쳐도 본문은 바이트 그대로다', async () => {

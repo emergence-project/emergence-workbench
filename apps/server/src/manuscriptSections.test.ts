@@ -29,5 +29,6 @@ describe('한 파일 원고의 절', () => {
     const parts: ManuscriptPart[] = [...sectionsOf(PAPER, 'paper/PRB.tex'), { id: 'notes/ch1.tex', file: 'notes/ch1.tex', title: 'Ch1', appendix: false }]
     expect(groundsOf('% 근거: PRB.tex#Sec: Main, PRB.tex # numerical calculation\n', parts)).toEqual(['paper/PRB.tex#Sec: Main', 'paper/PRB.tex#Sec: Numerics'])
     expect(groundsOf('% 근거: ch1.tex; PRB.tex\n% 근거: PRB.tex#없는 절\n', parts)).toEqual(['notes/ch1.tex'])
+    expect(groundsOf('% grounds: ch1.tex\n', parts)).toEqual(['notes/ch1.tex'])
   })
 })
