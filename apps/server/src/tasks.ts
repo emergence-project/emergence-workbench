@@ -2,11 +2,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { RESEARCH_TARGET } from '@rw/core'
+import { RESEARCH_TARGET, frontMatter } from '@rw/core'
 import YAML from 'yaml'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
-import { inspectTask, TASK_FRONT as FRONT, TASK_ID as ID, TASK_STATES, type TaskDiagnostic, type TaskInspection } from './taskValidation.js'
+import { inspectTask, TASK_ID as ID, TASK_STATES, type TaskDiagnostic, type TaskInspection } from './taskValidation.js'
 import { t as tl } from './i18n.js'
 
 /**
@@ -321,12 +321,11 @@ function checkHash(t: Task, baseHash: unknown) {
 function editFront(wb: Workbench, t: Task, edit: (doc: YAML.Document) => void): Task {
   const p = taskPath(wb, t.id)
   const content = fs.readFileSync(p, 'utf8')
-  const m = FRONT.exec(content)!
-  const doc = YAML.parseDocument(m[1]!)
+  const { yaml, body, eol } = frontMatter(content)!
+  const doc = YAML.parseDocument(yaml)
   edit(doc)
-  const eol = m[0].includes('\r\n') ? '\r\n' : '\n'
   const front = doc.toString({ lineWidth: 0 }).replace(/\n$/, '').split('\n').join(eol)
-  writeAtomic(p, `---${eol}${front}${eol}---${eol}${content.slice(m[0].length)}`)
+  writeAtomic(p, `---${eol}${front}${eol}---${eol}${body}`)
   return readTask(wb, t.id)
 }
 

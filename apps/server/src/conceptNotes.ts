@@ -5,6 +5,7 @@ import { readSubjects, validateSubjects } from './subjects.js'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
+import { frontMatter } from '@rw/core'
 
 /**
  * Markdown 개념노트 — research-library/concepts/<id>.md (2026-10-04 개념노트 재설계).
@@ -52,11 +53,11 @@ export const MACROS_FILE = 'concepts/macros.tex'
 
 /** 머리말과 본문을 나눈다. 머리말이 없으면 본문 전체 */
 export function splitFrontmatter(raw: string): { fm: Record<string, unknown>; fmText: string | null; body: string } {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(raw)
-  if (!m) return { fm: {}, fmText: null, body: raw }
+  const f = frontMatter(raw)
+  if (!f) return { fm: {}, fmText: null, body: raw }
   let fm: Record<string, unknown> = {}
-  try { const v = YAML.parse(m[1]!); if (v && typeof v === 'object' && !Array.isArray(v)) fm = v as Record<string, unknown> } catch { /* 깨진 머리말은 비어 있는 것으로 */ }
-  return { fm, fmText: m[1]!, body: raw.slice(m[0].length) }
+  try { const v = YAML.parse(f.yaml); if (v && typeof v === 'object' && !Array.isArray(v)) fm = v as Record<string, unknown> } catch { /* 깨진 머리말은 비어 있는 것으로 */ }
+  return { fm, fmText: f.yaml, body: f.body }
 }
 
 const strs = (v: unknown) => (Array.isArray(v) ? v : typeof v === 'string' ? [v] : []).filter((a): a is string => typeof a === 'string' && !!a.trim()).map((a) => a.trim())

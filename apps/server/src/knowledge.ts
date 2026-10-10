@@ -6,6 +6,7 @@ import { fileCache } from './readCache.js'
 import type { LibraryNote } from './libraryNotes.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
+import { frontMatter, stripFrontMatter } from '@rw/core'
 
 /**
  * 지식 — 저장 위치(Study · 개념노트 · 문헌노트 · Topic Review)를 가리지 않고 주제 하나로 모은 색인. 모두 읽기만 한다.
@@ -70,11 +71,10 @@ export function firstParagraph(text: string): string | undefined {
   return undefined
 }
 
-const stripFrontmatter = (raw: string) => raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
 function frontmatter(raw: string): Record<string, unknown> {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw)
-  if (!m) return {}
-  try { const v = YAML.parse(m[1]!); return v && typeof v === 'object' ? v as Record<string, unknown> : {} } catch { return {} }
+  const f = frontMatter(raw)
+  if (!f) return {}
+  try { const v = YAML.parse(f.yaml); return v && typeof v === 'object' ? v as Record<string, unknown> : {} } catch { return {} }
 }
 
 // 파일을 바뀔 때만 다시 읽는다 (Study는 노트가 수백 개)
@@ -82,7 +82,7 @@ const strList = (v: unknown) => (Array.isArray(v) ? v : typeof v === 'string' ? 
 
 export interface Parsed { mtime: number; size: number; links: string[]; cites: string[]; summary?: string; fm: Record<string, unknown> }
 export function parseKnowledgeMarkdown(raw: string, mtime: number, size: number, fm = frontmatter(raw)): Parsed {
-  const body = stripFrontmatter(raw)
+  const body = stripFrontMatter(raw)
   return { mtime, size, links: wikiTargets(body), fm, summary: firstParagraph(body),
     cites: [...body.matchAll(/\[@([^\]]+)\]/g)].flatMap((m) => m[1]!.split(/[;,]\s*@?/).map((k) => k.trim().replace(/^@/, ''))).filter(Boolean) }
 }
@@ -272,5 +272,5 @@ export function readReview(dir: string | undefined, rel: string): { title: strin
   if (!abs.startsWith(path.resolve(dir) + path.sep) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Topic Review가 아님: ${rel}`, `Not a Topic Review: ${rel}`))
   const raw = fs.readFileSync(abs, 'utf8')
   const fm = frontmatter(raw)
-  return { title: typeof fm.title === 'string' ? fm.title : path.basename(abs, '.md'), text: stripFrontmatter(raw).trim() }
+  return { title: typeof fm.title === 'string' ? fm.title : path.basename(abs, '.md'), text: stripFrontMatter(raw).trim() }
 }

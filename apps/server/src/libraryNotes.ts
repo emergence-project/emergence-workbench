@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { fileCache } from './readCache.js'
 import path from 'node:path'
-import { parseBlock, parseList } from '@rw/core'
+import { parseBlock, parseList, stripFrontMatter } from '@rw/core'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
 import { WorkbenchError, type SaveResult } from './workbench.js'
 import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd, type CheckState } from './conceptNotes.js'
@@ -186,7 +186,7 @@ export function readStudy(study: string | undefined, rel: string): { title: stri
   const abs = path.resolve(study, rel)
   if (!abs.startsWith(path.join(study, STUDY_SPACE) + path.sep) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Concept-Space의 노트가 아님: ${rel}`, `Not a note in Concept-Space: ${rel}`))
   const raw = fs.readFileSync(abs, 'utf8')
-  const text = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim()
+  const text = stripFrontMatter(raw).trim()
   return { title: path.basename(abs, '.md'), text }
 }
 

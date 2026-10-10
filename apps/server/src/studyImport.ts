@@ -7,6 +7,7 @@ import { topicKey } from './knowledge.js'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
 import { parseBib } from './materials.js'
 import { bibIndex, bibKeyOf, bibText, fetchArxiv, fetchByText, fetchDoi, findBookByText, findInBib, linksOnly, pullSections, refFingerprint, sourceRefs, type NewBib, type SourceRef } from './conceptSources.js'
+import { stripFrontMatter } from '@rw/core'
 
 /**
  * Study(Obsidian)의 Concept-Space 개념 노트를 research-library/concepts/<id>.md로 한 번에 옮긴다 (개념노트 재설계 2단계).
@@ -96,7 +97,7 @@ export function chapterLike(title: string, rel: string): boolean {
 }
 
 // 사본끼리 견줄 글: 머리말을 빼고, 띄어쓰기와 문장부호(. , ; : ! ?) 차이만 무시한다 (수식 기호는 그대로 견줌)
-const plainText = (s: string) => s.replace(/^---[\s\S]*?---/, '').toLowerCase().replace(/[.,;:!?]/g, ' ').replace(/\s+/g, ' ').trim()
+const plainText = (s: string) => stripFrontMatter(s).toLowerCase().replace(/[.,;:!?]/g, ' ').replace(/\s+/g, ' ').trim()
 
 export function planStudyImport(study: string, lib: string, opts: { includeIndex?: boolean; includeChapters?: boolean } = {}): ImportItem[] {
   const bibFile = path.join(lib, 'references.bib')

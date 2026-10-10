@@ -12,6 +12,7 @@ import { hashOf, writeAtomic } from './fsutil.js'
 import { t } from './i18n.js'
 import { listNotes } from './noteList.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
+import { frontMatterLines } from '@rw/core'
 
 export type EditTarget = { kind: 'concept'; id: string } | { kind: 'note'; rid: string; file: string }
 
@@ -97,7 +98,7 @@ export function splitBlocks(text: string, ignoreMath = false): string[] {
   let cur = ''
   let fence = false
   let math = false
-  let front = false
+  const frontEnd = frontMatterLines(text)
   let list = false
   let env = 0
   let blankRun = false
@@ -107,9 +108,7 @@ export function splitBlocks(text: string, ignoreMath = false): string[] {
   const isListLine = (l: string) => /^\s*(?:[-*+]|\d+[.)])\s/.test(l) || /^\s{2,}\S/.test(l)
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]!
-    if (i === 0 && l.replace(/\r?\n$/, '') === '---') front = true
-    else if (front && /^---\s*$/.test(l.replace(/\r?\n$/, ''))) { cur += l; front = false; continue }
-    if (front) { cur += l; continue }
+    if (i < frontEnd) { cur += l; continue }
     if (blankRun && !isBlank(l)) {
       // 빈 줄 뒤 새 문단: 목록이 이어지면 같은 조각
       if (!(list && isListLine(l))) { out.push(cur); cur = ''; list = false }

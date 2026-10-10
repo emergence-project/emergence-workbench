@@ -5,6 +5,7 @@ import { hashOf, writeAtomic } from './fsutil.js'
 import { cleanDescription, takeDescription } from './topics.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
+import { stripFrontMatter } from '@rw/core'
 
 /**
  * 연구노트·계산 노트의 카드 정보 (10/4 15:40 피드백 "섹션 목록 숨기고 카드 제목 + 한줄설명으로 카드를"):
@@ -72,7 +73,7 @@ export function summaryOf(text: string): string | undefined {
 
 /** Markdown 노트 본문 첫 문단(머리말·제목·수식 블록·목록 표시는 건너뜀)에서 한 줄 설명 */
 export function summaryOfMarkdown(text: string): string | undefined {
-  const lines = text.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/, '').split('\n')
+  const lines = stripFrontMatter(text).split('\n')
   const para: string[] = []
   let skip = false
   for (const l of lines) {
