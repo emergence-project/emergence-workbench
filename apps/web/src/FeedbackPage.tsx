@@ -5,7 +5,7 @@ import { Icon } from './icons'
 import { MemoText } from './memo'
 import { onListKey } from './listInput'
 import { askConfirm } from './askText'
-import { feedbackConversation, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
+import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
 import { asksUser, feedbackBucket, needsAnswer, needsConfirm, stateOf, unansweredComments, type FeedbackBucket } from './feedbackBuckets'
@@ -270,7 +270,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
         {/* 10/4 20:43 "접기도 아이콘으로, 오른쪽 끝에" */}
         {onFold && <button className="icon-btn fbp-foldback" data-ui="접기" data-tip={t('접기', 'Collapse')} aria-label={t('접기', 'Collapse')} onClick={onFold}>{Icon.fold}</button>}
       </div>
-      {e.status?.clean ? <CleanText e={e} /> : e.source ? <div className="fbp-text"><MemoText text={e.text} /></div> : <FeedbackText e={e} />}
+      {e.status?.clean ? <CleanText e={e} /> : e.source ? <div className="fbp-text"><MemoText text={e.text} /></div> : <FeedbackText e={e} locked={!!e.status} />}
       {needsAnswer(e) && <div className="fbp-ask" data-ui="물음"><b>{t('Claude가 묻는 것', 'Claude asks')}</b> {e.status!.ask}</div>}
       {e.status && <Summary e={e} />}
       {(e.status || e.comments) && <Conversation e={e} />}
@@ -336,9 +336,10 @@ function Conversation({ e }: { e: FeedbackItem }) {
   // 처리 중 마지막 것에만 전후 그림과 "지금 앱에 있음"을 붙인다
   const lastHandling = steps.map((s) => s.kind === '처리' || s.kind === '다시 처리').lastIndexOf(true)
   const lastMine = steps.map((s) => s.who === '나').lastIndexOf(true)
+  const locked = lockedBefore(steps)
   let rejects = 0
   const numbered = steps.map((s) => (s.who === '나' && s.kind === '반려' ? ++rejects : 0))
-  const say = (s: ThreadStep, i: number) => <Say key={i} e={e} s={s} n={numbered[i]!} latestHandling={i === lastHandling} undo={i === lastMine && i === steps.length - 1 && (s.kind === '승인' || s.kind === '반려' || s.kind === '진행' || s.kind === '중단')} />
+  const say = (s: ThreadStep, i: number) => <Say key={i} e={e} s={s} n={numbered[i]!} latestHandling={i === lastHandling} locked={i < locked} undo={i === lastMine && i === steps.length - 1 && (s.kind === '승인' || s.kind === '반려' || s.kind === '진행' || s.kind === '중단')} />
   return (
     <div className="fbp-thread-box" data-ui="주고받은 기록">
       {folded > 0 && (
@@ -352,8 +353,8 @@ function Conversation({ e }: { e: FeedbackItem }) {
   )
 }
 
-/** 대화 한 칸. 사용자 글은 오른쪽 위 연필로 고친다 (고친 시각이 "고침 HH:MM"으로 붙는다) */
-function Say({ e, s, n, latestHandling, undo }: { e: FeedbackItem; s: ThreadStep; n: number; latestHandling: boolean; undo: boolean }) {
+/** 대화 한 칸. 사용자 글은 관리자가 답하기 전까지 오른쪽 위 연필로 고친다 (고친 시각이 "고침 HH:MM"으로 붙는다) */
+function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: ThreadStep; n: number; latestHandling: boolean; locked: boolean; undo: boolean }) {
   const user = useContext(Account)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -381,7 +382,7 @@ function Say({ e, s, n, latestHandling, undo }: { e: FeedbackItem; s: ThreadStep
         {undo && <button className="fb-link" title={t('마지막 답(승인 · 수정 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
         <span className="sp" />
         {at && <span className="muted fbp-say-when">{whenOf(at)}{edited && ` · ${t('고침', 'edited')} ${edited.slice(11, 16)}`}</span>}
-        {me && at && s.kind !== '승인' && !editing && <button className="icon-btn fbp-say-edit" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}
+        {me && at && s.kind !== '승인' && !locked && !editing && <button className="icon-btn fbp-say-edit" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}
       </div>
       {editing
         ? (
@@ -477,8 +478,11 @@ export function FeedbackRailCount({ version }: { version: number }) {
   return <span className="rail-count" data-ui="내 차례 수" title={t(`피드백에서 확인 필요 — 답할 것 ${n.ask} · 확인할 것 ${n.confirm}`, `Feedback needs review: ${n.ask} to answer · ${n.confirm} to check`)}>{n.ask + n.confirm}</span>
 }
 
-/** 피드백 글: 읽기, 고치기, 지우기. 피드백 화면과 피드백 모드의 "이번에 남긴 코멘트"가 함께 쓴다 */
-export function FeedbackText({ e, onChanged }: { e: Pick<FeedbackItem, 'date' | 'time' | 'target' | 'n' | 'text'>; onChanged?(text: string | null): void }) {
+/**
+ * 피드백 글: 읽기, 고치기, 지우기. 피드백 화면과 피드백 모드의 "이번에 남긴 코멘트"가 함께 쓴다.
+ * locked: 관리자가 처리한 글은 고치지 않는다 (10/9 11:18). 지우기는 남는다.
+ */
+export function FeedbackText({ e, locked, onChanged }: { e: Pick<FeedbackItem, 'date' | 'time' | 'target' | 'n' | 'text'>; locked?: boolean; onChanged?(text: string | null): void }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(e.text)
   const [error, setError] = useState<string | null>(null)
@@ -492,7 +496,7 @@ export function FeedbackText({ e, onChanged }: { e: Pick<FeedbackItem, 'date' | 
         <MemoText text={e.text} />
         {/* 10/4 15:54 "고치기 지우기 우측 상단으로 옮기고 아이콘으로" */}
         <span className="fbp-edit fbp-edit-icons hover-actions">
-          <button className="icon-btn" title={t('고치기', 'Edit')} aria-label={t(`고치기: ${e.date} ${e.time} 피드백`, `Edit: ${e.date} ${e.time} feedback`)} onClick={() => { setDraft(e.text); setEditing(true) }}>{Icon.pencil}</button>
+          {!locked && <button className="icon-btn" title={t('고치기', 'Edit')} aria-label={t(`고치기: ${e.date} ${e.time} 피드백`, `Edit: ${e.date} ${e.time} feedback`)} onClick={() => { setDraft(e.text); setEditing(true) }}>{Icon.pencil}</button>}
           <button className="icon-btn" title={t('지우기', 'Delete')} aria-label={t(`지우기: ${e.date} ${e.time} 피드백`, `Delete: ${e.date} ${e.time} feedback`)}
             onClick={() => void askConfirm({ title: t('이 피드백을 지울까요?', 'Delete this feedback?'), hint: t('그날 피드백 파일에서 이 항목만 지워지고, 처리 기록(feedback/status.yaml)은 그대로 남습니다.', 'Only this item is removed from that day\'s feedback file. The handling record (feedback/status.yaml) stays.'), ok: t('지우기', 'Delete') }).then((y) => { if (y) save(null) })}>{Icon.trash}</button>
         </span>
@@ -518,7 +522,7 @@ function CleanText({ e }: { e: FeedbackItem }) {
   const [raw, setRaw] = useState(false)
   return (
     <div>
-      {raw ? (e.source ? <div className="fbp-text"><MemoText text={e.text} /></div> : <FeedbackText e={e} />) : <div className="fbp-text"><MemoText text={e.status!.clean!} /></div>}
+      {raw ? (e.source ? <div className="fbp-text"><MemoText text={e.text} /></div> : <FeedbackText e={e} locked />) : <div className="fbp-text"><MemoText text={e.status!.clean!} /></div>}
       <button className="fb-link fbp-raw" onClick={() => setRaw((v) => !v)}>{raw ? t('교정문 보기', 'Show corrected text') : t('원문 보기', 'Show original')}</button>
     </div>
   )

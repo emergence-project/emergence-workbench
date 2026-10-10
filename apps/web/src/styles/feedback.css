@@ -93,15 +93,18 @@ body.feedback-on .toast { bottom: 76px; }
 
 /* 피드백 글 고치기·지우기: 항목 오른쪽 위 아이콘 (10/4 15:54) */
 .fbp-entry { position: relative; }
-.fbp-entry .fbp-head { padding-right: calc(var(--sp-6) * 2); }
+/* 오른쪽 위 아이콘은 고치기 · 지우기 · 접기 순서, 같은 크기 · 같은 간격 (10/10 13:03; 접기는 오른쪽 끝, 10/4 20:43) */
+.fbp-entry .fbp-head { padding-right: calc(28px * 3 + var(--sp-1) * 2 + var(--sp-2)); }
 .fbp-edit.fbp-edit-icons { gap: var(--sp-1); margin-top: 0; }
 .fbp-entry .fbp-edit.fbp-edit-icons { position: absolute; top: var(--sp-2); right: var(--sp-3); }
+.fbp-entry:has(.fbp-foldback) .fbp-edit.fbp-edit-icons { right: calc(var(--sp-3) + 28px + var(--sp-1)); }
 /* 승인·반려는 머리줄 오른쪽 (10/4 16:55): 고치기·지우기 아이콘 바로 왼쪽 */
 .fbp-head .sp { flex: 1; }
 .fbp-head .fbp-verdict { flex-shrink: 0; flex-wrap: nowrap; gap: var(--sp-1); }
-.fbp-head .fbp-foldback { flex-shrink: 0; align-self: center; width: 24px; height: 24px; }
-/* 고치기·지우기 아이콘이 없는 항목은 머리줄 오른쪽 끝까지 쓴다 (10/4 20:43 접기 오른쪽 정렬) */
-.fbp-entry:not(:has(.fbp-edit-icons)) .fbp-head { padding-right: 0; }
+.fbp-entry .fbp-head .fbp-foldback { position: absolute; top: var(--sp-2); right: var(--sp-3); margin: 0; }
+/* 고치기·지우기 아이콘이 없는 항목은 접기 자리만 비운다 */
+.fbp-entry:not(:has(.fbp-edit-icons)) .fbp-head { padding-right: calc(28px + var(--sp-2)); }
+.fbp-entry:not(:has(.fbp-edit-icons, .fbp-foldback)) .fbp-head { padding-right: 0; }
 /* 주고받은 기록: 처리 → 반려 → 다시 처리 → 승인 (10/4 18:11 "반려한 지적을 댓글처럼") */
 .fbp-thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .fbp-say { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); color: var(--text-2); }

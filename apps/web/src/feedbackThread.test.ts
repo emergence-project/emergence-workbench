@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedbackConversation, feedbackThread, reworked, splitThread, summaryRows } from './feedbackThread'
+import { feedbackConversation, feedbackThread, lockedBefore, reworked, splitThread, summaryRows } from './feedbackThread'
 
 const status = { state: '반영' as const, note: '처리한 글', commit: 'abc1234' }
 
@@ -110,5 +110,21 @@ describe('summaryRows', () => {
       { field: 'note', text: '진하게', at: '2026-10-04T11:20' },
     ])
     expect(summaryRows({ state: '답변', note: '답' })).toEqual([{ field: 'note', text: '답' }])
+  })
+})
+
+describe('lockedBefore', () => {
+  it('Claude가 처리하거나 답한 앞의 내 글은 잠그고, 그 뒤의 글만 고친다', () => {
+    const steps = feedbackConversation({
+      status: { ...status, handled_at: '2026-10-04T10:00', replies: [{ at: '2026-10-04T12:00', to: '2026-10-04T11:00', note: '답' }] },
+      comments: [{ at: '2026-10-04T11:00', note: '물음' }, { at: '2026-10-04T13:00', note: '또 물음' }],
+    })
+    const n = lockedBefore(steps)
+    expect(steps.map((s, i) => (s.who === '나' ? `${s.note}:${i < n ? '잠김' : '고침'}` : s.kind))).toEqual(['처리', '물음:잠김', '답', '또 물음:고침'])
+  })
+  it('다시 처리 대기는 답이 아니다', () => {
+    const steps = feedbackThread({ status, review: { verdict: '반려', at: '2026-10-04T11:00', note: '다시' } })
+    expect(steps.at(-1)?.kind).toBe('대기')
+    expect(lockedBefore(steps)).toBe(0)
   })
 })
