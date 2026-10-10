@@ -292,10 +292,13 @@ export function openRoute(l: Layout, t: Tab, pdf: Tab | null = null, how: OpenHo
 /**
  * 왼쪽 칸 노트의 PDF를 오른쪽 칸 앞에 띄운다. 오른쪽 칸에 다른 노트가 보이고 있으면 그 탭은 왼쪽 칸으로 옮긴다.
  * 늦은 응답이 다른 탭을 고른 뒤 화면이나 초점을 되돌리지 않고, 오른쪽 칸의 논문·자료는 가리지 않는다.
+ * 오른쪽 칸이 보일 때만 띄운다: 상단바의 패널 나누기가 꺼진 화면을 저절로 나누지 않는다.
  */
 export function pairRoutePdf(l: Layout, t: Tab, pdf: Tab): Layout {
   if (hasClosingTabs()) return l
   if (!l.split || l.focus !== 0 || l.panes[0].active !== tabKey(t)) return l
+  // 오른쪽 칸이 보이지 않으면(패널 나누기 꺼짐) 칸을 새로 열지 않는다 (10/10 14:03 반려)
+  if (!l.showBothPanes && !l.panes[1].tabs.length) return l
   const o = l.panes[1]
   const shown = o.tabs.find((x) => tabKey(x) === o.active)
   if (shown && !isPdfTab(shown) && !isNoteTab(shown)) return l

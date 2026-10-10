@@ -21,11 +21,23 @@ describe('opening notes from an address, sidebar or topic', () => {
     [{ k: 'part', file: 'a.tex' }, manuscriptPdfTab('')],
   ]
   const key = (t: Tab) => t.k === 'block' ? `block:${t.bid}` : t.k === 'part' ? `part:${t.file}` : ''
-  const empty = (focus: 0 | 1): Layout => ({ ...layout(), panes: [{ tabs: [], active: null }, { tabs: [], active: null }], focus })
+  /** 패널 나누기를 켠 빈 화면 (두 칸이 보인다) */
+  const empty = (focus: 0 | 1): Layout => ({ ...layout(), panes: [{ tabs: [], active: null }, { tabs: [], active: null }], focus, showBothPanes: true })
+
+  it('does not split a single visible pane to show a PDF (10/10 14:03)', () => {
+    for (const [note, pdf] of cases) {
+      // split은 켜져 있지만 오른쪽 칸이 비어 한 칸만 보이는 처음 화면: 상단바의 패널 나누기는 꺼짐
+      const one: Layout = { ...empty(0), showBothPanes: false }
+      expect(workspaceVisibility(one, note.k).shown).toEqual([0])
+      const opened = pairRoutePdf(openRoute(one, note), note, pdf)
+      expect(opened.panes[1].tabs).toEqual([])
+      expect(workspaceVisibility(opened, note.k).shown).toEqual([0])
+    }
+  })
 
   it.each([0, 1] as const)('does not add a missing PDF with focus %s', (focus) => {
     for (const [note] of cases) {
-      const opened = openRoute(empty(focus), note)
+      const opened = openRoute({ ...empty(focus), showBothPanes: false }, note)
       expect(opened.focus).toBe(0)
       expect(opened.panes[0]).toEqual({ tabs: [note], active: key(note) })
       expect(opened.panes[1]).toEqual({ tabs: [], active: null })
