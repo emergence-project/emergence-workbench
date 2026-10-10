@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
-import { createConceptMd, listConceptMd, parseMacros, readConceptMemo, readConceptMd, setConceptChecked, setConceptLocked, splitFrontmatter, unfinishedReasons } from './conceptNotes.js'
+import { createConceptMd, inlineCites, listConceptMd, parseMacros, readConceptMemo, readConceptMd, setConceptChecked, setConceptLocked, splitFrontmatter, unfinishedReasons } from './conceptNotes.js'
 import { buildKnowledge } from './knowledge.js'
 import { listLibraryNotes } from './libraryNotes.js'
 
@@ -224,5 +224,11 @@ describe('개념노트 API', () => {
     const put = await app.inject({ method: 'PUT', url: '/api/concepts/planar-graph/memo', payload: { text: got.text + '더함', baseHash: got.hash } })
     expect(put.statusCode).toBe(200)
     fs.rmSync(path.join(lib, 'concepts/planar-graph.memo.md'))
+  })
+})
+
+describe('본문 인용', () => {
+  it('[@키]: 여러 편·쪽수, 링크·메일·수식·이스케이프는 아님', () => {
+    expect(inlineCites('A [@a; @b, p. 3] and [see @c]. [text](http://x@y) [me@x.com] $[@no]$ \\[@lit] [[Link]] [0,1]')).toEqual(['a', 'b', 'c'])
   })
 })
