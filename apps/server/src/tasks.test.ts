@@ -4,6 +4,7 @@ import path from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import YAML from 'yaml'
 import { generateStatus } from './agentStatus.js'
+import * as C from '@rw/core/contract/tasks'
 import { app, R, repo, useSampleApp } from './testkit.js'
 import { classify } from './watcher.js'
 import { Workbench } from './workbench.js'
@@ -167,6 +168,41 @@ state: result`
     const edited = (await post(t.id, 'next', { i: 2, action: 'start', edit: { title: '결론 초안', task: '초안 파일 하나', endCondition: '본문은 고치지 않음' } })).json().started
     expect(edited).toMatchObject({ title: '결론 초안', task: '초안 파일 하나', endCondition: '본문은 고치지 않음' })
     expect((await post(t.id, 'next', { i: 9, action: 'drop' })).statusCode).toBe(400)
+  })
+})
+
+describe('계약 (@rw/core/contract/tasks)', () => {
+  it('응답이 계약과 칸 하나까지 맞는다 (모르는 칸도 없다)', async () => {
+    const created = await make({ title: 'Contract check', task: '모든 칸을 채운다', topic: 'model', references: ['a.py'], avoid: '없음' })
+    const t = C.TaskCreated.parse(created.json()).task
+    agentWrites(t.id, [
+      'result-at: 2026-10-10 10:00', 'conclusion: 맞다', 'end-check: pass',
+      'ask: [{ q: 반영할까요?, options: [예, 아니요] }]',
+      'issues: [{ text: 느림, impact: 작음, next: 1 }]',
+      'next: [{ task: 더 큰 크기, end-condition: 오차 1e-3 }]',
+      'outputs: [out/a.csv]', 'check: { machine: 통과, repro: pnpm x }',
+    ].join('\n'), '\n본문\n')
+    fs.writeFileSync(path.join(dir(), `${t.id}.md`), fs.readFileSync(path.join(dir(), `${t.id}.md`), 'utf8').replace('state: working', 'state: result'))
+    C.TaskOne.parse((await post(t.id, 'answer', { n: '1', answer: '예', note: '바로' })).json())
+    const next = C.TaskNextDone.parse((await post(t.id, 'next', { i: 1, action: 'start' })).json())
+    expect(next.started).toBeDefined()
+    C.TaskOne.parse((await post(t.id, 'judge', { verdict: 'approve', seconds: 30 })).json())
+    C.TaskOne.parse((await app.inject({ method: 'GET', url: `${R}/tasks/${t.id}` })).json())
+    fs.writeFileSync(path.join(dir(), 'bad name.md'), '---\ntitle: x\n---\n')
+    const scan = C.TaskScan.parse((await app.inject({ method: 'GET', url: `${R}/tasks` })).json())
+    expect(scan.tasks).toHaveLength(2)
+    expect(scan.diagnostics.length).toBeGreaterThan(0)
+  })
+
+  it('모양이 틀린 요청은 어느 칸인지 적어 400', async () => {
+    const r = await make({ title: 'x', task: 'y', references: 'a.py' })
+    expect(r.statusCode).toBe(400)
+    expect(r.json().error).toContain('references')
+    const t = (await make({ title: 'x', task: 'y' })).json().task
+    const j = await post(t.id, 'judge', { verdict: 'approve', baseHash: '' })
+    expect(j.statusCode).toBe(400)
+    expect(j.json().error).toContain('baseHash')
+    expect((await post(t.id, 'next', { i: 1, action: 'nope' })).json().error).toContain('action')
   })
 })
 

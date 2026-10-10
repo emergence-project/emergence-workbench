@@ -1,16 +1,11 @@
 import YAML from 'yaml'
 import { t } from './i18n.js'
 import { frontMatter } from '@rw/core'
+import { TASK_STATES, type TaskDiagnostic } from '@rw/core/contract/tasks'
 
-export const TASK_STATES = ['working', 'proposed', 'result', 'done', 'paused', 'stopped'] as const
+export { TASK_STATES }
 export const TASK_ID = /^\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*$/
-export interface TaskDiagnostic {
-  file: string
-  code: 'filename' | 'frontmatter' | 'yaml' | 'schema' | 'read'
-  message: string
-  line: number
-  column?: number
-}
+export type { TaskDiagnostic }
 export interface TaskInspection { front?: Record<string, unknown>; bodyStart: number; diagnostics: TaskDiagnostic[] }
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 const text = (v: unknown): v is string => typeof v === 'string' && !!v.trim()
