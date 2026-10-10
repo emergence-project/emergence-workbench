@@ -85,6 +85,13 @@ export function splitThread(steps: ThreadStep[]): { earlier: ThreadStep[]; lates
   return { earlier, latest: steps.slice(lastMe), folded: earlier.filter((s) => s.who === 'Claude').length }
 }
 
+/**
+ * 고칠 수 있는 내 글 (10/9 11:18 "클로드가 답변한 멘트는 고칠 수 없게, 답을 달기 전에만"): Claude의 처리 · 답보다 앞선 내 글은 잠근다.
+ * 돌려주는 값은 잠기는 글의 끝(이 번호보다 앞의 글은 고칠 수 없다). "다시 처리 대기"는 답으로 치지 않는다.
+ */
+export const lockedBefore = (steps: ThreadStep[]): number =>
+  steps.map((s) => s.who === 'Claude' && s.kind !== '대기').lastIndexOf(true)
+
 /** 다시 처리해서 사용자가 새 답을 승인·반려할 차례: 최신이 반려이고 Claude가 그 반려를 다시 처리했다 */
 export const reworked = (e: Pick<FeedbackItem, 'status' | 'review'>) =>
   !!e.review && sendsBack(e.review.verdict) && !!e.status?.rework && e.status.rework === e.review.at
