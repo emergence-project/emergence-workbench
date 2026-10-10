@@ -16,7 +16,7 @@ import { WorkbenchError } from './workbench.js'
 import { t as tl } from './i18n.js'
 
 /**
- * 그림 라이브러리 (planning/proposal-2026-10-05-libraries.md §4 · §6).
+ * 그림 라이브러리 (형식: docs/repo-format.md §8).
  * - 공용: research-library/figures/, 한 프로젝트 전용: <저장소>/workbench/figures/ (topics/ 같은 하위 폴더는 보지 않는다).
  * - 원본은 tikz(.tikz · .tex) · svg · png · jpg · pdf. 이름과 설명은 같은 폴더의 figures.yaml에 파일 이름별로 적는다:
  *     enclosed-country.tex: { name: 고리 지도 (원판), description: 원판 B와 그 바깥 고리 C }

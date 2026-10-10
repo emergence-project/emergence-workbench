@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { figuresApi, LIBRARY_SCOPE, type FigureList, type FigureRow } from './api'
 
 /**
- * 노트의 ![[이름]] → 그림 라이브러리의 그림 (planning/proposal-2026-10-05-libraries.md §5).
+ * 노트의 ![[이름]] → 그림 라이브러리의 그림.
  * 이름 · 파일 이름 · 확장자 뺀 파일 이름 어느 것으로 적어도 찾고, 그 프로젝트 전용 그림이 공용보다 먼저다 (서버 figures.ts와 같게).
  * 그림 목록은 한 번 읽어 노트 화면들이 함께 쓴다. 그림 화면에서 바꾸면 forgetFigures로, 파일이 바뀌면 figuresMaybeChanged로 다시 읽는다.
  */

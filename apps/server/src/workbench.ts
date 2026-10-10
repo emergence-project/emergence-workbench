@@ -90,7 +90,7 @@ const readResearchYaml = fileCache((text) => YAML.parse(text) ?? {})
 
 /**
  * 연구 저장소 하나의 workbench/ 폴더. 이 폴더 밖의 파일은 읽지도 쓰지도 않는다.
- * 파일 형식은 planning/v0-implementation-plan.md §2가 정본이다.
+ * 파일 형식은 docs/repo-format.md가 정본이다.
  */
 export class Workbench {
   readonly root: string

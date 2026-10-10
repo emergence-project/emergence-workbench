@@ -41,7 +41,7 @@ export type MetaKey =
   | 'concepts'
   /**
    * 주제·노트 (10/5 결정, BlockMeta.extra로 읽힌다): topics 주제 id 목록(첫째 = 주 주제), kind 노트 성격 하나,
-   * description 설명(여러 줄), star 즐겨찾기("true"면 켬). 형식은 planning/mockups/2026-10-05-screens/README.md "자료 형식"
+   * description 설명(여러 줄), star 즐겨찾기("true"면 켬). 형식은 docs/repo-format.md §3.1
    */
   | 'topics' | 'kind' | 'description' | 'star'
 

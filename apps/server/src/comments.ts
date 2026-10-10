@@ -13,7 +13,7 @@ import { t } from './i18n.js'
 
 /**
  * 노트 본문·PDF에 남기는 기록. 대상마다 workbench/comments/<대상>.md 하나.
- * 형식은 planning/proposal-2026-10-01-structure.md §6:
+ * 형식은 docs/repo-format.md §6:
  *
  *   # 코멘트 · 논문 sample2007
  *   <!-- rw-source: sample2007.pdf -->

@@ -4,7 +4,7 @@
 
 `claude/...`·`codex/...` 브랜치 → PR → CI 초록 → 합치기. 작업 중 확인은 개발용 예제 모드(`pnpm dev`, :5173)에서 한다. 실사용 앱이 이 폴더에서 돌면 합친 뒤 `main`으로 돌아와 `pnpm service:restart`.
 
-PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)가 돈다. CI가 마지막 커밋에서 끝나 초록이면 에이전트가 합친다(도는 중에 합치지 않는다). main 푸시와 문서·계획·피드백 원문만 바뀐 PR에서는 돌지 않는다(Actions 분량을 아끼려고). Actions 분량이 바닥나 CI가 돌지 못하면, 클라우드 세션에서 `pnpm test`와 `pnpm type-check`가 통과하면 합친다. 화면을 바꾼 PR은 `pnpm shots`도 돌리고, TeX 검사가 걸리는 PR은 맥에서 확인한다 (2026-10-04 사용자 결정). 컴파일이 걸린 테스트는 TeX가 있어야 돌아서 `ci.yml`에서는 건너뛰고, 컴파일·원고·서식 파일이 바뀐 PR에서만 `.github/workflows/tex.yml`이 TeX를 깔아 돌린다(리눅스에는 맥 글꼴 이름을 나눔 글꼴로 흉내 낸다: `scripts/ci/mac-fonts.py`). zsh가 없는 클라우드 환경에서는 `scripts/remote` 테스트가 건너뛰어지고, CI는 zsh를 깔아 돌린다.
+PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)가 돈다. CI가 마지막 커밋에서 끝나 초록이면 에이전트가 합친다(도는 중에 합치지 않는다). main 푸시와 문서만 바뀐 PR에서는 돌지 않는다(Actions 분량을 아끼려고). Actions 분량이 바닥나 CI가 돌지 못하면, 클라우드 세션에서 `pnpm test`와 `pnpm type-check`가 통과하면 합친다. 화면을 바꾼 PR은 `pnpm shots`도 돌리고, TeX 검사가 걸리는 PR은 맥에서 확인한다 (2026-10-04 사용자 결정). 컴파일이 걸린 테스트는 TeX가 있어야 돌아서 `ci.yml`에서는 건너뛰고, 컴파일·원고·서식 파일이 바뀐 PR에서만 `.github/workflows/tex.yml`이 TeX를 깔아 돌린다(리눅스에는 맥 글꼴 이름을 나눔 글꼴로 흉내 낸다: `scripts/ci/mac-fonts.py`). zsh가 없는 클라우드 환경에서는 `scripts/remote` 테스트가 건너뛰어지고, CI는 zsh를 깔아 돌린다.
 
 화면 확인: `pnpm shots`는 예제 모드로 주요 화면 55개(기본 샘플)를 `shots/`에 찍고, 화면 오류(콘솔 오류, 빈 화면)가 있으면 실패한다. CI도 PR마다 돌려 그림을 산출물 `shots`로 남긴다. L5 분류 화면은 `SHOTS_SUBJECTS=1 pnpm shots`로 별도 샘플(`.sandbox/subjects-library`, 별도 설정)의 10화면을 찍는다. 기본 샘플의 L2b 그림은 전후 바이트 비교한다. 사용자에게 화면을 보여 줄 때 이 그림을 쓴다. 클라우드에서는 `CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm shots`.
 
@@ -16,8 +16,8 @@ PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)�
 
 ## 용어: 주제와 노트 (2026-10-05 결정)
 
-- **프로젝트**(연구 하나) › **주제**(Topic: 소주제, 노트를 묶기만 함, 한 단계) › **노트**(Note: 그 안에서 완결된 최소 단위 문서). 원고·개념노트·문헌노트는 그대로다. 상세: 관리자 개인 저장소 `planning/requirements.md` 결정 표 "주제와 노트", "원고와 출판", "연구 개요와 진행 현황".
-- 연구노트·계산 노트·보조 노트는 정의상 모두 **노트**다. 화면은 10/5 사용자 결정으로 지금 구현한다(시안 README 확정 절). 파일 위치(`workbench/notes/`, `calc/`, `blocks/`)는 그대로 둔다.
+- **프로젝트**(연구 하나) › **주제**(Topic: 소주제, 노트를 묶기만 함, 한 단계) › **노트**(Note: 그 안에서 완결된 최소 단위 문서). 원고·개념노트·문헌노트는 그대로다. 상세: 관리자 결정 기록 "주제와 노트", "원고와 출판", "연구 개요와 진행 현황". 파일 형식은 `docs/repo-format.md`.
+- 연구노트·계산 노트·보조 노트는 정의상 모두 **노트**다. 화면은 10/5 사용자 결정으로 지금 구현한다. 파일 위치(`workbench/notes/`, `calc/`, `blocks/`)는 그대로 둔다.
 - 노트의 주제 소속은 폴더가 아니라 노트 정보에 적는다(연구노트·계산 노트는 `note.yaml`, 블록 노트는 파일 머리). 파일을 옮겨 분류하지 않는다(코멘트·`grounds:`·링크가 경로로 이어져 있다).
 
 ## 화면 기준
@@ -35,7 +35,7 @@ PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)�
 
 - `apps/server/src/app.ts`: 서버 뼈대(파일 감시, 실시간 알림, 오류 처리)만 둔다. API는 화면 갈래마다 `routes/<갈래>.ts`의 `register…(app, ctx)`에 있고, 함께 쓰는 것은 `routes/context.ts`의 `RouteContext`다. 새 갈래는 파일을 만들고 `app.ts`에 등록 한 줄을 더한다.
 - 연구 저장소의 지금 상태(할 일·맡긴 일·질문·검토 대기·최근 기록)는 `pnpm agent:status <연구 저장소 폴더>`로 본다. 맥의 앱이 쓰는 `workbench/STATUS.md`와 같은 내용을 파일에서 바로 뽑으므로 앱·서버가 없는 클라우드에서도 된다(STATUS.md는 git에 없다).
-- 에이전트용 MCP 입구(읽기): `apps/server/src/mcp.ts` · `scripts/mcp.mjs`(`pnpm mcp`). 도구는 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다. 등록과 도구 표는 `docs/agent-mcp.md`.
+- 에이전트용 MCP 입구(읽기와 몇 가지 고치기): `apps/server/src/mcp.ts` · `scripts/mcp.mjs`(`pnpm mcp`). 도구는 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다. 등록과 도구 표는 `docs/agent-mcp.md`.
 - 연구 저장소·라이브러리의 파일 형식(앱이 읽고 쓰는 모양)은 `docs/repo-format.md`. 형식을 읽거나 쓰는 코드를 바꾸면 그 문서도 고친다. 파일을 직접 쓰는 에이전트도 이 문서를 따른다.
 - 에이전트는 화면 대신 서버 API를 써도 된다: `GET /api`가 모든 경로와 대표 경로(연구 목록, 연구 요약, 코멘트, 일지, 개념노트)를 돌려준다(`routes/apiIndex.ts`). 고칠 때는 읽을 때 받은 hash를 `baseHash`로 보낸다.
 - `apps/server/src/*.ts`(routes 밖): 저장소 파일을 읽고 쓰는 실제 일(workbench, manuscript, comments …). 맡긴 일(`workbench/tasks/*.md`)은 `tasks.ts`. 읽은 뒤 바뀌어 쓰지 않는 경우는 `throw new ConflictError(문장, 지금 hash)`(workbench.ts)로 던지면 오류 처리기가 409와 `currentHash`를 보낸다(라우트에서 감싸지 않는다). research.yaml은 `researchYaml.ts`의 `editResearchYaml`로만 고치고, 저장소 밖 경로 판정은 `fsutil.ts`의 `isOutside`·`isInside`를 쓴다(`startsWith('..')`는 `..notes` 같은 이름도 거절한다). 테스트는 `*.test.ts`이고 갈래마다 파일을 나눈다(app·project·feedbackRoutes·appupdate …). 예제 연구와 임시 폴더는 `testkit.ts`의 `useSampleApp()`으로 준비한다.

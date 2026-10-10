@@ -8,7 +8,7 @@ import { go, type Route } from './router'
 import { plural, t } from './i18n'
 
 /**
- * 논문 · 그림 첫 화면 (라이브러리 L2, requirements §8.1 "라이브러리 첫 화면", 시안 planning/mockups/2026-10-06-library-landing/).
+ * 논문 · 그림 첫 화면 (라이브러리 L2, 설계 결정 2026-10-06 "라이브러리 첫 화면").
  * 지식 첫 화면(KnowledgeHome.tsx)과 같은 틀(.kh-*): 머리줄 없이 ① 최근 더한 것(카드 한 줄, 맨 앞은 점선 더하기 카드)
  * ② 왼쪽 점검(사용자 차례, 주황 수, 0인 줄은 숨김) · 오른쪽 통계(0이면 흐리게). 점검 · 통계 줄은 목록을 그 거르기로 연다.
  * 오른쪽 사이드바는 라이브러리 정보(LibraryStorage). 숫자는 서버가 한 번에 센다(GET /api/papers/brief · /api/figures/brief).

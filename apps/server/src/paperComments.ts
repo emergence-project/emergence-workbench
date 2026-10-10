@@ -10,7 +10,7 @@ import { t } from './i18n.js'
 import { frontMatter } from '@rw/core'
 
 /**
- * 논문의 코멘트 · 질문 · 하이라이트 (planning/proposal-2026-10-05-libraries.md §3, 형식은 10/5 사용자 결정).
+ * 논문의 코멘트 · 질문 · 하이라이트 (형식: docs/repo-format.md §10.3).
  * 하나가 파일 하나: research-library/comments/<bib 키>/<id>.md, Markdown + YAML 머리말.
  *
  *   ---

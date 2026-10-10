@@ -1,8 +1,8 @@
 # PR마다 저장소 규칙의 검사(pnpm type-check, pnpm test)와 화면 빌드를 돌린다.
-# 에이전트는 이 검사가 초록이면 PR을 합친다 (planning/requirements.md §8.1).
-# Actions 분량(비공개 저장소는 한 달 2,000분)을 아끼려고:
+# 에이전트는 이 검사가 초록이면 PR을 합친다 (CLAUDE.md "반영 흐름").
+# Actions 분량을 아끼려고:
 # - main 푸시에서는 돌리지 않는다. PR이 한 번에 하나씩 합쳐지므로 PR 검사가 합친 뒤의 코드와 같다. 필요하면 Actions 화면에서 손으로 돌린다.
-# - 문서·계획·피드백 원문·그림만 바뀐 PR은 건너뛴다. feedback/status.yaml과 reviews.yaml은 테스트가 읽으므로 검사한다.
+# - 문서만 바뀐 PR은 건너뛴다.
 name: CI
 
 on:
@@ -10,10 +10,6 @@ on:
     paths-ignore:
       - '*.md'
       - 'docs/**'
-      - 'planning/**'
-      - 'feedback/*.md'
-      - 'feedback/pictures/**'
-      - 'feedback/preview/**'
   workflow_dispatch:
 
 concurrency:

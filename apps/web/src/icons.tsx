@@ -1,4 +1,4 @@
-/* 목업(planning/mockups/v0.html)의 아이콘을 옮겼다. 선 굵기·크기는 CSS가 정한다. */
+/* 첫 목업의 아이콘을 옮겼다. 선 굵기·크기는 CSS가 정한다. */
 export const Icon = {
   manuscript: <svg viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="17" rx="1.5" /><path d="M8 3.5v17M11 8h5M11 12h5M11 16h3" /></svg>,
   home: <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7" /><path d="M6 9.5V20h4.5v-5.5h3V20H18V9.5" /></svg>,
