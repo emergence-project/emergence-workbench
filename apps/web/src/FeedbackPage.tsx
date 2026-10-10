@@ -8,7 +8,7 @@ import { askConfirm } from './askText'
 import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
-import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, unansweredComments, type FeedbackBucket } from './feedbackBuckets'
+import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
@@ -436,14 +436,15 @@ function Compose({ e }: { e: FeedbackItem }) {
     setBusy(true)
     p.then(() => { setText(''); setError(null) }).catch((err: Error) => setError(err.message)).finally(() => setBusy(false))
   }
-  const waiting = unansweredComments(e).length > 0
+  // 관리자 차례(처리 전 · 코멘트에 답하기 전 · 다시 처리하기 전)에는 입력란을 두지 않는다 (10/10 13:02).
+  // 덧붙일 말은 원문이나 마지막 글을 연필로 고친다
+  if (feedbackBucket(e) === '대기') return <div className="fbp-compose" data-ui="코멘트 입력란"><span className="muted">{t('관리자의 답을 기다립니다', 'Waiting for the maintainer to answer')}</span></div>
   const hint = asks ? t('덧붙일 말 (진행 · 중단에 함께 적힘)', 'Anything to add (saved with Proceed or Stop)') : t('질문이나 고칠 점', 'Question or what to change')
   return (
     <div className="fbp-compose" data-ui="코멘트 입력란">
       <textarea rows={2} value={text} placeholder={hint} aria-label={hint}
         onChange={(ev) => setText(ev.target.value)} onKeyDown={(ev) => onListKey(ev, setText)} />
       <div className="fbp-compose-row" data-ui="승인·반려">
-        {waiting && <span className="muted">{t('관리자의 답을 기다립니다', 'Waiting for the maintainer to answer')}</span>}
         {error && <span className="error-text">{error}</span>}
         <span className="sp" />
         <button className="btn" disabled={busy || !typed} onClick={() => run(api.commentFeedback(e.key, text))}>{REPLY['코멘트']}</button>
