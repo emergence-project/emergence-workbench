@@ -145,6 +145,8 @@ describe('개념노트 색인 API', () => {
     expect((await app.inject({ url: '/api/concepts/list?q=PG' })).json().items[0].id).toBe('planar-graph')
     expect((await app.inject({ url: '/api/concepts/subjects?showEmpty=1' })).json().subjects).toEqual([{ subject: 'Mathematics › Combinatorics', count: 1 }, { subject: 'Mathematics › Graph Theory', count: 2 }])
     expect((await app.inject({ url: '/api/concepts/rows?ids=discharging-method' })).json().items[0].title).toBe('Discharging method')
+    expect((await app.inject({ url: '/api/concepts/resolve?name=Discharging%20method' })).json().note.id).toBe('discharging-method')
+    expect((await app.inject({ url: '/api/concepts/resolve?name=nothing-here' })).json().note).toBeNull()
     const links = (await app.inject({ url: '/api/concepts/planar-graph/links' })).json()
     expect(links.missing).toEqual(expect.arrayContaining(['Euler formula', 'Kempe recoloring']))
     expect(fs.readdirSync(path.join(tmp, 'config', 'index')).filter((f) => f.endsWith('.sqlite'))).toHaveLength(1)

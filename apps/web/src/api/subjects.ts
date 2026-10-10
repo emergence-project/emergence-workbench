@@ -2,7 +2,7 @@ import { enc, json, req, send } from './http'
 import type { EntrySubjects, SubjectTree, SubjectTreeSaved } from '@rw/core/contract/subjects'
 import type { ConceptMd } from './concepts'
 export type { LibrarySubject, SubjectTree } from '@rw/core/contract/subjects'
-export interface SubjectCount { subject: string; count: number; name?: string; parent?: string | null; model?: 'ids' }
+export type { SubjectCount } from '@rw/core/contract/concepts'
 export const subjectsApi = {
   tree: (note?: string) => req(`/api/subjects${note ? `?note=${enc(note)}` : ''}`).then((r) => json<SubjectTree>(r)),
   rename: (id: string, name: string, baseHash: string) => req('/api/subjects', send('PATCH', { id, name, baseHash })).then((r) => json<SubjectTreeSaved>(r)),

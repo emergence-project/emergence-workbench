@@ -1,6 +1,8 @@
 // Markdown 개념노트 (research-library/concepts/*.md, 2026-10-04 개념노트 재설계)
 import { conceptRules } from '../agentRules.js'
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/concepts'
+import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { ISSUE_SQL, type ConceptFilter, type ListQuery } from '../conceptIndex.js'
@@ -35,7 +37,7 @@ export function registerConcepts(app: FastifyInstance, ctx: RouteContext): void 
     showEmpty: qs.showEmpty === '1', offset: Number(qs.offset) || 0, limit: Number(qs.limit) || 50,
   })
   /** 목록 한 쪽 (찾기·분류·거르기, offset부터 limit개). 화면은 전체 목록을 받지 않는다 */
-  app.get<{ Querystring: ListQs }>('/api/concepts/list', async (req) => {
+  app.get<{ Querystring: ListQs }>('/api/concepts/list', replies(C.ConceptList), async (req): Promise<C.ConceptList> => {
     const ix = index()
     const query = listQuery(req.query)
     query.projects = directConceptProjects(registry, ix)
@@ -47,21 +49,21 @@ export function registerConcepts(app: FastifyInstance, ctx: RouteContext): void 
     return ix.list(query)
   })
   /** 분류마다 노트 수 (분류 나무를 접어 둔 채) */
-  app.get<{ Querystring: ListQs }>('/api/concepts/subjects', async (req) => ({ subjects: index().subjects(listQuery(req.query)) }))
+  app.get<{ Querystring: ListQs }>('/api/concepts/subjects', replies(C.ConceptSubjects), async (req): Promise<C.ConceptSubjects> => ({ subjects: index().subjects(listQuery(req.query)) }))
   /** [[이름]]이 가리키는 노트 (없으면 null) */
-  app.get<{ Querystring: { name?: string } }>('/api/concepts/resolve', async (req) => ({ note: index().resolve(String(req.query.name ?? '')) }))
+  app.get<{ Querystring: { name?: string } }>('/api/concepts/resolve', replies(C.ConceptResolved), async (req): Promise<C.ConceptResolved> => ({ note: index().resolve(String(req.query.name ?? '')) }))
   /** 개념노트 규칙: research-library README의 개념노트 절 (MCP rules 도구가 모아 준다). 라이브러리가 없으면 null */
-  app.get('/api/concepts/rules', async () => ({ rules: conceptRules(registry.libraryPath) }))
+  app.get('/api/concepts/rules', replies(C.ConceptRules), async (): Promise<C.ConceptRules> => ({ rules: conceptRules(registry.libraryPath) }))
   /** 본문 찾기 (에이전트 입구 search_library): 모든 낱말이 든 노트와, 낱말이 있는 줄·그 줄의 절 제목 */
-  app.get<{ Querystring: { q?: string; limit?: string } }>('/api/concepts/search', async (req) => ({ items: index().searchBody(String(req.query.q ?? ''), { limit: Number(req.query.limit) || 20 }) }))
+  app.get<{ Querystring: { q?: string; limit?: string } }>('/api/concepts/search', replies(C.ConceptSearch), async (req): Promise<C.ConceptSearch> => ({ items: index().searchBody(String(req.query.q ?? ''), { limit: Number(req.query.limit) || 20 }) }))
   /** id 몇 개의 목록 줄 (최근 연 노트) */
-  app.get<{ Querystring: { ids?: string } }>('/api/concepts/rows', async (req) => ({ items: index().rows(String(req.query.ids ?? '').split(',').filter(Boolean).slice(0, 100)) }))
+  app.get<{ Querystring: { ids?: string } }>('/api/concepts/rows', replies(C.ConceptRows), async (req): Promise<C.ConceptRows> => ({ items: index().rows(String(req.query.ids ?? '').split(',').filter(Boolean).slice(0, 100)) }))
   /** 지식 첫 화면: 최근 고친 노트 · 점검(연구가 쓰는 노트 중 확인 전 · 확인 뒤 바뀜, 초안 검토) · 통계(이상 종류마다 수와 id). 색인 위에서 */
-  app.get<{ Querystring: { recent?: string } }>('/api/concepts/brief', async (req) => conceptBrief(registry, index(), registry.libraryPath!, Number(req.query.recent) || 8))
+  app.get<{ Querystring: { recent?: string } }>('/api/concepts/brief', replies(C.ConceptBrief), async (req): Promise<C.ConceptBrief> => conceptBrief(registry, index(), registry.libraryPath!, Number(req.query.recent) || 8))
   /** 기호 모음: concepts/macros.tex의 \newcommand들을 KaTeX macros로 */
-  app.get('/api/concepts/macros', async () => readMacros(registry.libraryPath))
+  app.get('/api/concepts/macros', replies(C.ConceptMacros), async (): Promise<C.ConceptMacros> => readMacros(registry.libraryPath))
   /** 편집기의 [@ 찾기: references.bib에서 키·제목·저자·연도로. 띄어 쓴 낱말은 모두 들어 있어야 하고(순서 무관), 키가 그 말로 시작하는 것이 앞 (많아도 20개까지) */
-  app.get<{ Querystring: { q?: string } }>('/api/concepts/bib', async (req) => {
+  app.get<{ Querystring: { q?: string } }>('/api/concepts/bib', replies(C.ConceptBib), async (req): Promise<C.ConceptBib> => {
     const words = String(req.query.q ?? '').toLowerCase().split(/\s+/).filter(Boolean)
     const text = (e: { key: string; title?: string; author?: string; year?: string }) => [e.key, e.title, e.author, e.year].join(' ').toLowerCase().replace(/[{}]/g, '')
     // 글자를 칠 때마다 불리므로, 파일이 그대로면 파싱한 것을 다시 쓴다
@@ -77,17 +79,16 @@ export function registerConcepts(app: FastifyInstance, ctx: RouteContext): void 
     if (!file) return reply.status(404).send({ error: t('그림을 찾지 못함', 'Figure not found') })
     return reply.type(contentTypeOf(file)).header('cache-control', 'max-age=600').send(fs.createReadStream(file))
   })
-  app.get<{ Params: { id: string } }>('/api/concepts/:id', async (req) => readConceptMd(registry.libraryPath, req.params.id))
+  app.get<{ Params: { id: string } }>('/api/concepts/:id', replies(C.ConceptMd), async (req): Promise<C.ConceptMd> => readConceptMd(registry.libraryPath, req.params.id))
   /** 본문 고치기 (머리말은 그대로, 잠긴 노트는 423) */
-  app.put<{ Params: { id: string }; Body: { body?: unknown; baseHash?: unknown } }>('/api/concepts/:id', async (req) => {
-    const { body, baseHash } = req.body ?? {}
-    if (typeof body !== 'string' || typeof baseHash !== 'string') throw new WorkbenchError(400, t('body와 baseHash가 필요함', 'body and baseHash are required'))
+  app.put<{ Params: { id: string } }>('/api/concepts/:id', replies(C.ConceptMd), async (req): Promise<C.ConceptMd> => {
+    const { body, baseHash } = parseBody(C.ConceptBodyBody, req.body)
     return writeConceptBody(registry.libraryPath, req.params.id, body, baseHash)
   })
   /** 나가는 링크·들어오는 링크(이 개념을 쓰는 개념)·노트가 없는 링크 이름: 색인에서 바로 */
-  app.get<{ Params: { id: string } }>('/api/concepts/:id/links', async (req) => index().links(req.params.id))
+  app.get<{ Params: { id: string } }>('/api/concepts/:id/links', replies(C.ConceptLinks), async (req): Promise<C.ConceptLinks> => index().links(req.params.id))
   /** 출처: 머리말 sources와 본문 [@키]를 references.bib에서 찾아서 (본문에 글로 적지 않는다) */
-  const sourcesOf = (id: string) => {
+  const sourcesOf = (id: string): C.ConceptSources => {
     const lib = registry.libraryPath
     const n = readConceptMd(lib, id)
     const bibFile = lib ? path.join(lib, 'references.bib') : ''
@@ -95,28 +96,25 @@ export function registerConcepts(app: FastifyInstance, ctx: RouteContext): void 
     const cited = inlineCites(n.body)
     return { sources: conceptSources([...cited, ...n.meta.sources], bib), cited, unsorted: n.meta.sourcesUnsorted }
   }
-  app.get<{ Params: { id: string } }>('/api/concepts/:id/sources', async (req) => sourcesOf(req.params.id))
+  app.get<{ Params: { id: string } }>('/api/concepts/:id/sources', replies(C.ConceptSources), async (req): Promise<C.ConceptSources> => sourcesOf(req.params.id))
   /** 쓰는 곳과 인용: 이 개념을 쓰는 프로젝트마다, 개념노트의 출처를 그 프로젝트 bib도 갖고 있는지 */
-  app.get<{ Params: { id: string } }>('/api/concepts/:id/usage', async (req) => ({ uses: conceptUsage(registry, req.params.id, sourcesOf(req.params.id).sources) }))
+  app.get<{ Params: { id: string } }>('/api/concepts/:id/usage', replies(C.ConceptUsage), async (req): Promise<C.ConceptUsage> => ({ uses: conceptUsage(registry, req.params.id, sourcesOf(req.params.id).sources) }))
   /** "확인함" 켜기·끄기, 고치기 잠금 켜기·끄기. 머리말만 고치고 본문은 그대로 */
-  const flag = (set: typeof setConceptChecked) => async (req: { params: { id: string }; body?: { on?: unknown; baseHash?: unknown } }) => {
-    const { on, baseHash } = req.body ?? {}
-    if (typeof on !== 'boolean' || typeof baseHash !== 'string') throw new WorkbenchError(400, t('on과 baseHash가 필요함', 'on and baseHash are required'))
+  const flag = (set: typeof setConceptChecked) => async (req: { params: { id: string }; body?: unknown }): Promise<C.ConceptMd> => {
+    const { on, baseHash } = parseBody(C.ConceptFlagBody, req.body)
     return set(registry.libraryPath, req.params.id, on, baseHash)
   }
-  app.post<{ Params: { id: string }; Body: { on?: unknown; baseHash?: unknown } }>('/api/concepts/:id/checked', flag(setConceptChecked))
-  app.post<{ Params: { id: string }; Body: { on?: unknown; baseHash?: unknown } }>('/api/concepts/:id/locked', flag(setConceptLocked))
+  app.post<{ Params: { id: string } }>('/api/concepts/:id/checked', replies(C.ConceptMd), flag(setConceptChecked))
+  app.post<{ Params: { id: string } }>('/api/concepts/:id/locked', replies(C.ConceptMd), flag(setConceptLocked))
   /** 사용자 확인 고르기: 표시 없음 · 검토 예정 · 확인함 */
-  app.post<{ Params: { id: string }; Body: { choice?: unknown; baseHash?: unknown } }>('/api/concepts/:id/review', async (req) => {
-    const { choice, baseHash } = req.body ?? {}
-    if ((choice !== 'none' && choice !== 'todo' && choice !== 'ok') || typeof baseHash !== 'string') throw new WorkbenchError(400, t('choice(none·todo·ok)와 baseHash가 필요함', 'choice (none·todo·ok) and baseHash are required'))
+  app.post<{ Params: { id: string } }>('/api/concepts/:id/review', replies(C.ConceptMd), async (req): Promise<C.ConceptMd> => {
+    const { choice, baseHash } = parseBody(C.ConceptReviewBody, req.body)
     return setConceptReview(registry.libraryPath, req.params.id, choice, baseHash)
   })
   /** 메모: 본문 밖의 할 일·코멘트·작업 지침 (concepts/<id>.memo.md). 노트가 잠겨도 고칠 수 있다 */
-  app.get<{ Params: { id: string } }>('/api/concepts/:id/memo', async (req) => readConceptMemo(registry.libraryPath, req.params.id))
-  app.put<{ Params: { id: string }; Body: { text?: unknown; baseHash?: unknown } }>('/api/concepts/:id/memo', async (req) => {
-    const { text, baseHash } = req.body ?? {}
-    if (typeof text !== 'string' || typeof baseHash !== 'string') throw new WorkbenchError(400, t('text와 baseHash가 필요함', 'text and baseHash are required'))
+  app.get<{ Params: { id: string } }>('/api/concepts/:id/memo', replies(C.ConceptMemo), async (req): Promise<C.ConceptMemo> => readConceptMemo(registry.libraryPath, req.params.id))
+  app.put<{ Params: { id: string } }>('/api/concepts/:id/memo', replies(C.ConceptMemo), async (req): Promise<C.ConceptMemo> => {
+    const { text, baseHash } = parseBody(C.ConceptMemoBody, req.body)
     return writeConceptMemo(registry.libraryPath, req.params.id, text, baseHash)
   })
 }

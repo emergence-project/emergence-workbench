@@ -1,8 +1,10 @@
 // 기록 올리기와 앱 피드백 (피드백 모드)
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/feedback'
+import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import path from 'node:path'
-import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, FEEDBACK_KINDS, FEEDBACK_VERDICTS, feedbackAsks, feedbackStatusError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback, type FeedbackInput, type FeedbackVerdict } from '../feedback.js'
+import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, feedbackAsks, feedbackStatusError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback } from '../feedback.js'
 import { locate, pendingPaths, PathSyncError, publishPaths } from '../pathsync.js'
 import { WorkbenchError } from '../workbench.js'
 import { commitChecker } from '../commitsInApp.js'
@@ -49,7 +51,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   syncTimer?.unref()
   app.addHook('onClose', async () => { if (autoTimer) clearTimeout(autoTimer); if (syncTimer) clearInterval(syncTimer) })
 
-  app.get('/api/feedback/unpublished', async () => ({ files: opts.feedbackDir && opts.feedbackPublish ? await unpublishedFeedback(opts.feedbackDir) : [] }))
+  app.get('/api/feedback/unpublished', replies(C.UnpublishedFiles), async (): Promise<C.UnpublishedFiles> => ({ files: opts.feedbackDir && opts.feedbackPublish ? await unpublishedFeedback(opts.feedbackDir) : [] }))
 
   /** 연구 저장소에서 앱이 올리는 사용자 기록 (workbench 기준). 코멘트 형식이 늘면 여기에 더한다 */
   const RESEARCH_RECORDS = ['comments']
@@ -57,11 +59,11 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const { top, rel } = await locate(path.join(repoPath(rid), 'workbench'))
     return { top, paths: RESEARCH_RECORDS.map((p) => (rel ? `${rel}/${p}` : p)) }
   }
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/records/unpublished', async (req) => {
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/records/unpublished', replies(C.UnpublishedFiles), async (req): Promise<C.UnpublishedFiles> => {
     const r = await researchRecords(req.params.rid).catch(() => null)
     return { files: r ? await pendingPaths(r.top, r.paths) : [] }
   })
-  app.post<{ Params: { rid: string } }>('/api/researches/:rid/records/publish', async (req) => {
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/records/publish', replies(C.RecordsPublished), async (req): Promise<C.RecordsPublished> => {
     if (opts.sandbox) throw new WorkbenchError(404, t('개발용 예제 모드에서는 GitHub에 올리지 않습니다', 'Sample mode does not push to GitHub'))
     try {
       const r = await researchRecords(req.params.rid)
@@ -77,7 +79,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   let issues: Promise<string | null> | null = null
   const issuesUrl = () => (issues ??= process.env.RW_ISSUES_URL ? Promise.resolve(process.env.RW_ISSUES_URL) : opts.appRepo ? appIssuesUrl(opts.appRepo.root) : Promise.resolve(null))
 
-  app.get('/api/feedback', async () => ({
+  app.get('/api/feedback', replies(C.FeedbackToday), async (): Promise<C.FeedbackToday> => ({
     issues: await issuesUrl(), version: opts.appVersion ?? null,
     enabled: !!opts.feedbackDir, publishable: !!opts.feedbackDir && !!opts.feedbackPublish,
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
@@ -87,7 +89,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
 
   const inApp = opts.appRepo ? commitChecker(opts.appRepo.root, opts.appRepo.running) : null
   let account: Promise<string | null> | null = null
-  app.get('/api/feedback/all', async () => {
+  app.get('/api/feedback/all', replies(C.FeedbackAll), async (): Promise<C.FeedbackAll> => {
     syncSoon()
     const entries = opts.feedbackDir ? listAllFeedback(opts.feedbackDir) : []
     if (inApp) {
@@ -110,25 +112,25 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     return reply.type(rel.endsWith('.png') ? 'image/png' : 'image/jpeg').send(fs.readFileSync(file))
   })
   /** 코멘트: 처리를 바꾸지 않고 묻거나 덧붙인다. reviews.yaml comments에 적고 피드백처럼 올린다 */
-  app.post<{ Body: { key: string; note: string } }>('/api/feedback/comment', async (req) => {
+  app.post('/api/feedback/comment', replies(C.FeedbackCommented), async (req): Promise<C.FeedbackCommented> => {
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
-    const b = req.body ?? ({} as never)
-    if (typeof b.key !== 'string' || typeof b.note !== 'string' || !b.note.trim()) throw new WorkbenchError(400, t('키와 내용이 필요함', 'key and note are required'))
+    const b = parseBody(C.FeedbackCommentBody, req.body)
+    if (!b.note.trim()) throw new WorkbenchError(400, t('키와 내용이 필요함', 'key and note are required'))
     if (!listAllFeedback(opts.feedbackDir).some((e) => e.key === b.key)) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     const comment = addFeedbackComment(opts.feedbackDir, b.key, b.note.slice(0, 4000))
     scheduleAutoPublish()
     return { comment }
   })
   /** 내가 쓴 글(수정 요청 · 승인 · 코멘트) 고치기: at으로 찾는다 */
-  app.patch<{ Body: { key: string; at: string; note: string } }>('/api/feedback/review', async (req) => {
+  app.patch('/api/feedback/review', replies(C.FeedbackOk), async (req): Promise<C.FeedbackOk> => {
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
-    const b = req.body ?? ({} as never)
-    if (typeof b.key !== 'string' || typeof b.at !== 'string' || typeof b.note !== 'string' || !b.note.trim()) throw new WorkbenchError(400, t('키 · 시각 · 내용이 필요함', 'key, at and note are required'))
+    const b = parseBody(C.FeedbackNoteBody, req.body)
+    if (!b.note.trim()) throw new WorkbenchError(400, t('키 · 시각 · 내용이 필요함', 'key, at and note are required'))
     if (!editFeedbackNote(opts.feedbackDir, b.key, b.at, b.note.slice(0, 4000))) throw new WorkbenchError(404, t('그 글을 찾지 못했습니다', 'That message was not found'))
     scheduleAutoPublish()
     return { ok: true }
   })
-  app.post('/api/feedback/publish', async () => {
+  app.post('/api/feedback/publish', replies(C.FeedbackPublished), async (): Promise<C.FeedbackPublished> => {
     if (!opts.feedbackDir || !opts.feedbackPublish) throw new WorkbenchError(404, t('이 모드에서는 피드백을 올리지 않습니다', 'Feedback is not pushed in this mode'))
     try { return await publishOnce() } catch (e) {
       if (e instanceof PublishError) throw new WorkbenchError(409, e.message)
@@ -137,21 +139,18 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   })
 
   /** 남긴 피드백 고치기(text) · 지우기(text: null) */
-  app.patch<{ Body: { date: string; time: string; target: string; n?: number; text: string | null } }>('/api/feedback', async (req) => {
+  app.patch('/api/feedback', replies(C.FeedbackOk), async (req): Promise<C.FeedbackOk> => {
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
-    const b = req.body ?? ({} as never)
-    if (typeof b.date !== 'string' || typeof b.time !== 'string' || typeof b.target !== 'string') throw new WorkbenchError(400, t('날짜·시각·부위가 필요함', 'date, time and target are required'))
-    if (b.text !== null && (typeof b.text !== 'string' || !b.text.trim())) throw new WorkbenchError(400, t('내용이 필요함 (지우려면 text: null)', 'text is required (to delete, send text: null)'))
+    const b = parseBody(C.EditFeedbackBody, req.body)
+    if (b.text !== null && !b.text.trim()) throw new WorkbenchError(400, t('내용이 필요함 (지우려면 text: null)', 'text is required (to delete, send text: null)'))
     if (!editFeedback(opts.feedbackDir, b, b.text)) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     scheduleAutoPublish()
     return { ok: true }
   })
   /** 처리한 피드백을 승인·반려한다 (verdict: null이면 마지막 것을 취소, 그 전의 것은 history에 남는다). feedback/reviews.yaml에 적고 피드백처럼 올린다 */
-  app.put<{ Body: { key: string; verdict: FeedbackVerdict | null; note?: string } }>('/api/feedback/review', async (req) => {
+  app.put('/api/feedback/review', replies(C.FeedbackReviewed), async (req): Promise<C.FeedbackReviewed> => {
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
-    const b = req.body ?? ({} as never)
-    if (typeof b.key !== 'string') throw new WorkbenchError(400, t('키가 필요함', 'key is required'))
-    if (b.verdict !== null && !FEEDBACK_VERDICTS.includes(b.verdict)) throw new WorkbenchError(400, t(`verdict는 ${FEEDBACK_VERDICTS.join('·')} 또는 null`, `verdict must be ${FEEDBACK_VERDICTS.join('·')} or null`))
+    const b = parseBody(C.FeedbackReviewBody, req.body)
     const item = listAllFeedback(opts.feedbackDir).find((e) => e.key === b.key)
     if (!item) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     if (b.verdict !== null && !item.status) throw new WorkbenchError(400, t('아직 처리하지 않은 항목입니다', 'This item has not been handled yet'))
@@ -159,16 +158,14 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const asks = feedbackAsks(item.status)
     if (b.verdict === '승인' && (asks || item.status?.state === '보류')) throw new WorkbenchError(400, t('묻는 답은 승인하지 않고 진행이나 중단으로 답합니다', 'An answer that asks you is not approved: answer it with Proceed or Stop'))
     if ((b.verdict === '진행' || b.verdict === '중단') && !asks) throw new WorkbenchError(400, t('진행 · 중단은 에이전트가 물은 답에만 씁니다', 'Proceed and Stop are only for answers where the agent asks you'))
-    const review = setFeedbackReview(opts.feedbackDir, b.key, b.verdict, typeof b.note === 'string' ? b.note : undefined)
+    const review = setFeedbackReview(opts.feedbackDir, b.key, b.verdict, b.note)
     scheduleAutoPublish()
     return { review }
   })
-  app.post<{ Body: FeedbackInput }>('/api/feedback', async (req) => {
+  app.post('/api/feedback', replies(C.FeedbackAdded), async (req): Promise<C.FeedbackAdded> => {
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
-    const b = req.body ?? ({} as FeedbackInput)
-    if (!FEEDBACK_KINDS.includes(b.kind)) throw new WorkbenchError(400, t(`종류는 ${FEEDBACK_KINDS.join('·')} 중 하나`, `kind must be one of ${FEEDBACK_KINDS.join('·')}`))
-    if (typeof b.text !== 'string' || !b.text.trim()) throw new WorkbenchError(400, t('내용이 필요함', 'text is required'))
-    if (typeof b.target !== 'string') throw new WorkbenchError(400, t('부위가 필요함', 'target is required'))
+    const b = parseBody(C.NewFeedbackBody, req.body)
+    if (!b.text.trim()) throw new WorkbenchError(400, t('내용이 필요함', 'text is required'))
     const entry = appendFeedback(opts.feedbackDir, { ...b, version: opts.appVersion })
     scheduleAutoPublish()
     return { entry }

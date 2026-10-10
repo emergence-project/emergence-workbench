@@ -1,9 +1,11 @@
 // 주제 (research.yaml의 topics:, 10/5 "주제와 노트")
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/notes'
+import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import { contentTypeOf } from '../materials.js'
 import { dropTopicsFromNotes, topicsOverview } from '../noteList.js'
-import { checkTopicsHash, createTopic, deleteTopic, patchTopic, readTopics, saveTopics, setTopicImage, topicImageFile, topicsHash, type TopicPatch } from '../topics.js'
+import { checkTopicsHash, createTopic, deleteTopic, patchTopic, readTopics, saveTopics, setTopicImage, topicImageFile, topicsHash } from '../topics.js'
 import { cardFigureRef } from '../figures.js'
 import type { RouteContext } from './context.js'
 
@@ -32,23 +34,24 @@ export function registerTopics(app: FastifyInstance, ctx: RouteContext): void {
     return { topics, hash: topicsHash(wb) }
   })
   /** 주제마다 노트 수(상태별)·노트들의 성격·최근 시각, 그리고 주제 없는 노트 묶음("노트들", loose) */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/topics/overview', async (req) => {
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/topics/overview', replies(C.TopicsOverview), async (req): Promise<C.TopicsOverview> => {
     const wb = wbOf(req.params.rid)
     return { ...topicsOverview(wb), hash: topicsHash(wb) }
   })
   /** 주제 만들기: { title, description?, preview? } */
-  app.post<{ Params: { rid: string }; Body: { title?: unknown; description?: unknown; preview?: unknown; baseHash?: unknown } }>('/api/researches/:rid/topics', async (req) => {
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/topics', replies(C.TopicSaved), async (req): Promise<C.TopicSaved> => {
     const wb = wbOf(req.params.rid)
-    checkTopicsHash(wb, req.body?.baseHash); checkImage(req.params.rid, req.body?.preview); const topic = createTopic(wb, req.body ?? {}); return { topic, hash: topicsHash(wb) }
+    const { baseHash, ...input } = parseBody(C.NewTopicBody, req.body)
+    checkTopicsHash(wb, baseHash); checkImage(req.params.rid, input.preview); const topic = createTopic(wb, input); return { topic, hash: topicsHash(wb) }
   })
   /** 주제 고치기: 이름(40자) · 설명(200자) · preview { text(30자), image, color } · star · done. 적은 칸만 바꾼다 */
-  app.patch<{ Params: P; Body: TopicPatch & { baseHash?: unknown } }>('/api/researches/:rid/topics/:tid', async (req) => {
+  app.patch<{ Params: P }>('/api/researches/:rid/topics/:tid', replies(C.TopicSaved), async (req): Promise<C.TopicSaved> => {
     const wb = wbOf(req.params.rid)
-    const { baseHash, ...patch } = req.body ?? {}
+    const { baseHash, ...patch } = parseBody(C.TopicPatchBody, req.body)
     checkTopicsHash(wb, baseHash); checkImage(req.params.rid, patch.preview); const topic = patchTopic(wb, req.params.tid, patch); return { topic, hash: topicsHash(wb) }
   })
   /** 주제 지우기: research.yaml과 노트 머리말에서만 뺀다. 노트는 "노트들"로 가고 파일은 그대로 */
-  app.delete<{ Params: P; Querystring: { baseHash?: string } }>('/api/researches/:rid/topics/:tid', async (req) => {
+  app.delete<{ Params: P; Querystring: { baseHash?: string } }>('/api/researches/:rid/topics/:tid', replies(C.TopicDeleted), async (req): Promise<C.TopicDeleted> => {
     const wb = wbOf(req.params.rid)
     checkTopicsHash(wb, req.query.baseHash)
     const topics = deleteTopic(wb, req.params.tid)
@@ -56,7 +59,7 @@ export function registerTopics(app: FastifyInstance, ctx: RouteContext): void {
     return { topics, notes, hash: topicsHash(wb) }
   })
   /** 주제 그림 올리기 (application/octet-stream, ?name=파일 이름): workbench/figures/topics/<id>.<확장자>에 두고 미리보기에 건다 */
-  app.put<{ Params: P; Querystring: { name?: string } }>('/api/researches/:rid/topics/:tid/image', async (req) => {
+  app.put<{ Params: P; Querystring: { name?: string } }>('/api/researches/:rid/topics/:tid/image', replies(C.TopicSaved), async (req): Promise<C.TopicSaved> => {
     const wb = wbOf(req.params.rid)
     return { topic: setTopicImage(wb, req.params.tid, req.query.name, req.body), hash: topicsHash(wb) }
   })
