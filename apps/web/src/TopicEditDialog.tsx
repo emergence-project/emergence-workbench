@@ -70,7 +70,7 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
   }
   const swatch = (c: TopicColor | 'default') => (
     <button key={c} type="button" className={`td-sw ${c === 'default' ? 'c-default' : `c-${c}`}${color === c ? ' on' : ''}`} role="radio" aria-checked={color === c}
-      aria-label={c === 'default' ? t('바탕색: 기본 (프로젝트 색)', 'Background: Default (project color)') : `${t('바탕색', 'Background')}: ${COLOR_LABEL[c]}`} title={c === 'default' ? t('기본 (프로젝트 색)', 'Default (project color)') : COLOR_LABEL[c]}
+      aria-label={c === 'default' ? t('바탕색: 기본 (프로젝트 색)', 'Color: Default (project color)') : `${t('바탕색', 'Color')}: ${COLOR_LABEL[c]}`} title={c === 'default' ? t('기본 (프로젝트 색)', 'Default (project color)') : COLOR_LABEL[c]}
       style={{ ['--pc' as string]: pc } as CSSProperties} onClick={() => setColor(c)} />
   )
 
@@ -102,8 +102,8 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
           <CardImageField value={image} legacyUrl={imageUrl} ui="그림 넣기" previewUi="미리보기 그림" disabled={busy} onOpen={() => setPickingImage(true)} onChange={setImage} />
         </div>
         <div className="td-row">
-          <span className="td-rl">{t('바탕색', 'Background')}</span>
-          <span className="td-sws" role="radiogroup" aria-label={t('바탕색', 'Background')}>{(['default', ...TOPIC_COLORS] as const).map(swatch)}</span>
+          <span className="td-rl">{t('바탕색', 'Color')}</span>
+          <span className="td-sws" role="radiogroup" aria-label={t('바탕색', 'Color')}>{(['default', ...TOPIC_COLORS] as const).map(swatch)}</span>
         </div>
       </>}>
       <label className="td-f">

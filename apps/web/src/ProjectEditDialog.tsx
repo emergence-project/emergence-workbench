@@ -7,7 +7,7 @@ import { onListKey } from './listInput'
 import { isDialogHostDisplayed } from './dialogVisibility'
 import { autoProjectColor, PROJECT_COLOR_HEX, PROJECT_COLOR_LABEL, projectColor } from './format'
 import { projectTextState, readProjectEditSnapshot } from './projectEdit'
-import { ProjectProfileFields, type ProfilePatch } from './ProjectProfileFields'
+import { ProjectProfileFields, ProjectRailCheck, type ProfilePatch } from './ProjectProfileFields'
 import { t } from './i18n'
 
 /**
@@ -108,8 +108,12 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
           last={last} issues={summary.tree.issues.length} mark={summary.tree.issues.length ? 'check' : null} />
       } lower={
         <fieldset className="td-fields" disabled={busy || !baseHash}>
-          <ProjectProfileFields kind={profile.kind} fields={profile.fields} state={profile.state} rail={profile.rail} all={all}
+          <ProjectProfileFields kind={profile.kind} fields={profile.fields} state={profile.state} all={all}
             onChange={(p) => setProfile((cur) => ({ ...cur, ...p }))} />
+        </fieldset>
+      } foot={
+        <fieldset className="td-fields" disabled={busy || !baseHash}>
+          <ProjectRailCheck state={profile.state} rail={profile.rail} onChange={(p) => setProfile((cur) => ({ ...cur, ...p }))} />
         </fieldset>
       } look={<>
         <div className="td-row">

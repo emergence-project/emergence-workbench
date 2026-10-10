@@ -7,7 +7,7 @@ import { t } from './i18n'
  * 주제 · 프로젝트 고치기: 같은 머리, 두 칸, 맨 아랫줄에 취소 · 저장 (10/10 A안).
  * 윗줄은 왼쪽 이름 · 설명과 오른쪽 카드 미리보기, 아랫줄은 왼쪽 나머지 칸(lower)과 오른쪽 카드 모양(look)이 같은 높이에서 시작해 줄이 맞는다.
  */
-export function CardEditDialog({ title, location, pc, ui, className = '', children, lower, preview, look, canSave, onSave, onClose }: {
+export function CardEditDialog({ title, location, pc, ui, className = '', children, lower, preview, look, foot, canSave, onSave, onClose }: {
   title: string
   location: string
   pc: string
@@ -20,6 +20,8 @@ export function CardEditDialog({ title, location, pc, ui, className = '', childr
   preview: ReactNode
   /** 미리보기 바로 아래: 카드 그림 · 색처럼 카드 모양을 고르는 칸 (고르는 대로 위 카드가 바뀐다) */
   look?: ReactNode
+  /** 맨 아랫줄 왼쪽 (오른쪽은 취소 · 저장): 아랫줄 두 칸의 줄 수를 맞추려고 왼쪽에만 있는 한 줄을 여기 둔다 */
+  foot?: ReactNode
   canSave: boolean
   onSave(): void
   onClose(): void
@@ -89,6 +91,7 @@ export function CardEditDialog({ title, location, pc, ui, className = '', childr
             <div className="td-card">{preview}</div>
             {lower && <div className="td-fields td-low">{lower}</div>}
             {look && <div className="td-look">{look}</div>}
+            {foot && <div className="td-foot">{foot}</div>}
             <div className="td-acts">
               <button type="button" className="btn" onClick={onClose}>{t('취소', 'Cancel')} <span className="td-key">Esc</span></button>
               <button type="button" className="btn primary" disabled={!canSave} onClick={onSave}>{t('저장', 'Save')} <span className="td-key">⌘↵</span></button>
