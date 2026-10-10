@@ -8,6 +8,9 @@ import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsuti
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { inspectTask, TASK_ID as ID, TASK_STATES, type TaskDiagnostic, type TaskInspection } from './taskValidation.js'
 import { t as tl } from './i18n.js'
+import type { z } from 'zod'
+import * as C from '@rw/core/contract/tasks'
+import type { Task, TaskAnswer, TaskAsk, TaskIssue, TaskJudgment, TaskNext, TaskState, Verdict } from '@rw/core/contract/tasks'
 
 /**
  * 맡긴 일 (작업 탭, 10/7 사용자 결정): 에이전트에게 맡긴 일 하나에 파일 하나, workbench/tasks/<날짜>-<이름>.md.
@@ -49,50 +52,12 @@ import { t as tl } from './i18n.js'
  */
 
 export type { TaskDiagnostic } from './taskValidation.js'
+export type { Task, TaskAnswer, TaskAsk, TaskIssue, TaskJudgment, TaskNext, TaskState, Verdict } from '@rw/core/contract/tasks'
 
 export const TASKS_DIR = 'tasks'
 export { TASK_STATES } from './taskValidation.js'
-export type TaskState = (typeof TASK_STATES)[number]
-export const VERDICTS = ['approve', 'send-back', 'pause', 'discard'] as const
-export type Verdict = (typeof VERDICTS)[number]
+export const VERDICTS = C.VERDICTS
 export const AGENTS = ['claude-code', 'codex'] as const
-
-export interface TaskAsk { q: string; options: string[] }
-export interface TaskIssue { text: string; impact?: string; next?: number }
-export interface TaskNext { task: string; endCondition?: string; started?: string; dropped?: boolean }
-export interface TaskAnswer { n: number; answer: string; note?: string; at: string }
-export interface TaskJudgment { at: string; verdict: Verdict; note?: string; seconds?: number }
-
-export interface Task {
-  /** 파일 이름 (.md 뺀 것): <날짜>-<이름> */
-  id: string
-  /** 저장소 기준 경로 */
-  file: string
-  title: string
-  topic?: string
-  agent: string
-  created: string
-  state: TaskState
-  task: string
-  endCondition?: string
-  references: string[]
-  avoid?: string
-  resultAt?: string
-  conclusion?: string
-  endCheck?: 'pass' | 'fail' | 'unknown'
-  asks: TaskAsk[]
-  issues: TaskIssue[]
-  next: TaskNext[]
-  outputs: string[]
-  check: { machine?: string; repro?: string; human?: string }
-  proposal?: { endCondition: string[]; reason?: string }
-  answers: TaskAnswer[]
-  judged: TaskJudgment[]
-  /** 머리말 뒤 본문 (Markdown) */
-  body: string
-  hash: string
-  mtime: number
-}
 
 const TITLE_MAX = 80
 
@@ -261,36 +226,26 @@ export function taskIdFor(wb: Workbench, title: string, date = localDate()): str
   return id
 }
 
-export interface NewTask {
-  title?: unknown
-  topic?: unknown
-  agent?: unknown
-  task?: unknown
-  endCondition?: unknown
-  references?: unknown
-  avoid?: unknown
-}
+/** 맡기기 요청 (모양은 라우트가 계약으로 검사한 뒤) */
+export type NewTask = z.output<typeof C.NewTaskBody>
+type Judge = z.output<typeof C.JudgeBody>
+type Answer = z.output<typeof C.AnswerBody>
+type Next = z.output<typeof C.NextBody>
 
 const BODY_HINT = '<!-- 결과는 머리말(result-at · conclusion · end-check · ask · issues · next · outputs · check)과 아래 두 절에 적는다. 규칙: research-workspace/docs/agent-delegated-work.md -->\n\n## 요약과 결론\n\n## 근거\n'
 
 /** 맡기기: 파일을 새로 만든다. 종결 조건이 비면 에이전트가 먼저 제안한다(state는 working, end-condition 없음) */
 export function createTask(wb: Workbench, input: NewTask, now = new Date()): Task {
-  const title = typeof input.title === 'string' ? input.title.replace(/\s+/g, ' ').trim() : ''
+  const title = input.title.replace(/\s+/g, ' ').trim()
   if (!title) throw new WorkbenchError(400, tl('제목이 필요함', 'A title is required'))
   if ([...title].length > TITLE_MAX) throw new WorkbenchError(400, tl(`제목은 ${TITLE_MAX}자까지`, `Titles are up to ${TITLE_MAX} characters`))
-  const task = typeof input.task === 'string' ? input.task.trim() : ''
+  const task = input.task.trim()
   if (!task) throw new WorkbenchError(400, tl('작업 내용이 필요함', 'The task description is required'))
-  const one = (v: unknown, name: string) => {
-    if (v === undefined || v === null || v === '') return undefined
-    if (typeof v !== 'string') throw new WorkbenchError(400, tl(`${name}은 글이어야 함`, `${name} must be text`))
-    return v.trim() || undefined
-  }
-  const agent = one(input.agent, 'agent') ?? 'claude-code'
-  const topic = one(input.topic, 'topic')
+  const one = (v: string | null | undefined) => v?.trim() || undefined
+  const agent = one(input.agent) ?? 'claude-code'
+  const topic = one(input.topic)
   if (topic && !/^[a-z0-9][a-z0-9-]*$/.test(topic)) throw new WorkbenchError(400, tl(`주제 id가 아님: ${topic}`, `Not a topic id: ${topic}`))
-  const references = input.references === undefined ? [] : Array.isArray(input.references) && input.references.every((r) => typeof r === 'string')
-    ? (input.references as string[]).map((r) => r.trim()).filter(Boolean)
-    : (() => { throw new WorkbenchError(400, tl('references는 글 목록이어야 함', 'references must be a list of text')) })()
+  const references = (input.references ?? []).map((r) => r.trim()).filter(Boolean)
   const fm: Record<string, unknown> = {
     title,
     ...(topic ? { topic } : {}),
@@ -299,10 +254,10 @@ export function createTask(wb: Workbench, input: NewTask, now = new Date()): Tas
     state: 'working',
     task,
   }
-  const end = one(input.endCondition, 'endCondition')
+  const end = one(input.endCondition)
   if (end) fm['end-condition'] = end
   if (references.length) fm.references = references
-  const avoid = one(input.avoid, 'avoid')
+  const avoid = one(input.avoid)
   if (avoid) fm.avoid = avoid
   const id = taskIdFor(wb, title, localDate(now))
   const content = `---\n${YAML.stringify(fm, { lineWidth: 0 })}---\n\n${BODY_HINT}`
@@ -311,8 +266,7 @@ export function createTask(wb: Workbench, input: NewTask, now = new Date()): Tas
 }
 
 /** 읽은 뒤 바뀐 파일은 고치지 않는다 (에이전트가 쓰는 중일 수 있다) */
-function checkHash(t: Task, baseHash: unknown) {
-  if (typeof baseHash !== 'string' || !baseHash) throw new WorkbenchError(400, tl('baseHash(읽을 때 받은 hash)가 필요함', 'baseHash (the hash received when reading) is required'))
+function checkHash(t: Task, baseHash: string) {
   if (baseHash !== t.hash) {
     throw new ConflictError(tl('그새 파일이 바뀌었습니다. 다시 읽은 뒤 고치세요', 'The file changed in the meantime. Read it again, then edit'), t.hash)
   }
@@ -348,20 +302,19 @@ const minutes = (s?: number) => (s === undefined ? '' : s < 60 ? ` · ${s}초` :
  * - 멈춤 → paused, 폐기 → stopped
  * 판단에 쓴 시간(seconds, 화면이 잰다)과 함께 그날 일지에 상태 한 줄을 남긴다.
  */
-export function judgeTask(wb: Workbench, id: string, body: { verdict?: unknown; note?: unknown; seconds?: unknown; endCondition?: unknown; baseHash?: unknown }, now = new Date()): Task {
+export function judgeTask(wb: Workbench, id: string, body: Judge, now = new Date()): Task {
   const t = readTask(wb, id)
   checkHash(t, body.baseHash)
   const verdict = body.verdict
-  if (typeof verdict !== 'string' || !(VERDICTS as readonly string[]).includes(verdict)) throw new WorkbenchError(400, tl('verdict는 approve · send-back · pause · discard', 'verdict must be approve · send-back · pause · discard'))
-  const note = typeof body.note === 'string' ? body.note.replace(/\s+/g, ' ').trim() : ''
+  const note = body.note?.replace(/\s+/g, ' ').trim() ?? ''
   if (verdict === 'send-back' && !note) throw new WorkbenchError(400, tl('무엇을 고칠지 한 줄이 필요함', 'Write one line on what to change'))
   if (verdict === 'approve' && t.state !== 'result' && t.state !== 'proposed') throw new WorkbenchError(409, tl('판단 대기나 종결 조건 제안만 승인할 수 있음', 'Only tasks awaiting decision or proposed completion criteria can be approved'))
-  const seconds = typeof body.seconds === 'number' && body.seconds >= 0 ? Math.round(body.seconds) : undefined
+  const seconds = body.seconds === undefined ? undefined : Math.round(body.seconds)
   const at = stamp(now)
   const after = editFront(wb, t, (doc) => {
     if (verdict === 'approve' && t.state === 'proposed') {
       // 고쳐서 승인: 사용자가 고친 종결 조건이 오면 제안 대신 그것을 쓴다
-      const edited = typeof body.endCondition === 'string' ? body.endCondition.trim() : ''
+      const edited = body.endCondition?.trim() ?? ''
       const conds = t.proposal!.endCondition
       doc.set('end-condition', edited || (conds.length === 1 ? conds[0] : conds.map((c, i) => `${i + 1}) ${c}`).join(' ')))
       doc.delete('proposal')
@@ -374,20 +327,20 @@ export function judgeTask(wb: Workbench, id: string, body: { verdict?: unknown; 
     }
     appendTo(doc, 'judged', { at, verdict, ...(note ? { note } : {}), ...(seconds !== undefined ? { seconds } : {}) })
   })
-  const what = t.state === 'proposed' && verdict === 'approve' ? '종결 조건 승인' : VERDICT_LABEL[verdict as Verdict]
+  const what = t.state === 'proposed' && verdict === 'approve' ? '종결 조건 승인' : VERDICT_LABEL[verdict]
   wb.appendJournal({ date: localDate(now), time: localTime(now), kind: 'status', target: RESEARCH_TARGET, text: `판단 · ${t.title} · ${what}${minutes(seconds)}${note ? ` · ${note}` : ''}` })
   return after
 }
 
 /** 사용자 확인 요청에 답하기: n번(1부터) 요청에 고른 답과 덧붙일 말. 같은 번호에 다시 답하면 새 답이 앞의 답을 대신한다 */
-export function answerTask(wb: Workbench, id: string, body: { n?: unknown; answer?: unknown; note?: unknown; baseHash?: unknown }, now = new Date()): Task {
+export function answerTask(wb: Workbench, id: string, body: Answer, now = new Date()): Task {
   const t = readTask(wb, id)
   checkHash(t, body.baseHash)
-  const n = int(body.n)
-  if (!n || n > t.asks.length) throw new WorkbenchError(400, tl(`없는 확인 요청: ${String(body.n)}`, `No such review request: ${String(body.n)}`))
-  const answer = typeof body.answer === 'string' ? body.answer.trim() : ''
+  const n = body.n
+  if (n > t.asks.length) throw new WorkbenchError(400, tl(`없는 확인 요청: ${String(body.n)}`, `No such review request: ${String(body.n)}`))
+  const answer = body.answer.trim()
   if (!answer) throw new WorkbenchError(400, tl('답이 필요함', 'An answer is required'))
-  const note = typeof body.note === 'string' ? body.note.replace(/\s+/g, ' ').trim() : ''
+  const note = body.note?.replace(/\s+/g, ' ').trim() ?? ''
   return editFront(wb, t, (doc) => {
     const seq = doc.get('answers')
     if (YAML.isSeq(seq)) seq.items = seq.items.filter((it) => !(YAML.isMap(it) && Number(it.get('n')) === n))
@@ -400,12 +353,12 @@ export function answerTask(wb: Workbench, id: string, body: { n?: unknown; answe
  * - start: 새 작업 파일로 맡긴다(edit가 있으면 고친 칸으로). 이 보고서가 참고 자료로 붙고, 제안 줄에 started: <새 id>
  * - drop: 목록에서 뺀다(dropped: true), restore: 되살린다
  */
-export function nextTask(wb: Workbench, id: string, body: { i?: unknown; action?: unknown; edit?: NewTask; baseHash?: unknown }, now = new Date()): { task: Task; started?: Task } {
+export function nextTask(wb: Workbench, id: string, body: Next, now = new Date()): { task: Task; started?: Task } {
   const t = readTask(wb, id)
   checkHash(t, body.baseHash)
-  const i = int(body.i)
-  const item = i ? t.next[i - 1] : undefined
-  if (!i || !item) throw new WorkbenchError(400, tl(`없는 다음 지시: ${String(body.i)}`, `No such next instruction: ${String(body.i)}`))
+  const i = body.i
+  const item = t.next[i - 1]
+  if (!item) throw new WorkbenchError(400, tl(`없는 다음 지시: ${String(body.i)}`, `No such next instruction: ${String(body.i)}`))
   const setItem = (doc: YAML.Document, key: string, value: unknown) => {
     const seq = doc.get('next')
     const node = YAML.isSeq(seq) ? seq.items[i - 1] : undefined
@@ -418,7 +371,6 @@ export function nextTask(wb: Workbench, id: string, body: { i?: unknown; action?
     if (item.started) throw new WorkbenchError(409, tl('이미 맡긴 제안', 'This proposal is already delegated'))
     return { task: editFront(wb, t, (doc) => setItem(doc, 'dropped', body.action === 'drop' ? true : undefined)) }
   }
-  if (body.action !== 'start') throw new WorkbenchError(400, tl('action은 start · drop · restore', 'action must be start · drop · restore'))
   if (item.started) throw new WorkbenchError(409, tl('이미 맡긴 제안', 'This proposal is already delegated'))
   const edit = body.edit ?? {}
   const started = createTask(wb, {
