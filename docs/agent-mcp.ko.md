@@ -6,8 +6,8 @@ Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 
 
 ## 쓰기 전에
 
-- 맥에서 Emergence Workbench 앱(서버, 기본 `http://127.0.0.1:8130`)이 켜져 있어야 한다. 꺼져 있으면 도구가 "Cannot reach the Emergence Workbench app server"라고 답하고 아무것도 하지 않는다.
-- 다른 주소의 서버를 쓰려면 환경 변수 `RW_URL`(예: 예제 모드 서버)을 준다.
+- 맥에서 Emergence Workbench 앱(설치한 서비스, 기본 `http://127.0.0.1:5174`)이 켜져 있어야 한다. 꺼져 있으면 도구가 "Cannot reach the Emergence Workbench app server"라고 답하고 아무것도 하지 않는다.
+- 다른 주소의 서버를 쓰려면 환경 변수 `RW_URL`을 준다. 예제 모드(`pnpm dev`)는 `RW_URL=http://127.0.0.1:8130`.
 
 ## 등록
 

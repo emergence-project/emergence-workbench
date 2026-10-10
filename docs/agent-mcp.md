@@ -6,8 +6,8 @@ Agents such as Claude Code and Codex read Emergence Workbench projects, notes, r
 
 ## Before you start
 
-- The app server must be running on the Mac (default `http://127.0.0.1:8130`). If it is off, every tool answers "Cannot reach the Emergence Workbench app server" and does nothing.
-- To use a server at another address (for example sample mode), set `RW_URL`.
+- The app server must be running on the Mac (the installed service, default `http://127.0.0.1:5174`). If it is off, every tool answers "Cannot reach the Emergence Workbench app server" and does nothing.
+- To use a server at another address, set `RW_URL`. For sample mode (`pnpm dev`): `RW_URL=http://127.0.0.1:8130`.
 
 ## Register it
 
