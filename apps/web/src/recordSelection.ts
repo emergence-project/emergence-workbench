@@ -28,5 +28,6 @@ export function useRecordSelection(box: RefObject<HTMLElement | null>, source: s
     document.addEventListener('mouseup', onUp)
     document.addEventListener('keyup', onUp)
     return () => { clearTimeout(timer); document.removeEventListener('mouseup', onUp); document.removeEventListener('keyup', onUp) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- box는 ref라 바뀌지 않는다
   }, [source, contentOffset])
 }

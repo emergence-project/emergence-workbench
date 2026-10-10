@@ -321,6 +321,7 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
     const record = recordSlot.file?.comments.find((entry) => entry.id === recordSlot.reveal!.id)
     const range = record && recordRevealRange(content.current, record)
     if (range) editor.current?.revealLines(content.current.slice(0, range.from).split('\n').length, content.current.slice(0, range.to).split('\n').length)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 기록 열기(nonce)가 바뀔 때만 그 자리로 간다
   }, [recordSlot.reveal?.nonce, file, loaded])
 
   // 절 목차: \section 줄. 커서가 든 절이 지금 절 (편집기는 늘 고치는 중이라 커서를 따라간다)

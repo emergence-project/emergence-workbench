@@ -57,6 +57,7 @@ export function CardImagePicker({ rid, project, pc, value, onChange, onClose }: 
   const rows = cardImageFigures(data?.figures ?? [], rid, query)
 
   useEffect(() => { live.current = true; return () => { live.current = false } }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 숨긴 탭이 다시 보일 때를 잡으려고 렌더마다 잰다 (같은 값이면 다시 그리지 않는다)
   useLayoutEffect(() => { setDisplayed(isDialogHostDisplayed(host.current)) })
   useLayoutEffect(() => {
     const sentinel = host.current

@@ -16,6 +16,7 @@ const steps = [
   ['화면 검사 옵션', 'node', ['--test', ...tests('scripts/shots')]],
   ['TeX 검사 대상', 'node', ['scripts/ci/check-tex-coverage.mjs']],
   ['화면 기준', 'node', ['scripts/ci/check-design.mjs']],
+  ['React hooks 규칙', 'pnpm', ['--filter', '@rw/web', 'run', 'lint']],
   ['파일 이름 대소문자', 'node', ['scripts/ci/check-case.mjs']],
 ]
 const failed = []

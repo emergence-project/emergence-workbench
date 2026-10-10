@@ -573,6 +573,7 @@ function ConceptMemoBox({ id, info, options, onSaved }: { id: string; info: Libr
     const unit = anchoredById(memo.text, compose.anchor.id)
     if (unit) { setEdit({ base: memo.text, what: 'unit', unit }); setDraft(unit.text) }
     else { setEdit({ base: memo.text, what: 'add', kind: 'note', anchor: compose.anchor }); setDraft('') }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 고른 글의 메모 열기(nonce)마다, 초안이 비어 있을 때만 연다
   }, [compose?.nonce, memo, draft === null])
   if (!memo) return null
   const save = async (text: string, msg: string) => {

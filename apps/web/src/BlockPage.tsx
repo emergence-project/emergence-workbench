@@ -131,12 +131,12 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
 
   /** 속성 표에서 머리말 고치기: 고치던 원고를 먼저 저장하고, 서버가 고친 머리말을 편집기에 반영 */
   const patch = useCallback(async (p: MetaPatch) => {
-    if (saveStateRef.current === 'dirty' || saveStateRef.current === 'saving') {
+    if (saver.state === 'dirty' || saver.state === 'saving') {
       if (!(await save())) throw new Error(t('원고를 저장하지 못해 속성을 고치지 않았습니다.', 'Could not save the text, so the properties were not changed.'))
     }
-    if (saveStateRef.current === 'conflict') throw new Error(t('파일이 바깥에서 바뀌어 있습니다. 먼저 다시 읽어 주세요.', 'The file changed outside the app. Reload it first.'))
+    if (saver.state === 'conflict') throw new Error(t('파일이 바깥에서 바뀌어 있습니다. 먼저 다시 읽어 주세요.', 'The file changed outside the app. Reload it first.'))
     try {
-      const r = await rapi.patchMeta(bid, p, hash.current)
+      const r = await rapi.patchMeta(bid, p, saver.hash)
       saver.adopt(r.content, r.hash)
       editor.current?.replaceContent(r.content)
       setLoaded((l) => (l?.md ? { ...l, content: r.content } : l))
@@ -153,12 +153,12 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
   /** 오른쪽 사이드바의 머리말 고치기(성격 · 주제 · 설명 · ★): 서버가 파일을 고치는 동안 오는 파일 알림은 이 고침이 끝난 뒤에 본다 */
   const headWrite = useRef<Promise<void> | null>(null)
   const writeHead = useCallback(async (file: string, p: NoteHeadPatch) => {
-    if (saveStateRef.current === 'dirty' || saveStateRef.current === 'saving') {
+    if (saver.state === 'dirty' || saver.state === 'saving') {
       if (!(await save())) throw new Error(t('본문을 저장하지 못해 노트 정보를 고치지 않았습니다.', 'Could not save the body, so the note info was not changed.'))
     }
-    if (saveStateRef.current === 'conflict') throw new Error(t('파일이 바깥에서 바뀌어 있습니다. 먼저 다시 읽어 주세요.', 'The file changed outside the app. Reload it first.'))
+    if (saver.state === 'conflict') throw new Error(t('파일이 바깥에서 바뀌어 있습니다. 먼저 다시 읽어 주세요.', 'The file changed outside the app. Reload it first.'))
     const run = (async () => {
-      await notesApi(rid).setHead(file, p, hash.current)
+      await notesApi(rid).setHead(file, p, saver.hash)
       const d = await rapi.readBlock(bid)
       saver.adopt(d.content, d.hash)
       editor.current?.replaceContent(d.content)
@@ -208,7 +208,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
   // ---------- 컴파일·이동 ----------
   const compile = useCallback(async () => {
     if (compiling || deleted.current) return
-    if (saveStateRef.current !== 'saved' && !(await save())) return setNotice(t('저장하지 못해 컴파일하지 않았습니다.', 'Could not save, so did not compile.'))
+    if (saver.state !== 'saved' && !(await save())) return setNotice(t('저장하지 못해 컴파일하지 않았습니다.', 'Could not save, so did not compile.'))
     setCompiling(true)
     setSession(key, { compiling: true })
     setNotice(null)
@@ -224,7 +224,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
       setCompiling(false)
       setSession(key, { compiling: false })
     }
-  }, [rid, bid, rapi, compiling, save, key, onShowPdf])
+  }, [rid, bid, rapi, compiling, save, saver, key, onShowPdf])
 
   const onCursorLine = useCallback((line: number) => {
     if (pdfVersion === null) return
@@ -236,16 +236,16 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
 
   const onPick = useCallback((page: number, x: number, y: number, text: string) => {
     // Markdown 보조 노트의 PDF는 바꾼 글에서 나와 줄을 짚을 수 없다
-    if (content.current.startsWith('---')) return
+    if (saver.text.startsWith('---')) return
     rapi.edit(bid, page, x, y).then(({ spot }) => {
       if (!spot) return setNotice(t('이 위치에 대응하는 원고를 찾지 못했습니다.', 'Could not find the source for this position.'))
       if (!spot.inBlock) return setNotice(t(`이 위치는 이 노트가 아니라 ${spot.file} ${spot.line}줄에서 나왔습니다.`, `This position comes from ${spot.file} line ${spot.line}, not from this note.`))
       setNotice(null)
       setSession(key, { highlight: [] })
-      const line = refineSourceLine(content.current, spot.line, text)
+      const line = refineSourceLine(saver.text, spot.line, text)
       editor.current?.revealLines(line, line)
     }).catch((e: Error) => setNotice(e.message))
-  }, [bid, rapi, key])
+  }, [bid, rapi, key, saver])
 
   const recordSlot = useSlot(rid, blockTarget(bid).target)
   useEffect(() => {
@@ -253,6 +253,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
     const record = recordSlot.file?.comments.find((entry) => entry.id === recordSlot.reveal!.id)
     const range = record && recordRevealRange(content.current, record)
     if (range) editor.current?.revealLines(content.current.slice(0, range.from).split('\n').length, content.current.slice(0, range.to).split('\n').length)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 기록 열기(nonce)가 바뀔 때만 그 자리로 간다
   }, [recordSlot.reveal?.nonce, loaded])
 
   // 결과 PDF 탭이 부를 수 있게: PDF를 누르면 이 편집기의 원고 줄로, 컴파일 단추
