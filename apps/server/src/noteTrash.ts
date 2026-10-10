@@ -5,6 +5,8 @@ import { writeAtomic } from './fsutil.js'
 import { manuscriptInfo } from './manuscript.js'
 import { NOTE_DIRS, WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
+import type { TrashedNote } from '@rw/core/contract/research'
+export type { TrashedNote }
 
 /**
  * 연구노트·계산 노트 지우기 (10/4 17:04 "곧바로 삭제하지 말고, 15일 보관 후 삭제"):
@@ -14,17 +16,6 @@ import { t } from './i18n.js'
 export const TRASH_DAYS = 15
 const DAY = 24 * 60 * 60_000
 const INFO = 'trash.yaml'
-
-export interface TrashedNote {
-  id: string
-  name: string
-  /** 원래 있던 곳 (저장소 기준) */
-  from: string
-  /** 지운 때 (ISO) */
-  at: string
-  /** 정말 지워지는 때 (ISO) */
-  until: string
-}
 
 const trashRoot = (wb: Workbench) => path.join(wb.root, '.trash')
 

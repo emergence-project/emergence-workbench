@@ -4,6 +4,8 @@ import { fileCache } from './readCache.js'
 import path from 'node:path'
 import { WorkbenchError, type ProjectSources } from './workbench.js'
 import { t } from './i18n.js'
+import type { BibEntry, MaterialFile } from '@rw/core/contract/research'
+export type { BibEntry, MaterialFile }
 
 /**
  * 프로젝트 자료: 읽을 논문(저장소 맨 위 *.bib)과 받아 둔 파일(workbench/materials/).
@@ -11,35 +13,6 @@ import { t } from './i18n.js'
  * - 발표자료·그림 등 다른 파일은 사용자가 materials/에 넣는다. PDF는 앱 안에서 보고, 그 밖(pptx·key 등)은 맥 앱으로 연다.
  * - materials/ 안에 자기 자신까지 무시하는 .gitignore를 두어 연구 저장소 git에 아무것도 나타나지 않게 한다. 저장소의 다른 파일은 건드리지 않는다.
  */
-export interface BibEntry {
-  key: string
-  type: string
-  title?: string
-  author?: string
-  /** 엮은이 (책) */
-  editor?: string
-  year?: string
-  eprint?: string
-  doi?: string
-  journal?: string
-  /** 책의 한 장이 실린 책 이름, 학회 발표집 이름 */
-  booktitle?: string
-  publisher?: string
-  /** 받아 둔 PDF가 있으면 materials/ 안 파일 이름 */
-  file?: string
-  /** 어느 .bib 파일에서 왔는지 */
-  source: string
-}
-
-export interface MaterialFile {
-  /** workbench/materials/의 파일은 이름만, sources.materials 폴더의 파일은 저장소 기준 경로 */
-  name: string
-  size: number
-  mtime: number
-  kind: 'pdf' | 'slides' | 'image' | 'other'
-  /** 이 파일이 어느 논문(인용 키)의 PDF인지 */
-  bibKey?: string
-}
 
 export const MATERIALS_DIR = 'materials'
 const MAX_DOWNLOAD = 60 * 1024 * 1024

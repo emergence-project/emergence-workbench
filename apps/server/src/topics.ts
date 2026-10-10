@@ -5,6 +5,7 @@ import { charCount, parseCardFigureRef } from '@rw/core'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tx } from './i18n.js'
 import { editResearchYaml, researchHash } from './researchYaml.js'
+import { TOPIC_COLORS, type Topic, type TopicColor, type TopicPreview } from '@rw/core/contract/research'
 
 /**
  * 주제(Topic, 10/5 "주제와 노트"): 노트를 묶기만 하는 한 단계 묶음. 예전 이름은 카드(10/3).
@@ -28,28 +29,9 @@ import { editResearchYaml, researchHash } from './researchYaml.js'
  *       manuscript: docs/model/main.tex   # 없으면 첫째 메인 노트
  * parts는 장 id (장 파일이면 저장소 기준 경로, \section으로 나눈 원고면 "파일#label").
  */
-export interface Topic {
-  id: string
-  title: string
-  /** 원고의 장 id */
-  parts: string[]
-  /** 예전 기록: 이 주제에 든 보조 노트 id (workbench/blocks/). 노트 머리말 topics:와 합쳐 읽는다 */
-  blocks: string[]
-  done: boolean
-  /** 즐겨찾기: 목록 맨 앞에 둔다 */
-  star: boolean
-  /** 메인 노트 main .tex (저장소 기준). 없으면 첫째 메인 노트 */
-  manuscript?: string
-  /** 설명: 여러 줄("- " 목록), 200자까지 */
-  description?: string
-  /** 주제 카드 미리보기 */
-  preview?: TopicPreview
-}
-
-/** 주제 카드 바탕색: 기본(프로젝트 색) 말고 정해 둔 다섯 색. 값은 화면의 tokens.css에 라이트·다크로 둔다 (시안 7-주제-고치기-창) */
-export const TOPIC_COLORS = ['violet', 'blue', 'teal', 'orange', 'gray'] as const
-export type TopicColor = (typeof TOPIC_COLORS)[number]
-export interface TopicPreview { text?: string; image?: string; color?: TopicColor }
+/** 모양은 계약(@rw/core/contract/research). 바탕색 값은 화면의 tokens.css에 라이트·다크로 둔다 (시안 7-주제-고치기-창) */
+export { TOPIC_COLORS } from '@rw/core/contract/research'
+export type { Topic, TopicColor, TopicPreview } from '@rw/core/contract/research'
 
 export const TITLE_MAX = 40
 export const DESCRIPTION_MAX = 200

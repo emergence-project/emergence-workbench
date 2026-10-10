@@ -1,7 +1,8 @@
 // 연구 목록·등록·개괄
 import type { FastifyInstance } from 'fastify'
 import { GitHubRepoList } from '@rw/core/contract/register'
-import { replies } from '../contract.js'
+import * as C from '@rw/core/contract/research'
+import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
 import { buildTree } from '@rw/core'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
@@ -16,7 +17,7 @@ import { t } from '../i18n.js'
 
 export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: RepoIO = ctx.opts.repoIO ?? realIO): void {
   const { registry, opts, wbOf, ensureWatch, watchers } = ctx
-  app.get('/api/researches', async () => ({ engine: registry.engine, sandbox: !!opts.sandbox, researches: registry.list() }))
+  app.get('/api/researches', replies(C.ResearchList), async (): Promise<C.ResearchList> => ({ engine: registry.engine, sandbox: !!opts.sandbox, researches: registry.list() }))
 
   /**
    * 왼쪽 띠의 프로젝트 버튼에 붙는 수와 첫 화면의 "확인 필요" 점: 프로젝트마다 확인이 필요한 노트(첫 화면의 tree.issues와 같다, 10/4 18:16 피드백)
@@ -24,7 +25,7 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
    * + 에이전트 고침(검토를 기다리는 노트와 확인된 노트 쓰기 시도, 10/8). 검토는 기록만 세고 노트 파일을 비교하지 않는다.
    * 노트 머리와 작업 파일 머리만 보므로 원고·진술은 읽지 않는다. 읽지 못하는 프로젝트는 뺀다.
    */
-  app.get('/api/research-issues', async () => {
+  app.get('/api/research-issues', replies(C.ProjectIssues), async (): Promise<C.ProjectIssues> => {
     const counts: Record<string, number> = {}
     const notes: Record<string, number> = {}
     const tasks: Record<string, number> = {}
@@ -75,7 +76,7 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     return registry.inspect(req.body.path)
   })
 
-  app.post<{ Body: { path: string; createWorkbench?: boolean; title?: string; question?: string; kind?: unknown; fields?: unknown; tags?: string[]; libraryPreambles?: string[]; repoPreambles?: string[] } }>('/api/researches', async (req) => {
+  app.post<{ Body: { path: string; createWorkbench?: boolean; title?: string; question?: string; kind?: unknown; fields?: unknown; tags?: string[]; libraryPreambles?: string[]; repoPreambles?: string[] } }>('/api/researches', replies(C.ResearchListItem), async (req): Promise<C.ResearchListItem> => {
     if (typeof req.body?.path !== 'string') throw new WorkbenchError(400, t('path가 필요함', 'path is required'))
     const item = registry.register(req.body.path, req.body)
     ensureWatch(item.id)
@@ -86,24 +87,24 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
    * 성격(kind: research · work) · 분야(fields) · 진행 상태(state: active · paused · done) 중 보낸 것만 바꾼다.
    * 예전 모양 tags(업무 + 분야)도 받는다. 이 컴퓨터의 설정에만 남는다
    */
-  app.patch<{ Params: { rid: string }; Body: { tags?: unknown; kind?: unknown; fields?: unknown; state?: unknown } }>('/api/researches/:rid', async (req) => {
-    const b = req.body ?? {}
+  app.patch<{ Params: { rid: string } }>('/api/researches/:rid', replies(C.ResearchListItem), async (req): Promise<C.ResearchListItem> => {
+    const b = parseBody(C.ProfileBody, req.body)
     if (b.tags !== undefined && b.kind === undefined && b.fields === undefined && b.state === undefined) return registry.setTags(req.params.rid, b.tags)
     return registry.setProfile(req.params.rid, b)
   })
 
   /** 프로젝트 순서 (홈에서 카드를 끌어 바꾼다). ids에 없는 것은 뒤에 원래 순서대로 */
-  app.put<{ Body: { ids?: unknown } }>('/api/researches/order', async (req) => ({ researches: registry.setOrder(req.body?.ids) }))
+  app.put('/api/researches/order', replies(C.ResearchOrder), async (req): Promise<C.ResearchOrder> => ({ researches: registry.setOrder(parseBody(C.OrderBody, req.body).ids) }))
 
-  app.delete<{ Params: { rid: string } }>('/api/researches/:rid', async (req) => {
+  app.delete<{ Params: { rid: string } }>('/api/researches/:rid', replies(C.Ok), async (req): Promise<C.Ok> => {
     registry.unregister(req.params.rid)
     await watchers.get(req.params.rid)?.close()
     watchers.delete(req.params.rid)
-    return { ok: true }
+    return { ok: true as const }
   })
 
   /** 연구 개괄에 필요한 것 전부: 연구 정보, 블록 목록, 나무, 문제 */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid', async (req) => {
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid', replies(C.ResearchSummary), async (req): Promise<C.ResearchSummary> => {
     const wb = wbOf(req.params.rid)
     const blocks = wb.listBlocks()
     // 메인 노트가 여럿이면 장·부록을 모두 합쳐 근거를 찾는다

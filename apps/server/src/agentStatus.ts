@@ -10,14 +10,13 @@ import { listNotes, topicsOverview, type TopicStats } from './noteList.js'
 import { pendingQuestions } from './comments.js'
 import { RULES_DOC, statusSection } from './tasks.js'
 import type { ProjectSources, Workbench } from './workbench.js'
+import type { TaskTable, ReviewDoc } from '@rw/core/contract/research'
+export type { TaskTable, ReviewDoc }
 
 /**
  * 프로젝트가 이미 가진 정본을 읽어 모은 것과, 에이전트가 먼저 읽을 요약 workbench/STATUS.md.
  * STATUS.md는 앱이 쓰는 생성 파일이다 — 사람·에이전트가 고치지 않는다. 정본은 각 원본 파일.
  */
-
-/** 프로젝트 자체 작업 목록 (sources.tasks 파일의 첫 마크다운 표). 읽기만 한다 */
-export interface TaskTable { file: string; columns: string[]; rows: string[][] }
 
 export function readTaskTable(repo: string, sources: ProjectSources): TaskTable | null {
   if (!sources.tasks) return null
@@ -33,9 +32,6 @@ export function readTaskTable(repo: string, sources: ProjectSources): TaskTable 
   }
   return { file: sources.tasks, columns: [], rows: [] }
 }
-
-/** 검토 상태가 있는 문서 (sources.reviews 폴더의 마크다운, frontmatter의 status) */
-export interface ReviewDoc { file: string; title: string; status: string; updated?: string }
 
 export function listReviews(repo: string, sources: ProjectSources): ReviewDoc[] {
   const out: ReviewDoc[] = []

@@ -8,6 +8,8 @@ import { expandHeadInputs, NOTE_MACROS, needsBodyOnly, noteMacrosText, toBodyOnl
 import { NOTE_DIRS, NOTE_MD, WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
 import { editResearchYaml } from './researchYaml.js'
+import type { CreatedNote } from '@rw/core/contract/research'
+export type { CreatedNote }
 
 /**
  * 연구노트·계산 노트 만들기 (10/4 피드백 "논문 원문 말고, 복사해서 내가 변형하려고 해").
@@ -74,8 +76,6 @@ function folderFor(dir: string, name: string): string {
   for (let n = 2; fs.existsSync(path.join(dir, slug)); n++) slug = `${base}-${n}`
   return slug
 }
-
-export interface CreatedNote { path: string; name: string; kind: 'note' | 'calc'; copied: number; skipped: string[] }
 
 interface CopyTarget { source: string; target: string }
 const foldedPath = (file: string) => path.normalize(file).normalize('NFC').toLowerCase()

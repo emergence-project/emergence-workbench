@@ -5,6 +5,8 @@ import { writeAtomic } from './fsutil.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
 import { editResearchYaml, researchHash } from './researchYaml.js'
+import type { MainNoteCandidate } from '@rw/core/contract/research'
+export type { MainNoteCandidate }
 
 /**
  * 메인 노트 정하기: 프로젝트의 원고 main .tex를 research.yaml의 sources.manuscript에 적는다.
@@ -17,8 +19,6 @@ const SKIP_DIRS = new Set(['.git', 'node_modules', '.build', 'build', 'dist', 'o
 const MAX_DEPTH = 5
 const MAX_SCAN = 300
 const MAX_CANDIDATES = 40
-
-export interface MainNoteCandidate { path: string; title: string }
 
 export function mainNoteCandidates(wb: Workbench): { candidates: MainNoteCandidate[]; hash: string } {
   const repo = wb.repo

@@ -4,6 +4,8 @@ import { parseBlock, parseList } from '@rw/core'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { WorkbenchError, type SaveResult } from './workbench.js'
 import { t } from './i18n.js'
+import type { Statement } from '@rw/core/contract/research'
+export type { Statement }
 
 /**
  * 진술: "무엇이 참인가" — 정의·공리·보조정리·명제·정리. 노트의 한 종류.
@@ -18,20 +20,6 @@ import { t } from './i18n.js'
  *   % source: sampletesterexample2020kempe       인용 — refs.bib 키
  *   % page: 16
  */
-export interface Statement {
-  id: string
-  kind: string
-  label?: string
-  title?: string
-  uses: string[]
-  proofs: string[]
-  source?: string
-  page?: string
-  /** 저장소 기준 파일 경로 */
-  file: string
-  mtime: number
-  hash: string
-}
 
 /** 진술 폴더로 보는 이름 (저장소 맨 위). 처음 찾은 것을 쓴다 */
 export const STATEMENT_DIRS = ['statements']

@@ -3,7 +3,7 @@ import type { BlockRow, ManuscriptPart } from './api'
 import { groupPartProblems } from './partProblems'
 
 const part = (id: string, file = id): ManuscriptPart => ({ id, file, title: id, appendix: false })
-const block = (id: string, status?: string, grounds?: string[]): BlockRow => ({ id, status, grounds, alternatives: [], extra: {}, hash: id, mtime: 0 })
+const block = (id: string, status?: string, grounds?: string[]): BlockRow => ({ id, format: 'tex', status, grounds: grounds ?? [], alternatives: [], extra: {}, hash: id, mtime: 0 })
 
 describe('manuscript part problems', () => {
   it('shows progress and paused notes while retaining stopped and solved records in order', () => {
