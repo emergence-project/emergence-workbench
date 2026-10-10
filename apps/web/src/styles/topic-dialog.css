@@ -51,10 +51,12 @@
 .td-err { margin: 0; font-size: var(--fs-sm); color: var(--danger); }
 /* 오른쪽: 실제 크기 카드 + 같은 폭의 취소 · 저장 (저장 줄은 노트 성격 줄과 같은 높이) */
 .td-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.td-card { background: var(--bg-sunken); border-radius: var(--r-md); padding: 10px; display: flex; justify-content: center; }
-/* 미리보기 바로 아래 모양 칸: 이름 왼쪽 · 고르기 오른쪽 */
-.td-look { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: var(--sp-2) var(--sp-3); }
+.td-side { --td-card-pad: 10px; }
+.td-card { background: var(--bg-sunken); border-radius: var(--r-md); padding: var(--td-card-pad); display: flex; justify-content: center; }
+/* 미리보기 바로 아래 모양 칸: 이름 왼쪽 · 고르기 오른쪽. 좌우 끝을 카드 끝에 맞춘다 (10/10 20:45) */
+.td-look { padding-inline: var(--td-card-pad); display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: var(--sp-2); }
 .td-look .td-row { display: contents; }
+.td-look .td-sws { gap: var(--sp-1) 5px; }
 .td-look .td-pick.on { max-width: 100%; }
 /* 프로젝트 창은 왼쪽 칸이 길어 미리보기 바탕이 남는 높이를 채운다 */
 .project-dialog .td-card { flex: 1; align-items: center; }
