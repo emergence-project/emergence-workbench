@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
 import { localDate, localTime, writeAtomic } from './fsutil.js'
-import { currentBranch, locate, pendingPaths, PathSyncError, publishPaths } from './pathsync.js'
+import { currentBranch, locate, pendingPaths, PathSyncError, publishPaths, upstreamText } from './pathsync.js'
 import { t } from './i18n.js'
 
 /**
@@ -451,11 +451,56 @@ export async function publishFeedback(dir: string, now = new Date()): Promise<Pu
   }
 }
 
-/** 아직 GitHub에 올리지 않은 피드백 파일 (저장소 기준 경로). 원격은 확인하지 않는다 */
-export async function unpublishedFeedback(dir: string): Promise<string[]> {
-  if (!fs.existsSync(dir)) return []
+/**
+ * 아직 GitHub에 올리지 않은 피드백 파일 (저장소 기준 경로)과 그 안의 피드백 수.
+ * 수는 파일 수가 아니라 항목 수다: 날짜 파일은 새로 쓰거나 고친 "## 시각" 항목, reviews.yaml·status.yaml은 바뀐 항목(키).
+ * 승인·코멘트를 여럿 남겨도 reviews.yaml 한 파일이라 파일 수로 세면 늘 1이었다. 그림은 그 항목에 딸린 것이라 세지 않는다.
+ */
+export async function unpublishedFeedback(dir: string): Promise<{ files: string[]; count: number }> {
+  if (!fs.existsSync(dir)) return { files: [], count: 0 }
   const where = await feedbackRepo(dir).catch(() => null)
-  return where ? pendingPaths(where.top, [where.rel]) : []
+  if (!where) return { files: [], count: 0 }
+  const files = await pendingPaths(where.top, [where.rel])
+  let count = 0
+  for (const f of files) {
+    if (/\.(png|jpe?g|gif|webp)$/i.test(f)) continue
+    const local = fs.existsSync(path.join(where.top, f)) ? fs.readFileSync(path.join(where.top, f), 'utf8') : ''
+    count += changedEntries(f, await upstreamText(where.top, f) ?? '', local)
+  }
+  return { files, count: files.length && !count ? files.length : count }
+}
+
+/** 두 판 사이에 바뀐 피드백 항목 수 (날짜 파일은 "## " 머리마다, YAML은 맨 위 키마다, 그 밖의 파일은 1) */
+export function changedEntries(file: string, before: string, after: string): number {
+  if (before === after) return 0
+  const diff = (a: Map<string, string>, b: Map<string, string>) => [...new Set([...a.keys(), ...b.keys()])].filter((k) => a.get(k) !== b.get(k)).length
+  if (file.endsWith('.md')) return diff(mdEntries(before), mdEntries(after))
+  if (/\.ya?ml$/.test(file)) {
+    const read = (text: string) => { try { const v = YAML.parse(text) as unknown; return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {} } catch { return null } }
+    const a = read(before), b = read(after)
+    if (!a || !b) return 1
+    const keys = (o: Record<string, unknown>) => new Map(Object.entries(o).map(([k, v]) => [k, JSON.stringify(v)]))
+    return diff(keys(a), keys(b))
+  }
+  return 1
+}
+
+/** 날짜 파일의 항목: 머리줄(같은 머리가 또 있으면 순번을 붙여) → 그 항목의 글 */
+function mdEntries(text: string): Map<string, string> {
+  const out = new Map<string, string>()
+  let key: string | null = null
+  let body: string[] = []
+  const flush = () => { if (key !== null) out.set(key, body.join('\n').trim()) }
+  for (const line of text.split('\n')) {
+    if (line.startsWith('## ')) {
+      flush()
+      let k = line.trim(), n = 2
+      while (out.has(k)) k = `${line.trim()} #${n++}`
+      key = k; body = []
+    } else body.push(line)
+  }
+  flush()
+  return out
 }
 
 async function feedbackRepo(dir: string): Promise<{ top: string; rel: string }> {

@@ -159,7 +159,10 @@ describe('피드백 올리기', () => {
     execFileSync('git', ['clone', '-q', remote, other])
     fs.writeFileSync(path.join(other, 'x.ts'), 'x\n'); g(other, 'add', '.'); g(other, 'commit', '-qm', 'other'); g(other, 'push', '-q')
     await fb.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '질문', target: '홈', text: '왜?' } })
-    expect((await fb.inject({ method: 'GET', url: '/api/feedback/unpublished' })).json().files).toEqual([expect.stringMatching(/^feedback\/.+\.md$/)])
+    await fb.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '질문', target: '홈', text: '또?' } })
+    const pending = (await fb.inject({ method: 'GET', url: '/api/feedback/unpublished' })).json()
+    expect(pending.files).toEqual([expect.stringMatching(/^feedback\/.+\.md$/)])
+    expect(pending.count).toBe(2) // 한 파일에 두 항목
     const onTop = await publish()
     expect(onTop.statusCode).toBe(200)
     expect(onTop.json()).toMatchObject({ pushed: true })

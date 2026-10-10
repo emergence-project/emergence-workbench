@@ -537,6 +537,8 @@ function CleanText({ e }: { e: FeedbackItem }) {
  */
 function PublishButton({ tick, version }: { tick: number; version: number }) {
   const [files, setFiles] = useState<string[]>([])
+  /** 올릴 피드백 항목 수 (파일 수가 아니다: 답 여럿도 reviews.yaml 한 파일) */
+  const [count, setCount] = useState(0)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ text: string; error: boolean } | null>(null)
   const [again, setAgain] = useState(0)
@@ -548,7 +550,7 @@ function PublishButton({ tick, version }: { tick: number; version: number }) {
       setAuto({ on: !!b.autoPublish, error: b.lastAutoPublish?.error ?? null })
     }).catch(() => setPublishable(false))
   }, [version, tick, again])
-  useEffect(() => { records.feedbackUnpublished().then(setFiles).catch(() => setFiles([])) }, [tick, version, again])
+  useEffect(() => { records.feedbackUnpublished().then((r) => { setFiles(r.files); setCount(r.count ?? r.files.length) }).catch(() => { setFiles([]); setCount(0) }) }, [tick, version, again])
 
   const publish = async () => {
     setBusy(true); setNote(null)
@@ -564,7 +566,7 @@ function PublishButton({ tick, version }: { tick: number; version: number }) {
       {publishable && (
         <button className={`btn${files.length > 0 ? ' primary' : ''}`} data-ui="GitHub에 올리기" disabled={busy || files.length === 0} style={{ marginRight: 'var(--sp-2)' }} onClick={() => void publish()}
           title={files.length > 0 ? `${auto.on ? t('남긴 뒤 30초 지나면 저절로 등록됩니다. 지금 바로 등록하려면 누르세요.\n', 'Feedback is registered automatically 30 seconds after you leave it. Click to register now.\n') : ''}${t('아직 GitHub에 없는 피드백만 GitHub에 올려 등록합니다. 다른 파일은 올리지 않습니다', 'Pushes only feedback not yet on GitHub. No other files are pushed')}\n\n${files.join('\n')}` : t('남긴 피드백이 모두 GitHub에 등록되어 있습니다', 'All feedback is registered on GitHub')}>
-          {busy ? t('등록 중…', 'Registering…') : files.length > 0 ? `${t('피드백 등록', 'Register feedback')} · ${files.length}` : t('모두 등록함', 'All registered')}
+          {busy ? t('등록 중…', 'Registering…') : files.length > 0 ? `${t('피드백 등록', 'Register feedback')} · ${count}` : t('모두 등록함', 'All registered')}
         </button>
       )}
     </>

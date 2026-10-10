@@ -84,6 +84,11 @@ export async function pendingPaths(root: string, paths: string[]): Promise<strin
   return out.sort()
 }
 
+/** 추적 중인 원격 브랜치에 있는 그 파일의 글 (없으면 null) */
+export async function upstreamText(root: string, file: string): Promise<string | null> {
+  try { return (await exec('git', ['-C', root, 'show', `@{upstream}:${file}`], { timeout: 60_000, env, maxBuffer: 64 * 1024 * 1024 })).stdout } catch { return null }
+}
+
 export function publishPaths(root: string, paths: string[], opts: { message: string }): Promise<PathPublishResult> {
   return withRepoLock(root, () => publishPathsNow(root, paths, opts))
 }

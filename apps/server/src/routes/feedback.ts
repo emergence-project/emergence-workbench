@@ -52,7 +52,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   syncTimer?.unref()
   app.addHook('onClose', async () => { if (autoTimer) clearTimeout(autoTimer); if (syncTimer) clearInterval(syncTimer) })
 
-  app.get('/api/feedback/unpublished', replies(C.UnpublishedFiles), async (): Promise<C.UnpublishedFiles> => ({ files: opts.feedbackDir && opts.feedbackPublish ? await unpublishedFeedback(opts.feedbackDir) : [] }))
+  app.get('/api/feedback/unpublished', replies(C.UnpublishedFiles), async (): Promise<C.UnpublishedFiles> => (opts.feedbackDir && opts.feedbackPublish ? unpublishedFeedback(opts.feedbackDir) : { files: [], count: 0 }))
 
   /** 연구 저장소에서 앱이 올리는 사용자 기록 (workbench 기준). 코멘트 형식이 늘면 여기에 더한다 */
   const RESEARCH_RECORDS = ['comments']

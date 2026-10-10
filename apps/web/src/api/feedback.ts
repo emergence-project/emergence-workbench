@@ -36,7 +36,7 @@ export type RecordsPublishResult = FeedbackPublished | RecordsPublished
 
 export const records = {
   /** 아직 GitHub에 없는 피드백 파일 (원격은 확인하지 않음) */
-  feedbackUnpublished: () => req('/api/feedback/unpublished').then((r) => json<UnpublishedFiles>(r)).then((r) => r.files),
+  feedbackUnpublished: () => req('/api/feedback/unpublished').then((r) => json<UnpublishedFiles>(r)),
   publishFeedback: () => req('/api/feedback/publish', { method: 'POST' }).then((r) => json<FeedbackPublished>(r)),
   /** 연구 저장소의 코멘트(workbench/comments/) */
   unpublished: (rid: string) => req(`/api/researches/${enc(rid)}/records/unpublished`).then((r) => json<UnpublishedFiles>(r)).then((r) => r.files),
