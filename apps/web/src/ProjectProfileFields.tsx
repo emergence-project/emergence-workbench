@@ -22,17 +22,25 @@ export function usedFields(all: Pick<ResearchListItem, 'fields'>[]): Map<string,
   return used
 }
 
+/** 10/10 12:59: 레일은 진행 중인 프로젝트만. 멈춤 · 완료도 레일에 두려면 켠다 (프로젝트 고치기 창 맨 아랫줄) */
+export function ProjectRailCheck({ state, rail, onChange }: { state: ProjectState; rail?: boolean; onChange(patch: ProfilePatch): void }) {
+  return (
+    <label className="check pp-rail" data-ui="레일에 보이기">
+      <input type="checkbox" checked={state === 'active' || !!rail} disabled={state === 'active'} onChange={(e) => onChange({ rail: e.target.checked })} />
+      {state === 'active' ? t('진행 중이라 레일에 보입니다', 'Shown in the rail while in progress') : t('레일에 보이기', 'Show in the rail')}
+    </label>
+  )
+}
+
 /**
  * 성격(연구 · 업무 하나) · 분야(개념노트 분류에서 고르는 이름표 여러 개) · 진행 상태(진행 · 멈춤 · 완료) 고르기.
  * 프로젝트 고치기 창과 등록 창이 함께 쓴다. 바꾼 것만 onChange로 알린다.
  */
-export function ProjectProfileFields({ kind, fields, state, rail, all, onChange }: {
+export function ProjectProfileFields({ kind, fields, state, all, onChange }: {
   kind: ProjectKind
   fields: string[]
   /** 없으면 진행 상태 줄을 두지 않는다 (등록 창) */
   state?: ProjectState
-  /** 멈춤 · 완료여도 레일에 보이기. 진행 상태 줄과 함께 */
-  rail?: boolean
   /** 모든 프로젝트 (분야 제안) */
   all: Pick<ResearchListItem, 'fields'>[]
   onChange(patch: ProfilePatch, message: string): void
@@ -60,12 +68,6 @@ export function ProjectProfileFields({ kind, fields, state, rail, all, onChange 
                 onClick={() => state !== s && onChange({ state: s }, t(`진행 상태: ${PROJECT_STATE_LABEL[s]}`, `Status: ${PROJECT_STATE_LABEL[s]}`))}><ProjectStateDot state={s} label /></button>
             ))}
           </div>
-          {/* 10/10 12:59: 레일은 진행 중인 프로젝트만. 멈춤 · 완료도 레일에 두려면 켠다 */}
-          <label className="check pp-rail" data-ui="레일에 보이기">
-            <input type="checkbox" checked={state === 'active' || !!rail} disabled={state === 'active'}
-              onChange={(e) => onChange({ rail: e.target.checked }, e.target.checked ? t('레일에 보입니다', 'Shown in the rail') : t('레일에서 숨깁니다', 'Hidden from the rail'))} />
-            {state === 'active' ? t('진행 중이라 레일에 보입니다', 'Shown in the rail while in progress') : t('레일에 보이기', 'Show in the rail')}
-          </label>
         </dd>
       </>}
     </dl>
