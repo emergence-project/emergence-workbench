@@ -13,16 +13,16 @@ import { CitedPapers } from './Materials'
 import { openRecordComposer } from './RecordContext'
 import { recordRevealRange, recordSelectionFromLines } from './recordHelpers'
 import { Icon } from './icons'
-import { NoteHead, NoteTitleInput, type EditView, type ToolbarItem, type ToolbarSave } from './NoteToolbar'
+import { NoteHead, NoteTitleInput, type ToolbarItem, type ToolbarSave } from './NoteToolbar'
 import { NoteScreen } from './NoteScreenFrame'
 import { latexSections, sectionAtLine, useRightMode } from './noteScreen'
-import { store } from './store'
 import { TRASH_DAYS, trashNoteWithUndo } from './Topics'
 import { CompileSettings, ExportLink, groupOf, savedLatexChoice } from './NoteExport'
 import { MarkdownNoteBody } from './MarkdownNote'
 import { NOTE_KIND_LABEL } from './NewNote'
 import { groupPartProblems } from './partProblems'
-import { useAutosave, useFileEvents } from './autosave'
+import { useFileEvents } from './autosave'
+import { useNoteEdit } from './noteEdit'
 import { plural, t } from './i18n'
 
 /** 원고 전체가 한 PDF라 메인 노트마다 세션 하나 */
@@ -84,8 +84,6 @@ export function PartTab(props: PartProps) {
   return props.file.endsWith('.md') ? <MarkdownPartTab key={props.file} {...props} /> : <LatexPartTab {...props} />
 }
 
-const VIEW_KEY = 'rw.notes.editView'
-const savedView = (): EditView => store.get<EditView>(VIEW_KEY, 'live')
 
 /** 원고 PDF의 상태를 이 탭에도 (원고 목록이 가진 값으로 시작, 컴파일하면 세션이 바뀐다) */
 function useMsPdf(key: string, info: ManuscriptInfo | null) {
@@ -154,31 +152,21 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
   const { s: ms, markStale } = useMsPdf(key, info)
   const markPending = usePartPending(key, file)
   const [text, setText] = useState<string | null>(null)
-  const [editing, setEditing] = useState(false)
-  const [view, setView] = useState<EditView>(savedView)
-  const [savedAt, setSavedAt] = useState<number | null>(null)
-  const [titleDraft, setTitleDraft] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const [cs, setCs] = useState(false)
   const [ex, setEx] = useState(false)
-  const { saver, state: save } = useAutosave(`${rid}/${file}`, {
-    write: async (text, hash) => {
-      const next = await rapi.savePart(file, text, hash)
-      setSavedAt(Date.now())
-      markStale()
-      return next
-    },
+  const edit = useNoteEdit(`${rid}/${file}`, {
+    write: async (text, hash) => { const next = await rapi.savePart(file, text, hash); markStale(); return next },
     onState: markPending,
-    onError: (e) => setNotice(e.message),
+    mtime: row?.mtime,
   })
+  const { saver, state: save, editing, view, titleDraft, setTitleDraft, notice, setNotice } = edit
   const load = useCallback(async (msg?: string) => {
     const d = await rapi.readPart(file)
     saver.load(d.content, d.hash)
     setText(d.content)
     if (msg) setNotice(msg)
-  }, [rapi, file, saver])
-  useEffect(() => { load().catch((e: Error) => setNotice(e.message)) }, [load])
-  useEffect(() => { if (row?.mtime) setSavedAt((t) => Math.max(t ?? 0, row.mtime)) }, [row?.mtime])
+  }, [rapi, file, saver, setNotice])
+  useEffect(() => { load().catch((e: Error) => setNotice(e.message)) }, [load, setNotice])
   const editingRef = useRef(editing)
   editingRef.current = editing
   useFileEvents(bus, saver, (e) => (e.type === 'note' && e.research === rid && e.file === file ? e.hash : undefined), {
@@ -187,17 +175,14 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
     reload: () => { if (editingRef.current) { saver.conflict(); return } void load(t('바깥(에이전트나 다른 편집기)에서 바뀐 내용을 불러왔습니다.', 'Loaded changes made outside (by an agent or another editor).')).catch((e: Error) => setNotice(e.message)) },
   })
 
-  const saveNow = useCallback(() => saver.flush(), [saver])
+  const saveNow = edit.saveNow
   const onDraft = useCallback((full: string) => saver.edit(full), [saver])
-  const startEdit = () => { setTitleDraft(row?.title ?? info?.name ?? ''); setEditing(true) }
-  const finish = async () => {
-    // 저장하지 못했으면(충돌 포함) 편집기를 닫지 않는다: 닫으면 저장하지 않은 원문으로 돌아갈 길이 없다
-    if (!(await saveNow())) return
-    if (await commitTitle(rid, row, titleDraft, onSaved)) onChanged?.()
+  const startEdit = () => edit.start(row?.title ?? info?.name ?? '')
+  const finish = () => edit.finish(async (draft) => {
     setText(saver.text)
-    setEditing(false)
-  }
-  const reload = () => { setEditing(false); void load(t('파일을 다시 읽었습니다. 이 화면에서 저장하지 않은 고침은 버렸습니다.', 'Reloaded the file. Unsaved edits on this screen were discarded.')).catch((e: Error) => setNotice(e.message)) }
+    if (await commitTitle(rid, row, draft, onSaved)) onChanged?.()
+  })
+  const reload = () => { edit.setEditing(false); void load(t('파일을 다시 읽었습니다. 이 화면에서 저장하지 않은 고침은 버렸습니다.', 'Reloaded the file. Unsaved edits on this screen were discarded.')).catch((e: Error) => setNotice(e.message)) }
   const compile = async () => {
     if (!(await saveNow())) return setNotice(t('저장하지 못해 컴파일하지 않았습니다.', 'Not compiled: saving failed.'))
     try { await compileManuscript(rid, rapi, info) } catch (e) { setNotice((e as Error).message); return }
@@ -213,9 +198,9 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
     <NoteScreen ui="원고 장" className="md-note" notice={notice} onCloseNotice={() => setNotice(null)} tocOwner={tocOwner}
       toolbar={{
         title: editing && row ? <NoteTitleInput title={title} draft={titleDraft ?? title} onDraft={setTitleDraft} /> : undefined,
-        status: <ResearchNoteStatus row={row} rapi={rapi} onSaved={onSaved} onChanged={onChanged} />, save, savedAt, pdfNote: pdfShortNote(ms.manuscriptPdf), editing,
-        saveAction: conflict ? <button className="a" onClick={reload}>{t('파일 다시 읽기', 'Reload file')}</button> : save === 'error' ? <button className="a" onClick={() => void saveNow()}>{t('다시 저장', 'Save again')}</button> : undefined,
-        view, onView: (v) => { setView(v); store.set(VIEW_KEY, v) },
+        status: <ResearchNoteStatus row={row} rapi={rapi} onSaved={onSaved} onChanged={onChanged} />, save, savedAt: edit.savedAt, pdfNote: pdfShortNote(ms.manuscriptPdf), editing,
+        saveAction: edit.saveAction(reload),
+        view, onView: edit.setView,
         onEdit: startEdit, editDisabled: text === null || conflict, onDone: () => void finish(),
         onComment: () => openRecordComposer(rid, noteTarget(file, title) ?? manuscriptTarget(undefined, info?.key)), commentOn: mode === 'records',
         onCompile: () => void compile(), compiling: ms.compiling, compileDisabled: !info || text === null || conflict, compileTip: t(`컴파일 — ${title}`, `Compile: ${title}`), compileUi: '원고 컴파일',
@@ -246,28 +231,20 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
   // 한 파일 원고면 장(절)이 여럿이라 파일 하나로 장을 고르지 않는다
   const part = info?.parts.find((p) => p.file === file && !p.line)
   const [loaded, setLoaded] = useState<string | null>(null)
-  const [savedAt, setSavedAt] = useState<number | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  /** 이름 고치기 (연구노트·계산 노트만. 본문은 늘 고치는 중이다) */
-  const [titleDraft, setTitleDraft] = useState<string | null>(null)
   const [cs, setCs] = useState(false)
   const [ex, setEx] = useState(false)
   const [cursorLine, setCursorLine] = useState(1)
   const editor = useRef<EditorHandle>(null)
   const viewTimer = useRef<number | undefined>(undefined)
-  const { saver, state } = useAutosave(`${rid}/${file}`, {
-    write: async (text, hash) => {
-      const next = await rapi.savePart(file, text, hash)
-      setSavedAt(Date.now())
-      markStale()
-      return next
-    },
+  // 본문은 늘 고치는 중이고, 연필은 이름만 고친다 (연구노트·계산 노트만)
+  const edit = useNoteEdit(`${rid}/${file}`, {
+    write: async (text, hash) => { const next = await rapi.savePart(file, text, hash); markStale(); return next },
     onState: markPending,
-    onError: (e) => setNotice(e.message),
+    mtime: row?.mtime,
   })
+  const { saver, state, titleDraft, setTitleDraft, notice, setNotice } = edit
   /** 편집기의 지금 글 (저장기가 가진다) */
   const content = { get current() { return saver.text } }
-  useEffect(() => { if (row?.mtime) setSavedAt((t) => Math.max(t ?? 0, row.mtime)) }, [row?.mtime])
 
   const load = useCallback(async (msg?: string) => {
     const d = await rapi.readPart(file)
@@ -275,10 +252,10 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
     if (loaded !== null) editor.current?.replaceContent(d.content)
     else setLoaded(d.content)
     if (msg) setNotice(msg)
-  }, [rapi, file, loaded, saver])
+  }, [rapi, file, loaded, saver, setNotice])
   useEffect(() => { load().catch((e: Error) => setNotice(e.message)) }, [file]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const save = useCallback(() => saver.flush(), [saver])
+  const save = edit.saveNow
   const onChange = useCallback((text: string) => saver.edit(text), [saver])
   useFileEvents(bus, saver, (e) => (e.type === 'note' && e.research === rid && e.file === file ? e.hash : undefined), {
     gone: () => setNotice(t('이 노트 파일이 지워졌습니다.', 'This note file was deleted.')),
@@ -334,16 +311,16 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
     </button>
   )
   const title = row?.title ?? (part ? `${part.appendix ? t('부록 · ', 'Appendix · ') : ''}${part.title}` : info?.name ?? file)
-  const finishTitle = async () => { if (await commitTitle(rid, row, titleDraft, onSaved)) onChanged?.(); setTitleDraft(null) }
+  const finishTitle = () => edit.finish(async (draft) => { if (await commitTitle(rid, row, draft, onSaved)) onChanged?.() })
   const mode = useRightMode()
   const toolbarSave: ToolbarSave = state
   return (
     <NoteScreen ui="원고 장" notice={notice} onCloseNotice={() => setNotice(null)} tocOwner={tocOwner} toc={{ sections, current: sectionAtLine(sections, cursorLine), jump }}
       toolbar={{
         title: titleDraft !== null ? <NoteTitleInput title={title} draft={titleDraft} onDraft={setTitleDraft} /> : undefined,
-        status: <ResearchNoteStatus row={row} rapi={rapi} onSaved={onSaved} onChanged={onChanged} />, save: toolbarSave, savedAt, pdfNote: pdfShortNote(ms.manuscriptPdf), editing: titleDraft !== null, onDone: () => void finishTitle(),
-        saveAction: state === 'conflict' ? <button className="a" onClick={() => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.'))}>{t('파일 다시 읽기', 'Reload file')}</button> : state === 'error' ? <button className="a" onClick={() => void save()}>{t('다시 저장', 'Save again')}</button> : undefined,
-        onEdit: row ? () => setTitleDraft(row.title) : undefined,
+        status: <ResearchNoteStatus row={row} rapi={rapi} onSaved={onSaved} onChanged={onChanged} />, save: toolbarSave, savedAt: edit.savedAt, pdfNote: pdfShortNote(ms.manuscriptPdf), editing: titleDraft !== null, onDone: () => void finishTitle(),
+        saveAction: edit.saveAction(() => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.')).catch((e: Error) => setNotice(e.message))),
+        onEdit: row ? () => edit.start(row.title, false) : undefined,
         onComment: () => openRecordComposer(rid, noteTarget(file, title) ?? manuscriptTarget(undefined, info?.key), recordSelectionFromLines(content.current, editor.current?.selection() ?? null)), commentOn: mode === 'records',
         onCompile: () => void compile(), compiling: ms.compiling, compileDisabled: !info || loaded === null, compileTip: t(`컴파일 — ${info?.name ?? file}`, `Compile: ${info?.name ?? file}`), compileKey: true, compileUi: '원고 컴파일',
         menu: partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, csOpen: () => setCs(true), exOpen: () => setEx(true), reload: () => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.')),
