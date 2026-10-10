@@ -84,6 +84,7 @@ export function normalizeTags(raw: unknown, maxLength = MAX_TAG_LENGTH): string[
  * - 성격(kind): 연구 research · 업무 work 중 하나. 업무 프로젝트만 노트 성격 "설계"를 고른다.
  * - 분야(fields): 개념노트 분류에서 고른 이름 여러 개 (사람의 주 연구 분야와 같은 목록). 보이기만 하고 거르지 않는다.
  * - 진행 상태(state): 진행 active(기본) · 멈춤 paused · 완료 done.
+ * - 띠에 보이기(rail: true): 왼쪽 띠는 진행 중인 프로젝트만 보이고, 이것을 켜면 멈춤 · 완료여도 보인다 (10/10 12:59).
  * 예전 설정은 그대로 읽는다: tags의 "업무"(또는 더 예전의 kind: work)는 성격 업무, 나머지 태그는 분야.
  * 앱에서 고칠 때만 새 키(kind · fields · state)로 쓰고 tags를 뺀다.
  */
@@ -95,9 +96,9 @@ export const LEGACY_WORK_TAG = '업무'
 /** 분야 이름은 개념노트 분류 이름이라 태그보다 길 수 있다 */
 export const MAX_FIELD_LENGTH = 60
 
-interface RegisteredResearch { id: string; path: string; kind?: unknown; fields?: string[]; state?: ProjectState; tags?: string[] }
+interface RegisteredResearch { id: string; path: string; kind?: unknown; fields?: string[]; state?: ProjectState; rail?: boolean; tags?: string[] }
 
-export interface ProjectProfile { kind: ProjectKind; fields: string[]; state: ProjectState }
+export interface ProjectProfile { kind: ProjectKind; fields: string[]; state: ProjectState; rail: boolean }
 
 /** 설정 한 줄에서 성격 · 분야 · 진행 상태를 읽는다 (예전 tags · kind: work 포함) */
 export function profileOf(r: RegisteredResearch): ProjectProfile {
@@ -105,7 +106,7 @@ export function profileOf(r: RegisteredResearch): ProjectProfile {
   const fresh = Array.isArray(r.fields)
   const work = r.kind === 'work' || (!fresh && tags.includes(LEGACY_WORK_TAG))
   const fields = fresh ? r.fields! : tags.filter((t) => t !== LEGACY_WORK_TAG)
-  return { kind: work ? 'work' : 'research', fields, state: PROJECT_STATES.includes(r.state as ProjectState) ? r.state! : 'active' }
+  return { kind: work ? 'work' : 'research', fields, state: PROJECT_STATES.includes(r.state as ProjectState) ? r.state! : 'active', rail: r.rail === true }
 }
 
 /** 예전 태그 하나 목록 모양 (구글 동기화 · 검색이 아직 쓴다): 업무면 "업무"를 앞에, 그 뒤에 분야 */
@@ -291,6 +292,7 @@ export class Registry {
             ...((r.kind === 'work' || r.kind === 'research') && { kind: r.kind }),
             ...(fields && { fields }),
             ...(PROJECT_STATES.includes(r.state as ProjectState) && r.state !== 'active' && { state: r.state }),
+            ...(r.rail === true && { rail: true }),
             ...(tags.length && { tags }),
           }
         })
@@ -346,8 +348,8 @@ export class Registry {
     return this.setProfile(id, { kind: tags.includes(LEGACY_WORK_TAG) ? 'work' : 'research', fields: tags.filter((t) => t !== LEGACY_WORK_TAG) })
   }
 
-  /** 성격 · 분야 · 진행 상태 중 받은 것만 바꾼다. 고치면 새 키로 쓰고 예전 tags는 뺀다 */
-  setProfile(id: string, patch: { kind?: unknown; fields?: unknown; state?: unknown }): ResearchListItem {
+  /** 성격 · 분야 · 진행 상태 · 띠에 보이기 중 받은 것만 바꾼다. 고치면 새 키로 쓰고 예전 tags는 뺀다 */
+  setProfile(id: string, patch: { kind?: unknown; fields?: unknown; state?: unknown; rail?: unknown }): ResearchListItem {
     const entry = this.config.researches.find((r) => r.id === id)
     if (!entry) throw new WorkbenchError(404, tl(`등록되지 않은 연구: ${id}`, `Project not registered: ${id}`))
     const next = { ...profileOf(entry) }
@@ -364,11 +366,17 @@ export class Registry {
       if (!PROJECT_STATES.includes(patch.state as ProjectState)) throw new WorkbenchError(400, tl('진행 상태는 active(진행) · paused(멈춤) · done(완료) 중 하나', 'state must be active, paused or done'))
       next.state = patch.state as ProjectState
     }
+    if (patch.rail !== undefined) {
+      if (typeof patch.rail !== 'boolean') throw new WorkbenchError(400, tl('rail은 true · false', 'rail must be true or false'))
+      next.rail = patch.rail
+    }
     delete entry.tags
     entry.kind = next.kind
     entry.fields = next.fields
     if (next.state === 'active') delete entry.state
     else entry.state = next.state
+    if (next.rail) entry.rail = true
+    else delete entry.rail
     this.save()
     return this.list().find((r) => r.id === id)!
   }

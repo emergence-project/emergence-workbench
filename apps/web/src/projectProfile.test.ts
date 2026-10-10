@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { noteKindChoices } from './noteKinds'
-import { attentionOf, filterProjects, issueTip, lastWorkMs, moveId, stateCounts } from './projectProfile'
+import { attentionOf, filterProjects, issueTip, lastWorkMs, moveId, railProjects, stateCounts } from './projectProfile'
 
 const P = (id: string, kind: 'research' | 'work', state: 'active' | 'paused' | 'done') => ({ id, kind, state })
 const list = [P('alpha', 'research', 'active'), P('ops', 'work', 'active'), P('ns', 'research', 'paused'), P('old', 'research', 'done')]
@@ -51,5 +51,18 @@ describe('노트 성격 고르기', () => {
   it('설계는 업무 프로젝트에서만 고른다', () => {
     expect(noteKindChoices('work')).toContain('design')
     expect(noteKindChoices('research')).not.toContain('design')
+  })
+})
+
+describe('railProjects', () => {
+  it('왼쪽 띠에는 진행 중인 것, 띠에 보이기를 켠 것, 지금 연 것만 홈 순서대로 (10/10 12:59)', () => {
+    const list = [
+      { id: 'a', state: 'active' as const, rail: false },
+      { id: 'b', state: 'done' as const, rail: false },
+      { id: 'c', state: 'paused' as const, rail: true },
+      { id: 'd', state: 'paused' as const, rail: false },
+    ]
+    expect(railProjects(list).map((r) => r.id)).toEqual(['a', 'c'])
+    expect(railProjects(list, 'd').map((r) => r.id)).toEqual(['a', 'c', 'd'])
   })
 })
