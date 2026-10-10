@@ -81,7 +81,22 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
           title: title.trim(), description, star: topic.star, kinds: topic.kinds, byStatus: topic.byStatus, updated: topic.updated,
           preview: { text, image, imageUrl, ...(color !== 'default' && { color }) },
         }} />
-      } look={<>
+      } lower={<>
+        <div className="td-row">
+          <span className="td-rl">{t('카드 미리보기', 'Card preview')}</span>
+          <span className="td-in td-pv-in">
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('비어 있음', 'Empty')} aria-label={t('카드 미리보기 글', 'Card preview text')} data-ui="카드 미리보기 글" />
+            <span className={`td-n${n.text > LIMITS.previewText ? ' over' : ''}`}>{n.text} / {LIMITS.previewText}</span>
+          </span>
+        </div>
+        <div className="td-row">
+          <span className="td-rl">{t('노트 성격', 'Note kinds')} <span className="td-auto" title={t('노트들의 성격을 모아 보일 뿐 여기서 고칠 수 없습니다. 노트의 오른쪽 사이드바에서 고릅니다', "This only collects the notes' kinds and cannot be edited here. Choose a kind in the note's right sidebar")}>{t('자동', 'Auto')}</span></span>
+          <span className="td-kinds">
+            {topic.kinds.length ? topic.kinds.map((k) => <span key={k.kind ?? '-'} className={`kc-kind${k.kind ? '' : ' un'}`}>{noteKindLabel(k.kind)}</span>)
+              : <span className="muted">{t('노트가 없습니다', 'No notes')}</span>}
+          </span>
+        </div>
+      </>} look={<>
         <div className="td-row">
           <span className="td-rl">{t('그림', 'Image')}</span>
           <CardImageField value={image} legacyUrl={imageUrl} ui="그림 넣기" previewUi="미리보기 그림" disabled={busy} onOpen={() => setPickingImage(true)} onChange={setImage} />
@@ -100,20 +115,6 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
         <textarea className="td-in td-ta" rows={4} value={description} placeholder={t('예: 두 상태를 합치는 보조정리\n- 줄 앞에 "- "를 쓰면 글머리표 목록\n카드에는 앞 세 줄이 보입니다', 'Example: A lemma that merges two states\n- Start a line with "- " for a bulleted list\nThe card shows the first three lines')}
           onChange={(e) => setDescription(e.target.value)} onKeyDown={(e) => { onListKey(e, setDescription) }} data-ui="주제 설명" />
       </label>
-      <div className="td-row">
-        <span className="td-rl">{t('카드 미리보기', 'Card preview')}</span>
-        <span className="td-in td-pv-in">
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('비어 있음', 'Empty')} aria-label={t('카드 미리보기 글', 'Card preview text')} data-ui="카드 미리보기 글" />
-          <span className={`td-n${n.text > LIMITS.previewText ? ' over' : ''}`}>{n.text} / {LIMITS.previewText}</span>
-        </span>
-      </div>
-      <div className="td-row">
-        <span className="td-rl">{t('노트 성격', 'Note kinds')} <span className="td-auto" title={t('노트들의 성격을 모아 보일 뿐 여기서 고칠 수 없습니다. 노트의 오른쪽 사이드바에서 고릅니다', "This only collects the notes' kinds and cannot be edited here. Choose a kind in the note's right sidebar")}>{t('자동', 'Auto')}</span></span>
-        <span className="td-kinds">
-          {topic.kinds.length ? topic.kinds.map((k) => <span key={k.kind ?? '-'} className={`kc-kind${k.kind ? '' : ' un'}`}>{noteKindLabel(k.kind)}</span>)
-            : <span className="muted">{t('노트가 없습니다', 'No notes')}</span>}
-        </span>
-      </div>
       {error && <p className="td-err" role="alert">{error}</p>}
     </CardEditDialog>
     {pickingImage && <CardImagePicker rid={rid} project={project} pc={pc} value={image} onChange={setImage} onClose={() => setPickingImage(false)} />}

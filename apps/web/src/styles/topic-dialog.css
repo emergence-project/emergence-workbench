@@ -9,7 +9,7 @@
 .td-titles b { font-size: var(--fs-lg); font-weight: var(--fw-title); }
 .td-titles span { font-size: var(--fs-xs); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .td-x { margin-left: auto; font-size: var(--fs-lg); color: var(--text-3); }
-.td-grid { display: grid; grid-template-columns: minmax(0, 1fr) 204px; gap: var(--sp-5); padding: var(--sp-1) 22px 20px; }
+.td-grid { --td-card-pad: 10px; --td-row-gap: var(--sp-2); display: grid; grid-template-columns: minmax(0, 1fr) 204px; gap: 14px var(--sp-5); padding: var(--sp-1) 22px 20px; }
 .td-fields { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 /* 설명 칸이 남는 높이를 채운다 */
 .td-f.grow { flex: 1; }
@@ -49,19 +49,21 @@
 .td-auto { font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--text-3); border: 1px solid var(--line-strong); border-radius: var(--r-pill); padding: 0 7px; }
 .td-kinds { display: flex; gap: var(--sp-1); flex-wrap: wrap; align-items: center; font-size: var(--fs-xs); }
 .td-err { margin: 0; font-size: var(--fs-sm); color: var(--danger); }
-/* 오른쪽: 실제 크기 카드 + 같은 폭의 취소 · 저장 (저장 줄은 노트 성격 줄과 같은 높이) */
-.td-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.td-side { --td-card-pad: 10px; }
-.td-card { background: var(--bg-sunken); border-radius: var(--r-md); padding: var(--td-card-pad); display: flex; justify-content: center; }
+/* 윗줄 오른쪽: 실제 크기 카드. 아랫줄은 왼쪽 칸과 오른쪽 모양 칸이 같은 줄 높이 · 간격으로 맞는다 */
+.td-top { min-width: 0; }
+.td-top > fieldset { flex: 1; }
+.td-low { gap: var(--td-row-gap); }
+.td-low .td-row, .td-look .td-row > * { min-height: var(--input-h-lg); }
+.td-card { background: var(--bg-sunken); border-radius: var(--r-md); padding: var(--td-card-pad); display: flex; justify-content: center; align-items: center; min-width: 0; }
 /* 미리보기 바로 아래 모양 칸: 이름 왼쪽 · 고르기 오른쪽. 좌우 끝을 카드 끝에 맞춘다 (10/10 20:45) */
-.td-look { padding-inline: var(--td-card-pad); display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: var(--sp-2); }
+.td-look { padding-inline: var(--td-card-pad); display: grid; grid-template-columns: max-content minmax(0, 1fr); align-content: start; align-items: center; gap: var(--td-row-gap) var(--sp-2); }
 .td-look .td-row { display: contents; }
+.td-look .td-rl, .td-look .td-sws { display: flex; align-items: center; }
 .td-look .td-sws { gap: var(--sp-1) 5px; }
 .td-look .td-pick.on { max-width: 100%; }
-/* 프로젝트 창은 왼쪽 칸이 길어 미리보기 바탕이 남는 높이를 채운다 */
-.project-dialog .td-card { flex: 1; align-items: center; }
-.td-acts { display: flex; gap: 6px; margin-top: auto; }
-.td-acts .btn { flex: 1; justify-content: center; height: var(--input-h-lg); box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; }
+/* 맨 아랫줄: 취소 · 저장은 오른쪽 칸 폭으로 오른쪽 끝에 */
+.td-acts { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 6px; }
+.td-acts .btn { min-width: 96px; justify-content: center; height: var(--input-h-lg); box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; }
 .td-key { font-size: var(--fs-2xs); font-weight: var(--fw-normal); opacity: .6; }
 
 /* 프로젝트 창도 같은 부품을 쓴다. 분야 메뉴는 창 밖으로 펼치고, 긴 창은 배경 영역에서 스크롤한다. */
@@ -69,7 +71,7 @@
 .dialog.project-dialog { width: min(var(--project-dialog-width), 96vw); max-height: none; flex: none; overflow: visible; }
 .project-dialog .td-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--project-preview-width)), 1fr)); }
 .project-dialog fieldset.td-fields { border: 0; padding: 0; margin: 0; }
-.project-dialog .pp-fields { grid-template-columns: max-content minmax(0, 1fr); }
+.project-dialog .pp-fields { grid-template-columns: max-content minmax(0, 1fr); gap: var(--td-row-gap) var(--sp-3); grid-auto-rows: minmax(var(--input-h-lg), auto); }
 .project-dialog .pp-fields dt { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
 .project-dialog .pcard.preview { width: 100%; cursor: default; }
 .project-dialog .pcard.preview:hover { border-color: var(--line); box-shadow: none; }
