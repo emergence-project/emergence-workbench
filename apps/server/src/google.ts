@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
+import type { GoogleEvent as CalendarEvent, SyncedResearch, SyncedSettings } from '@rw/core/contract/google'
 import { localDate, writeAtomic } from './fsutil.js'
 import { WorkbenchError } from './workbench.js'
 import { t as tx } from './i18n.js'
@@ -55,38 +56,10 @@ export interface GoogleStatus {
   clientId?: string
 }
 
-export interface CalendarEvent {
-  id: string
-  calendar: string
-  title: string
-  /** 시작하는 날 (YYYY-MM-DD, 이 컴퓨터 시간대) */
-  date: string
-  /** 끝나는 날 (포함). 하루짜리면 date와 같다 */
-  endDate: string
-  /** 종일 일정이면 없음. HH:MM */
-  time?: string
-  endTime?: string
-  location?: string
-  link?: string
-}
+export type { GoogleEvent as CalendarEvent } from '@rw/core/contract/google'
 
 /** 구글 드라이브의 앱 전용 폴더에 두는 설정 */
-export interface SyncedSettings {
-  version: 1
-  savedAt: string
-  /** 올린 컴퓨터의 이름 */
-  machine: string
-  ui: unknown
-  engine?: string
-  /** LaTeX 서식 모음과 저자 (예전에 올린 설정에는 없다) */
-  latexTemplates?: unknown
-  latexDefault?: unknown
-  authors?: unknown
-  /** 네트워킹에 더한 사람 */
-  people?: unknown
-  researches: SyncedResearch[]
-}
-export interface SyncedResearch { id: string; title: string; tags: string[]; remote: string | null; folder: string }
+export type { SyncedResearch, SyncedSettings } from '@rw/core/contract/google'
 
 interface Pending { verifier: string; redirectUri: string; returnTo: string; at: number }
 

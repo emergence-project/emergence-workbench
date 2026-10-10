@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import type { GitHubRepoItem as RepoItem } from '@rw/core/contract/register'
 import { parseGitHubRepo } from './clone.js'
 import { t } from './i18n.js'
 
@@ -10,19 +11,7 @@ import { t } from './i18n.js'
  * 2) 아니면 맥의 git이 쓰는 로그인(`git credential fill`, 키체인)으로 GitHub API
  * 토큰은 이 함수 안에서만 쓰고 저장하거나 돌려주지 않는다.
  */
-export interface RepoItem {
-  owner: string
-  name: string
-  /** clone에 넘길 주소 */
-  url: string
-  private: boolean
-  description: string
-  updatedAt: string
-  /** 이미 등록한 연구 id */
-  registeredId?: string
-  /** 받을 폴더에 같은 이름의 폴더가 이미 있으면 그 경로 (받지 않고 그 폴더를 등록한다) */
-  localPath?: string
-}
+export type { GitHubRepoItem as RepoItem } from '@rw/core/contract/register'
 
 export type RepoList =
   | { ok: true; source: 'gh' | 'git' | 'sample'; repos: RepoItem[] }

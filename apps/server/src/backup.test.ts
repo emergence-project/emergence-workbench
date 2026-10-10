@@ -4,6 +4,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import * as C from '@rw/core/contract/backup'
+import { buildApp } from './app.js'
 import { backupRemoteFor, backupWorkbenches } from './backup.js'
 
 let tmp: string
@@ -33,6 +35,12 @@ describe('workbench 백업', () => {
     expect(backupRemoteFor('https://github.com/me/other.git')).toBeNull()
   })
 
+  it('백업을 쓰지 않는 모드에서는 꺼짐으로 알리고, 돌리면 404', async () => {
+    const app = buildApp({ configDir: path.join(tmp, 'config-off') })
+    expect((await app.inject({ url: '/api/backup' })).json()).toEqual({ enabled: false, remote: null, running: false, last: null })
+    expect((await app.inject({ method: 'POST', url: '/api/backup' })).statusCode).toBe(404)
+    await app.close()
+  })
   it('올라가 있지 않은 workbench/만 .build를 빼고 올리고, 연구 저장소는 그대로 둔다', async () => {
     const remote = path.join(tmp, 'backup.git')
     execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
@@ -41,7 +49,7 @@ describe('workbench 백업', () => {
     const dir = path.join(tmp, 'config/backup')
     const targets = [{ id: 'beta', path: beta }, { id: 'alpha', path: alpha }, { id: 'gone', path: path.join(tmp, 'nope') }]
 
-    const r1 = await backupWorkbenches({ dir, remote, targets })
+    const r1 = C.BackupResult.parse(await backupWorkbenches({ dir, remote, targets }))
     expect(r1).toMatchObject({ projects: ['beta'], pushed: true })
     const files = git(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n')
     expect(files).toEqual(['beta/workbench/log/2026-10-04.md', 'beta/workbench/research.yaml'])

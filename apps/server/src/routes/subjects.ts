@@ -1,4 +1,6 @@
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/subjects'
+import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
 import { acceptedSubjects, changeSubject, matchesSubject, readSubjects, readYamlHash, setEntrySubjects } from '../subjects.js'
 import { setConceptSubjects } from '../conceptNotes.js'
@@ -10,9 +12,9 @@ import { t } from '../i18n.js'
 
 export function registerSubjects(app: FastifyInstance, ctx: RouteContext): void {
   const lib = () => ctx.registry.libraryPath
-  app.get<{ Querystring: { note?: string } }>('/api/subjects', async (req) => {
+  app.get<{ Querystring: { note?: string } }>('/api/subjects', replies(C.SubjectTree), async (req): Promise<C.SubjectTree> => {
     const tree = readSubjects(lib())
-    if (!tree.enabled) return { ...tree, suggestions: [] }
+    if (!tree.enabled) return { ...tree, items: [], suggestions: [] }
     const ix = ctx.conceptIndex()
     await ix?.ready()
     const counts = ix?.subjects({ showEmpty: true }) ?? []
@@ -30,25 +32,28 @@ export function registerSubjects(app: FastifyInstance, ctx: RouteContext): void 
       : [...items].sort((a, b) => (frequent.get(b.id) ?? 0) - (frequent.get(a.id) ?? 0) || a.id.localeCompare(b.id)).slice(0, 6).map((s) => ({ id: s.id, reason: frequent.get(s.id) ? t(`노트 ${frequent.get(s.id)}개에서 고름`, `Chosen in ${frequent.get(s.id)} note${frequent.get(s.id) === 1 ? '' : 's'}`) : '' }))
     return { ...tree, items, suggestions, unclassified: { notes: counts.find((s) => s.subject === '')?.count ?? 0, figures: figures.filter((f) => !f.subjects?.length).length, papers: papers.filter((p) => !p.subjects?.length).length } }
   })
-  app.patch<{ Body: Parameters<typeof changeSubject>[1] }>('/api/subjects', async (req) => changeSubject(lib(), req.body ?? {}, false))
-  app.post<{ Body: Parameters<typeof changeSubject>[1] }>('/api/subjects', async (req) => changeSubject(lib(), req.body ?? {}, true))
-  app.put<{ Params: { id: string }; Body: { subjects?: unknown; baseHash?: unknown } }>('/api/concepts/:id/subjects', async (req) => {
-    if (typeof req.body?.baseHash !== 'string') throw new WorkbenchError(400, t('baseHash가 필요합니다', 'baseHash is required'))
-    return setConceptSubjects(lib(), req.params.id, req.body.subjects, req.body.baseHash)
+  app.patch('/api/subjects', replies(C.SubjectTreeSaved), async (req): Promise<C.SubjectTreeSaved> => changeSubject(lib(), parseBody(C.RenameSubjectBody, req.body), false))
+  app.post('/api/subjects', replies(C.SubjectTreeSaved), async (req): Promise<C.SubjectTreeSaved> => changeSubject(lib(), parseBody(C.AddSubjectBody, req.body), true))
+  app.put<{ Params: { id: string } }>('/api/concepts/:id/subjects', async (req) => {
+    const { subjects, baseHash } = parseBody(C.SetSubjectsBody, req.body)
+    return setConceptSubjects(lib(), req.params.id, subjects, baseHash)
   })
-  app.get<{ Querystring: { id?: string } }>('/api/figures/subjects', async (req) => {
+  app.get<{ Querystring: { id?: string } }>('/api/figures/subjects', replies(C.SubjectFileHash), async (req): Promise<C.SubjectFileHash> => {
     const { folder } = figureFile(ctx.registry, req.query.id)
     return { hash: readYamlHash(path.join(folder.dir, 'figures.yaml')) }
   })
-  app.put<{ Body: { id?: unknown; subjects?: unknown; baseHash?: unknown } }>('/api/figures/subjects', async (req) => {
-    const { folder, file } = figureFile(ctx.registry, req.body?.id)
-    return setEntrySubjects(lib(), path.join(folder.dir, 'figures.yaml'), file, req.body?.subjects, req.body?.baseHash)
+  app.put('/api/figures/subjects', replies(C.EntrySubjects), async (req): Promise<C.EntrySubjects> => {
+    const body = parseBody(C.SetFigureSubjectsBody, req.body)
+    const { folder, file } = figureFile(ctx.registry, body.id)
+    return setEntrySubjects(lib(), path.join(folder.dir, 'figures.yaml'), file, body.subjects, body.baseHash)
   })
   const paperFile = (key: string) => {
     if (!lib() || !libraryBibEntries(lib()!).some((e) => e.key === key)) throw new WorkbenchError(404, t('없는 논문입니다', 'No such paper'))
     return path.join(lib()!, 'papers.yaml')
   }
-  app.get<{ Params: { key: string } }>('/api/papers/:key/subjects', async (req) => ({ hash: readYamlHash(paperFile(req.params.key)) }))
-  app.put<{ Params: { key: string }; Body: { subjects?: unknown; baseHash?: unknown } }>('/api/papers/:key/subjects', async (req) =>
-    setEntrySubjects(lib(), paperFile(req.params.key), req.params.key, req.body?.subjects, req.body?.baseHash))
+  app.get<{ Params: { key: string } }>('/api/papers/:key/subjects', replies(C.SubjectFileHash), async (req): Promise<C.SubjectFileHash> => ({ hash: readYamlHash(paperFile(req.params.key)) }))
+  app.put<{ Params: { key: string } }>('/api/papers/:key/subjects', replies(C.EntrySubjects), async (req): Promise<C.EntrySubjects> => {
+    const { subjects, baseHash } = parseBody(C.SetSubjectsBody, req.body)
+    return setEntrySubjects(lib(), paperFile(req.params.key), req.params.key, subjects, baseHash)
+  })
 }

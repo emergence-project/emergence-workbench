@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/google'
+import { parseBody, replies } from '../contract.js'
 import { parseGitHubRepo } from '../clone.js'
 import type { Google, SyncedResearch, SyncedSettings } from '../google.js'
 import { WorkbenchError } from '../workbench.js'
@@ -68,9 +70,12 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
   })
   app.addHook('onClose', async () => clearTimeout(timer))
 
-  app.get('/api/google', async () => ({ ...google.status(), lastPush }))
+  app.get('/api/google', replies(C.GoogleStatus), async (): Promise<C.GoogleStatus> => ({ ...google.status(), lastPush }))
 
-  app.put<{ Body: { clientId?: unknown; clientSecret?: unknown } }>('/api/google/client', async (req) => google.setClient(req.body?.clientId, req.body?.clientSecret))
+  app.put('/api/google/client', replies(C.GoogleStatus), async (req): Promise<C.GoogleStatus> => {
+    const { clientId, clientSecret } = parseBody(C.GoogleClientBody, req.body)
+    return google.setClient(clientId, clientSecret)
+  })
 
   /** 구글 로그인 화면으로 보낸다. 끝나면 /api/google/callback 으로 돌아온다 */
   app.get<{ Querystring: { return?: string } }>('/api/google/connect', async (req, reply) => {
@@ -92,21 +97,21 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
     }
   })
 
-  app.post('/api/google/disconnect', async () => { await google.disconnect(); lastPush = null; return google.status() })
+  app.post('/api/google/disconnect', replies(C.GoogleStatus), async (): Promise<C.GoogleStatus> => { await google.disconnect(); lastPush = null; return google.status() })
 
-  app.get<{ Querystring: { from?: string; to?: string } }>('/api/google/events', async (req) => {
+  app.get<{ Querystring: { from?: string; to?: string } }>('/api/google/events', replies(C.GoogleEvents), async (req): Promise<C.GoogleEvents> => {
     if (!google.status().connected) return { connected: false, events: [] }
     return { connected: true, events: await google.events(String(req.query.from ?? ''), String(req.query.to ?? '')) }
   })
 
   /** 구글에 저장된 설정과 이 컴퓨터를 비교한다 */
-  app.get('/api/google/sync', async () => {
+  app.get('/api/google/sync', replies(C.GoogleSync), async (): Promise<C.GoogleSync> => {
     const remote = await google.readSettings()
     return { remote, ...compare(remote), localCount: registry.list().length }
   })
 
   /** 이 컴퓨터의 설정을 구글에 올린다 (덮어씀) */
-  app.post('/api/google/sync/push', async () => {
+  app.post('/api/google/sync/push', replies(C.GooglePushed), async (): Promise<C.GooglePushed> => {
     await google.writeSettings(snapshot())
     lastPush = { at: new Date().toISOString() }
     return { ok: true, lastPush }
@@ -116,7 +121,7 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
    * 구글의 설정을 이 컴퓨터에 들인다: 화면 설정, LaTeX 공통 설정과 저자, 이미 등록한 프로젝트의 태그.
    * 아직 없는 프로젝트는 목록만 돌려준다 (화면에서 GitHub 주소로 받아 등록).
    */
-  app.post('/api/google/sync/restore', async () => {
+  app.post('/api/google/sync/restore', replies(C.GoogleRestored), async (): Promise<C.GoogleRestored> => {
     const remote = await google.readSettings()
     if (!remote) throw new WorkbenchError(404, t('구글에 저장된 설정이 없습니다.', 'No settings are saved in Google.'))
     const { matched, missing } = compare(remote)

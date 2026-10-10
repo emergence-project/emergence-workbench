@@ -14,6 +14,7 @@ import { Workbench, ConflictError, WorkbenchError } from './workbench.js'
 import { LibraryReadIndex } from './libraryReadIndex.js'
 import { conceptIndexOpener } from './conceptIndex.js'
 import type { RouteContext } from './routes/context.js'
+import { checkReplies } from './contract.js'
 import { registerApiIndex } from './routes/apiIndex.js'
 import { registerResearches } from './routes/researches.js'
 import { registerSettings } from './routes/settings.js'
@@ -129,6 +130,9 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
     if (req.url.startsWith('/api/')) for (const [k, v] of Object.entries(fileResponseHeaders(reply.getHeader('content-type')))) reply.header(k, v)
     return payload
   })
+
+  // 테스트에서는 응답을 계약(@rw/core/contract)으로 검사한다 (contract.ts)
+  checkReplies(app)
 
   // ---------- 실시간 알림 ----------
   const sockets = new Set<{ send(data: string): void; readyState: number }>()

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import type { BackupResult } from '@rw/core/contract/backup'
 import { writeAtomic } from './fsutil'
 import { t } from './i18n.js'
 
@@ -23,22 +24,7 @@ const exec = promisify(execFile)
  */
 export interface BackupTarget { id: string; path: string }
 
-export interface BackupResult {
-  at: string
-  /** 이번에 맞춘 연구 id */
-  projects: string[]
-  /** 새로 만든 커밋 (짧은 해시). 올릴 것이 없으면 null */
-  commit: string | null
-  pushed: boolean
-  /** GitHub에서 받아 맥에 쓴 파일 (<id>/workbench/… 또는 _settings/config.yaml) */
-  pulled: string[]
-  /** 양쪽이 다르게 바뀐 파일 (맥 것을 두고 GitHub 것은 옆에 받아 둠) */
-  conflicts: string[]
-  /** 앱 설정(config.yaml)을 GitHub에서 받아 바꿨으면 true: 앱이 설정을 다시 읽는다 */
-  settingsPulled: boolean
-  message: string
-  error?: string
-}
+export type { BackupResult } from '@rw/core/contract/backup'
 
 const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
 const firstLine = (e: unknown) => String((e as { stderr?: string }).stderr || (e as Error).message || e).split('\n').find((l) => l.trim()) ?? t('알 수 없는 오류', 'Unknown error')

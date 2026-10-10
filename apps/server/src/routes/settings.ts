@@ -1,5 +1,7 @@
 // 화면 설정과 앱 업데이트 (설정 화면)
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/settings'
+import { parseBody, replies } from '../contract.js'
 import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -7,8 +9,8 @@ import { t } from '../i18n.js'
 
 export function registerSettings(app: FastifyInstance, ctx: RouteContext): void {
   const { registry, opts } = ctx
-  app.get('/api/settings', async () => ({ ui: registry.ui }))
-  app.put<{ Body: { ui?: unknown } }>('/api/settings', async (req) => ({ ui: registry.setUi(req.body?.ui) }))
+  app.get('/api/settings', replies(C.SettingsView), async (): Promise<C.SettingsView> => ({ ui: registry.ui }))
+  app.put('/api/settings', replies(C.SettingsView), async (req): Promise<C.SettingsView> => ({ ui: registry.setUi(parseBody(C.SettingsBody, req.body).ui) }))
 
 
   app.get<{ Querystring: { fetch?: string } }>('/api/app/status', async (req) => {
