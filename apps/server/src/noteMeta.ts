@@ -76,10 +76,29 @@ export function summaryOfMarkdown(text: string): string | undefined {
   const lines = stripFrontMatter(text).split('\n')
   const para: string[] = []
   let skip = false
+  let comment = false
   for (const l of lines) {
-    const t = l.trim()
-    if (/^(```|~~~|\$\$)/.test(t) && !(t.startsWith('$$') && t.length > 4 && t.endsWith('$$'))) { if (para.length) break; skip = !skip; continue }
-    if (skip) continue
+    let t = l.trim()
+    if (!comment) {
+      if (/^(```|~~~|\$\$)/.test(t) && !(t.startsWith('$$') && t.length > 4 && t.endsWith('$$'))) { if (para.length) break; skip = !skip; continue }
+      if (skip) continue
+    }
+    let visible = ''
+    while (t) {
+      if (comment) {
+        const end = t.indexOf('-->')
+        if (end < 0) break
+        t = t.slice(end + 3)
+        comment = false
+      } else {
+        const start = t.indexOf('<!--')
+        if (start < 0) { visible += t; break }
+        visible += t.slice(0, start)
+        t = t.slice(start + 4)
+        comment = true
+      }
+    }
+    t = visible.trim()
     if (!t) { if (para.length) break; continue }
     if (/^(#|>|\||---)/.test(t)) { if (para.length) break; continue }
     para.push(t.replace(/^([-*+]|\d+[.)])\s+/, ''))
