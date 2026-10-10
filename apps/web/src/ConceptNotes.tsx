@@ -15,6 +15,8 @@ import { askConfirm } from './askText'
 import { onOutside } from './autosave'
 import { useNoteEdit } from './noteEdit'
 import { NoteScreen } from './NoteScreenFrame'
+import { RightSidebar } from './RightSidebar'
+import { openRight, setRightSlot, useRightMode } from './noteScreen'
 import { showKnowledgeList } from './knowledgeListState'
 import { subjectTree, type SubjNode } from './knowledgeSubjects'
 import { isListRoute } from './router'
@@ -202,10 +204,12 @@ function dropTitle(body: string, title: string): string {
  * 제목 아래: 다른 이름 · 분류 · 쓰는 곳 · 미완성인 이유.
  * rid를 주면 (프로젝트 탭) 그 프로젝트 전체를 이 개념에 잇거나 끊을 수 있고, 본문의 [[링크]]도 프로젝트 탭으로 연다.
  */
-export function ConceptNoteView({ id, info, rid, project, side = 'inline', tocOwner = null, onChanged, onSaved }: {
+export function ConceptNoteView({ id, info, rid, project, side = 'inline', rightOpen = true, tocOwner = null, onChanged, onSaved }: {
   id: string; info: LibraryInfo | null; rid?: string; project?: string
-  /** 메모·연결을 어디에: 노트 오른쪽 칸(inline), 또는 앱의 맥락 칸이 보여 줌(external, 프로젝트 탭) */
+  /** 정보 · 기록을 어디에: 노트 오른쪽의 오른쪽 사이드바(inline, 지식 화면), 또는 앱의 오른쪽 사이드바(external, 프로젝트 탭) */
   side?: 'inline' | 'external'
+  /** 지식 화면에서 오른쪽 사이드바를 열었는지 (상단바 단추) */
+  rightOpen?: boolean
   /** 이 노트가 지금 칸에 보이면 그 탭 key: 절(##)을 왼쪽 사이드바 맨 아래 목차에 알린다 (10/7 15:54) */
   tocOwner?: string | null
   onChanged(): void; onSaved(msg: string): void
@@ -232,6 +236,7 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', tocOw
   useNoteSections(scroller, editing ? null : tocOwner, note?.body ?? '', '.cn-body .ob-md h2, .cn-body .ob-md h3')
   const render = useConceptRender()
   const { data } = useKnowledge(info)
+  const mode = useRightMode()
   const [srcs, setSrcs] = useState<ConceptSources | null>(null)
   /** 화면이 가진 노트를 바꾼다 (읽기 · 머리말 고치기). 고치는 중이 아니면 저장기도 그 글로 */
   const adopt = useCallback((n: ConceptMd) => { setNote(n); setError(null); if (saver.state === 'saved' && !saver.pending) saver.load(n.body, n.hash) }, [saver])
@@ -344,6 +349,8 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', tocOw
   const shownBody = dropTitle(note.body, m.title)
   return (
     <NoteScreen ui="개념노트" className="cn-doc" notice={notice} onCloseNotice={() => setNotice(null)}
+      // 프로젝트 탭: 문서 정보는 앱 오른쪽 사이드바 "정보" 맨 위에 (ConceptSidePanel의 slot)
+      tocOwner={side === 'external' ? tocOwner : null} side={side === 'external' && <ConceptDocInfo id={id} doc={doc} />}
       toolbar={{
         ui: '머리줄',
         title: <span className="cn-toolbar-title" title={m.title}>{m.title}</span>,
@@ -351,22 +358,22 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', tocOw
         saveAction: edit.saveAction(discardAndReload),
         view: edit.view, onView: edit.setView,
         onEdit: () => void startEdit(), editDisabled: busy || save === 'conflict', onDone: () => void finish(),
+        onComment: () => openRight('records'), commentOn: mode === 'records',
         menu: [{ label: t('파일 다시 읽기', 'Reload file'), ui: '파일 다시 읽기', tip: t('파일을 다시 읽습니다. 이 화면에서 저장하지 않은 고침은 버립니다', 'Reads the file again. Unsaved edits on this screen are discarded'), onClick: discardAndReload }],
       }}>
       <div ref={scroller} className={`scroll kn-read${editing ? ' cn-editing' : ''}${tocOwner ? ' cn-toc-scroll' : ''}`} onClick={editing ? undefined : follow}>
-        <div className={`cn-layout${side === 'inline' ? ' with-side' : ''}`}>
+        <div className={`cn-layout${side === 'inline' && rightOpen ? ' with-side' : ''}`}>
         {/* 고른 글 하이라이트 · 메모는 읽기와 고치기 모두에서 (기록은 concepts/<id>.memo.md, 10/8 11:47) */}
         {editing ? <ConceptRecords id={id} source={initial} contentOffset={0}><ConceptEditor initial={initial} options={options} saving={save === 'saving'} editView={edit.view}
             onChange={(body) => saver.edit(body)} onSave={(body) => { saver.edit(body); void finish() }} onCancel={() => void finish()} /></ConceptRecords> : <div className="page-body cn-body">
           <header className="cn-head">
           <h1 className="h-title">{m.title}</h1>
-          {/* 프로젝트 탭에서는 오른쪽 칸이 앱의 맥락 칸이라 문서 정보를 제목 아래에 둔다 */}
-          {side === 'external' && <ConceptDocInfo id={id} doc={doc} compact />}
           </header>
           <ConceptRecords id={id} source={note.body} contentOffset={note.body.length - shownBody.length}><ObsidianMarkdown text={shownBody} options={options} /></ConceptRecords>
           <ConceptSourcesList srcs={srcs} />
         </div>}
-        {side === 'inline' && <aside className="cn-side-col" data-ui="오른쪽 사이드바"><ConceptSidePanel id={id} info={info} rid={rid} project={project} doc={doc} onChanged={onChanged} onSaved={onSaved} /></aside>}
+        {side === 'inline' && rightOpen && <aside className="cn-side-col"><RightSidebar info={<div className="rs-pad"><ConceptSidePanel id={id} info={info} rid={rid} project={project} doc={doc} onChanged={onChanged} onSaved={onSaved} /></div>}
+          records={<ConceptRecordsSide id={id} info={info} onSaved={onSaved} />} /></aside>}
         </div>
       </div>
     </NoteScreen>
@@ -472,13 +479,14 @@ function ConceptSourcesList({ srcs }: { srcs: ConceptSources | null }) {
  * 오른쪽 사이드바 (2026-10-04 15:18 피드백 "우측 사이드바에서 하기로"): 메모·할 일, 이 개념을 쓰는 개념, 이 노트가 가리키는 개념.
  * 연결은 색인에서 바로 받는다. 지식 화면에서는 노트 오른쪽 칸, 프로젝트에서는 앱의 맥락 칸에 놓인다.
  */
-export function ConceptSidePanel({ id, info, rid, project, doc, onChanged, onSaved }: {
+export function ConceptSidePanel({ id, info, rid, project, doc, slot, onChanged, onSaved }: {
   id: string; info: LibraryInfo | null; rid?: string; project?: string
   /** 읽고 있는 노트: 있으면 맨 위에 문서 정보 */
   doc?: DocState
+  /** 프로젝트 탭: 맨 위에 노트 화면이 문서 정보를 그릴 자리 */
+  slot?: boolean
   onChanged(): void; onSaved(msg: string): void
 }) {
-  const options = useConceptRender()
   const [links, setLinks] = useState<{ out: ConceptRow[]; back: ConceptRow[]; missing: string[] } | null>(null)
   useEffect(() => {
     let live = true
@@ -487,11 +495,11 @@ export function ConceptSidePanel({ id, info, rid, project, doc, onChanged, onSav
   }, [id, info])
   const chips = (rows: ConceptRow[]) => rows.length === 0
     ? <p className="muted">{t('아직 없음', 'None yet')}</p>
-    : <div className="cn-facts">{rows.map((r) => <button key={r.id} className="dep-chip" onClick={(ev) => { ev.stopPropagation(); go({ page: 'library', topic: r.id }) }}>{r.title}</button>)}</div>
+    : <div className="cn-facts">{rows.map((r) => <button key={r.id} className="dep-chip" onClick={(ev) => { ev.stopPropagation(); go(rid ? { page: 'concept', rid, id: r.id } : { page: 'library', topic: r.id }) }}>{r.title}</button>)}</div>
   return (
     <div className="cn-side-panel">
       {doc && <ConceptDocInfo id={id} doc={doc} />}
-      <ConceptMemoBox id={id} info={info} options={options} onSaved={onSaved} />
+      {slot && <div ref={setRightSlot} className="rs-slot" />}
       <ConceptUses id={id} info={info} rid={rid} project={project} onChanged={onChanged} onSaved={onSaved} />
       <section>
         <h2 className="cn-links-h">{t('이 개념을 쓰는 개념', 'Concepts that use this')}</h2>
@@ -564,6 +572,12 @@ function ConceptUses({ id, info, rid, project, onChanged, onSaved }: {
  */
 /** base: 고치기를 연 때의 메모 글. 그사이 본문에서 하이라이트를 더해 메모가 바뀌어도 고치던 항목을 다시 찾는다 */
 type MemoEdit = { base: string } & ({ what: 'all' } | { what: 'unit'; unit: MemoUnit } | { what: 'add'; kind: MemoUnit['kind']; anchor?: MemoAnchor })
+
+/** 오른쪽 사이드바 "기록": 개념노트의 메모 · 할 일 (concepts/<id>.memo.md, 10/10 노트 화면 틀) */
+export function ConceptRecordsSide({ id, info, onSaved }: { id: string; info: LibraryInfo | null; onSaved(msg: string): void }) {
+  const options = useConceptRender()
+  return <div className="rs-pad cn-side-panel"><ConceptMemoBox id={id} info={info} options={options} onSaved={onSaved} /></div>
+}
 
 function ConceptMemoBox({ id, info, options, onSaved }: { id: string; info: LibraryInfo | null; options: RenderOptions; onSaved(msg: string): void }) {
   const { memo, compose } = useConceptMemo(id)

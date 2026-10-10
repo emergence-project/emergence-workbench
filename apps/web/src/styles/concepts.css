@@ -146,7 +146,7 @@
 .cn-editing .cn-layout:not(.with-side) { display: flex; }
 .cn-editing .cn-side-col { overflow: auto; }
 /* 넓을 때는 본문과 사이드바가 따로 스크롤한다 (10/7 20:52): 바깥 .scroll 대신 두 칸이 각자 */
-.cn-side-col { border-left: 1px solid var(--line); padding: var(--sp-4) var(--sp-3); min-height: 100%; }
+.cn-side-col { border-left: 1px solid var(--line); min-height: 100%; display: flex; flex-direction: column; }
 .cn-layout.with-side { height: 100%; min-height: 0; }
 .cn-layout.with-side > .cn-body, .cn-layout.with-side > .cn-side-col { min-height: 0; overflow: auto; overscroll-behavior: contain; }
 /* 스크롤 막대가 본문 칸 오른쪽 끝에 오도록 폭 제한 대신 안쪽 여백으로 가운데 (글 폭은 .page-body와 같게) */

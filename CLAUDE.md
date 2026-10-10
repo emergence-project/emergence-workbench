@@ -6,7 +6,7 @@
 
 PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)가 돈다. CI가 마지막 커밋에서 끝나 초록이면 에이전트가 합친다(도는 중에 합치지 않는다). main 푸시와 문서만 바뀐 PR에서는 돌지 않는다(Actions 분량을 아끼려고). Actions 분량이 바닥나 CI가 돌지 못하면, 클라우드 세션에서 `pnpm test`와 `pnpm type-check`가 통과하면 합친다. 화면을 바꾼 PR은 `pnpm shots`도 돌리고, TeX 검사가 걸리는 PR은 맥에서 확인한다 (2026-10-04 사용자 결정). 컴파일이 걸린 테스트는 TeX가 있어야 돌아서 `ci.yml`에서는 건너뛰고, 컴파일·원고·서식 파일이 바뀐 PR에서만 `.github/workflows/tex.yml`이 TeX를 깔아 돌린다(리눅스에는 맥 글꼴 이름을 나눔 글꼴로 흉내 낸다: `scripts/ci/mac-fonts.py`). zsh가 없는 클라우드 환경에서는 `scripts/remote` 테스트가 건너뛰어지고, CI는 zsh를 깔아 돌린다.
 
-화면 확인: `pnpm shots`는 예제 모드로 주요 화면 56개(기본 샘플)를 `shots/`에 찍고, 화면 오류(콘솔 오류, 빈 화면)가 있으면 실패한다. CI도 PR마다 돌려 그림을 산출물 `shots`로 남긴다. L5 분류 화면은 `SHOTS_SUBJECTS=1 pnpm shots`로 별도 샘플(`.sandbox/subjects-library`, 별도 설정)의 10화면을 찍는다. 기본 샘플의 L2b 그림은 전후 바이트 비교한다. 사용자에게 화면을 보여 줄 때 이 그림을 쓴다. 클라우드에서는 `CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm shots`.
+화면 확인: `pnpm shots`는 예제 모드로 주요 화면 57개(기본 샘플)를 `shots/`에 찍고, 화면 오류(콘솔 오류, 빈 화면)가 있으면 실패한다. CI도 PR마다 돌려 그림을 산출물 `shots`로 남긴다. L5 분류 화면은 `SHOTS_SUBJECTS=1 pnpm shots`로 별도 샘플(`.sandbox/subjects-library`, 별도 설정)의 10화면을 찍는다. 기본 샘플의 L2b 그림은 전후 바이트 비교한다. 사용자에게 화면을 보여 줄 때 이 그림을 쓴다. 클라우드에서는 `CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome pnpm shots`.
 
 열린 PR은 한 번에 하나다. 시작 전에 열린 PR을 확인하고, 다른 PR이 열려 있으면 먼저 알린다. 같은 화면·기능을 고친 것과 그에 딸린 문서 수정은 한 PR로 묶고, 파일 안전 수정(내용 유실·덮어쓰기)과 서로 관계없는 수정은 따로 올린다.
 
