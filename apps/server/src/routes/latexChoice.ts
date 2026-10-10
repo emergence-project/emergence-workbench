@@ -12,7 +12,7 @@ export const queryList = (v: string | string[] | undefined): string[] => Array.i
 
 export function latexChoices(registry: Registry) {
   /**
-   * 고르지 않았을 때의 서식: research.yaml의 latex-template:, 없으면 노트(연구노트 · 계산 노트 · 보조 노트)는 한 단 연구노트 서식,
+   * 고르지 않았을 때의 서식: research.yaml의 latex-template:, 없으면 노트(연구노트 · 계산 노트 · 블록 노트)는 한 단 연구노트 서식,
    * 원고는 앱의 내보내기 기본 서식 (10/8 11:42 "연구노트는 기본을 one column으로")
    */
   const projectTemplate = (wb: Workbench, kind: NoteKind = 'paper') => {

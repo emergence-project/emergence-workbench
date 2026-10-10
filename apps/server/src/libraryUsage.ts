@@ -9,7 +9,7 @@ import type { LibraryUse } from '@rw/core/contract/library'
 export type { LibraryUse }
 
 /**
- * 개념: 보조 노트 머리말의 concepts:, 그리고 프로젝트 전체가 기대는 research.yaml의 concepts: (노트 없이).
+ * 개념: 블록 노트 머리말의 concepts:, 그리고 프로젝트 전체가 기대는 research.yaml의 concepts: (노트 없이).
  * 논문: 프로젝트 bib에 있는 key.
  */
 const projectUses = new WeakMap<Workbench, { stamp: string; uses: [string, LibraryUse][] }>()

@@ -35,7 +35,7 @@ describe('MCP 입구 (읽기)', () => {
 
   it('쓰기 도구는 edit_note · edit_concept 둘뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['edit_concept', 'edit_note', 'list_notes', 'list_projects', 'list_tasks', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
+    expect(tools.map((t) => t.name).sort()).toEqual(['edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_tasks', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
     for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!t.name.startsWith('edit_'))
   })
 
@@ -59,6 +59,10 @@ describe('MCP 입구 (읽기)', () => {
   it('rules는 안전 규칙과 맡긴 일 규칙 문서를 준다', async () => {
     const t = textOf(await (await connect()).callTool({ name: 'rules', arguments: {} }))
     expect(t).toContain('baseHash')
+    expect(t).toContain('prefer edit_note / edit_concept')
+    expect(t).toContain('docs/repo-format.md')
+    expect(t).toContain('agent:check')
+    expect(t).toContain('only when the user asks')
     expect(t).toContain('# 맡긴 일의 규칙')
   })
 
@@ -99,6 +103,31 @@ describe('MCP 입구 (읽기)', () => {
 
     const only = JSON.parse(textOf(await c.callTool({ name: 'list_notes', arguments: { project: 'sample-research', status: note.status } }))) as { status: string }[]
     expect(only.every((n) => n.status === note.status)).toBe(true)
+  })
+
+  it('list_notes의 target은 STATUS와 같은 slug이고 main.tex에는 없다', async () => {
+    const rows = [
+      { id: '한..글', type: 'note', file: 'workbench/notes/한..글/note.md', status: 'solved' },
+      { id: 'calc name', type: 'calc', file: 'workbench/calc/calc name/note.md', status: 'in-progress' },
+      { id: 'block-id', type: 'block', file: 'workbench/blocks/block-id.tex', status: 'in-progress' },
+      { id: 'old', type: 'note', file: 'workbench/notes/old/main.tex', status: 'in-progress' },
+    ]
+    const fake = (async () => new Response(JSON.stringify({ notes: rows }), { status: 200 })) as typeof fetch
+    const c = await connect(fake)
+    const list = JSON.parse(textOf(await c.callTool({ name: 'list_notes', arguments: { project: 'p' } })))
+    expect(list.map((n: { target?: string }) => n.target)).toEqual(['note-___', 'calc-calc_name', 'block-block-id', undefined])
+  })
+
+  it('list_edit_reviews는 선택한 프로젝트 또는 전체 대기 목록을 읽는다', async () => {
+    const urls: string[] = []
+    const body = { reviews: [{ key: 'note:p:f', changes: 1, agents: ['codex'] }], attempts: [{ key: 'note:p:g', agent: 'claude-code' }] }
+    const fake = (async (input: string | URL) => {
+      urls.push(String(input))
+      return new Response(JSON.stringify(body), { status: 200 })
+    }) as typeof fetch
+    const c = await connect(fake)
+    for (const args of [{}, { project: 'p / q' }]) expect(JSON.parse(textOf(await c.callTool({ name: 'list_edit_reviews', arguments: args })))).toEqual(body)
+    expect(urls).toEqual(['http://127.0.0.1:1/api/agent-edits', 'http://127.0.0.1:1/api/agent-edits?scope=p%20%2F%20q'])
   })
 
   it('맡긴 일 목록과 하나 읽기', async () => {
@@ -149,10 +178,16 @@ describe('MCP 입구 (읽기)', () => {
     expect(urls.some((u) => u.includes('/api/concepts/search'))).toBe(false)
   })
 
-  it('앱 서버가 꺼져 있으면 파일을 직접 고치지 말라고 알린다', async () => {
+  it('앱 서버가 꺼지면 GET·POST 모두 직접 수정의 형식·검사·허락을 알린다', async () => {
     const down = (async () => { throw new TypeError('fetch failed') }) as typeof fetch
     const r = await (await connect(down)).callTool({ name: 'list_projects', arguments: {} })
     expect(r.isError).toBe(true)
-    expect(textOf(r)).toContain('Do not edit files directly')
+    expect(textOf(r)).toContain('Tell the user')
+    expect(textOf(r)).toContain('docs/repo-format.md')
+    expect(textOf(r)).toContain('agent:check')
+    expect(textOf(r)).toContain('still need permission')
+    const post = await (await connect(down)).callTool({ name: 'edit_note', arguments: { project: 'p', file: 'workbench/notes/a/note.md', baseHash: 'h', edits: [{ old: 'a', new: 'b' }] } })
+    expect(post.isError).toBe(true)
+    expect(textOf(post)).toBe(textOf(r))
   })
 })

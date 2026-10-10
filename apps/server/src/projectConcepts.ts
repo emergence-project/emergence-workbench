@@ -6,7 +6,7 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
 /**
  * 프로젝트 전체가 기대는 개념노트를 research.yaml의 concepts:에 넣거나 뺀다.
- * 보조 노트가 없는 프로젝트(메인 노트만 있는 것)도 개념노트에 연결할 수 있게 한다.
+ * 블록 노트가 없는 프로젝트(메인 노트만 있는 것)도 개념노트에 연결할 수 있게 한다.
  * 다른 칸과 주석은 그대로 둔다. workbench/ 안 파일만 쓴다.
  */
 export function setProjectConcept(wb: Workbench, id: unknown, on: unknown): { concepts: string[] } {

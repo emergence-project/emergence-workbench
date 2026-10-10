@@ -459,7 +459,7 @@ export function groundsOf(content: string, parts: ManuscriptPart[]): string[] {
   const out: string[] = []
   const add = (id: string) => { if (!out.includes(id)) out.push(id) }
   const norm = (x: string) => x.replace(/\s+/g, ' ').trim().toLowerCase()
-  // Markdown 보조 노트는 머리말의 grounds: 줄
+  // Markdown 블록 노트는 머리말의 grounds: 줄
   for (const m of content.matchAll(/^(?:%\s*(?:근거|grounds)|grounds):\s*(.+)$/gm)) {
     for (const ref of m[1]!.split(/[,;]/)) {
       // "PRB.tex#라벨" 또는 "PRB.tex#절 제목": 한 파일 원고의 절

@@ -131,7 +131,7 @@ describe('PDF 질문에 Claude가 답하기', () => {
     expect(calls[0]!.prompt).toContain('- 파일: workbench/materials/x.pdf')
     expect((await a.inject({ method: 'POST', url: `${R}/comments/paper-x/c-nope/answer` })).statusCode).toBe(404)
 
-    // 노트에서 고른 글로 남긴 부탁: 보조 노트 본문 파일을 가리키고, 노트용 지침을 준다
+    // 노트에서 고른 글로 남긴 부탁: 블록 노트 본문 파일을 가리키고, 노트용 지침을 준다
     const bid = fs.readdirSync(path.join(repo, 'workbench/blocks')).find((n) => /\.(md|tex)$/.test(n))!
     const b = await a.inject({ method: 'POST', url: `${R}/comments/block-${bid.replace(/\.\w+$/, '')}`, payload: { kind: '질문', title: '보조 노트', source: bid.replace(/\.\w+$/, ''), quote: 'x = y', text: '검산해 줘' } })
     expect((await a.inject({ method: 'POST', url: `${R}/comments/block-${bid.replace(/\.\w+$/, '')}/${b.json().entry.id}/answer` })).statusCode).toBe(200)

@@ -2,7 +2,7 @@
 
 [English](agent-mcp.md)
 
-Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 · 노트 · 기록 · 맡긴 일 · 개념노트를 **앱 서버를 거쳐** 읽는 입구다. 파일을 직접 열지 않고 앱과 같은 API를 쓰므로, 앱 화면과 같은 내용 · 같은 hash를 본다. 쓰기 도구는 `edit_note` · `edit_concept` 둘뿐이다(10/8 에이전트 고침 검토): 에이전트는 바로 쓰고, 앱이 고치기 전 글을 기준판으로 남기며, 사용자가 고침 검토 화면(`#/review`)에서 바뀐 문단마다 승인 · 되돌리기 · 고치기를 고른다. 사용자가 확인한 노트는 대화에서 먼저 허락을 받는다. 고칠 때마다 어느 에이전트가 고쳤는지 적힌다. 이름은 클라이언트가 연결할 때 보내는 이름(`clientInfo.name`)에서 온다: Claude Code는 `claude-code`, Codex는 `codex`, 그 밖에는 보낸 그대로다. 클라이언트가 스스로 밝힌 값이라 앱이 검증하지는 않는다. 에이전트가 앱을 거치지 않고 파일을 직접 고친 것은 여기 남지 않으니, 커밋 작성자로 확인한다.
+Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 · 노트 · 기록 · 맡긴 일 · 개념노트를 **앱 서버를 거쳐** 읽는 입구다. MCP 도구는 파일을 직접 열지 않고 앱과 같은 API를 쓰므로, 앱 화면과 같은 내용 · 같은 hash를 본다. 쓰기 도구는 `edit_note` · `edit_concept` 둘뿐이다(10/8 에이전트 고침 검토): 에이전트는 바로 쓰고, 앱이 고치기 전 글을 기준판으로 남기며, 사용자가 고침 검토 화면(`#/review`)에서 바뀐 문단마다 승인 · 되돌리기 · 고치기를 고른다. 사용자가 확인한 노트는 대화에서 먼저 허락을 받는다. 고칠 때마다 어느 에이전트가 고쳤는지 적힌다. 이름은 클라이언트가 연결할 때 보내는 이름(`clientInfo.name`)에서 온다: Claude Code는 `claude-code`, Codex는 `codex`, 그 밖에는 보낸 그대로다. 클라이언트가 스스로 밝힌 값이라 앱이 검증하지는 않는다. 에이전트가 앱을 거치지 않고 파일을 직접 고친 것은 여기 남지 않으니, 커밋 작성자로 확인한다.
 
 ## 쓰기 전에
 
@@ -38,8 +38,9 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `rules` | 일하기 전에 읽을 규칙을 한 번에: 안전 규칙, 맡긴 일 규칙(`docs/agent-delegated-work.md`), 개념노트 규칙(research-library README의 개념노트 절), `project`를 주면 그 연구 저장소의 `AGENTS.md` · `CLAUDE.md`. 먼저 읽는다 | (앱 폴더의 문서), `GET /api/concepts/rules`, `GET …/:rid/agent-rules` |
 | `list_projects` | 등록한 프로젝트: id · 제목 · 저장소 경로 · 진행 상태 | `GET /api/researches` |
 | `project_status` | 프로젝트 요약(`workbench/STATUS.md`와 같은 내용) | `GET …/:rid/agent-status` |
-| `list_notes` | 노트 목록: 본문 파일 · 상태 · 다시 열 조건 · 주제 (`status`로 거르기) | `GET …/:rid/notes` |
-| `read_note` | 노트 본문과 hash | `GET …/:rid/manuscript/part`, 보조 노트는 `GET …/:rid/blocks/:id` |
+| `list_notes` | 노트 목록: 본문 파일 · 기록 이름 `target`(Markdown 노트·블록 노트, `main.tex`에는 없음) · 상태 · 다시 열 조건 · 주제 (`status`로 거르기) | `GET …/:rid/notes` |
+| `list_edit_reviews` | 에이전트 고침 검토 대기와 허락 대기. 선택 인자 `project`를 주면 그 프로젝트만, 없으면 모든 프로젝트와 개념노트 | `GET /api/agent-edits?scope=` |
+| `read_note` | 노트 본문과 hash | `GET …/:rid/manuscript/part`, 블록 노트는 `GET …/:rid/blocks/:id` |
 | `read_records` | 노트·프로젝트 기록(메모 · 할 일 · 질문과 답 · 하이라이트)과 hash | `GET …/:rid/comments/:target` |
 | `list_tasks` · `read_task` | 맡긴 일 목록과 하나의 모든 칸 | `GET …/:rid/tasks`, `…/tasks/:id` |
 | `search_library` | 개념노트 · 논문 찾기 (이름 · 다른 이름 · 저자 · 연도 · arXiv 번호). 개념노트는 본문으로도 찾고, 맞은 줄마다 `hits`(본문 줄 번호 · 그 줄의 절 제목 · 줄 글)를 붙인다. 노트 전체 대신 그 절만 보면 된다 | `GET /api/search/catalog`, `GET /api/concepts/search` |
@@ -49,7 +50,8 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 
 ## 지키는 것
 
-- 노트 · 개념노트는 `edit_note` · `edit_concept`로 고친다. 그 밖은 앱 서버 API(`GET /api`가 목록과 쓰는 법을 준다)에 읽을 때 받은 hash를 `baseHash`로 보낸다. 그사이 바깥에서 바뀌었으면 409로 거절된다.
-- 앱 서버가 꺼져 있을 때 파일을 직접 고쳐 우회하지 않는다.
+- 노트 · 개념노트는 `edit_note` · `edit_concept`를 먼저 쓴다(사용자가 바뀐 문단마다 검토한다). 그 밖은 앱 서버 API(`GET /api`가 목록과 쓰는 법을 준다)에 읽을 때 받은 hash를 `baseHash`로 보낸다. 그사이 바깥에서 바뀌었으면 409로 거절된다. 새로 만들기·덧붙이기·한 칸만 고치기는 hash가 없고, 일지 고치기는 기록의 지금 글을 `was`로 보낸다. 예외는 `GET /api`와 `docs/repo-format.md` §12에 있다.
+- 앱 서버가 꺼져 있을 때도 저장소 파일을 직접 고칠 수 있다. 서버에 닿지 못하면 사용자에게 알리고, 직접 고칠 때는 `docs/repo-format.md`를 따르며 고친 뒤 `pnpm --dir <앱 폴더> agent:check <저장소>`로 검사한다. 사용자가 확인한 노트·개념노트는 여전히 대화에서 허락을 받아야 하고, 원고는 사용자가 요청할 때만 고친다. 잠긴 개념노트는 고치지 않는다.
+- `list_edit_reviews`나 프로젝트 요약에서 검토 대기를 확인한다. 사용자가 되돌린 문단을 다시 넣지 않는다. 프로젝트 노트·블록 노트의 에이전트 고침을 되돌리면 프로젝트 일지에 상태 기록을 남긴다. 개념노트에는 프로젝트 일지가 없어 이 기록을 남기지 않는다.
 - 각 연구 저장소의 `AGENTS.md` · `CLAUDE.md` 규칙이 이 입구보다 앞선다.
 - 코드: `apps/server/src/mcp.ts`(도구), `scripts/mcp.mjs`(표준 입출력 시작), 테스트 `apps/server/src/mcp.test.ts`.

@@ -24,7 +24,7 @@ import { TOPIC_COLORS, type Topic, type TopicColor, type TopicPreview } from '@r
  *         image: figure:library/phase-diagram.png   # 그림 id (예전 저장소 기준 경로도 읽는다)
  *         color: violet       # 바탕색: 없으면 기본(프로젝트 색). TOPIC_COLORS 중 하나
  *       parts: [docs/model/chapters/02-model-graph.tex]   # 원고의 장 (예전 기록, 그대로 읽고 둔다)
- *       blocks: [vortex-core]   # 예전 기록: 이 주제에 든 보조 노트. 노트의 주제는 이제 노트 머리말 topics:에 적는다
+ *       blocks: [vortex-core]   # 예전 기록: 이 주제에 든 블록 노트. 노트의 주제는 이제 노트 머리말 topics:에 적는다
  *       done: true            # 없으면 진행 중
  *       manuscript: docs/model/main.tex   # 없으면 첫째 메인 노트
  * parts는 장 id (장 파일이면 저장소 기준 경로, \section으로 나눈 원고면 "파일#label").

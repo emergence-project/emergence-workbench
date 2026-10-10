@@ -75,7 +75,7 @@ async function doCompile(wb: Workbench, id: string, engine: Engine, library?: st
   if (!fs.existsSync(blockFile)) throw new Error(t(`없는 블록: ${id}`, `No such block: ${id}`))
   const dir = wb.buildDir(id)
   fs.mkdirSync(dir, { recursive: true })
-  // Markdown 보조 노트는 빌드 폴더에 LaTeX로 바꾼 본문을 두고 그것을 넣는다 (노트 파일은 그대로)
+  // Markdown 블록 노트는 빌드 폴더에 LaTeX로 바꾼 본문을 두고 그것을 넣는다 (노트 파일은 그대로)
   const md = blockFile.endsWith('.md')
   const text = fs.readFileSync(blockFile, 'utf8')
   const ownHeader = !md && !isBodyOnly(text)

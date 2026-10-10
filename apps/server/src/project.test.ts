@@ -302,7 +302,7 @@ describe('라이브러리 노트 (개념·문헌)와 Study', () => {
     expect(L.usedBy['concept:kempe-recoloring']).toEqual([expect.objectContaining({ rid: id, note: 'kempe-chains' })])
     expect(L.usedBy['paper:st20']).toEqual([expect.objectContaining({ rid: id })])
 
-    // 보조 노트 없이 프로젝트 전체를 개념에 잇기 (research.yaml의 concepts:), 주석과 다른 칸은 그대로
+    // 블록 노트 없이 프로젝트 전체를 개념에 잇기 (research.yaml의 concepts:), 주석과 다른 칸은 그대로
     const ry = path.join(proj, 'workbench/research.yaml')
     fs.appendFileSync(ry, '# 남길 주석\n')
     const linked = (on: boolean, cid = 'kempe-recoloring-2') => a.inject({ method: 'POST', url: `${R2}/concepts`, payload: { id: cid, on } })

@@ -17,7 +17,7 @@ export interface ResearchInfo {
   sources: ProjectSources
   /** true면 앱이 workbench/STATUS.md를 저절로 다시 쓴다 (research.yaml의 agent-status:) */
   agentStatus: boolean
-  /** 프로젝트 전체가 기대는 공유 라이브러리 개념노트 id (research.yaml의 concepts:). 보조 노트 없이도 연결된다 */
+  /** 프로젝트 전체가 기대는 공유 라이브러리 개념노트 id (research.yaml의 concepts:). 블록 노트 없이도 연결된다 */
   concepts: string[]
   /** 본문만 있는 노트(\documentclass 없음)를 컴파일할 때 붙일 LaTeX 서식 id (research.yaml의 latex-template:). 없으면 앱의 내보내기 기본 서식 */
   latexTemplate?: string
@@ -108,7 +108,7 @@ export class Workbench {
   get researchPath() { return path.join(this.root, 'research.yaml') }
   buildDir(id: string) { return path.join(this.root, '.build', this.checkId(id)) }
   /**
-   * 보조 노트 파일: blocks/<id>.md (10/4 결정, Markdown + KaTeX), 아직 바꾸지 않은 것은 blocks/<id>.tex.
+   * 블록 노트 파일: blocks/<id>.md (10/4 결정, Markdown + KaTeX), 아직 바꾸지 않은 것은 blocks/<id>.tex.
    * 둘 다 없으면 새로 만들 .md 경로
    */
   blockPath(id: string) {
@@ -240,7 +240,7 @@ export class Workbench {
     return { ok: true, content, hash: hashOf(content) }
   }
 
-  /** 읽은 보조 노트 파일 하나만 지운다. 기록·연결·컴파일 결과는 보존한다. */
+  /** 읽은 블록 노트 파일 하나만 지운다. 기록·연결·컴파일 결과는 보존한다. */
   deleteBlock(id: string, baseHash: string): { ok: true } | { ok: false; currentHash: string } {
     if (typeof baseHash !== 'string' || !baseHash) throw new WorkbenchError(400, t('baseHash가 필요함', 'baseHash is required'))
     const file = this.blockPath(id)
@@ -279,7 +279,7 @@ export class Workbench {
     for (const ref of [input.parent, input.alternativeOf]) {
       if (ref && !existing.includes(ref)) throw new WorkbenchError(400, t(`없는 블록: ${ref}`, `No such block: ${ref}`))
     }
-    // 새 보조 노트는 Markdown (제목은 머리말에만 두고 본문에 다시 쓰지 않는다)
+    // 새 블록 노트는 Markdown (제목은 머리말에만 두고 본문에 다시 쓰지 않는다)
     const content = updateBlockMeta('\n', {
       id,
       title,
