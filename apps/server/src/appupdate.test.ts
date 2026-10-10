@@ -10,7 +10,7 @@ import { fixture, tmp, useSampleApp } from './testkit.js'
 useSampleApp()
 
 describe('연구 저장소의 최신 여부', () => {
-  it('GitHub보다 뒤처졌는지 보여 주고, 이 컴퓨터에 커밋·변경이 없을 때만 빨리 감기로 받아온다', async () => {
+  it('GitHub보다 뒤처졌는지 보여 주고, 이 컴퓨터에만 있는 커밋이나 겹치는 변경은 받지 않는다', async () => {
     const g = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd }).toString().trim()
     const remote = path.join(tmp, 'sync-remote.git')
     const mine = path.join(tmp, 'sync-mine')
@@ -37,14 +37,14 @@ describe('연구 저장소의 최신 여부', () => {
     expect(await sync(false)).toMatchObject({ behind: 0, ahead: 0 })
     expect(fs.readFileSync(path.join(mine, 'NOTES.md'), 'utf8')).toMatch(/추가/)
 
-    // 커밋 안 한 변경이 있으면 받지 않는다
+    // 같은 파일에 커밋 안 한 변경이 있으면 받지 않는다
     fs.appendFileSync(path.join(other, 'NOTES.md'), '둘째\n')
     g(other, 'commit', '-qam', 'remote edit 2'); g(other, 'push', '-q')
     const local = path.join(mine, 'NOTES.md')
     fs.appendFileSync(local, '내 변경\n')
     const refused = await update()
     expect(refused.statusCode).toBe(409)
-    expect(refused.json().error).toMatch(/커밋하지 않은 변경 1개/)
+    expect(refused.json().error).toMatch(/커밋하지 않은 변경.*NOTES\.md/)
     expect(fs.readFileSync(local, 'utf8')).toMatch(/내 변경/)
     expect(await sync(false)).toMatchObject({ behind: 1, dirty: 1, canUpdate: false })
 

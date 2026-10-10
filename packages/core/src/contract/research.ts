@@ -209,6 +209,9 @@ export const RepoSync = z.object({
   ahead: z.number(),
   behind: z.number(),
   dirty: z.number(),
+  /** 겹치는 저장소 기준 경로 (정렬, 20개까지)와 전체 수 */
+  conflicts: z.array(z.string()).max(20),
+  conflictCount: z.number().int().nonnegative(),
   fetchedAt: z.number().nullable(),
   fetchError: z.string().optional(),
   /** 앱에서 안전하게 받아올 수 있는지 */
