@@ -5,7 +5,8 @@ import { listMaterials } from './materials.js'
 import { conceptsOf, type LibraryNote } from './libraryNotes.js'
 import type { Registry } from './registry.js'
 
-export interface LibraryUse { rid: string; project: string; note?: string; noteTitle?: string }
+import type { LibraryUse } from '@rw/core/contract/library'
+export type { LibraryUse }
 
 /**
  * 개념: 보조 노트 머리말의 concepts:, 그리고 프로젝트 전체가 기대는 research.yaml의 concepts: (노트 없이).

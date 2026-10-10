@@ -2,6 +2,8 @@
 import { matchesSubject } from '../subjects.js'
 import { figureBrief } from '../figures.js'
 import type { FastifyInstance } from 'fastify'
+import * as C from '@rw/core/contract/figures'
+import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import { addFigure, figureFile, listFigureSources, resolveFigure, setFigureMeta, tikzSvg } from '../figures.js'
 import { openWithSystem, revealInFinder } from '../materials.js'
@@ -14,12 +16,12 @@ const TYPES = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', pdf: 
 export function registerFigures(app: FastifyInstance, ctx: RouteContext): void {
   const { registry } = ctx
   /** 공용(research-library/figures)과 프로젝트 전용(workbench/figures) 그림, 그림마다 쓰는 노트 */
-  app.get<{ Querystring: { subjectPrefix?: string } }>('/api/figures', async (req) => {
+  app.get<{ Querystring: { subjectPrefix?: string } }>('/api/figures', replies(C.FigureList), async (req): Promise<C.FigureList> => {
     const list = ctx.libraryReads.figures()
     return req.query.subjectPrefix === undefined ? list : { ...list, figures: list.figures.filter((x) => matchesSubject(x.subjects, req.query.subjectPrefix!)) }
   })
   /** 그림 첫 화면: 최근 더한 그림(?recent=개수) · 점검(그림으로 못 바꾼 tikz) · 통계(원본 종류 · 쓰는 노트 없음) · 저장 위치 수 */
-  app.get<{ Querystring: { recent?: string; subjectPrefix?: string } }>('/api/figures/brief', async (req) => {
+  app.get<{ Querystring: { recent?: string; subjectPrefix?: string } }>('/api/figures/brief', replies(C.FigureBrief), async (req): Promise<C.FigureBrief> => {
     const recent = Math.min(Number(req.query.recent) || 8, 50)
     if (req.query.subjectPrefix === undefined) return ctx.libraryReads.figuresBrief(recent)
     const list = ctx.libraryReads.figures()
@@ -46,17 +48,19 @@ export function registerFigures(app: FastifyInstance, ctx: RouteContext): void {
     return reply.redirect(`/api/figures/file?id=${encodeURIComponent(fig.id)}`)
   })
   /** 끌어다 놓은 그림 (application/octet-stream, ?name=파일 이름, ?scope=library 또는 프로젝트 id) */
-  app.put<{ Querystring: { name?: string; scope?: string }; Body: Buffer }>('/api/figures/upload', { bodyLimit: 50 * 1024 * 1024 }, async (req) =>
+  app.put<{ Querystring: { name?: string; scope?: string }; Body: Buffer }>('/api/figures/upload', { bodyLimit: 50 * 1024 * 1024, ...replies(C.FigureAdded) }, async (req): Promise<C.FigureAdded> =>
     addFigure(registry, req.query.scope, req.query.name, req.body))
   /** 이름과 설명: { id, name?, description? } (figures.yaml) */
-  app.patch<{ Body: { id?: unknown; name?: unknown; description?: unknown } }>('/api/figures/meta', async (req) => {
-    setFigureMeta(registry, req.body?.id, req.body ?? {})
+  app.patch('/api/figures/meta', replies(C.FigureOk), async (req): Promise<C.FigureOk> => {
+    const b = parseBody(C.FigureMetaBody, req.body)
+    setFigureMeta(registry, b.id, b)
     return { ok: true }
   })
   /** 원본 고치기: 맥의 기본 앱으로 연다 · Finder에서 보기 */
-  app.post<{ Body: { id?: unknown; reveal?: unknown } }>('/api/figures/open', async (req) => {
-    const { abs } = figureFile(registry, req.body?.id)
-    await (req.body?.reveal ? revealInFinder(abs) : openWithSystem(abs))
+  app.post('/api/figures/open', replies(C.FigureOk), async (req): Promise<C.FigureOk> => {
+    const b = parseBody(C.FigureOpenBody, req.body)
+    const { abs } = figureFile(registry, b.id)
+    await (b.reveal ? revealInFinder(abs) : openWithSystem(abs))
     return { ok: true }
   })
 }

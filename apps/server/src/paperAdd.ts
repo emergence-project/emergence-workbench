@@ -1,3 +1,4 @@
+import type { PaperAdded as AddResult } from '@rw/core/contract/papers'
 import fs from 'node:fs'
 import path from 'node:path'
 import { writeAtomic } from './fsutil.js'
@@ -147,7 +148,7 @@ export function bibEntryText(key: string, p: FoundPaper): string {
 const sameId = (id: PaperId) => (e: { eprint?: string; doi?: string }) =>
   'arxiv' in id ? e.eprint?.replace(/v\d+$/, '') === id.arxiv : e.doi?.toLowerCase() === id.doi.toLowerCase()
 
-export interface AddResult { key: string; existed: boolean; pdf?: string; pdfError?: string }
+export type { AddResult }
 
 function libOf(registry: Registry): string {
   const lib = registry.libraryPath

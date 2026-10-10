@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { pendingPaths, publishPaths } from './pathsync.js'
+import { buildApp } from './app.js'
 
 let tmp: string
 beforeAll(() => { tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-pathsync-')) })
@@ -82,5 +83,17 @@ describe('정한 경로만 GitHub에 올리기', () => {
     expect(g(remote, 'rev-parse', 'main')).toBe(g(mac, 'rev-parse', 'HEAD'))
     await expect(publishPaths(mac, ['../x'], opts)).rejects.toThrow(/상대 경로/)
     await expect(publishPaths(mac, ['.'], opts)).rejects.toThrow(/상대 경로/)
+  })
+
+  it('연구 저장소의 코멘트 기록을 앱 API로 확인하고 올린다 (records/unpublished · publish)', async () => {
+    const { remote, mac } = setup('route')
+    const app = buildApp({ configDir: path.join(tmp, 'route-config') })
+    try {
+      const id = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: mac, createWorkbench: true } })).json().id
+      write(mac, 'workbench/comments/b.md', '# b\n')
+      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/unpublished` })).json()).toEqual({ files: ['workbench/comments/b.md'] })
+      expect((await app.inject({ method: 'POST', url: `/api/researches/${id}/records/publish` })).json()).toMatchObject({ pushed: true, files: ['workbench/comments/b.md'] })
+      expect(g(remote, 'show', 'main:workbench/comments/b.md')).toBe('# b')
+    } finally { await app.close() }
   })
 })

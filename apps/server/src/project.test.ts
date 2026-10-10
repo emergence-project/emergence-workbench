@@ -260,6 +260,9 @@ describe('라이브러리 노트 (개념·문헌)와 Study', () => {
     const st = (await a.inject({ method: 'GET', url: '/api/study' })).json()
     expect(st.notes).toEqual([{ path: 'Concept-Space/Mathematics/Graphs/Kempe Recoloring.md', title: 'Kempe Recoloring', subject: 'Mathematics › Graphs', size: expect.any(Number) }])
     expect((await a.inject({ method: 'GET', url: `/api/study/note?path=${encodeURIComponent('README.md')}` })).statusCode).toBe(400)
+    expect((await a.inject({ method: 'GET', url: `/api/study/note?path=${encodeURIComponent(st.notes[0].path)}` })).json()).toMatchObject({ title: 'Kempe Recoloring' })
+    // 라이브러리 폴더가 git 저장소가 아니어도 Git 상태 칸은 온다
+    expect((await a.inject({ method: 'GET', url: '/api/library/repo' })).json().repo).toMatchObject({ state: expect.any(String) })
 
     // Study에서 가져온 개념노트: 구조 틀 + 원문은 주석으로
     const c = (await a.inject({ method: 'POST', url: '/api/library/concepts', payload: { study: 'Concept-Space/Mathematics/Graphs/Kempe Recoloring.md', format: 'tex' } })).json()

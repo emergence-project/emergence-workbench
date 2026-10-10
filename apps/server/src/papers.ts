@@ -1,3 +1,4 @@
+import type { CloudKind, PaperBrief, PaperList, PaperRow, PdfWhere } from '@rw/core/contract/papers'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -40,45 +41,9 @@ const cachedComment = fileCache((text): { kind?: string; state?: string } => {
   try { const y = f ? YAML.parse(f.yaml) as Record<string, unknown> : {}; return { kind: String(y?.kind ?? ''), state: String(y?.state ?? '') } } catch { return {} }
 })
 
-export type PaperKind = 'paper' | 'book'
-export type PdfWhere = 'local' | 'cloud' | 'none'
-
-export interface PaperRow {
-  key: string
-  subjects?: string[]
-  subjectsHash?: string
-  /** bib 항목 종류 (article, book, misc …) */
-  type: string
-  /** 책인지 논문인지: bib 항목 종류에서 */
-  kind: PaperKind
-  title: string
-  /** 성만, 나온 순서대로 */
-  authors: string[]
-  year?: string
-  /** 저널, 책 이름(booktitle), 또는 출판사 */
-  venue?: string
-  eprint?: string
-  doi?: string
-  /** 관련 프로젝트 id: papers.yaml에 적은 것과 프로젝트 bib에서 저절로 이어진 것 */
-  projects: string[]
-  /** 그중 프로젝트 bib에서 저절로 이어진 것 (화면에서 뺄 수 없음) */
-  autoProjects: string[]
-  pdf: { where: PdfWhere; file?: string }
-  /** research-library/comments/<키>/의 코멘트·질문 수 */
-  comments: number
-  /** 그중 답을 기다리는 질문 수 */
-  waiting: number
-  /** 답이 왔고 아직 끝내지 않은 질문 수 (사용자 차례) */
-  answered: number
-  /** 더한 순서: references.bib에서 몇 번째 항목인지 (앱은 새 논문을 끝에 덧붙인다, 0부터) */
-  added: number
-  /** 이 맥에서 마지막으로 연 때 (ms) */
-  opened?: number
-  /** 문헌노트가 있으면 그 id */
-  note?: string
-}
-
-export interface PaperProject { id: string; title: string }
+// 응답 모양은 API 계약(@rw/core/contract/papers)에 있다
+export type { PaperRow, PaperProject, PaperList, PaperBrief, PdfWhere, CloudKind } from '@rw/core/contract/papers'
+export type PaperKind = PaperRow['kind']
 
 const BOOK_TYPES = new Set(['book', 'inbook', 'incollection', 'booklet'])
 
@@ -216,7 +181,7 @@ function projectBibKeys(registry: Registry): { id: string; title: string; keys: 
   })
 }
 
-export function listPapers(registry: Registry): { library: string | null; folders: string[]; projects: PaperProject[]; papers: PaperRow[] } {
+export function listPapers(registry: Registry): PaperList {
   const lib = registry.libraryPath
   const folders = registry.pdfFolders
   const projects = projectBibKeys(registry)
@@ -255,7 +220,6 @@ export function listPapers(registry: Registry): { library: string | null; folder
 
 // ---------- 논문 첫 화면 (라이브러리 L2, requirements §8.1 "라이브러리 첫 화면") ----------
 
-export type CloudKind = 'icloud' | 'drive' | 'local'
 /** PDF 폴더가 어느 클라우드인지 (맥의 폴더 이름으로) */
 export function cloudOf(dir: string): CloudKind {
   if (/Mobile Documents|com~apple~CloudDocs|iCloud/i.test(dir)) return 'icloud'
@@ -263,20 +227,6 @@ export function cloudOf(dir: string): CloudKind {
   return 'local'
 }
 
-export interface PaperBrief {
-  /** 라이브러리가 설정되어 있는지 */
-  library: boolean
-  total: number
-  /** 최근 더한 논문 (references.bib 끝에서부터) */
-  recent: PaperRow[]
-  projects: PaperProject[]
-  /** 점검 (사용자 차례): PDF 폴더가 하나도 없음, 답이 온 질문 수 */
-  check: { noFolder: boolean; answered: number }
-  /** 통계 */
-  stats: { noPdf: number; arxiv: number; unlinked: number; papers: number; books: number; unclassified?: number }
-  /** PDF 폴더 (설정 › 논문 PDF 폴더) */
-  folders: { path: string; cloud: CloudKind }[]
-}
 
 /** 화면의 거르기와 같은 조건으로 센다 (PapersPage.tsx FILTERS) */
 export function paperBrief(list: ReturnType<typeof listPapers>, recent = 8): PaperBrief {
