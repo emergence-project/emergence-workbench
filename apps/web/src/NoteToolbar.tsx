@@ -29,6 +29,8 @@ function useSaveLabel(save: ToolbarSave, at?: number | null) {
 
 /** 노트 도구 줄에 넘기는 것. 노트 화면 틀(NoteScreen)도 이 모양으로 받는다 */
 export interface NoteToolbarProps {
+  /** 피드백 부위 이름 (개념노트는 예전 이름 "머리줄"을 그대로 쓴다) */
+  ui?: string
   /** 고치는 중 본문에서 올라온 제목 입력칸 */
   title?: ReactNode
   /** 왼쪽 첫 자리의 노트 상태 (색 점과 이름, 있는 경우 상태 메뉴도 함께) */
@@ -49,7 +51,8 @@ export interface NoteToolbarProps {
   editDisabled?: boolean
   onDone?(): void
   doneDisabled?: boolean
-  onComment(): void
+  /** 말풍선. 없으면 보이지 않는다 */
+  onComment?(): void
   commentOn?: boolean
   onCompile?(): void
   /** ⌘↵로도 컴파일한다(LaTeX 편집기만). 툴팁에 단축키를 적는다 */
@@ -65,7 +68,7 @@ export interface NoteToolbarProps {
   extra?: ReactNode
 }
 
-export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, pdfNote, editing, view, onView, onEdit, editDisabled, onDone, doneDisabled, onComment, commentOn, onCompile, compiling, compileDisabled, compileTip, compileKey, compileUi = '컴파일 버튼', menu, anchors, extra }: NoteToolbarProps) {
+export function NoteToolbar({ ui = '노트 도구 줄', title, status, save, savedAt, saveAction, saveUi, pdfNote, editing, view, onView, onEdit, editDisabled, onDone, doneDisabled, onComment, commentOn, onCompile, compiling, compileDisabled, compileTip, compileKey, compileUi = '컴파일 버튼', menu, anchors, extra }: NoteToolbarProps) {
   const [open, setOpen] = useState(false)
   const saveLabel = useSaveLabel(save, savedAt)
   const hasView = editing && view && onView
@@ -80,7 +83,7 @@ export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, 
   }, [open])
   const items = menu.filter((x): x is ToolbarItem => !!x)
   return (
-    <div className="note-toolbar" data-ui="노트 도구 줄">
+    <div className="note-toolbar" data-ui={ui}>
       <div className={`nt-row${hasView ? ' nt-with-view' : ''}`}>
         <div className="nt-left">{editing && title}{status}</div>
         {hasView && <div className="segmented small nt-view" role="radiogroup" aria-label={t('보기', 'View')} data-ui="편집 보기">
@@ -99,9 +102,9 @@ export function NoteToolbar({ title, status, save, savedAt, saveAction, saveUi, 
               <button className="btn primary" data-ui="다 고침" disabled={doneDisabled} title={t(`${saveLabel} — 고치기를 마칩니다 (Esc). 고친 것은 저절로 저장됩니다`, `${saveLabel}. Finish editing (Esc). Edits save automatically`)} onClick={onDone}>{t('편집 완료', 'Done')}</button>
             </> : <>
               {extra}
-              <button className={`icon-btn${commentOn ? ' on' : ''}`} data-ui="코멘트 버튼" data-tip={t('코멘트', 'Comment')} aria-label={t('코멘트 — 오른쪽 사이드바에서', 'Comment in the right sidebar')} aria-pressed={!!commentOn}
+              {onComment && <button className={`icon-btn${commentOn ? ' on' : ''}`} data-ui="코멘트 버튼" data-tip={t('코멘트', 'Comment')} aria-label={t('코멘트 — 오른쪽 사이드바에서', 'Comment in the right sidebar')} aria-pressed={!!commentOn}
                 // The selection menu closes on document pointerdown. Preserve the selection until this button's click attaches it.
-                onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.preventDefault()} onClick={onComment}>{Icon.comment}</button>
+                onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.preventDefault()} onClick={onComment}>{Icon.comment}</button>}
               {onEdit && <button className="icon-btn" data-ui="고치기" data-tip={`${t('고치기', 'Edit')} · ${saveLabel}`} aria-label={t('고치기', 'Edit')} disabled={editDisabled} onClick={onEdit}>{Icon.pencil}</button>}
               {onCompile && <button className="btn primary btn-icon nt-play" data-ui={compileUi} disabled={compileDisabled || compiling} aria-label={compileTip ?? t('컴파일', 'Compile')} title={t(`${compileTip ?? '컴파일'} — 컴파일하고 PDF를 엽니다${compileKey ? ' (⌘↵)' : ''}`, `${compileTip ?? 'Compile'}: compile and open the PDF${compileKey ? ' (⌘↵)' : ''}`)} onClick={onCompile}>{compiling ? '…' : Icon.play}</button>}
               <span className="nt-more" ref={box}>
