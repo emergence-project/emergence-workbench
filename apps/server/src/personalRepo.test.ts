@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { backupRemoteFor } from './backup.js'
 import { publishFeedback } from './feedback.js'
 import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
+import { Registry } from './registry.js'
 
 let tmp: string
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args]).toString().trim()
@@ -34,6 +35,14 @@ function remoteWith(name: string, files: Record<string, string>): string {
 }
 
 describe('개인 저장소', () => {
+  it('설정 화면에서 저장해도 config.yaml의 personalRepo가 남는다', async () => {
+    delete process.env.RW_PERSONAL_REMOTE; delete process.env.RW_BACKUP_REMOTE
+    const dir = fs.mkdtempSync(path.join(tmp, 'cfg-'))
+    fs.writeFileSync(path.join(dir, 'config.yaml'), 'personalRepo: git@example.com:me/personal.git\nresearches: []\n')
+    new Registry(dir).setUi({ theme: 'dark' })
+    expect(await personalRemote(dir, tmp)).toBe('git@example.com:me/personal.git')
+  })
+
   it('공개 저장소(emergence-workbench)에서는 남의 개인 저장소를 짐작하지 않는다', () => {
     expect(backupRemoteFor('https://github.com/emergence-project/emergence-workbench.git')).toBeNull()
   })
