@@ -24,7 +24,7 @@ export function registerLibrary(app: FastifyInstance, ctx: RouteContext): void {
   app.get('/api/library', replies(C.LibraryInfo), async (): Promise<C.LibraryInfo> => ctx.libraryReads.library())
   /** 라이브러리 폴더의 Git 상태 (지식 첫 화면의 "라이브러리 정보"): 마지막 커밋 · 올리지 않은 커밋 · 고친 파일. 받아오기·올리기는 하지 않는다 */
   app.get('/api/library/repo', replies(C.LibraryRepo), async (): Promise<C.LibraryRepo> => ({ repo: registry.libraryPath && fs.existsSync(registry.libraryPath) ? await repoInfo(registry.libraryPath) : null }))
-  /** 프로젝트 전체를 개념노트에 잇거나 끊는다 (research.yaml의 concepts:). 보조 노트 없이 메인 노트만 있는 프로젝트용 */
+  /** 프로젝트 전체를 개념노트에 잇거나 끊는다 (research.yaml의 concepts:). 블록 노트 없이 메인 노트만 있는 프로젝트용 */
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/concepts', replies(C.ProjectConcepts), async (req): Promise<C.ProjectConcepts> => {
     const b = parseBody(C.LinkConceptBody, req.body)
     return setProjectConcept(wbOf(req.params.rid), b.id, b.on)

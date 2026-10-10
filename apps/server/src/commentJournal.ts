@@ -8,7 +8,7 @@ import { localDate, localTime } from './fsutil.js'
 import { Workbench, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 
-/** 일지의 대상은 기록 파일 이름 대신 실제 노트 경로 또는 보조 노트 id다. */
+/** 일지의 대상은 기록 파일 이름 대신 실제 노트 경로 또는 블록 노트 id다. */
 export function todoJournalTarget(target: string, source?: string): string {
   if (target === 'project') return RESEARCH_TARGET
   if (/^(note|calc)-/.test(target)) {

@@ -12,17 +12,17 @@ import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
 
 /**
- * 노트 한 목록 (10/5 "주제와 노트"): 연구노트(workbench/notes/) · 계산 노트(workbench/calc/) · 보조 노트(workbench/blocks/)를
+ * 노트 한 목록 (10/5 "주제와 노트"): 연구노트(workbench/notes/) · 계산 노트(workbench/calc/) · 블록 노트(workbench/blocks/)를
  * 같은 모양의 줄로 모은다. 지운 노트(.trash/)는 들지 않는다. 파일은 옮기지 않고 머리말만 읽고 쓴다.
  *
- * 노트 머리말 (연구노트·계산 노트는 note.yaml, 보조 노트는 파일 맨 위 머리말, 키 이름은 같다):
+ * 노트 머리말 (연구노트·계산 노트는 note.yaml, 블록 노트는 파일 맨 위 머리말, 키 이름은 같다):
  *   topics: [coloring, kempe]   # 주제 id, 첫째 = 주 주제. 없으면 "노트들"(주제 없음)
  *   kind: proof                 # 노트 성격 하나 (NOTE_CATEGORIES). 없으면 calc/ 노트는 calc, 나머지는 미분류.
  *                               # none = 미분류로 정함 (calc/ 노트를 미분류로 고르면 적는다: 폴더 값은 처음 값일 뿐, 10/5 결정)
  *   description: |-             # 설명: 여러 줄("- " 목록), 200자까지. 연구노트는 예전 summary:도 설명으로 읽는다
  *     …
  *   star: true                  # 즐겨찾기
- * 예전 기록: research.yaml topics[].blocks에 든 보조 노트는 그 주제에도 든 것으로 읽는다 (머리말 주제가 앞).
+ * 예전 기록: research.yaml topics[].blocks에 든 블록 노트는 그 주제에도 든 것으로 읽는다 (머리말 주제가 앞).
  * 앱에서 노트의 주제를 고치면 머리말에 쓰고 그 노트를 topics[].blocks에서 뺀다.
  */
 export { NOTE_CATEGORIES } from '@rw/core/contract/notes'
@@ -143,10 +143,12 @@ export function topicsOverview(wb: Workbench): { topics: (Topic & TopicStats)[];
   }
 }
 
+export { noteRecordTarget } from '@rw/core'
+
 export interface NoteHeadPatch { title?: unknown; topics?: unknown; kind?: unknown; description?: unknown; star?: unknown }
 
 /**
- * 노트 머리말 고치기 (이름·주제·성격·설명·★). 이름은 연구노트·계산 노트면 note.yaml의 name, 보조 노트면 머리말 title (10/5 "노트 이름 고치기"). file = NoteRow.file. baseHash를 주면 그 뒤로 머리말 파일이 바뀌었을 때 409.
+ * 노트 머리말 고치기 (이름·주제·성격·설명·★). 이름은 연구노트·계산 노트면 note.yaml의 name, 블록 노트면 머리말 title (10/5 "노트 이름 고치기"). file = NoteRow.file. baseHash를 주면 그 뒤로 머리말 파일이 바뀌었을 때 409.
  * 주제를 고치면 그 노트를 research.yaml topics[].blocks에서 뺀다 (예전 기록을 머리말로 옮김)
  */
 export function writeNoteHead(wb: Workbench, file: unknown, patch: NoteHeadPatch, baseHash?: unknown): NoteRow {

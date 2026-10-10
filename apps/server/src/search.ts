@@ -1,4 +1,4 @@
-// 전역 검색의 목록: 모든 프로젝트의 카드·노트·장·보조 노트·진술 이름, 라이브러리 문헌노트, 네트워킹의 사람 (10/4 19:33 피드백)
+// 전역 검색의 목록: 모든 프로젝트의 카드·노트·장·블록 노트·진술 이름, 라이브러리 문헌노트, 네트워킹의 사람 (10/4 19:33 피드백)
 import { personId } from '@rw/core'
 import type { SearchItem } from '@rw/core/contract/search'
 import { listLibraryNotes, type LibraryNote } from './libraryNotes.js'

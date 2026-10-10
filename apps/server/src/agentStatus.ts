@@ -1,14 +1,16 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { buildTree, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter, commentTargetSlug } from '@rw/core'
+import { buildTree, isValidBlockId, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter } from '@rw/core'
 import YAML from 'yaml'
-import { localDate, writeAtomic } from './fsutil.js'
+import type { EditList } from '@rw/core/contract/agentEdits'
+import { AgentEditStore, listEdits } from './agentEdits.js'
+import { isLatexSafePath, localDate, writeAtomic } from './fsutil.js'
 import { appPath, homeShort } from './agentPaths.js'
 import { localSyncState } from './gitSyncState.js'
 import { allManuscripts, groundsOf, lastCompile } from './manuscript.js'
 import { listMaterials } from './materials.js'
 import { listStatements } from './statements.js'
-import { listNotes, topicsOverview, type TopicStats } from './noteList.js'
+import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './noteList.js'
 import { pendingQuestions } from './comments.js'
 import { RULES_DOC, statusSection } from './tasks.js'
 import type { ProjectSources, Workbench } from './workbench.js'
@@ -67,7 +69,28 @@ const LABEL: Record<string, string> = { 'in-progress': '진행', blocked: '멈�
 const plain = (s: string) => s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/`/g, '')
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
-export function generateStatus(wb: Workbench, now = new Date()): string {
+/** 앱 설정의 고침 기록을 읽기만 한다. CLI는 등록 경로로 프로젝트 id를 찾는다. */
+export function readStatusEdits(wb: Workbench, configDir: string, rid?: string, lib?: string): EditList {
+  const empty = { reviews: [], attempts: [] }
+  try {
+    if (!rid) {
+      const config = YAML.parse(fs.readFileSync(path.join(configDir, 'config.yaml'), 'utf8'))
+      rid = config?.researches?.find((r: { path: string }) => {
+        try { return fs.realpathSync(r.path) === fs.realpathSync(wb.repo) } catch { return false }
+      })?.id
+      if (typeof config?.library === 'string' && fs.existsSync(config.library)) {
+        const real = fs.realpathSync(config.library)
+        if (isLatexSafePath(real)) lib = real
+      }
+    }
+    if (!rid) return empty
+    // 앱의 GET /api/agent-edits와 같은 현재 라이브러리 기록을 읽는다.
+    const store = new AgentEditStore(AgentEditStore.fileFor(configDir, lib))
+    return listEdits({ lib, wbOf: () => wb }, store, rid, true)
+  } catch { return empty }
+}
+
+export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList): string {
   const info = wb.readResearch()
   const repo = wb.repo
   const src = info.sources
@@ -121,11 +144,32 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     p('')
   }
   p(`### 앱 할 일 — \`workbench/log/\`${open.length ? '' : ' (없음)'}`, '')
-  for (const { e, due } of open) p(`- [ ] ${e.text.split('\n')[0]}${e.target !== RESEARCH_TARGET ? ` (블록 노트: ${byId.get(e.target)?.meta.title ?? e.target})` : ''}${due ? ` — 마감 ${due}` : ''}`)
+  const todoLabel = (target: string) => {
+    if (target === RESEARCH_TARGET) return ''
+    if (isValidBlockId(target)) return ` (블록 노트: ${byId.get(target)?.meta.title ?? target})`
+    const note = notes.find((n) => n.file === target)
+    if (note || /^workbench\/(notes|calc)\/[^/]+\/(note\.md|main\.tex)$/.test(target)) return ` (노트: ${note?.title || target})`
+    return ` (${target})`
+  }
+  for (const { e, due } of open) p(`- [ ] ${e.text.split('\n')[0]}${todoLabel(e.target)}${due ? ` — 마감 ${due}` : ''}`)
   if (open.length) p('')
 
   // ---------- 맡긴 일 (작업 탭) ----------
   p(...statusSection(wb))
+
+  // ---------- 에이전트 고침 검토 대기 ----------
+  const editReviews = edits?.reviews.filter((r) => r.target.kind === 'note') ?? []
+  const editAttempts = edits?.attempts.filter((a) => a.target.kind === 'note') ?? []
+  if (editReviews.length || editAttempts.length) {
+    p(`## 에이전트 고침 검토 대기 ${editReviews.length + editAttempts.length}`, '',
+      '> 사용자 차례: 앱의 검토 화면(#/review)에서 바뀐 문단마다 승인 · 되돌리기 · 직접 고치기. 검토 전에 같은 노트를 또 고칠 때는 사용자가 되돌린 문단을 다시 넣지 않는다.', '')
+    for (const r of editReviews) if (r.target.kind === 'note') {
+      const first = new Date(r.since)
+      p(`- **${r.title}** — \`${r.target.file}\` · 바뀐 곳 ${r.changes} · 에이전트 ${r.agents.join(', ') || '—'} · 첫 고침 ${localDate(first)} ${first.toTimeString().slice(0, 5)}`)
+    }
+    for (const a of editAttempts) if (a.target.kind === 'note') p(`- 허락 대기: **${a.title}** — \`${a.target.file}\` · 에이전트 ${a.agent || '—'}`)
+    p('')
+  }
 
   // ---------- 대기 중인 질문 (에이전트 함) ----------
   const asked = pendingQuestions(wb.root)
@@ -151,7 +195,7 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     p('')
   }
 
-  // ---------- 원고 (메인 노트가 여럿이면 하나씩) ----------
+  // ---------- research.yaml에 명시한 .tex 원고만 ----------
   const mss = allManuscripts(wb)
   const ms = mss[0] ?? null
   const partLabel = (id: string) => {
@@ -162,7 +206,8 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     const n = m.parts.slice(0, i + 1).filter((x) => x.appendix === part.appendix).length
     return `${mss.length > 1 ? `${m.name} ` : ''}${part.appendix ? `부록 ${String.fromCharCode(64 + n)}` : `${n}장`} ${part.title}`
   }
-  for (const m of mss) {
+  const declared = new Set(src.manuscripts.filter((m) => m.declared && m.path.endsWith('.tex')).map((m) => m.path))
+  for (const m of mss.filter((m) => declared.has(m.main))) {
     p(`## 원고 — ${m.name} (\`${m.main}\`)`, '')
     if (m.parts.every((part) => part.file === m.main)) {
       const chapters = m.parts.filter((part) => !part.appendix).length
@@ -196,8 +241,12 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
     p(`## 노트 ${notes.length}`, '', '> 상태: ● 진행 · ⏸︎ 멈춤 · ✓ 해결(사용자가 확인함 — 고치기 전에 허락) · ■ 폐기. 상태는 `note.yaml`의 `state:`(paused · stopped · done, 진행이면 키를 두지 않는다)에 적는다.', '')
     const order = ['in-progress', 'blocked', 'solved', 'stopped']
     for (const n of [...notes].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status))) {
-      const target = n.file.endsWith('/note.md') ? `${n.type === 'calc' ? 'calc' : 'note'}-${commentTargetSlug(n.id)}` : undefined
-      p(`- ${GLYPH[n.status]} **${n.title}** — ${LABEL[n.status]} · \`${n.file}\`${target ? ` · 기록 \`${target}\`` : ''}${n.topics.length ? ` · 주제 ${n.topics.join(', ')}` : ''}${n.kind ? ` · ${n.kind}` : ''}`)
+      const target = noteRecordTarget(n)
+      const manuscript = mss.find((m) => m.main === n.file)
+      const last = manuscript ? lastCompile(wb, manuscript.key) : null
+      const problems = last && !last.ok ? last.problems : []
+      p(`- ${GLYPH[n.status]} **${n.title}** — ${LABEL[n.status]} · \`${n.file}\`${target ? ` · 기록 \`${target}\`` : ''}${n.topics.length ? ` · 주제 ${n.topics.join(', ')}` : ''}${n.kind ? ` · ${n.kind}` : ''}${problems.length ? ` · 컴파일 오류 ${problems.length}` : ''}`)
+      for (const pr of problems.slice(0, 3)) p(`  - \`${pr.file}:${pr.line}\` ${clip(pr.message, 120)}`)
       if (n.description) p(`  - ${clip(n.description.split('\n')[0]!.replace(/^-\s+/, ''), 160)}`)
       if (n.status === 'blocked' || n.status === 'stopped') p(`  - 다시 시작할 조건: ${n.resume ?? '—'} · 정본: \`${path.posix.join(path.posix.dirname(n.file), 'note.yaml')}\``)
     }
@@ -259,9 +308,9 @@ export function generateStatus(wb: Workbench, now = new Date()): string {
 }
 
 /** workbench/STATUS.md를 다시 쓴다. 내용이 같으면 쓰지 않는다 (파일 감시·git에 불필요한 변경을 만들지 않게) */
-export function writeStatus(wb: Workbench, now = new Date()): { written: boolean; file: string } {
+export function writeStatus(wb: Workbench, now = new Date(), edits?: EditList): { written: boolean; file: string } {
   const file = path.join(wb.root, STATUS_FILE)
-  const body = generateStatus(wb, now)
+  const body = generateStatus(wb, now, edits)
   // 첫 안내 줄의 시각만 다르면 같은 내용이다
   const strip = (s: string) => s.split('\n').filter((l) => !l.startsWith(STATUS_HEAD)).join('\n')
   if (fs.existsSync(file) && strip(fs.readFileSync(file, 'utf8')) === strip(body)) return { written: false, file }

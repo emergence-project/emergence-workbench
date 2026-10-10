@@ -1,4 +1,4 @@
-// 노트 한 목록 (연구노트·계산 노트·보조 노트)과 노트 머리말·링크 (10/5 "주제와 노트")
+// 노트 한 목록 (연구노트·계산 노트·블록 노트)과 노트 머리말·링크 (10/5 "주제와 노트")
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/notes'

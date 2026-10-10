@@ -46,7 +46,7 @@ if (process.env.RW_SANDBOX === '1') {
   const research = path.join(sandboxRoot, 'sample-research')
   if (!fs.existsSync(path.join(research, 'workbench'))) {
     cpSample(path.join(repoRoot, 'fixtures/sample-research'), research, { recursive: true, filter: (src) => !src.includes('.build') })
-    // 화면 확인용 덧붙임: 메인 노트(장·부록), 상태가 다른 보조 노트, 진술. 서버 테스트는 위의 작은 예제만 쓴다
+    // 화면 확인용 덧붙임: 메인 노트(장·부록), 상태가 다른 블록 노트, 진술. 서버 테스트는 위의 작은 예제만 쓴다
     cpSample(path.join(repoRoot, 'fixtures/sandbox-extra'), research, { recursive: true })
   }
   const registry = new Registry(configDir)

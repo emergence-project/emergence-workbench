@@ -1,4 +1,4 @@
-// 보조 노트(블록) 편집과 컴파일·위치 이동
+// 블록 노트(블록) 편집과 컴파일·위치 이동
 import type { FastifyInstance } from 'fastify'
 import fs from 'node:fs'
 import * as C from '@rw/core/contract/research'
@@ -114,8 +114,8 @@ export function registerBlocks(app: FastifyInstance, ctx: RouteContext): void {
   })
 
   /**
-   * 결과 PDF가 지금 노트의 것인지 (C3 "PDF 이전 결과 표시"를 보조 노트에도, 10/5): PDF가 노트 파일보다 먼저 만들어졌으면 stale.
-   * 원고처럼 입력 파일 전체를 재지 않고 노트 파일 하나만 본다 (보조 노트는 그 파일이 본문의 전부다)
+   * 결과 PDF가 지금 노트의 것인지 (C3 "PDF 이전 결과 표시"를 블록 노트에도, 10/5): PDF가 노트 파일보다 먼저 만들어졌으면 stale.
+   * 원고처럼 입력 파일 전체를 재지 않고 노트 파일 하나만 본다 (블록 노트는 그 파일이 본문의 전부다)
    */
   app.get<{ Params: Params }>('/api/researches/:rid/blocks/:bid/pdf/state', replies(C.BlockPdfState), async (req): Promise<C.BlockPdfState> => {
     const wb = wbOf(req.params.rid)

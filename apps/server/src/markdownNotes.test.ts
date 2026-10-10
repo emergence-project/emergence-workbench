@@ -1,4 +1,4 @@
-// 연구노트·보조 노트를 Markdown + KaTeX로 (10/4 결정): 새 노트는 .md, 예전 LaTeX 노트는 그대로
+// 연구노트·블록 노트를 Markdown + KaTeX로 (10/4 결정): 새 노트는 .md, 예전 LaTeX 노트는 그대로
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
