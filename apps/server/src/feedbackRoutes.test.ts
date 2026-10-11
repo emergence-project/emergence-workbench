@@ -78,6 +78,13 @@ describe('앱 피드백', () => {
     expect(fs.readFileSync(path.join(dir, '2026-09-30.md'), 'utf8')).toContain('## 11:00 · 버그 · 사이드바\n- 화면: #/\n\n고침\n')
     expect((await patch({ date: '2026-09-30', time: '12:00', target: '없음', text: 'x' })).statusCode).toBe(404)
     expect((await patch({ date: '../x', time: '09:00', target: '홈', text: 'x' })).statusCode).toBe(404)
+    // 유형 고치기(10/11): 머리줄의 유형만 바뀌고 글 · 화면 정보 · 처리 기록 키는 그대로, 유형을 안 보내면 유형은 그대로
+    expect((await patch({ date: '2026-09-30', time: '11:00', target: '사이드바', text: '고침', kind: '질문' })).statusCode).toBe(200)
+    expect(fs.readFileSync(path.join(dir, '2026-09-30.md'), 'utf8')).toContain('## 11:00 · 질문 · 사이드바\n- 화면: #/\n\n고침\n')
+    expect((await patch({ date: '2026-09-30', time: '11:00', target: '사이드바', text: '다시 고침' })).statusCode).toBe(200)
+    expect(fs.readFileSync(path.join(dir, '2026-09-30.md'), 'utf8')).toContain('## 11:00 · 질문 · 사이드바\n')
+    expect((await patch({ date: '2026-09-30', time: '11:00', target: '사이드바', text: '다시 고침', kind: '미분류' })).statusCode).toBe(400)
+    expect((await patch({ date: '2026-09-30', time: '11:00', target: '사이드바', text: '고침' })).statusCode).toBe(200)
     // 지우기
     expect((await patch({ date: '2026-09-30', time: '10:00', target: '홈', text: null })).statusCode).toBe(200)
     const after = (await fb.inject({ method: 'GET', url: '/api/feedback/all' })).json().entries

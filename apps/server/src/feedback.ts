@@ -22,7 +22,7 @@ import { t } from './i18n.js'
 export { FEEDBACK_KINDS, FEEDBACK_STATES, FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
 export type { FeedbackKind, FeedbackState, FeedbackVerdict, FeedbackEntry, FeedbackStatus, FeedbackRevision, FeedbackReply, FeedbackVerdictEntry, FeedbackReview, FeedbackComment, MergedFeedback, FeedbackItem as FeedbackListItem, FeedbackPublished as PublishResult } from '@rw/core/contract/feedback'
 import { asksUser } from '@rw/core'
-import { FEEDBACK_KINDS, FEEDBACK_STATES, FEEDBACK_VERDICTS, type FeedbackComment, type FeedbackEntry, type FeedbackItem as FeedbackListItem, type FeedbackKind, type FeedbackPublished as PublishResult, type FeedbackReply, type FeedbackRevision, type FeedbackReview, type FeedbackState, type FeedbackStatus, type FeedbackVerdict, type FeedbackVerdictEntry } from '@rw/core/contract/feedback'
+import { FEEDBACK_KINDS, FEEDBACK_STATES, FEEDBACK_VERDICTS, type FeedbackComment, type FeedbackEntry, type FeedbackItem as FeedbackListItem, type FeedbackKind, type FeedbackPickableKind, type FeedbackPublished as PublishResult, type FeedbackReply, type FeedbackRevision, type FeedbackReview, type FeedbackState, type FeedbackStatus, type FeedbackVerdict, type FeedbackVerdictEntry } from '@rw/core/contract/feedback'
 
 export interface FeedbackInput {
   kind: FeedbackKind
@@ -394,10 +394,10 @@ export function listAllFeedback(dir: string): FeedbackListItem[] {
 }
 
 /**
- * 남긴 피드백 하나의 글을 고치거나(text) 지운다(text === null). 머리줄과 화면 정보는 그대로 둔다.
- * 찾는 기준: 날짜 파일, 시각, 부위, 같은 키 중 몇 번째(n).
+ * 남긴 피드백 하나의 글을 고치거나(text) 지운다(text === null). 화면 정보는 그대로 두고, 머리줄은 kind를 줄 때만 유형을 바꾼다.
+ * 찾는 기준: 날짜 파일, 시각, 부위, 같은 키 중 몇 번째(n). 처리 기록(status.yaml)은 날짜 · 시각 · 부위로 이어져 있어 유형을 바꿔도 그대로다.
  */
-export function editFeedback(dir: string, at: { date: string; time: string; target: string; n?: number }, text: string | null): boolean {
+export function editFeedback(dir: string, at: { date: string; time: string; target: string; n?: number }, text: string | null, kind?: FeedbackPickableKind): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(at.date)) return false
   const file = path.join(dir, `${at.date}.md`)
   if (!fs.existsSync(file)) return false
@@ -421,6 +421,7 @@ export function editFeedback(dir: string, at: { date: string; time: string; targ
     const clean = text.replace(/\r\n/g, '\n').trim().slice(0, 4000)
     if (!clean) return false
     lines.splice(body, end - body, '', ...clean.split('\n'), '')
+    if (kind) lines[start] = `## ${at.time} · ${kind} · ${at.target}`
   }
   writeAtomic(file, lines.join('\n'))
   return true
