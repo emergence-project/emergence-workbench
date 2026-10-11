@@ -25,3 +25,11 @@
 .repo-ok { color: var(--text-2); font-weight: var(--fw-strong); }
 .repo-err { color: var(--danger); }
 .repo-commit code { margin-right: 2px; }
+/* 현황: STATUS.md와 같은 글 (10/11) */
+.info-status { padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); font-size: var(--fs-sm); line-height: 1.6; min-width: 0; overflow-wrap: anywhere; }
+.info-status > :first-child { margin-top: 0; }
+.info-status > :last-child { margin-bottom: 0; }
+.info-status h2 { font-size: var(--fs-md); font-weight: var(--fw-title); margin: var(--sp-4) 0 var(--sp-2); }
+.info-status h3 { font-size: var(--fs-sm); font-weight: var(--fw-title); margin: var(--sp-3) 0 var(--sp-1); }
+.info-status blockquote { margin: var(--sp-1) 0; padding-left: var(--sp-3); border-left: 2px solid var(--line); color: var(--text-3); }
+.info-status ul { padding-left: var(--sp-5); }
