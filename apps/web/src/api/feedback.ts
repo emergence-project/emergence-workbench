@@ -3,7 +3,7 @@ import { enc, json, req, send } from './http'
 import type { EditFeedbackBody, FeedbackAdded, FeedbackAll, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
 
 /** 피드백 하나와 처리 기록 (feedback/status.yaml). 기록이 없으면 처리 대기 */
-export type { FeedbackState, FeedbackVerdict, FeedbackVerdictEntry, FeedbackComment, FeedbackReply, FeedbackRevision, FeedbackReview, FeedbackItem } from '@rw/core/contract/feedback'
+export type { FeedbackPickableKind, FeedbackState, FeedbackVerdict, FeedbackVerdictEntry, FeedbackComment, FeedbackReply, FeedbackRevision, FeedbackReview, FeedbackItem } from '@rw/core/contract/feedback'
 
 /** 피드백을 남기거나 고치면 알린다. 피드백 화면이 듣고 다시 읽는다 */
 export const FEEDBACK_EVENT = 'rw-feedback-changed'
@@ -14,8 +14,8 @@ export const feedbackCalls = {
   addFeedback: (b: NewFeedbackBody) =>
     req('/api/feedback', send('POST', b)).then((r) => json<FeedbackAdded>(r)).then((r) => { feedbackChanged(); return r }),
   /** 남긴 피드백 고치기 · 지우기(text: null). 바뀌면 피드백 화면이 다시 읽도록 알린다 */
-  editFeedback: (at: { date: string; time: string; target: string; n: number }, text: string | null) =>
-    req('/api/feedback', send('PATCH', { ...at, text } satisfies EditFeedbackBody)).then((r) => json<FeedbackOk>(r)).then((r) => { feedbackChanged(); return r }),
+  editFeedback: (at: { date: string; time: string; target: string; n: number }, text: string | null, kind?: FeedbackPickableKind) =>
+    req('/api/feedback', send('PATCH', { ...at, text, ...(kind && { kind }) } satisfies EditFeedbackBody)).then((r) => json<FeedbackOk>(r)).then((r) => { feedbackChanged(); return r }),
   /** 처리한 피드백 승인·반려(verdict: null이면 지움) */
   reviewFeedback: (key: string, verdict: FeedbackVerdict | null, note?: string) =>
     req('/api/feedback/review', send('PUT', { key, verdict, ...(note && { note }) } satisfies FeedbackReviewBody)).then((r) => json<FeedbackReviewed>(r)).then((r) => { feedbackChanged(); return r }),

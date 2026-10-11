@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { api, FEEDBACK_EVENT, records, type FeedbackItem, type FeedbackState } from './api'
+import { api, FEEDBACK_EVENT, records, type FeedbackItem, type FeedbackPickableKind, type FeedbackState } from './api'
 import { uiShown } from './uiNames'
 import { Icon } from './icons'
 import { MemoText } from './memo'
@@ -57,6 +57,21 @@ const REPLY: Record<string, string> = {
   '코멘트': t('질문', 'Ask'), '반려': t('수정', 'Revise'), '승인': t('승인', 'Approve'), '진행': t('진행', 'Proceed'), '중단': t('중단', 'Stop'),
 }
 const verdictName = (v: string) => REPLY[v] ?? label(v)
+/** 대화 머리 태그의 설명 (10/11 12:38: 태그의 종류와 설명을 각주로). 이 대화에 나온 태그만 아래에 한 줄씩 */
+const TAG_NOTES: Record<string, { name: string; note: string }> = {
+  '앱에 반영됨': { name: t('앱에 반영됨', 'Applied to the app'), note: t('관리자가 앱을 고쳤고 그 변경이 합쳐졌습니다. 어느 변경인지는 처리 기록의 커밋에 있습니다.', 'The maintainer changed the app and the change was merged. The commit in the handling record says which.') },
+  '답만 함': { name: t('답만 함', 'Answered only'), note: t('앱은 고치지 않고 답만 했습니다. 질문, 거절, 나중에, 동의가 여기에 해당합니다.', 'The app was not changed; only an answer was given (questions, declines, later, agreed).') },
+  '반려': { name: t('N번째 수정', 'Revision N'), note: t('처리 결과가 맞지 않아 수정을 눌러 다시 처리해 달라고 한 요청입니다.', 'You pressed Revise because the result was not right and asked for it to be reworked.') },
+  '승인': { name: REPLY['승인']!, note: t('처리 결과를 받아들였습니다.', 'You accepted the result.') },
+  '진행': { name: REPLY['진행']!, note: t('관리자가 묻거나 제안한 대로 진행하게 했습니다.', 'You told the maintainer to go ahead as asked or proposed.') },
+  '중단': { name: REPLY['중단']!, note: t('하지 않기로 했습니다.', 'You decided not to do it.') },
+  '코멘트': { name: REPLY['코멘트']!, note: t('다시 처리하지 않고 답만 받으려고 남긴 질문입니다.', 'A question left to get an answer only, without reworking.') },
+}
+const tagKey = (s: ThreadStep): string | null => {
+  if (s.kind === '대기') return null
+  if (s.who === 'Claude') return s.kind === '답' ? '답만 함' : 'commit' in s && s.commit ? '앱에 반영됨' : '답만 함'
+  return s.kind
+}
 /** 종류는 Claude가 처리하며 가린다 (status.yaml의 kind). 아직이면 날짜 파일의 종류(새 코멘트는 미분류) */
 const kindOf = (e: FeedbackItem): string => e.status?.kind ?? e.kind
 const matches = (f: Filter, e: FeedbackItem) => f === '전체' || feedbackBucket(e) === f
@@ -337,6 +352,7 @@ function Conversation({ e }: { e: FeedbackItem }) {
   const lastHandling = steps.map((s) => s.kind === '처리' || s.kind === '다시 처리').lastIndexOf(true)
   const lastMine = steps.map((s) => s.who === '나').lastIndexOf(true)
   const locked = lockedBefore(steps)
+  const notes = [...new Set(steps.map(tagKey))].filter((k): k is string => !!k && k in TAG_NOTES)
   let rejects = 0
   const numbered = steps.map((s) => (s.who === '나' && s.kind === '반려' ? ++rejects : 0))
   const say = (s: ThreadStep, i: number) => <Say key={i} e={e} s={s} n={numbered[i]!} latestHandling={i === lastHandling} locked={i < locked} undo={i === lastMine && i === steps.length - 1 && (s.kind === '승인' || s.kind === '반려' || s.kind === '진행' || s.kind === '중단')} />
@@ -349,6 +365,11 @@ function Conversation({ e }: { e: FeedbackItem }) {
         </details>
       )}
       <ol className="fbp-thread">{latest.map((s, i) => say(s, earlier.length + i))}</ol>
+      {notes.length > 0 && (
+        <dl className="fbp-notes" data-ui="태그 설명">
+          {notes.map((k) => <div key={k}><dt>{TAG_NOTES[k]!.name}</dt><dd>{TAG_NOTES[k]!.note}</dd></div>)}
+        </dl>
+      )}
     </div>
   )
 }
@@ -483,21 +504,28 @@ export function FeedbackRailCount({ version }: { version: number }) {
  * 피드백 글: 읽기, 고치기, 지우기. 피드백 화면과 피드백 모드의 "이번에 남긴 코멘트"가 함께 쓴다.
  * locked: 관리자가 처리한 글은 고치지 않는다 (10/9 11:18). 지우기는 남는다.
  */
-export function FeedbackText({ e, locked, onChanged }: { e: Pick<FeedbackItem, 'date' | 'time' | 'target' | 'n' | 'text'>; locked?: boolean; onChanged?(text: string | null): void }) {
+const PICKABLE: readonly FeedbackPickableKind[] = ['수정', '질문', '제안']
+const pickable = (k: string): FeedbackPickableKind | null => PICKABLE.find((x) => x === k) ?? null
+
+export function FeedbackText({ e, locked, onChanged }: { e: Pick<FeedbackItem, 'date' | 'time' | 'target' | 'n' | 'text' | 'kind'>; locked?: boolean; onChanged?(text: string | null, kind?: FeedbackPickableKind): void }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(e.text)
+  /** 고치는 동안 고른 유형 (10/11: 글뿐 아니라 수정 · 질문 · 제안도 고친다). 이전 기록의 유형은 고르기 전까지 그대로 */
+  const [kind, setKind] = useState<FeedbackPickableKind | null>(pickable(e.kind))
   const [error, setError] = useState<string | null>(null)
   const at = { date: e.date, time: e.time, target: e.target, n: e.n }
+  const changedKind = kind && kind !== e.kind ? kind : undefined
   const save = (text: string | null) => {
-    api.editFeedback(at, text).then(() => { setEditing(false); setError(null); onChanged?.(text) }).catch((err: Error) => setError(err.message))
+    api.editFeedback(at, text, text === null ? undefined : changedKind).then(() => { setEditing(false); setError(null); onChanged?.(text, changedKind) }).catch((err: Error) => setError(err.message))
   }
+  const cancel = () => { setEditing(false); setKind(pickable(e.kind)) }
   if (!editing) {
     return (
       <div className="fbp-text">
         <MemoText text={e.text} />
         {/* 10/4 15:54 "고치기 지우기 우측 상단으로 옮기고 아이콘으로" */}
         <span className="fbp-edit fbp-edit-icons hover-actions">
-          {!locked && <button className="icon-btn" title={t('고치기', 'Edit')} aria-label={t(`고치기: ${e.date} ${e.time} 피드백`, `Edit: ${e.date} ${e.time} feedback`)} onClick={() => { setDraft(e.text); setEditing(true) }}>{Icon.pencil}</button>}
+          {!locked && <button className="icon-btn" title={t('고치기', 'Edit')} aria-label={t(`고치기: ${e.date} ${e.time} 피드백`, `Edit: ${e.date} ${e.time} feedback`)} onClick={() => { setDraft(e.text); setKind(pickable(e.kind)); setEditing(true) }}>{Icon.pencil}</button>}
           <button className="icon-btn" title={t('지우기', 'Delete')} aria-label={t(`지우기: ${e.date} ${e.time} 피드백`, `Delete: ${e.date} ${e.time} feedback`)}
             onClick={() => void askConfirm({ title: t('이 피드백을 지울까요?', 'Delete this feedback?'), hint: t('그날 피드백 파일에서 이 항목만 지워지고, 처리 기록(feedback/status.yaml)은 그대로 남습니다.', 'Only this item is removed from that day\'s feedback file. The handling record (feedback/status.yaml) stays.'), ok: t('지우기', 'Delete') }).then((y) => { if (y) save(null) })}>{Icon.trash}</button>
         </span>
@@ -508,9 +536,12 @@ export function FeedbackText({ e, locked, onChanged }: { e: Pick<FeedbackItem, '
   return (
     <div className="fbp-text">
       <textarea className="fbp-input" autoFocus value={draft} onChange={(ev) => setDraft(ev.target.value)}
-        onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); if (draft.trim()) save(draft) } else if (ev.key === 'Escape') setEditing(false); else onListKey(ev, setDraft) }} />
+        onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); if (draft.trim()) save(draft) } else if (ev.key === 'Escape') cancel(); else onListKey(ev, setDraft) }} />
       <span className="fbp-edit on">
-        <button className="btn" onClick={() => setEditing(false)}>{t('취소', 'Cancel')}</button>
+        <span className="segmented small fbp-kind" role="radiogroup" aria-label={t('유형', 'Type')} data-ui="피드백 유형 고르기">
+          {PICKABLE.map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{kindName(k)}</button>)}
+        </span>
+        <button className="btn" onClick={cancel}>{t('취소', 'Cancel')}</button>
         <button className="btn primary" disabled={!draft.trim()} onClick={() => save(draft)}>{t('저장', 'Save')} <span className="kbd">⌘↵</span></button>
       </span>
       {error && <div className="error-text">{error}</div>}
