@@ -1,9 +1,9 @@
 // ---------- 피드백 (feedback/날짜.md · status.yaml · reviews.yaml, 서버 feedback.ts) ----------
 import { enc, json, req, send } from './http'
-import type { EditFeedbackBody, FeedbackAdded, FeedbackAll, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
+import type { EditFeedbackBody, FeedbackPickableKind, FeedbackAdded, FeedbackAll, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
 
 /** 피드백 하나와 처리 기록 (feedback/status.yaml). 기록이 없으면 처리 대기 */
-export type { FeedbackPickableKind, FeedbackState, FeedbackVerdict, FeedbackVerdictEntry, FeedbackComment, FeedbackReply, FeedbackRevision, FeedbackReview, FeedbackItem } from '@rw/core/contract/feedback'
+export type { FeedbackKind, FeedbackPickableKind, FeedbackState, FeedbackVerdict, FeedbackVerdictEntry, FeedbackComment, FeedbackReply, FeedbackRevision, FeedbackReview, FeedbackItem } from '@rw/core/contract/feedback'
 
 /** 피드백을 남기거나 고치면 알린다. 피드백 화면이 듣고 다시 읽는다 */
 export const FEEDBACK_EVENT = 'rw-feedback-changed'
