@@ -81,3 +81,15 @@
 .project-dialog .pcard.preview { width: 100%; cursor: default; }
 .project-dialog .pcard.preview:hover { border-color: var(--line); box-shadow: none; }
 .project-dialog .pcard.preview .pcard-band { cursor: default; }
+
+/* 줄 맞춤 (10/11): 왼쪽 칸(.td-low)과 오른쪽 모양 칸(.td-look)이 같은 줄 높이를 나눠 쓴다. 분야 태그가 줄바꿈하거나 한쪽 줄이 커져도 줄마다 위가 맞는다.
+   subgrid를 못 쓰는 환경은 위 배치 그대로. */
+.topic-dialog { --td-rows: 2; }
+.project-dialog { --td-rows: 3; }
+@supports (grid-template-rows: subgrid) {
+  .td-low, .td-look { grid-row: span var(--td-rows); display: grid; grid-template-rows: subgrid; row-gap: var(--td-row-gap); }
+  .td-low { grid-template-columns: minmax(0, 1fr); }
+  /* fieldset은 내용을 익명 상자에 담아 subgrid가 이어지지 않으므로 상자를 풀어 dl을 바로 잇는다 */
+  .project-dialog .td-low > fieldset { display: contents; }
+  .project-dialog .pp-fields { grid-row: 1 / -1; display: grid; grid-template-rows: subgrid; }
+}
