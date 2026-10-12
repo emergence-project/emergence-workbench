@@ -58,6 +58,12 @@ export const PaperFolder = z.object({ path: z.string(), exists: z.boolean(), clo
 export const PaperFolders = z.object({ folders: z.array(PaperFolder) }).strict()
 /** POST /papers · PUT /papers/upload */
 export const PaperAdded = z.object({ key: z.string(), existed: z.boolean(), pdf: z.string().optional(), pdfError: z.string().optional() }).strict()
+/** arXiv 판 후보 하나. match: doi = arXiv에 적힌 DOI가 bib와 같음, title = 제목·첫 저자로 찾음 */
+export const ArxivCandidate = z.object({ eprint: z.string(), title: z.string(), authors: z.array(z.string()), year: z.string().optional(), doi: z.string().optional(), match: z.enum(['doi', 'title']) }).strict()
+/** GET /papers/:key/arxiv */
+export const ArxivCandidates = z.object({ candidates: z.array(ArxivCandidate) }).strict()
+/** PUT /papers/:key/eprint */
+export const EprintSet = z.object({ key: z.string(), eprint: z.string() }).strict()
 /** PUT /papers/:key/projects */
 export const PaperProjects = z.object({ projects: z.array(z.string()) }).strict()
 
@@ -74,6 +80,8 @@ export const PaperNoteAdded = z.object({ id: z.string(), file: PaperCommentFile 
 export const SetPaperProjectsBody = z.object({ projects: z.array(z.string()) })
 /** id: arXiv 번호나 DOI */
 export const AddPaperBody = z.object({ id: z.string() })
+/** 고른 arXiv 번호 */
+export const SetEprintBody = z.object({ eprint: z.string() })
 export const SetPdfFoldersBody = z.object({ folders: z.array(z.string()) })
 /** 종류가 없으면 코멘트. 화면은 노트 기록과 같은 종류 이름을 보내므로 종류는 글로 받고 서버가 거른다 */
 export const NewPaperNoteBody = z.object({
@@ -98,6 +106,9 @@ export type PaperFolder = z.infer<typeof PaperFolder>
 export type PaperFolders = z.infer<typeof PaperFolders>
 export type PaperAdded = z.infer<typeof PaperAdded>
 export type PaperProjects = z.infer<typeof PaperProjects>
+export type ArxivCandidate = z.infer<typeof ArxivCandidate>
+export type ArxivCandidates = z.infer<typeof ArxivCandidates>
+export type EprintSet = z.infer<typeof EprintSet>
 export type PaperHighlight = z.infer<typeof PaperHighlight>
 export type PaperCommentFile = z.infer<typeof PaperCommentFile>
 export type PaperNoteAdded = z.infer<typeof PaperNoteAdded>

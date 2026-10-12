@@ -354,7 +354,7 @@ star: true
 | `concepts/macros.tex` | 공용 매크로 |
 | `concepts/attachments/` | 개념노트 그림 |
 | `papers/<키>.tex` | 문헌노트 (블록 머리 형식) |
-| `references.bib` | 참고문헌. 앱은 끝에 덧붙이기만 한다 |
+| `references.bib` | 참고문헌. 앱은 끝에 덧붙이고, 사용자가 고른 arXiv 번호만 그 항목에 적는다(10.4) |
 | `papers.yaml` | bib 키 → `{projects?, pdf?, subjects?}` |
 | `comments/<키>/c-*.md` | 논문 코멘트 (§10.3) |
 | `figures/`, `figures/figures.yaml` | 공용 그림 (§8) |
@@ -403,6 +403,7 @@ checked:
 
 - 키: 첫 저자 성(ASCII 소문자) + 제목 첫 낱말(첫 글자 대문자) + 연도, 겹치면 `a`~`z`. `^[A-Za-z0-9][A-Za-z0-9_:.+-]{0,120}$`.
 - 항목 사이 빈 줄 하나. `@type{키,` 모양(`(`는 쓰지 않는다).
+- arXiv 찾기: `eprint`가 없는 항목에 사용자가 고른 번호를 적을 때는 그 항목의 닫는 `}` 앞에 `eprint = {번호},`와 `archiveprefix = {arXiv},` 두 줄만 넣고 다른 칸과 글은 그대로 둔다. 이미 `eprint`가 있거나 다른 항목에 같은 번호가 있으면 쓰지 않는다.
 
 ## 11. 앱 설정 (연구 저장소 밖)
 

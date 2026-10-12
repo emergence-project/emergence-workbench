@@ -1,4 +1,4 @@
-import type { PaperAdded as AddResult } from '@rw/core/contract/papers'
+import type { PaperAdded as AddResult, ArxivCandidate, ArxivCandidates } from '@rw/core/contract/papers'
 import fs from 'node:fs'
 import path from 'node:path'
 import { writeAtomic } from './fsutil.js'
@@ -170,15 +170,22 @@ async function ensureEntry(lib: string, id: PaperId): Promise<{ key: string; exi
   if (twin) return { key: twin.key, existed: true }
   const key = paperKey(found, new Set(before.map((e) => e.key)))
   if (!isSafeKey(key)) throw new WorkbenchError(400, t(`키를 만들지 못했습니다: ${key}`, `Could not make a key: ${key}`))
+  const old = readLibraryBib(lib)
+  writeLibraryBib(lib, `${old}${old && !old.endsWith('\n') ? '\n' : ''}${old ? '\n' : ''}${bibEntryText(key, found)}`)
+  return { key, existed: false, found }
+}
+
+const isBibLink = (real: string) => real.toLowerCase().endsWith('.bib')
+function readLibraryBib(lib: string): string {
   const file = path.join(lib, LIBRARY_BIB)
-  const isBibLink = (real: string) => real.toLowerCase().endsWith('.bib')
   try {
     if (fs.lstatSync(file).isSymbolicLink() && !isBibLink(fs.realpathSync(file))) throw new WorkbenchError(409, t(`${LIBRARY_BIB}가 .bib가 아닌 파일로 가는 링크라 쓰지 않았습니다`, `Not written: ${LIBRARY_BIB} is a link to a file that is not .bib`))
   } catch (e) { if (e instanceof WorkbenchError) throw e /* 없는 파일·끊긴 링크: 그 자리에 쓴다 */ }
-  const old = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
-  // references.bib가 Zotero 자동 내보내기 같은 .bib 파일로 가는 링크면 링크를 두고 그 파일에 쓴다 (.bib가 아닌 곳은 따라가지 않는다)
-  writeAtomic(file, `${old}${old && !old.endsWith('\n') ? '\n' : ''}${old ? '\n' : ''}${bibEntryText(key, found)}`, { followLink: isBibLink })
-  return { key, existed: false, found }
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
+}
+/** references.bib가 Zotero 자동 내보내기 같은 .bib 파일로 가는 링크면 링크를 두고 그 파일에 쓴다 (.bib가 아닌 곳은 따라가지 않는다) */
+function writeLibraryBib(lib: string, text: string): void {
+  writeAtomic(path.join(lib, LIBRARY_BIB), text, { followLink: isBibLink })
 }
 
 /** arXiv 번호나 DOI로 더한다. arXiv면 PDF도 첫 PDF 폴더에 받는다 */
@@ -231,4 +238,92 @@ export async function addPaperPdf(registry: Registry, name: unknown, bytes: unkn
   }
   writeAtomic(target, bytes)
   return { key, existed, pdf: target }
+}
+
+// ---------- arXiv 찾기 (10/11 12:46): DOI로 더한 논문에 arXiv 판이 있으면 번호를 찾아 사용자가 고른 것만 bib에 적는다 ----------
+
+const ARXIV_ID = /^(\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?\/\d{7})$/
+/** 비교용: 수식·괄호·기호를 빼고 소문자 낱말만 */
+const words = (s: string) => s.replace(/\$[^$]*\$/g, ' ').replace(/\\[a-zA-Z]+/g, ' ').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !STOP.has(w))
+
+/** 두 제목이 얼마나 같은 낱말을 쓰는지 (0–1) */
+export function titleOverlap(a: string, b: string): number {
+  const x = new Set(words(a)); const y = new Set(words(b))
+  if (!x.size || !y.size) return 0
+  let same = 0
+  for (const w of x) if (y.has(w)) same++
+  return same / Math.max(x.size, y.size)
+}
+
+function parseArxivFeed(xml: string): ArxivCandidate[] {
+  const out: ArxivCandidate[] = []
+  for (const m of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
+    const entry = m[1]!
+    const id = /<id>\s*https?:\/\/arxiv\.org\/abs\/([^<\s]+?)(?:v\d+)?\s*<\/id>/.exec(entry)?.[1]
+    const title = /<title[^>]*>([\s\S]*?)<\/title>/.exec(entry)?.[1]
+    if (!id || !title) continue
+    const doi = /<arxiv:doi[^>]*>([\s\S]*?)<\/arxiv:doi>/.exec(entry)?.[1]
+    const year = /<published>(\d{4})/.exec(entry)?.[1]
+    out.push({
+      eprint: id, title: xmlText(title), authors: [...entry.matchAll(/<author>\s*<name>([\s\S]*?)<\/name>/g)].map((a) => splitName(xmlText(a[1]!))[0]),
+      ...(year && { year }), ...(doi && { doi: xmlText(doi) }), match: 'title',
+    })
+  }
+  return out
+}
+
+/** 라이브러리 bib의 한 논문에 맞는 arXiv 판 후보: 제목 낱말 + 첫 저자 성으로 찾고, DOI가 같은 것을 앞에 둔다 */
+export async function findArxiv(registry: Registry, key: string): Promise<ArxivCandidates> {
+  const lib = libOf(registry)
+  const e = libraryBibEntries(lib).find((x) => x.key === key)
+  if (!e) throw new WorkbenchError(404, t(`references.bib에 없는 키: ${key}`, `Key not in references.bib: ${key}`))
+  if (!e.title) return { candidates: [] }
+  const ws = [...new Set(words(e.title))].slice(0, 8)
+  const last = ascii(e.author?.split(/\s+and\s+/)[0]?.split(',')[0]?.trim().split(/\s+/).pop() ?? '')
+  if (!ws.length) return { candidates: [] }
+  const q = [...ws.map((w) => `ti:${w}`), ...(last ? [`au:${last}`] : [])].join(' AND ')
+  const res = await fetcher(`https://export.arxiv.org/api/query?search_query=${encodeURIComponent(q)}&max_results=10`, { headers: AGENT })
+  if (!res.ok) throw new WorkbenchError(502, t(`arXiv에서 찾지 못했습니다 (${res.status})`, `Could not search arXiv (${res.status})`))
+  const doi = e.doi?.toLowerCase()
+  const candidates = parseArxivFeed(await res.text())
+    .map((c) => ({ c: doi && c.doi?.toLowerCase() === doi ? { ...c, match: 'doi' as const } : c, score: titleOverlap(e.title!, c.title) }))
+    .filter(({ c, score }) => c.match === 'doi' || score >= 0.5)
+    .sort((a, b) => Number(b.c.match === 'doi') - Number(a.c.match === 'doi') || b.score - a.score)
+    .slice(0, 5)
+    .map(({ c }) => c)
+  return { candidates }
+}
+
+/** 고른 arXiv 번호를 그 논문의 bib 항목에 적는다 (eprint · archiveprefix). 다른 칸과 글은 그대로 둔다 */
+export function setEprint(registry: Registry, key: string, raw: string): { key: string; eprint: string } {
+  const eprint = raw.trim().replace(/v\d+$/, '')
+  if (!ARXIV_ID.test(eprint)) throw new WorkbenchError(400, t(`arXiv 번호 모양이 아닙니다: ${raw}`, `Not an arXiv number: ${raw}`))
+  const lib = libOf(registry)
+  const entries = libraryBibEntries(lib)
+  const e = entries.find((x) => x.key === key)
+  if (!e) throw new WorkbenchError(404, t(`references.bib에 없는 키: ${key}`, `Key not in references.bib: ${key}`))
+  if (e.eprint) throw new WorkbenchError(409, t(`이미 arXiv 번호가 있습니다: ${e.eprint}`, `Already has an arXiv number: ${e.eprint}`))
+  const twin = entries.find((x) => x.eprint?.replace(/v\d+$/, '') === eprint)
+  if (twin) throw new WorkbenchError(409, t(`이 번호는 이미 다른 논문(${twin.key})에 있습니다`, `This number is already on another paper (${twin.key})`))
+  const text = readLibraryBib(lib)
+  const next = withField(text, key, `  eprint = {${eprint}},\n  archiveprefix = {arXiv},\n`)
+  if (next === null) throw new WorkbenchError(409, t(`references.bib에서 ${key} 항목의 끝을 찾지 못했습니다`, `Could not find the end of the ${key} entry in references.bib`))
+  writeLibraryBib(lib, next)
+  return { key, eprint }
+}
+
+/** bib 글에서 키 항목의 닫는 괄호 앞에 칸을 넣는다. 항목을 못 찾으면 null */
+export function withField(text: string, key: string, fields: string): string | null {
+  const head = new RegExp(`@\\w+\\s*\\{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*,`, 'g')
+  const m = head.exec(text)
+  if (!m) return null
+  let depth = 1
+  let i = head.lastIndex
+  for (; i < text.length; i++) {
+    if (text[i] === '{') depth++
+    else if (text[i] === '}' && --depth === 0) break
+  }
+  if (depth !== 0) return null
+  const body = text.slice(0, i).replace(/\s*$/, '')
+  return `${body}${body.endsWith(',') ? '' : ','}\n${fields}${text.slice(i)}`
 }
