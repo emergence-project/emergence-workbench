@@ -131,6 +131,16 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     }
   }, [onClose])
 
+  /** 부위 없이 적기: 화면 한 곳이 아니라 앱 전체 방향에 대한 의견 (10/12). 서버는 빈 부위를 "(부위 없음)"으로 적는다 */
+  const openWithoutPart = (e: React.MouseEvent) => {
+    shot.current = captureScreen()
+    setHover(null)
+    // 단추 위에 연다 (아래 끝은 pop이 화면 안으로 당긴다)
+    setPending({ path: '', snippet: '', x: e.currentTarget.getBoundingClientRect().left - 12, y: innerHeight })
+    setText(''); setKind('제안'); setError(null)
+  }
+  const targetName = (path: string) => (path ? uiShown(path) : t('부위 없음 · 앱 전체에 대한 의견', 'No part · about the app as a whole'))
+
   const themeName = () => {
     const theme = document.documentElement.getAttribute('data-theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
     return theme === 'dark' ? t('다크', 'Dark') : t('라이트', 'Light')
@@ -140,7 +150,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   const sendToGithub = () => {
     if (!pending || !text.trim() || !issues || !kind) return
     const url = issueDraftUrl(issues.url, {
-      text, area: uiShown(pending.path) === pending.path ? pending.path : `${uiShown(pending.path)} (${pending.path})`, snippet: pending.snippet, route: location.hash || '#/', version: issues.version,
+      text, area: !pending.path ? targetName('') : uiShown(pending.path) === pending.path ? pending.path : `${uiShown(pending.path)} (${pending.path})`, snippet: pending.snippet, route: location.hash || '#/', version: issues.version,
       environment: `${navigator.platform} · ${innerWidth}×${innerHeight} · ${themeName()}`,
     })
     window.open(url, '_blank', 'noopener')
@@ -163,7 +173,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       setPending(null)
       setEntries((prev) => [b.entry as Entry, ...prev])
       feedbackChanged()
-      onSaved(t(`피드백 저장됨 — ${pending.path}`, `Feedback saved: ${uiShown(pending.path)}`))
+      onSaved(t(`피드백 저장됨 — ${pending.path || '부위 없음'}`, `Feedback saved: ${targetName(pending.path)}`))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -178,6 +188,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
         <b>{t('피드백 모드', 'Feedback mode')}</b>
         <span>{t('부위에 마우스를 올리면 이름이 뜹니다. 누르면 그 부위에 피드백을 남깁니다. 앱은 이 동안 눌러도 반응하지 않습니다.', 'Hover over a part to see its name. Click to leave feedback on it. The app does not respond to clicks while this is on.')}</span>
         <span className="sp" />
+        <button className="fb-link" data-ui="부위 없이 적기" title={t('화면 한 곳이 아니라 앱 전체 방향에 대한 의견을 남깁니다', 'Leave feedback about the app as a whole, not one part of the screen')} onClick={openWithoutPart}>{t('부위 없이 적기', 'Without a part')}</button>
         <button className="fb-link" data-ui="이번에 남긴 코멘트" onClick={() => setShowList((v) => !v)}>{t(`이번에 남긴 피드백 ${entries.length}`, `Feedback this session ${entries.length}`)}</button>
         {/* 피드백 등록은 피드백 화면 한 곳에서 (10/4 피드백: 같은 일은 담당 화면 하나에서 하고 나머지는 거기로 가는 길) */}
         <button className="fb-link" data-ui="모아 보기" title={t('모든 피드백과 반영 여부. 피드백 등록도 여기서 합니다', 'All feedback and whether it was applied. Submit feedback there too')} onClick={() => { onClose(); go({ page: 'feedback' }) }}>{publishable ? t('모아 보기·등록', 'View all · submit') : t('모아 보기', 'View all')}</button>
@@ -193,7 +204,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
 
       {pending && pop && (
         <div className="fb-pop" data-feedback-ui style={{ ...pop, maxHeight: `calc(100dvh - ${pop.top}px - var(--sp-3))` }} role="dialog" aria-label={t('피드백 남기기', 'Leave feedback')}>
-          <div className="fb-pop-head"><div className="fb-target">{uiShown(pending.path)}</div><button className="icon-btn" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={() => setPending(null)}>{Icon.x}</button></div>
+          <div className="fb-pop-head"><div className="fb-target">{targetName(pending.path)}</div><button className="icon-btn" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={() => setPending(null)}>{Icon.x}</button></div>
           {pending.snippet && <div className="fb-snippet">“{pending.snippet}”</div>}
           <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={t('무엇이 어떤지, 어떻게 되면 좋겠는지 (- 로 목록, Tab 들여쓰기 · ⌘↵ 저장)', 'What is wrong and how it should be (- for a list, Tab to indent · ⌘↵ to save)')}
             onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (kind) void save(kind) } else onListKey(e, setText) }} />
