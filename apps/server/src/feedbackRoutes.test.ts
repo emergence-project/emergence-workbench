@@ -32,6 +32,17 @@ describe('앱 피드백', () => {
     await fb.close()
   })
 
+  it('부위 없이 적은 의견은 "(부위 없음)"으로 쌓인다 (피드백 모드의 "부위 없이 적기")', async () => {
+    const dir = path.join(tmp, 'feedback-nopart')
+    const fb = buildApp({ configDir: path.join(tmp, 'config-fb-nopart'), feedbackDir: dir })
+    expect((await fb.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '제안', target: '', text: '주장 확정은 대표 노트에서 하고 싶다' } })).statusCode).toBe(200)
+    const md = fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]!), 'utf8')
+    expect(md).toMatch(/## \d{2}:\d{2} · 제안 · \(부위 없음\)\n/)
+    const list = (await fb.inject({ method: 'GET', url: '/api/feedback' })).json()
+    expect(list.entries[0]).toMatchObject({ kind: '제안', target: '(부위 없음)' })
+    await fb.close()
+  })
+
   it('화면 그림을 함께 보내면 pictures/에 파일로 두고 항목에는 경로만 적는다', async () => {
     const dir = path.join(tmp, 'feedback-pic')
     const fb = buildApp({ configDir: path.join(tmp, 'config-fb-pic'), feedbackDir: dir })
