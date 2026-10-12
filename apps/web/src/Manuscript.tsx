@@ -219,7 +219,7 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
           view={view} onDraft={onDraft} tocOwner={tocOwner}
           head={!editing && <NoteHead title={title} editing={false} />}
           footer={<CitedPapers rid={rid} rapi={rapi} text={text} file={file} library={library} onSaved={onSaved} onLibraryChanged={onLibraryChanged} />}
-          onSave={(t) => { onDraft(t); void finish() }} onCancel={() => void finish()} />}
+          onSave={(t) => { onDraft(t); void saveNow() }} onCancel={() => void finish()} />}
     </NoteScreen>
   )
 }

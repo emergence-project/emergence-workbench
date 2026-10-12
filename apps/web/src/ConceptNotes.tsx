@@ -365,7 +365,7 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
         <div className={`cn-layout${side === 'inline' && rightOpen ? ' with-side' : ''}`}>
         {/* 고른 글 하이라이트 · 메모는 읽기와 고치기 모두에서 (기록은 concepts/<id>.memo.md, 10/8 11:47) */}
         {editing ? <ConceptRecords id={id} source={initial} contentOffset={0}><ConceptEditor initial={initial} options={options} editView={edit.view}
-            onChange={(body) => saver.edit(body)} onSave={(body) => { saver.edit(body); void finish() }} onCancel={() => void finish()} /></ConceptRecords> : <div className="page-body cn-body">
+            onChange={(body) => saver.edit(body)} onSave={(body) => { saver.edit(body); void edit.saveNow() }} onCancel={() => void finish()} /></ConceptRecords> : <div className="page-body cn-body">
           <header className="cn-head">
           <h1 className="h-title">{m.title}</h1>
           </header>
