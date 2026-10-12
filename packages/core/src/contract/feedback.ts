@@ -146,7 +146,9 @@ export const NewFeedbackBody = z.object({
   image: z.string().optional(),
 })
 /** 남긴 피드백 고치기(text) · 지우기(text: null) */
-export const EditFeedbackBody = z.object({ date: z.string(), time: z.string(), target: z.string(), n: z.number().optional(), text: z.string().nullable() })
+/** 사용자가 등록할 때 고르는 유형 (10/9). 고치기에서 kind를 보내면 머리줄의 유형이 바뀐다 (10/11) */
+export const FEEDBACK_PICKABLE_KINDS = ['수정', '질문', '제안'] as const
+export const EditFeedbackBody = z.object({ date: z.string(), time: z.string(), target: z.string(), n: z.number().optional(), text: z.string().nullable(), kind: z.enum(FEEDBACK_PICKABLE_KINDS).optional() })
 /** 승인·반려·진행·중단 (verdict: null이면 마지막 것을 취소) */
 export const FeedbackReviewBody = z.object({ key: z.string(), verdict: z.enum(FEEDBACK_VERDICTS).nullable(), note: z.string().optional() })
 export const FeedbackCommentBody = z.object({ key: z.string(), note: z.string() })
@@ -154,6 +156,7 @@ export const FeedbackCommentBody = z.object({ key: z.string(), note: z.string() 
 export const FeedbackNoteBody = z.object({ key: z.string(), at: z.string(), note: z.string() })
 
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]
+export type FeedbackPickableKind = (typeof FEEDBACK_PICKABLE_KINDS)[number]
 export type FeedbackState = (typeof FEEDBACK_STATES)[number]
 export type FeedbackVerdict = (typeof FEEDBACK_VERDICTS)[number]
 export type FeedbackEntry = z.infer<typeof FeedbackEntry>

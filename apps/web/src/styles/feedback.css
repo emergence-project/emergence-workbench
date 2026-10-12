@@ -158,3 +158,11 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fb-pop-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
 .fb-actions .fb-kind { margin-right: auto; }
 .fb-actions .fb-kind ~ .fb-send { margin-right: 0; }
+
+/* 대화 머리 태그의 설명: 대화 아래 각주 (10/11 12:38) */
+.fbp-notes { margin: var(--sp-1) 0 0; padding-top: var(--sp-2); border-top: 1px solid var(--line); display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px var(--sp-3); font-size: var(--fs-xs); color: var(--text-3); }
+.fbp-notes > div { display: contents; }
+.fbp-notes dt { color: var(--text-2); font-weight: var(--fw-strong); }
+.fbp-notes dd { margin: 0; }
+/* 피드백 글 고치기: 유형 고르기는 왼쪽, 취소 · 저장은 오른쪽 (10/11 12:39) */
+.fbp-edit.on .fbp-kind { margin-right: auto; }

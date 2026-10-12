@@ -1,7 +1,7 @@
 import { Icon } from './icons'
 import { feedbackNote } from './feedbackNote'
 import { useEffect, useRef, useState } from 'react'
-import { feedbackChanged, req } from './api'
+import { feedbackChanged, req, type FeedbackKind } from './api'
 import { uiShown } from './uiNames'
 import { FeedbackText } from './FeedbackPage'
 import { go } from './router'
@@ -16,7 +16,7 @@ import { shown, t } from './i18n'
  * 부위 이름은 바깥 부위부터 이어 붙인다: data-ui="블록" > data-ui="속성 표" > data-ui="다른 시도"
  *   → "블록 › 속성 표 › 다른 시도"
  */
-interface Entry { date: string; time: string; kind: string; target: string; text: string; n: number; snippet?: string }
+interface Entry { date: string; time: string; kind: FeedbackKind; target: string; text: string; n: number; snippet?: string }
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
@@ -219,7 +219,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
             <div key={i} className="fb-entry">
               <div className="fb-entry-head"><span className="tag">{shown(e.kind)}</span><span className="muted">{e.time}</span></div>
               <div className="fb-target">{e.target}</div>
-              <FeedbackText e={e} onChanged={(text) => setEntries((prev) => text === null ? prev.filter((x) => x !== e) : prev.map((x) => (x === e ? { ...x, text } : x)))} />
+              <FeedbackText e={e} onChanged={(text, kind) => setEntries((prev) => text === null ? prev.filter((x) => x !== e) : prev.map((x) => (x === e ? { ...x, text, ...(kind && { kind }) } : x)))} />
             </div>
           ))}
           <p className="muted" style={{ fontSize: 'var(--fs-xs)' }}>{t('지난 피드백과 반영 여부는 레일의 피드백에서 봅니다. 파일: 개인 저장소의 feedback/', 'See past feedback and whether it was applied under Feedback in the rail. Files: feedback/ in your personal repository')}</p>

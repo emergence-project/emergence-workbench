@@ -144,7 +144,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
     const b = parseBody(C.EditFeedbackBody, req.body)
     if (b.text !== null && !b.text.trim()) throw new WorkbenchError(400, t('내용이 필요함 (지우려면 text: null)', 'text is required (to delete, send text: null)'))
-    if (!editFeedback(opts.feedbackDir, b, b.text)) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
+    if (!editFeedback(opts.feedbackDir, b, b.text, b.kind)) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     scheduleAutoPublish()
     return { ok: true }
   })
