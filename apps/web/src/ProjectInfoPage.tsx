@@ -8,6 +8,8 @@ import { Icon } from './icons'
 import { ProjectEditDialog } from './ProjectEditDialog'
 import { PROJECT_KIND_LABEL } from './projectProfile'
 import { locale, plural, t } from './i18n'
+import { ObsidianMarkdown } from './ObsidianMarkdown'
+import { statusBody } from './statusBody'
 
 function PathName({ path }: { path: string }) {
   const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
@@ -54,6 +56,8 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
                 {research.question ? <p className="info-desc">{research.question}</p> : <p className="info-desc muted">{t('설명이 없습니다 · 연필로 더하기', 'No description · Add one with the pencil')}</p>}
               </div>
             </header>
+
+            <StatusSection rapi={rapi} version={version} />
 
             <section className="info-sec" data-ui="기본 정보">
               <h2>{t('기본', 'Basics')}</h2>
@@ -109,6 +113,25 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
       {editing && listed && <ProjectEditDialog rapi={rapi} summary={summary} listed={listed} all={all} pc={projectColor(rid)}
         onProfile={onProfile} onChanged={onChanged} onSaved={onSaved} onDone={() => setEditing(false)} />}
     </div>
+  )
+}
+
+/**
+ * 현황: 에이전트가 STATUS.md · `pnpm agent:status` · MCP project_status로 읽는 요약과 같은 것 (10/11 "정본은 하나, 사람은 앱으로 AI는 파일·MCP로").
+ * 서버의 generateStatus 하나가 만든 글을 그대로 보이고, 앞머리의 에이전트용 안내(제목과 > 인용 줄)만 뺀다.
+ */
+function StatusSection({ rapi, version }: { rapi: ResearchApi; version: number }) {
+  const [text, setText] = useState<string | null | undefined>(undefined)
+  useEffect(() => { rapi.agentStatus().then((r) => setText(statusBody(r.markdown))).catch(() => setText(null)) }, [rapi, version])
+  return (
+    <section className="info-sec" data-ui="현황">
+      <h2>{t('현황', 'Status')} <span className="muted">{t('에이전트가 STATUS.md와 MCP로 읽는 것과 같은 내용', 'Same as what agents read in STATUS.md and over MCP')}</span></h2>
+      <div className="info-status">
+        {text === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
+          : text === null ? <p className="muted">{t('현황을 읽지 못했습니다', 'Could not read the status')}</p>
+          : <ObsidianMarkdown text={text} />}
+      </div>
+    </section>
   )
 }
 
