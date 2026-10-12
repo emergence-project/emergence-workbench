@@ -21,6 +21,12 @@
 .ae-label { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); }
 .ae-text { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; padding: var(--sp-2); border-radius: var(--r-sm); border-left: 2px solid var(--line-strong); }
 .ae-text.base { background: var(--bg-sunken); color: var(--text-2); border-left-color: var(--line); }
+.ae-view { margin-left: auto; align-self: center; }
+.ae-section { font-size: var(--fs-xs); color: var(--text-2); font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ae-md { white-space: normal; }
+.ae-md .ob-md { font-size: var(--fs-sm); line-height: 1.55; color: inherit; }
+.ae-md .ob-md > :first-child { margin-top: 0; }
+.ae-md .ob-md > :last-child { margin-bottom: 0; }
 .ae-none { margin: 0; color: var(--text-3); font-size: var(--fs-sm); padding: var(--sp-2); }
 .ae-edit { width: 100%; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; resize: vertical; }
 .ae-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }

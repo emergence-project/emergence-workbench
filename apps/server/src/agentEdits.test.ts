@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import YAML from 'yaml'
-import { AgentEditStore, carryUserEdits, diffBlocks, joinBlocks, splitBlocks } from './agentEdits.js'
+import { AgentEditStore, carryUserEdits, diffBlocks, joinBlocks, sectionAt, splitBlocks, withSections } from './agentEdits.js'
 import { buildApp } from './app.js'
 import { bodyHash } from './conceptNotes.js'
 import { fixture } from './testkit.js'
@@ -24,6 +24,19 @@ describe('문단 나누기와 비교', () => {
     expect(b.join('')).toBe('A\n\nprice $$5\n\nB\n\nC\n')
     expect(b.map((x) => x.trim())).toEqual(['A', 'price $$5', 'B', 'C'])
     expect(splitBlocks(text).join('')).toBe(text)
+  })
+  it('바뀐 곳마다 든 절을 붙인다 (머리말 · 코드 울타리의 # 줄은 빼고, 노트 제목은 아래 단계가 있으면 뺀다)', () => {
+    expect(sectionAt('---\n# comment\nid: x\n---\n# Note\n\n## Setup\n\n```\n# not a head\n```\n\n### Symbols\n\ntext\n')).toBe('Setup › Symbols')
+    expect(sectionAt('# Note\n\nintro\n')).toBe('Note')
+    expect(sectionAt('intro\n')).toBeUndefined()
+    expect(sectionAt('\\section{Setup}\n\\subsection{Gauge $\\{x\\}$}\n\n')).toBe('Setup › Gauge $\\{x\\}$')
+    expect(sectionAt('## A\n\n### B\n\n## C\n\n')).toBe('C')
+    const base = splitBlocks('# T\n\n## Setup\n\nold\n\n## Open\n\ngone\n')
+    const cur = splitBlocks('# T\n\n## Setup\n\nnew\n\n## Open\n\n## Checks\n\nadded\n')
+    const hunks = withSections(diffBlocks(base, cur), base, cur)
+    expect(hunks.map((h) => [h.current, h.section])).toEqual([['new', 'Setup'], ['## Checks\n\nadded', 'Checks']])
+    const removed = withSections(diffBlocks(splitBlocks('## Open\n\ngone\n'), splitBlocks('## Open\n')), splitBlocks('## Open\n\ngone\n'), splitBlocks('## Open\n'))
+    expect(removed.map((h) => [h.base, h.section])).toEqual([['gone', 'Open']])
   })
   it('깨진 고침 기록 파일은 덮어쓰지 않고 옆에 보관한다', () => {
     const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-store-'))

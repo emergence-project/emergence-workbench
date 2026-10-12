@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useConceptRender } from './ConceptNotes'
+import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
 import { agentEditsApi, ConflictError, type EditAction, type EditAttempt, type EditHunk, type EditReview, type EditReviewRow, type EditTarget } from './api'
 import { t } from './i18n'
 import { Icon } from './icons'
@@ -10,6 +12,7 @@ import { agentName } from './taskView'
  * 바뀐 곳마다 승인(기준판에 받아들임, 파일은 그대로) · 되돌리기(그 문단만 기준판 글로) · 고치기(사용자 글로 바꾸고 승인).
  * 위에는 확인된 노트에 대한 쓰기 시도(에이전트가 대화에서 허락을 받아야 하는 것)를 한 줄씩 보인다.
  * "지시"(에이전트에게 다시 맡기기)는 다음 판.
+ * 바뀐 곳마다 든 절을 위에 적고, Markdown 노트는 수식 · 굵은 글씨를 그린 글로 보인다(원문은 머리의 보기 고르기로, 10/12 피드백).
  */
 export function AgentEditsPage({ selected, scope, version, onSaved }: { selected?: string; scope?: string; version: number; onSaved(msg: string): void }) {
   const [list, setList] = useState<{ reviews: EditReviewRow[]; attempts: EditAttempt[] } | null>(null)
@@ -73,6 +76,8 @@ export function AgentEditsPage({ selected, scope, version, onSaved }: { selected
 function ReviewOf({ k, version, onChanged, onSaved }: { k: string; version: number; onChanged(): void; onSaved(msg: string): void }) {
   const [rv, setRv] = useState<EditReview | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
+  const [raw, setRaw] = useState(false)
+  const render = useConceptRender(rv?.target.kind === 'note' ? rv.target.rid : undefined)
   const load = useCallback(() => { agentEditsApi.review(k).then((r) => setRv(r.review)).catch((e: Error) => onSaved(e.message)) }, [k, onSaved])
   useEffect(() => { if (!busy) load() }, [load, version]) // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (h: EditHunk, action: EditAction, text?: string): Promise<boolean> => {
@@ -97,27 +102,40 @@ function ReviewOf({ k, version, onChanged, onSaved }: { k: string; version: numb
         <button className="a ae-review-title" onClick={() => openTargetOf(rv.target)}>{rv.title}</button>
         <span className="ae-where">{whereOf(rv.target)}</span>
         <span className="ae-when">{rv.agents.length > 0 && `${rv.agents.map(agentName).join(', ')} · `}{t(`${when(rv.since)}부터 · 바뀐 곳 ${rv.hunks.length}`, `Since ${when(rv.since)} · ${rv.hunks.length} changed`)}</span>
+        {isMarkdown(rv.target) && (
+          <div className="segmented ae-view" role="radiogroup" aria-label={t('보기', 'View')} data-ui="고침 보기 고르기">
+            <button type="button" role="radio" aria-checked={!raw} className={raw ? '' : 'on'} onClick={() => setRaw(false)}>{t('보기', 'Rendered')}</button>
+            <button type="button" role="radio" aria-checked={raw} className={raw ? 'on' : ''} onClick={() => setRaw(true)}>{t('원문', 'Source')}</button>
+          </div>
+        )}
       </div>
       {rv.notes.length > 0 && <ul className="ae-notes">{rv.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
-      {rv.hunks.map((h) => <HunkCard key={h.id} h={h} busy={busy} onAct={act} />)}
+      {rv.hunks.map((h) => <HunkCard key={h.id} h={h} busy={busy} onAct={act} render={isMarkdown(rv.target) && !raw ? render : undefined} />)}
     </div>
   )
 }
 
-function HunkCard({ h, busy, onAct }: { h: EditHunk; busy: boolean; onAct(h: EditHunk, a: EditAction, text?: string): Promise<boolean> }) {
+/** render가 있으면 Markdown을 그린 글로, 없으면 원문 그대로 */
+function HunkText({ text, base, render }: { text: string; base?: boolean; render?: RenderOptions }) {
+  const cls = `ae-text${base ? ' base' : ''}`
+  return render ? <div className={`${cls} ae-md`}><ObsidianMarkdown text={text} options={render} /></div> : <pre className={cls}>{text}</pre>
+}
+
+function HunkCard({ h, busy, onAct, render }: { h: EditHunk; busy: boolean; onAct(h: EditHunk, a: EditAction, text?: string): Promise<boolean>; render?: RenderOptions }) {
   const [editing, setEditing] = useState<string | null>(null)
   return (
     <article className="ae-hunk" data-ui="바뀐 곳">
+      {h.section && <div className="ae-section" data-ui="바뀐 절" title={t('이 고침이 든 절', 'The section this edit is in')}>§ {h.section}</div>}
       <div className="ae-cols">
         <div className="ae-col">
           <div className="ae-label">{t('전', 'Before')}</div>
-          {h.base ? <pre className="ae-text base">{h.base}</pre> : <p className="ae-none">{t('(없음: 새로 더한 문단)', '(none: a new paragraph)')}</p>}
+          {h.base ? <HunkText text={h.base} base render={render} /> : <p className="ae-none">{t('(없음: 새로 더한 문단)', '(none: a new paragraph)')}</p>}
         </div>
         <div className="ae-col">
           <div className="ae-label">{t('후', 'After')}</div>
           {editing !== null
             ? <textarea className="ae-edit" aria-label={t('고칠 글', 'Text to edit')} value={editing} rows={Math.min(16, Math.max(3, editing.split('\n').length + 1))} onChange={(e) => setEditing(e.target.value)} autoFocus />
-            : h.current ? <pre className="ae-text">{h.current}</pre> : <p className="ae-none">{t('(없음: 지운 문단)', '(none: a removed paragraph)')}</p>}
+            : h.current ? <HunkText text={h.current} render={render} /> : <p className="ae-none">{t('(없음: 지운 문단)', '(none: a removed paragraph)')}</p>}
         </div>
       </div>
       <div className="ae-actions">
@@ -135,6 +153,8 @@ function HunkCard({ h, busy, onAct }: { h: EditHunk; busy: boolean; onAct(h: Edi
 }
 
 const when = (iso: string) => iso.slice(5, 16).replace('-', '/').replace('T', ' ')
+/** 그린 글로 볼 수 있는 대상: 개념노트(Markdown 본문)와 .md 노트. LaTeX 노트는 원문 그대로 */
+const isMarkdown = (tg: EditTarget) => tg.kind === 'concept' || tg.file.endsWith('.md')
 const whereOf = (tg: EditTarget) => (tg.kind === 'concept' ? t('개념노트', 'Concept note') : `${tg.rid} · ${tg.file}`)
 export function routeOfTarget(tg: EditTarget): Route {
   if (tg.kind === 'concept') return { page: 'library', topic: tg.id }
