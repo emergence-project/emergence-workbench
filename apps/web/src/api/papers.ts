@@ -1,9 +1,9 @@
 // ---------- 논문 라이브러리 (서버 routes/papers.ts) ----------
 import type { CommentState, HighlightColor } from '@rw/core/contract/comments'
-import type { NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects } from '@rw/core/contract/papers'
+import type { ArxivCandidates, EprintSet, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects } from '@rw/core/contract/papers'
 import { enc, json, req, send } from './http'
 
-export type { PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile } from '@rw/core/contract/papers'
+export type { ArxivCandidate, PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile } from '@rw/core/contract/papers'
 export type PaintColor = HighlightColor
 export type NewPaperNote = NewPaperNoteBody
 
@@ -13,6 +13,8 @@ export const papersApi = {
   setProjects: (key: string, projects: string[]) => req(`/api/papers/${enc(key)}/projects`, send('PUT', { projects })).then((r) => json<PaperProjects>(r)),
   pdfUrl: (key: string) => `/api/papers/${enc(key)}/pdf`,
   add: (id: string) => req('/api/papers', send('POST', { id })).then((r) => json<PaperAdded>(r)),
+  findArxiv: (key: string) => req(`/api/papers/${enc(key)}/arxiv`).then((r) => json<ArxivCandidates>(r)),
+  setEprint: (key: string, eprint: string) => req(`/api/papers/${enc(key)}/eprint`, send('PUT', { eprint })).then((r) => json<EprintSet>(r)),
   upload: (file: File, id?: string) => req(`/api/papers/upload?name=${enc(file.name)}${id ? `&id=${enc(id)}` : ''}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: file }).then((r) => json<PaperAdded>(r)),
   comments: (key: string) => req(`/api/papers/${enc(key)}/comments`).then((r) => json<PaperCommentFile>(r)),
   addComment: (key: string, n: NewPaperNote) => req(`/api/papers/${enc(key)}/comments`, send('POST', n)).then((r) => json<PaperNoteAdded>(r)),

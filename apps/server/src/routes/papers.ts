@@ -8,7 +8,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { askPrompt, claudeRunner } from '../ask.js'
 import { addPaperNote, appendPaperAnswer, deletePaperNote, readPaperComments, updatePaperNote } from '../paperComments.js'
-import { addPaper, addPaperPdf } from '../paperAdd.js'
+import { addPaper, addPaperPdf, findArxiv, setEprint } from '../paperAdd.js'
 import { cloudOf, libraryBibEntries, markOpened, paperPdfFile, setPaperProjects, detex } from '../papers.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -36,6 +36,10 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
   app.put<{ Params: { key: string } }>('/api/papers/:key/projects', replies(C.PaperProjects), async (req): Promise<C.PaperProjects> => ({ projects: setPaperProjects(registry, req.params.key, parseBody(C.SetPaperProjectsBody, req.body).projects) }))
   /** 더하기: arXiv 번호나 DOI (references.bib 끝에 덧붙이고, arXiv면 PDF도 받는다) */
   app.post('/api/papers', replies(C.PaperAdded), async (req): Promise<C.PaperAdded> => addPaper(registry, parseBody(C.AddPaperBody, req.body).id))
+  /** arXiv 번호가 없는 논문의 arXiv 판 후보 (제목 · 첫 저자로 찾고 DOI가 같은 것을 앞에) */
+  app.get<{ Params: { key: string } }>('/api/papers/:key/arxiv', replies(C.ArxivCandidates), async (req): Promise<C.ArxivCandidates> => findArxiv(registry, req.params.key))
+  /** 고른 arXiv 번호를 bib 항목에 적는다 */
+  app.put<{ Params: { key: string } }>('/api/papers/:key/eprint', replies(C.EprintSet), async (req): Promise<C.EprintSet> => setEprint(registry, req.params.key, parseBody(C.SetEprintBody, req.body).eprint))
   /** 끌어다 놓은 PDF (application/octet-stream, ?name=파일 이름, ?id=번호를 따로 적었을 때) */
   app.put<{ Querystring: { name?: string; id?: string }; Body: Buffer }>('/api/papers/upload', { bodyLimit: 200 * 1024 * 1024, ...replies(C.PaperAdded) }, async (req): Promise<C.PaperAdded> => addPaperPdf(registry, req.query.name, req.body, req.query.id))
   /** PDF. 클라우드에만 있으면 읽는 동안 맥이 받아 온다 */

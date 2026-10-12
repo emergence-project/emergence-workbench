@@ -143,3 +143,42 @@ describe('bib 지키기 (10/5 검토)', () => {
   })
 })
 
+
+describe('arXiv 찾기 (10/11 12:46)', () => {
+  const FEED = `<feed><entry>
+<id>http://arxiv.org/abs/0000.00009v3</id><published>2008-07-01T00:00:00Z</published>
+<title>Matrix Product States, Projected Entangled Pair States, and Variational
+  Renormalization Group Methods</title>
+<author><name>Frank Example</name></author><author><name>Valentin Sample</name></author>
+<arxiv:doi>10.0000/example.2008.143</arxiv:doi>
+</entry><entry>
+<id>http://arxiv.org/abs/0000.00008v1</id><published>2010-01-01T00:00:00Z</published>
+<title>Matrix product states for a different problem entirely</title>
+<author><name>Frank Example</name></author>
+</entry><entry>
+<id>http://arxiv.org/abs/0000.00007v1</id><published>2009-01-01T00:00:00Z</published>
+<title>Unrelated Lecture Notes on Groups</title>
+<author><name>Frank Example</name></author>
+</entry></feed>`
+
+  it('제목·첫 저자로 찾아 DOI가 같은 후보를 앞에 두고, 고른 번호만 그 항목에 적는다', async () => {
+    const { lib } = setup('findax')
+    const file = path.join(lib, 'references.bib')
+    fs.writeFileSync(file, '@article{exampleMatrix2008,\n  title = {Matrix product states, projected entangled pair states, and variational renormalization group methods for quantum spin systems},\n  author = {Example, Frank and Sample, Valentin},\n  doi = {10.0000/example.2008.143},\n  year = {2008}\n}\n\n@book{other2001,\n  title = {Other {B}ook},\n}\n')
+    const calls: string[] = []
+    usePaperFetcher(async (url) => { calls.push(url); return new Response(FEED) })
+    const found = await app.inject({ method: 'GET', url: '/api/papers/exampleMatrix2008/arxiv' })
+    expect(found.statusCode).toBe(200)
+    expect(found.json().candidates.map((c: { eprint: string; match: string }) => `${c.eprint}:${c.match}`)).toEqual(['0000.00009:doi'])
+    expect(decodeURIComponent(calls[0]!)).toContain('ti:matrix AND ti:product')
+    expect(decodeURIComponent(calls[0]!)).toContain('au:Example')
+
+    const set = await app.inject({ method: 'PUT', url: '/api/papers/exampleMatrix2008/eprint', payload: { eprint: '0000.00009v3' } })
+    expect(set.json()).toEqual({ key: 'exampleMatrix2008', eprint: '0000.00009' })
+    expect(fs.readFileSync(file, 'utf8')).toBe('@article{exampleMatrix2008,\n  title = {Matrix product states, projected entangled pair states, and variational renormalization group methods for quantum spin systems},\n  author = {Example, Frank and Sample, Valentin},\n  doi = {10.0000/example.2008.143},\n  year = {2008},\n  eprint = {0000.00009},\n  archiveprefix = {arXiv},\n}\n\n@book{other2001,\n  title = {Other {B}ook},\n}\n')
+    // 이미 번호가 있거나, 다른 논문의 번호이거나, 번호 모양이 아니면 쓰지 않는다
+    expect((await app.inject({ method: 'PUT', url: '/api/papers/exampleMatrix2008/eprint', payload: { eprint: '0000.00001' } })).statusCode).toBe(409)
+    expect((await app.inject({ method: 'PUT', url: '/api/papers/other2001/eprint', payload: { eprint: '0000.00009' } })).statusCode).toBe(409)
+    expect((await app.inject({ method: 'PUT', url: '/api/papers/other2001/eprint', payload: { eprint: 'hello' } })).statusCode).toBe(400)
+  })
+})
