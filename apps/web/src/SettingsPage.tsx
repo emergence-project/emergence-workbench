@@ -119,10 +119,11 @@ export function SettingsPage({ ui, onChange, part, onSaved }: { ui: UiSettings; 
           <div className="page-body">
             {show('update') && <section data-ui="앱 업데이트 묶음">
               <div className="sec-head"><h2>{t('앱 기본정보', 'About this app')}</h2></div>
-              <AppInfo />
-              <div className="sec-head"><h2>{t('업데이트', 'Update')}</h2></div>
-              <AppUpdate />
-              <p className="set-desc" title={t('이 맥에서 남긴 피드백은 함께 커밋해 올립니다. 앱 코드를 고쳐 두었다면 받지 않고 이유를 보여 줍니다. 연구 저장소는 바꾸지 않습니다.', 'Feedback left on this computer is committed and pushed with it. If the app code has local changes, the update is skipped and the reason is shown. Research repositories are not changed.')}>{t('새 버전을 받아 앱을 다시 시작합니다.', 'Downloads the new version and restarts the app.')}</p>
+              <AppInfo update={<>
+                <div className="sec-head"><h2>{t('업데이트', 'Update')}</h2></div>
+                <AppUpdate />
+                <p className="set-desc" title={t('이 맥에서 남긴 피드백은 함께 커밋해 올립니다. 앱 코드를 고쳐 두었다면 받지 않고 이유를 보여 줍니다. 연구 저장소는 바꾸지 않습니다.', 'Feedback left on this computer is committed and pushed with it. If the app code has local changes, the update is skipped and the reason is shown. Research repositories are not changed.')}>{t('새 버전을 받아 앱을 다시 시작합니다.', 'Downloads the new version and restarts the app.')}</p>
+              </>} />
             </section>}
 
             {show('google') && <section data-ui="구글 계정 묶음">

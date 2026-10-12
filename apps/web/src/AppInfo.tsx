@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { req } from './api'
 import { t } from './i18n'
 
@@ -12,9 +12,10 @@ interface Info {
 
 /**
  * 설정 › 앱 기본정보 (10/4 18:17 피드백 "앱 기본정보로 바꾸고, 앱에 대한 버젼관리와 함께 기본정보를 기술해줘"):
- * 이 앱이 무엇이고 어디에 있는지, 지금 버전과 업데이트 이력(PR · 버전 · 내용 · 일시, 10/8). 업데이트는 그 아래.
+ * 이 앱이 무엇이고 어디에 있는지, 지금 버전, 업데이트(받기 · 다시 시작), 업데이트 이력(PR · 버전 · 내용 · 일시, 10/8).
+ * 업데이트는 이력 위에 둔다 (10/12 14:31 피드백: 이력이 길어 업데이트 단추가 맨 아래로 밀렸다).
  */
-export function AppInfo() {
+export function AppInfo({ update }: { update?: ReactNode }) {
   const [info, setInfo] = useState<Info | null | undefined>(undefined)
   useEffect(() => {
     req('/api/app/info').then((r) => r.json()).then((b) => setInfo(b.enabled ? b.info : null)).catch(() => setInfo(null))
@@ -31,6 +32,7 @@ export function AppInfo() {
         <dt>{t('앱 설정', 'App settings')}</dt><dd><code>~/.config/research-workspace/config.yaml</code></dd>
         <dt>{t('피드백', 'Feedback')}</dt><dd><code>~/.config/research-workspace/personal/feedback/</code><span className="muted">{t('(개인 저장소 사본 안, 비공개 개인 저장소에 올라감)', ' (inside the personal repository copy, pushed to your private repository)')}</span></dd>
       </dl>
+      {update}
       {info && info.history.length > 0 && (
         <>
           <h3 className="app-info-h">{t('업데이트 이력', 'Update history')}</h3>
