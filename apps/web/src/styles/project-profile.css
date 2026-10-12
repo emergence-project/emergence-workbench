@@ -7,3 +7,4 @@
 .pp-fields .net-pick-menu { left: 0; right: auto; }
 .pp-fields .segmented { width: fit-content; }
 .pp-fields .segmented .g-name { margin-left: 2px; }
+.pp-rail-note { margin-left: var(--sp-1); font-size: var(--fs-xs); }
