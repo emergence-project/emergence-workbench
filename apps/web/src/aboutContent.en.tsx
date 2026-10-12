@@ -259,7 +259,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
       {
         title: 'Reading and editing',
         items: [
-          { text: <>The reading view is the default. Pressing "Edit" in the toolbar opens a live editor like Obsidian (Live preview · Source | Preview); "/" at the start of a line or after a space, or ⌘K, opens the command menu, "[[" finds concepts and "[@" finds sources. "Done" (⌘S) saves and finishes; Esc cancels.</> },
+          { text: <>The reading view is the default. Pressing "Edit" in the toolbar opens a live editor like Obsidian (Live preview · Source | Preview); "/" at the start of a line or after a space, or ⌘K, opens the command menu, "[[" finds concepts and "[@" finds sources. Edits save on their own; ⌘S saves right away and keeps editing. Finish with "Done" (Esc).</> },
           { text: <>Each note has an "edit lock"; locked notes are not edited by the app or by agents.</> },
           { text: <>The body holds only concept content unrelated to any research (definitions, properties and proofs). Questions tied to a research project, key references and working instructions go in a memo file outside the body and show in the right sidebar.</> },
           { text: <><b>Default template</b>: the body and section names are in English. The first section, {c('## Definition')} ({c('## Model')} or {c('## Statement')} for a model or theorem), says in a sentence or two what the concept is. Then come {c('## Properties')} (each followed by its {c('**Proof.** … ∎')}, folded in the reading view) and {c('## Examples')}, and {c('## Remarks')} when needed. The "Concept note template" command under "/" inserts this. The rules live in research-library's {c('README.md')}.</> },
