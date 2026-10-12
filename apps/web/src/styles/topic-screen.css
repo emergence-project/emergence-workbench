@@ -23,3 +23,13 @@
 .ts-parts > .a { align-self: flex-start; }
 .ts-bar .segmented button { white-space: nowrap; }
 .ts-sum, .ts-sort-l { white-space: nowrap; }
+
+/* 있는 노트 넣기 창 (10/12 14:38) */
+.an-list { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.an-list li + li { border-top: 1px solid var(--line); }
+.an-row { display: flex; align-items: center; gap: var(--sp-2); padding: 6px var(--sp-2); cursor: pointer; font-size: var(--fs-sm); min-width: 0; }
+.an-row:hover { background: var(--bg-hover); }
+.an-row input { accent-color: var(--primary); }
+.an-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.an-where { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); }
+.an-empty, .an-hint { margin: 0; font-size: var(--fs-sm); }

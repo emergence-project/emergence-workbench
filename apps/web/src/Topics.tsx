@@ -5,6 +5,7 @@ import type { FlashAction } from './App'
 import { statusLabel, statusOf } from './format'
 import { descriptionLines } from './cardParts'
 import { NewCard, NoteCardView } from './NoteCardView'
+import { AddNotesDialog } from './AddNotesDialog'
 import { LOOSE_NOTES_LABEL, LOOSE_TOPIC_ID } from './noteKinds'
 import { routeOfNote } from './RightSidebar'
 import { store } from './store'
@@ -115,6 +116,7 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
   const [foldOpen, setFoldOpen] = useState(true)
   const [partsOpen, setPartsOpen] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [adding, setAdding] = useState(false)
 
   const loose = tid === LOOSE_TOPIC_ID
   const topics = data?.topics ?? []
@@ -188,7 +190,15 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
     </div>
 
     <div className="kc-grid" data-ui="노트 카드 목록">
-      <NewCard shape="note" label={tr('노트 만들기', 'New note')} ui="새 노트" onClick={createNote} />
+      {loose
+        ? <NewCard shape="note" label={tr('노트 만들기', 'New note')} ui="새 노트" onClick={createNote} />
+        : (
+          // 새 노트 · 있는 노트 넣기 두 갈래 (10/12 14:38)
+          <div className="kc-new-split note">
+            <button type="button" className="kc-new-half" data-ui="새 노트" onClick={createNote}><span className="kc-new-plus" aria-hidden>＋</span><span>{tr('노트 만들기', 'New note')}</span></button>
+            <button type="button" className="kc-new-half" data-ui="있는 노트 넣기" onClick={() => setAdding(true)}><span>{tr('있는 노트 넣기', 'Add existing note')}</span></button>
+          </div>
+        )}
       {grid.map(card)}
     </div>
 
@@ -208,6 +218,8 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
       </section>
     )}
 
+    {adding && t && <AddNotesDialog rid={rid} topic={{ id: t.id, title: t.title }} notes={notes} topicIds={topics.map((x) => x.id)} titleOf={titleOf}
+      onClose={() => setAdding(false)} onDone={(m) => { setAdding(false); onChanged(); onSaved(m) }} />}
     {editing && t && <TopicEditDialog rid={rid} topic={t} hash={data.hash} pc={pc} project={project} onClose={() => setEditing(false)}
       onSaved={(m) => { setEditing(false); done(); onSaved(m) }} />}
   </>)
