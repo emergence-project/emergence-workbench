@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import table from './uiNames.en.json'
+import { koName } from './uiNames'
 
 const SRC = path.dirname(new URL(import.meta.url).pathname)
 const files = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true })
@@ -22,3 +23,14 @@ describe('English names for screen parts (data-ui)', () => {
     expect(Object.entries(en).filter(([, v]) => /[가-힣]/.test(v))).toEqual([])
   })
 })
+
+describe('Korean names for screen parts follow the term table', () => {
+  it('shows the new name for an old one, and leaves other names alone', () => {
+    expect(koName('왼쪽 띠')).toBe('레일')
+    expect(koName('확인이 필요한 보조 노트')).toBe('확인이 필요한 노트')
+    expect(koName('형광펜 단추')).toBe('하이라이트 버튼')
+    expect(koName('작업 화면')).toBe('작업 화면')
+    expect(koName('오른쪽 칸')).toBe('오른쪽 사이드바')
+  })
+})
+

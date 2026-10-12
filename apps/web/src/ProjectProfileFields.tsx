@@ -28,6 +28,8 @@ export function ProjectRailCheck({ state, rail, onChange }: { state: ProjectStat
     <label className="check pp-rail" data-ui="레일에 보이기">
       <input type="checkbox" checked={state === 'active' || !!rail} disabled={state === 'active'} onChange={(e) => onChange({ rail: e.target.checked })} />
       {state === 'active' ? t('진행 중이라 레일에 보입니다', 'Shown in the rail while in progress') : t('레일에 보이기', 'Show in the rail')}
+      {/* 10/11 12:37: 꺼도 지금 연 프로젝트는 위치 표시로 레일에 남는다 (projectProfile.ts railProjects). 버그로 보이지 않게 알린다 */}
+      {state !== 'active' && !rail && <span className="muted pp-rail-note">{t('· 열어 둔 동안은 보입니다', '· shown while open')}</span>}
     </label>
   )
 }
