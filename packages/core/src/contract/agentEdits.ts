@@ -13,8 +13,8 @@ export const EditTarget = z.discriminatedUnion('kind', [
 export const EditReviewRow = z.object({ key: z.string(), target: EditTarget, title: z.string(), since: z.string(), updated: z.string(), agents: z.array(z.string()), changes: z.number() }).strict()
 /** 확인된 노트에 대한 에이전트 쓰기 시도 (사용자 차례) */
 export const EditAttempt = z.object({ key: z.string(), target: EditTarget, title: z.string(), at: z.string(), agent: z.string().optional(), summary: z.string().optional() }).strict()
-/** 바뀐 곳 하나: 기준판 조각 [b0, b1)과 지금 조각 [c0, c1) */
-export const EditHunk = z.object({ id: z.string(), b0: z.number(), b1: z.number(), c0: z.number(), c1: z.number(), base: z.string(), current: z.string() }).strict()
+/** 바뀐 곳 하나: 기준판 조각 [b0, b1)과 지금 조각 [c0, c1). section = 든 절 (「Setup › Symbols」, 절 밖이면 없음) */
+export const EditHunk = z.object({ id: z.string(), b0: z.number(), b1: z.number(), c0: z.number(), c1: z.number(), base: z.string(), current: z.string(), section: z.string().optional() }).strict()
 export const EditReview = z.object({
   key: z.string(), target: EditTarget, title: z.string(), hash: z.string(), since: z.string(), updated: z.string(),
   agents: z.array(z.string()),

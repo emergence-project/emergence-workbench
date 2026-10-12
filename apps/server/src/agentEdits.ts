@@ -140,6 +140,41 @@ export interface Hunk {
   b0: number; b1: number; c0: number; c1: number
   base: string
   current: string
+  /** 바뀐 곳이 든 절 (머리 제목 이어 붙임, 「Setup › Symbols」). 절 밖이면 없다 */
+  section?: string
+}
+
+/**
+ * 글 앞부분이 끝나는 자리의 절 이름: Markdown `## 제목`, LaTeX `\section{제목}` · `\subsection{…}`.
+ * 맨 위 단계(# 노트 제목)는 아래 단계가 있으면 뺀다. 머리말과 코드 울타리 안의 # 줄은 제목이 아니다.
+ */
+export function sectionAt(prefix: string): string | undefined {
+  const stack: { level: number; title: string }[] = []
+  let fence = false
+  // 머리말(--- … ---)의 # 줄은 주석이다
+  const body = prefix.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '')
+  for (const line of body.split('\n')) {
+    if (/^\s*(```|~~~)/.test(line)) { fence = !fence; continue }
+    if (fence) continue
+    const md = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line)
+    const tex = /^\s*\\(sub){0,2}section\*?\{(.+)\}/.exec(line)
+    const head = md ? { level: md[1]!.length, title: md[2]! } : tex ? { level: 2 + (tex[0].match(/sub/g)?.length ?? 0), title: tex[2]! } : null
+    if (!head) continue
+    while (stack.length && stack[stack.length - 1]!.level >= head.level) stack.pop()
+    stack.push(head)
+  }
+  const shown = stack.length > 1 && stack[0]!.level === 1 ? stack.slice(1) : stack
+  return shown.length ? shown.map((h) => h.title.trim()).join(' › ') : undefined
+}
+
+/** 바뀐 곳마다 든 절을 붙인다 (지금 글 기준, 지운 문단은 기준판 기준). 바뀐 곳 첫 조각이 제목이면 그 제목 아래로 본다 */
+export function withSections(hunks: Hunk[], base: string[], cur: string[]): Hunk[] {
+  return hunks.map((h) => {
+    const [blocks, at, end] = h.c1 > h.c0 ? [cur, h.c0, h.c1] : [base, h.b0, h.b1]
+    const first = end > at ? blocks[at]!.split('\n').find((l) => l.trim()) ?? '' : ''
+    const section = sectionAt(blocks.slice(0, at).join('') + (/^\s*(#{1,6}\s|\\(sub){0,2}section)/.test(first) ? first : ''))
+    return section ? { ...h, section } : h
+  })
 }
 
 /** 기준판과 지금 글의 다른 곳 (가장 긴 공통 부분열로 맞춘 뒤 맞지 않는 연속 구간) */
@@ -357,9 +392,10 @@ export function reviewOf(io: TargetIo, store: AgentEditStore, key: string): Revi
     throw e
   }
   const p = syncPending(store, key, st.text)!
-  const hunks = diffBlocks(splitBlocks(p.base), splitBlocks(st.text))
+  const [baseBlocks, curBlocks] = [splitBlocks(p.base), splitBlocks(st.text)]
+  const hunks = diffBlocks(baseBlocks, curBlocks)
   if (!hunks.length) { store.update((d) => { d.pending = d.pending.filter((x) => x.key !== key) }); return null }
-  return { key, target: p.target, title: st.title, hash: st.hash, since: p.since, updated: p.updated, agents: agentsOf(p), notes: p.notes, hunks }
+  return { key, target: p.target, title: st.title, hash: st.hash, since: p.since, updated: p.updated, agents: agentsOf(p), notes: p.notes, hunks: withSections(hunks, baseBlocks, curBlocks) }
 }
 
 export type DecideRequest = DecideBody
