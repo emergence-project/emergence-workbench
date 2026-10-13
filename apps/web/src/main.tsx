@@ -58,6 +58,7 @@ import './styles/subject-picker.css'
 import './styles/work-tab.css'
 import './styles/agent-edits.css'
 import './styles/window-controls.css'
+import './styles/gallery.css'
 
 applyUi(cachedUi())
 

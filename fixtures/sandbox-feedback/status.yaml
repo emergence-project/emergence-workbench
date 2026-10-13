@@ -11,6 +11,7 @@
   handled_at: 2026-10-04T11:20
   by: claude
   rework: 2026-10-04T10:40
+  pictures: [2026-10-04-todo-before.png, 2026-10-04-todo-after.png]
   revised:
     - at: 2026-10-04T10:00
       understood: 홈의 할 일 목록 글자를 본문 크기로 키운다.
