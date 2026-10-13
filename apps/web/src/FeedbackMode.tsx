@@ -50,6 +50,8 @@ async function captureScreen(): Promise<string | null> {
     const { toJpeg } = await import('html-to-image')
     return await toJpeg(document.body, {
       quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight,
+      // 그림 주소는 ?path=…로만 다르다(/api/feedback/picture 등). 빼면 html-to-image가 물음표 뒤를 버린 주소로 캐시해 다른 그림을 다시 쓴다 (10/13 09:59 그림)
+      includeQueryParams: true,
       filter: (n) => !(n instanceof Element && n.hasAttribute('data-feedback-ui')),
     })
   } catch { return null }
