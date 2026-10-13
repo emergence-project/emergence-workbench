@@ -53,6 +53,8 @@ export const DEFAULT_SCREENS = [
   ['review', '#/review', '바뀐 곳', '[data-ui="바뀐 곳"]:last-child'],
   // 확인 필요: 반려한 것을 다시 처리한 항목을 펼쳐 주고받은 기록과 승인·반려를 찍는다 (fixtures/sandbox-feedback)
   ['feedback', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '피드백 줄']],
+  // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습
+  ['feedback-gallery', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '[data-ui="피드백 줄"]:has-text("할 일 목록")', '[data-ui="전후 그림"] button']],
   ['about', '#/about', '소개'],
   ['settings', '#/settings', '설정'],
   ['latex', '#/settings/latex', '서식 카드'],

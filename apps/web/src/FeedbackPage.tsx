@@ -3,6 +3,7 @@ import { api, FEEDBACK_EVENT, records, type FeedbackItem, type FeedbackPickableK
 import { uiShown } from './uiNames'
 import { Icon } from './icons'
 import { MemoText } from './memo'
+import { PictureGallery, type GalleryPicture } from './PictureGallery'
 import { onListKey } from './listInput'
 import { askConfirm } from './askText'
 import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
@@ -380,6 +381,7 @@ function Conversation({ e }: { e: FeedbackItem }) {
 function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: ThreadStep; n: number; latestHandling: boolean; locked: boolean; undo: boolean }) {
   const user = useContext(Account)
   const [editing, setEditing] = useState(false)
+  const [big, setBig] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   if (s.kind === '대기') return <li className="fbp-say-wait muted">{t('관리자가 다시 처리하기를 기다립니다', 'Waiting for the maintainer to rework it')}</li>
@@ -397,6 +399,12 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
   }
   const handling = s.kind === '처리' || s.kind === '다시 처리'
   const pictures = handling && latestHandling ? e.status?.pictures ?? [] : []
+  // 전후 그림: 누르면 크게 띄워 ← →로 넘겨 본다 (10/13 진행)
+  const gallery: GalleryPicture[] = pictures.slice(0, 2).map((p, k) => ({
+    src: `/api/feedback/picture?path=${encodeURIComponent(p)}`,
+    label: k ? t('후', 'After') : t('전', 'Before'),
+    alt: k ? t('고친 뒤 화면', 'Screen after the fix') : t('고치기 전 화면', 'Screen before the fix'),
+  }))
   return (
     <li className={`fbp-say${me ? ' me' : ''}`} data-ui={me ? '사용자 글' : '관리자 글'}>
       <div className="fbp-say-head">
@@ -421,12 +429,13 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
         : s.note && <MemoText text={s.note} />}
       {pictures.length > 0 && (
         <div className="fbp-pictures" data-ui="전후 그림">
-          {pictures.slice(0, 2).map((p, k) => (
-            <figure key={p}>
-              <a href={`/api/feedback/picture?path=${encodeURIComponent(p)}`} target="_blank" rel="noreferrer"><img src={`/api/feedback/picture?path=${encodeURIComponent(p)}`} alt={k ? t('고친 뒤 화면', 'Screen after the fix') : t('고치기 전 화면', 'Screen before the fix')} /></a>
-              <figcaption className="muted">{k ? t('뒤', 'After') : t('전', 'Before')}</figcaption>
+          {gallery.map((g, k) => (
+            <figure key={g.src}>
+              <button type="button" className="fbp-picture" data-tip={t('크게 보기', 'View larger')} aria-label={`${t('크게 보기', 'View larger')}: ${g.alt}`} onClick={() => setBig(k)}><img src={g.src} alt={g.alt} /></button>
+              <figcaption className="muted">{g.label}</figcaption>
             </figure>
           ))}
+          {big !== null && <PictureGallery pictures={gallery} start={big} onClose={() => setBig(null)} />}
         </div>
       )}
       {handling && 'commit' in s && s.commit && (latestHandling

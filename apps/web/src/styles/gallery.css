@@ -1,0 +1,10 @@
+/* 그림 크게 보기 (PictureGallery): 화면 위에 그림 하나, 위에 이름 · 닫기, 양옆에 넘기기 */
+.overlay.gallery { align-items: center; padding: var(--sp-4); }
+.gallery-box { display: flex; flex-direction: column; gap: var(--sp-2); width: min(1400px, 94vw); max-height: 92vh; padding: var(--sp-2) var(--sp-3) var(--sp-3); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.gallery-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.gallery-label { font-size: var(--fs-sm); font-weight: var(--fw-strong); }
+.gallery-body { position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.gallery-body img { display: block; max-width: 100%; max-height: calc(92vh - 72px); object-fit: contain; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-side); }
+.gallery-nav { position: absolute; top: 50%; transform: translateY(-50%); background: var(--bg); border: 1px solid var(--line-strong); }
+.gallery-nav.prev { left: var(--sp-2); }
+.gallery-nav.next { right: var(--sp-2); }
