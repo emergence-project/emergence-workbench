@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { awaitsUserReview, buildTree, isValidBlockId, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter } from '@rw/core'
+import { awaitsUserReview, buildTree, isValidBlockId, RESEARCH_TARGET, sameNoteFile, todoDue, type JournalEntry, frontMatter } from '@rw/core'
 import YAML from 'yaml'
 import type { EditList } from '@rw/core/contract/agentEdits'
 import { AgentEditStore, listEdits } from './agentEdits.js'
@@ -133,7 +133,8 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
   p('## 정본 위치', '')
   for (const c of src.canon) p(`- \`${c.path}\`${c.note ? ` — ${c.note}` : ''}`)
   if (blocks.length) p(`- \`workbench/blocks/*.md\` (예전 것은 \`*.tex\`) — 블록 노트 ${blocks.length}개 (과정 기록: 상태·다음 할 일·멈춘 이유)`)
-  if (notes.length) p(`- ${['note', 'calc'].filter((type) => notes.some((n) => n.type === type)).map((type) => `\`workbench/${type === 'note' ? 'notes' : 'calc'}/<폴더>/\``).join(' · ')} — 연구노트·계산 노트 ${notes.length}개 (본문 \`note.md\` 또는 \`main.tex\`, 정보는 \`note.yaml\`)`)
+  if (wb.usesTopicFolders()) p(`- \`workbench/topics/<주제>/topic.yaml\` — 주제 ${wb.topicFolders().length}개의 정보 (순서는 \`research.yaml\` \`topics:\`)`)
+  if (notes.length) p(`- ${noteDirs(notes).map((d) => `\`${d}\``).join(' · ')} — 연구노트·계산 노트 ${notes.length}개 (본문 \`note.md\` 또는 \`main.tex\`, 정보는 \`note.yaml\`)`)
   if (statements.length) p(`- \`${statements[0]!.file.split('/')[0]}/\` — 진술 ${statements.length}개 (정의·정리; uses·proofs 관계)`)
   p('- `workbench/log/날짜.md` — 할 일과 기록', '')
 
@@ -154,8 +155,8 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
   const todoLabel = (target: string) => {
     if (target === RESEARCH_TARGET) return ''
     if (isValidBlockId(target)) return ` (블록 노트: ${byId.get(target)?.meta.title ?? target})`
-    const note = notes.find((n) => n.file === target)
-    if (note || /^workbench\/(notes|calc)\/[^/]+\/(note\.md|main\.tex)$/.test(target)) return ` (노트: ${note?.title || target})`
+    const note = notes.find((n) => n.file === target) ?? notes.find((n) => sameNoteFile(n.file, target))
+    if (note || /^workbench\/(notes|calc|topics\/[^/]+)\/[^/]+\/(note\.md|main\.tex)$/.test(target)) return ` (노트: ${note?.title || target})`
     return ` (${target})`
   }
   for (const { e, due } of open) p(`- [ ] ${e.text.split('\n')[0]}${todoLabel(e.target)}${due ? ` — 마감 ${due}` : ''}`)
@@ -325,4 +326,15 @@ export function writeStatus(wb: Workbench, now = new Date(), edits?: EditList): 
   if (fs.existsSync(file) && strip(fs.readFileSync(file, 'utf8')) === strip(body)) return { written: false, file }
   writeAtomic(file, body)
   return { written: true, file }
+}
+
+/** 노트가 놓인 폴더 모양: 주제 폴더 안 노트는 주제 폴더, 나머지는 notes/·calc/ */
+function noteDirs(notes: { file: string }[]): string[] {
+  const dirs = new Set<string>()
+  for (const n of notes) {
+    if (n.file.startsWith('workbench/topics/')) dirs.add('workbench/topics/<주제>/<폴더>/')
+    else if (n.file.startsWith('workbench/notes/')) dirs.add('workbench/notes/<폴더>/')
+    else if (n.file.startsWith('workbench/calc/')) dirs.add('workbench/calc/<폴더>/')
+  }
+  return [...dirs]
 }

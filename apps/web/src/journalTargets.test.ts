@@ -3,7 +3,7 @@ import { isNoteTarget, journalTargetRoute } from './journalTargets'
 import { href, parseRoute } from './router'
 
 describe('일지에서 노트 열기', () => {
-  it.each(['workbench/notes/증명/note.md', 'workbench/calc/수치 계산/note.md', 'workbench/calc/legacy/main.tex', 'docs/paper/intro.tex'])(
+  it.each(['workbench/notes/증명/note.md', 'workbench/topics/kempe/증명/note.md', 'workbench/calc/수치 계산/note.md', 'workbench/calc/legacy/main.tex', 'docs/paper/intro.tex'])(
     '노트 경로 %s는 블록 id가 아닌 파일로 열고 주소를 왕복한다', (target) => {
       expect(isNoteTarget(target)).toBe(true)
       const route = journalTargetRoute('sample-research', target)

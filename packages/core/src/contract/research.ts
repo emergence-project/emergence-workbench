@@ -161,7 +161,7 @@ export const Statement = z.object({
   hash: z.string(),
 }).strict()
 
-/** 노트 구분: 원고(논문 원문) · 연구노트(workbench/notes/) · 계산 노트(workbench/calc/) */
+/** 노트 구분: 원고(논문 원문) · 연구노트(workbench/notes/, 주제 폴더 workbench/topics/<주제>/) · 계산 노트(workbench/calc/) */
 export const NOTE_KINDS = ['paper', 'note', 'calc'] as const
 /** 메인 노트 하나 (research.yaml의 sources.manuscript, 연구노트·계산 노트는 저절로). declared: research.yaml에 적은 것 */
 export const ManuscriptSource = z.object({ path: z.string(), name: z.string(), kind: z.enum(NOTE_KINDS), declared: z.literal(true).optional() }).strict()

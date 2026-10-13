@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { AutosaveGroup } from './autosave'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Workspace, closeWorkspaceTab, applyWorkspaceOpenRequest, hasVisibleManuscriptEditor, manuscriptPdfTab, openRoute, pairRoutePdf, restoreLayout, routePdf, showBeside, tabKey, toggleSplit, workspaceVisibility, type Layout, type Tab } from './Workspace'
+import { Workspace, closeWorkspaceTab, applyWorkspaceOpenRequest, hasVisibleManuscriptEditor, manuscriptPdfTab, openRoute, pairRoutePdf, restoreLayout, retargetNoteTabs, routePdf, showBeside, tabKey, toggleSplit, workspaceVisibility, type Layout, type Tab } from './Workspace'
 import type { ManuscriptInfo } from './api'
 
 const layout = (): Layout => ({
@@ -485,5 +485,23 @@ describe('editor lifetime while closing', () => {
     }))
     expect(rendered).toContain('mspdf:b')
     expect(html).toContain('display:none')
+  })
+})
+
+describe('주제를 바꿔 옮겨 간 노트의 탭 (10/13 주제 폴더)', () => {
+  const OLD = 'workbench/topics/kempe/proof/note.md'
+  const NEW = 'workbench/topics/discharging/proof/note.md'
+  const moved = (file: string) => (file === OLD || file === 'workbench/notes/proof/note.md' ? NEW : undefined)
+  it('옛 경로 탭을 지금 경로로 바꾸고 고른 탭도 따라간다', () => {
+    const l: Layout = { ...layout(), panes: [{ tabs: [{ k: 'part', file: 'a.tex' }, { k: 'part', file: OLD }], active: `part:${OLD}` }, layout().panes[1]] }
+    const next = retargetNoteTabs(l, moved)
+    expect(next.panes[0]).toEqual({ tabs: [{ k: 'part', file: 'a.tex' }, { k: 'part', file: NEW }], active: `part:${NEW}` })
+    expect(next.panes[1]).toBe(l.panes[1])
+  })
+  it('바꿀 것이 없으면 같은 배치, 같은 노트가 두 번 열렸으면 하나만 둔다', () => {
+    const l = layout()
+    expect(retargetNoteTabs(l, moved)).toBe(l)
+    const twice: Layout = { ...l, panes: [{ tabs: [{ k: 'part', file: NEW }, { k: 'part', file: 'workbench/notes/proof/note.md' }], active: `part:${NEW}` }, l.panes[1]] }
+    expect(retargetNoteTabs(twice, moved).panes[0]).toEqual({ tabs: [{ k: 'part', file: NEW }], active: `part:${NEW}` })
   })
 })

@@ -130,6 +130,46 @@ describe('직접 고친 연구 파일의 읽기 전용 검사', () => {
     expect(check().diagnostics.filter((d) => d.level === 'error')).toEqual([])
   })
 
+  describe('주제 폴더 (10/13)', () => {
+    const has = (level: string, file: string, message: string) => expect.objectContaining({ level, file, message: expect.stringContaining(message) })
+    it('바른 주제 폴더와 그 안의 노트는 오류도 경고도 없다', () => {
+      write('research.yaml', 'title: 연구\ntopics:\n  - kempe\n  - id: old\n    title: 예전\n')
+      write('topics/kempe/topic.yaml', 'title: Kempe 사슬\ndescription: 맞바꾸기\n')
+      write('topics/kempe/recolor/note.md', '# 다시 칠하기\n')
+      write('topics/kempe/recolor/note.yaml', 'name: 다시 칠하기\ntopics: [kempe, old]\n')
+      write('topics/kempe/bare/note.md', '# 주제를 적지 않은 노트\n')
+      expect(check().diagnostics).toEqual([])
+    })
+    it('topic.yaml이 없는 주제, 모르는 키, 폴더와 다른 id, 틀린 폴더 이름을 보고한다', () => {
+      write('research.yaml', 'topics:\n  - missing\n  - BAD\n  - {id: kempe, title: 안 모양}\n')
+      write('topics/kempe/topic.yaml', 'title: Kempe\nid: other\ncolour: red\n')
+      fs.mkdirSync(path.join(wb.root, 'topics/Stray'), { recursive: true })
+      const ds = check().diagnostics
+      expect(ds).toEqual(expect.arrayContaining([
+        has('warning', 'workbench/research.yaml', 'topics/missing/topic.yaml'),
+        has('error', 'workbench/research.yaml', '주제 id는'),
+        has('warning', 'workbench/research.yaml', '주제 폴더에 함께'),
+        has('warning', 'workbench/topics/kempe/topic.yaml', '모르는 topic.yaml 키: colour'),
+        has('warning', 'workbench/topics/kempe/topic.yaml', 'id는 폴더 이름'),
+        has('error', 'workbench/topics/Stray', '주제 폴더 이름은'),
+        has('warning', 'workbench/topics/Stray', 'topic.yaml이 없습니다'),
+      ]))
+    })
+    it('notes/와 주제 폴더에 같은 노트 폴더 이름이 있으면 오류, 주인 주제가 맨 앞이 아니면 경고', () => {
+      write('research.yaml', 'topics:\n  - kempe\n  - other\n')
+      write('topics/kempe/topic.yaml', 'title: Kempe\n')
+      write('topics/other/topic.yaml', 'title: Other\n')
+      write('notes/twin/note.md', '# 하나\n')
+      write('topics/kempe/twin/note.md', '# 둘\n')
+      write('topics/kempe/order/note.md', '# 순서\n')
+      write('topics/kempe/order/note.yaml', 'topics: [other, kempe]\n')
+      write('calc/twin/note.md', '# 계산 노트는 따로 센다\n')
+      const ds = check().diagnostics
+      expect(ds.filter((d) => d.message.includes('같은 노트 폴더 이름'))).toEqual([has('error', 'workbench/topics/kempe/twin', 'workbench/notes/twin')])
+      expect(ds).toContainEqual(has('warning', 'workbench/topics/kempe/order/note.yaml', '주인 주제는 폴더(kempe)'))
+    })
+  })
+
   it('맡긴 일은 scanTasks 진단을 그대로 오류로 보인다', () => {
     write('tasks/2026-10-10-invalid.md', '---\ntitle: 검사\nstate: invalid\n---\n')
     const expected = withLang('ko', () => scanTasks(wb).diagnostics).map(({ file, line, message }) => ({ level: 'error', file, line, message }))

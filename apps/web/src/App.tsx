@@ -1,4 +1,4 @@
-import { RESEARCH_TARGET, type UiSettings } from '@rw/core'
+import { RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { AppUpdateButton } from './AppUpdate'
@@ -49,7 +49,7 @@ import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
 import { applyUi, cachedUi } from './ui'
 import { FLASH_EVENT, type FlashAction, type FlashMessage } from './flash'
-import { hasVisibleManuscriptEditor, isSection, manuscriptPdfTab, showBeside, tabKey, toggleSplit, useLayout, useWorkspaceDragging, workspaceVisibility, Workspace, type Tab, type TabRenderContext, type WorkspaceOpenRequest } from './Workspace'
+import { hasVisibleManuscriptEditor, isSection, manuscriptPdfTab, retargetNoteTabs, showBeside, tabKey, toggleSplit, useLayout, useWorkspaceDragging, workspaceVisibility, Workspace, type Tab, type TabRenderContext, type WorkspaceOpenRequest } from './Workspace'
 import { t } from './i18n'
 
 export type { FlashAction } from './flash'
@@ -158,7 +158,18 @@ export function App() {
     window.clearTimeout(homeTimer.current)
     homeTimer.current = window.setTimeout(() => setVersion((v) => v + 1), 400)
   }, [])
-  const { library, libraryChanged, manuscripts, topics, todoCount, notes, notesChanged } = useProjectData(rapi, version, rid)
+  const { library, libraryChanged, manuscripts, topics, todoCount, notes, notesOf, notesChanged } = useProjectData(rapi, version, rid)
+  // 주제를 바꿔 옮겨 간 노트(10/13 주제 폴더)를 옛 경로로 연 탭·주소는 지금 경로로 바꾼다
+  const routeFile = route.page === 'part' && route.rid === rid ? route.file : null
+  useEffect(() => {
+    const own = notes.filter((n) => n.type !== 'block')
+    if (!rid || notesOf !== rid || !own.length) return
+    const files = new Set(own.map((n) => n.file))
+    const moved = (file: string) => (files.has(file) ? undefined : own.find((n) => sameNoteFile(n.file, file))?.file)
+    setLayout((l) => retargetNoteTabs(l, moved))
+    const to = routeFile ? moved(routeFile) : undefined
+    if (to) go({ page: 'part', rid, file: to })
+  }, [notes, notesOf, routeFile, rid, setLayout])
   const issues = useProjectIssues(researches)
   const msOfFile = (file: string) => manuscripts.find((m) => m.main === file || m.parts.some((p) => p.file === file)) ?? null
   const msKeyOfTab = (t: { ms?: string }) => msKeyOfPdfTab(t, manuscripts)

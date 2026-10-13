@@ -27,7 +27,9 @@ export function trashNote(wb: Workbench, key: string, now = new Date()): Trashed
   if (fs.existsSync(yaml) && fs.readFileSync(yaml, 'utf8').includes(info.main)) throw new WorkbenchError(400, t('research.yaml에 메인 노트로 적힌 노트라 지우지 않습니다. 메인 노트를 바꾼 뒤 지우세요', 'Not deleted: research.yaml lists this note as the main note. Change the main note first'))
   const dir = path.dirname(path.join(repo, info.main))
   const parent = path.join(wb.root, NOTE_DIRS[info.kind])
-  if (path.dirname(dir) !== parent) throw new WorkbenchError(400, t(`노트 폴더가 ${NOTE_DIRS[info.kind]}/ 바로 아래가 아닙니다`, `The note folder is not directly under ${NOTE_DIRS[info.kind]}/`))
+  // 주제 폴더 안 연구노트(workbench/topics/<주제>/<노트>/)도 지운다
+  const inTopic = info.kind === 'note' && path.dirname(path.dirname(dir)) === wb.topicsDir
+  if (path.dirname(dir) !== parent && !inTopic) throw new WorkbenchError(400, t(`노트 폴더가 ${NOTE_DIRS[info.kind]}/ 바로 아래가 아닙니다`, `The note folder is not directly under ${NOTE_DIRS[info.kind]}/`))
   const id = `${path.basename(dir)}-${now.toISOString().replace(/[-:]/g, '').slice(0, 15)}`
   const dest = path.join(trashRoot(wb), id)
   fs.mkdirSync(trashRoot(wb), { recursive: true })
@@ -65,8 +67,14 @@ export function restoreNote(wb: Workbench, id: string): { path: string } {
   const fallback = path.join(wb.root, NOTE_DIRS.note, id.replace(/-\d{8}T\d{6}$/, ''))
   let target = item?.from ? path.join(repo, item.from) : fallback
   const kindDirs = Object.values(NOTE_DIRS).map((d) => path.join(wb.root, d))
-  if (!kindDirs.includes(path.dirname(target))) target = fallback
-  for (let n = 2; fs.existsSync(target); n++) target = `${target.replace(/-\d+$/, '')}-${n}`
+  // 주제 폴더에서 지운 노트는 그 주제 폴더가 아직 있으면 거기로, 없으면 notes/로
+  const topicDir = path.dirname(target)
+  const intoTopic = path.dirname(topicDir) === wb.topicsDir && fs.existsSync(topicDir)
+  if (!kindDirs.includes(path.dirname(target)) && !intoTopic) target = fallback
+  // 연구노트 폴더 이름은 notes/와 주제 폴더를 통틀어 겹치지 않게
+  const isNote = path.dirname(path.dirname(target)) === wb.topicsDir || path.dirname(target) === path.join(wb.root, NOTE_DIRS.note)
+  const taken = (p: string) => fs.existsSync(p) || (isNote && wb.noteFolderTaken(path.basename(p)))
+  for (let n = 2; taken(target); n++) target = `${target.replace(/-\d+$/, '')}-${n}`
   fs.mkdirSync(path.dirname(target), { recursive: true })
   fs.rmSync(path.join(dir, INFO), { force: true })
   fs.renameSync(dir, target)

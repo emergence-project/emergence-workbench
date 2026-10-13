@@ -155,7 +155,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
   server.registerTool('read_note', {
     title: 'Read note',
     description: 'Content and hash of a note (or manuscript file). `file` is the repository-relative path from list_notes. Keep the hash as baseHash for later edits.',
-    inputSchema: { project, file: z.string().describe('Repository-relative path, e.g. workbench/notes/<name>/note.md') },
+    inputSchema: { project, file: z.string().describe('Repository-relative path, e.g. workbench/notes/<name>/note.md or workbench/topics/<topic>/<name>/note.md') },
     annotations: ro,
   }, async ({ project: rid, file }) => {
     // 블록 노트(workbench/blocks/<id>.md|.tex)는 블록 API, 연구노트·계산 노트·원고 파일은 원고 API가 읽는다

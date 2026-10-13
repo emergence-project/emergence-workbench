@@ -174,6 +174,32 @@ export function toggleSplit(l: Layout, page: string): Layout {
 }
 
 /** 원고(메인 노트)의 PDF 탭. research.yaml에 적은 첫 원고(key '')는 ms 없이 */
+/**
+ * 주제를 바꿔 다른 폴더로 옮겨 간 노트 (10/13 주제 폴더): 열린 노트 탭의 옛 경로를 지금 경로로 바꾼다.
+ * moved는 옛 경로에 지금 경로를 준다(그대로면 undefined). 바꾼 것이 없으면 같은 배치를 돌려준다
+ */
+export function retargetNoteTabs(l: Layout, moved: (file: string) => string | undefined): Layout {
+  let changed = false
+  const panes = l.panes.map((p) => {
+    let active = p.active
+    let here = false
+    const tabs = p.tabs.map((t) => {
+      const file = t.k === 'part' ? moved(t.file) : undefined
+      if (t.k !== 'part' || !file || file === t.file) return t
+      here = true
+      const next: Tab = { k: 'part', file }
+      if (active === tabKey(t)) active = tabKey(next)
+      return next
+    })
+    if (!here) return p
+    changed = true
+    // 같은 노트가 옛 경로·새 경로로 두 번 열려 있었으면 하나만 둔다
+    const seen = new Set<string>()
+    return { tabs: tabs.filter((t) => { const k = tabKey(t); if (seen.has(k)) return false; seen.add(k); return true }), active }
+  }) as Layout['panes']
+  return changed ? { ...l, panes } : l
+}
+
 export const manuscriptPdfTab = (ms: string): Tab => (ms ? { k: 'mspdf', ms } : { k: 'mspdf' })
 
 /** 주소를 먼저 연 뒤 결과 PDF에 초점을 준다. 갈래 화면이 PDF를 가리지 않게 같은 주소가 된 뒤에만 적용한다. */

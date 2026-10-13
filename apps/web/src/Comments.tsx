@@ -1,4 +1,4 @@
-import { commentTargetSlug as slug } from '@rw/core'
+import { canonicalNoteFile, commentTargetSlug as slug } from '@rw/core'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { commentsApi, ConflictError, papersApi, type CommentEntry, type CommentFile, type CommentKind, type CommentState, type NewComment, type PaintColor, type NoteHighlight, type PdfBox } from './api'
 import { PdfView, type PdfMark, type PdfPaint, type PdfSelection } from './PdfView'
@@ -41,10 +41,10 @@ export const paperTarget = (name: string): CommentTarget => ({ target: `paper-${
 /** 원고 PDF. 메인 노트가 여럿이면 둘째부터 `manuscript-<key>` */
 export const manuscriptTarget = (name?: string, ms?: string): CommentTarget => ({ target: ms ? `manuscript-${slug(ms)}` : 'manuscript', title: `원고 PDF${name ? ` ${name}` : ''}` })
 export const blockTarget = (bid: string, title?: string): CommentTarget => ({ target: `block-${slug(bid)}`, title: `노트 결과 ${title ?? bid}`, source: bid })
-/** Markdown 연구·계산 노트 (같은 폴더 이름이어도 기록 대상은 나눈다). */
+/** Markdown 연구·계산 노트 (같은 폴더 이름이어도 기록 대상은 나눈다). 주제 폴더 안 노트는 notes/의 노트와 같은 대상 (주제를 바꿔 옮겨도 코멘트가 따라간다) */
 const NOTE_FILE = /^workbench\/(notes|calc)\/([^/]+)\/note\.md$/
 export const noteTarget = (file: string, title?: string): CommentTarget | null => {
-  const m = NOTE_FILE.exec(file)
+  const m = NOTE_FILE.exec(canonicalNoteFile(file))
   return m ? { target: `${m[1] === 'calc' ? 'calc' : 'note'}-${slug(m[2]!)}`, title: `${m[1] === 'calc' ? '계산 노트' : '연구노트'} ${title ?? m[2]}`, source: file } : null
 }
 
