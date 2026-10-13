@@ -344,7 +344,7 @@
 | 기본 · 일반 CI | `pnpm shots --viewport 1200x735 --theme mixed --sample default` | 기존 기본 샘플 55화면: 라이트 53, 다크 `dark-topic`·`dark-note-info` 2 |
 | 넓은 창 | `pnpm shots --viewport 1440x900 --theme light --sample default` | 기본 샘플 55화면 모두 라이트 |
 | 다크 전체 | `pnpm shots --viewport 1200x735 --theme dark --sample default` | 기본 샘플 55화면 모두 다크 |
-| 분류 샘플 | `pnpm shots --viewport 1200x735 --theme light --sample subjects` | 별도 `.sandbox/subjects-library`의 분류 10화면 |
+| 분류 샘플 | `pnpm shots --viewport 1200x735 --theme light --sample subjects` | 별도 `.sandbox-shots/subjects-library`의 분류 10화면 |
 
 옵션을 생략하면 첫 줄과 같다. `mixed`는 기존 다크 두 장만 유지하며, `light`·`dark`는 이름이 `dark-`인 화면까지 지정한 테마로 찍는다. CI는 첫 줄만 실행한다. 넓은 창 · 전체 다크 · 분류 샘플은 Actions 시간 한도 때문에 CI에서 찍지 않으며, CI가 초록이어도 이 범위의 시각 확인까지 끝난 뜻은 아니다.
 

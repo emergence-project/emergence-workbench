@@ -20,7 +20,8 @@ const port = Number(process.env.RW_PORT ?? 8130)
  * fixtures with the English overlay fixtures/en/ copied on top (same paths, only human text differs).
  */
 const sampleEn = process.env.RW_SAMPLE_LANG === 'en'
-const sandboxRoot = path.join(repoRoot, sampleEn ? '.sandbox-en' : '.sandbox')
+// RW_SANDBOX_DIR: another sample folder (pnpm shots builds its own fresh one each run, scripts/shots/shots.mjs)
+const sandboxRoot = process.env.RW_SANDBOX_DIR ? path.resolve(process.env.RW_SANDBOX_DIR) : path.join(repoRoot, sampleEn ? '.sandbox-en' : '.sandbox')
 function cpSample(src: string, dst: string, opts: { recursive?: boolean; filter?: (src: string) => boolean } = {}): void {
   fs.cpSync(src, dst, { recursive: true, ...opts })
   const rel = path.relative(path.join(repoRoot, 'fixtures'), src)

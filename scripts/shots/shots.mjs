@@ -1,4 +1,4 @@
-// pnpm shots — 개발용 예제 모드(.sandbox)로 앱을 띄워 주요 화면을 찍고, 화면마다 오류 없이 그려지는지 확인한다.
+// pnpm shots — 개발용 예제 모드(매번 새로 만드는 .sandbox-shots)로 앱을 띄워 주요 화면을 찍고, 화면마다 오류 없이 그려지는지 확인한다.
 //   찍은 그림: shots/<화면>.png (저장소에 넣지 않는다). 하나라도 오류가 나면 실패로 끝난다.
 //   실제 연구 저장소·~/.config는 쓰지 않는다 (RW_SANDBOX=1).
 //   브라우저: CHROMIUM_PATH, 없으면 playwright-core가 아는 chromium (CI는 실행기에 깔린 Chrome).
@@ -37,10 +37,18 @@ async function waitUp(url, ms = 30_000) {
   throw new Error(`${url} 이 ${ms / 1000}초 안에 켜지지 않았습니다`)
 }
 
+// 이미 떠 있는 서버(지난 실행의 남은 것 등)를 찍지 않게, 포트가 비어 있어야 시작한다
+if (await fetch(base).then(() => true, () => false)) {
+  console.error(`${base} 에 이미 서버가 떠 있습니다. 끄거나 SHOTS_PORT로 다른 포트를 쓰세요`)
+  process.exit(1)
+}
 if (!process.env.SHOTS_SKIP_BUILD) await run('pnpm', ['--filter', '@rw/web', 'build'])
+// 예제는 매번 fixtures에서 새로 만든다. 개발용 .sandbox/는 처음 한 번만 복사해서, fixtures가 바뀐 뒤에는 낡은 예제를 찍게 된다
+const sandbox = path.join(root, options.lang === 'en' ? '.sandbox-shots-en' : '.sandbox-shots')
+fs.rmSync(sandbox, { recursive: true, force: true })
 const server = spawn(path.join(root, 'apps/server/node_modules/.bin/tsx'), ['apps/server/src/server.ts'], {
   cwd: root, stdio: ['ignore', 'inherit', 'inherit'],
-  env: { ...process.env, RW_SANDBOX: '1', RW_SUBJECTS_FIXTURE: options.sample === 'subjects' ? '1' : '', RW_STATIC: '1', RW_PORT: String(port), RW_SAMPLE_LANG: options.lang === 'en' ? 'en' : '' },
+  env: { ...process.env, RW_SANDBOX: '1', RW_SANDBOX_DIR: sandbox, RW_SUBJECTS_FIXTURE: options.sample === 'subjects' ? '1' : '', RW_STATIC: '1', RW_PORT: String(port), RW_SAMPLE_LANG: options.lang === 'en' ? 'en' : '' },
 })
 const problems = []
 const hangul = []
