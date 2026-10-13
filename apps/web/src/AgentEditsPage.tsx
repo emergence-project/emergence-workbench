@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useConceptRender } from './ConceptNotes'
+import { onlySpacing, paintDiff } from './diffPaint'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
 import { agentEditsApi, ConflictError, type EditAction, type EditAttempt, type EditHunk, type EditReview, type EditReviewRow, type EditTarget } from './api'
 import { t } from './i18n'
@@ -12,14 +13,17 @@ import { agentName } from './taskView'
  * 바뀐 곳마다 승인(기준판에 받아들임, 파일은 그대로) · 되돌리기(그 문단만 기준판 글로) · 고치기(사용자 글로 바꾸고 승인).
  * 위에는 확인된 노트에 대한 쓰기 시도(에이전트가 대화에서 허락을 받아야 하는 것)를 한 줄씩 보인다.
  * "지시"(에이전트에게 다시 맡기기)는 다음 판.
- * 바뀐 곳마다 든 절을 위에 적고, Markdown 노트는 수식 · 굵은 글씨를 그린 글로 보인다(원문은 머리의 보기 고르기로, 10/12 피드백).
+ * 10/13 시안: 바뀐 곳은 문단 하나씩 전 · 후 · 검토 세 칸의 표 줄이고, 든 절마다 헤더 줄로 묶는다. 바뀐 낱말은 칠하고(diffPaint),
+ * 줄을 누르면 앞뒤 문단 펼치기 단추가 보인다. 노트 이름은 고르는 탭에만 둔다.
  */
 export function AgentEditsPage({ selected, scope, version, onSaved }: { selected?: string; scope?: string; version: number; onSaved(msg: string): void }) {
   const [list, setList] = useState<{ reviews: EditReviewRow[]; attempts: EditAttempt[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [raw, setRaw] = useState(false)
   const load = useCallback(() => { agentEditsApi.list(scope).then((v) => { setList(v); setError(null) }).catch((e: Error) => setError(e.message)) }, [scope])
   useEffect(() => { load() }, [load, version])
   const key = selected ?? list?.reviews[0]?.key
+  const row = list?.reviews.find((r) => r.key === key)
   const open = (k: string) => go({ page: 'review', key: k, ...(scope && { scope }) })
   const dismiss = async (a: EditAttempt) => {
     try { await agentEditsApi.dismissAttempt(a.key); load() } catch (e) { onSaved((e as Error).message) }
@@ -57,14 +61,24 @@ export function AgentEditsPage({ selected, scope, version, onSaved }: { selected
             <section className="ae-sec" data-ui="검토할 노트">
               <h2 className="ae-h">{t('검토할 노트', 'Notes to review')} {list.reviews.length > 0 && <span className="rail-count">{list.reviews.length}</span>}</h2>
               {list.reviews.length === 0 && <p className="muted">{t('지금 검토할 고침이 없습니다.', 'No edits to review right now.')}</p>}
-              <div className="segmented small ae-tabs" role="tablist">
-                {list.reviews.map((r) => (
-                  <button key={r.key} role="tab" aria-selected={r.key === key} className={r.key === key ? 'on' : ''} data-ui="검토할 노트 줄" data-ui-item={r.title} title={whereOf(r.target)} onClick={() => open(r.key)}>
-                    {r.title} <span className="muted">{r.changes}</span>
-                  </button>
-                ))}
-              </div>
-              {key && list.reviews.some((r) => r.key === key) && <ReviewOf key={key} k={key} version={version} onChanged={load} onSaved={onSaved} />}
+              {list.reviews.length > 0 && (
+                <div className="ae-tabrow">
+                  <div className="segmented small ae-tabs" role="tablist">
+                    {list.reviews.map((r) => (
+                      <button key={r.key} role="tab" aria-selected={r.key === key} className={r.key === key ? 'on' : ''} data-ui="검토할 노트 줄" data-ui-item={r.title} title={whereOf(r.target)} onClick={() => open(r.key)}>
+                        {r.title} <span className="muted">{r.changes}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {row && isMarkdown(row.target) && (
+                    <div className="segmented ae-view" role="radiogroup" aria-label={t('보기', 'View')} data-ui="고침 보기 고르기">
+                      <button type="button" role="radio" aria-checked={!raw} className={raw ? '' : 'on'} onClick={() => setRaw(false)}>{t('보기', 'Rendered')}</button>
+                      <button type="button" role="radio" aria-checked={raw} className={raw ? 'on' : ''} onClick={() => setRaw(true)}>{t('원문', 'Source')}</button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {key && row && <ReviewOf key={key} k={key} raw={raw} version={version} onChanged={load} onSaved={onSaved} />}
             </section>
           )}
         </div>
@@ -73,10 +87,22 @@ export function AgentEditsPage({ selected, scope, version, onSaved }: { selected
   )
 }
 
-function ReviewOf({ k, version, onChanged, onSaved }: { k: string; version: number; onChanged(): void; onSaved(msg: string): void }) {
+/** 바뀐 곳을 든 절마다 묶는다 (문서 순서 그대로, 같은 절이 이어진 동안 한 묶음) */
+function groupsOf(hunks: EditHunk[]): { section?: string; hunks: EditHunk[] }[] {
+  const out: { section?: string; hunks: EditHunk[] }[] = []
+  for (const h of hunks) {
+    const last = out[out.length - 1]
+    if (last && last.section === h.section) last.hunks.push(h)
+    else out.push({ ...(h.section !== undefined && { section: h.section }), hunks: [h] })
+  }
+  return out
+}
+
+function ReviewOf({ k, raw, version, onChanged, onSaved }: { k: string; raw: boolean; version: number; onChanged(): void; onSaved(msg: string): void }) {
   const [rv, setRv] = useState<EditReview | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
-  const [raw, setRaw] = useState(false)
+  const [picked, setPicked] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const render = useConceptRender(rv?.target.kind === 'note' ? rv.target.rid : undefined)
   const load = useCallback(() => { agentEditsApi.review(k).then((r) => setRv(r.review)).catch((e: Error) => onSaved(e.message)) }, [k, onSaved])
   useEffect(() => { if (!busy) load() }, [load, version]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -94,61 +120,111 @@ function ReviewOf({ k, version, onChanged, onSaved }: { k: string; version: numb
       return false
     } finally { setBusy(false) }
   }
+  const toggle = (id: string) => setExpanded((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   if (rv === undefined) return null
   if (rv === null) return <p className="muted">{t('이 노트의 고침은 모두 검토했습니다.', 'All edits to this note are reviewed.')}</p>
+  const groups = groupsOf(rv.hunks)
+  const md = isMarkdown(rv.target) && !raw ? render : undefined
   return (
-    <div className="ae-review" data-ui="고침 비교" data-ui-item={rv.title}>
-      <div className="ae-review-head">
-        <button className="a ae-review-title" onClick={() => openTargetOf(rv.target)}>{rv.title}</button>
-        <span className="ae-where">{whereOf(rv.target)}</span>
-        <span className="ae-when">{rv.agents.length > 0 && `${rv.agents.map(agentName).join(', ')} · `}{t(`${when(rv.since)}부터 · 바뀐 곳 ${rv.hunks.length}`, `Since ${when(rv.since)} · ${rv.hunks.length} changed`)}</span>
-        {isMarkdown(rv.target) && (
-          <div className="segmented ae-view" role="radiogroup" aria-label={t('보기', 'View')} data-ui="고침 보기 고르기">
-            <button type="button" role="radio" aria-checked={!raw} className={raw ? '' : 'on'} onClick={() => setRaw(false)}>{t('보기', 'Rendered')}</button>
-            <button type="button" role="radio" aria-checked={raw} className={raw ? 'on' : ''} onClick={() => setRaw(true)}>{t('원문', 'Source')}</button>
-          </div>
-        )}
+    <div className="ae-review">
+      <div className="ae-meta">
+        <span>{whereOf(rv.target)}</span>
+        {rv.agents.length > 0 && <span>{rv.agents.map(agentName).join(', ')}</span>}
+        <span>{t(`${when(rv.since)}부터`, `Since ${when(rv.since)}`)}</span>
+        <span>{t(`바뀐 곳 ${rv.hunks.length}`, `${rv.hunks.length} changed`)}</span>
+        <span>{t(`절 ${groups.length}`, `${groups.length} sections`)}</span>
+        <button className="a" onClick={() => openTargetOf(rv.target)}>{t('노트 열기', 'Open note')}</button>
       </div>
       {rv.notes.length > 0 && <ul className="ae-notes">{rv.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
-      {rv.hunks.map((h) => <HunkCard key={h.id} h={h} busy={busy} onAct={act} render={isMarkdown(rv.target) && !raw ? render : undefined} />)}
+      <div className="ae-table" role="table" aria-label={t('바뀐 곳', 'Changes')} data-ui="고침 비교" data-ui-item={rv.title}>
+        <div className="ae-head" role="row">
+          <span role="columnheader">{t('전', 'Before')}</span>
+          <span role="columnheader">{t('후', 'After')}</span>
+          <span role="columnheader">{t('검토', 'Review')}</span>
+        </div>
+        {groups.map((g, gi) => (
+          <Fragment key={`${gi}:${g.hunks[0]!.id}`}>
+            <div className="ae-sec-head" role="row" data-ui="바뀐 절" title={t('이 고침들이 든 절', 'The section these edits are in')}>
+              <SectionName section={g.section} />
+              <span className="ae-count">{g.hunks.length}</span>
+            </div>
+            {g.hunks.map((h) => (
+              <HunkRow key={h.id} h={h} picked={picked === h.id} expanded={expanded.has(h.id)} busy={busy} render={md} raw={raw}
+                onPick={() => setPicked(h.id)} onToggle={() => toggle(h.id)} onAct={act} />
+            ))}
+          </Fragment>
+        ))}
+      </div>
     </div>
   )
 }
 
-/** render가 있으면 Markdown을 그린 글로, 없으면 원문 그대로 */
-function HunkText({ text, base, render }: { text: string; base?: boolean; render?: RenderOptions }) {
-  const cls = `ae-text${base ? ' base' : ''}`
-  return render ? <div className={`${cls} ae-md`}><ObsidianMarkdown text={text} options={render} /></div> : <pre className={cls}>{text}</pre>
+/** 절 헤더: 「위 절 › 이 절」(위 절은 옅게), 맨 위 절이면 이름만. 첫 제목 앞이면 "제목 앞" */
+function SectionName({ section }: { section?: string }) {
+  if (section === undefined) return <span className="ae-crumbs muted">{t('제목 앞', 'Before the first heading')}</span>
+  const parts = section.split(' › ')
+  const last = parts.pop()!
+  return <span className="ae-crumbs">{parts.length > 0 && <span className="ae-up">{parts.join(' › ')} › </span>}<b>{last}</b></span>
 }
 
-function HunkCard({ h, busy, onAct, render }: { h: EditHunk; busy: boolean; onAct(h: EditHunk, a: EditAction, text?: string): Promise<boolean>; render?: RenderOptions }) {
+/** render가 있으면 Markdown을 그린 글로(\label{…}은 문단만 떼어 그리면 번호를 붙일 데가 없어 뺀다), 없으면 원문 그대로 */
+function HunkText({ text, render }: { text: string; render?: RenderOptions }) {
+  return render ? <div className="ae-text ae-md"><ObsidianMarkdown text={text.replace(/\s*\\label\{[^}]*\}/g, '')} options={render} /></div> : <pre className="ae-text">{text}</pre>
+}
+
+function HunkRow({ h, picked, expanded, busy, render, raw, onPick, onToggle, onAct }: {
+  h: EditHunk; picked: boolean; expanded: boolean; busy: boolean; render?: RenderOptions; raw: boolean
+  onPick(): void; onToggle(): void; onAct(h: EditHunk, a: EditAction, text?: string): Promise<boolean>
+}) {
   const [editing, setEditing] = useState<string | null>(null)
+  // 고치기를 닫으면 전 · 후 칸을 새로 그려 다시 칠한다
+  const [epoch, setEpoch] = useState(0)
+  const baseRef = useRef<HTMLDivElement>(null)
+  const curRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (baseRef.current && curRef.current && h.base && h.current) paintDiff(baseRef.current, curRef.current)
+  }, [h.base, h.current, render, raw, editing === null, epoch]) // eslint-disable-line react-hooks/exhaustive-deps
+  const closeEdit = () => { setEditing(null); setEpoch((n) => n + 1) }
+  const hasContext = Boolean(h.prev || h.next)
+  const pick = (e: React.MouseEvent | React.KeyboardEvent) => {
+    if ((e.target as Element).closest('button, textarea, a')) return
+    if ('key' in e && e.key !== 'Enter' && e.key !== ' ') return
+    if (!('key' in e) && window.getSelection()?.toString()) return
+    if ('key' in e) e.preventDefault()
+    onPick()
+  }
+  const k = `${epoch}:${raw ? 'raw' : 'md'}`
   return (
-    <article className="ae-hunk" data-ui="바뀐 곳">
-      {h.section && <div className="ae-section" data-ui="바뀐 절" title={t('이 고침이 든 절', 'The section this edit is in')}>§ {h.section}</div>}
-      <div className="ae-cols">
-        <div className="ae-col">
-          <div className="ae-label">{t('전', 'Before')}</div>
-          {h.base ? <HunkText text={h.base} base render={render} /> : <p className="ae-none">{t('(없음: 새로 더한 문단)', '(none: a new paragraph)')}</p>}
+    <>
+      {expanded && h.prev && <div className="ae-ctx" role="row"><div><HunkText text={h.prev} render={render} /></div></div>}
+      <div className={`ae-hunk${picked ? ' picked' : ''}`} role="row" tabIndex={0} data-ui="바뀐 곳" onClick={pick} onKeyDown={pick}>
+        {picked && hasContext && (
+          <button type="button" className="ae-expand" data-ui="펼치기 버튼" aria-expanded={expanded}
+            data-tip={expanded ? t('접기', 'Collapse') : t('앞뒤 문단 펼치기', 'Show the paragraphs around')} aria-label={expanded ? t('접기', 'Collapse') : t('앞뒤 문단 펼치기', 'Show the paragraphs around')}
+            onClick={onToggle}>{expanded ? Icon.collapse : Icon.expand}</button>
+        )}
+        <div className="ae-cell base" role="cell" ref={baseRef}>
+          {h.base ? <HunkText key={`${k}:${h.base}`} text={h.base} render={render} /> : <p className="ae-none">{t('새 문단', 'New paragraph')}</p>}
         </div>
-        <div className="ae-col">
-          <div className="ae-label">{t('후', 'After')}</div>
+        <div className="ae-cell" role="cell" ref={editing === null ? curRef : undefined}>
           {editing !== null
             ? <textarea className="ae-edit" aria-label={t('고칠 글', 'Text to edit')} value={editing} rows={Math.min(16, Math.max(3, editing.split('\n').length + 1))} onChange={(e) => setEditing(e.target.value)} autoFocus />
-            : h.current ? <HunkText text={h.current} render={render} /> : <p className="ae-none">{t('(없음: 지운 문단)', '(none: a removed paragraph)')}</p>}
+            : h.current ? <HunkText key={`${k}:${h.current}`} text={h.current} render={render} /> : <p className="ae-none">{t('지운 문단', 'Removed paragraph')}</p>}
+          {editing === null && onlySpacing(h.base, h.current) && <p className="ae-none">{t('띄어쓰기 · 줄바꿈만 바뀜', 'Only spacing or line breaks changed')}</p>}
+        </div>
+        <div className="ae-cell ae-acts" role="cell">
+          {editing !== null ? <>
+            <button className="btn" disabled={busy} onClick={closeEdit}>{t('취소', 'Cancel')}</button>
+            <button className="btn primary" disabled={busy} onClick={() => void onAct(h, 'edit', editing).then((ok) => { if (ok) closeEdit() })}>{t('저장', 'Save')}</button>
+          </> : <>
+            <button className="icon-btn" disabled={busy} data-ui="고치기 버튼" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} onClick={() => setEditing(h.current)}>{Icon.pencil}</button>
+            <button className="icon-btn" disabled={busy} data-ui="되돌리기 버튼" data-tip={t('되돌리기', 'Revert')} aria-label={t('되돌리기: 이 부분만 고치기 전 글로', 'Revert: put back the text from before the edit, for this part only')} onClick={() => void onAct(h, 'revert')}>{Icon.revert}</button>
+            <button className="icon-btn" disabled={busy} data-ui="승인 버튼" data-tip={t('승인', 'Approve')} aria-label={t('승인: 이 고침을 받아들입니다 (파일은 그대로)', 'Approve: accept this edit (the file stays as it is)')} onClick={() => void onAct(h, 'accept')}>{Icon.approve}</button>
+          </>}
         </div>
       </div>
-      <div className="ae-actions">
-        {editing !== null ? <>
-          <button className="btn" disabled={busy} onClick={() => setEditing(null)}>{t('취소', 'Cancel')}</button>
-          <button className="btn primary" disabled={busy} onClick={() => void onAct(h, 'edit', editing).then((ok) => { if (ok) setEditing(null) })}>{t('저장', 'Save')}</button>
-        </> : <>
-          <button className="btn" disabled={busy} data-ui="고치기 버튼" onClick={() => setEditing(h.current)}>{Icon.pencil}{t('고치기', 'Edit')}</button>
-          <button className="btn" disabled={busy} data-ui="되돌리기 버튼" title={t('이 부분만 고치기 전 글로 되돌립니다', 'Put back the text from before the edit, for this part only')} onClick={() => void onAct(h, 'revert')}>{t('되돌리기', 'Revert')}</button>
-          <button className="btn primary" disabled={busy} data-ui="승인 버튼" title={t('이 고침을 받아들입니다 (파일은 그대로)', 'Accept this edit (the file stays as it is)')} onClick={() => void onAct(h, 'accept')}>{Icon.approve}{t('승인', 'Approve')}</button>
-        </>}
-      </div>
-    </article>
+      {expanded && h.next && <div className="ae-ctx" role="row"><div><HunkText text={h.next} render={render} /></div></div>}
+    </>
   )
 }
 

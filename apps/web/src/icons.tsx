@@ -68,6 +68,11 @@ export const Icon = {
   approve: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M8.2 12.2l2.6 2.6 5-5.2" /></svg>,
   /** 피드백 수정 요청 (10/7 "동그라미에 되돌림"): 동그라미 안 되돌림 화살표 */
   sendBack: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M10.3 11.2L8 13.5l2.3 2.3" /><path d="M8 13.5h5.2a2.6 2.6 0 0 0 0-5.2H12" /></svg>,
+  /** 되돌리기 (고침 검토, 10/13 시안): 왼쪽으로 굽은 화살표. 동그라미가 없어 수정(sendBack)과 구별된다 */
+  revert: <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>,
+  /** 앞뒤 펼치기 · 접기 (고침 검토): 바깥으로 벌어진 겹꺾쇠 · 안으로 모인 겹꺾쇠 */
+  expand: <svg viewBox="0 0 24 24"><path d="M7 9l5-5 5 5" /><path d="M7 15l5 5 5-5" /></svg>,
+  collapse: <svg viewBox="0 0 24 24"><path d="M7 4l5 5 5-5" /><path d="M7 20l5-5 5 5" /></svg>,
   card: <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2.5" /><path d="M8 10.5h8M8 13.5h5" /></svg>,
   /** 라이브러리 목록 (사이드바 "목록" 줄): 점 셋과 줄 셋 */
   list: <svg viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" /><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" /></svg>,

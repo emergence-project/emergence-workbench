@@ -7,7 +7,7 @@ async function call(base, url, init) {
 }
 const post = (base, url, payload) => call(base, url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
 
-/** 본문 문단 하나에 한 문장을 덧붙이고, 그 뒤에 새 문단 하나를 넣는다. 확인된 노트(해결)가 있으면 쓰기 시도 하나 */
+/** 본문 문단 하나에 한 문장을 덧붙이고, 그 뒤에 새 문단 하나를 넣고, 다른 절 문단에 낱말 하나를 더한다. 확인된 노트(해결)가 있으면 쓰기 시도 하나 */
 export async function seedAgentEdits(base, rid, lang) {
   const part = await call(base, `api/researches/${encodeURIComponent(rid)}/manuscript/part?file=${encodeURIComponent(FILE)}`)
   if (part.status !== 200) return `읽지 못함 ${part.status}`
@@ -17,7 +17,10 @@ export async function seedAgentEdits(base, rid, lang) {
   // 그린 글 보기(수식 · 굵은 글씨)가 그림에 보이게
   const add = lang === 'en' ? ' Each **component** $H_{ab}$ can be swapped on its own.' : ' 각 **성분** $H_{ab}$는 따로 바꿀 수 있다.'
   const extra = lang === 'en' ? 'Whether four colors suffice is not checked yet.' : '네 색으로 줄일 수 있는지는 아직 확인하지 않았다.'
-  const w = await post(base, 'api/agent-edits/write', { target: { kind: 'note', rid, file: FILE }, baseHash: hash, edits: [{ old: para, new: `${para}${add}\n\n${extra}` }], agent: 'claude-code', summary: lang === 'en' ? 'Clarify the swap and note an open question' : '바꾸기를 풀어 쓰고 남은 질문을 적음' })
+  // 다른 절의 문단에서는 낱말 하나만 더한다 (절 헤더가 둘, 바뀐 낱말만 칠한 모습이 보이게)
+  const [word, worded] = lang === 'en' ? ['on a triangulation', 'on a planar triangulation'] : ['삼각분할에서', '평면 삼각분할에서']
+  const edits = [{ old: para, new: `${para}${add}\n\n${extra}` }, ...(content.split(word).length === 2 ? [{ old: word, new: worded }] : [])]
+  const w = await post(base, 'api/agent-edits/write', { target: { kind: 'note', rid, file: FILE }, baseHash: hash, edits, agent: 'claude-code', summary: lang === 'en' ? 'Clarify the swap and note an open question' : '바꾸기를 풀어 쓰고 남은 질문을 적음' })
   if (w.status !== 200) return `쓰지 못함 ${w.status}`
   const notes = await call(base, `api/researches/${encodeURIComponent(rid)}/notes`)
   const solved = (notes.body?.notes ?? []).find((n) => n.status === 'solved' && n.file !== FILE)

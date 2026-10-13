@@ -1,4 +1,4 @@
-/* 에이전트 고침 검토 (AgentEditsPage, 10/8 첫 판): 문단마다 전 · 후 두 칸과 승인 · 되돌리기 · 고치기 */
+/* 에이전트 고침 검토 (AgentEditsPage, 10/8 첫 판 · 10/13 시안): 문단 하나씩 전 · 후 · 검토 세 칸의 표, 절 헤더로 묶음 */
 .ae-page { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-5); }
 .ae-sec { display: flex; flex-direction: column; gap: var(--sp-2); max-width: 1100px; }
 .ae-h { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-strong); margin: 0; }
@@ -10,25 +10,63 @@
 .ae-where, .ae-when { color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; }
 .ae-sum { flex: 1; min-width: 0; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ae-row .ae-when { margin-left: auto; }
-.ae-tabs { flex-wrap: wrap; align-self: flex-start; }
-.ae-review { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-2); }
-.ae-review-head { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
-.ae-review-title { font-size: var(--fs-lg); font-weight: var(--fw-title); }
+
+/* 노트 고르는 탭과 보기 · 원문 */
+.ae-tabrow { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.ae-tabs { flex-wrap: wrap; min-width: 0; }
+.ae-view { margin-left: auto; flex: none; }
+.ae-review { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ae-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); color: var(--text-3); font-size: var(--fs-xs); }
+.ae-meta > * + *::before { content: '·'; margin-right: var(--sp-2); color: var(--text-3); }
+.ae-meta .a { font-size: var(--fs-xs); }
 .ae-notes { margin: 0; padding-left: var(--sp-4); color: var(--text-2); font-size: var(--fs-sm); }
-.ae-hunk { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card-bg); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
-.ae-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
-.ae-col { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
-.ae-label { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); }
-.ae-text { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; padding: var(--sp-2); border-radius: var(--r-sm); border-left: 2px solid var(--line-strong); }
-.ae-text.base { background: var(--bg-sunken); color: var(--text-2); border-left-color: var(--line); }
-.ae-view { margin-left: auto; align-self: center; }
-.ae-section { font-size: var(--fs-xs); color: var(--text-2); font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 표: 바깥 테두리 하나, 머리 줄, 절 헤더, 바뀐 곳 사이 가는 선 */
+.ae-table { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); }
+.ae-head, .ae-hunk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 112px; }
+.ae-head { background: var(--bg-sunken); border-bottom: 1px solid var(--line-strong); border-radius: var(--r-md) var(--r-md) 0 0; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
+.ae-head > span { padding: var(--sp-1) var(--sp-3); text-align: center; }
+.ae-head > span + span, .ae-cell + .ae-cell { border-left: 1px solid var(--line); }
+.ae-head > span:last-child, .ae-hunk > .ae-acts { border-left-color: var(--line-strong); }
+.ae-sec-head { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); background: var(--bg-side); border-bottom: 1px solid var(--line-strong); font-size: var(--fs-sm); }
+.ae-hunk + .ae-sec-head, .ae-ctx + .ae-sec-head { border-top: 1px solid var(--line-strong); margin-top: -1px; }
+.ae-crumbs { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ae-crumbs b { font-weight: var(--fw-strong); }
+.ae-up { color: var(--text-3); }
+.ae-count { margin-left: auto; color: var(--text-3); font-size: var(--fs-xs); }
+.ae-hunk { position: relative; border-bottom: 1px solid var(--line); cursor: pointer; }
+.ae-table > :last-child { border-bottom: 0; border-radius: 0 0 var(--r-md) var(--r-md); }
+.ae-hunk:hover, .ae-hunk.picked { background: var(--bg-side); }
+.ae-hunk:focus-visible { outline: 2px solid var(--text-2); outline-offset: -2px; }
+.ae-cell { min-width: 0; padding: var(--sp-2) var(--sp-3); }
+.ae-cell.base { color: var(--text-2); }
+.ae-acts { display: flex; align-items: flex-start; justify-content: flex-end; gap: 2px; padding: var(--sp-1) var(--sp-2); cursor: default; }
+.ae-text { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; }
 .ae-md { white-space: normal; }
 .ae-md .ob-md { font-size: var(--fs-sm); line-height: 1.55; color: inherit; }
 .ae-md .ob-md > :first-child { margin-top: 0; }
 .ae-md .ob-md > :last-child { margin-bottom: 0; }
-.ae-none { margin: 0; color: var(--text-3); font-size: var(--fs-sm); padding: var(--sp-2); }
-.ae-edit { width: 100%; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; resize: vertical; }
-.ae-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
-.ae-actions .btn svg { width: 14px; height: 14px; margin-right: var(--sp-1); vertical-align: -2px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-@media (max-width: 760px) { .ae-cols { grid-template-columns: minmax(0, 1fr); } }
+.ae-none { margin: 0; color: var(--text-3); font-size: var(--fs-sm); font-style: italic; }
+.ae-text + .ae-none { margin-top: var(--sp-1); font-size: var(--fs-xs); }
+.ae-edit { width: 100%; font-family: inherit; font-size: var(--fs-sm); line-height: 1.55; resize: vertical; cursor: text; }
+
+/* 바뀐 낱말: 후에 들어간 글은 초록, 전에서 빠진 글은 분홍 (하이라이트 색 그대로). 그림은 같은 색 테두리 */
+.ae-ins, .ae-del { border-radius: var(--r-xs); }
+.ae-ins { background: var(--paint-green); }
+.ae-del { background: var(--paint-pink); }
+img.ae-ins, canvas.ae-ins { background: none; outline: 3px solid var(--paint-green); }
+img.ae-del, canvas.ae-del { background: none; outline: 3px solid var(--paint-pink); }
+
+/* 앞뒤 펼치기: 누른 줄의 왼쪽 위 테두리에 겹쳐 뜨는 작은 단추. 펼친 문단은 두 칸 폭에 옅게, 아래 점선 */
+.ae-expand { position: absolute; z-index: 2; top: -9px; left: var(--sp-1); width: 18px; height: 18px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: var(--r-xs); background: var(--bg); color: var(--text-2); }
+.ae-expand:hover { color: var(--text); background: var(--bg-hover); }
+.ae-expand svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ae-expand[data-tip]:hover::after, .ae-expand[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + 2px); left: 0; z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); padding: 2px var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
+.ae-ctx { display: grid; grid-template-columns: minmax(0, 1fr) 112px; border-bottom: 1px dashed var(--line-strong); color: var(--text-3); }
+.ae-ctx > div { padding: var(--sp-1) var(--sp-3); }
+.ae-ctx .ae-text, .ae-ctx .ae-md .ob-md { font-size: var(--fs-xs); }
+
+@media (max-width: 760px) {
+  .ae-head, .ae-hunk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 72px; }
+  .ae-acts { flex-direction: column; align-items: flex-end; }
+}

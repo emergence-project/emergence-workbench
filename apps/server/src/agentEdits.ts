@@ -143,6 +143,9 @@ export interface Hunk {
   current: string
   /** 바뀐 곳이 든 절 (머리 제목 이어 붙임, 「Setup › Symbols」). 절 밖이면 없다 */
   section?: string
+  /** 앞 · 뒤의 바뀌지 않은 문단 (지금 글). 그 자리에 다른 바뀐 곳이 붙어 있거나 글 끝이면 없다 */
+  prev?: string
+  next?: string
 }
 
 /**
@@ -165,7 +168,8 @@ export function sectionAt(prefix: string): string | undefined {
     stack.push(head)
   }
   const shown = stack.length > 1 && stack[0]!.level === 1 ? stack.slice(1) : stack
-  return shown.length ? shown.map((h) => h.title.trim()).join(' › ') : undefined
+  // 제목 뒤 \label{…}은 이름이 아니다
+  return shown.length ? shown.map((h) => h.title.replace(/\s*\\label\{[^}]*\}/g, '').trim()).join(' › ') : undefined
 }
 
 /** 바뀐 곳마다 든 절을 붙인다 (지금 글 기준, 지운 문단은 기준판 기준). 바뀐 곳 첫 조각이 제목이면 그 제목 아래로 본다 */
@@ -178,7 +182,72 @@ export function withSections(hunks: Hunk[], base: string[], cur: string[]): Hunk
   })
 }
 
-/** 기준판과 지금 글의 다른 곳 (가장 긴 공통 부분열로 맞춘 뒤 맞지 않는 연속 구간) */
+/** 두 문단이 얼마나 닮았나 (낱말 모음의 Dice 계수, 0–1) */
+export function similarity(a: string, b: string): number {
+  const words = (s: string) => s.match(/[\p{L}\p{N}]+|\S/gu) ?? []
+  const wa = words(a), wb = words(b)
+  if (!wa.length || !wb.length) return wa.length === wb.length ? 1 : 0
+  const count = new Map<string, number>()
+  for (const w of wa) count.set(w, (count.get(w) ?? 0) + 1)
+  let common = 0
+  for (const w of wb) { const n = count.get(w) ?? 0; if (n > 0) { common++; count.set(w, n - 1) } }
+  return (2 * common) / (wa.length + wb.length)
+}
+
+/** 이만큼 닮아야 고친 문단 하나로 짝짓는다 (덜 닮으면 지운 문단 · 새 문단) */
+const PAIR_MIN = 0.3
+
+/**
+ * 맞지 않는 연속 구간 [b0, b1) · [c0, c1)을 문단 하나씩의 바뀐 곳으로 나눈다 (10/13 시안: 붙은 고침도 문단마다 따로 승인 · 되돌리기).
+ * 수가 같으면 차례대로 짝짓고, 다르면 닮은 문단끼리 짝지은 뒤(순서를 지키는 최대 짝) 남은 것은 지운 문단 · 새 문단이 된다.
+ * 짝 사이에 남은 수가 같으면 그것도 차례대로 짝짓는다.
+ */
+export function pairBlocks(base: string[], cur: string[], b0: number, b1: number, c0: number, c1: number): [number, number][] {
+  const nb = b1 - b0, nc = c1 - c0
+  if (nb === nc) return Array.from({ length: nb }, (_, k) => [b0 + k, c0 + k])
+  if (!nb || !nc) return []
+  // S[i][j] = base[b0+i..] · cur[c0+j..]에서 얻는 닮음 합의 최대
+  const sim = (i: number, j: number) => similarity(base[b0 + i]!.trim(), cur[c0 + j]!.trim())
+  const S: number[][] = Array.from({ length: nb + 1 }, () => new Array<number>(nc + 1).fill(0))
+  for (let i = nb - 1; i >= 0; i--) for (let j = nc - 1; j >= 0; j--) {
+    const s = sim(i, j)
+    S[i]![j] = Math.max(S[i + 1]![j]!, S[i]![j + 1]!, s >= PAIR_MIN ? s + S[i + 1]![j + 1]! : -1)
+  }
+  const pairs: [number, number][] = []
+  let i = 0, j = 0
+  while (i < nb && j < nc) {
+    const s = sim(i, j)
+    if (s >= PAIR_MIN && S[i]![j] === s + S[i + 1]![j + 1]!) { pairs.push([b0 + i, c0 + j]); i++; j++ }
+    else if (S[i]![j] === S[i + 1]![j]) i++
+    else j++
+  }
+  // 짝 사이 남은 구간: 수가 같으면 차례대로 짝짓는다
+  const out: [number, number][] = []
+  let pb = b0, pc = c0
+  for (const [b, c] of [...pairs, [b1, c1] as [number, number]]) {
+    if (b - pb === c - pc) for (let k = 0; k < b - pb; k++) out.push([pb + k, pc + k])
+    if (b < b1) out.push([b, c])
+    pb = b + 1; pc = c + 1
+  }
+  return out
+}
+
+/** 바뀐 곳마다 앞뒤의 바뀌지 않은 문단을 하나씩 붙인다 (화면의 펼치기). 머리말 · 제목 조각은 맥락으로 보이지 않는다 */
+export function withContext(hunks: Hunk[], cur: string[]): Hunk[] {
+  const text = (k: number) => {
+    const b = cur[k]
+    // 제목 줄은 절 헤더가 이미 보이므로 맥락으로 펼치지 않는다
+    return b === undefined || (k === 0 && /^---\r?\n/.test(b)) || /^\s*(#{1,6}\s|\\(sub){0,2}section)/.test(b) ? undefined : b.trim() || undefined
+  }
+  return hunks.map((h, k) => {
+    const before = hunks[k - 1], after = hunks[k + 1]
+    const prev = before && before.c1 === h.c0 && before.b1 === h.b0 ? undefined : text(h.c0 - 1)
+    const next = after && after.c0 === h.c1 && after.b0 === h.b1 ? undefined : text(h.c1)
+    return { ...h, ...(prev && { prev }), ...(next && { next }) }
+  })
+}
+
+/** 기준판과 지금 글의 다른 곳 (가장 긴 공통 부분열로 맞춘 뒤 맞지 않는 연속 구간을 문단 하나씩으로 나눈다) */
 export function diffBlocks(base: string[], cur: string[]): Hunk[] {
   const a = base.map(keyOf), b = cur.map(keyOf)
   const n = a.length, m = b.length
@@ -190,7 +259,16 @@ export function diffBlocks(base: string[], cur: string[]): Hunk[] {
   const close = () => {
     if (!start) return
     const [b0, c0] = start
-    hunks.push({ id: `${b0}:${i}:${c0}:${j}`, b0, b1: i, c0, c1: j, base: base.slice(b0, i).join('').trim(), current: cur.slice(c0, j).join('').trim() })
+    const piece = (pb0: number, pb1: number, pc0: number, pc1: number) =>
+      hunks.push({ id: `${pb0}:${pb1}:${pc0}:${pc1}`, b0: pb0, b1: pb1, c0: pc0, c1: pc1, base: base.slice(pb0, pb1).join('').trim(), current: cur.slice(pc0, pc1).join('').trim() })
+    // 짝 사이에 남은 문단은 하나씩 지운 문단(기준판) · 새 문단(지금 글)
+    let pb = b0, pc = c0
+    for (const [b, c] of [...pairBlocks(base, cur, b0, i, c0, j), [i, j] as [number, number]]) {
+      for (; pb < b; pb++) piece(pb, pb + 1, pc, pc)
+      for (; pc < c; pc++) piece(pb, pb, pc, pc + 1)
+      if (b < i) piece(b, b + 1, c, c + 1)
+      pb = b + 1; pc = c + 1
+    }
     start = null
   }
   while (i < n || j < m) {
@@ -398,7 +476,7 @@ export function reviewOf(io: TargetIo, store: AgentEditStore, key: string): Revi
   const [baseBlocks, curBlocks] = [splitBlocks(p.base), splitBlocks(st.text)]
   const hunks = diffBlocks(baseBlocks, curBlocks)
   if (!hunks.length) { store.update((d) => { d.pending = d.pending.filter((x) => x.key !== key) }); return null }
-  return { key, target: p.target, title: st.title, hash: st.hash, since: p.since, updated: p.updated, agents: agentsOf(p), notes: p.notes, hunks: withSections(hunks, baseBlocks, curBlocks) }
+  return { key, target: p.target, title: st.title, hash: st.hash, since: p.since, updated: p.updated, agents: agentsOf(p), notes: p.notes, hunks: withContext(withSections(hunks, baseBlocks, curBlocks), curBlocks) }
 }
 
 export type DecideRequest = DecideBody
