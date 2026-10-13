@@ -13,6 +13,7 @@ import { listStatements } from './statements.js'
 import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './noteList.js'
 import { pendingQuestions } from './comments.js'
 import { RULES_DOC, statusSection } from './tasks.js'
+import { DECISIONS_DIR, folderMap, listDecisions, listRules, RULES_DIR, usesStandardLayout } from './projectFolders.js'
 import type { ProjectSources, Workbench } from './workbench.js'
 import type { TaskTable, ReviewDoc } from '@rw/core/contract/research'
 export type { TaskTable, ReviewDoc }
@@ -63,8 +64,11 @@ export function listReviews(repo: string, sources: ProjectSources): ReviewDoc[] 
       out.push({ file: path.relative(repo, p), title: String(fm.title ?? h1 ?? n), status: fm.status, updated: fm.updated ? String(fm.updated) : undefined })
     }
   }
-  for (const d of sources.reviews) { const abs = path.join(repo, d); if (fs.statSync(abs).isDirectory()) walk(abs) }
-  return out.sort((a, b) => a.file.localeCompare(b.file))
+  // workbench/의 프로젝트 규칙·결정도 검토 문서다: in-review면 사용자 차례 (10/13 R2). sources.reviews가 이미 덮는 폴더는 두 번 읽지 않는다
+  const dirs = [...sources.reviews.map((d) => path.join(repo, d)), ...[RULES_DIR, DECISIONS_DIR].map((d) => path.join(repo, 'workbench', d)).filter((d) => fs.existsSync(d))]
+  const seen = new Set<string>()
+  for (const abs of dirs) if (fs.statSync(abs).isDirectory()) walk(abs)
+  return out.filter((r) => { if (seen.has(r.file)) return false; seen.add(r.file); return true }).sort((a, b) => a.file.localeCompare(b.file))
 }
 
 export const STATUS_FILE = 'STATUS.md'
@@ -136,7 +140,26 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
   if (wb.usesTopicFolders()) p(`- \`workbench/topics/<주제>/topic.yaml\` — 주제 ${wb.topicFolders().length}개의 정보 (순서는 \`research.yaml\` \`topics:\`)`)
   if (notes.length) p(`- ${noteDirs(notes).map((d) => `\`${d}\``).join(' · ')} — 연구노트·계산 노트 ${notes.length}개 (본문 \`note.md\` 또는 \`main.tex\`, 정보는 \`note.yaml\`)`)
   if (statements.length) p(`- \`${statements[0]!.file.split('/')[0]}/\` — 진술 ${statements.length}개 (정의·정리; uses·proofs 관계)`)
+  const rules = listRules(wb)
+  const decisions = listDecisions(wb)
+  if (rules.length) p(`- \`workbench/rules/<이름>.md\` — 프로젝트 규칙 ${rules.length}개 (아래 "프로젝트 규칙"을 먼저 읽는다)`)
+  if (decisions.length) p(`- \`workbench/decisions/<날짜-이름>.md\` — 결정 ${decisions.length}개 (규칙이 왜 그런지)`)
   p('- `workbench/log/날짜.md` — 할 일과 기록', '')
+
+  // ---------- 폴더와 편집 규칙 (10/13 연구 저장소 폴더, D7) ----------
+  const folders = folderMap(wb)
+  if (folders.standard.some((f) => f.name !== 'workbench') || folders.own.length || usesStandardLayout(wb)) {
+    p('## 폴더와 편집 규칙', '', '> 맨 위 폴더마다 무엇을 두고 에이전트가 어떻게 고치는지. 저장소 규칙(`AGENTS.md`)이 더 엄하면 그것을 따른다.', '')
+    for (const f of folders.standard) p(`- \`${f.name}/\` — ${f.role} · ${f.edit}`)
+    for (const f of folders.own) p(`- \`${f.name}/\` (고유 폴더)${f.note ? ` — ${f.note}` : ''} · ${f.edit}`)
+    if (folders.other.length) p(`- 표준 밖: ${folders.other.map((n) => `\`${n}/\``).join(', ')} — 저장소 규칙대로. 옮기는 것은 사용자가 허락한 뒤`)
+    p('')
+  }
+  if (rules.length) {
+    p(`## 프로젝트 규칙 ${rules.length}`, '', '> 이 프로젝트에만 해당하는 규칙. 일을 시작하기 전에 읽는다. in-review인 규칙은 사용자 검토 대기다(따르되 승인된 것으로 보고하지 않는다).', '')
+    for (const r of rules) p(`- \`${r.file}\` · ${r.title}${r.status ? ` · ${r.status}` : ''}`)
+    p('')
+  }
 
   // ---------- 할 일 ----------
   const open = journal.filter((e) => e.kind === 'todo' && !e.done).reverse()

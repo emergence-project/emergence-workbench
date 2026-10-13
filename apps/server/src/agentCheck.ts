@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { frontMatter, isValidBlockId, isBlockStatus, parseBlock, parseList } from '@rw/core'
+import { awaitsUserReview, frontMatter, isValidBlockId, isBlockStatus, parseBlock, parseList } from '@rw/core'
 import { NOTE_CATEGORIES } from '@rw/core/contract/notes'
 import { NOTE_STATES } from './noteMeta.js'
 import { researchText } from './researchYaml.js'
@@ -10,10 +10,13 @@ import { scanTasks } from './tasks.js'
 import { isOutside } from './fsutil.js'
 import { t } from './i18n.js'
 import { TOPIC_YAML, type Workbench } from './workbench.js'
+import { DECISION_FILE, DECISIONS_DIR, folderMap, RULE_FILE, RULES_DIR, STANDARD_FOLDERS, topLevelFolders, usesStandardLayout } from './projectFolders.js'
 
 export interface WorkbenchDiagnostic { level: 'error' | 'warning'; file: string; line: number; message: string }
 export interface WorkbenchCheck { files: number; diagnostics: WorkbenchDiagnostic[] }
-const RESEARCH_KEYS = new Set(['title', 'question', 'started', 'agent-status', 'latex-macros', 'latex-template', 'image', 'concepts', 'topics', 'sources'])
+const RESEARCH_KEYS = new Set(['title', 'question', 'started', 'agent-status', 'latex-macros', 'latex-template', 'image', 'concepts', 'topics', 'sources', 'folders'])
+/** 결정·규칙의 status (검토 문서와 같은 말, core/review-status.ts). 옛 이름은 awaitsUserReview가 받는다 */
+const DOC_STATUSES = ['draft', 'in-progress', 'in-review', 'accepted', 'closed', 'superseded']
 const NOTE_KEYS = new Set(['name', 'from', 'description', 'state', 'resume', 'topics', 'concepts', 'kind', 'star'])
 /** 주제 칸 (research.yaml topics: 안 모양, 주제 폴더의 topic.yaml) */
 const TOPIC_KEYS = new Set(['id', 'title', 'star', 'description', 'preview', 'parts', 'blocks', 'done', 'manuscript'])
@@ -110,7 +113,19 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
       const abs = path.resolve(wb.repo, file)
       if (!file.endsWith('.tex') || isOutside(path.relative(wb.repo, abs)) || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) issue('warning', researchFile, y.line('sources', 'manuscript'), `sources.manuscript는 있는 .tex 파일이어야 합니다: ${file}`, `sources.manuscript must reference an existing .tex file: ${file}`)
     }
+    // 고유 폴더 (10/13 연구 저장소 폴더): 맨 위 폴더 이름 — 설명
+    const present = new Set(topLevelFolders(wb))
+    list(y.data.folders).forEach((v, i) => {
+      const name = typeof v === 'string' ? v.split(/\s+[—-]\s+/)[0]!.trim().replace(/\/+$/, '') : ''
+      const at = y.line('folders', i)
+      if (!name) issue('error', researchFile, at, 'folders:는 "폴더 — 설명" 글로 한 줄씩 적으세요.', 'Write folders: as one "folder — description" line each.')
+      else if (name.includes('/') || name.startsWith('.')) issue('error', researchFile, at, `folders:에는 맨 위 폴더 이름만 적습니다: ${name}`, `folders: takes top-level folder names only: ${name}`)
+      else if (STANDARD_FOLDERS.some((f) => f.name === name)) issue('warning', researchFile, at, `표준 폴더는 folders:에 적지 않습니다: ${name}`, `Standard folders are not listed in folders: ${name}`)
+      else if (!present.has(name)) issue('warning', researchFile, at, `저장소 맨 위에 없는 폴더: ${name}`, `No such top-level folder: ${name}`)
+    })
   }
+  // 표준 배치를 쓰기 시작한 저장소만: 표준도 고유도 아닌 맨 위 폴더
+  if (usesStandardLayout(wb)) for (const name of folderMap(wb).other) issue('warning', `${name}/`, 1, '표준 밖 폴더입니다. 표준 폴더(docs · sources · code-space · data-space · archive)로 옮기거나 research.yaml folders:에 적으세요.', 'Not a standard folder. Move it into a standard folder (docs · sources · code-space · data-space · archive) or list it in research.yaml folders:.')
   const checkTopics = (file: string, line: number, ids: unknown[]) => {
     for (const id of ids) if (!topicIds.has(String(id))) issue('warning', file, line, `research.yaml에 없는 주제 id: ${String(id)}`, `Topic id not in research.yaml: ${String(id)}`)
   }
@@ -169,6 +184,28 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
     checkTopics(file, line('topics'), list(data.topics))
     const topics = list(data.topics).map(String)
     if (owner !== undefined && topics.length && topics[0] !== owner) issue('warning', file, line('topics'), `주인 주제는 폴더(${owner})로 정합니다. topics:는 ${owner}를 맨 앞에 적으세요.`, `The owner topic is the folder (${owner}). List ${owner} first in topics:.`)
+  }
+  // 결정·프로젝트 규칙 (10/13): 머리말 status로 검토 대기를 센다
+  for (const [dir, nameOk, ko, en] of [[DECISIONS_DIR, DECISION_FILE, 'YYYY-MM-DD-영문이름.md', 'YYYY-MM-DD-name.md'], [RULES_DIR, RULE_FILE, '영문이름.md (소문자·숫자·하이픈)', 'name.md (lowercase letters, digits, hyphens)']] as const) {
+    for (const entry of entries(path.join(wb.root, dir))) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+      const abs = path.join(wb.root, dir, entry.name)
+      const file = rel(abs)
+      if (!nameOk.test(entry.name)) issue('warning', file, 1, `파일 이름은 ${ko}로 적으세요.`, `Name the file ${en}.`)
+      const text = read(abs)
+      if (text === undefined) continue
+      const f = frontMatter(text)
+      const keyLine = (key: string) => { const i = text.split(/\r?\n/).findIndex((row, n) => n > 0 && new RegExp(`^${key}\\s*:`).test(row)); return i < 0 ? 1 : i + 1 }
+      if (!f) { issue('warning', file, 1, '머리말(---)에 status가 없어 앱이 상태를 모릅니다.', 'No front matter (---) with status, so the app cannot tell its state.'); continue }
+      let fm: Record<string, unknown>
+      try { fm = record(YAML.parse(f.yaml)) } catch (e) {
+        issue('error', file, 1, `YAML 오류: ${(e as Error).message.split('\n')[0]}`, `YAML error: ${(e as Error).message.split('\n')[0]}`)
+        continue
+      }
+      if (typeof fm.status !== 'string' || !fm.status.trim()) issue('warning', file, 1, `머리말에 status가 없습니다 (${DOC_STATUSES.join(' · ')}).`, `The front matter has no status (${DOC_STATUSES.join(' · ')}).`)
+      else if (!DOC_STATUSES.includes(fm.status.trim()) && !awaitsUserReview(fm.status)) issue('warning', file, keyLine('status'), `모르는 status: ${fm.status} (${DOC_STATUSES.join(' · ')})`, `Unknown status: ${fm.status} (${DOC_STATUSES.join(' · ')})`)
+      if (!(typeof fm.title === 'string' && fm.title.trim()) && !/^#\s+\S/m.test(f.body)) issue('warning', file, 1, '머리말 title이나 # 제목이 없습니다.', 'No title in the front matter and no # heading.')
+    }
   }
   const blocks = entries(wb.blocksDir).filter((e) => /\.(md|tex)$/.test(e.name))
   const names = new Set(blocks.map((e) => e.name))

@@ -47,6 +47,7 @@ export function inspectTask(file: string, content: string): TaskInspection {
   for (const key of ['topic', 'agent', 'created', 'end-condition', 'avoid', 'result-at', 'conclusion']) {
     if (!optionalText(data, key)) issue(key, t(`${key}: 글로 적어야 합니다.`, `${key}: must be text.`))
   }
+  if (data.priority !== undefined && data.priority !== null && ![1, 2, 3].includes(data.priority as number)) issue('priority', t(`priority: ${valueLabel(data.priority)} — 1(먼저) · 2(보통) · 3(나중) 중 하나로 적으세요.`, `priority: ${valueLabel(data.priority)}. Use 1 (first) · 2 (normal) · 3 (later).`))
   if (data['end-check'] !== undefined && !oneOf(data['end-check'], ['pass', 'fail', 'unknown'])) issue('end-check', t('end-check: pass · fail · unknown 중 하나로 적으세요.', 'end-check: use one of pass · fail · unknown.'))
   for (const key of ['references', 'outputs']) if (data[key] !== undefined && !strings(data[key])) issue(key, t(`${key}: 글 목록으로 적어야 합니다.`, `${key}: must be a list of text.`))
   if (data.proposal !== undefined || data.state === 'proposed') {
