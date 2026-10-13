@@ -1,4 +1,4 @@
-import { RESEARCH_TARGET, todoDue, type JournalEntry, type TreeIssue } from '@rw/core'
+import { awaitsUserReview, RESEARCH_TARGET, todoDue, type JournalEntry, type TreeIssue } from '@rw/core'
 import { fill } from './projectData'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { agentEditsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
@@ -131,7 +131,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
   }, [anchor])
 
   const blocked = blocks.filter((b) => statusOf(b.status) === 'blocked')
-  const reviews = project?.reviews.filter((r) => r.status !== 'accepted') ?? []
+  const reviews = project?.reviews.filter((r) => awaitsUserReview(r.status)) ?? []
   // 에이전트 고침 (10/8): 검토할 노트와 확인된 노트 고치기 요청. 작업 패널에 한 줄씩, 누르면 고침 검토 화면
   const [edits, setEdits] = useState<{ key: string; title: string; sub: string; attempt: boolean }[]>([])
   useEffect(() => {

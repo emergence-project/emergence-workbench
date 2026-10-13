@@ -264,7 +264,7 @@ export const JournalEdited = z.object({ entry: JournalEntry.nullable() }).strict
 // ---------- 진술 · 프로젝트 정보 (routes/statements.ts · project.ts) ----------
 
 export const StatementDoc = z.object({ content: z.string(), hash: z.string(), file: z.string() }).strict()
-/** 프로젝트 자체 작업 목록 (sources.tasks 파일의 첫 마크다운 표) */
+/** 프로젝트 자체 작업 목록 (sources.tasks 파일의 상태·내용 열이 있는 첫 마크다운 표) */
 export const TaskTable = z.object({ file: z.string(), columns: z.array(z.string()), rows: z.array(z.array(z.string())) }).strict()
 /** 검토 상태가 있는 문서 (sources.reviews 폴더, frontmatter의 status) */
 export const ReviewDoc = z.object({ file: z.string(), title: z.string(), status: z.string(), updated: z.string().optional() }).strict()

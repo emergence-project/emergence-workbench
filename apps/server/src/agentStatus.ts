@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { buildTree, isValidBlockId, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter } from '@rw/core'
+import { awaitsUserReview, buildTree, isValidBlockId, RESEARCH_TARGET, todoDue, type JournalEntry, frontMatter } from '@rw/core'
 import YAML from 'yaml'
 import type { EditList } from '@rw/core/contract/agentEdits'
 import { AgentEditStore, listEdits } from './agentEdits.js'
@@ -26,15 +26,22 @@ export function readTaskTable(repo: string, sources: ProjectSources): TaskTable 
   if (!sources.tasks) return null
   const lines = fs.readFileSync(path.join(repo, sources.tasks), 'utf8').split('\n')
   const cells = (l: string) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim())
+  // 작업 표는 '상태' 열과 '내용'(작업·항목·task) 열이 함께 있는 첫 표다. 작업 표 위에 일정표(날짜·일정·상태)가 먼저 오는 파일이 있다.
+  // 그런 표가 없으면 '상태' 열이 있는 첫 표, 그것도 없으면 첫 표.
+  const tables: TaskTable[] = []
   for (let i = 0; i + 1 < lines.length; i++) {
     if (lines[i]!.trim().startsWith('|') && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1]!)) {
       const columns = cells(lines[i]!)
       const rows: string[][] = []
-      for (let j = i + 2; j < lines.length && lines[j]!.trim().startsWith('|'); j++) rows.push(cells(lines[j]!))
-      return { file: sources.tasks, columns, rows }
+      let j = i + 2
+      for (; j < lines.length && lines[j]!.trim().startsWith('|'); j++) rows.push(cells(lines[j]!))
+      tables.push({ file: sources.tasks, columns, rows })
+      i = j - 1
     }
   }
-  return { file: sources.tasks, columns: [], rows: [] }
+  const has = (tb: TaskTable, re: RegExp) => tb.columns.some((c) => re.test(c))
+  const status = /^(상태|status)$/i, what = /^(내용|작업|할 일|항목|task|tasks|item|title)$/i
+  return tables.find((tb) => has(tb, status) && has(tb, what)) ?? tables.find((tb) => has(tb, status)) ?? tables[0] ?? { file: sources.tasks, columns: [], rows: [] }
 }
 
 export function listReviews(repo: string, sources: ProjectSources): ReviewDoc[] {
@@ -184,9 +191,11 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
   }
 
   // ---------- 검토 대기 ----------
-  const reviews = listReviews(repo, src).filter((r) => r.status !== 'accepted')
+  const reviewDocs = listReviews(repo, src)
+  const reviews = reviewDocs.filter((r) => awaitsUserReview(r.status))
   if (reviews.length) {
-    p(`## 사용자 검토 대기 문서 ${reviews.length}`, '', '> frontmatter `status`가 accepted가 아닌 문서. 물리·수학 검토는 사용자만 한다 — 에이전트는 acceptance를 대신하지 않는다.', '')
+    const writing = reviewDocs.filter((r) => !awaitsUserReview(r.status) && !/^(accepted|closed|superseded)$/.test(r.status)).length
+    p(`## 사용자 검토 대기 문서 ${reviews.length}`, '', `> frontmatter \`status\`가 in-review인 문서. 물리·수학 검토는 사용자만 한다 — 에이전트는 acceptance를 대신하지 않는다.${writing ? ` 아직 쓰는 중인 문서(draft·in-progress 등) ${writing}개는 세지 않는다.` : ''}`, '')
     const by = new Map<string, ReviewDoc[]>()
     for (const r of reviews) by.set(r.status, [...(by.get(r.status) ?? []), r])
     for (const [st, list] of by) {
