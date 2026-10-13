@@ -137,9 +137,11 @@ describe('프로젝트 정본과 STATUS.md', () => {
   it('research.yaml의 sources로 작업 목록·검토 문서·bib·자료 폴더를 읽고, agent-status일 때만 STATUS.md를 쓴다', async () => {
     const proj = makeRepo('gamma-like')
     const w = (rel: string, text: string) => { fs.mkdirSync(path.dirname(path.join(proj, rel)), { recursive: true }); fs.writeFileSync(path.join(proj, rel), text) }
-    w('docs/TASK-QUEUE.md', '# Q\n\n| 순위 | 내용 | 상태 | 파일 |\n|---|---|---|---|\n| 1 | [이론 문서](x.md) 작성 | in-review | `a.md` |\n| 2 | 솔버 | pending | b |\n\n본문\n')
+    w('docs/TASK-QUEUE.md', '# Q\n\n| 날짜 | 일정 | 상태 |\n|---|---|---|\n| 10-13 | 심의 | 확정 |\n\n| 순위 | 내용 | 상태 | 파일 |\n|---|---|---|---|\n| 1 | [이론 문서](x.md) 작성 | in-review | `a.md` |\n| 2 | 솔버 | pending | b |\n\n본문\n')
     w('docs/theory/00-a.md', '---\ntitle: Topology\nstatus: draft\n---\n# T\n')
     w('docs/theory/01-b.md', '---\nstatus: accepted\n---\n# Accepted one\n')
+    w('docs/theory/02-c.md', '---\nstatus: in-review\n---\n# Ready\n')
+    w('docs/theory/03-d.md', '---\nstatus: in-progress\n---\n# Working\n')
     w('docs/theory/sources/skip.md', '---\nstatus: draft\n---\n')
     w('docs/model/references.bib', '@article{k1, title={P}, eprint={1402.6069}}\n')
     w('docs/papers/1402.6069v4.pdf', '%PDF-1.4')
@@ -156,6 +158,8 @@ describe('프로젝트 정본과 STATUS.md', () => {
     expect(prj.reviews).toEqual([
       { file: 'docs/theory/00-a.md', title: 'Topology', status: 'draft' },
       { file: 'docs/theory/01-b.md', title: 'Accepted one', status: 'accepted' },
+      { file: 'docs/theory/02-c.md', title: 'Ready', status: 'in-review' },
+      { file: 'docs/theory/03-d.md', title: 'Working', status: 'in-progress' },
     ])
     expect(prj.agentStatus).toBe(false)
 
@@ -171,7 +175,11 @@ describe('프로젝트 정본과 STATUS.md', () => {
     expect(md).toContain('# STATUS — Model')
     expect(md).toContain('`docs/model` — 모형 원고')
     expect(md).toContain('| 1 | 이론 문서 작성 | in-review |') // 파일 열은 빼고 링크는 글자만
-    expect(md).toContain('**draft** 1: `docs/theory/00-a.md`')
+    // 사용자 차례는 in-review만. 쓰는 중인 draft·in-progress는 세지 않고 수만 밝힌다
+    expect(md).toContain('## 사용자 검토 대기 문서 1')
+    expect(md).toContain('**in-review** 1: `docs/theory/02-c.md`')
+    expect(md).toContain('아직 쓰는 중인 문서(draft·in-progress 등) 2개는 세지 않는다')
+    expect(md).not.toContain('**draft**')
     expect(md).not.toContain('outside')
     expect((await a.inject({ method: 'POST', url: `${P}/agent-status` })).statusCode).toBe(409)
     expect(fs.existsSync(path.join(proj, 'workbench/STATUS.md'))).toBe(false)

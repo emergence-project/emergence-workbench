@@ -1,4 +1,4 @@
-import { RESEARCH_TARGET, type JournalEntry } from '@rw/core'
+import { awaitsUserReview, RESEARCH_TARGET, type JournalEntry } from '@rw/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { commentsApi, type CommentEntry, type ProjectInfo, type RecordFile, type ResearchApi, type ResearchSummary, type Topic } from './api'
 import type { FlashAction } from './flash'
@@ -100,7 +100,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
   }, [rapi, version])
   const project = projectResult?.rapi === rapi ? projectResult.project : null
   const projectLoaded = projectResult?.rapi === rapi && projectResult.version === version
-  const reviews = project?.reviews.filter((r) => r.status !== 'accepted') ?? []
+  const reviews = project?.reviews.filter((r) => awaitsUserReview(r.status)) ?? []
   const logRef = useRef<HTMLElement>(null)
   const scrolled = useRef(false)
   useEffect(() => { scrolled.current = false }, [rid, focus])
@@ -188,7 +188,7 @@ function ProjectTasks({ t: tasks }: { t: NonNullable<ProjectInfo['tasks']> }) {
   )
 }
 
-/** 검토 상태가 accepted가 아닌 문서 (research.yaml sources.reviews) */
+/** 사용자 차례인 검토 문서 (research.yaml sources.reviews, status in-review) */
 function Reviews({ list }: { list: ProjectInfo['reviews'] }) {
   const by = new Map<string, ProjectInfo['reviews']>()
   for (const r of list) by.set(r.status, [...(by.get(r.status) ?? []), r])

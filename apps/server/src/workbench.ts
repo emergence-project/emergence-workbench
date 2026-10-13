@@ -32,7 +32,7 @@ export interface ResearchInfo {
  *   sources:
  *     canon:                 # 내용의 정본 — 에이전트 안내용 한 줄씩 ("경로 — 설명")
  *       - docs/model/main.tex — 모형 연구 원고
- *     tasks: docs/TASK-QUEUE.md   # 프로젝트 자체 작업 목록 (읽기만, 첫 마크다운 표)
+ *     tasks: docs/TASK-QUEUE.md   # 프로젝트 자체 작업 목록 (읽기만, 상태·내용 열이 있는 첫 마크다운 표)
  *     bib: [docs/model/references.bib]              # 없으면 저장소 맨 위 *.bib
  *     materials: [docs/theory/papers]   # workbench/materials/ 말고 더 볼 자료 폴더
  *     reviews: [docs/theory]   # 검토 상태(frontmatter status)를 볼 문서 폴더
