@@ -5,7 +5,6 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { backupRemoteFor } from './backup.js'
 import { publishFeedback } from './feedback.js'
 import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
 import { Registry } from './registry.js'
@@ -41,7 +40,7 @@ describe('개인 저장소', () => {
     const dir = fs.mkdtempSync(path.join(tmp, 'cfg-'))
     fs.writeFileSync(path.join(dir, 'config.yaml'), 'personalRepo: git@example.com:me/personal.git\nresearches: []\n')
     new Registry(dir).setUi({ theme: 'dark' })
-    expect(await personalRemote(dir, tmp)).toBe('git@example.com:me/personal.git')
+    expect(await personalRemote(dir)).toBe('git@example.com:me/personal.git')
   })
 
   it('설정을 저장해도 이 앱이 모르는 맨 위 키(다른 맥의 새 버전이 더한 설정)는 남는다', () => {
@@ -61,11 +60,7 @@ describe('개인 저장소', () => {
     expect(saved).toMatchObject({ futureSetting: { on: true }, otherMac: 1, ui: { theme: 'light' } })
   })
 
-  it('공개 저장소(emergence-workbench)에서는 남의 개인 저장소를 짐작하지 않는다', () => {
-    expect(backupRemoteFor('https://github.com/emergence-project/emergence-workbench.git')).toBeNull()
-  })
-
-  it('주소는 환경 변수, 설정, 받아 둔 백업 사본, 옛 앱 origin 차례로 찾고, 없으면 꺼짐', async () => {
+  it('주소는 환경 변수, 설정, 받아 둔 백업 사본 차례로 찾고, 없으면 꺼짐 (앱 저장소 주소에서 짐작하지 않음)', async () => {
     delete process.env.RW_PERSONAL_REMOTE
     delete process.env.RW_BACKUP_REMOTE
     const config = path.join(tmp, 'cfg-order')
@@ -73,19 +68,19 @@ describe('개인 저장소', () => {
     fs.mkdirSync(config, { recursive: true })
     git(tmp, 'init', '-q', 'app-order')
     git(app, 'remote', 'add', 'origin', 'https://github.com/org/emergence-workbench.git')
-    expect(await personalRemote(config, app)).toBeNull() // 설정하지 않으면 꺼짐
-    git(app, 'remote', 'set-url', 'origin', 'https://github.com/me/research-workspace.git')
-    expect(await personalRemote(config, app)).toBe('https://github.com/me/research-workspace-backup.git') // 옛 저장소는 예전처럼
+    expect(await personalRemote(config)).toBeNull() // 설정하지 않으면 꺼짐
+    git(app, 'remote', 'set-url', 'origin', 'https://github.com/me/workbench.git')
+    expect(await personalRemote(config)).toBeNull() // 앱 저장소 주소에서 짐작하지 않는다
 
     git(config, 'init', '-q', 'backup')
-    git(path.join(config, 'backup'), 'remote', 'add', 'origin', 'https://github.com/me/research-workspace-backup.git')
-    expect(await personalRemote(config, app)).toBe('https://github.com/me/research-workspace-backup.git')
+    git(path.join(config, 'backup'), 'remote', 'add', 'origin', 'https://github.com/me/my-personal.git')
+    expect(await personalRemote(config)).toBe('https://github.com/me/my-personal.git')
 
     fs.writeFileSync(path.join(config, 'config.yaml'), 'engine: xelatex\npersonalRepo: https://github.com/me/mine.git\n')
-    expect(await personalRemote(config, app)).toBe('https://github.com/me/mine.git')
+    expect(await personalRemote(config)).toBe('https://github.com/me/mine.git')
 
     process.env.RW_PERSONAL_REMOTE = 'https://github.com/me/env.git'
-    expect(await personalRemote(config, app)).toBe('https://github.com/me/env.git')
+    expect(await personalRemote(config)).toBe('https://github.com/me/env.git')
   })
 
   it('비어 있으면 받고, 피드백만 올린다', async () => {

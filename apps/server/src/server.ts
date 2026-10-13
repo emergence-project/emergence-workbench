@@ -126,7 +126,7 @@ if (process.env.RW_SANDBOX === '1') {
 }
 
 // 개인 저장소 (personalRepo.ts): 실사용만. 앱 설정·workbench 백업·피드백을 둔다
-const personal = process.env.RW_SANDBOX !== '1' ? await personalRemote(configDir, repoRoot) : null
+const personal = process.env.RW_SANDBOX !== '1' ? await personalRemote(configDir) : null
 const personalDir = path.join(configDir, 'personal')
 if (personal) {
   try { await ensurePersonalClone(personalDir, personal); await pullPersonal(personalDir) } catch (e) { console.warn(`개인 저장소(${personal})를 받지 못했습니다: ${(e as Error).message.split('\n')[0]}`) }

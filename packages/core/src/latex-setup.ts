@@ -211,7 +211,7 @@ export const BUILTIN_TEMPLATES: LatexTemplate[] = [
   },
   { id: 'prl', name: 'PRL (revtex)', kind: 'document', ...DEFAULT_LATEX_SETUP, tags: ['논문', 'APS'] },
   {
-    // 사용자의 발표 서식 (knowledge-factory의 knowledge-factory-beamer v0.1.1, 10/4). XeLaTeX로 컴파일한다.
+    // 사용자의 발표 서식 (knowledge-factory-beamer v0.1.1, 외부 정본에서 복사, 10/4). XeLaTeX로 컴파일한다.
     // 글꼴·수식 패키지는 main.tex가 먼저 불러야 하고, setting.tex(amsmath)는 unicode-math보다 앞에 둔다.
     // beamer가 hyperref·graphicx를 이미 불러서 패키지에서 뺀다.
     id: 'beamer', name: '발표 (Knowledge Factory beamer)', kind: 'slides',

@@ -4,7 +4,6 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import YAML from 'yaml'
-import { backupRemoteFor } from './backup.js'
 import { withRepoLock } from './repoLock.js'
 
 const exec = promisify(execFile)
@@ -25,10 +24,9 @@ async function originOf(dir: string): Promise<string | null> {
 
 /**
  * 개인 저장소 주소. 차례대로: RW_PERSONAL_REMOTE · RW_BACKUP_REMOTE, 설정(config.yaml)의 personalRepo,
- * 이미 받아 둔 백업 사본(설정 폴더 backup/)의 origin, 옛 앱 저장소(research-workspace) origin과 같은 계정의 research-workspace-backup.
- * 공개 저장소(emergence-workbench)를 받은 다른 사용자는 남의 저장소를 가리키지 않게 짐작하지 않는다: 설정하지 않으면 null(꺼짐).
+ * 이미 받아 둔 백업 사본(설정 폴더 backup/)의 origin. 앱 저장소 주소에서 짐작하지 않는다: 설정하지 않으면 null(꺼짐).
  */
-export async function personalRemote(configDir: string, appRoot: string): Promise<string | null> {
+export async function personalRemote(configDir: string): Promise<string | null> {
   const fromEnv = process.env.RW_PERSONAL_REMOTE || process.env.RW_BACKUP_REMOTE
   if (fromEnv) return fromEnv
   try {
@@ -39,8 +37,7 @@ export async function personalRemote(configDir: string, appRoot: string): Promis
     const o = await originOf(path.join(configDir, 'backup'))
     if (o) return o
   }
-  const app = await originOf(appRoot)
-  return app ? backupRemoteFor(app) : null
+  return null
 }
 
 /**
