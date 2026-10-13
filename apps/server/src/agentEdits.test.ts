@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import YAML from 'yaml'
-import { AgentEditStore, carryUserEdits, diffBlocks, joinBlocks, sectionAt, splitBlocks, withSections } from './agentEdits.js'
+import { AgentEditStore, carryUserEdits, diffBlocks, joinBlocks, sectionAt, splitBlocks, withContext, withSections } from './agentEdits.js'
 import { buildApp } from './app.js'
 import { bodyHash } from './conceptNotes.js'
 import { fixture } from './testkit.js'
@@ -31,10 +31,11 @@ describe('문단 나누기와 비교', () => {
     expect(sectionAt('intro\n')).toBeUndefined()
     expect(sectionAt('\\section{Setup}\n\\subsection{Gauge $\\{x\\}$}\n\n')).toBe('Setup › Gauge $\\{x\\}$')
     expect(sectionAt('## A\n\n### B\n\n## C\n\n')).toBe('C')
+    expect(sectionAt('## Progress \\label{sec: progress}\n\ntext\n')).toBe('Progress')
     const base = splitBlocks('# T\n\n## Setup\n\nold\n\n## Open\n\ngone\n')
     const cur = splitBlocks('# T\n\n## Setup\n\nnew\n\n## Open\n\n## Checks\n\nadded\n')
     const hunks = withSections(diffBlocks(base, cur), base, cur)
-    expect(hunks.map((h) => [h.current, h.section])).toEqual([['new', 'Setup'], ['## Checks\n\nadded', 'Checks']])
+    expect(hunks.map((h) => [h.base, h.current, h.section])).toEqual([['old', 'new', 'Setup'], ['gone', '', 'Open'], ['', '## Checks', 'Checks'], ['', 'added', 'Checks']])
     const removed = withSections(diffBlocks(splitBlocks('## Open\n\ngone\n'), splitBlocks('## Open\n')), splitBlocks('## Open\n\ngone\n'), splitBlocks('## Open\n'))
     expect(removed.map((h) => [h.base, h.section])).toEqual([['gone', 'Open']])
   })
@@ -54,6 +55,22 @@ describe('문단 나누기와 비교', () => {
     const base = splitBlocks('A\n\nB\n\nC\n\nD\n')
     const cur = splitBlocks('A\n\nB2\n\nC\n\nD\n\nE\n')
     expect(diffBlocks(base, cur).map((h) => [h.base, h.current])).toEqual([['B', 'B2'], ['', 'E']])
+  })
+  it('붙은 고침도 문단 하나씩 나누고, 수가 다르면 닮은 문단끼리 짝짓는다', () => {
+    const pairs = (a: string, b: string) => diffBlocks(splitBlocks(a), splitBlocks(b)).map((h) => [h.base, h.current])
+    // 붙은 두 문단을 고침: 따로 승인할 수 있게 둘
+    expect(pairs('A\n\nB\n\nC\n\nD\n', 'A\n\nB2\n\nC2\n\nD\n')).toEqual([['B', 'B2'], ['C', 'C2']])
+    // 새 문단을 앞에 넣고 다음 문단을 고침: 새 문단과 고친 문단
+    expect(pairs('A\n\nThe state is a chain.\n\nD\n', 'A\n\nA new remark.\n\nThe state is exactly a chain.\n\nD\n'))
+      .toEqual([['', 'A new remark.'], ['The state is a chain.', 'The state is exactly a chain.']])
+    // 닮은 것이 없으면 지운 문단과 새 문단
+    expect(pairs('A\n\nold words\n\nD\n', 'A\n\nfresh one\n\nfresh two\n\nD\n')).toEqual([['old words', ''], ['', 'fresh one'], ['', 'fresh two']])
+  })
+  it('바뀐 곳마다 앞뒤의 바뀌지 않은 문단을 붙인다 (붙은 바뀐 곳 쪽과 머리말은 없음)', () => {
+    const base = splitBlocks('---\nid: x\n---\n\nA\n\nB\n\nC\n\nD\n')
+    const cur = splitBlocks('---\nid: x\n---\n\nA2\n\nB2\n\nC\n\nD\n\nE\n')
+    const hunks = withContext(diffBlocks(base, cur), cur)
+    expect(hunks.map((h) => [h.current, h.prev, h.next])).toEqual([['A2', undefined, undefined], ['B2', undefined, 'C'], ['E', 'D', undefined]])
   })
   it('에이전트가 쓴 뒤 사용자가 고친 것은 기준판으로 옮기고, 에이전트 문단을 다시 고친 것은 yours로 남긴다', () => {
     // 에이전트: B → B2, 한 문단 더함(X). 사용자: D → D2, 맨 앞에 Z, B2 → B3
@@ -144,18 +161,21 @@ describe('에이전트 고침 API', () => {
     const target = { kind: 'note', rid: RID, file: noteFile }
     const first = await write({ target, baseHash: (await app.inject({ method: 'GET', url: `/api/researches/${RID}/notes` })).json() && hashOfFile(), edits: [{ old: 'Alpha.', new: 'Alpha!' }, { old: 'Gamma.', new: 'Gamma?' }] })
     expect(first.statusCode).toBe(200)
-    // 다른 쓰기가 끼어도 기준판은 처음 것 그대로. 붙은 바뀐 곳은 하나로 묶인다
-    expect((await write({ target, baseHash: hashOfFile(), edits: [{ old: 'Beta.', new: 'Beta.\n\nNew paragraph.' }] })).json().changes).toBe(2)
+    // 다른 쓰기가 끼어도 기준판은 처음 것 그대로. 붙은 바뀐 곳도 문단마다 따로다
+    expect((await write({ target, baseHash: hashOfFile(), edits: [{ old: 'Beta.', new: 'Beta.\n\nNew paragraph.' }] })).json().changes).toBe(3)
     let r = await review(key)
-    expect(r.hunks.map((h: { base: string; current: string }) => [h.base, h.current])).toEqual([['Alpha.', 'Alpha!'], ['Gamma.', 'New paragraph.\n\nGamma?']])
+    expect(r.hunks.map((h: { base: string; current: string }) => [h.base, h.current])).toEqual([['Alpha.', 'Alpha!'], ['', 'New paragraph.'], ['Gamma.', 'Gamma?']])
+    expect(r.hunks.map((h: { prev?: string; next?: string }) => [h.prev, h.next])).toEqual([[undefined, 'Beta.'], ['Beta.', undefined], [undefined, undefined]])
     // 되돌리기: Alpha만
     r = (await decideOn({ key, hash: r.hash, hunk: r.hunks[0].id, action: 'revert' })).json().review
     expect(noteText()).toBe('# Work\n\nAlpha.\n\nBeta.\n\nNew paragraph.\n\nGamma?\n')
-    expect(r.hunks).toHaveLength(1)
+    expect(r.hunks).toHaveLength(2)
     // 낡은 hash는 409
     expect((await decideOn({ key, hash: 'old', hunk: r.hunks[0].id, action: 'accept' })).statusCode).toBe(409)
-    // 직접 고치기: 사용자 글로 바꾸고 그 글을 승인한다
-    r = (await decideOn({ key, hash: r.hash, hunk: r.hunks[0].id, action: 'edit', text: 'User paragraph.\n\nGamma?' })).json().review
+    // 직접 고치기: 사용자 글로 바꾸고 그 글을 승인한다. 붙은 Gamma는 따로 남는다
+    r = (await decideOn({ key, hash: r.hash, hunk: r.hunks[0].id, action: 'edit', text: 'User paragraph.' })).json().review
+    expect(r.hunks.map((h: { base: string; current: string }) => [h.base, h.current])).toEqual([['Gamma.', 'Gamma?']])
+    r = (await decideOn({ key, hash: r.hash, hunk: r.hunks[0].id, action: 'accept' })).json().review
     expect(r).toBeNull()
     expect(noteText()).toBe('# Work\n\nAlpha.\n\nBeta.\n\nUser paragraph.\n\nGamma?\n')
     // 마지막 문단 되돌리기: 파일 끝 모양을 지킨다
