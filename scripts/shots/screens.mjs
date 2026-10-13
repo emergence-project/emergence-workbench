@@ -50,7 +50,7 @@ export const DEFAULT_SCREENS = [
   ['knowledge-edit', '#/library/t/planargraph', '개념노트 편집기', '고치기'],
   // 에이전트 고침 검토 (10/8): 예제 연구노트에 고침을 넣고 찍은 뒤 되돌린다 (agent-edits.mjs)
   // 마지막 바뀐 곳을 눌러 앞뒤 문단을 펼친 모습 (나머지 줄은 접힌 그대로)
-  ['review', '#/review', '바뀐 곳', ['[data-ui="바뀐 곳"]:last-child', '펼치기 버튼']],
+  ['review', '#/review', '바뀐 곳', '[data-ui="바뀐 곳"]:last-child'],
   // 확인 필요: 반려한 것을 다시 처리한 항목을 펼쳐 주고받은 기록과 승인·반려를 찍는다 (fixtures/sandbox-feedback)
   ['feedback', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '피드백 줄']],
   ['about', '#/about', '소개'],

@@ -57,9 +57,11 @@
 img.ae-ins, canvas.ae-ins { background: none; outline: 3px solid var(--paint-green); }
 img.ae-del, canvas.ae-del { background: none; outline: 3px solid var(--paint-pink); }
 
-/* 앞뒤 펼치기: 누른 줄의 왼쪽 위 테두리에 겹쳐 뜨는 작은 단추. 펼친 문단은 두 칸 폭에 옅게, 아래 점선 */
+/* 앞뒤 펼치기: 줄마다 왼쪽 위 테두리에 겹쳐 늘 보이는 작은 단추 (줄을 눌러도 펼친다, 펼칠 문단이 없으면 흐리게). 펼친 문단은 두 칸 폭에 옅게, 아래 점선 */
 .ae-expand { position: absolute; z-index: 2; top: -9px; left: var(--sp-1); width: 18px; height: 18px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: var(--r-xs); background: var(--bg); color: var(--text-2); }
 .ae-expand:hover { color: var(--text); background: var(--bg-hover); }
+.ae-expand[aria-disabled="true"] { color: var(--text-3); opacity: .5; cursor: default; }
+.ae-expand[aria-disabled="true"]:hover { color: var(--text-3); background: var(--bg); }
 .ae-expand svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ae-expand[data-tip]:hover::after, .ae-expand[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + 2px); left: 0; z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); padding: 2px var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
 .ae-ctx { display: grid; grid-template-columns: minmax(0, 1fr) 112px; border-bottom: 1px dashed var(--line-strong); color: var(--text-3); }
