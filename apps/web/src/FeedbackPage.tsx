@@ -366,9 +366,11 @@ function Conversation({ e }: { e: FeedbackItem }) {
       )}
       <ol className="fbp-thread">{latest.map((s, i) => say(s, earlier.length + i))}</ol>
       {notes.length > 0 && (
-        <dl className="fbp-notes" data-ui="태그 설명">
-          {notes.map((k) => <div key={k}><dt>{TAG_NOTES[k]!.name}</dt><dd>{TAG_NOTES[k]!.note}</dd></div>)}
-        </dl>
+        // 태그 설명은 한 줄에 옆으로 늘어놓고, 뜻은 가리키면 툴팁으로 (10/13 수정: 태그마다 한 줄이면 여백이 크다)
+        <div className="fbp-notes" data-ui="태그 설명">
+          <span className="fbp-notes-k">{t('태그 설명', 'Tags')}</span>
+          {notes.map((k) => <span key={k} className="tag fbp-note" tabIndex={0} data-tip={TAG_NOTES[k]!.note} aria-label={`${TAG_NOTES[k]!.name}: ${TAG_NOTES[k]!.note}`}>{TAG_NOTES[k]!.name}</span>)}
+        </div>
       )}
     </div>
   )
