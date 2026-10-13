@@ -5,7 +5,7 @@ import { parseBlock } from '@rw/core'
 import { isLatexSafePath } from './fsutil.js'
 
 /**
- * 공유 라이브러리(research-library)의 서식. 파일 머리말 형식은 블록과 같다.
+ * 공유 라이브러리의 서식. 파일 머리말 형식은 블록과 같다.
  *   % title: 기본
  *   % description: …
  *   % place: first | last

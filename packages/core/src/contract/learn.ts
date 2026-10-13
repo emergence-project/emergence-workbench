@@ -1,5 +1,5 @@
 /**
- * 공부할 것 API의 계약 (research-library/to-learn.yaml, 서버 routes/learn.ts · 화면 api/learn.ts).
+ * 공부할 것 API의 계약 (shared-library/to-learn.yaml, 서버 routes/learn.ts · 화면 api/learn.ts).
  * 파일 형식은 docs/repo-format.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */
 import { z } from 'zod'

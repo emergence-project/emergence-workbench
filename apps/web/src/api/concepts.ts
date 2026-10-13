@@ -1,4 +1,4 @@
-// ---------- 개념노트 (Markdown, research-library/concepts/*.md, 서버 conceptNotes.ts) ----------
+// ---------- 개념노트 (Markdown, shared-library/concepts/*.md, 서버 conceptNotes.ts) ----------
 import type { ConceptBib, ConceptBrief, ConceptLinks, ConceptList, ConceptMacros, ConceptMd, ConceptMemo, ConceptMemoBody, ConceptResolved, ConceptRows, ConceptSources, ConceptSubjects, ConceptUsage, ConceptBodyBody, ConceptFlagBody, ConceptReviewBody, ConceptCheck, ConceptIssue, ConceptSort } from '@rw/core/contract/concepts'
 import { enc, json, req, send } from './http'
 import type { RepoInfo } from './research'

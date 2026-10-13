@@ -36,7 +36,7 @@ export function placeTemplateFiles(template: LatexTemplate | undefined, dir: str
 export const SHARED_MACROS = 'shared-macros.tex'
 
 /**
- * 공통 기호 (research-library의 concepts/macros.tex, 개념노트 화면의 KaTeX가 쓰는 것과 같은 파일, 10/4 "기호는 한 파일")를
+ * 공통 기호 (공유 라이브러리의 concepts/macros.tex, 개념노트 화면의 KaTeX가 쓰는 것과 같은 파일, 10/4 "기호는 한 파일")를
  * 연구노트 컴파일·내보내기에 넣을 글로. 모두 \providecommand로 바꿔, 프로젝트 기호(workbench/macros.tex)나 패키지가
  * 이미 정한 이름은 그쪽이 앞선다 (그래서 프로젝트 기호 다음에 불러야 한다). 파일이 없거나 기호가 없으면 null.
  */
@@ -47,7 +47,7 @@ export function sharedMacrosTex(lib: string | undefined): string | null {
   const names = Object.keys(macros)
   if (!names.length) return null
   return [
-    `% research-workspace가 만든 파일: 공통 기호 (research-library/${MACROS_FILE}). 앞서 정한 이름은 건드리지 않는다.`,
+    `% research-workspace가 만든 파일: 공통 기호 (shared-library/${MACROS_FILE}). 앞서 정한 이름은 건드리지 않는다.`,
     ...names.map((n) => {
       const body = macros[n]!
       const args = Math.max(0, ...[...body.matchAll(/#(\d)/g)].map((m) => Number(m[1])))

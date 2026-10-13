@@ -15,7 +15,7 @@ const TYPES = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', pdf: 
 
 export function registerFigures(app: FastifyInstance, ctx: RouteContext): void {
   const { registry } = ctx
-  /** 공용(research-library/figures)과 프로젝트 전용(workbench/figures) 그림, 그림마다 쓰는 노트 */
+  /** 공용(shared-library/figures)과 프로젝트 전용(workbench/figures) 그림, 그림마다 쓰는 노트 */
   app.get<{ Querystring: { subjectPrefix?: string } }>('/api/figures', replies(C.FigureList), async (req): Promise<C.FigureList> => {
     const list = ctx.libraryReads.figures()
     return req.query.subjectPrefix === undefined ? list : { ...list, figures: list.figures.filter((x) => matchesSubject(x.subjects, req.query.subjectPrefix!)) }

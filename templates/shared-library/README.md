@@ -1,4 +1,4 @@
-# research-library
+# shared-library
 
 Emergence Workbench의 **공유 라이브러리** 틀. 여러 연구가 함께 쓰는 것을 둔다. 비공개 저장소로 두는 것을 권한다.
 

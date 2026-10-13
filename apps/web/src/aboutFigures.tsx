@@ -37,7 +37,7 @@ export function DocMapFigure() {
       </div>
       <div className="dm-link muted" aria-hidden>{t('링크 [[ ]] · 인용 [@ ] · 그림 ![ ]( )', 'Link [[ ]] · Cite [@ ] · Figure ![ ]( )')}</div>
       <div className="dm-box dm-library">
-        <b>{t('라이브러리', 'Library')}</b><span className="muted">{t('모든 프로젝트가 함께 씀 (research-library)', 'shared by all projects (research-library)')}</span>
+        <b>{t('라이브러리', 'Library')}</b><span className="muted">{t('모든 프로젝트가 함께 씀', 'shared by all projects')}</span>
         <div className="dm-row dm-three">
           <div className="dm-box dm-small"><b>{t('지식', 'Knowledge')}</b><span className="muted">{t('개념노트', 'concept notes')}</span></div>
           <div className="dm-box dm-small"><b>{t('논문', 'Papers')}</b><span className="muted">{t('bib · PDF · 코멘트', 'bib · PDF · comments')}</span></div>
@@ -52,8 +52,8 @@ export function DocMapFigure() {
 export const DOC_KINDS: { name: string; what: string; format: string; where: ReactNode }[] = [
   { name: t('원고', 'Manuscript'), what: t('결과를 모으는 개인 초고. 공동 집필·투고는 Overleaf', 'Personal draft gathering results. Co-writing and submission in Overleaf'), format: 'LaTeX', where: <>{c('research.yaml')}의 {c('sources.manuscript')}</> },
   { name: t('노트', 'Note'), what: t('주제 안에서 완결된 최소 단위: 증명·유도·계산·열린 질문', 'Smallest self-contained unit in a topic: proof, derivation, calculation, open question'), format: 'Markdown + KaTeX', where: <>{c('workbench/notes/')} · {c('calc/')} · {c('blocks/')}</> },
-  { name: t('개념노트', 'Concept note'), what: t('여러 연구가 다시 쓰는 정의·성질. 개념 하나에 노트 하나', 'Definitions and properties reused across projects. One note per concept'), format: 'Markdown + KaTeX', where: <>research-library {c('concepts/')}</> },
-  { name: t('문헌노트', 'Literature note'), what: t('논문 한 편의 정리', 'Summary of one paper'), format: 'LaTeX', where: <>research-library {c('papers/')}</> },
+  { name: t('개념노트', 'Concept note'), what: t('여러 연구가 다시 쓰는 정의·성질. 개념 하나에 노트 하나', 'Definitions and properties reused across projects. One note per concept'), format: 'Markdown + KaTeX', where: <>shared-library {c('concepts/')}</> },
+  { name: t('문헌노트', 'Literature note'), what: t('논문 한 편의 정리', 'Summary of one paper'), format: 'LaTeX', where: <>shared-library {c('papers/')}</> },
   { name: t('맡긴 일', 'Delegated task'), what: t('에이전트에게 맡긴 일 하나. 그 파일이 보고서', 'One task handed to an agent. The file is the report'), format: t('Markdown + YAML 머리말', 'Markdown + YAML front matter'), where: c('workbench/tasks/') },
 ]
 
@@ -219,7 +219,7 @@ export function FileTreeFigure() {
           {r('workbench/STATUS.md', t('에이전트용 요약, 앱이 씀 (git 제외, 정본 아님)', 'Summary for agents, written by the app (not in git, not a source of truth)'))}
         </ul>
       </div>
-      <div className="about-tree"><b>research-library</b>
+      <div className="about-tree"><b>shared-library</b>
         <ul>
           {r('concepts/<id>.md', t('개념노트 (+ <id>.memo.md 메모)', 'Concept notes (+ <id>.memo.md memo)'))}
           {r('concepts/macros.tex', t('개념노트 기호 (설정 › LaTeX › 명령어)', 'Concept note symbols (Settings › LaTeX › Macros)'))}

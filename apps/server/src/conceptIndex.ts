@@ -13,7 +13,7 @@ import { parseKnowledgeMarkdown, topicKey, wikiTargets, type Parsed } from './kn
 
 /**
  * 개념노트 색인 (2026-10-04, 노트가 수만 개가 되어도).
- * 원본은 research-library/concepts/*.md 그대로이고, 이 색인은 앱 옆(설정 폴더)의 SQLite 파일 하나다.
+ * 원본은 shared-library/concepts/*.md 그대로이고, 이 색인은 앱 옆(설정 폴더)의 SQLite 파일 하나다.
  * 지워도 다음에 다시 만든다. 파일이 바뀌면 그 파일만 다시 읽는다 (고친 때·크기로 비교).
  * - notes: 목록 한 줄에 필요한 것 (이름·분류·미완성·확인함·잠김)
  * - names: 이름·다른 이름의 topicKey → 노트 ([[링크]]를 노트로 옮길 때)

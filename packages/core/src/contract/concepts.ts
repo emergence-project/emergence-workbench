@@ -1,5 +1,5 @@
 /**
- * 개념노트 API의 계약 (research-library/concepts/, 서버 routes/concepts.ts · 화면 api/concepts.ts).
+ * 개념노트 API의 계약 (shared-library/concepts/, 서버 routes/concepts.ts · 화면 api/concepts.ts).
  * 파일 형식은 docs/repo-format.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */
 import { z } from 'zod'

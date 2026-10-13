@@ -1,4 +1,4 @@
-// Markdown 개념노트 (research-library/concepts/*.md, 2026-10-04 개념노트 재설계)
+// Markdown 개념노트 (shared-library/concepts/*.md, 2026-10-04 개념노트 재설계)
 import { conceptRules } from '../agentRules.js'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/concepts'
@@ -52,7 +52,7 @@ export function registerConcepts(app: FastifyInstance, ctx: RouteContext): void 
   app.get<{ Querystring: ListQs }>('/api/concepts/subjects', replies(C.ConceptSubjects), async (req): Promise<C.ConceptSubjects> => ({ subjects: index().subjects(listQuery(req.query)) }))
   /** [[이름]]이 가리키는 노트 (없으면 null) */
   app.get<{ Querystring: { name?: string } }>('/api/concepts/resolve', replies(C.ConceptResolved), async (req): Promise<C.ConceptResolved> => ({ note: index().resolve(String(req.query.name ?? '')) }))
-  /** 개념노트 규칙: research-library README의 개념노트 절 (MCP rules 도구가 모아 준다). 라이브러리가 없으면 null */
+  /** 개념노트 규칙: 공유 라이브러리 README의 개념노트 절 (MCP rules 도구가 모아 준다). 라이브러리가 없으면 null */
   app.get('/api/concepts/rules', replies(C.ConceptRules), async (): Promise<C.ConceptRules> => ({ rules: conceptRules(registry.libraryPath) }))
   /** 본문 찾기 (에이전트 입구 search_library): 모든 낱말이 든 노트와, 낱말이 있는 줄·그 줄의 절 제목 */
   app.get<{ Querystring: { q?: string; limit?: string } }>('/api/concepts/search', replies(C.ConceptSearch), async (req): Promise<C.ConceptSearch> => ({ items: index().searchBody(String(req.query.q ?? ''), { limit: Number(req.query.limit) || 20 }) }))

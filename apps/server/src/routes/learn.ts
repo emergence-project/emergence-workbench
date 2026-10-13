@@ -1,4 +1,4 @@
-// 공부할 것: 읽다가 남긴 "모름"과 개념노트 초안 (research-library/to-learn.yaml)
+// 공부할 것: 읽다가 남긴 "모름"과 개념노트 초안 (shared-library/to-learn.yaml)
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/learn'
 import { parseBody, replies } from '../contract.js'

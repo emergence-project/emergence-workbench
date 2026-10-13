@@ -8,7 +8,7 @@ import { t, plural } from './i18n'
 
 /**
  * 설정 › LaTeX › 명령어 (10/4 19:30 "커스텀 기호나 명령어를 만드는 것도", 22:02 "기호보다 command 목록으로"): 모든 노트가 함께 쓰는 명령어 목록.
- * 파일은 research-library의 concepts/macros.tex 하나이고, 개념노트 화면(KaTeX)과 연구노트 컴파일·내보내기가 함께 쓴다.
+ * 파일은 공유 라이브러리의 concepts/macros.tex 하나이고, 개념노트 화면(KaTeX)과 연구노트 컴파일·내보내기가 함께 쓴다.
  * 한 연구에만 쓰는 명령어는 그 연구의 workbench/macros.tex에 두고, 같은 이름이면 그쪽이 앞선다.
  */
 export function LatexMacros({ onSaved }: { onSaved(message: string): void }) {
@@ -37,10 +37,10 @@ export function LatexMacros({ onSaved }: { onSaved(message: string): void }) {
       </div>
       <p className="set-desc tex-note">{t('모든 노트가 함께 쓰는 LaTeX 명령어(\\newcommand)입니다. 개념노트 화면과 LaTeX 컴파일·내보내기가 같은 목록을 씁니다. 한 연구에만 쓰는 명령어는 그 연구의 ', 'LaTeX macros (\\newcommand) shared by all notes. Concept notes and LaTeX compile and export use the same list. Put macros for one project only in that project\'s ')}<code>workbench/macros.tex</code>{t('에 두면 되고, 이름이 같으면 그쪽이 앞섭니다.', '. If a name matches, that one wins.')}</p>
       {!view && <p className="muted">{error || t('불러오는 중…', 'Loading…')}</p>}
-      {view && !view.library && <p className="muted">{t('개념노트 라이브러리(research-library)를 정하면 여기서 명령어를 고칠 수 있습니다.', 'Set the concept note library (research-library) to edit macros here.')}</p>}
+      {view && !view.library && <p className="muted">{t('개념노트 라이브러리를 정하면 여기서 명령어를 고칠 수 있습니다.', 'Set the concept note library to edit macros here.')}</p>}
       {view?.library && draft !== null && (
         <div className="mac-edit" data-ui="기호 파일">
-          <div className="tex-file-head"><code>research-library/{view.file}</code></div>
+          <div className="tex-file-head"><code>shared-library/{view.file}</code></div>
           <textarea className="tex-code" rows={Math.min(24, Math.max(8, draft.split('\n').length + 1))} value={draft} spellCheck={false} autoFocus
             placeholder={'\\newcommand{\\abs}[1]{\\left|#1\\right|}\n\\DeclareMathOperator{\\col}{col}'}
             onChange={(e) => setDraft(e.target.value)} />

@@ -1,5 +1,5 @@
 /**
- * 그림 라이브러리 API의 계약 (research-library/figures · workbench/figures, 서버 routes/figures.ts · 화면 api/figures.ts).
+ * 그림 라이브러리 API의 계약 (shared-library/figures · workbench/figures, 서버 routes/figures.ts · 화면 api/figures.ts).
  * 그림 분류(/figures/subjects)는 subjects.ts에 있다.
  * 파일 형식은 docs/repo-format.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */

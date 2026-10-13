@@ -8,7 +8,7 @@ import { t } from './i18n.js'
 import { frontMatter } from '@rw/core'
 
 /**
- * Markdown 개념노트 — research-library/concepts/<id>.md (2026-10-04 개념노트 재설계).
+ * Markdown 개념노트 — shared-library/concepts/<id>.md (2026-10-04 개념노트 재설계).
  * Study(Obsidian)의 Concept-Space를 옮겨 오고, 앞으로 앱이 원본을 맡는다.
  * - 머리말(YAML): title, aliases, subject(분류, "Mathematics › Graph Theory"), study(옮겨 온 Study 노트),
  *   checked { at, hash } (사람이 "확인함"을 누른 때와 그때 본문의 해시), locked(고치기 잠금, 에이전트도 고치지 않음).
@@ -70,7 +70,7 @@ export const EMPTY_NOTE = '제목·틀뿐'
 /**
  * 미완성인 이유 (없으면 빈 배열). 기계적으로만 판단한다 (10/04 사용자 확인, 10/6 "지식 점검 기준"):
  * ① 노트 전체가 제목·틀뿐 ② 제목(#) 아래 본문이 빈 절 ③ TODO·작성 중 표시나 체크하지 않은 할 일 상자가 남음.
- * 코드 블록과 표시 수식 안은 보지 않는다. "맨 위에 무엇인지부터" 같은 내용 규칙은 research-library README(규칙 4)가 맡고
+ * 코드 블록과 표시 수식 안은 보지 않는다. "맨 위에 무엇인지부터" 같은 내용 규칙은 공유 라이브러리 README(규칙 4)가 맡고
  * 여기서 판정하지 않는다 (예전 "Definition 절 없음"은 10/6에 뺐다: 내용 있는 노트 대부분이 걸리는 잡음).
  */
 export function unfinishedReasons(body: string): string[] {

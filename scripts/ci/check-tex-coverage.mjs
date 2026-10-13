@@ -30,7 +30,7 @@ function files(repoRoot, dir) {
 export function requiredTexPaths(repoRoot = root) {
   const guardedTests = files(repoRoot, 'apps/server/src').filter((file) => file.endsWith('.test.ts') && /\bhasLatex\b/.test(fs.readFileSync(path.join(repoRoot, file), 'utf8')))
   const coreInputs = files(repoRoot, 'packages/core/src').filter((file) => /\/(?:latex-.*|(?:md-latex|block-header)(?:\.test)?)\.ts$/.test(file))
-  const templateInputs = [...files(repoRoot, 'templates/latex'), ...files(repoRoot, 'templates/research-library')]
+  const templateInputs = [...files(repoRoot, 'templates/latex'), ...files(repoRoot, 'templates/shared-library')]
     .filter((file) => /\.(?:tex|sty|cls|bib|png|pdf|jpe?g|svg|eps)$/.test(file))
   return [...new Set([...TEX_INPUT_FILES, ...guardedTests, ...coreInputs, ...templateInputs])].sort()
 }

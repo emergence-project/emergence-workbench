@@ -9,7 +9,7 @@ import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd } from './c
 import { t } from './i18n.js'
 
 /**
- * 공유 라이브러리(research-library)의 노트.
+ * 공유 라이브러리의 노트.
  * - 개념노트 concepts/<id>.tex — 교과서 수준, 프로젝트와 무관. 정의 → 핵심 성질·정리 → 유도 스케치 → 예 → 출처.
  *   status: draft(에이전트·사용자가 씀) → reviewed(사용자 물리·수학 검토)
  * - 문헌노트 papers/<인용 키>.tex — 논문 하나의 요약·핵심 주장·방법·질문. 여러 프로젝트가 함께 본다

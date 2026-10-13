@@ -2,7 +2,7 @@ import path from 'node:path'
 import chokidar, { type FSWatcher } from 'chokidar'
 
 /**
- * 공용 라이브러리(research-library)를 앱 밖에서 바꿨을 때의 알림.
+ * 공용 라이브러리를 앱 밖에서 바꿨을 때의 알림.
  * 에이전트가 개념노트를 고치거나 Finder로 그림을 넣어도 열린 화면이 다시 읽게 한다.
  * concepts: 개념노트·참고문헌·분류 (개념노트 화면과 지식 화면이 읽는다), figures: 그림, papers: 논문 목록.
  */

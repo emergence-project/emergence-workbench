@@ -1,4 +1,4 @@
-// 모든 노트가 함께 쓰는 기호 (설정 › LaTeX › 기호, 10/4 19:30): research-library의 concepts/macros.tex 하나를
+// 모든 노트가 함께 쓰는 기호 (설정 › LaTeX › 기호, 10/4 19:30): 공유 라이브러리의 concepts/macros.tex 하나를
 // 개념노트 화면(KaTeX)과 연구노트 컴파일·내보내기가 함께 쓴다. 프로젝트 기호(workbench/macros.tex)가 앞선다.
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'

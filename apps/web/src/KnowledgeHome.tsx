@@ -105,7 +105,7 @@ const EDIT_ROWS: { key: 'reviews' | 'attempts'; label: string; name: string; tip
   { key: 'reviews', label: '고침 검토', name: t('고침 검토', 'Edits to review'), tip: t('에이전트가 고친 개념노트. 바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Concept notes an agent edited. Approve, revert or edit each change') },
   { key: 'attempts', label: '고치기 요청', name: t('고치기 요청', 'Edit requests'), tip: t('확인한 개념노트를 에이전트가 고치려 함. 그 대화에서 허락하면 에이전트가 고칩니다', 'An agent wants to edit a reviewed concept note. It edits once you agree in that conversation') },
 ]
-/** 통계 (이상 종류, 에이전트가 research-library README 규칙대로 채운다) */
+/** 통계 (이상 종류, 에이전트가 공유 라이브러리 README 규칙대로 채운다) */
 const STATS: BriefRow[] = [
   { key: 'empty', label: '비어 있음', name: t('비어 있음', 'Empty'), tip: t('머리말 · 제목 줄을 뺀 글이 40자 미만인 노트', 'Notes with under 40 characters besides the front matter and title'), of: (b) => b.stats.empty },
   { key: 'emptySection', label: '빈 절', name: t('빈 절', 'Empty section'), tip: t('제목 아래가 비어 있는 절이 있는 노트', 'Notes with a section that has nothing under its heading'), of: (b) => b.stats.emptySection },

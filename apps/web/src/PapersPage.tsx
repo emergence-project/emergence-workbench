@@ -270,7 +270,7 @@ export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; op
         </div>
         <div className="scroll pl-scroll" ref={scroll}>
           {error && <div className="banner danger">{t('논문 목록을 읽지 못했습니다: ', 'Could not read the paper list: ')}{error}</div>}
-          {data && !data.library && <p className="muted pl-empty">{t('공유 라이브러리(research-library)가 설정되지 않았습니다. 설정 › 공유 라이브러리에서 정해 주세요.', 'The shared library (research-library) is not set. Set it in Settings › Shared library.')}</p>}
+          {data && !data.library && <p className="muted pl-empty">{t('공유 라이브러리가 설정되지 않았습니다. 설정 › 공유 라이브러리에서 정해 주세요.', 'The shared library is not set. Set it in Settings › Shared library.')}</p>}
           {data && data.library && data.folders.length === 0 && (
             <div className="banner">{t('PDF 폴더가 아직 없습니다. ', 'No PDF folder yet. Set an iCloud or Google Drive folder in ')}<button className="a" onClick={() => go({ page: 'settings', part: 'papers' })}>{t('설정 › 논문 PDF 폴더', 'Settings › Paper PDF folder')}</button>{t('에서 iCloud나 Google Drive 폴더를 정하면 PDF를 찾고 받아 둡니다.', ' and PDFs will be found and downloaded there.')}</div>
           )}

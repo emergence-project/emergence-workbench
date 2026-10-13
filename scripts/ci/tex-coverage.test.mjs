@@ -28,7 +28,7 @@ test('compile choices, figure embeds, template files and source transforms trigg
 test('the lightweight checker detects future guarded tests in nested directories', (t) => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-tex-coverage-'))
   t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
-  for (const dir of ['apps/server/src/nested', 'packages/core/src', 'templates/latex', 'templates/research-library']) fs.mkdirSync(path.join(repo, dir), { recursive: true })
+  for (const dir of ['apps/server/src/nested', 'packages/core/src', 'templates/latex', 'templates/shared-library']) fs.mkdirSync(path.join(repo, dir), { recursive: true })
   fs.writeFileSync(path.join(repo, 'apps/server/src/nested/newCompile.test.ts'), "import { hasLatex } from '../testkit.js'\nit.skipIf(!hasLatex)('new compile', () => {})")
   fs.writeFileSync(path.join(repo, 'apps/server/src/nested/fakeCompile.test.ts'), "const fakeCompiler = 'latexmk'")
   assert.deepEqual(texCoverageGaps(repo, paths), ['apps/server/src/nested/newCompile.test.ts'])

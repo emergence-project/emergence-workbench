@@ -7,10 +7,10 @@ import { app, hasLatex, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
 
-/** 예제 라이브러리(templates/research-library)를 한 번 복사해 앱에 정한다 */
+/** 예제 라이브러리(templates/shared-library)를 한 번 복사해 앱에 정한다 */
 function withLibrary(a: ReturnType<typeof buildApp>): string {
-  const lib = path.join(tmp, 'research-library')
-  if (!fs.existsSync(lib)) fs.cpSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../templates/research-library'), lib, { recursive: true })
+  const lib = path.join(tmp, 'shared-library')
+  if (!fs.existsSync(lib)) fs.cpSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../templates/shared-library'), lib, { recursive: true })
   a.registry.setLibrary(lib)
   return lib
 }

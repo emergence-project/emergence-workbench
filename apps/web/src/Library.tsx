@@ -157,7 +157,7 @@ export function LibraryNoteEditor({ kind, id, info, rid, project, onChanged, onS
           </div>
         </div>
         <div className="statusline">
-          <span className="mono">research-library/{kind === 'concept' ? 'concepts' : 'papers'}/{id}.tex</span>
+          <span className="mono">shared-library/{kind === 'concept' ? 'concepts' : 'papers'}/{id}.tex</span>
           <span className="sp" />
           <select className="tex-pick" data-ui="PDF 서식" title={t('PDF를 만들 LaTeX 서식 (설정 › LaTeX 서식)', 'LaTeX template for the PDF (Settings › LaTeX templates)')} value={template}
             onChange={(e) => { setTemplate(e.target.value); writePick(kind, id, e.target.value); void compile(e.target.value) }}>

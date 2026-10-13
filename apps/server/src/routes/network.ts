@@ -15,7 +15,7 @@ type PersonPaper = C.PersonPaper
 type SuggestionView = C.PersonSuggestion
 
 /**
- * 개념노트 분류 정리(research-library#6, 10/4) 전의 분야 이름표를 새 분류 이름으로 읽는다. 다음에 사람 목록을 저장하면 새 이름으로 남는다.
+ * 개념노트 분류 정리(10/4) 전의 분야 이름표를 새 분류 이름으로 읽는다. 다음에 사람 목록을 저장하면 새 이름으로 남는다.
  * 뜻이 분명한 것만 옮기고, 나머지(예: Anyons)는 "목록에 없음"으로 보여 사용자가 고른다.
  */
 const TAG_RENAMES: Record<string, string> = {

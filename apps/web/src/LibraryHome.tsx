@@ -122,7 +122,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
   }
   return (
     <Home ui="논문 첫 화면" kind="pl" recentTitle="최근 더한 논문" recentText={t('최근 더한 논문', 'Recently added papers')} recentTip={t('목록에서 더한 순서(최근 것부터)로 보기', 'View the list in order added (newest first)')} onRecent={showRecentPapers}
-      error={error} notice={b && !b.library ? t('공유 라이브러리(research-library)가 설정되지 않았습니다. 설정 › 라이브러리 관리에서 저장 위치를 확인해 주세요.', 'The shared library (research-library) is not set up. Check its location in Settings › Library.') : null}
+      error={error} notice={b && !b.library ? t('공유 라이브러리가 설정되지 않았습니다. 설정 › 라이브러리 관리에서 저장 위치를 확인해 주세요.', 'The shared library is not set up. Check its location in Settings › Library.') : null}
       check={check} stats={stats} statsNote={b ? t(`${b.total}편`, `${b.total}`) : undefined} rightOpen={rightOpen}
       cards={(cols) => <>
         <AddPaper look="card" compact onSaved={onSaved} onAdded={() => undefined} />

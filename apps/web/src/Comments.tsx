@@ -62,7 +62,7 @@ export function targetOfTab(t: Tab | undefined, titleOf: (t: Tab) => string): Co
 // ---------- 코멘트를 읽고 쓰는 곳 ----------
 
 /**
- * 라이브러리 논문의 코멘트는 프로젝트가 아니라 research-library/comments/<키>/에 있다 (논문 라이브러리 3단계).
+ * 라이브러리 논문의 코멘트는 프로젝트가 아니라 shared-library/comments/<키>/에 있다 (논문 라이브러리 3단계).
  * 그 논문들은 rid 자리에 이 값을 쓰고, 대상은 `paper-<bib 키>`다. 화면 부품(PDF·쓰는 칸·목록)은 연구노트 PDF와 같다.
  */
 export const LIBRARY = '@library'
@@ -85,7 +85,7 @@ export function backend(rid: string): Backend {
       setState: (t, id, state, h) => papersApi.updateComment(keyOfPaper(t), id, { state }, h),
       answer: (t, id) => papersApi.answer(keyOfPaper(t), id),
       remove: (t, id, h) => papersApi.removeComment(keyOfPaper(t), id, h),
-      where: (t) => `research-library/comments/${keyOfPaper(t)}/`,
+      where: (t) => `shared-library/comments/${keyOfPaper(t)}/`,
     }
   }
   const api = commentsApi(rid)

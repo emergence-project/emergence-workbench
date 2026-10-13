@@ -12,7 +12,7 @@ import { lang, plural, t } from './i18n'
 
 /**
  * 그림 라이브러리 (10/4 19:10 피드백 "반복해서 쓰는 그림을 공용 자산으로").
- * - 공용 research-library/figures/, 프로젝트 전용 workbench/figures/. 이름과 설명은 그 폴더의 figures.yaml.
+ * - 공용 shared-library/figures/, 프로젝트 전용 workbench/figures/. 이름과 설명은 그 폴더의 figures.yaml.
  * - 10/6 L2: 첫 화면은 LibraryHome.tsx, 이 파일은 "목록". 표 | 카드(기본), 보기 단추는 머리줄 가운데, 정렬(이름 · 최근 더한 순)은 오른쪽.
  * - 왼쪽 사이드바: 맨 위 "그림 라이브러리"(첫 화면) · "목록 n", 찾기, 공용 · 쓰는 노트 없음, 프로젝트별.
  *   첫 화면 점검 · 통계에서 오는 거르기(원본 종류 · 그림으로 못 바꾼 tikz)는 사이드바에 줄을 두지 않고 머리줄에 이름을 보인다.
@@ -142,7 +142,7 @@ export function FiguresPage({ filter, onSaved }: { filter?: string; onSaved(m: s
           {!data && (error
             ? <p className="muted fg-empty">{t('그림 목록을 읽지 못했습니다', 'Could not read the figure list')}: {error} <button className="btn sm" onClick={forgetFigures}>{t('다시 읽기', 'Reload')}</button></p>
             : <p className="muted fg-empty">{t('불러오는 중…', 'Loading…')}</p>)}
-          {data && !data.library && <div className="banner">{t('공유 라이브러리(research-library)가 설정되지 않아 프로젝트 전용 그림만 보입니다. 설정 › 공유 라이브러리에서 정해 주세요.', 'No shared library (research-library) is set, so only project figures show. Set it in Settings › Shared library.')}</div>}
+          {data && !data.library && <div className="banner">{t('공유 라이브러리가 설정되지 않아 프로젝트 전용 그림만 보입니다. 설정 › 공유 라이브러리에서 정해 주세요.', 'No shared library is set, so only project figures show. Set it in Settings › Shared library.')}</div>}
           {data && (view === 'cards'
             ? (
               <div className="fg-cards">
