@@ -1,4 +1,7 @@
-/** 찍을 화면: [파일 이름, 주소(#뒤), 그려졌다고 볼 부위(data-ui), 찍기 전에 누를 부위(data-ui 또는 그 목록, 없어도 됨)] — {rid}는 예제 연구 id.
+// 편집기에 글이 들어올 때까지 기다린다 (편집기 틀만 먼저 그려진다)
+const EDITOR_TEXT = '[data-ui="LaTeX 편집기"] .cm-line:not(:has(br:only-child))'
+
+/** 찍을 화면: [파일 이름, 주소(#뒤), 그려졌다고 볼 부위(data-ui, '['로 시작하면 선택자), 찍기 전에 누를 부위(data-ui 또는 그 목록, 없어도 됨)] — {rid}는 예제 연구 id.
  *  이름이 `dark-`로 시작하면 다크 모드(시스템 설정 흉내)로 찍는다. --theme dark면 모든 화면을 다크로 찍는다(다크 값을 고칠 때 확인용). */
 export const DEFAULT_SCREENS = [
   ['home', '#/', '홈'],
@@ -16,17 +19,17 @@ export const DEFAULT_SCREENS = [
   // 작업 탭 (10/7 시안 v31): 처음은 판단 필터(브리핑 · 한 주 달력 · 판단 카드). 맡긴 일은 fixtures/sandbox-extra/workbench/tasks
   ['todo', '#/r/{rid}/todo', '판단 카드'],
   ['info', '#/r/{rid}/info', '저장소 정보'],
-  ['map', '#/r/{rid}/map', null],
-  ['log', '#/r/{rid}/log', null],
+  ['map', '#/r/{rid}/map', '지도'],
+  ['log', '#/r/{rid}/log', '기록'],
   // 맡기기 창, 날짜를 누른 달력, 맡긴 일 목록(필터는 기억되므로 마지막에 판단으로 되돌린다), 보고서
   ['task-dialog', '#/r/{rid}/todo', '맡기기 창', '맡기기'],
   ['task-list', '#/r/{rid}/todo', '맡긴 일 목록', '[data-ui="작업 거르기"] button:text-matches("^(맡긴 일|Delegated)")'],
   ['task-day', '#/r/{rid}/todo', '하루 자세히', ['[data-ui="작업 거르기"] button:text-matches("^(판단|To decide)")', '[data-ui="하루"].is-today']],
   ['task-report', '#/r/{rid}/k/2026-10-05-list-coloring-bound', '다음 지시'],
-  ['block', '#/r/{rid}/b/kempe-chains', null],
-  ['chapter', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', null],
+  ['block', '#/r/{rid}/b/kempe-chains', EDITOR_TEXT],
+  ['chapter', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', EDITOR_TEXT],
   ['chapter-cited', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', '인용한 논문', '인용한 논문'],
-  ['statement', '#/r/{rid}/s/five-color', null],
+  ['statement', '#/r/{rid}/s/five-color', '진술 머리'],
   // Markdown + KaTeX 연구노트·보조 노트 (10/4 결정): 읽기, 고치기
   ['research-note', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '노트 본문'],
   ['research-note-edit', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '개념노트 편집기', '고치기'],
@@ -41,7 +44,7 @@ export const DEFAULT_SCREENS = [
   ['knowledge', '#/library', '통계 줄'],
   ['knowledge-list', '#/library/list', '지식 목록 줄'],
   ['knowledge-list-filtered', '#/library/list?subject=Mathematics', '분류 정보'],
-  ['knowledge-map', '#/library/map', null],
+  ['knowledge-map', '#/library/map', '지식 지도'],
   ['knowledge-make', '#/library', '개념노트 만들기 메뉴', '개념노트 만들기'],
   ['knowledge-note', '#/library/t/planargraph', '개념노트'],
   ['knowledge-edit', '#/library/t/planargraph', '개념노트 편집기', '고치기'],
@@ -49,8 +52,8 @@ export const DEFAULT_SCREENS = [
   ['review', '#/review', '바뀐 곳'],
   // 확인 필요: 반려한 것을 다시 처리한 항목을 펼쳐 주고받은 기록과 승인·반려를 찍는다 (fixtures/sandbox-feedback)
   ['feedback', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '피드백 줄']],
-  ['about', '#/about', null],
-  ['settings', '#/settings', null],
+  ['about', '#/about', '소개'],
+  ['settings', '#/settings', '설정'],
   ['latex', '#/settings/latex', '서식 카드'],
   ['network', '#/network', '사람 카드'],
   ['person', '#/network/ada-e-example', '사람 페이지'],

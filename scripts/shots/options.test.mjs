@@ -76,3 +76,8 @@ test('--lang en captures the English sample', () => {
   assert.equal(parseShotOptions([], { SHOTS_LANG: 'en' }).lang, 'en')
   assert.throws(() => parseShotOptions(['--lang=fr'], {}), /--lang/)
 })
+
+test('every screen names a part to wait for, so it is not captured before its content loads', () => {
+  const missing = [...selectScreens('default'), ...selectScreens('subjects')].filter(([, , ui]) => !ui).map(([name]) => name)
+  assert.deepEqual(missing, [])
+})
