@@ -423,7 +423,7 @@ export interface PreambleChoice {
  */
 export function composePreamble(c: PreambleChoice): string {
   const lines = ['% 이 연구의 공통 서식과 매크로. 모든 블록 컴파일에 쓰인다.', '% 순서가 중요하다: 기본 패키지 → 이 저장소의 서식 → 라이브러리 기호(이미 정의된 것은 건드리지 않음).', '']
-  if (c.first.length) lines.push('% 공유 라이브러리 (research-library) — 기본', ...c.first.map((f) => `\\input{${f}}`), '')
+  if (c.first.length) lines.push('% 공유 라이브러리 — 기본', ...c.first.map((f) => `\\input{${f}}`), '')
   if (c.repo.length) lines.push('% 이 연구 저장소의 서식', ...c.repo.map((f) => `\\input{${f}}`), '')
   if (c.last.length) lines.push('% 공유 라이브러리 — 기호·환경', ...c.last.map((f) => `\\input{${f}}`), '')
   lines.push('% 이 연구에서만 쓰는 기호는 아래에 적는다.', '')

@@ -32,7 +32,7 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
     const list = ctx.libraryReads.papers()
     return paperBrief({ ...list, papers: list.papers.filter((x) => matchesSubject(x.subjects, req.query.subjectPrefix!)) }, recent)
   })
-  /** 관련 프로젝트(손으로 적은 것)를 바꾼다: research-library/papers.yaml */
+  /** 관련 프로젝트(손으로 적은 것)를 바꾼다: shared-library/papers.yaml */
   app.put<{ Params: { key: string } }>('/api/papers/:key/projects', replies(C.PaperProjects), async (req): Promise<C.PaperProjects> => ({ projects: setPaperProjects(registry, req.params.key, parseBody(C.SetPaperProjectsBody, req.body).projects) }))
   /** 더하기: arXiv 번호나 DOI (references.bib 끝에 덧붙이고, arXiv면 PDF도 받는다) */
   app.post('/api/papers', replies(C.PaperAdded), async (req): Promise<C.PaperAdded> => addPaper(registry, parseBody(C.AddPaperBody, req.body).id))
@@ -56,7 +56,7 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
     return { folders: registry.pdfFoldersSet.map((p) => ({ path: p, exists: fs.existsSync(p), cloud: cloudOf(p) })) }
   })
 
-  /** 논문의 코멘트 · 질문 · 하이라이트 (research-library/comments/<키>/<id>.md) */
+  /** 논문의 코멘트 · 질문 · 하이라이트 (shared-library/comments/<키>/<id>.md) */
   app.get<{ Params: { key: string } }>('/api/papers/:key/comments', replies(C.PaperCommentFile), async (req): Promise<C.PaperCommentFile> => read(req.params.key))
   app.post<{ Params: { key: string } }>('/api/papers/:key/comments', replies(C.PaperNoteAdded), async (req): Promise<C.PaperNoteAdded> => {
     const lib = libOf()

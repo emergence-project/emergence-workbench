@@ -4,8 +4,7 @@
 
 | 파일 | 서식 | 원본 |
 |---|---|---|
-| `knowledge-factory-beamer.sty` | 발표 (beamer) | `emergence-project/knowledge-factory`의 `templates/knowledge-factory-beamer/` v0.1.1 (커밋 6e5562b) |
 | `rw-research-note.sty` | 연구노트 (rw-research-note) | 기본 연구노트 서식. 머리말에 문서 제목. 이 파일이 정본 |
 
-beamer 파일은 원본 저장소가 정본이다. 여기서 고치지 말고, 원본이 바뀌면 그대로 다시 복사한다.
-발표 서식은 XeLaTeX로 컴파일하고 `fontspec`, `kotex`, `unicode-math`를 먼저 불러야 한다 (서식의 공통 줄에 들어 있다).
+앱에 싣지 않는 스타일 파일(공개하지 않는 발표 테마 등)은 앱 설정 폴더의 `latex-files/`에 두고, `config.yaml`의 그 서식에 `files: [이름.sty]`로 적는다. 앱은 이 폴더를 먼저, 없으면 `latex-files/`를 찾는다.
+발표 서식(beamer)은 테마 없이 XeLaTeX로 컴파일하고 `fontspec`, `kotex`, `unicode-math`를 공통 줄에서 부른다.

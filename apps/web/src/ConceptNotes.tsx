@@ -25,7 +25,7 @@ import { SectionToc, useTocMaxHeight } from './SectionToc'
 import { plural, t } from './i18n'
 
 /**
- * 개념노트 (2026-10-04 재설계, research-library/concepts/*.md).
+ * 개념노트 (2026-10-04 재설계, shared-library/concepts/*.md).
  * - 왼쪽 사이드바: 분류 나무와 찾기, 미완성·확인함 거르기. 아직 옮기지 않은 Study 노트는 맨 아래 따로.
  * - 가운데: 읽기 화면. 사람이 누르는 것은 "확인함" 하나와 고치기 잠금. 미완성은 앱이 본문을 보고 붙인다.
  * 지식 화면(Library.tsx)과 프로젝트 탭이 함께 쓴다.
@@ -418,7 +418,7 @@ function ConceptDocInfo({ id, doc, compact }: { id: string; doc: DocState; compa
         {tree?.enabled ? <><dt>{t('분류', 'Subject')}</dt><dd><SubjectPicker tree={tree} value={m.subjects ?? []} disabled={busy} onChange={doc.onSubjects} /></dd></> : m.subject && <><dt>{t('분류', 'Subject')}</dt><dd>{m.subject}</dd></>}
         {error && <><dt>{t('분류', 'Subject')}</dt><dd className="error">{error}</dd></>}
         {m.aliases.length > 0 && <><dt>{t('다른 이름', 'Aliases')}</dt><dd>{m.aliases.join(', ')}</dd></>}
-        <dt>{t('파일', 'File')}</dt><dd className="mono cn-info-path" title={`research-library/concepts/${id}.md`}>{id.split('/').pop()}.md</dd>
+        <dt>{t('파일', 'File')}</dt><dd className="mono cn-info-path" title={`shared-library/concepts/${id}.md`}>{id.split('/').pop()}.md</dd>
         {m.study && <><dt>Study</dt><dd title={m.study}>{t('Study에서 옮김', 'Moved from Study')}</dd></>}
       </dl>
     </section>

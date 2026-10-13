@@ -194,7 +194,10 @@ export interface LatexTemplate extends LatexSetup {
   id: string
   name: string
   kind: 'document' | 'slides'
-  /** main.tex 옆에 함께 둘 스타일 파일 (저장소 templates/latex/). 기본 서식에서만 오고 고칠 수 없다. 복사하면 따라간다 */
+  /**
+   * main.tex 옆에 함께 둘 스타일 파일 이름 (경로 없이). 앱의 templates/latex/에서 먼저, 없으면 설정 폴더의 latex-files/에서 찾는다.
+   * 기본 서식은 앱이 정하고, 저장한 서식은 config.yaml의 files:로 정한다(화면에서는 고치지 않음). 복사하면 따라간다
+   */
   files?: string[]
   /** 서식 모음에서 묶어 보는 이름표 (논문, 노트, 발표 …). 10/4 19:30 "필요하다면 태그도 사용해" */
   tags?: string[]
@@ -211,21 +214,19 @@ export const BUILTIN_TEMPLATES: LatexTemplate[] = [
   },
   { id: 'prl', name: 'PRL (revtex)', kind: 'document', ...DEFAULT_LATEX_SETUP, tags: ['논문', 'APS'] },
   {
-    // 사용자의 발표 서식 (knowledge-factory의 knowledge-factory-beamer v0.1.1, 10/4). XeLaTeX로 컴파일한다.
-    // 글꼴·수식 패키지는 main.tex가 먼저 불러야 하고, setting.tex(amsmath)는 unicode-math보다 앞에 둔다.
+    // 발표 서식: 테마 없는 beamer (10/13: 사용자 테마는 앱에 싣지 않는다. 쓰려면 서식의 files:와 설정 폴더 latex-files/). XeLaTeX로 컴파일한다.
+    // 글꼴·수식 패키지는 setting.tex(amsmath) 다음에 부르고, setting.tex는 unicode-math보다 앞에 둔다.
     // beamer가 hyperref·graphicx를 이미 불러서 패키지에서 뺀다.
-    id: 'beamer', name: '발표 (Knowledge Factory beamer)', kind: 'slides',
+    id: 'beamer', name: '발표 (beamer)', kind: 'slides',
     documentClass: '\\documentclass[aspectratio=169,11pt]{beamer}',
     preamble: [
       '\\input{setting}',
       '\\usepackage{fontspec}',
       '\\usepackage{kotex}',
       '\\usepackage{unicode-math}',
-      '\\usepackage[talk]{knowledge-factory-beamer}',
     ].join('\n'),
     packages: ['amsmath'],
     settingExtra: '',
-    files: ['knowledge-factory-beamer.sty'],
     tags: ['발표', 'XeLaTeX'],
   },
   {
@@ -284,6 +285,8 @@ export const DEFAULT_TEMPLATE_ID = 'prl'
 const FIRST_BUILTINS = ['article', 'prl', 'beamer']
 
 const MAX_TEMPLATES = 30
+/** 서식 파일 이름: 경로 없이 .sty · .cls · .tex · .bst · .bbx · .cbx · .def 하나 */
+const isFileName = (f: string) => /^[A-Za-z0-9][A-Za-z0-9._-]*\.(sty|cls|tex|bst|bbx|cbx|def)$/.test(f) && !f.includes('..')
 const templateId = (v: unknown) => (typeof v === 'string' ? v.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) : '')
 
 /** 서식 하나. 모르는 값은 base에서 */
@@ -294,7 +297,7 @@ export function normalizeTemplate(raw: unknown, base: LatexTemplate): LatexTempl
     name: 'name' in src ? oneLine(src.name) || base.name : base.name,
     kind: src.kind === 'slides' || src.kind === 'document' ? src.kind : base.kind,
     ...normalizeLatexSetup(src, base),
-    ...(base.files?.length ? { files: base.files } : {}),
+    ...(() => { const files = Array.isArray(src.files) ? [...new Set(src.files.map(oneLine).filter(isFileName))].slice(0, 8) : base.files; return files?.length ? { files } : {} })(),
     ...(() => { const tags = Array.isArray(src.tags) ? [...new Set(src.tags.map(oneLine).filter(Boolean))].slice(0, 8) : base.tags; return tags?.length ? { tags } : {} })(),
   }
 }

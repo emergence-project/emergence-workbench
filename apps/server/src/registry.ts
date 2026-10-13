@@ -18,7 +18,7 @@ const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolder
 
 export interface AppConfig {
   engine: Engine
-  /** 공유 라이브러리(research-library) 폴더. 없으면 라이브러리 서식을 쓰지 않는다 */
+  /** 공유 라이브러리 폴더. 없으면 라이브러리 서식을 쓰지 않는다 */
   library?: string
   /** Obsidian vault 폴더 (읽기만, 지식 화면). 없으면 보이지 않는다 */
   study?: string

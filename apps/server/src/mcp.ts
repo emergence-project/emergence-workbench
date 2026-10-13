@@ -95,7 +95,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('rules', {
     title: 'Rules',
-    description: 'Everything to read before starting work, in one place: safety rules, the rules for delegated tasks (docs/agent-delegated-work.md), the concept-note rules of the shared library (research-library README.md) and, with project, that research repository\'s own AGENTS.md / CLAUDE.md.',
+    description: 'Everything to read before starting work, in one place: safety rules, the rules for delegated tasks (docs/agent-delegated-work.md), the concept-note rules of the shared library (its README.md) and, with project, that research repository\'s own AGENTS.md / CLAUDE.md.',
     inputSchema: { project: z.string().optional().describe('Project id (from list_projects) to include its repository rules') },
     annotations: ro,
   }, async ({ project: rid }) => {
@@ -104,7 +104,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     // 개념노트 규칙과 연구 저장소 규칙은 앱 서버가 읽는다 (서버가 꺼져 있으면 그렇다고 적는다)
     const concepts = await get(base, f, '/api/concepts/rules')
     const cr = concepts.ok ? (concepts.body as { rules: { file: string; text: string } | null }).rules : null
-    parts.push(`# Concept note rules (research-library ${cr?.file ?? 'README.md'})\n\n${cr ? cr.text : concepts.ok ? '(no shared library is set up)' : concepts.error.content[0]!.text}`)
+    parts.push(`# Concept note rules (shared library ${cr?.file ?? 'README.md'})\n\n${cr ? cr.text : concepts.ok ? '(no shared library is set up)' : concepts.error.content[0]!.text}`)
     if (rid) {
       const r = await get(base, f, `/api/researches/${enc(rid)}/agent-rules`)
       if (!r.ok) return r.error
@@ -192,7 +192,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('search_library', {
     title: 'Search library',
-    description: 'Find concept notes and papers in the shared library (research-library) by name, alias, author, year or arXiv id. Concept notes are also found by their text: those come with hits (body line number, the heading it falls under, the line), so you can read just that part of read_concept.',
+    description: 'Find concept notes and papers in the shared library by name, alias, author, year or arXiv id. Concept notes are also found by their text: those come with hits (body line number, the heading it falls under, the line), so you can read just that part of read_concept.',
     inputSchema: {
       query: z.string().min(1).describe('Words to find; every word must match'),
       kind: z.enum(['concept', 'paper']).optional().describe('Only concept notes or only papers'),

@@ -141,7 +141,7 @@ export function LatexSetupPage({ onSaved, editor, scrollTo }: { onSaved(message:
                   </div>
                   {!!cur.files?.length && (
                     <div className="tex-extra" data-ui="스타일 파일">
-                      <p className="set-desc tex-note">{t('이 서식은 아래 파일을 main.tex 옆에 함께 두어야 합니다 (내보내기와 컴파일은 앱이 알아서 둡니다). XeLaTeX로 컴파일합니다.', 'This template needs the files below next to main.tex (export and compile place them for you). Compiles with XeLaTeX.')}</p>
+                      <p className="set-desc tex-note">{t('이 서식은 아래 파일을 main.tex 옆에 함께 두어야 합니다 (내보내기와 컴파일은 앱이 알아서 둡니다). 앱에 없는 파일은 설정 폴더의 latex-files/에서 찾습니다. XeLaTeX로 컴파일합니다.', 'This template needs the files below next to main.tex (export and compile place them for you). Files the app does not ship are read from latex-files/ in the settings folder. Compiles with XeLaTeX.')}</p>
                       {cur.files.map((f) => (
                         <div className="tex-file-head" key={f}>
                           <code>{f}</code><span className="sp" />

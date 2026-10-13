@@ -39,7 +39,7 @@ export const LatexSetupView = z.object({
 /** POST /latex-templates: 새 서식 id */
 export const LatexTemplateAdded = LatexSetupView.extend({ created: z.string() }).strict()
 
-/** 모든 노트가 함께 쓰는 기호: research-library의 concepts/macros.tex */
+/** 모든 노트가 함께 쓰는 기호: 공유 라이브러리의 concepts/macros.tex */
 export const LatexMacrosView = z.object({
   file: z.string(),
   /** 파일 내용의 해시 (고칠 때 baseHash) */

@@ -9,7 +9,7 @@ import { t } from './i18n'
  * 라이브러리 정보 (지식 · 논문 · 그림 첫 화면의 오른쪽 사이드바, requirements §8.1 "라이브러리 저장 위치").
  * 저장 위치 Git · iCloud · Google Drive와 "라이브러리 관리" 길 하나. 글은 Git, 큰 파일은 클라우드.
  * 정상은 무채색, 사용자 차례(올리지 않은 변경 등)만 주황. 다른 곳에 있는 숫자는 두지 않는다.
- * Git 줄의 저장소 상태는 셋이 함께 쓰는 research-library 하나다. iCloud · Google Drive 줄은 화면마다 다르다.
+ * Git 줄의 저장소 상태는 셋이 함께 쓰는 shared-library 하나다. iCloud · Google Drive 줄은 화면마다 다르다.
  */
 export function LibraryStorage({ info, git, gitMore, icloud, drive, section }: {
   section?: 'knowledge' | 'papers' | 'figures'
@@ -23,7 +23,7 @@ export function LibraryStorage({ info, git, gitMore, icloud, drive, section }: {
 }) {
   const [repo, setRepo] = useState<RepoInfo | null | undefined>(undefined)
   useEffect(() => { conceptsApi.libraryRepo().then(setRepo).catch(() => setRepo(null)) }, [info])
-  const name = (info?.path ?? '').split('/').filter(Boolean).pop() ?? 'research-library'
+  const name = (info?.path ?? '').split('/').filter(Boolean).pop() ?? 'shared-library'
   const pending = repo?.state === 'ok' ? (repo.ahead ?? 0) + (repo.dirty ?? 0) + (repo.untracked ?? 0) : 0
   return (
     <div className="kh-info">

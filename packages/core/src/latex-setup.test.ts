@@ -69,13 +69,14 @@ describe('LaTeX 서식 모음', () => {
     expect(newTemplateId('한글 이름', [])).toBe('template')
   })
 
-  it('발표 서식: 사용자의 knowledge-factory-beamer, 제목 장면과 \\institute', async () => {
+  it('발표 서식: 테마 없는 beamer, 제목 장면과 \\institute', async () => {
     const { BUILTIN_TEMPLATES, normalizeTemplates, buildExportMainTex } = await import('./latex-setup.js')
     const beamer = BUILTIN_TEMPLATES.find((t) => t.id === 'beamer')!
-    expect(beamer.files).toEqual(['knowledge-factory-beamer.sty'])
-    // 스타일 파일은 저장된 값으로 바꿀 수 없다
-    expect(normalizeTemplates([{ id: 'beamer', files: ['../x.sty'] }])[0]!.files).toEqual(['knowledge-factory-beamer.sty'])
-    expect(normalizeTemplates([{ id: 'mine', files: ['x.sty'] }])[0]!.files).toBeUndefined()
+    expect(beamer.files).toBeUndefined()
+    // 저장한 서식은 files:로 스타일 파일을 정한다 (경로·모르는 확장자는 버림). 없으면 기본 서식의 것
+    expect(normalizeTemplates([{ id: 'beamer', files: ['../x.sty', 'a/b.sty', 'x.exe'] }])[0]!.files).toBeUndefined()
+    expect(normalizeTemplates([{ id: 'mine', files: ['x.sty', 'x.sty'] }])[0]!.files).toEqual(['x.sty'])
+    expect(normalizeTemplates([{ id: 'research-note' }])[0]!.files).toEqual(['rw-research-note.sty'])
     const tex = buildExportMainTex({ setup: beamer, authors: [{ name: 'A', affiliations: ['X'] }, { name: 'B', affiliations: ['X', 'Y'] }], title: 'Talk' })
     // setting.tex(amsmath)는 unicode-math보다 앞
     expect(tex.indexOf('\\input{setting}')).toBeLessThan(tex.indexOf('\\usepackage{unicode-math}'))

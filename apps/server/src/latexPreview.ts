@@ -3,7 +3,7 @@ import path from 'node:path'
 import { buildExportMainTex, buildSettingTex, type Author, type LatexTemplate } from '@rw/core'
 import { hashOf } from './fsutil.js'
 import { isCompletePdf, runLatexmk, type Engine } from './latex.js'
-import { LATEX_FILES_DIR, placeTemplateFiles } from './latexFiles.js'
+import { placeTemplateFiles, templateFilePath } from './latexFiles.js'
 import { t as tx } from './i18n.js'
 
 /**
@@ -43,7 +43,7 @@ export function templatePreview(configDir: string, t: LatexTemplate, engine: Eng
   const dir = path.join(configDir, 'latex-previews', t.id)
   const main = buildExportMainTex({ setup: t, authors: SAMPLE_AUTHORS, title: t.kind === 'slides' ? 'Template preview' : 'Template preview: a research note', body: t.kind === 'slides' ? SAMPLE_SLIDES : SAMPLE_BODY, date: '4 October 2026' })
   const setting = buildSettingTex(t)
-  const files = (t.files ?? []).map((f) => { try { return fs.readFileSync(path.join(LATEX_FILES_DIR, f), 'utf8') } catch { return '' } })
+  const files = (t.files ?? []).map((f) => { const abs = templateFilePath(f); return abs ? fs.readFileSync(abs, 'utf8') : '' })
   const key = hashOf([engine, main, setting, ...files].join('\n%%\n'))
   const pdf = path.join(dir, 'main.pdf')
   const stamp = path.join(dir, 'key.txt')

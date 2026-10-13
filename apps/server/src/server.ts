@@ -66,9 +66,9 @@ if (process.env.RW_SANDBOX === '1') {
     const { id } = registry.register(work)
     registry.setProfile(id, { kind: 'work', fields: ['Graph Theory'] })
   }
-  // 예제용 라이브러리: 저장소의 templates/research-library를 복사해 쓴다
-  const library = path.join(sandboxRoot, 'research-library')
-  if (!fs.existsSync(library)) fs.cpSync(path.join(repoRoot, 'templates/research-library'), library, { recursive: true })
+  // 예제용 라이브러리: 저장소의 templates/shared-library를 복사해 쓴다
+  const library = path.join(sandboxRoot, 'shared-library')
+  if (!fs.existsSync(library)) fs.cpSync(path.join(repoRoot, 'templates/shared-library'), library, { recursive: true })
   if (!registry.libraryPath) registry.setLibrary(library)
   // 지식 화면 예제: Study vault · Topic Review · 개념노트·문헌노트 몇 개 (fixtures/knowledge)
   const knowledge = path.join(repoRoot, 'fixtures/knowledge')
@@ -126,7 +126,7 @@ if (process.env.RW_SANDBOX === '1') {
 }
 
 // 개인 저장소 (personalRepo.ts): 실사용만. 앱 설정·workbench 백업·피드백을 둔다
-const personal = process.env.RW_SANDBOX !== '1' ? await personalRemote(configDir, repoRoot) : null
+const personal = process.env.RW_SANDBOX !== '1' ? await personalRemote(configDir) : null
 const personalDir = path.join(configDir, 'personal')
 if (personal) {
   try { await ensurePersonalClone(personalDir, personal); await pullPersonal(personalDir) } catch (e) { console.warn(`개인 저장소(${personal})를 받지 못했습니다: ${(e as Error).message.split('\n')[0]}`) }

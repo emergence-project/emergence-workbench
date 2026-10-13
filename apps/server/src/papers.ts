@@ -14,8 +14,8 @@ import { frontMatter } from '@rw/core'
 
 /**
  * 논문 라이브러리 (형식: docs/repo-format.md §10).
- * - 논문 정보는 research-library/references.bib 하나. 앱은 읽기만 한다(새 항목 더하기는 2단계).
- * - 관련 프로젝트는 research-library/papers.yaml에 bib 키별로 적는다. 프로젝트 bib에 같은 키가 있으면 저절로 이어진다.
+ * - 논문 정보는 shared-library/references.bib 하나. 앱은 읽기만 한다(새 항목 더하기는 2단계).
+ * - 관련 프로젝트는 shared-library/papers.yaml에 bib 키별로 적는다. 프로젝트 bib에 같은 키가 있으면 저절로 이어진다.
  * - PDF는 설정의 PDF 폴더(여러 개, iCloud·Google Drive 가능)에서 <bib 키>.pdf로 찾는다. papers.yaml의 pdf:가 있으면 그 경로.
  *   클라우드에만 있는 파일(iCloud의 .<이름>.icloud 자리 표시, File Provider의 내용 없는 파일)은 "클라우드"로 보인다.
  */
@@ -25,7 +25,7 @@ export const LIBRARY_BIB = 'references.bib'
 export const PAPER_COMMENTS_DIR = 'comments'
 
 /**
- * 논문 코멘트: 코멘트 하나가 파일 하나, research-library/comments/<키>/<id>.md (Markdown + YAML 머리말, 제안 §3의 10/5 사용자 결정).
+ * 논문 코멘트: 코멘트 하나가 파일 하나, shared-library/comments/<키>/<id>.md (Markdown + YAML 머리말, 제안 §3의 10/5 사용자 결정).
  * 여기서는 수를 세는 데 필요한 머리말(kind, state)만 읽는다.
  */
 function paperComments(lib: string, key: string): { kind?: string; state?: string }[] {

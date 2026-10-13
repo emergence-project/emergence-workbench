@@ -2,7 +2,7 @@
 import type { LatexMacrosView, LatexSetupView, LatexTemplateAdded, SaveAuthorsBody, SaveTemplateBody } from '@rw/core/contract/latex'
 import { enc, json, req, send } from './http'
 
-/** 모든 노트가 함께 쓰는 기호(LatexMacrosView): research-library의 concepts/macros.tex (개념노트 화면과 LaTeX 컴파일이 함께 쓴다) */
+/** 모든 노트가 함께 쓰는 기호(LatexMacrosView): 공유 라이브러리의 concepts/macros.tex (개념노트 화면과 LaTeX 컴파일이 함께 쓴다) */
 export type { LatexMacrosView, LatexSetupView } from '@rw/core/contract/latex'
 
 export const latexApi = {

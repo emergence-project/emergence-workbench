@@ -12,7 +12,7 @@ import { frontMatter } from '@rw/core'
 
 /**
  * 논문의 코멘트 · 질문 · 하이라이트 (형식: docs/repo-format.md §10.3).
- * 하나가 파일 하나: research-library/comments/<bib 키>/<id>.md, Markdown + YAML 머리말.
+ * 하나가 파일 하나: shared-library/comments/<bib 키>/<id>.md, Markdown + YAML 머리말.
  *
  *   ---
  *   id: c-20261005-101200

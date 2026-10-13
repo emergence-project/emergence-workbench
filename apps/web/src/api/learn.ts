@@ -1,4 +1,4 @@
-// ---------- 공부할 것: "모름"과 개념노트 초안 (research-library/to-learn.yaml, 서버 learn.ts) ----------
+// ---------- 공부할 것: "모름"과 개념노트 초안 (shared-library/to-learn.yaml, 서버 learn.ts) ----------
 import type { LearnAdded, LearnDrafted, LearnList, NewLearnBody } from '@rw/core/contract/learn'
 import { enc, json, req, send } from './http'
 

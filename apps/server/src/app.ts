@@ -35,6 +35,7 @@ import { registerGoogle } from './routes/google.js'
 import { registerTopics } from './routes/topics.js'
 import { registerBackup } from './routes/backup.js'
 import { registerLatexSetup } from './routes/latexSetup.js'
+import { setUserLatexFilesDir } from './latexFiles.js'
 import { registerNetwork } from './routes/network.js'
 import { registerNoteTrash } from './routes/noteTrash.js'
 import { registerSearch } from './routes/search.js'
@@ -109,6 +110,7 @@ export const READ_ONLY_REQUESTS = new Set([
 
 export function buildApp(opts: AppOptions): FastifyInstance & { registry: Registry } {
   const registry = new Registry(opts.configDir)
+  setUserLatexFilesDir(opts.configDir)
   const app = Fastify({ logger: false, bodyLimit: 5 * 1024 * 1024 }) as unknown as FastifyInstance & { registry: Registry }
   app.decorate('registry', registry)
 

@@ -125,8 +125,8 @@ describe('safe research fast-forward with local edits', () => {
   })
 })
 
-// 맥의 기본 파일 시스템은 대소문자를 가리지 않는다. 앱에 등록한 경로(entanglement-bootstrap)와 git이 돌려주는
-// 실제 이름(Entanglement-Bootstrap)이 달라도 같은 저장소로 본다 (10/10: 홈 카드에 받기 표시가 없어 124커밋 뒤처짐)
+// 맥의 기본 파일 시스템은 대소문자를 가리지 않는다. 앱에 등록한 경로(my-research)와 git이 돌려주는
+// 실제 이름(My-Research)이 달라도 같은 저장소로 본다 (10/10: 홈 카드에 받기 표시가 없어 124커밋 뒤처짐)
 const caseInsensitive = (() => {
   const d = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'Rw-Case-'))
   try { return fs.existsSync(d.toLowerCase()) } finally { fs.rmSync(d, { recursive: true, force: true }) }

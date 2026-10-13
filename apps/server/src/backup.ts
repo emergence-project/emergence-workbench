@@ -10,7 +10,7 @@ import { t } from './i18n.js'
 const exec = promisify(execFile)
 
 /**
- * 맥에만 있던 작업대 정보(workbench/)와 앱 설정을 비공개 저장소 research-workspace-backup에 두고, 그것을 정본으로 맞춘다
+ * 맥에만 있던 작업대 정보(workbench/)와 앱 설정을 사용자의 비공개 개인 저장소(personalRepo.ts)에 두고, 그것을 정본으로 맞춘다
  * (10/4 첫 결정은 한쪽으로 올리는 백업, 10/4 16:2x 사용자 답 "예"로 GitHub가 정본).
  *
  * - 대상: 연구 저장소 git이 workbench/를 하나도 추적하지 않는 연구. 연구 저장소의 git은 읽기만 한다.
@@ -38,15 +38,6 @@ async function blob(cwd: string, sha: string): Promise<Buffer> {
 /** 이 연구의 workbench/가 연구 저장소에 올라가 있는지 (하나라도 추적하면 true) */
 export async function workbenchTracked(repoPath: string): Promise<boolean> {
   try { return (await git(repoPath, ['ls-files', '--', 'workbench'])).length > 0 } catch { return false }
-}
-
-/**
- * 옛 앱 저장소(research-workspace)의 origin 주소에서 같은 계정의 research-workspace-backup 주소를 만든다.
- * 공개 저장소(emergence-workbench)에서는 짐작하지 않는다: 받은 사람마다 개인 저장소가 다르다(personalRepo.ts).
- */
-export function backupRemoteFor(appOrigin: string): string | null {
-  const m = /^(.*[/:])([^/:]+)\/research-workspace(?:\.git)?\/?$/.exec(appOrigin.trim())
-  return m ? `${m[1]}${m[2]}/research-workspace-backup.git` : null
 }
 
 const SYNCED = 'refs/rw/synced'

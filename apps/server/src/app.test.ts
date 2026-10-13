@@ -490,10 +490,10 @@ describe('파일 감시', () => {
 })
 
 describe('서식 라이브러리', () => {
-  const templates = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../templates/research-library')
+  const templates = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../templates/shared-library')
 
   it('등록 창에 라이브러리 서식과 저장소 안 서식 후보가 나오고, 고른 순서대로 서식을 만든다', async () => {
-    const lib = path.join(tmp, 'research-library')
+    const lib = path.join(tmp, 'shared-library')
     fs.cpSync(templates, lib, { recursive: true })
     app.registry.setLibrary(lib)
     const listed = (await app.inject({ method: 'GET', url: '/api/library' })).json()

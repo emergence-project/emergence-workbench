@@ -1,4 +1,4 @@
-// 공유 기호 파일(research-library/concepts/macros.tex)의 KaTeX 정의를 한 번 읽어 나눠 쓴다.
+// 공유 기호 파일(shared-library/concepts/macros.tex)의 KaTeX 정의를 한 번 읽어 나눠 쓴다.
 // 개념노트 · 노트 화면(ConceptNotes.tsx useConceptRender)과 카드 설명(cardParts.tsx)이 함께 쓴다.
 import { useEffect, useState } from 'react'
 import { conceptsApi } from './api'

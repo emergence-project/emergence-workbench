@@ -48,6 +48,6 @@ const STORED_EN: Record<string, string> = {
   메모: 'Memo', '할 일': 'To-do', 상태: 'Status', 완료: 'Done', 전체: 'Whole',
   디자인: 'Design', 버그: 'Bug', 기능: 'Feature', 질문: 'Question', 수정: 'Fix', 제안: 'Suggestion', 미분류: 'Unsorted',
   노트: 'Note', 논문: 'Paper', 발표: 'Talk',
-  '기본 문서 (article)': 'Basic document (article)', '발표 (Knowledge Factory beamer)': 'Talk (Knowledge Factory beamer)', '연구노트 (rw-research-note)': 'Research note (rw-research-note)',
+  '기본 문서 (article)': 'Basic document (article)', '발표 (beamer)': 'Talk (beamer)', '연구노트 (rw-research-note)': 'Research note (rw-research-note)',
 }
 export const shown = (stored: string): string => (lang === 'ko' ? stored : STORED_EN[stored] ?? stored)

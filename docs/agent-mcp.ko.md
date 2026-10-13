@@ -35,7 +35,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 
 | 도구 | 하는 일 | 부르는 API |
 | --- | --- | --- |
-| `rules` | 일하기 전에 읽을 규칙을 한 번에: 안전 규칙, 맡긴 일 규칙(`docs/agent-delegated-work.md`), 개념노트 규칙(research-library README의 개념노트 절), `project`를 주면 그 연구 저장소의 `AGENTS.md` · `CLAUDE.md`. 먼저 읽는다 | (앱 폴더의 문서), `GET /api/concepts/rules`, `GET …/:rid/agent-rules` |
+| `rules` | 일하기 전에 읽을 규칙을 한 번에: 안전 규칙, 맡긴 일 규칙(`docs/agent-delegated-work.md`), 개념노트 규칙(공유 라이브러리 README의 개념노트 절), `project`를 주면 그 연구 저장소의 `AGENTS.md` · `CLAUDE.md`. 먼저 읽는다 | (앱 폴더의 문서), `GET /api/concepts/rules`, `GET …/:rid/agent-rules` |
 | `list_projects` | 등록한 프로젝트: id · 제목 · 저장소 경로 · 진행 상태 | `GET /api/researches` |
 | `project_status` | 프로젝트 요약(`workbench/STATUS.md`와 같은 내용) | `GET …/:rid/agent-status` |
 | `list_notes` | 노트 목록: 본문 파일 · 기록 이름 `target`(Markdown 노트·블록 노트, `main.tex`에는 없음) · 상태 · 다시 열 조건 · 주제 (`status`로 거르기) | `GET …/:rid/notes` |

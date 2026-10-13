@@ -1,5 +1,5 @@
 /**
- * 공유 라이브러리 API의 계약 (research-library, 서버 routes/library.ts · 화면 api/library.ts).
+ * 공유 라이브러리 API의 계약 (shared-library, 서버 routes/library.ts · 화면 api/library.ts).
  * 개념노트(Markdown)는 concepts.ts, 논문 · 그림 목록은 papers.ts · figures.ts에 있다.
  * 파일 형식은 docs/repo-format.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */

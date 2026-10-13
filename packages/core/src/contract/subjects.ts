@@ -1,5 +1,5 @@
 /**
- * 라이브러리 분류 API의 계약 (research-library/subjects.yaml, 서버 routes/subjects.ts · 화면 api/subjects.ts).
+ * 라이브러리 분류 API의 계약 (shared-library/subjects.yaml, 서버 routes/subjects.ts · 화면 api/subjects.ts).
  * 파일 형식은 docs/repo-format.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */
 import { z } from 'zod'

@@ -33,7 +33,7 @@ export type WorkbenchEvent =
   | { type: 'note'; research: string; file: string; hash: string | null }
   /** research.yaml sources의 파일(작업 목록·검토 문서·참고문헌)이 바뀜. 작업 탭·개괄이 다시 읽는다 */
   | { type: 'sources'; research: string }
-  /** 공용 라이브러리(research-library) 파일이 바뀜. 어느 프로젝트의 것도 아니다. file은 라이브러리 기준 경로 */
+  /** 공용 라이브러리 파일이 바뀜. 어느 프로젝트의 것도 아니다. file은 라이브러리 기준 경로 */
   | { type: 'library'; research: null; part: 'concepts' | 'figures' | 'papers'; file: string }
 
 /** workbench 안의 어떤 파일인지. 알림 대상이 아니면 null */

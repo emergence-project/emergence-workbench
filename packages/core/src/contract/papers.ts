@@ -1,5 +1,5 @@
 /**
- * 논문 라이브러리 API의 계약 (research-library/references.bib · papers.yaml · comments/<키>/, 서버 routes/papers.ts · 화면 api/papers.ts).
+ * 논문 라이브러리 API의 계약 (shared-library/references.bib · papers.yaml · comments/<키>/, 서버 routes/papers.ts · 화면 api/papers.ts).
  * 논문 분류(/papers/:key/subjects)는 subjects.ts에 있다.
  * 파일 형식은 docs/repo-format.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */

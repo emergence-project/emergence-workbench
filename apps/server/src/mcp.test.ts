@@ -75,7 +75,7 @@ describe('MCP 입구 (읽기)', () => {
       return new Response(JSON.stringify({ error: 'no' }), { status: 404 })
     }) as typeof fetch
     const t = textOf(await (await connect(fake)).callTool({ name: 'rules', arguments: { project: 'p1' } }))
-    expect(t).toContain('# Concept note rules (research-library README.md)\n\n## concepts/\n\nOne concept per note.')
+    expect(t).toContain('# Concept note rules (shared library README.md)\n\n## concepts/\n\nOne concept per note.')
     expect(t).toContain('# Project rules (AGENTS.md)\n\n# AGENTS.md\n\n- Plan first.')
     expect(t).toContain('# 맡긴 일의 규칙')
     // 실제 서버 경로도 있다 (예제 연구에는 AGENTS.md가 없을 수 있다)

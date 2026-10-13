@@ -29,7 +29,7 @@ export function projectRules(repo: string): RuleFile[] {
   return out
 }
 
-/** research-library README.md의 개념노트 절 (`## concepts/`부터 다음 `## `까지). 그 절이 없으면 README 전체 */
+/** 공유 라이브러리 README.md의 개념노트 절 (`## concepts/`부터 다음 `## `까지). 그 절이 없으면 README 전체 */
 export function conceptRules(lib: string | undefined): RuleFile | null {
   if (!lib) return null
   const r = readRule(lib, 'README.md')

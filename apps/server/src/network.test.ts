@@ -50,7 +50,7 @@ describe('네트워킹 (사람과 노트 참고 문헌의 논문)', () => {
   })
 })
 
-describe('분야 이름표 새 분류로 읽기 (research-library#6)', () => {
+describe('분야 이름표 새 분류로 읽기', () => {
   it('옛 이름은 새 분류 이름으로, 겹치면 하나로, 모르는 이름은 그대로', async () => {
     const { renameTags } = await import('./routes/network.js')
     expect(renameTags(['Quantum Many-Body Theory', 'Condensed Matter', 'Anyons', 'Quantum Information'])).toEqual(['Quantum Many-Body', 'Anyons', 'Quantum Information Theory'])

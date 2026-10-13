@@ -32,7 +32,7 @@ export function compileBlock(wb: Workbench, id: string, engine: Engine = 'xelate
 
 /**
  * 공유 라이브러리 노트 하나를 PDF로 (라이브러리 서식을 모두 불러와서). 빌드는 앱 설정 폴더 아래에서 해
- * research-library 저장소에는 아무것도 남기지 않는다.
+ * shared-library 저장소에는 아무것도 남기지 않는다.
  * template(설정의 LaTeX 서식)을 주면 그 문서 종류로, setting.tex를 빌드 폴더에 만들어 쓴다.
  */
 export function compileLibraryNote(library: string, preambles: string[], note: string, buildDir: string, engine: Engine = 'xelatex', bib?: string, template?: LatexTemplate): Promise<CompileResult> {

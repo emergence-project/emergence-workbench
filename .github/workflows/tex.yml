@@ -42,7 +42,7 @@ on:
       - apps/server/src/sharedMacros.test.ts
       - apps/server/src/testkit.ts
       - templates/latex/**
-      - templates/research-library/**
+      - templates/shared-library/**
       - fixtures/sample-research/**
       - scripts/ci/mac-fonts.py
       - .github/workflows/tex.yml

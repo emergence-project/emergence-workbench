@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as C from '@rw/core/contract/backup'
 import { buildApp } from './app.js'
-import { backupRemoteFor, backupWorkbenches } from './backup.js'
+import { backupWorkbenches } from './backup.js'
 
 let tmp: string
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args]).toString().trim()
@@ -29,12 +29,6 @@ function research(name: string, trackWorkbench: boolean): string {
 }
 
 describe('workbench 백업', () => {
-  it('origin 주소에서 같은 계정의 백업 저장소 주소를 만든다', () => {
-    expect(backupRemoteFor('https://github.com/me/research-workspace.git\n')).toBe('https://github.com/me/research-workspace-backup.git')
-    expect(backupRemoteFor('git@github.com:me/research-workspace')).toBe('git@github.com:me/research-workspace-backup.git')
-    expect(backupRemoteFor('https://github.com/me/other.git')).toBeNull()
-  })
-
   it('백업을 쓰지 않는 모드에서는 꺼짐으로 알리고, 돌리면 404', async () => {
     const app = buildApp({ configDir: path.join(tmp, 'config-off') })
     expect((await app.inject({ url: '/api/backup' })).json()).toEqual({ enabled: false, remote: null, running: false, last: null })
