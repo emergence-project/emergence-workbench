@@ -193,10 +193,10 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
       {loose
         ? <NewCard shape="note" label={tr('노트 만들기', 'New note')} ui="새 노트" onClick={createNote} />
         : (
-          // 새 노트 · 있는 노트 넣기 두 갈래 (10/12 14:38)
+          // 새 노트 · 노트 지정하기 두 갈래 (10/12 14:38, 이름은 10/13). data-ui는 처음 이름 "있는 노트 넣기" 그대로
           <div className="kc-new-split note">
             <button type="button" className="kc-new-half" data-ui="새 노트" onClick={createNote}><span className="kc-new-plus" aria-hidden>＋</span><span>{tr('노트 만들기', 'New note')}</span></button>
-            <button type="button" className="kc-new-half" data-ui="있는 노트 넣기" onClick={() => setAdding(true)}><span>{tr('있는 노트 넣기', 'Add existing note')}</span></button>
+            <button type="button" className="kc-new-half" data-ui="있는 노트 넣기" onClick={() => setAdding(true)}><span>{tr('노트 지정하기', 'Assign notes')}</span></button>
           </div>
         )}
       {grid.map(card)}

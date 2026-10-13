@@ -70,7 +70,7 @@
 .kc-new.note { aspect-ratio: 1 / 1; }
 .kc-new.topic { aspect-ratio: 3 / 4; }
 .kc-new-plus { font-size: var(--fs-xl); line-height: 1; font-weight: var(--fw-normal); }
-/* 주제 화면: 한 칸을 둘로 (위 ＋ 노트 만들기 · 아래 있는 노트 넣기, 10/12 14:38) */
+/* 주제 화면: 한 칸을 둘로 (위 ＋ 노트 만들기 · 아래 노트 지정하기, 10/12 14:38) */
 .kc-new-split { width: var(--kc-card-width); box-sizing: border-box; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border: 1.5px dashed var(--line-strong); border-radius: var(--r-md); overflow: hidden; }
 .kc-new-half { flex: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: transparent; color: var(--text-3); font-size: var(--fs-sm); cursor: pointer; }
 .kc-new-half + .kc-new-half { flex: 1; border-top: 1.5px dashed var(--line-strong); }
