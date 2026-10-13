@@ -2,9 +2,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
 import { charCount, parseCardFigureRef } from '@rw/core'
-import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
+import { hashOf, writeAtomic } from './fsutil.js'
+import { ConflictError, TOPIC_YAML, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tx } from './i18n.js'
-import { editResearchYaml, researchHash } from './researchYaml.js'
+import { editResearchYaml, researchHash, researchText } from './researchYaml.js'
 import { TOPIC_COLORS, type Topic, type TopicColor, type TopicPreview } from '@rw/core/contract/research'
 
 /**
@@ -28,6 +29,16 @@ import { TOPIC_COLORS, type Topic, type TopicColor, type TopicPreview } from '@r
  *       done: true            # 없으면 진행 중
  *       manuscript: docs/model/main.tex   # 없으면 첫째 메인 노트
  * parts는 장 id (장 파일이면 저장소 기준 경로, \section으로 나눈 원고면 "파일#label").
+ *
+ * 주제 폴더 배치 (10/13 연구 저장소 폴더): 주제 정보를 workbench/topics/<id>/topic.yaml에 두고 research.yaml에는 순서만 적는다.
+ *   research.yaml                     workbench/topics/phase-diagram/topic.yaml
+ *     topics:                           title: Example phase diagram
+ *       - phase-diagram                 description: |-
+ *       - id: old-style  # 예전 모양       상도와 그 경계
+ *         title: …                      star: true
+ * topics:의 글 한 줄(id)은 그 주제 폴더의 topic.yaml을 읽는다 (칸은 위와 같고 id는 폴더 이름). 목록에 없는 주제 폴더(topic.yaml이 있는 것)는 뒤에 붙인다.
+ * 두 모양이 한 목록에 섞여도 된다. 앱이 고칠 때 주제 폴더의 주제는 topic.yaml을, 예전 모양은 research.yaml을 고친다.
+ * 주제 폴더를 쓰는 프로젝트(workbench/topics/가 있음)에서 새로 만드는 주제는 주제 폴더로 만든다.
  */
 /** 모양은 계약(@rw/core/contract/research). 바탕색 값은 화면의 tokens.css에 라이트·다크로 둔다 (시안 7-주제-고치기-창) */
 export { TOPIC_COLORS } from '@rw/core/contract/research'
@@ -83,12 +94,36 @@ function readPreview(v: unknown): TopicPreview | undefined {
   return text || image || color ? { ...(text && { text }), ...(image && { image }), ...(color && { color }) } : undefined
 }
 
+const topicFile = (wb: Workbench, id: string) => path.join(wb.topicsDir, id, TOPIC_YAML)
+
+/** 주제 폴더의 topic.yaml (없거나 읽지 못하면 빈 것) */
+function readTopicYaml(wb: Workbench, id: string): Record<string, unknown> {
+  try {
+    const v = YAML.parse(fs.readFileSync(topicFile(wb, id), 'utf8'))
+    return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {}
+  } catch { return {} }
+}
+
+/**
+ * research.yaml topics:의 항목을 읽을 모양으로: 글(id)은 그 주제 폴더의 topic.yaml (이름이 없으면 id), 지도는 그대로.
+ * unlisted면 목록에 없는 주제 폴더(topic.yaml이 있는 것)를 뒤에 붙인다
+ */
+function expandTopicItems(wb: Workbench, items: unknown[], unlisted: boolean): unknown[] {
+  const named = new Set(items.map((it) => (typeof it === 'string' ? it.trim() : str((it as Record<string, unknown> | null)?.id))).filter(Boolean))
+  const fromFolder = (id: string) => ({ title: id, ...readTopicYaml(wb, id), id })
+  const out = items.map((it) => (typeof it === 'string' ? (it.trim() ? fromFolder(it.trim()) : it) : it))
+  if (unlisted) for (const id of wb.topicFolders()) if (!named.has(id) && fs.existsSync(topicFile(wb, id))) out.push(fromFolder(id))
+  return out
+}
+
 export function readTopics(wb: Workbench): Topic[] {
-  if (!fs.existsSync(wb.researchPath)) return []
-  let raw: unknown
-  try { raw = YAML.parse(fs.readFileSync(wb.researchPath, 'utf8')) } catch { return [] }
-  const list = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).topics : undefined
-  return Array.isArray(list) ? normalize(list, false) : []
+  let list: unknown
+  if (fs.existsSync(wb.researchPath)) {
+    let raw: unknown
+    try { raw = YAML.parse(fs.readFileSync(wb.researchPath, 'utf8')) } catch { return [] }
+    list = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).topics : undefined
+  }
+  return normalize(expandTopicItems(wb, Array.isArray(list) ? list : [], true), false)
 }
 
 /**
@@ -147,7 +182,11 @@ export function topicIdOf(title: string, taken: string[]): string {
   return id
 }
 
-export const topicsHash = researchHash
+/** 주제 목록의 hash: research.yaml과 주제 폴더의 topic.yaml들. 주제 폴더가 없으면 research.yaml의 hash와 같다 */
+export function topicsHash(wb: Workbench): string {
+  const files = wb.topicFolders().flatMap((id) => { try { return [`\0${id}\0${fs.readFileSync(topicFile(wb, id), 'utf8')}`] } catch { return [] } })
+  return files.length ? hashOf(researchText(wb) + files.join('')) : researchHash(wb)
+}
 
 /** 읽을 때 받은 baseHash 뒤로 research.yaml이 바뀌지 않았는지 본다 (없으면 거절: 바깥 수정을 모르고 덮지 않게) */
 export function checkTopicsHash(wb: Workbench, baseHash: unknown): void {
@@ -183,6 +222,39 @@ function flowShort(node: unknown): void {
   YAML.visit(node as YAML.Node, { Seq(_, n) { if (n.items.length <= 1) n.flow = true } })
 }
 
+const YAML_OUT: YAML.ToStringOptions = { flowCollectionPadding: false, lineWidth: 0 }
+
+/**
+ * 주제 폴더의 topic.yaml을 고친다 (없으면 만든다). prev가 있으면 바뀐 칸만 그 자리에서 고치고 모르는 칸·주석은 그대로 둔다.
+ * id는 폴더 이름이라 적지 않고, 빈 장 목록도 적지 않는다
+ */
+function writeTopicYaml(wb: Workbench, t: Topic, prev?: Topic): void {
+  const file = topicFile(wb, t.id)
+  const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
+  const doc = text.trim() ? YAML.parseDocument(text) : new YAML.Document({})
+  if (doc.errors.length || (doc.contents != null && !YAML.isMap(doc.contents))) throw new WorkbenchError(409, tx(`${path.relative(wb.repo, file)}을 읽지 못해 고치지 않음`, `Not changed: could not read ${path.relative(wb.repo, file)}`))
+  let changed = false
+  for (const [key, valueOf] of Object.entries(TOPIC_FIELDS)) {
+    if (key === 'id') continue
+    const of = (x: Topic) => { const v = valueOf(x); return Array.isArray(v) && !v.length ? undefined : v }
+    const v = of(t)
+    if (prev && JSON.stringify(v) === JSON.stringify(of(prev))) continue
+    if (v === undefined) { if (doc.has(key)) { doc.delete(key); changed = true } } else { const vn = doc.createNode(v); flowShort(vn); doc.set(key, vn); changed = true }
+  }
+  // 바뀐 칸이 없으면 쓰지 않는다 (topic.yaml이 없는 주제 폴더에 빈 파일을 만들지 않게)
+  if (!changed) return
+  const out = doc.toString(YAML_OUT)
+  if (out === text) return
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  writeAtomic(file, out)
+}
+
+/** 지운 주제 폴더: topic.yaml을 지우고, 폴더가 비면 폴더도 (안의 노트는 dropTopicsFromNotes가 옮긴다) */
+function removeTopicYaml(wb: Workbench, id: string): void {
+  fs.rmSync(topicFile(wb, id), { force: true })
+  try { if (!fs.readdirSync(path.dirname(topicFile(wb, id))).length) fs.rmdirSync(path.dirname(topicFile(wb, id))) } catch { /* 없는 폴더 */ }
+}
+
 /**
  * topics: 칸을 고친다. 다른 칸과 주석은 그대로 둔다. workbench/ 안 파일만 쓴다.
  * 이미 있는 주제는 바뀐 칸만 그 자리에서 고치고(앱이 모르는 칸·주석·모양은 그대로),
@@ -191,6 +263,8 @@ function flowShort(node: unknown): void {
  */
 export function saveTopics(wb: Workbench, list: unknown): Topic[] {
   if (!Array.isArray(list)) throw new WorkbenchError(400, tx('topics(목록)가 필요함', 'topics (a list) is required'))
+  // 주제 폴더의 topic.yaml은 research.yaml을 쓴 뒤에 고친다 (research.yaml을 고치지 못하면 아무것도 바꾸지 않게)
+  const folderWrites: (() => void)[] = []
   // [a, b]처럼 사람이 쓴 모양을 지킨다 (기본값은 [ a, b ]). 긴 설명을 접지 않는다
   editResearchYaml(wb, (doc) => {
     const got = doc.get('topics', true)
@@ -198,7 +272,9 @@ export function saveTopics(wb: Workbench, list: unknown): Topic[] {
     const seq = YAML.isScalar(got) && got.value == null ? undefined : got
     if (seq != null && !YAML.isSeq(seq)) throw new WorkbenchError(409, tx('research.yaml의 topics:가 목록이 아니어서 고치지 않음', 'Not changed: topics: in research.yaml is not a list'))
     const items: unknown[] = seq ? [...seq.items] : []
-    const read = normalizeIndexed(items.map((n) => (YAML.isNode(n) ? n.toJSON() : n)), false)
+    // 글 한 줄(id)은 주제 폴더의 주제: 그 칸은 topic.yaml에서 읽는다
+    const read = normalizeIndexed(expandTopicItems(wb, items.map((n) => (YAML.isNode(n) ? n.toJSON() : n)), false), false)
+    const inFolder = (node: unknown) => YAML.isScalar(node) ? typeof node.value === 'string' : typeof node === 'string'
     const topics = normalize(list, true, read.map((x) => x.topic))
     const wanted = new Map(topics.map((t) => [t.id, t]))
     const was = new Map(read.map((x) => [x.topic.id, x]))
@@ -212,6 +288,7 @@ export function saveTopics(wb: Workbench, list: unknown): Topic[] {
       const t = keptOrder[k]!
       const old = was.get(t.id)!
       const node = items[old.at]
+      if (inFolder(node)) { folderWrites.push(() => writeTopicYaml(wb, t, old.topic)); next[slot] = node; return }
       if (!YAML.isMap(node)) { next[slot] = doc.createNode(topicYaml(t)); return }
       for (const [key, valueOf] of Object.entries(TOPIC_FIELDS)) {
         const v = valueOf(t)
@@ -221,8 +298,20 @@ export function saveTopics(wb: Workbench, list: unknown): Topic[] {
       }
       next[slot] = node
     })
+    // 지운 주제 폴더의 topic.yaml도 지운다 (안의 노트는 dropTopicsFromNotes가 옮긴다)
+    for (const x of read) if (!wanted.has(x.topic.id) && inFolder(items[x.at])) folderWrites.push(() => removeTopicYaml(wb, x.topic.id))
+    const listed = new Set(read.map((x) => x.topic.id))
+    for (const id of wb.topicFolders()) if (!listed.has(id) && !wanted.has(id) && fs.existsSync(topicFile(wb, id))) folderWrites.push(() => removeTopicYaml(wb, id))
+    const folders = wb.usesTopicFolders()
     for (const t of topics) {
       if (was.has(t.id)) continue
+      // 주제 폴더를 쓰는 프로젝트의 새 주제와 목록에 없던 주제 폴더는 topic.yaml에, research.yaml에는 id만
+      if (folders || fs.existsSync(path.dirname(topicFile(wb, t.id)))) {
+        const before = fs.existsSync(topicFile(wb, t.id)) ? readTopics(wb).find((x) => x.id === t.id) : undefined
+        folderWrites.push(() => writeTopicYaml(wb, t, before))
+        next.push(doc.createNode(t.id))
+        continue
+      }
       const node = doc.createNode(topicYaml(t))
       flowShort(node)
       next.push(node)
@@ -232,7 +321,8 @@ export function saveTopics(wb: Workbench, list: unknown): Topic[] {
       if (seq) seq.items = out_ as typeof seq.items
       else { const s_ = doc.createNode([]) as YAML.YAMLSeq; s_.items = out_ as typeof s_.items; doc.set('topics', s_) }
     } else doc.delete('topics')
-  }, { flowCollectionPadding: false, lineWidth: 0 })
+  }, YAML_OUT)
+  for (const write of folderWrites) write()
   return readTopics(wb)
 }
 
@@ -300,7 +390,7 @@ function applyPatch(t: Topic, patch: TopicPatch): Topic {
   return next
 }
 
-/** 주제 지우기: research.yaml에서만 뺀다. 노트와 그림 파일은 그대로 둔다 (노트는 "노트들"로) */
+/** 주제 지우기: research.yaml에서 빼고, 주제 폴더면 topic.yaml을 지운다. 노트와 그림 파일은 그대로 둔다 (노트는 "노트들"로, 주제 폴더 안 노트는 라우트의 dropTopicsFromNotes가 옮긴다) */
 export function deleteTopic(wb: Workbench, id: string): Topic[] {
   const now = readTopics(wb)
   if (!now.some((t) => t.id === id)) throw new WorkbenchError(404, tx(`없는 주제: ${id}`, `No such topic: ${id}`))

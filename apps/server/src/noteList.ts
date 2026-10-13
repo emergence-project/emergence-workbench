@@ -1,14 +1,14 @@
 import fs from 'node:fs'
 import { projectStamp } from './projectReadCache.js'
 import path from 'node:path'
-import { isBlockStatus, parseBlock, parseList, type BlockStatus, type MetaPatch } from '@rw/core'
+import { isBlockStatus, parseBlock, parseList, sameNoteFile, type BlockStatus, type MetaPatch } from '@rw/core'
 import YAML from 'yaml'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { wikiTargets } from './knowledge.js'
 import { msKeyOf } from './manuscript.js'
 import { readNoteMeta, summaryOf, summaryOfMarkdown } from './noteMeta.js'
 import { readTopics, saveTopics, takeDescription, type Topic } from './topics.js'
-import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
+import { ConflictError, NOTE_DIRS, WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
 
 /**
@@ -24,6 +24,8 @@ import { t } from './i18n.js'
  *   star: true                  # 즐겨찾기
  * 예전 기록: research.yaml topics[].blocks에 든 블록 노트는 그 주제에도 든 것으로 읽는다 (머리말 주제가 앞).
  * 앱에서 노트의 주제를 고치면 머리말에 쓰고 그 노트를 topics[].blocks에서 뺀다.
+ * 주제 폴더 배치(10/13): workbench/topics/<주제>/<노트>/의 노트는 그 폴더의 주제가 주인 주제(첫째)다. note.yaml topics:가 달라도 폴더가 이긴다.
+ * 주제 폴더를 쓰는 프로젝트에서 주인 주제를 바꾸면 연구노트 폴더를 그 주제 폴더로(주제가 없으면 notes/로) 옮긴다. 계산 노트(calc/)와 블록 노트는 옮기지 않는다.
  */
 export { NOTE_CATEGORIES } from '@rw/core/contract/notes'
 export type { NoteCategory, NoteRow, TopicStats, NoteLinks } from '@rw/core/contract/notes'
@@ -34,6 +36,9 @@ export const isNoteCategory = (v: unknown): v is NoteCategory => NOTE_CATEGORIES
 
 
 interface Source { row: NoteRow; body: string; headTopics: string[]; concepts: string[] }
+
+/** 같은 노트 (file은 목록이 준 경로, 주제 폴더 사이를 옮기기 전의 옛 경로도 받는다) */
+const findSource = (all: Source[], file: string) => all.find((s) => s.row.file === file) ?? all.find((s) => s.row.type !== 'block' && sameNoteFile(s.row.file, file))
 
 const STATE_TO_STATUS = { paused: 'blocked', stopped: 'stopped', done: 'solved' } as const
 
@@ -76,7 +81,7 @@ function noteSources(wb: Workbench): Source[] {
         ...(meta.summary && { description: meta.summary }), ...(meta.summaryAuto && { descriptionAuto: true as const }),
         topics: [], star: y.star === true, mtime, hash: hashOf(yamlText),
       },
-      body, headTopics: uniq(asList(y.topics)), concepts: uniq(asList(y.concepts)),
+      body, headTopics: uniq([...(n.topic ? [n.topic] : []), ...asList(y.topics)]), concepts: uniq(asList(y.concepts)),
     })
   }
   for (const b of wb.listBlocks()) {
@@ -155,7 +160,7 @@ export function writeNoteHead(wb: Workbench, file: unknown, patch: NoteHeadPatch
   if (typeof file !== 'string' || !file) throw new WorkbenchError(400, t('file(노트 본문 파일, 저장소 기준)이 필요함', 'file (the note body file, relative to the repository) is required'))
   if (!patch || typeof patch !== 'object') throw new WorkbenchError(400, t('patch가 필요함', 'patch is required'))
   const topics = readTopics(wb)
-  const src = noteSources(wb).find((s) => s.row.file === file)
+  const src = findSource(noteSources(wb), file)
   if (!src) throw new WorkbenchError(404, t(`노트가 아님: ${file}`, `Not a note: ${file}`))
   if (baseHash !== undefined && baseHash !== null && baseHash !== src.row.hash) {
     throw new ConflictError(t('다른 곳에서 노트가 바뀌어 고치지 않았음', 'The note changed elsewhere, so it was not edited'), src.row.hash)
@@ -200,6 +205,8 @@ export function writeNoteHead(wb: Workbench, file: unknown, patch: NoteHeadPatch
       saveTopics(wb, topics.map((t) => ({ ...t, blocks: t.blocks.filter((b) => b !== src.row.id) })))
     }
   } else {
+    // 주인 주제가 바뀌면 폴더부터 옮긴다 (같은 이름의 폴더가 있으면 아무것도 고치지 않고 멈춘다)
+    if (nextTopics) src.row.file = placeNoteFolder(wb, src.row.file, nextTopics[0])
     const yamlFile = path.join(repo, path.dirname(src.row.file), 'note.yaml')
     const text = fs.existsSync(yamlFile) ? fs.readFileSync(yamlFile, 'utf8') : ''
     const doc = text ? YAML.parseDocument(text) : new YAML.Document({})
@@ -218,9 +225,32 @@ export function writeNoteHead(wb: Workbench, file: unknown, patch: NoteHeadPatch
     const out = doc.toString({ lineWidth: 0 })
     if (out !== text) writeAtomic(yamlFile, out)
   }
-  const row = listNotes(wb, true).find((r) => r.file === file)
+  const row = listNotes(wb, true).find((r) => r.file === src.row.file)
   if (!row) throw new WorkbenchError(500, t('고친 노트를 다시 읽지 못함', 'Could not read the edited note again'))
   return row
+}
+
+/**
+ * 주제 폴더 배치에서 연구노트 폴더를 주인 주제의 폴더(workbench/topics/<주제>/)로, 주제가 없거나 그 주제의 폴더가 없으면 notes/로 옮긴다.
+ * 옮긴 뒤 본문 파일의 저장소 기준 경로. 주제 폴더를 쓰지 않는 프로젝트, 계산 노트(calc/), 원고는 그대로 둔다.
+ * 기록 대상(note-<폴더>)과 원고 key는 폴더 이름에서 나오므로 그대로다. 비어 버린 주제 폴더(topic.yaml도 없는 것)는 지운다
+ */
+function placeNoteFolder(wb: Workbench, file: string, owner: string | undefined): string {
+  if (!wb.usesTopicFolders()) return file
+  const abs = path.join(wb.repo, file)
+  const dir = path.dirname(abs)
+  const parent = path.dirname(dir)
+  const notesDir = path.join(wb.root, NOTE_DIRS.note)
+  const inTopic = path.dirname(parent) === wb.topicsDir
+  if (parent !== notesDir && !inTopic) return file
+  const ownerDir = owner && fs.existsSync(path.join(wb.topicsDir, owner)) ? path.join(wb.topicsDir, owner) : notesDir
+  if (ownerDir === parent) return file
+  const dest = path.join(ownerDir, path.basename(dir))
+  if (fs.existsSync(dest)) throw new WorkbenchError(409, t(`옮길 자리에 같은 이름의 폴더가 있어 고치지 않았음: ${path.relative(wb.repo, dest)}`, `Not changed: a folder with the same name is already at ${path.relative(wb.repo, dest)}`))
+  fs.mkdirSync(ownerDir, { recursive: true })
+  fs.renameSync(dir, dest)
+  if (inTopic) { try { if (!fs.readdirSync(parent).length) fs.rmdirSync(parent) } catch { /* 남은 폴더는 그대로 */ } }
+  return path.relative(wb.repo, path.join(dest, path.basename(abs))).split(path.sep).join('/')
 }
 
 /** 지운 주제를 노트 머리말에서도 뺀다 (같은 id로 새 주제를 만들 때 예전 노트가 저절로 들지 않게) */
@@ -254,7 +284,7 @@ export interface ConceptLookup {
  */
 export function noteLinks(wb: Workbench, file: string, concepts: ConceptLookup | null): NoteLinks {
   const all = sourcesWithTopics(wb)
-  const me = all.find((s) => s.row.file === file)
+  const me = findSource(all, file)
   if (!me) throw new WorkbenchError(404, t(`노트가 아님: ${file}`, `Not a note: ${file}`))
   const keysOf = (r: NoteRow) => new Set([linkKey(r.title), linkKey(r.id)].filter(Boolean))
   const noteKeys = new Set(all.flatMap((s) => [...keysOf(s.row)]))

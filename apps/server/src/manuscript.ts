@@ -2,7 +2,7 @@ import { execFile, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { buildFrontMatter, buildSettingTex, isBodyOnly, markdownToLatex, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox, frontMatterLines } from '@rw/core'
+import { buildFrontMatter, buildSettingTex, canonicalNoteFile, isBodyOnly, sameNoteFile, markdownToLatex, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox, frontMatterLines } from '@rw/core'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { hasFrontMatter, hasMaketitle, needsBodyOnly, NOTE_MACROS } from './noteBody.js'
 import { isCompletePdf, type CompileResult, type Engine } from './latex.js'
@@ -41,8 +41,8 @@ export interface ManuscriptInfo extends NoteMeta {
 const run = promisify(execFile)
 const COMPILE_TIMEOUT_MS = 300_000
 
-/** 경로에서 만든 key (이름을 바꾸거나 노트를 더해도 그대로) */
-export const pathKeyOf = (msPath: string) => msPath.replace(/\.(tex|md)$/, '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/\.{2,}/g, '-').slice(-120)
+/** 경로에서 만든 key (이름을 바꾸거나 노트를 더해도 그대로. 주제 폴더 사이를 옮겨도 그대로: notes/<노트>/의 key) */
+export const pathKeyOf = (msPath: string) => canonicalNoteFile(msPath).replace(/\.(tex|md)$/, '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/\.{2,}/g, '-').slice(-120)
 
 /**
  * 메인 노트 key: research.yaml에 적은 첫째 원고는 '' (예전 빌드 폴더·코멘트 파일을 그대로 쓰게), 나머지는 경로에서.
@@ -175,11 +175,19 @@ export function allManuscripts(wb: Workbench): ManuscriptInfo[] {
   return manuscriptKeys(wb).flatMap((k) => { try { return [manuscriptInfo(wb, k)] } catch { return [] } })
 }
 
-/** 어느 메인 노트에 속한 파일만 (main.tex와 \input한 장·부록). 그 밖은 거절 */
+/**
+ * 어느 메인 노트에 속한 파일만 (main.tex와 \input한 장·부록). 그 밖은 거절.
+ * 주인 주제를 바꿔 노트 폴더가 옮겨 간 뒤의 옛 경로(열어 둔 화면)는 지금 자리의 같은 파일로 읽고 쓴다
+ */
 function partOf(wb: Workbench, file: string): { abs: string; key: string } {
-  const hit = allManuscripts(wb).find((info) => file === info.main || info.parts.some((p) => p.file === file))
-  if (!hit) throw new WorkbenchError(400, t(`원고에 속한 파일이 아님: ${file}`, `Not a file of the manuscript: ${file}`))
-  return { abs: path.join(wb.repo, file), key: hit.key }
+  const all = allManuscripts(wb)
+  const exact = all.find((info) => file === info.main || info.parts.some((p) => p.file === file))
+  if (exact) return { abs: path.join(wb.repo, file), key: exact.key }
+  for (const info of all) {
+    const now = [info.main, ...info.parts.map((p) => p.file)].find((f) => sameNoteFile(f, file))
+    if (now) return { abs: path.join(wb.repo, now), key: info.key }
+  }
+  throw new WorkbenchError(400, t(`원고에 속한 파일이 아님: ${file}`, `Not a file of the manuscript: ${file}`))
 }
 const partFile = (wb: Workbench, file: string) => partOf(wb, file).abs
 

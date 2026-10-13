@@ -41,11 +41,13 @@ export function useProjectData(rapi: ResearchApi | null, version: number, rid: s
   }, [rapi, version])
   // 노트 한 목록 (연구노트·계산 노트·보조 노트, 10/5): 왼쪽 사이드바 나무 · 위치 표시 · 오른쪽 사이드바 정보
   const [notes, setNotes] = useState<NoteRow[]>([])
+  /** notes가 어느 프로젝트의 목록인지 (프로젝트를 바꾼 직후에는 앞 프로젝트의 것이 남아 있다) */
+  const [notesOf, setNotesOf] = useState<string | null>(null)
   const [noteTick, setNoteTick] = useState(0)
   const notesChanged = useCallback(() => setNoteTick((t) => t + 1), [])
   useEffect(() => {
     if (!rid) return setNotes([])
-    return fill(() => notesApi(rid).list(), setNotes, [])
+    return fill(() => notesApi(rid).list(), (rows: NoteRow[]) => { setNotes(rows); setNotesOf(rid) }, [])
   }, [rid, version, noteTick])
-  return { library, libraryChanged, manuscripts, topics, todoCount, notes, notesChanged }
+  return { library, libraryChanged, manuscripts, topics, todoCount, notes, notesOf, notesChanged }
 }

@@ -28,7 +28,7 @@ export type WorkbenchEvent =
   | { type: 'statement'; research: string; id: string; hash: string | null }
   | { type: 'comments'; research: string; target: string }
   | { type: 'tasks'; research: string; id: string }
-  /** 노트 파일(workbench/notes/…, workbench/calc/…). file은 저장소 기준 경로(원고 화면의 file과 같다) */
+  /** 노트 파일(workbench/notes/…, workbench/calc/…, workbench/topics/<주제>/<노트>/…). file은 저장소 기준 경로(원고 화면의 file과 같다) */
   | { type: 'note'; research: string; file: string; hash: string | null }
   /** research.yaml sources의 파일(작업 목록·검토 문서·참고문헌)이 바뀜. 작업 탭·개괄이 다시 읽는다 */
   | { type: 'sources'; research: string }
@@ -48,6 +48,9 @@ export function classify(root: string, file: string): Target | null {
   if (rel.length === 2 && a === 'comments' && b!.endsWith('.md')) return { type: 'comments', target: b!.slice(0, -3) }
   if (rel.length === 2 && a === 'tasks' && b!.endsWith('.md')) return { type: 'tasks', id: b!.slice(0, -3) }
   if (rel.length === 1 && a === 'research.yaml') return { type: 'research' }
+  // 주제 폴더(10/13): topic.yaml은 주제 목록이 바뀐 것(research.yaml과 같은 알림), 그 안의 노트 폴더는 노트
+  if (rel.length === 3 && a === 'topics' && rel[2] === 'topic.yaml') return { type: 'research' }
+  if (a === 'topics' && rel.length >= 4 && /\.(md|tex|ya?ml)$/.test(rel[rel.length - 1]!)) return { type: 'note', file: ['workbench', ...rel].join('/') }
   if (rel.length === 1 && a === 'preamble.tex') return { type: 'preamble' }
   if ((a === 'notes' || a === 'calc') && rel.length >= 2 && /\.(md|tex|ya?ml)$/.test(rel[rel.length - 1]!)) {
     return { type: 'note', file: ['workbench', ...rel].join('/') }

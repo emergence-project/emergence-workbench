@@ -9,12 +9,15 @@ import { readTopics } from './topics.js'
 import { scanTasks } from './tasks.js'
 import { isOutside } from './fsutil.js'
 import { t } from './i18n.js'
-import type { Workbench } from './workbench.js'
+import { TOPIC_YAML, type Workbench } from './workbench.js'
 
 export interface WorkbenchDiagnostic { level: 'error' | 'warning'; file: string; line: number; message: string }
 export interface WorkbenchCheck { files: number; diagnostics: WorkbenchDiagnostic[] }
 const RESEARCH_KEYS = new Set(['title', 'question', 'started', 'agent-status', 'latex-macros', 'latex-template', 'image', 'concepts', 'topics', 'sources'])
 const NOTE_KEYS = new Set(['name', 'from', 'description', 'state', 'resume', 'topics', 'concepts', 'kind', 'star'])
+/** 주제 칸 (research.yaml topics: 안 모양, 주제 폴더의 topic.yaml) */
+const TOPIC_KEYS = new Set(['id', 'title', 'star', 'description', 'preview', 'parts', 'blocks', 'done', 'manuscript'])
+const TOPIC_ID = /^[a-z0-9][a-z0-9-]*$/
 const BLOCK_KEYS = new Set(['id', 'created', 'title', 'status', 'blocked-reason', 'resume-condition', 'stopped-reason', 'parent', 'alternatives', 'next', 'concepts', 'topics', 'kind', 'description', 'star'])
 const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {}
 const list = (v: unknown): unknown[] => Array.isArray(v) ? v : v == null ? [] : [v]
@@ -79,6 +82,17 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
     for (const key of Object.keys(y.data)) if (!RESEARCH_KEYS.has(key)) issue('warning', researchFile, y.line(key), `모르는 research.yaml 키: ${key}`, `Unknown research.yaml key: ${key}`)
     const seen = new Set<string>()
     list(y.data.topics).forEach((v, i) => {
+      if (typeof v === 'string') {
+        // 주제 폴더 배치: 글 한 줄은 workbench/topics/<id>/topic.yaml을 가리킨다
+        const id = v.trim()
+        if (!TOPIC_ID.test(id)) issue('error', researchFile, y.line('topics', i), '주제 id는 [a-z0-9][a-z0-9-]* 모양으로 적으세요.', 'Topic id must match [a-z0-9][a-z0-9-]*.')
+        else {
+          if (seen.has(id)) issue('error', researchFile, y.line('topics', i), `같은 주제 id가 두 번 있습니다: ${id}`, `Duplicate topic id: ${id}`)
+          seen.add(id)
+          if (!fs.existsSync(path.join(wb.topicsDir, id, TOPIC_YAML))) issue('warning', researchFile, y.line('topics', i), `주제 폴더에 topic.yaml이 없습니다: workbench/topics/${id}/${TOPIC_YAML} (이름이 id로 보입니다)`, `The topic folder has no topic.yaml: workbench/topics/${id}/${TOPIC_YAML} (the id is shown as its title)`)
+        }
+        return
+      }
       const topic = record(v)
       if (typeof topic.title !== 'string' || !topic.title.trim()) issue('error', researchFile, y.line('topics', i, 'title'), '주제의 title이 필요합니다.', 'A topic title is required.')
       if (topic.id !== undefined) {
@@ -86,6 +100,7 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
         else {
           if (seen.has(topic.id)) issue('error', researchFile, y.line('topics', i, 'id'), `같은 주제 id가 두 번 있습니다: ${topic.id}`, `Duplicate topic id: ${topic.id}`)
           seen.add(topic.id)
+          if (wb.topicFolders().includes(topic.id)) issue('warning', researchFile, y.line('topics', i, 'id'), `주제 ${topic.id}가 research.yaml과 주제 폴더에 함께 있습니다. research.yaml 것을 읽으니 한 줄 \`- ${topic.id}\`로 줄이세요.`, `Topic ${topic.id} is in both research.yaml and a topic folder. research.yaml wins; shorten it to \`- ${topic.id}\`.`)
         }
       }
     })
@@ -99,9 +114,35 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
   const checkTopics = (file: string, line: number, ids: unknown[]) => {
     for (const id of ids) if (!topicIds.has(String(id))) issue('warning', file, line, `research.yaml에 없는 주제 id: ${String(id)}`, `Topic id not in research.yaml: ${String(id)}`)
   }
-  for (const folder of ['notes', 'calc']) for (const entry of entries(path.join(wb.root, folder))) {
-    if (!entry.isDirectory()) continue
-    const dir = path.join(wb.root, folder, entry.name)
+  // 주제 폴더: topic.yaml (칸은 research.yaml 안 모양과 같고 id는 폴더 이름)
+  for (const id of wb.topicFolders()) {
+    const dir = path.join(wb.topicsDir, id)
+    if (!TOPIC_ID.test(id)) issue('error', rel(dir), 1, '주제 폴더 이름은 [a-z0-9][a-z0-9-]* 모양으로 적으세요.', 'Topic folder names must match [a-z0-9][a-z0-9-]*.')
+    const meta = path.join(dir, TOPIC_YAML)
+    if (!fs.existsSync(meta)) {
+      issue('warning', rel(dir), 1, `주제 폴더에 ${TOPIC_YAML}이 없습니다.`, `The topic folder has no ${TOPIC_YAML}.`)
+      continue
+    }
+    const text = read(meta)
+    const tp = text === undefined ? undefined : yaml(rel(meta), text)
+    if (!tp) continue
+    for (const key of Object.keys(tp.data)) if (!TOPIC_KEYS.has(key)) issue('warning', rel(meta), tp.line(key), `모르는 topic.yaml 키: ${key}`, `Unknown topic.yaml key: ${key}`)
+    if ('title' in tp.data && (typeof tp.data.title !== 'string' || !tp.data.title.trim())) issue('error', rel(meta), tp.line('title'), 'title은 글로 적으세요 (없으면 폴더 이름).', 'title must be text (the folder name if omitted).')
+    if ('id' in tp.data && tp.data.id !== id) issue('warning', rel(meta), tp.line('id'), 'id는 폴더 이름으로 정합니다. 이 키는 읽지 않습니다.', 'The id is the folder name. This key is not read.')
+  }
+  // 노트 폴더: notes/·calc/와 주제 폴더 안 (주제 폴더 안 노트의 주인 주제는 그 폴더)
+  const noteDirs = [
+    ...['notes', 'calc'].flatMap((folder) => entries(path.join(wb.root, folder)).filter((e) => e.isDirectory()).map((e) => ({ dir: path.join(wb.root, folder, e.name), owner: undefined as string | undefined }))),
+    ...wb.topicFolders().flatMap((id) => entries(path.join(wb.topicsDir, id)).filter((e) => e.isDirectory()).map((e) => ({ dir: path.join(wb.topicsDir, id, e.name), owner: id as string | undefined }))),
+  ]
+  const noteFolderAt = new Map<string, string>()
+  for (const { dir, owner } of noteDirs) {
+    if (owner !== undefined || path.basename(path.dirname(dir)) === 'notes') {
+      const name = path.basename(dir)
+      const other = noteFolderAt.get(name)
+      if (other) issue('error', rel(dir), 1, `같은 노트 폴더 이름이 ${other}에도 있습니다. 노트 폴더 이름은 notes/와 주제 폴더를 통틀어 하나여야 합니다.`, `The note folder name is also used at ${other}. Note folder names must be unique across notes/ and topic folders.`)
+      else noteFolderAt.set(name, rel(dir))
+    }
     const meta = path.join(dir, 'note.yaml')
     const file = rel(meta)
     if (!fs.existsSync(path.join(dir, 'note.md')) && !fs.existsSync(path.join(dir, 'main.tex'))) issue('warning', file, 1, '폴더에 note.md도 main.tex도 없습니다.', 'The folder has neither note.md nor main.tex.')
@@ -126,6 +167,8 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
     }
     if ('kind' in data && ![...NOTE_CATEGORIES, 'none'].some((kind) => kind === data.kind)) issue('error', file, line('kind'), 'kind는 proof calc check summary explore design none 중 하나입니다.', 'kind must be proof calc check summary explore design none.')
     checkTopics(file, line('topics'), list(data.topics))
+    const topics = list(data.topics).map(String)
+    if (owner !== undefined && topics.length && topics[0] !== owner) issue('warning', file, line('topics'), `주인 주제는 폴더(${owner})로 정합니다. topics:는 ${owner}를 맨 앞에 적으세요.`, `The owner topic is the folder (${owner}). List ${owner} first in topics:.`)
   }
   const blocks = entries(wb.blocksDir).filter((e) => /\.(md|tex)$/.test(e.name))
   const names = new Set(blocks.map((e) => e.name))

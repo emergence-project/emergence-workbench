@@ -70,10 +70,10 @@ export function collectTexFiles(mainAbs: string, options: { baseDir?: string; se
 /** 폴더 이름: 이름에서 영문·숫자만, 겹치면 -2, -3 … */
 export const slugOf = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'note'
 
-function folderFor(dir: string, name: string): string {
+function folderFor(dir: string, name: string, taken = (slug: string) => fs.existsSync(path.join(dir, slug))): string {
   const base = slugOf(name)
   let slug = base
-  for (let n = 2; fs.existsSync(path.join(dir, slug)); n++) slug = `${base}-${n}`
+  for (let n = 2; taken(slug); n++) slug = `${base}-${n}`
   return slug
 }
 
@@ -111,8 +111,13 @@ export function createNote(wb: Workbench, input: { kind?: unknown; name?: unknow
   const name = typeof input.name === 'string' ? input.name.replace(/\s+/g, ' ').trim().slice(0, 120) : ''
   if (!name) throw new WorkbenchError(400, t('노트 이름이 필요함', 'A note name is required'))
   const repo = wb.repo
-  const parent = path.join(wb.root, NOTE_DIRS[kind])
-  const dest = path.join(parent, folderFor(parent, name))
+  // 주제 폴더를 쓰는 프로젝트(10/13): 계산 노트도 notes/에 만들고 note.yaml kind: calc로 적는다 (주제를 고르면 그 주제 폴더로 옮겨 가게).
+  // 연구노트 폴더 이름은 notes/와 주제 폴더를 통틀어 겹치지 않게
+  const folders = wb.usesTopicFolders()
+  const dirKind = folders ? 'note' : kind
+  const parent = path.join(wb.root, NOTE_DIRS[dirKind])
+  const dest = path.join(parent, dirKind === 'note' ? folderFor(parent, name, (slug) => wb.noteFolderTaken(slug)) : folderFor(parent, name))
+  const kindLine = folders && kind === 'calc' ? { kind: 'calc' } : {}
   const skipped: string[] = []
   let copied = 0
 
@@ -167,15 +172,15 @@ export function createNote(wb: Workbench, input: { kind?: unknown; name?: unknow
       copied++
     }
     for (const f of bibs) { fs.copyFileSync(path.join(baseDir, f), path.join(dest, f)); copied++ }
-    writeAtomic(path.join(dest, 'note.yaml'), YAML.stringify({ name, from: src.main }))
+    writeAtomic(path.join(dest, 'note.yaml'), YAML.stringify({ name, from: src.main, ...kindLine }))
   } else {
     // 빈 노트는 Markdown + KaTeX (10/4 결정: 연구노트·계산 노트는 개념노트와 같은 형식, PDF는 내보낼 때 프로젝트 서식으로)
     fs.mkdirSync(dest, { recursive: true })
     writeAtomic(path.join(dest, NOTE_MD), NOTE_TEMPLATE[kind])
-    writeAtomic(path.join(dest, 'note.yaml'), YAML.stringify({ name }))
-    return { path: path.relative(repo, path.join(dest, NOTE_MD)), name, kind, copied: 1, skipped }
+    writeAtomic(path.join(dest, 'note.yaml'), YAML.stringify({ name, ...kindLine }))
+    return { path: path.relative(repo, path.join(dest, NOTE_MD)), name, kind: dirKind, copied: 1, skipped }
   }
-  return { path: path.relative(repo, path.join(dest, 'main.tex')), name, kind, copied, skipped }
+  return { path: path.relative(repo, path.join(dest, 'main.tex')), name, kind: dirKind, copied, skipped }
 }
 
 /** 프로젝트 기호 파일: research.yaml의 latex-macros:, 없으면 workbench/macros.tex */

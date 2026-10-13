@@ -65,6 +65,12 @@ export interface ProjectSources {
  */
 export type NoteKind = 'paper' | 'note' | 'calc'
 export const NOTE_DIRS = { note: 'notes', calc: 'calc' } as const
+/**
+ * 주제 폴더 (10/13 연구 저장소 폴더): workbench/topics/<주제>/topic.yaml과 그 주제가 주인인 노트 폴더 workbench/topics/<주제>/<노트>/.
+ * 주제 폴더 안 노트는 연구노트(note)로 읽고, notes/<노트>/와 같은 노트로 본다 (core canonicalNoteFile). 노트 폴더 이름은 notes/와 주제 폴더를 통틀어 겹치지 않는다
+ */
+export const TOPICS_DIR = 'topics'
+export const TOPIC_YAML = 'topic.yaml'
 /** 노트 폴더의 본문 파일: Markdown이 먼저 (둘 다 있으면 note.md를 연다) */
 export const NOTE_MD = 'note.md'
 export const NOTE_MAINS = [NOTE_MD, 'main.tex'] as const
@@ -102,6 +108,17 @@ export class Workbench {
   /** 연구 저장소 (workbench/의 부모) */
   get repo() { return path.dirname(this.root) }
   get blocksDir() { return path.join(this.root, 'blocks') }
+  get topicsDir() { return path.join(this.root, TOPICS_DIR) }
+  /** 주제 폴더 배치를 쓰는 프로젝트 (workbench/topics/가 있음): 새 주제는 주제 폴더에, 주인 주제를 바꾼 노트는 그 폴더로 */
+  usesTopicFolders() { return fs.existsSync(this.topicsDir) }
+  /** 주제 폴더 이름들 (topic.yaml이 있든 없든, 이름순) */
+  topicFolders(): string[] {
+    try { return fs.readdirSync(this.topicsDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith('.')).map((e) => e.name).sort() } catch { return [] }
+  }
+  /** 연구노트 폴더 이름이 이미 쓰였는지: notes/와 모든 주제 폴더 안 (같은 노트로 보므로 함께 겹치지 않게) */
+  noteFolderTaken(name: string): boolean {
+    return fs.existsSync(path.join(this.root, NOTE_DIRS.note, name)) || this.topicFolders().some((t) => fs.existsSync(path.join(this.topicsDir, t, name)))
+  }
   get figuresDir() { return path.join(this.root, 'figures') }
   get logDir() { return path.join(this.root, 'log') }
   get preamblePath() { return path.join(this.root, 'preamble.tex') }
@@ -152,10 +169,10 @@ export class Workbench {
     return fs.existsSync(abs) ? path.relative(repo, abs) : null
   }
 
-  /** 저장소 기준 경로가 workbench/notes/ 또는 workbench/calc/ 안이면 그 구분, 아니면 원고 */
+  /** 저장소 기준 경로가 workbench/notes/ · 주제 폴더 또는 workbench/calc/ 안이면 그 구분, 아니면 원고 */
   private kindOf(repoRel: string): NoteKind {
     const wbRel = path.relative(path.basename(this.root), repoRel).split(path.sep)
-    if (wbRel[0] === NOTE_DIRS.note) return 'note'
+    if (wbRel[0] === NOTE_DIRS.note || (wbRel[0] === TOPICS_DIR && wbRel.length >= 4)) return 'note'
     if (wbRel[0] === NOTE_DIRS.calc) return 'calc'
     return 'paper'
   }
@@ -164,10 +181,9 @@ export class Workbench {
    * workbench/notes/*\/note.md(또는 예전 main.tex), workbench/calc/*\/ 같음. 이름은 note.yaml의 name, 없으면 폴더 이름.
    * 10/4 결정: 연구노트·계산 노트는 Markdown + KaTeX(note.md). 아직 바꾸지 않은 LaTeX 노트(main.tex)도 그대로 연다
    */
-  ownNotes(): { path: string; name: string; kind: NoteKind }[] {
+  ownNotes(): { path: string; name: string; kind: NoteKind; topic?: string }[] {
     const repo = this.repo
-    return (['note', 'calc'] as const).flatMap((kind) => {
-      const dir = path.join(this.root, NOTE_DIRS[kind])
+    const inDir = (dir: string, kind: 'note' | 'calc', topic?: string) => {
       if (!fs.existsSync(dir)) return []
       return fs.readdirSync(dir, { withFileTypes: true })
         .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
@@ -176,10 +192,12 @@ export class Workbench {
           if (!main) return []
           let name = e.name
           try { const y = readResearchYaml(path.join(dir, e.name, 'note.yaml')); if (typeof y?.name === 'string' && y.name.trim()) name = y.name.trim() } catch { /* 이름 파일이 없으면 폴더 이름 */ }
-          return [{ path: path.relative(repo, path.join(dir, e.name, main)), name, kind }]
+          return [{ path: path.relative(repo, path.join(dir, e.name, main)), name, kind, ...(topic && { topic }) }]
         })
-        .sort((a, b) => a.name.localeCompare(b.name))
-    })
+    }
+    // 연구노트: notes/와 주제 폴더 안 (같은 노트로 보므로 한 목록), 그다음 계산 노트
+    const notes = [...inDir(path.join(this.root, NOTE_DIRS.note), 'note'), ...this.topicFolders().flatMap((t) => inDir(path.join(this.topicsDir, t), 'note', t))]
+    return [notes, inDir(path.join(this.root, NOTE_DIRS.calc), 'calc')].flatMap((list) => list.sort((a, b) => a.name.localeCompare(b.name)))
   }
 
   private readSources(raw: unknown): ProjectSources {

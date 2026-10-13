@@ -235,14 +235,16 @@ export async function createNoteAsk(rapi: ResearchApi, rid: string, topic: { id:
   if (!name) return
   try {
     const r = await rapi.createNote('note', name)
+    // 주제 폴더를 쓰는 프로젝트에서는 주제를 넣으면 노트 폴더가 그 주제 폴더로 옮겨 간다 (10/13)
+    let file = r.path
     if (topic) {
       const api = notesApi(rid)
       const row = (await api.list()).find((x) => x.file === r.path)
-      if (row) await api.setHead(row.file, { topics: [topic.id] }, row.hash)
+      if (row) file = (await api.setHead(row.file, { topics: [topic.id] }, row.hash)).file
     }
     onChanged()
-    onSaved(tr(`노트 "${r.name}"을 만들었습니다 (${r.path})`, `Created note "${r.name}" (${r.path})`))
-    go({ page: 'part', rid, file: r.path })
+    onSaved(tr(`노트 "${r.name}"을 만들었습니다 (${file})`, `Created note "${r.name}" (${file})`))
+    go({ page: 'part', rid, file })
   } catch (e) { fail(e) }
 }
 

@@ -13,7 +13,7 @@ import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { t } from './i18n.js'
 import { listNotes } from './noteList.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
-import { frontMatterLines } from '@rw/core'
+import { canonicalNoteFile, frontMatterLines, sameNoteFile } from '@rw/core'
 
 // 응답 모양은 API 계약(@rw/core/contract/agentEdits)에 있다
 export type { EditTarget, EditAttempt } from '@rw/core/contract/agentEdits'
@@ -43,7 +43,8 @@ export interface PendingEdit {
 
 interface StoreData { pending: PendingEdit[]; attempts: EditAttempt[] }
 
-export const targetKey = (t: EditTarget): string => (t.kind === 'concept' ? `concept:${t.id}` : `note:${t.rid}:${t.file}`)
+/** 노트는 주제 폴더 사이를 옮겨도 같은 key (notes/<노트>/의 경로) */
+export const targetKey = (t: EditTarget): string => (t.kind === 'concept' ? `concept:${t.id}` : `note:${t.rid}:${canonicalNoteFile(t.file)}`)
 
 /** 설정 폴더의 agent-edits.json 하나 (라이브러리 경로마다 따로 두지 않는다: 개념노트 key는 id만) */
 export class AgentEditStore {
@@ -243,7 +244,9 @@ function readNoteFile(wb: Workbench, file: string): { content: string; hash: str
 }
 
 function noteRow(io: TargetIo, t0: Extract<EditTarget, { kind: 'note' }>) {
-  const row = listNotes(io.wbOf(t0.rid), true).find((r) => r.file === t0.file)
+  const rows = listNotes(io.wbOf(t0.rid), true)
+  // 주인 주제를 바꿔 옮겨 간 노트의 옛 경로도 같은 노트
+  const row = rows.find((r) => r.file === t0.file) ?? rows.find((r) => r.type !== 'block' && sameNoteFile(r.file, t0.file))
   if (!row) throw new WorkbenchError(404, t(`노트가 아님: ${t0.file} (원고 · 노트가 아닌 파일은 고치지 않음)`, `Not a note: ${t0.file} (manuscripts and other files are not changed)`))
   return row
 }

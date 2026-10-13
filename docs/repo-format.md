@@ -44,7 +44,10 @@ Markdown 파일 첫 줄의 `---`부터 다음 `---`까지를 YAML 머리말로 �
     preamble.tex         블록 컴파일 머리               사람 (처음 한 번 만들어 줌)
     macros.tex           프로젝트 매크로               사람·앱(노트 복사 때 덧붙임)
     blocks/<id>.md|.tex  블록 노트 (§3)                사람·에이전트·앱(머리만)
-    notes/<폴더>/        연구노트 (§4)                 사람·에이전트·앱
+    topics/<주제>/       주제 폴더 (§2.2, 쓰는 프로젝트만)  사람·에이전트·앱
+      topic.yaml         주제 정보
+      <폴더>/            이 주제가 주인인 연구노트 (§4.4)
+    notes/<폴더>/        연구노트 (§4). 주제 폴더를 쓰면 주제 없는 노트만  사람·에이전트·앱
     calc/<폴더>/         계산 노트 (§4)                같음
     figures/             프로젝트 그림 (§8)            사람·앱
     log/YYYY-MM-DD.md    일지 (§5)                     앱·사람·에이전트
@@ -57,6 +60,7 @@ Markdown 파일 첫 줄의 `---`부터 다음 `---`까지를 YAML 머리말로 �
   statements/            진술 (블록 머리 형식)
 ```
 
+- **주제 폴더 배치 (2026-10-13 결정 "연구 저장소 폴더").** `workbench/topics/`가 있는 프로젝트는 주제 폴더를 쓴다: 주제 정보는 `topics/<주제>/topic.yaml`(§2.2), 연구노트는 주인 주제의 폴더 안(§4.4). 없으면 예전 배치(주제는 `research.yaml`, 노트는 `notes/`)로 읽는다. 한 프로젝트 안에서 두 모양이 섞여 있어도 읽는다(옮기는 중인 저장소).
 - 처음 만들 때(`Workbench.scaffold`) 없는 것만 쓴다: `blocks/`, `research.yaml`(`title`·`question`·`started`), `preamble.tex`, `.gitignore`(`.build/`), `figures/.gitkeep`, `log/.gitkeep`.
 - `STATUS.md`를 git에서 빼는 것은 각 연구 저장소의 `.gitignore`가 한다. 앱은 넣어 주지 않는다.
 - 저장소 밖에 두는 것: 에이전트 고침 기록, 개념 색인, 그림 캐시, 앱 설정(§11).
@@ -76,7 +80,7 @@ YAML 지도 하나. 깨진 YAML이면 프로젝트가 "열 수 없음"으로 보
 | `latex-template` | 서식 id | 앱 기본 |
 | `image` | `figure:<범위>/<파일>` 또는 저장소 안 그림 경로 | 없음 |
 | `concepts` | 개념노트 id 목록 | `[]` |
-| `topics` | 주제 목록 (§2.2) | `[]` |
+| `topics` | 주제 목록 (§2.2). 주제 폴더면 id 한 줄씩 (순서) | `[]` |
 | `sources` | 자료 지도 (§2.1) | |
 
 ### 2.1 `sources`
@@ -95,6 +99,30 @@ YAML 지도 하나. 깨진 YAML이면 프로젝트가 "열 수 없음"으로 보
 
 ### 2.2 `topics`
 
+두 모양이 있고 한 목록에 섞여도 된다.
+
+**주제 폴더 (2026-10-13~).** `research.yaml`에는 주제의 순서만 id 한 줄씩 적고, 주제 정보는 `workbench/topics/<id>/topic.yaml`에 둔다(`topics.ts`).
+
+```yaml
+# research.yaml
+topics:
+  - kempe
+  - discharging
+
+# workbench/topics/kempe/topic.yaml
+title: Kempe 사슬
+description: …
+star: true
+```
+
+- `topic.yaml`의 칸은 아래 예전 모양과 같다. id는 폴더 이름이고 `id:`는 읽지 않는다. `title`이 없으면 id가 이름이다.
+- 목록에 없는 주제 폴더도 `topic.yaml`이 있으면 뒤에 붙여 읽고, 앱이 주제를 고칠 때 목록 끝에 id를 적는다. `topic.yaml`이 없는 폴더는 목록에 적었을 때만 주제다(이름은 id, 앱이 빈 `topic.yaml`을 만들지 않는다).
+- 같은 id가 예전 모양(`- id: …` 지도)으로도 적혀 있으면 `research.yaml` 것을 읽는다.
+- 앱이 고칠 때: 주제 폴더의 주제는 `topic.yaml`을, 예전 모양은 `research.yaml`을 고친다(목록 순서는 늘 `research.yaml`). 주제 폴더를 쓰는 프로젝트에서 새 주제는 주제 폴더로 만든다. 주제를 지우면 `topic.yaml`을 지우고, 그 주제가 주인인 노트를 다음 주제의 폴더나 `notes/`로 옮긴 뒤 빈 폴더를 지운다.
+- 주제를 고칠 때 보내는 `baseHash`는 주제 폴더가 있으면 `research.yaml`과 모든 `topic.yaml`을 함께 본 값이다(없으면 `research.yaml`의 hash 그대로).
+
+**예전 모양.** `research.yaml` 안에 주제마다 지도로 적는다.
+
 ```yaml
 topics:
   - id: kempe            # [a-z0-9][a-z0-9-]*, 없으면 제목에서 만든다
@@ -109,7 +137,7 @@ topics:
 ```
 
 - 100개까지. 읽지 못하는 항목은 건너뛰고, 앱이 고칠 때도 그 자리에 둔다.
-- 노트가 어느 주제에 속하는지는 **노트 쪽**에 적는다(§3 `topics:`, §4 `note.yaml` `topics:`). 앞의 것이 대표 주제다.
+- 노트가 어느 주제에 속하는지는 **노트 쪽**에 적는다(§3 `topics:`, §4 `note.yaml` `topics:`). 앞의 것이 대표 주제다. 주제 폴더 안 노트는 그 폴더의 주제가 대표(주인) 주제다(§4.4).
 
 ### 2.3 쓸 때
 
@@ -160,7 +188,7 @@ description: |-
 - `grounds:`(또는 `% 근거:`)는 파일 어디서든 `^(?:%\s*근거|grounds):` 줄을 찾는다. 값은 `,`·`;`로 나눈 `*.tex` 경로, 파일 이름, `파일.tex#라벨`, `파일.tex#절 제목`. `.tex` 블록에서는 `% 근거:`와 `% grounds:` 둘 다 찾는다.
 - 앱은 머리만 고치고 본문 바이트는 그대로 둔다. 상태를 바꾸면 그날 일지에 `상태` 기록을 남긴다.
 
-## 4. 연구노트·계산 노트 (`notes/`, `calc/`)
+## 4. 연구노트·계산 노트 (`notes/`, `calc/`, `topics/<주제>/`)
 
 ```
 workbench/notes/<폴더>/
@@ -208,6 +236,27 @@ star: true
 
 - 지우면 폴더를 `workbench/.trash/<폴더>-<YYYYMMDDTHHMMSS>/`로 옮기고 `trash.yaml`(`name`, `from`, `at`)을 쓴다. 15일 뒤 목록을 읽을 때 비운다.
 - `research.yaml` 글 어딘가에 경로가 나오는 노트는 지우지 않는다.
+- 되살리면 원래 자리(`from`)로 간다. 주제 폴더에서 지운 노트는 그 주제 폴더가 없어졌으면 `notes/`로 간다. 이름이 겹치면 `-2`, `-3`.
+
+### 4.4 주제 폴더 안 노트 (2026-10-13~)
+
+주제 폴더를 쓰는 프로젝트(§1)에서는 연구노트를 주인 주제의 폴더에 둔다. 안의 모양은 위 `notes/<폴더>/`와 같다.
+
+```
+workbench/topics/kempe/
+  topic.yaml
+  recolor-five/          주인 주제가 kempe인 노트
+    note.md
+    note.yaml            topics: [kempe, discharging]
+workbench/notes/
+  scratch-ideas/         주제 없는 노트
+```
+
+- **주인 주제 = 놓인 폴더.** `note.yaml` `topics:`에는 주인 주제를 맨 앞에, 다른 주제를 뒤에 적는다. 주인을 빠뜨리거나 다른 순서로 적어도 폴더가 이긴다(`noteList.ts`).
+- **같은 노트.** `topics/<주제>/<폴더>/…`와 `notes/<폴더>/…`는 같은 노트다(`core/comment-target.ts` `canonicalNoteFile`). 코멘트 대상(`note-<폴더>`, §6.1), 컴파일 폴더(`.build/manuscript-<키>`), 에이전트 고침 기록이 이 이름으로 이어지므로 주제를 바꿔 옮겨도 따라간다. 옛 경로로 부르는 API(열어 둔 화면, 일지의 대상)도 지금 자리의 노트를 읽고 쓰고, 화면은 열린 탭과 주소를 지금 경로로 바꾼다. 맡긴 일의 `references:` 같은 글 속 경로는 고치지 않는다.
+- 그래서 **노트 폴더 이름은 `notes/`와 모든 주제 폴더를 통틀어 하나다.** 앱은 만들 때 겹치면 `-2`를 붙이고, `agent:check`는 겹친 것을 오류로 잡는다.
+- **옮기기.** 앱에서 노트의 첫 주제를 바꾸면 노트 폴더를 그 주제의 폴더로 옮긴다. 첫 주제가 없거나 예전 모양의 주제면 `notes/`로 옮기고, 비게 된 주제 폴더(`topic.yaml`도 없는 것)는 지운다. 옮길 자리에 같은 이름이 있으면 아무것도 고치지 않고 409. 사람·에이전트가 옮길 때도 폴더를 통째로 옮기고(`git mv`) `note.yaml` `topics:` 맨 앞을 새 주인으로 고친다.
+- **계산 노트.** 주제 폴더를 쓰는 프로젝트에서 앱이 새로 만드는 계산 노트는 연구노트와 같은 자리에 `note.yaml` `kind: calc`로 만든다. 지금 있는 `calc/` 노트는 그대로 읽고 앱이 옮기지 않는다(코멘트 대상이 `calc-<폴더>`라 옮기면 기록이 끊긴다).
 
 ## 5. 일지 (`log/YYYY-MM-DD.md`)
 
@@ -245,7 +294,7 @@ star: true
 | 대상 | 무엇에 |
 |---|---|
 | `project` | 프로젝트 전체 |
-| `note-<폴더>`, `calc-<폴더>` | 노트 |
+| `note-<폴더>`, `calc-<폴더>` | 노트 (주제 폴더 안 노트도 `note-<폴더>`, §4.4) |
 | `block-<id>` | 블록 노트 |
 | `paper-<PDF 이름>` | 자료 PDF |
 | `manuscript`, `manuscript-<키>` | 원고 PDF |
@@ -422,7 +471,7 @@ checked:
 
 | 무엇 | 검사 |
 |---|---|
-| `research.yaml`, 블록 노트, `note.yaml`, 원고 부분, 주제, 진술, 개념노트, 분류, 매크로 | `baseHash` 필수 → 다르면 409와 `currentHash` |
+| `research.yaml`, 블록 노트, `note.yaml`, 원고 부분, 주제(주제 폴더면 `research.yaml`과 `topic.yaml` 함께), 진술, 개념노트, 분류, 매크로 | `baseHash` 필수 → 다르면 409와 `currentHash` |
 | 코멘트 고치기·지우기·분류 | 코멘트 파일 `baseHash` |
 | 맡긴 일 판단·답·다음 일 | 맡긴 일 파일 `baseHash` |
 | 일지 고치기·지우기 | 그 기록의 지금 글 `was` |
