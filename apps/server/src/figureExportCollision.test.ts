@@ -2,7 +2,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { figureEmbedResolver } from './figureEmbeds.js'
-import { LATEX_FILES_DIR } from './latexFiles.js'
 import { pathKeyOf } from './manuscript.js'
 import { exportBlock, exportNotes } from './noteExport.js'
 import { app, repo, tmp, useSampleApp } from './testkit.js'
@@ -44,7 +43,7 @@ describe('내보낸 그림 경로 충돌', () => {
     write(path.join(dir, REF), LOCAL)
     write(path.join(dir, 'note-assets/kept.png'), 'already used prefix')
     const wb = app.registry.get('sample-research')
-    const latex = { template: app.registry.template('article'), filesDir: LATEX_FILES_DIR, figures: figureEmbedResolver(app.registry, 'sample-research') }
+    const latex = { template: app.registry.template('article'), figures: figureEmbedResolver(app.registry, 'sample-research') }
     const keys = [pathKeyOf(path.relative(repo, note))]
     if (kind === 'many') {
       const second = path.join(repo, 'workbench/notes/collision-other/note.md')

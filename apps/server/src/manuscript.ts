@@ -6,7 +6,7 @@ import { buildFrontMatter, buildSettingTex, canonicalNoteFile, isBodyOnly, sameN
 import { hashOf, writeAtomic } from './fsutil.js'
 import { hasFrontMatter, hasMaketitle, needsBodyOnly, NOTE_MACROS } from './noteBody.js'
 import { isCompletePdf, type CompileResult, type Engine } from './latex.js'
-import { LATEX_FILES_DIR, placeTemplateFiles, SHARED_MACROS } from './latexFiles.js'
+import { placeTemplateFiles, SHARED_MACROS, templateFilePath } from './latexFiles.js'
 import { beginInputs, fileStamp, finishInputs, inputsChanged, recordedInputs, type PdfState, type ShownPdf, type SuccessfulInputs } from './manuscriptFreshness.js'
 import { bibliographyLines, noteBibFiles } from './noteBib.js'
 import { writeFigureEmbeds, type FigureEmbedResolver } from './figureEmbeds.js'
@@ -294,7 +294,7 @@ function compileInputs(wb: Workbench, key: string, o: ManuscriptCompileOptions) 
   const figures = wrapped && isMarkdownNote(main) ? o.figures?.(text, [dir], true, true) : undefined
   const body = wrapped && isMarkdownNote(main) ? markdownToLatex(text, { figure: figures?.figure, image: figures?.image }) : ''
   const bibs = body ? noteBibFiles(wb, main, body) : []
-  const files = [main, ...(wrapped ? [macros, noteMacros, ...bibs, ...(figures?.inputs ?? []), ...(o.template?.files ?? []).filter((f) => path.basename(f) === f).map((f) => path.join(LATEX_FILES_DIR, f))] : [])]
+  const files = [main, ...(wrapped ? [macros, noteMacros, ...bibs, ...(figures?.inputs ?? []), ...(o.template?.files ?? []).flatMap((f) => templateFilePath(f) ?? [])] : [])]
   const hash = hashOf(JSON.stringify({ main, dir, engine, ...(wrapped && {
     name, kind, template: o.template, shared: o.shared, bibs, macros,
     ...(figures && { figures: { body, preamble: figures.preamble, files: figures.files.map(({ name, abs }) => ({ name, abs })) } }),

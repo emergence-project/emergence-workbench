@@ -7,13 +7,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { MACROS_FILE, parseMacros } from '../conceptNotes.js'
 import { hashOf, writeAtomic } from '../fsutil.js'
-import { LATEX_FILES_DIR } from '../latexFiles.js'
+import { templateFilePath } from '../latexFiles.js'
 import { WorkbenchError } from '../workbench.js'
 import { templatePreview } from '../latexPreview.js'
 import type { RouteContext } from './context.js'
 import { t as tx } from '../i18n.js'
-
-export { LATEX_FILES_DIR }
 
 export function registerLatexSetup(app: FastifyInstance, ctx: RouteContext): void {
   const { registry } = ctx
@@ -86,8 +84,9 @@ export function registerLatexSetup(app: FastifyInstance, ctx: RouteContext): voi
   app.get<{ Params: { file: string }; Querystring: { template?: string } }>('/api/latex-setup/download/:file', async (req, reply) => {
     const { file } = req.params
     const t = registry.template(req.query.template || registry.latexDefault)
-    if (t.files?.includes(file) && path.basename(file) === file) {
-      const text = fs.readFileSync(path.join(LATEX_FILES_DIR, file), 'utf8')
+    const src = t.files?.includes(file) ? templateFilePath(file) : null
+    if (src) {
+      const text = fs.readFileSync(src, 'utf8')
       return reply.header('content-type', 'text/x-tex; charset=utf-8').header('content-disposition', `attachment; filename="${file}"`).send(text)
     }
     if (file !== 'main.tex' && file !== 'setting.tex') return reply.code(404).send({ error: tx('없는 파일', 'No such file') })

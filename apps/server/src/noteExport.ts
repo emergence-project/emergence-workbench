@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { isOutside } from './fsutil.js'
 import { buildExportMainTex, buildSettingTex, inputBlockPreamble, markdownToLatex, MD_PREAMBLE, parseBlock, type Author, type LatexTemplate } from '@rw/core'
-import { SHARED_MACROS } from './latexFiles.js'
+import { SHARED_MACROS, templateFilePath } from './latexFiles.js'
 import { allManuscripts, frontFor, isBodyOnly, NO_TITLE_BLOCK, type ManuscriptInfo } from './manuscript.js'
 import { bibliographyLines, noteBibFiles } from './noteBib.js'
 import { innerBody, NOTE_MACROS } from './noteBody.js'
@@ -29,7 +29,7 @@ import { t as tl } from './i18n.js'
  * - date: \\date{}에 넣을 글 ('\\today', '2026-10-04', 빈 글은 날짜 없이). 빼면 원고는 \\today, 노트는 없이.
  */
 /** sharedMacros: 공통 기호를 \\providecommand로 바꾼 글 (sharedMacrosTex). 있으면 shared-macros.tex로 넣고 프로젝트·노트 기호 다음에 부른다 */
-export interface ExportLatex { template: LatexTemplate; authors?: Author[]; allAuthors?: Author[]; date?: string; filesDir: string; sharedMacros?: string | null; figures?: FigureEmbedResolver }
+export interface ExportLatex { template: LatexTemplate; authors?: Author[]; allAuthors?: Author[]; date?: string; sharedMacros?: string | null; figures?: FigureEmbedResolver }
 export interface ExportedNotes { filename: string; zip: Buffer; files: string[] }
 type ExportSource = Pick<ManuscriptInfo, 'main' | 'name' | 'kind' | 'format'> & { block?: Workbench }
 
@@ -174,7 +174,7 @@ function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex
         { name: 'setting.tex', data: buildSettingTex(t) },
         ...(macros !== null ? [{ name: 'macros.tex', data: macros }] : []),
         ...(latex.sharedMacros ? [{ name: SHARED_MACROS, data: latex.sharedMacros }] : []),
-        ...(t.files ?? []).filter((f) => fs.existsSync(path.join(latex.filesDir, f))).map((f) => ({ name: f, data: fs.readFileSync(path.join(latex.filesDir, f)) })),
+        ...(t.files ?? []).flatMap((f) => { const abs = templateFilePath(f); return abs ? [{ name: f, data: fs.readFileSync(abs) }] : [] }),
       ]
     : [])
   const setup = (extra: string[]) => ({ ...t, preamble: [t.preamble.trim(), ...(macros !== null ? ['\\input{macros}'] : []), ...extra, ...(latex.sharedMacros ? [`\\input{${SHARED_MACROS.replace(/\.tex$/, '')}}`] : [])].filter(Boolean).join('\n') })

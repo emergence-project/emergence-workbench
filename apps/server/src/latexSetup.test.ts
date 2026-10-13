@@ -71,15 +71,32 @@ describe('LaTeX 서식 모음과 저자 (앱 설정에 저장)', () => {
     expect(main.body).toMatch(/\\author\{B(\}| \\\\)/)
     expect((await app.inject({ method: 'GET', url: '/api/latex-setup/download/main.tex?template=beamer' })).body).toContain('{beamer}')
     expect((await app.inject({ method: 'GET', url: '/api/latex-setup/download/..%2Fconfig.yaml' })).statusCode).toBe(404)
-    // 발표 서식의 스타일 파일 (그 서식에서만)
-    const sty = await app.inject({ method: 'GET', url: '/api/latex-setup/download/knowledge-factory-beamer.sty?template=beamer' })
+    // 서식의 스타일 파일 (그 서식에서만)
+    const sty = await app.inject({ method: 'GET', url: '/api/latex-setup/download/rw-research-note.sty?template=research-note' })
     expect(sty.statusCode).toBe(200)
-    expect(sty.body).toContain('\\ProvidesPackage{knowledge-factory-beamer}')
-    expect((await app.inject({ method: 'GET', url: '/api/latex-setup/download/knowledge-factory-beamer.sty?template=prl' })).statusCode).toBe(404)
+    expect(sty.body).toContain('\\ProvidesPackage{rw-research-note}')
+    expect((await app.inject({ method: 'GET', url: '/api/latex-setup/download/rw-research-note.sty?template=prl' })).statusCode).toBe(404)
     expect((await app.inject({ method: 'PUT', url: '/api/authors', payload: { authors: 'x' } })).statusCode).toBe(400)
     // 하나는 남긴다
     for (const id of ['prl', 'beamer', 'prb', 'research-note']) expect((await app.inject({ method: 'DELETE', url: `/api/latex-templates/${id}` })).statusCode).toBe(200)
     expect((await app.inject({ method: 'DELETE', url: '/api/latex-templates/article' })).statusCode).toBe(400)
+  })
+
+  it('앱에 싣지 않는 스타일 파일은 설정 폴더 latex-files/에서 읽는다 (config.yaml 서식의 files:)', async () => {
+    const dir = path.join(tmp, 'config-user-sty')
+    fs.mkdirSync(path.join(dir, 'latex-files'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'latex-files', 'my-theme.sty'), '\\ProvidesPackage{my-theme}\n')
+    fs.writeFileSync(path.join(dir, 'config.yaml'), 'researches: []\nlatexTemplates:\n  - id: beamer\n    preamble: "\\\\usepackage{my-theme}"\n    files: [my-theme.sty, ../escape.sty]\n')
+    const a = buildApp({ configDir: dir })
+    const v = (await a.inject({ method: 'GET', url: '/api/latex-setup' })).json()
+    expect(v.templates.find((t: { id: string }) => t.id === 'beamer')).toMatchObject({ kind: 'slides', files: ['my-theme.sty'] })
+    const sty = await a.inject({ method: 'GET', url: '/api/latex-setup/download/my-theme.sty?template=beamer' })
+    expect(sty.statusCode).toBe(200)
+    expect(sty.body).toContain('\\ProvidesPackage{my-theme}')
+    // 화면에서 서식을 고쳐도 files:는 그대로
+    await a.inject({ method: 'PUT', url: '/api/latex-templates/beamer', payload: { template: { name: 'Talk' } } })
+    expect((await a.inject({ method: 'GET', url: '/api/latex-setup' })).json().templates.find((t: { id: string }) => t.id === 'beamer').files).toEqual(['my-theme.sty'])
+    await a.close()
   })
 
   it('개념노트 컴파일: 없는 서식·발표 서식은 거절한다', async () => {

@@ -11,7 +11,6 @@ import { createNote, makeAllBodyOnly, makeBodyOnly } from '../noteCopy.js'
 import { writeNoteMeta } from '../noteMeta.js'
 import { exportBlock, exportNotes } from '../noteExport.js'
 import { sharedMacrosTex } from '../latexFiles.js'
-import { LATEX_FILES_DIR } from './latexSetup.js'
 import { requireHash, WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { latexChoices, queryList as list, type LatexChoiceQuery as Pick } from './latexChoice.js'
@@ -135,7 +134,7 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
     const block = req.query.block
     if (block !== undefined && (typeof block !== 'string' || keys.length > 0)) throw new WorkbenchError(400, t('보조 노트는 하나씩 따로 내보내세요', 'Export notes one at a time'))
     const kind = block !== undefined || (keys.length > 0 && keys.every((k) => manuscriptKind(wb, k) !== 'paper')) ? 'note' : 'paper'
-    const latex = { ...latexPick(wb, req.query, false, kind), allAuthors: registry.authors, filesDir: LATEX_FILES_DIR, sharedMacros: sharedMacrosTex(registry.libraryPath), figures: figureEmbedResolver(registry, req.params.rid) }
+    const latex = { ...latexPick(wb, req.query, false, kind), allAuthors: registry.authors, sharedMacros: sharedMacrosTex(registry.libraryPath), figures: figureEmbedResolver(registry, req.params.rid) }
     const r = block !== undefined ? exportBlock(wb, block, latex) : exportNotes(wb, keys, latex)
     const ascii = /[A-Za-z0-9]/.test(r.filename.replace(/\.zip$/, '')) ? r.filename.replace(/[^\x20-\x7e]+/g, '_').replace(/["\\]/g, '_') : 'notes.zip'
     return reply.type('application/zip').header('cache-control', 'no-store')
