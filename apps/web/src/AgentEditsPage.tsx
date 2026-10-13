@@ -138,6 +138,7 @@ function ReviewOf({ k, raw, version, onChanged, onSaved }: { k: string; raw: boo
       {rv.notes.length > 0 && <ul className="ae-notes">{rv.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
       <div className="ae-table" role="table" aria-label={t('바뀐 곳', 'Changes')} data-ui="고침 비교" data-ui-item={rv.title}>
         <div className="ae-head" role="row">
+          <span />
           <span role="columnheader">{t('전', 'Before')}</span>
           <span role="columnheader">{t('후', 'After')}</span>
           <span role="columnheader">{t('검토', 'Review')}</span>
@@ -201,11 +202,11 @@ function HunkRow({ h, picked, expanded, busy, render, raw, onPick, onToggle, onA
       {expanded && h.prev && <div className="ae-ctx" role="row"><div><HunkText text={h.prev} render={render} /></div></div>}
       <div className={`ae-hunk${picked ? ' picked' : ''}`} role="row" tabIndex={0} data-ui="바뀐 곳" onClick={pick} onKeyDown={pick}>
         {(() => {
-          // 단추는 줄마다 늘 둔다. 펼칠 문단이 없으면(제목 · 다른 바뀐 곳에 붙음 · 노트 끝) 흐리게 두고 이유를 툴팁에 (시안 그대로)
+          // 단추는 줄 맨 앞 칸(전 왼쪽)에 줄마다 늘 둔다. 펼칠 문단이 없으면(제목 · 다른 바뀐 곳에 붙음 · 노트 끝) 흐리게 두고 이유를 툴팁에 (시안 그대로)
           const tip = !hasContext ? t('앞뒤에 펼칠 문단이 없습니다 (제목이나 다른 바뀐 곳에 붙어 있음)', 'No unchanged paragraph around (next to a heading or another change)')
             : expanded ? t('접기', 'Collapse') : t('앞뒤 문단 펼치기', 'Show the paragraphs around')
-          return <button type="button" className="ae-expand" data-ui="펼치기 버튼" aria-expanded={expanded} aria-disabled={!hasContext}
-            data-tip={tip} aria-label={tip} onClick={hasContext ? onToggle : undefined}>{expanded ? Icon.collapse : Icon.expand}</button>
+          return <div className="ae-tg" role="cell"><button type="button" className="ae-expand" data-ui="펼치기 버튼" aria-expanded={expanded} aria-disabled={!hasContext}
+            data-tip={tip} aria-label={tip} onClick={hasContext ? onToggle : undefined}>{expanded ? Icon.collapse : Icon.expand}</button></div>
         })()}
         <div className="ae-cell base" role="cell" ref={baseRef}>
           {h.base ? <HunkText key={`${k}:${h.base}`} text={h.base} render={render} /> : <p className="ae-none">{t('새 문단', 'New paragraph')}</p>}

@@ -23,10 +23,10 @@
 
 /* 표: 바깥 테두리 하나, 머리 줄, 절 헤더, 바뀐 곳 사이 가는 선 */
 .ae-table { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); }
-.ae-head, .ae-hunk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 112px; }
+.ae-head, .ae-hunk, .ae-ctx { display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr) 112px; }
 .ae-head { background: var(--bg-sunken); border-bottom: 1px solid var(--line-strong); border-radius: var(--r-md) var(--r-md) 0 0; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
 .ae-head > span { padding: var(--sp-1) var(--sp-3); text-align: center; }
-.ae-head > span + span, .ae-cell + .ae-cell { border-left: 1px solid var(--line); }
+.ae-head > span + span, .ae-tg + .ae-cell, .ae-cell + .ae-cell { border-left: 1px solid var(--line); }
 .ae-head > span:last-child, .ae-hunk > .ae-acts { border-left-color: var(--line-strong); }
 .ae-sec-head { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); background: var(--bg-side); border-bottom: 1px solid var(--line-strong); font-size: var(--fs-sm); }
 .ae-hunk + .ae-sec-head, .ae-ctx + .ae-sec-head { border-top: 1px solid var(--line-strong); margin-top: -1px; }
@@ -57,18 +57,21 @@
 img.ae-ins, canvas.ae-ins { background: none; outline: 3px solid var(--paint-green); }
 img.ae-del, canvas.ae-del { background: none; outline: 3px solid var(--paint-pink); }
 
-/* 앞뒤 펼치기: 줄마다 왼쪽 위 테두리에 겹쳐 늘 보이는 작은 단추 (줄을 눌러도 펼친다, 펼칠 문단이 없으면 흐리게). 펼친 문단은 두 칸 폭에 옅게, 아래 점선 */
-.ae-expand { position: absolute; z-index: 2; top: -9px; left: var(--sp-1); width: 18px; height: 18px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: var(--r-xs); background: var(--bg); color: var(--text-2); }
+/* 앞뒤 펼치기 (시안 ④): 줄 맨 앞 칸(전 왼쪽)의 단추. 줄마다 늘 보이고 줄을 눌러도 펼친다, 펼칠 문단이 없으면 흐리게.
+   펼친 문단은 전 · 후 두 칸 폭에 옅게, 아래 점선 */
+.ae-tg { padding: 5px 0 0 5px; cursor: default; }
+.ae-expand { position: relative; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; border: 0; border-radius: var(--r-xs); background: none; color: var(--text-2); cursor: pointer; }
 .ae-expand:hover { color: var(--text); background: var(--bg-hover); }
-.ae-expand[aria-disabled="true"] { color: var(--text-3); opacity: .5; cursor: default; }
-.ae-expand[aria-disabled="true"]:hover { color: var(--text-3); background: var(--bg); }
-.ae-expand svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ae-expand:focus-visible { outline: 2px solid var(--text-2); }
+.ae-expand[aria-disabled="true"] { opacity: .3; cursor: default; }
+.ae-expand[aria-disabled="true"]:hover { color: var(--text-2); background: none; }
+.ae-expand svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ae-expand[data-tip]:hover::after, .ae-expand[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + 2px); left: 0; z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); padding: 2px var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
-.ae-ctx { display: grid; grid-template-columns: minmax(0, 1fr) 112px; border-bottom: 1px dashed var(--line-strong); color: var(--text-3); }
-.ae-ctx > div { padding: var(--sp-1) var(--sp-3); }
+.ae-ctx { border-bottom: 1px dashed var(--line-strong); color: var(--text-3); }
+.ae-ctx > div { grid-column: 2 / 4; padding: var(--sp-1) var(--sp-3); border-left: 1px solid var(--line); }
 .ae-ctx .ae-text, .ae-ctx .ae-md .ob-md { font-size: var(--fs-xs); }
 
 @media (max-width: 760px) {
-  .ae-head, .ae-hunk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 72px; }
+  .ae-head, .ae-hunk, .ae-ctx { grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr) 72px; }
   .ae-acts { flex-direction: column; align-items: flex-end; }
 }
