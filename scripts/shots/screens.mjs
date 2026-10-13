@@ -81,7 +81,7 @@ export const DEFAULT_SCREENS = [
   ['knowledge-records', '#/library/t/planargraph', '메모', '코멘트 버튼'],
 ]
 
-// --sample subjects: a separate .sandbox/subjects-library fixture, preserving the default L2b shots.
+// --sample subjects: a separate .sandbox-shots/subjects-library fixture, preserving the default L2b shots.
 export const SUBJECT_SCREENS = [
   ['subjects-knowledge-list', '#/library/list', '지식 목록 줄'],
   ['subjects-knowledge-filtered', '#/library/list?subject=math', '분류의 논문과 그림'],
