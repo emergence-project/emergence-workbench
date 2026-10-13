@@ -224,6 +224,21 @@ describe('STATUS.md와 파일 감시', () => {
     expect(md).not.toContain(c.file)
   })
 
+  it('priority가 앞인 일부터 (없으면 보통), 같으면 최근에 맡긴 것부터 보이고 우선순위를 적는다 (10/13)', async () => {
+    const ids: string[] = []
+    for (const [title, priority] of [['later', 3], ['plain', 0], ['first', 1], ['normal', 2]] as const) {
+      const t = (await make({ title, task: 'x', endCondition: 'y' })).json().task
+      if (priority) agentWrites(t.id, `priority: ${priority}`)
+      ids.push(t.id)
+    }
+    const scan = (await app.inject({ method: 'GET', url: `${R}/tasks` })).json() as C.TaskScan
+    expect(scan.diagnostics).toEqual([])
+    expect(Object.fromEntries(scan.tasks.map((t) => [t.title, t.priority]))).toEqual({ later: 3, plain: undefined, first: 1, normal: 2 })
+    // plain(없음 = 2)과 normal(2)은 같은 순위라 원래 순서(맡긴 시각, 같은 분이면 id 역순)를 지킨다
+    const lines = generateStatus(new Workbench(path.join(repo, 'workbench'))).split('\n').filter((l) => l.startsWith('- `workbench/tasks/'))
+    expect(lines.map((l) => l.split(' · ').slice(1, -1).join(' · '))).toEqual(['진행 · 우선 1 · first', '진행 · plain', '진행 · 우선 2 · normal', '진행 · 우선 3 · later'])
+  })
+
   it('판단을 기다리는 맡긴 일(결과 · 종결 조건 제안)은 왼쪽 띠의 수와 첫 화면 "확인 필요"에 더한다', async () => {
     const issues = async () => (await app.inject({ method: 'GET', url: '/api/research-issues' })).json()
     const before = await issues()

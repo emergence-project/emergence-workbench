@@ -18,6 +18,7 @@
 | --- | --- |
 | `title` | 작업 이름. 보고서 제목이다 |
 | `topic` | 주제 id (선택) |
+| `priority` | 우선순위 (선택, 2026-10-13~): `1` 먼저 · `2` 보통 · `3` 나중. 없으면 보통. 앱 화면은 아직 쓰지 않아 사람이나 에이전트가 적는다(옛 `TASK-QUEUE.md`의 순서를 옮길 때). `STATUS.md`가 이 순서로 보인다 |
 | `agent` | 맡은 에이전트: `claude-code` · `codex` |
 | `created` | 맡긴 시각 `YYYY-MM-DD HH:MM` |
 | `state` | 아래 2.3 |

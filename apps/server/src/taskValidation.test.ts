@@ -25,6 +25,12 @@ describe('공통 작업 파일 검사', () => {
     }
   })
 
+  it('priority는 1 · 2 · 3만 받는다 (10/13)', () => {
+    const inspect = (value: string) => inspectTask('workbench/tasks/2026-10-13-p.md', `---\ntitle: 일\ntask: 대조\nstate: working\npriority: ${value}\n---\n`).diagnostics
+    for (const ok of ['1', '2', '3', '']) expect(inspect(ok)).toEqual([])
+    for (const bad of ['0', '4', '"1"', 'high', '1.5']) expect(inspect(bad)).toEqual([expect.objectContaining({ code: 'schema', line: 5, message: expect.stringContaining('priority:') })])
+  })
+
   it('따옴표가 있는 YAML 칸의 오류도 실제 줄을 가리킨다', () => {
     const inspection = inspectTask('workbench/tasks/2026-10-07-state.md', '---\ntitle: 결과\ntask: 대조\n"state": results\n---\n본문\n')
     expect(inspection.diagnostics).toEqual([expect.objectContaining({ code: 'schema', line: 4 })])

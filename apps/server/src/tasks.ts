@@ -19,6 +19,7 @@ import type { Task, TaskAnswer, TaskAsk, TaskIssue, TaskJudgment, TaskNext, Task
  *   ---
  *   title: V 상 유한온도 순서          # 작업 이름 = 보고서 제목
  *   topic: v-phase                     # 주제 id (선택)
+ *   priority: 1                        # 우선순위 (선택, 10/13): 1 먼저 · 2 보통 · 3 나중. 없으면 보통
  *   agent: claude-code                 # claude-code · codex (다른 이름도 그대로 보인다)
  *   created: 2026-10-05 09:10
  *   state: result                      # working 진행 · proposed 종결 조건 제안 · result 판단 대기 · done 해결 · paused 멈춤 · stopped 폐기
@@ -138,6 +139,7 @@ function taskFromInspection(id: string, file: string, content: string, mtime: nu
   return {
     id, file, title,
     ...optional('topic', text(fm.topic)),
+    ...(fm.priority === 1 || fm.priority === 2 || fm.priority === 3 ? { priority: fm.priority } : {}),
     agent: text(fm.agent) ?? '',
     created: text(fm.created) ?? '',
     state,
@@ -398,10 +400,12 @@ export function statusSection(wb: Workbench): string[] {
     '> 사용자가 앱 작업 탭에서 맡긴 일. 파일 하나가 일 하나이자 보고서다. 결과는 같은 파일 머리말과 본문에 채운다(형식은 맨 위 규칙 문서).',
     '> state: working = 할 차례(end-condition이 비었으면 proposal부터 적고 state: proposed), result = 사용자 판단 대기, paused = 멈춤. judged의 마지막 note가 수정 요청이면 그것부터 고친다.', '')
   const label: Record<TaskState, string> = { working: '진행', proposed: '종결 조건 승인 대기', result: '판단 대기', done: '해결', paused: '멈춤', stopped: '폐기' }
-  for (const t of open) {
+  // 우선순위가 앞인 것부터 (없으면 보통 2), 같으면 최근에 맡긴 것부터 (10/13 W1: TASK-QUEUE의 순서를 대신한다)
+  const rank = (t: Task) => t.priority ?? 2
+  for (const t of [...open].sort((a, b) => rank(a) - rank(b))) {
     const last = t.judged[t.judged.length - 1]
     const todo = t.state === 'working' && !t.endCondition ? '종결 조건부터 제안' : t.state === 'working' && last?.verdict === 'send-back' ? `수정 요청: ${last.note ?? ''}` : ''
-    out.push(`- \`${t.file}\` · ${label[t.state]} · ${t.title}${t.agent ? ` · ${t.agent}` : ''}${todo ? ` — ${todo}` : ''}`)
+    out.push(`- \`${t.file}\` · ${label[t.state]}${t.priority ? ` · 우선 ${t.priority}` : ''} · ${t.title}${t.agent ? ` · ${t.agent}` : ''}${todo ? ` — ${todo}` : ''}`)
     const answered = t.answers.length ? t.answers.map((a) => `${a.n}번 ${a.answer}${a.note ? ` (${a.note})` : ''}`).join(', ') : ''
     if (answered) out.push(`  - 사용자 답: ${answered}`)
   }

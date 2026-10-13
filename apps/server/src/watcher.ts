@@ -19,6 +19,7 @@ type Target =
   | { type: 'comments'; target: string }
   | { type: 'tasks'; id: string }
   | { type: 'note'; file: string }
+  | { type: 'sources' }
 
 export type WorkbenchEvent =
   | { type: 'block'; research: string; id: string; hash: string | null }
@@ -48,6 +49,8 @@ export function classify(root: string, file: string): Target | null {
   if (rel.length === 2 && a === 'comments' && b!.endsWith('.md')) return { type: 'comments', target: b!.slice(0, -3) }
   if (rel.length === 2 && a === 'tasks' && b!.endsWith('.md')) return { type: 'tasks', id: b!.slice(0, -3) }
   if (rel.length === 1 && a === 'research.yaml') return { type: 'research' }
+  // 프로젝트 규칙·결정 (10/13): 검토 대기 수에 들어가므로 작업 탭이 다시 읽는다
+  if (rel.length === 2 && (a === 'rules' || a === 'decisions') && b!.endsWith('.md')) return { type: 'sources' }
   // 주제 폴더(10/13): topic.yaml은 주제 목록이 바뀐 것(research.yaml과 같은 알림), 그 안의 노트 폴더는 노트
   if (rel.length === 3 && a === 'topics' && rel[2] === 'topic.yaml') return { type: 'research' }
   if (a === 'topics' && rel.length >= 4 && /\.(md|tex|ya?ml)$/.test(rel[rel.length - 1]!)) return { type: 'note', file: ['workbench', ...rel].join('/') }
