@@ -192,17 +192,21 @@ function HunkRow({ h, picked, expanded, busy, render, raw, onPick, onToggle, onA
     if (!('key' in e) && window.getSelection()?.toString()) return
     if ('key' in e) e.preventDefault()
     onPick()
+    // 줄을 누르면 바로 앞뒤 문단을 펼치고 접는다 (단추만 누르는 길은 잘 안 보였다, 10/13 피드백)
+    if (hasContext) onToggle()
   }
   const k = `${epoch}:${raw ? 'raw' : 'md'}`
   return (
     <>
       {expanded && h.prev && <div className="ae-ctx" role="row"><div><HunkText text={h.prev} render={render} /></div></div>}
       <div className={`ae-hunk${picked ? ' picked' : ''}`} role="row" tabIndex={0} data-ui="바뀐 곳" onClick={pick} onKeyDown={pick}>
-        {picked && hasContext && (
-          <button type="button" className="ae-expand" data-ui="펼치기 버튼" aria-expanded={expanded}
-            data-tip={expanded ? t('접기', 'Collapse') : t('앞뒤 문단 펼치기', 'Show the paragraphs around')} aria-label={expanded ? t('접기', 'Collapse') : t('앞뒤 문단 펼치기', 'Show the paragraphs around')}
-            onClick={onToggle}>{expanded ? Icon.collapse : Icon.expand}</button>
-        )}
+        {(() => {
+          // 단추는 줄마다 늘 둔다. 펼칠 문단이 없으면(제목 · 다른 바뀐 곳에 붙음 · 노트 끝) 흐리게 두고 이유를 툴팁에 (시안 그대로)
+          const tip = !hasContext ? t('앞뒤에 펼칠 문단이 없습니다 (제목이나 다른 바뀐 곳에 붙어 있음)', 'No unchanged paragraph around (next to a heading or another change)')
+            : expanded ? t('접기', 'Collapse') : t('앞뒤 문단 펼치기', 'Show the paragraphs around')
+          return <button type="button" className="ae-expand" data-ui="펼치기 버튼" aria-expanded={expanded} aria-disabled={!hasContext}
+            data-tip={tip} aria-label={tip} onClick={hasContext ? onToggle : undefined}>{expanded ? Icon.collapse : Icon.expand}</button>
+        })()}
         <div className="ae-cell base" role="cell" ref={baseRef}>
           {h.base ? <HunkText key={`${k}:${h.base}`} text={h.base} render={render} /> : <p className="ae-none">{t('새 문단', 'New paragraph')}</p>}
         </div>
