@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { AboutPart, ColorRow, SymbolRow } from './aboutContent'
-import { DocKindsTable, DocMapFigure, FeedbackFlowFigure, HomeMarksTable, NoteSyntaxTable, NoteToolbarFigure, StatesTable, TaskFlowFigure, TurnFigure } from './aboutFigures'
+import { DocKindsTable, DocMapFigure, FeedbackFlowFigure, FeedbackTagsTable, HomeMarksTable, NoteSyntaxTable, NoteToolbarFigure, StatesTable, TaskFlowFigure, TurnFigure } from './aboutFigures'
 
 /**
  * English version of the About pages (aboutContent.tsx holds the Korean and picks one by `lang`).
@@ -408,6 +408,13 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
           { text: <>The same point raised more than once is merged into the latest item and shown as "+N". Comments you left are edited and deleted with the pencil and trash can that appear at the top right on hover.</> },
           { text: <>"Needs review" and the orange count on the rail are items where the agent asks you to decide (asked, agreed, or an answer with a question), plus items that were handled but not yet approved or revised.</> },
           { text: <>An opened item shows a handling summary at the top (understood request, cause and handling with their times, plus earlier versions) and the conversation between you and the maintainer below it. The bottom always has three buttons, named by the kind of answer. When the agent reports a result (applied, answered, declined, later) they are Ask · Revise · Approve: with the box empty only Approve is on, and typing turns on Ask and Revise. When the agent asks you to decide (asked, agreed, or an answer with a question) they are Ask · Stop · Proceed: Proceed has Claude go ahead, Stop ends it as is, and any text you type is saved with it. Ask leaves the handling as is, so the maintainer only answers. Revise and Proceed send the item back to waiting so Claude handles it again. Edit your own messages with the pencil at their top right, and "Undo" takes back your last answer.</> },
+        ],
+      },
+      {
+        title: 'Conversation tags', id: 'tags',
+        figure: <FeedbackTagsTable />,
+        items: [
+          { text: <>The tags at the head of each message in an opened item. The tags used in that conversation also appear in the "Tags" line below it; the circled question mark at the end of that line brings you to this table.</> },
         ],
       },
       {

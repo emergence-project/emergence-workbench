@@ -12,6 +12,8 @@ import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
 import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
+import { REPLY, TAG_NOTES } from './feedbackTags'
+import { href } from './router'
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
 
@@ -51,24 +53,7 @@ const headName = (e: FeedbackItem, st: FeedbackState | '대기') => (st === '승
 /** 종류는 둘로 나눠 보인다 (10/9): 요소(디자인 · 버그 · 기능, 10/9 전 분류)와 유형(수정 · 질문 · 제안, 사용자가 고른 것) */
 const ELEMENTS = ['디자인', '버그', '기능']
 const TYPES = ['수정', '질문', '제안']
-/**
- * 재답변 이름 (10/9 사용자 결정, 1안 두 글자): 처음 고르는 유형과 같은 말을 쓴다.
- * 결과를 알린 답에는 질문 · 수정 · 승인, 결정을 묻는 답에는 질문 · 중단 · 진행. 자료 값은 코멘트 · 반려 · 승인 · 중단 · 진행
- */
-const REPLY: Record<string, string> = {
-  '코멘트': t('질문', 'Ask'), '반려': t('수정', 'Revise'), '승인': t('승인', 'Approve'), '진행': t('진행', 'Proceed'), '중단': t('중단', 'Stop'),
-}
 const verdictName = (v: string) => REPLY[v] ?? label(v)
-/** 대화 머리 태그의 설명 (10/11 12:38: 태그의 종류와 설명을 각주로). 이 대화에 나온 태그만 아래에 한 줄씩 */
-const TAG_NOTES: Record<string, { name: string; note: string }> = {
-  '앱에 반영됨': { name: t('앱에 반영됨', 'Applied to the app'), note: t('관리자가 앱을 고쳤고 그 변경이 합쳐졌습니다. 어느 변경인지는 처리 기록의 커밋에 있습니다.', 'The maintainer changed the app and the change was merged. The commit in the handling record says which.') },
-  '답만 함': { name: t('답만 함', 'Answered only'), note: t('앱은 고치지 않고 답만 했습니다. 질문, 거절, 나중에, 동의가 여기에 해당합니다.', 'The app was not changed; only an answer was given (questions, declines, later, agreed).') },
-  '반려': { name: t('N번째 수정', 'Revision N'), note: t('처리 결과가 맞지 않아 수정을 눌러 다시 처리해 달라고 한 요청입니다.', 'You pressed Revise because the result was not right and asked for it to be reworked.') },
-  '승인': { name: REPLY['승인']!, note: t('처리 결과를 받아들였습니다.', 'You accepted the result.') },
-  '진행': { name: REPLY['진행']!, note: t('관리자가 묻거나 제안한 대로 진행하게 했습니다.', 'You told the maintainer to go ahead as asked or proposed.') },
-  '중단': { name: REPLY['중단']!, note: t('하지 않기로 했습니다.', 'You decided not to do it.') },
-  '코멘트': { name: REPLY['코멘트']!, note: t('다시 처리하지 않고 답만 받으려고 남긴 질문입니다.', 'A question left to get an answer only, without reworking.') },
-}
 const tagKey = (s: ThreadStep): string | null => {
   if (s.kind === '대기') return null
   if (s.who === 'Claude') return s.kind === '답' ? '답만 함' : 'commit' in s && s.commit ? '앱에 반영됨' : '답만 함'
@@ -372,6 +357,8 @@ function Conversation({ e }: { e: FeedbackItem }) {
         <div className="fbp-notes" data-ui="태그 설명">
           <span className="fbp-notes-k">{t('태그 설명', 'Tags')}</span>
           {notes.map((k) => <span key={k} className="tag fbp-note" tabIndex={0} data-tip={TAG_NOTES[k]!.note} aria-label={`${TAG_NOTES[k]!.name}: ${TAG_NOTES[k]!.note}`}>{TAG_NOTES[k]!.name}</span>)}
+          {/* 태그를 모은 표는 앱 소개에 (10/14 13:32 제안) */}
+          <a className="icon-btn fbp-notes-help" href={href({ page: 'about', part: 'feedback', anchor: 'tags' })} data-ui="태그 표 보기" data-tip={t('태그 표 보기', 'See all tags')} aria-label={t('태그 표 보기', 'See all tags')}>{Icon.help}</a>
         </div>
       )}
     </div>

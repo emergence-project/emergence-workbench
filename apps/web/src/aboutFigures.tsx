@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Icon } from './icons'
 import { ProofMark, StatusDot } from './StatusDot'
 import { t } from './i18n'
+import { TAG_NOTES } from './feedbackTags'
 
 /**
  * 이 앱 소개의 그림과 표 (10/8 사용자 "기호와 구조는 표와 그림으로도 보이게").
@@ -239,5 +240,19 @@ export function FileTreeFigure() {
         </ul>
       </div>
     </div>
+  )
+}
+
+/** 피드백 대화의 태그 (10/14 13:32 제안): 피드백 화면의 태그 설명 줄과 같은 목록(feedbackTags.ts) */
+export function FeedbackTagsTable() {
+  return (
+    <table className="about-sym-table about-tags">
+      <thead><tr><th>{t('태그', 'Tag')}</th><th>{t('누가', 'Who')}</th><th>{t('뜻', 'Meaning')}</th></tr></thead>
+      <tbody>
+        {Object.entries(TAG_NOTES).map(([k, v]) => (
+          <tr key={k}><td><span className="tag">{v.name}</span></td><td className="muted">{v.who === 'agent' ? t('관리자', 'Maintainer') : t('사용자', 'You')}</td><td>{v.note}</td></tr>
+        ))}
+      </tbody>
+    </table>
   )
 }

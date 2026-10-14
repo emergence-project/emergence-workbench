@@ -10,6 +10,7 @@ import { useHighlightColor } from './ui'
 import { classifiedRecordCount, filterForActiveRecord, recordRoute, type RecordFilter } from './recordsPanelHelpers'
 import { flash } from './flash'
 import { RecordList } from './RecordList'
+import { chooseWorkFilter } from './workRecords'
 
 const FILTERS: RecordFilter[] = ['전체', '메모', '할 일', '질문']
 const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문으로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, and questions')
@@ -71,6 +72,9 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
   return <section className="records-panel" data-ui="적기">
     <div className="records-filters" role="group" aria-label={t('기록 필터', 'Record filter')}>
       {FILTERS.map((f) => <button key={f} className={`memo-chip${filter === f ? ' on' : ''}`} aria-pressed={filter === f} onClick={() => setFilter(f)}>{labelOf(f)}</button>)}
+      {/* 프로젝트의 기록을 모두 모은 작업 탭으로 (10/14 13:33 제안). 전체면 메모를 연다 */}
+      <button className="a records-all" data-ui="모두 보기" data-tip={t('작업 탭에서 이 프로젝트의 기록 모두 보기', 'See all records of this project in the Work tab')}
+        onClick={() => { chooseWorkFilter(filter === '전체' ? '메모' : filter); go({ page: 'log', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>
     </div>
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">
       <button className="a" data-ui="자동 분류 버튼" data-tip={CLASSIFY_TIP} title={CLASSIFY_TIP} disabled={classifying_} onClick={() => void classify()}>{classifying_ ? t('분류하는 중…', 'Sorting…') : t(`자동 분류 ${unsorted.length}개`, `Auto-sort ${unsorted.length}`)}</button>

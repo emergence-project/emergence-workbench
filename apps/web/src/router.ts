@@ -36,7 +36,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  */
 export type Route =
   | { page: 'home' }
-  | { page: 'about'; part?: string }
+  | { page: 'about'; part?: string; anchor?: string }
   | { page: 'settings'; part?: string }
   | { page: 'network'; person?: string }
   | { page: 'feedback' }
@@ -90,7 +90,7 @@ export function parseRoute(hash: string): Route {
     if (parts[2] === 'p' && parts[3]) return { page: 'paper', rid: parts[1], id: parts[3] }
     return { page: 'overview', rid: parts[1], anchor }
   }
-  if (parts[0] === 'about') return parts[1] ? { page: 'about', part: parts[1] } : { page: 'about' }
+  if (parts[0] === 'about') return parts[1] ? { page: 'about', part: parts[1], ...(parts[2] && { anchor: parts[2] }) } : { page: 'about' }
   if (parts[0] === 'settings') return parts[1] ? { page: 'settings', part: parts[1] } : { page: 'settings' }
   if (parts[0] === 'latex') return { page: 'settings', part: 'latex' }
   if (parts[0] === 'network') return parts[1] ? { page: 'network', person: parts[1] } : { page: 'network' }
@@ -135,7 +135,7 @@ export function href(r: Route): string {
   const e = encodeURIComponent
   switch (r.page) {
     case 'home': return '#/'
-    case 'about': return `#/about${r.part ? `/${e(r.part)}` : ''}`
+    case 'about': return `#/about${r.part ? `/${e(r.part)}${r.anchor ? `/${e(r.anchor)}` : ''}` : ''}`
     case 'settings': return `#/settings${r.part ? `/${e(r.part)}` : ''}`
     case 'network': return `#/network${r.person ? `/${e(r.person)}` : ''}`
     case 'feedback': return '#/feedback'

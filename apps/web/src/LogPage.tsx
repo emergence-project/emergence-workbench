@@ -10,7 +10,7 @@ import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
 import { needsJudgment } from './taskView'
-import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, TODO_FOCUS_EVENT, WORK_FILTER_KEY, WORK_FILTERS, workRecordGroups, type WorkFilter } from './workRecords'
+import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, TODO_FOCUS_EVENT, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTERS, workRecordGroups, type WorkFilter } from './workRecords'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
 import { useJournal } from './useJournal'
 import { JudgeList, TaskDialog, TaskList, TaskWeek, useTasks, type TaskDraft } from './WorkTasks'
@@ -49,6 +49,12 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     setFilter(next)
     try { localStorage.setItem(WORK_FILTER_KEY, next) } catch { /* 저장할 수 없어도 거르기는 쓴다. */ }
   }
+  // 오른쪽 사이드바 기록의 "모두 보기"가 고른 필터
+  useEffect(() => {
+    const take = (e: Event) => setFilter(parseWorkFilter((e as CustomEvent<string>).detail))
+    window.addEventListener(WORK_FILTER_EVENT, take)
+    return () => window.removeEventListener(WORK_FILTER_EVENT, take)
+  }, [])
   // 첫 화면 작업 패널에서 누른 할 일: 할 일 필터로 바꾸고 그 항목으로 스크롤해 잠깐 표시한다.
   const [focusTodo, setFocusTodo] = useState<string | null>(() => peekTodoFocus())
   useEffect(() => {

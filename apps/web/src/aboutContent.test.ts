@@ -7,7 +7,7 @@ const shape = (parts: AboutPart[]) => parts.map((p) => ({
   id: p.id,
   open: p.open?.map((o) => o.to),
   left: p.left?.length ?? 0,
-  sections: (p.sections ?? []).map((s) => ({ figure: !!s.figure, items: s.items.map((i) => !!i.unsure) })),
+  sections: (p.sections ?? []).map((s) => ({ id: s.id, figure: !!s.figure, items: s.items.map((i) => !!i.unsure) })),
 }))
 const icons = Object.fromEntries(['pencil', 'trash', 'play', 'download', 'comment', 'approve', 'sendBack', 'memo', 'feedback', 'panelLeft', 'more', 'reopen', 'search'].map((k) => [k, k])) as Parameters<typeof SYMBOL_GROUPS_KO>[0]['icons']
 

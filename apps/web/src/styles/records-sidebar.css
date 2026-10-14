@@ -2,6 +2,7 @@
 .rs-col[hidden] { display: none; }
 .records-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
 .records-filters { flex: none; display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
+.records-filters .records-all { margin-left: auto; font-size: var(--fs-xs); }
 .records-filters .memo-chip.on { background: var(--bg-hover); color: var(--text); border-color: var(--line-strong); }
 .records-classify { flex: none; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); }
 .records-classify .a { white-space: nowrap; }
