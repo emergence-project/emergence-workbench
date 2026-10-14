@@ -122,7 +122,7 @@ button.fl-check.on:hover circle { fill: var(--text); }
 .fl-approve-ev { font-size: var(--fs-sm); padding: var(--sp-2); border-radius: var(--r-sm); background: var(--bg-sunken); }
 
 /* 흐름 화면 (프로젝트 하나에 한 흐름, 10/14) */
-.fl-page { padding: var(--sp-4) var(--sp-5); }
+.page-body.fl-page { max-width: calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap) + 2 * var(--sp-6)); gap: var(--sp-4); }
 .fl-filter { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .fl-filter select { border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding: 2px var(--sp-2); font-size: var(--fs-sm); max-width: 16em; }
 .fl-focus { fill: var(--bg-sunken); stroke: var(--line-strong); stroke-width: 1; }
