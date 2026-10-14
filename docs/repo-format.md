@@ -519,3 +519,49 @@ workbench/
 - `accepted` 규칙과 결정은 사용자가 허락한 뒤에만 고친다. 결정을 뒤집을 때는 고치지 않고 새 결정을 쓰고 옛 것을 `superseded`로 둔다.
 - `STATUS.md` 정본 위치에 두 폴더의 수가, "프로젝트 규칙" 절에 규칙 목록이 보인다(§9). `agent:check`는 이름 모양, 머리말·YAML, `status`, 제목을 본다.
 - 앱은 두 폴더를 쓰지 않는다(파일이 바뀌면 작업 탭이 다시 읽기만 한다).
+
+## 14. 연구 흐름 (`flow/<id>.yaml`, 2026-10-14~)
+
+주제 화면의 "흐름"이 읽는 파일이다. 점 하나 = 생각의 한 걸음(행위 하나나 진술 하나, 계산 한 번이 아니다)이고, 점 하나에 파일 하나다. 선은 "어디서 왔나"이며 받는 점에만 적는다. 화면의 자리(열·줄)는 적지 않고 앱이 계산한다(`apps/web/src/flowLayout.ts`). 1단계(10/14)는 앱이 읽기만 하고 에이전트가 쓴다. 사람이 정하는 것은 질문 문장, 발단 선, 정리 승인(사람 승인 확인 기록), 갈래 폐기다.
+
+```yaml
+format: 1
+kind: finding            # question · finding (진술) / calc · analytic · proof · literature (행위)
+progress: done           # open 미해결 · active 진행 · paused 멈춤 · done 끝남
+result: solved           # done일 때만: solved 해결(성공) · refuted 반증(실패) · dropped 폐기
+short: 색 바꾸기          # 차트에 보이는 짧은 제목
+title: Kempe 사슬로 다섯째 색을 비울 수 있다
+topics: [coloring]       # 주제 id. 여럿이면 그 주제 화면마다 보인다
+date: 2026-10-02
+from:                    # 앞선 점. type: origin 발단 · support 근거 · refute 반박 · use 사용
+  - { id: degree-bound, type: support }   # type이 없으면 질문은 origin, 그 밖은 support
+fields:                  # 종류마다 설명 칸 (아래 표). $…$는 수식
+  statement: …
+  condition: …
+end: true                # 갈래 종결 (선택)
+evidence:                # 근거. ref(라이브러리 논문 키)와 file(저장소 기준 경로) 가운데 하나만
+  - kind: proof          # calc · analytic · proof · other · paper
+    title: Kempe 사슬     # 보이는 이름 (선택)
+    file: workbench/blocks/kempe-chains.tex
+    text: 두 사슬이 서로 막는 경우까지
+    checks:              # 확인 기록 (덧붙이기만): role agent = 에이전트 검토, human = 사람 승인
+      - { at: 2026-10-02T15:00, by: claude, role: agent }
+      - { at: 2026-10-02T22:10, by: 사용자, role: human }
+sources: [workbench/log/2026-10-02.md]   # 기록 출처 (일지·노트·커밋)
+guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하지 않음)
+```
+
+| kind | 이름 | 설명 칸 (`fields`) |
+|---|---|---|
+| `question` | 질문 (기호 ?; `guess`가 있으면 전구 속 ?) | `question` 물음 · `guess` 예상 답 · `motivation` 동기 |
+| `finding` | 발견 (눈) | `statement` 진술 · `condition` 조건 |
+| `calc` | 수치 계산 (π) | `goal` 목적 · `setup` 설정 · `result` 결과 |
+| `analytic` | 이론 계산 (∫) | `goal` 목적 · `setup` 출발점 · `result` 결과 |
+| `proof` | 증명 (∴) | `goal` 목표 · `method` 방법 · `result` 결과 |
+| `literature` | 문헌 (§) | `reading` 문헌 · `gain` 얻은 것 |
+
+- 파일 이름 `^[a-z0-9][a-z0-9-]*\.yaml$`. 폴더 맨 위만 읽고, `layout.yaml`(손으로 옮긴 자리, 2단계)은 점이 아니다.
+- **정리**는 고르지 않는다: 근거에 `kind: proof`이고 `role: human` 확인 기록이 있는 발견이 정리(T)로 보인다.
+- 근거로 쓴 논문(`kind: paper`)은 받는 점 위에 §로 붙는다. 검토 자체가 다음 걸음을 낳았을 때만 `literature` 점을 만든다.
+- 다른 주제의 점에서 온 선은 그리지 않고, 받는 점 앞에 속이 빈 시작 표시(▷)로 알린다. 앞선 점이 없는 점은 속이 찬 시작 표시다.
+- 없는 점을 가리키는 `from`, 틀린 값, `ref`·`file`이 둘 다 있거나 없는 근거는 `GET /api/researches/:rid/flow`의 `diagnostics`로 알린다(그 선은 그리지 않는다).

@@ -44,6 +44,7 @@ import { registerNotes } from './routes/notes.js'
 import { registerPapers } from './routes/papers.js'
 import { registerFigures } from './routes/figures.js'
 import { registerTasks } from './routes/tasks.js'
+import { registerFlow } from './routes/flow.js'
 import { registerAgentEdits } from './routes/agentEdits.js'
 import { allowedRequest, extraHosts, fileResponseHeaders } from './hostGuard.js'
 import { Google } from './google.js'
@@ -282,6 +283,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerPapers(app, ctx)
   registerFigures(app, ctx)
   registerTasks(app, ctx)
+  registerFlow(app, ctx)
   registerAgentEdits(app, ctx)
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))
 

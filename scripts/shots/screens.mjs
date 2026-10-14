@@ -13,6 +13,8 @@ export const DEFAULT_SCREENS = [
   ['project-edit', '#/r/{rid}', '프로젝트 고치기 칸', '프로젝트 고치기'],
   // 주제 화면 (10/5 시안 3단계): 노트 카드 격자, 주제 고치기 창, 주제 없는 노트("노트들")
   ['topic', '#/r/{rid}/t/coloring', '노트 카드 목록'],
+  // 연구 흐름 (10/14): 점을 눌러 아래에 자세히 (점 파일은 fixtures/sandbox-extra/workbench/flow)
+  ['topic-flow', '#/r/{rid}/t/coloring', '흐름 점 자세히', '[data-ui="흐름 차트"] .fl-node[data-id="five-color-theorem"]'],
   ['topic-edit', '#/r/{rid}/t/coloring', '주제 고치기 창', '주제 고치기'],
   ['loose-notes', '#/r/{rid}/t/__loose', '노트 카드 목록'],
   ['notes', '#/r/{rid}/notes', '원고 목록'],

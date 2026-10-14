@@ -1,0 +1,20 @@
+format: 1
+kind: calc
+progress: done
+result: solved
+short: 무작위 그래프
+title: 무작위 평면 그래프 1000개를 다섯 색으로 칠해 보기
+topics: [coloring]
+date: 2026-10-03
+from:
+  - { id: kempe-swap, type: use }
+fields:
+  goal: 색 바꾸기 단계를 그대로 짠 칠하기가 늘 끝나는지 본다.
+  setup: 꼭짓점 20–200개, Delaunay 삼각분할 1000개
+  result: 모두 다섯 색 이하. 색 바꾸기는 평균 0.3번.
+evidence:
+  - kind: calc
+    title: 칠하기 계산
+    file: workbench/notes/kempe-recoloring/note.md
+    text: 1000개 모두 통과
+    checks: []

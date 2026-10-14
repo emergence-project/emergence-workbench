@@ -1,0 +1,19 @@
+format: 1
+kind: literature
+progress: active
+short: 방전법 읽기
+title: 방전법으로 피할 수 없는 구성 찾기
+topics: [coloring]
+date: 2026-10-07
+from:
+  - { id: four-colors, type: origin }
+  - { id: one-swap, type: origin }
+fields:
+  reading: 방전법 개요
+  gain: 아직 읽는 중
+evidence:
+  - kind: other
+    title: 방전법
+    file: workbench/blocks/discharging.tex
+    text: 요약 초안
+    checks: []

@@ -18,6 +18,7 @@ type Target =
   | { type: 'preamble' }
   | { type: 'comments'; target: string }
   | { type: 'tasks'; id: string }
+  | { type: 'flow' }
   | { type: 'note'; file: string }
   | { type: 'sources' }
 
@@ -29,6 +30,8 @@ export type WorkbenchEvent =
   | { type: 'statement'; research: string; id: string; hash: string | null }
   | { type: 'comments'; research: string; target: string }
   | { type: 'tasks'; research: string; id: string }
+  /** 연구 흐름의 점 파일(workbench/flow/*.yaml)이 바뀜 */
+  | { type: 'flow'; research: string }
   /** 노트 파일(workbench/notes/…, workbench/calc/…, workbench/topics/<주제>/<노트>/…). file은 저장소 기준 경로(원고 화면의 file과 같다) */
   | { type: 'note'; research: string; file: string; hash: string | null }
   /** research.yaml sources의 파일(작업 목록·검토 문서·참고문헌)이 바뀜. 작업 탭·개괄이 다시 읽는다 */
@@ -48,6 +51,7 @@ export function classify(root: string, file: string): Target | null {
   }
   if (rel.length === 2 && a === 'comments' && b!.endsWith('.md')) return { type: 'comments', target: b!.slice(0, -3) }
   if (rel.length === 2 && a === 'tasks' && b!.endsWith('.md')) return { type: 'tasks', id: b!.slice(0, -3) }
+  if (rel.length === 2 && a === 'flow' && b!.endsWith('.yaml')) return { type: 'flow' }
   if (rel.length === 1 && a === 'research.yaml') return { type: 'research' }
   // 프로젝트 규칙·결정 (10/13): 검토 대기 수에 들어가므로 작업 탭이 다시 읽는다
   if (rel.length === 2 && (a === 'rules' || a === 'decisions') && b!.endsWith('.md')) return { type: 'sources' }
