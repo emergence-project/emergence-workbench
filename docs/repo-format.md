@@ -344,7 +344,8 @@ workbench/notes/
 - 위치: `p.N`(PDF 쪽), `L<n>`(줄), `전체`.
 - 상태 줄 `- 상태: <대기|답함|끝냄>`: 질문은 셋 다, 할 일은 `대기`·`끝냄`, 다른 종류는 없음. 기록 안 어디에 있어도 되고 마지막 것이 이긴다.
 - 정보 줄 `<!-- rw: {JSON} -->`과 인용 `> "…"`은 머리 바로 아래, 본문 글보다 앞에만 둔다.
-  - JSON 키: `rects`(PDF 점, 왼쪽 위 기준 `[x,y,w,h]`), `color`(`yellow green blue pink`), `line`, `prefix`·`suffix`(각 32자), `quoteMultiline`, `unsorted`, `split`, `journal`, `journalIndex`.
+  - JSON 키: `rects`(PDF 점, 왼쪽 위 기준 `[x,y,w,h]`), `color`(`yellow green blue pink`), `line`, `prefix`·`suffix`(각 32자), `quoteMultiline`, `unsorted`, `split`, `journal`, `journalIndex`, `edit`·`editBase`.
+  - `edit`(`질문` · `수정`)은 고침 검토의 바뀐 곳에서 물은 질문이다(10/14). 인용은 물을 때의 지금 문단, `editBase`는 고치기 전 글의 앞 200자. `수정`은 그 문단을 다시 고쳐 달라는 것: 에이전트는 `edit_note`로 다시 고치고(검토 대상으로 남음) 무엇을 바꿨는지 답을 단다.
 - 답: `### 답 · <누가> · YYYY-MM-DD HH:MM` 아래 본문, 그리고 상태 줄.
 - 본문의 줄이 `#`, 상태 줄, 정보 줄처럼 보이면 앞에 `\`를 붙여 쓴다.
 

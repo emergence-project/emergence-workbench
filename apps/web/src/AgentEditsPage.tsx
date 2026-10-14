@@ -2,7 +2,11 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, ty
 import { useConceptRender } from './ConceptNotes'
 import { onlySpacing, paintDiff } from './diffPaint'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
-import { agentEditsApi, ConflictError, type EditAction, type EditAttempt, type EditHunk, type EditReview, type EditReviewRow, type EditTarget } from './api'
+import { splitNoteFixes } from '@rw/core'
+import { agentEditsApi, commentsApi, ConflictError, type CommentEntry, type EditAction, type EditAsk, type EditAttempt, type EditHunk, type EditReview, type EditReviewRow, type EditTarget } from './api'
+import { ComposeBox, SayCard } from './Conversation'
+import { talksOf, talkTurn, talkWhen } from './editTalk'
+import { MemoText } from './memo'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { go, type Route } from './router'
@@ -111,9 +115,32 @@ function ReviewOf({ k, raw, version, onChanged, onSaved }: { k: string; raw: boo
   const [busy, setBusy] = useState(false)
   const [picked, setPicked] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+  // 바뀐 곳에서 묻기 (10/14): 그 노트의 기록 가운데 바뀐 곳에서 물은 것, 대화를 연 바뀐 곳
+  const [records, setRecords] = useState<CommentEntry[]>([])
+  const [talking, setTalking] = useState<string | null>(null)
   const render = useConceptRender(rv?.target.kind === 'note' ? rv.target.rid : undefined)
+  const rid = rv?.target.kind === 'note' ? rv.target.rid : undefined
+  const recordTarget = rv?.record?.target
   const load = useCallback(() => { agentEditsApi.review(k).then((r) => setRv(r.review)).catch((e: Error) => onSaved(e.message)) }, [k, onSaved])
   useEffect(() => { if (!busy) load() }, [load, version]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!rid || !recordTarget) { setRecords([]); return }
+    // 기록 파일이 아직 없으면(404) 물은 것이 없다
+    commentsApi(rid).read(recordTarget).then((f) => setRecords(f.comments.filter((c) => c.edit))).catch(() => setRecords([]))
+  }, [rid, recordTarget, version])
+  const ask = async (h: EditHunk, kind: EditAsk, text: string): Promise<boolean> => {
+    if (!rv) return false
+    try {
+      const r = await agentEditsApi.discuss(k, rv.hash, h.id, kind, text)
+      setRv(r.review)
+      setRecords(r.file.comments.filter((c) => c.edit))
+      return true
+    } catch (e) {
+      onSaved(e instanceof ConflictError || /409|바뀌었|changed/.test((e as Error).message) ? t('그사이 노트가 바뀌었습니다. 다시 읽었습니다.', 'The note changed in the meantime. Read it again.') : (e as Error).message)
+      load()
+      return false
+    }
+  }
   const act = async (h: EditHunk, action: EditAction, text?: string): Promise<boolean> => {
     if (!rv) return false
     setBusy(true)
@@ -159,7 +186,8 @@ function ReviewOf({ k, raw, version, onChanged, onSaved }: { k: string; raw: boo
             </div>
             {g.hunks.map((h) => (
               <HunkRow key={h.id} h={h} picked={picked === h.id} expanded={expanded.has(h.id)} busy={busy} render={md} raw={raw}
-                onPick={() => setPicked(h.id)} onToggle={() => toggle(h.id)} onAct={act} />
+                talks={rv.record ? talksOf(h, records) : null} talking={talking === h.id} onTalk={() => setTalking((x) => (x === h.id ? null : h.id))}
+                onPick={() => setPicked(h.id)} onToggle={() => toggle(h.id)} onAct={act} onAsk={ask} />
             ))}
           </Fragment>
         ))}
@@ -181,9 +209,11 @@ function HunkText({ text, render }: { text: string; render?: RenderOptions }) {
   return render ? <div className="ae-text ae-md"><ObsidianMarkdown text={text.replace(/\s*\\label\{[^}]*\}/g, '')} options={render} /></div> : <pre className="ae-text">{text}</pre>
 }
 
-function HunkRow({ h, picked, expanded, busy, render, raw, onPick, onToggle, onAct }: {
+function HunkRow({ h, picked, expanded, busy, render, raw, talks, talking, onTalk, onPick, onToggle, onAct, onAsk }: {
   h: EditHunk; picked: boolean; expanded: boolean; busy: boolean; render?: RenderOptions; raw: boolean
-  onPick(): void; onToggle(): void; onAct(h: EditHunk, a: EditAction, text?: string): Promise<boolean>
+  /** 이 바뀐 곳에서 물은 것. null이면 물을 수 없는 노트(개념노트 등) */
+  talks: CommentEntry[] | null; talking: boolean; onTalk(): void
+  onPick(): void; onToggle(): void; onAct(h: EditHunk, a: EditAction, text?: string): Promise<boolean>; onAsk(h: EditHunk, kind: EditAsk, text: string): Promise<boolean>
 }) {
   const [editing, setEditing] = useState<string | null>(null)
   // 고치기를 닫으면 전 · 후 칸을 새로 그려 다시 칠한다
@@ -219,26 +249,118 @@ function HunkRow({ h, picked, expanded, busy, render, raw, onPick, onToggle, onA
         <div className="ae-cell base" role="cell" ref={baseRef}>
           {h.base ? <HunkText key={`${k}:${h.base}`} text={h.base} render={render} /> : <p className="ae-none">{t('새 문단', 'New paragraph')}</p>}
         </div>
-        <div className="ae-cell" role="cell" ref={editing === null ? curRef : undefined}>
-          {editing !== null
-            ? <textarea className="ae-edit" aria-label={t('고칠 글', 'Text to edit')} value={editing} rows={Math.min(16, Math.max(3, editing.split('\n').length + 1))} onChange={(e) => setEditing(e.target.value)} autoFocus />
-            : h.current ? <HunkText key={`${k}:${h.current}`} text={h.current} render={render} /> : <p className="ae-none">{t('지운 문단', 'Removed paragraph')}</p>}
-          {editing === null && onlySpacing(h.base, h.current) && <p className="ae-none">{t('띄어쓰기 · 줄바꿈만 바뀜', 'Only spacing or line breaks changed')}</p>}
+        <div className="ae-cell" role="cell">
+          {/* 이유 줄은 칠하지 않게 바뀐 글만 감싼다 */}
+          <div ref={editing === null ? curRef : undefined}>
+            {editing !== null
+              ? <textarea className="ae-edit" aria-label={t('고칠 글', 'Text to edit')} value={editing} rows={Math.min(16, Math.max(3, editing.split('\n').length + 1))} onChange={(e) => setEditing(e.target.value)} autoFocus />
+              : h.current ? <HunkText key={`${k}:${h.current}`} text={h.current} render={render} /> : <p className="ae-none">{t('지운 문단', 'Removed paragraph')}</p>}
+            {editing === null && onlySpacing(h.base, h.current) && <p className="ae-none">{t('띄어쓰기 · 줄바꿈만 바뀜', 'Only spacing or line breaks changed')}</p>}
+          </div>
+          {editing === null && h.reason && <p className="ae-reason" data-ui="고친 이유">{t('이유', 'Why')} · {h.reason.by ? `${agentName(h.reason.by)} · ` : ''}{h.reason.reason}</p>}
         </div>
         <div className="ae-cell ae-acts" role="cell">
           {editing !== null ? <>
             <button className="btn" disabled={busy} onClick={closeEdit}>{t('취소', 'Cancel')}</button>
             <button className="btn primary" disabled={busy} onClick={() => void onAct(h, 'edit', editing).then((ok) => { if (ok) closeEdit() })}>{t('저장', 'Save')}</button>
           </> : <>
-            <button className="icon-btn" disabled={busy} data-ui="고치기 버튼" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} onClick={() => setEditing(h.current)}>{Icon.pencil}</button>
-            <button className="icon-btn" disabled={busy} data-ui="되돌리기 버튼" data-tip={t('되돌리기', 'Revert')} aria-label={t('되돌리기: 이 부분만 고치기 전 글로', 'Revert: put back the text from before the edit, for this part only')} onClick={() => void onAct(h, 'revert')}>{Icon.revert}</button>
+            {/* 10/14 시안: 밖에는 묻기 · ⋯ · 승인만, 고치기 · 되돌리기는 ⋯ 메뉴 */}
+            {talks && <TalkButton talks={talks} on={talking} onClick={onTalk} />}
+            <MoreMenu busy={busy} onEdit={() => setEditing(h.current)} onRevert={() => void onAct(h, 'revert')} />
             <button className="icon-btn" disabled={busy} data-ui="승인 버튼" data-tip={t('승인', 'Approve')} aria-label={t('승인: 이 고침을 받아들입니다 (파일은 그대로)', 'Approve: accept this edit (the file stays as it is)')} onClick={() => void onAct(h, 'accept')}>{Icon.approve}</button>
           </>}
         </div>
       </div>
+      {talks && talking && <Talk h={h} talks={talks} busy={busy} onAct={onAct} onAsk={onAsk} />}
       {expanded && h.next && <div className="ae-ctx" role="row"><div><HunkText text={h.next} render={render} /></div></div>}
     </>
   )
+}
+
+/** 묻기 단추: 말풍선과 물은 수. 사용자가 볼 답이 왔으면 수가 주황(사용자 차례) */
+function TalkButton({ talks, on, onClick }: { talks: CommentEntry[]; on: boolean; onClick(): void }) {
+  const turn = talkTurn(talks)
+  const tip = turn === 'user' ? t('묻기 — 답이 왔습니다', 'Ask: an answer arrived') : turn === 'agent' ? t('묻기 — 에이전트의 답을 기다립니다', 'Ask: waiting for the agent') : t('묻기 — 왜 바꾸었는지 묻거나 다시 고쳐 달라고 합니다', 'Ask why it changed, or ask for another revision')
+  return (
+    <button className={`icon-btn ae-talk-btn${on ? ' on' : ''}`} data-ui="묻기 버튼" data-tip={tip} aria-label={tip} aria-expanded={on} onClick={onClick}>
+      {Icon.comment}{talks.length > 0 && <span className={`ae-talk-n${turn === 'user' ? ' turn' : ''}`}>{talks.length}</span>}
+    </button>
+  )
+}
+
+/** ⋯ 메뉴: 고치기 · 되돌리기 */
+function MoreMenu({ busy, onEdit, onRevert }: { busy: boolean; onEdit(): void; onRevert(): void }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
+  return (
+    <span className="ae-more" ref={box}>
+      <button className={`icon-btn${open ? ' on' : ''}`} disabled={busy} data-ui="더 보기 메뉴" data-tip={t('더 보기', 'More')} aria-label={t('더 보기', 'More')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{Icon.more}</button>
+      {open && (
+        <div className="menu ae-menu" role="menu" data-ui="더 보기 항목">
+          <button role="menuitem" data-ui="고치기 버튼" onClick={() => { setOpen(false); onEdit() }}><span className="ico">{Icon.pencil}</span>{t('고치기', 'Edit')}</button>
+          <button role="menuitem" data-ui="되돌리기 버튼" title={t('이 부분만 고치기 전 글로', 'Put back the text from before the edit, for this part only')} onClick={() => { setOpen(false); onRevert() }}><span className="ico">{Icon.revert}</span>{t('되돌리기', 'Revert')}</button>
+        </div>
+      )}
+    </span>
+  )
+}
+
+/**
+ * 바뀐 곳 아래의 대화 (10/14 시안, 피드백과 같은 부품): 내 질문 · 수정은 오른쪽, 에이전트의 답은 왼쪽.
+ * 질문은 답만 받고, 수정은 에이전트가 그 문단을 다시 고치게 하며, 승인은 줄의 승인과 같다. 에이전트 차례에는 입력란 대신 기다림 한 줄.
+ */
+function Talk({ h, talks, busy, onAct, onAsk }: { h: EditHunk; talks: CommentEntry[]; busy: boolean; onAct(h: EditHunk, a: EditAction): Promise<boolean>; onAsk(h: EditHunk, kind: EditAsk, text: string): Promise<boolean> }) {
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const typed = !!text.trim()
+  const send = (kind: EditAsk) => {
+    setSending(true)
+    void onAsk(h, kind, text).then((ok) => { if (ok) setText('') }).finally(() => setSending(false))
+  }
+  let revision = 0
+  return (
+    <div className="ae-talk" role="row" data-ui="고침 대화">
+      {talks.length > 0 && (
+        <ul className="fbp-thread">
+          {talks.map((c) => {
+            if (c.edit === '수정') revision++
+            return (
+              <Fragment key={c.id}>
+                <SayCard me ui="사용자 글" name={t('사용자', 'User')} tag={c.edit === '수정' ? t(`${revision}번째 수정`, `Revision ${revision}`) : t('질문', 'Question')} when={talkWhen(c.id)}>
+                  <MemoText text={c.body} />
+                </SayCard>
+                {c.answers.map((a, i) => a.by === '앱'
+                  ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
+                  : (
+                    <SayCard key={i} me={false} ui="에이전트 글" name={`${t('에이전트', 'Agent')} (${agentName(a.by)})`} tag={c.edit === '수정' ? t('다시 고침', 'Revised') : t('답만 함', 'Answered only')} when={talkWhen(a.at)}>
+                      <MemoText text={answerText(a.body)} />
+                    </SayCard>
+                  ))}
+              </Fragment>
+            )
+          })}
+        </ul>
+      )}
+      <ComposeBox value={text} onChange={setText} placeholder={t('질문이나 고칠 점', 'Question or what to change')}
+        waiting={talkTurn(talks) === 'agent' ? t('에이전트의 답을 기다립니다', 'Waiting for the agent to answer') : undefined}>
+        <button className="btn" disabled={busy || sending || !typed} onClick={() => send('질문')}>{t('질문', 'Ask')}</button>
+        <button className="btn" disabled={busy || sending || !typed} onClick={() => send('수정')}>{t('수정', 'Revise')}</button>
+        <button className="btn primary" disabled={busy || sending || typed} onClick={() => void onAct(h, 'accept')}>{t('승인', 'Approve')}</button>
+      </ComposeBox>
+    </div>
+  )
+}
+
+/** 수정의 답은 before/after 고침을 빼고 설명만 (고친 글은 위 후 칸에 보인다) */
+function answerText(body: string): string {
+  const { text, fixes } = splitNoteFixes(body)
+  return fixes.length ? `${text.trim()}\n\n${t(`(고침 ${fixes.length}곳은 위 후 칸에 반영)`, `(${fixes.length} change(s) shown in the After column above)`)}`.trim() : body
 }
 
 const when = (iso: string) => iso.slice(5, 16).replace('-', '/').replace('T', ' ')
