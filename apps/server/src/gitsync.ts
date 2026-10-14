@@ -104,6 +104,7 @@ export async function repoSync(root: string, opts: { fetch?: boolean; force?: bo
   try {
     // 저장소 안의 하위 폴더면(예: 다른 저장소 안의 예제 연구) 바깥 저장소 상태를 보여 주지 않는다
     if (fs.realpathSync.native(await git(root, ...syncCommands.top)) !== fs.realpathSync.native(root)) return null
+    if (await unborn(root)) return await emptyCloneSync(root, opts)
     branch = await git(root, ...syncCommands.branch)
     upstream = await git(root, ...syncCommands.upstream)
   } catch { return null }
@@ -126,6 +127,35 @@ export async function repoSync(root: string, opts: { fetch?: boolean; force?: bo
   }
 }
 
+/** 커밋이 하나도 없는 사본인지 (빈 GitHub 저장소를 받아 둔 직후) */
+async function unborn(root: string): Promise<boolean> {
+  try { await git(root, 'rev-parse', '--verify', '--quiet', 'HEAD'); return false } catch { return true }
+}
+
+/**
+ * 빈 저장소를 받아 둔 사본: GitHub에 첫 커밋이 올라오면 받을 수 있다.
+ * 사본에 올려 둔(add) 파일이 있으면 받지 않고, 새 커밋에 든 파일과 이름이 같은 파일이 있으면 겹침으로 알린다.
+ */
+async function emptyCloneSync(root: string, opts: { fetch?: boolean; force?: boolean }): Promise<RepoSync | null> {
+  const branch = await git(root, 'symbolic-ref', '--short', 'HEAD')
+  // GitHub 쪽도 비어 있으면 @{upstream}이 풀리지 않으니 설정에서 읽는다
+  const remote = await git(root, 'config', `branch.${branch}.remote`)
+  const upstream = `${remote}/${(await git(root, 'config', `branch.${branch}.merge`)).replace(/^refs\/heads\//, '')}`
+  if (opts.fetch) await fetchRemote(root, remote, opts.force)
+  const f = lastFetch.get(root)
+  const fetched = { fetchedAt: f && !f.error ? f.at : null, fetchError: f?.error }
+  const staged = (await git(root, 'ls-files', '-z')).split('\0').filter(Boolean)
+  let behind = 0
+  try { behind = Number(await git(root, 'rev-list', '--count', `refs/remotes/${upstream}`)) } catch { /* GitHub도 아직 비어 있음 */ }
+  const incoming = behind ? new Set((await git(root, 'ls-tree', '-r', '--name-only', '-z', `refs/remotes/${upstream}`)).split('\0').filter(Boolean)) : new Set<string>()
+  const untracked = (await git(root, ...syncCommands.untracked)).split('\0').filter(Boolean)
+  const conflicts = [...new Set([...staged, ...untracked].filter((p) => incoming.has(p)))].sort()
+  return {
+    branch, upstream, ahead: 0, behind, dirty: staged.length, conflicts: conflicts.slice(0, 20), conflictCount: conflicts.length,
+    ...fetched, canUpdate: behind > 0 && staged.length === 0 && conflicts.length === 0,
+  }
+}
+
 export class SyncError extends Error {}
 
 /**
@@ -138,6 +168,7 @@ export async function fastForward(root: string): Promise<RepoSync> {
   if (s.fetchError) throw new SyncError(t(`GitHub를 확인하지 못했습니다: ${s.fetchError}`, `Could not check GitHub: ${s.fetchError}`))
   if (s.ahead > 0) throw new SyncError(t(`이 컴퓨터에만 있는 커밋 ${s.ahead}개가 있어 자동으로 받지 않습니다. 터미널에서 git pull로 합쳐 주세요`, `Not pulled automatically: ${s.ahead} commit${s.ahead === 1 ? ' is' : 's are'} only on this computer. Merge with git pull in a terminal`))
   if (s.behind === 0) return s
+  if (s.dirty > 0 && await unborn(root)) throw new SyncError(t('첫 커밋 전에 올려 둔(add) 파일이 있어 받지 않습니다. 터미널에서 git pull로 합쳐 주세요', 'Not pulled: files were added before the first commit. Merge with git pull in a terminal'))
   if (s.conflictCount > 0) {
     const files = s.conflicts.slice(0, 5).join(', ')
     const more = s.conflictCount - Math.min(5, s.conflicts.length)
@@ -147,4 +178,14 @@ export async function fastForward(root: string): Promise<RepoSync> {
     throw new SyncError(t(`받아오지 못했습니다: ${firstLine(e)}`, `Could not pull: ${firstLine(e)}`))
   }
   return (await repoSync(root))!
+}
+
+/**
+ * 저절로 받기 (10/14 사용자 결정): 원격을 확인하고, 앱의 받기 버튼과 같은 조건(맥에만 있는 커밋 없음 · 겹치는 파일 없음)일 때만 빨리 감기로 받는다.
+ * 받았으면 true. 받을 수 없거나 받을 것이 없으면 false (오류는 홈 카드가 그대로 보여 준다)
+ */
+export async function autoPull(root: string): Promise<boolean> {
+  const s = await repoSync(root, { fetch: true })
+  if (!s?.canUpdate || s.fetchError) return false
+  try { await fastForward(root); return true } catch { return false }
 }
