@@ -409,7 +409,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
     <li className={`fbp-say${me ? ' me' : ''}`} data-ui={me ? '사용자 글' : '관리자 글'}>
       <div className="fbp-say-head">
         <b>{name}</b>
-        <span>{what}</span>
+        <span className="tag">{what}</span>
         {undo && <button className="fb-link" title={t('마지막 답(승인 · 수정 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
         <span className="sp" />
         {at && <span className="muted fbp-say-when">{whenOf(at)}{edited && ` · ${t('고침', 'edited')} ${edited.slice(11, 16)}`}</span>}

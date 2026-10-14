@@ -108,7 +108,8 @@ body.feedback-on .toast { bottom: 76px; }
 /* 주고받은 기록: 처리 → 반려 → 다시 처리 → 승인 (10/4 18:11 "반려한 지적을 댓글처럼") */
 .fbp-thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .fbp-say { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); color: var(--text-2); }
-.fbp-say.me { margin-left: var(--sp-6); }
+.fbp-say { margin-right: var(--sp-6); }
+.fbp-say.me { margin-left: var(--sp-6); margin-right: 0; }
 .fbp-say-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-xs); }
 .fbp-say-head b { color: var(--text); font-weight: var(--fw-strong); }
 /* 10/8 11:28 대화 형식: 앞의 주고받음은 접고, 다시 처리마다 고친 칸을 보인다 */
