@@ -1,9 +1,8 @@
 /**
- * 연구 흐름의 자리 정하기 (주제 화면의 흐름, 10/14). 자리는 파일에 적지 않고 여기서 계산한다.
- * - 열: 주제 안의 앞선 점 가운데 가장 오른쪽 열 + 1. 앞선 점이 없으면 날짜가 더 이른 점들의 가장 오른쪽 열.
+ * 연구 흐름의 자리 정하기 (프로젝트의 흐름 화면, 10/14). 자리는 파일에 적지 않고 여기서 계산한다.
+ * - 열: 앞선 점 가운데 가장 오른쪽 열 + 1. 앞선 점이 없으면 날짜가 더 이른 점들의 가장 오른쪽 열.
  * - 줄: 앞선 점의 줄을 이어받고, 그 칸이 차 있으면 가장 가까운 빈 줄. 첫 시작점의 갈래가 가운데 줄(중심선)이다.
  * - 손으로 옮긴 점(layout.yaml)은 그 칸에 두고, 나머지는 그 칸을 피해 위 규칙대로 놓는다.
- * - 다른 주제의 점은 그리지 않고, 받는 점 앞에 속이 빈 시작 표시(▷)로 알린다.
  */
 import type { FlowEdge, FlowNode } from './api'
 
@@ -12,8 +11,6 @@ export type FlowLine = { from: string; to: string; type: FlowEdge }
 export type FlowLayout = {
   placed: Placed[]
   lines: FlowLine[]
-  /** 다른 주제에서 온 선: 받는 점 id → 보내는 점 */
-  outside: Map<string, FlowNode[]>
   cols: number
   rows: number
   /** 중심선 (첫 시작점의 갈래) */
@@ -23,13 +20,12 @@ export type FlowLayout = {
 /** 기본으로 보이는 줄 수 (가운데 줄이 중심선) */
 export const MIN_ROWS = 5
 
-export function layoutFlow(all: FlowNode[], tid: string, manual: Record<string, { c: number; r: number }> = {}): FlowLayout {
+export function layoutFlow(all: FlowNode[], manual: Record<string, { c: number; r: number }> = {}): FlowLayout {
   const byId = new Map(all.map((n) => [n.id, n]))
-  const mine = all.filter((n) => n.topics.includes(tid))
-    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.id.localeCompare(b.id))
-  const inTopic = new Set(mine.map((n) => n.id))
-  const fixed = (id: string) => inTopic.has(id) ? manual[id] : undefined
-  const parents = (n: FlowNode) => n.from.filter((f) => inTopic.has(f.id) && f.id !== n.id).map((f) => f.id)
+  const mine = [...all].sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.id.localeCompare(b.id))
+  const known = new Set(mine.map((n) => n.id))
+  const fixed = (id: string) => known.has(id) ? manual[id] : undefined
+  const parents = (n: FlowNode) => n.from.filter((f) => known.has(f.id) && f.id !== n.id).map((f) => f.id)
 
   // 열
   const col = new Map<string, number>()
@@ -85,17 +81,9 @@ export function layoutFlow(all: FlowNode[], tid: string, manual: Record<string, 
 
   const placed = order.map((node) => ({ node, c: col.get(node.id)!, r: row.get(node.id)! + mid }))
   const lines: FlowLine[] = []
-  const outside = new Map<string, FlowNode[]>()
-  for (const n of mine) for (const f of n.from) {
-    if (f.id === n.id) continue
-    if (inTopic.has(f.id)) lines.push({ from: f.id, to: n.id, type: f.type })
-    else {
-      const src = byId.get(f.id)
-      if (src) outside.set(n.id, [...(outside.get(n.id) ?? []), src])
-    }
-  }
+  for (const n of mine) for (const f of n.from) if (f.id !== n.id && known.has(f.id)) lines.push({ from: f.id, to: n.id, type: f.type })
   const cols = placed.length ? Math.max(...placed.map((p) => p.c)) + 1 : 0
-  return { placed, lines, outside, cols, rows, mid }
+  return { placed, lines, cols, rows, mid }
 }
 
 /** 고른 점의 계보: 앞선 점(조상)과 뒤따른 점(자손). 둘 다 그 점 자신을 담는다 */

@@ -579,5 +579,9 @@
   "노트 흐름": "Note flow",
   "흐름 새 점 창": "Flow new dot dialog",
   "흐름 점 고치기 창": "Flow edit dot dialog",
-  "흐름 승인 창": "Flow approval dialog"
+  "흐름 승인 창": "Flow approval dialog",
+  "흐름 블록": "Flow block",
+  "흐름 화면": "Flow screen",
+  "흐름 주제 필터": "Flow topic filter",
+  "주제 흐름 링크": "Topic flow link"
 }

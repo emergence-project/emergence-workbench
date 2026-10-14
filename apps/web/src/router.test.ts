@@ -213,6 +213,7 @@ describe('edit review routes (10/14: one project per screen)', () => {
   })
   it('sends old project review links to the project screen', () => {
     expect(parseRoute('#/review?scope=alpha')).toEqual({ page: 'edits', rid: 'alpha' })
+    for (const r of [{ page: 'flow', rid: 'alpha' }, { page: 'flow', rid: 'alpha', topic: 'coloring' }] as Route[]) expect(parseRoute(href(r))).toEqual(r)
     expect(parseRoute('#/review?key=note%3Aalpha%3Aa.md')).toEqual({ page: 'edits', rid: 'alpha', key: 'note:alpha:a.md' })
     expect(parseRoute('#/review?scope=library&key=concept%3Ax')).toEqual({ page: 'review', scope: 'library', key: 'concept:x' })
   })
