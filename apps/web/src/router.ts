@@ -5,6 +5,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  * 주소 뒤쪽(#)으로 화면을 기억한다. 제목줄의 뒤로/앞으로 버튼은 브라우저 기록을 그대로 쓴다.
  *   #/r/<연구>            프로젝트 정보 (목표·저장소·태그)
  *   #/r/<연구>/todo       할 일
+ *   #/r/<연구>/edits[?key=] 고침 검토 (그 프로젝트의 에이전트 고침만, 10/14 사용자 결정)
  *   #/r/<연구>/map        지도 (예전 /tree도 여기로)
  *   #/r/<연구>/b/<작업>    작업노트 편집 (파일은 workbench/blocks/)
  *   #/r/<연구>/s/<진술>    진술 노트 (저장소의 statements/)
@@ -17,7 +18,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/network             네트워킹 (저자와 소속, 더한 사람)
  *   #/network/<사람>       사람 한 명의 페이지 (노트 참고 문헌에 있는 그 사람의 논문)
  *   #/feedback            피드백 모아 보기
- *   #/review[?key=]       에이전트 고침 검토 (key = concept:<id> 또는 note:<연구>:<파일>, 그 노트를 연 채)
+ *   #/review[?key=]       개념노트의 에이전트 고침 검토 (key = concept:<id>, 그 노트를 연 채). scope=<연구>는 그 프로젝트의 고침 검토 탭으로 간다
  *   #/papers              논문 라이브러리 첫 화면 (최근 더한 논문 · 점검 · 통계)
  *   #/papers/list         논문 목록 (표 · 카드)
  *   #/papers/<거르기>       논문 목록을 거른 채 (comments · waiting · none · project:<연구> …)
@@ -53,6 +54,7 @@ export type Route =
   | { page: 'overview'; rid: string; anchor?: string }
   | { page: 'map'; rid: string }
   | { page: 'todo'; rid: string }
+  | { page: 'edits'; rid: string; key?: string }
   | { page: 'info'; rid: string }
   | { page: 'notes'; rid: string }
   | { page: 'concepts'; rid: string }
@@ -72,6 +74,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'r' && parts[1]) {
     if (parts[2] === 'tree' || parts[2] === 'map') return { page: 'map', rid: parts[1] }
     if (parts[2] === 'todo') return { page: 'todo', rid: parts[1] }
+    if (parts[2] === 'edits') { const key = new URLSearchParams(query).get('key'); return { page: 'edits', rid: parts[1], ...(key && { key }) } }
     if (parts[2] === 'info') return { page: 'info', rid: parts[1] }
     if (parts[2] === 'notes') return { page: 'notes', rid: parts[1] }
     if (parts[2] === 'concepts') return { page: 'concepts', rid: parts[1] }
@@ -94,7 +97,12 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'feedback') return { page: 'feedback' }
   if (parts[0] === 'review') {
     const params = new URLSearchParams(query)
-    return { page: 'review', ...(params.get('key') && { key: params.get('key')! }), ...(params.get('scope') && { scope: params.get('scope')! }) }
+    const key = params.get('key') ?? undefined
+    const scope = params.get('scope') ?? undefined
+    // 연구노트의 고침은 프로젝트의 고침 검토 화면으로 (10/14, 예전 #/review?scope=<연구> · key=note:<연구>:<파일> 주소)
+    const rid = scope && scope !== 'library' ? scope : /^note:([^:]+):/.exec(key ?? '')?.[1]
+    if (rid) return { page: 'edits', rid, ...(key && { key }) }
+    return { page: 'review', ...(key && { key }), ...(scope && { scope }) }
   }
   if (parts[0] === 'figures') return parts[1] === 'list' ? { page: 'figures', list: true } : parts[1] ? { page: 'figures', filter: parts[1] } : { page: 'figures' }
   if (parts[0] === 'papers') {
@@ -156,6 +164,7 @@ export function href(r: Route): string {
     case 'overview': return `#/r/${e(r.rid)}${r.anchor ? `?at=${e(r.anchor)}` : ''}`
     case 'map': return `#/r/${e(r.rid)}/map`
     case 'todo': return `#/r/${e(r.rid)}/todo`
+    case 'edits': return `#/r/${e(r.rid)}/edits${r.key ? `?key=${e(r.key)}` : ''}`
     case 'info': return `#/r/${e(r.rid)}/info`
     case 'notes': return `#/r/${e(r.rid)}/notes`
     case 'concepts': return `#/r/${e(r.rid)}/concepts`

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { papersApi, type ManuscriptInfo, type NoteRow, type ResearchApi, type Topic } from './api'
+import { agentEditsApi, papersApi, type ManuscriptInfo, type NoteRow, type ResearchApi, type Topic } from './api'
 import { Icon } from './icons'
 import { openPart } from './Manuscript'
 import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
@@ -54,6 +54,10 @@ export function ResearchNav({ rid, rapi, route, materials, todoCount, manuscript
     }).catch(() => setMatCount(null))
   }, [rapi, version])
 
+  // 고침 검토 (10/14): 이 프로젝트에서 검토할 노트 수 + 확인된 노트 고치기 요청 수
+  const [editCount, setEditCount] = useState(0)
+  useEffect(() => { agentEditsApi.list(rid).then((v) => setEditCount(v.reviews.length + v.attempts.length)).catch(() => setEditCount(0)) }, [rid, version])
+
   const known = new Set(topics.map((t) => t.id))
   const notesOf = (g: Group) => notes.filter((n) => (g === LOOSE ? !n.topics.some((t) => known.has(t)) : n.topics[0] === g))
   const papers = manuscripts.filter((m) => m.kind === 'paper')
@@ -89,6 +93,8 @@ export function ResearchNav({ rid, rapi, route, materials, todoCount, manuscript
             <span className="q-ico" aria-hidden>{Icon.info}</span><span className="label">{t('프로젝트 정보', 'Project info')}</span></button>
           <button className={`nav side-row${route.page === 'todo' || route.page === 'log' || route.page === 'task' ? ' on' : ''}`} aria-current={route.page === 'todo' || route.page === 'log' ? 'page' : undefined} data-ui="할 일" title={t('남은 할 일과 지난 작업 일지', 'Open to-dos and past work journal')} onClick={() => go({ page: 'todo', rid })}>
             <span className="q-ico" aria-hidden>{Icon.task}</span><span className="label">{t('작업', 'Work')}</span>{todoCount ? <span className="n" title={t('남은 할 일', 'Open to-dos')}>{todoCount}</span> : null}</button>
+          <button className={`nav side-row${route.page === 'edits' ? ' on' : ''}`} aria-current={route.page === 'edits' ? 'page' : undefined} data-ui="고침 검토 블록" title={t('에이전트가 고친 노트를 바뀐 곳마다 검토', 'Review each change agents made to notes')} onClick={() => go({ page: 'edits', rid })}>
+            <span className="q-ico" aria-hidden>{Icon.approve}</span><span className="label">{t('고침 검토', 'Edit review')}</span>{editCount ? <span className="n" title={t('검토할 노트와 고치기 요청', 'Notes to review and edit requests')}>{editCount}</span> : null}</button>
         </div>
 
         <div className="side-label">{t('주제', 'Topics')}</div>

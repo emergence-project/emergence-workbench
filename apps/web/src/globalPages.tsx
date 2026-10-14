@@ -93,9 +93,9 @@ export const GLOBAL_PAGES: {
     badge: () => <NetworkRailCount /> },
   { page: 'feedback', label: '피드백', name: t('피드백', 'Feedback'), aria: t('피드백 모아 보기', 'All feedback'), tip: t('피드백 모아 보기 — 반영 여부', 'All feedback and whether it was applied'), icon: Icon.feedback, rail: 'bottom', render: (p) => <FeedbackPage version={p.version} />,
     badge: (version) => <FeedbackRailCount version={version} /> },
-  // 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검 · 프로젝트 첫 화면 작업 패널에서 연다
-  { page: 'review', label: '고침 검토', name: t('고침 검토', 'Edit review'), aria: t('에이전트 고침 검토', 'Review agent edits'), tip: t('에이전트 고침 검토', 'Review agent edits'), icon: Icon.approve, rail: 'none',
-    render: (p) => <AgentEditsPage selected={p.route.page === 'review' ? p.route.key : undefined} scope={p.route.page === 'review' ? p.route.scope : undefined} version={p.version} onSaved={p.onSaved} /> },
+  // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)
+  { page: 'review', label: '고침 검토', name: t('고침 검토', 'Edit review'), aria: t('개념노트 고침 검토', 'Review concept note edits'), tip: t('개념노트 고침 검토', 'Review concept note edits'), icon: Icon.approve, rail: 'none',
+    render: (p) => <AgentEditsPage selected={p.route.page === 'review' ? p.route.key : undefined} version={p.version} onSaved={p.onSaved} /> },
   { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} />,
     side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },

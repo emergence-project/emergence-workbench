@@ -206,3 +206,14 @@ it('releases navigation when restoring the browser entry fails', async () => {
     expect(onRoute).toHaveBeenLastCalledWith({ page: 'overview', rid: 'new', anchor: undefined })
   } finally { unsubscribe(); unregister(); vi.unstubAllGlobals() }
 })
+
+describe('edit review routes (10/14: one project per screen)', () => {
+  it('round-trips the project edit review', () => {
+    for (const r of [{ page: 'edits', rid: 'alpha' }, { page: 'edits', rid: 'alpha', key: 'note:alpha:workbench/notes/a/note.md' }] as Route[]) expect(parseRoute(href(r))).toEqual(r)
+  })
+  it('sends old project review links to the project screen', () => {
+    expect(parseRoute('#/review?scope=alpha')).toEqual({ page: 'edits', rid: 'alpha' })
+    expect(parseRoute('#/review?key=note%3Aalpha%3Aa.md')).toEqual({ page: 'edits', rid: 'alpha', key: 'note:alpha:a.md' })
+    expect(parseRoute('#/review?scope=library&key=concept%3Ax')).toEqual({ page: 'review', scope: 'library', key: 'concept:x' })
+  })
+})
