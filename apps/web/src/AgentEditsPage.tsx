@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useConceptRender } from './ConceptNotes'
 import { onlySpacing, paintDiff } from './diffPaint'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
@@ -15,8 +15,11 @@ import { agentName } from './taskView'
  * "지시"(에이전트에게 다시 맡기기)는 다음 판.
  * 10/13 시안: 바뀐 곳은 문단 하나씩 전 · 후 · 검토 세 칸의 표 줄이고, 든 절마다 헤더 줄로 묶는다. 바뀐 낱말은 칠하고(diffPaint),
  * 줄을 누르면 앞뒤 문단 펼치기 단추가 보인다. 노트 이름은 고르는 탭에만 둔다.
+ * 10/14 사용자 결정: 연구노트의 고침은 프로젝트마다 "고침 검토" 갈래 화면(#/r/<연구>/edits, rid를 넘김)에서 그 프로젝트 것만 본다.
+ * 모든 프로젝트를 모은 화면은 없다. 전역 #/review는 개념노트(scope=library)만 보인다.
  */
-export function AgentEditsPage({ selected, scope, version, onSaved }: { selected?: string; scope?: string; version: number; onSaved(msg: string): void }) {
+export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?: string; rid?: string; version: number; onSaved(msg: string): void }) {
+  const scope = rid ?? 'library'
   const [list, setList] = useState<{ reviews: EditReviewRow[]; attempts: EditAttempt[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [raw, setRaw] = useState(false)
@@ -24,16 +27,16 @@ export function AgentEditsPage({ selected, scope, version, onSaved }: { selected
   useEffect(() => { load() }, [load, version])
   const key = selected ?? list?.reviews[0]?.key
   const row = list?.reviews.find((r) => r.key === key)
-  const open = (k: string) => go({ page: 'review', key: k, ...(scope && { scope }) })
+  const open = (k: string) => go(rid ? { page: 'edits', rid, key: k } : { page: 'review', key: k, scope })
   const dismiss = async (a: EditAttempt) => {
     try { await agentEditsApi.dismissAttempt(a.key); load() } catch (e) { onSaved((e as Error).message) }
   }
 
   return (
-    <main className="stage full" data-ui="고침 검토">
+    <Frame inProject={!!rid}>
       <section className="pane">
         <div className="pane-head" data-ui="툴바">
-          <span className="crumb"><b>{t('에이전트 고침 검토', 'Review agent edits')}</b></span>
+          <span className="crumb"><b>{rid ? t('고침 검토', 'Edit review') : t('개념노트 고침 검토', 'Review concept note edits')}</b></span>
           <span className="sp" />
           <span className="muted">{t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'For each change: approve, revert or edit')}</span>
         </div>
@@ -83,8 +86,13 @@ export function AgentEditsPage({ selected, scope, version, onSaved }: { selected
           )}
         </div>
       </section>
-    </main>
+    </Frame>
   )
+}
+
+/** 프로젝트 안에서는 작업 화면 칸 하나(갈래 화면), 지식의 개념노트 검토는 따로 된 전체 화면 */
+function Frame({ inProject, children }: { inProject: boolean; children: ReactNode }) {
+  return inProject ? <div className="ws-doc" data-ui="고침 검토">{children}</div> : <main className="stage full" data-ui="고침 검토">{children}</main>
 }
 
 /** 바뀐 곳을 든 절마다 묶는다 (문서 순서 그대로, 같은 절이 이어진 동안 한 묶음) */
@@ -236,7 +244,8 @@ function HunkRow({ h, picked, expanded, busy, render, raw, onPick, onToggle, onA
 const when = (iso: string) => iso.slice(5, 16).replace('-', '/').replace('T', ' ')
 /** 그린 글로 볼 수 있는 대상: 개념노트(Markdown 본문)와 .md 노트. LaTeX 노트는 원문 그대로 */
 const isMarkdown = (tg: EditTarget) => tg.kind === 'concept' || tg.file.endsWith('.md')
-const whereOf = (tg: EditTarget) => (tg.kind === 'concept' ? t('개념노트', 'Concept note') : `${tg.rid} · ${tg.file}`)
+// 연구노트는 그 프로젝트의 화면에서만 보이므로 프로젝트 이름 없이 파일만 (10/14)
+const whereOf = (tg: EditTarget) => (tg.kind === 'concept' ? t('개념노트', 'Concept note') : tg.file)
 export function routeOfTarget(tg: EditTarget): Route {
   if (tg.kind === 'concept') return { page: 'library', topic: tg.id }
   const block = /^workbench\/blocks\/([^/]+)\.(md|tex)$/.exec(tg.file)

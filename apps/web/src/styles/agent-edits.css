@@ -8,6 +8,8 @@
 .ae-dot { flex: none; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--s-blocked); }
 .ae-title { font-weight: var(--fw-medium); white-space: nowrap; }
 .ae-where, .ae-when { color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; }
+.ae-row .ae-where { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ae-row .ae-when, .ae-row .icon-btn { flex: none; }
 .ae-sum { flex: 1; min-width: 0; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ae-row .ae-when { margin-left: auto; }
 

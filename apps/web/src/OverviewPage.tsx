@@ -216,11 +216,11 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
                 )}
 
                 {edits.length > 0 && (
-                  <NowGroup title={t('에이전트 고침', 'Agent edits')} count={edits.length} turn={t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Approve, revert or edit each change')} ui="에이전트 고침" onMore={() => go({ page: 'review', scope: rid })}>
+                  <NowGroup title={t('에이전트 고침', 'Agent edits')} count={edits.length} turn={t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Approve, revert or edit each change')} ui="에이전트 고침" onMore={() => go({ page: 'edits', rid })}>
                     {edits.map((e) => (
                       <NowRow key={`${e.attempt ? 'a' : 'r'}-${e.key}`} ui="에이전트 고침 줄" item={e.title} mark={<span className="now-mark" aria-hidden>·</span>}
                         title={e.title} full={`${e.title}\n${e.sub}`} sub={e.sub}
-                        onOpen={() => go({ page: 'review', scope: rid, ...(!e.attempt && { key: e.key }) })} />
+                        onOpen={() => go({ page: 'edits', rid, ...(!e.attempt && { key: e.key }) })} />
                     ))}
                   </NowGroup>
                 )}
