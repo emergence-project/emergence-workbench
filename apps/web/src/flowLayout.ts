@@ -2,6 +2,7 @@
  * 연구 흐름의 자리 정하기 (주제 화면의 흐름, 10/14). 자리는 파일에 적지 않고 여기서 계산한다.
  * - 열: 주제 안의 앞선 점 가운데 가장 오른쪽 열 + 1. 앞선 점이 없으면 날짜가 더 이른 점들의 가장 오른쪽 열.
  * - 줄: 앞선 점의 줄을 이어받고, 그 칸이 차 있으면 가장 가까운 빈 줄. 첫 시작점의 갈래가 가운데 줄(중심선)이다.
+ * - 손으로 옮긴 점(layout.yaml)은 그 칸에 두고, 나머지는 그 칸을 피해 위 규칙대로 놓는다.
  * - 다른 주제의 점은 그리지 않고, 받는 점 앞에 속이 빈 시작 표시(▷)로 알린다.
  */
 import type { FlowEdge, FlowNode } from './api'
@@ -22,11 +23,12 @@ export type FlowLayout = {
 /** 기본으로 보이는 줄 수 (가운데 줄이 중심선) */
 export const MIN_ROWS = 5
 
-export function layoutFlow(all: FlowNode[], tid: string): FlowLayout {
+export function layoutFlow(all: FlowNode[], tid: string, manual: Record<string, { c: number; r: number }> = {}): FlowLayout {
   const byId = new Map(all.map((n) => [n.id, n]))
   const mine = all.filter((n) => n.topics.includes(tid))
     .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.id.localeCompare(b.id))
   const inTopic = new Set(mine.map((n) => n.id))
+  const fixed = (id: string) => inTopic.has(id) ? manual[id] : undefined
   const parents = (n: FlowNode) => n.from.filter((f) => inTopic.has(f.id) && f.id !== n.id).map((f) => f.id)
 
   // 열
@@ -35,6 +37,8 @@ export function layoutFlow(all: FlowNode[], tid: string): FlowLayout {
   const colOf = (n: FlowNode): number => {
     const known = col.get(n.id)
     if (known !== undefined) return known
+    const m = fixed(n.id)
+    if (m) { col.set(n.id, m.c); return m.c }
     if (busy.has(n.id)) return 0 // 고리: 끊는다
     busy.add(n.id)
     const ps = parents(n)
@@ -55,7 +59,12 @@ export function layoutFlow(all: FlowNode[], tid: string): FlowLayout {
   const row = new Map<string, number>()
   const taken = new Set<string>()
   const key = (c: number, r: number) => `${c}:${r}`
+  for (const n of mine) {
+    const m = fixed(n.id)
+    if (m) { row.set(n.id, m.r); taken.add(key(m.c, m.r)) }
+  }
   for (const n of order) {
+    if (row.has(n.id)) continue
     const c = col.get(n.id)!
     const p = parents(n).find((id) => row.has(id))
     const want = p !== undefined ? row.get(p)! : 0

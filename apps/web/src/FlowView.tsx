@@ -1,16 +1,21 @@
 /**
  * 연구 흐름 (주제 화면, 10/14 시안 "주제 화면 시안" · "GAMC 연구 흐름"): 점 하나 = 생각의 한 걸음, 선 = "어디서 왔나".
- * 가로는 생각의 순서(날짜가 아니다), 기호는 종류, 색은 상태. 1단계는 읽기만 한다 (파일은 workbench/flow/*.yaml, 에이전트가 쓴다).
+ * 가로는 생각의 순서(날짜가 아니다), 기호는 종류, 색은 상태. 파일은 workbench/flow/*.yaml (에이전트도 쓴다).
  * 점을 누르면 아래에 자세히, 두 번 누르면 그 점을 가운데로. 계보(앞선 점·뒤따른 점)는 늘 크게 보인다.
+ * 2단계 (10/14): ＋ 점으로 더하고, 점을 끌어 옮기고(layout.yaml), 자세히의 연필로 고치고, 사람 승인은 근거 표의 동그라미로.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { flowApi, type FlowEvidence, type FlowKind, type FlowNode, type NoteRow } from './api'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ConflictError, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_KINDS, flowApi, type FlowCells, type FlowEdge, type FlowEvidence, type FlowKind, type FlowNode, type FlowProgress, type FlowResult, type FlowScan, type NoteRow } from './api'
 import { layoutFlow, lineageOf, type FlowLayout } from './flowLayout'
 import { MathText } from './cardParts'
 import { StatusDot } from './StatusDot'
 import { routeOfNote } from './RightSidebar'
 import { go } from './router'
 import { store } from './store'
+import { Dialog } from './dialogs'
+import { askConfirm } from './askText'
+import { flash } from './flash'
+import { Icon } from './icons'
 import { t as tr } from './i18n'
 import type { BlockStatus } from '@rw/core'
 
@@ -82,22 +87,50 @@ const CW0 = 116, RH0 = 76, TOP = 30, LEFT = 30
 const H_KEY = 'rw-flow-h', Z_KEY = 'rw-flow-zoom', SEL_KEY = 'rw-flow-sel'
 const DEFAULT_H = TOP + 5 * RH0 + 16
 
-export function FlowSection({ rid, tid, version, notes }: { rid: string; tid: string; version: number; notes: NoteRow[] }) {
-  const [all, setAll] = useState<FlowNode[] | null>(null)
-  const [warn, setWarn] = useState(0)
-  useEffect(() => {
-    flowApi(rid).scan().then((r) => { setAll(r.nodes); setWarn(r.diagnostics.length) }).catch(() => setAll([]))
-  }, [rid, version])
-  const lay = useMemo(() => all ? layoutFlow(all, tid) : null, [all, tid])
-  if (!all || !lay || !lay.placed.length) return null
-  return <FlowChart key={tid} rid={rid} all={all} lay={lay} warn={warn} notes={notes} />
+type TopicRef = { id: string; title: string }
+
+/** 다른 화면(노트의 오른쪽 사이드바)에서 점을 열 때: 그 주제 화면에서 고르고 보이게 한다 */
+let revealNext: string | null = null
+export function openFlowDot(rid: string, n: FlowNode, tid = n.topics[0]) {
+  if (!tid) return
+  store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: n.id })
+  revealNext = n.id
+  go({ page: 'topic', rid, tid })
 }
 
-function FlowChart({ rid, all, lay, warn, notes }: { rid: string; all: FlowNode[]; lay: FlowLayout; warn: number; notes: NoteRow[] }) {
+export function FlowSection({ rid, tid, version, notes, topics }: { rid: string; tid: string; version: number; notes: NoteRow[]; topics: TopicRef[] }) {
+  const [scan, setScan] = useState<FlowScan | null>(null)
+  const [tick, setTick] = useState(0)
+  const reload = useCallback(() => setTick((x) => x + 1), [])
+  useEffect(() => {
+    flowApi(rid).scan().then(setScan).catch(() => setScan({ nodes: [], diagnostics: [], layout: {} }))
+  }, [rid, version, tick])
+  const cells = scan?.layout[tid]
+  const lay = useMemo(() => scan ? layoutFlow(scan.nodes, tid, cells) : null, [scan, tid, cells])
+  if (!scan || !lay) return null
+  return <FlowChart key={tid} rid={rid} tid={tid} all={scan.nodes} cells={cells ?? {}} lay={lay} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} />
+}
+
+type Cell = { c: number; r: number }
+
+function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
+  rid: string; tid: string; all: FlowNode[]; cells: FlowCells[string]; lay: FlowLayout; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void
+}) {
   const ids = new Set(lay.placed.map((p) => p.node.id))
   const [sel, setSelState] = useState<string | null>(() => { const s = store.get<Record<string, string>>(SEL_KEY, {})[rid]; return s && ids.has(s) ? s : null })
   // 누른 점의 자세히가 화면 밖이면 보이게 (처음 열 때 기억한 점으로는 움직이지 않는다)
-  const reveal = useRef(false)
+  const reveal = useRef(revealNext !== null && revealNext === sel)
+  useEffect(() => { if (revealNext && revealNext === sel) { revealNext = null; requestAnimationFrame(() => center(sel)) } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  /** 새 점 창: from이 있으면 그 점에서 잇는다 */
+  const [adding, setAdding] = useState<{ from?: FlowNode } | null>(null)
+  const [editing, setEditing] = useState<FlowNode | null>(null)
+  // 점 끌어 옮기기: 5px 넘게 움직이면 끌기, 놓은 칸이 그 점의 자리가 된다 (layout.yaml)
+  const drag = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null)
+  const dragged = useRef(false)
+  const [ghost, setGhost] = useState<Cell | null>(null)
+  const api = useMemo(() => flowApi(rid), [rid])
+  const fail = (e: unknown) => { flash(e instanceof ConflictError ? tr('그새 파일이 바뀌었습니다. 다시 읽었으니 한 번 더 해 주세요.', 'The file changed in the meantime. It has been reloaded; try again.') : (e as Error).message); reload() }
+  const place = (id: string, at: Cell | null) => api.place({ topic: tid, id, at }).then(reload, fail)
   const setSel = (id: string | null) => { reveal.current = !!id; setSelState(id); store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: id ?? undefined }) }
   const [zoom, setZoomState] = useState<{ x: number; y: number; fit: boolean }>(() => store.get(Z_KEY, { x: 1, y: 1, fit: false }))
   const setZoom = (z: typeof zoom) => { setZoomState(z); store.set(Z_KEY, z) }
@@ -105,13 +138,14 @@ function FlowChart({ rid, all, lay, warn, notes }: { rid: string; all: FlowNode[
   const setHeight = (h: number) => { setHeightState(h); store.set(H_KEY, h) }
   const box = useRef<HTMLDivElement>(null)
   const [boxW, setBoxW] = useState(800)
+  const hasDots = lay.placed.length > 0
   useEffect(() => {
     const el = box.current
     if (!el) return
     const ro = new ResizeObserver(() => setBoxW(el.clientWidth))
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
+  }, [hasDots])
 
   const fitCW = Math.max(32, Math.min(CW0, (boxW - LEFT - 8) / Math.max(1, lay.cols)))
   const CW = zoom.fit ? fitCW : CW0 * zoom.x
@@ -119,7 +153,16 @@ function FlowChart({ rid, all, lay, warn, notes }: { rid: string; all: FlowNode[
   const compact = CW < 64 || RH < 48
   const X = (c: number) => LEFT + CW * c + CW / 2
   const Y = (r: number) => TOP + RH * r + RH / 2 - 6
-  const W = LEFT + CW * lay.cols + CW / 2
+  const cellAt = (e: React.PointerEvent): Cell | null => {
+    const el = box.current
+    if (!el) return null
+    const b = el.getBoundingClientRect()
+    const x = e.clientX - b.left + el.scrollLeft, y = e.clientY - b.top + el.scrollTop
+    const c = Math.max(0, Math.min(lay.cols, Math.floor((x - LEFT) / CW)))
+    const r = Math.max(0, Math.min(lay.rows - 1, Math.floor((y - TOP) / RH)))
+    return { c, r: r - lay.mid }
+  }
+  const W = LEFT + CW * (lay.cols + 1)
   const H = TOP + RH * lay.rows + 1
   const at = new Map(lay.placed.map((p) => [p.node.id, p]))
   const byId = new Map(all.map((n) => [n.id, n]))
@@ -166,7 +209,7 @@ function FlowChart({ rid, all, lay, warn, notes }: { rid: string; all: FlowNode[
         <h2 className="fl-title">{tr('흐름', 'Flow')}</h2>
         <span className="fl-sum">{tr(`점 ${lay.placed.length}`, `${lay.placed.length} dots`)}{warn > 0 && <span className="fl-warn" title={tr('형식에 맞지 않는 곳이 있습니다. pnpm agent:check로 봅니다.', 'Some files do not match the format. See pnpm agent:check.')}> · {tr(`형식 경고 ${warn}`, `${warn} format warnings`)}</span>}</span>
         <span className="sp" />
-        <span className="fl-zoom" data-ui="흐름 확대">
+        {lay.placed.length > 0 && <span className="fl-zoom" data-ui="흐름 확대">
           <span className="fl-zl">{tr('가로', 'Width')}</span>
           <button className="icon-btn" title={tr('가로 좁히기', 'Narrower')} aria-label={tr('가로 좁히기', 'Narrower')} onClick={() => step('x', -1)}>−</button>
           <button className="icon-btn" title={tr('가로 넓히기', 'Wider')} aria-label={tr('가로 넓히기', 'Wider')} onClick={() => step('x', 1)}>＋</button>
@@ -174,9 +217,12 @@ function FlowChart({ rid, all, lay, warn, notes }: { rid: string; all: FlowNode[
           <button className="icon-btn" title={tr('세로 좁히기', 'Shorter')} aria-label={tr('세로 좁히기', 'Shorter')} onClick={() => step('y', -1)}>−</button>
           <button className="icon-btn" title={tr('세로 넓히기', 'Taller')} aria-label={tr('세로 넓히기', 'Taller')} onClick={() => step('y', 1)}>＋</button>
           <button className={`btn small${zoom.fit ? ' on' : ''}`} aria-pressed={zoom.fit} title={tr('가로를 상자 폭에 맞추기', 'Fit the width to the box')} onClick={() => setZoom({ ...zoom, fit: !zoom.fit })}>{tr('전체 보기', 'Fit')}</button>
-        </span>
+        </span>}
+        <button className="btn small" data-ui="흐름 점 더하기" title={sel ? tr('고른 점에서 이어지는 점을 더합니다', 'Add a dot following the selected one') : tr('새 시작점을 더합니다', 'Add a new starting dot')}
+          onClick={() => setAdding({ from: sel ? byId.get(sel) : undefined })}>＋ {tr('점', 'Dot')}</button>
       </div>
-      <div className="fl-box" ref={box} style={{ height }} data-ui="흐름 차트" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+      {lay.placed.length === 0 && <p className="fl-hint muted">{tr('이 주제의 점이 없습니다. ＋ 점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots in this topic yet. Add the first step (a question, calculation, proof…) with ＋ Dot.')}</p>}
+      {lay.placed.length > 0 && <><div className="fl-box" ref={box} style={{ height }} data-ui="흐름 차트" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
         onClick={(e) => { if (!(e.target as Element).closest('.fl-node')) setSel(null) }}>
         <svg className="fl-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr('연구 흐름', 'Research flow')}>
           {Array.from({ length: lay.cols }, (_, c) => c > 0 && <line key={`c${c}`} className="fl-grid" x1={X(c)} y1={1} x2={X(c)} y2={H} />)}
@@ -191,6 +237,7 @@ function FlowChart({ rid, all, lay, warn, notes }: { rid: string; all: FlowNode[
               {l.type === 'refute' && <path className={`fl-bar-x${on ? ' on' : ''}`} d={`M${x2 - 24} ${y2 - 7}V${y2 + 7}`} />}
             </g>
           })}
+          {ghost && <rect className="fl-ghost" x={LEFT + CW * ghost.c + 4} y={TOP + RH * (ghost.r + lay.mid) + 2} width={CW - 8} height={RH - 4} rx={8} />}
           {lay.placed.map(({ node: n, c, r }) => {
             const x = X(c), y = Y(r), on = n.id === sel, lg = inLin(n.id) && !on
             const refs = n.evidence.filter((e) => e.kind === 'paper' && e.ref)
@@ -198,7 +245,24 @@ function FlowChart({ rid, all, lay, warn, notes }: { rid: string; all: FlowNode[
             const start = !n.from.length
             return <g key={n.id} className={`fl-node${on ? ' sel' : ''}`} tabIndex={0} role="button" data-id={n.id}
               aria-label={`${n.short}: ${KIND[markOf(n)].name()}, ${stateName(n)}`}
-              onClick={() => setSel(n.id)} onDoubleClick={() => { setSel(n.id); center(n.id) }}
+              onPointerDown={(e) => { if (e.button === 0) { drag.current = { id: n.id, x: e.clientX, y: e.clientY, moved: false }; (e.currentTarget as Element).setPointerCapture(e.pointerId) } }}
+              onPointerMove={(e) => {
+                const d = drag.current
+                if (!d || d.id !== n.id || (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5)) return
+                d.moved = true
+                setGhost(cellAt(e))
+              }}
+              onPointerUp={(e) => {
+                const d = drag.current
+                drag.current = null
+                if (!d?.moved) return
+                dragged.current = true
+                setGhost(null)
+                const to = cellAt(e)
+                if (to && (to.c !== c || to.r !== r - lay.mid)) void place(n.id, to)
+              }}
+              onPointerCancel={() => { drag.current = null; setGhost(null) }}
+              onClick={() => { if (dragged.current) { dragged.current = false; return } setSel(n.id) }} onDoubleClick={() => { setSel(n.id); center(n.id) }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(n.id) } }}>
               <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
               {lg && (KIND[markOf(n)].act
@@ -225,15 +289,34 @@ function FlowChart({ rid, all, lay, warn, notes }: { rid: string; all: FlowNode[
         onPointerMove={(e) => { const s0 = sizing.current; if (s0) setHeightState(Math.max(160, Math.min(1200, s0.h + e.clientY - s0.y))) }}
         onPointerUp={() => { if (sizing.current) { sizing.current = null; setHeight(box.current?.clientHeight ?? height) } }}
         onDoubleClick={() => setHeight(DEFAULT_H)} />
-      {s ? <FlowCard reveal={reveal} rid={rid} n={s} all={all} byId={byId} inTopic={ids} notes={notes} onPick={(id) => { setSel(id); center(id) }} />
-        : <p className="fl-hint muted">{tr('점을 누르면 아래에 자세히 보입니다. 두 번 누르면 그 점을 가운데로 옮깁니다.', 'Click a dot to see it below. Double-click to center it.')}</p>}
+      {s ? <FlowCard reveal={reveal} rid={rid} n={s} all={all} byId={byId} inTopic={ids} notes={notes} manual={!!cells[s.id]} onPick={(id) => { setSel(id); center(id) }}
+        onAdd={() => setAdding({ from: s })} onEdit={() => setEditing(s)} onUnplace={() => void place(s.id, null)} reload={reload} fail={fail}
+        onDeleted={() => { setSel(null); reload() }} />
+        : <p className="fl-hint muted">{tr('점을 누르면 아래에 자세히 보입니다. 두 번 누르면 가운데로, 끌면 다른 칸으로 옮깁니다.', 'Click a dot to see it below. Double-click to center it; drag it to another cell.')}</p>}
+      </>}
+      {adding && <NewDotDialog rid={rid} tid={tid} from={adding.from} onClose={() => setAdding(null)} onMade={(n) => { setAdding(null); reload(); setSel(n.id) }} />}
+      {editing && <FlowEditDialog rid={rid} n={editing} all={all} notes={notes} topics={topics} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />}
     </section>
   )
 }
 
-function FlowCard({ reveal, rid, n, all, byId, inTopic, notes, onPick }: {
-  reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; inTopic: Set<string>; notes: NoteRow[]; onPick(id: string): void
+function FlowCard({ reveal, rid, n, all, byId, inTopic, notes, manual, onPick, onAdd, onEdit, onUnplace, onDeleted, reload, fail }: {
+  reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; inTopic: Set<string>; notes: NoteRow[]
+  /** 손으로 옮긴 자리인지 */
+  manual: boolean
+  onPick(id: string): void; onAdd(): void; onEdit(): void; onUnplace(): void; onDeleted(): void; reload(): void; fail(e: unknown): void
 }) {
+  const [approving, setApproving] = useState<number | null>(null)
+  const remove = async () => {
+    const out = all.filter((m) => m.from.some((f) => f.id === n.id)).length
+    const ok = await askConfirm({
+      title: tr(`점 "${n.short}"을 지울까요?`, `Delete the dot "${n.short}"?`),
+      hint: tr(`점 파일(${n.file})을 지웁니다${out ? `. 이 점에서 이어진 선 ${out}개도 빠집니다` : ''}. 근거로 단 노트·논문은 그대로 남습니다.`, `Deletes the dot file (${n.file})${out ? ` and the ${out} line(s) leading from it` : ''}. Notes and papers used as evidence stay.`),
+      ok: tr('지우기', 'Delete'),
+    })
+    if (!ok) return
+    try { await flowApi(rid).remove(n.id, n.hash); flash(tr(`점 "${n.short}"을 지웠습니다`, `Deleted the dot "${n.short}"`)); onDeleted() } catch (e) { fail(e) }
+  }
   const K = KIND[markOf(n)]
   const el = useRef<HTMLElement>(null)
   useEffect(() => {
@@ -259,7 +342,14 @@ function FlowCard({ reveal, rid, n, all, byId, inTopic, notes, onPick }: {
   )
   return (
     <article className="fl-card" ref={el} data-ui="흐름 점 자세히">
-      <div className="fl-head"><MarkIcon n={n} size={30} /><span className="fl-short">{n.short}</span>{n.date && <span className="muted">{n.date}</span>}</div>
+      <div className="fl-head"><MarkIcon n={n} size={30} /><span className="fl-short">{n.short}</span>{n.date && <span className="muted">{n.date}</span>}
+        <span className="fl-tools">
+          {manual && <button className="btn small" title={tr('손으로 옮긴 자리를 풀고 자동 자리로', 'Release the manual position')} onClick={onUnplace}>{tr('자동 자리로', 'Auto position')}</button>}
+          <button className="icon-btn" data-ui="흐름 다음 점" title={tr('이 점에서 이어지는 점 더하기', 'Add a dot following this one')} aria-label={tr('다음 점 더하기', 'Add next dot')} onClick={onAdd}>{Icon.plus}</button>
+          <button className="icon-btn" data-ui="흐름 점 고치기" title={tr('고치기', 'Edit')} aria-label={tr('점 고치기', 'Edit dot')} onClick={onEdit}>{Icon.pencil}</button>
+          <button className="icon-btn" data-ui="흐름 점 지우기" title={tr('지우기', 'Delete')} aria-label={tr('점 지우기', 'Delete dot')} onClick={() => void remove()}>{Icon.trash}</button>
+        </span>
+      </div>
       <div className="fl-full">{n.title}</div>
       <div className="fl-cls">
         <span title={K.def()}><i>{tr('종류', 'Kind')}</i>{K.act ? tr('행위', 'Action') : tr('진술', 'Statement')} · {K.name()}</span>
@@ -270,7 +360,7 @@ function FlowCard({ reveal, rid, n, all, byId, inTopic, notes, onPick }: {
       <section className="fl-sec">
         <h3>{tr('설명', 'Description')}</h3>
         {order.length ? <dl className="fl-fields">{order.map((f) => <div key={f}><dt>{FIELD[f]?.() ?? f}</dt><dd><MathText text={n.fields[f]!} /></dd></div>)}</dl>
-          : <span className="muted">{tr('아직 없음', 'None yet')}</span>}
+          : <span className="muted">{tr('아직 없음. 연필로 적습니다.', 'None yet. Use the pencil to write.')}</span>}
       </section>
       <section className="fl-sec" data-ui="흐름 근거">
         <h3>{tr('근거', 'Evidence')}</h3>
@@ -283,9 +373,10 @@ function FlowCard({ reveal, rid, n, all, byId, inTopic, notes, onPick }: {
             <td>{e.text ? <MathText text={e.text} /> : <span className="muted">—</span>}</td>
             <td><EvidenceSource rid={rid} e={e} notes={notes} /></td>
             <td className="vc"><Check e={e} role="agent" /></td>
-            <td className="vc"><Check e={e} role="human" /></td>
+            <td className="vc"><Check e={e} role="human" onClick={() => setApproving(i)} /></td>
           </tr>)}</tbody>
-        </table></div> : <span className="muted">{tr('없음', 'None')}</span>}
+        </table></div> : <span className="muted">{tr('없음. 연필로 노트·논문을 근거로 답니다.', 'None. Use the pencil to attach notes or papers.')}</span>}
+        {approving !== null && n.evidence[approving] && <ApproveDialog rid={rid} n={n} ev={approving} onClose={() => setApproving(null)} onDone={() => { setApproving(null); reload() }} fail={fail} />}
       </section>
       {(n.guesses.length > 0 || n.sources.length > 0) && <details className="fl-sec fl-fold">
         <summary><h3>{tr('기록', 'Records')}</h3><span className="muted">{n.guesses.length > 0 && tr(`추정 ${n.guesses.length} · `, `${n.guesses.length} guessed · `)}{tr(`출처 ${n.sources.length}`, `${n.sources.length} sources`)}</span></summary>
@@ -316,15 +407,250 @@ function EvidenceSource({ rid, e, notes }: { rid: string; e: FlowEvidence; notes
   return open ? <button className="a fl-note" title={file} onClick={open}>{label}</button> : <span className="fl-note" title={file}>{label}</span>
 }
 
-function Check({ e, role }: { e: FlowEvidence; role: 'agent' | 'human' }) {
-  const c = [...e.checks].reverse().find((x) => x.role === role)
+/** 그 역할의 마지막 기록이 거둔 것이 아니면 확인됨 */
+const lastCheck = (e: FlowEvidence, role: 'agent' | 'human') => [...e.checks].reverse().find((x) => x.role === role)
+const approvedBy = (e: FlowEvidence, role: 'agent' | 'human') => { const c = lastCheck(e, role); return !!c && !c.revoked }
+
+function Check({ e, role, onClick }: { e: FlowEvidence; role: 'agent' | 'human'; onClick?(): void }) {
+  const c = lastCheck(e, role), on = approvedBy(e, role)
   const name = role === 'agent' ? tr('에이전트 검토', 'Agent check') : tr('사람 승인', 'Human approval')
-  const tip = c ? `${name}: ${c.by} · ${c.at}${c.note ? `\n${c.note}` : ''}` : `${name}: ${tr('안 됨', 'not yet')}`
-  return <span className={`fl-check${c ? ' on' : ''}`} role="img" aria-label={tip} title={tip}>
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>{c
-      ? <><circle cx="8" cy="8" r="7" /><path d="M4.6 8.2l2.2 2.2 4.4-4.6" /></>
-      : <circle cx="8" cy="8" r="6.2" />}</svg>
-  </span>
+  const tip = c ? `${name}: ${c.revoked ? tr('거둠', 'revoked') + ' · ' : ''}${c.by} · ${c.at}${c.note ? `\n${c.note}` : ''}` : `${name}: ${tr('안 됨', 'not yet')}`
+  const mark = <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>{on
+    ? <><circle cx="8" cy="8" r="7" /><path d="M4.6 8.2l2.2 2.2 4.4-4.6" /></>
+    : <circle cx="8" cy="8" r="6.2" />}</svg>
+  if (onClick) return <button className={`fl-check${on ? ' on' : ''}`} data-ui="흐름 사람 승인" aria-label={`${tip}. ${on ? tr('누르면 승인 거두기', 'Click to revoke') : tr('누르면 승인', 'Click to approve')}`} title={`${tip}\n${on ? tr('누르면 승인을 거둡니다', 'Click to revoke') : tr('누르면 승인합니다', 'Click to approve')}`} onClick={onClick}>{mark}</button>
+  return <span className={`fl-check${on ? ' on' : ''}`} role="img" aria-label={tip} title={tip}>{mark}</span>
 }
 
 const Chain = <svg className="fl-chain" width="14" height="14" viewBox="0 0 16 16" aria-hidden><path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2.3-2.3a2.6 2.6 0 0 0-3.7-3.7l-.9.9" /><path d="M9.2 6.8a2.6 2.6 0 0 0-3.7 0L3.2 9.1a2.6 2.6 0 0 0 3.7 3.7l.9-.9" /></svg>
+
+// ---------- 고치기 (2단계) ----------
+
+const PROGRESS: Record<FlowProgress, () => string> = { open: () => tr('미해결', 'Open'), active: () => tr('진행', 'In progress'), paused: () => tr('멈춤', 'Paused'), done: () => tr('끝남', 'Done') }
+const resultName = (r: FlowResult, act: boolean) => r === 'solved' ? (act ? tr('성공', 'Succeeded') : tr('해결', 'Solved')) : r === 'refuted' ? (act ? tr('실패', 'Failed') : tr('반증', 'Refuted')) : tr('폐기', 'Dropped')
+/** 받는 점의 종류로 정하는 기본 선 종류 (서버가 종류 없는 선을 읽는 규칙과 같다) */
+const defaultEdge = (k: FlowKind): FlowEdge => k === 'question' ? 'origin' : 'support'
+
+function KindPicker({ value, onChange }: { value: FlowKind; onChange(k: FlowKind): void }) {
+  return <div className="fl-kinds" role="radiogroup" aria-label={tr('종류', 'Kind')} data-ui="흐름 종류 고르기">
+    {FLOW_KINDS.map((k) => <button key={k} type="button" role="radio" aria-checked={value === k} className={value === k ? 'on' : ''} title={KIND[k].def()} onClick={() => onChange(k)}>
+      <svg className="fl-icon" width={22} height={22} viewBox="0 0 30 30" aria-hidden><MarkSvg m={k} x={15} y={15} state="active" /></svg>
+      <span>{KIND[k].name()}</span>
+    </button>)}
+  </div>
+}
+
+function NewDotDialog({ rid, tid, from, onClose, onMade }: { rid: string; tid: string; from?: FlowNode; onClose(): void; onMade(n: FlowNode): void }) {
+  const [kind, setKind] = useState<FlowKind>(from ? (from.kind === 'question' ? 'proof' : 'question') : 'question')
+  const [short, setShort] = useState('')
+  const [title, setTitle] = useState('')
+  const [linked, setLinked] = useState(!!from)
+  const [edge, setEdge] = useState<FlowEdge | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const type = edge ?? defaultEdge(kind)
+  const submit = async () => {
+    if (!short.trim()) return setError(tr('짧은 제목을 적어 주세요.', 'Enter a short title.'))
+    setBusy(true)
+    try {
+      onMade(await flowApi(rid).create({ kind, short: short.trim(), title: title.trim() || undefined, topics: [tid], from: from && linked ? [{ id: from.id, type }] : undefined }))
+    } catch (e) { setError((e as Error).message); setBusy(false) }
+  }
+  return <Dialog title={tr('새 점', 'New dot')} ui="흐름 새 점" wide onClose={onClose} footer={<>
+    <button className="btn" onClick={onClose}>{tr('취소', 'Cancel')}</button>
+    <button className="btn primary" disabled={busy} onClick={() => void submit()}>{tr('만들기', 'Create')}</button>
+  </>}>
+    <div className="field"><span>{tr('종류', 'Kind')}</span><KindPicker value={kind} onChange={setKind} /></div>
+    <label className="field"><span>{tr('짧은 제목', 'Short title')} <em>{tr('차트의 점 아래에 보입니다 (60자)', 'Shown under the dot (60 chars)')}</em></span>
+      <input autoFocus value={short} maxLength={60} onChange={(e) => setShort(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void submit() }} placeholder={tr('예: 다섯 색이면 되나', 'Example: Do five colors suffice')} /></label>
+    <label className="field"><span>{tr('제목', 'Title')} <em>{tr('비우면 짧은 제목', 'Empty = short title')}</em></span>
+      <input value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} /></label>
+    {from && <div className="fl-linkrow">
+      <label className="check"><input type="checkbox" checked={linked} onChange={(e) => setLinked(e.target.checked)} />{tr('앞선 점에서 잇기', 'Link from the earlier dot')}</label>
+      {linked && <><MarkIcon n={from} size={16} /><span>{from.short}</span>
+        <select aria-label={tr('선 종류', 'Line type')} value={type} onChange={(e) => setEdge(e.target.value as FlowEdge)}>{FLOW_EDGES.map((x) => <option key={x} value={x}>{EDGE[x]!()}</option>)}</select></>}
+    </div>}
+    {error && <p className="error-text">{error}</p>}
+  </Dialog>
+}
+
+type EvRow = { kind: FlowEvidence['kind']; text: string; title: string; src: string }
+const evRow = (e: FlowEvidence): EvRow => ({ kind: e.kind, text: e.text, title: e.title ?? '', src: e.ref ?? e.file ?? '' })
+
+/** 고치기 창: 이름·종류·상태·설명·근거·연결·주제를 한 번에 (docs/design-system.md: 여러 칸은 고치기 창) */
+function FlowEditDialog({ rid, n, all, notes, topics, onClose, onSaved }: { rid: string; n: FlowNode; all: FlowNode[]; notes: NoteRow[]; topics: TopicRef[]; onClose(): void; onSaved(): void }) {
+  const [short, setShort] = useState(n.short)
+  const [title, setTitle] = useState(n.title)
+  const [date, setDate] = useState(n.date ?? '')
+  const [kind, setKind] = useState(n.kind)
+  const [progress, setProgress] = useState(n.progress)
+  const [result, setResult] = useState<FlowResult>(n.result ?? 'solved')
+  const [end, setEnd] = useState(!!n.end)
+  const [fields, setFields] = useState<Record<string, string>>(n.fields)
+  const [ev, setEv] = useState<EvRow[]>(n.evidence.map(evRow))
+  const [from, setFrom] = useState(n.from)
+  const [tops, setTops] = useState(n.topics)
+  const [pick, setPick] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const act = KIND[kind].act
+  const shownFields = [...FLOW_FIELDS[kind], ...Object.keys(fields).filter((f) => !FLOW_FIELDS[kind].includes(f) && fields[f]?.trim())]
+  const byId = new Map(all.map((m) => [m.id, m]))
+  const candidates = all.filter((m) => m.id !== n.id && !from.some((f) => f.id === m.id))
+    .sort((a, b) => Number(!a.topics.some((x) => tops.includes(x))) - Number(!b.topics.some((x) => tops.includes(x))) || a.short.localeCompare(b.short))
+  const topicTitle = (id: string) => topics.find((x) => x.id === id)?.title ?? id
+  const setEvAt = (i: number, p: Partial<EvRow>) => setEv(ev.map((x, j) => j === i ? { ...x, ...p } : x))
+
+  const save = async () => {
+    if (!short.trim()) return setError(tr('짧은 제목을 적어 주세요.', 'Enter a short title.'))
+    if (!tops.length) return setError(tr('주제를 하나 이상 고르세요.', 'Choose at least one topic.'))
+    const bad = ev.findIndex((x) => !x.src.trim())
+    if (bad >= 0) return setError(tr(`근거 ${bad + 1}에 노트 경로나 논문 키를 적어 주세요.`, `Evidence ${bad + 1} needs a note path or a paper key.`))
+    setBusy(true); setError(null)
+    try {
+      await flowApi(rid).patch(n.id, n.hash, {
+        short: short.trim(), title: title.trim() || short.trim(), date: date.trim(), kind, progress, result: progress === 'done' ? result : null, end, topics: tops, from,
+        fields: Object.fromEntries(Object.entries(fields).filter(([k]) => shownFields.includes(k)).map(([k, v]) => [k, v])),
+        evidence: ev.map((x) => ({ kind: x.kind, text: x.text, ...(x.title.trim() && { title: x.title.trim() }), ...(x.kind === 'paper' ? { ref: x.src.trim() } : { file: x.src.trim() }) })),
+      })
+      onSaved()
+    } catch (e) {
+      setBusy(false)
+      setError(e instanceof ConflictError ? tr('다른 곳에서 점 파일이 바뀌어 저장하지 않았습니다. 창을 닫고 다시 열어 고쳐 주세요.', 'The dot file changed elsewhere, so nothing was saved. Close the dialog, open it again, and edit.') : (e as Error).message)
+    }
+  }
+
+  return <Dialog title={tr('점 고치기', 'Edit dot')} ui="흐름 점 고치기" wide onClose={onClose} footer={<>
+    <button className="btn" onClick={onClose}>{tr('취소', 'Cancel')}</button>
+    <button className="btn primary" disabled={busy} onClick={() => void save()}>{tr('저장', 'Save')}</button>
+  </>}>
+    <div className="fl-form">
+      <label className="field"><span>{tr('짧은 제목', 'Short title')}</span><input autoFocus value={short} maxLength={60} onChange={(e) => setShort(e.target.value)} /></label>
+      <label className="field"><span>{tr('제목', 'Title')}</span><input value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} /></label>
+      <label className="field fl-date"><span>{tr('날짜', 'Date')}</span><input value={date} placeholder="2026-10-14" maxLength={20} onChange={(e) => setDate(e.target.value)} /></label>
+
+      <div className="field"><span>{tr('종류', 'Kind')}</span><KindPicker value={kind} onChange={setKind} /></div>
+      <div className="field"><span>{tr('상태', 'State')}</span>
+        <div className="fl-states">
+          <div className="segmented small" role="radiogroup" aria-label={tr('진행', 'Progress')}>
+            {(['open', 'active', 'paused', 'done'] as const).map((p) => <button key={p} type="button" role="radio" aria-checked={progress === p} className={progress === p ? 'on' : ''} onClick={() => setProgress(p)}>{PROGRESS[p]()}</button>)}
+          </div>
+          {progress === 'done' && <div className="segmented small" role="radiogroup" aria-label={tr('결과', 'Result')}>
+            {(['solved', 'refuted', 'dropped'] as const).map((r) => <button key={r} type="button" role="radio" aria-checked={result === r} className={result === r ? 'on' : ''} onClick={() => setResult(r)}>{resultName(r, act)}</button>)}
+          </div>}
+          <label className="check"><input type="checkbox" checked={end} onChange={(e) => setEnd(e.target.checked)} />{tr('갈래 종결', 'Branch closed')}</label>
+        </div>
+      </div>
+
+      <fieldset className="fl-fs"><legend>{tr('설명', 'Description')}</legend>
+        {shownFields.map((f) => <label key={f} className="field"><span>{FIELD[f]?.() ?? f}{!FLOW_FIELDS[kind].includes(f) && <em> {tr('다른 종류의 칸', 'from another kind')}</em>}</span>
+          <textarea rows={2} value={fields[f] ?? ''} onChange={(e) => setFields({ ...fields, [f]: e.target.value })} /></label>)}
+      </fieldset>
+
+      <fieldset className="fl-fs" data-ui="흐름 근거 고치기"><legend>{tr('근거', 'Evidence')}</legend>
+        <datalist id="fl-note-files">{notes.map((x) => <option key={x.file} value={x.file}>{x.title}</option>)}</datalist>
+        {ev.map((x, i) => <div key={i} className="fl-evrow">
+          <div className="fl-evhead">
+            <select aria-label={tr('근거 종류', 'Evidence kind')} value={x.kind} onChange={(e) => setEvAt(i, { kind: e.target.value as EvRow['kind'] })}>{FLOW_EVIDENCE.map((k) => <option key={k} value={k}>{EVK[k]()}</option>)}</select>
+            <input className="fl-src-in" aria-label={x.kind === 'paper' ? tr('논문 키', 'Paper key') : tr('노트 경로', 'Note path')} list={x.kind === 'paper' ? undefined : 'fl-note-files'} value={x.src}
+              placeholder={x.kind === 'paper' ? tr('논문 키 (예: kitaev2006)', 'Paper key (e.g. kitaev2006)') : tr('노트 경로 (workbench/…)', 'Note path (workbench/…)')} onChange={(e) => setEvAt(i, { src: e.target.value })} />
+            <button type="button" className="icon-btn" title={tr('이 근거 빼기 (확인 기록도 빠짐)', 'Remove this evidence (and its checks)')} aria-label={tr('근거 빼기', 'Remove evidence')} onClick={() => setEv(ev.filter((_, j) => j !== i))}>{Icon.x}</button>
+          </div>
+          <input aria-label={tr('보이는 이름', 'Shown name')} value={x.title} placeholder={tr('보이는 이름 (비우면 노트 제목)', 'Shown name (empty = note title)')} onChange={(e) => setEvAt(i, { title: e.target.value })} />
+          <textarea rows={2} aria-label={tr('무엇을 보이는지', 'What it shows')} value={x.text} placeholder={tr('이 근거가 무엇을 보이는지', 'What this evidence shows')} onChange={(e) => setEvAt(i, { text: e.target.value })} />
+        </div>)}
+        <button type="button" className="btn small fl-addrow" onClick={() => setEv([...ev, { kind: kind === 'calc' || kind === 'analytic' || kind === 'proof' ? kind : 'other', text: '', title: '', src: '' }])}>＋ {tr('근거', 'Evidence')}</button>
+        <p className="muted fl-help">{tr('경로·키가 같은 근거는 AI 검토·사람 승인 기록이 그대로 남습니다.', 'Evidence with the same path or key keeps its AI check and approval records.')}</p>
+      </fieldset>
+
+      <fieldset className="fl-fs" data-ui="흐름 연결 고치기"><legend>{tr('앞선 점', 'Earlier dots')}</legend>
+        {from.map((f, i) => { const m = byId.get(f.id); return <div key={f.id} className="fl-linkrow">
+          <select aria-label={tr('선 종류', 'Line type')} value={f.type} onChange={(e) => setFrom(from.map((g, j) => j === i ? { ...g, type: e.target.value as FlowEdge } : g))}>{FLOW_EDGES.map((x) => <option key={x} value={x}>{EDGE[x]!()}</option>)}</select>
+          {m && <MarkIcon n={m} size={16} />}<span className="fl-grow">{m?.short ?? f.id}</span>
+          <button type="button" className="icon-btn" title={tr('이 선 빼기', 'Remove this line')} aria-label={tr('선 빼기', 'Remove line')} onClick={() => setFrom(from.filter((_, j) => j !== i))}>{Icon.x}</button>
+        </div> })}
+        {!from.length && <span className="muted">{tr('없음 (시작점)', 'None (start)')}</span>}
+        {candidates.length > 0 && <div className="fl-linkrow">
+          <select aria-label={tr('이을 점', 'Dot to link')} value={pick} onChange={(e) => setPick(e.target.value)} className="fl-grow">
+            <option value="">{tr('이을 점 고르기…', 'Choose a dot to link…')}</option>
+            {candidates.map((m) => <option key={m.id} value={m.id}>{m.short}{m.topics.some((x) => tops.includes(x)) ? '' : ` · ${m.topics.map(topicTitle).join(', ')}`}</option>)}
+          </select>
+          <button type="button" className="btn small" disabled={!pick} onClick={() => { setFrom([...from, { id: pick, type: defaultEdge(kind) }]); setPick('') }}>{tr('잇기', 'Link')}</button>
+        </div>}
+      </fieldset>
+
+      {topics.length > 0 && <fieldset className="fl-fs"><legend>{tr('주제', 'Topics')}</legend>
+        <div className="fl-topics">{[...new Set([...topics.map((x) => x.id), ...tops])].map((id) => <label key={id} className="check">
+          <input type="checkbox" checked={tops.includes(id)} onChange={(e) => setTops(e.target.checked ? [...tops, id] : tops.filter((x) => x !== id))} />{topicTitle(id)}</label>)}</div>
+      </fieldset>}
+      {error && <p className="error-text">{error}</p>}
+    </div>
+  </Dialog>
+}
+
+/** 사람 승인 또는 거두기. 기록은 덧붙이기만 한다 */
+function ApproveDialog({ rid, n, ev, onClose, onDone, fail }: { rid: string; n: FlowNode; ev: number; onClose(): void; onDone(): void; fail(e: unknown): void }) {
+  const e = n.evidence[ev]!
+  const on = approvedBy(e, 'human')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    setBusy(true)
+    try { await flowApi(rid).check(n.id, { baseHash: n.hash, ev, revoked: on || undefined, note: note.trim() || undefined }); onDone() } catch (x) { onClose(); fail(x) }
+  }
+  return <Dialog title={on ? tr('승인 거두기', 'Revoke approval') : tr('근거 승인', 'Approve evidence')} ui="흐름 승인" onClose={onClose} footer={<>
+    <button className="btn" onClick={onClose}>{tr('취소', 'Cancel')}</button>
+    <button className="btn primary" disabled={busy} onClick={() => void submit()}>{on ? tr('거두기', 'Revoke') : tr('승인', 'Approve')}</button>
+  </>}>
+    <p className="fl-help">{on
+      ? tr('이 근거의 사람 승인을 거둡니다. 지금까지의 기록은 그대로 남고 거둔 기록이 더해집니다.', 'Revokes the human approval of this evidence. Earlier records stay; a revoke record is added.')
+      : tr('이 근거를 읽고 확인했다고 기록합니다.', 'Records that you read and confirmed this evidence.')}
+      {n.kind === 'finding' && e.kind === 'proof' && !on && ' ' + tr('증명을 승인하면 이 발견은 정리가 됩니다.', 'Approving the proof makes this finding a theorem.')}</p>
+    <div className="fl-approve-ev"><b>{EVK[e.kind]()}</b> · {e.title ?? e.ref ?? e.file}<div>{e.text ? <MathText text={e.text} /> : null}</div></div>
+    <label className="field"><span>{tr('메모', 'Note')} <em>{tr('선택', 'optional')}</em></span><input autoFocus value={note} maxLength={500} onChange={(x) => setNote(x.target.value)} onKeyDown={(x) => { if (x.key === 'Enter') void submit() }} /></label>
+  </Dialog>
+}
+
+// ---------- 노트 오른쪽 사이드바의 흐름 칸 ----------
+
+/** 이 노트(같은 노트 폴더의 파일 포함)를 근거로 단 점인지 */
+const citesNote = (n: FlowNode, file: string) => {
+  const dir = (f: string) => f.replace(/\/[^/]*$/, '')
+  const folder = /\/note\.(md|tex|yaml)$/.test(file) ? dir(file) : null
+  return n.evidence.some((e) => e.file && (e.file === file || (folder && dir(e.file) === folder)))
+}
+
+/** 노트 정보 갈래의 "흐름": 이 노트를 근거로 단 점 (누르면 주제 화면의 흐름에서 그 점), 그리고 점에 근거로 잇기 */
+export function NoteFlow({ rid, row, version, onSaved }: { rid: string; row: NoteRow; version: number; onSaved(m: string): void }) {
+  const [all, setAll] = useState<FlowNode[] | null>(null)
+  const [tick, setTick] = useState(0)
+  const [pick, setPick] = useState('')
+  useEffect(() => { flowApi(rid).scan().then((r) => setAll(r.nodes)).catch(() => setAll([])) }, [rid, version, tick])
+  if (!all) return null
+  const mine = all.filter((n) => citesNote(n, row.file))
+  // 노트의 주제에 든 점을 먼저
+  const rest = all.filter((n) => !mine.includes(n))
+    .sort((a, b) => Number(!a.topics.some((x) => row.topics.includes(x))) - Number(!b.topics.some((x) => row.topics.includes(x))) || a.short.localeCompare(b.short))
+  const kind: FlowEvidence['kind'] = row.kind === 'calc' ? 'calc' : row.kind === 'proof' ? 'proof' : 'other'
+  const link = async (id: string) => {
+    const n = all.find((x) => x.id === id)
+    if (!n) return
+    try {
+      await flowApi(rid).patch(n.id, n.hash, { evidence: [...n.evidence.map((e) => ({ kind: e.kind, text: e.text, ...(e.title && { title: e.title }), ...(e.ref ? { ref: e.ref } : { file: e.file ?? '' }) })), { kind, text: '', title: row.title, file: row.file }] })
+      onSaved(tr(`점 "${n.short}"에 이 노트를 근거로 달았습니다`, `Attached this note to the dot "${n.short}" as evidence`))
+    } catch (e) { onSaved(e instanceof ConflictError ? tr('그새 점 파일이 바뀌었습니다. 다시 해 주세요.', 'The dot file changed in the meantime. Try again.') : (e as Error).message) }
+    setPick('')
+    setTick((x) => x + 1)
+  }
+  return <>
+    {mine.length ? <ul className="rs-list">{mine.map((n) => <li key={n.id}>
+      <button type="button" className="a fl-pill" title={`${n.title}\n${tr('주제 화면의 흐름에서 열기', 'Open in the topic flow')}`} onClick={() => openFlowDot(rid, n, n.topics.find((x) => row.topics.includes(x)))}>
+        <MarkIcon n={n} size={16} /><span>{n.short}</span></button>
+    </li>)}</ul> : <p className="muted rs-empty">{tr('이 노트를 근거로 단 점이 없습니다', 'No dot uses this note as evidence')}</p>}
+    {rest.length > 0 && <select className="rs-select rs-add" data-ui="노트 흐름 잇기" value={pick} aria-label={tr('점에 근거로 잇기', 'Attach to a dot as evidence')}
+      onChange={(e) => { setPick(e.target.value); if (e.target.value) void link(e.target.value) }}>
+      <option value="">{tr('＋ 점에 잇기…', '＋ Attach to a dot…')}</option>
+      {rest.map((n) => <option key={n.id} value={n.id}>{n.short}</option>)}
+    </select>}
+  </>
+}
