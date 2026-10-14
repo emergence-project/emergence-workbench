@@ -115,10 +115,10 @@ export function FlowPage({ rid, topic, version, notes, topics }: { rid: string; 
   const lay = useMemo(() => scan ? layoutFlow(scan.nodes, scan.layout) : null, [scan])
   return <div className="ws-doc" data-ui="흐름 화면">
     <section className="pane">
-      <div className="scroll fl-page">
+      <div className="scroll"><div className="page-body fl-page">
         {scan && lay ? <FlowChart rid={rid} focus={topic && topics.some((x) => x.id === topic) ? topic : undefined} all={scan.nodes} cells={scan.layout} lay={lay} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} />
           : <p className="muted">{tr('불러오는 중…', 'Loading…')}</p>}
-      </div>
+      </div></div>
     </section>
   </div>
 }
