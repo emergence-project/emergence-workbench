@@ -42,7 +42,6 @@ export function parseFlowNode(id: string, file: string, content: string, diags: 
   const short = str(y.short) ?? title ?? id
   if (!title) bad('title', 'Write a title.', 'title을 적으세요.')
   const topics = strs(y.topics)
-  if (!topics.length) bad('topics', 'Write at least one topic id in topics; the dot shows on no topic screen.', 'topics에 주제 id를 하나 이상 적으세요. 어느 주제 화면에도 보이지 않습니다.')
   const from: FlowNode['from'] = []
   for (const f of Array.isArray(y.from) ? y.from : []) {
     const o = (f && typeof f === 'object' ? f : { id: f }) as Record<string, unknown>
@@ -130,15 +129,17 @@ export function readLayout(wb: Workbench, diags: Diag[] = []): FlowLayout {
     return {}
   }
   const out: FlowLayout = {}
-  const topics = (y as { topics?: unknown } | null)?.topics
-  if (!topics || typeof topics !== 'object') return out
-  for (const [tid, cells] of Object.entries(topics as Record<string, unknown>)) {
-    if (!cells || typeof cells !== 'object') continue
+  const take = (cells: unknown) => {
+    if (!cells || typeof cells !== 'object') return
     for (const [id, v] of Object.entries(cells as Record<string, unknown>)) {
       const c = (v as { c?: unknown })?.c, r = (v as { r?: unknown })?.r
-      if (Number.isInteger(c) && (c as number) >= 0 && Number.isInteger(r)) (out[tid] ??= {})[id] = { c: c as number, r: r as number }
+      if (!out[id] && Number.isInteger(c) && (c as number) >= 0 && Number.isInteger(r)) out[id] = { c: c as number, r: r as number }
     }
   }
+  const o = y as { dots?: unknown; topics?: unknown } | null
+  take(o?.dots)
+  // 10/14 오전의 주제별 자리 (topics: 주제 → 점 → 칸)도 읽는다. 다음에 쓸 때 dots로 옮겨진다
+  if (o?.topics && typeof o.topics === 'object') for (const cells of Object.values(o.topics as Record<string, unknown>)) take(cells)
   return out
 }
 
@@ -179,7 +180,7 @@ export function createFlowNode(wb: Workbench, body: NewFlowBody, now = new Date(
   const missing = (body.from ?? []).find((f) => !ids.has(f.id))
   if (missing) throw new WorkbenchError(400, tl(`앞선 점 ${missing.id}이 없습니다`, `No earlier dot ${missing.id}`))
   const id = newId(wb, body.short, now)
-  const y: Record<string, unknown> = { format: FLOW_FORMAT, kind: body.kind, progress: body.progress ?? 'open', short: body.short.trim(), title: body.title?.trim() || body.short.trim(), topics: body.topics, date: localDate(now) }
+  const y: Record<string, unknown> = { format: FLOW_FORMAT, kind: body.kind, progress: body.progress ?? 'open', short: body.short.trim(), title: body.title?.trim() || body.short.trim(), ...(body.topics?.length && { topics: body.topics }), date: localDate(now) }
   if (body.from?.length) y.from = body.from
   return write(wb, id, new YAML.Document(y))
 }
@@ -258,25 +259,22 @@ export function deleteFlowNode(wb: Workbench, id: string, baseHash: string): { i
     changed.push(m.id)
   }
   const layout = readLayout(wb)
-  let moved = false
-  for (const cells of Object.values(layout)) if (cells[id]) { delete cells[id]; moved = true }
-  if (moved) writeLayout(wb, layout)
+  if (layout[id]) { delete layout[id]; writeLayout(wb, layout) }
   return { id, changed }
 }
 
 function writeLayout(wb: Workbench, layout: FlowLayout) {
-  const topics = Object.fromEntries(Object.entries(layout).filter(([, c]) => Object.keys(c).length).map(([t, c]) => [t, Object.fromEntries(Object.entries(c).map(([id, v]) => [id, new YAML.Document({ c: v.c, r: v.r }).contents]))]))
-  const doc = new YAML.Document({ topics })
-  YAML.visit(doc, { Map(_, node, p) { if (p.length >= 4) node.flow = true } })
+  const doc = new YAML.Document({ dots: Object.fromEntries(Object.entries(layout).map(([id, v]) => [id, { c: v.c, r: v.r }])) })
+  YAML.visit(doc, { Map(_, node) { if (node.has('c')) node.flow = true } })
   fs.mkdirSync(dirOf(wb), { recursive: true })
-  writeAtomic(path.join(dirOf(wb), LAYOUT), '# 흐름 차트에서 손으로 옮긴 자리 (앱이 씀). 주제 → 점 → 칸 (c 열, r 중심선 기준 줄)\n' + doc.toString({ lineWidth: 0 }))
+  writeAtomic(path.join(dirOf(wb), LAYOUT), '# 흐름 차트에서 손으로 옮긴 자리 (앱이 씀). 점 → 칸 (c 열, r 중심선 기준 줄)\n' + doc.toString({ lineWidth: 0 }))
 }
 
 /** 점 하나의 자리 정하기·풀기 (쓰기 바로 전에 다시 읽어 그 칸만 바꾼다) */
 export function setFlowLayout(wb: Workbench, body: FlowLayoutBody): FlowLayout {
   readFlowNode(wb, body.id)
   const layout = readLayout(wb)
-  const cells = (layout[body.topic] ??= {})
+  const cells = layout
   if (body.at) {
     // 그 칸에 다른 점이 손으로 놓여 있으면 자리를 바꾼다
     const prev = cells[body.id]

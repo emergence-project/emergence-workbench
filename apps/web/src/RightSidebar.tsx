@@ -170,7 +170,7 @@ export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, on
         <MoreList items={links?.citedBy ?? []} empty={t('없음', 'None')}
           render={(n) => <button type="button" className="a rs-note" onClick={() => go(routeOfNote(rid, n))}><StatusDot s={n.status} />{n.title}</button>} />
       </Section>
-      <Section label={t('흐름', 'Flow')} hint={t('이 노트를 근거로 단 흐름의 점. 누르면 주제 화면의 흐름에서 엽니다', 'Flow dots that use this note as evidence. Click to open in the topic flow')} ui="노트 흐름">
+      <Section label={t('흐름', 'Flow')} hint={t('이 노트를 근거로 단 흐름의 점. 누르면 흐름 화면에서 엽니다', 'Flow dots that use this note as evidence. Click to open in the flow')} ui="노트 흐름">
         <NoteFlow rid={rid} row={row} version={version} onSaved={onSaved} />
       </Section>
       {/* 보조 노트가 그려 넣는 칸: 증명할 진술 · 원고 장 · 개념 연결 · 기대는 노트 · 다른 방법 · 다음 할 일.

@@ -58,9 +58,9 @@ export const FlowNode = z.object({
 
 const Diagnostic = z.object({ file: z.string(), code: z.string(), message: z.string(), line: z.number(), column: z.number().optional() }).strict()
 
-/** 손으로 옮긴 자리 (workbench/flow/layout.yaml): 주제 id → 점 id → 칸. r은 중심선 기준(위가 음수) */
+/** 손으로 옮긴 자리 (workbench/flow/layout.yaml): 점 id → 칸. 프로젝트 흐름 하나에 하나. r은 중심선 기준(위가 음수) */
 const Cell = z.object({ c: z.number().int().min(0), r: z.number().int() }).strict()
-export const FlowLayout = z.record(z.string(), z.record(z.string(), Cell))
+export const FlowLayout = z.record(z.string(), Cell)
 
 export const FlowScan = z.object({ nodes: z.array(FlowNode), diagnostics: z.array(Diagnostic), layout: FlowLayout }).strict()
 export const FlowOne = z.object({ node: FlowNode }).strict()
@@ -84,7 +84,7 @@ export const NewFlowBody = z.object({
   kind: z.enum(FLOW_KINDS),
   short: Short,
   title: z.string().max(300).optional(),
-  topics: z.array(z.string().min(1)).min(1),
+  topics: z.array(z.string().min(1)).optional(),
   from: z.array(FlowFrom).optional(),
   progress: z.enum(FLOW_PROGRESS).optional(),
 }).strict()
@@ -97,7 +97,7 @@ export const FlowPatchBody = z.object({
     result: z.enum(FLOW_RESULTS).nullable().optional(),
     short: Short.optional(),
     title: z.string().max(300).optional(),
-    topics: z.array(z.string().min(1)).min(1).optional(),
+    topics: z.array(z.string().min(1)).optional(),
     date: z.string().max(20).optional(),
     fields: z.record(z.string(), Text).optional(),
     end: z.boolean().optional(),
@@ -109,7 +109,7 @@ export const FlowPatchBody = z.object({
 /** 사람 승인 (거두기는 revoked). 에이전트 검토는 에이전트가 파일에 적는다 */
 export const FlowCheckBody = z.object({ baseHash: z.string(), ev: z.number().int().min(0), revoked: z.boolean().optional(), note: z.string().max(500).optional() }).strict()
 
-export const FlowLayoutBody = z.object({ topic: z.string().min(1), id: z.string().min(1), at: Cell.nullable() }).strict()
+export const FlowLayoutBody = z.object({ id: z.string().min(1), at: Cell.nullable() }).strict()
 
 export type FlowKind = (typeof FLOW_KINDS)[number]
 export type FlowProgress = (typeof FLOW_PROGRESS)[number]

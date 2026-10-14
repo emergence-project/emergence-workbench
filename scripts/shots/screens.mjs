@@ -13,12 +13,12 @@ export const DEFAULT_SCREENS = [
   ['project-edit', '#/r/{rid}', '프로젝트 고치기 칸', '프로젝트 고치기'],
   // 주제 화면 (10/5 시안 3단계): 노트 카드 격자, 주제 고치기 창, 주제 없는 노트("노트들")
   ['topic', '#/r/{rid}/t/coloring', '노트 카드 목록'],
-  // 연구 흐름 (10/14): 점을 눌러 아래에 자세히 (점 파일은 fixtures/sandbox-extra/workbench/flow)
-  ['topic-flow', '#/r/{rid}/t/coloring', '흐름 점 자세히', '[data-ui="흐름 차트"] .fl-node[data-id="five-color-theorem"]'],
+  // 연구 흐름 (10/14, 프로젝트 하나에 한 흐름): 주제 필터로 한 주제를 굵게, 점을 눌러 아래에 자세히 (점 파일은 fixtures/sandbox-extra/workbench/flow)
+  ['flow', '#/r/{rid}/flow?topic=coloring', '흐름 점 자세히', '[data-ui="흐름 차트"] .fl-node[data-id="five-color-theorem"]'],
   ['topic-edit', '#/r/{rid}/t/coloring', '주제 고치기 창', '주제 고치기'],
   ['loose-notes', '#/r/{rid}/t/__loose', '노트 카드 목록'],
   // 흐름 점 고치기 창 (2단계). 고른 점은 기억되므로 자세히의 연필을 바로 누른다. 같은 주소의 창이 남지 않게 다른 주제 화면 뒤에 둔다
-  ['topic-flow-edit', '#/r/{rid}/t/coloring', '흐름 점 고치기 창', '흐름 점 고치기'],
+  ['flow-edit', '#/r/{rid}/flow', '흐름 점 고치기 창', '흐름 점 고치기'],
   ['notes', '#/r/{rid}/notes', '원고 목록'],
   // 작업 탭 (10/7 시안 v31): 처음은 판단 필터(브리핑 · 한 주 달력 · 판단 카드). 맡긴 일은 fixtures/sandbox-extra/workbench/tasks
   ['todo', '#/r/{rid}/todo', '판단 카드'],

@@ -40,6 +40,7 @@ import { ProjectRailCount, useProjectIssues } from './projectIssues'
 import { PdfTab } from './PdfTab'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
+import { FlowPage } from './FlowView'
 import { moveId, PROJECT_KIND_LABEL, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
 import { setFeedbackNote } from './feedbackNote'
@@ -361,6 +362,7 @@ export function App() {
       case 'todo': return <WorkPage rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />
       case 'log': return <WorkPage rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <MapPage key={rid} rid={rid} summary={summary} />
+      case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} version={version} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
       case 'edits': return <AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} />
       case 'task': return <TaskReport key={`${rid}/${t.task}`} rid={rid} id={t.task} version={version} project={current?.title ?? summary.research.title} topics={topics} onSaved={flash} tocOwner={context?.focused ? tabKey(t) : null} />
       case 'topic': return <TopicPage key={t.tid} rid={rid} rapi={rapi} tid={t.tid} notes={notes} manuscripts={manuscripts} blocks={summary.blocks} project={current?.title ?? summary.research.title} pc={projectColor(rid)}
@@ -514,7 +516,7 @@ export function App() {
 }
 
 const PAGE_LABEL: Partial<Record<Route['page'], string>> = {
-  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('고침 검토', 'Edit review'),
+  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('고침 검토', 'Edit review'), flow: t('흐름', 'Flow'),
   ...Object.fromEntries(GLOBAL_PAGES.map((g) => [g.page, g.name])),
 }
 
@@ -537,6 +539,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'concepts': return L('개념노트', 'Concept notes')
     case 'papers': return L('문헌노트', 'Literature notes')
     case 'edits': return L('고침 검토', 'Edit review')
+    case 'flow': return L('흐름', 'Flow')
     case 'statement': { const x = summary?.statements.find((y) => y.id === tab.sid); return x ? shortLabel(x) : tab.sid }
     case 'block': return summary?.blocks.find((b) => b.id === tab.bid)?.title ?? tab.bid
     case 'pdf': return `${L('결과', 'Result')} · ${summary?.blocks.find((b) => b.id === tab.bid)?.title ?? tab.bid}`

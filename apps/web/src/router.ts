@@ -5,6 +5,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  * 주소 뒤쪽(#)으로 화면을 기억한다. 제목줄의 뒤로/앞으로 버튼은 브라우저 기록을 그대로 쓴다.
  *   #/r/<연구>            프로젝트 정보 (목표·저장소·태그)
  *   #/r/<연구>/todo       할 일
+ *   #/r/<연구>/flow[?topic=] 연구 흐름 (프로젝트 전체, topic = 굵게 볼 주제, 10/14)
  *   #/r/<연구>/edits[?key=] 고침 검토 (그 프로젝트의 에이전트 고침만, 10/14 사용자 결정)
  *   #/r/<연구>/map        지도 (예전 /tree도 여기로)
  *   #/r/<연구>/b/<작업>    작업노트 편집 (파일은 workbench/blocks/)
@@ -55,6 +56,7 @@ export type Route =
   | { page: 'map'; rid: string }
   | { page: 'todo'; rid: string }
   | { page: 'edits'; rid: string; key?: string }
+  | { page: 'flow'; rid: string; topic?: string }
   | { page: 'info'; rid: string }
   | { page: 'notes'; rid: string }
   | { page: 'concepts'; rid: string }
@@ -74,6 +76,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'r' && parts[1]) {
     if (parts[2] === 'tree' || parts[2] === 'map') return { page: 'map', rid: parts[1] }
     if (parts[2] === 'todo') return { page: 'todo', rid: parts[1] }
+    if (parts[2] === 'flow') { const topic = new URLSearchParams(query).get('topic'); return { page: 'flow', rid: parts[1], ...(topic && { topic }) } }
     if (parts[2] === 'edits') { const key = new URLSearchParams(query).get('key'); return { page: 'edits', rid: parts[1], ...(key && { key }) } }
     if (parts[2] === 'info') return { page: 'info', rid: parts[1] }
     if (parts[2] === 'notes') return { page: 'notes', rid: parts[1] }
@@ -164,6 +167,7 @@ export function href(r: Route): string {
     case 'overview': return `#/r/${e(r.rid)}${r.anchor ? `?at=${e(r.anchor)}` : ''}`
     case 'map': return `#/r/${e(r.rid)}/map`
     case 'todo': return `#/r/${e(r.rid)}/todo`
+    case 'flow': return `#/r/${e(r.rid)}/flow${r.topic ? `?topic=${e(r.topic)}` : ''}`
     case 'edits': return `#/r/${e(r.rid)}/edits${r.key ? `?key=${e(r.key)}` : ''}`
     case 'info': return `#/r/${e(r.rid)}/info`
     case 'notes': return `#/r/${e(r.rid)}/notes`

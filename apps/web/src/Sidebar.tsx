@@ -95,6 +95,8 @@ export function ResearchNav({ rid, rapi, route, materials, todoCount, manuscript
             <span className="q-ico" aria-hidden>{Icon.task}</span><span className="label">{t('작업', 'Work')}</span>{todoCount ? <span className="n" title={t('남은 할 일', 'Open to-dos')}>{todoCount}</span> : null}</button>
           <button className={`nav side-row${route.page === 'edits' ? ' on' : ''}`} aria-current={route.page === 'edits' ? 'page' : undefined} data-ui="고침 검토 블록" title={t('에이전트가 고친 노트를 바뀐 곳마다 검토', 'Review each change agents made to notes')} onClick={() => go({ page: 'edits', rid })}>
             <span className="q-ico" aria-hidden>{Icon.approve}</span><span className="label">{t('고침 검토', 'Edit review')}</span>{editCount ? <span className="n" title={t('검토할 노트와 고치기 요청', 'Notes to review and edit requests')}>{editCount}</span> : null}</button>
+          <button className={`nav side-row${route.page === 'flow' ? ' on' : ''}`} aria-current={route.page === 'flow' ? 'page' : undefined} data-ui="흐름 블록" title={t('연구 흐름: 생각의 걸음과 그 사이의 선', 'Research flow: steps of thinking and the lines between them')} onClick={() => go({ page: 'flow', rid })}>
+            <span className="q-ico" aria-hidden>{Icon.flow}</span><span className="label">{t('흐름', 'Flow')}</span></button>
         </div>
 
         <div className="side-label">{t('주제', 'Topics')}</div>

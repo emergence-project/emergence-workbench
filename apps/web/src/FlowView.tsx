@@ -1,5 +1,6 @@
 /**
- * 연구 흐름 (주제 화면, 10/14 시안 "주제 화면 시안" · "GAMC 연구 흐름"): 점 하나 = 생각의 한 걸음, 선 = "어디서 왔나".
+ * 연구 흐름 (프로젝트의 흐름 화면, 10/14 시안 "GAMC 연구 흐름"): 점 하나 = 생각의 한 걸음, 선 = "어디서 왔나".
+ * 처음에는 주제 화면에 두었으나 생각은 주제를 넘나들어 프로젝트 하나에 한 흐름으로 옮겼다 (10/14 사용자). 주제는 필터로 굵게 본다.
  * 가로는 생각의 순서(날짜가 아니다), 기호는 종류, 색은 상태. 파일은 workbench/flow/*.yaml (에이전트도 쓴다).
  * 점을 누르면 아래에 자세히, 두 번 누르면 그 점을 가운데로. 계보(앞선 점·뒤따른 점)는 늘 크게 보인다.
  * 2단계 (10/14): ＋ 점으로 더하고, 점을 끌어 옮기고(layout.yaml), 자세히의 연필로 고치고, 사람 승인은 근거 표의 동그라미로.
@@ -89,32 +90,54 @@ const DEFAULT_H = TOP + 5 * RH0 + 16
 
 type TopicRef = { id: string; title: string }
 
-/** 다른 화면(노트의 오른쪽 사이드바)에서 점을 열 때: 그 주제 화면에서 고르고 보이게 한다 */
+/** 다른 화면(노트의 오른쪽 사이드바)에서 점을 열 때: 흐름 화면에서 고르고 보이게 한다 */
 let revealNext: string | null = null
-export function openFlowDot(rid: string, n: FlowNode, tid = n.topics[0]) {
-  if (!tid) return
+export function openFlowDot(rid: string, n: FlowNode) {
   store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: n.id })
   revealNext = n.id
-  go({ page: 'topic', rid, tid })
+  go({ page: 'flow', rid })
 }
 
-export function FlowSection({ rid, tid, version, notes, topics }: { rid: string; tid: string; version: number; notes: NoteRow[]; topics: TopicRef[] }) {
+/** 흐름 자료 읽기 (화면이 쓰면 다시 읽는다) */
+function useFlow(rid: string, version: number) {
   const [scan, setScan] = useState<FlowScan | null>(null)
   const [tick, setTick] = useState(0)
   const reload = useCallback(() => setTick((x) => x + 1), [])
   useEffect(() => {
     flowApi(rid).scan().then(setScan).catch(() => setScan({ nodes: [], diagnostics: [], layout: {} }))
   }, [rid, version, tick])
-  const cells = scan?.layout[tid]
-  const lay = useMemo(() => scan ? layoutFlow(scan.nodes, tid, cells) : null, [scan, tid, cells])
-  if (!scan || !lay) return null
-  return <FlowChart key={tid} rid={rid} tid={tid} all={scan.nodes} cells={cells ?? {}} lay={lay} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} />
+  return { scan, reload }
+}
+
+/** 흐름 화면 (왼쪽 사이드바의 "흐름"): 프로젝트의 점 전부. topic이면 그 주제의 점을 굵게 */
+export function FlowPage({ rid, topic, version, notes, topics }: { rid: string; topic?: string; version: number; notes: NoteRow[]; topics: TopicRef[] }) {
+  const { scan, reload } = useFlow(rid, version)
+  const lay = useMemo(() => scan ? layoutFlow(scan.nodes, scan.layout) : null, [scan])
+  return <div className="ws-doc" data-ui="흐름 화면">
+    <section className="pane">
+      <div className="scroll fl-page">
+        {scan && lay ? <FlowChart rid={rid} focus={topic && topics.some((x) => x.id === topic) ? topic : undefined} all={scan.nodes} cells={scan.layout} lay={lay} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} />
+          : <p className="muted">{tr('불러오는 중…', 'Loading…')}</p>}
+      </div>
+    </section>
+  </div>
+}
+
+/** 주제 화면의 한 줄: 이 주제의 점 수와 흐름 화면으로 가는 링크 (흐름은 프로젝트 하나에 하나) */
+export function TopicFlowLink({ rid, tid, version }: { rid: string; tid: string; version: number }) {
+  const { scan } = useFlow(rid, version)
+  if (!scan) return null
+  const n = scan.nodes.filter((x) => x.topics.includes(tid)).length
+  return <p className="fl-topic-link" data-ui="주제 흐름 링크">
+    <span className="muted">{n ? tr(`이 주제의 흐름 점 ${n}개`, `${n} flow dots in this topic`) : tr('이 주제의 흐름 점이 없습니다', 'No flow dots in this topic')}</span>
+    <button className="a" onClick={() => go({ page: 'flow', rid, topic: tid })}>{tr('흐름에서 보기', 'View in flow')}</button>
+  </p>
 }
 
 type Cell = { c: number; r: number }
 
-function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
-  rid: string; tid: string; all: FlowNode[]; cells: FlowCells[string]; lay: FlowLayout; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void
+function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }: {
+  rid: string; focus?: string; all: FlowNode[]; cells: FlowCells; lay: FlowLayout; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void
 }) {
   const ids = new Set(lay.placed.map((p) => p.node.id))
   const [sel, setSelState] = useState<string | null>(() => { const s = store.get<Record<string, string>>(SEL_KEY, {})[rid]; return s && ids.has(s) ? s : null })
@@ -130,7 +153,7 @@ function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
   const [ghost, setGhost] = useState<Cell | null>(null)
   const api = useMemo(() => flowApi(rid), [rid])
   const fail = (e: unknown) => { flash(e instanceof ConflictError ? tr('그새 파일이 바뀌었습니다. 다시 읽었으니 한 번 더 해 주세요.', 'The file changed in the meantime. It has been reloaded; try again.') : (e as Error).message); reload() }
-  const place = (id: string, at: Cell | null) => api.place({ topic: tid, id, at }).then(reload, fail)
+  const place = (id: string, at: Cell | null) => api.place({ id, at }).then(reload, fail)
   const setSel = (id: string | null) => { reveal.current = !!id; setSelState(id); store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: id ?? undefined }) }
   const [zoom, setZoomState] = useState<{ x: number; y: number; fit: boolean }>(() => store.get(Z_KEY, { x: 1, y: 1, fit: false }))
   const setZoom = (z: typeof zoom) => { setZoomState(z); store.set(Z_KEY, z) }
@@ -209,6 +232,11 @@ function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
         <h2 className="fl-title">{tr('흐름', 'Flow')}</h2>
         <span className="fl-sum">{tr(`점 ${lay.placed.length}`, `${lay.placed.length} dots`)}{warn > 0 && <span className="fl-warn" title={tr('형식에 맞지 않는 곳이 있습니다. pnpm agent:check로 봅니다.', 'Some files do not match the format. See pnpm agent:check.')}> · {tr(`형식 경고 ${warn}`, `${warn} format warnings`)}</span>}</span>
         <span className="sp" />
+        {topics.length > 0 && <label className="fl-filter" data-ui="흐름 주제 필터"><span className="fl-zl">{tr('주제', 'Topic')}</span>
+          <select value={focus ?? ''} onChange={(e) => go({ page: 'flow', rid, ...(e.target.value && { topic: e.target.value }) })}>
+            <option value="">{tr('전체', 'All')}</option>
+            {topics.map((x) => <option key={x.id} value={x.id}>{x.title}{` (${all.filter((n) => n.topics.includes(x.id)).length})`}</option>)}
+          </select></label>}
         {lay.placed.length > 0 && <span className="fl-zoom" data-ui="흐름 확대">
           <span className="fl-zl">{tr('가로', 'Width')}</span>
           <button className="icon-btn" title={tr('가로 좁히기', 'Narrower')} aria-label={tr('가로 좁히기', 'Narrower')} onClick={() => step('x', -1)}>−</button>
@@ -221,7 +249,7 @@ function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
         <button className="btn small" data-ui="흐름 점 더하기" title={sel ? tr('고른 점에서 이어지는 점을 더합니다', 'Add a dot following the selected one') : tr('새 시작점을 더합니다', 'Add a new starting dot')}
           onClick={() => setAdding({ from: sel ? byId.get(sel) : undefined })}>＋ {tr('점', 'Dot')}</button>
       </div>
-      {lay.placed.length === 0 && <p className="fl-hint muted">{tr('이 주제의 점이 없습니다. ＋ 점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots in this topic yet. Add the first step (a question, calculation, proof…) with ＋ Dot.')}</p>}
+      {lay.placed.length === 0 && <p className="fl-hint muted">{tr('흐름의 점이 없습니다. ＋ 점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots yet. Add the first step (a question, calculation, proof…) with ＋ Dot.')}</p>}
       {lay.placed.length > 0 && <><div className="fl-box" ref={box} style={{ height }} data-ui="흐름 차트" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
         onClick={(e) => { if (!(e.target as Element).closest('.fl-node')) setSel(null) }}>
         <svg className="fl-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr('연구 흐름', 'Research flow')}>
@@ -241,7 +269,7 @@ function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
           {lay.placed.map(({ node: n, c, r }) => {
             const x = X(c), y = Y(r), on = n.id === sel, lg = inLin(n.id) && !on
             const refs = n.evidence.filter((e) => e.kind === 'paper' && e.ref)
-            const out = lay.outside.get(n.id)
+            const hot = !!focus && n.topics.includes(focus)
             const start = !n.from.length
             return <g key={n.id} className={`fl-node${on ? ' sel' : ''}`} tabIndex={0} role="button" data-id={n.id}
               aria-label={`${n.short}: ${KIND[markOf(n)].name()}, ${stateName(n)}`}
@@ -264,11 +292,12 @@ function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
               onPointerCancel={() => { drag.current = null; setGhost(null) }}
               onClick={() => { if (dragged.current) { dragged.current = false; return } setSel(n.id) }} onDoubleClick={() => { setSel(n.id); center(n.id) }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(n.id) } }}>
+              {hot && <rect className="fl-focus" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />}
               <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
               {lg && (KIND[markOf(n)].act
                 ? <rect className="fl-ring" x={x - 18} y={y - 18} width={36} height={36} rx={8} />
                 : <circle className="fl-ring" cx={x} cy={y} r={19} />)}
-              <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg} />
+              <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot} />
               {refs.length > 0 && <g className="fl-refs">
                 <title>{refs.map((e) => e.ref).join('\n')}</title>
                 <path className="fl-e lit" d={`M${x} ${y - 22}L${x} ${y - 17}`} />
@@ -276,10 +305,9 @@ function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
                 <rect className="fl-ref" x={x - 9} y={y - 42} width={18} height={18} rx={4} />
                 <text className="fl-ref-t" x={x} y={y - 28.5} textAnchor="middle">§</text>
               </g>}
-              {out ? <path className="fl-start out" d={`M${x - 29} ${y - 7}L${x - 20} ${y}L${x - 29} ${y + 7}Z`}><title>{tr('다른 주제에서', 'From another topic')}: {out.map((o) => o.short).join(', ')}</title></path>
-                : start && <path className="fl-start" d={`M${x - 29} ${y - 7}L${x - 20} ${y}L${x - 29} ${y + 7}Z`}><title>{tr('시작점: 앞선 점이 없다', 'Start: no earlier dot')}</title></path>}
+              {start && <path className="fl-start" d={`M${x - 29} ${y - 7}L${x - 20} ${y}L${x - 29} ${y + 7}Z`}><title>{tr('시작점: 앞선 점이 없다', 'Start: no earlier dot')}</title></path>}
               {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('갈래 종결', 'Branch closed')}</title></line>}
-              {!compact || on ? <text className={`fl-name${on || lg ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : <title>{n.short} · {n.title}</title>}
+              {!compact || on ? <text className={`fl-name${on || lg || hot ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : <title>{n.short} · {n.title}</title>}
             </g>
           })}
         </svg>
@@ -289,19 +317,19 @@ function FlowChart({ rid, tid, all, cells, lay, warn, notes, topics, reload }: {
         onPointerMove={(e) => { const s0 = sizing.current; if (s0) setHeightState(Math.max(160, Math.min(1200, s0.h + e.clientY - s0.y))) }}
         onPointerUp={() => { if (sizing.current) { sizing.current = null; setHeight(box.current?.clientHeight ?? height) } }}
         onDoubleClick={() => setHeight(DEFAULT_H)} />
-      {s ? <FlowCard reveal={reveal} rid={rid} n={s} all={all} byId={byId} inTopic={ids} notes={notes} manual={!!cells[s.id]} onPick={(id) => { setSel(id); center(id) }}
+      {s ? <FlowCard reveal={reveal} rid={rid} n={s} all={all} byId={byId} notes={notes} manual={!!cells[s.id]} onPick={(id) => { setSel(id); center(id) }}
         onAdd={() => setAdding({ from: s })} onEdit={() => setEditing(s)} onUnplace={() => void place(s.id, null)} reload={reload} fail={fail}
         onDeleted={() => { setSel(null); reload() }} />
         : <p className="fl-hint muted">{tr('점을 누르면 아래에 자세히 보입니다. 두 번 누르면 가운데로, 끌면 다른 칸으로 옮깁니다.', 'Click a dot to see it below. Double-click to center it; drag it to another cell.')}</p>}
       </>}
-      {adding && <NewDotDialog rid={rid} tid={tid} from={adding.from} onClose={() => setAdding(null)} onMade={(n) => { setAdding(null); reload(); setSel(n.id) }} />}
+      {adding && <NewDotDialog rid={rid} topic={focus} from={adding.from} onClose={() => setAdding(null)} onMade={(n) => { setAdding(null); reload(); setSel(n.id) }} />}
       {editing && <FlowEditDialog rid={rid} n={editing} all={all} notes={notes} topics={topics} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />}
     </section>
   )
 }
 
-function FlowCard({ reveal, rid, n, all, byId, inTopic, notes, manual, onPick, onAdd, onEdit, onUnplace, onDeleted, reload, fail }: {
-  reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; inTopic: Set<string>; notes: NoteRow[]
+function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onAdd, onEdit, onUnplace, onDeleted, reload, fail }: {
+  reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; notes: NoteRow[]
   /** 손으로 옮긴 자리인지 */
   manual: boolean
   onPick(id: string): void; onAdd(): void; onEdit(): void; onUnplace(): void; onDeleted(): void; reload(): void; fail(e: unknown): void
@@ -328,16 +356,11 @@ function FlowCard({ reveal, rid, n, all, byId, inTopic, notes, manual, onPick, o
   const prev = n.from.map((f) => ({ f, m: byId.get(f.id)! })).filter((x) => x.m)
   const next = all.filter((m) => m.from.some((f) => f.id === n.id)).map((m) => ({ f: m.from.find((f) => f.id === n.id)!, m }))
   const hasProof = n.kind === 'finding' && n.evidence.some((e) => e.kind === 'proof')
-  const openLink = (m: FlowNode) => {
-    if (inTopic.has(m.id)) return onPick(m.id)
-    store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: m.id })
-    if (m.topics[0]) go({ page: 'topic', rid, tid: m.topics[0] })
-  }
+  const openLink = (m: FlowNode) => onPick(m.id)
   const link = ({ f, m }: { f: { type: string }; m: FlowNode }) => (
     <li key={m.id}>
       <span className="fl-ety">{EDGE[f.type]!()}</span>
       <button className="a fl-pill" onClick={() => openLink(m)} title={m.title}><MarkIcon n={m} size={16} /><span>{m.short}</span></button>
-      {!inTopic.has(m.id) && <span className="muted">{tr('다른 주제', 'other topic')}</span>}
     </li>
   )
   return (
@@ -440,7 +463,7 @@ function KindPicker({ value, onChange }: { value: FlowKind; onChange(k: FlowKind
   </div>
 }
 
-function NewDotDialog({ rid, tid, from, onClose, onMade }: { rid: string; tid: string; from?: FlowNode; onClose(): void; onMade(n: FlowNode): void }) {
+function NewDotDialog({ rid, topic, from, onClose, onMade }: { rid: string; topic?: string; from?: FlowNode; onClose(): void; onMade(n: FlowNode): void }) {
   const [kind, setKind] = useState<FlowKind>(from ? (from.kind === 'question' ? 'proof' : 'question') : 'question')
   const [short, setShort] = useState('')
   const [title, setTitle] = useState('')
@@ -453,7 +476,7 @@ function NewDotDialog({ rid, tid, from, onClose, onMade }: { rid: string; tid: s
     if (!short.trim()) return setError(tr('짧은 제목을 적어 주세요.', 'Enter a short title.'))
     setBusy(true)
     try {
-      onMade(await flowApi(rid).create({ kind, short: short.trim(), title: title.trim() || undefined, topics: [tid], from: from && linked ? [{ id: from.id, type }] : undefined }))
+      onMade(await flowApi(rid).create({ kind, short: short.trim(), title: title.trim() || undefined, topics: topic ? [topic] : from?.topics, from: from && linked ? [{ id: from.id, type }] : undefined }))
     } catch (e) { setError((e as Error).message); setBusy(false) }
   }
   return <Dialog title={tr('새 점', 'New dot')} ui="흐름 새 점" wide onClose={onClose} footer={<>
@@ -503,7 +526,6 @@ function FlowEditDialog({ rid, n, all, notes, topics, onClose, onSaved }: { rid:
 
   const save = async () => {
     if (!short.trim()) return setError(tr('짧은 제목을 적어 주세요.', 'Enter a short title.'))
-    if (!tops.length) return setError(tr('주제를 하나 이상 고르세요.', 'Choose at least one topic.'))
     const bad = ev.findIndex((x) => !x.src.trim())
     if (bad >= 0) return setError(tr(`근거 ${bad + 1}에 노트 경로나 논문 키를 적어 주세요.`, `Evidence ${bad + 1} needs a note path or a paper key.`))
     setBusy(true); setError(null)
@@ -644,7 +666,7 @@ export function NoteFlow({ rid, row, version, onSaved }: { rid: string; row: Not
   }
   return <>
     {mine.length ? <ul className="rs-list">{mine.map((n) => <li key={n.id}>
-      <button type="button" className="a fl-pill" title={`${n.title}\n${tr('주제 화면의 흐름에서 열기', 'Open in the topic flow')}`} onClick={() => openFlowDot(rid, n, n.topics.find((x) => row.topics.includes(x)))}>
+      <button type="button" className="a fl-pill" title={`${n.title}\n${tr('흐름 화면에서 열기', 'Open in the flow')}`} onClick={() => openFlowDot(rid, n)}>
         <MarkIcon n={n} size={16} /><span>{n.short}</span></button>
     </li>)}</ul> : <p className="muted rs-empty">{tr('이 노트를 근거로 단 점이 없습니다', 'No dot uses this note as evidence')}</p>}
     {rest.length > 0 && <select className="rs-select rs-add" data-ui="노트 흐름 잇기" value={pick} aria-label={tr('점에 근거로 잇기', 'Attach to a dot as evidence')}
