@@ -3,12 +3,12 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/research'
 import { replies } from '../contract.js'
 import { writeStatus } from '../agentStatus.js'
-import { fastForward, repoInfo, repoSync, SyncError } from '../gitsync.js'
+import { autoPull, fastForward, repoInfo, repoSync, SyncError } from '../gitsync.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 
 export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
-  const { repoPath } = ctx
+  const { repoPath, registry, opts } = ctx
   const refreshStatus = (rid: string) => {
     try {
       const wb = ctx.wbOf(rid)
@@ -32,4 +32,29 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
       throw e
     } finally { refreshStatus(req.params.rid) }
   })
+
+  // 저절로 받기 (실사용만, 10/14): 정한 간격마다 연구 저장소를 하나씩 확인해 안전할 때만 받는다.
+  // 받은 파일은 파일 감시가 화면에 알린다. 처음 받은 사본(workbench/가 막 생김)은 연구 목록도 다시 읽게 알린다
+  const every = opts.researchAutoPullMs
+  if (every) {
+    let running = false
+    const tick = async () => {
+      if (running) return
+      running = true
+      try {
+        for (const r of registry.list()) {
+          try {
+            if (!await autoPull(r.path)) continue
+            refreshStatus(r.id)
+            ctx.ensureWatch(r.id)
+            ctx.broadcast({ type: 'research', research: r.id })
+          } catch (e) { console.error(`research auto pull ${r.id}: ${(e as Error).message}`) }
+        }
+      } finally { running = false }
+    }
+    const first = setTimeout(() => void tick(), Math.min(60_000, every))
+    const timer = setInterval(() => void tick(), every)
+    first.unref(); timer.unref()
+    app.addHook('onClose', async () => { clearTimeout(first); clearInterval(timer) })
+  }
 }

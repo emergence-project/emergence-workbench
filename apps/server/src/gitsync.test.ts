@@ -1,10 +1,11 @@
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { RepoSync } from '@rw/core/contract/research'
 import { buildApp } from './app.js'
-import { fastForward, repoSync } from './gitsync.js'
+import { autoPull, fastForward, repoSync } from './gitsync.js'
 import { localSyncState } from './gitSyncState.js'
 import { withLang } from './i18n.js'
 import { gitTest as g, syncRepo } from './gitSyncTestkit.js'
@@ -139,5 +140,47 @@ describe('대소문자만 다른 경로로 등록한 저장소', () => {
     const lower = path.join(path.dirname(mine), path.basename(mine).toLowerCase())
     expect(await repoSync(lower, { fetch: true, force: true })).toMatchObject({ behind: 1, canUpdate: true })
     expect(localSyncState(lower)).toMatchObject({ behind: 1 })
+  })
+})
+
+// 저절로 받기 (10/14): 받기 버튼과 같은 조건일 때만 받는다
+describe('저절로 받기', () => {
+  it('겹치는 파일이 없으면 받고, 겹치면 그대로 둔다', async () => {
+    const { mine, incoming } = syncRepo(tmp, 'auto-pull', { 'a.md': 'old\n', 'b.md': 'old\n' })
+    const head = incoming({ 'a.md': 'new\n' })
+    expect(await autoPull(mine)).toBe(true)
+    expect(g(mine, 'rev-parse', 'HEAD')).toBe(head)
+    fs.writeFileSync(path.join(mine, 'b.md'), 'local\n')
+    incoming({ 'b.md': 'remote\n' })
+    const before = snapshot(mine)
+    expect(await autoPull(mine)).toBe(false)
+    expect(snapshot(mine)).toEqual(before)
+  })
+
+  it('빈 저장소를 받아 둔 사본은 첫 커밋이 올라오면 받는다', async () => {
+    const remote = path.join(tmp, 'empty-start.git')
+    const mine = path.join(tmp, 'empty-start')
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+    execFileSync('git', ['clone', '-q', remote, mine], { stdio: 'ignore' })
+    expect(await repoSync(mine, { fetch: true, force: true })).toMatchObject({ behind: 0, canUpdate: false })
+    expect(await autoPull(mine)).toBe(false)
+    // 다른 사본이 첫 커밋을 올린다
+    const other = path.join(tmp, 'empty-start-other')
+    execFileSync('git', ['clone', '-q', remote, other], { stdio: 'ignore' })
+    fs.mkdirSync(path.join(other, 'workbench'))
+    fs.writeFileSync(path.join(other, 'workbench', 'research.yaml'), 'title: x\n')
+    g(other, 'add', '.')
+    g(other, '-c', 'user.name=T', '-c', 'user.email=t@example.com', 'commit', '-qm', 'first')
+    g(other, 'push', '-q', 'origin', 'main')
+    // 같은 이름의 파일이 사본에 있으면 겹침
+    fs.mkdirSync(path.join(mine, 'workbench'))
+    fs.writeFileSync(path.join(mine, 'workbench', 'research.yaml'), 'mine\n')
+    expect(RepoSync.parse(await repoSync(mine, { fetch: true, force: true }))).toMatchObject({ behind: 1, conflicts: ['workbench/research.yaml'], canUpdate: false })
+    expect(await autoPull(mine)).toBe(false)
+    expect(fs.readFileSync(path.join(mine, 'workbench', 'research.yaml'), 'utf8')).toBe('mine\n')
+    fs.rmSync(path.join(mine, 'workbench'), { recursive: true })
+    expect(await autoPull(mine)).toBe(true)
+    expect(fs.readFileSync(path.join(mine, 'workbench', 'research.yaml'), 'utf8')).toBe('title: x\n')
+    expect(await repoSync(mine)).toMatchObject({ branch: 'main', behind: 0, ahead: 0 })
   })
 })
