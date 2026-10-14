@@ -6,6 +6,7 @@ const ROUTES: Route[] = [
   { page: 'home' },
   { page: 'about' },
   { page: 'about', part: 'notes' },
+  { page: 'about', part: 'feedback', anchor: 'tags' },
   { page: 'settings' },
   { page: 'settings', part: 'latex' },
   { page: 'network' },

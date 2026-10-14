@@ -15,6 +15,13 @@ export type RecordFilter = Exclude<WorkFilter, '판단' | '맡긴 일'>
 export const isRecordFilter = (f: WorkFilter): f is RecordFilter => f === '할 일' || f === '메모' || f === '질문'
 export const WORK_FILTER_KEY = 'rw-work-filter'
 
+/** 작업 탭을 그 필터로 연다 (10/14 13:33 제안: 오른쪽 사이드바 기록의 "모두 보기"). 이미 열린 작업 탭도 바뀐다 */
+export const WORK_FILTER_EVENT = 'rw-work-filter'
+export function chooseWorkFilter(f: WorkFilter) {
+  try { localStorage.setItem(WORK_FILTER_KEY, f) } catch { /* 저장할 수 없어도 열린 작업 탭은 바뀐다. */ }
+  window.dispatchEvent(new CustomEvent(WORK_FILTER_EVENT, { detail: f }))
+}
+
 /** 첫 화면 작업 패널의 할 일을 누르면 작업 탭의 할 일에서 그 항목을 보인다 (10/7 15:31 수정 요청) */
 export const TODO_FOCUS_EVENT = 'rw-work-todo-focus'
 let pendingTodo: string | null = null

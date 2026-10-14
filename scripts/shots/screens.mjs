@@ -62,6 +62,8 @@ export const DEFAULT_SCREENS = [
   // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습
   ['feedback-gallery', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '[data-ui="피드백 줄"]:has-text("할 일 목록")', '[data-ui="전후 그림"] button']],
   ['about', '#/about', '소개'],
+  // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절
+  ['about-tags', '#/about/feedback/tags', '대화 태그'],
   ['settings', '#/settings', '설정'],
   ['latex', '#/settings/latex', '서식 카드'],
   ['network', '#/network', '사람 카드'],
@@ -91,6 +93,8 @@ export const DEFAULT_SCREENS = [
   ['concept-tab', '#/r/{rid}/c/planar-graph', '개념노트'],
   // 개념노트의 오른쪽 사이드바 "기록" = 메모 · 할 일 (말풍선이 기록으로 바꾼다. 갈래가 기억되므로 맨 끝)
   ['knowledge-records', '#/library/t/planargraph', '메모', '코멘트 버튼'],
+  // 프로젝트의 오른쪽 사이드바 기록 (10/14 "모두 보기" → 작업 탭). 앞 화면이 기록 갈래를 켜 두었다
+  ['project-records', '#/r/{rid}', '모두 보기'],
 ]
 
 // --sample subjects: a separate .sandbox-shots/subjects-library fixture, preserving the default L2b shots.

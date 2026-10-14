@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Route } from './router'
-import { DocKindsTable, DocMapFigure, FeedbackFlowFigure, HomeMarksTable, NoteSyntaxTable, NoteToolbarFigure, StatesTable, TaskFlowFigure, TurnFigure } from './aboutFigures'
+import { DocKindsTable, DocMapFigure, FeedbackFlowFigure, FeedbackTagsTable, HomeMarksTable, NoteSyntaxTable, NoteToolbarFigure, StatesTable, TaskFlowFigure, TurnFigure } from './aboutFigures'
 import { ABOUT_PARTS_EN, COLOR_ROWS_EN, SYMBOL_GROUPS_EN } from './aboutContent.en'
 import { lang } from './i18n'
 
@@ -24,6 +24,8 @@ export interface AboutItem {
 
 export interface AboutSection {
   title: string
+  /** 주소 #/about/<쪽>/<id>로 바로 가는 절 (10/14) */
+  id?: string
   /** Feedback-mode part name (data-ui): the Korean title, also in English */
   ui?: string
   /** 목록 위에 놓는 그림·표 (10/8 "기호와 구조는 표와 그림으로도") */
@@ -446,6 +448,13 @@ export const ABOUT_PARTS_KO: AboutPart[] = [
           { text: <>같은 지적은 최신 항목 하나로 합쳐 "+N"으로 표시합니다. 남긴 코멘트는 가리키면 오른쪽 위에 나오는 연필·휴지통으로 고치고 지웁니다.</> },
           { text: <>"확인 필요"와 레일의 주황 수는 에이전트가 결정을 물은 항목(질의 · 동의 · 물음이 붙은 답변)과, 처리했지만 아직 승인 · 수정하지 않은 항목입니다.</> },
           { text: <>펼친 항목은 위에 처리 요약(이해한 요구 · 원인 · 처리와 그 시각, 고친 이력), 아래에 사용자와 관리자가 주고받은 대화가 있습니다. 맨 아래 버튼은 늘 셋이고 답의 종류에 따라 이름이 바뀝니다. 에이전트가 결과를 알린 답(반영 · 답변 · 거절 · 추후)에는 질문 · 수정 · 승인: 입력란이 비었으면 승인만, 글을 쓰면 질문과 수정이 켜집니다. 결정을 물은 답(질의 · 동의 · 물음이 붙은 답변)에는 질문 · 중단 · 진행: 진행하면 Claude가 그대로 하고, 중단하면 그대로 끝납니다. 글을 쓰면 함께 적힙니다. 질문은 처리를 그대로 두고 묻는 말이라 관리자가 답만 하고, 수정 · 진행하면 그 항목은 대기로 돌아가 Claude가 다시 처리합니다. 내가 쓴 글은 오른쪽 위 연필로 고치고, 마지막 답은 "되돌리기"로 무를 수 있습니다.</> },
+        ],
+      },
+      {
+        title: '대화 태그', id: 'tags',
+        figure: <FeedbackTagsTable />,
+        items: [
+          { text: <>펼친 항목의 대화마다 머리에 붙는 태그입니다. 그 대화에 나온 태그는 대화 아래 "태그 설명" 줄에도 보이고, 줄 끝의 동그라미 안 물음표를 누르면 이 표로 옵니다.</> },
         ],
       },
       {

@@ -13,8 +13,10 @@ import { go, href, type Route } from './router'
  * 쪽마다 지금 앱이 어떤지를 화면의 짜임대로 절로 나눠 보여 준다 (내용은 aboutContent.tsx).
  * 확인이 필요한 문장이 있으면 쪽 맨 위에 묻는 것을 모아 알린다 (10/4 17:03 요청).
  */
-export function AboutPage({ part }: { part?: string }) {
+export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) {
   const p = partOf(part)
+  // #/about/<쪽>/<절>: 그 절부터 보이게 (피드백 화면의 태그 표 보기 등)
+  useEffect(() => { if (anchor) document.getElementById(`about-${anchor}`)?.scrollIntoView({ block: 'start' }) }, [p.id, anchor])
   const i = ABOUT_PARTS.indexOf(p)
   const prev = ABOUT_PARTS[i - 1]
   const next = ABOUT_PARTS[i + 1]
@@ -245,7 +247,7 @@ function Sections({ part }: { part: AboutPart }) {
   return (
     <>
       {part.sections!.map((sec) => (
-        <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title}>
+        <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sec.id}>
           {sec.figure && <div className="about-figs">{sec.figure}</div>}
           <ul className="about-list">{sec.items.map((it, n) => <li key={n}>{it.unsure && <span className="about-unsure">{t('확인 필요', 'Needs review')}</span>}{it.text}</li>)}</ul>
         </Section>
@@ -399,11 +401,11 @@ function Next() {
 
 const PartTitle = createContext('')
 
-function Section({ name, ui, children }: { name: string; ui: string; children: ReactNode }) {
+function Section({ name, ui, id, children }: { name: string; ui: string; id?: string; children: ReactNode }) {
   const body = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<{ before: string; text: string } | null>(null)
   return (
-    <section data-ui={ui}>
+    <section data-ui={ui} id={id && `about-${id}`}>
       <div className="sec-head">
         <h2>{name}</h2><span className="sp" />
         {!draft && <button className="icon-btn about-fix" data-ui="고치기" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기 — ${name}`, `Edit: ${name}`)}

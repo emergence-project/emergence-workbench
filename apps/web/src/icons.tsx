@@ -65,6 +65,8 @@ export const Icon = {
   fold: <svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" /></svg>,
   check: <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
   /** 피드백 승인 (10/7 사용자 "체크에 동그라미"): 다른 곳의 체크(끝냄·확인됨)와 구별되게 동그라미로 감싼다 */
+  /** 설명 보기: 동그라미 안 ? (10/14). 동그라미 없는 ?는 Claude에게 묻기 */
+  help: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.6a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4v.6" /><path d="M12 16.4v.1" /></svg>,
   approve: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M8.2 12.2l2.6 2.6 5-5.2" /></svg>,
   /** 흐름: 세 점과 그 사이를 잇는 선 (연구 흐름, 10/14) */
   flow: <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.3" /><circle cx="17" cy="6.5" r="2.3" /><circle cx="17" cy="17.5" r="2.3" /><path d="M7.2 11l7.6-3.6M7.2 13l7.6 3.6" /></svg>,

@@ -165,3 +165,7 @@
   .dm-row, .dm-row.dm-three, .about-turns { grid-template-columns: 1fr; }
   .about-tree li { grid-template-columns: 1fr; gap: 0; }
 }
+/* 대화 태그 표 (10/14): 태그 이름은 한 줄로 */
+.about-tags th:nth-child(1) { width: 9em; }
+.about-tags th:nth-child(2) { width: 6em; }
+.about-tags td:first-child, .about-tags td:nth-child(2) { white-space: nowrap; }
