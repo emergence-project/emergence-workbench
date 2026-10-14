@@ -92,3 +92,31 @@
 .fl-links li { display: flex; align-items: center; gap: var(--sp-2); }
 .fl-ety { font-size: var(--fs-xs); color: var(--text-3); min-width: 2.5em; }
 .fl-pill { display: inline-flex; align-items: center; gap: var(--sp-1); }
+
+/* 고치기 (2단계) */
+.fl-tools { display: inline-flex; align-items: center; gap: 2px; margin-left: var(--sp-2); }
+.fl-head .muted + .fl-tools { margin-left: var(--sp-2); }
+.fl-head > .fl-short + .fl-tools { margin-left: auto; }
+button.fl-check { padding: 2px; border-radius: var(--r-pill); cursor: pointer; }
+button.fl-check:hover circle { stroke: var(--text-2); }
+button.fl-check.on:hover circle { fill: var(--text); }
+.fl-ghost { fill: none; stroke: var(--primary); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.fl-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-1); }
+.fl-kinds button { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); text-align: left; }
+.fl-kinds button:hover { background: var(--bg-hover); }
+.fl-kinds button.on { border-color: var(--primary); color: var(--text); font-weight: var(--fw-strong); }
+.fl-form { display: flex; flex-direction: column; gap: var(--sp-3); }
+.fl-form .fl-date input { width: 12em; }
+.fl-states { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.fl-fs { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3) var(--sp-3); margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.fl-fs legend { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); padding: 0 var(--sp-1); }
+.fl-evrow { display: flex; flex-direction: column; gap: var(--sp-1); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line); }
+.fl-evrow input, .fl-evrow textarea, .fl-evrow select, .fl-linkrow select { border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); }
+.fl-evhead { display: flex; align-items: center; gap: var(--sp-1); }
+.fl-src-in { flex: 1; min-width: 0; }
+.fl-addrow { align-self: flex-start; }
+.fl-help { font-size: var(--fs-sm); color: var(--text-3); margin: 0; }
+.fl-linkrow { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
+.fl-grow { flex: 1; min-width: 0; }
+.fl-topics { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); }
+.fl-approve-ev { font-size: var(--fs-sm); padding: var(--sp-2); border-radius: var(--r-sm); background: var(--bg-sunken); }

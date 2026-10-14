@@ -562,5 +562,18 @@
   "흐름 근거": "Flow evidence",
   "흐름 연결": "Flow links",
   "흐름 크기 조절": "Flow resize bar",
-  "흐름 확대": "Flow zoom"
+  "흐름 확대": "Flow zoom",
+  "흐름 점 더하기": "Flow add dot",
+  "흐름 다음 점": "Flow next dot",
+  "흐름 점 고치기": "Flow edit dot",
+  "흐름 점 지우기": "Flow delete dot",
+  "흐름 사람 승인": "Flow human approval",
+  "흐름 종류 고르기": "Flow kind picker",
+  "흐름 근거 고치기": "Flow evidence editing",
+  "흐름 연결 고치기": "Flow links editing",
+  "노트 흐름 잇기": "Note flow attach",
+  "노트 흐름": "Note flow",
+  "흐름 새 점 창": "Flow new dot dialog",
+  "흐름 점 고치기 창": "Flow edit dot dialog",
+  "흐름 승인 창": "Flow approval dialog"
 }

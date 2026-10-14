@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { NoteFlow } from './FlowView'
 import { ConflictError, notesApi, type NoteCategory, type NoteHeadPatch, type NoteLinks, type NoteRow, type ProjectKind, type Topic, LIMITS } from './api'
 import { descriptionLines, MathText } from './cardParts'
 import { useConceptMacros } from './conceptMacros'
@@ -168,6 +169,9 @@ export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, on
       <Section label={t('이 노트를 인용한 노트', 'Cited by')} count={links?.citedBy.length} hint={t('이 노트로 연결되는 링크를 쓴 노트', 'Notes that link to this note')} ui="이 노트를 인용한 노트">
         <MoreList items={links?.citedBy ?? []} empty={t('없음', 'None')}
           render={(n) => <button type="button" className="a rs-note" onClick={() => go(routeOfNote(rid, n))}><StatusDot s={n.status} />{n.title}</button>} />
+      </Section>
+      <Section label={t('흐름', 'Flow')} hint={t('이 노트를 근거로 단 흐름의 점. 누르면 주제 화면의 흐름에서 엽니다', 'Flow dots that use this note as evidence. Click to open in the topic flow')} ui="노트 흐름">
+        <NoteFlow rid={rid} row={row} version={version} onSaved={onSaved} />
       </Section>
       {/* 보조 노트가 그려 넣는 칸: 증명할 진술 · 원고 장 · 개념 연결 · 기대는 노트 · 다른 방법 · 다음 할 일.
           위의 두 목록(앱이 링크에서 모은 것)에는 없는 것이라 그대로 두되, 이름은 다른 칸처럼 내용을 가리킨다 (data-ui 값은 이전 피드백 기록과 맞추어 그대로) */}

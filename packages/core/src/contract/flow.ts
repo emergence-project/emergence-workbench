@@ -4,23 +4,8 @@
  */
 import { z } from 'zod'
 
-/** 진술: 질문 · 발견 (정리는 따로 고르지 않는다: 사람이 승인한 증명이 근거에 있는 발견). 행위: 수치 계산 · 이론 계산 · 증명 · 문헌 */
-export const FLOW_KINDS = ['question', 'finding', 'calc', 'analytic', 'proof', 'literature'] as const
-export const FLOW_PROGRESS = ['open', 'active', 'paused', 'done'] as const
-export const FLOW_RESULTS = ['solved', 'refuted', 'dropped'] as const
-/** 선 종류: 발단 · 근거 · 반박 · 사용 */
-export const FLOW_EDGES = ['origin', 'support', 'refute', 'use'] as const
-/** 근거 종류: 노트(수치 계산 · 이론 계산 · 증명 · 그 밖) 또는 논문 */
-export const FLOW_EVIDENCE = ['calc', 'analytic', 'proof', 'other', 'paper'] as const
-/** 종류마다 설명 칸 (이 순서로 보인다) */
-export const FLOW_FIELDS: Record<(typeof FLOW_KINDS)[number], readonly string[]> = {
-  question: ['question', 'guess', 'motivation'],
-  finding: ['statement', 'condition'],
-  calc: ['goal', 'setup', 'result'],
-  analytic: ['goal', 'setup', 'result'],
-  proof: ['goal', 'method', 'result'],
-  literature: ['reading', 'gain'],
-}
+import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PROGRESS, FLOW_RESULTS } from '../flow-kinds.js'
+export { FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_KINDS, FLOW_PROGRESS, FLOW_RESULTS } from '../flow-kinds.js'
 
 const FlowFrom = z.object({ id: z.string(), type: z.enum(FLOW_EDGES) }).strict()
 const FlowCheck = z.object({
@@ -29,6 +14,8 @@ const FlowCheck = z.object({
   /** agent = 에이전트 검토, human = 사람 승인 */
   role: z.enum(['agent', 'human']),
   note: z.string().optional(),
+  /** 앞선 같은 역할의 확인을 거둔다 (기록은 덧붙이기만 하므로 지우지 않고 거둔 기록을 더한다) */
+  revoked: z.boolean().optional(),
 }).strict()
 const FlowEvidence = z.object({
   kind: z.enum(FLOW_EVIDENCE),
@@ -71,7 +58,58 @@ export const FlowNode = z.object({
 
 const Diagnostic = z.object({ file: z.string(), code: z.string(), message: z.string(), line: z.number(), column: z.number().optional() }).strict()
 
-export const FlowScan = z.object({ nodes: z.array(FlowNode), diagnostics: z.array(Diagnostic) }).strict()
+/** 손으로 옮긴 자리 (workbench/flow/layout.yaml): 주제 id → 점 id → 칸. r은 중심선 기준(위가 음수) */
+const Cell = z.object({ c: z.number().int().min(0), r: z.number().int() }).strict()
+export const FlowLayout = z.record(z.string(), z.record(z.string(), Cell))
+
+export const FlowScan = z.object({ nodes: z.array(FlowNode), diagnostics: z.array(Diagnostic), layout: FlowLayout }).strict()
+export const FlowOne = z.object({ node: FlowNode }).strict()
+export const FlowDeleted = z.object({ id: z.string(), changed: z.array(z.string()) }).strict()
+export const FlowLayoutReply = z.object({ layout: FlowLayout }).strict()
+
+// ---------- 요청 ----------
+
+const Text = z.string().max(4000)
+const Short = z.string().trim().min(1).max(60)
+/** 근거 하나 (확인 기록은 따로: 고칠 때 같은 ref·file의 기록은 그대로 남는다) */
+const EvidenceIn = z.object({
+  kind: z.enum(FLOW_EVIDENCE),
+  text: Text,
+  title: z.string().max(200).optional(),
+  file: z.string().max(500).optional(),
+  ref: z.string().max(200).optional(),
+}).strict().refine((e) => !!e.file !== !!e.ref, { message: 'file과 ref 가운데 하나만' })
+
+export const NewFlowBody = z.object({
+  kind: z.enum(FLOW_KINDS),
+  short: Short,
+  title: z.string().max(300).optional(),
+  topics: z.array(z.string().min(1)).min(1),
+  from: z.array(FlowFrom).optional(),
+  progress: z.enum(FLOW_PROGRESS).optional(),
+}).strict()
+
+export const FlowPatchBody = z.object({
+  baseHash: z.string(),
+  set: z.object({
+    kind: z.enum(FLOW_KINDS).optional(),
+    progress: z.enum(FLOW_PROGRESS).optional(),
+    result: z.enum(FLOW_RESULTS).nullable().optional(),
+    short: Short.optional(),
+    title: z.string().max(300).optional(),
+    topics: z.array(z.string().min(1)).min(1).optional(),
+    date: z.string().max(20).optional(),
+    fields: z.record(z.string(), Text).optional(),
+    end: z.boolean().optional(),
+    from: z.array(FlowFrom).optional(),
+    evidence: z.array(EvidenceIn).optional(),
+  }).strict(),
+}).strict()
+
+/** 사람 승인 (거두기는 revoked). 에이전트 검토는 에이전트가 파일에 적는다 */
+export const FlowCheckBody = z.object({ baseHash: z.string(), ev: z.number().int().min(0), revoked: z.boolean().optional(), note: z.string().max(500).optional() }).strict()
+
+export const FlowLayoutBody = z.object({ topic: z.string().min(1), id: z.string().min(1), at: Cell.nullable() }).strict()
 
 export type FlowKind = (typeof FLOW_KINDS)[number]
 export type FlowProgress = (typeof FLOW_PROGRESS)[number]
@@ -80,3 +118,11 @@ export type FlowEdge = (typeof FLOW_EDGES)[number]
 export type FlowNode = z.infer<typeof FlowNode>
 export type FlowEvidence = z.infer<typeof FlowEvidence>
 export type FlowScan = z.infer<typeof FlowScan>
+export type FlowLayout = z.infer<typeof FlowLayout>
+export type FlowOne = z.infer<typeof FlowOne>
+export type FlowDeleted = z.infer<typeof FlowDeleted>
+export type FlowLayoutReply = z.infer<typeof FlowLayoutReply>
+export type NewFlowBody = z.infer<typeof NewFlowBody>
+export type FlowPatchBody = z.infer<typeof FlowPatchBody>
+export type FlowCheckBody = z.infer<typeof FlowCheckBody>
+export type FlowLayoutBody = z.infer<typeof FlowLayoutBody>

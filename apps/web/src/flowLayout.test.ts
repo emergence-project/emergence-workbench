@@ -53,3 +53,15 @@ describe('흐름 자리', () => {
     expect([...g.down].sort()).toEqual(['b', 'c'])
   })
 })
+
+describe('손으로 옮긴 자리', () => {
+  it('정한 칸에 두고, 그 뒤 점은 그 열을 따르며 다른 점은 그 칸을 피한다', () => {
+    const a = node('a', '1'), b = node('b', '2', ['a']), c = node('c', '3', ['a'])
+    const lay = layoutFlow([a, b, c], 't', { b: { c: 3, r: 0 }, zz: { c: 9, r: 9 } })
+    const at = Object.fromEntries(lay.placed.map((p) => [p.node.id, [p.c, p.r - lay.mid]]))
+    expect(at).toEqual({ a: [0, 0], b: [3, 0], c: [1, 0] })
+    const lay2 = layoutFlow([a, b, c], 't', { a: { c: 1, r: 0 } })
+    const at2 = Object.fromEntries(lay2.placed.map((p) => [p.node.id, [p.c, p.r - lay2.mid]]))
+    expect(at2).toEqual({ a: [1, 0], b: [2, 0], c: [2, 1] })
+  })
+})
