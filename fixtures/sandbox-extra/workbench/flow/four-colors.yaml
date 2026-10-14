@@ -1,0 +1,14 @@
+format: 1
+kind: question
+progress: paused
+short: 네 색으로?
+title: 같은 방법으로 네 색까지 줄일 수 있는가
+topics: [coloring, four-color]
+date: 2026-10-05
+from:
+  - { id: five-color-theorem, type: origin }
+fields:
+  question: Kempe 사슬만으로 네 색 정리를 보일 수 있는가?
+  motivation: 다섯 색 증명이 짧게 끝났다.
+guesses:
+  - 일지에 질문으로 적혀 있지 않아 질문 문장은 에이전트가 썼다.

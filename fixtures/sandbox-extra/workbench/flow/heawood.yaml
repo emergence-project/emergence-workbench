@@ -1,0 +1,18 @@
+format: 1
+kind: literature
+progress: done
+result: solved
+short: 옛 증명 읽기
+title: 옛 다섯 색 증명의 구조 읽기
+topics: [coloring]
+date: 2026-09-30
+from:
+  - { id: five-colors, type: origin }
+fields:
+  reading: 귀납과 Kempe 사슬을 쓰는 옛 증명
+  gain: 차수 5 꼭짓점에서 색을 바꾸는 단계가 핵심이다.
+evidence:
+  - kind: paper
+    ref: doe2004structure
+    text: 귀납 구조
+    checks: []

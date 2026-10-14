@@ -1,0 +1,21 @@
+format: 1
+kind: finding
+progress: done
+result: solved
+short: 색 바꾸기
+title: Kempe 사슬로 다섯째 색을 비울 수 있다
+topics: [coloring, kempe]
+date: 2026-10-02
+from:
+  - { id: degree-bound, type: support }
+fields:
+  statement: 차수 5 꼭짓점의 이웃에서 두 색의 Kempe 사슬을 바꾸면 한 색이 빈다.
+  condition: 평면 그래프, 이웃 다섯이 모두 다른 색일 때
+evidence:
+  - kind: proof
+    title: Kempe 사슬
+    file: workbench/blocks/kempe-chains.tex
+    text: 두 사슬이 서로 막는 경우까지
+    checks:
+      - { at: 2026-10-02T15:00, by: claude, role: agent }
+      - { at: 2026-10-02T22:10, by: 사용자, role: human }

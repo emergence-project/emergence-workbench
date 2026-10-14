@@ -1,0 +1,23 @@
+format: 1
+kind: finding
+progress: done
+result: solved
+short: 다섯 색 정리
+title: 모든 평면 그래프는 다섯 색으로 칠할 수 있다
+topics: [coloring]
+date: 2026-10-04
+from:
+  - { id: degree-bound, type: support }
+  - { id: kempe-swap, type: support }
+  - { id: greedy-check, type: support }
+fields:
+  statement: 평면 그래프 $G$의 채색수는 $\chi(G) \le 5$이다.
+  condition: 유한 평면 그래프
+evidence:
+  - kind: proof
+    title: 5색 정리
+    file: workbench/blocks/five-color.tex
+    text: 귀납 전체
+    checks:
+      - { at: 2026-10-04T11:00, by: claude, role: agent }
+      - { at: 2026-10-04T20:30, by: 사용자, role: human }

@@ -27,6 +27,7 @@ export * from './api/notes'
 export * from './api/papers'
 export * from './api/figures'
 export * from './api/tasks'
+export * from './api/flow'
 export * from './api/agentEdits'
 
 export const api = {

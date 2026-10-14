@@ -1,0 +1,22 @@
+format: 1
+kind: proof
+progress: done
+result: solved
+short: 차수 5 이하
+title: 평면 그래프에는 차수 5 이하 꼭짓점이 있다
+topics: [coloring]
+date: 2026-10-01
+from:
+  - { id: heawood, type: origin }
+fields:
+  goal: 귀납의 출발점이 되는 꼭짓점을 찾는다.
+  method: 오일러 공식 $V-E+F=2$에서 $E \le 3V-6$.
+  result: $\sum_v \deg v = 2E < 6V$이므로 $\deg v \le 5$인 $v$가 있다.
+evidence:
+  - kind: proof
+    title: 차수 5 이하 꼭짓점
+    file: workbench/blocks/degree-five.tex
+    text: 오일러 공식에서 바로
+    checks:
+      - { at: 2026-10-01T10:20, by: claude, role: agent }
+      - { at: 2026-10-01T21:05, by: 사용자, role: human }

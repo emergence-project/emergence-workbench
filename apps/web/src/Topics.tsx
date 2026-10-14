@@ -20,6 +20,7 @@ import { askConfirm, askText } from './askText'
 import { ExportLink } from './NoteExport'
 import { StatusDot } from './StatusDot'
 import { locale, plural, t as tr } from './i18n'
+import { FlowSection } from './FlowView'
 
 /**
  * 주제 (10/5 "주제와 노트"): 노트를 묶기만 하는 한 단계. research.yaml의 topics:에 적는다 (서버 topics.ts).
@@ -177,6 +178,8 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
         </div>
       ) : t && <p className="ts-desc muted">{tr('설명이 없습니다. 연필을 눌러 적습니다.', 'No description. Click the pencil to write one.')}</p>}
     </header>
+
+    {!loose && <FlowSection rid={rid} tid={tid} version={version} notes={notes} />}
 
     <div className="ts-bar">
       <span className="ts-sum"><span>{tr('노트', 'Notes')} {mine.length}</span>{statusCounts(STATUS_ORDER)}</span>

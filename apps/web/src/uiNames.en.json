@@ -555,5 +555,12 @@
   "확인할 보조 노트 수": "Notes to review count",
   "프로젝트 색": "Project color",
   "피드백 유형 고르기": "Feedback type picker",
-  "태그 설명": "Tag notes"
+  "태그 설명": "Tag notes",
+  "흐름": "Flow",
+  "흐름 차트": "Flow chart",
+  "흐름 점 자세히": "Flow dot details",
+  "흐름 근거": "Flow evidence",
+  "흐름 연결": "Flow links",
+  "흐름 크기 조절": "Flow resize bar",
+  "흐름 확대": "Flow zoom"
 }

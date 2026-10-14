@@ -1,0 +1,13 @@
+format: 1
+kind: question
+progress: done
+result: solved
+short: 다섯 색이면 되나
+title: 평면 그래프는 다섯 색으로 칠할 수 있는가
+topics: [coloring]
+date: 2026-09-30
+fields:
+  question: 모든 평면 그래프의 채색수는 5 이하인가?
+  guess: 그렇다. 차수 5 이하 꼭짓점을 빼고 귀납한다.
+  motivation: 원고 2장의 논증을 처음부터 다시 세운다.
+sources: [workbench/log/2026-09-30.md]

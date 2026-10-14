@@ -1,0 +1,14 @@
+format: 1
+kind: proof
+progress: done
+result: dropped
+short: 사슬 한 번
+title: 사슬 한 번 바꾸기로 네 색 만들기
+topics: [coloring]
+date: 2026-10-06
+from:
+  - { id: four-colors, type: origin }
+fields:
+  goal: 차수 5 꼭짓점에서 사슬 한 번으로 색을 비운다.
+  result: 두 사슬이 엇갈리는 경우가 막혀 그만두었다.
+end: true
