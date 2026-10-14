@@ -37,6 +37,9 @@ const entry = {
   /** 연결한 일지 항목의 날짜와 시각, 같은 분에 두 번 적었을 때의 보조 번호 */
   journal: z.string().optional(),
   journalIndex: z.number().optional(),
+  /** 고침 검토의 바뀐 곳에서 물은 것 (10/14): 질문 = 답만, 수정 = 그 문단을 다시 고쳐 달라는 것. editBase = 고치기 전 글의 앞부분 (다시 고친 뒤에도 같은 바뀐 곳을 찾는다) */
+  edit: z.enum(['질문', '수정']).optional(),
+  editBase: z.string().optional(),
   body: z.string(),
   state: CommentState.nullable(),
   answers: z.array(CommentAnswer),
@@ -90,6 +93,8 @@ export const NewCommentBody = z.object({
   line: z.number().optional(),
   prefix: z.string().optional(),
   suffix: z.string().optional(),
+  edit: z.enum(['질문', '수정']).optional(),
+  editBase: z.string().optional(),
   text: z.string(),
 })
 export const ClassifyBody = z.object({ baseHash })

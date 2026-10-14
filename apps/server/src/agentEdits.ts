@@ -13,7 +13,7 @@ import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { t } from './i18n.js'
 import { listNotes } from './noteList.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
-import { canonicalNoteFile, frontMatterLines, sameNoteFile } from '@rw/core'
+import { canonicalNoteFile, frontMatterLines, noteRecordTarget, sameNoteFile } from '@rw/core'
 
 // 응답 모양은 API 계약(@rw/core/contract/agentEdits)에 있다
 export type { EditTarget, EditAttempt } from '@rw/core/contract/agentEdits'
@@ -38,6 +38,8 @@ export interface PendingEdit {
   agents?: string[]
   /** 에이전트가 고칠 때 남긴 한 줄들 (최근 것이 뒤) */
   notes: string[]
+  /** 바꾼 글마다 남긴 이유 (10/14): text = 바꾼 글(trim). 그 글이 든 바뀐 곳 아래에 보인다. 최근 것이 뒤 */
+  reasons?: { text: string; reason: string; by?: string; at: string }[]
 }
 
 
@@ -146,6 +148,8 @@ export interface Hunk {
   /** 앞 · 뒤의 바뀌지 않은 문단 (지금 글). 그 자리에 다른 바뀐 곳이 붙어 있거나 글 끝이면 없다 */
   prev?: string
   next?: string
+  /** 에이전트가 이 바뀐 곳의 글을 쓸 때 남긴 이유 (10/14) */
+  reason?: { reason: string; by?: string; at: string }
 }
 
 /**
@@ -350,8 +354,8 @@ export function writeTarget(io: TargetIo, t0: EditTarget, text: string, baseHash
 export interface WriteRequest {
   target: EditTarget
   baseHash: string
-  /** 차례대로 적용하는 바꾸기. old는 지금 글에 꼭 한 번 있어야 한다 */
-  edits: { old: string; new: string }[]
+  /** 차례대로 적용하는 바꾸기. old는 지금 글에 꼭 한 번 있어야 한다. reason = 왜 바꾸었는지 한 줄 (바뀐 곳 아래에 보임) */
+  edits: { old: string; new: string; reason?: string }[]
   /** 확인된 노트: 대화에서 사용자 허락을 받았으면 true */
   approved?: boolean
   agent?: string
@@ -395,6 +399,8 @@ export function agentWrite(io: TargetIo, store: AgentEditStore, req: WriteReques
   const before = syncPending(store, key, st.text)
   if (next === st.text) return { ok: true, hash: st.hash, changes: before ? diffBlocks(splitBlocks(before.base), splitBlocks(st.text)).length : 0 }
   const hash = writeTarget(io, req.target, next, st.hash)
+  const reasons = req.edits.filter((e) => typeof e.reason === 'string' && e.reason.trim() && e.new.trim())
+    .map((e) => ({ text: e.new.trim(), reason: e.reason!.replace(/\s+/g, ' ').trim().slice(0, 300), ...(req.agent && { by: req.agent }), at: now }))
   const d = store.update((d) => {
     d.attempts = d.attempts.filter((a) => a.key !== key)
     const p = d.pending.find((x) => x.key === key)
@@ -404,7 +410,8 @@ export function agentWrite(io: TargetIo, store: AgentEditStore, req: WriteReques
       p.after = next
       if (req.agent) { const had = agentsOf(p); if (!had.includes(req.agent)) p.agents = [...had, req.agent] }
       if (req.summary) p.notes = [...p.notes, req.summary].slice(-20)
-    } else d.pending.push({ key, target: req.target, title: st.title, base: st.text, after: next, since: now, updated: now, ...(req.agent && { agents: [req.agent] }), notes: req.summary ? [req.summary] : [] })
+      if (reasons.length) p.reasons = [...(p.reasons ?? []), ...reasons].slice(-50)
+    } else d.pending.push({ key, target: req.target, title: st.title, base: st.text, after: next, since: now, updated: now, ...(req.agent && { agents: [req.agent] }), notes: req.summary ? [req.summary] : [], ...(reasons.length && { reasons }) })
   })
   const p = d.pending.find((x) => x.key === key)!
   const changes = diffBlocks(splitBlocks(p.base), splitBlocks(next)).length
@@ -459,6 +466,7 @@ export interface ReviewView {
   agents: string[]
   notes: string[]
   hunks: Hunk[]
+  record?: { target: string; title: string; source: string }
 }
 
 /** 검토 화면: 기준판과 지금 글의 다른 곳. 다른 곳이 없으면(바깥에서 되돌림 등) 검토를 닫고 null */
@@ -476,7 +484,30 @@ export function reviewOf(io: TargetIo, store: AgentEditStore, key: string): Revi
   const [baseBlocks, curBlocks] = [splitBlocks(p.base), splitBlocks(st.text)]
   const hunks = diffBlocks(baseBlocks, curBlocks)
   if (!hunks.length) { store.update((d) => { d.pending = d.pending.filter((x) => x.key !== key) }); return null }
-  return { key, target: p.target, title: st.title, hash: st.hash, since: p.since, updated: p.updated, agents: agentsOf(p), notes: p.notes, hunks: withContext(withSections(hunks, baseBlocks, curBlocks), curBlocks) }
+  const record = recordOf(io, p.target)
+  return { key, target: p.target, title: st.title, hash: st.hash, since: p.since, updated: p.updated, agents: agentsOf(p), notes: p.notes, hunks: withReasons(withContext(withSections(hunks, baseBlocks, curBlocks), curBlocks), p.reasons), ...(record && { record }) }
+}
+
+/** 바뀐 곳마다 그 글을 쓸 때 남긴 이유 (바꾼 글이 그 바뀐 곳에 들었거나, 여러 문단을 바꾼 글에 그 바뀐 곳이 든 것 가운데 가장 최근) */
+export function withReasons(hunks: Hunk[], reasons: PendingEdit['reasons']): Hunk[] {
+  if (!reasons?.length) return hunks
+  return hunks.map((h) => {
+    const cur = h.current.trim()
+    const r = cur ? [...reasons].reverse().find((x) => x.text && (cur.includes(x.text) || x.text.includes(cur))) : undefined
+    return r ? { ...h, reason: { reason: r.reason, ...(r.by && { by: r.by }), at: r.at } } : h
+  })
+}
+
+/** 노트의 기록 대상 (바뀐 곳에서 묻기). 개념노트와 기록을 붙이지 않는 노트(main.tex 등)는 없음 */
+export function recordOf(io: TargetIo, t0: EditTarget): { target: string; title: string; source: string } | undefined {
+  if (t0.kind !== 'note') return undefined
+  let row: ReturnType<typeof noteRow>
+  try { row = noteRow(io, t0) } catch { return undefined }
+  const target = noteRecordTarget(row)
+  if (!target) return undefined
+  return row.type === 'block'
+    ? { target, title: `노트 결과 ${row.title}`, source: row.id }
+    : { target, title: `${row.type === 'calc' ? '계산 노트' : '연구노트'} ${row.title}`, source: row.file }
 }
 
 export type DecideRequest = DecideBody

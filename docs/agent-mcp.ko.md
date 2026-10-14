@@ -2,7 +2,7 @@
 
 [English](agent-mcp.md)
 
-Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 · 노트 · 기록 · 맡긴 일 · 개념노트를 **앱 서버를 거쳐** 읽는 입구다. MCP 도구는 파일을 직접 열지 않고 앱과 같은 API를 쓰므로, 앱 화면과 같은 내용 · 같은 hash를 본다. 쓰기 도구는 `edit_note` · `edit_concept` 둘뿐이다(10/8 에이전트 고침 검토): 에이전트는 바로 쓰고, 앱이 고치기 전 글을 기준판으로 남기며, 사용자가 고침 검토 화면(연구노트는 그 프로젝트의 "고침 검토" `#/r/<연구>/edits`, 개념노트는 `#/review`)에서 바뀐 문단마다 승인 · 되돌리기 · 고치기를 고른다. 사용자가 확인한 노트는 대화에서 먼저 허락을 받는다. 고칠 때마다 어느 에이전트가 고쳤는지 적힌다. 이름은 클라이언트가 연결할 때 보내는 이름(`clientInfo.name`)에서 온다: Claude Code는 `claude-code`, Codex는 `codex`, 그 밖에는 보낸 그대로다. 클라이언트가 스스로 밝힌 값이라 앱이 검증하지는 않는다. 에이전트가 앱을 거치지 않고 파일을 직접 고친 것은 여기 남지 않으니, 커밋 작성자로 확인한다.
+Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 · 노트 · 기록 · 맡긴 일 · 개념노트를 **앱 서버를 거쳐** 읽는 입구다. MCP 도구는 파일을 직접 열지 않고 앱과 같은 API를 쓰므로, 앱 화면과 같은 내용 · 같은 hash를 본다. 쓰기 도구는 `edit_note` · `edit_concept` 둘뿐이다(10/8 에이전트 고침 검토): 에이전트는 바로 쓰고, 앱이 고치기 전 글을 기준판으로 남기며, 사용자가 고침 검토 화면(연구노트는 그 프로젝트의 "고침 검토" `#/r/<연구>/edits`, 개념노트는 `#/review`)에서 바뀐 문단마다 승인 · 되돌리기 · 고치기를 고른다. 사용자가 확인한 노트는 대화에서 먼저 허락을 받는다. 고칠 때마다 어느 에이전트가 고쳤는지 적힌다. 이름은 클라이언트가 연결할 때 보내는 이름(`clientInfo.name`)에서 온다: Claude Code는 `claude-code`, Codex는 `codex`, 그 밖에는 보낸 그대로다. 클라이언트가 스스로 밝힌 값이라 앱이 검증하지는 않는다. 에이전트가 앱을 거치지 않고 파일을 직접 고친 것은 여기 남지 않으니, 커밋 작성자로 확인한다. 검토 화면에서 사용자는 바뀐 문단마다 물을 수 있다(10/14): 물은 것은 `edit: 질문` 또는 `edit: 수정`이 붙은 노트 기록으로 남는다(`docs/repo-format.md` §6.2). 앱은 맥의 Claude에게 바로 묻고, 못 부르면 기록은 답 없는 채로 에이전트 차례에 잡힌다. `수정`이면 그 문단을 `edit_note`로 다시 고친 뒤 기록에 답한다.
 
 ## 쓰기 전에
 
@@ -45,7 +45,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `list_tasks` · `read_task` | 맡긴 일 목록과 하나의 모든 칸 | `GET …/:rid/tasks`, `…/tasks/:id` |
 | `search_library` | 개념노트 · 논문 찾기 (이름 · 다른 이름 · 저자 · 연도 · arXiv 번호). 개념노트는 본문으로도 찾고, 맞은 줄마다 `hits`(본문 줄 번호 · 그 줄의 절 제목 · 줄 글)를 붙인다. 노트 전체 대신 그 절만 보면 된다 | `GET /api/search/catalog`, `GET /api/concepts/search` |
 | `read_concept` | 개념노트 머리말 · 본문 · hash와 확인 상태(ok · changed · none) | `GET /api/concepts/:id` |
-| `edit_note` | 프로젝트 노트(원고 제외)를 글 바꾸기 `{ old, new }`로 고친다. `read_note`의 hash를 보낸다. 바로 쓰고 사용자가 문단마다 검토한다. 상태가 해결인 노트는 첫 시도를 428로 거절하고 사용자에게 알린다. 대화에서 허락을 받은 뒤 `approved: true`로 다시 보낸다 | `POST /api/agent-edits/write` |
+| `edit_note` | 프로젝트 노트(원고 제외)를 글 바꾸기 `{ old, new, reason? }`로 고친다. `reason`은 왜 바꿨는지 한 줄로, 바뀐 문단 아래에 보인다. `read_note`의 hash를 보낸다. 바로 쓰고 사용자가 문단마다 검토한다. 상태가 해결인 노트는 첫 시도를 428로 거절하고 사용자에게 알린다. 대화에서 허락을 받은 뒤 `approved: true`로 다시 보낸다 | `POST /api/agent-edits/write` |
 | `edit_concept` | 개념노트 본문에 같은 일(머리말은 그대로). `checked: ok`인 노트도 같은 허락이 필요하고, 잠긴 노트는 고치지 않는다 | `POST /api/agent-edits/write` |
 
 ## 지키는 것

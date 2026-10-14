@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 import { parseShotOptions, screenScheme, SHOTS_HELP } from './options.mjs'
 import { selectScreens } from './screens.mjs'
-import { clearAgentEdits, seedAgentEdits } from './agent-edits.mjs'
+import { clearAgentEdits, seedAgentEdits, seedEditTalk } from './agent-edits.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const out = path.resolve(process.env.SHOTS_DIR ?? path.join(root, 'shots'))
@@ -79,8 +79,10 @@ try {
       await page.goto('about:blank')
     }
     await page.emulateMedia({ colorScheme: screenScheme(options.theme, name) })
-    if (name === 'review') {
-      const why = await seedAgentEdits(base, rid, options.lang)
+    if (name === 'review' || name === 'review-talk') {
+      // review와 주소가 같아 주소만 바꾸면 화면이 그대로라, 새로 연다
+      if (name === 'review-talk') await page.goto('about:blank')
+      const why = await seedAgentEdits(base, rid, options.lang) ?? (name === 'review-talk' ? await seedEditTalk(base, rid, options.lang) : null)
       if (why) problems.push(`${name}: 예제 고침을 넣지 못함 (${why})`)
     }
     await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)))
@@ -109,6 +111,8 @@ try {
     }
     const uiSel = ui && (ui.startsWith('[') ? ui : `[data-ui="${ui}"]`)
     if (uiSel) await page.locator(uiSel).filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${uiSel} 없음`))
+    // 대화는 줄 아래에 열려 첫 화면 밖이라, 그 바뀐 곳부터 보이게 내린다
+    if (name === 'review-talk') await page.locator('[data-ui="바뀐 곳"]').filter({ has: page.locator('[data-ui="고친 이유"]') }).first().evaluate((el) => el.scrollIntoView({ block: 'start' })).catch(() => problems.push(`${name}: 대화까지 내리지 못함`))
     if (name === 'project') {
       await page.locator('[data-ui="최근 손댄 노트"] [data-ui="노트 카드"]').filter({ visible: true }).first().waitFor({ timeout: 10_000 })
         .catch(() => problems.push(`${name}: 노트 자료가 아직 없음`))
@@ -150,7 +154,7 @@ try {
     await page.screenshot({ path: path.join(out, `${name}.png`) })
     // 주소만 바꾸는 이동은 열린 창을 그대로 두므로, 다음 화면을 가리지 않게 닫는다
     if (name === 'task-dialog') await page.keyboard.press('Escape')
-    if (name === 'review') await clearAgentEdits(base)
+    if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
     console.log(`찍음 ${name}`)
   }
   await browser.close()

@@ -5,6 +5,7 @@ import { Icon } from './icons'
 import { MemoText } from './memo'
 import { PictureGallery, type GalleryPicture } from './PictureGallery'
 import { onListKey } from './listInput'
+import { ComposeBox, SayCard } from './Conversation'
 import { askConfirm } from './askText'
 import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
@@ -406,15 +407,10 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
     alt: k ? t('고친 뒤 화면', 'Screen after the fix') : t('고치기 전 화면', 'Screen before the fix'),
   }))
   return (
-    <li className={`fbp-say${me ? ' me' : ''}`} data-ui={me ? '사용자 글' : '관리자 글'}>
-      <div className="fbp-say-head">
-        <b>{name}</b>
-        <span className="tag">{what}</span>
-        {undo && <button className="fb-link" title={t('마지막 답(승인 · 수정 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
-        <span className="sp" />
-        {at && <span className="muted fbp-say-when">{whenOf(at)}{edited && ` · ${t('고침', 'edited')} ${edited.slice(11, 16)}`}</span>}
-        {me && at && s.kind !== '승인' && !locked && !editing && <button className="icon-btn fbp-say-edit" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}
-      </div>
+    <SayCard me={me} ui={me ? '사용자 글' : '관리자 글'} name={name} tag={what}
+      afterTag={undo && <button className="fb-link" title={t('마지막 답(승인 · 수정 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
+      when={at && <>{whenOf(at)}{edited && ` · ${t('고침', 'edited')} ${edited.slice(11, 16)}`}</>}
+      end={me && at && s.kind !== '승인' && !locked && !editing && <button className="icon-btn fbp-say-edit" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}>
       {editing
         ? (
           <div className="fbp-text">
@@ -442,7 +438,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
         ? <span className="muted fbp-say-version">{e.status?.version ?? s.commit}<InApp e={e} /></span>
         : <span className="mono muted fbp-say-version">{s.commit}</span>)}
       {error && <span className="error-text">{error}</span>}
-    </li>
+    </SayCard>
   )
 }
 
@@ -470,15 +466,10 @@ function Compose({ e }: { e: FeedbackItem }) {
   }
   // 관리자 차례(처리 전 · 코멘트에 답하기 전 · 다시 처리하기 전)에는 입력란을 두지 않는다 (10/10 13:02).
   // 덧붙일 말은 원문이나 마지막 글을 연필로 고친다
-  if (feedbackBucket(e) === '대기') return <div className="fbp-compose" data-ui="코멘트 입력란"><span className="muted">{t('관리자의 답을 기다립니다', 'Waiting for the maintainer to answer')}</span></div>
   const hint = asks ? t('덧붙일 말 (진행 · 중단에 함께 적힘)', 'Anything to add (saved with Proceed or Stop)') : t('질문이나 고칠 점', 'Question or what to change')
   return (
-    <div className="fbp-compose" data-ui="코멘트 입력란">
-      <textarea rows={2} value={text} placeholder={hint} aria-label={hint}
-        onChange={(ev) => setText(ev.target.value)} onKeyDown={(ev) => onListKey(ev, setText)} />
-      <div className="fbp-compose-row" data-ui="승인·반려">
-        {error && <span className="error-text">{error}</span>}
-        <span className="sp" />
+    <ComposeBox value={text} onChange={setText} placeholder={hint} error={error}
+      waiting={feedbackBucket(e) === '대기' ? t('관리자의 답을 기다립니다', 'Waiting for the maintainer to answer') : undefined}>
         <button className="btn" disabled={busy || !typed} onClick={() => run(api.commentFeedback(e.key, text))}>{REPLY['코멘트']}</button>
         {asks
           ? <>
@@ -489,8 +480,7 @@ function Compose({ e }: { e: FeedbackItem }) {
             <button className="btn" disabled={busy || !canReject} onClick={() => run(api.reviewFeedback(e.key, '반려', text))}>{REPLY['반려']}</button>
             <button className="btn primary" disabled={busy || !canApprove} onClick={() => run(api.reviewFeedback(e.key, '승인'))}>{REPLY['승인']}</button>
           </>}
-      </div>
-    </div>
+    </ComposeBox>
   )
 }
 

@@ -155,6 +155,8 @@ export function parseComments(target: string, text: string): CommentFile {
           if (m.split === true) cur.split = true
           if (typeof m.journal === 'string') cur.journal = m.journal
           if (typeof m.journalIndex === 'number' && Number.isInteger(m.journalIndex) && m.journalIndex >= 0) cur.journalIndex = m.journalIndex
+          if (m.edit === '질문' || m.edit === '수정') cur.edit = m.edit
+          if (typeof m.editBase === 'string') cur.editBase = m.editBase
         } catch { /* 깨진 숨은 줄은 무시 */ }
         continue
       }
@@ -302,6 +304,7 @@ function prepareComment(root: string, target: string, input: NewComment, now: Da
     ...(typeof input.suffix === 'string' && { suffix: options.storedAnchors ? input.suffix : input.suffix.replace(/\r\n?/g, '\n').slice(0, 32) }),
     ...(quote.includes('\n') && { quoteMultiline: true }),
     ...(input.kind === '자동' && { unsorted: true }),
+    ...((input.edit === '질문' || input.edit === '수정') && kind === '질문' && { edit: input.edit, ...(typeof input.editBase === 'string' && input.editBase && { editBase: input.editBase.slice(0, 200) }) }),
   }
   if (kind === '할 일') {
     Object.assign(meta, todoMeta(root, target, source, now, options.journalOffset))
