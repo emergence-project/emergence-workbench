@@ -25,7 +25,7 @@ import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
 import { AUX_NOTE, shortLabel } from './notes'
 import { StatementTab } from './StatementTab'
 import { DocTab, MaterialsNav } from './Materials'
-import { commentsChanged, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
+import { commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNoteEditor } from './Library'
 import { QuickMemo } from './memo'
@@ -41,6 +41,7 @@ import { PdfTab } from './PdfTab'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
 import { FlowPage } from './FlowView'
+import { useFlowSelection } from './flowSelection'
 import { moveId, PROJECT_KIND_LABEL, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
 import { setFeedbackNote } from './feedbackNote'
@@ -59,6 +60,7 @@ export type { FlashAction } from './flash'
 export function App() {
   const route = useRoute()
   const rid = 'rid' in route ? route.rid : null
+  const flowSel = useFlowSelection(rid ?? '')
   /** 연구 하나에 속하지 않는 화면: 홈과 globalPages.tsx의 화면. 연구 사이드바가 필요 없다 */
   const globalPage = route.page === 'home' || !!globalPageOf(route.page)
   const [researches, setResearches] = useState<ResearchListItem[] | null>(null)
@@ -359,8 +361,9 @@ export function App() {
       case 'mspdf': return <ManuscriptPdfTab key={msKeyOfTab(t)} rid={rid} info={manuscripts.find((m) => m.key === msKeyOfTab(t)) ?? null} rapi={rapi} onSaved={flash} version={version}
         active={context?.active ?? false} pairedEditor={hasVisibleManuscriptEditor(context?.visibleTabs ?? [], msKeyOfTab(t), (file) => msOfFile(file)?.key)} />
       case 'pdf': return <PdfTab rid={rid} bid={t.bid} title={tabTitle({ k: 'block', bid: t.bid }, summary)} rapi={rapi} />
-      case 'todo': return <WorkPage rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />
-      case 'log': return <WorkPage rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
+      case 'todo': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />
+      case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} section="records" />
+      case 'log': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <MapPage key={rid} rid={rid} summary={summary} />
       case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} version={version} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
       case 'edits': return <AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} />
@@ -457,6 +460,7 @@ export function App() {
               const tabName = (x: Tab) => tabTitle(x, summary, manuscripts, library, topics)
               // LaTeX 노트·원고의 코멘트는 그 원고 PDF에 남긴 것
               const ct = targetOfTab(t, tabName) ?? (t?.k === 'part' && msOfFile(t.file) ? manuscriptTarget(msOfFile(t.file)!.name, msOfFile(t.file)!.key || undefined) : null)
+                ?? (route.page === 'flow' && flowSel ? flowTarget(flowSel.id, flowSel.title) : null)
               const row = t?.k === 'block' || t?.k === 'pdf' ? notes.find((n) => n.type === 'block' && n.id === t.bid) : t?.k === 'part' ? notes.find((n) => n.type !== 'block' && n.file === t.file) : undefined
               // 개념노트 탭이면 그 노트의 메모·연결 (2026-10-04 15:18 피드백: 오른쪽 사이드바에서)
               const cmd = t?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md' ? t.id : undefined
@@ -516,7 +520,7 @@ export function App() {
 }
 
 const PAGE_LABEL: Partial<Record<Route['page'], string>> = {
-  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('고침 검토', 'Edit review'), flow: t('흐름', 'Flow'),
+  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('고침 검토', 'Edit review'), flow: t('흐름', 'Flow'),
   ...Object.fromEntries(GLOBAL_PAGES.map((g) => [g.page, g.name])),
 }
 
@@ -532,6 +536,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
   switch (tab.k) {
     case 'overview': return L('첫 화면', 'Start')
     case 'todo': return L('작업', 'Work')
+    case 'records': return L('기록', 'Records')
     case 'info': return L('프로젝트 정보', 'Project info')
     case 'log': return L('작업', 'Work')
     case 'map': return L('지도', 'Map')

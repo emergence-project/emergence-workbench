@@ -36,6 +36,8 @@ export const Icon = {
   split: <svg viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="1.6" /><rect x="13" y="5" width="8" height="14" rx="1.6" /></svg>,
   /** 메모: 접힌 귀퉁이 종이 (연필은 고치기만) */
   memo: <svg viewBox="0 0 24 24"><path d="M5 4.5h14v9.5l-5.5 5.5H5z" /><path d="M13.5 19.5V14H19M8.5 9h7M8.5 12h4" /></svg>,
+  /** 가리키기: 과녁 (기록이 화면 어디에 대한 것인지 고른다, 10/15). 핀은 피드백만 */
+  point: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2.2" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" /></svg>,
   /** 피드백: 위치 핀 + 글줄 ("이 자리에 남긴 말"). 말풍선은 코멘트만 */
   feedback: <svg viewBox="0 0 24 24"><path d="M12 21s-6.5-5.4-6.5-11a6.5 6.5 0 0 1 13 0c0 5.6-6.5 11-6.5 11z" /><path d="M9.5 8.6h5M9.5 11.6h3.2" /></svg>,
   /** 더 보기 메뉴 ⋯ */

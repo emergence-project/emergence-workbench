@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { commentsApi, ConflictError, type CommentEntry, type CommentFile, type NoteHighlight, type RecordFile } from './api'
 import { askClaude, bumpPending, keyOf, load, patch, revealComment, usePendingTick, useSlot, type CommentTarget } from './Comments'
 import { clearRecordComposerRequest, useRecordComposerRequest } from './RecordContext'
@@ -6,11 +6,12 @@ import { PaintDots } from './RecordMenus'
 import { Icon } from './icons'
 import { onListKey } from './listInput'
 import { go } from './router'
+import { openFlowDot } from './FlowView'
 import { useHighlightColor } from './ui'
 import { classifiedRecordCount, filterForActiveRecord, recordRoute, type RecordFilter } from './recordsPanelHelpers'
 import { flash } from './flash'
 import { RecordList } from './RecordList'
-import { chooseWorkFilter } from './workRecords'
+import { chooseRecordFilter } from './workRecords'
 
 const FILTERS: RecordFilter[] = ['전체', '메모', '할 일', '질문']
 const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문으로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, and questions')
@@ -21,6 +22,8 @@ const labelOf = (k: string) => LABEL[k] ?? k
 const classifying = new Set<string>()
 import { RECORD_KINDS, recordDrafts, attachRecordDraft, type ComposerDraft } from './recordDrafts'
 import { t } from './i18n'
+import { uiShown } from './uiNames'
+import { RecordPointer, type PointedPart } from './RecordPointer'
 
 export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
   rid: string; target: CommentTarget; version: number; firstPartOf(target: string): string | undefined
@@ -52,7 +55,8 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
   const open = (file: RecordFile, c?: CommentEntry) => {
     if (project && !(c?.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
-      if (route) go(route)
+      if (file.target.startsWith('flow-') && file.source) openFlowDot(rid, { id: file.source })
+      else if (route) go(route)
     }
     if (c && !c.lost) revealComment(rid, file.target, c.id)
   }
@@ -72,9 +76,9 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
   return <section className="records-panel" data-ui="적기">
     <div className="records-filters" role="group" aria-label={t('기록 필터', 'Record filter')}>
       {FILTERS.map((f) => <button key={f} className={`memo-chip${filter === f ? ' on' : ''}`} aria-pressed={filter === f} onClick={() => setFilter(f)}>{labelOf(f)}</button>)}
-      {/* 프로젝트의 기록을 모두 모은 작업 탭으로 (10/14 13:33 제안). 전체면 메모를 연다 */}
-      <button className="a records-all" data-ui="모두 보기" data-tip={t('작업 탭에서 이 프로젝트의 기록 모두 보기', 'See all records of this project in the Work tab')}
-        onClick={() => { chooseWorkFilter(filter === '전체' ? '메모' : filter); go({ page: 'log', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>
+      {/* 프로젝트의 기록을 모두 모은 기록 탭으로 (10/14 13:33 제안). 전체면 메모를 연다 */}
+      <button className="a records-all" data-ui="모두 보기" data-tip={t('기록 탭에서 이 프로젝트의 기록 모두 보기', 'See all records of this project in the Records tab')}
+        onClick={() => { chooseRecordFilter(filter === '전체' ? '메모' : filter); go({ page: 'records', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>
     </div>
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">
       <button className="a" data-ui="자동 분류 버튼" data-tip={CLASSIFY_TIP} title={CLASSIFY_TIP} disabled={classifying_} onClick={() => void classify()}>{classifying_ ? t('분류하는 중…', 'Sorting…') : t(`자동 분류 ${unsorted.length}개`, `Auto-sort ${unsorted.length}`)}</button>
@@ -143,13 +147,28 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
     finally { recordDrafts.finish(key, ticket, defaultColor, error); requestAnimationFrame(() => area.current?.focus()) }
   }
   const a = draft.attachment
+  const [pointing, setPointing] = useState(false)
+  const pick = useCallback((p: PointedPart) => {
+    setPointing(false)
+    const current = recordDrafts.read(key, defaultColor).draft
+    recordDrafts.write(key, { ...current, attachment: { ...current.attachment, ...p } })
+    requestAnimationFrame(() => area.current?.focus())
+  }, [key, defaultColor])
+  const cancelPointing = useCallback(() => setPointing(false), [])
+  const where = target.target === 'project' ? t('이 프로젝트', 'This project') : target.title
   return <div className="record-composer" data-ui="적기 칸">
-    <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>{RECORD_KINDS.map((k) => <button key={k} className={draft.kind === k ? 'on' : ''} aria-pressed={draft.kind === k} disabled={busy} onClick={() => setDraft({ ...draft, kind: k })}>{labelOf(k)}</button>)}</div>
+    <div className="record-composer-top">
+      <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>{RECORD_KINDS.map((k) => <button key={k} className={draft.kind === k ? 'on' : ''} aria-pressed={draft.kind === k} disabled={busy} onClick={() => setDraft({ ...draft, kind: k })}>{labelOf(k)}</button>)}</div>
+      <button className={`icon-btn tip-end${pointing ? ' on' : ''}`} data-ui="가리키기" data-tip={t('가리키기: 이 기록이 화면 어디에 대한 것인지 고릅니다', 'Point: choose the part of the screen this record is about')} aria-label={t('가리키기', 'Point')} aria-pressed={pointing} disabled={busy} onClick={() => setPointing((v) => !v)}>{Icon.point}</button>
+    </div>
+    <div className="record-where" data-ui="남길 곳" title={target.source}>{t('남길 곳', 'Saved to')} <b>{where}</b></div>
+    {pointing && <RecordPointer onPick={pick} onCancel={cancelPointing} />}
+    {a.part && <div className="record-attached"><span title={a.part}>{t('가리킨 곳', 'Pointed at')} · {uiShown(a.part)}{a.partText && ` “${a.partText}”`}</span><button className="icon-btn" aria-label={t('가리킨 곳 빼기', 'Remove pointed part')} title={t('빼기', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: { ...a, part: undefined, partText: undefined } })}>×</button></div>}
     {a.quote && <>
       <div className="record-paint"><span>{t('고른 글 색', 'Selection color')}</span><PaintDots color={draft.color} disabled={busy} onChange={(color) => setDraft({ ...draft, color })} /></div>
       <div className="record-attached"><span title={a.quote}>{t('고른 글', 'Selection')}{a.line ? t(` · ${a.line}줄`, ` · line ${a.line}`) : a.page ? t(` · ${a.page}쪽`, ` · p. ${a.page}`) : ''} “{a.quote}”</span><button className="icon-btn" aria-label={t('고른 글 빼기', 'Remove selection')} title={t('빼기', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: {} })}>×</button></div>
     </>}
-    <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('궁금한 것이나 고칠 것을 적으면 Claude에게 보냅니다. 고친 글은 "노트에 적용"으로 넣습니다.', 'Write a question or something to fix and it goes to Claude. Put the revised text in with "Apply to note".') : t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.')) : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
+    <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('궁금한 것이나 고칠 것을 적으면 Claude에게 보냅니다. 고친 글은 "노트에 적용"으로 넣습니다.', 'Write a question or something to fix and it goes to Claude. Put the revised text in with "Apply to note".') : t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.')) : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : target.target.startsWith('topic-') ? t('이 주제에 남길 기록', 'A record for this topic') : target.target.startsWith('flow-') ? t('이 흐름 점에 남길 기록', 'A record for this flow dot') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
       onChange={(e) => setDraft({ ...draft, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void save() } else onListKey(e, (text) => setDraft({ ...draft, text })) }} />
     {error && <div className="banner danger" role="alert">{error}</div>}
     <div className="record-composer-actions"><span>⌘↵ {t('저장', 'Save')}</span><button className="btn primary sm" disabled={busy || !draft.text.trim()} onClick={() => void save()}>{busy ? t('저장 중…', 'Saving…') : t('저장', 'Save')}</button></div>

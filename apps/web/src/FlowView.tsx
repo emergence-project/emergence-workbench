@@ -14,6 +14,7 @@ import { StatusDot } from './StatusDot'
 import { routeOfNote } from './RightSidebar'
 import { go } from './router'
 import { store } from './store'
+import { setFlowSelection } from './flowSelection'
 import { Dialog } from './dialogs'
 import { NoteMarkdown } from './NoteMarkdown'
 import { useFigureList, useFigureUrl } from './figureEmbed'
@@ -95,7 +96,7 @@ type TopicRef = { id: string; title: string }
 
 /** 다른 화면(노트의 오른쪽 사이드바)에서 점을 열 때: 흐름 화면에서 고르고 보이게 한다 */
 let revealNext: string | null = null
-export function openFlowDot(rid: string, n: FlowNode) {
+export function openFlowDot(rid: string, n: Pick<FlowNode, 'id'>) {
   store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: n.id })
   revealNext = n.id
   go({ page: 'flow', rid })
@@ -229,6 +230,9 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
     y1 === y2 || x1 === x2 ? `M${x1} ${y1}L${x2} ${y2}` : `M${x1} ${y1}C${x1 + CW * 0.6} ${y1} ${xm - CW * 0.6} ${y2} ${xm} ${y2}L${x2} ${y2}`
 
   const s = sel ? byId.get(sel) : undefined
+  // 고른 점을 오른쪽 사이드바 기록에 알린다: 거기서 적는 기록이 이 점에 붙는다.
+  useEffect(() => { setFlowSelection(s ? { rid, id: s.id, title: s.title } : null) }, [rid, s?.id, s?.title]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => setFlowSelection(null), [])
   return (
     <section className="fl" data-ui="흐름">
       <div className="fl-bar">

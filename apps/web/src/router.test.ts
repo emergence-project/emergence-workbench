@@ -32,6 +32,7 @@ const ROUTES: Route[] = [
   { page: 'overview', rid: 'alpha', anchor: 'sec 2' },
   { page: 'map', rid: 'alpha' },
   { page: 'todo', rid: 'alpha' },
+  { page: 'records', rid: 'alpha' },
   { page: 'info', rid: 'alpha' },
   { page: 'notes', rid: 'alpha' },
   { page: 'concepts', rid: 'alpha' },

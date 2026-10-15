@@ -40,6 +40,9 @@ const entry = {
   /** 고침 검토의 바뀐 곳에서 물은 것 (10/14): 질문 = 답만, 수정 = 그 문단을 다시 고쳐 달라는 것. editBase = 고치기 전 글의 앞부분 (다시 고친 뒤에도 같은 바뀐 곳을 찾는다) */
   edit: z.enum(['질문', '수정']).optional(),
   editBase: z.string().optional(),
+  /** 가리킨 화면 부위(피드백 모드와 같은 이름, 바깥부터 › 로 잇는다)와 그 부위의 글자 (10/15) */
+  part: z.string().optional(),
+  partText: z.string().optional(),
   body: z.string(),
   state: CommentState.nullable(),
   answers: z.array(CommentAnswer),
@@ -95,6 +98,8 @@ export const NewCommentBody = z.object({
   suffix: z.string().optional(),
   edit: z.enum(['질문', '수정']).optional(),
   editBase: z.string().optional(),
+  part: z.string().optional(),
+  partText: z.string().optional(),
   text: z.string(),
 })
 export const ClassifyBody = z.object({ baseHash })

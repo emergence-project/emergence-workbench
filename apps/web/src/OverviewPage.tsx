@@ -190,7 +190,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
                 {/* 모든 프로젝트가 같은 세 묶음, 같은 줄 모양: 제목 한 줄 + 설명 한 줄, 묶음마다 셋까지 (10/7 15:31·17:02) */}
                 <NowGroup title={t('할 일', 'To-do')} count={todos.length} empty={t('남은 할 일이 없습니다.', 'No to-dos left.')} ui="첫 화면 할 일" onMore={() => go({ page: 'todo', rid })}>
                   {todos.map(({ entry, due, text }) => {
-                    const goTodo = () => { focusTodo(todoKey(entry)); go({ page: 'todo', rid }) }
+                    const goTodo = () => { focusTodo(todoKey(entry)); go({ page: 'records', rid }) }
                     return (
                       <NowRow key={`${entry.date}-${entry.index}`} ui="할 일 항목" item={text} mark={<span className="now-mark" aria-hidden>·</span>}
                         title={<MemoText text={nowTitle(text)} />} full={text} onOpen={goTodo}

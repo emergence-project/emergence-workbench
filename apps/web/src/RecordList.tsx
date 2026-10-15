@@ -9,6 +9,8 @@ import { onListKey } from './listInput'
 import { go } from './router'
 import { filterRecords, recordDate, recordKind, rebaseRecordEdit, type RecordFilter, type RecordEdit } from './recordsPanelHelpers'
 import { t } from './i18n'
+import { uiShown } from './uiNames'
+import { chooseRecordFilter } from './workRecords'
 
 /** 기록 종류·상태는 파일에 적는 값이라 한국어 그대로 두고, 보일 때만 바꾼다 */
 const KIND_EN: Record<string, string> = { '전체': 'All', '메모': 'Memo', '할 일': 'To-do', '질문': 'Question', '하이라이트': 'Highlight', '코멘트': 'Comment' }
@@ -101,6 +103,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       </div>
     </div>
     <div className="record-content">
+      {c.part && <div className="record-part" title={c.part}>{Icon.point}<span>{uiShown(c.part)}{c.partText && ` “${c.partText}”`}</span></div>}
       {c.quote && <blockquote className="record-quote" style={c.color ? { borderColor: `var(--paint-${c.color})` } : undefined}>{c.quote}</blockquote>}
       {edit ? <div className="record-edit">
         {conflict && <div className="record-conflict" role="alert"><p>{t('다른 곳에서 글을 고쳤습니다. 새 글을 확인한 뒤 적던 글로 저장할 수 있습니다.', 'The text was edited elsewhere. Review the new text, then you can save yours.')}</p><MemoText text={c.body} /><button className="btn sm" disabled={busy} onClick={() => setEdit({ ...edit, original: c.body, hash })}>{t('새 글 확인함', 'Reviewed new text')}</button></div>}
@@ -109,7 +112,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         <div className="record-edit-actions"><button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
       <div className="record-meta"><span>{kindText(kind)}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
-        {kind === '할 일' && <button className="a" onClick={() => go({ page: 'todo', rid })}>→ {t('작업 목록', 'To-do list')}</button>}
+        {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>→ {t('할 일 목록', 'To-do list')}</button>}
         {kind === '질문' && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{(work || c.state) && <span>· {work ? stateText(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateText(c.state!)}</span>}</>}
       </div>
       {work ? latestAnswer && <details className="record-latest-answer"><summary>{t('최근 답 보기', 'Show latest answer')}</summary><RecordAnswer answer={latestAnswer} busy={busy} onApply={applicable(c.answers.length - 1)} /></details>

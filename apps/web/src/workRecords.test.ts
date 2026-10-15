@@ -9,9 +9,12 @@ const memo = (date: string, time: string, index: number, rest: Partial<JournalEn
 const label = (item: WorkRecordItem) => item.kind === 'record' ? item.entry.id : item.entry.text
 
 describe('work filters', () => {
-  it('restores each supported browser value and falls back to todos for old or invalid values', () => {
-    expect(['판단', '맡긴 일', '할 일', '메모', '질문'].map(parseWorkFilter)).toEqual(['판단', '맡긴 일', '할 일', '메모', '질문'])
-    for (const value of [null, '', '전체', 'memo', ' 메모', '"질문"']) expect(parseWorkFilter(value)).toBe('판단')
+  it('restores each tab\'s own values and falls back to that tab\'s first filter', () => {
+    expect(['판단', '맡긴 일'].map((v) => parseWorkFilter(v, 'work'))).toEqual(['판단', '맡긴 일'])
+    expect(['메모', '할 일', '질문'].map((v) => parseWorkFilter(v, 'records'))).toEqual(['메모', '할 일', '질문'])
+    // 기록 필터는 이제 작업 탭에 없고, 작업 필터는 기록 탭에 없다 (10/15).
+    for (const value of [null, '', '전체', 'memo', ' 메모', '"질문"', '할 일']) expect(parseWorkFilter(value, 'work')).toBe('판단')
+    for (const value of [null, '', '전체', '판단', '맡긴 일']) expect(parseWorkFilter(value, 'records')).toBe('메모')
   })
 })
 
