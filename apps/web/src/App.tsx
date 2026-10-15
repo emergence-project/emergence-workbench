@@ -14,11 +14,9 @@ import { initials, projectColor, setProjectColors } from './format'
 import { Icon } from './icons'
 import { HomePage } from './HomePage'
 import { WorkPage } from './LogPage'
-import { TaskReport } from './TaskReport'
 import { taskTitles } from './taskView'
 import { ManuscriptPdfTab, PartTab } from './Manuscript'
-import { MapPage } from './MapPage'
-import { AgentEditsPage } from './AgentEditsPage'
+import { AgentEditsPage, Lazy, MapPage, prefetchLazyPages, TaskReport } from './lazyPages'
 import { NotesPage } from './NotesPage'
 import { NOTE_KIND_LABEL } from './NewNote'
 import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
@@ -136,6 +134,8 @@ export function App() {
   const [sandbox, setSandbox] = useState(false)
   const loadResearches = useCallback(() => api.researches().then((r) => { setResearches(r.researches); setSandbox(r.sandbox); return r.researches }), [])
   useEffect(() => { loadResearches().catch((e: Error) => setError(e.message)) }, [loadResearches])
+  // 따로 받는 화면은 첫 화면이 뜬 뒤 한가할 때 미리 받아 둔다 (lazyPages.tsx)
+  useEffect(() => { prefetchLazyPages() }, [])
 
   // 지금 프로젝트의 것만 넣는다: 프로젝트를 옮긴 뒤 늦게 온 앞 프로젝트의 요약이 새 화면에 들어가지 않게
   const currentRapi = useRef(rapi)
@@ -366,10 +366,10 @@ export function App() {
       case 'todo': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />
       case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} section="records" />
       case 'log': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
-      case 'map': return <MapPage key={rid} rid={rid} summary={summary} />
+      case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} /></Lazy>
       case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} version={version} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
-      case 'edits': return <AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} />
-      case 'task': return <TaskReport key={`${rid}/${t.task}`} rid={rid} id={t.task} version={version} project={current?.title ?? summary.research.title} topics={topics} onSaved={flash} tocOwner={context?.focused ? tabKey(t) : null} />
+      case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
+      case 'task': return <Lazy><TaskReport key={`${rid}/${t.task}`} rid={rid} id={t.task} version={version} project={current?.title ?? summary.research.title} topics={topics} onSaved={flash} tocOwner={context?.focused ? tabKey(t) : null} /></Lazy>
       case 'topic': return <TopicPage key={t.tid} rid={rid} rapi={rapi} tid={t.tid} notes={notes} manuscripts={manuscripts} blocks={summary.blocks} project={current?.title ?? summary.research.title} pc={projectColor(rid)}
         version={version} onChanged={() => { changed(); notesChanged() }} onSaved={flash} />
       case 'notes': case 'concepts': case 'papers': return <NotesPage key={t.k} show={t.k} rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} library={library} onChanged={changed} onLibraryChanged={libraryChanged} onNewBlock={() => setDialog('new-block')} onSaved={flash} />
