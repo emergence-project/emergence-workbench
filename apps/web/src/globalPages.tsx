@@ -2,7 +2,7 @@ import type { UiSettings } from '@rw/core'
 import type { ReactNode } from 'react'
 import { AboutPage, aboutRailRoute, AboutRailCount, AboutSidebar } from './AboutPage'
 import type { LibraryInfo } from './api'
-import { AgentEditsPage } from './AgentEditsPage'
+import { AgentEditsPage, Lazy } from './lazyPages'
 import { AppUpdateRailCount } from './AppUpdate'
 import { KnowledgeList } from './KnowledgeList'
 import { ConceptSide } from './ConceptNotes'
@@ -95,7 +95,7 @@ export const GLOBAL_PAGES: {
     badge: (version) => <FeedbackRailCount version={version} /> },
   // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)
   { page: 'review', label: '고침 검토', name: t('고침 검토', 'Edit review'), aria: t('개념노트 고침 검토', 'Review concept note edits'), tip: t('개념노트 고침 검토', 'Review concept note edits'), icon: Icon.review, rail: 'none',
-    render: (p) => <AgentEditsPage selected={p.route.page === 'review' ? p.route.key : undefined} version={p.version} onSaved={p.onSaved} /> },
+    render: (p) => <Lazy><AgentEditsPage selected={p.route.page === 'review' ? p.route.key : undefined} version={p.version} onSaved={p.onSaved} /></Lazy> },
   { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },
