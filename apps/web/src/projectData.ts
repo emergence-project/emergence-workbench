@@ -33,12 +33,6 @@ export function useProjectData(rapi: ResearchApi | null, version: number, rid: s
     if (!rapi) return setTopics([])
     return fill(() => rapi.topics(), setTopics, [])
   }, [rapi, version])
-  // 사이드바 "할 일"의 수
-  const [todoCount, setTodoCount] = useState<number | null>(null)
-  useEffect(() => {
-    if (!rapi) return setTodoCount(null)
-    return fill(() => rapi.journal(365).then((r) => r.entries.filter((e) => e.kind === 'todo' && !e.done).length), setTodoCount, null)
-  }, [rapi, version])
   // 노트 한 목록 (연구노트·계산 노트·보조 노트, 10/5): 왼쪽 사이드바 나무 · 위치 표시 · 오른쪽 사이드바 정보
   const [notes, setNotes] = useState<NoteRow[]>([])
   /** notes가 어느 프로젝트의 목록인지 (프로젝트를 바꾼 직후에는 앞 프로젝트의 것이 남아 있다) */
@@ -49,5 +43,5 @@ export function useProjectData(rapi: ResearchApi | null, version: number, rid: s
     if (!rid) return setNotes([])
     return fill(() => notesApi(rid).list(), (rows: NoteRow[]) => { setNotes(rows); setNotesOf(rid) }, [])
   }, [rid, version, noteTick])
-  return { library, libraryChanged, manuscripts, topics, todoCount, notes, notesOf, notesChanged }
+  return { library, libraryChanged, manuscripts, topics, notes, notesOf, notesChanged }
 }

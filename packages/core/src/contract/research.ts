@@ -200,6 +200,8 @@ export const ResearchSummary = z.object({
   tree: BlockTree,
   /** 진술 (저장소의 statements/). 없으면 빈 목록 */
   statements: z.array(Statement),
+  /** 일지의 끝내지 않은 할 일 수 (사이드바 기록 옆 수, 10/15: 전에는 화면이 일지 365일을 통째로 받아 셌다) */
+  openTodos: z.number(),
 }).strict()
 
 // ---------- 저장소와 GitHub (routes/sync.ts) ----------

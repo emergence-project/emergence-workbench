@@ -162,7 +162,9 @@ export function App() {
     window.clearTimeout(homeTimer.current)
     homeTimer.current = window.setTimeout(() => setVersion((v) => v + 1), 400)
   }, [])
-  const { library, libraryChanged, manuscripts, topics, todoCount, notes, notesOf, notesChanged } = useProjectData(rapi, version, rid)
+  const { library, libraryChanged, manuscripts, topics, notes, notesOf, notesChanged } = useProjectData(rapi, version, rid)
+  // 사이드바 "기록" 옆 남은 할 일 수: 요약에 실려 온다 (10/15, 전에는 일지 365일을 따로 받았다)
+  const todoCount = summary?.openTodos ?? null
   // 주제를 바꿔 옮겨 간 노트(10/13 주제 폴더)를 옛 경로로 연 탭·주소는 지금 경로로 바꾼다
   const routeFile = route.page === 'part' && route.rid === rid ? route.file : null
   useEffect(() => {
