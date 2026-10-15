@@ -47,6 +47,7 @@
   --kc-card-gap: 14px;
   --landing-work-min-width: 260px;
   --landing-work-width: 300px;
+  --landing-work-min-height: 184px;
   /* 프로젝트 고치기 창: 홈 카드와 입력 칸을 나란히 놓을 폭 */
   --project-dialog-width: 760px;
   --project-preview-width: 280px;
