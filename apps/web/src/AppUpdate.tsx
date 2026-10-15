@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { req } from './api'
+import { req, type AppStatus } from './api'
 import { anyPending } from './autosave'
 import { go } from './router'
 import { plural, t } from './i18n'
@@ -8,14 +8,6 @@ import { plural, t } from './i18n'
 const STATE_TEXT: Record<string, string> = { 반영: t('반영', 'Applied'), 답변: t('답변', 'Answered'), 보류: t('보류', 'On hold'), 승인: t('승인', 'Approved'), 거절: t('거절', 'Declined'), '확인 필요': t('질의', 'Asked'), 동의: t('동의', 'Agreed'), 나중에: t('추후', 'Later') }
 const stateText = (s: string) => STATE_TEXT[s] ?? s
 
-interface AppStatus {
-  running: string; head: string; branch: string | null; upstream: string | null
-  behind: number; blocked: string | null; fetchError?: string; incoming: string[]
-  /** 이번 업데이트로 처리 기록이 생기거나 바뀐 피드백 */
-  resolved?: { key: string; state: string; text: string; note?: string }[]
-  /** 받은 새 버전을 빌드해 두어 다시 시작만 하면 되는지 (서버의 자동 업데이트) */
-  prepared?: boolean
-}
 
 type Phase = 'idle' | 'checking' | 'updating' | 'restarting'
 interface State {

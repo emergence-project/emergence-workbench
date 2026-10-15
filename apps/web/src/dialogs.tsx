@@ -125,10 +125,7 @@ export function StatusDialog({ block, to, onClose, onSubmit }: {
 }
 
 export interface Defs { commands: string[]; environments: string[] }
-export interface Inspection {
-  path: string; isGitRepo: boolean; hasWorkbench: boolean; suggestedTitle: string
-  repoPreambles: string[]; repoPreambleDetails: Record<string, Defs>; warnings: string[]; errors: string[]
-}
+export type { Inspection } from './api'
 export interface LibraryPreamble extends Defs { name: string; file: string; title: string; description: string; place: 'first' | 'last'; status?: string }
 
 type PickRow =

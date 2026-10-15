@@ -1,6 +1,7 @@
 // 화면 설정과 앱 업데이트 (설정 화면)
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/settings'
+import * as A from '@rw/core/contract/app'
 import { parseBody, replies } from '../contract.js'
 import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
@@ -13,17 +14,17 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   app.put('/api/settings', replies(C.SettingsView), async (req): Promise<C.SettingsView> => ({ ui: registry.setUi(parseBody(C.SettingsBody, req.body).ui) }))
 
 
-  app.get<{ Querystring: { fetch?: string } }>('/api/app/status', async (req) => {
+  app.get<{ Querystring: { fetch?: string } }>('/api/app/status', replies(A.AppStatusReply), async (req): Promise<A.AppStatusReply> => {
     if (!opts.appRepo) return { enabled: false }
     return { enabled: true, status: await appStatus(opts.appRepo.root, opts.appRepo.running, { fetch: req.query.fetch === '1' }) }
   })
-  app.get<{ Querystring: { pr?: string } }>('/api/app/info', async (req) => {
+  app.get<{ Querystring: { pr?: string } }>('/api/app/info', replies(A.AppInfoReply), async (req): Promise<A.AppInfoReply> => {
     if (!opts.appRepo) return { enabled: false }
     const pr = Number(req.query.pr)
     return { enabled: true, info: await appInfo(opts.appRepo.root, opts.appRepo.running, 20, Number.isInteger(pr) && pr > 0 ? pr : undefined) }
   })
   let updating: Promise<unknown> | null = null
-  app.post('/api/app/update', async () => {
+  app.post('/api/app/update', replies(A.AppUpdateResult), async (): Promise<A.AppUpdateResult> => {
     const repo = opts.appRepo
     if (!repo) throw new WorkbenchError(404, t('이 모드에서는 앱을 업데이트하지 않습니다', 'The app does not update in this mode'))
     if (updating) throw new WorkbenchError(409, t('이미 업데이트 중입니다', 'Already updating'))
@@ -68,7 +69,7 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     if (!status.prepared) return { restarting: false, reason: t('다시 시작할 새 버전이 없습니다', 'No new version to restart into') }
     return { restarting: repo.steps.restart() }
   }
-  app.post('/api/app/restart', async () => {
+  app.post('/api/app/restart', replies(A.AppRestarted), async (): Promise<A.AppRestarted> => {
     const r = await restartIfReady()
     if (!r.restarting) throw new WorkbenchError(409, r.reason ?? t('다시 시작하지 못했습니다', 'Could not restart'))
     return { restarting: true }

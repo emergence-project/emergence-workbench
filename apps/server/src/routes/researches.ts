@@ -1,6 +1,6 @@
 // 연구 목록·등록·개괄
 import type { FastifyInstance } from 'fastify'
-import { GitHubRepoList, PickFolderBody, PickedFolder } from '@rw/core/contract/register'
+import { CloneBody, Cloned, GitHubRepoList, GitHubRepoParsed, GitHubUrlBody, InspectBody, Inspection, PickFolderBody, PickedFolder, RegisterBody } from '@rw/core/contract/register'
 import * as C from '@rw/core/contract/research'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
@@ -72,18 +72,18 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
   })
 
   /** GitHub 주소로 등록할 때: 주소를 읽고 받을 곳의 기본값을 알려 준다 */
-  app.post<{ Body: { url?: unknown } }>('/api/researches/github', async (req) => {
-    const repo = typeof req.body?.url === 'string' ? parseGitHubRepo(req.body.url) : null
+  app.post('/api/researches/github', replies(GitHubRepoParsed), async (req): Promise<GitHubRepoParsed> => {
+    const repo = parseGitHubRepo(parseBody(GitHubUrlBody, req.body).url)
     if (!repo) throw new WorkbenchError(400, t('GitHub 저장소 주소가 아닙니다 (예: https://github.com/이름/저장소)', 'Not a GitHub repository address (for example https://github.com/name/repo)'))
     return { ...repo, parent: defaultCloneDir(registry.list().map((r) => r.path)) }
   })
 
   /** GitHub 저장소를 parent 폴더 아래로 받는다. 등록은 받은 뒤 평소처럼 경로로 한다 */
-  app.post<{ Body: { url?: unknown; parent?: unknown } }>('/api/researches/clone', async (req) => {
-    const repo = typeof req.body?.url === 'string' ? parseGitHubRepo(req.body.url) : null
+  app.post('/api/researches/clone', replies(Cloned), async (req): Promise<Cloned> => {
+    const b = parseBody(CloneBody, req.body)
+    const repo = parseGitHubRepo(b.url)
     if (!repo) throw new WorkbenchError(400, t('GitHub 저장소 주소가 아닙니다 (예: https://github.com/이름/저장소)', 'Not a GitHub repository address (for example https://github.com/name/repo)'))
-    if (typeof req.body?.parent !== 'string') throw new WorkbenchError(400, t('parent가 필요함', 'parent is required'))
-    return { path: await cloneInto(repo.url, req.body.parent, repo.name) }
+    return { path: await cloneInto(repo.url, b.parent, repo.name) }
   })
 
   /** 등록 창의 "Finder에서 고르기": 맥의 폴더 고르기 창 (10/15 피드백) */
@@ -92,14 +92,11 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     return { path: await chooseFolder(t('연구 저장소 폴더를 고르세요', 'Choose a project repository folder'), b.start) }
   })
 
-  app.post<{ Body: { path: string } }>('/api/researches/inspect', async (req) => {
-    if (typeof req.body?.path !== 'string') throw new WorkbenchError(400, t('path가 필요함', 'path is required'))
-    return registry.inspect(req.body.path)
-  })
+  app.post('/api/researches/inspect', replies(Inspection), async (req): Promise<Inspection> => registry.inspect(parseBody(InspectBody, req.body).path))
 
-  app.post<{ Body: { path: string; createWorkbench?: boolean; title?: string; question?: string; kind?: unknown; fields?: unknown; tags?: string[]; libraryPreambles?: string[]; repoPreambles?: string[] } }>('/api/researches', replies(C.ResearchListItem), async (req): Promise<C.ResearchListItem> => {
-    if (typeof req.body?.path !== 'string') throw new WorkbenchError(400, t('path가 필요함', 'path is required'))
-    const item = registry.register(req.body.path, req.body)
+  app.post('/api/researches', replies(C.ResearchListItem), async (req): Promise<C.ResearchListItem> => {
+    const b = parseBody(RegisterBody, req.body)
+    const item = registry.register(b.path, b)
     ensureWatch(item.id)
     return item
   })

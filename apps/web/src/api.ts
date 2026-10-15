@@ -29,6 +29,7 @@ export * from './api/figures'
 export * from './api/tasks'
 export * from './api/flow'
 export * from './api/agentEdits'
+export * from './api/app'
 
 export const api = {
   ...researchListCalls,
