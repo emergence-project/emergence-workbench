@@ -31,6 +31,7 @@
 .fl-name { font-size: var(--fs-xs); fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
 .fl-name.strong { font-weight: var(--fw-strong); }
 .fl-start { fill: var(--text); }
+.fl-start-line { fill: none; stroke: var(--line-strong); stroke-width: 1.6; }
 
 .fl-end { stroke: var(--s-solved); stroke-width: 2.5; }
 .fl-ref { fill: var(--bg); stroke: var(--s-stopped); stroke-width: 1.3; }
