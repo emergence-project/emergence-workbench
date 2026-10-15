@@ -3,7 +3,7 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { readSubjects, validateSubjects } from './subjects.js'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
-import { WorkbenchError } from './workbench.js'
+import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 import { frontMatter } from '@rw/core'
 
@@ -150,7 +150,7 @@ export function writeConceptBody(lib: string | undefined, id: string, body: stri
   const file = noteFile(lib, id)
   if (!fs.existsSync(file)) throw new WorkbenchError(404, t(`개념노트가 없음: ${id}`, `No such concept note: ${id}`))
   const raw = fs.readFileSync(file, 'utf8')
-  if (hashOf(raw) !== baseHash) throw new WorkbenchError(409, t('다른 곳에서 파일이 바뀌어 저장하지 않았음. 다시 읽어 주세요', 'Not saved: the file was changed elsewhere. Read it again'))
+  if (hashOf(raw) !== baseHash) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 저장하지 않았음. 다시 읽어 주세요', 'Not saved: the file was changed elsewhere. Read it again'), hashOf(raw))
   const { fm, body: old } = splitFrontmatter(raw)
   if (metaOf(fm, id).locked) throw new WorkbenchError(423, t('잠긴 노트는 고치지 않음. 잠금을 먼저 풀어 주세요', 'Locked notes are not changed. Unlock it first'))
   if (body === old) return parse(id, raw)
@@ -168,7 +168,7 @@ function patchFrontmatter(lib: string | undefined, id: string, baseHash: string,
   const file = noteFile(lib, id)
   if (!fs.existsSync(file)) throw new WorkbenchError(404, t(`개념노트가 없음: ${id}`, `No such concept note: ${id}`))
   const raw = fs.readFileSync(file, 'utf8')
-  if (hashOf(raw) !== baseHash) throw new WorkbenchError(409, t('다른 곳에서 파일이 바뀌어 고치지 않았음. 다시 읽어 주세요', 'Not changed: the file was changed elsewhere. Read it again'))
+  if (hashOf(raw) !== baseHash) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 고치지 않았음. 다시 읽어 주세요', 'Not changed: the file was changed elsewhere. Read it again'), hashOf(raw))
   const { fmText, body } = splitFrontmatter(raw)
   const doc = YAML.parseDocument(fmText ?? '')
   if (doc.errors.length) throw new WorkbenchError(422, t('머리말을 읽지 못해 고치지 않았습니다', 'Not changed: could not read the front matter'))
@@ -264,7 +264,7 @@ export function readConceptMemo(lib: string | undefined, id: string): ConceptMem
 /** 메모를 통째로 쓴다. baseHash가 지금 메모와 다르면 쓰지 않는다 (바깥 수정을 덮지 않게) */
 export function writeConceptMemo(lib: string | undefined, id: string, text: string, baseHash: string): ConceptMemo {
   const now = readConceptMemo(lib, id)
-  if (now.hash !== baseHash) throw new WorkbenchError(409, t('다른 곳에서 메모가 바뀌어 고치지 않았음. 다시 읽어 주세요', 'Not changed: the memo was changed elsewhere. Read it again'))
+  if (now.hash !== baseHash) throw new ConflictError(t('다른 곳에서 메모가 바뀌어 고치지 않았음. 다시 읽어 주세요', 'Not changed: the memo was changed elsewhere. Read it again'), now.hash)
   const file = memoFile(lib, id)
   const next = text.trim() ? text.replace(/\s*$/, '\n') : ''
   if (next) writeAtomic(file, next)

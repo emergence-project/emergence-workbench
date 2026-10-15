@@ -60,7 +60,9 @@ export function classify(root: string, file: string): Target | null {
   // 주제 폴더(10/13): topic.yaml은 주제 목록이 바뀐 것(research.yaml과 같은 알림), 그 안의 노트 폴더는 노트
   if (rel.length === 3 && a === 'topics' && rel[2] === 'topic.yaml') return { type: 'research' }
   if (a === 'topics' && rel.length >= 4 && /\.(md|tex|ya?ml)$/.test(rel[rel.length - 1]!)) return { type: 'note', file: ['workbench', ...rel].join('/') }
-  if (rel.length === 1 && a === 'preamble.tex') return { type: 'preamble' }
+  if (rel.length === 1 && (a === 'preamble.tex' || a === 'macros.tex')) return { type: 'preamble' }
+  // 그림(figures/)·받아 둔 PDF(materials/)는 노트 화면·자료 목록이 다시 읽도록 sources 알림으로 (10/15)
+  if ((a === 'figures' || a === 'materials') && rel.length >= 2) return { type: 'sources' }
   if ((a === 'notes' || a === 'calc') && rel.length >= 2 && /\.(md|tex|ya?ml)$/.test(rel[rel.length - 1]!)) {
     return { type: 'note', file: ['workbench', ...rel].join('/') }
   }

@@ -174,10 +174,18 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
       const src = wb.readResearch().sources
       const repo = wb.repo
       const paths = [src.tasks, ...src.bib, ...src.reviews].filter((x): x is string => !!x).map((x) => path.join(repo, x))
-      if (!paths.length) return
-      const w = chokidar.watch(paths, { ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 } })
+      // 저장소 원고(research.yaml에 적은 것)와 정본 문서는 workbench/ 밖에 있어 따로 본다 (10/15): 밖에서 고치면 원고 화면이 다시 읽는다
+      const docs = [...src.manuscripts.filter((m) => m.declared).map((m) => m.path), ...src.canon.map((c) => c.path)]
+        .filter((x) => !x.startsWith('workbench/') && !x.startsWith('..')).map((x) => path.join(repo, x))
+      if (!paths.length && !docs.length) return
+      const w = chokidar.watch([...paths, ...docs], { ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 } })
       // 작업 탭·개괄이 다시 읽도록 화면에도 알린다 (broadcast가 캐시도 비운다)
-      w.on('all', () => { broadcast({ type: 'sources', research: rid }); scheduleStatus(rid) })
+      w.on('all', (_ev, file) => {
+        const doc = docs.find((d) => file === d || file.startsWith(d + path.sep))
+        if (doc) broadcast({ type: 'note', research: rid, file: path.relative(repo, file).split(path.sep).join('/'), hash: null })
+        else broadcast({ type: 'sources', research: rid })
+        scheduleStatus(rid)
+      })
       sourceWatchers.set(rid, w)
     } catch { /* 없는 연구 */ }
   }

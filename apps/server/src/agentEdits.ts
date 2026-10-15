@@ -12,7 +12,7 @@ import { readConceptMd, writeConceptBody } from './conceptNotes.js'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { t } from './i18n.js'
 import { listNotes } from './noteList.js'
-import { WorkbenchError, type Workbench } from './workbench.js'
+import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { canonicalNoteFile, frontMatterLines, noteRecordTarget, sameNoteFile } from '@rw/core'
 
 // 응답 모양은 API 계약(@rw/core/contract/agentEdits)에 있다
@@ -338,13 +338,14 @@ export function writeTarget(io: TargetIo, t0: EditTarget, text: string, baseHash
   if (t0.kind === 'concept') return writeConceptBody(io.lib, t0.id, text, baseHash).hash
   const row = noteRow(io, t0)
   const wb = io.wbOf(t0.rid)
-  const conflict = () => new WorkbenchError(409, t('다른 곳에서 파일이 바뀌어 쓰지 않았음. 다시 읽어 주세요', 'Not written: the file was changed elsewhere. Read it again'))
+  const conflict = (current: string) => new ConflictError(t('다른 곳에서 파일이 바뀌어 쓰지 않았음. 다시 읽어 주세요', 'Not written: the file was changed elsewhere. Read it again'), current)
   if (row.type === 'block') {
     const r = wb.writeBlock(row.id, text, baseHash)
-    if (!r.ok) throw conflict()
+    if (!r.ok) throw conflict(r.currentHash)
     return r.hash
   }
-  if (readNoteFile(wb, row.file).hash !== baseHash) throw conflict()
+  const current = readNoteFile(wb, row.file).hash
+  if (current !== baseHash) throw conflict(current)
   writeAtomic(noteAbs(wb, row.file), text)
   return hashOf(text)
 }
@@ -384,7 +385,7 @@ export const agentsOf = (p: PendingEdit): string[] => p.agents ?? (p.agent ? [p.
 export function agentWrite(io: TargetIo, store: AgentEditStore, req: WriteRequest): WriteResult {
   const key = targetKey(req.target)
   const st = readTarget(io, req.target)
-  if (st.hash !== req.baseHash) throw new WorkbenchError(409, t('다른 곳에서 파일이 바뀌어 쓰지 않았음. 다시 읽어 주세요', 'Not written: the file was changed elsewhere. Read it again'))
+  if (st.hash !== req.baseHash) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 쓰지 않았음. 다시 읽어 주세요', 'Not written: the file was changed elsewhere. Read it again'), st.hash)
   if (!Array.isArray(req.edits) || !req.edits.length) throw new WorkbenchError(400, t('edits가 필요함', 'edits are required'))
   const next = applyEdits(st.text, req.edits)
   const now = new Date().toISOString()
@@ -520,7 +521,7 @@ export function decide(io: TargetIo, store: AgentEditStore, req: DecideRequest):
   const found = store.pending(req.key)
   if (!found) throw new WorkbenchError(404, t('검토할 고침이 없음', 'Nothing to review'))
   const st = readTarget(io, found.target)
-  if (st.hash !== req.hash) throw new WorkbenchError(409, t('그사이 노트가 바뀌었습니다. 다시 열어 주세요', 'The note changed in the meantime. Open it again'))
+  if (st.hash !== req.hash) throw new ConflictError(t('그사이 노트가 바뀌었습니다. 다시 열어 주세요', 'The note changed in the meantime. Open it again'), st.hash)
   const p = syncPending(store, req.key, st.text)!
   const base = splitBlocks(p.base), cur = splitBlocks(st.text)
   const h = diffBlocks(base, cur).find((x) => x.id === req.hunk)
