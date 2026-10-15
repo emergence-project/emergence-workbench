@@ -57,4 +57,5 @@ export const notesInPeriod = (notes: NoteRow[], period: NotePeriod, now = new Da
 export const sortRecent = (list: NoteRow[], sort: RecentSort) => sortNotes(list, sort === 'name' ? 'name' : 'recent')
 
 /** 폭 W인 카드 격자(카드 폭 card, 사이 gap)에 한 줄에 들어가는 카드 수 (적어도 1) */
-export const gridColumns = (W: number, card = 184, gap = 14) => Math.max(1, Math.floor((W + gap) / (card + gap)))
+// 0.5px 여유: 칸 폭에 맞춰 줄어든 카드(첫 화면 4장 고정)는 소수점 폭이라 딱 맞아도 넘친 것으로 셀 수 있다
+export const gridColumns = (W: number, card = 184, gap = 14) => Math.max(1, Math.floor((W + gap + 0.5) / (card + gap)))
