@@ -239,7 +239,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
   const edits = z.array(z.object({
     old: z.string().min(1).describe('Exact text to replace; must occur exactly once in the current text'),
     new: z.string().describe('Replacement text'),
-    reason: z.string().optional().describe('One line: why this change (shown under the changed paragraph in the review, so the user rarely needs to ask)'),
+    reason: z.string().trim().min(1).describe('One line: why this change (shown under the changed paragraph in the review, so the user rarely needs to ask)'),
   })).min(1).describe('Replacements applied in order')
   const approved = z.boolean().optional().describe('Only for a note the user has reviewed: true after the user agreed in the conversation')
   const summary = z.string().optional().describe('One line saying what you changed and why (shown to the user with the review)')
