@@ -39,6 +39,9 @@ export interface CommentTarget {
 }
 export const paperTarget = (name: string): CommentTarget => ({ target: `paper-${slug(name.replace(/\.pdf$/i, ''))}`, title: `자료 ${name}`, source: name })
 /** 원고 PDF. 메인 노트가 여럿이면 둘째부터 `manuscript-<key>` */
+/** 주제와 흐름 점에 붙는 기록 (10/15 09:51 피드백: 기록이 무엇에 대한 것인지 남게) */
+export const topicTarget = (tid: string, title: string): CommentTarget => ({ target: `topic-${slug(tid)}`, title: `주제 ${title}`, source: tid })
+export const flowTarget = (id: string, title: string): CommentTarget => ({ target: `flow-${slug(id)}`, title: `흐름 점 ${title}`, source: id })
 export const manuscriptTarget = (name?: string, ms?: string): CommentTarget => ({ target: ms ? `manuscript-${slug(ms)}` : 'manuscript', title: `원고 PDF${name ? ` ${name}` : ''}` })
 export const blockTarget = (bid: string, title?: string): CommentTarget => ({ target: `block-${slug(bid)}`, title: `노트 결과 ${title ?? bid}`, source: bid })
 /** Markdown 연구·계산 노트 (같은 폴더 이름이어도 기록 대상은 나눈다). 주제 폴더 안 노트는 notes/의 노트와 같은 대상 (주제를 바꿔 옮겨도 코멘트가 따라간다) */
@@ -56,6 +59,7 @@ export function targetOfTab(t: Tab | undefined, titleOf: (t: Tab) => string): Co
   if (t.k === 'pdf' || t.k === 'block') return blockTarget(t.bid, titleOf({ k: 'block', bid: t.bid }))
   if (t.k === 'part') return noteTarget(t.file, titleOf(t))
   if (t.k === 'statement') return { target: `statement-${slug(t.sid)}`, title: `진술 ${titleOf(t)}`, source: t.sid }
+  if (t.k === 'topic') return topicTarget(t.tid, titleOf(t))
   return null
 }
 

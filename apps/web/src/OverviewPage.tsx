@@ -220,7 +220,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
       key: 'todo', title: t('할 일', 'To-do'), count: todos.length, ui: '첫 화면 할 일', onMore: () => go({ page: 'todo', rid }),
       // 할 일은 보기만 한다. 적기·끝내기는 할 일 화면에서 (피드백 10/3 14:48·14:49)
       rows: todos.map(({ entry, due, text }) => {
-        const goTodo = () => { focusTodo(todoKey(entry)); go({ page: 'todo', rid }) }
+        const goTodo = () => { focusTodo(todoKey(entry)); go({ page: 'records', rid }) }
         return (
           <NowRow key={`${entry.date}-${entry.index}`} ui="할 일 항목" item={text} mark={<span className="now-mark" aria-hidden>·</span>}
             title={<MemoText text={nowTitle(text)} />} full={text} onOpen={goTodo}

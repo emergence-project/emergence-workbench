@@ -23,6 +23,8 @@ export function recordRoute(rid: string, file: Pick<RecordFile, 'target' | 'sour
   if (file.target.startsWith('block-')) return { page: 'block', rid, bid: file.source ?? file.target.slice(6) }
   if (file.target.startsWith('statement-')) return { page: 'statement', rid, sid: file.source ?? file.target.slice(10) }
   if (file.target.startsWith('paper-')) return file.source ? { page: 'doc', rid, name: file.source } : null
+  if (file.target.startsWith('topic-')) return { page: 'topic', rid, tid: file.source ?? file.target.slice(6) }
+  if (file.target.startsWith('flow-')) return { page: 'flow', rid }
   const part = firstPartOf(file.target)
   return part ? { page: 'part', rid, file: part } : null
 }

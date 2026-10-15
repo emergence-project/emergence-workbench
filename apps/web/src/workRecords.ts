@@ -3,9 +3,12 @@ import type { CommentEntry, RecordFile } from './api/comments'
 import { recordKind } from './recordsPanelHelpers'
 import { t } from './i18n'
 
-/** 작업 탭의 필터 (10/7 작업 탭: 판단 · 맡긴 일을 앞에 더함). 처음 열면 판단 */
+/** 작업 탭과 기록 탭의 필터 (10/7 작업 탭: 판단 · 맡긴 일을 앞에 더함) */
 export const WORK_FILTERS = ['판단', '맡긴 일', '할 일', '메모', '질문'] as const
 export type WorkFilter = typeof WORK_FILTERS[number]
+/** 작업 탭은 판단 · 맡긴 일, 기록 탭은 메모 · 할 일 · 질문 (10/15 사용자 결정: 기록을 따로 된 탭으로) */
+export type WorkSection = 'work' | 'records'
+export const SECTION_FILTERS: Record<WorkSection, readonly WorkFilter[]> = { work: ['판단', '맡긴 일'], records: ['메모', '할 일', '질문'] }
 /** 필터의 화면 이름 (값은 한국어 그대로 저장한다) */
 export const WORK_FILTER_LABEL: Record<WorkFilter, string> = {
   판단: t('판단', 'To decide'), '맡긴 일': t('맡긴 일', 'Delegated'), '할 일': t('할 일', 'To-do'), 메모: t('메모', 'Memo'), 질문: t('질문', 'Question'),
@@ -13,12 +16,12 @@ export const WORK_FILTER_LABEL: Record<WorkFilter, string> = {
 /** 아래 입력란으로 적는 기록의 필터 */
 export type RecordFilter = Exclude<WorkFilter, '판단' | '맡긴 일'>
 export const isRecordFilter = (f: WorkFilter): f is RecordFilter => f === '할 일' || f === '메모' || f === '질문'
-export const WORK_FILTER_KEY = 'rw-work-filter'
+export const WORK_FILTER_KEY: Record<WorkSection, string> = { work: 'rw-work-filter', records: 'rw-records-filter' }
 
-/** 작업 탭을 그 필터로 연다 (10/14 13:33 제안: 오른쪽 사이드바 기록의 "모두 보기"). 이미 열린 작업 탭도 바뀐다 */
-export const WORK_FILTER_EVENT = 'rw-work-filter'
-export function chooseWorkFilter(f: WorkFilter) {
-  try { localStorage.setItem(WORK_FILTER_KEY, f) } catch { /* 저장할 수 없어도 열린 작업 탭은 바뀐다. */ }
+/** 기록 탭을 그 필터로 연다 (10/14 13:33 제안: 오른쪽 사이드바 기록의 "모두 보기"). 이미 열린 기록 탭도 바뀐다 */
+export const WORK_FILTER_EVENT = 'rw-records-filter'
+export function chooseRecordFilter(f: RecordFilter) {
+  try { localStorage.setItem(WORK_FILTER_KEY.records, f) } catch { /* 저장할 수 없어도 열린 기록 탭은 바뀐다. */ }
   window.dispatchEvent(new CustomEvent(WORK_FILTER_EVENT, { detail: f }))
 }
 
@@ -28,15 +31,17 @@ let pendingTodo: string | null = null
 export const todoKey = (entry: { date: string; index: number }) => `${entry.date}-${entry.index}`
 export function focusTodo(key: string) {
   pendingTodo = key
-  try { localStorage.setItem(WORK_FILTER_KEY, '할 일') } catch { /* 저장할 수 없어도 이번 열기에는 보인다. */ }
+  try { localStorage.setItem(WORK_FILTER_KEY.records, '할 일') } catch { /* 저장할 수 없어도 이번 열기에는 보인다. */ }
   window.dispatchEvent(new Event(TODO_FOCUS_EVENT))
 }
 /** 읽기만 한다 (렌더 중에 불려도 같은 값). 항목을 보인 뒤 clearTodoFocus로 지운다. */
 export const peekTodoFocus = (): string | null => pendingTodo
 export function clearTodoFocus(key: string) { if (pendingTodo === key) pendingTodo = null }
 
-export function parseWorkFilter(value: string | null): WorkFilter {
-  return WORK_FILTERS.find((filter) => filter === value) ?? '판단'
+/** 그 탭의 필터가 아니면 그 탭의 첫 필터 (작업은 판단, 기록은 메모) */
+export function parseWorkFilter(value: string | null, section: WorkSection = 'work'): WorkFilter {
+  const filters = SECTION_FILTERS[section]
+  return filters.find((filter) => filter === value) ?? filters[0]!
 }
 
 export type WorkRecordItem =

@@ -10,7 +10,8 @@ import { t } from './i18n.js'
 
 /** 일지의 대상은 기록 파일 이름 대신 실제 노트 경로 또는 블록 노트 id다. */
 export function todoJournalTarget(target: string, source?: string): string {
-  if (target === 'project') return RESEARCH_TARGET
+  // 주제와 흐름 점의 할 일은 프로젝트 일지에 둔다 (일지는 노트·프로젝트 단위)
+  if (target === 'project' || /^(topic|flow)-/.test(target)) return RESEARCH_TARGET
   if (/^(note|calc)-/.test(target)) {
     if (!source) throw new WorkbenchError(400, t('할 일을 붙일 노트 경로가 필요함', 'The note path for the to-do is required'))
     return source

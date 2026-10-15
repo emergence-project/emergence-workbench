@@ -157,6 +157,8 @@ export function parseComments(target: string, text: string): CommentFile {
           if (typeof m.journalIndex === 'number' && Number.isInteger(m.journalIndex) && m.journalIndex >= 0) cur.journalIndex = m.journalIndex
           if (m.edit === '질문' || m.edit === '수정') cur.edit = m.edit
           if (typeof m.editBase === 'string') cur.editBase = m.editBase
+          if (typeof m.part === 'string' && m.part) cur.part = m.part
+          if (typeof m.partText === 'string' && m.partText) cur.partText = m.partText
         } catch { /* 깨진 숨은 줄은 무시 */ }
         continue
       }
@@ -271,7 +273,7 @@ const guarded = (l: string) => /^#{1,6} /.test(l) || STATE_RE.test(l) || META_RE
 export const unguardBody = (s: string) => s.split('\n').map((l) => (l.startsWith('\\') && guarded(l.slice(1)) ? l.slice(1) : l)).join('\n')
 
 function todoMeta(root: string, target: string, source: string | undefined, now: Date, offset = 0): Record<string, unknown> {
-  if (target !== 'project' && !/^(note|calc|block)-/.test(target)) throw new WorkbenchError(400, t('할 일은 프로젝트나 노트에 적습니다', 'To-dos go on a project or a note'))
+  if (target !== 'project' && !/^(note|calc|block|topic|flow)-/.test(target)) throw new WorkbenchError(400, t('할 일은 프로젝트 · 노트 · 주제 · 흐름 점에 적습니다', 'To-dos go on a project, note, topic or flow dot'))
   todoJournalTarget(target, source)
   return { journal: `${localDate(now)} ${localTime(now)}`, journalIndex: new Workbench(root).readJournal(localDate(now)).length + offset }
 }
@@ -304,6 +306,9 @@ function prepareComment(root: string, target: string, input: NewComment, now: Da
     ...(typeof input.suffix === 'string' && { suffix: options.storedAnchors ? input.suffix : input.suffix.replace(/\r\n?/g, '\n').slice(0, 32) }),
     ...(quote.includes('\n') && { quoteMultiline: true }),
     ...(input.kind === '자동' && { unsorted: true }),
+    // 가리킨 화면 부위와 그 글자 (10/15 피드백: 피드백 모드처럼 기록이 화면 어디에 대한 것인지 남긴다)
+    ...(typeof input.part === 'string' && input.part.trim() && { part: oneLine(input.part).slice(0, 300) }),
+    ...(typeof input.partText === 'string' && input.partText.trim() && { partText: oneLine(input.partText).slice(0, 200) }),
     ...((input.edit === '질문' || input.edit === '수정') && kind === '질문' && { edit: input.edit, ...(typeof input.editBase === 'string' && input.editBase && { editBase: input.editBase.slice(0, 200) }) }),
   }
   if (kind === '할 일') {
@@ -442,7 +447,7 @@ export async function classifyComments(root: string, target: string, baseHash: s
           const prepared = prepareComment(root, target, {
             kind: item.kind, text: item.text, title: current.title, source,
             quote: entry.quote, color: entry.color, line: entry.line, prefix: entry.prefix, suffix: entry.suffix,
-            page: entry.page, rects: entry.rects,
+            page: entry.page, rects: entry.rects, part: entry.part, partText: entry.partText,
           }, now, text, { journalOffset: todos.length, storedAnchors: true })
           out = (text + (text.endsWith('\n') ? '' : '\n') + prepared.chunk).split('\n')
           if (prepared.kind === '할 일') todos.push({ id: prepared.id, body: prepared.body, quote: prepared.quote })

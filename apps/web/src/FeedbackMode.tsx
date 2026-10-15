@@ -33,7 +33,7 @@ export function uiPath(el: Element | null): string {
 }
 
 /** 가리킨 부위의 글자. 요소 사이 글자가 붙지 않게(<b>다음</b>Prop → 다음 Prop) 글자 조각마다 띄운다 */
-function snippetOf(el: Element): string {
+export function snippetOf(el: Element): string {
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return clip(el.value.trim(), 80)
   const parts: string[] = []
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)

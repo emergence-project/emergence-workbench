@@ -63,3 +63,15 @@ input.record-marker { accent-color: var(--text); }
 .record-fix-after { color: var(--text); }
 .record-fix-after::before { content: '바꾼 글\A'; color: var(--text-3); }
 .record-fixes > .btn { justify-self: start; }
+/* 적기 칸 아랫줄 왼쪽: 가리키기와 남길 곳 (10/15) */
+.record-composer-actions .icon-btn.on { color: var(--primary); }
+.record-composer-actions > .record-where { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.record-composer-actions > .sp { flex: 1; }
+.record-where b { color: var(--text-2); font-weight: var(--fw-strong); }
+/* 기록 줄의 가리킨 곳 */
+.record-part { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; font-size: var(--fs-xs); color: var(--text-3); }
+.record-part svg { width: 12px; height: 12px; flex: none; }
+.record-part span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* 가리키는 동안의 손가락 */
+body.record-pointing, body.record-pointing * { cursor: crosshair !important; }
+body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] * { cursor: auto !important; }

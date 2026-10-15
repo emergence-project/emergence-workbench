@@ -9,8 +9,9 @@ import { askClaude, bumpPending, load, revealComment, usePendingTick } from './C
 import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
+import { openFlowDot } from './FlowView'
 import { needsJudgment } from './taskView'
-import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, TODO_FOCUS_EVENT, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTERS, workRecordGroups, type WorkFilter } from './workRecords'
+import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, SECTION_FILTERS, TODO_FOCUS_EVENT, WORK_FILTER_EVENT, WORK_FILTER_KEY, workRecordGroups, type WorkFilter, type WorkSection } from './workRecords'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
 import { useJournal } from './useJournal'
 import { JudgeList, TaskDialog, TaskList, TaskWeek, useTasks, type TaskDraft } from './WorkTasks'
@@ -30,38 +31,42 @@ export function useTitles(summary: ResearchSummary) {
 }
 
 /**
- * 작업: 위에 브리핑과 한 주 달력, 필터로 판단 · 맡긴 일 · 할 일 · 메모 · 질문을 골라 보고 적고, 아래 작업 일지는 날짜별로 유지한다.
+ * 작업(section work): 위에 한 주 달력, 필터로 판단 · 맡긴 일을 보고, 아래 작업 일지는 날짜별로 유지한다.
  * 판단 · 맡긴 일은 에이전트에게 맡긴 일(10/7 작업 탭, WorkTasks.tsx)이다.
+ * 기록(section records): 프로젝트의 메모 · 할 일 · 질문을 대상별로 모아 보고 적는다 (10/15 사용자 결정: 작업 탭에서 따로 뗌).
  */
-export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, firstPartOf, onOpenPdf }: {
+export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, firstPartOf, onOpenPdf, section = 'work' }: {
   rid: string; rapi: ResearchApi; summary: ResearchSummary; version: number; topics: Topic[]; onSaved(message: string, action?: FlashAction): void; focus?: 'log'
-  firstPartOf(target: string): string | undefined; onOpenPdf(file: RecordFile): boolean
+  firstPartOf(target: string): string | undefined; onOpenPdf(file: RecordFile): boolean; section?: WorkSection
 }) {
   const { entries, loaded: journalLoaded, reload, toggle } = useJournal(rapi, version)
   const edit = useJournalEdit(rapi, reload, onSaved)
   const titleOf = useTitles(summary)
   const open = oldestFirst(entries.filter((e) => e.kind === 'todo' && !e.done))
   const past = entries.filter((e) => !(e.kind === 'todo' && !e.done))
+  const records_ = section === 'records'
   const [filter, setFilter] = useState<WorkFilter>(() => {
-    try { return parseWorkFilter(localStorage.getItem(WORK_FILTER_KEY)) } catch { return '판단' }
+    try { return parseWorkFilter(localStorage.getItem(WORK_FILTER_KEY[section]), section) } catch { return SECTION_FILTERS[section][0]! }
   })
   const chooseFilter = (next: WorkFilter) => {
     setFilter(next)
-    try { localStorage.setItem(WORK_FILTER_KEY, next) } catch { /* 저장할 수 없어도 거르기는 쓴다. */ }
+    try { localStorage.setItem(WORK_FILTER_KEY[section], next) } catch { /* 저장할 수 없어도 거르기는 쓴다. */ }
   }
   // 오른쪽 사이드바 기록의 "모두 보기"가 고른 필터
   useEffect(() => {
-    const take = (e: Event) => setFilter(parseWorkFilter((e as CustomEvent<string>).detail))
+    if (!records_) return
+    const take = (e: Event) => setFilter(parseWorkFilter((e as CustomEvent<string>).detail, 'records'))
     window.addEventListener(WORK_FILTER_EVENT, take)
     return () => window.removeEventListener(WORK_FILTER_EVENT, take)
-  }, [])
+  }, [records_])
   // 첫 화면 작업 패널에서 누른 할 일: 할 일 필터로 바꾸고 그 항목으로 스크롤해 잠깐 표시한다.
-  const [focusTodo, setFocusTodo] = useState<string | null>(() => peekTodoFocus())
+  const [focusTodo, setFocusTodo] = useState<string | null>(() => section === 'records' ? peekTodoFocus() : null)
   useEffect(() => {
+    if (!records_) return
     const take = () => { const key = peekTodoFocus(); if (key) { setFilter('할 일'); setFocusTodo(key) } }
     window.addEventListener(TODO_FOCUS_EVENT, take)
     return () => window.removeEventListener(TODO_FOCUS_EVENT, take)
-  }, [])
+  }, [records_])
   useEffect(() => {
     if (!focusTodo || filter !== '할 일') return
     const item = document.querySelector<HTMLElement>(`[data-ui="할 일"] [data-todo-key="${CSS.escape(focusTodo)}"]`)
@@ -94,7 +99,8 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
   const openRecord = (file: RecordFile, entry: CommentEntry) => {
     if (!(entry.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
-      if (route) go(route)
+      if (file.target.startsWith('flow-') && file.source) openFlowDot(rid, { id: file.source })
+      else if (route) go(route)
     }
     if (!entry.lost) revealComment(rid, file.target, entry.id)
   }
@@ -117,19 +123,19 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     scrolled.current = true
   }, [rid, focus, journalLoaded, projectLoaded, tasksLoaded, filter, recordsLoaded])
   return (
-    <div className="ws-doc" data-ui="할 일">
+    <div className="ws-doc" data-ui={records_ ? '기록 화면' : '할 일'}>
       <section className="pane">
         <div className="pane-head" data-ui="머리줄">
-          <div className="segmented small" role="group" aria-label={t('작업 필터', 'Work filter')} data-ui="작업 거르기">
-            {WORK_FILTERS.map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => chooseFilter(f)}>{FILTER_LABEL[f]}
+          <div className="segmented small" role="group" aria-label={records_ ? t('기록 필터', 'Records filter') : t('작업 필터', 'Work filter')} data-ui={records_ ? '기록 거르기' : '작업 거르기'}>
+            {SECTION_FILTERS[section].map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => chooseFilter(f)}>{FILTER_LABEL[f]}
               {f === '판단' && judgeCount > 0 && <span className="tk-cnt turn">{judgeCount}</span>}</button>)}
           </div>
           <span className="crumb muted" title={filter === '할 일' ? t('남은 할 일', 'Open to-dos') : FILTER_LABEL[filter]}>{t(`${count}개`, String(count))}</span>
           <span className="sp" />
-          <button className="btn" data-ui="맡기기" title={t('에이전트에게 일을 맡깁니다: 작업 내용과 종결 조건을 적으면 작업 파일이 생깁니다', 'Delegate work to an agent: write the task and its completion criteria to create a task file')} onClick={() => setDialog({})}>＋ {t('맡기기', 'Delegate')}</button>
+          {!records_ && <button className="btn" data-ui="맡기기" title={t('에이전트에게 일을 맡깁니다: 작업 내용과 종결 조건을 적으면 작업 파일이 생깁니다', 'Delegate work to an agent: write the task and its completion criteria to create a task file')} onClick={() => setDialog({})}>＋ {t('맡기기', 'Delegate')}</button>}
         </div>
         <div className="memo-list work-page">
-          <TaskWeek rid={rid} tasks={tasks} entries={entries} />
+          {!records_ && <TaskWeek rid={rid} tasks={tasks} entries={entries} />}
           {filter === '판단' ? <JudgeList rid={rid} tasks={tasks} loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks}
             onEditProposal={(t) => setDialog({ mode: 'proposal', from: t, endCondition: t.proposal?.endCondition.length === 1 ? t.proposal.endCondition[0] : (t.proposal?.endCondition ?? []).map((c, i) => `${i + 1}) ${c}`).join('\n') })}>
             {reviews.length > 0 && <Reviews list={reviews} />}
@@ -159,11 +165,11 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
             }
             onSaved(t(`${kind} 저장됨`, `${FILTER_LABEL[kind]} saved`))
           }} />}
-          <section ref={logRef} className="work-log" data-ui="기록">
+          {!records_ && <section ref={logRef} className="work-log" data-ui="기록">
             <div className="work-h" title={t('끝낸 할 일, 상태 변화, 메모 · workbench/log/', 'Finished to-dos, status changes, memos · workbench/log/')}>{t('작업 일지', 'Work journal')}</div>
             <MemoList entries={past} rid={rid} titleOf={titleOf} onToggle={toggle} {...edit}
               empty={t('아직 기록이 없습니다. 할 일을 끝내거나 노트의 상태를 바꾸면 여기에 쌓입니다.', 'No records yet. Finishing a to-do or changing a note status adds one here.')} />
-          </section>
+          </section>}
         </div>
       </section>
       {dialog && <TaskDialog rid={rid} topics={topics} draft={dialog} onClose={() => setDialog(null)} onSaved={onSaved} reload={reloadTasks} />}

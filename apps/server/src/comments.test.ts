@@ -812,3 +812,26 @@ describe('기록 자동 분류 API', () => {
     expect(runner).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('주제 · 흐름 점 기록과 가리킨 곳 (10/15)', () => {
+  it('가리킨 부위와 글자를 숨은 줄에 적고 다시 읽는다', () => {
+    const { entry } = addComment(root, 'flow-eb-axioms', {
+      kind: '메모', title: '흐름 점 EB axioms', source: 'eb-axioms', text: '처음 시작은 complementary relation이다',
+      part: '작업 화면 › 왼쪽 칸 › 흐름 화면 › 흐름 › 흐름 점 자세히', partText: '§ EB axioms A0, A1\n Shi–Kato–Kim',
+    }, at)
+    expect(entry).toMatchObject({ part: '작업 화면 › 왼쪽 칸 › 흐름 화면 › 흐름 › 흐름 점 자세히', partText: '§ EB axioms A0, A1 Shi–Kato–Kim' })
+    expect(file('flow-eb-axioms')).toContain('"part":"작업 화면 › 왼쪽 칸 › 흐름 화면 › 흐름 › 흐름 점 자세히"')
+    expect(readComments(root, 'flow-eb-axioms').comments[0]).toMatchObject({ part: entry.part, partText: entry.partText })
+  })
+
+  it('주제와 흐름 점의 할 일은 프로젝트 일지에 이어진다', () => {
+    for (const target of ['topic-corner-entanglement', 'flow-eb-axioms']) {
+      const { entry } = addComment(root, target, { kind: '할 일', title: '대상', source: 'x', text: `${target} 확인` }, at)
+      expect(entry.state).toBe('대기')
+    }
+    const journal = new Workbench(root).readJournal('2026-10-01')
+    expect(journal.filter((e) => e.kind === 'todo').map((e) => [e.target, e.text])).toEqual([
+      [RESEARCH_TARGET, 'topic-corner-entanglement 확인'], [RESEARCH_TARGET, 'flow-eb-axioms 확인'],
+    ])
+  })
+})

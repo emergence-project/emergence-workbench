@@ -173,8 +173,8 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('read_records', {
     title: 'Read records',
-    description: 'Records left on a note or the project (memos, to-dos, questions with answers, highlights) and their hash. target: project, note-<folder>, calc-<folder>, block-<id> or manuscript.',
-    inputSchema: { project, target: z.string().describe('project | note-<folder> | calc-<folder> | block-<id> | manuscript') },
+    description: 'Records left on a note or the project (memos, to-dos, questions with answers, highlights) and their hash. target: project, note-<folder>, calc-<folder>, block-<id>, topic-<id>, flow-<id> or manuscript. part/partText = the screen part the user pointed at.',
+    inputSchema: { project, target: z.string().describe('project | note-<folder> | calc-<folder> | block-<id> | topic-<id> | flow-<id> | manuscript') },
     annotations: ro,
   }, async ({ project: rid, target }) => call(`/api/researches/${enc(rid)}/comments/${enc(target)}`))
 

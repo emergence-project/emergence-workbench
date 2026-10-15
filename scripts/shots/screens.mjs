@@ -22,6 +22,8 @@ export const DEFAULT_SCREENS = [
   ['notes', '#/r/{rid}/notes', '원고 목록'],
   // 작업 탭 (10/7 시안 v31): 처음은 판단 필터(브리핑 · 한 주 달력 · 판단 카드). 맡긴 일은 fixtures/sandbox-extra/workbench/tasks
   ['todo', '#/r/{rid}/todo', '판단 카드'],
+  // 기록 탭 (10/15): 메모 · 할 일 · 질문을 작업 탭에서 떼어 대상별로 모은다. 처음은 메모
+  ['records', '#/r/{rid}/records', '기록 화면'],
   ['info', '#/r/{rid}/info', '저장소 정보'],
   // 현황의 AGENTS.md 탭 (10/15): 저장소의 AGENTS.md와 STATUS.md의 규칙 절
   ['info-agents', '#/r/{rid}/info', '현황', '[data-ui="현황 탭"] button:text-matches("AGENTS")'],

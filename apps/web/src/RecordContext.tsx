@@ -6,6 +6,8 @@ import { openRight } from './noteScreen'
 export interface RecordDraft {
   quote?: string; line?: number; prefix?: string; suffix?: string; color?: PaintColor
   page?: number; rects?: number[][]; pageHeight?: number
+  /** 가리킨 화면 부위와 그 글자 (10/15, 피드백 모드와 같은 이름) */
+  part?: string; partText?: string
 }
 interface RecordDraftTarget { target: string; title: string; source?: string }
 export interface RecordComposerRequest {
