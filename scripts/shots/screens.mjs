@@ -39,6 +39,8 @@ export const DEFAULT_SCREENS = [
   // Markdown + KaTeX 연구노트·보조 노트 (10/4 결정): 읽기, 고치기
   ['research-note', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '노트 본문'],
   ['research-note-edit', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '개념노트 편집기', '고치기'],
+  // 노트 본문의 그림을 누르면 겹창으로 크게 (10/15 B′): 라이브러리 그림이면 "그림 화면에서 열기"
+  ['figure-zoom', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '그림 크게 보기', '[data-ui="노트 본문"] :is(figure.md-fig[data-fig-id] img, img.ob-fig[data-fig-id])'],
   ['aux-note', '#/r/{rid}/b/list-coloring', '노트 본문'],
   // 노트 화면 (10/5 시안): 오른쪽 사이드바 정보를 연 모습
   ['note-info', '#/r/{rid}/b/list-coloring', '노트 정보', '맥락 칸 켜고 끄기'],
@@ -82,6 +84,7 @@ export const DEFAULT_SCREENS = [
   // 그림 라이브러리 (4단계; 10/6 L2 첫 화면): 첫 화면, 목록의 카드(공용 · 프로젝트 전용, tikz 하나), 카드를 고른 모습(오른쪽 칸), 표
   ['figures', '#/figures', '통계 줄'],
   ['figures-cards', '#/figures/list', '그림 카드'],
+  // 카드를 누르면 그림 보기 (10/15 B′): 본문에 크게, 아래에 목록 한 줄, 오른쪽에 정보
   ['figures-picked', '#/figures/list', '그림 정보', '[data-ui="그림 카드"][data-ui-item="세 나라 지도"], [data-ui="그림 카드"][data-ui-item="Three-country map"]'],
   ['figures-list', '#/figures/list', '그림 줄', '[data-ui="보기 전환"] button:text-matches("^(표|Table)")'],
   // 프로젝트 사이드바 참고 자료 (5단계): 맨 위 "논문 N편"이 논문 라이브러리로, 라이브러리에 없는 PDF와 파일만 남는다

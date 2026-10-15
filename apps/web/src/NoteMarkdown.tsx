@@ -3,6 +3,7 @@ import type { RenderOptions } from './ObsidianMarkdown'
 import { renderNote } from './noteRender'
 import { loadPdfjs } from './pdfjs'
 import { useRecordPaint } from './recordPaint'
+import { useFigureZoom } from './figureZoom'
 
 /**
  * 연구노트·보조 노트 읽기 화면: 개념노트처럼 그리고, 식·그림·절·표 번호와 \\ref·\\eqref, 각주, 그림(PDF도)을 더한다.
@@ -12,6 +13,7 @@ export function NoteMarkdown({ text, options, asset }: { text: string; options: 
   const html = useMemo(() => renderNote(text, options, asset), [text, options, asset])
   const ref = useRef<HTMLDivElement>(null)
   const openMark = useRecordPaint(ref, html)
+  const zoom = useFigureZoom(ref, html)
   // 그림 PDF는 첫 쪽을 그린다
   useEffect(() => {
     let live = true
@@ -43,7 +45,12 @@ export function NoteMarkdown({ text, options, asset }: { text: string; options: 
     }
     return () => { live = false; for (const task of tasks) void task.destroy() }
   }, [html])
-  return <div className="ob-md" ref={ref} onClick={(event) => {
-    if (!openMark(event) && (event.target as Element).closest('.ob-cite')) event.preventDefault()
-  }} onKeyDown={(event) => { openMark(event) }} dangerouslySetInnerHTML={{ __html: html }} />
+  return <>
+    <div className="ob-md" ref={ref} onClick={(event) => {
+      if (openMark(event)) return
+      if ((event.target as Element).closest('.ob-cite')) event.preventDefault()
+      else zoom.onClick(event.target)
+    }} onKeyDown={(event) => { openMark(event) }} dangerouslySetInnerHTML={{ __html: html }} />
+    {zoom.gallery}
+  </>
 }

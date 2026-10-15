@@ -19,6 +19,7 @@ const ROUTES: Route[] = [
   { page: 'figures' },
   { page: 'figures', list: true },
   { page: 'figures', filter: 'project:alpha' },
+  { page: 'figures', open: 'geometric-additivity/gamc-fig3.pdf' },
   { page: 'library' },
   { page: 'library', list: true },
   { page: 'library', list: true, subjectPrefix: '수학 › A_% / B?', issue: 'todo', check: 'unchecked', showEmpty: true },
@@ -60,6 +61,7 @@ describe('router', () => {
 
   it('라이브러리 첫 화면·노트·지도와 목록을 구별한다', () => {
     for (const hash of ['#/library/list', '#/papers/list', '#/papers/waiting', '#/figures/list']) expect(isListRoute(parseRoute(hash))).toBe(true)
+    expect(isListRoute(parseRoute('#/figures/open/a%2Fb.pdf'))).toBe(false)
     for (const hash of ['#/library', '#/library/learn', '#/library/t/list', '#/library/map', '#/papers', '#/papers/open/list', '#/figures']) expect(isListRoute(parseRoute(hash))).toBe(false)
     expect(parseRoute('#/library/list?issue=unknown&check=unknown')).toEqual({ page: 'library', list: true })
   })

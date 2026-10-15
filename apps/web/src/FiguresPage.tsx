@@ -7,6 +7,7 @@ import { FigurePreview } from './FigurePreview'
 import { Icon } from './icons'
 import { routeOfNote } from './RightSidebar'
 import { go } from './router'
+import { figureListFilter, rememberFigureList, showFigure } from './figureView'
 import { store } from './store'
 import { lang, plural, t } from './i18n'
 
@@ -16,7 +17,8 @@ import { lang, plural, t } from './i18n'
  * - 10/6 L2: 첫 화면은 LibraryHome.tsx, 이 파일은 "목록". 표 | 카드(기본), 보기 단추는 머리줄 가운데, 정렬(이름 · 최근 더한 순)은 오른쪽.
  * - 왼쪽 사이드바: 맨 위 "그림 라이브러리"(첫 화면) · "목록 n", 찾기, 공용 · 쓰는 노트 없음, 프로젝트별.
  *   첫 화면 점검 · 통계에서 오는 거르기(원본 종류 · 그림으로 못 바꾼 tikz)는 사이드바에 줄을 두지 않고 머리줄에 이름을 보인다.
- * - 오른쪽 사이드바(그림을 고르면): 큰 미리보기 · 설명 · 노트에 넣는 글 ![[이름]] · 쓰는 노트 · 원본 고치기 · 파일 경로.
+ * - 카드·줄을 누르면 그림 보기(#/figures/open/<그림>, 10/15 피드백 "크게 보는 화면" B′): 본문에 크게, 아래에 보던 목록 한 줄, 오른쪽 사이드바에
+ *   설명 · 노트에 넣는 글 ![[이름]] · 쓰는 노트 · 원본 고치기 · 파일 경로. ← →로 앞뒤 그림, Esc로 목록.
  * - 더하기: 맨 앞 점선 카드(표는 맨 위 줄)에 tikz · svg · png · pdf 파일을 끌어다 놓는다.
  */
 
@@ -95,13 +97,11 @@ const VIEW_KEY = 'rw-figures-view'
 type Order = 'name' | 'recent'
 const ORDER_KEY = 'rw-figures-order'
 
-/** 첫 화면에서 목록으로: 고른 그림을 오른쪽 칸에 연 채로 (목록이 처음 그릴 때 한 번 가져간다) */
-let pendingPick: string | null = null
-export function showFigure(id: string) { pendingPick = id; go({ page: 'figures', list: true }) }
+export { figureListFilter, showFigure }
 /** 첫 화면 "최근 더한 그림" 제목: 목록을 최근 더한 순으로 */
 export function showRecentFigures() { store.set(ORDER_KEY, 'recent'); go({ page: 'figures', list: true }) }
 
-export function FiguresPage({ filter, onSaved }: { filter?: string; onSaved(m: string): void }) {
+export function FiguresPage({ filter: routeFilter, open, onSaved }: { filter?: string; open?: string; onSaved(m: string): void }) {
   const { tree } = useSubjects()
   const { data, error } = useFigureListState()
   const q = useQuery()
@@ -109,20 +109,26 @@ export function FiguresPage({ filter, onSaved }: { filter?: string; onSaved(m: s
   const setView = (v: View) => { setViewState(v); store.set(VIEW_KEY, v) }
   const [order, setOrderState] = useState<Order>(() => (store.get<string>(ORDER_KEY, 'name') === 'recent' ? 'recent' : 'name'))
   const setOrder = (o: Order) => { setOrderState(o); store.set(ORDER_KEY, o) }
-  const [picked, setPicked] = useState<string | null>(() => { const k = pendingPick; pendingPick = null; return k })
+  if (!open) rememberFigureList(routeFilter)
+  const filter = open ? figureListFilter() : routeFilter
   const rows = useMemo(() => {
     const r = (data?.figures ?? []).filter(filterTest(filter)).filter((f) => matchFigure(f, q))
     // 이름 순은 서버 순서 그대로 (공용 먼저, 그다음 프로젝트마다 이름 순)
     return order === 'recent' ? [...r].sort((a, b) => b.mtime - a.mtime || a.name.localeCompare(b.name)) : r
   }, [data, filter, q, order])
-  const fig = data?.figures.find((f) => f.id === picked)
   const filterLabel = filter?.startsWith('subject:') ? (tree?.items.find((s) => s.id === filter.slice(8))?.name ?? t('분류 없음', 'No subject')) : filter?.startsWith('project:') ? scopeTitle(data, filter.slice(8)) : FILTERS.find((f) => f.id === filter)?.label
   // 더할 곳: 프로젝트를 거르고 있으면 그 프로젝트, 아니면 공용
   const addScope = filter?.startsWith('project:') ? filter.slice(8) : LIBRARY_SCOPE
-  const pick = (id: string | null) => setPicked(id === picked ? null : id)
+  const pick = (id: string) => showFigure(id, true)
+
+  if (open) {
+    // 보던 목록에 없는 그림(찾기를 바꾼 뒤 등)이면 모든 그림을 줄에 둔다
+    const strip = rows.some((f) => f.id === open) ? rows : data?.figures ?? []
+    return <FigureView open={open} data={data} error={error} strip={strip} listLabel={filterLabel ?? t('모든 그림', 'All figures')} onSaved={onSaved} />
+  }
 
   return (
-    <main className={`stage full fg${fig ? ' with-side' : ''}`} data-ui="그림">
+    <main className="stage full fg" data-ui="그림">
       <section className="pane">
         {/* 세 구역: 왼쪽 무엇(거르기 · 수) · 가운데 보기 · 오른쪽 정렬 (디자인 시스템 6절) */}
         <div className="pane-head lib-head" data-ui="머리줄">
@@ -146,16 +152,16 @@ export function FiguresPage({ filter, onSaved }: { filter?: string; onSaved(m: s
           {data && (view === 'cards'
             ? (
               <div className="fg-cards">
-                <AddFigure look="card" scope={addScope} scopeLabel={scopeTitle(data, addScope)} onSaved={onSaved} onAdded={setPicked} />
-                {rows.map((f) => <FigureCard key={f.id} fig={f} scope={scopeTitle(data, f.scope)} on={picked === f.id} onClick={() => pick(f.id)} />)}
+                <AddFigure look="card" scope={addScope} scopeLabel={scopeTitle(data, addScope)} onSaved={onSaved} onAdded={pick} />
+                {rows.map((f) => <FigureCard key={f.id} fig={f} scope={scopeTitle(data, f.scope)} onClick={() => pick(f.id)} />)}
               </div>
             )
             : (
               <div className="fg-table" role="table" aria-label={t('그림 목록', 'Figure list')}>
                 <div className="fg-tr fg-th" role="row"><span>{t('이름', 'Name')}</span><span>{t('원본', 'Source')}</span><span>{t('어디', 'Where')}</span><span className="num">{t('쓰는 노트', 'Used in')}</span><span>{t('파일', 'File')}</span></div>
-                <AddFigure look="row" scope={addScope} scopeLabel={scopeTitle(data, addScope)} onSaved={onSaved} onAdded={setPicked} />
+                <AddFigure look="row" scope={addScope} scopeLabel={scopeTitle(data, addScope)} onSaved={onSaved} onAdded={pick} />
                 {rows.map((f) => (
-                  <div key={f.id} role="row" tabIndex={0} className={`fg-tr${picked === f.id ? ' on' : ''}`} data-ui="그림 줄" data-ui-item={f.name}
+                  <div key={f.id} role="row" tabIndex={0} className="fg-tr" data-ui="그림 줄" data-ui-item={f.name}
                     onClick={() => pick(f.id)} onKeyDown={(e) => { if (e.key === 'Enter') pick(f.id) }}>
                     <span title={f.name}>{f.name}</span><span>{f.kind}</span><span>{scopeTitle(data, f.scope)}</span><span className="num">{f.uses.length || ''}</span><span className="mono" title={f.path}>{f.file}</span>
                   </div>
@@ -164,7 +170,66 @@ export function FiguresPage({ filter, onSaved }: { filter?: string; onSaved(m: s
             ))}
         </div>
       </section>
-      {fig && data && <FigureSide fig={fig} data={data} onClose={() => setPicked(null)} onSaved={onSaved} />}
+    </main>
+  )
+}
+
+/**
+ * 그림 보기 (10/15 B′): 머리줄(보던 목록 › 이름 · 몇째 · 앞뒤), 본문에 크게, 아래에 보던 목록 한 줄, 오른쪽에 그림 정보.
+ * ← → 앞뒤 그림, Esc 목록으로 (입력란에 쓰는 중이면 그대로 둔다).
+ */
+function FigureView({ open, data, error, strip, listLabel, onSaved }: { open: string; data: FigureList | null; error: string | null; strip: FigureRow[]; listLabel: string; onSaved(m: string): void }) {
+  const fig = data?.figures.find((f) => f.id === open)
+  const at = strip.findIndex((f) => f.id === open)
+  const n = strip.length
+  const back = () => { const filter = figureListFilter(); go(filter ? { page: 'figures', filter } : { page: 'figures', list: true }) }
+  const step = (d: number) => { if (at >= 0 && n > 1) showFigure(strip[(at + d + n) % n]!.id, true) }
+  const keys = useRef({ step, back })
+  keys.current = { step, back }
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      if (e.metaKey || e.ctrlKey || e.altKey || el?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return
+      if (e.key === 'ArrowLeft') keys.current.step(-1)
+      else if (e.key === 'ArrowRight') keys.current.step(1)
+      else if (e.key === 'Escape') keys.current.back()
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [])
+  // 지금 그림을 목록 줄 안에 보이게
+  const stripRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { stripRef.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }, [open, n])
+  return (
+    <main className="stage full fg with-side fg-open" data-ui="그림 보기">
+      <section className="pane fg-view">
+        <div className="pane-head" data-ui="머리줄">
+          <span className="crumb"><button className="a" onClick={back}>{listLabel}</button> › <b title={fig?.name}>{fig?.name ?? ''}</b></span>
+          <span className="sp" />
+          {at >= 0 && n > 1 && <>
+            <span className="muted fg-count">{at + 1}/{n}</span>
+            <button className="icon-btn" data-ui="앞뒤 그림" data-ui-item="이전" data-tip={t('이전 그림 (←)', 'Previous figure (←)')} aria-label={t('이전 그림', 'Previous figure')} onClick={() => step(-1)}>{Icon.back}</button>
+            <button className="icon-btn" data-ui="앞뒤 그림" data-ui-item="다음" data-tip={t('다음 그림 (→)', 'Next figure (→)')} aria-label={t('다음 그림', 'Next figure')} onClick={() => step(1)}>{Icon.forward}</button>
+          </>}
+        </div>
+        <div className="fg-view-stage" data-ui="그림 크게">
+          {fig ? <FigurePreview key={fig.id} fig={fig} big className="fg-view-pv" />
+            : <p className="muted fg-empty">{!data ? (error ? `${t('그림 목록을 읽지 못했습니다', 'Could not read the figure list')}: ${error}` : t('불러오는 중…', 'Loading…')) : t('이 그림이 없습니다. 지웠거나 이름을 바꿨을 수 있습니다.', 'This figure is not here. It may have been deleted or renamed.')}</p>}
+        </div>
+        {n > 1 && (
+          <div ref={stripRef} className="fg-strip" data-ui="그림 보기 목록" role="list" aria-label={listLabel}>
+            {strip.map((f) => (
+              <button key={f.id} role="listitem" className={`fg-thumb${f.id === open ? ' on' : ''}`} aria-current={f.id === open ? 'true' : undefined} title={f.name} aria-label={f.name}
+                data-ui="그림 카드" data-ui-item={f.name} onClick={() => showFigure(f.id, true)}>
+                <FigurePreview fig={f} />
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+      {fig && data && <FigureSide fig={fig} data={data} onClose={back} onSaved={onSaved} />}
     </main>
   )
 }
@@ -223,7 +288,7 @@ export function AddFigure({ look, scope, scopeLabel, onSaved, onAdded, compact =
   )
 }
 
-/** 오른쪽 사이드바: 고른 그림 */
+/** 그림 보기의 오른쪽 사이드바: 고른 그림의 정보 (그림은 본문에 크게 있으니 여기서는 뺀다) */
 function FigureSide({ fig, data, onClose, onSaved }: { fig: FigureRow; data: FigureList; onClose(): void; onSaved(m: string): void }) {
   const { tree } = useSubjects()
   const [editing, setEditing] = useState(false)
@@ -244,7 +309,6 @@ function FigureSide({ fig, data, onClose, onSaved }: { fig: FigureRow; data: Fig
     <aside className="pane fg-rs" data-ui="그림 정보" aria-label={t('고른 그림', 'Selected figure')}>
       <div className="rs-head"><span className="rs-label">{t('그림', 'Figure')}</span><span className="sp" /><button className="icon-btn" aria-label={t('닫기', 'Close')} data-tip={t('닫기', 'Close')} onClick={onClose}>{Icon.x}</button></div>
       <div className="rs-scroll rs-pad fg-rs-body">
-        <FigurePreview fig={fig} big />
         {!editing ? (
           <div className="fg-rs-about">
             <div className="hover-actions"><button className="icon-btn" aria-label={t('이름과 설명 고치기', 'Edit name and description')} data-tip={t('고치기', 'Edit')} onClick={() => setEditing(true)}>{Icon.pencil}</button></div>

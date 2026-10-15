@@ -13,6 +13,11 @@ export function FigurePreview({ fig, big, className = '' }: { fig: FigurePreview
   return <FigurePreviewContent key={`${fig.kind}/${url}`} fig={fig} url={url} big={big} className={className} />
 }
 
+/** 주소만 아는 그림 (노트 폴더의 그림 등): PDF는 첫 쪽을 그린다. 그림 크게 보기가 쓴다 */
+export function FigureUrlPreview({ url, pdf, name, className = '' }: { url: string; pdf: boolean; name: string; className?: string }) {
+  return <FigurePreviewContent key={url} fig={{ id: url, kind: pdf ? 'pdf' : 'png', name }} url={url} big className={className} />
+}
+
 function FigurePreviewContent({ fig, url, big, className }: { fig: FigurePreviewData; url: string; big?: boolean; className: string }) {
   const [failed, setFailed] = useState<string | null>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
