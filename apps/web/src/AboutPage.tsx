@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { api } from './api'
-import { ABOUT_PARTS, type AboutItem, type AboutPart, COLOR_ROWS, partOf, SYMBOL_GROUPS, unsureItems } from './aboutContent'
+import { ABOUT_PARTS, type AboutItem, type AboutPart, COLOR_ROWS, partOf, sectionAnchor, SYMBOL_GROUPS, unsureItems } from './aboutContent'
+import { FlowSymbolTable } from './FlowView'
 import { FileTreeFigure } from './aboutFigures'
 import { askText } from './askText'
 import { lang, t } from './i18n'
@@ -33,7 +34,6 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
               </header>
               <UnsureNotice part={p} />
               {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} />}
-              {p.id === 'design' && <SymbolTable />}
               <footer className="about-pager">
                 {prev ? <a className="a" href={href({ page: 'about', part: prev.id })}>‹ {prev.title}</a> : <span />}
                 {next && <a className="a" href={href({ page: 'about', part: next.id })}>{next.title} ›</a>}
@@ -47,18 +47,48 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
 }
 
 /** 설정과 같은 앱 사이드바의 쪽 목록. 쪽 주소와 피드백 부위 이름은 그대로 둔다. */
-export function AboutSidebar({ part }: { part?: string }) {
+/** 왼쪽 목록의 묶음. 쪽 번호는 묶음을 넘어 이어진다. */
+const NAV_GROUPS: { title: string; parts: string[] }[] = [
+  { title: t('시작', 'Start'), parts: ['intro', 'principles'] },
+  { title: t('화면', 'Screens'), parts: ['home', 'project', 'notes', 'knowledge', 'reading', 'network', 'settings'] },
+  { title: t('일하는 방식', 'How work flows'), parts: ['agents', 'feedback'] },
+  { title: t('기준과 참고', 'Standards and reference'), parts: ['design', 'symbols', 'reference', 'next'] },
+]
+
+export function AboutSidebar({ part, anchor }: { part?: string; anchor?: string }) {
   const current = partOf(part)
   const done = useAnswered()
+  const grouped = new Set(NAV_GROUPS.flatMap((g) => g.parts))
+  const groups = [...NAV_GROUPS, { title: '', parts: ABOUT_PARTS.filter((p) => !grouped.has(p.id)).map((p) => p.id) }]
   return (
     <nav className="set-side about-nav" data-ui="소개 목록" aria-label={t('소개 쪽', 'About pages')}>
-      {ABOUT_PARTS.map((p, i) => {
-        const count = unsureCount(p, done)
+      {groups.map((g) => {
+        const parts = g.parts.map((id) => ABOUT_PARTS.find((p) => p.id === id)).filter((p): p is AboutPart => !!p)
+        if (parts.length === 0) return null
         return (
-          <a key={p.id} href={href({ page: 'about', part: p.id })} className={`nav about-nav-row${p === current ? ' on' : ''}`} aria-current={p === current ? 'page' : undefined} title={p.title}>
-            <span className="n">{i + 1}</span><span className="label">{p.title}</span>
-            {count > 0 && <span className="about-nav-flag" title={t(`확인이 필요한 곳 ${count}`, `Places to review: ${count}`)} data-ui="확인 필요 표시">{t(`확인 ${count}`, `Review ${count}`)}</span>}
-          </a>
+          <div key={g.title || 'rest'} className="about-nav-group">
+            {g.title && <div className="about-nav-head">{g.title}</div>}
+            {parts.map((p) => {
+              const count = unsureCount(p, done)
+              const on = p === current
+              return (
+                <div key={p.id}>
+                  <a href={href({ page: 'about', part: p.id })} className={`nav about-nav-row${on && !anchor ? ' on' : ''}`} aria-current={on ? 'page' : undefined} title={p.title}>
+                    <span className="n">{ABOUT_PARTS.indexOf(p) + 1}</span><span className="label">{p.title}</span>
+                    {count > 0 && <span className="about-nav-flag" title={t(`확인이 필요한 곳 ${count}`, `Places to review: ${count}`)} data-ui="확인 필요 표시">{t(`확인 ${count}`, `Review ${count}`)}</span>}
+                  </a>
+                  {on && (p.sections ?? []).map((sec, i) => {
+                    const a = sectionAnchor(sec, i)
+                    return (
+                      <a key={a} href={href({ page: 'about', part: p.id, anchor: a })} className={`nav about-nav-sub${anchor === a ? ' on' : ''}`} title={sec.title}>
+                        <span className="label">{sec.title}</span>
+                      </a>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
         )
       })}
     </nav>
@@ -93,6 +123,7 @@ function Intro() {
           <div className="m-side">
             <a href={toPart('project')}>{t('프로젝트 정보', 'Project info')}</a>
             <a href={toPart('project')}>{t('작업', 'Work')}<small>{t('판단 · 맡긴 일 · 할 일', 'Decide · Delegated tasks · To-dos')}</small></a>
+            <a href={href({ page: 'about', part: 'project', anchor: 'flow' })}>{t('고침 검토 · 흐름', 'Edit review · Flow')}</a>
             <a href={toPart('notes')}>{t('주제', 'Topics')}<small>{t('주제 › 노트 나무 · 노트들', 'Topic › note tree · Loose notes')}</small></a>
             <a href={toPart('reading')}>{t('원고 · 참고 자료', 'Manuscripts · Reference materials')}</a>
             <span className="sp" />
@@ -246,10 +277,13 @@ export function AboutRailCount() {
 function Sections({ part }: { part: AboutPart }) {
   return (
     <>
-      {part.sections!.map((sec) => (
-        <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sec.id}>
-          {sec.figure && <div className="about-figs">{sec.figure}</div>}
+      {part.sections!.map((sec, i) => (
+        <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} prs={sec.prs}>
+          {part.id !== 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
           <ul className="about-list">{sec.items.map((it, n) => <li key={n}>{it.unsure && <span className="about-unsure">{t('확인 필요', 'Needs review')}</span>}{it.text}</li>)}</ul>
+          {/* 기호와 의미 쪽은 설명 한 줄 다음에 표 */}
+          {part.id === 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
+          {part.id === 'symbols' && sec.id && <SymbolTable id={sec.id} />}
         </Section>
       ))}
       {part.left && part.left.length > 0 && (
@@ -261,39 +295,55 @@ function Sections({ part }: { part: AboutPart }) {
   )
 }
 
-/** 색과 뜻 표(10/4, COLOR_ROWS)와 기호와 뜻 표(10/4 17:57, SYMBOL_GROUPS). 내용은 aboutContent.tsx */
-function SymbolTable() {
+/**
+ * 기호와 의미 쪽의 표 (10/15 피드백 "기호와 의미 절"): 절 id마다 하나. 색 표(10/4, COLOR_ROWS)와 기호 표(10/4 17:57, SYMBOL_GROUPS)는 aboutContent.tsx,
+ * 흐름 표는 흐름 화면과 같은 그림을 쓰려고 FlowView.tsx에 있다
+ */
+function SymbolTable({ id }: { id: string }) {
+  if (id === 'colors') return (
+    <table className="about-sym-table about-color-table">
+      <thead><tr><th>{t('색', 'Color')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('쓰는 곳', 'Where')}</th></tr></thead>
+      <tbody>
+        {COLOR_ROWS.map((r) => (
+          <tr key={r.name}>
+            <td className="about-sym">{r.status ? (r.status === 'none' ? <ProofMark p="none" /> : <StatusDot s={r.status} />) : <span className="about-swatch" style={{ background: `var(${r.token})` }} />}<span className="about-color-name">{r.color}</span></td>
+            <td>{r.name}</td><td>{r.meaning}</td><td className="muted">{r.where}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+  if (id === 'flow') return <FlowSymbolTable />
   const groups = SYMBOL_GROUPS({ icons: Icon })
-  return (<>
-    <Section name={t('색과 뜻', 'Colors and meanings')} ui="색과 뜻">
-      <p className="muted">{t('무채색이 기본이고, 색은 아래 뜻에만 씁니다. 텍스트 버튼과 링크는 무채색입니다. 색만으로 가르지 않습니다: 상태 옆에는 늘 이름이 함께 있고, 좁은 곳에서는 점을 가리키면 이름이 뜹니다. 네 상태 색은 적록 색약 눈으로 봐도 서로 갈리게 골랐습니다.', 'Neutral is the default, and color is used only for the meanings below. Text buttons and links are neutral. Color is never the only cue: a status always has its name next to it, and in narrow places hovering the dot shows the name. The four status colors were chosen to stay distinct for red-green color-blind eyes.')}</p>
-      <table className="about-sym-table about-color-table">
-        <thead><tr><th>{t('색', 'Color')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('쓰는 곳', 'Where')}</th></tr></thead>
-        <tbody>
-          {COLOR_ROWS.map((r) => (
-            <tr key={r.name}>
-              <td className="about-sym">{r.status ? (r.status === 'none' ? <ProofMark p="none" /> : <StatusDot s={r.status} />) : <span className="about-swatch" style={{ background: `var(${r.token})` }} />}<span className="about-color-name">{r.color}</span></td>
-              <td>{r.name}</td><td>{r.meaning}</td><td className="muted">{r.where}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Section>
-    <Section name={t('기호와 뜻', 'Symbols and meanings')} ui="기호와 뜻">
-      {groups.map((grp) => (
-        <div key={grp.title} className="about-symbols">
-          <h3>{grp.title} <span className="muted">{grp.note}</span></h3>
-          <table className="about-sym-table">
-            <thead><tr><th>{t('기호', 'Symbol')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('쓰는 곳', 'Where')}</th></tr></thead>
-            <tbody>
-              {grp.rows.map((r) => <tr key={r.name}><td className="about-sym">{r.mark}</td><td>{r.name}</td><td>{r.meaning}</td><td className="muted">{r.where}</td></tr>)}
-            </tbody>
-          </table>
-        </div>
-      ))}
-    </Section>
-  </>)
+  const rows = id === 'actions' ? groups[0]!.rows : id === 'marks' ? groups[1]!.rows : id === 'screens' ? screenIcons() : null
+  if (!rows) return null
+  return (
+    <table className="about-sym-table">
+      <thead><tr><th>{t('기호', 'Symbol')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('쓰는 곳', 'Where')}</th></tr></thead>
+      <tbody>
+        {rows.map((r) => <tr key={r.name}><td className="about-sym">{r.mark}</td><td>{r.name}</td><td>{r.meaning}</td><td className="muted">{r.where}</td></tr>)}
+      </tbody>
+    </table>
+  )
 }
+
+/** 화면으로 가는 아이콘: 레일 · 왼쪽 사이드바 · 상단바 (icons.tsx를 그대로) */
+const screenIcons = () => [
+  { mark: Icon.home, name: t('홈', 'Home'), meaning: t('모든 프로젝트와 한 일 달력', 'All projects and the work calendar'), where: t('레일 맨 위', 'Top of the rail') },
+  { mark: Icon.library, name: t('지식', 'Knowledge'), meaning: t('개념노트 라이브러리', 'Concept note library'), where: t('레일', 'Rail') },
+  { mark: Icon.papers, name: t('논문', 'Papers'), meaning: t('논문과 책, PDF', 'Papers, books and PDFs'), where: t('레일', 'Rail') },
+  { mark: Icon.figures, name: t('그림', 'Figures'), meaning: t('노트에서 함께 쓰는 그림', 'Figures shared across notes'), where: t('레일', 'Rail') },
+  { mark: Icon.network, name: t('네트워킹', 'Networking'), meaning: t('저자와 함께 연구하는 사람들', 'Authors and collaborators'), where: t('레일', 'Rail') },
+  { mark: Icon.info, name: t('소개 · 프로젝트 정보', 'About · Project info'), meaning: t('레일에서는 이 앱 소개, 프로젝트 사이드바에서는 그 프로젝트의 정보', 'On the rail, this About page; in a project sidebar, that project\'s info'), where: t('레일 아래, 왼쪽 사이드바 맨 위', 'Bottom of the rail, top of the left sidebar') },
+  { mark: Icon.settings, name: t('설정', 'Settings'), meaning: t('앱 설정과 업데이트', 'App settings and updates'), where: t('레일 맨 아래', 'Bottom of the rail') },
+  { mark: Icon.task, name: t('작업', 'Work'), meaning: t('판단 · 맡긴 일 · 할 일 · 메모 · 질문', 'Decisions · delegated tasks · to-dos · memos · questions'), where: t('왼쪽 사이드바', 'Left sidebar') },
+  { mark: Icon.approve, name: t('고침 검토', 'Edit review'), meaning: t('에이전트가 고친 노트를 바뀐 곳마다 검토 (판단 카드의 승인과 같은 기호)', 'Review each change agents made to notes (same symbol as Approve on decision cards)'), where: t('왼쪽 사이드바', 'Left sidebar') },
+  { mark: Icon.flow, name: t('흐름', 'Flow'), meaning: t('연구를 생각의 걸음과 선으로 본 차트', 'The research as steps of thinking and lines'), where: t('왼쪽 사이드바', 'Left sidebar') },
+  { mark: Icon.manuscript, name: t('원고', 'Manuscript'), meaning: t('원고 화면과 원고 목록', 'Manuscript screen and list'), where: t('왼쪽 사이드바', 'Left sidebar') },
+  { mark: Icon.clip, name: t('참고 자료', 'References'), meaning: t('프로젝트에 둔 자료 파일', 'Material files in the project'), where: t('왼쪽 사이드바', 'Left sidebar') },
+  { mark: <>{Icon.back}{Icon.forward}</>, name: t('뒤로 · 앞으로', 'Back · Forward'), meaning: t('지나온 화면 사이를 오감', 'Move between screens you visited'), where: t('상단바 왼쪽', 'Left of the top bar') },
+  { mark: Icon.split, name: t('두 패널', 'Two panes'), meaning: t('주 패널 옆에 옆 패널을 열고 닫음', 'Open or close the side pane next to the main pane'), where: t('상단바 오른쪽 (프로젝트)', 'Right of the top bar (projects)') },
+]
 
 function Reference() {
   return (
@@ -401,13 +451,16 @@ function Next() {
 
 const PartTitle = createContext('')
 
-function Section({ name, ui, id, children }: { name: string; ui: string; id?: string; children: ReactNode }) {
+function Section({ name, ui, id, prs, children }: { name: string; ui: string; id?: string; prs?: number[]; children: ReactNode }) {
+  const last = prs?.[prs.length - 1]
   const body = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState<{ before: string; text: string } | null>(null)
   return (
     <section data-ui={ui} id={id && `about-${id}`}>
       <div className="sec-head">
         <h2>{name}</h2><span className="sp" />
+        {last && <a className="a about-pr" data-ui="고친 업데이트" href={href({ page: 'settings', part: 'update', pr: last })}
+          title={t(`이 절을 마지막으로 고친 업데이트. 이 절을 고친 업데이트: ${prs!.map((x) => `#${x}`).join(' · ')}`, `The update that last changed this section. Updates that changed it: ${prs!.map((x) => `#${x}`).join(' · ')}`)}>{t(`업데이트 #${last}`, `Update #${last}`)}</a>}
         {!draft && <button className="icon-btn about-fix" data-ui="고치기" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기 — ${name}`, `Edit: ${name}`)}
           onClick={() => { const t = body.current?.innerText.trim() ?? ''; setDraft({ before: t, text: t }) }}>{Icon.pencil}</button>}
       </div>

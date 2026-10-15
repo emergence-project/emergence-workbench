@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
-import { appIssuesUrl, buildReason, nextBuildOf, numberVersions, parseSubject, promoteNextBuild, webRemote } from './appupdate.js'
+import { aboutSameNote, appIssuesUrl, buildReason, nextBuildOf, numberVersions, parseSubject, promoteNextBuild, webRemote } from './appupdate.js'
 import { fixture, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -205,6 +205,9 @@ describe('앱 기본정보', () => {
     expect(parseSubject('작업 패널 통일 (#314)')).toEqual({ title: '작업 패널 통일', pr: 314 })
     expect(parseSubject('Merge pull request #288 from me/branch', '\n홈 목록: 머리 글자\n\n자세히')).toEqual({ title: '홈 목록: 머리 글자', pr: 288 })
     expect(parseSubject('Fix docs')).toEqual({ title: 'Fix docs' })
+    expect(aboutSameNote('Fix\n\n소개: 그대로 — 에이전트 도구만 바뀜\n')).toBe('에이전트 도구만 바뀜')
+    expect(aboutSameNote('About: unchanged')).toBe('')
+    expect(aboutSameNote('소개를 고침')).toBeNull()
   })
 })
 

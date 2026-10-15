@@ -358,7 +358,7 @@ function Conversation({ e }: { e: FeedbackItem }) {
           <span className="fbp-notes-k">{t('태그 설명', 'Tags')}</span>
           {notes.map((k) => <span key={k} className="tag fbp-note" tabIndex={0} data-tip={TAG_NOTES[k]!.note} aria-label={`${TAG_NOTES[k]!.name}: ${TAG_NOTES[k]!.note}`}>{TAG_NOTES[k]!.name}</span>)}
           {/* 태그를 모은 표는 앱 소개에 (10/14 13:32 제안) */}
-          <a className="icon-btn fbp-notes-help" href={href({ page: 'about', part: 'feedback', anchor: 'tags' })} data-ui="태그 표 보기" data-tip={t('태그 표 보기', 'See all tags')} aria-label={t('태그 표 보기', 'See all tags')}>{Icon.help}</a>
+          <a className="icon-btn fbp-notes-help" href={href({ page: 'about', part: 'symbols', anchor: 'tags' })} data-ui="태그 표 보기" data-tip={t('태그 표 보기', 'See all tags')} aria-label={t('태그 표 보기', 'See all tags')}>{Icon.help}</a>
         </div>
       )}
     </div>

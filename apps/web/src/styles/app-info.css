@@ -6,3 +6,6 @@
 .app-history td { padding: 6px var(--sp-3) 6px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
 .app-history tr:last-child td { border-bottom: 0; }
 .app-history td:first-child, .app-history-num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* 소개 절의 "업데이트 #n"에서 온 줄: 방금 옮겨 간 곳 (노랑) */
+.app-history tr.on td { background: var(--focus); }
+.app-history-about { max-width: 220px; }

@@ -64,8 +64,11 @@ export const DEFAULT_SCREENS = [
   // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습
   ['feedback-gallery', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '[data-ui="피드백 줄"]:has-text("할 일 목록")', '[data-ui="전후 그림"] button']],
   ['about', '#/about', '소개'],
-  // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절
-  ['about-tags', '#/about/feedback/tags', '대화 태그'],
+  // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
+  ['about-tags', '#/about/symbols/tags', '대화 태그'],
+  // 기호와 의미 쪽 (10/15): 흐름 기호 표, 프로젝트 화면 쪽의 흐름 절 (절 제목 옆 "업데이트 #n")
+  ['about-symbols', '#/about/symbols/flow', '흐름'],
+  ['about-flow', '#/about/project/flow', '흐름'],
   ['settings', '#/settings', '설정'],
   ['latex', '#/settings/latex', '서식 카드'],
   ['network', '#/network', '사람 카드'],

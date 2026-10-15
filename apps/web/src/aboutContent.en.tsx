@@ -108,8 +108,8 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         title: 'Screen layout',
         items: [
           { text: <>Below Home on the rail, each project has an initials button that takes you straight there.</> },
-          { text: <>An orange count on a rail button means there is something to review: on a project button, notes to review and delegated tasks to decide; on Networking, suggested people you have not seen yet (gone once you open Networking); on Settings, a new version (a single orange dot instead of a count); on Feedback, Needs review; on About, places to review. Hover to see what is counted.</> },
-          { text: <>The <b>left sidebar</b> is where you go inside a project: Project info · Work (the number beside it is open to-dos) · <b>Topics</b> (a topic › note tree) · "Loose notes" (notes without a topic) · Materials (manuscripts · reference materials). The tree expands only the topic of the note you have open, and each note has a status dot. Click a topic name to go to that topic's screen. Concept notes, literature notes and the map are under "Knowledge" on the rail.</> },
+          { text: <>An orange count on a rail button means there is something to review: on a project button, notes to review and delegated tasks to decide; on Networking, suggested people you have not seen yet (gone once you open Networking); on Settings, a new version (a single orange dot instead of a count); on Feedback, Needs review (an orange dot instead of a count when nothing needs review but some feedback is not yet registered on GitHub); on About, places to review. Hover to see what is counted.</> },
+          { text: <>The <b>left sidebar</b> is where you go inside a project: Project info · Work (the number beside it is open to-dos) · Edit review (the number is notes to review) · Flow · <b>Topics</b> (a topic › note tree) · "Loose notes" (notes without a topic) · Materials (manuscripts · reference materials). The tree expands only the topic of the note you have open, and each note has a status dot. Click a topic name to go to that topic's screen. Concept notes, literature notes and the map are under "Knowledge" on the rail.</> },
           { text: <>When you open a note or a delegated task's report, its section outline is attached to the bottom of the left sidebar. A vertical bar marks the section you are reading and follows as you scroll; click to jump to a section. It hides if there is only one section. Only when the outline is long does it get a top edge you can drag to change its height.</> },
           { text: <>In the middle are the <b>main pane</b> (the chosen screen) and the <b>side pane</b> (a PDF or paper to view alongside), and at the far right is the <b>right sidebar</b> (info and records for the note you have open). Each pane always has a tab bar on top. Opening something from the sidebar or a link replaces the current tab with it (like a browser); ⌘/Ctrl+click opens it in a new tab. Drag a tab to move it to the other pane. Drag an empty spot of the tab bar onto the other pane to swap the two panes. The layout is remembered per project. A note always opens in the left pane and its PDF in the right pane (a note that was on the right moves to the left).</> },
           { text: <><b>Top bar</b>: at the far left, toggle left sidebar (⌘\) · Back · Forward; in the middle, the location "Project › Topic" (for a note, its main topic; click a name to go there); on the right, Search · Two panes · Feedback ("New version" before them when there is one); at the far right, toggle right sidebar (⌥⌘\). They are icons only; hover to see the name and shortcut. Turned-on buttons have a gray background. Theme is in Settings › Display, and a quick memo is the M key or "Records" in the right sidebar.</> },
@@ -133,6 +133,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
           { text: <>"Project info" at the top of the sidebar. It gathers start date, card image, the app's records folder, kind and fields (including progress status), repository, note count, and material locations ({c('sources:')} in {c('research.yaml')}).</> },
           { text: <>The <b>Repository</b> box shows the folder, git branch, GitHub address, last commit (short hash, title, when), counts of uncommitted changes and new files, and whether it matches GitHub. "Check" asks GitHub right then whether there are new commits (git fetch), without pulling or pushing. If GitHub has new commits, "Update" next to it (same as the circular arrow on Home) pulls them. The app also pulls on its own every 10 minutes under the same conditions. It only fast-forwards, so if this computer has commits of its own, or uncommitted changes touch the same files as the new commits, it does not pull and points you to git pull in a terminal. If there is no internet or no remote, it says so.</> },
           { text: <>The info is read only; the one pencil next to the title opens the same edit dialog as on the home screen. Name, description, start date and card image are written to {c('workbench/research.yaml')}; kind, fields and progress status to this computer's settings. Manuscripts and AGENTS.md are not touched.</> },
+          { text: <>The <b>Status | AGENTS.md</b> tabs below show exactly what agents read. Status is the same summary as {c('STATUS.md')} (work · questions · awaiting review · recent records); AGENTS.md is the repository's {c('AGENTS.md')} · {c('CLAUDE.md')} and the rule sections of {c('STATUS.md')} (including the common rules). Read only.</> },
         ],
       },
       {
@@ -145,6 +146,24 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
           { text: <>The <b>Delegated tasks</b> list is grouped by status; click a row to open its report in a tab. A report has conclusion, review requests, open problems, next instructions and grounds, and its section outline attaches to the left sidebar. Approving the next instructions turns them into a new task as is.</> },
           { text: <><b>To-dos, memos and questions</b> are written in the input below. Starting the text with a date such as "10/20까지 —" (by 10/20) sets a deadline. To-dos go in {c('workbench/log/')}, memos and questions in the project records ({c('workbench/comments/')}), and Claude on this Mac answers questions. Checked-off to-dos move down into the work journal.</> },
           { text: <>Memos and to-dos you wrote are edited and deleted with the pencil and trash can that always show at their top right. Completion records can be deleted but not edited, and status records stay as they are. Clicking a note name in the Work screen opens that note.</> },
+        ],
+      },
+      {
+        title: 'Edit review', id: 'edits',
+        items: [
+          { text: <>"Edit review" in the left sidebar. Edits agents made to this project's notes are gathered per note, and each changed place (paragraph) shows before and after in one table. Changed words are painted, and you can expand the paragraphs around a change. Edits to concept notes are in the library's edit review.</> },
+          { text: <>For each change: <b>Approve</b> (accept; the file stays as is) · <b>Ask</b> (ask why, or ask for another edit; the agent's answer appears in place) · under ⋯, <b>Edit</b> · <b>Revert</b> (this part only, back to the text before). The one-line reason the agent gave is shown with it.</> },
+          { text: <>Agents do not write to notes you have confirmed; they leave an "edit request for a confirmed note" instead. If you allow it in that conversation, the agent writes again.</> },
+        ],
+      },
+      {
+        title: 'Flow', id: 'flow',
+        items: [
+          { text: <>"Flow" in the left sidebar. A chart of the project's research as <b>steps of thinking</b> (dots) and the lines between them. One dot is one step of thinking, not one calculation run, and left to right is the order of thinking. Each project has one flow, and each dot is one file, {c('workbench/flow/<id>.yaml')}.</> },
+          { text: <>A dot's <b>mark is its kind</b> (statements: question ? · finding · theorem T; actions: numerical calculation π · analytic calculation ∫ · proof ∴ · literature §) and its <b>color is its state</b> (open · in progress · paused · done; when done, a result: solved/succeeded · refuted/failed · dropped). Lines are origin · support · refutes · uses. A theorem is not chosen directly: a finding whose evidence has a human-approved proof shows as a theorem.</> },
+          { text: <>The left of the toolbar has the dot count and the <b>topic filter</b> (the chosen topic's dots in bold, the rest still shown), the middle width and height and "Fit", and the right "＋ Dot". Drag the bar under the chart to change its height; double-click it to reset.</> },
+          { text: <>Click a dot to open its details below (kind · state · description · evidence table · records · links before and after). Double-click to center it; drag it to another cell (positions are in {c('flow/layout.yaml')}). The ＋ · pencil · trash can at the top right of the details add a next dot, edit in place, or delete. Descriptions take math and figures like notes.</> },
+          { text: <>The evidence table has an AI check and a <b>human approval</b> circle for each note and paper. Only a person approves, and clicking the circle again revokes (records are only appended). A note's right sidebar Info shows the dots that use it as evidence, and the topic screen shows that topic's dot count and "View in flow".</> },
         ],
       },
     ],
@@ -411,13 +430,6 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         ],
       },
       {
-        title: 'Conversation tags', id: 'tags',
-        figure: <FeedbackTagsTable />,
-        items: [
-          { text: <>The tags at the head of each message in an opened item. The tags used in that conversation also appear in the "Tags" line below it; the circled question mark at the end of that line brings you to this table.</> },
-        ],
-      },
-      {
         title: 'Handling and shipping',
         items: [
           { text: <>The handling record is kept in one place, {c('feedback/status.yaml')}: the corrected sentence, the understood request, the cause, the handling, and the commit.</> },
@@ -454,6 +466,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
           { text: <>Symbols on tabs, note rows and file rows are the same line drawings as the sidebar. Icons must read at once (Settings is a gear).</> },
           { text: <>An item's pencil and trash can sit at its top right. In wide body lists they show on hover or keyboard selection; in narrow areas like the right sidebar and on touch screens they always show.</> },
           { text: <>When you type a name or title, a small app-styled dialog appears instead of the browser's default prompt.</> },
+          { text: <>The tables of colors and symbols are on the <a className="a" href="#/about/symbols">Symbols and meanings</a> page.</> },
         ],
       },
       {
@@ -461,6 +474,24 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         items: [
           { text: <>A toolbar is target on the left · view in the middle · actions on the right. A note's save status sits just left of the actions on the right. The project work panel starts at the top even when the description gets long.</> },
           { text: <>Markdown notes read by default and are edited with the pencil. The LaTeX source editor is always open. Projects and topics, which edit several values, use dialogs of the same shape. Detailed layout and narrow-width rules are in section 6 of {c('docs/design-system.md')}.</> },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'symbols', title: 'Symbols and meanings',
+    sub: 'The colors and symbols the app uses, in one place. A symbol means the same on every screen.',
+    sections: [
+      { title: 'Colors', id: 'colors', items: [{ text: <>Neutral is the default, and color is used only for the meanings below. Text buttons and links are neutral. Color is never the only cue: a status always has its name next to it, and in narrow places hovering the dot shows the name. The four status colors were chosen to stay distinct for red-green color-blind eyes.</> }] },
+      { title: 'Actions', id: 'actions', items: [{ text: <>Symbols you press. Always neutral; one name and one symbol per action.</> }] },
+      { title: 'Screen icons', id: 'screens', items: [{ text: <>Icons on the rail, the left sidebar and the top bar that take you to a screen. Hover to see the name.</> }] },
+      { title: 'Flow', id: 'flow', items: [{ text: <>Dots and lines on the flow screen. A dot's mark is its kind and its color is its state. Circles are statements, rounded squares are actions. <a className="a" href="#/about/project/flow">Flow screen ›</a></> }] },
+      { title: 'Record marks', id: 'marks', items: [{ text: <>Text marks you do not press.</> }] },
+      {
+        title: 'Conversation tags', id: 'tags',
+        figure: <FeedbackTagsTable />,
+        items: [
+          { text: <>The tags at the head of each message in an opened item on the feedback screen. The tags used in that conversation also appear in the "Tags" line below it; the circled question mark at the end of that line brings you to this table.</> },
         ],
       },
     ],
