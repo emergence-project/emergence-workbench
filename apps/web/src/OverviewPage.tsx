@@ -65,22 +65,60 @@ export function StatusCounts({ list }: { list: BlockRow[] }) {
   )
 }
 
-/** 첫 화면에는 우선순위 위의 할 일 셋만. 나머지는 할 일 화면에서 (피드백 10/3 14:38) */
-const NOW_LIMIT = 3
+/** 첫 화면 작업 패널은 묶음마다 둘까지. 나머지는 묶음 제목이나 "모두 보기"로 (10/15 09:55 피드백, 시안 A) */
+const NOW_LIMIT = 2
 /** 첫 화면 작업 칸에는 제목만: 첫 줄의 " — " 앞 (전체는 툴팁, 10/7 15:31) */
 export const nowTitle = (text: string) => (text.split('\n')[0] ?? '').split(' — ')[0]!.trim()
 
-/** 첫 화면 작업 패널의 한 묶음: 소제목과 수, 셋까지 보이고 나머지는 "n개 더" (onMore가 있으면 그 화면으로, 없으면 펼친다) */
-function NowGroup({ title, count, turn, empty, ui, onMore, children }: { title: string; count: number; turn?: string; empty?: string; ui: string; onMore?(): void; children: React.ReactNode[] }) {
-  const [all, setAll] = useState(false)
-  const shown = all ? children : children.slice(0, NOW_LIMIT)
-  const rest = count - shown.length
+interface NowGroupSpec { key: string; title: string; count: number; turn?: string; ui: string; onMore?(): void; rows: React.ReactNode[]; empty?: string }
+
+/** 첫 화면 작업 패널의 한 묶음: 소제목과 수(onMore가 있으면 소제목을 눌러 그 화면으로), 둘까지 */
+function NowGroup({ g }: { g: NowGroupSpec }) {
+  const count = g.turn ? <span className="rail-count" title={g.turn}>{g.count}</span> : <span className="count">{g.count}</span>
   return (
-    <div className="now-group" data-ui={ui}>
-      <h3>{title} {turn ? <span className="rail-count" title={turn}>{count}</span> : <span className="count">{count}</span>}</h3>
-      {count === 0 && empty ? <p className="empty">{empty}</p> : <ul className="now-list">{shown}</ul>}
-      {rest > 0 && <button className="a now-more" onClick={() => (onMore ? onMore() : setAll(true))}>{t(`${rest}개 더`, `${rest} more`)}</button>}
+    <div className="now-group" data-ui={g.ui}>
+      <h3>{g.onMore ? <button className="a" onClick={g.onMore}>{g.title}</button> : g.title} {count}</h3>
+      {g.count === 0 && g.empty ? <p className="empty">{g.empty}</p> : <ul className="now-list">{g.rows.slice(0, NOW_LIMIT)}</ul>}
     </div>
+  )
+}
+
+/**
+ * 첫 화면 작업 패널: 머리 높이에 고정하고(내용이 늘어도 주제 카드 줄은 같은 자리) 넘치면 뒤 묶음부터
+ * 접어 "모두 보기" 옆에 이름과 수만 적는다. 칸 안 스크롤은 두지 않는다 (10/15 사용자 결정, 시안 A).
+ */
+function NowPanel({ groups, fitKey, onAll, error }: { groups: NowGroupSpec[]; fitKey: string; onAll(): void; error: string | null }) {
+  const ref = useRef<HTMLElement>(null)
+  const [size, setSize] = useState(0)
+  const [fit, setFit] = useState({ key: '', n: groups.length })
+  // 내용이나 칸 크기가 바뀌면 모두 펼친 뒤 다시 맞춘다 (그리는 중에 바로 되돌린다)
+  const key = `${fitKey}|${size}`
+  if (fit.key !== key) setFit({ key, n: groups.length })
+  const n = fit.key === key ? fit.n : groups.length
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el && n > 1 && el.scrollHeight > el.clientHeight + 1) setFit({ key, n: n - 1 })
+  }, [n, key])
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setSize(el.clientWidth * 10000 + el.clientHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const shown = groups.slice(0, n)
+  const folded = groups.slice(n)
+  return (
+    <aside className="now" id="blocked" data-ui="지금" ref={ref}>
+      <div className="sec-head">
+        <h2 title={t('검토 대기 · 에이전트 고침 · 멈춤 · 할 일, 사용자 차례부터 (10/15)', 'Awaiting review, agent edits, blocked, to-dos')}><button className="a" data-ui="할 일 전체 버튼" onClick={onAll}>{t('작업', 'Work')}</button></h2>
+        <button className="a now-all" data-ui="작업 모두 보기" onClick={onAll}>
+          {folded.map((g) => <span key={g.key} className="now-folded">{g.title} {g.count} · </span>)}{t('모두 보기 ›', 'See all ›')}
+        </button>
+      </div>
+      {shown.map((g) => <NowGroup key={g.key} g={g} />)}
+      {error && <p className="error-text">{error}</p>}
+    </aside>
   )
 }
 
@@ -148,13 +186,62 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
   const openInfo = () => go({ page: 'info', rid })
   const onInfoKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') openInfo() }
 
+  // 작업 패널의 묶음: 사용자 차례부터 (검토 대기 → 에이전트 고침 → 멈춤 → 할 일, 10/15 09:55 피드백)
+  const groups = ([
+    {
+      key: 'review', title: t('검토 대기', 'Awaiting review'), count: reviews.length, turn: t('물리·수학 검토는 사용자만', 'Only you can do the physics and math review'), ui: '검토 대기', onMore: () => go({ page: 'todo', rid }),
+      rows: reviews.map((r) => (
+        <NowRow key={r.file} ui="검토 대기 문서" item={r.title} mark={<span className="now-mark" aria-hidden>·</span>}
+          title={r.title} full={r.file} onOpen={() => go({ page: 'todo', rid })}
+          sub={`${reviewStatusLabel(r.status)}${r.updated ? ` · ${r.updated}` : ''}`} />
+      )),
+    },
+    {
+      key: 'edits', title: t('에이전트 고침', 'Agent edits'), count: edits.length, turn: t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Approve, revert or edit each change'), ui: '에이전트 고침', onMore: () => go({ page: 'edits', rid }),
+      rows: edits.map((e) => (
+        <NowRow key={`${e.attempt ? 'a' : 'r'}-${e.key}`} ui="에이전트 고침 줄" item={e.title} mark={<span className="now-mark" aria-hidden>·</span>}
+          title={e.title} full={`${e.title}\n${e.sub}`} sub={e.sub}
+          onOpen={() => go({ page: 'edits', rid, ...(!e.attempt && { key: e.key }) })} />
+      )),
+    },
+    {
+      key: 'blocked', title: t('멈춤', 'Blocked'), count: blocked.length, ui: '멈춘 노트',
+      rows: blocked.map((b) => {
+        const detail = [b.blockedReason && t(`멈춘 이유: ${b.blockedReason}`, `Blocked because: ${b.blockedReason}`), b.resumeCondition && t(`다시 시작: ${b.resumeCondition}`, `Resume when: ${b.resumeCondition}`)].filter(Boolean).join(' · ')
+        return (
+          <NowRow key={b.id} ui="막힌 보조 노트" item={b.title ?? b.id} mark={<StatusDot s="blocked" />}
+            title={b.title ?? b.id} full={detail ? `${b.title ?? b.id}\n${detail}` : b.title ?? b.id} onOpen={() => open(b.id)}
+            sub={b.resumeCondition ? t(`다시 시작: ${b.resumeCondition}`, `Resume when: ${b.resumeCondition}`) : b.blockedReason}
+            end={<button className="icon-btn now-act" data-ui="다시 열기 버튼" data-tip={t('다시 열기', 'Reopen')} aria-label={t(`다시 열기 — ${b.title ?? b.id}`, `Reopen: ${b.title ?? b.id}`)} onClick={(event) => { event.stopPropagation(); reopen(b) }} onKeyDown={(event) => event.stopPropagation()}>{Icon.reopen}</button>} />
+        )
+      }),
+    },
+    {
+      key: 'todo', title: t('할 일', 'To-do'), count: todos.length, ui: '첫 화면 할 일', onMore: () => go({ page: 'todo', rid }),
+      // 할 일은 보기만 한다. 적기·끝내기는 할 일 화면에서 (피드백 10/3 14:48·14:49)
+      rows: todos.map(({ entry, due, text }) => {
+        const goTodo = () => { focusTodo(todoKey(entry)); go({ page: 'todo', rid }) }
+        return (
+          <NowRow key={`${entry.date}-${entry.index}`} ui="할 일 항목" item={text} mark={<span className="now-mark" aria-hidden>·</span>}
+            title={<MemoText text={nowTitle(text)} />} full={text} onOpen={goTodo}
+            sub={entry.target !== RESEARCH_TARGET && <button className="a" onClick={(event) => { event.stopPropagation(); openTarget(rid, entry.target) }} onKeyDown={(event) => event.stopPropagation()}>{targetTitle(entry.target, titleOf)}</button>}
+            end={due && <span className={`due${due < today ? ' late' : ''}`}>{due.slice(5).replace('-', '/')}</span>} />
+        )
+      }),
+    },
+  ] as NowGroupSpec[]).filter((g) => g.count > 0)
+  // 남은 작업이 하나도 없으면 할 일 묶음만 빈 글과 함께
+  const nowGroups: NowGroupSpec[] = groups.length ? groups : [{ key: 'todo', title: t('할 일', 'To-do'), count: 0, ui: '첫 화면 할 일', onMore: () => go({ page: 'todo', rid }), rows: [], empty: t('남은 할 일이 없습니다.', 'No to-dos left.') }]
+  const fitKey = nowGroups.map((g) => `${g.key}${g.count}`).join(' ')
+
   return (
     <div className="ws-doc" data-ui="개괄">
       <section className="pane" data-ui="본문">
         <div className="scroll">
           <div className="page-body landing">
+            {/* 머리 두 칸: 왼쪽 제목·설명·성격, 오른쪽 작업 패널(머리 높이에 고정). 주제 카드는 그 아래 전체 폭 (10/15 09:55 피드백, 시안 A) */}
             <div className="landing-cols">
-              <div className="main-notes" data-ui="연구 내용">
+              <div className="main-notes landing-head" data-ui="연구 내용">
                 <div className="landing-title">
                   <h1 className="h-title to-info" data-ui="연구 제목" role="link" tabIndex={0} title={t('프로젝트 정보 보기', 'View project info')} onClick={openInfo} onKeyDown={onInfoKey}>{research.title}</h1>
                   {listed && <div className="ov-actions" data-ui="프로젝트 머리 행동"><button className="icon-btn ov-edit" data-ui="프로젝트 고치기" data-tip={t('고치기', 'Edit')} aria-label={t('프로젝트 고치기', 'Edit project')} onClick={() => setEditing(true)}>{Icon.pencil}</button></div>}
@@ -179,64 +266,12 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
                     <ul>{tree.issues.map((i, n) => <li key={n}>{issueText(i, titleOf)}</li>)}</ul>
                   </details>
                 )}
-
-                <ProjectCards rid={rid} rapi={rapi} notes={notes} project={projectName} pc={pc} version={version} onChanged={onChanged} onSaved={onSaved} />
               </div>
 
-              <aside className="now" id="blocked" data-ui="지금">
-                <div className="sec-head">
-                  <h2 title={t('할 일 · 멈춘 노트 · 검토 대기를 모두 같은 줄 모양으로 (10/7 15:31)', 'To-dos, blocked notes and pending reviews')}><button className="a" data-ui="할 일 전체 버튼" onClick={() => go({ page: 'todo', rid })}>{t('작업', 'Work')}</button></h2>
-                </div>
-                {/* 모든 프로젝트가 같은 세 묶음, 같은 줄 모양: 제목 한 줄 + 설명 한 줄, 묶음마다 셋까지 (10/7 15:31·17:02) */}
-                <NowGroup title={t('할 일', 'To-do')} count={todos.length} empty={t('남은 할 일이 없습니다.', 'No to-dos left.')} ui="첫 화면 할 일" onMore={() => go({ page: 'todo', rid })}>
-                  {todos.map(({ entry, due, text }) => {
-                    const goTodo = () => { focusTodo(todoKey(entry)); go({ page: 'todo', rid }) }
-                    return (
-                      <NowRow key={`${entry.date}-${entry.index}`} ui="할 일 항목" item={text} mark={<span className="now-mark" aria-hidden>·</span>}
-                        title={<MemoText text={nowTitle(text)} />} full={text} onOpen={goTodo}
-                        sub={entry.target !== RESEARCH_TARGET && <button className="a" onClick={(event) => { event.stopPropagation(); openTarget(rid, entry.target) }} onKeyDown={(event) => event.stopPropagation()}>{targetTitle(entry.target, titleOf)}</button>}
-                        end={due && <span className={`due${due < today ? ' late' : ''}`}>{due.slice(5).replace('-', '/')}</span>} />
-                    )
-                  })}
-                </NowGroup>
-                {/* 할 일은 보기만 한다. 적기·끝내기는 할 일 화면에서 (피드백 10/3 14:48·14:49) */}
-
-                {blocked.length > 0 && (
-                  <NowGroup title={t('멈춤', 'Blocked')} count={blocked.length} ui="멈춘 노트">
-                    {blocked.map((b) => {
-                      const detail = [b.blockedReason && t(`멈춘 이유: ${b.blockedReason}`, `Blocked because: ${b.blockedReason}`), b.resumeCondition && t(`다시 시작: ${b.resumeCondition}`, `Resume when: ${b.resumeCondition}`)].filter(Boolean).join(' · ')
-                      return (
-                        <NowRow key={b.id} ui="막힌 보조 노트" item={b.title ?? b.id} mark={<StatusDot s="blocked" />}
-                          title={b.title ?? b.id} full={detail ? `${b.title ?? b.id}\n${detail}` : b.title ?? b.id} onOpen={() => open(b.id)}
-                          sub={b.resumeCondition ? t(`다시 시작: ${b.resumeCondition}`, `Resume when: ${b.resumeCondition}`) : b.blockedReason}
-                          end={<button className="icon-btn now-act" data-ui="다시 열기 버튼" data-tip={t('다시 열기', 'Reopen')} aria-label={t(`다시 열기 — ${b.title ?? b.id}`, `Reopen: ${b.title ?? b.id}`)} onClick={(event) => { event.stopPropagation(); reopen(b) }} onKeyDown={(event) => event.stopPropagation()}>{Icon.reopen}</button>} />
-                      )
-                    })}
-                  </NowGroup>
-                )}
-
-                {edits.length > 0 && (
-                  <NowGroup title={t('에이전트 고침', 'Agent edits')} count={edits.length} turn={t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Approve, revert or edit each change')} ui="에이전트 고침" onMore={() => go({ page: 'edits', rid })}>
-                    {edits.map((e) => (
-                      <NowRow key={`${e.attempt ? 'a' : 'r'}-${e.key}`} ui="에이전트 고침 줄" item={e.title} mark={<span className="now-mark" aria-hidden>·</span>}
-                        title={e.title} full={`${e.title}\n${e.sub}`} sub={e.sub}
-                        onOpen={() => go({ page: 'edits', rid, ...(!e.attempt && { key: e.key }) })} />
-                    ))}
-                  </NowGroup>
-                )}
-
-                {reviews.length > 0 && (
-                  <NowGroup title={t('검토 대기', 'Awaiting review')} count={reviews.length} turn={t('물리·수학 검토는 사용자만', 'Only you can do the physics and math review')} ui="검토 대기" onMore={() => go({ page: 'todo', rid })}>
-                    {reviews.map((r) => (
-                      <NowRow key={r.file} ui="검토 대기 문서" item={r.title} mark={<span className="now-mark" aria-hidden>·</span>}
-                        title={r.title} full={r.file} onOpen={() => go({ page: 'todo', rid })}
-                        sub={`${reviewStatusLabel(r.status)}${r.updated ? ` · ${r.updated}` : ''}`} />
-                    ))}
-                  </NowGroup>
-                )}
-                {error && <p className="error-text">{error}</p>}
-              </aside>
+              <NowPanel groups={nowGroups} fitKey={fitKey} onAll={() => go({ page: 'todo', rid })} error={error} />
             </div>
+
+            <ProjectCards rid={rid} rapi={rapi} notes={notes} project={projectName} pc={pc} version={version} onChanged={onChanged} onSaved={onSaved} />
           </div>
         </div>
       </section>
