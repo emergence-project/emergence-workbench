@@ -1,7 +1,4 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-
-const exec = promisify(execFile)
+import { git } from './git.js'
 
 /**
  * 피드백의 반영 커밋이 지금 돌고 있는 앱에 들어 있는가 (10/4 피드백 "반영했는지 안 했는지 어떻게 봐?").
@@ -11,7 +8,7 @@ const exec = promisify(execFile)
  */
 export function commitChecker(root: string, running: string, ttlMs = 60_000) {
   let cached: { at: number; inApp: string[]; known: string[] } | null = null
-  const revs = async (...args: string[]) => (await exec('git', ['-C', root, 'rev-list', ...args], { maxBuffer: 64 * 1024 * 1024 })).stdout.split('\n').filter(Boolean)
+  const revs = async (...args: string[]) => (await git(root, ['rev-list', ...args])).split('\n').filter(Boolean)
   const load = async () => {
     if (cached && Date.now() - cached.at < ttlMs) return cached
     const [inApp, known] = await Promise.all([revs(running), revs('--all')])

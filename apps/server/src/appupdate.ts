@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import YAML from 'yaml'
+import { git as gitAt } from './git.js'
 import { withRepoLock } from './repoLock.js'
 import { t } from './i18n.js'
 
@@ -48,9 +49,7 @@ const FEEDBACK = 'feedback'
 const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
 const firstLine = (e: unknown) => String((e as { stderr?: string }).stderr || (e as Error).message || e).split('\n').find((l) => l.trim()) ?? t('알 수 없는 오류', 'Unknown error')
 
-async function git(root: string, ...args: string[]): Promise<string> {
-  return (await exec('git', ['-C', root, ...args], { timeout: 60_000, env })).stdout.trim()
-}
+const git = (root: string, ...args: string[]) => gitAt(root, args)
 
 type StatusMap = Record<string, { state?: unknown; clean?: unknown; understood?: unknown; note?: unknown }>
 async function statusAt(root: string, rev: string): Promise<StatusMap> {

@@ -33,9 +33,9 @@ export interface OverviewRow {
   last?: string
 }
 
-export function overviewRow(wb: Workbench, edits = 0): OverviewRow {
+export async function overviewRow(wb: Workbench, edits = 0): Promise<OverviewRow> {
   const journal = wb.recentJournal(365)
-  const sync = localSyncState(wb.repo)
+  const sync = await localSyncState(wb.repo)
   const lastEntry = journal.reduce<string | undefined>((m, e) => { const k = `${e.date} ${e.time}`; return !m || k > m ? k : m }, undefined)
   return {
     title: wb.readResearch().title,

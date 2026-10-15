@@ -41,7 +41,7 @@ if (!all && dirs.length === 1 && isResearch(dirs[0])) {
   const { commonRules } = await tsImport('../apps/server/src/agentRules.ts', opts)
   const wb = new Workbench(root)
   // 연구 공통 규칙: 설정 폴더의 개인 저장소 사본, 또는 RW_COMMON_RULES가 가리키는 파일 (없으면 그 절을 뺀다)
-  const md = generateStatus(wb, new Date(), fs.existsSync(configDir) ? readStatusEdits(wb, configDir) : undefined, commonRules(configDir))
+  const md = await generateStatus(wb, new Date(), fs.existsSync(configDir) ? readStatusEdits(wb, configDir) : undefined, commonRules(configDir))
   if (section) {
     const part = statusPart(md, section)
     if (!part) { console.error(`그런 절이 없습니다: ${section}. 있는 절: ${statusPartNames(md).join(', ')}`); process.exit(1) }
@@ -77,7 +77,7 @@ if (registry) {
   for (const r of registry.list()) editsAt.set(path.resolve(r.path), byId.get(r.id) ?? 0)
 }
 const repoOf = (r) => path.resolve(path.basename(r) === 'workbench' ? path.dirname(r) : r)
-const rows = [...new Set(repos.map(repoOf))].map((r) => {
-  try { return overviewRow(new Workbench(wbRoot(r)), editsAt.get(r) ?? 0) } catch (e) { return { folder: r, problem: e.message } }
-})
+const rows = await Promise.all([...new Set(repos.map(repoOf))].map(async (r) => {
+  try { return await overviewRow(new Workbench(wbRoot(r)), editsAt.get(r) ?? 0) } catch (e) { return { folder: r, problem: e.message } }
+}))
 process.stdout.write(generateOverview(rows))

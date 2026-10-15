@@ -1,12 +1,9 @@
-import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
+import { gitRun, GIT_TIMEOUT } from './git.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
-
-const exec = promisify(execFile)
 
 /**
  * GitHub 저장소 주소를 이 컴퓨터로 받아 와(git clone) 연구로 등록할 수 있게 한다.
@@ -39,7 +36,7 @@ export async function cloneInto(source: string, parent: string, name: string): P
   if (fs.existsSync(dest)) throw new WorkbenchError(409, t(`이미 있는 폴더입니다: ${dest}. 그 경로를 그대로 등록하세요.`, `This folder already exists: ${dest}. Register that path as it is.`))
   fs.mkdirSync(parent, { recursive: true })
   try {
-    await exec('git', ['clone', '--quiet', '--', source, dest], { timeout: 300_000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
+    await gitRun(['clone', '--quiet', '--', source, dest], { timeout: GIT_TIMEOUT.clone })
   } catch (e) {
     fs.rmSync(dest, { recursive: true, force: true })
     const msg = ((e as { stderr?: string }).stderr || (e as Error).message).trim().split('\n').pop()

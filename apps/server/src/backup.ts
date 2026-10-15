@@ -2,12 +2,10 @@ import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import type { BackupResult } from '@rw/core/contract/backup'
 import { writeAtomic } from './fsutil'
+import { git as gitAt, gitBuffer, gitRun, GIT_TIMEOUT } from './git.js'
 import { t } from './i18n.js'
-
-const exec = promisify(execFile)
 
 /**
  * 맥에만 있던 작업대 정보(workbench/)와 앱 설정을 사용자의 비공개 개인 저장소(personalRepo.ts)에 두고, 그것을 정본으로 맞춘다
@@ -28,12 +26,8 @@ export type { BackupResult } from '@rw/core/contract/backup'
 
 const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
 const firstLine = (e: unknown) => String((e as { stderr?: string }).stderr || (e as Error).message || e).split('\n').find((l) => l.trim()) ?? t('알 수 없는 오류', 'Unknown error')
-async function git(cwd: string, args: string[]): Promise<string> {
-  return (await exec('git', ['-C', cwd, ...args], { timeout: 120_000, env, maxBuffer: 64 * 1024 * 1024 })).stdout.trim()
-}
-async function blob(cwd: string, sha: string): Promise<Buffer> {
-  return (await exec('git', ['-C', cwd, 'cat-file', 'blob', sha], { timeout: 120_000, env, encoding: 'buffer', maxBuffer: 256 * 1024 * 1024 })).stdout
-}
+const git = (cwd: string, args: string[]) => gitAt(cwd, args, { timeout: GIT_TIMEOUT.backup })
+const blob = (cwd: string, sha: string) => gitBuffer(cwd, ['cat-file', 'blob', sha], { timeout: GIT_TIMEOUT.backup, maxBuffer: 256 * 1024 * 1024 })
 
 /** 이 연구의 workbench/가 연구 저장소에 올라가 있는지 (하나라도 추적하면 true) */
 export async function workbenchTracked(repoPath: string): Promise<boolean> {
@@ -115,7 +109,7 @@ export async function backupWorkbenches(opts: {
     if (!fs.existsSync(path.join(opts.dir, '.git'))) {
       fs.rmSync(opts.dir, { recursive: true, force: true })
       fs.mkdirSync(path.dirname(opts.dir), { recursive: true })
-      await exec('git', ['clone', '--quiet', opts.remote, opts.dir], { timeout: 120_000, env })
+      await gitRun(['clone', '--quiet', opts.remote, opts.dir], { timeout: GIT_TIMEOUT.backup })
     }
     await git(opts.dir, ['fetch', '--quiet', 'origin'])
     remoteRef = await git(opts.dir, ['rev-parse', '--verify', '--quiet', 'origin/main']).catch(() => null)

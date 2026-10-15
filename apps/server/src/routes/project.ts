@@ -6,7 +6,7 @@ import * as C from '@rw/core/contract/research'
 import { parseBody, replies } from '../contract.js'
 import { commonRules, projectRules } from '../agentRules.js'
 import * as CC from '@rw/core/contract/concepts'
-import { generateStatus, readStatusEdits, statusPart, statusPartNames, statusSummary, listReviews, readTaskTable, writeStatus } from '../agentStatus.js'
+import { statusFor, statusPart, statusPartNames, statusSummary, listReviews, readTaskTable, writeStatusFor } from '../agentStatus.js'
 import { contentTypeOf } from '../materials.js'
 import { setResearchInfo } from '../projectInfo.js'
 import { researchHash } from '../mainNote.js'
@@ -47,8 +47,7 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
    * ?section=<절 이름>(그 절만)으로 필요한 만큼만 읽는다 (10/15 에이전트가 읽는 양 줄이기)
    */
   app.get<{ Params: { rid: string }; Querystring: { view?: string; section?: string } }>('/api/researches/:rid/agent-status', replies(C.AgentStatusPreview), async (req): Promise<C.AgentStatusPreview> => {
-    const wb = wbOf(req.params.rid)
-    const full = generateStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, req.params.rid, registry.libraryPath), commonRules(registry.configDir))
+    const full = await statusFor(registry, req.params.rid)
     const { section, view } = req.query
     if (section) {
       const part = statusPart(full, section)
@@ -63,8 +62,8 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
   app.get('/api/rules/common', replies(CC.CommonRules), async (): Promise<CC.CommonRules> => ({ rules: commonRules(registry.configDir) }))
   /** STATUS.md 쓰기 — agent-status를 켠 프로젝트만 */
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/agent-status', replies(C.AgentStatusWritten), async (req): Promise<C.AgentStatusWritten> => {
-    const wb = wbOf(req.params.rid)
-    if (!wb.readResearch().agentStatus) throw new WorkbenchError(409, t('research.yaml에 agent-status: true가 없어 쓰지 않음', 'Not written: research.yaml does not have agent-status: true'))
-    return writeStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, req.params.rid, registry.libraryPath), commonRules(registry.configDir))
+    const written = await writeStatusFor(registry, req.params.rid)
+    if (!written) throw new WorkbenchError(409, t('research.yaml에 agent-status: true가 없어 쓰지 않음', 'Not written: research.yaml does not have agent-status: true'))
+    return written
   })
 }

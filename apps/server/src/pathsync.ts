@@ -1,12 +1,9 @@
-import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
+import { git as gitAt, gitBuffer, gitRun } from './git.js'
 import { withRepoLock } from './repoLock.js'
 import { t } from './i18n.js'
-
-const exec = promisify(execFile)
 
 /**
  * 이 컴퓨터에서 남긴 사용자 기록(앱 피드백, 연구의 코멘트 등)만 GitHub에 올려 클라우드의 Claude가 읽게 한다.
@@ -51,12 +48,9 @@ export class PathSyncError extends Error {
   constructor(message: string, readonly commit: string | null = null) { super(message) }
 }
 
-const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
 const firstLine = (e: unknown) => String((e as { stderr?: string }).stderr || (e as Error).message || e).split('\n').find((l) => l.trim()) ?? t('알 수 없는 오류', 'Unknown error')
 
-async function git(root: string, args: string[], extraEnv: Record<string, string> = {}): Promise<string> {
-  return (await exec('git', ['-C', root, ...args], { timeout: 60_000, env: { ...env, ...extraEnv } })).stdout.trim()
-}
+const git = (root: string, args: string[], extraEnv: Record<string, string> = {}) => gitAt(root, args, { env: extraEnv })
 const lines = (s: string) => s.split('\n').filter(Boolean)
 const blobOf = (root: string, rev: string, file: string) => git(root, ['rev-parse', '--verify', '--quiet', `${rev}:${file}`]).catch(() => null)
 
@@ -106,7 +100,7 @@ export async function pendingPaths(root: string, paths: string[]): Promise<strin
 
 /** 추적 중인 원격 브랜치에 있는 그 파일의 글 (없으면 null) */
 export async function upstreamText(root: string, file: string): Promise<string | null> {
-  try { return (await exec('git', ['-C', root, 'show', `@{upstream}:${file}`], { timeout: 60_000, env, maxBuffer: 64 * 1024 * 1024 })).stdout } catch { return null }
+  try { return await gitRun(['-C', root, 'show', `@{upstream}:${file}`]) } catch { return null }
 }
 
 export function publishPaths(root: string, paths: string[], opts: PathPublishOptions): Promise<PathPublishResult> {
@@ -120,12 +114,12 @@ async function mergeFile(root: string, tmp: string, base: string | null, ours: s
   if (!ours || !theirs) return null
   const write = async (name: string, blob: string | null) => {
     const file = path.join(tmp, name)
-    fs.writeFileSync(file, blob ? (await exec('git', ['-C', root, 'cat-file', 'blob', blob], { env, maxBuffer: 64 * 1024 * 1024, encoding: 'buffer' })).stdout : '')
+    fs.writeFileSync(file, blob ? await gitBuffer(root, ['cat-file', 'blob', blob]) : '')
     return file
   }
   const [o, b, th] = [await write('ours', ours), await write('base', base), await write('theirs', theirs)]
   try {
-    return (await exec('git', ['merge-file', '-p', o, b, th], { env, maxBuffer: 64 * 1024 * 1024 })).stdout
+    return await gitRun(['merge-file', '-p', o, b, th])
   } catch { return null } // 0보다 큰 끝 값 = 부딪힌 곳 수, 음수 = 오류
 }
 
