@@ -6,7 +6,7 @@ import * as C from '@rw/core/contract/research'
 import { parseBody, replies } from '../contract.js'
 import { commonRules, projectRules } from '../agentRules.js'
 import * as CC from '@rw/core/contract/concepts'
-import { generateStatus, readStatusEdits, listReviews, readTaskTable, writeStatus } from '../agentStatus.js'
+import { generateStatus, readStatusEdits, statusPart, statusPartNames, statusSummary, listReviews, readTaskTable, writeStatus } from '../agentStatus.js'
 import { contentTypeOf } from '../materials.js'
 import { setResearchInfo } from '../projectInfo.js'
 import { researchHash } from '../mainNote.js'
@@ -42,7 +42,21 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
     return r
   })
   /** STATUS.md 미리보기 (쓰지 않음) */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-status', replies(C.AgentStatusPreview), async (req): Promise<C.AgentStatusPreview> => ({ markdown: generateStatus(wbOf(req.params.rid), new Date(), readStatusEdits(wbOf(req.params.rid), registry.configDir, req.params.rid, registry.libraryPath), commonRules(registry.configDir)) }))
+  /**
+   * STATUS 미리보기. 화면은 전부를 쓴다. 에이전트는 ?view=summary(머리 · 목표 · 지금 할 것, 다른 절은 이름과 크기만)나
+   * ?section=<절 이름>(그 절만)으로 필요한 만큼만 읽는다 (10/15 에이전트가 읽는 양 줄이기)
+   */
+  app.get<{ Params: { rid: string }; Querystring: { view?: string; section?: string } }>('/api/researches/:rid/agent-status', replies(C.AgentStatusPreview), async (req): Promise<C.AgentStatusPreview> => {
+    const wb = wbOf(req.params.rid)
+    const full = generateStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, req.params.rid, registry.libraryPath), commonRules(registry.configDir))
+    const { section, view } = req.query
+    if (section) {
+      const part = statusPart(full, section)
+      if (!part) throw new WorkbenchError(404, t(`그런 절이 없습니다: ${section}. 있는 절: ${statusPartNames(full).join(', ')}`, `No such section: ${section}. Sections: ${statusPartNames(full).join(', ')}`))
+      return { markdown: part }
+    }
+    return { markdown: view === 'summary' ? statusSummary(full, t('절 하나만 받기: MCP project_status에 section: "<절 이름>", 또는 GET …/agent-status?section=<절 이름>', 'One section: MCP project_status with section: "<name>", or GET …/agent-status?section=<name>')) : full }
+  })
   /** 이 연구 저장소의 에이전트 규칙: 맨 위 AGENTS.md · CLAUDE.md (MCP rules 도구가 모아 준다) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-rules', replies(C.AgentRules), async (req): Promise<C.AgentRules> => ({ files: projectRules(path.dirname(wbOf(req.params.rid).root)) }))
   /** 연구 공통 규칙: 모든 연구 저장소에 통하는 규칙 한 파일 (MCP rules 도구가 모아 준다). 없으면 null */

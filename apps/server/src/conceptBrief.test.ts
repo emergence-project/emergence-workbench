@@ -141,7 +141,7 @@ describe('지식 첫 화면 (GET /api/concepts/brief)', () => {
   })
 
   it('GET /api 목록에 있다', async () => {
-    const api = (await app.inject({ method: 'GET', url: '/api' })).json()
+    const api = (await app.inject({ method: 'GET', url: '/api?all=1' })).json()
     expect(api.start.some((s: { url: string }) => s.url === '/api/concepts/brief')).toBe(true)
     expect(api.routes.some((r: { url: string }) => r.url === '/api/concepts/brief')).toBe(true)
   })
