@@ -51,12 +51,9 @@
 .main-pick-act { display: flex; gap: var(--sp-2); }
 .now { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4) var(--sp-4); min-width: 0; scroll-margin-top: var(--sp-4); }
 .now h2 { font-size: var(--fs-lg); margin: 0; font-weight: var(--fw-title); }
-.now h3 { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); letter-spacing: .02em; margin: var(--sp-4) 0 var(--sp-1); }
 .now .empty { padding: 2px 0; margin: 0; }
 button.t:hover { text-decoration: underline; }
 /* 작업 패널: 할 일 · 멈춤 · 검토 대기 모두 같은 줄 (10/7 15:31·17:02). 제목 한 줄 + 설명 한 줄, 넘치면 … (전체는 툴팁) */
-.now h3 .count { font-weight: var(--fw-normal); margin-left: 2px; }
-.now-group:first-of-type h3 { margin-top: var(--sp-2); }
 .now-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .now-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: baseline; margin: 0 -8px; padding: 6px var(--sp-2); border-radius: var(--r-sm); cursor: pointer; }
 .now-row:hover { background: var(--bg-hover); }
@@ -69,7 +66,6 @@ button.t:hover { text-decoration: underline; }
 .now-sub { font-size: var(--fs-xs); color: var(--text-3); }
 .now-sub .a { font-size: inherit; color: inherit; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .now-end { display: flex; align-items: center; align-self: center; }
-.now-more { font-size: var(--fs-xs); margin-top: 2px; }
 .now-act { flex: none; color: var(--text-3); }
 
 /* 첫 화면 왼쪽: 제목 · 설명 · 성격과 분야 · 연구 내용 */
@@ -83,8 +79,18 @@ button.t:hover { text-decoration: underline; }
 .main-notes .hint { margin: 0; font-size: var(--fs-xs); }
 .now .sec-head { display: flex; align-items: baseline; gap: var(--sp-3); }
 .now-all { margin-left: auto; font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.now-folded { color: var(--text-3); }
-.now h3 .a { font: inherit; color: inherit; }
+/* 목록 아래 "+n": 패널 아래 여백 안에 둬 줄 하나를 덜 밀어내게 (10/15) */
+.now { position: relative; }
+.now-more { position: absolute; left: var(--sp-4); bottom: var(--sp-1); font-size: var(--fs-xs); line-height: 1; color: var(--text-3); }
+.now-filters { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: var(--sp-2) 0 var(--sp-1); }
+.now-filters .memo-chip { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.now-filters .memo-chip.on { background: var(--bg-hover); color: var(--text); border-color: var(--line-strong); }
+.now-filters .count { color: var(--text-3); font-variant-numeric: tabular-nums; }
+/* 표처럼: 줄 사이 옅은 선, 묶음 태그는 오른쪽 끝 같은 폭 (10/15 사용자) */
+.now-list .now-row { border-radius: 0; }
+.now-list .now-row + .now-row { border-top: 1px solid var(--line); }
+.now-row .now-end { gap: var(--sp-2); }
+.now-row .now-tag { margin: 0; white-space: nowrap; min-width: calc(var(--fs-2xs) * 4 + 12px); text-align: center; box-sizing: border-box; }
 .now .sec-head h2 .count { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-normal); }
 .now .sec-head h2 .a { font: inherit; color: inherit; }
 .now-note { margin: 2px 0 var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
