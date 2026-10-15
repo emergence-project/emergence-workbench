@@ -16,27 +16,30 @@ import { go, href, type Route } from './router'
  */
 export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) {
   const p = partOf(part)
-  // #/about/<쪽>/<절>: 그 절부터 보이게 (피드백 화면의 태그 표 보기 등)
-  useEffect(() => { if (anchor) document.getElementById(`about-${anchor}`)?.scrollIntoView({ block: 'start' }) }, [p.id, anchor])
-  const i = ABOUT_PARTS.indexOf(p)
-  const prev = ABOUT_PARTS[i - 1]
-  const next = ABOUT_PARTS[i + 1]
+  // 절이 있는 쪽은 절 하나씩 따로 연다 (10/15 14:12 "서브섹션보다 서브페이지 구조로, 스크롤이 힘들다"). #/about/<쪽>은 첫 절
+  const at = sectionIndex(p, anchor)
+  const scroll = useRef<HTMLDivElement>(null)
+  useEffect(() => { scroll.current?.scrollTo({ top: 0 }) }, [p.id, at])
+  const pages = aboutPages()
+  const i = pages.findIndex((x) => x.part === p && x.at === at)
+  const prev = pages[i - 1]
+  const next = pages[i + 1]
   return (
     <main className="stage full" data-ui="소개">
       <section className="pane">
-        <div className="scroll">
+        <div className="scroll" ref={scroll}>
           <PartTitle.Provider value={p.ui ?? p.title}>
             <article className="page-body about" data-ui={`소개 › ${p.ui ?? p.title}`}>
               <header>
                 {p.id === 'intro' ? <h1 className="h-title" data-ui="제목">Emergence Workbench</h1> : <h1 className="h-title">{p.title}</h1>}
-                <p className="h-sub" data-ui="부제">{p.id === 'intro' ? INTRO_SUB : p.sub}</p>
-                {p.open && <p className="about-open">{p.open.map((o) => <button key={o.label} className="a" onClick={() => go(o.to)}>{o.label} ›</button>)}</p>}
+                {at <= 0 && <p className="h-sub" data-ui="부제">{p.id === 'intro' ? INTRO_SUB : p.sub}</p>}
+                {at <= 0 && p.open && <p className="about-open">{p.open.map((o) => <button key={o.label} className="a" onClick={() => go(o.to)}>{o.label} ›</button>)}</p>}
               </header>
-              <UnsureNotice part={p} />
-              {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} />}
-              <footer className="about-pager">
-                {prev ? <a className="a" href={href({ page: 'about', part: prev.id })}>‹ {prev.title}</a> : <span />}
-                {next && <a className="a" href={href({ page: 'about', part: next.id })}>{next.title} ›</a>}
+              {at <= 0 && <UnsureNotice part={p} />}
+              {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} />}
+              <footer className="about-pager" data-ui="소개 앞뒤">
+                {prev ? <a className="a" href={pageHref(prev)}>‹ {pageLabel(prev, p)}</a> : <span />}
+                {next && <a className="a" href={pageHref(next)}>{pageLabel(next, p)} ›</a>}
               </footer>
             </article>
           </PartTitle.Provider>
@@ -45,6 +48,20 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
     </main>
   )
 }
+
+/** 쪽 안에서 열 절: 주소의 절 이름이 없거나 모르는 것이면 첫 절. 절이 없는 쪽은 -1 (쪽 전체) */
+function sectionIndex(p: AboutPart, anchor?: string): number {
+  const secs = p.sections ?? []
+  if (!secs.length) return -1
+  const k = anchor ? secs.findIndex((sec, j) => sectionAnchor(sec, j) === anchor) : 0
+  return k < 0 ? 0 : k
+}
+
+/** 앞뒤로 넘기는 차례: 절이 있는 쪽은 절마다 한 장, 없는 쪽은 쪽 하나 */
+interface AboutPageRef { part: AboutPart; at: number }
+const aboutPages = (): AboutPageRef[] => ABOUT_PARTS.flatMap((part) => part.sections?.length ? part.sections.map((_, at) => ({ part, at })) : [{ part, at: -1 }])
+const pageHref = (x: AboutPageRef) => href({ page: 'about', part: x.part.id, ...(x.at > 0 && { anchor: sectionAnchor(x.part.sections![x.at]!, x.at) }) })
+const pageLabel = (x: AboutPageRef, here: AboutPart) => x.at < 0 ? x.part.title : x.part === here ? x.part.sections![x.at]!.title : `${x.part.title} › ${x.part.sections![x.at]!.title}`
 
 /** 설정과 같은 앱 사이드바의 쪽 목록. 쪽 주소와 피드백 부위 이름은 그대로 둔다. */
 /** 왼쪽 목록의 묶음. 쪽 번호는 묶음을 넘어 이어진다. */
@@ -71,16 +88,17 @@ export function AboutSidebar({ part, anchor }: { part?: string; anchor?: string 
             {parts.map((p) => {
               const count = unsureCount(p, done)
               const on = p === current
+              const at = on ? sectionIndex(p, anchor) : -1
               return (
                 <div key={p.id}>
-                  <a href={href({ page: 'about', part: p.id })} className={`nav about-nav-row${on && !anchor ? ' on' : ''}`} aria-current={on ? 'page' : undefined} title={p.title}>
+                  <a href={href({ page: 'about', part: p.id })} className={`nav about-nav-row${on && at < 0 ? ' on' : ''}`} aria-current={on && at < 0 ? 'page' : undefined} title={p.title}>
                     <span className="n">{ABOUT_PARTS.indexOf(p) + 1}</span><span className="label">{p.title}</span>
                     {count > 0 && <span className="about-nav-flag" title={t(`확인이 필요한 곳 ${count}`, `Places to review: ${count}`)} data-ui="확인 필요 표시">{t(`확인 ${count}`, `Review ${count}`)}</span>}
                   </a>
                   {on && (p.sections ?? []).map((sec, i) => {
                     const a = sectionAnchor(sec, i)
                     return (
-                      <a key={a} href={href({ page: 'about', part: p.id, anchor: a })} className={`nav about-nav-sub${anchor === a ? ' on' : ''}`} title={sec.title}>
+                      <a key={a} href={href({ page: 'about', part: p.id, anchor: a })} className={`nav about-nav-sub${at === i ? ' on' : ''}`} aria-current={at === i ? 'page' : undefined} title={sec.title}>
                         <span className="label">{sec.title}</span>
                       </a>
                     )
@@ -274,10 +292,11 @@ export function AboutRailCount() {
 }
 
 /** 다시 정리한 설명: 절마다 항목 목록, 그리고 남은 것 */
-function Sections({ part }: { part: AboutPart }) {
+function Sections({ part, at }: { part: AboutPart; at: number }) {
+  const last = at === part.sections!.length - 1
   return (
     <>
-      {part.sections!.map((sec, i) => (
+      {part.sections!.map((sec, i) => i === at && (
         <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} prs={sec.prs}>
           {part.id !== 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
           <ul className="about-list">{sec.items.map((it, n) => <li key={n}>{it.unsure && <span className="about-unsure">{t('확인 필요', 'Needs review')}</span>}{it.text}</li>)}</ul>
@@ -286,7 +305,8 @@ function Sections({ part }: { part: AboutPart }) {
           {part.id === 'symbols' && sec.id && <SymbolTable id={sec.id} />}
         </Section>
       ))}
-      {part.left && part.left.length > 0 && (
+      {/* 남은 것은 쪽의 마지막 절 아래에 */}
+      {last && part.left && part.left.length > 0 && (
         <Section name={t('남은 것', 'Still to do')} ui="남은 것">
           <ul className="about-list">{part.left.map((x, n) => <li key={n}>{x}</li>)}</ul>
         </Section>
