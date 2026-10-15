@@ -2,11 +2,11 @@
 import type {
   CommentAdded, CommentChangeBody, CommentFile as CommentFileReply, CommentOverview, CommentState, NewCommentBody, NoteHighlight as NoteHighlightReply, RecordList, ReplyBody,
 } from '@rw/core/contract/comments'
-import type { RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
+import type { RecordsPublished, RecordsPublishState, UnpublishedFiles } from '@rw/core/contract/feedback'
 import { enc, json, req, send } from './http'
 
 export type { CommentKind, CommentState, CommentEntry, RecordFile, PendingQuestion } from '@rw/core/contract/comments'
-export type { RecordsPublished } from '@rw/core/contract/feedback'
+export type { RecordsPublished, RecordsPublishState } from '@rw/core/contract/feedback'
 /**
  * 논문 하이라이트(PaperHighlight)도 받는 공통 모양: 노트 기록의 하이라이트는 종류 · 위치 · 본문 · 상태까지 함께 온다.
  * 화면(Comments.tsx)이 노트 기록 파일과 논문 코멘트 파일을 같은 CommentFile로 다루므로 계약보다 넓게 둔다.
@@ -42,5 +42,7 @@ export function commentsApi(rid: string) {
     /** GitHub에 아직 없는 코멘트 파일 (서버 기록 올리기, PR #22의 /records). 그 기능이 없는 서버면 null */
     unpublished: () => req(`/api/researches/${enc(rid)}/records/unpublished`).then((r) => (r.status === 404 ? null : json<UnpublishedFiles>(r).then((x) => x.files))),
     publish: () => req(`/api/researches/${enc(rid)}/records/publish`, { method: 'POST' }).then((r) => json<RecordsPublished>(r)),
+    /** 기록 저절로 올리기의 마지막 결과 (실패만 화면에 보인다) */
+    publishState: () => req(`/api/researches/${enc(rid)}/records/publish`).then((r) => json<RecordsPublishState>(r)),
   }
 }

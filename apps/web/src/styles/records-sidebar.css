@@ -4,6 +4,9 @@
 .records-filters { flex: none; display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
 .records-filters .records-all { margin-left: auto; font-size: var(--fs-xs); }
 .records-filters .memo-chip.on { background: var(--bg-hover); color: var(--text); border-color: var(--line-strong); }
+.records-publish-error { flex: none; display: flex; gap: var(--sp-2); align-items: baseline; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
+.records-publish-error span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.records-publish-error .a { white-space: nowrap; }
 .records-classify { flex: none; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); }
 .records-classify .a { white-space: nowrap; }
 .records-classify .a:disabled { color: var(--text-3); cursor: default; text-decoration: none; }

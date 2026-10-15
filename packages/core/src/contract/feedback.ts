@@ -127,8 +127,13 @@ export const FeedbackOk = z.object({ ok: z.literal(true) }).strict()
 export const UnpublishedFiles = z.object({ files: z.array(z.string()), count: z.number().int().nonnegative().optional() }).strict()
 /** POST /feedback/publish. commit: 이번에 새로 만든 커밋 (없으면 null) */
 export const FeedbackPublished = z.object({ commit: z.string().nullable(), pushed: z.boolean(), message: z.string() }).strict()
-/** POST /researches/:rid/records/publish: 올린 파일도 (서버 pathsync.ts) */
-export const RecordsPublished = FeedbackPublished.extend({ files: z.array(z.string()) }).strict()
+/** POST /researches/:rid/records/publish: 올린 파일도 (서버 pathsync.ts). adopted: 이 컴퓨터의 브랜치를 올린 커밋으로 옮겼는지, merged: GitHub의 글과 합친 파일 */
+export const RecordsPublished = FeedbackPublished.extend({ files: z.array(z.string()), adopted: z.boolean().optional(), merged: z.array(z.string()).optional() }).strict()
+/** GET /researches/:rid/records/publish: 기록 저절로 올리기가 켜졌는지와 마지막 결과(at: ms, error: 실패 문장) */
+export const RecordsPublishState = z.object({
+  autoPublish: z.boolean(),
+  last: z.object({ at: z.number(), error: z.string().nullable() }).strict().nullable(),
+}).strict()
 
 // ---------- 요청 ----------
 // 빈 글, 길이, 있는 항목인지, 승인·진행을 쓸 수 있는 답인지는 서버 feedback.ts가 본다.
@@ -177,6 +182,7 @@ export type FeedbackOk = z.infer<typeof FeedbackOk>
 export type UnpublishedFiles = z.infer<typeof UnpublishedFiles>
 export type FeedbackPublished = z.infer<typeof FeedbackPublished>
 export type RecordsPublished = z.infer<typeof RecordsPublished>
+export type RecordsPublishState = z.infer<typeof RecordsPublishState>
 export type NewFeedbackBody = z.input<typeof NewFeedbackBody>
 export type EditFeedbackBody = z.input<typeof EditFeedbackBody>
 export type FeedbackReviewBody = z.input<typeof FeedbackReviewBody>

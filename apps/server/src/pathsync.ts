@@ -17,6 +17,14 @@ const exec = promisify(execFile)
  *    정한 경로의 파일만 얹은 커밋을 따로 만들어 올린다. 이 컴퓨터의 커밋은 다음 git pull·앱 업데이트 때 합쳐진다
  *    (같은 내용이라 충돌 없이 사라진다).
  * 3. GitHub에서도 그 파일이 이 컴퓨터가 모르는 내용으로 바뀌었으면 아무것도 올리지 않고 멈춘다.
+ *
+ * 연구 저장소의 기록(코멘트)은 두 가지를 더 켠다 (opts, 10/15):
+ * - merge: 3의 경우 파일마다 `git merge-file`로 세 갈래 합치기를 해 본다(공통 조상 · 이 컴퓨터 · GitHub). 모두 깨끗이 합쳐지면
+ *   합친 글을 작업 트리에 쓰고 커밋한 뒤 2처럼 GitHub 위에 올린다. 하나라도 부딪히면 아무것도 바꾸지 않고 멈춘다.
+ * - adopt: 2로 올린 뒤, 이 컴퓨터에만 있는 커밋이 모두 정한 경로 안이면 `git reset --keep <올린 커밋>`으로 이 컴퓨터의 브랜치를
+ *   올린 커밋으로 옮긴다(앞선 커밋 0개). 그래야 저절로 받기(gitsync.ts autoPull)가 막히지 않는다. 내용은 올린 커밋에 그대로 있다.
+ *   경로 밖에서 바뀌는 파일이 이 컴퓨터에서 고쳐져 있거나(--keep이 거절) git이 추적하지 않는 파일(무시한 파일 포함)과 이름이 같으면
+ *   옮기지 않고 그대로 둔다(다음 받기 때 합친다). 앱 피드백은 켜지 않는다(개인 저장소는 pullPersonal이 따로 받는다).
  */
 export interface PathPublishResult {
   /** 이번에 이 컴퓨터에 만든 커밋 (짧은 해시). 바뀐 것이 없었으면 null */
@@ -25,6 +33,18 @@ export interface PathPublishResult {
   /** GitHub에 올린 파일 */
   files: string[]
   message: string
+  /** adopt: 이 컴퓨터의 브랜치를 올린 커밋으로 옮겼는지 */
+  adopted?: boolean
+  /** merge: GitHub의 글과 합친 파일 */
+  merged?: string[]
+}
+
+export interface PathPublishOptions {
+  message: string
+  /** GitHub 위에 따로 올린 뒤 이 컴퓨터의 브랜치를 그 커밋으로 옮긴다 (이 컴퓨터의 커밋이 모두 정한 경로 안일 때만) */
+  adopt?: boolean
+  /** GitHub에서도 바뀐 파일을 세 갈래로 합쳐 본다 (부딪히면 멈춘다) */
+  merge?: boolean
 }
 
 export class PathSyncError extends Error {
@@ -89,11 +109,45 @@ export async function upstreamText(root: string, file: string): Promise<string |
   try { return (await exec('git', ['-C', root, 'show', `@{upstream}:${file}`], { timeout: 60_000, env, maxBuffer: 64 * 1024 * 1024 })).stdout } catch { return null }
 }
 
-export function publishPaths(root: string, paths: string[], opts: { message: string }): Promise<PathPublishResult> {
+export function publishPaths(root: string, paths: string[], opts: PathPublishOptions): Promise<PathPublishResult> {
   return withRepoLock(root, () => publishPathsNow(root, paths, opts))
 }
 
-async function publishPathsNow(root: string, paths: string[], opts: { message: string }): Promise<PathPublishResult> {
+const inPaths = (paths: string[], f: string) => paths.some((p) => f === p || f.startsWith(`${p.replace(/\/$/, '')}/`))
+
+/** 세 갈래 합치기: 합친 글, 부딪히면 null. 한쪽에서 지운 파일은 합치지 않는다 */
+async function mergeFile(root: string, tmp: string, base: string | null, ours: string | null, theirs: string | null): Promise<string | null> {
+  if (!ours || !theirs) return null
+  const write = async (name: string, blob: string | null) => {
+    const file = path.join(tmp, name)
+    fs.writeFileSync(file, blob ? (await exec('git', ['-C', root, 'cat-file', 'blob', blob], { env, maxBuffer: 64 * 1024 * 1024, encoding: 'buffer' })).stdout : '')
+    return file
+  }
+  const [o, b, th] = [await write('ours', ours), await write('base', base), await write('theirs', theirs)]
+  try {
+    return (await exec('git', ['merge-file', '-p', o, b, th], { env, maxBuffer: 64 * 1024 * 1024 })).stdout
+  } catch { return null } // 0보다 큰 끝 값 = 부딪힌 곳 수, 음수 = 오류
+}
+
+/**
+ * 이 컴퓨터의 브랜치를 GitHub에 올린 커밋으로 옮긴다. 올린 커밋은 GitHub 최신 + 이 컴퓨터가 바꾼 정한 경로의 파일이라
+ * 이 컴퓨터의 내용을 모두 담는다. 이 컴퓨터에만 있는 커밋(병합 커밋 없이)이 모두 정한 경로 안이고,
+ * 바뀌는 파일이 이 컴퓨터에서 고쳐져 있지 않고 추적하지 않는 파일과 겹치지 않을 때만. 옮겼으면 true
+ */
+async function adoptPushed(root: string, paths: string[], onTop: string): Promise<boolean> {
+  const base = await git(root, ['merge-base', 'HEAD', onTop])
+  if (await git(root, ['rev-list', '--merges', `${base}..HEAD`])) return false
+  for (const c of lines(await git(root, ['rev-list', `${base}..HEAD`]))) {
+    if (lines(await git(root, ['diff-tree', '-r', '--no-commit-id', '--name-only', c])).some((f) => !inPaths(paths, f))) return false
+  }
+  // reset --keep은 git이 무시하는 파일을 덮어쓰므로, 새로 생기는 파일과 이름이 같은 파일이 있으면 옮기지 않는다
+  for (const f of lines(await git(root, ['diff', '--name-only', '--diff-filter=A', 'HEAD', onTop]))) {
+    if (fs.existsSync(path.join(root, f))) return false
+  }
+  try { await git(root, ['reset', '--quiet', '--keep', onTop]); return true } catch { return false }
+}
+
+async function publishPathsNow(root: string, paths: string[], opts: PathPublishOptions): Promise<PathPublishResult> {
   checkPaths(paths)
   const { remote, ref } = await upstreamOf(root)
 
@@ -124,7 +178,7 @@ async function publishPathsNow(root: string, paths: string[], opts: { message: s
   }
 
   // 2-a. GitHub가 앞서 있지 않고 이 컴퓨터의 커밋이 모두 정한 경로 안이면 그대로 올린다
-  const outside = lines(await git(root, ['diff', '--name-only', up, 'HEAD'])).filter((f) => !paths.some((p) => f === p || f.startsWith(`${p.replace(/\/$/, '')}/`)))
+  const outside = lines(await git(root, ['diff', '--name-only', up, 'HEAD'])).filter((f) => !inPaths(paths, f))
   if (base === up && !outside.length) {
     await push('HEAD')
     return { commit, pushed: true, files, message: t(`GitHub에 올렸습니다 (${files.length}개 파일)`, `Pushed to GitHub (${files.length} ${files.length === 1 ? 'file' : 'files'})`) }
@@ -137,12 +191,38 @@ async function publishPathsNow(root: string, paths: string[], opts: { message: s
     for (const c of lines(await git(root, ['rev-list', `${base}..HEAD`, '--', f]))) known.add(await blobOf(root, c, f))
     if (!known.has(await blobOf(root, up, f))) conflicts.push(f)
   }
+  const merged: string[] = []
+  if (conflicts.length && opts.merge) {
+    // 3-합치기. 작업 트리 글이 HEAD와 같을 때만 (그사이 새로 쓴 것을 덮지 않게)
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-pathmerge-'))
+    try {
+      const out = new Map<string, string>()
+      for (const f of conflicts) {
+        const ours = await blobOf(root, 'HEAD', f)
+        const text = await mergeFile(root, tmp, await blobOf(root, base, f), ours, await blobOf(root, up, f))
+        const disk = path.join(root, f)
+        if (text === null || !fs.existsSync(disk) || await git(root, ['hash-object', '--', f]) !== ours) { out.clear(); break }
+        out.set(f, text)
+      }
+      if (out.size === conflicts.length) {
+        for (const [f, text] of out) fs.writeFileSync(path.join(root, f), text)
+        await git(root, ['add', '--', ...out.keys()])
+        await git(root, ['commit', '--only', '-m', `${opts.message} (merged with GitHub)`, '--', ...out.keys()])
+        commit = await git(root, ['rev-parse', '--short', 'HEAD'])
+        merged.push(...out.keys())
+        conflicts.length = 0
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true })
+    }
+  }
   if (conflicts.length) {
     throw new PathSyncError(t(`GitHub에서도 같은 파일이 바뀌어 올리지 않았습니다: ${conflicts.join(', ')}. ${commit ? '커밋은 이 컴퓨터에 남아 있습니다. ' : ''}git pull로 합친 뒤 다시 눌러 주세요`, `Not pushed because the same files also changed on GitHub: ${conflicts.join(', ')}. ${commit ? 'The commit stays on this computer. ' : ''}Merge with git pull, then try again`), commit)
   }
 
-  // 2-b. GitHub 최신 커밋 위에 정한 경로의 파일만 얹은 커밋을 따로 만든다 (작업 트리·HEAD는 그대로)
+  // 2-b. GitHub 최신 커밋 위에 정한 경로의 파일만 얹은 커밋을 따로 만든다 (작업 트리·HEAD는 그대로. adopt면 HEAD를 그 커밋으로 옮긴다)
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-pathsync-'))
+  let onTop: string
   try {
     const idx = { GIT_INDEX_FILE: path.join(tmp, 'index') }
     await git(root, ['read-tree', up], idx)
@@ -156,10 +236,14 @@ async function publishPathsNow(root: string, paths: string[], opts: { message: s
       }
     }
     const tree = await git(root, ['write-tree'], idx)
-    const onTop = await git(root, ['commit-tree', tree, '-p', up, '-m', opts.message])
+    onTop = await git(root, ['commit-tree', tree, '-p', up, '-m', opts.message])
     await push(onTop)
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
   }
-  return { commit, pushed: true, files, message: t(`GitHub 최신 버전 위에 올렸습니다 (${files.length}개 파일)`, `Pushed on top of the latest GitHub version (${files.length} ${files.length === 1 ? 'file' : 'files'})`) }
+  const adopted = opts.adopt ? await adoptPushed(root, paths, onTop).catch(() => false) : undefined
+  return {
+    commit, pushed: true, files, message: t(`GitHub 최신 버전 위에 올렸습니다 (${files.length}개 파일)`, `Pushed on top of the latest GitHub version (${files.length} ${files.length === 1 ? 'file' : 'files'})`),
+    ...(adopted !== undefined && { adopted }), ...(merged.length && { merged }),
+  }
 }
