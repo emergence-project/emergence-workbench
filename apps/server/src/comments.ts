@@ -62,7 +62,9 @@ import { t } from './i18n.js'
 export const COMMENTS_DIR = 'comments'
 /** 코멘트는 예전 입력과 논문 라이브러리의 호환 타입. 노트에는 메모로 저장한다. */
 export type { CommentKind } from '@rw/core/contract/comments'
-export const COMMENT_KINDS: CommentKind[] = ['메모', '할 일', '질문', '하이라이트', '코멘트']
+export const COMMENT_KINDS: CommentKind[] = ['메모', '할 일', '질문', '지시', '하이라이트', '코멘트']
+/** 에이전트가 움직이는 기록: 질문은 답하고, 지시는 하고 답한다 (10/15). 상태는 대기 · 답함 · 끝냄 */
+export const isAgentKind = (kind: string) => kind === '질문' || kind === '지시'
 export { COMMENT_STATES, type CommentState } from './commentFormat.js'
 
 // 응답 모양은 API 계약(@rw/core/contract/comments)에 있다
@@ -113,7 +115,7 @@ export function parseComments(target: string, text: string): CommentFile {
       const where = head[3]!.trim()
       const page = /^p\.(\d+)/.exec(where)
       const lineNo = /^L(\d+)$/.exec(where)
-      cur = { id: head[1]!, kind, where, page: page ? Number(page[1]) : undefined, ...(lineNo && { line: Number(lineNo[1]) }), rects: [], body: '', state: kind === '질문' || kind === '할 일' ? '대기' : null, answers: [] }
+      cur = { id: head[1]!, kind, where, page: page ? Number(page[1]) : undefined, ...(lineNo && { line: Number(lineNo[1]) }), rects: [], body: '', state: isAgentKind(kind) || kind === '할 일' ? '대기' : null, answers: [] }
       if (kind === '하이라이트') {
         cur.color = 'yellow'
         highlights.push(cur as NoteHighlight)
@@ -254,10 +256,10 @@ export function listRecords(root: string, projectTitle: string): RecordGroup[] {
     })
 }
 
-/** 에이전트 함: 아직 답이 없는 질문 */
-export function pendingQuestions(root: string): PendingQuestion[] {
+/** 에이전트 함: 아직 답이 없는 질문 (kind = '지시'면 아직 하지 않은 지시) */
+export function pendingQuestions(root: string, kind: '질문' | '지시' = '질문'): PendingQuestion[] {
   return listComments(root).flatMap((f) => f.comments
-    .filter((c) => c.kind === '질문' && c.state === '대기')
+    .filter((c) => c.kind === kind && c.state === '대기')
     .map((c) => ({ target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body })))
 }
 
@@ -328,7 +330,7 @@ function prepareComment(root: string, target: string, input: NewComment, now: Da
   out.push('', `## ${id} · ${kind} · ${page ? `p.${page}` : line ? `L${line}` : '전체'}`)
   if (Object.keys(meta).length) out.push(`<!-- rw: ${JSON.stringify(meta)} -->`)
   if (quote) out.push(...`"${quote}"`.split('\n').map((l) => `> ${l}`))
-  if (kind === '질문' || kind === '할 일') out.push('- 상태: 대기')
+  if (isAgentKind(kind) || kind === '할 일') out.push('- 상태: 대기')
   if (body) out.push('', body)
   out.push('')
   const chunk = out.join('\n')
@@ -403,7 +405,7 @@ function classifyHeader(lines: string[], id: string, meta: Record<string, unknow
   if (kind) {
     out[start] = out[start]!.replace(/^(## c-[\w-]+ · ).+?( · )/, `$1${kind}$2`)
     // A later answer's state still wins; do not replace an agent's answer or state line.
-    if (kind === '할 일' || kind === '질문') out.splice(start + 1, 0, `- 상태: 대기${cr}`)
+    if (kind === '할 일' || isAgentKind(kind)) out.splice(start + 1, 0, `- 상태: 대기${cr}`)
   }
   return out
 }
@@ -508,8 +510,8 @@ export function updateComment(root: string, target: string, id: string, change: 
     if (text !== undefined && !text.trim() && !entry.quote?.trim() && !(entry.kind === '하이라이트' && entry.page && entry.rects.length)) {
       throw new WorkbenchError(400, t('내용이 필요함', 'Text is required'))
     }
-    if (state !== undefined && (entry.kind !== '질문' && entry.kind !== '할 일' || entry.kind === '할 일' && state === '답함')) {
-      throw new WorkbenchError(400, t('질문은 대기·답함·끝냄, 할 일은 대기·끝냄으로 바꿀 수 있음', 'A question can be set to 대기, 답함, or 끝냄; a to-do to 대기 or 끝냄'))
+    if (state !== undefined && (!isAgentKind(entry.kind) && entry.kind !== '할 일' || entry.kind === '할 일' && state === '답함')) {
+      throw new WorkbenchError(400, t('질문·지시는 대기·답함·끝냄, 할 일은 대기·끝냄으로 바꿀 수 있음', 'A question or instruction can be set to 대기, 답함, or 끝냄; a to-do to 대기 or 끝냄'))
     }
     const out = [...lines]
     const cr = lines[s]!.endsWith('\r') ? '\r' : ''

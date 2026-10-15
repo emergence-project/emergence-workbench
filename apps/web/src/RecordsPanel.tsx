@@ -13,10 +13,10 @@ import { flash } from './flash'
 import { RecordList } from './RecordList'
 import { chooseRecordFilter } from './workRecords'
 
-const FILTERS: RecordFilter[] = ['전체', '메모', '할 일', '질문']
-const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문으로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, and questions')
+const FILTERS: RecordFilter[] = ['전체', '메모', '할 일', '질문', '지시']
+const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문 · 지시로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, questions, and instructions')
 /** 필터·기록 종류의 화면 이름 (값은 한국어 그대로) */
-const LABEL: Record<string, string> = { 전체: t('전체', 'All'), 메모: t('메모', 'Memo'), '할 일': t('할 일', 'To-do'), 질문: t('질문', 'Question'), 코멘트: t('코멘트', 'Comment'), 하이라이트: t('하이라이트', 'Highlight') }
+const LABEL: Record<string, string> = { 전체: t('전체', 'All'), 메모: t('메모', 'Memo'), '할 일': t('할 일', 'To-do'), 질문: t('질문', 'Question'), 지시: t('지시', 'Instruction'), 코멘트: t('코멘트', 'Comment'), 하이라이트: t('하이라이트', 'Highlight') }
 const labelOf = (k: string) => LABEL[k] ?? k
 // Keep a pending target disabled even when its sidebar unmounts and opens again.
 const classifying = new Set<string>()
@@ -164,7 +164,7 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
       <div className="record-paint"><span>{t('고른 글 색', 'Selection color')}</span><PaintDots color={draft.color} disabled={busy} onChange={(color) => setDraft({ ...draft, color })} /></div>
       <div className="record-attached"><span title={a.quote}>{t('고른 글', 'Selection')}{a.line ? t(` · ${a.line}줄`, ` · line ${a.line}`) : a.page ? t(` · ${a.page}쪽`, ` · p. ${a.page}`) : ''} “{a.quote}”</span><button className="icon-btn" aria-label={t('고른 글 빼기', 'Remove selection')} title={t('빼기', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: {} })}>×</button></div>
     </>}
-    <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('궁금한 것이나 고칠 것을 적으면 Claude에게 보냅니다. 고친 글은 "노트에 적용"으로 넣습니다.', 'Write a question or something to fix and it goes to Claude. Put the revised text in with "Apply to note".') : t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.')) : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : target.target.startsWith('topic-') ? t('이 주제에 남길 기록', 'A record for this topic') : target.target.startsWith('flow-') ? t('이 흐름 점에 남길 기록', 'A record for this flow dot') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
+    <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('궁금한 것이나 고칠 것을 적으면 Claude에게 보냅니다. 고친 글은 "노트에 적용"으로 넣습니다.', 'Write a question or something to fix and it goes to Claude. Put the revised text in with "Apply to note".') : t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.')) : draft.kind === '지시' ? t('에이전트가 할 일을 적으세요. 하고 나서 답을 답니다.', 'What should an agent do? It answers when done.') : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : target.target.startsWith('topic-') ? t('이 주제에 남길 기록', 'A record for this topic') : target.target.startsWith('flow-') ? t('이 흐름 점에 남길 기록', 'A record for this flow dot') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
       onChange={(e) => setDraft({ ...draft, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void save() } else onListKey(e, (text) => setDraft({ ...draft, text })) }} />
     {error && <div className="banner danger" role="alert">{error}</div>}
     <div className="record-composer-actions">

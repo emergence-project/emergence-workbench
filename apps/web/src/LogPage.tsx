@@ -94,7 +94,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
   const files = records?.rid === rid ? records.files : []
   const recordsLoaded = records?.rid === rid && records.version === version && records.tick === tick
   const recordsError = records?.rid === rid ? records.error : null
-  const groups = workRecordGroups(files, entries, filter === '질문' ? '질문' : '메모')
+  const groups = workRecordGroups(files, entries, filter === '질문' || filter === '지시' ? filter : '메모')
   const count = filter === '판단' ? judgeCount : filter === '맡긴 일' ? tasks.length + new Set(diagnostics.map((d) => d.file)).size : filter === '할 일' ? open.length : groups.reduce((n, group) => n + group.items.length, 0)
   const openRecord = (file: RecordFile, entry: CommentEntry) => {
     if (!(entry.page && onOpenPdf(file))) {
@@ -118,7 +118,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
   useEffect(() => { scrolled.current = false }, [rid, focus])
   // 화면이 보이고 일지 위의 프로젝트 작업·검토 목록까지 받은 뒤, 이 이동에서 한 번만 내려간다.
   useEffect(() => {
-    if (focus !== 'log' || !journalLoaded || !projectLoaded || !tasksLoaded || ((filter === '메모' || filter === '질문') && !recordsLoaded) || scrolled.current || !logRef.current) return
+    if (focus !== 'log' || !journalLoaded || !projectLoaded || !tasksLoaded || ((filter === '메모' || filter === '질문' || filter === '지시') && !recordsLoaded) || scrolled.current || !logRef.current) return
     logRef.current.scrollIntoView({ block: 'start' })
     scrolled.current = true
   }, [rid, focus, journalLoaded, projectLoaded, tasksLoaded, filter, recordsLoaded])
@@ -148,7 +148,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
           <MemoList entries={open} rid={rid} titleOf={titleOf} onToggle={toggle} {...edit} hideTodoKind empty={t('남은 할 일이 없습니다.', 'No open to-dos.')} />
           </> : <div className="work-records" data-ui="작업 기록 목록">
             {recordsError && <div className="banner danger" role="alert">{recordsError}</div>}
-            {!count && <p className="muted records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : t(`아직 ${filter === '질문' ? '질문이' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
+            {!count && <p className="muted records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
             {groups.map((group) => <div className="record-group" key={group.target}>
               {group.items.map((item) => item.kind === 'record'
                 ? <RecordList key={`${item.file.target}/${item.entry.id}`} rid={rid} file={item.file} filter={filter} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} />
@@ -178,7 +178,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
 }
 
 /** 필터 이름 (값은 한국어 그대로 저장한다) */
-const FILTER_LABEL: Record<WorkFilter, string> = { '판단': t('판단', 'To decide'), '맡긴 일': t('맡긴 일', 'Delegated'), '할 일': t('할 일', 'To-do'), '메모': t('메모', 'Memo'), '질문': t('질문', 'Question') }
+const FILTER_LABEL: Record<WorkFilter, string> = { '판단': t('판단', 'To decide'), '맡긴 일': t('맡긴 일', 'Delegated'), '할 일': t('할 일', 'To-do'), '메모': t('메모', 'Memo'), '질문': t('질문', 'Question'), '지시': t('지시', 'Instruction') }
 
 const unlink = (s: string) => s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/`/g, '')
 

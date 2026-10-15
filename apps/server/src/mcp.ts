@@ -203,30 +203,30 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('list_records', {
     title: 'List records',
-    description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Each row: target, id, kind, state, where, quote, part/partText (the screen part the user pointed at), body, answers. Use unanswered: true for questions still waiting for an answer. Read one target with read_records when you need its hash.',
+    description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Kinds: 메모 (memo, nobody acts), 할 일 (to-do, the user does it), 질문 (question, an agent answers), 지시 (instruction, an agent does it and then answers). Each row: target, id, kind, state, where, quote, part/partText (the screen part the user pointed at), body, answers. Use unanswered: true for questions and instructions still waiting. Read one target with read_records when you need its hash.',
     inputSchema: {
       project,
-      kind: z.enum(['메모', '할 일', '질문']).optional().describe('메모 (memo) | 할 일 (to-do) | 질문 (question)'),
+      kind: z.enum(['메모', '할 일', '질문', '지시']).optional().describe('메모 (memo) | 할 일 (to-do) | 질문 (question) | 지시 (instruction)'),
       state: z.enum(['대기', '답함', '끝냄']).optional().describe('대기 (waiting) | 답함 (answered) | 끝냄 (closed)'),
       target: z.string().optional().describe('Only this target, or a prefix ending in - (note-, topic-, flow- …)'),
-      unanswered: z.boolean().optional().describe('Only questions waiting for an answer (kind 질문, state 대기)'),
+      unanswered: z.boolean().optional().describe('Only questions and instructions still waiting (kind 질문 or 지시, state 대기)'),
     },
     annotations: ro,
   }, async ({ project: rid, kind, state, target, unanswered }) => call(`/api/researches/${enc(rid)}/records`, (b: { files: { target: string; title: string; source?: string; comments: Record<string, unknown>[] }[] }) => ({
     records: b.files
       .filter((file) => !target || (target.endsWith('-') ? file.target.startsWith(target) : file.target === target))
       .flatMap((file) => file.comments
-        .filter((c) => (!kind || c.kind === kind) && (!state || c.state === state) && (!unanswered || (c.kind === '질문' && c.state === '대기')))
+        .filter((c) => (!kind || c.kind === kind) && (!state || c.state === state) && (!unanswered || ((c.kind === '질문' || c.kind === '지시') && c.state === '대기')))
         .map((c) => ({ target: file.target, title: file.title, ...pick(c, ['id', 'kind', 'state', 'where', 'quote', 'part', 'partText', 'edit', 'body', 'answers']) }))),
   })))
 
   server.registerTool('answer_record', {
-    title: 'Answer a question record',
-    description: 'Write your answer under a question record (from list_records or read_records). The answer is appended with your agent name and the question becomes answered (답함); the user reads it in the app. Answer only what was asked. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
+    title: 'Answer a question or instruction record',
+    description: 'Write your answer under a question (질문) or instruction (지시) record (from list_records or read_records). The answer is appended with your agent name and the record becomes answered (답함); the user reads it in the app. For a question, answer only what was asked. For an instruction, do the small job first (change notes with edit_note so the user reviews them), then answer saying what you did and where; if it needs an end condition and a report, do not start it and answer suggesting a delegated task instead. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
     inputSchema: {
       project,
       target: z.string().describe('The record\'s target (project, note-<folder>, topic-<id>, flow-<id> …)'),
-      id: z.string().describe('The question record id'),
+      id: z.string().describe('The question or instruction record id'),
       answer: z.string().trim().min(1).describe('Your answer (Markdown)'),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -234,7 +234,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(target)}/${enc(id)}/answers`, { by: agentOf(server.server.getClientVersion()?.name), body: answer })
     if (!r.ok) return r.error
     const b = r.body as { hash: string }
-    return text(`Answered. The question is now answered (답함). Records file hash: ${b.hash}.`)
+    return text(`Answered. The record is now answered (답함). Records file hash: ${b.hash}.`)
   })
 
   server.registerTool('list_tasks', {

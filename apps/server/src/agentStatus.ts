@@ -237,6 +237,18 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
     p('')
   }
 
+  // ---------- 대기 중인 지시 (에이전트가 하고 답한다, 10/15) ----------
+  const told = pendingQuestions(wb.root, '지시')
+  if (told.length) {
+    p(`## 대기 중인 지시 ${told.length}`, '',
+      '> 사용자가 에이전트에게 해 달라고 남긴 작은 일. 한 일을 마친 뒤 그 지시 아래에 `### 답 · <이름> · YYYY-MM-DD HH:MM`과 무엇을 했는지 적고 끝에 `- 상태: 답함`을 덧붙인다(MCP `answer_record`가 같은 일을 한다). 노트는 `edit_note`로 고쳐 사용자가 검토하게 한다. 종결 조건과 보고서가 필요한 큰 일이면 하지 말고 맡긴 일로 옮기자고 답한다.', '')
+    for (const q of told) {
+      p(`- \`${q.file}\` · ${q.id} · ${q.title}${q.where !== '전체' ? ` ${q.where}` : ''}${q.quote ? ` — "${clip(q.quote, 120)}"` : ''}`)
+      if (q.body) p(`  - ${clip(q.body.split('\n')[0]!, 200)}`)
+    }
+    p('')
+  }
+
   // ---------- 검토 대기 ----------
   const reviewDocs = listReviews(repo, src)
   const reviews = reviewDocs.filter((r) => awaitsUserReview(r.status))

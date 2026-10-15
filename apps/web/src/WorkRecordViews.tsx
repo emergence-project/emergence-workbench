@@ -46,7 +46,7 @@ export function JournalRecordRow({ entry, rid, titleOf, rapi, reload, onSaved }:
 
 /** 거르기를 바꾸어도 종류별로 적던 글과 저장 실패를 남긴다. */
 export function WorkComposer({ filter, onSave }: { filter: RecordFilter; onSave(kind: RecordFilter, text: string): Promise<void> }) {
-  const [drafts, setDrafts] = useState<Record<RecordFilter, string>>({ '할 일': '', 메모: '', 질문: '' })
+  const [drafts, setDrafts] = useState<Record<RecordFilter, string>>({ '할 일': '', 메모: '', 질문: '', 지시: '' })
   const [errors, setErrors] = useState<Partial<Record<RecordFilter, string | null>>>({})
   const [busy, setBusy] = useState(false)
   const locked = useRef(false)
@@ -65,7 +65,7 @@ export function WorkComposer({ filter, onSave }: { filter: RecordFilter; onSave(
   }
   return <div className={`memo compact${text.trim() ? ' has-text' : ''}`} data-ui="메모 입력">
     <textarea rows={1} value={text} disabled={busy} aria-label={t(`${filter} 입력란`, `${WORK_FILTER_LABEL[filter]} input`)}
-      placeholder={filter === '질문' ? t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.') : t(`이 프로젝트에 남길 ${filter}`, `${WORK_FILTER_LABEL[filter]} for this project`)}
+      placeholder={filter === '질문' ? t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.') : filter === '지시' ? t('에이전트가 할 일을 적으세요. 하고 나서 답을 답니다.', 'What should an agent do? It answers when done.') : t(`이 프로젝트에 남길 ${filter}`, `${WORK_FILTER_LABEL[filter]} for this project`)}
       onChange={(e) => setText(e.target.value)} onKeyDown={(e) => {
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void save() }
         else onListKey(e, setText)

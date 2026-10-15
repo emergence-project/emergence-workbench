@@ -75,6 +75,13 @@ describe('PDF 코멘트 파일', () => {
     expect(listComments(root).map((x) => x.comments.length)).toEqual([2])
   })
 
+  it('지시는 질문과 따로 모이고, 질문 함에는 들지 않는다', () => {
+    addComment(root, 'project', { kind: '지시', title: '프로젝트', text: '그림 2를 다시 그려 줘' }, at)
+    addComment(root, 'project', { kind: '질문', title: '프로젝트', text: '왜?' }, at)
+    expect(pendingQuestions(root).map((x) => x.body)).toEqual(['왜?'])
+    expect(pendingQuestions(root, '지시')).toEqual([expect.objectContaining({ target: 'project', body: '그림 2를 다시 그려 줘' })])
+  })
+
   it('읽은 뒤 바뀐 파일은 다시 쓰지 않고, 답이 달린 코멘트는 지우지 않는다', () => {
     addComment(root, 'paper-x', { kind: '질문', title: '논문 x', page: 1, text: '질문' }, at)
     const old = readComments(root, 'paper-x').hash
