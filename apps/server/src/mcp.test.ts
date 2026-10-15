@@ -2,7 +2,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { describe, expect, it } from 'vitest'
-import { agentOf, createMcpServer } from './mcp.js'
+import { agentOf, createMcpServer, INSTRUCTIONS } from './mcp.js'
 import { app, R, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -35,8 +35,26 @@ describe('MCP 입구 (읽기)', () => {
 
   it('쓰기 도구는 edit_note · edit_concept · answer_record 셋뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['answer_record', 'edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
+    expect(tools.map((t) => t.name).sort()).toEqual(['answer_record', 'edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
     for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record'].includes(t.name))
+  })
+
+  it('연결 안내의 순서에 적은 도구 이름은 모두 실제 도구다', async () => {
+    const c = await connect()
+    const names = new Set((await c.listTools()).tools.map((t) => t.name))
+    expect(c.getInstructions()).toBe(INSTRUCTIONS)
+    const used = [...INSTRUCTIONS.matchAll(/\b[a-z]+(?:_[a-z]+)+\b|\b(?:rules|overview)\b/g)].map((m) => m[0]).filter((w) => w !== 'unanswered')
+    expect(used.length).toBeGreaterThan(8)
+    for (const w of used) expect(names, w).toContain(w)
+  })
+
+  it('overview는 진행 중인 프로젝트를 한 표로 돌려준다 (사용자 차례 = 홈의 확인 필요)', async () => {
+    const issues = JSON.parse((await app.inject({ method: 'GET', url: '/api/research-issues' })).body) as { counts: Record<string, number> }
+    const out = textOf(await (await connect()).callTool({ name: 'overview', arguments: {} }))
+    expect(out).toContain('# 프로젝트 한눈에')
+    expect(out).toContain('| 프로젝트 | 폴더 | 사용자 차례 | 에이전트 차례 | 저장소 | 최근 기록 |')
+    const rid = R.split('/').pop()!
+    expect(issues.counts[rid]).toBeGreaterThanOrEqual(0)
   })
 
   it('list_records는 프로젝트의 모든 기록을 종류 · 상태 · 대상으로 거른다', async () => {

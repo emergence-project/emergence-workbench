@@ -10,7 +10,7 @@ import { listGitHubRepos, realIO, type RepoIO } from '../githubRepos.js'
 import { AgentEditStore } from '../agentEdits.js'
 import { allManuscripts, groundsOf } from '../manuscript.js'
 import { listStatements } from '../statements.js'
-import { listTasks } from '../tasks.js'
+import { generateOverview, overviewRow, userTurnOf } from '../agentOverview.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
@@ -34,15 +34,26 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     for (const x of [...stored.pending, ...stored.attempts]) if (x.target.kind === 'note') edits[x.target.rid] = (edits[x.target.rid] ?? 0) + 1
     for (const id of registry.ids()) {
       try {
-        const wb = wbOf(id)
-        notes[id] = wb.tree().issues.length
-        tasks[id] = listTasks(wb).filter((t) => t.state === 'result' || t.state === 'proposed').length
-        edits[id] ??= 0
-        counts[id] = notes[id] + tasks[id] + edits[id]
+        const u = userTurnOf(wbOf(id), edits[id] ?? 0)
+        notes[id] = u.notes
+        tasks[id] = u.tasks
+        edits[id] = u.edits
+        counts[id] = u.notes + u.tasks + u.edits
       } catch { delete edits[id] /* 없는 폴더 등 */ }
     }
     for (const id of Object.keys(edits)) if (!(id in counts)) delete edits[id]
     return { counts, notes, tasks, edits }
+  })
+
+  /** 에이전트용 여러 프로젝트 한눈에 (pnpm agent:status 여러 폴더, MCP overview): 사용자 차례는 위 research-issues와 같은 계산 */
+  app.get('/api/agent-overview', replies(C.AgentStatusPreview), async (): Promise<C.AgentStatusPreview> => {
+    const edits: Record<string, number> = {}
+    const stored = new AgentEditStore(AgentEditStore.fileFor(registry.configDir, registry.libraryPath)).read()
+    for (const x of [...stored.pending, ...stored.attempts]) if (x.target.kind === 'note') edits[x.target.rid] = (edits[x.target.rid] ?? 0) + 1
+    const rows = registry.list().filter((r) => r.state === 'active').map((r) => {
+      try { return overviewRow(wbOf(r.id), edits[r.id] ?? 0) } catch (e) { return { folder: r.path, problem: (e as Error).message } }
+    })
+    return { markdown: generateOverview(rows) }
   })
 
 

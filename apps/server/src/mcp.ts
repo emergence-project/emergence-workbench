@@ -24,6 +24,20 @@ export const SAFETY = [
   '- Only the user approves physics and mathematics. A session never approves its own result.',
 ].join('\n')
 
+/**
+ * 연결할 때 에이전트에게 주는 안내: 어떤 일에 어떤 도구를 어떤 순서로 (10/15, 도구마다 설명을 따로 찾지 않게).
+ * 도구를 더하거나 바꾸면 여기의 순서도 고친다 (mcp.test.ts가 여기 적은 이름이 모두 실제 도구인지 본다)
+ */
+export const INSTRUCTIONS = [
+  'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server.',
+  'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on.',
+  'Answer the user\'s questions: list_records with unanswered: true → read_note for the context → answer_record.',
+  'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: search_library → read_concept → edit_concept.',
+  'Delegated tasks: list_tasks → read_task (the result format is in rules).',
+  'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
+  'The user\'s turn (notes to review, task results to judge, agent edits) is for the user; never act on it for them.',
+].join('\n')
+
 type Fetch = typeof fetch
 type Text = { content: { type: 'text'; text: string }[]; isError?: true }
 
@@ -88,7 +102,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     return r.ok ? json(shape(r.body as never)) : r.error
   }
   const server = new McpServer({ name: 'emergence-workbench', version: '0.1.0' }, {
-    instructions: 'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server. Start with rules (pass project to include that repository\'s own rules), then list_projects and project_status.',
+    instructions: INSTRUCTIONS,
   })
   const ro = { readOnlyHint: true, openWorldHint: false } as const
   const project = z.string().describe('Project id (from list_projects)')
@@ -127,6 +141,15 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     annotations: ro,
   }, async () => call('/api/researches', (b: { researches: Record<string, unknown>[] }) =>
     b.researches.map((r) => pick(r, ['id', 'title', 'path', 'kind', 'fields', 'state', 'available', 'problem']))))
+
+  server.registerTool('overview', {
+    title: 'Overview',
+    description: 'Every active project in one table: the user\'s turn (notes to review, delegated-task results to judge, agent edits; the same count as the app Home "needs review"), your turn (unanswered questions, working tasks, open to-dos), repository sync and last record. Use it to choose where to work, then project_status for details.',
+    annotations: ro,
+  }, async () => {
+    const r = await get(base, f, '/api/agent-overview')
+    return r.ok ? text((r.body as { markdown: string }).markdown) : r.error
+  })
 
   server.registerTool('project_status', {
     title: 'Project status',
