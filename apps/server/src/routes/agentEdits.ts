@@ -7,7 +7,7 @@ import { parseNoteFixes } from '@rw/core'
 import { agentWrite, AgentEditStore, decide, listEdits, readTarget, reviewOf, targetKey, type EditTarget, type Hunk, type TargetIo, type WriteRequest } from '../agentEdits.js'
 import { appendAnswer, askPrompt, claudeRunner } from '../ask.js'
 import { addComment, commentSourceFile, readComments } from '../comments.js'
-import { projectRules } from '../agentRules.js'
+import { commonRules, projectRules } from '../agentRules.js'
 import { readStatusEdits, writeStatus } from '../agentStatus.js'
 import { t } from '../i18n.js'
 import { WorkbenchError } from '../workbench.js'
@@ -32,7 +32,7 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
     if (tg.kind === 'note') {
       try {
         const wb = wbOf(tg.rid)
-        if (wb.readResearch().agentStatus) writeStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, tg.rid, registry.libraryPath))
+        if (wb.readResearch().agentStatus) writeStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, tg.rid, registry.libraryPath), commonRules(registry.configDir))
       } catch (e) { app.log.error(e, '에이전트 고침 뒤 STATUS 갱신 실패') }
     }
   }
