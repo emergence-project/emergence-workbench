@@ -445,7 +445,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
       {
         title: 'This About page',
         items: [
-          { text: <>The place where what Claude understood and built is written down, following the layout of the screens. Choose a part in the left sidebar. If you edit the text directly with the pencil at the right of a section heading and send it, it is applied at the next round of feedback handling.</> },
+          { text: <>The place where what Claude understood and built is written down, following the layout of the screens. Choosing a part and a section under it in the left sidebar opens that one section on its own (instead of scrolling), and ‹ › at the bottom move to the previous or next section. Clicking a part's name opens its first section. If you edit the text directly with the pencil at the right of a section heading and send it, it is applied at the next round of feedback handling.</> },
           { text: <>Sentences that are not certain get "Needs review", and the questions gather at the top of that page. The count also shows in the list on the left and on the About button on the rail.</> },
         ],
       },
