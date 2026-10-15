@@ -355,10 +355,9 @@ function Conversation({ e }: { e: FeedbackItem }) {
       {notes.length > 0 && (
         // 태그 설명은 한 줄에 옆으로 늘어놓고, 뜻은 가리키면 툴팁으로 (10/13 수정: 태그마다 한 줄이면 여백이 크다)
         <div className="fbp-notes" data-ui="태그 설명">
-          <span className="fbp-notes-k">{t('태그 설명', 'Tags')}</span>
+          {/* 태그를 모은 표는 앱 소개에 (10/14 13:32 제안). 물음표는 "태그 설명" 바로 옆에 (10/15 14:11 수정) */}
+          <span className="fbp-notes-k">{t('태그 설명', 'Tags')}<a className="icon-btn fbp-notes-help" href={href({ page: 'about', part: 'symbols', anchor: 'tags' })} data-ui="태그 표 보기" data-tip={t('태그 표 보기', 'See all tags')} aria-label={t('태그 표 보기', 'See all tags')}>{Icon.help}</a></span>
           {notes.map((k) => <span key={k} className="tag fbp-note" tabIndex={0} data-tip={TAG_NOTES[k]!.note} aria-label={`${TAG_NOTES[k]!.name}: ${TAG_NOTES[k]!.note}`}>{TAG_NOTES[k]!.name}</span>)}
-          {/* 태그를 모은 표는 앱 소개에 (10/14 13:32 제안) */}
-          <a className="icon-btn fbp-notes-help" href={href({ page: 'about', part: 'symbols', anchor: 'tags' })} data-ui="태그 표 보기" data-tip={t('태그 표 보기', 'See all tags')} aria-label={t('태그 표 보기', 'See all tags')}>{Icon.help}</a>
         </div>
       )}
     </div>

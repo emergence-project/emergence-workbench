@@ -162,6 +162,7 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fb-actions .fb-kind ~ .fb-send { margin-right: 0; }
 
 /* 대화 머리 태그의 설명: 대화 아래 각주 (10/11 12:38) */
+.fbp-notes-k { display: inline-flex; align-items: center; gap: 2px; }
 .fbp-notes-help { width: 22px; height: 22px; }
 .fbp-notes { margin: var(--sp-1) 0 0; padding-top: var(--sp-2); border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
 .fbp-note { position: relative; cursor: help; }
