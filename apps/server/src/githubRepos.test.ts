@@ -118,3 +118,19 @@ describe('GET /api/researches/github-repos', () => {
     }
   })
 })
+
+describe('POST /api/researches/pick-folder', () => {
+  it.skipIf(process.platform === 'darwin')('answers 501 off macOS so the dialog falls back to typing', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-pick-'))
+    const app = buildApp({ configDir: path.join(tmp, 'config') })
+    try {
+      const res = await app.inject({ method: 'POST', url: '/api/researches/pick-folder', payload: {} })
+      expect(res.statusCode).toBe(501)
+      const bad = await app.inject({ method: 'POST', url: '/api/researches/pick-folder', payload: { start: 3 } })
+      expect(bad.statusCode).toBe(400)
+    } finally {
+      await app.close()
+      fs.rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+})

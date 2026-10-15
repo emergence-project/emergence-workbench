@@ -26,3 +26,6 @@
 
 .reg-chosen { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-sm); flex-wrap: wrap; }
 .reg-path { color: var(--text); overflow-wrap: anywhere; }
+.reg-pathrow { display: flex; gap: var(--sp-2); align-items: center; }
+.reg-pathrow input { flex: 1; min-width: 0; }
+.reg-pathrow .btn { flex: none; white-space: nowrap; }

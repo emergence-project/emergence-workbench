@@ -24,5 +24,11 @@ export const GitHubRepoList = z.union([
   z.object({ parent: z.string(), ok: z.literal(false), reason: z.string() }).strict(),
 ])
 
+/** POST /researches/pick-folder: 맥의 Finder 폴더 고르기 창. 취소하면 path: null */
+export const PickFolderBody = z.object({ start: z.string().optional() }).strict()
+export const PickedFolder = z.object({ path: z.string().nullable() }).strict()
+
 export type GitHubRepoItem = z.infer<typeof GitHubRepoItem>
 export type GitHubRepoList = z.infer<typeof GitHubRepoList>
+export type PickFolderBody = z.infer<typeof PickFolderBody>
+export type PickedFolder = z.infer<typeof PickedFolder>

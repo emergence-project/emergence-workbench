@@ -46,6 +46,8 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
   const [view, setViewState] = useState<View>(() => read(VIEW_KEY, ['list', 'card'] as const, 'list'))
   const [kind, setKindState] = useState<KindFilter>(() => read(KIND_KEY, KIND_FILTERS, 'all'))
   const [state, setStateState] = useState<ProjectState>(() => read(STATE_KEY, PROJECT_STATES, 'active'))
+  // 새 프로젝트는 진행으로 등록되므로 등록 카드는 진행 목록에만 (10/15 피드백)
+  const canAdd = state === 'active' || all.length === 0
   const setView = (v: View) => { setViewState(v); remember(VIEW_KEY, v) }
   const setKind = (v: KindFilter) => { setKindState(v); remember(KIND_KEY, v) }
   const setState = (v: ProjectState) => { setStateState(v); remember(STATE_KEY, v) }
@@ -150,14 +152,14 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
                   </div>
                   {shown.map((r) => <ProjectRow key={r.id} {...rowOf(r)} />)}
                   {shown.length === 0 && all.length > 0 && <p className="hp-empty muted">{t(`${PROJECT_STATE_LABEL[state]} 중인 ${kind === 'all' ? '' : `${PROJECT_KIND_LABEL[kind]} `}프로젝트가 없습니다.`, `No ${kind === 'all' ? '' : `${PROJECT_KIND_LABEL[kind].toLowerCase()} `}projects with status "${PROJECT_STATE_LABEL[state]}".`)}</p>}
-                  <button className="hp-row hp-add" data-ui="연구 등록 카드" title={t('GitHub 저장소나 이 컴퓨터 폴더에서', 'From a GitHub repository or a folder on this computer')} onClick={onRegister}>{t('＋ 프로젝트 등록', '＋ Register project')}</button>
+                  {canAdd && <button className="hp-row hp-add" data-ui="연구 등록 카드" title={t('GitHub 저장소나 이 컴퓨터 폴더에서', 'From a GitHub repository or a folder on this computer')} onClick={onRegister}>{t('＋ 프로젝트 등록', '＋ Register project')}</button>}
                 </div>
               ) : (
                 <div className="hp-cards" data-ui="카드 목록">
                   {shown.map((r) => <ProjectCard key={r.id} {...rowOf(r)} />)}
-                  <button className="card add-card hp-add-card" data-ui="연구 등록 카드" title={t('GitHub 저장소나 이 컴퓨터 폴더에서', 'From a GitHub repository or a folder on this computer')} onClick={onRegister}>
+                  {canAdd && <button className="card add-card hp-add-card" data-ui="연구 등록 카드" title={t('GitHub 저장소나 이 컴퓨터 폴더에서', 'From a GitHub repository or a folder on this computer')} onClick={onRegister}>
                     <span className="t">{t('＋ 프로젝트 등록', '＋ Register project')}</span>
-                  </button>
+                  </button>}
                 </div>
               )}
               {all.length > 0 && <Legend view={view} />}

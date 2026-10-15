@@ -163,6 +163,20 @@ export function revealInFinder(file: string): Promise<void> {
   return new Promise((resolve, reject) => execFile('open', ['-R', file], (e) => (e ? reject(new WorkbenchError(500, e.message)) : resolve())))
 }
 
+/** 맥의 Finder 폴더 고르기 창을 띄우고 고른 폴더의 경로를 돌려준다. 취소하면 null (맥) */
+export function chooseFolder(prompt: string, start?: string): Promise<string | null> {
+  if (process.platform !== 'darwin') return Promise.reject(new WorkbenchError(501, t('맥에서만 Finder로 고를 수 있습니다. 경로를 적어 주세요.', 'Choosing in Finder works only on a Mac. Type the path.')))
+  // 글은 스크립트에 끼워 넣지 않고 인자로 넘긴다
+  const script = ['on run argv', 'set p to item 1 of argv', 'if (count of argv) > 1 then', 'return POSIX path of (choose folder with prompt p default location (POSIX file (item 2 of argv)))', 'end if', 'return POSIX path of (choose folder with prompt p)', 'end run']
+  const args = [...script.flatMap((l) => ['-e', l]), prompt, ...(start && fs.existsSync(start) ? [start] : [])]
+  return new Promise((resolve, reject) => execFile('osascript', args, { timeout: 10 * 60_000 }, (e, out, err) => {
+    if (!e) return resolve(out.trim().replace(/(.)\/$/, '$1'))
+    // -128: 사용자가 취소
+    if (/-128/.test(String(err))) return resolve(null)
+    reject(new WorkbenchError(500, String(err || e.message).trim()))
+  }))
+}
+
 /** 시스템 앱으로 여는 파일 종류: 문서·그림·글만. 받은(clone) 저장소의 .command·.app·스크립트는 열지(실행하지) 않는다 */
 export const OPENABLE = /\.(pdf|key|pages|numbers|pptx?|docx?|xlsx?|png|jpe?g|gif|svg|webp|tiff?|eps|ai|txt|md|csv|tex|bib)$/i
 
