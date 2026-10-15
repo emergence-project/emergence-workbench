@@ -419,6 +419,7 @@
   "증명 작업": "Proof work",
   "증명할 진술": "Statements to prove",
   "지금": "Now",
+  "작업 모두 보기": "See all work",
   "지금 백업": "Back up now",
   "지나온 길": "Path",
   "지도": "Map",
@@ -594,5 +595,6 @@
   "흐름 그림 넣기": "Flow insert figure",
   "현황 탭": "Status tabs",
   "등록할 피드백 표시": "Feedback to register mark",
-  "앞뒤 그림": "Previous and next figure"
+  "앞뒤 그림": "Previous and next figure",
+  "고친 업데이트": "Last update"
 }

@@ -9,6 +9,8 @@ const ROUTES: Route[] = [
   { page: 'about', part: 'feedback', anchor: 'tags' },
   { page: 'settings' },
   { page: 'settings', part: 'latex' },
+  { page: 'settings', part: 'update', pr: 101 },
+  { page: 'about', part: 'symbols', anchor: 'tags' },
   { page: 'network' },
   { page: 'network', person: 'Ada Example' },
   { page: 'feedback' },

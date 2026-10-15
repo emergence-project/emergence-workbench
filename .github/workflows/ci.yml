@@ -24,7 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # 소개 검사(check-about.mjs)가 PR의 커밋 메시지와 바뀐 파일을 기준 커밋과 견준다
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -44,6 +47,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm type-check
       - run: pnpm test
+        env:
+          ABOUT_BASE: ${{ github.event.pull_request.base.sha }}
+          ABOUT_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
       - run: pnpm build
       # 주요 화면을 예제 모드로 찍고, 화면마다 오류 없이 그려지는지 확인한다. 그림은 산출물로 남는다
       # 브라우저는 내려받지 않고 실행기(ubuntu-latest)에 깔려 있는 Chrome을 쓴다

@@ -21,3 +21,12 @@ describe('소개 두 언어', () => {
     expect(rows(SYMBOL_GROUPS_EN({ icons }))).toEqual(rows(SYMBOL_GROUPS_KO({ icons })))
   })
 })
+
+describe('소개와 업데이트 1대1', () => {
+  it('업데이트(PR)가 고친 절을 찾는다', async () => {
+    const { aboutChangesOf } = await import('./aboutContent')
+    const refs = aboutChangesOf(94)
+    expect(refs).toContainEqual({ part: 'symbols', anchor: 'tags', label: '기호와 의미 › 대화 태그' })
+    expect(aboutChangesOf(1)).toEqual([])
+  })
+})

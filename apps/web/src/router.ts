@@ -15,7 +15,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/r/<연구>/m/<파일>    자료 (materials/의 PDF·그림)
  *   #/r/<연구>/w/<파일>    원고의 장·부록 (research.yaml sources.manuscript)
  *   #/about[/<쪽>]        이 앱 소개 (쪽마다 한 주제: 한눈에, 홈, 프로젝트, 노트 …)
- *   #/settings[/<부분>]    설정 (왼쪽 사이드바로 부분을 고른다. latex = LaTeX 서식, 예전 #/latex도 여기로)
+ *   #/settings[/<부분>[/<PR>]] 설정 (update/<PR>: 업데이트 이력의 그 줄) (왼쪽 사이드바로 부분을 고른다. latex = LaTeX 서식, 예전 #/latex도 여기로)
  *   #/network             네트워킹 (저자와 소속, 더한 사람)
  *   #/network/<사람>       사람 한 명의 페이지 (노트 참고 문헌에 있는 그 사람의 논문)
  *   #/feedback            피드백 모아 보기
@@ -39,7 +39,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
 export type Route =
   | { page: 'home' }
   | { page: 'about'; part?: string; anchor?: string }
-  | { page: 'settings'; part?: string }
+  | { page: 'settings'; part?: string; /** 업데이트 이력에서 보일 PR (소개 절의 "업데이트 #n") */ pr?: number }
   | { page: 'network'; person?: string }
   | { page: 'feedback' }
   /** 에이전트 고침 검토 (10/8). scope는 목록을 그 프로젝트(또는 library)만 */
@@ -95,7 +95,7 @@ export function parseRoute(hash: string): Route {
     return { page: 'overview', rid: parts[1], anchor }
   }
   if (parts[0] === 'about') return parts[1] ? { page: 'about', part: parts[1], ...(parts[2] && { anchor: parts[2] }) } : { page: 'about' }
-  if (parts[0] === 'settings') return parts[1] ? { page: 'settings', part: parts[1] } : { page: 'settings' }
+  if (parts[0] === 'settings') return parts[1] ? { page: 'settings', part: parts[1], ...(Number(parts[2]) > 0 && { pr: Number(parts[2]) }) } : { page: 'settings' }
   if (parts[0] === 'latex') return { page: 'settings', part: 'latex' }
   if (parts[0] === 'network') return parts[1] ? { page: 'network', person: parts[1] } : { page: 'network' }
   if (parts[0] === 'feedback') return { page: 'feedback' }
@@ -140,7 +140,7 @@ export function href(r: Route): string {
   switch (r.page) {
     case 'home': return '#/'
     case 'about': return `#/about${r.part ? `/${e(r.part)}${r.anchor ? `/${e(r.anchor)}` : ''}` : ''}`
-    case 'settings': return `#/settings${r.part ? `/${e(r.part)}` : ''}`
+    case 'settings': return `#/settings${r.part ? `/${e(r.part)}${r.pr ? `/${r.pr}` : ''}` : ''}`
     case 'network': return `#/network${r.person ? `/${e(r.person)}` : ''}`
     case 'feedback': return '#/feedback'
     case 'review': {
