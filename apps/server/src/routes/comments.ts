@@ -76,6 +76,18 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
       asking.delete(key)
     }
   })
+  /** 에이전트가 쓴 답을 질문 아래에 덧붙인다 (MCP answer_record, 10/15). 덧붙이기라 baseHash 없이 쓰기 바로 전에 다시 읽는다. 질문은 답함이 된다 */
+  app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/answers', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
+    const { rid, target, id } = req.params
+    const { by, body } = parseBody(C.AgentAnswerBody, req.body)
+    const root = wbOf(rid).root
+    const q = readComments(root, target).comments.find((c) => c.id === id)
+    if (!q || q.kind !== '질문') throw new WorkbenchError(404, t(`질문이 없음: ${id}`, `No such question: ${id}`))
+    if (!body.trim()) throw new WorkbenchError(400, t('답이 비었음', 'The answer is empty'))
+    if (body.length > 20000) throw new WorkbenchError(400, t('답이 너무 김 (2만 자까지)', 'The answer is too long (20,000 characters at most)'))
+    const name = by.replace(/[\s·]+/g, ' ').trim().slice(0, 40) || 'agent'
+    return appendAnswer(root, target, id, name, body)
+  })
   /** 답에 든 고침을 노트에 적용한다 (사용자가 "노트에 적용"을 누를 때). { answer: 답 번호, baseHash: 기록 파일 hash } */
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/apply', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
     const { answer, baseHash } = parseBody(C.ApplyAnswerBody, req.body)

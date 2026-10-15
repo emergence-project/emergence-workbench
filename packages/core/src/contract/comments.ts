@@ -104,6 +104,8 @@ export const NewCommentBody = z.object({
 })
 export const ClassifyBody = z.object({ baseHash })
 export const CommentChangeBody = z.object({ text: z.string().optional(), state: CommentState.optional(), color: HighlightColor.optional(), baseHash })
+/** 에이전트가 쓴 답 덧붙이기 (MCP answer_record): by = 에이전트 이름 */
+export const AgentAnswerBody = z.object({ by: z.string(), body: z.string() })
 /** answer: 답 번호 */
 export const ApplyAnswerBody = z.object({ answer: z.number(), baseHash })
 
@@ -122,4 +124,5 @@ export type CommentAdded = z.infer<typeof CommentAdded>
 export type NewCommentBody = z.input<typeof NewCommentBody>
 export type ClassifyBody = z.input<typeof ClassifyBody>
 export type CommentChangeBody = z.input<typeof CommentChangeBody>
+export type AgentAnswerBody = z.input<typeof AgentAnswerBody>
 export type ApplyAnswerBody = z.input<typeof ApplyAnswerBody>

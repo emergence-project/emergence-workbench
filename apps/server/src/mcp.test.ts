@@ -33,10 +33,35 @@ describe('MCP 입구 (읽기)', () => {
     expect(agentOf(undefined)).toBe('mcp')
   })
 
-  it('쓰기 도구는 edit_note · edit_concept 둘뿐이다', async () => {
+  it('쓰기 도구는 edit_note · edit_concept · answer_record 셋뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_tasks', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!t.name.startsWith('edit_'))
+    expect(tools.map((t) => t.name).sort()).toEqual(['answer_record', 'edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record'].includes(t.name))
+  })
+
+  it('list_records는 프로젝트의 모든 기록을 종류 · 상태 · 대상으로 거른다', async () => {
+    await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '질문', title: '프로젝트', text: '답을 기다리는 질문', part: '흐름 화면 › 흐름 차트', partText: '점 A' } })
+    await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '메모', title: '프로젝트', text: '그냥 메모' } })
+    await app.inject({ method: 'POST', url: `${R}/comments/topic-kempe`, payload: { kind: '메모', title: '주제 Kempe', text: '주제 메모' } })
+    const c = await connect()
+    const rid = R.split('/').pop()!
+    const all = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid } }))).records as { target: string; kind: string; body: string }[]
+    expect(all.map((r) => r.body)).toEqual(expect.arrayContaining(['답을 기다리는 질문', '그냥 메모', '주제 메모']))
+    const waiting = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid, unanswered: true } }))).records
+    expect(waiting).toEqual([expect.objectContaining({ target: 'project', kind: '질문', state: '대기', part: '흐름 화면 › 흐름 차트', partText: '점 A', body: '답을 기다리는 질문' })])
+    const topics = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid, target: 'topic-' } }))).records
+    expect(topics.map((r: { body: string }) => r.body)).toEqual(['주제 메모'])
+  })
+
+  it('answer_record는 연결한 에이전트 이름으로 답을 보낸다', async () => {
+    const sent: unknown[] = []
+    const fake = (async (input: string | URL, init?: RequestInit) => {
+      sent.push({ url: String(input), body: JSON.parse(String(init?.body)) })
+      return new Response(JSON.stringify({ hash: 'h3' }), { status: 200 })
+    }) as typeof fetch
+    const r = await (await connect(fake)).callTool({ name: 'answer_record', arguments: { project: 'p1', target: 'flow-a b', id: 'c-1', answer: '식 (3) 때문입니다.' } })
+    expect(textOf(r)).toContain('h3')
+    expect(sent).toEqual([{ url: 'http://127.0.0.1:1/api/researches/p1/comments/flow-a%20b/c-1/answers', body: { by: 'test', body: '식 (3) 때문입니다.' } }])
   })
 
   it('edit_note는 앱 서버의 에이전트 쓰기로 보내고, 확인된 노트 거절을 그대로 전한다', async () => {
