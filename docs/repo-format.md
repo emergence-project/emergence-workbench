@@ -4,7 +4,7 @@
 
 - 2026-10-10 main 코드에서 옮겨 적었다. 형식은 바꾸지 않았다. 코드와 이 문서가 다르면 지금은 코드가 맞고, 이 문서를 고친다.
 - 같은 파일을 코드의 여러 곳이 다르게 읽던 곳("어긋남")은 10/10에 모두 하나로 맞췄다(#19, #24). 새로 찾으면 여기에 "어긋남"으로 적고 맞춘다. 파일을 쓰는 쪽은 각 절의 "쓸 때" 모양을 따른다.
-- 파일을 직접 쓴 뒤 `pnpm agent:check <저장소>`로 검사한다(읽기 전용).
+- 파일을 직접 쓴 뒤 `pnpm agent:check <저장소>`로 형식과 바뀐 것(§15)을 검사한다(읽기 전용).
 - 근거 위치는 `apps/server/src/` 기준 파일 이름이다(`packages/core/src/`는 `core/`).
 
 ## 0. 모든 파일에 공통
@@ -570,3 +570,34 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 - **`layout.yaml`** (손으로 옮긴 자리): `dots: { <점 id>: { c: 열, r: 줄 } }`. (10/14 오전의 주제별 모양 `topics: { <주제>: { <점>: … } } }`도 읽고, 다음에 쓸 때 `dots`로 옮긴다.) `c`는 0부터, `r`은 중심선이 0이고 위가 음수. 적힌 점은 그 칸에, 나머지 점은 그 칸을 피해 자동으로 놓인다. 앱은 점을 끌어 놓을 때 쓰고(`PUT /api/researches/:rid/flow/layout`, 다른 점이 손으로 놓인 칸이면 서로 바꾼다), "자동 자리로"로 푼다.
 - **앱에서 고치기** (`routes/flow.ts`): 새 점은 `POST`(파일 이름은 짧은 제목의 영문·숫자, 없으면 `step-<날짜>`, 겹치면 `-2`), 고치기는 `PATCH`(보낸 칸만 바꾸고 주석·모르는 칸은 남긴다. 근거를 고쳐도 같은 `ref`·`file`의 `checks`는 남는다. `progress`가 `done`이 아니면 `result`를 뺀다), 사람 승인·거두기는 `POST …/check`(기록 한 줄 덧붙이기), 지우기는 `DELETE`(파일을 지우고 다른 점의 `from`과 `layout.yaml`에서도 뺀다). 쓸 때는 읽을 때 받은 `hash`를 `baseHash`로 보낸다.
 - 없는 점을 가리키는 `from`, 틀린 값, `ref`·`file`이 둘 다 있거나 없는 근거는 `GET /api/researches/:rid/flow`의 `diagnostics`로 알린다(그 선은 그리지 않는다).
+
+## 15. 바뀐 것 검사 (`agent:check`, 2026-10-15~)
+
+`pnpm agent:check <저장소> [--base <ref>]`는 형식 검사에 더해, 기준 커밋 이후 바뀐 파일을 공통 규칙에 비춰 본다(`agentChanges.ts`). 긴 규칙 글 대신 기계가 판정할 수 있는 규칙은 여기서 잡는다.
+
+- **기준:** `--base`로 준 ref, 없으면 origin의 기본 브랜치(`origin/HEAD`, 없으면 `origin/main`·`origin/master`), 그다음 upstream과 갈라진 곳. 모두 없으면 커밋하지 않은 변경만 본다. 기준 뒤 올리지 않은 커밋, 커밋하지 않은 변경, 추적하지 않는 새 파일을 모두 본다.
+- 기준 뒤의 **모든 변경**을 본다. 맥에서는 사용자가 앱에서 한 것(커밋 전)도 섞일 수 있으므로, 에이전트는 자기가 바꾼 것만 되돌리고 나머지는 그대로 둔다.
+- 오류가 하나라도 있으면 종료 값 1. 줄 끝 `[이름]`이 검사 이름이다.
+
+| 이름 | 무엇 | 기본 |
+|---|---|---|
+| `frozen-folder` | `sources/`·`archive/`의 있는 파일을 고치거나 지우거나 옮김 (새로 넣는 것은 아래 경고만) | 오류 |
+| `locked` | 머리말(또는 YAML) `locked: true`인 파일을 고침 | 오류 |
+| `approval` | 노트를 해결로(`note.yaml` `state: done`, 블록 `status: solved`), 맡긴 일을 `done`으로, `judged`·`answers`를 씀, 흐름에 `role: human` 확인 기록을 씀 | 오류 |
+| `flow-human` | 흐름 점의 질문 문장(`fields.question`)·발단 선(`origin`)을 바꿈, `result: dropped`로 갈래를 폐기 | 오류 |
+| `flow-new-dot` | 흐름에 새 점 파일 (`layout.yaml` 빼고) | 경고 |
+| `nonstandard-new-file` | 표준 배치 저장소에서 표준도 `folders:`도 아닌 맨 위 폴더에 새 파일 | 경고 |
+| `confirmed-edit` | 해결 노트·해결 블록, `status: accepted` 결정·규칙을 고침 | 경고 |
+| `outside-workbench` | `workbench/` 밖 변경 (맨 위 폴더마다 한 줄) | 경고 |
+| `move-delete` | 지우거나 옮긴 파일 (한 줄로 묶음) | 경고 |
+
+- **세기 바꾸기:** 공통 규칙 파일(§9, 설정 폴더의 `personal/rules/research.md` 또는 `RW_COMMON_RULES`) 머리말의 `checks:`가 이름마다 `error` · `warning` · `off`를 정한다. 모르는 이름과 값은 넘어간다.
+
+```yaml
+---
+title: 연구 공통 규칙
+checks:
+  flow-new-dot: error      # 흐름에 점 더하기 보류 중
+---
+```
+

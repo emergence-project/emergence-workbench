@@ -48,12 +48,23 @@ describe('MCP 입구 (읽기)', () => {
         : new Response(JSON.stringify({ error: 'Ask the user ... approved: true' }), { status: 428 })
     }) as typeof fetch
     const c = await connect(fake)
-    const ok = await c.callTool({ name: 'edit_note', arguments: { project: 'p1', file: 'workbench/notes/a/note.md', baseHash: 'h1', edits: [{ old: 'a', new: 'b' }], summary: 'fix' } })
+    const ok = await c.callTool({ name: 'edit_note', arguments: { project: 'p1', file: 'workbench/notes/a/note.md', baseHash: 'h1', edits: [{ old: 'a', new: 'b', reason: '오타' }], summary: 'fix' } })
     expect(textOf(ok)).toContain('New hash: h2')
-    expect(sent[0]).toEqual({ url: 'http://127.0.0.1:1/api/agent-edits/write', body: { target: { kind: 'note', rid: 'p1', file: 'workbench/notes/a/note.md' }, baseHash: 'h1', edits: [{ old: 'a', new: 'b' }], summary: 'fix', agent: 'test' } })
-    const refused = await c.callTool({ name: 'edit_concept', arguments: { id: 'x', baseHash: 'h', edits: [{ old: 'a', new: 'b' }] } })
+    expect(sent[0]).toEqual({ url: 'http://127.0.0.1:1/api/agent-edits/write', body: { target: { kind: 'note', rid: 'p1', file: 'workbench/notes/a/note.md' }, baseHash: 'h1', edits: [{ old: 'a', new: 'b', reason: '오타' }], summary: 'fix', agent: 'test' } })
+    const refused = await c.callTool({ name: 'edit_concept', arguments: { id: 'x', baseHash: 'h', edits: [{ old: 'a', new: 'b', reason: '오타' }] } })
     expect(refused.isError).toBe(true)
     expect(textOf(refused)).toContain('428')
+  })
+
+  it('바꾼 곳마다 reason이 없으면 보내지 않는다', async () => {
+    const sent: unknown[] = []
+    const c = await connect((async () => { sent.push(1); return new Response('{}') }) as typeof fetch)
+    for (const edit of [{ old: 'a', new: 'b' }, { old: 'a', new: 'b', reason: '  ' }]) {
+      const r = await c.callTool({ name: 'edit_note', arguments: { project: 'p', file: 'workbench/notes/a/note.md', baseHash: 'h', edits: [edit] } })
+      expect(r.isError).toBe(true)
+      expect(textOf(r)).toContain('reason')
+    }
+    expect(sent).toEqual([])
   })
 
   it('rules는 안전 규칙과 맡긴 일 규칙 문서를 준다', async () => {
@@ -190,7 +201,7 @@ describe('MCP 입구 (읽기)', () => {
     expect(textOf(r)).toContain('docs/repo-format.md')
     expect(textOf(r)).toContain('agent:check')
     expect(textOf(r)).toContain('still need permission')
-    const post = await (await connect(down)).callTool({ name: 'edit_note', arguments: { project: 'p', file: 'workbench/notes/a/note.md', baseHash: 'h', edits: [{ old: 'a', new: 'b' }] } })
+    const post = await (await connect(down)).callTool({ name: 'edit_note', arguments: { project: 'p', file: 'workbench/notes/a/note.md', baseHash: 'h', edits: [{ old: 'a', new: 'b', reason: '오타' }] } })
     expect(post.isError).toBe(true)
     expect(textOf(post)).toBe(textOf(r))
   })
