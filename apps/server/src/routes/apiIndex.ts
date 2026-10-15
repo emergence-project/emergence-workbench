@@ -6,6 +6,7 @@ import { t } from '../i18n.js'
 /** 처음 보는 에이전트가 먼저 쓰면 좋은 것 (경로는 아래 routes에 실제로 있는 것만) */
 const start = (): { method: string; url: string; does: string }[] => [
   { method: 'GET', url: '/api/researches', does: t('등록한 연구(프로젝트) 목록. id가 아래의 :rid. 성격 kind(research·work) · 분야 fields · 진행 상태 state(active·paused·done), 순서는 목록 순서', 'Registered projects. id is the :rid below. kind (research·work) · fields · state (active·paused·done), in list order') },
+  { method: 'GET', url: '/api/agent-overview', does: t('진행 중인 모든 프로젝트를 한눈에: { markdown } (프로젝트마다 사용자 차례 · 에이전트 차례 · 저장소 · 최근 기록, 사용자 차례는 홈의 "확인 필요"와 같은 계산)', 'All active projects at a glance: { markdown } (per project: user\'s turn, agent\'s turn, repository, last record; the user\'s turn is the same count as Home\'s "needs review")') },
   { method: 'PATCH', url: '/api/researches/:rid', does: t('프로젝트 성격 · 분야 · 진행 상태 고치기: { kind, fields, state } 중 보낸 것만 (이 컴퓨터 설정)', 'Edit project kind · fields · state: only the ones sent of { kind, fields, state } (settings on this computer)') },
   { method: 'GET', url: '/api/researches/:rid/image', does: t('프로젝트 카드 그림 (research.yaml의 image:, figure:<그림 id> 또는 저장소 기준 경로; PATCH …/info { image }로 바꿈)', 'Project card image (research.yaml image:, figure:<figure id> or a path in the repository; change with PATCH …/info { image })') },
   { method: 'PUT', url: '/api/researches/order', does: t('프로젝트 순서 바꾸기: { ids } (홈 카드 끌기, 왼쪽 띠도 이 순서)', 'Reorder projects: { ids } (dragging Home cards; the rail uses this order too)') },

@@ -31,10 +31,13 @@ Inside the app folder, `pnpm mcp` also starts it (it speaks MCP over stdio, so y
 
 ## Tools (read-only except edit_note, edit_concept and answer_record)
 
+When it connects, the server tells the agent which tools to use in which order for each kind of job (`INSTRUCTIONS` in `apps/server/src/mcp.ts`): start with `rules`, then `overview`, then `project_status`. If you add or rename a tool, update that order too; `mcp.test.ts` checks that every tool name there exists.
+
 | Tool | What it does | API it calls |
 | --- | --- | --- |
 | `rules` | Everything to read before starting, in one place: safety rules, the common research rules (one file for every research repository, when the personal repository copy has `rules/research.md`), delegated-task rules (`docs/agent-delegated-work.md`), the shared library's concept-note rules (the concept-note section of the shared library README) and, with `project`, that repository's `AGENTS.md` and `CLAUDE.md`. Read this first | `GET /api/rules/common`, (the document in the app folder), `GET /api/concepts/rules`, `GET …/:rid/agent-rules` |
 | `list_projects` | Registered projects: id, title, repository path, progress | `GET /api/researches` |
+| `overview` | Every active project in one table: the user's turn (notes to review, delegated-task results to judge, agent edits; the same count as Home's "needs review"), the agent's turn (unanswered questions, working tasks, open to-dos), repository sync, last record. Use it to choose where to work | `GET /api/agent-overview` |
 | `project_status` | Project summary (same content as `workbench/STATUS.md`) | `GET …/:rid/agent-status` |
 | `list_notes` | Notes: body file, record name `target` (Markdown notes and block notes; absent for `main.tex`), state, condition to reopen, topic (filter with `status`) | `GET …/:rid/notes` |
 | `list_edit_reviews` | Pending agent edits and permission requests; optional `project` limits the list to one project, otherwise all projects and concept notes | `GET /api/agent-edits?scope=` |
