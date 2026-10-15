@@ -57,7 +57,7 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
               </div>
             </header>
 
-            <StatusSection rapi={rapi} version={version} />
+            <StatusSection rid={rid} rapi={rapi} version={version} />
 
             <section className="info-sec" data-ui="기본 정보">
               <h2>{t('기본', 'Basics')}</h2>
@@ -119,34 +119,54 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
 /**
  * 현황: 에이전트가 STATUS.md · `pnpm agent:status` · MCP project_status로 읽는 요약과 같은 것 (10/11 "정본은 하나, 사람은 앱으로 AI는 파일·MCP로").
  * 서버의 generateStatus 하나가 만든 글을 그대로 보이고, 앞머리의 에이전트용 안내(제목과 > 인용 줄)만 뺀다.
- * 두 탭으로 나눈다 (10/15 피드백): 현황(할 일 · 주제 · 노트 · 기록), AGENTS.md(저장소의 AGENTS.md · CLAUDE.md와 STATUS.md의 규칙 절).
+ * 규칙 절(공통 규칙 · 폴더 규칙 · 프로젝트 규칙)은 왼쪽 사이드바 프로젝트 정보 아래의 AGENTS.md 화면에 둔다 (10/15 피드백).
  */
-function StatusSection({ rapi, version }: { rapi: ResearchApi; version: number }) {
+function StatusSection({ rid, rapi, version }: { rid: string; rapi: ResearchApi; version: number }) {
   const [text, setText] = useState<string | null | undefined>(undefined)
-  const [files, setFiles] = useState<{ file: string; text: string }[] | null | undefined>(undefined)
-  const [tab, setTab] = useState<'status' | 'agents'>('status')
   useEffect(() => { rapi.agentStatus().then((r) => setText(statusBody(r.markdown))).catch(() => setText(null)) }, [rapi, version])
-  useEffect(() => { rapi.agentRules().then((r) => setFiles(r.files)).catch(() => setFiles(null)) }, [rapi, version])
   const parts = text ? splitStatus(text) : null
   return (
     <section className="info-sec" data-ui="현황">
       <h2>{t('현황', 'Status')} <span className="muted">{t('에이전트가 STATUS.md와 MCP로 읽는 것과 같은 내용', 'Same as what agents read in STATUS.md and over MCP')}</span></h2>
-      <div className="segmented small info-status-tabs" role="tablist" data-ui="현황 탭">
-        <button type="button" role="tab" aria-selected={tab === 'status'} className={tab === 'status' ? 'on' : ''} onClick={() => setTab('status')}>{t('현황', 'Status')}</button>
-        <button type="button" role="tab" aria-selected={tab === 'agents'} className={tab === 'agents' ? 'on' : ''} onClick={() => setTab('agents')}>AGENTS.md</button>
-      </div>
       <div className="info-status">
         {text === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
           : text === null || !parts ? <p className="muted">{t('현황을 읽지 못했습니다', 'Could not read the status')}</p>
-          : tab === 'status' ? <ObsidianMarkdown text={parts.status} />
-          : <>
-            {files === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
-              : !files?.length ? <p className="muted">{t('저장소 맨 위에 AGENTS.md가 없습니다', 'No AGENTS.md at the top of the repository')}</p>
-              : files.map((f) => <div key={f.file} className="info-rule-file"><h3><code>{f.file}</code></h3><ObsidianMarkdown text={f.text} /></div>)}
-            {parts.rules && <div className="info-rule-file"><h3>{t('함께 읽는 규칙', 'Rules read with it')} <span className="muted">{t('STATUS.md의 규칙 절', 'Rule sections of STATUS.md')}</span></h3><ObsidianMarkdown text={parts.rules} /></div>}
-          </>}
+          : <ObsidianMarkdown text={parts.status} />}
       </div>
+      {parts?.rules && <p className="muted info-rules-link">{t('에이전트가 함께 읽는 규칙은 ', 'The rules agents read with it are on ')}<button className="a" onClick={() => go({ page: 'agents', rid })}>AGENTS.md</button>{t('에 있습니다.', '.')}</p>}
     </section>
+  )
+}
+
+/**
+ * AGENTS.md: 에이전트가 이 저장소에서 먼저 읽는 규칙. 저장소의 AGENTS.md · CLAUDE.md와 STATUS.md의 규칙 절.
+ * 왼쪽 사이드바 프로젝트 정보 아래의 하위 항목 (10/15 반려 "프로젝트 정보 섹션 하위 섹션으로").
+ */
+export function AgentsPage({ rapi, version }: { rapi: ResearchApi; version: number }) {
+  const [text, setText] = useState<string | null | undefined>(undefined)
+  const [files, setFiles] = useState<{ file: string; text: string }[] | null | undefined>(undefined)
+  useEffect(() => { rapi.agentStatus().then((r) => setText(statusBody(r.markdown))).catch(() => setText(null)) }, [rapi, version])
+  useEffect(() => { rapi.agentRules().then((r) => setFiles(r.files)).catch(() => setFiles(null)) }, [rapi, version])
+  const rules = text ? splitStatus(text).rules : ''
+  return (
+    <div className="ws-doc" data-ui="AGENTS.md">
+      <section className="pane" data-ui="본문">
+        <div className="scroll">
+          <div className="page-body info-page">
+            <header className="info-head">
+              <h1 className="h-title">AGENTS.md</h1>
+              <p className="info-desc muted">{t('에이전트가 이 저장소에서 일하기 전에 읽는 규칙입니다. 고치려면 저장소의 파일을 고칩니다.', 'Rules agents read before working in this repository. To change them, edit the files in the repository.')}</p>
+            </header>
+            <div className="info-status">
+              {files === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
+                : !files?.length ? <p className="muted">{t('저장소 맨 위에 AGENTS.md가 없습니다', 'No AGENTS.md at the top of the repository')}</p>
+                : files.map((f) => <div key={f.file} className="info-rule-file"><h3><code>{f.file}</code></h3><ObsidianMarkdown text={f.text} /></div>)}
+              {rules && <div className="info-rule-file"><h3>{t('함께 읽는 규칙', 'Rules read with it')} <span className="muted">{t('STATUS.md의 규칙 절', 'Rule sections of STATUS.md')}</span></h3><ObsidianMarkdown text={rules} /></div>}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   )
 }
 

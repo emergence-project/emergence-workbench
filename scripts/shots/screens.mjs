@@ -26,7 +26,7 @@ export const DEFAULT_SCREENS = [
   ['records', '#/r/{rid}/records', '기록 화면'],
   ['info', '#/r/{rid}/info', '저장소 정보'],
   // 현황의 AGENTS.md 탭 (10/15): 저장소의 AGENTS.md와 STATUS.md의 규칙 절
-  ['info-agents', '#/r/{rid}/info', '현황', '[data-ui="현황 탭"] button:text-matches("AGENTS")'],
+  ['info-agents', '#/r/{rid}/agents', 'AGENTS.md'],
   ['map', '#/r/{rid}/map', '지도'],
   ['log', '#/r/{rid}/log', '기록'],
   // 맡기기 창, 날짜를 누른 달력, 맡긴 일 목록(필터는 기억되므로 마지막에 판단으로 되돌린다), 보고서

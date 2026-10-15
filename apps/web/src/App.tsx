@@ -35,7 +35,7 @@ import { recordPdfTab, recordRoute } from './recordsPanelHelpers'
 import { NoInfo, NoteInfo, RightSidebar } from './RightSidebar'
 import { TopBar, type Crumb } from './TopBar'
 import { OverviewPage, partNumber } from './OverviewPage'
-import { ProjectInfoPage } from './ProjectInfoPage'
+import { AgentsPage, ProjectInfoPage } from './ProjectInfoPage'
 import { ProjectRailCount, useProjectIssues } from './projectIssues'
 import { PdfTab } from './PdfTab'
 import { SearchOverlay } from './Search'
@@ -372,6 +372,7 @@ export function App() {
         version={version} onChanged={() => { changed(); notesChanged() }} onSaved={flash} />
       case 'notes': case 'concepts': case 'papers': return <NotesPage key={t.k} show={t.k} rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} library={library} onChanged={changed} onLibraryChanged={libraryChanged} onNewBlock={() => setDialog('new-block')} onSaved={flash} />
       case 'statement': return <StatementTab key={`${rid}/${t.sid}`} rid={rid} sid={t.sid} rapi={rapi} summary={summary} bus={bus} onChanged={changed} />
+      case 'agents': return <AgentsPage key="agents" rapi={rapi} version={version} />
       case 'info': return (
         <ProjectInfoPage rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} version={version}
           project={current} all={researches ?? []} onProfile={setProfile}
@@ -520,7 +521,7 @@ export function App() {
 }
 
 const PAGE_LABEL: Partial<Record<Route['page'], string>> = {
-  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('고침 검토', 'Edit review'), flow: t('흐름', 'Flow'),
+  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: 'AGENTS.md', notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('고침 검토', 'Edit review'), flow: t('흐름', 'Flow'),
   ...Object.fromEntries(GLOBAL_PAGES.map((g) => [g.page, g.name])),
 }
 
@@ -538,6 +539,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'todo': return L('작업', 'Work')
     case 'records': return L('기록', 'Records')
     case 'info': return L('프로젝트 정보', 'Project info')
+    case 'agents': return 'AGENTS.md'
     case 'log': return L('작업', 'Work')
     case 'map': return L('지도', 'Map')
     case 'notes': return L('원고', 'Manuscript')

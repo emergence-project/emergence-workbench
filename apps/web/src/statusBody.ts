@@ -13,7 +13,7 @@ export function statusBody(markdown: string): string {
   return lines.slice(i).join('\n')
 }
 
-/** 규칙 절: 프로젝트 정보의 AGENTS.md 탭이 보이고 현황 탭에서는 뺀다 (10/15 피드백 "현황과 AGENTS.md를 나누자") */
+/** 규칙 절: 왼쪽 사이드바 프로젝트 정보 아래 AGENTS.md 화면이 보이고 현황에서는 뺀다 (10/15 피드백 "현황과 AGENTS.md를 나누자") */
 const RULE_HEADING = /^## (공통 규칙|폴더와 편집 규칙|프로젝트 규칙)(\s|$)/
 
 /** 현황 글을 규칙 절과 나머지로 나눈다. 절의 순서와 글자는 바꾸지 않는다 */
