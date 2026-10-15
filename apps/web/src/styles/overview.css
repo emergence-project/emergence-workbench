@@ -79,7 +79,9 @@ button.t:hover { text-decoration: underline; }
 .main-notes .hint { margin: 0; font-size: var(--fs-xs); }
 .now .sec-head { display: flex; align-items: baseline; gap: var(--sp-3); }
 .now-all { margin-left: auto; font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.now-folded { color: var(--text-3); }
+/* 목록 아래 "+n": 패널 아래 여백 안에 둬 줄 하나를 덜 밀어내게 (10/15) */
+.now { position: relative; }
+.now-more { position: absolute; left: var(--sp-4); bottom: var(--sp-1); font-size: var(--fs-xs); line-height: 1; color: var(--text-3); }
 .now-filters { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: var(--sp-2) 0 var(--sp-1); }
 .now-filters .memo-chip { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .now-filters .memo-chip.on { background: var(--bg-hover); color: var(--text); border-color: var(--line-strong); }

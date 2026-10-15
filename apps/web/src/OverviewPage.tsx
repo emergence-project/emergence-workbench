@@ -74,7 +74,7 @@ interface NowGroupSpec { key: string; title: string; short?: string; count: numb
 /**
  * 첫 화면 작업 패널: 위에 태그(전체 · 묶음마다 이름과 수)를 두고 고른 것의 목록만 보인다. 전체는 사용자 차례부터
  * 묶음 순서로 섞고 줄 오른쪽에 묶음 태그. 칸은 머리 높이에 고정이라(주제 카드 줄이 같은 자리) 넘치는 줄은
- * "모두 보기" 옆 "+n"으로 센다(카드 태그 한 줄의 +n과 같은 기호). 칸 안 스크롤은 두지 않는다 (10/15 사용자 결정, 시안 B).
+ * 목록 아래 "+n"으로 센다(카드 태그 한 줄의 +n과 같은 기호). 칸 안 스크롤은 두지 않는다 (10/15 사용자 결정, 시안 B).
  */
 function NowPanel({ groups, fitKey, onAll, error }: { groups: NowGroupSpec[]; fitKey: string; onAll(): void; error: string | null }) {
   const ref = useRef<HTMLElement>(null)
@@ -107,7 +107,7 @@ function NowPanel({ groups, fitKey, onAll, error }: { groups: NowGroupSpec[]; fi
     <aside className="now" id="blocked" data-ui="지금" ref={ref}>
       <div className="sec-head">
         <h2 title={t('검토 대기 · 에이전트 고침 · 멈춤 · 할 일, 사용자 차례부터 (10/15)', 'Awaiting review, agent edits, blocked, to-dos')}><button className="a" data-ui="할 일 전체 버튼" onClick={onAll}>{t('작업', 'Work')}</button></h2>
-        <button className="a now-all" data-ui="작업 모두 보기" onClick={onMore}>{more > 0 && <span className="now-folded" title={t(`못 보인 줄 ${more}개`, `${more} rows not shown`)}>+{more} · </span>}{t('모두 보기 ›', 'See all ›')}</button>
+        <button className="a now-all" data-ui="작업 모두 보기" onClick={onAll}>{t('모두 보기 ›', 'See all ›')}</button>
       </div>
       {empty ? <p className="empty">{empty}</p> : <>
         <div className="now-filters" role="group" aria-label={t('작업 필터', 'Work filter')} data-ui="작업 필터">
@@ -117,6 +117,7 @@ function NowPanel({ groups, fitKey, onAll, error }: { groups: NowGroupSpec[]; fi
           ))}
         </div>
         <ul className="now-list">{items.slice(0, n)}</ul>
+        {more > 0 && <button className="a now-more" data-ui="작업 더 보기" title={t(`못 보인 줄 ${more}개`, `${more} rows not shown`)} onClick={onMore}>+{more}</button>}
       </>}
       {error && <p className="error-text">{error}</p>}
     </aside>
