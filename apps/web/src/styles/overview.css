@@ -84,7 +84,11 @@ button.t:hover { text-decoration: underline; }
 .now-filters .memo-chip { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .now-filters .memo-chip.on { background: var(--bg-hover); color: var(--text); border-color: var(--line-strong); }
 .now-filters .count { color: var(--text-3); font-variant-numeric: tabular-nums; }
-.now-row .now-tag { margin: 0 0 0 var(--sp-2); white-space: nowrap; }
+/* 표처럼: 줄 사이 옅은 선, 묶음 태그는 오른쪽 끝 같은 폭 (10/15 사용자) */
+.now-list .now-row { border-radius: 0; }
+.now-list .now-row + .now-row { border-top: 1px solid var(--line); }
+.now-row .now-end { gap: var(--sp-2); }
+.now-row .now-tag { margin: 0; white-space: nowrap; min-width: calc(var(--fs-2xs) * 4 + 12px); text-align: center; box-sizing: border-box; }
 .now .sec-head h2 .count { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-normal); }
 .now .sec-head h2 .a { font: inherit; color: inherit; }
 .now-note { margin: 2px 0 var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }

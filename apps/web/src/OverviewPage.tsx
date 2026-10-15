@@ -69,19 +69,19 @@ export function StatusCounts({ list }: { list: BlockRow[] }) {
 export const nowTitle = (text: string) => (text.split('\n')[0] ?? '').split(' — ')[0]!.trim()
 
 /** 작업 패널의 한 묶음. rows는 줄을 그리는 함수: "전체"에서는 묶음 이름을 줄 오른쪽 태그로 넘긴다 */
-interface NowGroupSpec { key: string; title: string; count: number; turn?: string; ui: string; onMore?(): void; rows: ((tag?: string) => React.ReactNode)[]; empty?: string }
+interface NowGroupSpec { key: string; title: string; short?: string; count: number; turn?: string; ui: string; onMore?(): void; rows: ((tag?: string) => React.ReactNode)[]; empty?: string }
 
 /**
  * 첫 화면 작업 패널: 위에 태그(전체 · 묶음마다 이름과 수)를 두고 고른 것의 목록만 보인다. 전체는 사용자 차례부터
  * 묶음 순서로 섞고 줄 오른쪽에 묶음 태그. 칸은 머리 높이에 고정이라(주제 카드 줄이 같은 자리) 넘치는 줄은
- * "모두 보기" 옆 "n개 더"로 접는다. 칸 안 스크롤은 두지 않는다 (10/15 사용자 결정, 시안 B).
+ * "모두 보기" 옆 "+n"으로 센다(카드 태그 한 줄의 +n과 같은 기호). 칸 안 스크롤은 두지 않는다 (10/15 사용자 결정, 시안 B).
  */
 function NowPanel({ groups, fitKey, onAll, error }: { groups: NowGroupSpec[]; fitKey: string; onAll(): void; error: string | null }) {
   const ref = useRef<HTMLElement>(null)
   const [size, setSize] = useState(0)
   const [pick, setPick] = useState('all')
   const active = groups.find((g) => g.key === pick && g.count > 0) ?? null
-  const items = active ? active.rows.map((row) => row()) : groups.flatMap((g) => g.rows.map((row) => row(g.title)))
+  const items = active ? active.rows.map((row) => row()) : groups.flatMap((g) => g.rows.map((row) => row(g.short ?? g.title)))
   const [fit, setFit] = useState({ key: '', n: items.length })
   // 내용·고른 태그·칸 크기가 바뀌면 모두 펼친 뒤 다시 맞춘다 (그리는 중에 바로 되돌린다)
   const key = `${fitKey}|${active?.key ?? 'all'}|${size}`
@@ -107,7 +107,7 @@ function NowPanel({ groups, fitKey, onAll, error }: { groups: NowGroupSpec[]; fi
     <aside className="now" id="blocked" data-ui="지금" ref={ref}>
       <div className="sec-head">
         <h2 title={t('검토 대기 · 에이전트 고침 · 멈춤 · 할 일, 사용자 차례부터 (10/15)', 'Awaiting review, agent edits, blocked, to-dos')}><button className="a" data-ui="할 일 전체 버튼" onClick={onAll}>{t('작업', 'Work')}</button></h2>
-        <button className="a now-all" data-ui="작업 모두 보기" onClick={onMore}>{more > 0 && <span className="now-folded">{t(`${more}개 더 · `, `${more} more · `)}</span>}{t('모두 보기 ›', 'See all ›')}</button>
+        <button className="a now-all" data-ui="작업 모두 보기" onClick={onMore}>{more > 0 && <span className="now-folded" title={t(`못 보인 줄 ${more}개`, `${more} rows not shown`)}>+{more} · </span>}{t('모두 보기 ›', 'See all ›')}</button>
       </div>
       {empty ? <p className="empty">{empty}</p> : <>
         <div className="now-filters" role="group" aria-label={t('작업 필터', 'Work filter')} data-ui="작업 필터">
@@ -190,7 +190,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
   // 작업 패널의 묶음: 사용자 차례부터 (검토 대기 → 에이전트 고침 → 멈춤 → 할 일, 10/15 09:55 피드백)
   const groups = ([
     {
-      key: 'review', title: t('검토 대기', 'Awaiting review'), count: reviews.length, turn: t('물리·수학 검토는 사용자만', 'Only you can do the physics and math review'), ui: '검토 대기', onMore: () => go({ page: 'todo', rid }),
+      key: 'review', title: t('검토 대기', 'Awaiting review'), short: t('검토 대기', 'Review'), count: reviews.length, turn: t('물리·수학 검토는 사용자만', 'Only you can do the physics and math review'), ui: '검토 대기', onMore: () => go({ page: 'todo', rid }),
       rows: reviews.map((r) => (tag?: string) => (
         <NowRow tag={tag} key={r.file} ui="검토 대기 문서" item={r.title} mark={<span className="now-mark" aria-hidden>·</span>}
           title={r.title} full={r.file} onOpen={() => go({ page: 'todo', rid })}
@@ -198,7 +198,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
       )),
     },
     {
-      key: 'edits', title: t('에이전트 고침', 'Agent edits'), count: edits.length, turn: t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Approve, revert or edit each change'), ui: '에이전트 고침', onMore: () => go({ page: 'edits', rid }),
+      key: 'edits', title: t('에이전트 고침', 'Agent edits'), short: t('고침', 'Edits'), count: edits.length, turn: t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Approve, revert or edit each change'), ui: '에이전트 고침', onMore: () => go({ page: 'edits', rid }),
       rows: edits.map((e) => (tag?: string) => (
         <NowRow tag={tag} key={`${e.attempt ? 'a' : 'r'}-${e.key}`} ui="에이전트 고침 줄" item={e.title} mark={<span className="now-mark" aria-hidden>·</span>}
           title={e.title} full={`${e.title}\n${e.sub}`} sub={e.sub}
