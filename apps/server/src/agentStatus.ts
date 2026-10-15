@@ -13,9 +13,10 @@ import { listStatements } from './statements.js'
 import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './noteList.js'
 import { pendingQuestions } from './comments.js'
 import { RULES_DOC, statusSection } from './tasks.js'
-import type { RuleFile } from './agentRules.js'
+import { commonRules, type RuleFile } from './agentRules.js'
 import { DECISIONS_DIR, folderMap, listDecisions, listRules, RULES_DIR, usesStandardLayout } from './projectFolders.js'
 import type { ProjectSources, Workbench } from './workbench.js'
+import type { Registry } from './registry.js'
 import type { TaskTable, ReviewDoc } from '@rw/core/contract/research'
 export type { TaskTable, ReviewDoc }
 
@@ -117,7 +118,7 @@ function commonRulesBody(text: string): { status: string; body: string } {
 }
 
 /** common: 연구 공통 규칙 (agentRules.ts commonRules). 있으면 정본 위치 바로 뒤에 붙인다 (R1) */
-export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList, common?: RuleFile | null): string {
+export async function generateStatus(wb: Workbench, now = new Date(), edits?: EditList, common?: RuleFile | null): Promise<string> {
   const info = wb.readResearch()
   const repo = wb.repo
   const src = info.sources
@@ -130,7 +131,7 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
   const today = localDate(now)
   const out: string[] = []
   const p = (...l: string[]) => out.push(...l)
-  const sync = localSyncState(repo)
+  const sync = await localSyncState(repo)
   const warnings: string[] = []
   if (sync?.behind) {
     const checked = sync.fetchedAt ? `(마지막 확인 ${localDate(sync.fetchedAt)} ${sync.fetchedAt.toTimeString().slice(0, 5)})` : ''
@@ -376,14 +377,29 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
 }
 
 /** workbench/STATUS.md를 다시 쓴다. 내용이 같으면 쓰지 않는다 (파일 감시·git에 불필요한 변경을 만들지 않게) */
-export function writeStatus(wb: Workbench, now = new Date(), edits?: EditList, common?: RuleFile | null): { written: boolean; file: string } {
+export async function writeStatus(wb: Workbench, now = new Date(), edits?: EditList, common?: RuleFile | null): Promise<{ written: boolean; file: string }> {
   const file = path.join(wb.root, STATUS_FILE)
-  const body = generateStatus(wb, now, edits, common)
+  const body = await generateStatus(wb, now, edits, common)
   // 첫 안내 줄의 시각만 다르면 같은 내용이다
   const strip = (s: string) => s.split('\n').filter((l) => !l.startsWith(STATUS_HEAD)).join('\n')
   if (fs.existsSync(file) && strip(fs.readFileSync(file, 'utf8')) === strip(body)) return { written: false, file }
   writeAtomic(file, body)
   return { written: true, file }
+}
+
+type StatusRegistry = Pick<Registry, 'get' | 'configDir' | 'libraryPath'>
+
+/** 앱의 STATUS: 고침 기록과 공통 규칙을 늘 같이 넣는다 (미리보기 · 쓰기 · 파일 감시 · 받기 뒤가 같은 내용이 되게) */
+export function statusFor(registry: StatusRegistry, rid: string, now = new Date()): Promise<string> {
+  const wb = registry.get(rid)
+  return generateStatus(wb, now, readStatusEdits(wb, registry.configDir, rid, registry.libraryPath), commonRules(registry.configDir))
+}
+
+/** STATUS.md 쓰기. agent-status를 켜지 않은 프로젝트는 쓰지 않고 null */
+export async function writeStatusFor(registry: StatusRegistry, rid: string, now = new Date()): Promise<{ written: boolean; file: string } | null> {
+  const wb = registry.get(rid)
+  if (!wb.readResearch().agentStatus) return null
+  return writeStatus(wb, now, readStatusEdits(wb, registry.configDir, rid, registry.libraryPath), commonRules(registry.configDir))
 }
 
 /** 노트가 놓인 폴더 모양: 주제 폴더 안 노트는 주제 폴더, 나머지는 notes/·calc/ */

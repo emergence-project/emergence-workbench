@@ -2,35 +2,32 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/research'
 import { replies } from '../contract.js'
-import { writeStatus } from '../agentStatus.js'
+import { writeStatusFor } from '../agentStatus.js'
 import { autoPull, fastForward, repoInfo, repoSync, SyncError } from '../gitsync.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 
 export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
   const { repoPath, registry, opts } = ctx
-  const refreshStatus = (rid: string) => {
-    try {
-      const wb = ctx.wbOf(rid)
-      if (wb.readResearch().agentStatus) writeStatus(wb)
-    } catch { /* retry on the next change, without hiding the sync result */ }
+  const refreshStatus = async (rid: string): Promise<void> => {
+    try { await writeStatusFor(registry, rid) } catch { /* retry on the next change, without hiding the sync result */ }
   }
   app.get<{ Params: { rid: string }; Querystring: { fetch?: string } }>('/api/researches/:rid/sync', replies(C.SyncReply), async (req): Promise<C.SyncReply> => {
     const sync = await repoSync(repoPath(req.params.rid), { fetch: req.query.fetch === '1' })
-    if (req.query.fetch === '1') refreshStatus(req.params.rid)
+    if (req.query.fetch === '1') await refreshStatus(req.params.rid)
     return { sync }
   })
   /** 프로젝트 정보의 저장소 칸. fetch=1이면 원격을 바로 확인한다("확인" 버튼). 받아오기·올리기는 하지 않는다 */
   app.get<{ Params: { rid: string }; Querystring: { fetch?: string } }>('/api/researches/:rid/repo', replies(C.RepoReply), async (req): Promise<C.RepoReply> => {
     const repo = await repoInfo(repoPath(req.params.rid), { fetch: req.query.fetch === '1' })
-    if (req.query.fetch === '1') refreshStatus(req.params.rid)
+    if (req.query.fetch === '1') await refreshStatus(req.params.rid)
     return { repo }
   })
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/sync/update', replies(C.SyncUpdated), async (req): Promise<C.SyncUpdated> => {
     try { return { sync: await fastForward(repoPath(req.params.rid)) } } catch (e) {
       if (e instanceof SyncError) throw new WorkbenchError(409, e.message)
       throw e
-    } finally { refreshStatus(req.params.rid) }
+    } finally { await refreshStatus(req.params.rid) }
   })
 
   // 저절로 받기 (실사용만, 10/14): 정한 간격마다 연구 저장소를 하나씩 확인해 안전할 때만 받는다.
@@ -45,7 +42,7 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
         for (const r of registry.list()) {
           try {
             if (!await autoPull(r.path)) continue
-            refreshStatus(r.id)
+            await refreshStatus(r.id)
             ctx.ensureWatch(r.id)
             ctx.broadcast({ type: 'research', research: r.id })
           } catch (e) { console.error(`research auto pull ${r.id}: ${(e as Error).message}`) }

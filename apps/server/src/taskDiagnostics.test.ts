@@ -39,7 +39,7 @@ describe('작업 파일 읽기 진단', () => {
     ]))
     expect(response.diagnostics).toHaveLength(4)
     expect(response.diagnostics.find((d: { code: string }) => d.code === 'yaml').message).not.toMatch(/at line \d+/)
-    const status = generateStatus(new Workbench(path.join(repo, 'workbench')))
+    const status = await generateStatus(new Workbench(path.join(repo, 'workbench')))
     expect(status).toContain('## 작업 파일 오류 4')
     for (const name of Object.keys(files).filter((n) => !n.includes('good'))) expect(status).toContain(`workbench/tasks/${name}`)
     for (const [name, content] of Object.entries(files)) expect(fs.readFileSync(path.join(dir(), name), 'utf8')).toBe(content)

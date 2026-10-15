@@ -19,21 +19,21 @@ describe('Git freshness in agent STATUS', () => {
     const { mine, incoming } = syncRepo(tmp, 'status-behind', { [file]: 'old\n' })
     const wb = new Workbench(path.join(mine, 'workbench'))
     incoming({ [file]: 'remote\n' })
-    expect(generateStatus(wb)).not.toContain('> ⚠') // no fetch: old origin/main
+    expect(await generateStatus(wb)).not.toContain('> ⚠') // no fetch: old origin/main
     g(mine, 'fetch', '-q')
     const fetched = path.join(mine, '.git/FETCH_HEAD')
     const stamp = new Date(2026, 9, 10, 9, 34)
     fs.utimesSync(fetched, stamp, stamp)
     fs.writeFileSync(path.join(mine, file), 'local\r\n')
-    const status = generateStatus(wb)
+    const status = await generateStatus(wb)
     const line = '> ⚠ 이 사본은 GitHub보다 1커밋 뒤다(마지막 확인 2026-10-10 09:34). 일하기 전에 받는다: 앱 홈의 받기 또는 `git pull --ff-only`. 커밋하지 않은 변경과 겹치는 파일: 노트 글.md.'
     expect(status.split('\n')[3]).toBe(line)
-    expect(writeStatus(wb).written).toBe(true)
-    expect(writeStatus(wb, new Date(2027, 0, 1)).written).toBe(false)
+    expect((await writeStatus(wb)).written).toBe(true)
+    expect((await writeStatus(wb, new Date(2027, 0, 1))).written).toBe(false)
     expect(fs.statSync(fetched).mtime.getTime()).toBe(stamp.getTime())
     fs.unlinkSync(fetched)
-    expect(generateStatus(wb)).toContain('1커밋 뒤다. 일하기 전에')
-    expect(generateStatus(wb)).not.toContain('마지막 확인')
+    expect(await generateStatus(wb)).toContain('1커밋 뒤다. 일하기 전에')
+    expect(await generateStatus(wb)).not.toContain('마지막 확인')
     // Cloud command uses this same read-only summary and does not create STATUS.md.
     fs.unlinkSync(path.join(wb.root, 'STATUS.md'))
     const output = execFileSync('node', ['scripts/agent-status.mjs', mine], { cwd: path.resolve(import.meta.dirname, '../../..'), encoding: 'utf8' })
@@ -42,28 +42,28 @@ describe('Git freshness in agent STATUS', () => {
     expect(fs.existsSync(path.join(wb.root, 'STATUS.md'))).toBe(false)
   })
 
-  it('omits warnings when current, without an upstream, or inside another repository; reports ahead/divergence', () => {
+  it('omits warnings when current, without an upstream, or inside another repository; reports ahead/divergence', async () => {
     const { mine, incoming } = syncRepo(tmp, 'status-ahead', { 'local.md': 'old\n' })
     const wb = new Workbench(path.join(mine, 'workbench'))
-    expect(generateStatus(wb)).not.toContain('> ⚠')
+    expect(await generateStatus(wb)).not.toContain('> ⚠')
     fs.writeFileSync(path.join(mine, 'local.md'), 'committed\n')
     g(mine, 'commit', '-qam', 'Local commit')
-    expect(generateStatus(wb)).toContain('> ⚠ 이 컴퓨터에만 있는 커밋 1개가 GitHub에 없다.')
-    expect(generateStatus(wb)).not.toContain('뒤다')
+    expect(await generateStatus(wb)).toContain('> ⚠ 이 컴퓨터에만 있는 커밋 1개가 GitHub에 없다.')
+    expect(await generateStatus(wb)).not.toContain('뒤다')
     incoming({ 'remote.md': 'remote\n' })
     g(mine, 'fetch', '-q')
-    expect(generateStatus(wb)).toContain('GitHub보다 1커밋 뒤다')
-    expect(generateStatus(wb)).toContain('이 컴퓨터에만 있는 커밋 1개')
+    expect(await generateStatus(wb)).toContain('GitHub보다 1커밋 뒤다')
+    expect(await generateStatus(wb)).toContain('이 컴퓨터에만 있는 커밋 1개')
     for (const folder of ['fixtures/example', '.sandbox/example']) {
       const sub = path.join(mine, folder)
       fs.cpSync(wb.root, path.join(sub, 'workbench'), { recursive: true })
-      expect(generateStatus(new Workbench(path.join(sub, 'workbench')))).not.toContain('> ⚠')
+      expect(await generateStatus(new Workbench(path.join(sub, 'workbench')))).not.toContain('> ⚠')
     }
     g(mine, 'branch', '--unset-upstream')
-    expect(generateStatus(wb)).not.toContain('> ⚠')
+    expect(await generateStatus(wb)).not.toContain('> ⚠')
   })
 
-  it('finds FETCH_HEAD in a linked worktree whose .git is a file', () => {
+  it('finds FETCH_HEAD in a linked worktree whose .git is a file', async () => {
     const { mine, incoming } = syncRepo(tmp, 'status-linked')
     incoming({ 'remote.md': 'remote\n' })
     g(mine, 'fetch', '-q')
@@ -72,7 +72,7 @@ describe('Git freshness in agent STATUS', () => {
     g(linked, 'branch', '--set-upstream-to=origin/main')
     g(linked, 'fetch', '-q')
     expect(fs.statSync(path.join(linked, '.git')).isFile()).toBe(true)
-    const status = generateStatus(new Workbench(path.join(linked, 'workbench')))
+    const status = await generateStatus(new Workbench(path.join(linked, 'workbench')))
     expect(status).toMatch(/GitHub보다 1커밋 뒤다\(마지막 확인 \d{4}-\d\d-\d\d \d\d:\d\d\)/)
   })
 
@@ -81,7 +81,7 @@ describe('Git freshness in agent STATUS', () => {
     const { mine, incoming } = syncRepo(tmp, `status-route-${route}`, { [research]: 'title: Sync status\nagent-status: true\n', 'local.md': 'old\n' })
     const wb = new Workbench(path.join(mine, 'workbench'))
     const statusFile = path.join(wb.root, 'STATUS.md')
-    writeStatus(wb)
+    await writeStatus(wb)
     const sa = buildApp({ configDir: path.join(tmp, `status-config-${route}`) })
     try {
       const id = (await sa.inject({ method: 'POST', url: '/api/researches', payload: { path: mine } })).json().id
@@ -120,7 +120,7 @@ describe('Git freshness in agent STATUS', () => {
   })
 })
 describe('멈춘 연구·계산 노트의 재개 조건', () => {
-  it('본문 경로·note.yaml·재개 조건을 표시하고 블록 노트는 기존 절에만 둔다', () => {
+  it('본문 경로·note.yaml·재개 조건을 표시하고 블록 노트는 기존 절에만 둔다', async () => {
     for (const [folder, body, resume] of [['notes/pause', 'note.md', '외부 수치 결과'], ['calc/pause', 'main.tex', '다른 크기의 계산']] as const) {
       const dir = path.join(repo, 'workbench', folder)
       fs.mkdirSync(dir, { recursive: true })
@@ -129,7 +129,7 @@ describe('멈춘 연구·계산 노트의 재개 조건', () => {
     }
     const block = path.join(repo, 'workbench/blocks/broken-example.tex')
     fs.writeFileSync(block, fs.readFileSync(block, 'utf8').replace('% status: in-progress', '% status: blocked').replace('% ---\n', '% ---\n% resume-condition: 보조 재개 조건\n'))
-    const status = generateStatus(new Workbench(path.join(repo, 'workbench')))
+    const status = await generateStatus(new Workbench(path.join(repo, 'workbench')))
     expect(status).toContain('## 노트 2')
     expect(status).toContain('workbench/notes/pause/note.md')
     expect(status).toContain('workbench/notes/pause/note.yaml')
@@ -152,8 +152,8 @@ describe('에이전트 맥락 요약', () => {
   }
   const section = (status: string, heading: string) => status.split(heading)[1]!.split('\n## ')[0]!
 
-  it('머리 안내에 형식·검사·확인·MCP 규칙을 기존 세 안내 뒤에 둔다', () => {
-    const status = generateStatus(fresh())
+  it('머리 안내에 형식·검사·확인·MCP 규칙을 기존 세 안내 뒤에 둔다', async () => {
+    const status = await generateStatus(fresh())
     const guides = status.split('\n').filter((line) => line.startsWith('> '))
     expect(guides[0]).toMatch(/^> 연구 작업대 앱이 자동으로 쓰는 요약이다/)
     expect(guides[3]).toContain('docs/repo-format.md')
@@ -163,7 +163,7 @@ describe('에이전트 맥락 요약', () => {
     expect(guides[5]).toContain('`edit_note`·`edit_concept`')
   })
 
-  it('노트를 상태 순·최근 수정 순으로 보이고 해결 노트의 기록 대상을 화면처럼 만든다', () => {
+  it('노트를 상태 순·최근 수정 순으로 보이고 해결 노트의 기록 대상을 화면처럼 만든다', async () => {
     const wb = fresh()
     write(wb, 'research.yaml', 'title: 연구\ntopics: [{id: wheels, title: 바퀴}]\n')
     for (const [folder, state, name, body] of [
@@ -179,7 +179,7 @@ describe('에이전트 맥락 요약', () => {
     }
     fs.utimesSync(path.join(wb.root, 'notes/older/note.md'), 1, 1)
     fs.utimesSync(path.join(wb.root, 'notes/newer/note.md'), 2, 2)
-    const status = generateStatus(wb)
+    const status = await generateStatus(wb)
     const notes = section(status, '## 노트 6')
     expect(notes).toContain('- ✓ **확인한 노트** — 해결 · `workbench/notes/done 한..글/note.md` · 기록 `note-done____` · 주제 wheels · proof')
     expect(notes).toContain('기록 `calc-solved`')
@@ -193,14 +193,14 @@ describe('에이전트 맥락 요약', () => {
     expect(status.indexOf('## 노트')).toBeLessThan(status.indexOf('## 블록 노트'))
   })
 
-  it('명시한 .tex 원고만 장 수·마지막 컴파일 절을 보인다', () => {
+  it('명시한 .tex 원고만 장 수·마지막 컴파일 절을 보인다', async () => {
     const wb = fresh()
     write(wb, 'research.yaml', 'title: 연구\nsources:\n  manuscript: paper/main.tex — 한 파일 원고\n')
     fs.mkdirSync(path.join(wb.repo, 'paper'), { recursive: true })
     fs.writeFileSync(path.join(wb.repo, 'paper/main.tex'), '\\begin{document}\n\\section{장 하나}\n\\section{장 둘}\n\\appendix\n\\section{부록}\n\\end{document}\n')
     write(wb, 'notes/single/note.md', '# 노트 장\n')
     write(wb, 'calc/single/main.tex', '\\section{계산 장}\n')
-    const status = generateStatus(wb)
+    const status = await generateStatus(wb)
     expect(status.match(/^## 원고 — /gm)).toHaveLength(1)
     const ms = section(status, '## 원고 — 한 파일 원고')
     expect(ms).toContain('장 2 · 부록 1\n')
@@ -208,7 +208,7 @@ describe('에이전트 맥락 요약', () => {
     expect(ms).toContain('앱에서 아직 컴파일하지 않음')
   })
 
-  it('노트는 원고 절 없이 컴파일 오류 3개까지 보이고 성공·미컴파일은 생략한다', () => {
+  it('노트는 원고 절 없이 컴파일 오류 3개까지 보이고 성공·미컴파일은 생략한다', async () => {
     const wb = fresh()
     write(wb, 'research.yaml', 'title: 연구\n')
     for (const folder of ['notes/failed', 'calc/ok', 'notes/new']) write(wb, `${folder}/note.md`, '# 하나\n')
@@ -219,7 +219,7 @@ describe('에이전트 맥락 요약', () => {
       fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ at: '2026-10-10T00:00:00Z', ok: m.main.includes('/ok/'), durationMs: 1000,
         problems: m.main.includes('/failed/') ? Array.from({ length: 4 }, (_, i) => ({ file: m.main, line: i + 1, message: `error ${i + 1}` })) : [] }))
     }
-    const status = generateStatus(wb)
+    const status = await generateStatus(wb)
     expect(status).not.toContain('## 원고 —')
     expect(status).toContain('`workbench/notes/failed/note.md` · 기록 `note-failed` · 컴파일 오류 4')
     expect(status).toContain('  - `workbench/notes/failed/note.md:3` error 3')
@@ -227,20 +227,20 @@ describe('에이전트 맥락 요약', () => {
     expect(status.match(/컴파일 오류/g)).toHaveLength(1)
   })
 
-  it('명시한 input 원고의 장 목록과 선언하지 않은 노트에 대한 블록 참조를 유지한다', () => {
+  it('명시한 input 원고의 장 목록과 선언하지 않은 노트에 대한 블록 참조를 유지한다', async () => {
     const wb = fresh()
     write(wb, 'research.yaml', 'title: 연구\nsources:\n  manuscript: workbench/notes/multi/main.tex — multi\n')
     write(wb, 'notes/multi/main.tex', '\\documentclass{article}\n\\begin{document}\n\\input{chapter}\n\\end{document}\n')
     write(wb, 'notes/multi/chapter.tex', '\\section{다른 파일 장}\n')
     write(wb, 'calc/loose/main.tex', '\\begin{document}\n\\section{노트 장}\n\\end{document}\n')
     write(wb, 'blocks/reference.md', '---\nid: reference\n---\ngrounds: workbench/notes/multi/chapter.tex, workbench/calc/loose/main.tex#노트 장\n')
-    const status = generateStatus(wb)
+    const status = await generateStatus(wb)
     expect(section(status, '## 원고 — multi')).toContain('- multi 1장 다른 파일 장 — `workbench/notes/multi/chapter.tex`')
     expect(section(status, '## 블록 노트')).toContain('원고: multi 1장 다른 파일 장 · loose 1장 노트 장')
     expect(status).not.toContain('## 원고 — loose')
   })
 
-  it('할 일 이름표는 블록 id·노트 본문·다른 경로를 구분한다', () => {
+  it('할 일 이름표는 블록 id·노트 본문·다른 경로를 구분한다', async () => {
     const wb = fresh()
     write(wb, 'blocks/example.md', '---\nid: example\ntitle: 블록 제목\n---\n글\n')
     write(wb, 'notes/example/note.md', '# 제목\n')
@@ -248,7 +248,7 @@ describe('에이전트 맥락 요약', () => {
     for (const target of ['example', 'missing-block', 'workbench/notes/example/note.md', 'workbench/calc/missing/main.tex', 'src/code.py', '연구']) {
       wb.appendJournal({ date: '2026-10-10', time: '12:00', kind: 'todo', target, text: `대상 ${target}` })
     }
-    const status = generateStatus(wb)
+    const status = await generateStatus(wb)
     expect(status).toContain('대상 example (블록 노트: 블록 제목)')
     expect(status).toContain('대상 missing-block (블록 노트: missing-block)')
     expect(status).toContain('대상 workbench/notes/example/note.md (노트: 노트 제목)')
@@ -257,7 +257,7 @@ describe('에이전트 맥락 요약', () => {
     expect(status).not.toContain('대상 연구 (')
   })
 
-  it('설정 기록에서 프로젝트 검토·허락 대기를 읽기만 하고 맡긴 일 뒤에 둔다', () => {
+  it('설정 기록에서 프로젝트 검토·허락 대기를 읽기만 하고 맡긴 일 뒤에 둔다', async () => {
     const wb = fresh()
     const config = path.join(tmp, 'status-config')
     fs.mkdirSync(config, { recursive: true })
@@ -286,14 +286,14 @@ describe('에이전트 맥락 요약', () => {
     expect(edits.reviews).toHaveLength(1)
     expect(fs.readFileSync(file, 'utf8')).toBe(before)
     expect(fs.readFileSync(broken, 'utf8')).toBe('{broken')
-    const status = generateStatus(wb, new Date(), edits)
+    const status = await generateStatus(wb, new Date(), edits)
     expect(status).toContain('## 에이전트 고침 검토 대기 2')
     // 에이전트 문단 바로 뒤에 사용자가 덧붙인 문단도 따로 한 곳으로 센다 (바뀐 곳은 문단 하나씩)
     expect(status).toContain('· 바뀐 곳 2 · 에이전트 codex, claude-code · 첫 고침 2026-10-10 12:30')
     expect(status).toContain('- 허락 대기: **solved** — `workbench/calc/solved/note.md` · 에이전트 claude-code')
     expect(status.indexOf('## 맡긴 일')).toBeLessThan(status.indexOf('## 에이전트 고침 검토 대기'))
-    expect(generateStatus(wb)).not.toContain('## 에이전트 고침 검토 대기')
-    expect(generateStatus(wb, new Date(), { reviews: [], attempts: [] })).not.toContain('## 에이전트 고침 검토 대기')
+    expect(await generateStatus(wb)).not.toContain('## 에이전트 고침 검토 대기')
+    expect(await generateStatus(wb, new Date(), { reviews: [], attempts: [] })).not.toContain('## 에이전트 고침 검토 대기')
     expect(readStatusEdits(wb, path.join(config, 'missing'))).toEqual({ reviews: [], attempts: [] })
     fs.writeFileSync(file, '{broken')
     const files = fs.readdirSync(path.dirname(file))
@@ -304,15 +304,15 @@ describe('에이전트 맥락 요약', () => {
 
   const fileHash = (wb: Workbench, file: string) => hashOf(fs.readFileSync(path.join(wb.repo, file), 'utf8'))
 
-  it('블록·노트가 없으면 해당 절과 정본 줄을 생략하고 있는 노트 폴더만 안내한다', () => {
+  it('블록·노트가 없으면 해당 절과 정본 줄을 생략하고 있는 노트 폴더만 안내한다', async () => {
     const wb = fresh()
     fs.rmSync(wb.blocksDir, { recursive: true })
-    let status = generateStatus(wb)
+    let status = await generateStatus(wb)
     expect(status).not.toContain('## 블록 노트')
     expect(status).not.toContain('workbench/blocks/*.md')
     expect(status).not.toContain('## 노트')
     write(wb, 'calc/only/note.md', '# 계산\n')
-    status = generateStatus(new Workbench(wb.root))
+    status = await generateStatus(new Workbench(wb.root))
     expect(status).toContain('- `workbench/calc/<폴더>/` — 연구노트·계산 노트 1개')
     expect(status).not.toContain('workbench/notes/<폴더>/')
   })
@@ -353,8 +353,8 @@ describe('짧은 요약과 절 하나 (10/15 에이전트가 읽는 양 줄이�
     expect(statusPart(md, '없는 절')).toBeNull()
   })
 
-  it('예제 연구의 요약은 전부보다 짧고, 모든 절이 요약에 그대로 있거나 이름으로 남는다', () => {
-    const full = generateStatus(new Workbench(path.join(repo, 'workbench')))
+  it('예제 연구의 요약은 전부보다 짧고, 모든 절이 요약에 그대로 있거나 이름으로 남는다', async () => {
+    const full = await generateStatus(new Workbench(path.join(repo, 'workbench')))
     const s = statusSummary(full, '')
     expect(s.length).toBeLessThan(full.length)
     for (const h of full.match(/^## .+$/gm)!) expect(s).toContain(h.replace(/^## /, ''))

@@ -215,7 +215,7 @@ describe('STATUS.md와 파일 감시', () => {
     await post(b.id, 'judge', { verdict: 'send-back', note: 'L=48 넣기' })
     const c = (await make({ title: 'done one', task: 'x', endCondition: 'y' })).json().task
     await post(c.id, 'judge', { verdict: 'discard' })
-    const md = generateStatus(new Workbench(path.join(repo, 'workbench')))
+    const md = await generateStatus(new Workbench(path.join(repo, 'workbench')))
     expect(md).toMatch(/공통 규칙 `.*docs\/agent-delegated-work\.md`/)
     expect(md).toContain('## 맡긴 일 2')
     expect(md).toContain(`- \`${a.file}\` · 진행 · coloring · claude-code — 종결 조건부터 제안`)
@@ -235,7 +235,7 @@ describe('STATUS.md와 파일 감시', () => {
     expect(scan.diagnostics).toEqual([])
     expect(Object.fromEntries(scan.tasks.map((t) => [t.title, t.priority]))).toEqual({ later: 3, plain: undefined, first: 1, normal: 2 })
     // plain(없음 = 2)과 normal(2)은 같은 순위라 원래 순서(맡긴 시각, 같은 분이면 id 역순)를 지킨다
-    const lines = generateStatus(new Workbench(path.join(repo, 'workbench'))).split('\n').filter((l) => l.startsWith('- `workbench/tasks/'))
+    const lines = (await generateStatus(new Workbench(path.join(repo, 'workbench')))).split('\n').filter((l) => l.startsWith('- `workbench/tasks/'))
     expect(lines.map((l) => l.split(' · ').slice(1, -1).join(' · '))).toEqual(['진행 · 우선 1 · first', '진행 · plain', '진행 · 우선 2 · normal', '진행 · 우선 3 · later'])
   })
 

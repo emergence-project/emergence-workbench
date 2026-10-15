@@ -54,9 +54,9 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     const edits: Record<string, number> = {}
     const stored = new AgentEditStore(AgentEditStore.fileFor(registry.configDir, registry.libraryPath)).read()
     for (const x of [...stored.pending, ...stored.attempts]) if (x.target.kind === 'note') edits[x.target.rid] = (edits[x.target.rid] ?? 0) + 1
-    const rows = registry.list().filter((r) => r.state === 'active').map((r) => {
-      try { return overviewRow(wbOf(r.id), edits[r.id] ?? 0) } catch (e) { return { folder: r.path, problem: (e as Error).message } }
-    })
+    const rows = await Promise.all(registry.list().filter((r) => r.state === 'active').map(async (r) => {
+      try { return await overviewRow(wbOf(r.id), edits[r.id] ?? 0) } catch (e) { return { folder: r.path, problem: (e as Error).message } }
+    }))
     return { markdown: generateOverview(rows) }
   })
 

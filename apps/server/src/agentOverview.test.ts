@@ -13,7 +13,7 @@ describe('agent overview', () => {
     await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '질문', title: '프로젝트', text: '답을 기다리는 질문' } })
     await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '질문', title: '프로젝트', text: '에이전트가 사용자에게 묻는 것', by: 'claude' } })
     const issues = (await app.inject({ method: 'GET', url: '/api/research-issues' })).json() as { counts: Record<string, number>; notes: Record<string, number>; tasks: Record<string, number>; records: Record<string, number> }
-    const row = overviewRow(new Workbench(path.join(repo, 'workbench')))
+    const row = await overviewRow(new Workbench(path.join(repo, 'workbench')))
     expect(row.user.notes).toBe(issues.notes[rid])
     expect(row.user.tasks).toBe(issues.tasks[rid])
     expect(row.user.records).toBe(issues.records[rid])

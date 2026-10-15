@@ -139,7 +139,7 @@ describe('대소문자만 다른 경로로 등록한 저장소', () => {
     incoming({ 'remote.md': 'new\n' })
     const lower = path.join(path.dirname(mine), path.basename(mine).toLowerCase())
     expect(await repoSync(lower, { fetch: true, force: true })).toMatchObject({ behind: 1, canUpdate: true })
-    expect(localSyncState(lower)).toMatchObject({ behind: 1 })
+    expect(await localSyncState(lower)).toMatchObject({ behind: 1 })
   })
 })
 
@@ -182,5 +182,37 @@ describe('저절로 받기', () => {
     expect(await autoPull(mine)).toBe(true)
     expect(fs.readFileSync(path.join(mine, 'workbench', 'research.yaml'), 'utf8')).toBe('title: x\n')
     expect(await repoSync(mine)).toMatchObject({ branch: 'main', behind: 0, ahead: 0 })
+  })
+})
+
+// STATUS용 상태는 git 파일 시각이 같으면 지난 결과를 쓴다 (10/15 종합 검토 묶음 C). 바뀌는 길마다 낡지 않는지 본다
+describe('STATUS용 상태 캐시', () => {
+  it('커밋 · 올리기 · 받기 · ref 묶기 · 브랜치 바꾸기 뒤에 새로 잰다', async () => {
+    const { mine, incoming } = syncRepo(tmp, 'sync-state-cache')
+    const commit = (file: string) => { fs.writeFileSync(path.join(mine, file), `${file}\n`); g(mine, 'add', file); g(mine, 'commit', '-qm', file) }
+    expect(await localSyncState(mine)).toMatchObject({ ahead: 0, behind: 0 })
+    commit('one.md')
+    expect(await localSyncState(mine)).toMatchObject({ ahead: 1, behind: 0 })
+    g(mine, 'push', '-q')
+    expect(await localSyncState(mine)).toMatchObject({ ahead: 0, behind: 0 })
+    incoming({ 'remote.md': 'new\n' })
+    g(mine, 'fetch', '-q')
+    expect(await localSyncState(mine)).toMatchObject({ ahead: 0, behind: 1 })
+    // 뒤처진 동안은 겹치는 파일이 작업 폴더에 따라 달라지므로 매번 잰다
+    fs.writeFileSync(path.join(mine, 'remote.md'), 'local\n')
+    g(mine, 'add', '-N', 'remote.md')
+    expect(await localSyncState(mine)).toMatchObject({ behind: 1, conflicts: ['remote.md'] })
+    g(mine, 'rm', '-q', '--cached', 'remote.md')
+    fs.rmSync(path.join(mine, 'remote.md'))
+    g(mine, 'merge', '-q', '--ff-only', '@{upstream}')
+    expect(await localSyncState(mine)).toMatchObject({ ahead: 0, behind: 0 })
+    g(mine, 'pack-refs', '--all')
+    expect(await localSyncState(mine)).toMatchObject({ ahead: 0, behind: 0 })
+    commit('two.md')
+    expect(await localSyncState(mine)).toMatchObject({ ahead: 1, behind: 0 })
+    g(mine, 'checkout', '-q', '-b', 'side')
+    expect(await localSyncState(mine)).toBeNull()
+    g(mine, 'checkout', '-q', 'main')
+    expect(await localSyncState(mine)).toMatchObject({ ahead: 1, behind: 0 })
   })
 })

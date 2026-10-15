@@ -180,7 +180,7 @@ describe('링크 두 목록과 STATUS.md', () => {
   it('STATUS.md에 주제마다 이름·설명 첫 줄·상태별 노트 수와 "노트들"을 적는다', async () => {
     await app.inject({ method: 'PATCH', url: `${R}/topics/wheels`, payload: { description: '- 바퀴 규칙\n- 둘째 줄', star: true, baseHash: await topicsHash() } })
     const { registry } = app
-    const md = generateStatus(registry.get('sample-research'))
+    const md = await generateStatus(registry.get('sample-research'))
     expect(md).toContain('## 주제 2')
     expect(md).toContain('- ★ **Wheels** (`wheels`) — 진행 1 — 바퀴 규칙')
     expect(md).toMatch(/- \*\*Isomorphism theorem\*\* \(`iso`\) — 진행 1 · 멈춤 1\n/)

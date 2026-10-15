@@ -1,21 +1,15 @@
-import { execFile } from 'node:child_process'
 import fs from 'node:fs'
-import { promisify } from 'node:util'
+import { git as gitAt } from './git.js'
 import { t } from './i18n.js'
 import { syncCommands, syncChanges } from './gitSyncState.js'
 import type { RepoSync, RepoInfo } from '@rw/core/contract/research'
 export type { RepoSync, RepoInfo }
 
-const exec = promisify(execFile)
-
 /** 같은 저장소에 원격 확인을 자주 하지 않는다 */
 const FETCH_EVERY_MS = 60_000
 const lastFetch = new Map<string, { at: number; error?: string }>()
 
-async function git(root: string, ...args: string[]): Promise<string> {
-  const { stdout } = await exec('git', ['-C', root, ...args], { timeout: 30_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
-  return args.includes('-z') ? stdout : stdout.trim()
-}
+const git = (root: string, ...args: string[]) => gitAt(root, args)
 
 const firstLine = (e: unknown) => String((e as { stderr?: string }).stderr || e).split('\n').find((l) => l.trim())?.trim() ?? t('알 수 없는 오류', 'Unknown error')
 

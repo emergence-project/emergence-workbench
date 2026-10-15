@@ -1,12 +1,9 @@
-import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import YAML from 'yaml'
+import { git as gitAt, gitRun, GIT_TIMEOUT } from './git.js'
 import { withRepoLock } from './repoLock.js'
-
-const exec = promisify(execFile)
 
 /**
  * 사용자 개인 저장소 (2026-10-08 결정): 앱 저장소는 공개하고, 사용자마다 비공개 개인 저장소에
@@ -14,10 +11,7 @@ const exec = promisify(execFile)
  * 피드백은 설정 폴더의 `personal/` 사본에 쌓고, 그 사본에서 feedback/만 올린다(pathsync.ts).
  */
 
-const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
-async function git(cwd: string, args: string[]): Promise<string> {
-  return (await exec('git', ['-C', cwd, ...args], { timeout: 120_000, env })).stdout.trim()
-}
+const git = (cwd: string, args: string[]) => gitAt(cwd, args, { timeout: GIT_TIMEOUT.backup })
 async function originOf(dir: string): Promise<string | null> {
   try { return (await git(dir, ['remote', 'get-url', 'origin'])) || null } catch { return null }
 }
@@ -51,12 +45,12 @@ export async function ensurePersonalClone(dir: string, remote: string): Promise<
   fs.mkdirSync(path.dirname(dir), { recursive: true })
   if (!hasFiles) {
     fs.rmSync(dir, { recursive: true, force: true })
-    await exec('git', ['clone', '--quiet', remote, dir], { timeout: 300_000, env })
+    await gitRun(['clone', '--quiet', remote, dir], { timeout: GIT_TIMEOUT.clone })
     return
   }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-personal-'))
   try {
-    await exec('git', ['clone', '--quiet', '--no-checkout', remote, tmp], { timeout: 300_000, env })
+    await gitRun(['clone', '--quiet', '--no-checkout', remote, tmp], { timeout: GIT_TIMEOUT.clone })
     fs.renameSync(path.join(tmp, '.git'), path.join(dir, '.git'))
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })

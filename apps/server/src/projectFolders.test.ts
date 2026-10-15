@@ -54,17 +54,17 @@ describe('맨 위 폴더 지도', () => {
 })
 
 describe('STATUS.md 폴더와 편집 규칙 · 프로젝트 규칙', () => {
-  it('예전 배치에 workbench만 있으면 두 절을 생략한다', () => {
-    const status = generateStatus(wb)
+  it('예전 배치에 workbench만 있으면 두 절을 생략한다', async () => {
+    const status = await generateStatus(wb)
     expect(status).not.toContain('## 폴더와 편집 규칙')
     expect(status).not.toContain('## 프로젝트 규칙')
     expect(status).not.toContain('workbench/rules/')
   })
 
-  it('있는 표준 폴더의 편집 규칙, 고유 폴더, 표준 밖 폴더를 정본 위치 바로 뒤에 보인다', () => {
+  it('있는 표준 폴더의 편집 규칙, 고유 폴더, 표준 밖 폴더를 정본 위치 바로 뒤에 보인다', async () => {
     dirs('sources', 'data-space', 'statements', 'biz-space', 'legacy')
     research('folders:\n  - biz-space — 사업 계획\n')
-    const status = generateStatus(wb)
+    const status = await generateStatus(wb)
     const folders = section(status, '## 폴더와 편집 규칙')!
     expect(folders).toContain('- `sources/` — 원자료와 받은 원본 · 고치지 않는다. 근거로만 쓴다')
     expect(folders).toContain('- `data-space/` — 계산이 만든 그림과 데이터 · 손으로 고치지 않고 스크립트로만 다시 만든다')
@@ -77,12 +77,12 @@ describe('STATUS.md 폴더와 편집 규칙 · 프로젝트 규칙', () => {
     expect(status.indexOf('## 정본 위치')).toBeLessThan(status.indexOf('## 폴더와 편집 규칙'))
   })
 
-  it('규칙·결정 수를 정본 위치에, 규칙 목록을 제목·status와 함께 보이고 in-review는 검토 대기에 넣는다', () => {
+  it('규칙·결정 수를 정본 위치에, 규칙 목록을 제목·status와 함께 보이고 in-review는 검토 대기에 넣는다', async () => {
     write('rules/writing-style.md', '---\ntitle: 문체\nstatus: in-review\n---\n본문\n')
     write('rules/scope.md', '# 범위\n')
     write('decisions/2026-10-08-notes.md', '---\nstatus: accepted\n---\n# 연구노트가 정본\n')
     write('decisions/2026-10-09-split.md', '---\nstatus: in-review\ntitle: 저장소 나누기\n---\n')
-    const status = generateStatus(wb)
+    const status = await generateStatus(wb)
     expect(status).toContain('- `workbench/rules/<이름>.md` — 프로젝트 규칙 2개')
     expect(status).toContain('- `workbench/decisions/<날짜-이름>.md` — 결정 2개')
     const rules = section(status, '## 프로젝트 규칙 2')!
@@ -100,12 +100,12 @@ describe('STATUS.md 폴더와 편집 규칙 · 프로젝트 규칙', () => {
     expect(waiting).not.toContain('2026-10-08-notes.md')
   })
 
-  it('연구 공통 규칙이 있으면 정본 위치 바로 뒤에 머리말 · 맨 위 제목 · 머리 글을 떼고 절 제목을 한 단계 내려 붙인다', () => {
+  it('연구 공통 규칙이 있으면 정본 위치 바로 뒤에 머리말 · 맨 위 제목 · 머리 글을 떼고 절 제목을 한 단계 내려 붙인다', async () => {
     dirs('sources')
     research('folders: []\n')
-    expect(generateStatus(wb, new Date(), undefined, null)).not.toContain('## 공통 규칙')
+    expect(await generateStatus(wb, new Date(), undefined, null)).not.toContain('## 공통 규칙')
     const text = '---\ntitle: 연구 공통 규칙\nstatus: accepted\n---\n\n# 연구 공통 규칙\n\n머리 글.\n\n## 시작할 때\n\n1. STATUS.md를 먼저 읽는다.\n'
-    const status = generateStatus(wb, new Date(), undefined, { file: '~/rules/research.md', text })
+    const status = await generateStatus(wb, new Date(), undefined, { file: '~/rules/research.md', text })
     const common = section(status, '## 공통 규칙')!
     expect(common).toContain('> 모든 연구 저장소에 통하는 규칙 `~/rules/research.md` (accepted).')
     expect(common).toContain('(accepted). 이 저장소의 규칙(`AGENTS.md`, 아래 프로젝트 규칙)은 이 위에 더하거나 더 엄하게만 정한다. 그 일에 대해 사용자가 직접 정한 것은 둘보다 앞선다.\n\n### 시작할 때\n\n1. STATUS.md를 먼저 읽는다.')

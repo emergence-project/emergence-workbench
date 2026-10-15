@@ -7,8 +7,8 @@ import { parseNoteFixes } from '@rw/core'
 import { agentWrite, AgentEditStore, decide, listEdits, readTarget, reviewOf, targetKey, type EditTarget, type Hunk, type TargetIo, type WriteRequest } from '../agentEdits.js'
 import { appendAnswer, askPrompt, claudeRunner } from '../ask.js'
 import { addComment, commentSourceFile, readComments } from '../comments.js'
-import { commonRules, projectRules } from '../agentRules.js'
-import { readStatusEdits, writeStatus } from '../agentStatus.js'
+import { projectRules } from '../agentRules.js'
+import { writeStatusFor } from '../agentStatus.js'
 import { t } from '../i18n.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -27,13 +27,10 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
   const io = (): TargetIo => ({ lib: registry.libraryPath, wbOf })
   const store = () => new AgentEditStore(AgentEditStore.fileFor(registry.configDir, registry.libraryPath))
   /** 화면이 다시 읽게: 노트 쪽은 그 프로젝트의 research 알림, 개념노트는 library 알림 */
-  const notify = (tg: EditTarget) => {
+  const notify = async (tg: EditTarget): Promise<void> => {
     broadcast(tg.kind === 'note' ? { type: 'research', research: tg.rid } : { type: 'library', research: null, part: 'concepts', file: `concepts/${tg.id}.md` })
     if (tg.kind === 'note') {
-      try {
-        const wb = wbOf(tg.rid)
-        if (wb.readResearch().agentStatus) writeStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, tg.rid, registry.libraryPath), commonRules(registry.configDir))
-      } catch (e) { app.log.error(e, '에이전트 고침 뒤 STATUS 갱신 실패') }
+      try { await writeStatusFor(registry, tg.rid) } catch (e) { app.log.error(e, '에이전트 고침 뒤 STATUS 갱신 실패') }
     }
   }
 
@@ -52,7 +49,7 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
     const s = store()
     const target = s.pending(b.key)?.target
     const review = decide(io(), s, b)
-    if (target) notify(target)
+    if (target) await notify(target)
     return { review }
   })
 
@@ -79,10 +76,10 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
       kind: '질문', title: rec.title, source: rec.source, text, edit: b.ask,
       ...(h.current && { quote: h.current }), ...(h.base && { editBase: h.base.slice(0, 200) }),
     })
-    notify(target)
+    await notify(target)
     const job = `${root}/${rec.target}/${entry.id}`
     discussing.add(job)
-    void answerDiscussion(target, rec, entry.id, b.ask, h, text).catch((e) => app.log.warn(e, '고침 묻기의 답을 쓰지 못함 (기록은 에이전트 차례로 남음)')).finally(() => { discussing.delete(job); notify(target) })
+    void answerDiscussion(target, rec, entry.id, b.ask, h, text).catch((e) => app.log.warn(e, '고침 묻기의 답을 쓰지 못함 (기록은 에이전트 차례로 남음)')).finally(() => { discussing.delete(job); void notify(target) })
     return { review: rv, file: readComments(root, rec.target) }
   })
 
@@ -122,7 +119,7 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
     if (typeof b.baseHash !== 'string') throw new WorkbenchError(400, t('baseHash가 필요함', 'baseHash is required'))
     const target = parseTarget(b.target)
     const r = agentWrite(io(), store(), { ...b, target, approved: b.approved === true })
-    notify(target)
+    await notify(target)
     if (!r.ok) return reply.status(r.status).send({ error: r.error, key: targetKey(target) })
     return { ...r, key: targetKey(target) }
   })
@@ -134,7 +131,7 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
     const s = store()
     const target = s.read().attempts.find((a) => a.key === key)?.target
     s.update((d) => { d.attempts = d.attempts.filter((a) => a.key !== key) })
-    if (target) notify(target)
+    if (target) await notify(target)
     return { ok: true }
   })
 }

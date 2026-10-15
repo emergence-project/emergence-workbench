@@ -1,7 +1,8 @@
-import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import path from 'node:path'
+import { git, GIT_TIMEOUT } from './git.js'
 
-/** Read-only commands shared by the async home API and synchronous agent summary. */
+/** Read-only commands shared by the home API (gitsync.ts) and the agent summary (localSyncState). */
 export const syncCommands = {
   top: ['rev-parse', '--show-toplevel'],
   branch: ['rev-parse', '--abbrev-ref', 'HEAD'],
@@ -41,25 +42,42 @@ export function syncChanges(status: string, incoming = '', added = '', untracked
   return { dirty: local.dirty, conflicts: conflicts.slice(0, 20), conflictCount: conflicts.length }
 }
 
+export interface LocalSyncState { ahead: number; behind: number; conflicts: string[]; conflictCount: number; fetchedAt: Date | null }
+
+/**
+ * 지난 결과와 그때 본 git 파일들의 시각. 결과는 HEAD · 브랜치 · 받아 둔 원격 ref · FETCH_HEAD · 설정으로만 정해질 때
+ * (뒤처지지 않을 때)만 둔다. 뒤처지면 겹치는 파일이 작업 폴더 변경에 따라 달라지므로 매번 다시 잰다.
+ */
+const cache = new Map<string, { files: string[]; stamp: string; state: LocalSyncState }>()
+const stampOf = (files: string[]) => files.map((f) => { try { return String(fs.statSync(f).mtimeMs) } catch { return '-' } }).join(',')
+
 /** No fetch: consult the last received refs. Not a repository root or any git failure -> skip. */
-export function localSyncState(root: string) {
-  const git = (args: string[]) => execFileSync('git', ['-C', root, ...args], {
-    encoding: 'utf8', timeout: 1_500, maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
-  })
+export async function localSyncState(root: string): Promise<LocalSyncState | null> {
+  const hit = cache.get(root)
+  if (hit && stampOf(hit.files) === hit.stamp) return hit.state
+  const run = (args: string[]) => git(root, args, { timeout: GIT_TIMEOUT.read, maxBuffer: 16 * 1024 * 1024 })
   try {
-    if (fs.realpathSync.native(git(syncCommands.top).trim()) !== fs.realpathSync.native(root)) return null
-    git(syncCommands.upstream)
-    const [ahead, behind] = git(syncCommands.counts).trim().split(/\s+/).map(Number) as [number, number]
-    if (!ahead && !behind) return { ahead, behind, conflicts: [], conflictCount: 0, fetchedAt: null }
-    const changes = behind > 0
-      ? syncChanges(git(syncCommands.status), git(syncCommands.incoming), git(syncCommands.added), git(syncCommands.untracked))
-      : syncChanges('')
-    let fetchedAt: Date | null = null
-    try {
-      const file = git(['rev-parse', '--path-format=absolute', '--git-path', 'FETCH_HEAD']).trim()
-      fetchedAt = fs.statSync(file).mtime
-    } catch { /* no FETCH_HEAD yet */ }
-    return { ahead, behind, ...changes, fetchedAt }
+    const [top, gitDir, common, fetchHead] = (await run(['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-dir', '--git-common-dir', '--git-path', 'FETCH_HEAD'])).split('\n')
+    if (!top || !gitDir || !common || !fetchHead || fs.realpathSync.native(top) !== fs.realpathSync.native(root)) return null
+    const branch = await run(['rev-parse', '--symbolic-full-name', 'HEAD'])
+    const upstream = await run(['rev-parse', '--symbolic-full-name', '@{upstream}'])
+    // 시각을 재기 전에 파일 목록을 정해 둔다: git이 도는 사이에 바뀌면 다음에 다시 잰다. ref는 낱 파일 · packed-refs · reftable 어디에 있어도 잡는다
+    const files = [path.join(gitDir, 'HEAD'), fetchHead, path.join(common, 'config'), path.join(common, 'packed-refs'), path.join(common, 'reftable', 'tables.list'),
+      path.join(common, ...branch.split('/')), path.join(common, ...upstream.split('/'))]
+    const stamp = stampOf(files)
+    const [ahead, behind] = (await run(syncCommands.counts)).split(/\s+/).map(Number) as [number, number]
+    let state: LocalSyncState
+    if (!ahead && !behind) state = { ahead, behind, conflicts: [], conflictCount: 0, fetchedAt: null }
+    else {
+      const changes = behind > 0
+        ? syncChanges(await run(syncCommands.status), await run(syncCommands.incoming), await run(syncCommands.added), await run(syncCommands.untracked))
+        : syncChanges('')
+      let fetchedAt: Date | null = null
+      try { fetchedAt = fs.statSync(fetchHead).mtime } catch { /* no FETCH_HEAD yet */ }
+      state = { ahead, behind, ...changes, fetchedAt }
+    }
+    if (behind > 0) cache.delete(root)
+    else cache.set(root, { files, stamp, state })
+    return state
   } catch { return null }
 }
