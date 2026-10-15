@@ -4,9 +4,10 @@
  * 가로는 생각의 순서(날짜가 아니다), 기호는 종류, 색은 상태. 파일은 workbench/flow/*.yaml (에이전트도 쓴다).
  * 점을 누르면 아래에 자세히, 두 번 누르면 그 점을 가운데로. 계보(앞선 점·뒤따른 점)는 늘 크게 보인다.
  * 2단계 (10/14): ＋ 점으로 더하고, 점을 끌어 옮기고(layout.yaml), 자세히의 연필로 고치고, 사람 승인은 근거 표의 동그라미로.
+ * 10/15: 고치기는 창이 아니라 자세히 자리에서 하고, 설명 칸은 노트처럼 그린다(줄 바꿈, $$…$$ 줄 수식, ![설명](그림) 그림).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ConflictError, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_KINDS, flowApi, type FlowCells, type FlowEdge, type FlowEvidence, type FlowKind, type FlowNode, type FlowProgress, type FlowResult, type FlowScan, type NoteRow } from './api'
+import { ConflictError, LIBRARY_SCOPE, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_KINDS, flowApi, type FlowCells, type FlowEdge, type FlowEvidence, type FlowKind, type FlowNode, type FlowProgress, type FlowResult, type FlowScan, type NoteRow } from './api'
 import { layoutFlow, lineageOf, type FlowLayout } from './flowLayout'
 import { MathText } from './cardParts'
 import { StatusDot } from './StatusDot'
@@ -14,6 +15,8 @@ import { routeOfNote } from './RightSidebar'
 import { go } from './router'
 import { store } from './store'
 import { Dialog } from './dialogs'
+import { NoteMarkdown } from './NoteMarkdown'
+import { useFigureList, useFigureUrl } from './figureEmbed'
 import { askConfirm } from './askText'
 import { flash } from './flash'
 import { Icon } from './icons'
@@ -154,7 +157,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
   const api = useMemo(() => flowApi(rid), [rid])
   const fail = (e: unknown) => { flash(e instanceof ConflictError ? tr('그새 파일이 바뀌었습니다. 다시 읽었으니 한 번 더 해 주세요.', 'The file changed in the meantime. It has been reloaded; try again.') : (e as Error).message); reload() }
   const place = (id: string, at: Cell | null) => api.place({ id, at }).then(reload, fail)
-  const setSel = (id: string | null) => { reveal.current = !!id; setSelState(id); store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: id ?? undefined }) }
+  const setSel = (id: string | null) => { if (id !== sel) setEditing(null); reveal.current = !!id; setSelState(id); store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: id ?? undefined }) }
   const [zoom, setZoomState] = useState<{ x: number; y: number; fit: boolean }>(() => store.get(Z_KEY, { x: 1, y: 1, fit: false }))
   const setZoom = (z: typeof zoom) => { setZoomState(z); store.set(Z_KEY, z) }
   const [height, setHeightState] = useState(() => store.get<number>(H_KEY, DEFAULT_H))
@@ -317,13 +320,13 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
         onPointerMove={(e) => { const s0 = sizing.current; if (s0) setHeightState(Math.max(160, Math.min(1200, s0.h + e.clientY - s0.y))) }}
         onPointerUp={() => { if (sizing.current) { sizing.current = null; setHeight(box.current?.clientHeight ?? height) } }}
         onDoubleClick={() => setHeight(DEFAULT_H)} />
-      {s ? <FlowCard reveal={reveal} rid={rid} n={s} all={all} byId={byId} notes={notes} manual={!!cells[s.id]} onPick={(id) => { setSel(id); center(id) }}
+      {s && editing?.id === s.id ? <FlowEditor key={s.id} rid={rid} n={editing} all={all} notes={notes} topics={topics} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />
+        : s ? <FlowCard reveal={reveal} rid={rid} n={s} all={all} byId={byId} notes={notes} manual={!!cells[s.id]} onPick={(id) => { setSel(id); center(id) }}
         onAdd={() => setAdding({ from: s })} onEdit={() => setEditing(s)} onUnplace={() => void place(s.id, null)} reload={reload} fail={fail}
         onDeleted={() => { setSel(null); reload() }} />
         : <p className="fl-hint muted">{tr('점을 누르면 아래에 자세히 보입니다. 두 번 누르면 가운데로, 끌면 다른 칸으로 옮깁니다.', 'Click a dot to see it below. Double-click to center it; drag it to another cell.')}</p>}
       </>}
       {adding && <NewDotDialog rid={rid} topic={focus} from={adding.from} onClose={() => setAdding(null)} onMade={(n) => { setAdding(null); reload(); setSel(n.id) }} />}
-      {editing && <FlowEditDialog rid={rid} n={editing} all={all} notes={notes} topics={topics} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />}
     </section>
   )
 }
@@ -382,7 +385,7 @@ function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onAdd, onE
       </div>
       <section className="fl-sec">
         <h3>{tr('설명', 'Description')}</h3>
-        {order.length ? <dl className="fl-fields">{order.map((f) => <div key={f}><dt>{FIELD[f]?.() ?? f}</dt><dd><MathText text={n.fields[f]!} /></dd></div>)}</dl>
+        {order.length ? <dl className="fl-fields">{order.map((f) => <div key={f}><dt>{FIELD[f]?.() ?? f}</dt><dd><FlowText rid={rid} text={n.fields[f]!} /></dd></div>)}</dl>
           : <span className="muted">{tr('아직 없음. 연필로 적습니다.', 'None yet. Use the pencil to write.')}</span>}
       </section>
       <section className="fl-sec" data-ui="흐름 근거">
@@ -500,8 +503,18 @@ function NewDotDialog({ rid, topic, from, onClose, onMade }: { rid: string; topi
 type EvRow = { kind: FlowEvidence['kind']; text: string; title: string; src: string }
 const evRow = (e: FlowEvidence): EvRow => ({ kind: e.kind, text: e.text, title: e.title ?? '', src: e.ref ?? e.file ?? '' })
 
-/** 고치기 창: 이름·종류·상태·설명·근거·연결·주제를 한 번에 (docs/design-system.md: 여러 칸은 고치기 창) */
-function FlowEditDialog({ rid, n, all, notes, topics, onClose, onSaved }: { rid: string; n: FlowNode; all: FlowNode[]; notes: NoteRow[]; topics: TopicRef[]; onClose(): void; onSaved(): void }) {
+/** 설명 칸: 노트와 같게 그린다 (줄 바꿈 · $…$ · $$…$$ · ![설명](그림 파일 이름)은 이 프로젝트·공용 그림 라이브러리에서 찾는다) */
+function FlowText({ rid, text }: { rid: string; text: string }) {
+  const figure = useFigureUrl(rid)
+  const options = useMemo(() => ({ figure }), [figure])
+  return <div className="fl-text"><NoteMarkdown text={text} options={options} /></div>
+}
+
+/**
+ * 점 고치기: 이름·종류·상태·설명·근거·연결·주제를 한 번에. 창이 아니라 자세히가 있던 자리에서 고친다
+ * (10/14 23:15 사용자: 팝업이 아닌 화면에서. docs/design-system.md 6절의 예외)
+ */
+function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: string; n: FlowNode; all: FlowNode[]; notes: NoteRow[]; topics: TopicRef[]; onClose(): void; onSaved(): void }) {
   const [short, setShort] = useState(n.short)
   const [title, setTitle] = useState(n.title)
   const [date, setDate] = useState(n.date ?? '')
@@ -516,6 +529,9 @@ function FlowEditDialog({ rid, n, all, notes, topics, onClose, onSaved }: { rid:
   const [pick, setPick] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /** 그림 넣기가 들어갈 설명 칸 (마지막으로 누른 칸) */
+  const [lastField, setLastField] = useState<string | null>(null)
+  const figs = (useFigureList()?.figures ?? []).filter((f) => f.scope === rid || f.scope === LIBRARY_SCOPE)
   const act = KIND[kind].act
   const shownFields = [...FLOW_FIELDS[kind], ...Object.keys(fields).filter((f) => !FLOW_FIELDS[kind].includes(f) && fields[f]?.trim())]
   const byId = new Map(all.map((m) => [m.id, m]))
@@ -538,14 +554,23 @@ function FlowEditDialog({ rid, n, all, notes, topics, onClose, onSaved }: { rid:
       onSaved()
     } catch (e) {
       setBusy(false)
-      setError(e instanceof ConflictError ? tr('다른 곳에서 점 파일이 바뀌어 저장하지 않았습니다. 창을 닫고 다시 열어 고쳐 주세요.', 'The dot file changed elsewhere, so nothing was saved. Close the dialog, open it again, and edit.') : (e as Error).message)
+      setError(e instanceof ConflictError ? tr('다른 곳에서 점 파일이 바뀌어 저장하지 않았습니다. 취소하고 다시 고쳐 주세요.', 'The dot file changed elsewhere, so nothing was saved. Cancel and edit again.') : (e as Error).message)
     }
   }
-
-  return <Dialog title={tr('점 고치기', 'Edit dot')} ui="흐름 점 고치기" wide onClose={onClose} footer={<>
+  const insertFigure = (file: string) => {
+    const f = lastField && shownFields.includes(lastField) ? lastField : shownFields[0]
+    if (!f) return
+    const old = (fields[f] ?? '').replace(/\s+$/, '')
+    setFields({ ...fields, [f]: `${old}${old ? '\n\n' : ''}![](${file})\n` })
+  }
+  const buttons = <>
     <button className="btn" onClick={onClose}>{tr('취소', 'Cancel')}</button>
     <button className="btn primary" disabled={busy} onClick={() => void save()}>{tr('저장', 'Save')}</button>
-  </>}>
+  </>
+
+  return <article className="fl-card fl-editing" data-ui="흐름 점 고치기 창" aria-label={tr('점 고치기', 'Edit dot')}
+    onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }}>
+    <div className="fl-head"><MarkIcon n={n} size={30} /><span className="fl-short">{tr('점 고치기', 'Edit dot')}</span><span className="fl-tools">{buttons}</span></div>
     <div className="fl-form">
       <label className="field"><span>{tr('짧은 제목', 'Short title')}</span><input autoFocus value={short} maxLength={60} onChange={(e) => setShort(e.target.value)} /></label>
       <label className="field"><span>{tr('제목', 'Title')}</span><input value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} /></label>
@@ -566,7 +591,14 @@ function FlowEditDialog({ rid, n, all, notes, topics, onClose, onSaved }: { rid:
 
       <fieldset className="fl-fs"><legend>{tr('설명', 'Description')}</legend>
         {shownFields.map((f) => <label key={f} className="field"><span>{FIELD[f]?.() ?? f}{!FLOW_FIELDS[kind].includes(f) && <em> {tr('다른 종류의 칸', 'from another kind')}</em>}</span>
-          <textarea rows={2} value={fields[f] ?? ''} onChange={(e) => setFields({ ...fields, [f]: e.target.value })} /></label>)}
+          <textarea rows={Math.min(12, Math.max(3, (fields[f] ?? '').split('\n').length + 1))} value={fields[f] ?? ''} onFocus={() => setLastField(f)} onChange={(e) => setFields({ ...fields, [f]: e.target.value })} /></label>)}
+        <div className="fl-linkrow">
+          <p className="muted fl-help fl-grow">{tr('글 속 수식 $…$, 줄 수식은 $$…$$를 따로 한 줄에, 빈 줄은 문단을 나눈다. 그림은 ![설명](그림 파일 이름).', 'Inline math $…$; display math $$…$$ on its own line; a blank line starts a paragraph. Figures: ![caption](figure file name).')}</p>
+          {figs.length > 0 && <select aria-label={tr('그림 넣기', 'Insert figure')} data-ui="흐름 그림 넣기" value="" onChange={(e) => { if (e.target.value) insertFigure(e.target.value) }}>
+            <option value="">{tr('그림 넣기…', 'Insert figure…')}</option>
+            {figs.map((f) => <option key={f.id} value={f.file}>{f.name}</option>)}
+          </select>}
+        </div>
       </fieldset>
 
       <fieldset className="fl-fs" data-ui="흐름 근거 고치기"><legend>{tr('근거', 'Evidence')}</legend>
@@ -606,8 +638,9 @@ function FlowEditDialog({ rid, n, all, notes, topics, onClose, onSaved }: { rid:
           <input type="checkbox" checked={tops.includes(id)} onChange={(e) => setTops(e.target.checked ? [...tops, id] : tops.filter((x) => x !== id))} />{topicTitle(id)}</label>)}</div>
       </fieldset>}
       {error && <p className="error-text">{error}</p>}
+      <div className="fl-edit-foot">{buttons}</div>
     </div>
-  </Dialog>
+  </article>
 }
 
 /** 사람 승인 또는 거두기. 기록은 덧붙이기만 한다 */
