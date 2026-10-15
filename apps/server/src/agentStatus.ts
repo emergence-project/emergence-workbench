@@ -13,6 +13,7 @@ import { listStatements } from './statements.js'
 import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './noteList.js'
 import { pendingQuestions } from './comments.js'
 import { RULES_DOC, statusSection } from './tasks.js'
+import type { RuleFile } from './agentRules.js'
 import { DECISIONS_DIR, folderMap, listDecisions, listRules, RULES_DIR, usesStandardLayout } from './projectFolders.js'
 import type { ProjectSources, Workbench } from './workbench.js'
 import type { TaskTable, ReviewDoc } from '@rw/core/contract/research'
@@ -101,7 +102,22 @@ export function readStatusEdits(wb: Workbench, configDir: string, rid?: string, 
   } catch { return empty }
 }
 
-export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList): string {
+/**
+ * 연구 공통 규칙 절의 본문: 머리말 · 맨 위 제목 · 첫 절 앞의 머리 글(어디서 읽는지와 우선순위, 안내 줄이 대신한다)을 떼고,
+ * 절 제목을 한 단계 내린다 (STATUS.md의 ## 아래에 들어가게). 절이 없으면 제목 뒤 전부
+ */
+function commonRulesBody(text: string): { status: string; body: string } {
+  const f = frontMatter(text)
+  let status = ''
+  try { const v = f ? (YAML.parse(f.yaml) as { status?: unknown } | null)?.status : undefined; if (typeof v === 'string') status = v } catch { /* 머리말을 읽지 못하면 상태 없이 */ }
+  let body = (f ? f.body : text).replace(/^\s*#\s+.*\n+/, '')
+  const first = body.search(/^## /m)
+  if (first > 0) body = body.slice(first)
+  return { status, body: body.replace(/^(#{2,5}) /gm, '#$1 ').trim() }
+}
+
+/** common: 연구 공통 규칙 (agentRules.ts commonRules). 있으면 정본 위치 바로 뒤에 붙인다 (R1) */
+export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList, common?: RuleFile | null): string {
   const info = wb.readResearch()
   const repo = wb.repo
   const src = info.sources
@@ -145,6 +161,13 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
   if (rules.length) p(`- \`workbench/rules/<이름>.md\` — 프로젝트 규칙 ${rules.length}개 (아래 "프로젝트 규칙"을 먼저 읽는다)`)
   if (decisions.length) p(`- \`workbench/decisions/<날짜-이름>.md\` — 결정 ${decisions.length}개 (규칙이 왜 그런지)`)
   p('- `workbench/log/날짜.md` — 할 일과 기록', '')
+
+  // ---------- 연구 공통 규칙 (10/13 연구 저장소 폴더, R1) ----------
+  if (common) {
+    const { status, body } = commonRulesBody(common.text)
+    p('## 공통 규칙', '', `> 모든 연구 저장소에 통하는 규칙 \`${common.file}\`${status ? ` (${status})` : ''}. 이 저장소의 규칙(\`AGENTS.md\`, 아래 프로젝트 규칙)은 이 위에 더하거나 더 엄하게만 정한다. 그 일에 대해 사용자가 직접 정한 것은 둘보다 앞선다.`, '', body, '')
+    if (common.truncated) p('(잘림)', '')
+  }
 
   // ---------- 폴더와 편집 규칙 (10/13 연구 저장소 폴더, D7) ----------
   const folders = folderMap(wb)
@@ -341,9 +364,9 @@ export function generateStatus(wb: Workbench, now = new Date(), edits?: EditList
 }
 
 /** workbench/STATUS.md를 다시 쓴다. 내용이 같으면 쓰지 않는다 (파일 감시·git에 불필요한 변경을 만들지 않게) */
-export function writeStatus(wb: Workbench, now = new Date(), edits?: EditList): { written: boolean; file: string } {
+export function writeStatus(wb: Workbench, now = new Date(), edits?: EditList, common?: RuleFile | null): { written: boolean; file: string } {
   const file = path.join(wb.root, STATUS_FILE)
-  const body = generateStatus(wb, now, edits)
+  const body = generateStatus(wb, now, edits, common)
   // 첫 안내 줄의 시각만 다르면 같은 내용이다
   const strip = (s: string) => s.split('\n').filter((l) => !l.startsWith(STATUS_HEAD)).join('\n')
   if (fs.existsSync(file) && strip(fs.readFileSync(file, 'utf8')) === strip(body)) return { written: false, file }

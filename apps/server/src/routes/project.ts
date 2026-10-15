@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import * as C from '@rw/core/contract/research'
 import { parseBody, replies } from '../contract.js'
-import { projectRules } from '../agentRules.js'
+import { commonRules, projectRules } from '../agentRules.js'
+import * as CC from '@rw/core/contract/concepts'
 import { generateStatus, readStatusEdits, listReviews, readTaskTable, writeStatus } from '../agentStatus.js'
 import { contentTypeOf } from '../materials.js'
 import { setResearchInfo } from '../projectInfo.js'
@@ -41,13 +42,15 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
     return r
   })
   /** STATUS.md 미리보기 (쓰지 않음) */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-status', replies(C.AgentStatusPreview), async (req): Promise<C.AgentStatusPreview> => ({ markdown: generateStatus(wbOf(req.params.rid), new Date(), readStatusEdits(wbOf(req.params.rid), registry.configDir, req.params.rid, registry.libraryPath)) }))
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-status', replies(C.AgentStatusPreview), async (req): Promise<C.AgentStatusPreview> => ({ markdown: generateStatus(wbOf(req.params.rid), new Date(), readStatusEdits(wbOf(req.params.rid), registry.configDir, req.params.rid, registry.libraryPath), commonRules(registry.configDir)) }))
   /** 이 연구 저장소의 에이전트 규칙: 맨 위 AGENTS.md · CLAUDE.md (MCP rules 도구가 모아 준다) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-rules', async (req) => ({ files: projectRules(path.dirname(wbOf(req.params.rid).root)) }))
+  /** 연구 공통 규칙: 모든 연구 저장소에 통하는 규칙 한 파일 (MCP rules 도구가 모아 준다). 없으면 null */
+  app.get('/api/rules/common', replies(CC.CommonRules), async (): Promise<CC.CommonRules> => ({ rules: commonRules(registry.configDir) }))
   /** STATUS.md 쓰기 — agent-status를 켠 프로젝트만 */
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/agent-status', async (req) => {
     const wb = wbOf(req.params.rid)
     if (!wb.readResearch().agentStatus) throw new WorkbenchError(409, t('research.yaml에 agent-status: true가 없어 쓰지 않음', 'Not written: research.yaml does not have agent-status: true'))
-    return writeStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, req.params.rid, registry.libraryPath))
+    return writeStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, req.params.rid, registry.libraryPath), commonRules(registry.configDir))
   })
 }

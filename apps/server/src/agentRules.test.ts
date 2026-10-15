@@ -1,15 +1,30 @@
-// 에이전트 규칙 모음: 연구 저장소의 AGENTS.md · CLAUDE.md, 라이브러리 README의 개념노트 절
+// 에이전트 규칙 모음: 연구 공통 규칙, 연구 저장소의 AGENTS.md · CLAUDE.md, 라이브러리 README의 개념노트 절
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
-import { conceptRules, projectRules } from './agentRules.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { commonRules, conceptRules, projectRules } from './agentRules.js'
 
 let tmp: string
 const dir = () => (tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-rules-')))
-afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }))
+afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); vi.unstubAllEnvs() })
 
 describe('에이전트 규칙 모음', () => {
+  it('연구 공통 규칙은 설정 폴더의 개인 저장소 사본 personal/rules/research.md에서, RW_COMMON_RULES가 있으면 그 파일에서 읽는다', () => {
+    vi.stubEnv('RW_COMMON_RULES', '')
+    const d = dir()
+    expect(commonRules(d)).toBeNull()
+    expect(commonRules(undefined)).toBeNull()
+    fs.mkdirSync(path.join(d, 'personal/rules'), { recursive: true })
+    fs.writeFileSync(path.join(d, 'personal/rules/research.md'), '  \n')
+    expect(commonRules(d)).toBeNull()
+    fs.writeFileSync(path.join(d, 'personal/rules/research.md'), '# 연구 공통 규칙\n\n1. 지어내지 않는다.\n')
+    expect(commonRules(d)).toEqual({ file: path.join(d, 'personal/rules/research.md'), text: '# 연구 공통 규칙\n\n1. 지어내지 않는다.\n' })
+    fs.writeFileSync(path.join(d, 'other.md'), '# 다른 사본\n')
+    vi.stubEnv('RW_COMMON_RULES', path.join(d, 'other.md'))
+    expect(commonRules(d)?.text).toBe('# 다른 사본\n')
+  })
+
   it('AGENTS.md를 주고, @AGENTS.md만 가리키는 CLAUDE.md는 뺀다', () => {
     const d = dir()
     fs.writeFileSync(path.join(d, 'AGENTS.md'), '# AGENTS.md\n\n- Read STATUS.md first.\n')

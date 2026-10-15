@@ -20,7 +20,7 @@ export const SAFETY = [
   '- A note or concept note the user has reviewed (concept note checked: ok, note status solved) needs the user\'s permission in the conversation. The first attempt is refused and shown to the user; ask, and only after they agree send again with approved: true.',
   '- Edit manuscripts (LaTeX manuscripts) only when the user asks. Never edit concept notes with locked: true. Do not change bytes outside the part you edit.',
   '- The files in each repository are the source of truth. workbench/STATUS.md is a summary the app writes; do not edit it.',
-  '- Each research repository\'s own AGENTS.md / CLAUDE.md rules come first (for example: plan first, or proposal and approval before structural changes).',
+  '- The common research rules (when set up) and each research repository\'s own AGENTS.md / CLAUDE.md come first. A repository may add to the common rules or make them stricter (for example: plan first, or proposal and approval before structural changes).',
   '- Only the user approves physics and mathematics. A session never approves its own result.',
 ].join('\n')
 
@@ -95,12 +95,17 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('rules', {
     title: 'Rules',
-    description: 'Everything to read before starting work, in one place: safety rules, the rules for delegated tasks (docs/agent-delegated-work.md), the concept-note rules of the shared library (its README.md) and, with project, that research repository\'s own AGENTS.md / CLAUDE.md.',
+    description: 'Everything to read before starting work, in one place: safety rules, the common research rules (one file for every research repository, when set up), the rules for delegated tasks (docs/agent-delegated-work.md), the concept-note rules of the shared library (its README.md) and, with project, that research repository\'s own AGENTS.md / CLAUDE.md.',
     inputSchema: { project: z.string().optional().describe('Project id (from list_projects) to include its repository rules') },
     annotations: ro,
   }, async ({ project: rid }) => {
     const doc = fs.existsSync(RULES_FILE) ? fs.readFileSync(RULES_FILE, 'utf8') : '(delegated-task rules document not found)'
-    const parts = [`# Safety rules\n\n${SAFETY}`, doc]
+    const parts = [`# Safety rules\n\n${SAFETY}`]
+    // 연구 공통 규칙 (R1): 개인 저장소 사본에 있을 때만. 서버가 꺼져 있으면 아래 개념노트 규칙이 그렇다고 적는다
+    const common = await get(base, f, '/api/rules/common')
+    const cm = common.ok ? (common.body as { rules: { file: string; text: string; truncated?: true } | null }).rules : null
+    if (cm) parts.push(`# Common research rules (${cm.file})\n\n${cm.text}${cm.truncated ? '\n\n(truncated)' : ''}`)
+    parts.push(doc)
     // 개념노트 규칙과 연구 저장소 규칙은 앱 서버가 읽는다 (서버가 꺼져 있으면 그렇다고 적는다)
     const concepts = await get(base, f, '/api/concepts/rules')
     const cr = concepts.ok ? (concepts.body as { rules: { file: string; text: string } | null }).rules : null

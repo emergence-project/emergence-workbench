@@ -100,6 +100,22 @@ describe('STATUS.md 폴더와 편집 규칙 · 프로젝트 규칙', () => {
     expect(waiting).not.toContain('2026-10-08-notes.md')
   })
 
+  it('연구 공통 규칙이 있으면 정본 위치 바로 뒤에 머리말 · 맨 위 제목 · 머리 글을 떼고 절 제목을 한 단계 내려 붙인다', () => {
+    dirs('sources')
+    research('folders: []\n')
+    expect(generateStatus(wb, new Date(), undefined, null)).not.toContain('## 공통 규칙')
+    const text = '---\ntitle: 연구 공통 규칙\nstatus: accepted\n---\n\n# 연구 공통 규칙\n\n머리 글.\n\n## 시작할 때\n\n1. STATUS.md를 먼저 읽는다.\n'
+    const status = generateStatus(wb, new Date(), undefined, { file: '~/rules/research.md', text })
+    const common = section(status, '## 공통 규칙')!
+    expect(common).toContain('> 모든 연구 저장소에 통하는 규칙 `~/rules/research.md` (accepted).')
+    expect(common).toContain('(accepted). 이 저장소의 규칙(`AGENTS.md`, 아래 프로젝트 규칙)은 이 위에 더하거나 더 엄하게만 정한다. 그 일에 대해 사용자가 직접 정한 것은 둘보다 앞선다.\n\n### 시작할 때\n\n1. STATUS.md를 먼저 읽는다.')
+    expect(common).not.toContain('머리 글.')
+    expect(common).not.toContain('title:')
+    expect(common).not.toContain('# 연구 공통 규칙')
+    expect(status.indexOf('## 정본 위치')).toBeLessThan(status.indexOf('## 공통 규칙'))
+    expect(status.indexOf('## 공통 규칙')).toBeLessThan(status.indexOf('## 폴더와 편집 규칙'))
+  })
+
   it('규칙·결정 파일이 바뀌면 작업 탭이 다시 읽게 알린다', () => {
     expect(classify('/r/workbench', '/r/workbench/rules/style.md')).toEqual({ type: 'sources' })
     expect(classify('/r/workbench', '/r/workbench/decisions/2026-10-13-a.md')).toEqual({ type: 'sources' })
