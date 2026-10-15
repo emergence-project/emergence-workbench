@@ -1,7 +1,7 @@
 // ---------- 프로젝트 (연구 저장소 하나: 요약·작업노트·진술·원고·카드·자료·일지) ----------
 import type { JournalEntry, MetaPatch } from '@rw/core'
 import type {
-  AgentStatusPreview, AllBodyOnlyResult, BlockCreateBody, BlockDoc, BlockMetaSaved, BlockPdfState, BlockSpot, BodyOnlyResult, CompileResult, CreatedNote, InfoBody, InfoSaved,
+  AgentRules, AgentStatusPreview, AllBodyOnlyResult, BlockCreateBody, BlockDoc, BlockMetaSaved, BlockPdfState, BlockSpot, BodyOnlyResult, CompileResult, CreatedNote, InfoBody, InfoSaved,
   JournalEdited, JournalEntryReply, JournalList, MainNoteCandidates, ManuscriptCompileResult, ManuscriptInfo, ManuscriptList, ManuscriptSpot, ManuscriptView, MaterialFile,
   MaterialList, MaterialUploaded, NoteMetaBody, Ok, PartDoc, PdfBoxes, ProfileBody, ProjectInfo, ProjectIssues, RepoReply, ResearchList, ResearchListItem, ResearchOrder,
   ResearchSummary, RestoredNote, Saved, StatementDoc, SyncReply, SyncUpdated, TopicList, TrashedNote, TrashList,
@@ -81,6 +81,7 @@ export function researchApi(rid: string) {
     project: () => req(`${base}/project`).then((r) => json<ProjectInfo>(r)),
     setInfo: (patch: Omit<InfoBody, 'baseHash'>, baseHash: string) => req(`${base}/info`, send('PATCH', { ...patch, baseHash })).then((r) => json<InfoSaved>(r)),
     agentStatus: () => req(`${base}/agent-status`).then((r) => json<AgentStatusPreview>(r)),
+    agentRules: () => req(`${base}/agent-rules`).then((r) => json<AgentRules>(r)),
     manuscripts: () => req(`${base}/manuscripts`).then((r) => json<ManuscriptList>(r)),
     manuscript: (ms = '', o: ExportChoice = {}) => req(`${base}/manuscript?${[`ms=${enc(ms)}`, ...choiceParams(o)].join('&')}`).then((r) => json<ManuscriptView>(r)),
     topics: () => req(`${base}/topics`).then((r) => json<TopicList>(r)).then((r) => r.topics),
