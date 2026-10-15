@@ -496,7 +496,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         title: 'Conversation tags', id: 'tags',
         figure: <FeedbackTagsTable />,
         items: [
-          { text: <>The tags at the head of each message in an opened item on the feedback screen. The tags used in that conversation also appear in the "Tags" line below it; the circled question mark at the end of that line brings you to this table.</> },
+          { text: <>The tags at the head of each message in an opened item on the feedback screen. The tags used in that conversation also appear in the "Tags" line below it; the circled question mark right after "Tags" brings you to this table.</> },
         ],
       },
     ],
