@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import { CommentFile, CommentState, HighlightColor } from './comments.js'
+import { BibEntry } from './research.js'
 
 export const PDF_WHERE = ['local', 'cloud', 'none'] as const
 /** PDF 폴더가 어느 클라우드인지 (맥의 폴더 이름으로) */
@@ -40,6 +41,8 @@ export const PaperRow = z.object({
   /** 문헌노트가 있으면 그 id */
   note: z.string().optional(),
 }).strict()
+/** GET /papers/bib?keys=…: 고른 키의 references.bib 항목 (연구노트의 인용 찾기, 없는 키는 빠진다) */
+export const LibraryBib = z.object({ items: z.array(BibEntry) }).strict()
 export const PaperProject = z.object({ id: z.string(), title: z.string() }).strict()
 /** GET /papers */
 export const PaperList = z.object({ library: z.string().nullable(), folders: z.array(z.string()), projects: z.array(PaperProject), papers: z.array(PaperRow) }).strict()
@@ -101,6 +104,7 @@ export type CloudKind = (typeof CLOUD_KINDS)[number]
 export type PaperRow = z.infer<typeof PaperRow>
 export type PaperProject = z.infer<typeof PaperProject>
 export type PaperList = z.infer<typeof PaperList>
+export type LibraryBib = z.infer<typeof LibraryBib>
 export type PaperBrief = z.infer<typeof PaperBrief>
 export type PaperFolder = z.infer<typeof PaperFolder>
 export type PaperFolders = z.infer<typeof PaperFolders>

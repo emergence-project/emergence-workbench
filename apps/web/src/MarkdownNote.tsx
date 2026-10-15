@@ -7,6 +7,7 @@ import { COMMON_COMMANDS, type Command } from './conceptCommands'
 import { OPTIONAL_AUX_NOTE_COMMANDS } from './auxNoteCommands'
 import { useConceptRender } from './ConceptNotes'
 import { CITE_EVENT, citeKeys } from './citeKeys'
+import { loadCitedBib } from './citedBib'
 import type { RenderOptions } from './ObsidianMarkdown'
 import { NoteMarkdown } from './NoteMarkdown'
 import { go } from './router'
@@ -43,12 +44,13 @@ export const AUX_NOTE_COMMANDS: Command[] = [
 ]
 
 
-/** 기호 모음(공유 기호 파일) + 이 노트에서 처음 나온 순서의 인용 번호 + bib의 제목 */
+/** 기호 모음(공유 기호 파일) + 이 노트에서 처음 나온 순서의 인용 번호 + bib의 제목 (프로젝트 bib, 없으면 공유 라이브러리) */
 export function useNoteRender(text: string, rapi: ResearchApi, rid?: string): RenderOptions {
   const base = useConceptRender(rid)
   const [bib, setBib] = useState<BibEntry[] | null>(null)
-  useEffect(() => { rapi.materials().then((d) => setBib(d.bib)).catch(() => setBib([])) }, [rapi])
   const keys = useMemo(() => citeKeys(text), [text])
+  const keyList = keys.join(',')
+  useEffect(() => { void loadCitedBib(rapi, keyList ? keyList.split(',') : []).then(setBib) }, [rapi, keyList])
   return useMemo(() => {
     const byKey = new Map((bib ?? []).map((e) => [e.key, e]))
     return {

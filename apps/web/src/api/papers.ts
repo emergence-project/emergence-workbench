@@ -1,6 +1,6 @@
 // ---------- 논문 라이브러리 (서버 routes/papers.ts) ----------
 import type { CommentState, HighlightColor } from '@rw/core/contract/comments'
-import type { ArxivCandidates, EprintSet, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects } from '@rw/core/contract/papers'
+import type { ArxivCandidates, EprintSet, LibraryBib, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects } from '@rw/core/contract/papers'
 import { enc, json, req, send } from './http'
 
 export type { ArxivCandidate, PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile } from '@rw/core/contract/papers'
@@ -11,6 +11,8 @@ export const papersApi = {
   list: () => req('/api/papers').then((r) => json<PaperList>(r)),
   brief: (recent = 8) => req(`/api/papers/brief?recent=${recent}`).then((r) => json<PaperBrief>(r)),
   setProjects: (key: string, projects: string[]) => req(`/api/papers/${enc(key)}/projects`, send('PUT', { projects })).then((r) => json<PaperProjects>(r)),
+  /** 고른 키의 references.bib 항목 (없는 키는 빠진다) */
+  bib: (keys: string[]) => req(`/api/papers/bib?keys=${enc(keys.join(','))}`).then((r) => json<LibraryBib>(r)),
   pdfUrl: (key: string) => `/api/papers/${enc(key)}/pdf`,
   add: (id: string) => req('/api/papers', send('POST', { id })).then((r) => json<PaperAdded>(r)),
   findArxiv: (key: string) => req(`/api/papers/${enc(key)}/arxiv`).then((r) => json<ArxivCandidates>(r)),

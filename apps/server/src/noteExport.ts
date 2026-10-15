@@ -4,7 +4,7 @@ import { isOutside } from './fsutil.js'
 import { buildExportMainTex, buildSettingTex, inputBlockPreamble, markdownToLatex, MD_PREAMBLE, parseBlock, type Author, type LatexTemplate } from '@rw/core'
 import { SHARED_MACROS, templateFilePath } from './latexFiles.js'
 import { allManuscripts, frontFor, isBodyOnly, NO_TITLE_BLOCK, type ManuscriptInfo } from './manuscript.js'
-import { bibliographyLines, noteBibFiles } from './noteBib.js'
+import { bibliographyLines, libraryCitedBib, LIBRARY_CITED_BIB, noteBibFiles } from './noteBib.js'
 import { innerBody, NOTE_MACROS } from './noteBody.js'
 import { collectTexFiles, slugOf } from './noteCopy.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
@@ -29,7 +29,8 @@ import { t as tl } from './i18n.js'
  * - date: \\date{}에 넣을 글 ('\\today', '2026-10-04', 빈 글은 날짜 없이). 빼면 원고는 \\today, 노트는 없이.
  */
 /** sharedMacros: 공통 기호를 \\providecommand로 바꾼 글 (sharedMacrosTex). 있으면 shared-macros.tex로 넣고 프로젝트·노트 기호 다음에 부른다 */
-export interface ExportLatex { template: LatexTemplate; authors?: Author[]; allAuthors?: Author[]; date?: string; sharedMacros?: string | null; figures?: FigureEmbedResolver }
+/** libraryBib: 공유 라이브러리 references.bib 경로 (노트·프로젝트 bib에 없는 인용 키를 여기서 찾는다) */
+export interface ExportLatex { template: LatexTemplate; authors?: Author[]; allAuthors?: Author[]; date?: string; sharedMacros?: string | null; figures?: FigureEmbedResolver; libraryBib?: string }
 export interface ExportedNotes { filename: string; zip: Buffer; files: string[] }
 type ExportSource = Pick<ManuscriptInfo, 'main' | 'name' | 'kind' | 'format'> & { block?: Workbench }
 
@@ -220,7 +221,8 @@ function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex
         '\\makeatletter\\@ifpackageloaded{graphicx}{\\graphicspath{{block-files/figures/}{block-files/blocks/}{block-files/}}}{}\\makeatother',
       ] : []
       const extra = [...blockPreamble, ...(own ? [`\\input{${NOTE_MACROS.replace(/\.tex$/, '')}}`] : []), ...(m.format === 'md' ? [MD_PREAMBLE] : []), ...figurePreambles]
-      // Markdown 노트의 참고문헌: 노트 폴더의 .bib(함께 묶인다), 없으면 프로젝트 bib를 묶음에 넣어 쓴다
+      // Markdown 노트의 참고문헌: 노트 폴더의 .bib(함께 묶인다), 없으면 프로젝트 bib를 묶음에 넣어 쓴다.
+      // 거기 없는 인용 키는 공유 라이브러리 references.bib에서 그 항목만 뽑아 library-refs.bib로 넣는다
       const bibFiles = (m.format === 'md' ? noteBibFiles(wb, mainAbs, body) : []).filter((file) => {
         if (!m.block) return true
         const rel = path.relative(repo, fs.realpathSync(file))
@@ -229,7 +231,9 @@ function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex
       })
       const bibName = (f: string) => files.includes(path.relative(dir, f)) ? `${prefix}${path.relative(dir, f)}` : path.basename(f)
       for (const f of bibFiles) if (!files.includes(path.relative(dir, f))) entries.push({ name: path.basename(f), data: fs.readFileSync(f) })
-      const bib = bibliographyLines(t, bibFiles.map((f) => bibName(f).replace(/\.bib$/, '')))
+      const libBib = m.format === 'md' ? libraryCitedBib(body, bibFiles, latex.libraryBib) : null
+      if (libBib !== null) entries.push({ name: LIBRARY_CITED_BIB, data: libBib })
+      const bib = bibliographyLines(t, [...bibFiles.map((f) => bibName(f)), ...(libBib !== null ? [LIBRARY_CITED_BIB] : [])].map((n) => n.replace(/\.bib$/, '')))
       // 발표 서식은 제목을 \\begin{document} 앞에 두는 buildExportMainTex를 따른다
       const main = t.kind === 'slides' && !/\\(?:title|author)\s*[[{]/.test(body)
         ? `${note}\n${buildExportMainTex({ setup: setup(extra), authors, title: titleFor(m.name), body, date })}`

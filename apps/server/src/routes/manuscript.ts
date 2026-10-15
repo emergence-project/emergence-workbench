@@ -16,6 +16,7 @@ import type { RouteContext } from './context.js'
 import { latexChoices, queryList as list, type LatexChoiceQuery as Pick } from './latexChoice.js'
 import { figureEmbedResolver } from '../figureEmbeds.js'
 import { figureFile, LIBRARY_SCOPE, listFigureSources, resolveFigure } from '../figures.js'
+import { LIBRARY_BIB } from '../papers.js'
 import type { Registry } from '../registry.js'
 import type { Workbench } from '../workbench.js'
 import { t } from '../i18n.js'
@@ -57,9 +58,11 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
    * 저자 목록에 없는 이름은 네트워킹의 사람(이름·다른 이름)에서 찾아 소속 없이 넣는다 (10/4 18:46 "검색하여 추가")
    */
   const { projectTemplate, latexPick } = latexChoices(registry)
+  /** 공유 라이브러리의 references.bib (라이브러리가 없으면 넣지 않는다) */
+  const libraryBibOf = (): { libraryBib?: string } => (registry.libraryPath ? { libraryBib: path.join(registry.libraryPath, LIBRARY_BIB) } : {})
   const compileOptions = (wb: ReturnType<typeof wbOf>, q: Pick & { ms?: string }, rid: string): ManuscriptCompileOptions => {
     const { template, ...pick } = latexPick(wb, q, true, manuscriptKind(wb, msq(q)))
-    return { engine: registry.engine, template, authors: registry.authors, shared: sharedMacrosTex(registry.libraryPath), pick, figures: figureEmbedResolver(registry, rid) }
+    return { engine: registry.engine, template, authors: registry.authors, shared: sharedMacrosTex(registry.libraryPath), pick, figures: figureEmbedResolver(registry, rid), ...libraryBibOf() }
   }
   // 본문만 있는 노트는 고른 서식(없으면 research.yaml의 latex-template:, 그것도 없으면 내보내기 기본 서식)으로 감싼다
   app.post<{ Params: { rid: string }; Querystring: { ms?: string } & Pick }>('/api/researches/:rid/manuscript/compile', replies(C.ManuscriptCompileResult), async (req): Promise<C.ManuscriptCompileResult> => {
@@ -134,7 +137,7 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
     const block = req.query.block
     if (block !== undefined && (typeof block !== 'string' || keys.length > 0)) throw new WorkbenchError(400, t('보조 노트는 하나씩 따로 내보내세요', 'Export notes one at a time'))
     const kind = block !== undefined || (keys.length > 0 && keys.every((k) => manuscriptKind(wb, k) !== 'paper')) ? 'note' : 'paper'
-    const latex = { ...latexPick(wb, req.query, false, kind), allAuthors: registry.authors, sharedMacros: sharedMacrosTex(registry.libraryPath), figures: figureEmbedResolver(registry, req.params.rid) }
+    const latex = { ...latexPick(wb, req.query, false, kind), allAuthors: registry.authors, sharedMacros: sharedMacrosTex(registry.libraryPath), figures: figureEmbedResolver(registry, req.params.rid), ...libraryBibOf() }
     const r = block !== undefined ? exportBlock(wb, block, latex) : exportNotes(wb, keys, latex)
     const ascii = /[A-Za-z0-9]/.test(r.filename.replace(/\.zip$/, '')) ? r.filename.replace(/[^\x20-\x7e]+/g, '_').replace(/["\\]/g, '_') : 'notes.zip'
     return reply.type('application/zip').header('cache-control', 'no-store')
