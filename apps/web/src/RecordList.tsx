@@ -7,7 +7,8 @@ import { Icon } from './icons'
 import { askConfirm } from './askText'
 import { onListKey } from './listInput'
 import { go } from './router'
-import { filterRecords, recordDate, recordKind, rebaseRecordEdit, type RecordFilter, type RecordEdit } from './recordsPanelHelpers'
+import { filterRecords, isTalkKind, isUserTurnRecord, recordDate, recordKind, rebaseRecordEdit, USER_ANSWER_BY, type RecordFilter, type RecordEdit } from './recordsPanelHelpers'
+import { SayCard } from './Conversation'
 import { t } from './i18n'
 import { uiShown } from './uiNames'
 import { chooseRecordFilter } from './workRecords'
@@ -51,6 +52,12 @@ export function RecordList({ rid, file, filter, onGo, items: suppliedItems, work
       onState={(state) => act(() => api.update(file.target, c.id, { state, baseHash: file.hash }))}
       onEdit={(text, baseHash) => act(() => api.update(file.target, c.id, { text, baseHash }))}
       onApply={/^(note|calc)-/.test(file.target) ? (i) => act(() => api.apply(file.target, c.id, i, file.hash)) : undefined}
+      onReply={async (text) => {
+        const ok = await act(() => api.reply(file.target, c.id, text))
+        // 사용자가 쓴 질문에 이어 물으면 새 질문처럼 맥의 Claude에게 넘긴다 (에이전트가 물은 것에 답하면 넘기지 않는다)
+        if (ok && c.kind === '질문' && !c.by) void askClaude(rid, file.target, c.id)
+        return ok
+      }}
       onDelete={async () => {
         // Capture the read hash before the confirmation: an appended answer must cause a conflict.
         const baseHash = file.hash
@@ -66,10 +73,12 @@ export interface RecordRowProps {
   onState(state: '대기' | '끝냄'): Promise<boolean>; onEdit(text: string, baseHash: string): Promise<boolean>; onDelete(): Promise<void>; rid: string
   /** 답 i의 고침을 노트에 적용 (연구 노트의 기록만) */
   onApply?(answer: number): Promise<boolean>
+  /** 질문 · 지시 아래에 이어 쓰기 (10/15) */
+  onReply?(text: string): Promise<boolean>
   file: Pick<RecordFile, 'target' | 'title'>; work?: boolean; dateLabel?: string; journal?: boolean
 }
 
-export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, rid, file, work = false, dateLabel, journal = false }: RecordRowProps) {
+export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, dateLabel, journal = false }: RecordRowProps) {
   const row = useRef<HTMLElement>(null)
   useEffect(() => { if (active) row.current?.scrollIntoView({ block: 'nearest' }) }, [active])
   const [edit, setEdit] = useState<RecordEdit | null>(null)
@@ -78,11 +87,15 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const kind = recordKind(c)
   const date = dateLabel ?? recordDate(c.id)
   const hasPlace = !c.lost && Boolean(c.line || c.page)
-  const latestAnswer = c.answers.at(-1)
+  // 쓴 이 (10/15): 정보 줄에 by가 없으면 사용자. 에이전트가 물은 질문이 대기면 사용자 차례(주황)
+  const turn = isUserTurnRecord(c)
+  const talk = isTalkKind(kind)
+  const [replying, setReplying] = useState(false)
+  const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && (turn || replying)
   // 아직 적용하지 않은 Claude 답만 "노트에 적용"을 단다 (적용하면 앱이 그 아래에 답을 남긴다)
   const applicable = (i: number) => onApply && c.answers[i]!.by === 'claude' && !c.answers.slice(i + 1).some((a) => a.by === '앱') ? () => void onApply(i) : undefined
   const save = async () => { if (edit && !conflict && edit.text.trim() && await onEdit(edit.text, edit.hash)) setEdit(null) }
-  return <article ref={row} className={`record-row${work ? ' record-row-work' : ''}${active ? ' on' : ''}${c.state === '끝냄' ? ' done' : ''}${c.split ? ' split' : ''}`} data-ui="기록 줄" data-ui-item={c.id}
+  return <article ref={row} className={`record-row${work ? ' record-row-work' : ''}${active ? ' on' : ''}${turn ? ' turn' : ''}${c.state === '끝냄' ? ' done' : ''}${c.split ? ' split' : ''}`} data-ui="기록 줄" data-ui-item={c.id}
     onClick={(e) => { if (!(e.target as Element).closest('button, input, textarea, a, summary')) onGo() }}>
     <div className="record-row-head">
       {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('끝냄', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
@@ -96,7 +109,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
           {/* 지시는 에이전트 세션이 MCP로 집어 가서 하고 답한다. 맥의 Claude가 저절로 하지 않는다 */}
-          {kind === '질문' && <button className="icon-btn" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>?</button>}
+          {kind === '질문' && !c.by && <button className="icon-btn" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>?</button>}
           <button className="icon-btn" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
         </>}
         <button className="icon-btn" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
@@ -112,12 +125,21 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null); else onListKey(e, (text) => setEdit({ ...edit, text })) }} />
         <div className="record-edit-actions"><button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
-      <div className="record-meta"><span>{kindText(kind)}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
+      <div className="record-meta"><span>{kindText(kind)}</span><span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('내가 쓴 기록', 'Written by you')}>· {c.by ?? t('나', 'Me')}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
         {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>→ {t('할 일 목록', 'To-do list')}</button>}
-        {(kind === '질문' || kind === '지시') && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{(work || c.state) && <span>· {work ? stateText(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateText(c.state!)}</span>}</>}
+        {talk && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{turn ? <span className="record-turn">{t('내 차례', 'Your turn')}</span>
+          : (work || c.state) && <span>· {work ? stateText(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateText(c.state!)}</span>}
+          {onReply && c.state !== '끝냄' && !turn && <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>}</>}
       </div>
-      {work ? latestAnswer && <details className="record-latest-answer"><summary>{t('최근 답 보기', 'Show latest answer')}</summary><RecordAnswer answer={latestAnswer} busy={busy} onApply={applicable(c.answers.length - 1)} /></details>
+      {/* 기록 탭은 답을 대화로(내 글 오른쪽, 에이전트 글 왼쪽), 오른쪽 사이드바는 좁아서 답을 차례로 쌓는다 (10/15) */}
+      {work ? c.answers.length > 0 && <ul className="fbp-thread record-thread" data-ui="기록 대화">
+        {c.answers.map((a, i) => a.by === '앱' ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
+          : <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('나', 'Me') : a.by} when={a.at}>
+            <AnswerBody answer={a} busy={busy} onApply={applicable(i)} />
+          </SayCard>)}
+      </ul>
         : c.answers.map((a, i) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} />)}
+      {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }} />}
     </div>
   </article>
 }
@@ -126,8 +148,16 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
 const unguard = (s: string) => s.replace(/^\\(?=#{1,6} )/gm, '')
 
 function RecordAnswer({ answer, busy = false, onApply }: { answer: CommentEntry['answers'][number]; busy?: boolean; onApply?(): void }) {
+  const mine = answer.by === USER_ANSWER_BY
+  return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head"><span>{mine ? t('이어 씀', 'Follow-up') : t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· {mine ? t('나', 'Me') : answer.by}</span><span className="muted cmt-time">· {answer.at}</span></div>
+    <AnswerBody answer={answer} busy={busy} onApply={onApply} />
+  </div>
+}
+
+/** 답 글과 고침 제안(바꿀 글 → 바꾼 글, "노트에 적용") */
+function AnswerBody({ answer, busy, onApply }: { answer: CommentEntry['answers'][number]; busy: boolean; onApply?(): void }) {
   const { text, fixes } = useMemo(() => splitNoteFixes(answer.body), [answer.body])
-  return <div className="cmt-answer"><div className="cmt-answer-head"><span>{t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· {answer.by}</span><span className="muted cmt-time">· {answer.at}</span></div>
+  return <>
     {text && <MemoText text={text} />}
     {fixes.length > 0 && <div className="record-fixes" data-ui="고침 제안">
       {fixes.map((f, i) => <div className="record-fix" key={i}>
@@ -136,5 +166,17 @@ function RecordAnswer({ answer, busy = false, onApply }: { answer: CommentEntry[
       </div>)}
       {onApply && <button className="btn sm" disabled={busy} title={t('바꿀 글을 바꾼 글로 노트에서 바꿉니다', 'Replace the text in the note with the replacement')} onClick={onApply}>{t('노트에 적용', 'Apply to note')}</button>}
     </div>}
+  </>
+}
+
+/** 질문 · 지시 아래 이어 쓰기 (10/15). 에이전트가 물은 것이면 답이 되어 답함, 내가 쓴 것이면 다시 에이전트 차례 */
+function RecordReply({ busy, asked, onReply }: { busy: boolean; asked: boolean; onReply(text: string): Promise<boolean> }) {
+  const [text, setText] = useState('')
+  const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) setText('') }
+  const label = asked ? t('에이전트에게 답하기', 'Answer the agent') : t('이어서 묻거나 덧붙이기', 'Ask more or add to it')
+  return <div className="fbp-compose record-reply" data-ui="이어 쓰기">
+    <textarea rows={2} value={text} disabled={busy} aria-label={label} placeholder={label}
+      onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } else onListKey(e, setText) }} />
+    <div className="fbp-compose-row"><span className="sp" /><button className="btn primary sm" data-tip={t('이어 쓰기 (⌘↵)', 'Follow up (⌘↵)')} disabled={busy || !text.trim()} onClick={() => void send()}>{t('이어 쓰기', 'Follow up')}</button></div>
   </div>
 }

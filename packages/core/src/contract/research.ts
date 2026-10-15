@@ -91,6 +91,8 @@ export const ProjectIssues = z.object({
   notes: z.record(z.string(), z.number()),
   tasks: z.record(z.string(), z.number()),
   edits: z.record(z.string(), z.number()),
+  /** 에이전트가 사용자에게 물은 기록 중 답을 기다리는 것 (10/15) */
+  records: z.record(z.string(), z.number()),
 }).strict()
 
 // ---------- 프로젝트 요약 (GET /researches/:rid) ----------

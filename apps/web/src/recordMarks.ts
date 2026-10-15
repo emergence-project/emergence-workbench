@@ -1,4 +1,4 @@
-import type { NoteHighlight } from './api'
+import type { PaintedRecord } from './recordHelpers'
 import type { RecordSelection } from './RecordContext'
 import { findRecordRange, renderedRangeFromSource, selectionAnchor, sourceRangeFromRendered } from './recordAnchors'
 import { t } from './i18n'
@@ -64,7 +64,7 @@ export function readRecordSelection(root: HTMLElement, selection: Selection, sou
 }
 
 /** Add only DOM decorations, preserving the source text and every existing inline element. */
-export function paintRecordMarks(root: HTMLElement, source: string, contentOffset: number, highlights: NoteHighlight[]): () => void {
+export function paintRecordMarks(root: HTMLElement, source: string, contentOffset: number, highlights: PaintedRecord[]): () => void {
   const marks: HTMLElement[] = []
   for (const highlight of highlights) {
     if (highlight.page || highlight.lost) continue
@@ -87,12 +87,13 @@ export function paintRecordMarks(root: HTMLElement, source: string, contentOffse
         selected = part.from ? node.splitText(part.from) : node
       }
       const mark = document.createElement('mark')
-      mark.className = 'record-highlight'
+      // 에이전트가 사용자에게 물은 곳은 사용자 차례 주황 (색은 styles/records.css)
+      mark.className = highlight.turn ? 'record-highlight turn' : 'record-highlight'
       mark.dataset.recordId = highlight.id
-      mark.style.backgroundColor = `var(--paint-${highlight.color})`
+      if (!highlight.turn) mark.style.backgroundColor = `var(--paint-${highlight.color})`
       mark.style.color = 'inherit'
       mark.setAttribute('role', 'button')
-      mark.setAttribute('aria-label', t('하이라이트 메뉴', 'Highlight menu'))
+      mark.setAttribute('aria-label', highlight.turn ? t('에이전트가 물은 곳', 'Where an agent asked you') : t('하이라이트 메뉴', 'Highlight menu'))
       mark.tabIndex = 0
       ;(selected as ChildNode).replaceWith(mark)
       mark.append(selected)

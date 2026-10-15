@@ -57,3 +57,14 @@ describe('quoted record highlights', () => {
     expect(quotedRecordHighlights([record({ page: 3, rects: [[1, 2, 3, 4]] })])[0]).toMatchObject({ page: 3, rects: [[1, 2, 3, 4]] })
   })
 })
+
+describe('agent questions in the note body (10/15)', () => {
+  it('paints a waiting agent question as the user turn even without a color', () => {
+    const asked = record({ id: 'a', kind: '질문', by: 'claude', state: '대기', color: undefined })
+    expect(quotedRecordHighlights([asked])).toEqual([expect.objectContaining({ id: 'a', turn: true, color: 'yellow' })])
+    // answered, or written by the user without a color: nothing to paint
+    expect(quotedRecordHighlights([{ ...asked, state: '답함' }])).toEqual([])
+    expect(quotedRecordHighlights([{ ...asked, by: undefined }])).toEqual([])
+    expect(quotedRecordHighlights([record()])[0]).not.toHaveProperty('turn')
+  })
+})

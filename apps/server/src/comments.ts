@@ -10,7 +10,7 @@ import type { JournalEntry } from '@rw/core'
 import type { AskRunner } from './ask.js'
 import { classifyPrompt, parseClassification } from './classify.js'
 import type { z } from 'zod'
-import type { CommentAnswer, CommentEntry, CommentFile, CommentKind, NewCommentBody, NoteHighlight, PendingQuestion, RecordFile as RecordGroup } from '@rw/core/contract/comments'
+import { RECORD_AUTHOR_RE, USER_ANSWER_BY, type CommentAnswer, type CommentEntry, type CommentFile, type CommentKind, type NewCommentBody, type NoteHighlight, type PendingQuestion, type RecordFile as RecordGroup } from '@rw/core/contract/comments'
 import { t } from './i18n.js'
 
 /**
@@ -65,6 +65,11 @@ export type { CommentKind } from '@rw/core/contract/comments'
 export const COMMENT_KINDS: CommentKind[] = ['메모', '할 일', '질문', '지시', '하이라이트', '코멘트']
 /** 에이전트가 움직이는 기록: 질문은 답하고, 지시는 하고 답한다 (10/15). 상태는 대기 · 답함 · 끝냄 */
 export const isAgentKind = (kind: string) => kind === '질문' || kind === '지시'
+/**
+ * 사용자 차례인 기록 (10/15): 에이전트가 쓴(by) 질문 · 지시가 대기. 사용자가 이어 쓰면 답함이 된다.
+ * 사용자가 쓴 질문 · 지시의 대기는 에이전트 차례다.
+ */
+export const isUserTurnRecord = (c: Pick<CommentEntry, 'kind' | 'by' | 'state'>) => isAgentKind(c.kind) && Boolean(c.by) && c.state === '대기'
 export { COMMENT_STATES, type CommentState } from './commentFormat.js'
 
 // 응답 모양은 API 계약(@rw/core/contract/comments)에 있다
@@ -161,6 +166,7 @@ export function parseComments(target: string, text: string): CommentFile {
           if (typeof m.editBase === 'string') cur.editBase = m.editBase
           if (typeof m.part === 'string' && m.part) cur.part = m.part
           if (typeof m.partText === 'string' && m.partText) cur.partText = m.partText
+          if (typeof m.by === 'string' && RECORD_AUTHOR_RE.test(m.by)) cur.by = m.by
         } catch { /* 깨진 숨은 줄은 무시 */ }
         continue
       }
@@ -259,8 +265,14 @@ export function listRecords(root: string, projectTitle: string): RecordGroup[] {
 /** 에이전트 함: 아직 답이 없는 질문 (kind = '지시'면 아직 하지 않은 지시) */
 export function pendingQuestions(root: string, kind: '질문' | '지시' = '질문'): PendingQuestion[] {
   return listComments(root).flatMap((f) => f.comments
-    .filter((c) => c.kind === kind && c.state === '대기')
+    // 에이전트가 사용자에게 물은 것(by)은 에이전트 함이 아니라 사용자 차례다
+    .filter((c) => c.kind === kind && c.state === '대기' && !c.by)
     .map((c) => ({ target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body })))
+}
+
+/** 사용자 차례인 기록 수 (왼쪽 띠 · 사이드바 기록 줄의 주황 수) */
+export function userTurnRecords(root: string): number {
+  return listComments(root).reduce((n, f) => n + f.comments.filter(isUserTurnRecord).length, 0)
 }
 
 /** 서버가 받은 뒤의 모양 (계약 NewCommentBody) */
@@ -312,6 +324,8 @@ function prepareComment(root: string, target: string, input: NewComment, now: Da
     ...(typeof input.part === 'string' && input.part.trim() && { part: oneLine(input.part).slice(0, 300) }),
     ...(typeof input.partText === 'string' && input.partText.trim() && { partText: oneLine(input.partText).slice(0, 200) }),
     ...((input.edit === '질문' || input.edit === '수정') && kind === '질문' && { edit: input.edit, ...(typeof input.editBase === 'string' && input.editBase && { editBase: input.editBase.slice(0, 200) }) }),
+    // 쓴 에이전트 (10/15). 없으면 사용자가 쓴 것
+    ...(typeof input.by === 'string' && RECORD_AUTHOR_RE.test(input.by) && { by: input.by }),
   }
   if (kind === '할 일') {
     Object.assign(meta, todoMeta(root, target, source, now, options.journalOffset))
@@ -449,7 +463,7 @@ export async function classifyComments(root: string, target: string, baseHash: s
           const prepared = prepareComment(root, target, {
             kind: item.kind, text: item.text, title: current.title, source,
             quote: entry.quote, color: entry.color, line: entry.line, prefix: entry.prefix, suffix: entry.suffix,
-            page: entry.page, rects: entry.rects, part: entry.part, partText: entry.partText,
+            page: entry.page, rects: entry.rects, part: entry.part, partText: entry.partText, by: entry.by,
           }, now, text, { journalOffset: todos.length, storedAnchors: true })
           out = (text + (text.endsWith('\n') ? '' : '\n') + prepared.chunk).split('\n')
           if (prepared.kind === '할 일') todos.push({ id: prepared.id, body: prepared.body, quote: prepared.quote })

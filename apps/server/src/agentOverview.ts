@@ -4,12 +4,12 @@
 import { localDate } from './fsutil.js'
 import { homeShort } from './agentPaths.js'
 import { localSyncState } from './gitSyncState.js'
-import { pendingQuestions } from './comments.js'
+import { pendingQuestions, userTurnRecords } from './comments.js'
 import { listTasks } from './tasks.js'
 import type { Workbench } from './workbench.js'
 
-/** 사용자가 판단할 것: 확인이 필요한 노트 · 판단할 맡긴 일(결과 · 종결 조건 제안) · 에이전트 고침 검토 */
-export interface UserTurn { notes: number; tasks: number; edits: number }
+/** 사용자가 판단할 것: 확인이 필요한 노트 · 판단할 맡긴 일(결과 · 종결 조건 제안) · 에이전트 고침 검토 · 에이전트가 물은 기록(10/15) */
+export interface UserTurn { notes: number; tasks: number; edits: number; records: number }
 
 /** 홈 화면 "확인 필요"의 내역. edits는 에이전트 고침 기록(AgentEditStore)에서 센 그 프로젝트의 수 */
 export function userTurnOf(wb: Workbench, edits = 0): UserTurn {
@@ -17,6 +17,7 @@ export function userTurnOf(wb: Workbench, edits = 0): UserTurn {
     notes: wb.tree().issues.length,
     tasks: listTasks(wb).filter((t) => t.state === 'result' || t.state === 'proposed').length,
     edits,
+    records: userTurnRecords(wb.root),
   }
 }
 
@@ -66,7 +67,7 @@ export function generateOverview(rows: (OverviewRow | { folder: string; problem:
   for (const r of rows) {
     if ('problem' in r) { out.push(`| (읽지 못함) | \`${r.folder}\` | ${r.problem.replace(/\|/g, '/')} | | | |`); continue }
     const repo = [r.behind && `${r.behind}커밋 뒤`, r.ahead && `안 올린 커밋 ${r.ahead}`].filter(Boolean).join(' · ') || '—'
-    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['노트', r.user.notes], ['맡긴 일 판단', r.user.tasks], ['고침 검토', r.user.edits]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
+    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['노트', r.user.notes], ['맡긴 일 판단', r.user.tasks], ['고침 검토', r.user.edits], ['물은 기록', r.user.records]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
   }
   out.push('')
   return out.join('\n')

@@ -1,5 +1,6 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
-import type { NoteHighlight, PaintColor } from './api'
+import type { PaintColor } from './api'
+import type { PaintedRecord } from './recordHelpers'
 import type { RecordAnchor } from './recordAnchors'
 import { openRight } from './noteScreen'
 
@@ -43,7 +44,7 @@ export interface NoteRecordsContext {
   /** Entire source file, including front matter: server anchors use file line numbers. */
   source: string
   contentOffset: number
-  highlights: NoteHighlight[]
+  highlights: PaintedRecord[]
   reveal?: RecordDraft & { id: string; nonce: number }
   onSelect(selection: RecordSelection | null): void
   onHighlight(id: string, point: RecordPoint): void

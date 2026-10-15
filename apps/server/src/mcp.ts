@@ -1,6 +1,6 @@
 // 에이전트용 입구 (MCP, 읽기 단계 A): Claude Code · Codex가 앱의 서버 API를 거쳐 프로젝트를 읽는다.
 // 파일을 직접 읽거나 쓰지 않고 맥에서 도는 앱 서버(127.0.0.1)만 부른다. 그래서 화면과 같은 규칙과 hash를 쓴다.
-// 강점 강화 계획(2026-10-08)의 A단계. 쓰기 도구는 노트 · 개념노트 고치기(edit_note · edit_concept, 10/8 에이전트 고침 검토)와 질문에 답하기(answer_record, 10/15)만. 등록은 docs/agent-mcp.md
+// 강점 강화 계획(2026-10-08)의 A단계. 쓰기 도구는 노트 · 개념노트 고치기(edit_note · edit_concept, 10/8 에이전트 고침 검토), 질문에 답하기(answer_record, 10/15), 사용자에게 묻는 기록 남기기(add_record, 10/15)만. 등록은 docs/agent-mcp.md
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,6 +32,7 @@ export const INSTRUCTIONS = [
   'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server.',
   'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on.',
   'Answer the user\'s questions: list_records with unanswered: true → read_note for the context → answer_record.',
+  'Ask the user to check something (for example a part of a note you wrote): add_record with kind 질문 and the quoted text; the user answers in the app, read it later with read_records.',
   'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: search_library → read_concept → edit_concept.',
   'Delegated tasks: list_tasks → read_task (the result format is in rules).',
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
@@ -87,6 +88,12 @@ interface SearchItem { kind: string; id: string; title: string; also?: string; r
 interface Hit { line: number; heading: string; text: string }
 
 /** 연결할 때 클라이언트가 밝힌 이름(clientInfo.name) → 맡긴 일과 같은 에이전트 이름. 스스로 밝힌 값이라 검증하지 않는다 */
+/** 기록의 by에 쓰는 이름 (영어 소문자 · 숫자 · -, 20자까지, docs/repo-format.md §6.2) */
+export function recordAuthor(clientName: string | undefined): string {
+  const n = agentOf(clientName).toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^[^a-z]+/, '').slice(0, 20).replace(/-+$/, '')
+  return n || 'agent'
+}
+
 export function agentOf(clientName: string | undefined): string {
   const n = (clientName ?? '').trim()
   if (/claude/i.test(n)) return 'claude-code'
@@ -203,21 +210,21 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('list_records', {
     title: 'List records',
-    description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Kinds: 메모 (memo, nobody acts), 할 일 (to-do, the user does it), 질문 (question, an agent answers), 지시 (instruction, an agent does it and then answers). Each row: target, id, kind, state, where, quote, part/partText (the screen part the user pointed at), body, answers. Use unanswered: true for questions and instructions still waiting. Read one target with read_records when you need its hash.',
+    description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Kinds: 메모 (memo, nobody acts), 할 일 (to-do, the user does it), 질문 (question, an agent answers), 지시 (instruction, an agent does it and then answers). Each row: target, id, kind, by (the agent that wrote it; absent = the user), state, where, quote, part/partText (the screen part the user pointed at), body, answers (by 사용자 = the user\'s follow-up). Use unanswered: true for the user\'s questions and instructions still waiting for an agent (records an agent wrote with add_record are the user\'s turn and are left out). Read one target with read_records when you need its hash.',
     inputSchema: {
       project,
       kind: z.enum(['메모', '할 일', '질문', '지시']).optional().describe('메모 (memo) | 할 일 (to-do) | 질문 (question) | 지시 (instruction)'),
       state: z.enum(['대기', '답함', '끝냄']).optional().describe('대기 (waiting) | 답함 (answered) | 끝냄 (closed)'),
       target: z.string().optional().describe('Only this target, or a prefix ending in - (note-, topic-, flow- …)'),
-      unanswered: z.boolean().optional().describe('Only questions and instructions still waiting (kind 질문 or 지시, state 대기)'),
+      unanswered: z.boolean().optional().describe('Only the user\'s questions and instructions still waiting for an agent (kind 질문 or 지시, state 대기, no by)'),
     },
     annotations: ro,
   }, async ({ project: rid, kind, state, target, unanswered }) => call(`/api/researches/${enc(rid)}/records`, (b: { files: { target: string; title: string; source?: string; comments: Record<string, unknown>[] }[] }) => ({
     records: b.files
       .filter((file) => !target || (target.endsWith('-') ? file.target.startsWith(target) : file.target === target))
       .flatMap((file) => file.comments
-        .filter((c) => (!kind || c.kind === kind) && (!state || c.state === state) && (!unanswered || ((c.kind === '질문' || c.kind === '지시') && c.state === '대기')))
-        .map((c) => ({ target: file.target, title: file.title, ...pick(c, ['id', 'kind', 'state', 'where', 'quote', 'part', 'partText', 'edit', 'body', 'answers']) }))),
+        .filter((c) => (!kind || c.kind === kind) && (!state || c.state === state) && (!unanswered || ((c.kind === '질문' || c.kind === '지시') && c.state === '대기' && !c.by)))
+        .map((c) => ({ target: file.target, title: file.title, ...pick(c, ['id', 'kind', 'by', 'state', 'where', 'quote', 'part', 'partText', 'edit', 'body', 'answers']) }))),
   })))
 
   server.registerTool('answer_record', {
@@ -235,6 +242,41 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     if (!r.ok) return r.error
     const b = r.body as { hash: string }
     return text(`Answered. The record is now answered (답함). Records file hash: ${b.hash}.`)
+  })
+
+  server.registerTool('add_record', {
+    title: 'Add a record for the user',
+    description: 'Leave a record the user reads in the app, written under your agent name. Use kind 질문 (question) to ask the user to check or decide something, for example a passage of a note you wrote: it shows in orange as the user\'s turn until the user answers in the app (their answer is appended as `### 답 · 사용자` and the record becomes 답함). Use 메모 (memo) for a remark that needs no answer. For a note, pass file (from list_notes) and optionally quote (text copied exactly from the note, it is highlighted there) and line; otherwise pass target (project, topic-<id>, flow-<id>). Do not use it to answer a record (use answer_record) or to change notes (use edit_note).',
+    inputSchema: {
+      project,
+      file: z.string().optional().describe('Note file from list_notes (workbench/notes/<name>/note.md, workbench/topics/<topic>/<name>/note.md, workbench/blocks/<id>.md …)'),
+      target: z.string().optional().describe('Instead of file: project | topic-<id> | flow-<id>'),
+      kind: z.enum(['질문', '메모']).describe('질문 (question for the user) | 메모 (memo)'),
+      text: z.string().trim().min(1).describe('What you ask or note (Markdown)'),
+      quote: z.string().optional().describe('Text copied exactly from the note to anchor the record'),
+      line: z.number().int().positive().optional().describe('Line of the quote in the note file (1-based), to pick the right place when the quote occurs more than once'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  }, async ({ project: rid, file, target, kind, text: body, quote, line }) => {
+    let to = target
+    let title = target ?? ''
+    let source: string | undefined
+    if (file) {
+      const r = await get(base, f, `/api/researches/${enc(rid)}/notes`)
+      if (!r.ok) return r.error
+      const n = (r.body as { notes: NoteRow[] }).notes.find((x) => x.file === file)
+      const noteTarget = n && noteRecordTarget(n)
+      if (!n || !noteTarget) return fail(`No note with records at ${file}. Use a file from list_notes that has a target.`)
+      to = noteTarget
+      title = n.type === 'block' ? `노트 결과 ${n.title}` : `${n.type === 'calc' ? '계산 노트' : '연구노트'} ${n.title}`
+      source = n.type === 'block' ? n.id : n.file
+    }
+    if (!to) return fail('Pass file (a note from list_notes) or target (project, topic-<id>, flow-<id>).')
+    if (!file && /^(note|calc|block)-/.test(to)) return fail('For a note, pass file (from list_notes) instead of target.')
+    const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(to)}`, { kind, title, ...(source && { source }), text: body, ...(quote && { quote }), ...(line && { line }), by: recordAuthor(server.server.getClientVersion()?.name) })
+    if (!r.ok) return r.error
+    const b = r.body as { entry: { id: string }; hash: string }
+    return text(`Added ${kind} ${b.entry.id} on ${to}.${kind === '질문' ? ' It is now the user\'s turn; read their answer later with read_records.' : ''} Records file hash: ${b.hash}.`)
   })
 
   server.registerTool('list_tasks', {

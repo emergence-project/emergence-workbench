@@ -171,6 +171,6 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
       {/* 아랫줄 왼쪽: 가리키기와 남길 곳 (10/15 사용자 코멘트), 오른쪽: 저장 */}
       <button className={`icon-btn${pointing ? ' on' : ''}`} data-ui="가리키기" data-tip={t('가리키기: 이 기록이 화면 어디에 대한 것인지 고릅니다', 'Point: choose the part of the screen this record is about')} aria-label={t('가리키기', 'Point')} aria-pressed={pointing} disabled={busy} onClick={() => setPointing((v) => !v)}>{Icon.point}</button>
       <span className="record-where" data-ui="남길 곳" title={target.source}>{t('남길 곳', 'Saved to')} <b>{where}</b></span>
-      <span className="sp" /><span>⌘↵ {t('저장', 'Save')}</span><button className="btn primary sm" disabled={busy || !draft.text.trim()} onClick={() => void save()}>{busy ? t('저장 중…', 'Saving…') : t('저장', 'Save')}</button></div>
+      <span className="sp" /><button className="btn primary sm tip-end" data-tip={t('저장 (⌘↵)', 'Save (⌘↵)')} disabled={busy || !draft.text.trim()} onClick={() => void save()}>{busy ? t('저장 중…', 'Saving…') : t('저장', 'Save')}</button></div>
   </div>
 }
