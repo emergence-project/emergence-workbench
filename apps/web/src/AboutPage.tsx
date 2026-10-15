@@ -47,18 +47,48 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
 }
 
 /** 설정과 같은 앱 사이드바의 쪽 목록. 쪽 주소와 피드백 부위 이름은 그대로 둔다. */
-export function AboutSidebar({ part }: { part?: string }) {
+/** 왼쪽 목록의 묶음. 쪽 번호는 묶음을 넘어 이어진다. */
+const NAV_GROUPS: { title: string; parts: string[] }[] = [
+  { title: t('시작', 'Start'), parts: ['intro', 'principles'] },
+  { title: t('화면', 'Screens'), parts: ['home', 'project', 'notes', 'knowledge', 'reading', 'network', 'settings'] },
+  { title: t('일하는 방식', 'How work flows'), parts: ['agents', 'feedback'] },
+  { title: t('기준과 참고', 'Standards and reference'), parts: ['design', 'symbols', 'reference', 'next'] },
+]
+
+export function AboutSidebar({ part, anchor }: { part?: string; anchor?: string }) {
   const current = partOf(part)
   const done = useAnswered()
+  const grouped = new Set(NAV_GROUPS.flatMap((g) => g.parts))
+  const groups = [...NAV_GROUPS, { title: '', parts: ABOUT_PARTS.filter((p) => !grouped.has(p.id)).map((p) => p.id) }]
   return (
     <nav className="set-side about-nav" data-ui="소개 목록" aria-label={t('소개 쪽', 'About pages')}>
-      {ABOUT_PARTS.map((p, i) => {
-        const count = unsureCount(p, done)
+      {groups.map((g) => {
+        const parts = g.parts.map((id) => ABOUT_PARTS.find((p) => p.id === id)).filter((p): p is AboutPart => !!p)
+        if (parts.length === 0) return null
         return (
-          <a key={p.id} href={href({ page: 'about', part: p.id })} className={`nav about-nav-row${p === current ? ' on' : ''}`} aria-current={p === current ? 'page' : undefined} title={p.title}>
-            <span className="n">{i + 1}</span><span className="label">{p.title}</span>
-            {count > 0 && <span className="about-nav-flag" title={t(`확인이 필요한 곳 ${count}`, `Places to review: ${count}`)} data-ui="확인 필요 표시">{t(`확인 ${count}`, `Review ${count}`)}</span>}
-          </a>
+          <div key={g.title || 'rest'} className="about-nav-group">
+            {g.title && <div className="about-nav-head">{g.title}</div>}
+            {parts.map((p) => {
+              const count = unsureCount(p, done)
+              const on = p === current
+              return (
+                <div key={p.id}>
+                  <a href={href({ page: 'about', part: p.id })} className={`nav about-nav-row${on && !anchor ? ' on' : ''}`} aria-current={on ? 'page' : undefined} title={p.title}>
+                    <span className="n">{ABOUT_PARTS.indexOf(p) + 1}</span><span className="label">{p.title}</span>
+                    {count > 0 && <span className="about-nav-flag" title={t(`확인이 필요한 곳 ${count}`, `Places to review: ${count}`)} data-ui="확인 필요 표시">{t(`확인 ${count}`, `Review ${count}`)}</span>}
+                  </a>
+                  {on && (p.sections ?? []).map((sec, i) => {
+                    const a = sectionAnchor(sec, i)
+                    return (
+                      <a key={a} href={href({ page: 'about', part: p.id, anchor: a })} className={`nav about-nav-sub${anchor === a ? ' on' : ''}`} title={sec.title}>
+                        <span className="label">{sec.title}</span>
+                      </a>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
         )
       })}
     </nav>

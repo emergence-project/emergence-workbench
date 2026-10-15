@@ -1,5 +1,9 @@
 /* 소개 (AboutPage · aboutContent) — 앱 사이드바의 쪽 목록 + 본문 */
 .about-nav-row { text-decoration: none; }
+.about-nav-group + .about-nav-group { margin-top: var(--sp-2); }
+.about-nav-head { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); }
+/* 연 쪽의 절: 쪽 이름 아래 들여 쓴 하위 항목 (설정의 .set-sub와 같은 모양) */
+.about-nav-sub { text-decoration: none; padding-left: calc(var(--sp-4) + var(--sp-5)); color: var(--text-2); font-size: var(--fs-sm); }
 .about-nav-row .n { min-width: var(--sp-4); flex: none; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-normal); }
 .about .sec-head { align-items: center; }
 .about .sec-head .icon-btn { flex: none; }
