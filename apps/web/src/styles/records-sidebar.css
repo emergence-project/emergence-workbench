@@ -88,3 +88,11 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 .cmt-answer.mine { background: transparent; border: 1px solid var(--line); }
 .record-reply { margin-top: var(--sp-2); }
 .record-reply textarea { min-height: calc(var(--input-h) * 1.5); }
+/* 남길 곳 고르기 (10/15 14:57 피드백): 글처럼 보이는 작은 고르기, 메뉴는 브라우저 것이라 잘리지 않는다 */
+label.record-where { display: flex; align-items: center; white-space: nowrap; color: var(--text-3); font-size: var(--fs-xs); }
+.record-where select { appearance: none; min-width: 0; max-width: 100%; margin-left: var(--sp-1); padding: 0 calc(var(--sp-1) + var(--sp-3)) 0 var(--sp-1); font: inherit; font-weight: var(--fw-strong); color: var(--text-2); border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+.record-where select:hover:not(:disabled) { border-color: var(--line); }
+.record-where select:disabled { cursor: default; opacity: 1; padding-right: var(--sp-1); }
+.record-where-caret { display: flex; flex: none; width: var(--sp-3); margin-left: calc(-1 * (var(--sp-3) + var(--sp-1))); pointer-events: none; color: var(--text-3); }
+.record-where-caret svg { width: 12px; height: 12px; transform: rotate(90deg); }
+.record-where select:disabled + .record-where-caret { display: none; }
