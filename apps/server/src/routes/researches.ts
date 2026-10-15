@@ -24,6 +24,7 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
    * 왼쪽 띠의 프로젝트 버튼에 붙는 수와 첫 화면의 "확인 필요" 점: 프로젝트마다 확인이 필요한 노트(첫 화면의 tree.issues와 같다, 10/4 18:16 피드백)
    * + 판단을 기다리는 맡긴 일(결과·종결 조건 제안, 10/7). counts는 둘의 합, notes·tasks는 툴팁에 쓰는 내역.
    * + 에이전트 고침(검토를 기다리는 노트와 확인된 노트 쓰기 시도, 10/8). 검토는 기록만 세고 노트 파일을 비교하지 않는다.
+   * + 에이전트가 물은 기록 중 답을 기다리는 것(10/15, records).
    * 노트 머리와 작업 파일 머리만 보므로 원고·진술은 읽지 않는다. 읽지 못하는 프로젝트는 뺀다.
    */
   app.get('/api/research-issues', replies(C.ProjectIssues), async (): Promise<C.ProjectIssues> => {
@@ -31,6 +32,7 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     const notes: Record<string, number> = {}
     const tasks: Record<string, number> = {}
     const edits: Record<string, number> = {}
+    const records: Record<string, number> = {}
     const stored = new AgentEditStore(AgentEditStore.fileFor(registry.configDir, registry.libraryPath)).read()
     for (const x of [...stored.pending, ...stored.attempts]) if (x.target.kind === 'note') edits[x.target.rid] = (edits[x.target.rid] ?? 0) + 1
     for (const id of registry.ids()) {
@@ -39,11 +41,12 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
         notes[id] = u.notes
         tasks[id] = u.tasks
         edits[id] = u.edits
-        counts[id] = u.notes + u.tasks + u.edits
+        records[id] = u.records
+        counts[id] = u.notes + u.tasks + u.edits + u.records
       } catch { delete edits[id] /* 없는 폴더 등 */ }
     }
     for (const id of Object.keys(edits)) if (!(id in counts)) delete edits[id]
-    return { counts, notes, tasks, edits }
+    return { counts, notes, tasks, edits, records }
   })
 
   /** 에이전트용 여러 프로젝트 한눈에 (pnpm agent:status 여러 폴더, MCP overview): 사용자 차례는 위 research-issues와 같은 계산 */

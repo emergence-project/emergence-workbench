@@ -16,6 +16,10 @@ export const CommentState = z.enum(COMMENT_STATES)
 export const HighlightColor = z.enum(HIGHLIGHT_COLORS)
 
 export const CommentAnswer = z.object({ by: z.string(), at: z.string(), body: z.string() }).strict()
+/** 기록을 쓴 에이전트 이름 (정보 줄의 by, 10/15). 없으면 사용자가 쓴 것 */
+export const RECORD_AUTHOR_RE = /^[a-z][a-z0-9-]{0,19}$/
+/** 사용자가 질문 · 지시 아래에 이어 쓴 답의 이름 (`### 답 · 사용자 · …`) */
+export const USER_ANSWER_BY = '사용자'
 
 const entry = {
   id: z.string(),
@@ -43,6 +47,8 @@ const entry = {
   /** 가리킨 화면 부위(피드백 모드와 같은 이름, 바깥부터 › 로 잇는다)와 그 부위의 글자 (10/15) */
   part: z.string().optional(),
   partText: z.string().optional(),
+  /** 쓴 에이전트 (claude, codex …). 없으면 사용자. 에이전트가 쓴 질문이 대기면 사용자 차례다 (10/15) */
+  by: z.string().optional(),
   body: z.string(),
   state: CommentState.nullable(),
   answers: z.array(CommentAnswer),
@@ -100,12 +106,16 @@ export const NewCommentBody = z.object({
   editBase: z.string().optional(),
   part: z.string().optional(),
   partText: z.string().optional(),
+  /** 에이전트가 쓸 때 그 이름 (MCP add_record). 영어 소문자 · 숫자 · -, 20자까지 */
+  by: z.string().regex(RECORD_AUTHOR_RE, 'by: lowercase letters, digits and -, up to 20').optional(),
   text: z.string(),
 })
 export const ClassifyBody = z.object({ baseHash })
 export const CommentChangeBody = z.object({ text: z.string().optional(), state: CommentState.optional(), color: HighlightColor.optional(), baseHash })
 /** 에이전트가 쓴 답 덧붙이기 (MCP answer_record): by = 에이전트 이름 */
 export const AgentAnswerBody = z.object({ by: z.string(), body: z.string() })
+/** 사용자가 질문 · 지시 아래에 이어 쓰기 (덧붙이기라 baseHash 없음) */
+export const ReplyBody = z.object({ text: z.string() })
 /** answer: 답 번호 */
 export const ApplyAnswerBody = z.object({ answer: z.number(), baseHash })
 
@@ -126,3 +136,4 @@ export type ClassifyBody = z.input<typeof ClassifyBody>
 export type CommentChangeBody = z.input<typeof CommentChangeBody>
 export type AgentAnswerBody = z.input<typeof AgentAnswerBody>
 export type ApplyAnswerBody = z.input<typeof ApplyAnswerBody>
+export type ReplyBody = z.input<typeof ReplyBody>

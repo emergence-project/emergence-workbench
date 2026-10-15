@@ -11,11 +11,14 @@ const rid = R.split('/').pop()!
 describe('agent overview', () => {
   it('counts the user\'s turn exactly like Home and lists the agent\'s turn', async () => {
     await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '질문', title: '프로젝트', text: '답을 기다리는 질문' } })
-    const issues = (await app.inject({ method: 'GET', url: '/api/research-issues' })).json() as { counts: Record<string, number>; notes: Record<string, number>; tasks: Record<string, number> }
+    await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '질문', title: '프로젝트', text: '에이전트가 사용자에게 묻는 것', by: 'claude' } })
+    const issues = (await app.inject({ method: 'GET', url: '/api/research-issues' })).json() as { counts: Record<string, number>; notes: Record<string, number>; tasks: Record<string, number>; records: Record<string, number> }
     const row = overviewRow(new Workbench(path.join(repo, 'workbench')))
     expect(row.user.notes).toBe(issues.notes[rid])
     expect(row.user.tasks).toBe(issues.tasks[rid])
-    expect(row.user.notes + row.user.tasks + row.user.edits).toBe(issues.counts[rid])
+    expect(row.user.records).toBe(issues.records[rid])
+    expect(row.user.records).toBeGreaterThanOrEqual(1)
+    expect(row.user.notes + row.user.tasks + row.user.edits + row.user.records).toBe(issues.counts[rid])
     expect(row.agent.questions).toBeGreaterThanOrEqual(1)
     const md = generateOverview([row, { folder: '/x/broken', problem: 'research.yaml | 없음' }], new Date(2026, 9, 15, 9, 5))
     expect(md.split('\n')[0]).toBe('# 프로젝트 한눈에 (2026-10-15 09:05)')

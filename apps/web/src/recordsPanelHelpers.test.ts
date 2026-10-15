@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CommentEntry } from './api/comments'
-import { classifiedRecordCount, filterRecords, recordDate, recordPdfTab, recordRoute, rebaseRecordEdit, filterForActiveRecord } from './recordsPanelHelpers'
+import { classifiedRecordCount, filterRecords, recordDate, recordPdfTab, recordRoute, rebaseRecordEdit, filterForActiveRecord, isUserTurnRecord } from './recordsPanelHelpers'
 import { normalizeRightMode } from './noteScreen'
 const entry = (kind: CommentEntry['kind'], rest: Partial<CommentEntry> = {}): CommentEntry => ({ id: 'c-20261006-1200', kind, body: 'text', where: '전체', rects: [], state: null, answers: [], ...rest })
 
@@ -58,5 +58,15 @@ describe('sidebar records', () => {
     expect(recordPdfTab({ target: 'manuscript-key' }, () => 'workbench/notes/한글/main.tex')).toEqual({ k: 'mspdf', ms: 'workbench/notes/한글/main.tex' })
     expect(recordPdfTab({ target: 'manuscript-missing' }, () => undefined)).toBeNull()
     expect(recordPdfTab({ target: 'paper-example', source: 'example.pdf' }, () => undefined)).toBeNull()
+  })
+})
+
+describe('user turn records (10/15)', () => {
+  it('is an agent-written question or instruction still waiting', () => {
+    expect(isUserTurnRecord({ kind: '질문', by: 'claude', state: '대기' })).toBe(true)
+    expect(isUserTurnRecord({ kind: '지시', by: 'codex', state: '대기' })).toBe(true)
+    expect(isUserTurnRecord({ kind: '질문', state: '대기' })).toBe(false)
+    expect(isUserTurnRecord({ kind: '질문', by: 'claude', state: '답함' })).toBe(false)
+    expect(isUserTurnRecord({ kind: '메모', by: 'claude', state: null })).toBe(false)
   })
 })

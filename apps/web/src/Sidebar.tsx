@@ -27,8 +27,10 @@ export function noteOfRoute(route: Route, notes: NoteRow[]): NoteRow | null {
   return null
 }
 
-export function ResearchNav({ rid, rapi, route, materials, todoCount, manuscripts, topics, notes, version }: {
-  rid: string; rapi: ResearchApi; route: Route; materials: ReactNode; todoCount: number | null; manuscripts: ManuscriptInfo[]; topics: Topic[]; notes: NoteRow[]; version: number
+export function ResearchNav({ rid, rapi, route, materials, todoCount, askCount = 0, manuscripts, topics, notes, version }: {
+  rid: string; rapi: ResearchApi; route: Route; materials: ReactNode; todoCount: number | null
+  /** 에이전트가 물어 사용자 답을 기다리는 기록 수 (10/15, 사용자 차례 주황 알약) */
+  askCount?: number; manuscripts: ManuscriptInfo[]; topics: Topic[]; notes: NoteRow[]; version: number
 }) {
   const sidebar = useRef<HTMLDivElement>(null)
   const tocMaxHeight = useTocMaxHeight(sidebar)
@@ -98,7 +100,7 @@ export function ResearchNav({ rid, rapi, route, materials, todoCount, manuscript
           <button className={`nav side-row${route.page === 'todo' || route.page === 'log' || route.page === 'task' ? ' on' : ''}`} aria-current={route.page === 'todo' || route.page === 'log' ? 'page' : undefined} data-ui="할 일" title={t('에이전트에게 맡긴 일과 지난 작업 일지', 'Work delegated to agents and past work journal')} onClick={() => go({ page: 'todo', rid })}>
             <span className="q-ico" aria-hidden>{Icon.task}</span><span className="label">{t('작업', 'Work')}</span></button>
           <button className={`nav side-row${route.page === 'records' ? ' on' : ''}`} aria-current={route.page === 'records' ? 'page' : undefined} data-ui="기록 블록" title={t('프로젝트의 메모 · 할 일 · 질문을 대상별로', 'Memos, to-dos and questions across the project, by what they are about')} onClick={() => go({ page: 'records', rid })}>
-            <span className="q-ico" aria-hidden>{Icon.memo}</span><span className="label">{t('기록', 'Records')}</span>{todoCount ? <span className="n" title={t('남은 할 일', 'Open to-dos')}>{todoCount}</span> : null}</button>
+            <span className="q-ico" aria-hidden>{Icon.memo}</span><span className="label">{t('기록', 'Records')}</span>{askCount > 0 && <span className="rail-count" data-ui="물은 기록 수" title={t(`에이전트가 물은 기록 ${askCount}개 — 답을 기다립니다`, `${askCount} agent question(s) waiting for your answer`)}>{askCount}</span>}{todoCount ? <span className="n" title={t('남은 할 일', 'Open to-dos')}>{todoCount}</span> : null}</button>
           <button className={`nav side-row${route.page === 'edits' ? ' on' : ''}`} aria-current={route.page === 'edits' ? 'page' : undefined} data-ui="고침 검토 블록" title={t('에이전트가 고친 노트를 바뀐 곳마다 검토', 'Review each change agents made to notes')} onClick={() => go({ page: 'edits', rid })}>
             <span className="q-ico" aria-hidden>{Icon.review}</span><span className="label">{t('고침 검토', 'Edit review')}</span>{editCount ? <span className="n" title={t('검토할 노트와 고치기 요청', 'Notes to review and edit requests')}>{editCount}</span> : null}</button>
           <button className={`nav side-row${route.page === 'flow' ? ' on' : ''}`} aria-current={route.page === 'flow' ? 'page' : undefined} data-ui="흐름 블록" title={t('연구 흐름: 생각의 걸음과 그 사이의 선', 'Research flow: steps of thinking and the lines between them')} onClick={() => go({ page: 'flow', rid })}>

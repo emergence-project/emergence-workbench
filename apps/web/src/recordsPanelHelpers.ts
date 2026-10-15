@@ -4,6 +4,12 @@ import type { Tab } from './Workspace'
 
 export type RecordFilter = '전체' | '메모' | '할 일' | '질문' | '지시'
 export const recordKind = (c: Pick<CommentEntry, 'kind'>) => c.kind === '코멘트' ? '메모' : c.kind
+/** 사용자가 이어 쓴 답의 이름 (파일 값, docs/repo-format.md §6.2) */
+export const USER_ANSWER_BY = '사용자'
+/** 에이전트가 하거나 답하는 종류: 이어 쓰기가 있다 */
+export const isTalkKind = (kind: string) => kind === '질문' || kind === '지시'
+/** 사용자 차례 (10/15): 에이전트가 쓴(by) 질문 · 지시가 대기. 서버 comments.ts isUserTurnRecord와 같은 규칙 */
+export const isUserTurnRecord = (c: Pick<CommentEntry, 'kind' | 'by' | 'state'>) => isTalkKind(c.kind) && Boolean(c.by) && c.state === '대기'
 export const filterRecords = (items: CommentEntry[], filter: RecordFilter) => items.filter((c) => c.kind !== '하이라이트' && (filter === '전체' || recordKind(c) === filter))
 /** Count source records actually classified, excluding changed or removed entries and newly split items. */
 export function classifiedRecordCount(before: CommentEntry[], after: CommentEntry[]): number {

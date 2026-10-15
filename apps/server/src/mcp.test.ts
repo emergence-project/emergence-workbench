@@ -2,7 +2,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { describe, expect, it } from 'vitest'
-import { agentOf, createMcpServer, INSTRUCTIONS } from './mcp.js'
+import { agentOf, createMcpServer, INSTRUCTIONS, recordAuthor } from './mcp.js'
 import { app, R, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -33,10 +33,10 @@ describe('MCP 입구 (읽기)', () => {
     expect(agentOf(undefined)).toBe('mcp')
   })
 
-  it('쓰기 도구는 edit_note · edit_concept · answer_record 셋뿐이다', async () => {
+  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record 넷뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['answer_record', 'edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record'].includes(t.name))
+    expect(tools.map((t) => t.name).sort()).toEqual(['add_record', 'answer_record', 'edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record'].includes(t.name))
   })
 
   it('연결 안내의 순서에 적은 도구 이름은 모두 실제 도구다', async () => {
@@ -80,6 +80,39 @@ describe('MCP 입구 (읽기)', () => {
     const r = await (await connect(fake)).callTool({ name: 'answer_record', arguments: { project: 'p1', target: 'flow-a b', id: 'c-1', answer: '식 (3) 때문입니다.' } })
     expect(textOf(r)).toContain('h3')
     expect(sent).toEqual([{ url: 'http://127.0.0.1:1/api/researches/p1/comments/flow-a%20b/c-1/answers', body: { by: 'test', body: '식 (3) 때문입니다.' } }])
+  })
+
+  it('기록의 쓴 이(by)는 영어 소문자 · 숫자 · - 20자까지로 줄인다', () => {
+    expect(recordAuthor('claude-code')).toBe('claude-code')
+    expect(recordAuthor('codex-mcp-client')).toBe('codex')
+    expect(recordAuthor('My Agent 2!')).toBe('my-agent-2')
+    expect(recordAuthor('123')).toBe('agent')
+    expect(recordAuthor('a'.repeat(40))).toHaveLength(20)
+  })
+
+  it('add_record는 노트 파일의 기록 대상에 에이전트 이름으로 질문을 남기고, 그 질문은 사용자 차례다', async () => {
+    const full = (async (input: string | URL, init?: RequestInit) => {
+      const u = new URL(String(input))
+      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
+      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    const c = await connect(full)
+    const rid = R.split('/').pop()!
+    const notes = (await app.inject({ method: 'GET', url: `${R}/notes` })).json().notes as { id: string; file: string; type: string }[]
+    const note = notes.find((n) => n.type === 'block')!
+    const body = (await app.inject({ method: 'GET', url: `${R}/blocks/${note.id}` })).json().content as string
+    const quote = body.split('\n').find((l) => l.trim().length > 12 && !l.startsWith('%') && !l.startsWith('\\'))!.trim().slice(0, 12)
+    const r = await c.callTool({ name: 'add_record', arguments: { project: rid, file: note.file, kind: '질문', text: '이 식이 맞는지 봐 주세요', quote } })
+    expect(r.isError).toBeFalsy()
+    expect(textOf(r)).toContain('user\'s turn')
+    const records = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid, kind: '질문' } }))).records as { by?: string; body: string; quote?: string }[]
+    expect(records).toEqual(expect.arrayContaining([expect.objectContaining({ by: 'test', body: '이 식이 맞는지 봐 주세요', quote })]))
+    const waiting = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid, unanswered: true } }))).records as { body: string }[]
+    expect(waiting.map((x) => x.body)).not.toContain('이 식이 맞는지 봐 주세요')
+    const issues = (await app.inject({ method: 'GET', url: '/api/research-issues' })).json()
+    expect(issues.records[rid]).toBeGreaterThanOrEqual(1)
+    expect((await c.callTool({ name: 'add_record', arguments: { project: rid, target: 'note-x', kind: '메모', text: 'x' } })).isError).toBe(true)
+    expect((await c.callTool({ name: 'add_record', arguments: { project: rid, kind: '메모', text: 'x' } })).isError).toBe(true)
   })
 
   it('edit_note는 앱 서버의 에이전트 쓰기로 보내고, 확인된 노트 거절을 그대로 전한다', async () => {

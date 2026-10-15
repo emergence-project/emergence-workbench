@@ -1,5 +1,9 @@
 import type { CommentEntry, NoteHighlight } from './api'
 import { findRecordRange, selectionAnchor, type RecordAnchor, type RecordRange } from './recordAnchors'
+import { isUserTurnRecord } from './recordsPanelHelpers'
+
+/** 본문에 칠하는 기록: turn = 사용자 차례(주황)로 칠한다 */
+export type PaintedRecord = NoteHighlight & { turn?: true }
 
 /** The LaTeX editor exposes source line numbers with its selection text. */
 export function recordSelectionFromLines(source: string, selection: { from: number; start?: number; text: string } | null): RecordAnchor | undefined {
@@ -28,10 +32,14 @@ export function recordRevealRange(source: string, anchor: { quote?: string; line
 }
 
 /** Quoted records paint their anchor without becoming highlight records in the list. */
-export function quotedRecordHighlights(comments: CommentEntry[]): NoteHighlight[] {
-  return comments.flatMap((comment) => comment.quote && comment.color ? [{
-    id: comment.id, rects: comment.rects, color: comment.color, page: comment.page,
-    quote: comment.quote, line: comment.line, prefix: comment.prefix, suffix: comment.suffix,
-    lost: comment.lost,
-  }] : [])
+export function quotedRecordHighlights(comments: CommentEntry[]): PaintedRecord[] {
+  return comments.flatMap((comment) => {
+    // 에이전트가 사용자에게 물은 기록은 색을 고르지 않았어도 사용자 차례(주황)로 칠한다 (10/15)
+    const turn = isUserTurnRecord(comment)
+    return comment.quote && (comment.color || turn) ? [{
+      id: comment.id, rects: comment.rects, color: comment.color ?? 'yellow', page: comment.page,
+      quote: comment.quote, line: comment.line, prefix: comment.prefix, suffix: comment.suffix,
+      lost: comment.lost, ...(turn && { turn }),
+    }] : []
+  })
 }
