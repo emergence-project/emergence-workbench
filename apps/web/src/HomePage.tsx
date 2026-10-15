@@ -28,7 +28,7 @@ const read = <T extends string>(key: string, ok: readonly T[], fallback: T): T =
 }
 const remember = (key: string, v: string) => { try { localStorage.setItem(key, v) } catch { /* 기억 못 해도 된다 */ } }
 
-export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits = {}, version, onReordered, onRegister, onSaved }: {
+export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits = {}, askRecords = {}, version, onReordered, onRegister, onSaved }: {
   researches: ResearchListItem[]
   /** 프로젝트마다 확인이 필요한 보조 노트 수 (왼쪽 띠의 수) */
   issues: Record<string, number>
@@ -36,6 +36,8 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
   judgeTasks?: Record<string, number>
   /** issues 가운데 에이전트 고침 검토 · 고치기 요청의 수 (툴팁 내역, 10/8) */
   agentEdits?: Record<string, number>
+  /** issues 가운데 에이전트가 물은 기록의 수 (툴팁 내역, 10/15) */
+  askRecords?: Record<string, number>
   version: number
   onReordered(list: ResearchListItem[]): void
   onRegister(): void
@@ -108,6 +110,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
       issues: issues[r.id] ?? 0,
       tasks: judgeTasks[r.id] ?? 0,
       edits: agentEdits[r.id] ?? 0,
+      records: askRecords[r.id] ?? 0,
       sync: sync ?? null,
       onUpdate: () => update(r.id),
       drag: dragProps(r.id), dropTarget: dropProps(r.id),
@@ -184,6 +187,8 @@ interface ProjectRowData {
   tasks?: number
   /** issues 가운데 에이전트 고침 */
   edits?: number
+  /** issues 가운데 에이전트가 물은 기록 */
+  records?: number
   sync: RepoSync | null
   onUpdate(): void
   drag: { draggable: boolean; onDragStart(e: DragEvent): void; onDragEnd(): void }
@@ -227,7 +232,7 @@ function ProjectRow(p: ProjectRowData) {
  */
 type ProjectCardProps = (ProjectRowData & { preview?: false }) | (
   Pick<ProjectRowData, 'r' | 'question' | 'image' | 'last' | 'error'>
-  & Partial<Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'sync'>>
+  & Partial<Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'records' | 'sync'>>
   & { preview: true; pc?: string }
 )
 
@@ -251,7 +256,7 @@ export function ProjectCard(p: ProjectCardProps) {
         <span className="pcard-foot">
           <span className="kc-time">{p.last ? t(`최근 ${cardTime(p.last)}`, `Last ${cardTime(p.last)}`) : ''}</span>
           {r.state !== 'active' && <span className="kc-state"><ProjectStateDot state={r.state} /></span>}
-          <span className="pcard-mark"><Attention mark={p.mark ?? null} issues={p.issues ?? 0} tasks={p.tasks ?? 0} edits={p.edits ?? 0} sync={p.sync ?? null} onUpdate={p.preview ? undefined : p.onUpdate} /></span>
+          <span className="pcard-mark"><Attention mark={p.mark ?? null} issues={p.issues ?? 0} tasks={p.tasks ?? 0} edits={p.edits ?? 0} records={p.records ?? 0} sync={p.sync ?? null} onUpdate={p.preview ? undefined : p.onUpdate} /></span>
         </span>
       </span>
     </div>
@@ -259,9 +264,9 @@ export function ProjectCard(p: ProjectCardProps) {
 }
 
 /** 상태 기호 하나. 업데이트 필요이고 앱에서 받을 수 있으면(빨리 감기만) 누르면 받는다 */
-function Attention({ mark, issues, tasks = 0, edits = 0, sync, onUpdate }: Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'sync'> & { onUpdate?(): void }) {
+function Attention({ mark, issues, tasks = 0, edits = 0, records = 0, sync, onUpdate }: Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'records' | 'sync'> & { onUpdate?(): void }) {
   if (!mark) return null
-  const tip0 = issueTip(issues - tasks - edits, tasks, edits)
+  const tip0 = issueTip(issues - tasks - edits - records, tasks, edits, records)
   const checkTip = t(`확인 필요 — ${tip0}`, `Needs review: ${tip0}`)
   const updateReason = sync?.ahead ? t(' · 이 컴퓨터에 커밋이나 변경이 있어 터미널에서 git pull', ' · this computer has commits or changes, so run git pull in a terminal')
     : sync?.conflictCount ? t(` · 이 컴퓨터의 변경과 겹치는 파일: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` 외 ${sync.conflictCount - sync.conflicts.length}개` : ''} (터미널에서 합치기)`, ` · Files overlapping with changes on this computer: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` and ${sync.conflictCount - sync.conflicts.length} more` : ''} (merge in a terminal)`)

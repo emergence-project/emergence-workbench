@@ -1,6 +1,6 @@
 // ---------- 노트 기록 · PDF 코멘트 (서버 comments.ts) ----------
 import type {
-  CommentAdded, CommentChangeBody, CommentFile as CommentFileReply, CommentOverview, CommentState, NewCommentBody, NoteHighlight as NoteHighlightReply, RecordList,
+  CommentAdded, CommentChangeBody, CommentFile as CommentFileReply, CommentOverview, CommentState, NewCommentBody, NoteHighlight as NoteHighlightReply, RecordList, ReplyBody,
 } from '@rw/core/contract/comments'
 import type { RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
 import { enc, json, req, send } from './http'
@@ -34,6 +34,9 @@ export function commentsApi(rid: string) {
     /** 답에 든 고침(before/after)을 노트에 적용한다. answer: 답 번호, baseHash: 기록 파일 hash */
     apply: (target: string, id: string, answer: number, baseHash: string) =>
       req(`${t(target)}/${enc(id)}/apply`, send('POST', { answer, baseHash })).then((r) => json<CommentFileReply>(r)),
+    /** 질문 · 지시 아래에 이어 쓰기 (덧붙이기라 hash 없음). 사용자가 쓴 기록은 다시 대기, 에이전트가 쓴 기록은 답함 */
+    reply: (target: string, id: string, text: ReplyBody['text']) =>
+      req(`${t(target)}/${enc(id)}/reply`, send('POST', { text })).then((r) => json<CommentFileReply>(r)),
     remove: (target: string, id: string, baseHash: string) =>
       req(`${t(target)}/${enc(id)}?baseHash=${enc(baseHash)}`, { method: 'DELETE' }).then((r) => json<CommentFileReply>(r)),
     /** GitHub에 아직 없는 코멘트 파일 (서버 기록 올리기, PR #22의 /records). 그 기능이 없는 서버면 null */

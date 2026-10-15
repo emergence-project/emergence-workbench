@@ -337,6 +337,9 @@ function Talk({ h, talks, busy, onAct, onAsk }: { h: EditHunk; talks: CommentEnt
                 </SayCard>
                 {c.answers.map((a, i) => a.by === '앱'
                   ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
+                  : a.by === '사용자'
+                    // 기록 탭에서 이어 쓴 글 (10/15)
+                    ? <SayCard key={i} me ui="사용자 글" name={t('사용자', 'User')} when={talkWhen(a.at)}><MemoText text={a.body} /></SayCard>
                   : (
                     <SayCard key={i} me={false} ui="에이전트 글" name={`${t('에이전트', 'Agent')} (${agentName(a.by)})`} tag={c.edit === '수정' ? t('다시 고침', 'Revised') : t('답만 함', 'Answered only')} when={talkWhen(a.at)}>
                       <MemoText text={answerText(a.body)} />

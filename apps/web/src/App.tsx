@@ -407,7 +407,7 @@ export function App() {
               <button key={r.id} data-rid={r.id} className={`rail-proj${r.id === rid ? ' on' : ''}${r.available ? '' : ' off'}${railDrag.from === r.id && railDrag.over ? ' lifted' : ''}`} aria-current={r.id === rid ? 'true' : undefined} style={{ ['--pc' as string]: projectColor(r.id) }}
                 {...railDragProps(r.id)}
                 data-ui="프로젝트 버튼" data-ui-item={r.title} data-tip={`${r.title}  ${PROJECT_KIND_LABEL[r.kind]}${r.fields.length ? ` ${r.fields.map((t) => `#${t}`).join(' ')}` : ''}`} aria-label={r.title}
-                onClick={() => go({ page: 'overview', rid: r.id })}>{initials(r.title)}<ProjectRailCount n={issues.counts[r.id]} notes={issues.notes[r.id]} tasks={issues.tasks[r.id]} edits={issues.edits[r.id]} /></button>
+                onClick={() => go({ page: 'overview', rid: r.id })}>{initials(r.title)}<ProjectRailCount n={issues.counts[r.id]} notes={issues.notes[r.id]} tasks={issues.tasks[r.id]} edits={issues.edits[r.id]} records={issues.records[r.id]} /></button>
             ))}
             <button className="rail-proj add" data-ui="프로젝트 등록" data-tip={t('프로젝트 등록', 'Register project')} aria-label={t('프로젝트 등록', 'Register project')} onClick={() => setDialog('register')}>＋</button>
           </div>
@@ -423,7 +423,7 @@ export function App() {
           ) : current && <>
             {/* 프로젝트 이름은 제목줄에만 둔다 (10/3 피드백: 중복 없애기) */}
             <div className="side-scroll project-side-scroll">
-              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} version={version} route={route} todoCount={todoCount} manuscripts={manuscripts} topics={topics} notes={notes}
+              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} version={version} route={route} todoCount={todoCount} askCount={issues.records[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
                 materials={rapi && <MaterialsNav rid={current.id} rapi={rapi} route={route} version={version} onSaved={flash} library={library} onLibraryChanged={libraryChanged} />} /> : <div className="space-empty">{current.problem ?? t('불러오는 중…', 'Loading…')}</div>}
             </div>
           </>}
@@ -432,7 +432,7 @@ export function App() {
         {globalPageOf(route.page) ? (
           globalPageOf(route.page)!.render({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight })
         ) : route.page === 'home' ? (
-          researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} version={version} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
+          researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} askRecords={issues.records} version={version} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
         ) : !rid || !summary || !rapi ? (
           <main className="stage full">
             <section className="pane">

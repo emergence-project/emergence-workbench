@@ -24,6 +24,8 @@ export const DEFAULT_SCREENS = [
   ['todo', '#/r/{rid}/todo', '판단 카드'],
   // 기록 탭 (10/15): 메모 · 할 일 · 질문을 작업 탭에서 떼어 대상별로 모은다. 처음은 메모
   ['records', '#/r/{rid}/records', '기록 화면'],
+  // 기록 탭의 질문 (10/15): 답을 대화로, 이어 쓰기, 에이전트가 물은 질문(주황, 사용자 차례). 기록은 fixtures/sandbox-extra/workbench/comments
+  ['records-questions', '#/r/{rid}/records', '기록 화면', '[data-ui="기록 거르기"] button:text-matches("^(질문|Question)")'],
   ['info', '#/r/{rid}/info', '저장소 정보'],
   // 현황의 AGENTS.md 탭 (10/15): 저장소의 AGENTS.md와 STATUS.md의 규칙 절
   ['info-agents', '#/r/{rid}/agents', 'AGENTS.md'],

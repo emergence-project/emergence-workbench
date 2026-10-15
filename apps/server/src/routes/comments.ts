@@ -1,7 +1,7 @@
 // 노트 본문·PDF 기록
 import type { FastifyInstance } from 'fastify'
 import path from 'node:path'
-import { appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, claudeRunner } from '../ask.js'
+import { appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, claudeRunner, replyToRecord } from '../ask.js'
 import * as C from '@rw/core/contract/comments'
 import { parseBody, replies } from '../contract.js'
 import { addComment, classifyComments, isAgentKind, commentSourceFile, deleteComment, listComments, listRecords, pendingQuestions, readComments, updateComment } from '../comments.js'
@@ -87,6 +87,11 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     if (body.length > 20000) throw new WorkbenchError(400, t('답이 너무 김 (2만 자까지)', 'The answer is too long (20,000 characters at most)'))
     const name = by.replace(/[\s·]+/g, ' ').trim().slice(0, 40) || 'agent'
     return appendAnswer(root, target, id, name, body)
+  })
+  /** 사용자가 질문 · 지시 아래에 이어 쓴다 (10/15). 사용자가 쓴 기록은 다시 대기(에이전트 차례), 에이전트가 쓴 기록은 답함 */
+  app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/reply', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
+    const { text } = parseBody(C.ReplyBody, req.body)
+    return replyToRecord(wbOf(req.params.rid).root, req.params.target, req.params.id, text)
   })
   /** 답에 든 고침을 노트에 적용한다 (사용자가 "노트에 적용"을 누를 때). { answer: 답 번호, baseHash: 기록 파일 hash } */
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/apply', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {

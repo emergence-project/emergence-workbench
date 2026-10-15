@@ -3,8 +3,9 @@ import { applyNoteFixes, parseNoteFixes } from '@rw/core'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { commentSourceFile, commentsFile, guardBody, unguardBody, parseComments, type CommentFile } from './comments.js'
-import { answerHead } from './commentFormat.js'
+import { commentSourceFile, commentsFile, guardBody, isAgentKind, unguardBody, parseComments, readComments, type CommentFile } from './comments.js'
+import { answerHead, type CommentState } from './commentFormat.js'
+import { USER_ANSWER_BY } from '@rw/core/contract/comments'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
@@ -104,7 +105,7 @@ export function askPrompt(f: Omit<CommentFile, 'highlights'>, id: string, ctx: A
     ctx.file ? t(`- 파일: ${ctx.file} (이 폴더 기준)`, `- File: ${ctx.file} (relative to this folder)`) : f.source ? t(`- 원래 파일 이름: ${f.source} (이 폴더 안에서 찾아 주세요)`, `- Original file name: ${f.source} (find it inside this folder)`) : null,
     q.page ? t(`- 위치: ${q.page}쪽`, `- Location: page ${q.page}`) : null,
     q.quote ? t(`- 고른 글: "${q.quote}"`, `- Selected text: "${q.quote}"`) : null,
-    q.answers.length ? t(`- 앞서 단 답:\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`, `- Earlier answers:\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`) : null,
+    q.answers.length ? t(`- 앞서 주고받은 글 (사용자 = 연구자가 이어 쓴 것. 마지막 글에 답합니다):\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`, `- Earlier messages (사용자 = the researcher's follow-up; answer the last one):\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`) : null,
     '',
     ...rulesPrompt(ctx.rules),
     t('질문:', 'Question:'),
@@ -122,7 +123,7 @@ export function askPrompt(f: Omit<CommentFile, 'highlights'>, id: string, ctx: A
 }
 
 /** 질문 아래(다음 코멘트 머리 앞)에 답을 덧붙이고 상태를 답함으로. 그사이 바뀐 파일도 덮어쓰지 않고 그 자리에만 끼운다 */
-export function appendAnswer(root: string, target: string, id: string, by: string, body: string, now = new Date(), state: '답함' | '끝냄' = '답함'): CommentFile {
+export function appendAnswer(root: string, target: string, id: string, by: string, body: string, now = new Date(), state: CommentState = '답함'): CommentFile {
   const file = commentsFile(root, target)
   if (!fs.existsSync(file)) throw new WorkbenchError(404, t('코멘트 파일이 없음', 'No comment file'))
   const lines = fs.readFileSync(file, 'utf8').split('\n')
@@ -136,6 +137,18 @@ export function appendAnswer(root: string, target: string, id: string, by: strin
   const text = lines.join('\n')
   writeAtomic(file, text.endsWith('\n') ? text : `${text}\n`)
   return parseComments(target, fs.readFileSync(file, 'utf8'))
+}
+
+/**
+ * 사용자가 질문 · 지시 아래에 이어 쓴다 (10/15): `### 답 · 사용자 · <시각>`을 덧붙인다.
+ * 에이전트가 쓴 기록(by)이면 사용자가 답한 것이라 답함, 사용자가 쓴 기록이면 다시 에이전트 차례라 대기.
+ */
+export function replyToRecord(root: string, target: string, id: string, text: string, now = new Date()): CommentFile {
+  const q = readComments(root, target).comments.find((c) => c.id === id)
+  if (!q || !isAgentKind(q.kind)) throw new WorkbenchError(404, t(`질문이나 지시가 없음: ${id}`, `No such question or instruction: ${id}`))
+  if (!text.trim()) throw new WorkbenchError(400, t('글이 비었음', 'The text is empty'))
+  if (text.length > 20000) throw new WorkbenchError(400, t('글이 너무 김 (2만 자까지)', 'The text is too long (20,000 characters at most)'))
+  return appendAnswer(root, target, id, USER_ANSWER_BY, text, now, q.by ? '답함' : '대기')
 }
 
 /** 앱이 고침을 적용할 수 있는 대상: 연구 저장소의 Markdown 노트 (원고 · 유도 블록 · PDF는 아니다) */
