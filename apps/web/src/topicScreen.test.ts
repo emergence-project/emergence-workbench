@@ -66,6 +66,7 @@ describe('첫 화면 주제 · 노트 섹션', () => {
   it('한 줄에 들어가는 카드 수', () => {
     expect(gridColumns(580)).toBe(3)
     expect(gridColumns(579)).toBe(2)
+    expect(gridColumns(4 * 181.3 + 3 * 14 - 0.01, 181.3)).toBe(4)
     expect(gridColumns(100)).toBe(1)
   })
 })

@@ -1,6 +1,11 @@
 /* 프로젝트 첫 화면 (OverviewPage) */
 /* 왼쪽 제목·설명·카드와 오른쪽 작업은 같은 높이에서 시작한다. */
-.page-body.landing { max-width: calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap) + var(--sp-5) + var(--landing-work-width) + 2 * var(--sp-6)); gap: var(--sp-5); container-type: inline-size; }
+/* 카드는 한 줄에 4장 고정 (10/15 12:09 사용자). 문서 폭은 주제 화면과 같은 카드 4장 폭이고, 사이드바를 열어 조금 좁으면 카드가 그만큼 줄어든다.
+   본문이 700px보다 좁으면 184px 카드가 들어가는 만큼만 */
+.page-body.landing { max-width: calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap) + 2 * var(--sp-6)); gap: var(--sp-5); container-type: inline-size; }
+.landing .kc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.landing .kc-grid > .kc, .landing .kc-grid > .kc-new { width: 100%; }
+@container (max-width: 700px) { .landing .kc-grid { grid-template-columns: repeat(auto-fill, var(--kc-card-width)); } .landing .kc-grid > .kc, .landing .kc-grid > .kc-new { width: var(--kc-card-width); } }
 .issues > summary { cursor: pointer; }
 /* 머리 두 칸(10/15 09:55 피드백, 시안 A): 왼쪽 제목·설명·성격, 오른쪽 작업 패널. 주제 카드는 그 아래 전체 폭.
    작업 패널은 크기를 내용에서 재지 않아(contain: size) 줄 높이가 머리(최소 --landing-work-min-height)로 정해진다.
