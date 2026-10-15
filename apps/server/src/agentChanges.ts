@@ -148,8 +148,9 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
     const after = c.status === 'D' ? undefined : newText(c.file)
     const old = c.from ?? c.file
 
-    // 원자료·보존본: 있는 파일을 고치거나 지우거나 옮기지 않는다 (새로 넣는 것은 옮기기·바깥 경고로)
-    if (c.status !== 'A' && (top(old) === 'sources' || top(old) === 'archive')) {
+    // 원자료·보존본: 있는 파일을 고치거나 지우거나 옮기지 않는다 (새로 넣는 것은 옮기기·바깥 경고로).
+    // 폴더 맨 위 README.md는 안내와 옛 경로 → 새 경로 표라 옮길 때마다 고친다 (바깥 경고만)
+    if (c.status !== 'A' && (top(old) === 'sources' || top(old) === 'archive') && !/^(sources|archive)\/README\.md$/.test(old)) {
       add('frozen-folder', old, top(old) === 'sources' ? '원자료(sources/)의 있는 파일을 고치거나 지웠습니다. 되돌리세요.' : '보존본(archive/)의 있는 파일을 고치거나 지웠습니다. 되돌리세요.',
         top(old) === 'sources' ? 'An existing file in sources/ (original material) was changed or removed. Revert it.' : 'An existing file in archive/ (preserved copy) was changed or removed. Revert it.')
       continue

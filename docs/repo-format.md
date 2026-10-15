@@ -581,7 +581,7 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 
 | 이름 | 무엇 | 기본 |
 |---|---|---|
-| `frozen-folder` | `sources/`·`archive/`의 있는 파일을 고치거나 지우거나 옮김 (새로 넣는 것은 아래 경고만) | 오류 |
+| `frozen-folder` | `sources/`·`archive/`의 있는 파일을 고치거나 지우거나 옮김. 새로 넣는 것과 폴더 맨 위 `README.md`(안내, 옛 경로 → 새 경로 표)는 아래 경고만 | 오류 |
 | `locked` | 머리말(또는 YAML) `locked: true`인 파일을 고침 | 오류 |
 | `approval` | 노트를 해결로(`note.yaml` `state: done`, 블록 `status: solved`), 맡긴 일을 `done`으로, `judged`·`answers`를 씀, 흐름에 `role: human` 확인 기록을 씀 | 오류 |
 | `flow-human` | 흐름 점의 질문 문장(`fields.question`)·발단 선(`origin`)을 바꿈, `result: dropped`로 갈래를 폐기 | 오류 |

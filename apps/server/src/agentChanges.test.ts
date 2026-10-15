@@ -36,13 +36,16 @@ describe('바뀐 것 검사', () => {
   it('원자료·보존본의 있는 파일을 고치거나 지우면 오류, 새로 넣으면 바깥 경고만', () => {
     write('sources/paper.tex', 'a\n')
     write('archive/old/note.md', 'a\n')
+    write('archive/README.md', '# 보존본\n')
     commit()
     write('sources/paper.tex', 'b\n')
     fs.rmSync(path.join(dir, 'archive/old/note.md'))
     write('sources/new.pdf', 'x')
+    write('archive/README.md', '# 보존본\n\n| 옛 경로 | 새 경로 |\n')
     expect(found()).toEqual([
       ['error', 'frozen-folder', 'archive/old/note.md'],
       ['error', 'frozen-folder', 'sources/paper.tex'],
+      ['warning', 'outside-workbench', 'archive/'],
       ['warning', 'outside-workbench', 'sources/'],
     ])
   })
