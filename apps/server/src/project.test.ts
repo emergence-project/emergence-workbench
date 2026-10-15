@@ -180,6 +180,16 @@ describe('프로젝트 정본과 STATUS.md', () => {
     expect(md).toContain('**in-review** 1: `docs/theory/02-c.md`')
     expect(md).toContain('아직 쓰는 중인 문서(draft·in-progress 등) 2개는 세지 않는다')
     expect(md).not.toContain('**draft**')
+    // 에이전트용: 요약 · 절 하나 (모르는 절은 404와 있는 절 이름)
+    const summary = (await a.inject({ method: 'GET', url: `${P}/agent-status?view=summary` })).json().markdown as string
+    expect(summary).toContain('## 사용자 검토 대기 문서 1')
+    expect(summary).toContain('## 다른 절 (필요할 때만 읽는다)')
+    const part = (await a.inject({ method: 'GET', url: `${P}/agent-status?section=${encodeURIComponent('사용자 검토 대기 문서')}` })).json().markdown as string
+    expect(part.startsWith('## 사용자 검토 대기 문서 1')).toBe(true)
+    expect(md).toContain(part)
+    const nope = await a.inject({ method: 'GET', url: `${P}/agent-status?section=nope` })
+    expect(nope.statusCode).toBe(404)
+    expect(nope.json().error).toContain('사용자 검토 대기 문서')
     expect(md).not.toContain('outside')
     expect((await a.inject({ method: 'POST', url: `${P}/agent-status` })).statusCode).toBe(409)
     expect(fs.existsSync(path.join(proj, 'workbench/STATUS.md'))).toBe(false)

@@ -487,7 +487,7 @@ describe('기록 API', () => {
     expect(grouped.statusCode).toBe(200)
     expect(grouped.json().files[0]).toMatchObject({ target: 'project', title: '프로젝트 기록', hash: changed.json().hash, comments: [expect.objectContaining({ body: '새 글' })] })
     expect(grouped.json().files.every((item: object) => !('highlights' in item))).toBe(true)
-    const index = (await app.inject('/api')).json()
+    const index = (await app.inject('/api?all=1')).json()
     expect(index.start).toContainEqual(expect.objectContaining({ method: 'GET', url: '/api/researches/:rid/records' }))
     expect(index.routes).toContainEqual({ method: 'GET', url: '/api/researches/:rid/records' })
   })
@@ -612,7 +612,7 @@ describe('기록 자동 분류 API', () => {
     const done = await a.inject({ method: 'PATCH', url: `${apiRoot}/journal/${journal.date}/${journal.index}`, payload: { done: true, was: journal.text, link: journal.link } })
     expect(done.statusCode).toBe(200)
     expect(readComments(root, target).comments.find((item) => item.id === original.id)!.state).toBe('끝냄')
-    expect((await a.inject('/api')).json().routes).toContainEqual({ method: 'POST', url: '/api/researches/:rid/comments/:target/classify' })
+    expect((await a.inject('/api?all=1')).json().routes).toContainEqual({ method: 'POST', url: '/api/researches/:rid/comments/:target/classify' })
   })
 
   it.each([false, true])('두 종류로 나눌 때 원문과 앵커를 남기고 새 기록에 물려준다 (PDF: %j)', async (pdf) => {

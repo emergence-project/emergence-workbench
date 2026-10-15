@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
-import { generateStatus, readStatusEdits, writeStatus } from './agentStatus.js'
+import { generateStatus, readStatusEdits, sectionName, statusPart, statusSummary, writeStatus } from './agentStatus.js'
 import { buildApp } from './app.js'
 import { fastForward } from './gitsync.js'
 import { gitTest as g, syncRepo } from './gitSyncTestkit.js'
@@ -315,5 +315,48 @@ describe('에이전트 맥락 요약', () => {
     status = generateStatus(new Workbench(wb.root))
     expect(status).toContain('- `workbench/calc/<폴더>/` — 연구노트·계산 노트 1개')
     expect(status).not.toContain('workbench/notes/<폴더>/')
+  })
+})
+
+describe('짧은 요약과 절 하나 (10/15 에이전트가 읽는 양 줄이기)', () => {
+  const md = [
+    '# STATUS — T', '', '> 머리 줄', '', '**목표.** 무엇', '',
+    '## 정본 위치', '', '- `a`', '',
+    '## 할 일', '', '- [ ] 하나', '',
+    '## 맡긴 일 1', '', `- ${'긴 '.repeat(800)}`, '',
+    '## 원고 — 본문 (`main.tex`)', '', '장 3', '',
+    '## 노트 2', '', '- ● 노트 가', '- ✓ 노트 나', '',
+  ].join('\n')
+
+  it('절 이름은 머리의 수 · 설명 · 파일을 뗀다', () => {
+    expect(sectionName('## 노트 15')).toBe('노트')
+    expect(sectionName('## 블록 노트 3 — 원고 밖의 열린 문제')).toBe('블록 노트')
+    expect(sectionName('## 원고 — 본문 (`main.tex`)')).toBe('원고 — 본문')
+    expect(sectionName('## 최근 7일 기록')).toBe('최근 7일 기록')
+  })
+
+  it('요약은 머리 · 목표 · 짧은 지금 할 것만 싣고, 나머지는 이름과 크기만', () => {
+    const s = statusSummary(md, '절 하나: --section')
+    expect(s).toContain('**목표.** 무엇')
+    expect(s).toContain('## 할 일\n\n- [ ] 하나')
+    expect(s).not.toContain('긴 긴')
+    expect(s).not.toContain('노트 가')
+    expect(s).toContain('> 절 하나: --section')
+    expect(s).toMatch(/- 맡긴 일 1 · \d+\.\dKB/)
+    expect(s).toMatch(/- 정본 위치 · \d+\.\dKB/)
+    expect(s).toMatch(/- 원고 — 본문 \(`main\.tex`\) · /)
+  })
+
+  it('절 하나는 이름 · 앞부분으로 찾고, 없으면 null', () => {
+    expect(statusPart(md, '노트')).toBe('## 노트 2\n\n- ● 노트 가\n- ✓ 노트 나\n')
+    expect(statusPart(md, '원고')).toContain('장 3')
+    expect(statusPart(md, '없는 절')).toBeNull()
+  })
+
+  it('예제 연구의 요약은 전부보다 짧고, 모든 절이 요약에 그대로 있거나 이름으로 남는다', () => {
+    const full = generateStatus(new Workbench(path.join(repo, 'workbench')))
+    const s = statusSummary(full, '')
+    expect(s.length).toBeLessThan(full.length)
+    for (const h of full.match(/^## .+$/gm)!) expect(s).toContain(h.replace(/^## /, ''))
   })
 })

@@ -16,7 +16,7 @@ const RULES_FILE = path.join(APP_ROOT, 'docs/agent-delegated-work.md')
 
 /** 모든 도구가 지키는 것. rules 도구가 맡긴 일 규칙과 함께 돌려준다 (도구 이름·설명은 영어, 2026-10-08) */
 export const SAFETY = [
-  '- To change a note or a concept note, prefer edit_note / edit_concept (the user reviews each changed paragraph in the app). For other writes use the app server API (GET /api lists every route; send the hash you read as baseHash, and read again after a 409), or edit repository files directly following docs/repo-format.md and run pnpm --dir <app folder> agent:check <repository> afterwards.',
+  '- To change a note or a concept note, prefer edit_note / edit_concept (the user reviews each changed paragraph in the app). For other writes use the app server API (GET /api gives the main routes and GET /api?all=1 every route; send the hash you read as baseHash, and read again after a 409), or edit repository files directly following docs/repo-format.md and run pnpm --dir <app folder> agent:check <repository> afterwards.',
   '- A note or concept note the user has reviewed (concept note checked: ok, note status solved) needs the user\'s permission in the conversation. The first attempt is refused and shown to the user; ask, and only after they agree send again with approved: true.',
   '- Edit manuscripts (LaTeX manuscripts) only when the user asks. Never edit concept notes with locked: true. Do not change bytes outside the part you edit.',
   '- The files in each repository are the source of truth. workbench/STATUS.md is a summary the app writes; do not edit it.',
@@ -30,11 +30,12 @@ export const SAFETY = [
  */
 export const INSTRUCTIONS = [
   'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server.',
-  'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on.',
+  'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on (a short summary; fetch one section by name when needed).',
+  'Outputs are short on purpose: read a longer rule (rules part) or STATUS section (project_status section) only when the work needs it.',
   'Answer the user\'s questions: list_records with unanswered: true → read_note for the context → answer_record.',
   'Ask the user to check something (for example a part of a note you wrote): add_record with kind 질문 and the quoted text; the user answers in the app, read it later with read_records.',
-  'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: search_library → read_concept → edit_concept.',
-  'Delegated tasks: list_tasks → read_task (the result format is in rules).',
+  'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: rules with part: "concepts" (once) → search_library → read_concept → edit_concept.',
+  'Delegated tasks: rules with part: "tasks" (once) → list_tasks → read_task.',
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
   'The user\'s turn (notes to review, task results to judge, agent edits) is for the user; never act on it for them.',
 ].join('\n')
@@ -116,21 +117,27 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('rules', {
     title: 'Rules',
-    description: 'Everything to read before starting work, in one place: safety rules, the common research rules (one file for every research repository, when set up), the rules for delegated tasks (docs/agent-delegated-work.md), the concept-note rules of the shared library (its README.md) and, with project, that research repository\'s own AGENTS.md / CLAUDE.md.',
-    inputSchema: { project: z.string().optional().describe('Project id (from list_projects) to include its repository rules') },
+    description: 'What to read before starting work: safety rules, the common research rules (one file for every research repository, when set up) and, with project, that research repository\'s own AGENTS.md / CLAUDE.md. The longer rules for delegated tasks and for concept notes are listed with their size; read one with part: "tasks" or part: "concepts" only when your work touches it.',
+    inputSchema: {
+      project: z.string().optional().describe('Project id (from list_projects) to include its repository rules'),
+      part: z.enum(['tasks', 'concepts']).optional().describe('Only this rule document: tasks = delegated-task rules (docs/agent-delegated-work.md), concepts = concept-note rules of the shared library'),
+    },
     annotations: ro,
-  }, async ({ project: rid }) => {
-    const doc = fs.existsSync(RULES_FILE) ? fs.readFileSync(RULES_FILE, 'utf8') : '(delegated-task rules document not found)'
+  }, async ({ project: rid, part }) => {
+    const tasksDoc = () => (fs.existsSync(RULES_FILE) ? fs.readFileSync(RULES_FILE, 'utf8') : '(delegated-task rules document not found)')
+    // 개념노트 규칙은 앱 서버가 읽는다 (서버가 꺼져 있으면 그렇다고 적는다)
+    const conceptsDoc = async () => {
+      const concepts = await get(base, f, '/api/concepts/rules')
+      const cr = concepts.ok ? (concepts.body as { rules: { file: string; text: string } | null }).rules : null
+      return `# Concept note rules (shared library ${cr?.file ?? 'README.md'})\n\n${cr ? cr.text : concepts.ok ? '(no shared library is set up)' : concepts.error.content[0]!.text}`
+    }
+    if (part === 'tasks') return text(tasksDoc())
+    if (part === 'concepts') return text(await conceptsDoc())
     const parts = [`# Safety rules\n\n${SAFETY}`]
-    // 연구 공통 규칙 (R1): 개인 저장소 사본에 있을 때만. 서버가 꺼져 있으면 아래 개념노트 규칙이 그렇다고 적는다
+    // 연구 공통 규칙 (R1): 개인 저장소 사본에 있을 때만. 모든 일에 통하므로 늘 싣는다
     const common = await get(base, f, '/api/rules/common')
     const cm = common.ok ? (common.body as { rules: { file: string; text: string; truncated?: true } | null }).rules : null
     if (cm) parts.push(`# Common research rules (${cm.file})\n\n${cm.text}${cm.truncated ? '\n\n(truncated)' : ''}`)
-    parts.push(doc)
-    // 개념노트 규칙과 연구 저장소 규칙은 앱 서버가 읽는다 (서버가 꺼져 있으면 그렇다고 적는다)
-    const concepts = await get(base, f, '/api/concepts/rules')
-    const cr = concepts.ok ? (concepts.body as { rules: { file: string; text: string } | null }).rules : null
-    parts.push(`# Concept note rules (shared library ${cr?.file ?? 'README.md'})\n\n${cr ? cr.text : concepts.ok ? '(no shared library is set up)' : concepts.error.content[0]!.text}`)
     if (rid) {
       const r = await get(base, f, `/api/researches/${enc(rid)}/agent-rules`)
       if (!r.ok) return r.error
@@ -139,6 +146,11 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
         ? files.map((x) => `# Project rules (${x.file})\n\n${x.text}${x.truncated ? '\n\n(truncated)' : ''}`).join('\n\n')
         : '# Project rules\n\n(this repository has no AGENTS.md or CLAUDE.md)')
     }
+    // 맡긴 일 · 개념노트 규칙은 길어서(각 8–9KB) 그 일을 할 때만 읽게 이름과 크기만 (10/15)
+    const size = (s: string) => `${(Buffer.byteLength(s) / 1024).toFixed(1)}KB`
+    parts.push(['# More rules (read only when your work touches them)', '',
+      `- part: "tasks" · delegated tasks (workbench/tasks/*.md: end condition, result format, approval) · ${size(tasksDoc())}`,
+      `- part: "concepts" · concept notes in the shared library (sources, format, what not to invent) · ${size(await conceptsDoc())}`].join('\n'))
     return text(parts.join('\n\n'))
   })
 
@@ -160,11 +172,15 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('project_status', {
     title: 'Project status',
-    description: 'Current state of a project: where the sources live, to-dos, delegated tasks, open questions, items awaiting review, paused notes with their resume conditions, recent records. Same content as workbench/STATUS.md (Markdown).',
-    inputSchema: { project },
+    description: 'Current state of a project (workbench/STATUS.md). By default a short summary: header rules, goal and what is waiting now (to-dos, delegated tasks, open questions and instructions, items awaiting review); the other sections (notes, topics, recent records …) are listed with their size. Read one with section: "<name>", or everything with full: true only when you really need it.',
+    inputSchema: {
+      project,
+      section: z.string().optional().describe('One section by name, e.g. 노트, 주제, 최근 7일 기록, 공통 규칙, 정본 위치'),
+      full: z.boolean().optional().describe('The whole STATUS (11–18KB); avoid unless needed'),
+    },
     annotations: ro,
-  }, async ({ project: rid }) => {
-    const r = await get(base, f, `/api/researches/${enc(rid)}/agent-status`)
+  }, async ({ project: rid, section, full }) => {
+    const r = await get(base, f, `/api/researches/${enc(rid)}/agent-status${section ? `?section=${enc(section)}` : full ? '' : '?view=summary'}`)
     return r.ok ? text((r.body as { markdown: string }).markdown) : r.error
   })
 

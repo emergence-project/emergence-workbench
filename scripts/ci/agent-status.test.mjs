@@ -24,8 +24,21 @@ test('예제의 임시 복사본 요약을 보이고 설정이 없어도 STATUS.
     assert.doesNotMatch(r.stdout, /## 에이전트 고침 검토 대기/)
     assert.equal(fs.existsSync(path.join(repo, 'workbench/STATUS.md')), false)
     assert.equal(fs.existsSync(config), false)
-    const stamp = (s) => s.replace(/자동으로 쓰는 요약이다 \([^)]*\)/, '')
+    const stamp = (s) => s.replace(/자동으로 쓰는 요약이다 \([^)]*\)/, '').replace(/^> 절 하나만 받기: .*$/m, '')
     assert.equal(stamp(run(path.join(repo, 'workbench'), config).stdout), stamp(r.stdout))
+    // 기본은 짧은 요약, --section은 그 절만, --full은 전부 (10/15)
+    assert.match(r.stdout, /## 다른 절 \(필요할 때만 읽는다\)/)
+    const env = { ...process.env, RW_CONFIG_DIR: config }
+    const full = spawnSync('node', ['scripts/agent-status.mjs', repo, '--full'], { cwd: root, encoding: 'utf8', env })
+    assert.equal(full.status, 0, full.stderr)
+    assert.ok(full.stdout.length > r.stdout.length)
+    const part = spawnSync('node', ['scripts/agent-status.mjs', '--section', '블록 노트', repo], { cwd: root, encoding: 'utf8', env })
+    assert.equal(part.status, 0, part.stderr)
+    assert.match(part.stdout, /^## 블록 노트 \d+/)
+    assert.ok(full.stdout.includes(part.stdout))
+    const nope = spawnSync('node', ['scripts/agent-status.mjs', repo, '--section', '없는 절'], { cwd: root, encoding: 'utf8', env })
+    assert.equal(nope.status, 1)
+    assert.match(nope.stderr, /있는 절: .*블록 노트/)
   } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 })
 

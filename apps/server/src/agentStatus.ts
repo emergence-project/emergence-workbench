@@ -396,3 +396,55 @@ function noteDirs(notes: { file: string }[]): string[] {
   }
   return [...dirs]
 }
+
+// ---------- 에이전트용 짧은 요약 (10/15 "에이전트가 읽는 양 줄이기") ----------
+// STATUS 전부는 11–18KB라 일 하나에도 수천 토큰을 쓴다. 요약은 머리 · 목표 · 지금 할 것(짧은 절)만 싣고,
+// 나머지 절은 이름과 크기만 적어 필요할 때 그 절만 받게 한다(MCP project_status section, pnpm agent:status --section).
+
+/** 요약에 그대로 싣는 절: 지금 누가 무엇을 해야 하는지. 이보다 긴 절은 이름만 남긴다 */
+const ACTIONABLE = ['프로젝트 규칙', '작업 파일 오류', '할 일', '맡긴 일', '에이전트 고침 검토 대기', '대기 중인 질문', '대기 중인 지시', '사용자 검토 대기 문서']
+const INLINE_MAX = 1500
+
+interface StatusPart { name: string; heading: string; text: string }
+
+/** '## 노트 15' → '노트', '## 원고 — 이름 (`main.tex`)' → '원고 — 이름', '## 블록 노트 3 — …' → '블록 노트' */
+export function sectionName(heading: string): string {
+  const h = heading.replace(/^##\s+/, '').trim()
+  if (h.startsWith('원고 — ')) return h.replace(/\s*\(`[^`]*`\)\s*$/, '')
+  return h.split(' — ')[0]!.replace(/\s+\d+$/, '').trim()
+}
+
+function splitStatus(markdown: string): { head: string; parts: StatusPart[] } {
+  const chunks = markdown.split(/^(?=## )/m)
+  const head = chunks[0]!.startsWith('## ') ? '' : chunks.shift()!
+  return { head, parts: chunks.map((c) => { const heading = c.split('\n', 1)[0]!; return { name: sectionName(heading), heading, text: c } }) }
+}
+
+const kb = (s: string) => `${(Buffer.byteLength(s) / 1024).toFixed(1)}KB`
+
+/**
+ * STATUS의 짧은 요약. how는 절 하나를 받는 방법을 적는 한 줄 (CLI와 MCP가 다르다).
+ * 지금 할 것 절은 짧으면 그대로, 길면 이름만. 나머지 절은 이름 · 크기 목록.
+ */
+export function statusSummary(markdown: string, how: string): string {
+  const { head, parts } = splitStatus(markdown)
+  const inline = parts.filter((p) => ACTIONABLE.includes(p.name) && p.text.length <= INLINE_MAX)
+  const rest = parts.filter((p) => !inline.includes(p))
+  const out = [head.trimEnd(), '', ...inline.map((p) => p.text.trimEnd() + '\n')]
+  if (rest.length) {
+    out.push('## 다른 절 (필요할 때만 읽는다)', '', `> ${how}`, '')
+    for (const p of rest) out.push(`- ${p.heading.replace(/^##\s+/, '')} · ${kb(p.text)}${p.name === '공통 규칙' ? ' — 이 세션에서 아직 읽지 않았으면 일하기 전에 읽는다' : ''}`)
+    out.push('')
+  }
+  return out.join('\n')
+}
+
+/** 절 하나 (이름은 sectionName과 같게, 앞부분만 맞아도 된다). 없으면 null */
+export function statusPart(markdown: string, name: string): string | null {
+  const { parts } = splitStatus(markdown)
+  const want = name.replace(/^##\s+/, '').trim()
+  const hit = parts.find((p) => p.name === want) ?? parts.find((p) => p.name.startsWith(want) || p.heading.includes(want))
+  return hit ? hit.text : null
+}
+
+export const statusPartNames = (markdown: string): string[] => splitStatus(markdown).parts.map((p) => p.name)

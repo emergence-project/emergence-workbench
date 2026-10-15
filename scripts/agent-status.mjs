@@ -1,4 +1,5 @@
-// pnpm agent:status <연구 저장소 폴더> — 앱이 맥에서 쓰는 workbench/STATUS.md와 같은 요약을 파일에서 바로 뽑아 보인다.
+// pnpm agent:status <연구 저장소 폴더> — 앱이 맥에서 쓰는 workbench/STATUS.md를 파일에서 바로 뽑아 보인다.
+// 기본은 짧은 요약(머리 · 목표 · 지금 할 것, 다른 절은 이름과 크기만). --section <절 이름>은 그 절만, --full은 전부.
 // 폴더를 여럿 주거나, 연구 저장소들을 담은 폴더를 주거나, --all(이 컴퓨터 앱에 등록한 진행 중 프로젝트)이면
 // 프로젝트마다 한 줄씩 "한눈에" 표를 보인다(사용자 차례는 홈의 "확인 필요"와 같은 계산). 자세한 것은 폴더 하나로 다시 부른다.
 // 앱·서버 없이 돈다(클라우드 에이전트용). 아무것도 쓰지 않는다.
@@ -9,10 +10,15 @@ import { tsxApi } from './ci/tsx-api.mjs'
 
 const args = process.argv.slice(2)
 const all = args.includes('--all')
-const given = args.filter((a) => a !== '--all')
+const full = args.includes('--full')
+const si = args.indexOf('--section')
+const section = si >= 0 ? args[si + 1] : undefined
+if (si >= 0 && !section) { console.error('--section 뒤에 절 이름을 주세요 (예: --section 노트)'); process.exit(1) }
+const given = args.filter((a, i) => a !== '--all' && a !== '--full' && (si < 0 || (i !== si && i !== si + 1)))
 if (!all && !given.length) {
   console.error([
-    '사용법: pnpm agent:status <연구 저장소 폴더>            (예: pnpm agent:status ../my-research)',
+    '사용법: pnpm agent:status <연구 저장소 폴더>            (예: pnpm agent:status ../my-research — 짧은 요약)',
+    '        pnpm agent:status <폴더> --section <절 이름>     (그 절만, 예: --section 노트)   · --full (전부)',
     '        pnpm agent:status <폴더> <폴더> …  또는 <저장소들을 담은 폴더>   (여러 프로젝트 한눈에)',
     '        pnpm agent:status --all                         (이 컴퓨터 앱에 등록한 진행 중 프로젝트 한눈에)',
   ].join('\n'))
@@ -28,14 +34,19 @@ const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
 const { Workbench } = await tsImport('../apps/server/src/workbench.ts', opts)
 
-// 폴더 하나 = 지금까지처럼 그 프로젝트의 STATUS 전부
+// 폴더 하나 = 그 프로젝트의 STATUS (요약 · 절 하나 · 전부)
 if (!all && dirs.length === 1 && isResearch(dirs[0])) {
   const root = wbRoot(dirs[0])
-  const { generateStatus, readStatusEdits } = await tsImport('../apps/server/src/agentStatus.ts', opts)
+  const { generateStatus, readStatusEdits, statusSummary, statusPart, statusPartNames } = await tsImport('../apps/server/src/agentStatus.ts', opts)
   const { commonRules } = await tsImport('../apps/server/src/agentRules.ts', opts)
   const wb = new Workbench(root)
   // 연구 공통 규칙: 설정 폴더의 개인 저장소 사본, 또는 RW_COMMON_RULES가 가리키는 파일 (없으면 그 절을 뺀다)
-  process.stdout.write(generateStatus(wb, new Date(), fs.existsSync(configDir) ? readStatusEdits(wb, configDir) : undefined, commonRules(configDir)))
+  const md = generateStatus(wb, new Date(), fs.existsSync(configDir) ? readStatusEdits(wb, configDir) : undefined, commonRules(configDir))
+  if (section) {
+    const part = statusPart(md, section)
+    if (!part) { console.error(`그런 절이 없습니다: ${section}. 있는 절: ${statusPartNames(md).join(', ')}`); process.exit(1) }
+    process.stdout.write(part)
+  } else process.stdout.write(full ? md : statusSummary(md, `절 하나만 받기: pnpm agent:status ${given[0]} --section <절 이름> · 전부: --full`))
   process.exit(0)
 }
 

@@ -7,7 +7,10 @@ useSampleApp()
 
 describe('GET /api', () => {
   it('모든 경로와, 실제로 있는 대표 경로를 돌려준다', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api' })
+    const short = (await app.inject({ method: 'GET', url: '/api' })).json()
+    expect(short.routes).toBeUndefined()
+    expect(short.more).toContain('/api?all=1')
+    const res = await app.inject({ method: 'GET', url: '/api?all=1' })
     expect(res.statusCode).toBe(200)
     const j = res.json() as { routes: { method: string; url: string }[]; start: { method: string; url: string }[]; writes: string }
     expect(j.routes.length).toBeGreaterThan(100)
