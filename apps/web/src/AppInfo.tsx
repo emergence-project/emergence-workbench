@@ -1,16 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { req } from './api'
+import { req, type AppInfo as Info } from './api'
 import { aboutChangesOf } from './aboutContent'
 import { t } from './i18n'
 import { href } from './router'
 
-interface Info {
-  version: { number: string; commit: string; date: string }
-  root: string
-  branch: string | null
-  remote: string | null
-  history: { commit: string; version: string; time: string; title: string; pr?: number; aboutSame?: string }[]
-}
 
 /**
  * 설정 › 앱 기본정보 (10/4 18:17 피드백 "앱 기본정보로 바꾸고, 앱에 대한 버젼관리와 함께 기본정보를 기술해줘"):

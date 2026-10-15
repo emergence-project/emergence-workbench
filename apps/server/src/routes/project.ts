@@ -62,7 +62,7 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
   /** 연구 공통 규칙: 모든 연구 저장소에 통하는 규칙 한 파일 (MCP rules 도구가 모아 준다). 없으면 null */
   app.get('/api/rules/common', replies(CC.CommonRules), async (): Promise<CC.CommonRules> => ({ rules: commonRules(registry.configDir) }))
   /** STATUS.md 쓰기 — agent-status를 켠 프로젝트만 */
-  app.post<{ Params: { rid: string } }>('/api/researches/:rid/agent-status', async (req) => {
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/agent-status', replies(C.AgentStatusWritten), async (req): Promise<C.AgentStatusWritten> => {
     const wb = wbOf(req.params.rid)
     if (!wb.readResearch().agentStatus) throw new WorkbenchError(409, t('research.yaml에 agent-status: true가 없어 쓰지 않음', 'Not written: research.yaml does not have agent-status: true'))
     return writeStatus(wb, new Date(), readStatusEdits(wb, registry.configDir, req.params.rid, registry.libraryPath), commonRules(registry.configDir))

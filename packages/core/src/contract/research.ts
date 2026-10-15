@@ -284,6 +284,8 @@ export const InfoSaved = z.object({ ok: z.literal(true), hash: z.string() }).str
 /** STATUS.md 미리보기 */
 export const AgentStatusPreview = z.object({ markdown: z.string() }).strict()
 /** GET /researches/:rid/agent-rules: 저장소 맨 위 AGENTS.md · CLAUDE.md (서버 agentRules.ts projectRules) */
+/** POST /researches/:rid/agent-status: STATUS.md를 썼는지(내용이 같으면 쓰지 않는다)와 그 파일 */
+export const AgentStatusWritten = z.object({ written: z.boolean(), file: z.string() }).strict()
 export const AgentRules = z.object({ files: z.array(z.object({ file: z.string(), text: z.string(), truncated: z.literal(true).optional() }).strict()) }).strict()
 
 // ---------- 메인 노트 = 원고 · 연구노트 · 계산 노트 (routes/manuscript.ts) ----------
@@ -460,6 +462,7 @@ export type ProjectInfo = z.infer<typeof ProjectInfo>
 export type InfoSaved = z.infer<typeof InfoSaved>
 export type AgentStatusPreview = z.infer<typeof AgentStatusPreview>
 export type AgentRules = z.infer<typeof AgentRules>
+export type AgentStatusWritten = z.infer<typeof AgentStatusWritten>
 export type ManuscriptPart = z.infer<typeof ManuscriptPart>
 export type NoteState = (typeof NOTE_STATES)[number]
 export type ManuscriptPdfStatus = z.infer<typeof ManuscriptPdfStatus>
