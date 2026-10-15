@@ -312,7 +312,11 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
                 <rect className="fl-ref" x={x - 9} y={y - 42} width={18} height={18} rx={4} />
                 <text className="fl-ref-t" x={x} y={y - 28.5} textAnchor="middle">§</text>
               </g>}
-              {start && <path className="fl-start" d={`M${x - 29} ${y - 7}L${x - 20} ${y}L${x - 29} ${y + 7}Z`}><title>{tr('시작점: 앞선 점이 없다', 'Start: no earlier dot')}</title></path>}
+              {/* 시작점 ▶는 차트 왼쪽 벽에 붙여 한 세로줄에 세운다 (10/15 12:11 제안). 그 줄에서 앞에 다른 점이 없으면 점까지 선으로 잇는다 */}
+              {start && <g className="fl-startmark"><title>{tr('시작점: 앞선 점이 없다', 'Start: no earlier dot')}</title>
+                <path className="fl-start" d={`M${LEFT - 22} ${y - 7}L${LEFT - 13} ${y}L${LEFT - 22} ${y + 7}Z`} />
+                {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
+              </g>}
               {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('갈래 종결', 'Branch closed')}</title></line>}
               {!compact || on ? <text className={`fl-name${on || lg || hot ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : <title>{n.short} · {n.title}</title>}
             </g>
