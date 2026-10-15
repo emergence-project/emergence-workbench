@@ -38,6 +38,11 @@ export function projectRefsStamp(wb: Workbench): string {
   return cachedStamp(refStamps, wb, () => treeStamp([wb.researchPath, wb.blocksDir, ...bibFiles(wb), materialsDir(wb.root)], { dirStats: false }))
 }
 
+/** 프로젝트 하나의 stamp만 비운다 (그 프로젝트의 파일 알림, 10/15) */
+export function invalidateProject(registry: Registry, rid: string): void {
+  try { const wb = registry.get(rid); stamps.get(wb)?.invalidate(); refStamps.get(wb)?.invalidate() } catch { /* removed */ }
+}
+
 export function invalidateProjects(registry: Registry): void {
   for (const id of registry.ids()) { try { const wb = registry.get(id); stamps.get(wb)?.invalidate(); refStamps.get(wb)?.invalidate() } catch { /* removed */ } }
 }

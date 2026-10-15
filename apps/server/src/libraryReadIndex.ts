@@ -8,7 +8,7 @@ import { libraryUsage } from './libraryUsage.js'
 import { listFigures, figureBrief, type FigureBrief } from './figures.js'
 import { listPapers, paperBrief, readPapersYaml, type PaperBrief } from './papers.js'
 import { DerivedCache, treeStamp } from './readCache.js'
-import { invalidateProjects, projectRefsStamp, registryStamp } from './projectReadCache.js'
+import { invalidateProject, invalidateProjects, projectRefsStamp, registryStamp } from './projectReadCache.js'
 import type { Registry } from './registry.js'
 
 /** 서버마다 하나. 원본은 읽기만 하고 목록/첫 화면은 같은 스냅샷을 공유한다. */
@@ -35,6 +35,16 @@ export class LibraryReadIndex {
     this.figuresCache.invalidate(); this.papersCache.invalidate()
     invalidateProjects(this.registry)
     this.index()?.invalidate()
+  }
+
+  /**
+   * 프로젝트 하나의 파일이 바뀜 (10/15): 그 프로젝트의 stamp와, 프로젝트를 읽는 목록(사용처·지도·그림·논문의 프로젝트 칸)만 다시 재고,
+   * 다른 프로젝트의 stamp와 개념 색인(라이브러리 파일로만 만든다)은 건드리지 않는다. 전에는 일지 한 줄에도 전부 비워 라이브러리 첫 호출(수백 ms)이 되풀이됐다
+   */
+  invalidateProject(rid: string): void {
+    this.libraryCache.invalidate(); this.knowledgeCache.invalidate()
+    this.figuresCache.invalidate(); this.papersCache.invalidate()
+    invalidateProject(this.registry, rid)
   }
 
   private legacyStamp(): string {

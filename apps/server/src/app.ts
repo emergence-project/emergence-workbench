@@ -146,8 +146,8 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const sockets = new Set<{ send(data: string): void; readyState: number }>()
   let libraryReads: LibraryReadIndex | undefined
   const broadcast = (e: WorkbenchEvent) => {
-    // 라이브러리 알림은 바뀐 갈래의 캐시만 비운다 (아래 watchLibraryNow). 프로젝트 파일은 사용처·지도에 걸리므로 모두 비운다
-    if (e.type !== 'library') libraryReads?.invalidate()
+    // 라이브러리 알림은 바뀐 갈래의 캐시만 비운다 (아래 watchLibraryNow). 프로젝트 알림은 그 프로젝트와 프로젝트를 읽는 목록만 (10/15)
+    if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
     const data = JSON.stringify(e)
     for (const s of sockets) if (s.readyState === 1) s.send(data)
   }

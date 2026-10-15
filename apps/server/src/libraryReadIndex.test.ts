@@ -153,7 +153,7 @@ describe('library L4 incremental reads', () => {
     app = buildApp({ configDir: path.join(tmp, 'config'), sandbox: true, watch: true })
     expect((await get('/api/concepts/brief')).check.unchecked.ids).toEqual(['alpha'])
     await new Promise((r) => setTimeout(r, 250))
-    const invalidated = vi.spyOn(LibraryReadIndex.prototype, 'invalidate')
+    const invalidated = vi.spyOn(LibraryReadIndex.prototype, 'invalidateProject')
     fs.writeFileSync(file, '---\nid: watched\ntitle: Watched\n---\n[[Beta]]\n')
     await vi.waitFor(() => expect(invalidated).toHaveBeenCalled(), { timeout: 5000 })
     expect((await get('/api/concepts/brief')).check.unchecked.ids).toEqual(['beta'])
