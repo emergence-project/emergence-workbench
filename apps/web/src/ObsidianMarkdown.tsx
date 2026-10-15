@@ -3,6 +3,7 @@ import 'katex/dist/katex.min.css'
 import MarkdownIt from 'markdown-it'
 import { useMemo, useRef } from 'react'
 import { useRecordPaint } from './recordPaint'
+import { useFigureZoom } from './figureZoom'
 
 /**
  * Study(Obsidian) 노트를 Obsidian에서처럼 그린다 (읽기만).
@@ -25,7 +26,7 @@ export interface RenderOptions {
   /** 인용에 마우스를 올렸을 때 보일 글 (저자·연도·제목) */
   citeTitle?(key: string): string
   /** ![[이름]]이 그림 라이브러리의 그림이면 그 주소 (figureEmbed.ts). PDF 그림은 노트 화면이 첫 쪽을 그린다 */
-  figure?(name: string): { url: string; pdf: boolean } | undefined
+  figure?(name: string): { url: string; pdf: boolean; id?: string } | undefined
 }
 
 /** Pandoc 꼴 인용: [@a], [@a; @b], [see @a, p. 3]. 뒤에 (가 오면 링크라서 아님 */
@@ -69,7 +70,8 @@ export function renderObsidian(src: string, opts: RenderOptions = {}): string {
     const width = opt && /(\d+)/.exec(opt)?.[1]
     const style = width ? ` style="max-width:min(100%,${width}px)"` : ''
     const fig = opts.figure?.(file)
-    if (fig) return hold(fig.pdf ? `<canvas class="md-fig-pdf ob-fig" data-src="${esc(fig.url)}" aria-label="${esc(file)}"${style}></canvas>` : `<img class="ob-img ob-fig" src="${esc(fig.url)}" alt="${esc(file)}"${style}>`)
+    const figId = fig?.id ? ` data-fig-id="${esc(fig.id)}"` : ''
+    if (fig) return hold(fig.pdf ? `<canvas class="md-fig-pdf ob-fig" data-src="${esc(fig.url)}" aria-label="${esc(file)}"${figId}${style}></canvas>` : `<img class="ob-img ob-fig" src="${esc(fig.url)}" alt="${esc(file)}"${figId}${style}>`)
     if (!IMAGE.test(file)) return hold(`<span class="ob-embed" title="${esc(file)}">↪ ${esc(file)}</span>`)
     return hold(`<img class="ob-img" src="${esc(asset(file))}" alt="${esc(file)}"${style}>`)
   })
@@ -137,5 +139,9 @@ export function ObsidianMarkdown({ text, options }: { text: string; options?: Re
   // 개념노트 본문은 고른 글 메모의 하이라이트를 칠한다 (RecordContext가 있을 때만)
   const ref = useRef<HTMLDivElement>(null)
   const openMark = useRecordPaint(ref, html)
-  return <div className="ob-md" ref={ref} onClick={(event) => { openMark(event) }} onKeyDown={(event) => { openMark(event) }} dangerouslySetInnerHTML={{ __html: html }} />
+  const zoom = useFigureZoom(ref, html)
+  return <>
+    <div className="ob-md" ref={ref} onClick={(event) => { if (!openMark(event)) zoom.onClick(event.target) }} onKeyDown={(event) => { openMark(event) }} dangerouslySetInnerHTML={{ __html: html }} />
+    {zoom.gallery}
+  </>
 }

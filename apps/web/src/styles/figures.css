@@ -72,3 +72,17 @@
 
 /* 노트 안의 그림 라이브러리 그림 (![[이름]]) */
 .ob-md .ob-fig { display: block; margin: var(--sp-3) auto; max-width: 100%; background: var(--paper); }
+
+/* 그림 보기 (#/figures/open/<그림>, 10/15 B′): 본문에 크게 · 아래에 보던 목록 한 줄 · 오른쪽 정보 */
+.stage.fg.fg-open { grid-template-columns: minmax(0, 1fr) 320px; }
+.fg-open .pane-head .fg-count { flex: none; font-variant-numeric: tabular-nums; }
+.fg-view-stage { flex: 1; min-height: 0; display: flex; padding: var(--sp-4); background: var(--bg-sunken); }
+.fg-view-stage > .fg-empty { margin: auto; }
+.fg-view-pv.fg-pv.big { flex: 1; min-width: 0; height: auto; min-height: 0; max-height: none; padding: var(--sp-4); }
+.fg-view-pv.fg-pv.big img, .fg-view-pv.fg-pv.big canvas { width: 100%; height: 100%; max-height: none; object-fit: contain; }
+.fg-strip { flex: none; display: flex; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--line); overflow-x: auto; overscroll-behavior-x: contain; }
+.fg-thumb { flex: none; width: 112px; height: 72px; padding: 0; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--paper); overflow: hidden; cursor: pointer; }
+.fg-thumb:hover { border-color: var(--line-strong); }
+.fg-thumb.on { outline: 2px solid var(--text); outline-offset: 2px; }
+.fg-thumb:focus-visible { outline: 2px solid var(--focus-line); outline-offset: 1px; }
+.fg-thumb .fg-pv { height: 100%; padding: var(--sp-1); margin: 0; border: 0; }

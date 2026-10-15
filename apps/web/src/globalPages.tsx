@@ -13,7 +13,7 @@ import { KnowledgeMapPage, LibraryPage } from './Library'
 import { FiguresHome, PapersHome } from './LibraryHome'
 import { isListRoute, type Route } from './router'
 import { PapersPage, PapersSide } from './PapersPage'
-import { FiguresPage, FiguresSide } from './FiguresPage'
+import { FiguresPage, FiguresSide, figureListFilter } from './FiguresPage'
 import { NetworkPage, NetworkRailCount, NetworkSide } from './NetworkPage'
 import { SettingsPage, SettingsSide } from './SettingsPage'
 
@@ -81,11 +81,11 @@ export const GLOBAL_PAGES: {
       : <PapersPage filter={p.route.page === 'shelf' ? p.route.filter : undefined} open={p.route.page === 'shelf' ? p.route.open : undefined} onSaved={p.onSaved} />) },
   // 그림 라이브러리 (10/5, 10/4 19:10 피드백 "반복해서 쓰는 그림을 공용 자산으로"). 10/6 L2: 첫 화면(FiguresHome)과 목록(FiguresPage)
   { page: 'figures', label: '그림', name: t('그림', 'Figures'), aria: t('그림', 'Figures'), tip: t('그림 — 노트에서 함께 쓰는 tikz · svg 그림', 'Figures: tikz and svg figures shared across notes'), icon: Icon.figures, rail: 'top',
-    side: (p) => <FiguresSide filter={p.route.page === 'figures' ? p.route.filter : undefined} list={isListRoute(p.route)} />,
-    right: (r) => r.page === 'figures' && !isListRoute(r),
-    render: (p) => (p.route.page === 'figures' && !isListRoute(p.route)
+    side: (p) => <FiguresSide filter={p.route.page === 'figures' ? (p.route.open ? figureListFilter() : p.route.filter) : undefined} list={isListRoute(p.route) || (p.route.page === 'figures' && !!p.route.open)} />,
+    right: (r) => r.page === 'figures' && !r.open && !isListRoute(r),
+    render: (p) => (p.route.page === 'figures' && !p.route.open && !isListRoute(p.route)
       ? <FiguresHome info={p.library} rightOpen={p.rightOpen} onSaved={p.onSaved} />
-      : <FiguresPage filter={p.route.page === 'figures' ? p.route.filter : undefined} onSaved={p.onSaved} />) },
+      : <FiguresPage filter={p.route.page === 'figures' ? p.route.filter : undefined} open={p.route.page === 'figures' ? p.route.open : undefined} onSaved={p.onSaved} />) },
   // 저자와 소속을 설정에서 옮겨 왔다 (10/4 피드백). 사이드바에 사람, 사람마다 노트 참고 문헌의 논문
   { page: 'network', label: '네트워킹', name: t('네트워킹', 'Networking'), aria: t('네트워킹', 'Networking'), tip: t('네트워킹 — 저자와 소속, 함께 연구하는 사람들', 'Networking: authors, affiliations and collaborators'), icon: Icon.network, rail: 'top',
     side: (p) => <NetworkSide person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,

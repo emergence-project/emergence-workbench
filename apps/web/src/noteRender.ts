@@ -20,20 +20,20 @@ const NOTE_ASSET = /\.(png|jpe?g|gif|svg|webp|pdf)$/i
  * 그림 문단의 대상: 파일 이름이면 노트 폴더의 그림(없으면 서버가 같은 이름의 라이브러리 그림을 준다),
  * 확장자 없는 이름이면 그림 라이브러리에서 찾는다 (이 프로젝트 전용 먼저, 그다음 공용).
  */
-function figureSource(file: string, options: RenderOptions, asset?: (name: string) => string): { src?: string; pdf: boolean } {
+function figureSource(file: string, options: RenderOptions, asset?: (name: string) => string): { src?: string; pdf: boolean; id?: string } {
   if (asset && NOTE_ASSET.test(file)) return { src: asset(file), pdf: /\.pdf$/i.test(file) }
   const lib = options.figure?.(file)
-  if (lib) return { src: lib.url, pdf: lib.pdf }
+  if (lib) return { src: lib.url, pdf: lib.pdf, id: lib.id }
   return { src: asset?.(file), pdf: /\.pdf$/i.test(file) }
 }
 
 export function renderNoteFigure(f: NoteFigure, options: RenderOptions, asset?: (name: string) => string, compact = false): string {
-  const { src, pdf } = figureSource(f.file, options, asset)
+  const { src, pdf, id } = figureSource(f.file, options, asset)
   const media = !src || (compact && pdf) ? `<span class="md-fig-missing">${esc(f.file)}</span>`
     : pdf ? `<canvas class="md-fig-pdf" data-src="${esc(src)}" aria-label="${esc(f.file)}"></canvas>`
       : `<img src="${esc(src)}" alt="${esc(f.file)}">`
   const cap = f.n || f.caption ? `<figcaption>${f.n ? `<b>${t('그림', 'Figure')} ${esc(f.n)}.</b> ` : ''}${noteInline(f.caption, options)}</figcaption>` : ''
-  return `<figure class="md-fig">${media}${cap}</figure>`
+  return `<figure class="md-fig"${id ? ` data-fig-id="${esc(id)}"` : ''}>${media}${cap}</figure>`
 }
 
 export function renderNoteFootnote(text: string, index: number, options: RenderOptions): string {
