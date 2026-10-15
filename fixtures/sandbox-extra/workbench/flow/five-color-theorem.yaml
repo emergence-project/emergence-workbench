@@ -11,7 +11,14 @@ from:
   - { id: kempe-swap, type: support }
   - { id: greedy-check, type: support }
 fields:
-  statement: 평면 그래프 $G$의 채색수는 $\chi(G) \le 5$이다.
+  statement: |
+    평면 그래프 $G$의 채색수는 $\chi(G) \le 5$이다. 오일러 공식에서
+
+    $$\sum_{v \in V} \deg v = 2|E| \le 6|V| - 12$$
+
+    이므로 차수가 5 이하인 꼭짓점이 늘 있다.
+
+    ![차수 5 꼭짓점과 이웃](wheel.svg)
   condition: 유한 평면 그래프
 evidence:
   - kind: proof

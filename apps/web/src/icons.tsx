@@ -69,7 +69,7 @@ export const Icon = {
   help: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.6a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4v.6" /><path d="M12 16.4v.1" /></svg>,
   approve: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M8.2 12.2l2.6 2.6 5-5.2" /></svg>,
   /** 흐름: 세 점과 그 사이를 잇는 선 (연구 흐름, 10/14) */
-  flow: <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.3" /><circle cx="17" cy="6.5" r="2.3" /><circle cx="17" cy="17.5" r="2.3" /><path d="M7.2 11l7.6-3.6M7.2 13l7.6 3.6" /></svg>,
+  flow: <svg viewBox="0 0 24 24"><circle cx="5.5" cy="6.5" r="2.5" /><rect x="15" y="4" width="5" height="5" rx="1.2" /><rect x="15" y="15" width="5" height="5" rx="1.2" /><path d="M8 6.5h7M8 6.5c3.5 0 3.5 11 7 11" /></svg>,
   /** 피드백 수정 요청 (10/7 "동그라미에 되돌림"): 동그라미 안 되돌림 화살표 */
   sendBack: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M10.3 11.2L8 13.5l2.3 2.3" /><path d="M8 13.5h5.2a2.6 2.6 0 0 0 0-5.2H12" /></svg>,
   /** 되돌리기 (고침 검토, 10/13 시안): 왼쪽으로 굽은 화살표. 동그라미가 없어 수정(sendBack)과 구별된다 */

@@ -537,7 +537,7 @@ topics: [coloring]       # 주제 id (선택). 흐름 화면의 주제 필터가
 date: 2026-10-02
 from:                    # 앞선 점. type: origin 발단 · support 근거 · refute 반박 · use 사용
   - { id: degree-bound, type: support }   # type이 없으면 질문은 origin, 그 밖은 support
-fields:                  # 종류마다 설명 칸 (아래 표). $…$는 수식
+fields:                  # 종류마다 설명 칸 (아래 표). 노트처럼 그린다: $…$ 수식, 따로 한 줄의 $$…$$ 줄 수식, 빈 줄은 문단, ![설명](그림 파일 이름)은 이 프로젝트·공용 그림 (10/15). 여러 줄은 YAML |
   statement: …
   condition: …
 end: true                # 갈래 종결 (선택)

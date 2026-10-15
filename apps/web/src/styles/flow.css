@@ -127,3 +127,13 @@ button.fl-check.on:hover circle { fill: var(--text); }
 .fl-filter select { border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding: 2px var(--sp-2); font-size: var(--fs-sm); max-width: 16em; }
 .fl-focus { fill: var(--bg-sunken); stroke: var(--line-strong); stroke-width: 1; }
 .fl-topic-link { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); margin: 0; }
+
+/* 설명 칸은 노트처럼 그린다 (10/15): 문단·줄 수식·그림 */
+.fl-text > .ob-md > :first-child, .fl-text p:first-child { margin-top: 0; }
+.fl-text > .ob-md > :last-child, .fl-text p:last-child { margin-bottom: 0; }
+.fl-text p { margin: 0 0 var(--sp-2); }
+.fl-text .katex-display { margin: var(--sp-2) 0; overflow-x: auto; overflow-y: hidden; }
+.fl-text img, .fl-text canvas { max-width: 100%; }
+/* 점 고치기는 자세히 자리에서 (10/15) */
+.fl-editing textarea { resize: vertical; }
+.fl-edit-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); }
