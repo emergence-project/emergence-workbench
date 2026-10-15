@@ -72,6 +72,8 @@ export interface AppOptions {
   appRepo?: { root: string; running: string; steps: UpdateSteps }
   /** 앱 자동 업데이트 (실사용 서비스만): 이만큼마다 받고 빌드해 두고, 열린 화면이 없고 쓰기 요청이 idleMs 동안 없으면 다시 시작한다 */
   appAutoUpdate?: { everyMs: number; idleMs: number }
+  /** 연구 저장소의 기록(workbench/comments/)을 쓴 뒤 이만큼(ms) 조용하면 저절로 GitHub에 올린다 (실사용만, routes/feedback.ts). 없으면 버튼으로만 올린다 */
+  recordsAutoPublishMs?: number
   /** 연구 저장소 저절로 받기 (실사용만): 이만큼마다 GitHub를 확인해, 맥에만 있는 커밋이 없고 겹치는 파일이 없을 때만 빨리 감기로 받는다 (routes/sync.ts) */
   researchAutoPullMs?: number
   /** arXiv에서 논문을 받을 때 쓰는 fetch (테스트에서 바꿈) */

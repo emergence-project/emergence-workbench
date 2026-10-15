@@ -60,15 +60,68 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const { top, rel } = await locate(path.join(repoPath(rid), 'workbench'))
     return { top, paths: RESEARCH_RECORDS.map((p) => (rel ? `${rel}/${p}` : p)) }
   }
+  /**
+   * 기록 올리기. GitHub에서도 바뀐 기록 파일은 세 갈래로 합쳐 보고(merge), GitHub 위에 따로 올린 뒤에는
+   * 이 컴퓨터의 브랜치를 그 커밋으로 옮겨(adopt) 저절로 받기가 막히지 않게 한다 (pathsync.ts, 10/15)
+   */
+  const RECORDS_MESSAGE = 'Add comments from the research workspace app'
+  const recordsLast = new Map<string, { at: number; error: string | null }>()
+  const publishRecords = async (rid: string, r: { top: string; paths: string[] }) => {
+    const before = recordsLast.get(rid)?.error ?? null
+    const done = (error: string | null) => {
+      recordsLast.set(rid, { at: Date.now(), error })
+      // 화면(오른쪽 사이드바 기록)은 실패가 생기거나 풀릴 때만 다시 읽는다
+      if (before !== error) ctx.broadcast({ type: 'records-publish', research: rid })
+    }
+    try {
+      const out = await publishPaths(r.top, r.paths, { message: RECORDS_MESSAGE, adopt: true, merge: true })
+      done(null)
+      return out
+    } catch (e) {
+      done((e as Error).message)
+      throw e
+    }
+  }
+  // 기록을 쓰면(더하기 · 고치기 · 지우기 · 상태 · 답 · 이어 쓰기 · 분류 · 하이라이트, MCP add_record · answer_record 포함) 잠시 뒤 저절로 올린다.
+  // 쓰는 길이 여러 갈래(comments · journal · agentEdits …)라 연구 안의 성공한 쓰기 요청마다 예약하고, 올릴 때 이 컴퓨터에서 바뀐 기록이 있는지(네트워크 없이) 먼저 본다
+  const recordTimers = new Map<string, NodeJS.Timeout>()
+  const scheduleRecordsPublish = (rid: string) => {
+    if (opts.recordsAutoPublishMs === undefined || opts.sandbox) return
+    clearTimeout(recordTimers.get(rid))
+    recordTimers.set(rid, setTimeout(() => {
+      recordTimers.delete(rid)
+      void (async () => {
+        let r: { top: string; paths: string[] }
+        try {
+          r = await researchRecords(rid)
+          if (!(await pendingPaths(r.top, r.paths)).length) return
+        } catch { return } // git 저장소가 아니거나 GitHub 브랜치를 추적하지 않음: 올리지 않는다
+        await publishRecords(rid, r).catch((e) => app.log.warn({ err: e, research: rid }, '기록 자동 올리기 실패'))
+      })()
+    }, opts.recordsAutoPublishMs))
+  }
+  app.addHook('onResponse', async (req, reply) => {
+    const url = req.routeOptions.url ?? ''
+    const rid = (req.params as { rid?: unknown } | undefined)?.rid
+    if (req.method === 'GET' || reply.statusCode >= 400 || typeof rid !== 'string' || !url.startsWith('/api/researches/:rid/') || url.startsWith('/api/researches/:rid/records/')) return
+    scheduleRecordsPublish(rid)
+  })
+  app.addHook('onClose', async () => { for (const tm of recordTimers.values()) clearTimeout(tm) })
+
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/records/unpublished', replies(C.UnpublishedFiles), async (req): Promise<C.UnpublishedFiles> => {
     const r = await researchRecords(req.params.rid).catch(() => null)
     return { files: r ? await pendingPaths(r.top, r.paths) : [] }
   })
+  /** 기록 저절로 올리기가 켜졌는지와 마지막 결과 (오른쪽 사이드바 기록이 실패만 보여 준다) */
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/records/publish', replies(C.RecordsPublishState), async (req): Promise<C.RecordsPublishState> => ({
+    autoPublish: opts.recordsAutoPublishMs !== undefined && !opts.sandbox,
+    last: recordsLast.get(req.params.rid) ?? null,
+  }))
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/records/publish', replies(C.RecordsPublished), async (req): Promise<C.RecordsPublished> => {
     if (opts.sandbox) throw new WorkbenchError(404, t('개발용 예제 모드에서는 GitHub에 올리지 않습니다', 'Sample mode does not push to GitHub'))
     try {
       const r = await researchRecords(req.params.rid)
-      return await publishPaths(r.top, r.paths, { message: 'Add comments from the research workspace app' })
+      return await publishRecords(req.params.rid, r)
     } catch (e) {
       if (e instanceof PathSyncError) throw new WorkbenchError(409, e.message)
       throw e

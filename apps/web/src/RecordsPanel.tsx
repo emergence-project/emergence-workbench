@@ -80,6 +80,7 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
       <button className="a records-all" data-ui="모두 보기" data-tip={t('기록 탭에서 이 프로젝트의 기록 모두 보기', 'See all records of this project in the Records tab')}
         onClick={() => { chooseRecordFilter(filter === '전체' ? '메모' : filter); go({ page: 'records', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>
     </div>
+    <PublishFailure rid={rid} version={version} />
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">
       <button className="a" data-ui="자동 분류 버튼" data-tip={CLASSIFY_TIP} title={CLASSIFY_TIP} disabled={classifying_} onClick={() => void classify()}>{classifying_ ? t('분류하는 중…', 'Sorting…') : t(`자동 분류 ${unsorted.length}개`, `Auto-sort ${unsorted.length}`)}</button>
     </div>}
@@ -95,6 +96,26 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
     </div>
     <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} />
   </section>
+}
+
+/** 기록을 GitHub에 저절로 올리지 못했을 때만 한 줄 (10/15). 잘 올라가면 아무것도 보이지 않는다 */
+function PublishFailure({ rid, version }: { rid: string; version: number }) {
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let active = true
+    commentsApi(rid).publishState().then((s) => { if (active) setError(s.autoPublish ? s.last?.error ?? null : null) }).catch(() => undefined)
+    return () => { active = false }
+  }, [rid, version])
+  if (!error) return null
+  const retry = async () => {
+    setBusy(true)
+    try { await commentsApi(rid).publish(); setError(null); flash(t('GitHub에 올렸습니다', 'Pushed to GitHub')) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
+  }
+  return <div className="records-publish-error" data-ui="기록 올리기 실패" role="status">
+    <span title={error}>{t('기록을 GitHub에 올리지 못했습니다', 'Records were not pushed to GitHub')}: {error}</span>
+    <button className="a" disabled={busy} onClick={() => void retry()}>{busy ? t('올리는 중…', 'Pushing…') : t('다시 올리기', 'Push again')}</button>
+  </div>
 }
 
 function LostHighlights({ rid, file }: { rid: string; file: CommentFile }) {
