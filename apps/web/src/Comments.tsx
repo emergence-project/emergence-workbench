@@ -18,7 +18,7 @@ import { openRight, useRightMode } from './noteScreen'
 import { shown, t } from './i18n'
 
 /** 기록 종류·상태의 화면 이름 (파일에는 한국어 값 그대로) */
-const KIND_TEXT: Record<string, string> = { 메모: t('메모', 'Memo'), 질문: t('질문', 'Question'), 하이라이트: t('하이라이트', 'Highlight'), 코멘트: t('코멘트', 'Comment'), '할 일': t('할 일', 'To-do') }
+const KIND_TEXT: Record<string, string> = { 메모: t('메모', 'Memo'), 질문: t('질문', 'Question'), 하이라이트: t('하이라이트', 'Highlight'), 코멘트: t('코멘트', 'Comment'), '할 일': t('할 일', 'To-do'), 지시: t('지시', 'Instruction') }
 const kindText = (k: string) => KIND_TEXT[k] ?? k
 const STATE_TEXT: Record<string, string> = { 대기: t('대기', 'Waiting'), 끝냄: t('끝냄', 'Done') }
 const stateText = (s: string) => STATE_TEXT[s] ?? s

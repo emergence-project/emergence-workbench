@@ -24,8 +24,8 @@ export interface OverviewRow {
   title: string
   folder: string
   user: UserTurn
-  /** 에이전트가 할 것: 답 없는 질문 · 진행 중인 맡긴 일 · 끝내지 않은 할 일 */
-  agent: { questions: number; working: number; todos: number }
+  /** 에이전트가 할 것: 답 없는 질문 · 하지 않은 지시 · 진행 중인 맡긴 일 · 끝내지 않은 할 일 */
+  agent: { questions: number; instructions: number; working: number; todos: number }
   behind: number
   ahead: number
   /** 일지의 마지막 기록 'YYYY-MM-DD HH:MM' */
@@ -42,6 +42,7 @@ export function overviewRow(wb: Workbench, edits = 0): OverviewRow {
     user: userTurnOf(wb, edits),
     agent: {
       questions: pendingQuestions(wb.root).length,
+      instructions: pendingQuestions(wb.root, '지시').length,
       working: listTasks(wb).filter((t) => t.state === 'working').length,
       todos: journal.filter((e) => e.kind === 'todo' && !e.done).length,
     },
@@ -65,7 +66,7 @@ export function generateOverview(rows: (OverviewRow | { folder: string; problem:
   for (const r of rows) {
     if ('problem' in r) { out.push(`| (읽지 못함) | \`${r.folder}\` | ${r.problem.replace(/\|/g, '/')} | | | |`); continue }
     const repo = [r.behind && `${r.behind}커밋 뒤`, r.ahead && `안 올린 커밋 ${r.ahead}`].filter(Boolean).join(' · ') || '—'
-    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['노트', r.user.notes], ['맡긴 일 판단', r.user.tasks], ['고침 검토', r.user.edits]])} | ${parts([['답 없는 질문', r.agent.questions], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
+    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['노트', r.user.notes], ['맡긴 일 판단', r.user.tasks], ['고침 검토', r.user.edits]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
   }
   out.push('')
   return out.join('\n')

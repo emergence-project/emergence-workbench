@@ -2,7 +2,7 @@ import type { CommentEntry, RecordFile } from './api/comments'
 import type { Route } from './router'
 import type { Tab } from './Workspace'
 
-export type RecordFilter = '전체' | '메모' | '할 일' | '질문'
+export type RecordFilter = '전체' | '메모' | '할 일' | '질문' | '지시'
 export const recordKind = (c: Pick<CommentEntry, 'kind'>) => c.kind === '코멘트' ? '메모' : c.kind
 export const filterRecords = (items: CommentEntry[], filter: RecordFilter) => items.filter((c) => c.kind !== '하이라이트' && (filter === '전체' || recordKind(c) === filter))
 /** Count source records actually classified, excluding changed or removed entries and newly split items. */

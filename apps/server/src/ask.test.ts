@@ -198,4 +198,12 @@ describe('에이전트가 쓴 답 덧붙이기 (MCP answer_record)', () => {
     expect((await app.inject({ method: 'POST', url: `${R}/comments/project/${q}/answers`, payload: { by: 'codex', body: '  ' } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: `${R}/comments/project/${q}/answers`, payload: { body: '답' } })).statusCode).toBe(400)
   })
+
+  it('지시는 대기로 남고, 에이전트가 하고 나서 단 답으로 답함이 된다', async () => {
+    const order = (await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '지시', title: '프로젝트', text: '식 (3)을 검산해 줘' } })).json().entry
+    expect(order.state).toBe('대기')
+    const res = await app.inject({ method: 'POST', url: `${R}/comments/project/${order.id}/answers`, payload: { by: 'codex', body: '검산했습니다. 맞습니다.' } })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().comments.find((c: { id: string }) => c.id === order.id)).toMatchObject({ kind: '지시', state: '답함', answers: [{ by: 'codex' }] })
+  })
 })

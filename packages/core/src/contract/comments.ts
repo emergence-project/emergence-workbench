@@ -6,8 +6,8 @@
 import { z } from 'zod'
 
 /** 코멘트는 예전 입력과 논문 API에서 쓰는 이름. 노트에서는 메모로 읽힌다 */
-export const COMMENT_KINDS = ['메모', '할 일', '질문', '하이라이트', '코멘트'] as const
-/** 질문은 대기·답함·끝냄, 할 일은 대기·끝냄. 나머지는 상태가 없다(null) */
+export const COMMENT_KINDS = ['메모', '할 일', '질문', '지시', '하이라이트', '코멘트'] as const
+/** 질문·지시는 대기·답함·끝냄, 할 일은 대기·끝냄. 나머지는 상태가 없다(null). 지시(10/15) = 에이전트가 하고 답하는 기록 */
 export const COMMENT_STATES = ['대기', '답함', '끝냄'] as const
 /** 하이라이트 색 (노트 기록과 논문 하이라이트) */
 export const HIGHLIGHT_COLORS = ['yellow', 'green', 'blue', 'pink'] as const

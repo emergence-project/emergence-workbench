@@ -13,7 +13,7 @@ import { uiShown } from './uiNames'
 import { chooseRecordFilter } from './workRecords'
 
 /** 기록 종류·상태는 파일에 적는 값이라 한국어 그대로 두고, 보일 때만 바꾼다 */
-const KIND_EN: Record<string, string> = { '전체': 'All', '메모': 'Memo', '할 일': 'To-do', '질문': 'Question', '하이라이트': 'Highlight', '코멘트': 'Comment' }
+const KIND_EN: Record<string, string> = { '전체': 'All', '메모': 'Memo', '할 일': 'To-do', '질문': 'Question', '지시': 'Instruction', '하이라이트': 'Highlight', '코멘트': 'Comment' }
 const STATE_EN: Record<string, string> = { '대기': 'Waiting', '답함': 'Answered', '끝냄': 'Closed' }
 const kindText = (k: string) => t(k, KIND_EN[k] ?? k)
 const stateText = (s: string) => t(s, STATE_EN[s] ?? s)
@@ -87,15 +87,16 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
     <div className="record-row-head">
       {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('끝냄', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
-          : <span className="record-marker" aria-label={kindText(kind)}>{kind === '질문' ? '?' : Icon.memo}</span>}
+          : <span className="record-marker" aria-label={kindText(kind)}>{kind === '질문' ? '?' : kind === '지시' ? Icon.task : Icon.memo}</span>}
       <span className="record-place">
         {work && (file.target === 'project' ? <span className="record-source">{t('이 프로젝트', 'This project')}</span>
           : <button className="a record-source" title={file.title} onClick={onGo}>{file.title}</button>)}
         {hasPlace && <button className="a" title={t('그 자리로 가기', 'Go to the spot')} onClick={onGo}>{c.page ? t(`${c.page}쪽`, `p. ${c.page}`) : t(`${c.line}줄`, `line ${c.line}`)}</button>}{c.lost && t('자리를 잃음', 'Position lost')}
       </span>
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
-        {kind === '질문' && <>
-          <button className="icon-btn" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>?</button>
+        {(kind === '질문' || kind === '지시') && <>
+          {/* 지시는 에이전트 세션이 MCP로 집어 가서 하고 답한다. 맥의 Claude가 저절로 하지 않는다 */}
+          {kind === '질문' && <button className="icon-btn" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>?</button>}
           <button className="icon-btn" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
         </>}
         <button className="icon-btn" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
@@ -113,7 +114,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
       <div className="record-meta"><span>{kindText(kind)}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
         {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>→ {t('할 일 목록', 'To-do list')}</button>}
-        {kind === '질문' && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{(work || c.state) && <span>· {work ? stateText(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateText(c.state!)}</span>}</>}
+        {(kind === '질문' || kind === '지시') && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{(work || c.state) && <span>· {work ? stateText(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateText(c.state!)}</span>}</>}
       </div>
       {work ? latestAnswer && <details className="record-latest-answer"><summary>{t('최근 답 보기', 'Show latest answer')}</summary><RecordAnswer answer={latestAnswer} busy={busy} onApply={applicable(c.answers.length - 1)} /></details>
         : c.answers.map((a, i) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} />)}
