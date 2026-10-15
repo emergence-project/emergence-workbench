@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CommentEntry } from './api/comments'
-import { classifiedRecordCount, filterRecords, recordDate, recordPdfTab, recordRoute, rebaseRecordEdit, filterForActiveRecord, isUserTurnRecord, placeLabel } from './recordsPanelHelpers'
+import { classifiedRecordCount, filterRecords, recordDate, recordPdfTab, recordRoute, rebaseRecordEdit, filterForActiveRecord, isUserTurnRecord } from './recordsPanelHelpers'
 import { normalizeRightMode } from './noteScreen'
 const entry = (kind: CommentEntry['kind'], rest: Partial<CommentEntry> = {}): CommentEntry => ({ id: 'c-20261006-1200', kind, body: 'text', where: '전체', rects: [], state: null, answers: [], ...rest })
 
@@ -68,18 +68,5 @@ describe('user turn records (10/15)', () => {
     expect(isUserTurnRecord({ kind: '질문', state: '대기' })).toBe(false)
     expect(isUserTurnRecord({ kind: '질문', by: 'claude', state: '답함' })).toBe(false)
     expect(isUserTurnRecord({ kind: '메모', by: 'claude', state: null })).toBe(false)
-  })
-})
-
-describe('placeLabel', () => {
-  const note = { target: 'note-axioms', title: '연구노트 Axioms' }
-  it('names the note, its topic and the project', () => {
-    expect(placeLabel(note, note)).toBe('이 노트 · Axioms')
-    expect(placeLabel({ target: 'topic-axioms', title: '주제 공리', source: 'axioms' }, note)).toBe('이 주제 · 공리')
-    expect(placeLabel({ target: 'project', title: 'EB' }, note)).toBe('이 프로젝트')
-  })
-  it('keeps other targets by their title', () => {
-    const pdf = { target: 'paper-kim', title: '자료 kim.pdf' }
-    expect(placeLabel(pdf, pdf)).toBe('자료 kim.pdf')
   })
 })
