@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from './app.js'
 import { appendAnswer, askPrompt, claudeClassifierRunner, claudeRunner, type AskRunner } from './ask.js'
 import { addComment, readComments } from './comments.js'
-import { makeRepo, tmp, useSampleApp } from './testkit.js'
+import { app, makeRepo, R, tmp, useSampleApp } from './testkit.js'
 
 const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }))
 vi.mock('node:child_process', async (importOriginal) => ({
@@ -184,5 +184,18 @@ describe('답에 든 고침을 노트에 적용하기', () => {
     expect(res.json().error).toContain('찾지 못했습니다')
     expect(fs.readFileSync(note, 'utf8')).toBe('a b c\n')
     expect(readComments(path.join(repo, 'workbench'), 'note-s').comments[0]!.answers).toHaveLength(1)
+  })
+})
+
+describe('에이전트가 쓴 답 덧붙이기 (MCP answer_record)', () => {
+  it('질문 아래에 에이전트 이름으로 답을 붙이고 질문을 답함으로 둔다', async () => {
+    const q = (await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '질문', title: '프로젝트', text: '이 점은 어디서 왔나?' } })).json().entry.id
+    const memo = (await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '메모', title: '프로젝트', text: '메모' } })).json().entry.id
+    const res = await app.inject({ method: 'POST', url: `${R}/comments/project/${q}/answers`, payload: { by: 'codex · x\ny', body: '노트 a의 식 (2)에서 왔습니다.\n## 머리처럼 보이는 줄' } })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().comments.find((c: { id: string }) => c.id === q)).toMatchObject({ state: '답함', answers: [{ by: 'codex x y', body: '노트 a의 식 (2)에서 왔습니다.\n\\## 머리처럼 보이는 줄' }] })
+    expect((await app.inject({ method: 'POST', url: `${R}/comments/project/${memo}/answers`, payload: { by: 'codex', body: '답' } })).statusCode).toBe(404)
+    expect((await app.inject({ method: 'POST', url: `${R}/comments/project/${q}/answers`, payload: { by: 'codex', body: '  ' } })).statusCode).toBe(400)
+    expect((await app.inject({ method: 'POST', url: `${R}/comments/project/${q}/answers`, payload: { body: '답' } })).statusCode).toBe(400)
   })
 })

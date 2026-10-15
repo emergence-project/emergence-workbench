@@ -1,6 +1,6 @@
 // 에이전트용 입구 (MCP, 읽기 단계 A): Claude Code · Codex가 앱의 서버 API를 거쳐 프로젝트를 읽는다.
 // 파일을 직접 읽거나 쓰지 않고 맥에서 도는 앱 서버(127.0.0.1)만 부른다. 그래서 화면과 같은 규칙과 hash를 쓴다.
-// 강점 강화 계획(2026-10-08)의 A단계. 쓰기 도구는 노트 · 개념노트 고치기(edit_note · edit_concept, 10/8 에이전트 고침 검토)만. 등록은 docs/agent-mcp.md
+// 강점 강화 계획(2026-10-08)의 A단계. 쓰기 도구는 노트 · 개념노트 고치기(edit_note · edit_concept, 10/8 에이전트 고침 검토)와 질문에 답하기(answer_record, 10/15)만. 등록은 docs/agent-mcp.md
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -88,7 +88,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     return r.ok ? json(shape(r.body as never)) : r.error
   }
   const server = new McpServer({ name: 'emergence-workbench', version: '0.1.0' }, {
-    instructions: 'Read projects, notes, records, delegated tasks and concept notes of Emergence Workbench through its app server. Start with rules (pass project to include that repository\'s own rules), then list_projects and project_status.',
+    instructions: 'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server. Start with rules (pass project to include that repository\'s own rules), then list_projects and project_status.',
   })
   const ro = { readOnlyHint: true, openWorldHint: false } as const
   const project = z.string().describe('Project id (from list_projects)')
@@ -177,6 +177,42 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     inputSchema: { project, target: z.string().describe('project | note-<folder> | calc-<folder> | block-<id> | topic-<id> | flow-<id> | manuscript') },
     annotations: ro,
   }, async ({ project: rid, target }) => call(`/api/researches/${enc(rid)}/comments/${enc(target)}`))
+
+  server.registerTool('list_records', {
+    title: 'List records',
+    description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Each row: target, id, kind, state, where, quote, part/partText (the screen part the user pointed at), body, answers. Use unanswered: true for questions still waiting for an answer. Read one target with read_records when you need its hash.',
+    inputSchema: {
+      project,
+      kind: z.enum(['메모', '할 일', '질문']).optional().describe('메모 (memo) | 할 일 (to-do) | 질문 (question)'),
+      state: z.enum(['대기', '답함', '끝냄']).optional().describe('대기 (waiting) | 답함 (answered) | 끝냄 (closed)'),
+      target: z.string().optional().describe('Only this target, or a prefix ending in - (note-, topic-, flow- …)'),
+      unanswered: z.boolean().optional().describe('Only questions waiting for an answer (kind 질문, state 대기)'),
+    },
+    annotations: ro,
+  }, async ({ project: rid, kind, state, target, unanswered }) => call(`/api/researches/${enc(rid)}/records`, (b: { files: { target: string; title: string; source?: string; comments: Record<string, unknown>[] }[] }) => ({
+    records: b.files
+      .filter((file) => !target || (target.endsWith('-') ? file.target.startsWith(target) : file.target === target))
+      .flatMap((file) => file.comments
+        .filter((c) => (!kind || c.kind === kind) && (!state || c.state === state) && (!unanswered || (c.kind === '질문' && c.state === '대기')))
+        .map((c) => ({ target: file.target, title: file.title, ...pick(c, ['id', 'kind', 'state', 'where', 'quote', 'part', 'partText', 'edit', 'body', 'answers']) }))),
+  })))
+
+  server.registerTool('answer_record', {
+    title: 'Answer a question record',
+    description: 'Write your answer under a question record (from list_records or read_records). The answer is appended with your agent name and the question becomes answered (답함); the user reads it in the app. Answer only what was asked. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
+    inputSchema: {
+      project,
+      target: z.string().describe('The record\'s target (project, note-<folder>, topic-<id>, flow-<id> …)'),
+      id: z.string().describe('The question record id'),
+      answer: z.string().trim().min(1).describe('Your answer (Markdown)'),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  }, async ({ project: rid, target, id, answer }) => {
+    const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(target)}/${enc(id)}/answers`, { by: agentOf(server.server.getClientVersion()?.name), body: answer })
+    if (!r.ok) return r.error
+    const b = r.body as { hash: string }
+    return text(`Answered. The question is now answered (답함). Records file hash: ${b.hash}.`)
+  })
 
   server.registerTool('list_tasks', {
     title: 'List delegated tasks',
