@@ -17,9 +17,10 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     if (!opts.appRepo) return { enabled: false }
     return { enabled: true, status: await appStatus(opts.appRepo.root, opts.appRepo.running, { fetch: req.query.fetch === '1' }) }
   })
-  app.get('/api/app/info', async () => {
+  app.get<{ Querystring: { pr?: string } }>('/api/app/info', async (req) => {
     if (!opts.appRepo) return { enabled: false }
-    return { enabled: true, info: await appInfo(opts.appRepo.root, opts.appRepo.running) }
+    const pr = Number(req.query.pr)
+    return { enabled: true, info: await appInfo(opts.appRepo.root, opts.appRepo.running, 20, Number.isInteger(pr) && pr > 0 ? pr : undefined) }
   })
   let updating: Promise<unknown> | null = null
   app.post('/api/app/update', async () => {

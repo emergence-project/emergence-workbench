@@ -1,5 +1,9 @@
 /* 소개 (AboutPage · aboutContent) — 앱 사이드바의 쪽 목록 + 본문 */
 .about-nav-row { text-decoration: none; }
+.about-nav-group + .about-nav-group { margin-top: var(--sp-2); }
+.about-nav-head { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); }
+/* 연 쪽의 절: 쪽 이름 아래 들여 쓴 하위 항목 (설정의 .set-sub와 같은 모양) */
+.about-nav-sub { text-decoration: none; padding-left: calc(var(--sp-4) + var(--sp-5)); color: var(--text-2); font-size: var(--fs-sm); }
 .about-nav-row .n { min-width: var(--sp-4); flex: none; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-normal); }
 .about .sec-head { align-items: center; }
 .about .sec-head .icon-btn { flex: none; }
@@ -169,3 +173,9 @@
 .about-tags th:nth-child(1) { width: 9em; }
 .about-tags th:nth-child(2) { width: 6em; }
 .about-tags td:first-child, .about-tags td:nth-child(2) { white-space: nowrap; }
+/* 절 제목 옆 "업데이트 #n" (10/15 소개와 업데이트 1대1): 마지막으로 고친 업데이트로 가는 링크 */
+.about .about-pr { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; margin-right: var(--sp-2); }
+/* 기호 표 안의 묶음 머리 줄 (흐름: 종류 · 상태 · 선) */
+.about-sym-table .about-sym-group td { color: var(--text-2); font-size: var(--fs-sm); padding-top: var(--sp-3); }
+/* 흐름 기호 표: 차트의 점 그림을 그 크기·색 그대로 (위의 선 아이콘 규칙을 풀어 준다) */
+.about-sym-table td.about-sym svg.fl-icon { width: auto; height: auto; stroke: none; fill: none; stroke-width: 0; }

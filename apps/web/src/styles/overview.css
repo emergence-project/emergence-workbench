@@ -2,16 +2,17 @@
 /* 왼쪽 제목·설명·카드와 오른쪽 작업은 같은 높이에서 시작한다. */
 .page-body.landing { max-width: calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap) + var(--sp-5) + var(--landing-work-width) + 2 * var(--sp-6)); gap: var(--sp-5); container-type: inline-size; }
 .issues > summary { cursor: pointer; }
-/* 카드 네 장을 우선 확보하고 작업 칸부터 최소 폭까지 줄인다. 그보다 좁으면 카드 칸도 줄인다. */
+/* 머리 두 칸(10/15 09:55 피드백, 시안 A): 왼쪽 제목·설명·성격, 오른쪽 작업 패널. 주제 카드는 그 아래 전체 폭.
+   작업 패널은 크기를 내용에서 재지 않아(contain: size) 줄 높이가 머리(최소 --landing-work-min-height)로 정해진다.
+   넘치는 묶음은 NowPanel이 접어 "모두 보기" 옆에 수만 적는다. */
 .landing-cols {
   display: grid;
-  grid-template-columns:
-    minmax(min(calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap)), calc(100% - var(--landing-work-min-width) - var(--sp-5))), 1fr)
-    minmax(var(--landing-work-min-width), var(--landing-work-width));
+  grid-template-columns: minmax(0, 1fr) minmax(var(--landing-work-min-width), var(--landing-work-width));
   gap: var(--sp-5);
-  align-items: start;
+  align-items: stretch;
 }
-@container (max-width: 760px) { .landing-cols { grid-template-columns: minmax(0, 1fr); } .landing-cols .now { order: -1; } }
+.landing-cols > .now { contain: size; min-height: var(--landing-work-min-height); overflow: hidden; }
+@container (max-width: 760px) { .landing-cols { grid-template-columns: minmax(0, 1fr); } .landing-cols > .now { order: -1; contain: none; min-height: 0; } }
 .main-chapters, .main-empty { min-width: 0; }
 .chapters { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
 .chapter-wrap + .chapter-wrap .chapter, .chapter-wrap + .chapter.loose { border-top: 1px solid var(--line); }
@@ -76,6 +77,9 @@ button.t:hover { text-decoration: underline; }
 .main-chapters .sec-head .count { font-size: var(--fs-xs); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .main-notes .hint { margin: 0; font-size: var(--fs-xs); }
 .now .sec-head { display: flex; align-items: baseline; gap: var(--sp-3); }
+.now-all { margin-left: auto; font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.now-folded { color: var(--text-3); }
+.now h3 .a { font: inherit; color: inherit; }
 .now .sec-head h2 .count { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-normal); }
 .now .sec-head h2 .a { font: inherit; color: inherit; }
 .now-note { margin: 2px 0 var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }

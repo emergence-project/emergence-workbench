@@ -97,10 +97,10 @@ export const GLOBAL_PAGES: {
   { page: 'review', label: '고침 검토', name: t('고침 검토', 'Edit review'), aria: t('개념노트 고침 검토', 'Review concept note edits'), tip: t('개념노트 고침 검토', 'Review concept note edits'), icon: Icon.approve, rail: 'none',
     render: (p) => <AgentEditsPage selected={p.route.page === 'review' ? p.route.key : undefined} version={p.version} onSaved={p.onSaved} /> },
   { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
-    side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} />,
+    side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },
   { page: 'settings', label: '설정', name: t('설정', 'Settings'), aria: t('설정', 'Settings'), tip: t('설정', 'Settings'), icon: Icon.settings, rail: 'bottom', side: (p) => <SettingsSide part={p.route.page === 'settings' ? p.route.part : undefined} />,
-    render: (p) => <SettingsPage ui={p.ui} onChange={p.onUi} part={p.route.page === 'settings' ? p.route.part : undefined} onSaved={p.onSaved} />,
+    render: (p) => <SettingsPage ui={p.ui} onChange={p.onUi} part={p.route.page === 'settings' ? p.route.part : undefined} pr={p.route.page === 'settings' ? p.route.pr : undefined} onSaved={p.onSaved} />,
     badge: () => <AppUpdateRailCount /> },
 ]
 
