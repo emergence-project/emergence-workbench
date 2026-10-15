@@ -25,7 +25,7 @@ import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
 import { AUX_NOTE, shortLabel } from './notes'
 import { StatementTab } from './StatementTab'
 import { DocTab, MaterialsNav } from './Materials'
-import { commentsChanged, flowTarget, manuscriptTarget, topicTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
+import { commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNoteEditor } from './Library'
 import { QuickMemo } from './memo'
@@ -473,7 +473,6 @@ export function App() {
               return <RightSidebar info={info}
                 records={cmd ? <ConceptRecordsSide key={cmd} id={cmd} info={library} onSaved={flash} /> : <RecordsPanel key={`${rid}|${ct?.target ?? 'project'}`} rid={rid}
                   target={ct ?? { target: 'project', title: summary.research.title }} version={version}
-                  places={ct ? [...(row?.topics ?? []).map((tid) => topicTarget(tid, topics.find((x) => x.id === tid)?.title ?? tid)), { target: 'project', title: summary.research.title }] : []}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
         )}

@@ -1,8 +1,6 @@
 import type { CommentEntry, RecordFile } from './api/comments'
 import type { Route } from './router'
 import type { Tab } from './Workspace'
-import type { CommentTarget } from './Comments'
-import { t } from './i18n'
 
 export type RecordFilter = '전체' | '메모' | '할 일' | '질문' | '지시'
 export const recordKind = (c: Pick<CommentEntry, 'kind'>) => c.kind === '코멘트' ? '메모' : c.kind
@@ -57,12 +55,4 @@ export function rebaseRecordEdit(edit: RecordEdit, body: string, hash: string): 
 export function filterForActiveRecord(filter: RecordFilter, comments: CommentEntry[], active: string | null): RecordFilter {
   const entry = comments.find((c) => c.id === active)
   return entry && entry.kind !== '하이라이트' && !filterRecords([entry], filter).length ? '전체' : filter
-}
-
-/** 남길 곳의 화면 이름 (10/15 14:57 피드백): 이 노트 · 이 주제 · 이 프로젝트 */
-export function placeLabel(place: CommentTarget, current: CommentTarget): string {
-  if (place.target === 'project') return t('이 프로젝트', 'This project')
-  if (place.target.startsWith('topic-')) return `${t('이 주제', 'This topic')} · ${place.title.replace(/^주제 /, '')}`
-  if (place.target === current.target && /^(note|calc|block)-/.test(place.target)) return `${t('이 노트', 'This note')} · ${place.title.replace(/^(연구노트|계산 노트|노트 결과) /, '')}`
-  return place.title
 }
