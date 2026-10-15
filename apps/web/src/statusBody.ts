@@ -12,3 +12,17 @@ export function statusBody(markdown: string): string {
   skip((line) => line.startsWith('>'))
   return lines.slice(i).join('\n')
 }
+
+/** 규칙 절: 프로젝트 정보의 AGENTS.md 탭이 보이고 현황 탭에서는 뺀다 (10/15 피드백 "현황과 AGENTS.md를 나누자") */
+const RULE_HEADING = /^## (공통 규칙|폴더와 편집 규칙|프로젝트 규칙)(\s|$)/
+
+/** 현황 글을 규칙 절과 나머지로 나눈다. 절의 순서와 글자는 바꾸지 않는다 */
+export function splitStatus(body: string): { status: string; rules: string } {
+  const status: string[] = [], rules: string[] = []
+  let into = status
+  for (const line of body.split('\n')) {
+    if (line.startsWith('## ')) into = RULE_HEADING.test(line) ? rules : status
+    into.push(line)
+  }
+  return { status: status.join('\n').trim(), rules: rules.join('\n').trim() }
+}

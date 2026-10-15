@@ -9,7 +9,7 @@ import { ProjectEditDialog } from './ProjectEditDialog'
 import { PROJECT_KIND_LABEL } from './projectProfile'
 import { locale, plural, t } from './i18n'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
-import { statusBody } from './statusBody'
+import { splitStatus, statusBody } from './statusBody'
 
 function PathName({ path }: { path: string }) {
   const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
@@ -119,17 +119,32 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
 /**
  * 현황: 에이전트가 STATUS.md · `pnpm agent:status` · MCP project_status로 읽는 요약과 같은 것 (10/11 "정본은 하나, 사람은 앱으로 AI는 파일·MCP로").
  * 서버의 generateStatus 하나가 만든 글을 그대로 보이고, 앞머리의 에이전트용 안내(제목과 > 인용 줄)만 뺀다.
+ * 두 탭으로 나눈다 (10/15 피드백): 현황(할 일 · 주제 · 노트 · 기록), AGENTS.md(저장소의 AGENTS.md · CLAUDE.md와 STATUS.md의 규칙 절).
  */
 function StatusSection({ rapi, version }: { rapi: ResearchApi; version: number }) {
   const [text, setText] = useState<string | null | undefined>(undefined)
+  const [files, setFiles] = useState<{ file: string; text: string }[] | null | undefined>(undefined)
+  const [tab, setTab] = useState<'status' | 'agents'>('status')
   useEffect(() => { rapi.agentStatus().then((r) => setText(statusBody(r.markdown))).catch(() => setText(null)) }, [rapi, version])
+  useEffect(() => { rapi.agentRules().then((r) => setFiles(r.files)).catch(() => setFiles(null)) }, [rapi, version])
+  const parts = text ? splitStatus(text) : null
   return (
     <section className="info-sec" data-ui="현황">
       <h2>{t('현황', 'Status')} <span className="muted">{t('에이전트가 STATUS.md와 MCP로 읽는 것과 같은 내용', 'Same as what agents read in STATUS.md and over MCP')}</span></h2>
+      <div className="segmented small info-status-tabs" role="tablist" data-ui="현황 탭">
+        <button type="button" role="tab" aria-selected={tab === 'status'} className={tab === 'status' ? 'on' : ''} onClick={() => setTab('status')}>{t('현황', 'Status')}</button>
+        <button type="button" role="tab" aria-selected={tab === 'agents'} className={tab === 'agents' ? 'on' : ''} onClick={() => setTab('agents')}>AGENTS.md</button>
+      </div>
       <div className="info-status">
         {text === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
-          : text === null ? <p className="muted">{t('현황을 읽지 못했습니다', 'Could not read the status')}</p>
-          : <ObsidianMarkdown text={text} />}
+          : text === null || !parts ? <p className="muted">{t('현황을 읽지 못했습니다', 'Could not read the status')}</p>
+          : tab === 'status' ? <ObsidianMarkdown text={parts.status} />
+          : <>
+            {files === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
+              : !files?.length ? <p className="muted">{t('저장소 맨 위에 AGENTS.md가 없습니다', 'No AGENTS.md at the top of the repository')}</p>
+              : files.map((f) => <div key={f.file} className="info-rule-file"><h3><code>{f.file}</code></h3><ObsidianMarkdown text={f.text} /></div>)}
+            {parts.rules && <div className="info-rule-file"><h3>{t('함께 읽는 규칙', 'Rules read with it')} <span className="muted">{t('STATUS.md의 규칙 절', 'Rule sections of STATUS.md')}</span></h3><ObsidianMarkdown text={parts.rules} /></div>}
+          </>}
       </div>
     </section>
   )

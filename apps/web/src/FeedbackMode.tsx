@@ -45,16 +45,34 @@ function snippetOf(el: Element): string {
  * 코멘트를 남기는 순간의 화면 그림 (JPEG). 에이전트는 글만으로는 사용자 화면을 볼 수 없어서 함께 남긴다.
  * 피드백 모드 자체의 창은 빼고, PDF처럼 그림으로 옮길 수 없는 부분은 비어 보일 수 있다. 실패해도 코멘트는 그대로 저장한다
  */
+/**
+ * html-to-image는 <svg>를 통째로 복사하고 그 안의 요소에는 계산된 스타일을 옮기지 않는다. 그림 안에는 페이지 CSS가 없어
+ * 클래스로 칠한 SVG(흐름 차트 등)가 검은 덩어리로 찍혔다 (10/15 09:49 그림). 찍는 동안만 SVG 안 요소에 계산된 칠을 적어 두고 되돌린다
+ */
+const SVG_PAINT = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'opacity', 'paint-order', 'font-size', 'font-weight', 'font-family', 'display', 'visibility'] as const
+function inlineSvgPaint(): () => void {
+  const saved: [Element, string | null][] = []
+  for (const el of document.querySelectorAll('svg *')) {
+    if (!(el instanceof SVGElement) || el.closest('[data-feedback-ui]')) continue
+    const cs = getComputedStyle(el)
+    saved.push([el, el.getAttribute('style')])
+    for (const k of SVG_PAINT) el.style.setProperty(k, cs.getPropertyValue(k))
+  }
+  return () => { for (const [el, style] of saved) { if (style === null) el.removeAttribute('style'); else el.setAttribute('style', style) } }
+}
+
 async function captureScreen(): Promise<string | null> {
+  let restore: (() => void) | null = null
   try {
     const { toJpeg } = await import('html-to-image')
+    restore = inlineSvgPaint()
     return await toJpeg(document.body, {
       quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight,
       // 그림 주소는 ?path=…로만 다르다(/api/feedback/picture 등). 빼면 html-to-image가 물음표 뒤를 버린 주소로 캐시해 다른 그림을 다시 쓴다 (10/13 09:59 그림)
       includeQueryParams: true,
       filter: (n) => !(n instanceof Element && n.hasAttribute('data-feedback-ui')),
     })
-  } catch { return null }
+  } catch { return null } finally { restore?.() }
 }
 
 function isOwnUi(t: EventTarget | null): boolean {

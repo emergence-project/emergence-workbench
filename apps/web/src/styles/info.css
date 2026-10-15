@@ -33,3 +33,8 @@
 .info-status h3 { font-size: var(--fs-sm); font-weight: var(--fw-title); margin: var(--sp-3) 0 var(--sp-1); }
 .info-status blockquote { margin: var(--sp-1) 0; padding-left: var(--sp-3); border-left: 2px solid var(--line); color: var(--text-3); }
 .info-status ul { padding-left: var(--sp-5); }
+/* 현황 · AGENTS.md 탭 (10/15) */
+.info-status-tabs { align-self: flex-start; margin-bottom: var(--sp-2); }
+.info-rule-file + .info-rule-file { margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+.info-rule-file > h3 { margin-top: 0; }
+.info-rule-file > h3 .muted { font-weight: var(--fw-normal); margin-left: var(--sp-2); }

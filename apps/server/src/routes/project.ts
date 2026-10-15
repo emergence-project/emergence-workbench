@@ -44,7 +44,7 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
   /** STATUS.md 미리보기 (쓰지 않음) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-status', replies(C.AgentStatusPreview), async (req): Promise<C.AgentStatusPreview> => ({ markdown: generateStatus(wbOf(req.params.rid), new Date(), readStatusEdits(wbOf(req.params.rid), registry.configDir, req.params.rid, registry.libraryPath), commonRules(registry.configDir)) }))
   /** 이 연구 저장소의 에이전트 규칙: 맨 위 AGENTS.md · CLAUDE.md (MCP rules 도구가 모아 준다) */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-rules', async (req) => ({ files: projectRules(path.dirname(wbOf(req.params.rid).root)) }))
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-rules', replies(C.AgentRules), async (req): Promise<C.AgentRules> => ({ files: projectRules(path.dirname(wbOf(req.params.rid).root)) }))
   /** 연구 공통 규칙: 모든 연구 저장소에 통하는 규칙 한 파일 (MCP rules 도구가 모아 준다). 없으면 null */
   app.get('/api/rules/common', replies(CC.CommonRules), async (): Promise<CC.CommonRules> => ({ rules: commonRules(registry.configDir) }))
   /** STATUS.md 쓰기 — agent-status를 켠 프로젝트만 */

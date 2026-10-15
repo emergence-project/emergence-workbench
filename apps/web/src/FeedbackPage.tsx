@@ -474,9 +474,13 @@ function Compose({ e }: { e: FeedbackItem }) {
 /** 왼쪽 띠의 피드백 버튼에 붙는 수: 답할 것 + 확인할 것. 피드백 화면의 "확인 필요" 수와 같다. 피드백이 바뀌면 다시 센다 */
 export function FeedbackRailCount({ version }: { version: number }) {
   const [n, setN] = useState<{ ask: number; confirm: number } | null>(null)
+  /** 이 맥에서 남겼지만 아직 GitHub에 등록하지 않은 피드백 수 (10/15 피드백: 등록할 것도 띠에 보이게). 올리지 않는 모드면 0 */
+  const [unregistered, setUnregistered] = useState(0)
   const [tick, setTick] = useState(0)
   useEffect(() => {
     api.feedbackAll().then((b) => setN(railCount(b.entries))).catch(() => setN(null))
+    Promise.all([fetch('/api/feedback').then((r) => r.json() as Promise<{ publishable?: boolean }>), records.feedbackUnpublished()])
+      .then(([b, u]) => setUnregistered(b.publishable ? u.count ?? u.files.length : 0)).catch(() => setUnregistered(0))
   }, [version, tick])
   useEffect(() => {
     const on = () => setTick((t) => t + 1)
@@ -484,8 +488,20 @@ export function FeedbackRailCount({ version }: { version: number }) {
     const timer = window.setInterval(on, 10 * 60_000)
     return () => { window.removeEventListener(FEEDBACK_EVENT, on); window.clearInterval(timer) }
   }, [])
-  if (!n || n.ask + n.confirm === 0) return null
-  return <span className="rail-count" data-ui="내 차례 수" title={t(`피드백에서 확인 필요 — 답할 것 ${n.ask} · 확인할 것 ${n.confirm}`, `Feedback needs review: ${n.ask} to answer · ${n.confirm} to check`)}>{n.ask + n.confirm}</span>
+  // 남긴 피드백은 30초 뒤 저절로 등록된다(서버): 그 뒤에 한 번 더 읽어 표시를 지운다
+  useEffect(() => {
+    if (!unregistered) return
+    const timer = window.setTimeout(() => setTick((t) => t + 1), 45_000)
+    return () => window.clearTimeout(timer)
+  }, [unregistered, tick])
+  const turn = n ? n.ask + n.confirm : 0
+  if (!turn && !unregistered) return null
+  const why = [
+    turn ? t(`확인 필요 — 답할 것 ${n!.ask} · 확인할 것 ${n!.confirm}`, `Needs review: ${n!.ask} to answer · ${n!.confirm} to check`) : '',
+    unregistered ? t(`등록할 피드백 ${unregistered} (피드백 화면 오른쪽 위 "피드백 등록")`, `${unregistered} feedback item(s) to register ("Register feedback" at the top right of the feedback page)`) : '',
+  ].filter(Boolean).join('\n')
+  if (!turn) return <span className="rail-count dot" data-ui="등록할 피드백 표시" role="img" aria-label={why} title={why} />
+  return <span className="rail-count" data-ui="내 차례 수" title={`${t('피드백', 'Feedback')}\n${why}`}>{turn}</span>
 }
 
 /**
