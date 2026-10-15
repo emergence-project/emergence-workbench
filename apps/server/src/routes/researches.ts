@@ -1,6 +1,6 @@
 // 연구 목록·등록·개괄
 import type { FastifyInstance } from 'fastify'
-import { GitHubRepoList } from '@rw/core/contract/register'
+import { GitHubRepoList, PickFolderBody, PickedFolder } from '@rw/core/contract/register'
 import * as C from '@rw/core/contract/research'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
@@ -12,6 +12,7 @@ import { allManuscripts, groundsOf } from '../manuscript.js'
 import { listStatements } from '../statements.js'
 import { generateOverview, overviewRow, userTurnOf } from '../agentOverview.js'
 import { WorkbenchError } from '../workbench.js'
+import { chooseFolder } from '../materials.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
 
@@ -80,6 +81,12 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     if (!repo) throw new WorkbenchError(400, t('GitHub 저장소 주소가 아닙니다 (예: https://github.com/이름/저장소)', 'Not a GitHub repository address (for example https://github.com/name/repo)'))
     if (typeof req.body?.parent !== 'string') throw new WorkbenchError(400, t('parent가 필요함', 'parent is required'))
     return { path: await cloneInto(repo.url, req.body.parent, repo.name) }
+  })
+
+  /** 등록 창의 "Finder에서 고르기": 맥의 폴더 고르기 창 (10/15 피드백) */
+  app.post('/api/researches/pick-folder', replies(PickedFolder), async (req): Promise<PickedFolder> => {
+    const b = parseBody(PickFolderBody, req.body ?? {})
+    return { path: await chooseFolder(t('연구 저장소 폴더를 고르세요', 'Choose a project repository folder'), b.start) }
   })
 
   app.post<{ Body: { path: string } }>('/api/researches/inspect', async (req) => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { githubRepos, req, type GitHubRepoItem, type GitHubRepoList } from './api'
+import { githubRepos, pickFolder, req, type GitHubRepoItem, type GitHubRepoList } from './api'
 import { Dialog, PreamblePicker, type Inspection, type LibraryPreamble } from './dialogs'
 import { relativeTime } from './format'
 import { Icon } from './icons'
@@ -132,6 +132,13 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
   }
 
   /** 검사 결과를 지우고 고르기로 돌아간다 */
+  /** 맥의 Finder 폴더 고르기 창 (10/15 피드백). 취소하면 그대로 */
+  const [picking, setPicking] = useState(false)
+  const finder = async (start: string, then: (p: string) => void) => {
+    setPicking(true); setError(null)
+    try { const r = await pickFolder(start.trim() || undefined); if (r.path) then(r.path) } catch (e) { setError((e as Error).message) } finally { setPicking(false) }
+  }
+  const finderBtn = (start: string, then: (p: string) => void) => <button type="button" className="btn" data-ui="Finder에서 고르기" disabled={picking} onClick={() => void finder(start, then)}>{picking ? t('고르는 중…', 'Choosing…') : t('Finder에서 고르기', 'Choose in Finder')}</button>
   const back = () => { setIns(null); setError(null); if (way === 'github') { setPicked(null); setPath('') } }
 
   const canRegister = !!ins && ins.errors.length === 0 && (ins.hasWorkbench || create)
@@ -180,17 +187,18 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
           </label>
           {cloneSource && <>
             <label className="field" data-ui="받을 폴더"><span>{t('받을 폴더 — 이 안에 저장소 이름의 폴더가 생깁니다', 'Clone into: a folder named after the repository is created inside')}</span>
-              <input className="mono" value={parent} onChange={(e) => setParent(e.target.value)} />
+              <span className="reg-pathrow"><input className="mono" value={parent} onChange={(e) => setParent(e.target.value)} />{finderBtn(parent, setParent)}</span>
             </label>
             <p className="muted reg-hint">{t('이 컴퓨터로 받아 온(git clone) 뒤 그 폴더를 등록합니다. 비공개 저장소도 이 컴퓨터의 GitHub 로그인을 그대로 씁니다.', "Clones to this computer (git clone) and then adds that folder. Private repositories use this computer's GitHub login.")}</p>
           </>}
         </> : <>
           <label className="field"><span>{t('연구 저장소 폴더 (절대 경로)', 'Project repository folder (absolute path)')}</span>
-            <input autoFocus className="mono" value={path} placeholder="/Users/…/GitHub/my-research"
+            <span className="reg-pathrow"><input autoFocus className="mono" value={path} placeholder="/Users/…/GitHub/my-research"
               onChange={(e) => setPath(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && path.trim()) void inspect(path.trim()) }} />
+              {finderBtn(path, (p) => { setPath(p); void inspect(p) })}</span>
           </label>
-          <p className="muted reg-hint">{t('저장소는 옮기지 않습니다. 경로만 이 컴퓨터의 설정에 기록합니다.', "The repository is not moved. Only its path is saved in this computer's settings.")}</p>
+          <p className="muted reg-hint">{t('Finder에서 고르면 바로 확인합니다. 저장소는 옮기지 않고 경로만 이 컴퓨터의 설정에 기록합니다.', "Choosing in Finder checks the folder right away. The repository is not moved; only its path is saved in this computer's settings.")}</p>
         </>}
       </>}
       {ins && ins.errors.length > 0 && <div className="notes err"><ul>{ins.errors.map((e) => <li key={e}>{e}</li>)}</ul></div>}
