@@ -27,6 +27,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/figures             그림 라이브러리 첫 화면 (최근 더한 그림 · 점검 · 통계)
  *   #/figures/list        그림 목록 (카드 · 표)
  *   #/figures/<거르기>      그림 목록을 거른 채 (library · unused · project:<연구> …)
+ *   #/figures/open/<그림>   그림 하나 크게 보기 (아래 목록 줄 + 정보)
  *   #/library             지식 (주제마다 Study·개념노트·Topic Review·문헌노트)
  *   #/library/list         지식 목록 (분류·이상·점검 거르기는 query에)
  *   #/library/t/<주제>     지식 — 그 주제를 고른 채
@@ -45,7 +46,7 @@ export type Route =
   | { page: 'review'; key?: string; scope?: string }
   /** 거르기(filter)나 list가 있으면 목록, 없으면 첫 화면 (10/6 라이브러리 L2) */
   | { page: 'shelf'; filter?: string; open?: string; list?: true }
-  | { page: 'figures'; filter?: string; list?: true }
+  | { page: 'figures'; filter?: string; list?: true; open?: string }
   /** view: 'map'은 지도 주소를 만드는 옛 꼴 (지도 화면이 그대로 쓴다). 읽으면 kmap이 된다 */
   | { page: 'library'; topic?: string; view?: 'map'; list?: true; subjectPrefix?: string; issue?: ConceptIssue; check?: ConceptCheck; showEmpty?: boolean }
   /** 지식 지도 (10/6: 지식 화면의 보기에서 왼쪽 띠의 페이지로, 주소는 그대로) */
@@ -107,7 +108,7 @@ export function parseRoute(hash: string): Route {
     if (rid) return { page: 'edits', rid, ...(key && { key }) }
     return { page: 'review', ...(key && { key }), ...(scope && { scope }) }
   }
-  if (parts[0] === 'figures') return parts[1] === 'list' ? { page: 'figures', list: true } : parts[1] ? { page: 'figures', filter: parts[1] } : { page: 'figures' }
+  if (parts[0] === 'figures') return parts[1] === 'open' && parts[2] ? { page: 'figures', open: parts[2] } : parts[1] === 'list' ? { page: 'figures', list: true } : parts[1] ? { page: 'figures', filter: parts[1] } : { page: 'figures' }
   if (parts[0] === 'papers') {
     if (parts[1] === 'open' && parts[2]) return { page: 'shelf', open: parts[2] }
     return parts[1] === 'list' ? { page: 'shelf', list: true } : parts[1] ? { page: 'shelf', filter: parts[1] } : { page: 'shelf' }
@@ -132,7 +133,7 @@ export function parseRoute(hash: string): Route {
 }
 
 /** 라이브러리 목록 화면인지 (첫 화면이 아니라) */
-export const isListRoute = (r: Route) => (r.page === 'library' && !!r.list && !r.topic && !r.view) || (r.page === 'shelf' && !r.open && (!!r.list || !!r.filter)) || (r.page === 'figures' && (!!r.list || !!r.filter))
+export const isListRoute = (r: Route) => (r.page === 'library' && !!r.list && !r.topic && !r.view) || (r.page === 'shelf' && !r.open && (!!r.list || !!r.filter)) || (r.page === 'figures' && !r.open && (!!r.list || !!r.filter))
 
 export function href(r: Route): string {
   const e = encodeURIComponent
@@ -148,7 +149,7 @@ export function href(r: Route): string {
       if (r.key) p.set('key', r.key)
       return `#/review${p.size ? `?${p}` : ''}`
     }
-    case 'figures': return `#/figures${r.filter ? `/${e(r.filter)}` : r.list ? '/list' : ''}`
+    case 'figures': return r.open ? `#/figures/open/${e(r.open)}` : `#/figures${r.filter ? `/${e(r.filter)}` : r.list ? '/list' : ''}`
     case 'shelf': return r.open ? `#/papers/open/${e(r.open)}` : `#/papers${r.filter ? `/${e(r.filter)}` : r.list ? '/list' : ''}`
     case 'library': {
       if (r.list && !r.topic && !r.view) {

@@ -54,10 +54,10 @@ export function useFigureListState(): { data: FigureList | null; error: string |
 export function useFigureList(): FigureList | null { return useFigureListState().data }
 
 /** 렌더러에 넘길 그림 주소 찾기 (없는 이름이면 undefined: 예전처럼 그린다) */
-export function useFigureUrl(rid?: string): ((name: string) => { url: string; pdf: boolean } | undefined) | undefined {
+export function useFigureUrl(rid?: string): ((name: string) => { url: string; pdf: boolean; id: string } | undefined) | undefined {
   const data = useFigureList()
   return useMemo(() => {
     if (!data?.figures.length) return undefined
-    return (name: string) => { const f = findFigure(data.figures, name, rid); return f && { url: figuresApi.fileUrl(f.id, f.mtime), pdf: f.kind === 'pdf' } }
+    return (name: string) => { const f = findFigure(data.figures, name, rid); return f && { url: figuresApi.fileUrl(f.id, f.mtime), pdf: f.kind === 'pdf', id: f.id } }
   }, [data, rid])
 }

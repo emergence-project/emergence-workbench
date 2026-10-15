@@ -85,6 +85,8 @@ try {
       const why = await seedAgentEdits(base, rid, options.lang) ?? (name === 'review-talk' ? await seedEditTalk(base, rid, options.lang) : null)
       if (why) problems.push(`${name}: 예제 고침을 넣지 못함 (${why})`)
     }
+    // 앞 화면(노트 고치기)과 주소가 같아 편집기가 남지 않게 새로 연다
+    if (name === 'figure-zoom') await page.goto('about:blank')
     await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')

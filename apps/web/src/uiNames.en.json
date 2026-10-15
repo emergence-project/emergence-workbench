@@ -74,9 +74,13 @@
   "그림 저장": "Save figure",
   "그림 정렬": "Sort figures",
   "그림 정보": "Figure info",
+  "그림 보기": "Figure view",
+  "그림 보기 목록": "Figure view strip",
   "그림 줄": "Figure row",
   "그림 첫 화면": "Figures home",
   "그림 카드": "Figure card",
+  "그림 크게": "Large figure",
+  "그림 화면에서 열기": "Open in figure screen",
   "그림 폴더 연결": "Connect figure folder",
   "근거": "Grounds",
   "기대는 작업노트": "Work note it relies on",
@@ -591,5 +595,6 @@
   "흐름 그림 넣기": "Flow insert figure",
   "현황 탭": "Status tabs",
   "등록할 피드백 표시": "Feedback to register mark",
+  "앞뒤 그림": "Previous and next figure",
   "고친 업데이트": "Last update"
 }
