@@ -38,8 +38,9 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
               {at <= 0 && <UnsureNotice part={p} />}
               {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} />}
               <footer className="about-pager" data-ui="소개 앞뒤">
-                {prev ? <a className="a" href={pageHref(prev)}>‹ {pageLabel(prev, p)}</a> : <span />}
-                {next && <a className="a" href={pageHref(next)}>{pageLabel(next, p)} ›</a>}
+                {/* 앞뒤 넘기기: 본문과 띄운 두 칸 (10/15 15:03 제안) */}
+                {prev ? <a className="about-step" href={pageHref(prev)}><span className="k">‹ {t('이전', 'Previous')}</span><b>{pageLabel(prev, p)}</b></a> : <span />}
+                {next ? <a className="about-step next" href={pageHref(next)}><span className="k">{t('다음', 'Next')} ›</span><b>{pageLabel(next, p)}</b></a> : <span />}
               </footer>
             </article>
           </PartTitle.Provider>

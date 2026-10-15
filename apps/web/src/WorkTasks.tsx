@@ -202,7 +202,8 @@ export function TaskList({ rid, tasks, loaded, diagnostics = [] }: { rid: string
 
 /** 하루 칸에 보일 항목 수. 나머지는 "외 N개" (홈 달력과 같은 규칙) */
 const SHOWN = 3
-const MARK: Record<WeekMark, string> = { given: '↘', result: '', returned: '↗', done: '✓', memo: '·', status: '⇄', due: '⚑' }
+// 맡김 · 판단한 결과는 글("맡김 · …", "결과 · …")이 이미 말하므로 기호를 두지 않는다 (10/15 15:04 피드백)
+const MARK: Record<WeekMark, string> = { given: '', result: '', returned: '', done: '✓', memo: '·', status: '⇄', due: '⚑' }
 function Mark({ m }: { m: WeekMark }) {
   return m === 'result' ? <span className="g blocked" aria-hidden /> : <i aria-hidden>{MARK[m]}</i>
 }
@@ -258,7 +259,7 @@ export function TaskWeek({ rid, tasks, entries, now = new Date() }: { rid: strin
         ))}
         {!itemsOn(picked).length && <p className="muted tk-none">{t('이날은 기록이 없습니다.', 'No records on this day.')}</p>}
       </div>}
-      <div className="tk-legend">↘ {t('맡김', 'Delegated')} · <span className="g blocked" aria-hidden /> {t('결과 도착(판단 대기) · ↗ 판단한 결과 · ✓ 끝낸 할 일 · · 메모 · ⇄ 상태 바꿈 · ⚑ 마감 · 날짜를 누르면 그날을 자세히 봅니다', 'Result in (awaiting decision) · ↗ Decided result · ✓ Done to-do · · Memo · ⇄ Status changed · ⚑ Due · Click a date to see that day')}</div>
+      <div className="tk-legend"><span className="g blocked" aria-hidden /> {t('결과 도착(판단 대기) · ✓ 끝낸 할 일 · · 메모 · ⇄ 상태 바꿈 · ⚑ 마감 · 날짜를 누르면 그날을 자세히 봅니다', 'Result in (awaiting decision) · ✓ Done to-do · · Memo · ⇄ Status changed · ⚑ Due · Click a date to see that day')}</div>
     </section>
   )
 }

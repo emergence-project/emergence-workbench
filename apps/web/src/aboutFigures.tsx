@@ -174,7 +174,6 @@ export function HomeMarksTable() {
         <tr><td className="about-sym">⇄</td><td>{t('상태 바꿈', 'Status changed')}</td><td>{t('노트 상태가 바뀐 기록', 'A record that a note\'s status changed')}</td><td className="muted">{t('한 일 달력 · 작업 탭 달력', 'Work calendar · Work tab calendar')}</td></tr>
         <tr><td className="about-sym">·</td><td>{t('메모', 'Memo')}</td><td>{t('그날 적은 메모', 'A memo written that day')}</td><td className="muted">{t('한 일 달력 · 작업 탭 달력', 'Work calendar · Work tab calendar')}</td></tr>
         <tr><td className="about-sym about-due">⚑</td><td>{t('마감', 'Deadline')}</td><td>{t('할 일의 마감 (앞으로의 날, 주황)', 'A to-do\'s deadline (future days, orange)')}</td><td className="muted">{t('한 일 달력 · 작업 탭 달력', 'Work calendar · Work tab calendar')}</td></tr>
-        <tr><td className="about-sym">↘ ↗</td><td>{t('맡김 · 판단한 결과', 'Delegated · decided')}</td><td>{t('맡긴 날과 결과를 판단한 날', 'The day a task was delegated and the day its result was decided')}</td><td className="muted">{t('작업 탭 달력', 'Work tab calendar')}</td></tr>
       </tbody>
     </table>
   )

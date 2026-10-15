@@ -447,7 +447,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
       {
         title: 'This About page',
         items: [
-          { text: <>The place where what Claude understood and built is written down, following the layout of the screens. Choosing a part and a section under it in the left sidebar opens that one section on its own (instead of scrolling), and ‹ › at the bottom move to the previous or next section. Clicking a part's name opens its first section. If you edit the text directly with the pencil at the right of a section heading and send it, it is applied at the next round of feedback handling.</> },
+          { text: <>The place where what Claude understood and built is written down, following the layout of the screens. Choosing a part and a section under it in the left sidebar opens that one section on its own (instead of scrolling), and the "‹ Previous" · "Next ›" boxes at the bottom move to the previous or next section. Clicking a part's name opens its first section. If you edit the text directly with the pencil at the right of a section heading and send it, it is applied at the next round of feedback handling.</> },
           { text: <>Sentences that are not certain get "Needs review", and the questions gather at the top of that page. The count also shows in the list on the left and on the About button on the rail.</> },
         ],
       },
@@ -553,13 +553,12 @@ export const SYMBOL_GROUPS_EN = (g: { icons: Record<'pencil' | 'trash' | 'play' 
       { mark: '!', name: 'Error', meaning: 'Failed (red). Used only for this', where: 'Compile result' },
       { mark: '⚑', name: 'Deadline', meaning: 'A to-do\'s deadline (orange, your turn)', where: 'Home calendar, Work tab calendar' },
       { mark: '○', name: 'Not reviewed', meaning: 'A concept note not reviewed yet', where: 'Concept notes' },
-      { mark: '↘ ↗', name: 'Delegated · decided', meaning: 'The day a task was delegated · the day its result was decided', where: 'Work tab calendar' },
       { mark: '—', name: 'Axiom/definition', meaning: 'A statement with nothing to prove', where: 'Statements' },
       { mark: '✎', name: 'Edited', meaning: 'A record that a note was edited', where: 'Home calendar' },
       { mark: '⇄', name: 'Status changed', meaning: 'A record that a status changed', where: 'Home calendar, Work tab calendar' },
       { mark: '→ ›', name: 'Open/go', meaning: 'Go to that screen', where: 'Links' },
       { mark: '∎', name: 'End of proof', meaning: 'Where a proof ends', where: 'Concept note body' },
-      { mark: 'Your turn', name: 'Agent question', meaning: 'An agent asked and waits for your answer (orange dot and border; orange paint in the note body)', where: 'Record rows, note body' },
+      { mark: <span className="about-turn-dot" />, name: 'Your turn (agent question)', meaning: 'An agent asked and waits for your answer (orange dot and border; orange paint in the note body)', where: 'Record rows, note body' },
       { mark: '2', name: 'Your-turn count', meaning: 'How many things you need to look at (always one orange pill shape)', where: 'Rail, feedback filter, To decide in the Work tab, library Check, Records in the sidebar' },
     ],
   },

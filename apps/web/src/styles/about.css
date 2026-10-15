@@ -55,7 +55,12 @@
 .about-row .asked p { margin: 0 0 2px; }
 .about-row .when { color: var(--text-3); font-size: var(--fs-xs); margin-right: var(--sp-2); white-space: nowrap; }
 
-.about-pager { display: flex; justify-content: space-between; padding-top: var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.about-pager { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--line); }
+.about-step { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text); text-decoration: none; }
+.about-step:hover { border-color: var(--line-strong); background: var(--bg-hover); }
+.about-step.next { text-align: right; }
+.about-step .k { color: var(--text-3); font-size: var(--fs-xs); }
+.about-step b { font-size: var(--fs-md); font-weight: var(--fw-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .about a.a { text-decoration: none; } .about a.a:hover { text-decoration: underline; }
 .about-nav-flag { margin-left: auto; flex: none; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 var(--sp-2); background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
 .about-legend { grid-template-columns: 1fr; }
