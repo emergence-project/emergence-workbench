@@ -100,7 +100,7 @@ export const GLOBAL_PAGES: {
     side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },
   { page: 'settings', label: '설정', name: t('설정', 'Settings'), aria: t('설정', 'Settings'), tip: t('설정', 'Settings'), icon: Icon.settings, rail: 'bottom', side: (p) => <SettingsSide part={p.route.page === 'settings' ? p.route.part : undefined} />,
-    render: (p) => <SettingsPage ui={p.ui} onChange={p.onUi} part={p.route.page === 'settings' ? p.route.part : undefined} onSaved={p.onSaved} />,
+    render: (p) => <SettingsPage ui={p.ui} onChange={p.onUi} part={p.route.page === 'settings' ? p.route.part : undefined} pr={p.route.page === 'settings' ? p.route.pr : undefined} onSaved={p.onSaved} />,
     badge: () => <AppUpdateRailCount /> },
 ]
 

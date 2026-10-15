@@ -430,13 +430,6 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         ],
       },
       {
-        title: 'Conversation tags', id: 'tags',
-        figure: <FeedbackTagsTable />,
-        items: [
-          { text: <>The tags at the head of each message in an opened item. The tags used in that conversation also appear in the "Tags" line below it; the circled question mark at the end of that line brings you to this table.</> },
-        ],
-      },
-      {
         title: 'Handling and shipping',
         items: [
           { text: <>The handling record is kept in one place, {c('feedback/status.yaml')}: the corrected sentence, the understood request, the cause, the handling, and the commit.</> },
@@ -473,6 +466,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
           { text: <>Symbols on tabs, note rows and file rows are the same line drawings as the sidebar. Icons must read at once (Settings is a gear).</> },
           { text: <>An item's pencil and trash can sit at its top right. In wide body lists they show on hover or keyboard selection; in narrow areas like the right sidebar and on touch screens they always show.</> },
           { text: <>When you type a name or title, a small app-styled dialog appears instead of the browser's default prompt.</> },
+          { text: <>The tables of colors and symbols are on the <a className="a" href="#/about/symbols">Symbols and meanings</a> page.</> },
         ],
       },
       {
@@ -480,6 +474,24 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         items: [
           { text: <>A toolbar is target on the left · view in the middle · actions on the right. A note's save status sits just left of the actions on the right. The project work panel starts at the top even when the description gets long.</> },
           { text: <>Markdown notes read by default and are edited with the pencil. The LaTeX source editor is always open. Projects and topics, which edit several values, use dialogs of the same shape. Detailed layout and narrow-width rules are in section 6 of {c('docs/design-system.md')}.</> },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'symbols', title: 'Symbols and meanings',
+    sub: 'The colors and symbols the app uses, in one place. A symbol means the same on every screen.',
+    sections: [
+      { title: 'Colors', id: 'colors', items: [{ text: <>Neutral is the default, and color is used only for the meanings below. Text buttons and links are neutral. Color is never the only cue: a status always has its name next to it, and in narrow places hovering the dot shows the name. The four status colors were chosen to stay distinct for red-green color-blind eyes.</> }] },
+      { title: 'Actions', id: 'actions', items: [{ text: <>Symbols you press. Always neutral; one name and one symbol per action.</> }] },
+      { title: 'Screen icons', id: 'screens', items: [{ text: <>Icons on the rail, the left sidebar and the top bar that take you to a screen. Hover to see the name.</> }] },
+      { title: 'Flow', id: 'flow', items: [{ text: <>Dots and lines on the flow screen. A dot's mark is its kind and its color is its state. Circles are statements, rounded squares are actions. <a className="a" href="#/about/project/flow">Flow screen ›</a></> }] },
+      { title: 'Record marks', id: 'marks', items: [{ text: <>Text marks you do not press.</> }] },
+      {
+        title: 'Conversation tags', id: 'tags',
+        figure: <FeedbackTagsTable />,
+        items: [
+          { text: <>The tags at the head of each message in an opened item on the feedback screen. The tags used in that conversation also appear in the "Tags" line below it; the circled question mark at the end of that line brings you to this table.</> },
         ],
       },
     ],

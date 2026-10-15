@@ -251,7 +251,7 @@ export interface AppInfo {
   /** 받는 곳 (GitHub 주소) */
   remote: string | null
   /** 업데이트 이력: 지금 버전까지 합쳐진 최근 변경, 최근 것부터 (피드백 올리기 커밋은 뺀다) */
-  history: { commit: string; version: string; time: string; title: string; pr?: number }[]
+  history: { commit: string; version: string; time: string; title: string; pr?: number; aboutSame?: string }[]
 }
 
 /**
@@ -300,8 +300,20 @@ export async function appIssuesUrl(root: string): Promise<string | null> {
   return /^https:\/\/github\.com\/[^/]+\/[^/]+$/.test(web) ? `${web}/issues/new` : null
 }
 
-/** 설정 › 앱 기본정보 (10/4 18:17 "앱 기본정보로 바꾸고, 앱에 대한 버젼관리와 함께 기본정보를 기술해줘") */
-export async function appInfo(root: string, running: string, limit = 20): Promise<AppInfo> {
+/**
+ * 화면을 바꾸고도 소개를 고치지 않은 PR이 커밋 메시지에 적는 줄 (10/15 "소개와 업데이트 1대1", scripts/ci/check-about.mjs).
+ * "소개: 그대로 — 이유" 꼴이고 이유를 돌려준다(없으면 빈 글). 없으면 null
+ */
+export function aboutSameNote(messages: string): string | null {
+  const m = /^(?:소개: 그대로|About: unchanged)\s*(?:[—–:-]\s*)?(.*)$/m.exec(messages)
+  return m ? m[1]!.trim() : null
+}
+
+/**
+ * 설정 › 앱 기본정보 (10/4 18:17 "앱 기본정보로 바꾸고, 앱에 대한 버젼관리와 함께 기본정보를 기술해줘").
+ * pr를 주면 그 PR이 든 줄까지 읽는다(소개 절의 "업데이트 #n"에서 온 경우, 400줄까지)
+ */
+export async function appInfo(root: string, running: string, limit = 20, pr?: number): Promise<AppInfo> {
   const date = await git(root, 'show', '-s', '--format=%cs', running).catch(() => '')
   const branch = await git(root, 'rev-parse', '--abbrev-ref', 'HEAD').catch(() => null)
   const url = await git(root, 'remote', 'get-url', 'origin').catch(() => '')
@@ -315,9 +327,20 @@ export async function appInfo(root: string, running: string, limit = 20): Promis
   const numbers = numberVersions(commits.map((c) => c.commit))
   const recent = commits.map((c, i) => ({ ...c, version: numbers[i]! })).reverse()
   const now = recent.find((c) => c.commit.startsWith(running) || running.startsWith(c.commit))?.version ?? recent[0]?.version ?? ''
+  if (pr) {
+    const at = recent.findIndex((c) => parseSubject(c.subject).pr === pr || c.subject.startsWith(`Merge pull request #${pr} `))
+    if (at >= limit) limit = Math.min(at + 1, 400)
+  }
   const history = await Promise.all(recent.slice(0, limit).map(async (c) => {
-    const body = /^Merge pull request #/.test(c.subject) ? await git(root, 'show', '-s', '--format=%b', c.commit).catch(() => '') : ''
-    return { commit: c.commit.slice(0, 7), version: c.version, time: c.time, ...parseSubject(c.subject, body) }
+    const merge = /^Merge pull request #/.test(c.subject)
+    const body = merge ? await git(root, 'show', '-s', '--format=%b', c.commit).catch(() => '') : ''
+    const subject = parseSubject(c.subject, body)
+    // 그 PR의 커밋 메시지들 (합치기 커밋은 둘째 부모 쪽, squash는 그 커밋 하나)
+    const messages = !subject.pr ? '' : merge
+      ? await git(root, 'log', '--format=%B', `${c.commit}^1..${c.commit}^2`).catch(() => '')
+      : await git(root, 'show', '-s', '--format=%B', c.commit).catch(() => '')
+    const same = aboutSameNote(messages)
+    return { commit: c.commit.slice(0, 7), version: c.version, time: c.time, ...subject, ...(same !== null && { aboutSame: same }) }
   }))
   return { version: { number: now, commit: running.slice(0, 7), date }, root, branch, remote, history }
 }

@@ -709,3 +709,40 @@ export function NoteFlow({ rid, row, version, onSaved }: { rid: string; row: Not
     </select>}
   </>
 }
+
+/** 소개 › 기호와 의미의 흐름 표 (10/15 피드백 "기호와 의미 절"): 차트와 같은 그림과 이름을 써서 둘이 어긋나지 않는다 */
+export function FlowSymbolTable() {
+  const mark = (m: Mark, state = 'active') => <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><MarkSvg m={m} x={15} y={15} state={state} /></svg>
+  const line = (cls: string) => <svg className="fl-icon" width={40} height={14} viewBox="0 0 40 14" aria-hidden><path className={cls} d="M2 7H38" /></svg>
+  const kinds: Mark[] = ['question', 'guess', 'finding', 'theorem', 'calc', 'analytic', 'proof', 'literature']
+  const states: { s: ReturnType<typeof stateOf>; m: Mark; name: string; meaning: string }[] = [
+    { s: 'open', m: 'question', name: tr('미해결', 'Open'), meaning: tr('아직 손대지 않음 (속이 빈 점선)', 'Not started yet (hollow, dashed)') },
+    { s: 'active', m: 'question', name: tr('진행', 'In progress'), meaning: tr('하고 있는 걸음', 'A step being worked on') },
+    { s: 'paused', m: 'question', name: tr('멈춤', 'Paused'), meaning: tr('무엇을 기다리는 중', 'Waiting for something') },
+    { s: 'solved', m: 'question', name: tr('끝남 · 해결 / 성공', 'Done · solved / succeeded'), meaning: tr('진술은 해결, 행위는 성공', 'Solved for a statement, succeeded for an action') },
+    { s: 'refuted', m: 'question', name: tr('끝남 · 반증 / 실패', 'Done · refuted / failed'), meaning: tr('틀린 것으로 끝남 (속이 찬 회색)', 'Ended as wrong (filled gray)') },
+    { s: 'dropped', m: 'question', name: tr('끝남 · 폐기', 'Done · dropped'), meaning: tr('그만둔 걸음, 지우지 않음 (속이 빈 회색)', 'A step given up, not deleted (hollow gray)') },
+  ]
+  const lines: { mark: ReactNode; name: string; meaning: string }[] = [
+    { mark: line('fl-e'), name: `${EDGE.origin!()} · ${EDGE.support!()} · ${EDGE.refute!()}`, meaning: tr('앞 걸음이 이 걸음을 낳음 · 받침 · 반박함. 선을 가리키면 이름이 뜹니다', 'The earlier step started, supports or refutes this one. Hover a line to see its name') },
+    { mark: line('fl-e use'), name: EDGE.use!(), meaning: tr('앞 걸음의 결과를 가져다 씀 (점선)', 'Uses the earlier step\'s result (dotted)') },
+    { mark: line('fl-e lit'), name: tr('문헌에서', 'From literature'), meaning: tr('문헌 점에서 나온 선 (끊긴 선)', 'A line from a literature dot (dashed)') },
+    { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><rect className="fl-ref" x={6} y={6} width={18} height={18} rx={4} /><text className="fl-ref-t" x={15} y={19.5} textAnchor="middle">§</text></svg>, name: tr('근거 논문', 'Evidence paper'), meaning: tr('점 위에 붙은 §: 근거로 단 논문 (둘 이상이면 겹침)', '§ above a dot: papers attached as evidence (stacked when several)') },
+    { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><path className="fl-start" d="M9 8L18 15L9 22Z" /></svg>, name: tr('시작점', 'Start'), meaning: tr('앞선 점이 없는 점', 'A dot with no earlier dot') },
+    { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><line className="fl-end" x1={15} y1={5} x2={15} y2={25} /></svg>, name: tr('갈래 종결', 'Branch closed'), meaning: tr('이 갈래는 여기서 끝냄', 'This branch ends here') },
+  ]
+  const group = (name: string) => <tr className="about-sym-group"><td colSpan={3}>{name}</td></tr>
+  return (
+    <table className="about-sym-table">
+      <thead><tr><th>{tr('기호', 'Symbol')}</th><th>{tr('이름', 'Name')}</th><th>{tr('뜻', 'Meaning')}</th></tr></thead>
+      <tbody>
+        {group(tr('종류 (동그라미 진술 · 둥근 네모 행위)', 'Kind (circle statement · rounded square action)'))}
+        {kinds.map((k) => <tr key={k}><td className="about-sym">{mark(k)}</td><td>{KIND[k].name()}</td><td>{KIND[k].def()}</td></tr>)}
+        {group(tr('상태 (색)', 'State (color)'))}
+        {states.map((x) => <tr key={x.s}><td className="about-sym">{mark(x.m, x.s)}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
+        {group(tr('선과 표시', 'Lines and marks'))}
+        {lines.map((x) => <tr key={x.name}><td className="about-sym">{x.mark}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
+      </tbody>
+    </table>
+  )
+}
