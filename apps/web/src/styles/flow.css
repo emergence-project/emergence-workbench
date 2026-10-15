@@ -105,16 +105,6 @@ button.fl-check.on:hover circle { fill: var(--text); }
 .fl-kinds button { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); text-align: left; }
 .fl-kinds button:hover { background: var(--bg-hover); }
 .fl-kinds button.on { border-color: var(--primary); color: var(--text); font-weight: var(--fw-strong); }
-.fl-form { display: flex; flex-direction: column; gap: var(--sp-3); }
-.fl-form .fl-date input { width: 12em; }
-.fl-states { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
-.fl-fs { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3) var(--sp-3); margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.fl-fs legend { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); padding: 0 var(--sp-1); }
-.fl-evrow { display: flex; flex-direction: column; gap: var(--sp-1); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line); }
-.fl-evrow input, .fl-evrow textarea, .fl-evrow select, .fl-linkrow select { border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); }
-.fl-evhead { display: flex; align-items: center; gap: var(--sp-1); }
-.fl-src-in { flex: 1; min-width: 0; }
-.fl-addrow { align-self: flex-start; }
 .fl-help { font-size: var(--fs-sm); color: var(--text-3); margin: 0; }
 .fl-linkrow { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
 .fl-grow { flex: 1; min-width: 0; }
@@ -136,4 +126,31 @@ button.fl-check.on:hover circle { fill: var(--text); }
 .fl-text img, .fl-text canvas { max-width: 100%; }
 /* 점 고치기는 자세히 자리에서 (10/15) */
 .fl-editing textarea { resize: vertical; }
+/* 조용한 입력란: 상자 테두리 없이 옅은 바탕, 누르면 테두리 (10/15 "박스가 너무 많다") */
+.fl-in { border: 1px solid transparent; border-radius: var(--r-sm); background: var(--bg-sunken); color: var(--text); padding: var(--sp-1) var(--sp-2); font: inherit; font-size: var(--fs-sm); min-width: 0; }
+.fl-in:hover { border-color: var(--line); }
+/* 한 줄 칸·고르기는 글처럼 보이고, 여러 줄 설명 칸만 옅은 바탕 */
+input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--line); }
+.fl-in:focus { outline: none; border-color: var(--line-strong); background: var(--bg); }
+.fl-in.fl-short { font-size: var(--fs-lg); font-weight: var(--fw-title); padding: 2px var(--sp-2); }
+.fl-in.fl-full { width: 100%; font-size: var(--fs-md); color: var(--text-2); }
+.fl-date-in { width: 8.5em; color: var(--text-2); }
+.fl-editing .fl-fields dd textarea { width: 100%; display: block; }
+.fl-editing .fl-fields dt { padding-top: var(--sp-1); }
+.fl-editing .fl-fields em { font-style: normal; font-size: var(--fs-xs); }
+.fl-cls-edit { gap: var(--sp-2) var(--sp-5); }
+.fl-cls-edit > span { flex-wrap: wrap; gap: var(--sp-2); }
+.fl-kinds-row { display: flex; flex-wrap: wrap; gap: 2px; }
+.fl-kinds-row button { border-color: transparent; padding: 2px var(--sp-2) 2px 2px; gap: var(--sp-1); }
+.fl-kinds-row button.on { border-color: transparent; background: var(--bg-sunken); }
+.fl-editing .fl-linkrow { align-items: baseline; }
+.fl-sec-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.fl-sec-head h3 { margin: 0; }
+.fl-editing .fl-sec .fl-help { margin-top: var(--sp-2); }
+.fl-evlist { display: flex; flex-direction: column; }
+.fl-evrow { display: grid; grid-template-columns: 7em minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: var(--sp-1); align-items: center; padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
+.fl-evrow:first-child { border-top: 1px solid var(--line); }
+.fl-evtext { grid-column: 1 / -2; }
+.fl-fromlist { list-style: none; padding: 0; margin: 0 0 var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); }
+.fl-fromlist li { display: flex; align-items: center; gap: var(--sp-2); }
 .fl-edit-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); }

@@ -461,10 +461,10 @@ const resultName = (r: FlowResult, act: boolean) => r === 'solved' ? (act ? tr('
 /** 받는 점의 종류로 정하는 기본 선 종류 (서버가 종류 없는 선을 읽는 규칙과 같다) */
 const defaultEdge = (k: FlowKind): FlowEdge => k === 'question' ? 'origin' : 'support'
 
-function KindPicker({ value, onChange }: { value: FlowKind; onChange(k: FlowKind): void }) {
-  return <div className="fl-kinds" role="radiogroup" aria-label={tr('종류', 'Kind')} data-ui="흐름 종류 고르기">
+function KindPicker({ value, onChange, compact }: { value: FlowKind; onChange(k: FlowKind): void; compact?: boolean }) {
+  return <div className={compact ? 'fl-kinds fl-kinds-row' : 'fl-kinds'} role="radiogroup" aria-label={tr('종류', 'Kind')} data-ui="흐름 종류 고르기">
     {FLOW_KINDS.map((k) => <button key={k} type="button" role="radio" aria-checked={value === k} className={value === k ? 'on' : ''} title={KIND[k].def()} onClick={() => onChange(k)}>
-      <svg className="fl-icon" width={22} height={22} viewBox="0 0 30 30" aria-hidden><MarkSvg m={k} x={15} y={15} state="active" /></svg>
+      <svg className="fl-icon" width={compact ? 18 : 22} height={compact ? 18 : 22} viewBox="0 0 30 30" aria-hidden><MarkSvg m={k} x={15} y={15} state="active" /></svg>
       <span>{KIND[k].name()}</span>
     </button>)}
   </div>
@@ -572,78 +572,78 @@ function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: str
     <button className="btn primary" disabled={busy} onClick={() => void save()}>{tr('저장', 'Save')}</button>
   </>
 
+  // 자세히와 같은 배치로, 칸마다 상자를 두지 않는다 (10/15 반려 "박스가 너무 많다")
   return <article className="fl-card fl-editing" data-ui="흐름 점 고치기 창" aria-label={tr('점 고치기', 'Edit dot')}
     onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }}>
-    <div className="fl-head"><MarkIcon n={n} size={30} /><span className="fl-short">{tr('점 고치기', 'Edit dot')}</span><span className="fl-tools">{buttons}</span></div>
-    <div className="fl-form">
-      <label className="field"><span>{tr('짧은 제목', 'Short title')}</span><input autoFocus value={short} maxLength={60} onChange={(e) => setShort(e.target.value)} /></label>
-      <label className="field"><span>{tr('제목', 'Title')}</span><input value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} /></label>
-      <label className="field fl-date"><span>{tr('날짜', 'Date')}</span><input value={date} placeholder="2026-10-14" maxLength={20} onChange={(e) => setDate(e.target.value)} /></label>
+    <div className="fl-head"><MarkIcon n={{ ...n, kind, progress, result: progress === 'done' ? result : undefined }} size={30} />
+      <input className="fl-in fl-short fl-grow" autoFocus aria-label={tr('짧은 제목', 'Short title')} placeholder={tr('짧은 제목', 'Short title')} value={short} maxLength={60} onChange={(e) => setShort(e.target.value)} />
+      <input className="fl-in fl-date-in" aria-label={tr('날짜', 'Date')} value={date} placeholder="2026-10-14" maxLength={20} onChange={(e) => setDate(e.target.value)} />
+      <span className="fl-tools">{buttons}</span></div>
+    <input className="fl-in fl-full" aria-label={tr('제목', 'Title')} placeholder={tr('제목 (비우면 짧은 제목)', 'Title (empty = short title)')} value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
 
-      <div className="field"><span>{tr('종류', 'Kind')}</span><KindPicker value={kind} onChange={setKind} /></div>
-      <div className="field"><span>{tr('상태', 'State')}</span>
-        <div className="fl-states">
-          <div className="segmented small" role="radiogroup" aria-label={tr('진행', 'Progress')}>
-            {(['open', 'active', 'paused', 'done'] as const).map((p) => <button key={p} type="button" role="radio" aria-checked={progress === p} className={progress === p ? 'on' : ''} onClick={() => setProgress(p)}>{PROGRESS[p]()}</button>)}
-          </div>
-          {progress === 'done' && <div className="segmented small" role="radiogroup" aria-label={tr('결과', 'Result')}>
-            {(['solved', 'refuted', 'dropped'] as const).map((r) => <button key={r} type="button" role="radio" aria-checked={result === r} className={result === r ? 'on' : ''} onClick={() => setResult(r)}>{resultName(r, act)}</button>)}
-          </div>}
-          <label className="check"><input type="checkbox" checked={end} onChange={(e) => setEnd(e.target.checked)} />{tr('갈래 종결', 'Branch closed')}</label>
-        </div>
-      </div>
-
-      <fieldset className="fl-fs"><legend>{tr('설명', 'Description')}</legend>
-        {shownFields.map((f) => <label key={f} className="field"><span>{FIELD[f]?.() ?? f}{!FLOW_FIELDS[kind].includes(f) && <em> {tr('다른 종류의 칸', 'from another kind')}</em>}</span>
-          <textarea rows={Math.min(12, Math.max(3, (fields[f] ?? '').split('\n').length + 1))} value={fields[f] ?? ''} onFocus={() => setLastField(f)} onChange={(e) => setFields({ ...fields, [f]: e.target.value })} /></label>)}
-        <div className="fl-linkrow">
-          <p className="muted fl-help fl-grow">{tr('글 속 수식 $…$, 줄 수식은 $$…$$를 따로 한 줄에, 빈 줄은 문단을 나눈다. 그림은 ![설명](그림 파일 이름).', 'Inline math $…$; display math $$…$$ on its own line; a blank line starts a paragraph. Figures: ![caption](figure file name).')}</p>
-          {figs.length > 0 && <select aria-label={tr('그림 넣기', 'Insert figure')} data-ui="흐름 그림 넣기" value="" onChange={(e) => { if (e.target.value) insertFigure(e.target.value) }}>
-            <option value="">{tr('그림 넣기…', 'Insert figure…')}</option>
-            {figs.map((f) => <option key={f.id} value={f.file}>{f.name}</option>)}
-          </select>}
-        </div>
-      </fieldset>
-
-      <fieldset className="fl-fs" data-ui="흐름 근거 고치기"><legend>{tr('근거', 'Evidence')}</legend>
-        <datalist id="fl-note-files">{notes.map((x) => <option key={x.file} value={x.file}>{x.title}</option>)}</datalist>
-        {ev.map((x, i) => <div key={i} className="fl-evrow">
-          <div className="fl-evhead">
-            <select aria-label={tr('근거 종류', 'Evidence kind')} value={x.kind} onChange={(e) => setEvAt(i, { kind: e.target.value as EvRow['kind'] })}>{FLOW_EVIDENCE.map((k) => <option key={k} value={k}>{EVK[k]()}</option>)}</select>
-            <input className="fl-src-in" aria-label={x.kind === 'paper' ? tr('논문 키', 'Paper key') : tr('노트 경로', 'Note path')} list={x.kind === 'paper' ? undefined : 'fl-note-files'} value={x.src}
-              placeholder={x.kind === 'paper' ? tr('논문 키 (예: kitaev2006)', 'Paper key (e.g. kitaev2006)') : tr('노트 경로 (workbench/…)', 'Note path (workbench/…)')} onChange={(e) => setEvAt(i, { src: e.target.value })} />
-            <button type="button" className="icon-btn" title={tr('이 근거 빼기 (확인 기록도 빠짐)', 'Remove this evidence (and its checks)')} aria-label={tr('근거 빼기', 'Remove evidence')} onClick={() => setEv(ev.filter((_, j) => j !== i))}>{Icon.x}</button>
-          </div>
-          <input aria-label={tr('보이는 이름', 'Shown name')} value={x.title} placeholder={tr('보이는 이름 (비우면 노트 제목)', 'Shown name (empty = note title)')} onChange={(e) => setEvAt(i, { title: e.target.value })} />
-          <textarea rows={2} aria-label={tr('무엇을 보이는지', 'What it shows')} value={x.text} placeholder={tr('이 근거가 무엇을 보이는지', 'What this evidence shows')} onChange={(e) => setEvAt(i, { text: e.target.value })} />
-        </div>)}
-        <button type="button" className="btn small fl-addrow" onClick={() => setEv([...ev, { kind: kind === 'calc' || kind === 'analytic' || kind === 'proof' ? kind : 'other', text: '', title: '', src: '' }])}>＋ {tr('근거', 'Evidence')}</button>
-        <p className="muted fl-help">{tr('경로·키가 같은 근거는 AI 검토·사람 승인 기록이 그대로 남습니다.', 'Evidence with the same path or key keeps its AI check and approval records.')}</p>
-      </fieldset>
-
-      <fieldset className="fl-fs" data-ui="흐름 연결 고치기"><legend>{tr('앞선 점', 'Earlier dots')}</legend>
-        {from.map((f, i) => { const m = byId.get(f.id); return <div key={f.id} className="fl-linkrow">
-          <select aria-label={tr('선 종류', 'Line type')} value={f.type} onChange={(e) => setFrom(from.map((g, j) => j === i ? { ...g, type: e.target.value as FlowEdge } : g))}>{FLOW_EDGES.map((x) => <option key={x} value={x}>{EDGE[x]!()}</option>)}</select>
-          {m && <MarkIcon n={m} size={16} />}<span className="fl-grow">{m?.short ?? f.id}</span>
-          <button type="button" className="icon-btn" title={tr('이 선 빼기', 'Remove this line')} aria-label={tr('선 빼기', 'Remove line')} onClick={() => setFrom(from.filter((_, j) => j !== i))}>{Icon.x}</button>
-        </div> })}
-        {!from.length && <span className="muted">{tr('없음 (시작점)', 'None (start)')}</span>}
-        {candidates.length > 0 && <div className="fl-linkrow">
-          <select aria-label={tr('이을 점', 'Dot to link')} value={pick} onChange={(e) => setPick(e.target.value)} className="fl-grow">
-            <option value="">{tr('이을 점 고르기…', 'Choose a dot to link…')}</option>
-            {candidates.map((m) => <option key={m.id} value={m.id}>{m.short}{m.topics.some((x) => tops.includes(x)) ? '' : ` · ${m.topics.map(topicTitle).join(', ')}`}</option>)}
-          </select>
-          <button type="button" className="btn small" disabled={!pick} onClick={() => { setFrom([...from, { id: pick, type: defaultEdge(kind) }]); setPick('') }}>{tr('잇기', 'Link')}</button>
-        </div>}
-      </fieldset>
-
-      {topics.length > 0 && <fieldset className="fl-fs"><legend>{tr('주제', 'Topics')}</legend>
-        <div className="fl-topics">{[...new Set([...topics.map((x) => x.id), ...tops])].map((id) => <label key={id} className="check">
-          <input type="checkbox" checked={tops.includes(id)} onChange={(e) => setTops(e.target.checked ? [...tops, id] : tops.filter((x) => x !== id))} />{topicTitle(id)}</label>)}</div>
-      </fieldset>}
-      {error && <p className="error-text">{error}</p>}
-      <div className="fl-edit-foot">{buttons}</div>
+    <div className="fl-cls fl-cls-edit">
+      <span><i>{tr('종류', 'Kind')}</i><KindPicker value={kind} onChange={setKind} compact /></span>
+      <span><i>{tr('상태', 'State')}</i>
+        <span className="segmented small" role="radiogroup" aria-label={tr('진행', 'Progress')}>
+          {(['open', 'active', 'paused', 'done'] as const).map((p) => <button key={p} type="button" role="radio" aria-checked={progress === p} className={progress === p ? 'on' : ''} onClick={() => setProgress(p)}>{PROGRESS[p]()}</button>)}
+        </span>
+        {progress === 'done' && <span className="segmented small" role="radiogroup" aria-label={tr('결과', 'Result')}>
+          {(['solved', 'refuted', 'dropped'] as const).map((r) => <button key={r} type="button" role="radio" aria-checked={result === r} className={result === r ? 'on' : ''} onClick={() => setResult(r)}>{resultName(r, act)}</button>)}
+        </span>}
+        <label className="check"><input type="checkbox" checked={end} onChange={(e) => setEnd(e.target.checked)} />{tr('갈래 종결', 'Branch closed')}</label>
+      </span>
     </div>
+
+    <section className="fl-sec">
+      <div className="fl-sec-head"><h3>{tr('설명', 'Description')}</h3>
+        {figs.length > 0 && <select className="fl-in" aria-label={tr('그림 넣기', 'Insert figure')} data-ui="흐름 그림 넣기" value="" onChange={(e) => { if (e.target.value) insertFigure(e.target.value) }}>
+          <option value="">{tr('그림 넣기…', 'Insert figure…')}</option>
+          {figs.map((f) => <option key={f.id} value={f.file}>{f.name}</option>)}
+        </select>}
+      </div>
+      <dl className="fl-fields">{shownFields.map((f) => <div key={f}><dt>{FIELD[f]?.() ?? f}{!FLOW_FIELDS[kind].includes(f) && <em> {tr('다른 종류', 'other kind')}</em>}</dt>
+        <dd><textarea className="fl-in" aria-label={FIELD[f]?.() ?? f} rows={Math.min(12, Math.max(2, (fields[f] ?? '').split('\n').length + 1))} value={fields[f] ?? ''} onFocus={() => setLastField(f)} onChange={(e) => setFields({ ...fields, [f]: e.target.value })} /></dd></div>)}</dl>
+      <p className="fl-help">{tr('글 속 수식 $…$, 줄 수식은 $$…$$를 따로 한 줄에, 빈 줄은 문단을 나눈다. 그림은 ![설명](그림 파일 이름).', 'Inline math $…$; display math $$…$$ on its own line; a blank line starts a paragraph. Figures: ![caption](figure file name).')}</p>
+    </section>
+
+    <section className="fl-sec" data-ui="흐름 근거 고치기">
+      <h3>{tr('근거', 'Evidence')}</h3>
+      <datalist id="fl-note-files">{notes.map((x) => <option key={x.file} value={x.file}>{x.title}</option>)}</datalist>
+      <div className="fl-evlist">{ev.map((x, i) => <div key={i} className="fl-evrow">
+        <select className="fl-in" aria-label={tr('근거 종류', 'Evidence kind')} value={x.kind} onChange={(e) => setEvAt(i, { kind: e.target.value as EvRow['kind'] })}>{FLOW_EVIDENCE.map((k) => <option key={k} value={k}>{EVK[k]()}</option>)}</select>
+        <input className="fl-in" aria-label={x.kind === 'paper' ? tr('논문 키', 'Paper key') : tr('노트 경로', 'Note path')} list={x.kind === 'paper' ? undefined : 'fl-note-files'} value={x.src}
+          placeholder={x.kind === 'paper' ? tr('논문 키 (예: kitaev2006)', 'Paper key (e.g. kitaev2006)') : tr('노트 경로 (workbench/…)', 'Note path (workbench/…)')} onChange={(e) => setEvAt(i, { src: e.target.value })} />
+        <input className="fl-in" aria-label={tr('보이는 이름', 'Shown name')} value={x.title} placeholder={tr('보이는 이름 (비우면 노트 제목)', 'Shown name (empty = note title)')} onChange={(e) => setEvAt(i, { title: e.target.value })} />
+        <button type="button" className="icon-btn" title={tr('이 근거 빼기 (확인 기록도 빠짐)', 'Remove this evidence (and its checks)')} aria-label={tr('근거 빼기', 'Remove evidence')} onClick={() => setEv(ev.filter((_, j) => j !== i))}>{Icon.x}</button>
+        <input className="fl-in fl-evtext" aria-label={tr('무엇을 보이는지', 'What it shows')} value={x.text} placeholder={tr('이 근거가 무엇을 보이는지', 'What this evidence shows')} onChange={(e) => setEvAt(i, { text: e.target.value })} />
+      </div>)}</div>
+      <div className="fl-linkrow"><button type="button" className="a" onClick={() => setEv([...ev, { kind: kind === 'calc' || kind === 'analytic' || kind === 'proof' ? kind : 'other', text: '', title: '', src: '' }])}>＋ {tr('근거', 'Evidence')}</button>
+        <span className="fl-help">{tr('경로·키가 같은 근거는 AI 검토·사람 승인 기록이 그대로 남습니다.', 'Evidence with the same path or key keeps its AI check and approval records.')}</span></div>
+    </section>
+
+    <section className="fl-sec" data-ui="흐름 연결 고치기">
+      <h3>{tr('앞선 점', 'Earlier dots')}</h3>
+      <ul className="fl-fromlist">{from.map((f, i) => { const m = byId.get(f.id); return <li key={f.id}>
+        <select className="fl-in" aria-label={tr('선 종류', 'Line type')} value={f.type} onChange={(e) => setFrom(from.map((g, j) => j === i ? { ...g, type: e.target.value as FlowEdge } : g))}>{FLOW_EDGES.map((x) => <option key={x} value={x}>{EDGE[x]!()}</option>)}</select>
+        {m && <MarkIcon n={m} size={16} />}<span className="fl-grow">{m?.short ?? f.id}</span>
+        <button type="button" className="icon-btn" title={tr('이 선 빼기', 'Remove this line')} aria-label={tr('선 빼기', 'Remove line')} onClick={() => setFrom(from.filter((_, j) => j !== i))}>{Icon.x}</button>
+      </li> })}</ul>
+      {!from.length && <span className="muted fl-help">{tr('없음 (시작점)', 'None (start)')}</span>}
+      {candidates.length > 0 && <div className="fl-linkrow">
+        <select className="fl-in fl-grow" aria-label={tr('이을 점', 'Dot to link')} value={pick} onChange={(e) => setPick(e.target.value)}>
+          <option value="">{tr('이을 점 고르기…', 'Choose a dot to link…')}</option>
+          {candidates.map((m) => <option key={m.id} value={m.id}>{m.short}{m.topics.some((x) => tops.includes(x)) ? '' : ` · ${m.topics.map(topicTitle).join(', ')}`}</option>)}
+        </select>
+        <button type="button" className="btn small" disabled={!pick} onClick={() => { setFrom([...from, { id: pick, type: defaultEdge(kind) }]); setPick('') }}>{tr('잇기', 'Link')}</button>
+      </div>}
+    </section>
+
+    {topics.length > 0 && <section className="fl-sec"><h3>{tr('주제', 'Topics')}</h3>
+      <div className="fl-topics">{[...new Set([...topics.map((x) => x.id), ...tops])].map((id) => <label key={id} className="check">
+        <input type="checkbox" checked={tops.includes(id)} onChange={(e) => setTops(e.target.checked ? [...tops, id] : tops.filter((x) => x !== id))} />{topicTitle(id)}</label>)}</div>
+    </section>}
+    {error && <p className="error-text">{error}</p>}
+    <div className="fl-edit-foot">{buttons}</div>
   </article>
 }
 
