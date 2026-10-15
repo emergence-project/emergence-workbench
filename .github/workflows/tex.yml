@@ -38,6 +38,7 @@ on:
       - apps/server/src/latexSetup.test.ts
       - apps/server/src/markdownNotes.test.ts
       - apps/server/src/noteExport.test.ts
+      - apps/server/src/noteBib.test.ts
       - apps/server/src/project.test.ts
       - apps/server/src/sharedMacros.test.ts
       - apps/server/src/testkit.ts

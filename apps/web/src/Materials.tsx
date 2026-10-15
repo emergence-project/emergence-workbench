@@ -6,6 +6,7 @@ import { useDragHeight } from './dragHeight'
 import { go, type Route } from './router'
 import { Icon } from './icons'
 import { CITE_EVENT, citeKeys } from './citeKeys'
+import { LIBRARY_SOURCE, loadCitedBib } from './citedBib'
 import { store } from './store'
 import { t } from './i18n'
 
@@ -142,8 +143,10 @@ export function CitedPapers({ rid, rapi, text, file, library, onSaved, onLibrary
   const setOpen = (value: boolean) => { setOpenState({ key: openKey, value }); store.set(openKey, value) }
   const [height, startDrag] = useDragHeight('rw-cited-height', 160)
   const [picked, setPicked] = useState<string | null>(null)
-  useEffect(() => { rapi.materials().then((d) => setBib(d.bib)).catch(() => setBib([])) }, [rapi, tick])
   const keys = citeKeys(text)
+  const keyList = keys.join(',')
+  // 프로젝트 bib에 없는 키는 공유 라이브러리 references.bib에서 찾는다
+  useEffect(() => { void loadCitedBib(rapi, keyList ? keyList.split(',') : []).then(setBib) }, [rapi, tick, keyList])
   // 본문의 [n]을 누르면(MarkdownNote의 CITE_EVENT) 펼치고 그 논문을 골라 보이게 한 뒤 잠깐 하이라이트한다 (10/7 19:42)
   const box = useRef<HTMLDivElement>(null)
   const shown = keys.length > 0 && !!bib
@@ -175,13 +178,16 @@ export function CitedPapers({ rid, rapi, text, file, library, onSaved, onLibrary
   const detail = (k: string) => {
     const e = byKey.get(k)
     const hasNote = library?.notes.some((n) => n.kind === 'paper' && n.id === k)
+    // 공유 라이브러리의 논문: PDF는 논문 라이브러리에서 본다 (프로젝트 자료로 받지 않는다, 10/5 "옮기기")
+    const shared = e?.source === LIBRARY_SOURCE
     const lines = linesOf(k)
     return <>
       <div className="cd-title">{e?.title ?? `@${k}`}</div>
       <div className="cd-actions">
-        {e?.file && <button className="a" onClick={() => go({ page: 'doc', rid, name: e.file! })}>{t('PDF 보기', 'View PDF')}</button>}
-        {e && !e.file && e.eprint && <button className="a" disabled={busy === k} onClick={() => fetchPaper(e)}>{busy === k ? t('받는 중', 'Downloading') : t('PDF 받기', 'Download PDF')}</button>}
-        {e && !e.file && !e.eprint && <span className="muted">{t('PDF 없음', 'No PDF')}</span>}
+        {shared && <button className="a" onClick={() => go({ page: 'shelf', open: k })}>{t('라이브러리에서 열기', 'Open in the library')}</button>}
+        {!shared && e?.file && <button className="a" onClick={() => go({ page: 'doc', rid, name: e.file! })}>{t('PDF 보기', 'View PDF')}</button>}
+        {!shared && e && !e.file && e.eprint && <button className="a" disabled={busy === k} onClick={() => fetchPaper(e)}>{busy === k ? t('받는 중', 'Downloading') : t('PDF 받기', 'Download PDF')}</button>}
+        {!shared && e && !e.file && !e.eprint && <span className="muted">{t('PDF 없음', 'No PDF')}</span>}
         {e && library?.path && (
           <button className="a" onClick={() => api.createPaper(rid, k).then((r) => { if (r.created) { onLibraryChanged?.(); onSaved(t('문헌노트를 만들었습니다', 'Created the literature note')) } go({ page: 'paper', rid, id: r.id }) }).catch((err: Error) => onSaved(err.message))}>
             {hasNote ? t('문헌노트', 'Literature note') : t('문헌노트 만들기', 'Create literature note')}</button>

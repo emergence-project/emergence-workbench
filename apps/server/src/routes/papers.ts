@@ -25,6 +25,11 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
     const list = ctx.libraryReads.papers()
     return req.query.subjectPrefix === undefined ? list : { ...list, papers: list.papers.filter((x) => matchesSubject(x.subjects, req.query.subjectPrefix!)) }
   })
+  /** 고른 키의 references.bib 항목: 연구노트의 [@키] 가운데 프로젝트 bib에 없는 것을 화면이 여기서 찾는다 (라이브러리가 없으면 빈 목록) */
+  app.get<{ Querystring: { keys?: string } }>('/api/papers/bib', replies(C.LibraryBib), async (req): Promise<C.LibraryBib> => {
+    const keys = new Set(String(req.query.keys ?? '').split(',').map((k) => k.trim()).filter(Boolean).slice(0, 500))
+    return { items: keys.size ? libraryBibEntries(registry.libraryPath).filter((e) => keys.has(e.key)) : [] }
+  })
   /** 논문 첫 화면: 최근 더한 논문(?recent=개수) · 점검(PDF 폴더 없음 · 답 온 질문) · 통계(PDF 없음 · arXiv로 받을 수 있음 · 프로젝트에 안 묶임 · 논문 · 책) · PDF 폴더 */
   app.get<{ Querystring: { recent?: string; subjectPrefix?: string } }>('/api/papers/brief', replies(C.PaperBrief), async (req): Promise<C.PaperBrief> => {
     const recent = Math.min(Number(req.query.recent) || 8, 50)

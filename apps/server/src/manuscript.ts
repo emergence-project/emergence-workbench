@@ -8,7 +8,7 @@ import { hasFrontMatter, hasMaketitle, needsBodyOnly, NOTE_MACROS } from './note
 import { isCompletePdf, type CompileResult, type Engine } from './latex.js'
 import { placeTemplateFiles, SHARED_MACROS, templateFilePath } from './latexFiles.js'
 import { beginInputs, fileStamp, finishInputs, inputsChanged, recordedInputs, type PdfState, type ShownPdf, type SuccessfulInputs } from './manuscriptFreshness.js'
-import { bibliographyLines, noteBibFiles } from './noteBib.js'
+import { bibliographyLines, libraryCitedBib, LIBRARY_CITED_BIB, noteBibFiles } from './noteBib.js'
 import { writeFigureEmbeds, type FigureEmbedResolver } from './figureEmbeds.js'
 import { readNoteMeta, type NoteMeta } from './noteMeta.js'
 import { isMarkdownNote, WorkbenchError, type NoteKind, type SaveResult, type Workbench } from './workbench.js'
@@ -280,6 +280,8 @@ export interface ManuscriptCompileOptions {
   shared: string | null
   pick: { authors?: Author[]; date?: string }
   figures?: FigureEmbedResolver
+  /** 공유 라이브러리 references.bib 경로 (노트·프로젝트 bib에 없는 인용 키를 여기서 찾는다) */
+  libraryBib?: string
 }
 
 function compileInputs(wb: Workbench, key: string, o: ManuscriptCompileOptions) {
@@ -294,7 +296,9 @@ function compileInputs(wb: Workbench, key: string, o: ManuscriptCompileOptions) 
   const figures = wrapped && isMarkdownNote(main) ? o.figures?.(text, [dir], true, true) : undefined
   const body = wrapped && isMarkdownNote(main) ? markdownToLatex(text, { figure: figures?.figure, image: figures?.image }) : ''
   const bibs = body ? noteBibFiles(wb, main, body) : []
-  const files = [main, ...(wrapped ? [macros, noteMacros, ...bibs, ...(figures?.inputs ?? []), ...(o.template?.files ?? []).flatMap((f) => templateFilePath(f) ?? [])] : [])]
+  // 라이브러리에서 뽑을 항목이 있으면 references.bib도 입력으로 본다 (그 파일이 바뀌면 PDF가 낡는다)
+  const libBib = body && libraryCitedBib(body, bibs, o.libraryBib) !== null ? [o.libraryBib!] : []
+  const files = [main, ...(wrapped ? [macros, noteMacros, ...bibs, ...libBib, ...(figures?.inputs ?? []), ...(o.template?.files ?? []).flatMap((f) => templateFilePath(f) ?? [])] : [])]
   const hash = hashOf(JSON.stringify({ main, dir, engine, ...(wrapped && {
     name, kind, template: o.template, shared: o.shared, bibs, macros,
     ...(figures && { figures: { body, preamble: figures.preamble, files: figures.files.map(({ name, abs }) => ({ name, abs })) } }),
@@ -380,7 +384,11 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
       if (md) {
         if (explicit.figures) writeFigureEmbeds(explicit.figures, out)
         const body = markdownToLatex(text, { figure: explicit.figures?.figure, image: explicit.figures?.image })
-        const bibs = noteBibFiles(wb, main, body).map((f) => (path.dirname(f) === dir ? path.basename(f) : f).replace(/\.bib$/, ''))
+        const own = noteBibFiles(wb, main, body)
+        // 거기 없는 인용 키는 공유 라이브러리 references.bib에서 그 항목만 빌드 폴더의 library-refs.bib로 뽑는다
+        const libBib = libraryCitedBib(body, own, options.libraryBib)
+        if (libBib !== null) fs.writeFileSync(path.join(out, LIBRARY_CITED_BIB), libBib)
+        const bibs = [...own, ...(libBib !== null ? [path.join(out, LIBRARY_CITED_BIB)] : [])].map((f) => (path.dirname(f) === dir ? path.basename(f) : f).replace(/\.bib$/, ''))
         fs.writeFileSync(path.join(out, MD_BODY_FILE), ['\\begin{document}', body, ...bibliographyLines(template, bibs), '\\end{document}', ''].join('\n'))
       }
       fs.writeFileSync(target, wrapBodyOnly({

@@ -244,8 +244,8 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
       {
         title: 'Citations',
         items: [
-          { text: <>Cite with {c('[@key]')} in Markdown notes and {c('\\cite{key}')} in LaTeX manuscripts and notes, and keep entries in {c('references.bib')} ({c('[@key]')} becomes {c('\\cite')} in the PDF). At compile time the references section includes only what was cited, and keys missing from the bib give a warning.</> },
-          { text: <>At the bottom of the reading body, expand "Cited papers N · from file name" to see the papers the note cites. It scrolls with the body, and whether it is expanded is remembered per note. In LaTeX it sits below the editor, and you drag its top edge to change the height. From here you download the arXiv PDF or make a literature note.</> },
+          { text: <>Cite with {c('[@key]')} in Markdown notes and {c('\\cite{key}')} in LaTeX manuscripts and notes, and keep entries in {c('references.bib')} ({c('[@key]')} becomes {c('\\cite')} in the PDF). Keys not in the project bib are looked up in the shared library's {c('references.bib')}. At compile time the references section includes only what was cited (entries found in the library are copied into {c('library-refs.bib')}), and keys found nowhere give a warning.</> },
+          { text: <>At the bottom of the reading body, expand "Cited papers N · from file name" to see the papers the note cites. It scrolls with the body, and whether it is expanded is remembered per note. In LaTeX it sits below the editor, and you drag its top edge to change the height. From here you download the arXiv PDF or make a literature note. Papers from the shared library open in the paper library with "Open in the library".</> },
         ],
       },
     ],
