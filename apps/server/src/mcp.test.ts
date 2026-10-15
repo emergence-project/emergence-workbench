@@ -64,6 +64,7 @@ describe('MCP 입구 (읽기)', () => {
     expect(t).toContain('agent:check')
     expect(t).toContain('only when the user asks')
     expect(t).toContain('# 맡긴 일의 규칙')
+    expect(t).not.toContain('# Common research rules')
   })
 
   it('rules에 project를 주면 그 연구 저장소의 AGENTS.md · CLAUDE.md와 개념노트 규칙도 모아 준다', async () => {
@@ -72,12 +73,15 @@ describe('MCP 입구 (읽기)', () => {
       const u = String(input)
       if (u.endsWith('/api/concepts/rules')) return new Response(JSON.stringify({ rules: { file: 'README.md', text: '## concepts/\n\nOne concept per note.' } }), { status: 200 })
       if (u.endsWith('/api/researches/p1/agent-rules')) return new Response(JSON.stringify({ files }), { status: 200 })
+      if (u.endsWith('/api/rules/common')) return new Response(JSON.stringify({ rules: { file: '~/rules/research.md', text: '# 연구 공통 규칙\n\n1. 지어내지 않는다.' } }), { status: 200 })
       return new Response(JSON.stringify({ error: 'no' }), { status: 404 })
     }) as typeof fetch
     const t = textOf(await (await connect(fake)).callTool({ name: 'rules', arguments: { project: 'p1' } }))
     expect(t).toContain('# Concept note rules (shared library README.md)\n\n## concepts/\n\nOne concept per note.')
     expect(t).toContain('# Project rules (AGENTS.md)\n\n# AGENTS.md\n\n- Plan first.')
     expect(t).toContain('# 맡긴 일의 규칙')
+    expect(t).toContain('# Common research rules (~/rules/research.md)\n\n# 연구 공통 규칙\n\n1. 지어내지 않는다.')
+    expect(t.indexOf('# Common research rules')).toBeLessThan(t.indexOf('# 맡긴 일의 규칙'))
     // 실제 서버 경로도 있다 (예제 연구에는 AGENTS.md가 없을 수 있다)
     const real = await (await connect()).callTool({ name: 'rules', arguments: { project: 'sample-research' } })
     expect(real.isError).toBeFalsy()

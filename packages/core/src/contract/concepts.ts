@@ -89,6 +89,8 @@ export const ConceptSearch = z.object({
 export const RuleFile = z.object({ file: z.string(), text: z.string(), truncated: z.literal(true).optional() }).strict()
 /** GET /concepts/rules: 라이브러리 README의 개념노트 절. 라이브러리가 없으면 null */
 export const ConceptRules = z.object({ rules: RuleFile.nullable() }).strict()
+/** 연구 공통 규칙 (GET /api/rules/common): 모든 연구 저장소에 통하는 규칙 한 파일. 없으면 null */
+export const CommonRules = z.object({ rules: RuleFile.nullable() }).strict()
 
 // ---------- 지식 첫 화면 (서버 conceptBrief.ts) ----------
 
@@ -175,6 +177,7 @@ export type ConceptLinks = z.infer<typeof ConceptLinks>
 export type ConceptSearch = z.infer<typeof ConceptSearch>
 export type RuleFile = z.infer<typeof RuleFile>
 export type ConceptRules = z.infer<typeof ConceptRules>
+export type CommonRules = z.infer<typeof CommonRules>
 export type IdCount = z.infer<typeof IdCount>
 export type ConceptBrief = z.infer<typeof ConceptBrief>
 export type ConceptBibEntry = z.infer<typeof ConceptBibEntry>

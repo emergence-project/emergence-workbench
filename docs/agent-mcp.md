@@ -33,7 +33,7 @@ Inside the app folder, `pnpm mcp` also starts it (it speaks MCP over stdio, so y
 
 | Tool | What it does | API it calls |
 | --- | --- | --- |
-| `rules` | Everything to read before starting, in one place: safety rules, delegated-task rules (`docs/agent-delegated-work.md`), the shared library's concept-note rules (the concept-note section of the shared library README) and, with `project`, that repository's `AGENTS.md` and `CLAUDE.md`. Read this first | (the document in the app folder), `GET /api/concepts/rules`, `GET …/:rid/agent-rules` |
+| `rules` | Everything to read before starting, in one place: safety rules, the common research rules (one file for every research repository, when the personal repository copy has `rules/research.md`), delegated-task rules (`docs/agent-delegated-work.md`), the shared library's concept-note rules (the concept-note section of the shared library README) and, with `project`, that repository's `AGENTS.md` and `CLAUDE.md`. Read this first | `GET /api/rules/common`, (the document in the app folder), `GET /api/concepts/rules`, `GET …/:rid/agent-rules` |
 | `list_projects` | Registered projects: id, title, repository path, progress | `GET /api/researches` |
 | `project_status` | Project summary (same content as `workbench/STATUS.md`) | `GET …/:rid/agent-status` |
 | `list_notes` | Notes: body file, record name `target` (Markdown notes and block notes; absent for `main.tex`), state, condition to reopen, topic (filter with `status`) | `GET …/:rid/notes` |
