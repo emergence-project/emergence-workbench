@@ -378,7 +378,7 @@ export function App() {
         version={version} onChanged={() => { changed(); notesChanged() }} onSaved={flash} />
       case 'notes': case 'concepts': case 'papers': return <NotesPage key={t.k} show={t.k} rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} library={library} onChanged={changed} onLibraryChanged={libraryChanged} onNewBlock={() => setDialog('new-block')} onSaved={flash} />
       case 'statement': return <StatementTab key={`${rid}/${t.sid}`} rid={rid} sid={t.sid} rapi={rapi} summary={summary} bus={bus} onChanged={changed} />
-      case 'agents': return <AgentsPage key="agents" rapi={rapi} version={version} />
+      case 'agents': return <AgentsPage key="agents" rid={rid} rapi={rapi} version={version} />
       case 'info': return (
         <ProjectInfoPage rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} version={version}
           project={current} all={researches ?? []} onProfile={setProfile}

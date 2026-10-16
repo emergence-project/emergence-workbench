@@ -1,4 +1,5 @@
 import type { JournalEntry } from '@rw/core'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ConflictError, taskRules, tasksApi, type NewTask, type OpenTodo, type Task, type TaskDiagnostic, type Topic, type Verdict } from './api'
 import { Dialog } from './dialogs'
@@ -6,11 +7,13 @@ import type { FlashAction } from './flash'
 import { localDate } from './format'
 import { shortDate, WEEK_DAYS, weekStartOf } from './homeData'
 import { Icon } from './icons'
+import { useTaskScan } from './projectQueries'
+import { qk } from './queries'
 import { go } from './router'
 import { StatusDot } from './StatusDot'
 import {
   agentName, agentPrompt, briefCounts, cardAsks, cardConclusion, judgeOrder, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL, taskLine, taskTiming, weekItems,
-  taskTitles, type WeekItem, type WeekMark,
+  type WeekItem, type WeekMark,
 } from './taskView'
 import { t } from './i18n'
 
@@ -19,12 +22,14 @@ import { t } from './i18n'
  * 보고서 한 장은 TaskReport.tsx. 파일 형식과 규칙: docs/agent-delegated-work.md
  */
 
-/** 이 프로젝트의 맡긴 일. 파일이 바뀌면(version) 다시 읽는다 */
-export function useTasks(rid: string, version: number) {
-  const [state, setState] = useState<{ rid: string; version: number; tasks: Task[]; diagnostics: TaskDiagnostic[] } | null>(null)
-  const reload = () => tasksApi(rid).scan().then(({ tasks, diagnostics }) => { for (const x of tasks) taskTitles.set(x.id, x.title); setState({ rid, version, tasks, diagnostics }) }).catch(() => setState((s) => s?.rid === rid ? { ...s, version } : { rid, version, tasks: [], diagnostics: [] }))
-  useEffect(() => { void reload() }, [rid, version]) // eslint-disable-line react-hooks/exhaustive-deps
-  return { tasks: state?.rid === rid ? state.tasks : [], diagnostics: state?.rid === rid ? state.diagnostics : [], loaded: state?.rid === rid && state.version === version, reload }
+/** 이 프로젝트의 맡긴 일 (화면 캐시, 맡긴 일 파일이 바뀌면 다시 받는다). reload는 고친 뒤 부른다 */
+export function useTasks(rid: string) {
+  const client = useQueryClient()
+  const q = useTaskScan(rid)
+  return {
+    tasks: q.data?.tasks ?? [], diagnostics: q.data?.diagnostics ?? [], loaded: q.isSuccess,
+    reload: () => client.invalidateQueries({ queryKey: qk.tasks(rid) }),
+  }
 }
 
 type Saved = (m: string, action?: FlashAction) => void

@@ -5,7 +5,7 @@ import type { WorkbenchEvent } from './api'
  * 화면 캐시 (2026-10-15 종합 검토 묶음 H, TanStack Query).
  * 자료마다 키를 두고, 서버의 파일 알림(WorkbenchEvent)은 그 알림이 바꾸는 자료의 키만 다시 받게 한다(invalidationKeys).
  * 서버가 바뀔 때마다 알려 주므로 받은 자료는 알림이 올 때까지 그대로 쓴다(staleTime 무한, 창 초점에 다시 받지 않음).
- * 아직 옮기지 않은 화면은 예전처럼 version(App.tsx)이 오를 때 다시 받는다.
+ * 아직 옮기지 않은 화면(흐름, 노트 · 블록 편집, 기록 패널, 규칙 파일, 저장소 상태, 고침 하나의 검토)은 예전처럼 version(App.tsx)이 오를 때 다시 받는다.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +27,10 @@ export const qk = {
   /** 프로젝트 정보: research.yaml sources · 작업 목록 · 검토 문서 */
   info: (rid: string) => ['project', rid, 'info'] as const,
   materials: (rid: string) => ['project', rid, 'materials'] as const,
+  /** 맡긴 일 (workbench/tasks/*.md) */
+  tasks: (rid: string) => ['project', rid, 'tasks'] as const,
+  /** STATUS.md와 같은 현황 글: 프로젝트의 거의 모든 파일에서 뽑으므로 그 프로젝트의 알림마다 다시 받는다 */
+  status: (rid: string) => ['project', rid, 'status'] as const,
   /** 주제 카드와 그 수: 주제 키 아래에 두어 주제를 다시 받을 때 함께 */
   topicsOverview: (rid: string) => ['project', rid, 'topics', 'overview'] as const,
   /** 지운 노트: 노트 키 아래에 두어 노트를 다시 받을 때 함께 */
@@ -45,6 +49,12 @@ export const qk = {
 export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   // 라이브러리의 개념노트를 에이전트가 고치면 라이브러리 고침 검토도 바뀐다
   if (e.type === 'library') return e.part === 'papers' ? [qk.library, qk.papers] : e.part === 'concepts' ? [qk.library, qk.agentEdits('library')] : [qk.library]
+  const keys = projectKeys(e)
+  // research는 프로젝트 키 전체라 현황도 들어 있다
+  return e.type === 'research' ? keys : [...keys, qk.status(e.research)]
+}
+
+function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' }>): QueryKey[] {
   const rid = e.research
   switch (e.type) {
     // research.yaml(제목 · 주제 · 원고 선언 …)이 바뀌면 그 프로젝트의 모든 자료와 프로젝트 목록
@@ -59,7 +69,8 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
     case 'journal': return [['project', rid, 'journal']]
     // research.yaml sources의 파일(원고 · 그림 · 참고 자료 · 작업 목록 · 검토 문서)
     case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid)]
-    case 'preamble': case 'tasks': case 'flow': case 'records-publish': return []
+    case 'tasks': return [qk.tasks(rid)]
+    case 'preamble': case 'flow': case 'records-publish': return []
   }
 }
 

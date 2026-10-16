@@ -10,7 +10,7 @@ import { PROJECT_KIND_LABEL } from './projectProfile'
 import { locale, plural, t } from './i18n'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
 import { splitStatus, statusBody } from './statusBody'
-import { useProjectInfo } from './projectQueries'
+import { useAgentStatus, useProjectInfo } from './projectQueries'
 
 function PathName({ path }: { path: string }) {
   const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
@@ -57,7 +57,7 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
               </div>
             </header>
 
-            <StatusSection rid={rid} rapi={rapi} version={version} />
+            <StatusSection rid={rid} rapi={rapi} />
 
             <section className="info-sec" data-ui="기본 정보">
               <h2>{t('기본', 'Basics')}</h2>
@@ -116,14 +116,19 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
   )
 }
 
+/** 현황 글 (화면 캐시, 그 프로젝트의 알림마다 다시 받는다). 읽는 중 undefined, 못 읽으면 null */
+function useStatusText(rid: string, rapi: ResearchApi): string | null | undefined {
+  const q = useAgentStatus(rid, rapi)
+  return q.data === undefined ? undefined : q.data === null ? null : statusBody(q.data)
+}
+
 /**
  * 현황: 에이전트가 STATUS.md · `pnpm agent:status` · MCP project_status로 읽는 요약과 같은 것 (10/11 "정본은 하나, 사람은 앱으로 AI는 파일·MCP로").
  * 서버의 generateStatus 하나가 만든 글을 그대로 보이고, 앞머리의 에이전트용 안내(제목과 > 인용 줄)만 뺀다.
  * 규칙 절(공통 규칙 · 폴더 규칙 · 프로젝트 규칙)은 왼쪽 사이드바 프로젝트 정보 아래의 AGENTS.md 화면에 둔다 (10/15 피드백).
  */
-function StatusSection({ rid, rapi, version }: { rid: string; rapi: ResearchApi; version: number }) {
-  const [text, setText] = useState<string | null | undefined>(undefined)
-  useEffect(() => { rapi.agentStatus().then((r) => setText(statusBody(r.markdown))).catch(() => setText(null)) }, [rapi, version])
+function StatusSection({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
+  const text = useStatusText(rid, rapi)
   const parts = text ? splitStatus(text) : null
   return (
     <section className="info-sec" data-ui="현황">
@@ -142,10 +147,9 @@ function StatusSection({ rid, rapi, version }: { rid: string; rapi: ResearchApi;
  * AGENTS.md: 에이전트가 이 저장소에서 먼저 읽는 규칙. 저장소의 AGENTS.md · CLAUDE.md와 STATUS.md의 규칙 절.
  * 왼쪽 사이드바 프로젝트 정보 아래의 하위 항목 (10/15 반려 "프로젝트 정보 섹션 하위 섹션으로").
  */
-export function AgentsPage({ rapi, version }: { rapi: ResearchApi; version: number }) {
-  const [text, setText] = useState<string | null | undefined>(undefined)
+export function AgentsPage({ rid, rapi, version }: { rid: string; rapi: ResearchApi; version: number }) {
+  const text = useStatusText(rid, rapi)
   const [files, setFiles] = useState<{ file: string; text: string }[] | null | undefined>(undefined)
-  useEffect(() => { rapi.agentStatus().then((r) => setText(statusBody(r.markdown))).catch(() => setText(null)) }, [rapi, version])
   useEffect(() => { rapi.agentRules().then((r) => setFiles(r.files)).catch(() => setFiles(null)) }, [rapi, version])
   const rules = text ? splitStatus(text).rules : ''
   return (

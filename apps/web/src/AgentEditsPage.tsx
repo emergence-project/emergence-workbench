@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useConceptRender } from './ConceptNotes'
 import { onlySpacing, paintDiff } from './diffPaint'
@@ -9,6 +10,8 @@ import { talksOf, talkTurn, talkWhen } from './editTalk'
 import { MemoText } from './memo'
 import { t } from './i18n'
 import { Icon } from './icons'
+import { useAgentEdits } from './projectQueries'
+import { qk } from './queries'
 import { go, type Route } from './router'
 import { agentName } from './taskView'
 
@@ -24,11 +27,13 @@ import { agentName } from './taskView'
  */
 export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?: string; rid?: string; version: number; onSaved(msg: string): void }) {
   const scope = rid ?? 'library'
-  const [list, setList] = useState<{ reviews: EditReviewRow[]; attempts: EditAttempt[] } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // 목록은 화면 캐시(사이드바 · 첫 화면의 수와 같은 키). 고친 뒤 다시 받으면 그 수도 함께 바뀐다
+  const client = useQueryClient()
+  const query = useAgentEdits(scope)
+  const list = query.data ?? null
+  const error = query.error ? query.error.message : null
   const [raw, setRaw] = useState(false)
-  const load = useCallback(() => { agentEditsApi.list(scope).then((v) => { setList(v); setError(null) }).catch((e: Error) => setError(e.message)) }, [scope])
-  useEffect(() => { load() }, [load, version])
+  const load = useCallback(() => { void client.invalidateQueries({ queryKey: qk.agentEdits(scope) }) }, [client, scope])
   const key = selected ?? list?.reviews[0]?.key
   const row = list?.reviews.find((r) => r.key === key)
   const open = (k: string) => go(rid ? { page: 'edits', rid, key: k } : { page: 'review', key: k, scope })
