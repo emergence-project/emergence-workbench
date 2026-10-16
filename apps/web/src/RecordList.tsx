@@ -100,7 +100,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
     <div className="record-row-head">
       {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('끝냄', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
-          : <span className="record-marker" aria-label={kindText(kind)}>{kind === '질문' ? '?' : kind === '지시' ? Icon.task : Icon.memo}</span>}
+          : <span className="record-marker" aria-label={kindText(kind)}>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
       {/* 쓴 이는 줄 맨 위에 (10/15 22:41 피드백): 사용자 또는 에이전트 이름 */}
       <span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('사용자가 쓴 기록', 'Written by the user')}>{c.by ?? t('사용자', 'User')}</span>
       <span className="record-place">
@@ -111,7 +111,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
           {/* 지시는 에이전트 세션이 MCP로 집어 가서 하고 답한다. 맥의 Claude가 저절로 하지 않는다 */}
-          {kind === '질문' && !c.by && <button className="icon-btn" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>?</button>}
+          {kind === '질문' && !c.by && <button className="icon-btn" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
           <button className="icon-btn" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
         </>}
         <button className="icon-btn" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>

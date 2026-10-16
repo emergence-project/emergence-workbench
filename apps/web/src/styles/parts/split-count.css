@@ -1,0 +1,9 @@
+/* 나눈 수 칸 (10/16 피드백 "2:1 칸을 왼쪽 | 오른쪽으로"): 왼쪽 사용자 차례(주황), 오른쪽 남은 할 일(회색).
+   칸 모양은 늘 같고 0인 쪽만 흐리다. 사이드바 "기록" 줄 */
+.split-count { display: inline-flex; flex: none; height: 16px; margin-left: auto; border: 1px solid var(--line-strong); border-radius: var(--r-xs); overflow: hidden; font-size: var(--fs-2xs); font-weight: var(--fw-strong); line-height: 14px; font-variant-numeric: tabular-nums; }
+.split-count > span { min-width: 16px; padding: 0 3px; text-align: center; }
+.split-count .l { background: var(--s-blocked); color: var(--bg); }
+.split-count .r { background: var(--bg); color: var(--text-2); border-left: 1px solid var(--line-strong); }
+.split-count .zero { background: var(--bg); color: var(--text-3); font-weight: var(--fw-normal); }
+.split-count.turn { border-color: var(--s-blocked); }
+.split-count.turn .r { border-left-color: var(--s-blocked); }

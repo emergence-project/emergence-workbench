@@ -149,11 +149,11 @@ export const ABOUT_PARTS_KO: AboutPart[] = [
     sub: '프로젝트 하나를 열었을 때의 화면입니다. 무엇을 하는 연구이고, 어디까지 왔고, 다음에 무엇을 하는지를 한곳에서 봅니다.',
     sections: [
       {
-        title: '화면의 짜임', prs: [103, 104, 118, 137],
+        title: '화면의 짜임', prs: [103, 104, 118, 137, 142],
         items: [
           { text: <>레일의 홈 아래에 프로젝트마다 머리글자 버튼이 있어 바로 갑니다.</> },
           { text: <>레일 버튼의 주황 수는 확인할 것이 있다는 표시입니다: 프로젝트 버튼은 확인이 필요한 노트와 판단할 맡긴 일, 네트워킹은 아직 보지 않은 등록 추천(네트워킹을 열면 사라짐), 설정은 새 버전(수 대신 주황 점 하나), 피드백은 확인 필요(확인할 것은 없고 아직 GitHub에 등록하지 않은 피드백만 있으면 수 대신 주황 점), 소개는 확인할 곳. 가리키면 무엇을 세는지 나옵니다.</> },
-          { text: <><b>왼쪽 사이드바</b>는 프로젝트 안에서 어디로 갈지입니다: 프로젝트 정보 · 작업 · 기록(옆 수는 남은 할 일, 주황 수는 에이전트가 물어 내 답을 기다리는 기록) · 수정 검토(옆 수는 검토할 노트) · 흐름 · <b>주제</b>(주제 › 노트 나무) · "노트들"(주제가 없는 노트) · 자료(원고 · 참고 자료). 나무는 지금 연 노트의 주제만 펼치고, 노트마다 상태 색 점이 붙습니다. 주제 이름을 누르면 그 주제 화면으로 갑니다. 개념노트 · 문헌노트 · 지도는 레일 "지식"에 있습니다.</> },
+          { text: <><b>왼쪽 사이드바</b>는 프로젝트 안에서 어디로 갈지입니다: 프로젝트 정보 · 작업 · 기록(옆의 수 칸은 둘로 나뉘어, 왼쪽 주황은 에이전트가 물어 내 답을 기다리는 기록, 오른쪽 회색은 남은 할 일) · 수정 검토(옆 수는 검토할 노트) · 흐름 · <b>주제</b>(주제 › 노트 나무) · "노트들"(주제가 없는 노트) · 자료(원고 · 참고 자료). 나무는 지금 연 노트의 주제만 펼치고, 노트마다 상태 색 점이 붙습니다. 주제 이름을 누르면 그 주제 화면으로 갑니다. 개념노트 · 문헌노트 · 지도는 레일 "지식"에 있습니다.</> },
           { text: <>노트나 맡긴 일 보고서를 열면 그 절 목차가 왼쪽 사이드바 맨 아래에 붙습니다. 지금 읽는 절에 세로 막대가 있고 스크롤을 따라가며, 누르면 그 절로 갑니다. 절이 하나뿐이면 숨습니다. 목차가 길 때만 위 경계가 생겨 끌어 높이를 바꿉니다.</> },
           { text: <>가운데는 <b>주 패널</b>(고른 화면)과 <b>옆 패널</b>(함께 볼 PDF·논문), 오른쪽 끝은 <b>오른쪽 사이드바</b>(지금 연 노트의 정보 · 기록)입니다. 패널마다 위에 탭 바가 늘 있습니다. 사이드바나 링크로 무엇을 열면 지금 탭이 그 화면으로 바뀌고(브라우저처럼), ⌘/Ctrl+클릭하면 새 탭으로 열립니다. 탭은 옆 패널로 끌어 옮깁니다. 탭 바의 빈 곳을 옆 패널로 끌면 두 패널이 맞바뀝니다. 배치는 프로젝트마다 기억합니다. 노트는 늘 왼쪽 패널, 그 PDF는 오른쪽 패널에 엽니다(오른쪽에 있던 노트는 왼쪽으로 옮깁니다).</> },
           { text: <><b>상단바</b>: 왼쪽 끝에 왼쪽 사이드바 여닫기(⌘\) · 뒤로 · 앞으로, 가운데에 위치 "프로젝트 › 주제"(노트면 그 노트의 주 주제, 이름을 누르면 그 화면으로), 오른쪽에 검색 · 두 패널 · 피드백(새 버전이 있으면 그 앞에 "새 버전"), 맨 오른쪽에 오른쪽 사이드바 여닫기(⌥⌘\). 아이콘만 있고 가리키면 이름과 키가 뜹니다. 켜진 것은 회색 바탕입니다. 테마는 설정 › 화면에서, 빠른 메모는 M 키나 오른쪽 사이드바 "기록"에서 합니다.</> },
@@ -182,7 +182,7 @@ export const ABOUT_PARTS_KO: AboutPart[] = [
         ],
       },
       {
-        title: '작업과 기록 (판단 · 맡긴 일 · 할 일 · 메모 · 질문 · 지시)', prs: [104, 113, 118, 121, 130, 137],
+        title: '작업과 기록 (판단 · 맡긴 일 · 할 일 · 메모 · 질문 · 지시)', prs: [104, 113, 118, 121, 130, 137, 142],
         figure: <TaskFlowFigure />,
         items: [
           { text: <>작업 탭 툴바 왼쪽 필터는 <b>판단</b>(처음 열면 이것, 주황 수) · <b>맡긴 일</b>, 오른쪽은 "＋ 맡기기"입니다. 할 일 · 메모 · 질문 · 지시는 따로 된 <b>기록</b> 탭에 있습니다(10/15). 맨 아래에는 <b>작업 일지</b>(끝낸 할 일 · 상태 변화)가 날짜별로 쌓입니다.</> },
@@ -536,10 +536,10 @@ export const ABOUT_PARTS_KO: AboutPart[] = [
     sub: '앱이 쓰는 색과 기호를 한곳에 모았습니다. 같은 기호는 어느 화면에서나 같은 뜻입니다.',
     sections: [
       { title: '색', id: 'colors', prs: [103], items: [{ text: <>무채색이 기본이고, 색은 아래 뜻에만 씁니다. 텍스트 버튼과 링크는 무채색입니다. 색만으로 가르지 않습니다: 상태 옆에는 늘 이름이 함께 있고, 좁은 곳에서는 점을 가리키면 이름이 뜹니다. 네 상태 색은 적록 색약 눈으로 봐도 서로 갈리게 골랐습니다.</> }] },
-      { title: '행동', id: 'actions', prs: [103], items: [{ text: <>누르는 기호입니다. 늘 무채색이고, 한 행동에 이름 하나 · 기호 하나입니다.</> }] },
-      { title: '화면 아이콘', id: 'screens', prs: [103, 107], items: [{ text: <>레일 · 왼쪽 사이드바 · 상단바에서 화면으로 가는 아이콘입니다. 가리키면 이름이 뜹니다.</> }] },
+      { title: '행동', id: 'actions', prs: [103, 142], items: [{ text: <>누르는 기호입니다. 늘 무채색이고, 한 행동에 이름 하나 · 기호 하나입니다.</> }] },
+      { title: '화면 아이콘', id: 'screens', prs: [103, 107, 142], items: [{ text: <>레일 · 왼쪽 사이드바 · 상단바에서 화면으로 가는 아이콘입니다. 가리키면 이름이 뜹니다.</> }] },
       { title: '흐름', id: 'flow', prs: [103], items: [{ text: <>흐름 화면의 점과 선입니다. 점의 기호는 종류, 색은 상태입니다. 동그라미는 진술, 둥근 네모는 행위입니다. <a className="a" href="#/about/project/flow">흐름 화면 설명 ›</a></> }] },
-      { title: '기록 표시', id: 'marks', prs: [103, 118, 120], items: [{ text: <>누르지 않는 글자 표시입니다.</> }] },
+      { title: '기록 표시', id: 'marks', prs: [103, 118, 120, 142], items: [{ text: <>누르지 않는 표시입니다. 글자 대신 다른 아이콘과 같은 선 그림입니다.</> }] },
       {
         title: '대화 태그', id: 'tags', prs: [94, 103, 114],
         figure: <FeedbackTagsTable />,
@@ -578,44 +578,48 @@ export const COLOR_ROWS_KO: ColorRow[] = [
 ]
 
 export interface SymbolRow { mark: ReactNode; name: string; meaning: string; where: string }
-export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'download' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
+export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'download' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
   {
     title: '행동', note: '늘 무채색입니다. 한 행동에 이름 하나·기호 하나.',
     rows: [
-      { mark: '＋', name: '더하기', meaning: '새로 만들거나 넣기', where: '모든 목록' },
+      { mark: g.icons.plus, name: '더하기', meaning: '새로 만들거나 넣기', where: '모든 목록' },
       { mark: g.icons.pencil, name: '고치기', meaning: '그 항목의 입력란 열기', where: '항목 오른쪽 위 (좁은 칸은 늘 보임)' },
       { mark: g.icons.trash, name: '지우기', meaning: '사라짐. 되돌릴 수 없는 지우기는 무엇이 남는지 적고 확인합니다', where: '항목 오른쪽 위 (좁은 칸은 늘 보임)' },
-      { mark: '×', name: '빼기·닫기', meaning: '여기서만 빠짐, 파일은 그대로', where: '태그, 목록, 창' },
+      { mark: g.icons.x, name: '빼기·닫기', meaning: '여기서만 빠짐, 파일은 그대로', where: '태그, 목록, 창' },
       { mark: g.icons.play, name: '컴파일', meaning: 'PDF 만들기', where: '노트·원고 툴바' },
       { mark: g.icons.download, name: '내보내기', meaning: '파일로 받기', where: '노트·원고' },
-      { mark: g.icons.comment, name: '코멘트', meaning: '연구 내용(노트·PDF)에 말 남기기와 Claude에게 묻기', where: '노트 툴바, 오른쪽 사이드바' },
-      { mark: g.icons.memo, name: '메모', meaning: '프로젝트나 노트 옆에 적어 두는 것 (M 키)', where: '오른쪽 사이드바' },
+      { mark: g.icons.comment, name: '코멘트 · 기록', meaning: '연구 내용(노트·PDF)에 말 남기기. 말풍선은 기록 묶음의 그림입니다', where: '노트 툴바, 왼쪽 사이드바 기록, 기록 탭' },
+      { mark: g.icons.memo, name: '메모', meaning: '기록 종류: 프로젝트나 노트 옆에 적어 두는 것 (M 키)', where: '기록 줄 맨 앞, 기록 종류 고르기, 달력' },
+      { mark: g.icons.todo, name: '할 일', meaning: '기록 종류: 할 것. 줄에서는 눌러서 끝내는 체크 상자', where: '기록 줄 맨 앞, 기록 종류 고르기' },
+      { mark: g.icons.ask, name: '질문', meaning: '기록 종류: 묻는 것 (말풍선 안 ?)', where: '기록 줄 맨 앞, 기록 종류 고르기' },
+      { mark: g.icons.send, name: '지시', meaning: '기록 종류: 에이전트에게 보내는 일 (종이비행기)', where: '기록 줄 맨 앞, 기록 종류 고르기' },
       { mark: g.icons.feedback, name: '피드백', meaning: '앱 화면의 이 자리에 남긴 말 (피드백 모드, 피드백 모아 보기)', where: '상단바, 레일' },
       { mark: g.icons.panelLeft, name: '사이드바 여닫기', meaning: '여닫는 쪽을 채운 네모. 버튼은 그 칸 쪽 끝에', where: '상단바 양 끝' },
       { mark: g.icons.more, name: '더 보기', meaning: '자주 쓰지 않는 일 (서식 · PDF 보기 · 내보내기 · 지우기 …)', where: '노트 툴바' },
-      { mark: '↑ ↓', name: '순서', meaning: '한 칸 앞·뒤로', where: '내보낼 저자' },
+      { mark: <>{g.icons.up}{g.icons.down}</>, name: '순서', meaning: '한 칸 앞·뒤로', where: '내보낼 저자' },
       { mark: g.icons.reopen, name: '다시 열기', meaning: '멈춘 노트를 진행으로, 끝낸 질문을 다시 대기로', where: '작업 패널, 기록' },
-      { mark: '?', name: 'Claude에게 묻기', meaning: '기록을 질문으로 보내 이 맥의 Claude가 답하게 함', where: '기록 줄 오른쪽 위' },
+      { mark: g.icons.spark, name: 'Claude에게 묻기', meaning: '기록을 질문으로 보내 이 맥의 Claude가 답하게 함. 반짝이는 Claude가 하는 행동에만 씁니다', where: '기록 줄 오른쪽 위' },
       { mark: g.icons.search, name: '검색', meaning: '앱 전체에서 이름으로 찾기 (/ 키)', where: '상단바 오른쪽' },
       { mark: g.icons.approve, name: '승인', meaning: '결과가 맞음', where: '작업 탭 판단 카드' },
       { mark: g.icons.sendBack, name: '수정', meaning: '맞지 않아 다시 하도록 돌려보냄 (지우지 않음)', where: '작업 탭 판단 카드' },
-      { mark: '★ ☆', name: '즐겨찾기', meaning: '먼저 보이게 하기 / 풀기', where: '카드, 사람' },
+      { mark: <><span className="star-ico on">{g.icons.star}</span> <span className="star-ico">{g.icons.star}</span></>, name: '즐겨찾기', meaning: '먼저 보이게 하기 (찬 별) / 풀기 (빈 별)', where: '카드, 주제, 사람' },
     ],
   },
   {
-    title: '기록 표시', note: '누르지 않는 글자 표시입니다.',
+    title: '기록 표시', note: '누르지 않는 표시입니다.',
     rows: [
-      { mark: '✓', name: '끝남·확인됨', meaning: '컴파일 성공, 개념노트 확인함, 피드백 승인함, 끝낸 할 일 (무채색). 연구 상태의 해결은 ✓가 아니라 청록 점', where: '컴파일 결과, 개념노트, 피드백, 달력' },
+      { mark: g.icons.check, name: '끝남·확인됨', meaning: '컴파일 성공, 개념노트 확인함, 피드백 승인함, 끝낸 할 일 (무채색). 연구 상태의 해결은 ✓가 아니라 청록 점', where: '컴파일 결과, 개념노트, 피드백, 달력' },
       { mark: '!', name: '오류', meaning: '실패함 (빨강). 이 뜻으로만 씁니다', where: '컴파일 결과' },
-      { mark: '⚑', name: '마감', meaning: '할 일의 마감 (주황, 사용자 차례)', where: '홈 달력, 작업 탭 달력' },
-      { mark: '○', name: '확인 전', meaning: '개념노트를 아직 확인하지 않음', where: '개념노트' },
+      { mark: g.icons.flag, name: '마감', meaning: '할 일의 마감 (주황, 사용자 차례)', where: '홈 달력, 작업 탭 달력' },
+      { mark: g.icons.unchecked, name: '확인 전', meaning: '개념노트를 아직 확인하지 않음', where: '개념노트' },
       { mark: '—', name: '공리·정의', meaning: '증명할 것이 없는 진술', where: '진술' },
-      { mark: '✎', name: '고침', meaning: '노트를 고친 기록', where: '홈 달력' },
-      { mark: '⇄', name: '상태 바꿈', meaning: '상태가 바뀐 기록', where: '홈 달력, 작업 탭 달력' },
+      { mark: g.icons.pencil, name: '고침', meaning: '노트를 고친 기록', where: '홈 달력' },
+      { mark: g.icons.swap, name: '상태 바꿈', meaning: '상태가 바뀐 기록', where: '홈 달력, 작업 탭 달력' },
       { mark: '→ ›', name: '열기·옮기기', meaning: '그 화면으로 가기', where: '링크' },
       { mark: '∎', name: '증명 끝', meaning: '증명이 끝나는 곳', where: '개념노트 본문' },
       { mark: <span className="about-turn-dot" />, name: '내 차례 (에이전트가 물은 기록)', meaning: '에이전트가 물어 내 답을 기다림 (주황 점과 테두리, 노트 본문은 주황 칠)', where: '기록 줄, 노트 본문' },
-      { mark: '2', name: '사용자 차례 수', meaning: '사용자가 볼 것이 몇 개인지 (주황 알약 하나의 모양)', where: '레일, 피드백 필터, 작업 탭 판단, 라이브러리 점검, 사이드바 기록' },
+      { mark: '2', name: '사용자 차례 수', meaning: '사용자가 볼 것이 몇 개인지 (주황 알약 하나의 모양)', where: '레일, 피드백 필터, 작업 탭 판단, 라이브러리 점검' },
+      { mark: <span className="split-count turn"><span className="l">2</span><span className="r">3</span></span>, name: '기록 수', meaning: '왼쪽 주황은 에이전트가 물어 내 답을 기다리는 기록, 오른쪽 회색은 남은 할 일. 0인 쪽은 흐립니다', where: '왼쪽 사이드바 기록' },
     ],
   },
 ]

@@ -1,6 +1,6 @@
 import { SubjectPicker, useSubjects, SUBJECTS_CHANGED } from './SubjectPicker'
 import { subjectsApi, type SubjectCount } from './api/subjects'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, conceptsApi, knowledgeApi, topicKey, type ConceptMd, type ConceptMemo, type ConceptRow, type ConceptSources, type ConceptUse, type KnowledgeInfo, type KnowledgeTopic, type LibraryInfo } from './api'
 import { useConceptMacros } from './conceptMacros'
 import { useFigureUrl } from './figureEmbed'
@@ -344,7 +344,7 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
     catch (e) { await reload(); throw e } finally { setBusy(false) }
   }
   const doc: DocState = { note, onSubjects: setSubjects, busy: busy || editing, onReview: (c: ReviewChoice) => void review(c), onLock: (on: boolean) => void lock(on) }
-  const confirmation = <span className="cn-confirm" title={note.checked === 'changed' ? t('확인 뒤 고침 — 본문을 다시 확인해 주세요', 'Edited after review. Please review the text again') : undefined}><span aria-hidden="true">{note.checked === 'ok' ? '✓' : '○'}</span>{note.checked === 'ok' ? t('확인함', 'Reviewed') : t('확인 전', 'Not reviewed')}</span>
+  const confirmation = <span className="cn-confirm" title={note.checked === 'changed' ? t('확인 뒤 고침 — 본문을 다시 확인해 주세요', 'Edited after review. Please review the text again') : undefined}><i className="mark-ico" aria-hidden>{note.checked === 'ok' ? Icon.check : Icon.unchecked}</i>{note.checked === 'ok' ? t('확인함', 'Reviewed') : t('확인 전', 'Not reviewed')}</span>
   const status = <>{confirmation}{m.locked && <span className="tag" title={t('잠긴 노트는 앱과 에이전트가 고치지 않습니다. 연필을 누르면 고치는 동안만 풀립니다', 'The app and agents do not edit locked notes. The pencil unlocks it while you edit')}>{t('잠김', 'Locked')}</span>}</>
   const shownBody = dropTitle(note.body, m.title)
   return (
@@ -386,9 +386,9 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
  */
 type ReviewChoice = 'none' | 'todo' | 'ok'
 interface DocState { onSubjects(ids: string[]): Promise<void>; note: ConceptMd; busy: boolean; onReview(c: ReviewChoice): void; onLock(on: boolean): void }
-const REVIEW: { v: ReviewChoice; label: string; title: string }[] = [
-  { v: 'none', label: t('확인 전', 'Not reviewed'), title: t('확인 표시를 뺍니다', 'Removes the review mark') },
-  { v: 'ok', label: t('✓ 확인함', '✓ Reviewed'), title: t('내용을 읽고 맞다고 확인했을 때. 본문이 바뀌면 "확인 뒤 고침"으로 바뀝니다', 'When you have read and confirmed the content. If the text changes, it becomes "Edited after review"') },
+const REVIEW: { v: ReviewChoice; label: ReactNode; title: string }[] = [
+  { v: 'none', label: <><i className="mark-ico" aria-hidden>{Icon.unchecked}</i> {t('확인 전', 'Not reviewed')}</>, title: t('확인 표시를 뺍니다', 'Removes the review mark') },
+  { v: 'ok', label: <><i className="mark-ico" aria-hidden>{Icon.check}</i> {t('확인함', 'Reviewed')}</>, title: t('내용을 읽고 맞다고 확인했을 때. 본문이 바뀌면 "확인 뒤 고침"으로 바뀝니다', 'When you have read and confirmed the content. If the text changes, it becomes "Edited after review"') },
 ]
 function ConceptDocInfo({ id, doc, compact }: { id: string; doc: DocState; compact?: boolean }) {
   const { note, busy, onReview } = doc

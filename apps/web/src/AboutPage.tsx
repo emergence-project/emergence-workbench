@@ -359,6 +359,7 @@ const screenIcons = () => [
   { mark: Icon.projectInfo, name: t('프로젝트 정보', 'Project info'), meaning: t('그 프로젝트의 설명 · 시작일 · 저장소', 'That project\'s description, start date and repository'), where: t('왼쪽 사이드바 맨 위', 'Top of the left sidebar') },
   { mark: Icon.settings, name: t('설정', 'Settings'), meaning: t('앱 설정과 업데이트', 'App settings and updates'), where: t('레일 맨 아래', 'Bottom of the rail') },
   { mark: Icon.task, name: t('작업', 'Work'), meaning: t('판단 · 맡긴 일 · 할 일 · 메모 · 질문', 'Decisions · delegated tasks · to-dos · memos · questions'), where: t('왼쪽 사이드바', 'Left sidebar') },
+  { mark: Icon.comment, name: t('기록', 'Records'), meaning: t('프로젝트의 메모 · 할 일 · 질문 · 지시', 'The project\'s memos, to-dos, questions and instructions'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.review, name: t('수정 검토', 'Edit review'), meaning: t('에이전트가 고친 노트를 바뀐 곳마다 검토', 'Review each change agents made to notes'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.flow, name: t('흐름', 'Flow'), meaning: t('연구를 생각의 걸음과 선으로 본 차트', 'The research as steps of thinking and lines'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.manuscript, name: t('원고', 'Manuscript'), meaning: t('원고 화면과 원고 목록', 'Manuscript screen and list'), where: t('왼쪽 사이드바', 'Left sidebar') },
