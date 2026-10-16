@@ -84,7 +84,7 @@ export function NoteToolbar({ ui = '노트 도구 줄', title, status, save, sav
   const items = menu.filter((x): x is ToolbarItem => !!x)
   return (
     <div className="note-toolbar" data-ui={ui}>
-      <div className={`nt-row${hasView ? ' nt-with-view' : ''}`}>
+      <div className={`nt-row${hasView ? ' bar3 nt-with-view' : ''}`}>
         <div className="nt-left">{editing && title}{status}</div>
         {hasView && <div className="segmented small nt-view" role="radiogroup" aria-label={t('보기', 'View')} data-ui="편집 보기">
             {EDIT_VIEWS.map((v) => <button key={v.id} className={view === v.id ? 'on' : ''} role="radio" aria-checked={view === v.id} title={v.tip} onClick={() => onView(v.id)}>{v.label}</button>)}

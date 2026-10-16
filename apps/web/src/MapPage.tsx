@@ -36,7 +36,7 @@ export function MapPage({ rid, summary }: { rid: string; summary: ResearchSummar
   return (
     <div className="ws-doc" data-ui="지도">
       <section className="pane">
-        <div className="pane-head map-head" data-ui="머리줄">
+        <div className="pane-head bar3 map-head" data-ui="머리줄">
           <span className="map-trail" data-ui="지나온 길">
             {view === 'focus' && trail.length > 1 && <>{t('지나온 길: ', 'Path: ')}{trail.map((f, i) => (
               <span key={f.id}>{i > 0 && ' › '}<button className="link-like" onClick={() => setFocus(f)}>{f.k === 'statement' ? shortLabel(byS.get(f.id)!) : byB.get(f.id)?.title ?? f.id}</button></span>

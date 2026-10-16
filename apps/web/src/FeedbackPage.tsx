@@ -124,7 +124,7 @@ export function FeedbackPage({ version }: { version: number }) {
     <Account.Provider value={user}>
     <main className="stage full" data-ui="피드백">
       <section className="pane">
-        <div className="pane-head fbp-toolbar" data-ui="머리줄">
+        <div className="pane-head bar3 fbp-toolbar" data-ui="머리줄">
           <div className="segmented small fbp-filters" role="radiogroup" aria-label={t('필터', 'Filter')} data-ui="거르기">
             {FILTERS.map((f) => (
               <button key={f} role="radio" aria-checked={filter === f} className={filter === f ? 'on' : ''} title={f === '전체' ? undefined : FILTER_TITLES[f]} onClick={() => { picked.current = true; setFilter(f) }}>

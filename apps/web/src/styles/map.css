@@ -11,7 +11,6 @@
 .hint { font-size: var(--fs-sm); color: var(--text-3); }
 
 /* 지도 */
-.map-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .map-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; column-gap: var(--sp-1); font-size: var(--fs-xs); }
 .map-counts > span { white-space: nowrap; }
 .map-empty { padding: var(--sp-5); }
