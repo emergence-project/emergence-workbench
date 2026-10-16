@@ -110,7 +110,7 @@ function useFlow(rid: string, version: number) {
   const [tick, setTick] = useState(0)
   const reload = useCallback(() => setTick((x) => x + 1), [])
   useEffect(() => {
-    flowApi(rid).scan().then(setScan).catch(() => setScan({ nodes: [], diagnostics: [], layout: {} }))
+    flowApi(rid).scan().then(setScan).catch(() => setScan({ nodes: [], diagnostics: [], layout: {}, rows: null }))
   }, [rid, version, tick])
   return { scan, reload }
 }
@@ -118,7 +118,7 @@ function useFlow(rid: string, version: number) {
 /** 흐름 화면 (왼쪽 사이드바의 "흐름"): 프로젝트의 점 전부. topic이면 그 주제의 점을 굵게 */
 export function FlowPage({ rid, topic, version, notes, topics }: { rid: string; topic?: string; version: number; notes: NoteRow[]; topics: TopicRef[] }) {
   const { scan, reload } = useFlow(rid, version)
-  const lay = useMemo(() => scan ? layoutFlow(scan.nodes, scan.layout) : null, [scan])
+  const lay = useMemo(() => scan ? layoutFlow(scan.nodes, scan.layout, { rows: scan.rows, minRows: topics.length }) : null, [scan, topics.length])
   return <div className="ws-doc" data-ui="흐름 화면">
     <section className="pane">
       <div className="scroll"><div className="page-body fl-page">
@@ -141,6 +141,15 @@ export function TopicFlowLink({ rid, tid, version }: { rid: string; tid: string;
 }
 
 type Cell = { c: number; r: number }
+
+/** 차트 안의 글자 버튼 (＋ 줄 · ×): 누르기와 Enter·Space */
+function RowButton({ x, y, label, onPress, children, 'data-ui': ui }: { x: number; y: number; label: string; onPress(): void; children: ReactNode; 'data-ui': string }) {
+  return <g className="fl-rowbtn" data-ui={ui} role="button" tabIndex={0} aria-label={label}
+    onClick={(e) => { e.stopPropagation(); onPress() }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPress() } }}>
+    <title>{label}</title>
+    <text x={x} y={y}>{children}</text>
+  </g>
+}
 
 function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }: {
   rid: string; focus?: string; all: FlowNode[]; cells: FlowCells; lay: FlowLayout; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void
@@ -211,7 +220,14 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
     return { c, r }
   })()
   const draftNode = draft ? newDraftNode(draft.from.map((id) => byId.get(id)).filter((m): m is FlowNode => !!m), focus) : null
-  const H = TOP + RH * Math.max(lay.rows, draftAt ? draftAt.r + 1 : 0) + 1
+  // 줄 더하기·빼기 (10/16 사용자 승인): 맨 위·맨 아래 가장자리의 ＋ 줄, 빈 가장자리 줄의 ×. 줄 수는 주제 수 밑으로 줄지 않는다
+  const least = Math.max(1, topics.length)
+  const setRows = (top: number, bottom: number) => api.rows({ top, bottom }).then(reload, fail)
+  const rowTop = -lay.mid, rowBottom = lay.rows - 1 - lay.mid
+  const emptyRow = (r: number) => r !== lay.mid && !lay.placed.some((p) => p.r === r) && draftAt?.r !== r
+  const canDrop = (r: number) => lay.rows > least && (r === 0 || r === lay.rows - 1) && emptyRow(r)
+  const ROW_ADD = 28
+  const H = TOP + RH * Math.max(lay.rows, draftAt ? draftAt.r + 1 : 0) + 1 + ROW_ADD
   const lin = sel && at.has(sel) ? lineageOf(sel, lay.lines) : null
   const inLin = (id: string) => !!lin && (lin.up.has(id) || lin.down.has(id))
   const edgeOn = (a: string, b: string) => !!lin && ((lin.up.has(a) && lin.up.has(b)) || (lin.down.has(a) && lin.down.has(b)))
@@ -225,7 +241,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
   // 바탕을 끌면 화면을 옮긴다
   const pan = useRef<{ x: number; y: number; l: number; t: number } | null>(null)
   const onDown = (e: React.PointerEvent) => {
-    if ((e.target as Element).closest('.fl-node') || !box.current) return
+    if ((e.target as Element).closest('.fl-node, .fl-rowbtn') || !box.current) return
     pan.current = { x: e.clientX, y: e.clientY, l: box.current.scrollLeft, t: box.current.scrollTop }
     box.current.setPointerCapture(e.pointerId)
   }
@@ -315,6 +331,10 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
             <circle className="fl-ghost" cx={X(draftAt.c)} cy={Y(draftAt.r)} r={14} />
             <text className="fl-name strong" x={X(draftAt.c)} y={Y(draftAt.r) + 30} textAnchor="middle">{draftNode?.short || tr('새 점', 'New dot')}</text>
           </g>}
+          <RowButton data-ui="흐름 줄 더하기" x={8} y={14} label={tr('위에 줄 더하기', 'Add a row above')} onPress={() => setRows(rowTop - 1, rowBottom)}>＋ {tr('줄', 'Row')}</RowButton>
+          <RowButton data-ui="흐름 줄 더하기" x={8} y={H - 12} label={tr('아래에 줄 더하기', 'Add a row below')} onPress={() => setRows(rowTop, rowBottom + 1)}>＋ {tr('줄', 'Row')}</RowButton>
+          {[0, lay.rows - 1].filter((r, i, a) => a.indexOf(r) === i && canDrop(r)).map((r) =>
+            <RowButton key={`x${r}`} data-ui="흐름 줄 빼기" x={LEFT - 24} y={Y(r) + 5} label={tr('빈 줄 빼기', 'Remove this empty row')} onPress={() => setRows(r === 0 ? rowTop + 1 : rowTop, r === 0 ? rowBottom : rowBottom - 1)}>×</RowButton>)}
           {ghost && <rect className="fl-ghost" x={LEFT + CW * ghost.c + 4} y={TOP + RH * (ghost.r + lay.mid) + 2} width={CW - 8} height={RH - 4} rx={8} />}
           {lay.placed.map(({ node: n, c, r }) => {
             const picked = !!picking?.includes(n.id) || !!draft?.from.includes(n.id)

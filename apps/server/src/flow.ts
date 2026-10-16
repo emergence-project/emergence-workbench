@@ -5,7 +5,7 @@ import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tl } from './i18n.js'
-import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
+import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
 
 export const FLOW_DIR = 'flow'
 export const FLOW_FORMAT = 1
@@ -81,8 +81,9 @@ export function parseFlowNode(id: string, file: string, content: string, diags: 
 export function scanFlow(wb: Workbench): FlowScan {
   const dir = path.join(wb.root, FLOW_DIR)
   const rel = (n: string) => path.posix.join(path.basename(wb.root), FLOW_DIR, n)
-  const out: FlowScan = { nodes: [], diagnostics: [], layout: {} }
+  const out: FlowScan = { nodes: [], diagnostics: [], layout: {}, rows: null }
   out.layout = readLayout(wb, out.diagnostics)
+  out.rows = readRows(wb)
   let names: string[]
   try { names = fs.readdirSync(dir) } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== 'ENOENT') out.diagnostics.push({ file: rel(''), code: 'read', line: 1, message: tl(`폴더를 읽지 못했습니다: ${(e as Error).message}`, `Could not read the folder: ${(e as Error).message}`) })
@@ -141,6 +142,15 @@ export function readLayout(wb: Workbench, diags: Diag[] = []): FlowLayout {
   // 10/14 오전의 주제별 자리 (topics: 주제 → 점 → 칸)도 읽는다. 다음에 쓸 때 dots로 옮겨진다
   if (o?.topics && typeof o.topics === 'object') for (const cells of Object.values(o.topics as Record<string, unknown>)) take(cells)
   return out
+}
+
+/** 보이는 줄 (rows: { top, bottom }, 중심선 기준). 없거나 틀리면 null = 앱의 기본 */
+export function readRows(wb: Workbench): FlowRows | null {
+  let y: unknown
+  try { y = YAML.parse(fs.readFileSync(path.join(dirOf(wb), LAYOUT), 'utf8')) } catch { return null }
+  const v = (y as { rows?: { top?: unknown; bottom?: unknown } } | null)?.rows
+  const top = v?.top, bottom = v?.bottom
+  return Number.isInteger(top) && Number.isInteger(bottom) && (top as number) <= 0 && (bottom as number) >= 0 ? { top: top as number, bottom: bottom as number } : null
 }
 
 /** 점 하나 읽기 (없으면 404) */
@@ -263,11 +273,11 @@ export function deleteFlowNode(wb: Workbench, id: string, baseHash: string): { i
   return { id, changed }
 }
 
-function writeLayout(wb: Workbench, layout: FlowLayout) {
-  const doc = new YAML.Document({ dots: Object.fromEntries(Object.entries(layout).map(([id, v]) => [id, { c: v.c, r: v.r }])) })
-  YAML.visit(doc, { Map(_, node) { if (node.has('c')) node.flow = true } })
+function writeLayout(wb: Workbench, layout: FlowLayout, rows: FlowRows | null = readRows(wb)) {
+  const doc = new YAML.Document({ ...(rows && { rows }), dots: Object.fromEntries(Object.entries(layout).map(([id, v]) => [id, { c: v.c, r: v.r }])) })
+  YAML.visit(doc, { Map(_, node) { if (node.has('c') || node.has('top')) node.flow = true } })
   fs.mkdirSync(dirOf(wb), { recursive: true })
-  writeAtomic(path.join(dirOf(wb), LAYOUT), '# 흐름 차트에서 손으로 옮긴 자리 (앱이 씀). 점 → 칸 (c 열, r 중심선 기준 줄)\n' + doc.toString({ lineWidth: 0 }))
+  writeAtomic(path.join(dirOf(wb), LAYOUT), '# 흐름 차트에서 손으로 옮긴 자리 (앱이 씀). rows: 보이는 줄 (중심선 기준 맨 위·맨 아래), dots: 점 → 칸 (c 열, r 중심선 기준 줄)\n' + doc.toString({ lineWidth: 0 }))
 }
 
 /** 점 하나의 자리 정하기·풀기 (쓰기 바로 전에 다시 읽어 그 칸만 바꾼다) */
@@ -284,4 +294,10 @@ export function setFlowLayout(wb: Workbench, body: FlowLayoutBody): FlowLayout {
   } else delete cells[body.id]
   writeLayout(wb, layout)
   return readLayout(wb)
+}
+
+/** 보이는 줄 정하기 (＋ 줄 · ×). 점이 있는 줄은 늘 보이므로 여기서는 범위만 적는다 */
+export function setFlowRows(wb: Workbench, rows: FlowRows): FlowRows {
+  writeLayout(wb, readLayout(wb), rows)
+  return readRows(wb) ?? rows
 }

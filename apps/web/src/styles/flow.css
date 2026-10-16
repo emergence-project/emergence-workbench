@@ -175,3 +175,9 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-next { position: relative; display: inline-flex; }
 .fl-next-more { width: 18px; font-size: var(--fs-xs); }
 .fl-next-pop { right: 0; top: calc(100% + 4px); min-width: 200px; }
+
+/* 줄 더하기·빼기 (＋ 줄 · ×, 10/16) */
+.fl-rowbtn { cursor: pointer; }
+.fl-rowbtn text { fill: var(--text-2); font-size: var(--fs-sm); }
+.fl-rowbtn:hover text, .fl-rowbtn:focus-visible text { fill: var(--text); }
+.fl-rowbtn:focus { outline: none; }

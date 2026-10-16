@@ -2,7 +2,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/flow'
 import { parseBody, replies } from '../contract.js'
-import { checkFlowEvidence, createFlowNode, deleteFlowNode, patchFlowNode, scanFlow, setFlowLayout } from '../flow.js'
+import { checkFlowEvidence, createFlowNode, deleteFlowNode, patchFlowNode, scanFlow, setFlowLayout, setFlowRows } from '../flow.js'
 import { t } from '../i18n.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -17,6 +17,9 @@ export function registerFlow(app: FastifyInstance, ctx: RouteContext): void {
   /** 손으로 옮긴 자리 정하기·풀기 (at: null) */
   app.put<{ Params: { rid: string } }>('/api/researches/:rid/flow/layout', replies(C.FlowLayoutReply), async (req): Promise<C.FlowLayoutReply> =>
     ({ layout: setFlowLayout(wbOf(req.params.rid), parseBody(C.FlowLayoutBody, req.body)) }))
+  /** 보이는 줄 (＋ 줄 · ×): 중심선 기준 맨 위·맨 아래 */
+  app.put<{ Params: { rid: string } }>('/api/researches/:rid/flow/rows', replies(C.FlowRowsReply), async (req): Promise<C.FlowRowsReply> =>
+    ({ rows: setFlowRows(wbOf(req.params.rid), parseBody(C.FlowRows, req.body)) }))
   /** 점 고치기: 보낸 칸만 바꾼다 */
   app.patch<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
     ({ node: patchFlowNode(wbOf(req.params.rid), req.params.id, parseBody(C.FlowPatchBody, req.body)) }))

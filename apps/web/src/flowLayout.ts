@@ -3,6 +3,8 @@
  * - 열: 앞선 점 가운데 가장 오른쪽 열 + 1. 앞선 점이 없으면 날짜가 더 이른 점들의 가장 오른쪽 열.
  * - 줄: 앞선 점의 줄을 이어받고, 그 칸이 차 있으면 가장 가까운 빈 줄. 첫 시작점의 갈래가 가운데 줄(중심선)이다.
  * - 손으로 옮긴 점(layout.yaml)은 그 칸에 두고, 나머지는 그 칸을 피해 위 규칙대로 놓는다.
+ * - 보이는 줄 (10/16 사용자 승인): layout.yaml rows가 있으면 그 범위, 없으면 기본 줄 수. 끌기로는 늘지 않고 ＋ 줄 · ×로만 바뀐다.
+ *   줄 수는 최소 줄 수(프로젝트의 주제 수) 밑으로 내려가지 않고, 점이 있는 줄은 늘 보인다.
  */
 import type { FlowEdge, FlowNode } from './api'
 
@@ -20,7 +22,7 @@ export type FlowLayout = {
 /** 기본으로 보이는 줄 수 (가운데 줄이 중심선) */
 export const MIN_ROWS = 5
 
-export function layoutFlow(all: FlowNode[], manual: Record<string, { c: number; r: number }> = {}): FlowLayout {
+export function layoutFlow(all: FlowNode[], manual: Record<string, { c: number; r: number }> = {}, opts: { rows?: { top: number; bottom: number } | null; minRows?: number } = {}): FlowLayout {
   const byId = new Map(all.map((n) => [n.id, n]))
   const mine = [...all].sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.id.localeCompare(b.id))
   const known = new Set(mine.map((n) => n.id))
@@ -75,9 +77,13 @@ export function layoutFlow(all: FlowNode[], manual: Record<string, { c: number; 
   const rs = [...row.values()]
   const lo = rs.length ? Math.min(...rs) : 0
   const hi = rs.length ? Math.max(...rs) : 0
-  const half = (MIN_ROWS - 1) / 2
-  const mid = Math.max(half, -lo)
-  const rows = Math.max(MIN_ROWS, mid + hi + 1)
+  const least = Math.max(1, opts.minRows ?? 0)
+  let top: number, bottom: number
+  if (opts.rows) ({ top, bottom } = opts.rows)
+  else { const size = Math.max(MIN_ROWS, least); top = -Math.floor((size - 1) / 2); bottom = top + size - 1 }
+  if (bottom - top + 1 < least) bottom = top + least - 1
+  const mid = Math.max(0, -top, -lo)
+  const rows = Math.max(bottom, hi) + mid + 1
 
   const placed = order.map((node) => ({ node, c: col.get(node.id)!, r: row.get(node.id)! + mid }))
   const lines: FlowLine[] = []

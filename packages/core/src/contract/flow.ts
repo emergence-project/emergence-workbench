@@ -61,11 +61,14 @@ const Diagnostic = z.object({ file: z.string(), code: z.string(), message: z.str
 /** 손으로 옮긴 자리 (workbench/flow/layout.yaml): 점 id → 칸. 프로젝트 흐름 하나에 하나. r은 중심선 기준(위가 음수) */
 const Cell = z.object({ c: z.number().int().min(0), r: z.number().int() }).strict()
 export const FlowLayout = z.record(z.string(), Cell)
+/** 보이는 줄 (layout.yaml rows, 10/16): 중심선 기준 맨 위·맨 아래 줄. 사람이 ＋ 줄 · ×로 정한다. 없으면 앱의 기본 줄 수 */
+export const FlowRows = z.object({ top: z.number().int().max(0), bottom: z.number().int().min(0) }).strict()
 
-export const FlowScan = z.object({ nodes: z.array(FlowNode), diagnostics: z.array(Diagnostic), layout: FlowLayout }).strict()
+export const FlowScan = z.object({ nodes: z.array(FlowNode), diagnostics: z.array(Diagnostic), layout: FlowLayout, rows: FlowRows.nullable() }).strict()
 export const FlowOne = z.object({ node: FlowNode }).strict()
 export const FlowDeleted = z.object({ id: z.string(), changed: z.array(z.string()) }).strict()
 export const FlowLayoutReply = z.object({ layout: FlowLayout }).strict()
+export const FlowRowsReply = z.object({ rows: FlowRows }).strict()
 
 // ---------- 요청 ----------
 
@@ -119,6 +122,8 @@ export type FlowNode = z.infer<typeof FlowNode>
 export type FlowEvidence = z.infer<typeof FlowEvidence>
 export type FlowScan = z.infer<typeof FlowScan>
 export type FlowLayout = z.infer<typeof FlowLayout>
+export type FlowRows = z.infer<typeof FlowRows>
+export type FlowRowsReply = z.infer<typeof FlowRowsReply>
 export type FlowOne = z.infer<typeof FlowOne>
 export type FlowDeleted = z.infer<typeof FlowDeleted>
 export type FlowLayoutReply = z.infer<typeof FlowLayoutReply>

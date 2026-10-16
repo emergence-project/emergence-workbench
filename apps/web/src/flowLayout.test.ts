@@ -40,6 +40,15 @@ describe('흐름 자리', () => {
     expect(new Set(l.placed.filter((p) => p.c === 1).map((p) => p.r)).size).toBe(6)
   })
 
+  it('보이는 줄: 적힌 범위를 쓰되 점이 있는 줄은 늘 보이고, 최소 줄 수(주제 수) 밑으로 줄지 않는다', () => {
+    const one = [node('a', '1')]
+    expect(layoutFlow(one, {}, { rows: { top: -1, bottom: 2 } })).toMatchObject({ mid: 1, rows: 4 })
+    expect(layoutFlow(one, {}, { rows: { top: 0, bottom: 0 } })).toMatchObject({ mid: 0, rows: 1 })
+    expect(layoutFlow(one, { a: { c: 0, r: -2 } }, { rows: { top: 0, bottom: 0 } })).toMatchObject({ mid: 2, rows: 3 })
+    expect(layoutFlow(one, {}, { rows: { top: 0, bottom: 0 }, minRows: 3 })).toMatchObject({ mid: 0, rows: 3 })
+    expect(layoutFlow(one, {}, { minRows: 7 })).toMatchObject({ mid: 3, rows: 7 })
+  })
+
   it('고리가 있어도 멈춘다', () => {
     const l = layoutFlow([node('a', '1', ['b']), node('b', '2', ['a'])])
     expect(l.placed).toHaveLength(2)
