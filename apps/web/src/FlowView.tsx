@@ -35,7 +35,7 @@ const KIND: Record<Mark, { act: boolean; name: () => string; def: () => string }
   calc: { act: true, name: () => tr('수치 계산', 'Numerical calculation'), def: () => tr('컴퓨터로 수치를 구하는 계산. 모형·크기·매개변수와 코드가 있고, 결과가 수치·그림이다.', 'A computation of numbers: model, size, parameters and code, with numbers or figures as the result.') },
   analytic: { act: true, name: () => tr('이론 계산', 'Analytic calculation'), def: () => tr('식으로 값이나 표현을 구하는 계산. 주장의 참을 보이는 것은 증명이다.', 'Deriving a value or expression by hand. Showing a claim true is a proof.') },
   proof: { act: true, name: () => tr('증명', 'Proof'), def: () => tr('증명 또는 유도. 가정에서 결론으로 가는 단계가 있다. 실패한 시도도 포함한다.', 'A proof or derivation, with steps from assumptions to conclusion. Failed attempts count too.') },
-  literature: { act: true, name: () => tr('문헌', 'Literature'), def: () => tr('선행 연구의 검토. 검토 자체가 다음 걸음을 낳았을 때만 점이고, 근거로 쓴 논문은 받는 점의 근거 표에 적는다.', 'Reviewing prior work. A dot only when the review led to the next step; papers used as evidence go in the dot\'s evidence table.') },
+  literature: { act: true, name: () => tr('문헌', 'Literature'), def: () => tr('선행 연구의 검토. 검토 자체가 다음 걸음을 낳았을 때만 점이고, 근거로 쓴 논문은 받는 점 이름 뒤의 §로 보인다.', 'Reviewing prior work. A dot only when the review led to the next step; papers used as evidence show as § after the dot\'s name.') },
 }
 const FIELD: Record<string, () => string> = {
   question: () => tr('물음', 'Question'), guess: () => tr('예상 답', 'Expected answer'), motivation: () => tr('동기', 'Motivation'),
@@ -344,6 +344,8 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
             const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = inLin(n.id) && !on && !picked
             const hot = !!focus && n.topics.includes(focus)
             const start = !n.from.length
+            // 근거로 단 논문은 이름 뒤 작은 §(둘 이상이면 수)로 (10/16: 점 위 배지 대신)
+            const cites = n.evidence.filter((e) => e.kind === 'paper' && e.ref)
             return <g key={n.id} className={`fl-node${on ? ' sel' : ''}${picked ? ' pick' : ''}`} tabIndex={0} role="button" data-id={n.id}
               aria-label={`${n.short}: ${KIND[markOf(n)].name()}, ${stateName(n)}`}
               onPointerDown={(e) => { if (e.button === 0) { drag.current = { id: n.id, x: e.clientX, y: e.clientY, moved: false }; (e.currentTarget as Element).setPointerCapture(e.pointerId) } }}
@@ -378,7 +380,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
                 {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
               </g>}
               {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('갈래 종결', 'Branch closed')}</title></line>}
-              {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : <title>{n.short} · {n.title}</title>}
+              {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}{cites.length > 0 && <tspan className="fl-cite" dx={3}>§{cites.length > 1 ? cites.length : ''}<title>{cites.map((e) => e.title ?? e.ref).join('\n')}</title></tspan>}</text> : <title>{n.short} · {n.title}</title>}
             </g>
           })}
         </svg>
@@ -881,6 +883,7 @@ export function FlowSymbolTable() {
     { mark: line('fl-e'), name: `${EDGE.origin!()} · ${EDGE.support!()} · ${EDGE.refute!()}`, meaning: tr('앞 걸음이 이 걸음을 낳음 · 받침 · 반박함. 선을 가리키면 이름이 뜹니다', 'The earlier step started, supports or refutes this one. Hover a line to see its name') },
     { mark: line('fl-e use'), name: EDGE.use!(), meaning: tr('앞 걸음의 결과를 가져다 씀 (점선)', 'Uses the earlier step\'s result (dotted)') },
     { mark: line('fl-e lit'), name: tr('문헌에서', 'From literature'), meaning: tr('문헌 점에서 나온 선 (끊긴 선)', 'A line from a literature dot (dashed)') },
+    { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><text className="fl-name fl-cite" x={15} y={20} textAnchor="middle">§2</text></svg>, name: tr('근거 논문', 'Evidence papers'), meaning: tr('점 이름 뒤의 §: 근거로 단 논문 (둘 이상이면 수)', '§ after a dot\'s name: papers attached as evidence (a count when several)') },
     { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><path className="fl-start" d="M9 8L18 15L9 22Z" /></svg>, name: tr('시작점', 'Start'), meaning: tr('앞선 점이 없는 점', 'A dot with no earlier dot') },
     { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><line className="fl-end" x1={15} y1={5} x2={15} y2={25} /></svg>, name: tr('갈래 종결', 'Branch closed'), meaning: tr('이 갈래는 여기서 끝냄', 'This branch ends here') },
   ]

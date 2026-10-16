@@ -40,6 +40,7 @@ describe('흐름 선 길', () => {
   })
   it('꺾이는 곳만 둥글게, 두 점이면 곧은 선', () => {
     expect(roundedPath([[0, 0], [10, 0]])).toBe('M0 0L10 0')
-    expect(roundedPath([[0, 0], [20, 0], [40, 20]])).toMatch(/^M0 0L12 0Q20 0 /)
+    expect(roundedPath([[0, 0], [20, 0], [40, 20]], 8)).toMatch(/^M0 0L12 0Q20 0 /)
+    expect(roundedPath([[0, 0], [100, 0], [140, 40]])).toMatch(/^M0 0L78 0Q100 0 /)
   })
 })

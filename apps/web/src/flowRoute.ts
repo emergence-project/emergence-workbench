@@ -61,8 +61,8 @@ export function routePoints(p: Cell, n: Cell, plan: RoutePlan, g: Geo, lane: 0 |
   return [[x1, y1], ...diag(p.c, y1, cy), ...diag(last, cy, y2), [x2, y2]]
 }
 
-/** 점 목록을 SVG 길로: 꺾이는 곳마다 r만큼 둥글게 (선분 반을 넘지 않게) */
-export function roundedPath(pts: [number, number][], r = 8): string {
+/** 점 목록을 SVG 길로: 꺾이는 곳마다 r만큼 둥글게 (선분 반을 넘지 않게, 10/16 사용자: 더 부드럽게) */
+export function roundedPath(pts: [number, number][], r = 22): string {
   const q = pts.filter((pt, i) => i === 0 || pt[0] !== pts[i - 1]![0] || pt[1] !== pts[i - 1]![1])
   const f = (v: number) => Math.round(v * 100) / 100
   if (q.length < 3) return q.map((pt, i) => `${i ? 'L' : 'M'}${f(pt[0])} ${f(pt[1])}`).join('')
@@ -70,7 +70,8 @@ export function roundedPath(pts: [number, number][], r = 8): string {
   for (let i = 1; i < q.length - 1; i++) {
     const [ax, ay] = q[i - 1]!, [bx, by] = q[i]!, [cx, cy] = q[i + 1]!
     const l1 = Math.hypot(bx - ax, by - ay), l2 = Math.hypot(cx - bx, cy - by)
-    const k = Math.min(r, l1 / 2, l2 / 2)
+    // 처음·끝 선분은 점 밑으로 들어가니 끝까지 둥글려도 된다 (가운데 선분은 반씩 나눠 쓴다)
+    const k = Math.min(r, i === 1 ? l1 : l1 / 2, i === q.length - 2 ? l2 : l2 / 2)
     const sx = bx - (bx - ax) / l1 * k, sy = by - (by - ay) / l1 * k
     const ex = bx + (cx - bx) / l2 * k, ey = by + (cy - by) / l2 * k
     d += `L${f(sx)} ${f(sy)}Q${f(bx)} ${f(by)} ${f(ex)} ${f(ey)}`

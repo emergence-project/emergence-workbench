@@ -179,3 +179,6 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-rowbtn text { fill: var(--text-2); font-size: var(--fs-sm); }
 .fl-rowbtn:hover text, .fl-rowbtn:focus-visible text { fill: var(--text); }
 .fl-rowbtn:focus { outline: none; }
+
+/* 근거 논문: 이름 뒤 작은 § (10/16, 점 위 배지 대신) */
+.fl-cite { fill: var(--text-2); font-weight: var(--fw-normal); }
