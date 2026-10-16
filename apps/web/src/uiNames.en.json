@@ -603,7 +603,7 @@
   "남길 곳": "Saved to",
   "앞뒤 그림": "Previous and next figure",
   "고친 업데이트": "Last update",
-  "AGENTS.md 블록": "AGENTS.md block",
+  "AGENTS.md 블록": "Rules block",
   "AGENTS.md": "AGENTS.md",
   "Finder에서 고르기": "Choose in Finder",
   "소개 앞뒤": "About previous and next",
@@ -611,5 +611,15 @@
   "작업 더 보기": "Work more",
   "기록 대화": "Record conversation",
   "이어 쓰기": "Follow-up",
-  "물은 기록 수": "Agent questions count"
+  "물은 기록 수": "Agent questions count",
+  "내 차례": "Your turn",
+  "맡긴 일 수": "Delegated work counts",
+  "주제 진행": "Topic progress",
+  "최근 기록": "Recent journal",
+  "현황 원문": "Status source text",
+  "결정": "Decisions",
+  "현황 블록": "Status block",
+  "저장소 블록": "Repository block",
+  "현황 쪽": "Status page",
+  "저장소 쪽": "Repository page"
 }

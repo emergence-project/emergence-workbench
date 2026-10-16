@@ -11,6 +11,7 @@ import { contentTypeOf } from '../materials.js'
 import { setResearchInfo } from '../projectInfo.js'
 import { researchHash } from '../mainNote.js'
 import { WorkbenchError } from '../workbench.js'
+import { listDecisions } from '../projectFolders.js'
 import { cardFigureRef } from '../figures.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
@@ -57,7 +58,10 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
     return { markdown: view === 'summary' ? statusSummary(full, t('절 하나만 받기: MCP project_status에 section: "<절 이름>", 또는 GET …/agent-status?section=<절 이름>', 'One section: MCP project_status with section: "<name>", or GET …/agent-status?section=<name>')) : full }
   })
   /** 이 연구 저장소의 에이전트 규칙: 맨 위 AGENTS.md · CLAUDE.md (MCP rules 도구가 모아 준다) */
-  app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-rules', replies(C.AgentRules), async (req): Promise<C.AgentRules> => ({ files: projectRules(path.dirname(wbOf(req.params.rid).root)) }))
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/agent-rules', replies(C.AgentRules), async (req): Promise<C.AgentRules> => {
+    const wb = wbOf(req.params.rid)
+    return { files: projectRules(path.dirname(wb.root)), decisions: listDecisions(wb) }
+  })
   /** 연구 공통 규칙: 모든 연구 저장소에 통하는 규칙 한 파일 (MCP rules 도구가 모아 준다). 없으면 null */
   app.get('/api/rules/common', replies(CC.CommonRules), async (): Promise<CC.CommonRules> => ({ rules: commonRules(registry.configDir) }))
   /** STATUS.md 쓰기 — agent-status를 켠 프로젝트만 */

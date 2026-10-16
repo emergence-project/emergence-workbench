@@ -94,11 +94,15 @@ export function ResearchNav({ rid, rapi, route, materials, todoCount, askCount =
     <div ref={sidebar} className="project-toc" data-ui="프로젝트 목차">
       <div className="project-nav">
         <div className="side-quick" data-ui="빠른 이동">
-          <button className={`nav side-row${route.page === 'info' ? ' on' : ''}`} aria-current={route.page === 'info' ? 'page' : undefined} data-ui="프로젝트 정보 블록" title={t('설명·시작일·저장소', 'Description, start date, repository')} onClick={() => go({ page: 'info', rid })}>
+          <button className={`nav side-row${route.page === 'info' ? ' on' : ''}`} aria-current={route.page === 'info' ? 'page' : undefined} data-ui="프로젝트 정보 블록" title={t('개요: 설명 · 시작일 · 성격과 분야 · 들어 있는 것', 'Overview: description, start date, kind and fields, contents')} onClick={() => go({ page: 'info', rid })}>
             <span className="q-ico" aria-hidden>{Icon.projectInfo}</span><span className="label">{t('프로젝트 정보', 'Project info')}</span></button>
           <div className="tree-notes side-sub">
-            <button className={`nav tree-note${route.page === 'agents' ? ' on' : ''}`} aria-current={route.page === 'agents' ? 'page' : undefined} data-ui="AGENTS.md 블록" title={t('에이전트가 이 저장소에서 먼저 읽는 규칙', 'Rules agents read first in this repository')} onClick={() => go({ page: 'agents', rid })}>
-              <span className="label">AGENTS.md</span></button>
+            <button className={`nav tree-note${route.page === 'status' ? ' on' : ''}`} aria-current={route.page === 'status' ? 'page' : undefined} data-ui="현황 블록" title={t('내 차례 · 맡긴 일 · 주제 · 최근 기록 (에이전트가 STATUS.md로 읽는 것과 같은 내용)', 'Your turn, delegated work, topics, recent journal (same as what agents read in STATUS.md)')} onClick={() => go({ page: 'status', rid })}>
+              <span className="label">{t('현황', 'Status')}</span></button>
+            <button className={`nav tree-note${route.page === 'agents' ? ' on' : ''}`} aria-current={route.page === 'agents' ? 'page' : undefined} data-ui="AGENTS.md 블록" title={t('에이전트가 이 저장소에서 먼저 읽는 규칙과 그 근거가 된 결정', 'Rules agents read first in this repository, and the decisions behind them')} onClick={() => go({ page: 'agents', rid })}>
+              <span className="label">{t('규칙', 'Rules')}</span></button>
+            <button className={`nav tree-note${route.page === 'repo' ? ' on' : ''}`} aria-current={route.page === 'repo' ? 'page' : undefined} data-ui="저장소 블록" title={t('폴더 · 브랜치 · GitHub와 비교 · 자료 위치', 'Folder, branch, comparison with GitHub, material locations')} onClick={() => go({ page: 'repo', rid })}>
+              <span className="label">{t('저장소', 'Repository')}</span></button>
           </div>
           <button className={`nav side-row${route.page === 'todo' || route.page === 'log' || route.page === 'task' ? ' on' : ''}`} aria-current={route.page === 'todo' || route.page === 'log' ? 'page' : undefined} data-ui="할 일" title={t('에이전트에게 맡긴 일과 지난 작업 일지', 'Work delegated to agents and past work journal')} onClick={() => go({ page: 'todo', rid })}>
             <span className="q-ico" aria-hidden>{Icon.task}</span><span className="label">{t('작업', 'Work')}</span></button>

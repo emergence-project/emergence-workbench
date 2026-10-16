@@ -121,7 +121,11 @@ try {
       await page.locator('[data-ui="주제 카드 목록"] [data-ui="주제 카드"]').filter({ visible: true }).first().waitFor({ timeout: 10_000 })
         .catch(() => problems.push(`${name}: 주제 자료가 아직 없음`))
     }
-    if (name === 'info') {
+    if (name === 'info-status') {
+      await page.waitForFunction(() => [...document.querySelectorAll('[data-ui="현황 쪽"] .info-sec')].every((el) => !/읽는 중…|Loading…|…$/.test(el.textContent.trim())), undefined, { timeout: 10_000 })
+        .catch(() => problems.push(`${name}: 현황을 아직 읽는 중`))
+    }
+    if (name === 'info-repo') {
       await page.waitForFunction(() => {
         const repo = document.querySelector('[data-ui="저장소 정보"]')
         return repo?.querySelector('dd') && !/읽는 중…|Loading…|Reading…/.test(repo.textContent)
