@@ -3,9 +3,9 @@
 body.feedback-on, body.feedback-on * { cursor: help !important; }
 body.feedback-on [data-feedback-ui], body.feedback-on [data-feedback-ui] * { cursor: auto !important; }
 body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] button * { cursor: pointer !important; }
-.fb-box { position: fixed; z-index: 70; pointer-events: none; border: 2px solid var(--focus-line); border-radius: var(--r-sm); background: color-mix(in srgb, var(--focus) 35%, transparent); transition: all .06s; }
-.fb-label { position: fixed; z-index: 71; pointer-events: none; max-width: min(560px, calc(100vw - 8px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-strong); padding: 3px var(--sp-2); border-radius: var(--r-sm); box-shadow: var(--shadow); }
-.fb-bar { position: fixed; z-index: 72; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: var(--sp-3); max-width: calc(100vw - 32px); background: var(--bg); color: var(--text-2); border: 1px solid var(--focus-line); border-radius: var(--r-md); box-shadow: var(--shadow); padding: 7px var(--sp-2) 7px 14px; font-size: var(--fs-sm); }
+.fb-box { position: fixed; z-index: var(--z-feedback); pointer-events: none; border: 2px solid var(--focus-line); border-radius: var(--r-sm); background: color-mix(in srgb, var(--focus) 35%, transparent); transition: all .06s; }
+.fb-label { position: fixed; z-index: calc(var(--z-feedback) + 1); pointer-events: none; max-width: min(560px, calc(100vw - 8px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-strong); padding: 3px var(--sp-2); border-radius: var(--r-sm); box-shadow: var(--shadow); }
+.fb-bar { position: fixed; z-index: calc(var(--z-feedback) + 2); left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: var(--sp-3); max-width: calc(100vw - 32px); background: var(--bg); color: var(--text-2); border: 1px solid var(--focus-line); border-radius: var(--r-md); box-shadow: var(--shadow); padding: 7px var(--sp-2) 7px 14px; font-size: var(--fs-sm); }
 .fb-bar b { color: var(--text); white-space: nowrap; }
 .fb-bar > span:not(.sp) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fb-link { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; }
@@ -13,7 +13,7 @@ body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] 
 .fb-link:disabled { opacity: .5; text-decoration: none; cursor: default; }
 .fb-btn { font-size: var(--fs-sm); white-space: nowrap; background: var(--primary); color: var(--on-primary); border-radius: var(--r-sm); padding: var(--sp-1) 10px; }
 .fb-btn kbd { font: inherit; font-size: var(--fs-2xs); opacity: .7; margin-left: var(--sp-1); }
-.fb-pop { position: fixed; z-index: 73; width: 360px; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: var(--sp-2); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3); }
+.fb-pop { position: fixed; z-index: calc(var(--z-feedback) + 3); width: 360px; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: var(--sp-2); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3); }
 .fb-target { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text); }
 .fb-snippet { font-size: var(--fs-xs); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fb-pop textarea { min-height: 84px; resize: vertical; font: inherit; font-size: var(--fs-md); color: var(--text); background: var(--bg-sunken); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2) 10px; }
@@ -24,7 +24,7 @@ body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] 
 .fb-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
 /* GitHub에 보내기는 저장·취소와 떨어진 왼쪽에 (공개로 나가는 행동이라 저장과 헷갈리지 않게) */
 .fb-actions .fb-send { margin-right: auto; }
-.fb-list { position: fixed; z-index: 72; right: 16px; bottom: 70px; width: 380px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); }
+.fb-list { position: fixed; z-index: calc(var(--z-feedback) + 2); right: 16px; bottom: 70px; width: 380px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); }
 .fb-list-head { display: flex; align-items: center; margin-bottom: var(--sp-2);; justify-content: space-between; }
 .fb-entry { padding: var(--sp-2) 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
 .fb-entry-head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); }
@@ -128,7 +128,7 @@ body.feedback-on .toast { bottom: 76px; }
 /* 머리줄의 이름표·시각은 줄지 않게 (10/5 10:36 "미분류 글자가 줄이 넘어갔어"): 한글은 글자마다 끊길 수 있어, 긴 부위 이름이 있으면 "미분류"가 두 줄로 갈렸다. 줄어드는 것은 부위 이름(말줄임)뿐 */
 .fbp-head > .tag, .fbp-head > .muted, .fbp-head > .fbp-theme { flex: none; white-space: nowrap; }
 /* 피드백 모드 버튼은 창(대화 상자·빠른 메모·검색)의 어두운 막 위에 둔다 (10/5 10:57 "팝업 창에서 코멘트를 달 수 없다") */
-.fb-toggle { position: relative; z-index: 51; }
+.fb-toggle { position: relative; z-index: var(--z-overlay-top); }
 body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); }
 
 /* 대화 화면 (10/8 시안): 처리 요약 · 대화 · 아래 입력란 */

@@ -43,11 +43,11 @@ button.memo-chip:hover { border-color: var(--line-strong); color: var(--text); }
 .mi-actions .a:hover { color: var(--text); }
 .mi-edit { width: 100%; font: inherit; font-size: var(--fs-md); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); resize: vertical; }
 .memo-empty { padding: var(--sp-4) 0; }
-.quick { position: fixed; inset: 0; z-index: 45; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12vh; }
+.quick { position: fixed; inset: 0; z-index: var(--z-quick); background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12vh; }
 .quick-box { width: min(580px, 92vw); }
 .quick-box .memo { margin: 0; }
 .quick-label { font-size: var(--fs-xs); color: var(--text-2); background: var(--bg-sunken); display: inline-block; padding: 2px var(--sp-2); border-radius: var(--r-sm); margin-bottom: 6px; }
-.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: all .2s; background: var(--text); color: var(--bg); font-size: var(--fs-sm); padding: var(--sp-2) 14px; border-radius: var(--r-md); box-shadow: var(--shadow); z-index: 60; }
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: all .2s; background: var(--text); color: var(--bg); font-size: var(--fs-sm); padding: var(--sp-2) 14px; border-radius: var(--r-md); box-shadow: var(--shadow); z-index: var(--z-toast); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast .toast-action { color: inherit; white-space: nowrap; pointer-events: auto; }
 .toast .toast-action:hover { color: inherit; }

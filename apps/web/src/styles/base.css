@@ -102,7 +102,7 @@ button.a { text-align: inherit; }
 .scroll { overflow: auto; flex: 1; min-height: 0; }
 .page-body { max-width: 760px; margin: 0 auto; padding: var(--sp-6) var(--sp-6) 64px; display: flex; flex-direction: column; gap: var(--sp-6); }
 
-.btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 var(--sp-3); border-radius: var(--r-sm); border: 1px solid var(--line-strong); font-size: var(--fs-sm); color: var(--text); background: var(--bg); white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: var(--input-h); padding: 0 var(--sp-3); border-radius: var(--r-sm); border: 1px solid var(--line-strong); font-size: var(--fs-sm); color: var(--text); background: var(--bg); white-space: nowrap; }
 .btn:hover:not(:disabled) { background: var(--bg-hover); }
 .btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); font-weight: var(--fw-strong); }
 .btn.primary:hover:not(:disabled) { background: var(--primary); opacity: .88; }

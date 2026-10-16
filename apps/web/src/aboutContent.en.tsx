@@ -463,6 +463,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         items: [
           { text: <>Six principles (hierarchy, consistency, structure that does not draw attention, foundation tokens first, one family, refine bit by bit) taken from Apple, Linear and Atlassian.</> },
           { text: <>Color, text size, weight, corner radius and spacing are chosen only from fixed steps (tokens), and breaking this fails a test. Neutral is the default and color is only for status; text buttons and links are neutral too.</> },
+          { text: <>Faint text (dates, kinds, empty states) is a gray with at least 4.5:1 contrast on white (WCAG AA). Buttons are as tall as inputs and follow the text scale, and menus, dialogs and tooltips stack in fixed steps.</> },
           { text: <>Parts that several screens share (small buttons, menus, tooltips, empty states, cards, dashed create cards) are defined in one place. An empty state is one faint line without a box on every screen, and the dashed "＋ Create / Add" card has the same dashed border everywhere. Tooltips with a button's name or shortcut look the same everywhere and appear below (beside, on the rail).</> },
         ],
       },
