@@ -310,7 +310,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
           {ghost && <rect className="fl-ghost" x={LEFT + CW * ghost.c + 4} y={TOP + RH * (ghost.r + lay.mid) + 2} width={CW - 8} height={RH - 4} rx={8} />}
           {lay.placed.map(({ node: n, c, r }) => {
             const picked = !!picking?.includes(n.id) || !!draft?.from.includes(n.id)
-            const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = (inLin(n.id) && !on) || picked
+            const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = inLin(n.id) && !on && !picked
             const refs = n.evidence.filter((e) => e.kind === 'paper' && e.ref)
             const hot = !!focus && n.topics.includes(focus)
             const start = !n.from.length
@@ -337,10 +337,11 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(n.id) } }}>
               {hot && <rect className="fl-focus" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />}
               <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
-              {lg && (KIND[markOf(n)].act
-                ? <rect className="fl-ring" x={x - 18} y={y - 18} width={36} height={36} rx={8} />
-                : <circle className="fl-ring" cx={x} cy={y} r={19} />)}
-              <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot} />
+              {/* 고른 점 · 이을 점 · 계보는 점에 바짝 두른 테두리로 (10/16 사용자: 둥근 네모 대신) */}
+              {(lg || on || picked) && (KIND[markOf(n)].act
+                ? <rect className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} x={x - 18} y={y - 18} width={36} height={36} rx={8} />
+                : <circle className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} cx={x} cy={y} r={19} />)}
+              <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot || picked} />
               {refs.length > 0 && <g className="fl-refs">
                 <title>{refs.map((e) => e.ref).join('\n')}</title>
                 <path className="fl-e lit" d={`M${x} ${y - 22}L${x} ${y - 17}`} />
@@ -354,7 +355,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
                 {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
               </g>}
               {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('갈래 종결', 'Branch closed')}</title></line>}
-              {!compact || on ? <text className={`fl-name${on || lg || hot ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : <title>{n.short} · {n.title}</title>}
+              {!compact || on ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : <title>{n.short} · {n.title}</title>}
             </g>
           })}
         </svg>

@@ -25,9 +25,10 @@
 
 .fl-node { cursor: pointer; outline: none; }
 .fl-hit { fill: transparent; stroke: none; }
-.fl-node.sel .fl-hit { stroke: var(--primary); stroke-width: 1.5; }
 .fl-node:focus-visible .fl-hit { stroke: var(--focus); stroke-width: 2; }
 .fl-ring { fill: none; stroke: var(--text-2); stroke-width: 1.5; }
+.fl-ring.sel { stroke: var(--primary); stroke-width: 2; }
+.fl-ring.pick { stroke: var(--primary); stroke-width: 2; stroke-dasharray: 4 3; }
 .fl-name { font-size: var(--fs-xs); fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
 .fl-name.strong { font-weight: var(--fw-strong); }
 .fl-start { fill: var(--text); }
@@ -170,7 +171,6 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-editing .fl-fields dd textarea { padding-right: 84px; }
 /* 새 점 (10/16): 차트의 점선 점과 선, 앞선 점 고르기, 자세히의 ＋ ▾ */
 .fl-draft-e { stroke: var(--primary); stroke-dasharray: 4 3; }
-.fl-node.pick .fl-hit { stroke: var(--primary); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .fl-picking .fl-help { margin: 0; }
 .fl-next { position: relative; display: inline-flex; }
 .fl-next-more { width: 18px; font-size: var(--fs-xs); }
