@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { commentsApi, ConflictError, type CommentEntry, type CommentFile, type NoteHighlight, type RecordFile } from './api'
 import { askClaude, bumpPending, keyOf, load, patch, revealComment, usePendingTick, useSlot, type CommentTarget } from './Comments'
 import { clearRecordComposerRequest, useRecordComposerRequest } from './RecordContext'
@@ -18,6 +18,9 @@ const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 
 /** 필터·기록 종류의 화면 이름 (값은 한국어 그대로) */
 const LABEL: Record<string, string> = { 전체: t('전체', 'All'), 메모: t('메모', 'Memo'), '할 일': t('할 일', 'To-do'), 질문: t('질문', 'Question'), 지시: t('지시', 'Instruction'), 코멘트: t('코멘트', 'Comment'), 하이라이트: t('하이라이트', 'Highlight') }
 const labelOf = (k: string) => LABEL[k] ?? k
+/** 기록 종류의 그림 (10/16 아이콘 검토): 적기 칸의 종류 고르기에 글자 앞에 붙인다(필터는 좁은 폭에서 두 줄이 되지 않게 글자만). 기록 줄 맨 앞과 같은 그림 */
+const KIND_ICON: Record<string, ReactNode> = { 메모: Icon.memo, '할 일': Icon.todo, 질문: Icon.ask, 지시: Icon.send }
+const kindLabel = (k: string) => <>{KIND_ICON[k] && <span className="record-kind-ico" aria-hidden>{KIND_ICON[k]}</span>}{labelOf(k)}</>
 // Keep a pending target disabled even when its sidebar unmounts and opens again.
 const classifying = new Set<string>()
 import { RECORD_KINDS, recordDrafts, attachRecordDraft, type ComposerDraft } from './recordDrafts'
@@ -178,7 +181,7 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
   const cancelPointing = useCallback(() => setPointing(false), [])
   const where = target.target === 'project' ? t('이 프로젝트', 'This project') : target.title
   return <div className="record-composer" data-ui="적기 칸">
-    <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>{RECORD_KINDS.map((k) => <button key={k} className={draft.kind === k ? 'on' : ''} aria-pressed={draft.kind === k} disabled={busy} onClick={() => setDraft({ ...draft, kind: k })}>{labelOf(k)}</button>)}</div>
+    <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>{RECORD_KINDS.map((k) => <button key={k} className={draft.kind === k ? 'on' : ''} aria-pressed={draft.kind === k} disabled={busy} onClick={() => setDraft({ ...draft, kind: k })}>{kindLabel(k)}</button>)}</div>
     {pointing && <RecordPointer onPick={pick} onCancel={cancelPointing} />}
     {a.part && <div className="record-attached"><span title={a.part}>{t('가리킨 곳', 'Pointed at')} · {uiShown(a.part)}{a.partText && ` “${a.partText}”`}</span><button className="icon-btn" aria-label={t('가리킨 곳 빼기', 'Remove pointed part')} title={t('빼기', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: { ...a, part: undefined, partText: undefined } })}>×</button></div>}
     {a.quote && <>

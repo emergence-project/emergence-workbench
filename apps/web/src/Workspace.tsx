@@ -539,7 +539,7 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
   )
 }
 
-const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, agents: Icon.projectInfo, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.memo, log: Icon.log, map: Icon.tree, block: Icon.block, statement: Icon.statement, pdf: Icon.pdf, doc: Icon.pdf, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.card, task: Icon.task }
+const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, block: Icon.block, statement: Icon.statement, pdf: Icon.pdf, doc: Icon.pdf, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task }
 
 function Pane({ i, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
   i: 0 | 1; visible: boolean; pane: PaneState; focused: boolean; isFocus: boolean; titleOf(t: Tab): string; uiTitleOf(t: Tab): string; kindOf(t: Tab): string | null; renderTab(t: Tab, context: TabRenderContext): ReactNode; visibleTabs: Tab[]; home: ReactNode

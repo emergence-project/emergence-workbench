@@ -141,6 +141,19 @@ function labelText(node) {
   return '\0'
 }
 
+// 아이콘 사전 (10/16 아이콘 검토): icons.tsx의 그림마다 디자인 문서 4절에 뜻이 적혀 있고 화면에서 쓰여야 한다.
+// 표에 없는 그림이 다른 뜻으로 빌려 쓰이고, 쓰지 않는 그림이 남으면서 "한 기호 한 뜻"이 엉켰다.
+{
+  const iconSrc = readFileSync(join(root, 'icons.tsx'), 'utf8')
+  const names = [...iconSrc.matchAll(/^  ([a-zA-Z]+): <svg/gm)].map((m) => m[1])
+  const doc = readFileSync(new URL('../../docs/design-system.md', import.meta.url), 'utf8')
+  const code = tsx.filter((f) => !f.endsWith('icons.tsx')).map((f) => readFileSync(f, 'utf8')).join('\n')
+  for (const n of names) {
+    if (!doc.includes(`Icon.${n}\``) && !doc.includes(`\`${n}\``)) problems.push(`icons.tsx  Icon.${n}의 뜻을 docs/design-system.md 4절 표(또는 화면 태그 기호 줄)에 적는다`)
+    if (!new RegExp(`Icon\\.${n}\\b`).test(code)) problems.push(`icons.tsx  Icon.${n}을 화면 어디에서도 쓰지 않는다. 쓰지 않는 그림은 지운다`)
+  }
+}
+
 if (problems.length) {
   console.error(`화면 기준에 어긋난 곳 ${problems.length}개:\n` + problems.join('\n'))
   process.exit(1)

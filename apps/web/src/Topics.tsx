@@ -24,6 +24,7 @@ import { TopicFlowLink } from './FlowView'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNoteTrash, useTopicsOverview } from './projectQueries'
 import { qk } from './queries'
+import { StarIcon } from './marks'
 
 /**
  * 주제 (10/5 "주제와 노트"): 노트를 묶기만 하는 한 단계. research.yaml의 topics:에 적는다 (서버 topics.ts).
@@ -165,7 +166,7 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
       <div className="ts-title">
         <h1 className="h-title" title={loose ? tr('주제가 없는 노트 · 오른쪽 사이드바에서 주제를 고릅니다', 'Notes without a topic · Pick a topic in the right sidebar') : undefined}>{loose ? LOOSE_NOTES_LABEL : t!.title}</h1>
         {t && <>
-          <button className={`icon-btn ts-star${t.star ? ' starred' : ''}`} data-ui="중요 표시" aria-pressed={t.star} title={t.star ? tr('즐겨찾기 빼기', 'Remove from favorites') : tr('즐겨찾기 (주제 목록 앞에 둡니다)', 'Favorite (puts it first in the topic list)')} aria-label={t.star ? tr('즐겨찾기 빼기', 'Remove from favorites') : tr('즐겨찾기', 'Favorite')} onClick={() => void starTopic()}>{t.star ? '★' : '☆'}</button>
+          <button className={`icon-btn ts-star${t.star ? ' starred' : ''}`} data-ui="중요 표시" aria-pressed={t.star} title={t.star ? tr('즐겨찾기 빼기', 'Remove from favorites') : tr('즐겨찾기 (주제 목록 앞에 둡니다)', 'Favorite (puts it first in the topic list)')} aria-label={t.star ? tr('즐겨찾기 빼기', 'Remove from favorites') : tr('즐겨찾기', 'Favorite')} onClick={() => void starTopic()}><StarIcon on={t.star} /></button>
           <span className="ts-actions" data-ui="주제 머리 행동">
             <button className="icon-btn" data-ui="주제 고치기" title={tr('고치기 — 이름 · 설명 · 카드 미리보기', 'Edit name, description, card preview')} aria-label={tr('주제 고치기', 'Edit topic')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
             <button className="icon-btn" data-ui="카드 지우기" title={tr('주제 지우기 — 노트와 파일은 그대로', 'Delete topic. Notes and files stay')} aria-label={tr('주제 지우기', 'Delete topic')} onClick={() => void removeTopic()}>{Icon.trash}</button>

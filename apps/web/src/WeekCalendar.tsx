@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { googleApi, type GoogleEvent } from './api'
 import { localDate } from './format'
+import { MarkIcon } from './marks'
 import { briefing, markOf, shortDate, WEEK_DAYS, weekStartOf, type DayGroup, type Deadline } from './homeData'
 import { go } from './router'
 import { t } from './i18n'
@@ -67,14 +68,14 @@ export function WeekCalendar({ byDay, deadlines, now = new Date(), onCopied }: {
                   <button key={g.rid} className={`week-chip c${g.color}`} onClick={() => go({ page: 'log', rid: g.rid })}
                     title={`${g.title}\n${g.events.map((e) => `${e.time} ${markOf(e.kind)} ${e.text}`).join('\n')}`}>
                     <span className="week-rt">{g.title}</span>
-                    {g.events.slice(0, SHOWN).map((e) => <span key={e.key} className={`week-ev ev-${e.kind}`}><i aria-hidden>{markOf(e.kind)}</i>{e.text}</span>)}
+                    {g.events.slice(0, SHOWN).map((e) => <span key={e.key} className={`week-ev ev-${e.kind}`}><MarkIcon k={e.kind} />{e.text}</span>)}
                     {g.events.length > SHOWN && <span className="muted week-more">{t(`외 ${g.events.length - SHOWN}개`, `+${g.events.length - SHOWN} more`)}</span>}
                   </button>
                 ))}
                 {dues.map((d) => (
                   <button key={d.key} className={`week-chip is-due c${d.color}`} onClick={() => go({ page: 'log', rid: d.rid })} title={`${d.title} · ${t('마감', 'Due')} ${d.due}`}>
                     <span className="week-rt">{d.title}</span>
-                    <span className="week-ev ev-due"><i aria-hidden>⚑</i>{d.text}</span>
+                    <span className="week-ev ev-due"><MarkIcon k="due" />{d.text}</span>
                   </button>
                 ))}
               </div>
@@ -82,7 +83,7 @@ export function WeekCalendar({ byDay, deadlines, now = new Date(), onCopied }: {
           )
         })}
       </div>
-      <div className="legend-row week-legend"><span>✓ {t('끝낸 할 일', 'Done to-do')}</span><span>✎ {t('노트 고침', 'Note edited')}</span><span>⇄ {t('상태 바꿈', 'Status changed')}</span><span>· {t('메모', 'Memo')}</span><span>⚑ {t('마감 (앞으로의 날)', 'Due (upcoming days)')}</span>
+      <div className="legend-row week-legend"><span><MarkIcon k="done" /> {t('끝낸 할 일', 'Done to-do')}</span><span><MarkIcon k="edit" /> {t('노트 고침', 'Note edited')}</span><span><MarkIcon k="status" /> {t('상태 바꿈', 'Status changed')}</span><span><MarkIcon k="memo" /> {t('메모', 'Memo')}</span><span><MarkIcon k="due" /> {t('마감 (앞으로의 날)', 'Due (upcoming days)')}</span>
         {gcal ? <span>{t('시각 · 구글 캘린더 일정', 'Time · Google Calendar event')}</span> : gcal === null && <span className="week-gnote"><a href="#/settings">{t('구글 캘린더 연결', 'Connect Google Calendar')}</a></span>}</div>
     </section>
   )

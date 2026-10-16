@@ -7,6 +7,7 @@ import { conceptsApi, googleApi, latexApi, networkApi, type Coauthor, type Perso
 import { Icon } from './icons'
 import { go } from './router'
 import { plural, t } from './i18n'
+import { StarIcon } from './marks'
 
 /**
  * 네트워킹: 함께 연구하는 사람들 (10/4 피드백).
@@ -92,7 +93,7 @@ export function NetworkSide({ person, onSaved }: { person?: string; onSaved(m: s
       <div className="net-side-h">{t('사람', 'People')}</div>
       {(people ?? []).filter((p) => p.id !== me?.id).sort(byStarThenName).map((p) => (
         <button key={p.id} className={`nav${person === p.id ? ' on' : ''}`} data-ui="사람 줄" data-ui-item={p.name} title={subOf(p)} onClick={() => go({ page: 'network', person: p.id })}>
-          <span className="label">{p.name}</span>{p.star && <span className="meta" aria-label={t('즐겨찾기', 'Favorite')}>★</span>}
+          <span className="label">{p.name}</span>{p.star && <span className="meta" aria-label={t('즐겨찾기', 'Favorite')}><StarIcon on /></span>}
         </button>
       ))}
       {people && <button className="nav net-add" data-ui="사람 더하기" onClick={() => void addPerson(people, onSaved)}><span className="label">{t('＋ 사람 더하기', '＋ Add person')}</span></button>}
@@ -156,7 +157,7 @@ function PersonCard({ p, people, isMe, sub, badge, onRemove }: { p: PersonView; 
         ? <span className="hover-actions net-card-actions"><button className="icon-btn" data-ui="저자에서 빼기" title={t('빼기 — 노트 저자에서만 빠지고, 네트워킹의 사람은 그대로 남습니다', 'Remove from note authors only. The person stays in Networking')} aria-label={t('노트 저자에서 빼기', 'Remove from note authors')} onClick={onRemove}>{Icon.x}</button></span>
         : !isMe && (
           <button className={`net-star${p.star ? ' on' : ''}`} data-ui="즐겨찾기" aria-pressed={p.star} title={p.star ? t('즐겨찾기 빼기', 'Remove from favorites') : t('즐겨찾기 (맨 앞에 둡니다)', 'Favorite (keeps it first)')} onClick={() => void toggleStar()}>
-            {p.star ? '★' : '☆'}
+            <StarIcon on={p.star} />
           </button>
         )}
     </div>

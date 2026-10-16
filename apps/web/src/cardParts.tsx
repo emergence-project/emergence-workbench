@@ -3,6 +3,7 @@ import 'katex/dist/katex.min.css'
 import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useConceptMacros } from './conceptMacros'
 import { t } from './i18n'
+import { StarIcon } from './marks'
 
 /**
  * 주제 카드 · 노트 카드가 함께 쓰는 작은 부품 (10/5 시안 "공통"·"카드 미리보기").
@@ -124,11 +125,11 @@ export function TagLine({ tags, className = '' }: { tags: { key: string; label: 
 
 /** 카드의 ☆ 즐겨찾기 (회색, 누르면 바로 켜고 끔) */
 export function CardStar({ on, onToggle, name }: { on: boolean; onToggle?(): void; name: string }) {
-  if (!onToggle) return on ? <span className="kc-star on" aria-label={t('즐겨찾기', 'Favorite')}>★</span> : null
+  if (!onToggle) return on ? <span className="kc-star on" aria-label={t('즐겨찾기', 'Favorite')}><StarIcon on /></span> : null
   return (
     <button type="button" className={`kc-star${on ? ' on' : ''}`} data-ui="중요 표시" aria-pressed={on} aria-label={`${on ? t('즐겨찾기 빼기', 'Unfavorite') : t('즐겨찾기', 'Favorite')}: ${name}`}
       title={on ? t('즐겨찾기 빼기', 'Unfavorite') : t('즐겨찾기 (어느 정렬에서도 앞에 둡니다)', 'Favorite (kept first in any sort)')}
       onClick={(e: MouseEvent) => { e.stopPropagation(); onToggle() }}
-      onKeyDown={(e) => e.stopPropagation()}>{on ? '★' : '☆'}</button>
+      onKeyDown={(e) => e.stopPropagation()}><StarIcon on={on} /></button>
   )
 }

@@ -16,6 +16,7 @@ import {
   type WeekItem, type WeekMark,
 } from './taskView'
 import { t } from './i18n'
+import { MarkIcon } from './marks'
 
 /**
  * 작업 탭의 맡긴 일 (10/7 사용자 결정, 시안 v31): 브리핑 · 한 주 달력, 판단 카드, 맡긴 일 목록, 맡기기 창.
@@ -208,9 +209,8 @@ export function TaskList({ rid, tasks, loaded, diagnostics = [] }: { rid: string
 /** 하루 칸에 보일 항목 수. 나머지는 "외 N개" (홈 달력과 같은 규칙) */
 const SHOWN = 3
 // 맡김 · 판단한 결과는 글("맡김 · …", "결과 · …")이 이미 말하므로 기호를 두지 않는다 (10/15 15:04 피드백)
-const MARK: Record<WeekMark, string> = { given: '', result: '', returned: '', done: '✓', memo: '·', status: '⇄', due: '⚑' }
 function Mark({ m }: { m: WeekMark }) {
-  return m === 'result' ? <span className="g blocked" aria-hidden /> : <i aria-hidden>{MARK[m]}</i>
+  return m === 'result' ? <span className="g blocked" aria-hidden /> : m === 'given' || m === 'returned' ? <i aria-hidden /> : <MarkIcon k={m} />
 }
 
 /**
@@ -264,7 +264,7 @@ export function TaskWeek({ rid, tasks, entries, todos, now = new Date() }: { rid
         ))}
         {!itemsOn(picked).length && <p className="muted tk-none">{t('이날은 기록이 없습니다.', 'No records on this day.')}</p>}
       </div>}
-      <div className="tk-legend"><span className="g blocked" aria-hidden /> {t('결과 도착(판단 대기) · ✓ 끝낸 할 일 · · 메모 · ⇄ 상태 바꿈 · ⚑ 마감 · 날짜를 누르면 그날을 자세히 봅니다', 'Result in (awaiting decision) · ✓ Done to-do · · Memo · ⇄ Status changed · ⚑ Due · Click a date to see that day')}</div>
+      <div className="tk-legend"><span className="g blocked" aria-hidden /> {t('결과 도착(판단 대기)', 'Result in (awaiting decision)')} · <MarkIcon k="done" /> {t('끝낸 할 일', 'Done to-do')} · <MarkIcon k="memo" /> {t('메모', 'Memo')} · <MarkIcon k="status" /> {t('상태 바꿈', 'Status changed')} · <MarkIcon k="due" /> {t('마감 · 날짜를 누르면 그날을 자세히 봅니다', 'Due · Click a date to see that day')}</div>
     </section>
   )
 }

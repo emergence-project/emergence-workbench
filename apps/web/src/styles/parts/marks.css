@@ -1,0 +1,9 @@
+/* 표시 기호 (달력·일지, src/marks.tsx): 글자 줄 높이에 맞춘 작은 선 그림. 색은 둘레 글자를 따른다 */
+.mark-ico { display: inline-flex; align-items: center; justify-content: center; font-style: normal; flex: none; }
+.mark-ico svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+/* 즐겨찾기 별: 꺼짐은 빈 별, 켜짐은 속을 채운 별 (Primer star · star-fill 짝처럼) */
+.star-ico { display: inline-flex; align-items: center; justify-content: center; font-style: normal; flex: none; vertical-align: -2px; }
+.star-ico svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.star-ico.on.on svg { fill: currentColor; } /* 표·버튼의 fill: none보다 앞서게 */
+.tree-name .star-ico, .nav .meta .star-ico { margin-right: 3px; }
+.tree-name .star-ico svg, .nav .meta .star-ico svg { width: 12px; height: 12px; }
