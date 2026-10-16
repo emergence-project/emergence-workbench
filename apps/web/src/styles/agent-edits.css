@@ -68,7 +68,6 @@ img.ae-del, canvas.ae-del { background: none; outline: 3px solid var(--paint-pin
 .ae-expand[aria-disabled="true"] { opacity: .3; cursor: default; }
 .ae-expand[aria-disabled="true"]:hover { color: var(--text-2); background: none; }
 .ae-expand svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.ae-expand[data-tip]:hover::after, .ae-expand[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + 2px); left: 0; z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); padding: 2px var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
 .ae-ctx { border-bottom: 1px dashed var(--line-strong); color: var(--text-3); }
 .ae-ctx > div { grid-column: 2 / 4; padding: var(--sp-1) var(--sp-3); border-left: 1px solid var(--line); }
 .ae-ctx .ae-text, .ae-ctx .ae-md .ob-md { font-size: var(--fs-xs); }

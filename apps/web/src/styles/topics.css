@@ -39,8 +39,4 @@
 .tr-toggle { align-self: flex-start; font-size: var(--fs-xs); }
 /* 카드 상태 고르기 (10/4): 상태 아이콘을 누르면 넷 중 고르는 작은 목록 */
 .note-card-icons.open { opacity: 1; }
-.note-state-menu { position: absolute; top: calc(var(--sp-6) + var(--sp-2)); right: var(--sp-1); z-index: 5; display: flex; flex-direction: column; min-width: 9em; padding: var(--sp-1); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--shadow); }
-.note-state-it { display: flex; gap: var(--sp-2); align-items: center; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); font-size: var(--fs-sm); text-align: left; }
-.note-state-it:hover { background: var(--bg-hover); }
-.note-state-it.on { font-weight: var(--fw-strong); }
 .nc-resume { font-size: var(--fs-xs); }

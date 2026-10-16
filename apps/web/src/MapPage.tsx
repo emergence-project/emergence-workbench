@@ -100,7 +100,7 @@ function FocusView({ summary, rid, focus, onFocus }: { summary: ResearchSummary;
         <div className="map-arrow">→</div>
         <div className="map-center" data-ui="초점 진술">
           <div><span className="kind-chip" style={{ background: KIND_COLOR[s.kind] ?? KIND_COLOR.statement }}>{KIND_LABEL[s.kind] ?? s.kind}</span> <span className="muted">{s.label}</span></div>
-          <h3><button className="a" data-tip={t('진술 열기', 'Open statement')} onClick={() => go({ page: 'statement', rid, sid: s.id })}>{s.title ?? s.id}</button></h3>
+          <h3><button className="a tip-start" data-tip={t('진술 열기', 'Open statement')} onClick={() => go({ page: 'statement', rid, sid: s.id })}>{s.title ?? s.id}</button></h3>
           <p><ProofMark p={p} /> {PROOF_TEXT[p]}</p>
           {s.source && <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}>{t('출처', 'Source')} {s.source}{s.page ? ` p.${s.page.split(' ')[0]}` : ''}</span>}
           {!isGiven(s) && (
@@ -134,7 +134,7 @@ function FocusView({ summary, rid, focus, onFocus }: { summary: ResearchSummary;
       <div className="map-arrow">→</div>
       <div className="map-center" data-ui="초점 작업노트">
         <div><span className="kind-chip deriv">{t('작업', 'Work')}</span></div>
-        <h3><button className="a" data-tip={t('노트 열기', 'Open note')} onClick={() => go({ page: 'block', rid, bid: b.id })}>{b.title ?? b.id}</button></h3>
+        <h3><button className="a tip-start" data-tip={t('노트 열기', 'Open note')} onClick={() => go({ page: 'block', rid, bid: b.id })}>{b.title ?? b.id}</button></h3>
         <p><StatusDot s={s} /> {statusLabel(s)}{b.next && <><br /><span className="muted">{t('다음', 'Next')}: {b.next}</span></>}</p>
         {s === 'blocked' && b.resumeCondition && <p className="muted">{t('다시 시작할 조건', 'Resume when')}: {b.resumeCondition}</p>}
       </div>

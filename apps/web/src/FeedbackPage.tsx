@@ -268,7 +268,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
         <span className="muted">{showDate ? feedbackWhen(e.date, e.time) : e.time}</span>
         {/* 위치 글자 자체를 눌러 화면을 열고 그 부위를 칠한다 (10/6 11:09). */}
         {e.route
-          ? <button type="button" className="a fbp-target" data-ui="그 자리로 가기" data-tip={t('그 자리로 가기', 'Go to the spot')} aria-label={`${t('그 자리로 가기', 'Go to the spot')}: ${uiShown(e.target)}`} onClick={() => jumpToFeedbackTarget(e.route, e.target)}><span className="fbp-target-text">{uiShown(e.target)}</span></button>
+          ? <button type="button" className="a fbp-target tip-start" data-ui="그 자리로 가기" data-tip={t('그 자리로 가기', 'Go to the spot')} aria-label={`${t('그 자리로 가기', 'Go to the spot')}: ${uiShown(e.target)}`} onClick={() => jumpToFeedbackTarget(e.route, e.target)}><span className="fbp-target-text">{uiShown(e.target)}</span></button>
           : <span className="fbp-target">{uiShown(e.target)}</span>}
         <span className="sp" />
         {/* 10/4 20:43 "접기도 아이콘으로, 오른쪽 끝에" */}
@@ -359,7 +359,7 @@ function Conversation({ e }: { e: FeedbackItem }) {
         <div className="fbp-notes" data-ui="태그 설명">
           {/* 태그를 모은 표는 앱 소개에 (10/14 13:32 제안). 물음표는 "태그 설명" 바로 옆에 (10/15 14:11 수정) */}
           <span className="fbp-notes-k">{t('태그 설명', 'Tags')}<a className="icon-btn fbp-notes-help" href={href({ page: 'about', part: 'symbols', anchor: 'tags' })} data-ui="태그 표 보기" data-tip={t('태그 표 보기', 'See all tags')} aria-label={t('태그 표 보기', 'See all tags')}>{Icon.help}</a></span>
-          {notes.map((k) => <span key={k} className="tag fbp-note" tabIndex={0} data-tip={TAG_NOTES[k]!.note} aria-label={`${TAG_NOTES[k]!.name}: ${TAG_NOTES[k]!.note}`}>{TAG_NOTES[k]!.name}</span>)}
+          {notes.map((k) => <span key={k} className="tag fbp-note tip-start tip-wrap" tabIndex={0} data-tip={TAG_NOTES[k]!.note} aria-label={`${TAG_NOTES[k]!.name}: ${TAG_NOTES[k]!.note}`}>{TAG_NOTES[k]!.name}</span>)}
         </div>
       )}
     </div>

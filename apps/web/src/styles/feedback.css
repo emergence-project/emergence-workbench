@@ -46,9 +46,8 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-entry:first-child { border-top: 0; }
 .fbp-head { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
 .fbp-target { color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fbp-target[data-tip] { position: relative; overflow: visible; text-align: left; }
+.fbp-target[data-tip] { overflow: visible; text-align: left; }
 .fbp-target-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fbp-target[data-tip]:hover::after, .fbp-target[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + var(--sp-1)); left: 0; z-index: 1; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-normal); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
 .fbp-state { flex: none; display: inline-block; min-width: calc(var(--fs-xs) * 2 + var(--sp-2) * 2); text-align: center; box-sizing: border-box; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 1px var(--sp-2); background: var(--bg-sunken); color: var(--text-2); }
 .fbp-text { color: var(--text); overflow-wrap: anywhere; }
 .fbp-status { display: flex; align-items: baseline; gap: var(--sp-2); padding: 6px 10px; border-radius: var(--r-md); background: var(--bg-sunken); color: var(--text-2); }
@@ -168,6 +167,5 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbp-note { position: relative; cursor: help; }
 /* 대화 머리와 태그 설명의 태그는 대비를 높여 눈에 띄게 한다 (10/14): 색은 상태에만 쓰므로 진한 글자와 진한 테두리 */
 .fbp-say-head .tag, .fbp-note { color: var(--text); border-color: var(--line-strong); }
-.fbp-note[data-tip]:hover::after, .fbp-note[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; width: max-content; max-width: 280px; white-space: normal; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-normal); line-height: 1.45; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); pointer-events: none; }
 /* 피드백 글 고치기: 유형 고르기는 왼쪽, 취소 · 저장은 오른쪽 (10/11 12:39) */
 .fbp-edit.on .fbp-kind { margin-right: auto; }

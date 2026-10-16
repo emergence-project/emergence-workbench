@@ -75,8 +75,8 @@ export function LibrarySettings({ onSaved, section }: { onSaved(message: string)
           <div key={cloud} className="library-cloud-row" data-ui="그림 폴더 연결" data-ui-item={cloud}>
             <span className="set-name">{cloud}</span>
             <span className="set-desc">{t('연결 안 함', 'Not linked')}</span>
-            <span title={t('사진 · 스캔 폴더 연결은 나중에 지원합니다', 'Linking photo and scan folders is coming later')} data-tip={t('사진 · 스캔 폴더 연결은 나중에 지원합니다', 'Linking photo and scan folders is coming later')}>
-              <button className="btn" disabled data-tip={t('사진 · 스캔 폴더 연결은 나중에 지원합니다', 'Linking photo and scan folders is coming later')}>{t('연결하기', 'Link')}</button>
+            <span className="tip-end" data-tip={t('사진 · 스캔 폴더 연결은 나중에 지원합니다', 'Linking photo and scan folders is coming later')}>
+              <button className="btn" disabled>{t('연결하기', 'Link')}</button>
             </span>
           </div>
         ))}

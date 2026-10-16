@@ -329,7 +329,7 @@ export function App() {
   }
   const railOn = (g: (typeof GLOBAL_PAGES)[number]) => route.page === g.page || GLOBAL_PAGES.some((x) => x.page === route.page && x.under === g.page)
   const railPage = (g: (typeof GLOBAL_PAGES)[number]) => (
-    <button key={g.page} className={`rail-btn${railOn(g) ? ' on' : ''}`} aria-current={railOn(g) ? 'page' : undefined} data-ui={g.label} data-tip={g.tip} aria-label={g.aria}
+    <button key={g.page} className={`rail-btn tip-right${railOn(g) ? ' on' : ''}`} aria-current={railOn(g) ? 'page' : undefined} data-ui={g.label} data-tip={g.tip} aria-label={g.aria}
       onClick={() => go(g.railTo?.() ?? ({ page: g.page } as Route))}>{g.icon}{g.badge?.(version)}</button>
   )
 
@@ -406,7 +406,7 @@ export function App() {
 
       <div className={`body${showSide ? '' : ' no-side'}`}>
         <nav className="rail" aria-label={t('공간', 'Spaces')} data-ui="왼쪽 띠">
-          <button className={`rail-btn${route.page === 'home' ? ' on' : ''}`} aria-current={route.page === 'home' ? 'page' : undefined} data-ui="홈" data-tip={t('홈 — 모든 프로젝트', 'Home: all projects')} aria-label={t('홈', 'Home')} onClick={() => go({ page: 'home' })}>{Icon.home}</button>
+          <button className={`rail-btn tip-right${route.page === 'home' ? ' on' : ''}`} aria-current={route.page === 'home' ? 'page' : undefined} data-ui="홈" data-tip={t('홈 — 모든 프로젝트', 'Home: all projects')} aria-label={t('홈', 'Home')} onClick={() => go({ page: 'home' })}>{Icon.home}</button>
           <span className="rail-hr" />
           <div ref={railBox} className="rail-projects" data-ui="프로젝트 버튼들" {...railDropProps}>
             {railShown.map((id) => researches!.find((x) => x.id === id)!).map((r) => (

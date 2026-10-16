@@ -30,8 +30,7 @@
 .map-arrow { text-align: center; color: var(--text-3); font-size: var(--fs-lg); pointer-events: none; }
 .map-center { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3) 14px; background: var(--bg-hover); display: flex; flex-direction: column; gap: 6px; }
 .map-center h3 { margin: 0; font-size: var(--fs-lg); }
-.map-center h3 .a { position: relative; color: inherit; font-weight: inherit; }
-.map-center h3 .a[data-tip]:hover::after, .map-center h3 .a[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + var(--sp-1) * .5); left: 0; z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-normal); padding: calc(var(--sp-1) * .5) var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
+.map-center h3 .a { color: inherit; font-weight: inherit; }
 .map-center p { margin: 0; font-size: var(--fs-sm); color: var(--text-2); }
 .map-proofs { border-top: 1px solid var(--line); padding-top: var(--sp-2); display: flex; flex-direction: column; gap: 3px; }
 .map-proof { text-align: left; font-size: var(--fs-sm); padding: 2px var(--sp-1); margin: 0 -4px; border-radius: var(--r-sm); display: flex; gap: 6px; align-items: baseline; }
