@@ -13,6 +13,7 @@ import { MathText } from './cardParts'
 import { StatusDot } from './StatusDot'
 import { routeOfNote } from './RightSidebar'
 import { go } from './router'
+import { assignTracks, planRoute, roundedPath, routePoints } from './flowRoute'
 import { store } from './store'
 import { setFlowSelection } from './flowSelection'
 import { Dialog } from './dialogs'
@@ -244,8 +245,15 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
     setZoom({ ...zoom, [axis]: z, fit: axis === 'x' ? false : zoom.fit })
   }
 
-  const route = (x1: number, y1: number, x2: number, y2: number, xm: number) =>
-    y1 === y2 || x1 === x2 ? `M${x1} ${y1}L${x2} ${y2}` : `M${x1} ${y1}C${x1 + CW * 0.6} ${y1} ${xm - CW * 0.6} ${y2} ${xm} ${y2}L${x2} ${y2}`
+  // 선 길 (노선도처럼, flowRoute.ts): 점을 뚫지 않게 줄 위나 줄 사이 통로로 간다
+  const busyCells = new Set(lay.placed.map((q) => `${q.c}:${q.r}`))
+  const busy = (c: number, r: number) => busyCells.has(`${c}:${r}`)
+  const geo = { X, Y, CW, RH }
+  const plans = lay.lines.map((l) => { const p = at.get(l.from)!, n = at.get(l.to)!; return { key: `${l.from}>${l.to}`, from: l.from, plan: planRoute(p, n, busy), c0: Math.min(p.c, n.c), c1: Math.max(p.c, n.c) } })
+  const tracks = assignTracks(plans)
+  const planOf = new Map(plans.map((x) => [x.key, x.plan]))
+  const route = (p: { c: number; r: number }, n: { c: number; r: number }, key?: string) =>
+    roundedPath(routePoints(p, n, (key && planOf.get(key)) || planRoute(p, n, busy), geo, key ? tracks.get(key) ?? 0 : 0))
 
   const s = sel ? byId.get(sel) : undefined
   /** 점 누르기: 앞선 점을 고르는 중이면 넣고 빼기, 아니면 고르기 */
@@ -297,12 +305,12 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
             const on = edgeOn(l.from, l.to)
             const cls = `fl-e${on ? ' on' : ''}${l.type === 'use' ? ' use' : p.node.kind === 'literature' ? ' lit' : ''}`
             return <g key={`${l.from}>${l.to}`}>
-              <path className={cls} d={route(x1, y1, x2, y2, n.c - p.c > 1 ? X(p.c + 1) : x2)}><title>{EDGE[l.type]!()}</title></path>
+              <path className={cls} d={route(p, n, `${l.from}>${l.to}`)}><title>{EDGE[l.type]!()}</title></path>
               {l.type === 'refute' && <path className={`fl-bar-x${on ? ' on' : ''}`} d={`M${x2 - 24} ${y2 - 7}V${y2 + 7}`} />}
             </g>
           })}
           {draftAt && <g className="fl-draft" data-ui="흐름 새 점">
-            {draft!.from.map((id) => { const p = at.get(id); return p && <path key={id} className="fl-e fl-draft-e" d={route(X(p.c), Y(p.r), X(draftAt.c), Y(draftAt.r), draftAt.c - p.c > 1 ? X(p.c + 1) : X(draftAt.c))} /> })}
+            {draft!.from.map((id) => { const p = at.get(id); return p && <path key={id} className="fl-e fl-draft-e" d={route(p, draftAt)} /> })}
             {!draft!.from.length && <path className="fl-start" d={`M${LEFT - 22} ${Y(draftAt.r) - 7}L${LEFT - 13} ${Y(draftAt.r)}L${LEFT - 22} ${Y(draftAt.r) + 7}Z`} />}
             <circle className="fl-ghost" cx={X(draftAt.c)} cy={Y(draftAt.r)} r={14} />
             <text className="fl-name strong" x={X(draftAt.c)} y={Y(draftAt.r) + 30} textAnchor="middle">{draftNode?.short || tr('새 점', 'New dot')}</text>
