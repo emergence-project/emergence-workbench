@@ -12,6 +12,7 @@ import { listMaterials } from './materials.js'
 import { listStatements } from './statements.js'
 import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './noteList.js'
 import { pendingQuestions } from './comments.js'
+import { legacyJournalTodos, openTodos } from './todos.js'
 import { RULES_DOC, statusSection } from './tasks.js'
 import { commonRules, type RuleFile } from './agentRules.js'
 import { DECISIONS_DIR, folderMap, listDecisions, listRules, RULES_DIR, usesStandardLayout } from './projectFolders.js'
@@ -186,9 +187,9 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   }
 
   // ---------- 할 일 ----------
-  const open = journal.filter((e) => e.kind === 'todo' && !e.done).reverse()
-    .map((e) => ({ e, due: todoDue(e.text, e.date) }))
-    .sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999'))
+  // 정본은 기록 파일의 할 일 기록 (2026-10-16). 대상마다 묶어 한 줄씩, 주소는 기록 도구(read_records 등)에 그대로 쓴다
+  const open = openTodos(wb.root)
+  const legacy = legacyJournalTodos(wb)
   const table = readTaskTable(repo, src)
   p('## 할 일', '')
   if (table && table.rows.length) {
@@ -198,15 +199,14 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
     for (const r of table.rows) p(`| ${keep.map(([, i]) => clip(plain(r[i] ?? ''), 140).replace(/\|/g, '/')).join(' | ')} |`)
     p('')
   }
-  p(`### 앱 할 일 — \`workbench/log/\`${open.length ? '' : ' (없음)'}`, '')
-  const todoLabel = (target: string) => {
-    if (target === RESEARCH_TARGET) return ''
-    if (isValidBlockId(target)) return ` (블록 노트: ${byId.get(target)?.meta.title ?? target})`
-    const note = notes.find((n) => n.file === target) ?? notes.find((n) => sameNoteFile(n.file, target))
-    if (note || /^workbench\/(notes|calc|topics\/[^/]+)\/[^/]+\/(note\.md|main\.tex)$/.test(target)) return ` (노트: ${note?.title || target})`
-    return ` (${target})`
+  p(`### 앱 할 일 — \`workbench/comments/\` (사용자가 할 일. 에이전트는 대신하지 않는다)${open.length ? '' : ' (없음)'}`, '')
+  if (legacy) p(`> 예전 일지(\`workbench/log/\`)에 끝내지 않은 할 일 ${legacy}개가 남아 있다. 앱이 이 프로젝트를 다음에 열 때 기록으로 옮긴다.`, '')
+  const groups = new Map<string, typeof open>()
+  for (const todo of open) groups.set(todo.target, [...(groups.get(todo.target) ?? []), todo])
+  for (const [target, todos] of [...groups].sort(([a], [b]) => (a === 'project' ? -1 : b === 'project' ? 1 : 0))) {
+    p(target === 'project' ? '- 이 프로젝트' : `- ${todos[0]!.where} (\`${target}\`)`)
+    for (const todo of todos) p(`  - [ ] ${clip(todo.text, 200)}${todo.due ? ` — 마감 ${todo.due}` : ''} · \`${target}/${todo.id}\``)
   }
-  for (const { e, due } of open) p(`- [ ] ${e.text.split('\n')[0]}${todoLabel(e.target)}${due ? ` — 마감 ${due}` : ''}`)
   if (open.length) p('')
 
   // ---------- 맡긴 일 (작업 탭) ----------

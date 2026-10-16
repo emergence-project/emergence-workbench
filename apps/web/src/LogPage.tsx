@@ -1,8 +1,7 @@
-import { awaitsUserReview, RESEARCH_TARGET, type JournalEntry } from '@rw/core'
+import { awaitsUserReview, type JournalEntry } from '@rw/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { commentsApi, type CommentEntry, type ProjectInfo, type RecordFile, type ResearchApi, type ResearchSummary, type Topic } from './api'
 import type { FlashAction } from './flash'
-import { oldestFirst } from './homeData'
 import { MemoList } from './memo'
 import { reviewStatusLabel } from './reviewStatus'
 import { askClaude, bumpPending, load, revealComment, usePendingTick } from './Comments'
@@ -11,7 +10,7 @@ import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
 import { openFlowDot } from './FlowView'
 import { needsJudgment } from './taskView'
-import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, SECTION_FILTERS, TODO_FOCUS_EVENT, WORK_FILTER_EVENT, WORK_FILTER_KEY, workRecordGroups, type WorkFilter, type WorkSection } from './workRecords'
+import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, WORK_FILTER_EVENT, WORK_FILTER_KEY, workRecordGroups, type WorkFilter, type WorkSection } from './workRecords'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
 import { useJournal } from './useJournal'
 import { JudgeList, TaskDialog, TaskList, TaskWeek, useTasks, type TaskDraft } from './WorkTasks'
@@ -42,7 +41,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
   const { entries, loaded: journalLoaded, reload, toggle } = useJournal(rapi, version)
   const edit = useJournalEdit(rapi, reload, onSaved)
   const titleOf = useTitles(summary)
-  const open = oldestFirst(entries.filter((e) => e.kind === 'todo' && !e.done))
+  // 할 일의 정본은 기록 파일이다 (2026-10-16). 일지에는 끝낸 일 · 상태 · 메모 (예전 일지의 끝낸 할 일 포함)
   const past = entries.filter((e) => !(e.kind === 'todo' && !e.done))
   const records_ = section === 'records'
   const [filter, setFilter] = useState<WorkFilter>(() => {
@@ -67,16 +66,6 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     window.addEventListener(TODO_FOCUS_EVENT, take)
     return () => window.removeEventListener(TODO_FOCUS_EVENT, take)
   }, [records_])
-  useEffect(() => {
-    if (!focusTodo || filter !== '할 일') return
-    const item = document.querySelector<HTMLElement>(`[data-ui="할 일"] [data-todo-key="${CSS.escape(focusTodo)}"]`)
-    if (!item) return
-    clearTodoFocus(focusTodo)
-    item.scrollIntoView({ block: 'center' })
-    item.classList.add('flash')
-    const timer = setTimeout(() => { item.classList.remove('flash'); setFocusTodo(null) }, 1600)
-    return () => clearTimeout(timer)
-  }, [focusTodo, filter, entries])
   const { tasks, diagnostics, loaded: tasksLoaded, reload: reloadTasks } = useTasks(rid, version)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
   const judgeCount = tasks.filter(needsJudgment).length
@@ -92,10 +81,20 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     return () => { current = false }
   }, [rid, version, tick])
   const files = records?.rid === rid ? records.files : []
+  useEffect(() => {
+    if (!focusTodo || filter !== '할 일') return
+    const item = document.querySelector<HTMLElement>(`[data-ui="할 일"] [data-todo-key="${CSS.escape(focusTodo)}"]`)
+    if (!item) return
+    clearTodoFocus(focusTodo)
+    item.scrollIntoView({ block: 'center' })
+    item.classList.add('flash')
+    const timer = setTimeout(() => { item.classList.remove('flash'); setFocusTodo(null) }, 1600)
+    return () => clearTimeout(timer)
+  }, [focusTodo, filter, records])
   const recordsLoaded = records?.rid === rid && records.version === version && records.tick === tick
   const recordsError = records?.rid === rid ? records.error : null
-  const groups = workRecordGroups(files, entries, filter === '질문' || filter === '지시' ? filter : '메모')
-  const count = filter === '판단' ? judgeCount : filter === '맡긴 일' ? tasks.length + new Set(diagnostics.map((d) => d.file)).size : filter === '할 일' ? open.length : groups.reduce((n, group) => n + group.items.length, 0)
+  const groups = workRecordGroups(files, entries, filter === '질문' || filter === '지시' || filter === '할 일' ? filter : '메모')
+  const count = filter === '판단' ? judgeCount : filter === '맡긴 일' ? tasks.length + new Set(diagnostics.map((d) => d.file)).size : groups.reduce((n, group) => n + group.items.length, 0)
   const openRecord = (file: RecordFile, entry: CommentEntry) => {
     if (!(entry.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
@@ -118,7 +117,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
   useEffect(() => { scrolled.current = false }, [rid, focus])
   // 화면이 보이고 일지 위의 프로젝트 작업·검토 목록까지 받은 뒤, 이 이동에서 한 번만 내려간다.
   useEffect(() => {
-    if (focus !== 'log' || !journalLoaded || !projectLoaded || !tasksLoaded || ((filter === '메모' || filter === '질문' || filter === '지시') && !recordsLoaded) || scrolled.current || !logRef.current) return
+    if (focus !== 'log' || !journalLoaded || !projectLoaded || !tasksLoaded || (isRecordFilter(filter) && !recordsLoaded) || scrolled.current || !logRef.current) return
     logRef.current.scrollIntoView({ block: 'start' })
     scrolled.current = true
   }, [rid, focus, journalLoaded, projectLoaded, tasksLoaded, filter, recordsLoaded])
@@ -135,34 +134,31 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
           {!records_ && <button className="btn" data-ui="맡기기" title={t('에이전트에게 일을 맡깁니다: 작업 내용과 종결 조건을 적으면 작업 파일이 생깁니다', 'Delegate work to an agent: write the task and its completion criteria to create a task file')} onClick={() => setDialog({})}>＋ {t('맡기기', 'Delegate')}</button>}
         </div>
         <div className="memo-list work-page">
-          {!records_ && <TaskWeek rid={rid} tasks={tasks} entries={entries} />}
+          {!records_ && <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />}
           {filter === '판단' ? <JudgeList rid={rid} tasks={tasks} loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks}
             onEditProposal={(t) => setDialog({ mode: 'proposal', from: t, endCondition: t.proposal?.endCondition.length === 1 ? t.proposal.endCondition[0] : (t.proposal?.endCondition ?? []).map((c, i) => `${i + 1}) ${c}`).join('\n') })}>
             {reviews.length > 0 && <Reviews list={reviews} />}
           </JudgeList>
           : filter === '맡긴 일' ? <TaskList rid={rid} tasks={tasks} diagnostics={diagnostics} loaded={tasksLoaded} />
-          : filter === '할 일' ? <>
-          <div className="work-h" title={t('체크하면 작업 일지로 갑니다 · 글 앞에 "10/20까지 —"처럼 날짜를 쓰면 마감', 'Checked items move to the work journal · Start with a date like "10/20까지 —" to set a deadline')}>{t('할 일', 'To-do')}</div>
-          {project?.tasks && project.tasks.rows.length > 0 && <ProjectTasks t={project.tasks} />}
-          {project?.tasks && <div className="todo-sec-h" title="workbench/log/">{t('앱 할 일', 'App to-dos')}</div>}
-          <MemoList entries={open} rid={rid} titleOf={titleOf} onToggle={toggle} {...edit} hideTodoKind empty={t('남은 할 일이 없습니다.', 'No open to-dos.')} />
-          </> : <div className="work-records" data-ui="작업 기록 목록">
+          : <>
+          {filter === '할 일' && <>
+            <div className="work-h" title={t('체크하면 작업 일지에 완료로 남습니다 · 글 앞에 "10/20까지 —"처럼 날짜를 쓰면 마감', 'Checked items are logged as done in the work journal · Start with a date like "10/20까지 —" to set a deadline')}>{t('할 일', 'To-do')}</div>
+            {project?.tasks && project.tasks.rows.length > 0 && <ProjectTasks t={project.tasks} />}
+            {project?.tasks && <div className="todo-sec-h" title="workbench/comments/">{t('앱 할 일', 'App to-dos')}</div>}
+          </>}
+          <div className="work-records" data-ui={filter === '할 일' ? '할 일' : '작업 기록 목록'}>
             {recordsError && <div className="banner danger" role="alert">{recordsError}</div>}
-            {!count && <p className="muted records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
+            {!count && <p className="muted records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No open to-dos.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
             {groups.map((group) => <div className="record-group" key={group.target}>
               {group.items.map((item) => item.kind === 'record'
-                ? <RecordList key={`${item.file.target}/${item.entry.id}`} rid={rid} file={item.file} filter={filter} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} />
+                ? <div key={`${item.file.target}/${item.entry.id}`} data-todo-key={todoKey({ target: item.file.target, id: item.entry.id })}><RecordList rid={rid} file={item.file} filter={filter} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} /></div>
                 : <JournalRecordRow key={`journal/${item.entry.date}/${item.entry.index}`} entry={item.entry} rid={rid} titleOf={titleOf} rapi={rapi} reload={reload} onSaved={onSaved} />)}
             </div>)}
-          </div>}
+          </div></>}
           {isRecordFilter(filter) && <WorkComposer key={rid} filter={filter} onSave={async (kind, text) => {
-            if (kind === '할 일') {
-              await rapi.addJournal('todo', text, RESEARCH_TARGET); await reload()
-            } else {
-              const result = await commentsApi(rid).add('project', { kind, title: summary.research.title, text })
-              await load(rid, 'project', true); bumpPending()
-              if (kind === '질문') void askClaude(rid, 'project', result.entry.id)
-            }
+            const result = await commentsApi(rid).add('project', { kind, title: summary.research.title, text })
+            await load(rid, 'project', true); bumpPending()
+            if (kind === '질문') void askClaude(rid, 'project', result.entry.id)
             onSaved(t(`${kind} 저장됨`, `${FILTER_LABEL[kind]} saved`))
           }} />}
           {!records_ && <section ref={logRef} className="work-log" data-ui="기록">

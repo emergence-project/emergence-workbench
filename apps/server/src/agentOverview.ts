@@ -6,6 +6,7 @@ import { homeShort } from './agentPaths.js'
 import { localSyncState } from './gitSyncState.js'
 import { pendingQuestions, userTurnRecords } from './comments.js'
 import { listTasks } from './tasks.js'
+import { openTodos } from './todos.js'
 import type { Workbench } from './workbench.js'
 
 /** 사용자가 판단할 것: 확인이 필요한 노트 · 판단할 맡긴 일(결과 · 종결 조건 제안) · 에이전트 고침 검토 · 에이전트가 물은 기록(10/15) */
@@ -45,7 +46,7 @@ export async function overviewRow(wb: Workbench, edits = 0): Promise<OverviewRow
       questions: pendingQuestions(wb.root).length,
       instructions: pendingQuestions(wb.root, '지시').length,
       working: listTasks(wb).filter((t) => t.state === 'working').length,
-      todos: journal.filter((e) => e.kind === 'todo' && !e.done).length,
+      todos: openTodos(wb.root).length,
     },
     behind: sync?.behind ?? 0,
     ahead: sync?.ahead ?? 0,

@@ -7,14 +7,13 @@ import { tr } from './i18n.js'
  *   ## 09:40 · 상태 · discharging
  *   진행 중 → 막힘
  *
- *   ## 11:20 · 할 일 · kempe-chains
- *   - [ ] 식 (3.5)의 유일성 조건 적기
- *
  *   ## 16:05 · 완료 · kempe-chains
  *   식 (3.5)의 유일성 조건 적기
+ *   <!-- rw-todo: block-kempe-chains/c-20260930-1120 -->
  *
- * "완료"는 할 일을 끝냈다고 표시한 날 그날 일지에 남는 기록이다(할 일 자체는 적은 날 파일에서 [x]로 바뀐다).
- * 한 일 달력이 "언제 끝냈는지"를 이 기록으로 안다.
+ * 일지는 있었던 일만 적는다(2026-10-16). 할 일의 지금 상태는 기록 파일(comments/)이 정본이고,
+ * "완료"는 할 일을 끝냈다고 표시한 날 그날 일지에 남는 기록이다(rw-todo 줄이 그 할 일 기록을 가리킨다).
+ * 한 일 달력이 "언제 끝냈는지"를 이 기록으로 안다. 예전 일지의 "할 일" 기록은 읽기만 한다.
  *
  * 새 기록은 파일 끝에 덧붙인다(시간순). 사람과 에이전트가 손으로 써도 같은 형식이면 읽힌다.
  */
@@ -38,7 +37,7 @@ export interface JournalEntry {
   done?: boolean
   /** 파일 안에서 몇 번째 기록인지 (0부터). 할 일 완료 표시에 쓴다 */
   index: number
-  /** 앱에서 만든 할 일과 정본 기록을 잇는 숨은 식별자. 인덱스 이동과 무관하다. */
+  /** 할 일·완료 기록이 가리키는 기록 '<대상>/<id>' (rw-todo 줄). 인덱스 이동과 무관하다. */
   link?: string
 }
 
@@ -54,10 +53,10 @@ export function parseJournal(markdown: string, date: string): JournalEntry[] {
     const links = cur.body.flatMap((line) => TODO_LINK.exec(line)?.[1] ?? [])
     const body = cur.body.filter((line) => !TODO_LINK.test(line)).join('\n').trim()
     const entry: JournalEntry = { date, time: cur.time.padStart(5, '0'), kind: cur.kind, target: cur.target, text: body, index: entries.length }
+    if ((cur.kind === 'todo' || cur.kind === 'done') && links.length === 1) entry.link = links[0]
     if (cur.kind === 'todo') {
       const m = TODO_LINE.exec(body.split('\n')[0] ?? '')
       entry.done = m ? m[1] !== ' ' : false
-      if (links.length === 1) entry.link = links[0]
       if (m) entry.text = [m[2] ?? '', ...body.split('\n').slice(1)].join('\n').trim()
     }
     entries.push(entry)
@@ -92,9 +91,9 @@ export function appendJournalEntry(markdown: string, e: NewJournalEntry): string
   const target = e.target.replace(/[\r\n]+/g, ' ').trim() || RESEARCH_TARGET
   const text = e.text.replace(/\r\n/g, '\n').trim()
   if (!text) throw new Error(tr('빈 기록은 남기지 않는다', 'An empty entry is not saved'))
-  if (e.link !== undefined && (e.kind !== 'todo' || !TODO_LINK.test(`<!-- rw-todo: ${e.link} -->`))) throw new Error(tr('할 일 연결 식별자가 올바르지 않음', 'Invalid to-do link id'))
+  if (e.link !== undefined && (e.kind !== 'todo' && e.kind !== 'done' || !TODO_LINK.test(`<!-- rw-todo: ${e.link} -->`))) throw new Error(tr('할 일 연결 식별자가 올바르지 않음', 'Invalid to-do link id'))
   const marker = e.link ? `${eol}<!-- rw-todo: ${e.link} -->` : ''
-  const body = e.kind === 'todo' ? `- [ ] ${text.replace(/\s*\n\s*/g, ' ')}${marker}` : text.split('\n').join(eol)
+  const body = e.kind === 'todo' ? `- [ ] ${text.replace(/\s*\n\s*/g, ' ')}${marker}` : `${text.split('\n').join(eol)}${marker}`
   let base = markdown
   if (base.trim() === '') base = `# ${e.date}${eol}`
   else if (!base.endsWith('\n')) base += eol

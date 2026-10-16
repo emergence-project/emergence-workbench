@@ -1,4 +1,4 @@
-import type { JournalEntry } from '@rw/core'
+import { todoDue, type JournalEntry } from '@rw/core'
 import type { CommentEntry, RecordFile } from './api/comments'
 import { recordKind } from './recordsPanelHelpers'
 import { t } from './i18n'
@@ -28,7 +28,8 @@ export function chooseRecordFilter(f: RecordFilter) {
 /** 첫 화면 작업 패널의 할 일을 누르면 작업 탭의 할 일에서 그 항목을 보인다 (10/7 15:31 수정 요청) */
 export const TODO_FOCUS_EVENT = 'rw-work-todo-focus'
 let pendingTodo: string | null = null
-export const todoKey = (entry: { date: string; index: number }) => `${entry.date}-${entry.index}`
+/** 할 일 하나를 가리키는 이름: 기록 대상/기록 id (2026-10-16 할 일의 정본은 기록 파일) */
+export const todoKey = (todo: { target: string; id: string }) => `${todo.target}/${todo.id}`
 export function focusTodo(key: string) {
   pendingTodo = key
   try { localStorage.setItem(WORK_FILTER_KEY.records, '할 일') } catch { /* 저장할 수 없어도 이번 열기에는 보인다. */ }
@@ -64,6 +65,13 @@ function writtenAt(item: WorkRecordItem): { stamp: string; order: number } {
   return match ? { stamp: `${match[1]}${match[2]!.padEnd(6, '0')}`, order: Number(match[3] ?? 1) } : { stamp: '', order: 0 }
 }
 
+/** 할 일은 마감이 이른 것부터, 마감이 없으면 먼저 적은 것부터 (계획 순서, 서버 openTodos와 같은 차례) */
+function byDue(items: WorkRecordItem[]): WorkRecordItem[] {
+  const due = (item: WorkRecordItem) => item.kind === 'record' ? todoDue(item.entry.body.trim() || item.entry.quote?.trim() || '', recordDay(item.entry.id)) ?? '9999' : '9999'
+  return [...items].sort((a, b) => due(a).localeCompare(due(b)) || writtenAt(a).stamp.localeCompare(writtenAt(b).stamp) || writtenAt(a).order - writtenAt(b).order)
+}
+const recordDay = (id: string) => { const m = /^c-(\d{4})(\d{2})(\d{2})-/.exec(id); return m ? `${m[1]}-${m[2]}-${m[3]}` : '' }
+
 function newestFirst(items: WorkRecordItem[]): WorkRecordItem[] {
   return items.map((item) => ({ item, ...writtenAt(item) })).sort((a, b) =>
     b.stamp.localeCompare(a.stamp)
@@ -73,17 +81,21 @@ function newestFirst(items: WorkRecordItem[]): WorkRecordItem[] {
   ).map(({ item }) => item)
 }
 
-/** 프로젝트 기록과 예전 일지 메모를 함께, 그다음 노트별로 모은다. 각 묶음 안에서는 최근 것이 먼저다. */
-export function workRecordGroups(files: RecordFile[], journal: JournalEntry[], filter: Exclude<RecordFilter, '할 일'>): WorkRecordGroup[] {
+/**
+ * 프로젝트 기록과 예전 일지 메모를 함께, 그다음 노트별로 모은다. 각 묶음 안에서는 최근 것이 먼저다.
+ * 할 일은 끝내지 않은 것만 (끝내면 작업 일지에 완료로 남는다)
+ */
+export function workRecordGroups(files: RecordFile[], journal: JournalEntry[], filter: RecordFilter): WorkRecordGroup[] {
   const project: WorkRecordGroup = { target: 'project', title: t('이 프로젝트', 'This project'), items: [] }
   const notes: WorkRecordGroup[] = []
+  const order = filter === '할 일' ? byDue : newestFirst
   for (const file of files) {
-    const items: WorkRecordItem[] = file.comments.filter((entry) => recordKind(entry) === filter).map((entry) => ({ kind: 'record', file, entry }))
+    const items: WorkRecordItem[] = file.comments.filter((entry) => recordKind(entry) === filter && !(filter === '할 일' && entry.state === '끝냄')).map((entry) => ({ kind: 'record', file, entry }))
     if (file.target === 'project') project.items.push(...items)
-    else if (items.length) notes.push({ target: file.target, title: file.title, items: newestFirst(items) })
+    else if (items.length) notes.push({ target: file.target, title: file.title, items: order(items) })
   }
   if (filter === '메모') {
     project.items.push(...journal.filter((entry) => entry.kind === 'memo').map((entry): WorkRecordItem => ({ kind: 'journal', entry })))
   }
-  return project.items.length ? [{ ...project, items: newestFirst(project.items) }, ...notes] : notes
+  return project.items.length ? [{ ...project, items: order(project.items) }, ...notes] : notes
 }

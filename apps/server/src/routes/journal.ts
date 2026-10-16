@@ -7,12 +7,11 @@ import { parseBody, replies } from '../contract.js'
 import { RESEARCH_TARGET, type JournalKind } from '@rw/core'
 import { localDate, localTime } from '../fsutil.js'
 import { WorkbenchError } from '../workbench.js'
-import { deleteComment, linkedTodoRecord, updateComment } from '../comments.js'
 import type { RouteContext } from './context.js'
 import { t as tx } from '../i18n.js'
 
-/** 사람이 직접 남기는 일지 기록. 상태·완료 기록은 앱이 남긴다 */
-const WRITABLE_KINDS: JournalKind[] = ['memo', 'todo']
+/** 사람이 직접 남기는 일지 기록. 상태·완료 기록은 앱이 남긴다. 할 일은 기록(comments/)에 적는다 (2026-10-16) */
+const WRITABLE_KINDS: JournalKind[] = ['memo']
 
 export function registerJournal(app: FastifyInstance, ctx: RouteContext): void {
   const { wbOf } = ctx
@@ -23,7 +22,7 @@ export function registerJournal(app: FastifyInstance, ctx: RouteContext): void {
 
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/journal', replies(C.JournalEntryReply), async (req): Promise<C.JournalEntryReply> => {
     const { kind, target, text } = parseBody(C.JournalAddBody, req.body)
-    if (!WRITABLE_KINDS.includes(kind)) throw new WorkbenchError(400, tx('메모나 할 일만 직접 남길 수 있음', 'Only memos and to-dos can be added directly'))
+    if (!WRITABLE_KINDS.includes(kind)) throw new WorkbenchError(400, tx('일지에는 메모만 직접 남길 수 있음. 할 일은 기록으로 적습니다', 'Only memos can be added to the journal directly. To-dos are records'))
     if (typeof text !== 'string' || !text.trim()) throw new WorkbenchError(400, tx('내용이 필요함', 'Text is required'))
     const wb = wbOf(req.params.rid)
     const t = target && target !== RESEARCH_TARGET ? target : RESEARCH_TARGET
@@ -41,19 +40,9 @@ export function registerJournal(app: FastifyInstance, ctx: RouteContext): void {
     const body = parseBody(C.JournalPatchBody, req.body)
     if (!before || before.text !== body.was) throw new WorkbenchError(409, tx('그새 일지가 바뀌었습니다. 다시 열어 주세요.', 'The journal changed in the meantime. Open it again.'))
     if (before.link !== body.link) throw new WorkbenchError(409, tx('그새 일지의 연결이 달라졌습니다. 다시 열어 주세요.', 'The journal link changed in the meantime. Open it again.'))
-    const linked = linkedTodoRecord(wb.root, before, journals)
-    if (typeof body.text === 'string') {
-      if (linked) {
-        updateComment(wb.root, linked.file.target, linked.record.id, { text: body.text }, linked.file.hash)
-        return { entry: wb.readJournal(req.params.date)[index] ?? null }
-      }
-      return { entry: wb.editJournal(req.params.date, index, body.was, body.text) }
-    }
+    // 예전 일지의 할 일(앱이 기록으로 옮기기 전, 또는 끝낸 것)과 메모만 여기서 고친다. 기록의 할 일은 기록 API로
+    if (typeof body.text === 'string') return { entry: wb.editJournal(req.params.date, index, body.was, body.text) }
     if (typeof body.done !== 'boolean') throw new WorkbenchError(400, tx('done이 필요함', 'done is required'))
-    if (linked) {
-      updateComment(wb.root, linked.file.target, linked.record.id, { state: body.done ? '끝냄' : '대기' }, linked.file.hash)
-      return { entry: wb.readJournal(req.params.date)[index] ?? null }
-    }
     const entry = wb.setTodo(req.params.date, index, body.done, body.was)
     if (body.done && before.kind === 'todo' && !before.done) wb.appendJournal({ date: localDate(), time: localTime(), kind: 'done', target: entry.target, text: entry.text })
     return { entry }
@@ -63,13 +52,10 @@ export function registerJournal(app: FastifyInstance, ctx: RouteContext): void {
     if (typeof req.query.was !== 'string') throw new WorkbenchError(400, tx('was가 필요함', 'was is required'))
     const wb = wbOf(req.params.rid)
     const index = Number(req.params.index)
-    const journals = wb.readJournal(req.params.date)
-    const before = journals[index]
+    const before = wb.readJournal(req.params.date)[index]
     if (!before || before.text !== req.query.was) throw new WorkbenchError(409, tx('그새 일지가 바뀌었습니다. 다시 열어 주세요.', 'The journal changed in the meantime. Open it again.'))
     if (before.link !== req.query.link) throw new WorkbenchError(409, tx('그새 일지의 연결이 달라졌습니다. 다시 열어 주세요.', 'The journal link changed in the meantime. Open it again.'))
-    const linked = linkedTodoRecord(wb.root, before, journals)
-    if (linked) deleteComment(wb.root, linked.file.target, linked.record.id, linked.file.hash)
-    else wb.editJournal(req.params.date, index, req.query.was, null)
+    wb.editJournal(req.params.date, index, req.query.was, null)
     return { ok: true as const }
   })
 }

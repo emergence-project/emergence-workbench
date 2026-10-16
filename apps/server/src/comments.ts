@@ -4,9 +4,8 @@ import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsuti
 import { ANSWER_RE, COMMENT_STATES, type CommentState } from './commentFormat.js'
 import { Workbench, ConflictError, WorkbenchError } from './workbench.js'
 import { HIGHLIGHT_COLORS, type HighlightColor } from './paperComments.js'
-import { appendTodoJournal, linkedTodoJournal, prepareTodoJournalChange, todoJournalTarget } from './commentJournal.js'
+import { doneJournalChange } from './commentJournal.js'
 import { writeLinkedTodoFiles, type LinkedTodoFileChange } from './linkedTodoWrite.js'
-import type { JournalEntry } from '@rw/core'
 import type { AskRunner } from './ask.js'
 import { classifyPrompt, parseClassification } from './classify.js'
 import type { z } from 'zod'
@@ -38,7 +37,6 @@ import { t } from './i18n.js'
  *   다시 읽을 부분.
  *
  *   ## c-20261006-1001 · 할 일 · 전체
- *   <!-- rw: {"journal":"2026-10-06 10:01","journalIndex":0} -->
  *   - 상태: 대기
  *
  *   식 (3)의 부호 확인하기.
@@ -52,7 +50,7 @@ import { t } from './i18n.js'
  *
  *   자동으로 적은 분류 전 기록.
  *
- * 예전 코멘트는 메모로 읽기만 한다. 할 일의 정본은 이 파일이며 일지에 같은 노트의 할 일을 연결한다.
+ * 예전 코멘트는 메모로 읽기만 한다. 할 일의 정본은 이 파일이다. 끝내면 그날 일지에 "완료"가 rw-todo 줄과 함께 남는다(2026-10-16).
  * 본문 앵커(line·quote·prefix·suffix)는 읽을 때만 다시 찾고, 원문·기록 파일은 고치지 않는다.
  * 여러 줄 선택은 인용 줄에 그대로 쓰고 meta의 quoteMultiline:true로 예전 줄별 인용과 구별한다.
  * 앱은 코멘트를 파일 끝에 덧붙이기만 한다(바깥에서 덧붙인 답을 덮어쓰지 않게).
@@ -286,14 +284,12 @@ const guarded = (l: string) => /^#{1,6} /.test(l) || STATE_RE.test(l) || META_RE
 /** guardBody가 앞에 붙인 \를 뗀다 (답에 든 노트 원문을 그대로 되살릴 때) */
 export const unguardBody = (s: string) => s.split('\n').map((l) => (l.startsWith('\\') && guarded(l.slice(1)) ? l.slice(1) : l)).join('\n')
 
-function todoMeta(root: string, target: string, source: string | undefined, now: Date, offset = 0): Record<string, unknown> {
+function checkTodoTarget(target: string): void {
   if (target !== 'project' && !/^(note|calc|block|topic|flow)-/.test(target)) throw new WorkbenchError(400, t('할 일은 프로젝트 · 노트 · 주제 · 흐름 점에 적습니다', 'To-dos go on a project, note, topic or flow dot'))
-  todoJournalTarget(target, source)
-  return { journal: `${localDate(now)} ${localTime(now)}`, journalIndex: new Workbench(root).readJournal(localDate(now)).length + offset }
 }
 
 /** Prepare without writing so a classification batch is validated before any record changes. */
-function prepareComment(root: string, target: string, input: NewComment, now: Date, before: string, options: { journalOffset?: number; storedAnchors?: boolean } = {}) {
+function prepareComment(target: string, input: NewComment, now: Date, before: string, options: { storedAnchors?: boolean } = {}) {
   if (input.kind !== '자동' && !COMMENT_KINDS.includes(input.kind)) throw new WorkbenchError(400, t('종류는 메모·할 일·질문·하이라이트·자동', 'kind must be 메모, 할 일, 질문, 하이라이트, or 자동'))
   const kind = input.kind === '코멘트' || input.kind === '자동' ? '메모' : input.kind
   const text = typeof input.text === 'string' ? input.text.trim() : ''
@@ -327,9 +323,7 @@ function prepareComment(root: string, target: string, input: NewComment, now: Da
     // 쓴 에이전트 (10/15). 없으면 사용자가 쓴 것
     ...(typeof input.by === 'string' && RECORD_AUTHOR_RE.test(input.by) && { by: input.by }),
   }
-  if (kind === '할 일') {
-    Object.assign(meta, todoMeta(root, target, source, now, options.journalOffset))
-  }
+  if (kind === '할 일') checkTodoTarget(target)
   const taken = new Set([...parsed.comments, ...parsed.highlights].map((c) => c.id))
   const stamp = `c-${localDate(now).replace(/-/g, '')}-${localTime(now).replace(':', '')}`
   let id = stamp
@@ -355,13 +349,11 @@ function prepareComment(root: string, target: string, input: NewComment, now: Da
 export function addComment(root: string, target: string, input: NewComment, now = new Date()): { entry: CommentEntry; hash: string } {
   const file = commentsFile(root, target)
   const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
-  const { chunk, id, kind, source, body, quote } = prepareComment(root, target, input, now, before)
+  const { chunk, id } = prepareComment(target, input, now, before)
   // 덧붙이기만 한다: 그사이 에이전트가 덧붙인 답이 있어도 덮어쓰지 않는다
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const sep = before && !before.endsWith('\n') ? '\n' : ''
   fs.appendFileSync(file, before ? sep + chunk : `${chunk.replace(/^\n/, '')}`, 'utf8')
-  // 정본을 먼저 남긴다. 일지에 쓰다 실패해도 원래 할 일을 잃지 않는다.
-  if (kind === '할 일') appendTodoJournal(root, target, source, body, quote, now, id)
   const after = fs.readFileSync(file, 'utf8')
   const saved = parseComments(target, after)
   const entry = [...saved.comments, ...saved.highlights].find((c) => c.id === id)! as CommentEntry
@@ -441,39 +433,33 @@ export async function classifyComments(root: string, target: string, baseHash: s
   const eligible = (entry: CommentEntry) => entry.unsorted && originalBodies.has(entry.id) && originalBodies.get(entry.id) === entry.body
   if (!latest.comments.some(eligible)) return latest
   const now = new Date()
-  const todos: { id: string; body: string; quote?: string }[] = []
-  let source: string | undefined
   const result = rewrite(root, target, latest.hash, (lines) => {
     // Use stored anchors, not the read-time reanchoring supplied to the UI.
     const current = parseComments(target, lines.join('\n'))
-    source = current.source
+    const source = current.source
     let out = lines
     for (const classification of classified) {
       const entry = current.comments.find((entry) => entry.id === classification.id)
       if (!entry || !eligible(entry)) continue
       if (classification.items.length === 1) {
         const kind = classification.items[0]!.kind
-        const meta = kind === '할 일' ? todoMeta(root, target, source, now, todos.length) : {}
-        out = classifyHeader(out, entry.id, meta, kind)
-        if (kind === '할 일') todos.push({ id: entry.id, body: entry.body, quote: entry.quote })
+        if (kind === '할 일') checkTodoTarget(target)
+        out = classifyHeader(out, entry.id, {}, kind)
       } else {
         out = classifyHeader(out, entry.id, { split: true })
         for (const item of classification.items) {
           const text = out.join('\n')
-          const prepared = prepareComment(root, target, {
+          const prepared = prepareComment(target, {
             kind: item.kind, text: item.text, title: current.title, source,
             quote: entry.quote, color: entry.color, line: entry.line, prefix: entry.prefix, suffix: entry.suffix,
             page: entry.page, rects: entry.rects, part: entry.part, partText: entry.partText, by: entry.by,
-          }, now, text, { journalOffset: todos.length, storedAnchors: true })
+          }, now, text, { storedAnchors: true })
           out = (text + (text.endsWith('\n') ? '' : '\n') + prepared.chunk).split('\n')
-          if (prepared.kind === '할 일') todos.push({ id: prepared.id, body: prepared.body, quote: prepared.quote })
         }
       }
     }
     return out
   })
-  // As with addComment, persist the authoritative records before appending journal links.
-  for (const todo of todos) appendTodoJournal(root, target, source, todo.body, todo.quote, now, todo.id)
   return result
 }
 
@@ -559,9 +545,11 @@ export function updateComment(root: string, target: string, id: string, change: 
     }
     return text === undefined ? out : replaceBody(out, id, guardBody(text).replace(/^> /, '\\> '))
   }, (before, next) => {
-    const file = parseComments(target, before)
-    return prepareTodoJournalChange(root, file, file.comments.find((c) => c.id === id),
-      parseComments(target, next).comments.find((c) => c.id === id), { text: text !== undefined, state: state !== undefined })
+    // 할 일을 끝내면 그날 일지에 "완료"를 함께 쓴다. 다시 열거나 글을 고쳐도 지난 완료 기록은 그대로 둔다(있었던 일)
+    const was = parseComments(target, before).comments.find((c) => c.id === id)
+    const file = parseComments(target, next)
+    const now = file.comments.find((c) => c.id === id)
+    return was?.kind === '할 일' && was.state !== '끝냄' && now?.state === '끝냄' ? [doneJournalChange(root, file, now)] : []
   })
   return result
 }
@@ -579,30 +567,5 @@ export function deleteComment(root: string, target: string, id: string, baseHash
     const out = [...lines]
     out.splice(s, e - s)
     return out
-  }, (before) => {
-    const file = parseComments(target, before)
-    return prepareTodoJournalChange(root, file, file.comments.find((c) => c.id === id), undefined, { text: true, state: false })
   })
-}
-
-/** 일지는 정본 기록의 공통 수정·삭제 경로로 위임한다. 모호한 연결은 어느 쪽도 고치지 않는다. */
-export function linkedTodoRecord(root: string, journal: JournalEntry, journals: JournalEntry[]): { file: CommentFile; record: CommentEntry } | undefined {
-  if (journal.kind !== 'todo') return undefined
-  const records = listComments(root).flatMap((file) => file.comments.map((record) => ({ file, record })))
-  const candidates = records.filter(({ record }) => record.kind === '할 일').map(({ file, record }) => ({ file, record, linked: linkedTodoJournal(file, record, journals) }))
-  const matches = candidates.filter(({ linked }) => linked?.index === journal.index)
-  if (journal.link) {
-    const sameId = records.filter(({ file, record }) => journal.link === `${file.target}/${record.id}`)
-    if (sameId.length === 0) return undefined // 바깥에서 상대 기록을 지웠으면 남은 일지만 고친다.
-    if (sameId.length === 1 && matches.length === 1) return matches[0]
-    throw new WorkbenchError(409, t('연결된 기록이 바뀌었거나 연결을 확정할 수 없습니다. 기록과 일지를 다시 열어 확인해 주세요.', 'The linked record changed or the link is unclear. Reopen the records and the journal to check.'))
-  }
-  if (matches.length === 1) return matches[0]
-  const potential = candidates.some(({ file, record, linked }) => {
-    if (linked) return false // 다른 항목에 유일하게 연결된 기록은 이 독립 일지의 후보가 아니다.
-    if (/^(note|calc)-/.test(file.target) && !file.source) return false
-    return record.journal === `${journal.date} ${journal.time}` && todoJournalTarget(file.target, file.source) === journal.target
-  })
-  if (matches.length > 1 || potential) throw new WorkbenchError(409, t('연결된 기록이 바뀌었거나 연결을 확정할 수 없습니다. 기록과 일지를 다시 열어 확인해 주세요.', 'The linked record changed or the link is unclear. Reopen the records and the journal to check.'))
-  return undefined
 }

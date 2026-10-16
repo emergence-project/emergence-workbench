@@ -191,6 +191,24 @@ export const ResearchInfo = z.object({
   /** 프로젝트 카드 그림 (figure:<그림 id> 또는 예전 저장소 기준 경로) */
   image: z.string().optional(),
 }).strict()
+/** 끝내지 않은 할 일 하나: 기록 파일(comments/<대상>.md)의 할 일 기록 */
+export const OpenTodo = z.object({
+  /** 기록 대상 (project · note-<폴더> · block-<id> · topic-<id> · flow-<id> …) */
+  target: z.string(),
+  /** 기록 id (c-YYYYMMDD-HHMM) */
+  id: z.string(),
+  /** 기록 파일 머리의 이름 (연구노트 …, 주제 …) */
+  where: z.string(),
+  /** 기록 파일의 원래 대상 (노트 경로 · 블록 id · 주제 id · 흐름 점 id). 화면이 그곳으로 이동할 때 쓴다 */
+  source: z.string().optional(),
+  /** 본문 첫 줄 (없으면 인용) */
+  text: z.string(),
+  /** 적은 날 YYYY-MM-DD (기록 id에서) */
+  written: z.string(),
+  /** 글 앞의 마감 YYYY-MM-DD */
+  due: z.string().optional(),
+}).strict()
+export type OpenTodo = z.infer<typeof OpenTodo>
 export const ResearchSummary = z.object({
   id: z.string(),
   root: z.string(),
@@ -200,8 +218,8 @@ export const ResearchSummary = z.object({
   tree: BlockTree,
   /** 진술 (저장소의 statements/). 없으면 빈 목록 */
   statements: z.array(Statement),
-  /** 일지의 끝내지 않은 할 일 수 (사이드바 기록 옆 수, 10/15: 전에는 화면이 일지 365일을 통째로 받아 셌다) */
-  openTodos: z.number(),
+  /** 끝내지 않은 할 일 (정본은 기록 파일, 2026-10-16). 사이드바 수 · 첫 화면 할 일 · 달력 마감이 이것을 쓴다 */
+  todos: z.array(OpenTodo),
 }).strict()
 
 // ---------- 저장소와 GitHub (routes/sync.ts) ----------
@@ -403,7 +421,7 @@ export const MetaPatchBody = z.object({
   baseHash: z.string().optional(),
 })
 /** 사람이 직접 남기는 일지 기록 (메모 · 할 일). target이 없으면 연구 전체 */
-export const JournalAddBody = z.object({ kind: z.enum(['memo', 'todo']), text: z.string(), target: z.string().optional() })
+export const JournalAddBody = z.object({ kind: z.enum(['memo']), text: z.string(), target: z.string().optional() })
 /** 할 일 끝냄(done) 또는 글 고치기(text). was·link: 읽을 때의 글과 연결 (그새 바뀌었으면 409) */
 export const JournalPatchBody = z.object({ was: z.string(), done: z.boolean().optional(), text: z.string().optional(), link: z.string().optional() })
 export const InfoBody = z.object({ title: z.string().optional(), question: z.string().optional(), started: z.string().optional(), image: z.string().optional(), baseHash: z.string().optional() })

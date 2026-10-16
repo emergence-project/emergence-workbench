@@ -1,16 +1,17 @@
-import { awaitsUserReview, RESEARCH_TARGET, todoDue, type JournalEntry, type TreeIssue } from '@rw/core'
+import { awaitsUserReview, type TreeIssue } from '@rw/core'
 import { fill } from './projectData'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { agentEditsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
+import { agentEditsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type OpenTodo, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
 import { statusOf } from './format'
 import { Icon } from './icons'
 import { lastWorkMs, PROJECT_KIND_LABEL } from './projectProfile'
 import { ProjectStateDot, type ProfilePatch } from './ProjectProfileFields'
 import { StatusDot } from './StatusDot'
-import { oldestFirst, stripDue } from './homeData'
+import { stripDue } from './homeData'
 import { ProjectEditDialog } from './ProjectEditDialog'
 import { useJournal } from './useJournal'
-import { MemoText, openTarget, targetTitle } from './memo'
+import { MemoText } from './memo'
+import { openTodoPlace, todoPlace } from './todoItems'
 import { AUX_NOTE } from './notes'
 import { go } from './router'
 import { focusTodo, todoKey } from './workRecords'
@@ -138,14 +139,8 @@ function NowRow({ ui, item, mark, title, sub, end, tag, full, onOpen }: {
   )
 }
 
-/** 할 일 우선순위: 마감이 있는 것은 마감이 이른 순, 그다음 마감 없는 것을 먼저 적은 순 */
-export function byPriority(todos: JournalEntry[]): { entry: JournalEntry; due: string | null; text: string }[] {
-  const rows = oldestFirst(todos).map((entry) => {
-    const due = todoDue(entry.text, entry.date)
-    return { entry, due, text: due ? stripDue(entry.text) : entry.text }
-  })
-  return [...rows.filter((r) => r.due).sort((a, b) => a.due!.localeCompare(b.due!)), ...rows.filter((r) => !r.due)]
-}
+/** 할 일 우선순위는 서버(openTodos)가 정한다: 마감이 이른 순, 그다음 마감 없는 것을 먼저 적은 순. 보일 글은 마감 앞머리를 뗀다 */
+export const todoRows = (todos: OpenTodo[]) => todos.map((todo) => ({ todo, due: todo.due ?? null, text: todo.due ? stripDue(todo.text) : todo.text }))
 
 /**
  * 프로젝트 첫 화면 — 탭이 하나도 선택되지 않았을 때 보이는 현황판 (2026-10-03 12:00 피드백).
@@ -158,7 +153,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
   const byId = new Map(blocks.map((b) => [b.id, b]))
   const titleOf = (id: string) => byId.get(id)?.title ?? id
   const { entries } = useJournal(rapi, version)
-  const todos = byPriority(entries.filter((e) => e.kind === 'todo' && !e.done))
+  const todos = todoRows(summary.todos)
   const today = new Date().toLocaleDateString('sv')
   const open = (bid: string) => go({ page: 'block', rid, bid })
   const [project, setProject] = useState<ProjectInfo | null>(null)
@@ -221,12 +216,13 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
     {
       key: 'todo', title: t('할 일', 'To-do'), count: todos.length, ui: '첫 화면 할 일', onMore: () => go({ page: 'todo', rid }),
       // 할 일은 보기만 한다. 적기·끝내기는 할 일 화면에서 (피드백 10/3 14:48·14:49)
-      rows: todos.map(({ entry, due, text }) => (tag?: string) => {
-        const goTodo = () => { focusTodo(todoKey(entry)); go({ page: 'records', rid }) }
+      rows: todos.map(({ todo, due, text }) => (tag?: string) => {
+        const goTodo = () => { focusTodo(todoKey(todo)); go({ page: 'records', rid }) }
+        const place = todoPlace(todo)
         return (
-          <NowRow key={`${entry.date}-${entry.index}`} tag={tag} ui="할 일 항목" item={text} mark={<span className="now-mark" aria-hidden>·</span>}
+          <NowRow key={todoKey(todo)} tag={tag} ui="할 일 항목" item={text} mark={<span className="now-mark" aria-hidden>·</span>}
             title={<MemoText text={nowTitle(text)} />} full={text} onOpen={goTodo}
-            sub={entry.target !== RESEARCH_TARGET && <button className="a" onClick={(event) => { event.stopPropagation(); openTarget(rid, entry.target) }} onKeyDown={(event) => event.stopPropagation()}>{targetTitle(entry.target, titleOf)}</button>}
+            sub={place && <button className="a" onClick={(event) => { event.stopPropagation(); openTodoPlace(rid, todo) }} onKeyDown={(event) => event.stopPropagation()}>{place}</button>}
             end={due && <span className={`due${due < today ? ' late' : ''}`}>{due.slice(5).replace('-', '/')}</span>} />
         )
       }),

@@ -11,6 +11,7 @@ import { AgentEditStore, agentWrite } from './agentEdits.js'
 import { hashOf } from './fsutil.js'
 import { allManuscripts, buildDirOf } from './manuscript.js'
 import { Workbench } from './workbench.js'
+import { addComment, updateComment } from './comments.js'
 
 useSampleApp()
 describe('Git freshness in agent STATUS', () => {
@@ -240,21 +241,21 @@ describe('에이전트 맥락 요약', () => {
     expect(status).not.toContain('## 원고 — loose')
   })
 
-  it('할 일 이름표는 블록 id·노트 본문·다른 경로를 구분한다', async () => {
+  it('할 일은 기록 파일에서 대상마다 묶어 한 줄씩 주소와 함께 보이고, 옮기지 않은 예전 일지 할 일은 수를 알린다', async () => {
     const wb = fresh()
-    write(wb, 'blocks/example.md', '---\nid: example\ntitle: 블록 제목\n---\n글\n')
-    write(wb, 'notes/example/note.md', '# 제목\n')
-    write(wb, 'notes/example/note.yaml', 'name: 노트 제목\n')
-    for (const target of ['example', 'missing-block', 'workbench/notes/example/note.md', 'workbench/calc/missing/main.tex', 'src/code.py', '연구']) {
-      wb.appendJournal({ date: '2026-10-10', time: '12:00', kind: 'todo', target, text: `대상 ${target}` })
-    }
+    addComment(wb.root, 'project', { kind: '할 일', title: '프로젝트', text: '10/20까지 — 그림 다시 그리기' }, new Date(2026, 9, 10, 12, 0))
+    const note = addComment(wb.root, 'note-example', { kind: '할 일', title: '연구노트 노트 제목', source: 'workbench/notes/example/note.md', text: '식 확인\n둘째 줄' }, new Date(2026, 9, 10, 12, 1))
+    const done = addComment(wb.root, 'project', { kind: '할 일', title: '프로젝트', text: '끝낸 것' }, new Date(2026, 9, 10, 12, 2))
+    updateComment(wb.root, 'project', done.entry.id, { state: '끝냄' }, done.hash)
+    wb.appendJournal({ date: '2026-10-09', time: '09:00', kind: 'todo', target: '연구', text: '옮기지 않은 할 일' })
     const status = await generateStatus(wb)
-    expect(status).toContain('대상 example (블록 노트: 블록 제목)')
-    expect(status).toContain('대상 missing-block (블록 노트: missing-block)')
-    expect(status).toContain('대상 workbench/notes/example/note.md (노트: 노트 제목)')
-    expect(status).toContain('대상 workbench/calc/missing/main.tex (노트: workbench/calc/missing/main.tex)')
-    expect(status).toContain('대상 src/code.py (src/code.py)')
-    expect(status).not.toContain('대상 연구 (')
+    const section = statusPart(status, '할 일')!
+    expect(section).toContain('### 앱 할 일 — `workbench/comments/`')
+    expect(section).toContain('예전 일지(`workbench/log/`)에 끝내지 않은 할 일 1개')
+    expect(section).toContain('- 이 프로젝트\n  - [ ] 10/20까지 — 그림 다시 그리기 — 마감 2026-10-20 · `project/c-20261010-1200`')
+    expect(section).toContain(`- 연구노트 노트 제목 (\`note-example\`)\n  - [ ] 식 확인 둘째 줄 · \`note-example/${note.entry.id}\``)
+    expect(section).not.toContain('끝낸 것')
+    expect(section).not.toContain('옮기지 않은 할 일')
   })
 
   it('설정 기록에서 프로젝트 검토·허락 대기를 읽기만 하고 맡긴 일 뒤에 둔다', async () => {

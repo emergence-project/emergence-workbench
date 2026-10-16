@@ -202,32 +202,45 @@ describe('원고 저장', () => {
 })
 
 describe('일지', () => {
-  it('메모와 할 일을 남기고 완료 표시를 바꾼다', async () => {
-    await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'memo', text: '연구 전체 메모 $x$' } })
-    const todo = (await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', target: 'kempe-chains', text: '유일성 조건 적기' } })).json().entry
-    expect(todo).toMatchObject({ kind: 'todo', target: 'kempe-chains', done: false })
-    const done = (await app.inject({ method: 'PATCH', url: `${R}/journal/${todo.date}/${todo.index}`, payload: { done: true, was: todo.text } })).json().entry
+  // 할 일의 정본은 기록 파일이다 (2026-10-16). 일지에는 메모를 적고, 앱이 상태 · 완료를 남긴다. 예전 일지의 할 일은 읽고 체크만 한다
+  const legacyLog = (date: string, body: string) => {
+    const log = path.join(repo, 'workbench/log', `${date}.md`)
+    fs.mkdirSync(path.dirname(log), { recursive: true })
+    fs.writeFileSync(log, body)
+    return log
+  }
+
+  it('메모를 남기고, 할 일은 일지에 직접 적지 않는다', async () => {
+    const memo = await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'memo', text: '연구 전체 메모 $x$' } })
+    expect(memo.json().entry).toMatchObject({ kind: 'memo', target: '연구', text: '연구 전체 메모 $x$' })
+    const todo = await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', target: 'kempe-chains', text: '유일성 조건 적기' } })
+    expect(todo.statusCode).toBe(400)
+    expect(((await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]).some((e) => e.kind === 'todo')).toBe(false)
+  })
+
+  it('예전 일지의 할 일을 끝내면 그날 완료 기록이 한 번 붙는다', async () => {
+    const date = '2026-10-06'
+    legacyLog(date, '# 2026-10-06\n\n## 09:00 · 할 일 · kempe-chains\n- [ ] 유일성 조건 적기\n')
+    const todo = ((await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]).find((e) => e.date === date)!
+    const done = (await app.inject({ method: 'PATCH', url: `${R}/journal/${date}/${todo.index}`, payload: { done: true, was: todo.text } })).json().entry
     expect(done.done).toBe(true)
     const entries = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries
-    // 끝낸 날의 "완료" 기록이 맨 뒤에 붙는다 (최근 것부터)
     expect(entries[0]).toMatchObject({ kind: 'done', target: 'kempe-chains', text: '유일성 조건 적기' })
-    expect(entries[1]).toMatchObject({ kind: 'todo', done: true })
-    expect(entries[2]).toMatchObject({ kind: 'memo', target: '연구', text: '연구 전체 메모 $x$' })
     // 이미 끝낸 할 일을 다시 끝냄으로 보내도, 되돌려도 완료 기록은 더 생기지 않는다
-    await app.inject({ method: 'PATCH', url: `${R}/journal/${todo.date}/${todo.index}`, payload: { done: true, was: todo.text } })
-    await app.inject({ method: 'PATCH', url: `${R}/journal/${todo.date}/${todo.index}`, payload: { done: false, was: todo.text } })
+    await app.inject({ method: 'PATCH', url: `${R}/journal/${date}/${todo.index}`, payload: { done: true, was: todo.text } })
+    await app.inject({ method: 'PATCH', url: `${R}/journal/${date}/${todo.index}`, payload: { done: false, was: todo.text } })
     const again = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries
     expect(again.filter((e: { kind: string }) => e.kind === 'done')).toHaveLength(1)
   })
 
-  it('메모·할 일을 고치고 지운다. 그새 바뀐 기록이나 상태 기록은 건드리지 않는다', async () => {
+  it('메모 · 예전 할 일을 고치고 지운다. 그새 바뀐 기록은 건드리지 않는다', async () => {
     const memo = (await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'memo', text: '고칠 메모' } })).json().entry
-    const todo = (await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', text: '지울 할 일' } })).json().entry
     const url = (e: { date: string; index: number }) => `${R}/journal/${e.date}/${e.index}`
     const edited = (await app.inject({ method: 'PATCH', url: url(memo), payload: { text: '고친 메모', was: '고칠 메모' } })).json().entry
     expect(edited).toMatchObject({ kind: 'memo', text: '고친 메모', index: memo.index })
     expect((await app.inject({ method: 'PATCH', url: url(memo), payload: { text: 'x', was: '고칠 메모' } })).statusCode).toBe(409)
-    expect((await app.inject({ method: 'DELETE', url: `${url(todo)}?was=${encodeURIComponent('지울 할 일')}` })).statusCode).toBe(200)
+    legacyLog('2026-10-05', '## 09:00 · 할 일 · 연구\n- [ ] 지울 할 일\n')
+    expect((await app.inject({ method: 'DELETE', url: `${R}/journal/2026-10-05/0?was=${encodeURIComponent('지울 할 일')}` })).statusCode).toBe(200)
     const texts = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries.map((e: { text: string }) => e.text)
     expect(texts).toContain('고친 메모')
     expect(texts).not.toContain('지울 할 일')
@@ -235,9 +248,7 @@ describe('일지', () => {
 
   it('할 일 체크는 화면이 본 글과 같을 때만 한다 (그새 줄이 끼어 번호가 밀리면 409)', async () => {
     const date = '2026-10-07'
-    const log = path.join(repo, 'workbench/log', `${date}.md`)
-    fs.mkdirSync(path.dirname(log), { recursive: true })
-    fs.writeFileSync(log, '## 09:00 · 할 일 · kempe-chains\n- [ ] 첫 할 일\n\n## 09:01 · 할 일 · kempe-chains\n- [ ] 둘째 할 일\n')
+    const log = legacyLog(date, '## 09:00 · 할 일 · kempe-chains\n- [ ] 첫 할 일\n\n## 09:01 · 할 일 · kempe-chains\n- [ ] 둘째 할 일\n')
     const seen = ((await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]).find((e) => e.date === date && e.text === '첫 할 일')!
     // 에이전트가 맨 앞에 할 일을 끼워 넣는다
     fs.writeFileSync(log, '## 08:59 · 할 일 · kempe-chains\n- [ ] 끼어든 할 일\n\n' + fs.readFileSync(log, 'utf8'))
@@ -250,128 +261,32 @@ describe('일지', () => {
 
   it('완료 기록만 지우고 원래 할 일의 완료 표시를 보존한다. 완료 고치기와 상태 지우기는 거부한다', async () => {
     const text = '완료 기록 지우기 검증'
-    const todo = (await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', target: 'kempe-chains', text } })).json().entry as JournalEntry
+    legacyLog('2026-10-04', `## 09:00 · 할 일 · kempe-chains\n- [ ] ${text}\n`)
+    const todo = ((await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]).find((e) => e.text === text)!
     const url = (e: JournalEntry) => `${R}/journal/${e.date}/${e.index}`
     expect((await app.inject({ method: 'PATCH', url: url(todo), payload: { done: true, was: todo.text } })).statusCode).toBe(200)
-    const log = path.join(repo, 'workbench/log', `${todo.date}.md`)
-    fs.appendFileSync(log, '\n## 23:59 · 상태 · kempe-chains\n진행 → 해결\n')
-    const before = fs.readFileSync(log, 'utf8')
     const entries = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]
     const done = entries.find((e) => e.kind === 'done' && e.text === text)!
-    const status = entries.find((e) => e.kind === 'status' && e.time === '23:59' && e.date === todo.date)!
+    const log = path.join(repo, 'workbench/log', `${done.date}.md`)
+    fs.appendFileSync(log, '\n## 23:59 · 상태 · kempe-chains\n진행 → 해결\n')
+    const before = fs.readFileSync(log, 'utf8')
+    const status = ((await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]).find((e) => e.kind === 'status' && e.time === '23:59' && e.date === done.date)!
     expect((await app.inject({ method: 'PATCH', url: url(done), payload: { text: '바꾼 완료 기록', was: text } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'DELETE', url: `${url(done)}?was=${encodeURIComponent('다른 글')}` })).statusCode).toBe(409)
     expect((await app.inject({ method: 'PATCH', url: url(status), payload: { text: '바꾼 상태', was: status.text } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'DELETE', url: `${url(status)}?was=${encodeURIComponent(status.text)}` })).statusCode).toBe(400)
     expect(fs.readFileSync(log, 'utf8')).toBe(before)
     expect((await app.inject({ method: 'DELETE', url: `${url(done)}?was=${encodeURIComponent(text)}` })).statusCode).toBe(200)
-    expect(fs.readFileSync(log, 'utf8')).toBe(before.replace(`## ${done.time} · 완료 · ${done.target}\n${text}\n\n`, ''))
     const remaining = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]
     expect(remaining.find((e) => e.kind === 'todo' && e.text === text)?.done).toBe(true)
     expect(remaining.some((e) => e.kind === 'done' && e.text === text)).toBe(false)
   })
 
-  it('상태 기록을 손으로 남기거나 없는 블록에 붙이는 것은 거부한다', async () => {
+  it('상태 · 완료 기록을 손으로 남기거나 없는 블록에 붙이는 것은 거부한다', async () => {
     expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'status', text: 'x' } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'done', text: 'x' } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'memo', target: 'ghost', text: 'x' } })).statusCode).toBe(400)
-    expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', target: 'docs/ghost.tex', text: 'x' } })).statusCode).toBe(400)
-    expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', target: '../x.tex', text: 'x' } })).statusCode).toBe(400)
-  })
-
-  it('노트 파일(.tex)에 할 일을 붙인다', async () => {
-    const file = 'workbench/blocks/kempe-chains.tex'
-    const todo = (await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', target: file, text: '유일성 확인하기' } })).json().entry
-    expect(todo).toMatchObject({ kind: 'todo', target: file })
-    const entries = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries
-    expect(entries.some((e: { target: string; text: string }) => e.target === file && e.text === '유일성 확인하기')).toBe(true)
-  })
-
-  it('Markdown 노트 파일에도 할 일을 붙인다', async () => {
-    const file = 'workbench/notes/journal-markdown/note.md'
-    fs.mkdirSync(path.dirname(path.join(repo, file)), { recursive: true })
-    fs.writeFileSync(path.join(repo, file), '# Markdown 노트\n\n원문은 그대로 둔다.\n')
-    const res = await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', target: file, text: 'Markdown 노트 확인하기' } })
-    expect(res.statusCode).toBe(200)
-    expect(res.json().entry).toMatchObject({ kind: 'todo', target: file, done: false })
-    expect(fs.readFileSync(path.join(repo, file), 'utf8')).toBe('# Markdown 노트\n\n원문은 그대로 둔다.\n')
-    expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'todo', target: 'workbench/notes/absent/note.md', text: '없는 노트' } })).statusCode).toBe(400)
-  })
-
-  it('노트 기록에 할 일을 더하면 일지에 연결하고 기록의 완료·대기를 일지에도 반영한다', async () => {
-    const source = 'workbench/notes/journal-markdown/note.md'
-    const url = `${R}/comments/note-journal-forward`
-    const added = await app.inject({ method: 'POST', url, payload: { kind: '할 일', title: '일지 연결 노트', source, text: '앞줄을 확인하고\n다음 줄도 확인하기' } })
-    expect(added.statusCode).toBe(200)
-    const { entry: record, hash } = added.json()
-    const journals = () => app.inject({ method: 'GET', url: `${R}/journal` }).then((r) => r.json().entries as JournalEntry[])
-    const linked = (await journals()).find((e) => e.kind === 'todo' && e.target === source && e.text === '앞줄을 확인하고 다음 줄도 확인하기')!
-    expect(record).toMatchObject({ kind: '할 일', state: '대기', journal: `${linked.date} ${linked.time}` })
-    expect(linked.done).toBe(false)
-
-    const done = await app.inject({ method: 'PATCH', url: `${url}/${record.id}`, payload: { state: '끝냄', baseHash: hash } })
-    expect(done.statusCode).toBe(200)
-    expect((await journals()).find((e) => e.date === linked.date && e.index === linked.index)?.done).toBe(true)
-    expect((await journals()).filter((e) => e.kind === 'done' && e.target === source && e.text === linked.text)).toHaveLength(1)
-    const again = await app.inject({ method: 'PATCH', url: `${url}/${record.id}`, payload: { state: '끝냄', baseHash: done.json().hash } })
-    expect(again.statusCode).toBe(200)
-    const reopened = await app.inject({ method: 'PATCH', url: `${url}/${record.id}`, payload: { state: '대기', baseHash: again.json().hash } })
-    expect(reopened.statusCode).toBe(200)
-    expect((await journals()).find((e) => e.date === linked.date && e.index === linked.index)?.done).toBe(false)
-    expect((await journals()).filter((e) => e.kind === 'done' && e.target === source && e.text === linked.text)).toHaveLength(1)
-  })
-
-  it('일지에서 보조 노트 할 일을 끝내거나 다시 열면 연결된 기록 상태도 바뀐다', async () => {
-    const url = `${R}/comments/block-kempe-chains`
-    const added = await app.inject({ method: 'POST', url, payload: { kind: '할 일', title: '보조 노트', source: 'kempe-chains', text: '일지에서 끝낼 보조 노트 할 일' } })
-    expect(added.statusCode).toBe(200)
-    const record = added.json().entry
-    const journals = () => app.inject({ method: 'GET', url: `${R}/journal` }).then((r) => r.json().entries as JournalEntry[])
-    const linked = (await journals()).find((e) => e.kind === 'todo' && e.target === 'kempe-chains' && e.text === record.body)!
-    const journalUrl = `${R}/journal/${linked.date}/${linked.index}`
-    expect((await app.inject({ method: 'PATCH', url: journalUrl, payload: { done: true, was: linked.text, link: linked.link } })).statusCode).toBe(200)
-    const getState = () => app.inject({ method: 'GET', url }).then((r) => r.json().comments.find((c: { id: string }) => c.id === record.id).state)
-    expect(await getState()).toBe('끝냄')
-    expect((await journals()).filter((e) => e.kind === 'done' && e.text === record.body)).toHaveLength(1)
-    expect((await app.inject({ method: 'PATCH', url: journalUrl, payload: { done: false, was: linked.text, link: linked.link } })).statusCode).toBe(200)
-    expect(await getState()).toBe('대기')
-    expect((await journals()).filter((e) => e.kind === 'done' && e.text === record.body)).toHaveLength(1)
-  })
-
-  it.each([409, 422])('기록 동기화가 실패하면 일지 완료도 저장하지 않고 실패를 반환한다 (%i)', async (status) => {
-    const target = 'block-kempe-chains'
-    const url = `${R}/comments/${target}`
-    const added = (await app.inject({ method: 'POST', url, payload: { kind: '할 일', title: '보조 노트', text: `기록 동기화 실패 검증 ${status}` } })).json()
-    const file = path.join(repo, 'workbench/comments', `${target}.md`)
-    const before = fs.readFileSync(file, 'utf8')
-    const outside = '\n<!-- 바깥에서 덧붙인 기록 -->\n'
-    const originalSet = comments.updateComment
-    let failure: unknown
-    const sync = vi.spyOn(comments, 'updateComment').mockImplementationOnce((...args) => {
-      try {
-        if (status === 422) throw new WorkbenchError(422, '기록 동기화 검증 실패')
-        // 목록을 읽은 뒤 파일이 바뀌어 실제 rewrite 해시 검사에서 409가 나게 한다.
-        fs.appendFileSync(file, outside)
-        return originalSet(...args)
-      } catch (error) {
-        failure = error
-        throw error
-      }
-    })
-    try {
-      const [date] = added.entry.journal.split(' ')
-      const result = await app.inject({ method: 'PATCH', url: `${R}/journal/${date}/${added.entry.journalIndex}`, payload: { done: true, was: added.entry.body, link: `block-kempe-chains/${added.entry.id}` } })
-      expect(sync).toHaveBeenCalledOnce()
-      expect(failure).toMatchObject({ status })
-      expect(result.statusCode).toBe(status)
-      const journals = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]
-      expect(journals.find((e) => e.kind === 'todo' && e.text === added.entry.body)?.done).toBe(false)
-      expect(journals.filter((e) => e.kind === 'done' && e.text === added.entry.body)).toHaveLength(0)
-      expect(fs.readFileSync(file, 'utf8')).toBe(status === 409 ? before + outside : before)
-      expect((await app.inject({ method: 'GET', url })).json().comments.find((c: { id: string }) => c.id === added.entry.id).state).toBe('대기')
-    } finally {
-      sync.mockRestore()
-    }
+    expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'memo', target: '../x.tex', text: 'x' } })).statusCode).toBe(400)
   })
 
   it('바깥에서 기록이 바뀌면 오래된 해시의 완료 요청은 일지도 건드리지 않는다', async () => {
@@ -383,75 +298,6 @@ describe('일지', () => {
     expect(res.statusCode).toBe(409)
     expect(res.json().currentHash).toBe(fresh.hash)
     expect((await app.inject({ method: 'GET', url: `${R}/journal` })).json()).toEqual(before)
-  })
-
-  it('같은 분에 같은 할 일을 두 번 적어도 일지 인덱스로 구분한다', async () => {
-    const url = `${R}/comments/block-kempe-chains`
-    const payload = { kind: '할 일', title: '보조 노트', text: '같은 분에 중복된 할 일' }
-    const first = (await app.inject({ method: 'POST', url, payload })).json()
-    const second = (await app.inject({ method: 'POST', url, payload })).json()
-    expect(first.entry.journalIndex).not.toBe(second.entry.journalIndex)
-    expect((await app.inject({ method: 'PATCH', url: `${url}/${second.entry.id}`, payload: { state: '끝냄', baseHash: second.hash } })).statusCode).toBe(200)
-    const journals = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]
-    expect(journals.find((e) => e.kind === 'todo' && e.index === first.entry.journalIndex)).toMatchObject({ done: false, text: payload.text })
-    expect(journals.find((e) => e.kind === 'todo' && e.index === second.entry.journalIndex)).toMatchObject({ done: true, text: payload.text })
-    const [date] = first.entry.journal.split(' ')
-    expect((await app.inject({ method: 'PATCH', url: `${R}/journal/${date}/${first.entry.journalIndex}`, payload: { done: true, was: payload.text, link: `block-kempe-chains/${first.entry.id}` } })).statusCode).toBe(200)
-    expect((await app.inject({ method: 'GET', url })).json().comments.find((c: { id: string }) => c.id === first.entry.id).state).toBe('끝냄')
-  })
-
-  it('같은 분의 중복 일지를 지우면 그 기록만 지우고 남은 연결의 상태를 바꾼다', async () => {
-    const url = `${R}/comments/block-kempe-chains`
-    const payload = { kind: '할 일', title: '보조 노트', text: '중복 연결 삭제 검증용 할 일' }
-    const first = (await app.inject({ method: 'POST', url, payload })).json()
-    const second = (await app.inject({ method: 'POST', url, payload })).json()
-    const [date] = first.entry.journal.split(' ')
-    expect((await app.inject({ method: 'DELETE', url: `${R}/journal/${date}/${first.entry.journalIndex}?was=${encodeURIComponent(payload.text)}&link=${encodeURIComponent(`block-kempe-chains/${first.entry.id}`)}` })).statusCode).toBe(200)
-    const current = (await app.inject({ method: 'GET', url })).json()
-    expect(current.comments.find((c: { id: string }) => c.id === first.entry.id)).toBeUndefined()
-    const journals = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]
-    const remaining = journals.find((e) => e.kind === 'todo' && e.text === payload.text)!
-    expect(remaining).toMatchObject({ index: first.entry.journalIndex, done: false })
-    expect((await app.inject({ method: 'PATCH', url: `${R}/journal/${date}/${remaining.index}`, payload: { done: true, was: payload.text, link: remaining.link } })).statusCode).toBe(200)
-    expect((await app.inject({ method: 'GET', url })).json().comments.find((c: { id: string }) => c.id === second.entry.id).state).toBe('끝냄')
-  })
-
-  it('일지 앞 항목을 지워 인덱스가 달라져도 유일한 연결이면 상태를 함께 바꾼다', async () => {
-    const memo = (await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'memo', text: '인덱스를 바꿀 앞 메모' } })).json().entry
-    const url = `${R}/comments/block-kempe-chains`
-    const added = (await app.inject({ method: 'POST', url, payload: { kind: '할 일', title: '보조 노트', text: '인덱스가 달라질 할 일' } })).json()
-    expect((await app.inject({ method: 'DELETE', url: `${R}/journal/${memo.date}/${memo.index}?was=${encodeURIComponent(memo.text)}` })).statusCode).toBe(200)
-    const journals = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]
-    const linked = journals.find((e) => e.kind === 'todo' && e.text === added.entry.body)!
-    expect(linked.index).not.toBe(added.entry.journalIndex)
-    expect((await app.inject({ method: 'PATCH', url: `${R}/journal/${linked.date}/${linked.index}`, payload: { done: true, was: linked.text, link: linked.link } })).statusCode).toBe(200)
-    const current = (await app.inject({ method: 'GET', url })).json()
-    expect(current.comments.find((c: { id: string }) => c.id === added.entry.id).state).toBe('끝냄')
-    expect((await app.inject({ method: 'PATCH', url: `${url}/${added.entry.id}`, payload: { state: '대기', baseHash: current.hash } })).statusCode).toBe(200)
-    expect(((await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]).find((e) => e.kind === 'todo' && e.text === linked.text)?.done).toBe(false)
-  })
-
-  it('일지 글을 바깥에서 고치거나 지웠으면 연결 상태를 잘못된 항목에 쓰지 않는다', async () => {
-    const url = `${R}/comments/block-kempe-chains`
-    const added = (await app.inject({ method: 'POST', url, payload: { kind: '할 일', title: '보조 노트', text: '연결 일지를 고칠 할 일' } })).json()
-    const all = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]
-    const linked = all.find((e) => e.kind === 'todo' && e.text === added.entry.body)!
-    const journalUrl = `${R}/journal/${linked.date}/${linked.index}`
-    const wb = new Workbench(path.join(repo, 'workbench'))
-    wb.editJournal(linked.date, linked.index, linked.text, '일지에서 바뀐 글')
-    const done = await app.inject({ method: 'PATCH', url: `${url}/${added.entry.id}`, payload: { state: '끝냄', baseHash: added.hash } })
-    expect(done.statusCode).toBe(200)
-    const changed = (await app.inject({ method: 'GET', url: `${R}/journal` })).json().entries as JournalEntry[]
-    expect(changed.find((e) => e.date === linked.date && e.index === linked.index)).toMatchObject({ done: false, text: '일지에서 바뀐 글' })
-    expect(changed.filter((e) => e.kind === 'done' && e.text === linked.text)).toHaveLength(0)
-    const reopened = await app.inject({ method: 'PATCH', url: `${url}/${added.entry.id}`, payload: { state: '대기', baseHash: done.json().hash } })
-    expect(reopened.statusCode).toBe(200)
-    expect((await app.inject({ method: 'PATCH', url: journalUrl, payload: { done: true, was: '일지에서 바뀐 글', link: linked.link } })).statusCode).toBe(409)
-    expect((await app.inject({ method: 'GET', url })).json().comments.find((c: { id: string }) => c.id === added.entry.id).state).toBe('대기')
-    wb.editJournal(linked.date, linked.index, '일지에서 바뀐 글', null)
-    const beforeMissing = (await app.inject({ method: 'GET', url: `${R}/journal` })).json()
-    expect((await app.inject({ method: 'PATCH', url: `${url}/${added.entry.id}`, payload: { state: '끝냄', baseHash: reopened.json().hash } })).statusCode).toBe(200)
-    expect((await app.inject({ method: 'GET', url: `${R}/journal` })).json()).toEqual(beforeMissing)
   })
 })
 

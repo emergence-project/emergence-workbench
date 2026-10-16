@@ -46,12 +46,14 @@ describe('맡긴 일 화면 말', () => {
       .toBe('workbench/tasks/2026-10-07-a.md에 맡긴 일을 해 줘. 먼저 이 파일과 규칙 문서 ~/code/workbench/docs/agent-delegated-work.md를 읽고, 결과는 같은 파일에 채워.')
   })
 
-  it('한 주 달력: 맡김 · 결과 · 일지 · 마감을 날짜별로, 브리핑 수', () => {
+  it('한 주 달력: 맡김 · 결과 · 일지 · 마감(기록의 할 일)을 날짜별로, 브리핑 수', () => {
     const tasks = [task({ state: 'result', resultAt: '2026-10-06 12:59' }), task({ id: 'b', created: '2026-10-07 08:00' })]
     const byDay = weekItems(tasks, [
       { date: '2026-10-06', time: '09:00', kind: 'memo', target: '연구', text: '메모 하나', index: 0 },
-      { date: '2026-10-05', time: '09:00', kind: 'todo', target: '연구', text: '10/9까지 — 검토', index: 1 },
-    ])
+      // 예전 일지의 할 일 줄은 달력에 올리지 않는다 (정본은 기록)
+      { date: '2026-10-05', time: '09:00', kind: 'todo', target: '연구', text: '10/8까지 — 예전 줄', index: 1 },
+    ], [{ target: 'project', id: 'c-20261005-0900', text: '10/9까지 — 검토', due: '2026-10-09' }])
+    expect(byDay.get('2026-10-08')).toBeUndefined()
     expect(byDay.get('2026-10-05')!.map((x) => [x.mark, x.text])).toEqual([['given', '맡김 · x']])
     expect(byDay.get('2026-10-06')!.map((x) => x.mark)).toEqual(['memo', 'result'])
     expect(byDay.get('2026-10-09')!.map((x) => [x.mark, x.text])).toEqual([['due', '마감 · 검토']])

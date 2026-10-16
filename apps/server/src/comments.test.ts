@@ -196,17 +196,17 @@ describe('노트 기록 파일', () => {
     expect(file('note-todo-state')).toBe(before)
   })
 
-  it('인용 문법으로 시작하는 할 일 본문도 기록과 일지에서 같은 글로 유지한다', () => {
+  it('인용 문법으로 시작하는 할 일 본문도 기록과 완료 일지에서 같은 글로 유지한다', () => {
     const target = 'note-quoted-todo'
     const source = 'workbench/notes/quoted-todo/note.md'
     const { entry, hash } = addComment(root, target, { kind: '할 일', title: '노트', source, text: '> quoted todo' }, at)
     const wb = new Workbench(root)
     expect(entry).toMatchObject({ body: '\\> quoted todo', state: '대기' })
     expect(entry.quote).toBeUndefined()
-    expect(wb.readJournal('2026-10-01')).toEqual([expect.objectContaining({ kind: 'todo', target: source, text: '\\> quoted todo', done: false })])
+    expect(wb.readJournal('2026-10-01')).toEqual([])
     const changed = updateComment(root, target, entry.id, { state: '끝냄' }, hash)
     expect(changed.comments[0]).toMatchObject({ body: '\\> quoted todo', state: '끝냄' })
-    expect(wb.readJournal('2026-10-01').find((item) => item.kind === 'todo')).toMatchObject({ text: '\\> quoted todo', done: true })
+    expect(wb.recentJournal().find((item) => item.kind === 'done')).toMatchObject({ target: source, text: '\\> quoted todo', link: `${target}/${entry.id}` })
   })
 
   it.each([
@@ -282,39 +282,18 @@ describe('기록 글 고치기와 프로젝트 모음', () => {
   it.each([
     { target: 'project', source: undefined, journalTarget: RESEARCH_TARGET },
     { target: 'calc-todo', source: 'calc/todo.tex', journalTarget: 'calc/todo.tex' },
-  ])('$target 할 일을 일지에 잇고 글과 상태를 함께 고친다', ({ target, source, journalTarget }) => {
+  ])('$target 할 일은 기록에만 쓰고, 글과 상태를 함께 바꾸면 완료 일지에 바뀐 글이 남는다', ({ target, source, journalTarget }) => {
     const sourceFile = source && writeSource(source, '원래 계산 노트\n')
     const { entry, hash } = addComment(root, target, { kind: '할 일', title: '작업', source, text: '예전 할 일' }, at)
     const wb = new Workbench(root)
-    expect(wb.readJournal('2026-10-01')).toEqual([expect.objectContaining({ kind: 'todo', target: journalTarget, text: '예전 할 일', done: false })])
+    expect(wb.recentJournal()).toEqual([])
     const changed = updateComment(root, target, entry.id, { text: '새 할 일\n두 번째 줄', state: '끝냄' }, hash)
     expect(changed.comments[0]).toMatchObject({ body: '새 할 일\n두 번째 줄', state: '끝냄' })
-    expect(wb.readJournal('2026-10-01')[0]).toMatchObject({ target: journalTarget, text: '새 할 일 두 번째 줄', done: true })
-    expect(wb.recentJournal().find((item) => item.kind === 'done')).toMatchObject({ target: journalTarget, text: '새 할 일 두 번째 줄' })
+    expect(wb.recentJournal()).toEqual([expect.objectContaining({ kind: 'done', target: journalTarget, text: '새 할 일 두 번째 줄', link: `${target}/${entry.id}` })])
     if (sourceFile) expect(fs.readFileSync(sourceFile, 'utf8')).toBe('원래 계산 노트\n')
   })
 
-  it('일지 글이 밖에서 바뀌면 기록 글 수정도 409로 멈추고 두 글을 보존한다', () => {
-    const { entry, hash } = addComment(root, 'project', { kind: '할 일', title: '프로젝트', text: '예전 글' }, at)
-    const wb = new Workbench(root)
-    wb.editJournal('2026-10-01', 0, '예전 글', '바깥에서 고친 글')
-    const journal = fs.readFileSync(path.join(root, 'log/2026-10-01.md'), 'utf8')
-    const before = file('project')
-    expect(() => updateComment(root, 'project', entry.id, { text: '기록의 새 글' }, hash)).toThrow(expect.objectContaining({ status: 409 }))
-    expect(file('project')).toBe(before)
-    expect(fs.readFileSync(path.join(root, 'log/2026-10-01.md'), 'utf8')).toBe(journal)
-  })
-
-  it('같은 분에 같은 글을 적어도 고른 기록의 연결만 고친다', () => {
-    addComment(root, 'project', { kind: '할 일', title: '프로젝트', text: '같은 글' }, at)
-    const { entry, hash } = addComment(root, 'project', { kind: '할 일', title: '프로젝트', text: '같은 글' }, at)
-    updateComment(root, 'project', entry.id, { text: '두 번째 글' }, hash)
-    expect(new Workbench(root).readJournal('2026-10-01').map((item) => item.text)).toEqual(['같은 글', '두 번째 글'])
-  })
-
-  it('계산 노트 경로가 없거나 빈 글로 바꾸면 기록을 쓰지 않는다', () => {
-    expect(() => addComment(root, 'calc-missing', { kind: '할 일', title: '계산 노트', text: '할 일' }, at)).toThrow(expect.objectContaining({ status: 400 }))
-    expect(fs.existsSync(path.join(root, 'comments/calc-missing.md'))).toBe(false)
+  it('빈 글로 바꾸면 기록을 쓰지 않는다', () => {
     const { entry, hash } = addComment(root, 'project', { kind: '메모', title: '프로젝트', text: '글' }, at)
     const before = file('project')
     expect(() => updateComment(root, 'project', entry.id, { text: ' ' }, hash)).toThrow(expect.objectContaining({ status: 400 }))
@@ -495,18 +474,15 @@ describe('기록 API', () => {
   it.each([
     { target: 'project', source: undefined, journalTarget: RESEARCH_TARGET },
     { target: 'calc-api-todo', source: 'calc/api-todo.tex', journalTarget: 'calc/api-todo.tex' },
-  ])('$target 할 일을 일지에서 끝내도 원래 기록을 함께 바꾼다', async ({ target, source, journalTarget }) => {
+  ])('$target 할 일을 기록에서 끝내면 일지에 완료만 남고 일지에서는 할 일을 적지 않는다', async ({ target, source, journalTarget }) => {
     const url = `${R}/comments/${target}`
     const added = await app.inject({ method: 'POST', url, payload: { kind: '할 일', title: '할 일 대상', source, text: `${target}의 할 일` } })
     expect(added.statusCode).toBe(200)
-    const journal = (await app.inject(`${R}/journal`)).json().entries.find((item: { text: string }) => item.text === `${target}의 할 일`)
-    expect(journal).toMatchObject({ target: journalTarget, done: false })
-    const done = await app.inject({ method: 'PATCH', url: `${R}/journal/${journal.date}/${journal.index}`, payload: { done: true, was: journal.text, link: journal.link } })
+    const journal = () => app.inject(`${R}/journal`).then((r) => r.json().entries as { kind: string; target: string; text: string; link?: string }[])
+    expect((await journal()).some((item) => item.text === `${target}의 할 일`)).toBe(false)
+    const done = await app.inject({ method: 'PATCH', url: `${url}/${added.json().entry.id}`, payload: { state: '끝냄', baseHash: added.json().hash } })
     expect(done.statusCode).toBe(200)
-    expect((await app.inject(url)).json().comments.find((item: { id: string }) => item.id === added.json().entry.id).state).toBe('끝냄')
-    const reopened = await app.inject({ method: 'PATCH', url: `${R}/journal/${journal.date}/${journal.index}`, payload: { done: false, was: journal.text, link: journal.link } })
-    expect(reopened.statusCode).toBe(200)
-    expect((await app.inject(url)).json().comments.find((item: { id: string }) => item.id === added.json().entry.id).state).toBe('대기')
+    expect((await journal()).filter((item) => item.text === `${target}의 할 일`)).toEqual([expect.objectContaining({ kind: 'done', target: journalTarget, link: `${target}/${added.json().entry.id}` })])
   })
 
   it('색 PATCH와 삭제에도 baseHash를 요구하고 충돌에는 현재 해시를 준다', async () => {
@@ -567,7 +543,7 @@ describe('기록 자동 분류 API', () => {
   it.each([
     { target: 'note-classify', source: 'workbench/notes/classify/note.md', journalTarget: 'workbench/notes/classify/note.md' },
     { target: 'project', source: undefined, journalTarget: RESEARCH_TARGET },
-  ])('$target의 분류 전만 한 번 보내고 할 일로 바꾸며 원문과 일지 연결을 지킨다', async ({ target, source, journalTarget }) => {
+  ])('$target의 분류 전만 한 번 보내고 할 일로 바꾸며 원문을 지키고, 끝내면 완료가 일지에 남는다', async ({ target, source, journalTarget }) => {
     const sourceText = '노트의 원문  \n고른 글\n'
     const sourceFile = writeSource('workbench/notes/classify/note.md', sourceText)
     const originalBody = '식 (3)을 확인하기\n\n부호를 그대로 적어 둘 것'
@@ -605,13 +581,11 @@ describe('기록 자동 분류 API', () => {
     expect(runner.mock.calls[0]![0].prompt).not.toContain('이미 분류한 메모')
     expect(runner.mock.calls[0]![0].prompt).not.toContain('하이라이트만')
     expect(answer).not.toHaveBeenCalled()
-    const journal = new Workbench(root).recentJournal().find((item) => item.kind === 'todo' && item.target === journalTarget && item.text.startsWith('식 (3)을 확인하기'))!
-    expect(journal).toMatchObject({ done: false, text: '식 (3)을 확인하기 부호를 그대로 적어 둘 것' })
-    expect(entry.journal).toBe(`${journal.date} ${journal.time}`)
-    expect(entry.journalIndex).toBe(journal.index)
-    const done = await a.inject({ method: 'PATCH', url: `${apiRoot}/journal/${journal.date}/${journal.index}`, payload: { done: true, was: journal.text, link: journal.link } })
+    expect(new Workbench(root).recentJournal()).toEqual([])
+    expect(entry.journal).toBeUndefined()
+    const done = await a.inject({ method: 'PATCH', url: `${apiRoot}/comments/${target}/${original.id}`, payload: { state: '끝냄', baseHash: readComments(root, target).hash } })
     expect(done.statusCode).toBe(200)
-    expect(readComments(root, target).comments.find((item) => item.id === original.id)!.state).toBe('끝냄')
+    expect(new Workbench(root).recentJournal()).toEqual([expect.objectContaining({ kind: 'done', target: journalTarget, text: '식 (3)을 확인하기 부호를 그대로 적어 둘 것', link: `${target}/${original.id}` })])
     expect((await a.inject('/api?all=1')).json().routes).toContainEqual({ method: 'POST', url: '/api/researches/:rid/comments/:target/classify' })
   })
 
@@ -645,10 +619,8 @@ describe('기록 자동 분류 API', () => {
       expect(entry.unsorted).toBeUndefined()
       expect(entry.split).toBeUndefined()
     }
-    const journal = new Workbench(root).recentJournal().filter((item) => item.kind === 'todo' && item.target === source)
-    expect(journal).toEqual([expect.objectContaining({ text: '식 (3)을 확인하기.', done: false })])
-    expect(next.comments[1]!.journal).toBe(`${journal[0]!.date} ${journal[0]!.time}`)
-    expect(next.comments[1]!.journalIndex).toBe(journal[0]!.index)
+    expect(new Workbench(root).recentJournal()).toEqual([])
+    expect(next.comments[1]!.journal).toBeUndefined()
     expect(fs.readFileSync(sourceFile, 'utf8')).toBe(sourceText)
     expect(runner).toHaveBeenCalledTimes(1)
     expect(answer).not.toHaveBeenCalled()
@@ -831,14 +803,14 @@ describe('주제 · 흐름 점 기록과 가리킨 곳 (10/15)', () => {
     expect(readComments(root, 'flow-eb-axioms').comments[0]).toMatchObject({ part: entry.part, partText: entry.partText })
   })
 
-  it('주제와 흐름 점의 할 일은 프로젝트 일지에 이어진다', () => {
+  it('주제와 흐름 점의 할 일을 끝내면 일지는 프로젝트 대상과 그 기록 주소로 완료를 남긴다', () => {
     for (const target of ['topic-corner-entanglement', 'flow-eb-axioms']) {
-      const { entry } = addComment(root, target, { kind: '할 일', title: '대상', source: 'x', text: `${target} 확인` }, at)
+      const { entry, hash } = addComment(root, target, { kind: '할 일', title: '대상', source: 'x', text: `${target} 확인` }, at)
       expect(entry.state).toBe('대기')
+      updateComment(root, target, entry.id, { state: '끝냄' }, hash)
     }
-    const journal = new Workbench(root).readJournal('2026-10-01')
-    expect(journal.filter((e) => e.kind === 'todo').map((e) => [e.target, e.text])).toEqual([
-      [RESEARCH_TARGET, 'topic-corner-entanglement 확인'], [RESEARCH_TARGET, 'flow-eb-axioms 확인'],
+    expect(new Workbench(root).recentJournal().map((e) => [e.kind, e.target, e.text, e.link?.split('/')[0]])).toEqual([
+      ['done', RESEARCH_TARGET, 'flow-eb-axioms 확인', 'flow-eb-axioms'], ['done', RESEARCH_TARGET, 'topic-corner-entanglement 확인', 'topic-corner-entanglement'],
     ])
   })
 })
