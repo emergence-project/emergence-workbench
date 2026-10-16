@@ -43,7 +43,9 @@ export function snippetOf(el: Element): string {
 
 /**
  * 코멘트를 남기는 순간의 화면 그림 (JPEG). 에이전트는 글만으로는 사용자 화면을 볼 수 없어서 함께 남긴다.
- * 피드백 모드 자체의 창은 빼고, PDF처럼 그림으로 옮길 수 없는 부분은 비어 보일 수 있다. 실패해도 코멘트는 그대로 저장한다
+ * 피드백 모드 자체의 창은 빼고, PDF처럼 그림으로 옮길 수 없는 부분은 비어 보일 수 있다. 실패해도 코멘트는 그대로 저장한다.
+ * 찍는 일(모든 요소의 스타일 복사)은 화면을 1–3초 멈춘다. 부위를 누를 때 찍으면 입력 창이 늦게 뜨고 쓰는 동안 멈춰서
+ * ("피드백 모드에서 유독 렉", 10/16), 등록을 누를 때 찍는다. 그 사이 앱은 눌러도 반응하지 않아 뒤 화면은 그대로다
  */
 /**
  * html-to-image는 <svg>를 통째로 복사하고 그 안의 요소에는 계산된 스타일을 옮기지 않는다. 그림 안에는 페이지 CSS가 없어
@@ -61,10 +63,12 @@ function inlineSvgPaint(): () => void {
   return () => { for (const [el, style] of saved) { if (style === null) el.removeAttribute('style'); else el.setAttribute('style', style) } }
 }
 
+const loadCapture = () => import('html-to-image')
+
 async function captureScreen(): Promise<string | null> {
   let restore: (() => void) | null = null
   try {
-    const { toJpeg } = await import('html-to-image')
+    const { toJpeg } = await loadCapture()
     restore = inlineSvgPaint()
     return await toJpeg(document.body, {
       quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight,
@@ -91,10 +95,13 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   /** 공개 저장소의 새 이슈 주소와 앱 버전: 다른 사용자가 관리자에게 보내는 곳 (docs/maintaining.md) */
   const [kind, setKind] = useState<'수정' | '질문' | '제안' | null>(null)
   const [issues, setIssues] = useState<{ url: string; version: string | null } | null>(null)
+  const [busy, setBusy] = useState(false)
   const hoverEl = useRef<Element | null>(null)
-  const shot = useRef<Promise<string | null> | null>(null)
   const pendingRef = useRef(pending)
   pendingRef.current = pending
+
+  // 그림 찍는 모듈은 모드를 켤 때 미리 받아 둔다 (등록할 때 기다리지 않게)
+  useEffect(() => { void loadCapture().catch(() => undefined) }, [])
 
   useEffect(() => {
     req('/api/feedback').then((r) => r.json()).then((b) => {
@@ -122,7 +129,6 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       block(e)
       const el = target(e)
       if (!el) return
-      shot.current = captureScreen()
       setPending({ path: uiPath(el), snippet: snippetOf(el), x: e.clientX, y: e.clientY })
       setText(''); setKind(null); setError(null)
     }
@@ -153,7 +159,6 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
 
   /** 부위 없이 적기: 화면 한 곳이 아니라 앱 전체 방향에 대한 의견 (10/12). 서버는 빈 부위를 "(부위 없음)"으로 적는다 */
   const openWithoutPart = (e: React.MouseEvent) => {
-    shot.current = captureScreen()
     setHover(null)
     // 단추 위에 연다 (아래 끝은 pop이 화면 안으로 당긴다)
     setPending({ path: '', snippet: '', x: e.currentTarget.getBoundingClientRect().left - 12, y: innerHeight })
@@ -178,9 +183,12 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   }
 
   const save = async (kind: '수정' | '질문' | '제안') => {
-    if (!pending || !text.trim()) return
+    if (!pending || !text.trim() || busy) return
+    setBusy(true)
     try {
-      const image = (await shot.current) ?? undefined
+      // "등록 중…"이 먼저 그려진 뒤 찍는다
+      await new Promise((r) => requestAnimationFrame(() => setTimeout(r)))
+      const image = (await captureScreen()) ?? undefined
       const res = await req('/api/feedback', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -196,7 +204,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       onSaved(t(`피드백 저장됨 — ${pending.path || '부위 없음'}`, `Feedback saved: ${targetName(pending.path)}`))
     } catch (e) {
       setError((e as Error).message)
-    }
+    } finally { setBusy(false) }
   }
 
   // 코멘트 창을 누른 자리 근처에, 화면 밖으로 나가지 않게
@@ -235,10 +243,10 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
               {(['수정', '질문', '제안'] as const).map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{shown(k)}</button>)}
             </div>
             {issues && (
-              <button className="btn fb-send" disabled={!text.trim() || !kind} onClick={sendToGithub}
+              <button className="btn fb-send" disabled={!text.trim() || !kind || busy} onClick={sendToGithub}
                 title={t('공개 저장소에 이슈 초안을 새 탭으로 엽니다. 여기에도 저장합니다. 화면 그림은 붙이지 않으니, 연구 내용이 보이지 않는 그림만 직접 붙이세요', 'Opens an issue draft on the public repository in a new tab. It is also saved here. Screenshots are not attached; add only pictures that show no research content.')}>{t('GitHub에 보내기', 'Send to GitHub')}</button>
             )}
-            <button className="btn primary" disabled={!text.trim() || !kind} data-tip={kind ? undefined : t('유형을 고르면 등록됩니다', 'Choose a type to post')} onClick={() => kind && void save(kind)}>{t('의견 등록', 'Submit')} <span className="kbd">⌘↵</span></button>
+            <button className="btn primary" disabled={!text.trim() || !kind || busy} data-tip={kind ? undefined : t('유형을 고르면 등록됩니다', 'Choose a type to post')} onClick={() => kind && void save(kind)}>{busy ? t('등록 중…', 'Submitting…') : <>{t('의견 등록', 'Submit')} <span className="kbd">⌘↵</span></>}</button>
           </div>
         </div>
       )}
