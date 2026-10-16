@@ -4,7 +4,7 @@
 import { localDate } from './fsutil.js'
 import { homeShort } from './agentPaths.js'
 import { localSyncState } from './gitSyncState.js'
-import { pendingQuestions, userTurnRecords } from './comments.js'
+import { pendingQuestions, unsortedRecords, userReplies, userTurnRecords } from './comments.js'
 import { listTasks } from './tasks.js'
 import { openTodos } from './todos.js'
 import type { Workbench } from './workbench.js'
@@ -26,8 +26,8 @@ export interface OverviewRow {
   title: string
   folder: string
   user: UserTurn
-  /** 에이전트가 할 것: 답 없는 질문 · 하지 않은 지시 · 진행 중인 맡긴 일 · 끝내지 않은 할 일 */
-  agent: { questions: number; instructions: number; working: number; todos: number }
+  /** 에이전트가 할 것: 답 없는 질문 · 하지 않은 지시 · 사용자가 답한 에이전트 질문 · 분류 전 기록 · 진행 중인 맡긴 일 · 끝내지 않은 할 일 */
+  agent: { questions: number; instructions: number; replies: number; unsorted: number; working: number; todos: number }
   behind: number
   ahead: number
   /** 일지의 마지막 기록 'YYYY-MM-DD HH:MM' */
@@ -45,6 +45,8 @@ export async function overviewRow(wb: Workbench, edits = 0): Promise<OverviewRow
     agent: {
       questions: pendingQuestions(wb.root).length,
       instructions: pendingQuestions(wb.root, '지시').length,
+      replies: userReplies(wb.root).length,
+      unsorted: unsortedRecords(wb.root).length,
       working: listTasks(wb).filter((t) => t.state === 'working').length,
       todos: openTodos(wb.root).length,
     },
@@ -68,7 +70,7 @@ export function generateOverview(rows: (OverviewRow | { folder: string; problem:
   for (const r of rows) {
     if ('problem' in r) { out.push(`| (읽지 못함) | \`${r.folder}\` | ${r.problem.replace(/\|/g, '/')} | | | |`); continue }
     const repo = [r.behind && `${r.behind}커밋 뒤`, r.ahead && `안 올린 커밋 ${r.ahead}`].filter(Boolean).join(' · ') || '—'
-    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['노트', r.user.notes], ['맡긴 일 판단', r.user.tasks], ['수정 검토', r.user.edits], ['물은 기록', r.user.records]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
+    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['노트', r.user.notes], ['맡긴 일 판단', r.user.tasks], ['수정 검토', r.user.edits], ['물은 기록', r.user.records]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['사용자가 답한 질문', r.agent.replies], ['분류 전 기록', r.agent.unsorted], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
   }
   out.push('')
   return out.join('\n')

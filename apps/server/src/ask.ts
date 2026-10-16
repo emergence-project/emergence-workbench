@@ -143,6 +143,19 @@ export function appendAnswer(root: string, target: string, id: string, by: strin
 }
 
 /**
+ * 에이전트가 쓴 답을 질문 · 지시 아래에 덧붙인다 (MCP answer_record · pnpm agent:answer). 덧붙이기라 hash 없이 쓰기 바로 전에 다시 읽는다.
+ * 사용자가 쓴 기록은 답함. 에이전트가 물은 질문(by)은 사용자가 답한 뒤(답함) 반영하고 답하면 끝냄, 사용자가 아직 답하지 않았으면 대기 그대로 (10/16).
+ */
+export function agentAnswer(root: string, target: string, id: string, by: string, body: string, now = new Date()): CommentFile {
+  const q = readComments(root, target).comments.find((c) => c.id === id)
+  if (!q || !isAgentKind(q.kind)) throw new WorkbenchError(404, t(`질문이나 지시가 없음: ${id}`, `No such question or instruction: ${id}`))
+  if (!body.trim()) throw new WorkbenchError(400, t('답이 비었음', 'The answer is empty'))
+  if (body.length > 20000) throw new WorkbenchError(400, t('답이 너무 김 (2만 자까지)', 'The answer is too long (20,000 characters at most)'))
+  const name = by.replace(/[\s·]+/g, ' ').trim().slice(0, 40) || 'agent'
+  return appendAnswer(root, target, id, name, body, now, q.by ? (q.state === '답함' ? '끝냄' : '대기') : '답함')
+}
+
+/**
  * 사용자가 질문 · 지시 아래에 이어 쓴다 (10/15): `### 답 · 사용자 · <시각>`을 덧붙인다.
  * 에이전트가 쓴 기록(by)이면 사용자가 답한 것이라 답함, 사용자가 쓴 기록이면 다시 에이전트 차례라 대기.
  */

@@ -11,7 +11,7 @@ import { allManuscripts, groundsOf, lastCompile } from './manuscript.js'
 import { listMaterials } from './materials.js'
 import { listStatements } from './statements.js'
 import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './noteList.js'
-import { pendingQuestions } from './comments.js'
+import { pendingQuestions, unsortedRecords, userReplies } from './comments.js'
 import { legacyJournalTodos, openTodos } from './todos.js'
 import { RULES_DOC, statusSection } from './tasks.js'
 import { commonRules, type RuleFile } from './agentRules.js'
@@ -230,7 +230,7 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   const asked = pendingQuestions(wb.root)
   if (asked.length) {
     p(`## 대기 중인 질문 ${asked.length}`, '',
-      '> 사용자가 PDF를 읽다 남긴 질문. 답은 그 파일의 해당 질문 아래에 `### 답 · <이름> · YYYY-MM-DD HH:MM`과 답을 적고 끝에 `- 상태: 답함`을 덧붙인다. 블록·원고에 반영했으면 답에 파일과 줄을 남긴다.', '')
+      '> 사용자가 노트 · PDF · 프로젝트에 남긴 질문. 답은 그 파일의 해당 질문 아래에 `### 답 · <이름> · YYYY-MM-DD HH:MM`과 답을 적고 끝에 `- 상태: 답함`을 덧붙인다(MCP `answer_record`, 클라우드는 `pnpm agent:answer`). 첫 줄에 결론, 몇 줄로 쓰고 근거는 파일:줄로 남긴다.', '')
     for (const q of asked) {
       p(`- \`${q.file}\` · ${q.id} · ${q.title}${q.where !== '전체' ? ` ${q.where}` : ''}${q.quote ? ` — "${clip(q.quote, 120)}"` : ''}`)
       if (q.body) p(`  - ${clip(q.body.split('\n')[0]!, 200)}`)
@@ -242,11 +242,29 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   const told = pendingQuestions(wb.root, '지시')
   if (told.length) {
     p(`## 대기 중인 지시 ${told.length}`, '',
-      '> 사용자가 에이전트에게 해 달라고 남긴 작은 일. 한 일을 마친 뒤 그 지시 아래에 `### 답 · <이름> · YYYY-MM-DD HH:MM`과 무엇을 했는지 적고 끝에 `- 상태: 답함`을 덧붙인다(MCP `answer_record`가 같은 일을 한다). 노트는 `edit_note`로 고쳐 사용자가 검토하게 한다. 종결 조건과 보고서가 필요한 큰 일이면 하지 말고 맡긴 일로 옮기자고 답한다.', '')
+      '> 사용자가 에이전트에게 해 달라고 남긴 작은 일. 한 일을 마친 뒤 그 지시 아래에 `### 답 · <이름> · YYYY-MM-DD HH:MM`과 무엇을 했는지 적고 끝에 `- 상태: 답함`을 덧붙인다(MCP `answer_record`, 클라우드는 `pnpm agent:answer`가 같은 일을 한다). 노트는 `edit_note`로 고쳐 사용자가 검토하게 한다. 종결 조건과 보고서가 필요한 큰 일이면 하지 말고 맡긴 일로 옮기자고 답한다.', '')
     for (const q of told) {
       p(`- \`${q.file}\` · ${q.id} · ${q.title}${q.where !== '전체' ? ` ${q.where}` : ''}${q.quote ? ` — "${clip(q.quote, 120)}"` : ''}`)
       if (q.body) p(`  - ${clip(q.body.split('\n')[0]!, 200)}`)
     }
+    p('')
+  }
+
+  // ---------- 사용자가 답한 에이전트 질문 (10/16) ----------
+  const replied = userReplies(wb.root)
+  if (replied.length) {
+    p(`## 사용자가 답한 질문 ${replied.length}`, '',
+      '> 에이전트가 물은 질문에 사용자가 답했다. 답을 읽고 반영한 뒤 그 질문에 무엇을 했는지 답하면 끝냄이 된다(MCP `answer_record`, 클라우드는 `pnpm agent:answer`).', '')
+    for (const q of replied) p(`- \`${q.file}\` · ${q.id} · ${q.title} — 사용자: ${clip(q.body.split('\n')[0]!, 200)}`)
+    p('')
+  }
+
+  // ---------- 분류 전 기록 (10/16) ----------
+  const unsorted = unsortedRecords(wb.root)
+  if (unsorted.length) {
+    p(`## 분류 전 기록 ${unsorted.length}`, '',
+      '> 사용자가 종류를 "자동"으로 남기고 아직 분류하지 않은 기록(분류 전에는 메모). 부탁으로 읽혀도 바로 하지 말고 사용자에게 종류를 묻는다.', '')
+    for (const q of unsorted) p(`- \`${q.file}\` · ${q.id} · ${q.title} — ${clip(q.body.split('\n')[0]!, 200)}`)
     p('')
   }
 
@@ -418,7 +436,7 @@ function noteDirs(notes: { file: string }[]): string[] {
 // 나머지 절은 이름과 크기만 적어 필요할 때 그 절만 받게 한다(MCP project_status section, pnpm agent:status --section).
 
 /** 요약에 그대로 싣는 절: 지금 누가 무엇을 해야 하는지. 이보다 긴 절은 이름만 남긴다 */
-const ACTIONABLE = ['프로젝트 규칙', '작업 파일 오류', '할 일', '맡긴 일', '에이전트 수정 검토 대기', '대기 중인 질문', '대기 중인 지시', '사용자 검토 대기 문서']
+const ACTIONABLE = ['프로젝트 규칙', '작업 파일 오류', '할 일', '맡긴 일', '에이전트 수정 검토 대기', '대기 중인 질문', '대기 중인 지시', '사용자가 답한 질문', '분류 전 기록', '사용자 검토 대기 문서']
 const INLINE_MAX = 1500
 
 interface StatusPart { name: string; heading: string; text: string }

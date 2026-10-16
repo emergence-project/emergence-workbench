@@ -8,6 +8,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { noteRecordTarget } from '@rw/core'
+import { recordRows } from './recordRows.js'
 
 // 기본은 맥의 실사용 서버(scripts/serve.sh, 5174). 예제 모드(pnpm dev, 8130)는 RW_URL로 준다.
 export const DEFAULT_URL = process.env.RW_URL ?? `http://127.0.0.1:${process.env.RW_PORT ?? 5174}`
@@ -32,8 +33,8 @@ export const INSTRUCTIONS = [
   'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server.',
   'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on (a short summary; fetch one section by name when needed).',
   'Outputs are short on purpose: read a longer rule (rules part) or STATUS section (project_status section) only when the work needs it.',
-  'Answer the user\'s questions: list_records with unanswered: true → read_note for the context → answer_record.',
-  'Ask the user to check something (for example a part of a note you wrote): add_record with kind 질문 and the quoted text; the user answers in the app, read it later with read_records.',
+  'Answer the user\'s questions: list_records with unanswered: true → read_note for the context → answer_record (result first, a few lines).',
+  'Ask the user to check something (for example a part of a note you wrote): add_record with kind 질문 and the quoted text; when the user has answered, list_records with replied: true shows it → act on it → answer_record closes it.',
   'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: rules with part: "concepts" (once) → search_library → read_concept → edit_concept.',
   'Delegated tasks: rules with part: "tasks" (once) → list_tasks → read_task.',
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
@@ -226,26 +227,23 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
 
   server.registerTool('list_records', {
     title: 'List records',
-    description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Kinds: 메모 (memo, nobody acts), 할 일 (to-do, the user does it), 질문 (question, an agent answers), 지시 (instruction, an agent does it and then answers). Each row: target, id, kind, by (the agent that wrote it; absent = the user), state, where, quote, part/partText (the screen part the user pointed at), body, answers (by 사용자 = the user\'s follow-up). Use unanswered: true for the user\'s questions and instructions still waiting for an agent (records an agent wrote with add_record are the user\'s turn and are left out). Read one target with read_records when you need its hash.',
+    description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Kinds: 메모 (memo, nobody acts), 할 일 (to-do, the user does it), 질문 (question, an agent answers), 지시 (instruction, an agent does it and then answers). Each row is short: target, id, kind, by (the agent that wrote it; absent = the user), state, where, quote, part, body (first 300 characters), answerCount and lastAnswer (by 사용자 = the user). Pass full: true, or read one target with read_records, for whole bodies and every answer. unanswered: true = the user\'s questions and instructions waiting for an agent. replied: true = questions an agent asked with add_record that the user has answered: read the answer, act on it, then close the record with answer_record. unsorted: true = records the user left as 자동 and has not sorted yet (memos until sorted; if one reads as a request, ask the user in the conversation instead of acting).',
     inputSchema: {
       project,
       kind: z.enum(['메모', '할 일', '질문', '지시']).optional().describe('메모 (memo) | 할 일 (to-do) | 질문 (question) | 지시 (instruction)'),
       state: z.enum(['대기', '답함', '끝냄']).optional().describe('대기 (waiting) | 답함 (answered) | 끝냄 (closed)'),
       target: z.string().optional().describe('Only this target, or a prefix ending in - (note-, topic-, flow- …)'),
       unanswered: z.boolean().optional().describe('Only the user\'s questions and instructions still waiting for an agent (kind 질문 or 지시, state 대기, no by)'),
+      replied: z.boolean().optional().describe('Only agent questions the user has answered (by set, state 답함, last answer by 사용자): yours to act on and close'),
+      unsorted: z.boolean().optional().describe('Only records the user has not sorted into a kind yet'),
+      full: z.boolean().optional().describe('Whole bodies and every answer instead of short rows'),
     },
     annotations: ro,
-  }, async ({ project: rid, kind, state, target, unanswered }) => call(`/api/researches/${enc(rid)}/records`, (b: { files: { target: string; title: string; source?: string; comments: Record<string, unknown>[] }[] }) => ({
-    records: b.files
-      .filter((file) => !target || (target.endsWith('-') ? file.target.startsWith(target) : file.target === target))
-      .flatMap((file) => file.comments
-        .filter((c) => (!kind || c.kind === kind) && (!state || c.state === state) && (!unanswered || ((c.kind === '질문' || c.kind === '지시') && c.state === '대기' && !c.by)))
-        .map((c) => ({ target: file.target, title: file.title, ...pick(c, ['id', 'kind', 'by', 'state', 'where', 'quote', 'part', 'partText', 'edit', 'body', 'answers']) }))),
-  })))
+  }, async ({ project: rid, ...filter }) => call(`/api/researches/${enc(rid)}/records`, (b: { files: Parameters<typeof recordRows>[0] }) => ({ records: recordRows(b.files, filter) })))
 
   server.registerTool('answer_record', {
     title: 'Answer a question or instruction record',
-    description: 'Write your answer under a question (질문) or instruction (지시) record (from list_records or read_records). The answer is appended with your agent name and the record becomes answered (답함); the user reads it in the app. For a question, answer only what was asked. For an instruction, do the small job first (change notes with edit_note so the user reviews them), then answer saying what you did and where; if it needs an end condition and a report, do not start it and answer suggesting a delegated task instead. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
+    description: 'Write your answer under a question (질문) or instruction (지시) record (from list_records or read_records). The answer is appended with your agent name and the record becomes answered (답함); the user reads it in the app. Lead with the result in the first line and keep it to a few lines; cite files as path:line. On a question you asked yourself (by set) that the user answered (list_records replied: true), act on the answer, then answer_record saying what you did: that closes the record (끝냄). For a question, answer only what was asked. For an instruction, do the small job first (change notes with edit_note so the user reviews them), then answer saying what you did and where; if it needs an end condition and a report, do not start it and answer suggesting a delegated task instead. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
     inputSchema: {
       project,
       target: z.string().describe('The record\'s target (project, note-<folder>, topic-<id>, flow-<id> …)'),
@@ -256,8 +254,9 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
   }, async ({ project: rid, target, id, answer }) => {
     const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(target)}/${enc(id)}/answers`, { by: agentOf(server.server.getClientVersion()?.name), body: answer })
     if (!r.ok) return r.error
-    const b = r.body as { hash: string }
-    return text(`Answered. The record is now answered (답함). Records file hash: ${b.hash}.`)
+    const b = r.body as { hash: string; comments?: { id: string; state: string | null }[] }
+    const st = b.comments?.find((c) => c.id === id)?.state ?? '답함'
+    return text(`Answered. The record is now ${st}. Records file hash: ${b.hash}.`)
   })
 
   server.registerTool('add_record', {

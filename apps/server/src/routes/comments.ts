@@ -1,7 +1,7 @@
 // 노트 본문·PDF 기록
 import type { FastifyInstance } from 'fastify'
 import path from 'node:path'
-import { appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, claudeRunner, replyToRecord } from '../ask.js'
+import { agentAnswer, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, claudeRunner, replyToRecord } from '../ask.js'
 import * as C from '@rw/core/contract/comments'
 import { parseBody, replies } from '../contract.js'
 import { addComment, classifyComments, isAgentKind, commentSourceFile, deleteComment, listComments, listRecords, pendingQuestions, readComments, updateComment } from '../comments.js'
@@ -115,17 +115,10 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   app.addHook('onClose', async () => { clearInterval(dailyTimer) })
   ;(app as unknown as { instructionQueue?: ClaudeQueue }).instructionQueue = queue
 
-  /** 에이전트가 쓴 답을 질문 · 지시 아래에 덧붙인다 (MCP answer_record, 10/15). 덧붙이기라 baseHash 없이 쓰기 바로 전에 다시 읽는다. 기록은 답함이 된다 */
+  /** 에이전트가 쓴 답을 질문 · 지시 아래에 덧붙인다 (MCP answer_record, 10/15; 클라우드는 pnpm agent:answer가 같은 agentAnswer를 부른다) */
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/answers', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
-    const { rid, target, id } = req.params
     const { by, body } = parseBody(C.AgentAnswerBody, req.body)
-    const root = wbOf(rid).root
-    const q = readComments(root, target).comments.find((c) => c.id === id)
-    if (!q || !isAgentKind(q.kind)) throw new WorkbenchError(404, t(`질문이나 지시가 없음: ${id}`, `No such question or instruction: ${id}`))
-    if (!body.trim()) throw new WorkbenchError(400, t('답이 비었음', 'The answer is empty'))
-    if (body.length > 20000) throw new WorkbenchError(400, t('답이 너무 김 (2만 자까지)', 'The answer is too long (20,000 characters at most)'))
-    const name = by.replace(/[\s·]+/g, ' ').trim().slice(0, 40) || 'agent'
-    return appendAnswer(root, target, id, name, body)
+    return agentAnswer(wbOf(req.params.rid).root, req.params.target, req.params.id, by, body)
   })
   /** 사용자가 질문 · 지시 아래에 이어 쓴다 (10/15). 사용자가 쓴 기록은 다시 대기(에이전트 차례), 에이전트가 쓴 기록은 답함 */
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/reply', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {

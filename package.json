@@ -15,6 +15,8 @@
     "agent:status": "node scripts/agent-status.mjs",
     "agent:check": "node scripts/agent-check.mjs",
     "agent:feedback": "node scripts/agent-feedback.mjs",
+    "agent:records": "node scripts/agent-records.mjs",
+    "agent:answer": "node scripts/agent-answer.mjs",
     "agent:check-tasks": "node scripts/agent-check-tasks.mjs",
     "mcp": "node scripts/mcp.mjs",
     "design:check": "node scripts/ci/check-design.mjs",
