@@ -79,7 +79,7 @@ export function agentTurnReasons(e: FeedbackItem, now = Date.now()): string[] {
     const edited = e.status?.rework === e.review!.at
     out.push(edited
       ? `처리 뒤에 고친 ${e.review!.verdict} 글 (${e.review!.edited}) — 다시 읽고 처리`
-      : e.review!.verdict === '진행' ? `진행 (${e.review!.at}) — 물은 대로 처리 (규칙 9)` : `수정 요청 (${e.review!.at}) — 다시 처리 (규칙 9)`)
+      : e.review!.verdict === '진행' ? `진행 (${e.review!.at}) — 물은 대로 처리 (규칙 9)` : `수정 요청 (${e.review!.at}) — 다시 처리 (규칙 9) · revised에 miss와 lesson`)
   } else if (!e.status) out.push(`새 항목${e.kind ? ` · ${e.kind}` : ''}`)
   else if (e.status.state === '보류' && !e.status.ask) out.push('보류 (물음 없음)')
   return out
