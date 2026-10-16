@@ -1,0 +1,7 @@
+/*
+ * 공용 부품 (2026-10-15 종합 검토 묶음 G). 여러 화면이 같이 쓰는 부품은 여기에 두고, 화면 파일(styles/<화면>.css)에는
+ * 그 화면만의 자리 · 크기 변형만 둔다. main.tsx에서 base.css 바로 다음에 읽어, 화면 파일이 덮어쓸 수 있다.
+ */
+@import './parts/button.css';
+@import './parts/menu.css';
+@import './parts/tooltip.css';

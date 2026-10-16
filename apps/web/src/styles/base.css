@@ -42,9 +42,6 @@ button.a { text-align: inherit; }
 .icon-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
 .icon-btn:disabled { opacity: .35; cursor: default; }
 .icon-btn.on { background: var(--bg-hover); color: var(--text); }
-/* 기호만 쓰는 버튼의 이름표: 가리키면 아래에 작게 뜬다 (10/4 20:44). title 대신 data-tip */
-.icon-btn[data-tip] { position: relative; }
-.icon-btn[data-tip]:hover::after, .icon-btn[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + 2px); left: 50%; transform: translateX(-50%); z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-normal); padding: 2px var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
 .icon-btn svg, .rail-btn svg, .segmented svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 .segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-sunken); border-radius: var(--r-md); }

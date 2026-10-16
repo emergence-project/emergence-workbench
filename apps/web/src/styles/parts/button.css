@@ -1,0 +1,2 @@
+/* 버튼 크기 변형 (공용 부품). 기본 .btn · .btn.primary는 base.css */
+.btn.sm { height: 22px; padding: 0 6px; font-size: var(--fs-xs); }

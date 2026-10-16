@@ -10,9 +10,6 @@
 .topbar .tb-crumb.tb-proj { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); margin: 0; }
 .topbar .tb-c:last-child .tb-crumb { color: var(--text); font-weight: var(--fw-medium); }
 .topbar .tb-sepch { color: var(--text-3); }
-/* 양 끝 버튼의 이름표가 창 밖으로 나가지 않게 */
-.icon-btn[data-tip].tip-start:hover::after, .icon-btn[data-tip].tip-start:focus-visible::after { left: 0; transform: none; }
-.icon-btn[data-tip].tip-end:hover::after, .icon-btn[data-tip].tip-end:focus-visible::after { left: auto; right: 0; transform: none; }
 .icon-btn svg path[fill], .icon-btn svg circle[fill] { stroke-width: 0; }
 
 /* 칸 머리(탭 줄)는 늘 보이고, 두 칸이면 끌어서 맞바꾼다 */
