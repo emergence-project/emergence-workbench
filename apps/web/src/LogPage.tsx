@@ -12,7 +12,7 @@ import { openFlowDot } from './FlowView'
 import { needsJudgment } from './taskView'
 import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, WORK_FILTER_EVENT, WORK_FILTER_KEY, workRecordGroups, type WorkFilter, type WorkSection } from './workRecords'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
-import { useJournal } from './useJournal'
+import { useJournal, useProjectInfo } from './projectQueries'
 import { JudgeList, TaskDialog, TaskList, TaskWeek, useTasks, type TaskDraft } from './WorkTasks'
 import { t } from './i18n'
 
@@ -38,7 +38,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
   rid: string; rapi: ResearchApi; summary: ResearchSummary; version: number; topics: Topic[]; onSaved(message: string, action?: FlashAction): void; focus?: 'log'
   firstPartOf(target: string): string | undefined; onOpenPdf(file: RecordFile): boolean; section?: WorkSection
 }) {
-  const { entries, loaded: journalLoaded, reload, toggle } = useJournal(rapi, version)
+  const { entries, loaded: journalLoaded, reload, toggle } = useJournal(rapi)
   const edit = useJournalEdit(rapi, reload, onSaved)
   const titleOf = useTitles(summary)
   // 할 일의 정본은 기록 파일이다 (2026-10-16). 일지에는 끝낸 일 · 상태 · 메모 (예전 일지의 끝낸 할 일 포함)
@@ -103,14 +103,9 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     }
     if (!entry.lost) revealComment(rid, file.target, entry.id)
   }
-  const [projectResult, setProjectResult] = useState<{ rapi: ResearchApi; version: number; project: ProjectInfo | null } | null>(null)
-  useEffect(() => {
-    let current = true
-    rapi.project().catch(() => null).then((project) => { if (current) setProjectResult({ rapi, version, project }) })
-    return () => { current = false }
-  }, [rapi, version])
-  const project = projectResult?.rapi === rapi ? projectResult.project : null
-  const projectLoaded = projectResult?.rapi === rapi && projectResult.version === version
+  const projectQuery = useProjectInfo(rid)
+  const project = projectQuery.data ?? null
+  const projectLoaded = projectQuery.isFetched
   const reviews = project?.reviews.filter((r) => awaitsUserReview(r.status)) ?? []
   const logRef = useRef<HTMLElement>(null)
   const scrolled = useRef(false)

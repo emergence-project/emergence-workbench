@@ -92,7 +92,7 @@ export const GLOBAL_PAGES: {
     render: (p) => <NetworkPage person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     badge: () => <NetworkRailCount /> },
   { page: 'feedback', label: '피드백', name: t('피드백', 'Feedback'), aria: t('피드백 모아 보기', 'All feedback'), tip: t('피드백 모아 보기 — 반영 여부', 'All feedback and whether it was applied'), icon: Icon.feedback, rail: 'bottom', render: (p) => <FeedbackPage version={p.version} />,
-    badge: (version) => <FeedbackRailCount version={version} /> },
+    badge: () => <FeedbackRailCount /> },
   // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)
   { page: 'review', label: '고침 검토', name: t('고침 검토', 'Edit review'), aria: t('개념노트 고침 검토', 'Review concept note edits'), tip: t('개념노트 고침 검토', 'Review concept note edits'), icon: Icon.review, rail: 'none',
     render: (p) => <Lazy><AgentEditsPage selected={p.route.page === 'review' ? p.route.key : undefined} version={p.version} onSaved={p.onSaved} /></Lazy> },

@@ -385,7 +385,7 @@ export function App() {
           onChanged={() => { changed(); void loadResearches() }} onSaved={flash} />
       )
       case 'overview': return (
-        <OverviewPage rid={rid} rapi={rapi} summary={summary} notes={notes} project={current?.title ?? summary.research.title} pc={projectColor(rid)} version={version} anchor={route.page === 'overview' ? route.anchor : undefined}
+        <OverviewPage rid={rid} rapi={rapi} summary={summary} notes={notes} project={current?.title ?? summary.research.title} pc={projectColor(rid)} anchor={route.page === 'overview' ? route.anchor : undefined}
           listed={current} all={researches ?? []} onProfile={setProfile}
           onChanged={() => { changed(); notesChanged() }} onSaved={flash} />
       )
@@ -429,8 +429,8 @@ export function App() {
           ) : current && <>
             {/* 프로젝트 이름은 제목줄에만 둔다 (10/3 피드백: 중복 없애기) */}
             <div className="side-scroll project-side-scroll">
-              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} version={version} route={route} todoCount={todoCount} askCount={issues.records[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
-                materials={rapi && <MaterialsNav rid={current.id} rapi={rapi} route={route} version={version} onSaved={flash} library={library} onLibraryChanged={libraryChanged} />} /> : <div className="space-empty">{current.problem ?? t('불러오는 중…', 'Loading…')}</div>}
+              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} route={route} todoCount={todoCount} askCount={issues.records[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
+                materials={rapi && <MaterialsNav rid={current.id} rapi={rapi} route={route} onSaved={flash} library={library} onLibraryChanged={libraryChanged} />} /> : <div className="space-empty">{current.problem ?? t('불러오는 중…', 'Loading…')}</div>}
             </div>
           </>}
         </aside>}

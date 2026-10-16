@@ -10,6 +10,7 @@ import { PROJECT_KIND_LABEL } from './projectProfile'
 import { locale, plural, t } from './i18n'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
 import { splitStatus, statusBody } from './statusBody'
+import { useProjectInfo } from './projectQueries'
 
 function PathName({ path }: { path: string }) {
   const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
@@ -36,8 +37,7 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
 }) {
   const { research, blocks, statements, root } = summary
   const [editing, setEditing] = useState(false)
-  const [project, setProject] = useState<ProjectInfo | null>(null)
-  useEffect(() => { rapi.project().then(setProject).catch(() => setProject(null)) }, [rapi, version])
+  const project = useProjectInfo(rid).data ?? null
   const n = (s: string) => blocks.filter((b) => statusOf(b.status) === s).length
   const src = project?.sources
   const list = (xs: string[] | undefined) => xs?.length ? xs.map((x) => <PathName key={x} path={x} />) : <span className="muted">{t('없음', 'None')}</span>

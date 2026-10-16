@@ -24,6 +24,18 @@ export const qk = {
   manuscripts: (rid: string) => ['project', rid, 'manuscripts'] as const,
   journal: (rid: string, days: number) => ['project', rid, 'journal', days] as const,
   sync: (rid: string) => ['project', rid, 'sync'] as const,
+  /** 프로젝트 정보: research.yaml sources · 작업 목록 · 검토 문서 */
+  info: (rid: string) => ['project', rid, 'info'] as const,
+  materials: (rid: string) => ['project', rid, 'materials'] as const,
+  /** 주제 카드와 그 수: 주제 키 아래에 두어 주제를 다시 받을 때 함께 */
+  topicsOverview: (rid: string) => ['project', rid, 'topics', 'overview'] as const,
+  /** 지운 노트: 노트 키 아래에 두어 노트를 다시 받을 때 함께 */
+  noteTrash: (rid: string) => ['project', rid, 'notes', 'trash'] as const,
+  /** 에이전트 고침 검토 목록. scope = 프로젝트 id 또는 library */
+  agentEdits: (scope: string) => ['agent-edits', scope] as const,
+  papers: ['papers'] as const,
+  /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
+  feedback: ['feedback'] as const,
 }
 
 /**
@@ -31,36 +43,34 @@ export const qk = {
  * 서버 쪽의 같은 표는 app.ts broadcast의 캐시 비우기(B 묶음)다.
  */
 export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
-  if (e.type === 'library') return [qk.library]
+  // 라이브러리의 개념노트를 에이전트가 고치면 라이브러리 고침 검토도 바뀐다
+  if (e.type === 'library') return e.part === 'papers' ? [qk.library, qk.papers] : e.part === 'concepts' ? [qk.library, qk.agentEdits('library')] : [qk.library]
   const rid = e.research
   switch (e.type) {
     // research.yaml(제목 · 주제 · 원고 선언 …)이 바뀌면 그 프로젝트의 모든 자료와 프로젝트 목록
-    case 'research': return [qk.project(rid), qk.researches]
-    // 블록 노트: 요약(블록 줄 · 나무), 노트 목록(블록 노트 줄), 주제 카드 수, 라이브러리의 "쓰는 곳"
-    case 'block': return [qk.summary(rid), qk.notes(rid), qk.topics(rid), qk.library]
-    // 노트 파일: 노트 목록 · 주제 카드 수 · 원고(노트도 원고일 수 있다) · 라이브러리의 "쓰는 곳"
-    case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library]
+    case 'research': return [qk.project(rid), qk.researches, qk.agentEdits(rid)]
+    // 블록 노트: 요약(블록 줄 · 나무), 노트 목록(블록 노트 줄), 주제 카드 수, 라이브러리의 "쓰는 곳", 고침 검토(에이전트가 고친 노트)
+    case 'block': return [qk.summary(rid), qk.notes(rid), qk.topics(rid), qk.library, qk.agentEdits(rid)]
+    // 노트 파일: 노트 목록 · 주제 카드 수 · 원고(노트도 원고일 수 있다) · 라이브러리의 "쓰는 곳" · 고침 검토
+    case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library, qk.agentEdits(rid)]
     case 'statement': return [qk.summary(rid)]
     // 기록: 요약의 할 일
     case 'comments': return [qk.summary(rid)]
     case 'journal': return [['project', rid, 'journal']]
-    // research.yaml sources의 파일(원고 · 그림 · 참고 자료)
-    case 'sources': return [qk.manuscripts(rid)]
+    // research.yaml sources의 파일(원고 · 그림 · 참고 자료 · 작업 목록 · 검토 문서)
+    case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid)]
     case 'preamble': case 'tasks': case 'flow': case 'records-publish': return []
   }
 }
 
 /**
- * 알림은 몰려서 온다(저장 한 번, 에이전트가 파일 여러 개를 한꺼번에 바꿀 때). 잠깐(0.4초) 모은 키를 한 번에 다시 받는다.
- * 같은 키가 겹치면 한 번만.
+ * 알림은 몰려서 온다(저장 한 번, 에이전트가 파일 여러 개를 한꺼번에 바꿀 때). 첫 알림은 바로 다시 받고,
+ * 그 뒤 잠깐(0.4초) 동안 온 키는 모았다가 한 번에(겹침 없이) 다시 받는다.
  */
 export function batchInvalidation(client: QueryClient, wait = 400) {
   let pending: QueryKey[] = []
   let timer: ReturnType<typeof setTimeout> | undefined
-  const flush = () => {
-    timer = undefined
-    const keys = pending
-    pending = []
+  const run = (keys: QueryKey[]) => {
     const seen = new Set<string>()
     for (const key of keys) {
       const id = JSON.stringify(key)
@@ -69,13 +79,16 @@ export function batchInvalidation(client: QueryClient, wait = 400) {
       void client.invalidateQueries({ queryKey: key })
     }
   }
+  const close = () => {
+    const keys = pending
+    pending = []
+    if (keys.length) { run(keys); timer = setTimeout(close, wait) } else timer = undefined
+  }
   return {
     add(keys: QueryKey[]) {
       if (!keys.length) return
-      pending.push(...keys)
-      clearTimeout(timer)
-      timer = setTimeout(flush, wait)
+      if (timer === undefined) { run(keys); timer = setTimeout(close, wait) } else pending.push(...keys)
     },
-    cancel() { clearTimeout(timer); pending = [] },
+    cancel() { clearTimeout(timer); timer = undefined; pending = [] },
   }
 }

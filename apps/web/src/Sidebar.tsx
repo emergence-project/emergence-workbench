@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { agentEditsApi, papersApi, type ManuscriptInfo, type NoteRow, type ResearchApi, type Topic } from './api'
+import { type ManuscriptInfo, type NoteRow, type ResearchApi, type Topic } from './api'
 import { Icon } from './icons'
 import { openPart } from './Manuscript'
 import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
@@ -11,6 +11,7 @@ import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { byStar } from './Topics'
 import { t } from './i18n'
+import { useAgentEdits, useMaterials, usePapers } from './projectQueries'
 
 /**
  * 왼쪽 사이드바 = 지금 프로젝트에서 어디로 갈지 (10/5 시안 S2 "주제 › 노트 나무").
@@ -27,10 +28,10 @@ export function noteOfRoute(route: Route, notes: NoteRow[]): NoteRow | null {
   return null
 }
 
-export function ResearchNav({ rid, rapi, route, materials, todoCount, askCount = 0, manuscripts, topics, notes, version }: {
+export function ResearchNav({ rid, rapi, route, materials, todoCount, askCount = 0, manuscripts, topics, notes }: {
   rid: string; rapi: ResearchApi; route: Route; materials: ReactNode; todoCount: number | null
   /** 에이전트가 물어 사용자 답을 기다리는 기록 수 (10/15, 사용자 차례 주황 알약) */
-  askCount?: number; manuscripts: ManuscriptInfo[]; topics: Topic[]; notes: NoteRow[]; version: number
+  askCount?: number; manuscripts: ManuscriptInfo[]; topics: Topic[]; notes: NoteRow[]
 }) {
   const sidebar = useRef<HTMLDivElement>(null)
   const tocMaxHeight = useTocMaxHeight(sidebar)
@@ -47,18 +48,19 @@ export function ResearchNav({ rid, rapi, route, materials, todoCount, askCount =
   useEffect(() => { if (route.page === 'doc') setRefsOpen(true) }, [route.page])
   const isOpen = (g: Group) => open.includes(g)
   const toggle = (g: Group) => setOpen((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]))
-  const [matCount, setMatCount] = useState<number | null>(null)
-  useEffect(() => {
-    // 라이브러리 bib에 있는 논문의 PDF는 참고 자료에 두지 않으므로 세지 않는다 (Materials.tsx와 같게)
-    Promise.all([rapi.materials(), papersApi.list().catch(() => null)]).then(([d, p]) => {
-      const lib = new Set(p?.library ? p.papers.map((x) => x.key) : [])
-      setMatCount(d.bib.filter((e) => e.file && !lib.has(e.key)).length + d.files.filter((f) => !f.bibKey).length)
-    }).catch(() => setMatCount(null))
-  }, [rapi, version])
+  // 라이브러리 bib에 있는 논문의 PDF는 참고 자료에 두지 않으므로 세지 않는다 (Materials.tsx와 같게). 화면 캐시에서 참고 자료 목록과 함께 쓴다
+  const materialList = useMaterials(rid)
+  const paperList = usePapers()
+  const matCount = (() => {
+    const d = materialList.data
+    if (!d || !paperList.isFetched) return null
+    const lib = new Set(paperList.data?.library ? paperList.data.papers.map((x) => x.key) : [])
+    return d.bib.filter((e) => e.file && !lib.has(e.key)).length + d.files.filter((f) => !f.bibKey).length
+  })()
 
   // 고침 검토 (10/14): 이 프로젝트에서 검토할 노트 수 + 확인된 노트 고치기 요청 수
-  const [editCount, setEditCount] = useState(0)
-  useEffect(() => { agentEditsApi.list(rid).then((v) => setEditCount(v.reviews.length + v.attempts.length)).catch(() => setEditCount(0)) }, [rid, version])
+  const edits = useAgentEdits(rid).data
+  const editCount = edits ? edits.reviews.length + edits.attempts.length : 0
 
   const known = new Set(topics.map((t) => t.id))
   const notesOf = (g: Group) => notes.filter((n) => (g === LOOSE ? !n.topics.some((t) => known.has(t)) : n.topics[0] === g))
