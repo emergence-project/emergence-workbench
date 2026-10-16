@@ -9,7 +9,7 @@
   --line-strong: #dcdcda;
   --text: #0d0d0d;
   --text-2: #5c5c59;
-  --text-3: #8e8e8a;
+  --text-3: #73736f; /* 흰 바탕 명암비 4.76:1, 사이드바 바탕 4.52:1 (WCAG AA 4.5:1) */
   --primary: #0d0d0d;
   --on-primary: #ffffff;
   --link: #5c5c59; /* 입력칸 초점 테두리에만. 무채색: 파랑은 상태(진행)에만 */
@@ -58,7 +58,10 @@
   --card-picker-preview-height: 96px;
   --card-picker-thumb-width: 36px;
   --card-picker-border: 1px;
-  --z-card-picker: 51;
+  /* 겹침 순서 (위로 갈수록 앞): 툴팁 < 메뉴 < 빠른 메모 < 창 · 떠 있는 메뉴 < 창 위의 창 · 피드백 버튼 < 알림 < 피드백 모드.
+     부품 안의 작은 겹침(1–9)은 숫자로 둔다 */
+  --z-tooltip: 30; --z-menu: 40; --z-quick: 45; --z-overlay: 50; --z-overlay-top: 51; --z-toast: 60; --z-feedback: 70;
+  --z-card-picker: var(--z-overlay-top);
   /* 논문 표: 제목은 최소 폭이며 남는 폭을 채운다. 크기는 라이트·다크가 함께 쓴다. */
   --pl-col-title: 200px; --pl-col-authors: 170px; --pl-col-year: 64px;
   --pl-col-venue: 190px; --pl-col-arxiv: 100px; --pl-col-projects: 150px;

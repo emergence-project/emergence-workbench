@@ -13,6 +13,7 @@ const RULES = [
   [/font-size:\s*[0-9.]+px|calc\([0-9.]+px \* var\(--ui-scale/, '글자 크기는 --fs-* 로'],
   [/font-weight:\s*\d/, '글자 굵기는 --fw-* 로'],
   [/border-radius:[^;}]*\b(?:[4-9]|\d{2,})px/, '모서리는 --r-* 로 (3px 이하 작은 표시는 예외)'],
+  [/z-index:\s*\d{2,}/, '겹침 순서 10 이상은 --z-* 로 (부품 안의 1–9는 숫자)'],
   [/\b(?:padding|margin|gap|row-gap|column-gap)(?:-[a-z]+)?\s*:[^;}]*(?<![\w.-])(?:4|8|12|16|24|32)px\b/, '간격 4·8·12·16·24·32px는 --sp-1…6 으로'],
 ]
 

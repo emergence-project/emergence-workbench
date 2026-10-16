@@ -1,5 +1,5 @@
 /* 메뉴 (공용 부품, 디자인 문서 3절): 버튼 아래에 뜨는 고르기 목록. 잘리지 않게 열 자리는 화면이 정한다(6절) */
-.menu { position: absolute; z-index: 40; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-1); min-width: 150px; }
+.menu { position: absolute; z-index: var(--z-menu); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-1); min-width: 150px; }
 .menu button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 6px 10px; border-radius: var(--r-sm); text-align: left; font-size: var(--fs-sm); }
 .menu button:hover { background: var(--bg-hover); }
 .menu button.on { font-weight: var(--fw-strong); }
