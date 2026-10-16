@@ -13,7 +13,7 @@ import { MathText } from './cardParts'
 import { StatusDot } from './StatusDot'
 import { routeOfNote } from './RightSidebar'
 import { go } from './router'
-import { assignTracks, planRoute, roundedPath, routePoints } from './flowRoute'
+import { planRoute, roundedPath, routePoints } from './flowRoute'
 import { store } from './store'
 import { setFlowSelection } from './flowSelection'
 import { Dialog } from './dialogs'
@@ -35,7 +35,7 @@ const KIND: Record<Mark, { act: boolean; name: () => string; def: () => string }
   calc: { act: true, name: () => tr('수치 계산', 'Numerical calculation'), def: () => tr('컴퓨터로 수치를 구하는 계산. 모형·크기·매개변수와 코드가 있고, 결과가 수치·그림이다.', 'A computation of numbers: model, size, parameters and code, with numbers or figures as the result.') },
   analytic: { act: true, name: () => tr('이론 계산', 'Analytic calculation'), def: () => tr('식으로 값이나 표현을 구하는 계산. 주장의 참을 보이는 것은 증명이다.', 'Deriving a value or expression by hand. Showing a claim true is a proof.') },
   proof: { act: true, name: () => tr('증명', 'Proof'), def: () => tr('증명 또는 유도. 가정에서 결론으로 가는 단계가 있다. 실패한 시도도 포함한다.', 'A proof or derivation, with steps from assumptions to conclusion. Failed attempts count too.') },
-  literature: { act: true, name: () => tr('문헌', 'Literature'), def: () => tr('선행 연구의 검토. 검토 자체가 다음 걸음을 낳았을 때만 점이고, 근거로 쓴 논문은 받는 점 위의 §로 붙는다.', 'Reviewing prior work. A dot only when the review led to the next step; papers used as evidence hang as § above the dot.') },
+  literature: { act: true, name: () => tr('문헌', 'Literature'), def: () => tr('선행 연구의 검토. 검토 자체가 다음 걸음을 낳았을 때만 점이고, 근거로 쓴 논문은 받는 점의 근거 표에 적는다.', 'Reviewing prior work. A dot only when the review led to the next step; papers used as evidence go in the dot\'s evidence table.') },
 }
 const FIELD: Record<string, () => string> = {
   question: () => tr('물음', 'Question'), guess: () => tr('예상 답', 'Expected answer'), motivation: () => tr('동기', 'Motivation'),
@@ -91,7 +91,7 @@ const MarkIcon = ({ n, size = 20 }: { n: FlowNode; size?: number }) =>
 
 const ZS = [0.5, 0.67, 0.8, 1, 1.25, 1.5]
 const CW0 = 116, RH0 = 76, TOP = 30, LEFT = 30
-const H_KEY = 'rw-flow-h', Z_KEY = 'rw-flow-zoom', SEL_KEY = 'rw-flow-sel'
+const H_KEY = 'rw-flow-h', Z_KEY = 'rw-flow-zoom', SEL_KEY = 'rw-flow-sel', NAME_KEY = 'rw-flow-names'
 const DEFAULT_H = TOP + 5 * RH0 + 16
 
 type TopicRef = { id: string; title: string }
@@ -177,6 +177,9 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
   const setSel = (id: string | null) => { if (id !== sel) setEditing(null); reveal.current = !!id; setSelState(id); store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: id ?? undefined }) }
   const [zoom, setZoomState] = useState<{ x: number; y: number; fit: boolean }>(() => store.get(Z_KEY, { x: 1, y: 1, fit: false }))
   const setZoom = (z: typeof zoom) => { setZoomState(z); store.set(Z_KEY, z) }
+  // 점 이름 (짧은 제목) 켜기·끄기 (10/16): 꺼도 고른 점과 그 앞뒤 점의 이름은 보인다
+  const [names, setNamesState] = useState(() => store.get<boolean>(NAME_KEY, true))
+  const setNames = (v: boolean) => { setNamesState(v); store.set(NAME_KEY, v) }
   const [height, setHeightState] = useState(() => store.get<number>(H_KEY, DEFAULT_H))
   const setHeight = (h: number) => { setHeightState(h); store.set(H_KEY, h) }
   const box = useRef<HTMLDivElement>(null)
@@ -265,11 +268,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
   const busyCells = new Set(lay.placed.map((q) => `${q.c}:${q.r}`))
   const busy = (c: number, r: number) => busyCells.has(`${c}:${r}`)
   const geo = { X, Y, CW, RH }
-  const plans = lay.lines.map((l) => { const p = at.get(l.from)!, n = at.get(l.to)!; return { key: `${l.from}>${l.to}`, from: l.from, plan: planRoute(p, n, busy), c0: Math.min(p.c, n.c), c1: Math.max(p.c, n.c) } })
-  const tracks = assignTracks(plans)
-  const planOf = new Map(plans.map((x) => [x.key, x.plan]))
-  const route = (p: { c: number; r: number }, n: { c: number; r: number }, key?: string) =>
-    roundedPath(routePoints(p, n, (key && planOf.get(key)) || planRoute(p, n, busy), geo, key ? tracks.get(key) ?? 0 : 0))
+  const route = (p: { c: number; r: number }, n: { c: number; r: number }) => roundedPath(routePoints(p, n, planRoute(p, n, busy), geo))
 
   const s = sel ? byId.get(sel) : undefined
   /** 점 누르기: 앞선 점을 고르는 중이면 넣고 빼기, 아니면 고르기 */
@@ -304,6 +303,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
           <span className="fl-zl">{tr('세로', 'Height')}</span>
           <button className="icon-btn" title={tr('세로 좁히기', 'Shorter')} aria-label={tr('세로 좁히기', 'Shorter')} onClick={() => step('y', -1)}>−</button>
           <button className="icon-btn" title={tr('세로 넓히기', 'Taller')} aria-label={tr('세로 넓히기', 'Taller')} onClick={() => step('y', 1)}>＋</button>
+          <button className={`btn small${names ? ' on' : ''}`} data-ui="흐름 이름 보기" aria-pressed={names} title={tr('점 이름 켜기·끄기 (꺼도 고른 점과 그 앞뒤 점은 보임)', 'Show or hide dot names (the selected dot and its lineage still show)')} onClick={() => setNames(!names)}>{tr('이름', 'Names')}</button>
           <button className={`btn small${zoom.fit ? ' on' : ''}`} aria-pressed={zoom.fit} title={tr('가로를 상자 폭에 맞추기', 'Fit the width to the box')} onClick={() => setZoom({ ...zoom, fit: !zoom.fit })}>{tr('전체 보기', 'Fit')}</button>
         </span>}
         <button className="btn small" data-ui="흐름 점 더하기" title={tr('앞선 점 없이 새로 시작하는 점을 더합니다. 이어지는 점은 점을 누르고 자세히의 ＋로', 'Add a dot that starts fresh. For a following dot, select a dot and use ＋ in its details')}
@@ -321,7 +321,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
             const on = edgeOn(l.from, l.to)
             const cls = `fl-e${on ? ' on' : ''}${l.type === 'use' ? ' use' : p.node.kind === 'literature' ? ' lit' : ''}`
             return <g key={`${l.from}>${l.to}`}>
-              <path className={cls} d={route(p, n, `${l.from}>${l.to}`)}><title>{EDGE[l.type]!()}</title></path>
+              <path className={cls} d={route(p, n)}><title>{EDGE[l.type]!()}</title></path>
               {l.type === 'refute' && <path className={`fl-bar-x${on ? ' on' : ''}`} d={`M${x2 - 24} ${y2 - 7}V${y2 + 7}`} />}
             </g>
           })}
@@ -339,7 +339,6 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
           {lay.placed.map(({ node: n, c, r }) => {
             const picked = !!picking?.includes(n.id) || !!draft?.from.includes(n.id)
             const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = inLin(n.id) && !on && !picked
-            const refs = n.evidence.filter((e) => e.kind === 'paper' && e.ref)
             const hot = !!focus && n.topics.includes(focus)
             const start = !n.from.length
             return <g key={n.id} className={`fl-node${on ? ' sel' : ''}${picked ? ' pick' : ''}`} tabIndex={0} role="button" data-id={n.id}
@@ -370,20 +369,13 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
                 ? <rect className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} x={x - 18} y={y - 18} width={36} height={36} rx={8} />
                 : <circle className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} cx={x} cy={y} r={19} />)}
               <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot || picked} />
-              {refs.length > 0 && <g className="fl-refs">
-                <title>{refs.map((e) => e.ref).join('\n')}</title>
-                <path className="fl-e lit" d={`M${x} ${y - 22}L${x} ${y - 17}`} />
-                {refs.length > 1 && <rect className="fl-ref" x={x - 6} y={y - 45} width={18} height={18} rx={4} />}
-                <rect className="fl-ref" x={x - 9} y={y - 42} width={18} height={18} rx={4} />
-                <text className="fl-ref-t" x={x} y={y - 28.5} textAnchor="middle">§</text>
-              </g>}
               {/* 시작점 ▶는 차트 왼쪽 벽에 붙여 한 세로줄에 세운다 (10/15 12:11 제안). 그 줄에서 앞에 다른 점이 없으면 점까지 선으로 잇는다 */}
               {start && <g className="fl-startmark"><title>{tr('시작점: 앞선 점이 없다', 'Start: no earlier dot')}</title>
                 <path className="fl-start" d={`M${LEFT - 22} ${y - 7}L${LEFT - 13} ${y}L${LEFT - 22} ${y + 7}Z`} />
                 {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
               </g>}
               {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('갈래 종결', 'Branch closed')}</title></line>}
-              {!compact || on ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : <title>{n.short} · {n.title}</title>}
+              {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : <title>{n.short} · {n.title}</title>}
             </g>
           })}
         </svg>
@@ -886,7 +878,6 @@ export function FlowSymbolTable() {
     { mark: line('fl-e'), name: `${EDGE.origin!()} · ${EDGE.support!()} · ${EDGE.refute!()}`, meaning: tr('앞 걸음이 이 걸음을 낳음 · 받침 · 반박함. 선을 가리키면 이름이 뜹니다', 'The earlier step started, supports or refutes this one. Hover a line to see its name') },
     { mark: line('fl-e use'), name: EDGE.use!(), meaning: tr('앞 걸음의 결과를 가져다 씀 (점선)', 'Uses the earlier step\'s result (dotted)') },
     { mark: line('fl-e lit'), name: tr('문헌에서', 'From literature'), meaning: tr('문헌 점에서 나온 선 (끊긴 선)', 'A line from a literature dot (dashed)') },
-    { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><rect className="fl-ref" x={6} y={6} width={18} height={18} rx={4} /><text className="fl-ref-t" x={15} y={19.5} textAnchor="middle">§</text></svg>, name: tr('근거 논문', 'Evidence paper'), meaning: tr('점 위에 붙은 §: 근거로 단 논문 (둘 이상이면 겹침)', '§ above a dot: papers attached as evidence (stacked when several)') },
     { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><path className="fl-start" d="M9 8L18 15L9 22Z" /></svg>, name: tr('시작점', 'Start'), meaning: tr('앞선 점이 없는 점', 'A dot with no earlier dot') },
     { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><line className="fl-end" x1={15} y1={5} x2={15} y2={25} /></svg>, name: tr('갈래 종결', 'Branch closed'), meaning: tr('이 갈래는 여기서 끝냄', 'This branch ends here') },
   ]

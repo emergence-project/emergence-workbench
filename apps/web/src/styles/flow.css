@@ -35,8 +35,6 @@
 .fl-start-line { fill: none; stroke: var(--line-strong); stroke-width: 1.6; }
 
 .fl-end { stroke: var(--s-solved); stroke-width: 2.5; }
-.fl-ref { fill: var(--bg); stroke: var(--s-stopped); stroke-width: 1.3; }
-.fl-ref-t { font-size: var(--fs-sm); font-weight: var(--fw-strong); fill: var(--s-stopped); }
 
 /* 점 기호: --c 상태 색, 속이 찬 것은 글자가 바탕색 */
 .fl-m { --c: var(--s-progress); --gc: var(--bg); }
