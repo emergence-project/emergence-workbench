@@ -4,6 +4,7 @@
  */
 import { z } from 'zod'
 import { UI_OPTIONS, type UiSettings as UiSettingsType } from '../ui-settings.js'
+import { INSTRUCTION_HOURS, INSTRUCTION_MODES } from '../agent-settings.js'
 
 type Key = keyof typeof UI_OPTIONS
 const choice = <K extends Key>(k: K) =>
@@ -28,5 +29,15 @@ export const SettingsView = z.object({ ui: UiSettings }).strict()
 /** 바꿀 것만 보낸다. 고를 수 없는 값과 모르는 칸은 서버(normalizeUi)가 무시한다 (예전 설정·다른 버전의 화면과 부딪히지 않게) */
 export const SettingsBody = z.object({ ui: z.custom<Partial<UiSettingsType>>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' }) })
 
+/** GET · PUT /settings/agents (설정 › 에이전트) */
+export const AgentSettings = z.object({
+  instructions: z.enum(INSTRUCTION_MODES),
+  at: z.custom<string>((v) => INSTRUCTION_HOURS.includes(v as string), { message: 'Expected HH:00' }),
+}).strict()
+/** 바꿀 것만 보낸다. 고를 수 없는 값은 서버(normalizeAgentSettings)가 무시한다 */
+export const AgentSettingsBody = z.custom<Partial<z.infer<typeof AgentSettings>>>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' })
+
+export type AgentSettings = z.infer<typeof AgentSettings>
+export type AgentSettingsBody = z.input<typeof AgentSettingsBody>
 export type SettingsView = z.infer<typeof SettingsView>
 export type SettingsBody = z.input<typeof SettingsBody>

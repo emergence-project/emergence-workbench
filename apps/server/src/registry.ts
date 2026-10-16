@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, newTemplateId, normalizeAuthors, normalizePeople, normalizeTemplate, normalizeTemplates, normalizeUi, type Author, type LatexTemplate, type Person, type UiSettings } from '@rw/core'
+import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, newTemplateId, normalizeAuthors, normalizePeople, normalizeTemplate, normalizeTemplates, normalizeUi, normalizeAgentSettings, type AgentSettings, type Author, type LatexTemplate, type Person, type UiSettings } from '@rw/core'
 import YAML from 'yaml'
 import { isLatexSafePath, writeAtomic } from './fsutil.js'
 import { describeTex, findRepoPreambles, listLibraryPreambles, type TexDefinitions } from './library.js'
@@ -14,7 +14,7 @@ import { PROJECT_COLORS, type ProjectColor, type ProjectKind, type ProjectState,
  * 연구 저장소 경로는 기기마다 다르므로 git 저장소가 아니라 여기에 둔다.
  */
 /** load()가 읽어 AppConfig로 옮기는 키. latex는 예전 서식 하나(latexTemplates로 옮김). 이 밖의 키는 저장할 때 그대로 둔다 */
-const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex'])
+const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex', 'agents'])
 
 export interface AppConfig {
   engine: Engine
@@ -31,6 +31,8 @@ export interface AppConfig {
   researches: RegisteredResearch[]
   /** 설정 화면의 화면 설정 (테마, 글자 크기, 편집기 글꼴 등) */
   ui: UiSettings
+  /** 설정 › 에이전트 (지시를 맥의 Claude가 언제 하는지) */
+  agents: AgentSettings
   /** LaTeX 서식 모음 (article·PRL·beamer …). 서식마다 문서 종류 줄, 공통 줄, 패키지 */
   latexTemplates: LatexTemplate[]
   /** 내보낼 때 쓰는 서식의 id */
@@ -204,6 +206,15 @@ export class Registry {
     return this.config.ui
   }
 
+  get agents(): AgentSettings { return this.config.agents }
+
+  /** 바꾼 항목만 받아 합친다. 고를 수 없는 값은 무시한다 */
+  setAgents(patch: unknown): AgentSettings {
+    this.config.agents = normalizeAgentSettings(patch, this.config.agents)
+    this.save()
+    return this.config.agents
+  }
+
   get latexTemplates(): LatexTemplate[] { return this.config.latexTemplates }
   get latexDefault(): string { return this.config.latexDefault }
   get authors(): Author[] { return this.config.authors }
@@ -303,7 +314,7 @@ export class Registry {
     // 예전 설정의 latex:(서식 하나)는 PRL 서식으로 옮긴다
     const latexTemplates = normalizeTemplates(raw.latexTemplates, raw.latex, raw.latexBuiltins)
     const latexBuiltins = BUILTIN_TEMPLATES.map((t) => t.id)
-    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors), people: normalizePeople(raw.people) }
+    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors), people: normalizePeople(raw.people) }
   }
 
   private save(): void {

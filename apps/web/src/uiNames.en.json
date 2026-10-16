@@ -626,5 +626,9 @@
   "흐름 설명 미리보기": "Flow description preview",
   "흐름 새 점": "Flow new dot",
   "흐름 다음 점 메뉴": "Flow next dot menu",
-  "흐름 앞선 점 고르기": "Flow choose earlier dots"
+  "흐름 앞선 점 고르기": "Flow choose earlier dots",
+  "에이전트": "Agents",
+  "에이전트 묶음": "Agents section",
+  "지시 처리": "Instructions",
+  "지시 처리 시각": "Instruction time"
 }
