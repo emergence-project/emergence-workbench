@@ -156,7 +156,7 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   for (const c of src.canon) p(`- \`${c.path}\`${c.note ? ` — ${c.note}` : ''}`)
   if (blocks.length) p(`- \`workbench/blocks/*.md\` (예전 것은 \`*.tex\`) — 블록 노트 ${blocks.length}개 (과정 기록: 상태·다음 할 일·멈춘 이유)`)
   if (wb.usesTopicFolders()) p(`- \`workbench/topics/<주제>/topic.yaml\` — 주제 ${wb.topicFolders().length}개의 정보 (순서는 \`research.yaml\` \`topics:\`)`)
-  if (notes.length) p(`- ${noteDirs(notes).map((d) => `\`${d}\``).join(' · ')} — 연구노트·계산 노트 ${notes.length}개 (본문 \`note.md\` 또는 \`main.tex\`, 정보는 \`note.yaml\`)`)
+  if (notes.length) p(`- ${noteDirs(notes).map((d) => `\`${d}\``).join(' · ')} — 노트 ${notes.length}개 (본문 \`note.md\` 또는 \`main.tex\`, 정보는 \`note.yaml\`)`)
   if (statements.length) p(`- \`${statements[0]!.file.split('/')[0]}/\` — 진술 ${statements.length}개 (정의·정리; uses·proofs 관계)`)
   const rules = listRules(wb)
   const decisions = listDecisions(wb)
@@ -297,7 +297,7 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
     const counts = (t: TopicStats) => t.notes
       ? (['in-progress', 'blocked', 'solved', 'stopped'] as const).filter((k) => t.byStatus[k]).map((k) => `${LABEL[k]} ${t.byStatus[k]}`).join(' · ')
       : '노트 없음'
-    p(`## 주제 ${overview.topics.length}`, '', '> 노트(연구노트·계산 노트·블록 노트)의 주제는 노트 머리말 `topics:`에 적는다 (첫째 = 주 주제). 연구노트·계산 노트는 `note.yaml`, 블록 노트는 파일 맨 위 머리말.', '')
+    p(`## 주제 ${overview.topics.length}`, '', '> 노트의 주제는 노트 머리말 `topics:`에 적는다 (첫째 = 주 주제). 폴더 노트는 `note.yaml`, 블록 노트는 파일 맨 위 머리말.', '')
     for (const t of [...overview.topics].sort((a, b) => Number(b.star) - Number(a.star))) {
       const first = t.description?.split('\n')[0]?.replace(/^-\s+/, '')
       p(`- ${t.star ? '★ ' : ''}**${t.title}** (\`${t.id}\`)${t.done ? ' · 완결' : ''} — ${counts(t)}${first ? ` — ${clip(first, 120)}` : ''}`)

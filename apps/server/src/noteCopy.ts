@@ -243,7 +243,7 @@ export function guessTemplate(text: string, templates: LatexTemplate[]): string 
 export function makeBodyOnly(wb: Workbench, key: string, templates: LatexTemplate[] = []): { path: string; removedHead: boolean; removedFront: number; macros: number; template?: string } {
   const m = allManuscripts(wb).find((x) => x.key === key)
   if (!m) throw new WorkbenchError(404, t(`그런 노트가 없음: ${key}`, `No such note: ${key}`))
-  if (m.kind === 'paper') throw new WorkbenchError(400, t('원고는 고치지 않습니다. 연구노트·계산 노트만 본문만 남길 수 있습니다', 'Manuscripts are not changed. Only research notes and calculation notes can be reduced to the body'))
+  if (m.kind === 'paper') throw new WorkbenchError(400, t('원고는 고치지 않습니다. 노트만 본문만 남길 수 있습니다', 'Manuscripts are not changed. Only notes can be reduced to the body'))
   const abs = path.join(wb.repo, m.main)
   const own = fs.readFileSync(abs, 'utf8')
   if (!needsBodyOnly(own)) return { path: m.main, removedHead: false, removedFront: 0, macros: 0 }

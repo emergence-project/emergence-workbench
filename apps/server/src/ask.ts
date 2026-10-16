@@ -160,7 +160,7 @@ export const canFix = (target: string) => /^(note|calc)-/.test(target)
  * 적용하면 그 질문 아래에 `### 답 · 앱`으로 적용했다고 남기고 질문을 끝냄으로 둔다.
  */
 export function applyAnswerFixes(root: string, target: string, id: string, answer: number, baseHash: string, now = new Date()): CommentFile {
-  if (!canFix(target)) throw new WorkbenchError(400, t('연구 노트의 기록에서만 적용할 수 있습니다', 'This can be applied only from a research note\'s records'))
+  if (!canFix(target)) throw new WorkbenchError(400, t('노트의 기록에서만 적용할 수 있습니다', 'This can be applied only from a note\'s records'))
   const file = commentsFile(root, target)
   if (!fs.existsSync(file)) throw new WorkbenchError(404, t('코멘트 파일이 없음', 'No comment file'))
   const raw = fs.readFileSync(file, 'utf8')

@@ -4,7 +4,7 @@ import { go } from './router'
 import { plural, t } from './i18n'
 
 /** 노트 구분 이름 (10/4 피드백: 모든 프로젝트에 같은 셋) */
-export const NOTE_KIND_LABEL: Record<NoteKind, string> = { paper: t('원고', 'Manuscript'), note: t('연구노트', 'Research note'), calc: t('연구노트', 'Research note') }
+export const NOTE_KIND_LABEL: Record<NoteKind, string> = { paper: t('원고', 'Manuscript'), note: t('노트', 'Note'), calc: t('노트', 'Note') }
 export const NOTE_KIND_DESC: Record<NoteKind, string> = {
   paper: t('결과를 모으는 개인 초고', 'A personal draft that collects results'),
   note: t('원고를 복사해 고쳐 쓰는 증명·유도', 'Proofs and derivations reworked from a copy of the manuscript'),
@@ -26,7 +26,7 @@ export function NewNote({ rid, rapi, manuscripts, from, onChanged, onSaved, onCl
   // 첫 원고의 key가 ''라서 "빈 노트"는 따로 표시한다
   const [start, setStart] = useState(from ?? BLANK)
   const src = from !== undefined ? papers.find((m) => m.key === from) : undefined
-  const [name, setName] = useState(src ? t(`${src.name} 연구노트`, `${src.name} research note`) : '')
+  const [name, setName] = useState(src ? t(`${src.name} 노트`, `${src.name} note`) : '')
   const [busy, setBusy] = useState(false)
   const create = async () => {
     if (!name.trim()) return

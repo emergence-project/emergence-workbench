@@ -78,7 +78,7 @@ function PaperCard({ rid, ms, onCopy, onRemove }: { rid: string; ms: ManuscriptI
         <span className="nc-foot"><span>{NOTE_KIND_LABEL[ms.kind]} · {tr('장', 'Chapters')} {body}{appx ? ` · ${tr('부록', 'Appendices')} ${appx}` : ''}</span></span>
       </button>
       <span className="note-card-icons hover-actions">
-        {onCopy && <button className="icon-btn" data-ui="복사해 연구노트 만들기" data-tip={tr('복사해 연구노트 만들기', 'Copy to a new research note')} aria-label={tr('복사해 연구노트 만들기', 'Copy to a new research note')} onClick={() => onCopy(ms.key)}>{Icon.plus}</button>}
+        {onCopy && <button className="icon-btn" data-ui="복사해 연구노트 만들기" data-tip={tr('복사해 노트 만들기', 'Copy into a note')} aria-label={tr('복사해 노트 만들기', 'Copy into a note')} onClick={() => onCopy(ms.key)}>{Icon.plus}</button>}
         <ExportLink rid={rid} ms={ms} small />
         {/* 10/4 18:05: 원고 파일은 지우지 않고 목록(research.yaml)에서만 뺀다 */}
         {onRemove && <button className="icon-btn" data-ui="원고 빼기" title={tr('목록에서 빼기 — 원고 파일은 그대로 남습니다', 'Remove from the list. The manuscript files stay')} aria-label={tr('목록에서 빼기', 'Remove from the list')} onClick={() => onRemove(ms)}>×</button>}

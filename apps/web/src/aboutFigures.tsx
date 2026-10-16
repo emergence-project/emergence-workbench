@@ -208,7 +208,7 @@ export function FileTreeFigure() {
         <ul>
           {r('workbench/research.yaml', t('프로젝트 정보 · 주제 · sources(정본 위치) · concepts', 'Project info · topics · sources (where the sources of truth are) · concepts'))}
           {r(t('workbench/notes/<이름>/', 'workbench/notes/<name>/'), t('note.md + note.yaml (예전 LaTeX는 main.tex)', 'note.md + note.yaml (older LaTeX notes: main.tex)'))}
-          {r(t('workbench/calc/<이름>/', 'workbench/calc/<name>/'), t('계산 노트, 코드와 함께', 'Calculation notes, together with code'))}
+          {r(t('workbench/calc/<이름>/', 'workbench/calc/<name>/'), t('노트(옛 배치), 코드와 함께', 'Notes (old layout), together with code'))}
           {r('workbench/blocks/<id>.md', t('주장 하나의 노트 (예전 .tex)', 'Single-claim notes (older: .tex)'))}
           {r(t('workbench/tasks/<날짜>-<이름>.md', 'workbench/tasks/<date>-<name>.md'), t('맡긴 일 = 보고서', 'Delegated task = report'))}
           {r(t('workbench/log/<날짜>.md', 'workbench/log/<date>.md'), t('할 일 · 끝낸 일 · 상태 변화', 'To-dos · finished work · status changes'))}
