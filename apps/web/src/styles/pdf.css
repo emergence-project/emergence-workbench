@@ -67,7 +67,6 @@
 .cmt-where { font-size: var(--fs-xs); color: var(--text-2); }
 .cmt-where:disabled { color: var(--text-3); }
 .cmt-state { font-size: var(--fs-xs); border-radius: var(--r-pill); padding: 0 6px; background: var(--bg-sunken); color: var(--text-2); }
-.btn.sm { height: 22px; padding: 0 6px; font-size: var(--fs-xs); }
 .cmt-quote { margin: var(--sp-1) 0; padding: 2px var(--sp-2); border-left: 2px solid var(--line-strong); color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; max-height: 7.5em; overflow: hidden; }
 .cmt-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .cmt-answer { margin-top: 6px; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); background: var(--bg-sunken); }
