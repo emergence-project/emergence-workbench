@@ -21,6 +21,9 @@ import { ExportLink } from './NoteExport'
 import { StatusDot } from './StatusDot'
 import { locale, plural, t as tr } from './i18n'
 import { TopicFlowLink } from './FlowView'
+import { useQueryClient } from '@tanstack/react-query'
+import { useNoteTrash, useTopicsOverview } from './projectQueries'
+import { qk } from './queries'
 
 /**
  * 주제 (10/5 "주제와 노트"): 노트를 묶기만 하는 한 단계. research.yaml의 topics:에 적는다 (서버 topics.ts).
@@ -106,12 +109,10 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
   onChanged(): void; onSaved(message: string): void
 }) {
   const api = notesApi(rid)
-  const [data, setData] = useState<{ topics: (Topic & TopicStats)[]; hash: string } | null>(null)
-  const [failed, setFailed] = useState(false)
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    notesApi(rid).topicsOverview().then((r) => { setData(r); setFailed(false) }).catch(() => setFailed(true))
-  }, [rid, version, tick])
+  const client = useQueryClient()
+  const overview = useTopicsOverview(rid)
+  const data = overview.data ?? null
+  const failed = overview.isError
   const [sort, setSortState] = useState<NoteSort>(() => store.get<NoteSort>('rw-topic-sort', 'recent'))
   const setSort = (s: NoteSort) => { setSortState(s); store.set('rw-topic-sort', s) }
   const [foldOpen, setFoldOpen] = useState(true)
@@ -130,7 +131,7 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
   if (!data) return body(<p className="muted">{failed ? tr('주제를 읽지 못했습니다.', 'Could not read the topics.') : tr('불러오는 중…', 'Loading…')}</p>)
   if (!loose && !t) return body(<p className="muted">{tr('주제를 찾지 못했습니다. 왼쪽 사이드바에서 다시 고르세요.', 'Topic not found. Pick one again in the left sidebar.')}</p>)
 
-  const done = () => { setTick((x) => x + 1); onChanged() }
+  const done = () => { void client.invalidateQueries({ queryKey: qk.topicsOverview(rid) }); onChanged() }
   const fail = (e: unknown) => onSaved(e instanceof ConflictError ? tr('다른 곳에서 파일이 바뀌어 고치지 않았습니다. 다시 해 보세요.', 'The file changed elsewhere, so nothing was changed. Try again.') : (e as Error).message)
   const titleOf = (id: string) => topics.find((x) => x.id === id)?.title
   const mine = notesOfTopic(tid, notes, topics.map((x) => x.id))
@@ -251,11 +252,14 @@ export async function createNoteAsk(rapi: ResearchApi, rid: string, topic: { id:
   } catch (e) { fail(e) }
 }
 
+const NO_TRASH: TrashedNote[] = []
+
 /** 지운 노트 (10/4 17:04): 15일 동안 남겨 두고, 그 안에는 되살린다. 그 뒤에는 서버가 정말 지운다 */
-export function NoteTrash({ rapi, version, onChanged, onSaved }: { rapi: ResearchApi; version: number; onChanged(): void; onSaved(m: string): void }) {
-  const [list, setList] = useState<TrashedNote[]>([])
+export function NoteTrash({ rapi, onChanged, onSaved }: { rapi: ResearchApi; onChanged(): void; onSaved(m: string): void }) {
+  const client = useQueryClient()
+  const list = useNoteTrash(rapi.rid).data ?? NO_TRASH
+  const setList = (next: (l: TrashedNote[]) => TrashedNote[]) => client.setQueryData(qk.noteTrash(rapi.rid), next(list))
   const [open, setOpen] = useState(false)
-  useEffect(() => { rapi.noteTrash().then(setList).catch(() => setList([])) }, [rapi, version])
   if (!list.length) return null
   const day = (iso: string) => { const d = new Date(iso); return tr(`${d.getMonth() + 1}월 ${d.getDate()}일`, d.toLocaleDateString(locale(), { month: 'short', day: 'numeric' })) }
   const restore = (t: TrashedNote) => rapi.restoreNote(t.id)

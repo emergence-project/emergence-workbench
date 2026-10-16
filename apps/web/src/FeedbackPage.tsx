@@ -14,6 +14,8 @@ import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type Feedbac
 import { plural, shown, t } from './i18n'
 import { REPLY, TAG_NOTES } from './feedbackTags'
 import { href } from './router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from './queries'
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
 
@@ -471,16 +473,20 @@ function Compose({ e }: { e: FeedbackItem }) {
 }
 
 /** 왼쪽 띠의 피드백 버튼에 붙는 수: 답할 것 + 확인할 것. 피드백 화면의 "확인 필요" 수와 같다. 피드백이 바뀌면 다시 센다 */
-export function FeedbackRailCount({ version }: { version: number }) {
-  const [n, setN] = useState<{ ask: number; confirm: number } | null>(null)
+export function FeedbackRailCount() {
+  // 피드백은 프로젝트 파일이 아니라 프로젝트 알림과 상관없다: 피드백을 남기거나 고칠 때(FEEDBACK_EVENT)와 10분마다만 다시 센다 (화면 캐시)
+  const client = useQueryClient()
+  const all = useQuery({ queryKey: [...qk.feedback, 'all'], queryFn: () => api.feedbackAll().then((b) => railCount(b.entries)).catch(() => null) })
+  const n = all.data ?? null
   /** 이 맥에서 남겼지만 아직 GitHub에 등록하지 않은 피드백 수 (10/15 피드백: 등록할 것도 띠에 보이게). 올리지 않는 모드면 0 */
-  const [unregistered, setUnregistered] = useState(0)
+  const unreg = useQuery({
+    queryKey: [...qk.feedback, 'unregistered'],
+    queryFn: () => Promise.all([fetch('/api/feedback').then((r) => r.json() as Promise<{ publishable?: boolean }>), records.feedbackUnpublished()])
+      .then(([b, u]) => (b.publishable ? u.count ?? u.files.length : 0)).catch(() => 0),
+  })
+  const unregistered = unreg.data ?? 0
   const [tick, setTick] = useState(0)
-  useEffect(() => {
-    api.feedbackAll().then((b) => setN(railCount(b.entries))).catch(() => setN(null))
-    Promise.all([fetch('/api/feedback').then((r) => r.json() as Promise<{ publishable?: boolean }>), records.feedbackUnpublished()])
-      .then(([b, u]) => setUnregistered(b.publishable ? u.count ?? u.files.length : 0)).catch(() => setUnregistered(0))
-  }, [version, tick])
+  useEffect(() => { if (tick) void client.invalidateQueries({ queryKey: qk.feedback }) }, [tick, client])
   useEffect(() => {
     const on = () => setTick((t) => t + 1)
     window.addEventListener(FEEDBACK_EVENT, on)

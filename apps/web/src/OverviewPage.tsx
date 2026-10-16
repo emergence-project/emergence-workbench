@@ -9,7 +9,9 @@ import { ProjectStateDot, type ProfilePatch } from './ProjectProfileFields'
 import { StatusDot } from './StatusDot'
 import { stripDue } from './homeData'
 import { ProjectEditDialog } from './ProjectEditDialog'
-import { useJournal } from './useJournal'
+import { useAgentEdits, useJournal, useProjectInfo, useTopicsOverview } from './projectQueries'
+import { useQueryClient } from '@tanstack/react-query'
+import { qk } from './queries'
 import { MemoText } from './memo'
 import { openTodoPlace, todoPlace } from './todoItems'
 import { AUX_NOTE } from './notes'
@@ -37,7 +39,6 @@ interface Props {
   project: string
   pc: string
   /** 파일이 바뀔 때마다 올라가는 수. 검토 대기를 다시 읽는 데 쓴다 */
-  version: number
   anchor?: string
   /** 이 프로젝트의 등록 정보: 성격 · 분야 · 진행 상태 (이 컴퓨터의 설정) */
   listed?: ResearchListItem
@@ -148,19 +149,18 @@ export const todoRows = (todos: OpenTodo[]) => todos.map((todo) => ({ todo, due:
  * 오른쪽: 머리 높이와 관계없이 본문 맨 위에서 시작하는 작업(우선순위 순). 좁은 화면은 작업부터.
  * 10/5 시안 "프로젝트 첫 화면": 원고 칸은 뺐다(원고는 왼쪽 사이드바 "원고"에서). 오른쪽 작업 칸은 그대로.
  */
-export function OverviewPage({ rid, rapi, summary, notes, project: projectName, pc, version, anchor, listed, all, onProfile, onChanged, onSaved }: Props) {
+export function OverviewPage({ rid, rapi, summary, notes, project: projectName, pc, anchor, listed, all, onProfile, onChanged, onSaved }: Props) {
   const { research, tree, blocks } = summary
   const byId = new Map(blocks.map((b) => [b.id, b]))
   const titleOf = (id: string) => byId.get(id)?.title ?? id
-  const { entries } = useJournal(rapi, version)
+  const { entries } = useJournal(rapi)
   const todos = todoRows(summary.todos)
   const today = new Date().toLocaleDateString('sv')
   const open = (bid: string) => go({ page: 'block', rid, bid })
-  const [project, setProject] = useState<ProjectInfo | null>(null)
+  const project = useProjectInfo(rid).data ?? null
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
 
-  useEffect(() => fill(() => rapi.project(), setProject, null), [rapi, version])
   useEffect(() => {
     if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }, [anchor])
@@ -168,13 +168,11 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
   const blocked = blocks.filter((b) => statusOf(b.status) === 'blocked')
   const reviews = project?.reviews.filter((r) => awaitsUserReview(r.status)) ?? []
   // 에이전트 고침 (10/8): 검토할 노트와 확인된 노트 고치기 요청. 작업 패널에 한 줄씩, 누르면 고침 검토 화면
-  const [edits, setEdits] = useState<{ key: string; title: string; sub: string; attempt: boolean }[]>([])
-  useEffect(() => {
-    agentEditsApi.list(rid).then((v) => setEdits([
-      ...v.attempts.map((a) => ({ key: a.key, title: a.title, sub: a.summary ? t(`고치기 요청 · ${a.summary}`, `Edit request: ${a.summary}`) : t('고치기 요청 · 그 대화에서 허락하면 고칩니다', 'Edit request: the agent edits once you agree in that conversation'), attempt: true })),
-      ...v.reviews.map((r) => ({ key: r.key, title: r.title, sub: t(`바뀐 곳 ${r.changes}`, `${r.changes} changed`), attempt: false })),
-    ])).catch(() => setEdits([]))
-  }, [rid, version])
+  const editList = useAgentEdits(rid).data
+  const edits = editList ? [
+    ...editList.attempts.map((a) => ({ key: a.key, title: a.title, sub: a.summary ? t(`고치기 요청 · ${a.summary}`, `Edit request: ${a.summary}`) : t('고치기 요청 · 그 대화에서 허락하면 고칩니다', 'Edit request: the agent edits once you agree in that conversation'), attempt: true })),
+    ...editList.reviews.map((r) => ({ key: r.key, title: r.title, sub: t(`바뀐 곳 ${r.changes}`, `${r.changes} changed`), attempt: false })),
+  ] : []
   const reopen = (b: { id: string; hash: string }) => {
     rapi.patchMeta(b.id, { status: 'in-progress' }, b.hash).then(onChanged).catch((e: Error) => setError(e.message))
   }
@@ -269,7 +267,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
               <NowPanel groups={nowGroups} fitKey={fitKey} onAll={() => go({ page: 'todo', rid })} error={error} />
             </div>
 
-            <ProjectCards rid={rid} rapi={rapi} notes={notes} project={projectName} pc={pc} version={version} onChanged={onChanged} onSaved={onSaved} />
+            <ProjectCards rid={rid} rapi={rapi} notes={notes} project={projectName} pc={pc} onChanged={onChanged} onSaved={onSaved} />
           </div>
         </div>
       </section>
@@ -397,13 +395,13 @@ function useGridColumns() {
  *   맨 앞 점선 "＋ 노트 만들기"는 주제 없이 "노트들"에 만든다.
  * - 지운 노트: 15일 보관 중인 노트를 접는 줄로 (예전 연구노트 화면에서 옮김).
  */
-function ProjectCards({ rid, rapi, notes, project, pc, version, onChanged, onSaved }: {
-  rid: string; rapi: ResearchApi; notes: NoteRow[]; project: string; pc: string; version: number; onChanged(): void; onSaved(message: string): void
+function ProjectCards({ rid, rapi, notes, project, pc, onChanged, onSaved }: {
+  rid: string; rapi: ResearchApi; notes: NoteRow[]; project: string; pc: string; onChanged(): void; onSaved(message: string): void
 }) {
   const api = notesApi(rid)
-  const [data, setData] = useState<{ topics: (Topic & TopicStats)[]; loose: TopicStats; hash: string } | null>(null)
-  const [tick, setTick] = useState(0)
-  useEffect(() => fill(() => notesApi(rid).topicsOverview(), setData, null), [rid, version, tick])
+  const client = useQueryClient()
+  const data = useTopicsOverview(rid).data ?? null
+  const refresh = () => client.invalidateQueries({ queryKey: qk.topicsOverview(rid) })
   const [topicSort, setTopicSort] = useStored<NoteSort>('rw-overview-topic-sort', 'recent')
   const [period, setPeriod] = useStored<NotePeriod>('rw-overview-note-period', 'week')
   const [noteSort, setNoteSort] = useStored<RecentSort>('rw-overview-note-sort', 'recent')
@@ -416,14 +414,14 @@ function ProjectCards({ rid, rapi, notes, project, pc, version, onChanged, onSav
   const titleOf = (id: string) => topics.find((x) => x.id === id)?.title
 
   const starTopic = (topic: Topic) => data && api.patchTopic(topic.id, { star: !topic.star }, data.hash)
-    .then(() => { setTick((x) => x + 1); onChanged(); onSaved(topic.star ? t(`"${topic.title}"를 즐겨찾기에서 뺐습니다`, `Removed "${topic.title}" from favorites`) : t(`"${topic.title}"를 즐겨찾기에 넣었습니다`, `Added "${topic.title}" to favorites`)) }).catch(fail)
+    .then(() => { void refresh(); onChanged(); onSaved(topic.star ? t(`"${topic.title}"를 즐겨찾기에서 뺐습니다`, `Removed "${topic.title}" from favorites`) : t(`"${topic.title}"를 즐겨찾기에 넣었습니다`, `Added "${topic.title}" to favorites`)) }).catch(fail)
   const createTopic = async () => {
     const title = (await askText({ title: t('새 주제', 'New topic'), label: t('이름', 'Name'), placeholder: t('예: Kempe 사슬', 'e.g. Kempe chains'), hint: t(`${LIMITS.title}자까지. 만든 뒤 설명과 카드 미리보기를 적습니다.`, `Up to ${LIMITS.title} characters. Add a description and card preview after creating it.`), ok: t('만들기', 'Create') }))?.trim()
     if (!title) return
     try {
       if (!data) return
       const r = await api.createTopic({ title: title.slice(0, LIMITS.title) }, data.hash)
-      setData(await api.topicsOverview())
+      await refresh()
       setEditing(r.topic.id)
       onChanged()
       onSaved(t(`주제 "${r.topic.title}"를 만들었습니다`, `Created topic "${r.topic.title}"`))
@@ -482,11 +480,11 @@ function ProjectCards({ rid, rapi, notes, project, pc, version, onChanged, onSav
             <button aria-expanded={expanded} data-ui="노트 더 보기" onClick={() => setExpanded((v) => !v)}>{expanded ? t('접기 ▴', 'Collapse ▴') : t(`노트 ${more}개 더 보기 ▾`, `Show ${more} more ▾`)}</button>
           </div>
         )}
-        <NoteTrash rapi={rapi} version={version} onChanged={onChanged} onSaved={onSaved} />
+        <NoteTrash rapi={rapi} onChanged={onChanged} onSaved={onSaved} />
       </section>
 
       {editTopic && data && <TopicEditDialog rid={rid} topic={editTopic} hash={data.hash} pc={pc} project={project} onClose={() => setEditing(null)}
-        onSaved={(m) => { setEditing(null); setTick((x) => x + 1); onChanged(); onSaved(m) }} />}
+        onSaved={(m) => { setEditing(null); void refresh(); onChanged(); onSaved(m) }} />}
     </>
   )
 }

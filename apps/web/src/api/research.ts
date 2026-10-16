@@ -53,6 +53,8 @@ export function researchApi(rid: string) {
   const base = `/api/researches/${enc(rid)}`
   const b = (id: string) => `${base}/blocks/${enc(id)}`
   return {
+    /** 이 묶음의 프로젝트 id (화면 캐시 키에 쓴다) */
+    rid,
     summary: () => req(base).then((r) => json<ResearchSummary>(r)),
     sync: (fetch = false) => req(`${base}/sync${fetch ? '?fetch=1' : ''}`).then((r) => json<SyncReply>(r)).then((r) => r.sync),
     repo: (fetch = false) => req(`${base}/repo${fetch ? '?fetch=1' : ''}`).then((r) => json<RepoReply>(r)).then((r) => r.repo),

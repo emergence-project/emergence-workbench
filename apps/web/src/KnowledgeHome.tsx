@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { agentEditsApi, api, conceptsApi, learnApi, type ConceptBrief, type ConceptRow, type ConceptCheck, type ConceptIssue, type IdCount, type LibraryInfo } from './api'
+import { api, conceptsApi, learnApi, type ConceptBrief, type ConceptRow, type ConceptCheck, type ConceptIssue, type IdCount, type LibraryInfo } from './api'
+import { useAgentEdits } from './projectQueries'
 import { askText } from './askText'
 import { conceptCounts, pushRecent, readOpened, useKnowledge } from './ConceptNotes'
 import { Icon } from './icons'
@@ -20,10 +21,10 @@ export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { 
   const [error, setError] = useState<string | null>(null)
   const [opened, setOpened] = useState<ConceptRow[]>([])
   // 에이전트 고침 (10/8): 검토할 개념노트 · 확인된 개념노트 고치기 요청. 점검에 한 줄씩
-  const [edits, setEdits] = useState({ reviews: 0, attempts: 0 })
+  const editList = useAgentEdits('library').data
+  const edits = { reviews: editList?.reviews.length ?? 0, attempts: editList?.attempts.length ?? 0 }
   const load = useCallback(() => {
     conceptsApi.brief(RECENT).then((b) => { setBrief(b); setError(null) }).catch((e: Error) => setError(e.message))
-    agentEditsApi.list('library').then((v) => setEdits({ reviews: v.reviews.length, attempts: v.attempts.length })).catch(() => undefined)
     const ids = readOpened().map((x) => x.id)
     if (ids.length) conceptsApi.rows(ids).then(setOpened).catch(() => setOpened([]))
   }, [])

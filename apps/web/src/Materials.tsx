@@ -1,6 +1,9 @@
 import { displayName } from '@rw/core'
 import { useEffect, useRef, useState } from 'react'
-import { api, papersApi, type BibEntry, type LibraryInfo, type MaterialFile, type PaperList, type ResearchApi } from './api'
+import { useQueryClient } from '@tanstack/react-query'
+import { api, type BibEntry, type LibraryInfo, type MaterialFile, type ResearchApi } from './api'
+import { useMaterials, usePapers } from './projectQueries'
+import { qk } from './queries'
 import { CommentablePdf, paperTarget } from './Comments'
 import { useDragHeight } from './dragHeight'
 import { go, type Route } from './router'
@@ -18,15 +21,17 @@ import { t } from './i18n'
  * - 파일: PDF·그림은 작업 화면에, 발표자료(pptx·key)는 맥 앱으로 연다.
  * - 이 묶음에 파일을 끌어다 놓으면 materials/에 올린다.
  */
-export function MaterialsNav({ rid, rapi, route, version, onSaved, library, onLibraryChanged }: {
-  rid: string; rapi: ResearchApi; route: Route; version: number; onSaved(msg: string): void; library: LibraryInfo | null; onLibraryChanged(): void
+const NO_MATERIALS = { bib: [] as BibEntry[], files: [] as MaterialFile[] }
+
+export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChanged }: {
+  rid: string; rapi: ResearchApi; route: Route; onSaved(msg: string): void; library: LibraryInfo | null; onLibraryChanged(): void
 }) {
-  const [data, setData] = useState<{ bib: BibEntry[]; files: MaterialFile[] } | null>(null)
+  const client = useQueryClient()
+  // 화면 캐시: 사이드바의 참고 자료 수와 같은 자료를 나눠 쓴다
+  const materialList = useMaterials(rid)
+  const data = materialList.data ?? (materialList.isError ? NO_MATERIALS : null)
   const [over, setOver] = useState(false)
-  const [tick, setTick] = useState(0)
-  useEffect(() => { rapi.materials().then(setData).catch(() => setData({ bib: [], files: [] })) }, [rapi, version, tick])
-  const [papers, setPapers] = useState<PaperList | null>(null)
-  useEffect(() => { papersApi.list().then(setPapers).catch(() => setPapers(null)) }, [version, tick])
+  const papers = usePapers().data ?? null
 
   const openDoc = (name: string) => go({ page: 'doc', rid, name })
   const on = (name: string) => route.page === 'doc' && route.name === name
@@ -41,7 +46,7 @@ export function MaterialsNav({ rid, rapi, route, version, onSaved, library, onLi
     for (const f of files) {
       try { await rapi.uploadMaterial(f); onSaved(t(`자료에 넣었습니다 — ${f.name}`, `Added to materials: ${f.name}`)) } catch (err) { onSaved(t(`넣지 못했습니다 — ${(err as Error).message}`, `Could not add: ${(err as Error).message}`)) }
     }
-    setTick((t) => t + 1)
+    void client.invalidateQueries({ queryKey: qk.materials(rid) })
   }
 
   const others = (data?.files ?? []).filter((f) => !f.bibKey)
