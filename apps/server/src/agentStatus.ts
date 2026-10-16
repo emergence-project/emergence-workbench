@@ -14,6 +14,7 @@ import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './
 import { pendingQuestions, unsortedRecords, userReplies } from './comments.js'
 import { legacyJournalTodos, openTodos } from './todos.js'
 import { RULES_DOC, statusSection } from './tasks.js'
+import { flowStatusSections } from './flowStatus.js'
 import { commonRules, type RuleFile } from './agentRules.js'
 import { DECISIONS_DIR, folderMap, listDecisions, listRules, RULES_DIR, usesStandardLayout } from './projectFolders.js'
 import type { ProjectSources, Workbench } from './workbench.js'
@@ -211,6 +212,9 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
 
   // ---------- 맡긴 일 (작업 탭) ----------
   p(...statusSection(wb))
+
+  // ---------- 흐름 (점이 있을 때만) ----------
+  p(...flowStatusSections(wb))
 
   // ---------- 에이전트 수정 검토 대기 ----------
   const editReviews = edits?.reviews.filter((r) => r.target.kind === 'note') ?? []
@@ -436,7 +440,7 @@ function noteDirs(notes: { file: string }[]): string[] {
 // 나머지 절은 이름과 크기만 적어 필요할 때 그 절만 받게 한다(MCP project_status section, pnpm agent:status --section).
 
 /** 요약에 그대로 싣는 절: 지금 누가 무엇을 해야 하는지. 이보다 긴 절은 이름만 남긴다 */
-const ACTIONABLE = ['프로젝트 규칙', '작업 파일 오류', '할 일', '맡긴 일', '에이전트 수정 검토 대기', '대기 중인 질문', '대기 중인 지시', '사용자가 답한 질문', '분류 전 기록', '사용자 검토 대기 문서']
+const ACTIONABLE = ['프로젝트 규칙', '작업 파일 오류', '할 일', '맡긴 일', '흐름 요약', '에이전트 수정 검토 대기', '대기 중인 질문', '대기 중인 지시', '사용자가 답한 질문', '분류 전 기록', '사용자 검토 대기 문서']
 const INLINE_MAX = 1500
 
 interface StatusPart { name: string; heading: string; text: string }

@@ -40,7 +40,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `rules` | 일하기 전에 읽을 규칙: 안전 규칙, 연구 공통 규칙(모든 연구 저장소에 통하는 한 파일, 개인 저장소 사본에 `rules/research.md`가 있을 때), `project`를 주면 그 연구 저장소의 `AGENTS.md` · `CLAUDE.md`. 일부 일에만 필요한 긴 규칙은 이름과 크기만 적고, `part`로 하나를 받는다: `tasks`(맡긴 일 규칙, `docs/agent-delegated-work.md`), `concepts`(공유 라이브러리 README의 개념노트 절). 먼저 읽는다 | `GET /api/rules/common`, (앱 폴더의 문서), `GET /api/concepts/rules`, `GET …/:rid/agent-rules` |
 | `list_projects` | 등록한 프로젝트: id · 제목 · 저장소 경로 · 진행 상태 | `GET /api/researches` |
 | `overview` | 진행 중인 모든 프로젝트를 한 표로: 사용자 차례(확인할 노트 · 판단할 맡긴 일 · 에이전트 고침, 홈의 "확인 필요"와 같은 수), 에이전트 차례(답 없는 질문 · 진행 중 맡긴 일 · 할 일), 저장소 동기화, 최근 기록. 어디서 일할지 고를 때 | `GET /api/agent-overview` |
-| `project_status` | 짧은 프로젝트 요약: 머리 · 목표 · 지금 할 것을 말하는 절(할 일, 맡긴 일, 대기 중인 질문·지시, 검토 대기)만 싣고, 다른 절은 이름과 크기만 적는다. `section`은 `workbench/STATUS.md`의 절 하나, `full`은 전부 | `GET …/:rid/agent-status?view=summary`, `?section=<절 이름>` |
+| `project_status` | 짧은 프로젝트 요약: 머리 · 목표 · 지금 할 것을 말하는 절(할 일, 맡긴 일, 흐름 요약, 대기 중인 질문·지시, 검토 대기)만 싣고, 다른 절은 이름과 크기만 적는다. `section`은 `workbench/STATUS.md`의 절 하나, `full`은 전부 | `GET …/:rid/agent-status?view=summary`, `?section=<절 이름>` |
 | `list_notes` | 노트 목록: 본문 파일 · 기록 이름 `target`(Markdown 노트·블록 노트, `main.tex`에는 없음) · 상태 · 다시 열 조건 · 주제 (`status`로 거르기) | `GET …/:rid/notes` |
 | `list_edit_reviews` | 에이전트 수정 검토 대기와 허락 대기. 선택 인자 `project`를 주면 그 프로젝트만, 없으면 모든 프로젝트와 개념노트 | `GET /api/agent-edits?scope=` |
 | `read_note` | 노트 본문과 hash | `GET …/:rid/manuscript/part`, 블록 노트는 `GET …/:rid/blocks/:id` |
