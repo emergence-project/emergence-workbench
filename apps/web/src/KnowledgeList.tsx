@@ -138,7 +138,7 @@ export function KnowledgeList({ info, filters, rightOpen, onChanged, onSaved }: 
     <main className="kn-page kh-page kl-page" data-ui="지식 목록">
       <div className={`kh-layout${rightOpen ? '' : ' no-right'}`}>
         <section className="pane kl-main">
-          <div className="pane-head lib-head" data-ui="지식 목록 머리">
+          <div className="pane-head bar3 lib-head" data-ui="지식 목록 머리">
             <div className="lib-head-left">{t('개념노트', 'Concept notes')} {data?.total ?? '…'}</div>
             <div className="lib-head-right"><ColumnMenu layout={layout} hidden={hidden} onChange={changeLayout} /></div>
           </div>

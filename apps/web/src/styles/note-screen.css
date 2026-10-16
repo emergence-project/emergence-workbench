@@ -1,7 +1,6 @@
 /* 노트 화면 (10/5 시안 "노트 화면"): 상단바 · 탭 줄 · 노트 도구 줄 · 본문 머리 · 왼쪽 사이드바 나무와 절 목차 · 오른쪽 사이드바 */
 
 /* ---------- 상단바: 왼쪽 버튼 · 가운데 위치 · 오른쪽 버튼 ---------- */
-.titlebar.topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .topbar .tb-left { flex: none; }
 .topbar .tb-where { margin: 0; justify-content: center; max-width: 60vw; overflow: hidden; }
 .topbar .tb-c { display: inline-flex; align-items: center; min-width: 0; }
@@ -20,7 +19,7 @@
 .note-toolbar { flex: none; container: note-toolbar / inline-size; padding: var(--sp-1) var(--sp-3); border-bottom: 1px solid var(--line); background: var(--bg); }
 .nt-row { display: flex; align-items: center; gap: var(--sp-2); min-height: calc(var(--input-h) + var(--sp-2)); }
 .nt-left { display: flex; align-items: center; gap: var(--sp-2); flex: 1; min-width: 0; }
-.nt-with-view { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.nt-with-view { display: grid; } /* 칸 나눔은 .bar3, 여기서는 위 .nt-row의 flex만 덮는다 */
 .nt-view { justify-self: center; }
 .nt-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); margin-left: auto; min-width: 0; }
 .nt-actions { display: flex; align-items: center; gap: var(--sp-1); flex: none; white-space: nowrap; }

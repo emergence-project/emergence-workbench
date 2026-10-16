@@ -31,7 +31,7 @@ body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] 
 body.feedback-on .toast { bottom: 76px; }
 
 /* 피드백 모아 보기 */
-.fbp-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); height: auto; min-height: calc(var(--input-h) + var(--sp-4)); padding-block: var(--sp-2); white-space: nowrap; }
+.fbp-toolbar { height: auto; min-height: calc(var(--input-h) + var(--sp-4)); padding-block: var(--sp-2); white-space: nowrap; }
 .fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; }
 .fbp-toolbar .segmented button { flex: none; white-space: nowrap; }
 .fbp-tools { display: flex; justify-self: end; justify-content: flex-end; align-items: center; gap: var(--sp-2); min-width: 0; }

@@ -78,7 +78,7 @@
 
 새 화면은 아래 부품을 쓴다. 맞는 것이 없으면 부품을 하나 더하고 이 표에 적는다.
 
-여러 화면이 같이 쓰는 부품의 스타일은 `apps/web/src/styles/parts/`에 둔다(`styles/parts.css`가 모아 `main.tsx`에서 `base.css` 바로 다음에 읽는다, 2026-10-16). 화면 파일(`styles/<화면>.css`)에는 그 화면만의 자리와 크기 변형만 둔다. 지금 parts에 있는 것: 작은 버튼 `.btn.sm`(button.css), 메뉴 `.menu`(menu.css), 툴팁 `[data-tip]`(data-tip을 단 요소면 어디서나 같은 모양, 버튼에 title과 함께 달지 않는다)과 자리 변형 `.tip-start` · `.tip-end`(양 끝 맞춤) · `.tip-right`(오른쪽 옆, 레일) · `.tip-wrap`(여러 줄 설명)(tooltip.css), 빈 상태 `.empty`와 패널 가운데용 `.empty.center`(empty.css, 화면 파일의 `…-empty`에는 여백만), 카드 `.card` · 눌러서 여는 카드의 가리킴 `.card-link` · 점선 만들기 카드 `.add-card`(card.css, 1px `--line-strong` 점선, 가리키면 테두리 `--text-3`과 글자 `--text`, 떠오르지 않음). 세 구역 툴바는 화면마다 따로 있어 하나씩 옮긴다(종합 검토 묶음 G).
+여러 화면이 같이 쓰는 부품의 스타일은 `apps/web/src/styles/parts/`에 둔다(`styles/parts.css`가 모아 `main.tsx`에서 `base.css` 바로 다음에 읽는다, 2026-10-16). 화면 파일(`styles/<화면>.css`)에는 그 화면만의 자리와 크기 변형만 둔다. 지금 parts에 있는 것: 작은 버튼 `.btn.sm`(button.css), 메뉴 `.menu`(menu.css), 툴팁 `[data-tip]`(data-tip을 단 요소면 어디서나 같은 모양, 버튼에 title과 함께 달지 않는다)과 자리 변형 `.tip-start` · `.tip-end`(양 끝 맞춤) · `.tip-right`(오른쪽 옆, 레일) · `.tip-wrap`(여러 줄 설명)(tooltip.css), 빈 상태 `.empty`와 패널 가운데용 `.empty.center`(empty.css, 화면 파일의 `…-empty`에는 여백만), 카드 `.card` · 눌러서 여는 카드의 가리킴 `.card-link` · 점선 만들기 카드 `.add-card`(card.css, 1px `--line-strong` 점선, 가리키면 테두리 `--text-3`과 글자 `--text`, 떠오르지 않음), 세 구역 툴바 `.bar3`(toolbar.css, 자식 셋을 왼쪽 · 가운데 · 오른쪽에, 가운데는 늘 가운데. 상단바 · 노트 툴바(보기 있을 때) · 피드백 · 지도 · 논문 · 그림 · 지식 목록 머리).
 
 | 부품 | 클래스 | 언제 |
 | --- | --- | --- |

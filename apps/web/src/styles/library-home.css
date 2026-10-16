@@ -15,7 +15,6 @@
 .lh-add .muted { font-size: var(--fs-xs); }
 
 /* 라이브러리 목록의 머리줄 세 구역: 왼쪽 무엇 · 가운데 보기(가운데 고정) · 오른쪽 정렬 · 열 고르기 (디자인 시스템 6절) */
-.pane-head.lib-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; }
 .lib-head-left { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-head-mid { justify-self: center; }
 .lib-head-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); min-width: 0; }

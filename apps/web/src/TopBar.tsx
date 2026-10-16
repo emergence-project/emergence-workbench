@@ -24,7 +24,7 @@ export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project,
   update: ReactNode
 }) {
   return (
-    <header className="titlebar topbar" data-ui="제목줄">
+    <header className="titlebar topbar bar3" data-ui="제목줄">
       <div className="tb-left">
         {/* 왼쪽 사이드바를 여닫는 버튼은 사이드바가 있는 왼쪽 끝에 (10/3 피드백, 10/5 시안 "여닫는 버튼은 그 칸 쪽에") */}
         {leftToggle && <button className={`icon-btn tip-start${sideOpen ? ' on' : ''}`} data-ui="사이드바 켜고 끄기" data-tip={t('왼쪽 사이드바 (⌘\\)', 'Left sidebar (⌘\\)')} aria-label={t('왼쪽 사이드바 켜고 끄기', 'Toggle left sidebar')} aria-pressed={sideOpen} onClick={onSide}>{Icon.panelLeft}</button>}

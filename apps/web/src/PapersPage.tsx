@@ -251,7 +251,7 @@ export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; op
     <main className={`stage full pl${paper ? ' with-side' : ''}`} data-ui="논문">
       <section className="pane">
         {/* 세 구역: 왼쪽 무엇(거르기 · 수) · 가운데 보기 · 오른쪽 정렬 · 열 고르기 (디자인 시스템 6절) */}
-        <div className="pane-head lib-head" data-ui="머리줄">
+        <div className="pane-head bar3 lib-head" data-ui="머리줄">
           <span className="crumb lib-head-left">{filterLabel ?? t('모든 논문', 'All papers')} · {t(`${rows.length}편`, `${rows.length}`)}{q ? t(` (찾기 "${q}")`, ` (search "${q}")`) : ''}</span>
           <div className="segmented small lib-head-mid" role="radiogroup" aria-label={t('보기', 'View')} data-ui="보기 전환">
             <button className={view === 'list' ? 'on' : ''} role="radio" aria-checked={view === 'list'} onClick={() => setView('list')}>{t('표', 'Table')}</button>
