@@ -17,7 +17,8 @@ import { store } from './store'
 import { setFlowSelection } from './flowSelection'
 import { Dialog } from './dialogs'
 import { NoteMarkdown } from './NoteMarkdown'
-import { useFigureList, useFigureUrl } from './figureEmbed'
+import { forgetFigures, useFigureList, useFigureUrl } from './figureEmbed'
+import { figuresApi } from './api/figures'
 import { askConfirm } from './askText'
 import { flash } from './flash'
 import { Icon } from './icons'
@@ -537,9 +538,9 @@ function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: str
   const [pick, setPick] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  /** 그림 넣기가 들어갈 설명 칸 (마지막으로 누른 칸) */
-  const [lastField, setLastField] = useState<string | null>(null)
   const figs = (useFigureList()?.figures ?? []).filter((f) => f.scope === rid || f.scope === LIBRARY_SCOPE)
+  /** 설명 칸마다 글 칸 (그림을 커서 자리에 넣으려고) */
+  const areas = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const act = KIND[kind].act
   const shownFields = [...FLOW_FIELDS[kind], ...Object.keys(fields).filter((f) => !FLOW_FIELDS[kind].includes(f) && fields[f]?.trim())]
   const byId = new Map(all.map((m) => [m.id, m]))
@@ -565,12 +566,32 @@ function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: str
       setError(e instanceof ConflictError ? tr('다른 곳에서 점 파일이 바뀌어 저장하지 않았습니다. 취소하고 다시 고쳐 주세요.', 'The dot file changed elsewhere, so nothing was saved. Cancel and edit again.') : (e as Error).message)
     }
   }
-  const insertFigure = (file: string) => {
-    const f = lastField && shownFields.includes(lastField) ? lastField : shownFields[0]
-    if (!f) return
-    const old = (fields[f] ?? '').replace(/\s+$/, '')
-    setFields({ ...fields, [f]: `${old}${old ? '\n\n' : ''}![](${file})\n` })
+  /** 설명 칸 f의 커서 자리(없으면 끝)에 그림 줄을 넣는다 */
+  const insertFigure = (f: string, file: string) => {
+    const el = areas.current[f]
+    const old = fields[f] ?? ''
+    const at = el && document.activeElement === el ? el.selectionStart : old.length
+    const before = old.slice(0, at).replace(/\s+$/, '')
+    const after = old.slice(at).replace(/^\s+/, '')
+    const line = `![](${file})`
+    setFields((cur) => ({ ...cur, [f]: `${before}${before ? '\n\n' : ''}${line}\n${after ? `\n${after}` : ''}` }))
   }
+  /** 컴퓨터의 그림 · 붙여 넣은 그림을 이 프로젝트의 workbench/figures/에 두고 그 칸에 넣는다 (10/16 사용자 승인 "그림 ▾") */
+  const addFiles = async (f: string, files: File[]) => {
+    const pics = files.filter((x) => FIGURE_FILE.test(x.name) || /^image\//.test(x.type))
+    if (!pics.length) return
+    setError(null)
+    const taken = new Set(figs.filter((x) => x.scope === rid).map((x) => x.file.toLowerCase()))
+    for (const x of pics) {
+      try {
+        const file = await uploadFigure(rid, n.id, x, taken)
+        taken.add(file.toLowerCase())
+        insertFigure(f, file)
+      } catch (e) { setError((e as Error).message) }
+    }
+    forgetFigures()
+  }
+  // 저장 · 취소는 머리 줄에만 (10/16 사용자 승인)
   const buttons = <>
     <button className="btn" onClick={onClose}>{tr('취소', 'Cancel')}</button>
     <button className="btn primary" disabled={busy} onClick={() => void save()}>{tr('저장', 'Save')}</button>
@@ -599,15 +620,18 @@ function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: str
     </div>
 
     <section className="fl-sec">
-      <div className="fl-sec-head"><h3>{tr('설명', 'Description')}</h3>
-        {figs.length > 0 && <select className="fl-in" aria-label={tr('그림 넣기', 'Insert figure')} data-ui="흐름 그림 넣기" value="" onChange={(e) => { if (e.target.value) insertFigure(e.target.value) }}>
-          <option value="">{tr('그림 넣기…', 'Insert figure…')}</option>
-          {figs.map((f) => <option key={f.id} value={f.file}>{f.name}</option>)}
-        </select>}
-      </div>
+      <h3>{tr('설명', 'Description')}</h3>
       <dl className="fl-fields">{shownFields.map((f) => <div key={f}><dt>{FIELD[f]?.() ?? f}{!FLOW_FIELDS[kind].includes(f) && <em> {tr('다른 종류', 'other kind')}</em>}</dt>
-        <dd><textarea className="fl-in" aria-label={FIELD[f]?.() ?? f} rows={Math.min(12, Math.max(2, (fields[f] ?? '').split('\n').length + 1))} value={fields[f] ?? ''} onFocus={() => setLastField(f)} onChange={(e) => setFields({ ...fields, [f]: e.target.value })} /></dd></div>)}</dl>
-      <p className="fl-help">{tr('글 속 수식 $…$, 줄 수식은 $$…$$를 따로 한 줄에, 빈 줄은 문단을 나눈다. 그림은 ![설명](그림 파일 이름).', 'Inline math $…$; display math $$…$$ on its own line; a blank line starts a paragraph. Figures: ![caption](figure file name).')}</p>
+        <dd className="fl-field">
+          <FigureMenu figs={figs} onPick={(file) => insertFigure(f, file)} onFiles={(xs) => void addFiles(f, xs)} />
+          <textarea ref={(el) => { areas.current[f] = el }} className="fl-in" aria-label={FIELD[f]?.() ?? f} rows={Math.min(12, Math.max(2, (fields[f] ?? '').split('\n').length + 1))} value={fields[f] ?? ''}
+            onChange={(e) => setFields({ ...fields, [f]: e.target.value })}
+            onPaste={(e) => { const xs = [...e.clipboardData.files]; if (xs.length) { e.preventDefault(); void addFiles(f, xs) } }}
+            onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}
+            onDrop={(e) => { const xs = [...e.dataTransfer.files]; if (xs.length) { e.preventDefault(); void addFiles(f, xs) } }} />
+          {/[$]|!\[/.test(fields[f] ?? '') && <div className="fl-preview" data-ui="흐름 설명 미리보기"><FlowText rid={rid} text={fields[f] ?? ''} /></div>}
+        </dd></div>)}</dl>
+      <p className="fl-help">{tr('글 속 수식 $…$, 줄 수식은 $$…$$를 따로 한 줄에, 빈 줄은 문단을 나눈다. 그림은 칸 오른쪽 위 "그림"으로 넣거나 붙여넣기(⌘V) · 끌어 놓기로 넣는다.', 'Inline math $…$; display math $$…$$ on its own line; a blank line starts a paragraph. Add figures with "Figure" at the top right of a field, or paste (⌘V) or drop them in.')}</p>
     </section>
 
     <section className="fl-sec" data-ui="흐름 근거 고치기">
@@ -647,8 +671,54 @@ function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: str
         <input type="checkbox" checked={tops.includes(id)} onChange={(e) => setTops(e.target.checked ? [...tops, id] : tops.filter((x) => x !== id))} />{topicTitle(id)}</label>)}</div>
     </section>}
     {error && <p className="error-text">{error}</p>}
-    <div className="fl-edit-foot">{buttons}</div>
   </article>
+}
+
+/** 그림 라이브러리가 받는 파일 (서버 figures.ts kindOf와 같은 확장자) */
+const FIGURE_FILE = /\.(png|jpe?g|svg|pdf|tikz|tex)$/i
+const IMAGE_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg', 'application/pdf': 'pdf' }
+
+/**
+ * 그림 하나를 이 프로젝트의 그림 폴더(workbench/figures/)에 올리고 파일 이름을 돌려준다.
+ * 붙여 넣은 그림은 이름이 없거나 "image.png"라서 점 id와 시각으로 이름을 짓고, 같은 이름이 있으면 -2, -3 …을 붙인다.
+ */
+async function uploadFigure(rid: string, dot: string, x: File, taken: Set<string>): Promise<string> {
+  const pasted = !x.name || /^image\.(png|jpe?g)$/i.test(x.name)
+  const ext = pasted ? IMAGE_EXT[x.type] ?? 'png' : x.name.replace(/^.*\./, '').toLowerCase()
+  if (!FIGURE_FILE.test(`.${ext}`)) throw new Error(tr('그림은 png · jpg · svg · pdf · tikz 파일이어야 합니다', 'A figure must be a png · jpg · svg · pdf · tikz file'))
+  const d = new Date()
+  const p2 = (v: number) => String(v).padStart(2, '0')
+  const stem = pasted ? `${dot}-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`
+    : x.name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N} ._()-]/gu, '-').slice(0, 100) || dot
+  let name = `${stem}.${ext}`
+  for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${stem}-${i}.${ext}`
+  await figuresApi.upload(new File([x], name, { type: x.type }), rid)
+  return name
+}
+
+/** 설명 칸의 "그림 ▾": 컴퓨터에서 고르기 · 그림 라이브러리에서 고르기 (붙여넣기 · 끌어 놓기는 칸에서) */
+function FigureMenu({ figs, onPick, onFiles }: { figs: { id: string; file: string; name: string; scope: string }[]; onPick(file: string): void; onFiles(files: File[]): void }) {
+  const [open, setOpen] = useState<false | 'menu' | 'library'>(false)
+  const box = useRef<HTMLSpanElement>(null)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
+  return <span className={`fl-figmenu${open ? ' open' : ''}`} ref={box}>
+    <button type="button" className={`btn sm${open ? ' on' : ''}`} data-ui="흐름 그림 넣기" aria-haspopup="menu" aria-expanded={!!open} onClick={() => setOpen(open ? false : 'menu')}>{Icon.image}{tr('그림', 'Figure')} ▾</button>
+    <input ref={input} type="file" hidden multiple accept=".png,.jpg,.jpeg,.svg,.pdf,.tikz,.tex,image/*" onChange={(e) => { const xs = [...(e.target.files ?? [])]; e.target.value = ''; if (xs.length) onFiles(xs) }} />
+    {open === 'menu' && <div className="menu fl-figmenu-pop" role="menu" data-ui="흐름 그림 메뉴">
+      <button role="menuitem" onClick={() => { setOpen(false); input.current?.click() }}>{tr('컴퓨터에서 고르기…', 'Choose from computer…')}</button>
+      <button role="menuitem" disabled={!figs.length} onClick={() => setOpen('library')}>{tr('그림 라이브러리에서 고르기…', 'Choose from figure library…')}</button>
+      <p className="fl-figmenu-hint">{figs.length ? tr('붙여넣기(⌘V)와 끌어 놓기도 됩니다', 'You can also paste (⌘V) or drop') : tr('그림 라이브러리가 비어 있습니다. 붙여넣기(⌘V)와 끌어 놓기도 됩니다', 'The figure library is empty. You can also paste (⌘V) or drop')}</p>
+    </div>}
+    {open === 'library' && <div className="menu fl-figmenu-pop fl-figmenu-lib" role="menu" data-ui="흐름 그림 메뉴">
+      {figs.map((x) => <button key={x.id} role="menuitem" onClick={() => { setOpen(false); onPick(x.file) }}>{Icon.image}<span className="fl-grow">{x.name}</span></button>)}
+    </div>}
+  </span>
 }
 
 /** 사람 승인 또는 거두기. 기록은 덧붙이기만 한다 */
