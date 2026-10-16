@@ -2,6 +2,7 @@ import { UI_OPTIONS, DEFAULT_UI, type UiSettings } from '@rw/core'
 import type { ReactNode } from 'react'
 import { AppInfo } from './AppInfo'
 import { AppUpdate } from './AppUpdate'
+import { AgentSettings } from './AgentSettings'
 import { BackupSettings } from './BackupSettings'
 import { GitHubAccount } from './GitHubAccount'
 import { GoogleSettings } from './GoogleSettings'
@@ -36,6 +37,7 @@ export const SETTINGS_PARTS = [
   { key: 'update', label: t('앱 기본정보', 'About this app') },
   { key: 'google', label: t('계정', 'Accounts') },
   { key: 'backup', label: t('백업', 'Backup') },
+  { key: 'agents', label: t('에이전트', 'Agents') },
   { key: 'library', label: t('라이브러리 관리', 'Library'), subs: LIBRARY_SECTIONS },
   { key: 'screen', label: t('화면', 'Display') },
   { key: 'latex', label: 'LaTeX', subs: [{ id: 'latex-editor', label: t('편집기', 'Editor') }, { id: 'latex-templates', label: t('서식', 'Templates') }, { id: 'latex-macros', label: t('명령어', 'Macros') }] },
@@ -139,6 +141,11 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
             {show('backup') && <section data-ui="백업 묶음">
               <div className="sec-head"><h2>{t('백업', 'Backup')}</h2></div>
               <BackupSettings />
+            </section>}
+
+            {show('agents') && <section data-ui="에이전트 묶음">
+              <div className="sec-head"><h2>{t('에이전트', 'Agents')}</h2></div>
+              <AgentSettings />
             </section>}
 
             {show('library') && <LibrarySettings onSaved={onSaved} section={part === 'papers' ? 'library-papers' : part} />}

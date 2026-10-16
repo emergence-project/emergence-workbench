@@ -10,9 +10,10 @@ import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
 import { projectRules } from '../agentRules.js'
+import { ClaudeQueue, dailyDue } from '../instructions.js'
 
 export function registerComments(app: FastifyInstance, ctx: RouteContext): void {
-  const { wbOf, repoPath, opts } = ctx
+  const { wbOf, repoPath, opts, registry } = ctx
   /** 지금 Claude가 답을 쓰고 있는 질문 (같은 질문을 두 번 넘기지 않게) */
   const asking = new Set<string>()
   const classifying = new Set<string>()
@@ -29,8 +30,11 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   })
   app.get<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target', replies(C.CommentFile), async (req): Promise<C.CommentFile> =>
     readComments(wbOf(req.params.rid).root, req.params.target))
-  app.post<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target', replies(C.CommentAdded), async (req): Promise<C.CommentAdded> =>
-    addComment(wbOf(req.params.rid).root, req.params.target, parseBody(C.NewCommentBody, req.body)))
+  app.post<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target', replies(C.CommentAdded), async (req): Promise<C.CommentAdded> => {
+    const added = addComment(wbOf(req.params.rid).root, req.params.target, parseBody(C.NewCommentBody, req.body))
+    if (added.entry.kind === '지시') instantFor(req.params.rid, req.params.target)
+    return added
+  })
   app.post<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target/classify', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
     const { rid, target } = req.params
     const { baseHash } = parseBody(C.ClassifyBody, req.body)
@@ -39,7 +43,9 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     if (classifying.has(key)) throw new WorkbenchError(409, t('이미 이 기록을 분류하는 중입니다', 'Already sorting this record'))
     classifying.add(key)
     try {
-      return await classifyComments(root, target, baseHash, opts.classify ?? claudeClassifierRunner, repoPath(rid))
+      const sorted = await classifyComments(root, target, baseHash, opts.classify ?? claudeClassifierRunner, repoPath(rid))
+      instantFor(rid, target)
+      return sorted
     } finally { classifying.delete(key) }
   })
   app.patch<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
@@ -51,15 +57,14 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     if (typeof baseHash !== 'string') throw new WorkbenchError(400, t('baseHash가 필요함', 'baseHash is required'))
     return deleteComment(wbOf(req.params.rid).root, req.params.target, req.params.id, baseHash)
   })
-  /** 질문을 맥의 Claude에게 넘기고, 답이 오면 질문 아래에 덧붙인다. 답이 올 때까지(몇 분) 기다렸다가 고친 파일을 돌려준다 */
-  app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/answer', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
-    const { rid, target, id } = req.params
+  /** 질문 · 지시를 맥의 Claude에게 넘기고, 답이 오면 그 아래에 덧붙인다. 답이 올 때까지(몇 분) 기다렸다가 고친 파일을 돌려준다 */
+  async function answerWithClaude(rid: string, target: string, id: string): Promise<C.CommentFile> {
     const wb = wbOf(rid)
     const f = readComments(wb.root, target)
     const q = f.comments.find((c) => c.id === id)
-    if (!q || q.kind !== '질문') throw new WorkbenchError(404, t(`질문이 없음: ${id}`, `No such question: ${id}`))
+    if (!q || !isAgentKind(q.kind)) throw new WorkbenchError(404, t(`질문이나 지시가 없음: ${id}`, `No such question or instruction: ${id}`))
     const key = `${rid}/${target}/${id}`
-    if (asking.has(key)) throw new WorkbenchError(409, t('Claude가 이미 이 질문에 답을 쓰고 있습니다', 'Claude is already writing an answer to this question'))
+    if (asking.has(key)) throw new WorkbenchError(409, t('Claude가 이미 이 기록에 답을 쓰고 있습니다', 'Claude is already writing an answer to this record'))
     asking.add(key)
     try {
       const repo = repoPath(rid)
@@ -75,7 +80,41 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     } finally {
       asking.delete(key)
     }
-  })
+  }
+  app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/answer', replies(C.CommentFile), async (req): Promise<C.CommentFile> =>
+    answerWithClaude(req.params.rid, req.params.target, req.params.id))
+
+  /*
+   * 지시를 맥의 Claude가 하는 때 (설정 › 에이전트, 10/16): 바로(instant)면 지시를 남기거나 이어 쓸 때, 하루 한 번(daily)이면 고른 시각에.
+   * 사용자가 남긴 대기 중인 지시만 집고, 차례(ClaudeQueue)로 하나씩 한다. 차례가 왔을 때 이미 답이 있으면 건너뛴다.
+   */
+  const queue = new ClaudeQueue()
+  function enqueue(rid: string, target: string, id: string): void {
+    queue.add(`${rid}/${target}/${id}`, async () => {
+      const q = readComments(wbOf(rid).root, target).comments.find((c) => c.id === id)
+      if (q?.kind === '지시' && q.state === '대기' && !q.by) await answerWithClaude(rid, target, id)
+    })
+  }
+  /** 한 기록 파일의 대기 중인 지시를 모두 차례에 넣는다 (바로일 때만) */
+  function instantFor(rid: string, target: string): void {
+    if (registry.agents.instructions !== 'instant') return
+    for (const c of readComments(wbOf(rid).root, target).comments) if (c.kind === '지시' && c.state === '대기' && !c.by) enqueue(rid, target, c.id)
+  }
+  let lastDaily: string | null = null
+  const dailyTimer = setInterval(() => {
+    const s = registry.agents
+    if (s.instructions !== 'daily') return
+    const day = dailyDue(s.at, new Date(), lastDaily)
+    if (!day) return
+    lastDaily = day
+    for (const r of registry.list()) {
+      try { for (const p of pendingQuestions(wbOf(r.id).root, '지시')) enqueue(r.id, p.target, p.id) } catch { /* 저장소가 없거나 읽지 못하면 그 연구는 건너뛴다 */ }
+    }
+  }, 60_000)
+  dailyTimer.unref()
+  app.addHook('onClose', async () => { clearInterval(dailyTimer) })
+  ;(app as unknown as { instructionQueue?: ClaudeQueue }).instructionQueue = queue
+
   /** 에이전트가 쓴 답을 질문 · 지시 아래에 덧붙인다 (MCP answer_record, 10/15). 덧붙이기라 baseHash 없이 쓰기 바로 전에 다시 읽는다. 기록은 답함이 된다 */
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/answers', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
     const { rid, target, id } = req.params
@@ -91,7 +130,9 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   /** 사용자가 질문 · 지시 아래에 이어 쓴다 (10/15). 사용자가 쓴 기록은 다시 대기(에이전트 차례), 에이전트가 쓴 기록은 답함 */
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/reply', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
     const { text } = parseBody(C.ReplyBody, req.body)
-    return replyToRecord(wbOf(req.params.rid).root, req.params.target, req.params.id, text)
+    const f = replyToRecord(wbOf(req.params.rid).root, req.params.target, req.params.id, text)
+    instantFor(req.params.rid, req.params.target)
+    return f
   })
   /** 답에 든 고침을 노트에 적용한다 (사용자가 "노트에 적용"을 누를 때). { answer: 답 번호, baseHash: 기록 파일 hash } */
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/apply', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {

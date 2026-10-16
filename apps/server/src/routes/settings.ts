@@ -12,6 +12,9 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   const { registry, opts } = ctx
   app.get('/api/settings', replies(C.SettingsView), async (): Promise<C.SettingsView> => ({ ui: registry.ui }))
   app.put('/api/settings', replies(C.SettingsView), async (req): Promise<C.SettingsView> => ({ ui: registry.setUi(parseBody(C.SettingsBody, req.body).ui) }))
+  // 설정 › 에이전트: 지시를 맥의 Claude가 언제 하는지 (routes/comments.ts가 읽는다)
+  app.get('/api/settings/agents', replies(C.AgentSettings), async (): Promise<C.AgentSettings> => registry.agents)
+  app.put('/api/settings/agents', replies(C.AgentSettings), async (req): Promise<C.AgentSettings> => registry.setAgents(parseBody(C.AgentSettingsBody, req.body)))
 
 
   app.get<{ Querystring: { fetch?: string } }>('/api/app/status', replies(A.AppStatusReply), async (req): Promise<A.AppStatusReply> => {

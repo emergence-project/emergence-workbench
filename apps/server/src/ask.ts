@@ -108,10 +108,13 @@ export function askPrompt(f: Omit<CommentFile, 'highlights'>, id: string, ctx: A
     q.answers.length ? t(`- 앞서 주고받은 글 (사용자 = 연구자가 이어 쓴 것. 마지막 글에 답합니다):\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`, `- Earlier messages (사용자 = the researcher's follow-up; answer the last one):\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`) : null,
     '',
     ...rulesPrompt(ctx.rules),
-    t('질문:', 'Question:'),
+    q.kind === '지시' ? t('지시 (연구자가 해 달라고 남긴 일):', 'Instruction (work the researcher asked for):') : t('질문:', 'Question:'),
     q.body || t('(고른 글을 설명해 주세요)', '(Explain the selected text)'),
     '',
     t('지침:', 'Instructions:'),
+    ...(q.kind === '지시'
+      ? [t('- 지시는 해 달라는 일입니다. 할 수 있는 만큼 하고, 한 일과 결과를 첫 줄부터 적습니다. 파일을 직접 고칠 수는 없으니, 노트를 고치는 일이면 아래 고침 블록으로 적고, 노트 밖(흐름 · 코드 · 다른 파일)을 고쳐야 하면 무엇을 어떻게 바꿀지 적습니다. 끝낼 조건과 보고가 필요한 큰 일이면 하지 말고 맡긴 일로 옮기자고 적습니다.', '- An instruction is work to do. Do as much as you can and write what you did and the result from the first line. You cannot edit files directly: to change a note, write fix blocks as below; for changes outside the note (flow, code, other files), write what to change and how. If it is a large job that needs an end condition and a report, do not start it; suggest making it a delegated task.')]
+      : []),
     t('- 그 파일을 Read로 읽고(가리킨 쪽·고른 글 근처부터) 근거를 찾아 한국어로 답합니다. 기호와 용어는 그 파일을 따릅니다.', '- Read that file with Read (starting near the page or selected text), find the grounds and answer in English. Follow the file\'s notation and terms.'),
     t('- 검산을 부탁하면 식을 한 줄씩 따라가며 맞는지 보고, 틀리면 어디서 왜 틀렸는지와 고친 식을 적습니다.', '- When asked to check a calculation, follow the equations line by line; if something is wrong, say where and why, and give the corrected equation.'),
     ...(canFix(f.target)
