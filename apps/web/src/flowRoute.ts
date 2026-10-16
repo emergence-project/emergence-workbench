@@ -1,7 +1,7 @@
 /**
  * 흐름 차트의 선 길 (10/16 사용자 승인 "노선도처럼"): 가로와 45° 사선만 쓰고 꺾이는 곳은 둥글게.
  * 가는 줄에 점이 없으면 줄 위로 가고, 점을 뚫게 될 때만 줄 사이 빈 곳(통로)으로 비켜 간다.
- * 줄 사이 통로는 두 줄의 한가운데 하나이고, 그리로 가는 선은 모두 같은 높이로 지나 노선처럼 겹친다.
+ * 줄 사이 통로에는 자리가 둘(위 줄에서 1/3 · 2/3 지점, 10/16 사용자)이다. 열 구간이 겹치는 선은 다른 자리로 가고, 같은 점에서 나온 선은 한 자리를 함께 쓴다.
  */
 
 export type Cell = { c: number; r: number }
@@ -21,10 +21,27 @@ export function planRoute(p: Cell, n: Cell, busy: (c: number, r: number) => bool
   return { kind: 'channel', ch: n.r > p.r ? n.r : n.r + 1 }
 }
 
+/** 통로 선마다 자리 0(1/3 지점)·1(2/3 지점)을 준다: 같은 통로에서 열 구간이 겹치는 다른 점의 선과는 다른 자리 */
+export function assignLanes(lines: { key: string; from: string; plan: RoutePlan; c0: number; c1: number }[]): Map<string, 0 | 1> {
+  const out = new Map<string, 0 | 1>()
+  const used = new Map<number, { from: string; c0: number; c1: number; lane: 0 | 1 }[]>()
+  for (const l of [...lines].sort((a, b) => a.c0 - b.c0 || a.c1 - b.c1 || a.key.localeCompare(b.key))) {
+    if (l.plan.kind !== 'channel') continue
+    const list = used.get(l.plan.ch) ?? []
+    const same = list.find((x) => x.from === l.from)
+    const clash = (lane: 0 | 1) => list.some((x) => x.lane === lane && x.from !== l.from && x.c0 < l.c1 && l.c0 < x.c1)
+    const lane: 0 | 1 = same ? same.lane : clash(0) && !clash(1) ? 1 : 0
+    list.push({ from: l.from, c0: l.c0, c1: l.c1, lane })
+    used.set(l.plan.ch, list)
+    out.set(l.key, lane)
+  }
+  return out
+}
+
 export type Geo = { X(c: number): number; Y(r: number): number; CW: number; RH: number }
 
 /** 길을 점의 목록으로: 사선은 두 열 사이 빈 곳 가운데에 두고, 점 둘레(20px)를 비운다 */
-export function routePoints(p: Cell, n: Cell, plan: RoutePlan, g: Geo): [number, number][] {
+export function routePoints(p: Cell, n: Cell, plan: RoutePlan, g: Geo, lane: 0 | 1 = 0): [number, number][] {
   const x1 = g.X(p.c), y1 = g.Y(p.r), x2 = g.X(n.c), y2 = g.Y(n.r)
   const dir = Math.sign(n.c - p.c) || 1
   const room = Math.max(4, g.CW - 40)
@@ -39,8 +56,8 @@ export function routePoints(p: Cell, n: Cell, plan: RoutePlan, g: Geo): [number,
   if (plan.kind === 'first') return [[x1, y1], ...diag(p.c, y1, y2), [x2, y2]]
   if (plan.kind === 'last') return [[x1, y1], ...diag(last, y1, y2), [x2, y2]]
   if (plan.kind !== 'channel') return [[x1, y1], [x2, y2]]
-  // 통로는 두 줄의 한가운데 하나 (10/16 사용자: 가운데로 지나는 선은 가운데로 통일). 같은 통로를 지나는 선은 겹쳐 한 노선이 된다
-  const cy = g.Y(plan.ch) - g.RH / 2
+  // 통로의 자리: 위 줄에서 1/3(0) · 2/3(1) 지점
+  const cy = g.Y(plan.ch) - g.RH + g.RH * (lane ? 2 : 1) / 3
   return [[x1, y1], ...diag(p.c, y1, cy), ...diag(last, cy, y2), [x2, y2]]
 }
 

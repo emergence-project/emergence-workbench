@@ -13,7 +13,7 @@ import { MathText } from './cardParts'
 import { StatusDot } from './StatusDot'
 import { routeOfNote } from './RightSidebar'
 import { go } from './router'
-import { planRoute, roundedPath, routePoints } from './flowRoute'
+import { assignLanes, planRoute, roundedPath, routePoints } from './flowRoute'
 import { store } from './store'
 import { setFlowSelection } from './flowSelection'
 import { Dialog } from './dialogs'
@@ -268,7 +268,10 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
   const busyCells = new Set(lay.placed.map((q) => `${q.c}:${q.r}`))
   const busy = (c: number, r: number) => busyCells.has(`${c}:${r}`)
   const geo = { X, Y, CW, RH }
-  const route = (p: { c: number; r: number }, n: { c: number; r: number }) => roundedPath(routePoints(p, n, planRoute(p, n, busy), geo))
+  const plans = new Map(lay.lines.map((l) => { const p = at.get(l.from)!, n = at.get(l.to)!; return [`${l.from}>${l.to}`, { key: `${l.from}>${l.to}`, from: l.from, plan: planRoute(p, n, busy), c0: Math.min(p.c, n.c), c1: Math.max(p.c, n.c) }] }))
+  const lanes = assignLanes([...plans.values()])
+  const route = (p: { c: number; r: number }, n: { c: number; r: number }, key?: string) =>
+    roundedPath(routePoints(p, n, (key && plans.get(key)?.plan) || planRoute(p, n, busy), geo, key ? lanes.get(key) ?? 0 : 0))
 
   const s = sel ? byId.get(sel) : undefined
   /** 점 누르기: 앞선 점을 고르는 중이면 넣고 빼기, 아니면 고르기 */
@@ -321,7 +324,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
             const on = edgeOn(l.from, l.to)
             const cls = `fl-e${on ? ' on' : ''}${l.type === 'use' ? ' use' : p.node.kind === 'literature' ? ' lit' : ''}`
             return <g key={`${l.from}>${l.to}`}>
-              <path className={cls} d={route(p, n)}><title>{EDGE[l.type]!()}</title></path>
+              <path className={cls} d={route(p, n, `${l.from}>${l.to}`)}><title>{EDGE[l.type]!()}</title></path>
               {l.type === 'refute' && <path className={`fl-bar-x${on ? ' on' : ''}`} d={`M${x2 - 24} ${y2 - 7}V${y2 + 7}`} />}
             </g>
           })}

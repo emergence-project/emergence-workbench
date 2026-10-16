@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planRoute, roundedPath, routePoints } from './flowRoute'
+import { assignLanes, planRoute, roundedPath, routePoints } from './flowRoute'
 
 const busyOf = (cells: [number, number][]) => { const s = new Set(cells.map(([c, r]) => `${c}:${r}`)); return (c: number, r: number) => s.has(`${c}:${r}`) }
 const g = { X: (c: number) => 100 * c + 50, Y: (r: number) => 60 * r + 40, CW: 100, RH: 60 }
@@ -26,9 +26,17 @@ describe('흐름 선 길', () => {
     expect(a![0]).toBeGreaterThanOrEqual(50 + 20)
     expect(b![0]).toBeLessThanOrEqual(150 - 20)
   })
-  it('통로 선은 두 줄의 한가운데를 지난다', () => {
-    const pts = routePoints({ c: 0, r: 0 }, { c: 3, r: 1 }, { kind: 'channel', ch: 1 }, g)
-    expect(pts.filter(([, y]) => y === 70)).toHaveLength(2)
+  it('통로 선은 1/3 · 2/3 지점을 지나고, 겹치는 선은 다른 자리 (같은 점에서 나온 선은 같은 자리)', () => {
+    const ch = { kind: 'channel' as const, ch: 1 }
+    const t = assignLanes([
+      { key: 'a>x', from: 'a', plan: ch, c0: 0, c1: 3 },
+      { key: 'a>y', from: 'a', plan: ch, c0: 0, c1: 4 },
+      { key: 'b>z', from: 'b', plan: ch, c0: 1, c1: 3 },
+      { key: 'c>w', from: 'c', plan: ch, c0: 4, c1: 6 },
+    ])
+    expect([t.get('a>x'), t.get('a>y'), t.get('b>z'), t.get('c>w')]).toEqual([0, 0, 1, 0])
+    expect(routePoints({ c: 0, r: 0 }, { c: 3, r: 1 }, ch, g, 0).filter(([, y]) => y === 60)).toHaveLength(2)
+    expect(routePoints({ c: 0, r: 0 }, { c: 3, r: 1 }, ch, g, 1).filter(([, y]) => y === 80)).toHaveLength(2)
   })
   it('꺾이는 곳만 둥글게, 두 점이면 곧은 선', () => {
     expect(roundedPath([[0, 0], [10, 0]])).toBe('M0 0L10 0')
