@@ -243,7 +243,7 @@ function HunkRow({ h, picked, expanded, busy, render, raw, talks, talking, onTal
           // 단추는 줄 맨 앞 칸(전 왼쪽)에 줄마다 늘 둔다. 펼칠 문단이 없으면(제목 · 다른 바뀐 곳에 붙음 · 노트 끝) 흐리게 두고 이유를 툴팁에 (시안 그대로)
           const tip = !hasContext ? t('앞뒤에 펼칠 문단이 없습니다 (제목이나 다른 바뀐 곳에 붙어 있음)', 'No unchanged paragraph around (next to a heading or another change)')
             : expanded ? t('접기', 'Collapse') : t('앞뒤 문단 펼치기', 'Show the paragraphs around')
-          return <div className="ae-tg" role="cell"><button type="button" className="ae-expand" data-ui="펼치기 버튼" aria-expanded={expanded} aria-disabled={!hasContext}
+          return <div className="ae-tg" role="cell"><button type="button" className="ae-expand tip-start" data-ui="펼치기 버튼" aria-expanded={expanded} aria-disabled={!hasContext}
             data-tip={tip} aria-label={tip} onClick={hasContext ? onToggle : undefined}>{expanded ? Icon.collapse : Icon.expand}</button></div>
         })()}
         <div className="ae-cell base" role="cell" ref={baseRef}>

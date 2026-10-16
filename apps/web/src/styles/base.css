@@ -59,7 +59,6 @@ button.a { text-align: inherit; }
 .rail-btn:hover { background: var(--bg-hover); color: var(--text); }
 .rail-btn.on { background: var(--bg-hover); color: var(--primary); }
 .rail-btn .badge { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--s-blocked); box-shadow: 0 0 0 2px var(--bg); }
-.rail-btn[data-tip]:hover::after { content: attr(data-tip); position: absolute; left: 44px; top: 50%; transform: translateY(-50%); z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); padding: 3px var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; }
 .rail .sp { flex: 1; }
 
 /* ---------- 사이드바 ---------- */
@@ -162,7 +161,7 @@ button.a { text-align: inherit; }
 .rail-proj.lifted { opacity: .25; }
 .rail-proj.add { background: transparent; color: var(--text-3); border: 1.5px dashed var(--line-strong); font-weight: var(--fw-normal); font-size: var(--fs-lg); opacity: 1; }
 .rail-proj.add:hover { color: var(--text); border-color: var(--text-3); }
-.rail-proj[data-tip]:hover::after { content: attr(data-tip); position: fixed; left: 60px; z-index: 30; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-medium); padding: 3px var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; letter-spacing: 0; transform: translateY(-50%); margin-top: 17px; top: auto; }
+.rail-proj[data-tip]:hover::after { position: fixed; left: 60px; top: auto; margin-top: 17px; transform: translateY(-50%); font-weight: var(--fw-medium); padding: 3px var(--sp-2); }
 
 /* 작업 화면: 두 칸 + 탭 + 맥락 칸 */
 .ws { display: grid; min-width: 0; min-height: 0; }

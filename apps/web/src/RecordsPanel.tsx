@@ -82,7 +82,7 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
     </div>
     <PublishFailure rid={rid} version={version} />
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">
-      <button className="a" data-ui="자동 분류 버튼" data-tip={CLASSIFY_TIP} title={CLASSIFY_TIP} disabled={classifying_} onClick={() => void classify()}>{classifying_ ? t('분류하는 중…', 'Sorting…') : t(`자동 분류 ${unsorted.length}개`, `Auto-sort ${unsorted.length}`)}</button>
+      <button className="a" data-ui="자동 분류 버튼" data-tip={CLASSIFY_TIP} disabled={classifying_} onClick={() => void classify()}>{classifying_ ? t('분류하는 중…', 'Sorting…') : t(`자동 분류 ${unsorted.length}개`, `Auto-sort ${unsorted.length}`)}</button>
     </div>}
     <div className="records-list" data-ui="적기 목록">
       {error && <div className="banner danger" role="alert">{error}</div>}
