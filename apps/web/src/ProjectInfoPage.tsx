@@ -103,7 +103,7 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, project: list
             <div key={m.key}><button className="a info-manuscript" onClick={() => m.parts[0] && go({ page: 'part', rid, file: m.parts[0].file })}>{Icon.manuscript} {m.name}</button> <PathName path={m.main} /> <span className="muted">· {t(`${m.parts.length}장`, plural(m.parts.length, 'chapter'))}{m.hasPdf ? t(' · PDF 있음', ' · has PDF') : ''}</span></div>
           )) : <span className="muted">{t('없음 — 첫 화면에서 정합니다', 'None. Set it on the first screen')}</span>}</dd>
           <dt>{AUX_NOTE}</dt>
-          <dd>{blocks.length} <span className="muted">({(['solved', 'in-progress', 'blocked', 'stopped'] as const).filter((s) => n(s) > 0).map((s) => `${statusLabel(s)} ${n(s)}`).join(' · ') || t('없음', 'None')})</span></dd>
+          <dd><span>{blocks.length} <span className="muted">({(['solved', 'in-progress', 'blocked', 'stopped'] as const).filter((s) => n(s) > 0).map((s) => `${statusLabel(s)} ${n(s)}`).join(' · ') || t('없음', 'None')})</span></span></dd>
           <dt>{t('진술', 'Statements')}</dt><dd>{statements.length || <span className="muted">{t('없음', 'None')}</span>}</dd>
         </dl>
       </section>
