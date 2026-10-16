@@ -68,7 +68,7 @@ export function generateOverview(rows: (OverviewRow | { folder: string; problem:
   for (const r of rows) {
     if ('problem' in r) { out.push(`| (읽지 못함) | \`${r.folder}\` | ${r.problem.replace(/\|/g, '/')} | | | |`); continue }
     const repo = [r.behind && `${r.behind}커밋 뒤`, r.ahead && `안 올린 커밋 ${r.ahead}`].filter(Boolean).join(' · ') || '—'
-    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['노트', r.user.notes], ['맡긴 일 판단', r.user.tasks], ['고침 검토', r.user.edits], ['물은 기록', r.user.records]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
+    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['노트', r.user.notes], ['맡긴 일 판단', r.user.tasks], ['수정 검토', r.user.edits], ['물은 기록', r.user.records]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
   }
   out.push('')
   return out.join('\n')

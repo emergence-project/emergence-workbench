@@ -92,7 +92,7 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
     const prompt = [
       askPrompt(f, id, { repo, file, rules: projectRules(repo) }),
       '',
-      t('이 질문은 앱의 "고침 검토"에서 에이전트가 고친 문단 하나에 대해 남긴 것입니다.', 'This question was left in the app\'s edit review about one paragraph an agent changed.'),
+      t('이 질문은 앱의 "수정 검토"에서 에이전트가 고친 문단 하나에 대해 남긴 것입니다.', 'This question was left in the app\'s edit review about one paragraph an agent changed.'),
       t(`고치기 전 글:\n${h.base || '(없음: 새 문단)'}`, `Text before the change:\n${h.base || '(none: new paragraph)'}`),
       t(`지금 글:\n${h.current || '(없음: 지운 문단)'}`, `Current text:\n${h.current || '(none: deleted paragraph)'}`),
       ask === '수정'

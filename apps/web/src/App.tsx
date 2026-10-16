@@ -531,7 +531,7 @@ export function App() {
 }
 
 const PAGE_LABEL: Partial<Record<Route['page'], string>> = {
-  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: 'AGENTS.md', notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('고침 검토', 'Edit review'), flow: t('흐름', 'Flow'),
+  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: 'AGENTS.md', notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('수정 검토', 'Edit review'), flow: t('흐름', 'Flow'),
   ...Object.fromEntries(GLOBAL_PAGES.map((g) => [g.page, g.name])),
 }
 
@@ -555,7 +555,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'notes': return L('원고', 'Manuscript')
     case 'concepts': return L('개념노트', 'Concept notes')
     case 'papers': return L('문헌노트', 'Literature notes')
-    case 'edits': return L('고침 검토', 'Edit review')
+    case 'edits': return L('수정 검토', 'Edit review')
     case 'flow': return L('흐름', 'Flow')
     case 'statement': { const x = summary?.statements.find((y) => y.id === tab.sid); return x ? shortLabel(x) : tab.sid }
     case 'block': return summary?.blocks.find((b) => b.id === tab.bid)?.title ?? tab.bid

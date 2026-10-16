@@ -101,6 +101,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('끝냄', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
           : <span className="record-marker" aria-label={kindText(kind)}>{kind === '질문' ? '?' : kind === '지시' ? Icon.task : Icon.memo}</span>}
+      {/* 쓴 이는 줄 맨 위에 (10/15 22:41 피드백): 사용자 또는 에이전트 이름 */}
+      <span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('사용자가 쓴 기록', 'Written by the user')}>{c.by ?? t('사용자', 'User')}</span>
       <span className="record-place">
         {work && (file.target === 'project' ? <span className="record-source">{t('이 프로젝트', 'This project')}</span>
           : <button className="a record-source" title={file.title} onClick={onGo}>{file.title}</button>)}
@@ -125,7 +127,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null); else onListKey(e, (text) => setEdit({ ...edit, text })) }} />
         <div className="record-edit-actions"><button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
-      <div className="record-meta"><span>{kindText(kind)}</span><span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('내가 쓴 기록', 'Written by you')}>· {c.by ?? t('나', 'Me')}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
+      <div className="record-meta"><span>{kindText(kind)}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
         {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>→ {t('할 일 목록', 'To-do list')}</button>}
         {talk && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{turn ? <span className="record-turn">{t('내 차례', 'Your turn')}</span>
           : (work || c.state) && <span>· {work ? stateText(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateText(c.state!)}</span>}
@@ -134,7 +136,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {/* 기록 탭은 답을 대화로(내 글 오른쪽, 에이전트 글 왼쪽), 오른쪽 사이드바는 좁아서 답을 차례로 쌓는다 (10/15) */}
       {work ? c.answers.length > 0 && <ul className="fbp-thread record-thread" data-ui="기록 대화">
         {c.answers.map((a, i) => a.by === '앱' ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
-          : <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('나', 'Me') : a.by} when={a.at}>
+          : <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : a.by} when={a.at}>
             <AnswerBody answer={a} busy={busy} onApply={applicable(i)} />
           </SayCard>)}
       </ul>
@@ -149,7 +151,7 @@ const unguard = (s: string) => s.replace(/^\\(?=#{1,6} )/gm, '')
 
 function RecordAnswer({ answer, busy = false, onApply }: { answer: CommentEntry['answers'][number]; busy?: boolean; onApply?(): void }) {
   const mine = answer.by === USER_ANSWER_BY
-  return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head"><span>{mine ? t('이어 씀', 'Follow-up') : t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· {mine ? t('나', 'Me') : answer.by}</span><span className="muted cmt-time">· {answer.at}</span></div>
+  return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head"><span>{mine ? t('이어 씀', 'Follow-up') : t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· {mine ? t('사용자', 'User') : answer.by}</span><span className="muted cmt-time">· {answer.at}</span></div>
     <AnswerBody answer={answer} busy={busy} onApply={onApply} />
   </div>
 }
