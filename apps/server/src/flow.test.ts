@@ -15,7 +15,7 @@ beforeEach(() => { fs.rmSync(dir(), { recursive: true, force: true }); fs.mkdirS
 describe('흐름 읽기', () => {
   it('폴더가 없으면 빈 흐름', async () => {
     fs.rmSync(dir(), { recursive: true, force: true })
-    expect(await get()).toEqual({ nodes: [], diagnostics: [], layout: {} })
+    expect(await get()).toEqual({ nodes: [], diagnostics: [], layout: {}, rows: null })
   })
 
   it('점을 날짜 순으로 읽고, 선 종류가 없으면 받는 점의 종류로 정한다', async () => {
@@ -125,6 +125,15 @@ describe('흐름 고치기', () => {
     expect((await send('PUT', '/layout', { id: 'b', at: null })).json().layout).toEqual({ a: { c: 1, r: 1 } })
     expect((await get()).layout).toEqual({ a: { c: 1, r: 1 } })
     expect((await send('PUT', '/layout', { id: 'zz', at: null })).statusCode).toBe(404)
+  })
+
+  it('보이는 줄: 적으면 자리를 옮겨도 남고, 자리를 바꿔도 줄은 그대로', async () => {
+    put('a', 'format: 1\nkind: question\nprogress: open\ntitle: 가')
+    expect((await send('PUT', '/rows', { top: -3, bottom: 1 })).json()).toEqual({ rows: { top: -3, bottom: 1 } })
+    await send('PUT', '/layout', { id: 'a', at: { c: 1, r: 0 } })
+    expect(await get()).toMatchObject({ rows: { top: -3, bottom: 1 }, layout: { a: { c: 1, r: 0 } } })
+    expect(fs.readFileSync(path.join(dir(), 'layout.yaml'), 'utf8')).toContain('rows: { top: -3, bottom: 1 }')
+    expect((await send('PUT', '/rows', { top: 1, bottom: 2 })).statusCode).toBe(400)
   })
 
   it('자리: 10/14 오전의 주제별 자리도 읽고, 쓸 때 프로젝트 하나로 옮긴다', async () => {
