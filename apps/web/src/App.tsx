@@ -1,5 +1,6 @@
 import { RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, commentsApi, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { AppUpdateButton } from './AppUpdate'
 import { BlockPage } from './BlockPage'
@@ -46,6 +47,7 @@ import { setFeedbackNote } from './feedbackNote'
 import type { ProfilePatch } from './ProjectProfileFields'
 import { go, useRoute, type Route } from './router'
 import { useProjectData } from './projectData'
+import { batchInvalidation, invalidationKeys, qk } from './queries'
 import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
 import { applyUi, cachedUi } from './ui'
@@ -64,7 +66,7 @@ export function App() {
   const [researches, setResearches] = useState<ResearchListItem[] | null>(null)
   // 프로젝트 색: 고른 색과 자동 색이 겹치지 않게 목록 전체로 정한다 (자식이 그리기 전에)
   if (researches) setProjectColors(researches)
-  const [summary, setSummary] = useState<ResearchSummary | null>(null)
+  /** 아직 화면 캐시(queries.ts)로 옮기지 않은 화면이 다시 받는 신호. 파일 알림 · 저장 뒤에 오른다 */
   const [version, setVersion] = useState(0)
   const [search, setSearch] = useState(false)
   const closeSearch = useCallback(() => setSearch(false), [])
@@ -137,32 +139,33 @@ export function App() {
   // 따로 받는 화면은 첫 화면이 뜬 뒤 한가할 때 미리 받아 둔다 (lazyPages.tsx)
   useEffect(() => { prefetchLazyPages() }, [])
 
-  // 지금 프로젝트의 것만 넣는다: 프로젝트를 옮긴 뒤 늦게 온 앞 프로젝트의 요약이 새 화면에 들어가지 않게
-  const currentRapi = useRef(rapi)
-  currentRapi.current = rapi
-  const refreshSummary = useCallback(async () => {
-    if (!rapi) return
-    try {
-      const s = await rapi.summary()
-      if (currentRapi.current === rapi) setSummary(s)
-    } catch (e) { if (currentRapi.current === rapi) setError((e as Error).message) }
-  }, [rapi])
-  useEffect(() => { setSummary(null); void refreshSummary() }, [refreshSummary])
-  const changed = useCallback(() => { void refreshSummary(); setVersion((v) => v + 1) }, [refreshSummary])
+  // 요약은 화면 캐시에 프로젝트마다 둔다 (키에 프로젝트가 들어 있어 늦게 온 앞 프로젝트의 요약이 새 화면에 들어가지 않는다)
+  const client = useQueryClient()
+  const summaryQuery = useQuery({ queryKey: qk.summary(rid ?? ''), queryFn: () => rapi!.summary(), enabled: !!rapi })
+  const summary: ResearchSummary | null = rapi ? summaryQuery.data ?? null : null
+  useEffect(() => { if (summaryQuery.error) setError(summaryQuery.error.message) }, [summaryQuery.error])
+  /** 저장한 뒤: 이 프로젝트의 자료와 라이브러리를 다시 받고, 옮기지 않은 화면도 다시 받게 한다 */
+  const changed = useCallback(() => {
+    if (rid) void client.invalidateQueries({ queryKey: qk.project(rid) })
+    void client.invalidateQueries({ queryKey: qk.library })
+    setVersion((v) => v + 1)
+  }, [client, rid])
   // 파일 감시 알림은 몰려서 온다 (저장 한 번, 에이전트가 파일 여러 개를 한꺼번에 바꿀 때).
-  // 그때마다 개괄·라이브러리·원고·할 일을 모두 다시 읽지 않도록 잠깐(0.4초) 모았다가 한 번만 읽는다
+  // 화면 캐시는 알림이 바꾸는 자료만 잠깐(0.4초) 모아 한 번 다시 받는다. 옮기지 않은 화면은 version을 같은 식으로 모아 올린다
+  const invalidation = useMemo(() => batchInvalidation(client), [client])
+  useEffect(() => () => invalidation.cancel(), [invalidation])
   const changeTimer = useRef<number | undefined>(undefined)
   const changedSoon = useCallback(() => {
     window.clearTimeout(changeTimer.current)
-    changeTimer.current = window.setTimeout(changed, 400)
-  }, [changed])
+    changeTimer.current = window.setTimeout(() => setVersion((v) => v + 1), 400)
+  }, [])
   useEffect(() => () => window.clearTimeout(changeTimer.current), [])
   const homeTimer = useRef<number | undefined>(undefined)
   const bumpHome = useCallback(() => {
     window.clearTimeout(homeTimer.current)
     homeTimer.current = window.setTimeout(() => setVersion((v) => v + 1), 400)
   }, [])
-  const { library, libraryChanged, manuscripts, topics, notes, notesOf, notesChanged } = useProjectData(rapi, version, rid)
+  const { library, libraryChanged, manuscripts, topics, notes, notesOf, notesChanged } = useProjectData(rid)
   // 사이드바 "기록" 옆 남은 할 일 수: 요약에 실려 온다 (10/15, 전에는 일지 365일을 따로 받았다)
   const todoCount = summary ? summary.todos.length : null
   // 주제를 바꿔 옮겨 간 노트(10/13 주제 폴더)를 옛 경로로 연 탭·주소는 지금 경로로 바꾼다
@@ -192,17 +195,18 @@ export function App() {
   const onWorkbenchEvent = useRef<(e: WorkbenchEvent) => void>(() => undefined)
   onWorkbenchEvent.current = (e: WorkbenchEvent) => {
     figuresMaybeChanged()
-    // 공용 라이브러리(개념노트·그림·논문)는 어느 프로젝트의 것도 아니다: 라이브러리와 지금 화면을 잠깐 모았다가 다시 읽는다
+    // 화면 캐시: 알림이 바꾸는 자료만 (어느 프로젝트의 것이든. 홈의 프로젝트별 자료도 이것으로 새로워진다)
+    invalidation.add(invalidationKeys(e))
+    // 공용 라이브러리(개념노트·그림·논문)는 어느 프로젝트의 것도 아니다: 지금 화면을 잠깐 모았다가 다시 읽는다
     if (e.type === 'library') { bumpHome(); return }
     issues.onEvent(e)
     if (e.type === 'comments') commentsChanged(e.research, e.target)
     if (e.research === rid) changedSoon()
-    else if (route.page === 'home') bumpHome()
     if (e.type === 'research') void loadResearches()
   }
   // 다시 붙었을 때(서버 재시작·잠자기 뒤): 끊긴 동안 바뀐 것을 한 번 다시 읽는다
   const onReconnect = useRef<() => void>(() => undefined)
-  onReconnect.current = () => { void loadResearches(); changedSoon(); bumpHome() }
+  onReconnect.current = () => { void loadResearches(); void client.invalidateQueries(); changedSoon(); bumpHome() }
   useEffect(() => subscribeEvents((e: WorkbenchEvent) => {
     bus.dispatchEvent(new CustomEvent('rw', { detail: e }))
     onWorkbenchEvent.current(e)
@@ -434,7 +438,7 @@ export function App() {
         {globalPageOf(route.page) ? (
           globalPageOf(route.page)!.render({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight })
         ) : route.page === 'home' ? (
-          researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} askRecords={issues.records} version={version} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
+          researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} askRecords={issues.records} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
         ) : !rid || !summary || !rapi ? (
           <main className="stage full">
             <section className="pane">

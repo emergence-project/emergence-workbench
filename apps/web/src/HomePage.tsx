@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import { api, type ProjectState, type RepoSync, type ResearchListItem } from './api'
 import { CardImage } from './CardImage'
 import { cardTime, TagLine } from './cardParts'
@@ -7,6 +8,7 @@ import { deadlines, doneByDay, type Loaded } from './homeData'
 import { Icon } from './icons'
 import { attentionOf, filterProjects, issueTip, KIND_FILTERS, kindFilterLabel, lastWorkMs, moveId, PROJECT_KIND_LABEL, PROJECT_STATE_LABEL, PROJECT_STATES, stateCounts, type AttentionMark, type KindFilter } from './projectProfile'
 import { ProjectStateDot } from './ProjectProfileFields'
+import { qk } from './queries'
 import { go } from './router'
 import { WeekCalendar } from './WeekCalendar'
 import { t, plural, locale } from './i18n'
@@ -27,7 +29,7 @@ const read = <T extends string>(key: string, ok: readonly T[], fallback: T): T =
 }
 const remember = (key: string, v: string) => { try { localStorage.setItem(key, v) } catch { /* 기억 못 해도 된다 */ } }
 
-export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits = {}, askRecords = {}, version, onReordered, onRegister, onSaved }: {
+export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits = {}, askRecords = {}, onReordered, onRegister, onSaved }: {
   researches: ResearchListItem[]
   /** 프로젝트마다 확인이 필요한 보조 노트 수 (왼쪽 띠의 수) */
   issues: Record<string, number>
@@ -37,13 +39,11 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
   agentEdits?: Record<string, number>
   /** issues 가운데 에이전트가 물은 기록의 수 (툴팁 내역, 10/15) */
   askRecords?: Record<string, number>
-  version: number
   onReordered(list: ResearchListItem[]): void
   onRegister(): void
   onSaved(msg: string): void
 }) {
-  const [loaded, setLoaded] = useState<Record<string, Loaded | Error>>({})
-  const [syncs, setSyncs] = useState<Record<string, RepoSync | null>>({})
+
   const [view, setViewState] = useState<View>(() => read(VIEW_KEY, ['list', 'card'] as const, 'list'))
   const [kind, setKindState] = useState<KindFilter>(() => read(KIND_KEY, KIND_FILTERS, 'all'))
   const [state, setStateState] = useState<ProjectState>(() => read(STATE_KEY, PROJECT_STATES, 'active'))
@@ -53,17 +53,24 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
   const setKind = (v: KindFilter) => { setKindState(v); remember(KIND_KEY, v) }
   const setState = (v: ProjectState) => { setStateState(v); remember(STATE_KEY, v) }
 
-  // 순서만 바뀐 것(카드 끌기)으로는 다시 읽지 않는다: 프로젝트마다 요약·일지·git fetch를 하므로
-  const availableIds = all.filter((x) => x.available).map((x) => x.id).sort().join('\n')
-  useEffect(() => {
-    for (const r of all.filter((x) => x.available)) {
-      const rapi = api.research(r.id)
-      Promise.all([rapi.summary(), rapi.journal(365)])
-        .then(([summary, j]) => setLoaded((prev) => ({ ...prev, [r.id]: { summary, entries: j.entries } })))
-        .catch((e: Error) => setLoaded((prev) => ({ ...prev, [r.id]: e })))
-      rapi.sync(true).then((s) => setSyncs((prev) => ({ ...prev, [r.id]: s }))).catch(() => setSyncs((prev) => ({ ...prev, [r.id]: null })))
-    }
-  }, [availableIds, version]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 프로젝트마다 요약 · 일지 · GitHub 상태를 화면 캐시(queries.ts)에서 받는다: 파일 알림은 그 프로젝트의 것만 다시 받고(invalidationKeys),
+  // 순서만 바뀐 것(카드 끌기)으로는 다시 받지 않는다. GitHub 상태는 원격을 확인하므로(서버가 1분에 한 번까지) 1분이 지난 것만 다시 받는다
+  const client = useQueryClient()
+  const available = all.filter((x) => x.available)
+  const summaryQs = useQueries({ queries: available.map((r) => ({ queryKey: qk.summary(r.id), queryFn: () => api.research(r.id).summary() })) })
+  const journalQs = useQueries({ queries: available.map((r) => ({ queryKey: qk.journal(r.id, 365), queryFn: () => api.research(r.id).journal(365) })) })
+  const syncQs = useQueries({ queries: available.map((r) => ({ queryKey: qk.sync(r.id), queryFn: () => api.research(r.id).sync(true).catch(() => null), staleTime: 60_000 })) })
+  const stamp = [...summaryQs, ...journalQs].map((q) => `${q.dataUpdatedAt}:${q.errorUpdatedAt}`).join() + available.map((r) => r.id).join()
+  const loaded = useMemo(() => {
+    const out: Record<string, Loaded | Error> = {}
+    available.forEach((r, i) => {
+      const s = summaryQs[i]!, j = journalQs[i]!
+      if (s.error || j.error) out[r.id] = (s.error ?? j.error) as Error
+      else if (s.data && j.data) out[r.id] = { summary: s.data, entries: j.data.entries }
+    })
+    return out
+  }, [stamp]) // eslint-disable-line react-hooks/exhaustive-deps
+  const syncs: Record<string, RepoSync | null> = Object.fromEntries(available.flatMap((r, i) => syncQs[i]!.data !== undefined ? [[r.id, syncQs[i]!.data ?? null]] : []))
 
   const counts = useMemo(() => stateCounts(all, kind), [all, kind])
   const shown = useMemo(() => filterProjects(all, kind, state), [all, kind, state])
@@ -93,7 +100,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
   })
 
   const update = (rid: string) => {
-    api.research(rid).update().then((s) => { setSyncs((prev) => ({ ...prev, [rid]: s })); onSaved(t('GitHub의 새 커밋을 받았습니다', 'Pulled new commits from GitHub')) })
+    api.research(rid).update().then((s) => { client.setQueryData(qk.sync(rid), s); onSaved(t('GitHub의 새 커밋을 받았습니다', 'Pulled new commits from GitHub')) })
       .catch((e: Error) => onSaved(t(`받지 못했습니다 — ${e.message}`, `Could not pull: ${e.message}`)))
   }
   const rowOf = (r: ResearchListItem): ProjectRowData => {

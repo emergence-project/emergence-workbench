@@ -19,6 +19,7 @@
     "@codemirror/view": "^6.38.1",
     "@lezer/highlight": "^1.2.5",
     "@rw/core": "workspace:*",
+    "@tanstack/react-query": "5.103.3",
     "html-to-image": "^1.11.11",
     "katex": "^0.18.9",
     "markdown-it": "14",
