@@ -103,7 +103,7 @@ const CHECK: BriefRow[] = [
 ]
 /** 점검의 에이전트 고침 줄 (10/8): 고침 검토 화면(#/review?scope=library)을 연다 */
 const EDIT_ROWS: { key: 'reviews' | 'attempts'; label: string; name: string; tip: string }[] = [
-  { key: 'reviews', label: '고침 검토', name: t('고침 검토', 'Edits to review'), tip: t('에이전트가 고친 개념노트. 바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Concept notes an agent edited. Approve, revert or edit each change') },
+  { key: 'reviews', label: '고침 검토', name: t('수정 검토', 'Edits to review'), tip: t('에이전트가 고친 개념노트. 바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Concept notes an agent edited. Approve, revert or edit each change') },
   { key: 'attempts', label: '고치기 요청', name: t('고치기 요청', 'Edit requests'), tip: t('확인한 개념노트를 에이전트가 고치려 함. 그 대화에서 허락하면 에이전트가 고칩니다', 'An agent wants to edit a reviewed concept note. It edits once you agree in that conversation') },
 ]
 /** 통계 (이상 종류, 에이전트가 공유 라이브러리 README 규칙대로 채운다) */

@@ -40,7 +40,7 @@ export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?:
     <Frame inProject={!!rid}>
       <section className="pane">
         <div className="pane-head" data-ui="툴바">
-          <span className="crumb"><b>{rid ? t('고침 검토', 'Edit review') : t('개념노트 고침 검토', 'Review concept note edits')}</b></span>
+          <span className="crumb"><b>{rid ? t('수정 검토', 'Edit review') : t('개념노트 수정 검토', 'Review concept note edits')}</b></span>
           <span className="sp" />
           <span className="muted">{t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'For each change: approve, revert or edit')}</span>
         </div>

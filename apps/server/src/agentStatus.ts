@@ -212,11 +212,11 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   // ---------- 맡긴 일 (작업 탭) ----------
   p(...statusSection(wb))
 
-  // ---------- 에이전트 고침 검토 대기 ----------
+  // ---------- 에이전트 수정 검토 대기 ----------
   const editReviews = edits?.reviews.filter((r) => r.target.kind === 'note') ?? []
   const editAttempts = edits?.attempts.filter((a) => a.target.kind === 'note') ?? []
   if (editReviews.length || editAttempts.length) {
-    p(`## 에이전트 고침 검토 대기 ${editReviews.length + editAttempts.length}`, '',
+    p(`## 에이전트 수정 검토 대기 ${editReviews.length + editAttempts.length}`, '',
       '> 사용자 차례: 앱의 검토 화면(#/review)에서 바뀐 문단마다 승인 · 되돌리기 · 직접 고치기. 검토 전에 같은 노트를 또 고칠 때는 사용자가 되돌린 문단을 다시 넣지 않는다.', '')
     for (const r of editReviews) if (r.target.kind === 'note') {
       const first = new Date(r.since)
@@ -418,7 +418,7 @@ function noteDirs(notes: { file: string }[]): string[] {
 // 나머지 절은 이름과 크기만 적어 필요할 때 그 절만 받게 한다(MCP project_status section, pnpm agent:status --section).
 
 /** 요약에 그대로 싣는 절: 지금 누가 무엇을 해야 하는지. 이보다 긴 절은 이름만 남긴다 */
-const ACTIONABLE = ['프로젝트 규칙', '작업 파일 오류', '할 일', '맡긴 일', '에이전트 고침 검토 대기', '대기 중인 질문', '대기 중인 지시', '사용자 검토 대기 문서']
+const ACTIONABLE = ['프로젝트 규칙', '작업 파일 오류', '할 일', '맡긴 일', '에이전트 수정 검토 대기', '대기 중인 질문', '대기 중인 지시', '사용자 검토 대기 문서']
 const INLINE_MAX = 1500
 
 interface StatusPart { name: string; heading: string; text: string }

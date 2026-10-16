@@ -42,7 +42,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `overview` | 진행 중인 모든 프로젝트를 한 표로: 사용자 차례(확인할 노트 · 판단할 맡긴 일 · 에이전트 고침, 홈의 "확인 필요"와 같은 수), 에이전트 차례(답 없는 질문 · 진행 중 맡긴 일 · 할 일), 저장소 동기화, 최근 기록. 어디서 일할지 고를 때 | `GET /api/agent-overview` |
 | `project_status` | 짧은 프로젝트 요약: 머리 · 목표 · 지금 할 것을 말하는 절(할 일, 맡긴 일, 대기 중인 질문·지시, 검토 대기)만 싣고, 다른 절은 이름과 크기만 적는다. `section`은 `workbench/STATUS.md`의 절 하나, `full`은 전부 | `GET …/:rid/agent-status?view=summary`, `?section=<절 이름>` |
 | `list_notes` | 노트 목록: 본문 파일 · 기록 이름 `target`(Markdown 노트·블록 노트, `main.tex`에는 없음) · 상태 · 다시 열 조건 · 주제 (`status`로 거르기) | `GET …/:rid/notes` |
-| `list_edit_reviews` | 에이전트 고침 검토 대기와 허락 대기. 선택 인자 `project`를 주면 그 프로젝트만, 없으면 모든 프로젝트와 개념노트 | `GET /api/agent-edits?scope=` |
+| `list_edit_reviews` | 에이전트 수정 검토 대기와 허락 대기. 선택 인자 `project`를 주면 그 프로젝트만, 없으면 모든 프로젝트와 개념노트 | `GET /api/agent-edits?scope=` |
 | `read_note` | 노트 본문과 hash | `GET …/:rid/manuscript/part`, 블록 노트는 `GET …/:rid/blocks/:id` |
 | `read_records` | 노트·프로젝트 기록(메모 · 할 일 · 질문과 답 · 하이라이트)과 hash. 대상은 `project` · `note-<폴더>` · `topic-<id>` · `flow-<id>` 등이고, `part` · `partText`는 사용자가 가리킨 화면 부위다 | `GET …/:rid/comments/:target` |
 | `list_records` | 프로젝트의 모든 기록(프로젝트 · 노트 · 주제 · 흐름 점, 하이라이트 제외)을 한 목록으로, 종류 · 상태 · 대상(정확히 또는 `topic-`처럼 앞부분)으로 거른다. `unanswered: true`면 답을 기다리는 사용자의 질문과 지시(10/15: 에이전트가 하고 나서 답하는 기록)만. `by`는 기록을 쓴 에이전트(없으면 사용자), 답 이름 `사용자`는 사용자가 이어 쓴 것 | `GET …/:rid/records` |
