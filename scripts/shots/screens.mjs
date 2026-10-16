@@ -22,10 +22,14 @@ export const DEFAULT_SCREENS = [
   // 설명 칸의 그림 ▾ (10/16): 컴퓨터에서 · 그림 라이브러리에서 고르기
   ['flow-edit-figure', '#/r/{rid}/flow', '흐름 그림 메뉴', ['[data-ui="흐름 차트"] .fl-node[data-id="kempe-swap"]', '흐름 점 고치기', '흐름 그림 넣기']],
   ['notes', '#/r/{rid}/notes', '원고 목록'],
+  // 새 점 (10/16 승인 "이어서 · 지정 · 새로 시작"): 창 없이 차트의 점선 점 + 자세히 자리의 새 점 칸. 같은 주소면 앞 화면의 칸이 남으므로 다른 탭 화면 뒤에 하나씩 둔다
+  ['flow-new', '#/r/{rid}/flow', '흐름 새 점 창', ['[data-ui="흐름 차트"] .fl-node[data-id="kempe-swap"]', '흐름 다음 점']],
   // 작업 탭 (10/7 시안 v31): 처음은 판단 필터(브리핑 · 한 주 달력 · 판단 카드). 맡긴 일은 fixtures/sandbox-extra/workbench/tasks
   ['todo', '#/r/{rid}/todo', '판단 카드'],
+  ['flow-pick', '#/r/{rid}/flow', '흐름 앞선 점 고르기', ['[data-ui="흐름 차트"] .fl-node[data-id="kempe-swap"]', '흐름 다음 점 메뉴', '[role="menuitem"]:text-matches("^(앞선 점|Choose several)")', '[data-ui="흐름 차트"] .fl-node[data-id="five-color-theorem"]']],
   // 기록 탭 (10/15): 메모 · 할 일 · 질문을 작업 탭에서 떼어 대상별로 모은다. 처음은 메모
   ['records', '#/r/{rid}/records', '기록 화면'],
+  ['flow-start', '#/r/{rid}/flow', '흐름 새 점 창', '흐름 점 더하기'],
   // 기록 탭의 질문 (10/15): 답을 대화로, 이어 쓰기, 에이전트가 물은 질문(주황, 사용자 차례). 기록은 fixtures/sandbox-extra/workbench/comments
   ['records-questions', '#/r/{rid}/records', '기록 화면', '[data-ui="기록 거르기"] button:text-matches("^(질문|Question)")'],
   // 프로젝트 정보의 네 쪽 (10/16): 개요 · 현황 · 규칙 · 저장소

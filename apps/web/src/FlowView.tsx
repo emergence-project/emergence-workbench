@@ -149,8 +149,13 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
   // 누른 점의 자세히가 화면 밖이면 보이게 (처음 열 때 기억한 점으로는 움직이지 않는다)
   const reveal = useRef(revealNext !== null && revealNext === sel)
   useEffect(() => { if (revealNext && revealNext === sel) { revealNext = null; requestAnimationFrame(() => center(sel)) } }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  /** 새 점 창: from이 있으면 그 점에서 잇는다 */
-  const [adding, setAdding] = useState<{ from?: FlowNode } | null>(null)
+  /**
+   * 새 점 (10/16 사용자 승인 "이어서 · 지정 · 새로 시작"): 창 없이 차트에 점선 점이 생기고 자세히 자리에서 바로 적는다.
+   * from이 비면 시작점: 저장하면 맨 왼쪽 열의 새 아랫줄에 둔다 (layout.yaml)
+   */
+  const [draft, setDraft] = useState<{ from: string[] } | null>(null)
+  /** 앞선 점 고르기: 차트에서 누른 점을 모은다 */
+  const [picking, setPicking] = useState<string[] | null>(null)
   const [editing, setEditing] = useState<FlowNode | null>(null)
   // 점 끌어 옮기기: 5px 넘게 움직이면 끌기, 놓은 칸이 그 점의 자리가 된다 (layout.yaml)
   const drag = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null)
@@ -191,9 +196,21 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
     return { c, r: r - lay.mid }
   }
   const W = LEFT + CW * (lay.cols + 1)
-  const H = TOP + RH * lay.rows + 1
   const at = new Map(lay.placed.map((p) => [p.node.id, p]))
   const byId = new Map(all.map((n) => [n.id, n]))
+  // 새 점의 칸: 이으면 앞선 점들의 다음 열, 첫 앞선 점의 줄에서 가까운 빈 줄. 시작점이면 맨 왼쪽 열의 새 아랫줄
+  const draftAt = (() => {
+    if (!draft) return null
+    const ps = draft.from.map((id) => at.get(id)).filter((p): p is NonNullable<typeof p> => !!p)
+    if (!ps.length) return { c: 0, r: lay.placed.length ? Math.max(...lay.placed.map((p) => p.r)) + 1 : lay.mid }
+    const c = 1 + Math.max(...ps.map((p) => p.c))
+    const used = new Set(lay.placed.filter((p) => p.c === c).map((p) => p.r))
+    let r = ps[0]!.r
+    for (let d = 1; used.has(r); d++) r = ps[0]!.r + (d % 2 ? (d + 1) / 2 : -d / 2)
+    return { c, r }
+  })()
+  const draftNode = draft ? newDraftNode(draft.from.map((id) => byId.get(id)).filter((m): m is FlowNode => !!m), focus) : null
+  const H = TOP + RH * Math.max(lay.rows, draftAt ? draftAt.r + 1 : 0) + 1
   const lin = sel && at.has(sel) ? lineageOf(sel, lay.lines) : null
   const inLin = (id: string) => !!lin && (lin.up.has(id) || lin.down.has(id))
   const edgeOn = (a: string, b: string) => !!lin && ((lin.up.has(a) && lin.up.has(b)) || (lin.down.has(a) && lin.down.has(b)))
@@ -231,6 +248,17 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
     y1 === y2 || x1 === x2 ? `M${x1} ${y1}L${x2} ${y2}` : `M${x1} ${y1}C${x1 + CW * 0.6} ${y1} ${xm - CW * 0.6} ${y2} ${xm} ${y2}L${x2} ${y2}`
 
   const s = sel ? byId.get(sel) : undefined
+  /** 점 누르기: 앞선 점을 고르는 중이면 넣고 빼기, 아니면 고르기 */
+  const tap = (id: string) => { if (picking) setPicking(picking.includes(id) ? picking.filter((x) => x !== id) : [...picking, id]); else setSel(id) }
+  const startDraft = (from: string[]) => { setPicking(null); setEditing(null); setDraft({ from }) }
+  const madeDraft = (made: FlowNode) => {
+    const cell = draft && !draft.from.length && draftAt && lay.placed.length ? { c: 0, r: draftAt.r - lay.mid } : null
+    setDraft(null)
+    setSel(made.id)
+    if (cell) void place(made.id, cell)
+    else reload()
+  }
+  const draftEditor = draftNode && <FlowEditor key="new" rid={rid} n={draftNode} create all={all} notes={notes} topics={topics} onClose={() => setDraft(null)} onSaved={(made) => made ? madeDraft(made) : setDraft(null)} />
   // 고른 점을 오른쪽 사이드바 기록에 알린다: 거기서 적는 기록이 이 점에 붙는다.
   useEffect(() => { setFlowSelection(s ? { rid, id: s.id, title: s.title } : null) }, [rid, s?.id, s?.title]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => setFlowSelection(null), [])
@@ -254,12 +282,12 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
           <button className="icon-btn" title={tr('세로 넓히기', 'Taller')} aria-label={tr('세로 넓히기', 'Taller')} onClick={() => step('y', 1)}>＋</button>
           <button className={`btn small${zoom.fit ? ' on' : ''}`} aria-pressed={zoom.fit} title={tr('가로를 상자 폭에 맞추기', 'Fit the width to the box')} onClick={() => setZoom({ ...zoom, fit: !zoom.fit })}>{tr('전체 보기', 'Fit')}</button>
         </span>}
-        <button className="btn small" data-ui="흐름 점 더하기" title={sel ? tr('고른 점에서 이어지는 점을 더합니다', 'Add a dot following the selected one') : tr('새 시작점을 더합니다', 'Add a new starting dot')}
-          onClick={() => setAdding({ from: sel ? byId.get(sel) : undefined })}>＋ {tr('점', 'Dot')}</button>
+        <button className="btn small" data-ui="흐름 점 더하기" title={tr('앞선 점 없이 새로 시작하는 점을 더합니다. 이어지는 점은 점을 누르고 자세히의 ＋로', 'Add a dot that starts fresh. For a following dot, select a dot and use ＋ in its details')}
+          onClick={() => startDraft([])}>＋ {tr('시작점', 'Start')}</button>
       </div>
-      {lay.placed.length === 0 && <p className="fl-hint muted">{tr('흐름의 점이 없습니다. ＋ 점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots yet. Add the first step (a question, calculation, proof…) with ＋ Dot.')}</p>}
+      {lay.placed.length === 0 && (draftEditor || <p className="fl-hint muted">{tr('흐름의 점이 없습니다. ＋ 시작점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots yet. Add the first step (a question, calculation, proof…) with ＋ Start.')}</p>)}
       {lay.placed.length > 0 && <><div className="fl-box" ref={box} style={{ height }} data-ui="흐름 차트" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-        onClick={(e) => { if (!(e.target as Element).closest('.fl-node')) setSel(null) }}>
+        onClick={(e) => { if (!picking && !(e.target as Element).closest('.fl-node')) setSel(null) }}>
         <svg className="fl-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr('연구 흐름', 'Research flow')}>
           {Array.from({ length: lay.cols }, (_, c) => c > 0 && <line key={`c${c}`} className="fl-grid" x1={X(c)} y1={1} x2={X(c)} y2={H} />)}
           {Array.from({ length: lay.rows }, (_, r) => <line key={`r${r}`} className={r === lay.mid ? 'fl-mid' : 'fl-grid'} x1={LEFT} y1={Y(r)} x2={W} y2={Y(r)} />)}
@@ -273,13 +301,20 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
               {l.type === 'refute' && <path className={`fl-bar-x${on ? ' on' : ''}`} d={`M${x2 - 24} ${y2 - 7}V${y2 + 7}`} />}
             </g>
           })}
+          {draftAt && <g className="fl-draft" data-ui="흐름 새 점">
+            {draft!.from.map((id) => { const p = at.get(id); return p && <path key={id} className="fl-e fl-draft-e" d={route(X(p.c), Y(p.r), X(draftAt.c), Y(draftAt.r), draftAt.c - p.c > 1 ? X(p.c + 1) : X(draftAt.c))} /> })}
+            {!draft!.from.length && <path className="fl-start" d={`M${LEFT - 22} ${Y(draftAt.r) - 7}L${LEFT - 13} ${Y(draftAt.r)}L${LEFT - 22} ${Y(draftAt.r) + 7}Z`} />}
+            <circle className="fl-ghost" cx={X(draftAt.c)} cy={Y(draftAt.r)} r={14} />
+            <text className="fl-name strong" x={X(draftAt.c)} y={Y(draftAt.r) + 30} textAnchor="middle">{draftNode?.short || tr('새 점', 'New dot')}</text>
+          </g>}
           {ghost && <rect className="fl-ghost" x={LEFT + CW * ghost.c + 4} y={TOP + RH * (ghost.r + lay.mid) + 2} width={CW - 8} height={RH - 4} rx={8} />}
           {lay.placed.map(({ node: n, c, r }) => {
-            const x = X(c), y = Y(r), on = n.id === sel, lg = inLin(n.id) && !on
+            const picked = !!picking?.includes(n.id) || !!draft?.from.includes(n.id)
+            const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = (inLin(n.id) && !on) || picked
             const refs = n.evidence.filter((e) => e.kind === 'paper' && e.ref)
             const hot = !!focus && n.topics.includes(focus)
             const start = !n.from.length
-            return <g key={n.id} className={`fl-node${on ? ' sel' : ''}`} tabIndex={0} role="button" data-id={n.id}
+            return <g key={n.id} className={`fl-node${on ? ' sel' : ''}${picked ? ' pick' : ''}`} tabIndex={0} role="button" data-id={n.id}
               aria-label={`${n.short}: ${KIND[markOf(n)].name()}, ${stateName(n)}`}
               onPointerDown={(e) => { if (e.button === 0) { drag.current = { id: n.id, x: e.clientX, y: e.clientY, moved: false }; (e.currentTarget as Element).setPointerCapture(e.pointerId) } }}
               onPointerMove={(e) => {
@@ -298,8 +333,8 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
                 if (to && (to.c !== c || to.r !== r - lay.mid)) void place(n.id, to)
               }}
               onPointerCancel={() => { drag.current = null; setGhost(null) }}
-              onClick={() => { if (dragged.current) { dragged.current = false; return } setSel(n.id) }} onDoubleClick={() => { setSel(n.id); center(n.id) }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(n.id) } }}>
+              onClick={() => { if (dragged.current) { dragged.current = false; return } tap(n.id) }} onDoubleClick={() => { setSel(n.id); center(n.id) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(n.id) } }}>
               {hot && <rect className="fl-focus" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />}
               <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
               {lg && (KIND[markOf(n)].act
@@ -329,22 +364,32 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
         onPointerMove={(e) => { const s0 = sizing.current; if (s0) setHeightState(Math.max(160, Math.min(1200, s0.h + e.clientY - s0.y))) }}
         onPointerUp={() => { if (sizing.current) { sizing.current = null; setHeight(box.current?.clientHeight ?? height) } }}
         onDoubleClick={() => setHeight(DEFAULT_H)} />
-      {s && editing?.id === s.id ? <FlowEditor key={s.id} rid={rid} n={editing} all={all} notes={notes} topics={topics} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />
+      {draftEditor ? draftEditor
+        : picking ? <div className="fl-card fl-picking" data-ui="흐름 앞선 점 고르기">
+          <div className="fl-head"><span className="fl-short">{tr('앞선 점 고르기', 'Choose earlier dots')}</span>
+            <span className="fl-tools">
+              <button className="btn" onClick={() => setPicking(null)}>{tr('취소', 'Cancel')}</button>
+              <button className="btn primary" disabled={!picking.length} onClick={() => startDraft(picking)}>{tr('완료', 'Done')}</button>
+            </span></div>
+          <p className="fl-help">{picking.length
+            ? tr(`새 점이 ${picking.map((id) => byId.get(id)?.short ?? id).join(' · ')}에서 이어집니다. 점을 더 누르면 더하고, 다시 누르면 뺍니다.`, `The new dot follows ${picking.map((id) => byId.get(id)?.short ?? id).join(' · ')}. Click more dots to add; click again to remove.`)
+            : tr('차트에서 새 점이 이어질 점을 누릅니다. 여러 개를 고를 수 있습니다.', 'Click the dots the new one follows. You can choose several.')}</p>
+        </div>
+        : s && editing?.id === s.id ? <FlowEditor key={s.id} rid={rid} n={editing} all={all} notes={notes} topics={topics} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />
         : s ? <FlowCard reveal={reveal} rid={rid} n={s} all={all} byId={byId} notes={notes} manual={!!cells[s.id]} onPick={(id) => { setSel(id); center(id) }}
-        onAdd={() => setAdding({ from: s })} onEdit={() => setEditing(s)} onUnplace={() => void place(s.id, null)} reload={reload} fail={fail}
+        onAdd={() => startDraft([s.id])} onPickFrom={() => { setEditing(null); setPicking([s.id]) }} onEdit={() => setEditing(s)} onUnplace={() => void place(s.id, null)} reload={reload} fail={fail}
         onDeleted={() => { setSel(null); reload() }} />
         : <p className="fl-hint muted">{tr('점을 누르면 아래에 자세히 보입니다. 두 번 누르면 가운데로, 끌면 다른 칸으로 옮깁니다.', 'Click a dot to see it below. Double-click to center it; drag it to another cell.')}</p>}
       </>}
-      {adding && <NewDotDialog rid={rid} topic={focus} from={adding.from} onClose={() => setAdding(null)} onMade={(n) => { setAdding(null); reload(); setSel(n.id) }} />}
     </section>
   )
 }
 
-function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onAdd, onEdit, onUnplace, onDeleted, reload, fail }: {
+function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onAdd, onPickFrom, onEdit, onUnplace, onDeleted, reload, fail }: {
   reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; notes: NoteRow[]
   /** 손으로 옮긴 자리인지 */
   manual: boolean
-  onPick(id: string): void; onAdd(): void; onEdit(): void; onUnplace(): void; onDeleted(): void; reload(): void; fail(e: unknown): void
+  onPick(id: string): void; onAdd(): void; onPickFrom(): void; onEdit(): void; onUnplace(): void; onDeleted(): void; reload(): void; fail(e: unknown): void
 }) {
   const [approving, setApproving] = useState<number | null>(null)
   const remove = async () => {
@@ -380,7 +425,7 @@ function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onAdd, onE
       <div className="fl-head"><MarkIcon n={n} size={30} /><span className="fl-short">{n.short}</span>{n.date && <span className="muted">{n.date}</span>}
         <span className="fl-tools">
           {manual && <button className="btn small" title={tr('손으로 옮긴 자리를 풀고 자동 자리로', 'Release the manual position')} onClick={onUnplace}>{tr('자동 자리로', 'Auto position')}</button>}
-          <button className="icon-btn" data-ui="흐름 다음 점" title={tr('이 점에서 이어지는 점 더하기', 'Add a dot following this one')} aria-label={tr('다음 점 더하기', 'Add next dot')} onClick={onAdd}>{Icon.plus}</button>
+          <NextDotButtons onAdd={onAdd} onPickFrom={onPickFrom} />
           <button className="icon-btn" data-ui="흐름 점 고치기" title={tr('고치기', 'Edit')} aria-label={tr('점 고치기', 'Edit dot')} onClick={onEdit}>{Icon.pencil}</button>
           <button className="icon-btn" data-ui="흐름 점 지우기" title={tr('지우기', 'Delete')} aria-label={tr('점 지우기', 'Delete dot')} onClick={() => void remove()}>{Icon.trash}</button>
         </span>
@@ -475,38 +520,35 @@ function KindPicker({ value, onChange, compact }: { value: FlowKind; onChange(k:
   </div>
 }
 
-function NewDotDialog({ rid, topic, from, onClose, onMade }: { rid: string; topic?: string; from?: FlowNode; onClose(): void; onMade(n: FlowNode): void }) {
-  const [kind, setKind] = useState<FlowKind>(from ? (from.kind === 'question' ? 'proof' : 'question') : 'question')
-  const [short, setShort] = useState('')
-  const [title, setTitle] = useState('')
-  const [linked, setLinked] = useState(!!from)
-  const [edge, setEdge] = useState<FlowEdge | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const type = edge ?? defaultEdge(kind)
-  const submit = async () => {
-    if (!short.trim()) return setError(tr('짧은 제목을 적어 주세요.', 'Enter a short title.'))
-    setBusy(true)
-    try {
-      onMade(await flowApi(rid).create({ kind, short: short.trim(), title: title.trim() || undefined, topics: topic ? [topic] : from?.topics, from: from && linked ? [{ id: from.id, type }] : undefined }))
-    } catch (e) { setError((e as Error).message); setBusy(false) }
-  }
-  return <Dialog title={tr('새 점', 'New dot')} ui="흐름 새 점" wide onClose={onClose} footer={<>
-    <button className="btn" onClick={onClose}>{tr('취소', 'Cancel')}</button>
-    <button className="btn primary" disabled={busy} onClick={() => void submit()}>{tr('만들기', 'Create')}</button>
-  </>}>
-    <div className="field"><span>{tr('종류', 'Kind')}</span><KindPicker value={kind} onChange={setKind} /></div>
-    <label className="field"><span>{tr('짧은 제목', 'Short title')} <em>{tr('차트의 점 아래에 보입니다 (60자)', 'Shown under the dot (60 chars)')}</em></span>
-      <input autoFocus value={short} maxLength={60} onChange={(e) => setShort(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void submit() }} placeholder={tr('예: 다섯 색이면 되나', 'Example: Do five colors suffice')} /></label>
-    <label className="field"><span>{tr('제목', 'Title')} <em>{tr('비우면 짧은 제목', 'Empty = short title')}</em></span>
-      <input value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} /></label>
-    {from && <div className="fl-linkrow">
-      <label className="check"><input type="checkbox" checked={linked} onChange={(e) => setLinked(e.target.checked)} />{tr('앞선 점에서 잇기', 'Link from the earlier dot')}</label>
-      {linked && <><MarkIcon n={from} size={16} /><span>{from.short}</span>
-        <select aria-label={tr('선 종류', 'Line type')} value={type} onChange={(e) => setEdge(e.target.value as FlowEdge)}>{FLOW_EDGES.map((x) => <option key={x} value={x}>{EDGE[x]!()}</option>)}</select></>}
+/** 자세히의 ＋ (이 점에서 잇기)와 ▾ (앞선 점 여러 개 고르기) */
+function NextDotButtons({ onAdd, onPickFrom }: { onAdd(): void; onPickFrom(): void }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
+  return <span className="fl-next" ref={box}>
+    <button className="icon-btn" data-ui="흐름 다음 점" title={tr('이 점에서 이어지는 점 더하기', 'Add a dot following this one')} aria-label={tr('다음 점 더하기', 'Add next dot')} onClick={onAdd}>{Icon.plus}</button>
+    <button className={`icon-btn fl-next-more${open ? ' on' : ''}`} data-ui="흐름 다음 점 메뉴" title={tr('다른 방법으로 잇기', 'Other ways to link')} aria-label={tr('다른 방법으로 잇기', 'Other ways to link')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>▾</button>
+    {open && <div className="menu fl-next-pop" role="menu">
+      <button role="menuitem" onClick={() => { setOpen(false); onAdd() }}>{tr('이 점에서 잇기', 'Follow this dot')}</button>
+      <button role="menuitem" onClick={() => { setOpen(false); onPickFrom() }}>{tr('앞선 점 여러 개 고르기…', 'Choose several earlier dots…')}</button>
     </div>}
-    {error && <p className="error-text">{error}</p>}
-  </Dialog>
+  </span>
+}
+
+/** 새 점의 처음 값: 앞선 점이 질문이면 증명, 아니면 질문. 주제는 고른 주제, 없으면 첫 앞선 점의 주제 */
+function newDraftNode(from: FlowNode[], topic?: string): FlowNode {
+  const kind: FlowKind = from[0] ? (from[0].kind === 'question' ? 'proof' : 'question') : 'question'
+  const d = new Date(), p2 = (v: number) => String(v).padStart(2, '0')
+  return {
+    id: '', file: '', hash: '', kind, progress: 'open', short: '', title: '', topics: topic ? [topic] : from[0]?.topics ?? [],
+    date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`, from: from.map((m) => ({ id: m.id, type: defaultEdge(kind) })),
+    fields: {}, evidence: [], sources: [], guesses: [], theorem: false,
+  }
 }
 
 type EvRow = { kind: FlowEvidence['kind']; text: string; title: string; src: string }
@@ -523,7 +565,12 @@ function FlowText({ rid, text }: { rid: string; text: string }) {
  * 점 고치기: 이름·종류·상태·설명·근거·연결·주제를 한 번에. 창이 아니라 자세히가 있던 자리에서 고친다
  * (10/14 23:15 사용자: 팝업이 아닌 화면에서. docs/design-system.md 6절의 예외)
  */
-function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: string; n: FlowNode; all: FlowNode[]; notes: NoteRow[]; topics: TopicRef[]; onClose(): void; onSaved(): void }) {
+function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSaved }: {
+  rid: string; n: FlowNode
+  /** 새 점: 저장하면 만들고, 만든 점을 onSaved로 돌려준다 */
+  create?: boolean
+  all: FlowNode[]; notes: NoteRow[]; topics: TopicRef[]; onClose(): void; onSaved(made?: FlowNode): void
+}) {
   const [short, setShort] = useState(n.short)
   const [title, setTitle] = useState(n.title)
   const [date, setDate] = useState(n.date ?? '')
@@ -554,13 +601,18 @@ function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: str
     const bad = ev.findIndex((x) => !x.src.trim())
     if (bad >= 0) return setError(tr(`근거 ${bad + 1}에 노트 경로나 논문 키를 적어 주세요.`, `Evidence ${bad + 1} needs a note path or a paper key.`))
     setBusy(true); setError(null)
+    const set = {
+      short: short.trim(), title: title.trim() || short.trim(), date: date.trim(), kind, progress, result: progress === 'done' ? result : null, end, topics: tops, from,
+      fields: Object.fromEntries(Object.entries(fields).filter(([k]) => shownFields.includes(k)).map(([k, v]) => [k, v])),
+      evidence: ev.map((x) => ({ kind: x.kind, text: x.text, ...(x.title.trim() && { title: x.title.trim() }), ...(x.kind === 'paper' ? { ref: x.src.trim() } : { file: x.src.trim() }) })),
+    }
     try {
-      await flowApi(rid).patch(n.id, n.hash, {
-        short: short.trim(), title: title.trim() || short.trim(), date: date.trim(), kind, progress, result: progress === 'done' ? result : null, end, topics: tops, from,
-        fields: Object.fromEntries(Object.entries(fields).filter(([k]) => shownFields.includes(k)).map(([k, v]) => [k, v])),
-        evidence: ev.map((x) => ({ kind: x.kind, text: x.text, ...(x.title.trim() && { title: x.title.trim() }), ...(x.kind === 'paper' ? { ref: x.src.trim() } : { file: x.src.trim() }) })),
-      })
-      onSaved()
+      if (!create) { await flowApi(rid).patch(n.id, n.hash, set); return onSaved() }
+      // 만들기가 받는 칸으로 만들고, 나머지(날짜·설명·근거·결과·종결)가 있으면 이어서 고친다
+      const made = await flowApi(rid).create({ kind, short: set.short, title: set.title, progress, ...(tops.length && { topics: tops }), ...(from.length && { from }) })
+      const more = set.date !== made.date || end || progress === 'done' || set.evidence.length > 0 || Object.values(set.fields).some((v) => v.trim())
+      if (more) await flowApi(rid).patch(made.id, made.hash, set).catch((e: Error) => flash(tr(`점은 만들었지만 나머지 칸을 저장하지 못했습니다: ${e.message}`, `The dot was created, but the other fields were not saved: ${e.message}`)))
+      onSaved(made)
     } catch (e) {
       setBusy(false)
       setError(e instanceof ConflictError ? tr('다른 곳에서 점 파일이 바뀌어 저장하지 않았습니다. 취소하고 다시 고쳐 주세요.', 'The dot file changed elsewhere, so nothing was saved. Cancel and edit again.') : (e as Error).message)
@@ -584,7 +636,7 @@ function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: str
     const taken = new Set(figs.filter((x) => x.scope === rid).map((x) => x.file.toLowerCase()))
     for (const x of pics) {
       try {
-        const file = await uploadFigure(rid, n.id, x, taken)
+        const file = await uploadFigure(rid, n.id || 'flow', x, taken)
         taken.add(file.toLowerCase())
         insertFigure(f, file)
       } catch (e) { setError((e as Error).message) }
@@ -594,11 +646,11 @@ function FlowEditor({ rid, n, all, notes, topics, onClose, onSaved }: { rid: str
   // 저장 · 취소는 머리 줄에만 (10/16 사용자 승인)
   const buttons = <>
     <button className="btn" onClick={onClose}>{tr('취소', 'Cancel')}</button>
-    <button className="btn primary" disabled={busy} onClick={() => void save()}>{tr('저장', 'Save')}</button>
+    <button className="btn primary" disabled={busy} onClick={() => void save()}>{create ? tr('만들기', 'Create') : tr('저장', 'Save')}</button>
   </>
 
   // 자세히와 같은 배치로, 칸마다 상자를 두지 않는다 (10/15 반려 "박스가 너무 많다")
-  return <article className="fl-card fl-editing" data-ui="흐름 점 고치기 창" aria-label={tr('점 고치기', 'Edit dot')}
+  return <article className={`fl-card fl-editing${create ? ' fl-new' : ''}`} data-ui={create ? '흐름 새 점 창' : '흐름 점 고치기 창'} aria-label={create ? tr('새 점', 'New dot') : tr('점 고치기', 'Edit dot')}
     onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }}>
     <div className="fl-head"><MarkIcon n={{ ...n, kind, progress, result: progress === 'done' ? result : undefined }} size={30} />
       <input className="fl-in fl-short fl-grow" autoFocus aria-label={tr('짧은 제목', 'Short title')} placeholder={tr('짧은 제목', 'Short title')} value={short} maxLength={60} onChange={(e) => setShort(e.target.value)} />
