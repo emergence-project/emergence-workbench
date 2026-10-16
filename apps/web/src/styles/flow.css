@@ -168,3 +168,10 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-figmenu-hint { margin: var(--sp-1) 0 0; padding: var(--sp-1) 10px; border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
 .fl-preview { margin-top: var(--sp-1); padding: var(--sp-1) var(--sp-2); border-left: 2px solid var(--line); }
 .fl-editing .fl-fields dd textarea { padding-right: 84px; }
+/* 새 점 (10/16): 차트의 점선 점과 선, 앞선 점 고르기, 자세히의 ＋ ▾ */
+.fl-draft-e { stroke: var(--primary); stroke-dasharray: 4 3; }
+.fl-node.pick .fl-hit { stroke: var(--primary); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.fl-picking .fl-help { margin: 0; }
+.fl-next { position: relative; display: inline-flex; }
+.fl-next-more { width: 18px; font-size: var(--fs-xs); }
+.fl-next-pop { right: 0; top: calc(100% + 4px); min-width: 200px; }
