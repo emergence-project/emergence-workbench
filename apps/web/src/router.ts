@@ -61,6 +61,8 @@ export type Route =
   | { page: 'flow'; rid: string; topic?: string }
   | { page: 'info'; rid: string }
   | { page: 'agents'; rid: string }
+  | { page: 'status'; rid: string }
+  | { page: 'repo'; rid: string }
   | { page: 'notes'; rid: string }
   | { page: 'concepts'; rid: string }
   | { page: 'papers'; rid: string }
@@ -84,6 +86,8 @@ export function parseRoute(hash: string): Route {
     if (parts[2] === 'edits') { const key = new URLSearchParams(query).get('key'); return { page: 'edits', rid: parts[1], ...(key && { key }) } }
     if (parts[2] === 'info') return { page: 'info', rid: parts[1] }
     if (parts[2] === 'agents') return { page: 'agents', rid: parts[1] }
+    if (parts[2] === 'status') return { page: 'status', rid: parts[1] }
+    if (parts[2] === 'repo') return { page: 'repo', rid: parts[1] }
     if (parts[2] === 'notes') return { page: 'notes', rid: parts[1] }
     if (parts[2] === 'concepts') return { page: 'concepts', rid: parts[1] }
     if (parts[2] === 'papers') return { page: 'papers', rid: parts[1] }
@@ -177,6 +181,8 @@ export function href(r: Route): string {
     case 'edits': return `#/r/${e(r.rid)}/edits${r.key ? `?key=${e(r.key)}` : ''}`
     case 'info': return `#/r/${e(r.rid)}/info`
     case 'agents': return `#/r/${e(r.rid)}/agents`
+    case 'status': return `#/r/${e(r.rid)}/status`
+    case 'repo': return `#/r/${e(r.rid)}/repo`
     case 'notes': return `#/r/${e(r.rid)}/notes`
     case 'concepts': return `#/r/${e(r.rid)}/concepts`
     case 'papers': return `#/r/${e(r.rid)}/papers`

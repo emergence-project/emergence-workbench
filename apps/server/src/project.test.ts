@@ -4,7 +4,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { fetchArxiv, openWithSystem } from './materials.js'
-import { app, hasLatex, makeRepo, R, tmp, useSampleApp } from './testkit.js'
+import { app, hasLatex, makeRepo, R, repo, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
 
@@ -468,5 +468,17 @@ describe('프로젝트 정보 고치기 (research.yaml의 title·question·start
     await a.inject({ method: 'PATCH', url: U, payload: { image: '', baseHash: await hash() } })
     expect(fs.readFileSync(path.join(proj, 'workbench/research.yaml'), 'utf8')).not.toContain('image')
     await a.close()
+  })
+})
+
+describe('규칙 쪽 (agent-rules)', () => {
+  it('저장소의 규칙 파일과 함께 workbench/decisions/의 결정을 돌려준다', async () => {
+    const dir = path.join(repo, 'workbench', 'decisions')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, '2026-10-01-example.md'), '---\ntitle: 예시 결정\nstatus: superseded\n---\n\n본문\n')
+    const res = await app.inject({ method: 'GET', url: `${R}/agent-rules` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().decisions).toContainEqual({ file: 'workbench/decisions/2026-10-01-example.md', title: '예시 결정', status: 'superseded' })
+    fs.rmSync(path.join(dir, '2026-10-01-example.md'))
   })
 })

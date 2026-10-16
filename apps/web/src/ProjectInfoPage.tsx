@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { ManuscriptInfo, ProjectInfo, RepoInfo, ResearchApi, ResearchListItem, ResearchSummary } from './api'
+import type { BlockStatus } from '@rw/core'
+import type { AgentRules, ManuscriptInfo, RepoInfo, ResearchApi, ResearchListItem, ResearchSummary } from './api'
 import { projectColor, relativeTime, statusLabel, statusOf } from './format'
 import { AUX_NOTE } from './notes'
 import { go } from './router'
@@ -10,19 +11,46 @@ import { PROJECT_KIND_LABEL } from './projectProfile'
 import { locale, plural, t } from './i18n'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
 import { splitStatus, statusBody } from './statusBody'
-import { useAgentStatus, useProjectInfo } from './projectQueries'
+import { useAgentStatus, useJournal, useProjectInfo, useTaskScan, useTopicsOverview } from './projectQueries'
+import { StatusDot } from './StatusDot'
+import { judgeOrder, taskLine, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL } from './taskView'
+import { reviewStatusLabel } from './reviewStatus'
+import { LOOSE_NOTES_LABEL, LOOSE_TOPIC_ID } from './noteKinds'
 
 function PathName({ path }: { path: string }) {
   const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
   return <code className="info-path" title={path}>{name}</code>
 }
 
+/** 프로젝트 정보의 하위 쪽 하나의 겉 (개요 · 현황 · 규칙 · 저장소, 10/16 사용자 승인 "네 쪽으로") */
+function InfoShell({ ui, children }: { ui: string; children: ReactNode }) {
+  return (
+    <div className="ws-doc" data-ui={ui}>
+      <section className="pane" data-ui="본문">
+        <div className="scroll">
+          <div className="page-body info-page">{children}</div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function SubHead({ title, desc }: { title: string; desc: string }) {
+  return (
+    <header className="info-head">
+      <h1 className="h-title">{title}</h1>
+      <p className="info-desc muted">{desc}</p>
+    </header>
+  )
+}
+
 /**
- * 프로젝트 정보: 이 프로젝트가 무엇이고 어디에 무엇이 있는지 (2026-10-03 13:48 피드백 — 첫 화면에서 따로 뗌).
+ * 프로젝트 정보 › 개요: 이 프로젝트가 무엇이고 무엇이 들어 있는지 (2026-10-03 13:48 피드백 — 첫 화면에서 따로 뗌).
+ * 현황 · 규칙 · 저장소는 사이드바의 하위 쪽으로 나눴다 (10/16 사용자 승인, 시안 "세 가지 시안" 2번).
  * 읽기가 기본이며 제목 옆 연필로 첫 화면과 같은 고치기 창을 연다 (10/6 D3).
  * 제목·설명·시작일·카드 그림은 research.yaml, 성격·분야·진행 상태는 이 컴퓨터의 설정에 쓴다.
  */
-export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, project: listed, all, onProfile, onChanged, onSaved }: {
+export function ProjectInfoPage({ rid, rapi, summary, manuscripts, project: listed, all, onProfile, onChanged, onSaved }: {
   rid: string
   rapi: ResearchApi
   summary: ResearchSummary
@@ -35,84 +63,53 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, version, proj
   onChanged(): void
   onSaved(message: string): void
 }) {
-  const { research, blocks, statements, root } = summary
+  const { research, blocks, statements } = summary
   const [editing, setEditing] = useState(false)
-  const project = useProjectInfo(rid).data ?? null
+  const topics = useTopicsOverview(rid).data?.topics
   const n = (s: string) => blocks.filter((b) => statusOf(b.status) === s).length
-  const src = project?.sources
-  const list = (xs: string[] | undefined) => xs?.length ? xs.map((x) => <PathName key={x} path={x} />) : <span className="muted">{t('없음', 'None')}</span>
 
   return (
-    <div className="ws-doc" data-ui="프로젝트 정보">
-      <section className="pane" data-ui="본문">
-        <div className="scroll">
-          <div className="page-body info-page">
-            <header className="info-head">
-              <div className="info-title" data-ui="제목 칸">
-                <h1 className="h-title" data-ui="연구 제목">{research.title}</h1>
-                {listed && <button className="icon-btn" data-ui="프로젝트 정보 고치기" data-tip={t('고치기', 'Edit')} aria-label={t('프로젝트 고치기', 'Edit project')} onClick={() => setEditing(true)}>{Icon.pencil}</button>}
-              </div>
-              <div data-ui="설명 칸">
-                {research.question ? <p className="info-desc">{research.question}</p> : <p className="info-desc muted">{t('설명이 없습니다 · 연필로 더하기', 'No description · Add one with the pencil')}</p>}
-              </div>
-            </header>
-
-            <StatusSection rid={rid} rapi={rapi} />
-
-            <section className="info-sec" data-ui="기본 정보">
-              <h2>{t('기본', 'Basics')}</h2>
-              <dl>
-                <dt>{t('시작', 'Started')}</dt><dd data-ui="시작일 칸">{research.started || <span className="muted">—</span>}</dd>
-                <dt>{t('카드 그림', 'Card image')}</dt><dd data-ui="카드 그림 칸">{research.image ? <PathName path={research.image} /> : <span className="muted">{t('없음 — 홈 카드에 프로젝트 색만', 'None. The home card shows only the project color')}</span>}</dd>
-                <dt>{t('앱 기록', 'App records')}</dt><dd><code>workbench/</code> {t('(research.yaml, 노트, 일지)', '(research.yaml, notes, journal)')}</dd>
-              </dl>
-            </section>
-
-            {listed && (
-              <section className="info-sec" data-ui="태그">
-                <h2>{t('성격과 분야', 'Kind and fields')} <span className="muted">{t('이 컴퓨터의 설정', 'Settings on this computer')}</span></h2>
-                <dl data-ui="프로젝트 성격과 분야">
-                  <dt>{t('성격', 'Kind')}</dt><dd>{PROJECT_KIND_LABEL[listed.kind]}</dd>
-                  <dt>{t('분야', 'Fields')}</dt><dd className="info-fields">{listed.fields.length ? listed.fields.map((f) => <span key={f} className="pc-field">{f}</span>) : <span className="muted">{t('없음', 'None')}</span>}</dd>
-                  <dt>{t('진행 상태', 'Progress')}</dt><dd><span className="info-state"><ProjectStateDot state={listed.state} label /></span></dd>
-                </dl>
-              </section>
-            )}
-
-            <RepoSection rapi={rapi} root={root} version={version} />
-
-            <section className="info-sec" data-ui="노트 정보">
-              <h2>{t('노트', 'Notes')}</h2>
-              <dl>
-                <dt>{t('원고', 'Manuscript')}</dt>
-                <dd>{manuscripts.length ? manuscripts.map((m) => (
-                  <div key={m.key}><button className="a info-manuscript" onClick={() => m.parts[0] && go({ page: 'part', rid, file: m.parts[0].file })}>{Icon.manuscript} {m.name}</button> <PathName path={m.main} /> <span className="muted">· {t(`${m.parts.length}장`, plural(m.parts.length, 'chapter'))}{m.hasPdf ? t(' · PDF 있음', ' · has PDF') : ''}</span></div>
-                )) : <span className="muted">{t('없음 — 첫 화면에서 정합니다', 'None. Set it on the first screen')}</span>}</dd>
-                <dt>{AUX_NOTE}</dt>
-                <dd>{blocks.length} <span className="muted">({(['solved', 'in-progress', 'blocked', 'stopped'] as const).filter((s) => n(s) > 0).map((s) => `${statusLabel(s)} ${n(s)}`).join(' · ') || t('없음', 'None')})</span></dd>
-                <dt>{t('진술', 'Statements')}</dt><dd>{statements.length || <span className="muted">{t('없음', 'None')}</span>}</dd>
-              </dl>
-            </section>
-
-            <section className="info-sec" data-ui="자료 위치">
-              <h2>{t('자료 위치', 'Material locations')} <span className="muted">research.yaml sources</span></h2>
-              {!src ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : (
-                <dl>
-                  <dt>{t('정본 문서', 'Canonical documents')}</dt><dd>{src.canon.length ? src.canon.map((c) => <div key={c.path}><PathName path={c.path} />{c.note && <span className="muted"> · {c.note}</span>}</div>) : <span className="muted">{t('없음', 'None')}</span>}</dd>
-                  <dt>{t('작업 목록', 'Task list')}</dt><dd>{src.tasks ? <PathName path={src.tasks} /> : <span className="muted">{t('없음', 'None')}</span>}</dd>
-                  <dt>{t('참고문헌', 'References')}</dt><dd className="codes">{list(src.bib)}</dd>
-                  <dt>{t('자료', 'Materials')}</dt><dd className="codes">{list(src.materials)}</dd>
-                  <dt>{t('검토 문서', 'Review documents')}</dt><dd className="codes">{list(src.reviews)}</dd>
-                  <dt>{t('에이전트용 현황', 'Status for agents')}</dt><dd>{project.agentStatus ? <>{t('', 'The app writes ')}<code>STATUS.md</code>{t('를 앱이 씁니다', '')}</> : <span className="muted">{t('쓰지 않음', 'Not written')}</span>}</dd>
-                </dl>
-              )}
-            </section>
-          </div>
+    <InfoShell ui="프로젝트 정보">
+      <header className="info-head">
+        <div className="info-title" data-ui="제목 칸">
+          <h1 className="h-title" data-ui="연구 제목">{research.title}</h1>
+          {listed && <button className="icon-btn" data-ui="프로젝트 정보 고치기" data-tip={t('고치기', 'Edit')} aria-label={t('프로젝트 고치기', 'Edit project')} onClick={() => setEditing(true)}>{Icon.pencil}</button>}
         </div>
+        <div data-ui="설명 칸">
+          {research.question ? <p className="info-desc">{research.question}</p> : <p className="info-desc muted">{t('설명이 없습니다 · 연필로 더하기', 'No description · Add one with the pencil')}</p>}
+        </div>
+      </header>
+
+      <section className="info-sec" data-ui="기본 정보">
+        <h2>{t('기본', 'Basics')}</h2>
+        <dl data-ui="프로젝트 성격과 분야">
+          {listed && <><dt>{t('진행 상태', 'Progress')}</dt><dd><span className="info-state"><ProjectStateDot state={listed.state} label /></span></dd></>}
+          <dt>{t('시작', 'Started')}</dt><dd data-ui="시작일 칸">{research.started || <span className="muted">—</span>}</dd>
+          {listed && <>
+            <dt>{t('성격', 'Kind')}</dt><dd>{PROJECT_KIND_LABEL[listed.kind]}</dd>
+            <dt>{t('분야', 'Fields')}</dt><dd className="info-fields">{listed.fields.length ? listed.fields.map((f) => <span key={f} className="pc-field">{f}</span>) : <span className="muted">{t('없음', 'None')}</span>}</dd>
+          </>}
+          <dt>{t('카드 그림', 'Card image')}</dt><dd data-ui="카드 그림 칸">{research.image ? <PathName path={research.image} /> : <span className="muted">{t('없음 — 홈 카드에 프로젝트 색만', 'None. The home card shows only the project color')}</span>}</dd>
+        </dl>
+        {listed && <p className="muted info-note">{t('진행 상태 · 성격 · 분야는 이 컴퓨터의 설정, 나머지는 research.yaml입니다. 연필 하나로 함께 고칩니다.', 'Progress, kind and fields are settings on this computer; the rest is research.yaml. The pencil edits both.')}</p>}
+      </section>
+
+      <section className="info-sec" data-ui="노트 정보">
+        <h2>{t('들어 있는 것', 'Contents')}</h2>
+        <dl>
+          <dt>{t('주제', 'Topics')}</dt><dd>{topics === undefined ? <span className="muted">…</span> : topics.length || <span className="muted">{t('없음', 'None')}</span>}</dd>
+          <dt>{t('원고', 'Manuscript')}</dt>
+          <dd>{manuscripts.length ? manuscripts.map((m) => (
+            <div key={m.key}><button className="a info-manuscript" onClick={() => m.parts[0] && go({ page: 'part', rid, file: m.parts[0].file })}>{Icon.manuscript} {m.name}</button> <PathName path={m.main} /> <span className="muted">· {t(`${m.parts.length}장`, plural(m.parts.length, 'chapter'))}{m.hasPdf ? t(' · PDF 있음', ' · has PDF') : ''}</span></div>
+          )) : <span className="muted">{t('없음 — 첫 화면에서 정합니다', 'None. Set it on the first screen')}</span>}</dd>
+          <dt>{AUX_NOTE}</dt>
+          <dd>{blocks.length} <span className="muted">({(['solved', 'in-progress', 'blocked', 'stopped'] as const).filter((s) => n(s) > 0).map((s) => `${statusLabel(s)} ${n(s)}`).join(' · ') || t('없음', 'None')})</span></dd>
+          <dt>{t('진술', 'Statements')}</dt><dd>{statements.length || <span className="muted">{t('없음', 'None')}</span>}</dd>
+        </dl>
       </section>
       {editing && listed && <ProjectEditDialog rapi={rapi} summary={summary} listed={listed} all={all} pc={projectColor(rid)}
         onProfile={onProfile} onChanged={onChanged} onSaved={onSaved} onDone={() => setEditing(false)} />}
-    </div>
+    </InfoShell>
   )
 }
 
@@ -122,57 +119,165 @@ function useStatusText(rid: string, rapi: ResearchApi): string | null | undefine
   return q.data === undefined ? undefined : q.data === null ? null : statusBody(q.data)
 }
 
-/**
- * 현황: 에이전트가 STATUS.md · `pnpm agent:status` · MCP project_status로 읽는 요약과 같은 것 (10/11 "정본은 하나, 사람은 앱으로 AI는 파일·MCP로").
- * 서버의 generateStatus 하나가 만든 글을 그대로 보이고, 앞머리의 에이전트용 안내(제목과 > 인용 줄)만 뺀다.
- * 규칙 절(공통 규칙 · 폴더 규칙 · 프로젝트 규칙)은 왼쪽 사이드바 프로젝트 정보 아래의 AGENTS.md 화면에 둔다 (10/15 피드백).
- */
-function StatusSection({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
-  const text = useStatusText(rid, rapi)
-  const parts = text ? splitStatus(text) : null
-  return (
-    <section className="info-sec" data-ui="현황">
-      <h2>{t('현황', 'Status')} <span className="muted">{t('에이전트가 STATUS.md와 MCP로 읽는 것과 같은 내용', 'Same as what agents read in STATUS.md and over MCP')}</span></h2>
-      <div className="info-status">
-        {text === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
-          : text === null || !parts ? <p className="muted">{t('현황을 읽지 못했습니다', 'Could not read the status')}</p>
-          : <ObsidianMarkdown text={parts.status} />}
-      </div>
-      {parts?.rules && <p className="muted info-rules-link">{t('에이전트가 함께 읽는 규칙은 ', 'The rules agents read with it are on ')}<button className="a" onClick={() => go({ page: 'agents', rid })}>AGENTS.md</button>{t('에 있습니다.', '.')}</p>}
-    </section>
-  )
+/** 노트 상태별 수를 보이는 순서 (주제 카드와 같은 색 점 + 수) */
+const COUNT_ORDER: BlockStatus[] = ['in-progress', 'blocked', 'solved', 'stopped']
+/** 현황의 "내 차례"에 보이는 줄 수 */
+const TURN_ROWS = 5
+const RECENT_DAYS = 7
+
+function Counts({ by }: { by: Partial<Record<BlockStatus, number>> }) {
+  const shown = COUNT_ORDER.filter((s) => (by[s] ?? 0) > 0)
+  if (!shown.length) return <span className="muted">{t('노트 없음', 'No notes')}</span>
+  return <span className="info-counts">{shown.map((s) => <span key={s} title={`${statusLabel(s)} ${by[s]}`}><StatusDot s={s} />{by[s]}</span>)}</span>
 }
 
 /**
- * AGENTS.md: 에이전트가 이 저장소에서 먼저 읽는 규칙. 저장소의 AGENTS.md · CLAUDE.md와 STATUS.md의 규칙 절.
- * 왼쪽 사이드바 프로젝트 정보 아래의 하위 항목 (10/15 반려 "프로젝트 정보 섹션 하위 섹션으로").
+ * 프로젝트 정보 › 현황: 에이전트가 STATUS.md · `pnpm agent:status` · MCP project_status로 읽는 것과 같은 내용을 칸으로 나눴다
+ * (10/11 "정본은 하나, 사람은 앱으로 AI는 파일·MCP로", 10/16 사용자 승인 B안 "칸으로 나눈 요약 + 원문 보기").
+ * 칸의 수는 작업 · 주제 · 일지 화면과 같은 자료에서 세고, 맨 아래에서 서버 generateStatus의 글을 그대로 펼쳐 볼 수 있다.
+ * 정본 위치는 저장소 쪽에, 규칙 절은 규칙 쪽에 둔다.
+ */
+export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
+  const tasks = useTaskScan(rid).data?.tasks
+  const overview = useTopicsOverview(rid).data
+  const { entries, loaded } = useJournal(rapi)
+  const text = useStatusText(rid, rapi)
+  const turn = tasks ? judgeOrder(tasks) : []
+  const since = new Date(Date.now() - RECENT_DAYS * 86_400_000)
+  const sinceDay = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}-${String(since.getDate()).padStart(2, '0')}`
+  const recent = entries.filter((e) => e.date >= sinceDay).sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).slice(0, TURN_ROWS)
+  const toWork = <button className="a info-more" onClick={() => go({ page: 'todo', rid })}>{t('작업 탭 ›', 'Work tab ›')}</button>
+  return (
+    <InfoShell ui="현황 쪽">
+      <SubHead title={t('현황', 'Status')} desc={t('에이전트가 STATUS.md와 MCP로 읽는 것과 같은 내용을 칸으로 나눴습니다.', 'The same content agents read in STATUS.md and over MCP, split into sections.')} />
+
+      <section className="info-sec" data-ui="내 차례">
+        <h2>{t('내 차례', 'Your turn')} <span className="muted">{tasks ? turn.length : '…'}</span>{turn.length > 0 && toWork}</h2>
+        {!tasks ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : !turn.length ? <p className="muted">{t('판단을 기다리는 맡긴 일이 없습니다', 'No delegated work is waiting for your decision')}</p> : (
+          <ul className="info-list">
+            {turn.slice(0, TURN_ROWS).map((x) => (
+              <li key={x.id}><button className="info-row" onClick={() => go({ page: 'task', rid, task: x.id })}>
+                <StatusDot s={TASK_DOT[x.state]} name={TASK_STATE_LABEL[x.state]} /><span className="info-row-title">{x.title}</span><span className="muted info-row-meta">{taskLine(x)}</span>
+              </button></li>
+            ))}
+            {turn.length > TURN_ROWS && <li className="muted info-list-more">{t(`외 ${turn.length - TURN_ROWS}개`, `${turn.length - TURN_ROWS} more`)}</li>}
+          </ul>
+        )}
+      </section>
+
+      <section className="info-sec" data-ui="맡긴 일 수">
+        <h2>{t('맡긴 일', 'Delegated work')} <span className="muted">{tasks ? tasks.length : '…'}</span>{toWork}</h2>
+        {tasks && (tasks.length
+          ? <p className="info-line">{TASK_GROUPS.map((g) => ({ g, n: tasks.filter((x) => (g.states as readonly string[]).includes(x.state)).length })).filter((x) => x.n > 0).map((x) => <span key={x.g.title}>{x.g.title} <b>{x.n}</b></span>)}</p>
+          : <p className="muted">{t('맡긴 일이 없습니다', 'No delegated work')}</p>)}
+      </section>
+
+      <section className="info-sec" data-ui="주제 진행">
+        <h2>{t('주제', 'Topics')} <span className="muted">{overview ? overview.topics.length : '…'}</span></h2>
+        {overview && (overview.topics.length || overview.loose.notes ? (
+          <ul className="info-list">
+            {overview.topics.map((x) => (
+              <li key={x.id}><button className="info-row" onClick={() => go({ page: 'topic', rid, tid: x.id })}>
+                <span className="info-row-title">{x.star ? '★ ' : ''}{x.title}</span><Counts by={x.byStatus} />
+              </button></li>
+            ))}
+            {overview.loose.notes > 0 && <li><button className="info-row" onClick={() => go({ page: 'topic', rid, tid: LOOSE_TOPIC_ID })}>
+              <span className="info-row-title muted">{LOOSE_NOTES_LABEL}</span><Counts by={overview.loose.byStatus} />
+            </button></li>}
+          </ul>
+        ) : <p className="muted">{t('주제와 노트가 없습니다', 'No topics or notes')}</p>)}
+      </section>
+
+      <section className="info-sec" data-ui="최근 기록">
+        <h2>{t('최근 기록', 'Recent journal')} <span className="muted">{t(`${RECENT_DAYS}일`, `${RECENT_DAYS} days`)}</span><button className="a info-more" onClick={() => go({ page: 'log', rid })}>{t('작업 일지 ›', 'Journal ›')}</button></h2>
+        {!loaded && !entries.length ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : !recent.length ? <p className="muted">{t('최근 기록이 없습니다', 'No recent entries')}</p> : (
+          <ul className="info-list">
+            {recent.map((e) => <li key={`${e.date}-${e.index}`} className="info-row static"><span className="info-row-title">{e.text.split('\n')[0]}</span><span className="muted info-row-meta">{e.date.slice(5).replace('-', '/')} {e.time}</span></li>)}
+          </ul>
+        )}
+      </section>
+
+      <details className="info-raw" data-ui="현황 원문">
+        <summary>{t('에이전트가 읽는 원문 보기 (STATUS.md)', 'Show the text agents read (STATUS.md)')}</summary>
+        <div className="info-status">
+          {text === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
+            : text === null ? <p className="muted">{t('현황을 읽지 못했습니다', 'Could not read the status')}</p>
+            : <ObsidianMarkdown text={splitStatus(text).status} />}
+        </div>
+      </details>
+    </InfoShell>
+  )
+}
+
+/** 결정의 status가 끝난 것(뒤집힘·닫힘)이면 흐리게 */
+const ENDED = new Set(['superseded', 'closed'])
+
+/**
+ * 프로젝트 정보 › 규칙: 에이전트가 이 저장소에서 먼저 읽는 규칙. 저장소의 AGENTS.md · CLAUDE.md와 STATUS.md의 규칙 절,
+ * 그리고 그 근거가 된 결정(`workbench/decisions/`, 10/15 "결정은 규칙 쪽 아래에"). 예전 이름 "AGENTS.md" 쪽 (data-ui는 그대로).
  */
 export function AgentsPage({ rid, rapi, version }: { rid: string; rapi: ResearchApi; version: number }) {
   const text = useStatusText(rid, rapi)
-  const [files, setFiles] = useState<{ file: string; text: string }[] | null | undefined>(undefined)
-  useEffect(() => { rapi.agentRules().then((r) => setFiles(r.files)).catch(() => setFiles(null)) }, [rapi, version])
+  const [got, setGot] = useState<AgentRules | null | undefined>(undefined)
+  useEffect(() => { rapi.agentRules().then(setGot).catch(() => setGot(null)) }, [rapi, version])
+  const files = got === undefined ? undefined : got?.files ?? null
+  const decisions = got?.decisions ?? []
   const rules = text ? splitStatus(text).rules : ''
   return (
-    <div className="ws-doc" data-ui="AGENTS.md">
-      <section className="pane" data-ui="본문">
-        <div className="scroll">
-          <div className="page-body info-page">
-            <header className="info-head">
-              <h1 className="h-title">AGENTS.md</h1>
-              <p className="info-desc muted">{t('에이전트가 이 저장소에서 일하기 전에 읽는 규칙입니다. 고치려면 저장소의 파일을 고칩니다.', 'Rules agents read before working in this repository. To change them, edit the files in the repository.')}</p>
-            </header>
-            <div className="info-status">
-              {files === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
-                : !files?.length ? <p className="muted">{t('저장소 맨 위에 AGENTS.md가 없습니다', 'No AGENTS.md at the top of the repository')}</p>
-                : files.map((f) => <div key={f.file} className="info-rule-file"><h3><code>{f.file}</code></h3><ObsidianMarkdown text={f.text} /></div>)}
-              {rules && <div className="info-rule-file"><h3>{t('함께 읽는 규칙', 'Rules read with it')} <span className="muted">{t('STATUS.md의 규칙 절', 'Rule sections of STATUS.md')}</span></h3><ObsidianMarkdown text={rules} /></div>}
-            </div>
-          </div>
-        </div>
+    <InfoShell ui="AGENTS.md">
+      <SubHead title={t('규칙', 'Rules')} desc={t('에이전트가 이 저장소에서 일하기 전에 읽는 규칙입니다. 고치려면 저장소의 파일을 고칩니다.', 'Rules agents read before working in this repository. To change them, edit the files in the repository.')} />
+      <div className="info-status">
+        {files === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
+          : !files?.length ? <p className="muted">{t('저장소 맨 위에 AGENTS.md가 없습니다', 'No AGENTS.md at the top of the repository')}</p>
+          : files.map((f) => <div key={f.file} className="info-rule-file"><h3><code>{f.file}</code></h3><ObsidianMarkdown text={f.text} /></div>)}
+        {rules && <div className="info-rule-file"><h3>{t('함께 읽는 규칙', 'Rules read with it')} <span className="muted">{t('STATUS.md의 규칙 절', 'Rule sections of STATUS.md')}</span></h3><ObsidianMarkdown text={rules} /></div>}
+      </div>
+      <section className="info-sec" data-ui="결정">
+        <h2>{t('결정', 'Decisions')} <span className="muted"><code>workbench/decisions/</code> · {got ? decisions.length : '…'}</span></h2>
+        <p className="muted info-note">{t('규칙이 왜 그런지 적은 기록입니다. 뒤집을 때는 고치지 않고 새 결정을 씁니다.', 'Records of why the rules are the way they are. To reverse one, write a new decision instead of editing it.')}</p>
+        {got && (decisions.length ? (
+          <ul className="info-list">
+            {[...decisions].reverse().map((d) => {
+              const date = /^(\d{4}-\d{2}-\d{2})-/.exec(d.file.split('/').pop() ?? '')?.[1]
+              return <li key={d.file} className={`info-row static${ENDED.has(d.status) ? ' ended' : ''}`} title={d.file}>
+                <span className="info-row-title">{d.title}</span>
+                <span className="muted info-row-meta">{[d.status && reviewStatusLabel(d.status), date].filter(Boolean).join(' · ')}</span>
+              </li>
+            })}
+          </ul>
+        ) : <p className="muted">{t('이 프로젝트에는 결정 기록이 없습니다', 'This project has no decision records')}</p>)}
       </section>
-    </div>
+    </InfoShell>
   )
 }
+
+/** 프로젝트 정보 › 저장소: 어디에 무엇이 있는지, GitHub와 같은지 (예전 프로젝트 정보의 저장소 · 자료 위치 절) */
+export function RepoPage({ rid, rapi, root, version }: { rid: string; rapi: ResearchApi; root: string; version: number }) {
+  const project = useProjectInfo(rid).data ?? null
+  const src = project?.sources
+  const list = (xs: string[] | undefined) => xs?.length ? xs.map((x) => <PathName key={x} path={x} />) : <span className="muted">{t('없음', 'None')}</span>
+  return (
+    <InfoShell ui="저장소 쪽">
+      <SubHead title={t('저장소', 'Repository')} desc={t('어디에 무엇이 있는지, GitHub와 같은지.', 'Where things are, and whether it matches GitHub.')} />
+      <RepoSection rapi={rapi} root={root} version={version} />
+      <section className="info-sec" data-ui="자료 위치">
+        <h2>{t('자료 위치', 'Material locations')} <span className="muted">research.yaml sources</span></h2>
+        {!src ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : (
+          <dl>
+            <dt>{t('앱 기록', 'App records')}</dt><dd><code>workbench/</code> {t('(research.yaml, 노트, 일지)', '(research.yaml, notes, journal)')}</dd>
+            <dt>{t('정본 문서', 'Canonical documents')}</dt><dd>{src.canon.length ? src.canon.map((c) => <div key={c.path}><PathName path={c.path} />{c.note && <span className="muted"> · {c.note}</span>}</div>) : <span className="muted">{t('없음', 'None')}</span>}</dd>
+            <dt>{t('작업 목록', 'Task list')}</dt><dd>{src.tasks ? <PathName path={src.tasks} /> : <span className="muted">{t('없음', 'None')}</span>}</dd>
+            <dt>{t('참고문헌', 'References')}</dt><dd className="codes">{list(src.bib)}</dd>
+            <dt>{t('자료', 'Materials')}</dt><dd className="codes">{list(src.materials)}</dd>
+            <dt>{t('검토 문서', 'Review documents')}</dt><dd className="codes">{list(src.reviews)}</dd>
+            <dt>{t('에이전트용 현황', 'Status for agents')}</dt><dd>{project.agentStatus ? <>{t('', 'The app writes ')}<code>STATUS.md</code>{t('를 앱이 씁니다', '')}</> : <span className="muted">{t('쓰지 않음', 'Not written')}</span>}</dd>
+          </dl>
+        )}
+      </section>
+    </InfoShell>
+  )
+}
+
 
 /**
  * 저장소: 폴더, 브랜치, GitHub 주소, 마지막 커밋, 커밋 안 한 변경, GitHub와 같은지 (10/4 19:25 피드백 "깃도 포함시키고 최신상태 여부도").

@@ -26,9 +26,12 @@ export const DEFAULT_SCREENS = [
   ['records', '#/r/{rid}/records', '기록 화면'],
   // 기록 탭의 질문 (10/15): 답을 대화로, 이어 쓰기, 에이전트가 물은 질문(주황, 사용자 차례). 기록은 fixtures/sandbox-extra/workbench/comments
   ['records-questions', '#/r/{rid}/records', '기록 화면', '[data-ui="기록 거르기"] button:text-matches("^(질문|Question)")'],
-  ['info', '#/r/{rid}/info', '저장소 정보'],
-  // 현황의 AGENTS.md 탭 (10/15): 저장소의 AGENTS.md와 STATUS.md의 규칙 절
-  ['info-agents', '#/r/{rid}/agents', 'AGENTS.md'],
+  // 프로젝트 정보의 네 쪽 (10/16): 개요 · 현황 · 규칙 · 저장소
+  ['info', '#/r/{rid}/info', '노트 정보'],
+  ['info-status', '#/r/{rid}/status', '최근 기록'],
+  // 규칙 쪽 (옛 AGENTS.md 쪽): 저장소의 AGENTS.md, STATUS.md의 규칙 절, workbench/decisions/
+  ['info-agents', '#/r/{rid}/agents', '결정'],
+  ['info-repo', '#/r/{rid}/repo', '저장소 정보'],
   ['map', '#/r/{rid}/map', '지도'],
   ['log', '#/r/{rid}/log', '기록'],
   // 맡기기 창, 날짜를 누른 달력, 맡긴 일 목록(필터는 기억되므로 마지막에 판단으로 되돌린다), 보고서

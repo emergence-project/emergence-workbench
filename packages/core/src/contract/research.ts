@@ -301,10 +301,13 @@ export const ProjectInfo = z.object({
 export const InfoSaved = z.object({ ok: z.literal(true), hash: z.string() }).strict()
 /** STATUS.md 미리보기 */
 export const AgentStatusPreview = z.object({ markdown: z.string() }).strict()
-/** GET /researches/:rid/agent-rules: 저장소 맨 위 AGENTS.md · CLAUDE.md (서버 agentRules.ts projectRules) */
 /** POST /researches/:rid/agent-status: STATUS.md를 썼는지(내용이 같으면 쓰지 않는다)와 그 파일 */
 export const AgentStatusWritten = z.object({ written: z.boolean(), file: z.string() }).strict()
-export const AgentRules = z.object({ files: z.array(z.object({ file: z.string(), text: z.string(), truncated: z.literal(true).optional() }).strict()) }).strict()
+/** GET /researches/:rid/agent-rules: 저장소 맨 위 AGENTS.md · CLAUDE.md (서버 agentRules.ts projectRules)와 workbench/decisions/의 결정 (projectFolders.ts listDecisions, 이름순) */
+export const AgentRules = z.object({
+  files: z.array(z.object({ file: z.string(), text: z.string(), truncated: z.literal(true).optional() }).strict()),
+  decisions: z.array(z.object({ file: z.string(), title: z.string(), status: z.string() }).strict()),
+}).strict()
 
 // ---------- 메인 노트 = 원고 · 연구노트 · 계산 노트 (routes/manuscript.ts) ----------
 
