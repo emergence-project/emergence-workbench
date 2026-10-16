@@ -367,6 +367,8 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
               onPointerCancel={() => { drag.current = null; setGhost(null) }}
               onClick={() => { if (dragged.current) { dragged.current = false; return } tap(n.id) }} onDoubleClick={() => { setSel(n.id); center(n.id) }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(n.id) } }}>
+              {/* 가리키면 종류와 이름 (10/16 사용자: 기호의 뜻이 바로 오지 않을 때) */}
+              <title>{`${KIND[markOf(n)].name()} · ${n.short}${n.title && n.title !== n.short ? `\n${n.title}` : ''}`}</title>
               {hot && <rect className="fl-focus" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />}
               <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
               {/* 고른 점 · 이을 점 · 계보는 점에 바짝 두른 테두리로 (10/16 사용자: 둥근 네모 대신) */}
@@ -380,7 +382,7 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
                 {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
               </g>}
               {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('갈래 종결', 'Branch closed')}</title></line>}
-              {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}{cites.length > 0 && <tspan className="fl-cite" dx={3}>§{cites.length > 1 ? cites.length : ''}<title>{cites.map((e) => e.title ?? e.ref).join('\n')}</title></tspan>}</text> : <title>{n.short} · {n.title}</title>}
+              {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}{cites.length > 0 && <tspan className="fl-cite" dx={3}>§{cites.length > 1 ? cites.length : ''}<title>{cites.map((e) => e.title ?? e.ref).join('\n')}</title></tspan>}</text> : null}
             </g>
           })}
         </svg>
