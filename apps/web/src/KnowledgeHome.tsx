@@ -51,7 +51,7 @@ export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { 
                   <span className="kh-when">{t(`${r.at ? `${dayOf(r.at)} ` : ''}${r.kind === 'opened' ? '열었음' : '고침'}`, `${r.kind === 'opened' ? 'Opened' : 'Edited'}${r.at ? ` ${dayOf(r.at).toLowerCase()}` : ''}`)}</span>
                 </button>
               ))}
-              {brief && recent.length === 0 && <p className="kh-empty">{t('아직 개념노트가 없습니다. 위 "개념노트 만들기"로 더합니다.', 'No concept notes yet. Add one with "New concept note" above.')}</p>}
+              {brief && recent.length === 0 && <p className="empty kh-empty">{t('아직 개념노트가 없습니다. 위 "개념노트 만들기"로 더합니다.', 'No concept notes yet. Add one with "New concept note" above.')}</p>}
             </div>
           </section>
           <div className="kh-cols">
@@ -62,7 +62,7 @@ export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { 
                   <span className="kh-stat-name">{r.name}</span><span className="kh-count turn">{edits[r.key]}</span>
                 </button>
               ))}
-              {brief && check.length + editRows.length === 0 && <p className="kh-empty">{t('지금 확인할 것이 없습니다.', 'Nothing to review right now.')}</p>}
+              {brief && check.length + editRows.length === 0 && <p className="empty kh-empty">{t('지금 확인할 것이 없습니다.', 'Nothing to review right now.')}</p>}
               {brief && check.map((c) => {
                 const v = c.of(brief)
                 return (

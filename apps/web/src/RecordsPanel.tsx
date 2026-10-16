@@ -91,7 +91,7 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
           : <button className="a" title={file.source} onClick={() => open(file)}>{file.title}</button>}</div>}
         <RecordList rid={rid} file={file} filter={filter} onGo={(c) => open(file, c)} />
       </div>)}
-      {!shown.length && !error && <p className="muted records-empty">{t('불러오는 중…', 'Loading…')}</p>}
+      {!shown.length && !error && <p className="empty records-empty">{t('불러오는 중…', 'Loading…')}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}
     </div>
     <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} />

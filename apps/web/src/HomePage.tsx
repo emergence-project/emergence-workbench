@@ -160,7 +160,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
                     <span role="columnheader">{t('상태', 'Status')}</span><span role="columnheader">{t('프로젝트', 'Project')}</span><span role="columnheader">{t('분야', 'Field')}</span><span role="columnheader" className="hp-time">{t('최근 작업', 'Last worked')}</span>
                   </div>
                   {shown.map((r) => <ProjectRow key={r.id} {...rowOf(r)} />)}
-                  {shown.length === 0 && all.length > 0 && <p className="hp-empty muted">{t(`${PROJECT_STATE_LABEL[state]} 중인 ${kind === 'all' ? '' : `${PROJECT_KIND_LABEL[kind]} `}프로젝트가 없습니다.`, `No ${kind === 'all' ? '' : `${PROJECT_KIND_LABEL[kind].toLowerCase()} `}projects with status "${PROJECT_STATE_LABEL[state]}".`)}</p>}
+                  {shown.length === 0 && all.length > 0 && <p className="empty hp-empty">{t(`${PROJECT_STATE_LABEL[state]} 중인 ${kind === 'all' ? '' : `${PROJECT_KIND_LABEL[kind]} `}프로젝트가 없습니다.`, `No ${kind === 'all' ? '' : `${PROJECT_KIND_LABEL[kind].toLowerCase()} `}projects with status "${PROJECT_STATE_LABEL[state]}".`)}</p>}
                   {canAdd && <button className="hp-row hp-add" data-ui="연구 등록 카드" title={t('GitHub 저장소나 이 컴퓨터 폴더에서', 'From a GitHub repository or a folder on this computer')} onClick={onRegister}>{t('＋ 프로젝트 등록', '＋ Register project')}</button>}
                 </div>
               ) : (

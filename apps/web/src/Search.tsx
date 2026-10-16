@@ -133,8 +133,8 @@ export function SearchOverlay({ rid, onClose }: { rid: string | null; onClose():
             onChange={(e) => { setQ(e.target.value); setActive(0) }} onKeyDown={key} />
         </label>
         <div className="sr-list" id="sr-list" role="listbox" ref={listRef}>
-          {catalog === null ? <p className="sr-empty">{t('불러오는 중…', 'Loading…')}</p>
-            : !flat.length && concepts.status !== 'pending' && concepts.status !== 'error' ? <p className="sr-empty">{q.trim() ? t(`"${q.trim()}"와 맞는 것이 없습니다`, `Nothing matches "${q.trim()}"`) : t('찾을 말을 적으세요', 'Type something to search')}</p>
+          {catalog === null ? <p className="empty sr-empty">{t('불러오는 중…', 'Loading…')}</p>
+            : !flat.length && concepts.status !== 'pending' && concepts.status !== 'error' ? <p className="empty sr-empty">{q.trim() ? t(`"${q.trim()}"와 맞는 것이 없습니다`, `Nothing matches "${q.trim()}"`) : t('찾을 말을 적으세요', 'Type something to search')}</p>
             : groups.map((g) => (
               <div key={g.group} className="sr-group">
                 <div className="sr-head">{GROUP_NAME[g.group]}</div>
@@ -152,9 +152,9 @@ export function SearchOverlay({ rid, onClose }: { rid: string | null; onClose():
                 })}
               </div>
             ))}
-          {concepts.status === 'pending' && <p className="sr-empty">{t('개념노트 찾는 중…', 'Searching concept notes…')}</p>}
-          {concepts.status === 'error' && <p className="sr-empty">{t('개념노트를 찾지 못했습니다. 찾을 말을 다시 적어 주세요', 'Couldn\'t search concept notes. Try typing again')}</p>}
-          {failed && <p className="sr-empty">{t('프로젝트 노트 목록을 읽지 못했습니다. 개념노트와 화면만 찾습니다', 'Couldn\'t read project notes. Searching only concept notes and screens')}</p>}
+          {concepts.status === 'pending' && <p className="empty sr-empty">{t('개념노트 찾는 중…', 'Searching concept notes…')}</p>}
+          {concepts.status === 'error' && <p className="empty sr-empty">{t('개념노트를 찾지 못했습니다. 찾을 말을 다시 적어 주세요', 'Couldn\'t search concept notes. Try typing again')}</p>}
+          {failed && <p className="empty sr-empty">{t('프로젝트 노트 목록을 읽지 못했습니다. 개념노트와 화면만 찾습니다', 'Couldn\'t read project notes. Searching only concept notes and screens')}</p>}
         </div>
         <div className="sr-foot"><span><kbd>↑</kbd><kbd>↓</kbd> {t('고르기', 'Select')}</span><span><kbd>Enter</kbd> {t('열기', 'Open')}</span><span><kbd>Esc</kbd> {t('닫기', 'Close')}</span><span><kbd>/</kbd> {t('어디서나 검색 열기', 'Open search anywhere')}</span></div>
       </div>

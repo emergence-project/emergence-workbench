@@ -175,7 +175,7 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
             </label>
             <div className="repo-list" data-ui="GitHub 저장소 목록">
               {shown.length === 0
-                ? <p className="muted reg-empty">{query ? t('찾는 이름의 저장소가 없습니다.', 'No repository with that name.') : t('GitHub 계정에 저장소가 없습니다.', 'The GitHub account has no repositories.')}</p>
+                ? <p className="empty reg-empty">{query ? t('찾는 이름의 저장소가 없습니다.', 'No repository with that name.') : t('GitHub 계정에 저장소가 없습니다.', 'The GitHub account has no repositories.')}</p>
                 : shown.map((r) => <RepoRow key={r.url} r={r} picked={picked?.url === r.url} onPick={() => pick(r)} />)}
             </div>
           </>}

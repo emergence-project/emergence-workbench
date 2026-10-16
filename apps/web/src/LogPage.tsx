@@ -143,7 +143,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
           </>}
           <div className="work-records" data-ui={filter === '할 일' ? '할 일' : '작업 기록 목록'}>
             {recordsError && <div className="banner danger" role="alert">{recordsError}</div>}
-            {!count && <p className="muted records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No open to-dos.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
+            {!count && <p className="empty records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No open to-dos.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
             {groups.map((group) => <div className="record-group" key={group.target}>
               {group.items.map((item) => item.kind === 'record'
                 ? <div key={`${item.file.target}/${item.entry.id}`} data-todo-key={todoKey({ target: item.file.target, id: item.entry.id })}><RecordList rid={rid} file={item.file} filter={filter} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} /></div>

@@ -430,7 +430,7 @@ export function App() {
             {/* 프로젝트 이름은 제목줄에만 둔다 (10/3 피드백: 중복 없애기) */}
             <div className="side-scroll project-side-scroll">
               {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} route={route} todoCount={todoCount} askCount={issues.records[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
-                materials={rapi && <MaterialsNav rid={current.id} rapi={rapi} route={route} onSaved={flash} library={library} onLibraryChanged={libraryChanged} />} /> : <div className="space-empty">{current.problem ?? t('불러오는 중…', 'Loading…')}</div>}
+                materials={rapi && <MaterialsNav rid={current.id} rapi={rapi} route={route} onSaved={flash} library={library} onLibraryChanged={libraryChanged} />} /> : <div className="empty space-empty">{current.problem ?? t('불러오는 중…', 'Loading…')}</div>}
             </div>
           </>}
         </aside>}

@@ -38,7 +38,7 @@
 .aux .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aux.blocked .t { color: var(--text); }
 .main-chapters .hint { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); }
-.main-empty { border: 1px dashed var(--line-strong); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start; }
+.main-empty { display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start; }
 .main-empty h2 { font-size: var(--fs-lg); margin: 0; }
 .main-empty p { margin: 0; color: var(--text-2); max-width: 60ch; }
 .main-pick { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
@@ -130,7 +130,7 @@ button.t:hover { text-decoration: underline; }
 .ov-star-note { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
 .ov-loose { font-size: var(--fs-xs); color: var(--text-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); padding: 1px 10px; white-space: nowrap; }
 .ov-loose:hover { color: var(--text); background: var(--bg-hover); }
-.ov-empty { margin: 0; font-size: var(--fs-xs); color: var(--text-3); }
+.ov-empty { padding: 0; }
 .ov-sec .note-trash { margin-top: var(--sp-2); }
 
 /* 머리의 성격 · 분야 (10/5 시안 "프로젝트 성격 · 분야"): 성격은 글자로, 분야는 성격 다음 줄. 연필로 고친다 */

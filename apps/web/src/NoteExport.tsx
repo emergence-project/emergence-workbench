@@ -91,7 +91,7 @@ function AuthorSection({ pool, order, setOrder }: { pool: PersonView[] | null; o
           {q && <span className="muted ex-count">{t(`${rest.length}명`, plural(rest.length, 'person', 'people'))}</span>}
         </label>
         <div className="ex-cands">
-          {rest.length === 0 && <p className="muted ex-note ex-empty">{q ? t(`"${query.trim()}"에 맞는 사람이 없습니다`, `No one matches "${query.trim()}"`) : t('더할 사람이 없습니다. 네트워킹에서 사람을 더할 수 있습니다', 'No one to add. You can add people in Networking')}</p>}
+          {rest.length === 0 && <p className="empty ex-note ex-empty">{q ? t(`"${query.trim()}"에 맞는 사람이 없습니다`, `No one matches "${query.trim()}"`) : t('더할 사람이 없습니다. 네트워킹에서 사람을 더할 수 있습니다', 'No one to add. You can add people in Networking')}</p>}
           {[...groups].map(([g, list]) => (
             <div key={g} className="ex-cgroup">
               <div className="ex-gname">{g} <span className="muted">{list.length}</span></div>

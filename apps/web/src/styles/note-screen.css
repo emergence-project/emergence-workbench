@@ -173,7 +173,8 @@ button.side-toc-title { display: flex; align-items: center; gap: var(--sp-1); wi
 .rs-list .a { text-align: left; }
 .rs-note { display: inline-flex; align-items: center; gap: 6px; }
 .rs-more { margin-top: var(--sp-1); color: var(--text-3); font-size: var(--fs-xs); }
-.rs-empty { margin: 0; font-size: var(--fs-xs); }
+.rs-empty { padding: 0; }
+.rs-empty.rs-pad { padding: var(--sp-3); }
 .rs-slot .props.side-props { display: flex; flex-direction: column; align-items: stretch; gap: 3px; margin: 0; padding: 0; grid-template-columns: none; background: none; border: 0; text-align: left; }
 .rs-slot .props.side-props dt { margin-top: var(--sp-3); text-align: left; }
 .rs-slot .props.side-props dt:not(.rs-label) { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text-2); }

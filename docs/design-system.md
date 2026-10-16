@@ -78,7 +78,7 @@
 
 새 화면은 아래 부품을 쓴다. 맞는 것이 없으면 부품을 하나 더하고 이 표에 적는다.
 
-여러 화면이 같이 쓰는 부품의 스타일은 `apps/web/src/styles/parts/`에 둔다(`styles/parts.css`가 모아 `main.tsx`에서 `base.css` 바로 다음에 읽는다, 2026-10-16). 화면 파일(`styles/<화면>.css`)에는 그 화면만의 자리와 크기 변형만 둔다. 지금 parts에 있는 것: 작은 버튼 `.btn.sm`(button.css), 메뉴 `.menu`(menu.css), 툴팁 `[data-tip]`과 양 끝 `.tip-start` · `.tip-end`(tooltip.css). 카드 · 점선 만들기 카드 · 빈 상태 · 세 구역 툴바는 화면마다 따로 있어 하나씩 옮긴다(종합 검토 묶음 G).
+여러 화면이 같이 쓰는 부품의 스타일은 `apps/web/src/styles/parts/`에 둔다(`styles/parts.css`가 모아 `main.tsx`에서 `base.css` 바로 다음에 읽는다, 2026-10-16). 화면 파일(`styles/<화면>.css`)에는 그 화면만의 자리와 크기 변형만 둔다. 지금 parts에 있는 것: 작은 버튼 `.btn.sm`(button.css), 메뉴 `.menu`(menu.css), 툴팁 `[data-tip]`과 양 끝 `.tip-start` · `.tip-end`(tooltip.css), 빈 상태 `.empty`와 패널 가운데용 `.empty.center`(empty.css, 화면 파일의 `…-empty`에는 여백만). 카드 · 점선 만들기 카드 · 세 구역 툴바는 화면마다 따로 있어 하나씩 옮긴다(종합 검토 묶음 G).
 
 | 부품 | 클래스 | 언제 |
 | --- | --- | --- |

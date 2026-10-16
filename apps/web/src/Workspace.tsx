@@ -602,7 +602,7 @@ function Pane({ i, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, 
         </div>
         <div className="ws-body">
           {home && <div className="ws-slot">{home}</div>}
-          {!home && !pane.tabs.some((t) => tabKey(t) === pane.active) && <div className="ws-empty">{t('왼쪽 사이드바에서 노트·자료를 고르면 여기에 열립니다. 옆 패널의 탭을 끌어 놓을 수도 있습니다.', 'Pick a note or material in the left sidebar to open it here. You can also drag a tab from the other pane.')}</div>}
+          {!home && !pane.tabs.some((t) => tabKey(t) === pane.active) && <div className="empty center">{t('왼쪽 사이드바에서 노트·자료를 고르면 여기에 열립니다. 옆 패널의 탭을 끌어 놓을 수도 있습니다.', 'Pick a note or material in the left sidebar to open it here. You can also drag a tab from the other pane.')}</div>}
           {/* 열린 탭은 모두 그려 두고 지금 탭만 보인다 — 편집기의 고치던 내용·PDF 스크롤이 탭을 바꿔도 남는다 */}
           {pane.tabs.map((t) => {
             const key = tabKey(t)

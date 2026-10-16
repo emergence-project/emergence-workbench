@@ -60,7 +60,7 @@ function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, c
           <div className="kh-cols">
             <section className="kh-sec" data-ui="점검">
               <h2 className="kh-h">{turn.length > 0 && <span className="kh-dot" aria-hidden />}{t('점검', 'Check')}</h2>
-              {check && turn.length === 0 && <p className="kh-empty">{t('지금 확인할 것이 없습니다.', 'Nothing to review now.')}</p>}
+              {check && turn.length === 0 && <p className="empty kh-empty">{t('지금 확인할 것이 없습니다.', 'Nothing to review now.')}</p>}
               {turn.map((c) => (
                 <button key={c.key} className="kh-stat" data-ui="점검 줄" data-ui-item={c.label} title={c.tip} onClick={() => go(c.to)}>
                   <span className="kh-stat-name">{c.text}</span><span className="kh-count turn">{c.count}</span>

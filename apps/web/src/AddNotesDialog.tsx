@@ -49,7 +49,7 @@ export function AddNotesDialog({ rid, topic, notes, topicIds, titleOf, onClose, 
         <input autoFocus placeholder={t('노트 이름', 'Note name')} value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       {rows.length === 0
-        ? <p className="muted an-empty">{query ? t('맞는 노트가 없습니다.', 'No matching notes.') : t('이 주제에 지정할 다른 노트가 없습니다.', 'There are no other notes to assign to this topic.')}</p>
+        ? <p className="empty an-empty">{query ? t('맞는 노트가 없습니다.', 'No matching notes.') : t('이 주제에 지정할 다른 노트가 없습니다.', 'There are no other notes to assign to this topic.')}</p>
         : (
           <ul className="an-list" data-ui="넣을 노트 목록">
             {rows.map((n) => (

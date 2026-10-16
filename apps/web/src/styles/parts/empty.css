@@ -1,0 +1,5 @@
+/* 빈 상태 (공용 부품, 디자인 문서 3절 · 7절): 상자 없는 --text-3 한 줄. 무엇이 생기고 어떻게 더하나를 적는다.
+ * 모양(색 · 글자 크기 · 상자 없음)은 여기서만 정하고, 화면 파일에는 자리(여백)만 둔다.
+ * .center: 빈 패널 가운데에 놓는 것(탭 · PDF · 메모 패널) */
+.empty { color: var(--text-3); font-size: var(--fs-sm); font-weight: var(--fw-normal); padding: var(--sp-3) 0; margin: 0; border: 0; background: none; }
+.empty.center { margin: auto; max-width: 320px; text-align: center; padding: var(--sp-5); }

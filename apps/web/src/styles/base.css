@@ -77,7 +77,7 @@ button.a { text-align: inherit; }
 .nav.muted:hover { background: transparent; }
 .nav.project { font-weight: var(--fw-medium); }
 .soon { font-size: var(--fs-2xs); color: var(--text-3); border: 1px solid var(--line-strong); border-radius: var(--r-xs); padding: 0 var(--sp-1); line-height: 15px; font-weight: var(--fw-normal); }
-.space-empty { padding: var(--sp-3) var(--sp-2); color: var(--text-3); font-size: var(--fs-sm); }
+.space-empty { padding: var(--sp-3) var(--sp-2); }
 
 /* 상태: 색 점 (10/4 "기호 말고 색으로"). 폐기는 속 빈 고리라 색을 못 가려도 구별된다. 증명 작업 없음은 옅은 점 */
 .g { display: inline-block; flex: none; width: 8px; height: 8px; margin: 0 2px; border-radius: var(--r-pill); background: currentColor; vertical-align: 1px; }
@@ -121,7 +121,6 @@ button.a { text-align: inherit; }
 .sec-head h2 { font-size: var(--fs-lg); margin: 0; font-weight: var(--fw-title); }
 .sec-head .count { color: var(--text-3); font-size: var(--fs-sm); }
 .sec-head .sp { flex: 1; }
-.empty { color: var(--text-3); font-size: var(--fs-sm); padding: var(--sp-3) 0; }
 
 .props { display: grid; grid-template-columns: 128px 1fr; gap: 7px var(--sp-4); font-size: var(--fs-sm); padding: var(--sp-3) var(--sp-4); background: var(--bg-sunken); border-radius: var(--r-md); margin: 0; align-items: center; }
 .props dt { color: var(--text-3); }
@@ -197,7 +196,6 @@ button.a { text-align: inherit; }
 .ws-doc { flex: 1; min-width: 0; min-height: 0; display: flex; }
 .ws-doc > .pane { flex: 1; }
 .ws-doc.pdf-tab { flex-direction: column; }
-.ws-empty { margin: auto; max-width: 320px; text-align: center; color: var(--text-3); font-size: var(--fs-sm); padding: var(--sp-5); }
 .ws-divider { cursor: col-resize; position: relative; background: transparent; }
 .ws-divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 1px; background: var(--line); }
 .ws-divider:hover::after, body.resizing .ws-divider::after { left: 1px; width: 3px; background: var(--line-strong); }

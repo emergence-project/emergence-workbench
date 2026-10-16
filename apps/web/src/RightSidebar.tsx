@@ -81,7 +81,7 @@ function DescriptionText({ text }: { text: string }) {
 /** 5개까지 보이고 나머지는 "N개 더 보기"로 그 자리에서 편다 */
 function MoreList<T>({ items, render, empty }: { items: T[]; render(x: T): ReactNode; empty: string }) {
   const [all, setAll] = useState(false)
-  if (!items.length) return <p className="muted rs-empty">{empty}</p>
+  if (!items.length) return <p className="empty rs-empty">{empty}</p>
   const shown = all ? items : items.slice(0, 5)
   return <>
     <ul className="rs-list">{shown.map((x, i) => <li key={i}>{render(x)}</li>)}</ul>
@@ -149,7 +149,7 @@ export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, on
         {desc === null
           ? row.description
             ? <div className={row.descriptionAuto ? 'muted' : ''} title={row.descriptionAuto ? t('적은 설명이 없어 본문 첫 문단에서 뽑았습니다', 'No description written, so the first paragraph is used') : undefined}><DescriptionText text={row.description} /></div>
-            : <p className="muted rs-empty" title={t('연필을 눌러 설명을 적습니다', 'Click the pencil to write a description')}>{t('없음', 'None')}</p>
+            : <p className="empty rs-empty" title={t('연필을 눌러 설명을 적습니다', 'Click the pencil to write a description')}>{t('없음', 'None')}</p>
           : <>
             <textarea className="rs-desc-input" autoFocus rows={4} value={desc} aria-label={t('설명', 'Description')} placeholder={t('여러 줄로 적고 "- "로 목록을 만듭니다. 비우면 본문 첫 문단을 씁니다.', 'Write several lines. Start a line with "- " for a list. Leave empty to use the first paragraph.')}
               onChange={(e) => setDesc(e.target.value)}
@@ -183,5 +183,5 @@ export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, on
 
 /** 지금 연 것이 노트가 아닐 때 */
 export function NoInfo() {
-  return <p className="muted rs-empty rs-pad">{t('노트를 열면 정보가 여기에 보입니다.', 'Open a note to see its info here.')}</p>
+  return <p className="empty rs-empty rs-pad">{t('노트를 열면 정보가 여기에 보입니다.', 'Open a note to see its info here.')}</p>
 }

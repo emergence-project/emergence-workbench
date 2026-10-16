@@ -297,7 +297,7 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   }
   const clearSel = () => { setSel(null); window.getSelection()?.removeAllRanges() }
 
-  if (!url) return <div className="pdf-area" data-ui="PDF" ref={wrap}><p className="pdf-empty">{t('아직 컴파일하지 않았습니다. ', 'Not compiled yet. Press ')}<kbd>⌘↵</kbd>{t('로 컴파일하세요.', ' to compile.')}</p></div>
+  if (!url) return <div className="pdf-area" data-ui="PDF" ref={wrap}><p className="empty center pdf-empty">{t('아직 컴파일하지 않았습니다. ', 'Not compiled yet. Press ')}<kbd>⌘↵</kbd>{t('로 컴파일하세요.', ' to compile.')}</p></div>
 
   const zoomStep = (dir: 1 | -1) => {
     const i = ZOOMS.findIndex((z) => z >= zoom - 1e-6)
@@ -329,7 +329,7 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         onMouseUp={() => { window.setTimeout(readSelection, 0) }}
         onKeyUp={(e) => { if (e.key === 'Shift' || e.key.startsWith('Arrow')) readSelection() }}
         onMouseDown={(e) => { if (!(e.target as HTMLElement).closest('.record-menu, .pdf-selmenu')) { setSel(null); setPaintOpen(null) } }}>
-        {error && <p className="pdf-empty">{t('PDF를 열지 못했습니다', 'Could not open the PDF')}: {error}</p>}
+        {error && <p className="empty center pdf-empty">{t('PDF를 열지 못했습니다', 'Could not open the PDF')}: {error}</p>}
         {pages.map((p) => (
           <div
             key={p.page}

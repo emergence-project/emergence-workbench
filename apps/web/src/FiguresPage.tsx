@@ -146,8 +146,8 @@ export function FiguresPage({ filter: routeFilter, open, onSaved }: { filter?: s
         </div>
         <div className="scroll fg-scroll">
           {!data && (error
-            ? <p className="muted fg-empty">{t('그림 목록을 읽지 못했습니다', 'Could not read the figure list')}: {error} <button className="btn sm" onClick={forgetFigures}>{t('다시 읽기', 'Reload')}</button></p>
-            : <p className="muted fg-empty">{t('불러오는 중…', 'Loading…')}</p>)}
+            ? <p className="empty fg-empty">{t('그림 목록을 읽지 못했습니다', 'Could not read the figure list')}: {error} <button className="btn sm" onClick={forgetFigures}>{t('다시 읽기', 'Reload')}</button></p>
+            : <p className="empty fg-empty">{t('불러오는 중…', 'Loading…')}</p>)}
           {data && !data.library && <div className="banner">{t('공유 라이브러리가 설정되지 않아 프로젝트 전용 그림만 보입니다. 설정 › 공유 라이브러리에서 정해 주세요.', 'No shared library is set, so only project figures show. Set it in Settings › Shared library.')}</div>}
           {data && (view === 'cards'
             ? (
@@ -216,7 +216,7 @@ function FigureView({ open, data, error, strip, listLabel, onSaved }: { open: st
         </div>
         <div className="fg-view-stage" data-ui="그림 크게">
           {fig ? <FigurePreview key={fig.id} fig={fig} big className="fg-view-pv" />
-            : <p className="muted fg-empty">{!data ? (error ? `${t('그림 목록을 읽지 못했습니다', 'Could not read the figure list')}: ${error}` : t('불러오는 중…', 'Loading…')) : t('이 그림이 없습니다. 지웠거나 이름을 바꿨을 수 있습니다.', 'This figure is not here. It may have been deleted or renamed.')}</p>}
+            : <p className="empty fg-empty">{!data ? (error ? `${t('그림 목록을 읽지 못했습니다', 'Could not read the figure list')}: ${error}` : t('불러오는 중…', 'Loading…')) : t('이 그림이 없습니다. 지웠거나 이름을 바꿨을 수 있습니다.', 'This figure is not here. It may have been deleted or renamed.')}</p>}
         </div>
         {n > 1 && (
           <div ref={stripRef} className="fg-strip" data-ui="그림 보기 목록" role="list" aria-label={listLabel}>

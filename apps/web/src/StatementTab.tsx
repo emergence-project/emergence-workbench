@@ -64,7 +64,7 @@ export function StatementTab({ rid, sid, rapi, summary, bus, onChanged }: {
     return () => bus.removeEventListener('rw', on)
   }, [bus, rid, sid, load, saver])
 
-  if (!s) return <div className="ws-empty">{t('진술을 찾지 못했습니다: ', 'Statement not found: ')}{sid}</div>
+  if (!s) return <div className="empty center">{t('진술을 찾지 못했습니다: ', 'Statement not found: ')}{sid}</div>
   const p = proofState(summary, s)
   const byS = new Map(summary.statements.map((x) => [x.id, x]))
   const uses = s.uses.map((u) => byS.get(u)).filter((x): x is NonNullable<typeof x> => !!x)

@@ -31,7 +31,7 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
   useNoteSections(scroller, t ? tocOwner : null, t ? `${t.hash}` : '', '.tk-sec > h2')
   const [sendBack, setSendBack] = useState(false)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
-  if (!t) return <div className="ws-doc"><section className="pane"><p className="muted tk-empty tk-pad">{loaded ? `${tr('맡긴 일을 찾지 못했습니다', 'Delegated task not found')}: workbench/tasks/${id}.md` : tr('불러오는 중…', 'Loading…')}</p></section></div>
+  if (!t) return <div className="ws-doc"><section className="pane"><p className="empty tk-empty tk-pad">{loaded ? `${tr('맡긴 일을 찾지 못했습니다', 'Delegated task not found')}: workbench/tasks/${id}.md` : tr('불러오는 중…', 'Loading…')}</p></section></div>
   const seconds = () => (Date.now() - opened.current) / 1000
   const judge = (verdict: 'approve' | 'send-back' | 'pause' | 'discard', note?: string) => sendJudgment(rid, t, verdict, { note, seconds: seconds() }, onSaved, reload)
   const canJudge = t.state === 'result' || t.state === 'proposed'

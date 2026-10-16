@@ -39,7 +39,7 @@
 .banner .sp { flex: 1; }
 
 .pdf-area { flex: 1; min-height: 0; overflow: auto; background: var(--bg-sunken); padding: var(--sp-5); display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); }
-.pdf-empty { color: var(--text-3); margin-top: 20%; text-align: center; }
+.pdf-empty { margin-top: 20%; }
 .pdf-page { position: relative; flex: none; background: var(--paper); box-shadow: var(--shadow); cursor: crosshair; }
 .pdf-page canvas { display: block; }
 .pdf-highlight { position: absolute; background: var(--hl-bg); outline: 1.5px solid var(--focus-line); border-radius: 3px; pointer-events: none; }
