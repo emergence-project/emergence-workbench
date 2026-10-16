@@ -66,7 +66,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     window.addEventListener(TODO_FOCUS_EVENT, take)
     return () => window.removeEventListener(TODO_FOCUS_EVENT, take)
   }, [records_])
-  const { tasks, diagnostics, loaded: tasksLoaded, reload: reloadTasks } = useTasks(rid, version)
+  const { tasks, diagnostics, loaded: tasksLoaded, reload: reloadTasks } = useTasks(rid)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
   const judgeCount = tasks.filter(needsJudgment).length
   const tick = usePendingTick()

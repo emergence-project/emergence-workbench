@@ -24,7 +24,7 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
   /** 이 보고서가 지금 칸에서 보이면 그 탭 key: 절(요약과 결론 · 근거 · 남은 문제 · 다음 지시)을 왼쪽 사이드바 맨 아래 목차에 알린다 */
   tocOwner?: string | null
 }) {
-  const { tasks, loaded, reload } = useTasks(rid, version)
+  const { tasks, loaded, reload } = useTasks(rid)
   const t = tasks.find((x) => x.id === id)
   const opened = useRef(Date.now())
   const scroller = useRef<HTMLDivElement>(null)

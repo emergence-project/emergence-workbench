@@ -1,7 +1,8 @@
 import type { JournalEntry } from '@rw/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { agentEditsApi, api, notesApi, papersApi, type ResearchApi } from './api'
+import { agentEditsApi, api, notesApi, papersApi, tasksApi, type ResearchApi } from './api'
 import { qk } from './queries'
+import { taskTitles } from './taskView'
 
 /**
  * 여러 화면이 함께 읽는 서버 자료 (화면 캐시, queries.ts). 같은 키를 쓰는 화면은 요청 하나를 나눠 쓰고,
@@ -16,6 +17,19 @@ export function useProjectInfo(rid: string) {
 /** 에이전트 고침 검토 목록 (scope: 프로젝트 id 또는 library) */
 export function useAgentEdits(scope: string) {
   return useQuery({ queryKey: qk.agentEdits(scope), queryFn: () => agentEditsApi.list(scope) })
+}
+
+/** 맡긴 일과 그 파일의 진단. 받지 못하면 빈 목록 */
+export function useTaskScan(rid: string) {
+  return useQuery({
+    queryKey: qk.tasks(rid),
+    queryFn: () => tasksApi(rid).scan().then((r) => { for (const x of r.tasks) taskTitles.set(x.id, x.title); return r }).catch(() => ({ tasks: [], diagnostics: [] })),
+  })
+}
+
+/** 현황 글 (STATUS.md와 같은 것). 받지 못하면 null */
+export function useAgentStatus(rid: string, rapi: ResearchApi) {
+  return useQuery({ queryKey: qk.status(rid), queryFn: () => rapi.agentStatus().then((r) => r.markdown).catch(() => null) })
 }
 
 export function useMaterials(rid: string) {
