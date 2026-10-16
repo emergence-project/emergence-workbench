@@ -45,7 +45,7 @@ describe('바뀐 곳에서 묻기', () => {
     expect(res.statusCode).toBe(200)
     const r = await review()
     expect(r.hunks.map((h: { reason?: { reason: string; by?: string } }) => h.reason && [h.reason.reason, h.reason.by])).toEqual([['tighter wording', 'claude-code'], undefined])
-    expect(r.record).toEqual({ target: 'note-talk', title: '연구노트 talk', source: noteFile })
+    expect(r.record).toEqual({ target: 'note-talk', title: '노트 talk', source: noteFile })
   })
 
   it('질문은 그 문단에 붙는 기록으로 남고, 답이 오면 덧붙는다 (노트는 그대로)', async () => {

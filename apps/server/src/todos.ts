@@ -45,7 +45,7 @@ function placeOf(wb: Workbench, target: string, notes: ReturnType<typeof listNot
   if (block) return { target: `block-${commentTargetSlug(block.id)}`, title: `노트 결과 ${block.meta.title ?? block.id}`, source: block.id }
   const note = notes.find((n) => n.file === target) ?? notes.find((n) => sameNoteFile(n.file, target))
   const noteTarget = note && noteRecordTarget(note)
-  if (note && noteTarget) return { target: noteTarget, title: `${note.type === 'calc' ? '계산 노트' : '연구노트'} ${note.title || note.id}`, source: note.file }
+  if (note && noteTarget) return { target: noteTarget, title: `노트 ${note.title || note.id}`, source: note.file }
   return { ...project, suffix: ` (${target})` }
 }
 

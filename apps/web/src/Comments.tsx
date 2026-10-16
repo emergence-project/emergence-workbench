@@ -48,7 +48,7 @@ export const blockTarget = (bid: string, title?: string): CommentTarget => ({ ta
 const NOTE_FILE = /^workbench\/(notes|calc)\/([^/]+)\/note\.md$/
 export const noteTarget = (file: string, title?: string): CommentTarget | null => {
   const m = NOTE_FILE.exec(canonicalNoteFile(file))
-  return m ? { target: `${m[1] === 'calc' ? 'calc' : 'note'}-${slug(m[2]!)}`, title: `${m[1] === 'calc' ? '계산 노트' : '연구노트'} ${title ?? m[2]}`, source: file } : null
+  return m ? { target: `${m[1] === 'calc' ? 'calc' : 'note'}-${slug(m[2]!)}`, title: `노트 ${title ?? m[2]}`, source: file } : null
 }
 
 /** 작업 화면 탭의 코멘트 대상. PDF가 아닌 탭은 null (작업노트 편집 탭은 그 결과 PDF의 코멘트를 함께 본다) */

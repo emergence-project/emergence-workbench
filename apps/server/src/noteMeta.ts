@@ -141,7 +141,7 @@ export function readNoteMeta(mainAbs: string, text: string, more: () => string |
  * 여러 줄을 지키고 200자까지 (10/5). 빈 설명은 지운다
  */
 export function writeNoteMeta(mainAbs: string, patch: { summary?: unknown; done?: unknown; state?: unknown; resume?: unknown }, baseHash?: unknown): void {
-  if (!['main.tex', 'note.md'].includes(path.basename(mainAbs))) throw new WorkbenchError(400, t('연구노트·계산 노트만 고칠 수 있음', 'Only research notes and calculation notes can be edited'))
+  if (!['main.tex', 'note.md'].includes(path.basename(mainAbs))) throw new WorkbenchError(400, t('노트만 고칠 수 있음', 'Only notes can be edited'))
   const file = path.join(path.dirname(mainAbs), 'note.yaml')
   const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
   // baseHash(노트 목록 줄의 hash = note.yaml의 해시)를 주면 그 뒤 바뀐 note.yaml은 고치지 않는다

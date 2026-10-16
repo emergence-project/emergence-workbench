@@ -24,7 +24,7 @@ import { frontMatterEnd } from '@rw/core'
 
 /** 연구노트 틀 (10/4): 절은 ## 제목. 커지면 하위 노트 대신 이어지는 노트를 따로 만든다 */
 export const RESEARCH_NOTE_COMMANDS: Command[] = [
-  { label: t('연구노트 틀', 'Research note outline'), detail: '목표 · 진행 · 결과 · 남은 문제', tpl: '## 목표\n\n${}\n\n## 진행\n\n## 결과\n\n## 남은 문제\n' },
+  { label: t('노트 틀', 'Note outline'), detail: '목표 · 진행 · 결과 · 남은 문제', tpl: '## 목표\n\n${}\n\n## 진행\n\n## 결과\n\n## 남은 문제\n' },
   { label: t('목표', 'Goal'), detail: '## 목표', tpl: '## 목표\n\n${}' },
   { label: t('결과', 'Result'), detail: '## 결과', tpl: '## 결과\n\n${}' },
   { label: t('남은 문제', 'Open problems'), detail: '## 남은 문제', tpl: '## 남은 문제\n\n- ${}' },
@@ -116,7 +116,7 @@ export function MarkdownNoteBody({ rid, text, rapi, kind, editing, onSave, onCan
         {head}
         <NoteAsk rid={rid} target={target ?? null} source={text} contentOffset={start}><ConceptEditor initial={body} options={options} notePreview asset={asset} editView={view ?? 'live'}
           commands={kind === 'note' ? RESEARCH_NOTE_COMMANDS : AUX_NOTE_COMMANDS}
-          label={kind === 'note' ? t('연구노트 본문', 'Research note body') : t('노트 본문', 'Note body')}
+          label={t('노트 본문', 'Note body')}
           hint={kind === 'note' ? t('## 제목으로 절을 나눕니다. "/"로 틀과 수식을 넣을 수 있습니다.', 'Split sections with ## headings. Type "/" to insert outlines and math.') : t('주장 하나를 적습니다. "/"로 틀과 수식을 넣을 수 있습니다.', 'Write one claim. Type "/" to insert outlines and math.')}
           onChange={onDraft && ((b) => onDraft(front + b))}
           onSave={(b) => onSave(front + b)}

@@ -284,7 +284,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
       const noteTarget = n && noteRecordTarget(n)
       if (!n || !noteTarget) return fail(`No note with records at ${file}. Use a file from list_notes that has a target.`)
       to = noteTarget
-      title = n.type === 'block' ? `노트 결과 ${n.title}` : `${n.type === 'calc' ? '계산 노트' : '연구노트'} ${n.title}`
+      title = n.type === 'block' ? `노트 결과 ${n.title}` : `노트 ${n.title}`
       source = n.type === 'block' ? n.id : n.file
     }
     if (!to) return fail('Pass file (a note from list_notes) or target (project, topic-<id>, flow-<id>).')

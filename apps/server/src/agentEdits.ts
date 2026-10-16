@@ -508,7 +508,7 @@ export function recordOf(io: TargetIo, t0: EditTarget): { target: string; title:
   if (!target) return undefined
   return row.type === 'block'
     ? { target, title: `노트 결과 ${row.title}`, source: row.id }
-    : { target, title: `${row.type === 'calc' ? '계산 노트' : '연구노트'} ${row.title}`, source: row.file }
+    : { target, title: `노트 ${row.title}`, source: row.file }
 }
 
 export type DecideRequest = DecideBody
