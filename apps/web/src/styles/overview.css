@@ -112,7 +112,6 @@ button.t:hover { text-decoration: underline; }
 /* ---------- 첫 화면 연구 내용: 메인 노트 하나 = 카드 하나 (2026-10-03 피드백) ---------- */
 .note-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-3); }
 .note-card { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 120px; padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); text-align: left; }
-.note-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
 .note-card .nc-title { font-size: var(--fs-md); font-weight: var(--fw-strong); line-height: 1.35; }
 .note-card .nc-path { font-size: var(--fs-xs); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-card .nc-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-2); }

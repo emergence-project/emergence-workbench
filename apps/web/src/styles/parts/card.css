@@ -1,0 +1,14 @@
+/* 카드 (공용 부품, 디자인 문서 3절): 화면에 놓인 상자. 크기 · 모서리 · 안쪽 배치는 화면 파일이 정한다 */
+.card { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); background: var(--bg); text-align: left; min-width: 0; }
+.card .t { font-weight: var(--fw-strong); display: flex; align-items: center; gap: var(--sp-2); }
+.card .d { color: var(--text-2); font-size: var(--fs-sm); }
+.card .f { color: var(--text-3); font-size: var(--fs-xs); margin-top: auto; }
+/* 눌러서 여는 카드: 가리키면 진한 테두리 + 그림자(가만히 있는 카드에는 그림자 없음) */
+.card:hover, .card-link:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.card-link { cursor: pointer; }
+.card-link:focus-visible { outline: 2px solid var(--focus-line); outline-offset: 1px; }
+/* 점선 만들기 카드: 카드 줄 맨 앞 · 표 맨 위의 "＋ 만들기 · 더하기". 떠오르지 않고 글자와 테두리만 진해진다.
+ * .hover는 파일을 끌어 올린 동안(놓을 곳 표시) */
+.add-card { border: 1px dashed var(--line-strong); background: transparent; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+.add-card:hover, .add-card.hover { border-color: var(--text-3); color: var(--text); box-shadow: none; }
+.add-card.hover { background: var(--bg-hover); }

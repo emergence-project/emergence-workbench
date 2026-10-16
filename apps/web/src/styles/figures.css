@@ -12,7 +12,6 @@
 /* 카드 */
 .fg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--sp-3); padding: var(--sp-4); align-items: stretch; }
 .fg-card { display: flex; flex-direction: column; gap: 2px; padding: 0 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); text-align: left; cursor: pointer; overflow: hidden; }
-.fg-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
 .fg-card.on { border-color: var(--text); }
 .fg-card-name { padding: 0 var(--sp-3); font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fg-card-meta { display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-3); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -37,12 +36,11 @@
 .fg-tr .mono { font-size: var(--fs-xs); color: var(--text-2); }
 
 /* 더하기: 맨 앞 점선 카드 · 표 맨 위 점선 줄 */
-.fg-add { display: flex; flex-direction: column; border: 1px dashed var(--line-strong); border-radius: var(--r-lg); color: var(--text-2); font-size: var(--fs-sm); }
+.fg-add { display: flex; flex-direction: column; border-radius: var(--r-lg); }
 .fg-add.card { min-height: 200px; }
 .fg-add.row { margin: var(--sp-2); padding: 0; max-width: 900px; border-radius: var(--r-md); }
 .fg-add-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-1); padding: var(--sp-3); color: inherit; font: inherit; text-align: center; }
 .fg-add.row .fg-add-btn { flex-direction: row; justify-content: flex-start; padding: var(--sp-2) var(--sp-3); }
-.fg-add:hover, .fg-add.hover { border-color: var(--text-3); color: var(--text); background: var(--bg-hover); }
 .fg-add .muted { color: var(--text-3); font-size: var(--fs-xs); }
 .fg-add-err { padding: 0 var(--sp-3) var(--sp-2); color: var(--danger); font-size: var(--fs-xs); }
 

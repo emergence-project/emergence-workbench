@@ -131,7 +131,7 @@ export function CardImagePicker({ rid, project, pc, value, onChange, onClose }: 
               {!data && !error && <p className="cip-help" role="status">{t('그림을 읽는 중…', 'Loading figures…')}</p>}
               {data && !rows.length && <p className="cip-help">{query ? t('맞는 그림이 없습니다.', 'No matching figures.') : t('아직 그림이 없습니다. 이 컴퓨터에서 그림을 골라 주세요.', 'No figures yet. Choose one from this computer.')}</p>}
               <div className="cip-grid">
-                {rows.slice(0, limit).map((fig) => <button type="button" key={fig.id} className={`fg-card${value === `figure:${fig.id}` ? ' on' : ''}`} aria-pressed={value === `figure:${fig.id}`} title={fig.name} data-ui="카드 그림 항목" data-ui-item={fig.name} onClick={() => choose(`figure:${fig.id}`)}>
+                {rows.slice(0, limit).map((fig) => <button type="button" key={fig.id} className={`fg-card card-link${value === `figure:${fig.id}` ? ' on' : ''}`} aria-pressed={value === `figure:${fig.id}`} title={fig.name} data-ui="카드 그림 항목" data-ui-item={fig.name} onClick={() => choose(`figure:${fig.id}`)}>
                   <FigurePreview fig={fig} />
                   <span className="fg-card-name">{fig.name}</span>
                   <span className="fg-card-meta"><span className="fg-kind mono">{fig.kind}</span><span>{fig.scope === LIBRARY_SCOPE ? t('공용', 'Shared') : t('이 프로젝트', 'This project')}</span></span>

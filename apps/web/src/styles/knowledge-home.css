@@ -18,8 +18,7 @@
 .kh-title, .kh-subject { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kh-subject { font-size: var(--fs-sm); color: var(--text-3); }
 .kh-when { flex: none; white-space: nowrap; font-size: var(--fs-sm); color: var(--text-3); }
-.kh-make { grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2); margin-bottom: var(--sp-1); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); color: var(--text-2); }
-.kh-make:hover { border-color: var(--text-3); color: var(--text); }
+.kh-make { grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2); margin-bottom: var(--sp-1); border-radius: var(--r-sm); }
 .kh-plus { display: inline-grid; place-items: center; }
 .kh-plus svg, .kh-pop svg, .kh-store-ico svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 

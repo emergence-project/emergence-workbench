@@ -169,7 +169,7 @@ export function MakeConcept({ onChanged, onSaved, onDrafted }: { onChanged(): vo
 
   return (
     <>
-      <button ref={anchor} className={`kh-row kh-make${open ? ' on' : ''}`} data-ui="개념노트 만들기" aria-haspopup="menu" aria-expanded={!!open} onClick={() => setOpen((v) => (v ? null : 'menu'))}>
+      <button ref={anchor} className={`kh-row kh-make add-card${open ? ' on' : ''}`} data-ui="개념노트 만들기" aria-haspopup="menu" aria-expanded={!!open} onClick={() => setOpen((v) => (v ? null : 'menu'))}>
         <span className="kh-plus" aria-hidden>{Icon.plus}</span><span className="kh-title">{t('개념노트 만들기', 'New concept note')}</span>
       </button>
       {open && createPortal(

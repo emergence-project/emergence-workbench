@@ -51,7 +51,7 @@ export function TopicCardView({ data, pc, onOpen, onStar, ui = '주제 카드' }
   } : {}
   const kinds = data.kinds.map((k) => ({ key: k.kind ?? '-', label: noteKindLabel(k.kind), cls: `kc-kind${k.kind ? '' : ' un'}` }))
   return (
-    <div className={`kc topic${onOpen ? ' link' : ''}`} data-ui={ui} data-ui-item={data.title} {...open}>
+    <div className={`kc topic${onOpen ? ' card-link' : ''}`} data-ui={ui} data-ui-item={data.title} {...open}>
       <TopicPreviewFace preview={data.preview} pc={pc} />
       <div className="kc-in">
         <div className="kc-top">

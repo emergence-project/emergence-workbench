@@ -37,12 +37,6 @@
 .part-open { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-xs); background: var(--bg-side); }
 
 /* ---------- 사이드바: 메인 노트 고정 + 접는 묶음 (R16·R17) ---------- */
-.main-note { display: block; width: 100%; margin: var(--sp-1) 0 var(--sp-2); }
-button.main-note.empty { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); }
-button.main-note.empty:hover { border-color: var(--text-3); }
-.main-note .k { font-size: var(--fs-xs); color: var(--text-3); }
-.main-note .t { font-weight: var(--fw-strong); min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-button.main-note.empty { border-style: dashed; color: var(--text-2); }
 .side-quick { display: flex; gap: 2px; margin-bottom: var(--sp-2); }
 .side-quick button { flex: 1; padding: 5px 0; border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); text-align: center; }
 .side-quick button:hover, .side-quick button.on { background: var(--bg-hover); color: var(--text); }
@@ -62,8 +56,6 @@ button.main-note.empty { border-style: dashed; color: var(--text-2); }
 .side-grp-body .materials > .group-label { display: none; }
 @media (prefers-reduced-motion: reduce) { .side-grp > summary .chev { transition: none; } }
 /* 사이드바 다시 짜기 (10/2): 쓰기 · 재료 · 지식, 메인 노트 여럿, 보조 노트는 장 아래 */
-button.main-note.empty .t.add { font-weight: var(--fw-medium); font-size: var(--fs-sm); color: var(--text-3); }
-button.main-note.empty:has(.add) { padding: var(--sp-1) 10px; border-color: var(--line); }
 .main-notes { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
 .main-empty.more { border: 0; padding: 0; }
 

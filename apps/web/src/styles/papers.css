@@ -61,11 +61,10 @@
 .pl-colreset { display: block; margin: var(--sp-1) var(--sp-2) 2px; font-size: var(--fs-xs); }
 
 /* 더하기: 표 맨 위 점선 줄(머리 바로 아래), 카드 보기 맨 앞 점선 카드 */
-.pl-add { display: flex; align-items: center; gap: var(--sp-2); border: 1px dashed var(--line-strong); border-radius: var(--r-md); color: var(--text-2); font-size: var(--fs-sm); }
+.pl-add { display: flex; align-items: center; gap: var(--sp-2); border-radius: var(--r-md); }
 .pl-add.row { margin: var(--sp-2) var(--sp-2); padding: var(--sp-2) var(--sp-3); width: calc(100% - 2 * var(--sp-2)); max-width: 900px; text-align: left; }
 .pl-add.card { flex-direction: column; justify-content: center; width: var(--pl-card-width); min-height: 280px; padding: var(--sp-3); text-align: center; }
 .pl-add.card.editing { justify-content: flex-start; align-items: stretch; }
-.pl-add:hover, .pl-add.hover { border-color: var(--text-3); color: var(--text); background: var(--bg-hover); }
 .pl-add .muted { color: var(--text-3); }
 .pl-add input { flex: 1; min-width: 0; height: 28px; padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); font: inherit; color: var(--text); }
 .pl-add-err { flex-basis: 100%; color: var(--danger); font-size: var(--fs-xs); }
@@ -74,7 +73,6 @@
 /* 카드 */
 .pl-cards { display: grid; grid-template-columns: repeat(auto-fill, var(--pl-card-width)); grid-auto-rows: 1fr; gap: var(--sp-3); padding: var(--sp-4); align-items: stretch; }
 .pl-card { display: flex; flex-direction: column; gap: var(--sp-1); width: var(--pl-card-width); padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); text-align: left; cursor: pointer; }
-.pl-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
 .pl-card.on { background: var(--bg-hover); }
 .pl-cover { position: relative; display: block; aspect-ratio: 3 / 4; border-radius: var(--r-md); background: var(--bg-sunken); overflow: hidden; margin-bottom: var(--sp-1); }
 .pl-cover canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; }

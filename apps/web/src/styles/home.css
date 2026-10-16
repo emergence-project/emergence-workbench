@@ -37,14 +37,8 @@
   .week-day { border-left: 0; border-top: 1px solid var(--line); min-height: 0; }
   .week-day:first-child { border-top: 0; }
 }
-.add-card { min-height: 0; }
 .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--s-solved); }
-.home-card { cursor: pointer; transition: background .08s; }
-.home-card:not(.off):hover { background: var(--bg); }
-.home-card:not(.off):active { background: var(--bg-sunken); }
-.home-card.off { cursor: default; opacity: .7; }
-.add-card { border-style: dashed; color: var(--text-2); justify-content: center; align-items: center; text-align: center; min-height: 120px; }
-.add-card:hover { color: var(--text); }
+.hp-add-card { justify-content: center; align-items: center; text-align: center; }
 
 /* 프로젝트 머리: 제목 · 보기 고르기(목록 | 카드), 거르기: 왼쪽 성격, 오른쪽 진행 상태 (10/5 시안 "홈") */
 .hp-head { align-items: center; }

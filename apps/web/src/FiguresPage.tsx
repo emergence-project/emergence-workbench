@@ -237,7 +237,7 @@ function FigureView({ open, data, error, strip, listLabel, onSaved }: { open: st
 /** 그림 카드 (목록의 카드 보기와 첫 화면 "최근 더한 그림"이 함께 쓴다) */
 export function FigureCard({ fig: f, scope, on, onClick, compact = false }: { fig: FigureRow; scope: string; on?: boolean; onClick(): void; compact?: boolean }) {
   if (compact) return (
-    <button className={`fg-card lh-card${on ? ' on' : ''}`} data-ui="그림 카드" data-ui-item={f.name} onClick={onClick}>
+    <button className={`fg-card card-link lh-card${on ? ' on' : ''}`} data-ui="그림 카드" data-ui-item={f.name} onClick={onClick}>
       <FigurePreview fig={f} />
       <span className="lh-card-text">
         <span className="lh-card-title" title={f.name}>{f.name}</span>
@@ -246,7 +246,7 @@ export function FigureCard({ fig: f, scope, on, onClick, compact = false }: { fi
     </button>
   )
   return (
-    <button className={`fg-card${on ? ' on' : ''}`} data-ui="그림 카드" data-ui-item={f.name} onClick={onClick}>
+    <button className={`fg-card card-link${on ? ' on' : ''}`} data-ui="그림 카드" data-ui-item={f.name} onClick={onClick}>
       <FigurePreview fig={f} />
       <span className="fg-card-name">{f.name}</span>
       <span className="fg-card-meta"><span className="fg-kind mono">{f.kind}</span><span className="fg-card-scope">{scope}</span></span>
@@ -277,7 +277,7 @@ export function AddFigure({ look, scope, scopeLabel, onSaved, onAdded, compact =
     onDrop: (e: ReactDragEvent) => { e.preventDefault(); setHover(false); void add([...e.dataTransfer.files]) },
   }
   return (
-    <div className={`fg-add ${look}${compact && look === 'card' ? ' lh-add' : ''}${hover ? ' hover' : ''}`} data-ui="그림 더하기" {...drop}>
+    <div className={`fg-add add-card ${look}${compact && look === 'card' ? ' lh-add' : ''}${hover ? ' hover' : ''}`} data-ui="그림 더하기" {...drop}>
       <button className="fg-add-btn" disabled={busy} onClick={() => input.current?.click()}>
         <span>＋ {t('그림 더하기', 'Add figure')}</span>
         <span className="muted">{busy ? t('올리는 중…', 'Uploading…') : t(`tikz · svg · png · pdf 끌어다 놓기 · ${scopeLabel}에 둠`, `Drop tikz · svg · png · pdf · goes to ${scopeLabel}`)}</span>
