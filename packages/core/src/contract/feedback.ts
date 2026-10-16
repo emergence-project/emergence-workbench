@@ -4,6 +4,9 @@
  * 파일 형식은 서버 feedback.ts 머리 주석, 여기는 앱 서버와 화면 사이의 모양이다.
  */
 import { z } from 'zod'
+import { FEEDBACK_MISSES } from '../feedback-lessons.js'
+
+export { FEEDBACK_MISSES, type FeedbackMiss } from '../feedback-lessons.js'
 
 /** 피드백 모드는 등록 전에 수정 · 질문 · 제안을 고른다 (10/9). 디자인 · 버그 · 기능은 이전 기록, 미분류는 10/9 전 기록과 소개의 피드백 */
 export const FEEDBACK_KINDS = ['디자인', '버그', '기능', '수정', '질문', '제안', '미분류'] as const
@@ -49,6 +52,9 @@ export const FeedbackRevision = z.object({
   commit: z.string().optional(),
   handled_at: z.string().optional(),
   by: z.string().optional(),
+  /** 이 처리가 반려된 까닭과, 다음에 다르게 할 것 한 줄 (다시 처리한 에이전트가 적는다) */
+  miss: z.enum(FEEDBACK_MISSES).optional(),
+  lesson: z.string().optional(),
 }).strict()
 /** 코멘트에 단 답 (status.yaml replies). to = 그 코멘트의 at */
 export const FeedbackReply = z.object({ at: z.string(), to: z.string(), note: z.string(), by: z.string().optional() }).strict()

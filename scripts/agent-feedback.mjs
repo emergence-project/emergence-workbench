@@ -1,5 +1,6 @@
 // pnpm agent:feedback <피드백 폴더> — 에이전트 차례인 피드백 항목과 그 이유를 보인다. 아무것도 쓰지 않는다.
 // 차례 계산은 피드백 화면과 같다(packages/core/src/feedback-buckets.ts). 처리 규칙은 관리자 개인 저장소 CLAUDE.md 1절.
+// 최근 돌려받은 까닭과 교훈(status.yaml revised의 miss · lesson)을 먼저 보인다(feedback-lessons.ts).
 import fs from 'node:fs'
 import path from 'node:path'
 import { tsxApi } from './ci/tsx-api.mjs'
@@ -20,6 +21,7 @@ const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
 const { listAllFeedback, feedbackStatusError } = await tsImport('../apps/server/src/feedback.ts', opts)
 const { agentTurnReasons, feedbackBucket } = await tsImport('../packages/core/src/feedback-buckets.ts', opts)
+const { feedbackLessons, feedbackLessonsText } = await tsImport('../packages/core/src/feedback-lessons.ts', opts)
 
 const broken = feedbackStatusError(dir)
 if (broken) console.log(`⚠ status.yaml을 읽지 못함: ${broken}\n`)
@@ -29,6 +31,9 @@ const mine = all.map((e) => ({ e, why: agentTurnReasons(e, now) })).filter((x) =
 const userTurn = all.filter((e) => feedbackBucket(e, now) === '확인 필요').length
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 console.log(`# 에이전트 차례 ${mine.length} · 사용자 차례 ${userTurn} · 전체 ${all.length}\n`)
+// 실수에서 배우기 (10/16 실험): 최근 돌려받은 까닭과 교훈을 일 목록보다 먼저 보인다
+const lessons = feedbackLessonsText(feedbackLessons(all, now))
+if (lessons) console.log(lessons)
 for (const { e, why } of mine) {
   console.log(`- \`${e.key}\` · ${e.kind}${e.status ? ` · 지금 ${e.status.state}` : ''}`)
   console.log(`  - ${clip(e.text.replace(/\s+/g, ' ').trim(), 160)}`)
