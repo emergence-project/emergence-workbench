@@ -11,7 +11,6 @@
 .kl-table .kl-date .pl-sort { padding-inline: var(--sp-1); }
 .kl-table .pl-tr:not(.pl-th) { cursor: pointer; }
 .kl-add { border-bottom: 1px solid var(--line); padding: var(--sp-2); }
-.kl-add .kh-make { border: 1px dashed var(--line-strong); border-radius: var(--r-sm); }
 .kl-scroll .more-bar { margin: var(--sp-4); }
 .kl-column-menu { position: fixed; inset: auto; margin: 0; min-width: var(--pl-col-title); max-width: calc(100vw - var(--sp-4)); max-height: calc(100vh - var(--sp-4)); overflow: auto; }
 .kl-column-menu .kh-hint { margin: var(--sp-1) var(--sp-2); }

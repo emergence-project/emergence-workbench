@@ -23,7 +23,7 @@ export function NoteCardView({ row, topicTitle, onOpen, onStar }: {
   const tags = known.length ? known : [{ key: LOOSE_TOPIC_ID, label: LOOSE_NOTES_LABEL, cls: 'kc-chip loose' }]
   const resume = row.status === 'blocked' || row.status === 'stopped' ? row.resume : undefined
   return (
-    <div className="kc note link" role="link" tabIndex={0} data-ui="노트 카드" data-ui-item={row.title} onClick={onOpen}
+    <div className="kc note card-link" role="link" tabIndex={0} data-ui="노트 카드" data-ui-item={row.title} onClick={onOpen}
       onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}>
       <div className="kc-top">
         <span className="kc-kind-eb" title={row.kindAuto ? t('폴더에서 정한 성격입니다', 'Kind set from the folder') : undefined}>{noteKindLabel(row.kind)}</span>
@@ -44,7 +44,7 @@ export function NoteCardView({ row, topicTitle, onOpen, onStar }: {
 /** 카드 줄 끝의 점선 빈 카드 (＋ 와 이름): "노트 만들기" · "주제 만들기" */
 export function NewCard({ label, shape, onClick, ui }: { label: string; shape: 'note' | 'topic'; onClick(): void; ui: string }) {
   return (
-    <button type="button" className={`kc-new ${shape}`} data-ui={ui} onClick={onClick}>
+    <button type="button" className={`kc-new add-card ${shape}`} data-ui={ui} onClick={onClick}>
       <span className="kc-new-plus" aria-hidden>＋</span><span>{label}</span>
     </button>
   )

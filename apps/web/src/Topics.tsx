@@ -71,7 +71,7 @@ function PaperCard({ rid, ms, onCopy, onRemove }: { rid: string; ms: ManuscriptI
   const appx = ms.parts.length - body
   return (
     <div className="topic-card-wrap note-card-wrap">
-      <button className="note-card topic-card" data-ui="원고 카드" data-ui-item={ms.name} onClick={() => go({ page: 'part', rid, file: ms.main })}>
+      <button className="note-card topic-card card-link" data-ui="원고 카드" data-ui-item={ms.name} onClick={() => go({ page: 'part', rid, file: ms.main })}>
         <span className="nc-title">{ms.name}</span>
         <span className="tc-parts">{ms.main}</span>
         <span className="nc-foot"><span>{NOTE_KIND_LABEL[ms.kind]} · {tr('장', 'Chapters')} {body}{appx ? ` · ${tr('부록', 'Appendices')} ${appx}` : ''}</span></span>
@@ -198,7 +198,7 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
         ? <NewCard shape="note" label={tr('노트 만들기', 'New note')} ui="새 노트" onClick={createNote} />
         : (
           // 새 노트 · 노트 지정하기 두 갈래 (10/12 14:38, 이름은 10/13). data-ui는 처음 이름 "있는 노트 넣기" 그대로
-          <div className="kc-new-split note">
+          <div className="kc-new-split add-card note">
             <button type="button" className="kc-new-half" data-ui="새 노트" onClick={createNote}><span className="kc-new-plus" aria-hidden>＋</span><span>{tr('노트 만들기', 'New note')}</span></button>
             <button type="button" className="kc-new-half" data-ui="있는 노트 넣기" onClick={() => setAdding(true)}><span>{tr('노트 지정하기', 'Assign notes')}</span></button>
           </div>

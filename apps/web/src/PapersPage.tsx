@@ -416,7 +416,7 @@ function PaperCards({ rows, ctx, picked, onPick, onSaved }: { rows: PaperRow[]; 
 /** 논문 카드 (목록의 카드 보기와 첫 화면 "최근 더한 논문"이 함께 쓴다). 두 번 누르면 PDF를 연다 */
 export function PaperCard({ paper: p, projectTitle, on, onClick, compact = false }: { paper: PaperRow; projectTitle(id: string): string; on?: boolean; onClick(): void; compact?: boolean }) {
   if (compact) return (
-    <button className={`pl-card lh-card${on ? ' on' : ''}`} data-ui="논문 카드" data-ui-item={p.key} onClick={onClick} onDoubleClick={() => openPdf(p)}>
+    <button className={`pl-card card-link lh-card${on ? ' on' : ''}`} data-ui="논문 카드" data-ui-item={p.key} onClick={onClick} onDoubleClick={() => openPdf(p)}>
       <PaperCover paper={p} />
       <span className="lh-card-text">
         <span className="lh-card-title" title={p.title}>{p.title}</span>
@@ -425,7 +425,7 @@ export function PaperCard({ paper: p, projectTitle, on, onClick, compact = false
     </button>
   )
   return (
-    <button className={`pl-card${on ? ' on' : ''}`} data-ui="논문 카드" data-ui-item={p.key} onClick={onClick} onDoubleClick={() => openPdf(p)}>
+    <button className={`pl-card card-link${on ? ' on' : ''}`} data-ui="논문 카드" data-ui-item={p.key} onClick={onClick} onDoubleClick={() => openPdf(p)}>
       <PaperCover paper={p} />
       <span className="pl-card-title">{p.title}</span>
       <span className="pl-card-sub">
@@ -521,13 +521,13 @@ export function AddPaper({ look, onSaved, onAdded, compact = false }: { look: 'r
   }
   if (!editing) {
     return (
-      <button className={`pl-add ${look}${compact && look === 'card' ? ' lh-add' : ''}${hover ? ' hover' : ''}`} data-ui="논문 더하기" onClick={() => setEditing(true)} {...dropProps}>
+      <button className={`pl-add add-card ${look}${compact && look === 'card' ? ' lh-add' : ''}${hover ? ' hover' : ''}`} data-ui="논문 더하기" onClick={() => setEditing(true)} {...dropProps}>
         {t('＋ 논문 더하기', '＋ Add paper')} <span className="muted">{t('arXiv 번호 · DOI, 또는 PDF를 여기에 놓기', 'arXiv ID · DOI, or drop a PDF here')}</span>
       </button>
     )
   }
   return (
-    <div className={`pl-add ${look} editing${compact && look === 'card' ? ' lh-add' : ''}${hover ? ' hover' : ''}`} data-ui="논문 더하기" {...dropProps}>
+    <div className={`pl-add add-card ${look} editing${compact && look === 'card' ? ' lh-add' : ''}${hover ? ' hover' : ''}`} data-ui="논문 더하기" {...dropProps}>
       {pending && <span className="muted">{pending.name}:</span>}
       <input autoFocus value={text} disabled={busy} placeholder={pending ? t('이 PDF의 arXiv 번호나 DOI', 'arXiv ID or DOI of this PDF') : t('arXiv 번호(0000.00001)나 DOI(10.1103/…) — PDF를 놓아도 됩니다', 'arXiv ID (0000.00001) or DOI (10.1103/…). You can also drop a PDF')}
         onChange={(e) => setText(e.target.value)}
