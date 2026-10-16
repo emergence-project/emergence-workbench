@@ -154,4 +154,17 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-evtext { grid-column: 1 / -2; }
 .fl-fromlist { list-style: none; padding: 0; margin: 0 0 var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); }
 .fl-fromlist li { display: flex; align-items: center; gap: var(--sp-2); }
-.fl-edit-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+/* 설명 칸: 밑줄 칸, 오른쪽 위 "그림 ▾", 수식·그림이 있으면 아래 미리보기 (10/16 사용자 승인) */
+.fl-editing .fl-fields dd textarea { background: transparent; border-bottom-color: var(--line); }
+.fl-editing .fl-fields dd textarea:focus { background: var(--bg); }
+.fl-field { position: relative; }
+.fl-figmenu { position: absolute; top: 2px; right: 2px; z-index: 1; }
+.fl-figmenu.open { z-index: 3; }
+.fl-figmenu > .btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.7; }
+.fl-figmenu-pop { right: 0; top: calc(100% + 4px); min-width: 220px; }
+.fl-figmenu-pop button svg { flex: none; width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; }
+.fl-figmenu-pop button:disabled { color: var(--text-3); cursor: default; }
+.fl-figmenu-lib { max-height: 280px; overflow-y: auto; }
+.fl-figmenu-hint { margin: var(--sp-1) 0 0; padding: var(--sp-1) 10px; border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
+.fl-preview { margin-top: var(--sp-1); padding: var(--sp-1) var(--sp-2); border-left: 2px solid var(--line); }
+.fl-editing .fl-fields dd textarea { padding-right: 84px; }

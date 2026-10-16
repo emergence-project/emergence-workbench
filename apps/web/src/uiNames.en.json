@@ -621,5 +621,7 @@
   "현황 블록": "Status block",
   "저장소 블록": "Repository block",
   "현황 쪽": "Status page",
-  "저장소 쪽": "Repository page"
+  "저장소 쪽": "Repository page",
+  "흐름 그림 메뉴": "Flow figure menu",
+  "흐름 설명 미리보기": "Flow description preview"
 }
