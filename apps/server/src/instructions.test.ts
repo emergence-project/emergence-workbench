@@ -87,3 +87,18 @@ describe('설정 › 에이전트: 지시 처리', () => {
     expect(dailyDue('09:00', at(9, 17), '2026-10-16')).toBe('2026-10-17')
   })
 })
+
+describe('에이전트가 물은 질문에 사용자가 답하면 에이전트 차례, 반영해 답하면 끝냄', () => {
+  it('agentAnswer와 STATUS 절', async () => {
+    const { agentAnswer, replyToRecord } = await import('./ask.js')
+    const { addComment, readComments, userReplies } = await import('./comments.js')
+    const root = path.join(makeRepo('instr-replied'), 'workbench')
+    const { entry } = addComment(root, 'project', { kind: '질문', title: '프로젝트', text: '이 정의로 갈까요?', by: 'claude' } as never)
+    expect(agentAnswer(root, 'project', entry.id, 'claude', '덧붙임').comments[0]!.state).toBe('대기')
+    replyToRecord(root, 'project', entry.id, '네, 그렇게 해 주세요')
+    expect(userReplies(root).map((q) => q.body)).toEqual(['네, 그렇게 해 주세요'])
+    expect(agentAnswer(root, 'project', entry.id, 'claude', '반영했습니다.').comments[0]!.state).toBe('끝냄')
+    expect(userReplies(root)).toHaveLength(0)
+    expect(readComments(root, 'project').comments[0]!.answers.at(-1)!.by).toBe('claude')
+  })
+})

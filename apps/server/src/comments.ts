@@ -268,6 +268,20 @@ export function pendingQuestions(root: string, kind: '질문' | '지시' = '질�
     .map((c) => ({ target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body })))
 }
 
+/** 에이전트가 물은 질문에 사용자가 답한 것 (10/16): 에이전트가 그 답을 읽고 반영한 뒤 answer_record로 끝냄으로 닫는다 */
+export function userReplies(root: string): PendingQuestion[] {
+  return listComments(root).flatMap((f) => f.comments
+    .filter((c) => !!c.by && c.state === '답함' && c.answers.at(-1)?.by === USER_ANSWER_BY)
+    .map((c) => ({ target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.answers.at(-1)!.body })))
+}
+
+/** 종류를 아직 정하지 않은(자동) 기록 (10/16): 사용자가 분류하기 전까지 메모라 에이전트 차례에 들지 않는다 */
+export function unsortedRecords(root: string): PendingQuestion[] {
+  return listComments(root).flatMap((f) => f.comments
+    .filter((c) => c.unsorted && c.state !== '끝냄')
+    .map((c) => ({ target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body })))
+}
+
 /** 사용자 차례인 기록 수 (왼쪽 띠 · 사이드바 기록 줄의 주황 수) */
 export function userTurnRecords(root: string): number {
   return listComments(root).reduce((n, f) => n + f.comments.filter(isUserTurnRecord).length, 0)

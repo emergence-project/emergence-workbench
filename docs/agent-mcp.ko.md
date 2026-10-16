@@ -45,7 +45,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `list_edit_reviews` | 에이전트 수정 검토 대기와 허락 대기. 선택 인자 `project`를 주면 그 프로젝트만, 없으면 모든 프로젝트와 개념노트 | `GET /api/agent-edits?scope=` |
 | `read_note` | 노트 본문과 hash | `GET …/:rid/manuscript/part`, 블록 노트는 `GET …/:rid/blocks/:id` |
 | `read_records` | 노트·프로젝트 기록(메모 · 할 일 · 질문과 답 · 하이라이트)과 hash. 대상은 `project` · `note-<폴더>` · `topic-<id>` · `flow-<id>` 등이고, `part` · `partText`는 사용자가 가리킨 화면 부위다 | `GET …/:rid/comments/:target` |
-| `list_records` | 프로젝트의 모든 기록(프로젝트 · 노트 · 주제 · 흐름 점, 하이라이트 제외)을 한 목록으로, 종류 · 상태 · 대상(정확히 또는 `topic-`처럼 앞부분)으로 거른다. `unanswered: true`면 답을 기다리는 사용자의 질문과 지시(10/15: 에이전트가 하고 나서 답하는 기록)만. `by`는 기록을 쓴 에이전트(없으면 사용자), 답 이름 `사용자`는 사용자가 이어 쓴 것 | `GET …/:rid/records` |
+| `list_records` | 프로젝트의 모든 기록(프로젝트 · 노트 · 주제 · 흐름 점, 하이라이트 제외)을 한 목록으로, 종류 · 상태 · 대상(정확히 또는 `topic-`처럼 앞부분)으로 거른다. `unanswered: true`면 답을 기다리는 사용자의 질문과 지시(10/15: 에이전트가 하고 나서 답하는 기록)만. `replied: true`면 에이전트가 물은 질문에 사용자가 답한 것(답을 반영하고 `answer_record`로 답하면 끝냄), `unsorted: true`면 "자동"으로 남기고 아직 분류하지 않은 기록. `by`는 기록을 쓴 에이전트(없으면 사용자), 답 이름 `사용자`는 사용자가 이어 쓴 것. 줄은 짧다(본문과 마지막 답은 300자까지, 답 수). `full: true`면 전부. 앱 서버 없이는 `pnpm agent:records <저장소>`가 같은 줄을, `pnpm agent:answer <저장소> <대상> <id> "<답>"`이 같은 답을 쓴다 | `GET …/:rid/records` |
 | `list_tasks` · `read_task` | 맡긴 일 목록과 하나의 모든 칸 | `GET …/:rid/tasks`, `…/tasks/:id` |
 | `search_library` | 개념노트 · 논문 찾기 (이름 · 다른 이름 · 저자 · 연도 · arXiv 번호). 개념노트는 본문으로도 찾고, 맞은 줄마다 `hits`(본문 줄 번호 · 그 줄의 절 제목 · 줄 글)를 붙인다. 노트 전체 대신 그 절만 보면 된다 | `GET /api/search/catalog`, `GET /api/concepts/search` |
 | `read_concept` | 개념노트 머리말 · 본문 · hash와 확인 상태(ok · changed · none) | `GET /api/concepts/:id` |
