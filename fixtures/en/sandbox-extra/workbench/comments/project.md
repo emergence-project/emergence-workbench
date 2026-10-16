@@ -24,3 +24,13 @@ Then should the discharging note move to the four-color topic?
 - 상태: 대기
 
 I rewrote the description of the "Five-color theorem" flow dot. Please check whether the kempe-chains note may go into its grounds table.
+
+## c-20260930-0910 · 할 일 · 전체
+- 상태: 대기
+
+Redraw the figure in chapter 2
+
+## c-20260930-0930 · 할 일 · 전체
+- 상태: 대기
+
+10/10 — Find a four-color counterexample for chapter 3

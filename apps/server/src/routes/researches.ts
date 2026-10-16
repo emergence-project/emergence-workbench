@@ -10,6 +10,7 @@ import { listGitHubRepos, realIO, type RepoIO } from '../githubRepos.js'
 import { AgentEditStore } from '../agentEdits.js'
 import { allManuscripts, groundsOf } from '../manuscript.js'
 import { listStatements } from '../statements.js'
+import { openTodos } from '../todos.js'
 import { generateOverview, overviewRow, userTurnOf } from '../agentOverview.js'
 import { WorkbenchError } from '../workbench.js'
 import { chooseFolder } from '../materials.js'
@@ -134,7 +135,7 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
       engine: registry.engine,
       // grounds: 유도가 근거로 적은 원고의 장·부록 (저장소 기준 경로)
       blocks: blocks.map(({ id, format, meta, hash, mtime, content }) => ({ ...meta, id, format, hash, mtime, grounds: parts.length ? groundsOf(content, parts) : [] })),
-      openTodos: wb.recentJournal(365).filter((e) => e.kind === 'todo' && !e.done).length,
+      todos: openTodos(wb.root),
       tree: buildTree(blocks),
       statements: listStatements(wb.root),
     }

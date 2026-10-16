@@ -1,6 +1,6 @@
 import { RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
+import { api, commentsApi, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { AppUpdateButton } from './AppUpdate'
 import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
@@ -23,7 +23,7 @@ import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
 import { AUX_NOTE, shortLabel } from './notes'
 import { StatementTab } from './StatementTab'
 import { DocTab, MaterialsNav } from './Materials'
-import { commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
+import { blockTarget, commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNoteEditor } from './Library'
 import { QuickMemo } from './memo'
@@ -164,7 +164,7 @@ export function App() {
   }, [])
   const { library, libraryChanged, manuscripts, topics, notes, notesOf, notesChanged } = useProjectData(rapi, version, rid)
   // 사이드바 "기록" 옆 남은 할 일 수: 요약에 실려 온다 (10/15, 전에는 일지 365일을 따로 받았다)
-  const todoCount = summary?.openTodos ?? null
+  const todoCount = summary ? summary.todos.length : null
   // 주제를 바꿔 옮겨 간 노트(10/13 주제 폴더)를 옛 경로로 연 탭·주소는 지금 경로로 바꾼다
   const routeFile = route.page === 'part' && route.rid === rid ? route.file : null
   useEffect(() => {
@@ -495,9 +495,13 @@ export function App() {
         return (
           <QuickMemo target={target} targetLabel={label} onClose={() => setQuickMemo(false)}
             onSave={async (kind, text, to) => {
-              await rapi.addJournal(kind, text, to)
+              // 할 일의 정본은 기록 파일 (2026-10-16). 메모는 오늘 일지에
+              if (kind === 'todo') {
+                const place = to === RESEARCH_TARGET ? { target: 'project', title: summary.research.title } : blockTarget(to, label)
+                await commentsApi(summary.id).add(place.target, { kind: '할 일', text, ...place })
+              } else await rapi.addJournal(kind, text, to)
               changed()
-              flash(t(`${kind === 'todo' ? '할 일' : '메모'} 저장됨 — 오늘 일지 · ${label}`, `${kind === 'todo' ? 'To-do' : 'Memo'} saved to today\'s journal · ${label}`))
+              flash(kind === 'todo' ? t(`할 일 저장됨 — 기록 · ${label}`, `To-do saved to records · ${label}`) : t(`메모 저장됨 — 오늘 일지 · ${label}`, `Memo saved to today\'s journal · ${label}`))
             }} />
         )
       })()}

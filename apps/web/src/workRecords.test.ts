@@ -19,6 +19,24 @@ describe('work filters', () => {
 })
 
 describe('work record groups', () => {
+  it('to-dos come from records only: open ones, earliest deadline first, then the oldest written (2026-10-16)', () => {
+    const project = file('project', [
+      record('c-20261009-0900', '할 일', { body: '마감 없는 나중 것', state: '대기' }),
+      record('c-20261008-0900', '할 일', { body: '마감 없는 먼저 것', state: '대기' }),
+      record('c-20261009-1000', '할 일', { body: '10/12까지 — 늦은 마감', state: '대기' }),
+      record('c-20261009-1100', '할 일', { body: '10/10 — 이른 마감', state: '대기' }),
+      record('c-20261009-1200', '할 일', { body: '끝낸 것', state: '끝냄' }),
+      record('c-20261009-1300', '메모'),
+    ])
+    const topic = file('topic-coloring', [record('c-20261009-1400', '할 일', { body: '주제 할 일', state: '대기' })])
+    const journal = [memo('2026-10-09', '09:00', 0), { ...memo('2026-10-09', '09:30', 1), kind: 'todo' as const, done: false, text: '예전 일지 할 일' }]
+    const groups = workRecordGroups([topic, project], journal, '할 일')
+    expect(groups.map((g) => [g.target, g.items.map((item) => item.kind === 'record' ? item.entry.body : item.entry.text)])).toEqual([
+      ['project', ['10/10 — 이른 마감', '10/12까지 — 늦은 마감', '마감 없는 먼저 것', '마감 없는 나중 것']],
+      ['topic-coloring', ['주제 할 일']],
+    ])
+  })
+
   it('interleaves old journal memos with project records newest first', () => {
     const project = file('project', [record('c-20261006-092000'), record('c-20261006-121001')])
     const journal = [memo('2026-10-06', '10:30', 1), memo('2026-10-07', '09:00', 0), memo('2026-10-05', '23:00', 0)]

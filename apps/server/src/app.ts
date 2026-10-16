@@ -8,6 +8,7 @@ import type { AskRunner } from './ask.js'
 import { asLang, currentLang, setDefaultLang, t, withLang } from './i18n.js'
 import { Registry } from './registry.js'
 import { writeStatusFor } from './agentStatus.js'
+import { migrateJournalTodos } from './todos.js'
 import { watchWorkbench, type WorkbenchEvent } from './watcher.js'
 import { watchLibrary } from './libraryWatch.js'
 import { Workbench, ConflictError, WorkbenchError } from './workbench.js'
@@ -152,7 +153,10 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   }
   const watchers = new Map<string, FSWatcher>()
   const ensureWatch = (rid: string) => {
-    if (!opts.watch || watchers.has(rid)) return
+    if (!opts.watch) return
+    // 예전 일지의 끝내지 않은 할 일을 기록으로 옮긴다 (2026-10-16 할 일 원본 하나). 받기 뒤에도 다시 본다
+    try { migrateJournalTodos(registry.get(rid)) } catch (e) { app.log.warn({ err: e, research: rid }, '일지 할 일 옮기기 실패') }
+    if (watchers.has(rid)) return
     try {
       watchers.set(rid, watchWorkbench(rid, registry.get(rid).root, (e) => {
         broadcast(e)

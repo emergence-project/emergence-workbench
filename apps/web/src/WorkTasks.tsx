@@ -1,6 +1,6 @@
 import type { JournalEntry } from '@rw/core'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ConflictError, taskRules, tasksApi, type NewTask, type Task, type TaskDiagnostic, type Topic, type Verdict } from './api'
+import { ConflictError, taskRules, tasksApi, type NewTask, type OpenTodo, type Task, type TaskDiagnostic, type Topic, type Verdict } from './api'
 import { Dialog } from './dialogs'
 import type { FlashAction } from './flash'
 import { localDate } from './format'
@@ -212,13 +212,13 @@ function Mark({ m }: { m: WeekMark }) {
  * 브리핑 한 줄과 이 프로젝트의 한 주 달력 (시안: 맡김 · 결과 도착(사용자 차례) · 끝낸 할 일 · 메모 · 마감).
  * 날짜를 누르면 그날 항목을 아래에 모두 펼친다.
  */
-export function TaskWeek({ rid, tasks, entries, now = new Date() }: { rid: string; tasks: Task[]; entries: JournalEntry[]; now?: Date }) {
+export function TaskWeek({ rid, tasks, entries, todos, now = new Date() }: { rid: string; tasks: Task[]; entries: JournalEntry[]; todos: OpenTodo[]; now?: Date }) {
   const [start, setStart] = useState(() => weekStartOf(now))
   const [picked, setPicked] = useState<string | null>(null)
   const today = localDate(now)
   const days = Array.from({ length: 7 }, (_, i) => localDate(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)))
   const shift = (n: number) => { setPicked(null); setStart(new Date(start.getFullYear(), start.getMonth(), start.getDate() + n * 7)) }
-  const byDay = weekItems(tasks, entries)
+  const byDay = weekItems(tasks, entries, todos)
   const itemsOn = (iso: string) => (byDay.get(iso) ?? []).filter((x) => (x.mark === 'due' ? iso >= today : iso <= today))
   const thisWeek = Array.from({ length: 7 }, (_, i) => localDate(new Date(weekStartOf(now).getFullYear(), weekStartOf(now).getMonth(), weekStartOf(now).getDate() + i)))
   const c = briefCounts(tasks, thisWeek.filter((d) => d >= today), byDay)

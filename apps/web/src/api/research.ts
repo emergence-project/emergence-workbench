@@ -11,7 +11,7 @@ import { ConflictError, enc, json, req, send } from './http'
 
 export type {
   BibEntry, BlockDoc, BlockMetaSaved, BlockRow, CompileResult, LatexProblem as Problem, ManuscriptCompileResult, ManuscriptInfo, ManuscriptPart, ManuscriptPdfStatus, ManuscriptView,
-  MaterialFile, NoteKind, NoteState, PdfBox, ProjectColor, ProjectInfo, ProjectIssues, ProjectKind, ProjectState, RepoInfo, RepoSync, ResearchListItem, ResearchSummary, SourceSpot, Statement,
+  MaterialFile, NoteKind, NoteState, OpenTodo, PdfBox, ProjectColor, ProjectInfo, ProjectIssues, ProjectKind, ProjectState, RepoInfo, RepoSync, ResearchListItem, ResearchSummary, SourceSpot, Statement,
   Topic, TrashedNote,
 } from '@rw/core/contract/research'
 
@@ -121,7 +121,7 @@ export function researchApi(rid: string) {
     /** 머리나 제목 줄이 남은 연구노트·계산 노트를 모두 본문만 남긴다 */
     makeAllBodyOnly: () => req(`${base}/notes/body-only`, { method: 'POST' }).then((r) => json<AllBodyOnlyResult>(r)),
     // ---------- (갈래 T2 끝) ----------
-    addJournal: (kind: 'memo' | 'todo', text: string, target?: string) =>
+    addJournal: (kind: 'memo', text: string, target?: string) =>
       req(`${base}/journal`, send('POST', { kind, text, target })).then((r) => json<JournalEntryReply>(r)),
     setTodo: (e: JournalEntry, done: boolean) =>
       req(`${base}/journal/${e.date}/${e.index}`, send('PATCH', { done, was: e.text, link: e.link })).then((r) => json<JournalEdited>(r)),

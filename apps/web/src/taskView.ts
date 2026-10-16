@@ -1,5 +1,6 @@
-import { todoDue, type BlockStatus, type JournalEntry } from '@rw/core'
+import type { BlockStatus, JournalEntry } from '@rw/core'
 import type { Task, TaskAsk, TaskState } from './api/tasks'
+import type { OpenTodo } from './api/research'
 import { stripDue } from './homeData'
 import { plural, t as tr } from './i18n'
 
@@ -128,7 +129,7 @@ const timeOf = (stamp: string | undefined) => /\d{1,2}:\d{2}/.exec(stamp ?? '')?
  * 날짜별 항목: 맡김 · 결과 도착(사용자 차례) · 끝낸 할 일 · 메모 · 상태 기록, 앞으로의 날에는 마감.
  * 같은 날 안에서는 시각 순.
  */
-export function weekItems(tasks: Task[], entries: JournalEntry[]): Map<string, WeekItem[]> {
+export function weekItems(tasks: Task[], entries: JournalEntry[], todos: Pick<OpenTodo, 'target' | 'id' | 'text' | 'due'>[] = []): Map<string, WeekItem[]> {
   const out = new Map<string, WeekItem[]>()
   const push = (date: string, item: WeekItem) => out.set(date, [...(out.get(date) ?? []), item])
   for (const t of tasks) {
@@ -137,14 +138,12 @@ export function weekItems(tasks: Task[], entries: JournalEntry[]): Map<string, W
   }
   for (const e of entries) {
     const first = e.text.split('\n').find((x) => x.trim()) ?? ''
-    if (e.kind === 'todo') {
-      const due = e.done ? null : todoDue(e.text, e.date)
-      if (due) push(due, { key: `due-${e.date}-${e.index}`, time: '', mark: 'due', text: `${tr('마감', 'Due')} · ${stripDue(first)}` })
-      continue
-    }
+    // 끝내지 않은 할 일의 마감은 기록에서 (아래). 예전 일지의 할 일 줄은 달력에 올리지 않는다
+    if (e.kind === 'todo') continue
     // 판단 기록은 맡긴 일 항목과 겹치므로 상태 기록으로만 둔다
     push(e.date, { key: `${e.date}-${e.index}`, time: e.time, mark: e.kind === 'done' ? 'done' : e.kind === 'memo' ? 'memo' : 'status', text: e.kind === 'done' ? stripDue(first) : first })
   }
+  for (const todo of todos) if (todo.due) push(todo.due, { key: `due-${todo.target}/${todo.id}`, time: '', mark: 'due', text: `${tr('마감', 'Due')} · ${stripDue(todo.text)}` })
   for (const items of out.values()) items.sort((a, b) => (a.time || '99').localeCompare(b.time || '99'))
   return out
 }

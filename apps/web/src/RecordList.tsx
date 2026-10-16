@@ -61,7 +61,7 @@ export function RecordList({ rid, file, filter, onGo, items: suppliedItems, work
       onDelete={async () => {
         // Capture the read hash before the confirmation: an appended answer must cause a conflict.
         const baseHash = file.hash
-        if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 연결된 일지의 할 일도 남습니다. 답이 달린 기록은 지울 수 없습니다.', 'This cannot be undone. The source text and other records stay. Linked journal to-dos stay too. Records with answers cannot be deleted.'), ok: t('지우기', 'Delete') })) {
+        if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 답이 달린 기록은 지울 수 없습니다.', 'This cannot be undone. The source text and other records stay. Records with answers cannot be deleted.'), ok: t('지우기', 'Delete') })) {
           await act(() => api.remove(file.target, c.id, baseHash))
         }
       }} rid={rid} file={file} work={work} />)}

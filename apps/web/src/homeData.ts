@@ -1,13 +1,10 @@
-import { todoDue, type JournalEntry } from '@rw/core'
+import type { JournalEntry } from '@rw/core'
 import type { ResearchListItem, ResearchSummary } from './api'
 import { localDate } from './format'
 import { t } from './i18n'
 
 /** 홈이 연구마다 읽어 두는 것: 개괄 요약과 최근 1년 일지 */
 export interface Loaded { summary: ResearchSummary; entries: JournalEntry[] }
-
-/** 일지는 최근 것부터 온다. 할 일은 먼저 적은 것이 위로 오게 뒤집는다 (계획 순서) */
-export const oldestFirst = (todos: JournalEntry[]) => [...todos].reverse()
 
 /** 화면에 따로 날짜가 보이므로 글 앞의 "10/20까지 —"를 뗀다 */
 const DUE_PREFIX = /^\s*(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2})(?:까지)?\s*[—–:·-]?\s*/
@@ -26,19 +23,6 @@ export const WEEK_DAYS = [t('일', 'Sun'), t('월', 'Mon'), t('화', 'Tue'), t('
 /** date가 든 주의 첫날(일요일), 그날 0시 */
 export function weekStartOf(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay())
-}
-
-/** 할 일 하나: 일지의 [ ] 줄. 마감은 글 앞 날짜에서 */
-export interface OpenTodo { key: string; entry: JournalEntry; due: string | null; text: string; where: string | null }
-/** 그다음: 진행 중인 가지 끝 작업노트의 "다음 할 일", 또는 재개 조건이 적힌 막힌 작업노트 */
-export interface NextStep { key: string; bid: string; title: string; text: string; blocked: boolean }
-
-export interface TodayRow {
-  r: ResearchListItem
-  todos: OpenTodo[]
-  next: NextStep[]
-  /** 마지막으로 손댄 날 (블록 수정·일지 기록 중 가장 최근) */
-  lastActive: string | null
 }
 
 /** 한 일 달력의 기록 하나 */
@@ -78,16 +62,13 @@ export function doneByDay(researches: ResearchListItem[], loaded: Record<string,
   return out
 }
 
-/** 마감: 끝내지 않은 할 일의 글 앞 날짜 */
+/** 마감: 끝내지 않은 할 일(기록)의 글 앞 날짜 */
 export interface Deadline { key: string; due: string; text: string; rid: string; title: string; color: number }
 export function deadlines(researches: ResearchListItem[], loaded: Record<string, Loaded | Error>): Deadline[] {
   return researches.flatMap((r) => {
     const l = loaded[r.id]
     if (!l || l instanceof Error) return []
-    return l.entries.filter((e) => e.kind === 'todo' && !e.done).flatMap((e) => {
-      const due = todoDue(e.text, e.date)
-      return due ? [{ key: `${r.id}-${e.date}-${e.index}`, due, text: stripDue(e.text), rid: r.id, title: r.title, color: colorOf(researches, r.id) }] : []
-    })
+    return l.summary.todos.flatMap((todo) => todo.due ? [{ key: `${r.id}-${todo.target}/${todo.id}`, due: todo.due, text: stripDue(todo.text), rid: r.id, title: r.title, color: colorOf(researches, r.id) }] : [])
   })
 }
 

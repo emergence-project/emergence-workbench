@@ -11,7 +11,6 @@ import { go } from './router'
 import { WeekCalendar } from './WeekCalendar'
 import { t, plural, locale } from './i18n'
 
-export { oldestFirst } from './homeData'
 
 /**
  * 홈 (10/5 시안 "홈"): 프로젝트 목록(기본) · 카드 보기 → "한 일 달력"(한 주).
