@@ -4,7 +4,7 @@
 .tk-cnt.turn { color: var(--bg); background: var(--s-blocked); border-radius: var(--r-pill); padding: 0 6px; font-weight: var(--fw-strong); line-height: 1.5; }
 .tk-props .turn { color: var(--s-blocked); }
 .tk-none { margin: 0; color: var(--text-3); }
-.tk-empty { margin: var(--sp-2) 0; font-size: var(--fs-sm); }
+.tk-empty { padding: 0; margin: var(--sp-2) 0; }
 .tk-pad { padding: var(--sp-4); }
 .tk-actions .btn svg, .tk-prop .btn svg, .tk-next-own svg { stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .tk-actions .btn svg, .tk-prop .btn svg, .tk-next-own svg { width: 14px; height: 14px; }

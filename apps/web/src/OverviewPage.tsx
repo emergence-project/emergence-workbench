@@ -474,7 +474,7 @@ function ProjectCards({ rid, rapi, notes, project, pc, onChanged, onSaved }: {
           <NewCard shape="note" label={t('노트 만들기', 'New note')} ui="새 노트" onClick={() => void createNoteAsk(rapi, rid, null, onChanged, onSaved, fail)} />
           {shown.map((n) => <NoteCardView key={n.file} row={n} topicTitle={titleOf} onOpen={() => go(routeOfNote(rid, n))} onStar={() => void starNote(n)} />)}
         </div>
-        {recent.length === 0 && period !== 'all' && <p className="ov-empty">{period === 'today' ? t('오늘 손댄 노트가 없습니다.', 'No notes touched today.') : t('이번 주에 손댄 노트가 없습니다.', 'No notes touched this week.')}</p>}
+        {recent.length === 0 && period !== 'all' && <p className="empty ov-empty">{period === 'today' ? t('오늘 손댄 노트가 없습니다.', 'No notes touched today.') : t('이번 주에 손댄 노트가 없습니다.', 'No notes touched this week.')}</p>}
         {more > 0 && (
           <div className="more-bar">
             <button aria-expanded={expanded} data-ui="노트 더 보기" onClick={() => setExpanded((v) => !v)}>{expanded ? t('접기 ▴', 'Collapse ▴') : t(`노트 ${more}개 더 보기 ▾`, `Show ${more} more ▾`)}</button>

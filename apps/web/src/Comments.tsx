@@ -392,8 +392,8 @@ export function CommentList({ rid, target }: { rid: string; target: string }) {
     }
   }
   const api = backend(rid)
-  if (!slot.file) return <p className="muted cmt-empty">{t('불러오는 중…', 'Loading…')}</p>
-  if (!items.length) return <p className="muted cmt-empty" title={t('글을 끌어 고르거나 PDF 툴바의 코멘트로 기록을 남깁니다.', 'Select text or use Comment in the PDF toolbar to add a record.')}>{t('없음', 'None')}</p>
+  if (!slot.file) return <p className="empty cmt-empty">{t('불러오는 중…', 'Loading…')}</p>
+  if (!items.length) return <p className="empty cmt-empty" title={t('글을 끌어 고르거나 PDF 툴바의 코멘트로 기록을 남깁니다.', 'Select text or use Comment in the PDF toolbar to add a record.')}>{t('없음', 'None')}</p>
   return (
     <div className="cmt-list">
       {(err ?? askErr) && <div className="banner">{err ?? askErr}</div>}

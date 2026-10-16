@@ -157,7 +157,7 @@ export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal,
   return (
     <div className="tk-list" data-ui="판단 목록">
       {list.map((t) => <TaskCard key={t.id} rid={rid} task={t} open={shown === t.id} onToggle={() => setOpenId(shown === t.id ? null : t.id)} onSaved={onSaved} reload={reload} onEditProposal={onEditProposal} />)}
-      {!list.length && <p className="muted tk-empty">{loaded ? t('판단할 것이 없습니다. 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing to decide. Results of delegated tasks show up here.') : t('불러오는 중…', 'Loading…')}</p>}
+      {!list.length && <p className="empty tk-empty">{loaded ? t('판단할 것이 없습니다. 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing to decide. Results of delegated tasks show up here.') : t('불러오는 중…', 'Loading…')}</p>}
       {children}
     </div>
   )
@@ -169,7 +169,7 @@ const CLOSED_SHOWN = 5
 /** 맡긴 일: 판단 대기 · 진행 · 멈춤 · 해결 · 폐기로 묶은 목록. 줄을 누르면 보고서 */
 export function TaskList({ rid, tasks, loaded, diagnostics = [] }: { rid: string; tasks: Task[]; loaded: boolean; diagnostics?: TaskDiagnostic[] }) {
   const [all, setAll] = useState(false)
-  if (!tasks.length && !diagnostics.length) return <p className="muted tk-empty">{loaded ? t('맡긴 일이 없습니다. 오른쪽 위 "맡기기"로 에이전트에게 일을 맡겨 보세요.', 'No delegated tasks. Use "Delegate" at the top right to give an agent a task.') : t('불러오는 중…', 'Loading…')}</p>
+  if (!tasks.length && !diagnostics.length) return <p className="empty tk-empty">{loaded ? t('맡긴 일이 없습니다. 오른쪽 위 "맡기기"로 에이전트에게 일을 맡겨 보세요.', 'No delegated tasks. Use "Delegate" at the top right to give an agent a task.') : t('불러오는 중…', 'Loading…')}</p>
   return (
     <div className="tk-groups" data-ui="맡긴 일 목록">
       {diagnostics.length > 0 && <div className="banner danger" role="alert" data-ui="작업 파일 오류">

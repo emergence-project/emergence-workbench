@@ -126,7 +126,7 @@ export function MemoList({ entries, rid, titleOf, onToggle, onEdit, onDelete, hi
   hideTodoKind?: boolean
   empty: string
 }) {
-  if (entries.length === 0) return <div className="memo-empty">{empty}</div>
+  if (entries.length === 0) return <div className="empty center memo-empty">{empty}</div>
   const links = new Map<string, number>()
   for (const entry of entries) if (entry.link) links.set(entry.link, (links.get(entry.link) ?? 0) + 1)
   let day = ''

@@ -168,8 +168,8 @@ export function KnowledgeList({ info, filters, rightOpen, onChanged, onSaved }: 
                   title={c.id === 'mtime' && row.mtime ? new Date(row.mtime).toLocaleString(locale()) : cellText(row, c.id, filters.subjectPrefix, tree)}>{cellText(row, c.id, filters.subjectPrefix, tree)}</div>)}
               </div>)}
             </div>
-            {!data && !error && <p className="kh-empty">{t('불러오는 중…', 'Loading…')}</p>}
-            {data?.total === 0 && <p className="kh-empty">{t('이 조건에 맞는 개념노트가 없습니다.', 'No concept notes match these filters.')}</p>}
+            {!data && !error && <p className="empty kh-empty">{t('불러오는 중…', 'Loading…')}</p>}
+            {data?.total === 0 && <p className="empty kh-empty">{t('이 조건에 맞는 개념노트가 없습니다.', 'No concept notes match these filters.')}</p>}
             {data && data.items.length < data.total && <div className="more-bar"><button className="btn sm" disabled={busy} onClick={() => void more()}>{busy ? t('불러오는 중…', 'Loading…') : t(`${data.total - data.items.length}개 더 보기`, `Show ${data.total - data.items.length} more`)}</button></div>}
           </div>
           {tree?.enabled && filters.subjectPrefix !== undefined && <div className="subject-links" data-ui="분류의 논문과 그림">

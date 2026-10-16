@@ -9,7 +9,7 @@
 .kh-h-n { font-size: var(--fs-xs); font-weight: var(--fw-normal); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .kh-h .sp { flex: 1; }
 .kh-h .icon-btn { align-self: center; width: 22px; height: 22px; color: var(--text-3); }
-.kh-empty { margin: 0; padding: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); color: var(--text-3); }
+.kh-empty { padding: var(--sp-1) var(--sp-2); }
 
 /* 줄 목록: 제목 · 분류 · 시각 (한 줄, 넘치면 …) */
 .kh-rows { display: flex; flex-direction: column; }

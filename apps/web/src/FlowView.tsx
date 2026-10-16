@@ -709,7 +709,7 @@ export function NoteFlow({ rid, row, version, onSaved }: { rid: string; row: Not
     {mine.length ? <ul className="rs-list">{mine.map((n) => <li key={n.id}>
       <button type="button" className="a fl-pill" title={`${n.title}\n${tr('흐름 화면에서 열기', 'Open in the flow')}`} onClick={() => openFlowDot(rid, n)}>
         <MarkIcon n={n} size={16} /><span>{n.short}</span></button>
-    </li>)}</ul> : <p className="muted rs-empty">{tr('이 노트를 근거로 단 점이 없습니다', 'No dot uses this note as evidence')}</p>}
+    </li>)}</ul> : <p className="empty rs-empty">{tr('이 노트를 근거로 단 점이 없습니다', 'No dot uses this note as evidence')}</p>}
     {rest.length > 0 && <select className="rs-select rs-add" data-ui="노트 흐름 잇기" value={pick} aria-label={tr('점에 근거로 잇기', 'Attach to a dot as evidence')}
       onChange={(e) => { setPick(e.target.value); if (e.target.value) void link(e.target.value) }}>
       <option value="">{tr('＋ 점에 잇기…', '＋ Attach to a dot…')}</option>

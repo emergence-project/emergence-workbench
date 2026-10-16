@@ -153,7 +153,7 @@ export function LibraryNoteEditor({ kind, id, info, rid, project, onChanged, onS
             {result?.warnings?.length ? <div className="banner lib-problems">{result.warnings.map((w, i) => <div key={i}>{w}</div>)}</div> : null}
             {pdfVersion !== null
               ? <PdfView url={api.libraryPdfUrl(kind, id, pdfVersion)} highlight={[]} onPick={() => undefined} />
-              : <div className="ws-empty">{compiling ? t('PDF를 만드는 중…', 'Making PDF…') : t('PDF가 아직 없습니다', 'No PDF yet')}</div>}
+              : <div className="empty center">{compiling ? t('PDF를 만드는 중…', 'Making PDF…') : t('PDF가 아직 없습니다', 'No PDF yet')}</div>}
           </div>
         </div>
         <div className="statusline">
@@ -193,12 +193,12 @@ export function LibraryPage({ info, topic, rightOpen = true, onChanged, onSaved 
     <main className="kn-page" data-ui="지식">
       {error && <div className="banner danger">{t('개념노트 목록을 읽지 못했습니다', 'Could not read the concept note list')}: {error}</div>}
       <section className="lib-view" data-ui="지식 보기">
-        {!sel ? <div className="ws-empty">{data ? t('이 개념노트를 찾지 못했습니다. 왼쪽 목록에서 고르세요.', 'Concept note not found. Pick one from the list on the left.') : t('읽는 중…', 'Loading…')}</div>
+        {!sel ? <div className="empty center">{data ? t('이 개념노트를 찾지 못했습니다. 왼쪽 목록에서 고르세요.', 'Concept note not found. Pick one from the list on the left.') : t('읽는 중…', 'Loading…')}</div>
           : sel.concept?.format === 'md' ? <ConceptNoteView key={sel.concept.id} id={sel.concept.id} info={info} rightOpen={rightOpen} tocOwner={`knowledge/${sel.concept.id}`} onChanged={onChanged} onSaved={onSaved} />
           : sel.concept ? <LibraryNoteEditor key={sel.concept.id} kind="concept" id={sel.concept.id} info={info} onChanged={onChanged} onSaved={onSaved} />
           : sel.study ? <ReadOnlyMd key={sel.key} load={() => api.studyNote(sel.study!.path)} path={t(`Study: ${sel.study.path} · 아직 옮기지 않음 (읽기만)`, `Study: ${sel.study.path} · Not moved yet (read only)`)} onClick={(e) => followLink(e, topics)} />
           : sel.review ? <ReadOnlyMd key={sel.key} load={() => knowledgeApi.review(sel.review!.path)} path={t(`Topic Review (Emergence, 읽기만): ${sel.review.path}`, `Topic Review (Emergence, read only): ${sel.review.path}`)} onClick={(e) => followLink(e, topics)} />
-          : <div className="ws-empty">{t('이 주제에는 개념노트가 없습니다.', 'This topic has no concept note.')}</div>}
+          : <div className="empty center">{t('이 주제에는 개념노트가 없습니다.', 'This topic has no concept note.')}</div>}
       </section>
     </main>
   )

@@ -22,7 +22,7 @@
 .repo-when { margin-left: auto; padding-left: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
 .repo-desc { grid-column: 1; font-size: var(--fs-sm); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .repo-mark { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-size: var(--fs-2xs); color: var(--text-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); padding: 1px var(--sp-2); white-space: nowrap; }
-.reg-empty { margin: 0; padding: var(--sp-3); font-size: var(--fs-sm); }
+.reg-empty { padding: var(--sp-3); }
 
 .reg-chosen { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-sm); flex-wrap: wrap; }
 .reg-path { color: var(--text); overflow-wrap: anywhere; }

@@ -168,9 +168,9 @@ export function ConceptSide({ info, route }: { info: LibraryInfo | null; route: 
         <button className={`nav side-row${onMap && !sel ? ' on' : ''}`} aria-current={onMap && !sel ? 'page' : undefined} data-ui="지도 줄" title={t('개념노트 사이의 링크', 'Links between concept notes')} onClick={() => go({ page: 'kmap' })}>
           <span className="q-ico" aria-hidden>{Icon.tree}</span><span className="label">{t('지도', 'Map')}</span></button>
       </div>
-      {error && <div className="space-empty">{t('목록을 읽지 못했습니다', 'Could not read the list')}: {error}</div>}
+      {error && <div className="empty space-empty">{t('목록을 읽지 못했습니다', 'Could not read the list')}: {error}</div>}
       {!subjects && !error && <div className="cn-loading">{t('목록을 모으는 중…', 'Gathering the list…')}</div>}
-      {subjects && total === 0 && <div className="space-empty">{noteCount ? t('빈 노트를 뺀 분류가 없습니다.', 'No subjects apart from empty notes.') : t('개념노트가 아직 없습니다. 첫 화면의 "개념노트 만들기"로 더합니다.', 'No concept notes yet. Add one with "New concept note" on the first screen.')}</div>}
+      {subjects && total === 0 && <div className="empty space-empty">{noteCount ? t('빈 노트를 뺀 분류가 없습니다.', 'No subjects apart from empty notes.') : t('개념노트가 아직 없습니다. 첫 화면의 "개념노트 만들기"로 더합니다.', 'No concept notes yet. Add one with "New concept note" on the first screen.')}</div>}
       {subjects && total > 0 && <div className="cn-tree-head">{t('분류', 'Subjects')} · {t(`${total}개`, String(total))}</div>}
       <SubjectGroups nodes={tree} reveal={(idModel ? current?.subjects?.[0] : current?.subject) ?? (route.page === 'library' && route.list ? route.subjectPrefix : undefined)} />
       {legacy.length > 0 && (
@@ -336,7 +336,7 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
   }
 
   if (error) return <div className="ws-doc"><section className="pane"><div className="page-body"><p className="muted">{error}</p></div></section></div>
-  if (!note) return <div className="ws-doc"><section className="pane"><div className="ws-empty">{t('읽는 중…', 'Loading…')}</div></section></div>
+  if (!note) return <div className="ws-doc"><section className="pane"><div className="empty center">{t('읽는 중…', 'Loading…')}</div></section></div>
   const m = note.meta
   const setSubjects = async (ids: string[]) => {
     setBusy(true)

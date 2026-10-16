@@ -14,7 +14,7 @@
 .sr-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-medium); }
 .sr-where { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
 .sr-kind { flex: none; margin-left: auto; font-size: var(--fs-xs); color: var(--text-3); }
-.sr-empty { margin: 0; padding: var(--sp-4); color: var(--text-3); font-size: var(--fs-sm); }
+.sr-empty { padding: var(--sp-4); }
 .sr-foot { display: flex; gap: var(--sp-4); flex-wrap: wrap; padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
 .sr-foot kbd + kbd { margin-left: 2px; }
 .sr-foot kbd { margin-right: var(--sp-1); }

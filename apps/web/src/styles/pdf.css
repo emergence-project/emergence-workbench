@@ -51,7 +51,7 @@
 .ctx-comments { flex: 0 1 auto; max-height: 55%; display: flex; flex-direction: column; min-height: 0; border-bottom: 1px solid var(--line); }
 .ctx-comments .cmt-list { overflow: auto; }
 .cmt-list { padding: var(--sp-2) var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
-.cmt-empty { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-4) var(--sp-3); margin: 0; }
+.cmt-empty { padding: var(--sp-2) var(--sp-4) var(--sp-3); }
 .cmt { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 6px var(--sp-2); font-size: var(--fs-sm); background: var(--bg); }
 .cmt.question { border-left: 3px solid var(--line-strong); }
 .cmt.comment { border-left: 3px solid var(--focus-line); }

@@ -42,7 +42,7 @@ button.memo-chip:hover { border-color: var(--line-strong); color: var(--text); }
 .mi-actions .a { background: none; border: 0; padding: 0; font: inherit; color: var(--text-3); cursor: pointer; }
 .mi-actions .a:hover { color: var(--text); }
 .mi-edit { width: 100%; font: inherit; font-size: var(--fs-md); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); resize: vertical; }
-.memo-empty { color: var(--text-3); font-size: var(--fs-sm); padding: var(--sp-4) 0; text-align: center; }
+.memo-empty { padding: var(--sp-4) 0; }
 .quick { position: fixed; inset: 0; z-index: 45; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12vh; }
 .quick-box { width: min(580px, 92vw); }
 .quick-box .memo { margin: 0; }

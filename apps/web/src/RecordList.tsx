@@ -46,7 +46,7 @@ export function RecordList({ rid, file, filter, onGo, items: suppliedItems, work
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
   return <>
     {(error ?? askError) && <div className="banner danger" role="alert">{error ?? askError}</div>}
-    {!items.length && suppliedItems === undefined && <p className="muted records-empty">{filter === '전체' ? t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.') : t(`${filter} 기록이 없습니다.`, `No ${kindText(filter).toLowerCase()} records.`)}</p>}
+    {!items.length && suppliedItems === undefined && <p className="empty records-empty">{filter === '전체' ? t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.') : t(`${filter} 기록이 없습니다.`, `No ${kindText(filter).toLowerCase()} records.`)}</p>}
     {items.map((c) => <RecordRow key={c.id} active={active === c.id} c={c} hash={file.hash} busy={busy} onGo={() => onGo(c)}
       asking={asking.has(askKey(rid, file.target, c.id))} onAsk={() => void askClaude(rid, file.target, c.id)}
       onState={(state) => act(() => api.update(file.target, c.id, { state, baseHash: file.hash }))}

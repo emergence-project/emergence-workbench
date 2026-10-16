@@ -413,7 +413,7 @@ export function BlockPage({ rid, bid, rapi, summary, manuscripts, bus, onChanged
       if (!deleted.current) saver.release()
     }
   }
-  if (deleted.current) return <div className="space-empty" data-ui="작업노트">{t('이 노트를 지웠습니다.', 'This note was deleted.')}</div>
+  if (deleted.current) return <div className="empty space-empty" data-ui="작업노트">{t('이 노트를 지웠습니다.', 'This note was deleted.')}</div>
   return (
     <NoteScreen ui="작업노트" paneUi="편집 칸" conflictUi="저장 충돌 안내" notice={notice} noticeUi="알림" onCloseNotice={() => setNotice(null)}
       tocOwner={tocOwner} toc={loaded && !loaded.md ? { sections, current: sectionAtLine(sections, cursorLine), jump } : null} side={links}
