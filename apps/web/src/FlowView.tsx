@@ -424,7 +424,7 @@ function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onAdd, onP
     const out = all.filter((m) => m.from.some((f) => f.id === n.id)).length
     const ok = await askConfirm({
       title: tr(`점 "${n.short}"을 지울까요?`, `Delete the dot "${n.short}"?`),
-      hint: tr(`점 파일(${n.file})을 지웁니다${out ? `. 이 점에서 이어진 선 ${out}개도 빠집니다` : ''}. 근거로 단 노트·논문은 그대로 남습니다.`, `Deletes the dot file (${n.file})${out ? ` and the ${out} line(s) leading from it` : ''}. Notes and papers used as evidence stay.`),
+      hint: tr(`점 파일(${n.file})과 이 점의 기록을 workbench/flow/.trash/로 옮깁니다${out ? `. 이 점에서 이어진 선 ${out}개도 빠집니다` : ''}. 근거로 단 노트·논문은 그대로 남습니다.`, `Moves the dot file (${n.file}) and this dot's records to workbench/flow/.trash/${out ? `, and removes the ${out} line(s) leading from it` : ''}. Notes and papers used as evidence stay.`),
       ok: tr('지우기', 'Delete'),
     })
     if (!ok) return

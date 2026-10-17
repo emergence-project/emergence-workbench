@@ -75,6 +75,12 @@ describe('PDF 코멘트 파일', () => {
     expect(listComments(root).map((x) => x.comments.length)).toEqual([2])
   })
 
+  it('사용자가 답 뒤에 이어 써 다시 대기가 된 질문은 마지막 글도 함께 돌려준다 (STATUS가 처음 질문만 보이지 않게)', () => {
+    addComment(root, 'project', { kind: '질문', title: '프로젝트', text: '처음 질문' }, at)
+    fs.appendFileSync(path.join(root, 'comments/project.md'), '\n### 답 · claude · 2026-10-01 16:40\n첫 답.\n\n### 답 · 사용자 · 2026-10-01 17:00\n그게 아니라 이걸 물은 거예요.\n- 상태: 대기\n')
+    expect(pendingQuestions(root)).toEqual([expect.objectContaining({ body: '처음 질문', lastAnswer: { by: '사용자', body: '그게 아니라 이걸 물은 거예요.' } })])
+  })
+
   it('지시는 질문과 따로 모이고, 질문 함에는 들지 않는다', () => {
     addComment(root, 'project', { kind: '지시', title: '프로젝트', text: '그림 2를 다시 그려 줘' }, at)
     addComment(root, 'project', { kind: '질문', title: '프로젝트', text: '왜?' }, at)

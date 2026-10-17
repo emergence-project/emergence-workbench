@@ -24,6 +24,8 @@ export interface GitOptions {
   /** 이 호출에만 더하는 환경 변수 */
   env?: Record<string, string>
   maxBuffer?: number
+  /** 표준 입력으로 줄 글 (hash-object --stdin-paths 등) */
+  input?: string
 }
 
 const run = (args: string[], o: GitOptions) => ({
@@ -36,7 +38,11 @@ const run = (args: string[], o: GitOptions) => ({
 /** git args (작업 폴더 없이: clone · merge-file). 출력을 그대로 돌려준다. 실패하면 execFile의 오류(stderr 포함)를 그대로 던진다 */
 export async function gitRun(args: string[], o: GitOptions = {}): Promise<string> {
   const r = run(args, o)
-  return (await exec('git', r.args, { timeout: r.timeout, maxBuffer: r.maxBuffer, env: r.env })).stdout
+  if (o.input === undefined) return (await exec('git', r.args, { timeout: r.timeout, maxBuffer: r.maxBuffer, env: r.env })).stdout
+  return new Promise<string>((resolve, reject) => {
+    const p = execFile('git', r.args, { timeout: r.timeout, maxBuffer: r.maxBuffer, env: r.env }, (e, out) => (e ? reject(e) : resolve(out)))
+    p.stdin!.end(o.input)
+  })
 }
 
 /** git -C root args. 앞뒤 공백을 뗀 출력. -z 출력은 첫 항목 앞 공백(status의 ' M')도 뜻이 있어 그대로 */

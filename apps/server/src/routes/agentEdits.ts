@@ -4,7 +4,7 @@ import * as C from '@rw/core/contract/agentEdits'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
 import { parseNoteFixes } from '@rw/core'
-import { agentWrite, AgentEditStore, decide, listEdits, readTarget, reviewOf, targetKey, type EditTarget, type Hunk, type TargetIo, type WriteRequest } from '../agentEdits.js'
+import { agentWrite, AgentEditStore, decide, listEdits, readTarget, reviewOf, targetKey, type EditTarget, type Hunk, type TargetIo } from '../agentEdits.js'
 import { appendAnswer, askPrompt, claudeRunner } from '../ask.js'
 import { addComment, commentSourceFile, readComments } from '../comments.js'
 import { projectRules } from '../agentRules.js'
@@ -114,9 +114,8 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
   }
 
   /** 에이전트 쓰기: 작업 중인 노트는 바로 쓰고 기준판을 남긴다. 확인된 노트는 approved 없이 428과 사용자 차례 알림 */
-  app.post<{ Body: WriteRequest }>('/api/agent-edits/write', replies(C.AgentWritten), async (req, reply): Promise<C.AgentWritten> => {
-    const b = req.body ?? ({} as WriteRequest)
-    if (typeof b.baseHash !== 'string') throw new WorkbenchError(400, t('baseHash가 필요함', 'baseHash is required'))
+  app.post('/api/agent-edits/write', replies(C.AgentWritten), async (req, reply): Promise<C.AgentWritten> => {
+    const b = parseBody(C.WriteBody, req.body)
     const target = parseTarget(b.target)
     const r = agentWrite(io(), store(), { ...b, target, approved: b.approved === true })
     await notify(target)

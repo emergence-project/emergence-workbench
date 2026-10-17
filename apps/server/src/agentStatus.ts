@@ -238,6 +238,7 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
     for (const q of asked) {
       p(`- \`${q.file}\` · ${q.id} · ${q.title}${q.where !== '전체' ? ` ${q.where}` : ''}${q.quote ? ` — "${clip(q.quote, 120)}"` : ''}`)
       if (q.body) p(`  - ${clip(q.body.split('\n')[0]!, 200)}`)
+      if (q.lastAnswer) p(`  - 마지막 글 (${q.lastAnswer.by}): ${clip(q.lastAnswer.body.replace(/\s+/g, ' ').trim(), 200)}`)
     }
     p('')
   }
@@ -250,6 +251,7 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
     for (const q of told) {
       p(`- \`${q.file}\` · ${q.id} · ${q.title}${q.where !== '전체' ? ` ${q.where}` : ''}${q.quote ? ` — "${clip(q.quote, 120)}"` : ''}`)
       if (q.body) p(`  - ${clip(q.body.split('\n')[0]!, 200)}`)
+      if (q.lastAnswer) p(`  - 마지막 글 (${q.lastAnswer.by}): ${clip(q.lastAnswer.body.replace(/\s+/g, ' ').trim(), 200)}`)
     }
     p('')
   }

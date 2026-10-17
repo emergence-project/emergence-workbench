@@ -113,6 +113,15 @@ describe('흐름 고치기', () => {
     expect((await send('POST', '/f/check', { baseHash: n.hash, ev: 3 })).statusCode).toBe(400)
   })
 
+  it('승인: 손으로 쓴 파일에 사전이 아닌 근거 항목이 섞여도 화면의 번호와 같은 근거에 붙인다', async () => {
+    put('g', 'format: 1\nkind: finding\nprogress: done\nresult: solved\ntitle: 가\ntopics: [t]\nevidence:\n  - 잘못 적은 줄\n  - kind: proof\n    file: a.tex\n    text: 증명')
+    let n = (await get()).nodes[0]
+    expect(n.evidence).toHaveLength(1)
+    n = (await send('POST', '/g/check', { baseHash: n.hash, ev: 0 })).json().node
+    expect(n.evidence[0]).toMatchObject({ kind: 'proof', checks: [{ role: 'human' }] })
+    expect(n.theorem).toBe(true)
+  })
+
   it('지우기: 파일과 그 점을 가리키던 선, 손으로 옮긴 자리를 뺀다', async () => {
     put('a', 'format: 1\nkind: question\nprogress: open\ntitle: 가\ntopics: [t]')
     put('b', 'format: 1\nkind: proof\nprogress: open\ntitle: 나\ntopics: [t]\nfrom: [a]')
@@ -120,8 +129,20 @@ describe('흐름 고치기', () => {
     expect((await send('PUT', '/layout', { id: 'a', at: { c: 2, r: -1 } })).json().layout).toEqual({ a: { c: 2, r: -1 } })
     const a = (await get()).nodes.find((n: { id: string }) => n.id === 'a')
     expect((await send('DELETE', '/a')).statusCode).toBe(400)
+    const records = path.join(repo, 'workbench', 'comments', 'flow-a.md')
+    fs.mkdirSync(path.dirname(records), { recursive: true })
+    fs.writeFileSync(records, '# 흐름 점 가\n\n## 2026-10-17 10:00 · 메모 · 전체\n\n남은 기록\n')
     const r = await send('DELETE', `/a?baseHash=${a.hash}`)
-    expect(r.json()).toEqual({ id: 'a', changed: ['b', 'c'] })
+    const { trashed, ...rest } = r.json()
+    expect(rest).toEqual({ id: 'a', changed: ['b', 'c'] })
+    // 점 파일과 그 점의 기록은 flow/.trash/로 옮겨, 기록 탭에 없는 점의 기록이 남지 않는다
+    expect(trashed).toHaveLength(2)
+    expect(trashed[0]).toMatch(/^workbench\/flow\/\.trash\/a-\d{8}T\d{6}\.yaml$/)
+    expect(trashed[1]).toMatch(/^workbench\/flow\/\.trash\/a-\d{8}T\d{6}\.comments\.md$/)
+    expect(fs.existsSync(records)).toBe(false)
+    expect(fs.readFileSync(path.join(repo, trashed[1]), 'utf8')).toContain('남은 기록')
+    const listed = (await app.inject({ method: 'GET', url: `${R}/records` })).json().files.map((f: { target: string }) => f.target)
+    expect(listed).not.toContain('flow-a')
     const { nodes, diagnostics, layout } = await get()
     expect(diagnostics).toEqual([])
     expect(nodes.map((n: { id: string; from: unknown[] }) => [n.id, n.from])).toEqual([['b', []], ['c', [{ id: 'b', type: 'support' }]]])

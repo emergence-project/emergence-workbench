@@ -106,6 +106,8 @@ const topicFields = {
   baseHash: z.string().optional(),
 }
 export const NewTopicBody = z.object({ title: z.string(), ...topicFields })
+/** 주제 목록 통째로 바꾸기 (예전 화면). 목록 안 모양은 서버 saveTopics가 검사한다 */
+export const TopicsPutBody = z.object({ baseHash: z.string(), topics: z.array(z.unknown()) })
 export const TopicPatchBody = z.object({ title: z.string().optional(), star: z.boolean().optional(), done: z.boolean().optional(), ...topicFields })
 
 export type NoteCategory = z.infer<typeof NoteCategory>

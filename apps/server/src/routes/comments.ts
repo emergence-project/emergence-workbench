@@ -107,7 +107,8 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     const day = dailyDue(s.at, new Date(), lastDaily)
     if (!day) return
     lastDaily = day
-    for (const r of registry.list()) {
+    // 멈춤 · 완료 프로젝트는 하루 한 번 모아 돌리지 않는다 (사용자가 그 프로젝트에 바로 쓴 지시는 instantFor가 받는다)
+    for (const r of registry.list().filter((x) => x.state === 'active')) {
       try { for (const p of pendingQuestions(wbOf(r.id).root, '지시')) enqueue(r.id, p.target, p.id) } catch { /* 저장소가 없거나 읽지 못하면 그 연구는 건너뛴다 */ }
     }
   }, 60_000)

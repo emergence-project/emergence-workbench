@@ -11,7 +11,7 @@ import { createNote, makeAllBodyOnly, makeBodyOnly } from '../noteCopy.js'
 import { writeNoteMeta } from '../noteMeta.js'
 import { exportBlock, exportNotes } from '../noteExport.js'
 import { sharedMacrosTex } from '../latexFiles.js'
-import { requireHash, WorkbenchError } from '../workbench.js'
+import { requireHash, WorkbenchError, ConflictError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { latexChoices, queryList as list, type LatexChoiceQuery as Pick } from './latexChoice.js'
 import { figureEmbedResolver } from '../figureEmbeds.js'
@@ -49,7 +49,7 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
   app.put<{ Params: { rid: string } }>('/api/researches/:rid/manuscript/part', replies(C.Saved), async (req, reply) => {
     const { file, content, baseHash } = parseBody(C.PartSaveBody, req.body)
     const r = writePart(wbOf(req.params.rid), file, content, baseHash)
-    if (!r.ok) return reply.status(409).send({ error: t('다른 곳에서 파일이 바뀌어 저장하지 않았음', 'Not saved: the file was changed elsewhere'), currentHash: r.currentHash })
+    if (!r.ok) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 저장하지 않았음', 'Not saved: the file was changed elsewhere'), r.currentHash)
     return { hash: r.hash }
   })
   /**
@@ -100,7 +100,7 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
   app.put<{ Params: { rid: string } }>('/api/researches/:rid/main-note', replies(C.Ok), async (req, reply) => {
     const { path, name, baseHash } = parseBody(C.MainNoteBody, req.body)
     const r = setMainNote(wbOf(req.params.rid), { path, name, baseHash })
-    if (!r.ok) return reply.status(409).send({ error: t('다른 곳에서 research.yaml이 바뀌어 쓰지 않았음', 'Not written: research.yaml was changed elsewhere'), currentHash: r.currentHash })
+    if (!r.ok) throw new ConflictError(t('다른 곳에서 research.yaml이 바뀌어 쓰지 않았음', 'Not written: research.yaml was changed elsewhere'), r.currentHash)
     return r
   })
   /** 원고를 메인 노트 목록에서 뺀다 (research.yaml의 그 항목만). 파일은 그대로 */

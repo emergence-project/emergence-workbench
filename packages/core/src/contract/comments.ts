@@ -73,6 +73,8 @@ export const RecordFile = CommentFile.omit({ highlights: true }).strict()
 export const PendingQuestion = z.object({
   target: z.string(), title: z.string(), source: z.string().optional(), file: z.string(),
   id: z.string(), where: z.string(), quote: z.string().optional(), body: z.string(),
+  /** 답이 달린 뒤 사용자가 이어 써 다시 대기가 된 질문 · 지시: 마지막 글 (STATUS가 처음 질문만 보이지 않게) */
+  lastAnswer: z.object({ by: z.string(), body: z.string() }).strict().optional(),
 }).strict()
 
 /** GET /comments */
