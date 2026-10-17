@@ -1,6 +1,6 @@
 // ---------- 피드백 (feedback/날짜.md · status.yaml · reviews.yaml, 서버 feedback.ts) ----------
 import { enc, json, req, send } from './http'
-import type { EditFeedbackBody, FeedbackPickableKind, FeedbackAdded, FeedbackAll, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
+import type { EditFeedbackBody, FeedbackPickableKind, FeedbackAdded, FeedbackAll, FeedbackToday, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
 
 /** 피드백 하나와 처리 기록 (feedback/status.yaml). 기록이 없으면 처리 대기 */
 export type { FeedbackKind, FeedbackPickableKind, FeedbackState, FeedbackVerdict, FeedbackVerdictEntry, FeedbackComment, FeedbackReply, FeedbackRevision, FeedbackReview, FeedbackItem } from '@rw/core/contract/feedback'
@@ -25,6 +25,8 @@ export const feedbackCalls = {
   /** 내가 쓴 글(수정 요청 · 승인 · 코멘트) 고치기 */
   editFeedbackNote: (key: string, at: string, note: string) =>
     req('/api/feedback/review', send('PATCH', { key, at, note } satisfies FeedbackNoteBody)).then((r) => json<FeedbackOk>(r)).then((r) => { feedbackChanged(); return r }),
+  /** 오늘 남긴 피드백과 피드백 모드 설정 (올리기 · 저절로 올리기 · 새 이슈 주소) */
+  feedbackState: () => req('/api/feedback').then((r) => json<FeedbackToday>(r)),
   /** user: 피드백을 남기는 GitHub 계정 (모르면 null) */
   feedbackAll: () => req('/api/feedback/all').then((r) => json<FeedbackAll>(r)),
 }

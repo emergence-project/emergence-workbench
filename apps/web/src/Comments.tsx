@@ -16,12 +16,9 @@ import { flash } from './flash'
 import { quotedRecordHighlights } from './recordHelpers'
 import { openRight, useRightMode } from './noteScreen'
 import { shown, t } from './i18n'
+import { kindLabel, stateLabel } from './recordLabels'
+import { queryClient } from './queries'
 
-/** 기록 종류·상태의 화면 이름 (파일에는 한국어 값 그대로) */
-const KIND_TEXT: Record<string, string> = { 메모: t('메모', 'Memo'), 질문: t('질문', 'Question'), 하이라이트: t('하이라이트', 'Highlight'), 코멘트: t('코멘트', 'Comment'), '할 일': t('할 일', 'To-do'), 지시: t('지시', 'Instruction') }
-const kindText = (k: string) => KIND_TEXT[k] ?? k
-const STATE_TEXT: Record<string, string> = { 대기: t('대기', 'Waiting'), 끝냄: t('끝냄', 'Done') }
-const stateText = (s: string) => STATE_TEXT[s] ?? s
 
 /**
  * PDF 코멘트·질문 (구조 제안 §4·§6). 대상마다 workbench/comments/<대상>.md.
@@ -127,6 +124,8 @@ export function commentsChanged(rid: string, target: string) {
 }
 /** 에이전트 함을 다시 읽게 한다 */
 export function bumpPending() {
+  // 기록 모음(작업 탭 · 오른쪽 기록 패널, qk.records)도 다시 받는다
+  void queryClient.invalidateQueries({ queryKey: ['project'], predicate: (q) => q.queryKey[2] === 'records' })
   pendingTick++
   pendingListeners.forEach((f) => f())
 }
@@ -197,7 +196,7 @@ export function CommentablePdf({ rid, target, url, highlight, onPick }: {
   const mode = useRightMode()
   const marks: PdfMark[] = comments.filter((c) => c.page).map((c) => ({
     id: c.id, page: c.page!, rects: c.rects, kind: c.kind === '질문' ? 'question' : 'comment', color: c.color, on: slot.active === c.id,
-    title: `${kindText(c.kind)} · ${shown(c.where)}${c.state ? ` · ${stateText(c.state)}` : ''}\n${c.body || c.quote || ''}`.slice(0, 300),
+    title: `${kindLabel(c.kind)} · ${shown(c.where)}${c.state ? ` · ${stateLabel(c.state)}` : ''}\n${c.body || c.quote || ''}`.slice(0, 300),
   }))
   const revealed = slot.reveal && byId.get(slot.reveal.id)
   const reveal = revealed?.page ? { page: revealed.page, y: revealed.rects[0]?.[1] ?? 0, nonce: slot.reveal!.nonce } : null
@@ -353,7 +352,7 @@ export function Composer({ rid, target, draft, onClose, onSaved }: { rid: string
   return (
     <div className={`pdf-pop composer ${kind === '질문' ? 'question' : 'comment'}`} data-ui="코멘트 쓰기">
       <div className="pdf-pop-head"><div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>
-        {(['메모', '질문'] as const).map((k) => <button key={k} type="button" className={kind === k || (kind === '코멘트' && k === '메모') ? 'on' : ''} aria-pressed={kind === k || (kind === '코멘트' && k === '메모')} onClick={() => setKind(k)}>{kindText(k)}</button>)}
+        {(['메모', '질문'] as const).map((k) => <button key={k} type="button" className={kind === k || (kind === '코멘트' && k === '메모') ? 'on' : ''} aria-pressed={kind === k || (kind === '코멘트' && k === '메모')} onClick={() => setKind(k)}>{kindLabel(k)}</button>)}
       </div> <span className="muted">{draft.page ? t(`· ${draft.page}쪽`, `· p. ${draft.page}`) : rid === LIBRARY ? t('· 논문 전체', '· Whole paper') : `· ${target.title}`}{kind === '질문' ? t(' · 남기면 이 컴퓨터의 Claude가 답합니다', ' · Claude on this computer will answer it') : ''}</span></div>
       {(draft.sel?.text ?? draft.quote) && <blockquote className="cmt-quote" style={draft.color ? { borderColor: `var(--paint-${draft.color})` } : undefined}>{clip(draft.sel?.text ?? draft.quote!, 400)}</blockquote>}
       <textarea ref={area} rows={3} value={text} placeholder={kind === '질문' ? t('무엇이 궁금한가요? 검산·정리·반례 찾기 같은 부탁도 됩니다 (⌘↵ 저장)', 'What do you want to know? You can also ask for checks, summaries, or counterexamples (⌘↵ to save)') : t('코멘트 (⌘↵ 저장)', 'Comment (⌘↵ to save)')}
@@ -416,9 +415,9 @@ function CommentItem({ c, on, ref_, asking, onAsk, onGo, onState, onDelete }: {
     <div className={`cmt ${c.kind === '질문' ? 'question' : 'comment'}${on ? ' on' : ''}${c.state === '끝냄' ? ' done' : ''}`} ref={ref_} data-ui="코멘트" data-ui-item={c.id}>
       <div className="cmt-head">
         <div className="cmt-meta">
-          <span className="cmt-kind">{c.kind === '질문' ? '?' : <span className="ico">{Icon.comment}</span>} {kindText(c.kind)}</span>
+          <span className="cmt-kind">{c.kind === '질문' ? '?' : <span className="ico">{Icon.comment}</span>} {kindLabel(c.kind)}</span>
           <button className="cmt-where" title={c.page ? t(`${c.where} · PDF의 그 자리로`, `${c.where} · Go to that spot in the PDF`) : t('노트 전체', 'Whole note')} disabled={!c.page} onClick={onGo}>{shown(c.where)}</button>
-          {c.state && <span className={`cmt-state s-${c.state}`}>{c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateText(c.state)}</span>}
+          {c.state && <span className={`cmt-state s-${c.state}`}>{c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state)}</span>}
         </div>
         <div className="cmt-head-actions">
           {c.kind === '질문' && c.state === '대기' && (

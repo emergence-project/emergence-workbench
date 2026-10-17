@@ -2,7 +2,7 @@ import { awaitsUserReview, type TreeIssue } from '@rw/core'
 import { fill } from './projectData'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { agentEditsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type OpenTodo, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
-import { statusOf } from './format'
+import { monthDay, statusOf } from './format'
 import { Icon } from './icons'
 import { lastWorkMs, PROJECT_KIND_LABEL } from './projectProfile'
 import { ProjectStateDot, type ProfilePatch } from './ProjectProfileFields'
@@ -221,7 +221,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
           <NowRow key={todoKey(todo)} tag={tag} ui="할 일 항목" item={text} mark={<span className="now-mark" aria-hidden>·</span>}
             title={<MemoText text={nowTitle(text)} />} full={text} onOpen={goTodo}
             sub={place && <button className="a" onClick={(event) => { event.stopPropagation(); openTodoPlace(rid, todo) }} onKeyDown={(event) => event.stopPropagation()}>{place}</button>}
-            end={due && <span className={`due${due < today ? ' late' : ''}`}>{due.slice(5).replace('-', '/')}</span>} />
+            end={due && <span className={`due${due < today ? ' late' : ''}`}>{monthDay(due, true)}</span>} />
         )
       }),
     },

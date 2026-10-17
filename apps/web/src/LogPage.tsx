@@ -4,15 +4,15 @@ import { commentsApi, type CommentEntry, type ProjectInfo, type RecordFile, type
 import type { FlashAction } from './flash'
 import { MemoList } from './memo'
 import { reviewStatusLabel } from './reviewStatus'
-import { askClaude, bumpPending, load, revealComment, usePendingTick } from './Comments'
+import { askClaude, bumpPending, load, revealComment } from './Comments'
 import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
 import { openFlowDot } from './FlowView'
 import { needsJudgment } from './taskView'
-import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, WORK_FILTER_EVENT, WORK_FILTER_KEY, workRecordGroups, type WorkFilter, type WorkSection } from './workRecords'
+import { isRecordFilter, parseWorkFilter, clearTodoFocus, peekTodoFocus, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, type WorkFilter, type WorkSection } from './workRecords'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
-import { useJournal, useProjectInfo } from './projectQueries'
+import { useJournal, useProjectInfo, useRecords } from './projectQueries'
 import { JudgeList, TaskDialog, TaskList, TaskWeek, useTasks, type TaskDraft } from './WorkTasks'
 import { t } from './i18n'
 
@@ -24,6 +24,8 @@ function useJournalEdit(rapi: ResearchApi, reload: () => Promise<unknown>, onSav
   }
 }
 
+const NO_FILES: RecordFile[] = []
+
 export function useTitles(summary: ResearchSummary) {
   const byId = useMemo(() => new Map(summary.blocks.map((b) => [b.id, b])), [summary.blocks])
   return (id: string) => byId.get(id)?.title ?? id
@@ -34,8 +36,8 @@ export function useTitles(summary: ResearchSummary) {
  * 판단 · 맡긴 일은 에이전트에게 맡긴 일(10/7 작업 탭, WorkTasks.tsx)이다.
  * 기록(section records): 프로젝트의 메모 · 할 일 · 질문을 대상별로 모아 보고 적는다 (10/15 사용자 결정: 작업 탭에서 따로 뗌).
  */
-export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, firstPartOf, onOpenPdf, section = 'work' }: {
-  rid: string; rapi: ResearchApi; summary: ResearchSummary; version: number; topics: Topic[]; onSaved(message: string, action?: FlashAction): void; focus?: 'log'
+export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPartOf, onOpenPdf, section = 'work' }: {
+  rid: string; rapi: ResearchApi; summary: ResearchSummary; topics: Topic[]; onSaved(message: string, action?: FlashAction): void; focus?: 'log'
   firstPartOf(target: string): string | undefined; onOpenPdf(file: RecordFile): boolean; section?: WorkSection
 }) {
   const { entries, loaded: journalLoaded, reload, toggle } = useJournal(rapi)
@@ -69,18 +71,8 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
   const { tasks, diagnostics, loaded: tasksLoaded, error: tasksError, reload: reloadTasks } = useTasks(rid)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
   const judgeCount = tasks.filter(needsJudgment).length
-  const tick = usePendingTick()
-  const [records, setRecords] = useState<{ rid: string; version: number; tick: number; files: RecordFile[]; error: string | null } | null>(null)
-  useEffect(() => {
-    let current = true
-    commentsApi(rid).records().then(({ files }) => {
-      if (current) setRecords({ rid, version, tick, files, error: null })
-    }).catch((e: Error) => {
-      if (current) setRecords((previous) => ({ rid, version, tick, files: previous?.rid === rid ? previous.files : [], error: e.message }))
-    })
-    return () => { current = false }
-  }, [rid, version, tick])
-  const files = records?.rid === rid ? records.files : []
+  const recordsQuery = useRecords(rid)
+  const files = recordsQuery.data?.files ?? NO_FILES
   useEffect(() => {
     if (!focusTodo || filter !== '할 일') return
     const item = document.querySelector<HTMLElement>(`[data-ui="할 일"] [data-todo-key="${CSS.escape(focusTodo)}"]`)
@@ -90,9 +82,9 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     item.classList.add('flash')
     const timer = setTimeout(() => { item.classList.remove('flash'); setFocusTodo(null) }, 1600)
     return () => clearTimeout(timer)
-  }, [focusTodo, filter, records])
-  const recordsLoaded = records?.rid === rid && records.version === version && records.tick === tick
-  const recordsError = records?.rid === rid ? records.error : null
+  }, [focusTodo, filter, files])
+  const recordsLoaded = recordsQuery.isFetched && !recordsQuery.isFetching
+  const recordsError = recordsQuery.error?.message ?? null
   const groups = workRecordGroups(files, entries, filter === '질문' || filter === '지시' || filter === '할 일' ? filter : '메모')
   const count = filter === '판단' ? judgeCount : filter === '맡긴 일' ? tasks.length + new Set(diagnostics.map((d) => d.file)).size : groups.reduce((n, group) => n + group.items.length, 0)
   const openRecord = (file: RecordFile, entry: CommentEntry) => {
@@ -121,10 +113,10 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
       <section className="pane">
         <div className="pane-head" data-ui="머리줄">
           <div className="segmented small" role="group" aria-label={records_ ? t('기록 필터', 'Records filter') : t('작업 필터', 'Work filter')} data-ui={records_ ? '기록 거르기' : '작업 거르기'}>
-            {SECTION_FILTERS[section].map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => chooseFilter(f)}>{FILTER_LABEL[f]}
+            {SECTION_FILTERS[section].map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => chooseFilter(f)}>{WORK_FILTER_LABEL[f]}
               {f === '판단' && judgeCount > 0 && <span className="tk-cnt turn">{judgeCount}</span>}</button>)}
           </div>
-          <span className="crumb muted" title={filter === '할 일' ? t('남은 할 일', 'Open to-dos') : FILTER_LABEL[filter]}>{t(`${count}개`, String(count))}</span>
+          <span className="crumb muted" title={filter === '할 일' ? t('남은 할 일', 'Open to-dos') : WORK_FILTER_LABEL[filter]}>{t(`${count}개`, String(count))}</span>
           <span className="sp" />
           {!records_ && <button className="btn" data-ui="맡기기" title={t('에이전트에게 일을 맡깁니다: 작업 내용과 종결 조건을 적으면 작업 파일이 생깁니다', 'Delegate work to an agent: write the task and its completion criteria to create a task file')} onClick={() => setDialog({})}>＋ {t('맡기기', 'Delegate')}</button>}
         </div>
@@ -154,7 +146,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
             const result = await commentsApi(rid).add('project', { kind, title: summary.research.title, text })
             await load(rid, 'project', true); bumpPending()
             if (kind === '질문') void askClaude(rid, 'project', result.entry.id)
-            onSaved(t(`${kind} 저장됨`, `${FILTER_LABEL[kind]} saved`))
+            onSaved(t(`${kind} 저장됨`, `${WORK_FILTER_LABEL[kind]} saved`))
           }} />}
           {!records_ && <section ref={logRef} className="work-log" data-ui="기록">
             <div className="work-h" title={t('끝낸 할 일, 상태 변화, 메모 · workbench/log/', 'Finished to-dos, status changes, memos · workbench/log/')}>{t('작업 일지', 'Work journal')}</div>
@@ -167,9 +159,6 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     </div>
   )
 }
-
-/** 필터 이름 (값은 한국어 그대로 저장한다) */
-const FILTER_LABEL: Record<WorkFilter, string> = { '판단': t('판단', 'To decide'), '맡긴 일': t('맡긴 일', 'Delegated'), '할 일': t('할 일', 'To-do'), '메모': t('메모', 'Memo'), '질문': t('질문', 'Question'), '지시': t('지시', 'Instruction') }
 
 const unlink = (s: string) => s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/`/g, '')
 

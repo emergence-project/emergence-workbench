@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ConflictError, taskRules, tasksApi, type NewTask, type OpenTodo, type Task, type TaskDiagnostic, type Topic, type Verdict } from './api'
 import { Dialog } from './dialogs'
 import type { FlashAction } from './flash'
-import { localDate } from './format'
-import { shortDate, WEEK_DAYS, weekStartOf } from './homeData'
+import { isoDay, monthDay } from './format'
+import { WEEK_DAYS, weekStartOf } from './homeData'
 import { Icon } from './icons'
+import { useDismiss } from './useDismiss'
 import { useTaskScan } from './projectQueries'
 import { qk } from './queries'
 import { go } from './router'
@@ -72,12 +73,7 @@ export function JudgeButtons({ onApprove, onSendBack, approveTip = t('승인', '
 export function TaskMoreMenu({ items }: { items: { label: string; dot?: 'blocked' | 'stopped'; onClick(): void }[] }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const close = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [open])
+  useDismiss(open, box, () => setOpen(false))
   return (
     <span className="tk-more" ref={box}>
       <button className={`icon-btn${open ? ' on' : ''}`} data-ui="더 보기 메뉴" data-tip={t('더 보기', 'More')} aria-label={t('더 보기', 'More')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{Icon.more}</button>
@@ -115,8 +111,7 @@ export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEdi
   rid: string; task: Task; open: boolean; onToggle(): void; onSaved: Saved; reload(): unknown; onEditProposal(t: Task): void
 }) {
   const opened = useRef<number | null>(null)
-  if (open && opened.current === null) opened.current = Date.now()
-  if (!open) opened.current = null
+  useEffect(() => { opened.current = open ? Date.now() : null }, [open])
   const seconds = () => (opened.current === null ? undefined : (Date.now() - opened.current) / 1000)
   const [sendBack, setSendBack] = useState(false)
   const judge = (verdict: Verdict, note?: string) => sendJudgment(rid, tk, verdict, { note, seconds: seconds() }, onSaved, reload)
@@ -196,7 +191,7 @@ export function TaskList({ rid, tasks, loaded, error = null, diagnostics = [] }:
                 <StatusDot s={TASK_DOT[t.state]} name={TASK_STATE_LABEL[t.state]} />
                 <span className="tk-line-t">{t.title}</span>
                 <span className="tk-line-c">{taskLine(t)}</span>
-                <span className="tk-line-m">{agentName(t.agent)} · {shortDate(t.created.slice(0, 10))}</span>
+                <span className="tk-line-m">{agentName(t.agent)} · {monthDay(t.created.slice(0, 10))}</span>
               </button>
             ))}
             {shown.length < rows.length && <div className="tk-line-more"><button className="a" onClick={() => setAll(true)}>{t(`지난 작업 ${rows.length - shown.length}개 더 보기`, `Show ${rows.length - shown.length} more past tasks`)}</button></div>}
@@ -221,12 +216,12 @@ function Mark({ m }: { m: WeekMark }) {
 export function TaskWeek({ rid, tasks, entries, todos, now = new Date() }: { rid: string; tasks: Task[]; entries: JournalEntry[]; todos: OpenTodo[]; now?: Date }) {
   const [start, setStart] = useState(() => weekStartOf(now))
   const [picked, setPicked] = useState<string | null>(null)
-  const today = localDate(now)
-  const days = Array.from({ length: 7 }, (_, i) => localDate(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)))
+  const today = isoDay(now)
+  const days = Array.from({ length: 7 }, (_, i) => isoDay(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)))
   const shift = (n: number) => { setPicked(null); setStart(new Date(start.getFullYear(), start.getMonth(), start.getDate() + n * 7)) }
   const byDay = weekItems(tasks, entries, todos)
   const itemsOn = (iso: string) => (byDay.get(iso) ?? []).filter((x) => (x.mark === 'due' ? iso >= today : iso <= today))
-  const thisWeek = Array.from({ length: 7 }, (_, i) => localDate(new Date(weekStartOf(now).getFullYear(), weekStartOf(now).getMonth(), weekStartOf(now).getDate() + i)))
+  const thisWeek = Array.from({ length: 7 }, (_, i) => isoDay(new Date(weekStartOf(now).getFullYear(), weekStartOf(now).getMonth(), weekStartOf(now).getDate() + i)))
   const c = briefCounts(tasks, thisWeek.filter((d) => d >= today), byDay)
   const lastDays = c.lastResult === null ? null : Math.max(0, Math.floor((now.getTime() - c.lastResult) / 86_400_000))
   const openItem = (x: WeekItem) => { if (x.task) go({ page: 'task', rid, task: x.task }) }
@@ -248,7 +243,7 @@ export function TaskWeek({ rid, tasks, entries, todos, now = new Date() }: { rid
           return (
             <button key={iso} className={`tk-wd${iso === today ? ' is-today' : ''}${iso > today ? ' future' : ''}${picked === iso ? ' on' : ''}`} data-ui="하루" aria-pressed={picked === iso}
               onClick={() => setPicked(picked === iso ? null : iso)} title={items.map((x) => `${x.time} ${x.text}`).join('\n') || undefined}>
-              <span className="tk-wh"><b>{WEEK_DAYS[i]}</b> {shortDate(iso)}{iso === today && t(' 오늘', ' today')}</span>
+              <span className="tk-wh"><b>{WEEK_DAYS[i]}</b> {monthDay(iso)}{iso === today && t(' 오늘', ' today')}</span>
               {items.slice(0, SHOWN).map((x) => <span key={x.key} className={`tk-ev m-${x.mark}`}><Mark m={x.mark} />{x.text}</span>)}
               {items.length > SHOWN && <span className="tk-ev-more">{t(`외 ${items.length - SHOWN}개`, `+${items.length - SHOWN} more`)}</span>}
             </button>
@@ -256,7 +251,7 @@ export function TaskWeek({ rid, tasks, entries, todos, now = new Date() }: { rid
         })}
       </div>
       {picked && <div className="tk-day" data-ui="하루 자세히">
-        <div className="tk-day-h">{shortDate(picked)} ({WEEK_DAYS[new Date(`${picked}T00:00`).getDay()]}) <button className="icon-btn" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={() => setPicked(null)}>{Icon.x}</button></div>
+        <div className="tk-day-h">{monthDay(picked)} ({WEEK_DAYS[new Date(`${picked}T00:00`).getDay()]}) <button className="icon-btn" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={() => setPicked(null)}>{Icon.x}</button></div>
         {itemsOn(picked).map((x) => (
           <div key={x.key} className={`tk-day-i m-${x.mark}`}>
             <span className="tm">{x.time}</span><Mark m={x.mark} /><span className="tx">{x.text}</span>

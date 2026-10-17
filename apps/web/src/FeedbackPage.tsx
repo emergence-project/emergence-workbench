@@ -17,6 +17,11 @@ import { href } from './router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
 
+/** 피드백 자료의 키 (qk.feedback 아래: 피드백을 남기거나 고치면 한꺼번에 다시 받는다) */
+const FEEDBACK_ALL = [...qk.feedback, 'all'] as const
+const FEEDBACK_STATE = [...qk.feedback, 'state'] as const
+const FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
+
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
 
 /**
@@ -92,22 +97,23 @@ export function groupFeedback(entries: FeedbackItem[], g: GroupBy): [string, Fee
 
 const readGroup = (): GroupBy => { try { const raw = localStorage.getItem(GROUP_KEY); const v = (raw === '주제' ? '테마' : raw) as GroupBy | null; return v && GROUPS.includes(v) ? v : '시각' } catch { return '시각' } }
 
-export function FeedbackPage({ version }: { version: number }) {
-  const [entries, setEntries] = useState<FeedbackItem[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export function FeedbackPage() {
+  const client = useQueryClient()
+  // 피드백은 프로젝트 파일이 아니라 프로젝트 알림과 상관없다: 화면을 열 때와 피드백을 남기거나 고칠 때(FEEDBACK_EVENT) 다시 읽는다
+  const all = useQuery({ queryKey: FEEDBACK_ALL, queryFn: () => api.feedbackAll(), refetchOnMount: 'always' })
+  const entries = all.data?.entries ?? null
+  const error = all.error?.message ?? null
+  const statusError = all.data?.statusError ?? null
+  const user = all.data?.user ?? null
   const [filter, setFilter] = useState<Filter>('대기')
   const [group, setGroupState] = useState<GroupBy>(readGroup)
   const setGroup = (g: GroupBy) => { setGroupState(g); try { localStorage.setItem(GROUP_KEY, g) } catch { /* 무시 */ } }
-  const [tick, setTick] = useState(0)
-  const [statusError, setStatusError] = useState<string | null>(null)
-  const [user, setUser] = useState<string | null>(null)
-  useEffect(() => { api.feedbackAll().then((b) => { setEntries(b.entries); setStatusError(b.statusError); setUser(b.user ?? null) }).catch((e: Error) => setError(e.message)) }, [version, tick])
   // 피드백 모드에서 새로 남기거나 고치면 바로 다시 읽는다
   useEffect(() => {
-    const on = () => setTick((t) => t + 1)
+    const on = () => void client.invalidateQueries({ queryKey: qk.feedback })
     window.addEventListener(FEEDBACK_EVENT, on)
     return () => window.removeEventListener(FEEDBACK_EVENT, on)
-  }, [])
+  }, [client])
 
   // 10/8 11:36 피드백: 확인 필요가 있으면 그것부터 연다 (띠의 수가 세는 것). 사용자가 고른 뒤에는 그대로 둔다
   const picked = useRef(false)
@@ -138,7 +144,7 @@ export function FeedbackPage({ version }: { version: number }) {
             </div>
           </div>
           <div className="fbp-tools">
-            <PublishButton tick={tick} version={version} />
+            <PublishButton />
           </div>
         </div>
         <div className="scroll">
@@ -476,15 +482,13 @@ function Compose({ e }: { e: FeedbackItem }) {
 export function FeedbackRailCount() {
   // 피드백은 프로젝트 파일이 아니라 프로젝트 알림과 상관없다: 피드백을 남기거나 고칠 때(FEEDBACK_EVENT)와 10분마다만 다시 센다 (화면 캐시)
   const client = useQueryClient()
-  const all = useQuery({ queryKey: [...qk.feedback, 'all'], queryFn: () => api.feedbackAll().then((b) => railCount(b.entries)).catch(() => null) })
-  const n = all.data ?? null
+  // 피드백 화면과 같은 키라 요청 하나를 나눠 쓴다. 받지 못하면 수를 보이지 않는다
+  const all = useQuery({ queryKey: FEEDBACK_ALL, queryFn: () => api.feedbackAll() })
+  const n = all.data ? railCount(all.data.entries) : null
   /** 이 맥에서 남겼지만 아직 GitHub에 등록하지 않은 피드백 수 (10/15 피드백: 등록할 것도 띠에 보이게). 올리지 않는 모드면 0 */
-  const unreg = useQuery({
-    queryKey: [...qk.feedback, 'unregistered'],
-    queryFn: () => Promise.all([fetch('/api/feedback').then((r) => r.json() as Promise<{ publishable?: boolean }>), records.feedbackUnpublished()])
-      .then(([b, u]) => (b.publishable ? u.count ?? u.files.length : 0)).catch(() => 0),
-  })
-  const unregistered = unreg.data ?? 0
+  const state = useQuery({ queryKey: FEEDBACK_STATE, queryFn: () => api.feedbackState() })
+  const unpublished = useQuery({ queryKey: FEEDBACK_UNPUBLISHED, queryFn: () => records.feedbackUnpublished() })
+  const unregistered = state.data?.publishable && unpublished.data ? unpublished.data.count ?? unpublished.data.files.length : 0
   const [tick, setTick] = useState(0)
   useEffect(() => { if (tick) void client.invalidateQueries({ queryKey: qk.feedback }) }, [tick, client])
   useEffect(() => {
@@ -575,27 +579,25 @@ function CleanText({ e }: { e: FeedbackItem }) {
  * 늘 같은 자리에 둔다 (올릴 것이 없으면 흐리게). 올리지 않는 모드(개발용 예제)에서만 숨긴다.
  * 실사용 앱은 피드백을 남기면 30초 뒤 저절로 올린다(서버). 버튼은 바로 올리거나, 자동 올리기가 실패했을 때 다시 올리는 데 쓴다.
  */
-function PublishButton({ tick, version }: { tick: number; version: number }) {
-  const [files, setFiles] = useState<string[]>([])
+const NO_FILES: string[] = []
+
+function PublishButton() {
+  const client = useQueryClient()
+  // 띠의 수와 같은 키 (피드백을 남기거나 고치면, 저절로 등록된 뒤에도 띠가 다시 받는다)
+  const state = useQuery({ queryKey: FEEDBACK_STATE, queryFn: () => api.feedbackState(), refetchOnMount: 'always' })
+  const unpublished = useQuery({ queryKey: FEEDBACK_UNPUBLISHED, queryFn: () => records.feedbackUnpublished(), refetchOnMount: 'always' })
+  const files = unpublished.data?.files ?? NO_FILES
   /** 올릴 피드백 항목 수 (파일 수가 아니다: 답 여럿도 reviews.yaml 한 파일) */
-  const [count, setCount] = useState(0)
+  const count = unpublished.data ? unpublished.data.count ?? unpublished.data.files.length : 0
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ text: string; error: boolean } | null>(null)
-  const [again, setAgain] = useState(0)
-  const [publishable, setPublishable] = useState(false)
-  const [auto, setAuto] = useState<{ on: boolean; error: string | null }>({ on: false, error: null })
-  useEffect(() => {
-    fetch('/api/feedback').then((r) => r.json()).then((b) => {
-      setPublishable(!!b.publishable)
-      setAuto({ on: !!b.autoPublish, error: b.lastAutoPublish?.error ?? null })
-    }).catch(() => setPublishable(false))
-  }, [version, tick, again])
-  useEffect(() => { records.feedbackUnpublished().then((r) => { setFiles(r.files); setCount(r.count ?? r.files.length) }).catch(() => { setFiles([]); setCount(0) }) }, [tick, version, again])
+  const publishable = !!state.data?.publishable
+  const auto = { on: !!state.data?.autoPublish, error: state.data?.lastAutoPublish?.error ?? null }
 
   const publish = async () => {
     setBusy(true); setNote(null)
     try { setNote({ text: (await records.publishFeedback()).message, error: false }) } catch (e) { setNote({ text: (e as Error).message, error: true }) } finally {
-      setBusy(false); setAgain((n) => n + 1)
+      setBusy(false); void client.invalidateQueries({ queryKey: qk.feedback })
     }
   }
 

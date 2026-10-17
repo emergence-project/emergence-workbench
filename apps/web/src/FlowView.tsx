@@ -25,6 +25,7 @@ import { figuresApi } from './api/figures'
 import { askConfirm } from './askText'
 import { flash } from './flash'
 import { Icon } from './icons'
+import { useDismiss } from './useDismiss'
 import { t as tr } from './i18n'
 import type { BlockStatus } from '@rw/core'
 
@@ -552,12 +553,7 @@ function KindPicker({ value, onChange, compact }: { value: FlowKind; onChange(k:
 function NextDotButtons({ onAdd, onPickFrom }: { onAdd(): void; onPickFrom(): void }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const close = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [open])
+  useDismiss(!!open, box, () => setOpen(false))
   return <span className="fl-next" ref={box}>
     <button className="icon-btn" data-ui="흐름 다음 점" title={tr('이 점에서 이어지는 점 더하기', 'Add a dot following this one')} aria-label={tr('다음 점 더하기', 'Add next dot')} onClick={onAdd}>{Icon.plus}</button>
     <button className={`icon-btn fl-next-more${open ? ' on' : ''}`} data-ui="흐름 다음 점 메뉴" title={tr('다른 방법으로 잇기', 'Other ways to link')} aria-label={tr('다른 방법으로 잇기', 'Other ways to link')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>▾</button>
@@ -781,12 +777,7 @@ function FigureMenu({ figs, onPick, onFiles }: { figs: { id: string; file: strin
   const [open, setOpen] = useState<false | 'menu' | 'library'>(false)
   const box = useRef<HTMLSpanElement>(null)
   const input = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const close = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [open])
+  useDismiss(!!open, box, () => setOpen(false))
   return <span className={`fl-figmenu${open ? ' open' : ''}`} ref={box}>
     <button type="button" className={`btn sm${open ? ' on' : ''}`} data-ui="흐름 그림 넣기" aria-haspopup="menu" aria-expanded={!!open} onClick={() => setOpen(open ? false : 'menu')}>{Icon.image}{tr('그림', 'Figure')} ▾</button>
     <input ref={input} type="file" hidden multiple accept=".png,.jpg,.jpeg,.svg,.pdf,.tikz,.tex,image/*" onChange={(e) => { const xs = [...(e.target.files ?? [])]; e.target.value = ''; if (xs.length) onFiles(xs) }} />

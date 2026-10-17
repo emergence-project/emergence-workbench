@@ -28,13 +28,15 @@ export function JournalRecordRow({ entry, rid, titleOf, rapi, reload, onSaved }:
   const c: CommentEntry = { id: `journal-${entry.date}-${entry.index}`, kind: '메모', where: '', rects: [], body: entry.text, state: null, answers: [] }
   return <>
     {error && <div className="banner danger" role="alert">{error}</div>}
+    {/* 일지 줄에는 hash가 없다: 본문을 hash 자리에 넘겨, 고칠 때 돌아오는 값(baseText)이 읽은 때의 본문이다 */}
     <RecordRow c={c} active={false} hash={entry.text} busy={busy} asking={false} onAsk={() => undefined}
       file={{ target: entry.target === RESEARCH_TARGET ? 'project' : entry.target, title: targetTitle(entry.target, titleOf) }}
       work journal dateLabel={journalWhen(entry.date, entry.time)} rid={rid}
       onGo={() => { if (entry.target !== RESEARCH_TARGET) openTarget(rid, entry.target) }}
       onState={async () => false}
-      onEdit={async (text, baseHash) => {
-        const saved = await act(() => rapi.editJournal({ ...entry, text: baseHash }, text))
+      onEdit={async (text, baseText) => {
+        // editJournal은 읽은 때의 본문으로 그 줄을 찾는다 (그사이 바뀌었으면 충돌)
+        const saved = await act(() => rapi.editJournal({ ...entry, text: baseText }, text))
         if (saved) onSaved(t('고쳤습니다', 'Edited'))
         return saved
       }}

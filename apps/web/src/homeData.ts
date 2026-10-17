@@ -1,6 +1,6 @@
 import type { JournalEntry } from '@rw/core'
 import type { ResearchListItem, ResearchSummary } from './api'
-import { localDate } from './format'
+import { isoDay, monthDay } from './format'
 import { t } from './i18n'
 
 /** 홈이 연구마다 읽어 두는 것: 개괄 요약과 최근 1년 일지 */
@@ -16,7 +16,6 @@ export function daysBetween(a: string, b: string): number {
   const t = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
   return Math.round((t(b) - t(a)) / DAY)
 }
-export const shortDate = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`
 
 /** 한 일 달력의 요일 머리: 주는 일요일에 시작한다 (10/5 10:56 "일요일이 월요일 앞에") */
 export const WEEK_DAYS = [t('일', 'Sun'), t('월', 'Mon'), t('화', 'Tue'), t('수', 'Wed'), t('목', 'Thu'), t('금', 'Fri'), t('토', 'Sat')] as const
@@ -55,7 +54,7 @@ export function doneByDay(researches: ResearchListItem[], loaded: Record<string,
     }
     for (const b of l.summary.blocks) {
       const d = new Date(b.mtime)
-      push(localDate(d), r, { key: `edit-${b.id}`, kind: 'edit', text: t(`${b.title ?? b.id} 수정`, `Edited ${b.title ?? b.id}`), time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` })
+      push(isoDay(d), r, { key: `edit-${b.id}`, kind: 'edit', text: t(`${b.title ?? b.id} 수정`, `Edited ${b.title ?? b.id}`), time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` })
     }
   }
   for (const groups of out.values()) for (const g of groups) g.events.sort((a, b) => a.time.localeCompare(b.time))
@@ -81,11 +80,11 @@ export function briefing(days: string[], byDay: Map<string, DayGroup[]>): string
   for (const d of days) {
     for (const g of byDay.get(d) ?? []) {
       const lines = per.get(g.title) ?? []
-      for (const e of g.events) lines.push(`${shortDate(d)} ${markOf(e.kind)} ${e.text}`)
+      for (const e of g.events) lines.push(`${monthDay(d)} ${markOf(e.kind)} ${e.text}`)
       per.set(g.title, lines)
     }
   }
   if (per.size === 0) return ''
-  const range = days.length > 1 ? `${shortDate(days[0]!)}–${shortDate(days[days.length - 1]!)}` : shortDate(days[0]!)
+  const range = days.length > 1 ? `${monthDay(days[0]!)}–${monthDay(days[days.length - 1]!)}` : monthDay(days[0]!)
   return [t(`한 일 (${range})`, `Done (${range})`), ...[...per].map(([t, lines]) => `\n${t}\n${lines.map((l) => `- ${l}`).join('\n')}`)].join('\n')
 }

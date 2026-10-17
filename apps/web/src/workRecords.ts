@@ -2,6 +2,10 @@ import { todoDue, type JournalEntry } from '@rw/core'
 import type { CommentEntry, RecordFile } from './api/comments'
 import { recordKind } from './recordsPanelHelpers'
 import { t } from './i18n'
+import { recordDay } from './format'
+import { kindLabel, type RecordFilter } from './recordLabels'
+
+export type { RecordFilter } from './recordLabels'
 
 /** 작업 탭과 기록 탭의 필터 (10/7 작업 탭: 판단 · 맡긴 일을 앞에 더함) */
 export const WORK_FILTERS = ['판단', '맡긴 일', '할 일', '메모', '질문', '지시'] as const
@@ -10,11 +14,7 @@ export type WorkFilter = typeof WORK_FILTERS[number]
 export type WorkSection = 'work' | 'records'
 export const SECTION_FILTERS: Record<WorkSection, readonly WorkFilter[]> = { work: ['판단', '맡긴 일'], records: ['메모', '할 일', '질문', '지시'] }
 /** 필터의 화면 이름 (값은 한국어 그대로 저장한다) */
-export const WORK_FILTER_LABEL: Record<WorkFilter, string> = {
-  판단: t('판단', 'To decide'), '맡긴 일': t('맡긴 일', 'Delegated'), '할 일': t('할 일', 'To-do'), 메모: t('메모', 'Memo'), 질문: t('질문', 'Question'), 지시: t('지시', 'Instruction'),
-}
-/** 아래 입력란으로 적는 기록의 필터 */
-export type RecordFilter = Exclude<WorkFilter, '판단' | '맡긴 일'>
+export const WORK_FILTER_LABEL = Object.fromEntries(WORK_FILTERS.map((f) => [f, kindLabel(f)])) as Record<WorkFilter, string>
 export const isRecordFilter = (f: WorkFilter): f is RecordFilter => f === '할 일' || f === '메모' || f === '질문' || f === '지시'
 export const WORK_FILTER_KEY: Record<WorkSection, string> = { work: 'rw-work-filter', records: 'rw-records-filter' }
 
@@ -70,7 +70,6 @@ function byDue(items: WorkRecordItem[]): WorkRecordItem[] {
   const due = (item: WorkRecordItem) => item.kind === 'record' ? todoDue(item.entry.body.trim() || item.entry.quote?.trim() || '', recordDay(item.entry.id)) ?? '9999' : '9999'
   return [...items].sort((a, b) => due(a).localeCompare(due(b)) || writtenAt(a).stamp.localeCompare(writtenAt(b).stamp) || writtenAt(a).order - writtenAt(b).order)
 }
-const recordDay = (id: string) => { const m = /^c-(\d{4})(\d{2})(\d{2})-/.exec(id); return m ? `${m[1]}-${m[2]}-${m[3]}` : '' }
 
 function newestFirst(items: WorkRecordItem[]): WorkRecordItem[] {
   return items.map((item) => ({ item, ...writtenAt(item) })).sort((a, b) =>

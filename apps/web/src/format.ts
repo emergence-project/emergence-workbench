@@ -28,17 +28,22 @@ export function relativeTime(ms: number, now = Date.now()): string {
 
 /** 일지 날짜(YYYY-MM-DD)와 시각을 "오늘 14:20", "어제 09:05", "9/27" 식으로 */
 export function journalWhen(date: string, time: string, now = new Date()): string {
-  const today = localDate(now)
-  const yesterday = localDate(new Date(now.getTime() - 86_400_000))
+  const today = isoDay(now)
+  const yesterday = isoDay(new Date(now.getTime() - 86_400_000))
   if (date === today) return t(`오늘 ${time}`, `today ${time}`)
   if (date === yesterday) return t(`어제 ${time}`, `yesterday ${time}`)
   const [, m, d] = date.split('-')
   return `${Number(m)}/${Number(d)}`
 }
 
-export function localDate(d: Date): string {
+/** 그날(현지 시각)의 YYYY-MM-DD */
+export function isoDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+/** YYYY-MM-DD를 "9/27"로, padded면 "09/27"로 */
+export const monthDay = (iso: string, padded = false) => padded ? iso.slice(5).replace('-', '/') : `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`
+/** 기록 id(c-YYYYMMDD-…)의 날짜 YYYY-MM-DD, 형식이 다르면 '' */
+export const recordDay = (id: string) => { const m = /^c-(\d{4})(\d{2})(\d{2})-/.exec(id); return m ? `${m[1]}-${m[2]}-${m[3]}` : '' }
 
 /** 왼쪽 띠의 프로젝트 버튼 글자: 단어 머리글자 두 개 (alpha-project → AP), 한글이면 첫 글자 */
 export function initials(title: string): string {
