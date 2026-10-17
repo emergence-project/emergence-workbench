@@ -6,7 +6,7 @@ import {
 } from '@rw/core'
 import YAML from 'yaml'
 import { fileCache } from './readCache.js'
-import { hashOf, isOutside, localDate, writeAtomic, writeIfMissing } from './fsutil.js'
+import { hashOf, isInside, isOutside, localDate, writeAtomic, writeIfMissing } from './fsutil.js'
 import { t } from './i18n.js'
 
 export interface ResearchInfo {
@@ -459,4 +459,16 @@ export class ConflictError extends WorkbenchError {
 export function requireHash(baseHash: unknown, what = t('읽을 때 받은 hash', 'the hash you got when reading')): string {
   if (typeof baseHash !== 'string' || !baseHash) throw new WorkbenchError(400, t(`baseHash(${what})가 필요함`, `baseHash (${what}) is required`))
   return baseHash
+}
+
+/**
+ * 읽어서 내보낼 파일이 실제로(링크를 따라가도) root 안의 보통 파일인지 확인한다. 받은(clone) 저장소가
+ * `materials/x.pdf → ~/.ssh/id_rsa` 같은 링크를 담고 있어도 밖의 내용이 브라우저로 나가지 않게 한다.
+ */
+export function assertRealInside(root: string, file: string, message: string): string {
+  let real: string
+  let realRoot: string
+  try { real = fs.realpathSync(file); realRoot = fs.realpathSync(root) } catch { throw new WorkbenchError(404, message) }
+  if (!isInside(realRoot, real) || !fs.statSync(real).isFile()) throw new WorkbenchError(403, message)
+  return real
 }

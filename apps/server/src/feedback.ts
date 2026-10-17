@@ -46,6 +46,8 @@ const IMAGE = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/
 const MAX_PICTURE = 4 * 1024 * 1024
 
 const HEADING = new RegExp(`^## (\\d{2}:\\d{2}) · (${FEEDBACK_KINDS.join('|')}) · (.+)$`)
+/** 항목 머리 아래 정보 줄 (appendFeedback이 쓰는 순서: 화면 · 노트 · 가리킨 글자 · 창 · 앱 버전 · 그림). 읽기와 고치기가 같은 표를 본다 */
+const META_LINE = /^- (화면|노트|가리킨 글자|창|앱 버전|그림): (.*)$/
 const oneLine = (s: string, max: number) => s.replace(/\s+/g, ' ').trim().slice(0, max)
 
 export function appendFeedback(dir: string, input: FeedbackInput, now = new Date()): FeedbackEntry & { n: number } {
@@ -107,7 +109,7 @@ export function parseFeedback(md: string, date: string): FeedbackEntry[] {
     const h = HEADING.exec(line)
     if (h) { flush(); cur = { date, time: h[1]!, kind: h[2] as FeedbackKind, target: h[3]! , text: '' }; continue }
     if (!cur) continue
-    const m = /^- (화면|노트|가리킨 글자|창|앱 버전|그림): (.*)$/.exec(line)
+    const m = META_LINE.exec(line)
     if (m && body.every((l) => l.trim() === '')) {
       if (m[1] === '화면') cur.route = m[2]
       else if (m[1] === '노트') cur.note = m[2]
@@ -419,7 +421,8 @@ export function editFeedback(dir: string, at: { date: string; time: string; targ
     lines.splice(from, end - from)
   } else {
     let body = start + 1
-    while (body < end && /^- (화면|가리킨 글자|창|앱 버전): /.test(lines[body]!)) body++
+    // 등록 때 쓴 정보 줄(appendFeedback의 meta)은 모두 건너뛴다. 하나라도 빠지면 그 아래 줄이 본문으로 읽혀 지워진다
+    while (body < end && META_LINE.test(lines[body]!)) body++
     const clean = text.replace(/\r\n/g, '\n').trim().slice(0, 4000)
     if (!clean) return false
     lines.splice(body, end - body, '', ...clean.split('\n'), '')

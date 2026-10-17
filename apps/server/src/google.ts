@@ -88,7 +88,7 @@ export class Google {
   }
 
   private saveTokens(t: TokenFile): void {
-    writeAtomic(this.tokenFile, JSON.stringify(t, null, 2))
+    writeAtomic(this.tokenFile, JSON.stringify(t, null, 2), { mode: 0o600 })
     fs.chmodSync(this.tokenFile, 0o600)
   }
 
@@ -107,7 +107,7 @@ export class Google {
     if (typeof clientId !== 'string' || !/^[\w.-]+\.apps\.googleusercontent\.com$/.test(clientId.trim()))
       throw new WorkbenchError(400, tx('클라이언트 ID는 ….apps.googleusercontent.com 으로 끝납니다.', 'A client ID ends with ….apps.googleusercontent.com.'))
     if (typeof clientSecret !== 'string' || clientSecret.trim().length < 8) throw new WorkbenchError(400, tx('클라이언트 비밀번호가 필요합니다.', 'A client secret is required.'))
-    writeAtomic(this.clientFile, `# 구글 OAuth 클라이언트 (Google Cloud에서 만든 데스크톱 앱). 이 컴퓨터에만 둔다.\n${YAML.stringify({ clientId: clientId.trim(), clientSecret: clientSecret.trim() })}`)
+    writeAtomic(this.clientFile, `# 구글 OAuth 클라이언트 (Google Cloud에서 만든 데스크톱 앱). 이 컴퓨터에만 둔다.\n${YAML.stringify({ clientId: clientId.trim(), clientSecret: clientSecret.trim() })}`, { mode: 0o600 })
     fs.chmodSync(this.clientFile, 0o600)
     return this.status()
   }

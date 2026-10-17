@@ -217,10 +217,12 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody): F
   if (s.result !== undefined || progress !== 'done') put('result', progress === 'done' ? (s.result ?? n.result ?? 'solved') : null)
   else if (progress === 'done' && !n.result) put('result', 'solved')
   if (s.evidence) {
-    const key = (e: { ref?: string; file?: string }) => e.ref ? `ref:${e.ref}` : `file:${e.file}`
-    const old = new Map(n.evidence.map((e) => [key(e), e.checks]))
+    // 같은 종류 · 같은 ref/file의 근거가 둘 이상이면 순서대로 짝짓는다 (한 Map에 겹쳐 두면 뒤 근거의 확인 기록이 앞 근거로 복사돼, 승인 안 된 증명이 승인된 것으로 바뀐다)
+    const key = (e: { kind: string; ref?: string; file?: string }) => `${e.kind}|${e.ref ? `ref:${e.ref}` : `file:${e.file}`}`
+    const old = new Map<string, FlowEvidence['checks'][]>()
+    for (const e of n.evidence) old.set(key(e), [...(old.get(key(e)) ?? []), e.checks])
     put('evidence', s.evidence.map((e) => {
-      const checks = old.get(key(e)) ?? []
+      const checks = old.get(key(e))?.shift() ?? []
       return { kind: e.kind, ...(e.title?.trim() && { title: e.title.trim() }), ...(e.file && { file: e.file }), ...(e.ref && { ref: e.ref }), text: e.text.trim(), ...(checks.length && { checks }) }
     }))
   }

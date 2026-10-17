@@ -13,7 +13,7 @@ import type { Workbench } from './workbench.js'
 import { listNotes } from './noteList.js'
 import type { Registry } from './registry.js'
 import { writeAtomic } from './fsutil.js'
-import { WorkbenchError } from './workbench.js'
+import { WorkbenchError, assertRealInside } from './workbench.js'
 import { t as tl } from './i18n.js'
 
 /**
@@ -195,6 +195,7 @@ export function figureFile(registry: Registry, id: unknown): { abs: string; fold
   if (i < 1 || !folder || !kind || !SAFE_FILE.test(file)) throw new WorkbenchError(404, tl(`없는 그림: ${id}`, `No such figure: ${id}`))
   const abs = path.join(folder.dir, file)
   if (!fs.existsSync(abs)) throw new WorkbenchError(404, tl(`없는 그림: ${id}`, `No such figure: ${id}`))
+  assertRealInside(folder.dir, abs, tl('그림 폴더 밖의 파일입니다', 'The file is outside the figure folder'))
   return { abs, folder, file, kind }
 }
 

@@ -304,7 +304,7 @@ function checkTodoTarget(target: string): void {
 
 /** Prepare without writing so a classification batch is validated before any record changes. */
 function prepareComment(target: string, input: NewComment, now: Date, before: string, options: { storedAnchors?: boolean } = {}) {
-  if (input.kind !== '자동' && !COMMENT_KINDS.includes(input.kind)) throw new WorkbenchError(400, t('종류는 메모·할 일·질문·하이라이트·자동', 'kind must be 메모, 할 일, 질문, 하이라이트, or 자동'))
+  if (input.kind !== '자동' && !COMMENT_KINDS.includes(input.kind)) throw new WorkbenchError(400, t('종류는 메모·할 일·질문·지시·하이라이트·자동', 'kind must be 메모, 할 일, 질문, 지시, 하이라이트, or 자동'))
   const kind = input.kind === '코멘트' || input.kind === '자동' ? '메모' : input.kind
   const text = typeof input.text === 'string' ? input.text.trim() : ''
   // 첫 본문 줄의 Markdown 인용을 고른 글 인용으로 오해하지 않게 한다(답변용 guardBody는 그대로).

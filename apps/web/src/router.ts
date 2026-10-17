@@ -74,9 +74,12 @@ export type Route =
   | { page: 'topic'; rid: string; tid: string }
   | { page: 'task'; rid: string; task: string }
 
+/** 잘못된 %(예: `100%`)가 든 조각은 그대로 둔다. decodeURIComponent가 던지면 React 밖에서 터져 빈 화면이 된다 */
+const decodeSafe = (s: string) => { try { return decodeURIComponent(s) } catch { return s } }
+
 export function parseRoute(hash: string): Route {
   const [path = '', query = ''] = hash.replace(/^#/, '').split('?')
-  const parts = path.split('/').filter(Boolean).map(decodeURIComponent)
+  const parts = path.split('/').filter(Boolean).map(decodeSafe)
   const anchor = new URLSearchParams(query).get('at') ?? undefined
   if (parts[0] === 'r' && parts[1]) {
     if (parts[2] === 'tree' || parts[2] === 'map') return { page: 'map', rid: parts[1] }

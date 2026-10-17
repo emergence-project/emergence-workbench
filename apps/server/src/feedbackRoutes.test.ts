@@ -65,7 +65,7 @@ describe('앱 피드백', () => {
   it('모든 날짜를 최근 것부터 모으고, status.yaml의 처리 기록을 붙인다', async () => {
     const dir = path.join(tmp, 'feedback-all')
     fs.mkdirSync(dir)
-    fs.writeFileSync(path.join(dir, '2026-09-30.md'), '# 피드백 2026-09-30\n\n## 10:00 · 질문 · 홈\n\n왜?\n\n## 11:00 · 버그 · 사이드바\n- 화면: #/\n\n안 열림\n')
+    fs.writeFileSync(path.join(dir, '2026-09-30.md'), '# 피드백 2026-09-30\n\n## 10:00 · 질문 · 홈\n\n왜?\n\n## 11:00 · 버그 · 사이드바\n- 화면: #/\n\n안 열림\n\n## 12:30 · 수정 · 노트\n- 화면: #/r/x/n/a\n- 노트: a\n- 가리킨 글자: 본문\n- 창: 1200×735 · light\n- 앱 버전: abc1234\n- 그림: pictures/p.png\n\n글자가 작다\n')
     fs.writeFileSync(path.join(dir, '2026-10-01.md'), '# 피드백 2026-10-01\n\n## 09:00 · 디자인 · 홈 › 제목\n\n- 필요해?\n- 둘째\n\n## 09:00 · 디자인 · 홈 › 제목\n\n같은 분에 또\n')
     fs.writeFileSync(path.join(dir, 'status.yaml'), [
       '"2026-10-01 09:00 홈 › 제목":', '  state: 반영', '  commit: 1bd6963', '  note: 뺐다', '  theme: 디자인', '  clean: 필요해?', '  understood: 제목을 뺀다', '  cause: 머리줄이 두 줄',
@@ -75,18 +75,21 @@ describe('앱 피드백', () => {
     ].join('\n'))
     const fb = buildApp({ configDir: path.join(tmp, 'config-fb-all'), feedbackDir: dir })
     const { entries } = (await fb.inject({ method: 'GET', url: '/api/feedback/all' })).json()
-    expect(entries.map((e: { date: string; time: string }) => `${e.date} ${e.time}`)).toEqual(['2026-10-01 09:00', '2026-10-01 09:00', '2026-09-30 11:00', '2026-09-30 10:00'])
+    expect(entries.map((e: { date: string; time: string }) => `${e.date} ${e.time}`)).toEqual(['2026-10-01 09:00', '2026-10-01 09:00', '2026-09-30 12:30', '2026-09-30 11:00', '2026-09-30 10:00'])
     expect(entries[0]).toMatchObject({ text: '같은 분에 또', status: { state: '보류' } }) // 같은 키의 두 번째는 #2
     expect(entries[1]).toMatchObject({ text: '- 필요해?\n- 둘째', status: { state: '반영', commit: '1bd6963', note: '뺐다', theme: '디자인', clean: '필요해?', understood: '제목을 뺀다', cause: '머리줄이 두 줄' } })
-    expect(entries[2].status).toBeUndefined() // 고를 수 없는 상태는 대기로 본다
-    expect(entries[2].route).toBe('#/')
-    expect(entries[3].status).toEqual({ state: '답변', note: '이래서' })
+    expect(entries[3].status).toBeUndefined() // 고를 수 없는 상태는 대기로 본다
+    expect(entries[3].route).toBe('#/')
+    expect(entries[4].status).toEqual({ state: '답변', note: '이래서' })
 
     // 고치기: 같은 키의 두 번째만 바뀌고 머리줄·화면 정보는 그대로
     const patch = (body: object) => fb.inject({ method: 'PATCH', url: '/api/feedback', payload: body })
     expect((await patch({ date: '2026-10-01', time: '09:00', target: '홈 › 제목', n: 2, text: '- 고친 글\n- 둘째' })).statusCode).toBe(200)
     expect((await patch({ date: '2026-09-30', time: '11:00', target: '사이드바', text: '고침' })).statusCode).toBe(200)
     expect(fs.readFileSync(path.join(dir, '2026-09-30.md'), 'utf8')).toContain('## 11:00 · 버그 · 사이드바\n- 화면: #/\n\n고침\n')
+    // 노트 · 그림까지 정보 줄 여섯이 있는 항목도 글만 바뀌고 정보 줄은 모두 남는다 (10/17: 노트 · 그림 줄에서 멈춰 그 아래를 지우던 오류)
+    expect((await patch({ date: '2026-09-30', time: '12:30', target: '노트', text: '글자가 너무 작다', kind: '질문' })).statusCode).toBe(200)
+    expect(fs.readFileSync(path.join(dir, '2026-09-30.md'), 'utf8')).toContain('## 12:30 · 질문 · 노트\n- 화면: #/r/x/n/a\n- 노트: a\n- 가리킨 글자: 본문\n- 창: 1200×735 · light\n- 앱 버전: abc1234\n- 그림: pictures/p.png\n\n글자가 너무 작다\n')
     expect((await patch({ date: '2026-09-30', time: '12:00', target: '없음', text: 'x' })).statusCode).toBe(404)
     expect((await patch({ date: '../x', time: '09:00', target: '홈', text: 'x' })).statusCode).toBe(404)
     // 유형 고치기(10/11): 머리줄의 유형만 바뀌고 글 · 화면 정보 · 처리 기록 키는 그대로, 유형을 안 보내면 유형은 그대로
@@ -99,7 +102,7 @@ describe('앱 피드백', () => {
     // 지우기
     expect((await patch({ date: '2026-09-30', time: '10:00', target: '홈', text: null })).statusCode).toBe(200)
     const after = (await fb.inject({ method: 'GET', url: '/api/feedback/all' })).json().entries
-    expect(after.map((e: { text: string }) => e.text)).toEqual(['- 고친 글\n- 둘째', '- 필요해?\n- 둘째', '고침'])
+    expect(after.map((e: { text: string }) => e.text)).toEqual(['- 고친 글\n- 둘째', '- 필요해?\n- 둘째', '글자가 너무 작다', '고침'])
     expect((await fb.inject({ method: 'GET', url: '/api/feedback/all' })).json().statusError).toBeNull()
     // 깨진 status.yaml은 조용히 무시하지 않고 알린다
     fs.writeFileSync(path.join(dir, 'status.yaml'), '"a":\n  note: x (y): z\n')

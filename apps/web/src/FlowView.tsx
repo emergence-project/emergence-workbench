@@ -848,7 +848,7 @@ export function NoteFlow({ rid, row, onSaved }: { rid: string; row: NoteRow; onS
     const n = all.find((x) => x.id === id)
     if (!n) return
     try {
-      await flowApi(rid).patch(n.id, n.hash, { evidence: [...n.evidence.map((e) => ({ kind: e.kind, text: e.text, ...(e.title && { title: e.title }), ...(e.ref ? { ref: e.ref } : { file: e.file ?? '' }) })), { kind, text: '', title: row.title, file: row.file }] })
+      await flowApi(rid).patch(n.id, n.hash, { evidence: [...n.evidence.map((e) => ({ kind: e.kind, text: e.text, ...(e.title && { title: e.title }), ...(e.ref ? { ref: e.ref } : e.file ? { file: e.file } : {}) })), { kind, text: '', title: row.title, file: row.file }] })
       onSaved(tr(`점 "${n.short}"에 이 노트를 근거로 달았습니다`, `Attached this note to the dot "${n.short}" as evidence`))
     } catch (e) { onSaved(e instanceof ConflictError ? tr('그새 점 파일이 바뀌었습니다. 다시 해 주세요.', 'The dot file changed in the meantime. Try again.') : (e as Error).message) }
     setPick('')

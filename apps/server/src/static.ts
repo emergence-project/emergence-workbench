@@ -28,7 +28,8 @@ export function serveStatic(app: FastifyInstance, root: string): void {
   const base = fs.realpathSync(root)
   const index = path.join(base, 'index.html')
   app.setNotFoundHandler((req, reply) => {
-    const url = decodeURIComponent((req.url.split('?')[0] ?? '/'))
+    let url: string
+    try { url = decodeURIComponent(req.url.split('?')[0] ?? '/') } catch { return reply.status(404).send({ error: t('없는 주소', 'Not found') }) }
     if (req.method !== 'GET' || url.startsWith('/api/')) return reply.status(404).send({ error: t('없는 주소', 'Not found') })
     const file = path.resolve(base, `.${url}`)
     const inside = file === base || file.startsWith(`${base}${path.sep}`)

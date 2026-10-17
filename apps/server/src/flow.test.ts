@@ -89,6 +89,18 @@ describe('흐름 고치기', () => {
     expect(back.result).toBeUndefined()
   })
 
+  it('고치기: 같은 파일을 가리키는 근거가 둘이면 확인 기록을 순서대로 짝짓는다 (뒤 근거의 승인이 앞 근거로 옮겨 붙지 않는다)', async () => {
+    put('q', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 발견\ntitle: 발견 하나\ntopics: [t]\nevidence:\n  - kind: proof\n    file: a.tex\n    text: 증명\n  - kind: calc\n    file: a.tex\n    text: 계산\n    checks:\n      - { at: 2026-10-01T10:00, by: 사용자, role: human }')
+    const before = (await get()).nodes.find((x: { id: string }) => x.id === 'q')
+    expect(before.theorem).toBe(false)
+    const r = await send('PATCH', '/q', { baseHash: before.hash, set: { evidence: [{ kind: 'proof', file: 'a.tex', text: '증명 고침' }, { kind: 'calc', file: 'a.tex', text: '계산' }] } })
+    expect(r.statusCode).toBe(200)
+    const m = r.json().node
+    expect(m.evidence[0]).toMatchObject({ kind: 'proof', text: '증명 고침', checks: [] })
+    expect(m.evidence[1]).toMatchObject({ kind: 'calc', checks: [{ role: 'human' }] })
+    expect(m.theorem).toBe(false)
+  })
+
   it('사람 승인과 거두기: 기록은 덧붙이기만, 정리 여부가 따라간다', async () => {
     put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\ntitle: 가\ntopics: [t]\nevidence:\n  - kind: proof\n    file: a.tex\n    text: 증명')
     let n = (await get()).nodes[0]

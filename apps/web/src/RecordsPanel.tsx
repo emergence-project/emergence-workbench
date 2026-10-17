@@ -16,7 +16,7 @@ import { chooseRecordFilter } from './workRecords'
 const FILTERS: RecordFilter[] = ['전체', '메모', '할 일', '질문', '지시']
 const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문 · 지시로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, questions, and instructions')
 /** 필터·기록 종류의 화면 이름 (값은 한국어 그대로) */
-const LABEL: Record<string, string> = { 전체: t('전체', 'All'), 메모: t('메모', 'Memo'), '할 일': t('할 일', 'To-do'), 질문: t('질문', 'Question'), 지시: t('지시', 'Instruction'), 코멘트: t('코멘트', 'Comment'), 하이라이트: t('하이라이트', 'Highlight') }
+const LABEL: Record<string, string> = { 전체: t('전체', 'All'), 자동: t('자동', 'Auto'), 메모: t('메모', 'Memo'), '할 일': t('할 일', 'To-do'), 질문: t('질문', 'Question'), 지시: t('지시', 'Instruction'), 코멘트: t('코멘트', 'Comment'), 하이라이트: t('하이라이트', 'Highlight') }
 const labelOf = (k: string) => LABEL[k] ?? k
 /** 기록 종류의 그림 (10/16 아이콘 검토): 적기 칸의 종류 고르기에 글자 앞에 붙인다(필터는 좁은 폭에서 두 줄이 되지 않게 글자만). 기록 줄 맨 앞과 같은 그림 */
 const KIND_ICON: Record<string, ReactNode> = { 메모: Icon.memo, '할 일': Icon.todo, 질문: Icon.ask, 지시: Icon.send }
@@ -94,7 +94,7 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
           : <button className="a" title={file.source} onClick={() => open(file)}>{file.title}</button>}</div>}
         <RecordList rid={rid} file={file} filter={filter} onGo={(c) => open(file, c)} />
       </div>)}
-      {!shown.length && !error && <p className="empty records-empty">{t('불러오는 중…', 'Loading…')}</p>}
+      {!shown.length && !error && <p className="empty records-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}
     </div>
     <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} />

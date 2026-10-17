@@ -10,7 +10,7 @@ import { statusFor, statusPart, statusPartNames, statusSummary, listReviews, rea
 import { contentTypeOf } from '../materials.js'
 import { setResearchInfo } from '../projectInfo.js'
 import { researchHash } from '../mainNote.js'
-import { WorkbenchError } from '../workbench.js'
+import { WorkbenchError, assertRealInside } from '../workbench.js'
 import { listDecisions } from '../projectFolders.js'
 import { cardFigureRef } from '../figures.js'
 import type { RouteContext } from './context.js'
@@ -32,7 +32,8 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
     if (!rel) throw new WorkbenchError(404, t('프로젝트 그림이 없음', 'This project has no picture'))
     const ref = cardFigureRef(registry, req.params.rid, rel)
     if (ref) return reply.header('cache-control', 'no-store').redirect(`/api/figures/file?id=${encodeURIComponent(ref.id)}`)
-    return reply.type(contentTypeOf(rel)).header('cache-control', 'no-store').send(fs.createReadStream(path.join(wb.repo, rel)))
+    const abs = assertRealInside(wb.repo, path.join(wb.repo, rel), t('저장소 밖의 그림', 'Picture outside the repository'))
+    return reply.type(contentTypeOf(rel)).header('cache-control', 'no-store').send(fs.createReadStream(abs))
   })
   /** 제목·설명·시작일·카드 그림 고치기 (workbench/research.yaml만 씀) */
   app.patch<{ Params: { rid: string } }>('/api/researches/:rid/info', replies(C.InfoSaved), async (req, reply) => {

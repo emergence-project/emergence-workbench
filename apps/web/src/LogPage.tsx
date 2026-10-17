@@ -66,7 +66,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
     window.addEventListener(TODO_FOCUS_EVENT, take)
     return () => window.removeEventListener(TODO_FOCUS_EVENT, take)
   }, [records_])
-  const { tasks, diagnostics, loaded: tasksLoaded, reload: reloadTasks } = useTasks(rid)
+  const { tasks, diagnostics, loaded: tasksLoaded, error: tasksError, reload: reloadTasks } = useTasks(rid)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
   const judgeCount = tasks.filter(needsJudgment).length
   const tick = usePendingTick()
@@ -134,7 +134,7 @@ export function WorkPage({ rid, rapi, summary, version, topics, onSaved, focus, 
             onEditProposal={(t) => setDialog({ mode: 'proposal', from: t, endCondition: t.proposal?.endCondition.length === 1 ? t.proposal.endCondition[0] : (t.proposal?.endCondition ?? []).map((c, i) => `${i + 1}) ${c}`).join('\n') })}>
             {reviews.length > 0 && <Reviews list={reviews} />}
           </JudgeList>
-          : filter === '맡긴 일' ? <TaskList rid={rid} tasks={tasks} diagnostics={diagnostics} loaded={tasksLoaded} />
+          : filter === '맡긴 일' ? <TaskList rid={rid} tasks={tasks} diagnostics={diagnostics} loaded={tasksLoaded} error={tasksError} />
           : <>
           {filter === '할 일' && <>
             <div className="work-h" title={t('체크하면 작업 일지에 완료로 남습니다 · 글 앞에 "10/20까지 —"처럼 날짜를 쓰면 마감', 'Checked items are logged as done in the work journal · Start with a date like "10/20까지 —" to set a deadline')}>{t('할 일', 'To-do')}</div>
