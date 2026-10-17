@@ -184,7 +184,7 @@ export function TaskList({ rid, tasks, loaded, error = null, diagnostics = [] }:
         if (!rows.length) return null
         const shown = g.key === 'closed' && !all ? rows.slice(0, CLOSED_SHOWN) : rows
         return <section key={g.key} className="tk-group">
-          <div className="tk-group-h">{g.title} <span className={`tk-cnt${g.key === 'judge' ? ' turn' : ''}`}>{rows.length}</span></div>
+          <div className="tk-group-h">{g.title} <span className={g.key === 'judge' ? 'rail-count tk-turn' : 'tk-cnt'}>{rows.length}</span></div>
           <div className="tk-table">
             {shown.map((t) => (
               <button key={t.id} className="tk-line" data-ui="맡긴 일 줄" data-ui-item={t.id} onClick={() => go({ page: 'task', rid, task: t.id })} title={`${TASK_STATE_LABEL[t.state]} · ${t.file}`}>
@@ -233,9 +233,9 @@ export function TaskWeek({ rid, tasks, entries, todos, now = new Date() }: { rid
         <span>{t(`이번 주 마감 ${c.due}`, `${c.due} due this week`)}</span>
         {lastDays !== null && <span className="muted">{t('마지막 결과', 'Last result')} {lastDays === 0 ? t('오늘', 'today') : t(`${lastDays}일 전`, `${lastDays} d ago`)}</span>}
         <span className="sp" />
-        <button className="icon-btn" aria-label={t('지난주', 'Last week')} data-tip={t('지난주', 'Last week')} onClick={() => shift(-1)}>‹</button>
+        <button className="icon-btn sm" aria-label={t('지난주', 'Last week')} data-tip={t('지난주', 'Last week')} onClick={() => shift(-1)}>‹</button>
         <button className="fb-link" onClick={() => { setPicked(null); setStart(weekStartOf(now)) }}>{t('이번 주', 'This week')}</button>
-        <button className="icon-btn" aria-label={t('다음 주', 'Next week')} data-tip={t('다음 주', 'Next week')} onClick={() => shift(1)}>›</button>
+        <button className="icon-btn sm" aria-label={t('다음 주', 'Next week')} data-tip={t('다음 주', 'Next week')} onClick={() => shift(1)}>›</button>
       </div>
       <div className="tk-wk" data-ui="주 칸">
         {days.map((iso, i) => {

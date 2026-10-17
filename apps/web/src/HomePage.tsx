@@ -280,7 +280,7 @@ function Attention({ mark, issues, tasks = 0, edits = 0, records = 0, sync, onUp
   const updateTip = sync ? t(`업데이트 필요 — GitHub에 새 커밋 ${sync.behind}개${updateReason}`, `Needs update: ${plural(sync.behind, 'new commit')} on GitHub${updateReason}`) : ''
   if (mark === 'check') return <span className="am-dot" role="img" aria-label={checkTip} title={checkTip} />
   const tip = mark === 'both' ? `${checkTip}\n${updateTip}` : updateTip
-  const icon: ReactNode = <>{Icon.sync}{mark === 'both' && <span className="am-badge" aria-hidden />}</>
+  const icon: ReactNode = <>{Icon.sync}{mark === 'both' && <span className="turn-dot am-badge" aria-hidden />}</>
   return sync?.canUpdate && onUpdate
     ? <button className="am-sync" aria-label={tip} title={tip} onClick={(e) => { e.stopPropagation(); onUpdate() }} onKeyDown={(e) => e.stopPropagation()}>{icon}</button>
     : <span className="am-sync" role="img" aria-label={tip} title={tip}>{icon}</span>
@@ -293,7 +293,7 @@ function Legend({ view }: { view: View }) {
       <span data-ui="프로젝트 순서 안내">{view === 'card' ? t('색 칸을 끌어 순서 바꾸기', 'Drag the color band to reorder') : t('머리 글자 네모를 끌어 순서 바꾸기', 'Drag the initials square to reorder')}</span>
       <span><span className="am-dot" aria-hidden />{t('확인 필요', 'Needs review')}</span>
       <span><span className="am-sync" aria-hidden>{Icon.sync}</span>{t('업데이트 필요', 'Needs update')}</span>
-      <span><span className="am-sync" aria-hidden>{Icon.sync}<span className="am-badge" /></span>{t('둘 다', 'Both')}</span>
+      <span><span className="am-sync" aria-hidden>{Icon.sync}<span className="turn-dot am-badge" /></span>{t('둘 다', 'Both')}</span>
     </p>
   )
 }

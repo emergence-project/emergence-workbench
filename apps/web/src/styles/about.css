@@ -131,8 +131,7 @@
 .about-sym.about-due { color: var(--s-blocked); }
 
 /* 사용자 차례 · 에이전트 차례 */
-.about-turn { display: inline-block; min-width: 16px; height: 16px; padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--s-blocked); color: var(--bg); font-size: var(--fs-2xs); font-weight: var(--fw-strong); line-height: 16px; text-align: center; vertical-align: middle; }
-.about-turn-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--s-blocked); vertical-align: middle; }
+.about-turn { vertical-align: middle; } /* .rail-count 알약의 자리. 점은 .turn-dot */
 .about-wait { font-size: var(--fs-xs); color: var(--text-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 0 var(--sp-2); }
 .about-turns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); font-size: var(--fs-sm); }
 .about-turns > div { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); }

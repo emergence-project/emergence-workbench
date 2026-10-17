@@ -58,7 +58,7 @@ export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?:
               <ul className="ae-rows">
                 {list.attempts.map((a) => (
                   <li key={a.key} className="ae-row" data-ui="쓰기 요청 줄" data-ui-item={a.title}>
-                    <span className="ae-dot" aria-hidden />
+                    <span className="turn-dot" aria-hidden />
                     <button className="a ae-title" onClick={() => openTargetOf(a.target)}>{a.title}</button>
                     <span className="ae-where">{whereOf(a.target)}</span>
                     {a.summary && <span className="ae-sum" title={a.summary}>{a.summary}</span>}
@@ -288,7 +288,7 @@ function TalkButton({ talks, on, onClick }: { talks: CommentEntry[]; on: boolean
   const tip = turn === 'user' ? t('묻기 — 답이 왔습니다', 'Ask: an answer arrived') : turn === 'agent' ? t('묻기 — 에이전트의 답을 기다립니다', 'Ask: waiting for the agent') : t('묻기 — 왜 바꾸었는지 묻거나 다시 고쳐 달라고 합니다', 'Ask why it changed, or ask for another revision')
   return (
     <button className={`icon-btn ae-talk-btn${on ? ' on' : ''}`} data-ui="묻기 버튼" data-tip={tip} aria-label={tip} aria-expanded={on} onClick={onClick}>
-      {Icon.comment}{talks.length > 0 && <span className={`ae-talk-n${turn === 'user' ? ' turn' : ''}`}>{talks.length}</span>}
+      {Icon.comment}{talks.length > 0 && <span className={`ae-talk-n${turn === 'user' ? ' rail-count' : ''}`}>{talks.length}</span>}
     </button>
   )
 }

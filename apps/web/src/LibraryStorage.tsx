@@ -36,7 +36,7 @@ export function LibraryStorage({ info, git, gitMore, icloud, drive, section }: {
           <div className="kh-store-sub" title={info?.path ?? undefined}>{name}{git ? ` · ${git}` : ''}</div>
           <div className="kh-store-sub">{repo === undefined ? t('확인하는 중…', 'Checking…')
             : !repo || repo.state !== 'ok' ? t('Git 저장소가 아님', 'Not a Git repository')
-            : pending > 0 ? <span className="kh-turn" title={t('커밋하지 않은 파일이나 올리지 않은 커밋이 있습니다', 'There are uncommitted files or unpushed commits')}><span className="kh-dot" aria-hidden />{t(`올리지 않은 변경 ${pending}`, `Unpushed changes ${pending}`)}</span>
+            : pending > 0 ? <span className="kh-turn" title={t('커밋하지 않은 파일이나 올리지 않은 커밋이 있습니다', 'There are uncommitted files or unpushed commits')}><span className="turn-dot kh-dot" aria-hidden />{t(`올리지 않은 변경 ${pending}`, `Unpushed changes ${pending}`)}</span>
             : repo.last ? t(`${relativeTime(Date.parse(repo.last.date))} 올림`, `Pushed ${relativeTime(Date.parse(repo.last.date))}`) : t('커밋 없음', 'No commits')}</div>
           {gitMore}
         </div>
@@ -57,5 +57,5 @@ export function LibraryStorage({ info, git, gitMore, icloud, drive, section }: {
 
 /** 저장 위치 줄의 작은 글 한 줄. idle이면 쓰지 않는 것(회색 점), turn이면 사용자 차례(주황 점) */
 export function StoreLine({ children, idle, turn, title }: { children: ReactNode; idle?: boolean; turn?: boolean; title?: string }) {
-  return <div className="kh-store-sub" title={title}>{(idle || turn) && <span className={`kh-dot${idle ? ' idle' : ''}`} aria-hidden />}{children}</div>
+  return <div className="kh-store-sub" title={title}>{(idle || turn) && <span className={`turn-dot kh-dot${idle ? ' idle' : ''}`} aria-hidden />}{children}</div>
 }

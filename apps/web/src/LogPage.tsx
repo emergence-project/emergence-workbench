@@ -114,7 +114,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
         <div className="pane-head" data-ui="머리줄">
           <div className="segmented small" role="group" aria-label={records_ ? t('기록 필터', 'Records filter') : t('작업 필터', 'Work filter')} data-ui={records_ ? '기록 거르기' : '작업 거르기'}>
             {SECTION_FILTERS[section].map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => chooseFilter(f)}>{WORK_FILTER_LABEL[f]}
-              {f === '판단' && judgeCount > 0 && <span className="tk-cnt turn">{judgeCount}</span>}</button>)}
+              {f === '판단' && judgeCount > 0 && <span className="rail-count tk-turn">{judgeCount}</span>}</button>)}
           </div>
           <span className="crumb muted" title={filter === '할 일' ? t('남은 할 일', 'Open to-dos') : WORK_FILTER_LABEL[filter]}>{t(`${count}개`, String(count))}</span>
           <span className="sp" />

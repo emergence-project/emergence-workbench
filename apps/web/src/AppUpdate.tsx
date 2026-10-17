@@ -156,7 +156,7 @@ export function AppUpdateButton() {
 
   return (
     <>
-      <button className={`btn${ok && !s.error && !s.failed ? ' primary' : ''} tb-update`} data-ui="새 버전 버튼" title={title} disabled={busy}
+      <button className={`btn sm${ok && !s.error && !s.failed ? ' primary' : ''} tb-update`} data-ui="새 버전 버튼" title={title} disabled={busy}
         onClick={() => { if (ok && !s.error && !s.failed) void runAppUpdate(); else go({ page: 'settings' }) }}>
         {label}
       </button>

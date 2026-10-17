@@ -9,7 +9,7 @@
   --line-strong: #dcdcda;
   --text: #0d0d0d;
   --text-2: #5c5c59;
-  --text-3: #73736f; /* 흰 바탕 명암비 4.76:1, 사이드바 바탕 4.52:1 (WCAG AA 4.5:1) */
+  --text-3: #6a6a66; /* 명암비 흰 바탕 5.43 · 사이드바 5.16 · 움푹한 칸 4.94 · 가리킴·선택 4.72 (WCAG AA 4.5:1, 10/17) */
   --primary: #0d0d0d;
   --on-primary: #ffffff;
   --link: #5c5c59; /* 입력칸 초점 테두리에만. 무채색: 파랑은 상태(진행)에만 */
@@ -21,11 +21,11 @@
   --s-progress: #1d5fd6;
   --s-blocked: #b45309;
   --s-stopped: #4b5563;
-  --s-solved: #0d9488;
+  --s-solved: #0f766e; /* 흰 글자·흰 바탕 위 글자 5.47:1 (10/17) */
   --code-bg: #fbfbfa;
   --code-cmd: #7c3aed;
   --code-math: #0e7490;
-  --code-comment: #8e8e8a;
+  --code-comment: var(--text-3);
   --paper: #ffffff;
   --record-menu-ink: #0d0d0d; /* 검은 고른 글 메뉴와 흰 하이라이트 메뉴는 두 테마에서 같은 대비 */
   --banner-bg: #ffe08a; --banner-stripe: #ffd55c; --banner-text: #3d2c00;
@@ -97,12 +97,12 @@
     /* 밝은 다크 (10/5 시안 확정): 바탕 #2b2b2a · 카드 #363634 · 그림 칸 #4a4a47, 글자는 예전 다크보다 한 단계 밝게 */
     --bg: #2b2b2a; --bg-side: #302f2e; --bg-sunken: #3b3b38; --bg-hover: #3f3f3c;
     --line: #42423f; --line-strong: #555552;
-    --text: #f0f0ee; --text-2: #b4b4af; --text-3: #9a9a95;
+    --text: #f0f0ee; --text-2: #b4b4af; --text-3: #a8a8a3;
     --primary: #f0f0ee; --on-primary: #1c1c1b; --link: #b4b4af;
     --focus: #4a4322; --focus-line: #a8923a;
     --danger: #f28b8b; --danger-bg: #4a2b2a;
     --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
-    --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: #9a9a95;
+    --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
     --banner-bg: #5a4810; --banner-stripe: #665218; --banner-text: #ffe8a8;
     --mark-bg: #685a1c;
@@ -121,12 +121,12 @@
     /* 밝은 다크 (10/5 시안 확정): 바탕 #2b2b2a · 카드 #363634 · 그림 칸 #4a4a47, 글자는 예전 다크보다 한 단계 밝게 */
     --bg: #2b2b2a; --bg-side: #302f2e; --bg-sunken: #3b3b38; --bg-hover: #3f3f3c;
     --line: #42423f; --line-strong: #555552;
-    --text: #f0f0ee; --text-2: #b4b4af; --text-3: #9a9a95;
+    --text: #f0f0ee; --text-2: #b4b4af; --text-3: #a8a8a3;
     --primary: #f0f0ee; --on-primary: #1c1c1b; --link: #b4b4af;
     --focus: #4a4322; --focus-line: #a8923a;
     --danger: #f28b8b; --danger-bg: #4a2b2a;
     --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
-    --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: #9a9a95;
+    --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
     --banner-bg: #5a4810; --banner-stripe: #665218; --banner-text: #ffe8a8;
     --mark-bg: #685a1c;

@@ -216,11 +216,11 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
         <b>{t('피드백 모드', 'Feedback mode')}</b>
         <span>{t('부위에 마우스를 올리면 이름이 뜹니다. 누르면 그 부위에 피드백을 남깁니다. 앱은 이 동안 눌러도 반응하지 않습니다.', 'Hover over a part to see its name. Click to leave feedback on it. The app does not respond to clicks while this is on.')}</span>
         <span className="sp" />
-        <button className="fb-link" data-ui="부위 없이 적기" title={t('화면 한 곳이 아니라 앱 전체 방향에 대한 의견을 남깁니다', 'Leave feedback about the app as a whole, not one part of the screen')} onClick={openWithoutPart}>{t('부위 없이 적기', 'Without a part')}</button>
-        <button className="fb-link" data-ui="이번에 남긴 코멘트" onClick={() => setShowList((v) => !v)}>{t(`이번에 남긴 피드백 ${entries.length}`, `Feedback this session ${entries.length}`)}</button>
+        <button className="a" data-ui="부위 없이 적기" title={t('화면 한 곳이 아니라 앱 전체 방향에 대한 의견을 남깁니다', 'Leave feedback about the app as a whole, not one part of the screen')} onClick={openWithoutPart}>{t('부위 없이 적기', 'Without a part')}</button>
+        <button className="a" data-ui="이번에 남긴 코멘트" onClick={() => setShowList((v) => !v)}>{t(`이번에 남긴 피드백 ${entries.length}`, `Feedback this session ${entries.length}`)}</button>
         {/* 피드백 등록은 피드백 화면 한 곳에서 (10/4 피드백: 같은 일은 담당 화면 하나에서 하고 나머지는 거기로 가는 길) */}
-        <button className="fb-link" data-ui="모아 보기" title={t('모든 피드백과 반영 여부. 피드백 등록도 여기서 합니다', 'All feedback and whether it was applied. Submit feedback there too')} onClick={() => { onClose(); go({ page: 'feedback' }) }}>{publishable ? t('모아 보기·등록', 'View all · submit') : t('모아 보기', 'View all')}</button>
-        <button className="fb-btn" onClick={onClose}>{t('끝내기', 'Exit')} <kbd>Esc</kbd></button>
+        <button className="a" data-ui="모아 보기" title={t('모든 피드백과 반영 여부. 피드백 등록도 여기서 합니다', 'All feedback and whether it was applied. Submit feedback there too')} onClick={() => { onClose(); go({ page: 'feedback' }) }}>{publishable ? t('모아 보기·등록', 'View all · submit') : t('모아 보기', 'View all')}</button>
+        <button className="btn primary sm" onClick={onClose}>{t('끝내기', 'Exit')} <kbd>Esc</kbd></button>
       </div>
 
       {hover && !pending && (
@@ -253,7 +253,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
 
       {showList && (
         <div className="fb-list" data-feedback-ui>
-          <div className="fb-list-head"><b>{t('이번에 남긴 피드백', 'Feedback this session')}</b><button className="fb-link" onClick={() => setShowList(false)}>{t('닫기', 'Close')}</button></div>
+          <div className="fb-list-head"><b>{t('이번에 남긴 피드백', 'Feedback this session')}</b><button className="a" onClick={() => setShowList(false)}>{t('닫기', 'Close')}</button></div>
           {entries.length === 0 ? <p className="muted">{t('아직 없습니다.', 'None yet.')}</p> : entries.map((e, i) => (
             <div key={i} className="fb-entry">
               <div className="fb-entry-head"><span className="tag">{shown(e.kind)}</span><span className="muted">{e.time}</span></div>

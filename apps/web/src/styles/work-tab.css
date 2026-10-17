@@ -1,7 +1,7 @@
 /* 작업 탭의 맡긴 일 (10/7 시안 v31): 브리핑 · 한 주 달력, 판단 카드, 맡긴 일 목록, 맡기기 창, 보고서 (WorkTasks.tsx · TaskReport.tsx) */
 
 .tk-cnt { font-size: var(--fs-2xs); color: var(--text-3); margin-left: 2px; }
-.tk-cnt.turn { color: var(--bg); background: var(--s-blocked); border-radius: var(--r-pill); padding: 0 6px; font-weight: var(--fw-strong); line-height: 1.5; }
+.tk-turn { margin-left: 2px; } /* 판단 수: .rail-count 알약 */
 .tk-props .turn { color: var(--s-blocked); }
 .tk-none { margin: 0; color: var(--text-3); }
 .tk-empty { padding: 0; margin: var(--sp-2) 0; }
@@ -16,16 +16,16 @@
 .tk-brief b { font-weight: var(--fw-strong); }
 .tk-brief .turn b { color: var(--s-blocked); }
 .tk-brief .sp { flex: 1; }
-.tk-brief .icon-btn { width: 26px; height: 26px; }
 .tk-wk { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--card-bg); }
 .tk-wd { min-height: 84px; min-width: 0; padding: 6px var(--sp-2); border-left: 1px solid var(--line); display: flex; flex-direction: column; align-items: stretch; gap: 3px; text-align: left; border-radius: 0; }
 .tk-wd:first-child { border-left: 0; }
 .tk-wd:hover { background: var(--bg-hover); }
 .tk-wd.is-today { background: var(--bg-sunken); }
 .tk-wd.future { background: var(--bg); }
-.tk-wd.on { box-shadow: inset 0 0 0 2px var(--text-2); }
+.tk-wd.on { background: var(--bg-hover); }
 .tk-wh { font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-wh b { color: var(--text-2); font-weight: var(--fw-strong); }
+.tk-wd.is-today .tk-wh, .tk-wd.is-today .tk-wh b { color: var(--text); } /* 오늘은 진한 글자, 고른 날은 .on 바탕 */
 .tk-ev { display: flex; align-items: center; gap: 3px; font-size: var(--fs-2xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .tk-ev i, .tk-day-i i { font-style: normal; color: var(--text-3); flex: none; }
 .tk-ev .g, .tk-day-i .g, .tk-legend .g { margin: 0 2px 0 0; }
@@ -69,7 +69,8 @@
 .tk-menu .g { margin: 0; }
 .tk-return { display: flex; gap: var(--sp-2); align-items: center; }
 .tk-return input { flex: 1; min-width: 0; height: var(--input-h); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 var(--sp-2); background: var(--bg); font-size: var(--fs-sm); color: var(--text); }
-@media (max-width: 640px) {
+/* 좁은 패널(두 패널 · 사이드바)에서 접는다: 창 폭이 아니라 패널 폭(.ws-body · .ws-slot 컨테이너)을 본다 */
+@container (max-width: 640px) {
   .tk-row { grid-template-columns: 14px minmax(0, 1fr) 16px; }
   .tk-row .tk-meta { grid-column: 2; grid-row: 2; }
   .tk-row .tk-chev { grid-column: 3; grid-row: 1; }
@@ -90,7 +91,7 @@
 .tk-line-c { color: var(--text-2); font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-line-m { color: var(--text-3); font-size: var(--fs-xs); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-line-more { padding: 6px var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-xs); }
-@media (max-width: 640px) { .tk-line { grid-template-columns: 14px minmax(0, 1fr) 90px; } .tk-line-c { display: none; } }
+@container (max-width: 640px) { .tk-line { grid-template-columns: 14px minmax(0, 1fr) 90px; } .tk-line-c { display: none; } }
 
 /* 맡기기 창 */
 .tk-form { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -157,4 +158,4 @@
 .tk-kv2 dt { color: var(--text-3); font-size: var(--fs-xs); padding-top: 2px; }
 .tk-kv2 dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .tk-judged { margin: var(--sp-2) 0 0; padding-left: 18px; }
-@media (max-width: 640px) { .tk-rep { padding-inline: var(--sp-4); } .tk-ask { grid-template-columns: auto minmax(0, 1fr); } .tk-ask .segmented { grid-column: 2; justify-self: start; } }
+@container (max-width: 640px) { .tk-rep { padding-inline: var(--sp-4); } .tk-ask { grid-template-columns: auto minmax(0, 1fr); } .tk-ask .segmented { grid-column: 2; justify-self: start; } }

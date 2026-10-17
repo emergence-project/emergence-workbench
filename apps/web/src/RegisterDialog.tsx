@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { githubRepos, pickFolder, req, type GitHubRepoItem, type GitHubRepoList } from './api'
 import { Dialog, PreamblePicker, type Inspection, type LibraryPreamble } from './dialogs'
 import { relativeTime } from './format'
-import { Icon } from './icons'
 import { ProjectProfileFields } from './ProjectProfileFields'
 import type { ProjectKind, ResearchListItem } from './api'
 import { locale, t } from './i18n'
@@ -169,7 +168,6 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
           {repos === null && <p className="muted reg-hint">{t('GitHub 저장소 목록을 읽는 중…', 'Loading GitHub repositories…')}</p>}
           {repos?.ok && <>
             <label className="reg-search" data-ui="저장소 찾기">
-              {Icon.search}
               <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('저장소 이름으로 찾기', 'Search by repository name')} aria-label={t('저장소 찾기', 'Search repositories')} />
               <span className="muted">{t(`${shown.length}개`, `${shown.length}`)}</span>
             </label>

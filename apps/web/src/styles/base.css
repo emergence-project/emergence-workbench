@@ -21,7 +21,6 @@ kbd { font: var(--fs-2xs) "SF Mono", Menlo, monospace; border: 1px solid var(--l
 /* 글자 버튼: 파랑은 "진행 중" 상태 색과 겹치므로 무채색으로 두고, 가리키면 진해지며 밑줄이 생긴다 */
 .a { color: var(--text-2); font-weight: var(--fw-medium); cursor: pointer; text-underline-offset: 3px; }
 .a:hover { color: var(--text); text-decoration: underline; }
-.a:hover { text-decoration: underline; }
 button.a { text-align: inherit; }
 .fatal { padding: var(--sp-6); color: var(--danger); }
 
@@ -32,7 +31,7 @@ button.a { text-align: inherit; }
 .sandbox-bar code { font-size: var(--fs-2xs); background: color-mix(in srgb, var(--bg) 50%, transparent); padding: 0 var(--sp-1); border-radius: 3px; }
 .titlebar { height: 44px; flex: none; display: flex; justify-content: space-between; gap: var(--sp-3); align-items: center; background: var(--bg); border-bottom: 1px solid var(--line); }
 .tb-left { display: flex; align-items: center; gap: 2px; padding-left: var(--sp-3); min-width: 0; flex: 1; }
-.tb-where { margin-left: var(--sp-2); font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tb-where { margin-left: var(--sp-2); font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; display: flex; align-items: center; padding-block: var(--sp-2); }
 .tb-where b { color: var(--text); font-weight: var(--fw-strong); font-size: var(--fs-md); }
 .tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 2px; padding-right: var(--sp-3); }
 .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 52px 244px 1fr; grid-template-rows: minmax(0, 1fr); }
@@ -58,7 +57,6 @@ button.a { text-align: inherit; }
 .rail-btn svg { width: 18px; height: 18px; }
 .rail-btn:hover { background: var(--bg-hover); color: var(--text); }
 .rail-btn.on { background: var(--bg-hover); color: var(--primary); }
-.rail-btn .badge { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--s-blocked); box-shadow: 0 0 0 2px var(--bg); }
 .rail .sp { flex: 1; }
 
 /* ---------- 사이드바 ---------- */
@@ -196,17 +194,15 @@ button.a { text-align: inherit; }
 body.resizing { cursor: col-resize; user-select: none; }
 body.resizing iframe, body.resizing canvas { pointer-events: none; }
 .ws-ctx { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
-.tb-update { height: 24px; padding: 0 var(--sp-2); margin-right: var(--sp-1); }
+.tb-update { margin-right: var(--sp-1); } /* 크기는 .btn.sm */
 .tb-sep { width: 1px; height: 18px; background: var(--line-strong); margin: 0 var(--sp-1); }
-.icon-btn.on { color: var(--text); }
 .pdf-state { font-size: var(--fs-xs); }
 .pdf-state.ok { color: var(--text-2); }
 .pdf-state.bad { color: var(--danger); }
 
 /* 제목줄: 프로젝트 이름을 크게 (10/1 피드백 "제목좀 크게 적어봐") */
 /* 10/4 17:56 "굵은 글씨가 붕 뜬다": 맥 글꼴은 글자 위 여백이 커서 상자를 가운데 맞춰도 큰 글자가 떠 보인다.
-   여백을 잘라 낸 글자 몸통끼리 가운데로 맞추고, 잘린 만큼 글자가 가려지지 않게 위아래 여백을 둔다 */
-.tb-where { display: flex; align-items: center; padding-block: var(--sp-2); }
+   여백을 잘라 낸 글자 몸통끼리 가운데로 맞추고, 잘린 만큼 글자가 가려지지 않게 위아래 여백(.tb-where의 padding-block)을 둔다 */
 .tb-where > * { flex: none; white-space: pre; text-box: trim-both cap alphabetic; }
 .tb-where .tb-proj { font-size: var(--fs-lg); font-weight: var(--fw-title); color: var(--text); margin-right: 2px; }
 .tb-where .tb-sepch { font-size: var(--fs-sm); font-weight: var(--fw-normal); color: var(--text-3); }
