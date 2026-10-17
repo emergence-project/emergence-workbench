@@ -8,6 +8,7 @@ import { join } from 'node:path'
 const ts = createRequire(new URL('../../apps/web/package.json', import.meta.url))('typescript')
 
 const root = new URL('../../apps/web/src/', import.meta.url).pathname
+/** @type {[RegExp, string][]} */
 const RULES = [
   [/#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\(/, '색은 tokens.css의 변수로 (새 색은 라이트·다크 둘 다 더한다)'],
   [/font-size:\s*[0-9.]+px|calc\([0-9.]+px \* var\(--ui-scale/, '글자 크기는 --fs-* 로'],
@@ -61,15 +62,18 @@ for (const f of code) readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
 
 // 기호와 행동 말 (docs/design-system.md "기호와 행동"): 화면 코드(.tsx)에서 한 행동에 다른 이름·기호를 쓰지 않는다.
 // 버튼 줄(<button … 이 있는 줄)의 글자와 title·aria-label만 본다. 설명 글·주석은 보지 않는다.
+/** @type {[RegExp, string][]} */
 const WORDS = [
   [/삭제/, '지우기'], [/제거/, '빼기'], [/추가/, '더하기'], [/편집하기|편집 버튼|>편집</, '고치기'], [/수정하기|>수정</, '고치기'], [/그만두기/, '취소'],
   // 10/5 시안: 양쪽 칸 이름은 "왼쪽 사이드바"·"오른쪽 사이드바" (data-ui 값 "맥락 칸 …"은 이전 피드백과 맞추려 그대로)
   [/(?<!data-ui=")맥락 칸/, '오른쪽 사이드바'],
 ]
+/** @type {[RegExp, string][]} */
 const OLD_TERMS = [
   [/보조 노트/, '노트'], [/왼쪽 띠/, '레일'], [/제목줄/, '상단바'], [/거르기/, '필터'], [/형광펜/, '하이라이트'],
   [/이름표/, '태그(툴팁이면 툴팁)'], [/입력칸/, '입력란'], [/도구 줄|도구 막대|머리줄/, '툴바'], [/탭 줄/, '탭 바'], [/작업 칸|지금 칸|다른 칸|옆 칸/, '패널'], [/오른쪽 칸|맥락 칸/, '오른쪽 사이드바'], [/반려/, '수정'], [/다 고침/, '편집 완료'],
 ]
+/** @type {[RegExp, string][]} */
 const GLYPHS = [
   [/✕|✖/, '지우기는 휴지통(Icon.trash), 빼기·닫기는 ×'],
   [/↻/, '컴파일은 ▶(Icon.play)'],

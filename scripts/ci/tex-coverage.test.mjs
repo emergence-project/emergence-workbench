@@ -47,7 +47,7 @@ test('invalid workflow patterns fail instead of silently passing coverage', () =
 // Node 22.0–22.4 is supported but has no path.matchesGlob. Model that API shape.
 function withoutNativeGlob(run) {
   const native = path.matchesGlob
-  delete path.matchesGlob
+  delete /** @type {{ matchesGlob?: unknown }} */ (path).matchesGlob
   try { run() } finally { if (native) path.matchesGlob = native }
 }
 

@@ -20,7 +20,7 @@ if (given.length !== 1) {
   ].join('\n'))
   process.exit(1)
 }
-const dir = path.resolve(process.env.INIT_CWD ?? process.cwd(), given[0])
+const dir = path.resolve(process.env.INIT_CWD ?? process.cwd(), /** @type {string} */ (given[0]))
 const root = path.basename(dir) === 'workbench' ? dir : path.join(dir, 'workbench')
 if (!fs.existsSync(path.join(root, 'research.yaml'))) { console.error(`연구 작업대 폴더가 아닙니다 (research.yaml 없음): ${dir}`); process.exit(1) }
 

@@ -33,5 +33,5 @@ Dock에 따로 띄우기: 앱을 연 크롬 창에서 ⋮ → 전송, 저장, �
 
 **개발용.** `pnpm dev`는 서버 8130·화면 5173, `pnpm test`는 테스트. 서비스 없이 손으로 켜려면 `pnpm start`(빌드 후 5174에서 실행, 터미널을 닫으면 꺼짐).
 
-`pnpm dev`는 개발용 모드(`RW_SANDBOX=1`)다. 실사용(5174)과 포트가 달라 함께 띄울 수 있다. Claude Code 미리보기 설정은 `.claude/launch.json`. 저장소 안 `.sandbox/config`를 설정으로 쓰고, 예제 연구(`fixtures/sample-research`)를 `.sandbox/`에 복사해 등록한다. 실제 `~/.config/research-workspace`와 실제 연구 저장소는 건드리지 않는다. `.sandbox/`는 없을 때만 만들므로 fixtures가 바뀐 뒤 예제가 낡았으면 `.sandbox/`를 지우고 다시 띄운다(예제 모드에서 남긴 피드백·고침도 함께 지워진다). `pnpm shots`는 이 폴더를 쓰지 않고 실행마다 `.sandbox-shots/`를 새로 만든다.
+`pnpm dev`는 개발용 모드(`RW_SANDBOX=1`)다. 실사용(5174)과 포트가 달라 함께 띄울 수 있다. Claude Code 미리보기 설정은 `.claude/launch.json`. 저장소 안 `.sandbox/config`를 설정으로 쓰고, 예제 연구(`fixtures/sample-research`)를 `.sandbox/`에 복사해 등록한다. 실제 `~/.config/research-workspace`와 실제 연구 저장소는 건드리지 않는다. 서버를 띄울 때 `fixtures/`·`templates/shared-library`의 내용 도장을 `.sandbox/.fixture-stamp`와 비교해, 다르면 예제 폴더(예제 연구·라이브러리·피드백 등)만 새로 복사한다. `.sandbox/config`(설정)는 그대로 두지만, 예제 모드에서 남긴 피드백·고침은 그때 지워진다. `pnpm shots`는 이 폴더를 쓰지 않고 실행마다 `.sandbox-shots/`를 새로 만든다.
 

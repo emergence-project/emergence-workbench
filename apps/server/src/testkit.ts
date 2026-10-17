@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, expect } from 'vitest'
+import chokidar from 'chokidar'
+import { afterAll, beforeAll, expect, vi } from 'vitest'
 import { buildApp } from './app.js'
 
 export const fixture = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../fixtures/sample-research')
@@ -15,6 +16,24 @@ export const R = '/api/researches/sample-research'
 export let tmp: string
 export let repo: string
 export let app: ReturnType<typeof buildApp>
+
+/**
+ * 이 뒤에 만드는 파일 감시(chokidar)를 모두 기억하고, 그것들이 처음 훑기를 마칠(ready) 때까지 기다리는 함수를 돌려준다.
+ * 고정 시간(setTimeout) 대신 쓴다. vi.restoreAllMocks() 뒤에는 새 감시를 기억하지 않으니 다시 부른다.
+ */
+export function trackWatchers(): () => Promise<void> {
+  const watch = chokidar.watch
+  const ready: Promise<unknown>[] = []
+  vi.spyOn(chokidar, 'watch').mockImplementation((...args: Parameters<typeof watch>) => {
+    const w = watch(...args)
+    ready.push(new Promise<void>((r) => w.once('ready', () => r())))
+    return w
+  })
+  return async () => {
+    expect(ready.length, '기다릴 파일 감시가 없음').toBeGreaterThan(0)
+    await Promise.all(ready)
+  }
+}
 
 /** 실제 연구 저장소처럼 .git 폴더가 있는 예제 연구 */
 export function makeRepo(name: string, withWorkbench = true): string {

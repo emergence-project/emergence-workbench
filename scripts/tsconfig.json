@@ -1,0 +1,19 @@
+{
+  // scripts/의 .mjs·.ts 타입 검사 (pnpm type-check). JS는 JSDoc 없이 쓴 곳이 많아 암시적 any와 catch의 unknown은 허용하고,
+  // 나머지(없는 속성·undefined 가능·잘못된 인자)를 잡는다.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noImplicitAny": false,
+    "useUnknownInCatchVariables": false,
+    // 루트에는 @types/node·yaml이 없다: 스크립트가 실행 때 쓰는 apps/server의 것을 본다
+    "typeRoots": ["../apps/server/node_modules/@types"],
+    "types": ["node"],
+    "paths": { "yaml": ["../apps/server/node_modules/yaml"] }
+  },
+  "include": ["**/*.mjs", "**/*.ts"],
+  // 파일 안전 검사는 빈 배열·객체에 결과를 차례로 채워 넣어 JSDoc 없이는 never[]로 읽힌다(46곳).
+  // 타입을 다 적으려면 사실상 다시 써야 해 빼 둔다. 동작은 check-repo.test.mjs가 pnpm test에서 확인한다.
+  "exclude": ["safety/check-repo.mjs", "safety/check-repo.test.mjs"]
+}

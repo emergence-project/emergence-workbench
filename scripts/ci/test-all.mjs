@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const tests = (dir) => fs.readdirSync(path.join(root, dir)).filter((f) => f.endsWith('.test.mjs')).map((f) => `${dir}/${f}`)
+/** @type {[name: string, cmd: string, args: string[], skip?: () => string | false][]} */
 const steps = [
   ['패키지 테스트', 'pnpm', ['-r', 'run', 'test']],
   // zsh가 없는 곳(클라우드)에서는 테스트가 모두 건너뛰어져 "tests 0"으로 통과처럼 보인다. 끝 요약에 건너뜀으로 따로 적는다

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildApp, READ_ONLY_REQUESTS } from './app.js'
 import { LibraryReadIndex } from './libraryReadIndex.js'
 import { libraryPart } from './libraryWatch.js'
-import { fixture } from './testkit.js'
+import { fixture, trackWatchers } from './testkit.js'
 
 describe('라이브러리 파일 갈래', () => {
   const lib = path.join(os.tmpdir(), 'lib')
@@ -31,10 +31,11 @@ describe('앱 밖에서 바꾼 라이브러리·sources 알림', () => {
   let tmp: string, lib: string, repo: string, config: string
   let app: ReturnType<typeof buildApp>
   const events: { type: string; part?: string; file?: string; research?: string | null }[] = []
-  const settle = () => new Promise((r) => setTimeout(r, 400)) // chokidar가 준비될 때까지
+  let settle: () => Promise<void> // 파일 감시(chokidar)가 처음 훑기를 마칠 때까지
 
   beforeEach(async () => {
     events.length = 0
+    settle = trackWatchers()
     tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-libwatch-'))
     lib = path.join(tmp, 'library'); repo = path.join(tmp, 'sample-research'); config = path.join(tmp, 'config')
     fs.mkdirSync(path.join(lib, 'concepts'), { recursive: true })
@@ -82,7 +83,8 @@ describe('앱 밖에서 바꾼 라이브러리·sources 알림', () => {
     fs.writeFileSync(path.join(lib, 'concepts/old.md'), '---\ntitle: Old\n---\n')
     fs.writeFileSync(path.join(lib2, 'concepts/new.md'), '---\ntitle: New\n---\n')
     await vi.waitFor(() => expect(events.some((e) => e.file === 'concepts/new.md')).toBe(true), { timeout: 5000 })
-    await settle()
+    // 오지 않아야 할 알림은 시간으로만 기다릴 수 있다: 쓰기 끝 기다림(awaitWriteFinish 300ms)보다 길게
+    await new Promise((r) => setTimeout(r, 400))
     expect(events.some((e) => e.file === 'concepts/old.md')).toBe(false)
   })
 

@@ -8,7 +8,7 @@ import { listLibraryNotes } from './libraryNotes.js'
 import { buildKnowledge } from './knowledge.js'
 import { libraryUsage } from './libraryUsage.js'
 import { REFRESH_MS } from './readCache.js'
-import { fixture } from './testkit.js'
+import { fixture, trackWatchers } from './testkit.js'
 
 let tmp: string, lib: string, repo: string
 let app: ReturnType<typeof buildApp>
@@ -150,9 +150,10 @@ describe('library L4 incremental reads', () => {
     const file = path.join(repo, 'workbench/blocks/watched.md')
     fs.writeFileSync(file, '---\nid: watched\ntitle: Watched\n---\n[[Alpha]]\n')
     await app.close()
+    const watching = trackWatchers()
     app = buildApp({ configDir: path.join(tmp, 'config'), sandbox: true, watch: true })
     expect((await get('/api/concepts/brief')).check.unchecked.ids).toEqual(['alpha'])
-    await new Promise((r) => setTimeout(r, 250))
+    await watching()
     const invalidated = vi.spyOn(LibraryReadIndex.prototype, 'invalidateProject')
     fs.writeFileSync(file, '---\nid: watched\ntitle: Watched\n---\n[[Beta]]\n')
     await vi.waitFor(() => expect(invalidated).toHaveBeenCalled(), { timeout: 5000 })

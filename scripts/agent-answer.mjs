@@ -13,7 +13,7 @@ if (given.length !== 4 || !by) {
   console.error('사용법: pnpm agent:answer <연구 저장소 폴더> <대상> <id> "<답>" [--by <에이전트 이름, 기본 claude>]   (답 대신 - 이면 표준 입력)')
   process.exit(1)
 }
-const [repo, target, id, text] = given
+const [repo, target, id, text] = /** @type {[string, string, string, string]} */ (given)
 const dir = path.resolve(process.env.INIT_CWD ?? process.cwd(), repo)
 const root = path.basename(dir) === 'workbench' ? dir : path.join(dir, 'workbench')
 if (!fs.existsSync(path.join(root, 'research.yaml'))) { console.error(`연구 작업대 폴더가 아닙니다 (research.yaml 없음): ${dir}`); process.exit(1) }

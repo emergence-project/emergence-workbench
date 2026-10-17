@@ -51,7 +51,7 @@ test('the existing CI scope stays 76 screens with exactly two dark captures', ()
 
 test('CLI help and invalid choices exit before any build, server or browser', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-  for (const [arg, status, message] of [['--help', 0, /Usage: pnpm shots/], ['--viewport=1200xnope', 1, /positive integer/], ['--sample=other', 1, /sample must/]]) {
+  for (const [arg, status, message] of /** @type {[string, number, RegExp][]} */ ([['--help', 0, /Usage: pnpm shots/], ['--viewport=1200xnope', 1, /positive integer/], ['--sample=other', 1, /sample must/]])) {
     const result = spawnSync(process.execPath, ['scripts/shots/shots.mjs', arg], { cwd: root, encoding: 'utf8', timeout: 1500 })
     assert.equal(result.status, status, result.error?.message ?? result.stderr)
     assert.match(result.stdout + result.stderr, message)

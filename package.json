@@ -20,7 +20,7 @@
     "agent:check-tasks": "node scripts/agent-check-tasks.mjs",
     "mcp": "node scripts/mcp.mjs",
     "design:check": "node scripts/ci/check-design.mjs",
-    "type-check": "pnpm -r run type-check",
+    "type-check": "pnpm -r run type-check && pnpm --filter @rw/server exec tsc -p ../../scripts/tsconfig.json",
     "start": "pnpm build && zsh scripts/serve.sh",
     "build": "pnpm --filter @rw/web build",
     "service:install": "zsh scripts/service.sh install",

@@ -40,7 +40,7 @@ try {
     let maxLag = 0
     let last = performance.now()
     const timer = setInterval(() => { const now = performance.now(); maxLag = Math.max(maxLag, now - last - 10); last = now }, 10)
-    const times = []
+    const times: number[] = []
     let bytes = 0
     for (let i = 0; i < 3; i++) {
       // Third call crosses REFRESH_MS, so the fallback mtime scan is measured too.

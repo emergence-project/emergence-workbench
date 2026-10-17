@@ -24,7 +24,7 @@ assert(original && original.asks.length >= 2, 'Requires the two-question sandbox
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
 const checks = []
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
-function deferred() { let resolve; const promise = new Promise((r) => { resolve = r }); return { promise, resolve } }
+function deferred() { let resolve = /** @type {(value?: unknown) => void} */ (() => {}); const promise = new Promise((r) => { resolve = r }); return { promise, resolve } }
 async function eventually(fn, message) {
   for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(50) }
   throw new Error(message)
@@ -142,23 +142,23 @@ try {
     await page.addInitScript(() => {
       const Native = window.WebSocket
       window.WebSocket = class extends Native {
-        constructor(...args) { super(...args); window.__taskEvents = this }
+        constructor(...args) { super(.../** @type {[string]} */ (args)); /** @type {any} */ (window).__taskEvents = this }
       }
     })
     const state = await taskPage(page, [], undefined, [original.asks[0], original.asks[0]])
     await page.getByRole('textbox', { name: '1번에 덧붙일 말', exact: true }).fill('앞 질문 초안')
     await page.getByRole('textbox', { name: '2번에 덧붙일 말', exact: true }).fill('뒤 질문 초안')
     state.change({ asks: [original.asks[0]], hash: 'browser-removed-duplicate' })
-    await page.evaluate((rid) => window.__taskEvents.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'task', research: rid }) })), rid)
+    await page.evaluate((rid) => /** @type {any} */ (window).__taskEvents.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'task', research: rid }) })), rid)
     await eventually(() => state.reads() >= 2, 'The external question change did not reload')
     await eventually(async () => await page.getByRole('textbox', { name: '2번에 덧붙일 말', exact: true }).count() === 0, 'The duplicate was not removed')
     assert.equal(await page.getByRole('textbox', { name: '1번에 덧붙일 말', exact: true }).inputValue(), '', 'A removed duplicate draft was attached to the remaining question')
     await page.getByText('연결하지 않은 초안 2개', { exact: true }).click()
     assert.equal(await page.getByRole('textbox', { name: '1번 보관 초안', exact: true }).inputValue(), '앞 질문 초안')
     assert.equal(await page.getByRole('textbox', { name: '2번 보관 초안', exact: true }).inputValue(), '뒤 질문 초안')
-    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => { window.__copiedDraft = text } } }))
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => { /** @type {any} */ (window).__copiedDraft = text } } }))
     await page.getByRole('button', { name: '2번 보관 초안 복사', exact: true }).click()
-    assert.equal(await page.evaluate(() => window.__copiedDraft), '뒤 질문 초안', 'The recovery copy did not preserve the exact draft')
+    assert.equal(await page.evaluate(() => /** @type {any} */ (window).__copiedDraft), '뒤 질문 초안', 'The recovery copy did not preserve the exact draft')
     assert.equal(state.writes(), 0, 'External refresh wrote a draft to the task file')
     await page.screenshot({ path: `${out}/task-duplicate-removal-keeps-unassigned-drafts-retained.png` })
   })

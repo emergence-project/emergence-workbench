@@ -10,8 +10,13 @@ describe('계약 검사', () => {
   const appWith = (body: unknown) => {
     const app = Fastify()
     checkReplies(app, true)
+    // 앱(app.ts)처럼 오류는 { error } 몸으로 보낸다
+    app.setErrorHandler((err, _req, reply) => reply.status(500).send({ error: (err as Error).message }))
     app.get('/x', replies(Reply), async () => body)
     app.get('/free', async () => ({ anything: true }))
+    app.get('/conflict', replies(Reply), async (_req, reply) => reply.status(409).send({ error: '바뀜', currentHash: 'h1' }))
+    app.get('/bad-error', replies(Reply), async (_req, reply) => reply.status(404).send({ error: '없음', detail: 'x' }))
+    app.get('/free-error', async (_req, reply) => reply.status(404).send({ message: 'free' }))
     return app
   }
 
@@ -24,6 +29,19 @@ describe('계약 검사', () => {
     expect((await appWith({ n: 'one' }).inject({ url: '/x' })).body).toContain('n:')
     // 계약을 붙이지 않은 라우트는 보지 않는다
     expect((await appWith({ n: 1 }).inject({ url: '/free' })).statusCode).toBe(200)
+  })
+
+  it('오류 응답(4xx·5xx)은 공통 오류 계약 { error, currentHash?, key? }으로 본다', async () => {
+    const app = appWith({ n: 1 })
+    const conflict = await app.inject({ url: '/conflict' })
+    expect(conflict.statusCode).toBe(409)
+    expect(conflict.json()).toEqual({ error: '바뀜', currentHash: 'h1' })
+    const bad = await app.inject({ url: '/bad-error' })
+    expect(bad.statusCode).toBe(500)
+    expect(bad.body).toContain('error 404 reply does not match contract (GET /bad-error)')
+    expect(bad.body).toContain('detail')
+    // 계약을 붙이지 않은 라우트는 오류도 보지 않는다
+    expect((await app.inject({ url: '/free-error' })).statusCode).toBe(404)
   })
 
   it('요청 몸이 틀리면 어느 칸인지 적은 400', () => {
