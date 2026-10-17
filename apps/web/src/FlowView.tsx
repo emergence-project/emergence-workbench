@@ -7,6 +7,7 @@
  * 10/15: 고치기는 창이 아니라 자세히 자리에서 하고, 설명 칸은 노트처럼 그린다(줄 바꿈, $$…$$ 줄 수식, ![설명](그림) 그림).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ConflictError, LIBRARY_SCOPE, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_KINDS, flowApi, type FlowCells, type FlowEdge, type FlowEvidence, type FlowKind, type FlowNode, type FlowProgress, type FlowResult, type FlowScan, type NoteRow } from './api'
 import { layoutFlow, lineageOf, type FlowLayout } from './flowLayout'
 import { MathText } from './cardParts'
@@ -15,6 +16,7 @@ import { routeOfNote } from './RightSidebar'
 import { go } from './router'
 import { assignLanes, planRoute, roundedPath, routePoints } from './flowRoute'
 import { store } from './store'
+import { qk } from './queries'
 import { setFlowSelection } from './flowSelection'
 import { Dialog } from './dialogs'
 import { NoteMarkdown } from './NoteMarkdown'
@@ -104,20 +106,18 @@ export function openFlowDot(rid: string, n: Pick<FlowNode, 'id'>) {
   go({ page: 'flow', rid })
 }
 
-/** 흐름 자료 읽기 (화면이 쓰면 다시 읽는다) */
-function useFlow(rid: string, version: number) {
-  const [scan, setScan] = useState<FlowScan | null>(null)
-  const [tick, setTick] = useState(0)
-  const reload = useCallback(() => setTick((x) => x + 1), [])
-  useEffect(() => {
-    flowApi(rid).scan().then(setScan).catch(() => setScan({ nodes: [], diagnostics: [], layout: {}, rows: null }))
-  }, [rid, version, tick])
-  return { scan, reload }
+/** 흐름 자료 읽기 (화면 캐시 qk.flow: 흐름 파일 알림이 오면, 화면이 쓰면 다시 읽는다) */
+const EMPTY: FlowScan = { nodes: [], diagnostics: [], layout: {}, rows: null }
+function useFlow(rid: string) {
+  const client = useQueryClient()
+  const { data } = useQuery({ queryKey: qk.flow(rid), queryFn: () => flowApi(rid).scan().catch(() => EMPTY) })
+  const reload = useCallback(() => { void client.invalidateQueries({ queryKey: qk.flow(rid) }) }, [client, rid])
+  return { scan: data ?? null, reload }
 }
 
 /** 흐름 화면 (왼쪽 사이드바의 "흐름"): 프로젝트의 점 전부. topic이면 그 주제의 점을 굵게 */
-export function FlowPage({ rid, topic, version, notes, topics }: { rid: string; topic?: string; version: number; notes: NoteRow[]; topics: TopicRef[] }) {
-  const { scan, reload } = useFlow(rid, version)
+export function FlowPage({ rid, topic, notes, topics }: { rid: string; topic?: string; notes: NoteRow[]; topics: TopicRef[] }) {
+  const { scan, reload } = useFlow(rid)
   const lay = useMemo(() => scan ? layoutFlow(scan.nodes, scan.layout, { rows: scan.rows, minRows: topics.length }) : null, [scan, topics.length])
   return <div className="ws-doc" data-ui="흐름 화면">
     <section className="pane">
@@ -130,8 +130,8 @@ export function FlowPage({ rid, topic, version, notes, topics }: { rid: string; 
 }
 
 /** 주제 화면의 한 줄: 이 주제의 점 수와 흐름 화면으로 가는 링크 (흐름은 프로젝트 하나에 하나) */
-export function TopicFlowLink({ rid, tid, version }: { rid: string; tid: string; version: number }) {
-  const { scan } = useFlow(rid, version)
+export function TopicFlowLink({ rid, tid }: { rid: string; tid: string }) {
+  const { scan } = useFlow(rid)
   if (!scan) return null
   const n = scan.nodes.filter((x) => x.topics.includes(tid)).length
   return <p className="fl-topic-link" data-ui="주제 흐름 링크">
@@ -834,11 +834,10 @@ const citesNote = (n: FlowNode, file: string) => {
 }
 
 /** 노트 정보 갈래의 "흐름": 이 노트를 근거로 단 점 (누르면 주제 화면의 흐름에서 그 점), 그리고 점에 근거로 잇기 */
-export function NoteFlow({ rid, row, version, onSaved }: { rid: string; row: NoteRow; version: number; onSaved(m: string): void }) {
-  const [all, setAll] = useState<FlowNode[] | null>(null)
-  const [tick, setTick] = useState(0)
+export function NoteFlow({ rid, row, onSaved }: { rid: string; row: NoteRow; onSaved(m: string): void }) {
+  const { scan, reload } = useFlow(rid)
+  const all = scan?.nodes ?? null
   const [pick, setPick] = useState('')
-  useEffect(() => { flowApi(rid).scan().then((r) => setAll(r.nodes)).catch(() => setAll([])) }, [rid, version, tick])
   if (!all) return null
   const mine = all.filter((n) => citesNote(n, row.file))
   // 노트의 주제에 든 점을 먼저
@@ -853,7 +852,7 @@ export function NoteFlow({ rid, row, version, onSaved }: { rid: string; row: Not
       onSaved(tr(`점 "${n.short}"에 이 노트를 근거로 달았습니다`, `Attached this note to the dot "${n.short}" as evidence`))
     } catch (e) { onSaved(e instanceof ConflictError ? tr('그새 점 파일이 바뀌었습니다. 다시 해 주세요.', 'The dot file changed in the meantime. Try again.') : (e as Error).message) }
     setPick('')
-    setTick((x) => x + 1)
+    reload()
   }
   return <>
     {mine.length ? <ul className="rs-list">{mine.map((n) => <li key={n.id}>

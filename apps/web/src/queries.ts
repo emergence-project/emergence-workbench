@@ -5,7 +5,7 @@ import type { WorkbenchEvent } from './api'
  * 화면 캐시 (2026-10-15 종합 검토 묶음 H, TanStack Query).
  * 자료마다 키를 두고, 서버의 파일 알림(WorkbenchEvent)은 그 알림이 바꾸는 자료의 키만 다시 받게 한다(invalidationKeys).
  * 서버가 바뀔 때마다 알려 주므로 받은 자료는 알림이 올 때까지 그대로 쓴다(staleTime 무한, 창 초점에 다시 받지 않음).
- * 아직 옮기지 않은 화면(흐름, 노트 · 블록 편집, 기록 패널, 규칙 파일, 저장소 상태, 고침 하나의 검토)은 예전처럼 version(App.tsx)이 오를 때 다시 받는다.
+ * 아직 옮기지 않은 화면(노트 · 블록 편집, 기록 패널, 규칙 파일, 저장소 상태, 고침 하나의 검토)은 예전처럼 version(App.tsx)이 오를 때 다시 받는다.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +37,8 @@ export const qk = {
   noteTrash: (rid: string) => ['project', rid, 'notes', 'trash'] as const,
   /** 에이전트 고침 검토 목록. scope = 프로젝트 id 또는 library */
   agentEdits: (scope: string) => ['agent-edits', scope] as const,
+  /** 흐름 점 · 자리 · 줄 (workbench/flow/) */
+  flow: (rid: string) => ['project', rid, 'flow'] as const,
   papers: ['papers'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
@@ -70,7 +72,8 @@ function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' }>): QueryKey[
     // research.yaml sources의 파일(원고 · 그림 · 참고 자료 · 작업 목록 · 검토 문서)
     case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid)]
     case 'tasks': return [qk.tasks(rid)]
-    case 'preamble': case 'flow': case 'records-publish': return []
+    case 'flow': return [qk.flow(rid)]
+    case 'preamble': case 'records-publish': return []
   }
 }
 

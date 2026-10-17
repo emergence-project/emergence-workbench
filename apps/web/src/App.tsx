@@ -371,7 +371,7 @@ export function App() {
       case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} section="records" />
       case 'log': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} /></Lazy>
-      case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} version={version} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
+      case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
       case 'task': return <Lazy><TaskReport key={`${rid}/${t.task}`} rid={rid} id={t.task} version={version} project={current?.title ?? summary.research.title} topics={topics} onSaved={flash} tocOwner={context?.focused ? tabKey(t) : null} /></Lazy>
       case 'topic': return <TopicPage key={t.tid} rid={rid} rapi={rapi} tid={t.tid} notes={notes} manuscripts={manuscripts} blocks={summary.blocks} project={current?.title ?? summary.research.title} pc={projectColor(rid)}
