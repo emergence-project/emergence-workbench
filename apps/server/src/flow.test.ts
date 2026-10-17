@@ -151,3 +151,32 @@ describe('흐름 고치기', () => {
     expect((await get()).diagnostics).toEqual([])
   })
 })
+
+describe('STATUS의 흐름 절', () => {
+  it('요약은 최근 점과 열린 점 · 승인 대기를, 지도는 점마다 한 줄을 싣는다', async () => {
+    const { generateStatus, statusPart, statusSummary } = await import('./agentStatus.js')
+    const { Workbench } = await import('./workbench.js')
+    const wb = new Workbench(path.join(repo, 'workbench'))
+    fs.rmSync(dir(), { recursive: true, force: true })
+    expect(await generateStatus(wb)).not.toContain('## 흐름')
+    fs.mkdirSync(dir(), { recursive: true })
+    put('q', 'format: 1\nkind: question\nprogress: paused\nshort: 물음\ntitle: 물음 하나\ndate: 2026-10-01\nfields:\n  question: 되나?\nguesses: [에이전트가 쓴 물음]')
+    put('p', 'format: 1\nkind: proof\nprogress: done\nresult: dropped\nshort: 증명\ntitle: 증명 하나\ndate: 2026-10-02\nend: true\nfrom: [{ id: q, type: origin }]')
+    put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 발견\ntitle: 발견 하나\ndate: 2026-10-03\nfrom: [q]\nevidence:\n  - { kind: proof, file: workbench/notes/a/note.md, text: 증명, checks: [{ at: 2026-10-03T10:00, by: claude, role: agent }] }')
+    for (let i = 0; i < 5; i++) put(`d${i}`, `format: 1\nkind: calc\nprogress: done\nresult: solved\nshort: 계산 ${i}\ntitle: 계산 ${i}\ndate: 2026-10-1${i}`)
+    const status = await generateStatus(wb)
+    const brief = statusPart(status, '흐름 요약')!
+    expect(brief).toContain('점 8 · 해결 6 · 멈춤 1 · 폐기 1')
+    expect(brief).toContain('### 최근 점 5')
+    expect(brief).toContain('- 2026-10-14 π 계산 4 · `flow-d4` · 수치 계산 · 해결 — 계산 4')
+    // 최근 5개 밖의 열린 점도 핵심 칸까지
+    expect(brief).toMatch(/### 그 밖의 열린 점 1\n\n- 2026-10-01 \? 물음 · `flow-q` · 질문 · 멈춤 — 물음 하나\n  - 물음: 되나\?\n  - 뒤따른 점 → `p` \(폐기 · 갈래 끝\) · `f` \(해결\)\n  - 짐작\(사람 확인 안 함\): 에이전트가 쓴 물음/)
+    expect(brief).toContain('### 사람 승인 대기 1\n')
+    expect(brief).toContain('`flow-f` · 발견 · 해결 — 발견 하나')
+    const map = statusPart(status, '흐름 지도')!
+    expect(map).toContain('## 흐름 지도 8')
+    expect(map).toContain('- ▶ `q` · 질문 · 멈춤 → 흐름 요약')
+    expect(map).toContain('- `p` · 증명 · 폐기 · 갈래 끝 — 증명 하나 ← 발단 q')
+    expect(statusSummary(status, 'x')).toContain('## 흐름 요약')
+  })
+})
