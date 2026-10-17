@@ -19,7 +19,8 @@ describe('파일 알림 → 다시 받을 자료', () => {
     // 맡긴 일 파일은 맡긴 일과 현황만
     expect(invalidationKeys({ type: 'tasks', research: 'p', id: 'x' })).toEqual([qk.tasks('p'), qk.status('p')])
     // 현황(STATUS.md와 같은 글)은 그 프로젝트의 어느 파일에서나 뽑으므로 모든 알림에 든다. research는 프로젝트 키 전체라 따로 넣지 않는다
-    for (const type of ['flow', 'preamble', 'records-publish'] as const) expect(invalidationKeys({ type, research: 'p' })).toEqual([qk.status('p')])
+    expect(invalidationKeys({ type: 'flow', research: 'p' })).toEqual([qk.flow('p'), qk.status('p')])
+    for (const type of ['preamble', 'records-publish'] as const) expect(invalidationKeys({ type, research: 'p' })).toEqual([qk.status('p')])
     expect(qk.status('p').slice(0, 2)).toEqual([...qk.project('p')])
     expect(qk.tasks('p').slice(0, 2)).toEqual([...qk.project('p')])
   })

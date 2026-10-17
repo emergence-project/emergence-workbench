@@ -181,7 +181,7 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
       ) : t && <p className="ts-desc muted">{tr('설명이 없습니다. 연필을 눌러 적습니다.', 'No description. Click the pencil to write one.')}</p>}
     </header>
 
-    {!loose && <TopicFlowLink rid={rid} tid={tid} version={version} />}
+    {!loose && <TopicFlowLink rid={rid} tid={tid} />}
 
     <div className="ts-bar">
       <span className="ts-sum"><span>{tr('노트', 'Notes')} {mine.length}</span>{statusCounts(STATUS_ORDER)}</span>
