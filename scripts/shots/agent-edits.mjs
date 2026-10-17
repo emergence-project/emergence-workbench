@@ -30,7 +30,7 @@ export async function seedAgentEdits(base, rid, lang) {
   const solved = (notes.body?.notes ?? []).find((n) => n.status === 'solved' && n.file !== FILE)
   if (solved) {
     const block = /^workbench\/blocks\/([^/]+)\.(md|tex)$/.exec(solved.file)
-    const r = await call(base, block ? `api/researches/${encodeURIComponent(rid)}/blocks/${encodeURIComponent(block[1])}` : `api/researches/${encodeURIComponent(rid)}/manuscript/part?file=${encodeURIComponent(solved.file)}`)
+    const r = await call(base, block ? `api/researches/${encodeURIComponent(rid)}/blocks/${encodeURIComponent(block[1] ?? '')}` : `api/researches/${encodeURIComponent(rid)}/manuscript/part?file=${encodeURIComponent(solved.file)}`)
     const text = r.body?.content ?? ''
     const old = text.split('\n').find((l) => l.trim().length > 8 && !/^[%#-]/.test(l.trim()))
     if (old) await post(base, 'api/agent-edits/write', { target: { kind: 'note', rid, file: solved.file }, baseHash: r.body.hash, edits: [{ old, new: `${old} ` }], agent: 'claude-code', summary: lang === 'en' ? 'Fix a typo in the proof' : '증명의 오타 고치기' })

@@ -24,7 +24,7 @@ console.log(`화면 검사: ${options.viewport.width}×${options.viewport.height
 function run(cmd, args, env = {}) {
   return new Promise((resolve, reject) => {
     const p = spawn(cmd, args, { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } })
-    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')} → ${code}`))))
+    p.on('exit', (code) => (code === 0 ? resolve(undefined) : reject(new Error(`${cmd} ${args.join(' ')} → ${code}`))))
   })
 }
 
@@ -60,7 +60,7 @@ try {
 
   fs.mkdirSync(out, { recursive: true })
   const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
-  const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0][0]) })
+  const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
   // Start in the capture language, so the first screen does not load in the browser language and reload (i18n.ts)
   await page.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
   let current = ''
@@ -97,10 +97,10 @@ try {
         const first = [...document.querySelectorAll('[data-ui="PDF"] .pdf-page[data-page="1"]')]
           .find((el) => el.getClientRects().length > 0)
         const canvas = first?.querySelector('canvas')
-        if (!canvas || !first.querySelector('.pdf-text span') || !canvas.width || !canvas.height) return false
+        if (!canvas || !first?.querySelector('.pdf-text span') || !canvas.width || !canvas.height) return false
         const pixels = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data
         // A newly mounted or freshly sized canvas is still transparent; a white fill alone is not a page.
-        return pixels?.some((alpha, i) => i % 4 === 3 && alpha > 0 && Math.min(pixels[i - 3], pixels[i - 2], pixels[i - 1]) < 240)
+        return pixels?.some((alpha, i) => i % 4 === 3 && alpha > 0 && Math.min(pixels[i - 3] ?? 255, pixels[i - 2] ?? 255, pixels[i - 1] ?? 255) < 240)
       }, undefined, { timeout: 10_000, polling: 250 }).catch(() => {})
     }
     // 누를 부위는 하나 또는 차례로 여럿. '['로 시작하면 그대로 선택자로 쓴다. '!'로 시작하면 다른 것에 가려 있어도 그 자리를 누른다
@@ -139,7 +139,7 @@ try {
         for (let n = walk.nextNode(); n; n = walk.nextNode()) {
           const el = n.parentElement
           if (!el || !el.getClientRects().length || el.closest('.cm-editor, .note-body, .md-body, .pdf-page, svg')) continue
-          if (/[가-힣]/.test(n.textContent)) lines.add(n.textContent.trim().slice(0, 80))
+          if (/[가-힣]/.test(n.textContent ?? '')) lines.add((n.textContent ?? '').trim().slice(0, 80))
         }
         for (const el of document.querySelectorAll('[title], [aria-label], [placeholder], [data-tip]')) {
           for (const a of ['title', 'aria-label', 'placeholder', 'data-tip']) { const v = el.getAttribute(a); if (v && /[가-힣]/.test(v)) lines.add(`@${a}: ${v.slice(0, 80)}`) }

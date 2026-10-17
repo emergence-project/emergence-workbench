@@ -3,6 +3,7 @@ import path from 'node:path'
 import chokidar, { type FSWatcher } from 'chokidar'
 import websocket from '@fastify/websocket'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type { ErrorReply } from '@rw/core/contract/error'
 import type { UpdateSteps } from './appupdate.js'
 import type { AskRunner } from './ask.js'
 import { asLang, currentLang, setDefaultLang, t, withLang } from './i18n.js'
@@ -219,13 +220,13 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
 
   app.setErrorHandler((err, _req, reply) => {
     // 409에는 지금 파일의 hash를 붙인다(ConflictError): 라우트마다 감싸지 않아도 화면이 다시 읽고 고를 수 있다
-    if (err instanceof ConflictError) return reply.status(409).send({ error: err.message, currentHash: err.currentHash })
-    if (err instanceof WorkbenchError) return reply.status(err.status).send({ error: err.message })
+    if (err instanceof ConflictError) return reply.status(409).send({ error: err.message, currentHash: err.currentHash } satisfies ErrorReply)
+    if (err instanceof WorkbenchError) return reply.status(err.status).send({ error: err.message } satisfies ErrorReply)
     const e = err as { statusCode?: number; message?: string; stack?: string }
     const status = e.statusCode ?? 500
     // 500은 서버 로그에 남긴다 (logger: false라 여기 말고는 흔적이 없어, 화면에 "500"만 보이고 원인을 못 찾는다)
     if (status >= 500) console.error(`[${_req.method} ${_req.url}] ${e.stack ?? e.message ?? String(err)}`)
-    return reply.status(status).send({ error: e.message ?? t('알 수 없는 오류', 'Unknown error') })
+    return reply.status(status).send({ error: e.message ?? t('알 수 없는 오류', 'Unknown error') } satisfies ErrorReply)
   })
 
   const wbOf = (rid: string): Workbench => registry.get(rid)

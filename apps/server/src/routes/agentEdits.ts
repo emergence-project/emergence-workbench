@@ -1,6 +1,7 @@
 // 에이전트 고침 검토 (2026-10-08): 에이전트 쓰기(MCP edit_concept · edit_note)와 사용자 검토(문단 단위 승인 · 되돌리기 · 직접 고치기)
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/agentEdits'
+import type { ErrorReply } from '@rw/core/contract/error'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
 import { parseNoteFixes } from '@rw/core'
@@ -119,7 +120,7 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
     const target = parseTarget(b.target)
     const r = agentWrite(io(), store(), { ...b, target, approved: b.approved === true })
     await notify(target)
-    if (!r.ok) return reply.status(r.status).send({ error: r.error, key: targetKey(target) })
+    if (!r.ok) return reply.status(r.status).send({ error: r.error, key: targetKey(target) } satisfies ErrorReply)
     return { ...r, key: targetKey(target) }
   })
 

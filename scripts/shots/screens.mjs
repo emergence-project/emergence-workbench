@@ -2,7 +2,9 @@
 const EDITOR_TEXT = '[data-ui="LaTeX 편집기"] .cm-line:not(:has(br:only-child))'
 
 /** 찍을 화면: [파일 이름, 주소(#뒤), 그려졌다고 볼 부위(data-ui, '['로 시작하면 선택자), 찍기 전에 누를 부위(data-ui 또는 그 목록, 없어도 됨)] — {rid}는 예제 연구 id.
- *  이름이 `dark-`로 시작하면 다크 모드(시스템 설정 흉내)로 찍는다. --theme dark면 모든 화면을 다크로 찍는다(다크 값을 고칠 때 확인용). */
+ *  이름이 `dark-`로 시작하면 다크 모드(시스템 설정 흉내)로 찍는다. --theme dark면 모든 화면을 다크로 찍는다(다크 값을 고칠 때 확인용).
+ *  @typedef {[name: string, hash: string, ui?: string, click?: string | string[]]} Screen
+ *  @type {Screen[]} */
 export const DEFAULT_SCREENS = [
   ['home', '#/', '홈'],
   // 홈 카드 보기 (10/5 시안 5단계). 보기는 기억되므로 목록 보기(home)보다 뒤에 둔다
@@ -121,6 +123,7 @@ export const DEFAULT_SCREENS = [
 ]
 
 // --sample subjects: a separate .sandbox-shots/subjects-library fixture, preserving the default L2b shots.
+/** @type {Screen[]} */
 export const SUBJECT_SCREENS = [
   ['subjects-knowledge-list', '#/library/list', '지식 목록 줄'],
   ['subjects-knowledge-filtered', '#/library/list?subject=math', '분류의 논문과 그림'],

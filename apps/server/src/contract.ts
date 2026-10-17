@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { z } from 'zod'
+import { ErrorReply } from '@rw/core/contract/error'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 
@@ -22,17 +23,20 @@ export function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.o
 export const replies = (schema: z.ZodTypeAny) => ({ config: { reply: schema } })
 
 /**
- * 테스트(vitest)에서만: replies()를 붙인 라우트의 성공 응답을 모두 계약으로 검사한다.
+ * 테스트(vitest)에서만: replies()를 붙인 라우트의 응답을 모두 계약으로 검사한다.
+ * 성공(200)은 그 라우트의 계약으로, 오류(4xx·5xx)는 공통 오류 계약(ErrorReply: { error, currentHash?, key? })으로.
  * 계약과 다르면(모르는 칸 포함) 500과 어느 칸인지 적은 오류로 바꿔, 그 라우트를 부르는 모든 테스트가 실패한다.
  */
 export function checkReplies(app: FastifyInstance, on = !!process.env.VITEST): void {
   if (!on) return
   app.addHook('onSend', async (req, reply, payload) => {
-    const schema = req.routeOptions.config?.reply
-    if (!schema || reply.statusCode !== 200 || typeof payload !== 'string') return payload
+    const ok = req.routeOptions.config?.reply
+    const failed = reply.statusCode >= 400
+    if (!ok || (reply.statusCode !== 200 && !failed) || typeof payload !== 'string') return payload
+    const schema = failed ? ErrorReply : ok
     const r = schema.safeParse(JSON.parse(payload))
     if (r.success) return payload
     const what = r.error.issues.map((i) => `${i.path.join('.') || '(reply)'}: ${i.message}`).join('; ')
-    throw new Error(`reply does not match contract (${req.method} ${req.routeOptions.url}): ${what}`)
+    throw new Error(`${failed ? `error ${reply.statusCode} ` : ''}reply does not match contract (${req.method} ${req.routeOptions.url}): ${what}`)
   })
 }

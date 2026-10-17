@@ -162,7 +162,8 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
       const id = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: mac, createWorkbench: true } })).json().id
       expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: false, last: null })
       await app.inject({ method: 'POST', url: `/api/researches/${id}/comments/project`, payload: { kind: '메모', title: 'P', text: '메모' } })
-      await new Promise((r) => setTimeout(r, 150))
+      // 저절로 올리기가 꺼져 있으면 올리기를 예약하지도 시도하지도 않는다: 기다리지 않고 상태로 본다
+      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: false, last: null })
       expect(g(remote, 'log', '--format=%s', '-n', '1', 'main')).toBe('init')
     } finally { await app.close() }
   })

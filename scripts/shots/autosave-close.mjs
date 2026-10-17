@@ -69,12 +69,14 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const checks = []
 
 function deferred() {
-  let resolve
+  /** @type {(value?: unknown) => void} */
+  let resolve = () => {}
   const promise = new Promise((r) => { resolve = r })
   return { promise, resolve }
 }
 async function eventually(fn, message, timeout = 10000) {
   const until = Date.now() + timeout
+  /** @type {any} */
   let last
   while (Date.now() < until) {
     try { const value = await fn(); if (value) return value } catch (e) { last = e }

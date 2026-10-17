@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -42,8 +43,34 @@ function resolveConfigDir(): string {
 
 const configDir = resolveConfigDir()
 
+/** 예제의 원본(fixtures/ · templates/shared-library) 내용 도장. 경로와 내용만 보므로 다시 받아도(checkout) 같다 */
+function fixtureStamp(): string {
+  const h = createHash('sha256')
+  const walk = (dir: string): void => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (e.isFile()) h.update(path.relative(repoRoot, p)).update('\0').update(fs.readFileSync(p)).update('\0')
+    }
+  }
+  for (const d of ['fixtures', 'templates/shared-library']) walk(path.join(repoRoot, d))
+  return h.digest('hex').slice(0, 16)
+}
+/** 예제 모드에서 fixtures로 만드는 폴더. 설정(config)은 두고 이것만 다시 만든다 */
+const SAMPLE_DIRS = ['sample-research', 'sample-work', 'shared-library', 'papers-pdf', 'study', 'topic-reviews', 'subjects-library', 'feedback']
+
 // 앱이 파일 감시를 시작하기 전에 예제 연구를 등록해 둔다.
 if (process.env.RW_SANDBOX === '1') {
+  // fixtures가 바뀌었으면(도장이 다르면) 예제를 새로 복사한다. 없던 예제 폴더는 아래에서 처음 만든다
+  const stampFile = path.join(sandboxRoot, '.fixture-stamp')
+  const stamp = fixtureStamp()
+  const made = SAMPLE_DIRS.filter((d) => fs.existsSync(path.join(sandboxRoot, d)))
+  let oldStamp: string | null = null
+  try { oldStamp = fs.readFileSync(stampFile, 'utf8').trim() } catch { /* 처음이거나 도장 전 예제 */ }
+  if (made.length && oldStamp !== stamp) {
+    console.log(`fixtures가 바뀌어 예제를 새로 만듭니다: ${made.join(', ')} (${sandboxRoot}, 설정은 그대로)`)
+    for (const d of made) fs.rmSync(path.join(sandboxRoot, d), { recursive: true, force: true })
+  }
   const research = path.join(sandboxRoot, 'sample-research')
   if (!fs.existsSync(path.join(research, 'workbench'))) {
     cpSample(path.join(repoRoot, 'fixtures/sample-research'), research, { recursive: true, filter: (src) => !src.includes('.build') })
@@ -63,6 +90,9 @@ if (process.env.RW_SANDBOX === '1') {
   if (!fs.existsSync(path.join(work, 'workbench'))) {
     cpSample(path.join(repoRoot, 'fixtures/sample-research'), work, { recursive: true, filter: (src) => !src.includes('.build') })
     fs.writeFileSync(path.join(work, 'workbench/research.yaml'), sampleEn ? 'title: Sample work — sensor performance table\nquestion: Summarize the required gravity-sensor performance in a table and report it.\nstarted: 2026-10-01\n' : 'title: 예제 업무 — 센서 성능 표\nquestion: 중력 센서 요구 성능을 표로 정리해 보고한다.\nstarted: 2026-10-01\n')
+  }
+  // 예제를 새로 만들어도 등록은 설정에 남아 있다: 두 번 등록하지 않는다
+  if (!registry.list().some((r) => r.path === fs.realpathSync(work))) {
     const { id } = registry.register(work)
     registry.setProfile(id, { kind: 'work', fields: ['Graph Theory'] })
   }
@@ -123,6 +153,7 @@ if (process.env.RW_SANDBOX === '1') {
     if (!fs.existsSync(dir)) cpSample(path.join(knowledge, name), dir, { recursive: true })
     set(dir)
   }
+  fs.writeFileSync(stampFile, `${stamp}\n`)
 }
 
 // 개인 저장소 (personalRepo.ts): 실사용만. 앱 설정·workbench 백업·피드백을 둔다
