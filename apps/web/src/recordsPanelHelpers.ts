@@ -1,8 +1,11 @@
 import type { CommentEntry, RecordFile } from './api/comments'
 import type { Route } from './router'
 import type { Tab } from './Workspace'
+import type { RecordFilter } from './recordLabels'
+import { monthDay, recordDay } from './format'
 
-export type RecordFilter = '전체' | '메모' | '할 일' | '질문' | '지시'
+/** 오른쪽 기록 패널의 필터: 전체와 기록 종류 */
+export type PanelFilter = '전체' | RecordFilter
 export const recordKind = (c: Pick<CommentEntry, 'kind'>) => c.kind === '코멘트' ? '메모' : c.kind
 /** 사용자가 이어 쓴 답의 이름 (파일 값, docs/repo-format.md §6.2) */
 export const USER_ANSWER_BY = '사용자'
@@ -10,7 +13,7 @@ export const USER_ANSWER_BY = '사용자'
 export const isTalkKind = (kind: string) => kind === '질문' || kind === '지시'
 /** 사용자 차례 (10/15): 에이전트가 쓴(by) 질문 · 지시가 대기. 서버 comments.ts isUserTurnRecord와 같은 규칙 */
 export const isUserTurnRecord = (c: Pick<CommentEntry, 'kind' | 'by' | 'state'>) => isTalkKind(c.kind) && Boolean(c.by) && c.state === '대기'
-export const filterRecords = (items: CommentEntry[], filter: RecordFilter) => items.filter((c) => c.kind !== '하이라이트' && (filter === '전체' || recordKind(c) === filter))
+export const filterRecords = (items: CommentEntry[], filter: PanelFilter) => items.filter((c) => c.kind !== '하이라이트' && (filter === '전체' || recordKind(c) === filter))
 /** Count source records actually classified, excluding changed or removed entries and newly split items. */
 export function classifiedRecordCount(before: CommentEntry[], after: CommentEntry[]): number {
   const current = new Map(after.map((c) => [c.id, c]))
@@ -19,10 +22,7 @@ export function classifiedRecordCount(before: CommentEntry[], after: CommentEntr
     return c.unsorted && next && !next.unsorted && next.body === c.body
   }).length
 }
-export const recordDate = (id: string) => {
-  const match = /^c-(\d{4})(\d{2})(\d{2})-/.exec(id)
-  return match ? `${Number(match[2])}/${Number(match[3])}` : ''
-}
+export const recordDate = (id: string) => { const day = recordDay(id); return day ? monthDay(day) : '' }
 export function recordRoute(rid: string, file: Pick<RecordFile, 'target' | 'source'>, firstPartOf: (target: string) => string | undefined): Route | null {
   if (file.target === 'project') return null
   if (file.target.startsWith('note-') || file.target.startsWith('calc-')) return file.source ? { page: 'part', rid, file: file.source } : null
@@ -52,7 +52,7 @@ export function rebaseRecordEdit(edit: RecordEdit, body: string, hash: string): 
 }
 
 /** Newly written or explicitly revealed records must remain visible after a filter was chosen. */
-export function filterForActiveRecord(filter: RecordFilter, comments: CommentEntry[], active: string | null): RecordFilter {
+export function filterForActiveRecord(filter: PanelFilter, comments: CommentEntry[], active: string | null): PanelFilter {
   const entry = comments.find((c) => c.id === active)
   return entry && entry.kind !== '하이라이트' && !filterRecords([entry], filter).length ? '전체' : filter
 }

@@ -7,20 +7,15 @@ import { Icon } from './icons'
 import { askConfirm } from './askText'
 import { onListKey } from './listInput'
 import { go } from './router'
-import { filterRecords, isTalkKind, isUserTurnRecord, recordDate, recordKind, rebaseRecordEdit, USER_ANSWER_BY, type RecordFilter, type RecordEdit } from './recordsPanelHelpers'
+import { filterRecords, isTalkKind, isUserTurnRecord, recordDate, recordKind, rebaseRecordEdit, USER_ANSWER_BY, type PanelFilter, type RecordEdit } from './recordsPanelHelpers'
+import { kindLabel, stateLabel } from './recordLabels'
 import { SayCard } from './Conversation'
 import { t } from './i18n'
 import { uiShown } from './uiNames'
 import { chooseRecordFilter } from './workRecords'
 
-/** 기록 종류·상태는 파일에 적는 값이라 한국어 그대로 두고, 보일 때만 바꾼다 */
-const KIND_EN: Record<string, string> = { '전체': 'All', '메모': 'Memo', '할 일': 'To-do', '질문': 'Question', '지시': 'Instruction', '하이라이트': 'Highlight', '코멘트': 'Comment' }
-const STATE_EN: Record<string, string> = { '대기': 'Waiting', '답함': 'Answered', '끝냄': 'Closed' }
-const kindText = (k: string) => t(k, KIND_EN[k] ?? k)
-const stateText = (s: string) => t(s, STATE_EN[s] ?? s)
-
 export function RecordList({ rid, file, filter, onGo, items: suppliedItems, work = false }: {
-  rid: string; file: RecordFile; filter: RecordFilter; onGo(c: CommentEntry): void
+  rid: string; file: RecordFile; filter: PanelFilter; onGo(c: CommentEntry): void
   items?: CommentEntry[]; work?: boolean
 }) {
   const active = useSlot(rid, file.target, false).active
@@ -46,7 +41,7 @@ export function RecordList({ rid, file, filter, onGo, items: suppliedItems, work
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
   return <>
     {(error ?? askError) && <div className="banner danger" role="alert">{error ?? askError}</div>}
-    {!items.length && suppliedItems === undefined && <p className="empty records-empty">{filter === '전체' ? t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.') : t(`${filter} 기록이 없습니다.`, `No ${kindText(filter).toLowerCase()} records.`)}</p>}
+    {!items.length && suppliedItems === undefined && <p className="empty records-empty">{filter === '전체' ? t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.') : t(`${filter} 기록이 없습니다.`, `No ${kindLabel(filter).toLowerCase()} records.`)}</p>}
     {items.map((c) => <RecordRow key={c.id} active={active === c.id} c={c} hash={file.hash} busy={busy} onGo={() => onGo(c)}
       asking={asking.has(askKey(rid, file.target, c.id))} onAsk={() => void askClaude(rid, file.target, c.id)}
       onState={(state) => act(() => api.update(file.target, c.id, { state, baseHash: file.hash }))}
@@ -100,7 +95,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
     <div className="record-row-head">
       {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('끝냄', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
-          : <span className="record-marker" aria-label={kindText(kind)}>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
+          : <span className="record-marker" aria-label={kindLabel(kind)}>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
       {/* 쓴 이는 줄 맨 위에 (10/15 22:41 피드백): 사용자 또는 에이전트 이름 */}
       <span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('사용자가 쓴 기록', 'Written by the user')}>{c.by ?? t('사용자', 'User')}</span>
       <span className="record-place">
@@ -127,10 +122,10 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null); else onListKey(e, (text) => setEdit({ ...edit, text })) }} />
         <div className="record-edit-actions"><button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
-      <div className="record-meta"><span>{kindText(kind)}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
+      <div className="record-meta"><span>{kindLabel(kind)}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
         {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>→ {t('할 일 목록', 'To-do list')}</button>}
         {talk && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{turn ? <span className="record-turn">{t('내 차례', 'Your turn')}</span>
-          : (work || c.state) && <span>· {work ? stateText(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateText(c.state!)}</span>}
+          : (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
           {onReply && c.state !== '끝냄' && !turn && <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>}</>}
       </div>
       {/* 기록 탭은 답을 대화로(내 글 오른쪽, 에이전트 글 왼쪽), 오른쪽 사이드바는 좁아서 답을 차례로 쌓는다 (10/15) */}

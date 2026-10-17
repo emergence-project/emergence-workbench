@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { BlockStatus } from '@rw/core'
 import type { AgentRules, ManuscriptInfo, RepoInfo, ResearchApi, ResearchListItem, ResearchSummary } from './api'
-import { projectColor, relativeTime, statusLabel, statusOf } from './format'
+import { isoDay, monthDay, projectColor, relativeTime, statusLabel, statusOf } from './format'
 import { AUX_NOTE } from './notes'
 import { go } from './router'
 import { ProjectStateDot, type ProfilePatch } from './ProjectProfileFields'
@@ -55,7 +55,6 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, project: list
   rapi: ResearchApi
   summary: ResearchSummary
   manuscripts: ManuscriptInfo[]
-  version: number
   /** 이 프로젝트의 등록 정보 (성격 · 분야 · 진행 상태, 이 컴퓨터의 설정) */
   project?: ResearchListItem
   all: ResearchListItem[]
@@ -144,7 +143,7 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
   const text = useStatusText(rid, rapi)
   const turn = tasks ? judgeOrder(tasks) : []
   const since = new Date(Date.now() - RECENT_DAYS * 86_400_000)
-  const sinceDay = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}-${String(since.getDate()).padStart(2, '0')}`
+  const sinceDay = isoDay(since)
   const recent = entries.filter((e) => e.date >= sinceDay).sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).slice(0, TURN_ROWS)
   const toWork = <button className="a info-more" onClick={() => go({ page: 'todo', rid })}>{t('작업 탭 ›', 'Work tab ›')}</button>
   return (
@@ -192,7 +191,7 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
         <h2>{t('최근 기록', 'Recent journal')} <span className="muted">{t(`${RECENT_DAYS}일`, `${RECENT_DAYS} days`)}</span><button className="a info-more" onClick={() => go({ page: 'log', rid })}>{t('작업 일지 ›', 'Journal ›')}</button></h2>
         {!loaded && !entries.length ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : !recent.length ? <p className="muted">{t('최근 기록이 없습니다', 'No recent entries')}</p> : (
           <ul className="info-list">
-            {recent.map((e) => <li key={`${e.date}-${e.index}`} className="info-row static"><span className="info-row-title">{e.text.split('\n')[0]}</span><span className="muted info-row-meta">{e.date.slice(5).replace('-', '/')} {e.time}</span></li>)}
+            {recent.map((e) => <li key={`${e.date}-${e.index}`} className="info-row static"><span className="info-row-title">{e.text.split('\n')[0]}</span><span className="muted info-row-meta">{monthDay(e.date, true)} {e.time}</span></li>)}
           </ul>
         )}
       </section>

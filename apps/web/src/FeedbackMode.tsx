@@ -1,7 +1,7 @@
 import { Icon } from './icons'
 import { feedbackNote } from './feedbackNote'
 import { useEffect, useRef, useState } from 'react'
-import { feedbackChanged, req, type FeedbackKind } from './api'
+import { api, feedbackChanged, req, type FeedbackKind } from './api'
 import { uiShown } from './uiNames'
 import { FeedbackText } from './FeedbackPage'
 import { go } from './router'
@@ -104,8 +104,8 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   useEffect(() => { void loadCapture().catch(() => undefined) }, [])
 
   useEffect(() => {
-    req('/api/feedback').then((r) => r.json()).then((b) => {
-      setPublishable(!!b.publishable)
+    api.feedbackState().then((b) => {
+      setPublishable(b.publishable)
       setIssues(typeof b.issues === 'string' ? { url: b.issues, version: b.version ?? null } : null)
     }).catch(() => setPublishable(false))
   }, [])

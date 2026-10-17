@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { initials, journalWhen, relativeTime, statusLabel, statusOf } from './format'
+import { initials, isoDay, journalWhen, monthDay, recordDay, relativeTime, statusLabel, statusOf } from './format'
 
 describe('format', () => {
   it('모르는 상태는 진행으로 본다', () => {
@@ -33,5 +33,15 @@ describe('format', () => {
     expect(initials('연구 작업대')).toBe('연')
     expect(initials('Beta — Euler characteristic')).toBe('BE')
     expect(initials('')).toBe('?')
+  })
+
+  it('날짜 형식 (현지 날짜 · 월/일 · 기록 id의 날짜)', () => {
+    expect(isoDay(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05')
+    expect(monthDay('2026-10-07')).toBe('10/7')
+    expect(monthDay('2026-01-05')).toBe('1/5')
+    expect(monthDay('2026-10-07', true)).toBe('10/07')
+    expect(recordDay('c-20261006-1200')).toBe('2026-10-06')
+    expect(recordDay('c-20261006-120030-2')).toBe('2026-10-06')
+    expect(recordDay('legacy')).toBe('')
   })
 })

@@ -1,6 +1,6 @@
 import type { JournalEntry } from '@rw/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { agentEditsApi, api, notesApi, papersApi, tasksApi, type ResearchApi } from './api'
+import { agentEditsApi, api, commentsApi, notesApi, papersApi, tasksApi, type ResearchApi } from './api'
 import { flash } from './flash'
 import { qk } from './queries'
 import { taskTitles } from './taskView'
@@ -13,6 +13,11 @@ import { taskTitles } from './taskView'
 /** 프로젝트 정보 (sources · 작업 목록 · 검토 문서). 받지 못하면 null */
 export function useProjectInfo(rid: string) {
   return useQuery({ queryKey: qk.info(rid), queryFn: () => api.research(rid).project().catch(() => null) })
+}
+
+/** 프로젝트와 모든 노트의 기록 (작업 탭의 기록 · 오른쪽 기록 패널이 함께 쓴다). 여기서 고친 기록은 bumpPending이 다시 받게 한다 */
+export function useRecords(rid: string, enabled = true) {
+  return useQuery({ queryKey: qk.records(rid), queryFn: () => commentsApi(rid).records(), enabled })
 }
 
 /** 에이전트 고침 검토 목록 (scope: 프로젝트 id 또는 library) */

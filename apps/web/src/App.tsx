@@ -65,7 +65,7 @@ export function App() {
   const globalPage = route.page === 'home' || !!globalPageOf(route.page)
   const [researches, setResearches] = useState<ResearchListItem[] | null>(null)
   // 프로젝트 색: 고른 색과 자동 색이 겹치지 않게 목록 전체로 정한다 (자식이 그리기 전에)
-  if (researches) setProjectColors(researches)
+  useMemo(() => { if (researches) setProjectColors(researches) }, [researches])
   /** 아직 화면 캐시(queries.ts)로 옮기지 않은 화면이 다시 받는 신호. 파일 알림 · 저장 뒤에 오른다 */
   const [version, setVersion] = useState(0)
   const [search, setSearch] = useState(false)
@@ -143,9 +143,8 @@ export function App() {
   const client = useQueryClient()
   const summaryQuery = useQuery({ queryKey: qk.summary(rid ?? ''), queryFn: () => rapi!.summary(), enabled: !!rapi })
   const summary: ResearchSummary | null = rapi ? summaryQuery.data ?? null : null
-  useEffect(() => { if (summaryQuery.error) setError(summaryQuery.error.message) }, [summaryQuery.error])
-  // 프로젝트를 옮기면 앞 프로젝트의 요약 오류 문장은 지운다
-  useEffect(() => { setError(null) }, [rid])
+  // 프로젝트를 옮기면 앞 프로젝트의 요약 오류 문장은 지우고, 새 프로젝트의 요약 오류(캐시에 있던 것도)를 보인다
+  useEffect(() => { setError(summaryQuery.error?.message ?? null) }, [rid, summaryQuery.error])
   /** 저장한 뒤: 이 프로젝트의 자료와 라이브러리를 다시 받고, 옮기지 않은 화면도 다시 받게 한다 */
   const changed = useCallback(() => {
     if (rid) void client.invalidateQueries({ queryKey: qk.project(rid) })
@@ -369,9 +368,9 @@ export function App() {
       case 'mspdf': return <ManuscriptPdfTab key={msKeyOfTab(t)} rid={rid} info={manuscripts.find((m) => m.key === msKeyOfTab(t)) ?? null} rapi={rapi} onSaved={flash} version={version}
         active={context?.active ?? false} pairedEditor={hasVisibleManuscriptEditor(context?.visibleTabs ?? [], msKeyOfTab(t), (file) => msOfFile(file)?.key)} />
       case 'pdf': return <PdfTab rid={rid} bid={t.bid} title={tabTitle({ k: 'block', bid: t.bid }, summary)} rapi={rapi} />
-      case 'todo': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />
-      case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} section="records" />
-      case 'log': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} version={version} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
+      case 'todo': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />
+      case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} section="records" />
+      case 'log': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} /></Lazy>
       case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
@@ -384,7 +383,7 @@ export function App() {
       case 'status': return <StatusPage key="status" rid={rid} rapi={rapi} />
       case 'repo': return <RepoPage key="repo" rid={rid} rapi={rapi} root={summary.root} version={version} />
       case 'info': return (
-        <ProjectInfoPage rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} version={version}
+        <ProjectInfoPage rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts}
           project={current} all={researches ?? []} onProfile={setProfile}
           onChanged={() => { changed(); void loadResearches() }} onSaved={flash} />
       )

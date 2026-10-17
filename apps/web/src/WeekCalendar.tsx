@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { googleApi, type GoogleEvent } from './api'
-import { localDate } from './format'
+import { isoDay, monthDay } from './format'
 import { MarkIcon } from './marks'
-import { briefing, markOf, shortDate, WEEK_DAYS, weekStartOf, type DayGroup, type Deadline } from './homeData'
+import { briefing, markOf, WEEK_DAYS, weekStartOf, type DayGroup, type Deadline } from './homeData'
 import { go } from './router'
 import { t } from './i18n'
 
@@ -18,8 +18,8 @@ export function WeekCalendar({ byDay, deadlines, now = new Date(), onCopied }: {
   byDay: Map<string, DayGroup[]>; deadlines: Deadline[]; now?: Date; onCopied(msg: string): void
 }) {
   const [start, setStart] = useState(() => weekStartOf(now))
-  const today = localDate(now)
-  const days = Array.from({ length: 7 }, (_, i) => localDate(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)))
+  const today = isoDay(now)
+  const days = Array.from({ length: 7 }, (_, i) => isoDay(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)))
   const shift = (n: number) => setStart(new Date(start.getFullYear(), start.getMonth(), start.getDate() + n * 7))
   const dueOn = (iso: string) => deadlines.filter((d) => d.due === iso)
   // 구글 일정: 연결 안 됐으면 null (달력 아래에 연결 안내)
@@ -42,7 +42,7 @@ export function WeekCalendar({ byDay, deadlines, now = new Date(), onCopied }: {
     <section className="week" data-ui="한 일 달력">
       <div className="sec-head">
         <h2>{t('한 일 달력', 'Activity calendar')}</h2>
-        <span className="muted today-sub">{shortDate(days[0]!)} – {shortDate(days[6]!)}</span>
+        <span className="muted today-sub">{monthDay(days[0]!)} – {monthDay(days[6]!)}</span>
         <span className="sp" />
         <button className="icon-btn" aria-label={t('지난주', 'Last week')} onClick={() => shift(-1)}>‹</button>
         <button className="fb-link" onClick={() => setStart(weekStartOf(now))}>{t('이번 주', 'This week')}</button>
@@ -56,7 +56,7 @@ export function WeekCalendar({ byDay, deadlines, now = new Date(), onCopied }: {
           const count = groups.reduce((n, g) => n + g.events.length, 0)
           return (
             <div key={iso} className={`week-day${iso === today ? ' is-today' : ''}${iso > today ? ' future' : ''}`} data-ui="하루">
-              <div className="week-dh"><b>{WEEK_DAYS[i]}</b><span>{shortDate(iso)}</span>{count > 0 && <span className="cnt">{count}</span>}</div>
+              <div className="week-dh"><b>{WEEK_DAYS[i]}</b><span>{monthDay(iso)}</span>{count > 0 && <span className="cnt">{count}</span>}</div>
               <div className="week-db">
                 {gcalOn(iso).map((e) => (
                   <a key={e.id} className="week-gcal" data-ui="구글 일정" href={e.link} target="_blank" rel="noreferrer"
