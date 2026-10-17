@@ -104,6 +104,8 @@ export const READ_ONLY_REQUESTS = new Set([
   'POST /api/feedback',
   'PATCH /api/feedback',
   'PUT /api/feedback/review',
+  'POST /api/feedback/comment',
+  'PATCH /api/feedback/review',
   'POST /api/feedback/publish',
   'POST /api/app/update',
   'POST /api/app/restart',
@@ -218,8 +220,11 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
     // 409에는 지금 파일의 hash를 붙인다(ConflictError): 라우트마다 감싸지 않아도 화면이 다시 읽고 고를 수 있다
     if (err instanceof ConflictError) return reply.status(409).send({ error: err.message, currentHash: err.currentHash })
     if (err instanceof WorkbenchError) return reply.status(err.status).send({ error: err.message })
-    const e = err as { statusCode?: number; message?: string }
-    return reply.status(e.statusCode ?? 500).send({ error: e.message ?? t('알 수 없는 오류', 'Unknown error') })
+    const e = err as { statusCode?: number; message?: string; stack?: string }
+    const status = e.statusCode ?? 500
+    // 500은 서버 로그에 남긴다 (logger: false라 여기 말고는 흔적이 없어, 화면에 "500"만 보이고 원인을 못 찾는다)
+    if (status >= 500) console.error(`[${_req.method} ${_req.url}] ${e.stack ?? e.message ?? String(err)}`)
+    return reply.status(status).send({ error: e.message ?? t('알 수 없는 오류', 'Unknown error') })
   })
 
   const wbOf = (rid: string): Workbench => registry.get(rid)

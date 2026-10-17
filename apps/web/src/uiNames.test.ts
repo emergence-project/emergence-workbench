@@ -13,7 +13,11 @@ describe('English names for screen parts (data-ui)', () => {
   it('has an English name for every fixed data-ui in the screen code', () => {
     const missing = new Set<string>()
     for (const f of files(SRC)) {
-      for (const m of fs.readFileSync(f, 'utf8').matchAll(/data-ui="([^"{]+)"/g)) {
+      const src = fs.readFileSync(f, 'utf8')
+      // 고정 문자열 data-ui="…"과, 조건식 안의 문자열 리터럴 data-ui={a ? '…' : '…'} 둘 다 본다
+      const names = [...src.matchAll(/data-ui="([^"{]+)"/g)]
+      for (const m of src.matchAll(/data-ui=\{([^}\n]*)\}/g)) for (const lit of m[1]!.matchAll(/'([가-힣][^']*)'/g)) names.push(lit)
+      for (const m of names) {
         if (/[가-힣]/.test(m[1]!) && !(m[1]! in en)) missing.add(`${path.basename(f)}: ${m[1]}`)
       }
     }

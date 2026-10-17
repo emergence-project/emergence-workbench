@@ -111,7 +111,7 @@ describe('구글 연결', () => {
   it('다른 컴퓨터의 설정을 불러오면 화면 설정을 되살리고 없는 프로젝트를 알려 준다', async () => {
     const id = [...fake.files.keys()][0]!
     fake.files.set(id, JSON.stringify({
-      version: 1, savedAt: '2026-10-03T00:00:00Z', machine: 'david', ui: { theme: 'light', fontSize: 'large' },
+      version: 1, savedAt: '2026-10-03T00:00:00Z', machine: 'example-mac', ui: { theme: 'light', fontSize: 'large' },
       researches: [{ id: 'alpha', title: 'Alpha project', tags: ['연구'], remote: 'https://github.com/someone/alpha.git', folder: 'alpha' }],
     }))
     const cmp = (await app.inject({ url: '/api/google/sync' })).json()

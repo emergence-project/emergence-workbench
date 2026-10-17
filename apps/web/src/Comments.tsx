@@ -101,11 +101,11 @@ export function backend(rid: string): Backend {
 
 // ---------- 같은 대상을 보는 화면들(PDF 탭·맥락 칸)이 함께 쓰는 상태 ----------
 
-interface Slot { file: CommentFile | null; active: string | null; reveal: { id: string; nonce: number } | null }
+interface Slot { file: CommentFile | null; active: string | null; reveal: { id: string; nonce: number } | null; error: string | null }
 const slots = new Map<string, Slot>()
 const listeners = new Map<string, Set<() => void>>()
 export const keyOf = (rid: string, target: string) => `${rid}|${target}`
-const EMPTY: Slot = { file: null, active: null, reveal: null }
+const EMPTY: Slot = { file: null, active: null, reveal: null, error: null }
 export function patch(key: string, p: Partial<Slot>) {
   slots.set(key, { ...(slots.get(key) ?? EMPTY), ...p })
   listeners.get(key)?.forEach((f) => f())
@@ -115,7 +115,8 @@ export function load(rid: string, target: string, fresh = false): Promise<void> 
   const key = keyOf(rid, target)
   const prev = loading.get(key)
   if (prev) return fresh ? prev.then(() => load(rid, target)) : prev
-  const p = backend(rid).read(target).then((file) => patch(key, { file })).catch(() => undefined).finally(() => loading.delete(key))
+  // 읽기 실패를 삼키면 화면이 "불러오는 중…"에 영원히 머문다. 오류 글을 슬롯에 적어 보여 준다
+  const p = backend(rid).read(target).then((file) => patch(key, { file, error: null })).catch((e: Error) => patch(key, { error: e.message })).finally(() => loading.delete(key))
   loading.set(key, p)
   return p
 }
@@ -392,7 +393,7 @@ export function CommentList({ rid, target }: { rid: string; target: string }) {
     }
   }
   const api = backend(rid)
-  if (!slot.file) return <p className="empty cmt-empty">{t('불러오는 중…', 'Loading…')}</p>
+  if (!slot.file) return <p className="empty cmt-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>
   if (!items.length) return <p className="empty cmt-empty" title={t('글을 끌어 고르거나 PDF 툴바의 코멘트로 기록을 남깁니다.', 'Select text or use Comment in the PDF toolbar to add a record.')}>{t('없음', 'None')}</p>
   return (
     <div className="cmt-list">

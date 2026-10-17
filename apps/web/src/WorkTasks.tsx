@@ -28,7 +28,7 @@ export function useTasks(rid: string) {
   const client = useQueryClient()
   const q = useTaskScan(rid)
   return {
-    tasks: q.data?.tasks ?? [], diagnostics: q.data?.diagnostics ?? [], loaded: q.isSuccess,
+    tasks: q.data?.tasks ?? [], diagnostics: q.data?.diagnostics ?? [], loaded: q.isSuccess, error: q.error?.message ?? null,
     reload: () => client.invalidateQueries({ queryKey: qk.tasks(rid) }),
   }
 }
@@ -173,8 +173,9 @@ export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal,
 const CLOSED_SHOWN = 5
 
 /** 맡긴 일: 판단 대기 · 진행 · 멈춤 · 해결 · 폐기로 묶은 목록. 줄을 누르면 보고서 */
-export function TaskList({ rid, tasks, loaded, diagnostics = [] }: { rid: string; tasks: Task[]; loaded: boolean; diagnostics?: TaskDiagnostic[] }) {
+export function TaskList({ rid, tasks, loaded, error = null, diagnostics = [] }: { rid: string; tasks: Task[]; loaded: boolean; error?: string | null; diagnostics?: TaskDiagnostic[] }) {
   const [all, setAll] = useState(false)
+  if (error && !tasks.length) return <div className="banner danger" role="alert">{error}</div>
   if (!tasks.length && !diagnostics.length) return <p className="empty tk-empty">{loaded ? t('맡긴 일이 없습니다. 오른쪽 위 "맡기기"로 에이전트에게 일을 맡겨 보세요.', 'No delegated tasks. Use "Delegate" at the top right to give an agent a task.') : t('불러오는 중…', 'Loading…')}</p>
   return (
     <div className="tk-groups" data-ui="맡긴 일 목록">

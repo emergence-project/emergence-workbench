@@ -28,6 +28,32 @@ describe('자료 (논문·발표자료)', () => {
     expect(fs.existsSync(path.join(proj, 'escape.pdf'))).toBe(false)
   })
 
+  it('저장소 안 심볼릭 링크가 밖을 가리키면 자료 · 그림 · 카드 그림을 내보내지 않는다 (403)', async () => {
+    const secret = path.join(tmp, 'outside-secret.txt')
+    fs.writeFileSync(secret, 'SECRET-CONTENT')
+    const wb = path.join(repo, 'workbench')
+    fs.mkdirSync(path.join(wb, 'materials'), { recursive: true })
+    fs.symlinkSync(secret, path.join(wb, 'materials', 'leak.pdf'))
+    fs.mkdirSync(path.join(wb, 'figures'), { recursive: true })
+    fs.symlinkSync(secret, path.join(wb, 'figures', 'leak.png'))
+    try {
+      expect((await app.inject({ method: 'GET', url: `${R}/materials/leak.pdf` })).statusCode).toBe(403)
+      expect((await app.inject({ method: 'GET', url: `/api/figures/file?id=${encodeURIComponent(`${R.split('/').pop()}/leak.png`)}` })).statusCode).toBe(403)
+      const ry = path.join(wb, 'research.yaml')
+      const before = fs.readFileSync(ry, 'utf8')
+      fs.symlinkSync(secret, path.join(repo, 'card-leak.png'))
+      fs.writeFileSync(ry, `${before.replace(/^image:.*\n/m, '')}image: card-leak.png\n`)
+      try {
+        const r = await app.inject({ method: 'GET', url: `${R}/image` })
+        expect(r.statusCode).toBe(403)
+        expect(r.body).not.toContain('SECRET-CONTENT')
+      } finally { fs.writeFileSync(ry, before); fs.rmSync(path.join(repo, 'card-leak.png')) }
+    } finally {
+      fs.rmSync(path.join(wb, 'materials', 'leak.pdf'), { force: true })
+      fs.rmSync(path.join(wb, 'figures', 'leak.png'), { force: true })
+    }
+  })
+
   it('arXiv PDF는 이미 있는 materials/<키>.pdf를 덮지 않는다 (409)', async () => {
     const proj = makeRepo('materials-exists')
     fs.writeFileSync(path.join(proj, 'refs.bib'), ['@article{kept,', '  title = {Kept},', '  eprint = {0000.00008},', '}'].join('\n'))

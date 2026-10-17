@@ -144,6 +144,8 @@ export function App() {
   const summaryQuery = useQuery({ queryKey: qk.summary(rid ?? ''), queryFn: () => rapi!.summary(), enabled: !!rapi })
   const summary: ResearchSummary | null = rapi ? summaryQuery.data ?? null : null
   useEffect(() => { if (summaryQuery.error) setError(summaryQuery.error.message) }, [summaryQuery.error])
+  // 프로젝트를 옮기면 앞 프로젝트의 요약 오류 문장은 지운다
+  useEffect(() => { setError(null) }, [rid])
   /** 저장한 뒤: 이 프로젝트의 자료와 라이브러리를 다시 받고, 옮기지 않은 화면도 다시 받게 한다 */
   const changed = useCallback(() => {
     if (rid) void client.invalidateQueries({ queryKey: qk.project(rid) })

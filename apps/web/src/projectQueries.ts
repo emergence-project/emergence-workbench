@@ -1,6 +1,7 @@
 import type { JournalEntry } from '@rw/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentEditsApi, api, notesApi, papersApi, tasksApi, type ResearchApi } from './api'
+import { flash } from './flash'
 import { qk } from './queries'
 import { taskTitles } from './taskView'
 
@@ -19,11 +20,11 @@ export function useAgentEdits(scope: string) {
   return useQuery({ queryKey: qk.agentEdits(scope), queryFn: () => agentEditsApi.list(scope) })
 }
 
-/** 맡긴 일과 그 파일의 진단. 받지 못하면 빈 목록 */
+/** 맡긴 일과 그 파일의 진단. 받지 못하면 error (화면은 "맡긴 일이 없습니다" 대신 오류 글을 보인다) */
 export function useTaskScan(rid: string) {
   return useQuery({
     queryKey: qk.tasks(rid),
-    queryFn: () => tasksApi(rid).scan().then((r) => { for (const x of r.tasks) taskTitles.set(x.id, x.title); return r }).catch(() => ({ tasks: [], diagnostics: [] })),
+    queryFn: () => tasksApi(rid).scan().then((r) => { for (const x of r.tasks) taskTitles.set(x.id, x.title); return r }),
   })
 }
 
@@ -55,7 +56,7 @@ export function useJournal(rapi: ResearchApi) {
   const key = qk.journal(rapi.rid, 365)
   const q = useQuery({ queryKey: key, queryFn: () => rapi.journal(365) })
   const reload = () => client.invalidateQueries({ queryKey: key })
-  const toggle = (e: JournalEntry) => { rapi.setTodo(e, !e.done).then(reload).catch(() => undefined) }
+  const toggle = (e: JournalEntry) => { rapi.setTodo(e, !e.done).then(reload).catch((err: Error) => flash(err.message)) }
   return { entries: q.data?.entries ?? NONE, loaded: q.isFetched && !q.isFetching, reload, toggle }
 }
 const NONE: JournalEntry[] = []

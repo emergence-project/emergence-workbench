@@ -76,6 +76,12 @@ describe('router', () => {
     expect(parseRoute('#/r/alpha/b')).toEqual({ page: 'overview', rid: 'alpha' })
   })
 
+  it('잘못된 %가 든 주소도 던지지 않고 홈이나 그 프로젝트로 간다', () => {
+    expect(() => parseRoute('#/r/x/w/100%')).not.toThrow()
+    expect(parseRoute('#/r/x/w/100%')).toEqual({ page: 'part', rid: 'x', file: '100%' })
+    expect(parseRoute('#/%E0%A4%A')).toEqual(parseRoute('#/'))
+  })
+
   it('경로 조각의 슬래시·한글·공백을 그대로 지킨다', () => {
     const r: Route = { page: 'part', rid: '내 연구', file: 'chapters/01 intro.tex' }
     expect(href(r)).not.toContain(' ')

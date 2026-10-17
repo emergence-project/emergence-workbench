@@ -18,7 +18,7 @@ export function hashOf(content: string): string {
  * (남이 만든 저장소의 STATUS.md → ~/.zshrc 같은 링크로 저장소 밖 파일을 고치지 않게).
  * 링크를 따라가야 하는 곳(Zotero 자동 내보내기 references.bib)은 followLink로 가리키는 곳을 좁게 허락한다.
  */
-export function writeAtomic(file: string, content: string | Uint8Array, opts: { followLink?: (real: string) => boolean } = {}): void {
+export function writeAtomic(file: string, content: string | Uint8Array, opts: { followLink?: (real: string) => boolean; mode?: number } = {}): void {
   if (opts.followLink) {
     try {
       if (fs.lstatSync(file).isSymbolicLink()) {
@@ -29,8 +29,9 @@ export function writeAtomic(file: string, content: string | Uint8Array, opts: { 
   }
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${randomBytes(4).toString('hex')}.tmp`)
-  if (typeof content === 'string') fs.writeFileSync(tmp, content, 'utf8')
-  else fs.writeFileSync(tmp, content)
+  // 비밀값(mode 0o600)은 임시 파일부터 그 권한으로 쓴다 (rename 뒤 chmod면 그 사이 기본 권한으로 놓인다)
+  if (typeof content === 'string') fs.writeFileSync(tmp, content, { encoding: 'utf8', mode: opts.mode })
+  else fs.writeFileSync(tmp, content, { mode: opts.mode })
   fs.renameSync(tmp, file)
 }
 

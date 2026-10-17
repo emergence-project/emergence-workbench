@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import { fileCache } from './readCache.js'
 import path from 'node:path'
-import { WorkbenchError, type ProjectSources } from './workbench.js'
+import { WorkbenchError, assertRealInside, type ProjectSources } from './workbench.js'
 import { t } from './i18n.js'
 import type { BibEntry, MaterialFile } from '@rw/core/contract/research'
 export type { BibEntry, MaterialFile }
@@ -122,6 +122,7 @@ export function materialPath(wbRoot: string, name: string, sources: ProjectSourc
   if (base !== null && !sources.materials.includes(base)) throw new WorkbenchError(400, t('자료 폴더 밖의 파일', 'File outside the materials folders'))
   const file = base !== null ? path.join(path.dirname(wbRoot), name) : path.join(materialsDir(wbRoot), name)
   if (!fs.existsSync(file)) throw new WorkbenchError(404, t(`자료가 없음: ${name}`, `No such material: ${name}`))
+  assertRealInside(base !== null ? path.join(path.dirname(wbRoot), base) : materialsDir(wbRoot), file, t('자료 폴더 밖의 파일', 'File outside the materials folders'))
   return file
 }
 

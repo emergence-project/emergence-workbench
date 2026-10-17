@@ -633,5 +633,7 @@
   "에이전트": "Agents",
   "에이전트 묶음": "Agents section",
   "지시 처리": "Instructions",
-  "지시 처리 시각": "Instruction time"
+  "지시 처리 시각": "Instruction time",
+  "할 일 묶음": "To-do group",
+  "메모 묶음": "Memo group"
 }
