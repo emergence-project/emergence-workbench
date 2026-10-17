@@ -89,7 +89,7 @@
 .am-sync svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 button.am-sync { cursor: pointer; border-radius: var(--r-sm); }
 button.am-sync:hover { background: var(--bg-hover); color: var(--text); }
-.am-badge { position: absolute; top: 0; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: var(--s-blocked); box-shadow: 0 0 0 1.5px var(--card-bg); }
+.am-badge { position: absolute; top: 0; right: -1px; box-shadow: 0 0 0 1.5px var(--card-bg); } /* .turn-dot의 자리 */
 .hp-legend { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-3); margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-3); }
 .hp-legend > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .hp-legend .am-dot { width: 9px; height: 9px; }

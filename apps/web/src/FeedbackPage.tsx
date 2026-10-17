@@ -364,7 +364,7 @@ function Conversation({ e }: { e: FeedbackItem }) {
         // 태그 설명은 한 줄에 옆으로 늘어놓고, 뜻은 가리키면 툴팁으로 (10/13 수정: 태그마다 한 줄이면 여백이 크다)
         <div className="fbp-notes" data-ui="태그 설명">
           {/* 태그를 모은 표는 앱 소개에 (10/14 13:32 제안). 물음표는 "태그 설명" 바로 옆에 (10/15 14:11 수정) */}
-          <span className="fbp-notes-k">{t('태그 설명', 'Tags')}<a className="icon-btn fbp-notes-help" href={href({ page: 'about', part: 'symbols', anchor: 'tags' })} data-ui="태그 표 보기" data-tip={t('태그 표 보기', 'See all tags')} aria-label={t('태그 표 보기', 'See all tags')}>{Icon.help}</a></span>
+          <span className="fbp-notes-k">{t('태그 설명', 'Tags')}<a className="icon-btn sm fbp-notes-help" href={href({ page: 'about', part: 'symbols', anchor: 'tags' })} data-ui="태그 표 보기" data-tip={t('태그 표 보기', 'See all tags')} aria-label={t('태그 표 보기', 'See all tags')}>{Icon.help}</a></span>
           {notes.map((k) => <span key={k} className="tag fbp-note tip-start tip-wrap" tabIndex={0} data-tip={TAG_NOTES[k]!.note} aria-label={`${TAG_NOTES[k]!.name}: ${TAG_NOTES[k]!.note}`}>{TAG_NOTES[k]!.name}</span>)}
         </div>
       )}
@@ -404,7 +404,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
     <SayCard me={me} ui={me ? '사용자 글' : '관리자 글'} name={name} tag={what}
       afterTag={undo && <button className="fb-link" title={t('마지막 답(승인 · 수정 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
       when={at && <>{whenOf(at)}{edited && ` · ${t('고침', 'edited')} ${edited.slice(11, 16)}`}</>}
-      end={me && at && s.kind !== '승인' && !locked && !editing && <button className="icon-btn fbp-say-edit" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}>
+      end={me && at && s.kind !== '승인' && !locked && !editing && <button className="icon-btn sm fbp-say-edit" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}>
       {editing
         ? (
           <div className="fbp-text">
@@ -412,7 +412,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
               onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); save() } else if (ev.key === 'Escape') setEditing(false); else onListKey(ev, setDraft) }} />
             <span className="fbp-edit on">
               <button className="btn" onClick={() => setEditing(false)}>{t('취소', 'Cancel')}</button>
-              <button className="btn primary" disabled={!draft.trim()} onClick={save}>{t('저장', 'Save')} <span className="kbd">⌘↵</span></button>
+              <button className="btn primary tip-end" disabled={!draft.trim()} data-tip={t('저장 (⌘↵)', 'Save (⌘↵)')} onClick={save}>{t('저장', 'Save')}</button>
             </span>
           </div>
         )
@@ -555,7 +555,7 @@ export function FeedbackText({ e, locked, onChanged }: { e: Pick<FeedbackItem, '
           {PICKABLE.map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{kindName(k)}</button>)}
         </span>
         <button className="btn" onClick={cancel}>{t('취소', 'Cancel')}</button>
-        <button className="btn primary" disabled={!draft.trim()} onClick={() => save(draft)}>{t('저장', 'Save')} <span className="kbd">⌘↵</span></button>
+        <button className="btn primary tip-end" disabled={!draft.trim()} data-tip={t('저장 (⌘↵)', 'Save (⌘↵)')} onClick={() => save(draft)}>{t('저장', 'Save')}</button>
       </span>
       {error && <div className="error-text">{error}</div>}
     </div>

@@ -11,7 +11,7 @@ import { TAG_NOTES } from './feedbackTags'
  */
 
 const c = (s: string) => <code>{s}</code>
-const turn = <span className="about-turn" aria-label={t('사용자 차례', 'Your turn')}>2</span>
+const turn = <span className="rail-count about-turn" aria-label={t('사용자 차례', 'Your turn')}>2</span>
 
 /** 프로젝트 › 주제 › 노트, 그리고 프로젝트 밖의 라이브러리 */
 export function DocMapFigure() {
@@ -90,7 +90,7 @@ export function StatesTable() {
 export function TurnFigure() {
   return (
     <div className="about-turns" role="img" aria-label={t('주황은 사용자 차례, 회색은 에이전트 차례', 'Orange is your turn, gray is the agent\'s turn')}>
-      <div><span className="about-turn">3</span><span className="about-turn-dot" /><b>{t('사용자 차례', 'Your turn')}</b><span className="muted">{t('레일 배지, 확인 필요, 판단 대기, 점검. 주황 알약 수나 주황 점 하나의 모양', 'Rail badge, Needs review, Awaiting decision, Check. An orange pill with a count or a single orange dot')}</span></div>
+      <div><span className="rail-count about-turn">3</span><span className="turn-dot" /><b>{t('사용자 차례', 'Your turn')}</b><span className="muted">{t('레일 배지, 확인 필요, 판단 대기, 점검. 주황 알약 수나 주황 점 하나의 모양', 'Rail badge, Needs review, Awaiting decision, Check. An orange pill with a count or a single orange dot')}</span></div>
       <div><span className="about-wait">{t('에이전트 대기', 'Waiting on agent')}</span><b>{t('에이전트 차례', 'Agent\'s turn')}</b><span className="muted">{t('질문의 답, 피드백 처리를 기다림. 무채색 글자', 'Waiting for an answer to a question or for feedback handling. Neutral text')}</span></div>
     </div>
   )
@@ -167,7 +167,7 @@ export function HomeMarksTable() {
     <table className="about-sym-table">
       <thead><tr><th>{t('기호', 'Symbol')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('쓰는 곳', 'Where')}</th></tr></thead>
       <tbody>
-        <tr><td className="about-sym"><span className="about-turn-dot" /></td><td>{t('확인 필요', 'Needs review')}</td><td>{t('확인이 필요한 노트나 판단할 맡긴 일이 있음 (레일의 수와 같음)', 'There are notes to review or delegated tasks to decide (same as the rail count)')}</td><td className="muted">{t('프로젝트 줄 · 카드', 'Project rows · cards')}</td></tr>
+        <tr><td className="about-sym"><span className="turn-dot" /></td><td>{t('확인 필요', 'Needs review')}</td><td>{t('확인이 필요한 노트나 판단할 맡긴 일이 있음 (레일의 수와 같음)', 'There are notes to review or delegated tasks to decide (same as the rail count)')}</td><td className="muted">{t('프로젝트 줄 · 카드', 'Project rows · cards')}</td></tr>
         <tr><td className="about-sym">{Icon.sync}</td><td>{t('업데이트 필요', 'Update available')}</td><td>{t('GitHub에 받을 새 커밋이 있음. 눌러 받기 (빨리 감기만)', 'GitHub has new commits to pull. Click to pull (fast-forward only)')}</td><td className="muted">{t('프로젝트 줄 · 카드', 'Project rows · cards')}</td></tr>
         <tr><td className="about-sym">{Icon.check}</td><td>{t('끝낸 할 일', 'Finished to-do')}</td><td>{t('그날 끝낸 할 일', 'A to-do finished that day')}</td><td className="muted">{t('한 일 달력', 'Work calendar')}</td></tr>
         <tr><td className="about-sym">{Icon.pencil}</td><td>{t('노트 고침', 'Note edited')}</td><td>{t('그날 고친 노트', 'A note edited that day')}</td><td className="muted">{t('한 일 달력', 'Work calendar')}</td></tr>

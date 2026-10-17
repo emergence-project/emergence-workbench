@@ -106,11 +106,11 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
           {/* 지시는 에이전트 세션이 MCP로 집어 가서 하고 답한다. 맥의 Claude가 저절로 하지 않는다 */}
-          {kind === '질문' && !c.by && <button className="icon-btn" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
-          <button className="icon-btn" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
+          {kind === '질문' && !c.by && <button className="icon-btn sm" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
+          <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
         </>}
-        <button className="icon-btn" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
-        <button className="icon-btn tip-end" data-tip={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={busy} onClick={() => void onDelete()}>{Icon.trash}</button>
+        <button className="icon-btn sm" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
+        <button className="icon-btn sm tip-end" data-tip={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={busy} onClick={() => void onDelete()}>{Icon.trash}</button>
       </div>
     </div>
     <div className="record-content">
@@ -124,7 +124,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
       <div className="record-meta"><span>{kindLabel(kind)}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
         {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>→ {t('할 일 목록', 'To-do list')}</button>}
-        {talk && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{turn ? <span className="record-turn">{t('내 차례', 'Your turn')}</span>
+        {talk && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{turn ? <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>
           : (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
           {onReply && c.state !== '끝냄' && !turn && <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>}</>}
       </div>
@@ -158,8 +158,8 @@ function AnswerBody({ answer, busy, onApply }: { answer: CommentEntry['answers']
     {text && <MemoText text={text} />}
     {fixes.length > 0 && <div className="record-fixes" data-ui="고침 제안">
       {fixes.map((f, i) => <div className="record-fix" key={i}>
-        <pre className="record-fix-before" aria-label={t('바꿀 글', 'Text to replace')}>{unguard(f.before)}</pre>
-        <pre className="record-fix-after" aria-label={t('바꾼 글', 'Replacement')}>{unguard(f.after)}</pre>
+        <pre className="record-fix-before"><span className="record-fix-label">{t('바꿀 글', 'Text to replace')}{'\n'}</span>{unguard(f.before)}</pre>
+        <pre className="record-fix-after"><span className="record-fix-label">{t('바꾼 글', 'Replacement')}{'\n'}</span>{unguard(f.after)}</pre>
       </div>)}
       {onApply && <button className="btn sm" disabled={busy} title={t('바꿀 글을 바꾼 글로 노트에서 바꿉니다', 'Replace the text in the note with the replacement')} onClick={onApply}>{t('노트에 적용', 'Apply to note')}</button>}
     </div>}

@@ -13,6 +13,7 @@ import { ObsidianMarkdown } from './ObsidianMarkdown'
 import { splitStatus, statusBody } from './statusBody'
 import { useAgentStatus, useJournal, useProjectInfo, useTaskScan, useTopicsOverview } from './projectQueries'
 import { StatusDot } from './StatusDot'
+import { StarIcon } from './marks'
 import { judgeOrder, taskLine, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL } from './taskView'
 import { reviewStatusLabel } from './reviewStatus'
 import { LOOSE_NOTES_LABEL, LOOSE_TOPIC_ID } from './noteKinds'
@@ -177,7 +178,7 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
           <ul className="info-list">
             {overview.topics.map((x) => (
               <li key={x.id}><button className="info-row" onClick={() => go({ page: 'topic', rid, tid: x.id })}>
-                <span className="info-row-title">{x.star ? '★ ' : ''}{x.title}</span><Counts by={x.byStatus} />
+                <span className="info-row-title">{x.star && <><StarIcon on /> </>}{x.title}</span><Counts by={x.byStatus} />
               </button></li>
             ))}
             {overview.loose.notes > 0 && <li><button className="info-row" onClick={() => go({ page: 'topic', rid, tid: LOOSE_TOPIC_ID })}>
@@ -348,14 +349,14 @@ function RepoSection({ rapi, root, version }: { rapi: ResearchApi; root: string;
 /** GitHub와 같은지 한 줄 + "확인하기". 결과 줄은 성공 ✓, 오류 ! (디자인 시스템 4절) */
 function RepoCompare({ repo, checking, onCheck, updating, updateError, onUpdate }: { repo: RepoInfo; checking: boolean; onCheck(): void; updating: boolean; updateError: string | null; onUpdate(): void }) {
   if (!repo.remote) return <span className="muted">{t('원격 저장소가 없어 비교할 수 없습니다', 'No remote repository to compare with')}</span>
-  const button = <button className="btn" disabled={checking} title={t('GitHub에 새 커밋이 있는지 확인합니다. 받아오거나 올리지는 않습니다', 'Check GitHub for new commits. Does not pull or push')} onClick={onCheck}>{checking ? t('확인하는 중…', 'Checking…') : t('확인하기', 'Check')}</button>
+  const button = <button className="btn sm" disabled={checking} title={t('GitHub에 새 커밋이 있는지 확인합니다. 받아오거나 올리지는 않습니다', 'Check GitHub for new commits. Does not pull or push')} onClick={onCheck}>{checking ? t('확인하는 중…', 'Checking…') : t('확인하기', 'Check')}</button>
   const when = repo.fetchedAt ? t(`마지막 확인 ${relativeTime(repo.fetchedAt)}`, `Last checked ${relativeTime(repo.fetchedAt)}`) : t('아직 확인하지 않았습니다 — 앞서 받아 둔 기록과 비교한 것입니다', 'Not checked yet. Compared with the history fetched earlier')
   let line: ReactNode
   if (repo.upstream == null || repo.ahead == null || repo.behind == null) line = <span className="muted">{repo.branch ? t(`${repo.branch} 브랜치가 GitHub 브랜치를 따라가지 않아 비교할 수 없습니다`, `Cannot compare: branch ${repo.branch} does not track a GitHub branch`) : t('브랜치가 아니라 비교할 수 없습니다', 'Cannot compare: not on a branch')}</span>
   else if (!repo.ahead && !repo.behind) line = <span><span className="repo-ok">✓</span> {t('GitHub와 같습니다', 'Same as GitHub')}</span>
   else line = <span>{[repo.behind ? t(`GitHub에 새 커밋 ${repo.behind}개`, `${plural(repo.behind, 'new commit')} on GitHub`) : '', repo.ahead ? t(`올리지 않은 커밋 ${repo.ahead}개`, plural(repo.ahead, 'unpushed commit')) : ''].filter(Boolean).join(' · ')}
     {!!repo.behind && (!repo.ahead && !repo.dirty && !repo.fetchError
-      ? <> <button className="btn" disabled={updating} title={t('GitHub의 새 커밋을 받아옵니다. 빨리 감기만 하고, 이 컴퓨터의 파일을 덮어쓰거나 합치지 않습니다', 'Pull the new commits from GitHub. Fast-forward only; files on this computer are never overwritten or merged')} onClick={onUpdate}>{updating ? t('받는 중…', 'Pulling…') : t('업데이트', 'Update')}</button></>
+      ? <> <button className="btn sm" disabled={updating} title={t('GitHub의 새 커밋을 받아옵니다. 빨리 감기만 하고, 이 컴퓨터의 파일을 덮어쓰거나 합치지 않습니다', 'Pull the new commits from GitHub. Fast-forward only; files on this computer are never overwritten or merged')} onClick={onUpdate}>{updating ? t('받는 중…', 'Pulling…') : t('업데이트', 'Update')}</button></>
       : <span className="muted">{t(' — 이 컴퓨터에 커밋이나 커밋 안 한 변경이 있어 앱에서 받지 않습니다. 터미널의 git pull로 합쳐 주세요', '. This computer has commits or uncommitted changes, so the app does not pull. Merge with git pull in a terminal')}</span>)}</span>
   return (
     <div className="repo-compare">

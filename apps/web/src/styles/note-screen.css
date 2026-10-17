@@ -144,8 +144,6 @@ button.side-toc-title { display: flex; align-items: center; gap: var(--sp-1); wi
 /* 이름 줄 오른쪽 버튼(설명 고치기 연필): 접기 화살표 앞에 */
 .rs-sec-act { margin-left: auto; display: inline-flex; }
 .rs-sec-act + .chev { margin-left: 0; }
-.rs-desc .rs-desc-act .icon-btn { width: 22px; height: 22px; }
-.rs-desc .rs-desc-act .icon-btn svg { width: 13px; height: 13px; }
 .rs-desc:hover .hover-actions, .rs-desc:focus-within .hover-actions { opacity: 1; }
 .rs-desc-text { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
 .rs-desc-text .b { padding-left: var(--sp-3); text-indent: calc(-1 * var(--sp-3)); }

@@ -5,7 +5,6 @@
 .ae-hint { font-size: var(--fs-sm); margin: 0; }
 .ae-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .ae-row { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); min-width: 0; }
-.ae-dot { flex: none; width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--s-blocked); }
 .ae-title { font-weight: var(--fw-medium); white-space: nowrap; }
 .ae-where, .ae-when { color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; }
 .ae-row .ae-where { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -81,8 +80,9 @@ img.ae-del, canvas.ae-del { background: none; outline: 3px solid var(--paint-pin
    누르면 줄 아래에 대화(피드백과 같은 부품 Conversation.tsx)가 표 폭 그대로 열린다 */
 .ae-reason { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: 1.45; }
 .ae-talk-btn { position: relative; }
-.ae-talk-n { position: absolute; top: -2px; right: -3px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: var(--r-pill); background: var(--bg-sunken); color: var(--text-2); font-size: var(--fs-2xs); line-height: 14px; text-align: center; }
-.ae-talk-n.turn { background: var(--s-blocked); color: var(--bg); font-weight: var(--fw-strong); }
+.ae-talk-n { position: absolute; top: -2px; right: -3px; }
+/* 에이전트 차례는 회색 알약, 사용자 차례는 .rail-count 주황 알약 */
+.ae-talk-n:not(.rail-count) { min-width: 14px; height: 14px; padding: 0 3px; border-radius: var(--r-pill); background: var(--bg-sunken); color: var(--text-2); font-size: var(--fs-2xs); line-height: 14px; text-align: center; }
 .ae-more { position: relative; display: inline-flex; }
 .ae-menu { top: calc(100% + 4px); right: 0; min-width: 140px; }
 .ae-menu .ico { display: inline-flex; width: 16px; height: 16px; color: var(--text-2); }

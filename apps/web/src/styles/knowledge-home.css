@@ -8,7 +8,6 @@
 .kh-h { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0 0 var(--sp-3); font-size: var(--fs-lg); font-weight: var(--fw-strong); color: var(--text); }
 .kh-h-n { font-size: var(--fs-xs); font-weight: var(--fw-normal); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .kh-h .sp { flex: 1; }
-.kh-h .icon-btn { align-self: center; width: 22px; height: 22px; color: var(--text-3); }
 .kh-empty { padding: var(--sp-1) var(--sp-2); }
 
 /* 줄 목록: 제목 · 분류 · 시각 (한 줄, 넘치면 …) */
@@ -32,9 +31,7 @@
 .kh-count { flex: none; font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; }
 /* 사용자 차례는 주황 하나 (디자인 시스템 2절): 수 · 제목 앞 점. 회색 점은 쓰지 않는 것 */
 .kh-turn { color: var(--s-blocked); font-weight: var(--fw-strong); }
-/* 사용자 차례 수: 레일 배지(.rail-count)와 같은 주황 알약 (디자인 시스템 2절 "사용자 차례") */
-.kh-count.turn { min-width: 16px; height: 16px; padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--s-blocked); color: var(--bg); font-size: var(--fs-2xs); font-weight: var(--fw-strong); line-height: 16px; text-align: center; }
-.kh-dot { display: inline-block; flex: none; width: 7px; height: 7px; margin-right: var(--sp-2); border-radius: var(--r-pill); background: var(--s-blocked); vertical-align: middle; }
+.kh-dot { margin-right: var(--sp-2); } /* .turn-dot의 자리. 사용자 차례 수는 .rail-count */
 .kh-h .kh-dot { align-self: center; margin-right: 0; }
 .kh-dot.idle { background: var(--line-strong); }
 .kh-hint { font-size: var(--fs-xs); color: var(--text-3); }
