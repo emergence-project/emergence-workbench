@@ -265,7 +265,10 @@ export function pendingQuestions(root: string, kind: '질문' | '지시' = '질�
   return listComments(root).flatMap((f) => f.comments
     // 에이전트가 사용자에게 물은 것(by)은 에이전트 함이 아니라 사용자 차례다
     .filter((c) => c.kind === kind && c.state === '대기' && !c.by)
-    .map((c) => ({ target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body })))
+    .map((c) => {
+      const last = c.answers.at(-1)
+      return { target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body, ...(last && { lastAnswer: { by: last.by, body: last.body } }) }
+    }))
 }
 
 /** 에이전트가 물은 질문에 사용자가 답한 것 (10/16): 에이전트가 그 답을 읽고 반영한 뒤 answer_record로 끝냄으로 닫는다 */

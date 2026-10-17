@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -24,7 +23,6 @@ export interface BackupTarget { id: string; path: string }
 
 export type { BackupResult } from '@rw/core/contract/backup'
 
-const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' }
 const firstLine = (e: unknown) => String((e as { stderr?: string }).stderr || (e as Error).message || e).split('\n').find((l) => l.trim()) ?? t('알 수 없는 오류', 'Unknown error')
 const git = (cwd: string, args: string[]) => gitAt(cwd, args, { timeout: GIT_TIMEOUT.backup })
 const blob = (cwd: string, sha: string) => gitBuffer(cwd, ['cat-file', 'blob', sha], { timeout: GIT_TIMEOUT.backup, maxBuffer: 256 * 1024 * 1024 })
@@ -67,10 +65,7 @@ async function localMap(dir: string, files: Map<string, string>): Promise<Map<st
   const m = new Map<string, string>()
   const keys = [...files.keys()]
   if (!keys.length) return m
-  const out = await new Promise<string>((resolve, reject) => {
-    const p = execFile('git', ['-C', dir, 'hash-object', '--stdin-paths'], { env, maxBuffer: 64 * 1024 * 1024 }, (e, so) => (e ? reject(e) : resolve(so)))
-    p.stdin!.end(keys.map((k) => files.get(k)!).join('\n') + '\n')
-  })
+  const out = await gitAt(dir, ['hash-object', '--stdin-paths'], { timeout: GIT_TIMEOUT.backup, input: keys.map((k) => files.get(k)!).join('\n') + '\n' })
   out.trim().split('\n').forEach((sha, i) => m.set(keys[i]!, sha))
   return m
 }

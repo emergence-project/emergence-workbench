@@ -66,7 +66,8 @@ export const FlowRows = z.object({ top: z.number().int().max(0), bottom: z.numbe
 
 export const FlowScan = z.object({ nodes: z.array(FlowNode), diagnostics: z.array(Diagnostic), layout: FlowLayout, rows: FlowRows.nullable() }).strict()
 export const FlowOne = z.object({ node: FlowNode }).strict()
-export const FlowDeleted = z.object({ id: z.string(), changed: z.array(z.string()) }).strict()
+/** trashed: flow/.trash/로 옮긴 점 파일과 그 점의 기록 (workbench 기준 경로) */
+export const FlowDeleted = z.object({ id: z.string(), changed: z.array(z.string()), trashed: z.array(z.string()) }).strict()
 export const FlowLayoutReply = z.object({ layout: FlowLayout }).strict()
 export const FlowRowsReply = z.object({ rows: FlowRows }).strict()
 

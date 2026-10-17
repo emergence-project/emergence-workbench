@@ -5,6 +5,7 @@ import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tl } from './i18n.js'
+import { commentTargetSlug } from '@rw/core'
 import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
 
 export const FLOW_DIR = 'flow'
@@ -244,7 +245,9 @@ export function checkFlowEvidence(wb: Workbench, id: string, body: FlowCheckBody
   checkHash(n, body.baseHash)
   if (!n.evidence[body.ev]) throw new WorkbenchError(400, tl('그 근거가 없습니다', 'No such evidence'))
   const doc = YAML.parseDocument(fs.readFileSync(fileOf(wb, id), 'utf8'))
-  const ev = doc.getIn(['evidence', body.ev])
+  // 읽을 때(parse)는 사전이 아닌 항목을 건너뛰고 번호를 매기므로, 파일에서도 사전 항목만 세어 같은 근거를 고른다
+  const list = doc.get('evidence')
+  const ev = YAML.isSeq(list) ? list.items.filter((x) => YAML.isMap(x))[body.ev] : undefined
   if (!YAML.isMap(ev)) throw new WorkbenchError(400, tl('그 근거가 없습니다', 'No such evidence'))
   const rec = { at: stamp(now), by, role: 'human', ...(body.note?.trim() && { note: body.note.trim() }), ...(body.revoked && { revoked: true }) }
   const seq = ev.get('checks')
@@ -253,12 +256,29 @@ export function checkFlowEvidence(wb: Workbench, id: string, body: FlowCheckBody
   return write(wb, id, doc)
 }
 
-/** 점 지우기: 파일을 지우고, 이 점을 가리키던 선(다른 점의 from)과 자리를 뺀다 */
-export function deleteFlowNode(wb: Workbench, id: string, baseHash: string): { id: string; changed: string[] } {
+/** 지운 점과 그 점의 기록을 두는 곳 (flow/.trash/). 앱은 읽지 않고, 되살릴 때는 손으로 옮긴다 */
+export const FLOW_TRASH = '.trash'
+
+/**
+ * 점 지우기: 이 점을 가리키던 선(다른 점의 from)과 자리를 빼고, 점 파일과 그 점의 기록(comments/flow-<id>.md)은
+ * flow/.trash/로 옮긴다 (10/17 사용자 결정 "옮김": 기록 탭 · STATUS에 없는 점의 기록이 남지 않게, 노트 지우기처럼 되살릴 수 있게)
+ */
+export function deleteFlowNode(wb: Workbench, id: string, baseHash: string, now = new Date()): { id: string; changed: string[]; trashed: string[] } {
   const n = readFlowNode(wb, id)
   checkHash(n, baseHash)
   const others = scanFlow(wb).nodes // 지우기 전에 읽는다 (지운 뒤에는 없는 점을 가리키는 선이 빠져 읽힌다)
-  fs.rmSync(fileOf(wb, id))
+  const trash = path.join(dirOf(wb), FLOW_TRASH)
+  const tag = `${id}-${now.toISOString().replace(/[-:]/g, '').slice(0, 15)}`
+  fs.mkdirSync(trash, { recursive: true })
+  const trashed: string[] = []
+  const move = (from: string, name: string) => {
+    if (!fs.existsSync(from)) return
+    const to = path.join(trash, name)
+    fs.renameSync(from, to)
+    trashed.push(path.posix.join(path.basename(wb.root), path.relative(wb.root, to).split(path.sep).join('/')))
+  }
+  move(fileOf(wb, id), `${tag}.yaml`)
+  move(path.join(wb.root, 'comments', `flow-${commentTargetSlug(id)}.md`), `${tag}.comments.md`)
   const changed: string[] = []
   for (const m of others) {
     if (!m.from.some((f) => f.id === id)) continue
@@ -272,7 +292,7 @@ export function deleteFlowNode(wb: Workbench, id: string, baseHash: string): { i
   }
   const layout = readLayout(wb)
   if (layout[id]) { delete layout[id]; writeLayout(wb, layout) }
-  return { id, changed }
+  return { id, changed, trashed }
 }
 
 function writeLayout(wb: Workbench, layout: FlowLayout, rows: FlowRows | null = readRows(wb)) {

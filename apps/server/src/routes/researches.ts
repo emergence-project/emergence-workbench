@@ -109,7 +109,10 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
   app.patch<{ Params: { rid: string } }>('/api/researches/:rid', replies(C.ResearchListItem), async (req): Promise<C.ResearchListItem> => {
     const b = parseBody(C.ProfileBody, req.body)
     if (b.tags !== undefined && b.kind === undefined && b.fields === undefined && b.state === undefined) return registry.setTags(req.params.rid, b.tags)
-    return registry.setProfile(req.params.rid, b)
+    const item = registry.setProfile(req.params.rid, b)
+    // 진행으로 되돌리면 멈춘 동안 미뤄 둔 일지 할 일 옮기기를 한다
+    if (b.state === 'active') ensureWatch(req.params.rid)
+    return item
   })
 
   /** 프로젝트 순서 (홈에서 카드를 끌어 바꾼다). ids에 없는 것은 뒤에 원래 순서대로 */

@@ -156,8 +156,9 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const watchers = new Map<string, FSWatcher>()
   const ensureWatch = (rid: string) => {
     if (!opts.watch) return
-    // 예전 일지의 끝내지 않은 할 일을 기록으로 옮긴다 (2026-10-16 할 일 원본 하나). 받기 뒤에도 다시 본다
-    try { migrateJournalTodos(registry.get(rid)) } catch (e) { app.log.warn({ err: e, research: rid }, '일지 할 일 옮기기 실패') }
+    // 예전 일지의 끝내지 않은 할 일을 기록으로 옮긴다 (2026-10-16 할 일 원본 하나). 받기 뒤에도 다시 본다.
+    // 멈춤 · 완료 프로젝트(종결한 저장소 포함)는 고치지 않는다: 다시 진행으로 바꾸면 그때 옮긴다
+    try { if (registry.list().find((r) => r.id === rid)?.state === 'active') migrateJournalTodos(registry.get(rid)) } catch (e) { app.log.warn({ err: e, research: rid }, '일지 할 일 옮기기 실패') }
     if (watchers.has(rid)) return
     try {
       watchers.set(rid, watchWorkbench(rid, registry.get(rid).root, (e) => {

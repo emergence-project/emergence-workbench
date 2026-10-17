@@ -8,7 +8,7 @@ import { compileLibraryNote } from '../latex.js'
 import { listLibraryPreambles } from '../library.js'
 import { contentTypeOf, listMaterials } from '../materials.js'
 import { createConcept, createPaper, findStudyAsset, libraryNoteFile, listStudy, readLibraryNote, readStudy, writeLibraryNote } from '../libraryNotes.js'
-import { WorkbenchError } from '../workbench.js'
+import { WorkbenchError, ConflictError } from '../workbench.js'
 import { setProjectConcept } from '../projectConcepts.js'
 import { checkCitations, citedKeys } from '../libraryBib.js'
 import { repoInfo } from '../gitsync.js'
@@ -33,7 +33,7 @@ export function registerLibrary(app: FastifyInstance, ctx: RouteContext): void {
   app.put<{ Params: { kind: string; id: string } }>('/api/library/notes/:kind/:id', replies(C.LibraryNoteSaved), async (req, reply): Promise<C.LibraryNoteSaved> => {
     const { content, baseHash } = parseBody(C.SaveLibraryNoteBody, req.body)
     const r = writeLibraryNote(registry.libraryPath, req.params.kind, req.params.id, content, baseHash)
-    if (!r.ok) return reply.status(409).send({ error: t('다른 곳에서 파일이 바뀌어 저장하지 않았음', 'The file changed elsewhere, so it was not saved'), currentHash: r.currentHash })
+    if (!r.ok) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 저장하지 않았음', 'The file changed elsewhere, so it was not saved'), r.currentHash)
     return { hash: r.hash }
   })
   /** 라이브러리 노트를 PDF로 (라이브러리 서식을 모두 불러와서). 빌드는 앱 설정 폴더 아래 library-build/ */

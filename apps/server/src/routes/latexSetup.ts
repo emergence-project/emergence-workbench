@@ -8,7 +8,7 @@ import path from 'node:path'
 import { MACROS_FILE, parseMacros } from '../conceptNotes.js'
 import { hashOf, writeAtomic } from '../fsutil.js'
 import { templateFilePath } from '../latexFiles.js'
-import { WorkbenchError } from '../workbench.js'
+import { WorkbenchError, ConflictError } from '../workbench.js'
 import { templatePreview } from '../latexPreview.js'
 import type { RouteContext } from './context.js'
 import { t as tx } from '../i18n.js'
@@ -74,7 +74,7 @@ export function registerLatexSetup(app: FastifyInstance, ctx: RouteContext): voi
     if (!lib) throw new WorkbenchError(409, tx('개념노트 라이브러리를 먼저 정하세요', 'Choose the concept note library first'))
     const { text, baseHash } = parseBody(C.SaveMacrosBody, req.body)
     const current = macrosView().hash
-    if (baseHash !== current) return reply.status(409).send({ error: tx('다른 곳에서 명령어 파일이 바뀌어 고치지 않았음', 'Not changed: the macros file was changed elsewhere'), currentHash: current })
+    if (baseHash !== current) throw new ConflictError(tx('다른 곳에서 명령어 파일이 바뀌어 고치지 않았음', 'Not changed: the macros file was changed elsewhere'), current)
     const abs = path.join(lib, MACROS_FILE)
     fs.mkdirSync(path.dirname(abs), { recursive: true })
     writeAtomic(abs, text.replace(/\s*$/, '\n'))

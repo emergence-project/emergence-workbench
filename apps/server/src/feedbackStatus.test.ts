@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { FEEDBACK_MISSES, FEEDBACK_STATES, listAllFeedback } from './feedback.js'
+import { FEEDBACK_MISSES, FEEDBACK_STATES, feedbackStatusWarnings, listAllFeedback } from './feedback.js'
 
 // 처리 기록이 깨지면(합치다가 같은 키가 두 번 들어가는 등) 피드백 화면이 경고를 띄운다. 합치기 전에 잡는다.
 // 실제 기록은 개인 저장소에 있으므로(CLAUDE.md "위치") 예제 기록은 늘 보고, 개인 저장소 사본이 있으면 그것도 본다
@@ -49,4 +49,16 @@ it('reads revised miss and lesson so pnpm agent:feedback can count them', () => 
   const dir = path.join(root, 'fixtures/sandbox-feedback')
   const revised = listAllFeedback(dir).flatMap((e) => e.status?.revised ?? [])
   expect(revised).toContainEqual(expect.objectContaining({ miss: '덜 고침', lesson: '고쳤다고 하기 전에 그 화면을 그림으로 찍어 확인한다.' }))
+})
+
+describe('feedbackStatusWarnings', () => {
+  it('앱이 모르는 state(오타)를 적은 항목을 알린다: 그 항목은 처리 기록 없는 것으로 읽혀 새 항목처럼 보이므로', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-warn-'))
+    fs.writeFileSync(path.join(dir, 'status.yaml'), '"2026-10-01 09:00 홈":\n  state: 확인필요\n"2026-10-01 10:00 홈":\n  state: 반영\n"2026-10-01 11:00 홈":\n  note: state 없음\n')
+    const w = feedbackStatusWarnings(dir)
+    expect(w).toHaveLength(2)
+    expect(w[0]).toContain('2026-10-01 09:00 홈: state "확인필요"')
+    expect(w[1]).toContain('2026-10-01 11:00 홈: state 없음')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
 })

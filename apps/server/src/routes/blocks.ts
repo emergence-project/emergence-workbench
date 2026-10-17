@@ -7,7 +7,7 @@ import { buildTree, isBlockStatus, isValidBlockId, parseBlock, STATUS_LABEL_KO, 
 import { localDate, localTime } from '../fsutil.js'
 import { compileBlock, pdfPath, synctexEdit, synctexView } from '../latex.js'
 import { figureEmbedResolver } from '../figureEmbeds.js'
-import { requireHash, Workbench, WorkbenchError } from '../workbench.js'
+import { requireHash, Workbench, WorkbenchError, ConflictError } from '../workbench.js'
 import { isBodyOnly } from '../manuscript.js'
 import type { RouteContext } from './context.js'
 import { latexChoices, type LatexChoiceQuery } from './latexChoice.js'
@@ -42,14 +42,14 @@ export function registerBlocks(app: FastifyInstance, ctx: RouteContext): void {
   app.put<{ Params: Params }>('/api/researches/:rid/blocks/:bid', replies(C.Saved), async (req, reply) => {
     const { content, baseHash } = parseBody(C.ContentBody, req.body)
     const r = wbOf(req.params.rid).writeBlock(req.params.bid, content, baseHash)
-    if (!r.ok) return reply.status(409).send({ error: t('다른 곳에서 파일이 바뀌어 저장하지 않았음', 'Not saved: the file was changed elsewhere'), currentHash: r.currentHash })
+    if (!r.ok) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 저장하지 않았음', 'Not saved: the file was changed elsewhere'), r.currentHash)
     return { hash: r.hash }
   })
 
   app.delete<{ Params: Params }>('/api/researches/:rid/blocks/:bid', replies(C.Ok), async (req, reply) => {
     const { baseHash } = parseBody(C.BaseHashBody, req.body)
     const result = wbOf(req.params.rid).deleteBlock(req.params.bid, baseHash)
-    if (!result.ok) return reply.status(409).send({ error: t('다른 곳에서 파일이 바뀌어 지우지 않았습니다. 파일을 다시 읽어 주세요.', 'Not deleted: the file was changed elsewhere. Read the file again.'), currentHash: result.currentHash })
+    if (!result.ok) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 지우지 않았습니다. 파일을 다시 읽어 주세요.', 'Not deleted: the file was changed elsewhere. Read the file again.'), result.currentHash)
     return { ok: true as const }
   })
 
@@ -84,7 +84,7 @@ export function registerBlocks(app: FastifyInstance, ctx: RouteContext): void {
     }
 
     const r = wb.patchMeta(bid, patch, requireHash(body.baseHash))
-    if (!r.ok) return reply.status(409).send({ error: t('다른 곳에서 파일이 바뀌어 고치지 않았음', 'Not changed: the file was changed elsewhere'), currentHash: r.currentHash })
+    if (!r.ok) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 고치지 않았음', 'Not changed: the file was changed elsewhere'), r.currentHash)
 
     if (alternatives) {
       const before = current.alternatives

@@ -19,12 +19,14 @@ if (!fs.existsSync(path.join(dir, 'status.yaml'))) {
 }
 const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
-const { listAllFeedback, feedbackStatusError } = await tsImport('../apps/server/src/feedback.ts', opts)
+const { listAllFeedback, feedbackStatusError, feedbackStatusWarnings } = await tsImport('../apps/server/src/feedback.ts', opts)
 const { agentTurnReasons, feedbackBucket } = await tsImport('../packages/core/src/feedback-buckets.ts', opts)
 const { feedbackLessons, feedbackLessonsText } = await tsImport('../packages/core/src/feedback-lessons.ts', opts)
 
 const broken = feedbackStatusError(dir)
 if (broken) console.log(`⚠ status.yaml을 읽지 못함: ${broken}\n`)
+const odd = broken ? [] : feedbackStatusWarnings(dir)
+if (odd.length) console.log(`⚠ status.yaml에서 state를 알아보지 못한 항목 ${odd.length}개 (처리 기록 없는 것으로 보임):\n${odd.map((w) => `  - ${w}`).join('\n')}\n`)
 const all = listAllFeedback(dir)
 const now = Date.now()
 const mine = all.map((e) => ({ e, why: agentTurnReasons(e, now) })).filter((x) => x.why.length)

@@ -50,6 +50,15 @@ export const DecideBody = z.object({ key: z.string(), hash: z.string(), hunk: z.
 /** 바뀐 곳에서 묻기 (10/14): 질문은 답만 받고, 수정은 에이전트가 그 문단을 다시 고치게 한다 */
 export const EDIT_ASKS = ['질문', '수정'] as const
 export const DiscussBody = z.object({ key: z.string(), hash: z.string(), hunk: z.string(), ask: z.enum(EDIT_ASKS), text: z.string() })
+/** 에이전트 쓰기 (MCP edit_note · edit_concept). target 모양은 서버가 더 자세한 글로 검사한다 */
+export const WriteBody = z.object({
+  target: z.unknown(),
+  baseHash: z.string(),
+  edits: z.array(z.object({ old: z.string(), new: z.string(), reason: z.string().optional() })),
+  approved: z.boolean().optional(),
+  agent: z.string().optional(),
+  summary: z.string().optional(),
+})
 
 export type EditTarget = z.infer<typeof EditTarget>
 export type EditReviewRow = z.infer<typeof EditReviewRow>

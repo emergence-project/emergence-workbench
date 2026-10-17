@@ -22,15 +22,14 @@ export function registerTopics(app: FastifyInstance, ctx: RouteContext): void {
     return { topics: readTopics(wb), hash: topicsHash(wb) }
   })
   /** 주제 목록을 통째로 바꾼다 (예전 화면). 빠진 주제는 노트 머리말 topics:에서도 뺀다 */
-  app.put<{ Params: { rid: string }; Body: { topics?: unknown; baseHash?: unknown } }>('/api/researches/:rid/topics', replies(R.TopicList), async (req): Promise<R.TopicList> => {
+  app.put<{ Params: { rid: string } }>('/api/researches/:rid/topics', replies(R.TopicList), async (req): Promise<R.TopicList> => {
     const wb = wbOf(req.params.rid)
+    const body = parseBody(C.TopicsPutBody, req.body)
     // 읽은 뒤 바뀐 research.yaml은 고치지 않는다 (baseHash 필수) (빠진 주제를 노트에서도 빼므로)
-    checkTopicsHash(wb, req.body?.baseHash)
-    if (Array.isArray(req.body?.topics)) {
-      for (const topic of req.body.topics) if (topic && typeof topic === 'object') checkImage(req.params.rid, topic.preview)
-    }
+    checkTopicsHash(wb, body.baseHash)
+    for (const topic of body.topics) if (topic && typeof topic === 'object') checkImage(req.params.rid, (topic as Record<string, unknown>).preview)
     const before = readTopics(wb).map((t) => t.id)
-    const topics = saveTopics(wb, req.body?.topics)
+    const topics = saveTopics(wb, body.topics)
     dropTopicsFromNotes(wb, before.filter((id) => !topics.some((t) => t.id === id)))
     return { topics, hash: topicsHash(wb) }
   })

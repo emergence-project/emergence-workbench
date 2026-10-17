@@ -1,10 +1,10 @@
-import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
 import { localDate, localTime, writeAtomic } from './fsutil.js'
 import { currentBranch, locate, pendingPaths, PathSyncError, publishPaths, upstreamText } from './pathsync.js'
 import { t } from './i18n.js'
+import { git, GIT_TIMEOUT } from './git.js'
 
 /**
  * 앱에 대한 사용자 피드백 (피드백 모드에서 화면 부위를 눌러 남긴 코멘트).
@@ -319,6 +319,22 @@ export function feedbackStatusError(dir: string): string | null {
   try { YAML.parse(fs.readFileSync(file, 'utf8')); return null } catch (e) { return (e as Error).message.split('\n')[0]! }
 }
 
+/**
+ * 읽히지만 앱이 모르는 state를 적은 항목 (오타 등). readFeedbackStatus는 이런 항목을 처리 기록 없는 것으로 보므로
+ * 에이전트가 같은 항목을 새 것으로 다시 처리하지 않게 pnpm agent:feedback이 먼저 알린다
+ */
+export function feedbackStatusWarnings(dir: string): string[] {
+  const file = path.join(dir, STATUS_FILE)
+  if (!fs.existsSync(file)) return []
+  let raw: unknown
+  try { raw = YAML.parse(fs.readFileSync(file, 'utf8')) } catch { return [] }
+  if (!raw || typeof raw !== 'object') return []
+  return Object.entries(raw as Record<string, unknown>).flatMap(([key, v]) => {
+    const state = v && typeof v === 'object' ? (v as { state?: unknown }).state : undefined
+    return FEEDBACK_STATES.includes(state as FeedbackState) ? [] : [`${key}: state ${state === undefined ? '없음' : JSON.stringify(state)} (쓸 수 있는 값: ${FEEDBACK_STATES.join(' · ')})`]
+  })
+}
+
 export function readFeedbackStatus(dir: string): Map<string, FeedbackStatus> {
   const file = path.join(dir, STATUS_FILE)
   const out = new Map<string, FeedbackStatus>()
@@ -524,7 +540,7 @@ export class PublishError extends Error {
 export async function feedbackAccount(dir: string): Promise<string | null> {
   try {
     const { top } = await locate(dir)
-    const url = await new Promise<string>((ok, no) => execFile('git', ['-C', top, 'remote', 'get-url', 'origin'], (e, out) => (e ? no(e) : ok(out.trim()))))
+    const url = await git(top, ['remote', 'get-url', 'origin'], { timeout: GIT_TIMEOUT.read })
     return /github\.com[:/]([^/]+)\//.exec(url)?.[1] ?? null
   } catch { return null }
 }

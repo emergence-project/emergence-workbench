@@ -10,7 +10,7 @@ import { statusFor, statusPart, statusPartNames, statusSummary, listReviews, rea
 import { contentTypeOf } from '../materials.js'
 import { setResearchInfo } from '../projectInfo.js'
 import { researchHash } from '../mainNote.js'
-import { WorkbenchError, assertRealInside } from '../workbench.js'
+import { WorkbenchError, assertRealInside, ConflictError } from '../workbench.js'
 import { listDecisions } from '../projectFolders.js'
 import { cardFigureRef } from '../figures.js'
 import type { RouteContext } from './context.js'
@@ -40,7 +40,7 @@ export function registerProject(app: FastifyInstance, ctx: RouteContext): void {
     const { baseHash, ...patch } = parseBody(C.InfoBody, req.body)
     cardFigureRef(registry, req.params.rid, patch.image)
     const r = setResearchInfo(wbOf(req.params.rid), patch, baseHash)
-    if (!r.ok) return reply.status(409).send({ error: t('다른 곳에서 research.yaml이 바뀌어 쓰지 않았음', 'Not written: research.yaml was changed elsewhere'), currentHash: r.currentHash })
+    if (!r.ok) throw new ConflictError(t('다른 곳에서 research.yaml이 바뀌어 쓰지 않았음', 'Not written: research.yaml was changed elsewhere'), r.currentHash)
     return r
   })
   /** STATUS.md 미리보기 (쓰지 않음) */

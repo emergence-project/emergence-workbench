@@ -1,5 +1,4 @@
 // 구글 계정: 로그인, 달력 일정, 설정 동기화 (서버 google.ts)
-import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
@@ -8,6 +7,7 @@ import { parseBody, replies } from '../contract.js'
 import { parseGitHubRepo } from '../clone.js'
 import type { Google, SyncedResearch, SyncedSettings } from '../google.js'
 import { WorkbenchError } from '../workbench.js'
+import { git, GIT_TIMEOUT } from '../git.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
 
@@ -20,11 +20,8 @@ export function publicRemote(url: string): string | null {
   return parseGitHubRepo(url)?.url ?? (url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@]*@/i, '$1') || null)
 }
 
-function remoteOf(repoPath: string): string | null {
-  try {
-    const url = execFileSync('git', ['-C', repoPath, 'config', '--get', 'remote.origin.url'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
-    return publicRemote(url)
-  } catch { return null }
+async function remoteOf(repoPath: string): Promise<string | null> {
+  try { return publicRemote(await git(repoPath, ['config', '--get', 'remote.origin.url'], { timeout: GIT_TIMEOUT.read })) } catch { return null }
 }
 
 const sameRepo = (a: string | null, b: string | null) => !!a && !!b && (parseGitHubRepo(a)?.url ?? a).toLowerCase() === (parseGitHubRepo(b)?.url ?? b).toLowerCase()
@@ -32,7 +29,7 @@ const sameRepo = (a: string | null, b: string | null) => !!a && !!b && (parseGit
 export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: Google): void {
   const { registry } = ctx
 
-  const snapshot = (): SyncedSettings => ({
+  const snapshot = async (): Promise<SyncedSettings> => ({
     version: 1,
     savedAt: new Date().toISOString(),
     machine: os.hostname(),
@@ -42,12 +39,12 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
     latexDefault: registry.latexDefault,
     authors: registry.authors,
     people: registry.people,
-    researches: registry.list().map((r) => ({ id: r.id, title: r.title, tags: r.tags, remote: remoteOf(r.path), folder: path.basename(r.path) })),
+    researches: await Promise.all(registry.list().map(async (r) => ({ id: r.id, title: r.title, tags: r.tags, remote: await remoteOf(r.path), folder: path.basename(r.path) }))),
   })
 
   /** 구글에 있는 프로젝트 중 이 컴퓨터에 등록된 것과 아닌 것 */
-  const compare = (remote: SyncedSettings | null) => {
-    const local = registry.list().map((r) => ({ ...r, remote: remoteOf(r.path), folder: path.basename(r.path) }))
+  const compare = async (remote: SyncedSettings | null) => {
+    const local = await Promise.all(registry.list().map(async (r) => ({ ...r, remote: await remoteOf(r.path), folder: path.basename(r.path) })))
     const match = (s: SyncedResearch) => local.find((l) => sameRepo(l.remote, s.remote)) ?? (!s.remote ? local.find((l) => l.folder === s.folder) : undefined)
     const rs = remote?.researches ?? []
     return {
@@ -60,7 +57,7 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
   let lastPush: { at: string; error?: string } | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   const push = async () => {
-    try { await google.writeSettings(snapshot()); lastPush = { at: new Date().toISOString() } } catch (e) { lastPush = { at: new Date().toISOString(), error: (e as Error).message } }
+    try { await google.writeSettings(await snapshot()); lastPush = { at: new Date().toISOString() } } catch (e) { lastPush = { at: new Date().toISOString(), error: (e as Error).message } }
   }
   registry.onSave(() => {
     const s = google.status()
@@ -107,12 +104,12 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
   /** 구글에 저장된 설정과 이 컴퓨터를 비교한다 */
   app.get('/api/google/sync', replies(C.GoogleSync), async (): Promise<C.GoogleSync> => {
     const remote = await google.readSettings()
-    return { remote, ...compare(remote), localCount: registry.list().length }
+    return { remote, ...(await compare(remote)), localCount: registry.list().length }
   })
 
   /** 이 컴퓨터의 설정을 구글에 올린다 (덮어씀) */
   app.post('/api/google/sync/push', replies(C.GooglePushed), async (): Promise<C.GooglePushed> => {
-    await google.writeSettings(snapshot())
+    await google.writeSettings(await snapshot())
     lastPush = { at: new Date().toISOString() }
     return { ok: true, lastPush }
   })
@@ -124,7 +121,7 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
   app.post('/api/google/sync/restore', replies(C.GoogleRestored), async (): Promise<C.GoogleRestored> => {
     const remote = await google.readSettings()
     if (!remote) throw new WorkbenchError(404, t('구글에 저장된 설정이 없습니다.', 'No settings are saved in Google.'))
-    const { matched, missing } = compare(remote)
+    const { matched, missing } = await compare(remote)
     if (remote.ui) registry.setUi(remote.ui)
     if (remote.latexTemplates) registry.restoreTemplates(remote.latexTemplates, remote.latexDefault)
     if (Array.isArray(remote.authors)) registry.setAuthors(remote.authors)
