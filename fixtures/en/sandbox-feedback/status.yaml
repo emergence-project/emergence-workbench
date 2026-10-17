@@ -11,6 +11,7 @@
   handled_at: 2026-10-04T11:20
   by: claude
   rework: 2026-10-04T10:40
+  pictures: [2026-10-04-todo-before.png, 2026-10-04-todo-after.png]
   revised:
     - at: 2026-10-04T10:00
       understood: Enlarge the text of the home to-do list to body size.
@@ -18,6 +19,8 @@
       commit: "#99"
       handled_at: 2026-10-04T09:50
       by: claude
+      miss: 덜 고침
+      lesson: Take a picture of the screen before saying it is fixed.
     - at: 2026-10-04T10:40
       understood: Enlarge only the to-do titles to body size and keep dates and project names one step smaller.
       note: Fixed again after the send-back. To-do titles are now body size; dates and project names are one step smaller in gray.
