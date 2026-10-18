@@ -516,7 +516,8 @@ function replaceBody(lines: string[], id: string, body: string): string[] {
 }
 
 /** 한 기록의 상태·색·글을 바꾼다. 다른 절·알 수 없는 메타·답·줄바꿈은 그대로 보존한다. */
-export function updateComment(root: string, target: string, id: string, change: CommentChange, baseHash: string): CommentFile {
+/** journal: false면 할 일을 끝내도 일지에 "완료"를 쓰지 않는다 (옛 메모를 옮길 때처럼 오늘 끝낸 일이 아닐 때) */
+export function updateComment(root: string, target: string, id: string, change: CommentChange, baseHash: string, { journal = true }: { journal?: boolean } = {}): CommentFile {
   const { state, color, text } = change
   if (state === undefined && color === undefined && text === undefined) throw new WorkbenchError(400, t('상태나 색, 글이 필요함', 'A state, color, or text is required'))
   if (state !== undefined && !COMMENT_STATES.includes(state)) throw new WorkbenchError(400, t('상태는 대기·답함·끝냄', 'state must be 대기, 답함, or 끝냄'))
@@ -568,7 +569,7 @@ export function updateComment(root: string, target: string, id: string, change: 
     const was = parseComments(target, before).comments.find((c) => c.id === id)
     const file = parseComments(target, next)
     const now = file.comments.find((c) => c.id === id)
-    return was?.kind === '할 일' && was.state !== '끝냄' && now?.state === '끝냄' ? [doneJournalChange(root, file, now)] : []
+    return journal && was?.kind === '할 일' && was.state !== '끝냄' && now?.state === '끝냄' ? [doneJournalChange(root, file, now)] : []
   })
   return result
 }

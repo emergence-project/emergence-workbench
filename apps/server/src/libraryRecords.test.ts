@@ -59,6 +59,7 @@ describe('지식 라이브러리 기록', () => {
     const file = readComments(path.join(lib, 'workbench'), 'concept-planar-graph')
     expect(file.comments.map((c) => [c.kind, c.state])).toEqual([['할 일', '대기'], ['할 일', '대기'], ['할 일', '끝냄'], ['메모', null]])
     expect(fs.existsSync(path.join(lib, 'concepts', 'planar-graph.memo.md'))).toBe(false)
+    expect(fs.existsSync(path.join(lib, 'workbench', 'log'))).toBe(false)
     expect(fs.existsSync(path.join(lib, 'workbench', '.trash', 'concept-memos', 'planar-graph.memo.md'))).toBe(true)
     expect(planMemoMigration(lib)).toEqual([])
   })
