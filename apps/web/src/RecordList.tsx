@@ -7,16 +7,21 @@ import { Icon } from './icons'
 import { askConfirm } from './askText'
 import { onListKey } from './listInput'
 import { go } from './router'
-import { filterRecords, isTalkKind, isUserTurnRecord, recordDate, recordKind, rebaseRecordEdit, USER_ANSWER_BY, type PanelFilter, type RecordEdit } from './recordsPanelHelpers'
+import { filterByStatus, filterRecords, isTalkKind, isUserTurnRecord, recordKind, recordWhen, rebaseRecordEdit, sortRecords, USER_ANSWER_BY, type PanelFilter, type RecordEdit, type StatusFilter } from './recordsPanelHelpers'
 import { kindLabel, stateLabel } from './recordLabels'
 import { SayCard } from './Conversation'
 import { t } from './i18n'
 import { uiShown } from './uiNames'
 import { chooseRecordFilter } from './workRecords'
 
-export function RecordList({ rid, file, filter, onGo, items: suppliedItems, work = false }: {
-  rid: string; file: RecordFile; filter: PanelFilter; onGo(c: CommentEntry): void
+export function RecordList({ rid, file, filter, status, onGo, items: suppliedItems, work = false, showSource = work }: {
+  rid: string; file: RecordFile; filter: PanelFilter
+  /** 오른쪽 사이드바의 상태 고르기 (10/18): 진행 중 | 완료. 주면 그 상태만, 내 차례 먼저 · 최근 것 먼저로 */
+  status?: StatusFilter
+  onGo(c: CommentEntry): void
   items?: CommentEntry[]; work?: boolean
+  /** 줄 아래 왼쪽 링크에 붙은 대상 이름도 적는다 (기록 탭 · 프로젝트의 모든 기록을 모아 볼 때, 10/18) */
+  showSource?: boolean
 }) {
   const active = useSlot(rid, file.target, false).active
   const [error, setError] = useState<string | null>(null)
@@ -37,11 +42,13 @@ export function RecordList({ rid, file, filter, onGo, items: suppliedItems, work
     } finally { locked.current = false; setBusy(false) }
   }
   const api = commentsApi(rid)
-  const items = suppliedItems ?? filterRecords(file.comments, filter)
+  const kindItems = filterRecords(file.comments, filter)
+  const items = suppliedItems ?? (status ? sortRecords(filterByStatus(kindItems, status)) : kindItems)
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
   return <>
     {(error ?? askError) && <div className="banner danger" role="alert">{error ?? askError}</div>}
-    {!items.length && suppliedItems === undefined && <p className="empty records-empty">{filter === '전체' ? t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.') : t(`${filter} 기록이 없습니다.`, `No ${kindLabel(filter).toLowerCase()} records.`)}</p>}
+    {!items.length && suppliedItems === undefined && <p className="empty records-empty">{kindItems.length && status ? (status === '완료' ? t('완료한 기록이 없습니다.', 'No done records.') : t('진행 중인 기록이 없습니다.', 'No records in progress.'))
+      : filter === '전체' ? t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.') : t(`${filter} 기록이 없습니다.`, `No ${kindLabel(filter).toLowerCase()} records.`)}</p>}
     {items.map((c) => <RecordRow key={c.id} active={active === c.id} c={c} hash={file.hash} busy={busy} onGo={() => onGo(c)}
       asking={asking.has(askKey(rid, file.target, c.id))} onAsk={() => void askClaude(rid, file.target, c.id)}
       onState={(state) => act(() => api.update(file.target, c.id, { state, baseHash: file.hash }))}
@@ -59,7 +66,7 @@ export function RecordList({ rid, file, filter, onGo, items: suppliedItems, work
         if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 답이 달린 기록은 지울 수 없습니다.', 'This cannot be undone. The source text and other records stay. Records with answers cannot be deleted.'), ok: t('지우기', 'Delete') })) {
           await act(() => api.remove(file.target, c.id, baseHash))
         }
-      }} rid={rid} file={file} work={work} />)}
+      }} rid={rid} file={file} work={work} showSource={showSource} />)}
   </>
 }
 
@@ -70,17 +77,18 @@ export interface RecordRowProps {
   onApply?(answer: number): Promise<boolean>
   /** 질문 · 지시 아래에 이어 쓰기 (10/15) */
   onReply?(text: string): Promise<boolean>
-  file: Pick<RecordFile, 'target' | 'title'>; work?: boolean; dateLabel?: string; journal?: boolean
+  file: Pick<RecordFile, 'target' | 'title'>; work?: boolean; showSource?: boolean; dateLabel?: string; journal?: boolean
 }
 
-export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, dateLabel, journal = false }: RecordRowProps) {
+export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false }: RecordRowProps) {
   const row = useRef<HTMLElement>(null)
   useEffect(() => { if (active) row.current?.scrollIntoView({ block: 'nearest' }) }, [active])
   const [edit, setEdit] = useState<RecordEdit | null>(null)
   useEffect(() => { setEdit((current) => current ? rebaseRecordEdit(current, c.body, hash) : null) }, [c.body, hash])
   const conflict = edit !== null && edit.hash !== hash
   const kind = recordKind(c)
-  const date = dateLabel ?? recordDate(c.id)
+  const when = recordWhen(c.id)
+  const date = dateLabel ?? when.label
   const hasPlace = !c.lost && Boolean(c.line || c.page)
   // 쓴 이 (10/15): 정보 줄에 by가 없으면 사용자. 에이전트가 물은 질문이 대기면 사용자 차례(주황)
   const turn = isUserTurnRecord(c)
@@ -92,22 +100,18 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const save = async () => { if (edit && !conflict && edit.text.trim() && await onEdit(edit.text, edit.hash)) setEdit(null) }
   return <article ref={row} className={`record-row${work ? ' record-row-work' : ''}${active ? ' on' : ''}${turn ? ' turn' : ''}${c.state === '끝냄' ? ' done' : ''}${c.split ? ' split' : ''}`} data-ui="기록 줄" data-ui-item={c.id}
     onClick={(e) => { if (!(e.target as Element).closest('button, input, textarea, a, summary')) onGo() }}>
+    {/* 줄 모양 (10/18 결정): 위 줄 종류 · 쓴 이와 오른쪽 끝 행동, 가운데 본문, 아래 줄 왼쪽 붙은 곳 · 오른쪽 시점. 좌우 여백은 같다 */}
     <div className="record-row-head">
-      {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('끝냄', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
+      {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('완료', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
-          : <span className="record-marker" aria-label={kindLabel(kind)}>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
-      {/* 쓴 이는 줄 맨 위에 (10/15 22:41 피드백): 사용자 또는 에이전트 이름 */}
-      <span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('사용자가 쓴 기록', 'Written by the user')}>{c.by ?? t('사용자', 'User')}</span>
-      <span className="record-place">
-        {work && (file.target === 'project' ? <span className="record-source">{t('이 프로젝트', 'This project')}</span>
-          : <button className="a record-source" title={file.title} onClick={onGo}>{file.title}</button>)}
-        {hasPlace && <button className="a" title={t('그 자리로 가기', 'Go to the spot')} onClick={onGo}>{c.page ? t(`${c.page}쪽`, `p. ${c.page}`) : t(`${c.line}줄`, `line ${c.line}`)}</button>}{c.lost && t('자리를 잃음', 'Position lost')}
-      </span>
+          : <span className="record-marker" aria-hidden>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
+      <span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ?? t('사용자', 'User')}</span>
+      {turn && <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>}
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
           {/* 지시는 에이전트 세션이 MCP로 집어 가서 하고 답한다. 맥의 Claude가 저절로 하지 않는다 */}
           {kind === '질문' && !c.by && <button className="icon-btn sm" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
-          <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('끝냄', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
+          <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
         </>}
         <button className="icon-btn sm" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
         <button className="icon-btn sm tip-end" data-tip={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={busy} onClick={() => void onDelete()}>{Icon.trash}</button>
@@ -122,11 +126,19 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null); else onListKey(e, (text) => setEdit({ ...edit, text })) }} />
         <div className="record-edit-actions"><button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
-      <div className="record-meta"><span>{kindLabel(kind)}</span>{journal && <span>· {t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}{date && <span>· {date}</span>}
-        {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>→ {t('할 일 목록', 'To-do list')}</button>}
-        {talk && <><span>· {t('답', 'Answers')} {c.answers.length}</span>{turn ? <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>
-          : (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
-          {onReply && c.state !== '끝냄' && !turn && <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>}</>}
+      <div className="record-meta">
+        <span className="record-meta-left">
+          {/* 붙은 곳 링크 (10/18): 누르면 그 노트 · 화면을 열고 본문의 그 자리로 간다. 프로젝트에 붙은 기록은 갈 곳이 없어 기록 탭에서만 이름을 적는다(사이드바는 묶음 이름이 위에 있다) */}
+          {showSource && file.target === 'project' && !hasPlace ? work && <span className="record-source">{t('이 프로젝트', 'This project')}</span>
+            : (showSource || hasPlace) && <button className="a record-goto" title={t('그 자리로 가기', 'Go to the spot')} onClick={onGo}>
+              {[showSource && (file.target === 'project' ? t('이 프로젝트', 'This project') : file.title), hasPlace && (c.page ? t(`${c.page}쪽`, `p. ${c.page}`) : t(`${c.line}줄`, `line ${c.line}`))].filter(Boolean).join(' · ')}</button>}
+          {c.lost && <span>{t('자리를 잃음', 'Position lost')}</span>}
+          {journal && <span>{t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}
+          {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>{t('할 일 목록', 'To-do list')} ›</button>}
+          {talk && <><span>{t('답', 'Answers')} {c.answers.length}</span>{!turn && (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
+            {onReply && c.state !== '끝냄' && !turn && <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>}</>}
+        </span>
+        {date && <span className="record-when" title={dateLabel ? undefined : when.title}>{date}</span>}
       </div>
       {/* 기록 탭은 답을 대화로(내 글 오른쪽, 에이전트 글 왼쪽), 오른쪽 사이드바는 좁아서 답을 차례로 쌓는다 (10/15) */}
       {work ? c.answers.length > 0 && <ul className="fbp-thread record-thread" data-ui="기록 대화">

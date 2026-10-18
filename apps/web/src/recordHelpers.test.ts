@@ -49,8 +49,9 @@ describe('quoted record highlights', () => {
     })))
     expect(JSON.stringify(records)).toBe(before)
   })
-  it('omits unquoted or uncoloured records and retains lost status so painters do not guess', () => {
-    expect(quotedRecordHighlights([record({ quote: undefined }), record({ color: undefined })])).toEqual([])
+  it('omits unquoted or done records, paints uncoloured open ones yellow, and retains lost status so painters do not guess', () => {
+    expect(quotedRecordHighlights([record({ quote: undefined }), record({ kind: '할 일', state: '끝냄' })])).toEqual([])
+    expect(quotedRecordHighlights([record({ color: undefined })])[0]?.color).toBe('yellow')
     expect(quotedRecordHighlights([record({ lost: true })])[0]?.lost).toBe(true)
   })
   it('retains PDF geometry', () => {
@@ -62,9 +63,10 @@ describe('agent questions in the note body (10/15)', () => {
   it('paints a waiting agent question as the user turn even without a color', () => {
     const asked = record({ id: 'a', kind: '질문', by: 'claude', state: '대기', color: undefined })
     expect(quotedRecordHighlights([asked])).toEqual([expect.objectContaining({ id: 'a', turn: true, color: 'yellow' })])
-    // answered, or written by the user without a color: nothing to paint
-    expect(quotedRecordHighlights([{ ...asked, state: '답함' }])).toEqual([])
-    expect(quotedRecordHighlights([{ ...asked, by: undefined }])).toEqual([])
+    // answered or written by the user: still open, so painted as a plain highlight (10/18); done: nothing to paint
+    expect(quotedRecordHighlights([{ ...asked, state: '답함' }])).toEqual([expect.not.objectContaining({ turn: true })])
+    expect(quotedRecordHighlights([{ ...asked, by: undefined }])).toEqual([expect.not.objectContaining({ turn: true })])
+    expect(quotedRecordHighlights([{ ...asked, state: '끝냄' }])).toEqual([])
     expect(quotedRecordHighlights([record()])[0]).not.toHaveProperty('turn')
   })
 })

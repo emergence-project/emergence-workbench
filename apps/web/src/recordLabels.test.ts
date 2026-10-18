@@ -10,7 +10,9 @@ describe('기록 종류·상태 이름', () => {
 
   it('한국어 화면은 파일 값 그대로', () => {
     for (const k of ['전체', '자동', '메모', '할 일', '질문', '지시', '코멘트', '하이라이트', '판단', '맡긴 일']) expect(kindLabel(k)).toBe(k)
-    for (const s of ['대기', '답함', '끝냄']) expect(stateLabel(s)).toBe(s)
+    for (const s of ['대기', '답함']) expect(stateLabel(s)).toBe(s)
+    // 파일 값 끝냄은 화면에서 완료 (10/18)
+    expect(stateLabel('끝냄')).toBe('완료')
   })
 
   it('영어 화면은 한 표에서 (끝냄은 어디서나 Done)', () => {

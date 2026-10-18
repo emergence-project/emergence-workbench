@@ -12,6 +12,8 @@
 .record-colors .record-swatch[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
 .record-colors .record-swatch:disabled { cursor: default; opacity: .5; }
 .record-highlight { color: inherit; padding: 0; cursor: pointer; }
+/* 고른 기록의 칠 (10/18): 테두리로 계속 가리킨다 */
+.record-highlight.on { outline: 2px solid var(--text-2); outline-offset: 1px; border-radius: var(--r-xs); }
 .md-note-editing > .note-ask { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 /* 에이전트가 사용자에게 물은 곳 (10/15): 사용자 차례 주황 */
 .record-highlight.turn { background: color-mix(in srgb, var(--s-blocked) 22%, transparent); box-shadow: inset 0 -2px 0 var(--s-blocked); }

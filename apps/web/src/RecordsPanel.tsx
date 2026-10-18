@@ -8,7 +8,7 @@ import { onListKey } from './listInput'
 import { go } from './router'
 import { openFlowDot } from './FlowView'
 import { useHighlightColor } from './ui'
-import { classifiedRecordCount, filterForActiveRecord, recordRoute, type PanelFilter } from './recordsPanelHelpers'
+import { classifiedRecordCount, filterByStatus, filterForActiveRecord, filterRecords, recordRoute, statusForActiveRecord, type PanelFilter, type StatusFilter } from './recordsPanelHelpers'
 import { flash } from './flash'
 import { RecordList } from './RecordList'
 import { chooseRecordFilter } from './workRecords'
@@ -20,6 +20,8 @@ import { kindLabel } from './recordLabels'
 import { useRecords } from './projectQueries'
 
 const FILTERS: PanelFilter[] = ['전체', '메모', '할 일', '질문', '지시']
+const STATUSES: StatusFilter[] = ['진행 중', '완료']
+const statusName = (s: StatusFilter) => s === '완료' ? t('완료', 'Done') : t('진행 중', 'In progress')
 const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문 · 지시로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, questions, and instructions')
 /** 기록 종류의 그림 (10/16 아이콘 검토): 적기 칸의 종류 고르기에 글자 앞에 붙인다(필터는 좁은 폭에서 두 줄이 되지 않게 글자만). 기록 줄 맨 앞과 같은 그림 */
 const KIND_ICON: Record<string, ReactNode> = { 메모: Icon.memo, '할 일': Icon.todo, 질문: Icon.ask, 지시: Icon.send }
@@ -46,11 +48,16 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
   const files = recordsQuery.data?.files ?? NO_FILES
   const error = recordsQuery.error?.message ?? null
   const [filter, setFilter] = useState<PanelFilter>('전체')
+  // 상태는 처음과 대상을 바꿀 때마다 진행 중 (끝낸 기록은 숨김, 10/18 결정)
+  const [status, setStatus] = useState<StatusFilter>('진행 중')
+  useEffect(() => setStatus('진행 중'), [rid, target.target])
   const shown = project ? files : slot.file ? [slot.file] : []
   useEffect(() => {
     const comments = project ? files.find((file) => file.target === target.target)?.comments ?? [] : slot.file?.comments ?? []
     setFilter((current) => filterForActiveRecord(current, comments, slot.active))
+    setStatus((current) => statusForActiveRecord(current, comments, slot.active))
   }, [slot.active, slot.file, files, project, target.target])
+  const kindShown = shown.flatMap((file) => filterRecords(file.comments, filter))
   const open = (file: RecordFile, c?: CommentEntry) => {
     if (project && !(c?.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
@@ -73,11 +80,19 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
     } finally { classifying.delete(key); bumpPending() }
   }
   return <section className="records-panel" data-ui="적기">
-    <div className="records-filters" role="group" aria-label={t('기록 필터', 'Record filter')}>
-      {FILTERS.map((f) => <button key={f} className={`memo-chip${filter === f ? ' on' : ''}`} aria-pressed={filter === f} onClick={() => setFilter(f)}>{kindLabel(f)}</button>)}
-      {/* 프로젝트의 기록을 모두 모은 기록 탭으로 (10/14 13:33 제안). 전체면 메모를 연다 */}
-      <button className="a records-all" data-ui="모두 보기" data-tip={t('기록 탭에서 이 프로젝트의 기록 모두 보기', 'See all records of this project in the Records tab')}
-        onClick={() => { chooseRecordFilter(filter === '전체' ? '메모' : filter); go({ page: 'records', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>
+    <div className="records-filters">
+      {/* 종류는 하나만 고르는 선택 칸, 폭에 꽉 참 (10/18 결정) */}
+      <div className="segmented small full" role="group" aria-label={t('기록 필터', 'Record filter')}>
+        {FILTERS.map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => setFilter(f)}>{kindLabel(f)}</button>)}
+      </div>
+      <div className="records-subbar">
+        <div className="segmented small" role="group" aria-label={t('기록 상태', 'Record status')} data-ui="기록 상태">
+          {STATUSES.map((s) => <button key={s} className={status === s ? 'on' : ''} aria-pressed={status === s} onClick={() => setStatus(s)}>{statusName(s)} <span className="n">{filterByStatus(kindShown, s).length}</span></button>)}
+        </div>
+        {/* 프로젝트의 기록을 모두 모은 기록 탭으로 (10/14 13:33 제안). 전체면 메모를 연다 */}
+        <button className="a records-all" data-ui="모두 보기" data-tip={t('기록 탭에서 이 프로젝트의 기록 모두 보기', 'See all records of this project in the Records tab')}
+          onClick={() => { chooseRecordFilter(filter === '전체' ? '메모' : filter); go({ page: 'records', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>
+      </div>
     </div>
     <PublishFailure rid={rid} version={version} />
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">
@@ -88,7 +103,7 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
       {shown.map((file) => <div key={file.target} className="record-group">
         {project && <div className="record-group-title">{file.target === 'project' ? <span>{t('이 프로젝트', 'This project')}</span>
           : <button className="a" title={file.source} onClick={() => open(file)}>{file.title}</button>}</div>}
-        <RecordList rid={rid} file={file} filter={filter} onGo={(c) => open(file, c)} />
+        <RecordList rid={rid} file={file} filter={filter} status={status} showSource={project} onGo={(c) => open(file, c)} />
       </div>)}
       {!shown.length && !error && <p className="empty records-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}

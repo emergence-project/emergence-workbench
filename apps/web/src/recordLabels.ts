@@ -10,6 +10,8 @@ const KIND_EN: Record<string, string> = {
 }
 /** 기록 상태의 영어 이름 */
 const STATE_EN: Record<string, string> = { 대기: 'Waiting', 답함: 'Answered', 끝냄: 'Done' }
+/** 화면에 보일 상태 이름: 파일 값 "끝냄"은 "완료"로 보인다 (10/18 결정 "진행 중 | 완료") */
+const STATE_KO: Record<string, string> = { 끝냄: '완료' }
 
 export const kindLabel = (k: string) => t(k, KIND_EN[k] ?? k)
-export const stateLabel = (s: string) => t(s, STATE_EN[s] ?? s)
+export const stateLabel = (s: string) => t(STATE_KO[s] ?? s, STATE_EN[s] ?? s)

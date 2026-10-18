@@ -5,7 +5,7 @@ import { recordRevealRange } from './recordHelpers'
 import { selectionAnchor } from './recordAnchors'
 
 /**
- * Paint record highlights on rendered Markdown, flash the one to reveal, and open a highlight's menu on click.
+ * Paint record highlights on rendered Markdown, outline the one to reveal, and open a highlight's menu on click.
  * Research notes (NoteMarkdown) and concept notes (ObsidianMarkdown) share it; without a RecordContext it does nothing.
  * `html` is the rendered markup: painting runs again whenever it changes.
  */
@@ -15,6 +15,16 @@ export function useRecordPaint(ref: RefObject<HTMLDivElement | null>, html: stri
     if (ref.current && records) return paintRecordMarks(ref.current, records.source, records.contentOffset, records.highlights)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- records 객체는 렌더마다 새로 만들어지므로 쓰는 칸만 본다
   }, [html, records?.source, records?.contentOffset, records?.highlights])
+  // 고른 기록의 칠에 테두리를 둘러 다른 기록을 고를 때까지 가리킨다 (10/18, 전에는 1.6초 깜박임). 칠을 다시 그려도 남게 칠한 뒤에 단다
+  useLayoutEffect(() => {
+    const root = ref.current
+    const id = records?.reveal?.id
+    if (!root || !id) return
+    const marks = [...root.querySelectorAll<HTMLElement>(`[data-record-id="${CSS.escape(id)}"]`)]
+    marks.forEach((mark) => mark.classList.add('on'))
+    return () => marks.forEach((mark) => mark.classList.remove('on'))
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 칠과 같은 때에 다시 단다
+  }, [html, records?.source, records?.contentOffset, records?.highlights, records?.reveal?.id])
   useEffect(() => {
     const root = ref.current
     if (!root || !records?.reveal) return
@@ -26,10 +36,10 @@ export function useRecordPaint(ref: RefObject<HTMLDivElement | null>, html: stri
     const remove = root.querySelector(selector) ? undefined : paintRecordMarks(root, records.source, records.contentOffset, [{ id: reveal.id, rects: [], color: 'yellow', ...anchor }])
     const marks = [...root.querySelectorAll<HTMLElement>(selector)]
     marks[0]?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    const color = getComputedStyle(root).getPropertyValue('--hl-bg').trim()
-    const animations = marks.map((mark) => mark.animate([{ backgroundColor: color }, { backgroundColor: getComputedStyle(mark).backgroundColor }], { duration: 1600 }))
+    // 칠이 없던 자리(줄만 아는 옛 기록)는 잠깐 칠하고 테두리를 단다
+    if (remove) marks.forEach((mark) => mark.classList.add('on'))
     const timer = remove ? setTimeout(remove, 1600) : undefined
-    return () => { if (timer) clearTimeout(timer); remove?.(); animations.forEach((animation) => animation.cancel()) }
+    return () => { if (timer) clearTimeout(timer); remove?.() }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 기록 열기(nonce)가 바뀔 때만 그 자리로 간다
   }, [html, records?.reveal?.nonce])
   /** True when the event hit a highlight and its menu was opened. */

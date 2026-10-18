@@ -26,9 +26,6 @@
 /* 작업 화면도 적기의 기록 줄을 쓴다. 넓은 목록의 행동은 가리키거나 초점을 둘 때 보인다. */
 .work-records { min-width: 0; }
 .record-row-work:is(:hover, :focus-within) .hover-actions { opacity: 1; }
-.record-row-work .record-place { display: flex; align-items: center; gap: var(--sp-2); flex: 1; }
-.record-row-work .record-place > :not(.record-source) { flex: none; }
-.record-row-work .record-source { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .record-thread { margin-top: var(--sp-2); }
 
 /* 첫 화면 작업 패널에서 누른 할 일을 잠깐 표시 (10/7 15:31) */

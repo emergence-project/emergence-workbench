@@ -1,9 +1,12 @@
 /* 오른쪽 적기: 목록만 스크롤하고 입력칸은 아래에 고정한다. */
 .rs-col[hidden] { display: none; }
 .records-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
-.records-filters { flex: none; display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
-.records-filters .records-all { margin-left: auto; font-size: var(--fs-xs); }
-.records-filters .memo-chip.on { background: var(--bg-hover); color: var(--text); border-color: var(--line-strong); }
+/* 종류는 폭에 꽉 찬 선택 칸, 그 아래 줄 왼쪽 상태(진행 중 | 완료) · 오른쪽 "모두 보기" (10/18 결정) */
+.records-filters { flex: none; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
+.records-subbar { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.records-subbar .records-all { margin-left: auto; font-size: var(--fs-xs); white-space: nowrap; }
+.records-subbar .segmented button { white-space: nowrap; }
+.records-subbar .segmented .n { color: var(--text-3); font-weight: var(--fw-normal); font-variant-numeric: tabular-nums; }
 .records-publish-error { flex: none; display: flex; gap: var(--sp-2); align-items: baseline; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
 .records-publish-error span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .records-publish-error .a { white-space: nowrap; }
@@ -21,16 +24,22 @@
 .record-marker { display: inline-flex; flex: none; width: var(--sp-4); height: var(--sp-4); align-items: center; justify-content: center; margin: 0; color: var(--text-2); font-size: var(--fs-sm); font-weight: var(--fw-strong); }
 .record-marker svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .record-marker.unsorted { border: 1px dashed var(--text-3); border-radius: var(--r-xs); }
-.record-place { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; min-width: 0; }
 .record-actions { margin-left: auto; display: flex; flex: none; align-items: center; }
 .record-actions .icon-btn { color: var(--text-3); } /* 크기는 .icon-btn.sm */
 .record-actions .icon-btn:hover { color: var(--text); }
-.record-content { margin-left: calc(var(--sp-4) + var(--sp-1)); min-width: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.record-content { margin-top: var(--sp-1); min-width: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .record-quote { margin: 0 0 var(--sp-1); padding-left: var(--sp-2); border-left: 3px solid var(--line-strong); color: var(--text-3); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 4.5em; overflow: auto; }
 .record-row.done .record-body, .record-row.split .record-body { color: var(--text-3); }
-.record-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
-.record-meta > * { white-space: nowrap; flex: none; }
+.record-meta { display: flex; align-items: baseline; gap: var(--sp-2); margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
+.record-meta-left { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1); min-width: 0; }
+.record-meta-left > * { white-space: nowrap; flex: none; }
+.record-meta-left > .record-source, .record-meta-left > .record-goto { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+/* 붙은 곳 링크는 늘 밑줄 (10/18 시안: 본문의 그 자리로 가는 길이 보이게) */
+.record-meta .record-goto { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+.record-meta .record-goto:hover { color: var(--text); text-decoration-color: currentColor; }
+.record-meta .a { font-size: inherit; color: var(--text-2); }
 .record-meta .tag { padding: 0 var(--sp-1); font-size: var(--fs-2xs); }
+.record-when { flex: none; margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .record-edit textarea, .record-composer textarea { display: block; width: 100%; box-sizing: border-box; padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); font: inherit; line-height: 1.5; color: var(--text); background: var(--bg); resize: vertical; }
 .record-edit textarea:focus, .record-composer textarea:focus { outline: none; border-color: var(--text-3); }
 .record-edit-actions { display: flex; justify-content: flex-end; gap: var(--sp-1); margin-top: var(--sp-1); }
@@ -78,9 +87,9 @@ body.record-pointing, body.record-pointing * { cursor: crosshair !important; }
 body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] * { cursor: auto !important; }
 
 /* 쓴 이와 사용자 차례 (10/15): 에이전트가 물은 질문이 답을 기다리면 주황(사용자 차례) 테두리와 점 */
-.record-row-head .record-by { flex: none; max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
+.record-row-head .record-by { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); }
 .record-row.turn { border-color: var(--s-blocked); }
-.record-meta .record-turn { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--s-blocked); font-weight: var(--fw-strong); }
+.record-row-head .record-turn { display: inline-flex; flex: none; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--s-blocked); font-weight: var(--fw-strong); white-space: nowrap; }
 /* 이어 쓴 내 글은 바탕 없이 테두리만 (에이전트 답과 갈린다) */
 .cmt-answer.mine { background: transparent; border: 1px solid var(--line); }
 .record-reply { margin-top: var(--sp-2); }
