@@ -250,11 +250,12 @@ export function listComments(root: string): CommentFile[] {
 }
 
 /** 프로젝트 적기: 프로젝트 기록을 먼저, 노트별 기록을 그 뒤에 둔다. 인용 위치는 읽을 때 다시 찾는다. */
-export function listRecords(root: string, projectTitle: string): RecordGroup[] {
+/** projectTitle이 null이면(지식 라이브러리) 빈 프로젝트 묶음을 더하지 않는다: 라이브러리에는 프로젝트가 없다 (10/18) */
+export function listRecords(root: string, projectTitle: string | null): RecordGroup[] {
   const files = listComments(root)
-  if (!files.some((file) => file.target === 'project')) files.unshift({ target: 'project', title: projectTitle, hash: '', comments: [], highlights: [] })
+  if (projectTitle !== null && !files.some((file) => file.target === 'project')) files.unshift({ target: 'project', title: projectTitle, hash: '', comments: [], highlights: [] })
   return files.sort((a, b) => a.target === 'project' ? -1 : b.target === 'project' ? 1 : a.target.localeCompare(b.target))
-    .filter((file) => file.target === 'project' || file.comments.length > 0)
+    .filter((file) => (file.target === 'project' && projectTitle !== null) || file.comments.length > 0)
     .map((file) => {
       const { highlights: _highlights, ...group } = reanchor(root, file)
       return group

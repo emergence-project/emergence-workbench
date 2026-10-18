@@ -432,7 +432,7 @@ workbench/notes/
 | 경로 | 무엇 |
 |---|---|
 | `concepts/<id>.md` | 개념노트 (§10.1) |
-| `concepts/<id>.memo.md` | 옛 개념노트 메모(10/18 전). 머리말 없는 자유 Markdown. `pnpm library:memos <라이브러리> --apply`가 기록 카드로 옮기고 원래 파일은 `workbench/.trash/concept-memos/`로 보낸다 |
+| `concepts/<id>.memo.md` | 옛 개념노트 메모(10/18 전, 앱은 더 읽지 않음). 머리말 없는 자유 Markdown. `pnpm library:memos <라이브러리> --apply`가 기록 카드로 옮기고 원래 파일은 `workbench/.trash/concept-memos/`로 보낸다 |
 | `workbench/comments/concept-<id>.md` | 개념노트 기록 (§10.5, 10/18~): 연구 저장소 기록(§6)과 같은 형식 · 같은 자리 |
 | `concepts/<id>.tex` | 옛 LaTeX 개념노트 (블록 머리 형식). 같은 id의 `.md`가 있으면 숨김 |
 | `concepts/macros.tex` | 공용 매크로 |
@@ -489,6 +489,8 @@ checked:
 
 - 앱 API는 연구 기록과 같은 `/api/researches/:rid/comments…`에 rid 자리로 `_library`(`LIBRARY_RID`)를 넣는다. MCP 기록 도구(`list_records` · `read_records` · `answer_record` · `add_record`)도 `project: _library`로 같고, 앱 서버 없이는 `pnpm agent:records <라이브러리 폴더>` · `pnpm agent:answer <라이브러리 폴더> …`.
 - 연구 저장소와 같은 장치가 돈다: 기록을 쓰면 30초 뒤 `workbench/comments`(와 있으면 `workbench/log`)만 올리고, 10분마다 받으며, 설정 › 에이전트의 지시 처리가 라이브러리의 지시도 맥의 Claude에게 넘긴다(작업 폴더는 라이브러리, 규칙은 라이브러리 `AGENTS.md`).
+- 화면(10/18 3b): 개념노트 오른쪽 사이드바 "기록"은 프로젝트 기록과 같은 패널이다. 앱은 `concepts/<id>.memo.md`를 더 읽지도 쓰지도 않는다. Study에서 개념노트를 만들면 원문은 이 파일의 할 일 한 장(옮기기)과 메모 한 장(원문)이 된다.
+- 라이브러리 기록 모음(`GET …/_library/records`)에는 빈 `project` 묶음이 없다(라이브러리에는 프로젝트가 없다).
 - 논문 코멘트(§10.3, 기록 하나가 파일 하나)는 아직 따로다.
 
 ### 10.4 `references.bib`에 덧붙일 때

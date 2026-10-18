@@ -32,7 +32,7 @@ const { Workbench } = await tsImport('../apps/server/src/workbench.ts', opts)
 const { listRecords } = await tsImport('../apps/server/src/comments.ts', opts)
 const { recordRows } = await tsImport('../apps/server/src/recordRows.ts', opts)
 
-const title = library ? '지식 라이브러리' : new Workbench(root).readResearch().title
+const title = library ? null : new Workbench(root).readResearch().title
 const filter = { kind: val('--kind'), target: val('--target'), unanswered: flag('--unanswered'), replied: flag('--replied'), unsorted: flag('--unsorted'), full: flag('--full') }
 const rows = recordRows(listRecords(root, title), filter)
 if (filter.full) { process.stdout.write(`${JSON.stringify(rows)}\n`); process.exit(0) }

@@ -7,6 +7,7 @@ import { buildApp } from './app.js'
 import { createConceptMd, inlineCites, listConceptMd, parseMacros, readConceptMemo, readConceptMd, setConceptChecked, setConceptLocked, splitFrontmatter, unfinishedReasons } from './conceptNotes.js'
 import { buildKnowledge } from './knowledge.js'
 import { listLibraryNotes } from './libraryNotes.js'
+import { readComments } from './comments.js'
 
 const fixtures = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../fixtures/knowledge')
 
@@ -27,15 +28,18 @@ describe('Markdown 개념노트', () => {
     expect(by['discharging-method']!.unfinished).toEqual(['빈 절: 성질', 'TODO·작성 중 표시'])
   })
 
-  it('Study에서 만든 개념노트: 본문은 기본 양식, 원문은 옆 메모에 재료로', () => {
+  it('Study에서 만든 개념노트: 본문은 기본 양식, 원문은 기록 카드로', () => {
     createConceptMd(lib, 'from-study', { title: 'From study', study: { path: 'Concept-Space/X.md', text: 'Original $x$ text.' } })
     const n = readConceptMd(lib, 'from-study')
     expect(n.meta.study).toBe('Concept-Space/X.md')
     expect(n.body).toContain('## Definition')
     expect(n.body).not.toContain('Original')
-    expect(readConceptMemo(lib, 'from-study').text).toContain('## Study 원문 (Concept-Space/X.md)\n\nOriginal $x$ text.')
+    const cards = readComments(path.join(lib, 'workbench'), 'concept-from-study').comments
+    expect(cards.map((c) => c.kind)).toEqual(['할 일', '메모'])
+    expect(cards[1]!.body).toContain('Study 원문 (Concept-Space/X.md)\n\nOriginal $x$ text.')
+    expect(fs.existsSync(path.join(lib, 'concepts', 'from-study.memo.md'))).toBe(false)
     expect(() => createConceptMd(lib, 'from-study', { title: 'Again' })).toThrow(/이미 있는/)
-    fs.rmSync(path.join(lib, 'concepts', 'from-study.md')); fs.rmSync(path.join(lib, 'concepts', 'from-study.memo.md'))
+    fs.rmSync(path.join(lib, 'concepts', 'from-study.md')); fs.rmSync(path.join(lib, 'workbench'), { recursive: true })
   })
 
   it('미완성 기준', () => {

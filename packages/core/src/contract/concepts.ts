@@ -33,6 +33,8 @@ export const ConceptMd = z.object({
   id: z.string(),
   meta: ConceptMeta,
   body: z.string(),
+  /** 본문이 시작하는 파일 줄 번호 (1부터, 머리말 다음). 기록의 줄 번호는 파일 줄 번호다 (10/18 개념노트 기록) */
+  bodyLine: z.number().int().positive(),
   /** 파일 전체의 해시 (저장 충돌 확인) */
   hash: z.string(),
   unfinished: z.array(z.string()),
