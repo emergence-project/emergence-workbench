@@ -635,5 +635,11 @@
   "지시 처리": "Instructions",
   "지시 처리 시각": "Instruction time",
   "할 일 묶음": "To-do group",
-  "메모 묶음": "Memo group"
+  "메모 묶음": "Memo group",
+  "공통 규칙 묶음": "Common rules",
+  "공통 규칙 고치기": "Edit common rules",
+  "공통 규칙 바뀜": "Rules changed",
+  "공통 규칙 원문": "Rules source",
+  "공통 규칙 없음": "No common rules",
+  "공통 규칙 올리지 못함": "Rules not pushed"
 }

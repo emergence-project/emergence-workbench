@@ -10,6 +10,7 @@ import { tikzCachePath } from './figures.js'
 import { Google, mockGoogleFetch } from './google.js'
 import { macSteps, promoteNextBuild } from './appupdate.js'
 import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
+import { COMMON_RULES_FILE } from './agentRules.js'
 import { Registry } from './registry.js'
 import { serveStatic } from './static.js'
 
@@ -172,6 +173,9 @@ if (personal && !process.env.RW_FEEDBACK_DIR && fs.existsSync(path.join(personal
 }
 // 예제 모드의 피드백 화면 예: 처리 · 반려 · 다시 처리 · 승인을 주고받은 항목 몇 개 (fixtures/sandbox-feedback)
 if (process.env.RW_SANDBOX === '1' && !fs.existsSync(feedbackDir)) cpSample(path.join(repoRoot, 'fixtures/sandbox-feedback'), feedbackDir, { recursive: true })
+// 예제 모드의 공통 규칙 (설정 › 공통 규칙, 각 프로젝트 STATUS의 공통 규칙 절): fixtures/sandbox-rules
+const sandboxRules = path.join(configDir, COMMON_RULES_FILE)
+if (process.env.RW_SANDBOX === '1' && !process.env.RW_COMMON_RULES && !fs.existsSync(sandboxRules)) { fs.mkdirSync(path.dirname(sandboxRules), { recursive: true }); cpSample(path.join(repoRoot, 'fixtures/sandbox-rules/research.md'), sandboxRules) }
 // 앱 업데이트(설정 화면): 실사용만. 지금 돌고 있는 코드의 커밋을 시작할 때 기억한다
 const running = (() => { try { return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD']).toString().trim() } catch { return null } })()
 const appRepo = process.env.RW_SANDBOX !== '1' && running ? { root: repoRoot, running, steps: macSteps() } : undefined
@@ -184,7 +188,7 @@ if (process.env.RW_SANDBOX === '1') {
 // 맥에만 있는 workbench/ 백업: 실사용만. 개인 저장소에 올린다
 const backupRemote = appRepo ? personal : null
 const backup = backupRemote ? { dir: path.join(configDir, 'backup'), remote: backupRemote, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
-const app = buildApp({ configDir, google, watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: running?.slice(0, 7), backup })
+const app = buildApp({ configDir, google, watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: running?.slice(0, 7), backup })
 
 // RW_STATIC=1 (실사용 서비스): 빌드한 화면을 이 서버가 함께 내보낸다
 if (process.env.RW_STATIC === '1') {

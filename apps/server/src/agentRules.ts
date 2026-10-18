@@ -33,13 +33,17 @@ export function projectRules(repo: string): RuleFile[] {
 /** 연구 공통 규칙의 자리: 설정 폴더 안 개인 저장소 사본의 rules/research.md */
 export const COMMON_RULES_FILE = path.join('personal', 'rules', 'research.md')
 
+/** 연구 공통 규칙 파일의 절대 경로 (RW_COMMON_RULES가 앞선다). 설정 폴더도 없으면 '' */
+export const commonRulesPath = (configDir: string | undefined): string =>
+  process.env.RW_COMMON_RULES || (configDir ? path.join(configDir, COMMON_RULES_FILE) : '')
+
 /**
  * 연구 공통 규칙 (2026-10-13 결정 "연구 저장소 폴더" R1): 모든 연구 저장소에 통하는 규칙을 프로젝트마다 복사하지 않고
  * 개인 저장소 한 곳에 둔다. 앱은 그 사본(설정 폴더 personal/)에서 읽기만 한다. RW_COMMON_RULES로 다른 파일을
  * 가리킬 수 있다(개인 저장소를 따로 받아 둔 클라우드 에이전트). 파일이 없거나 비면 null
  */
 export function commonRules(configDir: string | undefined): RuleFile | null {
-  const abs = process.env.RW_COMMON_RULES || (configDir ? path.join(configDir, COMMON_RULES_FILE) : '')
+  const abs = commonRulesPath(configDir)
   if (!abs) return null
   const r = readRule(path.dirname(abs), path.basename(abs))
   return r && r.text.trim() ? { ...r, file: homeShort(abs) } : null

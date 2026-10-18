@@ -1,0 +1,9 @@
+/* 설정 › 공통 규칙 (CommonRulesSettings.tsx): 절마다 제목과 규칙 목록, 고치기는 원문 입력란 하나 */
+.cr .sec-head { align-items: center; flex-wrap: wrap; }
+.cr-state { display: inline-flex; align-items: center; font-size: var(--fs-sm); color: var(--text-2); }
+.cr-lead { max-width: 68ch; }
+.cr-sec { scroll-margin-top: var(--sp-4); }
+.cr-sec .set-h3 { margin-top: var(--sp-5); }
+.cr-edit { display: block; width: 100%; box-sizing: border-box; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line-strong); border-radius: var(--r-lg); resize: vertical; }
+.cr-stale { color: var(--s-blocked); font-size: var(--fs-sm); margin: 0 0 var(--sp-2); }
+.cr-empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }

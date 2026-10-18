@@ -48,6 +48,7 @@ import { registerFigures } from './routes/figures.js'
 import { registerTasks } from './routes/tasks.js'
 import { registerFlow } from './routes/flow.js'
 import { registerAgentEdits } from './routes/agentEdits.js'
+import { registerCommonRules } from './routes/commonRules.js'
 import { allowedRequest, extraHosts, fileResponseHeaders } from './hostGuard.js'
 import { Google } from './google.js'
 import type { RepoIO } from './githubRepos.js'
@@ -69,6 +70,8 @@ export interface AppOptions {
   feedbackAutoPublishMs?: number
   /** 피드백 폴더가 든 개인 저장소 사본에 GitHub의 새 내용(처리 기록 등)을 받는다 (실사용만, personalRepo.ts) */
   feedbackSync?: () => Promise<{ ok: boolean; error?: string }>
+  /** 개인 저장소 사본 폴더 (실사용, 개인 저장소를 정했을 때만). 설정 › 공통 규칙을 저장하면 받고 그 파일만 올린다 */
+  personalDir?: string
   /** 앱 자신의 업데이트(설정 화면). 실사용만: 저장소 위치, 지금 돌고 있는 커밋, 설치·빌드·재시작 방법 */
   appRepo?: { root: string; running: string; steps: UpdateSteps }
   /** 앱 자동 업데이트 (실사용 서비스만): 이만큼마다 받고 빌드해 두고, 열린 화면이 없고 쓰기 요청이 idleMs 동안 없으면 다시 시작한다 */
@@ -282,6 +285,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerApiIndex(app, ctx) // 맨 앞: 뒤에 등록되는 경로를 모아 GET /api로 보여 준다
   registerResearches(app, ctx)
   registerSettings(app, ctx)
+  registerCommonRules(app, ctx)
   registerFeedback(app, ctx)
   registerSync(app, ctx)
   registerLibrary(app, ctx)

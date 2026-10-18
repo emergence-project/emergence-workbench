@@ -90,6 +90,9 @@ export const DEFAULT_SCREENS = [
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],
+  // 설정 › 공통 규칙 (10/18): 절마다 읽기, 연필로 연 원문 입력란
+  ['settings-rules', '#/settings/rules', '공통 규칙 묶음'],
+  ['settings-rules-edit', '#/settings/rules', '공통 규칙 원문', '[data-ui="공통 규칙 고치기"]'],
   ['network', '#/network', '사람 카드'],
   ['person', '#/network/ada-e-example', '사람 페이지'],
   // 논문 라이브러리 (10/5; 10/6 L2 첫 화면): 첫 화면(최근 더한 논문 · 점검 · 통계 · 라이브러리 정보), 목록(표), 카드 보기(PDF가 이 맥에 있으면 첫 쪽이 표지), 카드를 고른 모습(오른쪽 칸), PDF 폴더 설정

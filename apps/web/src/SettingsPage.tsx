@@ -4,6 +4,7 @@ import { AppInfo } from './AppInfo'
 import { AppUpdate } from './AppUpdate'
 import { AgentSettings } from './AgentSettings'
 import { BackupSettings } from './BackupSettings'
+import { CommonRulesSettings, ruleSectionId, useCommonRules } from './CommonRulesSettings'
 import { GitHubAccount } from './GitHubAccount'
 import { GoogleSettings } from './GoogleSettings'
 import { LibrarySettings, LIBRARY_SECTIONS } from './LibrarySettings'
@@ -38,6 +39,8 @@ export const SETTINGS_PARTS = [
   { key: 'google', label: t('계정', 'Accounts') },
   { key: 'backup', label: t('백업', 'Backup') },
   { key: 'agents', label: t('에이전트', 'Agents') },
+  // 아래 줄은 규칙 파일의 절 제목 (RuleSubs)
+  { key: 'rules', label: t('공통 규칙', 'Common rules') },
   { key: 'library', label: t('라이브러리 관리', 'Library'), subs: LIBRARY_SECTIONS },
   { key: 'screen', label: t('화면', 'Display') },
   { key: 'latex', label: 'LaTeX', subs: [{ id: 'latex-editor', label: t('편집기', 'Editor') }, { id: 'latex-templates', label: t('서식', 'Templates') }, { id: 'latex-macros', label: t('명령어', 'Macros') }] },
@@ -65,10 +68,21 @@ export function SettingsSide({ part }: { part?: string }) {
               <span className="label">{s.label}</span>
             </button>
           ))}
+          {p.key === 'rules' && cur === p.key && <RuleSubs label={p.label} />}
         </div>
       ))}
     </div>
   )
+}
+
+/** 설정 › 공통 규칙의 아래 줄: 규칙 파일의 절 (시작할 때 · 내용 · 고칠 때 …) */
+function RuleSubs({ label }: { label: string }) {
+  const { data } = useCommonRules()
+  return <>{data?.exists && data.sections.map((s, i) => (
+    <button key={i} className="nav set-sub" data-ui="설정 줄" data-ui-item={`${label} ${s}`} onClick={() => scrollToSection(ruleSectionId(i))}>
+      <span className="label">{s}</span>
+    </button>
+  ))}</>
 }
 
 export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettings; onChange(patch: Partial<UiSettings>): void; part?: string; pr?: number; onSaved(message: string): void }) {
@@ -147,6 +161,8 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
               <div className="sec-head"><h2>{t('에이전트', 'Agents')}</h2></div>
               <AgentSettings />
             </section>}
+
+            {show('rules') && <CommonRulesSettings onSaved={onSaved} />}
 
             {show('library') && <LibrarySettings onSaved={onSaved} section={part === 'papers' ? 'library-papers' : part} />}
 

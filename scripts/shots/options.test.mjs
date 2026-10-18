@@ -38,10 +38,10 @@ test('help is available without starting a browser', () => {
 })
 
 
-test('the existing CI scope stays 76 screens with exactly two dark captures', () => {
+test('the existing CI scope stays 78 screens with exactly two dark captures', () => {
   const defaults = parseShotOptions([], {})
   const screens = selectScreens(defaults.sample)
-  assert.equal(screens.length, 76)
+  assert.equal(screens.length, 78)
   assert.deepEqual(screens.filter(([name]) => screenScheme(defaults.theme, name) === 'dark').map(([name]) => name), ['dark-topic', 'dark-note-info'])
   assert.equal(selectScreens('subjects').length, 10)
   assert.ok(selectScreens('subjects').every(([name]) => name.startsWith('subjects-')))
