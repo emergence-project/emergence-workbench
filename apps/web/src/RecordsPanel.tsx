@@ -103,7 +103,7 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf }: {
       {shown.map((file) => <div key={file.target} className="record-group">
         {project && <div className="record-group-title">{file.target === 'project' ? <span>{t('이 프로젝트', 'This project')}</span>
           : <button className="a" title={file.source} onClick={() => open(file)}>{file.title}</button>}</div>}
-        <RecordList rid={rid} file={file} filter={filter} status={status} onGo={(c) => open(file, c)} />
+        <RecordList rid={rid} file={file} filter={filter} status={status} showSource={project} onGo={(c) => open(file, c)} />
       </div>)}
       {!shown.length && !error && <p className="empty records-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}

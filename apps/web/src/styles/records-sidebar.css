@@ -33,7 +33,10 @@
 .record-meta { display: flex; align-items: baseline; gap: var(--sp-2); margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
 .record-meta-left { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1); min-width: 0; }
 .record-meta-left > * { white-space: nowrap; flex: none; }
-.record-meta-left > .record-source { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.record-meta-left > .record-source, .record-meta-left > .record-goto { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+/* 붙은 곳 링크는 늘 밑줄 (10/18 시안: 본문의 그 자리로 가는 길이 보이게) */
+.record-meta .record-goto { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+.record-meta .record-goto:hover { color: var(--text); text-decoration-color: currentColor; }
 .record-meta .a { font-size: inherit; color: var(--text-2); }
 .record-meta .tag { padding: 0 var(--sp-1); font-size: var(--fs-2xs); }
 .record-when { flex: none; margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
