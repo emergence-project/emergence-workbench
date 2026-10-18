@@ -167,8 +167,6 @@ export function App() {
     homeTimer.current = window.setTimeout(() => setVersion((v) => v + 1), 400)
   }, [])
   const { library, libraryChanged, manuscripts, topics, notes, notesOf, notesChanged } = useProjectData(rid)
-  // 사이드바 "기록" 옆 남은 할 일 수: 요약에 실려 온다 (10/15, 전에는 일지 365일을 따로 받았다)
-  const todoCount = summary ? summary.todos.length : null
   // 주제를 바꿔 옮겨 간 노트(10/13 주제 폴더)를 옛 경로로 연 탭·주소는 지금 경로로 바꾼다
   const routeFile = route.page === 'part' && route.rid === rid ? route.file : null
   useEffect(() => {
@@ -432,7 +430,7 @@ export function App() {
           ) : current && <>
             {/* 프로젝트 이름은 제목줄에만 둔다 (10/3 피드백: 중복 없애기) */}
             <div className="side-scroll project-side-scroll">
-              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} route={route} todoCount={todoCount} askCount={issues.records[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
+              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} route={route} askCount={issues.records[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
                 materials={rapi && <MaterialsNav rid={current.id} rapi={rapi} route={route} onSaved={flash} library={library} onLibraryChanged={libraryChanged} />} /> : <div className="empty space-empty">{current.problem ?? t('불러오는 중…', 'Loading…')}</div>}
             </div>
           </>}

@@ -107,15 +107,10 @@
 .side-tabs .side-tab .q-ico svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .side-tabs .side-tab .tab-chev { font-size: var(--fs-md); }
 
-/* 열어 둔 카드·원고의 목차: 사이드바 아래쪽 칸 (노트 하위 목록 밖) */
+/* 프로젝트 사이드바: 맨 위 탭(parts/side-tabs.css) 아래 이동 목록 또는 절 목차가 남은 높이를 쓴다 */
 .project-side-scroll { display: flex; flex: 1 1 0; flex-direction: column; overflow: hidden; }
 .project-toc { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; }
 .project-nav { flex: 1 1 0; min-height: 0; overflow: auto; }
-.side-toc-box { flex: none; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
-.side-toc-title { padding: 0 var(--sp-2) var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }
-.side-toc-box .side-toc { margin: 0; padding-left: 0; border-left: 0; overflow-y: auto; }
-.side-toc-box .toc-row { flex: none; }
-.side-toc-box > .row-resizer { margin-top: calc(-1 * var(--sp-2)); margin-bottom: var(--sp-1); }
 .side-row .tree-chev { width: auto; height: auto; }
 .side-row[aria-expanded='true'] .tree-chev span { transform: rotate(90deg); }
 .note-sub .q-ico { display: inline-grid; place-items: center; }

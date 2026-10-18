@@ -17,8 +17,8 @@ export function RightSidebar({ info, records }: { info: ReactNode; records: Reac
   const modes: [RightMode, string][] = [['info', t('정보', 'Info')], ['records', t('기록', 'Records')]]
   return (
     <div className="rs" data-ui="오른쪽 사이드바">
-      <div className="rs-head">
-        <div className="segmented small" role="tablist" aria-label={t('오른쪽 사이드바 갈래', 'Right sidebar view')} data-ui="오른쪽 사이드바 갈래">
+      <div className="rs-head side-tabbar">
+        <div className="segmented small full" role="tablist" aria-label={t('오른쪽 사이드바 갈래', 'Right sidebar view')} data-ui="오른쪽 사이드바 갈래">
           {modes.map(([m, label]) => <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} onClick={() => setRightMode(m)}>{label}</button>)}
         </div>
       </div>

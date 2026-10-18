@@ -186,6 +186,5 @@
 /* 프로젝트 탭의 개념노트: 절 목차가 제목 위치를 이 스크롤 칸 기준으로 잰다 (10/7 15:54) */
 .cn-toc-scroll { position: relative; }
 
-/* 10/8 12:02 피드백: 지식 사이드바 맨 아래 절 목차. 목록이 길어도 사이드바 아래에 붙어 있다 */
-.cn-side { min-height: 100%; }
-.cn-side > .side-toc-box { position: sticky; bottom: calc(-1 * var(--sp-3)); margin-top: auto; padding-bottom: var(--sp-3); background: var(--bg-side); }
+/* 지식 사이드바: 맨 위 탭(parts/side-tabs.css)이 첫 줄이라 위 여백을 두지 않는다 (10/18) */
+.cn-side { padding-top: 0; }
