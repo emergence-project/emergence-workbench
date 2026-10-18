@@ -32,7 +32,7 @@ export type WorkbenchEvent =
   /** research.yaml sources의 파일(작업 목록·검토 문서·참고문헌)이 바뀜 */
   | { type: 'sources'; research: string }
   /** 공용 라이브러리 파일이 바뀜 (어느 프로젝트의 것도 아님). file은 라이브러리 기준 경로 */
-  | { type: 'library'; research: null; part: 'concepts' | 'figures' | 'papers'; file: string }
+  | { type: 'library'; research: null; part: 'concepts' | 'figures' | 'papers' | 'records'; file: string }
 
 /** 등록한 프로젝트 목록과 태그 */
 export const researchListCalls = {

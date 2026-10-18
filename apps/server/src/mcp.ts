@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { noteRecordTarget } from '@rw/core'
+import { LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { recordRows } from './recordRows.js'
 
 // 기본은 맥의 실사용 서버(scripts/serve.sh, 5174). 예제 모드(pnpm dev, 8130)는 RW_URL로 준다.
@@ -115,6 +115,8 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
   })
   const ro = { readOnlyHint: true, openWorldHint: false } as const
   const project = z.string().describe('Project id (from list_projects)')
+  /** 기록 도구는 지식 라이브러리(개념노트 기록)도 받는다 (10/18) */
+  const recordsProject = z.string().describe(`Project id (from list_projects), or ${LIBRARY_RID} for concept-note records in the knowledge library (targets concept-<concept id>)`)
 
   server.registerTool('rules', {
     title: 'Rules',
@@ -221,7 +223,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
   server.registerTool('read_records', {
     title: 'Read records',
     description: 'Records left on a note or the project (memos, to-dos, questions with answers, highlights) and their hash. target: project, note-<folder>, calc-<folder>, block-<id>, topic-<id>, flow-<id> or manuscript. part/partText = the screen part the user pointed at.',
-    inputSchema: { project, target: z.string().describe('project | note-<folder> | calc-<folder> | block-<id> | topic-<id> | flow-<id> | manuscript') },
+    inputSchema: { project: recordsProject, target: z.string().describe('project | note-<folder> | calc-<folder> | block-<id> | topic-<id> | flow-<id> | manuscript') },
     annotations: ro,
   }, async ({ project: rid, target }) => call(`/api/researches/${enc(rid)}/comments/${enc(target)}`))
 
@@ -229,7 +231,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     title: 'List records',
     description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Kinds: 메모 (memo, nobody acts), 할 일 (to-do, the user does it), 질문 (question, an agent answers), 지시 (instruction, an agent does it and then answers). Each row is short: target, id, kind, by (the agent that wrote it; absent = the user), state, where, quote, part, body (first 300 characters), answerCount and lastAnswer (by 사용자 = the user). Pass full: true, or read one target with read_records, for whole bodies and every answer. unanswered: true = the user\'s questions and instructions waiting for an agent. replied: true = questions an agent asked with add_record that the user has answered: read the answer, act on it, then close the record with answer_record. unsorted: true = records the user left as 자동 and has not sorted yet (memos until sorted; if one reads as a request, ask the user in the conversation instead of acting).',
     inputSchema: {
-      project,
+      project: recordsProject,
       kind: z.enum(['메모', '할 일', '질문', '지시']).optional().describe('메모 (memo) | 할 일 (to-do) | 질문 (question) | 지시 (instruction)'),
       state: z.enum(['대기', '답함', '끝냄']).optional().describe('대기 (waiting) | 답함 (answered) | 끝냄 (closed)'),
       target: z.string().optional().describe('Only this target, or a prefix ending in - (note-, topic-, flow- …)'),
@@ -245,7 +247,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     title: 'Answer a question or instruction record',
     description: 'Write your answer under a question (질문) or instruction (지시) record (from list_records or read_records). The answer is appended with your agent name and the record becomes answered (답함); the user reads it in the app. Lead with the result in the first line and keep it to a few lines; cite files as path:line. On a question you asked yourself (by set) that the user answered (list_records replied: true), act on the answer, then answer_record saying what you did: that closes the record (끝냄). For a question, answer only what was asked. For an instruction, do the small job first (change notes with edit_note so the user reviews them), then answer saying what you did and where; if it needs an end condition and a report, do not start it and answer suggesting a delegated task instead. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
     inputSchema: {
-      project,
+      project: recordsProject,
       target: z.string().describe('The record\'s target (project, note-<folder>, topic-<id>, flow-<id> …)'),
       id: z.string().describe('The question or instruction record id'),
       answer: z.string().trim().min(1).describe('Your answer (Markdown)'),
@@ -263,9 +265,9 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     title: 'Add a record for the user',
     description: 'Leave a record the user reads in the app, written under your agent name. Use kind 질문 (question) to ask the user to check or decide something, for example a passage of a note you wrote: it shows in orange as the user\'s turn until the user answers in the app (their answer is appended as `### 답 · 사용자` and the record becomes 답함). Use 메모 (memo) for a remark that needs no answer. For a note, pass file (from list_notes) and optionally quote (text copied exactly from the note, it is highlighted there) and line; otherwise pass target (project, topic-<id>, flow-<id>). Do not use it to answer a record (use answer_record) or to change notes (use edit_note).',
     inputSchema: {
-      project,
+      project: recordsProject,
       file: z.string().optional().describe('Note file from list_notes (workbench/notes/<name>/note.md, workbench/topics/<topic>/<name>/note.md, workbench/blocks/<id>.md …)'),
-      target: z.string().optional().describe('Instead of file: project | topic-<id> | flow-<id>'),
+      target: z.string().optional().describe(`Instead of file: project | topic-<id> | flow-<id>; with project ${LIBRARY_RID}: concept-<concept id>`),
       kind: z.enum(['질문', '메모']).describe('질문 (question for the user) | 메모 (memo)'),
       text: z.string().trim().min(1).describe('What you ask or note (Markdown)'),
       quote: z.string().optional().describe('Text copied exactly from the note to anchor the record'),
@@ -286,7 +288,13 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
       title = n.type === 'block' ? `노트 결과 ${n.title}` : `노트 ${n.title}`
       source = n.type === 'block' ? n.id : n.file
     }
-    if (!to) return fail('Pass file (a note from list_notes) or target (project, topic-<id>, flow-<id>).')
+    // 개념노트 기록 (지식 라이브러리, 10/18): target concept-<개념노트 id>, 인용은 그 개념노트 본문에서 찾는다
+    if (rid === LIBRARY_RID && to?.startsWith('concept-')) {
+      const id = to.slice('concept-'.length)
+      title = `개념노트 ${id}`
+      source = `concepts/${id}.md`
+    }
+    if (!to) return fail('Pass file (a note from list_notes) or target (project, topic-<id>, flow-<id>, or concept-<id> with project _library).')
     if (!file && /^(note|calc|block)-/.test(to)) return fail('For a note, pass file (from list_notes) instead of target.')
     const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(to)}`, { kind, title, ...(source && { source }), text: body, ...(quote && { quote }), ...(line && { line }), by: recordAuthor(server.server.getClientVersion()?.name) })
     if (!r.ok) return r.error

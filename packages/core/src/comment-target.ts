@@ -1,3 +1,12 @@
+/**
+ * 지식 라이브러리를 연구 저장소와 같은 기록 장치로 다룰 때 쓰는 이름 (10/18 결정 "지식 라이브러리도 같은 장치로").
+ * 기록 API(/api/researches/:rid/comments …)의 rid 자리에 넣으면 라이브러리의 workbench/comments/를 읽고 쓴다. 연구 id는 [a-z0-9-]라 겹치지 않는다
+ */
+export const LIBRARY_RID = '_library'
+
+/** 개념노트의 기록 대상 이름 (라이브러리 workbench/comments/concept-<id>.md) */
+export const conceptRecordTarget = (id: string): string => `concept-${commentTargetSlug(id)}`
+
 /** 기록 대상 이름: 화면과 에이전트 요약이 같은 폴더 이름을 같은 대상으로 읽는다. */
 export const commentTargetSlug = (s: string): string => s.replace(/[^A-Za-z0-9._-]/g, '_').replace(/\.{2,}/g, '_').slice(0, 160) || '_'
 

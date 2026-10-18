@@ -19,8 +19,10 @@ export interface RouteContext {
   /** 연구의 파일 감시를 켠다 (등록할 때) */
   ensureWatch: (rid: string) => void
   watchers: Map<string, FSWatcher>
-  /** 등록한 연구의 저장소 경로 */
+  /** 등록한 연구의 저장소 경로 (LIBRARY_RID면 지식 라이브러리 폴더) */
   repoPath: (rid: string) => string
+  /** 기록 파일이 든 workbench 폴더 (LIBRARY_RID면 <라이브러리>/workbench, 없어도 된다: 처음 쓸 때 만든다) */
+  recordsRoot: (rid: string) => string
   /** 개념노트 색인 (공유 라이브러리가 없으면 null). 개념노트 화면과 노트 링크가 함께 쓴다 */
   conceptIndex: () => ConceptIndex | null
 }
