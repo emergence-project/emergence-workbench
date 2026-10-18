@@ -250,11 +250,12 @@ export function listComments(root: string): CommentFile[] {
 }
 
 /** 프로젝트 적기: 프로젝트 기록을 먼저, 노트별 기록을 그 뒤에 둔다. 인용 위치는 읽을 때 다시 찾는다. */
-export function listRecords(root: string, projectTitle: string): RecordGroup[] {
+/** projectTitle이 null이면(지식 라이브러리) 빈 프로젝트 묶음을 더하지 않는다: 라이브러리에는 프로젝트가 없다 (10/18) */
+export function listRecords(root: string, projectTitle: string | null): RecordGroup[] {
   const files = listComments(root)
-  if (!files.some((file) => file.target === 'project')) files.unshift({ target: 'project', title: projectTitle, hash: '', comments: [], highlights: [] })
+  if (projectTitle !== null && !files.some((file) => file.target === 'project')) files.unshift({ target: 'project', title: projectTitle, hash: '', comments: [], highlights: [] })
   return files.sort((a, b) => a.target === 'project' ? -1 : b.target === 'project' ? 1 : a.target.localeCompare(b.target))
-    .filter((file) => file.target === 'project' || file.comments.length > 0)
+    .filter((file) => (file.target === 'project' && projectTitle !== null) || file.comments.length > 0)
     .map((file) => {
       const { highlights: _highlights, ...group } = reanchor(root, file)
       return group
@@ -515,7 +516,8 @@ function replaceBody(lines: string[], id: string, body: string): string[] {
 }
 
 /** 한 기록의 상태·색·글을 바꾼다. 다른 절·알 수 없는 메타·답·줄바꿈은 그대로 보존한다. */
-export function updateComment(root: string, target: string, id: string, change: CommentChange, baseHash: string): CommentFile {
+/** journal: false면 할 일을 끝내도 일지에 "완료"를 쓰지 않는다 (옛 메모를 옮길 때처럼 오늘 끝낸 일이 아닐 때) */
+export function updateComment(root: string, target: string, id: string, change: CommentChange, baseHash: string, { journal = true }: { journal?: boolean } = {}): CommentFile {
   const { state, color, text } = change
   if (state === undefined && color === undefined && text === undefined) throw new WorkbenchError(400, t('상태나 색, 글이 필요함', 'A state, color, or text is required'))
   if (state !== undefined && !COMMENT_STATES.includes(state)) throw new WorkbenchError(400, t('상태는 대기·답함·끝냄', 'state must be 대기, 답함, or 끝냄'))
@@ -567,7 +569,7 @@ export function updateComment(root: string, target: string, id: string, change: 
     const was = parseComments(target, before).comments.find((c) => c.id === id)
     const file = parseComments(target, next)
     const now = file.comments.find((c) => c.id === id)
-    return was?.kind === '할 일' && was.state !== '끝냄' && now?.state === '끝냄' ? [doneJournalChange(root, file, now)] : []
+    return journal && was?.kind === '할 일' && was.state !== '끝냄' && now?.state === '끝냄' ? [doneJournalChange(root, file, now)] : []
   })
   return result
 }

@@ -5,7 +5,8 @@ import { readSubjects, validateSubjects } from './subjects.js'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
-import { frontMatter } from '@rw/core'
+import { conceptRecordTarget, frontMatter } from '@rw/core'
+import { addComment } from './comments.js'
 
 /**
  * Markdown 개념노트 — shared-library/concepts/<id>.md (2026-10-04 개념노트 재설계).
@@ -114,7 +115,8 @@ export function conceptMdExists(lib: string | undefined, id: string): boolean {
 function parse(id: string, raw: string): ConceptMd {
   const { fm, body } = splitFrontmatter(raw)
   const meta = metaOf(fm, id)
-  return { id, meta, body, hash: hashOf(raw), unfinished: unfinishedReasons(body), checked: checkStateOf(meta, body) }
+  const bodyLine = raw.slice(0, raw.length - body.length).split('\n').length
+  return { id, meta, body, bodyLine, hash: hashOf(raw), unfinished: unfinishedReasons(body), checked: checkStateOf(meta, body) }
 }
 
 export function listConceptMd(lib: string | undefined): (ConceptMd & { mtime: number })[] {
@@ -234,7 +236,13 @@ export function createConceptMd(lib: string | undefined, id: string, input: { ti
   const fm = YAML.stringify(fields).trimEnd()
   fs.mkdirSync(path.dirname(file), { recursive: true })
   writeAtomic(file, `---\n${fm}\n---\n# ${input.title}\n\n${input.body ?? CONCEPT_TEMPLATE}`)
-  if (input.study) writeAtomic(memoFile(lib, id), `- [ ] Study 원문을 본문 양식으로 옮기고 이 재료를 지우기\n\n## Study 원문 (${input.study.path})\n\n${input.study.text.trim()}\n`)
+  // Study 원문은 개념노트 기록 카드로 (10/18 "지식 라이브러리도 같은 장치로"): 옮길 할 일 하나와 원문 메모 하나
+  if (input.study) {
+    const root = path.join(path.dirname(path.dirname(file)), 'workbench')
+    const base = { title: `개념노트 ${input.title}`, source: `${CONCEPTS_DIR}/${id}.md` }
+    addComment(root, conceptRecordTarget(id), { ...base, kind: '할 일', text: 'Study 원문을 본문 양식으로 옮기기' })
+    addComment(root, conceptRecordTarget(id), { ...base, kind: '메모', text: `Study 원문 (${input.study.path})\n\n${input.study.text.trim()}` })
+  }
   return { id }
 }
 

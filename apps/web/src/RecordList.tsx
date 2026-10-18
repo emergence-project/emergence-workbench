@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { splitNoteFixes } from '@rw/core'
+import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
 import { commentsApi, ConflictError, type CommentEntry, type CommentFile, type RecordFile } from './api'
 import { askClaude, askErrors, asking, askKey, bumpPending, keyOf, load, patch, useAskTick, useSlot } from './Comments'
 import { MemoText } from './memo'
@@ -14,7 +14,10 @@ import { t } from './i18n'
 import { uiShown } from './uiNames'
 import { chooseRecordFilter } from './workRecords'
 
-export function RecordList({ rid, file, filter, status, onGo, items: suppliedItems, work = false, showSource = work }: {
+/** 붙은 곳의 이름과 툴팁 (주면 줄 번호 대신). 없으면 줄 · 쪽 번호 */
+export type RecordPlaceOf = (c: CommentEntry) => { label: string; tip: string } | undefined
+
+export function RecordList({ rid, file, filter, status, onGo, items: suppliedItems, work = false, showSource = work, placeOf }: {
   rid: string; file: RecordFile; filter: PanelFilter
   /** 오른쪽 사이드바의 상태 고르기 (10/18): 진행 중 | 완료. 주면 그 상태만, 내 차례 먼저 · 최근 것 먼저로 */
   status?: StatusFilter
@@ -22,6 +25,7 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
   items?: CommentEntry[]; work?: boolean
   /** 줄 아래 왼쪽 링크에 붙은 대상 이름도 적는다 (기록 탭 · 프로젝트의 모든 기록을 모아 볼 때, 10/18) */
   showSource?: boolean
+  placeOf?: RecordPlaceOf
 }) {
   const active = useSlot(rid, file.target, false).active
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +70,7 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
         if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 답이 달린 기록은 지울 수 없습니다.', 'This cannot be undone. The source text and other records stay. Records with answers cannot be deleted.'), ok: t('지우기', 'Delete') })) {
           await act(() => api.remove(file.target, c.id, baseHash))
         }
-      }} rid={rid} file={file} work={work} showSource={showSource} />)}
+      }} rid={rid} file={file} work={work} showSource={showSource} place={placeOf?.(c)} />)}
   </>
 }
 
@@ -78,9 +82,11 @@ export interface RecordRowProps {
   /** 질문 · 지시 아래에 이어 쓰기 (10/15) */
   onReply?(text: string): Promise<boolean>
   file: Pick<RecordFile, 'target' | 'title'>; work?: boolean; showSource?: boolean; dateLabel?: string; journal?: boolean
+  /** 붙은 곳을 줄 번호 대신 이 이름으로 (개념노트의 절 이름, 10/18) */
+  place?: { label: string; tip: string }
 }
 
-export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false }: RecordRowProps) {
+export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place }: RecordRowProps) {
   const row = useRef<HTMLElement>(null)
   useEffect(() => { if (active) row.current?.scrollIntoView({ block: 'nearest' }) }, [active])
   const [edit, setEdit] = useState<RecordEdit | null>(null)
@@ -130,11 +136,11 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         <span className="record-meta-left">
           {/* 붙은 곳 링크 (10/18): 누르면 그 노트 · 화면을 열고 본문의 그 자리로 간다. 프로젝트에 붙은 기록은 갈 곳이 없어 기록 탭에서만 이름을 적는다(사이드바는 묶음 이름이 위에 있다) */}
           {showSource && file.target === 'project' && !hasPlace ? work && <span className="record-source">{t('이 프로젝트', 'This project')}</span>
-            : (showSource || hasPlace) && <button className="a record-goto" title={t('그 자리로 가기', 'Go to the spot')} onClick={onGo}>
-              {[showSource && (file.target === 'project' ? t('이 프로젝트', 'This project') : file.title), hasPlace && (c.page ? t(`${c.page}쪽`, `p. ${c.page}`) : t(`${c.line}줄`, `line ${c.line}`))].filter(Boolean).join(' · ')}</button>}
+            : (showSource || hasPlace) && <button className="a record-goto" title={place ? `${t('그 자리로 가기', 'Go to the spot')} · ${place.tip}` : t('그 자리로 가기', 'Go to the spot')} onClick={onGo}>
+              {[showSource && (file.target === 'project' ? t('이 프로젝트', 'This project') : file.title), hasPlace && (place?.label ?? (c.page ? t(`${c.page}쪽`, `p. ${c.page}`) : t(`${c.line}줄`, `line ${c.line}`)))].filter(Boolean).join(' · ')}</button>}
           {c.lost && <span>{t('자리를 잃음', 'Position lost')}</span>}
           {journal && <span>{t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}
-          {kind === '할 일' && !work && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>{t('할 일 목록', 'To-do list')} ›</button>}
+          {kind === '할 일' && !work && rid !== LIBRARY_RID && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>{t('할 일 목록', 'To-do list')} ›</button>}
           {talk && <><span>{t('답', 'Answers')} {c.answers.length}</span>{!turn && (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
             {onReply && c.state !== '끝냄' && !turn && <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>}</>}
         </span>

@@ -39,7 +39,8 @@ describe('지식 라이브러리 기록', () => {
     // 인용은 개념노트 본문에서 다시 찾는다 (머리말을 센 파일 줄 번호)
     expect(file.comments[0].line).toBe(7)
     const records = (await app.inject({ method: 'GET', url: `/api/researches/${LIBRARY_RID}/records` })).json()
-    expect(records.files.map((f: { target: string }) => f.target)).toContain('concept-planar-graph')
+    // 라이브러리에는 프로젝트가 없어 빈 "project" 묶음을 더하지 않는다
+    expect(records.files.map((f: { target: string }) => f.target)).toEqual(['concept-planar-graph'])
   })
 
   it('연구가 아닌 다른 API에 _library를 넣으면 등록되지 않은 연구로 거절한다', async () => {
@@ -58,6 +59,7 @@ describe('지식 라이브러리 기록', () => {
     const file = readComments(path.join(lib, 'workbench'), 'concept-planar-graph')
     expect(file.comments.map((c) => [c.kind, c.state])).toEqual([['할 일', '대기'], ['할 일', '대기'], ['할 일', '끝냄'], ['메모', null]])
     expect(fs.existsSync(path.join(lib, 'concepts', 'planar-graph.memo.md'))).toBe(false)
+    expect(fs.existsSync(path.join(lib, 'workbench', 'log'))).toBe(false)
     expect(fs.existsSync(path.join(lib, 'workbench', '.trash', 'concept-memos', 'planar-graph.memo.md'))).toBe(true)
     expect(planMemoMigration(lib)).toEqual([])
   })

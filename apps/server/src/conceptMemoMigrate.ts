@@ -63,7 +63,8 @@ export function applyMemoMigration(lib: string, plans = planMemoMigration(lib)):
     const when = fs.statSync(memoPath).mtime
     for (const c of p.cards) {
       const { entry } = addComment(root, p.target, c.input, when)
-      if (c.done) updateComment(root, p.target, entry.id, { state: '끝냄' }, readComments(root, p.target).hash)
+      // 옛 완료는 오늘 끝낸 일이 아니라 일지에 쓰지 않는다
+      if (c.done) updateComment(root, p.target, entry.id, { state: '끝냄' }, readComments(root, p.target).hash, { journal: false })
       cards++
     }
     const trash = path.join(root, MEMO_TRASH, p.memo)

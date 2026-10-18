@@ -27,7 +27,7 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   })
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/records', replies(C.RecordList), async (req): Promise<C.RecordList> => {
     const rid = req.params.rid
-    return { files: listRecords(recordsRoot(rid), rid === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : wbOf(rid).readResearch().title) }
+    return { files: listRecords(recordsRoot(rid), rid === LIBRARY_RID ? null : wbOf(rid).readResearch().title) }
   })
   app.get<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target', replies(C.CommentFile), async (req): Promise<C.CommentFile> =>
     readComments(recordsRoot(req.params.rid), req.params.target))

@@ -35,41 +35,6 @@
 .cn-src > li.flash { animation: cn-flash 1.6s ease-out; border-radius: var(--r-xs); }
 @keyframes cn-flash { from { background: var(--hl-bg); } to { background: transparent; } }
 
-/* 메모 · 할 일 (concepts/<id>.memo.md) */
-.cn-memo-head { display: flex; align-items: center; gap: var(--sp-2); }
-.cn-memo-head .sp { flex: 1; }
-.cn-memo-edit { width: 100%; box-sizing: border-box; font-family: var(--editor-font); font-size: var(--fs-sm); padding: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); resize: vertical; }
-.cn-memo-actions { display: flex; gap: var(--sp-2); }
-/* 10/8 11:47: 할 일 · 메모 두 묶음, 항목 오른쪽 위에 늘 보이는 연필 · 휴지통 */
-.cn-memo-grp { display: flex; flex-direction: column; gap: var(--sp-2); }
-.cn-memo-grp-h { margin: 0; display: flex; align-items: baseline; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-3); }
-.cn-memo-grp-h .n { font-size: var(--fs-xs); font-weight: var(--fw-normal); color: var(--text-3); }
-.cn-memo-form { display: flex; flex-direction: column; gap: var(--sp-2); }
-.cn-unit.cn-unit-task, .cn-unit.cn-memo-text { display: flex; align-items: flex-start; gap: var(--sp-1); }
-.cn-unit-main { flex: 1; min-width: 0; }
-.cn-unit-main > :first-child { margin-top: 0; }
-.cn-unit-main > :last-child { margin-bottom: 0; }
-.cn-unit-acts { flex: none; display: flex; margin: -4px -6px 0 0; }
-.cn-unit-acts .icon-btn { color: var(--text-3); }
-.cn-unit-editing { padding: var(--sp-2); }
-.cn-tasks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); }
-.cn-tasks li.done span { color: var(--text-3); text-decoration: line-through; }
-.cn-memo-text { color: var(--text-2); }
-/* 메모·할 일 하나가 상자 하나 (10/4 19:17) */
-.cn-units { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
-.cn-unit { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); padding: var(--sp-2) 10px; font-size: var(--fs-sm); min-width: 0; overflow-wrap: anywhere; }
-.cn-unit > :first-child { margin-top: 0; }
-.cn-unit > :last-child { margin-bottom: 0; }
-.cn-unit p, .cn-unit ul, .cn-unit ol { margin: 0; }
-.cn-unit ul, .cn-unit ol { padding-left: var(--sp-4); }
-.cn-unit p + p, .cn-unit p + ul, .cn-unit ul + p { margin-top: var(--sp-1); }
-.cn-unit-task label { display: flex; align-items: baseline; gap: 6px; color: var(--text); }
-.cn-unit-task.done label span { color: var(--text-3); text-decoration: line-through; }
-.cn-unit-more { margin-top: var(--sp-1); padding-left: 22px; }
-/* 본문에서 고른 글 (10/8 11:47): 하이라이트 색 왼쪽 선, 누르면 본문의 그 자리로 */
-.cn-unit-quote { width: 100%; margin: 0 0 var(--sp-1); padding: 0 0 0 var(--sp-2); border: 0; border-left: 3px solid var(--line-strong); background: none; color: var(--text-2); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-.cn-unit-quote:hover { color: var(--text); }
-.cn-memo-form > .cn-unit-quote { margin: 0; }
 
 
 /* 사이드바: 찾기 먼저, 접힌 분류 나무 (2026-10-04, 노트가 수만 개여도) */

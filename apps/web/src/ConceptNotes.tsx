@@ -1,17 +1,14 @@
 import { SubjectPicker, useSubjects, SUBJECTS_CHANGED } from './SubjectPicker'
 import { subjectsApi, type SubjectCount } from './api/subjects'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { api, conceptsApi, knowledgeApi, topicKey, type ConceptMd, type ConceptMemo, type ConceptRow, type ConceptSources, type ConceptUse, type KnowledgeInfo, type KnowledgeTopic, type LibraryInfo } from './api'
+import { api, conceptsApi, knowledgeApi, topicKey, type ConceptMd, type ConceptRow, type ConceptSources, type ConceptUse, type KnowledgeInfo, type KnowledgeTopic, type LibraryInfo } from './api'
 import { useConceptMacros } from './conceptMacros'
 import { useFigureUrl } from './figureEmbed'
 import { ConceptEditor } from './ConceptEditor'
 import { Icon } from './icons'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
 import { go, type Route } from './router'
-import { anchoredById, anchoredUnit, appendUnit, memoUnits, replaceUnit, unitSource, type MemoAnchor, type MemoUnit } from './conceptMemo'
-import { clearConceptCompose, loadConceptMemo, revealConceptMemo, saveConceptMemo, useConceptMemo } from './conceptMemoStore'
-import { ConceptRecords } from './ConceptRecords'
-import { askConfirm } from './askText'
+import { ConceptRecords, ConceptRecordsPanel, setShownConcept } from './ConceptRecords'
 import { onOutside } from './autosave'
 import { useNoteEdit } from './noteEdit'
 import { NoteScreen } from './NoteScreenFrame'
@@ -213,6 +210,8 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
   onChanged(): void; onSaved(msg: string): void
 }) {
   const [note, setNote] = useState<ConceptMd | null>(null)
+  // 오른쪽 사이드바 기록이 붙은 곳을 절 이름으로 적게 본문을 알린다
+  useEffect(() => { if (note) setShownConcept(note) }, [note])
   const scroller = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -361,17 +360,17 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
       }}>
       <div ref={scroller} className={`scroll kn-read${editing ? ' cn-editing' : ''}${tocOwner ? ' cn-toc-scroll' : ''}`} onClick={editing ? undefined : follow}>
         <div className={`cn-layout${side === 'inline' && rightOpen ? ' with-side' : ''}`}>
-        {/* 고른 글 하이라이트 · 메모는 읽기와 고치기 모두에서 (기록은 concepts/<id>.memo.md, 10/8 11:47) */}
-        {editing ? <ConceptRecords id={id} source={initial} contentOffset={0}><ConceptEditor initial={initial} options={options} editView={edit.view}
+        {/* 고른 글 하이라이트 · 기록은 읽기와 고치기 모두에서 (기록은 라이브러리 workbench/comments/concept-<id>.md, 10/18) */}
+        {editing ? <ConceptRecords note={note} shown={initial} editing><ConceptEditor initial={initial} options={options} editView={edit.view}
             onChange={(body) => saver.edit(body)} onSave={(body) => { saver.edit(body); void edit.saveNow() }} onCancel={() => void finish()} /></ConceptRecords> : <div className="page-body cn-body">
           <header className="cn-head">
           <h1 className="h-title">{m.title}</h1>
           </header>
-          <ConceptRecords id={id} source={note.body} contentOffset={note.body.length - shownBody.length}><ObsidianMarkdown text={shownBody} options={options} /></ConceptRecords>
+          <ConceptRecords note={note} shown={shownBody}><ObsidianMarkdown text={shownBody} options={options} /></ConceptRecords>
           <ConceptSourcesList srcs={srcs} />
         </div>}
         {side === 'inline' && rightOpen && <aside className="cn-side-col"><RightSidebar info={<div className="rs-pad"><ConceptSidePanel id={id} info={info} rid={rid} project={project} doc={doc} onChanged={onChanged} onSaved={onSaved} /></div>}
-          records={<ConceptRecordsSide id={id} info={info} onSaved={onSaved} />} /></aside>}
+          records={<ConceptRecordsPanel id={id} title={m.title} />} /></aside>}
         </div>
       </div>
     </NoteScreen>
@@ -563,150 +562,3 @@ function ConceptUses({ id, info, rid, project, onChanged, onSaved }: {
   )
 }
 
-/**
- * 노트 본문 밖의 메모: 할 일·열린 질문·코멘트·작업 지침 (concepts/<id>.memo.md, 2026-10-04 사용자 코멘트).
- * 할 일(- [ ] …)은 체크 상자로, 나머지는 글로 보인다. 노트가 잠겨도 고칠 수 있고 PDF에는 나가지 않는다.
- * 할 일과 메모는 두 묶음으로, 항목마다 오른쪽 위 연필 · 휴지통 (10/8 11:47). 파일의 순서와 나머지 줄은 그대로 둔다.
- */
-/** base: 고치기를 연 때의 메모 글. 그사이 본문에서 하이라이트를 더해 메모가 바뀌어도 고치던 항목을 다시 찾는다 */
-type MemoEdit = { base: string } & ({ what: 'all' } | { what: 'unit'; unit: MemoUnit } | { what: 'add'; kind: MemoUnit['kind']; anchor?: MemoAnchor })
-
-/** 오른쪽 사이드바 "기록": 개념노트의 메모 · 할 일 (concepts/<id>.memo.md, 10/10 노트 화면 틀) */
-export function ConceptRecordsSide({ id, info, onSaved }: { id: string; info: LibraryInfo | null; onSaved(msg: string): void }) {
-  const options = useConceptRender()
-  return <div className="rs-pad cn-side-panel"><ConceptMemoBox id={id} info={info} options={options} onSaved={onSaved} /></div>
-}
-
-function ConceptMemoBox({ id, info, options, onSaved }: { id: string; info: LibraryInfo | null; options: RenderOptions; onSaved(msg: string): void }) {
-  const { memo, compose } = useConceptMemo(id)
-  const [draft, setDraft] = useState<string | null>(null)
-  const [edit, setEdit] = useState<MemoEdit | null>(null)
-  const [busy, setBusy] = useState(false)
-  const load = useCallback(() => loadConceptMemo(id), [id])
-  // 라이브러리를 다시 읽을 때마다 메모도 다시 읽지만, 고치던 글은 다른 노트로 옮길 때만 버린다.
-  // 고치는 동안은 다시 읽지 않는다: 읽을 때의 hash로 저장해야 그사이 바깥에서 바뀐 것을 덮지 않는다(409)
-  const editingMemo = useRef(false)
-  editingMemo.current = draft !== null
-  const shownId = useRef(id)
-  useEffect(() => {
-    if (shownId.current !== id) { shownId.current = id; setDraft(null); setEdit(null) } else if (editingMemo.current) return
-    void load()
-  }, [load, info, id])
-  // 본문에서 글을 골라 "메모"를 누르면: 그 고른 글의 메모가 있으면 고치고, 없으면 새로 쓴다
-  useEffect(() => {
-    if (!compose || !memo || draft !== null) return
-    clearConceptCompose(id, compose.nonce)
-    const unit = anchoredById(memo.text, compose.anchor.id)
-    if (unit) { setEdit({ base: memo.text, what: 'unit', unit }); setDraft(unit.text) }
-    else { setEdit({ base: memo.text, what: 'add', kind: 'note', anchor: compose.anchor }); setDraft('') }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 고른 글의 메모 열기(nonce)마다, 초안이 비어 있을 때만 연다
-  }, [compose?.nonce, memo, draft === null])
-  if (!memo) return null
-  const save = async (text: string, msg: string) => {
-    setBusy(true)
-    try { await saveConceptMemo(id, memo, text); setDraft(null); setEdit(null); onSaved(msg) }
-    catch (e) { onSaved((e as Error).message) } finally { setBusy(false) }
-  }
-  const lines = memo.text.split('\n')
-  const units = memoUnits(memo.text)
-  const tasks = units.filter((u) => u.kind === 'task')
-  const notes = units.filter((u) => u.kind === 'note')
-  const toggle = (i: number) => {
-    const next = [...lines]
-    next[i] = next[i]!.replace(/\[( |x|X)\]/, (_, c: string) => (c === ' ' ? '[x]' : '[ ]'))
-    void save(next.join('\n'), t('할 일을 고쳤습니다', 'To-do updated'))
-  }
-  const open = (what: MemoEdit, text: string) => { setEdit(what); setDraft(text) }
-  const close = () => { setEdit(null); setDraft(null) }
-  /** 고치기를 연 뒤 메모가 바뀌었으면 같은 항목을 지금 글에서 다시 찾는다 */
-  const current = (u: MemoUnit, base: string): MemoUnit | undefined => {
-    if (base === memo.text) return u
-    if (u.kind === 'note' && u.anchor) return anchoredById(memo.text, u.anchor.id)
-    const src = unitSource(base, u)
-    return memoUnits(memo.text).find((x) => unitSource(memo.text, x) === src)
-  }
-  const commit = () => {
-    if (draft === null || !edit) return
-    let next: string
-    if (edit.what === 'all') {
-      if (edit.base !== memo.text) { onSaved(t('그사이 메모가 바뀌었습니다. 고친 글을 복사해 두고 다시 열어 주세요.', 'The memo changed in the meantime. Copy your text and open it again.')); return }
-      next = draft
-    } else if (edit.what === 'add') next = appendUnit(memo.text, edit.kind, edit.anchor ? anchoredUnit(edit.anchor, draft) : draft)
-    else {
-      const u = current(edit.unit, edit.base)
-      if (!u) { onSaved(t('고치던 항목이 그사이 바뀌거나 지워졌습니다.', 'The item you were editing changed or was deleted in the meantime.')); close(); return }
-      next = replaceUnit(memo.text, u, u.kind === 'note' && u.anchor ? anchoredUnit(u.anchor, draft) : draft)
-    }
-    if (next === memo.text) { close(); return }
-    void save(next, t('메모를 저장했습니다', 'Memo saved'))
-  }
-  const remove = (u: MemoUnit) => void askConfirm({
-    title: u.kind === 'task' ? t('이 할 일을 지울까요?', 'Delete this to-do?') : t('이 메모를 지울까요?', 'Delete this memo?'),
-    hint: t('메모 파일에서 이 항목만 지워지고, 다른 메모 · 할 일은 그대로 남습니다.', 'Only this item is removed from the memo file. The other memos and to-dos stay.'), ok: t('지우기', 'Delete'),
-  }).then((y) => { if (y) void save(replaceUnit(memo.text, u, null), t('지웠습니다', 'Deleted')) })
-  const quoteOf = (anchor: MemoAnchor | undefined) => anchor && (
-    // 고른 글: 누르면 본문의 그 자리로 간다
-    <button type="button" className="cn-unit-quote" data-ui="고른 글" style={{ borderLeftColor: `var(--paint-${anchor.color})` }}
-      title={t('본문에서 보기', 'Show in the text')} onClick={() => revealConceptMemo(id, anchor)}>{anchor.quote.replace(/\s+/g, ' ').trim()}</button>
-  )
-  const editingAnchor = edit?.what === 'add' ? edit.anchor : edit?.what === 'unit' && edit.unit.kind === 'note' ? edit.unit.anchor : undefined
-  const editor = (placeholder: string) => draft !== null && (
-    <div className="cn-memo-form">
-      {quoteOf(editingAnchor)}
-      <textarea className="cn-memo-edit" value={draft} rows={Math.min(16, Math.max(4, draft.split('\n').length + 2))} autoFocus placeholder={placeholder}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit() } else if (e.key === 'Escape') close() }} />
-      <div className="cn-memo-actions">
-        <button className="btn primary" disabled={busy} onClick={commit}>{t('저장', 'Save')}</button>
-        <button className="btn" disabled={busy} onClick={close}>{t('취소', 'Cancel')}</button>
-      </div>
-    </div>
-  )
-  const acts = (u: MemoUnit, name: string) => (
-    <span className="cn-unit-acts">
-      <button className="icon-btn sm" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기 — ${name}`, `Edit ${name}`)} disabled={busy || draft !== null} onClick={() => open({ base: memo.text, what: 'unit', unit: u }, u.kind === 'note' && u.anchor ? u.text : unitSource(memo.text, u))}>{Icon.pencil}</button>
-      <button className="icon-btn sm tip-end" data-tip={t('지우기', 'Delete')} aria-label={t(`지우기 — ${name}`, `Delete ${name}`)} disabled={busy || draft !== null} onClick={() => remove(u)}>{Icon.trash}</button>
-    </span>
-  )
-  const editingUnit = (u: MemoUnit) => edit?.what === 'unit' && edit.unit.from === u.from
-  const group = (kind: MemoUnit['kind'], title: string, list: MemoUnit[], empty: string, placeholder: string) => (
-    <div className="cn-memo-grp" data-ui={kind === 'task' ? '할 일 묶음' : '메모 묶음'}>
-      <div className="cn-memo-head">
-        <h3 className="cn-memo-grp-h">{title}{list.length ? <span className="n">{list.length}</span> : null}</h3>
-        <span className="sp" />
-        {edit?.what !== 'all' && <button className="icon-btn tip-end" data-tip={kind === 'task' ? t('할 일 더하기', 'Add a to-do') : t('메모 더하기', 'Add a memo')} aria-label={kind === 'task' ? t('할 일 더하기', 'Add a to-do') : t('메모 더하기', 'Add a memo')} disabled={busy || draft !== null} onClick={() => open({ base: memo.text, what: 'add', kind }, '')}>＋</button>}
-      </div>
-      {edit?.what === 'add' && edit.kind === kind && editor(placeholder)}
-      {list.length ? (
-        // 할 일 하나, 메모 하나가 각각 상자 하나 (10/4 19:17 "작업 단위로 확인하기 어려워")
-        <ul className="cn-units">
-          {list.map((u) => editingUnit(u) ? <li key={u.from} className="cn-unit cn-unit-editing">{editor(placeholder)}</li>
-            : u.kind === 'task' ? (
-              <li key={u.from} className={`cn-unit cn-unit-task${u.done ? ' done' : ''}`} data-ui="할 일 상자">
-                <div className="cn-unit-main">
-                  <label><input type="checkbox" checked={u.done} disabled={busy || draft !== null} onChange={() => toggle(u.line)} /> <span>{u.text}</span></label>
-                  {u.more && <div className="cn-memo-text cn-unit-more"><ObsidianMarkdown text={u.more} options={options} /></div>}
-                </div>
-                {acts(u, t('할 일', 'to-do'))}
-              </li>
-            )
-            : <li key={u.from} className="cn-unit cn-memo-text" data-ui="메모 상자"><div className="cn-unit-main">{quoteOf(u.anchor)}{u.text ? <ObsidianMarkdown text={u.text} options={options} /> : u.anchor ? <span className="muted">{t('하이라이트만', 'Highlight only')}</span> : null}</div>{acts(u, t('메모', 'memo'))}</li>)}
-        </ul>
-      ) : edit?.what === 'add' && edit.kind === kind ? null : <p className="muted">{empty}</p>}
-    </div>
-  )
-  return (
-    <section className="cn-memo" data-ui="메모" onClick={(e) => e.stopPropagation()}>
-      <div className="cn-memo-head">
-        <h2 className="cn-links-h">{t('메모 · 할 일', 'Memos · To-dos')}</h2>
-        <span className="sp" />
-        {draft === null && memo.exists && <button className="icon-btn tip-end" data-tip={t('전체 고치기', 'Edit all')} aria-label={t('고치기 — 메모 · 할 일 전체', 'Edit all memos and to-dos')} onClick={() => open({ base: memo.text, what: 'all' }, memo.text)}>{Icon.pencil}</button>}
-      </div>
-      {edit?.what === 'all' ? editor(t('- [ ] 할 일\n열린 질문이나 코멘트, 작업 지침을 적습니다. 본문과 PDF에는 나가지 않습니다.', '- [ ] To-do\nWrite open questions, comments, or work notes. They do not go into the text or the PDF.')) : <>
-        {/* 10/8 11:47 피드백: 할 일과 메모를 나눠 보이고, 하나씩 고치고 지운다 */}
-        {group('task', t('할 일', 'To-dos'), tasks, t('없음', 'None'), t('할 일 한 줄 (아래 줄에 자세히)', 'One to-do line (details below)'))}
-        {group('note', t('메모', 'Memos'), notes, t('없음 · 열린 질문, 코멘트, 작업 지침을 본문 대신 여기에 적습니다', 'None · Write open questions, comments, and work notes here instead of in the text'), t('열린 질문이나 코멘트, 작업 지침. 본문과 PDF에는 나가지 않습니다.', 'An open question, comment, or work note. It does not go into the text or the PDF.'))}
-      </>}
-    </section>
-  )
-}

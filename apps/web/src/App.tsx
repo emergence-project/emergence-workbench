@@ -1,4 +1,4 @@
-import { RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw/core'
+import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, commentsApi, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
@@ -7,7 +7,8 @@ import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
 import { AskTextHost } from './askText'
 import { partOf } from './aboutContent'
-import { ConceptNoteView, ConceptRecordsSide, ConceptSidePanel } from './ConceptNotes'
+import { ConceptNoteView, ConceptSidePanel } from './ConceptNotes'
+import { ConceptRecordsPanel } from './ConceptRecords'
 import { GLOBAL_PAGES, globalPageOf } from './globalPages'
 import { NewBlockDialog } from './dialogs'
 import { RegisterDialog } from './RegisterDialog'
@@ -197,7 +198,12 @@ export function App() {
     // 화면 캐시: 알림이 바꾸는 자료만 (어느 프로젝트의 것이든. 홈의 프로젝트별 자료도 이것으로 새로워진다)
     invalidation.add(invalidationKeys(e))
     // 공용 라이브러리(개념노트·그림·논문)는 어느 프로젝트의 것도 아니다: 지금 화면을 잠깐 모았다가 다시 읽는다
-    if (e.type === 'library') { bumpHome(); return }
+    if (e.type === 'library') {
+      // 개념노트 기록 파일(workbench/comments/concept-<id>.md)이 바뀌면 열린 기록 패널 · 본문 칠도 다시 읽는다
+      const record = e.part === 'records' && /^workbench\/comments\/(concept-[^/]+)\.md$/.exec(e.file)
+      if (record) commentsChanged(LIBRARY_RID, record[1]!)
+      bumpHome(); return
+    }
     issues.onEvent(e)
     if (e.type === 'comments') commentsChanged(e.research, e.target)
     if (e.research === rid) changedSoon()
@@ -477,9 +483,9 @@ export function App() {
                 : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} projectKind={current?.kind ?? 'research'} version={version} slot={row.type === 'block' && t?.k === 'block'}
                   onChanged={() => { notesChanged(); changed() }} onSaved={flash} />
                   : <NoInfo />
-              // 개념노트의 기록은 그 노트의 메모 파일 (concepts/<id>.memo.md, 10/10 노트 화면 틀)
+              // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
               return <RightSidebar info={info}
-                records={cmd ? <ConceptRecordsSide key={cmd} id={cmd} info={library} onSaved={flash} /> : <RecordsPanel key={`${rid}|${ct?.target ?? 'project'}`} rid={rid}
+                records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${ct?.target ?? 'project'}`} rid={rid}
                   target={ct ?? { target: 'project', title: summary.research.title }} version={version}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
