@@ -155,6 +155,19 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
     } finally { await app.close() }
   })
 
+  it('일지(log/)를 고쳐도 저절로 올린다', async () => {
+    const { remote, mac } = setup('journal')
+    const app = buildApp({ configDir: path.join(tmp, 'journal-config'), recordsAutoPublishMs: 30 })
+    try {
+      const id = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: mac, createWorkbench: true } })).json().id
+      const added = await app.inject({ method: 'POST', url: `/api/researches/${id}/journal`, payload: { kind: 'memo', text: '일지 메모' } })
+      expect(added.statusCode).toBe(200)
+      const date = added.json().entry.date as string
+      await until(() => { try { return g(remote, 'show', `main:workbench/log/${date}.md`).includes('일지 메모') } catch { return false } })
+      expect(ahead(mac)).toBe(0)
+    } finally { await app.close() }
+  })
+
   it('예제 모드와 옵션이 없을 때는 저절로 올리지 않는다', async () => {
     const { remote, mac } = setup('off')
     const app = buildApp({ configDir: path.join(tmp, 'off-config') })

@@ -2,10 +2,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsutil.js'
+import { hashOf, isBackupCopy, localDate, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tl } from './i18n.js'
-import { commentTargetSlug } from '@rw/core'
+import { commentTargetSlug, stamp as coreStamp } from '@rw/core'
 import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
 
 export const FLOW_DIR = 'flow'
@@ -120,7 +120,7 @@ const fileOf = (wb: Workbench, id: string) => {
   if (!ID.test(id)) throw new WorkbenchError(400, tl('점 id가 맞지 않습니다', 'Invalid dot id'))
   return path.join(dirOf(wb), `${id}.yaml`)
 }
-const stamp = (d = new Date()) => `${localDate(d)}T${localTime(d)}`
+const stamp = (d = new Date()) => coreStamp('t', d)
 
 /** 손으로 옮긴 자리. 틀린 칸은 진단으로 알리고 빼고 읽는다 */
 export function readLayout(wb: Workbench, diags: Diag[] = []): FlowLayout {

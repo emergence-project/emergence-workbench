@@ -3,7 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
 import type { GoogleEvent as CalendarEvent, SyncedResearch, SyncedSettings } from '@rw/core/contract/google'
-import { localDate, writeAtomic } from './fsutil.js'
+import { localDate, localTime, writeAtomic } from './fsutil.js'
+import { writeYaml } from './yamlFile.js'
 import { WorkbenchError } from './workbench.js'
 import { t as tx } from './i18n.js'
 
@@ -107,7 +108,7 @@ export class Google {
     if (typeof clientId !== 'string' || !/^[\w.-]+\.apps\.googleusercontent\.com$/.test(clientId.trim()))
       throw new WorkbenchError(400, tx('클라이언트 ID는 ….apps.googleusercontent.com 으로 끝납니다.', 'A client ID ends with ….apps.googleusercontent.com.'))
     if (typeof clientSecret !== 'string' || clientSecret.trim().length < 8) throw new WorkbenchError(400, tx('클라이언트 비밀번호가 필요합니다.', 'A client secret is required.'))
-    writeAtomic(this.clientFile, `# 구글 OAuth 클라이언트 (Google Cloud에서 만든 데스크톱 앱). 이 컴퓨터에만 둔다.\n${YAML.stringify({ clientId: clientId.trim(), clientSecret: clientSecret.trim() })}`, { mode: 0o600 })
+    writeYaml(this.clientFile, { clientId: clientId.trim(), clientSecret: clientSecret.trim() }, { header: '# 구글 OAuth 클라이언트 (Google Cloud에서 만든 데스크톱 앱). 이 컴퓨터에만 둔다.\n', mode: 0o600 })
     fs.chmodSync(this.clientFile, 0o600)
     return this.status()
   }
@@ -292,7 +293,7 @@ function toEvent(e: RawEvent, calendar: string): CalendarEvent | null {
   return { ...base, date: localDate(s), endDate: localDate(en), time: hm(s), endTime: hm(en) }
 }
 
-const hm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+const hm = (d: Date) => localTime(d)
 
 /**
  * 예제 모드·테스트용 가짜 구글. 구글 API와 같은 주소·모양으로 답한다.

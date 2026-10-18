@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsutil.js'
+import { hashOf, isBackupCopy, writeAtomic } from './fsutil.js'
+import { stamp as coreStamp } from '@rw/core'
 import { ANSWER_RE, COMMENT_STATES, type CommentState } from './commentFormat.js'
 import { Workbench, ConflictError, WorkbenchError } from './workbench.js'
 import { HIGHLIGHT_COLORS, type HighlightColor } from './paperComments.js'
@@ -342,7 +343,7 @@ function prepareComment(target: string, input: NewComment, now: Date, before: st
   }
   if (kind === '할 일') checkTodoTarget(target)
   const taken = new Set([...parsed.comments, ...parsed.highlights].map((c) => c.id))
-  const stamp = `c-${localDate(now).replace(/-/g, '')}-${localTime(now).replace(':', '')}`
+  const stamp = `c-${coreStamp('compact', now)}`
   let id = stamp
   for (let n = 2; taken.has(id); n++) id = `${stamp}-${n}`
 

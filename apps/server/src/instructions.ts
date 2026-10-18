@@ -1,3 +1,5 @@
+import { localDate } from '@rw/core'
+
 /**
  * 기록의 지시를 맥의 Claude에게 넘기는 차례 (10/16 사용자 결정 "설정에서 조절할 수 있게 하자", 설정 › 에이전트).
  * 한 번에 하나씩만 돌린다: Claude 세션 여럿이 함께 떠 맥의 메모리를 다 쓰지 않게 (10/14 느려짐의 원인).
@@ -34,7 +36,7 @@ export class ClaudeQueue {
 
 /** 하루 한 번 할 때: 지금이 고른 시각(정시)의 그 시간 안이고 오늘 아직 하지 않았는지 */
 export function dailyDue(at: string, now: Date, lastDay: string | null): string | null {
-  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const day = localDate(now)
   if (lastDay === day) return null
   return Number(at.slice(0, 2)) === now.getHours() ? day : null
 }

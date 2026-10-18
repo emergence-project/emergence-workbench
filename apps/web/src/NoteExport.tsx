@@ -5,6 +5,7 @@ import { NOTE_KIND_LABEL } from './NewNote'
 import { Icon } from './icons'
 import { Avatar } from './NetworkPage'
 import { t, plural } from './i18n'
+import { localDate } from '@rw/core'
 
 /** 목록에서 at번째를 by칸 옮긴 새 목록 */
 function moved<T>(list: T[], at: number, by: number): T[] {
@@ -133,10 +134,7 @@ function readSaved(rid: string): Saved {
   } catch { /* 기억이 없으면 처음 값 */ }
   return {}
 }
-const todayIso = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+const todayIso = () => localDate()
 const DATE_MODES: [DateMode, string, string][] = [
   ['none', t('없음', 'None'), t('날짜 줄을 넣지 않습니다', 'No date line')],
   ['today', t('오늘', 'Today'), t('컴파일한 날의 날짜가 들어갑니다', 'Uses the date of the compile')],

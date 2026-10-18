@@ -3,7 +3,7 @@
 // 예전에는 일지(log/)에도 할 일을 한 줄씩 썼다. 끝내지 않은 그 줄은 앱이 한 번 기록으로 옮기고 일지에서 뺀다(migrateJournalTodos).
 import fs from 'node:fs'
 import path from 'node:path'
-import { commentTargetSlug, editJournalEntry, isValidBlockId, noteRecordTarget, parseJournal, RESEARCH_TARGET, sameNoteFile, todoDue } from '@rw/core'
+import { commentTargetSlug, compactStamp, editJournalEntry, isValidBlockId, noteRecordTarget, parseJournal, RESEARCH_TARGET, sameNoteFile, todoDue } from '@rw/core'
 import type { OpenTodo } from '@rw/core/contract/research'
 import { addComment, listComments } from './comments.js'
 import { todoText } from './commentJournal.js'
@@ -68,13 +68,12 @@ export function migrateJournalTodos(wb: Workbench): { moved: number; removed: nu
     const open = parseJournal(before, date).filter((e) => e.kind === 'todo' && !e.done)
     if (!open.length) continue
     const records = listComments(wb.root).flatMap((f) => f.comments.filter((c) => c.kind === '할 일').map((c) => ({ file: f, c })))
-    const stamp = `c-${date.replace(/-/g, '')}-`
     let after = before
     // 뒤에서부터 빼야 앞 기록의 번호가 밀리지 않는다
     for (const e of [...open].reverse()) {
       const linked = e.link
         ? records.some(({ file: f, c }) => `${f.target}/${c.id}` === e.link)
-        : records.some(({ c }) => (c.journal === `${e.date} ${e.time}` || c.id.startsWith(`${stamp}${e.time.replace(':', '')}`)) && todoText(c.body, c.quote).startsWith(todoText(e.text)))
+        : records.some(({ c }) => (c.journal === `${e.date} ${e.time}` || c.id.startsWith(`c-${compactStamp(date, e.time)}`)) && todoText(c.body, c.quote).startsWith(todoText(e.text)))
       if (!linked) {
         notes ??= listNotes(wb)
         const place = placeOf(wb, e.target, notes)

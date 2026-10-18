@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FlashAction } from './App'
 import type { ManuscriptInfo, ResearchApi, TrashedNote } from './api'
@@ -56,7 +57,7 @@ describe('노트 지우기와 되돌리기', () => {
     await action.run()
     expect(restoreNote).toHaveBeenCalledExactlyOnceWith(trashed.id)
     expect(onChanged).toHaveBeenCalledTimes(2)
-    expect(onSaved).toHaveBeenLastCalledWith('되살렸습니다')
+    expect(onSaved).toHaveBeenLastCalledWith(t('되살렸습니다', 'Restored'))
     expect(onChanged.mock.invocationCallOrder[1]).toBeLessThan(onSaved.mock.invocationCallOrder[1]!)
   })
 

@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, newTemplateId, normalizeAuthors, normalizePeople, normalizeTemplate, normalizeTemplates, normalizeUi, normalizeAgentSettings, type AgentSettings, type Author, type LatexTemplate, type Person, type UiSettings } from '@rw/core'
-import YAML from 'yaml'
-import { isLatexSafePath, writeAtomic } from './fsutil.js'
+import { isLatexSafePath } from './fsutil.js'
+import { readYaml, writeYaml } from './yamlFile.js'
 import { describeTex, findRepoPreambles, listLibraryPreambles, type TexDefinitions } from './library.js'
 import type { Engine } from './latex.js'
 import { Workbench, WorkbenchError } from './workbench.js'
@@ -285,7 +285,7 @@ export class Registry {
   }
 
   private load(): AppConfig {
-    const raw = fs.existsSync(this.file) ? YAML.parse(fs.readFileSync(this.file, 'utf8')) ?? {} : {}
+    const raw = readYaml(this.file) ?? {}
     const engine = ENGINES.includes(raw.engine) ? raw.engine : 'xelatex'
     const library = typeof raw.library === 'string' ? raw.library : undefined
     const study = typeof raw.study === 'string' ? raw.study : undefined
@@ -318,7 +318,7 @@ export class Registry {
   }
 
   private save(): void {
-    writeAtomic(this.file, `# research-workspace 앱 설정 — 이 컴퓨터에만 해당한다.\n${YAML.stringify({ ...this.unknownKeys(), ...this.config })}`)
+    writeYaml(this.file, { ...this.unknownKeys(), ...this.config }, { header: '# research-workspace 앱 설정 — 이 컴퓨터에만 해당한다.\n' })
     for (const f of this.saveListeners) f()
   }
 
@@ -328,7 +328,7 @@ export class Registry {
    */
   private unknownKeys(): Record<string, unknown> {
     let raw: unknown
-    try { raw = fs.existsSync(this.file) ? YAML.parse(fs.readFileSync(this.file, 'utf8')) : undefined } catch { return {} }
+    try { raw = readYaml(this.file) } catch { return {} }
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
     return Object.fromEntries(Object.entries(raw).filter(([k]) => !CONFIG_KEYS.has(k)))
   }

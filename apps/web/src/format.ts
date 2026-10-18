@@ -1,4 +1,4 @@
-import { isBlockStatus, STATUS_LABEL, type BlockStatus } from '@rw/core'
+import { isBlockStatus, localDate, STATUS_LABEL, type BlockStatus } from '@rw/core'
 import type { ProjectColor } from '@rw/core/contract/research'
 import { t } from './i18n'
 
@@ -38,7 +38,7 @@ export function journalWhen(date: string, time: string, now = new Date()): strin
 
 /** 그날(현지 시각)의 YYYY-MM-DD */
 export function isoDay(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return localDate(d)
 }
 /** YYYY-MM-DD를 "9/27"로, padded면 "09/27"로 */
 export const monthDay = (iso: string, padded = false) => padded ? iso.slice(5).replace('-', '/') : `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`

@@ -42,13 +42,8 @@ export function writeIfMissing(file: string, content: string): boolean {
   return true
 }
 
-export function localDate(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-export function localTime(d = new Date()): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+/** 현지 날짜·시각 (packages/core/src/time.ts 하나를 쓴다. 서버 파일들은 예전처럼 여기서 가져온다) */
+export { localDate, localTime } from '@rw/core'
 
 /** LaTeX \input에서 깨지는 문자(공백 등)가 경로에 있는지 */
 export function isLatexSafePath(p: string): boolean {
