@@ -1,4 +1,4 @@
-import { setCoreLang } from '@rw/core'
+import { LIBRARY_RID, setCoreLang } from '@rw/core'
 import path from 'node:path'
 import chokidar, { type FSWatcher } from 'chokidar'
 import websocket from '@fastify/websocket'
@@ -238,10 +238,19 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
 
   /** 등록한 연구의 저장소 경로 (workbench/의 한 단계 위) */
   const repoPath = (rid: string) => {
+    if (rid === LIBRARY_RID) return libraryRepo()
     const r = registry.list().find((x) => x.id === rid)
     if (!r) throw new WorkbenchError(404, t(`등록되지 않은 연구: ${rid}`, `Project not registered: ${rid}`))
     return r.path
   }
+  /** 지식 라이브러리 폴더 (기록 장치에서 LIBRARY_RID의 저장소, 10/18) */
+  const libraryRepo = () => {
+    const lib = registry.libraryPath
+    if (!lib) throw new WorkbenchError(404, t('지식 라이브러리 폴더를 정하지 않았습니다', 'No knowledge library folder is set'))
+    return lib
+  }
+  /** 기록 파일(comments/)이 든 workbench 폴더: 연구는 그 연구의 workbench, 라이브러리는 <라이브러리>/workbench (10/18) */
+  const recordsRoot = (rid: string) => (rid === LIBRARY_RID ? path.join(libraryRepo(), 'workbench') : wbOf(rid).root)
   // 화면마다 자기 파일(routes/)에 API를 둔다. 새 화면은 파일을 만들고 여기에 한 줄 더한다
   // 개념노트 색인 (설정 폴더 안 SQLite): 라이브러리 경로마다 하나
   const conceptIndexes = conceptIndexOpener(registry.configDir)
@@ -260,7 +269,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
     const w = watchLibrary(lib, (part, file) => {
       if (part === 'figures') libraryReads?.invalidateFigures()
       else if (part === 'papers') libraryReads?.invalidatePapers()
-      else libraryReads?.invalidate()
+      else if (part === 'concepts') libraryReads?.invalidate()
       broadcast({ type: 'library', research: null, part, file })
     })
     libraryWatcher = { lib, close: () => w.close() }
@@ -281,7 +290,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
       '/api/concepts/:id/links', '/api/researches/:rid/notes/links'].includes(req.routeOptions.url ?? '')) await conceptIndex()?.ready()
   })
   const clients = () => [...sockets].filter((s) => s.readyState === 1).length
-  const ctx: RouteContext = { registry, opts, broadcast, clients, wbOf, ensureWatch, watchers, repoPath, conceptIndex, libraryReads }
+  const ctx: RouteContext = { registry, opts, broadcast, clients, wbOf, ensureWatch, watchers, repoPath, recordsRoot, conceptIndex, libraryReads }
   registerApiIndex(app, ctx) // 맨 앞: 뒤에 등록되는 경로를 모아 GET /api로 보여 준다
   registerResearches(app, ctx)
   registerSettings(app, ctx)

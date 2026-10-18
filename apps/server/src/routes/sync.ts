@@ -47,6 +47,11 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
             ctx.broadcast({ type: 'research', research: r.id })
           } catch (e) { console.error(`research auto pull ${r.id}: ${(e as Error).message}`) }
         }
+        // 지식 라이브러리도 같은 간격으로 받는다 (10/18 "지식 라이브러리도 같은 장치로"). 받은 파일은 라이브러리 감시가 화면에 알린다
+        const lib = registry.libraryPath
+        if (lib) {
+          try { await autoPull(lib) } catch (e) { console.error(`library auto pull: ${(e as Error).message}`) }
+        }
       } finally { running = false }
     }
     const first = setTimeout(() => void tick(), Math.min(60_000, every))

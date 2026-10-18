@@ -16,7 +16,9 @@ if (given.length !== 4 || !by) {
 const [repo, target, id, text] = /** @type {[string, string, string, string]} */ (given)
 const dir = path.resolve(process.env.INIT_CWD ?? process.cwd(), repo)
 const root = path.basename(dir) === 'workbench' ? dir : path.join(dir, 'workbench')
-if (!fs.existsSync(path.join(root, 'research.yaml'))) { console.error(`연구 작업대 폴더가 아닙니다 (research.yaml 없음): ${dir}`); process.exit(1) }
+// 지식 라이브러리(concepts/가 있는 폴더)도 받는다: 개념노트 기록은 <라이브러리>/workbench/comments/ (10/18)
+const library = !fs.existsSync(path.join(root, 'research.yaml')) && fs.existsSync(path.join(path.dirname(root), 'concepts'))
+if (!library && !fs.existsSync(path.join(root, 'research.yaml'))) { console.error(`연구 작업대 폴더도 지식 라이브러리도 아닙니다 (research.yaml · concepts/ 없음): ${dir}`); process.exit(1) }
 const body = text === '-' ? fs.readFileSync(0, 'utf8') : text
 
 const { tsImport } = await tsxApi()

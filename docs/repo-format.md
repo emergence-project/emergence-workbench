@@ -432,7 +432,8 @@ workbench/notes/
 | 경로 | 무엇 |
 |---|---|
 | `concepts/<id>.md` | 개념노트 (§10.1) |
-| `concepts/<id>.memo.md` | 개념노트 옆 메모. 머리말 없는 자유 Markdown. 비우면 파일을 지운다 |
+| `concepts/<id>.memo.md` | 옛 개념노트 메모(10/18 전). 머리말 없는 자유 Markdown. `pnpm library:memos <라이브러리> --apply`가 기록 카드로 옮기고 원래 파일은 `workbench/.trash/concept-memos/`로 보낸다 |
+| `workbench/comments/concept-<id>.md` | 개념노트 기록 (§10.5, 10/18~): 연구 저장소 기록(§6)과 같은 형식 · 같은 자리 |
 | `concepts/<id>.tex` | 옛 LaTeX 개념노트 (블록 머리 형식). 같은 id의 `.md`가 있으면 숨김 |
 | `concepts/macros.tex` | 공용 매크로 |
 | `concepts/attachments/` | 개념노트 그림 |
@@ -481,6 +482,14 @@ checked:
 - 머리말 키: `id`, `kind`(`메모`·`코멘트`·`질문`·`하이라이트`), `state`(질문만), `color`, `project`, `page`(**0부터**), `rects`(**왼쪽 아래 기준** `[x1,y1,x2,y2]`, Zotero 방식), `pageHeight`, `quote: {exact}`, `created`(ISO). 답은 본문에 `### 답 · …`.
 - 프로젝트 코멘트(§6)와 쪽 번호·좌표 기준이 다르다. 다른 파일이고 Zotero에서 가져온 것과 맞추려고 일부러 다르게 둔다. 쓸 때 섞지 않는다.
 - 고치기·지우기의 `baseHash`는 그 키 폴더의 모든 코멘트 파일을 이은 것의 hash다.
+
+### 10.5 개념노트 기록 (2026-10-18 "지식 라이브러리도 같은 장치로")
+
+개념노트의 메모 · 할 일 · 질문 · 지시는 연구 저장소 기록(§6)과 같은 형식으로 `<라이브러리>/workbench/comments/concept-<개념노트 id>.md`에 둔다. 개념노트 하나에 파일 하나이고, 카드는 그 파일 안에 쌓인다. 첫 줄 머리는 `# 코멘트 · 개념노트 <제목>`, 원문은 `<!-- rw-source: concepts/<id>.md -->`이며, 고른 글의 줄 번호는 머리말을 센 파일 줄 번호다.
+
+- 앱 API는 연구 기록과 같은 `/api/researches/:rid/comments…`에 rid 자리로 `_library`(`LIBRARY_RID`)를 넣는다. MCP 기록 도구(`list_records` · `read_records` · `answer_record` · `add_record`)도 `project: _library`로 같고, 앱 서버 없이는 `pnpm agent:records <라이브러리 폴더>` · `pnpm agent:answer <라이브러리 폴더> …`.
+- 연구 저장소와 같은 장치가 돈다: 기록을 쓰면 30초 뒤 `workbench/comments`(와 있으면 `workbench/log`)만 올리고, 10분마다 받으며, 설정 › 에이전트의 지시 처리가 라이브러리의 지시도 맥의 Claude에게 넘긴다(작업 폴더는 라이브러리, 규칙은 라이브러리 `AGENTS.md`).
+- 논문 코멘트(§10.3, 기록 하나가 파일 하나)는 아직 따로다.
 
 ### 10.4 `references.bib`에 덧붙일 때
 

@@ -186,7 +186,7 @@ export function commentSourceFile(root: string, file: Pick<CommentFile, 'target'
   const repo = path.dirname(root)
   const candidates = file.target.startsWith('block-') && !/[\\/]/.test(file.source)
     ? ['md', 'tex'].map((ext) => path.join(root, 'blocks', `${file.source}.${ext}`))
-    : /^(note|calc)-/.test(file.target) ? [path.join(repo, file.source)] : []
+    : /^(note|calc|concept)-/.test(file.target) ? [path.join(repo, file.source)] : []
   for (const candidate of candidates) {
     try {
       const relative = path.relative(fs.realpathSync(repo), fs.realpathSync(candidate))
@@ -303,7 +303,7 @@ const guarded = (l: string) => /^#{1,6} /.test(l) || STATE_RE.test(l) || META_RE
 export const unguardBody = (s: string) => s.split('\n').map((l) => (l.startsWith('\\') && guarded(l.slice(1)) ? l.slice(1) : l)).join('\n')
 
 function checkTodoTarget(target: string): void {
-  if (target !== 'project' && !/^(note|calc|block|topic|flow)-/.test(target)) throw new WorkbenchError(400, t('할 일은 프로젝트 · 노트 · 주제 · 흐름 점에 적습니다', 'To-dos go on a project, note, topic or flow dot'))
+  if (target !== 'project' && !/^(note|calc|block|topic|flow|concept)-/.test(target)) throw new WorkbenchError(400, t('할 일은 프로젝트 · 노트 · 주제 · 흐름 점 · 개념노트에 적습니다', 'To-dos go on a project, note, topic, flow dot or concept note'))
 }
 
 /** Prepare without writing so a classification batch is validated before any record changes. */

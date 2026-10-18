@@ -4,9 +4,10 @@ import chokidar, { type FSWatcher } from 'chokidar'
 /**
  * 공용 라이브러리를 앱 밖에서 바꿨을 때의 알림.
  * 에이전트가 개념노트를 고치거나 Finder로 그림을 넣어도 열린 화면이 다시 읽게 한다.
- * concepts: 개념노트·참고문헌·분류 (개념노트 화면과 지식 화면이 읽는다), figures: 그림, papers: 논문 목록.
+ * concepts: 개념노트·참고문헌·분류 (개념노트 화면과 지식 화면이 읽는다), figures: 그림, papers: 논문 목록,
+ * records: 개념노트 기록 (workbench/comments/, 10/18 "지식 라이브러리도 같은 장치로").
  */
-export type LibraryPart = 'concepts' | 'figures' | 'papers'
+export type LibraryPart = 'concepts' | 'figures' | 'papers' | 'records'
 
 /** 라이브러리 안의 어떤 자료인지. 알림 대상이 아니면 null (숨김 파일, .git, 서식 등) */
 export function libraryPart(lib: string, file: string): LibraryPart | null {
@@ -21,6 +22,7 @@ export function libraryPart(lib: string, file: string): LibraryPart | null {
   if (top === 'concepts') return 'concepts'
   if (top === 'figures') return 'figures'
   if (top === 'papers' || top === 'comments') return 'papers'
+  if (top === 'workbench' && rel[1] === 'comments') return 'records'
   return null
 }
 
@@ -30,6 +32,7 @@ function watched(lib: string, file: string): boolean {
   if (rel === '') return true
   const [top] = rel.split(path.sep)
   if (!top || top.startsWith('.')) return false
+  if (top === 'workbench') return !rel.split(path.sep)[1] || rel.split(path.sep)[1] === 'comments'
   return ['concepts', 'figures', 'papers', 'comments', 'references.bib', 'subjects.yaml', 'papers.yaml'].includes(top)
 }
 

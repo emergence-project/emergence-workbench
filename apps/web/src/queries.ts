@@ -1,5 +1,6 @@
 import { QueryClient, type QueryKey } from '@tanstack/react-query'
 import type { WorkbenchEvent } from './api'
+import { LIBRARY_RID } from '@rw/core'
 
 /**
  * 화면 캐시 (2026-10-15 종합 검토 묶음 H, TanStack Query).
@@ -54,7 +55,8 @@ export const qk = {
  */
 export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   // 라이브러리의 개념노트를 에이전트가 고치면 라이브러리 고침 검토도 바뀐다
-  if (e.type === 'library') return e.part === 'papers' ? [qk.library, qk.papers] : e.part === 'concepts' ? [qk.library, qk.agentEdits('library')] : [qk.library]
+  // 개념노트 기록(records)은 라이브러리 기록 모음만 다시 받는다 (10/18)
+  if (e.type === 'library') return e.part === 'papers' ? [qk.library, qk.papers] : e.part === 'concepts' ? [qk.library, qk.agentEdits('library')] : e.part === 'records' ? [qk.records(LIBRARY_RID)] : [qk.library]
   const keys = projectKeys(e)
   // research는 프로젝트 키 전체라 현황도 들어 있다
   return e.type === 'research' ? keys : [...keys, qk.status(e.research)]

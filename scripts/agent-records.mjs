@@ -1,4 +1,4 @@
-// pnpm agent:records <연구 저장소 폴더> — 그 프로젝트의 기록(메모 · 할 일 · 질문 · 지시)을 한 줄씩 보인다. MCP list_records와 같은 계산.
+// pnpm agent:records <연구 저장소 또는 지식 라이브러리 폴더> — 그 프로젝트(라이브러리면 개념노트)의 기록(메모 · 할 일 · 질문 · 지시)을 한 줄씩 보인다. MCP list_records와 같은 계산.
 // --unanswered 에이전트가 답하거나 할 차례 · --replied 사용자가 답한 에이전트 질문 · --unsorted 분류 전 기록
 // --kind <종류> · --target <대상 또는 note- 같은 앞부분> · --full 본문과 답 전부(JSON)
 // 앱·서버 없이 돈다(클라우드 에이전트용). 아무것도 쓰지 않는다. 답은 pnpm agent:answer로 쓴다.
@@ -22,7 +22,9 @@ if (given.length !== 1) {
 }
 const dir = path.resolve(process.env.INIT_CWD ?? process.cwd(), /** @type {string} */ (given[0]))
 const root = path.basename(dir) === 'workbench' ? dir : path.join(dir, 'workbench')
-if (!fs.existsSync(path.join(root, 'research.yaml'))) { console.error(`연구 작업대 폴더가 아닙니다 (research.yaml 없음): ${dir}`); process.exit(1) }
+// 지식 라이브러리(concepts/가 있는 폴더)도 받는다: 개념노트 기록은 <라이브러리>/workbench/comments/ (10/18)
+const library = !fs.existsSync(path.join(root, 'research.yaml')) && fs.existsSync(path.join(path.dirname(root), 'concepts'))
+if (!library && !fs.existsSync(path.join(root, 'research.yaml'))) { console.error(`연구 작업대 폴더도 지식 라이브러리도 아닙니다 (research.yaml · concepts/ 없음): ${dir}`); process.exit(1) }
 
 const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
@@ -30,9 +32,9 @@ const { Workbench } = await tsImport('../apps/server/src/workbench.ts', opts)
 const { listRecords } = await tsImport('../apps/server/src/comments.ts', opts)
 const { recordRows } = await tsImport('../apps/server/src/recordRows.ts', opts)
 
-const wb = new Workbench(root)
+const title = library ? '지식 라이브러리' : new Workbench(root).readResearch().title
 const filter = { kind: val('--kind'), target: val('--target'), unanswered: flag('--unanswered'), replied: flag('--replied'), unsorted: flag('--unsorted'), full: flag('--full') }
-const rows = recordRows(listRecords(root, wb.readResearch().title), filter)
+const rows = recordRows(listRecords(root, title), filter)
 if (filter.full) { process.stdout.write(`${JSON.stringify(rows)}\n`); process.exit(0) }
 if (!rows.length) { console.log('해당하는 기록이 없습니다.'); process.exit(0) }
 const line = (s) => String(s).split('\n')[0]
