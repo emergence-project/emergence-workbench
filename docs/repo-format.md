@@ -432,7 +432,7 @@ workbench/notes/
 | 경로 | 무엇 |
 |---|---|
 | `concepts/<id>.md` | 개념노트 (§10.1) |
-| `concepts/<id>.memo.md` | 옛 개념노트 메모(10/18 전, 앱은 더 읽지 않음). 머리말 없는 자유 Markdown. `pnpm library:memos <라이브러리> --apply`가 기록 카드로 옮기고 원래 파일은 `workbench/.trash/concept-memos/`로 보낸다 |
+| `concepts/<id>.memo.md` | 옛 개념노트 메모(10/18 전, 앱은 더 읽지 않음). 머리말 없는 자유 Markdown. `pnpm library:memos <라이브러리> --apply`가 기록 카드로 옮기고(제목 줄은 굵은 글로, 제목만 있는 절은 버린다) 원래 파일은 `workbench/.trash/concept-memos/`로 보낸다 |
 | `workbench/comments/concept-<id>.md` | 개념노트 기록 (§10.5, 10/18~): 연구 저장소 기록(§6)과 같은 형식 · 같은 자리 |
 | `concepts/<id>.tex` | 옛 LaTeX 개념노트 (블록 머리 형식). 같은 id의 `.md`가 있으면 숨김 |
 | `concepts/macros.tex` | 공용 매크로 |

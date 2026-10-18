@@ -19,7 +19,7 @@ describe('지식 라이브러리 기록', () => {
     lib = path.join(tmp, 'library')
     fs.mkdirSync(path.join(lib, 'concepts'), { recursive: true })
     fs.writeFileSync(path.join(lib, 'concepts', 'planar-graph.md'), '---\ntitle: Planar graph\n---\n\n## Definition\n\nA graph is planar when it can be drawn without crossings.\n')
-    fs.writeFileSync(path.join(lib, 'concepts', 'planar-graph.memo.md'), '- [ ] add Kuratowski\n- [x] cite Euler\n\n## To Develop\n\n- dual graph\n- coloring\n')
+    fs.writeFileSync(path.join(lib, 'concepts', 'planar-graph.memo.md'), '## 할 일\n\n- [ ] add Kuratowski\n- [x] cite Euler\n\n## To Develop\n\n- dual graph\n- coloring\n')
     fs.mkdirSync(path.join(tmp, 'config'), { recursive: true })
     fs.writeFileSync(path.join(tmp, 'config', 'config.yaml'), `library: ${lib}\nresearches: []\n`)
     app = buildApp({ configDir: path.join(tmp, 'config') })
@@ -47,13 +47,13 @@ describe('지식 라이브러리 기록', () => {
     expect((await app.inject({ method: 'GET', url: `/api/researches/${LIBRARY_RID}/notes` })).statusCode).toBe(404)
   })
 
-  it('메모 파일을 카드로 옮긴다: 할 일 · 완료 · 제목 아래 절, 원래 파일은 휴지통으로', () => {
+  it('메모 파일을 카드로 옮긴다: 할 일 · 완료 · 제목 아래 절(제목은 굵게, 제목만 있는 절은 버림), 원래 파일은 휴지통으로', () => {
     const plans = planMemoMigration(lib)
     expect(plans).toHaveLength(1)
     expect(plans[0]!.cards.map((c) => [c.input.kind, c.done, c.input.text])).toEqual([
       ['할 일', false, 'add Kuratowski'],
       ['할 일', true, 'cite Euler'],
-      ['메모', false, '## To Develop\n\n- dual graph\n- coloring'],
+      ['메모', false, '**To Develop**\n\n- dual graph\n- coloring'],
     ])
     expect(applyMemoMigration(lib, plans)).toEqual({ files: 1, cards: 3 })
     const file = readComments(path.join(lib, 'workbench'), 'concept-planar-graph')
