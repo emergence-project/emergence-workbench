@@ -95,6 +95,8 @@ export const DEFAULT_SCREENS = [
   ['settings-rules-edit', '#/settings/rules', '공통 규칙 원문', '[data-ui="공통 규칙 고치기"]'],
   ['network', '#/network', '사람 카드'],
   ['person', '#/network/ada-e-example', '사람 페이지'],
+  // 사람 고치기 창 (10/18 시안 5절): 주제 · 프로젝트 고치기와 같은 창, 소속은 줄마다 한 칸
+  ['person-edit', '#/network/ada-e-example', '사람 고치기 창', '저자 정보 고치기'],
   // 논문 라이브러리 (10/5; 10/6 L2 첫 화면): 첫 화면(최근 더한 논문 · 점검 · 통계 · 라이브러리 정보), 목록(표), 카드 보기(PDF가 이 맥에 있으면 첫 쪽이 표지), 카드를 고른 모습(오른쪽 칸), PDF 폴더 설정
   ['papers', '#/papers', '통계 줄'],
   ['papers-list', '#/papers/list', '논문 줄'],

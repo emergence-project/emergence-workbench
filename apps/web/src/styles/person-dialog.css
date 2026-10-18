@@ -1,0 +1,17 @@
+/* 사람 고치기 창 (10/18 시안 5절): 주제 · 프로젝트 고치기와 같은 창(topic-dialog.css). 여기에는 소속 칸과 카드 미리보기만 */
+.pe-affs { gap: 6px; }
+.pe-aff { position: relative; }
+/* 소속 제안: 그 칸 바로 아래, 칸 폭 */
+.pe-ac { top: calc(100% + 2px); left: 0; right: 0; display: flex; flex-direction: column; }
+.pe-ac button.on { background: var(--bg-hover); font-weight: var(--fw-normal); }
+.pe-ac-h { font-size: var(--fs-2xs); color: var(--text-3); padding: 2px 10px; }
+.pe-add { align-self: flex-start; font-size: var(--fs-xs); }
+.pe-add:disabled { opacity: .5; cursor: default; }
+.pe-ta { min-height: 0; }
+/* 미리보기는 누르지 않는 카드 */
+.pe-card { width: 100%; box-sizing: border-box; cursor: default; }
+.pe-card:hover { background: var(--bg); }
+.pe-corr { grid-column: 1 / -1; font-size: var(--fs-sm); }
+.person-dialog fieldset.td-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.pe-ac button { display: block; }
+.pe-ac b { font-weight: var(--fw-strong); }
