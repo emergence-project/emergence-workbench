@@ -45,7 +45,7 @@ export function planMemoMigration(lib: string): MemoPlan[] {
     const note = fs.existsSync(notePath) ? fs.readFileSync(notePath, 'utf8').replace(/\r\n/g, '\n') : ''
     const offset = frontLines(note)
     const base = { title: `개념노트 ${titleOf(note, id)}`, source: `concepts/${id}.md` }
-    const cards: MemoCard[] = memoUnits(memo).map((u) => {
+    const cards: MemoCard[] = memoUnits(memo).map((u): MemoCard | null => {
       if (u.kind === 'task') return { input: { ...base, kind: '할 일', text: [u.text, u.more].filter(Boolean).join('\n') }, done: u.done }
       if (u.anchor) {
         const a = u.anchor
