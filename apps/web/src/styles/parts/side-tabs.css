@@ -1,0 +1,10 @@
+/* 사이드바 맨 위 탭 (10/18 결정 "사이드바 탭과 수"): 왼쪽 "프로젝트 | 목차" · "지식 | 목차"(SectionToc.tsx), 오른쪽 "정보 | 기록"(RightSidebar.tsx).
+   두 사이드바가 같은 자리 · 같은 크기이고 탭은 폭에 꽉 찬다. 목차가 없는 화면에서는 "목차"가 흐리다(.segmented button:disabled) */
+.side-tabbar { flex: none; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
+.segmented.full { display: flex; width: 100%; }
+.segmented.full > button { flex: 1; justify-content: center; min-width: 0; white-space: nowrap; }
+/* 왼쪽 사이드바의 스크롤 칸(.side-scroll) 안에서도 맨 위에 붙고, 칸의 옆 여백을 넘어 경계선이 끝까지 간다 */
+.side-scroll .side-tabbar { position: sticky; top: 0; z-index: 1; margin: 0 calc(-1 * var(--sp-2)) var(--sp-2); background: var(--bg-side); }
+/* 목차 탭: 사이드바 높이를 모두 쓴다 */
+.side-toc.side-toc-full { flex: 1 1 0; min-height: 0; margin: 0; padding-left: 0; border-left: 0; overflow-y: auto; }
+.side-toc-full .toc-row { flex: none; }

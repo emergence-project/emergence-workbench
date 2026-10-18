@@ -21,7 +21,7 @@ import { showKnowledgeList } from './knowledgeListState'
 import { subjectTree, type SubjNode } from './knowledgeSubjects'
 import { isListRoute } from './router'
 import { useNoteSections } from './MarkdownNote'
-import { SectionToc, useTocMaxHeight } from './SectionToc'
+import { SideTabs } from './SectionToc'
 import { plural, t } from './i18n'
 
 /**
@@ -127,8 +127,6 @@ export function ConceptSide({ info, route }: { info: LibraryInfo | null; route: 
   const [subjectRevision, setSubjectRevision] = useState(0)
   useEffect(() => { const refresh = () => setSubjectRevision((n) => n + 1); window.addEventListener(SUBJECTS_CHANGED, refresh); return () => window.removeEventListener(SUBJECTS_CHANGED, refresh) }, [])
   const onMap = route.page === 'kmap'
-  const box = useRef<HTMLDivElement>(null)
-  const tocMaxHeight = useTocMaxHeight(box)
   const sel = route.page === 'library' || route.page === 'kmap' ? route.topic : undefined
   useEffect(() => {
     let live = true
@@ -159,7 +157,8 @@ export function ConceptSide({ info, route }: { info: LibraryInfo | null; route: 
   )
 
   return (
-    <div ref={box} className="cn-side" data-ui="개념노트 목록">
+    <div className="cn-side" data-ui="개념노트 목록">
+      <SideTabs label={t('지식', 'Knowledge')} show={route.page === 'library' && !!sel}>
       <div className="side-quick" data-ui="빠른 이동">
         <button className={`nav side-row${route.page === 'library' && !sel && !isListRoute(route) ? ' on' : ''}`} aria-current={route.page === 'library' && !sel && !isListRoute(route) ? 'page' : undefined} data-ui="지식 라이브러리 줄" title={t('최근 노트 · 점검 · 통계', 'Recent notes · Checks · Stats')} onClick={() => go({ page: 'library' })}>
           <span className="q-ico" aria-hidden>{Icon.library}</span><span className="label">{t('지식 라이브러리', 'Knowledge library')}</span></button>
@@ -185,8 +184,7 @@ export function ConceptSide({ info, route }: { info: LibraryInfo | null; route: 
           <div className="side-grp-body">{studyOnly.map(studyRow)}</div>
         </details>
       )}
-      {/* 10/8 12:02 피드백: 지식 화면에서 연 개념노트도 왼쪽 아래에 절 목차 */}
-      <SectionToc show={route.page === 'library' && !!sel} maxHeight={tocMaxHeight} />
+      </SideTabs>
     </div>
   )
 }

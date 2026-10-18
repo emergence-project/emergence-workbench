@@ -111,16 +111,12 @@ button.note-status-control:hover { background: var(--bg-hover); }
 @media (prefers-reduced-motion: reduce) { .tree-chev span { transition: none; } }
 
 /* 맨 아래 절 목차 (모양 B): 지금 절에 검은 세로 막대 */
-button.side-toc-title { display: flex; align-items: center; gap: var(--sp-1); width: 100%; text-align: left; padding: 0 var(--sp-2) var(--sp-1); }
-.side-toc-title .chev { display: inline-block; width: 10px; transition: transform .12s; }
-.side-toc-title .chev.open { transform: rotate(90deg); }
 .side-toc.sec-toc { gap: 0; }
 .side-toc.sec-toc .toc-row { position: relative; border-radius: 0; padding: 3px var(--sp-2) 3px var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); }
 .side-toc.sec-toc .toc-row.sub { padding-left: var(--sp-5); font-size: var(--fs-xs); }
 .side-toc.sec-toc .toc-row .label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .side-toc.sec-toc .toc-row.on { background: transparent; color: var(--text); font-weight: var(--fw-strong); }
 .side-toc.sec-toc .toc-row.on::before { content: ''; position: absolute; left: 0; top: 3px; bottom: 3px; width: 2px; background: var(--text); }
-@media (prefers-reduced-motion: reduce) { .side-toc-title .chev { transition: none; } }
 
 /* ---------- 오른쪽 사이드바: 정보 | 메모 | 코멘트 ---------- */
 .rs { flex: 1; min-height: 0; display: flex; flex-direction: column; }
