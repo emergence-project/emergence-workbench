@@ -8,7 +8,8 @@ import { addComment, readComments, updateComment, type NewComment } from './comm
  * (10/18 결정 "지식 라이브러리도 같은 장치로", 사용자 "옮기기 승인"). 카드는 메모 화면의 상자와 같은 단위(memoUnits)다:
  * - 할 일 `- [ ] …`(아래 들여 쓴 줄 포함) → 할 일 카드, `- [x]`는 완료
  * - 본문 글을 골라 단 메모 → 그 글을 인용한 메모 카드, 글 없이 고르기만 했으면 하이라이트
- * - 나머지(목록 항목 · 문단 · 제목 아래 절) → 메모 카드
+ * - 나머지(목록 항목 · 문단 · 제목 아래 절) → 메모 카드. 기록 카드에는 제목 줄을 쓸 수 없어 제목은 굵은 글로 바꾸고,
+ *   제목만 있는 절(할 일 목록 위의 "## 할 일" 등)은 버린다
  * 원래 메모 파일은 <라이브러리>/workbench/.trash/concept-memos/로 옮긴다(앱은 읽지 않고, 되살릴 때는 손으로).
  */
 
@@ -24,6 +25,9 @@ function frontLines(text: string): number {
   const end = text.indexOf('\n---', 4)
   return end < 0 ? 0 : text.slice(0, end + 4).split('\n').length
 }
+
+/** 메모 글의 제목 줄(#…)을 굵은 글로. 제목만 있으면 빈 글 */
+const headingsBold = (text: string) => text.split('\n').every((l) => !l.trim() || /^#{1,6} /.test(l)) ? '' : text.replace(/^#{1,6} +(.+?)[ \t]*#*[ \t]*$/gm, '**$1**')
 
 function titleOf(text: string, id: string): string {
   const m = /^title:\s*(.+)$/m.exec(text.split('\n---')[0] ?? '')
@@ -48,8 +52,9 @@ export function planMemoMigration(lib: string): MemoPlan[] {
         const anchor = { quote: a.quote, color: a.color, ...(a.line > 0 && { line: a.line + offset }), prefix: a.prefix, suffix: a.suffix }
         return { input: { ...base, kind: u.text ? '메모' : '하이라이트', text: u.text, ...anchor }, done: false }
       }
-      return { input: { ...base, kind: '메모', text: u.text }, done: false }
-    })
+      const text = headingsBold(u.text)
+      return text ? { input: { ...base, kind: '메모', text }, done: false } : null
+    }).filter((c): c is MemoCard => c !== null)
     return { id, memo: f, target: conceptRecordTarget(id), cards }
   }).filter((p) => p.cards.length > 0)
 }
