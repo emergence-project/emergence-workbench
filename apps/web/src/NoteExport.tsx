@@ -257,7 +257,7 @@ function usePopover(control?: PopoverControl) {
 }
 
 /** 컴파일 설정 · 내보내기 창: 맨 위 층 가운데, 머리와 아래 버튼은 고정이고 가운데만 스크롤한다 */
-function PopDialog({ pop, ui, title, children, foot }: { pop: React.RefObject<HTMLDivElement>; ui: string; title: string; children: React.ReactNode; foot: React.ReactNode }) {
+function PopDialog({ pop, ui, title, children, foot }: { pop: React.RefObject<HTMLDivElement | null>; ui: string; title: string; children: React.ReactNode; foot: React.ReactNode }) {
   return createPortal(
     <div className="overlay ex-overlay">
       <div className="ex-pop" ref={pop} role="dialog" aria-modal="true" aria-label={title} data-ui={ui}>
