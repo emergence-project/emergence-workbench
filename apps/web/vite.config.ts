@@ -18,11 +18,15 @@ const VENDOR_CHUNKS: [name: string, match: RegExp][] = [
 export default defineConfig({
   plugins: [react()],
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules') || id.includes('pdfjs-dist')) return undefined
-          return VENDOR_CHUNKS.find(([, m]) => m.test(id))?.[0] ?? 'vendor'
+        codeSplitting: {
+          groups: [{
+            name(id) {
+              if (!id.includes('node_modules') || id.includes('pdfjs-dist')) return null
+              return VENDOR_CHUNKS.find(([, m]) => m.test(id))?.[0] ?? 'vendor'
+            },
+          }],
         },
       },
     },
