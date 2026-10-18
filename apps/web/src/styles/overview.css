@@ -81,11 +81,16 @@ button.t:hover { text-decoration: underline; }
 .now-all { margin-left: auto; font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 /* 목록 아래 "+n": 패널 아래 여백 안에 둬 줄 하나를 덜 밀어내게 (10/15) */
 .now { position: relative; }
-.now-more { position: absolute; left: var(--sp-4); bottom: var(--sp-1); font-size: var(--fs-xs); line-height: 1; color: var(--text-3); }
-.now-filters { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: var(--sp-2) 0 var(--sp-1); }
-.now-filters .memo-chip { display: inline-flex; align-items: center; gap: var(--sp-1); }
-.now-filters .memo-chip.on { background: var(--bg-hover); color: var(--text); border-color: var(--line-strong); }
-.now-filters .count { color: var(--text-3); font-variant-numeric: tabular-nums; }
+/* "+n"은 마지막 줄 바로 아래 오른쪽, 줄 끝 태그와 같은 폭의 가운데 (10/18 시안 3절 안 1). 띄워서 패널 아래 여백에 두어 줄을 밀어내지 않는다 */
+.now-list-wrap { position: relative; }
+.now-more { position: absolute; top: 100%; right: 0; margin-top: 2px; min-width: calc(var(--fs-2xs) * 4 + 12px); justify-content: center; text-align: center; font-size: var(--fs-xs); line-height: 1; color: var(--text-3); }
+/* 필터: 하나만 고르는 한 줄 선택 칸 (10/18 시안 3절). 사용자 차례 칸은 이름 옆 주황 알약 */
+.now-filters { margin: var(--sp-1) 0; padding: 1px; }
+.now-filters > button { padding: 0 var(--sp-1); gap: var(--sp-1); }
+.now-filters > button .rail-count { min-width: 14px; height: 14px; line-height: 14px; }
+/* 줄 앞 칸은 멈춤 줄(상태 점)이 있을 때만 */
+.now-list:not(.marked) .now-row { grid-template-columns: minmax(0, 1fr) auto; }
+.now-list:not(.marked) .now-mark { display: none; }
 /* 표처럼: 줄 사이 옅은 선, 묶음 태그는 오른쪽 끝 같은 폭 (10/15 사용자) */
 .now-list .now-row { border-radius: 0; }
 .now-list .now-row + .now-row { border-top: 1px solid var(--line); }
