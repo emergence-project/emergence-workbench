@@ -17,7 +17,7 @@ import { plural, t } from './i18n'
 const RECENT = 12
 
 /** 카드 한 줄에 들어가는 수 (더하기 카드 포함). 소수점 폭의 반올림 없이 실제 격자 열을 센다 */
-function useOneRow(): [React.RefObject<HTMLDivElement>, number] {
+function useOneRow(): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null)
   const [cols, setCols] = useState(RECENT + 1)
   useLayoutEffect(() => {
