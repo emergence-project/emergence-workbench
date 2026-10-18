@@ -70,7 +70,6 @@
 .net-sug-name { font-weight: var(--fw-medium); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .net-sug-sub { font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .net-sug-actions { display: flex; flex: none; }
-.net-sug-actions .icon-btn { width: 24px; height: 24px; }
 
 /* 분야별 묶기의 분야 차례 (10/4 19:20): 분류의 맨 위 단계마다 한 줄, 하나를 고르면 그 분야 사람만 */
 .net-field-index { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0 0 var(--sp-4); padding: var(--sp-2) var(--sp-3); background: var(--bg-sunken); border-radius: var(--r-md); font-size: var(--fs-xs); }
@@ -117,7 +116,6 @@
 .net-pick-path { font-size: var(--fs-2xs); }
 /* 사람 카드의 빼기 × (노트 저자 목록, 10/4 20:53): 즐겨찾기 자리에, 가리킬 때만 */
 .net-card-actions { position: absolute; top: var(--sp-1); right: var(--sp-1); }
-.net-card-actions .icon-btn { width: 24px; height: 24px; }
 .net-author-sec .net-group + .net-group { margin-top: var(--sp-4); }
 .net-facts dd .net-aff, .net-facts dd .net-aff2 { display: block; font-size: var(--fs-sm); }
 .net-facts dd .net-aff { color: var(--text); }

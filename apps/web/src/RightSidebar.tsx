@@ -145,7 +145,7 @@ export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, on
         </div>
       </Section>
       <Section label={t('설명', 'Description')} ui="설명" className="rs-desc"
-        actions={desc === null && <span className="hover-actions rs-desc-act"><button className="icon-btn" title={t('고치기 — 설명', 'Edit description')} aria-label={t('고치기 — 설명', 'Edit description')} onClick={() => setDesc(row.descriptionAuto ? '' : row.description ?? '')}>{Icon.pencil}</button></span>}>
+        actions={desc === null && <span className="hover-actions rs-desc-act"><button className="icon-btn sm" title={t('고치기 — 설명', 'Edit description')} aria-label={t('고치기 — 설명', 'Edit description')} onClick={() => setDesc(row.descriptionAuto ? '' : row.description ?? '')}>{Icon.pencil}</button></span>}>
         {desc === null
           ? row.description
             ? <div className={row.descriptionAuto ? 'muted' : ''} title={row.descriptionAuto ? t('적은 설명이 없어 본문 첫 문단에서 뽑았습니다', 'No description written, so the first paragraph is used') : undefined}><DescriptionText text={row.description} /></div>

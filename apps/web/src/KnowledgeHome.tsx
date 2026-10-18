@@ -56,10 +56,10 @@ export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { 
           </section>
           <div className="kh-cols">
             <section className="kh-sec" data-ui="점검">
-              <h2 className="kh-h" title={t('연구가 쓰는 노트(프로젝트 노트 · 원고가 링크한 개념노트와 그 노트가 링크한 전제 한 단계)와 에이전트가 쓴 초안 가운데 사용자가 볼 것', 'What you need to look at among notes used by research (concept notes linked from project notes or manuscripts, plus the prerequisites they link one step further) and agent drafts')}>{check.length + editRows.length > 0 && <span className="kh-dot" aria-hidden />}{t('점검', 'Check')}{brief && <span className="kh-h-n">{t(`연구가 쓰는 노트 ${brief.check.used}`, `Notes used by research ${brief.check.used}`)}</span>}</h2>
+              <h2 className="kh-h" title={t('연구가 쓰는 노트(프로젝트 노트 · 원고가 링크한 개념노트와 그 노트가 링크한 전제 한 단계)와 에이전트가 쓴 초안 가운데 사용자가 볼 것', 'What you need to look at among notes used by research (concept notes linked from project notes or manuscripts, plus the prerequisites they link one step further) and agent drafts')}>{check.length + editRows.length > 0 && <span className="turn-dot kh-dot" aria-hidden />}{t('점검', 'Check')}{brief && <span className="kh-h-n">{t(`연구가 쓰는 노트 ${brief.check.used}`, `Notes used by research ${brief.check.used}`)}</span>}</h2>
               {editRows.map((r) => (
                 <button key={r.key} className="kh-stat" data-ui="점검 줄" data-ui-item={r.label} title={r.tip} onClick={() => go({ page: 'review', scope: 'library' })}>
-                  <span className="kh-stat-name">{r.name}</span><span className="kh-count turn">{edits[r.key]}</span>
+                  <span className="kh-stat-name">{r.name}</span><span className="rail-count">{edits[r.key]}</span>
                 </button>
               ))}
               {brief && check.length + editRows.length === 0 && <p className="empty kh-empty">{t('지금 확인할 것이 없습니다.', 'Nothing to review right now.')}</p>}
@@ -67,7 +67,7 @@ export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { 
                 const v = c.of(brief)
                 return (
                   <button key={c.key} className="kh-stat" data-ui="점검 줄" data-ui-item={c.label} title={c.tip} onClick={() => showKnowledgeList({ check: c.key as ConceptCheck, showEmpty: true })}>
-                    <span className="kh-stat-name">{c.name}</span><span className="kh-count turn">{v.count}</span>
+                    <span className="kh-stat-name">{c.name}</span><span className="rail-count">{v.count}</span>
                   </button>
                 )
               })}

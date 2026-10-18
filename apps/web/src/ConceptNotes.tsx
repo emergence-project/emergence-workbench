@@ -666,8 +666,8 @@ function ConceptMemoBox({ id, info, options, onSaved }: { id: string; info: Libr
   )
   const acts = (u: MemoUnit, name: string) => (
     <span className="cn-unit-acts">
-      <button className="icon-btn" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기 — ${name}`, `Edit ${name}`)} disabled={busy || draft !== null} onClick={() => open({ base: memo.text, what: 'unit', unit: u }, u.kind === 'note' && u.anchor ? u.text : unitSource(memo.text, u))}>{Icon.pencil}</button>
-      <button className="icon-btn tip-end" data-tip={t('지우기', 'Delete')} aria-label={t(`지우기 — ${name}`, `Delete ${name}`)} disabled={busy || draft !== null} onClick={() => remove(u)}>{Icon.trash}</button>
+      <button className="icon-btn sm" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기 — ${name}`, `Edit ${name}`)} disabled={busy || draft !== null} onClick={() => open({ base: memo.text, what: 'unit', unit: u }, u.kind === 'note' && u.anchor ? u.text : unitSource(memo.text, u))}>{Icon.pencil}</button>
+      <button className="icon-btn sm tip-end" data-tip={t('지우기', 'Delete')} aria-label={t(`지우기 — ${name}`, `Delete ${name}`)} disabled={busy || draft !== null} onClick={() => remove(u)}>{Icon.trash}</button>
     </span>
   )
   const editingUnit = (u: MemoUnit) => edit?.what === 'unit' && edit.unit.from === u.from

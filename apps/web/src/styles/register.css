@@ -4,7 +4,6 @@
 .reg-hint code { font-size: var(--fs-xs); }
 .reg-search { display: flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 10px; background: var(--bg); }
 .reg-search:focus-within { outline: 2px solid color-mix(in srgb, var(--link) 35%, transparent); outline-offset: -1px; }
-.reg-search svg { width: 14px; height: 14px; stroke: var(--text-3); fill: none; stroke-width: 1.7; flex: none; }
 .reg-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: 6px 0; font-size: var(--fs-md); }
 .reg-search .muted { font-size: var(--fs-xs); white-space: nowrap; }
 

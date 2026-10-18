@@ -78,6 +78,7 @@ const GLYPHS = [
   [/✕|✖/, '지우기는 휴지통(Icon.trash), 빼기·닫기는 ×'],
   [/↻/, '컴파일은 ▶(Icon.play)'],
   [/<button[^]*>\s*✎/, '고치기 버튼은 연필(Icon.pencil). ✎ 글자는 "고침" 기록 표시에만'],
+  [/[★☆]/, '즐겨찾기는 StarIcon(marks.tsx). 글자 ★ ☆는 글꼴마다 굵기가 달라 화면에 쓰지 않는다 (10/16)'],
   [/[●⏸◆]|■(?!\])/, '상태는 글자 기호 대신 색 점 <StatusDot s=… />으로 (10/4: 진행·멈춤·폐기·해결). 결과는 ✓ 성공, ! 오류'],
 ]
 const tsx = []
@@ -92,7 +93,7 @@ walkTsx(root)
 for (const f of tsx) {
   const source = readFileSync(f, 'utf8')
   // Preserve the existing glyph exception for explanatory examples.
-  if (!f.endsWith('/aboutContent.tsx')) source.split('\n').forEach((line, i) => {
+  if (!/\/aboutContent(\.en)?\.tsx$/.test(f)) source.split('\n').forEach((line, i) => {
     if (line.includes('디자인 예외:') || /^\s*(\/\/|\*|\/\*)/.test(line)) return
     const code = line.replace(/\{\/\*.*?\*\/\}/g, '')
     const where = `${f.slice(root.length)}:${i + 1}`

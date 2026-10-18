@@ -23,9 +23,8 @@
 .record-marker.unsorted { border: 1px dashed var(--text-3); border-radius: var(--r-xs); }
 .record-place { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; min-width: 0; }
 .record-actions { margin-left: auto; display: flex; flex: none; align-items: center; }
-.record-actions .icon-btn { width: var(--sp-5); height: var(--sp-5); color: var(--text-3); }
+.record-actions .icon-btn { color: var(--text-3); } /* 크기는 .icon-btn.sm */
 .record-actions .icon-btn:hover { color: var(--text); }
-.record-actions .icon-btn svg { width: var(--sp-4); height: var(--sp-4); }
 .record-content { margin-left: calc(var(--sp-4) + var(--sp-1)); min-width: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .record-quote { margin: 0 0 var(--sp-1); padding-left: var(--sp-2); border-left: 3px solid var(--line-strong); color: var(--text-3); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 4.5em; overflow: auto; }
 .record-row.done .record-body, .record-row.split .record-body { color: var(--text-3); }
@@ -43,7 +42,7 @@
 .record-paint > span { white-space: nowrap; }
 .record-attached { display: flex; align-items: center; min-width: 0; padding-left: var(--sp-2); border-left: 2px solid var(--line-strong); color: var(--text-3); font-size: var(--fs-xs); }
 .record-attached > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
-.record-attached .icon-btn { flex: none; width: var(--sp-5); height: var(--sp-5); }
+.record-attached .icon-btn { flex: none; }
 .record-composer-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
 .record-composer-actions > span { white-space: nowrap; color: var(--text-3); font-size: var(--fs-xs); }
 .record-lost { margin-top: var(--sp-3); color: var(--text-3); font-size: var(--fs-xs); }
@@ -62,9 +61,8 @@ input.record-marker { accent-color: var(--text); }
 .record-fix { display: grid; gap: 2px; }
 .record-fix pre { margin: 0; padding: var(--sp-1) var(--sp-2); border-left: 3px solid var(--line-strong); background: var(--bg); font-family: inherit; font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12em; overflow: auto; }
 .record-fix-before { color: var(--text-3); }
-.record-fix-before::before { content: '바꿀 글\A'; color: var(--text-3); }
 .record-fix-after { color: var(--text); }
-.record-fix-after::before { content: '바꾼 글\A'; color: var(--text-3); }
+.record-fix-label { color: var(--text-3); } /* 상자 머리 "바꿀 글" · "바꾼 글"(t()로 영어 화면도) */
 .record-fixes > .btn { justify-self: start; }
 /* 적기 칸 아랫줄 왼쪽: 가리키기와 남길 곳 (10/15) */
 .record-composer-actions .icon-btn.on { color: var(--primary); }
@@ -83,7 +81,6 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 .record-row-head .record-by { flex: none; max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
 .record-row.turn { border-color: var(--s-blocked); }
 .record-meta .record-turn { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--s-blocked); font-weight: var(--fw-strong); }
-.record-meta .record-turn::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--s-blocked); }
 /* 이어 쓴 내 글은 바탕 없이 테두리만 (에이전트 답과 갈린다) */
 .cmt-answer.mine { background: transparent; border: 1px solid var(--line); }
 .record-reply { margin-top: var(--sp-2); }

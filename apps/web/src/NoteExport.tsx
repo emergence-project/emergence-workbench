@@ -85,7 +85,6 @@ function AuthorSection({ pool, order, setOrder }: { pool: PersonView[] | null; o
       ) : <p className="muted ex-note">{t('저자 없이 내보냅니다. 아래에서 더하세요.', 'Exporting without authors. Add them below.')}</p>}
       <div className="ex-add" data-ui="저자 더하기">
         <label className="ex-search">
-          {Icon.search}
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('저자 더하기 — 이름이나 기관으로 찾기', 'Add author: search by name or institution')} aria-label={t('저자 찾기', 'Search authors')} data-ui="저자 찾기"
             onKeyDown={(e) => { if (e.key === 'Enter' && q && rest[0]) add(rest[0].name); if (e.key === 'Escape') setQuery('') }} />
           {q && <span className="muted ex-count">{t(`${rest.length}명`, plural(rest.length, 'person', 'people'))}</span>}

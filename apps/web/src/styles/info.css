@@ -21,7 +21,6 @@
 /* 프로젝트 정보: 저장소 칸 (10/4 19:25 피드백) */
 .repo-compare { display: flex; flex-direction: column; gap: var(--sp-1); }
 .repo-line { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.repo-line .btn { height: 24px; }
 .repo-ok { color: var(--text-2); font-weight: var(--fw-strong); }
 .repo-err { color: var(--danger); }
 .repo-commit code { margin-right: 2px; }
@@ -34,7 +33,6 @@
 .info-status blockquote { margin: var(--sp-1) 0; padding-left: var(--sp-3); border-left: 2px solid var(--line); color: var(--text-3); }
 .info-status ul { padding-left: var(--sp-5); }
 /* 현황 · AGENTS.md 탭 (10/15) */
-.info-rules-link { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); }
 .info-rule-file + .info-rule-file { margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
 .info-rule-file > h3 { margin-top: 0; }
 .info-rule-file > h3 .muted { font-weight: var(--fw-normal); margin-left: var(--sp-2); }
