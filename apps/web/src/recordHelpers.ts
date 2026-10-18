@@ -33,7 +33,7 @@ export function recordRevealRange(source: string, anchor: { quote?: string; line
 
 /**
  * Quoted records paint their anchor without becoming highlight records in the list.
- * 고른 글이 붙은 진행 중 기록은 색을 고르지 않았어도 형광펜(노랑)으로 늘 칠하고, 완료한 기록은 칠하지 않는다 (10/18 결정).
+ * 고른 글이 붙은 진행 중 기록은 색을 고르지 않았어도 하이라이트(노랑)로 늘 칠하고, 완료한 기록은 칠하지 않는다 (10/18 결정).
  * 에이전트가 사용자에게 물은 기록은 사용자 차례(주황)로 칠한다 (10/15)
  */
 export function quotedRecordHighlights(comments: CommentEntry[]): PaintedRecord[] {
