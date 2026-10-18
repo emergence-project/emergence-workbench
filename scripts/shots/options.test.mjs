@@ -67,7 +67,7 @@ test('the actual CI capture command selects the same bounded default scope', () 
   const command = workflow.jobs.check.steps.find((step) => step.run?.startsWith('pnpm shots')).run
   const options = parseShotOptions(command.split(/\s+/).slice(2), {})
   assert.deepEqual(options, { viewport: { width: 1200, height: 735 }, theme: 'mixed', sample: 'default', lang: 'ko', help: false })
-  assert.equal(selectScreens(options.sample).length, 76)
+  assert.equal(selectScreens(options.sample).length, 78)
   assert.equal(selectScreens(options.sample).filter(([name]) => screenScheme(options.theme, name) === 'dark').length, 2)
 })
 
