@@ -52,7 +52,7 @@ export const LibraryInfo = z.object({
   path: z.string().nullable(),
   preambles: z.array(LibraryPreamble),
   notes: z.array(LibraryNote),
-  usedBy: z.record(z.array(LibraryUse)),
+  usedBy: z.record(z.string(), z.array(LibraryUse)),
   study: z.string().nullable(),
 }).strict()
 /** GET /library/repo: 라이브러리 폴더의 Git 상태 (폴더가 없으면 null) */
