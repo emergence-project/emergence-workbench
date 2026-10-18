@@ -457,7 +457,8 @@ export function App() {
             </section>
           </main>
         ) : (
-          <Workspace kindOf={kindOf} rid={rid} route={route} layout={layout} setLayout={setLayout} dragging={workspaceDragging}
+          <Workspace kindOf={kindOf} rid={rid}
+            ownPdfOf={(t) => { const m = t.k === 'part' ? msOfFile(t.file) : null; return m && m.kind !== 'paper' && m.main === (t as { file: string }).file ? manuscriptPdfTab(m.key) : null }} route={route} layout={layout} setLayout={setLayout} dragging={workspaceDragging}
             openRequest={recordOpenRequest} onOpened={() => setRecordOpenRequest(null)} onCloseFailed={flash}
             titleOf={(t) => tabTitle(t, summary, manuscripts, library, topics)}
             uiTitleOf={(t) => tabTitle(t, summary, manuscripts, library, topics, true)}

@@ -83,9 +83,19 @@ describe('opening notes from an address, sidebar or topic', () => {
     const two = pairRoutePdf(openRoute(one, a), a, pdfA)
     expect(two.panes[0]).toEqual({ tabs: [a], active: key(a) })
     expect(two.panes[1].tabs).toEqual([pdfA])
-    const three = pairRoutePdf(openRoute(two, b), b, pdfB)
+    // 노트 하나로 된 원고의 PDF만 닫는다 (App이 원고 목록에서 알려 준다)
+    const ownPdfOf = (t: Tab) => (t.k === 'part' && t.file.startsWith('workbench/notes/') ? manuscriptPdfTab(t.file) : null)
+    const three = pairRoutePdf(openRoute(two, b, null, { ownPdfOf }), b, pdfB)
     expect(three.panes[0]).toEqual({ tabs: [b], active: key(b) })
     expect(three.panes[1]).toEqual({ tabs: [pdfB], active: tabKey(pdfB) })
+    // 원고의 장을 바꿔 내면 원고 PDF는 다른 장이 함께 쓰므로 남는다
+    const ch1: Tab = { k: 'part', file: 'paper/ch1.tex' }
+    const ch2: Tab = { k: 'part', file: 'paper/ch2.tex' }
+    const msPdf = manuscriptPdfTab('')
+    const withCh1 = pairRoutePdf(openRoute(empty(0), ch1), ch1, msPdf)
+    const withCh2 = openRoute(withCh1, ch2, null, { ownPdfOf })
+    expect(withCh2.panes[0].tabs).toEqual([ch2])
+    expect(withCh2.panes[1].tabs).toEqual([msPdf])
     // 다른 화면도 같은 자리에서 바뀐다
     const back = openRoute(three, topic)
     expect(back.panes[0]).toEqual({ tabs: [topic], active: 'topic:t' })
