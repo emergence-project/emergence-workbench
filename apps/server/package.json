@@ -8,20 +8,20 @@
     "type-check": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@fastify/websocket": "^11.3.1",
+    "@fastify/websocket": "^11.3.4",
     "@modelcontextprotocol/sdk": "1.30.1",
     "@rw/core": "workspace:*",
     "chokidar": "^5.0.0",
-    "fastify": "^5.6.1",
+    "fastify": "^5.12.7",
     "yaml": "^2.9.1",
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
+    "@types/node": "^22.20.5",
     "@types/ws": "^8.18.2",
-    "tsx": "^4.19.2",
-    "typescript": "^5.6.3",
-    "vitest": "^3.2.4",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
     "ws": "^8.22.0"
   }
 }
