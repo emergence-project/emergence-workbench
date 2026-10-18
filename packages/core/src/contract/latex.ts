@@ -34,7 +34,7 @@ export const LatexSetupView = z.object({
   authors: z.array(Author),
   packages: z.array(z.object({ name: z.string(), options: z.string().optional(), desc: z.string() }).strict()),
   /** 서식마다 내보내면 생기는 main.tex(제목 자리 표시)과 setting.tex */
-  previews: z.record(z.object({ main: z.string(), setting: z.string() }).strict()),
+  previews: z.record(z.string(), z.object({ main: z.string(), setting: z.string() }).strict()),
 }).strict()
 /** POST /latex-templates: 새 서식 id */
 export const LatexTemplateAdded = LatexSetupView.extend({ created: z.string() }).strict()
@@ -49,7 +49,7 @@ export const LatexMacrosView = z.object({
   exists: z.boolean(),
   text: z.string(),
   /** 이름 → KaTeX에 넘기는 정의 */
-  macros: z.record(z.string()),
+  macros: z.record(z.string(), z.string()),
 }).strict()
 
 // ---------- 요청 ----------

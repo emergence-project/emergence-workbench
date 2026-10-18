@@ -41,7 +41,7 @@ export const ConceptMd = z.object({
 /** 본문 밖 메모 (concepts/<id>.memo.md) */
 export const ConceptMemo = z.object({ id: z.string(), text: z.string(), hash: z.string(), exists: z.boolean() }).strict()
 /** 기호 모음 (concepts/macros.tex → KaTeX macros) */
-export const ConceptMacros = z.object({ file: z.string(), exists: z.boolean(), macros: z.record(z.string()) }).strict()
+export const ConceptMacros = z.object({ file: z.string(), exists: z.boolean(), macros: z.record(z.string(), z.string()) }).strict()
 
 // ---------- 색인 (서버 conceptIndex.ts) ----------
 

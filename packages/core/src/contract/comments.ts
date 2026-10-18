@@ -90,7 +90,7 @@ export const CommentAdded = z.object({ entry: CommentEntry, hash: z.string() }).
 // ---------- 요청 ----------
 // 길이, 빈 글, 종류에 맞는 상태, 사각형 모양은 서버 comments.ts가 본다 (모양이 틀린 사각형은 버린다).
 
-const baseHash = z.string({ required_error: 'baseHash is required' })
+const baseHash = z.string({ error: (iss) => (iss.input === undefined ? 'baseHash is required' : undefined) })
 export const NewCommentBody = z.object({
   /** 자동: 분류 전 기록 (메모로 적는다) */
   kind: z.union([CommentKind, z.literal('자동')]),

@@ -73,7 +73,7 @@ export const PaperProjects = z.object({ projects: z.array(z.string()) }).strict(
 /** 논문 하이라이트. 쪽은 1부터, 사각형은 화면 좌표(왼쪽 위 원점 [x, y, w, h]) */
 export const PaperHighlight = z.object({ id: z.string(), page: z.number(), rects: z.array(z.array(z.number())), pageHeight: z.number(), color: HighlightColor, quote: z.string().optional() }).strict()
 /** 논문의 코멘트 파일: 연구노트 PDF와 같은 모양 + 하이라이트, 코멘트마다 남긴 프로젝트 */
-export const PaperCommentFile = CommentFile.extend({ highlights: z.array(PaperHighlight), projects: z.record(z.string()) }).strict()
+export const PaperCommentFile = CommentFile.extend({ highlights: z.array(PaperHighlight), projects: z.record(z.string(), z.string()) }).strict()
 /** POST /papers/:key/comments */
 export const PaperNoteAdded = z.object({ id: z.string(), file: PaperCommentFile }).strict()
 
