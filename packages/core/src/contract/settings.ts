@@ -41,3 +41,36 @@ export type AgentSettings = z.infer<typeof AgentSettings>
 export type AgentSettingsBody = z.input<typeof AgentSettingsBody>
 export type SettingsView = z.infer<typeof SettingsView>
 export type SettingsBody = z.input<typeof SettingsBody>
+
+// ---------- 설정 › 공통 규칙 (서버 routes/commonRules.ts, 2026-10-18 사용자 승인 시안) ----------
+
+/** GET · PUT /settings/common-rules: 연구 공통 규칙 파일 하나 (개인 저장소 사본의 rules/research.md) */
+export const CommonRulesView = z.object({
+  /** 화면에 보일 자리 (홈은 ~) */
+  file: z.string(),
+  exists: z.boolean(),
+  /** 머리말의 status (accepted · in-review · draft …). 없으면 null */
+  status: z.string().nullable(),
+  /** 머리말의 updated */
+  updated: z.string().nullable(),
+  /** 번호 붙은 규칙 줄 수 */
+  count: z.number(),
+  /** 절 제목 (## …) */
+  sections: z.array(z.string()),
+  /** 입력란에 둘 글: 머리말을 뗀 본문 */
+  body: z.string(),
+  /** 파일 전체의 hash (고칠 때 baseHash) */
+  hash: z.string(),
+  /** 고친 것이 아직 GitHub에 없다 (올리지 못함) */
+  unpublished: z.boolean(),
+}).strict()
+export const CommonRulesBody = z.object({ body: z.string().max(200_000), baseHash: z.string() }).strict()
+/** PUT의 답: 저장한 뒤의 모습과 올리기 결과 (올리지 않는 모드면 published: null) */
+export const CommonRulesSaved = z.object({
+  view: CommonRulesView,
+  published: z.object({ pushed: z.boolean(), message: z.string() }).strict().nullable(),
+}).strict()
+
+export type CommonRulesView = z.infer<typeof CommonRulesView>
+export type CommonRulesBody = z.infer<typeof CommonRulesBody>
+export type CommonRulesSaved = z.infer<typeof CommonRulesSaved>

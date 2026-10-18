@@ -44,6 +44,8 @@ export const qk = {
   papers: ['papers'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
+  /** 연구 공통 규칙 (설정 › 공통 규칙, 개인 저장소 사본. 프로젝트 알림과 상관없다) */
+  commonRules: ['common-rules'] as const,
 }
 
 /**
