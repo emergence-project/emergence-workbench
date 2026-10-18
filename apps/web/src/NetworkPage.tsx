@@ -2,7 +2,9 @@ import { personId, type Author } from '@rw/core'
 import { useEffect, useRef, useState } from 'react'
 import { fieldIndex } from './fields'
 import { FieldTags as FieldPicker, useFields } from './FieldTags'
+import { AffiliationFields } from './AffiliationFields'
 import { askConfirm, askText } from './askText'
+import { CardEditDialog } from './CardEditDialog'
 import { conceptsApi, googleApi, latexApi, networkApi, type Coauthor, type PersonPaper, type PersonSuggestion, type PersonView } from './api'
 import { Icon } from './icons'
 import { go } from './router'
@@ -365,47 +367,42 @@ function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): void }) {
     <div data-ui="사람 페이지">
       {/* 10/4 18:55 "사람 프로필 다시": 큰 머리글자, 주소속·보조 소속, 이메일, 그 밖에 홈페이지·찾아보기·함께 쓴 사람 */}
       <section className="net-profile" data-ui="프로필">
-        {!editing && (
-          <div className="hover-actions net-profile-actions">
-            <button className="icon-btn" data-ui="저자 정보 고치기" title={t('고치기 — 이름·소속·이메일·홈페이지·메모', 'Edit name, affiliation, email, homepage and memo')} aria-label={t('프로필 고치기', 'Edit profile')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
-            {person.added && !person.author && <button className="icon-btn" data-ui="사람 빼기" title={t('빼기 — 네트워킹에서 뺍니다', 'Remove from Networking')} aria-label={t('네트워킹에서 빼기', 'Remove from Networking')} onClick={() => void remove()}>{Icon.x}</button>}
-          </div>
-        )}
+        <div className="hover-actions net-profile-actions">
+          <button className="icon-btn" data-ui="저자 정보 고치기" title={t('고치기 — 이름·소속·이메일·홈페이지·메모', 'Edit name, affiliation, email, homepage and memo')} aria-label={t('프로필 고치기', 'Edit profile')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
+          {person.added && !person.author && <button className="icon-btn" data-ui="사람 빼기" title={t('빼기 — 네트워킹에서 뺍니다', 'Remove from Networking')} aria-label={t('네트워킹에서 빼기', 'Remove from Networking')} onClick={() => void remove()}>{Icon.x}</button>}
+        </div>
         <div className="net-profile-top">
           <Avatar name={person.name} xl />
           <div className="net-profile-id">
             <h1 className="h-title">{person.name}{isMe && <span className="tag">{t('나', 'Me')}</span>}{person.author && <span className="tag" title={t('노트를 내보낼 때 저자로 고를 수 있습니다', 'Can be chosen as an author when exporting notes')}>{t('노트 저자', 'Note author')}</span>}</h1>
           </div>
         </div>
-        {editing
-          ? <ProfileEditor person={person} people={people} onDone={(nextId) => { setEditing(false); if (nextId && nextId !== person.id) go({ page: 'network', person: nextId }) }} onSaved={onSaved} />
-          : (
-            <dl className="net-facts">
-              {/* 10/4 20:52 "소속도 아래로 내리고 이메일 위에": 이름 아래는 비우고 소속·이메일을 같은 줄 모양으로 */}
-              <dt>{t('소속', 'Affiliation')}</dt>
-              <dd>
-                {main ? <span className="net-aff">{main}</span> : <span className="muted">{t('모릅니다. 연필을 눌러 적습니다.', 'Unknown. Click the pencil to add it.')}</span>}
-                {more.map((a) => <span key={a} className="muted net-aff2">{a}</span>)}
-              </dd>
-              {/* 10/4 20:53 "이메일 여러 개": 첫 이메일이 노트를 내보낼 때 \email 줄에 들어간다 */}
-              <dt>{t('이메일', 'Email')}</dt>
-              <dd className="net-inline">
-                {emails.length
-                  ? emails.map((m, i) => <a key={m} className="a" href={`mailto:${m}`} title={i === 0 && person.author ? t('노트를 내보낼 때 쓰는 이메일', 'Email used when exporting notes') : undefined}>{m}</a>)
-                  : <span className="muted">{t('없음', 'None')}</span>}
-              </dd>
-              {person.homepage && <><dt>{t('홈페이지', 'Homepage')}</dt><dd><a className="a" href={person.homepage} target="_blank" rel="noreferrer">{person.homepage.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a></dd></>}
-              <dt>{t('주 연구 분야', 'Main research field')}</dt><dd><FieldTags tags={person.tags} people={people} onChange={setTags} /></dd>
-              {person.note && <><dt>{t('메모', 'Memo')}</dt><dd>{person.note}</dd></>}
-              {person.aliases.length > 0 && <><dt>{t('다른 이름', 'Other names')}</dt><dd>{person.aliases.join(', ')}</dd></>}
-              <dt>{t('찾아보기', 'Look up')}</dt>
-              <dd className="net-inline">
-                <a className="a" href={arxivSearch(person.name)} target="_blank" rel="noreferrer">arXiv</a>
-                <a className="a" href={scholarSearch(person.name)} target="_blank" rel="noreferrer">Google Scholar</a>
-              </dd>
-            </dl>
-          )}
-        {isMe && !editing && <NoteAuthors person={person} people={people} onSaved={onSaved} />}
+        {editing && <PersonEditDialog person={person} people={people} onDone={(nextId) => { setEditing(false); if (nextId && nextId !== person.id) go({ page: 'network', person: nextId }) }} onSaved={onSaved} />}
+        <dl className="net-facts">
+          {/* 10/4 20:52 "소속도 아래로 내리고 이메일 위에": 이름 아래는 비우고 소속·이메일을 같은 줄 모양으로 */}
+          <dt>{t('소속', 'Affiliation')}</dt>
+          <dd>
+            {main ? <span className="net-aff">{main}</span> : <span className="muted">{t('모릅니다. 연필을 눌러 적습니다.', 'Unknown. Click the pencil to add it.')}</span>}
+            {more.map((a) => <span key={a} className="muted net-aff2">{a}</span>)}
+          </dd>
+          {/* 10/4 20:53 "이메일 여러 개": 첫 이메일이 노트를 내보낼 때 \email 줄에 들어간다 */}
+          <dt>{t('이메일', 'Email')}</dt>
+          <dd className="net-inline">
+            {emails.length
+              ? emails.map((m, i) => <a key={m} className="a" href={`mailto:${m}`} title={i === 0 && person.author ? t('노트를 내보낼 때 쓰는 이메일', 'Email used when exporting notes') : undefined}>{m}</a>)
+              : <span className="muted">{t('없음', 'None')}</span>}
+          </dd>
+          {person.homepage && <><dt>{t('홈페이지', 'Homepage')}</dt><dd><a className="a" href={person.homepage} target="_blank" rel="noreferrer">{person.homepage.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a></dd></>}
+          <dt>{t('주 연구 분야', 'Main research field')}</dt><dd><FieldTags tags={person.tags} people={people} onChange={setTags} /></dd>
+          {person.note && <><dt>{t('메모', 'Memo')}</dt><dd>{person.note}</dd></>}
+          {person.aliases.length > 0 && <><dt>{t('다른 이름', 'Other names')}</dt><dd>{person.aliases.join(', ')}</dd></>}
+          <dt>{t('찾아보기', 'Look up')}</dt>
+          <dd className="net-inline">
+            <a className="a" href={arxivSearch(person.name)} target="_blank" rel="noreferrer">arXiv</a>
+            <a className="a" href={scholarSearch(person.name)} target="_blank" rel="noreferrer">Google Scholar</a>
+          </dd>
+        </dl>
+        {isMe && <NoteAuthors person={person} people={people} onSaved={onSaved} />}
       </section>
       {/* 10/4 20:49 "다른 저자와 관계를 나타내는 섹션": 함께 쓴 사람을 같은 사람 카드로 (노트 저자는 내 프로필 카드 안) */}
       <Relations people={people} coauthors={coauthors} />
@@ -499,39 +496,42 @@ function Relations({ people, coauthors }: { people: PersonView[]; coauthors: Coa
 }
 
 /**
- * 프로필 고치기 (10/4 18:56 "저자 정보 편집창 늘 띄우지 말고 연필을 눌러 수정"): 저장·취소.
+ * 사람 고치기 창 (10/5 22:36 "주제 카드 고치기처럼", 10/18 시안 5절): 주제 · 프로젝트 고치기와 같은 창(CardEditDialog).
+ * 왼쪽 위 이름 · 소속(줄마다 한 칸, 다른 사람 · 원고 저자의 소속을 제안), 아래 이메일 · 홈페이지 · 다른 이름 · 메모. 오른쪽은 사람 카드 미리보기와 교신 저자(노트 저자만).
  * 노트 저자면 이름·이메일·소속·교신 저자는 저자와 소속(내보내기의 \author 줄)에, 홈페이지·메모·다른 이름은 네트워킹에 저장한다.
  */
-function ProfileEditor({ person, people, onDone, onSaved }: { person: PersonView; people: PersonView[]; onDone(nextId?: string): void; onSaved(m: string): void }) {
+function PersonEditDialog({ person, people, onDone, onSaved }: { person: PersonView; people: PersonView[]; onDone(nextId?: string): void; onSaved(m: string): void }) {
   const [d, setD] = useState({
-    name: person.name, email: [person.email, ...person.emails].filter(Boolean).join('\n'), affiliations: person.affiliations.join('\n'), homepage: person.homepage ?? '',
+    name: person.name, email: [person.email, ...person.emails].filter(Boolean).join('\n'), affiliations: person.affiliations.length ? person.affiliations : [''], homepage: person.homepage ?? '',
     note: person.note ?? '', aliases: person.aliases.join(', '), corresponding: false,
   })
-  const [authorsLoaded, setAuthorsLoaded] = useState(!person.author)
+  const [authors, setAuthors] = useState<Author[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   useEffect(() => {
-    if (!person.author) return
     latexApi.get().then((v) => {
+      setAuthors(v.authors)
       const a = v.authors.find((x) => personId(x.name) === person.id)
       if (a) setD((cur) => ({ ...cur, corresponding: !!a.corresponding }))
-      setAuthorsLoaded(true)
-    }).catch((e: Error) => setMessage(e.message))
-  }, [person.author, person.id])
-  const set = (patch: Partial<typeof d>) => setD({ ...d, ...patch })
+    }).catch((e: Error) => { setAuthors([]); setMessage(e.message) })
+  }, [person.id])
+  const authorsLoaded = !person.author || authors !== null
+  const set = (patch: Partial<typeof d>) => setD((cur) => ({ ...cur, ...patch }))
+  // 제안할 소속: 다른 사람과 원고 저자에게 적은 것
+  const known = [...people.filter((p) => p.id !== person.id).flatMap((p) => p.affiliations), ...(authors ?? []).filter((a) => personId(a.name) !== person.id).flatMap((a) => a.affiliations ?? [])]
+  const name = d.name.replace(/\s+/g, ' ').trim()
+  const affiliations = d.affiliations.map((s) => s.trim()).filter(Boolean)
 
   const submit = async () => {
-    const name = d.name.replace(/\s+/g, ' ').trim()
     if (!name) { setMessage(t('이름을 적어 주세요', 'Enter a name')); return }
     const homepage = d.homepage.trim()
     if (homepage && !/^https?:\/\//i.test(homepage)) { setMessage(t('홈페이지는 https://로 시작하는 주소로 적습니다', 'The homepage must start with https://')); return }
-    const affiliations = d.affiliations.split('\n').map((s) => s.trim()).filter(Boolean)
     const [email = '', ...emails] = [...new Set(d.email.split(/[\n,]/).map((m) => m.trim()).filter(Boolean))]
     setBusy(true)
     try {
       if (person.author) {
-        const { authors } = await latexApi.get()
-        await latexApi.saveAuthors(authors.map((a) => (personId(a.name) === person.id
+        const { authors: current } = await latexApi.get()
+        await latexApi.saveAuthors(current.map((a) => (personId(a.name) === person.id
           ? { name, ...(email && { email }), ...(emails.length && { emails }), ...(d.corresponding && { corresponding: true }), affiliations }
           : a)))
       }
@@ -546,32 +546,53 @@ function ProfileEditor({ person, people, onDone, onSaved }: { person: PersonView
       announce()
       onSaved(t('프로필을 저장했습니다', 'Profile saved'))
       onDone(personId(name))
-    } catch (e) { setMessage(t(`저장하지 못했습니다 — ${(e as Error).message}`, `Couldn't save: ${(e as Error).message}`)) } finally { setBusy(false) }
+    } catch (e) { setMessage(t(`저장하지 못했습니다 — ${(e as Error).message}`, `Couldn't save: ${(e as Error).message}`)); setBusy(false) }
   }
 
+  const sub = affiliations[0] || d.note.trim()
   return (
-    <form className="net-edit" data-ui="저자 목록" onSubmit={(e) => { e.preventDefault(); void submit() }}>
-      <label className="field"><span>{t('이름', 'Name')}</span><input value={d.name} onChange={(e) => set({ name: e.target.value })} autoFocus /></label>
-      <label className="field"><span>{t('소속 (한 줄에 하나, 첫 줄이 주소속)', 'Affiliations (one per line, first is main)')}</span><textarea rows={Math.max(2, d.affiliations.split('\n').length)} value={d.affiliations} onChange={(e) => set({ affiliations: e.target.value })} /></label>
-      {/* 10/4 20:53 "이메일 여러 개" */}
-      <label className="field"><span>{t(`이메일 (한 줄에 하나${person.author ? ', 첫 줄이 노트 내보내기의 \\email' : ''}. 없으면 비워 둠)`, `Email (one per line${person.author ? '; the first is \\email in note exports' : ''}. Leave blank if none)`)}</span><textarea rows={Math.max(1, d.email.split('\n').length)} value={d.email} onChange={(e) => set({ email: e.target.value })} /></label>
-      <div className="net-edit-grid">
-        <label className="field"><span>{t('홈페이지', 'Homepage')}</span><input value={d.homepage} placeholder="https://" onChange={(e) => set({ homepage: e.target.value })} /></label>
-        <label className="field"><span>{t('참고 문헌에 다르게 적힌 이름 (쉼표로 나눔)', 'Other spellings in references (comma separated)')}</span><input value={d.aliases} placeholder={t('예: A. E. Example, Ada Example', 'e.g. A. E. Example, Ada Example')} onChange={(e) => set({ aliases: e.target.value })} /></label>
-      </div>
-      <label className="field"><span>{t('한 줄 메모', 'One-line memo')}</span><input value={d.note} onChange={(e) => set({ note: e.target.value })} /></label>
-      {person.author && <p className="muted net-edit-hint">{t('노트를 내보낼 때 이름·이메일·소속이 \\author·\\email·\\affiliation 줄로 들어갑니다. 교신 저자는 이름 뒤에 \\thanks{corresponding author}가 붙습니다.', 'When exporting notes, name, email and affiliation become \\author, \\email and \\affiliation lines. A corresponding author gets \\thanks{corresponding author} after the name.')}</p>}
-      <div className="author-foot">
-        {person.author && <label className="check"><input type="checkbox" checked={d.corresponding} disabled={!authorsLoaded} onChange={(e) => set({ corresponding: e.target.checked })} />{t('교신 저자', 'Corresponding author')}</label>}
-        <span className="sp" />
-        {message && <span className="muted">{message}</span>}
-        <button type="button" className="btn" onClick={() => onDone()}>{t('취소', 'Cancel')}</button>
-        <button type="submit" className="btn primary" disabled={busy || !authorsLoaded}>{t('저장', 'Save')}</button>
-      </div>
-    </form>
+    <CardEditDialog title={t('사람 고치기', 'Edit person')} location={`${t('네트워킹', 'Networking')} › ${person.name}`} pc="var(--text-3)" ui="사람 고치기 창" className="person-dialog"
+      canSave={!busy && authorsLoaded && !!name} onClose={() => { if (!busy) onDone() }} onSave={() => void submit()}
+      preview={
+        <span className="net-card pe-card" data-ui="사람 카드 미리보기">
+          <Avatar name={name || '?'} />
+          <span className="net-card-body">
+            <span className="net-card-name"><span className="net-card-n">{name || t('이름 없음', 'No name')}</span></span>
+            {sub && <span className="muted net-card-sub">{sub}</span>}
+            {person.tags.length > 0 && <span className="net-card-tags"><span className="tag">{person.tags[0]}</span></span>}
+          </span>
+        </span>
+      }
+      look={person.author ? (
+        <label className="check pe-corr" title={t('노트를 내보낼 때 이름 뒤에 \\thanks{corresponding author}가 붙습니다', 'Adds \\thanks{corresponding author} after the name when exporting notes')}>
+          <input type="checkbox" checked={d.corresponding} disabled={busy || !authorsLoaded} onChange={(e) => set({ corresponding: e.target.checked })} />{t('교신 저자', 'Corresponding author')}
+        </label>
+      ) : undefined}
+      lower={
+        <fieldset className="td-fields" disabled={busy}>
+          {/* 10/4 20:53 "이메일 여러 개" */}
+          <label className="td-f">
+            <span className="td-lab"><span>{t('이메일', 'Email')}</span><span className="td-n">{t('한 줄에 하나', 'One per line')}</span></span>
+            <textarea className="td-in td-ta pe-ta" rows={Math.max(1, d.email.split('\n').length)} value={d.email} onChange={(e) => set({ email: e.target.value })} />
+            {person.author && <span className="td-help">{t('첫 줄이 노트 내보내기의 \\email로 들어갑니다', 'The first line becomes \\email in note exports')}</span>}
+          </label>
+          <label className="td-f"><span className="td-lab"><span>{t('홈페이지', 'Homepage')}</span></span><input className="td-in" value={d.homepage} placeholder="https://" onChange={(e) => set({ homepage: e.target.value })} /></label>
+          <label className="td-f">
+            <span className="td-lab"><span>{t('참고 문헌에 다르게 적힌 이름', 'Other spellings in references')}</span><span className="td-n">{t('쉼표로 나눔', 'Comma separated')}</span></span>
+            <input className="td-in" value={d.aliases} placeholder={t('예: A. E. Example, Ada Example', 'e.g. A. E. Example, Ada Example')} onChange={(e) => set({ aliases: e.target.value })} />
+          </label>
+          <label className="td-f"><span className="td-lab"><span>{t('한 줄 메모', 'One-line memo')}</span></span><input className="td-in" value={d.note} onChange={(e) => set({ note: e.target.value })} /></label>
+          {person.author && <p className="td-help">{t('노트를 내보낼 때 이름·이메일·소속이 \\author·\\email·\\affiliation 줄로 들어갑니다.', 'When exporting notes, name, email and affiliation become \\author, \\email and \\affiliation lines.')}</p>}
+          {message && <p className="td-err">{message}</p>}
+        </fieldset>
+      }>
+      <fieldset className="td-fields" disabled={busy}>
+        <label className="td-f"><span className="td-lab"><span>{t('이름', 'Name')}</span></span><input className="td-in" value={d.name} data-ui="사람 이름" onChange={(e) => set({ name: e.target.value })} /></label>
+        <AffiliationFields value={d.affiliations} known={known} disabled={busy} onChange={(affiliations) => set({ affiliations })} />
+      </fieldset>
+    </CardEditDialog>
   )
 }
-
 
 /** 사람의 주 연구 분야: 다른 사람에게 자주 붙인 분야를 먼저 제안한다 */
 function FieldTags({ tags, people, onChange }: { tags: string[]; people: PersonView[]; onChange(tags: string[], message: string): void }) {

@@ -354,7 +354,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         title: 'Person page',
         items: [
           { text: <>Each person's page gathers papers they authored from the shared library and project bibs. You can also add other forms of their name used in references (for example A. E. Example).</> },
-          { text: <>The profile card has large initials, affiliations (main and secondary), emails (several, one per line), homepage, main field, memo, other names, and arXiv and Google Scholar search links. It is normally read only; edit it with the pencil at the card's top right. All authors are not edited in one form on the home screen.</> },
+          { text: <>The profile card has large initials, affiliations (main and secondary), emails (several, one per line), homepage, main field, memo, other names, and arXiv and Google Scholar search links. It is normally read only; the pencil at the card's top right opens the <b>Edit person</b> dialog, the same dialog as editing a topic or project. Name, affiliations, emails, homepage, other names and memo are on the left; a person card preview is on the right (with Corresponding author below it for note authors). Affiliations take one box per line (the first is the main one), and as you type, affiliations already given to other people and manuscript authors are suggested below (pick with ↑↓ and Enter). All authors are not edited in one form on the home screen.</> },
           { text: <>Under "Co-authors" at the bottom of a person page, co-authors who are in Networking show as the same person cards, with the number of papers written together.</> },
         ],
       },

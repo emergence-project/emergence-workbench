@@ -643,5 +643,9 @@
   "공통 규칙 없음": "No common rules",
   "공통 규칙 올리지 못함": "Rules not pushed",
   "왼쪽 사이드바 갈래": "Left sidebar view",
-  "기록 상태": "Record status"
+  "기록 상태": "Record status",
+  "사람 고치기 창": "Edit person dialog",
+  "사람 카드 미리보기": "Person card preview",
+  "소속 칸": "Affiliation fields",
+  "사람 이름": "Person name"
 }
