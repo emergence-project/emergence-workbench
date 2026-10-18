@@ -62,6 +62,7 @@ describe('GET · PUT /api/settings/common-rules', () => {
     const configDir = path.join(tmp, 'mac')
     const personalDir = path.join(configDir, 'personal')
     execFileSync('git', ['clone', '--quiet', remote, personalDir])
+    git(personalDir, 'config', 'user.name', 't'); git(personalDir, 'config', 'user.email', 't@t')
     fs.writeFileSync(path.join(personalDir, 'other.md'), '올리지 않을 파일\n')
     const app = buildApp({ configDir, personalDir })
     const v = (await app.inject({ method: 'GET', url: '/api/settings/common-rules' })).json()
