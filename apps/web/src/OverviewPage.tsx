@@ -146,7 +146,7 @@ export const todoRows = (todos: OpenTodo[]) => todos.map((todo) => ({ todo, due:
 /**
  * 프로젝트 첫 화면 — 탭이 하나도 선택되지 않았을 때 보이는 현황판 (2026-10-03 12:00 피드백).
  * 왼쪽: 프로젝트 제목 · 설명 · 성격과 분야 · 확인할 문제 · 주제와 노트 카드.
- * 오른쪽: 머리 높이와 관계없이 본문 맨 위에서 시작하는 작업(우선순위 순). 좁은 화면은 작업부터.
+ * 오른쪽: 머리 높이와 관계없이 본문 맨 위에서 시작하는 작업(우선순위 순). 좁은 화면은 한 열로 제목·설명 다음, 주제 위에 작업 (10/16 23:01).
  * 10/5 시안 "프로젝트 첫 화면": 원고 칸은 뺐다(원고는 왼쪽 사이드바 "원고"에서). 오른쪽 작업 칸은 그대로.
  */
 export function OverviewPage({ rid, rapi, summary, notes, project: projectName, pc, anchor, listed, all, onProfile, onChanged, onSaved }: Props) {
