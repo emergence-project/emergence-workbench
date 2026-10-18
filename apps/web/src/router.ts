@@ -216,7 +216,7 @@ export function go(r: Route): void {
 /** Native history and direct hash links follow the same guard as app navigation. */
 export function subscribeRoute(onRoute: (route: Route) => void): () => void {
   // Browser entry keys also cover visits made before this version was loaded.
-  const navigation = (window as Window & { navigation?: {
+  const navigation = (window as { navigation?: {
     currentEntry: { key: string } | null
     traverseTo(key: string): { finished: Promise<unknown> }
   } }).navigation
