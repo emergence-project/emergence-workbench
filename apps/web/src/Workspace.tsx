@@ -265,7 +265,11 @@ const removeTab = (p: PaneState, key: string): PaneState =>
   ({ tabs: p.tabs.filter((x) => tabKey(x) !== key), active: p.active === key ? null : p.active })
 
 /** 탭을 여는 방법: newTab은 ⌘/Ctrl+클릭, keep은 바꾸면 안 되는 탭(저장하지 않은 고침이 있는 탭) */
-export interface OpenHow { newTab?: boolean; keep?(key: string): boolean }
+export interface OpenHow {
+  newTab?: boolean; keep?(key: string): boolean
+  /** 바꿔 낸 탭이 노트 하나로 된 원고(연구노트 · 계산 노트)이면 그 PDF 탭. 원고의 장이면 null (PDF를 다른 장이 함께 쓴다) */
+  ownPdfOf?(t: Tab): Tab | null
+}
 
 /**
  * 칸의 고른 탭 자리에 t를 둔다 (같은 탭에서 이동). 이미 있으면 고르기만 한다.
@@ -283,8 +287,9 @@ function placeTab(p: PaneState, t: Tab, how: OpenHow): { pane: PaneState; replac
 }
 
 /** 바꿔 낸 노트의 PDF 탭을 닫는다 (연구노트는 노트마다 PDF가 있다. 원고 PDF는 같은 원고의 다른 장이 함께 쓰므로 둔다) */
-function dropResultPdf(l: Layout, replaced: Tab | null): Layout {
-  const key = replaced?.k === 'block' ? tabKey({ k: 'pdf', bid: replaced.bid }) : replaced?.k === 'part' ? tabKey(manuscriptPdfTab(replaced.file)) : null
+function dropResultPdf(l: Layout, replaced: Tab | null, how: OpenHow): Layout {
+  const own = replaced?.k === 'part' ? how.ownPdfOf?.(replaced) : null
+  const key = replaced?.k === 'block' ? tabKey({ k: 'pdf', bid: replaced.bid }) : own ? tabKey(own) : null
   if (!key) return l
   const at = paneOf(l, key)
   return at === -1 ? l : withPane(l, at, removeTab(l.panes[at], key))
@@ -301,7 +306,7 @@ export function openRoute(l: Layout, t: Tab, pdf: Tab | null = null, how: OpenHo
     // 노트는 늘 왼쪽 칸에 연다 (Overleaf처럼 노트 왼쪽 · PDF 오른쪽, 10/7 버그)
     let next = at === 1 ? withPane(l, 1, removeTab(l.panes[1], key)) : l
     const placed = placeTab(next.panes[0], t, how)
-    next = dropResultPdf({ ...withPane(next, 0, placed.pane), focus: 0 }, placed.replaced)
+    next = dropResultPdf({ ...withPane(next, 0, placed.pane), focus: 0 }, placed.replaced, how)
     // 왼쪽 칸에 남은 PDF 탭은 오른쪽 칸으로 옮긴다 (선택은 바꾸지 않는다)
     const pdfs = next.panes[0].tabs.filter(isPdfTab)
     if (pdfs.length) {
@@ -318,7 +323,7 @@ export function openRoute(l: Layout, t: Tab, pdf: Tab | null = null, how: OpenHo
   const writing = l.panes[l.focus].active?.startsWith('block:') || l.panes[l.focus].active?.startsWith('part:')
   const here = at !== -1 ? at as 0 | 1 : !l.split ? 0 : (t.k === 'doc' || t.k === 'statement' || t.k === 'concept' || t.k === 'paper') && writing ? (1 - l.focus) as 0 | 1 : l.focus
   const placed = placeTab(l.panes[here], t, how)
-  return dropResultPdf({ ...withPane(l, here, placed.pane), focus: here }, placed.replaced)
+  return dropResultPdf({ ...withPane(l, here, placed.pane), focus: here }, placed.replaced, how)
 }
 
 /**
@@ -371,7 +376,7 @@ export function useWorkspaceDragging() {
 let newTabIntent = false
 const takeNewTabIntent = () => { const v = newTabIntent; newTabIntent = false; return v }
 
-export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, uiTitleOf = titleOf, kindOf, renderTab, home, context, openRequest, onOpened, onCloseFailed }: {
+export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, uiTitleOf = titleOf, kindOf, ownPdfOf, renderTab, home, context, openRequest, onOpened, onCloseFailed }: {
   rid: string
   route: Route
   layout: Layout
@@ -382,6 +387,8 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
   /** Korean tab name for feedback part names (data-ui-item) */
   uiTitleOf?(t: Tab): string
   kindOf(t: Tab): string | null
+  /** 노트 하나로 된 원고의 PDF 탭 (OpenHow.ownPdfOf) */
+  ownPdfOf?(t: Tab): Tab | null
   renderTab(t: Tab, context: TabRenderContext): ReactNode
   /** 첫 화면: 지금 칸에 고른 탭이 없을 때 보인다 */
   home: ReactNode
@@ -418,7 +425,7 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
     let cancelled = false
     const t = tabOfRoute(route)
     if (t) {
-      const how: OpenHow = { newTab: takeNewTabIntent(), keep: (key) => groups.get(key)?.pending ?? false }
+      const how: OpenHow = { newTab: takeNewTabIntent(), keep: (key) => groups.get(key)?.pending ?? false, ownPdfOf }
       setLayout((l) => openRoute(l, t, null, how))
       void routePdf(t, api.research(rid)).then((pdf) => {
         if (!cancelled && pdf) setLayout((l) => pairRoutePdf(l, t, pdf))
