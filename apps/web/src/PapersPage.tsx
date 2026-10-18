@@ -10,6 +10,7 @@ import { store } from './store'
 import { tableHiddenColumns } from './tableColumns'
 import { t } from './i18n'
 import { loadPdfjs } from './pdfjs'
+import { localDate } from '@rw/core'
 
 /**
  * 논문 라이브러리 (10/6 L2: 첫 화면은 LibraryHome.tsx, 이 파일은 "목록").
@@ -120,8 +121,7 @@ const WHERE_LABEL = { local: t('이 맥', 'This Mac'), cloud: t('클라우드', 
 const CARD_WHERE = { local: '', cloud: t('클라우드', 'Cloud'), none: t('PDF 없음', 'No PDF') } as const
 const fmtDate = (ms?: number) => {
   if (!ms) return ''
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return localDate(new Date(ms))
 }
 const authorLine = (a: string[]) => (a.length > 3 ? t(`${a.slice(0, 3).join(', ')} 외 ${a.length - 3}`, `${a.slice(0, 3).join(', ')} +${a.length - 3}`) : a.join(', '))
 

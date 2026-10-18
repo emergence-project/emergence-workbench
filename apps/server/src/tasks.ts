@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { appPath } from './agentPaths.js'
-import { RESEARCH_TARGET, frontMatter } from '@rw/core'
+import { RESEARCH_TARGET, frontMatter, stamp as coreStamp } from '@rw/core'
 import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, localTime, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
@@ -72,7 +72,7 @@ const strings = (v: unknown) => list(v).map(text).filter((s): s is string => !!s
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {})
 const int = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : undefined)
 /** 로컬 시각 "YYYY-MM-DD HH:MM" */
-export const stamp = (d = new Date()) => `${localDate(d)} ${localTime(d)}`
+export const stamp = (d = new Date()) => coreStamp('space', d)
 
 function parseAsk(v: unknown): TaskAsk | null {
   if (typeof v === 'string') return v.trim() ? { q: v.trim(), options: [] } : null

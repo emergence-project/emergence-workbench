@@ -3,7 +3,8 @@ import path from 'node:path'
 import YAML from 'yaml'
 import type * as C from '@rw/core/contract/learn'
 import type { LearnFrom, LearnItem } from '@rw/core/contract/learn'
-import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
+import { hashOf, writeAtomic } from './fsutil.js'
+import { stamp as coreStamp } from '@rw/core'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 
@@ -93,12 +94,12 @@ export interface NewLearn { term?: unknown; note?: unknown; from?: unknown; conc
 export function addLearn(lib: string | undefined, input: NewLearn, now = new Date()): { item: LearnItem; list: LearnList } {
   const term = str(input.term, 200)?.replace(/\s+/g, ' ')
   if (!term) throw new WorkbenchError(400, t('모르는 말이 비어 있음', 'The unknown term is empty'))
-  const stamp = `${localDate(now).replace(/-/g, '')}-${localTime(now).replace(':', '')}`
+  const stamp = coreStamp('compact', now)
   let item: LearnItem | null = null
   const list = editLearn(lib, (items, doc) => {
     let id = `l-${stamp}`
     for (let n = 2; nodeIndex(items, id) >= 0; n++) id = `l-${stamp}-${n}`
-    item = itemOf({ id, term, at: `${localDate(now)} ${localTime(now)}`, note: input.note, from: input.from, concept: input.concept })!
+    item = itemOf({ id, term, at: coreStamp('space', now), note: input.note, from: input.from, concept: input.concept })!
     items.add(doc.createNode(item))
   })
   return { item: item!, list }

@@ -159,6 +159,31 @@ function labelText(node) {
   }
 }
 
+// 간격 경고 (실패하지 않음, 디자인 검토 10/17 5절 10번): padding·margin·gap의 px 값이 토큰(--sp-*)도 아니고
+// 단계 사이를 메우는 작은 맞춤 값(0·1·2·3·6·10px)도 아니면 수만 센다. 4·8·12·16·24·32px는 위 규칙이 실패로 잡는다.
+// 새 줄에는 토큰을 쓰고, 고칠 곳을 고를 때 SPACING_WARN_ALL=1로 줄 목록을 본다.
+const SPACING_OK = new Set([0, 1, 2, 3, 6, 10, 4, 8, 12, 16, 24, 32])
+const spacingWarnings = []
+for (const f of files) {
+  readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+    if (line.includes('디자인 예외:')) return
+    const code = line.replace(/\/\*.*?\*\//g, '')
+    for (const decl of code.matchAll(/\b(?:padding|margin|gap|row-gap|column-gap)(?:-[a-z]+)?\s*:([^;}]*)/g)) {
+      for (const m of (decl[1] ?? '').matchAll(/(?<![\w.])-?(\d+(?:\.\d+)?)px\b/g)) {
+        const v = Number(m[1])
+        if (!SPACING_OK.has(v)) spacingWarnings.push({ where: `${f.slice(root.length)}:${i + 1}`, v, line: line.trim().slice(0, 140) })
+      }
+    }
+  })
+}
+if (spacingWarnings.length) {
+  const byValue = new Map()
+  for (const w of spacingWarnings) byValue.set(w.v, (byValue.get(w.v) ?? 0) + 1)
+  const summary = [...byValue].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([v, n]) => `${v}px ${n}`).join(' · ')
+  console.warn(`경고: 토큰이 아닌 간격 값 ${spacingWarnings.length}곳 (${summary}). 실패는 아니다. 새 줄은 --sp-*로, 목록은 SPACING_WARN_ALL=1`)
+  if (process.env.SPACING_WARN_ALL) for (const w of spacingWarnings) console.warn(`  ${w.where}  ${w.v}px\n    ${w.line}`)
+}
+
 if (problems.length) {
   console.error(`화면 기준에 어긋난 곳 ${problems.length}개:\n` + problems.join('\n'))
   process.exit(1)

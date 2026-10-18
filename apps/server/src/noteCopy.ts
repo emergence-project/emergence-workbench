@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { Author, LatexSetup, LatexTemplate } from '@rw/core'
 import YAML from 'yaml'
 import { isOutside, writeAtomic } from './fsutil.js'
+import { writeYaml } from './yamlFile.js'
 import { allManuscripts } from './manuscript.js'
 import { expandHeadInputs, NOTE_MACROS, needsBodyOnly, noteMacrosText, toBodyOnly } from './noteBody.js'
 import { NOTE_DIRS, NOTE_MD, WorkbenchError, type Workbench } from './workbench.js'
@@ -172,12 +173,12 @@ export function createNote(wb: Workbench, input: { kind?: unknown; name?: unknow
       copied++
     }
     for (const f of bibs) { fs.copyFileSync(path.join(baseDir, f), path.join(dest, f)); copied++ }
-    writeAtomic(path.join(dest, 'note.yaml'), YAML.stringify({ name, from: src.main, ...kindLine }))
+    writeYaml(path.join(dest, 'note.yaml'), { name, from: src.main, ...kindLine })
   } else {
     // 빈 노트는 Markdown + KaTeX (10/4 결정: 연구노트·계산 노트는 개념노트와 같은 형식, PDF는 내보낼 때 프로젝트 서식으로)
     fs.mkdirSync(dest, { recursive: true })
     writeAtomic(path.join(dest, NOTE_MD), NOTE_TEMPLATE[kind])
-    writeAtomic(path.join(dest, 'note.yaml'), YAML.stringify({ name, ...kindLine }))
+    writeYaml(path.join(dest, 'note.yaml'), { name, ...kindLine })
     return { path: path.relative(repo, path.join(dest, NOTE_MD)), name, kind: dirKind, copied: 1, skipped }
   }
   return { path: path.relative(repo, path.join(dest, 'main.tex')), name, kind: dirKind, copied, skipped }

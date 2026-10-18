@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ManuscriptCompileResult, ManuscriptPdfStatus } from './api'
 import { researchApi } from './api/research'
@@ -112,9 +113,9 @@ describe('manuscript PDF refresh', () => {
     const initial = getSession(k).pdfVersion
     await runManuscriptCompile(k, async () => result({ ok: false, pdfAt: second, pdfErrors: true, lastCompile: { at: second, ok: false } }))
     expect(getSession(k).pdfVersion).toBeGreaterThan(initial!)
-    expect(manuscriptPdfLabel(getSession(k).manuscriptPdf!)).toBe('컴파일 오류가 있는 PDF입니다 · 빠지거나 틀린 부분이 있을 수 있습니다')
+    expect(manuscriptPdfLabel(getSession(k).manuscriptPdf!)).toBe(t('컴파일 오류가 있는 PDF입니다 · 빠지거나 틀린 부분이 있을 수 있습니다', 'This PDF has compile errors · Parts may be missing or wrong'))
     expect(manuscriptPdfLabel(status({ pdfErrors: true, pdfState: 'stale' }))).toMatch(/그 뒤 원고가 바뀌었습니다$/)
-    expect(manuscriptPdfLabel(status({ hasPdf: false, pdfState: 'missing', lastCompile: { at: second, ok: false } }))).toBe('컴파일 오류로 PDF를 만들지 못했습니다')
+    expect(manuscriptPdfLabel(status({ hasPdf: false, pdfState: 'missing', lastCompile: { at: second, ok: false } }))).toBe(t('컴파일 오류로 PDF를 만들지 못했습니다', 'Compile errors prevented a PDF'))
   })
 
   it('preserves a legacy PDF until a successful compile and clears a missing PDF', () => {
@@ -124,10 +125,10 @@ describe('manuscript PDF refresh', () => {
     expect(initial).not.toBeNull()
     applyManuscriptPdf(k, status({ pdfState: 'unknown', lastSuccessAt: undefined, lastCompile: undefined }))
     expect(getSession(k).pdfVersion).toBe(initial)
-    expect(manuscriptPdfLabel(getSession(k).manuscriptPdf!)).toBe('PDF 최신 여부를 확인하지 못했습니다')
+    expect(manuscriptPdfLabel(getSession(k).manuscriptPdf!)).toBe(t('PDF 최신 여부를 확인하지 못했습니다', 'Could not check whether the PDF is current'))
     applyManuscriptPdf(k, status({ hasPdf: false, pdfState: 'missing' }))
     expect(getSession(k).pdfVersion).toBeNull()
-    expect(manuscriptPdfLabel(getSession(k).manuscriptPdf!)).toBe('아직 PDF가 없습니다')
+    expect(manuscriptPdfLabel(getSession(k).manuscriptPdf!)).toBe(t('아직 PDF가 없습니다', 'No PDF yet'))
   })
 
   it('marks transport failure unknown, unlocks compilation, and rejects earlier polls', async () => {
@@ -141,7 +142,7 @@ describe('manuscript PDF refresh', () => {
   })
 
   it('uses the agreed stale message', () => {
-    expect(manuscriptPdfLabel(status({ pdfState: 'stale' }))).toBe('원고가 바뀌었습니다 · PDF는 이전 결과')
+    expect(manuscriptPdfLabel(status({ pdfState: 'stale' }))).toBe(t('원고가 바뀌었습니다 · PDF는 이전 결과', 'The manuscript changed · PDF is an earlier result'))
   })
 
   it('uses identical selected manuscript and template options for refresh and compile', async () => {

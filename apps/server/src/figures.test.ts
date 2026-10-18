@@ -97,8 +97,11 @@ describe('figures', () => {
     const { lib } = setup('tikz-limit')
     for (let i = 0; i < 5; i++) fs.writeFileSync(path.join(lib, 'figures', `many${i}.tikz`), `\\draw (0,0) circle (${i + 1});`)
     let now = 0, most = 0
+    // 둘이 함께 돌 때까지 붙잡는다: 한도가 없으면 그 사이 셋째 이후도 들어와 most가 2를 넘는다
+    let release!: () => void
+    const gate = new Promise<void>((r) => { release = r })
     useTikzRunner(async (cmd, _args, cwd) => {
-      if (cmd === 'latex') { now++; most = Math.max(most, now); await new Promise((r) => setTimeout(r, 20)); return }
+      if (cmd === 'latex') { now++; most = Math.max(most, now); if (now >= 2) release(); await gate; return }
       fs.writeFileSync(path.join(cwd, 'fig.svg'), SVG); now--
     })
     const res = await Promise.all([0, 1, 2, 3, 4].map((i) => app.inject({ method: 'GET', url: `/api/figures/file?id=library%2Fmany${i}.tikz` })))

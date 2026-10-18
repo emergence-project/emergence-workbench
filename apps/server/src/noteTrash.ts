@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import YAML from 'yaml'
-import { writeAtomic } from './fsutil.js'
+import { readYaml, writeYaml } from './yamlFile.js'
 import { manuscriptInfo } from './manuscript.js'
 import { NOTE_DIRS, WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
@@ -35,7 +34,7 @@ export function trashNote(wb: Workbench, key: string, now = new Date()): Trashed
   fs.mkdirSync(trashRoot(wb), { recursive: true })
   fs.renameSync(dir, dest)
   const item = { name: info.name, from: path.relative(repo, dir), at: now.toISOString() }
-  writeAtomic(path.join(dest, INFO), YAML.stringify(item))
+  writeYaml(path.join(dest, INFO), item)
   return { id, ...item, until: new Date(now.getTime() + TRASH_DAYS * DAY).toISOString() }
 }
 
@@ -48,7 +47,7 @@ export function listTrash(wb: Workbench, now = new Date()): TrashedNote[] {
     if (!e.isDirectory()) continue
     const dir = path.join(root, e.name)
     let y: { name?: unknown; from?: unknown; at?: unknown } = {}
-    try { y = YAML.parse(fs.readFileSync(path.join(dir, INFO), 'utf8')) ?? {} } catch { /* 기록이 없으면 폴더 시각 */ }
+    try { y = readYaml(path.join(dir, INFO)) ?? {} } catch { /* 기록이 없으면 폴더 시각 */ }
     const at = typeof y.at === 'string' && !Number.isNaN(Date.parse(y.at)) ? y.at : fs.statSync(dir).mtime.toISOString()
     const until = new Date(Date.parse(at) + TRASH_DAYS * DAY)
     if (until.getTime() <= now.getTime()) { fs.rmSync(dir, { recursive: true, force: true }); continue }

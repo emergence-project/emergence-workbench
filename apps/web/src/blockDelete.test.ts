@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConflictError, type ResearchApi } from './api'
 import { askConfirm } from './askText'
@@ -18,7 +19,7 @@ describe('보조 노트 영구 지우기', () => {
     const { rapi, deleteBlock, onDeleted, onSaved } = setup()
     await deleteBlockWithConfirm(rapi, note, onDeleted, onSaved)
     const prompt = vi.mocked(askConfirm).mock.calls[0]![0]
-    expect(prompt.ok).toBe('지우기')
+    expect(prompt.ok).toBe(t('지우기', 'Delete'))
     expect(prompt.hint).toContain(`${note.file} 파일만 영구히`)
     expect(prompt.hint).toContain('되돌릴 수 없습니다')
     expect(prompt.hint).toContain('workbench/comments/block-example.md')

@@ -54,11 +54,17 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
 
   app.get('/api/feedback/unpublished', replies(C.UnpublishedFiles), async (): Promise<C.UnpublishedFiles> => (opts.feedbackDir && opts.feedbackPublish ? unpublishedFeedback(opts.feedbackDir) : { files: [], count: 0 }))
 
-  /** 연구 저장소에서 앱이 올리는 사용자 기록 (workbench 기준). 코멘트 형식이 늘면 여기에 더한다 */
-  const RESEARCH_RECORDS = ['comments']
+  /**
+   * 연구 저장소에서 앱이 올리는 사용자 기록 (workbench 기준). 코멘트 형식이 늘면 여기에 더한다.
+   * 일지(log/)도 넣는다: 일지 메모를 쓰거나 할 일을 기록으로 옮기면(todos.ts) log/가 바뀌는데, 올리지 않으면 "커밋하지 않은 변경"으로 남아 저절로 받기를 막는다
+   */
+  const RESEARCH_RECORDS = ['comments', 'log']
   const researchRecords = async (rid: string) => {
-    const { top, rel } = await locate(path.join(repoPath(rid), 'workbench'))
-    return { top, paths: RESEARCH_RECORDS.map((p) => (rel ? `${rel}/${p}` : p)) }
+    const wbDir = path.join(repoPath(rid), 'workbench')
+    const { top, rel } = await locate(wbDir)
+    // git add는 없는 경로를 거절한다: 일지 폴더가 아직 없는 저장소는 comments만 (comments는 예전처럼 늘 넣는다)
+    const present = RESEARCH_RECORDS.filter((p) => p === 'comments' || fs.existsSync(path.join(wbDir, p)))
+    return { top, paths: present.map((p) => (rel ? `${rel}/${p}` : p)) }
   }
   /**
    * 기록 올리기. GitHub에서도 바뀐 기록 파일은 세 갈래로 합쳐 보고(merge), GitHub 위에 따로 올린 뒤에는

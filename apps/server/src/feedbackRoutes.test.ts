@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import YAML from 'yaml'
 import { buildApp } from './app.js'
 import { addFeedbackComment, editFeedbackNote, readFeedbackComments, readFeedbackReviews, setFeedbackReview } from './feedback.js'
@@ -248,14 +248,12 @@ describe('피드백 올리기', () => {
     await fb.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '버그', target: '홈', text: '하나' } })
     await fb.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '버그', target: '홈', text: '둘' } })
     expect(g(remote, 'log', '--format=%s', 'main')).toBe('init') // 아직 기다리는 중
-    const until = Date.now() + 10_000
-    while (g(remote, 'log', '--format=%s', 'main') === 'init' && Date.now() < until) await new Promise((r) => setTimeout(r, 100))
+    await vi.waitFor(() => expect(g(remote, 'log', '--format=%s', 'main')).not.toBe('init'), { timeout: 10_000, interval: 100 })
     expect(g(remote, 'log', '--format=%s', 'main').split('\n')).toEqual([expect.stringMatching(/^Add app feedback/), 'init'])
     expect(g(remote, 'show', 'main:' + g(remote, 'show', '--name-only', '--format=', 'main'))).toMatch(/하나[\s\S]*둘/)
     // 원격에 커밋이 보인 직후에는 서버가 아직 결과를 적기 전일 수 있다: 적을 때까지 기다린다
     const last = async () => (await fb.inject({ method: 'GET', url: '/api/feedback' })).json().lastAutoPublish
-    while (!(await last()) && Date.now() < until) await new Promise((r) => setTimeout(r, 50))
-    expect(await last()).toMatchObject({ error: null })
+    await vi.waitFor(async () => expect(await last()).toMatchObject({ error: null }), { timeout: 10_000, interval: 50 })
     await fb.close()
   })
 
@@ -425,5 +423,26 @@ describe('승인·반려', () => {
       expect((await fb.inject({ method: 'GET', url: `/api/feedback/picture?path=${encodeURIComponent(bad)}` })).statusCode).toBe(404)
     }
     await fb.close()
+  })
+})
+
+describe('영어 화면에서도 피드백 파일은 한국어 형식 그대로', () => {
+  it('알림 글은 영어로, 날짜 파일의 머리 줄은 한국어로', async () => {
+    const before = process.env.RW_LANG
+    process.env.RW_LANG = 'en'
+    const dir = path.join(tmp, 'feedback-en')
+    const fb = buildApp({ configDir: path.join(tmp, 'config-fb-en'), feedbackDir: dir })
+    try {
+      expect((await fb.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '버그', target: '홈', text: 'broken' } })).statusCode).toBe(200)
+      const md = fs.readFileSync(path.join(dir, fs.readdirSync(dir).find((f) => f.endsWith('.md'))!), 'utf8')
+      expect(md).toMatch(/## \d{2}:\d{2} · 버그 · 홈\n/)
+      const missing = await fb.inject({ method: 'POST', url: '/api/feedback/comment', payload: { key: 'ghost', note: 'x' } })
+      expect(missing.statusCode).toBe(404)
+      expect(missing.json().error).toBe('That feedback was not found')
+    } finally {
+      await fb.close()
+      if (before === undefined) delete process.env.RW_LANG
+      else process.env.RW_LANG = before
+    }
   })
 })

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { awaitsUserReview, buildTree, isValidBlockId, RESEARCH_TARGET, sameNoteFile, todoDue, type JournalEntry, frontMatter } from '@rw/core'
+import { awaitsUserReview, buildTree, STATUS_LABEL_KO, isValidBlockId, RESEARCH_TARGET, sameNoteFile, todoDue, type JournalEntry, frontMatter } from '@rw/core'
 import YAML from 'yaml'
 import type { EditList } from '@rw/core/contract/agentEdits'
 import { AgentEditStore, listEdits } from './agentEdits.js'
@@ -79,7 +79,8 @@ export const STATUS_FILE = 'STATUS.md'
 /** STATUS.md 첫 안내 줄의 앞부분 (뒤에 쓴 시각이 붙는다). 같은 내용을 다시 쓰지 않으려고 비교할 때 이 줄을 뺀다 */
 const STATUS_HEAD = '> 연구 작업대 앱이 자동으로 쓰는 요약이다'
 const GLYPH: Record<string, string> = { 'in-progress': '●', blocked: '⏸︎', stopped: '■', solved: '✓' }
-const LABEL: Record<string, string> = { 'in-progress': '진행', blocked: '멈춤', stopped: '폐기', solved: '해결' }
+/** STATUS.md에 쓰는 상태 이름 (한국어 저장 값, core의 표 하나) */
+const LABEL: Record<string, string> = STATUS_LABEL_KO
 /** 표 칸 안의 마크다운 링크를 글자만 남긴다 */
 const plain = (s: string) => s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/`/g, '')
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)

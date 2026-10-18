@@ -21,7 +21,7 @@ import { git, GIT_TIMEOUT } from './git.js'
 /** 피드백 모드는 등록 전에 수정 · 질문 · 제안을 고른다 (10/9: 질문을 요청으로 읽는 일을 막으려고). 처리할 때 status.yaml의 kind에 종류를 적을 수 있다. 디자인 · 버그 · 기능은 이전 기록, 미분류는 10/9 전 기록과 소개의 피드백 */
 export { FEEDBACK_KINDS, FEEDBACK_MISSES, FEEDBACK_STATES, FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
 export type { FeedbackKind, FeedbackState, FeedbackVerdict, FeedbackEntry, FeedbackStatus, FeedbackRevision, FeedbackReply, FeedbackVerdictEntry, FeedbackReview, FeedbackComment, MergedFeedback, FeedbackItem as FeedbackListItem, FeedbackPublished as PublishResult } from '@rw/core/contract/feedback'
-import { asksUser } from '@rw/core'
+import { asksUser, stamp as coreStamp } from '@rw/core'
 import { FEEDBACK_KINDS, FEEDBACK_MISSES, FEEDBACK_STATES, FEEDBACK_VERDICTS, type FeedbackComment, type FeedbackEntry, type FeedbackItem as FeedbackListItem, type FeedbackKind, type FeedbackMiss, type FeedbackPickableKind, type FeedbackPublished as PublishResult, type FeedbackReply, type FeedbackRevision, type FeedbackReview, type FeedbackState, type FeedbackStatus, type FeedbackVerdict, type FeedbackVerdictEntry } from '@rw/core/contract/feedback'
 
 export interface FeedbackInput {
@@ -237,7 +237,7 @@ function editReviewFile<T>(dir: string, edit: (doc: YAML.Document) => T): T {
   return r
 }
 
-const stamp = (now: Date) => `${localDate(now)}T${localTime(now)}`
+const stamp = (now: Date) => coreStamp('t', now)
 
 /** 코멘트를 하나 더한다 (승인·반려는 그대로) */
 export function addFeedbackComment(dir: string, key: string, note: string, now = new Date()): FeedbackComment {

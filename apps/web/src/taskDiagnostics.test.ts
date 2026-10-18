@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
@@ -10,6 +11,6 @@ describe('작업 파일 오류 목록', () => {
     expect(html).toContain('작업 파일 오류 1')
     expect(html).toContain('workbench/tasks/2026-10-07-result.md:4')
     expect(html).toContain('state: results')
-    expect(html).not.toContain('맡긴 일이 없습니다')
+    expect(html).not.toContain(t('맡긴 일이 없습니다', 'No delegated work'))
   })
 })

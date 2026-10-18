@@ -74,6 +74,7 @@ export function setMainNote(wb: Workbench, input: { path: unknown; name: unknown
   if (next === text || after.errors.length || JSON.stringify(after.toJS()?.sources?.manuscript) !== JSON.stringify(want) || rest(after) !== rest(before)) {
     throw new WorkbenchError(409, t('research.yaml의 sources 모양이 달라 손대지 않음 — sources.manuscript에 직접 적어 주세요', 'sources in research.yaml has an unexpected shape, so it was left alone. Add it to sources.manuscript yourself'))
   }
+  // editResearchYaml을 쓰지 않는다: 그것은 doc.toString()으로 다시 써 줄 모양이 바뀔 수 있는데, 여기는 글에 한 줄만 넣고 나머지 바이트를 그대로 둔다
   writeAtomic(wb.researchPath, next)
   return { ok: true }
 }

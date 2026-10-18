@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { describe, expect, it } from 'vitest'
 import { initials, isoDay, journalWhen, monthDay, recordDay, relativeTime, statusLabel, statusOf } from './format'
 
@@ -11,8 +12,8 @@ describe('format', () => {
 
   it('상대 시각', () => {
     const now = new Date(2026, 9, 4, 15, 0).getTime()
-    expect(relativeTime(now - 20_000, now)).toBe('방금')
-    expect(relativeTime(now + 60_000, now)).toBe('방금')
+    expect(relativeTime(now - 20_000, now)).toBe(t('방금', 'just now'))
+    expect(relativeTime(now + 60_000, now)).toBe(t('방금', 'just now'))
     expect(relativeTime(now - 10 * 60_000, now)).toBe('10분 전')
     expect(relativeTime(now - 3 * 3_600_000, now)).toBe('3시간 전')
     expect(relativeTime(new Date(2026, 9, 3, 23, 0).getTime(), now)).toBe('어제')

@@ -45,9 +45,12 @@ describe('설정 › 에이전트: 지시 처리', () => {
   it('바로면 지시마다 한 번씩, 하나씩 차례로 하고 답함으로 둔다', async () => {
     let running = 0
     let most = 0
+    // 첫 답을 지시 둘을 다 남길 때까지 붙잡는다: 차례가 없으면 그 사이 둘째가 함께 돌아 most가 2가 된다
+    let release!: () => void
+    const gate = new Promise<void>((r) => { release = r })
     const ask = vi.fn<AskRunner>(async () => {
       most = Math.max(most, ++running)
-      await new Promise((r) => setTimeout(r, 20))
+      await gate
       running--
       return '고쳤습니다.'
     })
@@ -55,6 +58,7 @@ describe('설정 › 에이전트: 지시 처리', () => {
     const one = await add('첫 지시')
     const two = await add('둘째 지시')
     await add('질문은 화면이 따로 묻는다', '질문')
+    release()
     await queue.idle()
     expect(ask).toHaveBeenCalledTimes(2)
     expect(most).toBe(1)

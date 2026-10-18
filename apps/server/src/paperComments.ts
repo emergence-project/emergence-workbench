@@ -4,11 +4,11 @@ import YAML from 'yaml'
 import type { CommentEntry } from './comments.js'
 import type { PaperCommentFile, PaperHighlight } from '@rw/core/contract/papers'
 import { ANSWER_RE, answerHead, isCommentState } from './commentFormat.js'
-import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
+import { hashOf, writeAtomic } from './fsutil.js'
 import { PAPER_COMMENTS_DIR, isSafeKey } from './papers.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
-import { frontMatter } from '@rw/core'
+import { frontMatter, stamp as coreStamp } from '@rw/core'
 
 /**
  * 논문의 코멘트 · 질문 · 하이라이트 (형식: docs/repo-format.md §10.3).
@@ -119,7 +119,7 @@ export function readPaperComments(lib: string, key: string, title = key): PaperC
 }
 
 function newId(dir: string, now: Date): string {
-  const base = `c-${localDate(now).replace(/-/g, '')}-${localTime(now).replace(':', '')}${String(now.getSeconds()).padStart(2, '0')}`
+  const base = `c-${coreStamp('compact', now)}${String(now.getSeconds()).padStart(2, '0')}`
   let id = base
   for (let i = 2; fs.existsSync(path.join(dir, `${id}.md`)); i++) id = `${base}-${i}`
   return id

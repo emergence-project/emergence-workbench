@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { describe, expect, it } from 'vitest'
 import { findSubject, subjectTree } from './knowledgeSubjects'
 import { fieldOptions } from './fields'
@@ -14,9 +15,9 @@ describe('ID classification display and filters', () => {
     const nodes = subjectTree(counts)
     expect(nodes[0]).toMatchObject({ name: 'Mathematics', count: 2 })
     expect(findSubject(nodes, 'math/graph/coloring')).toMatchObject({ name: 'Coloring', count: 1 })
-    expect(nodes[1]).toMatchObject({ name: '분류 없음', count: 3 })
+    expect(nodes[1]).toMatchObject({ name: t('분류 없음', 'No subject'), count: 3 })
     expect(fieldOptions(counts)).toContainEqual({ name: 'Graph Theory', count: 2, path: 'Mathematics › Graph Theory' })
-    expect(fieldOptions(counts).some((x) => x.name === '분류 없음')).toBe(false)
+    expect(fieldOptions(counts).some((x) => x.name === t('분류 없음', 'No subject'))).toBe(false)
   })
   it('matches any subject and its descendants with a path boundary', () => {
     expect(matchesSubject(['cs/ml', 'math/graph/coloring'], 'math')).toBe(true)

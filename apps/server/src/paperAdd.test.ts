@@ -89,7 +89,8 @@ describe('adding papers', () => {
 describe('bib 지키기 (10/5 검토)', () => {
   it('한꺼번에 더해도 같은 논문·같은 키를 두 번 쓰지 않는다', async () => {
     const { lib } = setup('race')
-    // 받는 동안 다른 더하기가 끼어들게 응답을 늦춘다
+    // 받는 동안 다른 더하기가 끼어들게 응답을 늦춘다. 상태를 기다리는 것이 아니라 겹칠 틈이라 시간으로 둔다:
+    // 지키는 쪽(ensureEntry)이 셋을 한꺼번에 들이지 않으므로 "셋 다 들어올 때까지"를 사건으로 기다릴 수 없다
     usePaperFetcher(async (url) => {
       await new Promise((r) => setTimeout(r, 20))
       return url.includes('export.arxiv.org') ? new Response(ATOM) : new Response('%PDF-1.5 fake')
