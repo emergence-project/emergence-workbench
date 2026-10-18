@@ -26,10 +26,10 @@ export function useRecordPaint(ref: RefObject<HTMLDivElement | null>, html: stri
     const remove = root.querySelector(selector) ? undefined : paintRecordMarks(root, records.source, records.contentOffset, [{ id: reveal.id, rects: [], color: 'yellow', ...anchor }])
     const marks = [...root.querySelectorAll<HTMLElement>(selector)]
     marks[0]?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    const color = getComputedStyle(root).getPropertyValue('--hl-bg').trim()
-    const animations = marks.map((mark) => mark.animate([{ backgroundColor: color }, { backgroundColor: getComputedStyle(mark).backgroundColor }], { duration: 1600 }))
+    // 고른 기록의 칠에 테두리를 둘러 다른 기록을 고를 때까지 가리킨다 (10/18, 전에는 1.6초 깜박임). 칠이 없던 자리(줄만 아는 옛 기록)는 잠깐 칠한다
+    marks.forEach((mark) => mark.classList.add('on'))
     const timer = remove ? setTimeout(remove, 1600) : undefined
-    return () => { if (timer) clearTimeout(timer); remove?.(); animations.forEach((animation) => animation.cancel()) }
+    return () => { if (timer) clearTimeout(timer); remove?.(); marks.forEach((mark) => mark.classList.remove('on')) }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 기록 열기(nonce)가 바뀔 때만 그 자리로 간다
   }, [html, records?.reveal?.nonce])
   /** True when the event hit a highlight and its menu was opened. */

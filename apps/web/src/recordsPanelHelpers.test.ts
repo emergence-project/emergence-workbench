@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CommentEntry } from './api/comments'
-import { classifiedRecordCount, filterRecords, recordDate, recordPdfTab, recordRoute, rebaseRecordEdit, filterForActiveRecord, isUserTurnRecord } from './recordsPanelHelpers'
+import { classifiedRecordCount, filterRecords, recordDate, recordPdfTab, recordRoute, rebaseRecordEdit, filterForActiveRecord, isUserTurnRecord, filterByStatus, sortRecords, recordWhen, statusForActiveRecord } from './recordsPanelHelpers'
 import { normalizeRightMode } from './noteScreen'
 const entry = (kind: CommentEntry['kind'], rest: Partial<CommentEntry> = {}): CommentEntry => ({ id: 'c-20261006-1200', kind, body: 'text', where: '전체', rects: [], state: null, answers: [], ...rest })
 
@@ -24,6 +24,25 @@ describe('sidebar records', () => {
     expect(filterForActiveRecord('메모', [question], question.id)).toBe('전체')
     expect(filterForActiveRecord('질문', [question], question.id)).toBe('질문')
     expect(filterForActiveRecord('메모', [question], 'missing')).toBe('메모')
+  })
+  it('splits records into in progress and done, memos stay in progress (10/18)', () => {
+    const memo = entry('메모', { id: 'm' }), open = entry('할 일', { id: 'o', state: '대기' }), done = entry('할 일', { id: 'd', state: '끝냄' }), answered = entry('질문', { id: 'a', state: '답함' })
+    expect(filterByStatus([memo, open, done, answered], '진행 중')).toEqual([memo, open, answered])
+    expect(filterByStatus([memo, open, done, answered], '완료')).toEqual([done])
+    expect(statusForActiveRecord('진행 중', [done], 'd')).toBe('완료')
+    expect(statusForActiveRecord('완료', [open], 'o')).toBe('진행 중')
+    expect(statusForActiveRecord('완료', [open], 'missing')).toBe('완료')
+  })
+  it('orders your turn first, then newest first (10/18)', () => {
+    const old = entry('메모', { id: 'c-20261001-0900' }), recent = entry('메모', { id: 'c-20261012-1437' })
+    const asked = entry('질문', { id: 'c-20260901-0800', by: 'claude-code', state: '대기' })
+    expect(sortRecords([old, recent, asked]).map((c) => c.id)).toEqual([asked.id, recent.id, old.id])
+  })
+  it('shows the time for today and the date before (10/18)', () => {
+    const now = new Date(2026, 9, 18, 15, 0)
+    expect(recordWhen('c-20261018-1420', now)).toEqual({ label: '14:20', title: '2026-10-18 14:20' })
+    expect(recordWhen('c-20261012-0905', now)).toEqual({ label: '10/12', title: '2026-10-12 09:05' })
+    expect(recordWhen('legacy', now).label).toBe('')
   })
   it('keeps a draft when answers arrive and refuses to rebase over an externally changed body', () => {
     const draft = { text: 'my edit', original: 'old body', hash: 'old hash' }
