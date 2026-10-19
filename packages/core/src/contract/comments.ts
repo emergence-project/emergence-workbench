@@ -49,6 +49,8 @@ const entry = {
   partText: z.string().optional(),
   /** 쓴 에이전트 (claude, codex …). 없으면 사용자. 에이전트가 쓴 질문이 대기면 사용자 차례다 (10/15) */
   by: z.string().optional(),
+  /** 이 질문 · 지시가 묻는 할 일 (같은 파일의 할 일 id, 10/19 결정 "할 일에 에이전트에게"). 화면은 그 할 일 아래 대화로 보인다 */
+  todo: z.string().optional(),
   body: z.string(),
   state: CommentState.nullable(),
   answers: z.array(CommentAnswer),
@@ -75,6 +77,8 @@ export const PendingQuestion = z.object({
   id: z.string(), where: z.string(), quote: z.string().optional(), body: z.string(),
   /** 답이 달린 뒤 사용자가 이어 써 다시 대기가 된 질문 · 지시: 마지막 글 (STATUS가 처음 질문만 보이지 않게) */
   lastAnswer: z.object({ by: z.string(), body: z.string() }).strict().optional(),
+  /** 할 일에 대해 물은 것이면 그 할 일 글 (10/19) */
+  todo: z.object({ id: z.string(), body: z.string() }).strict().optional(),
 }).strict()
 
 /** GET /comments */
@@ -110,6 +114,8 @@ export const NewCommentBody = z.object({
   partText: z.string().optional(),
   /** 에이전트가 쓸 때 그 이름 (MCP add_record). 영어 소문자 · 숫자 · -, 20자까지 */
   by: z.string().regex(RECORD_AUTHOR_RE, 'by: lowercase letters, digits and -, up to 20').optional(),
+  /** 질문 · 지시를 같은 파일의 할 일에 잇는다 (10/19): 할 일 id */
+  todo: z.string().regex(/^c-[\w-]+$/, 'todo: a to-do record id').optional(),
   text: z.string(),
 })
 export const ClassifyBody = z.object({ baseHash })

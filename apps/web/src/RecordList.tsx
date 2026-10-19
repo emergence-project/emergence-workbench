@@ -48,7 +48,33 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
   }
   const api = commentsApi(rid)
   const kindItems = filterRecords(file.comments, filter)
-  const items = suppliedItems ?? (status ? sortRecords(filterByStatus(kindItems, status)) : kindItems)
+  const listed = suppliedItems ?? (status ? sortRecords(filterByStatus(kindItems, status)) : kindItems)
+  // 할 일에 대해 물은 질문 · 지시 (10/19 결정 "할 일에 에이전트에게"): 그 할 일 아래 대화로 보이고, 할 일이 목록에 있으면 따로 줄을 두지 않는다
+  const linked = useMemo(() => {
+    const todos = new Set(file.comments.filter((x) => x.kind === '할 일').map((x) => x.id))
+    const map = new Map<string, CommentEntry[]>()
+    for (const x of file.comments) if (x.todo && todos.has(x.todo)) map.set(x.todo, [...(map.get(x.todo) ?? []), x])
+    return map
+  }, [file.comments])
+  const shownTodos = new Set(listed.filter((x) => x.kind === '할 일').map((x) => x.id))
+  const items = listed.filter((x) => !(x.todo && shownTodos.has(x.todo) && linked.has(x.todo)))
+  /** 할 일 아래 입력란에서 보내기: 같은 종류의 열린 대화가 있으면 이어 쓰고, 없으면 새 질문 · 지시를 그 할 일에 잇는다 */
+  const askTodo = async (todo: CommentEntry, kind: '질문' | '지시', text: string): Promise<boolean> => {
+    const last = linked.get(todo.id)?.at(-1)
+    if (last && last.kind === kind && last.state !== '끝냄' && !last.by) {
+      const ok = await act(() => api.reply(file.target, last.id, text))
+      if (ok && kind === '질문') void askClaude(rid, file.target, last.id)
+      return ok
+    }
+    if (locked.current) return false
+    locked.current = true; setBusy(true); setError(null)
+    try {
+      const r = await api.add(file.target, { kind, title: file.title, ...(file.source && { source: file.source }), text, todo: todo.id })
+      await load(rid, file.target, true); bumpPending()
+      if (kind === '질문') void askClaude(rid, file.target, r.entry.id)
+      return true
+    } catch (e) { setError((e as Error).message); return false } finally { locked.current = false; setBusy(false) }
+  }
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
   return <>
     {(error ?? askError) && <div className="banner danger" role="alert">{error ?? askError}</div>}
@@ -71,7 +97,9 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
         if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 답이 달린 기록은 지울 수 없습니다.', 'This cannot be undone. The source text and other records stay. Records with answers cannot be deleted.'), ok: t('지우기', 'Delete') })) {
           await act(() => api.remove(file.target, c.id, baseHash))
         }
-      }} rid={rid} file={file} work={work} showSource={showSource} place={placeOf?.(c)} />)}
+      }} rid={rid} file={file} work={work} showSource={showSource} place={placeOf?.(c)}
+      talk={c.kind === '할 일' && rid !== LIBRARY_RID ? { records: linked.get(c.id) ?? [], send: (kind, text) => askTodo(c, kind, text) } : undefined}
+      todoText={c.todo ? file.comments.find((x) => x.id === c.todo)?.body : undefined} />)}
   </>
 }
 
@@ -85,9 +113,14 @@ export interface RecordRowProps {
   file: Pick<RecordFile, 'target' | 'title'>; work?: boolean; showSource?: boolean; dateLabel?: string; journal?: boolean
   /** 붙은 곳을 줄 번호 대신 이 이름으로 (개념노트의 절 이름, 10/18) */
   place?: { label: string; tip: string }
+  /** 할 일에 대해 에이전트에게 (10/19): 이 할 일에 이은 질문 · 지시와 보내기 */
+  talk?: { records: CommentEntry[]; send(kind: '질문' | '지시', text: string): Promise<boolean> }
+  /** 이 질문 · 지시가 묻는 할 일 글 (할 일과 따로 보일 때, 10/19) */
+  todoText?: string
 }
 
-export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place }: RecordRowProps) {
+export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place, talk: todoTalk, todoText }: RecordRowProps) {
+  const [talkOpen, setTalkOpen] = useState(false)
   const row = useRef<HTMLElement>(null)
   useEffect(() => { if (active) row.current?.scrollIntoView({ block: 'nearest' }) }, [active])
   const [edit, setEdit] = useState<RecordEdit | null>(null)
@@ -129,6 +162,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       </div>
     </div>
     <div className="record-content">
+      {todoText && <div className="record-part" title={todoText}>{Icon.todo}<span>{t('할 일', 'To-do')} “{todoText.split('\n')[0]}”</span></div>}
       {c.part && <div className="record-part" title={c.part}>{Icon.point}<span>{uiShown(c.part)}{c.partText && ` “${c.partText}”`}</span></div>}
       {c.quote && <blockquote className="record-quote" style={c.color ? { borderColor: `var(--paint-${c.color})` } : undefined}>{c.quote}</blockquote>}
       {edit ? <div className="record-edit">
@@ -146,6 +180,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           {c.lost && <span>{t('자리를 잃음', 'Position lost')}</span>}
           {journal && <span>{t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}
           {kind === '할 일' && !work && rid !== LIBRARY_RID && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>{t('할 일 목록', 'To-do list')} ›</button>}
+          {todoTalk && <>{todoTalk.records.length > 0 ? <span>{talkSummary(todoTalk.records)}</span>
+            : <><span>·</span><button className="a" data-ui="에이전트에게" aria-expanded={talkOpen} onClick={() => setTalkOpen((v) => !v)}>{t('에이전트에게', 'Ask the agent')}</button></>}</>}
           {talk && <><span>{t('답', 'Answers')} {c.answers.length}</span>{!turn && (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
             {/* 내가 쓰고 아직 답이 없는 기록은 이어 쓰기 대신 고치기 (10/19 피드백 10:36) */}
             {onReply && c.state !== '끝냄' && !turn && (unanswered
@@ -164,8 +200,52 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         : c.answers.map((a, i) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} />)}
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
         onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
+      {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy}
+        onSend={async (k, text) => { const ok = await todoTalk.send(k, text); if (ok) setTalkOpen(false); return ok }} onCancel={todoTalk.records.length ? undefined : () => setTalkOpen(false)} />}
     </div>
   </article></RepoPathContext.Provider>
+}
+
+/** 할 일 아래 줄의 대화 요약: "· 지시 1 · 에이전트 대기" */
+function talkSummary(records: CommentEntry[]): string {
+  const counts = (['질문', '지시'] as const).map((k) => [k, records.filter((r) => r.kind === k).length] as const).filter(([, n]) => n > 0)
+  const last = records.at(-1)!
+  const waiting = last.state === '대기' && !last.by
+  return `· ${[...counts.map(([k, n]) => `${kindLabel(k)} ${n}`), waiting ? t('에이전트 대기', 'Waiting for agent') : stateLabel(last.state ?? '답함')].join(' · ')}`
+}
+
+/**
+ * 할 일에 대해 에이전트에게 묻기 · 맡기기 (10/19 결정, 시안 2절 "채팅 모양"): 이은 질문 · 지시를 기록 대화와 같은 말풍선으로
+ * (내 글 오른쪽, 에이전트 글 왼쪽), 아래 입력란의 오른쪽 아래 버튼이 종류다. 에이전트가 답하기 전에는 기다림 한 줄.
+ */
+function TodoTalk({ records, busy, onSend, onCancel }: { records: CommentEntry[]; busy: boolean; onSend(kind: '질문' | '지시', text: string): Promise<boolean>; onCancel?(): void }) {
+  const [text, setText] = useState('')
+  const last = records.at(-1)
+  const lastWord = last?.answers.at(-1)
+  const waiting = !!last && last.state === '대기' && !last.by && (!lastWord || lastWord.by === USER_ANSWER_BY)
+  const send = async (kind: '질문' | '지시') => { if (text.trim() && !busy && await onSend(kind, text.trim())) setText('') }
+  const label = records.length ? t('이어서 묻거나 덧붙이기', 'Ask more or add to it') : t('이 할 일에 대해 에이전트에게 묻거나 맡기기', 'Ask the agent about this to-do or hand it over')
+  return <div className="todo-talk" data-ui="할 일 대화">
+    {records.length > 0 && <ul className="fbp-thread">
+      {records.flatMap((r) => [
+        <SayCard key={r.id} me ui="사용자 글" name={t('사용자', 'User')} tag={kindLabel(recordKind(r))} when={recordWhen(r.id).label}><MemoText text={r.body} /></SayCard>,
+        ...r.answers.map((a, i) => a.by === '앱' ? <li key={`${r.id}-${i}`} className="fbp-say-wait muted">{a.body}</li>
+          : <SayCard key={`${r.id}-${i}`} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : <Author by={a.by} />} when={a.at}>
+            <MemoText text={a.body} />
+          </SayCard>),
+      ])}
+    </ul>}
+    {waiting ? <p className="fbp-say-wait muted">{t('에이전트의 답을 기다립니다', 'Waiting for the agent to answer')}</p>
+      : <div className="fbp-compose record-reply" data-ui="할 일 입력란">
+        <textarea rows={2} value={text} disabled={busy} aria-label={label} placeholder={label} autoFocus={!records.length}
+          onChange={(e) => setText(e.target.value)} onKeyDown={(e) => onListKey(e, setText)} />
+        <div className="fbp-compose-row"><span className="sp" />
+          {onCancel && <button className="btn sm" disabled={busy} onClick={onCancel}>{t('취소', 'Cancel')}</button>}
+          <button className="btn sm" disabled={busy || !text.trim()} data-tip={t('질문으로 보내기: 에이전트가 답만 합니다', 'Send as a question: the agent only answers')} onClick={() => void send('질문')}>{t('질문', 'Question')}</button>
+          <button className="btn primary sm tip-end" disabled={busy || !text.trim()} data-tip={t('지시로 보내기: 에이전트가 하고 나서 답합니다', 'Send as an instruction: the agent does it, then answers')} onClick={() => void send('지시')}>{t('지시', 'Instruction')}</button>
+        </div>
+      </div>}
+  </div>
 }
 
 /** 쓴 이 이름: Claude가 쓴 기록 · 답은 이름 앞에 무채색 Claude 표시 (10/19 피드백 "무채색 로고". 주황은 내 차례에만) */

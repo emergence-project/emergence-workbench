@@ -42,6 +42,7 @@ for (const r of rows) {
   const head = [r.target, r.id, r.kind, r.state ?? '', r.by ? `by ${r.by}` : '', r.unsorted ? '분류 전' : ''].filter(Boolean).join(' · ')
   console.log(`- ${head} — ${line(r.body)}`)
   if (r.quote) console.log(`  > ${line(r.quote)}`)
+  if (r.todo) console.log(`  할 일 ${r.todo.id}: ${line(r.todo.body)}`)
   if (r.lastAnswer) console.log(`  답 ${r.answerCount} · 마지막 ${r.lastAnswer.by}: ${line(r.lastAnswer.body)}`)
 }
 console.log(`\n${rows.length}개. 본문 전부: --full · 답 쓰기: pnpm agent:answer ${given[0]} <대상> <id> "<답>"`)

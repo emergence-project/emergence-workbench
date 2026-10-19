@@ -102,3 +102,5 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 /* 기록 종류 그림 (10/16): 적기 칸 종류 고르기의 글자 앞 */
 .record-kind-ico { display: inline-flex; vertical-align: -2px; margin-right: 3px; }
 .record-kind-ico svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* 할 일 아래 대화 (10/19 "할 일에 에이전트에게"): 기록 대화와 같은 말풍선, 아래 입력란 */
+.todo-talk { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
