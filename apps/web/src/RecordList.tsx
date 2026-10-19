@@ -183,10 +183,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           {todoTalk && <>{todoTalk.records.length > 0 ? <span>{talkSummary(todoTalk.records)}</span>
             : <><span>·</span><button className="a" data-ui="에이전트에게" aria-expanded={talkOpen} onClick={() => setTalkOpen((v) => !v)}>{t('에이전트에게', 'Ask the agent')}</button></>}</>}
           {talk && <><span>{t('답', 'Answers')} {c.answers.length}</span>{!turn && (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
-            {/* 내가 쓰고 아직 답이 없는 기록은 이어 쓰기 대신 고치기 (10/19 피드백 10:36) */}
-            {onReply && c.state !== '끝냄' && !turn && (unanswered
-              ? !edit && <><span>·</span><button className="a" onClick={() => setEdit({ text: c.body, original: c.body, hash })}>{t('고치기', 'Edit')}</button></>
-              : <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>)}</>}
+</>}
         </span>
         {date && <span className="record-when" title={dateLabel ? undefined : when.title}>{date}</span>}
       </div>
@@ -198,6 +195,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           </SayCard>)}
       </ul>
         : c.answers.map((a, i) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} />)}
+      {/* 이어 쓰기는 대화 맨 아래에 (10/19 피드백 11:31: 긴 대화 위로 올라가 누르지 않게). 내가 쓰고 아직 답이 없으면 두지 않는다(고치기는 위 연필, 10:36) */}
+      {onReply && talk && c.state !== '끝냄' && !turn && !unanswered && !replying && <div className="record-follow"><button className="a" onClick={() => setReplying(true)}>{t('이어 쓰기', 'Follow up')}</button></div>}
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
         onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
       {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy}
