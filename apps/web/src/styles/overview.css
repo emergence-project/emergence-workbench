@@ -105,8 +105,9 @@ button.t:hover { text-decoration: underline; }
 .check-it .mi-icon { position: relative; top: 2px; }
 .check-it .t { min-width: 0; overflow-wrap: anywhere; }
 .check-it .t .a { margin-left: 6px; font-size: var(--fs-xs); }
-.now-row .due, .check-it .due { font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.now-row .due.late, .check-it .due.late { color: var(--s-blocked); font-weight: var(--fw-strong); }
+/* 마감은 상자 없이 글자만, 지난 마감은 주황 글자로 가볍게 (10/19 사용자 댓글. 빨강은 오류 · 지우기에만이라 주황) */
+.now-row .due, .check-it .due { margin-left: 0; padding: 0; background: none; font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.now-row .due.late, .check-it .due.late { color: var(--s-blocked); }
 /* 첫 화면만 보일 때(열린 탭이 없을 때)는 빈 탭 줄을 숨긴다 */
 
 /* 제목·설명을 누르면 프로젝트 정보로 (10/3) */
