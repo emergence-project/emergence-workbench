@@ -36,6 +36,8 @@ let fetcher: Fetcher = (url, init) => fetch(url, { ...init, signal: AbortSignal.
 export function usePaperFetcher(f: Fetcher): void { fetcher = f }
 
 const AGENT = { 'user-agent': 'Emergence Workbench paper library (https://github.com/emergence-project/emergence-workbench)' }
+/** 바깥 논문 정보 받기 (사람 페이지의 새 논문도 같은 길, 테스트는 usePaperFetcher로 바꾼다) */
+export const paperFetch = (url: string): Promise<Response> => fetcher(url, { headers: AGENT })
 
 /** 붙여 넣은 글에서 arXiv 번호나 DOI를 읽는다 (주소째 붙여 넣어도 된다) */
 export function parsePaperId(raw: string): PaperId | null {
@@ -255,7 +257,7 @@ export function titleOverlap(a: string, b: string): number {
   return same / Math.max(x.size, y.size)
 }
 
-function parseArxivFeed(xml: string): ArxivCandidate[] {
+export function parseArxivFeed(xml: string): ArxivCandidate[] {
   const out: ArxivCandidate[] = []
   for (const m of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
     const entry = m[1]!

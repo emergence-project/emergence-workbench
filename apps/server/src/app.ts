@@ -81,6 +81,8 @@ export interface AppOptions {
   recordsAutoPublishMs?: number
   /** 연구 저장소 저절로 받기 (실사용만): 이만큼마다 GitHub를 확인해, 맥에만 있는 커밋이 없고 겹치는 파일이 없을 때만 빨리 감기로 받는다 (routes/sync.ts) */
   researchAutoPullMs?: number
+  /** 네트워킹 사람 페이지의 새 논문을 이만큼마다 살핀다(사람마다 하루 한 번 찾음). 실사용만, 없으면 바깥에 묻지 않는다 (10/19) */
+  peoplePapersMs?: number
   /** arXiv에서 논문을 받을 때 쓰는 fetch (테스트에서 바꿈) */
   fetch?: typeof fetch
   /** PDF 질문에 답할 Claude (기본: 맥의 `claude -p`, 테스트에서 바꿈) */

@@ -5,7 +5,7 @@ import { FieldTags as FieldPicker, useFields } from './FieldTags'
 import { AffiliationFields } from './AffiliationFields'
 import { askConfirm, askText } from './askText'
 import { CardEditDialog } from './CardEditDialog'
-import { conceptsApi, googleApi, latexApi, networkApi, type Coauthor, type PersonPaper, type PersonSuggestion, type PersonView } from './api'
+import { conceptsApi, googleApi, latexApi, networkApi, papersApi, type Coauthor, type NewPaper, type NewPapers, type PersonAppearance, type PersonPaper, type PersonSuggestion, type PersonView, type S2Author } from './api'
 import { Icon } from './icons'
 import { go } from './router'
 import { plural, t } from './i18n'
@@ -38,7 +38,7 @@ function usePeople(): [PersonView[] | null, string] {
 const addedOf = (people: PersonView[]) => people.filter((p) => p.added)
   .map((p) => ({
     name: p.name, ...(p.aliases.length && { aliases: p.aliases }), ...(p.note && { note: p.note }), ...(p.tags.length && { tags: p.tags }), ...(p.star && { star: true }),
-    ...(!p.author && p.affiliations.length && { affiliations: p.affiliations }), ...(!p.author && p.email && { email: p.email }), ...(!p.author && p.emails.length && { emails: p.emails }), ...(p.homepage && { homepage: p.homepage }),
+    ...(!p.author && p.affiliations.length && { affiliations: p.affiliations }), ...(!p.author && p.email && { email: p.email }), ...(!p.author && p.emails.length && { emails: p.emails }), ...(p.homepage && { homepage: p.homepage }), ...(p.s2 && { s2: p.s2 }),
   }))
 
 /** 이 사람 줄을 더한 사람 목록에 넣어 고친다 (저자도 이름표·다른 이름은 여기에 저장한다) */
@@ -63,8 +63,11 @@ const initials = (name: string) => {
   const parts = name.replace(/[^\p{L}\s-]/gu, ' ').split(/[\s-]+/).filter(Boolean)
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1]![0] : '')).toUpperCase() || '?'
 }
-export function Avatar({ name, big, xl }: { name: string; big?: boolean; xl?: boolean }) {
-  return <span className={`net-avatar${big ? ' big' : ''}${xl ? ' xl' : ''}`} aria-hidden>{initials(name)}</span>
+/** 머리글자, 사진이 있으면 사진 (10/19 사람 페이지) */
+export function Avatar({ name, big, xl, person }: { name: string; big?: boolean; xl?: boolean; person?: Pick<PersonView, 'id' | 'photo'> }) {
+  return <span className={`net-avatar${big ? ' big' : ''}${xl ? ' xl' : ''}${person?.photo ? ' photo' : ''}`} aria-hidden>
+    {person?.photo ? <img src={networkApi.photoUrl(person.id, person.photo)} alt="" /> : initials(name)}
+  </span>
 }
 
 async function addPerson(people: PersonView[], onSaved: (m: string) => void) {
@@ -86,7 +89,7 @@ export function NetworkSide({ person, onSaved }: { person?: string; onSaved(m: s
     <div className="set-side" data-ui="사람 목록">
       {me && (
         <button className={`nav net-me${person === me.id ? ' on' : ''}`} data-ui="나" title={t('내 페이지 (프로필·노트 저자)', 'My page (profile and note authors)')} onClick={() => go({ page: 'network', person: me.id })}>
-          <Avatar name={me.name} /><span className="label">{me.name}</span><span className="meta">{t('나', 'Me')}</span>
+          <Avatar name={me.name} person={me} /><span className="label">{me.name}</span><span className="meta">{t('나', 'Me')}</span>
         </button>
       )}
       <button className={`nav${!person ? ' on' : ''}`} data-ui="사람 줄" data-ui-item="저자와 소속" onClick={() => go({ page: 'network' })}>
@@ -96,6 +99,7 @@ export function NetworkSide({ person, onSaved }: { person?: string; onSaved(m: s
       {(people ?? []).filter((p) => p.id !== me?.id).sort(byStarThenName).map((p) => (
         <button key={p.id} className={`nav${person === p.id ? ' on' : ''}`} data-ui="사람 줄" data-ui-item={p.name} title={subOf(p)} onClick={() => go({ page: 'network', person: p.id })}>
           <span className="label">{p.name}</span>{p.star && <span className="meta" aria-label={t('즐겨찾기', 'Favorite')}><StarIcon on /></span>}
+          {!!p.newPapers && <span className="meta net-new-n" data-ui="새 논문 수" title={t(`새 논문 ${p.newPapers}편`, plural(p.newPapers, 'new paper'))}>{p.newPapers}</span>}
         </button>
       ))}
       {people && <button className="nav net-add" data-ui="사람 더하기" onClick={() => void addPerson(people, onSaved)}><span className="label">{t('＋ 사람 더하기', '＋ Add person')}</span></button>}
@@ -142,7 +146,7 @@ function PersonCard({ p, people, isMe, sub, badge, onRemove }: { p: PersonView; 
   return (
     <div className="net-card-wrap">
       <button className="net-card" data-ui="사람 카드" data-ui-item={p.name} onClick={() => go({ page: 'network', person: p.id })}>
-        <Avatar name={p.name} />
+        <Avatar name={p.name} person={p} />
         <span className="net-card-body">
           <span className="net-card-name"><span className="net-card-n">{p.name}</span>{isMe && <span className="tag">{t('나', 'Me')}</span>}{badge && <span className="tag">{badge}</span>}</span>
           {line && <span className="muted net-card-sub">{line}</span>}
@@ -339,7 +343,7 @@ const scholarSearch = (name: string) => `https://scholar.google.com/scholar?q=${
 function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): void }) {
   const [people] = usePeople()
   const me = useMe(people)
-  const [data, setData] = useState<{ person: PersonView; papers: PersonPaper[]; coauthors: Coauthor[] } | null>(null)
+  const [data, setData] = useState<{ person: PersonView; papers: PersonPaper[]; coauthors: Coauthor[]; appears: PersonAppearance[] } | null>(null)
   const [error, setError] = useState('')
   /** 프로필은 읽기로 보이고, 오른쪽 위 연필을 눌렀을 때만 고치는 칸이 열린다 (10/4 18:55·18:56) */
   const [editing, setEditing] = useState(false)
@@ -349,7 +353,7 @@ function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): void }) {
   }, [id, people])
   if (error) return <p className="muted">{error}</p>
   if (!data || !people) return <p className="muted">{t('불러오는 중…', 'Loading…')}</p>
-  const { person, papers, coauthors } = data
+  const { person, papers, coauthors, appears } = data
   const isMe = me?.id === person.id
 
   const save = async (next: PersonView[], message: string) => {
@@ -372,7 +376,7 @@ function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): void }) {
           {person.added && !person.author && <button className="icon-btn" data-ui="사람 빼기" title={t('빼기 — 네트워킹에서 뺍니다', 'Remove from Networking')} aria-label={t('네트워킹에서 빼기', 'Remove from Networking')} onClick={() => void remove()}>{Icon.x}</button>}
         </div>
         <div className="net-profile-top">
-          <Avatar name={person.name} xl />
+          <PhotoPicker person={person} onSaved={onSaved} />
           <div className="net-profile-id">
             <h1 className="h-title">{person.name}{isMe && <span className="tag">{t('나', 'Me')}</span>}{person.author && <span className="tag" title={t('노트를 내보낼 때 저자로 고를 수 있습니다', 'Can be chosen as an author when exporting notes')}>{t('노트 저자', 'Note author')}</span>}</h1>
           </div>
@@ -404,6 +408,7 @@ function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): void }) {
         </dl>
         {isMe && <NoteAuthors person={person} people={people} onSaved={onSaved} />}
       </section>
+      <NewPapersSection person={person} onSaved={onSaved} />
       {/* 10/4 20:49 "다른 저자와 관계를 나타내는 섹션": 함께 쓴 사람을 같은 사람 카드로 (노트 저자는 내 프로필 카드 안) */}
       <Relations people={people} coauthors={coauthors} />
       <section data-ui="그 사람의 논문">
@@ -431,7 +436,120 @@ function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): void }) {
             </ol>
           )}
       </section>
+      <Appears appears={appears} />
     </div>
+  )
+}
+
+/** 사진 (10/19 사람 페이지): 큰 동그라미를 누르면 사진을 고른다. 화면에서 256px 정사각형 JPEG로 줄여 보낸다 */
+function PhotoPicker({ person, onSaved }: { person: PersonView; onSaved(m: string): void }) {
+  const pick = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const bitmap = await createImageBitmap(file)
+      const side = Math.min(bitmap.width, bitmap.height)
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = 256
+      canvas.getContext('2d')!.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 256, 256)
+      await networkApi.savePhoto(person.id, canvas.toDataURL('image/jpeg', 0.85))
+      announce()
+      onSaved(t('사진을 바꿨습니다', 'Photo changed'))
+    } catch (e) { onSaved(t(`사진을 넣지 못했습니다 — ${(e as Error).message}`, `Couldn't set the photo: ${(e as Error).message}`)) }
+  }
+  return (
+    <label className="net-photo" data-ui="사진 바꾸기" title={t('사진 바꾸기 — 이 맥의 사진 파일을 고릅니다', 'Change photo: pick an image file on this Mac')}>
+      <Avatar name={person.name} xl person={person} />
+      <span className="net-photo-cam">{t('사진 바꾸기', 'Change photo')}</span>
+      <input type="file" accept="image/*" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = '' }} />
+    </label>
+  )
+}
+
+const shortWhen = (ms: number) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+
+/**
+ * 새 논문 (10/19 사람 페이지): Semantic Scholar 저자 ID가 있으면 그 ID로, 없으면 arXiv 이름 검색으로 최근 90일 논문을 하루에 한 번 찾는다.
+ * 처음 보는 논문엔 파란 점. 페이지를 열면 본 것으로 적는다(점은 이번에는 그대로 보인다). 같은 이름의 다른 사람 논문은 "이 사람 아님"으로 숨긴다.
+ */
+/** 이번에 처음 본 새 논문: 본 것으로 적은 뒤에도(사람 목록이 다시 읽혀 페이지가 새로 그려져도) 앱을 다시 열기 전까지는 점을 둔다 */
+const freshThisTime = new Map<string, Set<string>>()
+
+function NewPapersSection({ person, onSaved }: { person: PersonView; onSaved(m: string): void }) {
+  const [d, setD] = useState<NewPapers | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    setD(null); setError('')
+    networkApi.newPapers(person.id).then((v) => {
+      if (!alive) return
+      const kept = freshThisTime.get(person.id) ?? new Set<string>()
+      for (const p of v.papers) if (p.fresh) kept.add(p.id)
+      freshThisTime.set(person.id, kept)
+      setD({ ...v, papers: v.papers.map((p) => ({ ...p, fresh: kept.has(p.id) })) })
+      if (v.papers.some((p) => p.fresh)) void networkApi.seenPapers(person.id).then(announce).catch(() => undefined)
+    }).catch((e: Error) => { if (alive) setError(e.message) })
+    return () => { alive = false }
+  }, [person.id, person.s2, person.name])
+  const add = async (p: NewPaper) => {
+    setBusy(p.id)
+    try {
+      await papersApi.add(p.arxiv ?? p.doi ?? p.url)
+      setD((cur) => cur && { ...cur, papers: cur.papers.map((x) => (x.id === p.id ? { ...x, inLibrary: true } : x)) })
+      onSaved(t('논문 라이브러리에 더했습니다', 'Added to the paper library'))
+    } catch (e) { onSaved((e as Error).message) } finally { setBusy(null) }
+  }
+  const hide = async (p: NewPaper) => {
+    setBusy(p.id)
+    try {
+      await networkApi.hidePaper(person.id, p.id); announce()
+      setD((cur) => cur && { ...cur, papers: cur.papers.filter((x) => x.id !== p.id), hidden: cur.hidden + 1 })
+    } catch (e) { onSaved((e as Error).message) } finally { setBusy(null) }
+  }
+  const how = d?.source === 's2' ? t('Semantic Scholar 저자 ID로', 'By Semantic Scholar author ID') : t('arXiv 이름 검색으로', 'By arXiv name search')
+  return (
+    <section data-ui="새 논문">
+      <div className="sec-head">
+        <h2>{t('새 논문', 'New papers')}</h2>
+        {d && <span className="count">{[how, t('최근 90일 · 하루 한 번', 'last 90 days · once a day'), d.checkedAt ? shortWhen(d.checkedAt) : null].filter(Boolean).join(' · ')}</span>}
+      </div>
+      {error ? <p className="muted">{error}</p> : !d ? <p className="muted">{t('찾는 중…', 'Searching…')}</p> : <>
+        {d.error && <p className="muted">{t(`이번에는 찾지 못했습니다 (${d.error}). 지난 결과입니다.`, `Couldn't search this time (${d.error}). Showing the last result.`)}</p>}
+        {d.papers.length === 0
+          ? <p className="muted">{!d.live && d.checkedAt === null ? t('개발용 예제 모드에서는 바깥에서 찾지 않습니다.', 'Sample mode does not search online.') : t('최근 90일 안에 새 논문이 없습니다.', 'No new papers in the last 90 days.')}</p>
+          : <ul className="net-new-list">
+            {d.papers.map((p) => (
+              <li key={p.id} data-ui="새 논문 줄" data-ui-item={p.id}>
+                <span className="net-title-row">{p.fresh && <span className="net-new-dot" title={t('처음 보는 논문', 'New since last time')} />}<a className="a net-title" href={p.url} target="_blank" rel="noreferrer">{p.title}</a></span>
+                <div className="muted net-meta">{[p.arxiv && `arXiv:${p.arxiv}`, p.date, p.authors.slice(0, 4).join(', ') + (p.authors.length > 4 ? ' …' : '')].filter(Boolean).join(' · ')}</div>
+                <div className="net-new-acts">
+                  {p.inLibrary ? <span className="muted">{t('라이브러리에 있음', 'In the library')}</span>
+                    : (p.arxiv || p.doi) && <button className="a" disabled={busy === p.id} onClick={() => void add(p)}>{t('논문 라이브러리에 더하기', 'Add to paper library')}</button>}
+                  <button className="a" disabled={busy === p.id} title={t('같은 이름의 다른 사람 논문이면 숨깁니다', 'Hide it if it is by someone else with the same name')} onClick={() => void hide(p)}>{t('이 사람 아님', 'Not this person')}</button>
+                </div>
+              </li>
+            ))}
+          </ul>}
+        {!person.s2 && d.source === 'arxiv' && <p className="muted net-new-hint">{t('같은 이름의 다른 사람 논문이 섞이면 연필 › "Semantic Scholar 저자"를 고르세요.', 'If papers by namesakes show up, pick a Semantic Scholar author under the pencil.')}</p>}
+      </>}
+    </section>
+  )
+}
+
+/** 나오는 곳 (10/19 사람 페이지): 프로젝트마다 그 프로젝트 bib의 이 사람 논문 수와 이름이 들어간 기록 */
+function Appears({ appears }: { appears: PersonAppearance[] }) {
+  if (!appears.length) return null
+  return (
+    <section className="net-appears" data-ui="나오는 곳">
+      <div className="sec-head"><h2>{t('나오는 곳', 'Appears in')}</h2></div>
+      {appears.map((a) => (
+        <div key={a.rid} className="net-appear">
+          <button className="a net-title" onClick={() => go({ page: 'overview', rid: a.rid })}>{a.title}</button>
+          {a.papers > 0 && <span className="muted net-meta">{t(`프로젝트 참고 문헌에 이 사람 논문 ${a.papers}편`, `${plural(a.papers, 'paper')} by this person in project references`)}</span>}
+          {a.records.map((r) => <button key={`${r.target}/${r.id}`} className="a net-appear-rec" data-ui="이름이 나온 기록" title={t('기록 탭에서 보기', 'See it in the Records tab')} onClick={() => go({ page: 'records', rid: a.rid })}>{`${r.kind} · ${r.text}`}</button>)}
+        </div>
+      ))}
+    </section>
   )
 }
 
@@ -503,7 +621,7 @@ function Relations({ people, coauthors }: { people: PersonView[]; coauthors: Coa
 function PersonEditDialog({ person, people, onDone, onSaved }: { person: PersonView; people: PersonView[]; onDone(nextId?: string): void; onSaved(m: string): void }) {
   const [d, setD] = useState({
     name: person.name, email: [person.email, ...person.emails].filter(Boolean).join('\n'), affiliations: person.affiliations.length ? person.affiliations : [''], homepage: person.homepage ?? '',
-    note: person.note ?? '', aliases: person.aliases.join(', '), corresponding: false,
+    note: person.note ?? '', aliases: person.aliases.join(', '), corresponding: false, s2: person.s2 ?? '', dropPhoto: false,
   })
   const [authors, setAuthors] = useState<Author[] | null>(null)
   const [busy, setBusy] = useState(false)
@@ -537,12 +655,13 @@ function PersonEditDialog({ person, people, onDone, onSaved }: { person: PersonV
       }
       const change: Partial<PersonView> = {
         name, homepage: homepage || undefined, note: d.note.trim() || undefined,
-        aliases: d.aliases.split(',').map((s) => s.trim()).filter(Boolean),
+        aliases: d.aliases.split(',').map((s) => s.trim()).filter(Boolean), s2: d.s2 || undefined,
         ...(!person.author && { affiliations, email: email || undefined, emails }),
       }
       // 저자이면서 네트워킹에 따로 적을 것이 없으면 사람 목록은 그대로 둔다
-      const needsEntry = person.added || !!change.homepage || !!change.note || !!change.aliases?.length
+      const needsEntry = person.added || !!change.homepage || !!change.note || !!change.aliases?.length || !!change.s2
       if (needsEntry) await networkApi.savePeople(addedOf(withChange(people, person, change)))
+      if (d.dropPhoto && person.photo) await networkApi.removePhoto(person.id)
       announce()
       onSaved(t('프로필을 저장했습니다', 'Profile saved'))
       onDone(personId(name))
@@ -555,7 +674,7 @@ function PersonEditDialog({ person, people, onDone, onSaved }: { person: PersonV
       canSave={!busy && authorsLoaded && !!name} onClose={() => { if (!busy) onDone() }} onSave={() => void submit()}
       preview={
         <span className="net-card pe-card" data-ui="사람 카드 미리보기">
-          <Avatar name={name || '?'} />
+          <Avatar name={name || '?'} person={d.dropPhoto ? undefined : person} />
           <span className="net-card-body">
             <span className="net-card-name"><span className="net-card-n">{name || t('이름 없음', 'No name')}</span></span>
             {sub && <span className="muted net-card-sub">{sub}</span>}
@@ -582,6 +701,9 @@ function PersonEditDialog({ person, people, onDone, onSaved }: { person: PersonV
             <input className="td-in" value={d.aliases} placeholder={t('예: A. E. Example, Ada Example', 'e.g. A. E. Example, Ada Example')} onChange={(e) => set({ aliases: e.target.value })} />
           </label>
           <label className="td-f"><span className="td-lab"><span>{t('한 줄 메모', 'One-line memo')}</span></span><input className="td-in" value={d.note} onChange={(e) => set({ note: e.target.value })} /></label>
+          <S2Pick name={name} value={d.s2} onChange={(s2) => set({ s2 })} />
+          {person.photo && <div className="td-f"><span className="td-lab"><span>{t('사진', 'Photo')}</span></span>
+            <label className="check"><input type="checkbox" checked={d.dropPhoto} onChange={(e) => set({ dropPhoto: e.target.checked })} />{t('사진 빼기 (머리글자로)', 'Remove photo (show initials)')}</label></div>}
           {person.author && <p className="td-help">{t('노트를 내보낼 때 이름·이메일·소속이 \\author·\\email·\\affiliation 줄로 들어갑니다.', 'When exporting notes, name, email and affiliation become \\author, \\email and \\affiliation lines.')}</p>}
           {message && <p className="td-err">{message}</p>}
         </fieldset>
@@ -591,6 +713,43 @@ function PersonEditDialog({ person, people, onDone, onSaved }: { person: PersonV
         <AffiliationFields value={d.affiliations} known={known} disabled={busy} onChange={(affiliations) => set({ affiliations })} />
       </fieldset>
     </CardEditDialog>
+  )
+}
+
+/**
+ * Semantic Scholar 저자 (10/19 사람 페이지): 이름으로 찾아 하나를 고르면 새 논문을 그 저자 ID로 찾는다(동명이인이 섞이지 않음).
+ * 비워 두면 arXiv 이름 검색. 고른 ID는 사람 목록(config.yaml people:)의 s2에 둔다
+ */
+function S2Pick({ name, value, onChange }: { name: string; value: string; onChange(s2: string): void }) {
+  const [q, setQ] = useState(name)
+  const [found, setFound] = useState<S2Author[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const search = async () => {
+    if (!q.trim()) return
+    setBusy(true); setError('')
+    try { setFound((await networkApi.s2Search(q.trim())).authors) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <div className="td-f" data-ui="Semantic Scholar 저자">
+      <span className="td-lab"><span>{t('Semantic Scholar 저자', 'Semantic Scholar author')}</span><span className="td-n">{value ? `ID ${value}` : t('비우면 arXiv 이름 검색', 'Empty: arXiv name search')}</span></span>
+      <div className="s2-row">
+        <input className="td-in" value={q} aria-label={t('찾을 이름', 'Name to search')} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search() } }} />
+        <button type="button" className="btn" disabled={busy || !q.trim()} onClick={() => void search()}>{busy ? t('찾는 중…', 'Searching…') : t('찾기', 'Search')}</button>
+        {value && <button type="button" className="btn" onClick={() => onChange('')}>{t('비우기', 'Clear')}</button>}
+      </div>
+      {error && <span className="td-err">{error}</span>}
+      {found && (found.length === 0 ? <span className="td-help">{t('찾은 저자가 없습니다', 'No author found')}</span> : (
+        <div className="s2-list" role="radiogroup" aria-label={t('Semantic Scholar 저자', 'Semantic Scholar author')}>
+          {found.map((a) => (
+            <label key={a.id} className={`s2-cand${value === a.id ? ' on' : ''}`}>
+              <input type="radio" name="s2" checked={value === a.id} onChange={() => onChange(a.id)} />
+              <span><b>{a.name}</b>{[a.affiliations[0], t(`논문 ${a.paperCount}`, plural(a.paperCount, 'paper')), a.sample && `"${a.sample}"`].filter(Boolean).map((x) => <span key={x} className="muted"> · {x}</span>)}</span>
+            </label>
+          ))}
+        </div>
+      ))}
+    </div>
   )
 }
 
