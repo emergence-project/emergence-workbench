@@ -88,6 +88,8 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 
 /* 쓴 이와 사용자 차례 (10/15): 에이전트가 물은 질문이 답을 기다리면 주황(사용자 차례) 테두리와 점 */
 .record-row-head .record-by { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); }
+/* 쓴 이 Claude: 이름 앞 무채색 표시 (10/19 "무채색 로고"). 기록 줄 · 기록 대화 이름이 같이 쓴다 */
+.agent-mark { color: var(--text-3); margin-inline-end: calc(var(--sp-1) / 2); }
 .record-row.turn { border-color: var(--s-blocked); }
 .record-row-head .record-turn { display: inline-flex; flex: none; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--s-blocked); font-weight: var(--fw-strong); white-space: nowrap; }
 /* 이어 쓴 내 글은 바탕 없이 테두리만 (에이전트 답과 갈린다) */

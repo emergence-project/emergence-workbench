@@ -193,7 +193,7 @@ export const ABOUT_PARTS_KO: AboutPart[] = [
           { text: <>기록 탭에서 <b>할 일 · 메모 · 질문 · 지시</b>를 고르고 아래 입력란에 적습니다. 목록은 대상(이 프로젝트 · 노트 · 주제 · 흐름 점)별로 묶입니다. 글 앞에 "10/20까지 —"처럼 날짜를 쓰면 마감이 됩니다. 할 일 · 메모 · 질문 · 지시는 모두 기록({c('workbench/comments/')})에 남고, 질문에는 이 맥의 Claude가 답합니다. 할 일은 기록 한 곳이 정본이라 기록 탭 · 첫 화면 작업 패널 · 사이드바 수 · 달력 마감 · 에이전트가 읽는 STATUS가 같은 목록을 봅니다(10/16). 할 일마다 붙은 곳(노트 · 주제 · 흐름 점)이 함께 묶여 보이고, 체크하면 작업 일지에 완료로 남습니다. 빠른 메모(M 키)의 할 일도 기록에 남습니다.</> },
           { text: <>프로젝트 기록({c('workbench/comments/')})은 쓰고 30초쯤 뒤 이 맥이 GitHub에 저절로 올립니다(그 폴더만 커밋 · 푸시). 그래서 클라우드의 에이전트도 읽고 답하고, 그 답은 저절로 받기로 돌아옵니다. 올리지 못하면 사이드바 기록 위에 그 까닭 한 줄과 "다시 올리기"가 뜹니다.</> },
           { text: <>종류는 누가 움직이는지로 나눕니다: <b>메모</b>는 아무도 하지 않고, <b>할 일</b>은 사용자가 하고, <b>질문</b>은 에이전트가 답하고, <b>지시</b>는 에이전트가 하고 나서 답합니다(고치기 · 검산 · 찾기 · 그리기처럼 답 하나로 끝나는 부탁). 지시를 누가 언제 하는지는 설정 › 에이전트에서 고릅니다: <b>직접 부탁</b>(처음 값: 다음에 일하는 에이전트 세션이 MCP {c('list_records')}로 집어 가서 하고 {c('answer_record')}로 답함) · <b>바로</b>(남기거나 이어 쓰면 이 맥의 Claude가 함) · <b>하루 한 번</b>(고른 시각에 모든 프로젝트의 지시를 모아 함). 맥의 Claude는 한 번에 하나씩 하고 파일은 고치지 않습니다. 노트 고침은 답에 적어 "노트에 적용"으로 반영합니다. 끝낼 조건과 보고가 있는 큰 일은 맡긴 일로 맡깁니다.</> },
-          { text: <>기록 줄은 위 줄에 <b>종류 · 쓴 이</b>("질문 · claude-code", 내가 쓴 것은 "사용자")와 오른쪽 끝 행동, 가운데 본문, 아래 줄 왼쪽에 붙은 곳(누르면 그 자리로) · 오른쪽에 시점(오늘 쓴 것은 시각, 그 전은 날짜, 가리키면 둘 다)입니다. 오른쪽 사이드바 기록은 위에 종류 고르기(전체 · 메모 · 할 일 · 질문 · 지시), 그 아래 <b>진행 중 | 완료</b>가 있어 처음엔 진행 중만 보이고, 내 차례가 맨 위, 나머지는 최근 것이 위입니다. 고른 글이 붙은 진행 중 기록은 노트 본문에 하이라이트로 늘 칠해지고(완료하면 사라짐), 기록을 고르면 그 칠에 테두리가 둘러집니다. 기록 탭에서 이름(이 프로젝트 · 노트 · 주제 · 흐름 점)을 누르면 그 화면으로 가고, 답은 <b>대화</b>처럼 차례로 보입니다(내 글은 오른쪽, 에이전트 글은 왼쪽). 질문 · 지시 아래 "이어 쓰기"로 더 묻거나 덧붙이면 다시 에이전트 차례가 됩니다.</> },
+          { text: <>기록 줄은 위 줄에 <b>종류 · 쓴 이</b>("질문 · claude-code", 내가 쓴 것은 "사용자". Claude가 쓴 것은 이름 앞에 회색 Claude 표시)와 오른쪽 끝 행동, 가운데 본문, 아래 줄 왼쪽에 붙은 곳(누르면 그 자리로) · 오른쪽에 시점(오늘 쓴 것은 시각, 그 전은 날짜, 가리키면 둘 다)입니다. 오른쪽 사이드바 기록은 위에 종류 고르기(전체 · 메모 · 할 일 · 질문 · 지시), 그 아래 <b>진행 중 | 완료</b>가 있어 처음엔 진행 중만 보이고, 내 차례가 맨 위, 나머지는 최근 것이 위입니다. 고른 글이 붙은 진행 중 기록은 노트 본문에 하이라이트로 늘 칠해지고(완료하면 사라짐), 기록을 고르면 그 칠에 테두리가 둘러집니다. 기록 탭에서 이름(이 프로젝트 · 노트 · 주제 · 흐름 점)을 누르면 그 화면으로 가고, 답은 <b>대화</b>처럼 차례로 보입니다(내 글은 오른쪽, 에이전트 글은 왼쪽). 질문 · 지시 아래 "이어 쓰기"로 더 묻거나 덧붙이면 다시 에이전트 차례가 됩니다.</> },
           { text: <>에이전트가 노트를 쓰다가 확인을 부탁하면 <b>에이전트가 묻는 질문</b>(MCP {c('add_record')})이 남습니다. 이것은 내 차례라 기록 줄과 노트 본문의 그 자리가 주황이고, 사이드바 기록 · 레일의 주황 수에 셉니다. "이어 쓰기"로 답하면 답함이 됩니다.</> },
           { text: <>직접 쓴 메모·할 일은 오른쪽 위에 늘 보이는 연필·휴지통으로 고치고 지웁니다. 완료 기록은 지울 수 있지만 고칠 수 없고, 상태 기록은 그대로 둡니다. 작업 화면에서 노트 이름을 누르면 그 노트가 열립니다.</> },
         ],
@@ -582,7 +582,7 @@ export const COLOR_ROWS_KO: ColorRow[] = [
 ]
 
 export interface SymbolRow { mark: ReactNode; name: string; meaning: string; where: string }
-export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'download' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
+export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'download' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
   {
     title: '행동', note: '늘 무채색입니다. 한 행동에 이름 하나·기호 하나.',
     rows: [
@@ -621,6 +621,7 @@ export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' 
       { mark: g.icons.swap, name: '상태 바꿈', meaning: '상태가 바뀐 기록', where: '홈 달력, 작업 탭 달력' },
       { mark: '→ ›', name: '열기·옮기기', meaning: '그 화면으로 가기', where: '링크' },
       { mark: '∎', name: '증명 끝', meaning: '증명이 끝나는 곳', where: '개념노트 본문' },
+      { mark: g.icons.claude, name: '쓴 이 Claude', meaning: 'Claude가 쓴 기록 · 답 (이름 앞 회색 표시, 누르지 않음). 다른 에이전트는 이름만', where: '기록 줄 위 줄, 기록 대화' },
       { mark: <span className="turn-dot" />, name: '내 차례 (에이전트가 물은 기록)', meaning: '에이전트가 물어 내 답을 기다림 (주황 점과 테두리, 노트 본문은 주황 칠)', where: '기록 줄, 노트 본문' },
       { mark: '2', name: '사용자 차례 수', meaning: '사용자가 볼 것이 몇 개인지 (주황 알약 하나의 모양)', where: '레일, 왼쪽 사이드바 기록 · 수정 검토, 피드백 필터, 작업 탭 판단, 라이브러리 점검' },
     ],
