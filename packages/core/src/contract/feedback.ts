@@ -138,6 +138,8 @@ export const RecordsPublished = FeedbackPublished.extend({ files: z.array(z.stri
 /** GET /researches/:rid/records/publish: 기록 저절로 올리기가 켜졌는지와 마지막 결과(at: ms, error: 실패 문장) */
 export const RecordsPublishState = z.object({
   autoPublish: z.boolean(),
+  /** 자동으로 올리면 쓰고 나서 기다리는 초 (설정 › 동기화, 10/19). 수동이면 null */
+  delay: z.number().nullable().optional(),
   last: z.object({ at: z.number(), error: z.string().nullable() }).strict().nullable(),
 }).strict()
 

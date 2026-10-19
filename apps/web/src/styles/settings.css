@@ -16,3 +16,10 @@
 
 /* 설정 › 계정의 GitHub·구글 소제목 (10/4 19:43) */
 .set-h3 { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); margin: var(--sp-4) 0 var(--sp-2); }
+/* 설정 › 동기화 (10/19): 오른쪽에 수동 | 자동, 아래 간격 셋과 직접. 좁으면 설명 아래로 */
+.set-row:has(.sync-pick) { align-items: flex-start; flex-wrap: wrap; }
+.sync-pick { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); flex: none; }
+.sync-pick .segmented.off button { opacity: .5; }
+.sync-own { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); }
+.sync-own input { width: 5em; }
+.sync-warn { margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--s-blocked); }

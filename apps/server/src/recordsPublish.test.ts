@@ -128,7 +128,7 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
     const app = buildApp({ configDir: path.join(tmp, 'auto-config'), recordsAutoPublishMs: 30 })
     try {
       const id = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: mac, createWorkbench: true } })).json().id
-      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: true, last: null })
+      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: true, delay: 0, last: null })
       const added = await app.inject({ method: 'POST', url: `/api/researches/${id}/comments/project`, payload: { kind: '메모', title: 'P', text: '맥에서 남긴 메모' } })
       expect(added.statusCode).toBe(200)
       await until(() => { try { return g(remote, 'log', '--format=%s', '-n', '1', 'main') === 'Add comments from the research workspace app' } catch { return false } })
@@ -173,10 +173,10 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
     const app = buildApp({ configDir: path.join(tmp, 'off-config') })
     try {
       const id = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: mac, createWorkbench: true } })).json().id
-      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: false, last: null })
+      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: false, delay: null, last: null })
       await app.inject({ method: 'POST', url: `/api/researches/${id}/comments/project`, payload: { kind: '메모', title: 'P', text: '메모' } })
       // 저절로 올리기가 꺼져 있으면 올리기를 예약하지도 시도하지도 않는다: 기다리지 않고 상태로 본다
-      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: false, last: null })
+      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: false, delay: null, last: null })
       expect(g(remote, 'log', '--format=%s', '-n', '1', 'main')).toBe('init')
     } finally { await app.close() }
   })
