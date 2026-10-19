@@ -354,7 +354,9 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
                 const d = drag.current
                 if (!d || d.id !== n.id || (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5)) return
                 d.moved = true
-                setGhost(cellAt(e))
+                // 끌어 놓을 칸 표시는 다른 칸 위일 때만 (제자리면 점 자체가 보인다)
+                const to = cellAt(e)
+                setGhost(to && (to.c !== c || to.r !== r - lay.mid) ? to : null)
               }}
               onPointerUp={(e) => {
                 const d = drag.current
@@ -366,7 +368,9 @@ function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }:
                 if (to && (to.c !== c || to.r !== r - lay.mid)) void place(n.id, to)
               }}
               onPointerCancel={() => { drag.current = null; setGhost(null) }}
-              onClick={() => { if (dragged.current) { dragged.current = false; return } tap(n.id) }} onDoubleClick={() => { setSel(n.id); center(n.id) }}
+              // 누름을 놓치는 경우(창 밖에서 놓음 등)에도 끌기 표시가 남지 않게 (10/19 피드백 10:39: 다른 점에 점선 상자가 남음)
+              onLostPointerCapture={() => { if (drag.current?.id === n.id) drag.current = null; setGhost(null) }}
+              onClick={() => { setGhost(null); if (dragged.current) { dragged.current = false; return } tap(n.id) }} onDoubleClick={() => { setSel(n.id); center(n.id) }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(n.id) } }}>
               {/* 가리키면 종류와 이름 (10/16 사용자: 기호의 뜻이 바로 오지 않을 때) */}
               <title>{`${KIND[markOf(n)].name()} · ${n.short}${n.title && n.title !== n.short ? `\n${n.title}` : ''}`}</title>
