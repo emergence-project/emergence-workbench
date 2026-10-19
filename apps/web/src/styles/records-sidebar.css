@@ -104,3 +104,5 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 .record-kind-ico svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 /* 할 일 아래 대화 (10/19 "할 일에 에이전트에게"): 기록 대화와 같은 말풍선, 아래 입력란 */
 .todo-talk { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+/* 대화 맨 아래 이어 쓰기 (10/19 11:31) */
+.record-follow { display: flex; justify-content: flex-end; margin-top: var(--sp-1); font-size: var(--fs-xs); }
