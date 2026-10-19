@@ -5,7 +5,7 @@
 import { USER_ANSWER_BY } from '@rw/core/contract/comments'
 
 interface Answer { by: string; at: string; body: string }
-interface Entry { id: string; kind: string; by?: string; state: string | null; where: string; quote?: string; part?: string; partText?: string; edit?: string; unsorted?: true; body: string; answers: Answer[] }
+interface Entry { id: string; kind: string; by?: string; state: string | null; where: string; quote?: string; part?: string; partText?: string; edit?: string; unsorted?: true; todo?: string; body: string; answers: Answer[] }
 interface Group { target: string; title: string; comments: Entry[] }
 
 /** 사용자가 남긴, 에이전트가 답하거나 할 차례인 질문 · 지시 */
@@ -39,6 +39,9 @@ export function recordRows(files: Group[], f: RecordFilter = {}): Record<string,
         for (const k of ['by', 'state', 'where', 'edit', 'unsorted', 'part'] as const) if (c[k] !== undefined && c[k] !== null) row[k] = c[k]
         if (c.quote) row.quote = f.full ? c.quote : clip(c.quote, 160)
         if (c.partText) row.partText = f.full ? c.partText : clip(c.partText, 160)
+        // 할 일에 대해 물은 질문 · 지시 (10/19): 그 할 일 id와 글을 함께 (에이전트가 할 일을 다시 찾지 않게)
+        const todo = c.todo ? file.comments.find((x) => x.id === c.todo && x.kind === '할 일') : undefined
+        if (todo) row.todo = { id: todo.id, body: f.full ? todo.body : clip(todo.body, 160) }
         row.body = f.full ? c.body : clip(c.body)
         if (f.full) row.answers = c.answers
         else if (last) Object.assign(row, { answerCount: c.answers.length, lastAnswer: { by: last.by, body: clip(last.body) } })

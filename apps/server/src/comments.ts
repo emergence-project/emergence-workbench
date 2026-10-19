@@ -166,6 +166,7 @@ export function parseComments(target: string, text: string): CommentFile {
           if (typeof m.part === 'string' && m.part) cur.part = m.part
           if (typeof m.partText === 'string' && m.partText) cur.partText = m.partText
           if (typeof m.by === 'string' && RECORD_AUTHOR_RE.test(m.by)) cur.by = m.by
+          if (typeof m.todo === 'string' && /^c-[\w-]+$/.test(m.todo)) cur.todo = m.todo
         } catch { /* 깨진 숨은 줄은 무시 */ }
         continue
       }
@@ -269,7 +270,8 @@ export function pendingQuestions(root: string, kind: '질문' | '지시' = '질�
     .filter((c) => c.kind === kind && c.state === '대기' && !c.by)
     .map((c) => {
       const last = c.answers.at(-1)
-      return { target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body, ...(last && { lastAnswer: { by: last.by, body: last.body } }) }
+      const todo = c.todo ? f.comments.find((x) => x.id === c.todo && x.kind === '할 일') : undefined
+      return { target: f.target, title: f.title, source: f.source, file: `workbench/${COMMENTS_DIR}/${f.target}.md`, id: c.id, where: c.where, quote: c.quote, body: c.body, ...(last && { lastAnswer: { by: last.by, body: last.body } }), ...(todo && { todo: { id: todo.id, body: todo.body } }) }
     }))
 }
 
@@ -341,6 +343,12 @@ function prepareComment(target: string, input: NewComment, now: Date, before: st
     ...((input.edit === '질문' || input.edit === '수정') && kind === '질문' && { edit: input.edit, ...(typeof input.editBase === 'string' && input.editBase && { editBase: input.editBase.slice(0, 200) }) }),
     // 쓴 에이전트 (10/15). 없으면 사용자가 쓴 것
     ...(typeof input.by === 'string' && RECORD_AUTHOR_RE.test(input.by) && { by: input.by }),
+    // 할 일에 대해 묻기 · 맡기기 (10/19): 같은 파일에 있는 할 일에만
+    ...(input.todo && { todo: input.todo }),
+  }
+  if (input.todo) {
+    if (!isAgentKind(kind)) throw new WorkbenchError(400, t('할 일에는 질문 · 지시만 이을 수 있음', 'Only a question or instruction can be linked to a to-do'))
+    if (!parsed.comments.some((c) => c.id === input.todo && c.kind === '할 일')) throw new WorkbenchError(400, t(`이 기록 묶음에 없는 할 일: ${input.todo}`, `No such to-do in these records: ${input.todo}`))
   }
   if (kind === '할 일') checkTodoTarget(target)
   const taken = new Set([...parsed.comments, ...parsed.highlights].map((c) => c.id))

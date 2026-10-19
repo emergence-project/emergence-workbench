@@ -655,5 +655,8 @@
   "검토할 노트 표": "Notes to review table",
   "노트 열기": "Open note",
   "바뀐 곳 머리": "Changes header",
-  "노트에서 이 자리로": "Go to this spot in the note"
+  "노트에서 이 자리로": "Go to this spot in the note",
+  "에이전트에게": "Ask the agent",
+  "할 일 대화": "To-do conversation",
+  "할 일 입력란": "To-do input"
 }
