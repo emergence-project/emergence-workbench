@@ -111,7 +111,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('완료', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
           : <span className="record-marker" aria-hidden>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
-      <span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ?? t('사용자', 'User')}</span>
+      <span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ? <Author by={c.by} /> : t('사용자', 'User')}</span>
       {turn && <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>}
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
@@ -149,7 +149,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {/* 기록 탭은 답을 대화로(내 글 오른쪽, 에이전트 글 왼쪽), 오른쪽 사이드바는 좁아서 답을 차례로 쌓는다 (10/15) */}
       {work ? c.answers.length > 0 && <ul className="fbp-thread record-thread" data-ui="기록 대화">
         {c.answers.map((a, i) => a.by === '앱' ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
-          : <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : a.by} when={a.at}>
+          : <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : <Author by={a.by} />} when={a.at}>
             <AnswerBody answer={a} busy={busy} onApply={applicable(i)} />
           </SayCard>)}
       </ul>
@@ -157,6 +157,11 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }} />}
     </div>
   </article>
+}
+
+/** 쓴 이 이름: Claude가 쓴 기록 · 답은 이름 앞에 무채색 Claude 표시 (10/19 피드백 "무채색 로고". 주황은 내 차례에만) */
+function Author({ by }: { by: string }) {
+  return <>{/^claude/i.test(by) && <span className="ico agent-mark" aria-hidden>{Icon.claude}</span>}{by}</>
 }
 
 /** 기록 파일에 적을 때 머리처럼 보이는 줄 앞에 붙인 \를 보일 때만 뗀다 */
