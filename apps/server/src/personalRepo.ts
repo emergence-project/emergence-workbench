@@ -4,6 +4,7 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { git as gitAt, gitRun, GIT_TIMEOUT } from './git.js'
 import { withRepoLock } from './repoLock.js'
+import { t } from './i18n.js'
 
 /**
  * 사용자 개인 저장소 (2026-10-08 결정): 앱 저장소는 공개하고, 사용자마다 비공개 개인 저장소에
@@ -86,5 +87,45 @@ async function pullNow(dir: string): Promise<{ ok: boolean; error?: string }> {
     return { ok: true }
   } catch (e) {
     return { ok: false, error: String((e as { stderr?: string }).stderr || (e as Error).message).split('\n')[0] }
+  }
+}
+
+/** github.com 주소에서 owner/name (https · ssh 둘 다). GitHub가 아니면 null */
+export function githubRepoOf(url: string): string | null {
+  const m = /github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(url.trim())
+  return m ? `${m[1]}/${m[2]}` : null
+}
+
+type GithubFetch = (url: string) => Promise<Response>
+let githubFetch: GithubFetch = (url) => fetch(url, { headers: { 'user-agent': 'Emergence Workbench', accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(10_000) })
+/** 테스트가 바깥 연결 대신 쓴다 */
+export function useGithubFetch(f: GithubFetch): void { githubFetch = f; publicCache.clear() }
+const publicCache = new Map<string, { at: number; open: boolean }>()
+
+/**
+ * 개인 저장소에 올리기 전에 그 저장소가 공개가 아닌지 본다 (보안 검토 L4, 10/19).
+ * 로그인 없이 GitHub API로 읽히면 공개 저장소다: 피드백 · 앱 설정 · workbench 백업이 공개로 나가지 않게 올리지 않는다.
+ * 404(비공개거나 없음) · 네트워크 실패 · GitHub가 아닌 주소는 막지 않는다(올리기 자체가 알아서 실패한다). 한 시간 기억한다.
+ */
+export async function assertPrivateRemote(dir: string): Promise<void> {
+  const origin = await originOf(dir)
+  const repo = origin && githubRepoOf(origin)
+  if (!repo) return
+  const cached = publicCache.get(repo)
+  let open = cached && Date.now() - cached.at < 60 * 60_000 ? cached.open : undefined
+  if (open === undefined) {
+    try {
+      const res = await githubFetch(`https://api.github.com/repos/${repo}`)
+      open = res.ok && (await res.json() as { private?: boolean }).private === false
+      publicCache.set(repo, { at: Date.now(), open })
+    } catch { return }
+  }
+  if (open) throw new PersonalRepoPublicError(repo)
+}
+
+export class PersonalRepoPublicError extends Error {
+  constructor(readonly repo: string) {
+    super(t(`개인 저장소(${repo})가 GitHub에서 공개로 되어 있어 올리지 않았습니다. GitHub 설정에서 비공개로 바꾼 뒤 다시 올려 주세요.`,
+      `The personal repository (${repo}) is public on GitHub, so nothing was pushed. Make it private in GitHub settings, then push again.`))
   }
 }

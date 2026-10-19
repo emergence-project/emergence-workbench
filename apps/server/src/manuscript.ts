@@ -11,7 +11,7 @@ import { beginInputs, fileStamp, finishInputs, inputsChanged, recordedInputs, ty
 import { bibliographyLines, libraryCitedBib, LIBRARY_CITED_BIB, noteBibFiles } from './noteBib.js'
 import { writeFigureEmbeds, type FigureEmbedResolver } from './figureEmbeds.js'
 import { readNoteMeta, type NoteMeta } from './noteMeta.js'
-import { isMarkdownNote, WorkbenchError, type NoteKind, type SaveResult, type Workbench } from './workbench.js'
+import { assertRealInside, isMarkdownNote, WorkbenchError, type NoteKind, type SaveResult, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
 import { addHighlightQuads, noteRecordMarks, XDVIPDFMX_PLAIN, type RecordScope } from './pdfRecords.js'
 import type { ManuscriptPart } from '@rw/core/contract/research'
@@ -205,7 +205,8 @@ export function noteAsset(wb: Workbench, file: string, name: string): string {
 }
 
 export function readPart(wb: Workbench, file: string): { content: string; hash: string } {
-  const content = fs.readFileSync(partFile(wb, file), 'utf8')
+  // 링크를 따라간 실제 파일도 연구 저장소 안이어야 한다 (보안 검토 L1)
+  const content = fs.readFileSync(assertRealInside(wb.repo, partFile(wb, file), t(`원고에 속한 파일이 아님: ${file}`, `Not a file of the manuscript: ${file}`)), 'utf8')
   return { content, hash: hashOf(content) }
 }
 

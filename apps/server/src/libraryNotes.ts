@@ -4,7 +4,7 @@ import { fileCache } from './readCache.js'
 import path from 'node:path'
 import { parseBlock, parseList, stripFrontMatter } from '@rw/core'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
-import { WorkbenchError, type SaveResult } from './workbench.js'
+import { WorkbenchError, assertRealInside, type SaveResult } from './workbench.js'
 import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd } from './conceptNotes.js'
 import { t } from './i18n.js'
 
@@ -164,7 +164,8 @@ export function readStudy(study: string | undefined, rel: string): { title: stri
   if (!study) throw new WorkbenchError(404, t('Study 폴더가 없음', 'No Study folder'))
   const abs = path.resolve(study, rel)
   if (!abs.startsWith(path.join(study, STUDY_SPACE) + path.sep) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Concept-Space의 노트가 아님: ${rel}`, `Not a note in Concept-Space: ${rel}`))
-  const raw = fs.readFileSync(abs, 'utf8')
+  // 링크를 따라간 실제 파일도 Concept-Space 안이어야 한다 (보안 검토 L1)
+  const raw = fs.readFileSync(assertRealInside(path.join(study, STUDY_SPACE), abs, t(`Concept-Space의 노트가 아님: ${rel}`, `Not a note in Concept-Space: ${rel}`)), 'utf8')
   const text = stripFrontMatter(raw).trim()
   return { title: path.basename(abs, '.md'), text }
 }
@@ -180,7 +181,8 @@ export function findStudyAsset(study: string | undefined, name: string): string 
       for (const n of fs.readdirSync(dir)) {
         if (n.startsWith('.') || n.startsWith('_')) continue
         const p = path.join(dir, n)
-        const st = fs.statSync(p)
+        // 폴더 링크는 따라가지 않는다(vault 밖으로 나가거나 돌고 돈다)
+        const st = fs.lstatSync(p)
         if (st.isDirectory()) walk(p)
         else if (IMAGE.test(n) && !idx.has(n)) idx.set(n, p)
       }
@@ -189,5 +191,7 @@ export function findStudyAsset(study: string | undefined, name: string): string 
     assetIndex.set(study, idx)
     return idx
   }
-  return (assetIndex.get(study) ?? build()).get(name) ?? build().get(name) ?? null
+  const found = (assetIndex.get(study) ?? build()).get(name) ?? build().get(name)
+  // 그림 이름의 링크가 vault 밖을 가리키면 내보내지 않는다 (보안 검토 L1)
+  try { return found ? assertRealInside(study, found, '') : null } catch { return null }
 }

@@ -4,7 +4,7 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { fileCache } from './readCache.js'
 import type { LibraryNote } from './libraryNotes.js'
-import { WorkbenchError } from './workbench.js'
+import { WorkbenchError, assertRealInside } from './workbench.js'
 import { t } from './i18n.js'
 import { frontMatter, stripFrontMatter } from '@rw/core'
 import type { KnowledgeInfo, KnowledgeReview, KnowledgeTopic } from '@rw/core/contract/knowledge'
@@ -250,7 +250,8 @@ export function readReview(dir: string | undefined, rel: string): KnowledgeRevie
   if (!dir) throw new WorkbenchError(404, t('Topic Review 폴더가 없음', 'No Topic Review folder'))
   const abs = path.resolve(dir, rel)
   if (!abs.startsWith(path.resolve(dir) + path.sep) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Topic Review가 아님: ${rel}`, `Not a Topic Review: ${rel}`))
-  const raw = fs.readFileSync(abs, 'utf8')
+  // 링크를 따라간 실제 파일도 폴더 안이어야 한다 (보안 검토 L1)
+  const raw = fs.readFileSync(assertRealInside(dir, abs, t(`Topic Review가 아님: ${rel}`, `Not a Topic Review: ${rel}`)), 'utf8')
   const fm = frontmatter(raw)
   return { title: typeof fm.title === 'string' ? fm.title : path.basename(abs, '.md'), text: stripFrontMatter(raw).trim() }
 }

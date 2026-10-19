@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import YAML from 'yaml'
 import { publishFeedback } from './feedback.js'
-import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
+import { assertPrivateRemote, ensurePersonalClone, githubRepoOf, personalRemote, pullPersonal, useGithubFetch } from './personalRepo.js'
 import { Registry } from './registry.js'
 
 let tmp: string
@@ -123,5 +123,30 @@ describe('개인 저장소', () => {
     expect(await pullPersonal(dir)).toEqual({ ok: true })
     expect(fs.readFileSync(path.join(dir, 'feedback/status.yaml'), 'utf8')).toBe('a: 2\n')
     expect(fs.readFileSync(path.join(dir, 'feedback/2026-10-08.md'), 'utf8')).toBe('아직 안 올림\n')
+  })
+})
+
+describe('개인 저장소가 공개인지 (보안 검토 L4)', () => {
+  const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-private-'))
+  afterAll(() => { fs.rmSync(dir, { recursive: true, force: true }); useGithubFetch(async () => new Response('', { status: 599 })) })
+  const origin = (url: string) => { execFileSync('git', ['-C', dir, 'init', '-q']); execFileSync('git', ['-C', dir, 'remote', 'remove', 'origin'], { stdio: 'ignore' }) }
+  it('GitHub 주소에서 owner/name을 읽는다', () => {
+    expect(githubRepoOf('https://github.com/a-b/c.d.git')).toBe('a-b/c.d')
+    expect(githubRepoOf('git@github.com:a/b.git')).toBe('a/b')
+    expect(githubRepoOf('/tmp/remote.git')).toBeNull()
+  })
+  it('로그인 없이 읽히는(공개) 저장소면 막고, 404 · 네트워크 실패 · GitHub가 아닌 주소는 지나간다', async () => {
+    execFileSync('git', ['-C', dir, 'init', '-q'])
+    execFileSync('git', ['-C', dir, 'remote', 'add', 'origin', 'https://github.com/someone/notes.git'])
+    useGithubFetch(async () => Response.json({ private: false }))
+    await expect(assertPrivateRemote(dir)).rejects.toThrow(/someone\/notes/)
+    useGithubFetch(async () => new Response('', { status: 404 }))
+    await expect(assertPrivateRemote(dir)).resolves.toBeUndefined()
+    useGithubFetch(async () => { throw new Error('offline') })
+    await expect(assertPrivateRemote(dir)).resolves.toBeUndefined()
+    execFileSync('git', ['-C', dir, 'remote', 'set-url', 'origin', '/tmp/elsewhere.git'])
+    useGithubFetch(async () => Response.json({ private: false }))
+    await expect(assertPrivateRemote(dir)).resolves.toBeUndefined()
+    void origin
   })
 })

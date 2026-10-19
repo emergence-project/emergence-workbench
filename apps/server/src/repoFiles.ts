@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { git, gitBuffer, GIT_TIMEOUT } from './git.js'
 import { isInside } from './fsutil.js'
-import { WorkbenchError } from './workbench.js'
+import { WorkbenchError, assertRealInside } from './workbench.js'
 import { t } from './i18n.js'
 
 /**
@@ -89,6 +89,6 @@ export async function readRepoText(root: string, found: RepoFileFound): Promise<
   if (found.status === 'missing' || (found.kind !== 'markdown' && found.kind !== 'text')) return null
   const buf = found.status === 'deleted'
     ? await gitBuffer(root, ['show', `${found.commit}^:${found.path}`], { timeout: GIT_TIMEOUT.read })
-    : fs.readFileSync(path.join(root, found.path))
+    : fs.readFileSync(assertRealInside(root, path.join(root, found.path), t('저장소에 없는 파일', 'File not in the repository')))
   return { text: buf.subarray(0, MAX_TEXT).toString('utf8'), truncated: buf.length > MAX_TEXT }
 }
