@@ -47,8 +47,8 @@ export function usePapers() {
   return useQuery({ queryKey: qk.papers, queryFn: () => papersApi.list().catch(() => null) })
 }
 
-export function useTopicsOverview(rid: string) {
-  return useQuery({ queryKey: qk.topicsOverview(rid), queryFn: () => notesApi(rid).topicsOverview() })
+export function useTopicsOverview(rid: string, enabled = true) {
+  return useQuery({ queryKey: qk.topicsOverview(rid), queryFn: () => notesApi(rid).topicsOverview(), enabled })
 }
 
 export function useNoteTrash(rid: string) {

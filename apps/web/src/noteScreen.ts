@@ -55,6 +55,8 @@ export function publishToc(next: NoteToc | null, owner: string) {
   toc.set(next)
 }
 export const useNoteToc = () => useSyncExternalStore(toc.subscribe, toc.get)
+/** 지금 알린 목차 (화면 밖에서 한 번 읽기: 수정 검토의 "노트에서 이 자리로") */
+export const noteToc = () => toc.get()
 
 /** LaTeX 본문의 \section·\subsection 줄 (줄 번호는 1부터) */
 export function latexSections(text: string): (NoteSection & { line: number })[] {

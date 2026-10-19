@@ -158,7 +158,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
       {
         title: 'Edit review', id: 'edits',
         items: [
-          { text: <>"Edit review" in the left sidebar. Edits agents made to this project's notes are gathered per note, and each changed place (paragraph) shows before and after in one table. Changed words are painted, and you can expand the paragraphs around a change. Edits to concept notes are in the library's edit review.</> },
+          { text: <>"Edit review" in the left sidebar. The upper table lists the notes to review, one row each (note · topic · agent · edited · changes); click a row and the lower table shows that note's changed places (paragraphs) with before and after. The icon next to a note name opens the note, and the arrow icon on a change opens the note at that paragraph. Changed words are painted, and you can expand the paragraphs around a change. Edits to concept notes are in the library's edit review.</> },
           { text: <>For each change: <b>Approve</b> (accept; the file stays as is) · <b>Ask</b> (ask why, or ask for another edit; the agent's answer appears in place) · under ⋯, <b>Edit</b> · <b>Revert</b> (this part only, back to the text before). The one-line reason the agent gave is shown with it.</> },
           { text: <>Agents do not write to notes you have confirmed; they leave an "edit request for a confirmed note" instead. If you allow it in that conversation, the agent writes again.</> },
         ],
