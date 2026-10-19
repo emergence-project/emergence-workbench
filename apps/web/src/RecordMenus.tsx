@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { PaintColor } from './api/papers'
 import { isDialogHostDisplayed } from './dialogVisibility'
 import { t } from './i18n'
+import { useDismiss } from './useDismiss'
 
 const PAINTS: { color: PaintColor; label: string; en: string }[] = [
   { color: 'yellow', label: '노랑', en: 'yellow' }, { color: 'green', label: '초록', en: 'green' },
@@ -20,6 +21,22 @@ export function PaintDots({ color, onChange, disabled, action = '하이라이트
       style={{ background: `linear-gradient(var(--paint-${paint.color}), var(--paint-${paint.color})), var(--paper)` }}
       title={paintTip(paint, action)} aria-label={paintTip(paint, action)}
       aria-pressed={color === paint.color} disabled={disabled} onClick={() => onChange(paint.color)} />)}
+  </div>
+}
+
+/**
+ * 고른 글 앞의 색 동그라미: 지금 색을 보이고, 누르면 네 색 중에서 바꾼다 (10/19 피드백 10:09 반려 "고른 글과 그 색을 한 줄로").
+ */
+export function PaintPicker({ color, onChange, disabled }: { color: PaintColor; onChange(color: PaintColor): void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useDismiss(open, box, () => setOpen(false))
+  const now = PAINTS.find((p) => p.color === color) ?? PAINTS[0]!
+  const tip = t(`고른 글 색: ${now.label} (눌러서 바꾸기)`, `Selection color: ${now.en} (click to change)`)
+  return <div ref={box} className="record-paint-pick">
+    <button type="button" className="record-swatch" style={{ background: `linear-gradient(var(--paint-${color}), var(--paint-${color})), var(--paper)` }}
+      title={tip} aria-label={tip} aria-expanded={open} disabled={disabled} onClick={() => setOpen((v) => !v)} />
+    {open && <div className="record-paint-pop"><PaintDots color={color} action="바꾸기" disabled={disabled} onChange={(next) => { onChange(next); setOpen(false) }} /></div>}
   </div>
 }
 
