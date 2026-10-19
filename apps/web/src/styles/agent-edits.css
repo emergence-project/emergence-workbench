@@ -13,13 +13,7 @@
 .ae-row .ae-when { margin-left: auto; }
 
 /* 노트 고르는 탭과 보기 · 원문 */
-.ae-tabrow { display: flex; align-items: flex-start; gap: var(--sp-3); }
-.ae-tabs { flex-wrap: wrap; min-width: 0; }
-.ae-view { margin-left: auto; flex: none; }
 .ae-review { display: flex; flex-direction: column; gap: var(--sp-2); }
-.ae-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); color: var(--text-3); font-size: var(--fs-xs); }
-.ae-meta > * + *::before { content: '·'; margin-right: var(--sp-2); color: var(--text-3); }
-.ae-meta .a { font-size: var(--fs-xs); }
 .ae-notes { margin: 0; padding-left: var(--sp-4); color: var(--text-2); font-size: var(--fs-sm); }
 
 /* 표: 바깥 테두리 하나, 머리 줄, 절 헤더, 바뀐 곳 사이 가는 선 */
@@ -87,3 +81,27 @@ img.ae-del, canvas.ae-del { background: none; outline: 3px solid var(--paint-pin
 .ae-menu { top: calc(100% + 4px); right: 0; min-width: 140px; }
 .ae-menu .ico { display: inline-flex; width: 16px; height: 16px; color: var(--text-2); }
 .ae-talk { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3) calc(34px + var(--sp-3)); border-bottom: 1px solid var(--line); background: var(--bg-side); cursor: default; }
+/* 위 표: 검토할 노트 (10/19 결정 "수정 검토 두 표") */
+.ae-notes-wrap { container-type: inline-size; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.ae-notes-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.ae-notes-table th { text-align: left; font-weight: var(--fw-medium); font-size: var(--fs-xs); color: var(--text-3); background: var(--bg-side); padding: var(--sp-1) var(--sp-3); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ae-notes-table td { padding: var(--sp-1) var(--sp-3); border-bottom: 1px solid var(--line); color: var(--text-2); white-space: nowrap; }
+.ae-notes-table tr:last-child td { border-bottom: 0; }
+.ae-notes-table tbody tr { cursor: pointer; }
+.ae-notes-table tbody tr:hover td { background: var(--bg-side); }
+.ae-notes-table tbody tr.on td { background: var(--bg-hover); color: var(--text); }
+.ae-notes-table tbody tr:focus-visible { outline: 2px solid var(--focus-line); outline-offset: -2px; }
+.ae-notes-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* 노트 이름 칸이 남는 폭을 쓰고, 좁으면 한 줄에서 …로 줄인다(한 글자씩 세로로 끊기지 않게) */
+.ae-notes-table td.ae-note-cell { width: 100%; max-width: 0; min-width: 9em; }
+/* 좁은 칸에서는 주제 · 고친 때를 빼고 이름에 폭을 준다 (고친 때는 아래 머리 줄에도 있다) */
+@container (max-width: 520px) { .ae-notes-table .ae-col-topic, .ae-notes-table .ae-col-when { display: none; } }
+.ae-note-name { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; color: var(--text); font-weight: var(--fw-strong); }
+.ae-note-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ae-note-name .icon-btn { flex: none; }
+/* 아래 표의 머리: 고른 노트 이름 · 수 · 보기 | 원문 */
+.ae-review-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); }
+.ae-review-head .sp { flex: 1; }
+.ae-review-head .muted { font-size: var(--fs-xs); }
+/* 노트에서 이 자리로: 찾은 문단에 잠깐 테두리 */
+.ae-flash { scroll-margin-top: var(--sp-6); outline: 2px solid var(--focus-line); outline-offset: 3px; border-radius: var(--r-xs); transition: outline-color .6s; }

@@ -10,9 +10,11 @@ import { talksOf, talkTurn, talkWhen } from './editTalk'
 import { MemoText } from './memo'
 import { t } from './i18n'
 import { Icon } from './icons'
-import { useAgentEdits } from './projectQueries'
+import { useAgentEdits, useTopicsOverview } from './projectQueries'
+import { LOOSE_NOTES_LABEL } from './noteKinds'
 import { qk } from './queries'
 import { go, type Route } from './router'
+import { noteToc } from './noteScreen'
 import { agentName } from './taskView'
 
 /**
@@ -37,6 +39,13 @@ export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?:
   const key = selected ?? list?.reviews[0]?.key
   const row = list?.reviews.find((r) => r.key === key)
   const open = (k: string) => go(rid ? { page: 'edits', rid, key: k } : { page: 'review', key: k, scope })
+  // 주제 칸: 노트 폴더(workbench/topics/<주제>/…)의 주제 이름, 주제가 없으면 "노트들", 개념노트는 "개념노트"
+  const topics = useTopicsOverview(rid ?? '', !!rid).data?.topics
+  const topicOf = (tg: EditTarget) => {
+    if (tg.kind === 'concept') return t('개념노트', 'Concept note')
+    const tid = /^workbench\/topics\/([^/]+)\//.exec(tg.file)?.[1]
+    return tid ? topics?.find((x) => x.id === tid)?.title ?? tid : LOOSE_NOTES_LABEL
+  }
   const dismiss = async (a: EditAttempt) => {
     try { await agentEditsApi.dismissAttempt(a.key); load() } catch (e) { onSaved((e as Error).message) }
   }
@@ -73,24 +82,37 @@ export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?:
             <section className="ae-sec" data-ui="검토할 노트">
               <h2 className="ae-h">{t('검토할 노트', 'Notes to review')} {list.reviews.length > 0 && <span className="rail-count">{list.reviews.length}</span>}</h2>
               {list.reviews.length === 0 && <p className="muted">{t('지금 검토할 고침이 없습니다.', 'No edits to review right now.')}</p>}
+              {/* 10/19 결정 "수정 검토 두 표": 위 표는 노트마다 한 줄, 줄을 누르면 아래 표가 그 노트의 바뀐 곳 */}
               {list.reviews.length > 0 && (
-                <div className="ae-tabrow">
-                  <div className="segmented small ae-tabs" role="tablist">
-                    {list.reviews.map((r) => (
-                      <button key={r.key} role="tab" aria-selected={r.key === key} className={r.key === key ? 'on' : ''} data-ui="검토할 노트 줄" data-ui-item={r.title} title={whereOf(r.target)} onClick={() => open(r.key)}>
-                        {r.title} <span className="muted">{r.changes}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {row && isMarkdown(row.target) && (
-                    <div className="segmented ae-view" role="radiogroup" aria-label={t('보기', 'View')} data-ui="고침 보기 고르기">
-                      <button type="button" role="radio" aria-checked={!raw} className={raw ? '' : 'on'} onClick={() => setRaw(false)}>{t('보기', 'Rendered')}</button>
-                      <button type="button" role="radio" aria-checked={raw} className={raw ? 'on' : ''} onClick={() => setRaw(true)}>{t('원문', 'Source')}</button>
-                    </div>
-                  )}
+                <div className="ae-notes-wrap">
+                  <table className="ae-notes-table" data-ui="검토할 노트 표">
+                    <thead><tr>
+                      <th>{t('노트', 'Note')}</th><th className="ae-col-topic">{t('주제', 'Topic')}</th><th>{t('에이전트', 'Agent')}</th><th className="ae-col-when">{t('고친 때', 'Edited')}</th><th className="num">{t('바뀐 곳', 'Changes')}</th>
+                    </tr></thead>
+                    <tbody>
+                      {list.reviews.map((r) => (
+                        <tr key={r.key} className={r.key === key ? 'on' : ''} aria-selected={r.key === key} tabIndex={0} data-ui="검토할 노트 줄" data-ui-item={r.title}
+                          onClick={(e) => { if (!(e.target as Element).closest('button')) open(r.key) }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r.key) } }}>
+                          <td className="ae-note-cell"><span className="ae-note-name" title={whereOf(r.target)}><span className="ae-note-label">{r.title}</span>
+                            <button className="icon-btn sm" data-ui="노트 열기" data-tip={t('노트 열기', 'Open note')} aria-label={t(`노트 열기 — ${r.title}`, `Open note: ${r.title}`)} onClick={() => openTargetOf(r.target)}>{Icon.openNote}</button></span></td>
+                          <td className="ae-col-topic">{topicOf(r.target)}</td>
+                          <td>{r.agents.map(agentName).join(', ')}</td>
+                          <td className="num ae-col-when">{when(r.updated)}</td>
+                          <td className="num">{r.changes}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-              {key && row && <ReviewOf key={key} k={key} raw={raw} version={version} onChanged={load} onSaved={onSaved} />}
+              {key && row && <ReviewOf key={key} k={key} raw={raw} version={version} onChanged={load} onSaved={onSaved}
+                view={isMarkdown(row.target) && (
+                  <div className="segmented ae-view" role="radiogroup" aria-label={t('보기', 'View')} data-ui="고침 보기 고르기">
+                    <button type="button" role="radio" aria-checked={!raw} className={raw ? '' : 'on'} onClick={() => setRaw(false)}>{t('보기', 'Rendered')}</button>
+                    <button type="button" role="radio" aria-checked={raw} className={raw ? 'on' : ''} onClick={() => setRaw(true)}>{t('원문', 'Source')}</button>
+                  </div>
+                )} />}
             </section>
           )}
         </div>
@@ -115,7 +137,7 @@ function groupsOf(hunks: EditHunk[]): { section?: string; hunks: EditHunk[] }[] 
   return out
 }
 
-function ReviewOf({ k, raw, version, onChanged, onSaved }: { k: string; raw: boolean; version: number; onChanged(): void; onSaved(msg: string): void }) {
+function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; raw: boolean; version: number; view?: ReactNode; onChanged(): void; onSaved(msg: string): void }) {
   const [rv, setRv] = useState<EditReview | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [picked, setPicked] = useState<string | null>(null)
@@ -167,13 +189,12 @@ function ReviewOf({ k, raw, version, onChanged, onSaved }: { k: string; raw: boo
   const md = isMarkdown(rv.target) && !raw ? render : undefined
   return (
     <div className="ae-review">
-      <div className="ae-meta">
-        <span>{whereOf(rv.target)}</span>
-        {rv.agents.length > 0 && <span>{rv.agents.map(agentName).join(', ')}</span>}
-        <span>{t(`${when(rv.since)}부터`, `Since ${when(rv.since)}`)}</span>
-        <span>{t(`바뀐 곳 ${rv.hunks.length}`, `${rv.hunks.length} changed`)}</span>
-        <span>{t(`절 ${groups.length}`, `${groups.length} sections`)}</span>
-        <button className="a" onClick={() => openTargetOf(rv.target)}>{t('노트 열기', 'Open note')}</button>
+      {/* 아래 표의 머리: 고른 노트 이름 · 바뀐 곳 수 · 보기 | 원문 (위치 · 에이전트 · 시각은 위 표에) */}
+      <div className="ae-review-head" data-ui="바뀐 곳 머리">
+        <b>{rv.title}</b>
+        <span className="muted">{t(`바뀐 곳 ${rv.hunks.length} · 절 ${groups.length} · ${when(rv.since)}부터`, `${rv.hunks.length} changed · ${groups.length} sections · since ${when(rv.since)}`)}</span>
+        <span className="sp" />
+        {view}
       </div>
       {rv.notes.length > 0 && <ul className="ae-notes">{rv.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
       <div className="ae-table" role="table" aria-label={t('바뀐 곳', 'Changes')} data-ui="고침 비교" data-ui-item={rv.title}>
@@ -190,7 +211,7 @@ function ReviewOf({ k, raw, version, onChanged, onSaved }: { k: string; raw: boo
               <span className="ae-count">{g.hunks.length}</span>
             </div>
             {g.hunks.map((h) => (
-              <HunkRow key={h.id} h={h} picked={picked === h.id} expanded={expanded.has(h.id)} busy={busy} render={md} raw={raw}
+              <HunkRow key={h.id} h={h} onGoto={() => revealHunk(rv.target, h)} picked={picked === h.id} expanded={expanded.has(h.id)} busy={busy} render={md} raw={raw}
                 talks={rv.record ? talksOf(h, records) : null} talking={talking === h.id} onTalk={() => setTalking((x) => (x === h.id ? null : h.id))}
                 onPick={() => setPicked(h.id)} onToggle={() => toggle(h.id)} onAct={act} onAsk={ask} />
             ))}
@@ -214,8 +235,8 @@ function HunkText({ text, render }: { text: string; render?: RenderOptions }) {
   return render ? <div className="ae-text ae-md"><ObsidianMarkdown text={text.replace(/\s*\\label\{[^}]*\}/g, '')} options={render} /></div> : <pre className="ae-text">{text}</pre>
 }
 
-function HunkRow({ h, picked, expanded, busy, render, raw, talks, talking, onTalk, onPick, onToggle, onAct, onAsk }: {
-  h: EditHunk; picked: boolean; expanded: boolean; busy: boolean; render?: RenderOptions; raw: boolean
+function HunkRow({ h, onGoto, picked, expanded, busy, render, raw, talks, talking, onTalk, onPick, onToggle, onAct, onAsk }: {
+  h: EditHunk; onGoto(): void; picked: boolean; expanded: boolean; busy: boolean; render?: RenderOptions; raw: boolean
   /** 이 바뀐 곳에서 물은 것. null이면 물을 수 없는 노트(개념노트 등) */
   talks: CommentEntry[] | null; talking: boolean; onTalk(): void
   onPick(): void; onToggle(): void; onAct(h: EditHunk, a: EditAction, text?: string): Promise<boolean>; onAsk(h: EditHunk, kind: EditAsk, text: string): Promise<boolean>
@@ -270,6 +291,8 @@ function HunkRow({ h, picked, expanded, busy, render, raw, talks, talking, onTal
             <button className="btn primary" disabled={busy} onClick={() => void onAct(h, 'edit', editing).then((ok) => { if (ok) closeEdit() })}>{t('저장', 'Save')}</button>
           </> : <>
             {/* 10/14 시안: 밖에는 묻기 · ⋯ · 승인만, 고치기 · 되돌리기는 ⋯ 메뉴 */}
+            {/* 노트에서 이 자리로 (10/19 결정): 노트를 열고 이 문단으로, 못 찾으면 든 절로 */}
+            <button className="icon-btn" data-ui="노트에서 이 자리로" data-tip={t('노트에서 이 자리로', 'Go to this spot in the note')} aria-label={t('노트에서 이 자리로', 'Go to this spot in the note')} onClick={onGoto}>{Icon.gotoSpot}</button>
             {talks && <TalkButton talks={talks} on={talking} onClick={onTalk} />}
             <MoreMenu busy={busy} onEdit={() => setEditing(h.current)} onRevert={() => void onAct(h, 'revert')} />
             <button className="icon-btn" disabled={busy} data-ui="승인 버튼" data-tip={t('승인', 'Approve')} aria-label={t('승인: 이 고침을 받아들입니다 (파일은 그대로)', 'Approve: accept this edit (the file stays as it is)')} onClick={() => void onAct(h, 'accept')}>{Icon.approve}</button>
@@ -382,3 +405,42 @@ export function routeOfTarget(tg: EditTarget): Route {
   return block ? { page: 'block', rid: tg.rid, bid: block[1]! } : { page: 'part', rid: tg.rid, file: tg.file }
 }
 const openTargetOf = (tg: EditTarget) => go(routeOfTarget(tg))
+
+/** 바뀐 글에서 찾기용 한 조각: 수식 · 꾸밈 기호를 빼고 앞의 낱말 몇 개 */
+export function hunkSnippet(text: string): string {
+  const plain = text.replace(/\$\$[\s\S]*?\$\$|\$[^$\n]*\$/g, ' ').replace(/\\[a-zA-Z]+\*?(\{[^}]*\})?/g, ' ').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^[\s>#*+-]+|[*_`~]/gm, '').replace(/\s+/g, ' ').trim()
+  const words = plain.split(' ').filter(Boolean)
+  let out = ''
+  for (const w of words) { if ((out + ' ' + w).trim().length > 40) break; out = (out + ' ' + w).trim() }
+  return out.length >= 8 ? out : ''
+}
+
+/**
+ * 노트에서 이 자리로 (10/19 결정 "수정 검토 두 표"): 노트를 열고, 본문에서 바뀐 글 첫머리를 찾아 그 문단을 가운데로 잠깐 테두리.
+ * 못 찾으면(LaTeX 편집기 등) 노트가 알린 목차에서 든 절로 간다.
+ */
+function revealHunk(tg: EditTarget, h: EditHunk) {
+  go(routeOfTarget(tg))
+  const snippet = hunkSnippet(h.current || h.base)
+  const want = h.section?.split(' › ').pop()?.trim()
+  let tries = 0
+  const tick = () => {
+    tries++
+    const hit = snippet ? [...document.querySelectorAll<HTMLElement>('.ob-md p, .ob-md li, .ob-md h1, .ob-md h2, .ob-md h3, .ob-md h4, .ob-md td')]
+      .find((el) => !el.closest('.ae-page') && el.textContent!.replace(/\s+/g, ' ').includes(snippet)) : undefined
+    if (hit) {
+      hit.classList.add('ae-flash')
+      hit.scrollIntoView({ block: 'start' })
+      setTimeout(() => hit.classList.remove('ae-flash'), 1600)
+      return
+    }
+    const toc = noteToc()
+    if (want && toc && tries > 8) {
+      const i = toc.sections.findIndex((x) => x.title.replace(/^[\dA-Z]+(\.\d+)*\.?\s+/, '') === want || x.title === want)
+      if (i >= 0) { toc.jump(i); return }
+    }
+    if (tries < 30) setTimeout(tick, 100)
+  }
+  setTimeout(tick, 100)
+}

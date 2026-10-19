@@ -651,5 +651,9 @@
   "할 일 완료 칸": "To-do done box",
   "파일 보기": "View file",
   "옮긴 파일 알림": "Moved file notice",
-  "지운 파일 알림": "Deleted file notice"
+  "지운 파일 알림": "Deleted file notice",
+  "검토할 노트 표": "Notes to review table",
+  "노트 열기": "Open note",
+  "바뀐 곳 머리": "Changes header",
+  "노트에서 이 자리로": "Go to this spot in the note"
 }
