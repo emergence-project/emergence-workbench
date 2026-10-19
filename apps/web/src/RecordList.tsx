@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
 import { commentsApi, ConflictError, type CommentEntry, type CommentFile, type RecordFile } from './api'
 import { askClaude, askErrors, asking, askKey, bumpPending, keyOf, load, patch, useAskTick, useSlot } from './Comments'
@@ -247,17 +248,12 @@ function TodoTalk({ records, busy, onSend, onCancel }: { records: CommentEntry[]
   </div>
 }
 
-/** 쓴 이 이름: Claude가 쓴 기록 · 답은 이름 앞에 무채색 Claude 표시 (10/19 피드백 "무채색 로고". 주황은 내 차례에만) */
-function Author({ by }: { by: string }) {
-  return <>{/^claude/i.test(by) && <span className="ico agent-mark" aria-hidden>{Icon.claude}</span>}{by}</>
-}
-
 /** 기록 파일에 적을 때 머리처럼 보이는 줄 앞에 붙인 \를 보일 때만 뗀다 */
 const unguard = (s: string) => s.replace(/^\\(?=#{1,6} )/gm, '')
 
 function RecordAnswer({ answer, busy = false, onApply }: { answer: CommentEntry['answers'][number]; busy?: boolean; onApply?(): void }) {
   const mine = answer.by === USER_ANSWER_BY
-  return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head"><span>{mine ? t('이어 씀', 'Follow-up') : t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· {mine ? t('사용자', 'User') : answer.by}</span><span className="muted cmt-time">· {answer.at}</span></div>
+  return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head"><span>{mine ? t('이어 씀', 'Follow-up') : t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· {mine ? t('사용자', 'User') : <Author by={answer.by} />}</span><span className="muted cmt-time">· {answer.at}</span></div>
     <AnswerBody answer={answer} busy={busy} onApply={onApply} />
   </div>
 }
