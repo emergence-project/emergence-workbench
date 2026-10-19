@@ -25,6 +25,7 @@ import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
 import { AUX_NOTE, shortLabel } from './notes'
 import { StatementTab } from './StatementTab'
 import { DocTab, MaterialsNav } from './Materials'
+import { RepoFileTab } from './RepoFileTab'
 import { blockTarget, commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNoteEditor } from './Library'
@@ -283,6 +284,7 @@ export function App() {
       })()
       : route.page === 'block' ? [{ label: AUX_NOTE }, { label: blockTitle! }]
       : route.page === 'doc' ? [{ label: t('자료', 'Materials') }, { label: route.name }]
+      : route.page === 'file' ? [{ label: t('파일', 'File') }, { label: route.path }]
         : route.page === 'concept' || route.page === 'paper' ? [{ label: route.page === 'concept' ? t('개념노트', 'Concept note') : t('문헌노트', 'Literature note') }, { label: library?.notes.find((n) => n.kind === route.page && n.id === route.id)?.title ?? route.id }]
         : route.page === 'task' ? [{ label: t('작업', 'Work'), to: { page: 'todo', rid } as Route }, { label: taskTitles.get(route.task) ?? route.task }]
         : route.page === 'topic' ? [{ label: route.tid === LOOSE_TOPIC_ID ? LOOSE_NOTES_LABEL : topics.find((x) => x.id === route.tid)?.title ?? route.tid }]
@@ -361,6 +363,7 @@ export function App() {
       case 'block': return <BlockPage key={`${rid}/${t.bid}`} rid={rid} bid={t.bid} rapi={rapi} summary={summary} manuscripts={manuscripts} bus={bus} onChanged={changed} onSaved={flash} library={library} onLibraryChanged={libraryChanged}
         tocOwner={context?.focused ? tabKey(t) : null} onShowPdf={() => setLayout((l) => showBeside(l, { k: 'pdf', bid: t.bid }, tabKey(t)))} />
       case 'doc': return <DocTab rid={rid} name={t.name} rapi={rapi} />
+      case 'file': return <RepoFileTab key={`${rid}/${t.path}`} rid={rid} path={t.path} />
       case 'part': return <PartTab key={`${rid}/${t.file}`} rid={rid} file={t.file} info={msOfFile(t.file)} rapi={rapi} summary={summary} bus={bus} onSaved={flash} library={library} onLibraryChanged={libraryChanged}
         row={notes.find((n) => n.type !== 'block' && n.file === t.file) ?? null} tocOwner={context?.focused ? tabKey(t) : null} onChanged={() => { changed(); notesChanged() }}
         onShowPdf={() => setLayout((l) => showBeside(l, manuscriptPdfTab(msOfFile(t.file)?.key ?? ''), tabKey(t)))} />
@@ -571,6 +574,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'block': return summary?.blocks.find((b) => b.id === tab.bid)?.title ?? tab.bid
     case 'pdf': return `${L('결과', 'Result')} · ${summary?.blocks.find((b) => b.id === tab.bid)?.title ?? tab.bid}`
     case 'doc': return tab.name
+    case 'file': return tab.path.split('/').pop()!
     case 'task': return taskTitles.get(tab.task) ?? tab.task
     case 'topic': return tab.tid === LOOSE_TOPIC_ID ? (ko ? LOOSE_NOTES_UI : LOOSE_NOTES_LABEL) : topics.find((x) => x.id === tab.tid)?.title ?? tab.tid
     case 'part': return manuscripts.flatMap((m) => m.parts).find((p) => p.file === tab.file && !p.line)?.title ?? manuscripts.find((m) => m.main === tab.file)?.name ?? tab.file.split('/').pop()!

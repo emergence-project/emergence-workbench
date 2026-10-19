@@ -31,6 +31,7 @@ import { registerBlocks } from './routes/blocks.js'
 import { registerProject } from './routes/project.js'
 import { registerManuscript } from './routes/manuscript.js'
 import { registerMaterials } from './routes/materials.js'
+import { registerFiles } from './routes/files.js'
 import { registerJournal } from './routes/journal.js'
 import { registerComments } from './routes/comments.js'
 import { registerGoogle } from './routes/google.js'
@@ -306,6 +307,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerProject(app, ctx)
   registerManuscript(app, ctx)
   registerMaterials(app, ctx)
+  registerFiles(app, ctx)
   registerJournal(app, ctx)
   registerComments(app, ctx)
   registerTopics(app, ctx)

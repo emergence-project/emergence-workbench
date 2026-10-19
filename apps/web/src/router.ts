@@ -13,6 +13,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/r/<연구>/log        기록
  *   #/r/<연구>/k/<작업>    맡긴 일의 보고서 (workbench/tasks/<작업>.md)
  *   #/r/<연구>/m/<파일>    자료 (materials/의 PDF·그림)
+ *   #/r/<연구>/f/<경로>    저장소 파일 읽기 (기록 글 속 경로를 눌러 연다. 옮긴 · 지운 파일도, 10/19)
  *   #/r/<연구>/w/<파일>    원고의 장·부록 (research.yaml sources.manuscript)
  *   #/about[/<쪽>]        이 앱 소개 (쪽마다 한 주제: 한눈에, 홈, 프로젝트, 노트 …)
  *   #/settings[/<부분>[/<PR>]] 설정 (update/<PR>: 업데이트 이력의 그 줄) (왼쪽 사이드바로 부분을 고른다. latex = LaTeX 서식, 예전 #/latex도 여기로)
@@ -70,6 +71,7 @@ export type Route =
   | { page: 'log'; rid: string }
   | { page: 'block'; rid: string; bid: string }
   | { page: 'doc'; rid: string; name: string }
+  | { page: 'file'; rid: string; path: string }
   | { page: 'part'; rid: string; file: string }
   | { page: 'topic'; rid: string; tid: string }
   | { page: 'task'; rid: string; task: string }
@@ -98,6 +100,7 @@ export function parseRoute(hash: string): Route {
     if (parts[2] === 'log') return { page: 'log', rid: parts[1] }
     if (parts[2] === 'b' && parts[3]) return { page: 'block', rid: parts[1], bid: parts[3] }
     if (parts[2] === 'm' && parts[3]) return { page: 'doc', rid: parts[1], name: parts[3] }
+    if (parts[2] === 'f' && parts[3]) return { page: 'file', rid: parts[1], path: parts[3] }
     if (parts[2] === 'w' && parts[3]) return { page: 'part', rid: parts[1], file: parts[3] }
     if (parts[2] === 't' && parts[3]) return { page: 'topic', rid: parts[1], tid: parts[3] }
     if (parts[2] === 'k' && parts[3]) return { page: 'task', rid: parts[1], task: parts[3] }
@@ -193,6 +196,7 @@ export function href(r: Route): string {
     case 'log': return `#/r/${e(r.rid)}/log`
     case 'block': return `#/r/${e(r.rid)}/b/${e(r.bid)}`
     case 'doc': return `#/r/${e(r.rid)}/m/${e(r.name)}`
+    case 'file': return `#/r/${e(r.rid)}/f/${e(r.path)}`
     case 'part': return `#/r/${e(r.rid)}/w/${e(r.file)}`
     case 'topic': return `#/r/${e(r.rid)}/t/${e(r.tid)}`
     case 'task': return `#/r/${e(r.rid)}/k/${e(r.task)}`

@@ -1,0 +1,14 @@
+/* 저장소 파일 읽기 탭 (RepoFileTab.tsx, 10/19): 기록 글 속 경로를 눌러 연다. 읽기만 */
+.ws-doc.file-tab { flex-direction: column; }
+.file-tab .file-notice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin: var(--sp-2) var(--sp-4) 0; padding: var(--sp-2) var(--sp-3); background: var(--bg-side); border: 1px solid var(--line); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); overflow-wrap: anywhere; }
+.file-tab .file-text { margin: 0; padding: var(--sp-4); font: var(--editor-size)/1.6 var(--editor-font); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.file-tab .file-frame { width: 100%; height: 100%; border: 0; display: block; }
+.file-tab .file-image { display: grid; place-items: center; padding: var(--sp-4); }
+.file-tab .file-image img { max-width: 100%; }
+.file-tab .file-cut { padding: 0 var(--sp-4) var(--sp-4); font-size: var(--fs-xs); }
+
+/* 기록 글 속 경로 링크: 무채색 코드 글자에 밑줄만, 옮김 · 지움은 옆에 옅게 */
+.memo-path { padding: 0; border: 0; background: none; cursor: pointer; color: inherit; font: inherit; text-align: left; }
+.memo-path .memo-code { text-decoration: underline; text-decoration-color: var(--text-3); text-underline-offset: 2px; }
+.memo-path:hover .memo-code, .memo-path:focus-visible .memo-code { border-color: var(--text-3); }
+.memo-path-note { margin-left: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
