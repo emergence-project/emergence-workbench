@@ -22,7 +22,7 @@ function visibleText(root: HTMLElement): { text: string; points: (TextPoint | nu
       return
     }
     if (!(node instanceof HTMLElement)) return
-    if (node.matches('.katex-mathml, .md-eqno, script, style, [hidden]')) return
+    if (node.matches('.katex-mathml, .md-eqno, .md-secno, script, style, [hidden]')) return
     // A formula reads as its TeX source between $ marks, as in the note source, so a selection
     // that starts or ends inside rendered math still maps to the source (10/7 12:12).
     const tex = node.matches('.katex') ? node.querySelector('.katex-mathml annotation')?.textContent : null
