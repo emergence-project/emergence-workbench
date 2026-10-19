@@ -132,3 +132,24 @@
 .net-card-tags { flex-wrap: nowrap; min-width: 0; align-items: center; }
 .net-card-tags .tag { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .net-card-tags .net-more { flex: none; }
+
+/* 사람 페이지 (10/19): 사진 · 새 논문 · 나오는 곳 · Semantic Scholar 저자 */
+.net-avatar.photo { overflow: hidden; background: none; }
+.net-avatar.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.net-photo { position: relative; display: inline-flex; border-radius: 50%; overflow: hidden; cursor: pointer; flex: none; }
+.net-photo-cam { position: absolute; inset: auto 0 0 0; padding: 2px 0; background: var(--bg); color: var(--text-2); border-top: 1px solid var(--line); font-size: var(--fs-2xs); text-align: center; opacity: 0; transition: opacity .12s; }
+.net-photo:hover .net-photo-cam, .net-photo:focus-within .net-photo-cam { opacity: 1; }
+.net-new-n { font-variant-numeric: tabular-nums; color: var(--text-2); }
+.net-new-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-3); }
+.net-title-row { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.net-new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--s-progress); flex: none; transform: translateY(-1px); }
+.net-new-acts { display: flex; flex-wrap: wrap; gap: var(--sp-3); font-size: var(--fs-xs); margin-top: 2px; }
+.net-new-hint { font-size: var(--fs-xs); margin-top: var(--sp-2); }
+.net-appears { margin-top: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+.net-appear { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.net-appear-rec { font-size: var(--fs-sm); text-align: left; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s2-row { display: flex; gap: var(--sp-2); min-width: 0; }
+.s2-row .td-in { flex: 1; min-width: 0; }
+.s2-list { display: flex; flex-direction: column; gap: var(--sp-1); margin-top: var(--sp-1); }
+.s2-cand { display: flex; gap: var(--sp-2); align-items: baseline; font-size: var(--fs-sm); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); border: 1px solid var(--line); }
+.s2-cand.on { border-color: var(--line-strong); background: var(--bg-sunken); }

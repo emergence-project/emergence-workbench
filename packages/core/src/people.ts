@@ -22,6 +22,8 @@ export interface Person {
   /** 그 밖의 이메일 (10/4 20:53) */
   emails?: string[]
   homepage?: string
+  /** Semantic Scholar 저자 ID (10/19 사람 페이지): 있으면 새 논문을 이 ID로 찾는다(동명이인이 섞이지 않음), 없으면 arXiv 이름 검색 */
+  s2?: string
 }
 
 const MAX_PEOPLE = 100
@@ -44,9 +46,10 @@ export function normalizePeople(raw: unknown): Person[] {
     const email = oneLine(p.email)
     const emails = Array.isArray(p.emails) ? [...new Set(p.emails.map(oneLine).filter((e) => e && e !== email))].slice(0, 5) : []
     const homepage = /^https?:\/\//i.test(oneLine(p.homepage)) ? oneLine(p.homepage) : ''
+    const s2 = /^\d{1,15}$/.test(oneLine(p.s2)) ? oneLine(p.s2) : ''
     out.push({
       name, ...(aliases.length && { aliases }), ...(note && { note }), ...(tags.length && { tags }), ...(p.star === true && { star: true }),
-      ...(affiliations.length && { affiliations }), ...(email && { email }), ...(email && emails.length && { emails }), ...(homepage && { homepage }),
+      ...(affiliations.length && { affiliations }), ...(email && { email }), ...(email && emails.length && { emails }), ...(homepage && { homepage }), ...(s2 && { s2 }),
     })
   }
   return out
