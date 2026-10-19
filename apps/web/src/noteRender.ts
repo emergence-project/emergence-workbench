@@ -49,6 +49,13 @@ export function renderNote(text: string, options: RenderOptions, asset?: (name: 
     .replace(/<p>\u0003F(\d+)\u0003<\/p>/g, (_, k: string) => figure(k))
     .replace(/\u0003F(\d+)\u0003/g, (_, k: string) => figure(k))
     .replace(/\u0003N(\d+)\u0003/g, (_, k: string) => renderNoteFootnote(r.footnotes[Number(k)] ?? '', Number(k), options))
+  // 앱이 붙인 절 번호는 원문에 없어서 따로 감싼다: 기록이 고른 글을 원문에서 찾을 때 뺀다(recordMarks, 10/19 "제목을 골라도 메뉴가 안 뜸")
+  let head = 0
+  html = html.replace(/<h([1-6])([^>]*)>/g, (tag: string) => `${tag}\u0005${head++}\u0005`)
+    .replace(/\u0005(\d+)\u0005([^<]*)/g, (_, k: string, rest: string) => {
+      const n = r.headingNumbers[Number(k)]
+      return n && rest.startsWith(`${n} `) ? `<span class="md-secno">${n}</span>${rest.slice(n.length)}` : rest
+    })
   if (r.footnotes.length) html += `<ol class="md-fns">${r.footnotes.map((f) => `<li>${noteInline(f, options)}</li>`).join('')}</ol>`
   return html
 }

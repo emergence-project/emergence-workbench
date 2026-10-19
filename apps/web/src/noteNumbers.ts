@@ -10,7 +10,11 @@ import { footnoteEnd, stripHtmlComments } from '@rw/core'
  * 그림과 각주는 자리표시(\u0003F0\u0003, \u0003N0\u0003)로 두고, 그린 HTML에서 바꾼다.
  */
 export interface NoteFigure { n: string; file: string; caption: string }
-export interface NumberedNote { text: string; figures: NoteFigure[]; footnotes: string[] }
+export interface NumberedNote {
+  text: string; figures: NoteFigure[]; footnotes: string[]
+  /** 제목마다 앱이 앞에 붙인 절 번호(제목이 번호를 가졌거나 번호 밖 깊이면 null). 읽기 화면이 번호를 따로 감싸 원문 찾기에서 뺀다 */
+  headingNumbers: (string | null)[]
+}
 export interface NoteSourceSpan { from: number; to: number }
 export interface NoteNumberDetails {
   displays: (NoteSourceSpan & { tex: string })[]
@@ -145,6 +149,7 @@ export function numberNote(src: string, details?: NoteNumberDetails): NumberedNo
   const sec = [0, 0, 0, 0, 0, 0]
   let appendix = false
   const out: string[] = []
+  const headingNumbers: (string | null)[] = []
   let fence = false
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!
@@ -163,8 +168,10 @@ export function numberNote(src: string, details?: NoteNumberDetails): NumberedNo
         const n = sec.slice(0, depth + 1).map((x, k) => (k === 0 && appendix ? letters(x) : String(x))).join('.')
         if (label) labels.set(label, n)
         // Keep section counters and labels even when the title supplies its own number.
-        out.push(`${h[1]} ${HEADING_NUMBER.test(title) ? title : `${n} ${title}`}`)
-      } else out.push(`${h[1]} ${title}`)
+        const own = HEADING_NUMBER.test(title)
+        headingNumbers.push(own ? null : n)
+        out.push(`${h[1]} ${own ? title : `${n} ${title}`}`)
+      } else { headingNumbers.push(null); out.push(`${h[1]} ${title}`) }
       continue
     }
     if (t.startsWith('$$')) {
@@ -226,5 +233,5 @@ export function numberNote(src: string, details?: NoteNumberDetails): NumberedNo
     footnotes.push(text.slice(at + 2, end).trim())
     text = `${text.slice(0, at)}\u0003N${footnotes.length - 1}\u0003${text.slice(end + 1)}`
   }
-  return { text, figures, footnotes }
+  return { text, figures, footnotes, headingNumbers }
 }
