@@ -1,4 +1,5 @@
 import { canonicalNoteFile, commentTargetSlug as slug } from '@rw/core'
+import { Author } from './Author'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { commentsApi, ConflictError, papersApi, type CommentEntry, type CommentFile, type CommentKind, type CommentState, type NewComment, type PaintColor, type NoteHighlight, type PdfBox } from './api'
 import { PdfView, type PdfMark, type PdfPaint, type PdfSelection } from './PdfView'
@@ -432,7 +433,7 @@ function CommentItem({ c, on, ref_, asking, onAsk, onGo, onState, onDelete }: {
       {c.body && <div className="cmt-body">{c.body}</div>}
       {c.answers.map((a, i) => (
         <div key={i} className="cmt-answer">
-          <div className="cmt-answer-head"><span>{t('답', 'Answer')}</span><span className="cmt-answer-by" title={a.by}>· {a.by}</span><span className="muted cmt-time">· {a.at}</span></div>
+          <div className="cmt-answer-head"><span>{t('답', 'Answer')}</span><span className="cmt-answer-by" title={a.by}>· <Author by={a.by} /></span><span className="muted cmt-time">· {a.at}</span></div>
           {/* 답은 에이전트가 쓴 마크다운(목록·굵게·$수식$)이라 메모처럼 그린다 */}
           <div className="cmt-body"><MemoText text={a.body} /></div>
         </div>
