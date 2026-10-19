@@ -145,3 +145,5 @@ button.t:hover { text-decoration: underline; }
 .ov-profile dt { color: var(--text-3); }
 .ov-profile dd { margin: 0; display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; min-width: 0; }
 .ov-state { display: inline-flex; align-items: center; gap: 3px; margin-left: var(--sp-2); color: var(--text-2); }
+/* 할 일 줄의 완료 칸 (10/19): 기록 탭의 할 일 칸과 같은 체크 칸 */
+input.now-done { margin: 0; width: 13px; height: 13px; align-self: center; justify-self: center; accent-color: var(--text); cursor: pointer; }
