@@ -119,11 +119,13 @@ function AuthorSection({ pool, order, setOrder }: { pool: PersonView[] | null; o
  */
 type Group = 'paper' | 'note'
 type DateMode = 'none' | 'today' | 'pick'
-interface GroupChoice { withAuthors: boolean; dateMode: DateMode; date: string }
+/** records: 컴파일한 PDF에 기록 넣기 (10/19 결정 "PDF에 기록", 처음엔 끔) */
+type RecordsMode = 'off' | 'open' | 'all'
+interface GroupChoice { withAuthors: boolean; dateMode: DateMode; date: string; records: RecordsMode }
 interface Saved { template?: string; paper?: Partial<GroupChoice>; note?: Partial<GroupChoice> }
 const DEFAULTS: Record<Group, GroupChoice> = {
-  paper: { withAuthors: true, dateMode: 'today', date: '' },
-  note: { withAuthors: false, dateMode: 'none', date: '' },
+  paper: { withAuthors: true, dateMode: 'today', date: '', records: 'off' },
+  note: { withAuthors: false, dateMode: 'none', date: '', records: 'off' },
 }
 const optKey = (rid: string) => `rw.exportOptions.${rid}`
 const CHANGED = 'rw-export-options'
@@ -156,6 +158,7 @@ export function savedLatexChoice(rid: string, group: Group): ExportChoice {
       ? Array.isArray(order) && { authors: order.filter((n): n is string => typeof n === 'string') }
       : { authors: [] }),
     date: choice.dateMode === 'pick' ? (choice.date || todayIso()) : choice.dateMode,
+    ...(choice.records !== 'off' && { records: choice.records }),
   }
 }
 export const groupOf = (ms: Pick<ManuscriptInfo, 'kind'>): Group => (ms.kind === 'paper' ? 'paper' : 'note')
@@ -194,12 +197,14 @@ function useExportChoice(rid: string, group: Group, on: boolean, authorsOn = on)
     ...(template && { template }),
     authors: choice.withAuthors ? au.order : [],
     date: choice.dateMode === 'pick' ? (choice.date || todayIso()) : choice.dateMode,
+    ...(choice.records !== 'off' && { records: choice.records }),
   }
   return { opts, base, template, setTemplate, choice, setChoice, reset, isDefault, au, ready, query }
 }
 
 /** 서식·저자·날짜 고르기. 한 줄에 하나씩, 왼쪽에 이름 */
-function ExportOptionsForm({ c, title = t('내보내기 설정', 'Export settings') }: { c: ReturnType<typeof useExportChoice>; title?: string }) {
+/** records: 컴파일 설정에서만 "기록 넣기" 칸을 보인다 (내보내기 zip은 원본 LaTeX라 넣지 않는다) */
+function ExportOptionsForm({ c, title = t('내보내기 설정', 'Export settings'), records = false }: { c: ReturnType<typeof useExportChoice>; title?: string; records?: boolean }) {
   const { opts, base, template, choice } = c
   return (
     <>
@@ -228,6 +233,18 @@ function ExportOptionsForm({ c, title = t('내보내기 설정', 'Export setting
             </div>
             {choice.dateMode === 'pick' && <input type="date" className="ex-date" aria-label={t('넣을 날짜', 'Date to use')} value={choice.date || todayIso()} onChange={(e) => c.setChoice({ date: e.target.value })} />}
           </div>
+          {records && <>
+            <span className="ex-label ex-label-top">{t('기록', 'Records')}</span>
+            <div className="ex-records" data-ui="기록 넣기">
+              <label className="ex-check"><input type="checkbox" checked={choice.records !== 'off'} onChange={(e) => c.setChoice({ records: e.target.checked ? 'open' : 'off' })} />{t('기록 넣기', 'Include records')}</label>
+              {choice.records !== 'off' && <div className="segmented small" role="radiogroup" aria-label={t('넣을 기록', 'Records to include')}>
+                {([['open', t('진행 중만', 'Open only')], ['all', t('완료도', 'Done too')]] as const).map(([v, label]) => (
+                  <button key={v} role="radio" aria-checked={choice.records === v} className={choice.records === v ? 'on' : ''} onClick={() => c.setChoice({ records: v })}>{label}</button>
+                ))}
+              </div>}
+              <span className="muted ex-hint">{t('고른 글은 하이라이트로(누르면 기록 글과 답), 고른 글이 없는 기록은 쪽지로 PDF에 넣습니다. 노트 파일은 바뀌지 않습니다.', 'Selected text becomes a highlight (click it for the record and answers), and records without selected text become notes in the PDF. The note file does not change.')}</span>
+            </div>
+          </>}
         </div>
       </div>
       {choice.withAuthors && <AuthorSection {...c.au} />}
@@ -326,7 +343,7 @@ export function CompileSettings({ rid, ms, disabled, onCompile, control }: { rid
           <button className="btn" disabled={c.isDefault} onClick={c.reset}>{t('기본값으로 되돌리기', 'Reset to defaults')}</button>
           <button className="btn" onClick={() => setOpen(false)}>{t('닫기', 'Close')}</button>
         </>}>
-          <ExportOptionsForm c={c} title={t('컴파일 설정', 'Compile settings')} />
+          <ExportOptionsForm c={c} title={t('컴파일 설정', 'Compile settings')} records />
           <p className="muted ex-note">{t('고른 것은 이 프로젝트에 기억되어 ▶ 컴파일과 내보내기가 같이 씁니다. 처음 값은 프로젝트 서식입니다.', 'Your choice is remembered for this project and used by both ▶ Compile and Export. The default is the project template.')}</p>
         </PopDialog>
       )}

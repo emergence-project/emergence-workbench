@@ -667,5 +667,8 @@
   "수동 자동": "Manual or auto",
   "간격": "Interval",
   "간격 직접": "Custom interval",
-  "안 올린 기록": "Records not pushed"
+  "안 올린 기록": "Records not pushed",
+  "기록 넣기": "Include records",
+  "PDF 쪽지": "PDF note",
+  "PDF 쪽지 글": "PDF note text"
 }

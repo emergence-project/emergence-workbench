@@ -24,6 +24,7 @@ import { groupPartProblems } from './partProblems'
 import { useFileEvents } from './autosave'
 import { useNoteEdit } from './noteEdit'
 import { plural, t } from './i18n'
+import { flash } from './flash'
 
 /** 원고 전체가 한 PDF라 메인 노트마다 세션 하나 */
 export const msKey = (rid: string, ms = '') => sessionKey(rid, ms ? `__manuscript-${ms}` : '__manuscript')
@@ -58,7 +59,12 @@ export async function compileManuscript(rid: string, rapi: ResearchApi, info: Pi
   if (!info) throw new Error(t('원고 정보를 읽은 뒤 컴파일하세요.', 'Compile after the manuscript info has loaded.'))
   const ms = info.key
   const key = msKey(rid, ms)
-  await runManuscriptCompile(key, () => rapi.compileManuscript(ms, savedLatexChoice(rid, groupOf(info))))
+  await runManuscriptCompile(key, () => rapi.compileManuscript(ms, savedLatexChoice(rid, groupOf(info))).then((r) => {
+    // 컴파일 설정의 "기록 넣기" (10/19): 넣은 수, 넣으니 실패해 기록 없이 다시 만든 것
+    if (r.records?.failed) flash(t('기록을 넣으니 컴파일이 실패해, 기록 없이 PDF를 만들었습니다', 'Compiling with records failed, so the PDF was made without them'))
+    else if (r.records?.added) flash(t(`기록 ${r.records.added}개를 PDF에 넣었습니다`, `Added ${plural(r.records.added, 'record')} to the PDF`))
+    return r
+  }))
 }
 
 /**
@@ -106,7 +112,7 @@ function partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, c
 }): ToolbarItem[] {
   const note = !!info && info.kind !== 'paper' && info.main === file
   return [
-    ...(info && !info.ownHeader ? [{ label: t('컴파일 서식 고르기…', 'Choose compile template…'), ui: '컴파일 설정', tip: t('서식·저자·날짜를 고릅니다. ▶ 컴파일과 내보내기가 같이 씁니다', 'Choose template, authors and date. Used by both ▶ Compile and Export'), onClick: csOpen }] : []),
+    ...(info && !info.ownHeader ? [{ label: t('컴파일 서식 고르기…', 'Choose compile template…'), ui: '컴파일 설정', tip: t('서식·저자·날짜와 기록 넣기를 고릅니다. ▶ 컴파일과 내보내기가 같이 씁니다(기록은 컴파일만)', 'Choose template, authors, date and whether to include records. Used by both ▶ Compile and Export (records: compile only)'), onClick: csOpen }] : []),
     ...(onShowPdf ? [{ label: t('PDF 보기', 'View PDF'), ui: 'PDF 보기', tip: t('지난번 컴파일한 PDF를 옆 패널에 엽니다', 'Opens the last compiled PDF in the other pane'), onClick: onShowPdf, disabled: !info?.hasPdf }] : []),
     ...(info ? [{ label: t('내보내기…', 'Export…'), ui: '노트 내보내기', tip: t('그대로 컴파일되는 LaTeX 폴더(zip)로 받습니다', 'Download as a LaTeX folder (zip) that compiles as is'), onClick: exOpen }] : []),
     { label: t('파일 다시 읽기', 'Reload file'), ui: '파일 다시 읽기', tip: t('파일을 다시 읽습니다. 이 화면에서 저장하지 않은 고침은 버립니다', 'Reads the file again. Unsaved edits on this screen are discarded'), onClick: reload },

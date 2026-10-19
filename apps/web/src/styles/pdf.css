@@ -93,3 +93,9 @@
 .pdf-selmenu .pdf-sep { width: 1px; margin: 3px 2px; background: color-mix(in srgb, var(--bg) 30%, transparent); }
 .pdf-selmenu .ico svg { width: 14px; height: 14px; }
 .pdf-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px var(--line-strong); margin-left: -2px; }
+/* PDF에 넣은 기록 (컴파일 설정 "기록 넣기", 10/19): 쪽지 아이콘과 누른 주석의 글 상자 */
+.pdf-note { position: absolute; z-index: 3; width: 20px; height: 20px; border-radius: var(--r-xs); background: var(--bg); border: 1px solid var(--line-strong); box-shadow: var(--shadow-sm); display: grid; place-items: center; color: var(--text-2); cursor: pointer; padding: 0; }
+.pdf-note svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.pdf-note.on { background: var(--focus); }
+.pdf-note-card { position: absolute; z-index: 4; width: 260px; max-width: 80%; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm); box-shadow: var(--shadow); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); color: var(--text); display: flex; flex-direction: column; gap: var(--sp-1); white-space: pre-wrap; }
+.pdf-note-card b { font-size: var(--fs-xs); color: var(--text-2); font-weight: var(--fw-medium); }
