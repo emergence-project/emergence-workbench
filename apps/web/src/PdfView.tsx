@@ -71,6 +71,25 @@ function mergeLines(rects: number[][]): number[][] {
   return lines.map((r) => r.map((n) => Math.round(n * 10) / 10))
 }
 
+/** PDF 안의 주석 (컴파일 설정 "기록 넣기"로 넣은 쪽지 · 하이라이트, 10/19). 자리는 쪽 왼쪽 위 원점의 포인트 */
+interface PdfNote { kind: 'note' | 'mark'; x: number; y: number; w: number; h: number; title: string; text: string }
+const NO_NOTES: PdfNote[] = []
+
+/** 쪽지 아이콘과 누른 주석의 글. 하이라이트는 캔버스가 그리고, 누르면 같은 글 상자가 열린다 */
+const NoteLayer = memo(function NoteLayer({ notes, scale, open, onOpen }: { notes: PdfNote[]; scale: number; open: number | null; onOpen(i: number | null): void }) {
+  const shown = open !== null ? notes[open] : undefined
+  return <>
+    {notes.map((n, i) => n.kind === 'note' && (
+      <button key={i} className={`pdf-note${open === i ? ' on' : ''}`} data-ui="PDF 쪽지" aria-label={n.title} title={n.title}
+        style={{ left: n.x * scale, top: n.y * scale }} onClick={(e) => { e.stopPropagation(); onOpen(open === i ? null : i) }}>{Icon.memo}</button>
+    ))}
+    {shown && <div className="pdf-note-card" data-ui="PDF 쪽지 글" style={{ left: Math.max(0, (shown.x + shown.w) * scale - 260), top: (shown.y + shown.h) * scale + 4 }} onClick={(e) => e.stopPropagation()}>
+      <b>{shown.title}</b>
+      <div>{shown.text}</div>
+    </div>}
+  </>
+})
+
 let measureCtx: CanvasRenderingContext2D | null = null
 /**
  * 고를 수 있는 글자 층: 보이지 않는 글자를 캔버스의 글자 자리에 겹쳐 둔다 (pdf.js 텍스트 층과 같은 방식).
@@ -108,6 +127,9 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [pages, setPages] = useState<RenderedPage[]>([])
   const [texts, setTexts] = useState<Map<number, TextPiece[]>>(new Map())
+  const [notes, setNotes] = useState<Map<number, PdfNote[]>>(new Map())
+  /** 열린 PDF 주석: 쪽과 그 쪽의 번호 */
+  const [noteOpen, setNoteOpen] = useState<{ page: number; i: number } | null>(null)
   const [zoom, setZoom] = useState(1)
   const [error, setError] = useState<string | null>(null)
   const canvases = useRef(new Map<number, HTMLCanvasElement>())
@@ -146,6 +168,8 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         }
         if (cancelled) return
         setTexts(new Map())
+        setNotes(new Map())
+        setNoteOpen(null)
         setPages(info)
         setDoc(d)
         setSel(null)
@@ -198,6 +222,16 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
             ? [{ str: it.str, x: it.transform[4] as number, y: info.heightPt - (it.transform[5] as number), w: it.width, h: it.height || Math.hypot(it.transform[2] as number, it.transform[3] as number) }]
             : []))
           setTexts((prev) => new Map(prev).set(n, pieces))
+          // 쪽지(Text) · 하이라이트(Highlight) 주석: 글이 있는 것만
+          const annots = (await (await doc.getPage(n)).getAnnotations()) as { subtype?: string; rect?: number[]; contentsObj?: { str?: string }; titleObj?: { str?: string } }[]
+          const found = annots.flatMap((a): PdfNote[] => {
+            const text = (a.contentsObj?.str ?? '').replace(/\r\n?/g, '\n').trim()
+            if ((a.subtype !== 'Text' && a.subtype !== 'Highlight') || !text || !a.rect) return []
+            const [x1, y1, x2, y2] = a.rect as [number, number, number, number]
+            const [title, ...rest] = text.split('\n')
+            return [{ kind: a.subtype === 'Text' ? 'note' : 'mark', x: x1, y: info.heightPt - y2, w: x2 - x1, h: y2 - y1, title: title ?? a.titleObj?.str ?? '', text: rest.join('\n').trim() }]
+          })
+          if (found.length) setNotes((prev) => new Map(prev).set(n, found))
         } catch { /* 문서가 바뀌어 닫힘 */ }
       })()
     }
@@ -339,10 +373,14 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
             style={{ width: p.widthPt * scale, height: p.heightPt * scale }}
             onClick={(e) => {
               if (!window.getSelection()?.isCollapsed) return // 글을 고르는 중
-              if ((e.target as HTMLElement).closest('.pdf-pin, .pdf-selmenu, .record-menu')) return
+              if ((e.target as HTMLElement).closest('.pdf-pin, .pdf-selmenu, .record-menu, .pdf-note, .pdf-note-card')) return
               const rect = e.currentTarget.getBoundingClientRect()
               const x = (e.clientX - rect.left) / scale
               const y = (e.clientY - rect.top) / scale
+              // PDF에 넣은 하이라이트를 누르면 그 글 상자 (10/19 "기록 넣기")
+              const mark = (notes.get(p.page) ?? []).findIndex((q) => q.kind === 'mark' && x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h)
+              if (mark >= 0) { setNoteOpen({ page: p.page, i: mark }); return }
+              if (noteOpen) setNoteOpen(null)
               const hit = paints?.find((q) => q.page === p.page && q.rects.some((r) => x >= r[0]! && x <= r[0]! + r[2]! && y >= r[1]! && y <= r[1]! + r[3]!))
               if (hit && paintMenu) { setMenuAnchor({ x: e.clientX, y: e.clientY }); setPaintOpen(hit.id); return }
               onPick(p.page, x, y, textAt(texts.get(p.page) ?? [], x, y))
@@ -362,6 +400,7 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
               </div>
             ))}
             {near.has(p.page) && <TextLayer pieces={texts.get(p.page) ?? NO_TEXT} scale={scale} />}
+            {near.has(p.page) && notes.has(p.page) && <NoteLayer notes={notes.get(p.page) ?? NO_NOTES} scale={scale} open={noteOpen?.page === p.page ? noteOpen.i : null} onOpen={(i) => setNoteOpen(i === null ? null : { page: p.page, i })} />}
             {highlight.filter((b) => b.page === p.page).map((b, i) => (
               <div
                 key={i}

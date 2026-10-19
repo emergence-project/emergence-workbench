@@ -6,6 +6,7 @@ import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { allManuscripts, compileManuscript, manuscriptEdit, manuscriptInfo, manuscriptKind, manuscriptPdfBytes, manuscriptPdfState, manuscriptView, noteAsset, NOTE_ASSET, readPart, writePart, type ManuscriptCompileOptions } from '../manuscript.js'
+import { recordScopeOf } from '../pdfRecords.js'
 import { mainNoteCandidates, setMainNote, unsetMainNote } from '../mainNote.js'
 import { createNote, makeAllBodyOnly, makeBodyOnly } from '../noteCopy.js'
 import { writeNoteMeta } from '../noteMeta.js'
@@ -62,7 +63,8 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
   const libraryBibOf = (): { libraryBib?: string } => (registry.libraryPath ? { libraryBib: path.join(registry.libraryPath, LIBRARY_BIB) } : {})
   const compileOptions = (wb: ReturnType<typeof wbOf>, q: Pick & { ms?: string }, rid: string): ManuscriptCompileOptions => {
     const { template, ...pick } = latexPick(wb, q, true, manuscriptKind(wb, msq(q)))
-    return { engine: registry.engine, template, authors: registry.authors, shared: sharedMacrosTex(registry.libraryPath), pick, figures: figureEmbedResolver(registry, rid), ...libraryBibOf() }
+    const records = recordScopeOf(q.rec)
+    return { engine: registry.engine, template, authors: registry.authors, shared: sharedMacrosTex(registry.libraryPath), pick, figures: figureEmbedResolver(registry, rid), ...libraryBibOf(), ...(records && { records }) }
   }
   // 본문만 있는 노트는 고른 서식(없으면 research.yaml의 latex-template:, 그것도 없으면 내보내기 기본 서식)으로 감싼다
   app.post<{ Params: { rid: string }; Querystring: { ms?: string } & Pick }>('/api/researches/:rid/manuscript/compile', replies(C.ManuscriptCompileResult), async (req): Promise<C.ManuscriptCompileResult> => {

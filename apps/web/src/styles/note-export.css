@@ -67,3 +67,9 @@ a.btn[download] { text-decoration: none; }
 
 /* 컴파일 설정 단추: 지금 서식 이름 (10/4 20:56) */
 .cs-btn { max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 컴파일 설정의 기록 넣기 (10/19 "PDF에 기록") */
+.ex-records { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); min-width: 0; }
+.ex-records .ex-hint { flex-basis: 100%; }
+.ex-label-top { align-self: start; padding-top: var(--sp-1); }
+.ex-check { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); }
+.ex-hint { font-size: var(--fs-xs); }

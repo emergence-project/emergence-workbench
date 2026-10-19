@@ -13,7 +13,9 @@ import type { BlockTree as BlockTreeType } from '../tree.js'
 /** LaTeX 오류 하나. file은 workbench 기준 상대 경로(밖이면 절대 경로), inBlock: 노트 본문 안의 오류인지 */
 export const LatexProblem = z.object({ file: z.string(), line: z.number(), message: z.string(), inBlock: z.boolean() }).strict()
 /** 노트·라이브러리 노트 컴파일 결과 */
-export const CompileResult = z.object({ ok: z.boolean(), durationMs: z.number(), hasPdf: z.boolean(), problems: z.array(LatexProblem), logTail: z.string() }).strict()
+/** 컴파일한 PDF에 넣은 기록 (10/19 "PDF에 기록"). failed: 기록을 넣으니 컴파일이 실패해 기록 없이 다시 만든 것 */
+export const CompiledRecords = z.object({ added: z.number(), failed: z.boolean() }).strict()
+export const CompileResult = z.object({ ok: z.boolean(), durationMs: z.number(), hasPdf: z.boolean(), problems: z.array(LatexProblem), logTail: z.string(), records: CompiledRecords.optional() }).strict()
 
 /** 프로젝트 정보의 저장소 칸 (서버 gitsync.ts) */
 export const RepoInfo = z.object({

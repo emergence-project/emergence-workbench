@@ -223,6 +223,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
           { text: <>Info has status and reopen condition, kind (choose), topics (tags; the first is the main topic; Add · Remove · ↑ move up), description (multi-line, "- " lists, 200 characters), concept notes used in the body, notes that cite this note (up to 5; the rest under "Show N more"), and the file name at the bottom (hover for the full path). The two lists are gathered by the app from {c('[[links]]')} in the body. For a single-claim note, the statement it proves, the notes it relies on, other approaches and next steps are also edited here.</> },
           { text: <>A note always opens in the left pane, and its PDF opens in the right pane alongside only if it already exists. If not, the note fills the whole pane, and compiling opens the PDF on the right. Tabs and layout are remembered, but notes and PDFs chosen before are not reopened.</> },
           { text: <>Compile runs right away with the project template defaults. Next to ▶ you can change template, authors (include or not, and the order if included) and date (none · today · set) or reset them to defaults, and your choices are remembered per project. Export opens the same "Export settings" box (manuscripts start with authors included, notes without).</> },
+          { text: <>Turn on <b>Include records</b> in the compile settings (off at first; open only · done too) to put the note's records into the PDF as annotations: selected text becomes a highlight (click it for the record and its answers), and records on display math or a heading, or without selected text, become a note at that place. The note file does not change, and they show in Preview and Acrobat too. Highlights need XeLaTeX, and records go only into body-only notes. If records make the compile fail, the PDF is made again without them and you are told.</> },
           { text: <>Export one note at a time, or pick several on the manuscript screen and export them together.</> },
         ],
       },
@@ -334,7 +335,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         ],
       },
     ],
-    left: ['Adding highlights and memos to compiled PDFs, and pulling comments into notes, are not there yet.', 'Zotero integration comes later (keeping citations as bib entries prepares for it).'],
+    left: ['Pulling comments into notes is not there yet.', 'Zotero integration comes later (keeping citations as bib entries prepares for it).'],
   },
   {
     id: 'network', title: 'Networking',

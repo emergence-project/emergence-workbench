@@ -2,7 +2,7 @@ import { execFile, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { buildFrontMatter, buildSettingTex, canonicalNoteFile, isBodyOnly, sameNoteFile, markdownToLatex, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox, frontMatterLines } from '@rw/core'
+import { buildFrontMatter, buildSettingTex, canonicalNoteFile, isBodyOnly, sameNoteFile, markdownToLatex, markRecords, resolveRecordMarks, PDF_RECORDS_PREAMBLE, type RecordMark, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox, frontMatterLines } from '@rw/core'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { hasFrontMatter, hasMaketitle, needsBodyOnly, NOTE_MACROS } from './noteBody.js'
 import { isCompletePdf, type CompileResult, type Engine } from './latex.js'
@@ -13,6 +13,7 @@ import { writeFigureEmbeds, type FigureEmbedResolver } from './figureEmbeds.js'
 import { readNoteMeta, type NoteMeta } from './noteMeta.js'
 import { isMarkdownNote, WorkbenchError, type NoteKind, type SaveResult, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
+import { addHighlightQuads, noteRecordMarks, XDVIPDFMX_PLAIN, type RecordScope } from './pdfRecords.js'
 import type { ManuscriptPart } from '@rw/core/contract/research'
 export type { ManuscriptPart }
 
@@ -282,6 +283,14 @@ export interface ManuscriptCompileOptions {
   figures?: FigureEmbedResolver
   /** 공유 라이브러리 references.bib 경로 (노트·프로젝트 bib에 없는 인용 키를 여기서 찾는다) */
   libraryBib?: string
+  /** 컴파일 설정의 "기록 넣기": 노트의 기록을 PDF 주석으로 (본문만 있는 노트만, 10/19) */
+  records?: RecordScope
+}
+
+/** 노트 글에 기록 표시를 넣는다. Markdown이면 LaTeX로 바꾼 뒤 명령으로, LaTeX면 그대로 명령으로. 하이라이트는 XeLaTeX만 (pdfRecords.ts) */
+function withRecords(text: string, marks: RecordMark[], engine: Engine, toLatex?: (t: string) => string): string {
+  const { text: marked, loose } = markRecords(text, marks)
+  return resolveRecordMarks(toLatex ? toLatex(marked) : marked, marks, loose, { highlight: engine === 'xelatex' })
 }
 
 function compileInputs(wb: Workbench, key: string, o: ManuscriptCompileOptions) {
@@ -295,19 +304,20 @@ function compileInputs(wb: Workbench, key: string, o: ManuscriptCompileOptions) 
   const noteMacros = path.join(dir, NOTE_MACROS)
   const figures = wrapped && isMarkdownNote(main) ? o.figures?.(text, [dir], true, true) : undefined
   const body = wrapped && isMarkdownNote(main) ? markdownToLatex(text, { figure: figures?.figure, image: figures?.image }) : ''
+  const marks = wrapped && o.records ? noteRecordMarks(wb.root, main, o.records) : []
   const bibs = body ? noteBibFiles(wb, main, body) : []
   // 라이브러리에서 뽑을 항목이 있으면 references.bib도 입력으로 본다 (그 파일이 바뀌면 PDF가 낡는다)
   const libBib = body && libraryCitedBib(body, bibs, o.libraryBib) !== null ? [o.libraryBib!] : []
   const files = [main, ...(wrapped ? [macros, noteMacros, ...bibs, ...libBib, ...(figures?.inputs ?? []), ...(o.template?.files ?? []).flatMap((f) => templateFilePath(f) ?? [])] : [])]
   const hash = hashOf(JSON.stringify({ main, dir, engine, ...(wrapped && {
-    name, kind, template: o.template, shared: o.shared, bibs, macros,
+    name, kind, template: o.template, shared: o.shared, bibs, macros, ...(marks.length && { records: marks }),
     ...(figures && { figures: { body, preamble: figures.preamble, files: figures.files.map(({ name, abs }) => ({ name, abs })) } }),
     front: frontFor(o.template!, o.pick.authors ?? o.authors, name, text, kind, {
       ...(o.pick.authors && { byline: kind === 'paper' || o.pick.authors.length > 0 }),
       ...(o.pick.date !== undefined && { date: o.pick.date }),
     }),
   }) }))
-  return { files, hash, figures }
+  return { files, hash, figures, marks }
 }
 
 export function manuscriptPdfState(wb: Workbench, key = '', options?: ManuscriptCompileOptions): PdfState {
@@ -333,7 +343,14 @@ export function compileManuscript(wb: Workbench, engine: Engine, key = '', templ
   msOf(wb, key)
   const q = `${wb.root}\n${key}`
   const readOptions = current ?? (() => ({ engine, template, authors, shared, pick }))
-  const next = (queues.get(q) ?? Promise.resolve()).catch(() => undefined).then(() => doCompile(wb, key, readOptions))
+  // 기록을 넣으니 컴파일이 실패하면 기록 없이 한 번 더 만든다 (노트 · 서식이 아니라 기록 때문일 수 있으므로). 그때만 "기록 없이 만듦"을 알린다
+  const next = (queues.get(q) ?? Promise.resolve()).catch(() => undefined).then(async () => {
+    const r = await doCompile(wb, key, readOptions)
+    if (r.ok || !r.records?.added) return r
+    const again = await doCompile(wb, key, () => ({ ...readOptions(), records: undefined }))
+    // 기록 없이도 실패하면 기록 탓이 아니다: 노트의 오류를 그대로 보인다
+    return again.ok ? { ...again, records: { added: 0, failed: true } } : again
+  })
   queues.set(q, next)
   return next
 }
@@ -383,7 +400,8 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
       // 인용이 있으면 노트 폴더(없으면 프로젝트)의 .bib로 참고문헌 목록을 붙인다. 노트 폴더 것은 이름만, 밖의 것은 절대 경로
       if (md) {
         if (explicit.figures) writeFigureEmbeds(explicit.figures, out)
-        const body = markdownToLatex(text, { figure: explicit.figures?.figure, image: explicit.figures?.image })
+        const toLatex = (src: string) => markdownToLatex(src, { figure: explicit.figures?.figure, image: explicit.figures?.image })
+        const body = explicit.marks.length ? withRecords(text, explicit.marks, engine, toLatex) : toLatex(text)
         const own = noteBibFiles(wb, main, body)
         // 거기 없는 인용 키는 공유 라이브러리 references.bib에서 그 항목만 빌드 폴더의 library-refs.bib로 뽑는다
         const libBib = libraryCitedBib(body, own, options.libraryBib)
@@ -391,8 +409,14 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
         const bibs = [...own, ...(libBib !== null ? [path.join(out, LIBRARY_CITED_BIB)] : [])].map((f) => (path.dirname(f) === dir ? path.basename(f) : f).replace(/\.bib$/, ''))
         fs.writeFileSync(path.join(out, MD_BODY_FILE), ['\\begin{document}', body, ...bibliographyLines(template, bibs), '\\end{document}', ''].join('\n'))
       }
+      // 본문만 있는 LaTeX 노트에 기록을 넣을 때는 기록을 넣은 사본을 빌드 폴더에 같은 이름으로 둔다(TEXINPUTS가 빌드 폴더를 먼저 찾는다). 안 넣으면 지난 사본을 지운다
+      const copy = path.join(out, path.basename(main))
+      if (!md && explicit.marks.length) fs.writeFileSync(copy, withRecords(text, explicit.marks, engine))
+      else if (!md && copy !== main) fs.rmSync(copy, { force: true })
+      const recordsPreamble = explicit.marks.length ? [PDF_RECORDS_PREAMBLE] : []
       fs.writeFileSync(target, wrapBodyOnly({
-        template: md ? { ...template, preamble: [template.preamble.trim(), MD_PREAMBLE, explicit.figures?.preamble].filter(Boolean).join('\n') } : template,
+        template: md ? { ...template, preamble: [template.preamble.trim(), MD_PREAMBLE, explicit.figures?.preamble, ...recordsPreamble].filter(Boolean).join('\n') }
+          : recordsPreamble.length ? { ...template, preamble: [template.preamble.trim(), ...recordsPreamble].join('\n') } : template,
         noteFile: md ? MD_BODY_FILE : path.basename(main), title: name, front: frontFor(template, pick.authors ?? authors, name, text, kind, {
           // 내보내기와 같게: 원고는 늘 제목 줄, 노트는 저자를 골랐을 때만
           ...(pick.authors && { byline: kind === 'paper' || pick.authors.length > 0 }),
@@ -408,7 +432,9 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
     // -norc: 원고 폴더는 받은(clone) 저장소 안이다. 거기 둔 latexmkrc(Perl 코드)를 ▶ 한 번에 돌리지 않는다 (미리보기 컴파일 runLatexmk와 같게)
     // '-'로 시작하는 파일 이름은 latexmk가 옵션으로 읽으므로 컴파일하지 않는다
     if (target.startsWith('-')) throw new WorkbenchError(400, t(`'-'로 시작하는 파일 이름은 컴파일하지 않습니다: ${target}`, `Files whose name starts with '-' are not compiled: ${target}`))
-    const args = ['-norc', ...(lastFailed || sourceChanged ? ['-g'] : []), `-${engine}`, '-recorder', '-synctex=1', '-interaction=nonstopmode', '-file-line-error', '-f', `-outdir=${out}`, `-jobname=${base}`, target]
+    // 기록 하이라이트를 넣으면 컴파일 뒤 주석을 손보도록 객체 스트림 없이 만든다 (addHighlightQuads)
+    const quads = explicit.marks.length > 0 && engine === 'xelatex'
+    const args = ['-norc', ...(lastFailed || sourceChanged ? ['-g'] : []), ...(quads ? ['-e', XDVIPDFMX_PLAIN] : []), `-${engine}`, '-recorder', '-synctex=1', '-interaction=nonstopmode', '-file-line-error', '-f', `-outdir=${out}`, `-jobname=${base}`, target]
     const code = await new Promise<number>((resolve) => {
       // 원고 폴더에서 돌려 \input·그림 경로가 원래대로 풀리게 하고, bibtex가 원고 폴더의 .bib를 찾게 한다.
       // 빌드 폴더를 앞에 두어 감싸는 main의 \input{setting}이 빌드 폴더의 setting.tex를 찾는다
@@ -424,11 +450,12 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
       return { ...p, file: abs.startsWith(repo + path.sep) ? path.relative(repo, abs) : p.file, inBlock: false }
     })
     const pdf = path.join(out, `${base}.pdf`)
+    if (quads && isCompletePdf(pdf)) addHighlightQuads(pdf)
     const hasPdf = isCompletePdf(pdf)
     if (!hasPdf && fs.existsSync(pdf)) problems.unshift({ file: path.relative(repo, main), line: 0, message: t('PDF가 끝까지 만들어지지 않았습니다 (그림 파일을 찾지 못했을 수 있음). 아래 오류를 먼저 고치세요.', 'The PDF was not finished (a figure file may be missing). Fix the errors below first.'), inBlock: false })
     const ok = code === 0 && hasPdf && problems.length === 0
     if (!ok && problems.length === 0) problems.push({ file: path.relative(repo, main), line: 0, message: code === -1 ? t('latexmk를 실행하지 못했습니다.', 'Could not run latexmk.') : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not make a new PDF. Check the log.'), inBlock: false })
-    result = { ok, durationMs: Date.now() - started, hasPdf, problems, logTail: log.split('\n').slice(-40).join('\n') }
+    result = { ok, durationMs: Date.now() - started, hasPdf, problems, logTail: log.split('\n').slice(-40).join('\n'), ...(explicit.marks.length && { records: { added: explicit.marks.length, failed: false } }) }
     const at = new Date().toISOString()
     // 오류가 있어도 이번에 끝까지 만든 PDF는 그대로 보여 준다 (10/5 사용자 "오류가 나면 오류가 나는대로 보여줘").
     // 이번에 새로 쓰지 못했거나 덜 만든 PDF만 버리고 이전 PDF를 되돌린다

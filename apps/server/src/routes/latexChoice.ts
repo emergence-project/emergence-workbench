@@ -7,7 +7,8 @@ import { t } from '../i18n.js'
 export const NOTE_TEMPLATE = 'research-note'
 
 /** 컴파일과 내보내기에서 함께 쓰는 서식·저자·날짜 선택. */
-export type LatexChoiceQuery = { au?: string | string[]; tpl?: string; date?: string }
+/** rec: 컴파일에 기록 넣기 (open 진행 중만 · all 완료도, 10/19). 내보내기는 쓰지 않는다 */
+export type LatexChoiceQuery = { au?: string | string[]; tpl?: string; date?: string; rec?: string }
 export const queryList = (v: string | string[] | undefined): string[] => Array.isArray(v) ? v : typeof v === 'string' ? [v] : []
 
 export function latexChoices(registry: Registry) {
