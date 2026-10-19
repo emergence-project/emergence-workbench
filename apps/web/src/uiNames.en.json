@@ -648,5 +648,8 @@
   "사람 카드 미리보기": "Person card preview",
   "소속 칸": "Affiliation fields",
   "사람 이름": "Person name",
-  "할 일 완료 칸": "To-do done box"
+  "할 일 완료 칸": "To-do done box",
+  "파일 보기": "View file",
+  "옮긴 파일 알림": "Moved file notice",
+  "지운 파일 알림": "Deleted file notice"
 }

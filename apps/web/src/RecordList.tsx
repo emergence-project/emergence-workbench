@@ -3,6 +3,7 @@ import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
 import { commentsApi, ConflictError, type CommentEntry, type CommentFile, type RecordFile } from './api'
 import { askClaude, askErrors, asking, askKey, bumpPending, keyOf, load, patch, useAskTick, useSlot } from './Comments'
 import { MemoText } from './memo'
+import { RepoPathContext } from './repoPaths'
 import { Icon } from './icons'
 import { askConfirm } from './askText'
 import { onListKey } from './listInput'
@@ -104,7 +105,9 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   // 아직 적용하지 않은 Claude 답만 "노트에 적용"을 단다 (적용하면 앱이 그 아래에 답을 남긴다)
   const applicable = (i: number) => onApply && c.answers[i]!.by === 'claude' && !c.answers.slice(i + 1).some((a) => a.by === '앱') ? () => void onApply(i) : undefined
   const save = async () => { if (edit && !conflict && edit.text.trim() && await onEdit(edit.text, edit.hash)) setEdit(null) }
-  return <article ref={row} className={`record-row${work ? ' record-row-work' : ''}${active ? ' on' : ''}${turn ? ' turn' : ''}${c.state === '끝냄' ? ' done' : ''}${c.split ? ' split' : ''}`} data-ui="기록 줄" data-ui-item={c.id}
+  // 글 속 저장소 경로는 링크로, 누르면 파일 탭 (10/19). 지식 라이브러리 기록은 프로젝트 탭이 없어 글 그대로
+  const paths = useMemo(() => rid === LIBRARY_RID ? null : { rid, from: { target: file.target, id: c.id } }, [rid, file.target, c.id])
+  return <RepoPathContext.Provider value={paths}><article ref={row} className={`record-row${work ? ' record-row-work' : ''}${active ? ' on' : ''}${turn ? ' turn' : ''}${c.state === '끝냄' ? ' done' : ''}${c.split ? ' split' : ''}`} data-ui="기록 줄" data-ui-item={c.id}
     onClick={(e) => { if (!(e.target as Element).closest('button, input, textarea, a, summary')) onGo() }}>
     {/* 줄 모양 (10/18 결정): 위 줄 종류 · 쓴 이와 오른쪽 끝 행동, 가운데 본문, 아래 줄 왼쪽 붙은 곳 · 오른쪽 시점. 좌우 여백은 같다 */}
     <div className="record-row-head">
@@ -156,7 +159,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         : c.answers.map((a, i) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} />)}
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }} />}
     </div>
-  </article>
+  </article></RepoPathContext.Provider>
 }
 
 /** 쓴 이 이름: Claude가 쓴 기록 · 답은 이름 앞에 무채색 Claude 표시 (10/19 피드백 "무채색 로고". 주황은 내 차례에만) */

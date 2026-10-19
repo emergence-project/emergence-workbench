@@ -10,6 +10,7 @@ import { askConfirm } from './askText'
 import { journalDeletePrompt, journalEntryActions } from './journalActions'
 import { isNoteTarget, journalTargetRoute } from './journalTargets'
 import { shown, t } from './i18n'
+import { CodeText, RepoPathContext } from './repoPaths'
 export { isNoteTarget } from './journalTargets'
 
 function InlineText({ parts }: { parts: Inline[] }) {
@@ -17,7 +18,7 @@ function InlineText({ parts }: { parts: Inline[] }) {
     switch (p.kind) {
       case 'math': return <span key={i} dangerouslySetInnerHTML={{ __html: katex.renderToString(p.tex, { throwOnError: false }) }} />
       case 'bold': return <strong key={i}>{p.text}</strong>
-      case 'code': return <code key={i} className="memo-code">{p.text}</code>
+      case 'code': return <CodeText key={i} text={p.text} />
       default: return <span key={i}>{p.text}</span>
     }
   })}</>
@@ -130,14 +131,15 @@ export function MemoList({ entries, rid, titleOf, onToggle, onEdit, onDelete, hi
   const links = new Map<string, number>()
   for (const entry of entries) if (entry.link) links.set(entry.link, (links.get(entry.link) ?? 0) + 1)
   let day = ''
+  // 일지 메모 글 속 저장소 경로도 링크로 (10/19). 기록이 아니라 "경로 고치기"는 없다
   return (
-    <>
+    <RepoPathContext.Provider value={{ rid }}>
       {entries.map((e) => {
         const head = e.date !== day ? (day = e.date, <div key={`d-${e.date}`} className="memo-day" data-ui="날짜">{journalWhen(e.date, '').trim() || e.date}</div>) : null
         const key = e.link && links.get(e.link) === 1 ? `linked:${e.link}` : `position:${e.date}:${e.index}`
         return <Fragment key={key}>{head}<MemoItem key="entry" e={e} rid={rid} titleOf={titleOf} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} hideTodoKind={hideTodoKind} /></Fragment>
       })}
-    </>
+    </RepoPathContext.Provider>
   )
 }
 

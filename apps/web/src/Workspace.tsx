@@ -22,10 +22,10 @@ import { t } from './i18n'
  */
 export type Tab =
   | { k: 'overview' } | { k: 'log' } | { k: 'map' } | { k: 'todo' } | { k: 'records' } | { k: 'info' } | { k: 'agents' } | { k: 'status' } | { k: 'repo' } | { k: 'notes' } | { k: 'concepts' } | { k: 'papers' } | { k: 'edits' } | { k: 'flow' }
-  | { k: 'block'; bid: string } | { k: 'pdf'; bid: string } | { k: 'doc'; name: string } | { k: 'statement'; sid: string }
+  | { k: 'block'; bid: string } | { k: 'pdf'; bid: string } | { k: 'doc'; name: string } | { k: 'file'; path: string } | { k: 'statement'; sid: string }
   | { k: 'part'; file: string } | { k: 'mspdf'; ms?: string } | { k: 'concept'; id: string } | { k: 'paper'; id: string } | { k: 'topic'; tid: string } | { k: 'task'; task: string }
 
-export const tabKey = (t: Tab) => ('task' in t ? `task:${t.task}` : 'tid' in t ? `topic:${t.tid}` : 'bid' in t ? `${t.k}:${t.bid}` : 'name' in t ? `doc:${t.name}` : 'sid' in t ? `statement:${t.sid}` : 'file' in t ? `part:${t.file}` : 'id' in t ? `${t.k}:${t.id}` : t.k === 'mspdf' && t.ms ? `mspdf:${t.ms}` : t.k)
+export const tabKey = (t: Tab) => ('path' in t ? `file:${t.path}` : 'task' in t ? `task:${t.task}` : 'tid' in t ? `topic:${t.tid}` : 'bid' in t ? `${t.k}:${t.bid}` : 'name' in t ? `doc:${t.name}` : 'sid' in t ? `statement:${t.sid}` : 'file' in t ? `part:${t.file}` : 'id' in t ? `${t.k}:${t.id}` : t.k === 'mspdf' && t.ms ? `mspdf:${t.ms}` : t.k)
 
 /**
  * 갈래 화면(첫 화면 · 프로젝트 정보 · 할 일 · 지도 · 기록)은 탭이 아니다: 사이드바에서 고르면 칸에 고른 탭이 없을 때처럼
@@ -41,6 +41,7 @@ export function tabOfRoute(r: Route): Tab | null {
     case 'statement': return { k: 'statement', sid: r.sid }
     case 'block': return { k: 'block', bid: r.bid }
     case 'doc': return { k: 'doc', name: r.name }
+    case 'file': return { k: 'file', path: r.path }
     case 'part': return { k: 'part', file: r.file }
     case 'topic': return { k: 'topic', tid: r.tid }
     case 'concept': return { k: 'concept', id: r.id }
@@ -71,6 +72,7 @@ function routeOfTab(rid: string, t: Tab): Route | null {
     case 'block': return { page: 'block', rid, bid: t.bid }
     case 'pdf': return null
     case 'doc': return { page: 'doc', rid, name: t.name }
+    case 'file': return { page: 'file', rid, path: t.path }
     case 'part': return { page: 'part', rid, file: t.file }
     case 'topic': return { page: 'topic', rid, tid: t.tid }
     case 'mspdf': return null
@@ -321,7 +323,7 @@ export function openRoute(l: Layout, t: Tab, pdf: Tab | null = null, how: OpenHo
   }
   // 노트를 쓰는 칸에서 논문·자료·진술을 열면 다른 칸에 연다 (쓰던 화면을 가리지 않게)
   const writing = l.panes[l.focus].active?.startsWith('block:') || l.panes[l.focus].active?.startsWith('part:')
-  const here = at !== -1 ? at as 0 | 1 : !l.split ? 0 : (t.k === 'doc' || t.k === 'statement' || t.k === 'concept' || t.k === 'paper') && writing ? (1 - l.focus) as 0 | 1 : l.focus
+  const here = at !== -1 ? at as 0 | 1 : !l.split ? 0 : (t.k === 'doc' || t.k === 'file' || t.k === 'statement' || t.k === 'concept' || t.k === 'paper') && writing ? (1 - l.focus) as 0 | 1 : l.focus
   const placed = placeTab(l.panes[here], t, how)
   return dropResultPdf({ ...withPane(l, here, placed.pane), focus: here }, placed.replaced, how)
 }
@@ -548,7 +550,7 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
   )
 }
 
-const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, repo: Icon.projectInfo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, block: Icon.block, statement: Icon.statement, pdf: Icon.pdf, doc: Icon.pdf, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task }
+const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, repo: Icon.projectInfo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, block: Icon.block, statement: Icon.statement, pdf: Icon.pdf, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task }
 
 function Pane({ i, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
   i: 0 | 1; visible: boolean; pane: PaneState; focused: boolean; isFocus: boolean; titleOf(t: Tab): string; uiTitleOf(t: Tab): string; kindOf(t: Tab): string | null; renderTab(t: Tab, context: TabRenderContext): ReactNode; visibleTabs: Tab[]; home: ReactNode

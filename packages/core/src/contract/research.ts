@@ -395,6 +395,15 @@ export const BibEntry = z.object({
 export const MaterialFile = z.object({ name: z.string(), size: z.number(), mtime: z.number(), kind: z.enum(['pdf', 'slides', 'image', 'other']), bibKey: z.string().optional() }).strict()
 export const MaterialList = z.object({ bib: z.array(BibEntry), files: z.array(MaterialFile) }).strict()
 export const MaterialUploaded = z.object({ name: z.string() }).strict()
+/** 기록 글 속 저장소 경로를 연 결과 (10/19): 적힌 자리 · 옮긴 곳 · 지운 파일(지우기 전 판) · 없음 */
+export const RepoFile = z.object({
+  asked: z.string(), path: z.string(),
+  status: z.enum(['here', 'moved', 'deleted', 'missing']),
+  at: z.string().optional(), commit: z.string().optional(),
+  kind: z.enum(['markdown', 'text', 'pdf', 'image', 'other']),
+  text: z.string().optional(), truncated: z.boolean().optional(),
+}).strict()
+export const RepoFileOpen = z.object({ path: z.string().min(1) }).strict()
 
 // ---------- 주제 (routes/topics.ts) ----------
 
@@ -504,6 +513,8 @@ export type BibEntry = z.infer<typeof BibEntry>
 export type MaterialFile = z.infer<typeof MaterialFile>
 export type MaterialList = z.infer<typeof MaterialList>
 export type MaterialUploaded = z.infer<typeof MaterialUploaded>
+export type RepoFile = z.infer<typeof RepoFile>
+export type RepoFileOpen = z.infer<typeof RepoFileOpen>
 export type TopicList = z.infer<typeof TopicList>
 export type ProfileBody = z.input<typeof ProfileBody>
 export type OrderBody = z.input<typeof OrderBody>

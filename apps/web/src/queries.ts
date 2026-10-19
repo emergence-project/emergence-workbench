@@ -28,6 +28,8 @@ export const qk = {
   /** 프로젝트 정보: research.yaml sources · 작업 목록 · 검토 문서 */
   info: (rid: string) => ['project', rid, 'info'] as const,
   materials: (rid: string) => ['project', rid, 'materials'] as const,
+  /** 기록 글 속 저장소 경로 하나 (찾기만 · 내용까지) */
+  repoFile: (rid: string, path: string, body: boolean) => ['project', rid, 'file', path, body] as const,
   /** 맡긴 일 (workbench/tasks/*.md) */
   tasks: (rid: string) => ['project', rid, 'tasks'] as const,
   /** STATUS.md와 같은 현황 글: 프로젝트의 거의 모든 파일에서 뽑으므로 그 프로젝트의 알림마다 다시 받는다 */
