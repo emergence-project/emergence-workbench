@@ -8,8 +8,8 @@ const ROWS: { kind: SyncKind; ui: string; name: () => string; desc: () => string
   {
     kind: 'publish', ui: '기록 올리기 주기',
     name: () => t('기록 · 피드백 올리기', 'Push records and feedback'),
-    desc: () => t('자동이면 기록이나 피드백을 쓰고 고른 시간이 지나면 GitHub에 올립니다(그 사이 더 쓰면 다시 셉니다). 수동이면 "지금 올리기"로만 올립니다. 어느 쪽이든 기록 위의 "지금 올리기"로 바로 올릴 수 있습니다.',
-      'With Auto, records and feedback are pushed to GitHub after the chosen time (writing again restarts the count). With Manual, only "Push now" pushes. Either way, "Push now" above the records pushes right away.'),
+    desc: () => t('자동이면 기록이나 피드백을 쓰고 고른 시간이 지나면 GitHub에 올립니다(그 사이 더 쓰면 다시 셉니다). 수동이면 "지금 올리기"로만 올립니다. 어느 쪽이든 기록 탭 맨 위의 "지금 올리기"로 바로 올릴 수 있습니다.',
+      'With Auto, records and feedback are pushed to GitHub after the chosen time (writing again restarts the count). With Manual, only "Push now" pushes. Either way, "Push now" at the top of the Records tab pushes right away.'),
     warn: (c) => (c.mode === 'manual' || c.every > 300 ? t('클라우드 에이전트가 기록을 늦게 봅니다.', 'Cloud agents see your records later.') : null),
   },
   {

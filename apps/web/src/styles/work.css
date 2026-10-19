@@ -31,3 +31,7 @@
 /* 첫 화면 작업 패널에서 누른 할 일을 잠깐 표시 (10/7 15:31) */
 .memo-item.flash { animation: todo-flash 1.6s ease-out; }
 @keyframes todo-flash { from { background: var(--hl-bg); } to { background: var(--bg); } }
+/* 기록 탭 맨 위 한 줄: 안 올린 기록 · 지금 올리기, 올리기 실패 (10/19 안 B, RecordsPublish.tsx) */
+.records-publish-error, .records-publish-pending { flex: none; display: flex; gap: var(--sp-2); align-items: baseline; padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--text-2); }
+.records-publish-error span, .records-publish-pending > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.records-publish-error .a, .records-publish-pending .a { white-space: nowrap; }

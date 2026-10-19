@@ -79,7 +79,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const before = recordsLast.get(rid)?.error ?? null
     const done = (error: string | null) => {
       recordsLast.set(rid, { at: Date.now(), error })
-      // 화면(오른쪽 사이드바 기록)은 실패가 생기거나 풀릴 때만 다시 읽는다
+      // 화면(기록 탭 맨 위 줄 · 실패 알림)은 실패가 생기거나 풀릴 때만 다시 읽는다
       if (before !== error) ctx.broadcast({ type: 'records-publish', research: rid })
     }
     try {
@@ -122,7 +122,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const r = await researchRecords(req.params.rid).catch(() => null)
     return { files: r ? await pendingPaths(r.top, r.paths) : [] }
   })
-  /** 기록 저절로 올리기가 켜졌는지와 마지막 결과 (오른쪽 사이드바 기록이 실패만 보여 준다) */
+  /** 기록 저절로 올리기가 켜졌는지와 마지막 결과 (기록 탭 맨 위 줄과 실패 알림이 읽는다) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/records/publish', replies(C.RecordsPublishState), async (req): Promise<C.RecordsPublishState> => ({
     autoPublish: opts.recordsAutoPublishMs !== undefined && !opts.sandbox,
     delay: (() => { const d = opts.sandbox ? null : syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
