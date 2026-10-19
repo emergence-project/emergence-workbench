@@ -101,7 +101,9 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const turn = isUserTurnRecord(c)
   const talk = isTalkKind(kind)
   const [replying, setReplying] = useState(false)
-  const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && (turn || replying)
+  // 내가 쓴 질문 · 지시에 아직 답이 없으면 덧붙일 대화가 없어 글을 고친다 (10/19 피드백 10:36)
+  const unanswered = !c.by && c.answers.length === 0
+  const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && (turn || (replying && !unanswered))
   // 아직 적용하지 않은 Claude 답만 "노트에 적용"을 단다 (적용하면 앱이 그 아래에 답을 남긴다)
   const applicable = (i: number) => onApply && c.answers[i]!.by === 'claude' && !c.answers.slice(i + 1).some((a) => a.by === '앱') ? () => void onApply(i) : undefined
   const save = async () => { if (edit && !conflict && edit.text.trim() && await onEdit(edit.text, edit.hash)) setEdit(null) }
@@ -145,7 +147,10 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           {journal && <span>{t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}
           {kind === '할 일' && !work && rid !== LIBRARY_RID && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>{t('할 일 목록', 'To-do list')} ›</button>}
           {talk && <><span>{t('답', 'Answers')} {c.answers.length}</span>{!turn && (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
-            {onReply && c.state !== '끝냄' && !turn && <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>}</>}
+            {/* 내가 쓰고 아직 답이 없는 기록은 이어 쓰기 대신 고치기 (10/19 피드백 10:36) */}
+            {onReply && c.state !== '끝냄' && !turn && (unanswered
+              ? !edit && <><span>·</span><button className="a" onClick={() => setEdit({ text: c.body, original: c.body, hash })}>{t('고치기', 'Edit')}</button></>
+              : <><span>·</span><button className="a" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>{t('이어 쓰기', 'Follow up')}</button></>)}</>}
         </span>
         {date && <span className="record-when" title={dateLabel ? undefined : when.title}>{date}</span>}
       </div>
@@ -157,7 +162,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           </SayCard>)}
       </ul>
         : c.answers.map((a, i) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} />)}
-      {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }} />}
+      {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
+        onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
     </div>
   </article></RepoPathContext.Provider>
 }
@@ -193,13 +199,13 @@ function AnswerBody({ answer, busy, onApply }: { answer: CommentEntry['answers']
 }
 
 /** 질문 · 지시 아래 이어 쓰기 (10/15). 에이전트가 물은 것이면 답이 되어 답함, 내가 쓴 것이면 다시 에이전트 차례 */
-function RecordReply({ busy, asked, onReply }: { busy: boolean; asked: boolean; onReply(text: string): Promise<boolean> }) {
+function RecordReply({ busy, asked, onReply, onCancel }: { busy: boolean; asked: boolean; onReply(text: string): Promise<boolean>; onCancel?(): void }) {
   const [text, setText] = useState('')
   const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) setText('') }
   const label = asked ? t('에이전트에게 답하기', 'Answer the agent') : t('이어서 묻거나 덧붙이기', 'Ask more or add to it')
   return <div className="fbp-compose record-reply" data-ui="이어 쓰기">
     <textarea rows={2} value={text} disabled={busy} aria-label={label} placeholder={label}
       onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } else onListKey(e, setText) }} />
-    <div className="fbp-compose-row"><span className="sp" /><button className="btn primary sm" data-tip={t('이어 쓰기 (⌘↵)', 'Follow up (⌘↵)')} disabled={busy || !text.trim()} onClick={() => void send()}>{t('이어 쓰기', 'Follow up')}</button></div>
+    <div className="fbp-compose-row"><span className="sp" />{onCancel && <button className="btn sm" disabled={busy} onClick={onCancel}>{t('취소', 'Cancel')}</button>}<button className="btn primary sm" data-tip={t('이어 쓰기 (⌘↵)', 'Follow up (⌘↵)')} disabled={busy || !text.trim()} onClick={() => void send()}>{t('이어 쓰기', 'Follow up')}</button></div>
   </div>
 }
