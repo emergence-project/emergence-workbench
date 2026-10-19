@@ -1,7 +1,7 @@
 import { awaitsUserReview, type TreeIssue } from '@rw/core'
 import { fill } from './projectData'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { agentEditsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type OpenTodo, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
+import { agentEditsApi, commentsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type OpenTodo, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
 import { monthDay, statusOf } from './format'
 import { Icon } from './icons'
 import { lastWorkMs, PROJECT_KIND_LABEL } from './projectProfile'
@@ -110,8 +110,10 @@ function NowPanel({ groups, fitKey, onAll, error }: { groups: NowGroupSpec[]; fi
   const empty = groups.length === 1 && groups[0]!.count === 0 ? groups[0]!.empty : undefined
   // 수는 사용자 차례인 칸에만 주황 알약, 나머지 수는 툴팁 (10/18 시안 3절)
   const count = (g: NowGroupSpec) => g.turn ? <span className="rail-count" title={g.turn}>{g.count}</span> : null
-  // 줄 앞 칸은 상태 점이 있는 멈춤 줄이 보일 때만 (10/18 시안 3절)
-  const marked = active ? active.key === 'blocked' : groups.some((g) => g.key === 'blocked')
+  // 줄 앞 칸은 상태 점이 있는 멈춤 줄이나 완료 칸이 있는 할 일 줄이 보일 때만 (10/18 시안 3절)
+  // 할 일 줄은 그 칸에 완료 칸 (10/19 사용자 댓글 "클릭해서 완료표시")
+  const marks = (k: string) => k === 'blocked' || k === 'todo'
+  const marked = active ? marks(active.key) : groups.some((g) => marks(g.key))
   return (
     <aside className="now" id="blocked" data-ui="지금" ref={ref}>
       <div className="sec-head">
@@ -184,6 +186,14 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
     ...editList.attempts.map((a) => ({ key: a.key, title: a.title, sub: a.summary ? t(`고치기 요청 · ${a.summary}`, `Edit request: ${a.summary}`) : t('고치기 요청 · 그 대화에서 허락하면 고칩니다', 'Edit request: the agent edits once you agree in that conversation'), attempt: true })),
     ...editList.reviews.map((r) => ({ key: r.key, title: r.title, sub: t(`바뀐 곳 ${r.changes}`, `${r.changes} changed`), attempt: false })),
   ] : []
+  // 할 일 끝내기 (10/19): 기록 파일의 지금 hash를 받아 끝냄으로. 기록 탭에서 다시 열 수 있어 확인은 묻지 않는다
+  const [finishing, setFinishing] = useState<string | null>(null)
+  const finish = (todo: OpenTodo) => {
+    const api = commentsApi(rid)
+    setFinishing(todoKey(todo))
+    api.read(todo.target).then((file) => api.setState(todo.target, todo.id, '끝냄', file.hash)).then(() => onChanged())
+      .catch((e: Error) => setError(e.message)).finally(() => setFinishing(null))
+  }
   const reopen = (b: { id: string; hash: string }) => {
     rapi.patchMeta(b.id, { status: 'in-progress' }, b.hash).then(onChanged).catch((e: Error) => setError(e.message))
   }
@@ -224,12 +234,15 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
     },
     {
       key: 'todo', title: t('할 일', 'To-do'), count: todos.length, ui: '첫 화면 할 일', onMore: () => go({ page: 'todo', rid }),
-      // 할 일은 보기만 한다. 적기·끝내기는 할 일 화면에서 (피드백 10/3 14:48·14:49)
+      // 첫 화면에서는 끝내기만 한다(줄 앞 완료 칸, 10/19 사용자 댓글이 10/3 14:48·14:49 "보기만"을 바꿈). 적기는 기록 탭에서
       rows: todos.map(({ todo, due, text }) => (tag?: string) => {
         const goTodo = () => { focusTodo(todoKey(todo)); go({ page: 'records', rid }) }
         const place = todoPlace(todo)
         return (
           <NowRow key={todoKey(todo)} tag={tag} ui="할 일 항목" item={text}
+            mark={<input type="checkbox" className="now-mark now-done" data-ui="할 일 완료 칸" aria-label={t(`완료 — ${text}`, `Mark done: ${text}`)} title={t('완료', 'Mark done')}
+              checked={finishing === todoKey(todo)} disabled={finishing !== null}
+              onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} onChange={() => finish(todo)} />}
             title={<MemoText text={nowTitle(text)} />} full={text} onOpen={goTodo}
             sub={place && <button className="a" onClick={(event) => { event.stopPropagation(); openTodoPlace(rid, todo) }} onKeyDown={(event) => event.stopPropagation()}>{place}</button>}
             end={due && <span className={`due${due < today ? ' late' : ''}`}>{monthDay(due, true)}</span>} />
