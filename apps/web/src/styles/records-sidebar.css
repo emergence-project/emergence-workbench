@@ -7,9 +7,6 @@
 .records-subbar .records-all { margin-left: auto; font-size: var(--fs-xs); white-space: nowrap; }
 .records-subbar .segmented button { white-space: nowrap; }
 .records-subbar .segmented .n { color: var(--text-3); font-weight: var(--fw-normal); font-variant-numeric: tabular-nums; }
-.records-publish-error, .records-publish-pending { flex: none; display: flex; gap: var(--sp-2); align-items: baseline; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
-.records-publish-error span, .records-publish-pending > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.records-publish-error .a, .records-publish-pending .a { white-space: nowrap; }
 .records-classify { flex: none; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); }
 .records-classify .a { white-space: nowrap; }
 .records-classify .a:disabled { color: var(--text-3); cursor: default; text-decoration: none; }

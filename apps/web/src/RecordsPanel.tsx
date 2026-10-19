@@ -11,7 +11,7 @@ import { useHighlightColor } from './ui'
 import { classifiedRecordCount, filterByStatus, filterForActiveRecord, filterRecords, recordRoute, statusForActiveRecord, type PanelFilter, type StatusFilter } from './recordsPanelHelpers'
 import { flash } from './flash'
 import { RecordList, type RecordPlaceOf } from './RecordList'
-import { LIBRARY_RID, syncEveryLabel } from '@rw/core'
+import { LIBRARY_RID } from '@rw/core'
 import { chooseRecordFilter } from './workRecords'
 import { RECORD_KINDS, recordDrafts, attachRecordDraft, type ComposerDraft } from './recordDrafts'
 import { t } from './i18n'
@@ -31,8 +31,8 @@ const kindChoice = (k: string) => <>{KIND_ICON[k] && <span className="record-kin
 const classifying = new Set<string>()
 const NO_FILES: RecordFile[] = []
 
-export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf, placeOf }: {
-  rid: string; target: CommentTarget; version: number; firstPartOf(target: string): string | undefined
+export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
+  rid: string; target: CommentTarget; firstPartOf(target: string): string | undefined
   onOpenPdf(file: RecordFile): boolean
   /** 붙은 곳을 줄 번호 대신 이 이름으로 (개념노트는 절 이름, 10/18) */
   placeOf?: RecordPlaceOf
@@ -97,7 +97,6 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf, pla
           onClick={() => { chooseRecordFilter(filter === '전체' ? '메모' : filter); go({ page: 'records', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>}
       </div>
     </div>
-    <PublishFailure rid={rid} version={version} />
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">
       <button className="a" data-ui="자동 분류 버튼" data-tip={CLASSIFY_TIP} disabled={classifying_} onClick={() => void classify()}>{classifying_ ? t('분류하는 중…', 'Sorting…') : t(`자동 분류 ${unsorted.length}개`, `Auto-sort ${unsorted.length}`)}</button>
     </div>}
@@ -113,51 +112,6 @@ export function RecordsPanel({ rid, target, version, firstPartOf, onOpenPdf, pla
     </div>
     <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} />
   </section>
-}
-
-/**
- * 기록 위 한 줄: 올리기에 실패했으면 그 까닭과 "다시 올리기"(10/15), 아니면 안 올린 기록이 있을 때
- * "안 올린 기록 n · 30초 뒤 올림 · 지금 올리기"(수동이면 시간 없이). 자동이어도 바로 올릴 수 있다 (10/19 설정 › 동기화).
- * 다 올라가 있으면 아무것도 보이지 않는다. 개발용 예제 모드는 올리지 않아 보이지 않는다.
- */
-function PublishFailure({ rid, version }: { rid: string; version: number }) {
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(0)
-  const [delay, setDelay] = useState<number | null>(null)
-  const [busy, setBusy] = useState(false)
-  // 저절로 올린 뒤에는 파일 알림이 없어서, 기다리는 시간이 지나면 한 번 더 읽는다
-  const [tick, setTick] = useState(0)
-  const api = commentsApi(rid)
-  useEffect(() => {
-    if (!pending || delay === null) return
-    const timer = setTimeout(() => setTick((x) => x + 1), (delay + 5) * 1000)
-    return () => clearTimeout(timer)
-  }, [pending, delay, version])
-  useEffect(() => {
-    let active = true
-    api.publishState().then(async (s) => {
-      if (!active) return
-      setError(s.autoPublish ? s.last?.error ?? null : null)
-      setDelay(s.delay ?? null)
-      // 이 앱이 올리는 경우(실사용)만 안 올린 기록 수를 본다
-      const files = s.autoPublish ? await api.unpublished().catch(() => null) : null
-      if (active) setPending(files?.length ?? 0)
-    }).catch(() => undefined)
-    return () => { active = false }
-  }, [rid, version, tick]) // eslint-disable-line react-hooks/exhaustive-deps
-  if (!error && !pending) return null
-  const push = async () => {
-    setBusy(true)
-    try { await api.publish(); setError(null); setPending(0); flash(t('GitHub에 올렸습니다', 'Pushed to GitHub')) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
-  }
-  if (error) return <div className="records-publish-error" data-ui="기록 올리기 실패" role="status">
-    <span title={error}>{t('기록을 GitHub에 올리지 못했습니다', 'Records were not pushed to GitHub')}: {error}</span>
-    <button className="a" disabled={busy} onClick={() => void push()}>{busy ? t('올리는 중…', 'Pushing…') : t('다시 올리기', 'Push again')}</button>
-  </div>
-  return <div className="records-publish-pending" data-ui="안 올린 기록" role="status">
-    <span>{t(`안 올린 기록 ${pending}`, `${pending} not pushed`)}{delay !== null && <span className="muted"> · {t(`${syncEveryLabel(delay)} 뒤 올림`, `pushing in ${syncEveryLabel(delay, false)}`)}</span>}</span>
-    <button className="a" disabled={busy} onClick={() => void push()}>{busy ? t('올리는 중…', 'Pushing…') : t('지금 올리기', 'Push now')}</button>
-  </div>
 }
 
 function LostHighlights({ rid, file }: { rid: string; file: CommentFile }) {

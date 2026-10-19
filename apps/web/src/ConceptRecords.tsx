@@ -41,6 +41,6 @@ export function ConceptRecordsPanel({ id, title }: { id: string; title: string }
     const section = sectionAt(source, c.line)
     return section ? { label: section, tip: t(`${c.line}줄`, `line ${c.line}`) } : undefined
   }
-  return <RecordsPanel rid={LIBRARY_RID} target={conceptTarget(id, note?.meta.title ?? title)} version={0} placeOf={placeOf}
+  return <RecordsPanel rid={LIBRARY_RID} target={conceptTarget(id, note?.meta.title ?? title)} placeOf={placeOf}
     firstPartOf={() => undefined} onOpenPdf={() => false} />
 }

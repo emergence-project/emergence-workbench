@@ -54,6 +54,7 @@ import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
 import { applyUi, cachedUi } from './ui'
 import { FLASH_EVENT, type FlashAction, type FlashMessage } from './flash'
+import { usePublishFailureFlash } from './RecordsPublish'
 import { hasVisibleManuscriptEditor, isSection, manuscriptPdfTab, retargetNoteTabs, showBeside, tabKey, toggleSplit, useLayout, useWorkspaceDragging, workspaceVisibility, Workspace, type Tab, type TabRenderContext, type WorkspaceOpenRequest } from './Workspace'
 import { t } from './i18n'
 
@@ -181,6 +182,8 @@ export function App() {
     if (to) go({ page: 'part', rid, file: to })
   }, [notes, notesOf, routeFile, rid, setLayout])
   const issues = useProjectIssues(researches)
+  // 기록을 저절로 올리다 실패하면 화면 아래 알림 (10/19 안 B)
+  usePublishFailureFlash(rid, version)
   const msOfFile = (file: string) => manuscripts.find((m) => m.main === file || m.parts.some((p) => p.file === file)) ?? null
   const msKeyOfTab = (t: { ms?: string }) => msKeyOfPdfTab(t, manuscripts)
   // Document kind is display metadata; tab titles remain stable feedback targets.
@@ -376,7 +379,7 @@ export function App() {
         active={context?.active ?? false} pairedEditor={hasVisibleManuscriptEditor(context?.visibleTabs ?? [], msKeyOfTab(t), (file) => msOfFile(file)?.key)} />
       case 'pdf': return <PdfTab rid={rid} bid={t.bid} title={tabTitle({ k: 'block', bid: t.bid }, summary)} rapi={rapi} />
       case 'todo': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />
-      case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} section="records" />
+      case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} section="records" version={version} />
       case 'log': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} /></Lazy>
       case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
@@ -489,7 +492,7 @@ export function App() {
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
               return <RightSidebar info={info}
                 records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${ct?.target ?? 'project'}`} rid={rid}
-                  target={ct ?? { target: 'project', title: summary.research.title }} version={version}
+                  target={ct ?? { target: 'project', title: summary.research.title }}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
         )}

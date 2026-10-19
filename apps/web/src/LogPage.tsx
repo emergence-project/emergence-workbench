@@ -15,6 +15,7 @@ import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
 import { useJournal, useProjectInfo, useRecords } from './projectQueries'
 import { JudgeList, TaskDialog, TaskList, TaskWeek, useTasks, type TaskDraft } from './WorkTasks'
 import { t } from './i18n'
+import { PendingRecords } from './RecordsPublish'
 
 /** 메모·할 일 고치기·지우기 (10/4 피드백) */
 function useJournalEdit(rapi: ResearchApi, reload: () => Promise<unknown>, onSaved: (m: string) => void) {
@@ -36,9 +37,11 @@ export function useTitles(summary: ResearchSummary) {
  * 판단 · 맡긴 일은 에이전트에게 맡긴 일(10/7 작업 탭, WorkTasks.tsx)이다.
  * 기록(section records): 프로젝트의 메모 · 할 일 · 질문을 대상별로 모아 보고 적는다 (10/15 사용자 결정: 작업 탭에서 따로 뗌).
  */
-export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPartOf, onOpenPdf, section = 'work' }: {
+export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPartOf, onOpenPdf, section = 'work', version = 0 }: {
   rid: string; rapi: ResearchApi; summary: ResearchSummary; topics: Topic[]; onSaved(message: string, action?: FlashAction): void; focus?: 'log'
   firstPartOf(target: string): string | undefined; onOpenPdf(file: RecordFile): boolean; section?: WorkSection
+  /** 파일 알림마다 오른다: 기록 탭의 안 올린 기록 줄이 다시 읽는다 */
+  version?: number
 }) {
   const { entries, loaded: journalLoaded, reload, toggle } = useJournal(rapi)
   const edit = useJournalEdit(rapi, reload, onSaved)
@@ -120,6 +123,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
           <span className="sp" />
           {!records_ && <button className="btn" data-ui="맡기기" title={t('에이전트에게 일을 맡깁니다: 작업 내용과 종결 조건을 적으면 작업 파일이 생깁니다', 'Delegate work to an agent: write the task and its completion criteria to create a task file')} onClick={() => setDialog({})}>＋ {t('맡기기', 'Delegate')}</button>}
         </div>
+        {records_ && <PendingRecords rid={rid} version={version} />}
         <div className="memo-list work-page">
           {!records_ && <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />}
           {filter === '판단' ? <JudgeList rid={rid} tasks={tasks} loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks}
