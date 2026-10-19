@@ -51,4 +51,15 @@ describe('기록 글 속 저장소 경로', () => {
     expect((await app.inject({ method: 'GET', url: `${R}/file/raw?path=docs/reviews/guide.md` })).body).toContain('# Guide')
     expect((await app.inject({ method: 'POST', url: `${R}/file/open`, payload: { path: 'GOVERNMENT/pad/guide.md' } })).statusCode).toBe(404)
   })
+
+  it('저장소 안의 링크가 밖의 파일을 가리키면 내용도 원본도 내보내지 않는다 (보안 검토 L1)', async () => {
+    const secret = path.join(path.dirname(repo), 'secret.md')
+    fs.writeFileSync(secret, 'TOP SECRET\n')
+    fs.symlinkSync(secret, path.join(repo, 'docs/leak.md'))
+    const meta = await file('path=docs/leak.md&body=1')
+    expect(meta.body).not.toContain('TOP SECRET')
+    const raw = await app.inject({ method: 'GET', url: `${R}/file/raw?path=docs/leak.md` })
+    expect(raw.statusCode).toBe(403)
+    expect(raw.body).not.toContain('TOP SECRET')
+  })
 })

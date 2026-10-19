@@ -6,7 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, feedbackAsks, feedbackStatusError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback } from '../feedback.js'
 import { locate, pendingPaths, PathSyncError, publishPaths } from '../pathsync.js'
-import { WorkbenchError } from '../workbench.js'
+import { WorkbenchError, assertRealInside } from '../workbench.js'
 import { commitChecker } from '../commitsInApp.js'
 import { appIssuesUrl } from '../appupdate.js'
 import type { RouteContext } from './context.js'
@@ -172,8 +172,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   app.get<{ Querystring: { path?: string } }>('/api/feedback/picture', async (req, reply) => {
     const rel = req.query.path ?? ''
     if (!opts.feedbackDir || !/^pictures\/[\w.-]+\.(png|jpe?g)$/.test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
-    const file = path.join(opts.feedbackDir, rel)
-    if (!fs.existsSync(file)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
+    const file = assertRealInside(path.join(opts.feedbackDir, 'pictures'), path.join(opts.feedbackDir, rel), t('그림이 없음', 'No picture'))
     return reply.type(rel.endsWith('.png') ? 'image/png' : 'image/jpeg').send(fs.readFileSync(file))
   })
   /** 코멘트: 처리를 바꾸지 않고 묻거나 덧붙인다. reviews.yaml comments에 적고 피드백처럼 올린다 */

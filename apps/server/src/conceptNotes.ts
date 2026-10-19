@@ -3,7 +3,7 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { readSubjects, validateSubjects } from './subjects.js'
 import { hashOf, localDate, writeAtomic } from './fsutil.js'
-import { ConflictError, WorkbenchError } from './workbench.js'
+import { ConflictError, WorkbenchError, assertRealInside } from './workbench.js'
 import { t } from './i18n.js'
 import { conceptRecordTarget, frontMatter } from '@rw/core'
 import { addComment } from './comments.js'
@@ -329,6 +329,7 @@ export function readMacros(lib: string | undefined): { file: string; exists: boo
 const IMAGE = /\.(png|jpe?g|gif|svg|webp)$/i
 export function conceptAsset(lib: string | undefined, name: string): string | null {
   if (!lib || !IMAGE.test(name) || name.includes('/') || name.includes('\\') || name.includes('..')) return null
-  const file = path.join(lib, CONCEPTS_DIR, 'attachments', name)
-  return fs.existsSync(file) ? file : null
+  const dir = path.join(lib, CONCEPTS_DIR, 'attachments')
+  // 링크를 따라간 실제 파일도 attachments 안이어야 한다 (보안 검토 L1)
+  try { return assertRealInside(dir, path.join(dir, name), '') } catch { return null }
 }

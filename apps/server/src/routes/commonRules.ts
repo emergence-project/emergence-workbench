@@ -2,6 +2,7 @@
 // 앱에서 읽고 고친다. 저장하면 그 자체가 사용자 확인이라 머리말을 확정(accepted)과 오늘 날짜로 적고,
 // 개인 저장소 사본이면 먼저 받은 뒤 그 파일만 올린다(pathsync.ts). 올리지 못하면 파일은 이 컴퓨터에 남고 다음 저장 때 다시 올린다.
 import fs from 'node:fs'
+import { assertPrivateRemote } from '../personalRepo.js'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import YAML from 'yaml'
@@ -83,6 +84,7 @@ export function registerCommonRules(app: FastifyInstance, ctx: RouteContext): vo
     let published: C.CommonRulesSaved['published'] = null
     if (w.repo && w.rel) {
       try {
+        await assertPrivateRemote(w.repo)
         const r = await publishPaths(w.repo, [w.rel], { message: MESSAGE })
         published = { pushed: r.pushed, message: r.pushed ? t('공통 규칙을 저장하고 GitHub에 올렸습니다', 'Saved the common rules and pushed them to GitHub') : t('공통 규칙을 저장했습니다', 'Saved the common rules') }
       } catch (e) {

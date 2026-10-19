@@ -6,7 +6,7 @@ import * as C from '@rw/core/contract/research'
 import { parseBody, replies } from '../contract.js'
 import { contentTypeOf, openWithSystem } from '../materials.js'
 import { findRepoFile, readRepoText, repoRelative } from '../repoFiles.js'
-import { WorkbenchError } from '../workbench.js'
+import { WorkbenchError, assertRealInside } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
 
@@ -22,14 +22,13 @@ export function registerFiles(app: FastifyInstance, ctx: RouteContext): void {
   /** 지금 있는 파일의 원본 (PDF · 그림을 탭에 그릴 때) */
   app.get<{ Params: { rid: string }; Querystring: { path?: string } }>('/api/researches/:rid/file/raw', async (req, reply) => {
     const root = ctx.repoPath(req.params.rid)
-    const file = path.join(root, repoRelative(root, req.query.path ?? ''))
-    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw new WorkbenchError(404, t('저장소에 없는 파일', 'File not in the repository'))
+    // 링크를 따라간 실제 파일도 저장소 안이어야 한다 (보안 검토 L1)
+    const file = assertRealInside(root, path.join(root, repoRelative(root, req.query.path ?? '')), t('저장소에 없는 파일', 'File not in the repository'))
     return reply.type(contentTypeOf(file)).header('cache-control', 'no-store').send(fs.createReadStream(file))
   })
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/file/open', replies(C.Ok), async (req): Promise<C.Ok> => {
     const root = ctx.repoPath(req.params.rid)
-    const file = path.join(root, repoRelative(root, parseBody(C.RepoFileOpen, req.body).path))
-    if (!fs.existsSync(file)) throw new WorkbenchError(404, t('저장소에 없는 파일', 'File not in the repository'))
+    const file = assertRealInside(root, path.join(root, repoRelative(root, parseBody(C.RepoFileOpen, req.body).path)), t('저장소에 없는 파일', 'File not in the repository'))
     await openWithSystem(file)
     return { ok: true as const }
   })

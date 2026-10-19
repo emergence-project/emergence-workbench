@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { assertPrivateRemote } from './personalRepo.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { BackupResult } from '@rw/core/contract/backup'
@@ -191,6 +192,8 @@ export async function backupWorkbenches(opts: {
     await git(opts.dir, ['-c', 'user.name=research-workspace', '-c', 'user.email=research-workspace@localhost', 'commit', '--quiet', '-m', `Sync workbench: ${paths.join(', ')}`])
     const commit = await git(opts.dir, ['rev-parse', '--short', 'HEAD'])
     try {
+      // 앱 설정 · workbench는 개인 저장소에만: 공개 저장소면 올리지 않는다 (보안 검토 L4)
+      await assertPrivateRemote(opts.dir)
       await git(opts.dir, ['push', '--quiet', 'origin', 'HEAD:refs/heads/main'])
     } catch (e) {
       return { at, projects, commit, pushed: false, ...extra, message: t(`이 맥에는 커밋했지만 GitHub에 올리지 못했습니다 — ${firstLine(e)}`, `Committed on this Mac but could not push to GitHub: ${firstLine(e)}`), error: firstLine(e) }

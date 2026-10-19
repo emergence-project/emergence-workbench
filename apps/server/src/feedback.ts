@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { assertPrivateRemote } from './personalRepo.js'
 import path from 'node:path'
 import YAML from 'yaml'
 import { localDate, localTime, writeAtomic } from './fsutil.js'
@@ -461,6 +462,8 @@ export async function publishFeedback(dir: string, now = new Date()): Promise<Pu
   // 앱 폴더가 다른 브랜치에 있으면(손으로 바꿔 둔 경우) 그 브랜치에 커밋하지 않는다
   const branch = await currentBranch(where.top)
   if (branch !== 'main') throw new PublishError(t(`앱 폴더가 main이 아닌 ${branch || '분리된 HEAD'}에 있어 피드백을 올리지 않았습니다. 터미널에서 git switch main 뒤 다시 올려 주세요`, `Feedback not pushed: the app folder is on ${branch || 'a detached HEAD'}, not main. Run git switch main in a terminal, then push again`), null)
+  // 피드백은 개인 저장소에 둔다: 공개 저장소면 올리지 않는다 (보안 검토 L4)
+  try { await assertPrivateRemote(where.top) } catch (e) { throw new PublishError((e as Error).message, null) }
   try {
     const r = await publishPaths(where.top, [where.rel], { message: `Add app feedback (${localDate(now)})` })
     return {
