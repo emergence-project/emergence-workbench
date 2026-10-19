@@ -658,5 +658,14 @@
   "노트에서 이 자리로": "Go to this spot in the note",
   "에이전트에게": "Ask the agent",
   "할 일 대화": "To-do conversation",
-  "할 일 입력란": "To-do input"
+  "할 일 입력란": "To-do input",
+  "동기화": "Sync",
+  "동기화 묶음": "Sync section",
+  "기록 올리기 주기": "Push interval",
+  "받기 주기": "Pull interval",
+  "업데이트 주기": "Update interval",
+  "수동 자동": "Manual or auto",
+  "간격": "Interval",
+  "간격 직접": "Custom interval",
+  "안 올린 기록": "Records not pushed"
 }

@@ -6,6 +6,7 @@ import { writeStatusFor } from '../agentStatus.js'
 import { autoPull, fastForward, repoInfo, repoSync, SyncError } from '../gitsync.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
+import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
 
 export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
   const { repoPath, registry, opts } = ctx
@@ -54,9 +55,16 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
         }
       } finally { running = false }
     }
-    const first = setTimeout(() => void tick(), Math.min(60_000, every))
-    const timer = setInterval(() => void tick(), every)
-    first.unref(); timer.unref()
-    app.addHook('onClose', async () => { clearTimeout(first); clearInterval(timer) })
+    // 간격은 설정 › 동기화의 받기 칸을 돌 때마다 다시 읽는다(바꾸면 바로 적용, 10/19). 수동이면 받지 않고 잠시 뒤 다시 본다
+    let timer: NodeJS.Timeout | null = null
+    let closed = false
+    const next = (ms: number) => { if (closed) return; timer = setTimeout(() => void step(), ms); timer.unref() }
+    const step = async () => {
+      const ms = syncDelayMs(ctx.registry, 'pull', every)
+      if (ms !== null) await tick()
+      next(ms ?? SYNC_RECHECK_MS)
+    }
+    next(Math.min(60_000, syncDelayMs(ctx.registry, 'pull', every) ?? SYNC_RECHECK_MS))
+    app.addHook('onClose', async () => { closed = true; if (timer) clearTimeout(timer) })
   }
 }

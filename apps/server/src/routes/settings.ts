@@ -7,12 +7,42 @@ import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
+import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
+import { SYNC_KINDS, type SyncChoice, type SyncKind } from '@rw/core'
 
 export function registerSettings(app: FastifyInstance, ctx: RouteContext): void {
   const { registry, opts } = ctx
   app.get('/api/settings', replies(C.SettingsView), async (): Promise<C.SettingsView> => ({ ui: registry.ui }))
   app.put('/api/settings', replies(C.SettingsView), async (req): Promise<C.SettingsView> => ({ ui: registry.setUi(parseBody(C.SettingsBody, req.body).ui) }))
   // 설정 › 에이전트: 지시를 맥의 Claude가 언제 하는지 (routes/comments.ts가 읽는다)
+  // 설정 › 동기화 (10/19 결정 "동기화 주기"): 기록 · 피드백 올리기, 연구 저장소 · 라이브러리 받기, 앱 업데이트 확인
+  const syncBase: Record<SyncKind, number | undefined> = {
+    publish: opts.recordsAutoPublishMs ?? opts.feedbackAutoPublishMs,
+    pull: opts.researchAutoPullMs,
+    update: opts.appAutoUpdate?.everyMs,
+  }
+  const syncView = (): C.SyncSettingsView => {
+    const saved = ctx.registry.sync
+    const pick = (k: SyncKind): SyncChoice => saved[k] ?? { mode: 'auto', every: Math.max(1, Math.round((syncBase[k] ?? ({ publish: 30_000, pull: 600_000, update: 600_000 })[k]) / 1000)) }
+    return {
+      publish: pick('publish'), pull: pick('pull'), update: pick('update'),
+      available: {
+        publish: !opts.sandbox && ((opts.recordsAutoPublishMs !== undefined) || (!!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined)),
+        pull: opts.researchAutoPullMs !== undefined,
+        update: !!(opts.appAutoUpdate && opts.appRepo?.steps.canRestart()),
+      },
+    }
+  }
+  app.get('/api/settings/sync', replies(C.SyncSettingsView), async (): Promise<C.SyncSettingsView> => syncView())
+  app.put('/api/settings/sync', replies(C.SyncSettingsView), async (req): Promise<C.SyncSettingsView> => {
+    const body = parseBody(C.SyncSettingsBody, req.body)
+    // 바꾸는 칸은 지금 보이는 값 위에 합친다 (모드만 바꿔도 간격이 남게)
+    const now = syncView()
+    const patch = Object.fromEntries(SYNC_KINDS.filter((k) => body[k]).map((k) => [k, { ...now[k], ...body[k] }]))
+    ctx.registry.setSync(patch)
+    return syncView()
+  })
+
   app.get('/api/settings/agents', replies(C.AgentSettings), async (): Promise<C.AgentSettings> => registry.agents)
   app.put('/api/settings/agents', replies(C.AgentSettings), async (req): Promise<C.AgentSettings> => registry.setAgents(parseBody(C.AgentSettingsBody, req.body)))
 
@@ -91,8 +121,17 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
       } finally { updating = null }
       if (ctx.clients() === 0 && Date.now() - lastWrite >= idleMs) await restartIfReady()
     }
-    const timer = setInterval(() => void tick().catch((e) => console.error(`app auto update: ${(e as Error).message}`)), every)
-    timer.unref()
-    app.addHook('onClose', async () => clearInterval(timer))
+    // 간격은 설정 › 동기화의 업데이트 칸을 돌 때마다 다시 읽는다(10/19). 수동이면 확인하지 않고 잠시 뒤 다시 본다.
+    // 새 버전이 없으면 updateApp은 확인만 하고 받기 · 빌드 · 다시 켜기를 하지 않는다
+    let timer: NodeJS.Timeout | null = null
+    let closed = false
+    const next = (ms: number) => { if (closed) return; timer = setTimeout(() => void step(), ms); timer.unref() }
+    const step = async () => {
+      const ms = syncDelayMs(ctx.registry, 'update', every)
+      if (ms !== null) await tick().catch((e) => console.error(`app auto update: ${(e as Error).message}`))
+      next(ms ?? SYNC_RECHECK_MS)
+    }
+    next(syncDelayMs(ctx.registry, 'update', every) ?? SYNC_RECHECK_MS)
+    app.addHook('onClose', async () => { closed = true; if (timer) clearTimeout(timer) })
   }
 }

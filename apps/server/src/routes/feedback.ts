@@ -11,6 +11,7 @@ import { commitChecker } from '../commitsInApp.js'
 import { appIssuesUrl } from '../appupdate.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
+import { syncDelayMs } from '../syncTiming.js'
 // 연구 저장소 기록 올리기(records)의 응답 계약은 코멘트 갈래에 있다
 
 export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void {
@@ -28,7 +29,9 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   let autoTimer: NodeJS.Timeout | null = null
   let lastAuto: { at: number; error: string | null } | null = null
   const scheduleAutoPublish = () => {
-    if (!opts.feedbackDir || !opts.feedbackPublish || opts.feedbackAutoPublishMs === undefined) return
+    // 설정 › 동기화의 올리기 칸 (10/19): 수동이면 저절로 올리지 않는다
+    const delay = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs)
+    if (!opts.feedbackDir || !opts.feedbackPublish || delay === null) return
     if (autoTimer) clearTimeout(autoTimer)
     autoTimer = setTimeout(() => {
       autoTimer = null
@@ -36,7 +39,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
         lastAuto = { at: Date.now(), error: (e as Error).message }
         app.log.warn({ err: e }, '피드백 자동 올리기 실패')
       })
-    }, opts.feedbackAutoPublishMs)
+    }, delay)
   }
   // 개인 저장소 사본에 GitHub의 새 처리 기록을 받는다: 피드백 화면을 열 때(1분에 한 번까지)와 5분마다
   let lastSync = 0
@@ -92,7 +95,8 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   // 쓰는 길이 여러 갈래(comments · journal · agentEdits …)라 연구 안의 성공한 쓰기 요청마다 예약하고, 올릴 때 이 컴퓨터에서 바뀐 기록이 있는지(네트워크 없이) 먼저 본다
   const recordTimers = new Map<string, NodeJS.Timeout>()
   const scheduleRecordsPublish = (rid: string) => {
-    if (opts.recordsAutoPublishMs === undefined || opts.sandbox) return
+    const delay = syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs)
+    if (delay === null || opts.sandbox) return
     clearTimeout(recordTimers.get(rid))
     recordTimers.set(rid, setTimeout(() => {
       recordTimers.delete(rid)
@@ -104,7 +108,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
         } catch { return } // git 저장소가 아니거나 GitHub 브랜치를 추적하지 않음: 올리지 않는다
         await publishRecords(rid, r).catch((e) => app.log.warn({ err: e, research: rid }, '기록 자동 올리기 실패'))
       })()
-    }, opts.recordsAutoPublishMs))
+    }, delay))
   }
   app.addHook('onResponse', async (req, reply) => {
     const url = req.routeOptions.url ?? ''
@@ -121,6 +125,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   /** 기록 저절로 올리기가 켜졌는지와 마지막 결과 (오른쪽 사이드바 기록이 실패만 보여 준다) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/records/publish', replies(C.RecordsPublishState), async (req): Promise<C.RecordsPublishState> => ({
     autoPublish: opts.recordsAutoPublishMs !== undefined && !opts.sandbox,
+    delay: (() => { const d = opts.sandbox ? null : syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
     last: recordsLast.get(req.params.rid) ?? null,
   }))
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/records/publish', replies(C.RecordsPublished), async (req): Promise<C.RecordsPublished> => {

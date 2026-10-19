@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { AppInfo } from './AppInfo'
 import { AppUpdate } from './AppUpdate'
 import { AgentSettings } from './AgentSettings'
+import { SyncSettings } from './SyncSettings'
 import { BackupSettings } from './BackupSettings'
 import { CommonRulesSettings, ruleSectionId, useCommonRules } from './CommonRulesSettings'
 import { GitHubAccount } from './GitHubAccount'
@@ -38,6 +39,7 @@ export const SETTINGS_PARTS = [
   { key: 'update', label: t('앱 기본정보', 'About this app') },
   { key: 'google', label: t('계정', 'Accounts') },
   { key: 'backup', label: t('백업', 'Backup') },
+  { key: 'sync', label: t('동기화', 'Sync') },
   { key: 'agents', label: t('에이전트', 'Agents') },
   // 아래 줄은 규칙 파일의 절 제목 (RuleSubs)
   { key: 'rules', label: t('공통 규칙', 'Common rules') },
@@ -155,6 +157,11 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
             {show('backup') && <section data-ui="백업 묶음">
               <div className="sec-head"><h2>{t('백업', 'Backup')}</h2></div>
               <BackupSettings />
+            </section>}
+
+            {show('sync') && <section data-ui="동기화 묶음">
+              <div className="sec-head"><h2>{t('동기화', 'Sync')}</h2></div>
+              <SyncSettings />
             </section>}
 
             {show('agents') && <section data-ui="에이전트 묶음">

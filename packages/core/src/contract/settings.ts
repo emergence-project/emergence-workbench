@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { UI_OPTIONS, type UiSettings as UiSettingsType } from '../ui-settings.js'
 import { INSTRUCTION_HOURS, INSTRUCTION_MODES } from '../agent-settings.js'
+import { SYNC_MODES } from '../sync-settings.js'
 
 type Key = keyof typeof UI_OPTIONS
 const choice = <K extends Key>(k: K) =>
@@ -37,6 +38,17 @@ export const AgentSettings = z.object({
 /** 바꿀 것만 보낸다. 고를 수 없는 값은 서버(normalizeAgentSettings)가 무시한다 */
 export const AgentSettingsBody = z.custom<Partial<z.infer<typeof AgentSettings>>>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' })
 
+/** GET · PUT /settings/sync (설정 › 동기화, 10/19). 지금 쓰는 값(저장 안 한 칸은 앱을 켤 때 정한 값)과, 이 앱에서 그 일을 하는지 */
+const SyncChoice = z.object({ mode: z.enum(SYNC_MODES), every: z.number().int().positive() }).strict()
+export const SyncSettingsView = z.object({
+  publish: SyncChoice, pull: SyncChoice, update: SyncChoice,
+  /** 개발용 예제 모드 · 개인 저장소 없음 · 앱 사본이 아님 등으로 그 일을 하지 않으면 false */
+  available: z.object({ publish: z.boolean(), pull: z.boolean(), update: z.boolean() }).strict(),
+}).strict()
+/** 바꿀 칸만 보낸다. 고를 수 없는 값은 서버(normalizeSyncSettings)가 무시한다 */
+export const SyncSettingsBody = z.custom<Partial<Record<'publish' | 'pull' | 'update', { mode?: string; every?: number }>>>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' })
+export type SyncSettingsView = z.infer<typeof SyncSettingsView>
+export type SyncSettingsBody = z.input<typeof SyncSettingsBody>
 export type AgentSettings = z.infer<typeof AgentSettings>
 export type AgentSettingsBody = z.input<typeof AgentSettingsBody>
 export type SettingsView = z.infer<typeof SettingsView>
