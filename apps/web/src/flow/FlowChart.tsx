@@ -85,7 +85,6 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
     return () => ro.disconnect()
   }, [hasDots])
 
-  const gut = outside ? 0 : GUT
   const fitCW = Math.max(32, Math.min(CW0, (boxW - LEFT - 8) / Math.max(1, lay.cols)))
   const CW = zoom.fit ? fitCW : CW0 * zoom.x
   const RH = RH0 * zoom.y
@@ -96,7 +95,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
     const el = box.current
     if (!el) return null
     const b = el.getBoundingClientRect()
-    const x = e.clientX - b.left + el.scrollLeft - gut, y = e.clientY - b.top + el.scrollTop
+    const x = e.clientX - b.left + el.scrollLeft, y = e.clientY - b.top + el.scrollTop
     const c = Math.max(0, Math.min(lay.cols, Math.floor((x - LEFT) / CW)))
     const r = Math.max(0, Math.min(lay.rows - 1, Math.floor((y - TOP) / RH)))
     return { c, r: r - lay.mid }
@@ -169,7 +168,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
   const center = (id: string) => {
     const p = at.get(id), el = box.current
     if (!p || !el) return
-    el.scrollTo({ left: gut + X(p.c) - el.clientWidth / 2, top: Y(p.r) - el.clientHeight / 2, behavior: 'smooth' })
+    el.scrollTo({ left: X(p.c) - el.clientWidth / 2, top: Y(p.r) - el.clientHeight / 2, behavior: 'smooth' })
   }
   // 바탕을 끌면 화면을 옮긴다
   const pan = useRef<{ x: number; y: number; l: number; t: number } | null>(null)
@@ -269,8 +268,12 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
       {outside && <div className="fl-rowclip" style={{ width: GUT, height }}>{heads}</div>}
       <div className="fl-box" ref={box} style={{ height }} data-ui="흐름 차트" onScroll={(e) => { if (outside) setScrollTop(e.currentTarget.scrollTop) }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
         onClick={(e) => { if (!picking && !(e.target as Element).closest('.fl-node, .fl-rowhead')) setSel(null) }}>
-        <div className="fl-canvas" style={{ width: gut + W, height: H }}>
-        {!outside && heads}
+        <div className="fl-canvas" style={{ width: W, height: H }}>
+        {/* 줄 이름은 상자 바깥 왼쪽에만 둔다. 자리가 없으면 이름 · 연필 · ×는 숨고 ▶ 끌기와 ＋ 줄만 남는다(10/20). */}
+        {!outside && <div className="fl-rowheads slim" style={{ height: H }}>
+            <button className="fl-rowadd" data-ui="흐름 줄 더하기" style={{ top: 4 }} title={tr('위에 줄 더하기', 'Add a row above')} onClick={(e) => { e.stopPropagation(); void setRows(rowTop - 1, rowBottom) }}>＋ {tr('줄', 'Row')}</button>
+            <button className="fl-rowadd" data-ui="흐름 줄 더하기" style={{ top: H - 26 }} title={tr('아래에 줄 더하기', 'Add a row below')} onClick={(e) => { e.stopPropagation(); void setRows(rowTop, rowBottom + 1) }}>＋ {tr('줄', 'Row')}</button>
+          </div>}
         <svg className="fl-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr('연구 흐름', 'Research flow')}>
           {Array.from({ length: lay.cols }, (_, c) => c > 0 && <line key={`c${c}`} className="fl-grid" x1={X(c)} y1={1} x2={X(c)} y2={H} />)}
           {Array.from({ length: lay.rows }, (_, r) => <line key={`r${r}`} className={r === lay.mid ? 'fl-mid' : 'fl-grid'} x1={LEFT} y1={Y(r)} x2={W} y2={Y(r)} />)}

@@ -183,6 +183,9 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 /* 바깥 왼쪽: 상자 높이로 자르고, 상자를 세로로 넘기면 같이 움직인다. 이름은 차트 쪽(오른쪽)에 붙인다 */
 .fl-rowclip { position: absolute; right: 100%; top: 1px; overflow: hidden; }
 .fl-rowheads.out { position: relative; }
+/* 바깥에 자리가 없을 때: 폭 없이 ＋ 줄만 상자 안 왼쪽 위 · 아래에 */
+.fl-rowheads.slim { width: 0; background: none; }
+.fl-rowheads.slim .fl-rowadd { white-space: nowrap; }
 .fl-rowheads.out .fl-rowhead { flex-direction: row-reverse; padding-left: 0; padding-right: var(--sp-2); }
 .fl-rowheads.out .fl-rowname { justify-content: flex-end; }
 .fl-rowheads.out .fl-rowadd { left: auto; right: var(--sp-2); }
