@@ -56,7 +56,8 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
   useEffect(() => { activeKey.current = key; return () => { activeKey.current = null } }, [key])
   const classifying_ = classifying.has(key)
   const unsorted = slot.file?.comments.filter((c) => c.unsorted) ?? []
-  const project = target.target === 'project'
+  // group이 있으면 점을 고르지 않아(적기 대상이 프로젝트여도) 그 접두어의 기록만 보인다
+  const project = target.target === 'project' && !group
   // 여러 대상을 함께 보이는가: 프로젝트 전체, 또는 group 접두어의 대상 모두
   const many = project || !!group
   const recordsQuery = useRecords(rid, many)
