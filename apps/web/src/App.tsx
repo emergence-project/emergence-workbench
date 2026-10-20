@@ -1,7 +1,7 @@
 import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, commentsApi, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
+import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { AppUpdateButton } from './AppUpdate'
 import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
@@ -50,6 +50,7 @@ import type { ProfilePatch } from './ProjectProfileFields'
 import { go, useRoute, type Route } from './router'
 import { useProjectData } from './projectData'
 import { batchInvalidation, invalidationKeys, qk } from './queries'
+import { recordWrites } from './useRecordActions'
 import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
 import { applyUi, cachedUi } from './ui'
@@ -183,7 +184,7 @@ export function App() {
   }, [notes, notesOf, routeFile, rid, setLayout])
   const issues = useProjectIssues(researches)
   // 기록을 저절로 올리다 실패하면 화면 아래 알림 (10/19 안 B)
-  usePublishFailureFlash(rid, version)
+  usePublishFailureFlash(rid)
   const msOfFile = (file: string) => manuscripts.find((m) => m.main === file || m.parts.some((p) => p.file === file)) ?? null
   const msKeyOfTab = (t: { ms?: string }) => msKeyOfPdfTab(t, manuscripts)
   // Document kind is display metadata; tab titles remain stable feedback targets.
@@ -518,7 +519,7 @@ export function App() {
               // 할 일의 정본은 기록 파일 (2026-10-16). 메모는 오늘 일지에
               if (kind === 'todo') {
                 const place = to === RESEARCH_TARGET ? { target: 'project', title: summary.research.title } : blockTarget(to, label)
-                await commentsApi(summary.id).add(place.target, { kind: '할 일', text, ...place })
+                await recordWrites(summary.id).add(place.target, { kind: '할 일', text, ...place })
               } else await rapi.addJournal(kind, text, to)
               changed()
               flash(kind === 'todo' ? t(`할 일 저장됨 — 기록 · ${label}`, `To-do saved to records · ${label}`) : t(`메모 저장됨 — 오늘 일지 · ${label}`, `Memo saved to today\'s journal · ${label}`))

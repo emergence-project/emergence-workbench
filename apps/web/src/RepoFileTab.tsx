@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { stripFrontMatter } from '@rw/core'
-import { useQueryClient } from '@tanstack/react-query'
-import { api, commentsApi } from './api'
+import { api } from './api'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
 import { openedFrom, replaceRecordPath, useRepoFile } from './repoPaths'
 import { monthDay } from './format'
 import { flash } from './flash'
-import { qk } from './queries'
+import { recordWrites } from './useRecordActions'
 import { t } from './i18n'
 
 /**
@@ -16,7 +15,6 @@ import { t } from './i18n'
  */
 export function RepoFileTab({ rid, path }: { rid: string; path: string }) {
   const { data, error } = useRepoFile(rid, path, true)
-  const client = useQueryClient()
   const [fixed, setFixed] = useState(false)
   const from = openedFrom(rid, path)
   const rapi = api.research(rid)
@@ -26,12 +24,12 @@ export function RepoFileTab({ rid, path }: { rid: string; path: string }) {
   const fixPath = async () => {
     if (!from) return
     try {
-      const file = await commentsApi(rid).read(from.target)
-      const record = file.comments.find((c) => c.id === from.id)
-      const text = record ? replaceRecordPath(record.body, data.asked, data.path) : null
-      if (!record || text === null) { flash(t('기록 글에 이 경로가 없습니다', 'The record no longer has this path')); return }
-      await commentsApi(rid).update(from.target, from.id, { text, baseHash: file.hash })
-      void client.invalidateQueries({ queryKey: qk.records(rid) })
+      const updated = await recordWrites(rid).updateLatest(from.target, from.id, (file) => {
+        const record = file.comments.find((c) => c.id === from.id)
+        const text = record ? replaceRecordPath(record.body, data.asked, data.path) : null
+        return text === null ? null : { text }
+      })
+      if (!updated) { flash(t('기록 글에 이 경로가 없습니다', 'The record no longer has this path')); return }
       setFixed(true)
       flash(t('기록의 경로를 새 자리로 고쳤습니다', 'Updated the path in the record'))
     } catch (e) { flash((e as Error).message) }

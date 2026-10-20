@@ -4,8 +4,8 @@ import { batchInvalidation, invalidationKeys, qk } from './queries'
 
 describe('파일 알림 → 다시 받을 자료', () => {
   it('알림이 바꾸는 자료만 고른다 (일지 한 줄에 프로젝트 자료 전체를 다시 받지 않는다)', () => {
-    expect(invalidationKeys({ type: 'journal', research: 'p', date: '2026-10-16' })).toEqual([['project', 'p', 'journal'], qk.status('p')])
-    expect(invalidationKeys({ type: 'comments', research: 'p', target: 'project' })).toEqual([qk.summary('p'), qk.records('p'), ['network', 'person'], qk.status('p')])
+    expect(invalidationKeys({ type: 'journal', research: 'p', date: '2026-10-16' })).toEqual([['project', 'p', 'journal'], qk.recordsUnpublished('p'), qk.status('p')])
+    expect(invalidationKeys({ type: 'comments', research: 'p', target: 'project' })).toEqual([qk.summary('p'), qk.records('p'), qk.recordsUnpublished('p'), ['network', 'person'], qk.status('p')])
     expect(invalidationKeys({ type: 'note', research: 'p', file: 'workbench/notes/a/note.md', hash: null })).toEqual([qk.notes('p'), qk.topics('p'), qk.manuscripts('p'), qk.library, qk.agentEdits('p'), qk.records('p'), qk.repoFiles('p'), qk.status('p')])
     expect(invalidationKeys({ type: 'library', research: null, part: 'concepts', file: 'concepts/x.md' })).toEqual([qk.library, qk.agentEdits('library')])
     expect(invalidationKeys({ type: 'library', research: null, part: 'papers', file: 'papers.yaml' })).toEqual([qk.library, qk.papers])
@@ -22,7 +22,10 @@ describe('파일 알림 → 다시 받을 자료', () => {
     expect(invalidationKeys({ type: 'tasks', research: 'p', id: 'x' })).toEqual([qk.tasks('p'), qk.status('p')])
     // 현황(STATUS.md와 같은 글)은 그 프로젝트의 어느 파일에서나 뽑으므로 모든 알림에 든다. research는 프로젝트 키 전체라 따로 넣지 않는다
     expect(invalidationKeys({ type: 'flow', research: 'p' })).toEqual([qk.flow('p'), qk.status('p')])
-    for (const type of ['preamble', 'records-publish'] as const) expect(invalidationKeys({ type, research: 'p' })).toEqual([qk.status('p')])
+    expect(invalidationKeys({ type: 'preamble', research: 'p' })).toEqual([qk.status('p')])
+    // 기록 올리기 결과가 바뀌면(실패가 생기거나 풀림) 그 결과와 안 올린 기록 (기록 탭 맨 위 줄 · 실패 알림 · 맥락 칸 올리기)
+    expect(invalidationKeys({ type: 'records-publish', research: 'p' })).toEqual([qk.recordsPublish('p'), qk.status('p')])
+    expect(qk.recordsUnpublished('p').slice(0, 3)).toEqual([...qk.recordsPublish('p')])
     expect(qk.status('p').slice(0, 2)).toEqual([...qk.project('p')])
     expect(qk.tasks('p').slice(0, 2)).toEqual([...qk.project('p')])
   })

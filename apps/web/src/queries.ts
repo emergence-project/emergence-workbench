@@ -6,7 +6,7 @@ import { LIBRARY_RID } from '@rw/core'
  * 화면 캐시 (2026-10-15 종합 검토 묶음 H, TanStack Query).
  * 자료마다 키를 두고, 서버의 파일 알림(WorkbenchEvent)은 그 알림이 바꾸는 자료의 키만 다시 받게 한다(invalidationKeys).
  * 서버가 바뀔 때마다 알려 주므로 받은 자료는 알림이 올 때까지 그대로 쓴다(staleTime 무한, 창 초점에 다시 받지 않음).
- * 아직 옮기지 않은 화면(노트 · 블록 편집, 기록 패널의 올리기 상태, 규칙 파일, 저장소 상태, 고침 하나의 검토)은 예전처럼 version(App.tsx)이 오를 때 다시 받는다.
+ * 아직 옮기지 않은 화면(노트 · 블록 편집, 규칙 파일, 저장소 상태, 고침 하나의 검토)은 예전처럼 version(App.tsx)이 오를 때 다시 받는다.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +46,10 @@ export const qk = {
   flow: (rid: string) => ['project', rid, 'flow'] as const,
   /** 프로젝트와 모든 노트의 기록 (workbench/comments/). 인용 위치를 노트에서 다시 찾으므로 노트가 바뀌어도 다시 받는다 */
   records: (rid: string) => ['project', rid, 'records'] as const,
+  /** 기록 올리기의 마지막 결과 (기록 탭 맨 위 줄 · 실패 알림). 서버가 실패가 생기거나 풀릴 때 records-publish로 알린다 */
+  recordsPublish: (rid: string) => ['project', rid, 'records-publish'] as const,
+  /** 안 올린 기록 파일 (git): 올리기 결과 키 아래에 두어 그 알림 때 함께. 기록 · 일지 파일이 바뀌면 이것만 */
+  recordsUnpublished: (rid: string) => ['project', rid, 'records-publish', 'unpublished'] as const,
   papers: ['papers'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
@@ -91,16 +95,17 @@ function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' }>): QueryKey[
     // 노트 파일: 노트 목록 · 주제 카드 수 · 원고(노트도 원고일 수 있다) · 라이브러리의 "쓰는 곳" · 고침 검토
     case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library, qk.agentEdits(rid), qk.records(rid), qk.repoFiles(rid)]
     case 'statement': return [qk.summary(rid)]
-    // 기록: 요약의 할 일과 기록 모음
+    // 기록: 요약의 할 일과 기록 모음, 안 올린 기록 (일지도 올리는 기록이다)
     // 사람 페이지의 "나오는 곳"이 기록에서 이름을 찾는다
-    case 'comments': return [qk.summary(rid), qk.records(rid), PERSON_PAGES]
-    case 'journal': return [['project', rid, 'journal']]
+    case 'comments': return [qk.summary(rid), qk.records(rid), qk.recordsUnpublished(rid), PERSON_PAGES]
+    case 'journal': return [['project', rid, 'journal'], qk.recordsUnpublished(rid)]
     // research.yaml sources의 파일(원고 · 그림 · 참고 자료 · 작업 목록 · 검토 문서)
     // 프로젝트 bib는 네트워킹의 등록 추천과 사람 페이지(참고 문헌의 논문 · 나오는 곳)가 읽는다
     case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid), qk.repoFiles(rid), qk.peopleSuggestions, PERSON_PAGES]
     case 'tasks': return [qk.tasks(rid)]
     case 'flow': return [qk.flow(rid)]
-    case 'preamble': case 'records-publish': return []
+    case 'records-publish': return [qk.recordsPublish(rid)]
+    case 'preamble': return []
   }
 }
 

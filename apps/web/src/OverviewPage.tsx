@@ -2,7 +2,7 @@ import { flash } from './flash'
 import { awaitsUserReview, type TreeIssue } from '@rw/core'
 import { fill } from './projectData'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { agentEditsApi, commentsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type OpenTodo, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
+import { agentEditsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type OpenTodo, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
 import { monthDay, statusOf } from './format'
 import { Icon } from './icons'
 import { lastWorkMs, PROJECT_KIND_LABEL } from './projectProfile'
@@ -13,6 +13,7 @@ import { ProjectEditDialog } from './ProjectEditDialog'
 import { useAgentEdits, useJournal, useProjectInfo, useTopicsOverview } from './projectQueries'
 import { useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
+import { recordWrites } from './useRecordActions'
 import { MemoText } from './memo'
 import { openTodoPlace, todoPlace } from './todoItems'
 import { AUX_NOTE } from './notes'
@@ -190,9 +191,8 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
   // 할 일 끝내기 (10/19): 기록 파일의 지금 hash를 받아 끝냄으로. 기록 탭에서 다시 열 수 있어 확인은 묻지 않는다
   const [finishing, setFinishing] = useState<string | null>(null)
   const finish = (todo: OpenTodo) => {
-    const api = commentsApi(rid)
     setFinishing(todoKey(todo))
-    api.read(todo.target).then((file) => api.setState(todo.target, todo.id, '끝냄', file.hash)).then(() => onChanged())
+    recordWrites(rid).updateLatest(todo.target, todo.id, () => ({ state: '끝냄' })).then(() => onChanged())
       .catch((e: Error) => flash(e.message)).finally(() => setFinishing(null))
   }
   const reopen = (b: { id: string; hash: string }) => {

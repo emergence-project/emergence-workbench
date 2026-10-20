@@ -18,7 +18,10 @@ import { quotedRecordHighlights } from './recordHelpers'
 import { openRight, useRightMode } from './noteScreen'
 import { shown, t } from './i18n'
 import { kindLabel, stateLabel } from './recordLabels'
-import { queryClient } from './queries'
+import { qk, queryClient } from './queries'
+import { useQueryClient } from '@tanstack/react-query'
+import { useUnpublished } from './RecordsPublish'
+import { recordWrites, useRecordActions, type RecordWrites } from './useRecordActions'
 
 
 /**
@@ -444,8 +447,9 @@ function CommentItem({ c, on, ref_, asking, onAsk, onGo, onState, onDelete }: {
 
 /** 맥락 칸: 지금 대상의 코멘트. 맥에서 남긴 코멘트를 클라우드의 Claude도 읽게 GitHub에 올릴 수 있다 */
 export function CommentsPanel({ rid, target }: { rid: string; target: CommentTarget }) {
-  const slot = useSlot(rid, target.target)
-  const [unpublished, setUnpublished] = useState<string[] | null>(null)
+  const client = useQueryClient()
+  // 기록 탭 맨 위 줄(RecordsPublish)과 같은 자료 (qk.recordsUnpublished: 기록 파일 알림에 다시 받는다)
+  const unpublished = useUnpublished(rid, rid !== LIBRARY).data ?? null
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -456,13 +460,12 @@ export function CommentsPanel({ rid, target }: { rid: string; target: CommentTar
     setDraft({ kind: '메모', ...a, sel: a.page && a.rects ? { page: a.page, rects: a.rects, text: a.quote ?? '', pageHeight: a.pageHeight } : null })
     clearRecordComposerRequest(request.nonce)
   }, [request, rid, target.target])
-  useEffect(() => { if (rid === LIBRARY) return; commentsApi(rid).unpublished().then(setUnpublished).catch(() => setUnpublished(null)) }, [rid, slot.file?.hash])
   const publish = async () => {
     setBusy(true); setMsg(null)
     try {
       const r = await commentsApi(rid).publish()
       setMsg(r.message)
-      setUnpublished(await commentsApi(rid).unpublished())
+      await client.invalidateQueries({ queryKey: qk.recordsUnpublished(rid) })
     } catch (e) { setMsg((e as Error).message) } finally { setBusy(false) }
   }
   return (
@@ -497,8 +500,7 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
   const color = useHighlightColor()
   const [sel, setSel] = useState<RecordSelection | null>(null)
   const [active, setActive] = useState<{ id: string; x: number; y: number } | null>(null)
-  const [busy, setBusy] = useState(false)
-  const locked = useRef(false)
+  const { busy, run } = useRecordActions(rid, { report: 'flash', conflict: t('그사이 기록이 바뀌어 다시 읽었습니다. 한 번 더 눌러 주세요.', 'The records changed in the meantime and were reloaded. Please click once more.') })
   const highlights = [...(slot.file?.highlights ?? []), ...quotedRecordHighlights(slot.file?.comments ?? [])]
   const revealed = slot.reveal && slot.file?.comments.find((record) => record.id === slot.reveal!.id)
   const reveal = revealed && !revealed.lost && revealed.line ? { id: revealed.id, line: revealed.line, quote: revealed.quote, prefix: revealed.prefix, suffix: revealed.suffix, nonce: slot.reveal!.nonce } : undefined
@@ -509,36 +511,27 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
   const selected = highlights.find((h) => h.id === active?.id)
   useRecordSelection(box, source, contentOffset, (selection) => { setSel(selection); if (selection) setActive(null) })
   const done = () => { setSel(null); window.getSelection()?.removeAllRanges() }
-  const write = async (operation: () => Promise<void>) => {
-    if (locked.current) return
-    locked.current = true; setBusy(true)
-    try { await operation() } catch (e) {
-      if (e instanceof ConflictError) { await load(rid, target.target); flash(t('그사이 기록이 바뀌어 다시 읽었습니다. 한 번 더 눌러 주세요.', 'The records changed in the meantime and were reloaded. Please click once more.')) }
-      else flash((e as Error).message)
-    } finally { locked.current = false; setBusy(false) }
-  }
+  const write = (operation: (w: RecordWrites) => Promise<void>) => run(target.target, operation)
   const add = (paint: PaintColor) => {
     if (!sel) return
     const { quote, line, prefix, suffix } = sel
-    void write(async () => {
-      await commentsApi(rid).add(target.target, { kind: '하이라이트', title: target.title, source: target.source, color: paint, quote, line, prefix, suffix, text: '' })
-      await load(rid, target.target)
+    void write(async (w) => {
+      await w.add(target.target, { kind: '하이라이트', title: target.title, source: target.source, color: paint, quote, line, prefix, suffix, text: '' })
       done()
     })
   }
   const remove = () => {
     if (!selected || !slot.file) return
     const h = selected
-    void write(async () => {
-      patch(key, { file: await commentsApi(rid).remove(target.target, h.id, slot.file!.hash) })
+    void write(async (w) => {
+      await w.remove(target.target, h.id, slot.file!.hash)
       setActive(null)
       let restored = false
       const restore = async () => {
         if (restored) return
         restored = true
         try {
-          await commentsApi(rid).add(target.target, { kind: '하이라이트', title: target.title, source: target.source, color: h.color, quote: h.quote, line: h.line, prefix: h.prefix, suffix: h.suffix, page: h.page, rects: h.rects, text: h.body ?? '' })
-          await load(rid, target.target)
+          await recordWrites(rid).add(target.target, { kind: '하이라이트', title: target.title, source: target.source, color: h.color, quote: h.quote, line: h.line, prefix: h.prefix, suffix: h.suffix, page: h.page, rects: h.rects, text: h.body ?? '' })
           flash(t('되살렸습니다', 'Restored'))
         } catch (e) { restored = false; flash((e as Error).message, { label: t('되돌리기', 'Undo'), run: () => { void restore() } }) }
       }
@@ -563,7 +556,7 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
         </RecordMenu>
       )}
       {active && selected && <RecordMenu anchor={active} highlight owner={box.current} onClose={() => setActive(null)}>
-        <PaintDots color={selected.color} action="바꾸기" disabled={busy} onChange={(paint) => { if (paint !== selected.color && slot.file) void write(async () => { patch(key, { file: await commentsApi(rid).update(target.target, selected.id, { color: paint, baseHash: slot.file!.hash }) }) }) }} />
+        <PaintDots color={selected.color} action="바꾸기" disabled={busy} onChange={(paint) => { if (paint !== selected.color && slot.file) void write(async (w) => { await w.update(target.target, selected.id, { color: paint, baseHash: slot.file!.hash }) }) }} />
         <span className="record-menu-sep" />
         <button disabled={busy} onClick={() => { openRecordComposer(rid, target, { quote: selected.quote, line: selected.line, prefix: selected.prefix, suffix: selected.suffix, color: selected.color }); setActive(null) }}><span className="ico">{Icon.comment}</span> {t('코멘트 달기', 'Add comment')}</button>
         <button disabled={busy} aria-label={t('지우기', 'Delete')} title={t('지우기', 'Delete')} onClick={remove}><span className="ico">{Icon.trash}</span></button>
