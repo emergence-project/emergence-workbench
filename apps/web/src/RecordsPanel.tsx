@@ -11,6 +11,7 @@ import { useHighlightColor } from './ui'
 import { classifiedRecordCount, filterByStatus, filterForActiveRecord, filterRecords, recordRoute, statusForActiveRecord, type PanelFilter, type StatusFilter } from './recordsPanelHelpers'
 import { flash } from './flash'
 import { RecordList, type RecordPlaceOf } from './RecordList'
+import { recordWrites, useRecordActions } from './useRecordActions'
 import { LIBRARY_RID } from '@rw/core'
 import { chooseRecordFilter } from './workRecords'
 import { RECORD_KINDS, recordDrafts, attachRecordDraft, type ComposerDraft } from './recordDrafts'
@@ -136,19 +137,14 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
 }
 
 function LostHighlights({ rid, file }: { rid: string; file: CommentFile }) {
-  const [busy, setBusy] = useState(false)
-  const remove = async (h: NoteHighlight) => {
-    if (busy) return
-    setBusy(true)
-    try {
-      patch(keyOf(rid, file.target), { file: await commentsApi(rid).remove(file.target, h.id, file.hash) }); bumpPending()
-      flash(t('지웠습니다', 'Deleted'), { label: t('되돌리기', 'Undo'), run: () => { void commentsApi(rid).add(file.target, {
-        kind: '하이라이트', title: file.title, source: file.source, text: h.body ?? '', quote: h.quote, color: h.color,
-        line: h.line, prefix: h.prefix, suffix: h.suffix, page: h.page, rects: h.rects,
-      }).then(() => load(rid, file.target)).catch((e: Error) => flash(e.message)) } })
-    } catch (e) { if (e instanceof ConflictError) await load(rid, file.target); flash((e as Error).message) }
-    finally { setBusy(false) }
-  }
+  const { busy, run } = useRecordActions(rid, { report: 'flash' })
+  const remove = (h: NoteHighlight) => run(file.target, async (w) => {
+    await w.remove(file.target, h.id, file.hash)
+    flash(t('지웠습니다', 'Deleted'), { label: t('되돌리기', 'Undo'), run: () => { void w.add(file.target, {
+      kind: '하이라이트', title: file.title, source: file.source, text: h.body ?? '', quote: h.quote, color: h.color,
+      line: h.line, prefix: h.prefix, suffix: h.suffix, page: h.page, rects: h.rects,
+    }).catch((e: Error) => flash(e.message)) } })
+  })
   return <details className="record-lost"><summary>{t('자리를 잃은 하이라이트', 'Highlights that lost their place')} · {file.highlights.filter((h) => h.lost).length}</summary>
     {file.highlights.filter((h) => h.lost).map((h) => <div className="record-lost-row" key={h.id}><blockquote className="record-quote" style={{ borderColor: `var(--paint-${h.color})` }}>{h.quote}</blockquote><button className="icon-btn tip-end" data-tip={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={busy} onClick={() => void remove(h)}>{Icon.trash}</button></div>)}
   </details>
@@ -176,9 +172,8 @@ function RecordComposer({ rid, target, needsDot = false }: { rid: string; target
     let error: string | null = null
     try {
       const a = draft.attachment
-      const result = await commentsApi(rid).add(target.target, { kind: draft.kind, title: target.title, source: target.source, text: draft.text,
+      const result = await recordWrites(rid).add(target.target, { kind: draft.kind, title: target.title, source: target.source, text: draft.text,
         ...a, ...(a.quote && { color: draft.color }) })
-      await load(rid, target.target, true); bumpPending()
       patch(key, { active: result.entry.id })
       if (draft.kind === '질문') void askClaude(rid, target.target, result.entry.id)
     } catch (e) { error = (e as Error).message }

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
-import { commentsApi, ConflictError, type CommentEntry, type CommentFile, type RecordFile } from './api'
-import { askClaude, askErrors, asking, askKey, bumpPending, keyOf, load, patch, useAskTick, useSlot } from './Comments'
+import type { CommentEntry, RecordFile } from './api'
+import { askClaude, askErrors, asking, askKey, useAskTick, useSlot } from './Comments'
+import { useRecordActions, type RecordWrites } from './useRecordActions'
 import { MemoText } from './memo'
 import { RepoPathContext } from './repoPaths'
 import { Icon } from './icons'
@@ -30,24 +31,10 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
   placeOf?: RecordPlaceOf
 }) {
   const active = useSlot(rid, file.target, false).active
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const locked = useRef(false)
+  // 409면 다시 읽고 띄운다. 적던 글은 남는다 (기록 줄의 고치기 칸)
+  const { busy, error, run } = useRecordActions(rid, { conflict: t('그사이 기록이 바뀌어 다시 읽었습니다. 적던 글은 남아 있습니다. 내용을 확인하고 다시 고쳐 주세요.', 'The records changed meanwhile and were reloaded. Your text is kept. Check the content and edit again.') })
   useAskTick()
-  const act = async (operation: () => Promise<CommentFile>) => {
-    if (locked.current) return false
-    locked.current = true; setBusy(true); setError(null)
-    try {
-      patch(keyOf(rid, file.target), { file: await operation() }); bumpPending(); return true
-    } catch (e) {
-      if (e instanceof ConflictError) {
-        await load(rid, file.target, true); bumpPending()
-        setError(t('그사이 기록이 바뀌어 다시 읽었습니다. 적던 글은 남아 있습니다. 내용을 확인하고 다시 고쳐 주세요.', 'The records changed meanwhile and were reloaded. Your text is kept. Check the content and edit again.'))
-      } else setError((e as Error).message)
-      return false
-    } finally { locked.current = false; setBusy(false) }
-  }
-  const api = commentsApi(rid)
+  const act = (operation: (w: RecordWrites) => Promise<unknown>) => run(file.target, operation)
   const kindItems = filterRecords(file.comments, filter)
   const listed = suppliedItems ?? (status ? sortRecords(filterByStatus(kindItems, status)) : kindItems)
   // 할 일에 대해 물은 질문 · 지시 (10/19 결정 "할 일에 에이전트에게"): 그 할 일 아래 대화로 보이고, 할 일이 목록에 있으면 따로 줄을 두지 않는다
@@ -63,18 +50,14 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
   const askTodo = async (todo: CommentEntry, kind: '질문' | '지시', text: string): Promise<boolean> => {
     const last = linked.get(todo.id)?.at(-1)
     if (last && last.kind === kind && last.state !== '끝냄' && !last.by) {
-      const ok = await act(() => api.reply(file.target, last.id, text))
+      const ok = await act((w) => w.reply(file.target, last.id, text))
       if (ok && kind === '질문') void askClaude(rid, file.target, last.id)
       return ok
     }
-    if (locked.current) return false
-    locked.current = true; setBusy(true); setError(null)
-    try {
-      const r = await api.add(file.target, { kind, title: file.title, ...(file.source && { source: file.source }), text, todo: todo.id })
-      await load(rid, file.target, true); bumpPending()
-      if (kind === '질문') void askClaude(rid, file.target, r.entry.id)
-      return true
-    } catch (e) { setError((e as Error).message); return false } finally { locked.current = false; setBusy(false) }
+    let id = ''
+    const ok = await act(async (w) => { id = (await w.add(file.target, { kind, title: file.title, ...(file.source && { source: file.source }), text, todo: todo.id })).entry.id })
+    if (ok && kind === '질문') void askClaude(rid, file.target, id)
+    return ok
   }
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
   return <>
@@ -83,11 +66,11 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
       : filter === '전체' ? t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.') : t(`${filter} 기록이 없습니다.`, `No ${kindLabel(filter).toLowerCase()} records.`)}</p>}
     {items.map((c) => <RecordRow key={c.id} active={active === c.id} c={c} hash={file.hash} busy={busy} onGo={() => onGo(c)}
       asking={asking.has(askKey(rid, file.target, c.id))} onAsk={() => void askClaude(rid, file.target, c.id)}
-      onState={(state) => act(() => api.update(file.target, c.id, { state, baseHash: file.hash }))}
-      onEdit={(text, baseHash) => act(() => api.update(file.target, c.id, { text, baseHash }))}
-      onApply={/^(note|calc)-/.test(file.target) ? (i) => act(() => api.apply(file.target, c.id, i, file.hash)) : undefined}
+      onState={(state) => act((w) => w.setState(file.target, c.id, state, file.hash))}
+      onEdit={(text, baseHash) => act((w) => w.update(file.target, c.id, { text, baseHash }))}
+      onApply={/^(note|calc)-/.test(file.target) ? (i) => act((w) => w.apply(file.target, c.id, i, file.hash)) : undefined}
       onReply={async (text) => {
-        const ok = await act(() => api.reply(file.target, c.id, text))
+        const ok = await act((w) => w.reply(file.target, c.id, text))
         // 사용자가 쓴 질문에 이어 물으면 새 질문처럼 맥의 Claude에게 넘긴다 (에이전트가 물은 것에 답하면 넘기지 않는다)
         if (ok && c.kind === '질문' && !c.by) void askClaude(rid, file.target, c.id)
         return ok
@@ -96,7 +79,7 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
         // Capture the read hash before the confirmation: an appended answer must cause a conflict.
         const baseHash = file.hash
         if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 답이 달린 기록은 지울 수 없습니다.', 'This cannot be undone. The source text and other records stay. Records with answers cannot be deleted.'), ok: t('지우기', 'Delete') })) {
-          await act(() => api.remove(file.target, c.id, baseHash))
+          await act((w) => w.remove(file.target, c.id, baseHash))
         }
       }} rid={rid} file={file} work={work} showSource={showSource} place={placeOf?.(c)}
       talk={c.kind === '할 일' && rid !== LIBRARY_RID ? {
@@ -104,11 +87,11 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
         // 대화 속 질문 · 지시도 기록 줄처럼 끝내고 지우고 다시 묻는다 (10/20 검토: 묻기가 실패하면 기다림에서 멈췄다)
         asking: (r) => asking.has(askKey(rid, file.target, r.id)),
         onAsk: (r) => void askClaude(rid, file.target, r.id),
-        onState: (r, state) => act(() => api.update(file.target, r.id, { state, baseHash: file.hash })),
+        onState: (r, state) => act((w) => w.setState(file.target, r.id, state, file.hash)),
         onDelete: async (r) => {
           const baseHash = file.hash
           if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 할 일과 다른 기록은 남습니다.', 'This cannot be undone. The to-do and other records stay.'), ok: t('지우기', 'Delete') })) {
-            await act(() => api.remove(file.target, r.id, baseHash))
+            await act((w) => w.remove(file.target, r.id, baseHash))
           }
         },
       } : undefined}

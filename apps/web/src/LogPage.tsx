@@ -1,10 +1,11 @@
 import { awaitsUserReview, type JournalEntry } from '@rw/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { commentsApi, type CommentEntry, type ProjectInfo, type RecordFile, type ResearchApi, type ResearchSummary, type Topic } from './api'
+import { type CommentEntry, type ProjectInfo, type RecordFile, type ResearchApi, type ResearchSummary, type Topic } from './api'
 import type { FlashAction } from './flash'
 import { MemoList } from './memo'
 import { reviewStatusLabel } from './reviewStatus'
-import { askClaude, bumpPending, load, revealComment } from './Comments'
+import { askClaude, revealComment } from './Comments'
+import { recordWrites } from './useRecordActions'
 import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
@@ -123,7 +124,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
           <span className="sp" />
           {!records_ && <button className="btn" data-ui="맡기기" title={t('에이전트에게 일을 맡깁니다: 작업 내용과 종결 조건을 적으면 작업 파일이 생깁니다', 'Delegate work to an agent: write the task and its completion criteria to create a task file')} onClick={() => setDialog({})}>＋ {t('맡기기', 'Delegate')}</button>}
         </div>
-        {records_ && <PendingRecords rid={rid} version={version} />}
+        {records_ && <PendingRecords rid={rid} />}
         <div className="memo-list work-page">
           {!records_ && <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />}
           {filter === '판단' ? <JudgeList rid={rid} tasks={tasks} loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks}
@@ -147,8 +148,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
             </div>)}
           </div></>}
           {isRecordFilter(filter) && <WorkComposer key={rid} filter={filter} onSave={async (kind, text) => {
-            const result = await commentsApi(rid).add('project', { kind, title: summary.research.title, text })
-            await load(rid, 'project', true); bumpPending()
+            const result = await recordWrites(rid).add('project', { kind, title: summary.research.title, text })
             if (kind === '질문') void askClaude(rid, 'project', result.entry.id)
             onSaved(t(`${kind} 저장됨`, `${WORK_FILTER_LABEL[kind]} saved`))
           }} />}
