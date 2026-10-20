@@ -482,6 +482,8 @@ export function App() {
               // LaTeX 노트·원고의 코멘트는 그 원고 PDF에 남긴 것
               const ct = targetOfTab(t, tabName) ?? (t?.k === 'part' && msOfFile(t.file) ? manuscriptTarget(msOfFile(t.file)!.name, msOfFile(t.file)!.key || undefined) : null)
                 ?? (route.page === 'flow' && flowSel ? flowTarget(flowSel.id, flowSel.title) : null)
+              // 흐름 화면: 흐름 점의 기록을 모두 한 목록에 (10/20 사용자: 점을 누를 때마다 나뉘어 보기 어렵다). 적기는 고른 점에
+              const flowRecords = route.page === 'flow'
               const row = t?.k === 'block' || t?.k === 'pdf' ? notes.find((n) => n.type === 'block' && n.id === t.bid) : t?.k === 'part' ? notes.find((n) => n.type !== 'block' && n.file === t.file) : undefined
               // 개념노트 탭이면 그 노트의 메모·연결 (2026-10-04 15:18 피드백: 오른쪽 사이드바에서)
               const cmd = t?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md' ? t.id : undefined
@@ -491,8 +493,8 @@ export function App() {
                   : <NoInfo />
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
               return <RightSidebar info={info}
-                records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${ct?.target ?? 'project'}`} rid={rid}
-                  target={ct ?? { target: 'project', title: summary.research.title }}
+                records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${flowRecords ? 'flow' : ct?.target ?? 'project'}`} rid={rid}
+                  target={ct ?? { target: 'project', title: summary.research.title }} group={flowRecords ? 'flow-' : undefined}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
         )}

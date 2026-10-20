@@ -30,12 +30,22 @@ const kindChoice = (k: string) => <>{KIND_ICON[k] && <span className="record-kin
 // Keep a pending target disabled even when its sidebar unmounts and opens again.
 const classifying = new Set<string>()
 const NO_FILES: RecordFile[] = []
+/** 접두어가 같은 대상의 기록 파일. 적기 대상은 방금 받은 사본으로 (저장 바로 뒤에도 보이게) */
+function groupFiles(files: RecordFile[], prefix: string, current: RecordFile | null | undefined): RecordFile[] {
+  const list = files.filter((file) => file.target.startsWith(prefix) && file.comments.length > 0)
+  if (!current?.target.startsWith(prefix)) return list
+  const i = list.findIndex((file) => file.target === current.target)
+  if (i >= 0) return list.map((file, j) => j === i ? current : file)
+  return current.comments.length ? [current, ...list] : list
+}
 
-export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
+export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, group }: {
   rid: string; target: CommentTarget; firstPartOf(target: string): string | undefined
   onOpenPdf(file: RecordFile): boolean
   /** 붙은 곳을 줄 번호 대신 이 이름으로 (개념노트는 절 이름, 10/18) */
   placeOf?: RecordPlaceOf
+  /** 이 접두어의 대상 기록을 모두 한 목록에 (흐름 화면은 'flow-': 점을 고를 때마다 나뉘지 않게, 10/20 사용자). 적기는 그대로 target에 */
+  group?: string
 }) {
   const slot = useSlot(rid, target.target)
   // 자동 분류 중(classifying)이 바뀌면 다시 그린다
@@ -47,14 +57,16 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
   const classifying_ = classifying.has(key)
   const unsorted = slot.file?.comments.filter((c) => c.unsorted) ?? []
   const project = target.target === 'project'
-  const recordsQuery = useRecords(rid, project)
+  // 여러 대상을 함께 보이는가: 프로젝트 전체, 또는 group 접두어의 대상 모두
+  const many = project || !!group
+  const recordsQuery = useRecords(rid, many)
   const files = recordsQuery.data?.files ?? NO_FILES
   const error = recordsQuery.error?.message ?? null
   const [filter, setFilter] = useState<PanelFilter>('전체')
   // 상태는 처음과 대상을 바꿀 때마다 진행 중 (끝낸 기록은 숨김, 10/18 결정)
   const [status, setStatus] = useState<StatusFilter>('진행 중')
   useEffect(() => setStatus('진행 중'), [rid, target.target])
-  const shown = project ? files : slot.file ? [slot.file] : []
+  const shown = project ? files : group ? groupFiles(files, group, slot.file) : slot.file ? [slot.file] : []
   useEffect(() => {
     const comments = project ? files.find((file) => file.target === target.target)?.comments ?? [] : slot.file?.comments ?? []
     setFilter((current) => filterForActiveRecord(current, comments, slot.active))
@@ -62,7 +74,7 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
   }, [slot.active, slot.file, files, project, target.target])
   const kindShown = shown.flatMap((file) => filterRecords(file.comments, filter))
   const open = (file: RecordFile, c?: CommentEntry) => {
-    if (project && !(c?.page && onOpenPdf(file))) {
+    if (many && !(c?.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
       if (file.target.startsWith('flow-') && file.source) openFlowDot(rid, { id: file.source })
       else if (route) go(route)
@@ -103,11 +115,11 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
     <div className="records-list" data-ui="적기 목록">
       {error && <div className="banner danger" role="alert">{error}</div>}
       {shown.map((file) => <div key={file.target} className="record-group">
-        {project && <div className="record-group-title">{file.target === 'project' ? <span>{t('이 프로젝트', 'This project')}</span>
+        {many && <div className="record-group-title">{file.target === 'project' ? <span>{t('이 프로젝트', 'This project')}</span>
           : <button className="a" title={file.source} onClick={() => open(file)}>{file.title}</button>}</div>}
         <RecordList rid={rid} file={file} filter={filter} status={status} showSource={project} placeOf={placeOf} onGo={(c) => open(file, c)} />
       </div>)}
-      {!shown.length && !error && <p className="empty records-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>}
+      {!shown.length && !error && <p className="empty records-empty">{slot.error ?? (group && recordsQuery.data ? t('아직 기록이 없습니다', 'No records yet') : t('불러오는 중…', 'Loading…'))}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}
     </div>
     <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} />
