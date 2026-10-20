@@ -18,8 +18,9 @@ export PATH="/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:$PAT
 build() { (cd "$REPO" && pnpm --filter @rw/web build >/dev/null) && echo "화면 빌드 완료"; }
 
 wait_up() {
-  for i in {1..60}; do curl -s -o /dev/null --max-time 1 "$URL" && { echo "켜짐: $URL"; return 0; }; sleep 0.5; done
-  echo "30초 안에 켜지지 않았습니다. 로그: $LOG"; return 1
+  # 업데이트 바로 뒤에는 바뀐 서버 코드를 처음 읽느라 30초를 넘길 때가 있다 (10/20 점검): 90초까지 기다린다
+  for i in {1..180}; do curl -s -o /dev/null --max-time 1 "$URL" && { echo "켜짐: $URL"; return 0; }; sleep 0.5; done
+  echo "90초 안에 켜지지 않았습니다. 로그: $LOG"; return 1
 }
 
 case "${1:-status}" in

@@ -61,7 +61,7 @@ describe('앱 밖에서 바꾼 라이브러리·sources 알림', () => {
   it('개념노트를 밖에서 고치면 알림이 가고 다시 읽은 본문이 새 것이다', async () => {
     expect((await app.inject('/api/concepts/alpha')).json().body).toContain('first body')
     fs.writeFileSync(path.join(lib, 'concepts/alpha.md'), '---\ntitle: Alpha\n---\n# Alpha\n\nsecond body\n')
-    await vi.waitFor(() => expect(events).toContainEqual({ type: 'library', research: null, part: 'concepts', file: 'concepts/alpha.md' }), { timeout: 5000 })
+    await vi.waitFor(() => expect(events).toContainEqual({ type: 'library', research: null, part: 'concepts', file: 'concepts/alpha.md' }), { timeout: 15_000 })
     expect((await app.inject('/api/concepts/alpha')).json().body).toContain('second body')
   })
 
@@ -70,7 +70,7 @@ describe('앱 밖에서 바꾼 라이브러리·sources 알림', () => {
     const all = vi.spyOn(LibraryReadIndex.prototype, 'invalidate')
     fs.mkdirSync(path.join(lib, 'figures'))
     fs.writeFileSync(path.join(lib, 'figures/disk.pdf'), '%PDF-1.4\n')
-    await vi.waitFor(() => expect(events.some((e) => e.type === 'library' && e.part === 'figures' && e.file === 'figures/disk.pdf')).toBe(true), { timeout: 5000 })
+    await vi.waitFor(() => expect(events.some((e) => e.type === 'library' && e.part === 'figures' && e.file === 'figures/disk.pdf')).toBe(true), { timeout: 15_000 })
     expect(figures).toHaveBeenCalled()
     expect(all).not.toHaveBeenCalled()
   })
@@ -82,7 +82,7 @@ describe('앱 밖에서 바꾼 라이브러리·sources 알림', () => {
     await settle()
     fs.writeFileSync(path.join(lib, 'concepts/old.md'), '---\ntitle: Old\n---\n')
     fs.writeFileSync(path.join(lib2, 'concepts/new.md'), '---\ntitle: New\n---\n')
-    await vi.waitFor(() => expect(events.some((e) => e.file === 'concepts/new.md')).toBe(true), { timeout: 5000 })
+    await vi.waitFor(() => expect(events.some((e) => e.file === 'concepts/new.md')).toBe(true), { timeout: 15_000 })
     // 오지 않아야 할 알림은 시간으로만 기다릴 수 있다: 쓰기 끝 기다림(awaitWriteFinish 300ms)보다 길게
     await new Promise((r) => setTimeout(r, 400))
     expect(events.some((e) => e.file === 'concepts/old.md')).toBe(false)
@@ -91,7 +91,7 @@ describe('앱 밖에서 바꾼 라이브러리·sources 알림', () => {
   it('research.yaml sources의 작업 목록이 바뀌면 그 프로젝트에 알린다', async () => {
     const rid = app.registry.ids()[0]!
     fs.writeFileSync(path.join(repo, 'TASKS.md'), '| 일 | 상태 |\n| --- | --- |\n| 하나 | 끝 |\n')
-    await vi.waitFor(() => expect(events).toContainEqual({ type: 'sources', research: rid }), { timeout: 5000 })
+    await vi.waitFor(() => expect(events).toContainEqual({ type: 'sources', research: rid }), { timeout: 15_000 })
   })
 })
 

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "RW_SANDBOX=1 tsx watch src/server.ts",
-    "test": "vitest run",
+    "test": "vitest run --exclude src/app.test.ts --exclude src/libraryWatch.test.ts --exclude src/libraryReadIndex.test.ts --exclude src/todos.test.ts && vitest run --no-file-parallelism src/app.test.ts src/libraryWatch.test.ts src/libraryReadIndex.test.ts src/todos.test.ts",
     "type-check": "tsc -p tsconfig.json"
   },
   "dependencies": {

@@ -112,12 +112,20 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   const repo = opts.appRepo
   if (every && repo && repo.steps.canRestart()) {
     const idleMs = opts.appAutoUpdate!.idleMs
+    // 같은 실패(예: 오프라인의 "GitHub를 확인하지 못했습니다")는 처음 한 번만 적고, 풀리면 한 줄 적는다 (10/20 점검: 로그에 같은 줄 915개)
+    let lastError: string | null = null
     const tick = async () => {
       if (updating) return
       const run = updateApp(repo.root, repo.running, repo.steps, { restart: false })
       updating = run
-      try { await run } catch (e) {
-        console.error(`app auto update: ${(e as Error).message}`)
+      try {
+        await run
+        if (lastError) console.error('app auto update: 다시 됩니다 (앞의 오류가 풀림)')
+        lastError = null
+      } catch (e) {
+        const message = (e as Error).message
+        if (message !== lastError) console.error(`app auto update: ${message}`)
+        lastError = message
       } finally { updating = null }
       if (ctx.clients() === 0 && Date.now() - lastWrite >= idleMs) await restartIfReady()
     }
