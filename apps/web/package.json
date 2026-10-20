@@ -23,7 +23,7 @@
     "html-to-image": "^1.11.13",
     "katex": "^0.18.10",
     "markdown-it": "^14.3.3",
-    "pdfjs-dist": "^5.7.284",
+    "pdfjs-dist": "^6.4.299",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

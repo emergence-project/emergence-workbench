@@ -180,7 +180,8 @@ function TemplateThumb({ id, version }: { id: string; version: string }) {
         const res = await fetch(latexApi.previewUrl(id, version))
         // 만들지 못하면 서버가 PDF 대신 { error }를 보낸다
         if (!res.ok || !res.headers.get('content-type')?.includes('pdf')) { const b = await res.json().catch(() => ({})) as { error?: string }; throw new Error(b.error ?? t(`미리보기를 만들지 못했습니다 (${res.status})`, `Could not make the preview (${res.status})`)) }
-        const doc = await (await loadPdfjs()).getDocument({ data: new Uint8Array(await res.arrayBuffer()) }).promise
+        const task = (await loadPdfjs()).getDocument({ data: new Uint8Array(await res.arrayBuffer()) })
+        const doc = await task.promise
         const page = await doc.getPage(1)
         const c = canvas.current
         if (dead || !c) return
@@ -190,7 +191,7 @@ function TemplateThumb({ id, version }: { id: string; version: string }) {
         c.width = Math.round(vp.width); c.height = Math.round(vp.height)
         await page.render({ canvasContext: c.getContext('2d')!, viewport: vp, canvas: c }).promise
         if (!dead) setState('ok')
-        void doc.destroy()
+        void task.destroy()
       } catch (e) { if (!dead) setState((e as Error).message || t('미리보기를 만들지 못했습니다', 'Could not make the preview')) }
     })()
     return () => { dead = true }
