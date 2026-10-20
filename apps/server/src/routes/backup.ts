@@ -2,6 +2,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/backup'
 import { replies } from '../contract.js'
+import { repeat } from '../scheduler.js'
 import { backupWorkbenches, type BackupResult } from '../backup.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -26,8 +27,6 @@ export function registerBackup(app: FastifyInstance, ctx: RouteContext): void {
 
   // 시작하고 조금 뒤 한 번, 그다음은 정한 간격마다 저절로
   if (cfg?.intervalMs) {
-    const first = setTimeout(() => { void run().catch(() => undefined) }, Math.min(60_000, cfg.intervalMs))
-    const every = setInterval(() => { void run().catch(() => undefined) }, cfg.intervalMs)
-    app.addHook('onClose', async () => { clearTimeout(first); clearInterval(every) })
+    repeat(app, { first: Math.min(60_000, cfg.intervalMs), every: cfg.intervalMs, run })
   }
 }

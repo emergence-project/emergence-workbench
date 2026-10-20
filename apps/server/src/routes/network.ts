@@ -5,6 +5,7 @@ import { isAuthorOf, orgOf, personId, suggestPeople, type Person } from '@rw/cor
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/network'
 import { parseBody, replies } from '../contract.js'
+import { repeat } from '../scheduler.js'
 import { listMaterials, parseBib, type BibEntry } from '../materials.js'
 import { listRecords } from '../comments.js'
 import { freshCount, markPapers, photoFile, photoStamp, readPeoplePapers, refreshPersonPapers, searchS2Authors } from '../peoplePapers.js'
@@ -222,8 +223,6 @@ export function registerNetwork(app: FastifyInstance, ctx: RouteContext): void {
         }
       } finally { running = false }
     }
-    const first = setTimeout(() => void sweep(), 60_000)
-    const timer = setInterval(() => void sweep(), opts.peoplePapersMs)
-    app.addHook('onClose', async () => { clearTimeout(first); clearInterval(timer) })
+    repeat(app, { first: 60_000, every: opts.peoplePapersMs, run: sweep })
   }
 }

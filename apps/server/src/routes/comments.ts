@@ -2,6 +2,7 @@
 import type { FastifyInstance } from 'fastify'
 import path from 'node:path'
 import { agentAnswer, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, claudeRunner, replyToRecord } from '../ask.js'
+import { repeat } from '../scheduler.js'
 import * as C from '@rw/core/contract/comments'
 import { LIBRARY_RID } from '@rw/core'
 import { parseBody, replies } from '../contract.js'
@@ -103,7 +104,7 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     for (const c of readComments(recordsRoot(rid), target).comments) if (c.kind === '지시' && c.state === '대기' && !c.by) enqueue(rid, target, c.id)
   }
   let lastDaily: string | null = null
-  const dailyTimer = setInterval(() => {
+  repeat(app, { first: 60_000, every: 60_000, run: async () => {
     const s = registry.agents
     if (s.instructions !== 'daily') return
     const day = dailyDue(s.at, new Date(), lastDaily)
@@ -114,9 +115,7 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     for (const rid of [...registry.list().filter((x) => x.state === 'active').map((x) => x.id), ...(registry.libraryPath ? [LIBRARY_RID] : [])]) {
       try { for (const p of pendingQuestions(recordsRoot(rid), '지시')) enqueue(rid, p.target, p.id) } catch { /* 저장소가 없거나 읽지 못하면 그 연구는 건너뛴다 */ }
     }
-  }, 60_000)
-  dailyTimer.unref()
-  app.addHook('onClose', async () => { clearInterval(dailyTimer) })
+  } })
   ;(app as unknown as { instructionQueue?: ClaudeQueue }).instructionQueue = queue
 
   /** 에이전트가 쓴 답을 질문 · 지시 아래에 덧붙인다 (MCP answer_record, 10/15; 클라우드는 pnpm agent:answer가 같은 agentAnswer를 부른다) */

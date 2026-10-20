@@ -6,7 +6,8 @@ import { writeStatusFor } from '../agentStatus.js'
 import { autoPull, fastForward, repoInfo, repoSync, SyncError } from '../gitsync.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
-import { SYNC_RECHECK_MS, syncDelayMs, syncLoop } from '../syncTiming.js'
+import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
+import { repeat } from '../scheduler.js'
 
 export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
   const { repoPath, registry, opts } = ctx
@@ -56,7 +57,6 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
       } finally { running = false }
     }
     // 간격은 설정 › 동기화의 받기 칸 (바꾸면 1분 안에 적용, 10/19). 수동이면 받지 않는다
-    const stop = syncLoop(ctx.registry, 'pull', every, Math.min(60_000, syncDelayMs(ctx.registry, 'pull', every) ?? SYNC_RECHECK_MS), tick)
-    app.addHook('onClose', async () => stop())
+    repeat(app, { first: Math.min(60_000, syncDelayMs(ctx.registry, 'pull', every) ?? SYNC_RECHECK_MS), every: () => syncDelayMs(ctx.registry, 'pull', every), run: tick })
   }
 }

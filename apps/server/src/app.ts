@@ -21,6 +21,7 @@ import { registerApiIndex } from './routes/apiIndex.js'
 import { registerResearches } from './routes/researches.js'
 import { registerSettings } from './routes/settings.js'
 import { registerFeedback } from './routes/feedback.js'
+import { registerRecordsPublish } from './routes/recordsPublish.js'
 import { registerSync } from './routes/sync.js'
 import { registerLibrary } from './routes/library.js'
 import { registerKnowledge } from './routes/knowledge.js'
@@ -299,6 +300,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerSettings(app, ctx)
   registerCommonRules(app, ctx)
   registerFeedback(app, ctx)
+  registerRecordsPublish(app, ctx)
   registerSync(app, ctx)
   registerLibrary(app, ctx)
   registerKnowledge(app, ctx)
