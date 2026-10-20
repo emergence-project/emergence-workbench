@@ -5,12 +5,12 @@ import { batchInvalidation, invalidationKeys, qk } from './queries'
 describe('파일 알림 → 다시 받을 자료', () => {
   it('알림이 바꾸는 자료만 고른다 (일지 한 줄에 프로젝트 자료 전체를 다시 받지 않는다)', () => {
     expect(invalidationKeys({ type: 'journal', research: 'p', date: '2026-10-16' })).toEqual([['project', 'p', 'journal'], qk.status('p')])
-    expect(invalidationKeys({ type: 'comments', research: 'p', target: 'project' })).toEqual([qk.summary('p'), qk.records('p'), qk.status('p')])
+    expect(invalidationKeys({ type: 'comments', research: 'p', target: 'project' })).toEqual([qk.summary('p'), qk.records('p'), ['network', 'person'], qk.status('p')])
     expect(invalidationKeys({ type: 'note', research: 'p', file: 'workbench/notes/a/note.md', hash: null })).toEqual([qk.notes('p'), qk.topics('p'), qk.manuscripts('p'), qk.library, qk.agentEdits('p'), qk.records('p'), qk.repoFiles('p'), qk.status('p')])
     expect(invalidationKeys({ type: 'library', research: null, part: 'concepts', file: 'concepts/x.md' })).toEqual([qk.library, qk.agentEdits('library')])
     expect(invalidationKeys({ type: 'library', research: null, part: 'papers', file: 'papers.yaml' })).toEqual([qk.library, qk.papers])
     expect(invalidationKeys({ type: 'research', research: 'p' })).toEqual([qk.project('p'), qk.researches, qk.agentEdits('p')])
-    expect(invalidationKeys({ type: 'sources', research: 'p' })).toEqual([qk.manuscripts('p'), qk.materials('p'), qk.info('p'), qk.repoFiles('p'), qk.status('p')])
+    expect(invalidationKeys({ type: 'sources', research: 'p' })).toEqual([qk.manuscripts('p'), qk.materials('p'), qk.info('p'), qk.repoFiles('p'), qk.peopleSuggestions, ['network', 'person'], qk.status('p')])
     // 기록 글 속 경로 하나의 키는 경로 전부의 키 아래라 함께 다시 받는다
     expect(qk.repoFile('p', 'a.md', true).slice(0, 3)).toEqual([...qk.repoFiles('p')])
     // 주제 현황 · 지운 노트는 주제 · 노트 키 아래라 함께 다시 받는다
@@ -25,6 +25,24 @@ describe('파일 알림 → 다시 받을 자료', () => {
     for (const type of ['preamble', 'records-publish'] as const) expect(invalidationKeys({ type, research: 'p' })).toEqual([qk.status('p')])
     expect(qk.status('p').slice(0, 2)).toEqual([...qk.project('p')])
     expect(qk.tasks('p').slice(0, 2)).toEqual([...qk.project('p')])
+  })
+
+  it('네트워킹: 사람 목록 · 추천 · 사람 페이지는 한 키 아래, 새 논문은 그 밖에', () => {
+    // 사람 목록을 저장하면(announce) qk.network 하나로 사이드바 · 첫 화면 · 추천 · 사람 페이지를 다시 받는다
+    for (const key of [qk.people, qk.peopleSuggestions, qk.person('a-b')]) expect(key.slice(0, 1)).toEqual([...qk.network])
+    // 새 논문은 사람 목록을 저장해도 다시 찾지 않는다(본 것으로 적기 → 사람 목록 다시 받기가 되풀이되지 않게)
+    expect(qk.personNewPapers('a-b', '', 'A B')[0]).not.toEqual(qk.network[0])
+    // 프로젝트 bib(sources)는 추천과 사람 페이지를, 기록(comments)은 사람 페이지의 "나오는 곳"만 다시 받는다. 사람 목록은 설정 폴더라 프로젝트 알림과 상관없다
+    const sources = invalidationKeys({ type: 'sources', research: 'p' })
+    const comments = invalidationKeys({ type: 'comments', research: 'p', target: 'project' })
+    expect(qk.person('a-b').slice(0, 2)).toEqual(['network', 'person'])
+    for (const keys of [sources, comments]) expect(keys).not.toContainEqual(qk.people)
+    expect(comments).not.toContainEqual(qk.peopleSuggestions)
+    // 노트 · 블록 · 일지 알림은 네트워킹 자료를 건드리지 않는다
+    for (const type of ['block', 'note', 'journal', 'tasks', 'flow'] as const) {
+      const keys = invalidationKeys({ type, research: 'p', id: 'x', file: 'f', hash: null, date: 'd' } as never)
+      expect(keys.some((k) => k[0] === 'network')).toBe(false)
+    }
   })
 })
 
