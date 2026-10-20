@@ -179,6 +179,13 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-canvas > .fl-svg { flex: none; }
 /* 줄 이름 칸 (10/20): 가로로 넘겨도 왼쪽에 붙어 있다. 차트와 같은 바탕, 연필 · ×는 가리킬 때만 */
 .fl-rowheads { position: sticky; left: 0; z-index: 1; flex: none; background: var(--bg); cursor: default; user-select: none; }
+.fl-wrap { position: relative; }
+/* 바깥 왼쪽: 상자 높이로 자르고, 상자를 세로로 넘기면 같이 움직인다. 이름은 차트 쪽(오른쪽)에 붙인다 */
+.fl-rowclip { position: absolute; right: 100%; top: 1px; overflow: hidden; }
+.fl-rowheads.out { position: relative; }
+.fl-rowheads.out .fl-rowhead { flex-direction: row-reverse; padding-left: 0; padding-right: var(--sp-2); }
+.fl-rowheads.out .fl-rowname { justify-content: flex-end; }
+.fl-rowheads.out .fl-rowadd { left: auto; right: var(--sp-2); }
 .fl-rowhead { position: absolute; left: 0; right: 0; height: 24px; display: flex; align-items: center; gap: 2px; padding-left: var(--sp-2); }
 .fl-rowhead.to { background: var(--bg-hover); }
 .fl-rowname { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); cursor: grab; }

@@ -66,15 +66,26 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
   const setHeight = (h: number) => { setHeightState(h); store.set(H_KEY, h) }
   const box = useRef<HTMLDivElement>(null)
   const [boxW, setBoxW] = useState(800)
+  // 줄 이름은 차트 상자 바깥 왼쪽에 (10/20 사용자). 왼쪽에 자리가 없으면(사이드바를 켜 좁을 때) 상자 안 왼쪽에 붙인다
+  const [outside, setOutside] = useState(false)
+  const [scrollTop, setScrollTop] = useState(0)
   const hasDots = lay.placed.length > 0
   useEffect(() => {
     const el = box.current
     if (!el) return
-    const ro = new ResizeObserver(() => setBoxW(el.clientWidth))
+    const fit = () => {
+      setBoxW(el.clientWidth)
+      setScrollTop(el.scrollTop)
+      const pane = el.closest('.scroll') ?? el.parentElement
+      setOutside(!!pane && el.getBoundingClientRect().left - pane.getBoundingClientRect().left >= GUT + 8)
+    }
+    const ro = new ResizeObserver(fit)
+    if (el.closest('.scroll')) ro.observe(el.closest('.scroll')!)
     ro.observe(el)
     return () => ro.disconnect()
   }, [hasDots])
 
+  const gut = outside ? 0 : GUT
   const fitCW = Math.max(32, Math.min(CW0, (boxW - LEFT - 8) / Math.max(1, lay.cols)))
   const CW = zoom.fit ? fitCW : CW0 * zoom.x
   const RH = RH0 * zoom.y
@@ -85,7 +96,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
     const el = box.current
     if (!el) return null
     const b = el.getBoundingClientRect()
-    const x = e.clientX - b.left + el.scrollLeft - GUT, y = e.clientY - b.top + el.scrollTop
+    const x = e.clientX - b.left + el.scrollLeft - gut, y = e.clientY - b.top + el.scrollTop
     const c = Math.max(0, Math.min(lay.cols, Math.floor((x - LEFT) / CW)))
     const r = Math.max(0, Math.min(lay.rows - 1, Math.floor((y - TOP) / RH)))
     return { c, r: r - lay.mid }
@@ -158,7 +169,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
   const center = (id: string) => {
     const p = at.get(id), el = box.current
     if (!p || !el) return
-    el.scrollTo({ left: GUT + X(p.c) - el.clientWidth / 2, top: Y(p.r) - el.clientHeight / 2, behavior: 'smooth' })
+    el.scrollTo({ left: gut + X(p.c) - el.clientWidth / 2, top: Y(p.r) - el.clientHeight / 2, behavior: 'smooth' })
   }
   // 바탕을 끌면 화면을 옮긴다
   const pan = useRef<{ x: number; y: number; l: number; t: number } | null>(null)
@@ -207,6 +218,27 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
   // 고른 점을 오른쪽 사이드바 기록에 알린다: 거기서 적는 기록이 이 점에 붙는다.
   useEffect(() => { setFlowSelection(s ? { rid, id: s.id, title: s.title } : null) }, [rid, s?.id, s?.title]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => setFlowSelection(null), [])
+  const heads = (
+        <div className={`fl-rowheads${outside ? ' out' : ''}`} data-ui="흐름 줄 이름" style={{ width: GUT, height: H, ...(outside && { transform: `translateY(${-scrollTop}px)` }) }}>
+          <button className="fl-rowadd" data-ui="흐름 줄 더하기" style={{ top: 4 }} title={tr('위에 줄 더하기', 'Add a row above')} onClick={(e) => { e.stopPropagation(); void setRows(rowTop - 1, rowBottom) }}>＋ {tr('줄', 'Row')}</button>
+          {Array.from({ length: lay.rows }, (_, r) => {
+            const name = rowNames[String(r - lay.mid)]
+            return <div key={r} className={`fl-rowhead${rowGhost === r ? ' to' : ''}`} style={{ top: Y(r) - 12 }}>
+              {naming?.r === r
+                ? <input className="fl-rowname-in" autoFocus aria-label={tr('줄 이름', 'Row name')} placeholder={tr('줄 이름', 'Row name')} value={naming.text}
+                  onChange={(e) => setNaming({ r, text: e.target.value })} onBlur={saveName}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveName() } else if (e.key === 'Escape') setNaming(null) }} />
+                : <span className="fl-rowname" title={name ? `${name}\n${tr('끌어서 줄 옮기기', 'Drag to move the row')}` : tr('끌어서 줄 옮기기', 'Drag to move the row')} {...rowHandle(r)}>{name ?? ''}</span>}
+              {naming?.r !== r && <span className="fl-rowtools">
+                <button className="icon-btn sm" data-ui="흐름 줄 이름 고치기" title={tr('줄 이름 고치기', 'Rename row')} aria-label={tr('줄 이름 고치기', 'Rename row')} onClick={(e) => { e.stopPropagation(); setNaming({ r, text: name ?? '' }) }}>{Icon.pencil}</button>
+                {(r === 0 || r === lay.rows - 1) && canDrop(r) && <button className="icon-btn sm" data-ui="흐름 줄 빼기" title={tr('빈 줄 빼기', 'Remove this empty row')} aria-label={tr('빈 줄 빼기', 'Remove this empty row')}
+                  onClick={(e) => { e.stopPropagation(); void setRows(r === 0 ? rowTop + 1 : rowTop, r === 0 ? rowBottom : rowBottom - 1) }}>{Icon.x}</button>}
+              </span>}
+            </div>
+          })}
+          <button className="fl-rowadd" data-ui="흐름 줄 더하기" style={{ top: H - 26 }} title={tr('아래에 줄 더하기', 'Add a row below')} onClick={(e) => { e.stopPropagation(); void setRows(rowTop, rowBottom + 1) }}>＋ {tr('줄', 'Row')}</button>
+        </div>
+  )
   return (
     <section className="fl" data-ui="흐름">
       <div className="fl-bar">
@@ -233,28 +265,12 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
           onClick={() => startDraft([])}>＋ {tr('시작점', 'Start')}</button>
       </div>
       {lay.placed.length === 0 && (draftEditor || <p className="fl-hint muted">{tr('흐름의 점이 없습니다. ＋ 시작점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots yet. Add the first step (a question, calculation, proof…) with ＋ Start.')}</p>)}
-      {lay.placed.length > 0 && <><div className="fl-box" ref={box} style={{ height }} data-ui="흐름 차트" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+      {lay.placed.length > 0 && <><div className="fl-wrap">
+      {outside && <div className="fl-rowclip" style={{ width: GUT, height }}>{heads}</div>}
+      <div className="fl-box" ref={box} style={{ height }} data-ui="흐름 차트" onScroll={(e) => { if (outside) setScrollTop(e.currentTarget.scrollTop) }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
         onClick={(e) => { if (!picking && !(e.target as Element).closest('.fl-node, .fl-rowhead')) setSel(null) }}>
-        <div className="fl-canvas" style={{ width: GUT + W, height: H }}>
-        <div className="fl-rowheads" data-ui="흐름 줄 이름" style={{ width: GUT, height: H }}>
-          <button className="fl-rowadd" data-ui="흐름 줄 더하기" style={{ top: 4 }} title={tr('위에 줄 더하기', 'Add a row above')} onClick={(e) => { e.stopPropagation(); void setRows(rowTop - 1, rowBottom) }}>＋ {tr('줄', 'Row')}</button>
-          {Array.from({ length: lay.rows }, (_, r) => {
-            const name = rowNames[String(r - lay.mid)]
-            return <div key={r} className={`fl-rowhead${rowGhost === r ? ' to' : ''}`} style={{ top: Y(r) - 12 }}>
-              {naming?.r === r
-                ? <input className="fl-rowname-in" autoFocus aria-label={tr('줄 이름', 'Row name')} placeholder={tr('줄 이름', 'Row name')} value={naming.text}
-                  onChange={(e) => setNaming({ r, text: e.target.value })} onBlur={saveName}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveName() } else if (e.key === 'Escape') setNaming(null) }} />
-                : <span className="fl-rowname" title={name ? `${name}\n${tr('끌어서 줄 옮기기', 'Drag to move the row')}` : tr('끌어서 줄 옮기기', 'Drag to move the row')} {...rowHandle(r)}>{name ?? ''}</span>}
-              {naming?.r !== r && <span className="fl-rowtools">
-                <button className="icon-btn sm" data-ui="흐름 줄 이름 고치기" title={tr('줄 이름 고치기', 'Rename row')} aria-label={tr('줄 이름 고치기', 'Rename row')} onClick={(e) => { e.stopPropagation(); setNaming({ r, text: name ?? '' }) }}>{Icon.pencil}</button>
-                {(r === 0 || r === lay.rows - 1) && canDrop(r) && <button className="icon-btn sm" data-ui="흐름 줄 빼기" title={tr('빈 줄 빼기', 'Remove this empty row')} aria-label={tr('빈 줄 빼기', 'Remove this empty row')}
-                  onClick={(e) => { e.stopPropagation(); void setRows(r === 0 ? rowTop + 1 : rowTop, r === 0 ? rowBottom : rowBottom - 1) }}>{Icon.x}</button>}
-              </span>}
-            </div>
-          })}
-          <button className="fl-rowadd" data-ui="흐름 줄 더하기" style={{ top: H - 26 }} title={tr('아래에 줄 더하기', 'Add a row below')} onClick={(e) => { e.stopPropagation(); void setRows(rowTop, rowBottom + 1) }}>＋ {tr('줄', 'Row')}</button>
-        </div>
+        <div className="fl-canvas" style={{ width: gut + W, height: H }}>
+        {!outside && heads}
         <svg className="fl-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr('연구 흐름', 'Research flow')}>
           {Array.from({ length: lay.cols }, (_, c) => c > 0 && <line key={`c${c}`} className="fl-grid" x1={X(c)} y1={1} x2={X(c)} y2={H} />)}
           {Array.from({ length: lay.rows }, (_, r) => <line key={`r${r}`} className={r === lay.mid ? 'fl-mid' : 'fl-grid'} x1={LEFT} y1={Y(r)} x2={W} y2={Y(r)} />)}
@@ -329,6 +345,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
           })}
         </svg>
         </div>
+      </div>
       </div>
       <div className="fl-size" data-ui="흐름 크기 조절" role="separator" aria-orientation="horizontal" title={tr('끌어 높이 바꾸기 · 두 번 누르면 처음 높이', 'Drag to resize · double-click to reset')}
         onPointerDown={(e) => { sizing.current = { y: e.clientY, h: height }; (e.target as Element).setPointerCapture(e.pointerId) }}
