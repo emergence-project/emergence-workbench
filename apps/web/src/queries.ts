@@ -51,6 +51,18 @@ export const qk = {
   feedback: ['feedback'] as const,
   /** 연구 공통 규칙 (설정 › 공통 규칙, 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   commonRules: ['common-rules'] as const,
+  /** 네트워킹 (사람 목록 · 등록 추천 · 사람 페이지). 사람 목록을 저장하면 이 키 전체를 다시 받는다 (network/people.tsx announce) */
+  network: ['network'] as const,
+  people: ['network', 'people'] as const,
+  peopleSuggestions: ['network', 'suggestions'] as const,
+  /** 사람 페이지 (참고 문헌의 논문 · 함께 쓴 사람 · 나오는 곳) */
+  person: (id: string) => ['network', 'person', id] as const,
+  /** 사람 페이지의 새 논문: 네트워킹 키 밖에 두어 사람 목록을 저장해도 다시 찾지 않는다. 이름 · S2 저자가 바뀌면 새 키 */
+  personNewPapers: (id: string, s2: string, name: string) => ['person-new-papers', id, s2, name] as const,
+  /** 원고 저자와 서식 (/api/latex-setup). 네트워킹의 노트 저자 · 사람 고치기 창이 읽는다 */
+  latexSetup: ['latex-setup'] as const,
+  /** 구글 연결 상태 (네트워킹의 "나"를 이메일로 찾는다) */
+  googleStatus: ['google-status'] as const,
 }
 
 /**
@@ -66,6 +78,9 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   return e.type === 'research' ? keys : [...keys, qk.status(e.research)]
 }
 
+/** 모든 사람 페이지 (qk.person(id)의 앞부분) */
+const PERSON_PAGES: QueryKey = [...qk.network, 'person']
+
 function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' }>): QueryKey[] {
   const rid = e.research
   switch (e.type) {
@@ -77,10 +92,12 @@ function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' }>): QueryKey[
     case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library, qk.agentEdits(rid), qk.records(rid), qk.repoFiles(rid)]
     case 'statement': return [qk.summary(rid)]
     // 기록: 요약의 할 일과 기록 모음
-    case 'comments': return [qk.summary(rid), qk.records(rid)]
+    // 사람 페이지의 "나오는 곳"이 기록에서 이름을 찾는다
+    case 'comments': return [qk.summary(rid), qk.records(rid), PERSON_PAGES]
     case 'journal': return [['project', rid, 'journal']]
     // research.yaml sources의 파일(원고 · 그림 · 참고 자료 · 작업 목록 · 검토 문서)
-    case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid), qk.repoFiles(rid)]
+    // 프로젝트 bib는 네트워킹의 등록 추천과 사람 페이지(참고 문헌의 논문 · 나오는 곳)가 읽는다
+    case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid), qk.repoFiles(rid), qk.peopleSuggestions, PERSON_PAGES]
     case 'tasks': return [qk.tasks(rid)]
     case 'flow': return [qk.flow(rid)]
     case 'preamble': case 'records-publish': return []
