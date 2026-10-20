@@ -10,11 +10,20 @@ from:
   - { id: kempe-swap, type: use }
 fields:
   goal: 색 바꾸기 단계를 그대로 짠 칠하기가 늘 끝나는지 본다.
+  criterion: 1000개 모두 다섯 색 이하로 끝나면 해결
   setup: 꼭짓점 20–200개, Delaunay 삼각분할 1000개
   result: 모두 다섯 색 이하. 색 바꾸기는 평균 0.3번.
+run:
+  code: workbench/notes/kempe-recoloring/code/greedy.py
+  commit: 3f2a9c1
+  params: { n: 20–200, samples: 1000, seed: 7 }
+  output: workbench/notes/kempe-recoloring/results.csv
+next: 꼭짓점 1000개 이상에서 색 바꾸기 횟수가 느는지 본다
+priority: normal
 evidence:
   - kind: calc
     title: 칠하기 계산
     file: workbench/notes/kempe-recoloring/note.md
+    section: 진행
     text: 1000개 모두 통과
     checks: []

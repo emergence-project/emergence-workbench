@@ -9,8 +9,8 @@ import { flash } from '../flash'
 import { Icon } from '../icons'
 import { useDismiss } from '../useDismiss'
 import { t as tr } from '../i18n'
-import { KIND, FIELD, EDGE, EVK, markOf, stateOf, stateName, DOT, MarkIcon } from './marks'
-import { Check, Chain, FlowText } from './evidence'
+import { KIND, FIELD, EDGE, EVK, PRIORITY, markOf, stateOf, stateName, DOT, MarkIcon } from './marks'
+import { Check, Chain, FlowText, approvedBy } from './evidence'
 import { ApproveDialog } from './ApproveDialog'
 
 export function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onAdd, onPickFrom, onEdit, onUnplace, onDeleted, reload, fail }: {
@@ -19,7 +19,7 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onA
   manual: boolean
   onPick(id: string): void; onAdd(): void; onPickFrom(): void; onEdit(): void; onUnplace(): void; onDeleted(): void; reload(): void; fail(e: unknown): void
 }) {
-  const [approving, setApproving] = useState<number | null>(null)
+  const [approving, setApproving] = useState<{ ev: number } | { step: number } | null>(null)
   const remove = async () => {
     const out = all.filter((m) => m.from.some((f) => f.id === n.id)).length
     const ok = await askConfirm({
@@ -65,11 +65,43 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onA
         <span><i>{tr('상태', 'State')}</i><StatusDot s={DOT[stateOf(n)]} name={stateName(n)} label /></span>
         {n.end && <span>{tr('갈래 종결', 'Branch closed')}</span>}
       </div>
+      {n.gaps.length > 0 && <ul className="fl-gaps" data-ui="흐름 빈틈">
+        <li><b>{tr(`빈틈 ${n.gaps.length}`, `${n.gaps.length} gaps`)}</b></li>
+        {n.gaps.map((g, i) => <li key={i}>{g.text}</li>)}
+      </ul>}
       <section className="fl-sec">
         <h3>{tr('설명', 'Description')}</h3>
         {order.length ? <dl className="fl-fields">{order.map((f) => <div key={f}><dt>{FIELD[f]?.() ?? f}</dt><dd><FlowText rid={rid} text={n.fields[f]!} /></dd></div>)}</dl>
           : <span className="muted">{tr('아직 없음. 연필로 적습니다.', 'None yet. Use the pencil to write.')}</span>}
       </section>
+      {n.run && <section className="fl-sec" data-ui="흐름 실행">
+        <h3>{tr('실행', 'Run')}</h3>
+        <dl className="fl-fields">
+          {n.run.code && <div><dt>{tr('코드', 'Code')}</dt><dd className="mono">{n.run.code}{n.run.commit && ` @ ${n.run.commit}`}</dd></div>}
+          {!n.run.code && n.run.commit && <div><dt>{tr('커밋', 'Commit')}</dt><dd className="mono">{n.run.commit}</dd></div>}
+          {n.run.params && Object.keys(n.run.params).length > 0 && <div><dt>{tr('매개변수', 'Parameters')}</dt><dd className="fl-tags">{Object.entries(n.run.params).map(([k, v]) => <span key={k}>{k} {v}</span>)}</dd></div>}
+          {n.run.output && <div><dt>{tr('결과 파일', 'Output')}</dt><dd className="mono">{n.run.output}</dd></div>}
+        </dl>
+      </section>}
+      {n.steps.length > 0 && <section className="fl-sec" data-ui="흐름 단계">
+        <h3 className="fl-grp-h">{tr('증명 단계', 'Proof steps')}<span className="fl-cnt">{tr(`확인 ${n.steps.filter((x) => x.uses && (approvedBy(x, 'agent') || approvedBy(x, 'human'))).length} / ${n.steps.length}`, `${n.steps.filter((x) => x.uses && (approvedBy(x, 'agent') || approvedBy(x, 'human'))).length} of ${n.steps.length} checked`)}</span></h3>
+        <ol className="fl-steps">{n.steps.map((x, i) => {
+          const ok = !!x.uses && (approvedBy(x, 'agent') || approvedBy(x, 'human'))
+          return <li key={i}>
+            <span className={`fl-stepno ${ok ? 'ok' : 'gap'}`} title={ok ? tr('확인된 단계', 'Checked step') : tr('빈틈: 쓰는 것이 없거나 확인되지 않은 단계', 'Gap: no "uses" or not checked')}>{i + 1}</span>
+            <div><MathText text={x.text} /><small>{x.uses ? `${tr('쓰는 것', 'Uses')}: ${x.uses}` : tr('쓰는 것이 적히지 않음', 'What it uses is not written')}</small>{x.stale && <span className="fl-stale">{tr('확인 뒤 바뀜', 'changed since checked')}</span>}</div>
+            <Check e={x} role="agent" />
+            <Check e={x} role="human" onClick={() => setApproving({ step: i })} />
+          </li>
+        })}</ol>
+      </section>}
+      {(n.reason || n.next) && <section className="fl-sec" data-ui="흐름 끝맺음">
+        <h3>{tr('끝맺음', 'Outcome')}</h3>
+        <dl className="fl-fields">
+          {n.reason && <div><dt>{tr('이유', 'Reason')}</dt><dd><FlowText rid={rid} text={n.reason} /></dd></div>}
+          {n.next && <div><dt>{tr('다음 할 일', 'Next')}</dt><dd>{n.next}{n.priority && <span className="muted"> · {tr('우선', 'priority')} {PRIORITY[n.priority]()}</span>}</dd></div>}
+        </dl>
+      </section>}
       <section className="fl-sec" data-ui="흐름 근거">
         <h3>{tr('근거', 'Evidence')}</h3>
         {n.evidence.length ? <div className="fl-tbox"><table className="fl-ev">
@@ -79,12 +111,12 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onA
           <tbody>{n.evidence.map((e, i) => <tr key={i}>
             <td className="kd">{EVK[e.kind]()}</td>
             <td>{e.text ? <MathText text={e.text} /> : <span className="muted">—</span>}</td>
-            <td><EvidenceSource rid={rid} e={e} notes={notes} /></td>
+            <td><EvidenceSource rid={rid} e={e} notes={notes} />{e.section && <span className="fl-sec-ref"> › {e.section}</span>}{e.stale && <div className="fl-stale">{tr('확인 뒤 바뀜', 'changed since checked')}</div>}</td>
             <td className="vc"><Check e={e} role="agent" /></td>
-            <td className="vc"><Check e={e} role="human" onClick={() => setApproving(i)} /></td>
+            <td className="vc"><Check e={e} role="human" onClick={() => setApproving({ ev: i })} /></td>
           </tr>)}</tbody>
         </table></div> : <span className="muted">{tr('없음. 연필로 노트·논문을 근거로 답니다.', 'None. Use the pencil to attach notes or papers.')}</span>}
-        {approving !== null && n.evidence[approving] && <ApproveDialog rid={rid} n={n} ev={approving} onClose={() => setApproving(null)} onDone={() => { setApproving(null); reload() }} fail={fail} />}
+        {approving && <ApproveDialog rid={rid} n={n} {...approving} onClose={() => setApproving(null)} onDone={() => { setApproving(null); reload() }} fail={fail} />}
       </section>
       {(n.guesses.length > 0 || n.sources.length > 0) && <details className="fl-sec fl-fold">
         <summary><h3>{tr('기록', 'Records')}</h3><span className="muted">{n.guesses.length > 0 && tr(`추정 ${n.guesses.length} · `, `${n.guesses.length} guessed · `)}{tr(`출처 ${n.sources.length}`, `${n.sources.length} sources`)}</span></summary>

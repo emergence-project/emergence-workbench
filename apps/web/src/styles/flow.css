@@ -182,3 +182,37 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 
 /* 근거 논문: 이름 뒤 작은 § (10/16, 점 위 배지 대신) */
 .fl-cite { fill: var(--text-2); font-weight: var(--fw-normal); }
+
+/* 점 고치기 안 A (10/20): 묶음마다 채운 수, 끝낼 때 필요한 빈 칸 이름은 주황, 종류 · 상태 · 날짜는 한 줄의 작은 고르기 칸 */
+.fl-grp-h { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); }
+.fl-cnt { font-weight: var(--fw-normal); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.fl-fields dt.need { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.fl-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
+.fl-chip { border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--bg); color: var(--text-2); padding: 1px var(--sp-2); font: inherit; font-size: var(--fs-sm); }
+input.fl-chip { border-radius: var(--r-pill); }
+.fl-editing .fl-fields textarea::placeholder, .fl-editing .fl-line::placeholder { color: var(--text-3); font-style: italic; }
+.fl-line { width: 100%; }
+.fl-next-in { display: flex; align-items: center; gap: var(--sp-2); }
+.fl-steps-edit { list-style: none; padding: 0; margin: 0 0 var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-2); }
+.fl-steps-edit li { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.fl-steps-edit textarea { width: 100%; display: block; background: transparent; border-bottom-color: var(--line); }
+.fl-stepno { flex: none; width: 20px; height: 20px; margin-top: 3px; border-radius: var(--r-pill); border: 1.5px solid var(--line-strong); display: grid; place-items: center; font-size: var(--fs-xs); color: var(--text-2); }
+.fl-need-in::placeholder { color: var(--s-blocked); }
+.fl-similar { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--s-blocked); border-radius: var(--r-md); font-size: var(--fs-sm); color: var(--text-2); }
+.fl-similar b { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.fl-gate { margin: 0; font-size: var(--fs-sm); color: var(--s-blocked); }
+
+/* 자세히의 실행 · 단계 · 끝맺음 · 빈틈 (10/20) */
+.fl-gaps { margin: 0; padding: var(--sp-2) var(--sp-3); list-style: none; border-left: 2px solid var(--s-blocked); font-size: var(--fs-sm); color: var(--text-2); display: flex; flex-direction: column; gap: 2px; }
+.fl-gaps b { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.fl-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.fl-tags span { background: var(--bg-sunken); border-radius: var(--r-xs); padding: 0 var(--sp-2); font-size: var(--fs-sm); }
+.fl-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-sm); }
+.fl-steps li { display: grid; grid-template-columns: 22px 1fr auto auto; gap: var(--sp-2); align-items: start; }
+.fl-steps .fl-stepno.ok { border-color: var(--s-solved); color: var(--s-solved); }
+.fl-steps .fl-stepno.gap { border-style: dashed; border-color: var(--s-blocked); color: var(--s-blocked); }
+.fl-steps small { display: block; color: var(--text-3); }
+.fl-stale { color: var(--s-blocked); font-size: var(--fs-xs); white-space: nowrap; }
+.fl-sec-ref { color: var(--text-3); }
+/* 차트의 빈틈 점: 점 오른쪽 위 작은 주황 점 */
+.fl-gapdot { fill: var(--s-blocked); stroke: var(--bg); stroke-width: 1.5; }

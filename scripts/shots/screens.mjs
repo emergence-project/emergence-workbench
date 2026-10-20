@@ -34,8 +34,12 @@ export const DEFAULT_SCREENS = [
   ['flow-start', '#/r/{rid}/flow', '흐름 새 점 창', '흐름 점 더하기'],
   // 기록 탭의 질문 (10/15): 답을 대화로, 이어 쓰기, 에이전트가 물은 질문(주황, 사용자 차례). 기록은 fixtures/sandbox-extra/workbench/comments
   ['records-questions', '#/r/{rid}/records', '기록 화면', '[data-ui="기록 거르기"] button:text-matches("^(질문|Question)")'],
+  // 점 고치기 안 A (10/20): 계획 · 실행 · 끝맺음 묶음, 채운 수, 빈 칸의 회색 안내
+  ['flow-edit-calc', '#/r/{rid}/flow', '흐름 실행 고치기', ['[data-ui="흐름 차트"] .fl-node[data-id="greedy-check"]', '흐름 점 고치기']],
   // 프로젝트 정보의 네 쪽 (10/16): 개요 · 현황 · 규칙 · 저장소
   ['info', '#/r/{rid}/info', '노트 정보'],
+  // 증명 단계와 빈틈 (10/20): 단계마다 쓰는 것과 확인, 확인 안 된 단계는 점선 번호. 새 점 칸이 남지 않게 다른 화면 뒤에
+  ['flow-steps', '#/r/{rid}/flow', '흐름 단계', '[data-ui="흐름 차트"] .fl-node[data-id="degree-bound"]'],
   ['info-status', '#/r/{rid}/status', '최근 기록'],
   // 규칙 쪽 (옛 AGENTS.md 쪽): 저장소의 AGENTS.md, STATUS.md의 규칙 절, workbench/decisions/
   ['info-agents', '#/r/{rid}/agents', '결정'],

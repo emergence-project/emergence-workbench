@@ -10,8 +10,20 @@ from:
   - { id: heawood, type: origin }
 fields:
   goal: 귀납의 출발점이 되는 꼭짓점을 찾는다.
+  assumptions: 단순 연결 평면 그래프, 꼭짓점 3개 이상
   method: 오일러 공식 $V-E+F=2$에서 $E \le 3V-6$.
   result: $\sum_v \deg v = 2E < 6V$이므로 $\deg v \le 5$인 $v$가 있다.
+steps:
+  - text: 면마다 변이 셋 이상이고 변마다 면이 둘이므로 $3F \le 2E$.
+    uses: 가정 (단순 그래프)
+    checks:
+      - { at: 2026-10-01T10:20, by: claude, role: agent }
+      - { at: 2026-10-01T21:05, by: 사용자, role: human }
+  - text: 오일러 공식 $V-E+F=2$에 넣으면 $E \le 3V-6$.
+    uses: 단계 1, 오일러 공식
+    checks:
+      - { at: 2026-10-01T10:20, by: claude, role: agent }
+  - text: $\sum_v \deg v = 2E < 6V$이므로 평균 차수가 6보다 작다.
 evidence:
   - kind: proof
     title: 차수 5 이하 꼭짓점

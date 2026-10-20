@@ -4,6 +4,7 @@ import path from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { app, R, repo, useSampleApp } from './testkit.js'
 import { classify } from './watcher.js'
+import { evidenceHash } from './flowGaps.js'
 
 useSampleApp()
 
@@ -254,6 +255,18 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     expect(r.statusCode).toBe(200)
     expect(r.json().node).toMatchObject({ run: { code: 'code/b.py', commit: 'abc1234', params: { L: '400' } }, steps: [{ text: '하나', uses: '정의' }], reason: '멈춘 까닭' })
     expect(r.json().node.priority).toBeUndefined()
+  })
+
+  it('근거의 절: Markdown · TeX 제목을 이름으로 찾고, \\label은 이름에서 뺀다', () => {
+    note('workbench/m.md', '# 노트\n\n## 진행 \\label{sec: progress}\n\n표\n\n### 작은 절\n\n## 남은 문제\n')
+    note('workbench/t.tex', '\\section{Setup}\nA\n\\section*{Result}\nB\n')
+    const a = evidenceHash(repo, 'workbench/m.md', '진행')
+    expect(a).not.toMatch(/missing|no-section/)
+    note('workbench/m.md', '# 노트\n\n## 진행 \\label{sec: progress}\n\n표\n\n### 작은 절\n\n## 남은 문제\n\n고침\n')
+    expect(evidenceHash(repo, 'workbench/m.md', '진행')).toBe(a)
+    expect(evidenceHash(repo, 'workbench/t.tex', 'result')).not.toMatch(/missing|no-section/)
+    expect(evidenceHash(repo, 'workbench/t.tex', '없는 절')).toBe('no-section')
+    expect(evidenceHash(repo, 'workbench/없음.md')).toBe('missing')
   })
 
   it('해결 문턱: gate를 켜고 끝내면 빈 필수 칸을 이름으로 거절하고, 다 채우면 받는다', async () => {

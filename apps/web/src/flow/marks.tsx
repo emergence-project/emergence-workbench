@@ -19,7 +19,21 @@ export const FIELD: Record<string, () => string> = {
   statement: () => tr('진술', 'Statement'), condition: () => tr('조건', 'Conditions'),
   goal: () => tr('목적', 'Goal'), setup: () => tr('설정', 'Setup'), method: () => tr('방법', 'Method'), result: () => tr('결과', 'Result'),
   reading: () => tr('문헌', 'Reading'), gain: () => tr('얻은 것', 'What it gave'),
+  criterion: () => tr('판정 기준', 'Criterion'), assumptions: () => tr('가정', 'Assumptions'), interpretation: () => tr('해석', 'Interpretation'), use: () => tr('쓰는 곳', 'Where it is used'),
 }
+/** 빈 칸에 회색으로 보이는 "무엇을 적을지" (10/20 안 A) */
+export const FIELD_HINT: Record<string, () => string> = {
+  question: () => tr('답을 구할 물음 한 문장', 'The question, in one sentence'), motivation: () => tr('왜 묻는가, 어디서 나왔나', 'Why ask it, where it came from'),
+  guess: () => tr('예상하는 답 (있으면)', 'The answer you expect, if any'), criterion: () => tr('무엇이 나오면 해결 · 반증인가', 'What result solves or refutes it'),
+  statement: () => tr('확인된 사실 한 문장', 'The confirmed fact, in one sentence'), condition: () => tr('성립하는 모형 · 조건', 'Models and conditions where it holds'),
+  goal: () => tr('무엇을 구하나', 'What it computes or shows'), setup: () => tr('모형 · 크기 · 경계 조건', 'Model, size, boundary conditions'),
+  assumptions: () => tr('쓰는 가정 · 공리', 'Assumptions and axioms used'), method: () => tr('어떻게 보이나', 'How it is shown'),
+  result: () => tr('판정 기준에 비춘 값 · 결론', 'The value or conclusion, against the criterion'), interpretation: () => tr('결과가 뜻하는 것', 'What the result means'),
+  reading: () => tr('읽은 논문 · 절', 'Paper and section read'), gain: () => tr('얻은 것', 'What it gave'), use: () => tr('어디에 쓰나', 'Where it is used'),
+}
+/** 끝맺음 묶음의 칸 (나머지 칸은 계획 묶음) */
+export const END_FIELDS = ['result', 'interpretation', 'gain', 'use']
+export const PRIORITY: Record<'high' | 'normal' | 'low', () => string> = { high: () => tr('먼저', 'First'), normal: () => tr('보통', 'Normal'), low: () => tr('나중', 'Later') }
 export const EDGE: Record<string, () => string> = { origin: () => tr('발단', 'Origin'), support: () => tr('근거', 'Support'), refute: () => tr('반박', 'Refutes'), use: () => tr('사용', 'Uses') }
 export const EVK: Record<FlowEvidence['kind'], () => string> = { calc: () => tr('수치 계산', 'Numerics'), analytic: () => tr('이론 계산', 'Analytic'), proof: () => tr('증명', 'Proof'), other: () => tr('그 밖', 'Other'), paper: () => tr('논문', 'Paper') }
 
