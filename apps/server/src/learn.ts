@@ -6,6 +6,9 @@ import type { LearnFrom, LearnItem } from '@rw/core/contract/learn'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { stamp as coreStamp } from '@rw/core'
 import { WorkbenchError } from './workbench.js'
+import { addComment } from './comments.js'
+import { CONCEPTS_DIR } from './conceptNotes.js'
+import { conceptRecordTarget } from '@rw/core'
 import { t } from './i18n.js'
 
 /**
@@ -177,17 +180,22 @@ export function parseDraft(out: string): DraftReply {
 }
 
 /** 초안 옆 메모: 처음 막힌 자리와 Claude가 남긴 확인할 점 */
-export function draftMemo(it: LearnItem, memo: string | undefined): string {
+/**
+ * Claude가 쓴 개념노트 초안의 확인 목록을 그 개념노트의 기록 카드로 (10/20 검토: 옛 메모 파일은 화면이 더 읽지 않는다).
+ * 할 일 하나("초안을 읽고 맞으면 확인함")와, 처음 막힌 곳 · Claude가 남긴 확인할 점을 담은 메모 하나
+ */
+export function addDraftRecords(lib: string, id: string, title: string, it: LearnItem, memo: string | undefined): void {
   const f = it.from
-  return [
-    '- [ ] 초안을 읽고 맞으면 "확인함"',
-    '',
-    `## 처음 막힌 곳 (${it.at})`,
+  const root = path.join(lib, 'workbench')
+  const base = { title: `개념노트 ${title}`, source: `${CONCEPTS_DIR}/${id}.md` }
+  addComment(root, conceptRecordTarget(id), { ...base, kind: '할 일', text: '초안을 읽고 맞으면 "확인함"' })
+  const text = [
+    `**처음 막힌 곳 (${it.at})**`,
     '',
     f?.title ? `- ${f.project ? `${f.project} · ` : ''}${f.title}${f.page ? ` ${f.page}쪽` : ''}` : null,
     f?.quote ? `> ${f.quote.replace(/\n/g, ' ')}` : null,
     it.note ? `- 막힌 점: ${it.note}` : null,
-    ...(memo ? ['', '## 초안을 쓴 Claude가 남긴 확인할 점', '', memo] : []),
-    '',
+    ...(memo ? ['', '**초안을 쓴 Claude가 남긴 확인할 점**', '', memo] : []),
   ].filter((l) => l !== null).join('\n')
+  addComment(root, conceptRecordTarget(id), { ...base, kind: '메모', text })
 }

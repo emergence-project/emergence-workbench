@@ -41,6 +41,7 @@
 .record-edit textarea:focus, .record-composer textarea:focus { outline: none; border-color: var(--text-3); }
 .record-edit-actions { display: flex; justify-content: flex-end; gap: var(--sp-1); margin-top: var(--sp-1); }
 .record-composer { flex: none; min-width: 0; border-top: 1px solid var(--line); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-sm); max-height: 60%; overflow: auto; }
+.record-pick-hint { flex: none; margin: 0; border-top: 1px solid var(--line); padding: var(--sp-3); font-size: var(--fs-sm); }
 .record-composer .segmented { display: flex; flex-wrap: wrap; }
 .record-composer .segmented button { flex: 1; white-space: nowrap; min-width: 0; padding-inline: var(--sp-1); justify-content: center; text-align: center; }
 .record-composer textarea { resize: none; min-height: calc(var(--input-h) * 2); }

@@ -1,3 +1,4 @@
+import { flash } from './flash'
 import { awaitsUserReview, type TreeIssue } from '@rw/core'
 import { fill } from './projectData'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -192,7 +193,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
     const api = commentsApi(rid)
     setFinishing(todoKey(todo))
     api.read(todo.target).then((file) => api.setState(todo.target, todo.id, '끝냄', file.hash)).then(() => onChanged())
-      .catch((e: Error) => setError(e.message)).finally(() => setFinishing(null))
+      .catch((e: Error) => flash(e.message)).finally(() => setFinishing(null))
   }
   const reopen = (b: { id: string; hash: string }) => {
     rapi.patchMeta(b.id, { status: 'in-progress' }, b.hash).then(onChanged).catch((e: Error) => setError(e.message))

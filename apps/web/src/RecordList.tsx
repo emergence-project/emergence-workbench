@@ -99,7 +99,19 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
           await act(() => api.remove(file.target, c.id, baseHash))
         }
       }} rid={rid} file={file} work={work} showSource={showSource} place={placeOf?.(c)}
-      talk={c.kind === '할 일' && rid !== LIBRARY_RID ? { records: linked.get(c.id) ?? [], send: (kind, text) => askTodo(c, kind, text) } : undefined}
+      talk={c.kind === '할 일' && rid !== LIBRARY_RID ? {
+        records: linked.get(c.id) ?? [], send: (kind, text) => askTodo(c, kind, text),
+        // 대화 속 질문 · 지시도 기록 줄처럼 끝내고 지우고 다시 묻는다 (10/20 검토: 묻기가 실패하면 기다림에서 멈췄다)
+        asking: (r) => asking.has(askKey(rid, file.target, r.id)),
+        onAsk: (r) => void askClaude(rid, file.target, r.id),
+        onState: (r, state) => act(() => api.update(file.target, r.id, { state, baseHash: file.hash })),
+        onDelete: async (r) => {
+          const baseHash = file.hash
+          if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 할 일과 다른 기록은 남습니다.', 'This cannot be undone. The to-do and other records stay.'), ok: t('지우기', 'Delete') })) {
+            await act(() => api.remove(file.target, r.id, baseHash))
+          }
+        },
+      } : undefined}
       todoText={c.todo ? file.comments.find((x) => x.id === c.todo)?.body : undefined} />)}
   </>
 }
@@ -115,7 +127,7 @@ export interface RecordRowProps {
   /** 붙은 곳을 줄 번호 대신 이 이름으로 (개념노트의 절 이름, 10/18) */
   place?: { label: string; tip: string }
   /** 할 일에 대해 에이전트에게 (10/19): 이 할 일에 이은 질문 · 지시와 보내기 */
-  talk?: { records: CommentEntry[]; send(kind: '질문' | '지시', text: string): Promise<boolean> }
+  talk?: TodoTalkActions & { records: CommentEntry[]; send(kind: '질문' | '지시', text: string): Promise<boolean> }
   /** 이 질문 · 지시가 묻는 할 일 글 (할 일과 따로 보일 때, 10/19) */
   todoText?: string
 }
@@ -200,7 +212,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {onReply && talk && c.state !== '끝냄' && !turn && !unanswered && !replying && <div className="record-follow"><button className="a" onClick={() => setReplying(true)}>{t('이어 쓰기', 'Follow up')}</button></div>}
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
         onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
-      {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy}
+      {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy} actions={todoTalk}
         onSend={async (k, text) => { const ok = await todoTalk.send(k, text); if (ok) setTalkOpen(false); return ok }} onCancel={todoTalk.records.length ? undefined : () => setTalkOpen(false)} />}
     </div>
   </article></RepoPathContext.Provider>
@@ -218,7 +230,12 @@ function talkSummary(records: CommentEntry[]): string {
  * 할 일에 대해 에이전트에게 묻기 · 맡기기 (10/19 결정, 시안 2절 "채팅 모양"): 이은 질문 · 지시를 기록 대화와 같은 말풍선으로
  * (내 글 오른쪽, 에이전트 글 왼쪽), 아래 입력란의 오른쪽 아래 버튼이 종류다. 에이전트가 답하기 전에는 기다림 한 줄.
  */
-function TodoTalk({ records, busy, onSend, onCancel }: { records: CommentEntry[]; busy: boolean; onSend(kind: '질문' | '지시', text: string): Promise<boolean>; onCancel?(): void }) {
+interface TodoTalkActions {
+  asking(r: CommentEntry): boolean; onAsk(r: CommentEntry): void
+  onState(r: CommentEntry, state: '대기' | '끝냄'): Promise<boolean>; onDelete(r: CommentEntry): Promise<void>
+}
+
+function TodoTalk({ records, busy, actions, onSend, onCancel }: { records: CommentEntry[]; busy: boolean; actions: TodoTalkActions; onSend(kind: '질문' | '지시', text: string): Promise<boolean>; onCancel?(): void }) {
   const [text, setText] = useState('')
   const last = records.at(-1)
   const lastWord = last?.answers.at(-1)
@@ -228,7 +245,12 @@ function TodoTalk({ records, busy, onSend, onCancel }: { records: CommentEntry[]
   return <div className="todo-talk" data-ui="할 일 대화">
     {records.length > 0 && <ul className="fbp-thread">
       {records.flatMap((r) => [
-        <SayCard key={r.id} me ui="사용자 글" name={t('사용자', 'User')} tag={kindLabel(recordKind(r))} when={recordWhen(r.id).label}><MemoText text={r.body} /></SayCard>,
+        <SayCard key={r.id} me ui="사용자 글" name={t('사용자', 'User')} tag={kindLabel(recordKind(r))} when={recordWhen(r.id).label}
+          end={<span className="record-actions" data-ui="고치기·지우기">
+            {r.kind === '질문' && r.state !== '끝냄' && <button className="icon-btn sm" data-tip={actions.asking(r) ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || actions.asking(r)} onClick={() => actions.onAsk(r)}>{Icon.spark}</button>}
+            <button className="icon-btn sm" data-tip={r.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={r.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void actions.onState(r, r.state === '끝냄' ? '대기' : '끝냄')}>{r.state === '끝냄' ? Icon.reopen : Icon.check}</button>
+            {r.answers.length === 0 && <button className="icon-btn sm tip-end" data-tip={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={busy} onClick={() => void actions.onDelete(r)}>{Icon.trash}</button>}
+          </span>}><MemoText text={r.body} /></SayCard>,
         ...r.answers.map((a, i) => a.by === '앱' ? <li key={`${r.id}-${i}`} className="fbp-say-wait muted">{a.body}</li>
           : <SayCard key={`${r.id}-${i}`} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : <Author by={a.by} />} when={a.at}>
             <MemoText text={a.body} />

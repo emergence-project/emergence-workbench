@@ -68,8 +68,14 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
   const [status, setStatus] = useState<StatusFilter>('진행 중')
   useEffect(() => setStatus('진행 중'), [rid, target.target])
   const shown = project ? files : group ? groupFiles(files, group, slot.file) : slot.file ? [slot.file] : []
+  // 고른 기록이 보이게 필터 · 상태를 맞추는 것은 고른 기록이 바뀔 때 한 번만 (10/20 검토: 할 일을 체크할 때마다 "완료"로 넘어갔다).
+  // 저장 바로 뒤에는 새 기록이 아직 목록에 없을 수 있어, 찾을 때까지 기다린다
+  const aligned = useRef<string | null>(null)
   useEffect(() => {
+    if (!slot.active || aligned.current === slot.active) return
     const comments = project ? files.find((file) => file.target === target.target)?.comments ?? [] : slot.file?.comments ?? []
+    if (!comments.some((c) => c.id === slot.active)) return
+    aligned.current = slot.active
     setFilter((current) => filterForActiveRecord(current, comments, slot.active))
     setStatus((current) => statusForActiveRecord(current, comments, slot.active))
   }, [slot.active, slot.file, files, project, target.target])
@@ -123,7 +129,10 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
       {!shown.length && !error && <p className="empty records-empty">{slot.error ?? (group && recordsQuery.data ? t('아직 기록이 없습니다', 'No records yet') : t('불러오는 중…', 'Loading…'))}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}
     </div>
-    <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} />
+    {/* 흐름 화면에서 점을 고르기 전에는 적지 않는다: 프로젝트 기록에 들어가 이 목록(흐름 점의 기록)에 보이지 않았다 (10/20 검토) */}
+    {group && !target.target.startsWith(group)
+      ? <p className="muted record-pick-hint" data-ui="점 고르기 안내">{t('흐름 점을 고르면 그 점에 기록을 적습니다', 'Pick a flow dot to write a record on it')}</p>
+      : <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} />}
   </section>
 }
 

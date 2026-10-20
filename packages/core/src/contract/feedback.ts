@@ -116,6 +116,8 @@ export const FeedbackToday = z.object({
   enabled: z.boolean(),
   publishable: z.boolean(),
   autoPublish: z.boolean(),
+  /** 저절로 등록하면 남기고 나서 기다리는 초 (설정 › 동기화). 수동이면 null */
+  delay: z.number().nullable().optional(),
   lastAutoPublish: z.object({ at: z.number(), error: z.string().nullable() }).strict().nullable(),
   entries: z.array(FeedbackEntry),
 }).strict()

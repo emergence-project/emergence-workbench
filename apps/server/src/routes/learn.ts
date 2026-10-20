@@ -3,8 +3,8 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/learn'
 import { parseBody, replies } from '../contract.js'
 import { claudeRunner } from '../ask.js'
-import { conceptMdExists, listConceptMd, readConceptMemo, writeConceptMemo } from '../conceptNotes.js'
-import { addLearn, draftMemo, draftPrompt, learnItem, parseDraft, readLearn, removeLearn, setLearnConcept } from '../learn.js'
+import { conceptMdExists, listConceptMd } from '../conceptNotes.js'
+import { addDraftRecords, addLearn, draftPrompt, learnItem, parseDraft, readLearn, removeLearn, setLearnConcept } from '../learn.js'
 import { createConcept } from '../libraryNotes.js'
 import { readSubjects } from '../subjects.js'
 import { WorkbenchError } from '../workbench.js'
@@ -50,8 +50,9 @@ export function registerLearn(app: FastifyInstance, ctx: RouteContext): void {
         drafting.delete(it.id)
         return { concept: d.exists, existed: true, ...withDrafting(list) }
       }
-      const { id } = createConcept(lib, { title: d.title || it.term, subject: idsModel ? undefined : d.subject, body: d.body, fm: { drafted_by: 'claude', drafted: it.at.slice(0, 10) } })
-      writeConceptMemo(lib, id, draftMemo(it, d.memo), readConceptMemo(lib, id).hash)
+      const title = d.title || it.term
+      const { id } = createConcept(lib, { title, subject: idsModel ? undefined : d.subject, body: d.body, fm: { drafted_by: 'claude', drafted: it.at.slice(0, 10) } })
+      addDraftRecords(lib!, id, title, it, d.memo)
       const list = setLearnConcept(lib, it.id, id)
       drafting.delete(it.id)
       return { concept: id, existed: false, ...withDrafting(list) }
