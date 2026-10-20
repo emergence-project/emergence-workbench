@@ -1,19 +1,11 @@
 // 흐름의 빈틈과 해결 문턱 (10/20 사용자 결정, docs/repo-format.md §14 "빈틈" · "해결 문턱").
-// 빈틈은 앱이 계산해 화면 · STATUS · MCP가 같은 것을 본다. 문턱은 점이 끝남으로 넘어갈 때만 검사한다(옛 점은 빈틈으로만 보인다).
+// 빈틈은 앱이 계산해 화면 · STATUS · MCP가 같은 것을 본다. 문턱(flowGate)은 편집 화면과 함께 쓰려고 core flow-gate.ts에 있다.
 import fs from 'node:fs'
 import path from 'node:path'
-import { FLOW_REQUIRED, type FlowGap, type FlowNode } from '@rw/core/contract/flow'
+import { flowGate } from '@rw/core'
+import type { FlowGap, FlowNode } from '@rw/core/contract/flow'
 import { hashOf, isInside } from './fsutil.js'
 import { t as tl } from './i18n.js'
-
-/** 설명 칸 이름 (문턱 · 빈틈 글에 쓴다) */
-export const FIELD_NAME: Record<string, () => string> = {
-  question: () => tl('물음', 'question'), motivation: () => tl('동기', 'motivation'), guess: () => tl('예상 답', 'expected answer'), criterion: () => tl('판정 기준', 'criterion'),
-  statement: () => tl('진술', 'statement'), condition: () => tl('조건', 'conditions'), goal: () => tl('목적', 'goal'), setup: () => tl('설정', 'setup'),
-  method: () => tl('방법', 'method'), result: () => tl('결과', 'result'), interpretation: () => tl('해석', 'interpretation'), assumptions: () => tl('가정', 'assumptions'),
-  reading: () => tl('문헌', 'reading'), gain: () => tl('얻은 것', 'what it gave'), use: () => tl('쓰는 곳', 'where it is used'),
-}
-const fieldName = (f: string) => FIELD_NAME[f]?.() ?? f
 
 /** 제목 줄의 수준 (Markdown #, TeX \section 계열). 제목이 아니면 0 */
 function headingOf(line: string): { level: number; name: string } | null {
@@ -23,7 +15,7 @@ function headingOf(line: string): { level: number; name: string } | null {
   if (tex) return { level: ['part', 'chapter', 'section', 'subsection', 'subsubsection', 'paragraph'].indexOf(tex[1]!) + 1, name: tex[2]! }
   return null
 }
-const norm = (s: string) => s.replace(/[`*_$\\{}]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+const norm = (s: string) => s.replace(/\\label\{[^}]*\}/g, '').replace(/[`*_$\\{}]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
 
 /**
  * 근거의 지금 내용 해시: 절 이름이 있으면 그 절(다음 같은 수준 이하의 제목 전까지), 없으면 파일 전체.
@@ -96,35 +88,9 @@ export function computeGaps(repo: string, nodes: FlowNode[]): void {
       else if (e.stale) add('changed-evidence', `확인한 뒤 근거가 바뀌었다: ${e.title ?? e.file}`, `evidence changed after it was checked: ${e.title ?? e.file}`)
     }
     const open = n.steps.map((s, i) => [s, i + 1] as const).filter(([s]) => !s.uses || !(confirmed(s, 'agent') || confirmed(s, 'human')))
-    if (open.length) add('step-gap', `확인 안 된 단계 ${open.map(([, i]) => i).join(', ')} / ${n.steps.length}`, `unchecked steps ${open.map(([, i]) => i).join(', ')} of ${n.steps.length}`)
+    if (open.length) add('step-gap', `확인 안 된 단계: ${open.map(([, i]) => i).join(', ')}번 (${n.steps.length}단계 중)`, `unchecked steps: ${open.map(([, i]) => i).join(', ')} (of ${n.steps.length})`)
     n.gaps = gaps
   }
 }
 
-/**
- * 해결 문턱: 점이 이번 저장으로 끝남(해결 · 반증 · 폐기)이나 멈춤으로 넘어갈 때 모자란 것. 비면 통과.
- * 미해결 · 진행은 빈 칸이 있어도 저장된다 (일하는 중이니까)
- */
-export function flowGate(n: FlowNode, before?: Pick<FlowNode, 'progress' | 'result'>): string[] {
-  const moved = !before || before.progress !== n.progress || (n.progress === 'done' && (before.result ?? 'solved') !== (n.result ?? 'solved'))
-  if (!moved) return []
-  const miss: string[] = []
-  if (n.progress === 'paused' || (n.progress === 'done' && n.result !== undefined && n.result !== 'solved')) {
-    if (!n.reason) miss.push(tl('이유', 'reason'))
-    return miss
-  }
-  if (n.progress !== 'done') return miss
-  for (const f of FLOW_REQUIRED[n.kind]) if (!n.fields[f]) miss.push(fieldName(f))
-  if (n.kind !== 'question') {
-    const anchored = n.evidence.some((e) => !!e.ref || !!e.section)
-    const viaLine = n.kind === 'finding' && n.from.some((f) => f.type === 'support' || f.type === 'use')
-    if (!anchored && !viaLine) miss.push(n.evidence.length ? tl('근거의 절 (노트 안의 제목 이름)', 'evidence section (a heading in the note)') : tl('근거', 'evidence'))
-  }
-  if (n.kind === 'calc' && !n.run?.code) miss.push(tl('실행의 코드', 'run code'))
-  if (n.kind === 'proof') {
-    if (!n.steps.length) miss.push(tl('단계', 'steps'))
-    const noUse = n.steps.map((s, i) => (s.uses ? 0 : i + 1)).filter(Boolean)
-    if (noUse.length) miss.push(tl(`단계 ${noUse.join(', ')}의 쓰는 것`, `what step ${noUse.join(', ')} uses`))
-  }
-  return miss
-}
+export { flowGate }

@@ -679,5 +679,15 @@
   "이름이 나온 기록": "Record naming this person",
   "Semantic Scholar 저자": "Semantic Scholar author",
   "구글 연결 끊김": "Google connection expired",
-  "구글 다시 연결": "Reconnect Google"
+  "구글 다시 연결": "Reconnect Google",
+  "흐름 빈틈 보기": "Flow gaps toggle",
+  "흐름 빈틈": "Flow dot gaps",
+  "흐름 실행": "Flow run",
+  "흐름 단계": "Flow proof steps",
+  "흐름 끝맺음": "Flow outcome",
+  "흐름 실행 고치기": "Flow run editor",
+  "흐름 단계 고치기": "Flow proof steps editor",
+  "흐름 끝맺음 고치기": "Flow outcome editor",
+  "흐름 비슷한 지난 시도": "Flow similar earlier attempts",
+  "흐름 남은 칸": "Flow fields left"
 }

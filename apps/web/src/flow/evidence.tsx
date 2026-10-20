@@ -4,14 +4,16 @@ import { NoteMarkdown } from '../NoteMarkdown'
 import { useFigureUrl } from '../figureEmbed'
 import { t as tr } from '../i18n'
 
-/** 그 역할의 마지막 기록이 거둔 것이 아니면 확인됨 */
-const lastCheck = (e: FlowEvidence, role: 'agent' | 'human') => [...e.checks].reverse().find((x) => x.role === role)
-export const approvedBy = (e: FlowEvidence, role: 'agent' | 'human') => { const c = lastCheck(e, role); return !!c && !c.revoked }
+/** 확인을 받는 것: 근거 한 줄이나 증명 단계 하나 (stale: 확인한 뒤 내용이 바뀜, 10/20) */
+type Checked = { checks: FlowEvidence['checks']; stale?: boolean }
+/** 그 역할의 마지막 기록이 거둔 것도 낡은 것도 아니면 확인됨 (서버 flowGaps.ts confirmed와 같다) */
+const lastCheck = (e: Checked, role: 'agent' | 'human') => [...e.checks].reverse().find((x) => x.role === role)
+export const approvedBy = (e: Checked, role: 'agent' | 'human') => { const c = lastCheck(e, role); return !!c && !c.revoked && !e.stale }
 
-export function Check({ e, role, onClick }: { e: FlowEvidence; role: 'agent' | 'human'; onClick?(): void }) {
+export function Check({ e, role, onClick }: { e: Checked; role: 'agent' | 'human'; onClick?(): void }) {
   const c = lastCheck(e, role), on = approvedBy(e, role)
   const name = role === 'agent' ? tr('에이전트 검토', 'Agent check') : tr('사람 승인', 'Human approval')
-  const tip = c ? `${name}: ${c.revoked ? tr('거둠', 'revoked') + ' · ' : ''}${c.by} · ${c.at}${c.note ? `\n${c.note}` : ''}` : `${name}: ${tr('안 됨', 'not yet')}`
+  const tip = c ? `${name}: ${c.revoked ? tr('거둠', 'revoked') + ' · ' : ''}${e.stale && !c.revoked ? tr('확인 뒤 바뀜', 'changed since') + ' · ' : ''}${c.by} · ${c.at}${c.note ? `\n${c.note}` : ''}` : `${name}: ${tr('안 됨', 'not yet')}`
   const mark = <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>{on
     ? <><circle cx="8" cy="8" r="7" /><path d="M4.6 8.2l2.2 2.2 4.4-4.6" /></>
     : <circle cx="8" cy="8" r="6.2" />}</svg>

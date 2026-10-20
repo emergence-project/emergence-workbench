@@ -11,4 +11,5 @@ from:
 fields:
   goal: 차수 5 꼭짓점에서 사슬 한 번으로 색을 비운다.
   result: 두 사슬이 엇갈리는 경우가 막혀 그만두었다.
+reason: 두 Kempe 사슬이 엇갈리면 한 번 바꾼 뒤 다른 색이 막힌다 (Heawood의 반례). 같은 방법을 다시 하지 않는다.
 end: true

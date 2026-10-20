@@ -65,6 +65,9 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
   // 점 이름 (짧은 제목) 켜기·끄기 (10/16): 꺼도 고른 점과 그 앞뒤 점의 이름은 보인다
   const [names, setNamesState] = useState(() => store.get<boolean>(NAME_KEY, true))
   const setNames = (v: boolean) => { setNamesState(v); store.set(NAME_KEY, v) }
+  // 빈틈 있는 점을 굵게 (10/20): 주제 필터처럼 가리지 않고 드러내기만 한다
+  const [gapOn, setGapOn] = useState(false)
+  const gapCount = all.filter((n) => n.gaps.length > 0).length
   const [height, setHeightState] = useState(() => store.get<number>(H_KEY, DEFAULT_H))
   const setHeight = (h: number) => { setHeightState(h); store.set(H_KEY, h) }
   const box = useRef<HTMLDivElement>(null)
@@ -184,6 +187,7 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
             <option value="">{tr('전체', 'All')}</option>
             {topics.map((x) => <option key={x.id} value={x.id}>{x.title}{` (${all.filter((n) => n.topics.includes(x.id)).length})`}</option>)}
           </select></label>}
+        {gapCount > 0 && <button className={`btn${gapOn ? ' on' : ''}`} data-ui="흐름 빈틈 보기" aria-pressed={gapOn} title={tr('빈틈(근거 · 결과 · 이유 · 다음 할 일 · 단계 확인이 빠진 곳)이 있는 점을 굵게', 'Highlight dots with gaps (missing evidence, result, reason, next step or step checks)')} onClick={() => setGapOn(!gapOn)}>{tr(`빈틈 ${gapCount}`, `Gaps ${gapCount}`)}</button>}
         {lay.placed.length > 0 && <span className="fl-zoom" data-ui="흐름 확대">
           <span className="fl-zl">{tr('가로', 'Width')}</span>
           <button className="icon-btn" title={tr('가로 좁히기', 'Narrower')} aria-label={tr('가로 좁히기', 'Narrower')} onClick={() => step('x', -1)}>−</button>
@@ -227,7 +231,7 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
           {lay.placed.map(({ node: n, c, r }) => {
             const picked = !!picking?.includes(n.id) || !!draft?.from.includes(n.id)
             const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = inLin(n.id) && !on && !picked
-            const hot = !!focus && n.topics.includes(focus)
+            const hot = (!!focus && n.topics.includes(focus)) || (gapOn && n.gaps.length > 0)
             const start = !n.from.length
             // 근거로 단 논문은 이름 뒤 작은 §(둘 이상이면 수)로 (10/16: 점 위 배지 대신)
             const cites = n.evidence.filter((e) => e.kind === 'paper' && e.ref)
@@ -270,6 +274,7 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
                 <path className="fl-start" d={`M${LEFT - 22} ${y - 7}L${LEFT - 13} ${y}L${LEFT - 22} ${y + 7}Z`} />
                 {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
               </g>}
+              {n.gaps.length > 0 && <circle className="fl-gapdot" cx={x + 14} cy={y - 14} r={4}><title>{`${tr('빈틈', 'Gaps')}\n${n.gaps.map((g) => `· ${g.text}`).join('\n')}`}</title></circle>}
               {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('갈래 종결', 'Branch closed')}</title></line>}
               {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}{cites.length > 0 && <tspan className="fl-cite" dx={3}>§{cites.length > 1 ? cites.length : ''}<title>{cites.map((e) => e.title ?? e.ref).join('\n')}</title></tspan>}</text> : null}
             </g>
