@@ -97,8 +97,9 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
     const sweep = async () => {
       if (sweeping || syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs) === null) return
       sweeping = true
+      // 진행 중인 프로젝트만 다시 해 본다 (10/20 사용자 결정). 기록을 쓰면 바로 올리는 것은 멈춘 프로젝트도 그대로다
       // 지식 라이브러리(개념노트 기록)도 같은 장치로 올리므로 함께 다시 해 본다
-      const rids = [...ctx.registry.list().filter((r) => r.available).map((r) => r.id), ...(ctx.registry.libraryPath ? [LIBRARY_RID] : [])]
+      const rids = [...ctx.registry.list().filter((r) => r.available && r.state === 'active').map((r) => r.id), ...(ctx.registry.libraryPath ? [LIBRARY_RID] : [])]
       try { for (const rid of rids) if (!recordTimers.has(rid)) await publishPending(rid) } finally { sweeping = false }
     }
     repeat(app, { first: 60_000, every: RECORDS_RETRY_MS, run: sweep })

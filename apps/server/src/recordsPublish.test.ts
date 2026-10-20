@@ -168,20 +168,25 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
     } finally { await app.close() }
   })
 
-  it('앱 밖에서 쓴 기록도 10분마다 다시 보아 올린다 (첫 차례는 켜고 1분 뒤)', async () => {
+  it('앱 밖에서 쓴 기록도 10분마다 다시 보아 올린다 (첫 차례는 켜고 1분 뒤). 멈춘 프로젝트는 다시 보지 않는다', async () => {
     const { remote, mac } = setup('sweep')
+    const paused = setup('sweep-paused')
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
     const app = buildApp({ configDir: path.join(tmp, 'sweep-config'), recordsAutoPublishMs: 30 })
     try {
       await app.inject({ method: 'POST', url: '/api/researches', payload: { path: mac, createWorkbench: true } })
+      const pid = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: paused.mac, createWorkbench: true } })).json().id
+      expect((await app.inject({ method: 'PATCH', url: `/api/researches/${pid}`, payload: { state: 'paused' } })).statusCode).toBe(200)
       // 요청으로 쓰지 않았으니 올리기가 예약되지 않는다: 다시 보기(sweep)만 올린다
       write(mac, 'workbench/comments/a.md', RECORDS.replace('question one', 'written outside the app'))
+      write(paused.mac, 'workbench/comments/a.md', RECORDS.replace('question one', 'paused project'))
       await vi.advanceTimersByTimeAsync(59_000)
       expect(g(remote, 'log', '--format=%s', '-n', '1', 'main')).toBe('init')
       await vi.advanceTimersByTimeAsync(1000)
       vi.useRealTimers()
       await until(() => g(remote, 'log', '--format=%s', '-n', '1', 'main') === 'Add comments from the research workspace app')
       expect(g(remote, 'show', 'main:workbench/comments/a.md')).toContain('written outside the app')
+      expect(g(paused.remote, 'log', '--format=%s', '-n', '1', 'main')).toBe('init')
     } finally { vi.useRealTimers(); await app.close() }
   })
 
