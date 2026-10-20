@@ -22,7 +22,7 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
     try {
       const s = await googleApi.status()
       setSt(s)
-      if (s.connected) setSync(await googleApi.sync().catch((e) => { setErr((e as Error).message); return null }))
+      if (s.connected && !s.expired) setSync(await googleApi.sync().catch((e) => { setErr((e as Error).message); return null }))
     } catch (e) { setErr((e as Error).message) }
   }
   useEffect(() => { void load() }, [])
@@ -45,9 +45,11 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
       <div className="set-rows">
         <div className="set-row" data-ui="구글 연결">
           <div>
-            <div className="set-name">{st.connected ? t(`연결됨: ${st.email ?? '구글 계정'}`, `Connected: ${st.email ?? 'Google account'}`) : t('연결 안 됨', 'Not connected')}{st.mock && <span className="muted">{t(' (예제 모드의 가짜 구글)', ' (fake Google in sample mode)')}</span>}</div>
+            <div className="set-name">{st.connected && st.expired ? t(`로그인이 만료됨: ${st.email ?? '구글 계정'} — 다시 연결해 주세요`, `Sign-in expired: ${st.email ?? 'Google account'}. Connect again`)
+              : st.connected ? t(`연결됨: ${st.email ?? '구글 계정'}`, `Connected: ${st.email ?? 'Google account'}`) : t('연결 안 됨', 'Not connected')}{st.mock && <span className="muted">{t(' (예제 모드의 가짜 구글)', ' (fake Google in sample mode)')}</span>}</div>
             <div className="set-desc">{t('홈의 한 일 달력에 구글 캘린더 일정을 함께 보여 주고(읽기만), 설정과 프로젝트 목록을 구글 드라이브의 앱 전용 공간에 보관합니다.', 'Shows Google Calendar events on the Home activity calendar (read only), and keeps settings and the project list in the app folder on Google Drive.')}</div>
           </div>
+          {st.connected && st.expired && <a className="btn primary" data-ui="구글 다시 연결" href={googleApi.connectUrl()}>{t('다시 연결', 'Reconnect')}</a>}
           {st.connected
             ? <button className="btn" disabled={busy} onClick={() => void run(async () => { await googleApi.disconnect(); setSync(null); return t('연결을 끊었습니다.', 'Disconnected.') })}>{t('연결 끊기', 'Disconnect')}</button>
             : <a className={`btn primary${st.configured ? '' : ' disabled'}`} aria-disabled={!st.configured} href={st.configured ? googleApi.connectUrl() : undefined}>{t('구글에 연결', 'Connect to Google')}</a>}
@@ -77,7 +79,7 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
           </div>
         )}
 
-        {st.connected && (
+        {st.connected && !st.expired && (
           <div className="set-row" data-ui="설정 동기화">
             <div>
               <div className="set-name">{t('설정과 프로젝트 목록', 'Settings and project list')}</div>

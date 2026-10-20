@@ -36,6 +36,8 @@ const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3'
 export const SYNC_FILE = 'research-workspace.json'
 
 interface ClientConfig { clientId: string; clientSecret: string }
+const EXPIRED = () => tx('구글 연결이 끊겼습니다(로그인이 만료됨). 설정 › 계정에서 다시 연결해 주세요.', 'The Google connection expired. Connect again in Settings › Accounts.')
+
 interface TokenFile {
   access_token: string
   refresh_token?: string
@@ -44,6 +46,8 @@ interface TokenFile {
   email?: string
   /** 동기화를 한 번이라도 맞췄는지 (불러오기 또는 올리기). 그 전에는 저절로 올리지 않는다: 새 컴퓨터의 빈 설정이 구글의 설정을 덮지 않게 */
   synced?: boolean
+  /** 새로 받기(refresh)를 구글이 거절함: 만료되었거나 끊긴 로그인 (10/20 점검). 다시 연결할 때까지 구글에 묻지 않는다 */
+  expired?: boolean
 }
 
 export interface GoogleStatus {
@@ -55,6 +59,8 @@ export interface GoogleStatus {
   mock: boolean
   synced: boolean
   clientId?: string
+  /** 로그인이 만료되었거나 끊김: 설정 › 계정에서 다시 연결해야 한다 */
+  expired?: true
 }
 
 export type { GoogleEvent as CalendarEvent } from '@rw/core/contract/google'
@@ -97,7 +103,7 @@ export class Google {
     const c = this.client()
     const t = this.tokens()
     return {
-      configured: !!c, connected: !!t, mock: this.mock, synced: !!t?.synced,
+      configured: !!c, connected: !!t, mock: this.mock, synced: !!t?.synced, ...(t?.expired && { expired: true as const }),
       ...(t?.email && { email: t.email }),
       ...(c && !this.mock && { clientId: c.clientId }),
     }
@@ -166,6 +172,9 @@ export class Google {
     return p.returnTo
   }
 
+  /** 로그인이 만료되었나 (홈 달력이 "다시 연결"을 보인다) */
+  get expired(): boolean { return !!this.tokens()?.expired }
+
   async disconnect(): Promise<void> {
     const t = this.tokens()
     if (t && !this.mock) {
@@ -192,8 +201,15 @@ export class Google {
     if (!t) throw new WorkbenchError(409, tx('구글 계정이 연결되어 있지 않습니다.', 'No Google account is connected.'))
     if (t.expires_at - 60_000 > Date.now()) return t.access_token
     const c = this.client()
-    if (!t.refresh_token || !c) throw new WorkbenchError(401, tx('구글 로그인이 끝났습니다. 설정에서 다시 연결해 주세요.', 'The Google sign-in expired. Connect again in Settings.'))
-    const tok = await this.tokenRequest({ grant_type: 'refresh_token', refresh_token: t.refresh_token, client_id: c.clientId, client_secret: c.clientSecret })
+    if (!t.refresh_token || !c || t.expired) throw new WorkbenchError(401, EXPIRED())
+    let tok: { access_token: string; expires_in?: number }
+    try {
+      tok = await this.tokenRequest({ grant_type: 'refresh_token', refresh_token: t.refresh_token, client_id: c.clientId, client_secret: c.clientSecret })
+    } catch (e) {
+      // 만료 · 취소된 로그인(invalid_grant): 502로 매번 묻지 않고 "다시 연결"을 알린다 (10/20 점검: 홈 달력이 매번 502)
+      if (/invalid_grant|expired|revoked/i.test((e as Error).message)) { this.saveTokens({ ...t, expired: true }); throw new WorkbenchError(401, EXPIRED()) }
+      throw e
+    }
     this.saveTokens({ ...t, access_token: tok.access_token, expires_at: Date.now() + (tok.expires_in ?? 3600) * 1000 })
     return tok.access_token
   }

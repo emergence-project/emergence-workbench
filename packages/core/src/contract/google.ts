@@ -13,6 +13,8 @@ export const GoogleStatus = z.object({
   mock: z.boolean(),
   synced: z.boolean(),
   clientId: z.string().optional(),
+  /** 로그인이 만료되었거나 끊김 (설정 › 계정에서 다시 연결) */
+  expired: z.literal(true).optional(),
   lastPush: z.object({ at: z.string(), error: z.string().optional() }).strict().nullable().optional(),
 }).strict()
 
@@ -30,7 +32,8 @@ export const GoogleEvent = z.object({
   location: z.string().optional(),
   link: z.string().optional(),
 }).strict()
-export const GoogleEvents = z.object({ connected: z.boolean(), events: z.array(GoogleEvent) }).strict()
+/** expired: 연결은 되어 있지만 로그인이 만료되어 일정을 받지 못함 (홈 달력이 "다시 연결"을 보인다) */
+export const GoogleEvents = z.object({ connected: z.boolean(), expired: z.literal(true).optional(), events: z.array(GoogleEvent) }).strict()
 
 export const SyncedResearch = z.object({ id: z.string(), title: z.string(), tags: z.array(z.string()), remote: z.string().nullable(), folder: z.string() }).strict()
 /** 구글 드라이브에 둔 설정. 화면은 savedAt · machine · researches만 읽는다 */

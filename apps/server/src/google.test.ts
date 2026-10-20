@@ -127,3 +127,26 @@ describe('구글 연결', () => {
     expect((await app.inject({ url: '/api/google/events?from=2026-10-01&to=2026-10-07' })).json()).toEqual({ connected: false, events: [] })
   })
 })
+
+describe('만료된 구글 로그인 (10/20 점검)', () => {
+  it('새로 받기를 구글이 거절하면 만료로 적고, 달력은 502 대신 expired를, 그 뒤로는 구글에 묻지 않는다', async () => {
+    const configDir = path.join(tmp, 'expired-config')
+    fs.mkdirSync(configDir, { recursive: true })
+    let tokenCalls = 0
+    const g = new Google(configDir, (async (url: string | URL | Request) => {
+      if (String(url).includes('oauth2.googleapis.com/token')) { tokenCalls++; return new Response(JSON.stringify({ error: 'invalid_grant', error_description: 'Token has been expired or revoked.' }), { status: 400 }) }
+      return new Response('{}', { status: 500 })
+    }) as typeof fetch)
+    g.setClient('123-abc.apps.googleusercontent.com', 'secret-123456')
+    fs.writeFileSync(path.join(configDir, 'google-token.json'), JSON.stringify({ access_token: 'old', refresh_token: 'r', expires_at: 1, email: 'me@example.com' }))
+    const a = buildApp({ configDir, google: g })
+    try {
+      const ev = await a.inject({ url: '/api/google/events?from=2026-10-01&to=2026-10-07' })
+      expect(ev.statusCode).toBe(200)
+      expect(ev.json()).toEqual({ connected: true, expired: true, events: [] })
+      expect((await a.inject({ url: '/api/google' })).json()).toMatchObject({ connected: true, expired: true })
+      await a.inject({ url: '/api/google/events?from=2026-10-01&to=2026-10-07' })
+      expect(tokenCalls).toBe(1)
+    } finally { await a.close() }
+  })
+})
