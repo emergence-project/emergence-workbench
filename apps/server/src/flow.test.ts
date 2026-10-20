@@ -74,6 +74,20 @@ describe('흐름 고치기', () => {
     expect((await send('POST', '', { kind: 'proof', short: 'x', topics: ['t'], from: [{ id: 'nope', type: 'use' }] })).statusCode).toBe(400)
   })
 
+  it('고치기는 원래 모양을 지킨다: 화면처럼 모든 칸을 그대로 보내면 바이트가 같고, 한 칸만 바꾸면 그 줄만 (10/20 점검)', async () => {
+    const text = "format: 1\nkind: question\nprogress: active\nshort: Theory + toolkit\ntitle: 이론을 정리할 수 있는가\ntopics:\n- fundamental\n- toolkit\ndate: '2026-08-01'\nfields:\n  question: Can it?\nevidence:\n- kind: other\n  file: workbench/research.yaml\n  text: research question\n  checks: []\nguesses:\n- 'quoted: guess'\n"
+    fs.writeFileSync(path.join(dir(), 'same.yaml'), text)
+    const n = (await get()).nodes.find((x: { id: string }) => x.id === 'same')
+    const all = { short: n.short, title: n.title, date: n.date, kind: n.kind, progress: n.progress, result: null, topics: n.topics, from: n.from, fields: n.fields,
+      evidence: n.evidence.map((e: { kind: string; text: string; file?: string }) => ({ kind: e.kind, text: e.text, file: e.file })) }
+    expect((await send('PATCH', '/same', { baseHash: n.hash, set: all })).statusCode).toBe(200)
+    expect(fs.readFileSync(path.join(dir(), 'same.yaml'), 'utf8')).toBe(text)
+    const n2 = (await get()).nodes.find((x: { id: string }) => x.id === 'same')
+    await send('PATCH', '/same', { baseHash: n2.hash, set: { ...all, short: 'LSWT canon' } })
+    expect(fs.readFileSync(path.join(dir(), 'same.yaml'), 'utf8')).toBe(text.replace('short: Theory + toolkit', 'short: LSWT canon'))
+    fs.rmSync(path.join(dir(), 'same.yaml'))
+  })
+
   it('고치기: 보낸 칸만, 끝나면 결과, 근거를 고쳐도 확인 기록은 남는다, 낡은 hash는 409', async () => {
     put('p', 'format: 1\nkind: proof\nprogress: active\nshort: 증명\ntitle: 증명 하나\ntopics: [t]\n# 사람이 남긴 주석\nevidence:\n  - kind: proof\n    file: a.tex\n    text: 옛 설명\n    checks:\n      - { at: 2026-10-01T10:00, by: bot, role: agent }')
     const n = (await get()).nodes[0]

@@ -179,10 +179,54 @@ function newId(wb: Workbench, short: string, now: Date): string {
 
 const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'from', 'fields', 'end', 'evidence', 'sources', 'guesses']
 
-function write(wb: Workbench, id: string, doc: YAML.Document): FlowNode {
+/**
+ * 글로 쓰기: 원래 파일의 목록 들여쓰기를 따른다. 사람 · 파이썬이 쓴 파일은 "key:\n- a"(들여쓰지 않음)가 많고,
+ * yaml 라이브러리 기본은 "key:\n  - a"라 고치지 않은 줄까지 바뀌었다 (10/20 점검: 바꾸지 않고 저장해도 150개 중 145개가 바뀜)
+ */
+export function flowYamlText(doc: YAML.Document, original = ''): string {
+  const m = /^( *)[^\s#-][^\n]*:[ \t]*\n( *)- /m.exec(original)
+  const indentSeq = m ? m[2]!.length > m[1]!.length : true
+  return doc.toString({ lineWidth: 0, indentSeq })
+}
+
+function write(wb: Workbench, id: string, doc: YAML.Document, original = ''): FlowNode {
   fs.mkdirSync(dirOf(wb), { recursive: true })
-  writeAtomic(fileOf(wb, id), doc.toString({ lineWidth: 0 }))
+  writeAtomic(fileOf(wb, id), flowYamlText(doc, original))
   return readFlowNode(wb, id)
+}
+
+/** 키 순서와 상관없이 같은 값인가 */
+const canon = (v: unknown): string => JSON.stringify(v, (_k, x: unknown) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x))
+
+/**
+ * 원래 노드를 되도록 그대로 두고 새 값으로 맞춘다: 같은 값이면 그 노드(따옴표 · 주석 · 모양까지), 글자 하나면 값만,
+ * 사전은 칸마다(원래 순서, 없어진 칸은 빼고 새 칸은 뒤에), 목록은 자리마다 같은 식으로. 그 밖에는 새 노드
+ */
+function reuseNode(doc: YAML.Document, old: unknown, value: unknown): unknown {
+  const plain = YAML.isNode(old) ? old.toJSON() : old
+  if (old !== undefined && canon(plain) === canon(value)) return old
+  if (YAML.isScalar(old) && (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')) {
+    // 따옴표 모양은 두되, 글이 따옴표 없이는 다른 값으로 읽히면(예: 'yes', '2026-08-01' 같은 글) 라이브러리가 고르게 둔다
+    old.value = value
+    return old
+  }
+  if (YAML.isMap(old) && value && typeof value === 'object' && !Array.isArray(value)) {
+    const v = value as Record<string, unknown>
+    // 빈 목록 · 빈 사전 칸(예: checks: [])은 없는 것과 뜻이 같다: 새 값에 없어도 지우지 않는다
+    const empty = (n: unknown) => (YAML.isSeq(n) || YAML.isMap(n)) && n.items.length === 0
+    for (const pair of [...old.items]) {
+      const k = String(YAML.isScalar(pair.key) ? pair.key.value : pair.key)
+      if (!(k in v)) { if (!empty(pair.value)) old.delete(pair.key) }
+      else pair.value = reuseNode(doc, pair.value, v[k]) as typeof pair.value
+    }
+    for (const [k, x] of Object.entries(v)) if (!old.has(k)) old.set(k, doc.createNode(x))
+    return old
+  }
+  if (YAML.isSeq(old) && Array.isArray(value)) {
+    old.items = value.map((x, i) => (i < old.items.length ? reuseNode(doc, old.items[i], x) : doc.createNode(x))) as typeof old.items
+    return old
+  }
+  return doc.createNode(value)
 }
 
 /** 새 점. 앞선 점(from)은 있는 점만 받는다 */
@@ -206,11 +250,21 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody): F
     const bad = s.from.find((f) => f.id === id || !ids.has(f.id))
     if (bad) throw new WorkbenchError(400, tl(`앞선 점 ${bad.id}을 이을 수 없습니다`, `Cannot link earlier dot ${bad.id}`))
   }
-  const doc = YAML.parseDocument(fs.readFileSync(fileOf(wb, id), 'utf8'))
+  const original = fs.readFileSync(fileOf(wb, id), 'utf8')
+  const doc = YAML.parseDocument(original)
+  // 보낸 칸만, 그것도 값이 바뀐 곳만 고친다: 화면은 모든 칸을 보내므로 그대로 두면 고치지 않은 칸의 모양까지 바뀐다 (10/20 점검)
   const put = (k: string, v: unknown) => {
     if (v === undefined) return
-    if (v === null || v === '' || v === false || (Array.isArray(v) && !v.length) || (typeof v === 'object' && v && !Array.isArray(v) && !Object.keys(v).length)) doc.delete(k)
-    else doc.set(k, doc.createNode(v))
+    if (v === null || v === '' || v === false || (Array.isArray(v) && !v.length) || (typeof v === 'object' && v && !Array.isArray(v) && !Object.keys(v).length)) { doc.delete(k); return }
+    const map = doc.contents
+    if (!YAML.isMap(map)) { doc.set(k, doc.createNode(v)); return }
+    const pair = map.items.find((p) => String(YAML.isScalar(p.key) ? p.key.value : p.key) === k)
+    if (pair) { pair.value = reuseNode(doc, pair.value, v) as typeof pair.value; return }
+    // 새 칸은 정한 순서의 자리에 (있는 칸의 순서는 건드리지 않는다)
+    const rank = (x: unknown) => { const i = KEY_ORDER.indexOf(String(YAML.isScalar(x) ? x.value : x)); return i < 0 ? KEY_ORDER.length : i }
+    const at = map.items.findIndex((p) => rank(p.key) > rank(k))
+    const node = doc.createPair(k, v) as (typeof map.items)[number]
+    if (at < 0) map.items.push(node); else map.items.splice(at, 0, node)
   }
   for (const k of ['kind', 'progress', 'short', 'title', 'topics', 'date', 'end', 'from'] as const) put(k, s[k])
   if (s.fields) put('fields', Object.fromEntries(Object.entries(s.fields).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)))
@@ -227,16 +281,7 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody): F
       return { kind: e.kind, ...(e.title?.trim() && { title: e.title.trim() }), ...(e.file && { file: e.file }), ...(e.ref && { ref: e.ref }), text: e.text.trim(), ...(checks.length && { checks }) }
     }))
   }
-  sortKeys(doc)
-  return write(wb, id, doc)
-}
-
-/** 아는 칸은 정한 순서로 (모르는 칸은 뒤에 그대로) */
-function sortKeys(doc: YAML.Document) {
-  const map = doc.contents
-  if (!YAML.isMap(map)) return
-  const rank = (k: unknown) => { const i = KEY_ORDER.indexOf(String(YAML.isScalar(k) ? k.value : k)); return i < 0 ? KEY_ORDER.length : i }
-  map.items.sort((a, b) => rank(a.key) - rank(b.key))
+  return write(wb, id, doc, original)
 }
 
 /** 사람 승인 또는 거두기: 확인 기록에 한 줄 덧붙인다 */
@@ -244,7 +289,8 @@ export function checkFlowEvidence(wb: Workbench, id: string, body: FlowCheckBody
   const n = readFlowNode(wb, id)
   checkHash(n, body.baseHash)
   if (!n.evidence[body.ev]) throw new WorkbenchError(400, tl('그 근거가 없습니다', 'No such evidence'))
-  const doc = YAML.parseDocument(fs.readFileSync(fileOf(wb, id), 'utf8'))
+  const original = fs.readFileSync(fileOf(wb, id), 'utf8')
+  const doc = YAML.parseDocument(original)
   // 읽을 때(parse)는 사전이 아닌 항목을 건너뛰고 번호를 매기므로, 파일에서도 사전 항목만 세어 같은 근거를 고른다
   const list = doc.get('evidence')
   const ev = YAML.isSeq(list) ? list.items.filter((x) => YAML.isMap(x))[body.ev] : undefined
@@ -253,7 +299,7 @@ export function checkFlowEvidence(wb: Workbench, id: string, body: FlowCheckBody
   const seq = ev.get('checks')
   if (YAML.isSeq(seq)) seq.add(doc.createNode(rec, { flow: true }))
   else ev.set('checks', doc.createNode([rec], { flow: true }))
-  return write(wb, id, doc)
+  return write(wb, id, doc, original)
 }
 
 /** 지운 점과 그 점의 기록을 두는 곳 (flow/.trash/). 앱은 읽지 않고, 되살릴 때는 손으로 옮긴다 */
@@ -282,12 +328,13 @@ export function deleteFlowNode(wb: Workbench, id: string, baseHash: string, now 
   const changed: string[] = []
   for (const m of others) {
     if (!m.from.some((f) => f.id === id)) continue
-    const doc = YAML.parseDocument(fs.readFileSync(fileOf(wb, m.id), 'utf8'))
+    const original = fs.readFileSync(fileOf(wb, m.id), 'utf8')
+    const doc = YAML.parseDocument(original)
     const seq = doc.get('from')
     if (!YAML.isSeq(seq)) continue
     seq.items = seq.items.filter((it) => { const v = YAML.isMap(it) ? it.get('id') : YAML.isScalar(it) ? it.value : it; return String(v) !== id })
     if (!seq.items.length) doc.delete('from')
-    writeAtomic(fileOf(wb, m.id), doc.toString({ lineWidth: 0 }))
+    writeAtomic(fileOf(wb, m.id), flowYamlText(doc, original))
     changed.push(m.id)
   }
   const layout = readLayout(wb)
