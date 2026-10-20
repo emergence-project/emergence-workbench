@@ -7,7 +7,8 @@ import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
-import { SYNC_RECHECK_MS, syncDelayMs, syncLoop } from '../syncTiming.js'
+import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
+import { repeat } from '../scheduler.js'
 import { SYNC_KINDS, type SyncChoice, type SyncKind } from '@rw/core'
 
 export function registerSettings(app: FastifyInstance, ctx: RouteContext): void {
@@ -131,7 +132,7 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     }
     // 간격은 설정 › 동기화의 업데이트 칸 (바꾸면 1분 안에 적용, 10/19). 수동이면 확인하지 않는다.
     // 새 버전이 없으면 updateApp은 확인만 하고 받기 · 빌드 · 다시 켜기를 하지 않는다
-    const stop = syncLoop(ctx.registry, 'update', every, syncDelayMs(ctx.registry, 'update', every) ?? SYNC_RECHECK_MS, () => tick().catch((e) => console.error(`app auto update: ${(e as Error).message}`)))
-    app.addHook('onClose', async () => stop())
+    repeat(app, { first: syncDelayMs(ctx.registry, 'update', every) ?? SYNC_RECHECK_MS, every: () => syncDelayMs(ctx.registry, 'update', every), run: tick,
+      onError: (e) => console.error(`app auto update: ${(e as Error).message}`) })
   }
 }
