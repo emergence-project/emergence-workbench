@@ -188,7 +188,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
           <option value="">{tr('이을 점 고르기…', 'Choose a dot to link…')}</option>
           {candidates.map((m) => <option key={m.id} value={m.id}>{m.short}{m.topics.some((x) => tops.includes(x)) ? '' : ` · ${m.topics.map(topicTitle).join(', ')}`}</option>)}
         </select>
-        <button type="button" className="btn small" disabled={!pick} onClick={() => { setFrom([...from, { id: pick, type: defaultEdge(kind) }]); setPick('') }}>{tr('잇기', 'Link')}</button>
+        <button type="button" className="btn" disabled={!pick} onClick={() => { setFrom([...from, { id: pick, type: defaultEdge(kind) }]); setPick('') }}>{tr('잇기', 'Link')}</button>
       </div>}
     </section>
 

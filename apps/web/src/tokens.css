@@ -80,7 +80,7 @@
 
   /* 글자 크기·여백은 설정 화면의 배율(--ui-scale, --density)을 곱한다. 기준값은 목업 그대로 */
   --ui-scale: 1; --density: 1;
-  --input-h: calc(28px * var(--ui-scale)); --input-h-lg: calc(34px * var(--ui-scale));
+  --input-h-sm: calc(22px * var(--ui-scale)); --input-h: calc(28px * var(--ui-scale)); --input-h-lg: calc(34px * var(--ui-scale));
   --fs-2xs: calc(10.5px * var(--ui-scale)); --fs-xs: calc(11.5px * var(--ui-scale)); --fs-sm: calc(12.5px * var(--ui-scale)); --fs-md: calc(13.5px * var(--ui-scale));
   --fs-lg: calc(16px * var(--ui-scale)); --fs-xl: calc(21px * var(--ui-scale));
   /* 글자 굵기는 네 단계: 본문 · 이름 · 강조(선택·칩·버튼) · 제목 */

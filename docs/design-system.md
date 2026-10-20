@@ -61,7 +61,7 @@
 
 - 간격: `--sp-1` 4 · `--sp-2` 8 · `--sp-3` 12 · `--sp-4` 16 · `--sp-5` 24 · `--sp-6` 32 (설정의 촘촘함 `--density`를 따른다). 이 여섯 값은 반드시 토큰으로 쓴다. 2·3·6·10px 같은 작은 맞춤 값은 단계 사이를 메우는 데만 쓴다.
 - 모서리: `--r-xs` 4 작은 칩 · `--r-sm` 6 버튼·입력란 · `--r-md` 10 목록 칸·작은 카드 · `--r-lg` 14 큰 카드·사이드바 블록 · `--r-pill` 둥근 태그. 3px 이하 작은 표시와 원(50%)은 그대로 쓴다.
-- 입력란 높이: `--input-h` 28px(화면 안 입력란 · 찾기 칸), `--input-h-lg` 34px(고치기 창). 같은 줄 버튼도 같은 높이 (10/6 D1), `.btn`의 높이도 `--input-h`다.
+- 입력란 높이: `--input-h` 28px(화면 안 입력란 · 찾기 칸), `--input-h-lg` 34px(고치기 창), `--input-h-sm` 22px(작은 버튼 `.btn.sm` · 작은 아이콘 버튼 `.icon-btn.sm`). 셋 다 배율(`--ui-scale`)을 따른다. 같은 줄 버튼도 같은 높이 (10/6 D1), `.btn`의 높이도 `--input-h`다.
 - 겹침 순서: `--z-tooltip` 30 < `--z-menu` 40(메뉴 · 고른 글 메뉴) < `--z-quick` 45(빠른 메모) < `--z-overlay` 50(창 · 떠 있는 메뉴) < `--z-overlay-top` 51(창 위의 창 · 피드백 버튼) < `--z-toast` 60 < `--z-feedback` 70(피드백 모드, 그 안은 +1 … +3). 부품 안의 작은 겹침(1–9)만 숫자로 쓰고, 10 이상은 `check-design.mjs`가 잡는다.
 - 프로젝트 고치기 창: `--project-dialog-width` 760px(전체), `--project-preview-width` 280px(입력·미리보기 칸의 최소 폭). 좁으면 한 열로 놓는다.
 - 분류 고르기 메뉴(라이트·다크 공용): `--subject-menu-width` 320px, 창이 좁으면 화면 안으로 줄인다.
@@ -79,7 +79,7 @@
 
 새 화면은 아래 부품을 쓴다. 맞는 것이 없으면 부품을 하나 더하고 이 표에 적는다.
 
-여러 화면이 같이 쓰는 부품의 스타일은 `apps/web/src/styles/parts/`에 둔다(`styles/parts.css`가 모아 `main.tsx`에서 `base.css` 바로 다음에 읽는다, 2026-10-16). 화면 파일(`styles/<화면>.css`)에는 그 화면만의 자리와 크기 변형만 둔다. 지금 parts에 있는 것: 작은 버튼 `.btn.sm`(22px)과 작은 아이콘 버튼 `.icon-btn.sm`(22px, 그림 14px)(button.css), 사용자 차례 점 `.turn-dot`(8px 주황 점, turn.css), 메뉴 `.menu`(menu.css), 툴팁 `[data-tip]`(data-tip을 단 요소면 어디서나 같은 모양, 버튼에 title과 함께 달지 않는다)과 자리 변형 `.tip-start` · `.tip-end`(양 끝 맞춤) · `.tip-right`(오른쪽 옆, 레일) · `.tip-wrap`(여러 줄 설명)(tooltip.css), 빈 상태 `.empty`와 패널 가운데용 `.empty.center`(empty.css, 화면 파일의 `…-empty`에는 여백만), 카드 `.card` · 눌러서 여는 카드의 가리킴 `.card-link` · 점선 만들기 카드 `.add-card`(card.css, 1px `--line-strong` 점선, 가리키면 테두리 `--text-3`과 글자 `--text`, 떠오르지 않음), 세 구역 툴바 `.bar3`(toolbar.css, 자식 셋을 왼쪽 · 가운데 · 오른쪽에, 가운데는 늘 가운데. 상단바 · 노트 툴바(보기 있을 때) · 피드백 · 지도 · 논문 · 그림 · 지식 목록 머리).
+여러 화면이 같이 쓰는 부품의 스타일은 `apps/web/src/styles/parts/`에 둔다(`styles/parts.css`가 모아 `main.tsx`에서 `base.css` 바로 다음에 읽는다, 2026-10-16). 화면 파일(`styles/<화면>.css`)에는 그 화면만의 자리와 크기 변형만 둔다. 지금 parts에 있는 것: 작은 버튼 `.btn.sm`(`--input-h-sm` 22px)과 작은 아이콘 버튼 `.icon-btn.sm`(`--input-h-sm`, 그림 14px)(button.css). 흐름 화면 버튼도 같은 `.btn`을 쓴다(뜻 없던 `.btn.small`을 뺐다, 10/20), 사용자 차례 점 `.turn-dot`(8px 주황 점, turn.css), 메뉴 `.menu`(menu.css), 툴팁 `[data-tip]`(data-tip을 단 요소면 어디서나 같은 모양, 버튼에 title과 함께 달지 않는다)과 자리 변형 `.tip-start` · `.tip-end`(양 끝 맞춤) · `.tip-right`(오른쪽 옆, 레일) · `.tip-wrap`(여러 줄 설명)(tooltip.css), 빈 상태 `.empty`와 패널 가운데용 `.empty.center`(empty.css, 화면 파일의 `…-empty`에는 여백만), 카드 `.card` · 눌러서 여는 카드의 가리킴 `.card-link` · 점선 만들기 카드 `.add-card`(card.css, 1px `--line-strong` 점선, 가리키면 테두리 `--text-3`과 글자 `--text`, 떠오르지 않음), 세 구역 툴바 `.bar3`(toolbar.css, 자식 셋을 왼쪽 · 가운데 · 오른쪽에, 가운데는 늘 가운데. 상단바 · 노트 툴바(보기 있을 때) · 피드백 · 지도 · 논문 · 그림 · 지식 목록 머리).
 
 | 부품 | 클래스 | 언제 |
 | --- | --- | --- |
