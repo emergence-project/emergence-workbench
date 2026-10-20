@@ -226,13 +226,100 @@ describe('STATUS의 흐름 절', () => {
     expect(brief).toContain('### 최근 점 5')
     expect(brief).toContain('- 2026-10-14 π 계산 4 · `flow-d4` · 수치 계산 · 해결 — 계산 4')
     // 최근 5개 밖의 열린 점도 핵심 칸까지
-    expect(brief).toMatch(/### 그 밖의 열린 점 1\n\n- 2026-10-01 \? 물음 · `flow-q` · 질문 · 멈춤 — 물음 하나\n  - 물음: 되나\?\n  - 뒤따른 점 → `p` \(폐기 · 갈래 끝\) · `f` \(해결\)\n  - 짐작\(사람 확인 안 함\): 에이전트가 쓴 물음/)
+    expect(brief).toMatch(/### 그 밖의 열린 점 1\n\n- 2026-10-01 \? 물음 · `flow-q` · 질문 · 멈춤 — 물음 하나\n  - 물음: 되나\?\n  - 뒤따른 점 → `p` \(폐기 · 갈래 끝\) · `f` \(해결\)\n  - 빈틈: 반증 · 폐기 · 멈춤의 이유가 없다\n  - 빈틈: 판정 기준이 없다 \(무엇이 나오면 해결 · 반증인가\)\n  - 짐작\(사람 확인 안 함\): 에이전트가 쓴 물음/)
     expect(brief).toContain('### 사람 승인 대기 1\n')
     expect(brief).toContain('`flow-f` · 발견 · 해결 — 발견 하나')
     const map = statusPart(status, '흐름 지도')!
     expect(map).toContain('## 흐름 지도 8')
-    expect(map).toContain('- ▶ `q` · 질문 · 멈춤 → 흐름 요약')
-    expect(map).toContain('- `p` · 증명 · 폐기 · 갈래 끝 — 증명 하나 ← 발단 q')
-    expect(statusSummary(status, 'x')).toContain('## 흐름 요약')
+    expect(map).toContain('- ▶ `q` · 질문 · 멈춤 · 빈틈 2 → 흐름 요약')
+    expect(map).toContain('- `p` · 증명 · 폐기 · 갈래 끝 · 빈틈 2 — 증명 하나 ← 발단 q')
+    // 빈틈 절: 새것부터 10점, 나머지는 수만
+    expect(brief).toContain('### 빈틈 8 ')
+    expect(brief).toContain('- `d4` 계산 4: 해결인데 근거가 없다 · 끝났는데 결과 칸이 비었다 · 다음 할 일도, 뒤따른 점도, 갈래 종결도 없다')
+    // 짧으면 그대로, 길면(빈틈 절이 붙어 1.5KB를 넘음) 이름만
+    expect(statusSummary(status, 'x')).toMatch(/^(## )?-? ?흐름 요약/m)
+  })
+})
+
+describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
+  const send = (method: 'POST' | 'PATCH' | 'GET', url: string, payload?: object) => app.inject({ method, url: `${R}/flow${url}`, payload })
+  const note = (rel: string, text: string) => { fs.mkdirSync(path.dirname(path.join(repo, rel)), { recursive: true }); fs.writeFileSync(path.join(repo, rel), text) }
+
+  it('실행 · 단계 · 이유 · 다음 할 일 · 근거의 절을 읽고 쓴다', async () => {
+    put('c', 'format: 1\nkind: calc\nprogress: active\nshort: 계산\ntitle: 계산 하나\nrun:\n  code: code/a.py\n  params: { L: 800, r: [6, 32] }\nsteps:\n  - 첫 단계\n  - { text: 둘째, uses: 공리 A1 }\nnext: 넓히기\npriority: high\nevidence:\n  - { kind: calc, file: workbench/n.md, section: 결과, text: 표 }')
+    const n = (await get()).nodes[0]
+    expect(n).toMatchObject({ run: { code: 'code/a.py', params: { L: '800', r: '6, 32' } }, next: '넓히기', priority: 'high', steps: [{ text: '첫 단계', checks: [] }, { text: '둘째', uses: '공리 A1', checks: [] }] })
+    expect(n.evidence[0].section).toBe('결과')
+    const r = await send('PATCH', '/c', { baseHash: n.hash, set: { run: { code: 'code/b.py', commit: 'abc1234', params: { L: '400', ' ': 'x' } }, steps: [{ text: '하나', uses: '정의' }], reason: ' 멈춘 까닭 ', priority: null } })
+    expect(r.statusCode).toBe(200)
+    expect(r.json().node).toMatchObject({ run: { code: 'code/b.py', commit: 'abc1234', params: { L: '400' } }, steps: [{ text: '하나', uses: '정의' }], reason: '멈춘 까닭' })
+    expect(r.json().node.priority).toBeUndefined()
+  })
+
+  it('해결 문턱: gate를 켜고 끝내면 빈 필수 칸을 이름으로 거절하고, 다 채우면 받는다', async () => {
+    note('workbench/n.md', '# 노트\n\n## 결과\n\n표\n\n## 다음\n')
+    put('c', 'format: 1\nkind: calc\nprogress: active\nshort: 계산\ntitle: 계산 하나\nfields:\n  goal: 잰다')
+    let n = (await get()).nodes[0]
+    const bad = await send('PATCH', '/c', { baseHash: n.hash, gate: true, set: { progress: 'done' } })
+    expect(bad.statusCode).toBe(422)
+    expect(bad.json().error).toContain('판정 기준 · 설정 · 결과 · 근거 · 실행의 코드')
+    // gate가 없으면 (옛 화면) 그대로 저장된다
+    expect((await send('PATCH', '/c', { baseHash: n.hash, set: { kind: 'calc' } })).statusCode).toBe(200)
+    n = (await get()).nodes[0]
+    const ok = await send('PATCH', '/c', { baseHash: n.hash, gate: true, set: { progress: 'done', fields: { goal: '잰다', criterion: '2 % 안', setup: '평면', result: '1 %' }, run: { code: 'code/a.py' }, evidence: [{ kind: 'calc', file: 'workbench/n.md', section: '결과', text: '표' }] } })
+    expect(ok.statusCode).toBe(200)
+    // 반증 · 멈춤은 이유만 본다
+    const m = ok.json().node
+    expect((await send('PATCH', '/c', { baseHash: m.hash, gate: true, set: { progress: 'paused' } })).json().error).toContain('이유')
+    expect((await send('PATCH', '/c', { baseHash: m.hash, gate: true, set: { progress: 'paused', reason: '기다림' } })).statusCode).toBe(200)
+  })
+
+  it('빈틈: 근거 없는 해결 · 검토 안 된 발견 위에 쌓음 · 이유 없는 반증 · 다음이 없는 끝 · 없는 파일 · 확인 안 된 단계', async () => {
+    put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 발견\ntitle: 발견\ndate: 2026-10-01\nevidence:\n  - { kind: calc, file: workbench/없음.md, text: 표 }')
+    put('c', 'format: 1\nkind: calc\nprogress: done\nresult: refuted\nshort: 계산\ntitle: 계산\ndate: 2026-10-02\nfrom: [{ id: f, type: use }]\nfields: { result: 아님 }\nend: true')
+    put('p', 'format: 1\nkind: proof\nprogress: active\nshort: 증명\ntitle: 증명\ndate: 2026-10-03\nfrom: [{ id: f, type: support }]\nsteps: [{ text: 가, uses: 정의 }, 나]')
+    const by = Object.fromEntries((await get()).nodes.map((n: { id: string; gaps: { code: string }[] }) => [n.id, n.gaps.map((g) => g.code)]))
+    expect(by).toEqual({ f: ['missing-file'], c: ['unverified-base', 'no-reason'], p: ['unverified-base', 'step-gap'] })
+  })
+
+  it('확인한 뒤 근거 절이 바뀌면 확인이 낡고, 정리도 풀린다', async () => {
+    note('workbench/n.md', '# 노트\n\n## 증명\n\n가\n\n## 다른 절\n\n나\n')
+    put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 발견\ntitle: 발견\nend: true\nevidence:\n  - { kind: proof, file: workbench/n.md, section: 증명, text: 증명 }')
+    let n = (await get()).nodes[0]
+    n = (await send('POST', '/f/check', { baseHash: n.hash, ev: 0 })).json().node
+    expect(n.theorem).toBe(true)
+    expect(n.evidence[0].checks[0].hash).toMatch(/^[0-9a-f]{16}$/)
+    note('workbench/n.md', '# 노트\n\n## 증명\n\n가\n\n## 다른 절\n\n나 고침\n')
+    expect((await get()).nodes[0].theorem).toBe(true) // 다른 절이 바뀐 것은 상관없다
+    note('workbench/n.md', '# 노트\n\n## 증명\n\n가 고침\n\n## 다른 절\n\n나 고침\n')
+    n = (await get()).nodes[0]
+    expect(n.theorem).toBe(false)
+    expect(n.evidence[0].stale).toBe(true)
+    expect(n.gaps.map((g: { code: string }) => g.code)).toEqual(['changed-evidence'])
+  })
+
+  it('에이전트 검토는 단계에도 role agent로, 사람 승인은 단계에도 된다', async () => {
+    put('p', 'format: 1\nkind: proof\nprogress: active\nshort: 증명\ntitle: 증명\nsteps: [{ text: 가, uses: 정의 }]')
+    let n = (await get()).nodes[0]
+    expect(n.gaps.map((g: { code: string }) => g.code)).toEqual(['step-gap'])
+    n = (await send('POST', '/p/review', { baseHash: n.hash, by: 'claude-code', step: 0, note: '정의대로' })).json().node
+    expect(n.steps[0].checks[0]).toMatchObject({ by: 'claude-code', role: 'agent', note: '정의대로' })
+    expect(n.gaps).toEqual([])
+    n = (await send('POST', '/p/check', { baseHash: n.hash, step: 0 })).json().node
+    expect(n.steps[0].checks[1]).toMatchObject({ role: 'human' })
+    expect((await send('POST', '/p/check', { baseHash: n.hash, step: 0, ev: 0 })).statusCode).toBe(400)
+    // 단계 글을 고치면 그 확인은 낡는다
+    n = (await send('PATCH', '/p', { baseHash: n.hash, set: { steps: [{ text: '가 고침', uses: '정의' }] } })).json().node
+    expect(n.steps[0].stale).toBe(true)
+  })
+
+  it('지난 시도 찾기: 매개변수 · 이유까지 보고, 많이 걸린 것부터', async () => {
+    put('a', 'format: 1\nkind: calc\nprogress: done\nresult: refuted\nshort: Flake\ntitle: flake 계산\ndate: 2026-10-01\nrun: { params: { geometry: flake, r: "30" } }\nreason: flake 모양 효과')
+    put('b', 'format: 1\nkind: calc\nprogress: done\nresult: solved\nshort: Plane\ntitle: plane 계산\ndate: 2026-10-02\nrun: { params: { geometry: plane } }')
+    const rows = (await send('GET', '/search?q=flake%20geometry')).json().rows
+    expect(rows.map((r: { id: string }) => r.id)).toEqual(['a', 'b'])
+    expect(rows[0]).toMatchObject({ state: 'refuted', reason: 'flake 모양 효과', params: { geometry: 'flake', r: '30' }, score: 2 })
+    expect((await send('GET', '/search?q=x')).json().rows).toEqual([])
+    expect((await send('GET', '/a')).json().node.id).toBe('a')
   })
 })

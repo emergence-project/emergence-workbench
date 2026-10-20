@@ -9,6 +9,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { recordRows } from './recordRows.js'
+import * as C from '@rw/core/contract/flow'
 
 // 기본은 맥의 실사용 서버(scripts/serve.sh, 5174). 예제 모드(pnpm dev, 8130)는 RW_URL로 준다.
 export const DEFAULT_URL = process.env.RW_URL ?? `http://127.0.0.1:${process.env.RW_PORT ?? 5174}`
@@ -37,6 +38,7 @@ export const INSTRUCTIONS = [
   'Ask the user to check something (for example a part of a note you wrote): add_record with kind 질문 and the quoted text; when the user has answered, list_records with replied: true shows it → act on it → answer_record closes it.',
   'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: rules with part: "concepts" (once) → search_library → read_concept → edit_concept.',
   'Delegated tasks: rules with part: "tasks" (once) → list_tasks → read_task.',
+  'Research flow (one dot = one piece of work: a question, a calculation, a proof, a finding): before you start a calculation or proof, flow_search for earlier attempts (refuted and dropped ones carry their reason), then flow_add the dot as active with its criterion. When it ends, flow_update with the result, evidence pointing to a note section, run (code · commit · params) for calculations, steps for proofs, reason for refuted/dropped/paused, and next. Finishing is refused while required fields are empty. Review a piece of evidence or a step with flow_review.',
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
   'The user\'s turn (notes to review, task results to judge, agent edits) is for the user; never act on it for them.',
 ].join('\n')
@@ -65,11 +67,11 @@ async function get(base: string, f: Fetch, url: string): Promise<{ ok: true; bod
   return { ok: true, body }
 }
 
-/** 앱 서버의 POST 하나 (쓰기 도구). 오류는 get과 같은 한 줄 */
-async function post(base: string, f: Fetch, url: string, payload: unknown): Promise<{ ok: true; body: unknown } | { ok: false; error: Text }> {
+/** 앱 서버의 POST · PATCH 하나 (쓰기 도구). 오류는 get과 같은 한 줄 */
+async function post(base: string, f: Fetch, url: string, payload: unknown, method: 'POST' | 'PATCH' = 'POST'): Promise<{ ok: true; body: unknown } | { ok: false; error: Text }> {
   let res: Response
   try {
-    res = await f(base + url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
+    res = await f(base + url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
   } catch {
     return { ok: false, error: fail(`Cannot reach the Emergence Workbench app server at ${base}. Tell the user. Without the app you may still edit repository files directly: follow docs/repo-format.md and run \`pnpm --dir <app folder> agent:check <repository>\` afterwards; notes and concept notes the user has reviewed still need permission, and manuscripts are edited only when the user asks.`) }
   }
@@ -300,6 +302,82 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     if (!r.ok) return r.error
     const b = r.body as { entry: { id: string }; hash: string }
     return text(`Added ${kind} ${b.entry.id} on ${to}.${kind === '질문' ? ' It is now the user\'s turn; read their answer later with read_records.' : ''} Records file hash: ${b.hash}.`)
+  })
+
+  // ---------- 연구 흐름 (10/20 사용자 결정: 점은 일을 시작할 때 진행으로, 끝날 때 결과로) ----------
+  const flowSet = {
+    title: z.string().optional().describe('One sentence: the claim, question or task'),
+    topics: z.array(z.string()).optional().describe('Topic ids'),
+    from: z.array(z.object({ id: z.string(), type: z.enum(C.FLOW_EDGES) })).optional().describe('Earlier dots: origin (where the question came from), support, refute, use'),
+    fields: z.record(z.string(), z.string()).optional().describe('Description fields by kind. question: question, motivation, guess, criterion. finding: statement, condition. calc: goal, criterion, setup, result, interpretation. analytic: goal, setup, assumptions, result. proof: goal, assumptions, method, result. literature: reading, gain, use. $…$ math allowed'),
+    run: z.object({ code: z.string().optional(), commit: z.string().optional(), params: z.record(z.string(), z.string()).optional(), output: z.string().optional() }).optional().describe('Calculations: code path, commit, parameters (name → value), output file'),
+    steps: z.array(z.object({ text: z.string(), uses: z.string().optional() })).optional().describe('Proofs and analytic derivations: each step and what it uses (axiom, earlier step, dot, paper). Replaces the whole list; checks stay with the same position'),
+    evidence: z.array(z.object({ kind: z.enum(C.FLOW_EVIDENCE), text: z.string(), title: z.string().optional(), file: z.string().optional(), section: z.string().optional(), ref: z.string().optional() })).optional()
+      .describe('Evidence: file (repository path) with section (a heading in that note), or ref (library paper key). Replaces the whole list; checks stay with the same file or ref'),
+    reason: z.string().optional().describe('Why it was refuted, dropped or paused'),
+    next: z.string().optional().describe('What to do next'),
+    priority: z.enum(C.FLOW_PRIORITY).optional(),
+  }
+  const flowShort = (n: C.FlowNode) => ({ id: n.id, hash: n.hash, kind: n.kind, progress: n.progress, ...(n.result && { result: n.result }), short: n.short, ...(n.gaps.length && { gaps: n.gaps.map((g) => g.text) }) })
+
+  server.registerTool('flow_search', {
+    title: 'Search the research flow',
+    description: 'Earlier dots of the project flow that match the words (title, fields, run parameters, reasons), best first: state, parameters, result and the reason a dot was refuted or dropped. Use it before starting a calculation or proof so you do not repeat one.',
+    inputSchema: { project, q: z.string().min(2).describe('Words, e.g. the model, method or parameter values') },
+    annotations: ro,
+  }, async ({ project: rid, q }) => call(`/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`))
+
+  server.registerTool('flow_read', {
+    title: 'Read a flow dot',
+    description: 'One dot of the project flow with every field, its evidence and step checks, and the gaps the app found.',
+    inputSchema: { project, id: z.string() },
+    annotations: ro,
+  }, async ({ project: rid, id }) => call(`/api/researches/${enc(rid)}/flow/${enc(id)}`, (b: C.FlowOne) => b.node))
+
+  server.registerTool('flow_add', {
+    title: 'Add a flow dot',
+    description: 'Add a dot when you start a piece of work (a question, calculation, proof, literature reading or finding). Give the criterion (what result solves or refutes it) for questions and calculations. Usually progress active. Returns the dot id, hash and gaps.',
+    inputSchema: { project, kind: z.enum(C.FLOW_KINDS), short: z.string().min(1).max(60).describe('Short name shown on the chart'), progress: z.enum(['open', 'active']).optional(), ...flowSet },
+    annotations: { readOnlyHint: false, openWorldHint: false },
+  }, async ({ project: rid, kind, short, progress, title, topics, from, ...rest }) => {
+    const made = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind, short, progress: progress ?? 'active', ...(title && { title }), ...(topics && { topics }), ...(from && { from }) })
+    if (!made.ok) return made.error
+    const n = (made.body as C.FlowOne).node
+    if (!Object.values(rest).some((v) => v !== undefined)) return json(flowShort(n))
+    const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(n.id)}`, { baseHash: n.hash, gate: true, set: rest }, 'PATCH')
+    return r.ok ? json(flowShort((r.body as C.FlowOne).node)) : fail(`The dot ${n.id} was created, but its fields were not saved: ${r.error.content[0]!.text}`)
+  })
+
+  server.registerTool('flow_update', {
+    title: 'Update a flow dot',
+    description: 'Change a dot: when the work ends, set progress done with result (solved, refuted) and fill the result, evidence (with section), run or steps, reason and next. Finishing or pausing is refused while required fields are empty; the error names them. People decide the question wording, origin links and dropping a branch: those are refused here. Pass the hash from flow_read or flow_add.',
+    inputSchema: {
+      project, id: z.string(), baseHash: z.string(),
+      progress: z.enum(C.FLOW_PROGRESS).optional(), result: z.enum(['solved', 'refuted']).optional(), short: z.string().min(1).max(60).optional(), end: z.boolean().optional().describe('Branch ends here'),
+      ...flowSet,
+    },
+    annotations: { readOnlyHint: false, openWorldHint: false },
+  }, async ({ project: rid, id, baseHash, ...set }) => {
+    const cur = await get(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`)
+    if (!cur.ok) return cur.error
+    const n = (cur.body as C.FlowOne).node
+    const origins = (xs: { id: string; type: string }[]) => xs.filter((x) => x.type === 'origin').map((x) => x.id).sort().join(',')
+    if (n.kind === 'question' && set.fields?.question !== undefined && n.fields.question && set.fields.question !== n.fields.question) return fail('The question wording is decided by the user. Leave it as is and propose a change with add_record (kind 질문, target flow-' + id + ').')
+    if (set.from && origins(set.from) !== origins(n.from)) return fail('Origin links are decided by the user. Keep them and propose a change with add_record (target flow-' + id + ').')
+    const fields = set.fields && { ...n.fields, ...set.fields }
+    const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`, { baseHash, gate: true, set: { ...set, ...(fields && { fields }) } }, 'PATCH')
+    return r.ok ? json(flowShort((r.body as C.FlowOne).node)) : r.error
+  })
+
+  server.registerTool('flow_review', {
+    title: 'Review flow evidence or a step',
+    description: 'Record your review of one piece of evidence (ev, 0-based) or one proof step (step, 0-based) of a dot, as role agent. Read the note section or check the step first; say what you checked in note. The record keeps a hash of what you checked, so it lapses when that text changes. Only the user approves (in the app).',
+    inputSchema: { project, id: z.string(), baseHash: z.string(), ev: z.number().int().min(0).optional(), step: z.number().int().min(0).optional(), note: z.string().optional(), revoked: z.boolean().optional() },
+    annotations: { readOnlyHint: false, openWorldHint: false },
+  }, async ({ project: rid, id, ...body }) => {
+    if ((body.ev === undefined) === (body.step === undefined)) return fail('Pass exactly one of ev or step.')
+    const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}/review`, { ...body, by: recordAuthor(server.server.getClientVersion()?.name) })
+    return r.ok ? json(flowShort((r.body as C.FlowOne).node)) : r.error
   })
 
   server.registerTool('list_tasks', {

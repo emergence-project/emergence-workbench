@@ -5,8 +5,9 @@ import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tl } from './i18n.js'
+import { computeGaps, confirmed, evidenceHash, flowGate, markStale, stepHash } from './flowGaps.js'
 import { commentTargetSlug, stamp as coreStamp } from '@rw/core'
-import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
+import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowReviewBody, type FlowSearchReply, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
 
 export const FLOW_DIR = 'flow'
 export const FLOW_FORMAT = 1
@@ -17,12 +18,22 @@ const str = (v: unknown): string | undefined => typeof v === 'string' ? v.trim()
 const strs = (v: unknown): string[] => Array.isArray(v) ? v.map(str).filter((s): s is string => !!s) : str(v) ? [str(v)!] : []
 const oneOf = <T extends string>(list: readonly T[], v: unknown): T | undefined => list.includes(v as T) ? v as T : undefined
 
-/** 그 역할의 마지막 확인 기록이 거둔 것이 아니면 확인됨 */
-export const approved = (e: FlowEvidence, role: 'agent' | 'human'): boolean => { const c = e.checks.filter((x) => x.role === role).pop(); return !!c && !c.revoked }
+/** 그 역할의 마지막 확인 기록이 거둔 것도 낡은 것(근거가 바뀜)도 아니면 확인됨 */
+export const approved = (e: FlowEvidence, role: 'agent' | 'human'): boolean => confirmed(e, role)
 
 /** 파일 하나를 점으로. 읽을 수 없으면 null (까닭은 diags에) */
 export function parseFlowNode(id: string, file: string, content: string, diags: Diag[]): FlowNode | null {
   const bad = (code: string, en: string, ko: string, line = 1) => diags.push({ file, code, line, message: tl(ko, en) })
+  const checksOf = (v: unknown): FlowEvidence['checks'] => {
+    const out: FlowEvidence['checks'] = []
+    for (const c of Array.isArray(v) ? v : []) {
+      const r = c as Record<string, unknown>
+      const at = str(r?.at), by = str(r?.by), role = oneOf(['agent', 'human'] as const, r?.role)
+      if (!at || !by || !role) { bad('checks', 'Each check needs at, by and role (agent or human).', '확인 기록마다 at, by, role(agent·human)이 있어야 합니다.'); continue }
+      out.push({ at, by, role, ...(str(r.note) && { note: str(r.note) }), ...(r.revoked === true && { revoked: true }), ...(str(r.hash) && { hash: str(r.hash) }) })
+    }
+    return out
+  }
   const doc = YAML.parseDocument(content, { prettyErrors: false })
   if (doc.errors.length) {
     const e = doc.errors[0]!
@@ -61,19 +72,29 @@ export function parseFlowNode(id: string, file: string, content: string, diags: 
     const ref = str(o.ref), fileRef = str(o.file)
     const ek = oneOf(FLOW_EVIDENCE, o.kind) ?? (ref ? 'paper' : 'other')
     if ((ref ? 1 : 0) + (fileRef ? 1 : 0) !== 1) bad('evidence', 'Each evidence item points to exactly one of ref or file.', '근거 항목마다 ref와 file 가운데 하나만 적습니다.')
-    const checks: FlowEvidence['checks'] = []
-    for (const c of Array.isArray(o.checks) ? o.checks : []) {
-      const r = c as Record<string, unknown>
-      const at = str(r?.at), by = str(r?.by), role = oneOf(['agent', 'human'] as const, r?.role)
-      if (!at || !by || !role) { bad('checks', 'Each check needs at, by and role (agent or human).', '확인 기록마다 at, by, role(agent·human)이 있어야 합니다.'); continue }
-      checks.push({ at, by, role, ...(str(r.note) && { note: str(r.note) }), ...(r.revoked === true && { revoked: true }) })
-    }
-    evidence.push({ kind: ek, text: str(o.text) ?? '', ...(str(o.title) && { title: str(o.title) }), ...(fileRef && { file: fileRef }), ...(ref && { ref }), checks })
+    evidence.push({ kind: ek, text: str(o.text) ?? '', ...(str(o.title) && { title: str(o.title) }), ...(fileRef && { file: fileRef }), ...(ref && { ref }), ...(str(o.section) && { section: str(o.section) }), checks: checksOf(o.checks) })
   }
+  const steps: FlowNode['steps'] = []
+  for (const st of Array.isArray(y.steps) ? y.steps : []) {
+    const o = (st && typeof st === 'object' ? st : { text: st }) as Record<string, unknown>
+    const text = str(o.text)
+    if (!text) { bad('steps', 'Each step needs text.', '단계마다 text가 있어야 합니다.'); continue }
+    steps.push({ text, ...(str(o.uses) && { uses: str(o.uses) }), checks: checksOf(o.checks) })
+  }
+  let run: FlowNode['run']
+  if (y.run && typeof y.run === 'object' && !Array.isArray(y.run)) {
+    const o = y.run as Record<string, unknown>
+    const params: Record<string, string> = {}
+    if (o.params && typeof o.params === 'object' && !Array.isArray(o.params)) for (const [k, v] of Object.entries(o.params)) { const x = str(v) ?? (Array.isArray(v) ? v.map(String).join(', ') : undefined); if (x) params[k] = x }
+    run = { ...(str(o.code) && { code: str(o.code) }), ...(str(o.commit) && { commit: str(o.commit) }), ...(Object.keys(params).length && { params }), ...(str(o.output) && { output: str(o.output) }) }
+  }
+  const priority = oneOf(FLOW_PRIORITY, y.priority)
+  if (y.priority != null && !priority) bad('priority', `priority must be one of ${FLOW_PRIORITY.join(', ')}.`, `priority는 ${FLOW_PRIORITY.join(', ')} 가운데 하나입니다.`)
   const theorem = kind === 'finding' && evidence.some((e) => e.kind === 'proof' && approved(e, 'human'))
   return {
     id, file, hash: hashOf(content), kind, progress, ...(result && { result }), short, title: title ?? short, topics,
     ...(str(y.date) && { date: str(y.date) }), from, fields, ...(y.end === true && { end: true }), evidence,
+    ...(run && { run }), steps, ...(str(y.reason) && { reason: str(y.reason) }), ...(str(y.next) && { next: str(y.next) }), ...(priority && { priority }), gaps: [],
     sources: strs(y.sources), guesses: strs(y.guesses), theorem,
   }
 }
@@ -109,6 +130,12 @@ export function scanFlow(wb: Workbench): FlowScan {
     if (missing.length) n.from = n.from.filter((f) => !missing.includes(f))
   }
   out.nodes.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.id.localeCompare(b.id))
+  for (const n of out.nodes) {
+    markStale(wb.repo, n)
+    // 승인한 뒤 증명이 바뀌면 정리가 아니다
+    n.theorem = n.kind === 'finding' && n.evidence.some((e) => e.kind === 'proof' && approved(e, 'human'))
+  }
+  computeGaps(wb.repo, out.nodes)
   return out
 }
 
@@ -154,8 +181,14 @@ export function readRows(wb: Workbench): FlowRows | null {
   return Number.isInteger(top) && Number.isInteger(bottom) && (top as number) <= 0 && (bottom as number) >= 0 ? { top: top as number, bottom: bottom as number } : null
 }
 
-/** 점 하나 읽기 (없으면 404) */
+/** 점 하나 읽기 (없으면 404). 빈틈은 흐름 전부를 보고 계산한다 */
 export function readFlowNode(wb: Workbench, id: string): FlowNode {
+  const n = readFlowFile(wb, id)
+  const scanned = scanFlow(wb).nodes.find((m) => m.id === id)
+  return scanned && scanned.hash === n.hash ? scanned : n
+}
+
+function readFlowFile(wb: Workbench, id: string): FlowNode {
   const p = fileOf(wb, id)
   let content: string
   try { content = fs.readFileSync(p, 'utf8') } catch { throw new WorkbenchError(404, tl(`점 ${id}이 없습니다`, `No dot ${id}`)) }
@@ -177,7 +210,7 @@ function newId(wb: Workbench, short: string, now: Date): string {
   return id
 }
 
-const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'from', 'fields', 'end', 'evidence', 'sources', 'guesses']
+const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'from', 'fields', 'run', 'steps', 'reason', 'next', 'priority', 'end', 'evidence', 'sources', 'guesses']
 
 /**
  * 글로 쓰기: 원래 파일의 목록 들여쓰기를 따른다. 사람 · 파이썬이 쓴 파일은 "key:\n- a"(들여쓰지 않음)가 많고,
@@ -281,7 +314,17 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody): F
     const node = doc.createPair(k, v) as (typeof map.items)[number]
     if (at < 0) map.items.push(node); else map.items.splice(at, 0, node)
   }
-  for (const k of ['kind', 'progress', 'short', 'title', 'topics', 'date', 'end', 'from'] as const) put(k, s[k])
+  for (const k of ['kind', 'progress', 'short', 'title', 'topics', 'date', 'end', 'from', 'priority'] as const) put(k, s[k])
+  for (const k of ['reason', 'next'] as const) if (s[k] !== undefined) put(k, s[k]!.trim())
+  if (s.run !== undefined) {
+    const r = s.run && Object.fromEntries(Object.entries({ ...s.run, params: s.run.params && Object.fromEntries(Object.entries(s.run.params).map(([k, v]) => [k.trim(), v.trim()]).filter(([k, v]) => k && v)) })
+      .map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]).filter(([, v]) => v && (typeof v !== 'object' || Object.keys(v).length)))
+    put('run', r)
+  }
+  if (s.steps) {
+    // 확인 기록은 같은 자리의 단계에 남는다. 글이 바뀌면 그 확인은 hash로 낡은 것이 된다
+    put('steps', s.steps.map((st, i) => ({ text: st.text.trim(), ...(st.uses?.trim() && { uses: st.uses.trim() }), ...(n.steps[i]?.checks.length && { checks: n.steps[i]!.checks }) })))
+  }
   if (s.fields) put('fields', Object.fromEntries(Object.entries(s.fields).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)))
   const progress = s.progress ?? n.progress
   if (s.result !== undefined || progress !== 'done') put('result', progress === 'done' ? (s.result ?? n.result ?? 'solved') : null)
@@ -293,28 +336,69 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody): F
     for (const e of n.evidence) old.set(key(e), [...(old.get(key(e)) ?? []), e.checks])
     put('evidence', s.evidence.map((e) => {
       const checks = old.get(key(e))?.shift() ?? []
-      return { kind: e.kind, ...(e.title?.trim() && { title: e.title.trim() }), ...(e.file && { file: e.file }), ...(e.ref && { ref: e.ref }), text: e.text.trim(), ...(checks.length && { checks }) }
+      return { kind: e.kind, ...(e.title?.trim() && { title: e.title.trim() }), ...(e.file && { file: e.file }), ...(e.ref && { ref: e.ref }), ...(e.section?.trim() && { section: e.section.trim() }), text: e.text.trim(), ...(checks.length && { checks }) }
     }))
+  }
+  if (body.gate) {
+    const after = parseFlowNode(id, n.file, flowYamlText(doc, original), [])
+    if (after) {
+      after.steps.forEach((x, i) => { x.checks = n.steps[i]?.checks ?? [] })
+      const miss = flowGate(after, n)
+      if (miss.length) throw new WorkbenchError(422, tl(`끝내기 전에 채울 칸: ${miss.join(' · ')}`, `Fill these before finishing: ${miss.join(' · ')}`))
+    }
   }
   return write(wb, id, doc, original)
 }
 
 /** 사람 승인 또는 거두기: 확인 기록에 한 줄 덧붙인다 */
-export function checkFlowEvidence(wb: Workbench, id: string, body: FlowCheckBody, by = 'user', now = new Date()): FlowNode {
+export function checkFlowEvidence(wb: Workbench, id: string, body: FlowCheckBody, by = 'user', now = new Date(), role: 'human' | 'agent' = 'human'): FlowNode {
   const n = readFlowNode(wb, id)
   checkHash(n, body.baseHash)
-  if (!n.evidence[body.ev]) throw new WorkbenchError(400, tl('그 근거가 없습니다', 'No such evidence'))
+  const isStep = body.step !== undefined
+  const idx = (isStep ? body.step : body.ev)!
+  const none = () => new WorkbenchError(400, isStep ? tl('그 단계가 없습니다', 'No such step') : tl('그 근거가 없습니다', 'No such evidence'))
+  const item = isStep ? n.steps[idx] : n.evidence[idx]
+  if (!item) throw none()
+  // 확인한 내용의 해시: 단계는 글 · 쓰는 것, 근거는 절(없으면 파일). 논문은 없음
+  const ev = !isStep ? n.evidence[idx]! : undefined
+  const h = isStep ? stepHash(n.steps[idx]!) : ev?.file ? evidenceHash(wb.repo, ev.file, ev.section) : undefined
+  const hash = h && h !== 'missing' && h !== 'no-section' ? h : undefined
   const original = fs.readFileSync(fileOf(wb, id), 'utf8')
   const doc = YAML.parseDocument(original)
-  // 읽을 때(parse)는 사전이 아닌 항목을 건너뛰고 번호를 매기므로, 파일에서도 사전 항목만 세어 같은 근거를 고른다
-  const list = doc.get('evidence')
-  const ev = YAML.isSeq(list) ? list.items.filter((x) => YAML.isMap(x))[body.ev] : undefined
-  if (!YAML.isMap(ev)) throw new WorkbenchError(400, tl('그 근거가 없습니다', 'No such evidence'))
-  const rec = { at: stamp(now), by, role: 'human', ...(body.note?.trim() && { note: body.note.trim() }), ...(body.revoked && { revoked: true }) }
-  const seq = ev.get('checks')
+  // 읽을 때(parse)는 사전이 아닌 항목을 건너뛰고 번호를 매기므로, 파일에서도 사전 항목만 세어 같은 근거를 고른다 (단계는 글 하나로 적은 것도 센다)
+  const list = doc.get(isStep ? 'steps' : 'evidence')
+  let target = YAML.isSeq(list) ? (isStep ? list.items : list.items.filter((x) => YAML.isMap(x)))[idx] : undefined
+  if (isStep && YAML.isSeq(list) && YAML.isScalar(target)) { const m = doc.createNode({ text: String(target.value) }); list.items[idx] = m; target = m }
+  if (!YAML.isMap(target)) throw none()
+  const map = target
+  const rec = { at: stamp(now), by, role, ...(body.note?.trim() && { note: body.note.trim() }), ...(body.revoked && { revoked: true }), ...(hash && !body.revoked && { hash }) }
+  const seq = map.get('checks')
   if (YAML.isSeq(seq)) seq.add(doc.createNode(rec, { flow: true }))
-  else ev.set('checks', doc.createNode([rec], { flow: true }))
+  else map.set('checks', doc.createNode([rec], { flow: true }))
   return write(wb, id, doc, original)
+}
+
+/** 에이전트 검토 (MCP flow_review): role agent로 덧붙인다. 사람 승인은 앱에서만 */
+export function reviewFlow(wb: Workbench, id: string, body: FlowReviewBody, now = new Date()): FlowNode {
+  const { by, ...rest } = body
+  return checkFlowEvidence(wb, id, rest, by, now, 'agent')
+}
+
+/** 지난 시도 찾기: 낱말이 짧은 제목 · 제목 · 설명 · 매개변수 · 이유에 몇 번 걸리나. 많이 걸린 것부터 10개 */
+export function searchFlow(wb: Workbench, q: string, limit = 10): FlowSearchReply {
+  const words = q.toLowerCase().split(/[^\p{L}\p{N}.]+/u).filter((w) => w.length >= 2)
+  if (!words.length) return { rows: [] }
+  const rows: FlowSearchReply['rows'] = []
+  for (const n of scanFlow(wb).nodes) {
+    const hay = [n.id, n.short, n.title, ...Object.values(n.fields), ...Object.entries(n.run?.params ?? {}).map(([k, v]) => `${k} ${v}`), n.run?.code ?? '', n.reason ?? '', n.next ?? ''].join(' ').toLowerCase()
+    const score = words.reduce((acc, w) => acc + (hay.includes(w) ? 1 : 0), 0)
+    if (!score) continue
+    const state = n.theorem ? 'theorem' : n.progress === 'done' ? (n.result ?? 'solved') : n.progress
+    const clip = (s?: string) => s && (s.length > 200 ? `${s.slice(0, 199)}…` : s)
+    rows.push({ id: n.id, kind: n.kind, state, short: n.short, title: n.title, ...(n.date && { date: n.date }), ...(n.run?.params && { params: n.run.params }), ...(n.fields.result && { result: clip(n.fields.result) }), ...(n.reason && { reason: clip(n.reason) }), score })
+  }
+  rows.sort((a, b) => b.score - a.score || (b.date ?? '').localeCompare(a.date ?? ''))
+  return { rows: rows.slice(0, limit) }
 }
 
 /** 지운 점과 그 점의 기록을 두는 곳 (flow/.trash/). 앱은 읽지 않고, 되살릴 때는 손으로 옮긴다 */

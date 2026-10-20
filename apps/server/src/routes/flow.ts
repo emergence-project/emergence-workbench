@@ -2,7 +2,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/flow'
 import { parseBody, replies } from '../contract.js'
-import { checkFlowEvidence, createFlowNode, deleteFlowNode, patchFlowNode, scanFlow, setFlowLayout, setFlowRows } from '../flow.js'
+import { checkFlowEvidence, createFlowNode, deleteFlowNode, patchFlowNode, readFlowNode, reviewFlow, scanFlow, searchFlow, setFlowLayout, setFlowRows } from '../flow.js'
 import { t } from '../i18n.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -11,6 +11,12 @@ export function registerFlow(app: FastifyInstance, ctx: RouteContext): void {
   const { wbOf } = ctx
   /** 흐름의 점 전부 (날짜 순)와 파일 형식 진단. 주제마다 거르는 것은 화면이 한다 (점의 topics) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/flow', replies(C.FlowScan), async (req): Promise<C.FlowScan> => scanFlow(wbOf(req.params.rid)))
+  /** 지난 시도 찾기 (MCP flow_search): 낱말이 많이 걸린 점부터 한 줄씩 */
+  app.get<{ Params: { rid: string }; Querystring: { q?: string } }>('/api/researches/:rid/flow/search', replies(C.FlowSearchReply), async (req): Promise<C.FlowSearchReply> =>
+    searchFlow(wbOf(req.params.rid), String(req.query.q ?? '')))
+  /** 점 하나 (빈틈 포함) */
+  app.get<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
+    ({ node: readFlowNode(wbOf(req.params.rid), req.params.id) }))
   /** 새 점 (파일 이름은 짧은 제목에서) */
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/flow', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
     ({ node: createFlowNode(wbOf(req.params.rid), parseBody(C.NewFlowBody, req.body)) }))
@@ -26,6 +32,9 @@ export function registerFlow(app: FastifyInstance, ctx: RouteContext): void {
   /** 사람 승인·거두기 (확인 기록에 덧붙인다) */
   app.post<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id/check', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
     ({ node: checkFlowEvidence(wbOf(req.params.rid), req.params.id, parseBody(C.FlowCheckBody, req.body)) }))
+  /** 에이전트 검토 (확인 기록에 role agent로 덧붙인다) */
+  app.post<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id/review', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
+    ({ node: reviewFlow(wbOf(req.params.rid), req.params.id, parseBody(C.FlowReviewBody, req.body)) }))
   /** 점 지우기: 이 점을 가리키던 선도 뺀다 */
   app.delete<{ Params: { rid: string; id: string }; Querystring: { baseHash?: string } }>('/api/researches/:rid/flow/:id', replies(C.FlowDeleted), async (req): Promise<C.FlowDeleted> => {
     const baseHash = req.query.baseHash

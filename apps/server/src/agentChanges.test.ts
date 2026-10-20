@@ -74,6 +74,7 @@ describe('바뀐 것 검사', () => {
       ['warning', 'confirmed-edit', 'workbench/blocks/d.md'],
       ['error', 'approval', 'workbench/notes/a/note.yaml'],
       ['warning', 'confirmed-edit', 'workbench/topics/t/b/note.md'],
+      ['warning', 'flow-skipped', 'workbench/blocks/c.md'],
     ])
   })
 
@@ -86,7 +87,7 @@ describe('바뀐 것 검사', () => {
     expect(d[0]!.message).toContain('state: result')
   })
 
-  it('흐름: 새 점은 경고, 사람 확인 기록은 오류, 질문 문장·발단 선·갈래 폐기는 오류', () => {
+  it('흐름: 사람 확인 기록은 오류, 질문 문장·발단 선·갈래 폐기는 오류, 이유 없이 끝내면 오류 (새 점은 10/20부터 검사하지 않음)', () => {
     write('workbench/flow/q.yaml', 'format: 1\nkind: question\nprogress: open\nfields:\n  question: 왜?\nfrom:\n  - { id: a }\n')
     write('workbench/flow/f.yaml', 'format: 1\nkind: finding\nprogress: active\nevidence:\n  - kind: proof\n    file: x\n    checks:\n      - { at: 2026-10-02T15:00, by: claude, role: agent }\n')
     write('workbench/flow/layout.yaml', 'dots: {}\n')
@@ -97,11 +98,24 @@ describe('바뀐 것 검사', () => {
     write('workbench/flow/new.yaml', 'format: 1\nkind: finding\nprogress: open\n')
     expect(found()).toEqual([
       ['error', 'approval', 'workbench/flow/f.yaml'],
+      ['error', 'flow-form', 'workbench/flow/q.yaml'],
       ['error', 'flow-human', 'workbench/flow/q.yaml'],
       ['error', 'flow-human', 'workbench/flow/q.yaml'],
       ['error', 'flow-human', 'workbench/flow/q.yaml'],
-      ['warning', 'flow-new-dot', 'workbench/flow/new.yaml'],
     ])
+  })
+
+  it('흐름: 계산을 끝남으로 바꿀 때 필수 칸이 비면 오류, 노트만 바꾸고 점은 그대로면 경고', () => {
+    write('workbench/flow/c.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 계산\nfields:\n  goal: 잰다\n')
+    write('workbench/topics/t/n/note.md', '# N\n')
+    commit()
+    write('workbench/flow/c.yaml', 'format: 1\nkind: calc\nprogress: done\nresult: solved\ntitle: 계산\nfields:\n  goal: 잰다\n')
+    const d = check()!.diagnostics
+    expect(d.map((x) => x.check)).toEqual(['flow-form'])
+    expect(d[0]!.message).toContain('판정 기준 · 설정 · 결과 · 근거 · 실행의 코드')
+    commit()
+    write('workbench/topics/t/n/note.md', '# N 고침\n')
+    expect(check()!.diagnostics.map((x) => [x.check, x.file])).toEqual([['flow-skipped', 'workbench/topics/t/n/note.md']])
   })
 
   it('확정한 결정을 고치면 경고, 초안은 넘어간다', () => {

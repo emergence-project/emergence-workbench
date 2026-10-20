@@ -33,10 +33,10 @@ describe('MCP 입구 (읽기)', () => {
     expect(agentOf(undefined)).toBe('mcp')
   })
 
-  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record 넷뿐이다', async () => {
+  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record와 흐름의 flow_add · flow_update · flow_review뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['add_record', 'answer_record', 'edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record'].includes(t.name))
+    expect(tools.map((t) => t.name).sort()).toEqual(['add_record', 'answer_record', 'edit_concept', 'edit_note', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review'].includes(t.name))
   })
 
   it('연결 안내의 순서에 적은 도구 이름은 모두 실제 도구다', async () => {
@@ -113,6 +113,29 @@ describe('MCP 입구 (읽기)', () => {
     expect(issues.records[rid]).toBeGreaterThanOrEqual(1)
     expect((await c.callTool({ name: 'add_record', arguments: { project: rid, target: 'note-x', kind: '메모', text: 'x' } })).isError).toBe(true)
     expect((await c.callTool({ name: 'add_record', arguments: { project: rid, kind: '메모', text: 'x' } })).isError).toBe(true)
+  })
+
+  it('흐름 도구: 일을 시작할 때 점을 만들고, 끝낼 때 문턱이 빈 칸을 알리며, 질문 문장은 바꾸지 못한다', async () => {
+    const full = (async (input: string | URL, init?: RequestInit) => {
+      const u = new URL(String(input))
+      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST' | 'PATCH', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
+      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    const c = await connect(full)
+    const rid = R.split('/').pop()!
+    const q = JSON.parse(textOf(await c.callTool({ name: 'flow_add', arguments: { project: rid, kind: 'question', short: 'MCP question', fields: { question: '되나?', motivation: '궁금' } } })))
+    expect(q).toMatchObject({ id: 'mcp-question', progress: 'active', gaps: ['판정 기준이 없다 (무엇이 나오면 해결 · 반증인가)'] })
+    const changed = await c.callTool({ name: 'flow_update', arguments: { project: rid, id: q.id, baseHash: q.hash, fields: { question: '어떻게?' } } })
+    expect(changed.isError).toBe(true)
+    expect(textOf(changed)).toContain('decided by the user')
+    const early = await c.callTool({ name: 'flow_update', arguments: { project: rid, id: q.id, baseHash: q.hash, progress: 'done' } })
+    expect(early.isError).toBe(true)
+    expect(textOf(early)).toContain('판정 기준')
+    const done = JSON.parse(textOf(await c.callTool({ name: 'flow_update', arguments: { project: rid, id: q.id, baseHash: q.hash, progress: 'done', fields: { criterion: '예 / 아니오' }, next: '증명' } })))
+    expect(done).toMatchObject({ progress: 'done', result: 'solved' })
+    const rows = JSON.parse(textOf(await c.callTool({ name: 'flow_search', arguments: { project: rid, q: 'MCP question' } }))).rows as { id: string }[]
+    expect(rows[0]!.id).toBe('mcp-question')
+    expect(JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: q.id } }))).fields).toEqual({ question: '되나?', motivation: '궁금', criterion: '예 / 아니오' })
   })
 
   it('edit_note는 앱 서버의 에이전트 쓰기로 보내고, 확인된 노트 거절을 그대로 전한다', async () => {
