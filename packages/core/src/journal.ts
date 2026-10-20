@@ -173,3 +173,58 @@ export function todoDue(text: string, written: string): string | null {
   if (d.getUTCMonth() !== month - 1) return null
   return `${year}-${pad(month)}-${pad(day)}`
 }
+
+/** 일지 파일을 머리(첫 "## " 앞)와 항목(각 "## " 줄부터 다음 "## " 앞까지)으로 나눈다. 항목 끝의 빈 줄은 뗀다 */
+function journalBlocks(markdown: string): { head: string; entries: string[] } {
+  const lines = markdown.replace(/\r\n/g, '\n').split('\n')
+  const at = lines.findIndex((l) => /^##\s/.test(l))
+  if (at < 0) return { head: markdown.replace(/\r\n/g, '\n').trimEnd(), entries: [] }
+  const entries: string[] = []
+  let cur: string[] = []
+  for (const l of lines.slice(at)) {
+    if (/^##\s/.test(l) && cur.length) { entries.push(cur.join('\n').trimEnd()); cur = [] }
+    cur.push(l)
+  }
+  if (cur.length) entries.push(cur.join('\n').trimEnd())
+  return { head: lines.slice(0, at).join('\n').trimEnd(), entries }
+}
+
+/**
+ * 일지 파일 세 갈래 합치기 (항목 단위): 한쪽이 더한 항목은 더하고, 한쪽이 지운 항목은 지운다.
+ * 줄 단위 합치기(git merge-file)는 이웃한 두 항목을 양쪽에서 하나씩 지워도 부딪힌다고 본다 (10/20 점검: LSWT 10/3 일지).
+ * 같은 머리 줄의 항목을 양쪽이 서로 다르게 고쳤거나, 파일 머리를 양쪽이 다르게 고쳤으면 null(사람이 합친다).
+ */
+export function mergeJournalText(base: string, ours: string, theirs: string): string | null {
+  const [b, o, th] = [journalBlocks(base), journalBlocks(ours), journalBlocks(theirs)]
+  const head = o.head === th.head ? o.head : o.head === b.head ? th.head : th.head === b.head ? o.head : null
+  if (head === null) return null
+  const count = (list: string[]) => { const m = new Map<string, number>(); for (const e of list) m.set(e, (m.get(e) ?? 0) + 1); return m }
+  const [cb, co, ct] = [count(b.entries), count(o.entries), count(th.entries)]
+  // 같은 머리 줄을 양쪽이 서로 다르게 고친 것: 고친 판이 양쪽에 다 새로 생기고 서로 다르다
+  const firstLine = (e: string) => e.split('\n', 1)[0]!
+  const added = (mine: Map<string, number>, other: Map<string, number>) => [...mine.keys()].filter((e) => !cb.has(e) && !other.has(e))
+  const addedO = added(co, ct)
+  const addedT = added(ct, co)
+  for (const e of addedO) {
+    const sameHead = addedT.filter((x) => firstLine(x) === firstLine(e))
+    if (sameHead.length && b.entries.some((x) => firstLine(x) === firstLine(e))) return null
+  }
+  // 이 컴퓨터 차례대로: 양쪽에 남은 항목과 이쪽이 더한 항목. 저쪽이 지운 항목(공통 조상엔 있는데 저쪽에 없는 것)은 뺀다
+  const left = new Map(ct)
+  const out: string[] = []
+  for (const e of o.entries) {
+    const inBase = cb.get(e) ?? 0
+    const inTheirs = left.get(e) ?? 0
+    if (inTheirs > 0) { left.set(e, inTheirs - 1); out.push(e); continue }
+    if (inBase === 0) out.push(e) // 이쪽이 더한 것
+  }
+  // 저쪽이 더한 항목은 저쪽에서 바로 앞에 있던 항목 뒤에, 앞에 남은 것이 없으면 바로 뒤에 있던 항목 앞에 (그것도 없으면 끝에)
+  for (let i = 0; i < th.entries.length; i++) {
+    const e = th.entries[i]!
+    if (cb.has(e) || co.has(e)) continue
+    const prev = th.entries.slice(0, i).reverse().find((x) => out.includes(x))
+    const next = prev ? undefined : th.entries.slice(i + 1).find((x) => out.includes(x))
+    out.splice(prev ? out.lastIndexOf(prev) + 1 : next ? out.indexOf(next) : out.length, 0, e)
+  }
+  return [head, ...out].filter((s, i) => i > 0 || s).join('\n\n') + '\n'
+}

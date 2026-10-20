@@ -181,3 +181,31 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
     } finally { await app.close() }
   })
 })
+
+describe('일지는 항목 단위로 합친다 (10/20 점검: LSWT 10/3 일지)', () => {
+  it('이웃한 두 항목을 이 컴퓨터와 GitHub가 하나씩 지워도 합쳐서 올린다', async () => {
+    const { remote, mac, cloud } = setup('log-entries')
+    const day = 'workbench/log/2026-10-03.md'
+    const memo = '## 09:40 · 메모 · 연구\n요약'
+    const todo = '## 09:47 · 할 일 · 연구\n- [ ] 일괄 검토'
+    write(mac, day, `# 2026-10-03\n\n${memo}\n\n${todo}\n`); g(mac, 'add', '.'); g(mac, 'commit', '-qm', 'log'); g(mac, 'push', '-q')
+    g(cloud, 'pull', '-q')
+    write(cloud, day, `# 2026-10-03\n\n${todo}\n`); g(cloud, 'commit', '-qam', 'drop memo'); g(cloud, 'push', '-q')
+    write(mac, day, `# 2026-10-03\n\n${memo}\n`)
+    const r = await publishPaths(mac, ['workbench/comments', 'workbench/log'], RECORD_OPTS)
+    expect(r).toMatchObject({ pushed: true, merged: [day] })
+    expect(g(remote, 'show', `main:${day}`)).toBe('# 2026-10-03')
+  })
+})
+
+describe('올리기 실패는 앱을 다시 켜도 남는다 (10/20 점검)', () => {
+  it('앱 설정 폴더의 records-publish.json을 읽어 기록 탭에 알린다', async () => {
+    const configDir = path.join(tmp, 'persist-config')
+    fs.mkdirSync(configDir, { recursive: true })
+    fs.writeFileSync(path.join(configDir, 'records-publish.json'), JSON.stringify({ lswt: { at: 1, error: 'same files also changed on GitHub' } }))
+    const app = buildApp({ configDir, recordsAutoPublishMs: 30_000 })
+    try {
+      expect((await app.inject({ method: 'GET', url: '/api/researches/lswt/records/publish' })).json()).toMatchObject({ autoPublish: true, last: { at: 1, error: 'same files also changed on GitHub' } })
+    } finally { await app.close() }
+  })
+})
