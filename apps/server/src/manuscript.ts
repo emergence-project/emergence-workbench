@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { buildFrontMatter, buildSettingTex, canonicalNoteFile, isBodyOnly, sameNoteFile, markdownToLatex, markRecords, resolveRecordMarks, PDF_RECORDS_PREAMBLE, type RecordMark, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox, frontMatterLines } from '@rw/core'
-import { hashOf, writeAtomic } from './fsutil.js'
+import { hashOf, writeAtomic, isInside } from './fsutil.js'
 import { hasFrontMatter, hasMaketitle, needsBodyOnly, NOTE_MACROS } from './noteBody.js'
 import { isCompletePdf, type CompileResult, type Engine } from './latex.js'
 import { placeTemplateFiles, SHARED_MACROS, templateFilePath } from './latexFiles.js'
@@ -163,7 +163,7 @@ export function manuscriptInfo(wb: Workbench, key = ''): ManuscriptInfo {
     if (!m) continue
     const rel = m[1]!.trim().endsWith('.tex') ? m[1]!.trim() : `${m[1]!.trim()}.tex`
     const abs = path.resolve(dir, rel)
-    if (!abs.startsWith(repo + path.sep) || !fs.existsSync(abs)) continue
+    if (!isInside(repo, abs) || !fs.existsSync(abs)) continue
     const file = path.relative(repo, abs)
     parts.push({ id: file, file, title: titleOf(fs.readFileSync(abs, 'utf8'), abs), appendix })
   }
@@ -200,7 +200,7 @@ export function noteAsset(wb: Workbench, file: string, name: string): string {
   const target = path.resolve(dir, name)
   if (!target.startsWith(dir + path.sep) || !NOTE_ASSET.test(target)) throw new WorkbenchError(400, t(`노트 폴더 안의 그림이 아님: ${name}`, `Not a figure in the note folder: ${name}`))
   const real = fs.existsSync(target) ? fs.realpathSync(target) : ''
-  if (!real || !real.startsWith(fs.realpathSync(dir) + path.sep) || !fs.statSync(real).isFile()) throw new WorkbenchError(404, t(`그림이 없음: ${name}`, `No such figure: ${name}`))
+  if (!real || !isInside(fs.realpathSync(dir), real) || !fs.statSync(real).isFile()) throw new WorkbenchError(404, t(`그림이 없음: ${name}`, `No such figure: ${name}`))
   return real
 }
 
@@ -450,7 +450,7 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
     const log = fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8') : ''
     const problems = parseLatexErrors(log, dir).map((p) => {
       const abs = path.isAbsolute(p.file) ? p.file : path.resolve(dir, p.file)
-      return { ...p, file: abs.startsWith(repo + path.sep) ? path.relative(repo, abs) : p.file, inBlock: false }
+      return { ...p, file: isInside(repo, abs) ? path.relative(repo, abs) : p.file, inBlock: false }
     })
     const pdf = path.join(out, `${base}.pdf`)
     if (quads && isCompletePdf(pdf)) addHighlightQuads(pdf)

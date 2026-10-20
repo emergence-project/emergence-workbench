@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { writeAtomic } from './fsutil.js'
+import { writeAtomic, isInside } from './fsutil.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 
@@ -15,7 +15,7 @@ export function writeLinkedTodoFiles(root: string, changes: LinkedTodoFileChange
   const written: LinkedTodoFileChange[] = []
   const verifyPath = (c: LinkedTodoFileChange) => {
     const parent = fs.realpathSync(path.dirname(c.file))
-    if (parent !== realRoot && !parent.startsWith(realRoot + path.sep)) throw new WorkbenchError(403, t('기록·일지를 저장소 밖에 쓰지 않습니다', 'Records and journals are not written outside the repository'))
+    if (!isInside(realRoot, parent)) throw new WorkbenchError(403, t('기록·일지를 저장소 밖에 쓰지 않습니다', 'Records and journals are not written outside the repository'))
     if (fs.existsSync(c.file) && fs.lstatSync(c.file).isSymbolicLink()) throw new WorkbenchError(403, t('연결된 기록·일지의 링크 파일은 고치지 않습니다', 'Linked record or journal files that are symbolic links are not edited'))
   }
   const verify = (c: LinkedTodoFileChange) => {

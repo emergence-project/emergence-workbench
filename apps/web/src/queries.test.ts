@@ -6,11 +6,13 @@ describe('파일 알림 → 다시 받을 자료', () => {
   it('알림이 바꾸는 자료만 고른다 (일지 한 줄에 프로젝트 자료 전체를 다시 받지 않는다)', () => {
     expect(invalidationKeys({ type: 'journal', research: 'p', date: '2026-10-16' })).toEqual([['project', 'p', 'journal'], qk.status('p')])
     expect(invalidationKeys({ type: 'comments', research: 'p', target: 'project' })).toEqual([qk.summary('p'), qk.records('p'), qk.status('p')])
-    expect(invalidationKeys({ type: 'note', research: 'p', file: 'workbench/notes/a/note.md', hash: null })).toEqual([qk.notes('p'), qk.topics('p'), qk.manuscripts('p'), qk.library, qk.agentEdits('p'), qk.records('p'), qk.status('p')])
+    expect(invalidationKeys({ type: 'note', research: 'p', file: 'workbench/notes/a/note.md', hash: null })).toEqual([qk.notes('p'), qk.topics('p'), qk.manuscripts('p'), qk.library, qk.agentEdits('p'), qk.records('p'), qk.repoFiles('p'), qk.status('p')])
     expect(invalidationKeys({ type: 'library', research: null, part: 'concepts', file: 'concepts/x.md' })).toEqual([qk.library, qk.agentEdits('library')])
     expect(invalidationKeys({ type: 'library', research: null, part: 'papers', file: 'papers.yaml' })).toEqual([qk.library, qk.papers])
     expect(invalidationKeys({ type: 'research', research: 'p' })).toEqual([qk.project('p'), qk.researches, qk.agentEdits('p')])
-    expect(invalidationKeys({ type: 'sources', research: 'p' })).toEqual([qk.manuscripts('p'), qk.materials('p'), qk.info('p'), qk.status('p')])
+    expect(invalidationKeys({ type: 'sources', research: 'p' })).toEqual([qk.manuscripts('p'), qk.materials('p'), qk.info('p'), qk.repoFiles('p'), qk.status('p')])
+    // 기록 글 속 경로 하나의 키는 경로 전부의 키 아래라 함께 다시 받는다
+    expect(qk.repoFile('p', 'a.md', true).slice(0, 3)).toEqual([...qk.repoFiles('p')])
     // 주제 현황 · 지운 노트는 주제 · 노트 키 아래라 함께 다시 받는다
     expect(qk.topicsOverview('p').slice(0, 3)).toEqual([...qk.topics('p')])
     expect(qk.noteTrash('p').slice(0, 3)).toEqual([...qk.notes('p')])

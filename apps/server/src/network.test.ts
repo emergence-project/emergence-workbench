@@ -1,6 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { buildApp } from './app.js'
+import { usePaperFetcher } from './paperAdd.js'
+import { useS2Wait } from './peoplePapers.js'
 import { app, repo, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -89,5 +92,43 @@ describe('분야 이름표 새 분류로 읽기', () => {
     expect(here.papers).toBeGreaterThan(0)
     expect(here.records.map((r: { text: string }) => r.text)).toContain('Bea Sample에게 그림 물어보기')
     await app.inject({ method: 'PUT', url: '/api/network/people', payload: { people: [] } })
+  })
+})
+
+describe('새 논문 찾기 (실사용 앱: peoplePapersMs)', () => {
+  afterEach(() => { vi.useRealTimers(); usePaperFetcher(async () => new Response('', { status: 599 })); useS2Wait((ms) => new Promise((r) => setTimeout(r, ms))) })
+  const feed = (id: string, name: string) => `<feed><entry><id>http://arxiv.org/abs/${id}v1</id><published>${new Date().toISOString()}</published><title>Paper ${id}</title><author><name>${name}</name></author></entry></feed>`
+
+  it('사람마다 하루가 지난 것만 4초 간격으로 다시 찾고, 사람 페이지는 그 자리에서 찾으며, "이 사람 아님"은 목록에서 빠진다', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    useS2Wait(async () => undefined)
+    const configDir = path.join(tmp, 'config-live')
+    const urls: string[] = []
+    usePaperFetcher(async (url) => { urls.push(decodeURIComponent(url)); return new Response(feed('2610.00031', 'Cy Fresh')) })
+    const live = buildApp({ configDir, peoplePapersMs: 6 * 60 * 60_000 })
+    try {
+      await live.inject({ method: 'PUT', url: '/api/network/people', payload: { people: [{ name: 'Cy Fresh' }, { name: 'Di Recent' }] } })
+      // Cy 말고는 모두 방금 찾았다: 하루가 지나지 않아 건너뛴다
+      const ids: string[] = (await live.inject({ method: 'GET', url: '/api/network' })).json().people.map((p: { id: string }) => p.id)
+      expect(ids).toContain('di-recent')
+      const recent = { at: Date.now(), source: 'arxiv', key: 'stale-key', seen: [], hidden: [], papers: [] }
+      fs.writeFileSync(path.join(configDir, 'people-papers.json'), JSON.stringify(Object.fromEntries(ids.filter((id) => id !== 'cy-fresh').map((id) => [id, recent]))))
+      await vi.advanceTimersByTimeAsync(59_999)
+      expect(urls).toEqual([])
+      await vi.advanceTimersByTimeAsync(1 + 4000 + 60_000)
+      expect(urls).toHaveLength(1)
+      expect(urls[0]).toContain('au:fresh_c')
+
+      const np = (await live.inject({ method: 'GET', url: '/api/network/people/cy-fresh/new-papers' })).json()
+      expect(np).toMatchObject({ live: true, source: 'arxiv', hidden: 0 })
+      expect(np.papers.map((p: { id: string }) => p.id)).toEqual(['arxiv:2610.00031'])
+      expect(urls).toHaveLength(1)
+
+      const hide = await live.inject({ method: 'POST', url: '/api/network/people/cy-fresh/new-papers/hide', payload: { paper: 'arxiv:2610.00031' } })
+      expect(hide.statusCode).toBe(200)
+      const after = (await live.inject({ method: 'GET', url: '/api/network/people/cy-fresh/new-papers' })).json()
+      expect(after).toMatchObject({ papers: [], hidden: 1 })
+      expect((await live.inject({ method: 'POST', url: '/api/network/people/cy-fresh/new-papers/hide', payload: {} })).statusCode).toBe(400)
+    } finally { await live.close() }
   })
 })

@@ -12,7 +12,7 @@ import { projectStamp } from './projectReadCache.js'
 import type { Workbench } from './workbench.js'
 import { listNotes } from './noteList.js'
 import type { Registry } from './registry.js'
-import { writeAtomic } from './fsutil.js'
+import { writeAtomic, isInside } from './fsutil.js'
 import { WorkbenchError, assertRealInside } from './workbench.js'
 import { t as tl } from './i18n.js'
 
@@ -68,7 +68,7 @@ function readMeta(dir: string): FigureMeta {
   const f = path.join(dir, FIGURES_META)
   if (!fs.existsSync(f)) return {}
   try {
-    if (!fs.realpathSync(f).startsWith(fs.realpathSync(dir) + path.sep)) return {}
+    if (!isInside(fs.realpathSync(dir), fs.realpathSync(f))) return {}
     return cachedMeta(f)
   } catch { return {} }
 }
@@ -208,7 +208,7 @@ export function cardFigureRef(registry: Registry, rid: string, value: unknown) {
   const { abs, folder } = figureFile(registry, ref.id)
   const root = fs.realpathSync(folder.dir)
   const real = fs.realpathSync(abs)
-  if (!real.startsWith(root + path.sep) || !fs.statSync(real).isFile()) throw new WorkbenchError(403, tl('그림 폴더 밖의 파일입니다', 'The file is outside the figure folder'))
+  if (!isInside(root, real) || !fs.statSync(real).isFile()) throw new WorkbenchError(403, tl('그림 폴더 밖의 파일입니다', 'The file is outside the figure folder'))
   return ref
 }
 

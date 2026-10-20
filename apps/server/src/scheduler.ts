@@ -50,3 +50,21 @@ export function repeat(app: FastifyInstance, o: RepeatOptions): () => void {
   app.addHook('onClose', async () => stop())
   return stop
 }
+
+/**
+ * 저절로 도는 일의 오류 줄: 같은 오류는 처음 한 번만 적고, 풀리면 한 줄 적는다 (10/20 점검: 오프라인에서 로그에 같은 줄 915개)
+ */
+export function errorLog(label: string, log: (line: string) => void = console.error): { ok(): void; fail(e: unknown): void } {
+  let last: string | null = null
+  return {
+    ok() {
+      if (last) log(`${label}: 다시 됩니다 (앞의 오류가 풀림)`)
+      last = null
+    },
+    fail(e) {
+      const message = (e as Error).message
+      if (message !== last) log(`${label}: ${message}`)
+      last = message
+    },
+  }
+}

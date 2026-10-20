@@ -30,6 +30,8 @@ export const qk = {
   materials: (rid: string) => ['project', rid, 'materials'] as const,
   /** 기록 글 속 저장소 경로 하나 (찾기만 · 내용까지) */
   repoFile: (rid: string, path: string, body: boolean) => ['project', rid, 'file', path, body] as const,
+  /** 기록 글 속 저장소 경로 전부: 노트 · 블록 · sources 파일이 바뀌면 다시 찾는다 */
+  repoFiles: (rid: string) => ['project', rid, 'file'] as const,
   /** 맡긴 일 (workbench/tasks/*.md) */
   tasks: (rid: string) => ['project', rid, 'tasks'] as const,
   /** STATUS.md와 같은 현황 글: 프로젝트의 거의 모든 파일에서 뽑으므로 그 프로젝트의 알림마다 다시 받는다 */
@@ -70,15 +72,15 @@ function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' }>): QueryKey[
     // research.yaml(제목 · 주제 · 원고 선언 …)이 바뀌면 그 프로젝트의 모든 자료와 프로젝트 목록
     case 'research': return [qk.project(rid), qk.researches, qk.agentEdits(rid)]
     // 블록 노트: 요약(블록 줄 · 나무), 노트 목록(블록 노트 줄), 주제 카드 수, 라이브러리의 "쓰는 곳", 고침 검토(에이전트가 고친 노트)
-    case 'block': return [qk.summary(rid), qk.notes(rid), qk.topics(rid), qk.library, qk.agentEdits(rid), qk.records(rid)]
+    case 'block': return [qk.summary(rid), qk.notes(rid), qk.topics(rid), qk.library, qk.agentEdits(rid), qk.records(rid), qk.repoFiles(rid)]
     // 노트 파일: 노트 목록 · 주제 카드 수 · 원고(노트도 원고일 수 있다) · 라이브러리의 "쓰는 곳" · 고침 검토
-    case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library, qk.agentEdits(rid), qk.records(rid)]
+    case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library, qk.agentEdits(rid), qk.records(rid), qk.repoFiles(rid)]
     case 'statement': return [qk.summary(rid)]
     // 기록: 요약의 할 일과 기록 모음
     case 'comments': return [qk.summary(rid), qk.records(rid)]
     case 'journal': return [['project', rid, 'journal']]
     // research.yaml sources의 파일(원고 · 그림 · 참고 자료 · 작업 목록 · 검토 문서)
-    case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid)]
+    case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid), qk.repoFiles(rid)]
     case 'tasks': return [qk.tasks(rid)]
     case 'flow': return [qk.flow(rid)]
     case 'preamble': case 'records-publish': return []
