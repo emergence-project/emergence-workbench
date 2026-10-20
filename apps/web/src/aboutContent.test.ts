@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { ABOUT_PARTS_KO, COLOR_ROWS_KO, SYMBOL_GROUPS_KO, type AboutPart } from './aboutContent'
-import { ABOUT_PARTS_EN, COLOR_ROWS_EN, SYMBOL_GROUPS_EN } from './aboutContent.en'
+import { ABOUT_PARTS_EN, ABOUT_PARTS_KO, COLOR_ROWS_EN, COLOR_ROWS_KO, SYMBOL_GROUPS_EN, SYMBOL_GROUPS_KO, type AboutPart } from './aboutContent'
 
-// 소개 글은 두 언어 파일에 따로 있다. 영어 쪽 data-ui는 같은 자리의 한국어 제목을 쓰므로(withUi) 모양이 같아야 한다
+// 소개 글은 절 파일마다 두 언어(ko · en)가 함께 있다. 영어 쪽 data-ui는 같은 자리의 한국어 제목을 쓰므로(withUi) 모양이 같아야 한다
 const shape = (parts: AboutPart[]) => parts.map((p) => ({
   id: p.id,
   open: p.open?.map((o) => o.to),

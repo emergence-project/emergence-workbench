@@ -93,7 +93,7 @@ walkTsx(root)
 for (const f of tsx) {
   const source = readFileSync(f, 'utf8')
   // Preserve the existing glyph exception for explanatory examples.
-  if (!/\/aboutContent(\.en)?\.tsx$/.test(f)) source.split('\n').forEach((line, i) => {
+  if (!/\/(aboutContent\.tsx$|about\/)/.test(f)) source.split('\n').forEach((line, i) => {
     if (line.includes('디자인 예외:') || /^\s*(\/\/|\*|\/\*)/.test(line)) return
     const code = line.replace(/\{\/\*.*?\*\/\}/g, '')
     const where = `${f.slice(root.length)}:${i + 1}`

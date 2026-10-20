@@ -1,0 +1,36 @@
+import { c } from '../code'
+import type { AboutSection } from '../types'
+
+// 소개 › settings › 부분. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
+
+export const ko: AboutSection = {
+  title: '부분', prs: [68, 81, 147, 162, 184, 185],
+  items: [
+    { text: <><b>앱 기본정보</b> — 이름, 지금 버전(번호·날짜·커밋), GitHub 정본, 앱 폴더와 설정 파일. 그 아래 <b>업데이트</b>는 main에 합친 것을 받고, 맨 아래 업데이트 이력(PR · 버전 · 내용 · 일시)이 있습니다. 버전 번호는 1.11 꼴로, main에 변경이 하나 합쳐질 때마다 뒤 번호가 하나 오릅니다. 맥의 서비스는 10분마다 저절로 받아 빌드해 두고, 쉴 때(입력 없이 5분, 저장할 것과 처리 중인 컴파일 · 질문이 없을 때) 다시 시작합니다. 받을 때 이번에 반영된 피드백을 함께 보여 줍니다.</> },
+    { text: <><b>계정</b> — GitHub는 맥의 로그인을 그대로 써서 저장소 목록을 읽고(설정에서 연결 상태만 보임), 구글은 캘린더 일정 읽기, 화면 설정과 프로젝트 목록을 구글 드라이브의 앱 전용 공간에 보관. 연구 파일 내용은 구글에 보내지 않습니다.</> },
+    { text: <><b>백업</b> — 맥에만 있는 각 프로젝트의 {c('workbench/')}를 한 시간마다 비공개 저장소에 올립니다.</> },
+    { text: <><b>동기화</b> — 기록 · 피드백 올리기, 연구 저장소 · 라이브러리 받기, 앱 업데이트 확인을 칸마다 <b>수동 | 자동</b>으로 고르고, 자동이면 간격 셋(올리기 30초 · 5분 · 30분 뒤, 받기 5 · 10 · 30분, 업데이트 10분 · 1시간 · 하루) 중 하나나 <b>직접</b> 적은 값. 바꾸면 바로 적용됩니다. 안 올린 기록이 있으면 기록 탭 맨 위에 "이 프로젝트의 안 올린 기록 n · 지금 올리기"가 보여 자동이어도 바로 올릴 수 있습니다. 업데이트는 새 버전이 있을 때만 받고 빌드합니다.</> },
+    { text: <><b>에이전트</b> — 기록의 지시를 이 맥의 Claude가 언제 할지(직접 부탁 · 바로 · 하루 한 번과 그 시각). 지시 하나마다 Claude 사용량이 듭니다.</> },
+    { text: <><b>공통 규칙</b> — 모든 연구 저장소의 에이전트가 먼저 읽는 규칙(개인 저장소의 {c('rules/research.md')}). 왼쪽 사이드바 아래 줄이 그 절(시작할 때 · 내용 · 고칠 때 …)입니다. 연필을 누르면 그 자리에서 원문을 고치고, 저장하면 그것이 확인이라 상태가 "확정"과 오늘 날짜가 되며 이 파일 하나만 개인 저장소에 올라갑니다. 그새 다른 곳에서 바뀌었으면 저장하지 않고 "다시 읽기"를 보입니다. 각 프로젝트의 {c('STATUS.md')}와 MCP {c('rules')}는 다음에 다시 쓸 때 새 규칙을 싣습니다.</> },
+    { text: <><b>화면</b> — 테마, 글자 크기, 촘촘함, 강조 색(상태 색과 겹치지 않는 것만), 하이라이트 처음 색.</> },
+    { text: <><b>라이브러리 관리</b> — 라이브러리 폴더(경로 · Git 상태), 지식(개념노트 수 · Obsidian Study 원본), 논문(PDF 폴더 더하기 · 빼기, iCloud · Google Drive · 이 맥 표시), 그림(Git의 그림 수, 사진 폴더 연결은 자리만).</> },
+    { text: <><b>LaTeX</b> — 세 부분입니다. <b>편집기</b>: 글꼴 · 크기 · 줄 간격과 미리보기. <b>명령어</b>: 개념노트와 노트 컴파일이 함께 쓰는 {c('concepts/macros.tex')}(한 연구 전용은 그 저장소 {c('workbench/macros.tex')}가 앞섬). <b>서식</b>: 서식 여럿을 모아 두고 골라 씁니다: 기본 문서(article), PRB·PRL(revtex), 발표(beamer). 서식마다 이름·종류·문서 종류 줄·패키지를 고치고, 복사해 새로 만들기·지우기·내보내기 기본 정하기를 합니다.</> },
+    { text: <><b>앱으로 열기</b> — 바탕화면의 "연구 작업대" 아이콘으로 엽니다. Dock에 따로 띄우려면 앱을 연 크롬 창에서 ⋮ › 전송, 저장, 공유 › "페이지를 앱으로 설치"를 누른 뒤 Dock에 유지합니다.</> },
+  ],
+}
+
+export const en: AboutSection = {
+  title: 'Parts',
+  items: [
+    { text: <><b>About this app</b>: name, current version (number, date, commit), the GitHub source, the app folder and settings file, and update history (PR · version · content · time). Version numbers look like 1.11, and the last number goes up by one each time a change is merged into main. Below it, <b>Update</b> pulls what was merged into main. The Mac service pulls and builds on its own every 10 minutes and restarts while you are idle (5 minutes without input, nothing left to save, no compile or question running). When pulling, it also shows the feedback that this update addresses.</> },
+    { text: <><b>Accounts</b>: GitHub uses the Mac's existing login to read the repository list (Settings only shows the connection status). Google is used to read Calendar events and to keep display settings and the project list in an app-only space in Google Drive. The content of research files is not sent to Google.</> },
+    { text: <><b>Backup</b>: pushes each project's {c('workbench/')}, which exists only on the Mac, to a private repository every hour.</> },
+    { text: <><b>Sync</b> — For pushing records and feedback, pulling research repositories and the library, and checking for app updates, choose <b>Manual | Auto</b> for each; with Auto, pick one of three intervals (push 30 s · 5 min · 30 min later, pull 5 · 10 · 30 min, update 10 min · 1 h · 1 day) or a <b>Custom</b> value. Changes apply right away. When records are not pushed yet, "n not pushed in this project · Push now" shows at the top of the Records tab, so you can push at once even with Auto. Updates download and build only when a new version exists.</> },
+    { text: <><b>Agents</b>: when Claude on this Mac carries out instructions from records (when asked, right away, or once a day at a chosen time). Each instruction uses Claude usage.</> },
+    { text: <><b>Common rules</b>: the rules agents in every research repository read first ({c('rules/research.md')} in your personal repository). The rows under it in the left sidebar are its sections. The pencil opens the source in place. Saving counts as your confirmation, so the status becomes "accepted" with today's date, and only this file is pushed to your personal repository. If it changed elsewhere in the meantime, it is not saved and "Reload" appears. Each project's {c('STATUS.md')} and the MCP {c('rules')} tool carry the new rules the next time they are written.</> },
+    { text: <><b>Display</b>: theme, text size, density, accent color (only ones that do not clash with status colors), default highlight color.</> },
+    { text: <><b>Library</b>: library folder (path, Git status), Knowledge (concept note count, Obsidian Study source), Papers (add or remove PDF folders, marked iCloud · Google Drive · this Mac), Figures (figure count in Git; linking a photo folder is only a placeholder).</> },
+    { text: <><b>LaTeX</b>: three parts. <b>Editor</b>: font, size, line spacing and a preview. <b>Macros</b>: {c('concepts/macros.tex')}, shared by concept notes and note compiling (a project's own {c('workbench/macros.tex')} takes precedence). <b>Templates</b>: keep several templates and choose one: basic document (article), PRB and PRL (revtex), talk (beamer). For each template you edit the name, kind, document class line and packages, and you can copy it into a new one, delete it, or make it the export default.</> },
+    { text: <><b>Open as an app</b>: open it with the "연구 작업대" (workbench) icon on the desktop. To keep it in the Dock on its own, in the Chrome window running the app choose ⋮ › Cast, save, and share › "Install page as app", then keep it in the Dock.</> },
+  ],
+}
