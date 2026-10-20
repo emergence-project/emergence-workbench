@@ -1,5 +1,6 @@
 // 기록 올리기와 앱 피드백 (피드백 모드)
 import type { FastifyInstance } from 'fastify'
+import { writeAtomic } from '../fsutil.js'
 import * as C from '@rw/core/contract/feedback'
 import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
@@ -13,6 +14,9 @@ import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
 import { syncDelayMs } from '../syncTiming.js'
 // 연구 저장소 기록 올리기(records)의 응답 계약은 코멘트 갈래에 있다
+
+/** 안 올린 기록을 다시 올려 보는 간격 (자동 올리기일 때) */
+const RECORDS_RETRY_MS = 10 * 60_000
 
 export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void {
   const { opts, repoPath } = ctx
@@ -74,11 +78,17 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
    * 이 컴퓨터의 브랜치를 그 커밋으로 옮겨(adopt) 저절로 받기가 막히지 않게 한다 (pathsync.ts, 10/15)
    */
   const RECORDS_MESSAGE = 'Add comments from the research workspace app'
-  const recordsLast = new Map<string, { at: number; error: string | null }>()
+  // 마지막 결과는 앱 설정 폴더에 둔다: 앱을 다시 켜도 실패가 화면(기록 탭 맨 위 줄)에 남는다 (10/20 점검: LSWT 기록이 하루 넘게 안 올라간 채 표시가 사라졌다)
+  const lastFile = path.join(ctx.registry.configDir, 'records-publish.json')
+  const recordsLast = new Map<string, { at: number; error: string | null }>(Object.entries((() => {
+    try { return JSON.parse(fs.readFileSync(lastFile, 'utf8')) as Record<string, { at: number; error: string | null }> } catch { return {} }
+  })()))
+  const saveLast = () => { try { writeAtomic(lastFile, JSON.stringify(Object.fromEntries(recordsLast), null, 1)) } catch { /* 기억하지 못해도 올리기는 그대로 */ } }
   const publishRecords = async (rid: string, r: { top: string; paths: string[] }) => {
     const before = recordsLast.get(rid)?.error ?? null
     const done = (error: string | null) => {
       recordsLast.set(rid, { at: Date.now(), error })
+      saveLast()
       // 화면(기록 탭 맨 위 줄 · 실패 알림)은 실패가 생기거나 풀릴 때만 다시 읽는다
       if (before !== error) ctx.broadcast({ type: 'records-publish', research: rid })
     }
@@ -94,21 +104,33 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   // 기록을 쓰면(더하기 · 고치기 · 지우기 · 상태 · 답 · 이어 쓰기 · 분류 · 하이라이트, MCP add_record · answer_record 포함) 잠시 뒤 저절로 올린다.
   // 쓰는 길이 여러 갈래(comments · journal · agentEdits …)라 연구 안의 성공한 쓰기 요청마다 예약하고, 올릴 때 이 컴퓨터에서 바뀐 기록이 있는지(네트워크 없이) 먼저 본다
   const recordTimers = new Map<string, NodeJS.Timeout>()
+  /** 안 올린 기록이 있으면 올린다 (git 저장소가 아니거나 GitHub 브랜치를 추적하지 않으면 올리지 않는다) */
+  const publishPending = async (rid: string) => {
+    let r: { top: string; paths: string[] }
+    try {
+      r = await researchRecords(rid)
+      if (!(await pendingPaths(r.top, r.paths)).length) return
+    } catch { return }
+    await publishRecords(rid, r).catch((e) => app.log.warn({ err: e, research: rid }, '기록 자동 올리기 실패'))
+  }
   const scheduleRecordsPublish = (rid: string) => {
     const delay = syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs)
     if (delay === null || opts.sandbox) return
     clearTimeout(recordTimers.get(rid))
-    recordTimers.set(rid, setTimeout(() => {
-      recordTimers.delete(rid)
-      void (async () => {
-        let r: { top: string; paths: string[] }
-        try {
-          r = await researchRecords(rid)
-          if (!(await pendingPaths(r.top, r.paths)).length) return
-        } catch { return } // git 저장소가 아니거나 GitHub 브랜치를 추적하지 않음: 올리지 않는다
-        await publishRecords(rid, r).catch((e) => app.log.warn({ err: e, research: rid }, '기록 자동 올리기 실패'))
-      })()
-    }, delay))
+    recordTimers.set(rid, setTimeout(() => { recordTimers.delete(rid); void publishPending(rid) }, delay))
+  }
+  // 쓰기가 없어도 안 올린 기록을 다시 올려 본다: 앱을 켤 때(1분 뒤)와 그 뒤 10분마다 (10/20 점검: 실패한 뒤 새로 쓰기 전까지는 다시 해 보지 않았다)
+  // 자동(설정 › 동기화 올리기)일 때만. 수동이면 사용자가 "지금 올리기"로
+  if (opts.recordsAutoPublishMs !== undefined && !opts.sandbox) {
+    let sweeping = false
+    const sweep = async () => {
+      if (sweeping || syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs) === null) return
+      sweeping = true
+      try { for (const r of ctx.registry.list()) if (r.available && !recordTimers.has(r.id)) await publishPending(r.id) } finally { sweeping = false }
+    }
+    const first = setTimeout(() => void sweep(), 60_000)
+    const timer = setInterval(() => void sweep(), RECORDS_RETRY_MS)
+    app.addHook('onClose', async () => { clearTimeout(first); clearInterval(timer) })
   }
   app.addHook('onResponse', async (req, reply) => {
     const url = req.routeOptions.url ?? ''
