@@ -319,7 +319,9 @@ describe('파일 감시', () => {
   }, 30_000)
 
   it('바깥에서 노트를 고치면 저장소 기준 경로와 해시로 알린다', async () => {
-    const root = path.join(repo, 'workbench')
+    // 앞 테스트가 같은 폴더를 보던 감시를 닫는 것과 겹치지 않게 따로 만든 폴더를 본다.
+    // chokidar는 한 프로세스 안에서 같은 경로의 감시 손잡이를 나눠 써서, 닫히는 감시와 새 감시가 겹치면 알림이 빠질 수 있다 (10/20 점검)
+    const root = path.join(fs.mkdtempSync(path.join(tmp, 'watch-note-')), 'workbench')
     const file = path.join(root, 'notes/watch-check/note.md')
     fs.mkdirSync(path.dirname(file), { recursive: true })
     fs.writeFileSync(file, '# 감시\n')
@@ -331,7 +333,7 @@ describe('파일 감시', () => {
       await vi.waitFor(() => expect(events.some((e) => e.type === 'note')).toBe(true), { timeout: 15_000, interval: 50 })
     } finally { await w.close() }
     expect(events.find((e) => e.type === 'note')).toEqual({ type: 'note', research: 'sample-research', file: 'workbench/notes/watch-check/note.md', hash: hashOf('# 감시\n에이전트가 더한 줄\n') })
-    fs.rmSync(path.dirname(file), { recursive: true })
+    fs.rmSync(path.dirname(root), { recursive: true })
   }, 30_000)
 })
 
