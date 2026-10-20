@@ -1,5 +1,6 @@
 // 기록 올리기와 앱 피드백 (피드백 모드)
 import type { FastifyInstance } from 'fastify'
+import { LIBRARY_RID } from '@rw/core'
 import { writeAtomic } from '../fsutil.js'
 import * as C from '@rw/core/contract/feedback'
 import { parseBody, replies } from '../contract.js'
@@ -39,6 +40,8 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (autoTimer) clearTimeout(autoTimer)
     autoTimer = setTimeout(() => {
       autoTimer = null
+      // 기다리는 사이 수동으로 바꿨으면 올리지 않는다
+      if (syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs) === null) return
       publishOnce().then(() => { lastAuto = { at: Date.now(), error: null } }, (e) => {
         lastAuto = { at: Date.now(), error: (e as Error).message }
         app.log.warn({ err: e }, '피드백 자동 올리기 실패')
@@ -109,7 +112,16 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     let r: { top: string; paths: string[] }
     try {
       r = await researchRecords(rid)
-      if (!(await pendingPaths(r.top, r.paths)).length) return
+      if (!(await pendingPaths(r.top, r.paths)).length) {
+        // 실패 뒤 다른 길(터미널 git push 등)로 올라갔으면 남은 실패 표시를 지운다
+        const last = recordsLast.get(rid)
+        if (last?.error) {
+          recordsLast.set(rid, { at: Date.now(), error: null })
+          saveLast()
+          ctx.broadcast({ type: 'records-publish', research: rid })
+        }
+        return
+      }
     } catch { return }
     await publishRecords(rid, r).catch((e) => app.log.warn({ err: e, research: rid }, '기록 자동 올리기 실패'))
   }
@@ -117,7 +129,11 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const delay = syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs)
     if (delay === null || opts.sandbox) return
     clearTimeout(recordTimers.get(rid))
-    recordTimers.set(rid, setTimeout(() => { recordTimers.delete(rid); void publishPending(rid) }, delay))
+    recordTimers.set(rid, setTimeout(() => {
+      recordTimers.delete(rid)
+      // 기다리는 사이 설정 › 동기화를 수동으로 바꿨으면 올리지 않는다
+      if (syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs) !== null) void publishPending(rid)
+    }, delay))
   }
   // 쓰기가 없어도 안 올린 기록을 다시 올려 본다: 앱을 켤 때(1분 뒤)와 그 뒤 10분마다 (10/20 점검: 실패한 뒤 새로 쓰기 전까지는 다시 해 보지 않았다)
   // 자동(설정 › 동기화 올리기)일 때만. 수동이면 사용자가 "지금 올리기"로
@@ -126,7 +142,9 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const sweep = async () => {
       if (sweeping || syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs) === null) return
       sweeping = true
-      try { for (const r of ctx.registry.list()) if (r.available && !recordTimers.has(r.id)) await publishPending(r.id) } finally { sweeping = false }
+      // 지식 라이브러리(개념노트 기록)도 같은 장치로 올리므로 함께 다시 해 본다
+      const rids = [...ctx.registry.list().filter((r) => r.available).map((r) => r.id), ...(ctx.registry.libraryPath ? [LIBRARY_RID] : [])]
+      try { for (const rid of rids) if (!recordTimers.has(rid)) await publishPending(rid) } finally { sweeping = false }
     }
     const first = setTimeout(() => void sweep(), 60_000)
     const timer = setInterval(() => void sweep(), RECORDS_RETRY_MS)

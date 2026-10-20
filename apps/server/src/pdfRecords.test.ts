@@ -48,4 +48,14 @@ describe('addHighlightQuads', () => {
     expect(pdf).toMatch(new RegExp(`<</Root 1 0 R/Size 10/Prev ${body.length}>>\\nstartxref\\n\\d+\\n%%EOF\\n$`))
     expect(addHighlightQuads(file)).toBe(0)
   })
+
+  it('finds a highlight right after a stream object', () => {
+    const file = path.join(tmp, 's.pdf')
+    const body = '%PDF-1.4\n1 0 obj\n<</Type/Catalog>>\nendobj\n5 0 obj\n<</Length 10>>\nstream\nBT ET q Q\nendstream\nendobj\n9 0 obj\n<</Subtype/Highlight/Rect[10 20 110 32]>>\nendobj\n'
+    fs.writeFileSync(file, `${body}xref\n0 1\n0000000000 65535 f \ntrailer\n<</Root 1 0 R/Size 10>>\nstartxref\n${body.length}\n%%EOF\n`)
+    expect(addHighlightQuads(file)).toBe(1)
+    const pdf = fs.readFileSync(file, 'latin1')
+    expect(pdf).toContain('\nxref\n9 1\n')
+    expect(pdf.slice(pdf.lastIndexOf('%%EOF\n', pdf.length - 7))).toContain('9 0 obj\n<</Subtype/Highlight/Rect[10 20 110 32]/QuadPoints[10 32 110 32 10 20 110 20]>>\nendobj')
+  })
 })

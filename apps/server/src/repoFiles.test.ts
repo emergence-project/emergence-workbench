@@ -48,6 +48,8 @@ describe('기록 글 속 저장소 경로', () => {
     expect((await file('path=nowhere/none.md')).json()).toMatchObject({ status: 'missing' })
     expect((await file('path=../outside.md')).statusCode).toBe(400)
     expect((await file('path=.git/config')).statusCode).toBe(400)
+    expect((await file('path=.GIT/config')).statusCode).toBe(400)
+    expect((await file('path=sub/.git/config')).statusCode).toBe(400)
     expect((await app.inject({ method: 'GET', url: `${R}/file/raw?path=docs/reviews/guide.md` })).body).toContain('# Guide')
     expect((await app.inject({ method: 'POST', url: `${R}/file/open`, payload: { path: 'GOVERNMENT/pad/guide.md' } })).statusCode).toBe(404)
   })

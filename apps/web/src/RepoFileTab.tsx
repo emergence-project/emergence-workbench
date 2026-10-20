@@ -3,7 +3,7 @@ import { stripFrontMatter } from '@rw/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, commentsApi } from './api'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
-import { openedFrom, useRepoFile } from './repoPaths'
+import { openedFrom, replaceRecordPath, useRepoFile } from './repoPaths'
 import { monthDay } from './format'
 import { flash } from './flash'
 import { qk } from './queries'
@@ -28,8 +28,9 @@ export function RepoFileTab({ rid, path }: { rid: string; path: string }) {
     try {
       const file = await commentsApi(rid).read(from.target)
       const record = file.comments.find((c) => c.id === from.id)
-      if (!record || !record.body.includes(data.asked)) { flash(t('기록 글에 이 경로가 없습니다', 'The record no longer has this path')); return }
-      await commentsApi(rid).update(from.target, from.id, { text: record.body.split(data.asked).join(data.path), baseHash: file.hash })
+      const text = record ? replaceRecordPath(record.body, data.asked, data.path) : null
+      if (!record || text === null) { flash(t('기록 글에 이 경로가 없습니다', 'The record no longer has this path')); return }
+      await commentsApi(rid).update(from.target, from.id, { text, baseHash: file.hash })
       void client.invalidateQueries({ queryKey: qk.records(rid) })
       setFixed(true)
       flash(t('기록의 경로를 새 자리로 고쳤습니다', 'Updated the path in the record'))

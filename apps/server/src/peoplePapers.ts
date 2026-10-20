@@ -105,6 +105,9 @@ export async function refreshPersonPapers(configDir: string, id: string, person:
     next = { ...(old ?? { papers: [], seen: [], hidden: [] }), at: now - NEW_PAPER_EVERY_MS + RETRY_AFTER_MS, source, key, error: (e as Error).message }
   }
   const latest = readPeoplePapers(configDir)
+  // 찾는 동안 누른 "본 것으로" · "이 사람 아님"을 잃지 않게 지금 파일의 것을 합친다
+  const current = latest[id]
+  if (current && current.key === key) next = { ...next, seen: [...new Set([...next.seen, ...current.seen])], hidden: [...new Set([...next.hidden, ...current.hidden])] }
   latest[id] = next
   writePeoplePapers(configDir, latest)
   return next

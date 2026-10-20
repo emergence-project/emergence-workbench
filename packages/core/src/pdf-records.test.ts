@@ -48,6 +48,16 @@ describe('pdf records', () => {
     expect(out).toContain('\\pdfcomment[icon=Note')
   })
 
+  it('keeps both notes whole when one record starts the paragraph and another sits in its math', () => {
+    for (const highlight of [false, true]) {
+      const out = md('Intro.\n\nSome text and $x^2$ here.\n', [mark('Some text', { text: 'A' }), mark('x^2', { text: 'B' })], highlight)
+      expect(out).not.toMatch(/[\uE000-\uE003]/)
+      expect(out).not.toMatch(/}fcomment/)
+      expect(out).toContain('Some text')
+      expect(out.match(/\\pdfcomment\[/g)!.length + (out.match(/pdf:bann/g)?.length ?? 0)).toBe(2)
+    }
+  })
+
   it('places the top note after \\begin{document} in a LaTeX note', () => {
     const tex = '\\begin{document}\nHello world.\n\\end{document}\n'
     const marks = [mark(undefined), mark('world')]

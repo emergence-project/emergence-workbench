@@ -184,9 +184,24 @@ const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'to
  * yaml 라이브러리 기본은 "key:\n  - a"라 고치지 않은 줄까지 바뀌었다 (10/20 점검: 바꾸지 않고 저장해도 150개 중 145개가 바뀜)
  */
 export function flowYamlText(doc: YAML.Document, original = ''): string {
-  const m = /^( *)[^\s#-][^\n]*:[ \t]*\n( *)- /m.exec(original)
-  const indentSeq = m ? m[2]!.length > m[1]!.length : true
-  return doc.toString({ lineWidth: 0, indentSeq })
+  return doc.toString({ lineWidth: 0, indentSeq: seqIndented(original) })
+}
+
+/** 원래 글의 첫 블록 목록이 키보다 들여써졌는가 (글 안의 "…:\n- " 줄에 속지 않게 파싱한 위치로 잰다). 목록이 없으면 라이브러리 기본(들여씀) */
+function seqIndented(original: string): boolean {
+  if (!original) return true
+  const column = (at: number) => at - (original.lastIndexOf('\n', at - 1) + 1)
+  let indented: boolean | undefined
+  try {
+    YAML.visit(YAML.parseDocument(original), {
+      Pair(_, pair) {
+        if (!YAML.isSeq(pair.value) || pair.value.flow || !YAML.isNode(pair.key) || !pair.key.range || !pair.value.range) return
+        indented = column(pair.value.range[0]) > column(pair.key.range[0])
+        return YAML.visit.BREAK
+      },
+    })
+  } catch { /* 읽지 못하면 기본 */ }
+  return indented ?? true
 }
 
 function write(wb: Workbench, id: string, doc: YAML.Document, original = ''): FlowNode {

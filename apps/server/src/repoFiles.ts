@@ -35,11 +35,11 @@ export function repoFileKind(file: string): RepoFileKind {
   return TEXT_EXT.has(ext) || !ext ? 'text' : 'other'
 }
 
-/** 저장소 안의 상대 경로로 고친다. 저장소 밖 · .git 안 · 빈 경로는 거절 */
+/** 저장소 안의 상대 경로로 고친다. 저장소 밖 · .git 안(대소문자를 가리지 않는 맥 · 하위 저장소의 .git 포함) · 빈 경로는 거절 */
 export function repoRelative(root: string, asked: string): string {
   const rel = path.posix.normalize(asked.trim().replace(/\\/g, '/').replace(/^\.\//, ''))
   const abs = path.resolve(root, rel)
-  if (!rel || rel === '.' || path.isAbsolute(rel) || !isInside(path.resolve(root), abs) || rel === '.git' || rel.startsWith('.git/'))
+  if (!rel || rel === '.' || path.isAbsolute(rel) || !isInside(path.resolve(root), abs) || rel.split('/').some((seg) => seg.toLowerCase() === '.git'))
     throw new WorkbenchError(400, t(`저장소 안의 파일 경로가 아닙니다: ${asked}`, `Not a file path inside the repository: ${asked}`))
   return rel
 }
