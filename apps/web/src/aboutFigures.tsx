@@ -221,7 +221,7 @@ export function FileTreeFigure() {
       </div>
       <div className="about-tree"><b>shared-library</b>
         <ul>
-          {r('concepts/<id>.md', t('개념노트 (+ <id>.memo.md 메모)', 'Concept notes (+ <id>.memo.md memo)'))}
+          {r('concepts/<id>.md', t('개념노트', 'Concept notes'))}
           {r('concepts/macros.tex', t('개념노트 기호 (설정 › LaTeX › 명령어)', 'Concept note symbols (Settings › LaTeX › Macros)'))}
           {r('papers/', t('문헌노트', 'Literature notes'))}
           {r('references.bib · papers.yaml', t('인용 하나 · 논문 분류와 관련 프로젝트', 'One citation file · paper subjects and related projects'))}

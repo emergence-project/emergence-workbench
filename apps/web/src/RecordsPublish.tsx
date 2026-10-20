@@ -61,7 +61,7 @@ export function PendingRecords({ rid, version }: { rid: string; version: number 
  * 지금 프로젝트만 본다: 서버가 실패가 생기거나 풀릴 때 알림(records-publish)을 보내 version이 오른다.
  */
 export function usePublishFailureFlash(rid: string | null, version: number): void {
-  const shown = useRef<string | null>(null)
+  const shown = useRef(new Set<string>())
   useEffect(() => {
     if (!rid) return
     let active = true
@@ -69,8 +69,8 @@ export function usePublishFailureFlash(rid: string | null, version: number): voi
       const error = s.autoPublish ? s.last?.error ?? null : null
       if (!active || !error || !s.last) return
       const key = `${rid}|${s.last.at}`
-      if (shown.current === key) return
-      shown.current = key
+      if (shown.current.has(key)) return
+      shown.current.add(key)
       flash(t('기록을 GitHub에 올리지 못했습니다', 'Records were not pushed to GitHub'), {
         label: t('다시 올리기', 'Push again'),
         run: () => { void pushRecords(rid).catch((e: Error) => flash(e.message)) },

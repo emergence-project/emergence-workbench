@@ -15,7 +15,7 @@
   --link: #5c5c59; /* 입력칸 초점 테두리에만. 무채색: 파랑은 상태(진행)에만 */
   --focus: #fff4c2;
   --focus-line: #e9c84a;
-  --danger: #d14343;
+  --danger: #c53030;
   --danger-bg: #fdecec;
   /* 상태 색 넷 (10/4): 색을 잘 못 가리는 눈에도 서로 갈리게 골랐다. 폐기는 고리 모양이 함께 구별한다 */
   --s-progress: #1d5fd6;

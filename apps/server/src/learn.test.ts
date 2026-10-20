@@ -6,7 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import YAML from 'yaml'
 import { buildApp } from './app.js'
 import type { AskRunner } from './ask.js'
-import { readConceptMd, readConceptMemo } from './conceptNotes.js'
+import { readConceptMd } from './conceptNotes.js'
+import { readComments } from './comments.js'
 import { addLearn, LEARN_FILE, parseDraft, readLearn, removeLearn, setLearnConcept } from './learn.js'
 
 const fixtures = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../fixtures/knowledge')
@@ -104,9 +105,12 @@ describe('공부할 것 (모름 → 개념노트 초안)', () => {
     expect(note.meta).toMatchObject({ title: 'Reducible Configuration', subject: 'Mathematics › Graph Theory' })
     expect(note.body).toContain('A subgraph $\\mathcal R$')
     expect(note.checked).toBe('none')
-    const memo = readConceptMemo(lib, 'reducible-configuration').text
-    expect(memo).toContain('- Beta · 논문 x 2쪽')
-    expect(memo).toContain('[@lorem1986] is not in the bib yet')
+    // 확인 목록은 개념노트 기록 카드로: 할 일 하나와 메모 하나 (10/20 검토)
+    const records = readComments(path.join(lib, 'workbench'), 'concept-reducible-configuration').comments
+    expect(records.map((c) => [c.kind, c.state])).toEqual([['할 일', '대기'], ['메모', null]])
+    expect(records[1]!.body).toContain('- Beta · 논문 x 2쪽')
+    expect(records[1]!.body).toContain('[@lorem1986] is not in the bib yet')
+    expect(fs.existsSync(path.join(lib, 'concepts', 'reducible-configuration.memo.md'))).toBe(false)
     expect(readLearn(lib).items.find((i) => i.id === id)!.concept).toBe('reducible-configuration')
     // 두 번은 쓰지 않는다
     expect((await a.inject({ method: 'POST', url: `/api/learn/${id}/draft` })).statusCode).toBe(409)

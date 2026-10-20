@@ -68,8 +68,14 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
   const [status, setStatus] = useState<StatusFilter>('진행 중')
   useEffect(() => setStatus('진행 중'), [rid, target.target])
   const shown = project ? files : group ? groupFiles(files, group, slot.file) : slot.file ? [slot.file] : []
+  // 고른 기록이 보이게 필터 · 상태를 맞추는 것은 고른 기록이 바뀔 때 한 번만 (10/20 검토: 할 일을 체크할 때마다 "완료"로 넘어갔다).
+  // 저장 바로 뒤에는 새 기록이 아직 목록에 없을 수 있어, 찾을 때까지 기다린다
+  const aligned = useRef<string | null>(null)
   useEffect(() => {
+    if (!slot.active || aligned.current === slot.active) return
     const comments = project ? files.find((file) => file.target === target.target)?.comments ?? [] : slot.file?.comments ?? []
+    if (!comments.some((c) => c.id === slot.active)) return
+    aligned.current = slot.active
     setFilter((current) => filterForActiveRecord(current, comments, slot.active))
     setStatus((current) => statusForActiveRecord(current, comments, slot.active))
   }, [slot.active, slot.file, files, project, target.target])
@@ -123,7 +129,9 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
       {!shown.length && !error && <p className="empty records-empty">{slot.error ?? (group && recordsQuery.data ? t('아직 기록이 없습니다', 'No records yet') : t('불러오는 중…', 'Loading…'))}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}
     </div>
-    <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} />
+    {/* 흐름 화면에서 점을 고르기 전에는 남길 곳이 없다: 프로젝트 기록에 들어가 이 목록(흐름 점의 기록)에 보이지 않았다 (10/20 검토).
+        안내를 따로 두지 않고 입력란의 "남길 곳"이 점을 고르라고 한다 (10/20 사용자 코멘트: 비슷한 것을 둘로 두지 않는다) */}
+    <RecordComposer key={`${rid}|${target.target}`} rid={rid} target={target} needsDot={!!group && !target.target.startsWith(group)} />
   </section>
 }
 
@@ -146,13 +154,13 @@ function LostHighlights({ rid, file }: { rid: string; file: CommentFile }) {
   </details>
 }
 
-function RecordComposer({ rid, target }: { rid: string; target: CommentTarget }) {
+function RecordComposer({ rid, target, needsDot = false }: { rid: string; target: CommentTarget; needsDot?: boolean }) {
   const key = keyOf(rid, target.target)
   const defaultColor = useHighlightColor()
   const request = useRecordComposerRequest()
   const state = useSyncExternalStore((listener) => recordDrafts.subscribe(key, listener), () => recordDrafts.read(key, defaultColor))
   const { draft, error } = state
-  const busy = state.pending !== null
+  const busy = state.pending !== null || needsDot
   const setDraft = (next: ComposerDraft) => recordDrafts.write(key, next)
   const area = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
@@ -194,13 +202,13 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
       {/* 고른 글과 그 색을 한 줄로: 맨 앞 색 동그라미를 누르면 색을 바꾼다 (10/19 피드백 10:09) */}
       <div className="record-attached"><PaintPicker color={draft.color} disabled={busy} onChange={(color) => setDraft({ ...draft, color })} /><span title={a.quote}>{t('고른 글', 'Selection')}{a.line ? t(` · ${a.line}줄`, ` · line ${a.line}`) : a.page ? t(` · ${a.page}쪽`, ` · p. ${a.page}`) : ''} “{a.quote}”</span><button className="icon-btn sm" aria-label={t('고른 글 빼기', 'Remove selection')} title={t('빼기', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: {} })}>×</button></div>
     </>}
-    <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('궁금한 것이나 고칠 것을 적으면 Claude에게 보냅니다. 고친 글은 "노트에 적용"으로 넣습니다.', 'Write a question or something to fix and it goes to Claude. Put the revised text in with "Apply to note".') : t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.')) : draft.kind === '지시' ? t('에이전트가 할 일을 적으세요. 하고 나서 답을 답니다.', 'What should an agent do? It answers when done.') : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : target.target.startsWith('topic-') ? t('이 주제에 남길 기록', 'A record for this topic') : target.target.startsWith('flow-') ? t('이 흐름 점에 남길 기록', 'A record for this flow dot') : target.target.startsWith('concept-') ? t('이 개념노트에 남길 기록', 'A record for this concept note') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
+    <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={needsDot ? t('흐름 점을 고르면 그 점에 남깁니다', 'Pick a flow dot to write a record on it') : draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('궁금한 것이나 고칠 것을 적으면 Claude에게 보냅니다. 고친 글은 "노트에 적용"으로 넣습니다.', 'Write a question or something to fix and it goes to Claude. Put the revised text in with "Apply to note".') : t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.')) : draft.kind === '지시' ? t('에이전트가 할 일을 적으세요. 하고 나서 답을 답니다.', 'What should an agent do? It answers when done.') : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : target.target.startsWith('topic-') ? t('이 주제에 남길 기록', 'A record for this topic') : target.target.startsWith('flow-') ? t('이 흐름 점에 남길 기록', 'A record for this flow dot') : target.target.startsWith('concept-') ? t('이 개념노트에 남길 기록', 'A record for this concept note') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
       onChange={(e) => setDraft({ ...draft, text: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void save() } else onListKey(e, (text) => setDraft({ ...draft, text })) }} />
     {error && <div className="banner danger" role="alert">{error}</div>}
     <div className="record-composer-actions">
       {/* 아랫줄 왼쪽: 가리키기와 남길 곳 (10/15 사용자 코멘트), 오른쪽: 저장 */}
       <button className={`icon-btn${pointing ? ' on' : ''}`} data-ui="가리키기" data-tip={t('가리키기: 이 기록이 화면 어디에 대한 것인지 고릅니다', 'Point: choose the part of the screen this record is about')} aria-label={t('가리키기', 'Point')} aria-pressed={pointing} disabled={busy} onClick={() => setPointing((v) => !v)}>{Icon.point}</button>
-      <span className="record-where" data-ui="남길 곳" title={target.source}>{t('남길 곳', 'Saved to')} <b>{where}</b></span>
-      <span className="sp" /><button className="btn primary sm tip-end" data-tip={t('저장 (⌘↵)', 'Save (⌘↵)')} disabled={busy || !draft.text.trim()} onClick={() => void save()}>{busy ? t('저장 중…', 'Saving…') : t('저장', 'Save')}</button></div>
+      <span className="record-where" data-ui="남길 곳" title={needsDot ? undefined : target.source}>{t('남길 곳', 'Saved to')} <b>{needsDot ? t('흐름 점을 고르세요', 'pick a flow dot') : where}</b></span>
+      <span className="sp" /><button className="btn primary sm tip-end" data-tip={t('저장 (⌘↵)', 'Save (⌘↵)')} disabled={busy || !draft.text.trim()} onClick={() => void save()}>{state.pending !== null ? t('저장 중…', 'Saving…') : t('저장', 'Save')}</button></div>
   </div>
 }

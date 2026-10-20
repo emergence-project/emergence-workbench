@@ -188,6 +188,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     issues: await issuesUrl(), version: opts.appVersion ?? null,
     enabled: !!opts.feedbackDir, publishable: !!opts.feedbackDir && !!opts.feedbackPublish,
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
+    delay: (() => { const d = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
     lastAutoPublish: lastAuto,
     entries: opts.feedbackDir ? listFeedback(opts.feedbackDir) : [],
   }))

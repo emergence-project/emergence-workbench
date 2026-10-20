@@ -344,10 +344,12 @@ export function compileManuscript(wb: Workbench, engine: Engine, key = '', templ
   msOf(wb, key)
   const q = `${wb.root}\n${key}`
   const readOptions = current ?? (() => ({ engine, template, authors, shared, pick }))
-  // 기록을 넣으니 컴파일이 실패하면 기록 없이 한 번 더 만든다 (노트 · 서식이 아니라 기록 때문일 수 있으므로). 그때만 "기록 없이 만듦"을 알린다
+  // 기록을 넣으니 PDF를 만들지 못하면 기록 없이 한 번 더 만든다 (노트 · 서식이 아니라 기록 때문일 수 있으므로). 그때만 "기록 없이 만듦"을 알린다.
+  // 오류가 있어도 이번에 PDF를 만들었으면 그대로 둔다: 노트에 원래 오류가 있을 때 매번 두 번 돌고 기록 없는 PDF로 덮었다 (10/20 검토)
   const next = (queues.get(q) ?? Promise.resolve()).catch(() => undefined).then(async () => {
+    const started = new Date().toISOString()
     const r = await doCompile(wb, key, readOptions)
-    if (r.ok || !r.records?.added) return r
+    if (r.ok || !r.records?.added || (r.pdfAt !== undefined && r.pdfAt >= started)) return r
     const again = await doCompile(wb, key, () => ({ ...readOptions(), records: undefined }))
     // 기록 없이도 실패하면 기록 탓이 아니다: 노트의 오류를 그대로 보인다
     return again.ok ? { ...again, records: { added: 0, failed: true } } : again
