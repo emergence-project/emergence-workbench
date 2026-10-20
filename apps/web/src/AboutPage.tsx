@@ -318,7 +318,7 @@ function Sections({ part, at }: { part: AboutPart; at: number }) {
 
 /**
  * 기호와 의미 쪽의 표 (10/15 피드백 "기호와 의미 절"): 절 id마다 하나. 색 표(10/4, COLOR_ROWS)와 기호 표(10/4 17:57, SYMBOL_GROUPS)는 about/symbolTables.tsx,
- * 흐름 표는 흐름 화면과 같은 그림을 쓰려고 FlowView.tsx에 있다
+ * 흐름 표는 흐름 화면과 같은 그림을 쓰려고 flow/FlowSymbolTable.tsx에 있다
  */
 function SymbolTable({ id }: { id: string }) {
   if (id === 'colors') return (
