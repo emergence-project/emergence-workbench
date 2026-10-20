@@ -9,12 +9,14 @@ const KIND: Record<FlowNode['kind'], [string, string]> = {
   question: ['질문', '?'], finding: ['발견', '◉'], calc: ['수치 계산', 'π'], analytic: ['이론 계산', '∫'], proof: ['증명', '∴'], literature: ['문헌', '§'],
 }
 const FIELD: Record<string, string> = {
-  question: '물음', guess: '예상 답', motivation: '동기', statement: '진술', condition: '조건', goal: '목표', setup: '설정', method: '방법', result: '결과', reading: '문헌', gain: '얻은 것',
+  question: '물음', guess: '예상 답', motivation: '동기', criterion: '판정 기준', statement: '진술', condition: '조건', goal: '목표', setup: '설정', method: '방법', result: '결과', interpretation: '해석', assumptions: '가정', reading: '문헌', gain: '얻은 것', use: '쓰는 곳',
 }
 const EDGE: Record<FlowNode['from'][number]['type'], string> = { origin: '발단', support: '근거', refute: '반박', use: '사용' }
 const PROGRESS: Record<FlowNode['progress'], string> = { open: '미해결', active: '진행', paused: '멈춤', done: '해결' }
 const RESULT: Record<NonNullable<FlowNode['result']>, string> = { solved: '해결', refuted: '반증', dropped: '폐기' }
+const PRIORITY: Record<NonNullable<FlowNode['priority']>, string> = { high: '우선 높음', normal: '우선 보통', low: '우선 낮음' }
 const RECENT = 5
+const GAPS_SHOWN = 10
 const CLIP = 240
 
 const stateName = (n: FlowNode) => n.theorem ? '정리' : n.progress === 'done' ? RESULT[n.result ?? 'solved'] : PROGRESS[n.progress]
@@ -41,10 +43,15 @@ function brief(n: FlowNode, all: FlowNode[], full: boolean): string[] {
   if (n.from.length) out.push(`  - 앞선 점 ← ${n.from.map((f) => `${EDGE[f.type]} \`${f.id}\` (${byId.get(f.id) ? stateName(byId.get(f.id)!) : '—'})`).join(' · ')}`)
   const next = all.filter((x) => x.from.some((f) => f.id === n.id))
   if (next.length) out.push(`  - 뒤따른 점 → ${next.map((x) => `\`${x.id}\` (${stateName(x)}${end(x)})`).join(' · ')}`)
+  if (n.run) out.push(`  - 실행: ${[n.run.code, n.run.commit && `@ ${n.run.commit}`, n.run.params && Object.entries(n.run.params).map(([k, v]) => `${k}=${v}`).join(' · '), n.run.output && `→ ${n.run.output}`].filter(Boolean).join(' ')}`)
+  n.steps.forEach((st, i) => out.push(`  - 단계 ${i + 1}: ${oneLine(st.text)}${st.uses ? ` (쓰는 것: ${oneLine(st.uses)})` : ''}${st.checks.length ? '' : ' · 확인 없음'}`))
+  if (n.reason) out.push(`  - 이유: ${oneLine(n.reason)}`)
+  if (n.next) out.push(`  - 다음 할 일${n.priority ? ` (${PRIORITY[n.priority]})` : ''}: ${oneLine(n.next)}`)
   for (const e of n.evidence) {
     const checks = e.checks.map((c) => `${c.at.replace('T', ' ')} ${c.by} ${c.role === 'human' ? '승인' : '검토'}${c.revoked ? ' 거둠' : ''}`)
-    out.push(`  - 근거: ${e.file ?? `[@${e.ref}]`}${e.text ? ` — ${oneLine(e.text)}` : ''} (${checks.length ? checks.join(', ') : '검토 없음'})`)
+    out.push(`  - 근거: ${e.file ?? `[@${e.ref}]`}${e.section ? ` › ${e.section}` : ''}${e.stale ? ' (확인 뒤 바뀜)' : ''}${e.text ? ` — ${oneLine(e.text)}` : ''} (${checks.length ? checks.join(', ') : '검토 없음'})`)
   }
+  for (const g of n.gaps) out.push(`  - 빈틈: ${g.text}`)
   for (const g of n.guesses) out.push(`  - 짐작(사람 확인 안 함): ${oneLine(g)}`)
   return out
 }
@@ -60,7 +67,7 @@ export function flowStatusSections(wb: Workbench): string[] {
   const out = [
     '## 흐름 요약 — 원본 `workbench/flow/` · 점 주소 `flow-<id>` (기록 대상과 같다)', '',
     `점 ${nodes.length} · ${counts(nodes)}`, '',
-    '> 질문 문장 · 발단 선 · 갈래 폐기 · 승인은 사람이 정한다. 새 점은 사용자가 말할 때까지 더하지 않는다(10/15 보류). 에이전트의 검토는 근거의 `role: agent` 확인 기록으로 단다.',
+    '> 점 하나 = 일 하나(질문 · 계산 · 증명 · 문헌 · 발견). 일을 시작할 때 점을 진행으로 만들고(MCP `flow_add`, 계산 전에 `flow_search`로 지난 시도 확인), 끝날 때 결과 · 절까지 가리킨 근거 · 이유 · 다음 할 일을 적는다(`flow_update`). 필수 칸이 비면 끝냄이 거절된다. 질문 문장 · 발단 선 · 갈래 폐기 · 승인은 사람이 정한다. 에이전트의 검토는 `flow_review`(role: agent).',
     '> 모든 점: 절 "흐름 지도". 점 하나의 전부: `workbench/flow/<id>.yaml`.', '',
     `### 최근 점 ${recent.length} (새것부터. 열린 점 = 미해결 · 진행 · 멈춤은 핵심 칸까지)`, '',
   ]
@@ -73,9 +80,15 @@ export function flowStatusSections(wb: Workbench): string[] {
   for (const n of awaiting) out.push(...brief(n, nodes, false))
   if (awaiting.length) out.push('')
 
+  const gapped = newest.filter((n) => n.gaps.length)
+  out.push(`### 빈틈 ${gapped.length}${gapped.length ? ' (새것부터. 앱이 계산: 근거 없는 해결 · 검토 안 된 발견 위에 쌓음 · 이유 없는 반증 · 폐기 · 멈춤 · 다음이 없는 끝 · 확인 안 된 단계 …)' : ' (없음)'}`, '')
+  for (const n of gapped.slice(0, GAPS_SHOWN)) out.push(`- \`${n.id}\` ${n.short}: ${n.gaps.map((g) => g.text).join(' · ')}`)
+  if (gapped.length > GAPS_SHOWN) out.push(`- 그 밖 ${gapped.length - GAPS_SHOWN}점 (점 하나: MCP \`flow_read\`)`)
+  if (gapped.length) out.push('')
+
   out.push(`## 흐름 지도 ${nodes.length} — 날짜 순, 점마다 한 줄 · ▶ 시작 · ← 앞선 점`, '')
   for (const n of nodes) {
-    const head = `- ${n.from.length ? '' : '▶ '}\`${n.id}\` · ${KIND[n.kind][0]} · ${stateName(n)}${end(n)}`
+    const head = `- ${n.from.length ? '' : '▶ '}\`${n.id}\` · ${KIND[n.kind][0]} · ${stateName(n)}${end(n)}${n.gaps.length ? ` · 빈틈 ${n.gaps.length}` : ''}`
     out.push(isOpen(n) ? `${head} → 흐름 요약` : `${head} — ${n.title}${n.from.length ? ` ← ${n.from.map((f) => `${EDGE[f.type]} ${f.id}`).join(' · ')}` : ''}`)
   }
   out.push('')

@@ -51,6 +51,11 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `read_concept` | 개념노트 머리말 · 본문 · hash와 확인 상태(ok · changed · none) | `GET /api/concepts/:id` |
 | `edit_note` | 프로젝트 노트(원고 제외)를 글 바꾸기 `{ old, new, reason }`로 고친다. `reason`은 꼭 적는다: 왜 바꿨는지 한 줄로, 바뀐 문단 아래에 보인다. `read_note`의 hash를 보낸다. 바로 쓰고 사용자가 문단마다 검토한다. 상태가 해결인 노트는 첫 시도를 428로 거절하고 사용자에게 알린다. 대화에서 허락을 받은 뒤 `approved: true`로 다시 보낸다 | `POST /api/agent-edits/write` |
 | `edit_concept` | 개념노트 본문에 같은 일(머리말은 그대로). `checked: ok`인 노트도 같은 허락이 필요하고, 잠긴 노트는 고치지 않는다 | `POST /api/agent-edits/write` |
+| `flow_search` | 프로젝트 흐름에서 낱말이 맞는 지난 점(제목 · 설명 칸 · 실행 매개변수 · 이유)을 잘 맞는 것부터 한 줄씩: 상태 · 매개변수 · 결과 · 반증·폐기한 이유. 계산·증명을 시작하기 전에 본다 | `GET …/:rid/flow/search?q=` |
+| `flow_read` | 흐름 점 하나의 모든 칸, 근거와 단계의 확인, 앱이 찾은 빈틈 | `GET …/:rid/flow/:id` |
+| `flow_add` | 일을 시작할 때 점을 더한다(대개 `active`, 판정 기준과 함께). 함께 준 칸은 `flow_update`와 같은 해결 문턱을 지난다 | `POST …/:rid/flow` 뒤 `PATCH …/:rid/flow/:id`(`gate: true`) |
+| `flow_update` | 점을 고친다. 필수 칸이 비면 끝냄(`done`) · 멈춤을 거절하고 빈 칸 이름을 알린다(`docs/repo-format.md` §14 "해결 문턱"). 질문 문장 · 발단 선 · 갈래 폐기는 사용자가 정하므로 거절한다 | `PATCH …/:rid/flow/:id`(`gate: true`) |
+| `flow_review` | 근거 하나(`ev`)나 증명 단계 하나(`step`)의 에이전트 검토를 `role: agent`로, 확인한 내용의 hash와 함께 남긴다 | `POST …/:rid/flow/:id/review` |
 | `answer_record` | 질문 · 지시 기록 아래에 답을 쓴다 `{ target, id, answer }`. 지시는 먼저 그 일을 하고(노트는 `edit_note`) 답한다. 답 머리에 에이전트 이름이 붙고 기록은 답함이 된다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target/:id/answers` |
 | `add_record` | 사용자에게 남기는 기록 `{ file 또는 target, kind: 질문 \| 메모, text, quote?, line? }`. `by`에 에이전트 이름이 적힌다. 질문은 사용자에게 확인 · 결정을 부탁하는 것(예: 에이전트가 쓴 노트의 한 곳, `quote`로 그 자리에 붙인다)으로, 사용자가 앱에서 답할 때까지 사용자 차례다(앱에서 주황, 홈 "확인 필요"에 셈). 사용자가 답하면 `### 답 · 사용자`가 붙고 답함이 된다. 답은 `read_records`로 읽는다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target` |
 

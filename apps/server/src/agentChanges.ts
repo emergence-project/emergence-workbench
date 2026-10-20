@@ -7,6 +7,8 @@ import type { WorkbenchDiagnostic } from './agentCheck.js'
 import { t } from './i18n.js'
 import { folderMap, usesStandardLayout } from './projectFolders.js'
 import type { Workbench } from './workbench.js'
+import { parseFlowNode } from './flow.js'
+import { flowGate } from './flowGaps.js'
 
 /**
  * 바뀐 것 검사 (`pnpm agent:check`, docs/repo-format.md §15). 공통 규칙 가운데 기계가 판정할 수 있는 것을
@@ -18,7 +20,9 @@ export const CHANGE_CHECKS = {
   locked: 'error',
   approval: 'error',
   'flow-human': 'error',
-  'flow-new-dot': 'warning',
+  'flow-form': 'error',
+  'flow-skipped': 'warning',
+  'flow-new-dot': 'off',
   'nonstandard-new-file': 'warning',
   'confirmed-edit': 'warning',
   'outside-workbench': 'warning',
@@ -142,6 +146,8 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
   const removed: string[] = []
   const moved: string[] = []
   const confirmedNotes = new Set<string>()
+  let flowChanged = false
+  const work: string[] = []
 
   for (const c of changes) {
     const before = c.status === 'A' ? undefined : oldText(c.from ?? c.file)
@@ -187,8 +193,15 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
       if (a?.state === 'done' && b?.state !== 'done') add('approval', c.file, '맡긴 일을 done으로 바꿨습니다. 승인은 사용자가 앱에서 합니다. 결과를 냈으면 state: result로 둡니다.', 'The task was set to done. The user approves in the app; leave a finished result as state: result.')
       if (list(a?.judged).length > list(b?.judged).length || list(a?.answers).length > list(b?.answers).length) add('approval', c.file, '판단·답 기록(judged · answers)을 썼습니다. 이 칸은 앱이 사용자의 선택으로만 씁니다.', 'Judgement or answer records (judged · answers) were written. Only the app writes them from the user\'s choices.')
     }
+    if (dir || BLOCK.test(c.file)) work.push(c.file)
     if (FLOW.test(c.file) && path.basename(c.file) !== 'layout.yaml') {
-      if (c.status === 'A') add('flow-new-dot', c.file, '흐름에 새 점을 더했습니다. 사용자가 이 대화에서 시킨 것이 아니면 지우세요.', 'A new dot was added to the flow. Remove it unless the user asked for it in this conversation.')
+      flowChanged = true
+      if (c.status === 'A') add('flow-new-dot', c.file, '흐름에 새 점을 더했습니다.', 'A new dot was added to the flow.')
+      // 해결 문턱 (10/20): 끝남 · 멈춤으로 넘어간 점은 앱과 같은 필수 칸을 갖춰야 한다
+      const id = path.basename(c.file, '.yaml')
+      const an = parseFlowNode(id, c.file, after, []), bn = before === undefined ? undefined : parseFlowNode(id, c.file, before, []) ?? undefined
+      const miss = an ? flowGate(an, bn) : []
+      if (miss.length) add('flow-form', c.file, `점을 끝남 · 멈춤으로 바꿨는데 채울 칸이 비었습니다: ${miss.join(' · ')}. 채우거나 진행으로 되돌리세요.`, `The dot was finished or paused with empty required fields: ${miss.join(' · ')}. Fill them or set it back to active.`)
       const a = flowHuman(yamlOf(after)); const b = flowHuman(yamlOf(before))
       if (a.human.some((h) => !b.human.includes(h))) add('approval', c.file, '사람 승인 기록(role: human)을 썼습니다. 에이전트의 검토는 role: agent로 적습니다.', 'A human approval record (role: human) was written. Record agent reviews with role: agent.')
       if (c.status !== 'A') {
@@ -201,6 +214,8 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
       add('confirmed-edit', c.file, '사용자가 확정한(accepted) 결정·규칙을 고쳤습니다. 허락받았는지 답에 적으세요.', 'An accepted decision or rule was changed. Say in your reply whether you had permission.')
     }
   }
+
+  if (work.length && !flowChanged) add('flow-skipped', work[0]!, `노트 · 계산 파일 ${work.length}개를 바꿨는데 흐름 점은 그대로입니다. 이 일이 질문 · 계산 · 증명 하나라면 점을 만들거나(flow_add) 결과를 적으세요(flow_update).`, `${work.length} note or calculation file(s) changed but no flow dot did. If this work is a question, calculation or proof, add a dot (flow_add) or record its result (flow_update).`)
 
   for (const [folder, n] of [...outside].sort()) {
     add('outside-workbench', `${folder}${changes.some((c) => c.file === folder) ? '' : '/'}`, `workbench/ 밖 파일 ${n}개를 바꿨습니다. 사용자가 요청하거나 허락한 것인지 답에 적으세요.`, `${n} file(s) outside workbench/ changed. Say in your reply whether the user asked for or allowed it.`)
