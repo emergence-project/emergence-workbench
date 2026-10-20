@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { isOutside } from './fsutil.js'
+import { isOutside, isInside } from './fsutil.js'
 import { escapeLatexText, markdownToLatex } from '@rw/core'
 import { FIGURES_META, LIBRARY_SCOPE, TIKZ_LIBS, figureFile, listFigureSources, resolveFigure, type FigureKind } from './figures.js'
 import type { Registry } from './registry.js'
@@ -60,12 +60,12 @@ export function figureEmbedResolver(registry: Registry, rid?: string): FigureEmb
         const { abs, folder, file, kind } = figureFile(registry, fig.id)
         const root = fs.realpathSync(folder.dir)
         const real = fs.realpathSync(abs)
-        if (!real.startsWith(root + path.sep) || !fs.statSync(real).isFile()) return undefined
+        if (!isInside(root, real) || !fs.statSync(real).isFile()) return undefined
         const data = fs.readFileSync(real)
         const output = `figure-library/${fig.scope}/${file}`
         inputs.add(abs)
         const meta = path.join(folder.dir, FIGURES_META)
-        if (fs.existsSync(meta) && fs.realpathSync(meta).startsWith(root + path.sep)) inputs.add(meta)
+        if (fs.existsSync(meta) && isInside(root, fs.realpathSync(meta))) inputs.add(meta)
         files.set(output, { name: output, abs, data, kind })
         if (kind === 'tikz') {
           const source = data.toString('utf8')
@@ -125,7 +125,7 @@ export function writeFigureEmbeds(embeds: FigureEmbeds, dir: string): void {
   for (const file of embeds.files) {
     if (file.kind === 'svg') continue
     const dest = path.resolve(root, file.name)
-    if (!dest.startsWith(root + path.sep)) throw new Error(t('그림 원본은 빌드 폴더 안에만 쓸 수 있습니다', 'Figure sources can only be written inside the build folder'))
+    if (!isInside(root, dest)) throw new Error(t('그림 원본은 빌드 폴더 안에만 쓸 수 있습니다', 'Figure sources can only be written inside the build folder'))
     fs.mkdirSync(root, { recursive: true })
     let folder = root
     // 기존 빌드 파일의 링크를 따라 원본 폴더나 다른 위치에 쓰지 않는다.

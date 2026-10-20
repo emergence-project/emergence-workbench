@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loop, RECHECK_MS } from './scheduler.js'
+import { errorLog, loop, RECHECK_MS } from './scheduler.js'
 
 describe('loop (저절로 도는 일)', () => {
   beforeEach(() => { vi.useFakeTimers() })
@@ -50,5 +50,24 @@ describe('loop (저절로 도는 일)', () => {
     await vi.advanceTimersByTimeAsync(RECHECK_MS)
     expect(run).toHaveBeenCalledTimes(1)
     stop()
+  })
+})
+
+describe('errorLog (앱 업데이트 오류 줄)', () => {
+  it('같은 오류는 처음 한 번만, 다른 오류는 새로, 풀리면 한 줄', () => {
+    const lines: string[] = []
+    const log = errorLog('app auto update', (l) => lines.push(l))
+    log.ok()
+    for (let i = 0; i < 5; i++) log.fail(new Error('GitHub를 확인하지 못했습니다'))
+    log.fail(new Error('빌드 실패'))
+    log.ok()
+    log.ok()
+    log.fail(new Error('GitHub를 확인하지 못했습니다'))
+    expect(lines).toEqual([
+      'app auto update: GitHub를 확인하지 못했습니다',
+      'app auto update: 빌드 실패',
+      'app auto update: 다시 됩니다 (앞의 오류가 풀림)',
+      'app auto update: GitHub를 확인하지 못했습니다',
+    ])
   })
 })

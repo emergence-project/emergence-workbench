@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { publishPaths } from './pathsync.js'
 import { buildApp } from './app.js'
 
@@ -166,6 +166,23 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
       await until(() => { try { return g(remote, 'show', `main:workbench/log/${date}.md`).includes('일지 메모') } catch { return false } })
       expect(ahead(mac)).toBe(0)
     } finally { await app.close() }
+  })
+
+  it('앱 밖에서 쓴 기록도 10분마다 다시 보아 올린다 (첫 차례는 켜고 1분 뒤)', async () => {
+    const { remote, mac } = setup('sweep')
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const app = buildApp({ configDir: path.join(tmp, 'sweep-config'), recordsAutoPublishMs: 30 })
+    try {
+      await app.inject({ method: 'POST', url: '/api/researches', payload: { path: mac, createWorkbench: true } })
+      // 요청으로 쓰지 않았으니 올리기가 예약되지 않는다: 다시 보기(sweep)만 올린다
+      write(mac, 'workbench/comments/a.md', RECORDS.replace('question one', 'written outside the app'))
+      await vi.advanceTimersByTimeAsync(59_000)
+      expect(g(remote, 'log', '--format=%s', '-n', '1', 'main')).toBe('init')
+      await vi.advanceTimersByTimeAsync(1000)
+      vi.useRealTimers()
+      await until(() => g(remote, 'log', '--format=%s', '-n', '1', 'main') === 'Add comments from the research workspace app')
+      expect(g(remote, 'show', 'main:workbench/comments/a.md')).toContain('written outside the app')
+    } finally { vi.useRealTimers(); await app.close() }
   })
 
   it('예제 모드와 옵션이 없을 때는 저절로 올리지 않는다', async () => {

@@ -9,6 +9,7 @@ import { t } from './i18n.js'
 import { frontMatter, stripFrontMatter } from '@rw/core'
 import type { KnowledgeInfo, KnowledgeReview, KnowledgeTopic } from '@rw/core/contract/knowledge'
 import type { LibraryUse as KnowledgeUse } from '@rw/core/contract/library'
+import { isInside } from './fsutil.js'
 
 /**
  * 지식 — 저장 위치(Study · 개념노트 · 문헌노트 · Topic Review)를 가리지 않고 주제 하나로 모은 색인. 모두 읽기만 한다.
@@ -249,7 +250,7 @@ export function buildKnowledge(src: KnowledgeSources): KnowledgeInfo {
 export function readReview(dir: string | undefined, rel: string): KnowledgeReview {
   if (!dir) throw new WorkbenchError(404, t('Topic Review 폴더가 없음', 'No Topic Review folder'))
   const abs = path.resolve(dir, rel)
-  if (!abs.startsWith(path.resolve(dir) + path.sep) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Topic Review가 아님: ${rel}`, `Not a Topic Review: ${rel}`))
+  if (!isInside(path.resolve(dir), abs) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Topic Review가 아님: ${rel}`, `Not a Topic Review: ${rel}`))
   // 링크를 따라간 실제 파일도 폴더 안이어야 한다 (보안 검토 L1)
   const raw = fs.readFileSync(assertRealInside(dir, abs, t(`Topic Review가 아님: ${rel}`, `Not a Topic Review: ${rel}`)), 'utf8')
   const fm = frontmatter(raw)

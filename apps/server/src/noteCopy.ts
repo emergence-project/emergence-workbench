@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Author, LatexSetup, LatexTemplate } from '@rw/core'
 import YAML from 'yaml'
-import { isOutside, writeAtomic } from './fsutil.js'
+import { isOutside, writeAtomic, isInside } from './fsutil.js'
 import { writeYaml } from './yamlFile.js'
 import { allManuscripts } from './manuscript.js'
 import { expandHeadInputs, NOTE_MACROS, needsBodyOnly, noteMacrosText, toBodyOnly } from './noteBody.js'
@@ -154,7 +154,7 @@ export function createNote(wb: Workbench, input: { kind?: unknown; name?: unknow
     const declared = YAML.parseDocument(fs.readFileSync(wb.researchPath, 'utf8')).get('latex-macros')
     if (typeof declared === 'string' && declared.trim()) {
       const abs = path.resolve(repo, declared.trim())
-      if (abs.startsWith(repo + path.sep)) macroFiles.add(abs)
+      if (isInside(repo, abs)) macroFiles.add(abs)
     }
     checkCopyTargets([...copies, ...bibs.map((f) => ({ source: f, target: f })),
       ...[...macroFiles].map((f) => ({ source: t('프로젝트 기호', 'project macros'), target: path.relative(dest, f) })),

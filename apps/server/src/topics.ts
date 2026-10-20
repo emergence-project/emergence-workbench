@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
 import { charCount, parseCardFigureRef } from '@rw/core'
-import { hashOf, writeAtomic } from './fsutil.js'
+import { hashOf, writeAtomic, isInside } from './fsutil.js'
 import { ConflictError, TOPIC_YAML, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tx } from './i18n.js'
 import { editResearchYaml, researchHash, researchText } from './researchYaml.js'
@@ -425,6 +425,6 @@ export function topicImageFile(wb: Workbench, id: string): string {
   const abs = path.resolve(repo, t.preview.image)
   if (!fs.existsSync(abs)) throw new WorkbenchError(404, tx(`그림이 없음: ${t.preview.image}`, `No such picture: ${t.preview.image}`))
   const real = fs.realpathSync(abs)
-  if (!real.startsWith(repo + path.sep) || !fs.statSync(real).isFile()) throw new WorkbenchError(403, tx('저장소 밖의 그림', 'The picture is outside the repository'))
+  if (!isInside(repo, real) || !fs.statSync(real).isFile()) throw new WorkbenchError(403, tx('저장소 밖의 그림', 'The picture is outside the repository'))
   return real
 }

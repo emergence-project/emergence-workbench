@@ -144,4 +144,18 @@ describe.skipIf(!hasLatex)('Markdown 노트 컴파일', () => {
     expect(b.ok).toBe(true)
     await a.close()
   }, 120_000)
+
+  it('기록을 넣어 컴파일하면 PDF에 하이라이트 · 쪽지 주석이 들어가고 노트 파일은 그대로다 (10/20 검토: CI에서 돌지 않던 길)', async () => {
+    const { a, proj, R } = await setup('md-records')
+    const added = await a.inject({ method: 'POST', url: `${R}/comments/note-ground`, payload: { kind: '질문', title: '바닥 상태', source: 'workbench/notes/ground/note.md', quote: '증명을', line: 3, text: '어느 증명인가?' } })
+    expect(added.statusCode).toBe(200)
+    const key = ((await a.inject({ method: 'GET', url: `${R}/manuscripts` })).json() as { key: string; name: string }[]).find((m) => m.name === '바닥 상태')!.key
+    const r = (await a.inject({ method: 'POST', url: `${R}/manuscript/compile?ms=${encodeURIComponent(key)}&rec=all` })).json()
+    expect(r.problems).toEqual([])
+    expect(r.ok).toBe(true)
+    const pdf = (await a.inject({ method: 'GET', url: `${R}/manuscript/pdf?ms=${encodeURIComponent(key)}` })).rawPayload.toString('latin1')
+    expect(pdf).toMatch(/\/Subtype\s*\/(Highlight|Text)\b/)
+    expect(fs.readFileSync(path.join(proj, 'workbench/notes/ground/note.md'), 'utf8')).toBe(NOTE)
+    await a.close()
+  }, 120_000)
 })

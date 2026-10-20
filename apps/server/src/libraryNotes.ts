@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { fileCache } from './readCache.js'
 import path from 'node:path'
 import { parseBlock, parseList, stripFrontMatter } from '@rw/core'
-import { hashOf, localDate, writeAtomic } from './fsutil.js'
+import { hashOf, localDate, writeAtomic, isInside } from './fsutil.js'
 import { WorkbenchError, assertRealInside, type SaveResult } from './workbench.js'
 import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd } from './conceptNotes.js'
 import { t } from './i18n.js'
@@ -163,7 +163,7 @@ export function listStudy(study: string | undefined): StudyNote[] {
 export function readStudy(study: string | undefined, rel: string): { title: string; text: string } {
   if (!study) throw new WorkbenchError(404, t('Study 폴더가 없음', 'No Study folder'))
   const abs = path.resolve(study, rel)
-  if (!abs.startsWith(path.join(study, STUDY_SPACE) + path.sep) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Concept-Space의 노트가 아님: ${rel}`, `Not a note in Concept-Space: ${rel}`))
+  if (!isInside(path.join(study, STUDY_SPACE), abs) || !abs.endsWith('.md') || !fs.existsSync(abs)) throw new WorkbenchError(400, t(`Concept-Space의 노트가 아님: ${rel}`, `Not a note in Concept-Space: ${rel}`))
   // 링크를 따라간 실제 파일도 Concept-Space 안이어야 한다 (보안 검토 L1)
   const raw = fs.readFileSync(assertRealInside(path.join(study, STUDY_SPACE), abs, t(`Concept-Space의 노트가 아님: ${rel}`, `Not a note in Concept-Space: ${rel}`)), 'utf8')
   const text = stripFrontMatter(raw).trim()

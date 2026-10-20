@@ -165,7 +165,7 @@ export class Workbench {
     const repo = this.repo
     const rel = path.normalize(p.trim()).replace(/\/$/, '')
     const abs = path.resolve(repo, rel)
-    if (abs !== repo && !abs.startsWith(repo + path.sep)) return null
+    if (!isInside(repo, abs)) return null
     return fs.existsSync(abs) ? path.relative(repo, abs) : null
   }
 

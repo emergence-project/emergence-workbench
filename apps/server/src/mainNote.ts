@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { writeAtomic } from './fsutil.js'
+import { writeAtomic, isInside } from './fsutil.js'
 import { WorkbenchError, type Workbench } from './workbench.js'
 import { t } from './i18n.js'
 import { editResearchYaml, researchHash } from './researchYaml.js'
@@ -53,7 +53,7 @@ export function setMainNote(wb: Workbench, input: { path: unknown; name: unknown
   if (typeof input.path !== 'string' || !/\.tex$/.test(input.path)) throw new WorkbenchError(400, t('path(.tex)가 필요함', 'path (.tex) is required'))
   const rel = path.normalize(input.path.trim())
   const abs = path.resolve(repo, rel)
-  if (!abs.startsWith(repo + path.sep) || !fs.existsSync(abs)) throw new WorkbenchError(400, t('저장소 안에 없는 파일', 'The file is not in the repository'))
+  if (!isInside(repo, abs) || !fs.existsSync(abs)) throw new WorkbenchError(400, t('저장소 안에 없는 파일', 'The file is not in the repository'))
   const name = typeof input.name === 'string' ? input.name.replace(/\s+/g, ' ').trim() : ''
   if (/[—]|\s-\s/.test(name)) throw new WorkbenchError(400, t('이름에 " — "나 " - "를 쓸 수 없음', 'The name cannot contain " — " or " - "'))
 
