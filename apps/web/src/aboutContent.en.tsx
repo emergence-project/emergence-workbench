@@ -89,7 +89,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = [
         items: [
           { text: <>Shows one week (Sun to Sat); move between weeks with ‹ · This week · ›. Past days show finished to-dos, note edits, status changes and memos; future days show only deadlines ⚑. The calendar in the Work tab uses the same symbols.</> },
           { text: <>"Copy briefing" copies this week's work as text, grouped by project.</> },
-          { text: <>If you connect Google in Settings › Accounts, Google Calendar events also appear, in neutral gray (read only).</> },
+          { text: <>If you connect Google in Settings › Accounts, Google Calendar events also appear, in neutral gray (read only). If the sign-in expires, "Google connection expired · Reconnect" shows under the calendar.</> },
         ],
       },
       {

@@ -98,7 +98,13 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
 
   app.get<{ Querystring: { from?: string; to?: string } }>('/api/google/events', replies(C.GoogleEvents), async (req): Promise<C.GoogleEvents> => {
     if (!google.status().connected) return { connected: false, events: [] }
-    return { connected: true, events: await google.events(String(req.query.from ?? ''), String(req.query.to ?? '')) }
+    if (google.expired) return { connected: true, expired: true, events: [] }
+    try {
+      return { connected: true, events: await google.events(String(req.query.from ?? ''), String(req.query.to ?? '')) }
+    } catch (e) {
+      if (google.expired) return { connected: true, expired: true, events: [] }
+      throw e
+    }
   })
 
   /** 구글에 저장된 설정과 이 컴퓨터를 비교한다 */
