@@ -175,10 +175,20 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-next-pop { right: 0; top: calc(100% + 4px); min-width: 200px; }
 
 /* 줄 더하기·빼기 (＋ 줄 · ×, 10/16) */
-.fl-rowbtn { cursor: pointer; }
-.fl-rowbtn text { fill: var(--text-2); font-size: var(--fs-sm); }
-.fl-rowbtn:hover text, .fl-rowbtn:focus-visible text { fill: var(--text); }
-.fl-rowbtn:focus { outline: none; }
+.fl-canvas { display: flex; position: relative; }
+.fl-canvas > .fl-svg { flex: none; }
+/* 줄 이름 칸 (10/20): 가로로 넘겨도 왼쪽에 붙어 있다. 차트와 같은 바탕, 연필 · ×는 가리킬 때만 */
+.fl-rowheads { position: sticky; left: 0; z-index: 1; flex: none; background: var(--bg); cursor: default; user-select: none; }
+.fl-rowhead { position: absolute; left: 0; right: 0; height: 24px; display: flex; align-items: center; gap: 2px; padding-left: var(--sp-2); }
+.fl-rowhead.to { background: var(--bg-hover); }
+.fl-rowname { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); cursor: grab; }
+.fl-rowname:active { cursor: grabbing; }
+.fl-rowname-in { flex: 1; min-width: 0; font-size: var(--fs-sm); }
+.fl-rowtools { display: flex; visibility: hidden; }
+.fl-rowhead:hover .fl-rowtools, .fl-rowhead:focus-within .fl-rowtools { visibility: visible; }
+.fl-rowadd { position: absolute; left: var(--sp-2); border: none; background: none; padding: 0; font-size: var(--fs-sm); color: var(--text-2); cursor: pointer; }
+.fl-rowadd:hover { color: var(--text); }
+.fl-startmark { cursor: grab; }
 
 /* 근거 논문: 이름 뒤 작은 § (10/16, 점 위 배지 대신) */
 .fl-cite { fill: var(--text-2); font-weight: var(--fw-normal); }

@@ -2,7 +2,7 @@
 import { enc, json, req, send } from './http'
 
 // 타입은 서버와 같은 계약에서 (packages/core/src/contract/flow.ts). 타입만 가져와 번들에 zod가 들어가지 않는다
-import type { FlowCheckBody, FlowDeleted, FlowLayoutBody, FlowLayoutReply, FlowOne, FlowPatchBody, FlowRows, FlowRowsReply, FlowScan, FlowSearchReply, NewFlowBody } from '@rw/core/contract/flow'
+import type { FlowCheckBody, FlowDeleted, FlowLayoutBody, FlowLayoutReply, FlowOne, FlowPatchBody, FlowRowMove, FlowRows, FlowRowsReply, FlowScan, FlowSearchReply, NewFlowBody } from '@rw/core/contract/flow'
 export type { FlowEdge, FlowEvidence, FlowKind, FlowLayout as FlowCells, FlowNode, FlowPatchBody, FlowProgress, FlowResult, FlowRows, FlowScan, FlowSearchReply, FlowStep, NewFlowBody } from '@rw/core/contract/flow'
 export { FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_REQUIRED, FLOW_RESULTS, flowGate } from '@rw/core'
 
@@ -18,6 +18,8 @@ export const flowApi = (rid: string) => {
     check: (id: string, body: FlowCheckBody) => req(`${base}/${enc(id)}/check`, send('POST', body)).then((r) => json<FlowOne>(r)).then((r) => r.node),
     remove: (id: string, baseHash: string) => req(`${base}/${enc(id)}?baseHash=${enc(baseHash)}`, { method: 'DELETE' }).then((r) => json<FlowDeleted>(r)),
     rows: (body: FlowRows) => req(`${base}/rows`, send('PUT', body)).then((r) => json<FlowRowsReply>(r)).then((r) => r.rows),
+    /** 줄 옮기기: 그 줄의 점과 이름이 함께 간다 */
+    moveRow: (body: FlowRowMove) => req(`${base}/rows/move`, send('PUT', body)).then((r) => json<FlowRowsReply>(r)),
     place: (body: FlowLayoutBody) => req(`${base}/layout`, send('PUT', body)).then((r) => json<FlowLayoutReply>(r)).then((r) => r.layout),
   }
 }

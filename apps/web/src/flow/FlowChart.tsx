@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ConflictError, flowApi, type FlowCells, type FlowNode, type NoteRow } from '../api'
 import { lineageOf, type FlowLayout } from '../flowLayout'
 import { go } from '../router'
@@ -8,12 +8,15 @@ import { setFlowSelection } from '../flowSelection'
 import { flash } from '../flash'
 import { t as tr } from '../i18n'
 import { KIND, EDGE, markOf, stateOf, stateName, MarkSvg } from './marks'
+import { Icon } from '../icons'
 import type { TopicRef } from './data'
 import { FlowCard } from './FlowCard'
 import { newDraftNode, FlowEditor } from './FlowEditor'
 
 const ZS = [0.5, 0.67, 0.8, 1, 1.25, 1.5]
 const CW0 = 116, RH0 = 76, TOP = 30, LEFT = 30
+/** 줄 이름 칸의 폭 (10/20 사용자: 줄 이름은 주제와 따로, 차트 왼쪽에 붙어 있다) */
+const GUT = 112
 const H_KEY = 'rw-flow-h', Z_KEY = 'rw-flow-zoom', SEL_KEY = 'rw-flow-sel', NAME_KEY = 'rw-flow-names'
 const DEFAULT_H = TOP + 5 * RH0 + 16
 
@@ -27,17 +30,8 @@ export function openFlowDot(rid: string, n: Pick<FlowNode, 'id'>) {
 
 type Cell = { c: number; r: number }
 
-/** 차트 안의 글자 버튼 (＋ 줄 · ×): 누르기와 Enter·Space */
-function RowButton({ x, y, label, onPress, children, 'data-ui': ui }: { x: number; y: number; label: string; onPress(): void; children: ReactNode; 'data-ui': string }) {
-  return <g className="fl-rowbtn" data-ui={ui} role="button" tabIndex={0} aria-label={label}
-    onClick={(e) => { e.stopPropagation(); onPress() }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPress() } }}>
-    <title>{label}</title>
-    <text x={x} y={y}>{children}</text>
-  </g>
-}
-
-export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, reload }: {
-  rid: string; focus?: string; all: FlowNode[]; cells: FlowCells; lay: FlowLayout; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void
+export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, topics, reload }: {
+  rid: string; focus?: string; all: FlowNode[]; cells: FlowCells; lay: FlowLayout; rowNames: Record<string, string>; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void
 }) {
   const ids = new Set(lay.placed.map((p) => p.node.id))
   const [sel, setSelState] = useState<string | null>(() => { const s = store.get<Record<string, string>>(SEL_KEY, {})[rid]; return s && ids.has(s) ? s : null })
@@ -91,7 +85,7 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
     const el = box.current
     if (!el) return null
     const b = el.getBoundingClientRect()
-    const x = e.clientX - b.left + el.scrollLeft, y = e.clientY - b.top + el.scrollTop
+    const x = e.clientX - b.left + el.scrollLeft - GUT, y = e.clientY - b.top + el.scrollTop
     const c = Math.max(0, Math.min(lay.cols, Math.floor((x - LEFT) / CW)))
     const r = Math.max(0, Math.min(lay.rows - 1, Math.floor((y - TOP) / RH)))
     return { c, r: r - lay.mid }
@@ -111,13 +105,50 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
     return { c, r }
   })()
   const draftNode = draft ? newDraftNode(draft.from.map((id) => byId.get(id)).filter((m): m is FlowNode => !!m), focus) : null
-  // 줄 더하기·빼기 (10/16 사용자 승인): 맨 위·맨 아래 가장자리의 ＋ 줄, 빈 가장자리 줄의 ×. 줄 수는 주제 수 밑으로 줄지 않는다
-  const least = Math.max(1, topics.length)
-  const setRows = (top: number, bottom: number) => api.rows({ top, bottom }).then(reload, fail)
+  // 줄 더하기·빼기 (10/16 사용자 승인): 맨 위·맨 아래 가장자리의 ＋ 줄, 빈 가장자리 줄의 ×.
+  // 줄 이름 (10/20 사용자): 주제와 따로. 줄 수도 주제 수와 상관없이 한 줄까지 뺀다
+  const least = 1
+  const setRows = (top: number, bottom: number, names: Record<string, string> = rowNames) => api.rows({ top, bottom, names }).then(reload, fail)
   const rowTop = -lay.mid, rowBottom = lay.rows - 1 - lay.mid
   const emptyRow = (r: number) => r !== lay.mid && !lay.placed.some((p) => p.r === r) && draftAt?.r !== r
   const canDrop = (r: number) => lay.rows > least && (r === 0 || r === lay.rows - 1) && emptyRow(r)
   const ROW_ADD = 28
+  // 줄 이름 고치기: 연필로 연 입력란 하나 (Enter 저장 · Esc 취소)
+  const [naming, setNaming] = useState<{ r: number; text: string } | null>(null)
+  const saveName = () => {
+    if (!naming) return
+    const key = String(naming.r - lay.mid), text = naming.text.trim()
+    setNaming(null)
+    if (text === (rowNames[key] ?? '')) return
+    const { [key]: _, ...rest } = rowNames
+    void setRows(rowTop, rowBottom, text ? { ...rest, [key]: text } : rest)
+  }
+  // 줄 옮기기 (10/20 사용자): ▶나 줄 이름을 위아래로 끌면 그 줄의 점과 이름이 함께 간다
+  const rowDrag = useRef<{ r: number; y: number; moved: boolean } | null>(null)
+  const [rowGhost, setRowGhost] = useState<number | null>(null)
+  const rowAt = (e: React.PointerEvent) => { const el = box.current; if (!el) return null; const y = e.clientY - el.getBoundingClientRect().top + el.scrollTop; return Math.max(0, Math.min(lay.rows - 1, Math.floor((y - TOP) / RH))) }
+  const rowHandle = (r: number) => ({
+    onPointerDown: (e: React.PointerEvent) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); rowDrag.current = { r, y: e.clientY, moved: false }; (e.currentTarget as Element).setPointerCapture(e.pointerId) },
+    onPointerMove: (e: React.PointerEvent) => {
+      const d = rowDrag.current
+      if (!d || (!d.moved && Math.abs(e.clientY - d.y) < 5)) return
+      d.moved = true
+      const to = rowAt(e)
+      setRowGhost(to !== null && to !== d.r ? to : null)
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const d = rowDrag.current
+      rowDrag.current = null
+      setRowGhost(null)
+      if (!d?.moved) return
+      dragged.current = true
+      const to = rowAt(e)
+      if (to === null || to === d.r) return
+      const now = Object.fromEntries(lay.placed.map((p) => [p.node.id, { c: p.c, r: p.r - lay.mid }]))
+      api.moveRow({ from: d.r - lay.mid, to: to - lay.mid, cells: now }).then(reload, fail)
+    },
+    onLostPointerCapture: () => { rowDrag.current = null; setRowGhost(null) },
+  })
   const H = TOP + RH * Math.max(lay.rows, draftAt ? draftAt.r + 1 : 0) + 1 + ROW_ADD
   const lin = sel && at.has(sel) ? lineageOf(sel, lay.lines) : null
   const inLin = (id: string) => !!lin && (lin.up.has(id) || lin.down.has(id))
@@ -127,12 +158,12 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
   const center = (id: string) => {
     const p = at.get(id), el = box.current
     if (!p || !el) return
-    el.scrollTo({ left: X(p.c) - el.clientWidth / 2, top: Y(p.r) - el.clientHeight / 2, behavior: 'smooth' })
+    el.scrollTo({ left: GUT + X(p.c) - el.clientWidth / 2, top: Y(p.r) - el.clientHeight / 2, behavior: 'smooth' })
   }
   // 바탕을 끌면 화면을 옮긴다
   const pan = useRef<{ x: number; y: number; l: number; t: number } | null>(null)
   const onDown = (e: React.PointerEvent) => {
-    if ((e.target as Element).closest('.fl-node, .fl-rowbtn') || !box.current) return
+    if ((e.target as Element).closest('.fl-node, .fl-rowheads') || !box.current) return
     pan.current = { x: e.clientX, y: e.clientY, l: box.current.scrollLeft, t: box.current.scrollTop }
     box.current.setPointerCapture(e.pointerId)
   }
@@ -203,7 +234,27 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
       </div>
       {lay.placed.length === 0 && (draftEditor || <p className="fl-hint muted">{tr('흐름의 점이 없습니다. ＋ 시작점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots yet. Add the first step (a question, calculation, proof…) with ＋ Start.')}</p>)}
       {lay.placed.length > 0 && <><div className="fl-box" ref={box} style={{ height }} data-ui="흐름 차트" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-        onClick={(e) => { if (!picking && !(e.target as Element).closest('.fl-node')) setSel(null) }}>
+        onClick={(e) => { if (!picking && !(e.target as Element).closest('.fl-node, .fl-rowhead')) setSel(null) }}>
+        <div className="fl-canvas" style={{ width: GUT + W, height: H }}>
+        <div className="fl-rowheads" data-ui="흐름 줄 이름" style={{ width: GUT, height: H }}>
+          <button className="fl-rowadd" data-ui="흐름 줄 더하기" style={{ top: 4 }} title={tr('위에 줄 더하기', 'Add a row above')} onClick={(e) => { e.stopPropagation(); void setRows(rowTop - 1, rowBottom) }}>＋ {tr('줄', 'Row')}</button>
+          {Array.from({ length: lay.rows }, (_, r) => {
+            const name = rowNames[String(r - lay.mid)]
+            return <div key={r} className={`fl-rowhead${rowGhost === r ? ' to' : ''}`} style={{ top: Y(r) - 12 }}>
+              {naming?.r === r
+                ? <input className="fl-rowname-in" autoFocus aria-label={tr('줄 이름', 'Row name')} placeholder={tr('줄 이름', 'Row name')} value={naming.text}
+                  onChange={(e) => setNaming({ r, text: e.target.value })} onBlur={saveName}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveName() } else if (e.key === 'Escape') setNaming(null) }} />
+                : <span className="fl-rowname" title={name ? `${name}\n${tr('끌어서 줄 옮기기', 'Drag to move the row')}` : tr('끌어서 줄 옮기기', 'Drag to move the row')} {...rowHandle(r)}>{name ?? ''}</span>}
+              {naming?.r !== r && <span className="fl-rowtools">
+                <button className="icon-btn sm" data-ui="흐름 줄 이름 고치기" title={tr('줄 이름 고치기', 'Rename row')} aria-label={tr('줄 이름 고치기', 'Rename row')} onClick={(e) => { e.stopPropagation(); setNaming({ r, text: name ?? '' }) }}>{Icon.pencil}</button>
+                {(r === 0 || r === lay.rows - 1) && canDrop(r) && <button className="icon-btn sm" data-ui="흐름 줄 빼기" title={tr('빈 줄 빼기', 'Remove this empty row')} aria-label={tr('빈 줄 빼기', 'Remove this empty row')}
+                  onClick={(e) => { e.stopPropagation(); void setRows(r === 0 ? rowTop + 1 : rowTop, r === 0 ? rowBottom : rowBottom - 1) }}>{Icon.x}</button>}
+              </span>}
+            </div>
+          })}
+          <button className="fl-rowadd" data-ui="흐름 줄 더하기" style={{ top: H - 26 }} title={tr('아래에 줄 더하기', 'Add a row below')} onClick={(e) => { e.stopPropagation(); void setRows(rowTop, rowBottom + 1) }}>＋ {tr('줄', 'Row')}</button>
+        </div>
         <svg className="fl-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr('연구 흐름', 'Research flow')}>
           {Array.from({ length: lay.cols }, (_, c) => c > 0 && <line key={`c${c}`} className="fl-grid" x1={X(c)} y1={1} x2={X(c)} y2={H} />)}
           {Array.from({ length: lay.rows }, (_, r) => <line key={`r${r}`} className={r === lay.mid ? 'fl-mid' : 'fl-grid'} x1={LEFT} y1={Y(r)} x2={W} y2={Y(r)} />)}
@@ -223,10 +274,7 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
             <circle className="fl-ghost" cx={X(draftAt.c)} cy={Y(draftAt.r)} r={14} />
             <text className="fl-name strong" x={X(draftAt.c)} y={Y(draftAt.r) + 30} textAnchor="middle">{draftNode?.short || tr('새 점', 'New dot')}</text>
           </g>}
-          <RowButton data-ui="흐름 줄 더하기" x={8} y={14} label={tr('위에 줄 더하기', 'Add a row above')} onPress={() => setRows(rowTop - 1, rowBottom)}>＋ {tr('줄', 'Row')}</RowButton>
-          <RowButton data-ui="흐름 줄 더하기" x={8} y={H - 12} label={tr('아래에 줄 더하기', 'Add a row below')} onPress={() => setRows(rowTop, rowBottom + 1)}>＋ {tr('줄', 'Row')}</RowButton>
-          {[0, lay.rows - 1].filter((r, i, a) => a.indexOf(r) === i && canDrop(r)).map((r) =>
-            <RowButton key={`x${r}`} data-ui="흐름 줄 빼기" x={LEFT - 24} y={Y(r) + 5} label={tr('빈 줄 빼기', 'Remove this empty row')} onPress={() => setRows(r === 0 ? rowTop + 1 : rowTop, r === 0 ? rowBottom : rowBottom - 1)}>×</RowButton>)}
+          {rowGhost !== null && <rect className="fl-ghost" x={2} y={TOP + RH * rowGhost + 2} width={W - 4} height={RH - 4} rx={8} />}
           {ghost && <rect className="fl-ghost" x={LEFT + CW * ghost.c + 4} y={TOP + RH * (ghost.r + lay.mid) + 2} width={CW - 8} height={RH - 4} rx={8} />}
           {lay.placed.map(({ node: n, c, r }) => {
             const picked = !!picking?.includes(n.id) || !!draft?.from.includes(n.id)
@@ -270,7 +318,7 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
                 : <circle className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} cx={x} cy={y} r={19} />)}
               <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot || picked} />
               {/* 시작점 ▶는 차트 왼쪽 벽에 붙여 한 세로줄에 세운다 (10/15 12:11 제안). 그 줄에서 앞에 다른 점이 없으면 점까지 선으로 잇는다 */}
-              {start && <g className="fl-startmark"><title>{tr('시작점: 앞선 점이 없다', 'Start: no earlier dot')}</title>
+              {start && <g className="fl-startmark" {...rowHandle(r)}><title>{tr('시작점: 앞선 점이 없다 · 끌어서 줄 옮기기', 'Start: no earlier dot · drag to move the row')}</title>
                 <path className="fl-start" d={`M${LEFT - 22} ${y - 7}L${LEFT - 13} ${y}L${LEFT - 22} ${y + 7}Z`} />
                 {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
               </g>}
@@ -280,6 +328,7 @@ export function FlowChart({ rid, focus, all, cells, lay, warn, notes, topics, re
             </g>
           })}
         </svg>
+        </div>
       </div>
       <div className="fl-size" data-ui="흐름 크기 조절" role="separator" aria-orientation="horizontal" title={tr('끌어 높이 바꾸기 · 두 번 누르면 처음 높이', 'Drag to resize · double-click to reset')}
         onPointerDown={(e) => { sizing.current = { y: e.clientY, h: height }; (e.target as Element).setPointerCapture(e.pointerId) }}

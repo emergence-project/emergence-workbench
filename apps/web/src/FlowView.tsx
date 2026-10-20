@@ -21,11 +21,11 @@ import { FlowChart } from './flow/FlowChart'
 /** 흐름 화면 (왼쪽 사이드바의 "흐름"): 프로젝트의 점 전부. topic이면 그 주제의 점을 굵게 */
 export function FlowPage({ rid, topic, notes, topics }: { rid: string; topic?: string; notes: NoteRow[]; topics: TopicRef[] }) {
   const { scan, reload } = useFlow(rid)
-  const lay = useMemo(() => scan ? layoutFlow(scan.nodes, scan.layout, { rows: scan.rows, minRows: topics.length }) : null, [scan, topics.length])
+  const lay = useMemo(() => scan ? layoutFlow(scan.nodes, scan.layout, { rows: scan.rows }) : null, [scan])
   return <div className="ws-doc" data-ui="흐름 화면">
     <section className="pane">
       <div className="scroll"><div className="page-body fl-page">
-        {scan && lay ? <FlowChart rid={rid} focus={topic && topics.some((x) => x.id === topic) ? topic : undefined} all={scan.nodes} cells={scan.layout} lay={lay} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} />
+        {scan && lay ? <FlowChart rid={rid} focus={topic && topics.some((x) => x.id === topic) ? topic : undefined} all={scan.nodes} cells={scan.layout} lay={lay} rowNames={scan.rows?.names ?? {}} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} />
           : <p className="muted">{tr('불러오는 중…', 'Loading…')}</p>}
       </div></div>
     </section>

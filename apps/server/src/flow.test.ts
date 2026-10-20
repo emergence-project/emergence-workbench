@@ -193,6 +193,22 @@ describe('흐름 고치기', () => {
     expect((await send('PUT', '/rows', { top: 1, bottom: 2 })).statusCode).toBe(400)
   })
 
+  it('줄 이름: 주제와 따로 적고, 범위 밖으로 나간 줄의 이름은 빠지며, 이름을 보내지 않으면 둔다', async () => {
+    put('a', 'format: 1\nkind: question\nprogress: open\ntitle: 가\ntopics: [t]')
+    expect((await send('PUT', '/rows', { top: -1, bottom: 1, names: { '-1': ' 위 줄 ', '0': '가운데', '1': '' } })).json()).toEqual({ rows: { top: -1, bottom: 1, names: { '-1': '위 줄', '0': '가운데' } } })
+    expect(fs.readFileSync(path.join(dir(), 'layout.yaml'), 'utf8')).toContain('names:\n    -1: 위 줄\n    0: 가운데')
+    expect((await send('PUT', '/rows', { top: 0, bottom: 1 })).json()).toEqual({ rows: { top: 0, bottom: 1, names: { '0': '가운데' } } })
+    expect((await send('PUT', '/rows', { top: 0, bottom: 1, names: { x: 'a' } })).statusCode).toBe(400)
+  })
+
+  it('줄 옮기기: 그 줄의 점과 이름이 함께 가고 사이 줄은 한 칸씩 밀린다', async () => {
+    for (const id of ['a', 'b', 'c']) put(id, `format: 1\nkind: question\nprogress: open\ntitle: ${id}`)
+    await send('PUT', '/rows', { top: -1, bottom: 1, names: { '-1': '위', '1': '아래' } })
+    const r = (await send('PUT', '/rows/move', { from: -1, to: 1, cells: { a: { c: 0, r: -1 }, b: { c: 0, r: 0 }, c: { c: 1, r: 1 }, zz: { c: 5, r: 0 } } })).json()
+    expect(r).toEqual({ rows: { top: -1, bottom: 1, names: { '1': '위', '0': '아래' } }, layout: { a: { c: 0, r: 1 }, b: { c: 0, r: -1 }, c: { c: 1, r: 0 } } })
+    expect((await send('PUT', '/rows/move', { from: 0, to: 0.5, cells: {} })).statusCode).toBe(400)
+  })
+
   it('자리: 10/14 오전의 주제별 자리도 읽고, 쓸 때 프로젝트 하나로 옮긴다', async () => {
     put('a', 'format: 1\nkind: question\nprogress: open\ntitle: 가')
     put('b', 'format: 1\nkind: question\nprogress: open\ntitle: 나')
