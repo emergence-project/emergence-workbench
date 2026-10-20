@@ -41,7 +41,8 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
       if (running) return
       running = true
       try {
-        for (const r of registry.list()) {
+        // 진행 중인 프로젝트만 (10/20 사용자 결정: 저절로 도는 일은 멈춤 · 완료 프로젝트에 손대지 않는다). 받기 버튼은 그대로 된다
+        for (const r of registry.list().filter((x) => x.state === 'active')) {
           try {
             if (!await autoPull(r.path)) continue
             await refreshStatus(r.id)
