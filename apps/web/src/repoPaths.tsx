@@ -17,6 +17,17 @@ export const RepoPathContext = createContext<{ rid: string; from?: RecordRef } |
 export const looksLikeRepoPath = (s: string): boolean =>
   !/\s/.test(s) && !/^[a-z]+:\/\//i.test(s) && !s.startsWith('/') && /^[^/]+(\/[^/]+)+$/.test(s.replace(/^\.\//, '')) && /\.[A-Za-z0-9]{1,8}$/.test(s)
 
+/** 기록 글에서 `…`로 감싼 그 경로만 새 경로로 바꾼다 (`old-notes/a.md`처럼 그 경로를 품은 다른 경로는 그대로). 없으면 null */
+export function replaceRecordPath(body: string, from: string, to: string): string | null {
+  let found = false
+  const out = body.replace(/`([^`\n]+)`/g, (whole, inner: string) => {
+    if (inner.replace(/^\.\//, '') !== from) return whole
+    found = true
+    return `\`${to}\``
+  })
+  return found ? out : null
+}
+
 // 파일 탭이 "기록의 경로를 새 자리로 고치기"에 쓸, 경로를 연 기록 (탭 주소에는 넣지 않는다)
 const opened = new Map<string, RecordRef>()
 export const openedFrom = (rid: string, path: string): RecordRef | undefined => opened.get(`${rid}|${path}`)

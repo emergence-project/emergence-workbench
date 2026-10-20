@@ -26,8 +26,8 @@ function frontLines(text: string): number {
   return end < 0 ? 0 : text.slice(0, end + 4).split('\n').length
 }
 
-/** 메모 글의 제목 줄(#…)을 굵은 글로. 제목만 있으면 빈 글 */
-const headingsBold = (text: string) => text.split('\n').every((l) => !l.trim() || /^#{1,6} /.test(l)) ? '' : text.replace(/^#{1,6} +(.+?)[ \t]*#*[ \t]*$/gm, '**$1**')
+/** 메모 글의 제목 줄(#…)을 굵은 글로. 닫는 #는 빈칸 뒤에 올 때만 뗀다(`## C#`는 그대로). 제목만 있으면 빈 글 */
+const headingsBold = (text: string) => text.split('\n').every((l) => !l.trim() || /^#{1,6} /.test(l)) ? '' : text.replace(/^#{1,6} +(.+?)(?:[ \t]+#+)?[ \t]*$/gm, '**$1**')
 
 function titleOf(text: string, id: string): string {
   const m = /^title:\s*(.+)$/m.exec(text.split('\n---')[0] ?? '')

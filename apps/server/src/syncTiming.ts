@@ -14,3 +14,28 @@ export function syncDelayMs(registry: Registry, kind: SyncKind, base: number | u
 
 /** 수동인 동안 설정이 바뀌었는지 다시 볼 간격 */
 export const SYNC_RECHECK_MS = 60_000
+
+/**
+ * 설정 › 동기화의 간격으로 run을 되풀이한다(받기 · 업데이트). firstMs 뒤 처음 돌고, 그 뒤 마지막으로 돈 때부터 간격이 지나면 다시 돈다.
+ * 간격은 SYNC_RECHECK_MS마다 다시 읽으므로, 하루에서 10분으로 바꿔도 1분 안에 적용된다. 수동이면 돌지 않는다. 멈추는 함수를 돌려준다
+ */
+export function syncLoop(registry: Registry, kind: SyncKind, base: number | undefined, firstMs: number, run: () => Promise<unknown>): () => void {
+  let timer: NodeJS.Timeout | null = null
+  let closed = false
+  const firstAt = Date.now() + firstMs
+  let lastRun: number | null = null
+  const step = async () => {
+    const ms = syncDelayMs(registry, kind, base)
+    if (ms !== null && Date.now() >= (lastRun === null ? firstAt : lastRun + ms)) {
+      await run().catch(() => undefined)
+      lastRun = Date.now()
+    }
+    if (closed) return
+    const due = ms === null ? Infinity : (lastRun === null ? firstAt : lastRun + ms) - Date.now()
+    timer = setTimeout(() => void step(), Math.max(0, Math.min(SYNC_RECHECK_MS, due)))
+    timer.unref()
+  }
+  timer = setTimeout(() => void step(), Math.min(SYNC_RECHECK_MS, firstMs))
+  timer.unref()
+  return () => { closed = true; if (timer) clearTimeout(timer) }
+}

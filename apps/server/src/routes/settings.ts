@@ -7,7 +7,7 @@ import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
-import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
+import { SYNC_RECHECK_MS, syncDelayMs, syncLoop } from '../syncTiming.js'
 import { SYNC_KINDS, type SyncChoice, type SyncKind } from '@rw/core'
 
 export function registerSettings(app: FastifyInstance, ctx: RouteContext): void {
@@ -129,17 +129,9 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
       } finally { updating = null }
       if (ctx.clients() === 0 && Date.now() - lastWrite >= idleMs) await restartIfReady()
     }
-    // 간격은 설정 › 동기화의 업데이트 칸을 돌 때마다 다시 읽는다(10/19). 수동이면 확인하지 않고 잠시 뒤 다시 본다.
+    // 간격은 설정 › 동기화의 업데이트 칸 (바꾸면 1분 안에 적용, 10/19). 수동이면 확인하지 않는다.
     // 새 버전이 없으면 updateApp은 확인만 하고 받기 · 빌드 · 다시 켜기를 하지 않는다
-    let timer: NodeJS.Timeout | null = null
-    let closed = false
-    const next = (ms: number) => { if (closed) return; timer = setTimeout(() => void step(), ms); timer.unref() }
-    const step = async () => {
-      const ms = syncDelayMs(ctx.registry, 'update', every)
-      if (ms !== null) await tick().catch((e) => console.error(`app auto update: ${(e as Error).message}`))
-      next(ms ?? SYNC_RECHECK_MS)
-    }
-    next(syncDelayMs(ctx.registry, 'update', every) ?? SYNC_RECHECK_MS)
-    app.addHook('onClose', async () => { closed = true; if (timer) clearTimeout(timer) })
+    const stop = syncLoop(ctx.registry, 'update', every, syncDelayMs(ctx.registry, 'update', every) ?? SYNC_RECHECK_MS, () => tick().catch((e) => console.error(`app auto update: ${(e as Error).message}`)))
+    app.addHook('onClose', async () => stop())
   }
 }

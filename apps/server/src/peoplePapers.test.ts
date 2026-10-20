@@ -41,6 +41,19 @@ describe('사람 페이지의 새 논문', () => {
     expect(freshCount(readPeoplePapers(dir)['ada-e-example'])).toBe(0)
   })
 
+  it('찾는 동안 누른 "이 사람 아님"을 잃지 않는다', async () => {
+    const person = { name: 'Bo Example' }
+    usePaperFetcher(async () => new Response(`<feed>${entry('2610.00021', '2026-10-15', ['Bo Example'])}</feed>`))
+    await refreshPersonPapers(dir, 'bo-example', person, { now })
+    usePaperFetcher(async () => {
+      markPapers(dir, 'bo-example', { hide: 'arxiv:2610.00021' })
+      return new Response(`<feed>${entry('2610.00022', '2026-10-19', ['Bo Example'])}${entry('2610.00021', '2026-10-15', ['Bo Example'])}</feed>`)
+    })
+    const e = await refreshPersonPapers(dir, 'bo-example', person, { now: now + 25 * 3600_000 })
+    expect(e.hidden).toContain('arxiv:2610.00021')
+    expect(readPeoplePapers(dir)['bo-example']!.hidden).toContain('arxiv:2610.00021')
+  })
+
   it('Semantic Scholar 저자 ID가 있으면 그 ID로 찾고(찾는 법이 바뀌면 바로), 실패하면 지난 결과를 남긴다', async () => {
     usePaperFetcher(async (url) => {
       expect(url).toContain('/author/12345/papers')

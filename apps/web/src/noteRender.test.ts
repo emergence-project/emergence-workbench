@@ -21,6 +21,12 @@ $$\begin{equation}b=2\label{b}\end{equation}$$`, {})
     expect(html).toMatch(/<h3[^>]*><span class="md-secno">2\.1<\/span> Sub<\/h3>/)
   })
 
+  it('keeps wrapping later section numbers after a heading inside a quote', () => {
+    const html = renderNote('## Intro\n\n> ## Quoted\n\n## Method\n\n### Step', {})
+    expect(html).toMatch(/<h2[^>]*><span class="md-secno">2<\/span> Method<\/h2>/)
+    expect(html).toMatch(/<h3[^>]*><span class="md-secno">2\.1<\/span> Step<\/h3>/)
+  })
+
   it('keeps figures, footnotes and citation numbers consistent with the current draft', () => {
     const html = renderNote('[@new] [@old]\n\n![caption](parts.svg)\n\nText^[footnote]. <!-- hidden -->', { cite: () => '99' }, (name) => `/asset/${name}`)
     expect(html).toContain('>[1]</a>')

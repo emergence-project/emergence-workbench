@@ -88,6 +88,15 @@ describe('흐름 고치기', () => {
     fs.rmSync(path.join(dir(), 'same.yaml'))
   })
 
+  it('목록 들여쓰기는 글 안의 "…:\\n- " 줄이 아니라 실제 목록으로 잰다', async () => {
+    const text = "format: 1\nkind: question\nprogress: active\nshort: Block\ntitle: 블록 글\nfields:\n  question: |\n    확인할 것:\n    - 첫째\nevidence:\n  - kind: other\n    file: a.md\n    text: 근거\n"
+    fs.writeFileSync(path.join(dir(), 'block.yaml'), text)
+    const n = (await get()).nodes.find((x: { id: string }) => x.id === 'block')
+    expect((await send('PATCH', '/block', { baseHash: n.hash, set: { short: 'Block 2' } })).statusCode).toBe(200)
+    expect(fs.readFileSync(path.join(dir(), 'block.yaml'), 'utf8')).toBe(text.replace('short: Block', 'short: Block 2'))
+    fs.rmSync(path.join(dir(), 'block.yaml'))
+  })
+
   it('고치기: 보낸 칸만, 끝나면 결과, 근거를 고쳐도 확인 기록은 남는다, 낡은 hash는 409', async () => {
     put('p', 'format: 1\nkind: proof\nprogress: active\nshort: 증명\ntitle: 증명 하나\ntopics: [t]\n# 사람이 남긴 주석\nevidence:\n  - kind: proof\n    file: a.tex\n    text: 옛 설명\n    checks:\n      - { at: 2026-10-01T10:00, by: bot, role: agent }')
     const n = (await get()).nodes[0]

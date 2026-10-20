@@ -208,8 +208,8 @@ export function resolveRecordMarks(tex: string, marks: RecordMark[], loose: numb
   // 열지 못한 닫는 표시(겹친 기록)는 지운다
   for (const [i, close] of closes) if (!opens.has(i)) edits.push({ from: close, to: close + CLOSE(i).length, s: '' })
   for (const [at, notes] of before) edits.push({ from: at, to: at, s: `${notes.join('')}\n` })
-  // 같은 자리에 넣는 것과 바꾸는 것이 겹치지 않게: 뒤에서부터, 같은 시작이면 넣기(from === to)를 나중에
-  edits.sort((a, b) => b.from - a.from || (a.to - a.from) - (b.to - b.from))
+  // 같은 자리에 넣는 것과 바꾸는 것이 겹치지 않게: 뒤에서부터, 같은 시작이면 긴 바꾸기를 먼저 하고 넣기(from === to)를 나중에
+  edits.sort((a, b) => b.from - a.from || (b.to - b.from) - (a.to - a.from))
   let out = tex
   for (const e of edits) out = out.slice(0, e.from) + e.s + out.slice(e.to)
   if (head.length) {

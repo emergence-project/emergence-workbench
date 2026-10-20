@@ -48,9 +48,9 @@ export const XDVIPDFMX_PLAIN = '$xdvipdfmx = q/xdvipdfmx -V 4 -E -o %D %O %S/;'
 export function addHighlightQuads(pdfFile: string): number {
   const buf = fs.readFileSync(pdfFile)
   const pdf = buf.toString('latin1')
-  // 객체마다 마지막 판만 본다 (앞서 덧붙인 판이 있으면 그것)
+  // 객체마다 마지막 판만 본다 (앞서 덧붙인 판이 있으면 그것). 사전만 있는 객체를 찾고, 스트림 객체에서 다음 객체로 넘어가 일치하지 않게 endobj를 넘지 않는다
   const last = new Map<string, { gen: string; dict: string }>()
-  for (const m of pdf.matchAll(/(?:^|[\r\n])(\d+) (\d+) obj\s*(<<[\s\S]*?>>)\s*endobj/g)) last.set(m[1]!, { gen: m[2]!, dict: m[3]! })
+  for (const m of pdf.matchAll(/(?:^|[\r\n])(\d+) (\d+) obj\s*(<<(?:(?!endobj)[\s\S])*?>>)\s*endobj/g)) last.set(m[1]!, { gen: m[2]!, dict: m[3]! })
   const fixed: { num: string; gen: string; dict: string }[] = []
   for (const [num, { gen, dict }] of last) {
     if (!/\/Subtype\s*\/Highlight\b/.test(dict) || /\/QuadPoints/.test(dict)) continue
