@@ -815,5 +815,10 @@
   "대화 PR": "Conversation PR",
   "에이전트 진행": "Agent progress",
   "대화 보기": "Open conversation",
-  "에이전트에게 맡기기": "Hand to agent"
+  "에이전트에게 맡기기": "Hand to agent",
+  "앱 피드백": "App feedback",
+  "피드백 맡기기": "Feedback hand-off",
+  "피드백 합치기": "Feedback merge",
+  "피드백 한도": "Feedback time limit",
+  "반영됨 알림": "Shipped notice"
 }

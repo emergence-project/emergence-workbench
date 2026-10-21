@@ -1024,6 +1024,26 @@ export function AgentSide({ id }: { id?: string }) {
   )
 }
 
+const SHIPPED_SEEN = 'rw-feedback-shipped-seen'
+/**
+ * 상단바 "#n 반영됨" (2단계 다, 10/21): 피드백을 맡은 대화의 PR을 앱이 합쳤고, 그 커밋이 지금 도는 앱에 들어왔을 때.
+ * 누르면 피드백 화면으로, ×로 닫으면 이 브라우저에서 다시 보이지 않는다.
+ */
+export function ShippedNotice() {
+  const list = useChatList().data?.chats
+  const [seen, setSeen] = useState<string[]>(() => store.get<string[]>(SHIPPED_SEEN, []))
+  const fresh = (list ?? []).filter((c) => c.shipped && c.pr && !seen.includes(c.id))
+  if (!fresh.length) return null
+  const names = fresh.map((c) => `#${c.pr!.number}`).join(' · ')
+  const close = () => { const next = [...seen, ...fresh.map((c) => c.id)].slice(-200); store.set(SHIPPED_SEEN, next); setSeen(next) }
+  return (
+    <span className="tb-shipped" data-ui="반영됨 알림">
+      <button type="button" className="a" title={t('피드백 화면에서 보기', 'See it on the Feedback screen')} onClick={() => go({ page: 'feedback' })}>{t(`${names} 반영됨`, `${names} shipped`)}</button>
+      <button type="button" className="icon-btn sm" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={close}>{Icon.x}</button>
+    </span>
+  )
+}
+
 /** 레일 배지: 답을 기다리는 대화 수 (사용자 차례) */
 export function AgentRailCount() {
   const list = useChatList().data?.chats

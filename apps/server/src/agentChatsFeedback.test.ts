@@ -4,8 +4,9 @@ import os from 'node:os'
 import path from 'node:path'
 import YAML from 'yaml'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { appBriefFor, feedbackPrompt, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
+import { AgentChats, appBriefFor, feedbackPrompt, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
+import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from '@rw/core'
 import { sampleAppWork, type AppWork } from './appWorktree.js'
 import { listAllFeedback, writeFeedbackAnswer } from './feedback.js'
 
@@ -138,5 +139,101 @@ describe('피드백 맡기기 API', () => {
     expect(p).toContain(e.review!.verdict)
     expect(appBriefFor({ branch: 'b', write: 'notes' })).not.toContain('feedback_answer')
     expect(appBriefFor({ branch: 'b', write: 'notes', feedback: true })).toContain('feedback_answer')
+  })
+})
+
+describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")', () => {
+  let tmp: string
+  let fb: string
+  let chats: AgentChats
+  const prompts: string[] = []
+  let ci: { done: boolean; ok: boolean; log?: string; link: string } = { done: false, ok: false, link: 'r1' }
+  const merged: string[] = []
+  let inApp: boolean | undefined
+  let settings: AgentSettings = { ...DEFAULT_AGENT_SETTINGS }
+  const runner: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
+    prompts.push(input.prompt)
+    yield { type: 'result', ok: true } as RunEvent
+  }
+  const idle = (id: string) => vi.waitFor(() => expect(chats.get(id).state).not.toBe('running'))
+
+  beforeAll(() => {
+    tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-fbtick-'))
+    fb = path.join(tmp, 'feedback')
+    fs.cpSync(FIX, fb, { recursive: true })
+    const base = sampleAppWork(path.join(tmp, 'wt'))
+    const work: AppWork = {
+      ...base,
+      async checks(dir, branch) {
+        const r = await base.checks(dir, branch)
+        return { ...r, done: ci.done, ok: ci.ok, checks: [{ name: 'check', state: ci.done ? (ci.ok ? 'SUCCESS' : 'FAILURE') : 'IN_PROGRESS', link: ci.link }], ...(ci.log ? { log: ci.log } : {}) }
+      },
+      async merge(_dir, branch) { merged.push(branch); return { number: 234, sha: 'abc1234def' } },
+    }
+    chats = new AgentChats({
+      dir: path.join(tmp, 'chats'), runner, limit: 2,
+      project: () => ({ repo: tmp, title: 'x' }), readable: () => [], extraDirs: () => [], notify: () => {},
+      app: work, feedback: { dir: fb }, settings: () => settings, inApp: async () => inApp,
+    })
+  })
+  afterAll(() => {
+    chats.stopAll()
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('끄면 맡기지 못한다', () => {
+    settings = { ...settings, feedback: 'off' }
+    expect(chats.handOffOk).toBe(false)
+    expect(() => chats.handOff(NEW)).toThrow()
+    settings = { ...settings, feedback: 'manual' }
+    expect(chats.handOffOk).toBe(true)
+  })
+
+  it('CI 빨강은 실패 기록을 대화에 다시 보내고(같은 실패는 한 번), 초록이면 설정대로 합치고, 앱에 들어오면 반영됨', async () => {
+    const id = chats.handOff(REWORK).id
+    await idle(id)
+    await chats.appSubmit(id, { title: '목차', body: '' })
+    await chats.tickFeedback()
+    expect(merged).toEqual([])
+    ci = { done: true, ok: false, log: 'test failed: a.test.ts', link: 'r1' }
+    await chats.tickFeedback()
+    await idle(id)
+    expect(prompts.at(-1)).toContain('test failed: a.test.ts')
+    const n = prompts.length
+    await chats.tickFeedback()
+    await idle(id)
+    expect(prompts.length).toBe(n)
+    ci = { done: true, ok: true, link: 'r2' }
+    settings = { ...settings, merge: 'never' }
+    await chats.tickFeedback()
+    expect(merged).toEqual([])
+    settings = { ...settings, merge: 'approved' }
+    await chats.tickFeedback()
+    expect(merged).toEqual([])
+    settings = { ...settings, merge: 'green' }
+    await chats.tickFeedback()
+    expect(merged).toHaveLength(1)
+    const row = chats.list().find((c) => c.id === id)!
+    expect(row.merged).toBe('abc1234def')
+    expect(row.shipped).toBeFalsy()
+    await chats.tickFeedback()
+    expect(merged).toHaveLength(1)
+    inApp = true
+    await chats.tickFeedback()
+    expect(chats.list().find((c) => c.id === id)!.shipped).toBe(true)
+  })
+
+  it('바로 맡기기는 쉬는 동안 에이전트 차례 하나를 맡고, 맡은 뒤 바뀐 것이 없으면 다시 맡지 않는다', async () => {
+    settings = { ...settings, feedback: 'instant' }
+    const before = chats.list().length
+    await chats.tickFeedback()
+    expect(chats.list().length).toBe(before + 1)
+    const made = chats.list().find((c) => c.feedback && c.feedback !== REWORK)!
+    expect(made).toBeTruthy()
+    await idle(made.id)
+    const keys = new Set(chats.list().map((c) => c.feedback))
+    await chats.tickFeedback()
+    for (const c of chats.list()) expect(keys.has(c.feedback)).toBe(true)
+    settings = { ...settings, feedback: 'manual' }
   })
 })

@@ -16,7 +16,7 @@ import path from 'node:path'
 import { APP_RID } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork } from './appWorktree.js'
-import { agentTurnReasons, agentTurns, localDate, localTime } from '@rw/core'
+import { agentTurnReasons, agentTurns, localDate, localTime, type AgentSettings } from '@rw/core'
 import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
@@ -362,6 +362,15 @@ type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archived'> &
   archived?: boolean
   /** 앱 고치기 대화의 작업 폴더 */
   worktree?: string
+  /** 피드백 대화: CI가 빨개 실패 기록을 다시 보낸 횟수와 마지막으로 본 실패 (같은 실패를 두 번 보내지 않게) */
+  ciRetries?: number
+  ciSeen?: string
+}
+
+/** 피드백 하나에서 사용자 쪽 마지막 일(남김 · 답 · 코멘트 · 고친 글)의 시각 (이 컴퓨터 시간대). 저절로 맡기기가 같은 일을 두 번 맡지 않게 */
+export function lastTouched(e: FeedbackListItem): number {
+  const at = [`${e.date}T${e.time}`, e.review?.at, e.review?.edited, ...(e.comments ?? []).flatMap((c) => [c.at, c.edited])]
+  return Math.max(...at.filter((x): x is string => !!x).map((x) => new Date(x).getTime()).filter((n) => !Number.isNaN(n)))
 }
 
 /** 피드백을 맡길 때 대화의 첫 지시: 그 항목의 글 · 자리 · 그림과 차례인 이유 (처리 규칙은 안내에) */
@@ -413,6 +422,10 @@ export interface AgentChatsDeps {
   app?: AppWork
   /** 앱 피드백 폴더 (맡기기 · 처리 기록). written = 처리 기록을 적은 뒤 (저절로 올리기) */
   feedback?: { dir: string; written?: () => void }
+  /** 설정 › 에이전트 (피드백을 언제 맡기고 언제 합치나 · 한 차례 한도) */
+  settings?: () => AgentSettings
+  /** 합친 커밋이 지금 도는 앱에 들어 있는가 (모르면 undefined) */
+  inApp?: (sha: string) => Promise<boolean | undefined>
 }
 
 export class AgentChats {
@@ -454,6 +467,9 @@ export class AgentChats {
 
   /** 이 맥에서 앱 고치기 대화를 열 수 있는지 */
   get app(): boolean { return !!this.deps.app }
+
+  /** 피드백을 맡길 수 있는지 (피드백 화면의 「에이전트에게 맡기기」) */
+  get handOffOk(): boolean { return !!this.deps.app && !!this.deps.feedback && this.deps.settings?.().feedback !== 'off' }
 
   list(rid?: string): ChatRow[] {
     return [...this.chats.values()].filter((c) => !rid || c.rid === rid).sort((a, b) => b.updated.localeCompare(a.updated)).map(rowOf)
@@ -594,6 +610,7 @@ export class AgentChats {
   handOff(key: string): Chat {
     const fb = this.deps.feedback
     if (!this.deps.app || !fb) throw new WorkbenchError(404, t('이 맥에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)', 'Feedback cannot be handed to an agent on this Mac (needs the app repository and a feedback folder)'))
+    if (this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
     const busy = [...this.chats.values()].find((c) => c.feedback && LIVE.has(c.state))
     if (busy) throw new WorkbenchError(409, t(`다른 피드백을 맡은 대화(「${busy.title}」)가 일하는 중입니다. 끝난 뒤 맡깁니다`, `Another feedback conversation ("${busy.title}") is working. Hand this one off after it finishes`))
     const e = listAllFeedback(fb.dir).find((x) => x.key === key)
@@ -642,6 +659,53 @@ export class AgentChats {
     fb.written?.()
     this.touch(c)
     return { key: c.feedback, ...(r.state && { state: r.state }), ...(pictures && { pictures }), replies: r.replies }
+  }
+
+  /**
+   * 피드백 대화 돌보기 (1분마다, 설정 › 에이전트 "앱 피드백"):
+   * 1. 맡은 대화의 PR이 CI 빨강이면 실패 기록을 그 대화에 다시 보내 고치게 한다 (두 번까지).
+   * 2. CI 초록이면 설정대로 합친다: green = 바로, approved = 사용자가 그 답을 승인한 뒤, never = 합치지 않음.
+   * 3. 합친 커밋이 지금 도는 앱에 들어오면 shipped (상단바 "#n 반영됨").
+   * 4. 저절로 맡기기(instant)면, 맡은 대화가 쉬고 있을 때 가장 오래된 에이전트 차례 하나를 맡긴다.
+   */
+  async tickFeedback(): Promise<void> {
+    const app = this.deps.app
+    const fb = this.deps.feedback
+    const s = this.deps.settings?.()
+    if (!app || !fb || !s) return
+    const items = new Map(listAllFeedback(fb.dir).map((e) => [e.key, e]))
+    for (const c of [...this.chats.values()].filter((x) => x.feedback && !LIVE.has(x.state))) {
+      try {
+        if (c.merged) {
+          if (!c.shipped && this.deps.inApp && (await this.deps.inApp(c.merged))) { c.shipped = true; this.touch(c) }
+          continue
+        }
+        if (!c.pr || !c.worktree || !c.branch) continue
+        const ck = await app.checks(c.worktree, c.branch)
+        if (!ck.done) continue
+        if (!ck.ok) {
+          const sig = ck.checks.map((x) => `${x.name}:${x.state}:${x.link ?? ''}`).join('|')
+          if (sig === c.ciSeen || (c.ciRetries ?? 0) >= 2) continue
+          c.ciSeen = sig
+          c.ciRetries = (c.ciRetries ?? 0) + 1
+          this.send(c.id, { text: t(`CI가 실패했습니다 (${c.ciRetries}/2). 아래 기록을 읽고 고친 뒤 다시 올려 주세요.\n\n${ck.log ?? ''}`.trim(), `CI failed (${c.ciRetries}/2). Read the log below, fix it and submit again.\n\n${ck.log ?? ''}`.trim()) })
+          continue
+        }
+        const e = items.get(c.feedback!)
+        const approved = !!e?.review && e.review.verdict === '승인' && (!e.status?.handled_at || e.review.at > e.status.handled_at)
+        if (s.merge === 'never' || (s.merge === 'approved' && !approved)) continue
+        const m = await app.merge(c.worktree, c.branch)
+        c.merged = m.sha || 'merged'
+        c.items.push({ kind: 'text', at: now(), text: t(`PR #${m.number}을 합쳤습니다. 앱이 새 버전을 받아 쓰지 않는 틈에 다시 시작합니다.`, `Merged PR #${m.number}. The app picks up the new version and restarts when idle.`) })
+        this.touch(c)
+      } catch { /* gh · git 오류는 다음 차례에 다시 본다 */ }
+    }
+    if (s.feedback !== 'instant' || [...this.chats.values()].some((c) => c.feedback && LIVE.has(c.state))) return
+    const chats = [...this.chats.values()]
+    const next = [...items.values()]
+      .filter((e) => agentTurns(e).length && !chats.some((c) => c.feedback === e.key && new Date(c.created).getTime() >= lastTouched(e)))
+      .sort((a, b) => lastTouched(a) - lastTouched(b))[0]
+    if (next) { try { this.handOff(next.key) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ } }
   }
 
   /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */
@@ -760,6 +824,10 @@ export class AgentChats {
     c.planOk = false
     this.touch(c)
     let ended: 'idle' | 'stopped' | 'error' = 'idle'
+    // 피드백 대화의 한 차례 한도 (설정 › 에이전트): 넘으면 멈춘다
+    const minutes = c.feedback ? this.deps.settings?.().minutes : undefined
+    let overtime = false
+    const limit = minutes ? setTimeout(() => { overtime = true; abort.abort() }, minutes * 60_000) : undefined
     try {
       const app = c.scope.kind === 'app' && this.deps.app ? this.deps.app : undefined
       let p: { repo: string; title: string }
@@ -872,6 +940,8 @@ export class AgentChats {
         c.items.push({ kind: 'error', at: now(), text: (e as Error).message.slice(0, MAX_TEXT) })
       }
     } finally {
+      if (limit) clearTimeout(limit)
+      if (overtime) c.items.push({ kind: 'error', at: now(), text: t(`한 차례 한도 ${minutes}분을 넘어 멈췄습니다. 이어서 지시하면 다시 시작합니다`, `Stopped after the ${minutes}-minute limit. Send a message to continue`) })
       this.aborts.delete(c.id)
       for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; this.asks.delete(it.id) }
       this.finish(c, ended)
@@ -896,7 +966,7 @@ const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })) })

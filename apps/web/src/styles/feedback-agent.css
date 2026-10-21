@@ -2,3 +2,7 @@
 .fbp-agent { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
 .fbp-agent .sp { flex: 1; }
 .fbp-agent-error { flex-basis: 100%; font-size: var(--fs-xs); }
+/* 상단바 "#n 반영됨" (2단계 다): 피드백을 맡은 대화의 PR이 합쳐져 지금 앱에 들어왔을 때. 오른쪽 사이드 아이콘들 앞에 */
+.tb-shipped { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); margin-right: var(--sp-2); white-space: nowrap; }
+/* 설정 줄 오른쪽의 select (다크에서도 읽히게 rs-select 바탕, 폭은 내용만큼) */
+.set-row .rs-select.set-select { width: auto; flex: none; }

@@ -7,6 +7,8 @@ import type { AppWork } from '../appWorktree.js'
 import { claudeAgentRunner } from '../agentRunner.js'
 import { parseBody, replies } from '../contract.js'
 import { createMcpServer } from '../mcp.js'
+import { commitChecker } from '../commitsInApp.js'
+import { repeat } from '../scheduler.js'
 import type { RouteContext } from './context.js'
 
 /** 동시에 도는 대화 수 (맥 메모리가 바닥났던 일, 10/14) */
@@ -38,10 +40,14 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
     ...(appWork && { app: appWork }),
     ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.() } }),
+    settings: () => registry.agents,
+    ...(ctx.opts.appRepo && { inApp: commitChecker(ctx.opts.appRepo.root, ctx.opts.appRepo.running) }),
   })
+  // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
+  if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
   app.addHook('onClose', async () => chats.stopAll())
 
-  app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit, app: chats.app }))
+  app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 

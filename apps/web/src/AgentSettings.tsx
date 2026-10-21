@@ -1,11 +1,23 @@
-import { INSTRUCTION_HOURS, INSTRUCTION_MODES, type InstructionMode } from '@rw/core'
+import { FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES, type FeedbackMerge, type FeedbackPick, type InstructionMode } from '@rw/core'
 import type { AgentSettings as Settings } from '@rw/core/contract/settings'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { api, setupApi, type SetupView } from './api'
+import { agentChatsApi, api, setupApi, type SetupView } from './api'
+import { href } from './router'
 import { t } from './i18n'
 import { qk } from './queries'
 import { CopyButton, Row, when } from './SetupChecklist'
+
+const PICK: Record<FeedbackPick, () => string> = {
+  off: () => t('끔', 'Off'),
+  manual: () => t('누를 때', 'When I press'),
+  instant: () => t('바로', 'Right away'),
+}
+const MERGE: Record<FeedbackMerge, () => string> = {
+  green: () => t('CI 초록이면', 'When CI is green'),
+  approved: () => t('승인한 뒤', 'After I approve'),
+  never: () => t('늘 내가', 'Always me'),
+}
 
 const MODE: Record<InstructionMode, () => string> = {
   manual: () => t('직접 부탁', 'When asked'),
@@ -47,11 +59,53 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
           <div className="set-name">{t('시각', 'Time')}</div>
           <div className="set-desc">{t('이 시각에 모든 프로젝트의 대기 중인 지시를 모아 합니다. 그때 맥과 앱이 켜져 있어야 합니다.', 'At this time, waiting instructions from every project are carried out. The Mac and the app must be running then.')}</div>
         </div>
-        <select value={s.at} aria-label={t('시각', 'Time')} onChange={(e) => save({ at: e.target.value })}>
+        <select className="rs-select set-select" value={s.at} aria-label={t('시각', 'Time')} onChange={(e) => save({ at: e.target.value })}>
           {INSTRUCTION_HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
         </select>
       </div>}
     </div>}
+    {s && <AppFeedback s={s} save={save} />}
+  </>)
+}
+
+/**
+ * 앱 피드백 (2단계 다, 10/21 "앱 안 대화 + CI가 시험"): 피드백을 이 맥의 앱 고치기 대화가 언제 맡고, 그 PR을 언제 합치나, 한 차례 한도.
+ * 앱 저장소가 있는 맥에서만 보인다. 다시 시작하는 때는 설정 › 동기화의 앱 업데이트가 정한다.
+ */
+function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>): void }) {
+  const list = useQuery({ queryKey: qk.agentChatList(), queryFn: () => agentChatsApi.list() })
+  if (!list.data?.app) return null
+  return (<>
+    <h3 className="set-h3">{t('앱 피드백', 'App feedback')}</h3>
+    <div className="set-rows" data-ui="앱 피드백">
+      <div className="set-row" data-ui="피드백 맡기기">
+        <div>
+          <div className="set-name">{t('맡기기', 'Hand off')}</div>
+          <div className="set-desc">{t('에이전트 차례인 피드백을 이 맥의 Claude가 언제 맡을지 고릅니다. 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 바로면 새 차례가 생길 때 앱이 하나씩 맡깁니다. 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude on this Mac takes feedback that is the agent\'s turn. "When I press" uses Hand to agent on the Feedback screen; "Right away" lets the app hand items off one at a time as they come. Questions and suggestions are only answered, without code changes.')}</div>
+        </div>
+        <div className="segmented small" role="radiogroup" data-ui="고르기">
+          {FEEDBACK_PICKS.map((m) => <button key={m} role="radio" aria-checked={s.feedback === m} className={s.feedback === m ? 'on' : ''} onClick={() => save({ feedback: m })}>{PICK[m]()}</button>)}
+        </div>
+      </div>
+      <div className="set-row" data-ui="피드백 합치기">
+        <div>
+          <div className="set-name">{t('합치기', 'Merge')}</div>
+          <div className="set-desc">{t('맡은 대화의 PR을 언제 합칠지 고릅니다. CI가 빨가면 실패 기록을 그 대화에 다시 보내 고치게 하고(두 번까지), 그래도 안 되면 멈춥니다. 잘못 고쳤으면 피드백 화면의 「수정」이 다음 차례가 됩니다.', 'Choose when the conversation\'s PR is merged. If CI fails, the failed log goes back to that conversation to fix (up to twice), then it stops. If the fix is wrong, Revise on the Feedback screen makes it the next turn.')}</div>
+        </div>
+        <div className="segmented small" role="radiogroup" data-ui="고르기">
+          {FEEDBACK_MERGES.map((m) => <button key={m} role="radio" aria-checked={s.merge === m} className={s.merge === m ? 'on' : ''} onClick={() => save({ merge: m })}>{MERGE[m]()}</button>)}
+        </div>
+      </div>
+      <div className="set-row" data-ui="피드백 한도">
+        <div>
+          <div className="set-name">{t('한 차례 한도', 'Time limit per turn')}</div>
+          <div className="set-desc">{t('넘으면 그 대화를 멈춥니다. 합친 새 버전으로 다시 시작하는 때는 ', 'The conversation stops past this. When the app restarts with a merged version is set in ')}<a className="a" href={href({ page: 'settings', part: 'sync' })}>{t('설정 › 동기화', 'Settings › Sync')}</a>{t('의 앱 업데이트가 정합니다.', ' under App updates.')}</div>
+        </div>
+        <select className="rs-select set-select" value={s.minutes} aria-label={t('한 차례 한도', 'Time limit per turn')} onChange={(e) => save({ minutes: Number(e.target.value) })}>
+          {FEEDBACK_MINUTES.map((m) => <option key={m} value={m}>{t(`${m}분`, `${m} min`)}</option>)}
+        </select>
+      </div>
+    </div>
   </>)
 }
 
