@@ -97,10 +97,14 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
             ? <><code>{s.personal.remote}</code>{s.personal.active ? '. ' : t('. 앱을 다시 시작하면 받아 둡니다. ', '. It is cloned the next time the app restarts. ')}{t('피드백과 설정 백업을 이 비공개 저장소에 올립니다.', 'Feedback and settings backups are pushed to this private repository.')}</>
             : t('없음: 피드백과 설정 백업이 이 컴퓨터에만 남습니다. 비공개 저장소 주소를 넣으면 앱이 비공개인지 확인하고 받아 둡니다.', 'None: feedback and settings backups stay on this computer only. Enter a private repository address; the app checks that it is private and clones it.')}
         </Row>
-        <Row ok={!!s?.agent} optional name={t('에이전트 연결', 'Agent connection')} sub="Claude Code · Codex" ui="에이전트 연결"
-          action={s && <CopyButton text={s.mcpCommand} onSaved={onSaved} />}>
-          {s?.agent ? t(`${s.agent.name}이(가) ${when(s.agent.at)}에 불렀습니다. `, `${s.agent.name} last called ${when(s.agent.at)}. `) : t('아직 부른 적 없음. ', 'Never called yet. ')}
-          {t('터미널에 한 줄: ', 'One line in the terminal: ')}<code className="setup-cmd">{s?.mcpCommand ?? '…'}</code>
+        {/* 등록과 부름은 다르다 (10/21 사용자): 등록했으면 명령 대신 "등록됨", 부른 때는 MCP 도구가 앱을 부를 때 적힌다 */}
+        <Row ok={!!s?.agent || !!s?.registered.length} optional name={t('에이전트 연결', 'Agent connection')} sub="Claude Code · Codex" ui="에이전트 연결"
+          action={s && !s.registered.length && <CopyButton text={s.mcpCommand} onSaved={onSaved} />}>
+          {s?.registered.length ? t(`${s.registered.join(' · ')}에 등록됨. `, `Registered in ${s.registered.join(' · ')}. `) : null}
+          {s?.agent ? t(`${s.agent.name}이(가) ${when(s.agent.at)}에 불렀습니다. `, `${s.agent.name} last called ${when(s.agent.at)}. `)
+            : s?.registered.length ? t('아직 부른 적 없음: 등록하기 전에 열어 둔 세션은 다시 열어야 앱 도구를 씁니다.', 'Not called yet: sessions opened before registering need to be reopened to use the app tools.')
+            : t('아직 등록 안 됨. ', 'Not registered yet. ')}
+          {!s?.registered.length && <>{t('터미널에 한 줄: ', 'One line in the terminal: ')}<code className="setup-cmd">{s?.mcpCommand ?? '…'}</code></>}
         </Row>
         <Row ok={!!s?.tex} optional name="TeX" sub={t('PDF 컴파일', 'PDF compile')} ui="TeX"
           action={<button className="btn" disabled={setup.isFetching} onClick={() => void setup.refetch()}>{t('다시 확인', 'Check again')}</button>}>
