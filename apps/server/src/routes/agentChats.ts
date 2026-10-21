@@ -54,8 +54,14 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/answer', replies(C.ChatOne), async (req): Promise<C.ChatOne> => {
     const b = parseBody(C.AskAnswerBody, req.body)
-    return { chat: chats.answer(req.params.id, b.ask, b.answer) }
+    return { chat: chats.answer(req.params.id, b.ask, b.answer, { note: b.note, mode: b.mode }) }
   })
+
+  /** 도는 동안 보내 기다리는 지시 하나 빼기 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/unqueue', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.unqueue(req.params.id, parseBody(C.UnqueueBody, req.body).index) }))
+
+  /** 보관함에 넣기 · 꺼내기 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/archive', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.archive(req.params.id, parseBody(C.ArchiveBody, req.body).archived) }))
 
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/stop', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.stop(req.params.id) }))
 

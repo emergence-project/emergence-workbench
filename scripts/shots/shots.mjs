@@ -69,6 +69,7 @@ try {
   const expected = (m) => /\/pdf(\?|$)/.test(m.location().url ?? '') && m.text().includes('404')
   page.on('console', (m) => { if (m.type() === 'error' && !expected(m)) problems.push(`${current}: console ${m.text()} ${m.location().url ?? ''}`) })
   let chat = ''
+  let done = ''
   for (const [name, hash, ui, click] of SCREENS) {
     current = name
     if (name === 'dark-topic') {
@@ -99,7 +100,20 @@ try {
         await new Promise((r) => setTimeout(r, 100))
       }
     }
-    await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)))
+    if (hash.includes('{done}') && !done) {
+      // 노트를 고치고 끝난 대화 하나 (고치기 바로: 명령 허락에 "네"로 답한다). 바뀐 곳 패널을 보이려고
+      const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Run the Kempe check up to degree 5' : '켐페 확인 계산을 차수 5까지 돌려 줘', scope: { kind: 'project' }, mode: 'edit' }) })
+      done = res.ok ? (await res.json()).chat.id : ''
+      if (!done) problems.push(`${name}: 예제 대화를 만들지 못함 (${res.status})`)
+      for (let i = 0; done && i < 80; i++) {
+        const c = (await (await fetch(`${base}api/agent-chats/${done}`)).json()).chat
+        const open = c.items.find((x) => x.kind === 'ask' && !x.answer)
+        if (open) await fetch(`${base}api/agent-chats/${done}/answer`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ask: open.id, answer: 'allow' }) })
+        else if (c.state === 'idle') break
+        await new Promise((r) => setTimeout(r, 100))
+      }
+    }
+    await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')
     if (name === 'paper-open' || name === 'paper-open-paint') {

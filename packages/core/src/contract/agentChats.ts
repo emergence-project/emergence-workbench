@@ -56,8 +56,11 @@ export const ChatItem = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('text'), at: z.string(), text: z.string(), sub: z.boolean().optional() }).strict(),
   /** 에이전트가 쓴 도구 한 번. outside = 범위 밖을 읽음, sub = 서브에이전트가 씀 */
   z.object({ kind: z.literal('step'), at: z.string(), tool: z.string(), summary: z.string(), outside: z.boolean().optional(), sub: z.boolean().optional() }).strict(),
-  /** 허락 카드. answer가 없으면 기다리는 중. plan이 있으면 계획 승인 카드(허락 = 이대로 하기) */
-  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional() }).strict(),
+  /**
+   * 허락 카드. answer가 없으면 기다리는 중. plan이 있으면 계획 승인 카드(허락 = 이대로 하기).
+   * note = 거절하며 에이전트에게 한 말(아니요, 이렇게 바꿔서…), mode = 계획을 승인하며 고른 맡기는 정도
+   */
+  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional() }).strict(),
   /** 할 일 목록 (한 차례에 하나, 바뀌면 그 자리에서 고친다) */
   z.object({ kind: z.literal('todos'), at: z.string(), todos: z.array(Todo) }).strict(),
   /** 노트 고침 (edit_note를 허락한 때). 되돌리기는 수정 검토에서 */
@@ -83,6 +86,13 @@ export const ChatRow = z.object({
   claims: z.array(z.string()),
   /** 이 대화가 고친 파일 (수정 검토로 간다) */
   changed: z.array(z.string()),
+  /** 노트 고침에서 더하고 뺀 줄 수 (목록 · 머리의 +n −n) */
+  added: z.number(),
+  removed: z.number(),
+  /** 사용자 차례일 때 무엇을 기다리는지: 계획 승인 · 허락 */
+  wait: z.enum(['plan', 'ask']).optional(),
+  /** 보관함에 넣은 대화 (목록에서 숨김, 지우지 않음) */
+  archived: z.boolean(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -121,7 +131,11 @@ export const NewChatBody = z.object({
 /** 이어서 지시. 일하는 중이면 다음 차례에 읽는다 */
 export const ChatMessageBody = z.object(message).strict()
 export const ForgetBody = z.object({ label: z.string().min(1) }).strict()
-export const AskAnswerBody = z.object({ ask: z.string().min(1), answer: z.enum(ASK_ANSWERS) }).strict()
+/** note = 거절하며 할 말(에이전트에게 그대로 간다), mode = 계획을 승인하며 이어 갈 맡기는 정도(ask · edit) */
+export const AskAnswerBody = z.object({ ask: z.string().min(1), answer: z.enum(ASK_ANSWERS), note: z.string().trim().max(4000).optional(), mode: z.enum(CHAT_MODES).optional() }).strict()
+/** 도는 동안 보내 기다리는 지시 하나 빼기 (기다리는 것 가운데 몇째) */
+export const UnqueueBody = z.object({ index: z.number().int().min(0) }).strict()
+export const ArchiveBody = z.object({ archived: z.boolean() }).strict()
 
 export type ChatScope = z.infer<typeof ChatScope>
 export type Attach = z.infer<typeof Attach>
@@ -143,4 +157,5 @@ export type WorkState = z.infer<typeof WorkState>
 export type ChatWrite = (typeof CHAT_WRITE)[number]
 export type ChatState = (typeof CHAT_STATES)[number]
 export type AskAnswer = (typeof ASK_ANSWERS)[number]
+export type AskAnswerBody = z.infer<typeof AskAnswerBody>
 export type NewChatBody = z.input<typeof NewChatBody>

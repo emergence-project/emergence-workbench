@@ -4,15 +4,19 @@ import type { AboutSection } from '../types'
 // 소개 › agents › 앱에서 맡기는 대화. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '앱에서 맡기는 대화', prs: [229, 230],
+  title: '앱에서 맡기는 대화', prs: [229, 230, 231],
   id: 'conversations',
   items: [
     { text: <>레일의 에이전트(반짝이)에서 프로젝트 하나에 일 하나씩 대화를 엽니다. 맥의 Claude Code가 그 프로젝트 저장소에서 일합니다. 상단바의 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에 엽니다.</> },
-    { text: <>입력란 하나에서 다 합니다. 지금 연 노트는 저절로 붙고(×로 뺌), {c('/')}는 자주 하는 일(계산 · 검토 · 기록 · 문헌 · 흐름 · 요약), {c('@')}는 노트 · 주제 · 파일을 붙입니다. 그림은 붙여넣거나 끌어 놓습니다. 노트에서 글을 고르고 「에이전트에게」를 누르면 그 글을 붙여 패널이 열립니다. 도는 동안 보낸 말은 기다렸다가 다음 차례에 돕니다.</> },
-    { text: <>입력란 아래에서 얼마나 맡길지(읽기만 · 묻고 하기 · 계획 먼저 · 고치기 바로), 모델과 생각을 고르고, 대화 중에도 바꿉니다. 계획 먼저는 계획 카드를 승인해야 노트를 고칩니다. 할 일은 진행에 따라 고쳐지는 카드 하나, 노트 고침은 +/− 카드(수정 검토로)로 보입니다. 작업 상태 칸에 할 일 · 바뀐 파일 · 잡은 파일 · 이 대화의 허락이 모입니다.</> },
+    { text: <>입력란 하나에서 다 합니다. 지금 연 노트는 저절로 붙고(×로 뺌), {c('/')}는 자주 하는 일(계산 · 검토 · 기록 · 문헌 · 흐름 · 요약), {c('@')}는 노트 · 주제 · 파일을 붙입니다. 그림은 붙여넣거나 끌어 놓습니다. 노트에서 글을 고르고 「에이전트에게」를 누르면 그 글을 붙여 패널이 열립니다. 도는 동안 보낸 말은 입력란 위에 「다음에 보냄」으로 기다렸다가 다음 차례에 읽힙니다. 연필로 빼서 고치고, ×로 뺍니다.</> },
+    { text: <>입력란 아래 줄은 ＋(붙이기 · 명령 · 그림) · 맡기는 정도 ▾(읽기만 · 묻고 하기 · 계획 먼저 · 고치기 바로, {c('⇧⇥')}로 차례로 바꿈) · 모델 · 생각 ▾ · 둥근 보내기입니다. 도는 중에 글이 비어 있으면 보내기 자리가 멈추기(■, {c('Esc')})가 됩니다. 대화 중에 바꾼 설정은 다음 차례부터 적용됩니다.</> },
+    { text: <>에이전트의 글은 본문처럼, 내 지시는 오른쪽 말풍선으로 보입니다. 도구 쓴 것은 「12초 동안 일함 · 읽기 3번 ›」 한 줄로 접힙니다. 할 일은 입력란 바로 위 한 줄(지금 하는 일)이고 누르면 목록이 펼쳐집니다.</> },
+    { text: <>계획 먼저는 계획 카드에 번호 붙은 답 셋으로 답합니다: 1 네, 노트는 바로 고치기 · 2 네, 고칠 때마다 묻기 · 3 아니요, 이렇게 바꿔서…(그 자리에 바꿀 것을 씀). 고른 답이 그 뒤의 맡기는 정도가 됩니다. 숫자 키로도 고릅니다.</> },
+    { text: <>노트를 고치면 대화에 한 줄(파일 · +n −n)이 남고, 대화 머리의 「+n −n 바뀐 곳」이 오른쪽 세부 패널을 엽니다. 고친 문단마다 − · + 를 보이고, 문단을 눌러 코멘트를 달아 「에이전트에게 보내기」로 한꺼번에 보냅니다. 승인 · 되돌리기는 수정 검토에서 합니다. 같은 칸 아래에 잡은 파일 · 이 대화의 허락 · 하위 에이전트 · 사용량이 모입니다.</> },
     { text: <>대화마다 범위(프로젝트 전체 · 주제 하나 · 노트 하나)를 고릅니다. 범위 밖은 필요할 때 읽고 대화에 「범위 밖」으로 보이지만, 고치지는 못합니다. 무엇을 어디서 고쳐야 하는지 말로 남깁니다.</> },
     { text: <>노트는 앱을 거쳐서만 고치고(수정 검토에 오름), 파일을 바로 쓰지 못합니다. 고치는 동안 그 노트를 잡아 다른 대화가 같은 노트를 고치지 못합니다. 지금 도는 대화와 잡은 파일은 에이전트 화면 첫 쪽과 {c('GET /api/agent-work')}에 같이 보입니다.</> },
-    { text: <>명령을 돌리거나 웹을 읽으려 하면 허락 카드(주황 점)가 뜨고, 답할 때까지 기다립니다. 「늘 허락」은 같은 명령에만 적용되고, 작업 상태 칸에서 ×로 지웁니다. 허락을 기다리는 대화 수가 레일 배지에 보입니다.</> },
+    { text: <>명령을 돌리거나 웹을 읽으려 하면 허락 카드(주황 점)가 뜨고, 답할 때까지 기다립니다. 답은 1 네 · 2 네, 이 대화에서 이것은 늘 · 3 아니요, 다르게 하라고 말하기(할 말을 적으면 에이전트가 그대로 읽음)입니다. 「늘」은 같은 명령에만 적용되고 세부 패널에서 ×로 지웁니다. 허락을 기다리는 대화 수가 레일 배지에, 목록 줄에는 무엇을 기다리는지(계획 승인 · 허락)와 +n −n이 보입니다.</> },
+    { text: <>끝난 대화는 머리의 ⋯에서 보관함에 넣어 목록에서 숨기고, 사이드바 맨 아래 「보관함」에서 다시 꺼냅니다. 지우기는 대화 기록만 지웁니다.</> },
     { text: <>동시에 둘까지 돌고 나머지는 줄을 섭니다(맥 메모리). 대화 기록은 연구 저장소가 아니라 앱 설정 폴더에 남습니다.</> },
   ],
 }
@@ -22,11 +26,15 @@ export const en: AboutSection = {
   id: 'conversations',
   items: [
     { text: <>From Agents on the rail (the sparkle), open one conversation per piece of work in a project. Claude Code on the Mac works in that project's repository. The sparkle in the top bar opens the current project's conversations in the right sidebar's place.</> },
-    { text: <>Everything happens in one input box. The open note is attached by itself (× removes it); {c('/')} runs common work (calculate · review · records · literature · flow · summary) and {c('@')} attaches notes, topics and files. Paste or drop images. Select text in a note and press "To agent" to open the panel with that text attached. A message sent while it runs waits for the next turn.</> },
-    { text: <>Below the input, choose how much to hand over (read only · ask first · plan first · edit right away), the model and thinking, and change them mid-conversation. Plan first edits notes only after you approve the plan card. To-dos are one card updated as work goes on; note edits are +/− cards linking to edit review. The work-state column gathers to-dos, changed files, held files and this conversation's permissions.</> },
+    { text: <>Everything happens in one input box. The open note is attached by itself (× removes it); {c('/')} runs common work (calculate · review · records · literature · flow · summary) and {c('@')} attaches notes, topics and files. Paste or drop images. Select text in a note and press "To agent" to open the panel with that text attached. A message sent while it runs waits above the input as "Sends next" and is read on the next turn; the pencil pulls it back to edit, × removes it.</> },
+    { text: <>The row below the input holds ＋ (attach · commands · images) · hand-over level ▾ (read only · ask first · plan first · edit right away, cycled with {c('⇧⇥')}) · model · thinking ▾ · a round send button. While it runs with an empty input, send turns into stop (■, {c('Esc')}). Settings changed mid-conversation apply from the next turn.</> },
+    { text: <>The agent's text reads like body text; your messages are bubbles on the right. Tool use folds into one line such as "Worked for 12s · 3 reads ›". To-dos are one line right above the input (what it is doing now) that expands into the list.</> },
+    { text: <>Plan first is answered with three numbered choices on the plan card: 1 Yes, edit notes right away · 2 Yes, ask before each edit · 3 No, change it like this… (write the change in place). The choice becomes the hand-over level afterwards. Number keys pick too.</> },
+    { text: <>Each note edit leaves one line in the conversation (file · +n −n), and "+n −n Changes" in the conversation header opens the right detail column. It shows − · + for each changed paragraph; click one to comment and "Send to the agent" sends them all at once. Approve or revert in edit review. Below in the same column: held files · this conversation's permissions · subagents · usage.</> },
     { text: <>Each conversation has a scope (whole project · one topic · one note). It may read outside the scope when needed, shown as "Outside scope", but cannot change anything there; it says what should change and where instead.</> },
     { text: <>Notes change only through the app (they land in edit review); files cannot be written directly. While a conversation changes a note it holds it, so another conversation cannot change the same note. Running conversations and held files show on the first page of Agents and in {c('GET /api/agent-work')}.</> },
-    { text: <>Running a command or reading the web shows an approval card (orange dot) and waits for your answer. "Always allow" covers only the same command; remove it with × in the work-state column. The rail badge counts conversations waiting for approval.</> },
+    { text: <>Running a command or reading the web shows an approval card (orange dot) and waits for your answer. The answers are 1 Yes · 2 Yes, always for this in this conversation · 3 No, tell it what to do instead (what you write is passed to the agent). "Always" covers only the same command; remove it with × in the detail column. The rail badge counts conversations waiting for you, and list rows show what each waits for (plan approval · approval) and +n −n.</> },
+    { text: <>Archive a finished conversation from ⋯ in its header to hide it from the list; bring it back from "Archive" at the bottom of the sidebar. Delete removes only the conversation record.</> },
     { text: <>At most two run at once; the rest wait in a queue (Mac memory). Conversations are kept in the app's settings folder, not in the research repository.</> },
   ],
 }
