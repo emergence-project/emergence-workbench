@@ -464,6 +464,7 @@ export function App() {
       <div className={`body${showSide ? '' : ' no-side'}`}>
         <nav className="rail" aria-label={t('공간', 'Spaces')} data-ui="왼쪽 띠">
           <button className={`rail-btn tip-right${route.page === 'home' ? ' on' : ''}`} aria-current={route.page === 'home' ? 'page' : undefined} data-ui="홈" data-tip={t('홈 — 모든 프로젝트', 'Home: all projects')} aria-label={t('홈', 'Home')} onClick={() => go({ page: 'home' })}>{Icon.home}</button>
+          {GLOBAL_PAGES.filter((g) => g.rail === 'home').map(railPage)}
           <span className="rail-hr" />
           <div ref={railBox} className="rail-projects" data-ui="프로젝트 버튼들" {...railDropProps}>
             {railShown.map((id) => researches!.find((x) => x.id === id)!).map((r) => (
