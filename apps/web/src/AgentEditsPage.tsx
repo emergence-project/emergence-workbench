@@ -15,6 +15,7 @@ import { LOOSE_NOTES_LABEL } from './noteKinds'
 import { qk } from './queries'
 import { go, type Route } from './router'
 import { noteToc } from './noteScreen'
+import { editNotes } from './editNotes'
 import { agentName } from './taskView'
 
 /**
@@ -187,6 +188,7 @@ function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; ra
   if (rv === null) return <p className="muted">{t('이 노트의 고침은 모두 검토했습니다.', 'All edits to this note are reviewed.')}</p>
   const groups = groupsOf(rv.hunks)
   const md = isMarkdown(rv.target) && !raw ? render : undefined
+  const notes = editNotes(rv.notes, rv.hunks)
   return (
     <div className="ae-review">
       {/* 아래 표의 머리: 이 자리가 무엇인지 · 바뀐 곳 수 · 보기 | 원문. 노트 이름은 위 표의 고른 줄에 있어 되풀이하지 않는다 (10/20 피드백) */}
@@ -196,7 +198,11 @@ function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; ra
         <span className="sp" />
         {view}
       </div>
-      {rv.notes.length > 0 && <ul className="ae-notes">{rv.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+      {/* 고친 까닭 (10/20 18:01 피드백): 이 고침 묶음 전체를 왜 했는지. 이름표를 달고, 바뀐 곳의 이유와 같은 말 · 되풀이는 뺀다 */}
+      {notes.length > 0 && <div className="ae-notes" data-ui="고친 까닭">
+        <span className="ae-notes-h">{t('에이전트가 적은 고친 까닭', 'Why the agent made these edits')}</span>
+        <ul>{notes.map((n) => <li key={n}>{n}</li>)}</ul>
+      </div>}
       <div className="ae-table" role="table" aria-label={t('바뀐 곳', 'Changes')} data-ui="고침 비교" data-ui-item={rv.title}>
         <div className="ae-head" role="row">
           <span />

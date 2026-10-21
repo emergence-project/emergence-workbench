@@ -444,7 +444,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     reason: z.string().trim().min(1).describe('One line: why this change (shown under the changed paragraph in the review, so the user rarely needs to ask)'),
   })).min(1).describe('Replacements applied in order')
   const approved = z.boolean().optional().describe('Only for a note the user has reviewed: true after the user agreed in the conversation')
-  const summary = z.string().optional().describe('One line saying what you changed and why (shown to the user with the review)')
+  const summary = z.string().optional().describe('One line on why you made this whole batch of edits, shown to the user above the review as "Why the agent made these edits". Write it in the language the user reads, as a plain sentence a reader of the screen understands: no session-internal numbering ("note 1", "item 3"). Leave it out when each edit\'s reason already says it.')
   const w = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const
   const write = async (target: unknown, a: { baseHash: string; edits: unknown; approved?: boolean; summary?: string }): Promise<Text> => {
     const r = await post(base, f, '/api/agent-edits/write', { target, baseHash: a.baseHash, edits: a.edits, approved: a.approved, summary: a.summary, agent: agentOf(server.server.getClientVersion()?.name) })

@@ -699,5 +699,6 @@
   "내 차례 목록": "Your-turn list",
   "에이전트 차례 목록": "Agents'-turn list",
   "차례 기록 줄": "Turn record row",
-  "차례 수정 검토 줄": "Edit review row"
+  "차례 수정 검토 줄": "Edit review row",
+  "고친 까닭": "Why the agent edited"
 }
