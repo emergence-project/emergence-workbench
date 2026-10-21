@@ -2,6 +2,7 @@ import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
+import { AgentPanel } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
 import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
@@ -101,6 +102,8 @@ export function App() {
   }, [route])
   const [error, setError] = useState<string | null>(null)
   const [layout, setLayout] = useLayout(rid)
+  /** 상단바 반짝이: 오른쪽 사이드바 자리를 에이전트 패널로 (10/21) */
+  const [agentPanel, setAgentPanel] = useState(false)
   const [recordOpenRequest, setRecordOpenRequest] = useState<WorkspaceOpenRequest | null>(null)
   const workspaceDragging = useWorkspaceDragging()
   // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT)
@@ -417,8 +420,16 @@ export function App() {
       )}
       <TopBar crumbs={crumbs} heading={!pageH1} leftToggle={(!!rid && !globalPage) || !!globalSide} sideOpen={sideOpen} onSide={() => setSideOpen((v) => !v)}
         project={!!rid && !globalPage} split={workspaceVisibility(layout, route.page, workspaceDragging).shown.length === 2} onSplit={() => setLayout((l) => toggleSplit(l, route.page))} rightToggle={(!!rid && !globalPage) || globalRightAble}
-        rightOpen={globalPage ? globalRight : layout.ctx} onRight={() => (globalPage ? setGlobalRight((v) => !v) : setLayout((l) => ({ ...l, ctx: !l.ctx })))}
-        search={search} onSearch={() => setSearch(true)} feedback={feedback} onFeedback={() => setFeedback((v) => !v)} />
+        rightOpen={globalPage ? globalRight : layout.ctx && !agentPanel} onRight={() => { if (globalPage) setGlobalRight((v) => !v); else if (agentPanel && layout.ctx) setAgentPanel(false); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }}
+        search={search} onSearch={() => setSearch(true)}
+        agent={route.page === 'agent' || (!!rid && !globalPage && agentPanel && layout.ctx)}
+        onAgent={() => {
+          if (!rid || globalPage) return go({ page: 'agent' })
+          if (agentPanel && layout.ctx) return setAgentPanel(false)
+          setAgentPanel(true)
+          setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
+        }}
+        feedback={feedback} onFeedback={() => setFeedback((v) => !v)} />
 
       <div className={`body${showSide ? '' : ' no-side'}`}>
         <nav className="rail" aria-label={t('공간', 'Spaces')} data-ui="왼쪽 띠">
@@ -491,6 +502,10 @@ export function App() {
               const row = t?.k === 'block' || t?.k === 'pdf' ? notes.find((n) => n.type === 'block' && n.id === t.bid) : t?.k === 'part' ? notes.find((n) => n.type !== 'block' && n.file === t.file) : undefined
               // 개념노트 탭이면 그 노트의 메모·연결 (2026-10-04 15:18 피드백: 오른쪽 사이드바에서)
               const cmd = t?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md' ? t.id : undefined
+              if (agentPanel) {
+                const nf = row ? { file: row.file, title: row.title } : t?.k === 'part' ? { file: t.file, title: tabName(t) } : undefined
+                return <AgentPanel key={rid} rid={rid} note={nf} onSaved={flash} />
+              }
               const info = cmd ? <div className="cn-ctx"><ConceptSidePanel key={cmd} id={cmd} info={library} rid={rid} project={summary.research.title} slot onChanged={libraryChanged} onSaved={flash} /></div>
                 : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} projectKind={current?.kind ?? 'research'} version={version} slot={row.type === 'block' && t?.k === 'block'}
                   onChanged={() => { notesChanged(); changed() }} onSaved={flash} />

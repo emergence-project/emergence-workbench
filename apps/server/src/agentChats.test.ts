@@ -21,6 +21,10 @@ describe('범위', () => {
     expect(inScope(topic, 'workbench/topics/gauge/fix/note.md')).toBe(true)
     expect(inScope(topic, 'workbench/topics/gauge-two/x.md')).toBe(false)
     expect(inScope({ kind: 'project' }, 'anything')).toBe(true)
+    const block: ChatScope = { kind: 'note', target: 'workbench/blocks/b1.tex' }
+    expect(scopeDir(block)).toBe('workbench/blocks/b1.tex')
+    expect(inScope(block, 'workbench/blocks/b1.tex')).toBe(true)
+    expect(inScope(block, 'workbench/blocks/b2.tex')).toBe(false)
   })
 })
 

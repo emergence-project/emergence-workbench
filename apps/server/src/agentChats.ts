@@ -80,8 +80,9 @@ const posix = (p: string) => p.split(path.sep).join('/')
 export function scopeDir(scope: ChatScope): string {
   if (scope.kind === 'topic' && scope.target) return `workbench/topics/${scope.target}`
   if (scope.kind === 'note' && scope.target) {
+    // 노트 폴더(…/<노트>/note.md)면 그 폴더, 파일 하나짜리 노트(workbench/blocks/<id>.tex 등)면 그 파일만
     const d = path.posix.dirname(scope.target)
-    return d === '.' ? scope.target : d
+    return /^note\.[a-z]+$/.test(path.posix.basename(scope.target)) && d !== '.' ? d : scope.target
   }
   return ''
 }

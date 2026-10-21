@@ -6,6 +6,7 @@ import path from 'node:path'
 import { isOutside } from './fsutil.js'
 import { fileURLToPath } from 'node:url'
 import { buildApp } from './app.js'
+import { sampleAgentRunner } from './agentSample.js'
 import { tikzCachePath } from './figures.js'
 import { Google, mockGoogleFetch } from './google.js'
 import { macSteps, promoteNextBuild } from './appupdate.js'
@@ -188,7 +189,7 @@ if (process.env.RW_SANDBOX === '1') {
 // 맥에만 있는 workbench/ 백업: 실사용만. 개인 저장소에 올린다
 const backupRemote = appRepo ? personal : null
 const backup = backupRemote ? { dir: path.join(configDir, 'backup'), remote: backupRemote, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
-const app = buildApp({ configDir, google, watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: running?.slice(0, 7), backup })
+const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner }), watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: running?.slice(0, 7), backup })
 
 // RW_STATIC=1 (실사용 서비스): 빌드한 화면을 이 서버가 함께 내보낸다
 if (process.env.RW_STATIC === '1') {

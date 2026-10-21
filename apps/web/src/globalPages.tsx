@@ -1,5 +1,6 @@
 import type { UiSettings } from '@rw/core'
 import type { ReactNode } from 'react'
+import { AgentPage, AgentRailCount, AgentSide } from './AgentChats'
 import { AboutPage, aboutRailRoute, AboutRailCount, AboutSidebar } from './AboutPage'
 import type { LibraryInfo } from './api'
 import { AgentEditsPage, Lazy } from './lazyPages'
@@ -90,6 +91,11 @@ export const GLOBAL_PAGES: {
     side: (p) => <NetworkSide person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     render: (p) => <NetworkPage person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     badge: () => <NetworkRailCount /> },
+  // 에이전트 대화 (10/21 사용자 결정 "프로젝트 관리 먼저"): 모든 프로젝트의 대화. 상단바 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에
+  { page: 'agent', label: '에이전트', name: t('에이전트', 'Agents'), aria: t('에이전트 대화', 'Agent conversations'), tip: t('에이전트 — 프로젝트마다 맡긴 대화', 'Agents: conversations you handed work to, per project'), icon: Icon.spark, rail: 'bottom',
+    side: (p) => <AgentSide id={p.route.page === 'agent' ? p.route.id : undefined} />,
+    render: (p) => <AgentPage id={p.route.page === 'agent' ? p.route.id : undefined} onSaved={p.onSaved} />,
+    badge: () => <AgentRailCount /> },
   { page: 'feedback', label: '피드백', name: t('피드백', 'Feedback'), aria: t('피드백 모아 보기', 'All feedback'), tip: t('피드백 모아 보기 — 반영 여부', 'All feedback and whether it was applied'), icon: Icon.feedback, rail: 'bottom', render: () => <FeedbackPage />,
     badge: () => <FeedbackRailCount /> },
   // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)
