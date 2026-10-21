@@ -3,6 +3,7 @@ import { req, type AppStatus } from './api'
 import { anyPending } from './autosave'
 import { go } from './router'
 import { plural, t } from './i18n'
+import { Icon } from './icons'
 
 /** 피드백 처리 상태의 화면 이름 (값은 status.yaml 그대로) */
 const STATE_TEXT: Record<string, string> = { 반영: t('반영', 'Applied'), 답변: t('답변', 'Answered'), 보류: t('보류', 'On hold'), 승인: t('승인', 'Approved'), 거절: t('거절', 'Declined'), '확인 필요': t('질의', 'Asked'), 동의: t('동의', 'Agreed'), 나중에: t('추후', 'Later') }
@@ -19,7 +20,7 @@ interface State {
 const short = (c: string) => c.slice(0, 7)
 
 /*
- * 앱 업데이트 상태는 설정 화면과 제목줄 버튼이 함께 쓴다. 한 곳에서만 GitHub를 확인하고 한 번만 업데이트한다.
+ * 앱 업데이트 상태는 설정 화면과 레일의 받기 버튼이 함께 쓴다. 한 곳에서만 GitHub를 확인하고 한 번만 업데이트한다.
  * 실사용 앱은 계속 켜 두므로, 몇 분마다와 창으로 돌아올 때 새 버전이 있는지 다시 본다.
  */
 const POLL_MS = 5 * 60_000
@@ -104,17 +105,13 @@ const canUpdate = (s: AppStatus | null) => !!s && !s.blocked && !s.fetchError &&
  * 왼쪽 띠의 설정 버튼에 붙는 표시: 새 버전이 있을 때 (10/4 18:16 피드백 "다른 요소들도 확인할 변동이 있다면 알림을").
  * 확인은 제목줄의 새 버전 버튼이 하고, 여기서는 같은 상태를 읽기만 한다.
  */
-export function AppUpdateRailCount() {
-  const s = useAppUpdateState()
-  if (!s.enabled || !hasNew(s.status)) return null
-  return <span className="rail-count dot" data-ui="새 버전 표시" role="img" aria-label={t('새 버전이 있습니다', 'A new version is available')} title={t('새 버전이 있습니다 — 설정 › 앱 기본정보', 'A new version is available: Settings › About this app')} />
-}
 
 /**
  * 제목줄 › 새 버전 버튼: 새 버전이 있을 때만 보인다. 누르면 받아서 빌드하고 앱을 다시 시작한 뒤 화면을 새로 읽는다.
  * 받을 수 없는 상태(맥에서 코드를 고쳐 둔 경우 등)면 설정 › 앱 기본정보로 보내 이유를 보여 준다.
  */
-export function AppUpdateButton() {
+/** 새 버전이 있을 때만 레일 아래(피드백 · 소개 · 설정 위)에 받기 버튼 (10/21 피드백: 상단바 버튼과 설정의 점을 대신함) */
+export function AppUpdateRail() {
   const s = useAppUpdateState()
   useEffect(() => {
     if (lastCheck === 0) void checkAppUpdate()
@@ -148,27 +145,15 @@ export function AppUpdateButton() {
   else if (s.failed) label = t('업데이트 안 됨 · 이유 보기', 'Update failed · See why')
   else if (!ok) label = t('새 버전 · 확인 필요', 'New version · Needs review')
   else if (st?.prepared && !fixed) label = t('새 버전 · 다시 시작', 'New version · Restart')
-  const title = busy ? t('받아서 빌드하고 앱을 다시 시작합니다. 켜지면 화면을 새로 읽습니다', 'Pulling, building, and restarting the app. The page reloads when it is back')
-    : s.failed ? s.failed
-    : s.error ? s.error
-      : st?.blocked ?? (st?.fetchError ? t(`GitHub를 확인하지 못했습니다: ${st.fetchError}`, `Could not check GitHub: ${st.fetchError}`) : null)
-        ?? `${st?.prepared ? t('받아 두었습니다. 눌러서 다시 시작합니다 (쉬는 동안에는 저절로 다시 시작합니다)', 'Ready. Click to restart (it also restarts on its own while you are idle)') : t('눌러서 업데이트하고 다시 시작', 'Click to update and restart')}${fixed ? `\n\n${t('처리된 피드백', 'Handled feedback')}\n${st!.resolved!.map((r) => `· ${stateText(r.state)} · ${r.text}`).join('\n')}` : ''}${st && st.incoming.length ? `\n\n${t('바뀐 것', 'Changes')}\n${st.incoming.map((c) => `· ${c}`).join('\n')}` : ''}`
+  const tip = busy ? label : s.failed ?? s.error ?? st?.blocked ?? (st?.fetchError ? t(`GitHub를 확인하지 못했습니다: ${st.fetchError}`, `Could not check GitHub: ${st.fetchError}`) : null) ?? `${label}: ${st?.prepared ? t('눌러서 다시 시작', 'click to restart') : t('눌러서 받고 다시 시작', 'click to update and restart')}`
 
   return (
-    <>
-      <button className={`btn sm${ok && !s.error && !s.failed ? ' primary' : ''} tb-update`} data-ui="새 버전 버튼" title={title} disabled={busy}
-        onClick={() => { if (ok && !s.error && !s.failed) void runAppUpdate(); else go({ page: 'settings' }) }}>
-        {label}
-      </button>
-      <span className="tb-sep" />
-    </>
+    <button className={`rail-btn rail-update tip-right${ok && !s.error && !s.failed ? ' ready' : ''}${busy ? ' busy' : ''}`} data-ui="새 버전 버튼" data-tip={tip} aria-label={label} disabled={busy}
+      onClick={() => { if (ok && !s.error && !s.failed) void runAppUpdate(); else go({ page: 'settings' }) }}>
+      {Icon.update}
+    </button>
   )
 }
-
-/**
- * 설정 › 앱 기본정보 › 업데이트: GitHub에 새 버전이 있는지 보고, 누르면 받아서 빌드하고 앱을 다시 시작한다.
- * 맥에서 남긴 피드백은 함께 커밋해 올린다. 맥에서 코드를 고쳐 두었으면 손대지 않고 이유를 보여 준다.
- */
 export function AppUpdate() {
   const { enabled, status, phase, message, error, failed } = useAppUpdateState()
   useEffect(() => { void checkAppUpdate() }, [])
