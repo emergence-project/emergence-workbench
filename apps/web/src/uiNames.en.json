@@ -692,5 +692,7 @@
   "흐름 끝맺음 고치기": "Flow outcome editor",
   "흐름 비슷한 지난 시도": "Flow similar earlier attempts",
   "흐름 남은 칸": "Flow fields left",
-  "기록 종류 바꾸기": "Change record kind"
+  "기록 종류 바꾸기": "Change record kind",
+  "적던 글 이어 쓰기": "Continue unsent draft",
+  "적던 글 버리기": "Discard unsent draft"
 }

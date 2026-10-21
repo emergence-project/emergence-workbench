@@ -9,6 +9,7 @@ import { onListKey } from './listInput'
 import { MemoText } from './memo'
 import { hasFeedbackList, issueDraftUrl } from './feedbackFormat'
 import { shown, t } from './i18n'
+import { clearFeedbackDraft, readFeedbackDraft, writeFeedbackDraft, type FeedbackDraft } from './feedbackDraft'
 
 /**
  * 피드백 모드: 화면 부위(data-ui가 붙은 요소)에 마우스를 올리면 이름표가 뜨고,
@@ -53,28 +54,73 @@ export function snippetOf(el: Element): string {
  */
 const SVG_PAINT = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'opacity', 'paint-order', 'font-size', 'font-weight', 'font-family', 'display', 'visibility'] as const
 function inlineSvgPaint(): () => void {
-  const saved: [Element, string | null][] = []
-  for (const el of document.querySelectorAll('svg *')) {
-    if (!(el instanceof SVGElement) || el.closest('[data-feedback-ui]')) continue
-    const cs = getComputedStyle(el)
-    saved.push([el, el.getAttribute('style')])
-    for (const k of SVG_PAINT) el.style.setProperty(k, cs.getPropertyValue(k))
+  const saved: [SVGElement, string | null][] = []
+  for (const svg of document.querySelectorAll('svg')) {
+    if (svg.parentElement?.closest('svg') || !onScreen(svg) || svg.closest('[data-feedback-ui]')) continue
+    for (const el of svg.querySelectorAll('*')) if (el instanceof SVGElement) saved.push([el, el.getAttribute('style')])
   }
+  // 먼저 모두 읽고 나서 쓴다. 읽고 쓰기를 번갈아 하면 요소마다 스타일을 다시 계산해 흐름 차트에서 십여 초 멈췄다
+  const paints = saved.map(([el]) => { const cs = getComputedStyle(el); return SVG_PAINT.map((k) => cs.getPropertyValue(k)) })
+  saved.forEach(([el], i) => SVG_PAINT.forEach((k, j) => el.style.setProperty(k, paints[i]?.[j] ?? '')))
   return () => { for (const [el, style] of saved) { if (style === null) el.removeAttribute('style'); else el.setAttribute('style', style) } }
 }
 
+/**
+ * 찍는 시간은 복사하는 요소 수에 비례한다. 화면 밖까지 노트 전체를 복사하면 수식이 많은 노트(요소 수만 개)에서 등록이 수십 초
+ * 멈췄다 (10/21 09:27). 화면에 보이는 요소만 복사한다. 열어 둔 다른 탭도 숨긴 채 남아 있어 함께 뺀다.
+ * html-to-image는 스크롤 위치를 옮기지 않아, 위로 지나간 요소를 빼면 그림이 사용자가 보던 자리에 더 가깝다
+ */
+function onScreen(el: Element): boolean {
+  const r = el.getBoundingClientRect()
+  // 크기가 없으면: 숨긴 탭(display: none)은 통째로 빼고, display: contents처럼 자식이 보일 수 있는 것은 남긴다
+  if (!r.width && !r.height) return el.checkVisibility?.() ?? true
+  // 위아래로 조금 넉넉히: 반쯤 보이는 줄의 수식 첨자처럼 부모 상자 밖으로 나온 조각을 남긴다
+  const m = 120
+  return r.bottom >= -m && r.top <= innerHeight + m && r.right >= 0 && r.left <= innerWidth
+}
+
+/**
+ * 그림에 옮기는 스타일. 정하지 않으면 요소마다 계산된 스타일 500여 개를 모두 옮겨, 보이는 요소 4천 개에 6초가 걸렸다.
+ * 모양을 바꾸는 것만 옮겨 1초 남짓으로 줄인다 (10/21 09:27)
+ */
+const STYLE_PROPS = [
+  'display', 'position', 'top', 'right', 'bottom', 'left', 'inset', 'z-index', 'float', 'clear', 'box-sizing', 'width', 'height', 'min-width',
+  'min-height', 'max-width', 'max-height', 'aspect-ratio', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding-top',
+  'padding-right', 'padding-bottom', 'padding-left', 'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+  'border-top-style', 'border-right-style', 'border-bottom-style', 'border-left-style', 'border-top-color', 'border-right-color',
+  'border-bottom-color', 'border-left-color', 'border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius',
+  'border-bottom-right-radius', 'border-collapse', 'border-spacing', 'table-layout', 'caption-side', 'empty-cells', 'outline-width', 'outline-style',
+  'outline-color', 'outline-offset', 'box-shadow', 'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'flex-basis', 'order', 'align-items',
+  'align-self', 'align-content', 'justify-content', 'justify-items', 'justify-self', 'row-gap', 'column-gap', 'grid-template-columns',
+  'grid-template-rows', 'grid-template-areas', 'grid-auto-flow', 'grid-auto-columns', 'grid-auto-rows', 'grid-column-start', 'grid-column-end',
+  'grid-row-start', 'grid-row-end', 'overflow-x', 'overflow-y', 'text-overflow', 'clip-path', 'transform', 'transform-origin', 'opacity',
+  'visibility', 'mix-blend-mode', 'filter', 'color', 'background-color', 'background-image', 'background-size', 'background-position',
+  'background-repeat', 'background-clip', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant', 'font-feature-settings',
+  'font-variant-numeric', 'line-height', 'letter-spacing', 'word-spacing', 'text-align', 'text-decoration-line', 'text-decoration-color',
+  'text-decoration-style', 'text-decoration-thickness', 'text-underline-offset', 'text-transform', 'text-indent', 'text-shadow', 'white-space',
+  'word-break', 'overflow-wrap', 'hyphens', 'vertical-align', 'direction', 'unicode-bidi', 'writing-mode', 'tab-size', 'list-style-type',
+  'list-style-position', 'list-style-image', 'content', 'quotes', 'counter-reset', 'counter-increment', 'object-fit', 'object-position', 'fill',
+  'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'paint-order', 'd',
+  '-webkit-line-clamp', '-webkit-box-orient', 'line-clamp', 'column-count', 'column-width', 'scrollbar-width', 'contain', 'isolation',
+  '-webkit-text-fill-color', '-webkit-background-clip', 'mask-image', '-webkit-mask-image', 'backdrop-filter'
+]
+
 const loadCapture = () => import('html-to-image')
+/** 글꼴을 그림에 넣는 CSS(수백 KB)는 모드를 켠 동안 한 번만 만든다 */
+let fontCss: Promise<string> | null = null
 
 async function captureScreen(): Promise<string | null> {
   let restore: (() => void) | null = null
   try {
-    const { toJpeg } = await loadCapture()
+    const { toJpeg, getFontEmbedCSS } = await loadCapture()
+    fontCss ??= getFontEmbedCSS(document.body).catch((e) => { fontCss = null; throw e })
+    const fontEmbedCSS = await fontCss
     restore = inlineSvgPaint()
     return await toJpeg(document.body, {
-      quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight,
+      quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight, fontEmbedCSS, includeStyleProperties: STYLE_PROPS,
       // 그림 주소는 ?path=…로만 다르다(/api/feedback/picture 등). 빼면 html-to-image가 물음표 뒤를 버린 주소로 캐시해 다른 그림을 다시 쓴다 (10/13 09:59 그림)
       includeQueryParams: true,
-      filter: (n) => !(n instanceof Element && n.hasAttribute('data-feedback-ui')),
+      filter: (n) => !(n instanceof Element) || (!n.hasAttribute('data-feedback-ui') && onScreen(n)),
     })
   } catch { return null } finally { restore?.() }
 }
@@ -85,7 +131,7 @@ function isOwnUi(t: EventTarget | null): boolean {
 
 export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(message: string): void }) {
   const [hover, setHover] = useState<{ rect: DOMRect; path: string } | null>(null)
-  const [pending, setPending] = useState<{ path: string; snippet: string; x: number; y: number } | null>(null)
+  const [pending, setPending] = useState<{ path: string; snippet: string; x: number; y: number; route?: string } | null>(null)
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   /** 이번에 피드백 모드를 켠 뒤 남긴 코멘트. 모드를 끄면 다시 0부터 */
@@ -96,8 +142,16 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   const [kind, setKind] = useState<'수정' | '질문' | '제안' | null>(null)
   const [issues, setIssues] = useState<{ url: string; version: string | null } | null>(null)
   const [busy, setBusy] = useState(false)
+  // 적던 글 (10/21): 창에 적는 동안 이 브라우저에 두고, 아래 띠에서 이어 쓰거나 버린다
+  const [draft, setDraft] = useState<FeedbackDraft | null>(readFeedbackDraft)
   const hoverEl = useRef<Element | null>(null)
   const pendingRef = useRef(pending)
+  useEffect(() => {
+    if (!pending || !text.trim()) return
+    const d: FeedbackDraft = { text, kind, path: pending.path, snippet: pending.snippet, route: pending.route ?? (location.hash || '#/'), at: new Date().toISOString() }
+    writeFeedbackDraft(d)
+    setDraft(d)
+  }, [pending, text, kind])
   pendingRef.current = pending
 
   // 그림 찍는 모듈은 모드를 켤 때 미리 받아 둔다 (등록할 때 기다리지 않게)
@@ -115,6 +169,8 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     const move = (e: MouseEvent) => {
       if (pendingRef.current || isOwnUi(e.target)) return
       const el = target(e)
+      // 같은 부위 안에서 움직이면 다시 그리지 않는다 (스크롤하면 refresh가 상자를 옮긴다)
+      if (el === hoverEl.current) return
       hoverEl.current = el
       setHover(el ? { rect: el.getBoundingClientRect(), path: uiPath(el) } : null)
     }
@@ -159,11 +215,22 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
 
   /** 부위 없이 적기: 화면 한 곳이 아니라 앱 전체 방향에 대한 의견 (10/12). 서버는 빈 부위를 "(부위 없음)"으로 적는다 */
   const openWithoutPart = (e: React.MouseEvent) => {
-    setHover(null)
+    setHover(null); hoverEl.current = null
     // 단추 위에 연다 (아래 끝은 pop이 화면 안으로 당긴다)
     setPending({ path: '', snippet: '', x: e.currentTarget.getBoundingClientRect().left - 12, y: innerHeight })
     setText(''); setKind('제안'); setError(null)
   }
+  /** 적던 글 이어 쓰기: 처음 화면으로 돌아가(그림과 주소가 맞게) 같은 부위의 창을 연다 */
+  const resumeDraft = (e: React.MouseEvent) => {
+    if (!draft) return
+    const left = e.currentTarget.getBoundingClientRect().left - 12
+    if ((location.hash || '#/') !== draft.route) location.hash = draft.route
+    setHover(null); hoverEl.current = null
+    setPending({ path: draft.path, snippet: draft.snippet, x: left, y: innerHeight, route: draft.route })
+    setText(draft.text); setKind(draft.kind); setError(null)
+  }
+  const dropDraft = () => { clearFeedbackDraft(); setDraft(null) }
+  const draftTime = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}` }
   const targetName = (path: string) => (path ? uiShown(path) : t('부위 없음 · 앱 전체에 대한 의견', 'No part · about the app as a whole'))
 
   const themeName = () => {
@@ -192,13 +259,14 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       const res = await req('/api/feedback', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          kind, target: pending.path, text, snippet: pending.snippet, route: location.hash || '#/', note: feedbackNote(),
+          kind, target: pending.path, text, snippet: pending.snippet, route: pending.route ?? (location.hash || '#/'), note: feedbackNote(),
           viewport: `${innerWidth}×${innerHeight}`, theme: themeName(), image,
         }),
       })
       const b = await res.json()
       if (!res.ok) throw new Error(b.error)
       setPending(null)
+      dropDraft()
       setEntries((prev) => [b.entry as Entry, ...prev])
       feedbackChanged()
       onSaved(t(`피드백 저장됨 — ${pending.path || '부위 없음'}`, `Feedback saved: ${targetName(pending.path)}`))
@@ -214,7 +282,13 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     <>
       <div className="fb-bar" data-feedback-ui>
         <b>{t('피드백 모드', 'Feedback mode')}</b>
-        <span>{t('부위에 마우스를 올리면 이름이 뜹니다. 누르면 그 부위에 피드백을 남깁니다. 앱은 이 동안 눌러도 반응하지 않습니다.', 'Hover over a part to see its name. Click to leave feedback on it. The app does not respond to clicks while this is on.')}</span>
+        {draft && !pending
+          ? <>
+            <span className="fb-draft" title={draft.text}>{t('적던 글', 'Unsent draft')} · {draftTime(draft.at)} · {targetName(draft.path)}{draft.kind && ` · ${shown(draft.kind)}`}</span>
+            <button className="a" data-ui="적던 글 이어 쓰기" onClick={resumeDraft}>{t('이어 쓰기', 'Continue')}</button>
+            <button className="a" data-ui="적던 글 버리기" onClick={dropDraft}>{t('버리기', 'Discard')}</button>
+          </>
+          : <span>{t('부위에 마우스를 올리면 이름이 뜹니다. 누르면 그 부위에 피드백을 남깁니다. 앱은 이 동안 눌러도 반응하지 않습니다.', 'Hover over a part to see its name. Click to leave feedback on it. The app does not respond to clicks while this is on.')}</span>}
         <span className="sp" />
         <button className="a" data-ui="부위 없이 적기" title={t('화면 한 곳이 아니라 앱 전체 방향에 대한 의견을 남깁니다', 'Leave feedback about the app as a whole, not one part of the screen')} onClick={openWithoutPart}>{t('부위 없이 적기', 'Without a part')}</button>
         <button className="a" data-ui="이번에 남긴 코멘트" onClick={() => setShowList((v) => !v)}>{t(`이번에 남긴 피드백 ${entries.length}`, `Feedback this session ${entries.length}`)}</button>
