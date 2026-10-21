@@ -94,6 +94,8 @@ export const DEFAULT_SCREENS = [
   // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
   ['settings', '#/settings', '설정'],
+  // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)
+  ['settings-accounts', '#/settings/google', '시작 준비 요약'],
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],

@@ -19,6 +19,8 @@ Put the path of the app folder in `<app folder>`. Nothing is added to your resea
 claude mcp add --scope user emergence-workbench -- node <app folder>/scripts/mcp.mjs
 ```
 
+Settings › Accounts › Agent connection shows this line with the real app folder (copy button) and when an agent last called the app: the MCP tools send an `x-rw-agent` header with the agent name, and the app keeps the last call in `agent-seen.json` in the settings folder.
+
 **Codex** (`~/.codex/config.toml`)
 
 ```toml

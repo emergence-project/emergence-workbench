@@ -107,7 +107,9 @@ export function agentOf(clientName: string | undefined): string {
 
 export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}): McpServer {
   const base = (opts.baseUrl ?? DEFAULT_URL).replace(/\/$/, '')
-  const f = opts.fetch ?? fetch
+  const f0 = opts.fetch ?? fetch
+  // 앱이 에이전트 연결을 알아보게 (설정 › 계정 › 시작 준비, agentSeen.ts)
+  const f: Fetch = (url, init) => f0(url, { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), 'x-rw-agent': agentOf(server.server.getClientVersion()?.name) } })
   const call = async (url: string, shape: (body: never) => unknown = (b) => b): Promise<Text> => {
     const r = await get(base, f, url)
     return r.ok ? json(shape(r.body as never)) : r.error

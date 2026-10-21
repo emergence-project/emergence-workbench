@@ -30,6 +30,7 @@ export * from './api/tasks'
 export * from './api/flow'
 export * from './api/agentEdits'
 export * from './api/app'
+export * from './api/setup'
 
 export const api = {
   ...researchListCalls,

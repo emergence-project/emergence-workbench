@@ -410,7 +410,7 @@ export function App() {
     <div className={`shell${sandbox ? ' sandbox' : ''}`}>
       {sandbox && (
         <div className="sandbox-bar" role="note" data-ui="예제 모드 띠">
-          {t('개발용 예제 모드 — 설정과 연구는 저장소 안 .sandbox/ 복사본입니다. 실제 연구는 실사용 모드(', 'Sample mode for development: settings and projects are copies in .sandbox/ inside the repository. Work on real projects in the real app (')}<code>pnpm start</code>{t(', 주소 :5174)에서 다루세요.', ', address :5174).')}
+          {t('개발용 예제 모드 — 설정과 연구는 저장소 안 .sandbox/ 복사본입니다. 내 연구로 쓰려면 터미널에서 ', 'Sample mode for development: settings and projects are copies in .sandbox/ inside the repository. To use it for your own projects, run ')}<code>pnpm service:install</code>{t('을 한 번 하고 주소 :5174를 여세요.', ' once in the terminal and open port :5174.')}
         </div>
       )}
       <TopBar crumbs={crumbs} heading={!pageH1} leftToggle={(!!rid && !globalPage) || !!globalSide} sideOpen={sideOpen} onSide={() => setSideOpen((v) => !v)}

@@ -226,6 +226,15 @@ export class Registry {
     return this.config.sync
   }
 
+  get personalRepo(): string | undefined { return this.config.personalRepo }
+  /** 개인 저장소 주소 (설정 › 계정 › 시작 준비). 빈 글이면 지운다. 앱을 다시 시작할 때 받는다(server.ts) */
+  setPersonalRepo(remote: string): void {
+    const r = remote.trim()
+    if (r) this.config.personalRepo = r
+    else delete this.config.personalRepo
+    this.save()
+  }
+
   get latexTemplates(): LatexTemplate[] { return this.config.latexTemplates }
   get latexDefault(): string { return this.config.latexDefault }
   get authors(): Author[] { return this.config.authors }
