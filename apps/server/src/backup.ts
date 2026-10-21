@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { assertPrivateRemote } from './personalRepo.js'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import type { BackupResult } from '@rw/core/contract/backup'
 import { writeAtomic } from './fsutil'
@@ -13,7 +14,9 @@ import { t } from './i18n.js'
  *
  * - 대상: 연구 저장소 git이 workbench/를 하나도 추적하지 않는 연구. 연구 저장소의 git은 읽기만 한다.
  * - 앱 설정은 설정 폴더의 config.yaml 하나만. 구글 열쇠(google-token.json, google.yaml), 색인(index/), 빌드(library-build/)는 올리지 않는다.
- * - 저장소 안에서는 <연구 id>/workbench/, _settings/config.yaml 에 둔다.
+ * - 저장소 안에서는 <연구 id>/workbench/, _settings/<컴퓨터>/config.yaml 에 둔다. 앱 설정은 컴퓨터마다 따로다(프로젝트 경로가 컴퓨터마다 다르다):
+ *   한 파일을 함께 쓰면 새 컴퓨터의 빈 설정이 첫 맞추기에서 다른 컴퓨터의 설정을 덮고, 그 컴퓨터가 다음 맞추기에서 그것을 받아 프로젝트 목록이 빈다 (10/21).
+ *   10/21 전의 _settings/config.yaml은 그대로 두고 읽지도 쓰지도 않는다.
  * - 양쪽 맞추기: 지난번 맞춘 상태(설정 폴더 사본의 refs/rw/synced)와 비교해
  *   맥에서만 바뀐 파일은 올리고, GitHub에서만 바뀐 파일은 맥으로 받는다.
  *   양쪽이 다르게 바뀌었으면 맥 것을 두고 GitHub 것은 옆에 `이름.github-YYYYMMDD.확장자`로 받아 둔다(잃지 않게).
@@ -34,7 +37,11 @@ export async function workbenchTracked(repoPath: string): Promise<boolean> {
 }
 
 const SYNCED = 'refs/rw/synced'
-const SETTINGS = '_settings/config.yaml'
+/** 앱 설정을 둘 저장소 안 경로의 컴퓨터 이름: 호스트 이름에서 .local을 떼고 파일 이름에 쓸 수 있는 글자만 */
+export function machineName(host = os.hostname()): string {
+  return host.replace(/\.local$/i, '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '') || 'computer'
+}
+export const settingsPath = (machine = machineName()) => `_settings/${machine}/config.yaml`
 const SKIP = new Set(['.build', '.DS_Store'])
 
 /** ref 아래 prefix/의 파일 → blob 해시 */
@@ -86,10 +93,13 @@ function conflictName(abs: string, now: Date): string {
 
 export async function backupWorkbenches(opts: {
   dir: string; remote: string; targets: BackupTarget[]; settings?: string; now?: Date
+  /** 앱 설정을 둘 컴퓨터 이름 (기본: 이 컴퓨터, machineName) */
+  machine?: string
   /** 테스트용: GitHub 것을 맥에 쓰기 바로 전에 부른다 (그 사이 다른 쪽이 고친 경우를 흉내 낸다) */
   beforeWrite?: (abs: string) => void
 }): Promise<BackupResult> {
   const now = opts.now ?? new Date()
+  const SETTINGS = settingsPath(opts.machine)
   const at = now.toISOString()
   const empty = { pulled: [], conflicts: [], settingsPulled: false }
   const fail = (error: string): BackupResult => ({ at, projects: [], commit: null, pushed: false, ...empty, message: t(`맞추지 못했습니다 — ${error}`, `Could not sync: ${error}`), error })
@@ -176,9 +186,9 @@ export async function backupWorkbenches(opts: {
   }
   const paths = [...projects]
   if (opts.settings && fs.existsSync(opts.settings)) {
-    fs.mkdirSync(path.join(opts.dir, '_settings'), { recursive: true })
+    fs.mkdirSync(path.dirname(path.join(opts.dir, SETTINGS)), { recursive: true })
     fs.copyFileSync(opts.settings, path.join(opts.dir, SETTINGS))
-    paths.push('_settings')
+    paths.push(path.dirname(SETTINGS))
   }
   const extra = { pulled, conflicts, settingsPulled }
   const what = [pulled.length && t(`GitHub에서 ${pulled.length}개 받음`, `pulled ${pulled.length} from GitHub`), conflicts.length && t(`양쪽에서 고친 ${conflicts.length}개는 GitHub 것을 옆에 받아 둠`, `${conflicts.length} edited on both sides: the GitHub copy was saved alongside`)].filter(Boolean).join(', ')
@@ -199,7 +209,7 @@ export async function backupWorkbenches(opts: {
       return { at, projects, commit, pushed: false, ...extra, message: t(`이 맥에는 커밋했지만 GitHub에 올리지 못했습니다 — ${firstLine(e)}`, `Committed on this Mac but could not push to GitHub: ${firstLine(e)}`), error: firstLine(e) }
     }
     await git(opts.dir, ['update-ref', SYNCED, 'HEAD'])
-    return { at, projects, commit, pushed: true, ...extra, message: t(`맞췄습니다: ${[...projects, ...(paths.includes('_settings') ? ['앱 설정'] : [])].join(', ')}${what ? ` (${what})` : ''}`, `Synced: ${[...projects, ...(paths.includes('_settings') ? ['app settings'] : [])].join(', ')}${what ? ` (${what})` : ''}`) }
+    return { at, projects, commit, pushed: true, ...extra, message: t(`맞췄습니다: ${[...projects, ...(paths.includes(path.dirname(SETTINGS)) ? ['앱 설정'] : [])].join(', ')}${what ? ` (${what})` : ''}`, `Synced: ${[...projects, ...(paths.includes(path.dirname(SETTINGS)) ? ['app settings'] : [])].join(', ')}${what ? ` (${what})` : ''}`) }
   } catch (e) {
     return fail(firstLine(e))
   }
