@@ -148,8 +148,12 @@ export function App() {
 
   // ---------- 불러오기 ----------
   const [sandbox, setSandbox] = useState(false)
-  const loadResearches = useCallback(() => api.researches().then((r) => { setResearches(r.researches); setSandbox(r.sandbox); return r.researches }), [])
-  useEffect(() => { loadResearches().catch((e: Error) => setError(e.message)) }, [loadResearches])
+  // 목록은 화면 캐시(qk.researches)와 함께 둔다: 다른 화면이 그 키를 다시 받게 하면(다른 컴퓨터의 프로젝트 등록 등) 레일과 홈도 바뀐다 (10/22 맥미니 "등록을 눌렀는데 달라지는 것이 없어")
+  const researchClient = useQueryClient()
+  const researchList = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() })
+  useEffect(() => { if (researchList.data) { setResearches(researchList.data.researches); setSandbox(researchList.data.sandbox) } }, [researchList.data])
+  useEffect(() => { if (researchList.error) setError(researchList.error.message) }, [researchList.error])
+  const loadResearches = useCallback(() => api.researches().then((r) => { researchClient.setQueryData(qk.researches, r); setResearches(r.researches); setSandbox(r.sandbox); return r.researches }), [researchClient])
   // 따로 받는 화면은 첫 화면이 뜬 뒤 한가할 때 미리 받아 둔다 (lazyPages.tsx)
   useEffect(() => { prefetchLazyPages() }, [])
 

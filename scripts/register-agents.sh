@@ -19,11 +19,15 @@ if command -v claude >/dev/null; then
 else echo "– Claude Code (없음)"; fi
 
 TOML="$HOME/.codex/config.toml"
-if command -v codex >/dev/null; then
+# PATH에 없어도 ChatGPT 데스크톱 앱에 든 Codex CLI를 쓴다 (10/22 맥미니)
+CODEX="$(command -v codex)"
+BUNDLED="/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
+[ -z "$CODEX" ] && [ -x "$BUNDLED" ] && CODEX="$BUNDLED"
+if [ -n "$CODEX" ]; then
   if [ -f "$TOML" ] && grep -qF "$MCP" "$TOML"; then echo "– Codex (이미 등록)"
   else
-    codex mcp remove "$NAME" >/dev/null 2>&1
-    if codex mcp add "$NAME" -- "$NODE" "$MCP" >/dev/null 2>&1; then echo "✓ Codex 등록"
+    "$CODEX" mcp remove "$NAME" >/dev/null 2>&1
+    if "$CODEX" mcp add "$NAME" -- "$NODE" "$MCP" >/dev/null 2>&1; then echo "✓ Codex 등록"
     elif ! grep -q "^\[mcp_servers\.$NAME\]" "$TOML" 2>/dev/null; then
       # mcp 명령이 없는 옛 Codex: 설정 파일에 직접 더한다
       mkdir -p "$HOME/.codex"

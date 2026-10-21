@@ -44,7 +44,7 @@ button.a { text-align: inherit; }
 .icon-btn svg, .rail-btn svg, .segmented svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 .segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-sunken); border-radius: var(--r-md); }
-.segmented button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 14px; border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); }
+.segmented button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 3px 14px; border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); }
 .segmented button svg { width: 14px; height: 14px; }
 .segmented button:hover:not(:disabled) { color: var(--text); }
 .segmented button:disabled { opacity: .4; cursor: default; }

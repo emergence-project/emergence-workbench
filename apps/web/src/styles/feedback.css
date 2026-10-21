@@ -18,7 +18,9 @@ body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] 
 .fb-pop textarea:focus { outline: none; border-color: var(--line-strong); background: var(--bg); }
 .fb-pop > * { flex-shrink: 0; }
 .fb-preview { min-height: 0; max-height: calc(var(--sp-6) * 3); overflow: auto; font-size: var(--fs-sm); color: var(--text-2); }
-.fb-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+.fb-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+/* 좁은 창에서 줄이지 않고 다음 줄로 (10/22 맥미니: "GitHub에 보내기"가 있으면 수정·질문·제안이 한 글자씩 끊김) */
+.fb-actions > * { flex-shrink: 0; white-space: nowrap; }
 /* GitHub에 보내기는 저장·취소와 떨어진 왼쪽에 (공개로 나가는 행동이라 저장과 헷갈리지 않게) */
 .fb-actions .fb-send { margin-right: auto; }
 .fb-list { position: fixed; z-index: calc(var(--z-feedback) + 2); right: 16px; bottom: 70px; width: 380px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); }

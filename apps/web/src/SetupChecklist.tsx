@@ -286,11 +286,11 @@ export function SetupHomeCard() {
   if (!loaded) return null
   if (!left.length) return <ElsewhereHomeCard setup={setup.data} />
   return (<>
-    <ElsewhereHomeCard setup={setup.data} />
     <div className="setup-home card" data-ui="시작 준비 카드">
       <span className="set-name">{t('시작 준비', 'Getting started')} <b className="setup-left">{done} / {must.length}</b></span>
       <span className="setup-desc">{t(`${left.map((m) => m.label).join(', ')}${subjectParticle(left[left.length - 1]!.label)} 남았습니다.`, `Left: ${left.map((m) => m.label.toLowerCase()).join(', ')}.`)}</span>
       <button className="a" onClick={() => go({ page: 'settings', part: 'google' })}>{t('설정 › 계정 열기', 'Open Settings › Accounts')}</button>
     </div>
+    <ElsewhereHomeCard setup={setup.data} />
   </>)
 }
