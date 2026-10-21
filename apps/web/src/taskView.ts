@@ -182,5 +182,5 @@ export function splitReport(body: string): { summary: string; evidence: string }
  * 작업 파일이 곧 지시서이므로 파일과 규칙 문서만 가리킨다.
  */
 export function agentPrompt(file: string, rules: string): string {
-  return tr(`${file}에 맡긴 일을 해 줘. 먼저 이 파일과 규칙 문서 ${rules}를 읽고, 결과는 같은 파일에 채워.`, `Do the task delegated in ${file}. First read this file and the rules document ${rules}, then fill in the results in the same file.`)
+  return tr(`${file}에 맡긴 일을 해 줘. 먼저 이 파일과 규칙 문서 ${rules}를 읽고, 결과는 같은 파일에 채워. MCP emergence-workbench가 있으면 read_task로 읽고 결과는 report_task로 써.`, `Do the task delegated in ${file}. First read this file and the rules document ${rules}, then fill in the results in the same file. With the emergence-workbench MCP, read it with read_task and write the results with report_task.`)
 }

@@ -6,6 +6,7 @@ import YAML from 'yaml'
 import { generateStatus } from './agentStatus.js'
 import * as C from '@rw/core/contract/tasks'
 import { app, R, repo, useSampleApp } from './testkit.js'
+import { fillSection } from './tasks.js'
 import { classify } from './watcher.js'
 import { Workbench } from './workbench.js'
 
@@ -257,5 +258,15 @@ describe('STATUS.md와 파일 감시', () => {
   it('workbench/tasks/의 .md가 바뀌면 알린다', () => {
     expect(classify('/r/workbench', '/r/workbench/tasks/2026-10-07-a.md')).toEqual({ type: 'tasks', id: '2026-10-07-a' })
     expect(classify('/r/workbench', '/r/workbench/tasks/x.txt')).toBeNull()
+  })
+})
+
+describe('보고의 본문 절 (report_task, 10/21)', () => {
+  it('빈 절(주석만 있어도)은 채우고, 글이 있으면 지우지 않고 시각 아래 덧붙인다', () => {
+    const empty = '\n<!-- 안내 -->\n\n## 요약과 결론\n\n## 근거\n'
+    expect(fillSection(empty, '요약과 결론', '같다.', '2026-10-21 20:00')).toBe('\n<!-- 안내 -->\n\n## 요약과 결론\n\n같다.\n\n## 근거\n')
+    const full = '## 요약과 결론\n\n앞의 결론.\n\n## 근거\n\n앞의 근거.\n'
+    expect(fillSection(full, '근거', '새 근거.', '2026-10-21 20:00')).toBe('## 요약과 결론\n\n앞의 결론.\n\n## 근거\n\n앞의 근거.\n\n### 2026-10-21 20:00\n\n새 근거.\n')
+    expect(fillSection('본문만\n', '근거', '새 근거.', 'x')).toBe('본문만\n\n## 근거\n\n새 근거.\n')
   })
 })

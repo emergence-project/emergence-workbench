@@ -33,10 +33,10 @@ describe('MCP 입구 (읽기)', () => {
     expect(agentOf(undefined)).toBe('mcp')
   })
 
-  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record와 흐름의 flow_add · flow_update · flow_review뿐이다', async () => {
+  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task, 일지 add_journal뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['add_record', 'answer_record', 'edit_concept', 'edit_note', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review'].includes(t.name))
+    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'edit_concept', 'edit_note', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'add_task', 'report_task', 'add_journal'].includes(t.name))
   })
 
   it('연결 안내의 순서에 적은 도구 이름은 모두 실제 도구다', async () => {
@@ -174,7 +174,8 @@ describe('MCP 입구 (읽기)', () => {
     expect(t).toMatch(/- part: "concepts" · .* · \d+\.\dKB/)
     expect(textOf(await c.callTool({ name: 'rules', arguments: { part: 'tasks' } }))).toContain('# 맡긴 일의 규칙')
     expect(t).toContain('baseHash')
-    expect(t).toContain('prefer edit_note / edit_concept')
+    expect(t).toContain('project_status instead of workbench/STATUS.md')
+    expect(t).toContain('add_task / report_task')
     expect(t).toContain('docs/repo-format.md')
     expect(t).toContain('agent:check')
     expect(t).toContain('only when the user asks')
@@ -267,6 +268,47 @@ describe('MCP 입구 (읽기)', () => {
     expect(list.tasks.find((t) => t.id === id)?.state).toBe('working')
     const task = JSON.parse(textOf(await c.callTool({ name: 'read_task', arguments: { project: 'sample-research', id } }))) as { endCondition: string }
     expect(task.endCondition).toBe('식 3이 식 2와 같음')
+  })
+
+  it('맡긴 일: add_task로 만들고, report_task로 제안 → 결과를 쓰며 done은 쓰지 못한다 (10/21)', async () => {
+    const full = (async (input: string | URL, init?: RequestInit) => {
+      const u = new URL(String(input))
+      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
+      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    const c = await connect(full)
+    const rid = 'sample-research'
+    expect(textOf(await c.callTool({ name: 'add_task', arguments: { project: rid, title: 'MCP 검산', task: '식 3을 확인' } }))).toMatch(/Added task \S+ \(workbench\/tasks\/.+\.md, working\)/)
+    const id = (JSON.parse(textOf(await c.callTool({ name: 'list_tasks', arguments: { project: rid } }))) as { tasks: { id: string; title: string }[] }).tasks.find((t) => t.title === 'MCP 검산')!.id
+    const read = async () => JSON.parse(textOf(await c.callTool({ name: 'read_task', arguments: { project: rid, id } }))) as { hash: string; state: string; proposal?: unknown; conclusion?: string; asks: unknown[]; issues: unknown[]; body: string }
+    const missing = await c.callTool({ name: 'report_task', arguments: { project: rid, id, baseHash: (await read()).hash, kind: 'result', conclusion: '같다' } })
+    expect(missing.isError).toBe(true)
+    expect(textOf(await c.callTool({ name: 'report_task', arguments: { project: rid, id, baseHash: (await read()).hash, kind: 'proposal', endCondition: ['식 3이 식 2와 같음, 부호까지'], reason: '비어 있어서' } }))).toContain('proposed')
+    expect((await read()).proposal).toEqual({ endCondition: ['식 3이 식 2와 같음, 부호까지'], reason: '비어 있어서' })
+    const notWorking = await c.callTool({ name: 'report_task', arguments: { project: rid, id, baseHash: (await read()).hash, kind: 'proposal', endCondition: ['다시'] } })
+    expect(textOf(notWorking)).toContain('409')
+    const t0 = await read()
+    expect((await app.inject({ method: 'POST', url: `${R}/tasks/${id}/judge`, payload: { verdict: 'approve', baseHash: t0.hash } })).statusCode).toBe(200)
+    expect(textOf(await c.callTool({ name: 'report_task', arguments: {
+      project: rid, id, baseHash: (await read()).hash, kind: 'result', conclusion: '식 3은 식 2와 같다: 부호, 계수 모두.', endCheck: 'pass',
+      summary: '두 식이 같다.', evidence: '전개해 비교했다.', ask: ['노트에 반영할까요?', { q: '어디에?', options: ['결론 절', '부록'] }],
+      issues: [{ text: 'L=48: 아직', impact: '결론과 따로' }], outputs: ['data/a.csv'], checkMachine: 'pytest 3 passed',
+    } }))).toContain('result')
+    const t1 = await read()
+    expect(t1).toMatchObject({ state: 'result', conclusion: '식 3은 식 2와 같다: 부호, 계수 모두.', asks: [{ q: '노트에 반영할까요?', options: [] }, { q: '어디에?', options: ['결론 절', '부록'] }], issues: [{ text: 'L=48: 아직', impact: '결론과 따로' }] })
+    expect(t1.body).toMatch(/## 요약과 결론\n\n두 식이 같다\.\n\n## 근거\n\n전개해 비교했다\.\n/)
+    expect((await app.inject({ method: 'GET', url: `${R}/tasks` })).json().diagnostics).toEqual([])
+  })
+
+  it('add_journal은 오늘 일지에 메모 한 줄을 더한다', async () => {
+    const full = (async (input: string | URL, init?: RequestInit) => {
+      const u = new URL(String(input))
+      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
+      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    expect(textOf(await (await connect(full)).callTool({ name: 'add_journal', arguments: { project: 'sample-research', text: 'MCP로 남긴 일지' } }))).toContain('Added to the journal')
+    const entries = (await app.inject({ method: 'GET', url: `${R}/journal?days=1` })).json().entries as { kind: string; text: string }[]
+    expect(entries.some((e) => e.kind === 'memo' && e.text === 'MCP로 남긴 일지')).toBe(true)
   })
 
   it('기록 읽기와 없는 프로젝트는 오류로', async () => {

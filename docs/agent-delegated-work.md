@@ -78,6 +78,8 @@
 
 2.2의 칸과 두 절을 채우고 `state: result`로 둔다. 확인 요청이 없으면 `ask`를 비운다.
 
+MCP 입구 `emergence-workbench`가 있으면 파일을 직접 고치지 않고 `report_task`로 보낸다(10/21): `kind: result`는 결과 칸과 두 절을, `kind: proposal`은 종결 조건 제안(3.1)을 앱이 YAML로 써 넣고 상태를 `result`·`proposed`로 바꾼다. 절에 이미 글이 있으면 지우지 않고 시각 머리 아래 덧붙인다(3.4). 이때는 아래 `agent:check-tasks`를 따로 돌리지 않아도 된다.
+
 제출 전에 Emergence Workbench 앱 폴더에서 다음 읽기 전용 검사를 통과시킨다:
 
 ```sh

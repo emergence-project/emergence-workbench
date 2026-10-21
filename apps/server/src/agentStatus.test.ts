@@ -153,15 +153,17 @@ describe('에이전트 맥락 요약', () => {
   }
   const section = (status: string, heading: string) => status.split(heading)[1]!.split('\n## ')[0]!
 
-  it('머리 안내에 형식·검사·확인·MCP 규칙을 기존 세 안내 뒤에 둔다', async () => {
+  it('머리 안내는 MCP 도구를 맨 앞에, 형식·검사·확인 규칙을 그 뒤에 둔다 (10/21)', async () => {
     const status = await generateStatus(fresh())
     const guides = status.split('\n').filter((line) => line.startsWith('> '))
     expect(guides[0]).toMatch(/^> 연구 작업대 앱이 자동으로 쓰는 요약이다/)
-    expect(guides[3]).toContain('docs/repo-format.md')
-    expect(guides[3]).toContain('agent:check')
-    expect(guides[3]).toContain('pnpm --dir')
-    expect(guides[4]).toContain('locked: true')
-    expect(guides[5]).toContain('`edit_note`·`edit_concept`')
+    expect(guides[1]).toContain('이 파일 대신 `project_status`')
+    for (const tool of ['edit_note', 'edit_concept', 'add_record', 'flow_add', 'add_task', 'report_task', 'add_journal']) expect(guides[1]).toContain(`\`${tool}\``)
+    expect(guides[3]).toContain('`report_task`')
+    expect(guides[4]).toContain('docs/repo-format.md')
+    expect(guides[4]).toContain('agent:check')
+    expect(guides[4]).toContain('pnpm --dir')
+    expect(guides[5]).toContain('locked: true')
   })
 
   it('노트를 상태 순·최근 수정 순으로 보이고 해결 노트의 기록 대상을 화면처럼 만든다', async () => {

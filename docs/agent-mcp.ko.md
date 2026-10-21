@@ -2,7 +2,7 @@
 
 [English](agent-mcp.md)
 
-Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 · 노트 · 기록 · 맡긴 일 · 개념노트를 **앱 서버를 거쳐** 읽는 입구다. MCP 도구는 파일을 직접 열지 않고 앱과 같은 API를 쓰므로, 앱 화면과 같은 내용 · 같은 hash를 본다. 쓰기 도구는 노트를 고치는 `edit_note` · `edit_concept`(10/8 에이전트 고침 검토)와 질문 · 지시 기록에 답하는 `answer_record`(10/15), 사용자에게 묻거나 남기는 기록을 에이전트 이름으로 쓰는 `add_record`(10/15)뿐이다. 고치기 도구는 에이전트는 바로 쓰고, 앱이 고치기 전 글을 기준판으로 남기며, 사용자가 고침 검토 화면(연구노트는 그 프로젝트의 "고침 검토" `#/r/<연구>/edits`, 개념노트는 `#/review`)에서 바뀐 문단마다 승인 · 되돌리기 · 고치기를 고른다. 사용자가 확인한 노트는 대화에서 먼저 허락을 받는다. 고칠 때마다 어느 에이전트가 고쳤는지 적힌다. 이름은 클라이언트가 연결할 때 보내는 이름(`clientInfo.name`)에서 온다: Claude Code는 `claude-code`, Codex는 `codex`, 그 밖에는 보낸 그대로다. 클라이언트가 스스로 밝힌 값이라 앱이 검증하지는 않는다. 에이전트가 앱을 거치지 않고 파일을 직접 고친 것은 여기 남지 않으니, 커밋 작성자로 확인한다. 검토 화면에서 사용자는 바뀐 문단마다 물을 수 있다(10/14): 물은 것은 `edit: 질문` 또는 `edit: 수정`이 붙은 노트 기록으로 남는다(`docs/repo-format.md` §6.2). 앱은 맥의 Claude에게 바로 묻고, 못 부르면 기록은 답 없는 채로 에이전트 차례에 잡힌다. `수정`이면 그 문단을 `edit_note`로 다시 고친 뒤 `answer_record`로 기록에 답한다.
+Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 · 노트 · 기록 · 맡긴 일 · 개념노트를 **앱 서버를 거쳐** 읽는 입구다. MCP 도구는 파일을 직접 열지 않고 앱과 같은 API를 쓰므로, 앱 화면과 같은 내용 · 같은 hash를 본다. 쓰기 도구는 노트를 고치는 `edit_note` · `edit_concept`(10/8 에이전트 고침 검토)와 질문 · 지시 기록에 답하는 `answer_record`(10/15), 사용자에게 묻거나 남기는 기록을 에이전트 이름으로 쓰는 `add_record`(10/15), 흐름 도구(10/20), 그리고 맡긴 일을 만들고 보고하며 오늘 일지에 적는 `add_task` · `report_task` · `add_journal`(10/21)이다. 에이전트는 `workbench/STATUS.md`를 읽거나 workbench 파일을 직접 고치는 대신 이 도구를 쓴다: 출력이 짧고 한 일이 앱에 보인다(10/21: 연구 저장소의 에이전트가 40KB 남짓한 STATUS.md를 읽고 맡긴 일 · 일지 파일을 손으로 고치고 있었다). 고치기 도구는 에이전트는 바로 쓰고, 앱이 고치기 전 글을 기준판으로 남기며, 사용자가 고침 검토 화면(연구노트는 그 프로젝트의 "고침 검토" `#/r/<연구>/edits`, 개념노트는 `#/review`)에서 바뀐 문단마다 승인 · 되돌리기 · 고치기를 고른다. 사용자가 확인한 노트는 대화에서 먼저 허락을 받는다. 고칠 때마다 어느 에이전트가 고쳤는지 적힌다. 이름은 클라이언트가 연결할 때 보내는 이름(`clientInfo.name`)에서 온다: Claude Code는 `claude-code`, Codex는 `codex`, 그 밖에는 보낸 그대로다. 클라이언트가 스스로 밝힌 값이라 앱이 검증하지는 않는다. 에이전트가 앱을 거치지 않고 파일을 직접 고친 것은 여기 남지 않으니, 커밋 작성자로 확인한다. 검토 화면에서 사용자는 바뀐 문단마다 물을 수 있다(10/14): 물은 것은 `edit: 질문` 또는 `edit: 수정`이 붙은 노트 기록으로 남는다(`docs/repo-format.md` §6.2). 앱은 맥의 Claude에게 바로 묻고, 못 부르면 기록은 답 없는 채로 에이전트 차례에 잡힌다. `수정`이면 그 문단을 `edit_note`로 다시 고친 뒤 `answer_record`로 기록에 답한다.
 
 ## 쓰기 전에
 
@@ -31,7 +31,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 
 도구 이름과 설명은 영어다(앱 화면 언어와 상관없이 에이전트가 읽는다).
 
-## 도구 (edit_note · edit_concept · answer_record · add_record 말고는 읽기 전용)
+## 도구 (edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · add_task · report_task · add_journal 말고는 읽기 전용)
 
 연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
 
@@ -47,6 +47,9 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `read_records` | 노트·프로젝트 기록(메모 · 할 일 · 질문과 답 · 하이라이트)과 hash. 대상은 `project` · `note-<폴더>` · `topic-<id>` · `flow-<id>` 등이고, `part` · `partText`는 사용자가 가리킨 화면 부위다 | `GET …/:rid/comments/:target` |
 | `list_records` | 프로젝트의 모든 기록(프로젝트 · 노트 · 주제 · 흐름 점, 하이라이트 제외)을 한 목록으로, 종류 · 상태 · 대상(정확히 또는 `topic-`처럼 앞부분)으로 거른다. `unanswered: true`면 답을 기다리는 사용자의 질문과 지시(10/15: 에이전트가 하고 나서 답하는 기록)만. `replied: true`면 에이전트가 물은 질문에 사용자가 답한 것(답을 반영하고 `answer_record`로 답하면 끝냄), `unsorted: true`면 "자동"으로 남기고 아직 분류하지 않은 기록. `by`는 기록을 쓴 에이전트(없으면 사용자), 답 이름 `사용자`는 사용자가 이어 쓴 것. 줄은 짧다(본문과 마지막 답은 300자까지, 답 수). `full: true`면 전부. 앱 서버 없이는 `pnpm agent:records <저장소>`가 같은 줄을, `pnpm agent:answer <저장소> <대상> <id> "<답>"`이 같은 답을 쓴다 | `GET …/:rid/records` |
 | `list_tasks` · `read_task` | 맡긴 일 목록과 하나의 모든 칸 | `GET …/:rid/tasks`, `…/tasks/:id` |
+| `add_task` | 할 일 · 인계 · 새 일 제안을 작업 파일로 만든다 `{ title, task, endCondition?, topic?, agent?, references?, avoid? }`. `workbench/tasks/*.md`를 직접 쓰지 않는다 | `POST …/:rid/tasks` |
+| `report_task` | 진행(`working`) 중인 맡긴 일의 보고를 `read_task`의 hash와 함께 쓴다. `kind: proposal`과 `endCondition`(과 `reason`) → `proposed`. `kind: result`와 `conclusion` · `endCheck` · `summary` · `evidence`, 고르면 `ask` · `issues` · `next` · `outputs` · `checkMachine` → `result`. YAML 머리말(쉼표 · 콜론에 깨지지 않게)과 본문 두 절은 앱이 쓰고, 절에 이미 글이 있으면 지우지 않고 시각 `###` 머리 아래 덧붙인다. `done`은 쓰지 않는다 | `POST …/:rid/tasks/:id/report` |
+| `add_journal` | 오늘 일지에 메모 한 줄 `{ text, target? }`(한 일과 고친 파일). `workbench/log/<날짜>.md`를 직접 쓰지 않는다 | `POST …/:rid/journal` |
 | `search_library` | 개념노트 · 논문 찾기 (이름 · 다른 이름 · 저자 · 연도 · arXiv 번호). 개념노트는 본문으로도 찾고, 맞은 줄마다 `hits`(본문 줄 번호 · 그 줄의 절 제목 · 줄 글)를 붙인다. 노트 전체 대신 그 절만 보면 된다 | `GET /api/search/catalog`, `GET /api/concepts/search` |
 | `read_concept` | 개념노트 머리말 · 본문 · hash와 확인 상태(ok · changed · none) | `GET /api/concepts/:id` |
 | `edit_note` | 프로젝트 노트(원고 제외)를 글 바꾸기 `{ old, new, reason }`로 고친다. `reason`은 꼭 적는다: 왜 바꿨는지 한 줄로, 바뀐 문단 아래에 보인다. `read_note`의 hash를 보낸다. 바로 쓰고 사용자가 문단마다 검토한다. 상태가 해결인 노트는 첫 시도를 428로 거절하고 사용자에게 알린다. 대화에서 허락을 받은 뒤 `approved: true`로 다시 보낸다 | `POST /api/agent-edits/write` |

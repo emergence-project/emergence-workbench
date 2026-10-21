@@ -147,11 +147,12 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   p(`# STATUS — ${info.title}`, '',
     `${STATUS_HEAD} (${today} ${now.toTimeString().slice(0, 5)}). **고치지 말 것** — 고칠 것은 아래 정본 파일에서.`,
     ...warnings,
-    '> 이 저장소의 에이전트는 이 파일을 먼저 읽어 지금 어디까지 왔는지 파악한 뒤, 저장소 자체 규칙(AGENTS.md·CLAUDE.md)을 따른다.',
-    `> 사용자가 맡긴 일(\`workbench/tasks/\`)은 공통 규칙 \`${RULES_DOC}\`을 따른다: 종결 조건을 먼저, 결과는 같은 파일에, 승인은 사용자만.`,
-    `> 파일을 직접 고칠 때는 형식 문서 \`${appPath('docs/repo-format.md')}\`를 따르고, 고친 뒤 \`pnpm --dir ${appPath()} agent:check ${homeShort(repo)}\`로 검사한다.`,
-    '> 사용자가 확인한 것(✓ 해결 노트, `checked` 개념노트)은 고치기 전에 대화에서 허락을 받는다. 원고(`research.yaml` `sources.manuscript`의 `.tex`)는 사용자가 요청할 때만 고치고, `locked: true` 개념노트는 고치지 않는다.',
-    '> MCP 입구 `emergence-workbench`가 연결돼 있으면 노트·개념노트는 `edit_note`·`edit_concept`로 고친다(사용자가 바뀐 문단마다 검토한다).', '')
+    // MCP를 맨 앞에 (10/21): 이 파일(40KB 남짓)을 통째로 읽고 workbench 파일을 직접 고치던 에이전트가 도구를 쓰게
+    '> MCP 입구 `emergence-workbench`가 연결돼 있으면 이 파일 대신 `project_status`(짧은 요약, 절은 하나씩)로 보고, workbench 파일도 도구로 쓴다: 노트 `edit_note` · 개념노트 `edit_concept`(사용자가 바뀐 문단마다 검토한다) · 기록 `add_record`·`answer_record` · 흐름 `flow_add`·`flow_update` · 맡긴 일 `add_task`·`report_task` · 일지 `add_journal`.',
+    '> 이 저장소의 에이전트는 이 요약을 먼저 보고 지금 어디까지 왔는지 파악한 뒤, 저장소 자체 규칙(AGENTS.md·CLAUDE.md)을 따른다.',
+    `> 사용자가 맡긴 일(\`workbench/tasks/\`)은 공통 규칙 \`${RULES_DOC}\`을 따른다: 종결 조건을 먼저, 결과는 같은 파일에(MCP가 있으면 \`report_task\`로), 승인은 사용자만.`,
+    `> MCP가 없거나 도구가 다루지 않는 파일을 직접 고칠 때는 형식 문서 \`${appPath('docs/repo-format.md')}\`를 따르고, 고친 뒤 \`pnpm --dir ${appPath()} agent:check ${homeShort(repo)}\`로 검사한다.`,
+    '> 사용자가 확인한 것(✓ 해결 노트, `checked` 개념노트)은 고치기 전에 대화에서 허락을 받는다. 원고(`research.yaml` `sources.manuscript`의 `.tex`)는 사용자가 요청할 때만 고치고, `locked: true` 개념노트는 고치지 않는다.', '')
   if (info.question) p(`**목표.** ${info.question}`, '')
 
   p('## 정본 위치', '')
