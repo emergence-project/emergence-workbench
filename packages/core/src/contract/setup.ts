@@ -14,14 +14,19 @@ export const SetupView = z.object({
   personal: z.object({ remote: z.string().nullable(), active: z.boolean() }).strict(),
   /**
    * 이 앱을 MCP로 부르는 에이전트마다 (Claude Code · Codex, 10/21 "에이전트 연결을 구분해서"):
-   * registered = 그 에이전트 설정에 이 앱의 MCP 입구가 있는지, at = 마지막으로 앱을 부른 때(없으면 null), command = 등록 명령.
+   * installed = 그 에이전트의 명령(claude · codex)이 이 컴퓨터에 깔려 있는지, registered = 그 에이전트 설정에 이 앱의 MCP 입구가 있는지, at = 마지막으로 앱을 부른 때(없으면 null), command = 등록 명령.
    * 등록과 부름은 다르다: 등록하기 전에 열린 세션은 부르지 못한다
    */
-  agents: z.array(z.object({ key: z.enum(['claude-code', 'codex']), name: z.string(), registered: z.boolean(), at: z.string().nullable(), command: z.string() }).strict()),
+  agents: z.array(z.object({ key: z.enum(['claude-code', 'codex']), name: z.string(), installed: z.boolean(), registered: z.boolean(), at: z.string().nullable(), command: z.string() }).strict()),
   /**
    * 이 컴퓨터에 설치 (10/21 "다른 컴퓨터에서도 아이콘부터 에이전트 등록까지 설치 과정에서"): scripts/install.sh가 하는 일 중 앱이 볼 수 있는 것.
    * app = ~/Applications의 앱 아이콘(Spotlight · Launchpad · 바탕화면), dock = Dock에 고정, service = 백그라운드 서비스 등록. command = 설치 명령 (빠진 것을 마저 한다)
    */
+  /**
+   * 공용 라이브러리 (10/21 맥미니: 받아 둔 research-library를 앱이 몰랐고 화면에서 정할 곳도 없었다).
+   * path = 지금 정한 폴더, suggest = 정하지 않았을 때 다른 컴퓨터가 쓰는 라이브러리와 이름이 같은, 이 컴퓨터에 받아 둔 폴더
+   */
+  library: z.object({ path: z.string().nullable(), suggest: z.string().nullable() }).strict(),
   install: z.object({ app: z.boolean(), dock: z.boolean(), service: z.boolean(), command: z.string() }).strict(),
   /**
    * 다른 컴퓨터의 프로젝트 중 이 컴퓨터에 없는 것 (10/21 "새 컴퓨터에 원래 프로젝트가 나와야, 최소한 받을지 물어야"):
@@ -38,6 +43,8 @@ export const SetupView = z.object({
 }).strict()
 
 // ---------- 요청 ----------
+/** PUT /setup/library: 공용 라이브러리 폴더 (절대 경로) */
+export const SetupLibraryBody = z.object({ path: z.string() }).strict()
 export const SetupGitBody = z.object({ name: z.string(), email: z.string() }).strict()
 export const SetupPersonalBody = z.object({ remote: z.string() }).strict()
 /** 다른 컴퓨터의 프로젝트 하나를 받아(이미 있으면 그대로) 등록한다 */
@@ -47,3 +54,4 @@ export type SetupView = z.infer<typeof SetupView>
 export type SetupGitBody = z.input<typeof SetupGitBody>
 export type SetupPersonalBody = z.input<typeof SetupPersonalBody>
 export type SetupFetchBody = z.input<typeof SetupFetchBody>
+export type SetupLibraryBody = z.input<typeof SetupLibraryBody>

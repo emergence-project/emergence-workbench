@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { FEEDBACK_MISSES, FEEDBACK_STATES, feedbackStatusWarnings, listAllFeedback } from './feedback.js'
+import { adoptLocalFeedback, FEEDBACK_MISSES, FEEDBACK_STATES, feedbackStatusWarnings, listAllFeedback } from './feedback.js'
 
 // 처리 기록이 깨지면(합치다가 같은 키가 두 번 들어가는 등) 피드백 화면이 경고를 띄운다. 합치기 전에 잡는다.
 // 실제 기록은 개인 저장소에 있으므로(CLAUDE.md "위치") 예제 기록은 늘 보고, 개인 저장소 사본이 있으면 그것도 본다
@@ -60,5 +60,26 @@ describe('feedbackStatusWarnings', () => {
     expect(w[0]).toContain('2026-10-01 09:00 홈: state "확인필요"')
     expect(w[1]).toContain('2026-10-01 11:00 홈: state 없음')
     fs.rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('설정 폴더에만 쌓인 피드백을 개인 저장소로 옮기기 (10/21 맥미니)', () => {
+  it('없는 파일은 옮기고, 같은 날짜 파일은 그 날 항목을 끝에 잇고, 이름이 겹치는 다른 그림은 두고 온다', () => {
+    const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-adopt-'))
+    const from = path.join(root, 'feedback'), to = path.join(root, 'personal/feedback')
+    fs.mkdirSync(path.join(from, 'pictures'), { recursive: true }); fs.mkdirSync(path.join(to, 'pictures'), { recursive: true })
+    fs.writeFileSync(path.join(from, '2026-10-22.md'), '# 피드백 2026-10-22\n\n## 07:13 수정 · 설정\n\n맥미니 글\n')
+    fs.writeFileSync(path.join(to, '2026-10-22.md'), '# 피드백 2026-10-22\n\n## 06:00 질문 · 홈\n\n맥북 글\n')
+    fs.writeFileSync(path.join(from, '2026-10-21.md'), '# 피드백 2026-10-21\n\n## 23:00 제안 · 홈\n\n어제 글\n')
+    fs.writeFileSync(path.join(from, 'pictures/a.png'), 'mini'); fs.writeFileSync(path.join(to, 'pictures/a.png'), 'book')
+    fs.writeFileSync(path.join(from, 'pictures/b.png'), 'mini')
+    const r = adoptLocalFeedback(from, to, new Date(2026, 9, 22, 8))
+    expect(r).toEqual({ files: 3, skipped: [path.join('pictures', 'a.png')] })
+    expect(fs.readFileSync(path.join(to, '2026-10-22.md'), 'utf8')).toBe('# 피드백 2026-10-22\n\n## 06:00 질문 · 홈\n\n맥북 글\n\n## 07:13 수정 · 설정\n\n맥미니 글\n')
+    expect(fs.readFileSync(path.join(to, '2026-10-21.md'), 'utf8')).toContain('어제 글')
+    expect(fs.readFileSync(path.join(to, 'pictures/a.png'), 'utf8')).toBe('book')
+    expect(fs.existsSync(from)).toBe(false)
+    expect(fs.existsSync(path.join(root, 'feedback.moved-2026-10-22/pictures/a.png'))).toBe(true)
+    fs.rmSync(root, { recursive: true, force: true })
   })
 })

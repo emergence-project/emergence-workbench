@@ -19,7 +19,9 @@ async function originOf(dir: string): Promise<string | null> {
 
 /**
  * 개인 저장소 주소. 차례대로: RW_PERSONAL_REMOTE · RW_BACKUP_REMOTE, 설정(config.yaml)의 personalRepo,
- * 이미 받아 둔 백업 사본(설정 폴더 backup/)의 origin. 앱 저장소 주소에서 짐작하지 않는다: 설정하지 않으면 null(꺼짐).
+ * 이미 받아 둔 개인 저장소 사본(설정 폴더 personal/)이나 백업 사본(backup/)의 origin.
+ * 앱 저장소 주소에서 짐작하지 않는다: 설정하지 않으면 null(꺼짐).
+ * (10/21 맥미니: personal/ 사본은 있는데 config.yaml이 없어 꺼진 것으로 보고 받지도 올리지도 않았다)
  */
 export async function personalRemote(configDir: string): Promise<string | null> {
   const fromEnv = process.env.RW_PERSONAL_REMOTE || process.env.RW_BACKUP_REMOTE
@@ -28,8 +30,9 @@ export async function personalRemote(configDir: string): Promise<string | null> 
     const doc = YAML.parse(fs.readFileSync(path.join(configDir, 'config.yaml'), 'utf8')) as { personalRepo?: unknown } | null
     if (typeof doc?.personalRepo === 'string' && doc.personalRepo.trim()) return doc.personalRepo.trim()
   } catch { /* 설정 파일이 없거나 읽지 못하면 다음 차례 */ }
-  if (fs.existsSync(path.join(configDir, 'backup', '.git'))) {
-    const o = await originOf(path.join(configDir, 'backup'))
+  for (const copy of ['personal', 'backup']) {
+    if (!fs.existsSync(path.join(configDir, copy, '.git'))) continue
+    const o = await originOf(path.join(configDir, copy))
     if (o) return o
   }
   return null

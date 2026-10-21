@@ -8,7 +8,7 @@ import * as C from '@rw/core/contract/setup'
 import { parseBody, replies } from '../contract.js'
 import { agentRegistered, agentSeen } from '../agentSeen.js'
 import { appPath } from '../agentPaths.js'
-import { otherMachineProjects } from '../backup.js'
+import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
 import { git, gitRun, GIT_TIMEOUT } from '../git.js'
 import { remoteOf, sameRepo } from './google.js'
@@ -40,6 +40,11 @@ export function installState(home = os.homedir(), dockList?: string): Omit<C.Set
   }
 }
 
+/** 명령이 PATH(와 서비스가 보지 못하는 Homebrew · ~/.local)에 있는지. 없으면 등록 명령도 쓸 수 없다 (10/21 맥미니: Codex 없음) */
+export function agentInstalled(cmd: string, home = os.homedir(), envPath = process.env.PATH ?? ''): boolean {
+  return onPath(cmd, [envPath, '/opt/homebrew/bin', '/usr/local/bin', path.join(home, '.local/bin'), path.join(home, '.npm-global/bin')].join(path.delimiter))
+}
+
 const gitGlobal = async (key: string): Promise<string> => {
   try { return (await gitRun(['config', '--global', '--get', key], { timeout: GIT_TIMEOUT.read })).trim() } catch { return '' }
 }
@@ -58,7 +63,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     return [
       { key: 'claude-code', name: 'Claude Code', command: `claude mcp add --scope user emergence-workbench -- node ${mcp}` },
       { key: 'codex', name: 'Codex', command: `codex mcp add emergence-workbench -- node ${mcp}` },
-    ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', registered: registered.includes(a.name), at: seen[a.key] ?? null }))
+    ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', installed: opts.sandbox || agentInstalled(a.key === 'codex' ? 'codex' : 'claude'), registered: registered.includes(a.name), at: seen[a.key] ?? null }))
   }
 
   // 예제 모드: 다른 컴퓨터에 하나 더 있는 것처럼 (시작 준비 · 홈의 "다른 컴퓨터의 프로젝트" 그림)
@@ -72,6 +77,13 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     return others
       .filter((o) => !local.some((l) => sameRepo(l.remote, o.remote) || (!o.remote && l.folder === o.folder)))
       .map(({ id: _id, ...o }) => ({ ...o, local: !opts.sandbox && fs.existsSync(path.join(cloneDir, o.folder, '.git')) ? path.join(cloneDir, o.folder) : null }))
+  }
+
+  /** 정하지 않았으면 다른 컴퓨터가 쓰는 라이브러리와 같은 이름으로 받아 둔 폴더 */
+  const librarySuggest = (cloneDir: string): string | null => {
+    if (registry.libraryPath || opts.sandbox) return null
+    const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))
+    return (dir ? otherMachineLibraries(dir) : []).map((n) => path.join(cloneDir, n)).find((p) => fs.existsSync(p) && fs.statSync(p).isDirectory()) ?? null
   }
 
   const view = async (): Promise<C.SetupView> => {
@@ -89,6 +101,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       // 예제 모드는 이 컴퓨터를 보지 않는다 (그림이 컴퓨터마다 달라지지 않게): 다 된 것으로
       install: { ...(opts.sandbox ? { app: true, dock: true, service: true } : installState()), command: `zsh ${appPath('scripts/install.sh')}` },
       elsewhere: await elsewhere(cloneDir),
+      library: { path: registry.libraryPath ?? null, suggest: librarySuggest(cloneDir) },
       cloneDir,
       tex: onPath('latexmk'),
     }
@@ -109,6 +122,11 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       if (!sameRepo(await remoteOf(dest), repo.url)) throw new WorkbenchError(409, t(`${dest}에 다른 폴더가 있습니다. 홈의 "＋ 프로젝트 등록"으로 다른 곳에 받으세요.`, `${dest} holds a different folder. Use "＋ Register project" on Home to download it elsewhere.`))
     } else await cloneInto(repo.url, parent, folder)
     ensureWatch(registry.register(dest, { tags: body.tags }).id)
+    return view()
+  })
+
+  app.put('/api/setup/library', replies(C.SetupView), async (req): Promise<C.SetupView> => {
+    registry.setLibrary(parseBody(C.SetupLibraryBody, req.body).path.trim())
     return view()
   })
 

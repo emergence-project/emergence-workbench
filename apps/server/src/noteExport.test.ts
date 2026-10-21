@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_AUTHORS } from '@rw/core'
 import { buildApp } from './app.js'
 import { innerBody } from './noteBody.js'
 import { quietTitles } from './noteExport.js'
@@ -31,6 +32,7 @@ async function setup(name: string, template = 'article') {
   w('workbench/research.yaml', `title: Sample Beta\nsources:\n  manuscript: paper.tex — 논문 원고\nlatex-template: ${template}\n`)
   const a = buildApp({ configDir: path.join(tmp, `config-${name}`) })
   const id = (await a.inject({ method: 'POST', url: '/api/researches', payload: { path: proj } })).json().id
+  await a.inject({ method: 'PUT', url: '/api/authors', payload: { authors: DEFAULT_AUTHORS } })
   const R = `/api/researches/${id}`
   const list = (await a.inject({ method: 'GET', url: `${R}/manuscripts` })).json() as { key: string; name: string; ownHeader?: boolean }[]
   const key = (n: string) => list.find((m) => m.name === n)!.key

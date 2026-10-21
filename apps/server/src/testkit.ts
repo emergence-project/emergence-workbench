@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import chokidar from 'chokidar'
 import { afterAll, beforeAll, expect, vi } from 'vitest'
+import { DEFAULT_AUTHORS } from '@rw/core'
 import { buildApp } from './app.js'
 
 export const fixture = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../fixtures/sample-research')
@@ -52,6 +53,8 @@ export function useSampleApp(): void {
     app = buildApp({ configDir: path.join(tmp, 'config') })
     const res = await app.inject({ method: 'POST', url: '/api/researches', payload: { path: repo } })
     expect(res.statusCode).toBe(200)
+    // 실사용은 처음에 저자가 없다(registry.ts). 예제 모드처럼 예시 저자를 넣어 둔다
+    expect((await app.inject({ method: 'PUT', url: '/api/authors', payload: { authors: DEFAULT_AUTHORS } })).statusCode).toBe(200)
   })
   afterAll(async () => {
     await app.close()

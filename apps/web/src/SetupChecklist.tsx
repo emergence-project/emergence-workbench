@@ -61,7 +61,7 @@ const Edit = ({ label, onClick }: { label: string; onClick(): void }) =>
 export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: string): void; onUiRestored(ui: UiSettings): void }) {
   const { setup, github, people, me, must, done } = useSetup()
   const client = useQueryClient()
-  const [editing, setEditing] = useState<'git' | 'me' | 'personal' | null>(null)
+  const [editing, setEditing] = useState<'git' | 'me' | 'personal' | 'library' | null>(null)
   const s = setup.data
   const put = (v: SetupView) => client.setQueryData(qk.setup, v)
   const left = must.filter((m) => !m.ok)
@@ -105,6 +105,15 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
             ? <><code>{s.personal.remote}</code>{s.personal.active ? '. ' : t('. 앱을 다시 시작하면 받아 둡니다. ', '. It is cloned the next time the app restarts. ')}{t('피드백과 설정 백업을 이 비공개 저장소에 올립니다.', 'Feedback and settings backups are pushed to this private repository.')}</>
             : t('없음: 피드백과 설정 백업이 이 컴퓨터에만 남습니다. 비공개 저장소 주소를 넣으면 앱이 비공개인지 확인하고 받아 둡니다.', 'None: feedback and settings backups stay on this computer only. Enter a private repository address; the app checks that it is private and clones it.')}
         </Row>
+        <Row ok={!!s?.library.path} optional name={t('공용 라이브러리', 'Shared library')} sub={t('개념노트 · 논문 · 그림', 'concept notes, papers, figures')} ui="공용 라이브러리"
+          action={s?.library.suggest
+            ? <button className="btn" onClick={() => void setupApi.setLibrary({ path: s.library.suggest! }).then((v) => { put(v); onSaved(t('공용 라이브러리를 연결했습니다', 'Shared library connected')) }).catch((e: Error) => onSaved(e.message))}>{t('연결', 'Connect')}</button>
+            : <Edit label={t('고치기', 'Edit')} onClick={() => setEditing('library')} />}>
+          {s?.library.path ? <><code>{s.library.path}</code>. </>
+            : s?.library.suggest ? <>{t('다른 컴퓨터가 쓰는 라이브러리를 이 컴퓨터에서 찾았습니다: ', 'Found the library your other computer uses on this computer: ')}<code>{s.library.suggest}</code>. </>
+            : t('없음. ', 'None. ')}
+          {t('지식 · 논문 · 그림 화면과 원고의 공용 서식이 이 폴더를 씁니다.', 'The Knowledge, Papers and Figures screens and shared manuscript styles use this folder.')}
+        </Row>
         {/* 줄마다 자세한 것은 설정 › 에이전트 (10/21 사용자 "설정에서 에이전트 탭으로 빼자"). 여기는 몇 개 연결됐는지만 */}
         <Row ok={connected > 0} optional name={t('에이전트 연결', 'Agent connection')} sub={`${connected} / ${AGENT_ROWS}`} ui="에이전트 연결">
           {connected ? t(`${s!.agents.filter((a) => a.registered || a.at).map((a) => a.name).join(' · ')} 연결됨. `, `${s!.agents.filter((a) => a.registered || a.at).map((a) => a.name).join(', ')} connected. `) : t('아직 연결 안 됨. ', 'Not connected yet. ')}
@@ -121,6 +130,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
 
       {editing === 'git' && s && <GitDialog init={s.git} me={me} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(t('커밋 이름을 저장했습니다', 'Commit name saved')) }} />}
       {editing === 'personal' && s && <PersonalDialog init={s.personal.remote ?? ''} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(v.personal.remote ? t('개인 저장소를 저장했습니다', 'Personal repository saved') : t('개인 저장소를 뺐습니다', 'Personal repository removed')) }} />}
+      {editing === 'library' && s && <LibraryDialog init={s.library.path ?? ''} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(t('공용 라이브러리를 저장했습니다', 'Shared library saved')) }} />}
       {editing === 'me' && people && <PersonEditDialog person={me ?? blankAuthor} people={people} location={`${t('설정', 'Settings')} › ${t('계정', 'Accounts')}`} onSaved={onSaved} onDone={() => { setEditing(null); announce() }} />}
     </div>
   )
@@ -140,7 +150,7 @@ function InstallRow({ install, onSaved }: { install?: SetupView['install']; onSa
       {!install ? t('확인하는 중… ', 'Checking… ')
         : missing.length ? <>{t(`빠진 것: ${missing.map((p) => p.name).join(' · ')}. `, `Missing: ${missing.map((p) => p.name).join(', ')}. `)}{t('터미널에서 ', 'Run ')}<code>{install.command}</code>{t('을 한 번 실행하면 마저 합니다. ', ' once in the terminal to finish. ')}</>
           : t('앱 아이콘(응용 프로그램 · Spotlight · 바탕화면), Dock, 백그라운드 서비스가 있습니다. ', 'App icon (Applications, Spotlight, Desktop), Dock and background service are in place. ')}
-      {t('설치 명령은 Claude Code · Codex에 이 앱을 등록하는 일도 하고, 이미 된 것은 건너뜁니다.', 'The installer also registers this app with Claude Code and Codex, and skips what is already done.')}
+      {t('설치 명령은 이 컴퓨터에 깔린 Claude Code · Codex에 이 앱을 등록하는 일도 하고, 이미 된 것은 건너뜁니다.', 'The installer also registers this app with Claude Code and Codex where they are installed, and skips what is already done.')}
     </Row>
   )
 }
@@ -216,6 +226,28 @@ function PersonalDialog({ init, onClose, onDone }: { init: string; onClose(): vo
       <label className="field"><span>{t('GitHub 비공개 저장소 주소', 'Private GitHub repository address')}</span>
         <input value={remote} autoFocus placeholder="https://github.com/name/my-workbench-private" onChange={(e) => setRemote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && remote.trim()) void save(remote) }} /></label>
       <p className="setup-desc">{t('GitHub에서 비공개 저장소를 하나 만들어 그 주소를 적습니다. 공개 저장소는 받지 않습니다. 앱을 다시 시작하면 받아 두고, 그 뒤 피드백과 설정 백업을 거기에 올립니다.', 'Create a private repository on GitHub and enter its address. Public repositories are refused. The app clones it on the next restart, then pushes feedback and settings backups there.')}</p>
+      {error && <p className="error-text">{error}</p>}
+    </Dialog>
+  )
+}
+
+function LibraryDialog({ init, onClose, onDone }: { init: string; onClose(): void; onDone(v: SetupView): void }) {
+  const [dir, setDir] = useState(init)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const save = async () => {
+    setBusy(true); setError('')
+    try { onDone(await setupApi.setLibrary({ path: dir })) } catch (e) { setError((e as Error).message); setBusy(false) }
+  }
+  return (
+    <Dialog title={t('공용 라이브러리', 'Shared library')} onClose={onClose} footer={<>
+      <span className="sp" />
+      <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
+      <button className="btn primary" disabled={busy || !dir.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button>
+    </>}>
+      <label className="field"><span>{t('이 컴퓨터의 라이브러리 폴더 (절대 경로)', 'Library folder on this computer (absolute path)')}</span>
+        <input value={dir} autoFocus placeholder="/Users/name/GitHub/research-library" onChange={(e) => setDir(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && dir.trim()) void save() }} /></label>
+      <p className="setup-desc">{t('개념노트(concepts/) · 논문 · 서식(preamble/)이 든 저장소 폴더입니다. 아직 없으면 홈의 "＋ 프로젝트 등록"과 같은 GitHub 목록에서 받아 둔 뒤 그 경로를 적습니다.', 'The repository folder that holds concept notes (concepts/), papers and styles (preamble/). If it is not on this computer yet, clone it first, then enter its path.')}</p>
       {error && <p className="error-text">{error}</p>}
     </Dialog>
   )

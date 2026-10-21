@@ -334,7 +334,7 @@ export class Registry {
     // 예전 설정의 latex:(서식 하나)는 PRL 서식으로 옮긴다
     const latexTemplates = normalizeTemplates(raw.latexTemplates, raw.latex, raw.latexBuiltins)
     const latexBuiltins = BUILTIN_TEMPLATES.map((t) => t.id)
-    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), sync: normalizeSyncSettings(raw.sync), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors), people: normalizePeople(raw.people) }
+    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), sync: normalizeSyncSettings(raw.sync), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors, []), people: normalizePeople(raw.people) }
   }
 
   private save(): void {

@@ -13,7 +13,7 @@ export function BackupSettings() {
   const load = () => backupApi.status().then(setSt).catch((e: Error) => setErr(e.message))
   useEffect(() => { void load() }, [])
   if (!st) return <p className="muted">{err ?? t('백업 상태를 읽는 중…', 'Reading backup status…')}</p>
-  if (!st.enabled) return <p className="set-desc" style={{ maxWidth: 'none' }}>{t('실사용 앱에서만 백업합니다 (개발용 예제 모드에서는 하지 않음).', 'Backup runs only in the real app (not in sample mode for development).')}</p>
+  if (!st.enabled) return <p className="set-desc" style={{ maxWidth: 'none' }}>{t('개인 저장소를 정하지 않아 백업하지 않습니다. 설정 › 계정 › 시작 준비의 "개인 저장소"에서 정하면 다음에 앱을 다시 시작할 때부터 한 시간마다 맞춥니다. (개발용 예제 모드에서는 하지 않습니다.)', 'No personal repository is set, so nothing is backed up. Set one under Settings › Accounts › Getting started, "Personal repository"; syncing every hour starts the next time the app restarts. (Sample mode for development never backs up.)')}</p>
   const last = st.last
   return (
     <div className="set-rows" data-ui="백업">

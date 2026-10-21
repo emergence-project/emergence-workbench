@@ -37,7 +37,9 @@ export function registerConcepts(app: FastifyInstance, ctx: RouteContext): void 
     showEmpty: qs.showEmpty === '1', offset: Number(qs.offset) || 0, limit: Number(qs.limit) || 50,
   })
   /** 목록 한 쪽 (찾기·분류·거르기, offset부터 limit개). 화면은 전체 목록을 받지 않는다 */
+  // 라이브러리를 아직 정하지 않았으면 빈 목록 (오류 대신, 10/21 맥미니: 지식 · 네트워킹 · 설정 › 라이브러리가 404를 냈다)
   app.get<{ Querystring: ListQs }>('/api/concepts/list', replies(C.ConceptList), async (req): Promise<C.ConceptList> => {
+    if (!ctx.conceptIndex()) return { total: 0, items: [] }
     const ix = index()
     const query = listQuery(req.query)
     query.projects = directConceptProjects(registry, ix)
@@ -49,7 +51,7 @@ export function registerConcepts(app: FastifyInstance, ctx: RouteContext): void 
     return ix.list(query)
   })
   /** 분류마다 노트 수 (분류 나무를 접어 둔 채) */
-  app.get<{ Querystring: ListQs }>('/api/concepts/subjects', replies(C.ConceptSubjects), async (req): Promise<C.ConceptSubjects> => ({ subjects: index().subjects(listQuery(req.query)) }))
+  app.get<{ Querystring: ListQs }>('/api/concepts/subjects', replies(C.ConceptSubjects), async (req): Promise<C.ConceptSubjects> => ({ subjects: ctx.conceptIndex() ? index().subjects(listQuery(req.query)) : [] }))
   /** [[이름]]이 가리키는 노트 (없으면 null) */
   app.get<{ Querystring: { name?: string } }>('/api/concepts/resolve', replies(C.ConceptResolved), async (req): Promise<C.ConceptResolved> => ({ note: index().resolve(String(req.query.name ?? '')) }))
   /** 개념노트 규칙: 공유 라이브러리 README의 개념노트 절 (MCP rules 도구가 모아 준다). 라이브러리가 없으면 null */

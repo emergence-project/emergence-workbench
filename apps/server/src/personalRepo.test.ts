@@ -75,6 +75,10 @@ describe('개인 저장소', () => {
     git(config, 'init', '-q', 'backup')
     git(path.join(config, 'backup'), 'remote', 'add', 'origin', 'https://github.com/me/my-personal.git')
     expect(await personalRemote(config)).toBe('https://github.com/me/my-personal.git')
+    // 받아 둔 개인 저장소 사본(personal/)이 백업 사본보다 먼저 (10/21 맥미니: config.yaml 없이 사본만 있었다)
+    git(config, 'init', '-q', 'personal')
+    git(path.join(config, 'personal'), 'remote', 'add', 'origin', 'https://github.com/me/from-personal.git')
+    expect(await personalRemote(config)).toBe('https://github.com/me/from-personal.git')
 
     fs.writeFileSync(path.join(config, 'config.yaml'), 'engine: xelatex\npersonalRepo: https://github.com/me/mine.git\n')
     expect(await personalRemote(config)).toBe('https://github.com/me/mine.git')
