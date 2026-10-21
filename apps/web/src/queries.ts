@@ -53,6 +53,9 @@ export const qk = {
   /** 안 올린 기록 파일 (git): 올리기 결과 키 아래에 두어 그 알림 때 함께. 기록 · 일지 파일이 바뀌면 이것만 */
   recordsUnpublished: (rid: string) => ['project', rid, 'records-publish', 'unpublished'] as const,
   papers: ['papers'] as const,
+  /** 에이전트 대화 (앱 설정 폴더, 연구 저장소 밖). 지금 작업 상태(agentWork)는 모든 프로젝트 것 */
+  agentChats: (rid: string) => ['agent-chats', rid] as const,
+  agentWork: ['agent-work'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
   /** 연구 공통 규칙 (설정 › 공통 규칙, 개인 저장소 사본. 프로젝트 알림과 상관없다) */
@@ -83,6 +86,8 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   // 라이브러리의 개념노트를 에이전트가 고치면 라이브러리 고침 검토도 바뀐다
   // 개념노트 기록(records)은 라이브러리 기록 모음만 다시 받는다 (10/18)
   if (e.type === 'library') return e.part === 'papers' ? [qk.library, qk.papers] : e.part === 'concepts' ? [qk.library, qk.agentEdits('library')] : e.part === 'records' ? [qk.records(LIBRARY_RID)] : [qk.library]
+  // 에이전트 대화는 파일이 아니라 현황과 상관없다
+  if (e.type === 'agent-chat') return [qk.agentChats(e.research), qk.agentWork]
   const keys = projectKeys(e)
   // research는 프로젝트 키 전체라 현황도 들어 있다
   return e.type === 'research' ? keys : [...keys, qk.status(e.research)]
@@ -91,7 +96,7 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
 /** 모든 사람 페이지 (qk.person(id)의 앞부분) */
 const PERSON_PAGES: QueryKey = [...qk.network, 'person']
 
-function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' }>): QueryKey[] {
+function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' }>): QueryKey[] {
   const rid = e.research
   switch (e.type) {
     // research.yaml(제목 · 주제 · 원고 선언 …)이 바뀌면 그 프로젝트의 모든 자료와 프로젝트 목록

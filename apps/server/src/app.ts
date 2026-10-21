@@ -52,6 +52,8 @@ import { registerFigures } from './routes/figures.js'
 import { registerTasks } from './routes/tasks.js'
 import { registerFlow } from './routes/flow.js'
 import { registerAgentEdits } from './routes/agentEdits.js'
+import { registerAgentChats } from './routes/agentChats.js'
+import type { AgentRunner } from './agentChats.js'
 import { registerCommonRules } from './routes/commonRules.js'
 import { allowedRequest, extraHosts, fileResponseHeaders } from './hostGuard.js'
 import { Google } from './google.js'
@@ -88,6 +90,8 @@ export interface AppOptions {
   peoplePapersMs?: number
   /** arXiv에서 논문을 받을 때 쓰는 fetch (테스트에서 바꿈) */
   fetch?: typeof fetch
+  /** 에이전트 대화의 실행기 (테스트에서 바꿈). 없으면 맥의 Claude Code(Agent SDK) */
+  agentRunner?: AgentRunner
   /** PDF 질문에 답할 Claude (기본: 맥의 `claude -p`, 테스트에서 바꿈) */
   ask?: AskRunner
   /** 분류 전 기록을 나눌 작은 모델 (테스트에서는 가짜 실행기로 바꿈) */
@@ -332,6 +336,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerTasks(app, ctx)
   registerFlow(app, ctx)
   registerAgentEdits(app, ctx)
+  registerAgentChats(app, ctx, opts.agentRunner)
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))
 
   return app

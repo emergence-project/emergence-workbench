@@ -25,6 +25,7 @@ describe('파일 알림 → 다시 받을 자료', () => {
     expect(invalidationKeys({ type: 'preamble', research: 'p' })).toEqual([qk.status('p')])
     // 기록 올리기 결과가 바뀌면(실패가 생기거나 풀림) 그 결과와 안 올린 기록 (기록 탭 맨 위 줄 · 실패 알림 · 맥락 칸 올리기)
     expect(invalidationKeys({ type: 'records-publish', research: 'p' })).toEqual([qk.recordsPublish('p'), qk.status('p')])
+    expect(invalidationKeys({ type: 'agent-chat', research: 'p', id: 'c1' })).toEqual([qk.agentChats('p'), qk.agentWork])
     expect(qk.recordsUnpublished('p').slice(0, 3)).toEqual([...qk.recordsPublish('p')])
     expect(qk.status('p').slice(0, 2)).toEqual([...qk.project('p')])
     expect(qk.tasks('p').slice(0, 2)).toEqual([...qk.project('p')])

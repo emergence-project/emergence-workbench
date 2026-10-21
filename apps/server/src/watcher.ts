@@ -34,6 +34,8 @@ export type WorkbenchEvent =
   | { type: 'flow'; research: string }
   /** 기록 저절로 올리기의 결과가 바뀜 (실패가 생기거나 풀림, routes/feedback.ts). 파일 변경이 아니다 */
   | { type: 'records-publish'; research: string }
+  /** 에이전트 대화가 바뀜 (routes/agentChats.ts). 파일 변경이 아니다 */
+  | { type: 'agent-chat'; research: string; id: string }
   /** 노트 파일(workbench/notes/…, workbench/calc/…, workbench/topics/<주제>/<노트>/…). file은 저장소 기준 경로(원고 화면의 file과 같다) */
   | { type: 'note'; research: string; file: string; hash: string | null }
   /** research.yaml sources의 파일(작업 목록·검토 문서·참고문헌)이 바뀜. 작업 탭·개괄이 다시 읽는다 */
