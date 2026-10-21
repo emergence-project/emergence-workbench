@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as C from '@rw/core/contract/backup'
 import { buildApp } from './app.js'
-import { backupWorkbenches } from './backup.js'
+import { backupWorkbenches, machineName } from './backup.js'
 
 let tmp: string
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args]).toString().trim()
@@ -75,16 +75,16 @@ describe('workbench 백업', () => {
     fs.writeFileSync(path.join(path.dirname(settings), 'google-token.json'), '{"secret":1}')
     const dir = path.join(tmp, 'cfg3/backup')
     const targets = [{ id: 'beta3', path: beta }]
-    const run = () => backupWorkbenches({ dir, remote, targets, settings, now: new Date('2026-10-04T08:00:00Z') })
+    const run = () => backupWorkbenches({ dir, remote, targets, settings, machine: 'mac1', now: new Date('2026-10-04T08:00:00Z') })
     expect(await run()).toMatchObject({ pushed: true, projects: ['beta3'] })
-    expect(git(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n')).toEqual(['_settings/config.yaml', 'beta3/workbench/log/2026-10-04.md', 'beta3/workbench/research.yaml'])
+    expect(git(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n')).toEqual(['_settings/mac1/config.yaml', 'beta3/workbench/log/2026-10-04.md', 'beta3/workbench/research.yaml'])
 
     // 다른 곳에서 GitHub를 고친다
     const other = path.join(tmp, 'other3')
     execFileSync('git', ['clone', '-q', remote, other])
     fs.writeFileSync(path.join(other, 'beta3/workbench/log/2026-10-05.md'), '- 새 일지\n')
     fs.writeFileSync(path.join(other, 'beta3/workbench/research.yaml'), 'title: GitHub\n')
-    fs.writeFileSync(path.join(other, '_settings/config.yaml'), 'engine: lualatex\n')
+    fs.writeFileSync(path.join(other, '_settings/mac1/config.yaml'), 'engine: lualatex\n')
     git(other, 'add', '-A'); git(other, 'commit', '-qm', 'other'); git(other, 'push', '-q', 'origin', 'main')
     // 맥에서는 같은 파일을 다르게 고치고, 일지 하나를 지운다
     fs.writeFileSync(path.join(beta, 'workbench/research.yaml'), 'title: Mac\n')
@@ -113,6 +113,39 @@ describe('workbench 백업', () => {
     await run()
     expect(fs.readFileSync(path.join(beta, 'workbench/research.yaml'), 'utf8')).toBe('title: Mac\n')
     expect(fs.existsSync(path.join(beta, 'workbench/log/2026-10-05.md'))).toBe(true)
+  })
+
+  it('앱 설정은 컴퓨터마다 따로 둔다: 새 컴퓨터의 첫 맞추기가 다른 컴퓨터의 설정을 덮지 않고, 그 컴퓨터도 받지 않는다 (10/21)', async () => {
+    const remote = path.join(tmp, 'machines.git')
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+    const setup = (name: string, text: string) => {
+      const settings = path.join(tmp, `${name}/config.yaml`)
+      fs.mkdirSync(path.dirname(settings), { recursive: true })
+      fs.writeFileSync(settings, text)
+      return { settings, run: () => backupWorkbenches({ dir: path.join(tmp, `${name}/backup`), remote, targets: [], settings, machine: name }) }
+    }
+    const book = setup('book', 'researches:\n  - id: a\n    path: /Users/me/GitHub/a\n')
+    expect(await book.run()).toMatchObject({ pushed: true })
+    // 10/21 전에 같은 저장소에 올린 공용 사본은 건드리지 않는다
+    const other = path.join(tmp, 'machines-other')
+    execFileSync('git', ['clone', '-q', remote, other])
+    fs.mkdirSync(path.join(other, '_settings'), { recursive: true })
+    fs.writeFileSync(path.join(other, '_settings/config.yaml'), 'legacy: true\n')
+    git(other, 'add', '-A'); git(other, 'commit', '-qm', 'legacy'); git(other, 'push', '-q', 'origin', 'main')
+
+    const mini = setup('mini', 'researches: []\n')
+    expect(await mini.run()).toMatchObject({ pushed: true, settingsPulled: false })
+    expect(fs.readFileSync(mini.settings, 'utf8')).toBe('researches: []\n')
+    expect(await book.run()).toMatchObject({ settingsPulled: false })
+    expect(fs.readFileSync(book.settings, 'utf8')).toContain('/Users/me/GitHub/a')
+    expect(git(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n')).toEqual(['_settings/book/config.yaml', '_settings/config.yaml', '_settings/mini/config.yaml'])
+    expect(git(remote, 'show', 'main:_settings/config.yaml')).toBe('legacy: true')
+  })
+
+  it('컴퓨터 이름은 호스트 이름에서 .local을 떼고 파일 이름에 쓸 글자만 남긴다', () => {
+    expect(machineName('Davidui-MacBookPro.local')).toBe('Davidui-MacBookPro')
+    expect(machineName('성민의 Mac mini')).toBe('Mac-mini')
+    expect(machineName('...')).toBe('computer')
   })
 
   it('비교한 뒤 맥에서 다시 고친 파일은 GitHub 것으로 덮거나 지우지 않는다', async () => {
