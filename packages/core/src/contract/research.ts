@@ -405,6 +405,13 @@ export const RepoFile = z.object({
   kind: z.enum(['markdown', 'text', 'pdf', 'image', 'other']),
   text: z.string().optional(), truncated: z.boolean().optional(),
 }).strict()
+/** 프로젝트 정보 › 파일 (10/21): 저장소 파일 목록 · 커밋 안 한 변경 · git으로 읽었는지(아니면 폴더를 훑음) · 너무 많아 자른 것 */
+export const RepoTree = z.object({
+  files: z.array(z.object({ path: z.string(), size: z.number() }).strict()),
+  changed: z.array(z.string()),
+  source: z.enum(['git', 'folder']),
+  truncated: z.boolean(),
+}).strict()
 export const RepoFileOpen = z.object({ path: z.string().min(1) }).strict()
 
 // ---------- 주제 (routes/topics.ts) ----------
@@ -516,6 +523,7 @@ export type MaterialFile = z.infer<typeof MaterialFile>
 export type MaterialList = z.infer<typeof MaterialList>
 export type MaterialUploaded = z.infer<typeof MaterialUploaded>
 export type RepoFile = z.infer<typeof RepoFile>
+export type RepoTree = z.infer<typeof RepoTree>
 export type RepoFileOpen = z.infer<typeof RepoFileOpen>
 export type TopicList = z.infer<typeof TopicList>
 export type ProfileBody = z.input<typeof ProfileBody>

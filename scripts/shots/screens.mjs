@@ -45,6 +45,7 @@ export const DEFAULT_SCREENS = [
   // 규칙 쪽 (옛 AGENTS.md 쪽): 저장소의 AGENTS.md, STATUS.md의 규칙 절, workbench/decisions/
   ['info-agents', '#/r/{rid}/agents', '결정'],
   ['info-repo', '#/r/{rid}/repo', '저장소 정보'],
+  ['info-files', '#/r/{rid}/files', '파일 나무'],
   ['map', '#/r/{rid}/map', '지도'],
   ['log', '#/r/{rid}/log', '기록'],
   // 맡기기 창, 맡긴 일 목록, 날짜를 누른 달력(내 차례), 보고서

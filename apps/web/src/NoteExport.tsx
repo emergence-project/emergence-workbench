@@ -304,9 +304,9 @@ export function ExportLink({ rid, ms, icon, small, control }: { rid: string; ms:
   return (
     <span className="ex-pop-wrap" ref={wrap}>
       {control ? null : small
-        ? <button className={`icon-btn${open ? ' on' : ''}`} data-ui="노트 내보내기" aria-label={t('내보내기', 'Export')} aria-expanded={open} title={t(`내보내기 — ${title}`, `Export. ${title}`)} onClick={toggle}>{Icon.download}</button>
+        ? <button className={`icon-btn${open ? ' on' : ''}`} data-ui="노트 내보내기" aria-label={t('내보내기', 'Export')} aria-expanded={open} title={t(`내보내기 — ${title}`, `Export. ${title}`)} onClick={toggle}>{Icon.share}</button>
         : icon
-          ? <button className={`btn btn-icon${open ? ' on' : ''}`} data-ui="노트 내보내기" aria-label={t('내보내기', 'Export')} aria-expanded={open} title={t(`내보내기 — ${title}`, `Export. ${title}`)} onClick={toggle}>{Icon.download}</button>
+          ? <button className={`btn btn-icon${open ? ' on' : ''}`} data-ui="노트 내보내기" aria-label={t('내보내기', 'Export')} aria-expanded={open} title={t(`내보내기 — ${title}`, `Export. ${title}`)} onClick={toggle}>{Icon.share}</button>
           : <button className={`a${open ? ' on' : ''}`} data-ui="노트 내보내기" aria-expanded={open} title={title} onClick={toggle}>{t('내보내기', 'Export')}</button>}
       {open && (
         <PopDialog pop={pop} ui="내보내기 저자 고르기" title={t(`${ms.name} 내보내기`, `Export ${ms.name}`)} foot={<>

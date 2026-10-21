@@ -722,5 +722,14 @@
   "Claude API 연결": "Claude API connection",
   "TeX": "TeX",
   "흐름 줄 이름 단추": "Flow row name button",
-  "흐름 줄 고치기 칸": "Flow row editor"
+  "흐름 줄 고치기 칸": "Flow row editor",
+  "파일 블록": "Files item",
+  "파일 쪽": "Files page",
+  "파일 찾기": "Find file",
+  "나무 접기": "Hide tree",
+  "파일 나무": "File tree",
+  "파일 미리 보기": "File preview",
+  "미리 보기 머리줄": "Preview header",
+  "파일 표시 뜻": "File marks legend",
+  "코드 보기": "Code view"
 }

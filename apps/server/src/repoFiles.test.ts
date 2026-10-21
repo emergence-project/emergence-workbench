@@ -64,4 +64,16 @@ describe('기록 글 속 저장소 경로', () => {
     expect(raw.statusCode).toBe(403)
     expect(raw.body).not.toContain('TOP SECRET')
   })
+
+  it('파일 목록: git이 추적하는 파일과 새 파일, 커밋 안 한 변경 (프로젝트 정보 › 파일)', async () => {
+    fs.writeFileSync(path.join(repo, 'docs/reviews/guide.md'), '# Guide\n\nchanged\n')
+    fs.writeFileSync(path.join(repo, 'docs/new.txt'), 'new\n')
+    const r = (await app.inject({ method: 'GET', url: `${R}/files` })).json()
+    expect(r.source).toBe('git')
+    const paths = r.files.map((f: { path: string }) => f.path)
+    expect(paths).toEqual(expect.arrayContaining(['docs/reviews/guide.md', 'docs/new.txt']))
+    expect(paths).not.toContain('GOVERNMENT/pad/old-plan.md')
+    expect(paths.some((p: string) => p.startsWith('.git/'))).toBe(false)
+    expect(r.changed).toEqual(expect.arrayContaining(['docs/reviews/guide.md', 'docs/new.txt']))
+  })
 })

@@ -58,9 +58,9 @@ button.a { text-align: inherit; }
 .rail-btn:hover { background: var(--bg-hover); color: var(--text); }
 .rail-btn.on { background: var(--bg-hover); color: var(--primary); }
 /* 새 버전 받기 (10/21): 받을 수 있으면 주 버튼 색, 확인이 필요하면 테두리만, 받는 중이면 흐리게 */
-.rail-btn.rail-update { border: 1px solid var(--line-strong); color: var(--text); margin-bottom: var(--sp-1); }
-.rail-btn.rail-update.ready { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
-.rail-btn.rail-update.ready:hover { opacity: .85; }
+/* 새 버전 받기: 다른 레일 단추처럼 회색 기호, 오른쪽 위 주황 점이 "볼 것이 있음" (10/21 사용자, 12:02 코멘트) */
+.rail-btn.rail-update { margin-bottom: var(--sp-1); }
+.rail-update-dot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--s-blocked); }
 .rail-btn.rail-update.busy { opacity: .5; cursor: progress; }
 .rail .sp { flex: 1; }
 

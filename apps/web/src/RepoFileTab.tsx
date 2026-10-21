@@ -7,6 +7,8 @@ import { monthDay } from './format'
 import { flash } from './flash'
 import { recordWrites } from './useRecordActions'
 import { t } from './i18n'
+import { CodeView } from './CodeView'
+import type { RepoFile } from './api'
 
 /**
  * 저장소 파일 읽기 탭 (10/19 피드백 09:53, 시안 안 1): 기록 글 속 경로를 누르면 연다. 고치기는 하지 않는다(맥 앱으로 열기).
@@ -53,16 +55,23 @@ export function RepoFileTab({ rid, path }: { rid: string; path: string }) {
       </div>}
       <section className="pane" data-ui="본문">
         <div className="scroll">
-          {data.status === 'missing' ? <p className="empty center">{t(`저장소에 없는 파일입니다: ${data.asked}`, `File not in the repository: ${data.asked}`)}</p>
-            : data.kind === 'markdown' && data.text !== undefined ? <div className="page-body"><ObsidianMarkdown text={stripFrontMatter(data.text)} /></div>
-              : data.kind === 'text' && data.text !== undefined ? <pre className="file-text">{data.text}</pre>
-                : data.kind === 'pdf' && data.status !== 'deleted' ? <iframe className="file-frame" title={data.path} src={rapi.repoFileRawUrl(data.path)} />
-                  : data.kind === 'image' && data.status !== 'deleted' ? <div className="file-image"><img src={rapi.repoFileRawUrl(data.path)} alt={data.path} /></div>
-                    : data.status === 'deleted' ? <p className="empty center">{t('지운 파일이라 이 종류는 보일 수 없습니다', 'This file was deleted, so this kind of file cannot be shown')}</p>
-                      : <p className="empty center">{t('이 종류의 파일은 앱에서 보이지 않습니다. 맥 앱으로 여세요', 'This kind of file is not shown in the app. Open it in the Mac app')}</p>}
-          {data.truncated && <p className="muted file-cut">{t('파일이 커서 앞 1MB만 보입니다', 'Large file: showing the first 1 MB')}</p>}
+          <RepoFileBody rid={rid} data={data} />
         </div>
       </section>
     </div>
   )
+}
+
+/** 파일 내용: 글은 읽기 화면, 코드 · 글 파일은 줄 번호와 문법 색, PDF · 그림은 그대로 (파일 탭과 프로젝트 정보 › 파일이 같이 쓴다) */
+export function RepoFileBody({ rid, data }: { rid: string; data: RepoFile }) {
+  return (<>
+    {data.status === 'missing' ? <p className="empty center">{t(`저장소에 없는 파일입니다: ${data.asked}`, `File not in the repository: ${data.asked}`)}</p>
+      : data.kind === 'markdown' && data.text !== undefined ? <div className="page-body"><ObsidianMarkdown text={stripFrontMatter(data.text)} /></div>
+        : data.kind === 'text' && data.text !== undefined ? <CodeView path={data.path} text={data.text} />
+          : data.kind === 'pdf' && data.status !== 'deleted' ? <iframe className="file-frame" title={data.path} src={api.research(rid).repoFileRawUrl(data.path)} />
+            : data.kind === 'image' && data.status !== 'deleted' ? <div className="file-image"><img src={api.research(rid).repoFileRawUrl(data.path)} alt={data.path} /></div>
+              : data.status === 'deleted' ? <p className="empty center">{t('지운 파일이라 이 종류는 보일 수 없습니다', 'This file was deleted, so this kind of file cannot be shown')}</p>
+                : <p className="empty center">{t('이 종류의 파일은 앱에서 보이지 않습니다. 맥 앱으로 여세요', 'This kind of file is not shown in the app. Open it in the Mac app')}</p>}
+    {data.truncated && <p className="muted file-cut">{t('파일이 커서 앞 1MB만 보입니다', 'Large file: showing the first 1 MB')}</p>}
+  </>)
 }

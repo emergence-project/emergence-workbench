@@ -32,6 +32,8 @@ export const qk = {
   repoFile: (rid: string, path: string, body: boolean) => ['project', rid, 'file', path, body] as const,
   /** 기록 글 속 저장소 경로 전부: 노트 · 블록 · sources 파일이 바뀌면 다시 찾는다 */
   repoFiles: (rid: string) => ['project', rid, 'file'] as const,
+  /** 프로젝트 정보 › 파일의 목록 (repoFiles 아래라 노트 · sources가 바뀌면 함께 다시 받는다) */
+  repoTree: (rid: string) => ['project', rid, 'file', ''] as const,
   /** 맡긴 일 (workbench/tasks/*.md) */
   tasks: (rid: string) => ['project', rid, 'tasks'] as const,
   /** STATUS.md와 같은 현황 글: 프로젝트의 거의 모든 파일에서 뽑으므로 그 프로젝트의 알림마다 다시 받는다 */

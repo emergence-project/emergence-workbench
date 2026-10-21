@@ -1,0 +1,22 @@
+/* 프로젝트 정보 › 파일 (FilesPage.tsx, 10/21 시안 안 B): 왼쪽 나무, 오른쪽 미리 보기 */
+.ws-doc.files-page { flex-direction: column; }
+.files-page .fv-find { width: 180px; min-width: 0; }
+.files-page .fv-body { flex: 1; min-height: 0; display: flex; }
+.files-page .fv-tree { width: var(--fv-tree); flex: none; overflow: auto; padding: var(--sp-2) var(--sp-1); display: flex; flex-direction: column; }
+.files-page .ws-divider { width: 5px; flex: none; }
+.files-page .fv-pad { padding: var(--sp-2) var(--sp-3); }
+.fv-row { display: flex; align-items: center; gap: var(--sp-1); width: 100%; min-height: 26px; padding: 0 var(--sp-2) 0 calc(var(--sp-2) + var(--fv-depth, 0) * 14px); border: 0; border-radius: var(--r-sm); background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.fv-row:hover { background: var(--bg-hover); }
+.fv-row.on { background: var(--bg-hover); font-weight: var(--fw-strong); }
+.fv-row.file { padding-left: calc(var(--sp-2) + var(--sp-3) + var(--fv-depth, 0) * 14px); }
+.fv-chev { width: 12px; flex: none; color: var(--text-3); transition: transform .12s; display: inline-block; text-align: center; }
+.fv-row.open .fv-chev { transform: rotate(90deg); }
+.fv-name { font-family: var(--editor-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fv-mean { margin-left: auto; padding-left: var(--sp-2); flex: none; color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; }
+.fv-mod { width: 6px; height: 6px; border-radius: 50%; background: var(--s-blocked); flex: none; display: inline-block; }
+.fv-preview { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fv-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--text-2); min-width: 0; flex-wrap: wrap; }
+.fv-head .fv-path { overflow-wrap: anywhere; min-width: 0; }
+.fv-head .fv-path b { color: var(--text); font-weight: var(--fw-medium); font-family: var(--editor-font); }
+.fv-content { flex: 1; min-height: 0; overflow: auto; }
+.fv-legend { flex: none; display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-2); }

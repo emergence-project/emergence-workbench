@@ -26,7 +26,7 @@ export const COLOR_ROWS_KO: ColorRow[] = [
   { token: '--banner-bg', color: '노랑', name: '예제 모드', meaning: '개발용 예제 연구를 보고 있음', where: '맨 위 배너' },
 ]
 
-export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'download' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
+export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'share' | 'update' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
   {
     title: '행동', note: '늘 무채색입니다. 한 행동에 이름 하나·기호 하나.',
     rows: [
@@ -35,7 +35,8 @@ export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' 
       { mark: g.icons.trash, name: '지우기', meaning: '사라짐. 되돌릴 수 없는 지우기는 무엇이 남는지 적고 확인합니다', where: '항목 오른쪽 위 (좁은 칸은 늘 보임)' },
       { mark: g.icons.x, name: '빼기·닫기', meaning: '여기서만 빠짐, 파일은 그대로', where: '태그, 목록, 창' },
       { mark: g.icons.play, name: '컴파일', meaning: 'PDF 만들기', where: '노트·원고 툴바' },
-      { mark: g.icons.download, name: '내보내기', meaning: '파일로 받기', where: '노트·원고' },
+      { mark: g.icons.share, name: '내보내기', meaning: '파일로 받기 (상자에서 위로 나가는 화살표)', where: '노트·원고' },
+      { mark: g.icons.update, name: '받기', meaning: '새 버전을 받아 앱을 다시 시작 (흔한 다운로드 기호, 주황 점과 함께)', where: '레일 아래, 새 버전이 있을 때' },
       { mark: g.icons.comment, name: '코멘트 · 기록', meaning: '연구 내용(노트·PDF)에 말 남기기. 말풍선은 기록 묶음의 그림입니다', where: '노트 툴바, 왼쪽 사이드바 기록, 기록 탭' },
       { mark: g.icons.memo, name: '메모', meaning: '기록 종류: 프로젝트나 노트 옆에 적어 두는 것 (M 키)', where: '기록 줄 맨 앞, 기록 종류 고르기, 달력' },
       { mark: g.icons.todo, name: '할 일', meaning: '기록 종류: 할 것. 줄에서는 눌러서 끝내는 체크 상자', where: '기록 줄 맨 앞, 기록 종류 고르기' },
@@ -87,7 +88,7 @@ export const COLOR_ROWS_EN: ColorRow[] = [
   { token: '--banner-bg', color: 'Yellow', name: 'Sample mode', meaning: 'You are looking at the sample research for development', where: 'Banner at the very top' },
 ]
 
-export const SYMBOL_GROUPS_EN = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'download' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
+export const SYMBOL_GROUPS_EN = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'share' | 'update' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
   {
     title: 'Actions', note: 'Always neutral. One name and one symbol per action.',
     rows: [
@@ -96,7 +97,8 @@ export const SYMBOL_GROUPS_EN = (g: { icons: Record<'pencil' | 'trash' | 'play' 
       { mark: g.icons.trash, name: 'Delete', meaning: 'Gone. A delete that cannot be undone says what stays and asks for confirmation', where: 'Item top right (always shown in narrow areas)' },
       { mark: g.icons.x, name: 'Remove/Close', meaning: 'Taken out only here; the file stays', where: 'Tags, lists, dialogs' },
       { mark: g.icons.play, name: 'Compile', meaning: 'Make the PDF', where: 'Note and manuscript toolbar' },
-      { mark: g.icons.download, name: 'Export', meaning: 'Save as a file', where: 'Notes and manuscripts' },
+      { mark: g.icons.share, name: 'Export', meaning: 'Save as a file (arrow leaving a box)', where: 'Notes and manuscripts' },
+      { mark: g.icons.update, name: 'Download', meaning: 'Get the new version and restart the app (the usual download symbol, with an orange dot)', where: 'Bottom of the rail, when a new version is out' },
       { mark: g.icons.comment, name: 'Comment · Records', meaning: 'Leave a remark on research content (notes, PDFs). The speech bubble is the picture for records as a whole', where: 'Note toolbar, Records in the left sidebar, Records tab' },
       { mark: g.icons.memo, name: 'Memo', meaning: 'Record kind: something jotted next to a project or note (M key)', where: 'Start of a record row, record kind picker, calendar' },
       { mark: g.icons.todo, name: 'To-do', meaning: 'Record kind: something to do. In the row it is a checkbox you click to finish', where: 'Start of a record row, record kind picker' },

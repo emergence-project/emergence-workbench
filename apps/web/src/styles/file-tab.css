@@ -12,3 +12,6 @@
 .memo-path .memo-code { text-decoration: underline; text-decoration-color: var(--text-3); text-underline-offset: 2px; }
 .memo-path:hover .memo-code, .memo-path:focus-visible .memo-code { border-color: var(--text-3); }
 .memo-path-note { margin-left: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+/* 코드 · 글 파일: 줄 번호와 문법 색 (CodeView.tsx, 파일 탭과 프로젝트 정보 › 파일) */
+.code-view { min-height: 100%; background: var(--code-bg); }
+.file-tab .file-frame { min-height: 70vh; }
