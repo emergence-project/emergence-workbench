@@ -23,6 +23,16 @@ export const SetupView = z.object({
    * app = ~/Applications의 앱 아이콘(Spotlight · Launchpad · 바탕화면), dock = Dock에 고정, service = 백그라운드 서비스 등록. command = 설치 명령 (빠진 것을 마저 한다)
    */
   install: z.object({ app: z.boolean(), dock: z.boolean(), service: z.boolean(), command: z.string() }).strict(),
+  /**
+   * 다른 컴퓨터의 프로젝트 중 이 컴퓨터에 없는 것 (10/21 "새 컴퓨터에 원래 프로젝트가 나와야, 최소한 받을지 물어야"):
+   * 개인 저장소의 _settings/<컴퓨터>/projects.yaml(백업이 올림)에서 읽는다. local = 같은 이름의 폴더가 받을 곳에 이미 있으면 그 경로(받지 않고 등록만)
+   */
+  elsewhere: z.array(z.object({
+    machine: z.string(), title: z.string(), remote: z.string().nullable(), folder: z.string(), tags: z.array(z.string()),
+    state: z.string().optional(), local: z.string().nullable(),
+  }).strict()),
+  /** 받을 곳 (이미 등록한 프로젝트들이 모인 폴더, 없으면 ~/GitHub) */
+  cloneDir: z.string(),
   /** latexmk를 찾았는지 (PDF 컴파일) */
   tex: z.boolean(),
 }).strict()
@@ -30,7 +40,10 @@ export const SetupView = z.object({
 // ---------- 요청 ----------
 export const SetupGitBody = z.object({ name: z.string(), email: z.string() }).strict()
 export const SetupPersonalBody = z.object({ remote: z.string() }).strict()
+/** 다른 컴퓨터의 프로젝트 하나를 받아(이미 있으면 그대로) 등록한다 */
+export const SetupFetchBody = z.object({ remote: z.string(), folder: z.string(), tags: z.array(z.string()).optional() }).strict()
 
 export type SetupView = z.infer<typeof SetupView>
 export type SetupGitBody = z.input<typeof SetupGitBody>
 export type SetupPersonalBody = z.input<typeof SetupPersonalBody>
+export type SetupFetchBody = z.input<typeof SetupFetchBody>

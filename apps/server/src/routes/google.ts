@@ -20,11 +20,11 @@ export function publicRemote(url: string): string | null {
   return parseGitHubRepo(url)?.url ?? (url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@]*@/i, '$1') || null)
 }
 
-async function remoteOf(repoPath: string): Promise<string | null> {
+export async function remoteOf(repoPath: string): Promise<string | null> {
   try { return publicRemote(await git(repoPath, ['config', '--get', 'remote.origin.url'], { timeout: GIT_TIMEOUT.read })) } catch { return null }
 }
 
-const sameRepo = (a: string | null, b: string | null) => !!a && !!b && (parseGitHubRepo(a)?.url ?? a).toLowerCase() === (parseGitHubRepo(b)?.url ?? b).toLowerCase()
+export const sameRepo = (a: string | null, b: string | null) => !!a && !!b && (parseGitHubRepo(a)?.url ?? a).toLowerCase() === (parseGitHubRepo(b)?.url ?? b).toLowerCase()
 
 export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: Google): void {
   const { registry } = ctx

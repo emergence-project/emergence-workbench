@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as C from '@rw/core/contract/backup'
 import { buildApp } from './app.js'
-import { backupWorkbenches, machineName } from './backup.js'
+import { backupWorkbenches, machineName, otherMachineProjects } from './backup.js'
 
 let tmp: string
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args]).toString().trim()
@@ -140,6 +140,20 @@ describe('workbench 백업', () => {
     expect(fs.readFileSync(book.settings, 'utf8')).toContain('/Users/me/GitHub/a')
     expect(git(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n')).toEqual(['_settings/book/config.yaml', '_settings/config.yaml', '_settings/mini/config.yaml'])
     expect(git(remote, 'show', 'main:_settings/config.yaml')).toBe('legacy: true')
+  })
+
+  it('컴퓨터마다 프로젝트 목록(GitHub 주소 · 폴더 이름)을 올리고, 다른 컴퓨터의 목록을 저장소 하나에 한 번씩 읽는다', async () => {
+    const remote = path.join(tmp, 'lists.git')
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+    const a = { id: 'a', title: 'A', remote: 'https://github.com/me/a.git', folder: 'a', tags: [], state: 'active' }
+    const run = (machine: string, projects: typeof a[]) => backupWorkbenches({ dir: path.join(tmp, `lists-${machine}`), remote, targets: [], machine, projects })
+    expect(await run('book', [a, { ...a, id: 'b', title: 'B', remote: 'https://github.com/me/b.git', folder: 'b', state: 'done' }])).toMatchObject({ pushed: true })
+    expect(await run('imac', [{ ...a, title: 'A (iMac)' }])).toMatchObject({ pushed: true })
+    expect(await run('mini', [])).toMatchObject({ pushed: true })
+    const seen = otherMachineProjects(path.join(tmp, 'lists-mini'), 'mini')
+    expect(seen.map((p) => [p.machine, p.title, p.state])).toEqual([['book', 'A', 'active'], ['book', 'B', 'done']])
+    expect(otherMachineProjects(path.join(tmp, 'lists-book'), 'book')).toEqual([])
+    expect(otherMachineProjects(path.join(tmp, 'nowhere'))).toEqual([])
   })
 
   it('컴퓨터 이름은 호스트 이름에서 .local을 떼고 파일 이름에 쓸 글자만 남긴다', () => {

@@ -3,7 +3,9 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/backup'
 import { replies } from '../contract.js'
 import { repeat } from '../scheduler.js'
+import path from 'node:path'
 import { backupWorkbenches, type BackupResult } from '../backup.js'
+import { remoteOf } from './google.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
@@ -16,7 +18,9 @@ export function registerBackup(app: FastifyInstance, ctx: RouteContext): void {
   const run = (): Promise<BackupResult> => {
     if (!cfg) return Promise.reject(new WorkbenchError(404, t('이 모드에서는 백업하지 않습니다', 'Backups are off in this mode')))
     if (running) return running
-    running = backupWorkbenches({ dir: cfg.dir, remote: cfg.remote, targets: registry.list().map((r) => ({ id: r.id, path: r.path })), settings: cfg.settings })
+    const list = registry.list()
+    running = Promise.all(list.map(async (r) => ({ id: r.id, title: r.title, remote: await remoteOf(r.path), folder: path.basename(r.path), tags: r.tags, state: r.state })))
+      .then((projects) => backupWorkbenches({ dir: cfg.dir, remote: cfg.remote, targets: list.map((r) => ({ id: r.id, path: r.path })), settings: cfg.settings, projects }))
       .then((r) => { if (r.settingsPulled) registry.reload(); last = r; return r })
       .finally(() => { running = null })
     return running

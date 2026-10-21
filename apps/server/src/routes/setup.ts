@@ -8,7 +8,10 @@ import * as C from '@rw/core/contract/setup'
 import { parseBody, replies } from '../contract.js'
 import { agentRegistered, agentSeen } from '../agentSeen.js'
 import { appPath } from '../agentPaths.js'
+import { otherMachineProjects } from '../backup.js'
+import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
 import { git, gitRun, GIT_TIMEOUT } from '../git.js'
+import { remoteOf, sameRepo } from './google.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
 import { WorkbenchError } from '../workbench.js'
 import { t } from '../i18n.js'
@@ -42,7 +45,7 @@ const gitGlobal = async (key: string): Promise<string> => {
 }
 
 export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
-  const { registry, opts } = ctx
+  const { registry, opts, ensureWatch } = ctx
   // 예제 모드는 이 컴퓨터의 git 설정을 바꾸지 않는다: 이름 · 이메일을 메모리에만 둔다
   let sampleGit = { name: 'Sample Researcher', email: 'sample@example.com' }
   const gitIdentity = async () => (opts.sandbox ? sampleGit : { name: await gitGlobal('user.name'), email: await gitGlobal('user.email') })
@@ -58,7 +61,21 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', registered: registered.includes(a.name), at: seen[a.key] ?? null }))
   }
 
+  // 예제 모드: 다른 컴퓨터에 하나 더 있는 것처럼 (시작 준비 · 홈의 "다른 컴퓨터의 프로젝트" 그림)
+  const SAMPLE_ELSEWHERE = [{ machine: 'Office-iMac', id: 'topology-notes', title: t('위상 노트', 'Topology notes'), remote: 'https://github.com/example-user/topology-notes.git', folder: 'topology-notes', tags: [], state: 'active' }]
+  const elsewhere = async (cloneDir: string): Promise<C.SetupView['elsewhere']> => {
+    // 백업 사본(한 시간마다 받음)이 먼저, 아직 없으면 시작할 때 받는 개인 저장소 사본
+    const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))
+    const others = opts.sandbox ? SAMPLE_ELSEWHERE : dir ? otherMachineProjects(dir) : []
+    if (!others.length) return []
+    const local = await Promise.all(registry.list().map(async (r) => ({ remote: await remoteOf(r.path), folder: path.basename(r.path) })))
+    return others
+      .filter((o) => !local.some((l) => sameRepo(l.remote, o.remote) || (!o.remote && l.folder === o.folder)))
+      .map(({ id: _id, ...o }) => ({ ...o, local: !opts.sandbox && fs.existsSync(path.join(cloneDir, o.folder, '.git')) ? path.join(cloneDir, o.folder) : null }))
+  }
+
   const view = async (): Promise<C.SetupView> => {
+    const cloneDir = defaultCloneDir(registry.list().map((r) => r.path))
     const remote = opts.sandbox ? registry.personalRepo ?? null : await personalRemote(opts.configDir)
     let active = false
     if (remote && opts.personalDir) {
@@ -71,11 +88,29 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       agents: agentRows(),
       // 예제 모드는 이 컴퓨터를 보지 않는다 (그림이 컴퓨터마다 달라지지 않게): 다 된 것으로
       install: { ...(opts.sandbox ? { app: true, dock: true, service: true } : installState()), command: `zsh ${appPath('scripts/install.sh')}` },
+      elsewhere: await elsewhere(cloneDir),
+      cloneDir,
       tex: onPath('latexmk'),
     }
   }
 
   app.get('/api/setup', replies(C.SetupView), async (): Promise<C.SetupView> => view())
+
+  /** 다른 컴퓨터의 프로젝트를 받아 등록한다. 받을 곳에 같은 저장소가 이미 있으면 받지 않고 등록만 */
+  app.post('/api/setup/fetch', replies(C.SetupView), async (req): Promise<C.SetupView> => {
+    const body = parseBody(C.SetupFetchBody, req.body)
+    const repo = parseGitHubRepo(body.remote)
+    if (!repo) throw new WorkbenchError(400, t('GitHub 저장소 주소가 아닙니다', 'Not a GitHub repository address'))
+    if (opts.sandbox) throw new WorkbenchError(400, t('예제 모드에서는 받지 않습니다', 'Sample mode does not download projects'))
+    const parent = defaultCloneDir(registry.list().map((r) => r.path))
+    const folder = path.basename(body.folder) || repo.name
+    const dest = path.join(parent, folder)
+    if (fs.existsSync(dest)) {
+      if (!sameRepo(await remoteOf(dest), repo.url)) throw new WorkbenchError(409, t(`${dest}에 다른 폴더가 있습니다. 홈의 "＋ 프로젝트 등록"으로 다른 곳에 받으세요.`, `${dest} holds a different folder. Use "＋ Register project" on Home to download it elsewhere.`))
+    } else await cloneInto(repo.url, parent, folder)
+    ensureWatch(registry.register(dest, { tags: body.tags }).id)
+    return view()
+  })
 
   app.put('/api/setup/git', replies(C.SetupView), async (req): Promise<C.SetupView> => {
     const body = parseBody(C.SetupGitBody, req.body)

@@ -12,6 +12,8 @@ zsh scripts/install.sh   # 또는 pnpm mac:install. --no-dock · --no-agents로 
 
 실사용 맥에 필요한 것을 차례로 모두 한다: Node 22 · pnpm(없으면 Homebrew로 깐다), `pnpm install`, 아래 백그라운드 서비스, 앱 아이콘(`~/Applications/Emergence Workbench.app`, Spotlight · Launchpad가 찾고 바탕화면에 바로가기), Dock 아이콘, Claude Code · Codex에 MCP 입구 등록(`scripts/register-agents.sh`, 사용자 범위, 연구 저장소에는 아무 파일도 더하지 않음). 다시 실행하면 된 것은 건너뛰고, 앱 폴더를 옮겼으면 경로를 고친다. 끝나면 앱을 연다. 남은 준비(GitHub 로그인 · 커밋 이름 · 첫 프로젝트)는 설정 › 계정 › 시작 준비에 있고, 빠진 것이 있으면 거기에도 같은 명령이 보인다.
 
+**새 컴퓨터에서 원래 프로젝트 받기.** 설정 › 계정에 쓰던 개인 저장소를 넣고 앱을 다시 시작하면, 다른 컴퓨터가 백업 때 올린 프로젝트 목록(`_settings/<컴퓨터>/projects.yaml`: 이름 · GitHub 주소 · 폴더 이름) 중 이 컴퓨터에 없는 것이 시작 준비의 "다른 컴퓨터의 프로젝트"와 홈 카드에 뜬다. 프로젝트마다 받기, 또는 모두 받기. 앱 설정 사본은 컴퓨터마다 `_settings/<컴퓨터>/config.yaml`에 따로 둔다(프로젝트 경로가 컴퓨터마다 달라서).
+
 **실사용: 백그라운드 서비스.** 앱은 macOS 백그라운드 서비스(LaunchAgent)로 돈다. 로그인하면 켜지고, 꺼지면 다시 켜지며, Claude 세션이나 터미널 창과 무관하다. 서버 하나가 빌드한 화면과 API를 `http://127.0.0.1:5174`로 함께 내보낸다.
 
 ```sh
