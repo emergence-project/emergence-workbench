@@ -196,3 +196,21 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-panel .ac-items { padding: var(--sp-2); }
 .ac-panel .ac-compose { padding: var(--sp-2); }
 .ac-panel .ac-me { max-width: 88%; }
+
+/* 패널 자리 (10/21 시안 코멘트): 작업 화면 아래 자리 .ac-dock, 노트 옆 칸의 대화 탭 .ac-tab */
+.ws-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.ws-col > .ws { flex: 1; min-height: 0; }
+.ac-dock { flex: none; position: relative; display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--line); background: var(--bg); }
+.ac-dock-edge { position: absolute; left: 0; right: 0; top: -3px; height: 6px; cursor: row-resize; z-index: 1; }
+.ac-dock-edge:hover, body.resizing .ac-dock-edge { background: var(--line-strong); }
+.ac-dock > .ac-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ac-panel.bottom .ac-panel-list { flex-direction: row; align-items: flex-start; gap: var(--sp-5); }
+.ac-panel.bottom .ac-panel-list > .ac-new { flex: 1; min-width: 0; max-width: 720px; }
+.ac-panel.bottom .ac-panel-chats { width: 320px; flex: none; }
+.ac-panel.bottom .ac-items > *, .ac-panel.bottom .ac-compose > * { width: 100%; max-width: 860px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+.ac-panel.bottom .ac-items > .ac-me { width: auto; margin-right: max(0px, calc((100% - 860px) / 2)); }
+.ac-pop-menu.down { bottom: auto; top: calc(100% + var(--sp-1)); left: auto; right: 0; }
+.ac-tab { flex: 1; min-height: 0; min-width: 0; width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.ac-tab > .ac-chat { min-width: 0; }
+.ac-tab .ac-items > *, .ac-tab .ac-compose > * { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+.ac-tab .ac-items > .ac-me { width: auto; margin-right: max(0px, calc((100% - 760px) / 2)); }

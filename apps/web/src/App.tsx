@@ -2,7 +2,7 @@ import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
-import { AGENT_OPEN, AgentPanel } from './AgentChats'
+import { AGENT_OPEN, AgentDock, AgentPanel, ChatTab, chatTitles, type AgentPlace } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
 import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
@@ -104,6 +104,9 @@ export function App() {
   const [layout, setLayout] = useLayout(rid)
   /** 상단바 반짝이: 오른쪽 사이드바 자리를 에이전트 패널로 (10/21) */
   const [agentPanel, setAgentPanel] = useState(false)
+  /** 패널 자리 (10/21 시안 코멘트 "아래로 내리거나 창 분할"): 오른쪽 사이드바 자리 · 작업 화면 아래. 나란히는 대화를 노트 옆 패널의 탭으로 연다 */
+  const [agentPlace, setAgentPlaceState] = useState<AgentPlace>(() => store.get<AgentPlace>('rw-agent-place', 'right'))
+  const setAgentPlace = (v: AgentPlace) => { setAgentPlaceState(v); store.set('rw-agent-place', v); if (v === 'right') setLayout((l) => (l.ctx ? l : { ...l, ctx: true })) }
   const [recordOpenRequest, setRecordOpenRequest] = useState<WorkspaceOpenRequest | null>(null)
   const workspaceDragging = useWorkspaceDragging()
   // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT)
@@ -111,7 +114,7 @@ export function App() {
     const open = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
     const ask = () => { setRightMode('records'); open() }
     // 노트의 고른 글 메뉴 「에이전트에게」 (AgentChats.tsx의 sendToAgent): 상단바 패널을 연다
-    const agent = () => { setAgentPanel(true); open() }
+    const agent = () => { setAgentPanel(true); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') open() }
     window.addEventListener(OPEN_CONTEXT, ask)
     window.addEventListener(OPEN_RIGHT, open)
     window.addEventListener(AGENT_OPEN, agent)
@@ -392,6 +395,12 @@ export function App() {
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} /></Lazy>
       case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
+      case 'chat': {
+        // 대화 탭에는 다른 패널에서 보는 노트가 붙는다
+        const at = layout.panes.findIndex((p) => p.tabs.some((x) => tabKey(x) === tabKey(t)))
+        const n = at === -1 ? undefined : noteOfPane(1 - at)
+        return <ChatTab key={t.chat} id={t.chat} auto={n && { kind: 'note', ref: n.file, label: n.title }} onSaved={flash} />
+      }
       case 'task': return <Lazy><TaskReport key={`${rid}/${t.task}`} rid={rid} id={t.task} version={version} project={current?.title ?? summary.research.title} topics={topics} onSaved={flash} tocOwner={context?.focused ? tabKey(t) : null} /></Lazy>
       case 'topic': return <TopicPage key={t.tid} rid={rid} rapi={rapi} tid={t.tid} notes={notes} manuscripts={manuscripts} blocks={summary.blocks} project={current?.title ?? summary.research.title} pc={projectColor(rid)}
         version={version} onChanged={() => { changed(); notesChanged() }} onSaved={flash} />
@@ -414,6 +423,24 @@ export function App() {
     }
   }
 
+  /** 패널이 오른쪽 사이드바 자리에 있는지 · 어디든 보이는지 */
+  const agentRight = agentPanel && agentPlace === 'right'
+  const agentShown = agentPanel && (agentPlace === 'bottom' || layout.ctx)
+  /** 지금 칸에서 보는 노트 (에이전트 입력란에 저절로 붙는다) */
+  const noteOfPane = (i: number) => {
+    const p = layout.panes[i]
+    const t = isSection(route.page) && i === (layout.split ? layout.focus : 0) ? undefined : p?.tabs.find((x) => tabKey(x) === p.active)
+    const row = t?.k === 'block' || t?.k === 'pdf' ? notes.find((n) => n.type === 'block' && n.id === t.bid) : t?.k === 'part' ? notes.find((n) => n.type !== 'block' && n.file === t.file) : undefined
+    return row ? { file: row.file, title: row.title } : t?.k === 'part' ? { file: t.file, title: tabTitle(t, summary, manuscripts, library, topics) } : undefined
+  }
+  const agentNote = noteOfPane(layout.split ? layout.focus : 0)
+  /** 나란히: 대화를 다른 칸의 탭으로 열고 패널은 닫는다 */
+  const openChatBeside = (id: string) => {
+    setLayout((l) => { const p = l.panes[l.split ? l.focus : 0]; return showBeside(l, { k: 'chat', chat: id }, p.active ?? '') })
+    setAgentPanel(false)
+  }
+  const agentPanelOf = (key: string) => rid ? <AgentPanel key={key} rid={rid} note={agentNote} onSaved={flash} place={agentPlace} onPlace={setAgentPlace} onBeside={openChatBeside} /> : null
+
   return (
     <div className={`shell${sandbox ? ' sandbox' : ''}`}>
       {sandbox && (
@@ -423,14 +450,14 @@ export function App() {
       )}
       <TopBar crumbs={crumbs} heading={!pageH1} leftToggle={(!!rid && !globalPage) || !!globalSide} sideOpen={sideOpen} onSide={() => setSideOpen((v) => !v)}
         project={!!rid && !globalPage} split={workspaceVisibility(layout, route.page, workspaceDragging).shown.length === 2} onSplit={() => setLayout((l) => toggleSplit(l, route.page))} rightToggle={(!!rid && !globalPage) || globalRightAble}
-        rightOpen={globalPage ? globalRight : layout.ctx && !agentPanel} onRight={() => { if (globalPage) setGlobalRight((v) => !v); else if (agentPanel && layout.ctx) setAgentPanel(false); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }}
+        rightOpen={globalPage ? globalRight : layout.ctx && !agentRight} onRight={() => { if (globalPage) setGlobalRight((v) => !v); else if (agentRight && layout.ctx) setAgentPanel(false); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }}
         search={search} onSearch={() => setSearch(true)}
-        agent={route.page === 'agent' || (!!rid && !globalPage && agentPanel && layout.ctx)}
+        agent={route.page === 'agent' || (!!rid && !globalPage && agentShown)}
         onAgent={() => {
           if (!rid || globalPage) return go({ page: 'agent' })
-          if (agentPanel && layout.ctx) return setAgentPanel(false)
+          if (agentShown) return setAgentPanel(false)
           setAgentPanel(true)
-          setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
+          if (agentPlace === 'right') setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
         }}
         feedback={feedback} onFeedback={() => setFeedback((v) => !v)} />
 
@@ -485,7 +512,7 @@ export function App() {
             </section>
           </main>
         ) : (
-          <Workspace kindOf={kindOf} rid={rid}
+          <div className="ws-col"><Workspace kindOf={kindOf} rid={rid}
             ownPdfOf={(t) => { const m = t.k === 'part' ? msOfFile(t.file) : null; return m && m.kind !== 'paper' && m.main === (t as { file: string }).file ? manuscriptPdfTab(m.key) : null }} route={route} layout={layout} setLayout={setLayout} dragging={workspaceDragging}
             openRequest={recordOpenRequest} onOpened={() => setRecordOpenRequest(null)} onCloseFailed={flash}
             titleOf={(t) => tabTitle(t, summary, manuscripts, library, topics)}
@@ -505,10 +532,7 @@ export function App() {
               const row = t?.k === 'block' || t?.k === 'pdf' ? notes.find((n) => n.type === 'block' && n.id === t.bid) : t?.k === 'part' ? notes.find((n) => n.type !== 'block' && n.file === t.file) : undefined
               // 개념노트 탭이면 그 노트의 메모·연결 (2026-10-04 15:18 피드백: 오른쪽 사이드바에서)
               const cmd = t?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md' ? t.id : undefined
-              if (agentPanel) {
-                const nf = row ? { file: row.file, title: row.title } : t?.k === 'part' ? { file: t.file, title: tabName(t) } : undefined
-                return <AgentPanel key={rid} rid={rid} note={nf} onSaved={flash} />
-              }
+              if (agentRight) return agentPanelOf(rid)
               const info = cmd ? <div className="cn-ctx"><ConceptSidePanel key={cmd} id={cmd} info={library} rid={rid} project={summary.research.title} slot onChanged={libraryChanged} onSaved={flash} /></div>
                 : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} projectKind={current?.kind ?? 'research'} version={version} slot={row.type === 'block' && t?.k === 'block'}
                   onChanged={() => { notesChanged(); changed() }} onSaved={flash} />
@@ -519,6 +543,7 @@ export function App() {
                   target={ct ?? { target: 'project', title: summary.research.title }} group={flowRecords ? 'flow-' : undefined}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
+          {agentPanel && agentPlace === 'bottom' && <AgentDock>{agentPanelOf(`${rid}-dock`)}</AgentDock>}</div>
         )}
       </div>
 
@@ -604,6 +629,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'doc': return tab.name
     case 'file': return tab.path.split('/').pop()!
     case 'task': return taskTitles.get(tab.task) ?? tab.task
+    case 'chat': return chatTitles.get(tab.chat) ?? L('대화', 'Conversation')
     case 'topic': return tab.tid === LOOSE_TOPIC_ID ? (ko ? LOOSE_NOTES_UI : LOOSE_NOTES_LABEL) : topics.find((x) => x.id === tab.tid)?.title ?? tab.tid
     case 'part': return manuscripts.flatMap((m) => m.parts).find((p) => p.file === tab.file && !p.line)?.title ?? manuscripts.find((m) => m.main === tab.file)?.name ?? tab.file.split('/').pop()!
     case 'mspdf': { const m = manuscripts.find((x) => x.key === msKeyOfPdfTab(tab, manuscripts)); return `${L('원고 PDF', 'Manuscript PDF')}${m ? ` · ${m.name}` : ''}` }

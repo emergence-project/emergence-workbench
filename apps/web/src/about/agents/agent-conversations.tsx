@@ -4,10 +4,10 @@ import type { AboutSection } from '../types'
 // 소개 › agents › 앱에서 맡기는 대화. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '앱에서 맡기는 대화', prs: [229, 230, 232],
+  title: '앱에서 맡기는 대화', prs: [229, 230, 232, 233],
   id: 'conversations',
   items: [
-    { text: <>레일의 에이전트(반짝이)에서 프로젝트 하나에 일 하나씩 대화를 엽니다. 맥의 Claude Code가 그 프로젝트 저장소에서 일합니다. 상단바의 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에 엽니다.</> },
+    { text: <>레일의 에이전트(반짝이)에서 프로젝트 하나에 일 하나씩 대화를 엽니다. 맥의 Claude Code가 그 프로젝트 저장소에서 일합니다. 상단바의 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에 엽니다. 패널 머리의 자리 버튼으로 작업 화면 아래에 붙이거나(위 경계를 끌어 높이 조절), 연 대화를 노트 옆 패널에 탭으로 나란히 엽니다. 나란히 연 대화에는 다른 패널에서 보는 노트가 저절로 붙습니다.</> },
     { text: <>입력란 하나에서 다 합니다. 지금 연 노트는 저절로 붙고(×로 뺌), {c('/')}는 자주 하는 일(계산 · 검토 · 기록 · 문헌 · 흐름 · 요약), {c('@')}는 노트 · 주제 · 파일을 붙입니다. 그림은 붙여넣거나 끌어 놓습니다. 노트에서 글을 고르고 「에이전트에게」를 누르면 그 글을 붙여 패널이 열립니다. 도는 동안 보낸 말은 입력란 위에 「다음에 보냄」으로 기다렸다가 다음 차례에 읽힙니다. 연필로 빼서 고치고, ×로 뺍니다.</> },
     { text: <>입력란 아래 줄은 ＋(붙이기 · 명령 · 그림) · 맡기는 정도 ▾(읽기만 · 묻고 하기 · 계획 먼저 · 고치기 바로, {c('⇧⇥')}로 차례로 바꿈) · 모델 · 생각 ▾ · 둥근 보내기입니다. 도는 중에 글이 비어 있으면 보내기 자리가 멈추기(■, {c('Esc')})가 됩니다. 대화 중에 바꾼 설정은 다음 차례부터 적용됩니다.</> },
     { text: <>에이전트의 글은 본문처럼, 내 지시는 오른쪽 말풍선으로 보입니다. 도구 쓴 것은 「12초 동안 일함 · 읽기 3번 ›」 한 줄로 접힙니다. 할 일은 입력란 바로 위 한 줄(지금 하는 일)이고 누르면 목록이 펼쳐집니다.</> },
@@ -25,7 +25,7 @@ export const en: AboutSection = {
   title: 'Conversations started from the app',
   id: 'conversations',
   items: [
-    { text: <>From Agents on the rail (the sparkle), open one conversation per piece of work in a project. Claude Code on the Mac works in that project's repository. The sparkle in the top bar opens the current project's conversations in the right sidebar's place.</> },
+    { text: <>From Agents on the rail (the sparkle), open one conversation per piece of work in a project. Claude Code on the Mac works in that project's repository. The sparkle in the top bar opens the current project's conversations in the right sidebar's place. The position button in the panel header docks it below the workspace (drag its top edge to resize) or opens the current conversation as a tab beside the note. A conversation opened beside a note gets that note attached by itself.</> },
     { text: <>Everything happens in one input box. The open note is attached by itself (× removes it); {c('/')} runs common work (calculate · review · records · literature · flow · summary) and {c('@')} attaches notes, topics and files. Paste or drop images. Select text in a note and press "To agent" to open the panel with that text attached. A message sent while it runs waits above the input as "Sends next" and is read on the next turn; the pencil pulls it back to edit, × removes it.</> },
     { text: <>The row below the input holds ＋ (attach · commands · images) · hand-over level ▾ (read only · ask first · plan first · edit right away, cycled with {c('⇧⇥')}) · model · thinking ▾ · a round send button. While it runs with an empty input, send turns into stop (■, {c('Esc')}). Settings changed mid-conversation apply from the next turn.</> },
     { text: <>The agent's text reads like body text; your messages are bubbles on the right. Tool use folds into one line such as "Worked for 12s · 3 reads ›". To-dos are one line right above the input (what it is doing now) that expands into the list.</> },
