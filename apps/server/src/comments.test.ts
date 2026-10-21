@@ -42,7 +42,7 @@ describe('PDF 코멘트 파일', () => {
     expect(entry.rects).toEqual([[72, 140.5, 300, 11]])
     const text = file('paper-sample2007')
     expect(text).toMatch(/^# 코멘트 · 논문 sample2007\n<!-- rw-source: sample2007.pdf -->\n/)
-    expect(text).toContain('## c-20261001-1612 · 질문 · p.4\n<!-- rw: {"rects":[[72,140.5,300,11]]} -->\n> "the Kempe chain length bounds the swap"\n- 상태: 대기\n\n최대 차수에 어떻게 의존하나?\n')
+    expect(text).toContain('## c-20261001-1612 · 질문 · p.4\n<!-- rw: {"rects":[[72,140.5,300,11]],"src":"user"} -->\n> "the Kempe chain length bounds the swap"\n- 상태: 대기\n\n최대 차수에 어떻게 의존하나?\n')
     expect(readComments(root, 'paper-sample2007')).toMatchObject({ title: '논문 sample2007', source: 'sample2007.pdf' })
   })
 
@@ -105,6 +105,36 @@ describe('PDF 코멘트 파일', () => {
     const f = deleteComment(root, 'paper-y', 'c-20261001-1613', readComments(root, 'paper-y').hash)
     expect(f.comments.map((c) => c.body)).toEqual(['하나'])
     expect(file('paper-y').trimEnd()).toBe(one.trimEnd())
+  })
+
+  it('쓴 이 (10/21): 앱은 사용자 글에 src를 적고, by도 src도 없는 새 기록만 작성자 없음이다', () => {
+    addComment(root, 'project', { kind: '메모', title: '프로젝트', text: '내 메모' }, at)
+    addComment(root, 'project', { kind: '할 일', title: '프로젝트', text: '앱 할 일', src: 'app' }, at)
+    addComment(root, 'project', { kind: '질문', title: '프로젝트', text: '물음', by: 'claude' }, at)
+    fs.appendFileSync(path.join(root, 'comments', 'project.md'), '\n## c-20261010-0900 · 메모 · 전체\n\n옛 기록\n\n## c-20261022-0900 · 할 일 · 전체\n- 상태: 대기\n\n직접 쓴 할 일\n')
+    const cs = readComments(root, 'project').comments
+    expect(cs.map((c) => [c.body, c.by ?? c.src ?? null, c.noAuthor ?? false])).toEqual([
+      ['내 메모', 'user', false], ['앱 할 일', 'app', false], ['물음', 'claude', false], ['옛 기록', null, false], ['직접 쓴 할 일', null, true],
+    ])
+  })
+
+  it('고칠 때 종류를 바꾼다: 상태 줄을 새 종류에 맞추고 분류 전 표시를 떼며, 답이 달렸거나 에이전트가 쓴 것은 그대로다', () => {
+    addComment(root, 'project', { kind: '자동', title: '프로젝트', text: '이건 논문이 어디에 있어?' }, at)
+    let f = readComments(root, 'project')
+    const id = f.comments[0]!.id
+    f = updateComment(root, 'project', id, { kind: '질문' }, f.hash)
+    expect(f.comments[0]).toMatchObject({ kind: '질문', state: '대기', body: '이건 논문이 어디에 있어?' })
+    expect(f.comments[0]!.unsorted).toBeUndefined()
+    expect(file('project')).toContain(`## ${id} · 질문 · 전체\n<!-- rw: {"src":"user"} -->\n- 상태: 대기\n\n이건 논문이 어디에 있어?\n`)
+    f = updateComment(root, 'project', id, { kind: '메모', text: '논문 위치 메모' }, f.hash)
+    expect(f.comments[0]).toMatchObject({ kind: '메모', state: null, body: '논문 위치 메모' })
+    expect(file('project')).not.toMatch(/^- 상태: /m)
+    addComment(root, 'project', { kind: '질문', title: '프로젝트', text: '에이전트 물음', by: 'claude' }, at)
+    f = readComments(root, 'project')
+    expect(() => updateComment(root, 'project', f.comments[1]!.id, { kind: '메모' }, f.hash)).toThrow(/에이전트|agent/)
+    appendAnswer(root, 'project', id, 'claude', '답')
+    f = readComments(root, 'project')
+    expect(() => updateComment(root, 'project', id, { kind: '할 일' }, f.hash)).toThrow(/답|answers/)
   })
 
   it('대상 이름으로 폴더 밖을 가리킬 수 없다', () => {

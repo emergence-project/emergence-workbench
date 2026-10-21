@@ -18,6 +18,8 @@ export const HighlightColor = z.enum(HIGHLIGHT_COLORS)
 export const CommentAnswer = z.object({ by: z.string(), at: z.string(), body: z.string() }).strict()
 /** 기록을 쓴 에이전트 이름 (정보 줄의 by, 10/15). 없으면 사용자가 쓴 것 */
 export const RECORD_AUTHOR_RE = /^[a-z][a-z0-9-]{0,19}$/
+/** 쓴 이 칸이 꼭 있어야 하는 기록의 첫날 (10/21 결정 "기록의 쓴 이"): 이날부터 by도 src도 없는 기록은 앱 밖에서 쓴 것 */
+export const RECORD_AUTHOR_REQUIRED_FROM = '20261022'
 /** 사용자가 질문 · 지시 아래에 이어 쓴 답의 이름 (`### 답 · 사용자 · …`) */
 export const USER_ANSWER_BY = '사용자'
 
@@ -49,6 +51,10 @@ const entry = {
   partText: z.string().optional(),
   /** 쓴 에이전트 (claude, codex …). 없으면 사용자. 에이전트가 쓴 질문이 대기면 사용자 차례다 (10/15) */
   by: z.string().optional(),
+  /** 앱이 적은 쓴 이 (10/21): user = 사용자가 앱에서, app = 앱이 저절로 (개념노트 초안의 할 일 등). 에이전트는 by */
+  src: z.enum(['user', 'app']).optional(),
+  /** by도 src도 없는 새 기록 (RECORD_AUTHOR_REQUIRED_FROM부터): 앱 · MCP를 거치지 않고 파일에 직접 쓴 것. 화면은 "작성자 없음" 오류 */
+  noAuthor: z.literal(true).optional(),
   /** 이 질문 · 지시가 묻는 할 일 (같은 파일의 할 일 id, 10/19 결정 "할 일에 에이전트에게"). 화면은 그 할 일 아래 대화로 보인다 */
   todo: z.string().optional(),
   body: z.string(),
@@ -119,7 +125,8 @@ export const NewCommentBody = z.object({
   text: z.string(),
 })
 export const ClassifyBody = z.object({ baseHash })
-export const CommentChangeBody = z.object({ text: z.string().optional(), state: CommentState.optional(), color: HighlightColor.optional(), baseHash })
+/** kind: 고칠 때 종류 바꾸기 (10/21, 메모 · 할 일 · 질문 · 지시 사이, 사용자가 쓰고 답이 없는 기록만) */
+export const CommentChangeBody = z.object({ text: z.string().optional(), state: CommentState.optional(), color: HighlightColor.optional(), kind: CommentKind.optional(), baseHash })
 /** 에이전트가 쓴 답 덧붙이기 (MCP answer_record): by = 에이전트 이름 */
 export const AgentAnswerBody = z.object({ by: z.string(), body: z.string() })
 /** 사용자가 질문 · 지시 아래에 이어 쓰기 (덧붙이기라 baseHash 없음) */

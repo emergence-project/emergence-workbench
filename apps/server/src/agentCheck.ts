@@ -7,6 +7,7 @@ import { NOTE_STATES } from './noteMeta.js'
 import { researchText } from './researchYaml.js'
 import { readTopics } from './topics.js'
 import { scanTasks } from './tasks.js'
+import { COMMENTS_DIR, parseComments } from './comments.js'
 import { isOutside } from './fsutil.js'
 import { t } from './i18n.js'
 import { TOPIC_YAML, type Workbench } from './workbench.js'
@@ -244,5 +245,19 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
   }
   for (const entry of entries(path.join(wb.root, 'tasks'))) if (entry.name.endsWith('.md') && entry.isFile()) read(path.join(wb.root, 'tasks', entry.name))
   diagnostics.push(...scanTasks(wb).diagnostics.map(({ file, line, message }) => ({ level: 'error' as const, file, line, message })))
+  // 기록의 쓴 이 (10/21): 앱 · MCP는 늘 by나 src를 적으므로, 둘 다 없는 새 기록은 파일에 직접 쓴 것이다
+  for (const entry of entries(path.join(wb.root, COMMENTS_DIR))) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+    const abs = path.join(wb.root, COMMENTS_DIR, entry.name)
+    const text = read(abs)
+    if (text === undefined) continue
+    const lines = text.split('\n')
+    const parsed = parseComments(entry.name.slice(0, -3), text)
+    for (const c of [...parsed.comments, ...parsed.highlights]) {
+      if (!c.noAuthor) continue
+      const at = lines.findIndex((l) => l.startsWith(`## ${c.id} · `))
+      issue('error', rel(abs), at + 1, `기록 ${c.id}에 쓴 이가 없습니다. 기록은 MCP add_record(by)나 앱으로 쓰세요. 직접 썼다면 정보 줄에 "by": "<에이전트 이름>"을 적으세요.`, `Record ${c.id} has no author. Write records with MCP add_record (by) or the app. If you wrote it by hand, put "by": "<agent name>" in its info line.`)
+    }
+  }
   return { files: files.size, diagnostics }
 }

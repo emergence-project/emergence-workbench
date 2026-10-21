@@ -10,7 +10,7 @@ import { writeLinkedTodoFiles, type LinkedTodoFileChange } from './linkedTodoWri
 import type { AskRunner } from './ask.js'
 import { classifyPrompt, parseClassification } from './classify.js'
 import type { z } from 'zod'
-import { RECORD_AUTHOR_RE, USER_ANSWER_BY, type CommentAnswer, type CommentEntry, type CommentFile, type CommentKind, type NewCommentBody, type NoteHighlight, type PendingQuestion, type RecordFile as RecordGroup } from '@rw/core/contract/comments'
+import { RECORD_AUTHOR_RE, RECORD_AUTHOR_REQUIRED_FROM, USER_ANSWER_BY, type CommentAnswer, type CommentEntry, type CommentFile, type CommentKind, type NewCommentBody, type NoteHighlight, type PendingQuestion, type RecordFile as RecordGroup } from '@rw/core/contract/comments'
 import { t } from './i18n.js'
 
 /**
@@ -166,6 +166,7 @@ export function parseComments(target: string, text: string): CommentFile {
           if (typeof m.part === 'string' && m.part) cur.part = m.part
           if (typeof m.partText === 'string' && m.partText) cur.partText = m.partText
           if (typeof m.by === 'string' && RECORD_AUTHOR_RE.test(m.by)) cur.by = m.by
+          if (m.src === 'user' || m.src === 'app') cur.src = m.src
           if (typeof m.todo === 'string' && /^c-[\w-]+$/.test(m.todo)) cur.todo = m.todo
         } catch { /* 깨진 숨은 줄은 무시 */ }
         continue
@@ -178,6 +179,7 @@ export function parseComments(target: string, text: string): CommentFile {
     buf.push(line)
   }
   flush()
+  for (const c of [...comments, ...highlights]) if (lacksAuthor(c)) c.noAuthor = true
   return { target, title, source, hash: hashOf(text), comments, highlights }
 }
 
@@ -296,6 +298,14 @@ export function userTurnRecords(root: string): number {
 
 /** 서버가 받은 뒤의 모양 (계약 NewCommentBody) */
 export type NewComment = z.output<typeof NewCommentBody>
+/** 앱 안에서 쓰는 기록 (src: app = 앱이 저절로 남기는 것). HTTP 요청 몸에는 없다 */
+type AppComment = NewComment & { src?: 'app' }
+
+/** by도 src도 없는 새 기록 (10/21 결정 "기록의 쓴 이"): 그 전 기록은 쓴 이 칸이 없던 때라 사용자로 읽는다 */
+function lacksAuthor(c: Pick<CommentEntry, 'id' | 'by' | 'src'>): boolean {
+  const day = /^c-(\d{8})/.exec(c.id)?.[1]
+  return !c.by && !c.src && !!day && day >= RECORD_AUTHOR_REQUIRED_FROM
+}
 
 const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
 /** 사용자가 쓴 글 안의 줄이 코멘트 머리·답 머리·상태 줄로 읽히지 않게 */
@@ -310,7 +320,7 @@ function checkTodoTarget(target: string): void {
 }
 
 /** Prepare without writing so a classification batch is validated before any record changes. */
-function prepareComment(target: string, input: NewComment, now: Date, before: string, options: { storedAnchors?: boolean } = {}) {
+function prepareComment(target: string, input: AppComment, now: Date, before: string, options: { storedAnchors?: boolean } = {}) {
   if (input.kind !== '자동' && !COMMENT_KINDS.includes(input.kind)) throw new WorkbenchError(400, t('종류는 메모·할 일·질문·지시·하이라이트·자동', 'kind must be 메모, 할 일, 질문, 지시, 하이라이트, or 자동'))
   const kind = input.kind === '코멘트' || input.kind === '자동' ? '메모' : input.kind
   const text = typeof input.text === 'string' ? input.text.trim() : ''
@@ -342,7 +352,7 @@ function prepareComment(target: string, input: NewComment, now: Date, before: st
     ...(typeof input.partText === 'string' && input.partText.trim() && { partText: oneLine(input.partText).slice(0, 200) }),
     ...((input.edit === '질문' || input.edit === '수정') && kind === '질문' && { edit: input.edit, ...(typeof input.editBase === 'string' && input.editBase && { editBase: input.editBase.slice(0, 200) }) }),
     // 쓴 에이전트 (10/15). 없으면 사용자가 쓴 것
-    ...(typeof input.by === 'string' && RECORD_AUTHOR_RE.test(input.by) && { by: input.by }),
+    ...(typeof input.by === 'string' && RECORD_AUTHOR_RE.test(input.by) ? { by: input.by } : { src: input.src === 'app' ? 'app' : 'user' }),
     // 할 일에 대해 묻기 · 맡기기 (10/19): 같은 파일에 있는 할 일에만
     ...(input.todo && { todo: input.todo }),
   }
@@ -373,7 +383,7 @@ function prepareComment(target: string, input: NewComment, now: Date, before: st
 }
 
 /** 코멘트 하나를 파일 끝에 덧붙인다. 파일이 없으면 머리와 함께 만든다 */
-export function addComment(root: string, target: string, input: NewComment, now = new Date()): { entry: CommentEntry; hash: string } {
+export function addComment(root: string, target: string, input: AppComment, now = new Date()): { entry: CommentEntry; hash: string } {
   const file = commentsFile(root, target)
   const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
   const { chunk, id } = prepareComment(target, input, now, before)
@@ -490,7 +500,32 @@ export async function classifyComments(root: string, target: string, baseHash: s
   return result
 }
 
-export interface CommentChange { state?: CommentState; color?: HighlightColor; text?: string }
+export interface CommentChange { state?: CommentState; color?: HighlightColor; text?: string; kind?: CommentKind }
+
+const CHANGEABLE_KINDS: CommentKind[] = ['메모', '할 일', '질문', '지시']
+/** 종류 바꾸기 (10/21): 머리의 종류를 바꾸고 상태 줄을 새 종류에 맞춘다(메모는 없음, 나머지는 대기). 분류 전 표시는 뗀다 */
+function changeKind(lines: string[], id: string, kind: CommentKind): string[] {
+  const out = [...lines]
+  const [start, end] = sectionOf(out, id)
+  const cr = out[start]!.endsWith('\r') ? '\r' : ''
+  out[start] = out[start]!.replace(/^(## c-[\w-]+ · ).+?( · )/, `$1${kind}$2`)
+  for (let i = end - 1; i > start; i--) {
+    const line = out[i]!.replace(/\r$/, '')
+    if (STATE_RE.test(line)) out.splice(i, 1)
+    else if (META_RE.test(line)) {
+      let value: Record<string, unknown>
+      try { value = JSON.parse(META_RE.exec(line)![1]!) as Record<string, unknown> } catch { throw new WorkbenchError(422, t('기록의 숨은 메타를 읽을 수 없어 고치지 않았습니다', 'Not changed: could not read the hidden metadata of the record')) }
+      if (value.unsorted) { delete value.unsorted; out[i] = `<!-- rw: ${JSON.stringify(value)} -->${cr}` }
+    }
+  }
+  if (kind !== '메모') {
+    // 머리 바로 아래의 숨은 줄 · 인용 다음, 본문 앞에 둔다 (새로 쓸 때와 같은 자리)
+    let at = start + 1
+    while (at < out.length && (META_RE.test(out[at]!.replace(/\r$/, '')) || out[at]!.startsWith('> '))) at++
+    out.splice(at, 0, `- 상태: 대기${cr}`)
+  }
+  return out
+}
 
 /** 머리·메타·인용·상태·답은 건드리지 않고 첫 답 앞의 본문 글만 바꾼다. */
 function replaceBody(lines: string[], id: string, body: string): string[] {
@@ -526,8 +561,10 @@ function replaceBody(lines: string[], id: string, body: string): string[] {
 /** 한 기록의 상태·색·글을 바꾼다. 다른 절·알 수 없는 메타·답·줄바꿈은 그대로 보존한다. */
 /** journal: false면 할 일을 끝내도 일지에 "완료"를 쓰지 않는다 (옛 메모를 옮길 때처럼 오늘 끝낸 일이 아닐 때) */
 export function updateComment(root: string, target: string, id: string, change: CommentChange, baseHash: string, { journal = true }: { journal?: boolean } = {}): CommentFile {
-  const { state, color, text } = change
-  if (state === undefined && color === undefined && text === undefined) throw new WorkbenchError(400, t('상태나 색, 글이 필요함', 'A state, color, or text is required'))
+  const { state, color, text, kind } = change
+  if (kind !== undefined && !CHANGEABLE_KINDS.includes(kind)) throw new WorkbenchError(400, t('종류는 메모 · 할 일 · 질문 · 지시로 바꿀 수 있음', 'The kind can be changed to 메모, 할 일, 질문 or 지시'))
+  if (kind !== undefined && state !== undefined) throw new WorkbenchError(400, t('종류와 상태를 함께 바꾸지 않음', 'Change the kind and the state separately'))
+  if (state === undefined && color === undefined && text === undefined && kind === undefined) throw new WorkbenchError(400, t('상태나 색, 글이 필요함', 'A state, color, or text is required'))
   if (state !== undefined && !COMMENT_STATES.includes(state)) throw new WorkbenchError(400, t('상태는 대기·답함·끝냄', 'state must be 대기, 답함, or 끝냄'))
   if (color !== undefined && !HIGHLIGHT_COLORS.includes(color)) throw new WorkbenchError(400, t(`색은 ${HIGHLIGHT_COLORS.join(' · ')}`, `The color must be one of ${HIGHLIGHT_COLORS.join(' · ')}`))
   if (text !== undefined && (typeof text !== 'string' || text.length > 20_000)) throw new WorkbenchError(400, t('글은 20,000자 이내여야 함', 'Text must be 20,000 characters or fewer'))
@@ -541,8 +578,16 @@ export function updateComment(root: string, target: string, id: string, change: 
     if (state !== undefined && (!isAgentKind(entry.kind) && entry.kind !== '할 일' || entry.kind === '할 일' && state === '답함')) {
       throw new WorkbenchError(400, t('질문·지시는 대기·답함·끝냄, 할 일은 대기·끝냄으로 바꿀 수 있음', 'A question or instruction can be set to 대기, 답함, or 끝냄; a to-do to 대기 or 끝냄'))
     }
-    const out = [...lines]
+    let out = [...lines]
     const cr = lines[s]!.endsWith('\r') ? '\r' : ''
+    if (kind !== undefined && kind !== entry.kind) {
+      if (!CHANGEABLE_KINDS.includes(entry.kind === '코멘트' ? '메모' : entry.kind)) throw new WorkbenchError(400, t('하이라이트의 종류는 바꾸지 않음', 'A highlight keeps its kind'))
+      if (entry.by) throw new WorkbenchError(400, t('에이전트가 쓴 기록의 종류는 바꾸지 않음', 'The kind of a record an agent wrote is not changed'))
+      if (entry.answers.length) throw new WorkbenchError(409, t('답이 달린 기록의 종류는 바꾸지 않음', 'The kind of a record with answers is not changed'))
+      if (entry.todo || entry.edit) throw new WorkbenchError(400, t('할 일이나 바뀐 곳에서 물은 질문의 종류는 바꾸지 않음', 'A question asked about a to-do or a change keeps its kind'))
+      if (kind === '할 일') checkTodoTarget(target)
+      out = changeKind(out, id, kind)
+    }
     if (state !== undefined) {
       let last = -1
       for (let i = s; i < e; i++) if (STATE_RE.test(lines[i]!)) last = i

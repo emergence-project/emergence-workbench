@@ -240,7 +240,7 @@ export function createConceptMd(lib: string | undefined, id: string, input: { ti
   if (input.study) {
     const root = path.join(path.dirname(path.dirname(file)), 'workbench')
     const base = { title: `개념노트 ${input.title}`, source: `${CONCEPTS_DIR}/${id}.md` }
-    addComment(root, conceptRecordTarget(id), { ...base, kind: '할 일', text: 'Study 원문을 본문 양식으로 옮기기' })
+    addComment(root, conceptRecordTarget(id), { ...base, kind: '할 일', text: 'Study 원문을 본문 양식으로 옮기기', src: 'app' })
     addComment(root, conceptRecordTarget(id), { ...base, kind: '메모', text: `Study 원문 (${input.study.path})\n\n${input.study.text.trim()}` })
   }
   return { id }

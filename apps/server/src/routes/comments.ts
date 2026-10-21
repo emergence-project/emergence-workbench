@@ -51,8 +51,8 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     } finally { classifying.delete(key) }
   })
   app.patch<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
-    const { state, color, text, baseHash } = parseBody(C.CommentChangeBody, req.body)
-    return updateComment(recordsRoot(req.params.rid), req.params.target, req.params.id, { state, color, text }, baseHash)
+    const { state, color, text, kind, baseHash } = parseBody(C.CommentChangeBody, req.body)
+    return updateComment(recordsRoot(req.params.rid), req.params.target, req.params.id, { state, color, text, kind }, baseHash)
   })
   app.delete<{ Params: { rid: string; target: string; id: string }; Querystring: { baseHash?: string } }>('/api/researches/:rid/comments/:target/:id', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
     const baseHash = req.query.baseHash

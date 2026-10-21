@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
-import type { CommentEntry, RecordFile } from './api'
+import type { CommentEntry, CommentKind, RecordFile } from './api'
 import { askClaude, askErrors, asking, askKey, useAskTick, useSlot } from './Comments'
 import { useRecordActions, type RecordWrites } from './useRecordActions'
 import { MemoText } from './memo'
@@ -67,7 +67,7 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
     {items.map((c) => <RecordRow key={c.id} active={active === c.id} c={c} hash={file.hash} busy={busy} onGo={() => onGo(c)}
       asking={asking.has(askKey(rid, file.target, c.id))} onAsk={() => void askClaude(rid, file.target, c.id)}
       onState={(state) => act((w) => w.setState(file.target, c.id, state, file.hash))}
-      onEdit={(text, baseHash) => act((w) => w.update(file.target, c.id, { text, baseHash }))}
+      onEdit={(text, baseHash, kind) => act((w) => w.update(file.target, c.id, { text, baseHash, ...(kind && kind !== c.kind && { kind }) }))}
       onApply={/^(note|calc)-/.test(file.target) ? (i) => act((w) => w.apply(file.target, c.id, i, file.hash)) : undefined}
       onReply={async (text) => {
         const ok = await act((w) => w.reply(file.target, c.id, text))
@@ -99,9 +99,11 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
   </>
 }
 
+const EDIT_KINDS = ['메모', '할 일', '질문', '지시'] as const satisfies readonly CommentKind[]
+
 export interface RecordRowProps {
   c: CommentEntry; active: boolean; hash: string; busy: boolean; asking: boolean; onAsk(): void; onGo(): void
-  onState(state: '대기' | '끝냄'): Promise<boolean>; onEdit(text: string, baseHash: string): Promise<boolean>; onDelete(): Promise<void>; rid: string
+  onState(state: '대기' | '끝냄'): Promise<boolean>; onEdit(text: string, baseHash: string, kind?: CommentKind): Promise<boolean>; onDelete(): Promise<void>; rid: string
   /** 답 i의 고침을 노트에 적용 (연구 노트의 기록만) */
   onApply?(answer: number): Promise<boolean>
   /** 질문 · 지시 아래에 이어 쓰기 (10/15) */
@@ -135,7 +137,11 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && (turn || (replying && !unanswered))
   // 아직 적용하지 않은 Claude 답만 "노트에 적용"을 단다 (적용하면 앱이 그 아래에 답을 남긴다)
   const applicable = (i: number) => onApply && c.answers[i]!.by === 'claude' && !c.answers.slice(i + 1).some((a) => a.by === '앱') ? () => void onApply(i) : undefined
-  const save = async () => { if (edit && !conflict && edit.text.trim() && await onEdit(edit.text, edit.hash)) setEdit(null) }
+  // 고칠 때 종류 바꾸기 (10/21): 내가 쓰고 답이 없는 메모 · 할 일 · 질문 · 지시만. 할 일 · 바뀐 곳에 이은 질문과 일지 줄은 그대로
+  const kindEditable = !journal && !c.by && c.answers.length === 0 && !c.todo && !c.edit && (EDIT_KINDS as readonly string[]).includes(kind)
+  const [editKind, setEditKind] = useState<CommentKind>(kind as CommentKind)
+  useEffect(() => { if (!edit) setEditKind(kind as CommentKind) }, [edit, kind])
+  const save = async () => { if (edit && !conflict && edit.text.trim() && await onEdit(edit.text, edit.hash, kindEditable ? editKind : undefined)) setEdit(null) }
   // 글 속 저장소 경로는 링크로, 누르면 파일 탭 (10/19). 지식 라이브러리 기록은 프로젝트 탭이 없어 글 그대로
   const paths = useMemo(() => rid === LIBRARY_RID ? null : { rid, from: { target: file.target, id: c.id } }, [rid, file.target, c.id])
   return <RepoPathContext.Provider value={paths}><article ref={row} className={`record-row${work ? ' record-row-work' : ''}${active ? ' on' : ''}${turn ? ' turn' : ''}${c.state === '끝냄' ? ' done' : ''}${c.split ? ' split' : ''}`} data-ui="기록 줄" data-ui-item={c.id}
@@ -145,7 +151,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('완료', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
           : <span className="record-marker" aria-hidden>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
-      <span className="record-by" title={c.by ? t('쓴 에이전트', 'Written by an agent') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ? <Author by={c.by} /> : t('사용자', 'User')}</span>
+      {/* 쓴 이 (10/21): by = 에이전트, src app = 앱이 저절로, 둘 다 없는 새 기록 = 앱 밖에서 직접 쓴 것(오류) */}
+      <span className={`record-by${c.noAuthor ? ' no-author' : ''}`} title={c.by ? t('쓴 에이전트', 'Written by an agent') : c.noAuthor ? t('앱이나 MCP를 거치지 않고 파일에 직접 쓴 기록입니다', 'Written straight into the file, not through the app or MCP') : c.src === 'app' ? t('앱이 저절로 남긴 기록', 'Left by the app') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ? <Author by={c.by} /> : c.noAuthor ? t('작성자 없음', 'No author') : c.src === 'app' ? t('앱', 'App') : t('사용자', 'User')}</span>
       {turn && <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>}
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
@@ -165,7 +172,10 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         {conflict && <div className="record-conflict" role="alert"><p>{t('다른 곳에서 글을 고쳤습니다. 새 글을 확인한 뒤 적던 글로 저장할 수 있습니다.', 'The text was edited elsewhere. Review the new text, then you can save yours.')}</p><MemoText text={c.body} /><button className="btn sm" disabled={busy} onClick={() => setEdit({ ...edit, original: c.body, hash })}>{t('새 글 확인함', 'Reviewed new text')}</button></div>}
         <textarea autoFocus aria-label={t('기록 고치기', 'Edit record')} rows={3} value={edit.text} disabled={busy} onChange={(e) => setEdit({ ...edit, text: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null); else onListKey(e, (text) => setEdit({ ...edit, text })) }} />
-        <div className="record-edit-actions"><button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
+        <div className="record-edit-actions">
+          {kindEditable && <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')} data-ui="기록 종류 바꾸기">{EDIT_KINDS.map((k) => <button key={k} type="button" className={editKind === k ? 'on' : ''} aria-pressed={editKind === k} disabled={busy} onClick={() => setEditKind(k)}>{kindLabel(k)}</button>)}</div>}
+          <span className="sp" />
+          <button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
       <div className="record-meta">
         <span className="record-meta-left">
