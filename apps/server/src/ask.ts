@@ -26,7 +26,7 @@ const READ_ONLY_TOOLS = 'Read,Glob,Grep'
 const MAX_RULE_BYTES = 32 * 1024
 
 /** 서비스(launchd)로 돌 때는 PATH가 짧아 claude를 못 찾으므로 흔한 설치 위치를 더한다 */
-function claudeEnv(): NodeJS.ProcessEnv {
+export function claudeEnv(): NodeJS.ProcessEnv {
   const home = os.homedir()
   const extra = [path.join(home, '.local/bin'), path.join(home, '.claude/local'), '/opt/homebrew/bin', '/usr/local/bin']
   return { ...process.env, PATH: [process.env.PATH ?? '', ...extra].filter(Boolean).join(':') }

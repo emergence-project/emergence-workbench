@@ -7,12 +7,12 @@ import { t } from './i18n'
 export interface Crumb { label: string; to?: Route; title?: string }
 
 /**
- * 상단바 (10/5 시안 "상단바", 앱 것만): 왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치 … 검색 · 두 칸 · 피드백 | 오른쪽 사이드바 여닫기.
+ * 상단바 (10/5 시안 "상단바", 앱 것만): 왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치 … 검색 · 두 칸 · 에이전트 · 피드백 | 오른쪽 사이드바 여닫기.
  * 위치는 "프로젝트 › 주제"까지(노트 이름은 탭 · 나무 · 제목이 보인다), 이름마다 그 화면으로 간다.
  * 아이콘만 두고 가리키면 이름과 키가 뜬다(data-tip). 켜진 것은 회색 바탕(.on).
  * 테마는 설정으로, 빠른 메모는 오른쪽 사이드바 메모와 M 키로, 두 칸 맞바꾸기는 칸 머리를 끌어서 한다.
  */
-export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project, split, onSplit, rightToggle, rightOpen, onRight, search, onSearch, feedback, onFeedback }: {
+export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project, split, onSplit, rightToggle, rightOpen, onRight, search, onSearch, agent, onAgent, feedback, onFeedback }: {
   crumbs: Crumb[]
   /** 화면에 h1이 없으면 마지막 위치를 제목으로 알린다 (에이전트·화면 읽기 프로그램용) */
   heading: boolean
@@ -20,6 +20,8 @@ export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project,
   /** 프로젝트 화면이면 두 칸 · 오른쪽 사이드바 버튼을 보인다 */
   project: boolean; split: boolean; onSplit(): void; rightToggle: boolean; rightOpen: boolean; onRight(): void
   search: boolean; onSearch(): void
+  /** 에이전트 대화: 프로젝트 화면이면 오른쪽 사이드바 자리의 패널, 그 밖에서는 레일 에이전트 화면 (10/21) */
+  agent: boolean; onAgent(): void
   feedback: boolean; onFeedback(): void
 }) {
   return (
@@ -43,6 +45,7 @@ export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project,
         {/* 전역 검색은 제목줄에 (10/4 19:33 피드백) */}
         <button className={`icon-btn${search ? ' on' : ''}`} data-ui="검색 버튼" data-tip={t('검색 (/)', 'Search (/)')} aria-label={t('검색 — 모든 프로젝트와 라이브러리', 'Search all projects and the library')} aria-pressed={search} onClick={onSearch}>{Icon.search}</button>
         {project && <button className={`icon-btn${split ? ' on' : ''}`} data-ui="두 칸 켜고 끄기" data-tip={t('두 패널', 'Two panes')} aria-label={t('두 패널로 보기 켜고 끄기', 'Toggle two-pane view')} aria-pressed={split} onClick={onSplit}>{Icon.split}</button>}
+        <button className={`icon-btn${agent ? ' on' : ''}`} data-ui="에이전트 버튼" data-tip={t('에이전트', 'Agent')} aria-label={project ? t('에이전트 패널 켜고 끄기 — 이 프로젝트의 대화', 'Toggle agent panel: conversations in this project') : t('에이전트 대화', 'Agent conversations')} aria-pressed={agent} onClick={onAgent}>{Icon.spark}</button>
         {/* 10/5 10:57 "팝업 창에서 코멘트를 달 수 없다": 창이 열려 있어도 이 버튼은 그 위에서 눌리고(fb-toggle),
             누를 때 창이나 펼친 상자가 "바깥을 눌렀다"며 닫히지 않게 mousedown을 여기서 멈춘다. 켜면 창 안의 부위에도 피드백을 남긴다.
             기호는 위치 핀 + 글줄 (말풍선은 코멘트만, 10/5 시안 "기호") */}

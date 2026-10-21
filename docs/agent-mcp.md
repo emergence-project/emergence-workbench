@@ -70,3 +70,13 @@ When it connects, the server tells the agent which tools to use in which order f
 - Check pending edits with `list_edit_reviews` or the project summary. Do not reintroduce paragraphs the user reverted. Reverting an agent edit to a project note or block note appends a status record to that project’s journal; concept notes have no project journal, so their reverts are not recorded there.
 - Each research repository's own `AGENTS.md` and `CLAUDE.md` come before this entry point.
 - Code: `apps/server/src/mcp.ts` (tools), `scripts/mcp.mjs` (stdio start), tests `apps/server/src/mcp.test.ts`.
+
+## Conversations the app starts (agent chats, 10/21)
+
+The app can also start Claude Code on the Mac itself (Claude Agent SDK, `apps/server/src/agentChats.ts` · `agentRunner.ts`, API `/api/agent-chats`). Each conversation belongs to one project and has a scope (the project, one topic or one note) and a write level (read only, or notes and records). The same MCP tools are attached in-process, and the app decides every tool call:
+
+- Reading the project, the shared library and other registered projects is allowed; reading outside the scope shows as "outside the scope" in the conversation. Reading other folders asks the user.
+- Files cannot be written directly (`Write`, `Edit` …). Notes change only through `edit_note`, so they land in edit review. Changes outside the scope, to another project or to concept notes are refused, and the agent is told to say what should change instead.
+- While a conversation changes a note it holds that file; another conversation cannot change it until the turn ends. `GET /api/agent-work` lists running conversations and the files they hold.
+- Commands, web access and unknown tools ask the user (an approval card); "always" covers only the same command in that conversation.
+- At most two conversations run at once; the rest wait in a queue. Repository and user settings of Claude Code (hooks, allow rules) are not loaded. Conversations are stored in the app's config folder (`agent-chats/<id>.json`), not in the research repository.

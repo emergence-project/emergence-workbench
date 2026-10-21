@@ -67,6 +67,7 @@ import './styles/common-rules.css'
 import './styles/person-dialog.css'
 import './styles/file-tab.css'
 import './styles/files.css'
+import './styles/agent-chats.css'
 
 applyUi(cachedUi())
 

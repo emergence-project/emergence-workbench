@@ -29,6 +29,7 @@ export * from './api/figures'
 export * from './api/tasks'
 export * from './api/flow'
 export * from './api/agentEdits'
+export * from './api/agentChats'
 export * from './api/app'
 export * from './api/setup'
 
