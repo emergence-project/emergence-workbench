@@ -255,3 +255,21 @@ export function FeedbackTagsTable() {
     </table>
   )
 }
+
+/** 피드백 유형과 답 (10/21 "답이 명확하고 제한되게"): 답의 첫 줄은 이 표의 말 하나 */
+export function FeedbackAnswersTable() {
+  const rows: [kind: string, first: string, state: string, means: string, next: string][] = [
+    [t('수정', 'Fix'), t('수정 완료 (#PR)', 'Fixed (#PR)'), t('반영', 'Applied'), t('고쳤습니다. 이미 그렇게 되어 있던 것도 그림을 붙여 이 말로 답합니다', 'It is fixed. Something that already worked this way is answered the same way, with a picture'), t('질문 · 수정 · 승인', 'Ask · Revise · Approve')],
+    [t('수정', 'Fix'), t('확인 필요', 'Needs your call'), t('확인 필요', 'Asked'), t('고치기 전에 묻습니다(내용이 사라지거나, 과거 결정과 부딪히거나, 둘 이상으로 읽힐 때)', 'Asks before fixing (content would be lost, it clashes with a past decision, or it reads two ways)'), t('질문 · 중단 · 진행', 'Ask · Stop · Proceed')],
+    [t('질문', 'Question'), t('답변: 있음 / 없음 / 일부', 'Answer: yes / no / partly'), t('답변', 'Answered'), t('코드를 고치지 않고 답만 합니다. 버그를 찾으면 "수정으로 바꿀까요?"를 묻습니다', 'Answers without changing code. A bug found on the way is asked about: "turn this into a fix?"'), t('질문 · 수정 · 승인', 'Ask · Revise · Approve')],
+    [t('제안', 'Suggestion'), t('의견에 동의 (작음 · 중간 · 큼)', 'Agreed (small · medium · large)'), t('동의', 'Agreed'), t('하자는 뜻입니다. 진행을 누르기 전에는 만들지 않습니다', 'Worth doing. Nothing is built until you press Proceed'), t('질문 · 중단 · 진행', 'Ask · Stop · Proceed')],
+    [t('제안', 'Suggestion'), t('나중에', 'Later'), t('나중에', 'Later'), t('좋지만 지금은 아닙니다. 언제 다시 볼지 적습니다', 'Good, but not now; says when to look again'), t('질문 · 수정 · 승인', 'Ask · Revise · Approve')],
+    [t('모두', 'Any'), t('거절', 'Declined'), t('거절', 'Declined'), t('하지 않습니다. 이유를 적습니다', 'Will not do it; gives the reason'), t('질문 · 수정 · 승인', 'Ask · Revise · Approve')],
+  ]
+  return (
+    <table className="about-sym-table">
+      <thead><tr><th>{t('유형', 'Kind')}</th><th>{t('답의 첫 줄', 'First line')}</th><th>{t('화면 상태', 'State')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('내 버튼', 'Your buttons')}</th></tr></thead>
+      <tbody>{rows.map(([kind, first, state, means, next]) => <tr key={`${kind}/${state}`}><td>{kind}</td><td><b>{first}</b></td><td className="muted">{state}</td><td>{means}</td><td className="muted">{next}</td></tr>)}</tbody>
+    </table>
+  )
+}

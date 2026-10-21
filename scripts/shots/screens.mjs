@@ -91,6 +91,8 @@ export const DEFAULT_SCREENS = [
   // 기호와 의미 쪽 (10/15): 흐름 기호 표, 프로젝트 화면 쪽의 흐름 절 (절 제목 옆 "업데이트 #n")
   ['about-symbols', '#/about/symbols/flow', '흐름'],
   ['about-flow', '#/about/project/flow', '흐름'],
+  // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
+  ['about-answers', '#/about/feedback/answers', '유형과 답'],
   ['settings', '#/settings', '설정'],
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
