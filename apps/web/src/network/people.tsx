@@ -42,7 +42,7 @@ export const withChange = (people: PersonView[], person: PersonView, change: Par
  * 앱 사용자 본인 (10/4 14:46 피드백 "사용자니깐 상단에 둬 주고"): 구글 계정 이메일과 같은 저자, 없으면 저자와 소속의 첫 사람.
  */
 export function useMe(people: PersonView[] | undefined): PersonView | undefined {
-  const { data: email } = useQuery({ queryKey: qk.googleStatus, queryFn: () => googleApi.status().then((s) => s.email ?? null), ...FRESH })
+  const { data: email } = useQuery({ queryKey: qk.googleStatus, queryFn: googleApi.status, select: (s) => s.email ?? null, ...FRESH })
   if (!people) return undefined
   const mail = email?.toLowerCase()
   return (mail && people.find((p) => p.author && [p.email, ...p.emails].some((m) => m?.toLowerCase() === mail))) || people.find((p) => p.author)

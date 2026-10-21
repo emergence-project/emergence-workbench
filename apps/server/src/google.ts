@@ -14,7 +14,7 @@ import { t as tx } from './i18n.js'
  * - 로그인: 이 맥의 앱 서버가 직접 OAuth를 한다 (데스크톱 앱 클라이언트, 127.0.0.1로 돌아오는 주소, PKCE).
  *   클라이언트 ID·비밀값은 사용자가 Google Cloud에서 만들어 설정 화면에 넣는다 → ~/.config/research-workspace/google.yaml
  * - 받은 토큰은 google-token.json (이 컴퓨터에만, 600).
- * - 권한: 달력 읽기, 드라이브의 앱 전용 폴더(appDataFolder, 사용자의 다른 파일은 못 봄), 이메일.
+ * - 권한: 달력 읽기, 드라이브의 앱 전용 폴더(appDataFolder, 사용자의 다른 파일은 못 봄), 이메일 · 이름 · 사진.
  * - 연구 파일 내용은 구글로 보내지 않는다. 동기화하는 것은 앱 설정과 프로젝트 목록(GitHub 주소·태그)뿐이다.
  *
  * mock: 개발용 예제 모드와 테스트. 구글 대신 같은 모양의 답을 주는 가짜 fetch를 쓰고, 로그인 화면을 건너뛴다.
@@ -23,6 +23,8 @@ import { t as tx } from './i18n.js'
 export const GOOGLE_SCOPES = [
   'openid',
   'email',
+  // 이름 · 사진: 로그인할 때 내 이름 · 네트워킹 내 페이지를 채운다 (10/22 "구글 로그인을 할 때 개인정보도 자동으로")
+  'profile',
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/drive.appdata',
 ]
@@ -44,6 +46,11 @@ interface TokenFile {
   /** ms */
   expires_at: number
   email?: string
+  /** 구글 계정의 이름과 사진 주소 (profile 권한) */
+  name?: string
+  picture?: string
+  /** 로그인 때 구글 계정으로 채운 것 (설정 › 계정에 한 줄로 보인다) */
+  filled?: { at: string; items: ('name' | 'email' | 'photo')[] }
   /** 동기화를 한 번이라도 맞췄는지 (불러오기 또는 올리기). 그 전에는 저절로 올리지 않는다: 새 컴퓨터의 빈 설정이 구글의 설정을 덮지 않게 */
   synced?: boolean
   /** 새로 받기(refresh)를 구글이 거절함: 만료되었거나 끊긴 로그인 (10/20 점검). 다시 연결할 때까지 구글에 묻지 않는다 */
@@ -55,6 +62,8 @@ export interface GoogleStatus {
   configured: boolean
   connected: boolean
   email?: string
+  name?: string
+  filled?: { at: string; items: ('name' | 'email' | 'photo')[] }
   /** 예제 모드의 가짜 구글 */
   mock: boolean
   synced: boolean
@@ -104,7 +113,7 @@ export class Google {
     const t = this.tokens()
     return {
       configured: !!c, connected: !!t, mock: this.mock, synced: !!t?.synced, ...(t?.expired && { expired: true as const }),
-      ...(t?.email && { email: t.email }),
+      ...(t?.email && { email: t.email }), ...(t?.name && { name: t.name }), ...(t?.filled && { filled: t.filled }),
       ...(c && !this.mock && { clientId: c.clientId }),
     }
   }
@@ -163,13 +172,41 @@ export class Google {
     }
     const prev = this.tokens()
     if (!t.refresh_token && prev?.refresh_token) t.refresh_token = prev.refresh_token
+    if (prev?.filled) t.filled = prev.filled
     this.saveTokens(t)
     try {
-      const info = await this.api<{ email?: string }>(USERINFO_URL)
-      if (info.email) this.saveTokens({ ...this.tokens()!, email: info.email })
-    } catch { /* 이메일은 없어도 된다 */ }
+      const info = await this.api<{ email?: string; name?: string; picture?: string }>(USERINFO_URL)
+      const name = info.name?.replace(/\s+/g, ' ').trim()
+      const picture = /^https:\/\//.test(info.picture ?? '') ? info.picture : undefined
+      const { email: _e, name: _n, picture: _p, ...rest } = this.tokens()!
+      this.saveTokens({ ...rest, ...(info.email && { email: info.email }), ...(name && { name }), ...(picture && { picture }) })
+    } catch { /* 이메일 · 이름은 없어도 된다 */ }
     this.cache.clear()
     return p.returnTo
+  }
+
+  /** 구글 계정의 이름 · 이메일 · 사진 주소 (마지막 로그인 때 받은 것) */
+  profile(): { name?: string; email?: string; picture?: string } {
+    const t = this.tokens()
+    return { ...(t?.name && { name: t.name }), ...(t?.email && { email: t.email }), ...(t?.picture && { picture: t.picture }) }
+  }
+
+  /** 로그인 때 채운 것을 적어 둔다 */
+  noteFilled(items: ('name' | 'email' | 'photo')[]): void {
+    const t = this.tokens()
+    if (t) this.saveTokens({ ...t, filled: { at: new Date().toISOString(), items } })
+  }
+
+  /** 프로필 사진을 받는다 (JPEG · PNG만, 1MB까지). 구글 사진 주소는 로그인 없이 열린다 */
+  async picture(url: string): Promise<Buffer | null> {
+    try {
+      // lh3.googleusercontent.com/…=s96-c → 256px로
+      const res = await this.fetchImpl(url.replace(/=s\d+(-c)?$/, '=s256-c'))
+      if (!res.ok) return null
+      const buf = Buffer.from(await res.arrayBuffer())
+      const head = buf.subarray(0, 4).toString('hex')
+      return buf.length <= 1_000_000 && (head === '89504e47' || head.startsWith('ffd8ff')) ? buf : null
+    } catch { return null }
   }
 
   /** 로그인이 만료되었나 (홈 달력이 "다시 연결"을 보인다) */
@@ -332,7 +369,9 @@ export function mockGoogleFetch(now = () => new Date()): typeof fetch & { files:
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
     const method = init?.method ?? 'GET'
     if (url.href.startsWith(TOKEN_URL)) return ok({ access_token: 'mock-access', expires_in: 3600, refresh_token: 'mock-refresh' })
-    if (url.href.startsWith(USERINFO_URL)) return ok({ email: 'researcher@example.com' })
+    if (url.href.startsWith(USERINFO_URL)) return ok({ email: 'researcher@example.com', name: 'Ada Researcher', picture: 'https://lh3.googleusercontent.com/a/mock-photo=s96-c' })
+    // 1×1 PNG
+    if (url.hostname === 'lh3.googleusercontent.com') return new Response(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'), { status: 200, headers: { 'content-type': 'image/png' } })
     if (url.pathname.endsWith('/users/me/calendarList')) return ok({ items: [{ id: 'primary', summary: tx('내 달력', 'My calendar'), selected: true }] })
     if (url.pathname.startsWith('/calendar/v3/calendars/')) {
       const items: RawEvent[] = [

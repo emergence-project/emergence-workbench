@@ -9,6 +9,10 @@ export const GoogleStatus = z.object({
   configured: z.boolean(),
   connected: z.boolean(),
   email: z.string().optional(),
+  /** 구글 계정의 이름 (profile 권한, 마지막 로그인 때) */
+  name: z.string().optional(),
+  /** 로그인 때 구글 계정으로 채운 칸 */
+  filled: z.object({ at: z.string(), items: z.array(z.enum(['name', 'email', 'photo'])) }).strict().optional(),
   /** 예제 모드의 가짜 구글 */
   mock: z.boolean(),
   synced: z.boolean(),
