@@ -11,7 +11,7 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { AskAnswer, Chat, ChatItem, ChatRow, ChatScope, ChatWrite, NewChatBody, WorkState } from '@rw/core/contract/agentChats'
+import type { AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -22,6 +22,12 @@ export type ToolDecision = { allow: true } | { allow: false; message: string }
 
 export interface RunInput {
   prompt: string
+  /** 붙여 넣은 그림 (이번 지시에만) */
+  images?: ImageIn[]
+  /** plan이면 계획을 승인할 때까지 SDK의 계획 모드로 시작한다 */
+  mode: ChatMode
+  model: ChatModel
+  effort: ChatEffort
   /** 이어서 지시할 때: 앞 차례의 세션 */
   sessionId?: string
   cwd: string
@@ -38,7 +44,7 @@ export type RunEvent =
   | { type: 'session'; id: string }
   | { type: 'text'; text: string; sub?: boolean }
   | { type: 'tool'; tool: string; input: Record<string, unknown>; sub?: boolean }
-  | { type: 'result'; ok: boolean; cost?: number; error?: string }
+  | { type: 'result'; ok: boolean; cost?: number; seconds?: number; error?: string }
 
 export type AgentRunner = (input: RunInput) => AsyncIterable<RunEvent>
 
@@ -50,7 +56,9 @@ const MCP = `mcp__${MCP_NAME}__`
 
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'NotebookRead'])
 /** 묻지 않고 두는 것: 할 일 목록 · 서브에이전트(그 도구 호출도 같은 규칙을 거친다) · 도구 찾기 · 셸 결과 보기 */
-const FREE_TOOLS = new Set(['TodoWrite', 'Task', 'Agent', 'ToolSearch', 'BashOutput', 'KillBash', 'KillShell'])
+const FREE_TOOLS = new Set(['TodoWrite', 'Task', 'Agent', 'ToolSearch', 'BashOutput', 'KillBash', 'KillShell', 'EnterPlanMode'])
+/** 계획 모드에서 계획을 보이는 도구: 계획 승인 카드가 된다 */
+export const PLAN_TOOL = 'ExitPlanMode'
 /** 파일을 바로 쓰는 도구: 1단계에서는 막는다 (노트는 edit_note로) */
 export const FILE_WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const
 const MCP_WRITES = new Set(['edit_note', 'edit_concept', 'add_record', 'answer_record', 'flow_add', 'flow_update', 'flow_review'])
@@ -58,6 +66,9 @@ const MCP_WRITES = new Set(['edit_note', 'edit_concept', 'add_record', 'answer_r
 export interface PolicyCtx {
   rid: string
   write: ChatWrite
+  mode: ChatMode
+  /** 계획 먼저 모드에서 이번 차례의 계획을 승인했는지 */
+  planOk: boolean
   scope: ChatScope
   repo: string
   /** 묻지 않고 읽는 다른 폴더 (공용 라이브러리 · 등록한 다른 프로젝트) */
@@ -68,7 +79,8 @@ export interface PolicyCtx {
 
 export type Verdict =
   | { kind: 'allow'; claim?: string }
-  | { kind: 'ask'; summary: string; key: string }
+  /** label = 「늘 허락」했을 때 보일 이름, claim = 허락하면 잡을 파일, plan = 계획 승인 카드 */
+  | { kind: 'ask'; summary: string; key: string; label: string; claim?: string; plan?: string }
   /** reason = 사용자에게 보일 말, message = 에이전트에게 돌려줄 말 (영어) */
   | { kind: 'deny'; reason: string; message: string }
 
@@ -126,11 +138,15 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
 /** 도구 한 번을 허락할지: allow · ask(허락 카드) · deny(막고 이유) */
 export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict {
   if (FREE_TOOLS.has(tool)) return { kind: 'allow' }
+  if (tool === PLAN_TOOL) {
+    if (ctx.mode !== 'plan' || ctx.planOk) return { kind: 'allow' }
+    return { kind: 'ask', summary: t('계획', 'Plan'), plan: clip(str(input.plan), 6000), key: `${PLAN_TOOL}:${crypto.randomBytes(4).toString('hex')}`, label: t('계획', 'Plan') }
+  }
   if (READ_TOOLS.has(tool)) {
     const p = pathOf(input)
     const abs = p ? path.resolve(ctx.repo, p) : ctx.repo
     if (isInside(ctx.repo, abs) || abs === ctx.repo || ctx.readable.some((d) => abs === d || isInside(d, abs))) return { kind: 'allow' }
-    return { kind: 'ask', summary: t(`등록한 폴더 밖 읽기: ${abs}`, `Read outside registered folders: ${abs}`), key: `${tool}:${abs}` }
+    return { kind: 'ask', summary: t(`등록한 폴더 밖 읽기: ${abs}`, `Read outside registered folders: ${abs}`), key: `${tool}:${abs}`, label: t(`읽기 · ${abs}`, `Read · ${abs}`) }
   }
   if ((FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
     return {
@@ -144,6 +160,13 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     if (!MCP_WRITES.has(name)) return { kind: 'allow' }
     if (ctx.write === 'read') {
       return { kind: 'deny', reason: t('읽기만 하는 대화라 고치지 않습니다', 'This conversation is read-only'), message: 'This conversation is read-only: do not change notes, records or the flow. Tell the user what you would change instead.' }
+    }
+    if (ctx.mode === 'plan' && !ctx.planOk) {
+      return {
+        kind: 'deny',
+        reason: t('계획을 승인하기 전이라 고치지 않습니다', 'Not changed before the plan is approved'),
+        message: `Plan first: do not change anything yet. When your plan is ready, call ${PLAN_TOOL} with the plan; the user approves it in the app, then you can make the changes.`,
+      }
     }
     const project = str(input.project)
     if (name === 'edit_concept' || (project && project !== ctx.rid)) {
@@ -170,18 +193,20 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
           message: `Another conversation ("${other}") is changing ${file} right now. Do not change it; finish what you can and tell the user.`,
         }
       }
+      if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`노트 고치기: ${file}`, `Edit note: ${file}`), key: `edit_note:${file}`, label: t(`노트 고치기 · ${file}`, `Edit note · ${file}`), claim: file }
       return { kind: 'allow', claim: file }
     }
+    if (ctx.mode === 'ask') return { kind: 'ask', summary: `${name} · ${describeStep(ctx, tool, input).summary}`, key: name, label: name }
     return { kind: 'allow' }
   }
   const step = describeStep(ctx, tool, input)
-  if (tool === 'Bash') return { kind: 'ask', summary: step.summary, key: `Bash:${str(input.command)}` }
-  return { kind: 'ask', summary: `${tool} · ${step.summary}`, key: tool }
+  if (tool === 'Bash') return { kind: 'ask', summary: step.summary, key: `Bash:${str(input.command)}`, label: t(`명령 · ${clip(str(input.command), 80)}`, `Command · ${clip(str(input.command), 80)}`) }
+  return { kind: 'ask', summary: `${tool} · ${step.summary}`, key: tool, label: tool }
 }
 
 // ---------- 안내 (대화를 열 때 한 번, 짧게) ----------
 
-export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; others: { title: string; claims: string[] }[] }): string {
+export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[] }): string {
   const scope = o.scope.kind === 'project' ? 'the whole project' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
   const lines = [
     `You are working inside Emergence Workbench on the project "${o.title}" (project id ${o.rid}). The current folder is its repository.`,
@@ -191,16 +216,57 @@ export function briefFor(o: { rid: string; title: string; scope: ChatScope; writ
       : 'Change notes only with the workbench MCP tool edit_note (read_note first, pass its hash as baseHash); the user reviews each changed paragraph. Records: add_record / answer_record. Files cannot be edited directly. Running a command needs the user\'s approval.',
     `Start with the workbench MCP tools: rules (project ${o.rid}) and project_status; keep reads short and read more only when needed.`,
   ]
+  if (o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
+  lines.push('Use TodoWrite for work with three or more steps: the user sees the list live. Use subagents (Task) for broad searches so the main conversation stays short.')
   const busy = o.others.filter((c) => c.claims.length)
   if (busy.length) lines.push(`Other conversations are changing these files now; do not change them: ${busy.map((c) => `${c.title}: ${c.claims.join(', ')}`).join('; ')}.`)
   lines.push('Write to the user in Korean, briefly: result first.')
   return lines.join('\n')
 }
 
+/** 지시와 붙인 것을 에이전트에게 줄 글로 (붙인 것은 이름과 읽을 방법만, 고른 글은 그대로) */
+export function promptOf(text: string, attach?: Attach[]): string {
+  if (!attach?.length) return text
+  const how: Record<Attach['kind'], string> = {
+    note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)',
+  }
+  const lines = attach.map((a) => a.kind === 'selection'
+    ? `- ${how.selection} from ${a.ref}:\n${(a.text ?? '').split('\n').map((l) => `  > ${l}`).join('\n')}`
+    : `- ${how[a.kind]}: ${a.ref}${a.label && a.label !== a.ref ? ` (${a.label})` : ''}`)
+  return `${text}\n\nAttached by the user (read these first, nothing else unless needed):\n${lines.join('\n')}`
+}
+
+/** 노트 고침 입력에서 보일 것 (앞뒤 글은 줄여서) */
+export function editOf(input: Record<string, unknown>): { parts: { old: string; new: string }[]; added: number; removed: number; reason?: string } {
+  const edits = Array.isArray(input.edits) ? (input.edits as { old?: unknown; new?: unknown; reason?: unknown }[]) : []
+  const lines = (s: string) => (s ? s.split('\n').length : 0)
+  let added = 0
+  let removed = 0
+  const parts = edits.slice(0, 6).map((e) => ({ old: clip(str(e.old), 400), new: clip(str(e.new), 400) }))
+  for (const e of edits) { added += lines(str(e.new)); removed += lines(str(e.old)) }
+  const reason = str(input.summary) || str(edits[0]?.reason)
+  return { parts, added, removed, ...(reason && { reason: clip(reason, 300) }) }
+}
+
+const TODO_STATE: Record<string, Todo['state']> = { pending: 'pending', in_progress: 'in_progress', completed: 'completed' }
+/** TodoWrite 입력의 할 일 목록 */
+export function todosOf(input: Record<string, unknown>): Todo[] {
+  const list = Array.isArray(input.todos) ? (input.todos as { content?: unknown; activeForm?: unknown; status?: unknown }[]) : []
+  return list.slice(0, 30).map((x) => ({ text: clip(str(x.content), 200), state: TODO_STATE[str(x.status)] ?? 'pending' }))
+}
+
 // ---------- 대화들 ----------
 
 /** 파일에 두는 대화 (계약의 Chat에 세션 · 늘 허락한 것을 더함) */
-type Stored = Chat & { sessionId?: string; always?: string[] }
+type Stored = Omit<Chat, 'always'> & {
+  sessionId?: string
+  /** 늘 허락한 것: 판정 열쇠와 보일 이름 */
+  alwaysKeys?: { key: string; label: string }[]
+  /** 일하는 중에 받은 지시 (다음 차례에 함께 읽는다) */
+  pending?: { prompt: string; images?: ImageIn[] }[]
+  /** 이번 차례의 계획을 승인했는지 */
+  planOk?: boolean
+}
 
 const MAX_ITEMS = 400
 const MAX_TEXT = 8000
@@ -227,7 +293,7 @@ export class AgentChats {
   private readonly aborts = new Map<string, AbortController>()
   private readonly asks = new Map<string, (a: AskAnswer) => void>()
   /** 줄 선 대화의 지시 (순서대로) */
-  private readonly queue: { id: string; prompt: string }[] = []
+  private readonly queue: { id: string; prompt: string; images?: ImageIn[] }[] = []
 
   constructor(private readonly deps: AgentChatsDeps) {
     fs.mkdirSync(deps.dir, { recursive: true })
@@ -235,11 +301,20 @@ export class AgentChats {
       if (!f.endsWith('.json')) continue
       try {
         const c = JSON.parse(fs.readFileSync(path.join(deps.dir, f), 'utf8')) as Stored
+        c.mode ??= 'edit'
+        c.model ??= 'default'
+        c.effort ??= 'medium'
+        c.changed ??= []
+        c.todos ??= []
         if (LIVE.has(c.state)) {
           // 앱이 다시 켜지면 돌던 차례는 이어지지 않는다
           c.state = 'stopped'
           c.claims = []
-          for (const it of c.items) if (it.kind === 'ask' && !it.answer) it.answer = 'deny'
+          c.pending = []
+          for (const it of c.items) {
+            if (it.kind === 'ask' && !it.answer) it.answer = 'deny'
+            if (it.kind === 'user') delete it.queued
+          }
           c.items.push({ kind: 'error', at: now(), text: t('앱이 다시 켜져 멈췄습니다. 이어서 지시하면 다시 시작합니다', 'Stopped because the app restarted. Send a message to continue') })
           this.write(c)
         }
@@ -276,20 +351,49 @@ export class AgentChats {
       scope,
       write: b.write ?? 'notes',
       state: 'idle',
+      mode: b.mode ?? 'edit',
+      model: b.model ?? 'default',
+      effort: b.effort ?? 'medium',
       claims: [],
+      changed: [],
+      todos: [],
       created: at,
       updated: at,
       items: [],
     }
     this.chats.set(c.id, c)
-    this.start(c, b.text)
+    this.start(c, b)
     return wireOf(c)
   }
 
-  send(id: string, text: string): Chat {
+  /** 이어서 지시. 일하는 중이면 다음 차례에 읽는다(줄 선 지시) */
+  send(id: string, m: ChatMessageBody): Chat {
     const c = this.must(id)
-    if (LIVE.has(c.state)) throw new WorkbenchError(409, t('이 대화는 아직 도는 중입니다. 끝나거나 멈춘 뒤 보내 주세요', 'This conversation is still running; send after it finishes or stops'))
-    this.start(c, text)
+    if (LIVE.has(c.state)) {
+      c.pending = [...(c.pending ?? []), { prompt: promptOf(m.text, m.attach), ...(m.images?.length && { images: m.images }) }]
+      this.push(c, userItem(m, true))
+      return wireOf(c)
+    }
+    this.start(c, m)
+    return wireOf(c)
+  }
+
+  /** 읽기만 · 모드 · 모델 · 생각 깊이 (다음 차례부터) */
+  settings(id: string, s: ChatSettings): Chat {
+    const c = this.must(id)
+    if (s.write) c.write = s.write
+    if (s.mode) c.mode = s.mode
+    if (s.model) c.model = s.model
+    if (s.effort) c.effort = s.effort
+    this.touch(c)
+    return wireOf(c)
+  }
+
+  /** 늘 허락한 것 하나 빼기 */
+  forget(id: string, label: string): Chat {
+    const c = this.must(id)
+    c.alwaysKeys = (c.alwaysKeys ?? []).filter((a) => a.label !== label)
+    this.touch(c)
     return wireOf(c)
   }
 
@@ -328,6 +432,17 @@ export class AgentChats {
     for (const a of this.aborts.values()) a.abort()
   }
 
+  /** 할 일 목록: 이번 차례의 할 일 줄을 그 자리에서 고친다 (없으면 더한다) */
+  private setTodos(c: Stored, todos: Todo[]): void {
+    c.todos = todos
+    let lastUser = -1
+    c.items.forEach((it, i) => { if (it.kind === 'user' && !it.queued) lastUser = i })
+    const at = c.items.findIndex((it, i) => i > lastUser && it.kind === 'todos')
+    if (at >= 0) c.items[at] = { kind: 'todos', at: c.items[at]!.at, todos }
+    else c.items.push({ kind: 'todos', at: now(), todos })
+    this.touch(c)
+  }
+
   private must(id: string): Stored {
     const c = this.chats.get(id)
     if (!c) throw new WorkbenchError(404, t(`대화가 없음: ${id}`, `No such conversation: ${id}`))
@@ -359,25 +474,37 @@ export class AgentChats {
     return [...this.chats.values()].filter((c) => c.state === 'running' || c.state === 'waiting').length
   }
 
-  private start(c: Stored, prompt: string): void {
-    c.items.push({ kind: 'user', at: now(), text: prompt })
+  private start(c: Stored, m: ChatMessageBody): void {
+    c.items.push(userItem(m))
+    this.begin(c, promptOf(m.text, m.attach), m.images)
+  }
+
+  private begin(c: Stored, prompt: string, images?: ImageIn[]): void {
     if (this.running() >= this.deps.limit) {
       c.state = 'queued'
-      this.queue.push({ id: c.id, prompt })
+      this.queue.push({ id: c.id, prompt, ...(images?.length && { images }) })
       this.touch(c)
       return
     }
-    void this.run(c, prompt)
+    void this.run(c, prompt, images)
   }
 
   private finish(c: Stored, state: 'idle' | 'stopped' | 'error'): void {
     c.state = state
     c.claims = []
+    const pending = c.pending ?? []
+    c.pending = []
+    for (const it of c.items) if (it.kind === 'user' && it.queued) delete it.queued
     this.touch(c)
+    // 일하는 중에 받은 지시: 차례가 잘 끝났으면 이어서 읽는다 (멈추거나 실패하면 지시로만 남는다)
+    if (state === 'idle' && pending.length) {
+      this.begin(c, pending.map((p) => p.prompt).join('\n\n'), pending.flatMap((p) => p.images ?? []).slice(0, 4))
+      return
+    }
     const next = this.queue.shift()
     if (next) {
       const n = this.chats.get(next.id)
-      if (n) void this.run(n, next.prompt)
+      if (n) void this.run(n, next.prompt, next.images)
     }
   }
 
@@ -386,50 +513,76 @@ export class AgentChats {
     return undefined
   }
 
-  private async run(c: Stored, prompt: string): Promise<void> {
+  private async run(c: Stored, prompt: string, images?: ImageIn[]): Promise<void> {
     const abort = new AbortController()
     this.aborts.set(c.id, abort)
     c.state = 'running'
+    c.planOk = false
     this.touch(c)
     let ended: 'idle' | 'stopped' | 'error' = 'idle'
     try {
       const p = this.deps.project(c.rid)
       const readable = this.deps.readable().filter((d) => d !== p.repo)
-      const ctx: PolicyCtx = { rid: c.rid, write: c.write, scope: c.scope, repo: p.repo, readable, claimedBy: (f) => this.claimedBy(c.id, f) }
+      const mode = c.mode
+      const ctx: PolicyCtx = { rid: c.rid, write: c.write, mode, planOk: false, scope: c.scope, repo: p.repo, readable, claimedBy: (f) => this.claimedBy(c.id, f) }
+      const claim = (file?: string) => {
+        if (!file) return
+        if (!c.claims.includes(file)) c.claims.push(file)
+        if (!c.changed.includes(file)) c.changed.push(file)
+      }
+      const edited = (tool: string, input: Record<string, unknown>) => {
+        if (tool !== `${MCP}edit_note`) return
+        this.push(c, { kind: 'edit', at: now(), file: str(input.file), ...editOf(input) })
+      }
       const others = [...this.chats.values()].filter((o) => o.id !== c.id && o.rid === c.rid && LIVE.has(o.state))
       const canUseTool = async (tool: string, input: Record<string, unknown>): Promise<ToolDecision> => {
         const v = judge(ctx, tool, input)
         if (v.kind === 'allow') {
-          if (v.claim && !c.claims.includes(v.claim)) { c.claims.push(v.claim); this.touch(c) }
+          if (v.claim) { claim(v.claim); edited(tool, input) }
           return { allow: true }
         }
         if (v.kind === 'deny') {
           this.push(c, { kind: 'blocked', at: now(), tool: tool.replace(MCP, ''), reason: v.reason })
           return { allow: false, message: v.message }
         }
-        if (c.always?.includes(v.key)) return { allow: true }
+        if (c.alwaysKeys?.some((a) => a.key === v.key)) {
+          claim(v.claim)
+          edited(tool, input)
+          return { allow: true }
+        }
         const id = crypto.randomBytes(6).toString('hex')
         const answer = new Promise<AskAnswer>((resolve) => {
           this.asks.set(id, resolve)
           abort.signal.addEventListener('abort', () => resolve('deny'), { once: true })
         })
         c.state = 'waiting'
-        this.push(c, { kind: 'ask', at: now(), id, tool: tool.replace(MCP, ''), summary: v.summary })
+        this.push(c, { kind: 'ask', at: now(), id, tool: tool.replace(MCP, ''), summary: v.summary, ...(v.plan !== undefined && { plan: v.plan }) })
         const a = await answer
         this.asks.delete(id)
         const it = c.items.find((x) => x.kind === 'ask' && x.id === id)
         if (it && it.kind === 'ask' && !it.answer) it.answer = a
-        if (a === 'always') c.always = [...(c.always ?? []), v.key]
+        // 계획 카드의 「늘」은 이 차례만 (계획마다 다시 본다)
+        if (a === 'always' && v.plan === undefined) c.alwaysKeys = [...(c.alwaysKeys ?? []), { key: v.key, label: v.label }]
         if (c.state === 'waiting') c.state = 'running'
+        if (a !== 'deny') {
+          if (v.plan !== undefined) { ctx.planOk = true; c.planOk = true }
+          claim(v.claim)
+          edited(tool, input)
+        }
         this.touch(c)
+        if (a === 'deny' && v.plan !== undefined) return { allow: false, message: 'The user did not approve this plan. Ask what to change, or revise the plan and call ExitPlanMode again. Change nothing yet.' }
         return a === 'deny' ? { allow: false, message: 'The user declined this. Do not try it again in another way; continue without it or ask the user.' } : { allow: true }
       }
       const input: RunInput = {
         prompt,
+        ...(images?.length && { images }),
+        mode,
+        model: c.model,
+        effort: c.effort,
         sessionId: c.sessionId,
         cwd: p.repo,
         extraDirs: this.deps.extraDirs(),
-        brief: briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, others: others.map((o) => ({ title: o.title, claims: o.claims })) }),
+        brief: briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })) }),
         write: c.write,
         canUseTool,
         signal: abort.signal,
@@ -438,12 +591,14 @@ export class AgentChats {
         if (e.type === 'session') { c.sessionId = e.id; this.write(c); continue }
         if (e.type === 'text') { if (e.text.trim()) this.push(c, { kind: 'text', at: now(), text: e.text.slice(0, MAX_TEXT), ...(e.sub && { sub: true }) }); continue }
         if (e.type === 'tool') {
+          if (e.tool === 'TodoWrite') { this.setTodos(c, todosOf(e.input)); continue }
+          if (e.tool === PLAN_TOOL || e.tool === 'EnterPlanMode') continue
           const s = describeStep(ctx, e.tool, e.input)
           this.push(c, { kind: 'step', at: now(), ...s, tool: s.tool.replace(MCP, ''), ...(e.sub && { sub: true }) })
           continue
         }
         if (e.type === 'result') {
-          this.push(c, { kind: 'result', at: now(), ok: e.ok, ...(e.cost !== undefined && { cost: e.cost }) })
+          this.push(c, { kind: 'result', at: now(), ok: e.ok, ...(e.cost !== undefined && { cost: e.cost }), ...(e.seconds !== undefined && { seconds: e.seconds }) })
           if (!e.ok && e.error) this.push(c, { kind: 'error', at: now(), text: e.error.slice(0, MAX_TEXT) })
           if (!e.ok) ended = 'error'
         }
@@ -463,5 +618,14 @@ export class AgentChats {
   }
 }
 
-const rowOf = (c: Stored): ChatRow => ({ id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state, claims: [...c.claims], created: c.created, updated: c.updated })
-const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })) })
+const userItem = (m: ChatMessageBody, queued?: boolean): ChatItem => ({
+  kind: 'user', at: now(), text: m.text,
+  ...(m.attach?.length && { attach: m.attach.map((a) => ({ ...a, ...(a.text && { text: clip(a.text, 600) }) })) }),
+  ...(m.images?.length && { images: m.images.length }),
+  ...(queued && { queued: true }),
+})
+const rowOf = (c: Stored): ChatRow => ({
+  id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
+  mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], created: c.created, updated: c.updated,
+})
+const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })) })

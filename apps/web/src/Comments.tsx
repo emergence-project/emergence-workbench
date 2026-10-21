@@ -10,6 +10,7 @@ import { Icon } from './icons'
 import type { LearnFrom } from './api'
 import { askConfirm } from './askText'
 import { RecordContext, openRecordComposer, setRecordSelectionDraft, clearRecordComposerRequest, useRecordComposerRequest, type RecordDraft, type RecordSelection } from './RecordContext'
+import { sendToAgent } from './AgentChats'
 import { PaintDots, RecordMenu } from './RecordMenus'
 import { useHighlightColor } from './ui'
 import { useRecordSelection } from './recordSelection'
@@ -488,6 +489,8 @@ export function CommentsPanel({ rid, target }: { rid: string; target: CommentTar
   )
 }
 
+const clipLabel = (q: string) => { const one = q.replace(/\s+/g, ' ').trim(); return one.length > 24 ? `${one.slice(0, 24)}…` : one }
+
 /** 기록은 본문 바깥에 저장하며 읽기·편집기에서 같은 메뉴를 쓴다. */
 export function NoteAsk({ rid, target, source = '', contentOffset = 0, children }: { rid: string; target: CommentTarget | null; source?: string; contentOffset?: number; from?: LearnFrom; children: ReactNode }) {
   return target ? <NoteRecords key={`${rid}|${target.target}`} rid={rid} target={target} source={source} contentOffset={contentOffset}>{children}</NoteRecords> : <>{children}</>
@@ -553,6 +556,7 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
           <PaintDots color={color} onChange={add} disabled={busy} />
           <span className="record-menu-sep" />
           <button disabled={busy} onClick={() => { openRecordComposer(rid, target, { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color }); done() }}><span className="ico">{Icon.comment}</span> {t('코멘트', 'Comment')}</button>
+          <button data-ui="에이전트에게 버튼" title={t('고른 글을 에이전트 입력란에 붙입니다', 'Attach the selection to the agent\'s input')} onClick={() => { sendToAgent(rid, { kind: 'selection', ref: target.source ?? target.title, label: clipLabel(sel.quote), text: sel.quote.slice(0, 4000) }); done() }}><span className="ico">{Icon.spark}</span> {t('에이전트에게', 'To agent')}</button>
         </RecordMenu>
       )}
       {active && selected && <RecordMenu anchor={active} highlight owner={box.current} onClose={() => setActive(null)}>

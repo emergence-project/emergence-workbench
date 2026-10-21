@@ -1,4 +1,4 @@
-// 에이전트 대화 (프로젝트 관리 1단계, 2026-10-21): 대화 목록 · 만들기 · 이어서 지시 · 허락 답 · 멈추기 · 지우기, 지금 작업 상태
+// 에이전트 대화 (프로젝트 관리 1단계, 2026-10-21): 대화 목록 · 만들기 · 이어서 지시 · 허락 답 · 모드 바꾸기 · 멈추기 · 지우기, 지금 작업 상태
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/agentChats'
@@ -44,7 +44,13 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   app.get<{ Params: { id: string } }>('/api/agent-chats/:id', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.get(req.params.id) }))
 
-  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.send(req.params.id, parseBody(C.ChatMessageBody, req.body).text) }))
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.send(req.params.id, parseBody(C.ChatMessageBody, req.body)) }))
+
+  /** 모드 · 모델 · 생각 깊이 (다음 차례부터) */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/settings', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.settings(req.params.id, parseBody(C.ChatSettings, req.body)) }))
+
+  /** 늘 허락한 것 하나 빼기 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/forget', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.forget(req.params.id, parseBody(C.ForgetBody, req.body).label) }))
 
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/answer', replies(C.ChatOne), async (req): Promise<C.ChatOne> => {
     const b = parseBody(C.AskAnswerBody, req.body)

@@ -90,7 +90,7 @@ try {
     if (name === 'figure-zoom') await page.goto('about:blank')
     if (hash.includes('{chat}') && !chat) {
       // 허락을 기다리는 대화 하나 (예제 실행기가 "계산"을 보면 명령을 묻는다)
-      const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Rerun the check computation in the Kempe note' : '켐페 노트의 확인 계산을 다시 돌려 줘', scope: { kind: 'topic', target: 'coloring' } }) })
+      const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Rerun the check computation in the Kempe note' : '켐페 노트의 확인 계산을 다시 돌려 줘', scope: { kind: 'project' }, mode: 'plan' }) })
       chat = res.ok ? (await res.json()).chat.id : ''
       if (!chat) problems.push(`${name}: 예제 대화를 만들지 못함 (${res.status})`)
       for (let i = 0; chat && i < 50; i++) {
