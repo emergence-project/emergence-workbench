@@ -21,7 +21,7 @@ import { t } from './i18n'
  *   탭이 없는 빈 칸은 기본으로 숨긴다(직접 두 칸을 켜거나 탭을 끄는 동안에는 보인다). 맥락 칸(메모)은 처음에 접혀 있다.
  */
 export type Tab =
-  | { k: 'overview' } | { k: 'log' } | { k: 'map' } | { k: 'todo' } | { k: 'records' } | { k: 'info' } | { k: 'agents' } | { k: 'status' } | { k: 'repo' } | { k: 'notes' } | { k: 'concepts' } | { k: 'papers' } | { k: 'edits' } | { k: 'flow' }
+  | { k: 'overview' } | { k: 'log' } | { k: 'map' } | { k: 'todo' } | { k: 'records' } | { k: 'info' } | { k: 'agents' } | { k: 'status' } | { k: 'repo' } | { k: 'files' } | { k: 'notes' } | { k: 'concepts' } | { k: 'papers' } | { k: 'edits' } | { k: 'flow' }
   | { k: 'block'; bid: string } | { k: 'pdf'; bid: string } | { k: 'doc'; name: string } | { k: 'file'; path: string } | { k: 'statement'; sid: string }
   | { k: 'part'; file: string } | { k: 'mspdf'; ms?: string } | { k: 'concept'; id: string } | { k: 'paper'; id: string } | { k: 'topic'; tid: string } | { k: 'task'; task: string }
 
@@ -31,8 +31,8 @@ export const tabKey = (t: Tab) => ('path' in t ? `file:${t.path}` : 'task' in t 
  * 갈래 화면(첫 화면 · 프로젝트 정보 · 할 일 · 지도 · 기록)은 탭이 아니다: 사이드바에서 고르면 칸에 고른 탭이 없을 때처럼
  * 그 칸에 보이고, 탭 줄에는 열어 둔 문서(장, 보조 노트, PDF …)만 남는다 (2026-10-03 피드백)
  */
-export type SectionPage = 'overview' | 'info' | 'agents' | 'status' | 'repo' | 'todo' | 'records' | 'log' | 'map' | 'notes' | 'concepts' | 'papers' | 'edits' | 'flow'
-const SECTIONS: readonly string[] = ['overview', 'info', 'agents', 'status', 'repo', 'todo', 'records', 'log', 'map', 'notes', 'concepts', 'papers', 'edits', 'flow'] satisfies SectionPage[]
+export type SectionPage = 'overview' | 'info' | 'agents' | 'status' | 'repo' | 'files' | 'todo' | 'records' | 'log' | 'map' | 'notes' | 'concepts' | 'papers' | 'edits' | 'flow'
+const SECTIONS: readonly string[] = ['overview', 'info', 'agents', 'status', 'repo', 'files', 'todo', 'records', 'log', 'map', 'notes', 'concepts', 'papers', 'edits', 'flow'] satisfies SectionPage[]
 export const isSection = (page: string): page is SectionPage => SECTIONS.includes(page)
 
 export function tabOfRoute(r: Route): Tab | null {
@@ -63,6 +63,7 @@ function routeOfTab(rid: string, t: Tab): Route | null {
     case 'agents': return { page: 'agents', rid }
     case 'status': return { page: 'status', rid }
     case 'repo': return { page: 'repo', rid }
+    case 'files': return { page: 'files', rid }
     case 'notes': return { page: 'notes', rid }
     case 'concepts': return { page: 'concepts', rid }
     case 'papers': return { page: 'papers', rid }

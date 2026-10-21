@@ -37,6 +37,7 @@ import { NoInfo, NoteInfo, RightSidebar } from './RightSidebar'
 import { TopBar, type Crumb } from './TopBar'
 import { OverviewPage, partNumber } from './OverviewPage'
 import { AgentsPage, ProjectInfoPage, RepoPage, StatusPage } from './ProjectInfoPage'
+import { FilesPage } from './FilesPage'
 import { ProjectRailCount, useProjectIssues } from './projectIssues'
 import { PdfTab } from './PdfTab'
 import { SearchOverlay } from './Search'
@@ -393,6 +394,7 @@ export function App() {
       case 'agents': return <AgentsPage key="agents" rid={rid} rapi={rapi} version={version} />
       case 'status': return <StatusPage key="status" rid={rid} rapi={rapi} />
       case 'repo': return <RepoPage key="repo" rid={rid} rapi={rapi} root={summary.root} version={version} />
+      case 'files': return <FilesPage key="files" rid={rid} />
       case 'info': return (
         <ProjectInfoPage rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts}
           project={current} all={researches ?? []} onProfile={setProfile}
@@ -549,7 +551,7 @@ export function App() {
 }
 
 const PAGE_LABEL: Partial<Record<Route['page'], string>> = {
-  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: t('규칙', 'Rules'), status: t('현황', 'Status'), repo: t('저장소', 'Repository'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('수정 검토', 'Edit review'), flow: t('흐름', 'Flow'),
+  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: t('규칙', 'Rules'), status: t('현황', 'Status'), repo: t('저장소', 'Repository'), files: t('파일', 'Files'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('수정 검토', 'Edit review'), flow: t('흐름', 'Flow'),
   ...Object.fromEntries(GLOBAL_PAGES.map((g) => [g.page, g.name])),
 }
 
@@ -570,6 +572,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'agents': return L('규칙', 'Rules')
     case 'status': return L('현황', 'Status')
     case 'repo': return L('저장소', 'Repository')
+    case 'files': return L('파일', 'Files')
     case 'log': return L('기록', 'Records')
     case 'map': return L('지도', 'Map')
     case 'notes': return L('원고', 'Manuscript')

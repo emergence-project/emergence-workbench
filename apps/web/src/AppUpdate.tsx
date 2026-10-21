@@ -151,6 +151,7 @@ export function AppUpdateRail() {
     <button className={`rail-btn rail-update tip-right${ok && !s.error && !s.failed ? ' ready' : ''}${busy ? ' busy' : ''}`} data-ui="새 버전 버튼" data-tip={tip} aria-label={label} disabled={busy}
       onClick={() => { if (ok && !s.error && !s.failed) void runAppUpdate(); else go({ page: 'settings' }) }}>
       {Icon.update}
+      {!busy && <span className="rail-update-dot" aria-hidden />}
     </button>
   )
 }

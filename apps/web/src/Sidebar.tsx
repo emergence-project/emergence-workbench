@@ -106,6 +106,8 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
               <span className="label">{t('규칙', 'Rules')}</span></button>
             <button className={`nav tree-note${route.page === 'repo' ? ' on' : ''}`} aria-current={route.page === 'repo' ? 'page' : undefined} data-ui="저장소 블록" title={t('폴더 · 브랜치 · GitHub와 비교 · 자료 위치', 'Folder, branch, comparison with GitHub, material locations')} onClick={() => go({ page: 'repo', rid })}>
               <span className="label">{t('저장소', 'Repository')}</span></button>
+            <button className={`nav tree-note${route.page === 'files' ? ' on' : ''}`} aria-current={route.page === 'files' ? 'page' : undefined} data-ui="파일 블록" title={t('저장소의 모든 파일을 나무로 보고, 누르면 오른쪽에서 읽기', 'Every file in the repository as a tree; click to read it on the right')} onClick={() => go({ page: 'files', rid })}>
+              <span className="label">{t('파일', 'Files')}</span></button>
           </div>
           <button className={`nav side-row${recordsOn ? ' on' : ''}`} aria-current={recordsOn ? 'page' : undefined} data-ui="기록 블록" title={t('내 차례 · 에이전트 차례 · 모든 기록과 맡긴 일', 'Your turn, agents\' turn, all records and delegated tasks')} onClick={() => go({ page: 'records', rid })}>
             <span className="q-ico" aria-hidden>{Icon.comment}</span><span className="label">{t('기록', 'Records')}</span>

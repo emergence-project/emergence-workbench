@@ -3,7 +3,7 @@ import type { JournalEntry, MetaPatch } from '@rw/core'
 import type {
   AgentRules, AgentStatusPreview, AllBodyOnlyResult, BlockCreateBody, BlockDoc, BlockMetaSaved, BlockPdfState, BlockSpot, BodyOnlyResult, CompileResult, CreatedNote, InfoBody, InfoSaved,
   JournalEdited, JournalEntryReply, JournalList, MainNoteCandidates, ManuscriptCompileResult, ManuscriptInfo, ManuscriptList, ManuscriptSpot, ManuscriptView, MaterialFile,
-  MaterialList, MaterialUploaded, NoteMetaBody, Ok, RepoFile, PartDoc, PdfBoxes, ProfileBody, ProjectInfo, ProjectIssues, RepoReply, ResearchList, ResearchListItem, ResearchOrder,
+  MaterialList, MaterialUploaded, NoteMetaBody, Ok, RepoFile, RepoTree, PartDoc, PdfBoxes, ProfileBody, ProjectInfo, ProjectIssues, RepoReply, ResearchList, ResearchListItem, ResearchOrder,
   ResearchSummary, RestoredNote, Saved, StatementDoc, SyncReply, SyncUpdated, TopicList, TrashedNote, TrashList,
 } from '@rw/core/contract/research'
 import { choiceParams, type ExportChoice } from './noteExport'
@@ -11,7 +11,7 @@ import { ConflictError, enc, json, req, send } from './http'
 
 export type {
   AgentRules, BibEntry, BlockDoc, BlockMetaSaved, BlockRow, CompileResult, LatexProblem as Problem, ManuscriptCompileResult, ManuscriptInfo, ManuscriptPart, ManuscriptPdfStatus, ManuscriptView,
-  MaterialFile, RepoFile, NoteKind, NoteState, OpenTodo, PdfBox, ProjectColor, ProjectInfo, ProjectIssues, ProjectKind, ProjectState, RepoInfo, RepoSync, ResearchListItem, ResearchSummary, SourceSpot, Statement,
+  MaterialFile, RepoFile, RepoTree, NoteKind, NoteState, OpenTodo, PdfBox, ProjectColor, ProjectInfo, ProjectIssues, ProjectKind, ProjectState, RepoInfo, RepoSync, ResearchListItem, ResearchSummary, SourceSpot, Statement,
   Topic, TrashedNote,
 } from '@rw/core/contract/research'
 
@@ -108,6 +108,8 @@ export function researchApi(rid: string) {
     openMaterial: (name: string) => req(`${base}/materials/${enc(name)}/open`, { method: 'POST' }).then((r) => json<Ok>(r)),
     /** 기록 글 속 저장소 경로 찾기 (옮긴 곳 · 지운 파일까지, body면 글 파일의 내용도) */
     repoFile: (path: string, body = false) => req(`${base}/file?path=${enc(path)}${body ? '&body=1' : ''}`).then((r) => json<RepoFile>(r)),
+    /** 프로젝트 정보 › 파일: 저장소 파일 목록과 커밋 안 한 변경 */
+    repoTree: () => req(`${base}/files`).then((r) => json<RepoTree>(r)),
     repoFileRawUrl: (path: string) => `${base}/file/raw?path=${enc(path)}`,
     openRepoFile: (path: string) => req(`${base}/file/open`, send('POST', { path })).then((r) => json<Ok>(r)),
     uploadMaterial: (file: File) => req(`${base}/materials/${enc(file.name)}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: file }).then((r) => json<MaterialUploaded>(r)),

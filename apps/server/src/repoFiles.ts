@@ -92,3 +92,52 @@ export async function readRepoText(root: string, found: RepoFileFound): Promise<
     : fs.readFileSync(assertRealInside(root, path.join(root, found.path), t('저장소에 없는 파일', 'File not in the repository')))
   return { text: buf.subarray(0, MAX_TEXT).toString('utf8'), truncated: buf.length > MAX_TEXT }
 }
+
+/**
+ * 프로젝트 정보 › 파일 (10/21 사용자 "프로젝트 폴더 전체를 볼 수 있게", 시안 안 B): 저장소의 파일 목록과 바뀐 것.
+ * 저장소가 git이면 git이 추적하는 파일과 새 파일(.gitignore가 빼는 것은 없음), 커밋 안 한 변경을 돌려준다.
+ * git 저장소가 아니거나 다른 저장소 안의 폴더면 폴더를 훑는다(점으로 시작하는 것과 node_modules는 뺀다).
+ * 읽기만 한다. 파일이 아주 많으면 앞의 MAX_TREE개만.
+ */
+export const MAX_TREE = 5000
+export interface RepoTree {
+  files: { path: string; size: number }[]
+  /** 커밋 안 한 변경이 있는 파일 (새 파일 포함) */
+  changed: string[]
+  source: 'git' | 'folder'
+  truncated: boolean
+}
+
+export async function listRepoTree(root: string): Promise<RepoTree> {
+  const real = fs.realpathSync(root)
+  const top = await git(root, ['rev-parse', '--show-toplevel'], { timeout: GIT_TIMEOUT.read }).catch(() => '')
+  // 링크는 따라가지 않는다 (저장소 밖 파일의 크기도 알리지 않게)
+  const sizeOf = (rel: string) => { try { const s = fs.lstatSync(path.join(real, rel)); return s.isFile() || s.isSymbolicLink() ? (s.isFile() ? s.size : 0) : -1 } catch { return -1 } }
+  if (top && fs.realpathSync(top) === real) {
+    const z = (args: string[]) => git(root, args, { timeout: GIT_TIMEOUT.read, maxBuffer: 256 * 1024 * 1024 }).then((s) => s.split('\0').filter(Boolean)).catch(() => [] as string[])
+    const [tracked, fresh, status] = await Promise.all([z(['ls-files', '-z']), z(['ls-files', '-o', '--exclude-standard', '-z']), z(['status', '--porcelain', '-z', '--no-renames'])])
+    const all = [...new Set([...tracked, ...fresh])].sort()
+    const files = all.slice(0, MAX_TREE).map((p) => ({ path: p, size: sizeOf(p) })).filter((f) => f.size >= 0)
+    // porcelain -z: "XY 경로". 지운 파일은 목록에 없으니 빼고 남은 것만
+    const have = new Set(files.map((f) => f.path))
+    const changed = status.map((s) => s.slice(3)).filter((p) => have.has(p))
+    return { files, changed, source: 'git', truncated: all.length > MAX_TREE }
+  }
+  const files: RepoTree['files'] = []
+  let truncated = false
+  const walk = (dir: string, depth: number) => {
+    let entries: fs.Dirent[]
+    try { entries = fs.readdirSync(path.join(real, dir), { withFileTypes: true }) } catch { return }
+    for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (e.name.startsWith('.') || e.name === 'node_modules') continue
+      const rel = dir ? `${dir}/${e.name}` : e.name
+      if (e.isDirectory()) { if (depth < 12) walk(rel, depth + 1) }
+      else if (e.isFile()) {
+        if (files.length >= MAX_TREE) { truncated = true; return }
+        files.push({ path: rel, size: sizeOf(rel) })
+      }
+    }
+  }
+  walk('', 0)
+  return { files, changed: [], source: 'folder', truncated }
+}
