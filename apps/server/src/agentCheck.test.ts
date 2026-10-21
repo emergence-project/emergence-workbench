@@ -28,6 +28,13 @@ describe('직접 고친 연구 파일의 읽기 전용 검사', () => {
     for (const d of result.diagnostics) console.info(d)
   })
 
+  it('쓴 이가 없는 새 기록(앱 · MCP를 거치지 않음)을 오류로 보고한다 (10/21)', () => {
+    write('comments/project.md', '# 코멘트 · 프로젝트\n\n## c-20261010-0900 · 메모 · 전체\n\n옛 기록\n\n## c-20261022-0900 · 할 일 · 전체\n- 상태: 대기\n\n직접 쓴 할 일\n\n## c-20261022-0901 · 메모 · 전체\n<!-- rw: {"by":"codex"} -->\n\n에이전트 메모\n')
+    const errors = check().diagnostics.filter((d) => d.file === 'workbench/comments/project.md')
+    expect(errors.map((d) => [d.level, d.line])).toEqual([['error', 7]])
+    expect(errors[0]!.message).toContain('c-20261022-0900')
+  })
+
   it.each([
     ['research.yaml', '\uFEFFtitle: 연구\n'],
     ['notes/example/note.yaml', '\uFEFFname: 노트\n'],

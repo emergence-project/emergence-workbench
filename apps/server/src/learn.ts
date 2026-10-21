@@ -188,7 +188,7 @@ export function addDraftRecords(lib: string, id: string, title: string, it: Lear
   const f = it.from
   const root = path.join(lib, 'workbench')
   const base = { title: `개념노트 ${title}`, source: `${CONCEPTS_DIR}/${id}.md` }
-  addComment(root, conceptRecordTarget(id), { ...base, kind: '할 일', text: '초안을 읽고 맞으면 "확인함"' })
+  addComment(root, conceptRecordTarget(id), { ...base, kind: '할 일', text: '초안을 읽고 맞으면 "확인함"', src: 'app' })
   const text = [
     `**처음 막힌 곳 (${it.at})**`,
     '',
@@ -197,5 +197,5 @@ export function addDraftRecords(lib: string, id: string, title: string, it: Lear
     it.note ? `- 막힌 점: ${it.note}` : null,
     ...(memo ? ['', '**초안을 쓴 Claude가 남긴 확인할 점**', '', memo] : []),
   ].filter((l) => l !== null).join('\n')
-  addComment(root, conceptRecordTarget(id), { ...base, kind: '메모', text })
+  addComment(root, conceptRecordTarget(id), { ...base, kind: '메모', text, src: 'app' })
 }
