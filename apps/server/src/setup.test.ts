@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { useGithubFetch } from './personalRepo.js'
 import { onPath } from './routes/setup.js'
+import { agentRegistered } from './agentSeen.js'
 
 const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-setup-'))
 const gitConfig = path.join(tmp, 'gitconfig')
@@ -57,6 +58,20 @@ describe('시작 준비', () => {
     await app.inject({ method: 'GET', url: '/api/researches', headers: { 'x-rw-agent': 'claude-code' } })
     const v = (await app.inject({ method: 'GET', url: '/api/setup' })).json()
     expect(v.agent).toMatchObject({ name: 'claude-code' })
+  })
+  it('Claude Code · Codex에 이 앱의 MCP 입구가 등록됐는지 본다 (부름과 따로)', () => {
+    const home = path.join(tmp, 'home')
+    fs.mkdirSync(path.join(home, '.codex'), { recursive: true })
+    expect(agentRegistered(home)).toEqual([])
+    fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({ mcpServers: { other: { command: 'node', args: ['x.js'] } } }))
+    expect(agentRegistered(home)).toEqual([])
+    fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({ mcpServers: { 'emergence-workbench': { command: 'node', args: ['/a/scripts/mcp.mjs'] } } }))
+    expect(agentRegistered(home)).toEqual(['Claude Code'])
+    fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({ projects: { '/p': { mcpServers: { wb: { command: 'node', args: ['/a/scripts/mcp.mjs'] } } } } }))
+    fs.writeFileSync(path.join(home, '.codex', 'config.toml'), '[mcp_servers.emergence-workbench]\ncommand = "node"\n')
+    expect(agentRegistered(home)).toEqual(['Claude Code', 'Codex'])
+    fs.writeFileSync(path.join(home, '.claude.json'), '{ broken')
+    expect(agentRegistered(home)).toEqual(['Codex'])
   })
   it('PATH에서 실행 파일을 찾는다', () => {
     const bin = path.join(tmp, 'bin')

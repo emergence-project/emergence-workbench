@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/setup'
 import { parseBody, replies } from '../contract.js'
-import { agentSeen } from '../agentSeen.js'
+import { agentRegistered, agentSeen } from '../agentSeen.js'
 import { appPath } from '../agentPaths.js'
 import { git, gitRun, GIT_TIMEOUT } from '../git.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
@@ -40,6 +40,8 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       projects: registry.list().length,
       personal: { remote, active },
       agent: agentSeen(opts.configDir),
+      // 예제 모드는 이 컴퓨터의 에이전트 설정을 보지 않는다 (그림이 컴퓨터마다 달라지지 않게)
+      registered: opts.sandbox ? [] : agentRegistered(),
       mcpCommand: `claude mcp add --scope user emergence-workbench -- node ${appPath('scripts/mcp.mjs')}`,
       tex: onPath('latexmk'),
     }

@@ -14,6 +14,8 @@ export const SetupView = z.object({
   personal: z.object({ remote: z.string().nullable(), active: z.boolean() }).strict(),
   /** 에이전트(MCP)가 마지막으로 앱을 부른 때와 그 이름. 부른 적 없으면 null */
   agent: z.object({ at: z.string(), name: z.string() }).strict().nullable(),
+  /** 이 앱의 MCP 입구를 등록한 에이전트 (Claude Code · Codex). 등록과 부름은 다르다 (10/21) */
+  registered: z.array(z.string()),
   /** 에이전트를 연결하는 명령 (이 앱 폴더의 scripts/mcp.mjs) */
   mcpCommand: z.string(),
   /** latexmk를 찾았는지 (PDF 컴파일) */
