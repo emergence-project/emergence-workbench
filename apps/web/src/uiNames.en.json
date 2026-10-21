@@ -694,5 +694,10 @@
   "흐름 남은 칸": "Flow fields left",
   "기록 종류 바꾸기": "Change record kind",
   "적던 글 이어 쓰기": "Continue unsent draft",
-  "적던 글 버리기": "Discard unsent draft"
+  "적던 글 버리기": "Discard unsent draft",
+  "기록 차례": "Records view",
+  "내 차례 목록": "Your-turn list",
+  "에이전트 차례 목록": "Agents'-turn list",
+  "차례 기록 줄": "Turn record row",
+  "차례 수정 검토 줄": "Edit review row"
 }

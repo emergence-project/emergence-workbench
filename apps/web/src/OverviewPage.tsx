@@ -206,10 +206,10 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
   // 작업 패널의 묶음: 사용자 차례부터 (검토 대기 → 에이전트 고침 → 멈춤 → 할 일, 10/15 09:55 피드백)
   const groups = ([
     {
-      key: 'review', title: t('검토 대기', 'Awaiting review'), short: t('검토', 'Review'), count: reviews.length, turn: t('물리·수학 검토는 사용자만', 'Only you can do the physics and math review'), ui: '검토 대기', onMore: () => go({ page: 'todo', rid }),
+      key: 'review', title: t('검토 대기', 'Awaiting review'), short: t('검토', 'Review'), count: reviews.length, turn: t('물리·수학 검토는 사용자만', 'Only you can do the physics and math review'), ui: '검토 대기', onMore: () => go({ page: 'records', rid }),
       rows: reviews.map((r) => (tag?: string) => (
         <NowRow tag={tag} key={r.file} ui="검토 대기 문서" item={r.title}
-          title={r.title} full={r.file} onOpen={() => go({ page: 'todo', rid })}
+          title={r.title} full={r.file} onOpen={() => go({ page: 'records', rid })}
           sub={`${reviewStatusLabel(r.status)}${r.updated ? ` · ${r.updated}` : ''}`} />
       )),
     },
@@ -234,7 +234,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
       }),
     },
     {
-      key: 'todo', title: t('할 일', 'To-do'), count: todos.length, ui: '첫 화면 할 일', onMore: () => go({ page: 'todo', rid }),
+      key: 'todo', title: t('할 일', 'To-do'), count: todos.length, ui: '첫 화면 할 일', onMore: () => go({ page: 'records', rid }),
       // 첫 화면에서는 끝내기만 한다(줄 앞 완료 칸, 10/19 사용자 댓글이 10/3 14:48·14:49 "보기만"을 바꿈). 적기는 기록 탭에서
       rows: todos.map(({ todo, due, text }) => (tag?: string) => {
         const goTodo = () => { focusTodo(todoKey(todo)); go({ page: 'records', rid }) }
@@ -252,7 +252,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
     },
   ] as NowGroupSpec[]).filter((g) => g.count > 0)
   // 남은 작업이 하나도 없으면 할 일 묶음만 빈 글과 함께
-  const nowGroups: NowGroupSpec[] = groups.length ? groups : [{ key: 'todo', title: t('할 일', 'To-do'), count: 0, ui: '첫 화면 할 일', onMore: () => go({ page: 'todo', rid }), rows: [], empty: t('남은 할 일이 없습니다.', 'No to-dos left.') }]
+  const nowGroups: NowGroupSpec[] = groups.length ? groups : [{ key: 'todo', title: t('할 일', 'To-do'), count: 0, ui: '첫 화면 할 일', onMore: () => go({ page: 'records', rid }), rows: [], empty: t('남은 할 일이 없습니다.', 'No to-dos left.') }]
   const fitKey = nowGroups.map((g) => `${g.key}${g.count}`).join(' ')
 
   return (
@@ -289,7 +289,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
                 )}
               </div>
 
-              <NowPanel groups={nowGroups} fitKey={fitKey} onAll={() => go({ page: 'todo', rid })} error={error} />
+              <NowPanel groups={nowGroups} fitKey={fitKey} onAll={() => go({ page: 'records', rid })} error={error} />
             </div>
 
             <ProjectCards rid={rid} rapi={rapi} notes={notes} project={projectName} pc={pc} onChanged={onChanged} onSaved={onSaved} />

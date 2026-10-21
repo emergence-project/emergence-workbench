@@ -89,6 +89,7 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
       </div>
     )
   }
+  const recordsOn = route.page === 'records' || route.page === 'todo' || route.page === 'log' || route.page === 'task'
   return (
     <div className="project-toc" data-ui="프로젝트 목차">
       <SideTabs label={t('프로젝트', 'Project')} turn={askCount + editCount}
@@ -106,9 +107,7 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
             <button className={`nav tree-note${route.page === 'repo' ? ' on' : ''}`} aria-current={route.page === 'repo' ? 'page' : undefined} data-ui="저장소 블록" title={t('폴더 · 브랜치 · GitHub와 비교 · 자료 위치', 'Folder, branch, comparison with GitHub, material locations')} onClick={() => go({ page: 'repo', rid })}>
               <span className="label">{t('저장소', 'Repository')}</span></button>
           </div>
-          <button className={`nav side-row${route.page === 'todo' || route.page === 'log' || route.page === 'task' ? ' on' : ''}`} aria-current={route.page === 'todo' || route.page === 'log' || route.page === 'task' ? 'page' : undefined} data-ui="할 일" title={t('에이전트에게 맡긴 일과 지난 작업 일지', 'Work delegated to agents and past work journal')} onClick={() => go({ page: 'todo', rid })}>
-            <span className="q-ico" aria-hidden>{Icon.task}</span><span className="label">{t('작업', 'Work')}</span></button>
-          <button className={`nav side-row${route.page === 'records' ? ' on' : ''}`} aria-current={route.page === 'records' ? 'page' : undefined} data-ui="기록 블록" title={t('프로젝트의 메모 · 할 일 · 질문을 대상별로', 'Memos, to-dos and questions across the project, by what they are about')} onClick={() => go({ page: 'records', rid })}>
+          <button className={`nav side-row${recordsOn ? ' on' : ''}`} aria-current={recordsOn ? 'page' : undefined} data-ui="기록 블록" title={t('내 차례 · 에이전트 차례 · 모든 기록과 맡긴 일', 'Your turn, agents\' turn, all records and delegated tasks')} onClick={() => go({ page: 'records', rid })}>
             <span className="q-ico" aria-hidden>{Icon.comment}</span><span className="label">{t('기록', 'Records')}</span>
               {askCount > 0 && <span className="rail-count" data-ui="물은 기록 수" title={t(`에이전트가 물은 기록 ${askCount}개 — 답을 기다립니다`, `${askCount} agent question(s) waiting for your answer`)}>{askCount}</span>}</button>
           <button className={`nav side-row${route.page === 'edits' ? ' on' : ''}`} aria-current={route.page === 'edits' ? 'page' : undefined} data-ui="고침 검토 블록" title={t('에이전트가 고친 노트를 바뀐 곳마다 검토', 'Review each change agents made to notes')} onClick={() => go({ page: 'edits', rid })}>

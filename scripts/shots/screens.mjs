@@ -26,14 +26,15 @@ export const DEFAULT_SCREENS = [
   ['notes', '#/r/{rid}/notes', '원고 목록'],
   // 새 점 (10/16 승인 "이어서 · 지정 · 새로 시작"): 창 없이 차트의 점선 점 + 자세히 자리의 새 점 칸. 같은 주소면 앞 화면의 칸이 남으므로 다른 탭 화면 뒤에 하나씩 둔다
   ['flow-new', '#/r/{rid}/flow', '흐름 새 점 창', ['[data-ui="흐름 차트"] .fl-node[data-id="kempe-swap"]', '흐름 다음 점']],
-  // 작업 탭 (10/7 시안 v31): 처음은 판단 필터(브리핑 · 한 주 달력 · 판단 카드). 맡긴 일은 fixtures/sandbox-extra/workbench/tasks
-  ['todo', '#/r/{rid}/todo', '판단 카드'],
+  // 기록 › 내 차례 (10/21 작업 탭을 기록 안으로, 옛 주소 todo): 브리핑 · 한 주 달력 · 판단 · 물은 기록 · 할 일 한 줄씩. 맡긴 일은 fixtures/sandbox-extra/workbench/tasks
+  ['todo', '#/r/{rid}/todo', '내 차례 목록'],
   ['flow-pick', '#/r/{rid}/flow', '흐름 앞선 점 고르기', ['[data-ui="흐름 차트"] .fl-node[data-id="kempe-swap"]', '흐름 다음 점 메뉴', '[role="menuitem"]:text-matches("^(앞선 점|Choose several)")', '[data-ui="흐름 차트"] .fl-node[data-id="five-color-theorem"]']],
-  // 기록 탭 (10/15): 메모 · 할 일 · 질문을 작업 탭에서 떼어 대상별로 모은다. 처음은 메모
-  ['records', '#/r/{rid}/records', '기록 화면'],
+  // 기록 › 모두 (10/21): 종류 고르기(처음은 메모) · 대상별 목록 · 입력란 · 접힌 작업 일지
+  ['records', '#/r/{rid}/records', '작업 기록 목록', '[data-ui="기록 차례"] button:text-matches("^(모두|All)")'],
+  ['records-agent', '#/r/{rid}/records', '에이전트 차례 목록', '[data-ui="기록 차례"] button:text-matches("^(에이전트 차례|Agents)")'],
   ['flow-start', '#/r/{rid}/flow', '흐름 새 점 창', '흐름 점 더하기'],
-  // 기록 탭의 질문 (10/15): 답을 대화로, 이어 쓰기, 에이전트가 물은 질문(주황, 사용자 차례). 기록은 fixtures/sandbox-extra/workbench/comments
-  ['records-questions', '#/r/{rid}/records', '기록 화면', '[data-ui="기록 거르기"] button:text-matches("^(질문|Question)")'],
+  // 기록 › 모두 › 질문 (10/15): 답을 대화로, 이어 쓰기, 에이전트가 물은 질문(주황, 사용자 차례). 기록은 fixtures/sandbox-extra/workbench/comments
+  ['records-questions', '#/r/{rid}/records', '기록 화면', ['[data-ui="기록 차례"] button:text-matches("^(모두|All)")', '[data-ui="기록 거르기"] button:text-matches("^(질문|Question)")']],
   // 점 고치기 안 A (10/20): 계획 · 실행 · 끝맺음 묶음, 채운 수, 빈 칸의 회색 안내
   ['flow-edit-calc', '#/r/{rid}/flow', '흐름 실행 고치기', ['[data-ui="흐름 차트"] .fl-node[data-id="greedy-check"]', '흐름 점 고치기']],
   // 프로젝트 정보의 네 쪽 (10/16): 개요 · 현황 · 규칙 · 저장소
@@ -46,10 +47,10 @@ export const DEFAULT_SCREENS = [
   ['info-repo', '#/r/{rid}/repo', '저장소 정보'],
   ['map', '#/r/{rid}/map', '지도'],
   ['log', '#/r/{rid}/log', '기록'],
-  // 맡기기 창, 날짜를 누른 달력, 맡긴 일 목록(필터는 기억되므로 마지막에 판단으로 되돌린다), 보고서
+  // 맡기기 창, 맡긴 일 목록, 날짜를 누른 달력(내 차례), 보고서
   ['task-dialog', '#/r/{rid}/todo', '맡기기 창', '맡기기'],
-  ['task-list', '#/r/{rid}/todo', '맡긴 일 목록', '[data-ui="작업 거르기"] button:text-matches("^(맡긴 일|Delegated)")'],
-  ['task-day', '#/r/{rid}/todo', '하루 자세히', ['[data-ui="작업 거르기"] button:text-matches("^(판단|To decide)")', '[data-ui="하루"].is-today']],
+  ['task-list', '#/r/{rid}/records', '맡긴 일 목록', ['[data-ui="기록 차례"] button:text-matches("^(모두|All)")', '[data-ui="기록 거르기"] button:text-matches("^(맡긴 일|Delegated)")']],
+  ['task-day', '#/r/{rid}/records', '하루 자세히', ['[data-ui="기록 차례"] button:text-matches("^(내 차례|Your turn)")', '[data-ui="하루"].is-today']],
   ['task-report', '#/r/{rid}/k/2026-10-05-list-coloring-bound', '다음 지시'],
   ['block', '#/r/{rid}/b/kempe-chains', EDITOR_TEXT],
   ['chapter', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', EDITOR_TEXT],

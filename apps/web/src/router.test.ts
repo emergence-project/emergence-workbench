@@ -34,7 +34,6 @@ const ROUTES: Route[] = [
   { page: 'overview', rid: 'alpha' },
   { page: 'overview', rid: 'alpha', anchor: 'sec 2' },
   { page: 'map', rid: 'alpha' },
-  { page: 'todo', rid: 'alpha' },
   { page: 'records', rid: 'alpha' },
   { page: 'info', rid: 'alpha' },
   { page: 'notes', rid: 'alpha' },
@@ -60,6 +59,8 @@ describe('router', () => {
     expect(parseRoute('#/library/map/modular-flow')).toEqual({ page: 'kmap', topic: 'modular-flow' })
     expect(href({ page: 'library', view: 'map', topic: 'x' })).toBe(href({ page: 'kmap', topic: 'x' }))
     expect(parseRoute('#/library/learn')).toEqual({ page: 'library' })
+    // 작업 탭은 기록 화면으로 합쳤다 (10/21)
+    expect(parseRoute('#/r/alpha/todo')).toEqual({ page: 'records', rid: 'alpha' })
   })
 
   it('라이브러리 첫 화면·노트·지도와 목록을 구별한다', () => {

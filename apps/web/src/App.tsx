@@ -290,7 +290,7 @@ export function App() {
       : route.page === 'doc' ? [{ label: t('자료', 'Materials') }, { label: route.name }]
       : route.page === 'file' ? [{ label: t('파일', 'File') }, { label: route.path }]
         : route.page === 'concept' || route.page === 'paper' ? [{ label: route.page === 'concept' ? t('개념노트', 'Concept note') : t('문헌노트', 'Literature note') }, { label: library?.notes.find((n) => n.kind === route.page && n.id === route.id)?.title ?? route.id }]
-        : route.page === 'task' ? [{ label: t('작업', 'Work'), to: { page: 'todo', rid } as Route }, { label: taskTitles.get(route.task) ?? route.task }]
+        : route.page === 'task' ? [{ label: t('기록', 'Records'), to: { page: 'records', rid } as Route }, { label: taskTitles.get(route.task) ?? route.task }]
         : route.page === 'topic' ? [{ label: route.tid === LOOSE_TOPIC_ID ? LOOSE_NOTES_LABEL : topics.find((x) => x.id === route.tid)?.title ?? route.tid }]
         : route.page === 'part' ? (() => {
           const ms = msOfFile(route.file)
@@ -379,9 +379,9 @@ export function App() {
       case 'mspdf': return <ManuscriptPdfTab key={msKeyOfTab(t)} rid={rid} info={manuscripts.find((m) => m.key === msKeyOfTab(t)) ?? null} rapi={rapi} onSaved={flash} version={version}
         active={context?.active ?? false} pairedEditor={hasVisibleManuscriptEditor(context?.visibleTabs ?? [], msKeyOfTab(t), (file) => msOfFile(file)?.key)} />
       case 'pdf': return <PdfTab rid={rid} bid={t.bid} title={tabTitle({ k: 'block', bid: t.bid }, summary)} rapi={rapi} />
-      case 'todo': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />
-      case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} section="records" version={version} />
-      case 'log': return <WorkPage key="work" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
+      // 옛 작업 탭(todo)은 기록 화면으로 합쳤다 (10/21): 남은 탭도 기록을 연다
+      case 'todo': case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} version={version} />
+      case 'log': return <WorkPage key="log" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} /></Lazy>
       case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
@@ -563,13 +563,13 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
   const L = (k: string, e: string) => (ko ? k : t(k, e))
   switch (tab.k) {
     case 'overview': return L('첫 화면', 'Start')
-    case 'todo': return L('작업', 'Work')
+    case 'todo':
     case 'records': return L('기록', 'Records')
     case 'info': return L('프로젝트 정보', 'Project info')
     case 'agents': return L('규칙', 'Rules')
     case 'status': return L('현황', 'Status')
     case 'repo': return L('저장소', 'Repository')
-    case 'log': return L('작업', 'Work')
+    case 'log': return L('기록', 'Records')
     case 'map': return L('지도', 'Map')
     case 'notes': return L('원고', 'Manuscript')
     case 'concepts': return L('개념노트', 'Concept notes')

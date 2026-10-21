@@ -20,7 +20,7 @@ import { t } from './i18n'
 import { MarkIcon } from './marks'
 
 /**
- * 작업 탭의 맡긴 일 (10/7 사용자 결정, 시안 v31): 브리핑 · 한 주 달력, 판단 카드, 맡긴 일 목록, 맡기기 창.
+ * 기록 화면의 맡긴 일 (10/7 사용자 결정, 시안 v31. 10/21 작업 탭을 기록 안으로 합침): 브리핑 · 한 주 달력, 판단 카드, 맡긴 일 목록, 맡기기 창.
  * 보고서 한 장은 TaskReport.tsx. 파일 형식과 규칙: docs/agent-delegated-work.md
  */
 
@@ -148,17 +148,25 @@ export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEdi
   )
 }
 
-/** 판단: 사용자 차례인 맡긴 일 (오래 기다린 것부터). 첫 카드는 펼쳐 둔다 */
-export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal, children }: {
-  rid: string; tasks: Task[]; loaded: boolean; onSaved: Saved; reload(): unknown; onEditProposal(t: Task): void; children?: ReactNode
+/**
+ * 판단: 사용자 차례인 맡긴 일 (오래 기다린 것부터). 처음에는 모두 접어 둔다: 기록 화면 내 차례에서 다른 줄과 같은 무게로
+ * (10/21 시각 위계). 펼친 줄은 하나만. openId · onToggle을 주면 바깥 목록과 펼침을 함께 쓴다
+ */
+export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal, openId: outerOpen, onToggle, emptyText, children }: {
+  rid: string; tasks: Task[]; loaded: boolean; onSaved: Saved; reload(): unknown; onEditProposal(t: Task): void
+  openId?: string | null; onToggle?(id: string): void
+  /** 판단할 것이 없을 때의 글. null이면 아무것도 보이지 않는다 */
+  emptyText?: string | null
+  children?: ReactNode
 }) {
   const list = judgeOrder(tasks)
-  const [openId, setOpenId] = useState<string | null | undefined>(undefined)
-  const shown = openId === undefined ? list[0]?.id ?? null : openId
+  const [innerOpen, setInnerOpen] = useState<string | null>(null)
+  const shown = outerOpen === undefined ? innerOpen : outerOpen
+  const toggle = (id: string) => onToggle ? onToggle(id) : setInnerOpen(shown === id ? null : id)
   return (
     <div className="tk-list" data-ui="판단 목록">
-      {list.map((t) => <TaskCard key={t.id} rid={rid} task={t} open={shown === t.id} onToggle={() => setOpenId(shown === t.id ? null : t.id)} onSaved={onSaved} reload={reload} onEditProposal={onEditProposal} />)}
-      {!list.length && <p className="empty tk-empty">{loaded ? t('판단할 것이 없습니다. 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing to decide. Results of delegated tasks show up here.') : t('불러오는 중…', 'Loading…')}</p>}
+      {list.map((t) => <TaskCard key={t.id} rid={rid} task={t} open={shown === t.id} onToggle={() => toggle(t.id)} onSaved={onSaved} reload={reload} onEditProposal={onEditProposal} />)}
+      {!list.length && emptyText !== null && <p className="empty tk-empty">{loaded ? emptyText ?? t('판단할 것이 없습니다. 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing to decide. Results of delegated tasks show up here.') : t('불러오는 중…', 'Loading…')}</p>}
       {children}
     </div>
   )

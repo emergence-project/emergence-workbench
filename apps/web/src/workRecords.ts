@@ -1,6 +1,6 @@
 import { todoDue, type JournalEntry } from '@rw/core'
 import type { CommentEntry, RecordFile } from './api/comments'
-import { recordKind } from './recordsPanelHelpers'
+import { isTalkKind, isUserTurnRecord, recordKind } from './recordsPanelHelpers'
 import { t } from './i18n'
 import { recordDay } from './format'
 import { kindLabel, type RecordFilter } from './recordLabels'
@@ -10,9 +10,9 @@ export type { RecordFilter } from './recordLabels'
 /** 작업 탭과 기록 탭의 필터 (10/7 작업 탭: 판단 · 맡긴 일을 앞에 더함) */
 export const WORK_FILTERS = ['판단', '맡긴 일', '할 일', '메모', '질문', '지시'] as const
 export type WorkFilter = typeof WORK_FILTERS[number]
-/** 작업 탭은 판단 · 맡긴 일, 기록 탭은 메모 · 할 일 · 질문 · 지시 (10/15 사용자 결정: 기록을 따로 된 탭으로, 에이전트가 하고 답하는 지시를 더함) */
+/** 기록 › 모두의 종류: 메모 · 할 일 · 질문 · 지시 · 맡긴 일 (10/15 지시를 더함, 10/21 작업 탭을 합쳐 맡긴 일도). work는 옛 작업 탭에 저장된 값을 읽을 때만 */
 export type WorkSection = 'work' | 'records'
-export const SECTION_FILTERS: Record<WorkSection, readonly WorkFilter[]> = { work: ['판단', '맡긴 일'], records: ['메모', '할 일', '질문', '지시'] }
+export const SECTION_FILTERS: Record<WorkSection, readonly WorkFilter[]> = { work: ['판단', '맡긴 일'], records: ['메모', '할 일', '질문', '지시', '맡긴 일'] }
 /** 필터의 화면 이름 (값은 한국어 그대로 저장한다) */
 export const WORK_FILTER_LABEL = Object.fromEntries(WORK_FILTERS.map((f) => [f, kindLabel(f)])) as Record<WorkFilter, string>
 export const isRecordFilter = (f: WorkFilter): f is RecordFilter => f === '할 일' || f === '메모' || f === '질문' || f === '지시'
@@ -98,3 +98,27 @@ export function workRecordGroups(files: RecordFile[], journal: JournalEntry[], f
   }
   return project.items.length ? [{ ...project, items: order(project.items) }, ...notes] : notes
 }
+
+/**
+ * 기록 화면의 보기 (10/21 사용자 결정 "작업 탭을 기록 안으로"): 내 차례 · 에이전트 차례 · 모두.
+ * 원본은 그대로(기록 = workbench/comments, 맡긴 일 = workbench/tasks)이고 화면만 합친다
+ */
+export const RECORD_VIEWS = ['mine', 'agent', 'all'] as const
+export type RecordView = typeof RECORD_VIEWS[number]
+
+export interface FlatRecord { file: RecordFile; entry: CommentEntry }
+
+const flatRecords = (files: RecordFile[], keep: (entry: CommentEntry) => boolean): FlatRecord[] =>
+  files.flatMap((file) => file.comments.filter(keep).map((entry) => ({ file, entry })))
+const oldestFirst = (items: FlatRecord[]) => [...items].sort((a, b) => writtenAt({ kind: 'record', ...a }).stamp.localeCompare(writtenAt({ kind: 'record', ...b }).stamp))
+
+/** 내 차례의 기록: 에이전트가 물은 질문 · 지시가 대기 (오래 기다린 것부터) */
+export const userTurnRecords = (files: RecordFile[]) => oldestFirst(flatRecords(files, isUserTurnRecord))
+/** 에이전트 차례의 기록: 사용자가 쓴 질문 · 지시가 대기 (오래 기다린 것부터) */
+export const agentTurnRecords = (files: RecordFile[]) => oldestFirst(flatRecords(files, (e) => isTalkKind(recordKind(e)) && !e.by && e.state === '대기'))
+/** 남은 할 일 (마감이 이른 것부터, 서버 openTodos와 같은 차례) */
+export const openTodoRecords = (files: RecordFile[]): FlatRecord[] =>
+  byDue(flatRecords(files, (e) => recordKind(e) === '할 일' && e.state !== '끝냄').map((r): WorkRecordItem => ({ kind: 'record', ...r })))
+    .flatMap((item) => item.kind === 'record' ? [{ file: item.file, entry: item.entry }] : [])
+/** 접힌 줄에 보일 한 줄: 글의 첫 줄, 글이 없으면 인용 */
+export const recordLine = (entry: Pick<CommentEntry, 'body' | 'quote'>) => (entry.body.trim() || entry.quote?.trim() || '').split('\n')[0]!.trim()

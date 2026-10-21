@@ -159,3 +159,11 @@
 .tk-kv2 dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .tk-judged { margin: var(--sp-2) 0 0; padding-left: 18px; }
 @container (max-width: 640px) { .tk-rep { padding-inline: var(--sp-4); } .tk-ask { grid-template-columns: auto minmax(0, 1fr); } .tk-ask .segmented { grid-column: 2; justify-self: start; } }
+
+/* 기록 화면의 차례 줄 (10/21 작업 탭을 기록 안으로): 판단 카드와 같은 .tk 모양, 종류 이름을 앞에 */
+.tk-kind { color: var(--text-3); font-weight: var(--fw-medium); margin-right: var(--sp-2); }
+.tk-rec .tk-title { font-weight: var(--fw-normal); }
+.tk-rec-open { padding-left: var(--sp-4); }
+.work-all-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.work-log { margin-top: var(--sp-4); }
+.work-log > summary { cursor: pointer; }

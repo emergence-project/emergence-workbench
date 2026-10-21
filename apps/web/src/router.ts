@@ -85,7 +85,8 @@ export function parseRoute(hash: string): Route {
   const anchor = new URLSearchParams(query).get('at') ?? undefined
   if (parts[0] === 'r' && parts[1]) {
     if (parts[2] === 'tree' || parts[2] === 'map') return { page: 'map', rid: parts[1] }
-    if (parts[2] === 'todo') return { page: 'todo', rid: parts[1] }
+    // 옛 작업 탭 주소는 기록 화면으로 (10/21 작업 탭을 기록 안으로 합침)
+    if (parts[2] === 'todo') return { page: 'records', rid: parts[1] }
     if (parts[2] === 'records') return { page: 'records', rid: parts[1] }
     if (parts[2] === 'flow') { const topic = new URLSearchParams(query).get('topic'); return { page: 'flow', rid: parts[1], ...(topic && { topic }) } }
     if (parts[2] === 'edits') { const key = new URLSearchParams(query).get('key'); return { page: 'edits', rid: parts[1], ...(key && { key }) } }
