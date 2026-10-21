@@ -1,5 +1,5 @@
 // pnpm agent:feedback <피드백 폴더> — 에이전트 차례인 피드백 항목과 그 이유를 보인다. 아무것도 쓰지 않는다.
-// 차례 계산은 피드백 화면과 같다(packages/core/src/feedback-buckets.ts). 처리 규칙은 관리자 개인 저장소 CLAUDE.md 1절.
+// 차례 계산은 피드백 화면과 같다(packages/core/src/feedback-buckets.ts). 처리 규칙은 docs/feedback/agent.md(피드백 규약), 앱마다 더한 규칙은 그 앱의 CLAUDE.md.
 // 최근 돌려받은 까닭과 교훈(status.yaml revised의 miss · lesson)을 먼저 보인다(feedback-lessons.ts).
 import fs from 'node:fs'
 import path from 'node:path'
@@ -33,6 +33,7 @@ const mine = all.map((e) => ({ e, why: agentTurnReasons(e, now) })).filter((x) =
 const userTurn = all.filter((e) => feedbackBucket(e, now) === '확인 필요').length
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 console.log(`# 에이전트 차례 ${mine.length} · 사용자 차례 ${userTurn} · 전체 ${all.length}\n`)
+if (mine.length) console.log('> 처리 규칙: docs/feedback/agent.md (까닭 → 절: 새 항목 3 · 수정 요청 · 진행 · 고친 글 4 · 코멘트 5)\n')
 // 실수에서 배우기 (10/16 실험): 최근 돌려받은 까닭과 교훈을 일 목록보다 먼저 보인다
 const lessons = feedbackLessonsText(feedbackLessons(all, now))
 if (lessons) console.log(lessons)

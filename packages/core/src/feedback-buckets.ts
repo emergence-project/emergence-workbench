@@ -2,7 +2,8 @@ import type { FeedbackItem, FeedbackState, FeedbackVerdict } from './contract/fe
 
 /**
  * 피드백 항목이 누구 차례인지 (피드백 화면 · 왼쪽 띠 · pnpm agent:feedback이 같은 규칙을 쓴다).
- * 처리 규칙은 관리자 개인 저장소 CLAUDE.md 1절.
+ * 피드백 규약의 "차례" 모듈이다: 규칙은 docs/feedback/README.md 6절, 다른 앱도 돌리는 시험 사례는 docs/feedback/cases.json.
+ * 타입 말고는 아무것도 가져오지 않으므로 새 앱은 이 파일만 옮겨 써도 된다.
  */
 
 /** 다시 처리하게 하는 답: 수정(자료 값 반려)과 진행(10/9) */
@@ -67,20 +68,38 @@ export function railCount(entries: FeedbackItem[], now = Date.now()) {
 }
 
 /**
- * 에이전트 차례(대기)인 항목이 왜 차례인지 (pnpm agent:feedback). 차례가 아니면 빈 목록.
- * 할 일은 개인 규칙 1절: 새 항목은 유형대로, 반려는 다시 처리(규칙 9), 진행은 물은 대로(규칙 9), 코멘트는 답만(규칙 10).
+ * 에이전트 차례의 까닭 (규약 6절 · 에이전트 규칙 docs/feedback/agent.md). 앱마다 같은 이름을 쓴다.
+ * comment 답 없는 코멘트 · rework 수정 요청 · proceed 진행 · edited 처리 뒤 고친 수정 요청 · new 새 항목 · hold 물음 없는 보류
  */
-export function agentTurnReasons(e: FeedbackItem, now = Date.now()): string[] {
+export type AgentTurn = 'comment' | 'rework' | 'proceed' | 'edited' | 'new' | 'hold'
+
+/** 에이전트 차례(대기)인 항목의 까닭. 차례가 아니면 빈 목록 */
+export function agentTurns(e: FeedbackItem, now = Date.now()): AgentTurn[] {
   if (feedbackBucket(e, now) !== '대기') return []
-  const out: string[] = []
-  const open = unansweredComments(e)
-  if (open.length) out.push(`답 없는 코멘트 ${open.length}개 (규칙 10: 답만 한다)`)
-  if (reopened(e)) {
-    const edited = e.status?.rework === e.review!.at
-    out.push(edited
-      ? `처리 뒤에 고친 ${e.review!.verdict} 글 (${e.review!.edited}) — 다시 읽고 처리`
-      : e.review!.verdict === '진행' ? `진행 (${e.review!.at}) — 물은 대로 처리 (규칙 9)` : `수정 요청 (${e.review!.at}) — 다시 처리 (규칙 9) · revised에 miss와 lesson`)
-  } else if (!e.status) out.push(`새 항목${e.kind ? ` · ${e.kind}` : ''}`)
-  else if (e.status.state === '보류' && !e.status.ask) out.push('보류 (물음 없음)')
+  const out: AgentTurn[] = []
+  if (unansweredComments(e).length) out.push('comment')
+  if (reopened(e)) out.push(e.status?.rework === e.review!.at ? 'edited' : e.review!.verdict === '진행' ? 'proceed' : 'rework')
+  else if (!e.status) out.push('new')
+  else if (e.status.state === '보류' && !e.status.ask) out.push('hold')
   return out
+}
+
+/** 사용자 차례(확인 필요)인 항목이 답할 것(answer: 결정을 물음)인지 확인할 것(confirm: 결과를 알림)인지. 차례가 아니면 null */
+export function userTurn(e: FeedbackItem, now = Date.now()): 'answer' | 'confirm' | null {
+  if (feedbackBucket(e, now) !== '확인 필요') return null
+  return needsAnswer(e) ? 'answer' : 'confirm'
+}
+
+/** pnpm agent:feedback이 보이는 까닭 글. 할 일은 docs/feedback/agent.md 절 번호로 가리킨다 */
+export function agentTurnReasons(e: FeedbackItem, now = Date.now()): string[] {
+  return agentTurns(e, now).map((c) => {
+    switch (c) {
+      case 'comment': return `답 없는 코멘트 ${unansweredComments(e).length}개 (에이전트 규칙 5: 답만 한다)`
+      case 'edited': return `처리 뒤에 고친 ${e.review!.verdict} 글 (${e.review!.edited}) — 다시 읽고 처리`
+      case 'proceed': return `진행 (${e.review!.at}) — 물은 대로 처리 (에이전트 규칙 4)`
+      case 'rework': return `수정 요청 (${e.review!.at}) — 다시 처리 (에이전트 규칙 4) · revised에 miss와 lesson`
+      case 'new': return `새 항목${e.kind ? ` · ${e.kind}` : ''}`
+      case 'hold': return '보류 (물음 없음)'
+    }
+  })
 }

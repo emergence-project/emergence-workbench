@@ -1,7 +1,7 @@
 /**
  * 앱 피드백 API의 계약 (feedback/날짜.md · status.yaml · reviews.yaml, 서버 routes/feedback.ts · 화면 api/feedback.ts).
  * 연구 저장소 코멘트 올리기(/researches/:rid/records/…)도 같은 라우트 파일에 있어 여기 둔다.
- * 파일 형식은 서버 feedback.ts 머리 주석, 여기는 앱 서버와 화면 사이의 모양이다.
+ * 칸 이름과 뜻은 피드백 규약 docs/feedback/README.md(다른 앱도 따른다), 파일 형식은 서버 feedback.ts 머리 주석, 여기는 앱 서버와 화면 사이의 모양이다.
  */
 import { z } from 'zod'
 import { FEEDBACK_MISSES } from '../feedback-lessons.js'
