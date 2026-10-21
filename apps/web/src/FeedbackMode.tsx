@@ -54,28 +54,73 @@ export function snippetOf(el: Element): string {
  */
 const SVG_PAINT = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'opacity', 'paint-order', 'font-size', 'font-weight', 'font-family', 'display', 'visibility'] as const
 function inlineSvgPaint(): () => void {
-  const saved: [Element, string | null][] = []
-  for (const el of document.querySelectorAll('svg *')) {
-    if (!(el instanceof SVGElement) || el.closest('[data-feedback-ui]')) continue
-    const cs = getComputedStyle(el)
-    saved.push([el, el.getAttribute('style')])
-    for (const k of SVG_PAINT) el.style.setProperty(k, cs.getPropertyValue(k))
+  const saved: [SVGElement, string | null][] = []
+  for (const svg of document.querySelectorAll('svg')) {
+    if (svg.parentElement?.closest('svg') || !onScreen(svg) || svg.closest('[data-feedback-ui]')) continue
+    for (const el of svg.querySelectorAll('*')) if (el instanceof SVGElement) saved.push([el, el.getAttribute('style')])
   }
+  // 먼저 모두 읽고 나서 쓴다. 읽고 쓰기를 번갈아 하면 요소마다 스타일을 다시 계산해 흐름 차트에서 십여 초 멈췄다
+  const paints = saved.map(([el]) => { const cs = getComputedStyle(el); return SVG_PAINT.map((k) => cs.getPropertyValue(k)) })
+  saved.forEach(([el], i) => SVG_PAINT.forEach((k, j) => el.style.setProperty(k, paints[i]?.[j] ?? '')))
   return () => { for (const [el, style] of saved) { if (style === null) el.removeAttribute('style'); else el.setAttribute('style', style) } }
 }
 
+/**
+ * 찍는 시간은 복사하는 요소 수에 비례한다. 화면 밖까지 노트 전체를 복사하면 수식이 많은 노트(요소 수만 개)에서 등록이 수십 초
+ * 멈췄다 (10/21 09:27). 화면에 보이는 요소만 복사한다. 열어 둔 다른 탭도 숨긴 채 남아 있어 함께 뺀다.
+ * html-to-image는 스크롤 위치를 옮기지 않아, 위로 지나간 요소를 빼면 그림이 사용자가 보던 자리에 더 가깝다
+ */
+function onScreen(el: Element): boolean {
+  const r = el.getBoundingClientRect()
+  // 크기가 없으면: 숨긴 탭(display: none)은 통째로 빼고, display: contents처럼 자식이 보일 수 있는 것은 남긴다
+  if (!r.width && !r.height) return el.checkVisibility?.() ?? true
+  // 위아래로 조금 넉넉히: 반쯤 보이는 줄의 수식 첨자처럼 부모 상자 밖으로 나온 조각을 남긴다
+  const m = 120
+  return r.bottom >= -m && r.top <= innerHeight + m && r.right >= 0 && r.left <= innerWidth
+}
+
+/**
+ * 그림에 옮기는 스타일. 정하지 않으면 요소마다 계산된 스타일 500여 개를 모두 옮겨, 보이는 요소 4천 개에 6초가 걸렸다.
+ * 모양을 바꾸는 것만 옮겨 1초 남짓으로 줄인다 (10/21 09:27)
+ */
+const STYLE_PROPS = [
+  'display', 'position', 'top', 'right', 'bottom', 'left', 'inset', 'z-index', 'float', 'clear', 'box-sizing', 'width', 'height', 'min-width',
+  'min-height', 'max-width', 'max-height', 'aspect-ratio', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding-top',
+  'padding-right', 'padding-bottom', 'padding-left', 'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+  'border-top-style', 'border-right-style', 'border-bottom-style', 'border-left-style', 'border-top-color', 'border-right-color',
+  'border-bottom-color', 'border-left-color', 'border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius',
+  'border-bottom-right-radius', 'border-collapse', 'border-spacing', 'table-layout', 'caption-side', 'empty-cells', 'outline-width', 'outline-style',
+  'outline-color', 'outline-offset', 'box-shadow', 'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'flex-basis', 'order', 'align-items',
+  'align-self', 'align-content', 'justify-content', 'justify-items', 'justify-self', 'row-gap', 'column-gap', 'grid-template-columns',
+  'grid-template-rows', 'grid-template-areas', 'grid-auto-flow', 'grid-auto-columns', 'grid-auto-rows', 'grid-column-start', 'grid-column-end',
+  'grid-row-start', 'grid-row-end', 'overflow-x', 'overflow-y', 'text-overflow', 'clip-path', 'transform', 'transform-origin', 'opacity',
+  'visibility', 'mix-blend-mode', 'filter', 'color', 'background-color', 'background-image', 'background-size', 'background-position',
+  'background-repeat', 'background-clip', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant', 'font-feature-settings',
+  'font-variant-numeric', 'line-height', 'letter-spacing', 'word-spacing', 'text-align', 'text-decoration-line', 'text-decoration-color',
+  'text-decoration-style', 'text-decoration-thickness', 'text-underline-offset', 'text-transform', 'text-indent', 'text-shadow', 'white-space',
+  'word-break', 'overflow-wrap', 'hyphens', 'vertical-align', 'direction', 'unicode-bidi', 'writing-mode', 'tab-size', 'list-style-type',
+  'list-style-position', 'list-style-image', 'content', 'quotes', 'counter-reset', 'counter-increment', 'object-fit', 'object-position', 'fill',
+  'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'paint-order', 'd',
+  '-webkit-line-clamp', '-webkit-box-orient', 'line-clamp', 'column-count', 'column-width', 'scrollbar-width', 'contain', 'isolation',
+  '-webkit-text-fill-color', '-webkit-background-clip', 'mask-image', '-webkit-mask-image', 'backdrop-filter'
+]
+
 const loadCapture = () => import('html-to-image')
+/** 글꼴을 그림에 넣는 CSS(수백 KB)는 모드를 켠 동안 한 번만 만든다 */
+let fontCss: Promise<string> | null = null
 
 async function captureScreen(): Promise<string | null> {
   let restore: (() => void) | null = null
   try {
-    const { toJpeg } = await loadCapture()
+    const { toJpeg, getFontEmbedCSS } = await loadCapture()
+    fontCss ??= getFontEmbedCSS(document.body).catch((e) => { fontCss = null; throw e })
+    const fontEmbedCSS = await fontCss
     restore = inlineSvgPaint()
     return await toJpeg(document.body, {
-      quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight,
+      quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight, fontEmbedCSS, includeStyleProperties: STYLE_PROPS,
       // 그림 주소는 ?path=…로만 다르다(/api/feedback/picture 등). 빼면 html-to-image가 물음표 뒤를 버린 주소로 캐시해 다른 그림을 다시 쓴다 (10/13 09:59 그림)
       includeQueryParams: true,
-      filter: (n) => !(n instanceof Element && n.hasAttribute('data-feedback-ui')),
+      filter: (n) => !(n instanceof Element) || (!n.hasAttribute('data-feedback-ui') && onScreen(n)),
     })
   } catch { return null } finally { restore?.() }
 }
@@ -124,6 +169,8 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     const move = (e: MouseEvent) => {
       if (pendingRef.current || isOwnUi(e.target)) return
       const el = target(e)
+      // 같은 부위 안에서 움직이면 다시 그리지 않는다 (스크롤하면 refresh가 상자를 옮긴다)
+      if (el === hoverEl.current) return
       hoverEl.current = el
       setHover(el ? { rect: el.getBoundingClientRect(), path: uiPath(el) } : null)
     }
@@ -168,7 +215,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
 
   /** 부위 없이 적기: 화면 한 곳이 아니라 앱 전체 방향에 대한 의견 (10/12). 서버는 빈 부위를 "(부위 없음)"으로 적는다 */
   const openWithoutPart = (e: React.MouseEvent) => {
-    setHover(null)
+    setHover(null); hoverEl.current = null
     // 단추 위에 연다 (아래 끝은 pop이 화면 안으로 당긴다)
     setPending({ path: '', snippet: '', x: e.currentTarget.getBoundingClientRect().left - 12, y: innerHeight })
     setText(''); setKind('제안'); setError(null)
@@ -178,7 +225,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     if (!draft) return
     const left = e.currentTarget.getBoundingClientRect().left - 12
     if ((location.hash || '#/') !== draft.route) location.hash = draft.route
-    setHover(null)
+    setHover(null); hoverEl.current = null
     setPending({ path: draft.path, snippet: draft.snippet, x: left, y: innerHeight, route: draft.route })
     setText(draft.text); setKind(draft.kind); setError(null)
   }
