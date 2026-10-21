@@ -258,7 +258,7 @@ export function todosOf(input: Record<string, unknown>): Todo[] {
 // ---------- 대화들 ----------
 
 /** 파일에 두는 대화 (계약의 Chat에 세션 · 늘 허락한 것을 더함) */
-type Stored = Omit<Chat, 'always'> & {
+type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archived'> & {
   sessionId?: string
   /** 늘 허락한 것: 판정 열쇠와 보일 이름 */
   alwaysKeys?: { key: string; label: string }[]
@@ -266,7 +266,11 @@ type Stored = Omit<Chat, 'always'> & {
   pending?: { prompt: string; images?: ImageIn[] }[]
   /** 이번 차례의 계획을 승인했는지 */
   planOk?: boolean
+  archived?: boolean
 }
+
+/** 카드에 받은 답 (거절의 할 말, 계획 승인 뒤 맡기는 정도) */
+type Answer = { answer: AskAnswer; note?: string; mode?: ChatMode }
 
 const MAX_ITEMS = 400
 const MAX_TEXT = 8000
@@ -291,7 +295,7 @@ export interface AgentChatsDeps {
 export class AgentChats {
   private readonly chats = new Map<string, Stored>()
   private readonly aborts = new Map<string, AbortController>()
-  private readonly asks = new Map<string, (a: AskAnswer) => void>()
+  private readonly asks = new Map<string, (a: Answer) => void>()
   /** 줄 선 대화의 지시 (순서대로) */
   private readonly queue: { id: string; prompt: string; images?: ImageIn[] }[] = []
 
@@ -397,14 +401,40 @@ export class AgentChats {
     return wireOf(c)
   }
 
-  answer(id: string, ask: string, a: AskAnswer): Chat {
+  /** 허락 · 계획 카드에 답하기. 거절에는 할 말(note), 계획 승인에는 이어 갈 맡기는 정도(mode)를 붙일 수 있다 */
+  answer(id: string, ask: string, a: AskAnswer, more: { note?: string; mode?: ChatMode } = {}): Chat {
     const c = this.must(id)
     const it = c.items.find((x): x is Extract<ChatItem, { kind: 'ask' }> => x.kind === 'ask' && x.id === ask)
     const resolve = this.asks.get(ask)
     if (!it || it.answer || !resolve) throw new WorkbenchError(409, t('이미 답했거나 없는 허락 요청입니다', 'This request was already answered or does not exist'))
+    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 묻고 하기 · 고치기 바로 가운데 하나로 이어 갑니다', 'After approving a plan, continue with ask first or edit freely'))
     it.answer = a
+    if (a === 'deny' && more.note) it.note = clip(more.note, 2000)
+    if (a !== 'deny' && it.plan !== undefined && more.mode) it.mode = more.mode
     this.asks.delete(ask)
-    resolve(a)
+    resolve({ answer: a, ...(a === 'deny' && more.note && { note: more.note }), ...(a !== 'deny' && more.mode && { mode: more.mode }) })
+    return wireOf(c)
+  }
+
+  /** 도는 동안 보내 기다리는 지시 하나 빼기 (고쳐 쓰려면 빼고 다시 보낸다) */
+  unqueue(id: string, index: number): Chat {
+    const c = this.must(id)
+    const pending = c.pending ?? []
+    if (index >= pending.length) throw new WorkbenchError(409, t('이미 읽었거나 없는 지시입니다', 'This message was already read or does not exist'))
+    pending.splice(index, 1)
+    let n = -1
+    const at = c.items.findIndex((it) => it.kind === 'user' && it.queued && ++n === index)
+    if (at >= 0) c.items.splice(at, 1)
+    this.touch(c)
+    return wireOf(c)
+  }
+
+  /** 보관함에 넣기 · 꺼내기 (지우지 않고 목록에서만 숨긴다) */
+  archive(id: string, archived: boolean): Chat {
+    const c = this.must(id)
+    if (archived && LIVE.has(c.state)) throw new WorkbenchError(409, t('도는 대화는 보관할 수 없습니다. 먼저 멈춰 주세요', 'Stop the conversation before archiving it'))
+    c.archived = archived
+    this.touch(c)
     return wireOf(c)
   }
 
@@ -551,13 +581,14 @@ export class AgentChats {
           return { allow: true }
         }
         const id = crypto.randomBytes(6).toString('hex')
-        const answer = new Promise<AskAnswer>((resolve) => {
+        const answer = new Promise<Answer>((resolve) => {
           this.asks.set(id, resolve)
-          abort.signal.addEventListener('abort', () => resolve('deny'), { once: true })
+          abort.signal.addEventListener('abort', () => resolve({ answer: 'deny' }), { once: true })
         })
         c.state = 'waiting'
         this.push(c, { kind: 'ask', at: now(), id, tool: tool.replace(MCP, ''), summary: v.summary, ...(v.plan !== undefined && { plan: v.plan }) })
-        const a = await answer
+        const got = await answer
+        const a = got.answer
         this.asks.delete(id)
         const it = c.items.find((x) => x.kind === 'ask' && x.id === id)
         if (it && it.kind === 'ask' && !it.answer) it.answer = a
@@ -565,13 +596,19 @@ export class AgentChats {
         if (a === 'always' && v.plan === undefined) c.alwaysKeys = [...(c.alwaysKeys ?? []), { key: v.key, label: v.label }]
         if (c.state === 'waiting') c.state = 'running'
         if (a !== 'deny') {
-          if (v.plan !== undefined) { ctx.planOk = true; c.planOk = true }
+          if (v.plan !== undefined) {
+            ctx.planOk = true
+            c.planOk = true
+            // 승인하며 고른 맡기는 정도로 이어 간다 (묻고 하기 = 노트도 하나씩 묻기, 고치기 바로)
+            if (got.mode) { ctx.mode = got.mode; c.mode = got.mode }
+          }
           claim(v.claim)
           edited(tool, input)
         }
         this.touch(c)
-        if (a === 'deny' && v.plan !== undefined) return { allow: false, message: 'The user did not approve this plan. Ask what to change, or revise the plan and call ExitPlanMode again. Change nothing yet.' }
-        return a === 'deny' ? { allow: false, message: 'The user declined this. Do not try it again in another way; continue without it or ask the user.' } : { allow: true }
+        const said = got.note ? ` The user said: ${got.note}` : ''
+        if (a === 'deny' && v.plan !== undefined) return { allow: false, message: `The user did not approve this plan.${said || ' Ask what to change.'} Revise the plan and call ExitPlanMode again. Change nothing yet.` }
+        return a === 'deny' ? { allow: false, message: got.note ? `The user declined this and said what to do instead: ${got.note}` : 'The user declined this. Do not try it again in another way; continue without it or ask the user.' } : { allow: true }
       }
       const input: RunInput = {
         prompt,
@@ -624,8 +661,18 @@ const userItem = (m: ChatMessageBody, queued?: boolean): ChatItem => ({
   ...(m.images?.length && { images: m.images.length }),
   ...(queued && { queued: true }),
 })
-const rowOf = (c: Stored): ChatRow => ({
-  id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
-  mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], created: c.created, updated: c.updated,
-})
+const rowOf = (c: Stored): ChatRow => {
+  let added = 0
+  let removed = 0
+  let wait: ChatRow['wait']
+  for (const it of c.items) {
+    if (it.kind === 'edit') { added += it.added; removed += it.removed }
+    if (it.kind === 'ask' && !it.answer) wait = it.plan !== undefined ? 'plan' : 'ask'
+  }
+  return {
+    id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
+    mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], added, removed,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, created: c.created, updated: c.updated,
+  }
+}
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })) })
