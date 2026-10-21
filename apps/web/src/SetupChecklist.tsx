@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { githubRepos, setupApi, type GitHubRepoList, type PersonView, type SetupView } from './api'
 import { Dialog } from './dialogs'
+import { ElsewhereHomeCard, ElsewhereSection } from './ElsewhereProjects'
 import { GoogleSettings } from './GoogleSettings'
 import { Icon } from './icons'
 import { lang, plural, t } from './i18n'
@@ -89,9 +90,11 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
         </Row>
         <Row ok={(s?.projects ?? 0) > 0} name={t('첫 프로젝트', 'First project')} ui="첫 프로젝트">
           {s && s.projects > 0 ? t(`${s.projects}개 등록됨. `, `${plural(s.projects, 'project', 'projects')} registered. `) : t('아직 없음. ', 'None yet. ')}
-          {t('홈의 "＋ 프로젝트 등록"으로 GitHub 저장소나 이 컴퓨터 폴더를 더합니다.', 'Add a GitHub repository or a folder on this computer with "＋ Register project" on Home.')}
+          {s?.elsewhere.length ? t('아래 "다른 컴퓨터의 프로젝트"에서 받거나, ', 'Download one from "Projects on your other computers" below, or ') : ''}{t('홈의 "＋ 프로젝트 등록"으로 GitHub 저장소나 이 컴퓨터 폴더를 더합니다.', 'Add a GitHub repository or a folder on this computer with "＋ Register project" on Home.')}
         </Row>
       </div>
+
+      <ElsewhereSection setup={s} />
 
       <h3 className="set-h3">{t('선택', 'Optional')}</h3>
       <div className="set-rows">
@@ -226,14 +229,16 @@ const subjectParticle = (word: string) => {
 
 /** 홈의 시작 준비 카드: 꼭 할 것이 남았을 때만 (10/21 시안 "후 · 홈 첫 화면") */
 export function SetupHomeCard() {
-  const { must, done, loaded } = useSetup()
+  const { must, done, loaded, setup } = useSetup()
   const left = must.filter((m) => !m.ok)
-  if (!loaded || !left.length) return null
-  return (
+  if (!loaded) return null
+  if (!left.length) return <ElsewhereHomeCard setup={setup.data} />
+  return (<>
+    <ElsewhereHomeCard setup={setup.data} />
     <div className="setup-home card" data-ui="시작 준비 카드">
       <span className="set-name">{t('시작 준비', 'Getting started')} <b className="setup-left">{done} / {must.length}</b></span>
       <span className="setup-desc">{t(`${left.map((m) => m.label).join(', ')}${subjectParticle(left[left.length - 1]!.label)} 남았습니다.`, `Left: ${left.map((m) => m.label.toLowerCase()).join(', ')}.`)}</span>
       <button className="a" onClick={() => go({ page: 'settings', part: 'google' })}>{t('설정 › 계정 열기', 'Open Settings › Accounts')}</button>
     </div>
-  )
+  </>)
 }

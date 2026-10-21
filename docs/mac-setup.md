@@ -12,6 +12,8 @@ zsh scripts/install.sh   # or pnpm mac:install; --no-dock and --no-agents skip t
 
 It does everything a working Mac needs, in order: Node 22 and pnpm (installed with Homebrew if missing), `pnpm install`, the background service below, the app icon (`~/Applications/Emergence Workbench.app`, found by Spotlight and Launchpad, with a Desktop shortcut), a Dock icon, and the MCP entry point in Claude Code and Codex (`scripts/register-agents.sh`, user scope, nothing added to research repositories). Running it again skips what is done and rewrites paths if the app folder moved. At the end it opens the app; Settings › Accounts › Getting started shows what is left (GitHub sign-in, commit name, first project) and has the same command when something is missing.
 
+**Getting your projects on a new computer.** Enter your personal repository in Settings › Accounts and restart the app. Each computer puts its project list in that repository when it backs up (`_settings/<computer>/projects.yaml`: name, GitHub address, folder name); projects missing on this computer show under "Projects on your other computers" in Getting started and as a card on Home, with Download for each or Download all. App settings are backed up per computer in `_settings/<computer>/config.yaml`, since project paths differ between computers.
+
 **Background service.** For everyday use the app runs as a macOS background service (a LaunchAgent). It starts when you log in, restarts if it stops, and does not depend on any terminal window or agent session. One server serves the built screen and the API at `http://127.0.0.1:5174`.
 
 ```sh

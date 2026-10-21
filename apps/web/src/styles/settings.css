@@ -38,3 +38,14 @@
 .setup-act { display: flex; gap: var(--sp-2); align-items: center; }
 /* 홈의 시작 준비 카드: 꼭 할 것이 남았을 때만, 프로젝트 위 */
 .setup-home { max-width: 360px; gap: var(--sp-1); margin-bottom: 0; align-items: flex-start; }
+/* 다른 컴퓨터의 프로젝트 (10/21): 시작 준비의 절과 홈 카드. 줄은 시작 준비 줄과 같은 모양 */
+.elsewhere-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-4); }
+.elsewhere-head .set-h3 { margin: 0; }
+.elsewhere-note { margin: var(--sp-1) 0 var(--sp-2); }
+.elsewhere-row > .g { margin: 7px 0 0; }
+.elsewhere-home { max-width: 520px; width: 100%; margin-bottom: var(--sp-3); }
+.elsewhere-top, .elsewhere-foot { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+.elsewhere-top .set-name { flex: 1; }
+.elsewhere-foot .sp { flex: 1; }
+.elsewhere-list { width: 100%; border: 0; border-radius: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.elsewhere-list .setup-row { padding: var(--sp-2) 0; }

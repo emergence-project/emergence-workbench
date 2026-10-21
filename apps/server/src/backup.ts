@@ -3,6 +3,7 @@ import { assertPrivateRemote } from './personalRepo.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import YAML from 'yaml'
 import type { BackupResult } from '@rw/core/contract/backup'
 import { writeAtomic } from './fsutil'
 import { git as gitAt, gitBuffer, gitRun, GIT_TIMEOUT } from './git.js'
@@ -42,6 +43,34 @@ export function machineName(host = os.hostname()): string {
   return host.replace(/\.local$/i, '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '') || 'computer'
 }
 export const settingsPath = (machine = machineName()) => `_settings/${machine}/config.yaml`
+
+/**
+ * 컴퓨터마다 올리는 프로젝트 목록 (_settings/<컴퓨터>/projects.yaml). 경로 대신 GitHub 주소와 폴더 이름이라 다른 컴퓨터가 받을 수 있다.
+ * 새 컴퓨터의 시작 준비 · 홈이 "다른 컴퓨터의 프로젝트"로 읽는다 (10/21 "목록을 보이고 묻기")
+ */
+export interface SharedProject { id: string; title: string; remote: string | null; folder: string; tags: string[]; state?: string }
+
+/** 백업 사본(이미 받아 둔 개인 저장소)에서 다른 컴퓨터들이 올린 프로젝트 목록. 같은 저장소는 한 번만 */
+export function otherMachineProjects(dir: string, machine = machineName()): (SharedProject & { machine: string })[] {
+  const root = path.join(dir, '_settings')
+  let names: string[] = []
+  try { names = fs.readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== machine).map((d) => d.name).sort() } catch { return [] }
+  const out: (SharedProject & { machine: string })[] = []
+  const seen = new Set<string>()
+  for (const m of names) {
+    let list: unknown
+    try { list = YAML.parse(fs.readFileSync(path.join(root, m, 'projects.yaml'), 'utf8')) } catch { continue }
+    for (const p of Array.isArray(list) ? list : []) {
+      const r = p as Partial<SharedProject>
+      if (typeof r?.title !== 'string' || typeof r.folder !== 'string') continue
+      const key = (r.remote ?? r.folder).toLowerCase().replace(/\.git$/, '')
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({ machine: m, id: String(r.id ?? r.folder), title: r.title, remote: typeof r.remote === 'string' ? r.remote : null, folder: r.folder, tags: Array.isArray(r.tags) ? r.tags.map(String) : [], ...(typeof r.state === 'string' && { state: r.state }) })
+    }
+  }
+  return out
+}
 const SKIP = new Set(['.build', '.DS_Store'])
 
 /** ref 아래 prefix/의 파일 → blob 해시 */
@@ -95,6 +124,8 @@ export async function backupWorkbenches(opts: {
   dir: string; remote: string; targets: BackupTarget[]; settings?: string; now?: Date
   /** 앱 설정을 둘 컴퓨터 이름 (기본: 이 컴퓨터, machineName) */
   machine?: string
+  /** 이 컴퓨터의 프로젝트 목록: 주면 _settings/<컴퓨터>/projects.yaml로 올린다 (다른 컴퓨터가 받는다) */
+  projects?: SharedProject[]
   /** 테스트용: GitHub 것을 맥에 쓰기 바로 전에 부른다 (그 사이 다른 쪽이 고친 경우를 흉내 낸다) */
   beforeWrite?: (abs: string) => void
 }): Promise<BackupResult> {
@@ -107,7 +138,7 @@ export async function backupWorkbenches(opts: {
   for (const t of opts.targets) {
     if (fs.existsSync(t.path) && !(await workbenchTracked(t.path))) candidates.push(t)
   }
-  if (!candidates.length && !opts.settings) return { at, projects: [], commit: null, pushed: false, ...empty, message: t('맞출 연구가 없습니다 (모두 연구 저장소에 올라가 있음)', 'No projects to sync (all are pushed to their own repositories)') }
+  if (!candidates.length && !opts.settings && !opts.projects) return { at, projects: [], commit: null, pushed: false, ...empty, message: t('맞출 연구가 없습니다 (모두 연구 저장소에 올라가 있음)', 'No projects to sync (all are pushed to their own repositories)') }
 
   let remoteRef: string | null = null
   let baseRef: string | null = null
@@ -189,6 +220,12 @@ export async function backupWorkbenches(opts: {
     fs.mkdirSync(path.dirname(path.join(opts.dir, SETTINGS)), { recursive: true })
     fs.copyFileSync(opts.settings, path.join(opts.dir, SETTINGS))
     paths.push(path.dirname(SETTINGS))
+  }
+  if (opts.projects) {
+    const file = path.join(opts.dir, path.dirname(SETTINGS), 'projects.yaml')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, YAML.stringify(opts.projects))
+    if (!paths.includes(path.dirname(SETTINGS))) paths.push(path.dirname(SETTINGS))
   }
   const extra = { pulled, conflicts, settingsPulled }
   const what = [pulled.length && t(`GitHub에서 ${pulled.length}개 받음`, `pulled ${pulled.length} from GitHub`), conflicts.length && t(`양쪽에서 고친 ${conflicts.length}개는 GitHub 것을 옆에 받아 둠`, `${conflicts.length} edited on both sides: the GitHub copy was saved alongside`)].filter(Boolean).join(', ')
