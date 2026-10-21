@@ -1,6 +1,7 @@
 import type { UiSettings } from '@rw/core'
 import { useEffect, useState } from 'react'
 import { api, googleApi, req, type GoogleStatus, type GoogleSync, type SyncedResearch } from './api'
+import { parseGoogleClient } from './googleClient'
 import { t, plural, locale } from './i18n'
 
 /**
@@ -34,11 +35,24 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
 
   if (!st) return <p className="muted">{err ?? t('구글 연결 상태를 읽는 중…', 'Checking Google connection…')}</p>
 
-  const saveClient = () => run(async () => {
-    await googleApi.setClient(id, secret)
+  const saveClient = (cid = id, csecret = secret) => run(async () => {
+    await googleApi.setClient(cid, csecret)
     setEditClient(false); setId(''); setSecret('')
     return t('클라이언트 ID를 저장했습니다. 이제 구글에 연결하세요.', 'Saved the client ID. Now connect to Google.')
   })
+
+  // 받은 JSON을 붙여 넣거나 파일로 고르면 두 칸을 채우고 바로 저장한다
+  const fromJson = (text: string): boolean => {
+    const c = parseGoogleClient(text)
+    if (!c) return false
+    setId(c.id); setSecret(c.secret); void saveClient(c.id, c.secret)
+    return true
+  }
+  const pickJson = (file: File | undefined) => {
+    if (!file) return
+    void file.text().then((text) => { if (!fromJson(text)) setErr(t('구글 클라이언트 JSON이 아닙니다. Google Cloud에서 "JSON 다운로드"로 받은 파일을 고르세요.', 'Not a Google client JSON. Pick the file from "Download JSON" in Google Cloud.')) })
+  }
+  const clientForm = editClient || (!st.mock && !st.configured)
 
   return (
     <div className="g-set" data-ui="구글 계정">
@@ -63,17 +77,20 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
                 {st.configured ? <>{t('저장됨: ', 'Saved: ')}<code>{st.clientId}</code></> : <>{t('Google Cloud에서 처음 한 번 만듭니다. 만드는 법은 아래에 있습니다.', 'Create it once in Google Cloud. Steps are below.')}</>}
               </div>
             </div>
-            {!editClient && <button className="btn" onClick={() => setEditClient(true)}>{st.configured ? t('바꾸기', 'Change') : t('넣기', 'Enter')}</button>}
+            {!clientForm && <button className="btn" onClick={() => setEditClient(true)}>{t('바꾸기', 'Change')}</button>}
           </div>
         )}
-        {editClient && (
+        {clientForm && (
           <div className="set-row g-client" data-ui="클라이언트 넣기">
             <div className="g-fields">
-              <input className="input" placeholder={t('클라이언트 ID (….apps.googleusercontent.com)', 'Client ID (….apps.googleusercontent.com)')} value={id} onChange={(e) => setId(e.target.value)} autoComplete="off" spellCheck={false} />
+              <label className="btn g-file">{t('받은 JSON 파일 고르기', 'Choose the downloaded JSON file')}
+                <input type="file" accept=".json,application/json" hidden onChange={(e) => { pickJson(e.target.files?.[0]); e.target.value = '' }} /></label>
+              <span className="set-desc">{t('또는 JSON 내용이나 ID · 비밀번호를 붙여 넣습니다.', 'Or paste the JSON content, or the ID and secret.')}</span>
+              <input className="input" placeholder={t('클라이언트 ID (….apps.googleusercontent.com)', 'Client ID (….apps.googleusercontent.com)')} value={id} onChange={(e) => setId(e.target.value)} onPaste={(e) => { if (fromJson(e.clipboardData.getData('text'))) e.preventDefault() }} autoComplete="off" spellCheck={false} />
               <input className="input" type="password" placeholder={t('클라이언트 보안 비밀번호', 'Client secret')} value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="off" />
               <div className="g-actions">
                 <button className="btn primary" disabled={busy || !id.trim() || !secret.trim()} onClick={() => void saveClient()}>{t('저장', 'Save')}</button>
-                <button className="btn" onClick={() => setEditClient(false)}>{t('취소', 'Cancel')}</button>
+                {st.configured && <button className="btn" onClick={() => setEditClient(false)}>{t('취소', 'Cancel')}</button>}
               </div>
             </div>
           </div>
@@ -117,11 +134,11 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
         <details className="g-help" data-ui="클라이언트 만드는 법" open>
           <summary>{t('구글 클라이언트 ID 만드는 법 (처음 한 번, 5분)', 'How to create a Google client ID (once, 5 minutes)')}</summary>
           <ol>
-            <li>{t('', 'Create a new project in ')}<a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noreferrer">Google Cloud</a>{t('에서 새 프로젝트를 만듭니다 (이름 예: research-workspace).', ' (for example, name it research-workspace).')}</li>
-            <li>{t('API 라이브러리에서 ', 'In the API Library, enable ')}<b>Google Calendar API</b>{t('와 ', ' and ')}<b>Google Drive API</b>{t('를 켭니다.', '.')}</li>
-            <li>{t('OAuth 동의 화면: 사용자 유형 ', 'OAuth consent screen: user type ')}<b>{t('외부', 'External')}</b>{t(', 앱 이름을 적고, 테스트 사용자에 내 구글 주소를 더합니다.', ', enter an app name, and add your Google address as a test user.')}</li>
-            <li>{t('사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID → 애플리케이션 유형 ', 'Credentials → Create credentials → OAuth client ID → application type ')}<b>{t('데스크톱 앱', 'Desktop app')}</b>.</li>
-            <li>{t('나온 클라이언트 ID와 보안 비밀번호를 위의 "넣기"에 붙여 넣습니다. 이 맥의 ~/.config/research-workspace/google.yaml에만 저장됩니다.', 'Paste the client ID and secret into "Enter" above. They are saved only in ~/.config/research-workspace/google.yaml on this Mac.')}</li>
+            <li><a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noreferrer">{t('새 프로젝트 만들기', 'Create a new project')}</a>{t(' (이름 예: research-workspace).', ' (for example research-workspace).')}</li>
+            <li><a href="https://console.cloud.google.com/flows/enableapi?apiid=calendar-json.googleapis.com,drive.googleapis.com" target="_blank" rel="noreferrer">{t('캘린더 · 드라이브 API 켜기', 'Enable the Calendar and Drive APIs')}</a>{t(' (두 API를 한 번에 켭니다).', ' (both at once).')}</li>
+            <li><a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noreferrer">{t('동의 화면 정하기', 'Set up the consent screen')}</a>{t(': 사용자 유형 ', ': user type ')}<b>{t('외부', 'External')}</b>{t(', 앱 이름, 그리고 대상 › 테스트 사용자에 내 구글 주소.', ', an app name, and your Google address under Audience › Test users.')}</li>
+            <li><a href="https://console.cloud.google.com/auth/clients/create" target="_blank" rel="noreferrer">{t('클라이언트 만들기', 'Create a client')}</a>{t(': 애플리케이션 유형 ', ': application type ')}<b>{t('데스크톱 앱', 'Desktop app')}</b>{t(' → 만든 뒤 ', ' → after creating, ')}<b>{t('JSON 다운로드', 'Download JSON')}</b>.</li>
+            <li>{t('받은 파일을 위의 "받은 JSON 파일 고르기"로 고르면 끝입니다. 이 맥의 ~/.config/research-workspace/google.yaml에만 저장됩니다.', 'Choose that file with "Choose the downloaded JSON file" above and you are done. It is saved only in ~/.config/research-workspace/google.yaml on this Mac.')}</li>
           </ol>
         </details>
       )}

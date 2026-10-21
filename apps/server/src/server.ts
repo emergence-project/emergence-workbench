@@ -12,6 +12,8 @@ import { tikzCachePath } from './figures.js'
 import { Google, mockGoogleFetch } from './google.js'
 import { macSteps, promoteNextBuild } from './appupdate.js'
 import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
+import { adoptLocalFeedback } from './feedback.js'
+import { DEFAULT_AUTHORS } from '@rw/core'
 import { COMMON_RULES_FILE } from './agentRules.js'
 import { Registry } from './registry.js'
 import { serveStatic } from './static.js'
@@ -82,7 +84,11 @@ if (process.env.RW_SANDBOX === '1') {
   }
   const registry = new Registry(configDir)
   // The sample opens in its own language: Korean sample in Korean, RW_SAMPLE_LANG=en in English (a saved choice in Settings wins)
-  if (!fs.existsSync(path.join(configDir, 'config.yaml'))) registry.setUi({ language: sampleEn ? 'en' : 'ko' })
+  if (!fs.existsSync(path.join(configDir, 'config.yaml'))) {
+    registry.setUi({ language: sampleEn ? 'en' : 'ko' })
+    // 저자 예: 실사용은 처음에 저자가 없다(이름을 넣기 전에 예시 이름이 원고에 들어가지 않게, 10/21 맥미니)
+    registry.setAuthors(DEFAULT_AUTHORS)
+  }
   if (!registry.list().some((r) => r.path === fs.realpathSync(research))) {
     const { id } = registry.register(research)
     // 홈의 분야 이름표 예 (개념노트 분류의 이름)
@@ -168,6 +174,13 @@ if (personal) {
 // 앱 피드백: 실사용은 개인 저장소 사본의 feedback/ (RW_FEEDBACK_DIR로 바꿈), 개발용 예제 모드는 .sandbox/feedback/
 // 개인 저장소를 정하지 않았으면 이 컴퓨터의 설정 폴더에만 쌓고 올리지 않는다
 const feedbackDir = process.env.RW_SANDBOX === '1' ? path.join(sandboxRoot, 'feedback') : process.env.RW_FEEDBACK_DIR ?? (personal ? path.join(personalDir, 'feedback') : path.join(configDir, 'feedback'))
+// 개인 저장소를 정하기 전(또는 알아보지 못한 동안) 설정 폴더 feedback/에만 쌓인 것을 개인 저장소 사본으로 옮긴다
+if (personal && !process.env.RW_FEEDBACK_DIR && process.env.RW_SANDBOX !== '1' && fs.existsSync(path.join(personalDir, '.git'))) {
+  try {
+    const { files, skipped } = adoptLocalFeedback(path.join(configDir, 'feedback'), feedbackDir)
+    if (files || skipped.length) console.log(`이 컴퓨터에만 있던 피드백 ${files}개를 개인 저장소로 옮겼습니다${skipped.length ? ` (이름이 겹쳐 두고 온 것: ${skipped.join(', ')})` : ''}`)
+  } catch (e) { console.warn(`이 컴퓨터에만 있던 피드백을 옮기지 못했습니다: ${(e as Error).message}`) }
+}
 // 예전 위치(앱 폴더의 feedback/)에서 한 번 옮긴다: 개인 저장소에 아직 처리 기록이 없을 때만, 있는 파일은 덮어쓰지 않고. 예전 폴더는 그대로 둔다
 const legacyFeedback = path.join(repoRoot, 'feedback')
 if (personal && !process.env.RW_FEEDBACK_DIR && fs.existsSync(path.join(personalDir, '.git')) && !fs.existsSync(path.join(feedbackDir, 'status.yaml')) && fs.existsSync(path.join(legacyFeedback, 'status.yaml'))) {

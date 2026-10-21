@@ -49,3 +49,13 @@
 .elsewhere-foot .sp { flex: 1; }
 .elsewhere-list { width: 100%; border: 0; border-radius: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .elsewhere-list .setup-row { padding: var(--sp-2) 0; }
+/* 개인 저장소 고르기 창: 내 비공개 저장소 목록 · 새로 만들기 (10/22 피드백) */
+.setup-pick-h { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-sm); font-weight: var(--fw-strong); }
+.setup-pick { display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.setup-pick-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--sp-2) var(--sp-3); border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.setup-pick-row + .setup-pick-row { border-top: 1px solid var(--line); }
+.setup-pick-row:hover { background: var(--bg-hover); }
+.setup-pick-row.on { background: var(--select-bg); }
+.setup-pick-desc { font-size: var(--fs-xs); }
+.setup-create { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.setup-create input { flex: 1; min-width: 0; }

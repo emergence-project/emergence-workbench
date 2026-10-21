@@ -154,7 +154,7 @@ export type { AddResult }
 
 function libOf(registry: Registry): string {
   const lib = registry.libraryPath
-  if (!lib) throw new WorkbenchError(400, t('공유 라이브러리가 설정되지 않았습니다 (설정 › 공유 라이브러리)', 'No shared library is set (Settings › Shared library)'))
+  if (!lib) throw new WorkbenchError(400, t('공유 라이브러리가 설정되지 않았습니다 (설정 › 계정 › 공용 라이브러리)', 'No shared library is set (Settings › Accounts › Shared library)'))
   return lib
 }
 

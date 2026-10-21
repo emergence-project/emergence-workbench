@@ -130,12 +130,16 @@ function AgentConnections({ onSaved }: { onSaved(message: string): void }) {
 
 /** 등록과 부름은 다르다 (10/21): 등록했으면 명령 대신 "등록됨", 부른 때는 MCP 도구가 앱을 부를 때 적힌다 */
 function McpRow({ a, onSaved }: { a: SetupView['agents'][number]; onSaved(message: string): void }) {
+  // 명령이 없으면 등록 명령도 실패한다 (10/21 맥미니): 먼저 까는 명령을 보이고, 깐 뒤 설치 명령을 다시 돌리면 등록까지 한다
+  const absent = !a.installed && !a.registered && !a.at
+  const install = a.key === 'codex' ? 'npm install -g @openai/codex' : 'npm install -g @anthropic-ai/claude-code'
   return (
     <Row ok={a.registered || !!a.at} optional name={a.name} sub="MCP" ui={a.key === 'codex' ? 'Codex 연결' : 'Claude Code 연결'}
-      action={!a.registered && <CopyButton text={a.command} onSaved={onSaved} />}>
+      action={!a.registered && <CopyButton text={absent ? install : a.command} onSaved={onSaved} />}>
       {a.registered ? t('등록됨. ', 'Registered. ') : null}
       {a.at ? t(`${when(a.at)}에 불렀습니다.`, `Last called ${when(a.at)}.`)
         : a.registered ? t('아직 부른 적 없음: 등록하기 전에 열어 둔 세션은 다시 열어야 앱 도구를 씁니다.', 'Not called yet: sessions opened before registering need to be reopened to use the app tools.')
+        : absent ? <>{t(`이 컴퓨터에 ${a.name}가 없습니다. 쓰려면 먼저 깔고(`, `${a.name} is not installed on this computer. To use it, install it first (`)}<code className="setup-cmd">{install}</code>{t(') 설치 명령을 다시 실행하면 등록까지 합니다.', '), then run the installer again to register it.')}</>
         : <>{t('아직 등록 안 됨. 터미널에 한 줄: ', 'Not registered yet. One line in the terminal: ')}<code className="setup-cmd">{a.command}</code></>}
     </Row>
   )

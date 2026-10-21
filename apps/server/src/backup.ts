@@ -71,6 +71,20 @@ export function otherMachineProjects(dir: string, machine = machineName()): (Sha
   }
   return out
 }
+/** 다른 컴퓨터들의 앱 설정(_settings/<컴퓨터>/config.yaml)에 적힌 공용 라이브러리 폴더 이름. 새 컴퓨터가 같은 이름의 받아 둔 폴더를 찾는다 (10/21 맥미니) */
+export function otherMachineLibraries(dir: string, machine = machineName()): string[] {
+  const root = path.join(dir, '_settings')
+  let names: string[] = []
+  try { names = fs.readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== machine).map((d) => d.name).sort() } catch { return [] }
+  const out = new Set<string>()
+  for (const m of names) {
+    try {
+      const lib = (YAML.parse(fs.readFileSync(path.join(root, m, 'config.yaml'), 'utf8')) as { library?: unknown } | null)?.library
+      if (typeof lib === 'string' && lib.trim()) out.add(path.basename(lib.trim()))
+    } catch { /* 없으면 건너뜀 */ }
+  }
+  return [...out]
+}
 const SKIP = new Set(['.build', '.DS_Store'])
 
 /** ref 아래 prefix/의 파일 → blob 해시 */

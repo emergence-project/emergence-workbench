@@ -8,8 +8,9 @@ import * as C from '@rw/core/contract/setup'
 import { parseBody, replies } from '../contract.js'
 import { agentRegistered, agentSeen } from '../agentSeen.js'
 import { appPath } from '../agentPaths.js'
-import { otherMachineProjects } from '../backup.js'
+import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
+import { realIO } from '../githubRepos.js'
 import { git, gitRun, GIT_TIMEOUT } from '../git.js'
 import { remoteOf, sameRepo } from './google.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
@@ -40,6 +41,11 @@ export function installState(home = os.homedir(), dockList?: string): Omit<C.Set
   }
 }
 
+/** 명령이 PATH(와 서비스가 보지 못하는 Homebrew · ~/.local)에 있는지. 없으면 등록 명령도 쓸 수 없다 (10/21 맥미니: Codex 없음) */
+export function agentInstalled(cmd: string, home = os.homedir(), envPath = process.env.PATH ?? ''): boolean {
+  return onPath(cmd, [envPath, '/opt/homebrew/bin', '/usr/local/bin', path.join(home, '.local/bin'), path.join(home, '.npm-global/bin')].join(path.delimiter))
+}
+
 const gitGlobal = async (key: string): Promise<string> => {
   try { return (await gitRun(['config', '--global', '--get', key], { timeout: GIT_TIMEOUT.read })).trim() } catch { return '' }
 }
@@ -58,7 +64,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     return [
       { key: 'claude-code', name: 'Claude Code', command: `claude mcp add --scope user emergence-workbench -- node ${mcp}` },
       { key: 'codex', name: 'Codex', command: `codex mcp add emergence-workbench -- node ${mcp}` },
-    ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', registered: registered.includes(a.name), at: seen[a.key] ?? null }))
+    ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', installed: opts.sandbox || agentInstalled(a.key === 'codex' ? 'codex' : 'claude'), registered: registered.includes(a.name), at: seen[a.key] ?? null }))
   }
 
   // 예제 모드: 다른 컴퓨터에 하나 더 있는 것처럼 (시작 준비 · 홈의 "다른 컴퓨터의 프로젝트" 그림)
@@ -72,6 +78,13 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     return others
       .filter((o) => !local.some((l) => sameRepo(l.remote, o.remote) || (!o.remote && l.folder === o.folder)))
       .map(({ id: _id, ...o }) => ({ ...o, local: !opts.sandbox && fs.existsSync(path.join(cloneDir, o.folder, '.git')) ? path.join(cloneDir, o.folder) : null }))
+  }
+
+  /** 정하지 않았으면 다른 컴퓨터가 쓰는 라이브러리와 같은 이름으로 받아 둔 폴더 */
+  const librarySuggest = (cloneDir: string): string | null => {
+    if (registry.libraryPath || opts.sandbox) return null
+    const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))
+    return (dir ? otherMachineLibraries(dir) : []).map((n) => path.join(cloneDir, n)).find((p) => fs.existsSync(p) && fs.statSync(p).isDirectory()) ?? null
   }
 
   const view = async (): Promise<C.SetupView> => {
@@ -89,6 +102,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       // 예제 모드는 이 컴퓨터를 보지 않는다 (그림이 컴퓨터마다 달라지지 않게): 다 된 것으로
       install: { ...(opts.sandbox ? { app: true, dock: true, service: true } : installState()), command: `zsh ${appPath('scripts/install.sh')}` },
       elsewhere: await elsewhere(cloneDir),
+      library: { path: registry.libraryPath ?? null, suggest: librarySuggest(cloneDir) },
       cloneDir,
       tex: onPath('latexmk'),
     }
@@ -112,6 +126,11 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     return view()
   })
 
+  app.put('/api/setup/library', replies(C.SetupView), async (req): Promise<C.SetupView> => {
+    registry.setLibrary(parseBody(C.SetupLibraryBody, req.body).path.trim())
+    return view()
+  })
+
   app.put('/api/setup/git', replies(C.SetupView), async (req): Promise<C.SetupView> => {
     const body = parseBody(C.SetupGitBody, req.body)
     const name = body.name.replace(/\s+/g, ' ').trim()
@@ -123,6 +142,29 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       await gitRun(['config', '--global', 'user.name', name], { timeout: GIT_TIMEOUT.read })
       await gitRun(['config', '--global', 'user.email', email], { timeout: GIT_TIMEOUT.read })
     }
+    return view()
+  })
+
+  /**
+   * 개인 저장소를 GitHub에 바로 만든다 (10/22 피드백 "저장소들 중에서 고르거나, 없으면 바로 만들 수 있게").
+   * 이 컴퓨터의 gh 로그인으로 비공개 저장소를 만들고 그 주소를 개인 저장소로 정한다. 예제 모드는 만들지 않고 정하기만 한다
+   */
+  app.post('/api/setup/personal/create', replies(C.SetupView), async (req): Promise<C.SetupView> => {
+    const name = parseBody(C.SetupPersonalCreateBody, req.body).name.trim()
+    if (!/^[A-Za-z0-9._-]{1,100}$/.test(name) || name === '.' || name === '..') throw new WorkbenchError(400, t('저장소 이름은 영문 · 숫자 · . _ - 로만 적습니다', 'Use only letters, digits, . _ - in the repository name'))
+    let url: string
+    if (opts.sandbox) url = `https://github.com/example-user/${name}`
+    else {
+      const io = opts.repoIO ?? realIO
+      try {
+        url = (await io.run('gh', ['repo', 'create', name, '--private', '--add-readme', '--description', 'Emergence Workbench personal repository (feedback, settings backup)'])).trim().split('\n').pop()!.trim()
+      } catch (e) {
+        const msg = String((e as { stderr?: string }).stderr || (e as Error).message).trim().split('\n').pop()
+        throw new WorkbenchError(502, t(`GitHub에 만들지 못했습니다: ${msg}`, `Could not create it on GitHub: ${msg}`))
+      }
+      if (!githubRepoOf(url)) throw new WorkbenchError(502, t(`GitHub가 돌려준 주소를 알아보지 못했습니다: ${url}`, `Could not read the address GitHub returned: ${url}`))
+    }
+    registry.setPersonalRepo(url)
     return view()
   })
 

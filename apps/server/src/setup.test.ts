@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
+import { fixture } from './testkit.js'
 import { useGithubFetch } from './personalRepo.js'
 import { installState, onPath } from './routes/setup.js'
 import { agentRegistered, agentSeen, noteAgentCall } from './agentSeen.js'
@@ -111,6 +112,37 @@ describe('시작 준비', () => {
     expect(v.elsewhere).toMatchObject([{ machine: 'Office-iMac', title: 'Topology', remote: 'https://github.com/me/topology.git', folder: 'topology', state: 'paused' }])
     expect(typeof v.cloneDir).toBe('string')
     expect((await a.inject({ method: 'POST', url: '/api/setup/fetch', payload: { remote: '/tmp/x', folder: 'x' } })).statusCode).toBe(400)
+    await a.close()
+  })
+  it('개인 저장소를 gh로 비공개로 만들어 바로 정한다, 이름이 이상하면 거절', async () => {
+    const calls: string[][] = []
+    const io = { run: async (cmd: string, args: string[]) => { calls.push([cmd, ...args]); return 'https://github.com/me/workbench-private\n' }, getJson: async () => [], exists: () => false }
+    useGithubFetch(async () => new Response('{}', { status: 404 }))
+    const a = buildApp({ configDir: path.join(tmp, 'config-create'), repoIO: io })
+    const v = (await a.inject({ method: 'POST', url: '/api/setup/personal/create', payload: { name: 'workbench-private' } })).json()
+    expect(calls[0]).toEqual(['gh', 'repo', 'create', 'workbench-private', '--private', '--add-readme', '--description', expect.any(String)])
+    expect(v.personal.remote).toBe('https://github.com/me/workbench-private')
+    expect((await a.inject({ method: 'POST', url: '/api/setup/personal/create', payload: { name: '../x' } })).statusCode).toBe(400)
+    await a.close()
+  })
+  it('공용 라이브러리: 다른 컴퓨터가 쓰는 라이브러리와 이름이 같은 받아 둔 폴더를 제안하고, 연결하면 설정에 적는다', async () => {
+    const root = path.join(tmp, 'lib-case')
+    const personal = path.join(root, 'personal')
+    fs.mkdirSync(path.join(personal, '_settings/Office-iMac'), { recursive: true })
+    fs.writeFileSync(path.join(personal, '_settings/Office-iMac/config.yaml'), 'library: /Users/other/GitHub/my-library\n')
+    const proj = path.join(root, 'proj')
+    fs.cpSync(fixture, proj, { recursive: true, filter: (src) => !src.includes('.build') })
+    fs.mkdirSync(path.join(proj, '.git'))
+    fs.mkdirSync(path.join(root, 'my-library/concepts'), { recursive: true })
+    const a = buildApp({ configDir: path.join(root, 'config'), personalDir: personal })
+    expect((await a.inject({ method: 'POST', url: '/api/researches', payload: { path: proj } })).statusCode).toBe(200)
+    let v = (await a.inject({ method: 'GET', url: '/api/setup' })).json()
+    expect(v.library).toEqual({ path: null, suggest: path.join(root, 'my-library') })
+    // 라이브러리가 없을 때 개념노트 목록은 오류 대신 빈 목록
+    expect((await a.inject({ method: 'GET', url: '/api/concepts/list' })).json()).toEqual({ total: 0, items: [] })
+    v = (await a.inject({ method: 'PUT', url: '/api/setup/library', payload: { path: v.library.suggest } })).json()
+    expect(v.library).toEqual({ path: fs.realpathSync(path.join(root, 'my-library')), suggest: null })
+    expect((await a.inject({ method: 'PUT', url: '/api/setup/library', payload: { path: path.join(root, 'nope') } })).statusCode).toBe(400)
     await a.close()
   })
 })

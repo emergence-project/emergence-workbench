@@ -615,3 +615,36 @@ export async function feedbackAccount(dir: string): Promise<string | null> {
     return /github\.com[:/]([^/]+)\//.exec(url)?.[1] ?? null
   } catch { return null }
 }
+
+/**
+ * 개인 저장소가 꺼져 있던 동안 이 컴퓨터의 설정 폴더(feedback/)에만 쌓인 피드백을 개인 저장소 사본으로 옮긴다
+ * (10/21 맥미니: 개인 저장소 사본을 못 알아봐 설정 폴더에 남겼다). 날짜 파일이 양쪽에 있으면 그 날 항목을 끝에 잇고,
+ * 다른 파일(그림 등)은 없는 것만 옮긴다. 옮긴 폴더는 지우지 않고 `feedback.moved-<날짜>`로 이름만 바꾼다.
+ */
+export function adoptLocalFeedback(from: string, to: string, now = new Date()): { files: number; skipped: string[] } {
+  if (!fs.existsSync(from) || path.resolve(from) === path.resolve(to)) return { files: 0, skipped: [] }
+  let files = 0
+  const skipped: string[] = []
+  const walk = (rel: string): void => {
+    for (const e of fs.readdirSync(path.join(from, rel), { withFileTypes: true })) {
+      const r = path.join(rel, e.name)
+      const src = path.join(from, r), dst = path.join(to, r)
+      if (e.isDirectory()) { walk(r); continue }
+      if (!e.isFile()) continue
+      fs.mkdirSync(path.dirname(dst), { recursive: true })
+      if (!fs.existsSync(dst)) { fs.copyFileSync(src, dst); files++; continue }
+      if (/^\d{4}-\d{2}-\d{2}\.md$/.test(r)) {
+        const body = fs.readFileSync(src, 'utf8').replace(/^# 피드백 \S+\n/, '').trim()
+        const have = fs.readFileSync(dst, 'utf8')
+        if (body && !have.includes(body)) { fs.writeFileSync(dst, `${have.replace(/\n*$/, '\n')}\n${body}\n`); files++ }
+        continue
+      }
+      if (!fs.readFileSync(src).equals(fs.readFileSync(dst))) skipped.push(r)
+    }
+  }
+  walk('')
+  let moved = `${from}.moved-${localDate(now)}`
+  for (let i = 2; fs.existsSync(moved); i++) moved = `${from}.moved-${localDate(now)}-${i}`
+  fs.renameSync(from, moved)
+  return { files, skipped }
+}
