@@ -2,7 +2,7 @@ import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
-import { AgentPanel } from './AgentChats'
+import { AGENT_OPEN, AgentPanel } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
 import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
@@ -110,9 +110,12 @@ export function App() {
   useEffect(() => {
     const open = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
     const ask = () => { setRightMode('records'); open() }
+    // 노트의 고른 글 메뉴 「에이전트에게」 (AgentChats.tsx의 sendToAgent): 상단바 패널을 연다
+    const agent = () => { setAgentPanel(true); open() }
     window.addEventListener(OPEN_CONTEXT, ask)
     window.addEventListener(OPEN_RIGHT, open)
-    return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open) }
+    window.addEventListener(AGENT_OPEN, agent)
+    return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(AGENT_OPEN, agent) }
   }, [setLayout])
   const [sideOpen, setSideOpen] = useState<boolean>(() => store.get('rw-side', true))
   useEffect(() => store.set('rw-side', sideOpen), [sideOpen])

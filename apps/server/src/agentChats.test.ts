@@ -3,15 +3,41 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ChatScope } from '@rw/core/contract/agentChats'
-import { AgentChats, briefFor, describeStep, inScope, judge, scopeDir, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
+import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptOf, scopeDir, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { eventsOf } from './agentRunner.js'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
 
 const repo = '/r/proj'
-const ctx = (o: Partial<PolicyCtx> = {}): PolicyCtx => ({ rid: 'proj', write: 'notes', scope: { kind: 'project' }, repo, readable: ['/r/lib'], claimedBy: () => undefined, ...o })
+const ctx = (o: Partial<PolicyCtx> = {}): PolicyCtx => ({ rid: 'proj', write: 'notes', mode: 'edit', planOk: false, scope: { kind: 'project' }, repo, readable: ['/r/lib'], claimedBy: () => undefined, ...o })
 const topic: ChatScope = { kind: 'topic', target: 'gauge' }
 const W = 'mcp__workbench__'
+
+describe('모드', () => {
+  const edit = { project: 'proj', file: 'workbench/notes/a/note.md' }
+  it('계획 먼저: 승인 전에는 고치지 않고, 계획은 승인 카드가 되며, 승인 뒤에는 고친다', () => {
+    expect(judge(ctx({ mode: 'plan' }), `${W}edit_note`, edit)).toMatchObject({ kind: 'deny' })
+    expect(judge(ctx({ mode: 'plan' }), 'ExitPlanMode', { plan: '1. 읽기\n2. 고치기' })).toMatchObject({ kind: 'ask', plan: '1. 읽기\n2. 고치기' })
+    expect(judge(ctx({ mode: 'plan', planOk: true }), `${W}edit_note`, edit)).toEqual({ kind: 'allow', claim: edit.file })
+    expect(judge(ctx(), 'ExitPlanMode', { plan: 'x' }).kind).toBe('allow')
+  })
+  it('묻고 하기: 노트 고치기도 파일마다 묻고, 허락하면 그 파일을 잡는다', () => {
+    expect(judge(ctx({ mode: 'ask' }), `${W}edit_note`, edit)).toMatchObject({ kind: 'ask', key: `edit_note:${edit.file}`, claim: edit.file })
+    expect(judge(ctx({ mode: 'ask' }), `${W}add_record`, { project: 'proj' }).kind).toBe('ask')
+    expect(judge(ctx({ mode: 'ask' }), `${W}read_note`, edit).kind).toBe('allow')
+    // 범위 · 잡은 파일은 모드보다 먼저
+    expect(judge(ctx({ mode: 'ask', claimedBy: () => '다른 일' }), `${W}edit_note`, edit).kind).toBe('deny')
+  })
+  it('붙인 것 · 노트 고침 · 할 일을 읽는다', () => {
+    expect(promptOf('봐 줘')).toBe('봐 줘')
+    const p = promptOf('봐 줘', [{ kind: 'note', ref: 'workbench/notes/a/note.md', label: 'A' }, { kind: 'selection', ref: 'workbench/notes/a/note.md', label: '고른 글', text: '첫 줄\n둘째 줄' }])
+    expect(p).toContain('note (read_note): workbench/notes/a/note.md (A)')
+    expect(p).toContain('  > 둘째 줄')
+    expect(editOf({ edits: [{ old: 'a\nb', new: 'c', reason: '고침' }] })).toEqual({ parts: [{ old: 'a\nb', new: 'c' }], added: 1, removed: 2, reason: '고침' })
+    expect(todosOf({ todos: [{ content: '읽기', status: 'completed' }, { content: '계산', status: 'in_progress' }, { content: '?', status: 'odd' }] }))
+      .toEqual([{ text: '읽기', state: 'completed' }, { text: '계산', state: 'in_progress' }, { text: '?', state: 'pending' }])
+  })
+})
 
 describe('범위', () => {
   it('주제 · 노트 범위는 그 폴더, 프로젝트는 전체', () => {
@@ -103,6 +129,14 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     const d = await input.canUseTool('mcp__workbench__edit_note', { project: 'sample-research', file })
     yield { type: 'text', text: d.allow ? 'edited' : 'blocked' }
     if (input.prompt.includes('hold')) await new Promise<void>((r) => { gate = r })
+  } else if (input.prompt.startsWith('plan ')) {
+    const file = input.prompt.slice(5)
+    yield { type: 'tool', tool: 'TodoWrite', input: { todos: [{ content: '읽기', status: 'in_progress' }] } }
+    yield { type: 'tool', tool: 'TodoWrite', input: { todos: [{ content: '읽기', status: 'completed' }, { content: '고치기', status: 'in_progress' }] } }
+    const early = await input.canUseTool('mcp__workbench__edit_note', { project: 'sample-research', file, edits: [{ old: 'a', new: 'b', reason: 'r' }] })
+    const plan = await input.canUseTool('ExitPlanMode', { plan: '1. 고치기' })
+    const d = plan.allow ? await input.canUseTool('mcp__workbench__edit_note', { project: 'sample-research', file, edits: [{ old: 'a', new: 'b', reason: 'r' }] }) : plan
+    yield { type: 'text', text: `${early.allow ? 'early' : 'waited'} ${d.allow ? 'edited' : 'no'}` }
   } else if (input.prompt === 'wait') {
     await new Promise<void>((r) => { gate = r; input.signal.addEventListener('abort', () => r(), { once: true }) })
   } else {
@@ -203,6 +237,57 @@ describe('대화 API', () => {
     await settle(b.id, 'stopped')
     expect((await app.inject({ method: 'DELETE', url: `/api/agent-chats/${a.id}` })).statusCode).toBe(200)
     expect((await app.inject({ method: 'GET', url: `/api/agent-chats/${a.id}` })).statusCode).toBe(404)
+  })
+
+  it('계획 먼저: 할 일은 한 줄로 고쳐지고, 계획을 승인하면 고친 노트가 고침 카드와 바뀐 파일로 남는다', async () => {
+    const file = 'workbench/topics/gauge/fix/note.md'
+    const c = await create({ text: `plan ${file}`, mode: 'plan' })
+    await settle(c.id, 'waiting')
+    expect(seen.at(-1)).toMatchObject({ mode: 'plan', model: 'default', effort: 'medium' })
+    const chat = await get(c.id)
+    expect(chat.items.filter((i: { kind: string }) => i.kind === 'todos')).toHaveLength(1)
+    expect(chat.todos).toEqual([{ text: '읽기', state: 'completed' }, { text: '고치기', state: 'in_progress' }])
+    expect(chat.items.find((i: { kind: string }) => i.kind === 'blocked').reason).toContain('계획')
+    const ask = chat.items.find((i: { kind: string }) => i.kind === 'ask')
+    expect(ask.plan).toBe('1. 고치기')
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/answer`, payload: { ask: ask.id, answer: 'allow' } })
+    await settle(c.id)
+    const done = await get(c.id)
+    expect(done.items.find((i: { kind: string }) => i.kind === 'text').text).toBe('waited edited')
+    expect(done.items.find((i: { kind: string }) => i.kind === 'edit')).toMatchObject({ file, added: 1, removed: 1, parts: [{ old: 'a', new: 'b' }] })
+    expect(done.changed).toEqual([file])
+    expect(done.always).toEqual([])
+  })
+
+  it('일하는 중에 보낸 지시는 다음 차례에 읽고, 모드 · 모델은 다음 차례부터 바뀐다. 그림 · 붙인 것은 에이전트에게 간다', async () => {
+    const c = await create({ text: 'wait' })
+    await settle(c.id, 'running')
+    const img = { type: 'image/png', data: 'aGk=' }
+    const q = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이것도', attach: [{ kind: 'note', ref: 'workbench/notes/a/note.md', label: 'A' }], images: [img] } })
+    expect(q.statusCode, q.body).toBe(200)
+    expect(q.json().chat.items.at(-1)).toMatchObject({ kind: 'user', queued: true, images: 1, attach: [{ kind: 'note' }] })
+    const s = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { mode: 'ask', model: 'sonnet', effort: 'high' } })
+    expect(s.json().chat).toMatchObject({ mode: 'ask', model: 'sonnet', effort: 'high' })
+    const before = seen.length
+    gate!()
+    await vi.waitFor(() => expect(seen.length).toBe(before + 1))
+    await settle(c.id)
+    expect(seen.at(-1)).toMatchObject({ mode: 'ask', model: 'sonnet', effort: 'high', images: [img] })
+    expect(seen.at(-1)!.prompt).toContain('note (read_note): workbench/notes/a/note.md')
+    expect((await get(c.id)).items.some((i: { queued?: boolean }) => i.queued)).toBe(false)
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { mode: 'nope' } })).statusCode).toBe(400)
+  })
+
+  it('늘 허락한 것은 대화에 보이고 뺄 수 있다', async () => {
+    const c = await create({ text: 'bash once' })
+    await settle(c.id, 'waiting')
+    const ask = (await get(c.id)).items.find((i: { kind: string }) => i.kind === 'ask')
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/answer`, payload: { ask: ask.id, answer: 'always' } })
+    await settle(c.id)
+    const label = (await get(c.id)).always[0]
+    expect(label).toContain('ls')
+    const f = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/forget`, payload: { label } })
+    expect(f.json().chat.always).toEqual([])
   })
 
   it('없는 프로젝트 · 맞지 않는 범위는 거절한다', async () => {

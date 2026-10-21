@@ -1,8 +1,9 @@
-/* 에이전트 대화 (AgentChats.tsx, 10/21): 레일 "에이전트" 화면과 상단바 반짝이 패널(오른쪽 사이드바 자리).
-   주고받은 글은 피드백 대화 부품(.fbp-say · .fbp-compose), 허락 카드만 사용자 차례 주황 점 */
+/* 에이전트 대화 (AgentChats.tsx, 10/21): 레일 "에이전트" 화면(대화 · 작업 상태 칸)과 상단바 반짝이 패널(오른쪽 사이드바 자리).
+   주고받은 글은 피드백 대화 부품(.fbp-say), 카드(계획 · 할 일 · 노트 고침 · 허락)는 .ac-card, 사용자 차례는 주황 점 */
 
-.ac-page { flex: 1; min-height: 0; display: flex; flex-direction: column; max-width: 860px; width: 100%; margin: 0 auto; }
-.ac-start { max-width: 640px; display: flex; flex-direction: column; gap: var(--sp-5); }
+.ac-page { flex: 1; min-height: 0; display: flex; width: 100%; }
+.ac-page > .ac-chat { flex: 1; min-width: 0; max-width: 900px; margin: 0 auto; }
+.ac-start { max-width: 720px; display: flex; flex-direction: column; gap: var(--sp-4); }
 .ac-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 .ac-head { flex: none; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
@@ -11,55 +12,121 @@
 .ac-meta { display: flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; font-size: var(--fs-xs); color: var(--text-2); }
 .ac-meta .tag { white-space: nowrap; }
 .ac-state { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none; font-size: var(--fs-xs); white-space: nowrap; }
-.ac-claims { flex: none; padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .ac-items { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-3); }
 .ac-say { font-size: var(--fs-sm); }
 .ac-say .memo-text { color: var(--text); }
+.ac-say.sub { margin-left: var(--sp-5); }
 .ac-when { white-space: nowrap; }
+.ac-chips { display: flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; min-width: 0; }
+.ac-chips .tag { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-say .ac-chips { margin-top: var(--sp-1); }
 
 .ac-steps { display: flex; flex-direction: column; gap: 2px; padding: 0 10px; }
 .ac-steps-toggle { align-self: flex-start; font-size: var(--fs-xs); }
 .ac-step { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-size: var(--fs-xs); color: var(--text-3); }
+.ac-step.sub { padding-left: var(--sp-4); }
 .ac-tool { flex: none; font-size: var(--fs-2xs); color: var(--text-2); white-space: nowrap; }
 .ac-sum { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-step .tag, .ac-sub { flex: none; white-space: nowrap; }
+.ac-step .tag { flex: none; white-space: nowrap; }
 
 .ac-note { display: flex; align-items: baseline; gap: var(--sp-2); padding: 0 10px; font-size: var(--fs-xs); color: var(--text-2); }
+.ac-hint { font-size: var(--fs-xs); min-width: 0; }
 
-.ac-ask { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); }
-.ac-ask.done { border-color: var(--line); color: var(--text-3); }
-.ac-ask-head { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
-.ac-ask-head b { font-weight: var(--fw-strong); color: var(--text); white-space: nowrap; }
-.ac-ask.done .ac-ask-head b { font-weight: var(--fw-medium); color: var(--text-2); }
+/* 카드: 계획 · 할 일 · 노트 고침 · 허락. 답을 기다리는 카드만 진한 테두리 */
+.ac-card { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); font-size: var(--fs-sm); min-width: 0; }
+.ac-card.wait { border-color: var(--line-strong); }
+.ac-card.done { color: var(--text-3); }
+.ac-card-head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ac-card-head b { font-weight: var(--fw-strong); color: var(--text); white-space: nowrap; }
+.ac-card.done .ac-card-head b { font-weight: var(--fw-medium); color: var(--text-2); }
+.ac-card-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ac-card-row .sp { flex: 1; }
+.ac-card-row .btn { white-space: nowrap; }
 .ac-ask-sum { display: block; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); background: var(--bg-sunken); font-size: var(--fs-xs); white-space: pre-wrap; word-break: break-all; }
-.ac-ask-row { display: flex; align-items: center; gap: var(--sp-2); }
-.ac-ask-row .sp { flex: 1; }
-.ac-ask-row .btn { white-space: nowrap; }
+.ac-plan .memo-text { color: var(--text); }
+.ac-plan.done .memo-text { color: var(--text-3); }
 
+.ac-todos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.ac-todos li { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.ac-todos li.completed { color: var(--text-3); }
+.ac-todo-mark { flex: none; width: 14px; display: inline-flex; justify-content: center; align-self: center; }
+.ac-todo-mark.done { color: var(--s-solved); }
+.ac-todo-mark svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ac-todo-mark.box::before { content: ''; width: 10px; height: 10px; border: 1.5px solid var(--line-strong); border-radius: 3px; }
+.ac-todo-mark .g-name { display: none; }
+
+.ac-add { color: var(--s-solved); font-size: var(--fs-xs); }
+.ac-del { color: var(--danger); font-size: var(--fs-xs); }
+.ac-file { min-width: 0; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); text-align: left; }
+.ac-diff { display: flex; flex-direction: column; gap: 2px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: var(--fs-xs); }
+.ac-diff-old, .ac-diff-new { padding: 2px var(--sp-2); border-radius: var(--r-xs); white-space: pre-wrap; word-break: break-word; color: var(--text); }
+.ac-diff-old { background: var(--paint-pink); }
+.ac-diff-new { background: var(--paint-green); }
+
+/* 입력란: 붙인 것 · 글 · (/ · @ 메뉴) · 맡기는 정도 · 모델 · 생각 깊이 · 보내기 */
 .ac-compose { flex: none; padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.ac-composer { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); min-width: 0; }
+.ac-chip { display: inline-flex; align-items: center; gap: 2px; }
+.ac-chip-x { display: inline-grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 0; border-radius: var(--r-xs); background: none; color: var(--text-3); cursor: pointer; }
+.ac-chip-x:hover { background: var(--bg-hover); color: var(--text); }
+.ac-chip-x svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+.ac-attach { font-size: var(--fs-xs); white-space: nowrap; }
+.ac-input { position: relative; }
+.ac-input textarea { width: 100%; box-sizing: border-box; border: 0; padding: 2px; resize: vertical; min-height: 54px; font: inherit; font-size: var(--fs-sm); line-height: 1.5; color: var(--text); background: transparent; outline: none; }
+.ac-menu { position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: var(--sp-1); z-index: var(--z-menu); display: flex; flex-direction: column; padding: var(--sp-1); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); box-shadow: var(--shadow); max-height: 280px; overflow: auto; }
+.ac-menu-item { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; min-width: 0; }
+.ac-menu-item.on { background: var(--bg-hover); }
+.ac-menu-cmd { flex: none; min-width: 64px; font-size: var(--fs-xs); }
+.ac-menu-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-menu-meta { margin-left: auto; flex: none; font-size: var(--fs-xs); white-space: nowrap; }
+.ac-menu-none { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); }
+.ac-compose-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; min-width: 0; }
+.ac-compose-row .sp { flex: 1; }
+.ac-compose-row .segmented button { white-space: nowrap; }
+.ac-compose-row .btn { white-space: nowrap; }
+.ac-pick { width: auto; min-width: 0; height: var(--input-h-sm); font-size: var(--fs-xs); }
 
-.ac-new { display: flex; flex-direction: column; gap: var(--sp-3); }
-.ac-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-.ac-hint { font-size: var(--fs-xs); }
+.ac-new { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ac-new-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ac-new-row .rs-select { width: auto; max-width: 100%; }
+.ac-new-row .segmented button { white-space: nowrap; }
+.ac-h { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-strong); }
 
-.ac-h { margin: 0 0 var(--sp-2); font-size: var(--fs-lg); font-weight: var(--fw-strong); }
-.ac-work-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.ac-work-list li { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding: var(--sp-2); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
-.ac-work-list .a { white-space: nowrap; }
-.ac-work-list .muted { font-size: var(--fs-xs); white-space: nowrap; }
+/* 작업 상태 칸 (에이전트 화면 오른쪽) */
+.ac-work { flex: none; width: 280px; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-3) var(--sp-3); border-left: 1px solid var(--line); background: var(--bg-side); font-size: var(--fs-sm); }
+.ac-work section { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.ac-work h3 { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
+.ac-work-row { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ac-work-row .ac-file { flex: 1; }
+.ac-work-row .tag, .ac-work-row .muted { flex: none; white-space: nowrap; font-size: var(--fs-xs); }
+.ac-work .a.ac-file { padding: 0; border: 0; background: none; cursor: pointer; }
+.ac-other { flex: none; max-width: 45%; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-usage { margin-top: auto; }
+@media (max-width: 1100px) { .ac-work { display: none; } }
 
+/* 사이드바 목록: 이름과 상태 점, 아래 줄에 상태 · 바뀐 파일 · 시각 */
 .ac-side-h { font-size: var(--fs-xs); color: var(--text-3); padding: var(--sp-3) var(--sp-2) var(--sp-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-line .label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-line { flex-direction: column; align-items: stretch; gap: 1px; height: auto; padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
+.ac-line-top { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ac-line .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-line-meta { font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.ac-filter { margin: var(--sp-1) 0; }
+.ac-filter button { white-space: nowrap; }
 .ac-side .empty { padding: var(--sp-2); }
 
+/* 상단바 패널: 머리에 대화 고르기 · 새 대화 · 넓게 보기 */
 .ac-panel { min-width: 0; }
+.ac-panel-head { min-height: var(--input-h); display: flex; align-items: center; gap: var(--sp-1); }
+.ac-panel-head .sp { flex: 1; }
+.ac-panel-name { display: inline-flex; align-items: center; color: var(--text); flex: none; }
+.ac-panel-name svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ac-switch { flex: 0 1 auto; min-width: 0; max-width: 70%; width: auto; font-weight: var(--fw-strong); }
 .ac-panel-list { padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
 .ac-panel-list .ac-side-h { padding-left: 0; }
-.ac-panel .ac-head { padding: var(--sp-2); }
+.ac-panel-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ac-panel .ac-head { padding: var(--sp-1) var(--sp-2); }
 .ac-panel .ac-items { padding: var(--sp-2); }
 .ac-panel .ac-compose { padding: var(--sp-2); }
 .ac-panel .fbp-say { margin-left: 0; margin-right: 0; }
-.ac-panel-head { min-height: var(--input-h); }
-.ac-panel-name { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
-.ac-panel-name svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ac-panel .ac-compose-row .segmented button { padding-left: 6px; padding-right: 6px; }

@@ -86,8 +86,8 @@ export const DEFAULT_SCREENS = [
   ['feedback', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '피드백 줄']],
   // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습
   ['feedback-gallery', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '[data-ui="피드백 줄"][data-ui-item^="2026-10-04 09:30"]', '[data-ui="전후 그림"] button']],
-  // 에이전트 대화 (10/21): 예제 실행기(agentSample.ts)가 명령 허락을 묻는 대화를 찍기 전에 만든다 (shots.mjs, {chat}). 오른쪽 사이드바 자리의 패널은 상단바 반짝이
-  ['agent', '#/agent/{chat}', '허락 카드'],
+  // 에이전트 대화 (10/21): 예제 실행기(agentSample.ts)가 계획 승인을 묻는 대화(계획 먼저)를 찍기 전에 만든다 (shots.mjs, {chat}). 오른쪽 사이드바 자리의 패널은 상단바 반짝이
+  ['agent', '#/agent/{chat}', '계획 카드'],
   ['agent-panel', '#/r/{rid}', '에이전트 패널', '에이전트 버튼'],
   ['about', '#/about', '소개'],
   // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
