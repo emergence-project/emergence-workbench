@@ -14,7 +14,9 @@ PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)�
 
 `AGENTS.md`는 Codex 등 다른 에이전트가 먼저 읽는 파일로, 이 파일을 가리킨다.
 
-**관리자 개인 규칙:** 앱 피드백 처리, 실험 기간, 누가 구현하나, 지금 이어서 할 일은 관리자의 비공개 개인 저장소 `CLAUDE.md`에 있다. 맥에서는 `~/.config/research-workspace/personal/CLAUDE.md`(`apps/server/src/personalRepo.ts`가 받아 두는 사본)가 있으면 이 파일 다음에 읽고 따른다. 둘이 다르면 개인 규칙이 앞선다.
+**피드백 규약:** 피드백의 파일 · 칸 · 차례 규칙과 에이전트 처리 규칙은 앱과 상관없는 규약으로 `docs/feedback/`에 있다(README 규약 · `agent.md` 처리 규칙 · `new-app.md` 새 앱에 넣기 · `cases.json` 차례 시험 사례). 차례 규칙을 바꾸면 `cases.json`부터 고친다. 퀀텀캐드 · Telos 같은 다른 앱도 이 규약을 따른다.
+
+**관리자 개인 규칙:** 앱 피드백 처리(규약에 더하는 것), 실험 기간, 누가 구현하나, 지금 이어서 할 일은 관리자의 비공개 개인 저장소 `CLAUDE.md`에 있다. 맥에서는 `~/.config/research-workspace/personal/CLAUDE.md`(`apps/server/src/personalRepo.ts`가 받아 두는 사본)가 있으면 이 파일 다음에 읽고 따른다. 둘이 다르면 개인 규칙이 앞선다.
 
 ## 용어: 주제와 노트 (2026-10-05 결정)
 
