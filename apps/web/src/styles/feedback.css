@@ -25,6 +25,9 @@ body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] 
 .fb-list-head { display: flex; align-items: center; margin-bottom: var(--sp-2); justify-content: space-between; }
 .fb-entry { padding: var(--sp-2) 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
 .fb-entry-head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); }
+/* 적던 글 목록 (10/21): 글은 세 줄까지 */
+.fb-entry-head .sp { flex: 1; }
+.fb-draft-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
 body.feedback-on .toast { bottom: 76px; }
 
 /* 피드백 모아 보기 */
