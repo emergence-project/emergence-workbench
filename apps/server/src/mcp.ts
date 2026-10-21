@@ -108,7 +108,8 @@ export function agentOf(clientName: string | undefined): string {
   return n.slice(0, 40) || 'mcp'
 }
 
-export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}): McpServer {
+/** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_checks를 더한다) */
+export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat?: string } = {}): McpServer {
   const base = (opts.baseUrl ?? DEFAULT_URL).replace(/\/$/, '')
   const f0 = opts.fetch ?? fetch
   // 앱이 에이전트 연결을 알아보게 (설정 › 계정 › 시작 준비, agentSeen.ts)
@@ -544,6 +545,28 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     inputSchema: { id: z.string().describe('Concept note id'), baseHash: z.string().describe('hash from read_concept'), edits, approved, summary },
     annotations: w,
   }, async ({ id, ...a }) => write({ kind: 'concept', id }, a))
+
+  // 앱 고치기 대화에서만 (2단계 10/21): 에이전트는 명령을 돌리지 않고, 커밋 · PR · CI는 앱이 한다
+  if (opts.appChat) {
+    const chat = encodeURIComponent(opts.appChat)
+    server.registerTool('app_submit', {
+      title: 'Commit and open PR',
+      description: 'Commit every change in the work folder, push the branch and open the pull request (or add to it if already open). The app refuses while another pull request is open. Title: one Korean line the user reads in the update history. Body: follow the PR template (Before / After / How / Checks).',
+      inputSchema: { title: z.string().describe('One-line Korean PR title'), body: z.string().describe('PR body following the template') },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    }, async (a) => {
+      const r = await post(base, f, `/api/agent-chats/${chat}/app/submit`, a)
+      if (!r.ok) return r.error
+      const b = r.body as { number: number; url: string; created: boolean }
+      return text(`${b.created ? 'Opened' : 'Updated'} PR #${b.number}: ${b.url}. CI runs now (about 3 minutes); call app_checks to read the result.`)
+    })
+    server.registerTool('app_checks', {
+      title: 'PR checks',
+      description: 'The CI result of this conversation\'s pull request: each check and its state, done / ok, and the end of the failed log when a check failed. Call again later while checks are still running.',
+      inputSchema: {},
+      annotations: ro,
+    }, async () => call(`/api/agent-chats/${chat}/app/checks`))
+  }
 
   return server
 }

@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/agentChats'
 import { AgentChats, type AgentRunner } from '../agentChats.js'
+import type { AppWork } from '../appWorktree.js'
 import { claudeAgentRunner } from '../agentRunner.js'
 import { parseBody, replies } from '../contract.js'
 import { createMcpServer } from '../mcp.js'
@@ -25,20 +26,21 @@ function injectFetch(app: FastifyInstance): typeof fetch {
   }) as typeof fetch
 }
 
-export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner): AgentChats {
+export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): AgentChats {
   const { registry, broadcast, repoPath } = ctx
   const chats = new AgentChats({
     dir: path.join(registry.configDir, 'agent-chats'),
-    runner: runner ?? claudeAgentRunner(() => createMcpServer({ baseUrl: 'http://workbench.local', fetch: injectFetch(app) })),
+    runner: runner ?? claudeAgentRunner((appChat) => createMcpServer({ baseUrl: 'http://workbench.local', fetch: injectFetch(app), appChat })),
     limit: CHAT_LIMIT,
     project: (rid) => ({ repo: repoPath(rid), title: registry.list().find((r) => r.id === rid)?.title ?? rid }),
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
+    ...(appWork && { app: appWork }),
   })
   app.addHook('onClose', async () => chats.stopAll())
 
-  app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit }))
+  app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit, app: chats.app }))
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 
@@ -69,6 +71,10 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     chats.remove(req.params.id)
     return { ok: true }
   })
+
+  /** 앱 고치기 대화: 커밋해 PR 열기 · CI 결과 (에이전트가 앱 MCP app_submit · app_checks로 부른다) */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/app/submit', replies(C.AppSubmitted), async (req): Promise<C.AppSubmitted> => chats.appSubmit(req.params.id, parseBody(C.AppSubmitBody, req.body)))
+  app.get<{ Params: { id: string } }>('/api/agent-chats/:id/app/checks', replies(C.AppChecks), async (req): Promise<C.AppChecks> => chats.appChecks(req.params.id))
 
   /** 지금 도는 대화와 잡은 파일: 화면 · 앱 밖 에이전트가 같은 것을 보고 피한다 */
   app.get('/api/agent-work', replies(C.WorkState), async (): Promise<C.WorkState> => chats.work())

@@ -54,6 +54,7 @@ import { registerFlow } from './routes/flow.js'
 import { registerAgentEdits } from './routes/agentEdits.js'
 import { registerAgentChats } from './routes/agentChats.js'
 import type { AgentRunner } from './agentChats.js'
+import { appWorktrees, type AppWork } from './appWorktree.js'
 import { registerCommonRules } from './routes/commonRules.js'
 import { allowedRequest, extraHosts, fileResponseHeaders } from './hostGuard.js'
 import { Google } from './google.js'
@@ -92,6 +93,8 @@ export interface AppOptions {
   fetch?: typeof fetch
   /** 에이전트 대화의 실행기 (테스트에서 바꿈). 없으면 맥의 Claude Code(Agent SDK) */
   agentRunner?: AgentRunner
+  /** 앱 고치기 대화의 작업 폴더와 PR (없으면 appRepo로 만든다. 예제 모드 · 테스트는 sampleAppWork) */
+  agentApp?: AppWork
   /** PDF 질문에 답할 Claude (기본: 맥의 `claude -p`, 테스트에서 바꿈) */
   ask?: AskRunner
   /** 분류 전 기록을 나눌 작은 모델 (테스트에서는 가짜 실행기로 바꿈) */
@@ -337,7 +340,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerTasks(app, ctx)
   registerFlow(app, ctx)
   registerAgentEdits(app, ctx)
-  registerAgentChats(app, ctx, opts.agentRunner)
+  registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined))
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))
 
   return app

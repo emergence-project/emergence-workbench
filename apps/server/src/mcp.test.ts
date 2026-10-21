@@ -39,6 +39,24 @@ describe('MCP 입구 (읽기)', () => {
     for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'add_task', 'report_task', 'add_journal'].includes(t.name))
   })
 
+  it('앱 고치기 대화 안에서만 app_submit · app_checks가 붙고, 그 대화의 앱 API를 부른다', async () => {
+    const urls: string[] = []
+    const f = (async (input: string | URL, init?: RequestInit) => {
+      urls.push(`${init?.method ?? 'GET'} ${new URL(String(input)).pathname}`)
+      return new Response(JSON.stringify(init?.method === 'POST' ? { number: 5, url: 'u', created: true } : { checks: [], done: false, ok: false }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    const [a, b] = InMemoryTransport.createLinkedPair()
+    await createMcpServer({ baseUrl: 'http://127.0.0.1:1', fetch: f, appChat: 'c-1' }).connect(a)
+    const c = new Client({ name: 'test', version: '0' })
+    await c.connect(b)
+    const names = (await c.listTools()).tools.map((t) => t.name)
+    expect(names).toContain('app_submit')
+    expect(names).toContain('app_checks')
+    expect(textOf(await c.callTool({ name: 'app_submit', arguments: { title: '고침', body: 'b' } }))).toContain('Opened PR #5')
+    await c.callTool({ name: 'app_checks', arguments: {} })
+    expect(urls).toEqual(['POST /api/agent-chats/c-1/app/submit', 'GET /api/agent-chats/c-1/app/checks'])
+  })
+
   it('연결 안내의 순서에 적은 도구 이름은 모두 실제 도구다', async () => {
     const c = await connect()
     const names = new Set((await c.listTools()).tools.map((t) => t.name))

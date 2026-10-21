@@ -4,7 +4,7 @@ import type { AboutSection } from '../types'
 // 소개 › agents › 앱에서 맡기는 대화. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '앱에서 맡기는 대화', prs: [229, 230, 232, 233],
+  title: '앱에서 맡기는 대화', prs: [229, 230, 232, 233, 235],
   id: 'conversations',
   items: [
     { text: <>레일의 에이전트(반짝이)에서 프로젝트 하나에 일 하나씩 대화를 엽니다. 맥의 Claude Code가 그 프로젝트 저장소에서 일합니다. 상단바의 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에 엽니다. 패널 머리의 자리 버튼으로 작업 화면 아래에 붙이거나(위 경계를 끌어 높이 조절), 연 대화를 노트 옆 패널에 탭으로 나란히 엽니다. 나란히 연 대화에는 다른 패널에서 보는 노트가 저절로 붙습니다.</> },
@@ -16,6 +16,7 @@ export const ko: AboutSection = {
     { text: <>대화마다 범위(프로젝트 전체 · 주제 하나 · 노트 하나)를 고릅니다. 범위 밖은 필요할 때 읽고 대화에 「범위 밖」으로 보이지만, 고치지는 못합니다. 무엇을 어디서 고쳐야 하는지 말로 남깁니다.</> },
     { text: <>노트는 앱을 거쳐서만 고치고(수정 검토에 오름), 파일을 바로 쓰지 못합니다. 고치는 동안 그 노트를 잡아 다른 대화가 같은 노트를 고치지 못합니다. 지금 도는 대화와 잡은 파일은 에이전트 화면 첫 쪽과 {c('GET /api/agent-work')}에 같이 보입니다.</> },
     { text: <>명령을 돌리거나 웹을 읽으려 하면 허락 카드(주황 점)가 뜨고, 답할 때까지 기다립니다. 답은 1 네 · 2 네, 이 대화에서 이것은 늘 · 3 아니요, 다르게 하라고 말하기(할 말을 적으면 에이전트가 그대로 읽음)입니다. 「늘」은 같은 명령에만 적용되고 세부 패널에서 ×로 지웁니다. 허락을 기다리는 대화 수가 레일 배지에, 목록 줄에는 무엇을 기다리는지(계획 승인 · 허락)와 +n −n이 보입니다.</> },
+    { text: <>에이전트 화면의 새 대화에서 프로젝트 대신 「앱 고치기」를 고르면 앱 자체를 고치는 대화가 열립니다(앱 저장소가 있는 맥에서만). 앱 저장소의 따로 둔 폴더에서 파일만 고치고, 명령은 돌리지 않습니다. 다 고치면 앱이 커밋해 올리고 PR을 열고, 시험 · 화면 그림은 GitHub CI가 돌립니다. 에이전트는 CI 결과를 받아 다시 고칩니다. 대화 머리에 연 PR이 보입니다. 그래서 에이전트가 쓴 코드는 합쳐지기 전에는 맥에서 돌지 않습니다. 연구 프로젝트는 읽기만 합니다.</> },
     { text: <>끝난 대화는 머리의 ⋯에서 보관함에 넣어 목록에서 숨기고, 사이드바 맨 아래 「보관함」에서 다시 꺼냅니다. 지우기는 대화 기록만 지웁니다.</> },
     { text: <>동시에 둘까지 돌고 나머지는 줄을 섭니다(맥 메모리). 대화 기록은 연구 저장소가 아니라 앱 설정 폴더에 남습니다.</> },
   ],
@@ -34,6 +35,7 @@ export const en: AboutSection = {
     { text: <>Each conversation has a scope (whole project · one topic · one note). It may read outside the scope when needed, shown as "Outside scope", but cannot change anything there; it says what should change and where instead.</> },
     { text: <>Notes change only through the app (they land in edit review); files cannot be written directly. While a conversation changes a note it holds it, so another conversation cannot change the same note. Running conversations and held files show on the first page of Agents and in {c('GET /api/agent-work')}.</> },
     { text: <>Running a command or reading the web shows an approval card (orange dot) and waits for your answer. The answers are 1 Yes · 2 Yes, always for this in this conversation · 3 No, tell it what to do instead (what you write is passed to the agent). "Always" covers only the same command; remove it with × in the detail column. The rail badge counts conversations waiting for you, and list rows show what each waits for (plan approval · approval) and +n −n.</> },
+    { text: <>In a new conversation on the Agents page, pick "Fix the app" instead of a project to open a conversation that fixes the app itself (only on a Mac with the app repository). It edits files only, in a separate folder of the app repository, and runs no commands. When the change is ready the app commits, pushes and opens the PR, and GitHub CI runs the tests and screen pictures; the agent reads the CI result and fixes again. The conversation header shows the PR. So code the agent writes never runs on the Mac before it is merged. Research projects are read-only there.</> },
     { text: <>Archive a finished conversation from ⋯ in its header to hide it from the list; bring it back from "Archive" at the bottom of the sidebar. Delete removes only the conversation record.</> },
     { text: <>At most two run at once; the rest wait in a queue (Mac memory). Conversations are kept in the app's settings folder, not in the research repository.</> },
   ],

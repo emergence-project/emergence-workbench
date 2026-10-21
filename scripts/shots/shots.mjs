@@ -70,6 +70,7 @@ try {
   page.on('console', (m) => { if (m.type() === 'error' && !expected(m)) problems.push(`${current}: console ${m.text()} ${m.location().url ?? ''}`) })
   let chat = ''
   let done = ''
+  let appchat = ''
   for (const [name, hash, ui, click] of SCREENS) {
     current = name
     if (name === 'dark-topic') {
@@ -89,6 +90,8 @@ try {
     }
     // 앞 화면(노트 고치기)과 주소가 같아 편집기가 남지 않게 새로 연다
     if (name === 'figure-zoom') await page.goto('about:blank')
+    // 앱 고치기 대화는 찍기 직전에 만들어, 앞 화면에서 받아 둔 대화 목록이 남지 않게 새로 연다
+    if (name === 'agent-app') await page.goto('about:blank')
     if (hash.includes('{chat}') && !chat) {
       // 허락을 기다리는 대화 하나 (예제 실행기가 "계산"을 보면 명령을 묻는다)
       const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Rerun the check computation in the Kempe note' : '켐페 노트의 확인 계산을 다시 돌려 줘', scope: { kind: 'project' }, mode: 'plan' }) })
@@ -113,6 +116,18 @@ try {
         await new Promise((r) => setTimeout(r, 100))
       }
     }
+    if (hash.includes('{appchat}') && !appchat) {
+      // 앱 고치기 대화 하나 (2단계): 예제 실행기가 파일 하나를 고치고, 앱 MCP가 하듯 PR 올리기를 부른다 (예제 작업 폴더는 정해 둔 PR #234)
+      const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid: '_app', text: options.lang === 'en' ? 'The export menu in the note toolbar is cut off at the right edge' : '노트 툴바의 내보내기 메뉴가 화면 오른쪽에서 잘린다', mode: 'edit' }) })
+      appchat = res.ok ? (await res.json()).chat.id : ''
+      if (!appchat) problems.push(`${name}: 예제 앱 고치기 대화를 만들지 못함 (${res.status})`)
+      for (let i = 0; appchat && i < 50; i++) {
+        const c = (await (await fetch(`${base}api/agent-chats/${appchat}`)).json()).chat
+        if (c.state === 'idle') break
+        await new Promise((r) => setTimeout(r, 100))
+      }
+      if (appchat) await fetch(`${base}api/agent-chats/${appchat}/app/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: options.lang === 'en' ? 'Keep the note export menu inside the screen' : '노트 툴바 내보내기 메뉴가 화면 오른쪽에서 잘리지 않게', body: '## Before' }) })
+    }
     if (name === 'agent-dock' || name === 'agent-beside') {
       // 패널 자리 (아래 · 나란히): 새 문서로 열어 패널을 닫힌 채 시작하고, 아래 자리는 설정으로, 나란히는 끝난 대화를 연 채로
       await page.goto('about:blank')
@@ -124,7 +139,7 @@ try {
       }, { rid, done, bottom: name === 'agent-dock' })
       await page.goto('about:blank')
     }
-    await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)))
+    await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')
     if (name === 'paper-open' || name === 'paper-open-paint') {
