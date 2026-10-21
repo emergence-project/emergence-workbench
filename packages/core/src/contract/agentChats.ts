@@ -105,6 +105,9 @@ export const ChatRow = z.object({
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(),
   /** 앱 고치기 대화가 맡은 피드백 (status.yaml · reviews.yaml의 키) */
   feedback: z.string().optional(),
+  /** 앱이 그 PR을 합친 커밋, 그리고 그 커밋이 지금 도는 앱에 들어왔는지 (상단바 "#n 반영됨") */
+  merged: z.string().optional(),
+  shipped: z.boolean().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -114,7 +117,8 @@ export const Chat = ChatRow.extend({ items: z.array(ChatItem), always: z.array(z
 
 /** GET /agent-chats?rid= */
 /** app = 이 맥에서 앱 고치기 대화를 열 수 있는지 (앱 저장소가 있을 때) */
-export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), app: z.boolean() }).strict()
+/** handOff = 피드백을 맡길 수 있는지 (앱 저장소 · 피드백 폴더가 있고 설정 › 에이전트에서 끄지 않음) */
+export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), app: z.boolean(), handOff: z.boolean() }).strict()
 /** GET /agent-chats/:id · POST 들의 응답 */
 export const ChatOne = z.object({ chat: Chat }).strict()
 /** GET /agent-work: 도는 대화와 잡은 파일 (화면 · MCP · STATUS가 같은 것을 본다) */

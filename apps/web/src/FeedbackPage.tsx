@@ -320,7 +320,7 @@ function AgentLine({ e }: { e: FeedbackItem }) {
   const turn = agentTurns(e).length > 0
   const answeredAfter = !!chat && !!e.review && new Date(e.review.at).getTime() > new Date(chat.updated).getTime()
   const showChat = !!chat && (live || !answeredAfter)
-  const canHand = turn && !live
+  const canHand = turn && !live && list.data.handOff
   if (!showChat && !canHand) return null
   const handOff = async () => {
     setBusy(true); setError('')

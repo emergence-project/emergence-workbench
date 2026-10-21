@@ -28,6 +28,8 @@ export interface AppWork {
   submit(dir: string, branch: string, o: { title: string; body: string }): Promise<AppPr>
   /** 그 브랜치 PR의 CI. 실패한 것이 있으면 실패 기록 끝부분 */
   checks(dir: string, branch: string): Promise<AppChecks>
+  /** 그 브랜치의 PR을 합친다 (squash, 제목 "<PR 제목> (#n)"). 합친 커밋을 돌려준다 */
+  merge(dir: string, branch: string): Promise<{ number: number; sha: string }>
   /** 그 브랜치의 마지막 CI가 찍은 화면 그림 하나 (산출물 shots의 <name>.png). 없으면 null */
   shot(dir: string, branch: string, name: string): Promise<Buffer | null>
   /** 관리자 개인 규칙 파일 (맥 사본이 있으면 안내에 적는다) */
@@ -109,6 +111,16 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       if (run) log = tail(await gh(dir, ['run', 'view', run, '--log-failed']).catch((e: Error) => e.message))
       return { pr: pr.number, checks, done, ok, ...(log && { log }) }
     },
+    async merge(dir, branch) {
+      const pr = await prOf(dir, branch)
+      if (!pr) throw new WorkbenchError(409, t('합칠 PR이 없습니다', 'There is no PR to merge'))
+      const v = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'title,headRefOid'])) as { title: string; headRefOid: string }
+      // 확인한 뒤 누가 더 올렸으면 합치지 않는다 (--match-head-commit). 업데이트 이력은 커밋 제목을 읽으므로 한국어 제목 그대로
+      await gh(dir, ['pr', 'merge', String(pr.number), '--squash', '--subject', `${v.title} (#${pr.number})`, '--match-head-commit', v.headRefOid])
+      await git(dir, ['push', 'origin', '--delete', branch]).catch(() => undefined)
+      const m = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'mergeCommit'])) as { mergeCommit?: { oid?: string } | null }
+      return { number: pr.number, sha: m.mergeCommit?.oid ?? '' }
+    },
     async shot(dir, branch, name) {
       if (!/^[\w-]+$/.test(name)) return null
       const runs = JSON.parse(await gh(dir, ['run', 'list', '--branch', branch, '--workflow', 'ci.yml', '--limit', '1', '--json', 'databaseId,status'])) as { databaseId: number; status: string }[]
@@ -136,6 +148,7 @@ export function sampleAppWork(base: string, sampleShots?: string): AppWork {
     async dispose(dir) { fs.rmSync(dir, { recursive: true, force: true }) },
     async submit() { return { number: 234, url: 'https://github.com/emergence-project/emergence-workbench/pull/234', created: true } },
     async checks() { return { pr: 234, checks: [{ name: 'check', state: 'SUCCESS' }], done: true, ok: true } },
+    async merge() { return { number: 234, sha: '0000000000000000000000000000000000000234' } },
     // 예제의 "고친 뒤" 그림: 예제 피드백 폴더에 있는 그림을 그대로 쓴다 (없으면 없음)
     async shot(_dir, _branch, name) { const f = sampleShots && path.join(sampleShots, `${name}.png`); return f && fs.existsSync(f) ? fs.readFileSync(f) : null },
   }

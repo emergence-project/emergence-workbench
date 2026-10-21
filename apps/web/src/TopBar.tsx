@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Icon } from './icons'
 import { go, type Route } from './router'
 import { t } from './i18n'
+import { ShippedNotice } from './AgentChats'
 
 /** 위치 표시의 한 칸: 누르면 그 화면으로 (to가 없으면 글자만) */
 export interface Crumb { label: string; to?: Route; title?: string }
@@ -42,6 +43,7 @@ export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project,
         })}
       </nav>
       <div className="tb-right">
+        <ShippedNotice />
         {/* 전역 검색은 제목줄에 (10/4 19:33 피드백) */}
         <button className={`icon-btn${search ? ' on' : ''}`} data-ui="검색 버튼" data-tip={t('검색 (/)', 'Search (/)')} aria-label={t('검색 — 모든 프로젝트와 라이브러리', 'Search all projects and the library')} aria-pressed={search} onClick={onSearch}>{Icon.search}</button>
         {project && <button className={`icon-btn${split ? ' on' : ''}`} data-ui="두 칸 켜고 끄기" data-tip={t('두 패널', 'Two panes')} aria-label={t('두 패널로 보기 켜고 끄기', 'Toggle two-pane view')} aria-pressed={split} onClick={onSplit}>{Icon.split}</button>}

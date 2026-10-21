@@ -23,12 +23,12 @@ describe('설정 › 에이전트: 지시 처리', () => {
   it('처음은 직접 부탁이고, 고를 수 없는 값은 무시하며, 설정 파일에 남는다', async () => {
     const dir = path.join(tmp, 'config-instr-settings')
     const a = buildApp({ configDir: dir })
-    expect((await a.inject({ method: 'GET', url: '/api/settings/agents' })).json()).toEqual({ instructions: 'manual', at: '09:00' })
-    expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'daily', at: '21:00' } })).json()).toEqual({ instructions: 'daily', at: '21:00' })
-    expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'always', at: '21:30' } })).json()).toEqual({ instructions: 'daily', at: '21:00' })
+    expect((await a.inject({ method: 'GET', url: '/api/settings/agents' })).json()).toEqual({ instructions: 'manual', at: '09:00', feedback: 'manual', merge: 'green', minutes: 30 })
+    expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'daily', at: '21:00' } })).json()).toEqual({ instructions: 'daily', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30 })
+    expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'always', at: '21:30' } })).json()).toEqual({ instructions: 'daily', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30 })
     await a.close()
     const b = buildApp({ configDir: dir })
-    expect((await b.inject({ method: 'GET', url: '/api/settings/agents' })).json()).toEqual({ instructions: 'daily', at: '21:00' })
+    expect((await b.inject({ method: 'GET', url: '/api/settings/agents' })).json()).toEqual({ instructions: 'daily', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30 })
     await b.close()
   })
 

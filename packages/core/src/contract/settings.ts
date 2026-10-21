@@ -4,7 +4,7 @@
  */
 import { z } from 'zod'
 import { UI_OPTIONS, type UiSettings as UiSettingsType } from '../ui-settings.js'
-import { INSTRUCTION_HOURS, INSTRUCTION_MODES } from '../agent-settings.js'
+import { FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES } from '../agent-settings.js'
 import { SYNC_MODES } from '../sync-settings.js'
 
 type Key = keyof typeof UI_OPTIONS
@@ -34,6 +34,10 @@ export const SettingsBody = z.object({ ui: z.custom<Partial<UiSettingsType>>((v)
 export const AgentSettings = z.object({
   instructions: z.enum(INSTRUCTION_MODES),
   at: z.custom<string>((v) => INSTRUCTION_HOURS.includes(v as string), { message: 'Expected HH:00' }),
+  /** 앱 피드백 맡기기 (2단계 다): 언제 맡기나 · 언제 합치나 · 한 차례 한도(분) */
+  feedback: z.enum(FEEDBACK_PICKS),
+  merge: z.enum(FEEDBACK_MERGES),
+  minutes: z.custom<number>((v) => (FEEDBACK_MINUTES as readonly unknown[]).includes(v), { message: 'Expected 10, 20, 30 or 60' }),
 }).strict()
 /** 바꿀 것만 보낸다. 고를 수 없는 값은 서버(normalizeAgentSettings)가 무시한다 */
 export const AgentSettingsBody = z.custom<Partial<z.infer<typeof AgentSettings>>>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' })
