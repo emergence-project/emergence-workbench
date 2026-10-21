@@ -41,11 +41,11 @@ Sample mode (`RW_SANDBOX=1`) copies a sample research project and a sample libra
 ## Use it for real (macOS)
 
 ```sh
-pnpm service:install    # build the screen and register a background service at http://127.0.0.1:5174
+zsh scripts/install.sh  # once: app icon (Applications, Spotlight, Desktop, Dock), background service, Claude Code / Codex registration
 pnpm service:restart    # rebuild and restart after an update
 ```
 
-Setup details (service, app icon, Dock, development) are in [docs/mac-setup.md](docs/mac-setup.md). To let Claude Code or Codex read your projects, register the MCP entry point: [docs/agent-mcp.md](docs/agent-mcp.md). The app settings live in `~/.config/research-workspace/config.yaml`. Your private records (app feedback, settings backup, workbench folders that no research repository tracks) go to a personal private repository, set in Settings › Accounts (saved as `personalRepo:` in that file; the app refuses public repositories, `apps/server/src/personalRepo.ts`). The same screen lists what is left to get started: GitHub sign-in, the git name and email on commits, your name and affiliation, a first project, and the one-line agent command. Without it, feedback stays on this computer and nothing is uploaded.
+The installer installs Node 22 and pnpm with Homebrew when they are missing, and can be run again any time: it skips what is done and fixes paths if you moved the app folder. Setup details (service, app icon, Dock, development) are in [docs/mac-setup.md](docs/mac-setup.md). The MCP entry point Claude Code and Codex use is described in [docs/agent-mcp.md](docs/agent-mcp.md). The app settings live in `~/.config/research-workspace/config.yaml`. Your private records (app feedback, settings backup, workbench folders that no research repository tracks) go to a personal private repository, set in Settings › Accounts (saved as `personalRepo:` in that file; the app refuses public repositories, `apps/server/src/personalRepo.ts`). The same screen lists what is left to get started: GitHub sign-in, the git name and email on commits, your name and affiliation, a first project, and the one-line agent command. Without it, feedback stays on this computer and nothing is uploaded.
 
 The interface is in English and Korean. It follows your browser language at first; change it in Settings › Display › Language.
 
@@ -86,7 +86,7 @@ Emergence Workbench(연구 작업대)는 여러 연구를 함께 진행하는 �
 
 **예제로 써 보기:** `pnpm install` 뒤 `pnpm dev`(영어 예제는 `pnpm dev:en`)를 실행하고 http://localhost:5173 을 엽니다. 예제 연구와 예제 라이브러리를 `.sandbox/`에 복사해 쓰므로 실제 설정과 저장소는 건드리지 않습니다.
 
-**맥에서 실사용:** `pnpm service:install`로 백그라운드 서비스(http://127.0.0.1:5174)를 등록하고, 업데이트 뒤에는 `pnpm service:restart`를 실행합니다. 자세한 설정은 [docs/mac-setup.ko.md](docs/mac-setup.ko.md)에 있습니다. 설정은 `~/.config/research-workspace/config.yaml`에 있습니다. 피드백·설정 백업 같은 개인 기록은 설정 › 계정에서 정한(그 파일의 `personalRepo:`) 비공개 개인 저장소에 올라갑니다. 같은 화면이 시작 준비(GitHub 로그인, 커밋 이름·이메일, 내 이름·소속, 첫 프로젝트, 에이전트 연결 명령)에서 남은 것을 보여 줍니다. 정하지 않으면 이 컴퓨터에만 남고 아무것도 올리지 않습니다.
+**맥에서 실사용:** 앱 폴더에서 `zsh scripts/install.sh`를 한 번 실행하면 앱 아이콘(응용 프로그램 · Spotlight · 바탕화면 · Dock), 백그라운드 서비스(http://127.0.0.1:5174), Claude Code · Codex 등록까지 마칩니다. 다시 실행해도 되고(된 것은 건너뜀), 손으로 고친 뒤에는 `pnpm service:restart`를 실행합니다. 자세한 설정은 [docs/mac-setup.ko.md](docs/mac-setup.ko.md)에 있습니다. 설정은 `~/.config/research-workspace/config.yaml`에 있습니다. 피드백·설정 백업 같은 개인 기록은 설정 › 계정에서 정한(그 파일의 `personalRepo:`) 비공개 개인 저장소에 올라갑니다. 같은 화면이 시작 준비(GitHub 로그인, 커밋 이름·이메일, 내 이름·소속, 첫 프로젝트, 에이전트 연결 명령)에서 남은 것을 보여 줍니다. 정하지 않으면 이 컴퓨터에만 남고 아무것도 올리지 않습니다.
 
 화면은 영어와 한국어를 지원합니다. 브라우저 언어를 따르고, 설정 › 화면 › 언어에서 바꿀 수 있습니다.
 

@@ -5,7 +5,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { useGithubFetch } from './personalRepo.js'
-import { onPath } from './routes/setup.js'
+import { installState, onPath } from './routes/setup.js'
 import { agentRegistered, agentSeen, noteAgentCall } from './agentSeen.js'
 
 const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-setup-'))
@@ -90,5 +90,16 @@ describe('시작 준비', () => {
     fs.writeFileSync(path.join(bin, 'latexmk'), '#!/bin/sh\n', { mode: 0o755 })
     expect(onPath('latexmk', `/nowhere${path.delimiter}${bin}`)).toBe(true)
     expect(onPath('latexmk', '/nowhere')).toBe(false)
+  })
+  it('설치 상태: 앱 아이콘 · Dock · 서비스를 본다 (scripts/install.sh가 하는 일)', async () => {
+    const home = path.join(tmp, 'home-install')
+    expect(installState(home, '')).toEqual({ app: false, dock: false, service: false })
+    fs.mkdirSync(path.join(home, 'Applications', 'Emergence Workbench.app'), { recursive: true })
+    fs.mkdirSync(path.join(home, 'Library', 'LaunchAgents'), { recursive: true })
+    fs.writeFileSync(path.join(home, 'Library', 'LaunchAgents', 'com.research-workspace.app.plist'), '')
+    const dock = '"_CFURLString" = "file:///Users/me/Applications/Emergence%20Workbench.app/";'
+    expect(installState(home, dock)).toEqual({ app: true, dock: true, service: true })
+    const v = (await app.inject({ method: 'GET', url: '/api/setup' })).json()
+    expect(v.install.command).toMatch(/^zsh .*scripts\/install\.sh$/)
   })
 })

@@ -95,6 +95,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
 
       <h3 className="set-h3">{t('선택', 'Optional')}</h3>
       <div className="set-rows">
+        <InstallRow install={s?.install} onSaved={onSaved} />
         <Row ok={!!s?.personal.remote} optional name={t('개인 저장소', 'Personal repository')} sub={t('피드백·백업을 올릴 곳', 'where feedback and backups go')} ui="개인 저장소"
           action={<Edit label={t('고치기', 'Edit')} onClick={() => setEditing('personal')} />}>
           {s?.personal.remote
@@ -119,6 +120,25 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       {editing === 'personal' && s && <PersonalDialog init={s.personal.remote ?? ''} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(v.personal.remote ? t('개인 저장소를 저장했습니다', 'Personal repository saved') : t('개인 저장소를 뺐습니다', 'Personal repository removed')) }} />}
       {editing === 'me' && people && <PersonEditDialog person={me ?? blankAuthor} people={people} location={`${t('설정', 'Settings')} › ${t('계정', 'Accounts')}`} onSaved={onSaved} onDone={() => { setEditing(null); announce() }} />}
     </div>
+  )
+}
+
+/** 이 컴퓨터에 설치 (scripts/install.sh): 앱 아이콘 · Dock · 서비스. 빠진 것이 있으면 설치 명령을 보인다. 에이전트 등록도 그 명령이 한다 */
+function InstallRow({ install, onSaved }: { install?: SetupView['install']; onSaved(m: string): void }) {
+  const parts = install ? [
+    { ok: install.app, name: t('앱 아이콘', 'App icon') },
+    { ok: install.dock, name: 'Dock' },
+    { ok: install.service, name: t('백그라운드 서비스', 'Background service') },
+  ] : []
+  const missing = parts.filter((p) => !p.ok)
+  return (
+    <Row ok={!!install && !missing.length} optional name={t('이 컴퓨터에 설치', 'Installed on this computer')} sub={t('앱 아이콘 · Dock · 서비스', 'app icon, Dock, service')} ui="이 컴퓨터에 설치"
+      action={install && missing.length > 0 && <CopyButton text={install.command} onSaved={onSaved} />}>
+      {!install ? t('확인하는 중… ', 'Checking… ')
+        : missing.length ? <>{t(`빠진 것: ${missing.map((p) => p.name).join(' · ')}. `, `Missing: ${missing.map((p) => p.name).join(', ')}. `)}{t('터미널에서 ', 'Run ')}<code>{install.command}</code>{t('을 한 번 실행하면 마저 합니다. ', ' once in the terminal to finish. ')}</>
+          : t('앱 아이콘(응용 프로그램 · Spotlight · 바탕화면), Dock, 백그라운드 서비스가 있습니다. ', 'App icon (Applications, Spotlight, Desktop), Dock and background service are in place. ')}
+      {t('설치 명령은 Claude Code · Codex에 이 앱을 등록하는 일도 하고, 이미 된 것은 건너뜁니다.', 'The installer also registers this app with Claude Code and Codex, and skips what is already done.')}
+    </Row>
   )
 }
 

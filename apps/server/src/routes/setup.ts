@@ -1,5 +1,7 @@
 // 시작 준비 (설정 › 계정, 홈의 시작 준비 카드): 공개 저장소에서 앱을 받은 사람이 쓸 준비를 한 화면에서 마친다 (10/20 15:35 피드백)
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/setup'
@@ -17,6 +19,22 @@ export function onPath(cmd: string, envPath = process.env.PATH ?? ''): boolean {
   return envPath.split(path.delimiter).filter(Boolean).some((dir) => {
     try { fs.accessSync(path.join(dir, cmd), fs.constants.X_OK); return true } catch { return false }
   })
+}
+
+/**
+ * scripts/install.sh가 한 일 중 앱이 볼 수 있는 것. 바탕화면은 보지 않는다(서비스가 ~/Desktop을 읽으면 macOS가 권한을 묻는다).
+ * Dock은 defaults로 읽는다(맥이 아니면 없음).
+ */
+export function installState(home = os.homedir(), dockList?: string): Omit<C.SetupView['install'], 'command'> {
+  let dock = dockList
+  if (dock === undefined) {
+    try { dock = execFileSync('defaults', ['read', 'com.apple.dock', 'persistent-apps'], { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] }) } catch { dock = '' }
+  }
+  return {
+    app: fs.existsSync(path.join(home, 'Applications', 'Emergence Workbench.app')),
+    dock: dock.includes('Emergence%20Workbench.app'),
+    service: fs.existsSync(path.join(home, 'Library', 'LaunchAgents', 'com.research-workspace.app.plist')),
+  }
 }
 
 const gitGlobal = async (key: string): Promise<string> => {
@@ -51,6 +69,8 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       projects: registry.list().length,
       personal: { remote, active },
       agents: agentRows(),
+      // 예제 모드는 이 컴퓨터를 보지 않는다 (그림이 컴퓨터마다 달라지지 않게): 다 된 것으로
+      install: { ...(opts.sandbox ? { app: true, dock: true, service: true } : installState()), command: `zsh ${appPath('scripts/install.sh')}` },
       tex: onPath('latexmk'),
     }
   }

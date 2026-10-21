@@ -4,6 +4,14 @@
 
 Node 22와 pnpm이 필요하다. TeX Live(latexmk·xelatex·synctex)는 컴파일할 때만 필요하다.
 
+**설치 (컴퓨터마다 한 번).** 앱 폴더에서
+
+```sh
+zsh scripts/install.sh   # 또는 pnpm mac:install. --no-dock · --no-agents로 그 단계를 건너뛴다
+```
+
+실사용 맥에 필요한 것을 차례로 모두 한다: Node 22 · pnpm(없으면 Homebrew로 깐다), `pnpm install`, 아래 백그라운드 서비스, 앱 아이콘(`~/Applications/Emergence Workbench.app`, Spotlight · Launchpad가 찾고 바탕화면에 바로가기), Dock 아이콘, Claude Code · Codex에 MCP 입구 등록(`scripts/register-agents.sh`, 사용자 범위, 연구 저장소에는 아무 파일도 더하지 않음). 다시 실행하면 된 것은 건너뛰고, 앱 폴더를 옮겼으면 경로를 고친다. 끝나면 앱을 연다. 남은 준비(GitHub 로그인 · 커밋 이름 · 첫 프로젝트)는 설정 › 계정 › 시작 준비에 있고, 빠진 것이 있으면 거기에도 같은 명령이 보인다.
+
 **실사용: 백그라운드 서비스.** 앱은 macOS 백그라운드 서비스(LaunchAgent)로 돈다. 로그인하면 켜지고, 꺼지면 다시 켜지며, Claude 세션이나 터미널 창과 무관하다. 서버 하나가 빌드한 화면과 API를 `http://127.0.0.1:5174`로 함께 내보낸다.
 
 ```sh
@@ -19,9 +27,9 @@ pnpm service:uninstall  # 서비스 지우기 (연구 파일·설정은 그대�
 
 자동 업데이트 (2026-10-09): 서비스로 돌 때 10분마다 새 버전을 받아 `apps/web/dist-next`에 빌드해 둔다(지금 화면 `dist`는 그대로). 다시 시작은 쉴 때만 한다: 열린 화면이 입력 없이 5분이고 저장할 것이 없을 때, 또는 열린 화면이 없고 5분 동안 쓰기 요청이 없을 때. 처리 중인 요청(컴파일 · 논문 받기 · 질문)이 있으면 미룬다. 상단바의 "새 버전 · 다시 시작"을 누르면 바로 다시 시작한다. 서버가 새 커밋으로 켜지면 `dist-next`를 `dist`로 바꿔 단다. 맥에서 앱 코드를 고쳐 두었으면 받지 않는다.
 
-여는 법: 바탕화면의 **연구 작업대** 아이콘(또는 `~/Applications/연구 작업대.app`). 주소창 없는 전용 창으로 열린다. 아이콘은 `zsh scripts/make-app.sh`로 다시 만든다(원본 그림 `scripts/app-icon.svg`).
+여는 법: 바탕화면의 **Emergence Workbench** 아이콘(또는 `~/Applications/Emergence Workbench.app`, Spotlight에서 찾기). 주소창 없는 전용 창으로 열린다. 설치가 `zsh scripts/make-app.sh`로 만들고(원본 그림 `scripts/app-icon.svg`), 예전 이름의 실행기(`연구 작업대.app`)는 지우며 그것을 가리키던 바탕화면 바로가기는 새 앱을 가리키게 한다.
 
-Dock에 따로 띄우기: 앱을 연 크롬 창에서 ⋮ → 전송, 저장, 공유 → **페이지를 앱으로 설치**(설치 정보는 `apps/web/public/manifest.webmanifest`와 아이콘). 그러면 크롬과 별개인 자기 창·자기 Dock 아이콘으로 열리고(`~/Applications/Chrome Apps/연구 작업대.app`), Dock에서 우클릭 → 옵션 → Dock에 유지. 바탕화면 아이콘도 설치된 앱이 있으면 그것을 연다. 서비스가 늘 켜져 있어(로그인 때 켜지고 꺼지면 다시 켜짐) 설치한 앱을 바로 눌러도 된다.
+Dock에 따로 띄우기: 앱을 연 크롬 창에서 ⋮ → 전송, 저장, 공유 → **페이지를 앱으로 설치**(설치 정보는 `apps/web/public/manifest.webmanifest`와 아이콘). 그러면 크롬과 별개인 자기 창·자기 Dock 아이콘으로 열리고(`~/Applications/Chrome Apps/연구 작업대.app`), Dock에서 우클릭 → 옵션 → Dock에 유지(설치는 이 앱이 이미 있으면 이것을, 없으면 실행기를 Dock에 둔다). 바탕화면 아이콘도 설치된 앱이 있으면 그것을 연다. 서비스가 늘 켜져 있어(로그인 때 켜지고 꺼지면 다시 켜짐) 설치한 앱을 바로 눌러도 된다.
 
 **iPad에서 코드 열기 (code-server).** `scripts/remote/ipad-code-server.sh`는 Tailscale 주소에서만, 비밀번호 로그인을 켠 채로 이 맥의 code-server(브라우저용 VS Code)를 연다. 백그라운드 서비스(LaunchAgent)로 돌리고, 비밀번호는 code-server 설정 파일에 둔다. Tailscale이 꺼져 있으면 켜질 때까지 기다린다. 시험은 `pnpm test:scripts`.
 

@@ -4,6 +4,14 @@
 
 You need Node 22 and pnpm. TeX Live (latexmk, xelatex, synctex) is only needed for compiling.
 
+**Install (once per computer).** In the app folder run
+
+```sh
+zsh scripts/install.sh   # or pnpm mac:install; --no-dock and --no-agents skip those steps
+```
+
+It does everything a working Mac needs, in order: Node 22 and pnpm (installed with Homebrew if missing), `pnpm install`, the background service below, the app icon (`~/Applications/Emergence Workbench.app`, found by Spotlight and Launchpad, with a Desktop shortcut), a Dock icon, and the MCP entry point in Claude Code and Codex (`scripts/register-agents.sh`, user scope, nothing added to research repositories). Running it again skips what is done and rewrites paths if the app folder moved. At the end it opens the app; Settings › Accounts › Getting started shows what is left (GitHub sign-in, commit name, first project) and has the same command when something is missing.
+
 **Background service.** For everyday use the app runs as a macOS background service (a LaunchAgent). It starts when you log in, restarts if it stops, and does not depend on any terminal window or agent session. One server serves the built screen and the API at `http://127.0.0.1:5174`.
 
 ```sh
@@ -19,9 +27,9 @@ The update button in Settings does the same as `service:restart`: it fast-forwar
 
 Automatic updates (2026-10-09): when running as the service, the app pulls new versions every 10 minutes and builds them into `apps/web/dist-next` (the served `dist` stays as is). It restarts only while idle: an open window has had no input for 5 minutes and nothing left to save, or no window is open and no write request came for 5 minutes. Running requests (compile, paper download, questions) postpone it. "New version · Restart" in the top bar restarts right away. When the server starts on the new commit it swaps `dist-next` in as `dist`. Local code edits on the Mac stop the pull.
 
-**Opening it.** `zsh scripts/make-app.sh` makes an app launcher in `~/Applications` with a shortcut on the Desktop (icon source: `scripts/app-icon.svg`). It opens the app in a window without an address bar.
+**Opening it.** The installer runs `zsh scripts/make-app.sh`, which makes the launcher `~/Applications/Emergence Workbench.app` with a shortcut on the Desktop (icon source: `scripts/app-icon.svg`) and replaces the launcher of the old name (`연구 작업대.app`), pointing Desktop shortcuts to the new one. It opens the app in a window without an address bar.
 
-**A Dock icon of its own.** In the Chrome window that shows the app, choose ⋮ › Cast, save and share › **Install page as app** (install details: `apps/web/public/manifest.webmanifest`). The app then opens in its own window with its own Dock icon; right-click it in the Dock › Options › Keep in Dock. The launcher opens the installed app when there is one. In Safari (macOS 14 or later), File › Add to Dock does the same.
+**A Dock icon of its own.** In the Chrome window that shows the app, choose ⋮ › Cast, save and share › **Install page as app** (install details: `apps/web/public/manifest.webmanifest`). The app then opens in its own window with its own Dock icon; right-click it in the Dock › Options › Keep in Dock (the installer pins this one when it already exists, otherwise the launcher). The launcher opens the installed app when there is one. In Safari (macOS 14 or later), File › Add to Dock does the same.
 
 **iPad access to code (optional).** `scripts/remote/ipad-code-server.sh` serves this Mac's code-server (VS Code in the browser) on the Tailscale address only, with password login on. Run it as a LaunchAgent; the password lives in the code-server config file. It waits for Tailscale to come up. Tests: `pnpm test:scripts`.
 

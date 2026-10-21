@@ -1,9 +1,11 @@
 #!/bin/zsh
-# "연구 작업대.app"을 만든다: 누르면 scripts/open-app.sh를 실행해 주소창 없는 전용 창으로 앱을 연다.
-# 만든 앱은 ~/Applications에 두고, 바탕화면에 바로가기를 놓는다. 다시 실행하면 새로 만든다.
+# "Emergence Workbench.app"을 만든다: 누르면 scripts/open-app.sh를 실행해 주소창 없는 전용 창으로 앱을 연다.
+# 만든 앱은 ~/Applications에 두고(Spotlight · Launchpad가 찾는다), 바탕화면에 바로가기를 놓는다. 다시 실행하면 새로 만든다.
+# 설치 전체(서비스 · Dock · 에이전트 등록)는 scripts/install.sh가 이 파일을 부른다.
 set -e
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$HOME/Applications/연구 작업대.app"
+APP="$HOME/Applications/Emergence Workbench.app"
+OLD="$HOME/Applications/연구 작업대.app"   # 10/21 전 이름
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -28,13 +30,22 @@ cp "$WORK/app.icns" "$APP/Contents/Resources/applet.icns"
 rm -f "$APP/Contents/Resources/Assets.car"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" "$APP/Contents/Info.plist" 2>/dev/null || true
 # osacompile은 번들 ID를 넣지 않는다. 이름에서 만든 임시 ID 대신 고정 ID를 준다.
-/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.research-workspace.launcher" "$APP/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string io.github.emergence-project.workbench" "$APP/Contents/Info.plist" 2>/dev/null || true
 codesign --force --deep --sign - "$APP" 2>/dev/null
 touch "$APP"
 # 다 고친 번들로 LaunchServices 기록을 새로 쓴다. 만드는 도중에 잡힌 기록(실행 파일 없음)이 남으면 -10810으로 열리지 않는다.
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f -R "$APP"
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREGISTER" -f -R "$APP"
 
-# 3. 바탕화면 바로가기
-ln -sfn "$APP" "$HOME/Desktop/연구 작업대"
+# 3. 예전 이름의 실행기는 지우고, 그것을 가리키던 바탕화면 바로가기는 이름을 그대로 둔 채 새 앱을 가리키게 한다
+linked=""
+for f in "$HOME/Desktop"/*(N@); do
+  t="$(readlink "$f")"
+  if [ "$t" = "$OLD" ] || [ "$t" = "$APP" ]; then ln -sfn "$APP" "$f"; linked="$f"; fi
+done
+if [ -d "$OLD" ]; then "$LSREGISTER" -u "$OLD" 2>/dev/null || true; rm -rf "$OLD"; echo "예전 실행기를 지움: $OLD"; fi
+
+# 4. 바탕화면 바로가기 (이미 이 앱을 가리키는 것이 있으면 그것을 둔다)
+[ -n "$linked" ] || { linked="$HOME/Desktop/Emergence Workbench"; ln -sfn "$APP" "$linked"; }
 echo "만듦: $APP"
-echo "바로가기: ~/Desktop/연구 작업대 (Dock에 두려면 응용 프로그램 폴더에서 끌어다 놓기)"
+echo "바로가기: $linked"

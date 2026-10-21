@@ -11,7 +11,7 @@ Agents such as Claude Code and Codex read Emergence Workbench projects, notes, r
 
 ## Register it
 
-Put the path of the app folder in `<app folder>`. Nothing is added to your research repositories (user-scope registration).
+The Mac installer (`zsh scripts/install.sh`, [mac-setup.md](mac-setup.md)) registers both of these for you. To do only this step, run `pnpm agents:register` (`scripts/register-agents.sh`: skips what is registered, re-registers when the app folder moved). By hand, put the path of the app folder in `<app folder>`. Nothing is added to your research repositories (user-scope registration).
 
 **Claude Code**
 
