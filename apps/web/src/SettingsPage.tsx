@@ -160,7 +160,7 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
 
             {show('agents') && <section data-ui="에이전트 묶음">
               <div className="sec-head"><h2>{t('에이전트', 'Agents')}</h2></div>
-              <AgentSettings />
+              <AgentSettings onSaved={onSaved} />
             </section>}
 
             {show('rules') && <CommonRulesSettings onSaved={onSaved} />}

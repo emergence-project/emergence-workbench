@@ -12,12 +12,12 @@ export const SetupView = z.object({
   projects: z.number(),
   /** 개인 저장소 주소 (없으면 null). active: 이번에 앱을 시작할 때 받아 둔 주소와 같으면 true (아니면 다시 시작해야 쓴다) */
   personal: z.object({ remote: z.string().nullable(), active: z.boolean() }).strict(),
-  /** 에이전트(MCP)가 마지막으로 앱을 부른 때와 그 이름. 부른 적 없으면 null */
-  agent: z.object({ at: z.string(), name: z.string() }).strict().nullable(),
-  /** 이 앱의 MCP 입구를 등록한 에이전트 (Claude Code · Codex). 등록과 부름은 다르다 (10/21) */
-  registered: z.array(z.string()),
-  /** 에이전트를 연결하는 명령 (이 앱 폴더의 scripts/mcp.mjs) */
-  mcpCommand: z.string(),
+  /**
+   * 이 앱을 MCP로 부르는 에이전트마다 (Claude Code · Codex, 10/21 "에이전트 연결을 구분해서"):
+   * registered = 그 에이전트 설정에 이 앱의 MCP 입구가 있는지, at = 마지막으로 앱을 부른 때(없으면 null), command = 등록 명령.
+   * 등록과 부름은 다르다: 등록하기 전에 열린 세션은 부르지 못한다
+   */
+  agents: z.array(z.object({ key: z.enum(['claude-code', 'codex']), name: z.string(), registered: z.boolean(), at: z.string().nullable(), command: z.string() }).strict()),
   /** latexmk를 찾았는지 (PDF 컴파일) */
   tex: z.boolean(),
 }).strict()
