@@ -812,5 +812,8 @@
   "대화 자리": "Panel position",
   "대화 자리 항목": "Panel position items",
   "에이전트 아래 자리": "Agent panel below",
-  "대화 PR": "Conversation PR"
+  "대화 PR": "Conversation PR",
+  "에이전트 진행": "Agent progress",
+  "대화 보기": "Open conversation",
+  "에이전트에게 맡기기": "Hand to agent"
 }

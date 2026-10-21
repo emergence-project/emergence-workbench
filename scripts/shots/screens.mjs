@@ -96,6 +96,8 @@ export const DEFAULT_SCREENS = [
   // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
   ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', '에이전트 버튼'],
   ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['에이전트 버튼', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
+  // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
+  ['feedback-agent', '#/feedback', '에이전트 진행', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '[data-ui="피드백 줄"][data-ui-item^="2026-10-04 10:15"]']],
   ['about', '#/about', '소개'],
   // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
   ['about-tags', '#/about/symbols/tags', '대화 태그'],

@@ -4,6 +4,7 @@
  * 대화 기록은 앱 설정 폴더의 agent-chats/<id>.json (연구 저장소에는 넣지 않는다).
  */
 import { z } from 'zod'
+import { FEEDBACK_MISSES } from '../feedback-lessons.js'
 
 /** 대화가 고칠 수 있는 단계. read = 읽기만(계산은 허락받고 돌림), notes = 노트 · 기록을 앱 MCP로 고침 */
 export const CHAT_WRITE = ['read', 'notes'] as const
@@ -102,6 +103,8 @@ export const ChatRow = z.object({
   /** 앱 고치기 대화: 작업 폴더의 브랜치와 연 PR */
   branch: z.string().optional(),
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(),
+  /** 앱 고치기 대화가 맡은 피드백 (status.yaml · reviews.yaml의 키) */
+  feedback: z.string().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -161,6 +164,32 @@ export const AppChecks = z.object({
   log: z.string().optional(),
 }).strict()
 
+// ---------- 피드백 맡기기: 피드백 하나를 앱 고치기 대화에 넘기고, 그 대화가 처리 기록을 앱을 거쳐 적는다 ----------
+
+/** POST /feedback/hand-off: 에이전트 차례인 피드백 하나를 새 앱 고치기 대화에 맡긴다 (한 번에 하나) */
+export const HandOffBody = z.object({ key: z.string().min(1) }).strict()
+/** 처리 기록에 적을 state (status.yaml과 같은 값) */
+const ANSWER_STATES = ['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류'] as const
+/**
+ * 대화가 맡은 피드백의 처리 기록 (에이전트의 MCP feedback_answer). 앱이 status.yaml에 YAML로 적는다.
+ * 수정 요청 · 진행을 다시 처리하면 앱이 그 전 처리를 revised로 옮기고 rework를 적는다(miss · lesson은 그 revised에).
+ * after = 고친 뒤 화면: 그 PR의 CI가 찍은 그림 이름(shots의 파일 이름, .png 없이). 앱이 받아 그림 폴더에 두고 pictures: [전, 후].
+ * replies = 답 없는 코멘트에 단 답 (to = 그 코멘트의 at). state 없이 replies만 보내면 처리는 그대로 두고 답만 더한다.
+ */
+export const FeedbackAnswerBody = z.object({
+  state: z.enum(ANSWER_STATES).optional(),
+  note: z.string().trim().min(1).max(4000).optional(),
+  understood: z.string().trim().max(2000).optional(),
+  cause: z.string().trim().max(2000).optional(),
+  clean: z.string().trim().max(2000).optional(),
+  ask: z.string().trim().max(1000).optional(),
+  miss: z.enum(FEEDBACK_MISSES).optional(),
+  lesson: z.string().trim().max(500).optional(),
+  after: z.string().regex(/^[\w-]+$/).max(80).optional(),
+  replies: z.array(z.object({ to: z.string().min(1), note: z.string().trim().min(1).max(4000) }).strict()).max(20).optional(),
+}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length, { message: 'state needs note; without state send replies' })
+export const FeedbackAnswered = z.object({ key: z.string(), state: z.string().optional(), pictures: z.array(z.string()).optional(), replies: z.number() }).strict()
+
 export type ChatScope = z.infer<typeof ChatScope>
 export type Attach = z.infer<typeof Attach>
 export type Todo = z.infer<typeof Todo>
@@ -186,3 +215,6 @@ export type NewChatBody = z.input<typeof NewChatBody>
 export type AppSubmitBody = z.infer<typeof AppSubmitBody>
 export type AppSubmitted = z.infer<typeof AppSubmitted>
 export type AppChecks = z.infer<typeof AppChecks>
+export type HandOffBody = z.infer<typeof HandOffBody>
+export type FeedbackAnswerBody = z.infer<typeof FeedbackAnswerBody>
+export type FeedbackAnswered = z.infer<typeof FeedbackAnswered>

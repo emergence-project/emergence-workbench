@@ -1,0 +1,4 @@
+/* 피드백 항목의 에이전트 진행 줄 (2단계 나, 10/21): 맡긴 대화의 상태 · PR · 대화 보기 · 멈추기, 오른쪽에 「에이전트에게 맡기기」 */
+.fbp-agent { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+.fbp-agent .sp { flex: 1; }
+.fbp-agent-error { flex-basis: 100%; font-size: var(--fs-xs); }

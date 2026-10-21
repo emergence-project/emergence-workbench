@@ -28,6 +28,8 @@ export interface AppWork {
   submit(dir: string, branch: string, o: { title: string; body: string }): Promise<AppPr>
   /** 그 브랜치 PR의 CI. 실패한 것이 있으면 실패 기록 끝부분 */
   checks(dir: string, branch: string): Promise<AppChecks>
+  /** 그 브랜치의 마지막 CI가 찍은 화면 그림 하나 (산출물 shots의 <name>.png). 없으면 null */
+  shot(dir: string, branch: string, name: string): Promise<Buffer | null>
   /** 관리자 개인 규칙 파일 (맥 사본이 있으면 안내에 적는다) */
   rules?: string
 }
@@ -107,11 +109,24 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       if (run) log = tail(await gh(dir, ['run', 'view', run, '--log-failed']).catch((e: Error) => e.message))
       return { pr: pr.number, checks, done, ok, ...(log && { log }) }
     },
+    async shot(dir, branch, name) {
+      if (!/^[\w-]+$/.test(name)) return null
+      const runs = JSON.parse(await gh(dir, ['run', 'list', '--branch', branch, '--workflow', 'ci.yml', '--limit', '1', '--json', 'databaseId,status'])) as { databaseId: number; status: string }[]
+      const run = runs[0]
+      if (!run || run.status !== 'completed') return null
+      fs.mkdirSync(base, { recursive: true })
+      const tmp = fs.mkdtempSync(path.join(base, '.shots-'))
+      try {
+        await gh(dir, ['run', 'download', String(run.databaseId), '--name', 'shots', '--dir', tmp])
+        const file = path.join(tmp, `${name}.png`)
+        return fs.existsSync(file) ? fs.readFileSync(file) : null
+      } catch { return null } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
+    },
   }
 }
 
 /** 예제 모드 · 테스트: git · gh 없이 빈 폴더와 정해 둔 PR */
-export function sampleAppWork(base: string): AppWork {
+export function sampleAppWork(base: string, sampleShots?: string): AppWork {
   return {
     async prepare(id) {
       const dir = path.join(base, id)
@@ -121,5 +136,7 @@ export function sampleAppWork(base: string): AppWork {
     async dispose(dir) { fs.rmSync(dir, { recursive: true, force: true }) },
     async submit() { return { number: 234, url: 'https://github.com/emergence-project/emergence-workbench/pull/234', created: true } },
     async checks() { return { pr: 234, checks: [{ name: 'check', state: 'SUCCESS' }], done: true, ok: true } },
+    // 예제의 "고친 뒤" 그림: 예제 피드백 폴더에 있는 그림을 그대로 쓴다 (없으면 없음)
+    async shot(_dir, _branch, name) { const f = sampleShots && path.join(sampleShots, `${name}.png`); return f && fs.existsSync(f) ? fs.readFileSync(f) : null },
   }
 }

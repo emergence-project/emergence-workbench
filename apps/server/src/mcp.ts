@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { LIBRARY_RID, noteRecordTarget } from '@rw/core'
+import { FEEDBACK_MISSES, LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { recordRows } from './recordRows.js'
 import * as C from '@rw/core/contract/flow'
 
@@ -108,7 +108,7 @@ export function agentOf(clientName: string | undefined): string {
   return n.slice(0, 40) || 'mcp'
 }
 
-/** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_checks를 더한다) */
+/** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_checks · feedback_answer를 더한다) */
 export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat?: string } = {}): McpServer {
   const base = (opts.baseUrl ?? DEFAULT_URL).replace(/\/$/, '')
   const f0 = opts.fetch ?? fetch
@@ -566,6 +566,28 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
       inputSchema: {},
       annotations: ro,
     }, async () => call(`/api/agent-chats/${chat}/app/checks`))
+    server.registerTool('feedback_answer', {
+      title: 'Record feedback handling',
+      description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only.',
+      inputSchema: {
+        state: z.enum(['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류']).optional().describe('Handling state'),
+        note: z.string().optional().describe('The answer the user reads; first line is the fixed phrase (수정 완료 (#PR) · 확인 필요 · 답변: 있음/없음/일부 · 의견에 동의 (크기) · 나중에 · 거절)'),
+        understood: z.string().optional().describe('The request as understood'),
+        cause: z.string().optional().describe('Cause'),
+        clean: z.string().optional().describe('The feedback text, grammatically corrected'),
+        ask: z.string().optional().describe('One sentence the user must decide'),
+        miss: z.enum(FEEDBACK_MISSES).optional().describe('When redoing a revision request: why the previous handling was sent back'),
+        lesson: z.string().optional().describe('When redoing: one line on what to do differently next time'),
+        after: z.string().optional().describe('Screen picture name from scripts/shots/screens.mjs, after CI is green'),
+        replies: z.array(z.object({ to: z.string(), note: z.string() })).optional().describe('Answers to unanswered comments'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    }, async (a) => {
+      const r = await post(base, f, `/api/agent-chats/${chat}/feedback/answer`, a)
+      if (!r.ok) return r.error
+      const b = r.body as { state?: string; pictures?: string[]; replies: number }
+      return text(`Recorded${b.state ? ` ${b.state}` : ''}${b.pictures ? ` with pictures ${b.pictures.join(', ')}` : ''}${b.replies ? `, ${b.replies} replies` : ''}. The feedback screen shows it now.`)
+    })
   }
 
   return server

@@ -27,4 +27,6 @@ export const agentChatsApi = {
   stop: (id: string) => req(`${base}/${enc(id)}/stop`, send('POST', {})).then(one),
   remove: (id: string) => req(`${base}/${enc(id)}`, { method: 'DELETE' }).then((r) => json<ChatDeleted>(r)),
   work: () => req('/api/agent-work').then((r) => json<WorkState>(r)),
+  /** 피드백 하나를 새 앱 고치기 대화에 맡긴다 (한 번에 하나) */
+  handOff: (key: string) => req('/api/feedback/hand-off', send('POST', { key })).then(one),
 }

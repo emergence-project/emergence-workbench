@@ -128,6 +128,31 @@ try {
       }
       if (appchat) await fetch(`${base}api/agent-chats/${appchat}/app/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: options.lang === 'en' ? 'Keep the note export menu inside the screen' : '노트 툴바 내보내기 메뉴가 화면 오른쪽에서 잘리지 않게', body: '## Before' }) })
     }
+    if (name === 'feedback-agent') {
+      // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡기고, 앱 MCP가 하듯 PR 올리기와 처리 기록(feedback_answer)을 부른다
+      await page.goto('about:blank')
+      const json = { 'content-type': 'application/json', 'x-rw-lang': options.lang }
+      const res = await fetch(`${base}api/feedback/hand-off`, { method: 'POST', headers: json, body: JSON.stringify({ key: '2026-10-04 10:15 사이드바 › 목차' }) })
+      const id = res.ok ? (await res.json()).chat.id : ''
+      if (!id) problems.push(`${name}: 피드백을 맡기지 못함 (${res.status})`)
+      for (let i = 0; id && i < 50; i++) {
+        const c = (await (await fetch(`${base}api/agent-chats/${id}`)).json()).chat
+        if (c.state === 'idle') break
+        await new Promise((r) => setTimeout(r, 100))
+      }
+      if (id) {
+        await fetch(`${base}api/agent-chats/${id}/app/submit`, { method: 'POST', headers: json, body: JSON.stringify({ title: options.lang === 'en' ? 'Let the outline width be dragged' : '목차 너비를 끌어서 바꾸게', body: '## Before' }) })
+        const en = options.lang === 'en'
+        const r = await fetch(`${base}api/agent-chats/${id}/feedback/answer`, { method: 'POST', headers: json, body: JSON.stringify({
+          state: '반영',
+          note: en ? 'Fixed (#234)\nDrag the right edge of the outline to change its width.' : '수정 완료 (#234)\n목차 오른쪽 경계를 끌어 너비를 바꿀 수 있게 했습니다.',
+          understood: en ? 'Make the outline width adjustable by dragging.' : '목차 너비를 끌어서 바꿀 수 있게 한다.',
+          miss: '덜 고침',
+          lesson: en ? 'Check the narrow width before saying it is fixed.' : '고쳤다고 하기 전에 좁은 폭에서도 본다.',
+        }) })
+        if (!r.ok) problems.push(`${name}: 처리 기록을 적지 못함 (${r.status})`)
+      }
+    }
     if (name === 'agent-dock' || name === 'agent-beside') {
       // 패널 자리 (아래 · 나란히): 새 문서로 열어 패널을 닫힌 채 시작하고, 아래 자리는 설정으로, 나란히는 끝난 대화를 연 채로
       await page.goto('about:blank')

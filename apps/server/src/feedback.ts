@@ -22,7 +22,7 @@ import { git, GIT_TIMEOUT } from './git.js'
 /** 피드백 모드는 등록 전에 수정 · 질문 · 제안을 고른다 (10/9: 질문을 요청으로 읽는 일을 막으려고). 처리할 때 status.yaml의 kind에 종류를 적을 수 있다. 디자인 · 버그 · 기능은 이전 기록, 미분류는 10/9 전 기록과 소개의 피드백 */
 export { FEEDBACK_KINDS, FEEDBACK_MISSES, FEEDBACK_STATES, FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
 export type { FeedbackKind, FeedbackState, FeedbackVerdict, FeedbackEntry, FeedbackStatus, FeedbackRevision, FeedbackReply, FeedbackVerdictEntry, FeedbackReview, FeedbackComment, MergedFeedback, FeedbackItem as FeedbackListItem, FeedbackPublished as PublishResult } from '@rw/core/contract/feedback'
-import { asksUser, stamp as coreStamp } from '@rw/core'
+import { agentTurns, asksUser, stamp as coreStamp } from '@rw/core'
 import { FEEDBACK_KINDS, FEEDBACK_MISSES, FEEDBACK_STATES, FEEDBACK_VERDICTS, type FeedbackComment, type FeedbackEntry, type FeedbackItem as FeedbackListItem, type FeedbackKind, type FeedbackMiss, type FeedbackPickableKind, type FeedbackPublished as PublishResult, type FeedbackReply, type FeedbackRevision, type FeedbackReview, type FeedbackState, type FeedbackStatus, type FeedbackVerdict, type FeedbackVerdictEntry } from '@rw/core/contract/feedback'
 
 export interface FeedbackInput {
@@ -226,17 +226,18 @@ export function readFeedbackComments(dir: string): Map<string, FeedbackComment[]
   return out
 }
 
-/** reviews.yaml을 YAML 문서로 열어 고친 뒤 쓴다. 다른 항목과 다른 칸은 그대로 둔다 */
-function editReviewFile<T>(dir: string, edit: (doc: YAML.Document) => T): T {
-  const file = path.join(dir, REVIEW_FILE)
+/** reviews.yaml · status.yaml을 YAML 문서로 열어 고친 뒤 쓴다. 다른 항목과 다른 칸은 그대로 둔다 */
+function editYamlFile<T>(dir: string, name: string, edit: (doc: YAML.Document) => T): T {
+  const file = path.join(dir, name)
   const doc = fs.existsSync(file) ? YAML.parseDocument(fs.readFileSync(file, 'utf8')) : new YAML.Document({})
-  if (doc.errors.length) throw new Error(t(`${REVIEW_FILE}을 읽지 못했습니다: ${doc.errors[0]!.message.split('\n')[0]}`, `Could not read ${REVIEW_FILE}: ${doc.errors[0]!.message.split('\n')[0]}`))
+  if (doc.errors.length) throw new Error(t(`${name}을 읽지 못했습니다: ${doc.errors[0]!.message.split('\n')[0]}`, `Could not read ${name}: ${doc.errors[0]!.message.split('\n')[0]}`))
   if (!doc.contents) doc.contents = doc.createNode({}) as never
   const r = edit(doc)
   fs.mkdirSync(dir, { recursive: true })
   writeAtomic(file, doc.toString({ lineWidth: 0 }))
   return r
 }
+const editReviewFile = <T>(dir: string, edit: (doc: YAML.Document) => T): T => editYamlFile(dir, REVIEW_FILE, edit)
 
 const stamp = (now: Date) => coreStamp('t', now)
 
@@ -412,6 +413,73 @@ export function listAllFeedback(dir: string): FeedbackListItem[] {
     rep.merged = [...(rep.merged ?? []), { date, time, kind, target, text, n, ...(picture && { picture }), ...(source && { source }) }]
   }
   return out
+}
+
+/** 에이전트 대화가 적는 처리 기록 하나 (앱 MCP feedback_answer, docs/feedback/agent.md 3–6절) */
+export interface FeedbackAnswer {
+  state?: FeedbackState
+  note?: string
+  understood?: string
+  cause?: string
+  clean?: string
+  ask?: string
+  /** 수정 요청을 다시 처리할 때 그 전 처리가 돌려받은 까닭과 교훈 (revised에 적는다) */
+  miss?: FeedbackMiss
+  lesson?: string
+  /** PR 번호 "#n" */
+  commit?: string
+  /** feedback/ 기준 [전, 후] */
+  pictures?: string[]
+  replies?: { to: string; note: string }[]
+}
+
+/**
+ * 처리 기록(status.yaml) 한 항목을 앱이 대신 적는다: 에이전트는 이 파일을 직접 고치지 않는다 (10/21 "앱 안 대화 + CI가 시험").
+ * - state가 있으면 처리를 새로 적는다. 수정 요청 · 진행으로 다시 처리하는 것이면 그 전 처리를 revised에 { at: 그 답의 at, … }로 옮기고 rework를 적는다.
+ * - replies는 코멘트에 단 답으로 더한다 (처리는 그대로).
+ * handled_at · replies.at은 이 컴퓨터의 시간대로 시간대 표기 없이 (규약 6절). 다른 항목과 칸은 그대로 둔다.
+ */
+export function writeFeedbackAnswer(dir: string, key: string, a: FeedbackAnswer, by = 'claude', now = new Date()): { state?: FeedbackState; replies: number } {
+  const item = listAllFeedback(dir).find((e) => e.key === key)
+  if (!item) throw new Error(t(`그 피드백을 찾지 못했습니다: ${key}`, `That feedback was not found: ${key}`))
+  const at = stamp(now)
+  return editYamlFile(dir, STATUS_FILE, (doc) => {
+    const raw = ((doc.toJS() ?? {}) as Record<string, Record<string, unknown> | undefined>)[key]
+    if (a.state) {
+      const back = item.review && agentTurns(item, now.getTime()).some((x) => x === 'rework' || x === 'proceed') ? item.review.at : undefined
+      const revised = Array.isArray(raw?.revised) ? [...(raw!.revised as unknown[])] : []
+      if (back && raw?.state) {
+        const keep = (k: string) => (raw[k] != null && raw[k] !== '' ? { [k]: String(raw[k]) } : {})
+        revised.push({ at: back, ...keep('understood'), ...keep('cause'), ...keep('note'), ...keep('commit'), ...keep('handled_at'), ...keep('by'), ...(a.miss && { miss: a.miss }), ...(a.lesson && { lesson: a.lesson }) })
+      }
+      const next: Record<string, unknown> = {
+        state: a.state,
+        ...(raw?.theme != null && { theme: raw.theme }),
+        ...(raw?.area != null && { area: raw.area }),
+        ...((a.clean ?? raw?.clean) != null && { clean: a.clean ?? raw!.clean }),
+        ...(a.understood && { understood: a.understood }),
+        ...(a.cause && { cause: a.cause }),
+        note: a.note,
+        ...(a.ask && { ask: a.ask }),
+        ...(a.commit && { commit: a.commit }),
+        handled_at: at,
+        by,
+        ...((back ?? raw?.rework) != null && { rework: back ?? raw!.rework }),
+        ...(a.pictures?.length && { pictures: a.pictures }),
+        ...(revised.length && { revised }),
+        ...(Array.isArray(raw?.replies) && { replies: raw!.replies }),
+        ...(raw?.merged_into != null && { merged_into: raw.merged_into }),
+      }
+      doc.set(key, doc.createNode(next))
+    }
+    const replies = a.replies ?? []
+    if (replies.length) {
+      const before = (doc.toJS() as Record<string, { replies?: unknown[] }>)[key]?.replies ?? []
+      if (!doc.has(key)) doc.set(key, doc.createNode({}))
+      doc.setIn([key, 'replies'], doc.createNode([...before, ...replies.map((r) => ({ at, to: r.to, note: r.note, by }))]))
+    }
+    return { ...(a.state && { state: a.state }), replies: replies.length }
+  })
 }
 
 /**

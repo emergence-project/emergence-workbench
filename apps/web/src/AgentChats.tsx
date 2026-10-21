@@ -35,7 +35,7 @@ const STATE_NAME: Record<ChatState, string> = {
   error: t('오류', 'Error'),
 }
 const WAIT_NAME: Record<NonNullable<ChatRow['wait']>, string> = { plan: t('계획 승인 기다림', 'Plan waits for you'), ask: t('허락 기다림', 'Needs approval') }
-const stateName = (c: Pick<ChatRow, 'state' | 'wait'>) => (c.state === 'waiting' && c.wait ? WAIT_NAME[c.wait] : STATE_NAME[c.state])
+export const stateName = (c: Pick<ChatRow, 'state' | 'wait'>) => (c.state === 'waiting' && c.wait ? WAIT_NAME[c.wait] : STATE_NAME[c.state])
 
 /** 대화 상태: 일하는 중은 진행 점, 사용자 차례(허락 · 계획)는 주황 점, 오류는 위험 색 글자, 나머지는 옅은 이름 */
 export function ChatStateMark({ state, label, name: given }: { state: ChatState; label?: boolean; name?: string }) {
