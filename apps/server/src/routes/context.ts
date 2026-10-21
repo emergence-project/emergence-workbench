@@ -25,4 +25,6 @@ export interface RouteContext {
   recordsRoot: (rid: string) => string
   /** 개념노트 색인 (공유 라이브러리가 없으면 null). 개념노트 화면과 노트 링크가 함께 쓴다 */
   conceptIndex: () => ConceptIndex | null
+  /** 앱이 피드백 처리 기록을 대신 적은 뒤 (routes/feedback.ts가 저절로 올리기를 건다) */
+  feedbackWritten?: () => void
 }

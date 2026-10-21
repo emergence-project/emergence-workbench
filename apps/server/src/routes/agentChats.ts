@@ -37,6 +37,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
     ...(appWork && { app: appWork }),
+    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.() } }),
   })
   app.addHook('onClose', async () => chats.stopAll())
 
@@ -75,6 +76,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   /** 앱 고치기 대화: 커밋해 PR 열기 · CI 결과 (에이전트가 앱 MCP app_submit · app_checks로 부른다) */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/app/submit', replies(C.AppSubmitted), async (req): Promise<C.AppSubmitted> => chats.appSubmit(req.params.id, parseBody(C.AppSubmitBody, req.body)))
   app.get<{ Params: { id: string } }>('/api/agent-chats/:id/app/checks', replies(C.AppChecks), async (req): Promise<C.AppChecks> => chats.appChecks(req.params.id))
+  // 피드백 맡기기 (2단계 나): 피드백 화면의 「에이전트에게 맡기기」와, 맡은 대화가 처리 기록을 앱을 거쳐 적는 feedback_answer
+  app.post('/api/feedback/hand-off', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.handOff(parseBody(C.HandOffBody, req.body).key) }))
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/feedback/answer', replies(C.FeedbackAnswered), async (req): Promise<C.FeedbackAnswered> => chats.feedbackAnswer(req.params.id, parseBody(C.FeedbackAnswerBody, req.body)))
 
   /** 지금 도는 대화와 잡은 파일: 화면 · 앱 밖 에이전트가 같은 것을 보고 피한다 */
   app.get('/api/agent-work', replies(C.WorkState), async (): Promise<C.WorkState> => chats.work())

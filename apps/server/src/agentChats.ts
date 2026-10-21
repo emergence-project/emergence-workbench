@@ -14,8 +14,10 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID } from '@rw/core/contract/agentChats'
-import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork } from './appWorktree.js'
+import { agentTurnReasons, agentTurns, localDate, localTime } from '@rw/core'
+import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -73,6 +75,8 @@ const RESEARCH_WRITES = new Set([...MCP_WRITES, 'add_task', 'report_task', 'add_
 /** 앱 고치기 대화만 쓰는 앱 MCP 도구: 커밋해 PR 열기 · CI 결과 */
 export const APP_SUBMIT = 'app_submit'
 export const APP_CHECKS = 'app_checks'
+/** 맡은 피드백의 처리 기록 (앱이 status.yaml에 적는다) */
+export const FEEDBACK_ANSWER = 'feedback_answer'
 
 export interface PolicyCtx {
   rid: string
@@ -128,7 +132,7 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
     const project = str(input.project)
     const file = str(input.file)
     const outside = (project && project !== ctx.rid) || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
-    const what = [project && project !== ctx.rid ? project : '', file || str(input.id) || str(input.target) || str(input.query) || str(input.section) || str(input.title)].filter(Boolean).join(' · ')
+    const what = [project && project !== ctx.rid ? project : '', file || str(input.id) || str(input.target) || str(input.query) || str(input.section) || str(input.title) || str(input.state)].filter(Boolean).join(' · ')
     return { tool: name, summary: clip(what), ...(outside && { outside }) }
   }
   if (READ_TOOLS.has(tool)) {
@@ -262,7 +266,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
 // ---------- 안내 (대화를 열 때 한 번, 짧게) ----------
 
 /** 앱 고치기 대화의 안내 */
-export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string }): string {
+export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean }): string {
   const lines = [
     `You are fixing the Emergence Workbench app itself, from inside the app. The current folder is a separate git worktree of the app repository on branch ${o.branch}, made from origin/main. The running app and the user's own checkout are elsewhere.`,
     `Read CLAUDE.md first${o.rules ? `, then the maintainer's personal rules at ${o.rules} (they take precedence)` : ''}. Feedback handling rules: docs/feedback/agent.md.`,
@@ -273,6 +277,10 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     'Because you cannot run anything, read the surrounding code and tests carefully before editing, and update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
     'Research projects are read-only here: do not change notes, records, tasks or flows.',
   ]
+  if (o.feedback) lines.push(
+    `This conversation handles one app feedback item (the first message). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Look at its picture first if it has one.`,
+    `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures.`,
+  )
   if (o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
   lines.push('Use TodoWrite for work with three or more steps. Write to the user in Korean, briefly: result first.')
   return lines.join('\n')
@@ -356,6 +364,30 @@ type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archived'> &
   worktree?: string
 }
 
+/** 피드백을 맡길 때 대화의 첫 지시: 그 항목의 글 · 자리 · 그림과 차례인 이유 (처리 규칙은 안내에) */
+export function feedbackPrompt(e: FeedbackListItem, reasons: string[], picture?: string): string {
+  const lines = [
+    t('이 피드백 하나를 피드백 처리 규칙대로 처리해 주세요.', 'Handle this one feedback item by the feedback rules.'),
+    '',
+    `- key: ${e.key}`,
+    `- ${t('유형', 'Kind')}: ${e.status?.kind ?? e.kind}`,
+    `- ${t('부위', 'Spot')}: ${e.target}${e.route ? ` (${e.route})` : ''}`,
+    ...(e.note ? [`- ${t('열린 노트', 'Open note')}: ${e.note}`] : []),
+    ...(e.viewport || e.theme ? [`- ${t('화면', 'Screen')}: ${[e.viewport, e.theme].filter(Boolean).join(' · ')}`] : []),
+    ...(e.version ? [`- ${t('남길 때 앱', 'App when left')}: ${e.version}`] : []),
+    ...(picture ? [`- ${t('그림', 'Picture')}: ${picture}`] : []),
+    ...reasons.map((r) => `- ${t('차례인 이유', 'Why now')}: ${r}`),
+    '',
+    e.text.trim(),
+  ]
+  if (e.status) lines.push('', `${t('지금 처리 기록', 'Current record')}: ${e.status.state}${e.status.note ? ` — ${e.status.note}` : ''}`)
+  if (e.review) lines.push(`${t('사용자 답', 'User answer')}: ${e.review.verdict} (${e.review.at})${e.review.note ? ` — ${e.review.note}` : ''}`)
+  const answered = new Set((e.status?.replies ?? []).map((r) => r.to))
+  for (const c of e.comments ?? []) if (!answered.has(c.at)) lines.push(`${t('답 없는 코멘트', 'Unanswered comment')} (at ${c.at}): ${c.note}`)
+  return lines.join('\n')
+}
+
+
 /** 카드에 받은 답 (거절의 할 말, 계획 승인 뒤 맡기는 정도) */
 type Answer = { answer: AskAnswer; note?: string; mode?: ChatMode }
 
@@ -379,6 +411,8 @@ export interface AgentChatsDeps {
   notify: (chat: ChatRow) => void
   /** 앱 고치기 대화의 작업 폴더와 PR (앱 저장소가 있는 맥에서만) */
   app?: AppWork
+  /** 앱 피드백 폴더 (맡기기 · 처리 기록). written = 처리 기록을 적은 뒤 (저절로 올리기) */
+  feedback?: { dir: string; written?: () => void }
 }
 
 export class AgentChats {
@@ -433,7 +467,7 @@ export class AgentChats {
     return { chats: [...this.chats.values()].filter((c) => LIVE.has(c.state)).map((c) => ({ id: c.id, rid: c.rid, title: c.title, state: c.state, scope: c.scope, claims: c.claims })) }
   }
 
-  create(b: NewChatBody): Chat {
+  create(b: NewChatBody, link: { feedback?: string } = {}): Chat {
     const app = b.rid === APP_RID
     if (app && !this.deps.app) throw new WorkbenchError(404, t('이 맥에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다', 'No app repository on this Mac, so app conversations are not available'))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
@@ -459,6 +493,7 @@ export class AgentChats {
       created: at,
       updated: at,
       items: [],
+      ...(link.feedback && { feedback: link.feedback }),
     }
     this.chats.set(c.id, c)
     this.start(c, b)
@@ -550,6 +585,63 @@ export class AgentChats {
     this.chats.delete(id)
     fs.rmSync(this.fileOf(id), { force: true })
     if (c.worktree && this.deps.app) void this.deps.app.dispose(c.worktree).catch(() => undefined)
+  }
+
+  /**
+   * 피드백 하나를 새 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」). 한 번에 하나:
+   * 피드백을 맡은 대화가 도는 중이면 거절한다. 에이전트 차례가 아닌 항목(사용자 차례 · 완료)도 거절한다.
+   */
+  handOff(key: string): Chat {
+    const fb = this.deps.feedback
+    if (!this.deps.app || !fb) throw new WorkbenchError(404, t('이 맥에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)', 'Feedback cannot be handed to an agent on this Mac (needs the app repository and a feedback folder)'))
+    const busy = [...this.chats.values()].find((c) => c.feedback && LIVE.has(c.state))
+    if (busy) throw new WorkbenchError(409, t(`다른 피드백을 맡은 대화(「${busy.title}」)가 일하는 중입니다. 끝난 뒤 맡깁니다`, `Another feedback conversation ("${busy.title}") is working. Hand this one off after it finishes`))
+    const e = listAllFeedback(fb.dir).find((x) => x.key === key)
+    if (!e) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
+    const reasons = agentTurnReasons(e)
+    if (!reasons.length) throw new WorkbenchError(400, t('에이전트 차례가 아닌 피드백입니다', 'This feedback is not the agent\'s turn'))
+    const picture = e.picture ? path.join(fb.dir, e.picture) : undefined
+    const title = `${t('피드백', 'Feedback')} · ${(e.status?.clean ?? e.text).replace(/\s+/g, ' ').trim()}`.slice(0, 60)
+    return this.create({ rid: APP_RID, text: feedbackPrompt(e, reasons, picture && fs.existsSync(picture) ? picture : undefined), title, mode: 'edit' }, { feedback: key })
+  }
+
+  /**
+   * 맡은 피드백의 처리 기록을 적는다 (에이전트의 feedback_answer). after가 있으면 그 PR의 CI 그림을 받아
+   * 그림 폴더에 두고 pictures: [전(남길 때 그림), 후]. 반영이고 PR이 있으면 commit: "#n".
+   */
+  async feedbackAnswer(id: string, b: FeedbackAnswerBody): Promise<FeedbackAnswered> {
+    const c = this.must(id)
+    const fb = this.deps.feedback
+    if (!c.feedback || !fb) throw new WorkbenchError(400, t('피드백을 맡은 대화가 아닙니다', 'This conversation has no feedback item'))
+    const e = listAllFeedback(fb.dir).find((x) => x.key === c.feedback)
+    if (!e) throw new WorkbenchError(404, t('맡은 피드백을 찾지 못했습니다', 'The feedback item was not found'))
+    let pictures: string[] | undefined
+    if (b.after) {
+      if (!this.deps.app || !c.worktree || !c.branch || !c.pr) throw new WorkbenchError(409, t('PR을 연 뒤에 고친 뒤 그림을 받을 수 있습니다', 'Open the PR before asking for the after picture'))
+      const png = await this.deps.app.shot(c.worktree, c.branch, b.after)
+      if (!png) throw new WorkbenchError(409, t(`CI 그림 ${b.after}을 받지 못했습니다. CI가 끝났는지, 그 화면 이름이 맞는지 확인하세요`, `Could not get the CI picture ${b.after}. Check that CI finished and the screen name is right`))
+      const d = new Date()
+      const name = `pictures/${localDate(d)}-${localTime(d).replace(':', '')}-${b.after}-after.png`
+      fs.mkdirSync(path.join(fb.dir, 'pictures'), { recursive: true })
+      fs.writeFileSync(path.join(fb.dir, name), png)
+      pictures = e.picture && fs.existsSync(path.join(fb.dir, e.picture)) ? [e.picture, name] : undefined
+    }
+    const r = writeFeedbackAnswer(fb.dir, c.feedback, {
+      ...(b.state && { state: b.state }),
+      ...(b.note && { note: b.note }),
+      ...(b.understood && { understood: b.understood }),
+      ...(b.cause && { cause: b.cause }),
+      ...(b.clean && { clean: b.clean }),
+      ...(b.ask && { ask: b.ask }),
+      ...(b.miss && { miss: b.miss }),
+      ...(b.lesson && { lesson: b.lesson }),
+      ...(b.state === '반영' && c.pr && { commit: `#${c.pr.number}` }),
+      ...(pictures && { pictures }),
+      ...(b.replies && { replies: b.replies }),
+    })
+    fb.written?.()
+    this.touch(c)
+    return { key: c.feedback, ...(r.state && { state: r.state }), ...(pictures && { pictures }), replies: r.replies }
   }
 
   /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */
@@ -676,7 +768,8 @@ export class AgentChats {
         if (c.worktree !== w.dir || c.branch !== w.branch) { c.worktree = w.dir; c.branch = w.branch; this.touch(c) }
         p = { repo: w.dir, title: 'Emergence Workbench' }
       } else p = this.deps.project(c.rid)
-      const readable = app ? [] : this.deps.readable().filter((d) => d !== p.repo)
+      // 앱 고치기 대화는 작업 폴더만, 피드백을 맡았으면 피드백 폴더(그림)도 묻지 않고 읽는다
+      const readable = app ? (c.feedback && this.deps.feedback ? [this.deps.feedback.dir] : []) : this.deps.readable().filter((d) => d !== p.repo)
       const mode = c.mode
       const ctx: PolicyCtx = { rid: c.rid, write: c.write, mode, planOk: false, scope: c.scope, repo: p.repo, readable, claimedBy: (f) => this.claimedBy(c.id, f) }
       const claim = (file?: string) => {
@@ -748,7 +841,7 @@ export class AgentChats {
         cwd: p.repo,
         extraDirs: app ? [] : this.deps.extraDirs(),
         brief: app
-          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules })
+          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback })
           : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })) }),
         write: c.write,
         ...(app && { appChat: c.id }),
@@ -803,7 +896,7 @@ const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })) })

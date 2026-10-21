@@ -41,6 +41,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
       })
     }, delay)
   }
+  ctx.feedbackWritten = scheduleAutoPublish
   // 개인 저장소 사본에 GitHub의 새 처리 기록을 받는다: 피드백 화면을 열 때(1분에 한 번까지)와 5분마다
   let lastSync = 0
   let syncing: Promise<unknown> | null = null
