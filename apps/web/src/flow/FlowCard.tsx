@@ -13,12 +13,16 @@ import { KIND, FIELD, EDGE, EVK, PRIORITY, markOf, stateOf, stateName, DOT, Mark
 import { Check, Chain, FlowText, approvedBy } from './evidence'
 import { ApproveDialog } from './ApproveDialog'
 
-export function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onAdd, onPickFrom, onEdit, onUnplace, onDeleted, reload, fail }: {
+export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick, onAdd, onPickFrom, onEdit, onUnplace, onDeleted, reload, fail }: {
   reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; notes: NoteRow[]
   /** 손으로 옮긴 자리인지 */
   manual: boolean
+  /** 이 점이 있는 줄의 이름 (10/21: 줄 이름은 여기서 고친다) */
+  row?: { name: string; save(name: string): void }
   onPick(id: string): void; onAdd(): void; onPickFrom(): void; onEdit(): void; onUnplace(): void; onDeleted(): void; reload(): void; fail(e: unknown): void
 }) {
+  const [rowText, setRowText] = useState<string | null>(null)
+  const saveRow = () => { if (rowText !== null) row?.save(rowText); setRowText(null) }
   const [approving, setApproving] = useState<{ ev: number } | { step: number } | null>(null)
   const remove = async () => {
     const out = all.filter((m) => m.from.some((f) => f.id === n.id)).length
@@ -64,6 +68,14 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, onPick, onA
         {hasProof && !n.theorem && <span className="muted">{tr('증명 승인 대기 · 승인하면 정리', 'Proof awaiting approval · becomes a theorem when approved')}</span>}
         <span><i>{tr('상태', 'State')}</i><StatusDot s={DOT[stateOf(n)]} name={stateName(n)} label /></span>
         {n.end && <span>{tr('갈래 종결', 'Branch closed')}</span>}
+        {row && <span className="fl-rowfield" data-ui="흐름 줄 이름 고치기"><i>{tr('줄', 'Row')}</i>
+          {rowText !== null
+            ? <input className="fl-rowname-in" autoFocus aria-label={tr('줄 이름', 'Row name')} placeholder={tr('줄 이름', 'Row name')} value={rowText}
+              onChange={(e) => setRowText(e.target.value)} onBlur={saveRow}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveRow() } else if (e.key === 'Escape') setRowText(null) }} />
+            : <>{row.name || <span className="muted">{tr('이름 없음', 'No name')}</span>}
+              <button className="icon-btn sm" title={tr('줄 이름 고치기', 'Rename row')} aria-label={tr('줄 이름 고치기', 'Rename row')} onClick={() => setRowText(row.name)}>{Icon.pencil}</button></>}
+        </span>}
       </div>
       {n.gaps.length > 0 && <ul className="fl-gaps" data-ui="흐름 빈틈">
         <li><b>{tr(`빈틈 ${n.gaps.length}`, `${n.gaps.length} gaps`)}</b></li>
