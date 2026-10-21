@@ -13,7 +13,7 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/research-workspace.log"
 DOMAIN="gui/$(id -u)"
 URL="http://127.0.0.1:5174/"
-export PATH="/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+export PATH="/opt/homebrew/opt/node@22/bin:/usr/local/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 build() { (cd "$REPO" && pnpm --filter @rw/web build >/dev/null) && echo "화면 빌드 완료"; }
 

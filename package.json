@@ -24,6 +24,8 @@
     "type-check": "pnpm -r run type-check && pnpm --filter @rw/server exec tsc -p ../../scripts/tsconfig.json",
     "start": "pnpm build && zsh scripts/serve.sh",
     "build": "pnpm --filter @rw/web build",
+    "mac:install": "zsh scripts/install.sh",
+    "agents:register": "zsh scripts/register-agents.sh",
     "service:install": "zsh scripts/service.sh install",
     "service:restart": "zsh scripts/service.sh restart",
     "service:status": "zsh scripts/service.sh status",

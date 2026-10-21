@@ -18,6 +18,11 @@ export const SetupView = z.object({
    * 등록과 부름은 다르다: 등록하기 전에 열린 세션은 부르지 못한다
    */
   agents: z.array(z.object({ key: z.enum(['claude-code', 'codex']), name: z.string(), registered: z.boolean(), at: z.string().nullable(), command: z.string() }).strict()),
+  /**
+   * 이 컴퓨터에 설치 (10/21 "다른 컴퓨터에서도 아이콘부터 에이전트 등록까지 설치 과정에서"): scripts/install.sh가 하는 일 중 앱이 볼 수 있는 것.
+   * app = ~/Applications의 앱 아이콘(Spotlight · Launchpad · 바탕화면), dock = Dock에 고정, service = 백그라운드 서비스 등록. command = 설치 명령 (빠진 것을 마저 한다)
+   */
+  install: z.object({ app: z.boolean(), dock: z.boolean(), service: z.boolean(), command: z.string() }).strict(),
   /** latexmk를 찾았는지 (PDF 컴파일) */
   tex: z.boolean(),
 }).strict()

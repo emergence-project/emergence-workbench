@@ -11,7 +11,7 @@ Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 
 
 ## 등록
 
-앱 저장소 폴더 경로를 `<앱 폴더>`에 넣는다. 연구 저장소에는 아무 파일도 더하지 않는다(사용자 범위 등록).
+맥 설치(`zsh scripts/install.sh`, [mac-setup.ko.md](mac-setup.ko.md))가 아래 둘을 저절로 등록한다. 따로 하려면 `pnpm agents:register`(`scripts/register-agents.sh`: 이미 있으면 건너뛰고, 앱 폴더를 옮겼으면 다시 등록). 손으로 할 때는 앱 저장소 폴더 경로를 `<앱 폴더>`에 넣는다. 연구 저장소에는 아무 파일도 더하지 않는다(사용자 범위 등록).
 
 **Claude Code**
 
