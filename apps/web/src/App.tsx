@@ -2,7 +2,7 @@ import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
-import { AppUpdateButton } from './AppUpdate'
+import { AppUpdateRail } from './AppUpdate'
 import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
 import { AskTextHost } from './askText'
@@ -416,7 +416,7 @@ export function App() {
       <TopBar crumbs={crumbs} heading={!pageH1} leftToggle={(!!rid && !globalPage) || !!globalSide} sideOpen={sideOpen} onSide={() => setSideOpen((v) => !v)}
         project={!!rid && !globalPage} split={workspaceVisibility(layout, route.page, workspaceDragging).shown.length === 2} onSplit={() => setLayout((l) => toggleSplit(l, route.page))} rightToggle={(!!rid && !globalPage) || globalRightAble}
         rightOpen={globalPage ? globalRight : layout.ctx} onRight={() => (globalPage ? setGlobalRight((v) => !v) : setLayout((l) => ({ ...l, ctx: !l.ctx })))}
-        search={search} onSearch={() => setSearch(true)} feedback={feedback} onFeedback={() => setFeedback((v) => !v)} update={<AppUpdateButton />} />
+        search={search} onSearch={() => setSearch(true)} feedback={feedback} onFeedback={() => setFeedback((v) => !v)} />
 
       <div className={`body${showSide ? '' : ' no-side'}`}>
         <nav className="rail" aria-label={t('공간', 'Spaces')} data-ui="왼쪽 띠">
@@ -434,6 +434,7 @@ export function App() {
           <span className="rail-hr" />
           {GLOBAL_PAGES.filter((g) => g.rail === 'top').map(railPage)}
           <span className="sp" />
+          <AppUpdateRail />
           {GLOBAL_PAGES.filter((g) => g.rail === 'bottom').map(railPage)}
         </nav>
 

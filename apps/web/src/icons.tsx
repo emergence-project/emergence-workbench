@@ -26,6 +26,8 @@ export const Icon = {
   plus: <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>,
   play: <svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" /></svg>,
   download: <svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5" /><path d="M5 19h14" /></svg>,
+  /** 새 버전 받기 (10/21): 동그라미 안 아래 화살표. 내보내기 ⤓와 따로 */
+  update: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v8M8.5 12.5L12 16l3.5-3.5" /></svg>,
   pencil: <svg viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" /><path d="M13.5 7.5l3 3" /></svg>,
   highlight: <svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5-8 8H6.5v-5z" /><path d="M4 20.5h9" /></svg>,
   comment: <svg viewBox="0 0 24 24"><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5z" /><path d="M8 10h8M8 13.2h5" /></svg>,

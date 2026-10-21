@@ -12,7 +12,7 @@ export interface Crumb { label: string; to?: Route; title?: string }
  * 아이콘만 두고 가리키면 이름과 키가 뜬다(data-tip). 켜진 것은 회색 바탕(.on).
  * 테마는 설정으로, 빠른 메모는 오른쪽 사이드바 메모와 M 키로, 두 칸 맞바꾸기는 칸 머리를 끌어서 한다.
  */
-export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project, split, onSplit, rightToggle, rightOpen, onRight, search, onSearch, feedback, onFeedback, update }: {
+export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project, split, onSplit, rightToggle, rightOpen, onRight, search, onSearch, feedback, onFeedback }: {
   crumbs: Crumb[]
   /** 화면에 h1이 없으면 마지막 위치를 제목으로 알린다 (에이전트·화면 읽기 프로그램용) */
   heading: boolean
@@ -21,7 +21,6 @@ export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project,
   project: boolean; split: boolean; onSplit(): void; rightToggle: boolean; rightOpen: boolean; onRight(): void
   search: boolean; onSearch(): void
   feedback: boolean; onFeedback(): void
-  update: ReactNode
 }) {
   return (
     <header className="titlebar topbar bar3" data-ui="제목줄">
@@ -41,7 +40,6 @@ export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project,
         })}
       </nav>
       <div className="tb-right">
-        {update}
         {/* 전역 검색은 제목줄에 (10/4 19:33 피드백) */}
         <button className={`icon-btn${search ? ' on' : ''}`} data-ui="검색 버튼" data-tip={t('검색 (/)', 'Search (/)')} aria-label={t('검색 — 모든 프로젝트와 라이브러리', 'Search all projects and the library')} aria-pressed={search} onClick={onSearch}>{Icon.search}</button>
         {project && <button className={`icon-btn${split ? ' on' : ''}`} data-ui="두 칸 켜고 끄기" data-tip={t('두 패널', 'Two panes')} aria-label={t('두 패널로 보기 켜고 끄기', 'Toggle two-pane view')} aria-pressed={split} onClick={onSplit}>{Icon.split}</button>}

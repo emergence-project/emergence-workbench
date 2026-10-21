@@ -57,6 +57,11 @@ button.a { text-align: inherit; }
 .rail-btn svg { width: 18px; height: 18px; }
 .rail-btn:hover { background: var(--bg-hover); color: var(--text); }
 .rail-btn.on { background: var(--bg-hover); color: var(--primary); }
+/* 새 버전 받기 (10/21): 받을 수 있으면 주 버튼 색, 확인이 필요하면 테두리만, 받는 중이면 흐리게 */
+.rail-btn.rail-update { border: 1px solid var(--line-strong); color: var(--text); margin-bottom: var(--sp-1); }
+.rail-btn.rail-update.ready { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.rail-btn.rail-update.ready:hover { opacity: .85; }
+.rail-btn.rail-update.busy { opacity: .5; cursor: progress; }
 .rail .sp { flex: 1; }
 
 /* ---------- 사이드바 ---------- */
@@ -194,7 +199,6 @@ button.a { text-align: inherit; }
 body.resizing { cursor: col-resize; user-select: none; }
 body.resizing iframe, body.resizing canvas { pointer-events: none; }
 .ws-ctx { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
-.tb-update { margin-right: var(--sp-1); } /* 크기는 .btn.sm */
 .tb-sep { width: 1px; height: 18px; background: var(--line-strong); margin: 0 var(--sp-1); }
 .pdf-state { font-size: var(--fs-xs); }
 .pdf-state.ok { color: var(--text-2); }
