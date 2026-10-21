@@ -41,9 +41,17 @@ export function installState(home = os.homedir(), dockList?: string): Omit<C.Set
   }
 }
 
-/** 명령이 PATH(와 서비스가 보지 못하는 Homebrew · ~/.local)에 있는지. 없으면 등록 명령도 쓸 수 없다 (10/21 맥미니: Codex 없음) */
-export function agentInstalled(cmd: string, home = os.homedir(), envPath = process.env.PATH ?? ''): boolean {
-  return onPath(cmd, [envPath, '/opt/homebrew/bin', '/usr/local/bin', path.join(home, '.local/bin'), path.join(home, '.npm-global/bin')].join(path.delimiter))
+/** ChatGPT 데스크톱 앱에 든 Codex CLI. PATH에 넣지 않아 터미널 밖에서는 안 보인다 (10/22 맥미니) */
+export const BUNDLED_CODEX = '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex'
+
+/**
+ * 명령이 PATH(와 서비스가 보지 못하는 Homebrew · ~/.local)에 있는지. 없으면 등록 명령도 쓸 수 없다 (10/21 맥미니: Codex 없음).
+ * 'path'면 PATH에 있음, 경로면 PATH 밖의 그 파일(ChatGPT 앱의 Codex), null이면 없음
+ */
+export function agentInstalled(cmd: string, home = os.homedir(), envPath = process.env.PATH ?? '', bundled = BUNDLED_CODEX): 'path' | string | null {
+  if (onPath(cmd, [envPath, '/opt/homebrew/bin', '/usr/local/bin', path.join(home, '.local/bin'), path.join(home, '.npm-global/bin')].join(path.delimiter))) return 'path'
+  if (cmd === 'codex') { try { fs.accessSync(bundled, fs.constants.X_OK); return bundled } catch { /* 없음 */ } }
+  return null
 }
 
 const gitGlobal = async (key: string): Promise<string> => {
@@ -61,10 +69,12 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     const registered = opts.sandbox ? [] : agentRegistered()
     const seen = agentSeen(opts.configDir)
     const mcp = appPath('scripts/mcp.mjs')
+    const codex = opts.sandbox ? 'path' : agentInstalled('codex')
+    const codexCmd = codex && codex !== 'path' ? `"${codex}"` : 'codex'
     return [
       { key: 'claude-code', name: 'Claude Code', command: `claude mcp add --scope user emergence-workbench -- node ${mcp}` },
-      { key: 'codex', name: 'Codex', command: `codex mcp add emergence-workbench -- node ${mcp}` },
-    ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', installed: opts.sandbox || agentInstalled(a.key === 'codex' ? 'codex' : 'claude'), registered: registered.includes(a.name), at: seen[a.key] ?? null }))
+      { key: 'codex', name: 'Codex', command: `${codexCmd} mcp add emergence-workbench -- node ${mcp}` },
+    ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', installed: opts.sandbox || !!(a.key === 'codex' ? codex : agentInstalled('claude')), registered: registered.includes(a.name), at: seen[a.key] ?? null }))
   }
 
   // 예제 모드: 다른 컴퓨터에 하나 더 있는 것처럼 (시작 준비 · 홈의 "다른 컴퓨터의 프로젝트" 그림)
@@ -122,6 +132,15 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     if (fs.existsSync(dest)) {
       if (!sameRepo(await remoteOf(dest), repo.url)) throw new WorkbenchError(409, t(`${dest}에 다른 폴더가 있습니다. 홈의 "＋ 프로젝트 등록"으로 다른 곳에 받으세요.`, `${dest} holds a different folder. Use "＋ Register project" on Home to download it elsewhere.`))
     } else await cloneInto(repo.url, parent, folder)
+    // 연구 저장소가 workbench/를 올리지 않는 프로젝트는 개인 저장소 백업(<id>/workbench/)에서 가져온다 (10/22 맥미니 Faraday disk).
+    // 빈 workbench/를 새로 만들면 첫 맞추기에서 다른 컴퓨터의 것을 덮을 수 있어 만들지 않는다
+    if (!fs.existsSync(path.join(dest, 'workbench'))) {
+      const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))
+      const id = dir ? otherMachineProjects(dir).find((o) => sameRepo(o.remote, repo.url))?.id : undefined
+      const saved = dir && id ? path.join(dir, id, 'workbench') : null
+      if (!saved || !fs.existsSync(saved)) throw new WorkbenchError(409, t(`${dest}에 받았지만 workbench/가 저장소에도 개인 저장소 백업에도 없습니다. 원래 컴퓨터에서 설정 › 백업의 "지금 맞추기"를 한 번 한 뒤 다시 등록하세요.`, `Downloaded to ${dest}, but workbench/ is neither in the repository nor in the personal repository backup. On the original computer, press "Sync now" in Settings › Backup once, then register again.`))
+      fs.cpSync(saved, path.join(dest, 'workbench'), { recursive: true })
+    }
     ensureWatch(registry.register(dest, { tags: body.tags }).id)
     return view()
   })

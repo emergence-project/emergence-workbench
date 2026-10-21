@@ -1,4 +1,5 @@
 // 설정 › 계정 › 시작 준비: 커밋 이름 · 이메일, 개인 저장소 주소, 에이전트 연결, TeX
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -6,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
 import { useGithubFetch } from './personalRepo.js'
-import { installState, onPath } from './routes/setup.js'
+import { agentInstalled, installState, onPath } from './routes/setup.js'
 import { agentRegistered, agentSeen, noteAgentCall } from './agentSeen.js'
 
 const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-setup-'))
@@ -92,6 +93,14 @@ describe('시작 준비', () => {
     expect(onPath('latexmk', `/nowhere${path.delimiter}${bin}`)).toBe(true)
     expect(onPath('latexmk', '/nowhere')).toBe(false)
   })
+
+  it('Codex는 PATH에 없어도 ChatGPT 앱 안의 것을 찾는다 (10/22 맥미니)', () => {
+    const app = path.join(tmp, 'ChatGPT-codex')
+    fs.writeFileSync(app, '#!/bin/sh\n', { mode: 0o755 })
+    expect(agentInstalled('codex', tmp, '/nowhere', app)).toBe(app)
+    expect(agentInstalled('codex', tmp, '/nowhere', path.join(tmp, 'none'))).toBe(null)
+    expect(agentInstalled('claude', tmp, '/nowhere', app)).toBe(null)
+  })
   it('설치 상태: 앱 아이콘 · Dock · 서비스를 본다 (scripts/install.sh가 하는 일)', async () => {
     const home = path.join(tmp, 'home-install')
     expect(installState(home, '')).toEqual({ app: false, dock: false, service: false })
@@ -112,6 +121,31 @@ describe('시작 준비', () => {
     expect(v.elsewhere).toMatchObject([{ machine: 'Office-iMac', title: 'Topology', remote: 'https://github.com/me/topology.git', folder: 'topology', state: 'paused' }])
     expect(typeof v.cloneDir).toBe('string')
     expect((await a.inject({ method: 'POST', url: '/api/setup/fetch', payload: { remote: '/tmp/x', folder: 'x' } })).statusCode).toBe(400)
+    await a.close()
+  })
+  it('받은 저장소에 workbench/가 없으면 개인 저장소 백업의 것을 가져오고, 백업에도 없으면 만들지 않고 알린다 (10/22)', async () => {
+    const root = path.join(tmp, 'fetch-case')
+    const personal = path.join(root, 'personal')
+    fs.mkdirSync(path.join(personal, '_settings/Office-iMac'), { recursive: true })
+    fs.writeFileSync(path.join(personal, '_settings/Office-iMac/projects.yaml'), '- id: disk\n  title: Disk\n  remote: https://github.com/me/disk.git\n  folder: disk\n  tags: []\n- id: none\n  title: None\n  remote: https://github.com/me/none.git\n  folder: none\n  tags: []\n')
+    const proj = path.join(root, 'proj')
+    fs.cpSync(fixture, proj, { recursive: true, filter: (src) => !src.includes('.build') })
+    fs.mkdirSync(path.join(proj, '.git'))
+    for (const name of ['disk', 'none']) {
+      const dir = path.join(root, name)
+      fs.mkdirSync(dir)
+      execFileSync('git', ['init', '-q'], { cwd: dir })
+      execFileSync('git', ['remote', 'add', 'origin', `https://github.com/me/${name}.git`], { cwd: dir })
+    }
+    fs.cpSync(path.join(fixture, 'workbench'), path.join(personal, 'disk/workbench'), { recursive: true, filter: (src) => !src.includes('.build') })
+    const a = buildApp({ configDir: path.join(root, 'config'), personalDir: personal })
+    expect((await a.inject({ method: 'POST', url: '/api/researches', payload: { path: proj } })).statusCode).toBe(200)
+    expect((await a.inject({ method: 'POST', url: '/api/setup/fetch', payload: { remote: 'https://github.com/me/disk.git', folder: 'disk' } })).statusCode).toBe(200)
+    expect(fs.existsSync(path.join(root, 'disk/workbench/research.yaml'))).toBe(true)
+    const none = await a.inject({ method: 'POST', url: '/api/setup/fetch', payload: { remote: 'https://github.com/me/none.git', folder: 'none' } })
+    expect(none.statusCode).toBe(409)
+    expect(fs.existsSync(path.join(root, 'none/workbench'))).toBe(false)
+    expect((await a.inject({ method: 'GET', url: '/api/researches' })).json().researches).toHaveLength(2)
     await a.close()
   })
   it('개인 저장소를 gh로 비공개로 만들어 바로 정한다, 이름이 이상하면 거절', async () => {
