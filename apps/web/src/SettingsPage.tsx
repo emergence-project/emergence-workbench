@@ -6,8 +6,7 @@ import { AgentSettings } from './AgentSettings'
 import { SyncSettings } from './SyncSettings'
 import { BackupSettings } from './BackupSettings'
 import { CommonRulesSettings, ruleSectionId, useCommonRules } from './CommonRulesSettings'
-import { GitHubAccount } from './GitHubAccount'
-import { GoogleSettings } from './GoogleSettings'
+import { SetupAccounts } from './SetupChecklist'
 import { LibrarySettings, LIBRARY_SECTIONS } from './LibrarySettings'
 import { go } from './router'
 import { LatexSetupPage } from './LatexSetupPage'
@@ -145,13 +144,8 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
             </section>}
 
             {show('google') && <section data-ui="구글 계정 묶음">
-              {/* 10/4 19:43: "구글 계정"을 "계정"으로, GitHub도 여기서. 연구자로서의 나는 네트워킹의 내 페이지(19:42, 둘은 따로 둔다) */}
               <div className="sec-head"><h2>{t('계정', 'Accounts')}</h2></div>
-              <h3 className="set-h3">GitHub</h3>
-              <GitHubAccount />
-              <h3 className="set-h3">{t('구글', 'Google')}</h3>
-              <GoogleSettings onUiRestored={onChange} />
-              <p className="set-desc" style={{ maxWidth: 'none' }}>{t('연구자 프로필(이름·소속·이메일)은 ', 'Your researcher profile (name, affiliation, email) is edited on your page under "Me" at the top of ')}<button className="a" onClick={() => go({ page: 'network' })}>{t('네트워킹', 'Networking')}</button>{t(' 맨 위 "나"의 내 페이지에서 고칩니다. 계정은 로그인, 내 페이지는 연구자 정보로 따로 둡니다.', '. Accounts are for signing in; your page holds your researcher details.')}</p>
+              <SetupAccounts onSaved={onSaved} onUiRestored={onChange} />
             </section>}
 
             {show('backup') && <section data-ui="백업 묶음">

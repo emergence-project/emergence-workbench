@@ -12,7 +12,7 @@ import { addedOf, announce, Avatar, useLatexSetup, withChange } from './people'
  * 왼쪽 위 이름 · 소속(줄마다 한 칸, 다른 사람 · 원고 저자의 소속을 제안), 아래 이메일 · 홈페이지 · 다른 이름 · 메모. 오른쪽은 사람 카드 미리보기와 교신 저자(노트 저자만).
  * 노트 저자면 이름·이메일·소속·교신 저자는 저자와 소속(내보내기의 \author 줄)에, 홈페이지·메모·다른 이름은 네트워킹에 저장한다.
  */
-export function PersonEditDialog({ person, people, onDone, onSaved }: { person: PersonView; people: PersonView[]; onDone(nextId?: string): void; onSaved(m: string): void }) {
+export function PersonEditDialog({ person, people, onDone, onSaved, location }: { person: PersonView; people: PersonView[]; onDone(nextId?: string): void; onSaved(m: string): void; /** 머리의 위치 (기본: 네트워킹 › 이름) */ location?: string }) {
   const [d, setD] = useState({
     name: person.name, email: [person.email, ...person.emails].filter(Boolean).join('\n'), affiliations: person.affiliations.length ? person.affiliations : [''], homepage: person.homepage ?? '',
     note: person.note ?? '', aliases: person.aliases.join(', '), corresponding: false, s2: person.s2 ?? '', dropPhoto: false,
@@ -48,9 +48,9 @@ export function PersonEditDialog({ person, people, onDone, onSaved }: { person: 
       if (person.author) {
         // 저장 직전에 지금 저자 목록을 새로 읽어 그 위에 고친다
         const { authors: current } = await queryClient.fetchQuery({ queryKey: qk.latexSetup, queryFn: () => latexApi.get(), staleTime: 0 })
-        await latexApi.saveAuthors(current.map((a) => (personId(a.name) === person.id
-          ? { name, ...(email && { email }), ...(emails.length && { emails }), ...(d.corresponding && { corresponding: true }), affiliations }
-          : a)))
+        const mine = { name, ...(email && { email }), ...(emails.length && { emails }), ...(d.corresponding && { corresponding: true }), affiliations }
+        // 저자가 아직 없으면(처음 받은 사람의 시작 준비, id 빈 값) 첫 저자로 더한다
+        await latexApi.saveAuthors(current.some((a) => personId(a.name) === person.id) ? current.map((a) => (personId(a.name) === person.id ? mine : a)) : [mine, ...current])
       }
       const change: Partial<PersonView> = {
         name, homepage: homepage || undefined, note: d.note.trim() || undefined,
@@ -69,7 +69,7 @@ export function PersonEditDialog({ person, people, onDone, onSaved }: { person: 
 
   const sub = affiliations[0] || d.note.trim()
   return (
-    <CardEditDialog title={t('사람 고치기', 'Edit person')} location={`${t('네트워킹', 'Networking')} › ${person.name}`} pc="var(--text-3)" ui="사람 고치기 창" className="person-dialog"
+    <CardEditDialog title={t('사람 고치기', 'Edit person')} location={location ?? `${t('네트워킹', 'Networking')} › ${person.name}`} pc="var(--text-3)" ui="사람 고치기 창" className="person-dialog"
       canSave={!busy && authorsLoaded && !!name} onClose={() => { if (!busy) onDone() }} onSave={() => void submit()}
       preview={
         <span className="net-card pe-card" data-ui="사람 카드 미리보기">

@@ -110,17 +110,19 @@ const publicCache = new Map<string, { at: number; open: boolean }>()
 export async function assertPrivateRemote(dir: string): Promise<void> {
   const origin = await originOf(dir)
   const repo = origin && githubRepoOf(origin)
-  if (!repo) return
+  if (repo && await isPublicOnGitHub(repo)) throw new PersonalRepoPublicError(repo)
+}
+
+/** owner/name이 로그인 없이 GitHub API로 읽히면(공개) true. 404 · 네트워크 실패는 false. 한 시간 기억한다 */
+export async function isPublicOnGitHub(repo: string): Promise<boolean> {
   const cached = publicCache.get(repo)
-  let open = cached && Date.now() - cached.at < 60 * 60_000 ? cached.open : undefined
-  if (open === undefined) {
-    try {
-      const res = await githubFetch(`https://api.github.com/repos/${repo}`)
-      open = res.ok && (await res.json() as { private?: boolean }).private === false
-      publicCache.set(repo, { at: Date.now(), open })
-    } catch { return }
-  }
-  if (open) throw new PersonalRepoPublicError(repo)
+  if (cached && Date.now() - cached.at < 60 * 60_000) return cached.open
+  try {
+    const res = await githubFetch(`https://api.github.com/repos/${repo}`)
+    const open = res.ok && (await res.json() as { private?: boolean }).private === false
+    publicCache.set(repo, { at: Date.now(), open })
+    return open
+  } catch { return false }
 }
 
 export class PersonalRepoPublicError extends Error {

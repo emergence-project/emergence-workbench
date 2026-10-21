@@ -3,6 +3,7 @@ import { useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import { api, type ProjectState, type RepoSync, type ResearchListItem } from './api'
 import { CardImage } from './CardImage'
 import { cardTime, TagLine } from './cardParts'
+import { SetupHomeCard } from './SetupChecklist'
 import { initials, projectColor } from './format'
 import { deadlines, doneByDay, type Loaded } from './homeData'
 import { Icon } from './icons'
@@ -135,6 +136,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
             {all.length === 0 && (
               <p className="h-sub" data-ui="첫 안내">{t('연구 저장소를 등록해 시작하세요. 저장소는 옮기지 않고, 그 안에 workbench/ 폴더만 만듭니다.', 'Register a research repository to start. The repository is not moved; only a workbench/ folder is created inside it.')}</p>
             )}
+            <SetupHomeCard />
             <section className="home-projects" data-ui="프로젝트 카드">
               <div className="sec-head hp-head">
                 <h2>{t('프로젝트', 'Projects')}</h2>

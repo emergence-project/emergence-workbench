@@ -20,6 +20,8 @@ import { checkReplies } from './contract.js'
 import { registerApiIndex } from './routes/apiIndex.js'
 import { registerResearches } from './routes/researches.js'
 import { registerSettings } from './routes/settings.js'
+import { registerSetup } from './routes/setup.js'
+import { noteAgentCall } from './agentSeen.js'
 import { registerFeedback } from './routes/feedback.js'
 import { registerRecordsPublish } from './routes/recordsPublish.js'
 import { registerSync } from './routes/sync.js'
@@ -134,6 +136,8 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   setDefaultLang(() => registry.ui?.language)
   setCoreLang(currentLang)
   app.addHook('onRequest', (req, _reply, done) => withLang(asLang(req.headers['x-rw-lang']), done))
+  // 에이전트 연결 확인 (설정 › 계정 › 시작 준비): MCP 입구가 붙이는 머리
+  app.addHook('onRequest', (req, _reply, done) => { const a = req.headers['x-rw-agent']; if (typeof a === 'string' && a) noteAgentCall(opts.configDir, a); done() })
 
   // 맥 밖의 웹 페이지가 보낸 요청은 받지 않는다 (hostGuard.ts)
   const hosts = extraHosts()
@@ -298,6 +302,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerApiIndex(app, ctx) // 맨 앞: 뒤에 등록되는 경로를 모아 GET /api로 보여 준다
   registerResearches(app, ctx)
   registerSettings(app, ctx)
+  registerSetup(app, ctx)
   registerCommonRules(app, ctx)
   registerFeedback(app, ctx)
   registerRecordsPublish(app, ctx)

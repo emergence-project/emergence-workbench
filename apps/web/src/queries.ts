@@ -67,6 +67,10 @@ export const qk = {
   latexSetup: ['latex-setup'] as const,
   /** 구글 연결 상태 (네트워킹의 "나"를 이메일로 찾는다) */
   googleStatus: ['google-status'] as const,
+  /** 시작 준비 (설정 › 계정, 홈 카드) */
+  setup: ['setup'] as const,
+  /** GitHub 로그인으로 읽은 저장소 목록 (설정 › 계정, 홈의 시작 준비, 프로젝트 등록) */
+  githubRepos: ['github-repos'] as const,
 }
 
 /**

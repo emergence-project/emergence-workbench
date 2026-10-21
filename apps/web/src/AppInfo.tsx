@@ -23,12 +23,12 @@ export function AppInfo({ update, pr: focus }: { update?: ReactNode; pr?: number
     <div className="app-info" data-ui="앱 기본정보">
       <dl className="props">
         <dt>{t('이름', 'Name')}</dt><dd>{t('Emergence Workbench (연구 작업대, 저장소 emergence-workbench)', 'Emergence Workbench (repository emergence-workbench)')}</dd>
-        <dt>{t('하는 일', 'What it does')}</dt><dd>{t('여러 연구의 노트·유도·논문 읽기·할 일을 한 창에서 다루는 이 맥의 로컬 앱', 'A local app on this Mac that keeps notes, derivations, paper reading and to-dos for several projects in one window')}</dd>
+        <dt>{t('하는 일', 'What it does')}</dt><dd>{t('여러 연구의 노트·유도·논문 읽기·할 일을 한 창에서 다루는 이 컴퓨터의 로컬 앱. 계정과 서버 없이 각자 자기 컴퓨터에서 씁니다', 'A local app on this computer that keeps notes, derivations, paper reading and to-dos for several projects in one window. Everyone runs it on their own computer, with no account or server')}</dd>
         <dt>{t('지금 버전', 'Current version')}</dt><dd>{info ? <>{info.version.number && <b>{info.version.number} · </b>}{info.version.date} · <code>{info.version.commit}</code>{info.branch && <span className="muted"> · {info.branch}</span>}</> : info === null ? <span className="muted">{t('개발용 예제 모드에서는 버전을 따로 보이지 않습니다', 'The version is not shown in sample mode')}</span> : '…'}</dd>
-        <dt>{t('버전 관리', 'Version control')}</dt><dd><span>{t('', 'The main branch of ')}{info?.remote ? <a className="a" href={info.remote} target="_blank" rel="noreferrer">{info.remote.replace(/^https:\/\//, '')}</a> : 'GitHub emergence-workbench'}{t('의 main이 정본입니다. ', ' is the source of truth. ')}<span className="muted">{t('Claude가 고친 것은 PR로 합쳐지고, 이 맥은 아래 업데이트로 받습니다.', 'Changes by Claude are merged through PRs, and this Mac gets them with the update below.')}</span></span></dd>
+        <dt>{t('버전 관리', 'Version control')}</dt><dd><span>{t('', 'The main branch of ')}{info?.remote ? <a className="a" href={info.remote} target="_blank" rel="noreferrer">{info.remote.replace(/^https:\/\//, '')}</a> : 'GitHub emergence-workbench'}{t('의 main이 정본입니다. ', ' is the source of truth. ')}<span className="muted">{t('새 버전이 main에 합쳐지면 이 컴퓨터는 아래 업데이트로 받습니다.', 'When a new version is merged into main, this computer gets it with the update below.')}</span></span></dd>
         {info && <><dt>{t('앱 폴더', 'App folder')}</dt><dd><code>{info.root}</code></dd></>}
         <dt>{t('앱 설정', 'App settings')}</dt><dd><code>~/.config/research-workspace/config.yaml</code></dd>
-        <dt>{t('피드백', 'Feedback')}</dt><dd><code>~/.config/research-workspace/personal/feedback/</code><span className="muted">{t('(개인 저장소 사본 안, 비공개 개인 저장소에 올라감)', ' (inside the personal repository copy, pushed to your private repository)')}</span></dd>
+        <dt>{t('피드백', 'Feedback')}</dt><dd><code>~/.config/research-workspace/personal/feedback/</code><span className="muted">{t('(개인 저장소를 정했으면 그 사본 안에 두고 올림, 아니면 ', ' (inside the personal repository copy and pushed, if you set one; otherwise ')}<code>~/.config/research-workspace/feedback/</code>{t('에만 남음. 설정 › 계정)', ' only. Settings › Accounts)')}</span></dd>
       </dl>
       {update}
       {info && info.history.length > 0 && (

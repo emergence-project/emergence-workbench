@@ -703,5 +703,16 @@
   "고친 까닭": "Why the agent edited",
   "흐름 날짜": "Flow dates",
   "흐름 문헌": "Flow reading",
-  "흐름 점 작업": "Flow dot task"
+  "흐름 점 작업": "Flow dot task",
+  "시작 준비": "Getting started",
+  "시작 준비 요약": "Getting started summary",
+  "시작 준비 카드": "Getting started card",
+  "커밋 이름": "Name on commits",
+  "커밋 이름 창": "Name on commits dialog",
+  "내 이름 소속": "Your name and affiliation",
+  "첫 프로젝트": "First project",
+  "개인 저장소": "Personal repository",
+  "개인 저장소 창": "Personal repository dialog",
+  "에이전트 연결": "Agent connection",
+  "TeX": "TeX"
 }
