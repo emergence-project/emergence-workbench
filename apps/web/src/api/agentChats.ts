@@ -5,6 +5,9 @@ import { enc, json, req, send } from './http'
 import type { AskAnswer, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatOne, ChatSettings, NewChatBody, WorkState } from '@rw/core/contract/agentChats'
 export type { AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 
+/** 앱 고치기 대화의 rid (계약의 APP_RID와 같은 값. 값을 가져오면 화면 번들에 zod가 들어가서 여기 다시 적는다) */
+export const APP_RID = '_app'
+
 const base = '/api/agent-chats'
 const one = (r: Response) => json<ChatOne>(r).then((x) => x.chat)
 export const agentChatsApi = {

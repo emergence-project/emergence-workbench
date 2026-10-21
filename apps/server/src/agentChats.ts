@@ -6,12 +6,16 @@
  * - 고치는 동안 그 파일을 「잡은 파일」로 적어, 다른 대화가 같은 파일을 고치지 못하게 한다. 차례가 끝나면 푼다.
  * - 셸 명령 · 웹 · 모르는 도구는 허락 카드로 묻는다(사용자 차례). 「이 대화에서 늘」은 같은 명령에만.
  * - 동시에 도는 대화는 limit개(맥 메모리, 10/14)까지이고 넘치면 줄을 선다.
+ * - 앱 고치기 대화(범위 app, 2단계 10/21 "앱 안 대화 + CI가 시험"): 앱 저장소의 따로 둔 작업 폴더(appWorktree.ts)에서
+ *   파일만 고친다. 명령은 돌리지 않고, 커밋 · PR · CI 결과는 앱 MCP app_submit · app_checks로 앱에 맡긴다. 연구 프로젝트는 읽기만 한다.
  * 대화 기록은 앱 설정 폴더 agent-chats/<id>.json. 계약은 @rw/core/contract/agentChats.
  */
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import { APP_RID } from '@rw/core/contract/agentChats'
+import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AppWork } from './appWorktree.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -36,6 +40,8 @@ export interface RunInput {
   /** 대화를 열 때 주는 짧은 안내 (범위 · 단계 · 다른 대화가 잡은 파일) */
   brief: string
   write: ChatWrite
+  /** 앱 고치기 대화: 그 대화 id (앱 MCP에 app_submit · app_checks를 붙이고, 파일 고치기 도구를 연다) */
+  appChat?: string
   canUseTool: (tool: string, input: Record<string, unknown>) => Promise<ToolDecision>
   signal: AbortSignal
 }
@@ -62,6 +68,11 @@ export const PLAN_TOOL = 'ExitPlanMode'
 /** 파일을 바로 쓰는 도구: 1단계에서는 막는다 (노트는 edit_note로) */
 export const FILE_WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const
 const MCP_WRITES = new Set(['edit_note', 'edit_concept', 'add_record', 'answer_record', 'flow_add', 'flow_update', 'flow_review'])
+/** 앱 고치기 대화가 막는 연구 쪽 쓰기 (위 + 맡긴 일 · 일지) */
+const RESEARCH_WRITES = new Set([...MCP_WRITES, 'add_task', 'report_task', 'add_journal'])
+/** 앱 고치기 대화만 쓰는 앱 MCP 도구: 커밋해 PR 열기 · CI 결과 */
+export const APP_SUBMIT = 'app_submit'
+export const APP_CHECKS = 'app_checks'
 
 export interface PolicyCtx {
   rid: string
@@ -117,7 +128,7 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
     const project = str(input.project)
     const file = str(input.file)
     const outside = (project && project !== ctx.rid) || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
-    const what = [project && project !== ctx.rid ? project : '', file || str(input.id) || str(input.target) || str(input.query) || str(input.section)].filter(Boolean).join(' · ')
+    const what = [project && project !== ctx.rid ? project : '', file || str(input.id) || str(input.target) || str(input.query) || str(input.section) || str(input.title)].filter(Boolean).join(' · ')
     return { tool: name, summary: clip(what), ...(outside && { outside }) }
   }
   if (READ_TOOLS.has(tool)) {
@@ -128,11 +139,54 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
     const summary = [rel || p, str(input.pattern)].filter(Boolean).join(' · ')
     return { tool, summary: clip(summary), ...(outside && { outside }) }
   }
+  if ((FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
+    const abs = path.resolve(ctx.repo, pathOf(input))
+    return { tool, summary: clip(isInside(ctx.repo, abs) ? posix(path.relative(ctx.repo, abs)) : pathOf(input)) }
+  }
   if (tool === 'Bash') return { tool, summary: clip(str(input.command)) }
   if (tool === 'WebFetch') return { tool, summary: clip(str(input.url)) }
   if (tool === 'WebSearch') return { tool, summary: clip(str(input.query)) }
   if (tool === 'Task' || tool === 'Agent') return { tool, summary: clip(str(input.description) || str(input.prompt), 120) }
   return { tool, summary: clip(JSON.stringify(input), 160) }
+}
+
+/** 앱 고치기 대화의 도구 판정 (judge가 부른다). 명령은 돌리지 않는다: 시험은 CI가 한다 */
+function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict {
+  const gated = ctx.mode === 'plan' && !ctx.planOk
+  const readOnly: Verdict = { kind: 'deny', reason: t('읽기만 하는 대화라 고치지 않습니다', 'This conversation is read-only'), message: 'This conversation is read-only: do not change files. Tell the user what you would change instead.' }
+  const notYet: Verdict = { kind: 'deny', reason: t('계획을 승인하기 전이라 고치지 않습니다', 'Not changed before the plan is approved'), message: `Plan first: do not change anything yet. Call ${PLAN_TOOL} with the plan; the user approves it in the app, then you can make the changes.` }
+  if ((FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
+    const p = pathOf(input)
+    const abs = p ? path.resolve(ctx.repo, p) : ''
+    const rel = abs && isInside(ctx.repo, abs) ? posix(path.relative(ctx.repo, abs)) : ''
+    if (ctx.write === 'read') return readOnly
+    if (gated) return notYet
+    if (!rel || rel === '.git' || rel.startsWith('.git/')) {
+      return { kind: 'deny', reason: t(`작업 폴더 밖이라 고치지 않습니다: ${p}`, `Outside the work folder: ${p}`), message: `${p} is outside this conversation's work folder (${ctx.repo}). Change files only inside it.` }
+    }
+    if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`파일 고치기: ${rel}`, `Edit file: ${rel}`), key: `edit:${rel}`, label: t(`파일 고치기 · ${rel}`, `Edit file · ${rel}`), claim: rel }
+    return { kind: 'allow', claim: rel }
+  }
+  if (tool === 'Bash') {
+    return {
+      kind: 'deny',
+      reason: t('앱 고치기 대화는 명령을 돌리지 않습니다. 시험은 CI가 합니다', 'App conversations do not run commands; CI runs the tests'),
+      message: `Commands are not available here. Edit files only, then call ${MCP}${APP_SUBMIT} to commit, push and open the pull request; GitHub CI runs type-check, tests and screen pictures. Read the result with ${MCP}${APP_CHECKS}.`,
+    }
+  }
+  if (tool.startsWith(MCP)) {
+    const name = tool.slice(MCP.length)
+    if (name === APP_CHECKS) return { kind: 'allow' }
+    if (name === APP_SUBMIT) {
+      if (ctx.write === 'read') return readOnly
+      if (gated) return notYet
+      if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`PR 올리기: ${clip(str(input.title), 120)}`, `Open PR: ${clip(str(input.title), 120)}`), key: APP_SUBMIT, label: t('PR 올리기', 'Open PR') }
+      return { kind: 'allow' }
+    }
+    if (!RESEARCH_WRITES.has(name)) return { kind: 'allow' }
+    return { kind: 'deny', reason: t('앱 고치기 대화는 연구 프로젝트를 고치지 않습니다', 'App conversations do not change research projects'), message: 'This conversation fixes the app itself; it does not change research notes, records, tasks or flows. Tell the user what should change there instead.' }
+  }
+  return { kind: 'ask', summary: `${tool} · ${describeStep(ctx, tool, input).summary}`, key: tool, label: tool }
 }
 
 /** 도구 한 번을 허락할지: allow · ask(허락 카드) · deny(막고 이유) */
@@ -148,6 +202,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     if (isInside(ctx.repo, abs) || abs === ctx.repo || ctx.readable.some((d) => abs === d || isInside(d, abs))) return { kind: 'allow' }
     return { kind: 'ask', summary: t(`등록한 폴더 밖 읽기: ${abs}`, `Read outside registered folders: ${abs}`), key: `${tool}:${abs}`, label: t(`읽기 · ${abs}`, `Read · ${abs}`) }
   }
+  if (ctx.scope.kind === 'app') return judgeApp(ctx, tool, input)
   if ((FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
     return {
       kind: 'deny',
@@ -206,6 +261,23 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
 
 // ---------- 안내 (대화를 열 때 한 번, 짧게) ----------
 
+/** 앱 고치기 대화의 안내 */
+export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string }): string {
+  const lines = [
+    `You are fixing the Emergence Workbench app itself, from inside the app. The current folder is a separate git worktree of the app repository on branch ${o.branch}, made from origin/main. The running app and the user's own checkout are elsewhere.`,
+    `Read CLAUDE.md first${o.rules ? `, then the maintainer's personal rules at ${o.rules} (they take precedence)` : ''}. Feedback handling rules: docs/feedback/agent.md.`,
+    o.write === 'read'
+      ? 'This conversation is read-only: do not change files. Tell the user what you would change.'
+      : 'Edit files directly inside this folder (Edit / Write). You cannot run commands: no tests, builds or git here.',
+    `When the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes the branch and opens the pull request (one open PR at a time; it refuses while another is open). GitHub CI then runs type-check, tests, build and screen pictures. Call ${APP_CHECKS} to read the result; if a check fails, read the log it returns, fix the files and call ${APP_SUBMIT} again.`,
+    'Because you cannot run anything, read the surrounding code and tests carefully before editing, and update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
+    'Research projects are read-only here: do not change notes, records, tasks or flows.',
+  ]
+  if (o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
+  lines.push('Use TodoWrite for work with three or more steps. Write to the user in Korean, briefly: result first.')
+  return lines.join('\n')
+}
+
 export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[] }): string {
   const scope = o.scope.kind === 'project' ? 'the whole project' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
   const lines = [
@@ -248,6 +320,19 @@ export function editOf(input: Record<string, unknown>): { parts: { old: string; 
   return { parts, added, removed, ...(reason && { reason: clip(reason, 300) }) }
 }
 
+/** 파일 고침(Edit · MultiEdit · Write) 입력에서 보일 것 (앱 고치기 대화) */
+export function fileEditOf(tool: string, input: Record<string, unknown>): { parts: { old: string; new: string }[]; added: number; removed: number } {
+  const lines = (s: string) => (s ? s.split('\n').length : 0)
+  const pairs = tool === 'MultiEdit' && Array.isArray(input.edits)
+    ? (input.edits as { old_string?: unknown; new_string?: unknown }[]).map((e) => ({ old: str(e.old_string), new: str(e.new_string) }))
+    : tool === 'Write' ? [{ old: '', new: str(input.content) }]
+      : [{ old: str(input.old_string), new: str(input.new_string) }]
+  let added = 0
+  let removed = 0
+  for (const e of pairs) { added += lines(e.new); removed += lines(e.old) }
+  return { parts: pairs.slice(0, 6).map((e) => ({ old: clip(e.old, 400), new: clip(e.new, 400) })), added, removed }
+}
+
 const TODO_STATE: Record<string, Todo['state']> = { pending: 'pending', in_progress: 'in_progress', completed: 'completed' }
 /** TodoWrite 입력의 할 일 목록 */
 export function todosOf(input: Record<string, unknown>): Todo[] {
@@ -267,6 +352,8 @@ type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archived'> &
   /** 이번 차례의 계획을 승인했는지 */
   planOk?: boolean
   archived?: boolean
+  /** 앱 고치기 대화의 작업 폴더 */
+  worktree?: string
 }
 
 /** 카드에 받은 답 (거절의 할 말, 계획 승인 뒤 맡기는 정도) */
@@ -290,6 +377,8 @@ export interface AgentChatsDeps {
   extraDirs: () => string[]
   /** 대화가 바뀌면 (화면 알림) */
   notify: (chat: ChatRow) => void
+  /** 앱 고치기 대화의 작업 폴더와 PR (앱 저장소가 있는 맥에서만) */
+  app?: AppWork
 }
 
 export class AgentChats {
@@ -329,6 +418,9 @@ export class AgentChats {
 
   get limit(): number { return this.deps.limit }
 
+  /** 이 맥에서 앱 고치기 대화를 열 수 있는지 */
+  get app(): boolean { return !!this.deps.app }
+
   list(rid?: string): ChatRow[] {
     return [...this.chats.values()].filter((c) => !rid || c.rid === rid).sort((a, b) => b.updated.localeCompare(a.updated)).map(rowOf)
   }
@@ -342,9 +434,12 @@ export class AgentChats {
   }
 
   create(b: NewChatBody): Chat {
-    this.deps.project(b.rid) // 등록하지 않은 프로젝트면 404
-    const scope: ChatScope = b.scope ?? { kind: 'project' }
-    if (scope.kind !== 'project' && !scope.target) throw new WorkbenchError(400, t('주제 · 노트 범위에는 대상이 필요합니다', 'A topic or note scope needs a target'))
+    const app = b.rid === APP_RID
+    if (app && !this.deps.app) throw new WorkbenchError(404, t('이 맥에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다', 'No app repository on this Mac, so app conversations are not available'))
+    if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
+    if (!app) this.deps.project(b.rid) // 등록하지 않은 프로젝트면 404
+    const scope: ChatScope = app ? { kind: 'app' } : b.scope ?? { kind: 'project' }
+    if (scope.kind !== 'project' && scope.kind !== 'app' && !scope.target) throw new WorkbenchError(400, t('주제 · 노트 범위에는 대상이 필요합니다', 'A topic or note scope needs a target'))
     if (scope.target && (scope.target.includes('..') || path.isAbsolute(scope.target))) throw new WorkbenchError(400, t('범위 대상이 맞지 않음', 'Invalid scope target'))
     const at = now()
     const c: Stored = {
@@ -454,6 +549,29 @@ export class AgentChats {
     if (LIVE.has(c.state)) throw new WorkbenchError(409, t('도는 대화는 지울 수 없습니다. 먼저 멈춰 주세요', 'Stop the conversation before deleting it'))
     this.chats.delete(id)
     fs.rmSync(this.fileOf(id), { force: true })
+    if (c.worktree && this.deps.app) void this.deps.app.dispose(c.worktree).catch(() => undefined)
+  }
+
+  /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */
+  async appSubmit(id: string, b: AppSubmitBody): Promise<AppSubmitted> {
+    const { c, w } = this.appOf(id)
+    const pr = await w.submit(c.worktree!, c.branch!, { title: b.title, body: b.body })
+    c.pr = { number: pr.number, url: pr.url }
+    this.touch(c)
+    return pr
+  }
+
+  /** 앱 고치기 대화: 그 PR의 CI (에이전트의 app_checks) */
+  async appChecks(id: string): Promise<AppChecks> {
+    const { c, w } = this.appOf(id)
+    return w.checks(c.worktree!, c.branch!)
+  }
+
+  private appOf(id: string): { c: Stored; w: AppWork } {
+    const c = this.must(id)
+    if (c.scope.kind !== 'app' || !this.deps.app) throw new WorkbenchError(400, t('앱 고치기 대화가 아닙니다', 'Not an app conversation'))
+    if (!c.worktree || !c.branch) throw new WorkbenchError(409, t('작업 폴더를 아직 만들지 않았습니다', 'The work folder is not ready yet'))
+    return { c, w: this.deps.app }
   }
 
   /** 테스트 · 끄기: 도는 차례를 모두 멈춘다 */
@@ -551,8 +669,14 @@ export class AgentChats {
     this.touch(c)
     let ended: 'idle' | 'stopped' | 'error' = 'idle'
     try {
-      const p = this.deps.project(c.rid)
-      const readable = this.deps.readable().filter((d) => d !== p.repo)
+      const app = c.scope.kind === 'app' && this.deps.app ? this.deps.app : undefined
+      let p: { repo: string; title: string }
+      if (app) {
+        const w = await app.prepare(c.id)
+        if (c.worktree !== w.dir || c.branch !== w.branch) { c.worktree = w.dir; c.branch = w.branch; this.touch(c) }
+        p = { repo: w.dir, title: 'Emergence Workbench' }
+      } else p = this.deps.project(c.rid)
+      const readable = app ? [] : this.deps.readable().filter((d) => d !== p.repo)
       const mode = c.mode
       const ctx: PolicyCtx = { rid: c.rid, write: c.write, mode, planOk: false, scope: c.scope, repo: p.repo, readable, claimedBy: (f) => this.claimedBy(c.id, f) }
       const claim = (file?: string) => {
@@ -561,6 +685,10 @@ export class AgentChats {
         if (!c.changed.includes(file)) c.changed.push(file)
       }
       const edited = (tool: string, input: Record<string, unknown>) => {
+        if (app && (FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
+          this.push(c, { kind: 'edit', at: now(), file: posix(path.relative(p.repo, path.resolve(p.repo, pathOf(input)))), ...fileEditOf(tool, input) })
+          return
+        }
         if (tool !== `${MCP}edit_note`) return
         this.push(c, { kind: 'edit', at: now(), file: str(input.file), ...editOf(input) })
       }
@@ -618,9 +746,12 @@ export class AgentChats {
         effort: c.effort,
         sessionId: c.sessionId,
         cwd: p.repo,
-        extraDirs: this.deps.extraDirs(),
-        brief: briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })) }),
+        extraDirs: app ? [] : this.deps.extraDirs(),
+        brief: app
+          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules })
+          : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })) }),
         write: c.write,
+        ...(app && { appChat: c.id }),
         canUseTool,
         signal: abort.signal,
       }
@@ -672,7 +803,7 @@ const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })) })

@@ -7,8 +7,14 @@ import { z } from 'zod'
 
 /** 대화가 고칠 수 있는 단계. read = 읽기만(계산은 허락받고 돌림), notes = 노트 · 기록을 앱 MCP로 고침 */
 export const CHAT_WRITE = ['read', 'notes'] as const
-/** 대화의 범위: 프로젝트 전체 · 주제 하나 · 노트 하나 (범위 밖은 읽기만, 고치기는 막는다) */
-export const CHAT_SCOPES = ['project', 'topic', 'note'] as const
+/**
+ * 대화의 범위: 프로젝트 전체 · 주제 하나 · 노트 하나 (범위 밖은 읽기만, 고치기는 막는다).
+ * app = 앱 자체 고치기 (2단계, 10/21 "앱 안 대화 + CI가 시험"): 앱 저장소의 따로 둔 작업 폴더에서 파일만 고치고,
+ * 커밋 · PR · CI 결과는 앱이 한다(에이전트는 명령을 돌리지 않는다). rid는 APP_RID
+ */
+export const CHAT_SCOPES = ['project', 'topic', 'note', 'app'] as const
+/** 앱 고치기 대화의 rid (연구 프로젝트 id와 겹치지 않는다) */
+export const APP_RID = '_app'
 /**
  * running 도는 중 · waiting 허락을 기다림(사용자 차례) · queued 동시 실행 수가 차서 기다림 ·
  * idle 한 차례 끝남(이어서 지시할 수 있음) · stopped 멈춤 · error 실패
@@ -93,6 +99,9 @@ export const ChatRow = z.object({
   wait: z.enum(['plan', 'ask']).optional(),
   /** 보관함에 넣은 대화 (목록에서 숨김, 지우지 않음) */
   archived: z.boolean(),
+  /** 앱 고치기 대화: 작업 폴더의 브랜치와 연 PR */
+  branch: z.string().optional(),
+  pr: z.object({ number: z.number(), url: z.string() }).strict().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -101,7 +110,8 @@ export const ChatRow = z.object({
 export const Chat = ChatRow.extend({ items: z.array(ChatItem), always: z.array(z.string()), todos: z.array(Todo) }).strict()
 
 /** GET /agent-chats?rid= */
-export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number() }).strict()
+/** app = 이 맥에서 앱 고치기 대화를 열 수 있는지 (앱 저장소가 있을 때) */
+export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), app: z.boolean() }).strict()
 /** GET /agent-chats/:id · POST 들의 응답 */
 export const ChatOne = z.object({ chat: Chat }).strict()
 /** GET /agent-work: 도는 대화와 잡은 파일 (화면 · MCP · STATUS가 같은 것을 본다) */
@@ -137,6 +147,20 @@ export const AskAnswerBody = z.object({ ask: z.string().min(1), answer: z.enum(A
 export const UnqueueBody = z.object({ index: z.number().int().min(0) }).strict()
 export const ArchiveBody = z.object({ archived: z.boolean() }).strict()
 
+// ---------- 앱 고치기 대화: 앱이 대신 하는 일 (에이전트는 앱 MCP app_submit · app_checks로 부른다) ----------
+
+/** 바뀐 것을 커밋해 올리고 PR을 연다 (이미 있으면 그 PR에 더한다). title = 한국어 한 줄 */
+export const AppSubmitBody = z.object({ title: z.string().trim().min(1).max(120), body: z.string().max(20000) }).strict()
+export const AppSubmitted = z.object({ number: z.number(), url: z.string(), created: z.boolean() }).strict()
+/** 그 PR의 CI: done = 모두 끝남, ok = 모두 통과, log = 실패한 기록 끝부분 */
+export const AppChecks = z.object({
+  pr: z.number().optional(),
+  checks: z.array(z.object({ name: z.string(), state: z.string(), link: z.string().optional() }).strict()),
+  done: z.boolean(),
+  ok: z.boolean(),
+  log: z.string().optional(),
+}).strict()
+
 export type ChatScope = z.infer<typeof ChatScope>
 export type Attach = z.infer<typeof Attach>
 export type Todo = z.infer<typeof Todo>
@@ -159,3 +183,6 @@ export type ChatState = (typeof CHAT_STATES)[number]
 export type AskAnswer = (typeof ASK_ANSWERS)[number]
 export type AskAnswerBody = z.infer<typeof AskAnswerBody>
 export type NewChatBody = z.input<typeof NewChatBody>
+export type AppSubmitBody = z.infer<typeof AppSubmitBody>
+export type AppSubmitted = z.infer<typeof AppSubmitted>
+export type AppChecks = z.infer<typeof AppChecks>

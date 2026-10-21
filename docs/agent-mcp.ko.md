@@ -61,6 +61,8 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `flow_review` | 근거 하나(`ev`)나 증명 단계 하나(`step`)의 에이전트 검토를 `role: agent`로, 확인한 내용의 hash와 함께 남긴다 | `POST …/:rid/flow/:id/review` |
 | `answer_record` | 질문 · 지시 기록 아래에 답을 쓴다 `{ target, id, answer }`. 지시는 먼저 그 일을 하고(노트는 `edit_note`) 답한다. 답 머리에 에이전트 이름이 붙고 기록은 답함이 된다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target/:id/answers` |
 | `add_record` | 사용자에게 남기는 기록 `{ file 또는 target, kind: 질문 \| 메모, text, quote?, line? }`. `by`에 에이전트 이름이 적힌다. 질문은 사용자에게 확인 · 결정을 부탁하는 것(예: 에이전트가 쓴 노트의 한 곳, `quote`로 그 자리에 붙인다)으로, 사용자가 앱에서 답할 때까지 사용자 차례다(앱에서 주황, 홈 "확인 필요"에 셈). 사용자가 답하면 `### 답 · 사용자`가 붙고 답함이 된다. 답은 `read_records`로 읽는다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target` |
+| `app_submit` | 앱 고치기 대화(앱 안에서 앱 자체를 고치는 에이전트, 10/21) 안에서만. 그 대화의 작업 폴더(따로 둔 git worktree)에서 바뀐 것을 모두 커밋해 `claude/app-…` 브랜치를 올리고 PR `{ title, body }`을 연다(이미 있으면 더한다). 다른 PR이 열려 있으면 거절한다. 그 대화의 에이전트는 명령을 돌리지 못하고, 검사는 GitHub CI가 돌린다 | `POST /api/agent-chats/:id/app/submit` |
+| `app_checks` | 앱 고치기 대화 안에서만. 그 PR의 CI: 검사마다 상태, `done`, `ok`, 실패한 기록의 끝부분 | `GET /api/agent-chats/:id/app/checks` |
 
 ## 지키는 것
 

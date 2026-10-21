@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { agentChatsApi, api, notesApi, type AskAnswer, type Attach, type AttachKind, type Chat, type ChatEffort, type ChatItem, type ChatMessageBody, type ChatMode, type ChatModel, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type ImageIn, type Todo } from './api'
+import { agentChatsApi, api, APP_RID, notesApi, type AskAnswer, type Attach, type AttachKind, type Chat, type ChatEffort, type ChatItem, type ChatMessageBody, type ChatMode, type ChatModel, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type ImageIn, type Todo } from './api'
 import { askConfirm } from './askText'
 import { relativeTime } from './format'
 import { t } from './i18n'
@@ -57,6 +57,14 @@ function Delta({ added, removed }: { added: number; removed: number }) {
 export type Trust = 'read' | ChatMode
 const TRUSTS: Trust[] = ['read', 'ask', 'plan', 'edit']
 const TRUST_NAME: Record<Trust, string> = { read: t('읽기만', 'Read only'), ask: t('묻고 하기', 'Ask first'), plan: t('계획 먼저', 'Plan first'), edit: t('고치기 바로', 'Edit freely') }
+/** 앱 고치기 대화의 맡기는 정도 설명 (명령은 늘 막고, 시험은 CI) */
+const APP_HINT: Record<Trust, string> = {
+  read: t('읽기만 합니다', 'Reads only'),
+  ask: t('파일을 고치거나 PR을 올릴 때마다 묻습니다. 명령은 돌리지 않습니다', 'Asks before each file edit and before opening the PR. Runs no commands'),
+  plan: t('계획을 승인한 뒤 파일을 고치고 PR을 올립니다. 명령은 돌리지 않습니다', 'Edits files and opens the PR after you approve the plan. Runs no commands'),
+  edit: t('작업 폴더의 파일을 바로 고치고 PR을 올립니다. 명령은 돌리지 않고 시험은 CI가 합니다', 'Edits files in its work folder and opens the PR. Runs no commands; CI runs the tests'),
+}
+
 const TRUST_HINT: Record<Trust, string> = {
   read: t('읽고 답만 합니다. 명령은 묻고 돌립니다', 'Reads and answers only. Commands ask first'),
   ask: t('노트 고치기와 명령을 하나씩 묻습니다', 'Asks before each note edit and command'),
@@ -121,9 +129,13 @@ const useProjects = () => useQuery({ queryKey: qk.researches, queryFn: () => api
 
 function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): string {
   if (s.kind === 'project') return t('프로젝트 전체', 'Whole project')
+  if (s.kind === 'app') return t('앱 고치기', 'Fix the app')
   if (s.kind === 'topic') return `${t('주제', 'Topic')} · ${topics?.find((x) => x.id === s.target)?.title ?? s.target}`
   return `${t('노트', 'Note')} · ${s.target?.split('/').slice(-2, -1)[0] ?? s.target}`
 }
+
+/** 대화 목록 · 머리에 보일 프로젝트 이름 (앱 고치기 대화는 「앱」) */
+const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : projects?.find((p) => p.id === rid)?.title ?? rid)
 
 /** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화 */
 const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error'
@@ -363,10 +375,10 @@ const reviewOf = (rid: string, file: string) => go({ page: 'review', key: `note:
 function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, { kind: 'edit' }>; onChanges?(): void }) {
   return (
     <li className="ac-edit-line" data-ui="노트 고침 줄">
-      <span className="ac-edit-what">{t('노트 고침', 'Edited')}</span>
+      <span className="ac-edit-what">{chat.rid === APP_RID ? t('파일 고침', 'Edited file') : t('노트 고침', 'Edited')}</span>
       <span className="mono ac-file" title={it.file}>{it.file}</span>
       <Delta added={it.added} removed={it.removed} />
-      <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={() => (onChanges ? onChanges() : reviewOf(chat.rid, it.file))}>{onChanges ? t('바뀐 곳 보기', 'View changes') : t('수정 검토에서 보기', 'Open in edit review')}</button>
+      {(onChanges || chat.rid !== APP_RID) && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={() => (onChanges ? onChanges() : reviewOf(chat.rid, it.file))}>{onChanges ? t('바뀐 곳 보기', 'View changes') : t('수정 검토에서 보기', 'Open in edit review')}</button>}
       {it.reason && <span className="muted ac-hint ac-edit-why">{it.reason}</span>}
     </li>
   )
@@ -475,9 +487,11 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
   useEffect(() => { if (fill) { setText(fill.text); setCaret(fill.text.length); box.current?.focus() } }, [fill?.n]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const menu = (() => { const m = menuAt(text, caret); return m && m.start !== closed ? m : null })()
-  const notes = useQuery({ queryKey: qk.notes(rid), queryFn: () => notesApi(rid).list(), enabled: menu?.kind === '@' }).data
-  const topics = useQuery({ queryKey: qk.topics(rid), queryFn: () => api.research(rid).topics(), enabled: menu?.kind === '@' }).data
-  const tree = useQuery({ queryKey: qk.repoTree(rid), queryFn: () => api.research(rid).repoTree(), enabled: menu?.kind === '@' && (menu.query.length >= 2) }).data
+  // 앱 고치기 대화는 연구 프로젝트가 아니라 @로 붙일 노트 · 주제가 없다
+  const research = rid !== APP_RID
+  const notes = useQuery({ queryKey: qk.notes(rid), queryFn: () => notesApi(rid).list(), enabled: research && menu?.kind === '@' }).data
+  const topics = useQuery({ queryKey: qk.topics(rid), queryFn: () => api.research(rid).topics(), enabled: research && menu?.kind === '@' }).data
+  const tree = useQuery({ queryKey: qk.repoTree(rid), queryFn: () => api.research(rid).repoTree(), enabled: research && menu?.kind === '@' && (menu.query.length >= 2) }).data
 
   const focusAt = (at: number) => requestAnimationFrame(() => { box.current?.focus(); box.current?.setSelectionRange(at, at) })
   const replaceToken = (insert: string) => {
@@ -597,7 +611,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
           {(close) => TRUSTS.map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
               <span className="ac-pop-check" aria-hidden>{settings.trust === v ? Icon.check : null}</span>
-              <span className="ac-pop-what"><span>{TRUST_NAME[v]}</span><span className="muted">{TRUST_HINT[v]}</span></span>
+              <span className="ac-pop-what"><span>{TRUST_NAME[v]}</span><span className="muted">{(rid === APP_RID ? APP_HINT : TRUST_HINT)[v]}</span></span>
             </button>
           ))}
         </PopButton>
@@ -634,7 +648,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
   const client = useQueryClient()
   const projects = useProjects()
   const topics = useQuery({ queryKey: qk.topics(chat.rid), queryFn: () => api.research(chat.rid).topics(), enabled: chat.scope.kind === 'topic' }).data
-  const project = projects?.find((p) => p.id === chat.rid)?.title ?? chat.rid
+  const project = projectName(chat.rid, projects)
   const live = isLive(chat.state)
   const remove = async () => {
     if (!await askConfirm({ title: t('이 대화를 지울까요?', 'Delete this conversation?'), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토는 그대로 남습니다. 지우지 않고 숨기려면 보관함에 넣으세요.', 'Only the conversation is deleted. Notes, records and edit review stay. To hide it without deleting, archive it.'), ok: t('지우기', 'Delete') })) return
@@ -655,8 +669,9 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
       <div className="ac-head-what">
         <div className="ac-title" title={chat.title}>{chat.title}</div>
         <div className="ac-meta">
-          <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>
+          {chat.rid === APP_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
+          {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
           {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
         </div>
       </div>
@@ -747,7 +762,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const placeholder = chat.state === 'waiting' ? t('위 카드에 답하거나 이어서 쓰기', 'Answer the card above, or keep writing')
     : chat.state === 'queued' ? t('앞 대화가 끝나면 시작합니다 · 이어서 쓰기', 'Starts when a running conversation finishes · keep writing')
       : live ? t('보내면 다음 차례에 읽습니다', 'Sent now, read next turn')
-        : t('이어서 쓰기 · / 명령 · @ 붙이기', 'Continue · / commands · @ attach')
+        : chat.rid === APP_RID ? t('이어서 쓰기 · 그림 붙여넣기', 'Continue · paste images') : t('이어서 쓰기 · / 명령 · @ 붙이기', 'Continue · / commands · @ attach')
   const showTodos = chat.todos.length > 0 && (live || chat.todos.some((x) => x.state !== 'completed'))
   const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
   return (
@@ -777,14 +792,18 @@ const defaultSettings = (): Settings => ({ trust: 'edit', model: 'default', effo
 export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: { file: string; title: string }; onCreated(c: Chat): void }) {
   const client = useQueryClient()
   const projects = useProjects()
+  // 앱 고치기 대화는 에이전트 화면에서만, 앱 저장소가 있는 맥에서만 (2단계 10/21)
+  const listed = useChatList().data
+  const appOk = !fixed && !!listed?.app
   const [pick, setPick] = useState(() => store.get<string>('rw-agent-project', ''))
-  const rid = fixed ?? (projects?.some((p) => p.id === pick) ? pick : projects?.[0]?.id ?? '')
-  const topics = useQuery({ queryKey: qk.topics(rid), queryFn: () => api.research(rid).topics(), enabled: !!rid }).data
+  const rid = fixed ?? (projects?.some((p) => p.id === pick) || (appOk && pick === APP_RID) ? pick : projects?.[0]?.id ?? '')
+  const app = rid === APP_RID
+  const topics = useQuery({ queryKey: qk.topics(rid), queryFn: () => api.research(rid).topics(), enabled: !!rid && !app }).data
   const [kind, setKind] = useState<ChatScope['kind']>(note ? 'note' : 'project')
   const [topic, setTopic] = useState('')
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const topicId = topic || topics?.[0]?.id || ''
-  const scope: ChatScope = kind === 'note' && note ? { kind, target: note.file } : kind === 'topic' && topicId ? { kind, target: topicId } : { kind: 'project' }
+  const scope: ChatScope = app ? { kind: 'app' } : kind === 'note' && note ? { kind, target: note.file } : kind === 'topic' && topicId ? { kind, target: topicId } : { kind: 'project' }
   const change = (s: Partial<Settings>) => { const v = { ...settings, ...s }; setSettings(v); store.set(SETTINGS_KEY, v) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
@@ -800,21 +819,26 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
         {!fixed && (
           <select className="rs-select" data-ui="대화 프로젝트 고르기" aria-label={t('프로젝트', 'Project')} value={rid} onChange={(e) => { setPick(e.target.value); store.set('rw-agent-project', e.target.value); setTopic('') }}>
             {(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            {appOk && <option value={APP_RID}>{t('앱 고치기 (Emergence Workbench)', 'Fix the app (Emergence Workbench)')}</option>}
           </select>
         )}
-        <span className="rs-label">{t('범위', 'Scope')}</span>
-        <div className="segmented small" role="radiogroup" aria-label={t('범위', 'Scope')} data-ui="대화 범위">
-          {kinds.map(([k, label]) => <button key={k} role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} disabled={k === 'topic' && !topics?.length} onClick={() => setKind(k)}>{label}</button>)}
-        </div>
-        {kind === 'topic' && !!topics?.length && (
+        {!app && <span className="rs-label">{t('범위', 'Scope')}</span>}
+        {!app && (
+          <div className="segmented small" role="radiogroup" aria-label={t('범위', 'Scope')} data-ui="대화 범위">
+            {kinds.map(([k, label]) => <button key={k} role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} disabled={k === 'topic' && !topics?.length} onClick={() => setKind(k)}>{label}</button>)}
+          </div>
+        )}
+        {!app && kind === 'topic' && !!topics?.length && (
           <select className="rs-select" data-ui="대화 주제 고르기" aria-label={t('주제', 'Topic')} value={topicId} onChange={(e) => setTopic(e.target.value)}>
             {topics.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
           </select>
         )}
       </div>
       {rid && <Composer key={rid} rid={rid} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
-        placeholder={t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
-      <span className="muted ac-hint">{TRUST_HINT[settings.trust]}. {t('범위 밖은 읽기만 합니다', 'Outside the scope it only reads')}</span>
+        placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
+      <span className="muted ac-hint">{app
+        ? t('앱 저장소의 따로 둔 폴더에서 파일만 고칩니다. 명령은 돌리지 않고, 커밋 · PR은 앱이, 시험은 GitHub CI가 합니다. 연구 프로젝트는 읽기만 합니다', 'Edits files only, in a separate folder of the app repository. It runs no commands: the app commits and opens the PR, GitHub CI runs the tests. Research projects are read-only')
+        : `${TRUST_HINT[settings.trust]}. ${t('범위 밖은 읽기만 합니다', 'Outside the scope it only reads')}`}</span>
     </div>
   )
 }
@@ -877,7 +901,7 @@ function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
               )
             }))}
             {mine.at(-1)?.e.reason && <span className="muted ac-hint">{mine.at(-1)!.e.reason}</span>}
-            <div className="ac-card-row"><span className="sp" /><button className="btn sm" data-ui="수정 검토로" onClick={() => reviewOf(chat.rid, f)}>{t('수정 검토에서 승인 · 되돌리기', 'Approve or revert in edit review')}</button></div>
+            {chat.rid !== APP_RID && <div className="ac-card-row"><span className="sp" /><button className="btn sm" data-ui="수정 검토로" onClick={() => reviewOf(chat.rid, f)}>{t('수정 검토에서 승인 · 되돌리기', 'Approve or revert in edit review')}</button></div>}
           </div>
         )
       })}
@@ -918,7 +942,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
       <section data-ui="이 대화의 허락">
         <h3>{t('이 대화의 허락', 'Permissions here')}</h3>
         <div className="ac-work-row"><span>{TRUST_NAME[trust]}</span><span className="muted">{MODEL_NAME[chat.model]} · {EFFORT_NAME[chat.effort]}</span></div>
-        <span className="muted ac-hint">{TRUST_HINT[trust]}</span>
+        <span className="muted ac-hint">{chat.rid === APP_RID ? APP_HINT[trust] : TRUST_HINT[trust]}</span>
         {chat.always.map((a) => (
           <div key={a} className="ac-work-row">
             <span className="ac-file" title={a}>{a}</span><span className="muted">{t('늘', 'Always')}</span>
@@ -991,7 +1015,7 @@ export function AgentSide({ id }: { id?: string }) {
       {list && !!list.length && !groups.length && <div className="empty">{filter === 'mine' ? t('답할 대화가 없습니다', 'Nothing waits for you') : filter === 'live' ? t('일하는 대화가 없습니다', 'No conversation is working') : filter === 'archived' ? t('보관한 대화가 없습니다', 'Nothing archived') : t('대화가 없습니다', 'No conversations')}</div>}
       {groups.map(([rid, chats]) => (
         <div key={rid}>
-          <div className="ac-side-h">{projects?.find((p) => p.id === rid)?.title ?? rid}</div>
+          <div className="ac-side-h">{projectName(rid, projects)}</div>
           {chats.map((c) => <ChatLine key={c.id} c={c} on={c.id === id} onOpen={() => go({ page: 'agent', id: c.id })} />)}
         </div>
       ))}

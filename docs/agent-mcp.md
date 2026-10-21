@@ -61,6 +61,8 @@ When it connects, the server tells the agent which tools to use in which order f
 | `flow_review` | Agent review of one piece of evidence (`ev`) or one proof step (`step`), as `role: agent`, with a hash of what was checked | `POST …/:rid/flow/:id/review` |
 | `answer_record` | Write an answer under a question or instruction record `{ target, id, answer }`. For an instruction, do the work first (notes with `edit_note`). The answer header carries your agent name and the record becomes 답함 (answered). Appending, so no hash | `POST …/:rid/comments/:target/:id/answers` |
 | `add_record` | Leave a record for the user `{ file or target, kind: 질문 \| 메모, text, quote?, line? }`, written with `by` = your agent name. A 질문 asks the user to check or decide something (for example a passage of a note you wrote, anchored by `quote`): it is the user's turn (orange in the app, counted in Home's "needs review") until the user answers in the app, which appends `### 답 · 사용자` and sets 답함. Read the answer with `read_records`. Appending, so no hash | `POST …/:rid/comments/:target` |
+| `app_submit` | Only inside an app conversation (the in-app agent that fixes the app itself, 10/21). Commits every change in that conversation's work folder (a separate git worktree), pushes its `claude/app-…` branch and opens the pull request `{ title, body }`, or adds to it. Refused while another pull request is open. The agent cannot run commands there: GitHub CI runs the checks | `POST /api/agent-chats/:id/app/submit` |
+| `app_checks` | Only inside an app conversation. That pull request's CI: each check's state, `done`, `ok`, and the end of the failed log | `GET /api/agent-chats/:id/app/checks` |
 
 ## Rules it keeps
 

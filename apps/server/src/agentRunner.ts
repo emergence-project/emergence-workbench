@@ -4,6 +4,7 @@
  *   저장소 규칙(AGENTS.md · 공통 규칙)은 앱 MCP의 rules 도구로 읽는다.
  * - 앱 MCP를 같은 프로세스에서 붙인다(mcpFor). 그래서 에이전트는 화면과 같은 API · hash · 수정 검토를 거친다.
  * - 모드 · 모델 · 생각 깊이는 차례마다 대화의 값으로 (화면에서 바꾸면 다음 차례부터). 붙여 넣은 그림은 지시와 함께 보낸다.
+ * - 앱 고치기 대화(appChat)는 작업 폴더의 파일 고치기 도구를 열고 셸을 닫는다. 앱 MCP에 app_submit · app_checks가 붙는다.
  * - SDK는 처음 쓸 때 불러온다(dynamic import): 대화를 쓰지 않으면 앱 시작에 들지 않는다.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -33,7 +34,10 @@ export function eventsOf(m: { type: string; subtype?: string; session_id?: strin
   return []
 }
 
-export function claudeAgentRunner(mcpFor: () => McpServer): AgentRunner {
+/** 앱 고치기 대화에서 닫는 셸 도구 (시험은 CI가 한다) */
+const SHELL_TOOLS = ['Bash', 'BashOutput', 'KillBash', 'KillShell']
+
+export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): AgentRunner {
   return async function* run(input: RunInput): AsyncIterable<RunEvent> {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
     let done!: () => void
@@ -56,8 +60,8 @@ export function claudeAgentRunner(mcpFor: () => McpServer): AgentRunner {
         ...(input.sessionId && { resume: input.sessionId }),
         settingSources: [],
         strictMcpConfig: true,
-        mcpServers: { [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor() } },
-        disallowedTools: [...FILE_WRITE_TOOLS],
+        mcpServers: { [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor(input.appChat) } },
+        disallowedTools: input.appChat ? SHELL_TOOLS : [...FILE_WRITE_TOOLS],
         systemPrompt: { type: 'preset', preset: 'claude_code', append: input.brief },
         // 계획 먼저: SDK의 계획 모드로 시작하고, ExitPlanMode(계획 카드)를 허락하면 SDK가 보통 모드로 돌아온다. 고치기 허락은 늘 앱이 정한다
         permissionMode: input.mode === 'plan' && input.write !== 'read' ? 'plan' : 'default',

@@ -90,6 +90,8 @@ export const DEFAULT_SCREENS = [
   ['agent', '#/agent/{chat}', '계획 카드'],
   // 노트를 고치고 끝난 대화와 바뀐 곳 패널 (#232)
   ['agent-changes', '#/agent/{done}', '바뀐 곳'],
+  // 앱 고치기 대화 (2단계 10/21): 작업 폴더에서 파일 하나를 고치고 PR을 연 대화 (shots.mjs, {appchat})
+  ['agent-app', '#/agent/{appchat}', '대화 PR'],
   ['agent-panel', '#/r/{rid}', '에이전트 패널', '에이전트 버튼'],
   // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
   ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', '에이전트 버튼'],
