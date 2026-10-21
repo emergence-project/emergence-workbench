@@ -812,6 +812,10 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
     onCreated(c)
     return true
   }
+  // 프로젝트가 하나도 없으면 고르기 칸이 비어 이유가 안 보인다 (10/21 맥미니): 무엇을 하면 되는지 적는다
+  if (!fixed && projects && !projects.length && !appOk) return (
+    <div className="ac-new" data-ui="새 대화"><p className="muted">{t('대화는 프로젝트 하나에서 엽니다. 등록한 프로젝트가 아직 없습니다: 레일의 ＋로 프로젝트를 등록하세요.', 'A conversation opens in one project, and no project is registered yet. Register one with ＋ on the rail.')}</p></div>
+  )
   const kinds: [ChatScope['kind'], string][] = [['project', t('프로젝트', 'Project')], ['topic', t('주제', 'Topic')], ...(note ? [['note', t('이 노트', 'This note')] as [ChatScope['kind'], string]] : [])]
   return (
     <div className="ac-new" data-ui="새 대화">

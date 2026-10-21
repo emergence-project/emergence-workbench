@@ -43,8 +43,8 @@ export const GLOBAL_PAGES: {
   aria: string
   tip: string
   icon: ReactNode
-  /** 왼쪽 띠의 위(프로젝트 버튼 아래)인지 아래인지. 'none'은 띠에 버튼 없이 under 화면 안의 페이지 */
-  rail: 'top' | 'bottom' | 'none'
+  /** 왼쪽 띠의 어디인지: 'home' 홈 바로 아래, 'top' 프로젝트 버튼 아래, 'bottom' 맨 아래. 'none'은 띠에 버튼 없이 under 화면 안의 페이지 */
+  rail: 'home' | 'top' | 'bottom' | 'none'
   /** 이 화면에 있을 때 띠에서 켜 둘 화면 (예: 지도는 지식 안) */
   under?: Route['page']
   render(p: GlobalPageProps): ReactNode
@@ -91,8 +91,9 @@ export const GLOBAL_PAGES: {
     side: (p) => <NetworkSide person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     render: (p) => <NetworkPage person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     badge: () => <NetworkRailCount /> },
-  // 에이전트 대화 (10/21 사용자 결정 "프로젝트 관리 먼저"): 모든 프로젝트의 대화. 상단바 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에
-  { page: 'agent', label: '에이전트', name: t('에이전트', 'Agents'), aria: t('에이전트 대화', 'Agent conversations'), tip: t('에이전트 — 프로젝트마다 맡긴 대화', 'Agents: conversations you handed work to, per project'), icon: Icon.spark, rail: 'bottom',
+  // 에이전트 대화 (10/21 사용자 결정 "프로젝트 관리 먼저"): 모든 프로젝트의 대화. 상단바 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에.
+  // 띠에서는 홈 바로 아래 (10/21 피드백 "중요한 거니까 위로" · 사용자 "홈 아래는 어때?")
+  { page: 'agent', label: '에이전트', name: t('에이전트', 'Agents'), aria: t('에이전트 대화', 'Agent conversations'), tip: t('에이전트 — 프로젝트마다 맡긴 대화', 'Agents: conversations you handed work to, per project'), icon: Icon.spark, rail: 'home',
     side: (p) => <AgentSide id={p.route.page === 'agent' ? p.route.id : undefined} />,
     render: (p) => <AgentPage id={p.route.page === 'agent' ? p.route.id : undefined} onSaved={p.onSaved} />,
     badge: () => <AgentRailCount /> },
