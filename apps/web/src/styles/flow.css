@@ -187,11 +187,12 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 /* 바깥에 자리가 없을 때: 폭 없이 ＋ 줄 · ×만 상자 안 왼쪽 위 · 아래에 */
 .fl-rowheads.slim { width: 0; background: none; }
 .fl-rowheads.out .fl-rowhead { flex-direction: row-reverse; padding-left: 0; padding-right: var(--sp-2); }
-.fl-rowheads.out .fl-rowname { justify-content: flex-end; }
+.fl-rowheads.out .fl-rowname { text-align: right; }
 .fl-rowheads.out .fl-rowedge { left: auto; right: var(--sp-2); flex-direction: row-reverse; }
 .fl-rowhead { position: absolute; left: 0; right: 0; height: 24px; display: flex; align-items: center; gap: 2px; padding-left: var(--sp-2); }
 .fl-rowhead.to { background: var(--bg-hover); }
-.fl-rowname { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); }
+/* 긴 이름은 자르지 않고 여러 줄로 접는다. 줄 사이가 넓어 서너 줄은 들어간다 (10/21 피드백: 바깥 왼쪽에서 앞이 말없이 잘렸다) */
+.fl-rowname { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.25; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); }
 /* 줄 이름은 점 자세히에서 고친다 (10/21) */
 .fl-rowfield { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .fl-rowname-in { width: 14em; font-size: var(--fs-sm); }
