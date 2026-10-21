@@ -103,7 +103,9 @@
 
 | | 연구 작업대 | 퀀텀캐드 | Telos 공부 앱 |
 | --- | --- | --- | --- |
-| 담는 모양 | 날짜 md + YAML 둘 | 날짜 md + JSON 둘 | 메모마다 JSON (`sync/notes/` · `replies/`), 사용자 답은 아직 없음 |
-| 차례 구현 | TypeScript (core) | Python (`feedback.py`) | 아직 없음 |
+| 담는 모양 | 날짜 md + YAML 둘 | 날짜 md + JSON 둘 | 메모마다 JSON: 원문 `sync/notes/`, 처리 기록 `sync/replies/` · `requests/all.json`, 사용자 답 `sync/reviews/` |
+| 차례 구현 | TypeScript (core) | Python (`feedback.py`) | JavaScript (앱 부품 `50-feedback-turn.js`, 폰 · 맥 · 에이전트 명령이 함께 씀) |
+| 공통 시험 사례 | `feedback-cases.test.ts` | `tests/test_feedback_cases.py` | `tools/check_feedback.mjs` |
+| 에이전트 도구 | `pnpm agent:feedback` | `python -m qcad_gravity_api.feedback` | `node tools/feedback_turn.mjs` |
 | 기록 위치 | 관리자 개인 저장소 `feedback/` | 프로젝트 저장소 | 앱 저장소 `sync/` |
 | 앱만의 것 | | 에이전트 차례인 항목에는 답을 받지 않음 | 고른 글 인용, 질의 즉답, 질의 · 메모는 승인 단계 없음 |
