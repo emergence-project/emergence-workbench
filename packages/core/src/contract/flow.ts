@@ -92,8 +92,11 @@ const Diagnostic = z.object({ file: z.string(), code: z.string(), message: z.str
 /** 손으로 옮긴 자리 (workbench/flow/layout.yaml): 점 id → 칸. 프로젝트 흐름 하나에 하나. r은 중심선 기준(위가 음수) */
 const Cell = z.object({ c: z.number().int().min(0), r: z.number().int() }).strict()
 export const FlowLayout = z.record(z.string(), Cell)
-/** 보이는 줄 (layout.yaml rows, 10/16): 중심선 기준 맨 위·맨 아래 줄. 사람이 ＋ 줄 · ×로 정한다. 없으면 앱의 기본 줄 수 */
-export const FlowRows = z.object({ top: z.number().int().max(0), bottom: z.number().int().min(0) }).strict()
+/**
+ * 보이는 줄 (layout.yaml rows, 10/16): 중심선 기준 맨 위·맨 아래 줄. 사람이 ＋ 줄 · ×로 정한다. 없으면 앱의 기본 줄 수.
+ * names (10/20): 줄 이름 (중심선 기준 줄 → 이름). 주제와 따로이고 고르기 사항이다
+ */
+export const FlowRows = z.object({ top: z.number().int().max(0), bottom: z.number().int().min(0), names: z.record(z.string().regex(/^-?\d+$/), z.string()).optional() }).strict()
 
 export const FlowScan = z.object({ nodes: z.array(FlowNode), diagnostics: z.array(Diagnostic), layout: FlowLayout, rows: FlowRows.nullable() }).strict()
 export const FlowOne = z.object({ node: FlowNode }).strict()
@@ -107,7 +110,7 @@ export const FlowSearchReply = z.object({
 /** trashed: flow/.trash/로 옮긴 점 파일과 그 점의 기록 (workbench 기준 경로) */
 export const FlowDeleted = z.object({ id: z.string(), changed: z.array(z.string()), trashed: z.array(z.string()) }).strict()
 export const FlowLayoutReply = z.object({ layout: FlowLayout }).strict()
-export const FlowRowsReply = z.object({ rows: FlowRows }).strict()
+export const FlowRowsReply = z.object({ rows: FlowRows, layout: FlowLayout.optional() }).strict()
 
 // ---------- 요청 ----------
 
@@ -167,6 +170,8 @@ export const FlowReviewBody = z.object({ baseHash: z.string(), by: z.string().mi
   .refine((b) => (b.ev === undefined) !== (b.step === undefined), { message: 'ev와 step 가운데 하나만' })
 
 export const FlowLayoutBody = z.object({ id: z.string().min(1), at: Cell.nullable() }).strict()
+/** 줄 옮기기 (10/20): from 줄을 to 자리로. cells = 화면이 계산한 지금 자리 전부 (옮긴 뒤 자리로 고쳐 손으로 놓은 자리로 적는다) */
+export const FlowRowMove = z.object({ from: z.number().int(), to: z.number().int(), cells: FlowLayout }).strict()
 
 export type FlowKind = (typeof FLOW_KINDS)[number]
 export type FlowProgress = (typeof FLOW_PROGRESS)[number]
@@ -189,3 +194,4 @@ export type FlowSearchReply = z.infer<typeof FlowSearchReply>
 export type FlowStep = z.infer<typeof FlowStep>
 export type FlowGap = z.infer<typeof FlowGap>
 export type FlowLayoutBody = z.infer<typeof FlowLayoutBody>
+export type FlowRowMove = z.infer<typeof FlowRowMove>

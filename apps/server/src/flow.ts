@@ -7,7 +7,7 @@ import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tl } from './i18n.js'
 import { computeGaps, confirmed, evidenceHash, flowGate, markStale, stepHash } from './flowGaps.js'
 import { commentTargetSlug, stamp as coreStamp } from '@rw/core'
-import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowReviewBody, type FlowSearchReply, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
+import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowReviewBody, type FlowSearchReply, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRowMove, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
 
 export const FLOW_DIR = 'flow'
 export const FLOW_FORMAT = 1
@@ -172,13 +172,26 @@ export function readLayout(wb: Workbench, diags: Diag[] = []): FlowLayout {
   return out
 }
 
-/** 보이는 줄 (rows: { top, bottom }, 중심선 기준). 없거나 틀리면 null = 앱의 기본 */
+/** 보이는 줄 (rows: { top, bottom, names }, 중심선 기준). 없거나 틀리면 null = 앱의 기본 */
 export function readRows(wb: Workbench): FlowRows | null {
   let y: unknown
   try { y = YAML.parse(fs.readFileSync(path.join(dirOf(wb), LAYOUT), 'utf8')) } catch { return null }
-  const v = (y as { rows?: { top?: unknown; bottom?: unknown } } | null)?.rows
+  const v = (y as { rows?: { top?: unknown; bottom?: unknown; names?: unknown } } | null)?.rows
   const top = v?.top, bottom = v?.bottom
-  return Number.isInteger(top) && Number.isInteger(bottom) && (top as number) <= 0 && (bottom as number) >= 0 ? { top: top as number, bottom: bottom as number } : null
+  if (!(Number.isInteger(top) && Number.isInteger(bottom) && (top as number) <= 0 && (bottom as number) >= 0)) return null
+  const names = rowNames(v?.names)
+  return { top: top as number, bottom: bottom as number, ...(names && { names }) }
+}
+
+/** 줄 이름: 정수 줄 → 빈칸이 아닌 글. 없으면 undefined */
+function rowNames(v: unknown): Record<string, string> | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const out: Record<string, string> = {}
+  for (const [k, name] of Object.entries(v as Record<string, unknown>)) {
+    const r = Number(k)
+    if (Number.isInteger(r) && typeof name === 'string' && name.trim()) out[String(r)] = name.trim()
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 /** 점 하나 읽기 (없으면 404). 빈틈은 흐름 전부를 보고 계산한다 */
@@ -442,10 +455,11 @@ export function deleteFlowNode(wb: Workbench, id: string, baseHash: string, now 
 }
 
 function writeLayout(wb: Workbench, layout: FlowLayout, rows: FlowRows | null = readRows(wb)) {
-  const doc = new YAML.Document({ ...(rows && { rows }), dots: Object.fromEntries(Object.entries(layout).map(([id, v]) => [id, { c: v.c, r: v.r }])) })
-  YAML.visit(doc, { Map(_, node) { if (node.has('c') || node.has('top')) node.flow = true } })
+  const names = rowNames(rows?.names)
+  const doc = new YAML.Document({ ...(rows && { rows: { top: rows.top, bottom: rows.bottom, ...(names && { names: new Map(Object.entries(names).map(([k, v]) => [Number(k), v] as const).sort((a, b) => a[0] - b[0])) }) } }), dots: Object.fromEntries(Object.entries(layout).map(([id, v]) => [id, { c: v.c, r: v.r }])) })
+  YAML.visit(doc, { Map(_, node) { if (node.has('c') || (node.has('top') && !node.has('names'))) node.flow = true } })
   fs.mkdirSync(dirOf(wb), { recursive: true })
-  writeAtomic(path.join(dirOf(wb), LAYOUT), '# 흐름 차트에서 손으로 옮긴 자리 (앱이 씀). rows: 보이는 줄 (중심선 기준 맨 위·맨 아래), dots: 점 → 칸 (c 열, r 중심선 기준 줄)\n' + doc.toString({ lineWidth: 0 }))
+  writeAtomic(path.join(dirOf(wb), LAYOUT), '# 흐름 차트에서 손으로 옮긴 자리 (앱이 씀). rows: 보이는 줄 (중심선 기준 맨 위·맨 아래)과 줄 이름(names), dots: 점 → 칸 (c 열, r 중심선 기준 줄)\n' + doc.toString({ lineWidth: 0 }))
 }
 
 /** 점 하나의 자리 정하기·풀기 (쓰기 바로 전에 다시 읽어 그 칸만 바꾼다) */
@@ -464,8 +478,33 @@ export function setFlowLayout(wb: Workbench, body: FlowLayoutBody): FlowLayout {
   return readLayout(wb)
 }
 
-/** 보이는 줄 정하기 (＋ 줄 · ×). 점이 있는 줄은 늘 보이므로 여기서는 범위만 적는다 */
+/**
+ * 보이는 줄과 줄 이름 정하기 (＋ 줄 · × · 연필). 점이 있는 줄은 늘 보이므로 여기서는 범위만 적는다.
+ * names를 보내지 않으면 있던 이름을 두고, 범위 밖으로 나간 줄의 이름은 뺀다
+ */
 export function setFlowRows(wb: Workbench, rows: FlowRows): FlowRows {
-  writeLayout(wb, readLayout(wb), rows)
-  return readRows(wb) ?? rows
+  const layout = readLayout(wb)
+  const used = new Set(Object.values(layout).map((v) => v.r))
+  const names = Object.fromEntries(Object.entries(rows.names ?? readRows(wb)?.names ?? {}).filter(([k]) => { const r = Number(k); return (r >= rows.top && r <= rows.bottom) || used.has(r) }))
+  writeLayout(wb, layout, { top: rows.top, bottom: rows.bottom, names })
+  return readRows(wb) ?? { top: rows.top, bottom: rows.bottom }
+}
+
+/**
+ * 줄 옮기기 (10/20 사용자: ▶나 줄 이름을 끌어): from 줄을 to 자리로 옮기고 그 사이 줄은 한 칸씩 민다.
+ * 점의 자리는 화면이 계산하므로 지금 자리(cells)를 받아 옮긴 뒤 자리로 적는다(손으로 놓은 자리가 된다). 줄 이름도 함께 옮긴다
+ */
+export function moveFlowRow(wb: Workbench, body: FlowRowMove): { rows: FlowRows; layout: FlowLayout } {
+  const { from, to } = body
+  const shift = (r: number) => r === from ? to : from < to && r > from && r <= to ? r - 1 : from > to && r >= to && r < from ? r + 1 : r
+  const layout = readLayout(wb)
+  const known = new Set(scanFlow(wb).nodes.map((n) => n.id))
+  for (const [id, v] of Object.entries(body.cells)) if (known.has(id)) layout[id] = { c: v.c, r: v.r }
+  for (const v of Object.values(layout)) v.r = shift(v.r)
+  const old = readRows(wb)
+  const rs = Object.values(layout).map((v) => v.r)
+  const top = Math.min(0, old?.top ?? 0, to, ...rs), bottom = Math.max(0, old?.bottom ?? 0, to, ...rs)
+  const names = Object.fromEntries(Object.entries(old?.names ?? {}).map(([k, v]) => [String(shift(Number(k))), v]))
+  writeLayout(wb, layout, { top, bottom, names })
+  return { rows: readRows(wb) ?? { top, bottom }, layout: readLayout(wb) }
 }

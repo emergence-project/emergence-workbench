@@ -175,10 +175,30 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-next-pop { right: 0; top: calc(100% + 4px); min-width: 200px; }
 
 /* 줄 더하기·빼기 (＋ 줄 · ×, 10/16) */
-.fl-rowbtn { cursor: pointer; }
-.fl-rowbtn text { fill: var(--text-2); font-size: var(--fs-sm); }
-.fl-rowbtn:hover text, .fl-rowbtn:focus-visible text { fill: var(--text); }
-.fl-rowbtn:focus { outline: none; }
+.fl-canvas { display: flex; position: relative; }
+.fl-canvas > .fl-svg { flex: none; }
+/* 줄 이름 칸 (10/20): 가로로 넘겨도 왼쪽에 붙어 있다. 차트와 같은 바탕. 이름은 보기만 하고 고치기는 점 자세히에서 */
+.fl-rowheads { position: sticky; left: 0; z-index: 1; flex: none; background: var(--bg); cursor: default; user-select: none; }
+.fl-wrap { position: relative; }
+/* 바깥 왼쪽: 상자 높이로 자르고, 상자를 세로로 넘기면 같이 움직인다. 이름은 차트 쪽(오른쪽)에 붙인다 */
+.fl-rowclip { position: absolute; right: 100%; top: 1px; overflow: hidden; }
+.fl-rowheads.out { position: relative; }
+/* 바깥에 자리가 없을 때: 폭 없이 ＋ 줄 · ×만 상자 안 왼쪽 위 · 아래에 */
+.fl-rowheads.slim { width: 0; background: none; }
+.fl-rowheads.out .fl-rowhead { flex-direction: row-reverse; padding-left: 0; padding-right: var(--sp-2); }
+.fl-rowheads.out .fl-rowname { justify-content: flex-end; }
+.fl-rowheads.out .fl-rowedge { left: auto; right: var(--sp-2); flex-direction: row-reverse; }
+.fl-rowhead { position: absolute; left: 0; right: 0; height: 24px; display: flex; align-items: center; gap: 2px; padding-left: var(--sp-2); }
+.fl-rowhead.to { background: var(--bg-hover); }
+.fl-rowname { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); }
+/* 줄 이름은 점 자세히에서 고친다 (10/21) */
+.fl-rowfield { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.fl-rowname-in { width: 14em; font-size: var(--fs-sm); }
+/* 맨 위 · 맨 아래: ＋ 줄과 빈 끝 줄의 × */
+.fl-rowedge { position: absolute; left: var(--sp-2); display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.fl-rowadd { border: none; background: none; padding: 0; font-size: var(--fs-sm); color: var(--text-2); cursor: pointer; }
+.fl-rowadd:hover { color: var(--text); }
+.fl-startmark { cursor: grab; }
 
 /* 근거 논문: 이름 뒤 작은 § (10/16, 점 위 배지 대신) */
 .fl-cite { fill: var(--text-2); font-weight: var(--fw-normal); }
