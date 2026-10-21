@@ -64,10 +64,17 @@ export const FlowNode = z.object({
   short: z.string(),
   title: z.string(),
   topics: z.array(z.string()),
+  /** 시작일: 점을 만든 날 (앱이 적고 화면에서는 읽기만, 10/21) */
   date: z.string().optional(),
+  /** 끝난 날: 끝남(해결 · 반증 · 폐기)으로 바꾼 날. 다시 열면 지운다 (10/21) */
+  ended: z.string().optional(),
+  /** 한 이: 점을 만든 이 (사용자 · claude-code · codex …, 10/21) */
+  by: z.string().optional(),
+  /** 이 점을 만든 맡긴 일 (workbench/tasks의 id, 10/21) */
+  task: z.string().optional(),
   from: z.array(FlowFrom),
   fields: z.record(z.string(), z.string()),
-  /** 갈래 종결 */
+  /** 흐름 종료: 이 갈래는 여기서 끝나 뒤에 이어질 점이 없다 (10/21 "갈래 종결"에서 이름을 바꿈) */
   end: z.boolean().optional(),
   evidence: z.array(FlowEvidence),
   run: FlowRun.optional(),
@@ -136,6 +143,10 @@ export const NewFlowBody = z.object({
   topics: z.array(z.string().min(1)).optional(),
   from: z.array(FlowFrom).optional(),
   progress: z.enum(FLOW_PROGRESS).optional(),
+  /** 만든 이 (MCP는 에이전트 이름, 화면은 비움 = 사용자) */
+  by: z.string().max(40).optional(),
+  /** 이 점을 만든 맡긴 일 id */
+  task: z.string().max(120).optional(),
 }).strict()
 
 export const FlowPatchBody = z.object({
@@ -147,7 +158,7 @@ export const FlowPatchBody = z.object({
     short: Short.optional(),
     title: z.string().max(300).optional(),
     topics: z.array(z.string().min(1)).optional(),
-    date: z.string().max(20).optional(),
+    task: z.string().max(120).nullable().optional(),
     fields: z.record(z.string(), Text).optional(),
     end: z.boolean().optional(),
     from: z.array(FlowFrom).optional(),

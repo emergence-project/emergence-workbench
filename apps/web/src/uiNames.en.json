@@ -700,5 +700,8 @@
   "에이전트 차례 목록": "Agents'-turn list",
   "차례 기록 줄": "Turn record row",
   "차례 수정 검토 줄": "Edit review row",
-  "고친 까닭": "Why the agent edited"
+  "고친 까닭": "Why the agent edited",
+  "흐름 날짜": "Flow dates",
+  "흐름 문헌": "Flow reading",
+  "흐름 점 작업": "Flow dot task"
 }

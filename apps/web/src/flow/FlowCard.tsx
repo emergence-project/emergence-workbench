@@ -12,6 +12,9 @@ import { t as tr } from '../i18n'
 import { KIND, FIELD, EDGE, EVK, PRIORITY, markOf, stateOf, stateName, DOT, MarkIcon } from './marks'
 import { Check, Chain, FlowText, approvedBy } from './evidence'
 import { ApproveDialog } from './ApproveDialog'
+import { flowBy } from './flowBy'
+import { citeKeys } from '../ObsidianMarkdown'
+import { taskTitles } from '../taskView'
 
 export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick, onAdd, onPickFrom, onEdit, onUnplace, onDeleted, reload, fail }: {
   reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; notes: NoteRow[]
@@ -41,7 +44,9 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
     reveal.current = false
     el.current?.scrollIntoView({ block: 'nearest' })
   }, [n.id, reveal])
-  const order = [...Object.keys(FIELD).filter((f) => n.fields[f]), ...Object.keys(n.fields).filter((f) => !FIELD[f])]
+  // 문헌 점의 "문헌" 칸은 설명과 떼어 따로 보인다 (10/20 15:22 피드백)
+  const order = [...Object.keys(FIELD).filter((f) => n.fields[f]), ...Object.keys(n.fields).filter((f) => !FIELD[f])].filter((f) => f !== 'reading')
+  const reading = n.fields.reading
   const prev = n.from.map((f) => ({ f, m: byId.get(f.id)! })).filter((x) => x.m)
   const next = all.filter((m) => m.from.some((f) => f.id === n.id)).map((m) => ({ f: m.from.find((f) => f.id === n.id)!, m }))
   const hasProof = n.kind === 'finding' && n.evidence.some((e) => e.kind === 'proof')
@@ -54,7 +59,7 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
   )
   return (
     <article className="fl-card" ref={el} data-ui="흐름 점 자세히">
-      <div className="fl-head"><MarkIcon n={n} size={30} /><span className="fl-short">{n.short}</span>{n.date && <span className="muted">{n.date}</span>}
+      <div className="fl-head"><MarkIcon n={n} size={30} /><span className="fl-short">{n.short}</span>
         <span className="fl-tools">
           {manual && <button className="btn" title={tr('손으로 옮긴 자리를 풀고 자동 자리로', 'Release the manual position')} onClick={onUnplace}>{tr('자동 자리로', 'Auto position')}</button>}
           <NextDotButtons onAdd={onAdd} onPickFrom={onPickFrom} />
@@ -62,12 +67,17 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
           <button className="icon-btn" data-ui="흐름 점 지우기" title={tr('지우기', 'Delete')} aria-label={tr('점 지우기', 'Delete dot')} onClick={() => void remove()}>{Icon.trash}</button>
         </span>
       </div>
-      <div className="fl-full">{n.title}</div>
+      {/* 짧은 제목(위 큰 글)과 제목은 따로 저장한다: 제목에 이름을 달아 구분 (10/20 15:22 피드백) */}
+      <div className="fl-full"><i>{tr('제목', 'Title')}</i>{n.title}</div>
       <div className="fl-cls">
         <span title={K.def()}><i>{tr('종류', 'Kind')}</i>{K.act ? tr('행위', 'Action') : tr('진술', 'Statement')} · {K.name()}</span>
         {hasProof && !n.theorem && <span className="muted">{tr('증명 승인 대기 · 승인하면 정리', 'Proof awaiting approval · becomes a theorem when approved')}</span>}
         <span><i>{tr('상태', 'State')}</i><StatusDot s={DOT[stateOf(n)]} name={stateName(n)} label /></span>
-        {n.end && <span>{tr('갈래 종결', 'Branch closed')}</span>}
+        {n.end && <span title={tr('이 갈래는 여기서 끝나 뒤에 이어질 점이 없음', 'This branch ends here; no dot follows')}>{tr('흐름 종료', 'Flow ends')}</span>}
+        {n.date && <span><i>{tr('시작일', 'Started')}</i>{n.date}</span>}
+        {n.ended && <span><i>{tr('끝난 날', 'Ended')}</i>{n.ended}</span>}
+        {n.by && <span><i>{tr('한 이', 'By')}</i>{flowBy(n.by)}</span>}
+        {n.task && <span><i>{tr('작업', 'Task')}</i><button className="a" data-ui="흐름 점 작업" title={tr('이 점을 만든 맡긴 일 보고서 열기', 'Open the delegated task report behind this dot')} onClick={() => go({ page: 'task', rid, task: n.task! })}>{taskTitles.get(n.task) ?? n.task}</button></span>}
         {row && <span className="fl-rowfield" data-ui="흐름 줄 이름 고치기"><i>{tr('줄', 'Row')}</i>
           {rowText !== null
             ? <input className="fl-rowname-in" autoFocus aria-label={tr('줄 이름', 'Row name')} placeholder={tr('줄 이름', 'Row name')} value={rowText}
@@ -81,6 +91,11 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
         <li><b>{tr(`빈틈 ${n.gaps.length}`, `${n.gaps.length} gaps`)}</b></li>
         {n.gaps.map((g, i) => <li key={i}>{g.text}</li>)}
       </ul>}
+      {reading && <section className="fl-sec" data-ui="흐름 문헌">
+        <h3>{tr('문헌', 'Reading')}</h3>
+        <FlowText rid={rid} text={reading} />
+        {citeKeys(reading).length > 0 && <div className="fl-cites">{[...new Set(citeKeys(reading))].map((k) => <button key={k} className="a fl-ref-link" title={tr('라이브러리에서 열기', 'Open in the library')} onClick={() => go({ page: 'shelf', open: k })}>{Chain}<span>{k}</span></button>)}</div>}
+      </section>}
       <section className="fl-sec">
         <h3>{tr('설명', 'Description')}</h3>
         {order.length ? <dl className="fl-fields">{order.map((f) => <div key={f}><dt>{FIELD[f]?.() ?? f}</dt><dd><FlowText rid={rid} text={n.fields[f]!} /></dd></div>)}</dl>

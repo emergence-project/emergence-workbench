@@ -93,7 +93,7 @@ export function parseFlowNode(id: string, file: string, content: string, diags: 
   const theorem = kind === 'finding' && evidence.some((e) => e.kind === 'proof' && approved(e, 'human'))
   return {
     id, file, hash: hashOf(content), kind, progress, ...(result && { result }), short, title: title ?? short, topics,
-    ...(str(y.date) && { date: str(y.date) }), from, fields, ...(y.end === true && { end: true }), evidence,
+    ...(str(y.date) && { date: str(y.date) }), ...(str(y.ended) && { ended: str(y.ended) }), ...(str(y.by) && { by: str(y.by) }), ...(str(y.task) && { task: str(y.task) }), from, fields, ...(y.end === true && { end: true }), evidence,
     ...(run && { run }), steps, ...(str(y.reason) && { reason: str(y.reason) }), ...(str(y.next) && { next: str(y.next) }), ...(priority && { priority }), gaps: [],
     sources: strs(y.sources), guesses: strs(y.guesses), theorem,
   }
@@ -223,7 +223,7 @@ function newId(wb: Workbench, short: string, now: Date): string {
   return id
 }
 
-const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'from', 'fields', 'run', 'steps', 'reason', 'next', 'priority', 'end', 'evidence', 'sources', 'guesses']
+const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'ended', 'by', 'task', 'from', 'fields', 'run', 'steps', 'reason', 'next', 'priority', 'end', 'evidence', 'sources', 'guesses']
 
 /**
  * 글로 쓰기: 원래 파일의 목록 들여쓰기를 따른다. 사람 · 파이썬이 쓴 파일은 "key:\n- a"(들여쓰지 않음)가 많고,
@@ -296,13 +296,13 @@ export function createFlowNode(wb: Workbench, body: NewFlowBody, now = new Date(
   const missing = (body.from ?? []).find((f) => !ids.has(f.id))
   if (missing) throw new WorkbenchError(400, tl(`앞선 점 ${missing.id}이 없습니다`, `No earlier dot ${missing.id}`))
   const id = newId(wb, body.short, now)
-  const y: Record<string, unknown> = { format: FLOW_FORMAT, kind: body.kind, progress: body.progress ?? 'open', short: body.short.trim(), title: body.title?.trim() || body.short.trim(), ...(body.topics?.length && { topics: body.topics }), date: localDate(now) }
+  const y: Record<string, unknown> = { format: FLOW_FORMAT, kind: body.kind, progress: body.progress ?? 'open', short: body.short.trim(), title: body.title?.trim() || body.short.trim(), ...(body.topics?.length && { topics: body.topics }), date: localDate(now), by: body.by?.trim() || 'user', ...(body.task?.trim() && { task: body.task.trim() }) }
   if (body.from?.length) y.from = body.from
   return write(wb, id, new YAML.Document(y))
 }
 
 /** 점 고치기: 보낸 칸만 바꾼다. 근거를 고쳐도 같은 ref·file의 확인 기록은 그대로 남는다 */
-export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody): FlowNode {
+export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody, now = new Date()): FlowNode {
   const n = readFlowNode(wb, id)
   checkHash(n, body.baseHash)
   const s = body.set
@@ -327,7 +327,9 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody): F
     const node = doc.createPair(k, v) as (typeof map.items)[number]
     if (at < 0) map.items.push(node); else map.items.splice(at, 0, node)
   }
-  for (const k of ['kind', 'progress', 'short', 'title', 'topics', 'date', 'end', 'from', 'priority'] as const) put(k, s[k])
+  for (const k of ['kind', 'progress', 'short', 'title', 'topics', 'end', 'from', 'priority', 'task'] as const) put(k, s[k])
+  // 시작일은 앱이 적는다: 날짜가 없던 옛 점은 처음 고칠 때 한 번 (10/21)
+  if (!n.date) put('date', localDate(now))
   for (const k of ['reason', 'next'] as const) if (s[k] !== undefined) put(k, s[k]!.trim())
   if (s.run !== undefined) {
     const r = s.run && Object.fromEntries(Object.entries({ ...s.run, params: s.run.params && Object.fromEntries(Object.entries(s.run.params).map(([k, v]) => [k.trim(), v.trim()]).filter(([k, v]) => k && v)) })
@@ -340,6 +342,9 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody): F
   }
   if (s.fields) put('fields', Object.fromEntries(Object.entries(s.fields).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)))
   const progress = s.progress ?? n.progress
+  // 끝난 날: 끝남으로 넘어갈 때 적고, 다시 열면 지운다 (10/21)
+  if (progress === 'done' && (n.progress !== 'done' || !n.ended)) put('ended', localDate(now))
+  else if (progress !== 'done' && n.ended) put('ended', null)
   if (s.result !== undefined || progress !== 'done') put('result', progress === 'done' ? (s.result ?? n.result ?? 'solved') : null)
   else if (progress === 'done' && !n.result) put('result', 'solved')
   if (s.evidence) {

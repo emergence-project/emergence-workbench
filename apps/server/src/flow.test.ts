@@ -79,7 +79,7 @@ describe('흐름 고치기', () => {
     const text = "format: 1\nkind: question\nprogress: active\nshort: Theory + toolkit\ntitle: 이론을 정리할 수 있는가\ntopics:\n- fundamental\n- toolkit\ndate: '2026-08-01'\nfields:\n  question: Can it?\nevidence:\n- kind: other\n  file: workbench/research.yaml\n  text: research question\n  checks: []\nguesses:\n- 'quoted: guess'\n"
     fs.writeFileSync(path.join(dir(), 'same.yaml'), text)
     const n = (await get()).nodes.find((x: { id: string }) => x.id === 'same')
-    const all = { short: n.short, title: n.title, date: n.date, kind: n.kind, progress: n.progress, result: null, topics: n.topics, from: n.from, fields: n.fields,
+    const all = { short: n.short, title: n.title, kind: n.kind, progress: n.progress, result: null, topics: n.topics, from: n.from, fields: n.fields,
       evidence: n.evidence.map((e: { kind: string; text: string; file?: string }) => ({ kind: e.kind, text: e.text, file: e.file })) }
     expect((await send('PATCH', '/same', { baseHash: n.hash, set: all })).statusCode).toBe(200)
     expect(fs.readFileSync(path.join(dir(), 'same.yaml'), 'utf8')).toBe(text)
@@ -90,12 +90,31 @@ describe('흐름 고치기', () => {
   })
 
   it('목록 들여쓰기는 글 안의 "…:\\n- " 줄이 아니라 실제 목록으로 잰다', async () => {
-    const text = "format: 1\nkind: question\nprogress: active\nshort: Block\ntitle: 블록 글\nfields:\n  question: |\n    확인할 것:\n    - 첫째\nevidence:\n  - kind: other\n    file: a.md\n    text: 근거\n"
+    const text = "format: 1\nkind: question\nprogress: active\nshort: Block\ntitle: 블록 글\ndate: '2026-08-01'\nfields:\n  question: |\n    확인할 것:\n    - 첫째\nevidence:\n  - kind: other\n    file: a.md\n    text: 근거\n"
     fs.writeFileSync(path.join(dir(), 'block.yaml'), text)
     const n = (await get()).nodes.find((x: { id: string }) => x.id === 'block')
     expect((await send('PATCH', '/block', { baseHash: n.hash, set: { short: 'Block 2' } })).statusCode).toBe(200)
     expect(fs.readFileSync(path.join(dir(), 'block.yaml'), 'utf8')).toBe(text.replace('short: Block', 'short: Block 2'))
     fs.rmSync(path.join(dir(), 'block.yaml'))
+  })
+
+  it('시작일 · 끝난 날 · 한 이 · 작업은 앱이 적는다 (10/21): 시작일은 고치기로 못 바꾸고, 없던 옛 점은 처음 고칠 때 적는다', async () => {
+    const made = (await send('POST', '', { kind: 'calc', short: 'Dates', by: 'codex', task: '2026-10-05-x' })).json().node
+    expect(made).toMatchObject({ by: 'codex', task: '2026-10-05-x' })
+    expect(made.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(made.ended).toBeUndefined()
+    expect((await send('PATCH', `/${made.id}`, { baseHash: made.hash, set: { date: '2020-01-01' } })).statusCode).toBe(400)
+    const done = (await send('PATCH', `/${made.id}`, { baseHash: made.hash, set: { progress: 'done', result: 'dropped', reason: '안 함' } })).json().node
+    expect(done.ended).toBe(made.date)
+    const open = (await send('PATCH', `/${made.id}`, { baseHash: done.hash, set: { progress: 'active' } })).json().node
+    expect(open.ended).toBeUndefined()
+    const user = (await send('POST', '', { kind: 'question', short: 'Mine' })).json().node
+    expect(user.by).toBe('user')
+    put('old', 'format: 1\nkind: question\nprogress: open\nshort: 옛 점\ntitle: 옛 점')
+    const old = (await get()).nodes.find((x: { id: string }) => x.id === 'old')
+    expect(old.date).toBeUndefined()
+    const fixed = (await send('PATCH', '/old', { baseHash: old.hash, set: { short: '옛 점 2' } })).json().node
+    expect(fixed.date).toBe(made.date)
   })
 
   it('고치기: 보낸 칸만, 끝나면 결과, 근거를 고쳐도 확인 기록은 남는다, 낡은 hash는 409', async () => {
@@ -243,16 +262,16 @@ describe('STATUS의 흐름 절', () => {
     expect(brief).toContain('### 최근 점 5')
     expect(brief).toContain('- 2026-10-14 π 계산 4 · `flow-d4` · 수치 계산 · 해결 — 계산 4')
     // 최근 5개 밖의 열린 점도 핵심 칸까지
-    expect(brief).toMatch(/### 그 밖의 열린 점 1\n\n- 2026-10-01 \? 물음 · `flow-q` · 질문 · 멈춤 — 물음 하나\n  - 물음: 되나\?\n  - 뒤따른 점 → `p` \(폐기 · 갈래 끝\) · `f` \(해결\)\n  - 빈틈: 반증 · 폐기 · 멈춤의 이유가 없다\n  - 빈틈: 판정 기준이 없다 \(무엇이 나오면 해결 · 반증인가\)\n  - 짐작\(사람 확인 안 함\): 에이전트가 쓴 물음/)
+    expect(brief).toMatch(/### 그 밖의 열린 점 1\n\n- 2026-10-01 \? 물음 · `flow-q` · 질문 · 멈춤 — 물음 하나\n  - 물음: 되나\?\n  - 뒤따른 점 → `p` \(폐기 · 흐름 종료\) · `f` \(해결\)\n  - 빈틈: 반증 · 폐기 · 멈춤의 이유가 없다\n  - 빈틈: 판정 기준이 없다 \(무엇이 나오면 해결 · 반증인가\)\n  - 짐작\(사람 확인 안 함\): 에이전트가 쓴 물음/)
     expect(brief).toContain('### 사람 승인 대기 1\n')
     expect(brief).toContain('`flow-f` · 발견 · 해결 — 발견 하나')
     const map = statusPart(status, '흐름 지도')!
     expect(map).toContain('## 흐름 지도 8')
     expect(map).toContain('- ▶ `q` · 질문 · 멈춤 · 빈틈 2 → 흐름 요약')
-    expect(map).toContain('- `p` · 증명 · 폐기 · 갈래 끝 · 빈틈 2 — 증명 하나 ← 발단 q')
+    expect(map).toContain('- `p` · 증명 · 폐기 · 흐름 종료 · 빈틈 2 — 증명 하나 ← 발단 q')
     // 빈틈 절: 새것부터 10점, 나머지는 수만
     expect(brief).toContain('### 빈틈 8 ')
-    expect(brief).toContain('- `d4` 계산 4: 해결인데 근거가 없다 · 끝났는데 결과 칸이 비었다 · 다음 할 일도, 뒤따른 점도, 갈래 종결도 없다')
+    expect(brief).toContain('- `d4` 계산 4: 해결인데 근거가 없다 · 끝났는데 결과 칸이 비었다 · 다음 할 일도, 뒤따른 점도, 흐름 종료도 없다')
     // 짧으면 그대로, 길면(빈틈 절이 붙어 1.5KB를 넘음) 이름만
     expect(statusSummary(status, 'x')).toMatch(/^(## )?-? ?흐름 요약/m)
   })

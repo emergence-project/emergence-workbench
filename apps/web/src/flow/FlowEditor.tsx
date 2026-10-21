@@ -8,6 +8,7 @@ import { KIND, FIELD, FIELD_HINT, END_FIELDS, EDGE, EVK, MarkIcon, PROGRESS, PRI
 import type { TopicRef } from './data'
 import { FlowText } from './evidence'
 import { FIGURE_FILE, uploadFigure, FigureMenu } from './figures'
+import { flowBy } from './flowBy'
 
 /** 받는 점의 종류로 정하는 기본 선 종류 (서버가 종류 없는 선을 읽는 규칙과 같다) */
 const defaultEdge = (k: FlowKind): FlowEdge => k === 'question' ? 'origin' : 'support'
@@ -53,7 +54,6 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
 }) {
   const [short, setShort] = useState(n.short)
   const [title, setTitle] = useState(n.title)
-  const [date, setDate] = useState(n.date ?? '')
   const [kind, setKind] = useState(n.kind)
   const [progress, setProgress] = useState(n.progress)
   const [result, setResult] = useState<FlowResult>(n.result ?? 'solved')
@@ -114,7 +114,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
     const params = paramsOf(run.params)
     const hasRun = !!(run.code.trim() || run.commit.trim() || run.output.trim() || Object.keys(params).length)
     const set = {
-      short: short.trim(), title: title.trim() || short.trim(), date: date.trim(), kind, progress, result: progress === 'done' ? result : null, end, topics: tops, from,
+      short: short.trim(), title: title.trim() || short.trim(), kind, progress, result: progress === 'done' ? result : null, end, topics: tops, from,
       fields: Object.fromEntries(Object.entries(fields).filter(([k]) => shownFields.includes(k)).map(([k, v]) => [k, v])),
       evidence: ev.map((x) => ({ kind: x.kind, text: x.text, ...(x.title.trim() && { title: x.title.trim() }), ...(x.kind === 'paper' ? { ref: x.src.trim() } : { file: x.src.trim(), ...(x.section.trim() && { section: x.section.trim() }) }) })),
       run: hasRun ? { ...(run.code.trim() && { code: run.code.trim() }), ...(run.commit.trim() && { commit: run.commit.trim() }), ...(Object.keys(params).length && { params }), ...(run.output.trim() && { output: run.output.trim() }) } : null,
@@ -123,9 +123,9 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
     }
     try {
       if (!create) { await flowApi(rid).patch(n.id, n.hash, set, true); return onSaved() }
-      // 만들기가 받는 칸으로 만들고, 나머지(날짜·설명·근거·결과·종결)가 있으면 이어서 고친다
+      // 만들기가 받는 칸으로 만들고, 나머지(설명·근거·결과·흐름 종료)가 있으면 이어서 고친다. 시작일 · 한 이는 서버가 적는다 (10/21)
       const made = await flowApi(rid).create({ kind, short: set.short, title: set.title, progress: progress === 'done' || progress === 'paused' ? 'active' : progress, ...(tops.length && { topics: tops }), ...(from.length && { from }) })
-      const more = set.date !== made.date || end || progress !== made.progress || set.evidence.length > 0 || hasRun || set.steps.length > 0 || !!(set.reason || set.next || set.priority) || Object.values(set.fields).some((v) => v.trim())
+      const more = end || progress !== made.progress || set.evidence.length > 0 || hasRun || set.steps.length > 0 || !!(set.reason || set.next || set.priority) || Object.values(set.fields).some((v) => v.trim())
       if (more) await flowApi(rid).patch(made.id, made.hash, set, true).catch((e: Error) => flash(tr(`점은 만들었지만 나머지 칸을 저장하지 못했습니다: ${e.message}`, `The dot was created, but the other fields were not saved: ${e.message}`)))
       onSaved(made)
     } catch (e) {
@@ -188,16 +188,16 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
       <span className="fl-tools">{buttons}</span></div>
     <input className="fl-in fl-full" aria-label={tr('제목', 'Title')} placeholder={tr('제목 (비우면 짧은 제목)', 'Title (empty = short title)')} value={title} maxLength={300} onChange={(e) => setTitle(e.target.value)} />
 
-    {/* 종류 · 상태 · 날짜는 한 줄의 작은 고르기 칸으로 (10/20 안 A) */}
+    {/* 종류 · 진행 · 결과는 이름을 단 작은 고르기 칸으로 (10/20 안 A, 10/21 칸 이름). 시작일 · 끝난 날 · 한 이는 앱이 적고 읽기만 한다 (10/21) */}
     <div className="fl-chips" data-ui="흐름 종류 고르기">
-      <select className="fl-chip" aria-label={tr('종류', 'Kind')} title={KIND[markOf(shown)].def()} value={kind} onChange={(e) => setKind(e.target.value as FlowKind)}>
-        {FLOW_KINDS.map((k) => <option key={k} value={k}>{KIND[k].name()}</option>)}</select>
-      <select className="fl-chip" aria-label={tr('진행', 'Progress')} value={progress} onChange={(e) => setProgress(e.target.value as FlowProgress)}>
-        {(['open', 'active', 'paused', 'done'] as const).map((p) => <option key={p} value={p}>{PROGRESS[p]()}</option>)}</select>
-      {progress === 'done' && <select className="fl-chip" aria-label={tr('결과', 'Result')} value={result} onChange={(e) => setResult(e.target.value as FlowResult)}>
-        {(['solved', 'refuted', 'dropped'] as const).map((r) => <option key={r} value={r}>{resultName(r, act)}</option>)}</select>}
-      <input className="fl-chip fl-date-in" aria-label={tr('날짜', 'Date')} value={date} placeholder="2026-10-14" maxLength={20} onChange={(e) => setDate(e.target.value)} />
-      <label className="check"><input type="checkbox" checked={end} onChange={(e) => setEnd(e.target.checked)} />{tr('갈래 종결', 'Branch closed')}</label>
+      <label className="fl-chip-l"><span>{tr('종류', 'Kind')}</span><select className="fl-chip" title={KIND[markOf(shown)].def()} value={kind} onChange={(e) => setKind(e.target.value as FlowKind)}>
+        {FLOW_KINDS.map((k) => <option key={k} value={k}>{KIND[k].name()}</option>)}</select></label>
+      <label className="fl-chip-l"><span>{tr('진행', 'Progress')}</span><select className="fl-chip" value={progress} onChange={(e) => setProgress(e.target.value as FlowProgress)}>
+        {(['open', 'active', 'paused', 'done'] as const).map((p) => <option key={p} value={p}>{PROGRESS[p]()}</option>)}</select></label>
+      {progress === 'done' && <label className="fl-chip-l"><span>{tr('결과', 'Result')}</span><select className="fl-chip" value={result} onChange={(e) => setResult(e.target.value as FlowResult)}>
+        {(['solved', 'refuted', 'dropped'] as const).map((r) => <option key={r} value={r}>{resultName(r, act)}</option>)}</select></label>}
+      <label className="check" title={tr('이 갈래는 여기서 끝나 뒤에 이어질 점이 없다는 표시. 켜면 흐름 화면이 "다음 점 없음"을 빈틈으로 알리지 않습니다', 'Marks that this branch ends here and no dot follows. When on, the flow does not flag "no next dot" as a gap')}><input type="checkbox" checked={end} onChange={(e) => setEnd(e.target.checked)} />{tr('흐름 종료', 'Flow ends')}</label>
+      <FlowDates n={n} create={create} />
     </div>
 
     {similar.length > 0 && <div className="fl-similar" data-ui="흐름 비슷한 지난 시도">
@@ -289,4 +289,13 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
     {missing.length > 0 && <p className="fl-gate" data-ui="흐름 남은 칸">{tr(`끝내기 전에 채울 칸 ${missing.length}: ${missing.join(' · ')}`, `${missing.length} left before finishing: ${missing.join(' · ')}`)}</p>}
     {error && <p className="error-text">{error}</p>}
   </article>
+}
+
+/** 시작일 · 끝난 날 · 한 이: 앱이 적고 고치기 창에서는 읽기만 (10/21 피드백 09:21) */
+function FlowDates({ n, create }: { n: FlowNode; create: boolean }) {
+  return <span className="fl-dates" data-ui="흐름 날짜">
+    <span><i>{tr('시작일', 'Started')}</i>{create ? tr('만들면 오늘', 'today on create') : n.date ?? tr('저장하면 오늘', 'today on save')}</span>
+    {n.ended && <span><i>{tr('끝난 날', 'Ended')}</i>{n.ended}</span>}
+    {!create && n.by && <span><i>{tr('한 이', 'By')}</i>{flowBy(n.by)}</span>}
+  </span>
 }
