@@ -94,6 +94,26 @@ export const JudgeBody = z.object({
 })
 export const AnswerBody = z.object({ n: ordinal, answer: z.string(), note: z.string().optional(), baseHash })
 export const NextBody = z.object({ i: ordinal, action: z.enum(['start', 'drop', 'restore']), edit: NewTaskBody.partial().optional(), baseHash })
+/**
+ * 에이전트의 보고 (10/21, 파일을 직접 고치지 않고 MCP report_task로): 종결 조건 제안(proposal) 또는 결과(result).
+ * 칸 이름은 docs/agent-delegated-work.md 2.2. 본문 두 절(요약과 결론 · 근거)은 summary · evidence로
+ */
+export const ReportBody = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('proposal'), endCondition: z.array(z.string()).min(1), reason: z.string().optional(), baseHash }),
+  z.object({
+    kind: z.literal('result'),
+    conclusion: z.string(),
+    endCheck: z.enum(['pass', 'fail', 'unknown']),
+    summary: z.string(),
+    evidence: z.string(),
+    ask: z.array(z.union([z.string(), TaskAsk])).max(3).optional(),
+    issues: z.array(TaskIssue).optional(),
+    next: z.array(z.object({ task: z.string(), endCondition: z.string().optional() })).optional(),
+    outputs: z.array(z.string()).optional(),
+    checkMachine: z.string().optional(),
+    baseHash,
+  }),
+])
 
 export type TaskState = (typeof TASK_STATES)[number]
 export type Verdict = (typeof VERDICTS)[number]

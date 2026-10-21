@@ -44,7 +44,7 @@ describe('맡긴 일 화면 말', () => {
 
   it('에이전트에게 줄 말은 작업 파일과 규칙 문서를 가리킨다', () => {
     expect(agentPrompt('workbench/tasks/2026-10-07-a.md', '~/code/workbench/docs/agent-delegated-work.md'))
-      .toBe('workbench/tasks/2026-10-07-a.md에 맡긴 일을 해 줘. 먼저 이 파일과 규칙 문서 ~/code/workbench/docs/agent-delegated-work.md를 읽고, 결과는 같은 파일에 채워.')
+      .toBe('workbench/tasks/2026-10-07-a.md에 맡긴 일을 해 줘. 먼저 이 파일과 규칙 문서 ~/code/workbench/docs/agent-delegated-work.md를 읽고, 결과는 같은 파일에 채워. MCP emergence-workbench가 있으면 read_task로 읽고 결과는 report_task로 써.')
   })
 
   it('한 주 달력: 맡김 · 결과 · 일지 · 마감(기록의 할 일)을 날짜별로, 브리핑 수', () => {

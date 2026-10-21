@@ -387,6 +387,72 @@ export function nextTask(wb: Workbench, id: string, body: Next, now = new Date()
   return { task, started }
 }
 
+type Report = z.output<typeof C.ReportBody>
+
+/** 본문의 `## 절`에 글을 넣는다: 비어 있으면(주석만 있어도) 채우고, 이미 글이 있으면 지우지 않고 `### 시각` 아래 덧붙인다(규칙 3.4) */
+export function fillSection(body: string, heading: string, text: string, at: string): string {
+  const lines = body.split('\n')
+  const start = lines.findIndex((l) => l.trim() === `## ${heading}`)
+  if (start < 0) return `${body.replace(/\n*$/, '')}\n\n## ${heading}\n\n${text}\n`
+  let end = lines.findIndex((l, i) => i > start && /^## /.test(l))
+  if (end < 0) end = lines.length
+  const old = lines.slice(start + 1, end).join('\n')
+  const empty = !old.replace(/<!--[\s\S]*?-->/g, '').trim()
+  const kept = empty ? '' : `${old.replace(/\n*$/, '')}\n\n### ${at}\n`
+  const rest = lines.slice(end).join('\n')
+  return `${lines.slice(0, start + 1).join('\n')}\n${kept}\n${text.trim()}\n${rest ? `\n${rest}` : ''}`
+}
+
+/**
+ * 에이전트의 보고 (10/21, MCP report_task): 진행(working) 중인 일에만.
+ * - proposal: 종결 조건 제안 → proposed (규칙 3.1 · 3.2)
+ * - result: 결과 칸과 본문 두 절 → result (규칙 3.3). done은 쓰지 않는다(승인은 사용자만)
+ * 머리말은 YAML 문서로 고쳐 쉼표 · 콜론에 깨지지 않는다.
+ */
+export function reportTask(wb: Workbench, id: string, body: Report, now = new Date()): Task {
+  const t = readTask(wb, id)
+  checkHash(t, body.baseHash)
+  if (t.state !== 'working') throw new WorkbenchError(409, tl(`진행 중인 일에만 보고할 수 있음 (지금: ${t.state})`, `Only tasks in progress (working) take a report (now: ${t.state})`))
+  const at = stamp(now)
+  const one = (s: string) => s.replace(/\s+/g, ' ').trim()
+  if (body.kind === 'proposal') {
+    const conds = body.endCondition.map(one).filter(Boolean)
+    if (!conds.length) throw new WorkbenchError(400, tl('종결 조건 제안이 비었음', 'The proposed completion criteria are empty'))
+    return editFront(wb, t, (doc) => {
+      doc.set('proposal', doc.createNode({ 'end-condition': conds, ...(body.reason?.trim() ? { reason: one(body.reason) } : {}) }))
+      doc.set('state', 'proposed')
+    })
+  }
+  const conclusion = one(body.conclusion)
+  if (!conclusion) throw new WorkbenchError(400, tl('결론 한 문장이 필요함', 'A one-sentence conclusion is required'))
+  if (!body.summary.trim() || !body.evidence.trim()) throw new WorkbenchError(400, tl('요약과 결론 · 근거 두 절이 필요함', 'Both sections are required: summary and evidence'))
+  const p = taskPath(wb, t.id)
+  const { yaml, body: text, eol } = frontMatter(fs.readFileSync(p, 'utf8'))!
+  const doc = YAML.parseDocument(yaml)
+  const flowList = (key: string, items: Record<string, unknown>[]) => {
+    if (items.length) doc.set(key, doc.createNode(items.map((it) => doc.createNode(it, { flow: true }))))
+    else doc.delete(key)
+  }
+  doc.set('result-at', at)
+  doc.set('conclusion', conclusion)
+  doc.set('end-check', body.endCheck)
+  const asks = (body.ask ?? []).map((a) => (typeof a === 'string' ? one(a) : { q: one(a.q), options: a.options.map(one) }))
+  if (asks.length) doc.set('ask', doc.createNode(asks.map((a) => (typeof a === 'string' ? a : doc.createNode(a, { flow: true })))))
+  else doc.delete('ask')
+  flowList('issues', (body.issues ?? []).map((i) => ({ text: one(i.text), ...(i.impact ? { impact: one(i.impact) } : {}), ...(i.next ? { next: i.next } : {}) })))
+  // 사용자가 이미 맡기거나 뺀 다음 지시(started · dropped)는 남기고, 새 제안을 뒤에 붙인다
+  const keptNext = t.next.filter((n) => n.started || n.dropped).map((n) => ({ task: n.task, ...(n.endCondition ? { 'end-condition': n.endCondition } : {}), ...(n.started ? { started: n.started } : {}), ...(n.dropped ? { dropped: true } : {}) }))
+  flowList('next', [...keptNext, ...(body.next ?? []).map((n) => ({ task: one(n.task), ...(n.endCondition ? { 'end-condition': one(n.endCondition) } : {}) }))])
+  const outputs = (body.outputs ?? []).map((o) => o.trim()).filter(Boolean)
+  if (outputs.length) doc.set('outputs', doc.createNode(outputs, { flow: true }))
+  if (body.checkMachine?.trim()) doc.setIn(['check', 'machine'], one(body.checkMachine))
+  doc.set('state', 'result')
+  const front = doc.toString({ lineWidth: 0 }).replace(/\n$/, '').split('\n').join(eol)
+  const filled = fillSection(fillSection(text.split(eol).join('\n'), '요약과 결론', body.summary, at), '근거', body.evidence, at)
+  writeAtomic(p, `---${eol}${front}${eol}---${eol}${filled.split('\n').join(eol)}`)
+  return readTask(wb, t.id)
+}
+
 /** 규칙 문서: 이 앱 저장소의 docs/agent-delegated-work.md (STATUS.md 맨 위 한 줄이 가리킨다). 집 폴더는 ~로 줄인다 */
 export const RULES_DOC = appPath('docs/agent-delegated-work.md')
 
