@@ -201,8 +201,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           </SayCard>)}
       </ul>
         : c.answers.map((a, i) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} />)}
-      {/* 이어 쓰기는 대화 맨 아래에 (10/19 피드백 11:31: 긴 대화 위로 올라가 누르지 않게). 내가 쓰고 아직 답이 없으면 두지 않는다(고치기는 위 연필, 10:36) */}
-      {onReply && talk && c.state !== '끝냄' && !turn && !unanswered && !replying && <div className="record-follow"><button className="a" onClick={() => setReplying(true)}>{t('이어 쓰기', 'Follow up')}</button></div>}
+      {/* 답하기는 대화 맨 아래에 (10/19 피드백 11:31: 긴 대화 위로 올라가 누르지 않게). 내가 쓰고 아직 답이 없으면 두지 않는다(고치기는 위 연필, 10:36) */}
+      {onReply && talk && c.state !== '끝냄' && !turn && !unanswered && !replying && <div className="record-follow"><button className="a" onClick={() => setReplying(true)}>{t('답하기', 'Reply')}</button></div>}
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
         onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
       {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy} actions={todoTalk}
@@ -268,7 +268,7 @@ const unguard = (s: string) => s.replace(/^\\(?=#{1,6} )/gm, '')
 
 function RecordAnswer({ answer, busy = false, onApply }: { answer: CommentEntry['answers'][number]; busy?: boolean; onApply?(): void }) {
   const mine = answer.by === USER_ANSWER_BY
-  return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head"><span>{mine ? t('이어 씀', 'Follow-up') : t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· {mine ? t('사용자', 'User') : <Author by={answer.by} />}</span><span className="muted cmt-time">· {answer.at}</span></div>
+  return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head">{mine ? <span>{t('사용자', 'User')}</span> : <><span>{t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· <Author by={answer.by} /></span></>}<span className="muted cmt-time">· {answer.at}</span></div>
     <AnswerBody answer={answer} busy={busy} onApply={onApply} />
   </div>
 }
@@ -288,7 +288,7 @@ function AnswerBody({ answer, busy, onApply }: { answer: CommentEntry['answers']
   </>
 }
 
-/** 질문 · 지시 아래 이어 쓰기 (10/15). 에이전트가 물은 것이면 답이 되어 답함, 내가 쓴 것이면 다시 에이전트 차례 */
+/** 질문 · 지시 아래 답하기 (10/15, 10/21 "이어 쓰기"에서 이름 바꿈). 에이전트가 물은 것이면 답이 되어 답함, 내가 쓴 것이면 다시 에이전트 차례 */
 function RecordReply({ busy, asked, onReply, onCancel }: { busy: boolean; asked: boolean; onReply(text: string): Promise<boolean>; onCancel?(): void }) {
   const [text, setText] = useState('')
   const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) setText('') }
@@ -296,6 +296,6 @@ function RecordReply({ busy, asked, onReply, onCancel }: { busy: boolean; asked:
   return <div className="fbp-compose record-reply" data-ui="이어 쓰기">
     <textarea rows={2} value={text} disabled={busy} aria-label={label} placeholder={label}
       onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } else onListKey(e, setText) }} />
-    <div className="fbp-compose-row"><span className="sp" />{onCancel && <button className="btn sm" disabled={busy} onClick={onCancel}>{t('취소', 'Cancel')}</button>}<button className="btn primary sm" data-tip={t('이어 쓰기 (⌘↵)', 'Follow up (⌘↵)')} disabled={busy || !text.trim()} onClick={() => void send()}>{t('이어 쓰기', 'Follow up')}</button></div>
+    <div className="fbp-compose-row"><span className="sp" />{onCancel && <button className="btn sm" disabled={busy} onClick={onCancel}>{t('취소', 'Cancel')}</button>}<button className="btn primary sm" data-tip={t('답하기 (⌘↵)', 'Reply (⌘↵)')} disabled={busy || !text.trim()} onClick={() => void send()}>{t('답하기', 'Reply')}</button></div>
   </div>
 }
