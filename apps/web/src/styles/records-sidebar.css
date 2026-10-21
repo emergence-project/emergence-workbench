@@ -95,8 +95,10 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 .agent-mark { color: var(--text-3); margin-inline-end: calc(var(--sp-1) / 2); }
 .record-row.turn { border-color: var(--s-blocked); }
 .record-row-head .record-turn { display: inline-flex; flex: none; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--s-blocked); font-weight: var(--fw-strong); white-space: nowrap; }
-/* 이어 쓴 내 글은 바탕 없이 테두리만 (에이전트 답과 갈린다) */
-.cmt-answer.mine { background: transparent; border: 1px solid var(--line); }
+/* 오른쪽 사이드바의 대화 (10/21 "이어 씀"을 말 대신 모양으로): 내 글은 오른쪽으로 들이고 바탕 없이 테두리만, 에이전트 답은 왼쪽에 붙고 바탕. 말하는 이가 바뀔 때 사이를 띄운다 */
+.cmt-answer.mine { background: transparent; border: 1px solid var(--line); margin-left: var(--sp-5); }
+.record-row .cmt-answer:not(.mine) { margin-right: var(--sp-5); }
+.record-row .cmt-answer + .cmt-answer { margin-top: var(--sp-2); }
 .record-reply { margin-top: var(--sp-2); }
 .record-reply textarea { min-height: calc(var(--input-h) * 1.5); }
 /* 기록 종류 그림 (10/16): 적기 칸 종류 고르기의 글자 앞 */
