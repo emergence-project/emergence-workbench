@@ -9,7 +9,7 @@ import { onListKey } from './listInput'
 import { MemoText } from './memo'
 import { hasFeedbackList, issueDraftUrl } from './feedbackFormat'
 import { shown, t } from './i18n'
-import { clearFeedbackDraft, readFeedbackDraft, writeFeedbackDraft, type FeedbackDraft } from './feedbackDraft'
+import { newDraftId, readFeedbackDrafts, removeFeedbackDraft, saveFeedbackDraft, type FeedbackDraft } from './feedbackDraft'
 
 /**
  * 피드백 모드: 화면 부위(data-ui가 붙은 요소)에 마우스를 올리면 이름표가 뜨고,
@@ -142,15 +142,17 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   const [kind, setKind] = useState<'수정' | '질문' | '제안' | null>(null)
   const [issues, setIssues] = useState<{ url: string; version: string | null } | null>(null)
   const [busy, setBusy] = useState(false)
-  // 적던 글 (10/21): 창에 적는 동안 이 브라우저에 두고, 아래 띠에서 이어 쓰거나 버린다
-  const [draft, setDraft] = useState<FeedbackDraft | null>(readFeedbackDraft)
+  // 적던 글 (10/21): 창에 적는 동안 이 브라우저에 두고, 아래 띠에서 이어 쓰거나 버린다. 여러 개면 "적던 글 n"의 목록에서 고른다
+  const [drafts, setDrafts] = useState<FeedbackDraft[]>(readFeedbackDrafts)
+  const [showDrafts, setShowDrafts] = useState(false)
+  /** 지금 창의 글이 어느 적던 글인지 (새 창이면 새 id) */
+  const draftId = useRef(newDraftId())
   const hoverEl = useRef<Element | null>(null)
   const pendingRef = useRef(pending)
   useEffect(() => {
     if (!pending || !text.trim()) return
-    const d: FeedbackDraft = { text, kind, path: pending.path, snippet: pending.snippet, route: pending.route ?? (location.hash || '#/'), at: new Date().toISOString() }
-    writeFeedbackDraft(d)
-    setDraft(d)
+    const d: FeedbackDraft = { id: draftId.current, text, kind, path: pending.path, snippet: pending.snippet, route: pending.route ?? (location.hash || '#/'), at: new Date().toISOString() }
+    setDrafts(saveFeedbackDraft(d))
   }, [pending, text, kind])
   pendingRef.current = pending
 
@@ -186,6 +188,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       const el = target(e)
       if (!el) return
       setPending({ path: uiPath(el), snippet: snippetOf(el), x: e.clientX, y: e.clientY })
+      draftId.current = newDraftId()
       setText(''); setKind(null); setError(null)
     }
     const refresh = () => { const el = hoverEl.current; if (el) setHover({ rect: el.getBoundingClientRect(), path: uiPath(el) }) }
@@ -218,19 +221,28 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     setHover(null); hoverEl.current = null
     // 단추 위에 연다 (아래 끝은 pop이 화면 안으로 당긴다)
     setPending({ path: '', snippet: '', x: e.currentTarget.getBoundingClientRect().left - 12, y: innerHeight })
+    draftId.current = newDraftId()
     setText(''); setKind('제안'); setError(null)
   }
   /** 적던 글 이어 쓰기: 처음 화면으로 돌아가(그림과 주소가 맞게) 같은 부위의 창을 연다 */
-  const resumeDraft = (e: React.MouseEvent) => {
-    if (!draft) return
+  const resumeDraft = (draft: FeedbackDraft, e: React.MouseEvent) => {
     const left = e.currentTarget.getBoundingClientRect().left - 12
+    setShowDrafts(false)
+    draftId.current = draft.id
     if ((location.hash || '#/') !== draft.route) location.hash = draft.route
     setHover(null); hoverEl.current = null
     setPending({ path: draft.path, snippet: draft.snippet, x: left, y: innerHeight, route: draft.route })
     setText(draft.text); setKind(draft.kind); setError(null)
   }
-  const dropDraft = () => { clearFeedbackDraft(); setDraft(null) }
-  const draftTime = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}` }
+  const only = drafts.length === 1 ? drafts[0] : undefined
+  const dropDraft = (id: string) => { const list = removeFeedbackDraft(id); setDrafts(list); if (list.length < 2) setShowDrafts(false) }
+  /** 오늘 적은 것은 시각, 그 전은 날짜와 시각 */
+  const draftTime = (iso: string) => {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const hm = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+    return d.toDateString() === new Date().toDateString() ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`
+  }
   const targetName = (path: string) => (path ? uiShown(path) : t('부위 없음 · 앱 전체에 대한 의견', 'No part · about the app as a whole'))
 
   const themeName = () => {
@@ -266,7 +278,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       const b = await res.json()
       if (!res.ok) throw new Error(b.error)
       setPending(null)
-      dropDraft()
+      dropDraft(draftId.current)
       setEntries((prev) => [b.entry as Entry, ...prev])
       feedbackChanged()
       onSaved(t(`피드백 저장됨 — ${pending.path || '부위 없음'}`, `Feedback saved: ${targetName(pending.path)}`))
@@ -282,12 +294,14 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     <>
       <div className="fb-bar" data-feedback-ui>
         <b>{t('피드백 모드', 'Feedback mode')}</b>
-        {draft && !pending
+        {only && !pending
           ? <>
-            <span className="fb-draft" title={draft.text}>{t('적던 글', 'Unsent draft')} · {draftTime(draft.at)} · {targetName(draft.path)}{draft.kind && ` · ${shown(draft.kind)}`}</span>
-            <button className="a" data-ui="적던 글 이어 쓰기" onClick={resumeDraft}>{t('이어 쓰기', 'Continue')}</button>
-            <button className="a" data-ui="적던 글 버리기" onClick={dropDraft}>{t('버리기', 'Discard')}</button>
+            <span className="fb-draft" title={only.text}>{t('적던 글', 'Unsent draft')} · {draftTime(only.at)} · {targetName(only.path)}{only.kind && ` · ${shown(only.kind)}`}</span>
+            <button className="a" data-ui="적던 글 이어 쓰기" onClick={(e) => resumeDraft(only, e)}>{t('이어 쓰기', 'Continue')}</button>
+            <button className="a" data-ui="적던 글 버리기" onClick={() => dropDraft(only.id)}>{t('버리기', 'Discard')}</button>
           </>
+          : drafts.length > 1 && !pending
+          ? <button className={`a${showDrafts ? ' on' : ''}`} data-ui="적던 글 목록" onClick={() => setShowDrafts((v) => !v)}>{t(`적던 글 ${drafts.length}`, `Unsent drafts ${drafts.length}`)}</button>
           : <span>{t('부위에 마우스를 올리면 이름이 뜹니다. 누르면 그 부위에 피드백을 남깁니다. 앱은 이 동안 눌러도 반응하지 않습니다.', 'Hover over a part to see its name. Click to leave feedback on it. The app does not respond to clicks while this is on.')}</span>}
         <span className="sp" />
         <button className="a" data-ui="부위 없이 적기" title={t('화면 한 곳이 아니라 앱 전체 방향에 대한 의견을 남깁니다', 'Leave feedback about the app as a whole, not one part of the screen')} onClick={openWithoutPart}>{t('부위 없이 적기', 'Without a part')}</button>
@@ -325,6 +339,21 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
         </div>
       )}
 
+      {showDrafts && drafts.length > 1 && !pending && (
+        <div className="fb-list fb-drafts" data-feedback-ui data-ui="적던 글 목록 칸">
+          <div className="fb-list-head"><b>{t(`적던 글 ${drafts.length}`, `Unsent drafts ${drafts.length}`)}</b><button className="a" onClick={() => setShowDrafts(false)}>{t('닫기', 'Close')}</button></div>
+          {drafts.map((d) => (
+            <div key={d.id} className="fb-entry">
+              <div className="fb-entry-head">{d.kind && <span className="tag">{shown(d.kind)}</span>}<span className="muted">{draftTime(d.at)}</span><span className="sp" />
+                <button className="a" data-ui="적던 글 이어 쓰기" onClick={(e) => resumeDraft(d, e)}>{t('이어 쓰기', 'Continue')}</button>
+                <button className="a" data-ui="적던 글 버리기" onClick={() => dropDraft(d.id)}>{t('버리기', 'Discard')}</button>
+              </div>
+              <div className="fb-target">{targetName(d.path)}</div>
+              <div className="fb-draft-text">{d.text}</div>
+            </div>
+          ))}
+        </div>
+      )}
       {showList && (
         <div className="fb-list" data-feedback-ui>
           <div className="fb-list-head"><b>{t('이번에 남긴 피드백', 'Feedback this session')}</b><button className="a" onClick={() => setShowList(false)}>{t('닫기', 'Close')}</button></div>
