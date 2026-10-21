@@ -189,10 +189,10 @@ function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; ra
   const md = isMarkdown(rv.target) && !raw ? render : undefined
   return (
     <div className="ae-review">
-      {/* 아래 표의 머리: 고른 노트 이름 · 바뀐 곳 수 · 보기 | 원문 (위치 · 에이전트 · 시각은 위 표에) */}
+      {/* 아래 표의 머리: 이 자리가 무엇인지 · 바뀐 곳 수 · 보기 | 원문. 노트 이름은 위 표의 고른 줄에 있어 되풀이하지 않는다 (10/20 피드백) */}
       <div className="ae-review-head" data-ui="바뀐 곳 머리">
-        <b>{rv.title}</b>
-        <span className="muted">{t(`바뀐 곳 ${rv.hunks.length} · 절 ${groups.length} · ${when(rv.since)}부터`, `${rv.hunks.length} changed · ${groups.length} sections · since ${when(rv.since)}`)}</span>
+        <b>{t('이 노트에서 바뀐 곳', 'Changes in this note')}</b>
+        <span className="muted">{t(`${rv.hunks.length}곳 · 절 ${groups.length} · ${when(rv.since)}부터`, `${rv.hunks.length} changed · ${groups.length} sections · since ${when(rv.since)}`)}</span>
         <span className="sp" />
         {view}
       </div>
