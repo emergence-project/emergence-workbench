@@ -4,7 +4,7 @@ import type { AboutSection } from '../types'
 // 소개 › agents › 앱에서 맡기는 대화. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '앱에서 맡기는 대화', prs: [229, 230, 231],
+  title: '앱에서 맡기는 대화', prs: [229, 230, 232],
   id: 'conversations',
   items: [
     { text: <>레일의 에이전트(반짝이)에서 프로젝트 하나에 일 하나씩 대화를 엽니다. 맥의 Claude Code가 그 프로젝트 저장소에서 일합니다. 상단바의 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에 엽니다.</> },
