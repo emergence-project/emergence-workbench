@@ -337,10 +337,11 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
   server.registerTool('flow_add', {
     title: 'Add a flow dot',
     description: 'Add a dot when you start a piece of work (a question, calculation, proof, literature reading or finding). Give the criterion (what result solves or refutes it) for questions and calculations. Usually progress active. Returns the dot id, hash and gaps.',
-    inputSchema: { project, kind: z.enum(C.FLOW_KINDS), short: z.string().min(1).max(60).describe('Short name shown on the chart'), progress: z.enum(['open', 'active']).optional(), ...flowSet },
+    inputSchema: { project, kind: z.enum(C.FLOW_KINDS), short: z.string().min(1).max(60).describe('Short name shown on the chart'), progress: z.enum(['open', 'active']).optional(),
+      task: z.string().optional().describe('The delegated task (workbench/tasks id) this work belongs to, if any'), ...flowSet },
     annotations: { readOnlyHint: false, openWorldHint: false },
-  }, async ({ project: rid, kind, short, progress, title, topics, from, ...rest }) => {
-    const made = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind, short, progress: progress ?? 'active', ...(title && { title }), ...(topics && { topics }), ...(from && { from }) })
+  }, async ({ project: rid, kind, short, progress, title, topics, from, task, ...rest }) => {
+    const made = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind, short, progress: progress ?? 'active', by: agentOf(server.server.getClientVersion()?.name), ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }) })
     if (!made.ok) return made.error
     const n = (made.body as C.FlowOne).node
     if (!Object.values(rest).some((v) => v !== undefined)) return json(flowShort(n))
@@ -353,7 +354,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch } = {}):
     description: 'Change a dot: when the work ends, set progress done with result (solved, refuted) and fill the result, evidence (with section), run or steps, reason and next. Finishing or pausing is refused while required fields are empty; the error names them. People decide the question wording, origin links and dropping a branch: those are refused here. Pass the hash from flow_read or flow_add.',
     inputSchema: {
       project, id: z.string(), baseHash: z.string(),
-      progress: z.enum(C.FLOW_PROGRESS).optional(), result: z.enum(['solved', 'refuted']).optional(), short: z.string().min(1).max(60).optional(), end: z.boolean().optional().describe('Branch ends here'),
+      progress: z.enum(C.FLOW_PROGRESS).optional(), result: z.enum(['solved', 'refuted']).optional(), short: z.string().min(1).max(60).optional(), end: z.boolean().optional().describe('Flow ends here: no dot follows on this branch'),
       ...flowSet,
     },
     annotations: { readOnlyHint: false, openWorldHint: false },

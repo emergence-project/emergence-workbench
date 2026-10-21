@@ -338,7 +338,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
                 {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
               </g>}
               {n.gaps.length > 0 && <circle className="fl-gapdot" cx={x + 14} cy={y - 14} r={4}><title>{`${tr('빈틈', 'Gaps')}\n${n.gaps.map((g) => `· ${g.text}`).join('\n')}`}</title></circle>}
-              {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('갈래 종결', 'Branch closed')}</title></line>}
+              {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('흐름 종료', 'Flow ends')}</title></line>}
               {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}{cites.length > 0 && <tspan className="fl-cite" dx={3}>§{cites.length > 1 ? cites.length : ''}<title>{cites.map((e) => e.title ?? e.ref).join('\n')}</title></tspan>}</text> : null}
             </g>
           })}

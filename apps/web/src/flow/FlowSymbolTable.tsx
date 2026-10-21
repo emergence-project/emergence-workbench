@@ -21,7 +21,7 @@ export function FlowSymbolTable() {
     { mark: line('fl-e lit'), name: tr('문헌에서', 'From literature'), meaning: tr('문헌 점에서 나온 선 (끊긴 선)', 'A line from a literature dot (dashed)') },
     { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><text className="fl-name fl-cite" x={15} y={20} textAnchor="middle">§2</text></svg>, name: tr('근거 논문', 'Evidence papers'), meaning: tr('점 이름 뒤의 §: 근거로 단 논문 (둘 이상이면 수)', '§ after a dot\'s name: papers attached as evidence (a count when several)') },
     { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><path className="fl-start" d="M9 8L18 15L9 22Z" /></svg>, name: tr('시작점', 'Start'), meaning: tr('앞선 점이 없는 점', 'A dot with no earlier dot') },
-    { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><line className="fl-end" x1={15} y1={5} x2={15} y2={25} /></svg>, name: tr('갈래 종결', 'Branch closed'), meaning: tr('이 갈래는 여기서 끝냄', 'This branch ends here') },
+    { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><line className="fl-end" x1={15} y1={5} x2={15} y2={25} /></svg>, name: tr('흐름 종료', 'Flow ends'), meaning: tr('이 갈래는 여기서 끝나 뒤에 이어질 점이 없음', 'This branch ends here; no dot follows') },
   ]
   const group = (name: string) => <tr className="about-sym-group"><td colSpan={3}>{name}</td></tr>
   return (

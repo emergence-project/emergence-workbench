@@ -22,7 +22,7 @@ const CLIP = 240
 const stateName = (n: FlowNode) => n.theorem ? '정리' : n.progress === 'done' ? RESULT[n.result ?? 'solved'] : PROGRESS[n.progress]
 const isOpen = (n: FlowNode) => n.progress !== 'done'
 const oneLine = (s: string) => { const t = s.replace(/\s+/g, ' ').trim(); return t.length > CLIP ? `${t.slice(0, CLIP - 1)}…` : t }
-const end = (n: FlowNode) => n.end ? ' · 갈래 끝' : ''
+const end = (n: FlowNode) => n.end ? ' · 흐름 종료' : ''
 /** 에이전트 검토는 있고 사람 승인이 없는 증명 근거 */
 const awaitsHuman = (n: FlowNode) => n.evidence.some((e) => e.kind === 'proof' && approved(e, 'agent') && !approved(e, 'human'))
 

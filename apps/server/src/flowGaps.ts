@@ -79,7 +79,7 @@ export function computeGaps(repo: string, nodes: FlowNode[]): void {
     if (n.progress === 'done' && ACTS.has(n.kind) && !n.fields.result) add('no-result', '끝났는데 결과 칸이 비었다', 'finished with an empty result')
     if ((n.progress === 'paused' || (n.progress === 'done' && (n.result === 'refuted' || n.result === 'dropped'))) && !n.reason) add('no-reason', '반증 · 폐기 · 멈춤의 이유가 없다', 'no reason for refuting, dropping or pausing')
     if (n.progress !== 'done' && (n.kind === 'question' || n.kind === 'calc') && !n.fields.criterion) add('no-criterion', '판정 기준이 없다 (무엇이 나오면 해결 · 반증인가)', 'no criterion (what result solves or refutes it)')
-    if (isSolved(n) && !hasNext.has(n.id) && !n.end && !n.next) add('no-next', '다음 할 일도, 뒤따른 점도, 갈래 종결도 없다', 'no next step, no following dot and no branch end')
+    if (isSolved(n) && !hasNext.has(n.id) && !n.end && !n.next) add('no-next', '다음 할 일도, 뒤따른 점도, 흐름 종료도 없다', 'no next step, no following dot and no flow end')
     for (const e of n.evidence) {
       if (!e.file) continue
       const h = evidenceHash(repo, e.file, e.section)
