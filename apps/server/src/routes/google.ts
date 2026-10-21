@@ -6,6 +6,7 @@ import * as C from '@rw/core/contract/google'
 import { parseBody, replies } from '../contract.js'
 import { parseGitHubRepo } from '../clone.js'
 import type { Google, SyncedResearch, SyncedSettings } from '../google.js'
+import { fillFromGoogle } from '../googleProfile.js'
 import { WorkbenchError } from '../workbench.js'
 import { git, GIT_TIMEOUT } from '../git.js'
 import type { RouteContext } from './context.js'
@@ -87,7 +88,10 @@ export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: 
     try {
       if (error) throw new WorkbenchError(400, error === 'access_denied' ? t('구글에서 허용하지 않았습니다.', 'Google did not allow access.') : t(`구글 로그인 오류: ${error}`, `Google sign-in error: ${error}`))
       if (!code || !state) throw new WorkbenchError(400, t('구글이 돌려준 값이 없습니다.', 'Google returned no values.'))
-      return reply.redirect(await google.finish(code, state))
+      const back = await google.finish(code, state)
+      // 내 이름 · 이메일 · 사진을 저자와 네트워킹에 채운다 (비어 있는 것만). 실패해도 로그인은 끝낸다
+      try { await fillFromGoogle(registry, google) } catch (e) { app.log.warn(e, 'google profile fill failed') }
+      return reply.redirect(back)
     } catch (e) {
       const msg = String((e as Error).message).replace(/[<>&]/g, '')
       return reply.status(400).type('text/html; charset=utf-8').send(`<!doctype html><meta charset="utf-8"><title>${t('구글 연결', 'Connect Google')}</title><body style="font:15px system-ui;padding:40px"><p>${msg}</p><p><a href="/#/settings">${t('설정으로 돌아가기', 'Back to Settings')}</a></p>`)

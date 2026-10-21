@@ -61,7 +61,9 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
           <div>
             <div className="set-name">{st.connected && st.expired ? t(`로그인이 만료됨: ${st.email ?? '구글 계정'} — 다시 연결해 주세요`, `Sign-in expired: ${st.email ?? 'Google account'}. Connect again`)
               : st.connected ? t(`연결됨: ${st.email ?? '구글 계정'}`, `Connected: ${st.email ?? 'Google account'}`) : t('연결 안 됨', 'Not connected')}{st.mock && <span className="muted">{t(' (예제 모드의 가짜 구글)', ' (fake Google in sample mode)')}</span>}</div>
-            <div className="set-desc">{t('홈의 한 일 달력에 구글 캘린더 일정을 함께 보여 주고(읽기만), 설정과 프로젝트 목록을 구글 드라이브의 앱 전용 공간에 보관합니다.', 'Shows Google Calendar events on the Home activity calendar (read only), and keeps settings and the project list in the app folder on Google Drive.')}</div>
+            <div className="set-desc">{t('홈의 한 일 달력에 구글 캘린더 일정을 함께 보여 주고(읽기만), 설정과 프로젝트 목록을 구글 드라이브의 앱 전용 공간에 보관합니다. 연결할 때 구글 계정의 이름 · 이메일 · 사진으로 내 이름과 네트워킹 내 페이지의 빈 칸을 채웁니다(적어 둔 값은 그대로).', 'Shows Google Calendar events on the Home activity calendar (read only), and keeps settings and the project list in the app folder on Google Drive. When you connect, empty fields of your name and your Networking page are filled from your Google name, email and photo (values you typed stay).')}
+              {st.connected && st.filled && <span data-ui="구글에서 채운 것">{t(` 구글 계정에서 채움: ${st.filled.items.map(filledName).join(' · ')} (${new Date(st.filled.at).toLocaleDateString(locale())}).`, ` Filled from Google: ${st.filled.items.map(filledName).join(', ')} (${new Date(st.filled.at).toLocaleDateString(locale())}).`)}</span>}
+              {st.connected && !st.expired && !st.name && <span>{t(' 이름 · 사진을 채우려면 연결을 끊고 다시 연결해 이름 · 사진 권한을 허용해 주세요.', ' To fill your name and photo, disconnect and connect again to allow name and photo access.')}</span>}</div>
           </div>
           {st.connected && st.expired && <a className="btn primary" data-ui="구글 다시 연결" href={googleApi.connectUrl()}>{t('다시 연결', 'Reconnect')}</a>}
           {st.connected
@@ -145,6 +147,8 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
     </div>
   )
 }
+
+const filledName = (k: 'name' | 'email' | 'photo') => ({ name: t('이름', 'name'), email: t('이메일', 'email'), photo: t('사진', 'photo') })[k]
 
 /** 구글에 있는데 이 컴퓨터에 없는 프로젝트: GitHub에서 받아 등록한다 */
 function MissingRow({ r, onDone, onError }: { r: SyncedResearch; onDone(msg: string): void; onError(msg: string): void }) {

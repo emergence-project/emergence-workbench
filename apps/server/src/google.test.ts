@@ -6,6 +6,7 @@ import { buildApp } from './app.js'
 import { Google, mockGoogleFetch } from './google.js'
 import { localDate } from './fsutil.js'
 import { publicRemote } from './routes/google.js'
+import { mergeGoogleAuthor } from './googleProfile.js'
 
 // 진짜 구글 코드 경로(로그인 주소, 토큰 교환, 달력, 드라이브)를 가짜 fetch로 돈다
 let tmp: string
@@ -96,6 +97,31 @@ describe('구글 연결', () => {
     const allDay = events[3]!
     expect(allDay.time).toBeUndefined()
     expect(allDay.endDate).toBe(allDay.date)
+  })
+
+  it('로그인하면 구글 계정의 이름 · 이메일 · 사진으로 저자와 네트워킹 내 페이지를 채운다', async () => {
+    const st = (await app.inject({ url: '/api/google' })).json()
+    expect(st).toMatchObject({ name: 'Ada Researcher', filled: { items: ['name', 'email', 'photo'] } })
+    const { people } = (await app.inject({ url: '/api/network' })).json() as { people: { id: string; name: string; author: boolean; email?: string; photo?: number }[] }
+    expect(people.find((p) => p.id === 'ada-researcher')).toMatchObject({ author: true, email: 'researcher@example.com', photo: expect.any(Number) })
+    // 다시 로그인해도 같은 사람을 또 더하지 않고, 이미 채운 것은 그대로
+    await connect()
+    expect(((await app.inject({ url: '/api/network' })).json() as { people: unknown[] }).people).toHaveLength(people.length)
+  })
+
+  it('구글 정보는 빈 칸만 채우고 사용자가 적은 값은 바꾸지 않는다', () => {
+    const typed = [{ name: 'Ada Researcher', email: 'ada@uni.example', affiliations: ['Example University'] }, { name: 'Ben Collaborator', affiliations: [] }]
+    // 이메일이 같은 저자가 있으면 아무것도 바꾸지 않는다 (이름이 달라도)
+    expect(mergeGoogleAuthor(typed, { name: 'A. Researcher', email: 'ADA@uni.example' })).toMatchObject({ authors: typed, items: [] })
+    // 이름이 같으면 이메일만 더한다 (적어 둔 이메일은 첫째로 남김)
+    const r = mergeGoogleAuthor(typed, { name: 'Ada Researcher', email: 'ada@gmail.example' })
+    expect(r.authors[0]).toEqual({ name: 'Ada Researcher', email: 'ada@uni.example', emails: ['ada@gmail.example'], affiliations: ['Example University'] })
+    // 없으면 맨 앞에, 소속은 빈 채로
+    const n = mergeGoogleAuthor(typed, { name: 'Cy New', email: 'cy@gmail.example' })
+    expect(n.authors.map((a) => a.name)).toEqual(['Cy New', 'Ada Researcher', 'Ben Collaborator'])
+    expect(n.authors[0]).toEqual({ name: 'Cy New', email: 'cy@gmail.example', affiliations: [] })
+    // 이름을 받지 못하면 (profile 권한 전에 연결한 경우) 더하지 않는다
+    expect(mergeGoogleAuthor(typed, { email: 'cy@gmail.example' }).items).toEqual([])
   })
 
   it('처음에는 저절로 올리지 않고, 올리거나 불러온 뒤부터 올린다', async () => {

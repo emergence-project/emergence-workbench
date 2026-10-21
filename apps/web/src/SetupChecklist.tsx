@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { githubRepos, setupApi, type GitHubRepoItem, type GitHubRepoList, type PersonView, type SetupView } from './api'
+import { githubRepos, googleApi, setupApi, type GitHubRepoItem, type GitHubRepoList, type PersonView, type SetupView } from './api'
 import { Dialog } from './dialogs'
 import { ElsewhereHomeCard, ElsewhereSection } from './ElsewhereProjects'
 import { GoogleSettings } from './GoogleSettings'
@@ -66,6 +66,9 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
   const put = (v: SetupView) => client.setQueryData(qk.setup, v)
   const left = must.filter((m) => !m.ok)
   const connected = s?.agents.filter((a) => a.registered || a.at).length ?? 0
+  // 커밋 이름이 비어 있고 구글 계정 이름 · 이메일을 알면 한 번에 채운다 (git 전체 설정이라 저절로 바꾸지 않는다)
+  const google = useQuery({ queryKey: qk.googleStatus, queryFn: googleApi.status })
+  const fromGoogle = google.data?.name && google.data.email && !(s?.git.name && s.git.email) ? { name: s?.git.name || google.data.name, email: s?.git.email || google.data.email } : null
   return (
     <div className="setup" data-ui="시작 준비">
       <div className="setup-ready" data-ui="시작 준비 요약">
@@ -79,7 +82,10 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <div className="set-rows">
         <GitHubRow list={github.data} error={github.error?.message} onCheck={() => void github.refetch()} checking={github.isFetching} />
         <Row ok={!!(s?.git.name && s.git.email)} name={t('커밋에 적힐 이름·이메일', 'Name and email on commits')} ui="커밋 이름"
-          action={<Edit label={t('고치기', 'Edit')} onClick={() => setEditing('git')} />}>
+          action={<>
+            {fromGoogle && <button className="btn" data-ui="구글 계정으로 채우기" onClick={() => void setupApi.setGit(fromGoogle).then((v) => { put(v); onSaved(t('구글 계정의 이름 · 이메일로 채웠습니다', 'Filled in from your Google account')) }).catch((e: Error) => onSaved(e.message))}>{t('구글 계정으로 채우기', 'Fill from Google')}</button>}
+            <Edit label={t('고치기', 'Edit')} onClick={() => setEditing('git')} />
+          </>}>
           {s?.git.name && s.git.email ? <><b>{s.git.name}</b> &lt;{s.git.email}&gt;. </> : <>{t('설정 안 됨. ', 'Not set. ')}</>}
           {t('앱이 기록·노트를 연구 저장소에 올릴 때 이 이름으로 적힙니다. 비어 있으면 git이 커밋을 거절해 올리기가 멈춥니다.', 'Records and notes the app pushes to research repositories are signed with this name. If empty, git refuses to commit and pushing stops.')}
         </Row>
