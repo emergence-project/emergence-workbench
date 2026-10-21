@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RESEARCH_TARGET, type JournalEntry } from '@rw/core'
 import type { CommentEntry, RecordFile } from './api/comments'
-import { parseWorkFilter, workRecordGroups, type WorkRecordItem } from './workRecords'
+import { agentTurnRecords, openTodoRecords, parseWorkFilter, recordLine, userTurnRecords, workRecordGroups, type WorkRecordItem } from './workRecords'
 
 const record = (id: string, kind: CommentEntry['kind'] = '메모', rest: Partial<CommentEntry> = {}): CommentEntry => ({ id, kind, body: id, where: '전체', rects: [], state: null, answers: [], ...rest })
 const file = (target: string, comments: CommentEntry[]): RecordFile => ({ target, title: `${target} 제목`, hash: `${target}-hash`, comments })
@@ -14,7 +14,8 @@ describe('work filters', () => {
     expect(['메모', '할 일', '질문'].map((v) => parseWorkFilter(v, 'records'))).toEqual(['메모', '할 일', '질문'])
     // 기록 필터는 이제 작업 탭에 없고, 작업 필터는 기록 탭에 없다 (10/15).
     for (const value of [null, '', '전체', 'memo', ' 메모', '"질문"', '할 일']) expect(parseWorkFilter(value, 'work')).toBe('판단')
-    for (const value of [null, '', '전체', '판단', '맡긴 일']) expect(parseWorkFilter(value, 'records')).toBe('메모')
+    for (const value of [null, '', '전체', '판단']) expect(parseWorkFilter(value, 'records')).toBe('메모')
+    expect(parseWorkFilter('맡긴 일', 'records')).toBe('맡긴 일')
   })
 })
 
@@ -101,5 +102,36 @@ describe('work record groups', () => {
     expect(groups[1]!.items.map(label)).toEqual(['c-20261006-1200', 'legacy-b', 'legacy-a'])
     expect({ files, journal }).toEqual(before)
     expect(groups[1]!.items[0]!.entry).toBe(files[0]!.comments[1])
+  })
+})
+
+describe('record turns (10/21 작업 탭을 기록 안으로)', () => {
+  const files = [
+    file('project', [
+      record('c-20261010-0900', '질문', { body: '에이전트가 물은 나중 것', by: 'claude', state: '대기' }),
+      record('c-20261009-0900', '지시', { body: '에이전트가 묻는 먼저 지시', by: 'claude', state: '대기' }),
+      record('c-20261009-1000', '질문', { body: '답한 에이전트 질문', by: 'claude', state: '끝냄' }),
+      record('c-20261009-1100', '질문', { body: '내가 쓴 질문\n둘째 줄', state: '대기' }),
+      record('c-20261009-1200', '지시', { body: '내가 쓴 끝난 지시', state: '끝냄' }),
+      record('c-20261009-1300', '할 일', { body: '10/10 할 일', state: '대기' }),
+      record('c-20261009-1400', '할 일', { body: '끝낸 할 일', state: '끝냄' }),
+      record('c-20261009-1500', '메모'),
+    ]),
+    file('note-a', [record('c-20261008-0900', '질문', { body: '노트의 내 질문', state: '대기' })]),
+  ]
+  const ids = (list: { entry: CommentEntry }[]) => list.map((x) => x.entry.id)
+  it('your turn: questions and instructions agents wrote that wait, oldest first', () => {
+    expect(ids(userTurnRecords(files))).toEqual(['c-20261009-0900', 'c-20261010-0900'])
+  })
+  it('agents\' turn: questions and instructions you wrote that wait, across targets', () => {
+    expect(ids(agentTurnRecords(files))).toEqual(['c-20261008-0900', 'c-20261009-1100'])
+  })
+  it('open to-dos only', () => {
+    expect(ids(openTodoRecords(files))).toEqual(['c-20261009-1300'])
+  })
+  it('a row shows the first line of the body, or of the quote when the body is empty', () => {
+    expect(recordLine(record('x', '질문', { body: ' 첫 줄\n둘째 ' }))).toBe('첫 줄')
+    expect(recordLine(record('x', '메모', { body: '', quote: '인용\n뒤' }))).toBe('인용')
+    expect(recordLine(record('x', '메모', { body: '' }))).toBe('')
   })
 })

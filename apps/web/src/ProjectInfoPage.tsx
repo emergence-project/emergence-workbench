@@ -146,7 +146,7 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
   const since = new Date(Date.now() - RECENT_DAYS * 86_400_000)
   const sinceDay = isoDay(since)
   const recent = entries.filter((e) => e.date >= sinceDay).sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).slice(0, TURN_ROWS)
-  const toWork = <button className="a info-more" onClick={() => go({ page: 'todo', rid })}>{t('작업 탭 ›', 'Work tab ›')}</button>
+  const toWork = <button className="a info-more" onClick={() => go({ page: 'records', rid })}>{t('기록 ›', 'Records ›')}</button>
   return (
     <InfoShell ui="현황 쪽">
       <SubHead title={t('현황', 'Status')} desc={t('에이전트가 STATUS.md와 MCP로 읽는 것과 같은 내용을 칸으로 나눴습니다.', 'The same content agents read in STATUS.md and over MCP, split into sections.')} />
