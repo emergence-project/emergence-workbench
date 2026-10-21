@@ -292,7 +292,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
 }
 
 /** 시작일 · 끝난 날 · 한 이: 앱이 적고 고치기 창에서는 읽기만 (10/21 피드백 09:21) */
-function FlowDates({ n, create }: { n: FlowNode; create: boolean }) {
+function FlowDates({ n, create }: { n: FlowNode; create?: boolean }) {
   return <span className="fl-dates" data-ui="흐름 날짜">
     <span><i>{tr('시작일', 'Started')}</i>{create ? tr('만들면 오늘', 'today on create') : n.date ?? tr('저장하면 오늘', 'today on save')}</span>
     {n.ended && <span><i>{tr('끝난 날', 'Ended')}</i>{n.ended}</span>}
