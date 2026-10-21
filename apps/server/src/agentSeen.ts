@@ -3,23 +3,27 @@ import os from 'node:os'
 import path from 'node:path'
 
 /**
- * 에이전트(MCP 입구, mcp.ts)가 앱을 마지막으로 부른 때 (설정 › 계정 › 시작 준비의 "에이전트 연결").
- * MCP 도구는 요청에 x-rw-agent 머리(에이전트 이름)를 붙인다. 설정 폴더의 agent-seen.json에 1분에 한 번만 쓴다.
+ * 에이전트(MCP 입구, mcp.ts)가 앱을 마지막으로 부른 때 (설정 › 에이전트 › 연결).
+ * MCP 도구는 요청에 x-rw-agent 머리(에이전트 이름: claude-code · codex …)를 붙인다.
+ * 설정 폴더의 agent-seen.json에 에이전트마다 { 이름: 시각 }으로, 에이전트마다 1분에 한 번만 쓴다 (10/21 "Codex와 Claude를 구분").
  */
 const FILE = 'agent-seen.json'
 const lastWrite = new Map<string, number>()
 
 export function noteAgentCall(configDir: string, name: string, now = Date.now()): void {
-  if (now - (lastWrite.get(configDir) ?? 0) < 60_000) return
-  lastWrite.set(configDir, now)
-  try { fs.writeFileSync(path.join(configDir, FILE), `${JSON.stringify({ at: new Date(now).toISOString(), name: name.slice(0, 40) })}\n`) } catch { /* 설정 폴더에 못 쓰면 보이지 않을 뿐 */ }
+  const key = `${configDir}\0${name}`
+  if (now - (lastWrite.get(key) ?? 0) < 60_000) return
+  lastWrite.set(key, now)
+  try { fs.writeFileSync(path.join(configDir, FILE), `${JSON.stringify({ ...agentSeen(configDir), [name.slice(0, 40)]: new Date(now).toISOString() })}\n`) } catch { /* 설정 폴더에 못 쓰면 보이지 않을 뿐 */ }
 }
 
-export function agentSeen(configDir: string): { at: string; name: string } | null {
+/** 에이전트마다 마지막으로 부른 때. 옛 모양({ at, name }: 마지막 하나만)도 읽는다 */
+export function agentSeen(configDir: string): Record<string, string> {
   try {
-    const v = JSON.parse(fs.readFileSync(path.join(configDir, FILE), 'utf8')) as { at?: unknown; name?: unknown }
-    return typeof v.at === 'string' && typeof v.name === 'string' ? { at: v.at, name: v.name } : null
-  } catch { return null }
+    const v = JSON.parse(fs.readFileSync(path.join(configDir, FILE), 'utf8')) as Record<string, unknown>
+    if (typeof v.at === 'string' && typeof v.name === 'string') return { [v.name]: v.at }
+    return Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === 'string'))
+  } catch { return {} }
 }
 
 /** 우리 MCP 입구로 보이는 등록: 이름이 emergence-workbench이거나 명령에 scripts/mcp.mjs가 있는 것 */

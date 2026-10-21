@@ -716,6 +716,10 @@
   "개인 저장소": "Personal repository",
   "개인 저장소 창": "Personal repository dialog",
   "에이전트 연결": "Agent connection",
+  "에이전트 연결 묶음": "Agent connections",
+  "Claude Code 연결": "Claude Code connection",
+  "Codex 연결": "Codex connection",
+  "Claude API 연결": "Claude API connection",
   "TeX": "TeX",
   "흐름 줄 이름 단추": "Flow row name button",
   "흐름 줄 고치기 칸": "Flow row editor"

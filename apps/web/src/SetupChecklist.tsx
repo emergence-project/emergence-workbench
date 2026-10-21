@@ -35,10 +35,13 @@ export function useSetup() {
   return { setup, github, people: people.data, me, must, done: must.filter((m) => m.ok).length, loaded }
 }
 
+/** 설정 › 에이전트의 연결 줄 수: Claude Code · Codex · Claude API (AgentSettings.tsx) */
+export const AGENT_ROWS = 3
+
 const Dot = ({ ok, optional }: { ok: boolean; optional?: boolean }) =>
   <span className={`g ${ok ? 'solved' : optional ? 'stopped' : 'blocked'}`} role="img" aria-label={ok ? t('됨', 'Done') : optional ? t('선택', 'Optional') : t('할 차례', 'To do')} title={ok ? t('됨', 'Done') : optional ? t('선택: 쓰고 싶을 때만', 'Optional: only if you want it') : t('할 차례', 'To do')} />
 
-function Row({ ok, optional, name, sub, children, action, ui }: { ok: boolean; optional?: boolean; name: string; sub?: string; children: ReactNode; action?: ReactNode; ui: string }) {
+export function Row({ ok, optional, name, sub, children, action, ui }: { ok: boolean; optional?: boolean; name: string; sub?: string; children: ReactNode; action?: ReactNode; ui: string }) {
   return (
     <div className="setup-row" data-ui={ui}>
       <Dot ok={ok} optional={optional && !ok} />
@@ -61,6 +64,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
   const s = setup.data
   const put = (v: SetupView) => client.setQueryData(qk.setup, v)
   const left = must.filter((m) => !m.ok)
+  const connected = s?.agents.filter((a) => a.registered || a.at).length ?? 0
   return (
     <div className="setup" data-ui="시작 준비">
       <div className="setup-ready" data-ui="시작 준비 요약">
@@ -97,14 +101,10 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
             ? <><code>{s.personal.remote}</code>{s.personal.active ? '. ' : t('. 앱을 다시 시작하면 받아 둡니다. ', '. It is cloned the next time the app restarts. ')}{t('피드백과 설정 백업을 이 비공개 저장소에 올립니다.', 'Feedback and settings backups are pushed to this private repository.')}</>
             : t('없음: 피드백과 설정 백업이 이 컴퓨터에만 남습니다. 비공개 저장소 주소를 넣으면 앱이 비공개인지 확인하고 받아 둡니다.', 'None: feedback and settings backups stay on this computer only. Enter a private repository address; the app checks that it is private and clones it.')}
         </Row>
-        {/* 등록과 부름은 다르다 (10/21 사용자): 등록했으면 명령 대신 "등록됨", 부른 때는 MCP 도구가 앱을 부를 때 적힌다 */}
-        <Row ok={!!s?.agent || !!s?.registered.length} optional name={t('에이전트 연결', 'Agent connection')} sub="Claude Code · Codex" ui="에이전트 연결"
-          action={s && !s.registered.length && <CopyButton text={s.mcpCommand} onSaved={onSaved} />}>
-          {s?.registered.length ? t(`${s.registered.join(' · ')}에 등록됨. `, `Registered in ${s.registered.join(' · ')}. `) : null}
-          {s?.agent ? t(`${s.agent.name}이(가) ${when(s.agent.at)}에 불렀습니다. `, `${s.agent.name} last called ${when(s.agent.at)}. `)
-            : s?.registered.length ? t('아직 부른 적 없음: 등록하기 전에 열어 둔 세션은 다시 열어야 앱 도구를 씁니다.', 'Not called yet: sessions opened before registering need to be reopened to use the app tools.')
-            : t('아직 등록 안 됨. ', 'Not registered yet. ')}
-          {!s?.registered.length && <>{t('터미널에 한 줄: ', 'One line in the terminal: ')}<code className="setup-cmd">{s?.mcpCommand ?? '…'}</code></>}
+        {/* 줄마다 자세한 것은 설정 › 에이전트 (10/21 사용자 "설정에서 에이전트 탭으로 빼자"). 여기는 몇 개 연결됐는지만 */}
+        <Row ok={connected > 0} optional name={t('에이전트 연결', 'Agent connection')} sub={`${connected} / ${AGENT_ROWS}`} ui="에이전트 연결">
+          {connected ? t(`${s!.agents.filter((a) => a.registered || a.at).map((a) => a.name).join(' · ')} 연결됨. `, `${s!.agents.filter((a) => a.registered || a.at).map((a) => a.name).join(', ')} connected. `) : t('아직 연결 안 됨. ', 'Not connected yet. ')}
+          {t('에이전트마다 등록 명령과 부른 때는 ', 'Each agent\'s registration command and last call are in ')}<button className="a" onClick={() => go({ page: 'settings', part: 'agents' })}>{t('에이전트 탭', 'the Agents tab')}</button>{t('에 있습니다.', '.')}
         </Row>
         <Row ok={!!s?.tex} optional name="TeX" sub={t('PDF 컴파일', 'PDF compile')} ui="TeX"
           action={<button className="btn" disabled={setup.isFetching} onClick={() => void setup.refetch()}>{t('다시 확인', 'Check again')}</button>}>
@@ -125,7 +125,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
 /** 저자가 아직 없을 때 고치기 창에 넘기는 빈 사람 (저장하면 첫 저자로 더한다: PersonEditDialog) */
 const blankAuthor: PersonView = { id: '', name: '', aliases: [], author: true, affiliations: [], orgs: [], tags: [], emails: [], added: false, star: false }
 
-const when = (iso: string) => new Date(iso).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+export const when = (iso: string) => new Date(iso).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 function GitHubRow({ list, error, onCheck, checking }: { list?: GitHubRepoList; error?: string; onCheck(): void; checking: boolean }) {
   const owner = list?.ok ? mostCommon(list.repos.map((r) => r.owner)) : ''
@@ -147,7 +147,7 @@ function mostCommon(xs: string[]): string {
   return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
 }
 
-function CopyButton({ text, onSaved }: { text: string; onSaved(m: string): void }) {
+export function CopyButton({ text, onSaved }: { text: string; onSaved(m: string): void }) {
   return <button className="btn" onClick={() => navigator.clipboard.writeText(text).then(
     () => onSaved(t('복사했습니다. 터미널에 붙여 넣으세요', 'Copied. Paste it in the terminal')),
     () => onSaved(t(`복사하지 못했습니다: ${text}`, `Could not copy: ${text}`)))}>{t('명령 복사', 'Copy command')}</button>

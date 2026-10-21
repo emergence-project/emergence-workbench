@@ -29,6 +29,17 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
   let sampleGit = { name: 'Sample Researcher', email: 'sample@example.com' }
   const gitIdentity = async () => (opts.sandbox ? sampleGit : { name: await gitGlobal('user.name'), email: await gitGlobal('user.email') })
 
+  // 예제 모드는 이 컴퓨터의 에이전트 설정을 보지 않는다 (그림이 컴퓨터마다 달라지지 않게)
+  const agentRows = (): C.SetupView['agents'] => {
+    const registered = opts.sandbox ? [] : agentRegistered()
+    const seen = agentSeen(opts.configDir)
+    const mcp = appPath('scripts/mcp.mjs')
+    return [
+      { key: 'claude-code', name: 'Claude Code', command: `claude mcp add --scope user emergence-workbench -- node ${mcp}` },
+      { key: 'codex', name: 'Codex', command: `codex mcp add emergence-workbench -- node ${mcp}` },
+    ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', registered: registered.includes(a.name), at: seen[a.key] ?? null }))
+  }
+
   const view = async (): Promise<C.SetupView> => {
     const remote = opts.sandbox ? registry.personalRepo ?? null : await personalRemote(opts.configDir)
     let active = false
@@ -39,10 +50,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       git: await gitIdentity(),
       projects: registry.list().length,
       personal: { remote, active },
-      agent: agentSeen(opts.configDir),
-      // 예제 모드는 이 컴퓨터의 에이전트 설정을 보지 않는다 (그림이 컴퓨터마다 달라지지 않게)
-      registered: opts.sandbox ? [] : agentRegistered(),
-      mcpCommand: `claude mcp add --scope user emergence-workbench -- node ${appPath('scripts/mcp.mjs')}`,
+      agents: agentRows(),
       tex: onPath('latexmk'),
     }
   }

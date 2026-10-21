@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { useGithubFetch } from './personalRepo.js'
 import { onPath } from './routes/setup.js'
-import { agentRegistered } from './agentSeen.js'
+import { agentRegistered, agentSeen, noteAgentCall } from './agentSeen.js'
 
 const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-setup-'))
 const gitConfig = path.join(tmp, 'gitconfig')
@@ -33,8 +33,10 @@ afterAll(async () => {
 describe('시작 준비', () => {
   it('처음에는 커밋 이름 · 개인 저장소 · 에이전트가 비어 있다', async () => {
     const v = (await app.inject({ method: 'GET', url: '/api/setup' })).json()
-    expect(v).toMatchObject({ git: { name: '', email: '' }, projects: 0, personal: { remote: null, active: false }, agent: null })
-    expect(v.mcpCommand).toMatch(/^claude mcp add --scope user emergence-workbench -- node .*scripts\/mcp\.mjs$/)
+    expect(v).toMatchObject({ git: { name: '', email: '' }, projects: 0, personal: { remote: null, active: false } })
+    expect(v.agents.map((a: { key: string; registered: boolean; at: string | null }) => [a.key, a.registered, a.at])).toEqual([['claude-code', false, null], ['codex', false, null]])
+    expect(v.agents[0].command).toMatch(/^claude mcp add --scope user emergence-workbench -- node .*scripts\/mcp\.mjs$/)
+    expect(v.agents[1].command).toMatch(/^codex mcp add emergence-workbench -- node .*scripts\/mcp\.mjs$/)
   })
   it('커밋 이름 · 이메일을 git 전역 설정에 쓴다', async () => {
     const bad = await app.inject({ method: 'PUT', url: '/api/setup/git', payload: { name: 'Kim', email: 'no-at' } })
@@ -54,10 +56,19 @@ describe('시작 준비', () => {
     const cleared = (await app.inject({ method: 'PUT', url: '/api/setup/personal', payload: { remote: '' } })).json()
     expect(cleared.personal.remote).toBeNull()
   })
-  it('MCP 입구가 부르면 에이전트 연결로 보인다', async () => {
+  it('MCP 입구가 부르면 그 에이전트 줄에 부른 때가 보인다 (에이전트마다 따로)', async () => {
+    await app.inject({ method: 'GET', url: '/api/researches', headers: { 'x-rw-agent': 'codex' } })
     await app.inject({ method: 'GET', url: '/api/researches', headers: { 'x-rw-agent': 'claude-code' } })
     const v = (await app.inject({ method: 'GET', url: '/api/setup' })).json()
-    expect(v.agent).toMatchObject({ name: 'claude-code' })
+    expect(v.agents.every((a: { at: string | null }) => typeof a.at === 'string')).toBe(true)
+  })
+  it('옛 agent-seen.json(마지막 하나만)도 읽는다', () => {
+    const dir = path.join(tmp, 'seen-old')
+    fs.mkdirSync(dir)
+    fs.writeFileSync(path.join(dir, 'agent-seen.json'), JSON.stringify({ at: '2026-10-21T01:00:00.000Z', name: 'claude-code' }))
+    expect(agentSeen(dir)).toEqual({ 'claude-code': '2026-10-21T01:00:00.000Z' })
+    noteAgentCall(dir, 'codex', Date.parse('2026-10-21T02:00:00Z'))
+    expect(agentSeen(dir)).toEqual({ 'claude-code': '2026-10-21T01:00:00.000Z', codex: '2026-10-21T02:00:00.000Z' })
   })
   it('Claude Code · Codex에 이 앱의 MCP 입구가 등록됐는지 본다 (부름과 따로)', () => {
     const home = path.join(tmp, 'home')
