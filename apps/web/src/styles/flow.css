@@ -191,8 +191,20 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-rowheads.out .fl-rowedge { left: auto; right: var(--sp-2); flex-direction: row-reverse; }
 .fl-rowhead { position: absolute; left: 0; right: 0; height: 24px; display: flex; align-items: center; gap: 2px; padding-left: var(--sp-2); }
 .fl-rowhead.to { background: var(--bg-hover); }
-/* 긴 이름은 자르지 않고 여러 줄로 접는다. 줄 사이가 넓어 서너 줄은 들어간다 (10/21 피드백: 바깥 왼쪽에서 앞이 말없이 잘렸다) */
-.fl-rowname { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.25; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); }
+/* 긴 이름은 여러 줄로 접고, 줄 높이에 넘치면 …로 줄인다 (10/21 피드백 둘: 앞이 말없이 잘렸다 → 좁으면 …). 줄 수는 화면이 정한다(-webkit-line-clamp) */
+.fl-rowname { flex: 1; min-width: 0; line-height: 1.25; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); }
+.fl-rowname-t { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; word-break: normal; }
+/* 줄 이름은 누르면 고치기 칸 (10/21). 이름 없는 줄은 가리킬 때만 연필 */
+button.fl-rowhead { border: 0; background: none; padding-top: 0; padding-bottom: 0; font: inherit; color: inherit; text-align: inherit; cursor: pointer; border-radius: var(--r-sm); }
+button.fl-rowhead:hover, button.fl-rowhead.on { background: var(--bg-hover); }
+.fl-rowname-add { display: none; color: var(--text-3); }
+.fl-rowname-add svg { width: 13px; height: 13px; }
+button.fl-rowhead.blank:hover .fl-rowname-add, button.fl-rowhead.blank.on .fl-rowname-add { display: inline-flex; }
+.fl-rowpop { position: absolute; z-index: 5; width: 260px; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); }
+.fl-rowpop input { font-size: var(--fs-sm); }
+.fl-rowpop-foot { display: flex; align-items: center; gap: var(--sp-1); }
+.fl-rowpop-foot .sp { flex: 1; }
+.fl-rowpop-foot .btn svg { width: 12px; height: 12px; }
 /* 줄 이름은 점 자세히에서 고친다 (10/21) */
 .fl-rowfield { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .fl-rowname-in { width: 14em; font-size: var(--fs-sm); }
