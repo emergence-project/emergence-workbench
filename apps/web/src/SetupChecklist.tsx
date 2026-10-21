@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { githubRepos, setupApi, type GitHubRepoList, type PersonView, type SetupView } from './api'
+import { githubRepos, setupApi, type GitHubRepoItem, type GitHubRepoList, type PersonView, type SetupView } from './api'
 import { Dialog } from './dialogs'
 import { ElsewhereHomeCard, ElsewhereSection } from './ElsewhereProjects'
 import { GoogleSettings } from './GoogleSettings'
@@ -129,7 +129,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <GoogleSettings onUiRestored={onUiRestored} />
 
       {editing === 'git' && s && <GitDialog init={s.git} me={me} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(t('커밋 이름을 저장했습니다', 'Commit name saved')) }} />}
-      {editing === 'personal' && s && <PersonalDialog init={s.personal.remote ?? ''} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(v.personal.remote ? t('개인 저장소를 저장했습니다', 'Personal repository saved') : t('개인 저장소를 뺐습니다', 'Personal repository removed')) }} />}
+      {editing === 'personal' && s && <PersonalDialog init={s.personal.remote ?? ''} repos={github.data?.ok ? github.data.repos : []} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(v.personal.remote ? t('개인 저장소를 저장했습니다', 'Personal repository saved') : t('개인 저장소를 뺐습니다', 'Personal repository removed')) }} />}
       {editing === 'library' && s && <LibraryDialog init={s.library.path ?? ''} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(t('공용 라이브러리를 저장했습니다', 'Shared library saved')) }} />}
       {editing === 'me' && people && <PersonEditDialog person={me ?? blankAuthor} people={people} location={`${t('설정', 'Settings')} › ${t('계정', 'Accounts')}`} onSaved={onSaved} onDone={() => { setEditing(null); announce() }} />}
     </div>
@@ -208,14 +208,21 @@ function GitDialog({ init, me, onClose, onDone }: { init: SetupView['git']; me?:
   )
 }
 
-function PersonalDialog({ init, onClose, onDone }: { init: string; onClose(): void; onDone(v: SetupView): void }) {
+/**
+ * 개인 저장소 고르기 (10/22 피드백 "주소를 적기보다 마우스로 고르거나, 없으면 바로 만들 수 있게"):
+ * GitHub 로그인으로 받은 내 비공개 저장소 중에서 누르거나, 새 비공개 저장소를 만든다. 주소를 직접 적는 칸은 아래에 남긴다
+ */
+function PersonalDialog({ init, repos, onClose, onDone }: { init: string; repos: GitHubRepoItem[]; onClose(): void; onDone(v: SetupView): void }) {
   const [remote, setRemote] = useState(init)
+  const [name, setName] = useState('workbench-private')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const save = async (value: string) => {
+  const own = repos.filter((r) => r.private && !r.registeredId)
+  const call = async (f: () => Promise<SetupView>) => {
     setBusy(true); setError('')
-    try { onDone(await setupApi.setPersonal({ remote: value })) } catch (e) { setError((e as Error).message); setBusy(false) }
+    try { onDone(await f()) } catch (e) { setError((e as Error).message); setBusy(false) }
   }
+  const save = (value: string) => call(() => setupApi.setPersonal({ remote: value }))
   return (
     <Dialog title={t('개인 저장소', 'Personal repository')} onClose={onClose} footer={<>
       {init && <button className="btn" disabled={busy} onClick={() => void save('')}>{t('빼기', 'Remove')}</button>}
@@ -223,9 +230,22 @@ function PersonalDialog({ init, onClose, onDone }: { init: string; onClose(): vo
       <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
       <button className="btn primary" disabled={busy || !remote.trim()} onClick={() => void save(remote)}>{t('저장', 'Save')}</button>
     </>}>
-      <label className="field"><span>{t('GitHub 비공개 저장소 주소', 'Private GitHub repository address')}</span>
-        <input value={remote} autoFocus placeholder="https://github.com/name/my-workbench-private" onChange={(e) => setRemote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && remote.trim()) void save(remote) }} /></label>
-      <p className="setup-desc">{t('GitHub에서 비공개 저장소를 하나 만들어 그 주소를 적습니다. 공개 저장소는 받지 않습니다. 앱을 다시 시작하면 받아 두고, 그 뒤 피드백과 설정 백업을 거기에 올립니다.', 'Create a private repository on GitHub and enter its address. Public repositories are refused. The app clones it on the next restart, then pushes feedback and settings backups there.')}</p>
+      <p className="setup-desc">{t('피드백과 설정 백업을 올릴 비공개 저장소입니다. 공개 저장소는 받지 않습니다. 앱을 다시 시작하면 받아 둡니다.', 'A private repository for feedback and settings backups. Public repositories are refused. The app clones it on the next restart.')}</p>
+      {own.length > 0 && <>
+        <div className="setup-pick-h">{t('내 비공개 저장소에서 고르기', 'Pick one of your private repositories')}</div>
+        <div className="setup-pick" data-ui="개인 저장소 고르기">
+          {own.map((r) => <button key={r.url} type="button" className={`setup-pick-row${remote === r.url ? ' on' : ''}`} onClick={() => setRemote(r.url)}>
+            <span><span className="muted">{r.owner} /</span> {r.name}</span>{r.description && <span className="muted setup-pick-desc">{r.description}</span>}
+          </button>)}
+        </div>
+      </>}
+      <div className="setup-pick-h">{t('새로 만들기', 'Create a new one')}</div>
+      <div className="setup-create" data-ui="개인 저장소 만들기">
+        <input value={name} onChange={(e) => setName(e.target.value)} aria-label={t('새 저장소 이름', 'New repository name')} />
+        <button className="btn" disabled={busy || !name.trim()} onClick={() => void call(() => setupApi.createPersonal({ name }))}>{t('비공개로 만들기', 'Create as private')}</button>
+      </div>
+      <label className="field"><span>{t('또는 주소 적기', 'Or enter an address')}</span>
+        <input value={remote} placeholder="https://github.com/name/my-workbench-private" onChange={(e) => setRemote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && remote.trim()) void save(remote) }} /></label>
       {error && <p className="error-text">{error}</p>}
     </Dialog>
   )

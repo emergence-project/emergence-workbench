@@ -114,6 +114,17 @@ describe('시작 준비', () => {
     expect((await a.inject({ method: 'POST', url: '/api/setup/fetch', payload: { remote: '/tmp/x', folder: 'x' } })).statusCode).toBe(400)
     await a.close()
   })
+  it('개인 저장소를 gh로 비공개로 만들어 바로 정한다, 이름이 이상하면 거절', async () => {
+    const calls: string[][] = []
+    const io = { run: async (cmd: string, args: string[]) => { calls.push([cmd, ...args]); return 'https://github.com/me/workbench-private\n' }, getJson: async () => [], exists: () => false }
+    useGithubFetch(async () => new Response('{}', { status: 404 }))
+    const a = buildApp({ configDir: path.join(tmp, 'config-create'), repoIO: io })
+    const v = (await a.inject({ method: 'POST', url: '/api/setup/personal/create', payload: { name: 'workbench-private' } })).json()
+    expect(calls[0]).toEqual(['gh', 'repo', 'create', 'workbench-private', '--private', '--add-readme', '--description', expect.any(String)])
+    expect(v.personal.remote).toBe('https://github.com/me/workbench-private')
+    expect((await a.inject({ method: 'POST', url: '/api/setup/personal/create', payload: { name: '../x' } })).statusCode).toBe(400)
+    await a.close()
+  })
   it('공용 라이브러리: 다른 컴퓨터가 쓰는 라이브러리와 이름이 같은 받아 둔 폴더를 제안하고, 연결하면 설정에 적는다', async () => {
     const root = path.join(tmp, 'lib-case')
     const personal = path.join(root, 'personal')

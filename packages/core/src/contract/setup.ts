@@ -43,6 +43,8 @@ export const SetupView = z.object({
 }).strict()
 
 // ---------- 요청 ----------
+/** POST /setup/personal/create: GitHub에 비공개 저장소를 만들어 개인 저장소로 정한다 (이름만) */
+export const SetupPersonalCreateBody = z.object({ name: z.string() }).strict()
 /** PUT /setup/library: 공용 라이브러리 폴더 (절대 경로) */
 export const SetupLibraryBody = z.object({ path: z.string() }).strict()
 export const SetupGitBody = z.object({ name: z.string(), email: z.string() }).strict()
@@ -54,4 +56,5 @@ export type SetupView = z.infer<typeof SetupView>
 export type SetupGitBody = z.input<typeof SetupGitBody>
 export type SetupPersonalBody = z.input<typeof SetupPersonalBody>
 export type SetupFetchBody = z.input<typeof SetupFetchBody>
+export type SetupPersonalCreateBody = z.input<typeof SetupPersonalCreateBody>
 export type SetupLibraryBody = z.input<typeof SetupLibraryBody>

@@ -10,6 +10,7 @@ import { agentRegistered, agentSeen } from '../agentSeen.js'
 import { appPath } from '../agentPaths.js'
 import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
+import { realIO } from '../githubRepos.js'
 import { git, gitRun, GIT_TIMEOUT } from '../git.js'
 import { remoteOf, sameRepo } from './google.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
@@ -141,6 +142,29 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       await gitRun(['config', '--global', 'user.name', name], { timeout: GIT_TIMEOUT.read })
       await gitRun(['config', '--global', 'user.email', email], { timeout: GIT_TIMEOUT.read })
     }
+    return view()
+  })
+
+  /**
+   * 개인 저장소를 GitHub에 바로 만든다 (10/22 피드백 "저장소들 중에서 고르거나, 없으면 바로 만들 수 있게").
+   * 이 컴퓨터의 gh 로그인으로 비공개 저장소를 만들고 그 주소를 개인 저장소로 정한다. 예제 모드는 만들지 않고 정하기만 한다
+   */
+  app.post('/api/setup/personal/create', replies(C.SetupView), async (req): Promise<C.SetupView> => {
+    const name = parseBody(C.SetupPersonalCreateBody, req.body).name.trim()
+    if (!/^[A-Za-z0-9._-]{1,100}$/.test(name) || name === '.' || name === '..') throw new WorkbenchError(400, t('저장소 이름은 영문 · 숫자 · . _ - 로만 적습니다', 'Use only letters, digits, . _ - in the repository name'))
+    let url: string
+    if (opts.sandbox) url = `https://github.com/example-user/${name}`
+    else {
+      const io = opts.repoIO ?? realIO
+      try {
+        url = (await io.run('gh', ['repo', 'create', name, '--private', '--add-readme', '--description', 'Emergence Workbench personal repository (feedback, settings backup)'])).trim().split('\n').pop()!.trim()
+      } catch (e) {
+        const msg = String((e as { stderr?: string }).stderr || (e as Error).message).trim().split('\n').pop()
+        throw new WorkbenchError(502, t(`GitHub에 만들지 못했습니다: ${msg}`, `Could not create it on GitHub: ${msg}`))
+      }
+      if (!githubRepoOf(url)) throw new WorkbenchError(502, t(`GitHub가 돌려준 주소를 알아보지 못했습니다: ${url}`, `Could not read the address GitHub returned: ${url}`))
+    }
+    registry.setPersonalRepo(url)
     return view()
   })
 
