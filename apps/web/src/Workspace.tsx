@@ -24,8 +24,10 @@ export type Tab =
   | { k: 'overview' } | { k: 'log' } | { k: 'map' } | { k: 'todo' } | { k: 'records' } | { k: 'info' } | { k: 'agents' } | { k: 'status' } | { k: 'repo' } | { k: 'files' } | { k: 'notes' } | { k: 'concepts' } | { k: 'papers' } | { k: 'edits' } | { k: 'flow' }
   | { k: 'block'; bid: string } | { k: 'pdf'; bid: string } | { k: 'doc'; name: string } | { k: 'file'; path: string } | { k: 'statement'; sid: string }
   | { k: 'part'; file: string } | { k: 'mspdf'; ms?: string } | { k: 'concept'; id: string } | { k: 'paper'; id: string } | { k: 'topic'; tid: string } | { k: 'task'; task: string }
+  /** 에이전트 대화를 노트 옆 칸에 (10/21 "창 분할로 나란히"): 주소는 없고 탭으로만 */
+  | { k: 'chat'; chat: string }
 
-export const tabKey = (t: Tab) => ('path' in t ? `file:${t.path}` : 'task' in t ? `task:${t.task}` : 'tid' in t ? `topic:${t.tid}` : 'bid' in t ? `${t.k}:${t.bid}` : 'name' in t ? `doc:${t.name}` : 'sid' in t ? `statement:${t.sid}` : 'file' in t ? `part:${t.file}` : 'id' in t ? `${t.k}:${t.id}` : t.k === 'mspdf' && t.ms ? `mspdf:${t.ms}` : t.k)
+export const tabKey = (t: Tab) => ('path' in t ? `file:${t.path}` : 'chat' in t ? `chat:${t.chat}` : 'task' in t ? `task:${t.task}` : 'tid' in t ? `topic:${t.tid}` : 'bid' in t ? `${t.k}:${t.bid}` : 'name' in t ? `doc:${t.name}` : 'sid' in t ? `statement:${t.sid}` : 'file' in t ? `part:${t.file}` : 'id' in t ? `${t.k}:${t.id}` : t.k === 'mspdf' && t.ms ? `mspdf:${t.ms}` : t.k)
 
 /**
  * 갈래 화면(첫 화면 · 프로젝트 정보 · 할 일 · 지도 · 기록)은 탭이 아니다: 사이드바에서 고르면 칸에 고른 탭이 없을 때처럼
@@ -80,6 +82,7 @@ function routeOfTab(rid: string, t: Tab): Route | null {
     case 'concept': return { page: 'concept', rid, id: t.id }
     case 'paper': return { page: 'paper', rid, id: t.id }
     case 'task': return { page: 'task', rid, task: t.task }
+    case 'chat': return null
   }
 }
 
@@ -551,7 +554,7 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
   )
 }
 
-const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, repo: Icon.projectInfo, files: Icon.projectInfo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, block: Icon.block, statement: Icon.statement, pdf: Icon.pdf, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task }
+const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, repo: Icon.projectInfo, files: Icon.projectInfo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, block: Icon.block, statement: Icon.statement, pdf: Icon.pdf, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task, chat: Icon.spark }
 
 function Pane({ i, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
   i: 0 | 1; visible: boolean; pane: PaneState; focused: boolean; isFocus: boolean; titleOf(t: Tab): string; uiTitleOf(t: Tab): string; kindOf(t: Tab): string | null; renderTab(t: Tab, context: TabRenderContext): ReactNode; visibleTabs: Tab[]; home: ReactNode

@@ -113,6 +113,17 @@ try {
         await new Promise((r) => setTimeout(r, 100))
       }
     }
+    if (name === 'agent-dock' || name === 'agent-beside') {
+      // 패널 자리 (아래 · 나란히): 새 문서로 열어 패널을 닫힌 채 시작하고, 아래 자리는 설정으로, 나란히는 끝난 대화를 연 채로
+      await page.goto('about:blank')
+      await page.goto(base)
+      await page.evaluate(({ rid, done, bottom }) => {
+        localStorage.setItem('rw-agent-place', JSON.stringify(bottom ? 'bottom' : 'right'))
+        localStorage.setItem(`rw-agent-panel-${rid}`, JSON.stringify(bottom ? null : done))
+        localStorage.removeItem(`rw-ws-${rid}`)
+      }, { rid, done, bottom: name === 'agent-dock' })
+      await page.goto('about:blank')
+    }
     await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')
@@ -186,6 +197,11 @@ try {
     await page.screenshot({ path: path.join(out, `${name}.png`) })
     // 주소만 바꾸는 이동은 열린 창을 그대로 두므로, 다음 화면을 가리지 않게 닫는다
     if (name === 'task-dialog') await page.keyboard.press('Escape')
+    // 패널 자리와 나란히 연 탭을 되돌려 뒤 화면이 같게
+    if (name === 'agent-dock' || name === 'agent-beside') {
+      await page.evaluate((rid) => { localStorage.removeItem('rw-agent-place'); localStorage.removeItem(`rw-agent-panel-${rid}`); localStorage.removeItem(`rw-ws-${rid}`) }, rid)
+      await page.goto('about:blank')
+    }
     if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
     console.log(`찍음 ${name}`)
   }

@@ -91,6 +91,9 @@ export const DEFAULT_SCREENS = [
   // 노트를 고치고 끝난 대화와 바뀐 곳 패널 (#232)
   ['agent-changes', '#/agent/{done}', '바뀐 곳'],
   ['agent-panel', '#/r/{rid}', '에이전트 패널', '에이전트 버튼'],
+  // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
+  ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', '에이전트 버튼'],
+  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['에이전트 버튼', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
   ['about', '#/about', '소개'],
   // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
   ['about-tags', '#/about/symbols/tags', '대화 태그'],
