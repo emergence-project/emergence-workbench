@@ -8,6 +8,7 @@ import * as C from '@rw/core/contract/feedback'
 import { replies } from '../contract.js'
 import { writeAtomic } from '../fsutil.js'
 import { locate, pendingPaths, PathSyncError, publishPaths } from '../pathsync.js'
+import { offDefaultBranch } from '../gitsync.js'
 import { WorkbenchError } from '../workbench.js'
 import { t } from '../i18n.js'
 import { syncDelayMs } from '../syncTiming.js'
@@ -51,6 +52,9 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
       if (before !== error) ctx.broadcast({ type: 'records-publish', research: rid })
     }
     try {
+      // 연구 폴더가 main 같은 기본 브랜치가 아니면 올리지 않는다: 그 브랜치로 올라가 다른 컴퓨터에서 보이지 않는다 (10/22 맥미니 NBCP)
+      const off = await offDefaultBranch(r.top)
+      if (off) throw new PathSyncError(off)
       const out = await publishPaths(r.top, r.paths, { message: RECORDS_MESSAGE, adopt: true, merge: true })
       done(null)
       return out

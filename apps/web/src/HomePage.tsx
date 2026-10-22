@@ -113,7 +113,8 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
       image: l && !(l instanceof Error) ? l.summary.research.image : undefined,
       last: l && !(l instanceof Error) ? lastWorkMs(l.summary, l.entries) : undefined,
       error: l instanceof Error ? l.message : r.problem,
-      mark: attentionOf(issues[r.id] ?? 0, sync?.behind ?? 0),
+      // 기본 브랜치가 아닌 폴더는 새 커밋이 없어도 업데이트 기호로 알린다 (저절로 받기 · 기록 올리기가 멈춤, 10/22)
+      mark: attentionOf(issues[r.id] ?? 0, sync?.defaultBranch ? Math.max(1, sync.behind) : sync?.behind ?? 0),
       issues: issues[r.id] ?? 0,
       tasks: judgeTasks[r.id] ?? 0,
       edits: agentEdits[r.id] ?? 0,
@@ -280,11 +281,13 @@ function Attention({ mark, issues, tasks = 0, edits = 0, records = 0, sync, onUp
   const updateReason = sync?.ahead ? t(' · 이 컴퓨터에 커밋이나 변경이 있어 터미널에서 git pull', ' · this computer has commits or changes, so run git pull in a terminal')
     : sync?.conflictCount ? t(` · 이 컴퓨터의 변경과 겹치는 파일: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` 외 ${sync.conflictCount - sync.conflicts.length}개` : ''} (터미널에서 합치기)`, ` · Files overlapping with changes on this computer: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` and ${sync.conflictCount - sync.conflicts.length} more` : ''} (merge in a terminal)`)
       : sync?.canUpdate && onUpdate ? t(' (누르면 받습니다)', ' (click to pull)') : ''
-  const updateTip = sync ? t(`업데이트 필요 — GitHub에 새 커밋 ${sync.behind}개${updateReason}`, `Needs update: ${plural(sync.behind, 'new commit')} on GitHub${updateReason}`) : ''
+  const updateTip = sync?.defaultBranch
+    ? t(`업데이트 필요 — 이 폴더가 ${sync.defaultBranch}가 아닌 ${sync.branch} 브랜치에 있어 저절로 받기와 기록 올리기를 멈췄습니다 (터미널에서 git switch ${sync.defaultBranch})`, `Needs update: this folder is on the ${sync.branch} branch, not ${sync.defaultBranch}, so automatic pulls and record pushes are paused (run git switch ${sync.defaultBranch} in a terminal)`)
+    : sync ? t(`업데이트 필요 — GitHub에 새 커밋 ${sync.behind}개${updateReason}`, `Needs update: ${plural(sync.behind, 'new commit')} on GitHub${updateReason}`) : ''
   if (mark === 'check') return <span className="am-dot" role="img" aria-label={checkTip} title={checkTip} />
   const tip = mark === 'both' ? `${checkTip}\n${updateTip}` : updateTip
   const icon: ReactNode = <>{Icon.sync}{mark === 'both' && <span className="turn-dot am-badge" aria-hidden />}</>
-  return sync?.canUpdate && onUpdate
+  return sync?.canUpdate && !sync.defaultBranch && onUpdate
     ? <button className="am-sync" aria-label={tip} title={tip} onClick={(e) => { e.stopPropagation(); onUpdate() }} onKeyDown={(e) => e.stopPropagation()}>{icon}</button>
     : <span className="am-sync" role="img" aria-label={tip} title={tip}>{icon}</span>
 }

@@ -114,11 +114,45 @@ export async function repoSync(root: string, opts: { fetch?: boolean; force?: bo
   ]) : []
   const changes = syncChanges(status, ...incoming)
   const f = lastFetch.get(root)
+  const remote = upstream.split('/')[0]!
+  const main = await defaultBranchOf(root, remote)
+  const off = main !== null && upstream !== `${remote}/${main}`
   return {
     branch, upstream, ahead, behind, ...changes,
     fetchedAt: f && !f.error ? f.at : null, fetchError: f?.error,
+    ...(off && { defaultBranch: main }),
     canUpdate: behind > 0 && ahead === 0 && changes.conflictCount === 0,
   }
+}
+
+/**
+ * 원격의 기본 브랜치 이름 (origin/HEAD, 없으면 main · master 중 원격에 있는 것). 모르면 null.
+ * 연구 폴더가 다른 브랜치(에이전트의 claude/… 등)에 있으면 저절로 받기 · 기록 올리기가 그 브랜치로 가서
+ * 다른 컴퓨터에서 보이지 않는다 (10/22 맥미니 NBCP). 그때는 저절로 하지 않고 홈 카드에 알린다
+ */
+export async function defaultBranchOf(root: string, remote: string): Promise<string | null> {
+  const head = await git(root, 'symbolic-ref', '--quiet', '--short', `refs/remotes/${remote}/HEAD`).catch(() => '')
+  if (head.startsWith(`${remote}/`)) return head.slice(remote.length + 1)
+  for (const b of ['main', 'master']) {
+    if (await git(root, 'rev-parse', '--verify', '--quiet', `refs/remotes/${remote}/${b}`).then(() => true, () => false)) return b
+  }
+  return null
+}
+
+/** 그 폴더가 원격의 기본 브랜치를 추적하지 않으면 그 이유 문장 (기록 올리기가 먼저 본다). 추적하거나 알 수 없으면 null */
+export async function offDefaultBranch(root: string): Promise<string | null> {
+  try {
+    const branch = await git(root, ...syncCommands.branch)
+    const upstream = await git(root, ...syncCommands.upstream)
+    const remote = upstream.split('/')[0]!
+    const main = await defaultBranchOf(root, remote)
+    return main !== null && upstream !== `${remote}/${main}` ? offDefaultProblem({ branch, defaultBranch: main }) : null
+  } catch { return null }
+}
+
+/** 연구 폴더가 원격의 기본 브랜치를 추적하지 않으면 그 사실을 알리는 문장 (저절로 받기 · 기록 올리기가 멈춘 이유). 추적하면 null */
+export function offDefaultProblem(s: Pick<RepoSync, 'branch' | 'defaultBranch'>): string | null {
+  return s.defaultBranch ? t(`이 폴더가 ${s.defaultBranch}가 아닌 ${s.branch} 브랜치에 있어 저절로 받기와 기록 올리기를 멈췄습니다. 터미널에서 git switch ${s.defaultBranch} 뒤 다시 해 주세요`, `This folder is on the ${s.branch} branch, not ${s.defaultBranch}, so automatic pulls and record pushes are paused. Run git switch ${s.defaultBranch} in a terminal, then try again`) : null
 }
 
 /** 커밋이 하나도 없는 사본인지 (빈 GitHub 저장소를 받아 둔 직후) */
@@ -180,6 +214,6 @@ export async function fastForward(root: string): Promise<RepoSync> {
  */
 export async function autoPull(root: string): Promise<boolean> {
   const s = await repoSync(root, { fetch: true })
-  if (!s?.canUpdate || s.fetchError) return false
+  if (!s?.canUpdate || s.fetchError || s.defaultBranch) return false
   try { await fastForward(root); return true } catch { return false }
 }

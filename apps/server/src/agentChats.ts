@@ -437,8 +437,11 @@ export interface AgentChatsDeps {
   notify: (chat: ChatRow) => void
   /** 앱 고치기 대화의 작업 폴더와 PR (앱 저장소가 있는 맥에서만) */
   app?: AppWork
-  /** 앱 피드백 폴더 (맡기기 · 처리 기록). written = 처리 기록을 적은 뒤 (저절로 올리기) */
-  feedback?: { dir: string; written?: () => void }
+  /**
+   * 앱 피드백 폴더 (맡기기 · 처리 기록). written = 처리 기록을 적은 뒤 (저절로 올리기).
+   * claims = 저절로 맡기기를 한 컴퓨터만 (feedbackClaims.ts): taken은 다른 컴퓨터가 이번 차례에 맡았는지, claim은 이 컴퓨터가 맡기 (since = 그 항목을 마지막으로 손댄 때)
+   */
+  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number): Promise<boolean> } }
   /** 설정 › 에이전트 (피드백을 언제 맡기고 언제 합치나 · 한 차례 한도) */
   settings?: () => AgentSettings
   /** 합친 커밋이 지금 도는 앱에 들어 있는가 (모르면 undefined) */
@@ -732,8 +735,12 @@ export class AgentChats {
     const chats = [...this.chats.values()]
     const next = [...items.values()]
       .filter((e) => agentTurns(e).length && !chats.some((c) => c.feedback === e.key && new Date(c.created).getTime() >= lastTouched(e)))
+      .filter((e) => !fb.claims?.taken(e.key, lastTouched(e)))
       .sort((a, b) => lastTouched(a) - lastTouched(b))[0]
-    if (next) { try { this.handOff(next.key) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ } }
+    if (!next) return
+    // 다른 컴퓨터도 저절로 맡기기를 켰으면 먼저 적어 올린 쪽만 맡는다
+    if (fb.claims && !(await fb.claims.claim(next.key, lastTouched(next)).catch(() => false))) return
+    try { this.handOff(next.key) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ }
   }
 
   /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */

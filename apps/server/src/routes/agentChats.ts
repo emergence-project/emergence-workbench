@@ -9,6 +9,9 @@ import { parseBody, replies } from '../contract.js'
 import { createMcpServer } from '../mcp.js'
 import { commitChecker } from '../commitsInApp.js'
 import { repeat } from '../scheduler.js'
+import { machineName } from '../backup.js'
+import { publishFeedback } from '../feedback.js'
+import { claimedElsewhere, claimFeedback } from '../feedbackClaims.js'
 import type { RouteContext } from './context.js'
 
 /** 동시에 도는 대화 수 (맥 메모리가 바닥났던 일, 10/14) */
@@ -30,6 +33,16 @@ function injectFetch(app: FastifyInstance): typeof fetch {
 
 export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): AgentChats {
   const { registry, broadcast, repoPath } = ctx
+  // 저절로 맡기기는 한 컴퓨터만: 개인 저장소에 맡은 컴퓨터를 적어 올린 뒤 맡는다 (feedbackClaims.ts, 10/22). 개인 저장소가 없으면 이 컴퓨터만 쓰는 것으로 본다
+  const fbDir = ctx.opts.feedbackDir
+  const pull = ctx.opts.feedbackSync
+  const claims = fbDir && ctx.opts.feedbackPublish && pull ? (() => {
+    const deps = { dir: fbDir, machine: machineName(), pull, publish: () => publishFeedback(fbDir) }
+    return {
+      taken: (key: string, since: number) => claimedElsewhere(fbDir, key, deps.machine, since) !== null,
+      claim: (key: string, since: number) => claimFeedback(deps, key, since),
+    }
+  })() : undefined
   const chats = new AgentChats({
     dir: path.join(registry.configDir, 'agent-chats'),
     runner: runner ?? claudeAgentRunner((appChat) => createMcpServer({ baseUrl: 'http://workbench.local', fetch: injectFetch(app), appChat })),
@@ -39,7 +52,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
     ...(appWork && { app: appWork }),
-    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.() } }),
+    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
     settings: () => registry.agents,
     ...(ctx.opts.appRepo && { inApp: commitChecker(ctx.opts.appRepo.root, ctx.opts.appRepo.running) }),
   })
@@ -83,7 +96,13 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/app/submit', replies(C.AppSubmitted), async (req): Promise<C.AppSubmitted> => chats.appSubmit(req.params.id, parseBody(C.AppSubmitBody, req.body)))
   app.get<{ Params: { id: string } }>('/api/agent-chats/:id/app/checks', replies(C.AppChecks), async (req): Promise<C.AppChecks> => chats.appChecks(req.params.id))
   // 피드백 맡기기 (2단계 나): 피드백 화면의 「에이전트에게 맡기기」와, 맡은 대화가 처리 기록을 앱을 거쳐 적는 feedback_answer
-  app.post('/api/feedback/hand-off', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.handOff(parseBody(C.HandOffBody, req.body).key) }))
+  app.post('/api/feedback/hand-off', replies(C.ChatOne), async (req): Promise<C.ChatOne> => {
+    const { key } = parseBody(C.HandOffBody, req.body)
+    const chat = chats.handOff(key)
+    // 손으로 맡긴 것도 적어 올려 다른 컴퓨터의 저절로 맡기기가 같은 항목을 맡지 않게 한다 (기다리지 않는다)
+    void claims?.claim(key, 0).catch(() => undefined)
+    return { chat }
+  })
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/feedback/answer', replies(C.FeedbackAnswered), async (req): Promise<C.FeedbackAnswered> => chats.feedbackAnswer(req.params.id, parseBody(C.FeedbackAnswerBody, req.body)))
 
   /** 지금 도는 대화와 잡은 파일: 화면 · 앱 밖 에이전트가 같은 것을 보고 피한다 */
