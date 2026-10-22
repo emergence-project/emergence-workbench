@@ -89,6 +89,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   /** 도는 동안 보내 기다리는 지시 하나 빼기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/unqueue', replies(C.Unqueued), async (req): Promise<C.Unqueued> => chats.unqueue(req.params.id, parseBody(C.UnqueueBody, req.body).index))
 
+  /** 되돌리기: 내 지시 하나와 그 뒤를 지우고 그 앞 맥락으로 (앱 고치기 대화는 파일도) */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/rewind', replies(C.Rewound), async (req): Promise<C.Rewound> => chats.rewind(req.params.id, parseBody(C.RewindBody, req.body).point))
+
   /** 오류 · 멈춤 · 앱 재시작 뒤 이어 하기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/resume', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.resume(req.params.id) }))
 

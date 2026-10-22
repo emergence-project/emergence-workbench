@@ -450,7 +450,7 @@ function AttachChips({ attach, images }: { attach?: Attach[]; images?: number })
   )
 }
 
-function ItemView({ chat, it, onError, onChanges }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; onError(m: string): void; onChanges?(): void }) {
+function ItemView({ chat, it, onError, onChanges, onRewind }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
     case 'user': return (
@@ -458,6 +458,9 @@ function ItemView({ chat, it, onError, onChanges }: { chat: Chat; it: Exclude<Ch
         <MemoText text={it.text} />
         <AttachChips attach={it.attach} images={it.images} />
         <CopyButton text={it.text} />
+        {it.point && onRewind && !isLive(chat.state) && (
+          <button className="icon-btn sm ac-rewind" data-ui="여기로 되돌리기" data-tip={t('여기로 되돌리기', 'Rewind to here')} aria-label={t('여기로 되돌리기', 'Rewind to here')} onClick={() => onRewind(it.point!)}>{Icon.revert}</button>
+        )}
       </li>
     )
     case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><CopyButton text={it.text} /></li>
@@ -924,6 +927,24 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
     return true
   }
   const stop = async () => { try { client.setQueryData(qk.agentChat(id), await agentChatsApi.stop(id)) } catch (e) { setFail((e as Error).message) } }
+  // 되돌리기 (Claude Code의 rewind): 이 지시와 그 뒤를 지우고, 지운 지시는 입력란에서 고쳐 다시 보낸다
+  const rewind = async (point: string) => {
+    const app = chat.rid === APP_RID
+    if (!await askConfirm({
+      title: t('여기로 되돌릴까요?', 'Rewind to here?'),
+      hint: app
+        ? t('이 지시와 그 뒤 대화를 지우고, 작업 폴더의 파일도 이 지시를 보내기 전으로 되돌립니다. 지운 지시는 입력란에 다시 넣습니다.', 'Deletes this message and everything after it, and puts the work folder files back to before it. The message goes back into the input.')
+        : t('이 지시와 그 뒤 대화를 지웁니다. 노트 고침은 수정 검토에 그대로 남으니 거기서 되돌리세요. 지운 지시는 입력란에 다시 넣습니다.', 'Deletes this message and everything after it. Note edits stay in edit review; revert them there. The message goes back into the input.'),
+      ok: t('되돌리기', 'Rewind'),
+    })) return
+    setFail(null)
+    try {
+      const r = await agentChatsApi.rewind(id, point)
+      client.setQueryData(qk.agentChat(id), r.chat)
+      setFill({ text: r.text, attach: r.attach, n: Date.now() })
+      onSaved(r.files ? t(`되돌렸습니다 · 파일 ${r.files}개`, `Rewound · ${r.files} file${r.files > 1 ? 's' : ''}`) : t('되돌렸습니다', 'Rewound'))
+    } catch (e) { setFail((e as Error).message) }
+  }
   const resume = async () => { setFail(null); try { client.setQueryData(qk.agentChat(id), await agentChatsApi.resume(id)) } catch (e) { setFail((e as Error).message) } }
   // 오류 · 멈춤(앱 재시작 포함)으로 끝난 대화는 같은 세션에서 이어 한다
   const canResume = chat.state === 'error' || chat.state === 'stopped'
@@ -938,7 +959,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
       {head && <ChatHead chat={chat} pane={pane} onPane={onPane} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
-        {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} />)}
+        {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} />)}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('일하는 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}

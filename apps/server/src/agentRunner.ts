@@ -14,7 +14,7 @@
  * - 맥락이 AUTO_COMPACT_WINDOW에 가까워지면 Claude Code가 앞 내용을 요약해 이어 간다(자동 맥락 줄이기). /compact · /context 같은 명령도 그대로 넘긴다.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type Turn } from './agentChats.js'
+import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type Turn } from './agentChats.js'
 import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
 import { claudeEnv } from './ask.js'
 
@@ -31,7 +31,7 @@ const inputOf = (u: Usage) => (u.input_tokens ?? 0) + (u.cache_read_input_tokens
 export const AUTO_COMPACT_WINDOW = 120_000
 
 type Sdk = {
-  type: string; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean
+  type: string; uuid?: string; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean
   total_cost_usd?: number; duration_ms?: number; errors?: string[]; result?: string; usage?: Usage; modelUsage?: Record<string, { contextWindow?: number }>
   event?: { type?: string; delta?: { type?: string; text?: string } }
   status?: string | null; compact_metadata?: { trigger?: string; pre_tokens?: number; post_tokens?: number }; tasks?: { ambient?: boolean }[]
@@ -127,6 +127,17 @@ async function sideAnswer(o: { prompt: string; cwd: string }): Promise<string> {
   return answer
 }
 
+/** 탐색을 맡는 하위 에이전트의 모델 (작고 빠른 것) */
+export const EXPLORE_MODEL = 'haiku'
+/** 읽기만 하는 앱 MCP 도구 (하위 에이전트도 같은 허락 규칙을 거친다) */
+const READ_MCP = ['rules', 'list_projects', 'overview', 'project_status', 'list_notes', 'list_edit_reviews', 'read_note', 'read_records', 'list_records', 'flow_search', 'flow_read', 'list_tasks', 'read_task', 'search_library', 'read_concept']
+const exploreAgent = {
+  description: 'Fast read-only explorer on a small model. Use it to search across many files or read several large files; it returns only the findings (paths, line numbers, short quotes), so the main conversation stays short.',
+  tools: ['Read', 'Glob', 'Grep', ...READ_MCP.map((t) => `mcp__${MCP_NAME}__${t}`)],
+  model: EXPLORE_MODEL,
+  prompt: 'You search and read for another agent. Do not change anything. Answer with only what was asked: the relevant file paths with line numbers, short quotes, and a few lines of conclusion. Do not paste whole files.',
+}
+
 export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): AgentRunner {
   return Object.assign(async function* run(input: RunInput): AsyncIterable<RunEvent> {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
@@ -153,6 +164,9 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
         cwd: input.cwd,
         additionalDirectories: input.extraDirs,
         ...(input.sessionId && { resume: input.sessionId }),
+        // 되돌린 뒤: 그 메시지까지만 이어 새 세션으로 가른다 (원래 세션은 그대로)
+        ...(input.sessionId && input.resumeAt && { resumeSessionAt: input.resumeAt, forkSession: true }),
+        agents: { [EXPLORE_AGENT]: exploreAgent },
         settingSources: [],
         strictMcpConfig: true,
         mcpServers: { [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor(input.appChat) } },
@@ -184,6 +198,7 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
           yield e
           if (e.type === 'result' && !input.inbox) done()
         }
+        if (msg.type === 'assistant' && !msg.parent_tool_use_id && msg.uuid) yield { type: 'mark', uuid: msg.uuid }
       }
     } finally {
       done()

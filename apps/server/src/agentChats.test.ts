@@ -200,6 +200,7 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     yield { type: 'tool', tool: 'Read', input: { file_path: `${input.cwd}/README.md` } }
     yield { type: 'text', text: '읽었습니다' }
   }
+  yield { type: 'mark', uuid: `m${seen.length}` }
   yield { type: 'result', ok: true, cost: 0.01 }
 }
 
@@ -422,6 +423,36 @@ describe('대화 API', () => {
     await vi.waitFor(() => expect(seen.length).toBe(runs + 1))
     await settle(c.id)
     expect(seen.at(-1)).toMatchObject({ prompt: '셋째', model: 'sonnet', sessionId: `s${runs}` })
+  })
+
+  it('되돌리기: 내 지시와 그 뒤를 지우고 글을 돌려주며, 다음 지시는 그 앞 메시지까지만 이은 세션으로 간다', async () => {
+    const c = await create({ text: '첫째' })
+    await settle(c.id)
+    const first = seen.length
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '둘째', attach: [{ kind: 'note', ref: 'workbench/notes/a/note.md', label: 'A' }] } })
+    await vi.waitFor(() => expect(seen.length).toBe(first + 1))
+    await settle(c.id)
+    const chat = await get(c.id)
+    const users = chat.items.filter((i: { kind: string }) => i.kind === 'user')
+    expect(users.map((u: { point?: string }) => typeof u.point)).toEqual(['string', 'string'])
+    // 일하는 중에는 되돌리지 않는다 · 모르는 자리는 거절
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/rewind`, payload: { point: 'nope' } })).statusCode).toBe(409)
+    const r = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/rewind`, payload: { point: users[1].point } })
+    expect(r.statusCode, r.body).toBe(200)
+    expect(r.json()).toMatchObject({ text: '둘째', attach: [{ kind: 'note', label: 'A' }] })
+    expect(r.json().chat.items.map((i: { kind: string }) => i.kind)).toEqual(['user', 'step', 'text', 'result'])
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '셋째' } })
+    await vi.waitFor(() => expect(seen.length).toBe(first + 2))
+    expect(seen.at(-1)).toMatchObject({ prompt: '셋째', sessionId: `s${first}`, resumeAt: `m${first}` })
+    await settle(c.id)
+    // 첫 지시로 되돌리면 처음부터 (세션 없이)
+    const again = await get(c.id)
+    const r2 = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/rewind`, payload: { point: again.items[0].point } })
+    expect(r2.json().chat.items).toEqual([])
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '새로' } })
+    await vi.waitFor(() => expect(seen.length).toBe(first + 3))
+    expect(seen.at(-1)!.sessionId).toBeUndefined()
+    expect(seen.at(-1)!.resumeAt).toBeUndefined()
   })
 
   it('멈춤은 열어 둔 에이전트의 하던 차례만 끊고, 다음 지시는 같은 실행이 맥락을 이어 받는다', async () => {

@@ -44,6 +44,7 @@ const sampleRun = async function* (input: Parameters<AgentRunner>[0]): AsyncIter
   } else {
     yield { type: 'text', text: t('예제 모드라 실제 에이전트 대신 정해진 답을 보입니다. 맥의 앱에서는 Claude Code가 이 프로젝트 저장소에서 일합니다.', 'Sample mode shows a fixed reply instead of a real agent. In the app on the Mac, Claude Code works in this project\'s repository.') }
   }
+  yield { type: 'mark', uuid: crypto.randomUUID() }
   yield { type: 'result', ok: true, cost: 0.42, seconds: 3, tokens: { in: 48_200, out: 1_850 }, context: { used: 31_400, window: 200_000 } }
 }
 
@@ -71,6 +72,7 @@ async function* sampleApp(input: Parameters<AgentRunner>[0]): AsyncIterable<RunE
     if (input.prompt.includes('- key: ')) yield { type: 'tool', tool: 'mcp__workbench__feedback_answer', input: { state: '반영' } }
   }
   yield { type: 'text', text: s.allow ? t('메뉴를 오른쪽 끝에 맞췄습니다. PR #234를 열었고 CI가 모두 통과했습니다.', 'The menu now aligns to the right edge. Opened PR #234; CI passed.') : t('고친 것을 올리지 않았습니다.', 'I did not submit the change.') }
+  yield { type: 'mark', uuid: crypto.randomUUID() }
   yield { type: 'result', ok: true, cost: 0.61, seconds: 4, tokens: { in: 72_900, out: 3_100 }, context: { used: 44_800, window: 200_000 } }
 }
 

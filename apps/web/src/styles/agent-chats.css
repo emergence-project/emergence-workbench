@@ -222,6 +222,9 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-me > .ac-copy { background: var(--bg-sunken); }
 .ac-me:hover > .ac-copy, .ac-text:hover > .ac-copy, .ac-card-head:hover .ac-copy, .ac-card:hover .ac-copy, .ac-copy:focus-visible { opacity: 1; }
 .ac-panel .ac-copy { opacity: 1; }
+/* 여기로 되돌리기: 내 지시 말풍선의 왼쪽 바깥 (말풍선 글을 가리지 않게) */
+.ac-rewind { position: absolute; top: 2px; right: calc(100% + var(--sp-1)); opacity: 0; color: var(--text-3); }
+.ac-me:hover > .ac-rewind, .ac-rewind:focus-visible, .ac-panel .ac-rewind { opacity: 1; }
 .ac-panel .ac-text { padding-right: 28px; }
 .ac-panel .ac-me { padding-right: var(--sp-6); }
 /* 위로 올려 읽는 중에 새 줄이 오면: 입력란 위 가운데 「최신으로」 */

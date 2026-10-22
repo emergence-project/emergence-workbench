@@ -59,7 +59,7 @@ export const EditPart = z.object({ old: z.string(), new: z.string() }).strict()
 /** 대화의 한 줄 */
 export const ChatItem = z.discriminatedUnion('kind', [
   /** queued = 일하는 중에 보내 다음 차례에 읽을 지시 */
-  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional() }).strict(),
+  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional(), point: z.string().optional() }).strict(),
   z.object({ kind: z.literal('text'), at: z.string(), text: z.string(), sub: z.boolean().optional() }).strict(),
   /** 에이전트가 쓴 도구 한 번. outside = 범위 밖을 읽음, sub = 서브에이전트가 씀 */
   z.object({ kind: z.literal('step'), at: z.string(), tool: z.string(), summary: z.string(), outside: z.boolean().optional(), sub: z.boolean().optional() }).strict(),
@@ -190,6 +190,9 @@ export const UnqueueBody = z.object({ index: z.number().int().min(0) }).strict()
 /** POST /agent-chats/:id/unqueue: 뺀 지시의 그림도 돌려준다 (입력란에서 고쳐 다시 보내게) */
 export const Unqueued = z.object({ chat: Chat, images: z.array(ImageIn).optional() }).strict()
 export const ArchiveBody = z.object({ archived: z.boolean() }).strict()
+/** 되돌리기: 차례를 연 내 지시(user 항목의 point) 앞으로. 지운 지시의 글 · 붙인 것과, 앱 고치기 대화면 되돌린 파일 수 */
+export const RewindBody = z.object({ point: z.string().min(1) }).strict()
+export const Rewound = z.object({ chat: Chat, text: z.string(), attach: z.array(Attach).optional(), files: z.number().optional() }).strict()
 
 // ---------- 앱 고치기 대화: 앱이 대신 하는 일 (에이전트는 앱 MCP app_submit · app_checks로 부른다) ----------
 
@@ -243,6 +246,7 @@ export type ChatModel = z.infer<typeof ChatModel>
 export type ModelChoice = z.infer<typeof ModelChoice>
 export type ChatModels = z.infer<typeof ChatModels>
 export type Unqueued = z.infer<typeof Unqueued>
+export type Rewound = z.infer<typeof Rewound>
 export type ChatEffort = (typeof CHAT_EFFORTS)[number]
 export type AttachKind = (typeof ATTACH_KINDS)[number]
 export type ChatItem = z.infer<typeof ChatItem>
