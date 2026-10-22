@@ -16,7 +16,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
-import type { AppWork } from './appWorktree.js'
+import type { AppWork, FileDiff, Snap } from './appWorktree.js'
 import { agentTurnReasons, agentTurns, localDate, localTime, type AgentSettings } from '@rw/core'
 import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { isInside } from './fsutil.js'
@@ -47,6 +47,15 @@ export interface RunInput {
   appChat?: string
   /** 에이전트 프로세스에 더할 환경 변수 (앱 고치기 대화: 화면 그림 포트 등) */
   env?: Record<string, string>
+  /**
+   * 이어서 보낼 지시 (Claude Code처럼 차례가 끝나도 에이전트를 열어 둔다). 실행기는 첫 지시 뒤 여기서 오는 지시를 그대로 넘기고,
+   * 닫히면(앱이 오래 쉬거나 설정이 바뀜) 하던 차례를 끝낸 뒤 끝난다. 읽지 않고 끝내는 실행기(예제 · 시험)면 남은 지시를 앱이 다음 실행에 넘긴다
+   */
+  inbox?: Inbox<Turn>
+  /** 되돌리기 뒤: sessionId의 이 메시지까지만 이어 새 세션으로 가른다 (그 뒤 대화는 버린다) */
+  resumeAt?: string
+  /** 실행기가 하던 차례만 끊는 손잡이를 넘긴다 (Claude Code의 Esc). true = 끊겼고 기다리는 지시도 없음 */
+  control?: (c: { interrupt(): Promise<boolean> }) => void
   canUseTool: (tool: string, input: Record<string, unknown>) => Promise<ToolDecision>
   signal: AbortSignal
 }
@@ -56,11 +65,57 @@ export type RunEvent =
   | { type: 'text'; text: string; sub?: boolean }
   | { type: 'tool'; tool: string; input: Record<string, unknown>; sub?: boolean }
   | { type: 'result'; ok: boolean; cost?: number; seconds?: number; error?: string; tokens?: { in: number; out: number }; context?: { used: number; window: number } }
+  /** 앞 내용을 요약함 (자동 · /compact) */
+  | { type: 'compact'; auto: boolean; before: number; after?: number }
+  /** 요약하는 중 */
+  | { type: 'status'; compacting: boolean }
+  /** 뒤에서 도는 명령 수가 바뀜 */
+  | { type: 'tasks'; count: number }
+  /** 쓰는 중인 글 조각 (주 에이전트, 다 쓰면 text가 온다) */
+  | { type: 'delta'; text: string }
+  /** 생각한 것의 요약 */
+  | { type: 'think'; text: string }
+  /** 주 에이전트의 메시지 하나가 끝남 (되돌리기: 다음 지시 앞에서 대화를 가를 자리) */
+  | { type: 'mark'; uuid: string }
 
-/** 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음) */
-export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]> }
+/** 지시 하나 (글과 붙인 그림) */
+export type Turn = { prompt: string; images?: ImageIn[] }
+
+/** 차례 사이에 지시를 넘기는 줄. close하면 남은 것을 다 읽은 뒤 끝난다 */
+export class Inbox<T> implements AsyncIterable<T> {
+  private items: T[] = []
+  private wake?: () => void
+  closed = false
+  push(x: T): boolean {
+    if (this.closed) return false
+    this.items.push(x)
+    this.ping()
+    return true
+  }
+  close(): void { this.closed = true; this.ping() }
+  /** 읽지 않고 남은 것을 꺼낸다 */
+  drain(): T[] { return this.items.splice(0) }
+  private ping(): void { const w = this.wake; this.wake = undefined; w?.() }
+  async *[Symbol.asyncIterator](): AsyncIterator<T> {
+    for (;;) {
+      const x = this.items.shift()
+      if (x !== undefined) { yield x; continue }
+      if (this.closed) return
+      await new Promise<void>((r) => { this.wake = r })
+    }
+  }
+}
+
+/**
+ * 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음),
+ * side = 곁 질문 하나에 작은 모델이 도구 없이 답한다 (prompt에 대화 요약과 질문이 다 들어 있다)
+ */
+export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: { prompt: string; cwd: string }) => Promise<string> }
 
 // ---------- 허락 규칙 (순수 함수) ----------
+
+/** 탐색을 맡는 하위 에이전트 (작은 모델, 읽기만): 큰 파일 · 넓은 찾기의 결과만 본 대화에 돌려준다 */
+export const EXPLORE_AGENT = 'explore'
 
 /** 앱 MCP 서버 이름 (도구 이름 mcp__workbench__<도구>) */
 export const MCP_NAME = 'workbench'
@@ -286,12 +341,17 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
 export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean }): string {
   const lines = [
     `You are fixing the Emergence Workbench app itself, from inside the app. The current folder is a separate git worktree of the app repository on branch ${o.branch}, made from origin/main. The running app and the user's own checkout are elsewhere.`,
-    `Read CLAUDE.md first${o.rules ? `, then the maintainer's personal rules at ${o.rules} (they take precedence)` : ''}. Feedback handling rules: docs/feedback/agent.md.`,
+    // 규칙은 그 대화에 필요한 것만 (차례마다 다시 읽는 앞 내용을 줄이려고, 10/22): 개인 규칙 · 피드백 규칙은 피드백을 맡은 대화만
+    o.feedback
+      ? `Read CLAUDE.md first${o.rules ? `, then the maintainer's personal rules at ${o.rules} (they take precedence)` : ''}. Feedback handling rules: docs/feedback/agent.md.`
+      : 'Read CLAUDE.md once at the start (not again). The maintainer\'s personal rules and docs/feedback/ are for feedback conversations; you do not need them here.',
     o.write === 'read'
       ? 'This conversation is read-only: do not change files. Tell the user what you would change.'
-      : 'Edit files directly inside this folder (Edit / Write) and run commands here (Bash). Start with `pnpm install --frozen-lockfile --prefer-offline` if node_modules is missing.',
+      : 'Edit files directly inside this folder with Edit / Write (the user sees each change; files changed by commands only show up from git diff at the end of your turn) and run commands here (Bash). Start with `pnpm install --frozen-lockfile --prefer-offline` if node_modules is missing. Read large files in parts (offset / limit or Grep) instead of whole.',
+    `To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`,
+    'This conversation stays open between turns: a long command can run in the background (run_in_background) and you continue when it finishes, even after your turn ends. Never sleep to wait.',
     'Check your own work before submitting: `pnpm type-check`, `pnpm test` (or the one test file you touched, e.g. `pnpm --filter @rw/server exec vitest run src/<file>.test.ts`), and for screen changes `pnpm shots` and look at the pictures in shots/ yourself (SHOTS_PORT is already set for this conversation). Fix what fails before submitting.',
-    `Do not push, open or merge PRs yourself and do not touch the running app service: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes this conversation's own branch and opens or updates its pull request (other open PRs do not block it). GitHub CI then runs again. Call ${APP_CHECKS} to read the result; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
+    `Do not push, open or merge PRs yourself and do not touch the running app service: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes this conversation's own branch and opens or updates its pull request (other open PRs do not block it). GitHub CI then runs again. Call ${APP_CHECKS} with wait (minutes) to wait for the result; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
     'Update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
     'Research projects are read-only here: do not change notes, records, tasks or flows.',
   ]
@@ -315,15 +375,21 @@ export function briefFor(o: { rid: string; title: string; scope: ChatScope; writ
     `Start with the workbench MCP tools: rules (project ${o.rid}) and project_status; keep reads short and read more only when needed.`,
   ]
   if (o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
-  lines.push('Use TodoWrite for work with three or more steps: the user sees the list live. Use subagents (Task) for broad searches so the main conversation stays short.')
+  lines.push('Use TodoWrite for work with three or more steps: the user sees the list live. ')
+  lines.push(`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`)
   const busy = o.others.filter((c) => c.claims.length)
   if (busy.length) lines.push(`Other conversations are changing these files now; do not change them: ${busy.map((c) => `${c.title}: ${c.claims.join(', ')}`).join('; ')}.`)
   lines.push('Write to the user in Korean, briefly: result first.')
   return lines.join('\n')
 }
 
+/** 입력란에서 그대로 Claude Code에 넘기는 명령 (맥락 줄이기 · 맥락 보기) */
+export const CC_COMMAND = /^\/(compact|context)(\s|$)/
+
 /** 지시와 붙인 것을 에이전트에게 줄 글로 (붙인 것은 이름과 읽을 방법만, 고른 글은 그대로) */
 export function promptOf(text: string, attach?: Attach[]): string {
+  // Claude Code 명령은 그대로 (붙인 것을 더하면 명령의 인자가 된다)
+  if (CC_COMMAND.test(text.trim())) return text.trim()
   if (!attach?.length) return text
   const how: Record<Attach['kind'], string> = {
     note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)',
@@ -359,6 +425,19 @@ export function fileEditOf(tool: string, input: Record<string, unknown>): { part
   return { parts: pairs.slice(0, 6).map((e) => ({ old: clip(e.old, 400), new: clip(e.new, 400) })), added, removed }
 }
 
+/** git diff 한 파일을 고친 곳들로 (덩어리마다 뺀 줄 · 더한 줄, 보이려고 줄인다) */
+export function partsOfPatch(patch: string, max = 8): { old: string; new: string }[] {
+  const parts: { old: string[]; new: string[] }[] = []
+  let cur: { old: string[]; new: string[] } | undefined
+  for (const line of patch.split('\n')) {
+    if (line.startsWith('@@')) { cur = { old: [], new: [] }; parts.push(cur); continue }
+    if (!cur || line.startsWith('---') || line.startsWith('+++')) continue
+    if (line.startsWith('-')) cur.old.push(line.slice(1))
+    else if (line.startsWith('+')) cur.new.push(line.slice(1))
+  }
+  return parts.filter((x) => x.old.length || x.new.length).slice(0, max).map((x) => ({ old: clip(x.old.join('\n'), 1200), new: clip(x.new.join('\n'), 1200) }))
+}
+
 const TODO_STATE: Record<string, Todo['state']> = { pending: 'pending', in_progress: 'in_progress', completed: 'completed' }
 /** TodoWrite 입력의 할 일 목록 */
 export function todosOf(input: Record<string, unknown>): Todo[] {
@@ -383,7 +462,46 @@ type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archived'> &
   /** 피드백 대화: CI가 빨개 실패 기록을 다시 보낸 횟수와 마지막으로 본 실패 (같은 실패를 두 번 보내지 않게) */
   ciRetries?: number
   ciSeen?: string
+  /** 앱 고치기 대화: 마지막으로 본 작업 폴더의 바뀐 줄 수 (파일 → "더한/뺀"). 명령으로 고친 파일을 찾으려고 */
+  diffSeen?: Record<string, string>
+  /** 되돌릴 자리: 차례를 시작한 내 지시(point)마다 그 앞 대화의 끝과 작업 폴더 */
+  points?: Record<string, Point>
+  /** 주 에이전트의 마지막 메시지 (다음 지시의 되돌릴 자리) */
+  lastMark?: string
+  /** 앱 고치기 대화: 지난 차례가 끝났을 때 작업 폴더 */
+  snap?: Snap
+  /** 되돌린 뒤 다음 실행: sessionId의 이 메시지까지만 잇는다 */
+  resumeAt?: string
 }
+
+/** 내 지시 하나 앞으로 되돌릴 때 쓰는 것. session이 없으면 처음부터 */
+interface Point { session?: string; resumeAt?: string; snap?: Snap }
+
+/** 열어 둔 에이전트 하나 (대화마다 하나) */
+interface Session {
+  inbox: Inbox<Turn>
+  /** 연 때의 설정 (모드 · 모델 · 생각 깊이 · 고치기 단계). 바뀌면 다음 지시 전에 닫고 다시 연다 */
+  key: string
+  idle?: NodeJS.Timeout
+  /** 마지막으로 무엇이 오간 때 (뒤에서 도는 명령이 있어도 너무 오래 열어 두지 않게) */
+  last: number
+  /** 하던 차례만 끊기 (실행기가 주면) */
+  interrupt?: () => Promise<boolean>
+  /** 멈춤을 눌러 차례를 끊는 중: 다음 result는 오류가 아니라 멈춤이다 */
+  stopping?: boolean
+}
+
+/** 멈춤 뒤 이만큼 기다려도 차례가 끝나지 않으면 에이전트를 닫는다 */
+export const INTERRUPT_MS = 15_000
+
+/** 차례가 끝난 뒤 에이전트를 열어 두는 시간, 뒤에서 명령이 도는 동안 열어 두는 최대 시간 */
+export const IDLE_MS = 10 * 60_000
+/** 쓰는 중인 글을 화면에 보내는 간격 */
+const DRAFT_MS = 300
+/** app_checks가 기다리는 동안 CI를 다시 보는 간격 */
+const CHECK_EVERY_MS = 20_000
+export const TASKS_MS = 60 * 60_000
+const keyOf = (c: Pick<Stored, 'mode' | 'model' | 'effort' | 'write'>) => `${c.mode}|${c.model}|${c.effort}|${c.write}`
 
 /** 피드백 하나에서 사용자 쪽 마지막 일(남김 · 답 · 코멘트 · 고친 글)의 시각 (이 컴퓨터 시간대). 저절로 맡기기가 같은 일을 두 번 맡지 않게 */
 export function lastTouched(e: FeedbackListItem): number {
@@ -436,6 +554,8 @@ export interface AgentChatsDeps {
   extraDirs: () => string[]
   /** 대화가 바뀌면 (화면 알림) */
   notify: (chat: ChatRow) => void
+  /** 쓰는 중인 글을 화면에 (대화 파일은 쓰지 않는다) */
+  draft?: (chat: Pick<ChatRow, 'id' | 'rid'>, text: string) => void
   /** 앱 고치기 대화의 작업 폴더와 PR (앱 저장소가 있는 맥에서만) */
   app?: AppWork
   /**
@@ -455,6 +575,9 @@ export class AgentChats {
   private readonly asks = new Map<string, (a: Answer) => void>()
   /** 줄 선 대화의 지시 (순서대로) */
   private readonly queue: { id: string; prompt: string; images?: ImageIn[] }[] = []
+  /** 열어 둔 에이전트 */
+  private readonly sessions = new Map<string, Session>()
+  private readonly draftTimers = new Map<string, NodeJS.Timeout>()
 
   constructor(private readonly deps: AgentChatsDeps) {
     fs.mkdirSync(deps.dir, { recursive: true })
@@ -467,6 +590,11 @@ export class AgentChats {
         c.effort ??= 'medium'
         c.changed ??= []
         c.todos ??= []
+        delete c.live
+        delete c.tasks
+        delete c.compacting
+        delete c.draft
+        for (const it of c.items) if (it.kind === 'side' && it.answer === undefined && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
         if (LIVE.has(c.state)) {
           // 앱이 다시 켜지면 돌던 차례는 이어지지 않는다
           c.state = 'stopped'
@@ -539,9 +667,31 @@ export class AgentChats {
     return wireOf(c)
   }
 
-  /** 이어서 지시. 일하는 중이면 다음 차례에 읽는다(줄 선 지시) */
+  /**
+   * 이어서 지시. 에이전트가 열려 있으면 바로 넘긴다: 일하는 중이면 그 차례에 섞어 읽고(Claude Code처럼), 쉬는 중이면 새 차례를 연다.
+   * 줄 서 있거나 설정을 바꿔 다시 열어야 하면 다음 차례에 읽는다(줄 선 지시)
+   */
   send(id: string, m: ChatMessageBody): Chat {
     const c = this.must(id)
+    const s = this.sessions.get(id)
+    if (s && s.key === keyOf(c) && !(c.pending ?? []).length && s.inbox.push({ prompt: promptOf(m.text, m.attach), ...(m.images?.length && { images: m.images }) })) {
+      if (s.idle) { clearTimeout(s.idle); s.idle = undefined }
+      s.last = Date.now()
+      // 쉬던 에이전트에 보낸 지시는 새 차례를 연다: 되돌릴 자리 (일하는 중에 섞여 읽힌 지시는 아니다)
+      c.items.push(userItem(m, false, LIVE.has(c.state) ? undefined : this.point(c)))
+      if (!LIVE.has(c.state)) c.state = 'running'
+      this.touch(c)
+      return wireOf(c)
+    }
+    if (s && !LIVE.has(c.state)) {
+      // 쉬는 에이전트를 설정이 바뀌어 닫는다: 닫히면(finish) 이 지시로 다시 연다
+      c.pending = [...(c.pending ?? []), { prompt: promptOf(m.text, m.attach), ...(m.images?.length && { images: m.images }) }]
+      c.items.push(userItem(m, false, this.point(c)))
+      c.state = 'running'
+      this.touch(c)
+      this.close(s)
+      return wireOf(c)
+    }
     if (LIVE.has(c.state)) {
       c.pending = [...(c.pending ?? []), { prompt: promptOf(m.text, m.attach), ...(m.images?.length && { images: m.images }) }]
       this.push(c, userItem(m, true))
@@ -555,8 +705,7 @@ export class AgentChats {
   resume(id: string): Chat {
     const c = this.must(id)
     if (LIVE.has(c.state)) throw new WorkbenchError(409, t('이미 일하는 중입니다', 'It is already working'))
-    this.start(c, { text: t('이어서 해 주세요.', 'Please continue.') })
-    return wireOf(c)
+    return this.send(id, { text: t('이어서 해 주세요.', 'Please continue.') })
   }
 
   /** 읽기만 · 모드 · 모델 · 생각 깊이 (다음 차례부터) */
@@ -584,7 +733,7 @@ export class AgentChats {
     const it = c.items.find((x): x is Extract<ChatItem, { kind: 'ask' }> => x.kind === 'ask' && x.id === ask)
     const resolve = this.asks.get(ask)
     if (!it || it.answer || !resolve) throw new WorkbenchError(409, t('이미 답했거나 없는 허락 요청입니다', 'This request was already answered or does not exist'))
-    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 묻고 하기 · 고치기 바로 가운데 하나로 이어 갑니다', 'After approving a plan, continue with ask first or edit freely'))
+    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 묻고 하기 · 편집 자동 허용 가운데 하나로 이어 갑니다', 'After approving a plan, continue with ask before edits or accept edits'))
     it.answer = a
     if (a === 'deny' && more.note) it.note = clip(more.note, 2000)
     if (a !== 'deny' && it.plan !== undefined && more.mode) it.mode = more.mode
@@ -606,11 +755,57 @@ export class AgentChats {
     return { chat: wireOf(c), ...(gone?.images?.length && { images: gone.images }) }
   }
 
+  /** 차례를 여는 지시의 되돌릴 자리를 적어 둔다 (그 앞 대화의 끝과 작업 폴더). 세션은 있는데 앞 메시지를 모르면(옛 대화) 없음 */
+  private point(c: Stored): string | undefined {
+    if (c.sessionId && !c.lastMark) return undefined
+    const id = crypto.randomBytes(4).toString('hex')
+    c.points = { ...c.points, [id]: { ...(c.sessionId && { session: c.sessionId, resumeAt: c.lastMark }), ...(c.snap && { snap: c.snap }) } }
+    return id
+  }
+
+  /**
+   * 되돌리기 (Claude Code의 rewind): 내 지시 하나와 그 뒤 대화를 지우고, 다음 지시는 그 앞까지의 맥락으로 이어 간다.
+   * 앱 고치기 대화는 작업 폴더의 파일도 그때로 되돌린다(그 뒤에 커밋했으면 하지 않는다). 노트 고침은 수정 검토에 그대로 남는다.
+   * 지운 지시의 글을 돌려준다 (입력란에서 고쳐 다시 보내게)
+   */
+  async rewind(id: string, point: string): Promise<{ chat: Chat; text: string; attach?: Attach[]; files?: number }> {
+    const c = this.must(id)
+    if (LIVE.has(c.state)) throw new WorkbenchError(409, t('일하는 중에는 되돌릴 수 없습니다. 먼저 멈춰 주세요', 'Stop the conversation before rewinding'))
+    const at = c.items.findIndex((it) => it.kind === 'user' && it.point === point)
+    const pt = c.points?.[point]
+    const it = c.items[at]
+    if (!pt || !it || it.kind !== 'user') throw new WorkbenchError(409, t('여기로는 되돌릴 수 없습니다', 'Cannot rewind to this message'))
+    const app = c.scope.kind === 'app' ? this.deps.app : undefined
+    let files: number | undefined
+    if (app?.restore && c.worktree && pt.snap) files = await app.restore(c.worktree, pt.snap)
+    const s = this.sessions.get(id)
+    if (s) this.close(s)
+    c.items.splice(at)
+    const left = new Set(c.items.flatMap((x) => (x.kind === 'user' && x.point ? [x.point] : [])))
+    c.points = Object.fromEntries(Object.entries(c.points ?? {}).filter(([k]) => left.has(k)))
+    c.pending = []
+    c.claims = []
+    c.changed = [...new Set(c.items.flatMap((x) => (x.kind === 'edit' ? [x.file] : [])))]
+    c.sessionId = pt.session
+    c.resumeAt = pt.session ? pt.resumeAt : undefined
+    c.lastMark = c.resumeAt
+    if (pt.snap) c.snap = pt.snap
+    if (files !== undefined && app?.diff && c.worktree) {
+      const now = await app.diff(c.worktree).catch(() => undefined)
+      if (now) c.diffSeen = Object.fromEntries(now.map((f) => [f.file, `${f.added}/${f.removed}`]))
+    }
+    if (c.state === 'error' || c.state === 'stopped') c.state = 'idle'
+    this.touch(c)
+    return { chat: wireOf(c), text: it.text, ...(it.attach?.length && { attach: it.attach.map((a) => ({ ...a })) }), ...(files !== undefined && { files }) }
+  }
+
   /** 보관함에 넣기 · 꺼내기 (지우지 않고 목록에서만 숨긴다) */
   archive(id: string, archived: boolean): Chat {
     const c = this.must(id)
     if (archived && LIVE.has(c.state)) throw new WorkbenchError(409, t('도는 대화는 보관할 수 없습니다. 먼저 멈춰 주세요', 'Stop the conversation before archiving it'))
     c.archived = archived
+    const s = this.sessions.get(id)
+    if (archived && s) this.close(s)
     this.touch(c)
     return wireOf(c)
   }
@@ -622,13 +817,32 @@ export class AgentChats {
       this.queue.splice(qi, 1)
       this.finish(c, 'stopped')
     }
+    // 열어 둔 에이전트는 하던 차례만 끊고 맥락은 그대로 둔다 (다음 지시를 처음부터 다시 읽지 않게)
+    const s = this.sessions.get(id)
+    if (s?.interrupt && LIVE.has(c.state) && !(c.pending ?? []).length) {
+      void this.interrupt(c, s)
+      return wireOf(c)
+    }
     this.aborts.get(id)?.abort()
     return wireOf(c)
+  }
+
+  private async interrupt(c: Stored, s: Session): Promise<void> {
+    if (s.stopping) return
+    s.stopping = true
+    for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.get(it.id)?.({ answer: 'deny' }) }
+    const abort = this.aborts.get(c.id)
+    const late = setTimeout(() => { if (s.stopping) abort?.abort() }, INTERRUPT_MS)
+    late.unref?.()
+    // 못 끊었거나 끊어도 넘긴 지시가 남아 이어 돌면 에이전트를 닫는다
+    const ok = await s.interrupt!().catch(() => false)
+    if (!ok) { clearTimeout(late); abort?.abort() }
   }
 
   remove(id: string): void {
     const c = this.must(id)
     if (LIVE.has(c.state)) throw new WorkbenchError(409, t('도는 대화는 지울 수 없습니다. 먼저 멈춰 주세요', 'Stop the conversation before deleting it'))
+    this.aborts.get(id)?.abort()
     this.chats.delete(id)
     fs.rmSync(this.fileOf(id), { force: true })
     if (c.worktree && this.deps.app) void this.deps.app.dispose(c.worktree).catch(() => undefined)
@@ -763,10 +977,18 @@ export class AgentChats {
     return pr
   }
 
-  /** 앱 고치기 대화: 그 PR의 CI (에이전트의 app_checks) */
-  async appChecks(id: string): Promise<AppChecks> {
+  /**
+   * 앱 고치기 대화: 그 PR의 CI (에이전트의 app_checks). wait분(최대 10) 동안 끝날 때까지 기다릴 수 있다:
+   * 에이전트가 sleep으로 기다리거나 되풀이해 묻느라 차례를 쓰지 않게 (10/22). 대화를 멈추면 그때까지의 결과를 돌려준다
+   */
+  async appChecks(id: string, wait = 0, every = CHECK_EVERY_MS): Promise<AppChecks> {
     const { c, w } = this.appOf(id)
-    return w.checks(c.worktree!, c.branch!)
+    const until = Date.now() + Math.min(Math.max(wait, 0), 10) * 60_000
+    for (;;) {
+      const r = await w.checks(c.worktree!, c.branch!)
+      if (r.done || Date.now() + every > until || !this.aborts.has(id)) return r
+      await new Promise((ok) => setTimeout(ok, every))
+    }
   }
 
   private appOf(id: string): { c: Stored; w: AppWork } {
@@ -780,6 +1002,25 @@ export class AgentChats {
   stopAll(): void {
     this.queue.length = 0
     for (const a of this.aborts.values()) a.abort()
+  }
+
+  /** 열어 둔 에이전트를 닫는다 (하던 차례는 끝까지 한다) */
+  private close(s: Session): void {
+    if (s.idle) clearTimeout(s.idle)
+    s.idle = undefined
+    s.inbox.close()
+  }
+
+  /** 쉬는 에이전트를 IDLE_MS 뒤에 닫는다. 뒤에서 명령이 돌면 끝날 때까지(최대 TASKS_MS) 열어 둔다 */
+  private idleLater(c: Stored, s: Session): void {
+    if (s.idle) clearTimeout(s.idle)
+    s.idle = setTimeout(() => {
+      s.idle = undefined
+      if (LIVE.has(c.state)) return
+      if ((c.tasks ?? 0) > 0 && Date.now() - s.last < TASKS_MS) return this.idleLater(c, s)
+      this.close(s)
+    }, IDLE_MS)
+    s.idle.unref?.()
   }
 
   /** 할 일 목록: 이번 차례의 할 일 줄을 그 자리에서 고친다 (없으면 더한다) */
@@ -806,7 +1047,44 @@ export class AgentChats {
 
   private write(c: Stored): void {
     if (c.items.length > MAX_ITEMS) c.trimmed = (c.trimmed ?? 0) + c.items.splice(0, c.items.length - MAX_ITEMS).length
-    fs.writeFileSync(this.fileOf(c.id), JSON.stringify(c, null, 1))
+    fs.writeFileSync(this.fileOf(c.id), JSON.stringify({ ...c, draft: undefined }, null, 1))
+  }
+
+  /** 쓰는 중인 글: 0.3초에 한 번만 화면에 보낸다 */
+  private drafting(c: Stored, more: string): void {
+    c.draft = (c.draft ?? '') + more
+    if (this.draftTimers.has(c.id)) return
+    const timer = setTimeout(() => {
+      this.draftTimers.delete(c.id)
+      if (c.draft) this.deps.draft?.(c, c.draft.slice(-MAX_TEXT))
+    }, DRAFT_MS)
+    timer.unref?.()
+    this.draftTimers.set(c.id, timer)
+  }
+
+  private undraft(c: Stored): void {
+    if (c.draft === undefined) return
+    delete c.draft
+    clearTimeout(this.draftTimers.get(c.id))
+    this.draftTimers.delete(c.id)
+  }
+
+  /**
+   * 곁 질문 (Claude Code의 /btw): 에이전트를 멈추거나 그 맥락에 넣지 않고, 작은 모델이 이 대화의 짧은 요약만 보고 답한다.
+   * 긴 대화에서 "이건 뭐야?" 한 줄에 앞 내용 전체를 다시 읽지 않게 (10/22)
+   */
+  side(id: string, q: string): Chat {
+    const c = this.must(id)
+    const ask = this.deps.runner.side
+    if (!ask) throw new WorkbenchError(404, t('이 맥에서는 곁 질문을 쓸 수 없습니다', 'Side questions are not available on this Mac'))
+    const it: Extract<ChatItem, { kind: 'side' }> = { kind: 'side', at: now(), q: clip(q, 4000) }
+    this.push(c, it)
+    const cwd = c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
+    void ask({ prompt: sidePrompt(c, q), cwd })
+      .then((a) => { it.answer = clip(a.trim() || t('(답이 비었습니다)', '(empty answer)'), MAX_TEXT) })
+      .catch((e: Error) => { it.error = clip(e.message, 500) })
+      .finally(() => this.touch(c))
+    return wireOf(c)
   }
 
   private touch(c: Stored): void {
@@ -829,7 +1107,7 @@ export class AgentChats {
     const pending = c.pending ?? []
     c.pending = []
     for (const it of c.items) if (it.kind === 'user' && it.queued) delete it.queued
-    c.items.push(userItem(m))
+    c.items.push(userItem(m, false, pending.length ? undefined : this.point(c)))
     this.begin(c, [...pending.map((p) => p.prompt), promptOf(m.text, m.attach)].join('\n\n'), [...pending.flatMap((p) => p.images ?? []), ...(m.images ?? [])].slice(0, 4))
   }
 
@@ -856,7 +1134,11 @@ export class AgentChats {
       return
     }
     this.touch(c)
-    // 줄 선 대화를 멈춘 때처럼 자리가 비지 않았으면 다음 대화를 시작하지 않는다
+    this.next()
+  }
+
+  /** 자리가 비었으면 줄 선 대화 하나를 시작한다 (줄 선 대화를 멈춘 때처럼 자리가 비지 않았으면 시작하지 않는다) */
+  private next(): void {
     if (this.running() >= this.deps.limit) return
     const next = this.queue.shift()
     if (next) {
@@ -870,17 +1152,33 @@ export class AgentChats {
     return undefined
   }
 
+  /**
+   * 에이전트를 열어 첫 지시를 넘기고, 닫힐 때까지 여러 차례를 받는다. 차례가 끝나면(result) 쉬는 상태로 두고 열어 둔다:
+   * 다음 지시는 send가 inbox로 바로 넘기고, 뒤에서 돌던 명령이 끝나 에이전트가 스스로 이어 가면 다시 일하는 중이 된다.
+   */
   private async run(c: Stored, prompt: string, images?: ImageIn[]): Promise<void> {
     const abort = new AbortController()
     this.aborts.set(c.id, abort)
+    const inbox = new Inbox<Turn>()
+    const session: Session = { inbox, key: keyOf(c), last: Date.now() }
+    this.sessions.set(c.id, session)
+    abort.signal.addEventListener('abort', () => this.close(session), { once: true })
     c.state = 'running'
     c.planOk = false
+    c.live = true
     this.touch(c)
     let ended: 'idle' | 'stopped' | 'error' = 'idle'
     // 피드백 대화의 한 차례 한도 (설정 › 에이전트): 넘으면 멈춘다
     const minutes = c.feedback ? this.deps.settings?.().minutes : undefined
     let overtime = false
-    const limit = minutes ? setTimeout(() => { overtime = true; abort.abort() }, minutes * 60_000) : undefined
+    let limit: NodeJS.Timeout | undefined
+    const turnStart = () => {
+      if (limit) clearTimeout(limit)
+      limit = minutes ? setTimeout(() => { overtime = true; abort.abort() }, minutes * 60_000) : undefined
+    }
+    turnStart()
+    // 앱 고치기 대화: 이번 차례에 고치기 도구로 바꾼 파일 (명령으로 바꾼 파일과 가르려고)
+    let touched = new Set<string>()
     try {
       const app = c.scope.kind === 'app' && this.deps.app ? this.deps.app : undefined
       let p: { repo: string; title: string }
@@ -888,6 +1186,11 @@ export class AgentChats {
         const w = await app.prepare(c.id)
         if (c.worktree !== w.dir || c.branch !== w.branch) { c.worktree = w.dir; c.branch = w.branch; this.touch(c) }
         p = { repo: w.dir, title: 'Emergence Workbench' }
+        // 처음 연 대화: 첫 지시의 되돌릴 자리에 작업 폴더를 찍어 둔다
+        if (app.snapshot && !c.snap) {
+          c.snap = await app.snapshot(w.dir).catch(() => undefined)
+          if (c.snap) for (const v of Object.values(c.points ?? {})) v.snap ??= c.snap
+        }
       } else p = this.deps.project(c.rid)
       // 앱 고치기 대화는 작업 폴더만, 피드백을 맡았으면 피드백 폴더(그림)도 묻지 않고 읽는다
       const readable = app ? (c.feedback && this.deps.feedback ? [this.deps.feedback.dir] : []) : this.deps.readable().filter((d) => d !== p.repo)
@@ -900,7 +1203,9 @@ export class AgentChats {
       }
       const edited = (tool: string, input: Record<string, unknown>) => {
         if (app && (FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
-          this.push(c, { kind: 'edit', at: now(), file: posix(path.relative(p.repo, path.resolve(p.repo, pathOf(input)))), ...fileEditOf(tool, input) })
+          const file = posix(path.relative(p.repo, path.resolve(p.repo, pathOf(input))))
+          touched.add(file)
+          this.push(c, { kind: 'edit', at: now(), file, ...fileEditOf(tool, input) })
           return
         }
         if (tool !== `${MCP}edit_note`) return
@@ -968,10 +1273,35 @@ export class AgentChats {
         ...(app && { appChat: c.id, env: appEnv(c.id) }),
         canUseTool,
         signal: abort.signal,
+        inbox,
+        ...(c.sessionId && c.resumeAt && { resumeAt: c.resumeAt }),
+        control: (x) => { session.interrupt = x.interrupt },
       }
       for await (const e of this.deps.runner(input)) {
-        if (e.type === 'session') { c.sessionId = e.id; this.write(c); continue }
-        if (e.type === 'text') { if (e.text.trim()) this.push(c, { kind: 'text', at: now(), text: e.text.slice(0, MAX_TEXT), ...(e.sub && { sub: true }) }); continue }
+        session.last = Date.now()
+        if (e.type === 'session') { c.sessionId = e.id; delete c.resumeAt; this.write(c); continue }
+        if (e.type === 'mark') { c.lastMark = e.uuid; continue }
+        if (e.type === 'delta') { this.drafting(c, e.text); continue }
+        if (e.type === 'tasks') { if ((c.tasks ?? 0) !== e.count) { c.tasks = e.count || undefined; this.touch(c) } continue }
+        if (e.type === 'status') { if (!!c.compacting !== e.compacting) { c.compacting = e.compacting || undefined; this.touch(c) } continue }
+        // 쉬던 에이전트가 스스로 이어 감 (뒤에서 돌던 명령이 끝남 등) 또는 쉬는 동안 받은 지시
+        if (!LIVE.has(c.state)) {
+          c.state = 'running'
+          if (session.idle) { clearTimeout(session.idle); session.idle = undefined }
+          turnStart()
+          this.touch(c)
+        }
+        if (e.type === 'compact') {
+          c.compacting = undefined
+          this.push(c, { kind: 'compact', at: now(), auto: e.auto, before: e.before, ...(e.after !== undefined && { after: e.after }) })
+          continue
+        }
+        if (e.type === 'text') {
+          if (!e.sub) this.undraft(c)
+          if (e.text.trim()) this.push(c, { kind: 'text', at: now(), text: e.text.slice(0, MAX_TEXT), ...(e.sub && { sub: true }) })
+          continue
+        }
+        if (e.type === 'think') { if (e.text.trim()) this.push(c, { kind: 'think', at: now(), text: e.text.trim().slice(0, MAX_TEXT) }); continue }
         if (e.type === 'tool') {
           if (e.tool === 'TodoWrite') { this.setTodos(c, todosOf(e.input)); continue }
           if (e.tool === PLAN_TOOL || e.tool === 'EnterPlanMode') continue
@@ -980,9 +1310,20 @@ export class AgentChats {
           continue
         }
         if (e.type === 'result') {
+          this.undraft(c)
+          if (limit) clearTimeout(limit)
+          limit = undefined
+          if (app && c.write !== 'read') await this.commandEdits(c, app, p.repo, touched)
+          // 다음 지시의 되돌릴 자리
+          if (app?.snapshot) c.snap = await app.snapshot(p.repo).catch(() => c.snap)
+          touched = new Set()
           this.push(c, { kind: 'result', at: now(), ok: e.ok, ...(e.cost !== undefined && { cost: e.cost }), ...(e.seconds !== undefined && { seconds: e.seconds }), ...(e.tokens && { tokens: e.tokens }), ...(e.context && { context: e.context }) })
+          // 멈춤으로 끊긴 차례: 오류가 아니다. 에이전트는 열어 두어 다음 지시가 맥락을 이어 간다
+          if (session.stopping) { session.stopping = false; this.turnEnd(c, session, 'stopped'); continue }
           if (!e.ok && e.error) this.push(c, { kind: 'error', at: now(), text: e.error.slice(0, MAX_TEXT) })
-          if (!e.ok) ended = 'error'
+          // 실패한 차례는 에이전트를 닫는다 (이어 하기 · 다음 지시는 새로 열어 같은 세션을 잇는다)
+          if (!e.ok) { ended = 'error'; this.close(session); continue }
+          this.turnEnd(c, session)
         }
       }
       if (abort.signal.aborted) ended = 'stopped'
@@ -996,11 +1337,83 @@ export class AgentChats {
       if (limit) clearTimeout(limit)
       if (overtime) c.items.push({ kind: 'error', at: now(), text: t(`한 차례 한도 ${minutes}분을 넘어 멈췄습니다. 이어서 지시하면 다시 시작합니다`, `Stopped after the ${minutes}-minute limit. Send a message to continue`) })
       this.aborts.delete(c.id)
+      this.close(session)
+      if (this.sessions.get(c.id) === session) this.sessions.delete(c.id)
+      // 에이전트가 읽지 못하고 닫힌 지시는 다음에 연 에이전트가 먼저 읽는다
+      const left = inbox.drain()
+      if (left.length) {
+        c.pending = [...left, ...(c.pending ?? [])]
+        // 화면에는 「다음에 보냄」으로 (마지막에 보낸 것들이다)
+        let n = left.length
+        for (let i = c.items.length - 1; i >= 0 && n > 0; i--) {
+          const it = c.items[i]!
+          if (it.kind === 'user' && !it.queued) { it.queued = true; n-- }
+        }
+      }
+      delete c.live
+      delete c.tasks
+      delete c.compacting
+      this.undraft(c)
       for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.delete(it.id) }
       this.finish(c, ended)
     }
   }
+
+  /** 차례 하나가 잘 끝남: 쉬는 상태로 두고 에이전트는 열어 둔다. 설정을 바꿔 기다리는 지시가 있으면 닫고 다시 연다(finish) */
+  private turnEnd(c: Stored, s: Session, state: 'idle' | 'stopped' = 'idle'): void {
+    c.state = state
+    c.claims = []
+    this.touch(c)
+    if ((c.pending ?? []).length) { this.close(s); return }
+    this.idleLater(c, s)
+    this.next()
+  }
+
+  /** 앱 고치기 대화: 고치기 도구를 거치지 않고(명령 · 스크립트) 바뀐 파일을 작업 폴더의 git diff에서 찾아 고친 줄로 보인다 */
+  private async commandEdits(c: Stored, app: AppWork, repo: string, touched: Set<string>): Promise<void> {
+    if (!app.diff) return
+    let files: FileDiff[]
+    try { files = await app.diff(repo) } catch { return }
+    const seen = c.diffSeen ?? {}
+    const next: Record<string, string> = {}
+    for (const f of files) {
+      const sig = `${f.added}/${f.removed}`
+      next[f.file] = sig
+      if (seen[f.file] === sig || touched.has(f.file)) continue
+      const [a0 = 0, r0 = 0] = (seen[f.file] ?? '0/0').split('/').map(Number)
+      c.items.push({ kind: 'edit', at: now(), file: f.file, parts: partsOfPatch(f.patch), added: Math.max(0, f.added - a0), removed: Math.max(0, f.removed - r0), via: 'command' })
+      if (!c.changed.includes(f.file)) c.changed.push(f.file)
+    }
+    c.diffSeen = next
+  }
 }
+
+/** 곁 질문에 줄 글: 대화의 제목 · 범위 · 할 일 · 바뀐 파일과 뒤에서부터 지시 · 에이전트 글 (모두 SIDE_CHARS자 안으로) */
+export function sidePrompt(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' | 'changed'>, q: string): string {
+  const lines: string[] = []
+  let room = SIDE_CHARS
+  for (let i = c.items.length - 1; i >= 0 && room > 0; i--) {
+    const it = c.items[i]!
+    const line = it.kind === 'user' ? `User: ${it.text}` : it.kind === 'text' && !it.sub ? `Agent: ${it.text}` : it.kind === 'side' && it.answer ? `Side question: ${it.q}\nSide answer: ${it.answer}` : it.kind === 'edit' ? `(changed ${it.file} +${it.added} −${it.removed})` : it.kind === 'result' && it.cost !== undefined ? `(turn cost about $${it.cost.toFixed(2)} at API prices${it.tokens ? `, ${it.tokens.in + it.tokens.out} tokens` : ''})` : undefined
+    if (!line) continue
+    const cut = clip(line, Math.min(1500, room))
+    lines.unshift(cut)
+    room -= cut.length
+  }
+  return [
+    'You answer a quick side question about an ongoing agent conversation in Emergence Workbench, without tools and without interrupting it.',
+    'Answer from the conversation below only, briefly (one to four sentences), in the language of the question. If the answer is not in it, say so and suggest asking the agent itself.',
+    '',
+    `Conversation: ${c.title} (scope: ${c.scope.kind}${c.scope.target ? ` ${c.scope.target}` : ''})`,
+    ...(c.todos.length ? [`To-dos: ${c.todos.map((x) => `[${x.state}] ${x.text}`).join('; ')}`] : []),
+    ...(c.changed.length ? [`Changed files: ${c.changed.join(', ')}`] : []),
+    '',
+    ...lines,
+    '',
+    `Side question: ${q}`,
+  ].join('\n')
+}
+const SIDE_CHARS = 12_000
 
 /** 앱 고치기 대화의 환경: 대화마다 다른 화면 그림 포트, 맥의 Chrome (playwright 브라우저를 받지 않아도 되게) */
 export function appEnv(id: string): Record<string, string> {
@@ -1017,8 +1430,8 @@ export function pictureImage(file: string): ImageIn[] | undefined {
   return buf.length <= 3_500_000 ? [{ type, data: buf.toString('base64') }] : undefined
 }
 
-const userItem = (m: ChatMessageBody, queued?: boolean): ChatItem => ({
-  kind: 'user', at: now(), text: m.text,
+const userItem = (m: ChatMessageBody, queued?: boolean, point?: string): ChatItem => ({
+  kind: 'user', at: now(), text: m.text, ...(point && { point }),
   ...(m.attach?.length && { attach: m.attach.map((a) => ({ ...a, ...(a.text && { text: clip(a.text, 600) }) })) }),
   ...(m.images?.length && { images: m.images.length }),
   ...(queued && { queued: true }),
@@ -1034,7 +1447,7 @@ const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

@@ -1,7 +1,7 @@
 import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
+import { api, subscribeEvents, type Chat, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { AGENT_OPEN, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
 import { BlockPage } from './BlockPage'
@@ -215,6 +215,8 @@ export function App() {
   // 연결은 한 번만 연다 (화면을 옮길 때마다 다시 열면 그 사이의 알림을 놓친다). 처리는 지금 화면의 것
   const onWorkbenchEvent = useRef<(e: WorkbenchEvent) => void>(() => undefined)
   onWorkbenchEvent.current = (e: WorkbenchEvent) => {
+    // 에이전트가 쓰는 중인 글: 열린 대화에 그대로 붙인다 (다시 받지 않는다)
+    if (e.type === 'agent-draft') { client.setQueryData<Chat>(qk.agentChat(e.id), (c) => (c?.state === 'running' ? { ...c, draft: e.text } : c)); return }
     figuresMaybeChanged()
     // 화면 캐시: 알림이 바꾸는 자료만 (어느 프로젝트의 것이든. 홈의 프로젝트별 자료도 이것으로 새로워진다)
     invalidation.add(invalidationKeys(e))

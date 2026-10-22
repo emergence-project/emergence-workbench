@@ -29,6 +29,7 @@ const sampleRun = async function* (input: Parameters<AgentRunner>[0]): AsyncIter
       }
     }
     yield { type: 'tool', tool: 'TodoWrite', input: todos(2) }
+    yield { type: 'think', text: t('노트의 Checks 절은 차수 4까지만 확인했다. 차수 5에서 Kempe 사슬이 꼬이는 경우가 있는지 다시 돌려 봐야 한다.', 'The Checks section only covers degree 4. Degree 5 needs a rerun to see whether Kempe chains tangle.') }
     yield { type: 'text', text: t('노트에 적힌 확인은 차수 4까지입니다. 차수 5로 다시 돌리려면 아래 명령이 필요합니다.', 'The note checks up to degree 4. Rerunning up to degree 5 needs the command below.') }
     const d = await input.canUseTool('Bash', { command: 'python3 code/check_kempe.py --max-degree 5' })
     if (input.signal.aborted) return
@@ -43,6 +44,7 @@ const sampleRun = async function* (input: Parameters<AgentRunner>[0]): AsyncIter
   } else {
     yield { type: 'text', text: t('예제 모드라 실제 에이전트 대신 정해진 답을 보입니다. 맥의 앱에서는 Claude Code가 이 프로젝트 저장소에서 일합니다.', 'Sample mode shows a fixed reply instead of a real agent. In the app on the Mac, Claude Code works in this project\'s repository.') }
   }
+  yield { type: 'mark', uuid: crypto.randomUUID() }
   yield { type: 'result', ok: true, cost: 0.42, seconds: 3, tokens: { in: 48_200, out: 1_850 }, context: { used: 31_400, window: 200_000 } }
 }
 
@@ -70,6 +72,7 @@ async function* sampleApp(input: Parameters<AgentRunner>[0]): AsyncIterable<RunE
     if (input.prompt.includes('- key: ')) yield { type: 'tool', tool: 'mcp__workbench__feedback_answer', input: { state: '반영' } }
   }
   yield { type: 'text', text: s.allow ? t('메뉴를 오른쪽 끝에 맞췄습니다. PR #234를 열었고 CI가 모두 통과했습니다.', 'The menu now aligns to the right edge. Opened PR #234; CI passed.') : t('고친 것을 올리지 않았습니다.', 'I did not submit the change.') }
+  yield { type: 'mark', uuid: crypto.randomUUID() }
   yield { type: 'result', ok: true, cost: 0.61, seconds: 4, tokens: { in: 72_900, out: 3_100 }, context: { used: 44_800, window: 200_000 } }
 }
 
@@ -84,4 +87,7 @@ const SAMPLE_MODELS: ModelChoice[] = [
   { value: 'claude-opus-5', name: 'Opus 5', desc: 'Best for everyday, complex tasks', resolved: 'claude-opus-5', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
 ]
 
-export const sampleAgentRunner: AgentRunner = Object.assign(sampleRun, { models: async () => SAMPLE_MODELS })
+export const sampleAgentRunner: AgentRunner = Object.assign(sampleRun, {
+  models: async () => SAMPLE_MODELS,
+  side: async () => t('예제 모드라 정해진 답입니다. 맥의 앱에서는 작은 모델이 이 대화의 요약만 보고 답합니다.', 'Sample mode gives a fixed answer. In the app on the Mac, a small model answers from a summary of this conversation.'),
+})

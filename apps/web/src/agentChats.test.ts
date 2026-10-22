@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, fitMenu, menuAt, modelName, nextTrust, stepsSummary, trustOf } from './AgentChats'
+import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, fitMenu, menuAt, modelName, nextTrust, sideQuestion, stepsSummary, trustOf } from './AgentChats'
 
 describe('에이전트 입력란', () => {
+  it('곁 질문은 /곁 · /btw 뒤의 글, 빈 질문 · 다른 명령은 아니다', () => {
+    expect(sideQuestion('/곁 이건 뭐야?')).toBe('이건 뭐야?')
+    expect(sideQuestion(' /btw what is $6.29?\nreally ')).toBe('what is $6.29?\nreally')
+    expect(sideQuestion('/곁 ')).toBeUndefined()
+    expect(sideQuestion('/곁질문')).toBeUndefined()
+    expect(sideQuestion('/compact')).toBeUndefined()
+  })
   it('/ 명령은 맨 앞에서만, @ 붙이기는 낱말 앞 어디서나 연다', () => {
     expect(menuAt('/계', 2)).toEqual({ kind: '/', start: 0, query: '계' })
     expect(menuAt('이것 /계', 5)).toBeNull()
@@ -9,13 +16,15 @@ describe('에이전트 입력란', () => {
     expect(menuAt('메일 a@b', 6)).toBeNull()
     expect(menuAt('@kem 다음', 9)).toBeNull()
   })
-  it('맡기는 정도: 읽기만이면 모드와 상관없이 읽기만', () => {
+  it('권한: 읽기 전용이면 모드와 상관없이 읽기만', () => {
     expect(trustOf({ write: 'read', mode: 'edit' })).toBe('read')
     expect(trustOf({ write: 'notes', mode: 'plan' })).toBe('plan')
   })
-  it('⇧⇥는 맡기는 정도를 차례로 돌린다', () => {
+  it('⇧⇥는 권한을 Claude Code 차례로 돌린다', () => {
+    expect(nextTrust('ask')).toBe('edit')
+    expect(nextTrust('edit')).toBe('plan')
+    expect(nextTrust('plan')).toBe('read')
     expect(nextTrust('read')).toBe('ask')
-    expect(nextTrust('edit')).toBe('read')
   })
   it('모델 이름: 기본은 실제 모델을 붙이고, 버전마다 따로, 생각 깊이는 그 모델이 받는 것만', () => {
     const list = [

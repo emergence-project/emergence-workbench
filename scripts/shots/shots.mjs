@@ -104,7 +104,7 @@ try {
       }
     }
     if (hash.includes('{done}') && !done) {
-      // 노트를 고치고 끝난 대화 하나 (고치기 바로: 명령 허락에 "네"로 답한다). 바뀐 곳 패널을 보이려고
+      // 노트를 고치고 끝난 대화 하나 (편집 자동 허용: 명령 허락에 "네"로 답한다). 바뀐 곳 패널을 보이려고
       const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Run the Kempe check up to degree 5' : '켐페 확인 계산을 차수 5까지 돌려 줘', scope: { kind: 'project' }, mode: 'edit' }) })
       done = res.ok ? (await res.json()).chat.id : ''
       if (!done) problems.push(`${name}: 예제 대화를 만들지 못함 (${res.status})`)
@@ -114,6 +114,15 @@ try {
         if (open) await fetch(`${base}api/agent-chats/${done}/answer`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ask: open.id, answer: 'allow' }) })
         else if (c.state === 'idle') break
         await new Promise((r) => setTimeout(r, 100))
+      }
+      // 곁 질문 하나 (작은 모델이 대화 요약만 보고 답하는 점선 카드)
+      if (done) {
+        await fetch(`${base}api/agent-chats/${done}/side`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: options.lang === 'en' ? 'Which degree did the note check before?' : '노트는 원래 차수 몇까지 확인했어?' }) })
+        for (let i = 0; i < 40; i++) {
+          const c = (await (await fetch(`${base}api/agent-chats/${done}`)).json()).chat
+          if (c.items.some((x) => x.kind === 'side' && (x.answer || x.error))) break
+          await new Promise((r) => setTimeout(r, 100))
+        }
       }
     }
     if (hash.includes('{appchat}') && !appchat) {

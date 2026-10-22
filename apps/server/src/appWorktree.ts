@@ -6,7 +6,9 @@
  * 대화를 지우면 작업 폴더를 치운다(브랜치와 PR은 남는다).
  */
 import { execFile } from 'node:child_process'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { git, GIT_TIMEOUT } from './git.js'
@@ -18,6 +20,10 @@ const exec = promisify(execFile)
 export interface AppPr { number: number; url: string; created: boolean }
 export interface AppCheck { name: string; state: string; link?: string }
 export interface AppChecks { pr?: number; checks: AppCheck[]; done: boolean; ok: boolean; log?: string }
+/** 작업 폴더에서 main 갈래 이후 바뀐 파일 하나 (올린 것 · 올리지 않은 것 · 새 파일 모두). patch = 그 파일의 git diff (줄임) */
+export interface FileDiff { file: string; added: number; removed: number; patch: string }
+/** 작업 폴더 한 때의 모습 (되돌리기): 그때 파일 전부의 git tree와 HEAD */
+export interface Snap { tree: string; head: string }
 
 export interface AppWork {
   /** 대화 하나의 작업 폴더와 브랜치 (이미 있으면 그대로). origin/main에서 새로 연다 */
@@ -36,6 +42,12 @@ export interface AppWork {
   shot(dir: string, branch: string, name: string): Promise<Buffer | null>
   /** 관리자 개인 규칙 파일 (맥 사본이 있으면 안내에 적는다) */
   rules?: string
+  /** 작업 폴더에서 바뀐 파일 (명령으로 고친 것도 대화에 보이려고) */
+  diff?(dir: string): Promise<FileDiff[]>
+  /** 작업 폴더의 지금 모습을 찍어 둔다 (무시하는 파일은 빼고 새 파일은 넣는다) */
+  snapshot?(dir: string): Promise<Snap>
+  /** 찍어 둔 모습으로 파일을 되돌린다. 그 뒤에 커밋했으면 하지 않는다. 바뀐 파일 수를 돌려준다 */
+  restore?(dir: string, snap: Snap): Promise<number>
 }
 
 /** 대화 id에서 브랜치 이름 (claude/app-<뒤 8자>) */
@@ -72,6 +84,9 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       await exec('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: dir, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024 }).catch(() => undefined)
       return { dir, branch }
     },
+    diff: worktreeDiff,
+    snapshot: worktreeSnapshot,
+    restore: worktreeRestore,
     async dispose(dir) {
       await git(root, ['worktree', 'remove', '--force', dir]).catch(() => undefined)
       fs.rmSync(dir, { recursive: true, force: true })
@@ -142,6 +157,61 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       } catch { return null } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
     },
   }
+}
+
+const MAX_PATCH = 6000
+
+/** 작업 폴더의 바뀐 파일: main과 갈라진 곳부터 지금 파일까지 (커밋 · 올리지 않은 것 · 새 파일) */
+export async function worktreeDiff(dir: string): Promise<FileDiff[]> {
+  const base = (await git(dir, ['merge-base', 'HEAD', 'origin/main']).catch(() => 'HEAD')).trim() || 'HEAD'
+  const out: FileDiff[] = []
+  for (const line of (await git(dir, ['diff', '--numstat', base])).split('\n')) {
+    const m = line.match(/^(\S+)\t(\S+)\t(.+)$/)
+    if (!m) continue
+    const file = m[3]!
+    const patch = (await git(dir, ['diff', base, '--', file]).catch(() => '')).slice(0, MAX_PATCH)
+    out.push({ file, added: Number(m[1]) || 0, removed: Number(m[2]) || 0, patch })
+  }
+  for (const file of (await git(dir, ['ls-files', '--others', '--exclude-standard'])).split('\n').filter(Boolean)) {
+    let text = ''
+    try { text = fs.readFileSync(path.join(dir, file), 'utf8').slice(0, MAX_PATCH) } catch { continue }
+    if (text.includes('\0')) continue
+    const lines = text.split('\n')
+    out.push({ file, added: lines.length, removed: 0, patch: `@@ -0,0 +1,${lines.length} @@\n${lines.map((l) => `+${l}`).join('\n')}` })
+  }
+  return out
+}
+
+/** 따로 둔 색인 파일로 git을 부른다 (작업 폴더의 색인은 건드리지 않는다) */
+async function withIndex<T>(dir: string, f: (env: Record<string, string>) => Promise<T>): Promise<T> {
+  const idx = path.join(os.tmpdir(), `rw-snap-${crypto.randomBytes(6).toString('hex')}`)
+  try { return await f({ GIT_INDEX_FILE: idx }) } finally { fs.rmSync(idx, { force: true }) }
+}
+
+export async function worktreeSnapshot(dir: string): Promise<Snap> {
+  const head = await git(dir, ['rev-parse', 'HEAD'], { timeout: GIT_TIMEOUT.read })
+  const tree = await withIndex(dir, async (env) => {
+    await git(dir, ['read-tree', 'HEAD'], { env })
+    await git(dir, ['add', '-A'], { env })
+    return git(dir, ['write-tree'], { env })
+  })
+  return { tree, head }
+}
+
+export async function worktreeRestore(dir: string, snap: Snap): Promise<number> {
+  const head = await git(dir, ['rev-parse', 'HEAD'], { timeout: GIT_TIMEOUT.read })
+  if (head !== snap.head) throw new WorkbenchError(409, t('그 뒤에 커밋해서 파일은 되돌릴 수 없습니다', 'Files cannot be restored: commits were made after that point'))
+  const now = await worktreeSnapshot(dir)
+  if (now.tree === snap.tree) return 0
+  const changed = (await git(dir, ['diff-tree', '-r', '--name-only', '--no-renames', snap.tree, now.tree])).split('\n').filter(Boolean)
+  // 그 뒤에 생긴 파일은 지우고, 나머지는 그때 내용으로 쓴다
+  for (const f of (await git(dir, ['diff-tree', '-r', '--name-only', '--no-renames', '--diff-filter=A', snap.tree, now.tree])).split('\n').filter(Boolean)) fs.rmSync(path.join(dir, f), { force: true })
+  await withIndex(dir, async (env) => {
+    await git(dir, ['read-tree', snap.tree], { env })
+    await git(dir, ['checkout-index', '-a', '-f'], { env })
+  })
+  await git(dir, ['reset', '-q'])
+  return changed.length
 }
 
 /** 예제 모드 · 테스트: git · gh 없이 빈 폴더와 정해 둔 PR */

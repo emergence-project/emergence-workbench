@@ -51,6 +51,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
+    draft: (c, text) => broadcast({ type: 'agent-draft', research: c.rid, id: c.id, text }),
     ...(appWork && { app: appWork }),
     ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
     settings: () => registry.agents,
@@ -69,6 +70,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   app.get<{ Params: { id: string } }>('/api/agent-chats/:id', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.get(req.params.id) }))
 
+  /** 곁 질문: 하던 일을 멈추지 않고 작은 모델이 이 대화의 요약만 보고 답한다 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/side', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.side(req.params.id, parseBody(C.SideBody, req.body).text) }))
+
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.send(req.params.id, parseBody(C.ChatMessageBody, req.body)) }))
 
   /** 모드 · 모델 · 생각 깊이 (다음 차례부터) */
@@ -85,6 +89,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   /** 도는 동안 보내 기다리는 지시 하나 빼기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/unqueue', replies(C.Unqueued), async (req): Promise<C.Unqueued> => chats.unqueue(req.params.id, parseBody(C.UnqueueBody, req.body).index))
 
+  /** 되돌리기: 내 지시 하나와 그 뒤를 지우고 그 앞 맥락으로 (앱 고치기 대화는 파일도) */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/rewind', replies(C.Rewound), async (req): Promise<C.Rewound> => chats.rewind(req.params.id, parseBody(C.RewindBody, req.body).point))
+
   /** 오류 · 멈춤 · 앱 재시작 뒤 이어 하기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/resume', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.resume(req.params.id) }))
 
@@ -100,7 +107,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   /** 앱 고치기 대화: 커밋해 PR 열기 · CI 결과 (에이전트가 앱 MCP app_submit · app_checks로 부른다) */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/app/submit', replies(C.AppSubmitted), async (req): Promise<C.AppSubmitted> => chats.appSubmit(req.params.id, parseBody(C.AppSubmitBody, req.body)))
-  app.get<{ Params: { id: string } }>('/api/agent-chats/:id/app/checks', replies(C.AppChecks), async (req): Promise<C.AppChecks> => chats.appChecks(req.params.id))
+  app.get<{ Params: { id: string }; Querystring: { wait?: string } }>('/api/agent-chats/:id/app/checks', replies(C.AppChecks), async (req): Promise<C.AppChecks> => chats.appChecks(req.params.id, Number(req.query.wait) || 0))
   // 피드백 맡기기 (2단계 나): 피드백 화면의 「에이전트에게 맡기기」와, 맡은 대화가 처리 기록을 앱을 거쳐 적는 feedback_answer
   app.post('/api/feedback/hand-off', replies(C.ChatOne), async (req): Promise<C.ChatOne> => {
     const { key } = parseBody(C.HandOffBody, req.body)

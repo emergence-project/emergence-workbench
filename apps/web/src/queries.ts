@@ -96,6 +96,8 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   // 에이전트 대화는 파일이 아니라 현황과 상관없다
   // 앱 고치기 대화가 맡은 피드백의 처리 기록을 적으면 피드백 화면도 바뀐다
   // 그 대화 하나와 목록만 다시 받는다 (열린 대화를 모두 다시 받지 않게)
+  // 쓰는 중인 글은 열린 대화에 바로 붙인다 (App.tsx). 다시 받을 것이 없다
+  if (e.type === 'agent-draft') return []
   if (e.type === 'agent-chat') {
     const keys: QueryKey[] = [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
     return e.research === APP_RID ? [...keys, qk.feedback] : keys
@@ -108,7 +110,7 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
 /** 모든 사람 페이지 (qk.person(id)의 앞부분) */
 const PERSON_PAGES: QueryKey = [...qk.network, 'person']
 
-function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' }>): QueryKey[] {
+function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' }>): QueryKey[] {
   const rid = e.research
   switch (e.type) {
     // research.yaml(제목 · 주제 · 원고 선언 …)이 바뀌면 그 프로젝트의 모든 자료와 프로젝트 목록

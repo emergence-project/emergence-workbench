@@ -176,7 +176,7 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-line-meta { font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
 .ac-filter { margin: var(--sp-1) 0; }
 .ac-filter button { white-space: nowrap; }
-.ac-side .empty { padding: var(--sp-2); }
+.ac-list .empty { padding: var(--sp-2); }
 .ac-line-dot { flex: none; width: 10px; display: inline-flex; justify-content: center; }
 .ac-line-dot .g-name { display: none; }
 .ac-line-meta { padding-left: calc(10px + var(--sp-2)); }
@@ -218,14 +218,36 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 /* 글 복사 (내 지시 · 에이전트 글 · 계획): 오른쪽 위, 올려 두거나 고르면 보이고 좁은 패널에서는 늘 */
 .ac-me, .ac-text { position: relative; }
 .ac-copy { opacity: 0; }
-.ac-me > .ac-copy, .ac-text > .ac-copy { position: absolute; top: 2px; right: 2px; background: var(--bg); }
-.ac-me > .ac-copy { background: var(--bg-sunken); }
+.ac-text > .ac-copy { position: absolute; top: 2px; right: 2px; background: var(--bg); }
+/* 내 지시의 복사 · 되돌리기는 말풍선 왼쪽 바깥에 나란히 (10/22: 말풍선 글을 가리지 않게) */
+.ac-me > .ac-copy { position: absolute; top: 2px; right: calc(100% + var(--sp-1)); color: var(--text-3); }
 .ac-me:hover > .ac-copy, .ac-text:hover > .ac-copy, .ac-card-head:hover .ac-copy, .ac-card:hover .ac-copy, .ac-copy:focus-visible { opacity: 1; }
 .ac-panel .ac-copy { opacity: 1; }
+/* 여기로 되돌리기: 복사 왼쪽 */
+.ac-rewind { position: absolute; top: 2px; right: calc(100% + var(--sp-1) + var(--input-h-sm)); opacity: 0; color: var(--text-3); }
+.ac-me:hover > .ac-rewind, .ac-rewind:focus-visible, .ac-panel .ac-rewind { opacity: 1; }
 .ac-panel .ac-text { padding-right: 28px; }
-.ac-panel .ac-me { padding-right: var(--sp-6); }
+.ac-panel .ac-me { max-width: 80%; }
 /* 위로 올려 읽는 중에 새 줄이 오면: 입력란 위 가운데 「최신으로」 */
 .ac-compose { position: relative; }
 .ac-compose > .ac-latest { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: auto; margin: 0 0 var(--sp-2); box-shadow: var(--shadow); background: var(--bg); }
 .ac-latest svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ac-usage { display: flex; flex-direction: column; gap: 2px; }
+
+/* 생각 요약(접음) · 쓰는 중인 글 · 곁 질문 (10/22 Claude Code처럼) */
+.ac-think { font-size: var(--fs-xs); color: var(--text-2); }
+.ac-think summary { cursor: pointer; }
+.ac-think .memo-text { color: var(--text-2); padding-left: var(--sp-4); border-left: 2px solid var(--line); margin-top: var(--sp-1); }
+.ac-draft .memo-text { color: var(--text-2); }
+.ac-sideq { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--line); border-radius: var(--r-sm); display: flex; flex-direction: column; gap: var(--sp-1); }
+
+/* 대화 목록의 묶음 (10/22): 워크벤치 전체 · 프로젝트마다. 이름을 누르면 접고, ＋는 그 묶음에서 새 대화 */
+.ac-group-h { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.ac-group-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 0; border: 0; background: none; color: var(--text); font-size: var(--fs-sm); font-weight: var(--fw-medium); text-align: left; cursor: pointer; }
+.ac-group-name .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-group-name .n { color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-normal); }
+.ac-group-name .tree-chev { width: auto; height: auto; }
+.ac-group-h.open .tree-chev span { transform: rotate(90deg); }
+.ac-group-h .icon-btn { color: var(--text-3); }
+.ac-group-empty { font-size: var(--fs-xs); padding: 0 var(--sp-2) var(--sp-2); }
+.ac-group + .ac-group { margin-top: var(--sp-1); }

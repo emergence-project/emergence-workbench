@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ChatScope } from '@rw/core/contract/agentChats'
-import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptOf, scopeDir, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
+import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { choicesOf, eventsOf } from './agentRunner.js'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
@@ -30,6 +30,9 @@ describe('모드', () => {
   })
   it('붙인 것 · 노트 고침 · 할 일을 읽는다', () => {
     expect(promptOf('봐 줘')).toBe('봐 줘')
+    // Claude Code 명령은 붙인 것 없이 그대로
+    expect(promptOf(' /compact ', [{ kind: 'note', ref: 'a.md', label: 'A' }])).toBe('/compact')
+    expect(promptOf('/compactly', [{ kind: 'note', ref: 'a.md', label: 'A' }])).toContain('a.md')
     const p = promptOf('봐 줘', [{ kind: 'note', ref: 'workbench/notes/a/note.md', label: 'A' }, { kind: 'selection', ref: 'workbench/notes/a/note.md', label: '고른 글', text: '첫 줄\n둘째 줄' }])
     expect(p).toContain('note (read_note): workbench/notes/a/note.md (A)')
     expect(p).toContain('  > 둘째 줄')
@@ -109,6 +112,15 @@ describe('SDK 메시지', () => {
     expect(eventsOf({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0.1 })).toEqual([{ type: 'result', ok: true, cost: 0.1 }])
     expect(eventsOf({ type: 'result', subtype: 'error_max_turns', errors: ['too long'] })).toEqual([{ type: 'result', ok: false, error: 'too long' }])
     expect(eventsOf({ type: 'stream_event' })).toEqual([])
+    // 쓰는 중인 글 조각(주 에이전트만) · 생각 요약
+    expect(eventsOf({ type: 'stream_event', parent_tool_use_id: null, event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '아' } } })).toEqual([{ type: 'delta', text: '아' }])
+    expect(eventsOf({ type: 'stream_event', parent_tool_use_id: 'x', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '아' } } })).toEqual([])
+    expect(eventsOf({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'thinking', thinking: '17 × 23' }] } })).toEqual([{ type: 'think', text: '17 × 23' }])
+    // 앞 내용 요약 · 뒤에서 도는 명령
+    expect(eventsOf({ type: 'system', subtype: 'status', status: 'compacting' })).toEqual([{ type: 'status', compacting: true }])
+    expect(eventsOf({ type: 'system', subtype: 'status', status: null })).toEqual([{ type: 'status', compacting: false }])
+    expect(eventsOf({ type: 'system', subtype: 'compact_boundary', compact_metadata: { trigger: 'manual', pre_tokens: 24_704, post_tokens: 1_788 } })).toEqual([{ type: 'compact', auto: false, before: 24_704, after: 1_788 }])
+    expect(eventsOf({ type: 'system', subtype: 'background_tasks_changed', tasks: [{}, { ambient: true }] })).toEqual([{ type: 'tasks', count: 1 }])
     // 토큰(캐시 포함)과 마지막 요청의 맥락 크기 · 맥락 창
     expect(eventsOf({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 100, cache_creation_input_tokens: 20 }, modelUsage: { 'claude-opus-5-5': { contextWindow: 200_000 } } }, 3_000))
       .toEqual([{ type: 'result', ok: true, tokens: { in: 130, out: 5 }, context: { used: 3_000, window: 200_000 } }])
@@ -150,14 +162,51 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     const plan = await input.canUseTool('ExitPlanMode', { plan: '1. 고치기' })
     const d = plan.allow ? await input.canUseTool('mcp__workbench__edit_note', { project: 'sample-research', file, edits: [{ old: 'a', new: 'b', reason: 'r' }] }) : plan
     yield { type: 'text', text: `${early.allow ? 'early' : 'waited'} ${d.allow ? 'edited' : 'no'}` }
+  } else if (input.prompt === 'stream') {
+    // 쓰는 중인 글 조각 · 생각 요약
+    yield { type: 'think', text: '17 × 23' }
+    yield { type: 'delta', text: '아니요, ' }
+    yield { type: 'delta', text: '소수가 아닙니다' }
+    await new Promise<void>((r) => { gate = r })
+    yield { type: 'text', text: '아니요, 소수가 아닙니다.' }
+  } else if (input.prompt === 'live') {
+    // 열어 둔 에이전트: 받은 지시마다 한 차례 (뒤에서 도는 명령 · 앞 내용 요약도 낸다), inbox가 닫히면 끝난다
+    yield { type: 'text', text: 'first' }
+    yield { type: 'result', ok: true }
+    for await (const x of input.inbox!) {
+      yield { type: 'tasks', count: 1 }
+      yield { type: 'status', compacting: true }
+      yield { type: 'compact', auto: true, before: 130_000, after: 9_000 }
+      yield { type: 'text', text: `got ${x.prompt}` }
+      yield { type: 'result', ok: true }
+    }
+    return
+  } else if (input.prompt === 'esc') {
+    // 멈춤 = 하던 차례만 끊기: 끊기면 실패한 result가 오고, 에이전트는 다음 지시를 같은 실행에서 받는다
+    let cut!: () => void
+    const cutP = new Promise<void>((r) => { cut = r })
+    input.control?.({ interrupt: async () => { cut(); return true } })
+    yield { type: 'text', text: 'long' }
+    await cutP
+    yield { type: 'result', ok: false, error: 'error_during_execution' }
+    for await (const x of input.inbox!) {
+      yield { type: 'text', text: `got ${x.prompt}` }
+      yield { type: 'result', ok: true }
+    }
+    return
   } else if (input.prompt === 'wait') {
     await new Promise<void>((r) => { gate = r; input.signal.addEventListener('abort', () => r(), { once: true }) })
   } else {
     yield { type: 'tool', tool: 'Read', input: { file_path: `${input.cwd}/README.md` } }
     yield { type: 'text', text: '읽었습니다' }
   }
+  yield { type: 'mark', uuid: `m${seen.length}` }
   yield { type: 'result', ok: true, cost: 0.01 }
 }
+
+const sides: string[] = []
+fake.side = async ({ prompt }) => { sides.push(prompt); if (prompt.includes('터져')) throw new Error('boom'); return '17 × 23이라 소수가 아닙니다' }
+const drafts: string[] = []
 
 describe('대화 API', () => {
   let tmp: string
@@ -273,6 +322,7 @@ describe('대화 API', () => {
     await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이것도 해 줘' } })
     await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/stop` })
     await settle(c.id, 'stopped')
+    // 에이전트가 읽지 못한 지시는 「다음에 보냄」으로 돌아온다
     expect((await get(c.id)).items.some((i: { queued?: boolean }) => i.queued)).toBe(true)
     const r = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/resume` })
     expect(r.statusCode, r.body).toBe(200)
@@ -336,6 +386,8 @@ describe('대화 API', () => {
     const c = await create({ text: 'wait' })
     await settle(c.id, 'running')
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/archive`, payload: { archived: true } })).statusCode).toBe(409)
+    // 모델을 바꾸면 에이전트를 다시 열어야 하니 다음 차례까지 기다린다(줄 선 지시)
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { model: 'haiku' } })
     await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이것도' } })
     const u = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/unqueue`, payload: { index: 0 } })
     expect(u.statusCode, u.body).toBe(200)
@@ -350,13 +402,82 @@ describe('대화 API', () => {
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/archive`, payload: { archived: false } })).json().chat.archived).toBe(false)
   })
 
+  it('차례가 끝나도 에이전트를 열어 두어 다음 지시를 같은 실행에 넘기고, 뒤에서 도는 명령 · 앞 내용 요약이 보이며, 설정을 바꾸면 다시 연다', async () => {
+    const c = await create({ text: 'live' })
+    await settle(c.id)
+    expect(await get(c.id)).toMatchObject({ live: true })
+    const runs = seen.length
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '둘째' } })
+    await vi.waitFor(async () => expect((await get(c.id)).items.at(-1)).toMatchObject({ kind: 'result' }))
+    await settle(c.id)
+    const chat = await get(c.id)
+    expect(seen.length).toBe(runs)
+    expect(chat.items.map((i: { kind: string }) => i.kind)).toEqual(['user', 'text', 'result', 'user', 'compact', 'text', 'result'])
+    expect(chat.items[4]).toMatchObject({ auto: true, before: 130_000, after: 9_000 })
+    expect(chat.items[5].text).toBe('got 둘째')
+    expect(chat).toMatchObject({ live: true, tasks: 1 })
+    expect(chat.compacting).toBeUndefined()
+    // 모델을 바꾸면 쉬는 에이전트를 닫고 같은 세션을 새 설정으로 다시 연다
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { model: 'sonnet' } })
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '셋째' } })
+    await vi.waitFor(() => expect(seen.length).toBe(runs + 1))
+    await settle(c.id)
+    expect(seen.at(-1)).toMatchObject({ prompt: '셋째', model: 'sonnet', sessionId: `s${runs}` })
+  })
+
+  it('되돌리기: 내 지시와 그 뒤를 지우고 글을 돌려주며, 다음 지시는 그 앞 메시지까지만 이은 세션으로 간다', async () => {
+    const c = await create({ text: '첫째' })
+    await settle(c.id)
+    const first = seen.length
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '둘째', attach: [{ kind: 'note', ref: 'workbench/notes/a/note.md', label: 'A' }] } })
+    await vi.waitFor(() => expect(seen.length).toBe(first + 1))
+    await settle(c.id)
+    const chat = await get(c.id)
+    const users = chat.items.filter((i: { kind: string }) => i.kind === 'user')
+    expect(users.map((u: { point?: string }) => typeof u.point)).toEqual(['string', 'string'])
+    // 일하는 중에는 되돌리지 않는다 · 모르는 자리는 거절
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/rewind`, payload: { point: 'nope' } })).statusCode).toBe(409)
+    const r = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/rewind`, payload: { point: users[1].point } })
+    expect(r.statusCode, r.body).toBe(200)
+    expect(r.json()).toMatchObject({ text: '둘째', attach: [{ kind: 'note', label: 'A' }] })
+    expect(r.json().chat.items.map((i: { kind: string }) => i.kind)).toEqual(['user', 'step', 'text', 'result'])
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '셋째' } })
+    await vi.waitFor(() => expect(seen.length).toBe(first + 2))
+    expect(seen.at(-1)).toMatchObject({ prompt: '셋째', sessionId: `s${first}`, resumeAt: `m${first}` })
+    await settle(c.id)
+    // 첫 지시로 되돌리면 처음부터 (세션 없이)
+    const again = await get(c.id)
+    const r2 = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/rewind`, payload: { point: again.items[0].point } })
+    expect(r2.json().chat.items).toEqual([])
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '새로' } })
+    await vi.waitFor(() => expect(seen.length).toBe(first + 3))
+    expect(seen.at(-1)!.sessionId).toBeUndefined()
+    expect(seen.at(-1)!.resumeAt).toBeUndefined()
+  })
+
+  it('멈춤은 열어 둔 에이전트의 하던 차례만 끊고, 다음 지시는 같은 실행이 맥락을 이어 받는다', async () => {
+    const c = await create({ text: 'esc' })
+    await settle(c.id, 'running')
+    const runs = seen.length
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/stop`, payload: {} })
+    await settle(c.id, 'stopped')
+    const stopped = await get(c.id)
+    expect(stopped).toMatchObject({ state: 'stopped', live: true })
+    expect(stopped.items.some((i: { kind: string }) => i.kind === 'error')).toBe(false)
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '다시' } })
+    await vi.waitFor(async () => expect((await get(c.id)).items.at(-2)).toMatchObject({ kind: 'text', text: 'got 다시' }))
+    expect(seen.length).toBe(runs)
+  })
+
   it('일하는 중에 보낸 지시는 다음 차례에 읽고, 모드 · 모델은 다음 차례부터 바뀐다. 그림 · 붙인 것은 에이전트에게 간다', async () => {
     const c = await create({ text: 'wait' })
     await settle(c.id, 'running')
     const img = { type: 'image/png', data: 'aGk=' }
     const q = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이것도', attach: [{ kind: 'note', ref: 'workbench/notes/a/note.md', label: 'A' }], images: [img] } })
     expect(q.statusCode, q.body).toBe(200)
-    expect(q.json().chat.items.at(-1)).toMatchObject({ kind: 'user', queued: true, images: 1, attach: [{ kind: 'note' }] })
+    // 열려 있는 에이전트에 바로 넘긴다 (줄 서지 않음). 읽지 않고 끝나는 에이전트면 다음 실행이 읽는다
+    expect(q.json().chat.items.at(-1)).toMatchObject({ kind: 'user', images: 1, attach: [{ kind: 'note' }] })
+    expect(q.json().chat.items.at(-1).queued).toBeUndefined()
     const s = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { mode: 'ask', model: 'sonnet', effort: 'high' } })
     expect(s.json().chat).toMatchObject({ mode: 'ask', model: 'sonnet', effort: 'high' })
     const before = seen.length
@@ -392,6 +513,42 @@ describe('대화 API', () => {
     expect((await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: 'nope', text: 'x' } })).statusCode).toBe(404)
     expect((await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid, text: 'x', scope: { kind: 'topic' } } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid, text: 'x', scope: { kind: 'note', target: '../x' } } })).statusCode).toBe(400)
+  })
+})
+
+describe('쓰는 중인 글 · 생각 · 곁 질문', () => {
+  it('쓰는 중인 글은 화면에만 보내고 기록하지 않으며, 생각은 접힌 줄로, 곁 질문은 에이전트를 거치지 않고 답한다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-stream-'))
+    const chats = new AgentChats({ dir, runner: fake, limit: 2, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {}, draft: (_c, text) => drafts.push(text) })
+    const c = chats.create({ rid: 'p', text: 'stream' })
+    await vi.waitFor(() => expect(drafts.at(-1)).toBe('아니요, 소수가 아닙니다'))
+    expect(chats.get(c.id).draft).toBe('아니요, 소수가 아닙니다')
+    expect(JSON.parse(fs.readFileSync(path.join(dir, `${c.id}.json`), 'utf8')).draft).toBeUndefined()
+    const runs = seen.length
+    // 곁 질문: 하던 차례 중에도 에이전트에게 보내지 않는다
+    chats.side(c.id, '391은 소수야?')
+    await vi.waitFor(() => expect(chats.get(c.id).items.find((i) => i.kind === 'side')).toMatchObject({ q: '391은 소수야?', answer: '17 × 23이라 소수가 아닙니다' }))
+    expect(seen.length).toBe(runs)
+    expect(sides.at(-1)).toContain('User: stream')
+    expect(sides.at(-1)).toContain('Side question: 391은 소수야?')
+    chats.side(c.id, '터져')
+    await vi.waitFor(() => expect(chats.get(c.id).items.filter((i) => i.kind === 'side').at(-1)).toMatchObject({ error: 'boom' }))
+    gate!()
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    const done = chats.get(c.id)
+    expect(done.draft).toBeUndefined()
+    expect(done.items.filter((i) => i.kind === 'think' || i.kind === 'text').map((i) => (i as { text: string }).text)).toEqual(['17 × 23', '아니요, 소수가 아닙니다.'])
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+  it('곁 질문 글: 뒤에서부터 지시 · 에이전트 글을 정한 길이 안으로', () => {
+    const items = Array.from({ length: 50 }, (_, i) => ({ kind: 'text' as const, at: '', text: `글 ${i} ${'x'.repeat(500)}` }))
+    const p = sidePrompt({ title: 'T', scope: { kind: 'project' }, items, todos: [{ text: '시험', state: 'in_progress' }], changed: ['a.ts'] }, '뭐 해?')
+    expect(p).toContain('글 49')
+    expect(p).not.toContain('글 0 ')
+    expect(p).toContain('[in_progress] 시험')
+    expect(p).toContain('Changed files: a.ts')
+    expect(p.length).toBeLessThan(14_000)
   })
 })
 

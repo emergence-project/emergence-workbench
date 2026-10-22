@@ -59,7 +59,7 @@ export const EditPart = z.object({ old: z.string(), new: z.string() }).strict()
 /** 대화의 한 줄 */
 export const ChatItem = z.discriminatedUnion('kind', [
   /** queued = 일하는 중에 보내 다음 차례에 읽을 지시 */
-  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional() }).strict(),
+  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional(), point: z.string().optional() }).strict(),
   z.object({ kind: z.literal('text'), at: z.string(), text: z.string(), sub: z.boolean().optional() }).strict(),
   /** 에이전트가 쓴 도구 한 번. outside = 범위 밖을 읽음, sub = 서브에이전트가 씀 */
   z.object({ kind: z.literal('step'), at: z.string(), tool: z.string(), summary: z.string(), outside: z.boolean().optional(), sub: z.boolean().optional() }).strict(),
@@ -71,8 +71,11 @@ export const ChatItem = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional() }).strict(),
   /** 할 일 목록 (한 차례에 하나, 바뀌면 그 자리에서 고친다) */
   z.object({ kind: z.literal('todos'), at: z.string(), todos: z.array(Todo) }).strict(),
-  /** 노트 고침 (edit_note를 허락한 때). 되돌리기는 수정 검토에서 */
-  z.object({ kind: z.literal('edit'), at: z.string(), file: z.string(), parts: z.array(EditPart), added: z.number(), removed: z.number(), reason: z.string().optional() }).strict(),
+  /**
+   * 노트 고침 (edit_note를 허락한 때). 되돌리기는 수정 검토에서.
+   * via = command: 앱 고치기 대화가 고치기 도구 대신 명령(sed · 스크립트 등)으로 바꾼 파일. 차례가 끝날 때 작업 폴더의 git diff에서 찾는다
+   */
+  z.object({ kind: z.literal('edit'), at: z.string(), file: z.string(), parts: z.array(EditPart), added: z.number(), removed: z.number(), reason: z.string().optional(), via: z.literal('command').optional() }).strict(),
   /** 앱이 막은 일 (범위 밖 고치기, 다른 대화가 잡은 파일 등) */
   z.object({ kind: z.literal('blocked'), at: z.string(), tool: z.string(), reason: z.string() }).strict(),
   /**
@@ -81,6 +84,15 @@ export const ChatItem = z.discriminatedUnion('kind', [
    */
   z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number() }).strict().optional() }).strict(),
   z.object({ kind: z.literal('error'), at: z.string(), text: z.string() }).strict(),
+  /** 앞 내용을 요약해 이어 감 (Claude Code의 맥락 줄이기). auto = 맥락이 커져 저절로, before · after = 줄이기 전후 맥락 토큰 */
+  z.object({ kind: z.literal('compact'), at: z.string(), auto: z.boolean(), before: z.number(), after: z.number().optional() }).strict(),
+  /** 에이전트가 생각한 것의 요약 (Claude Code의 생각 보기, 접어서 보인다) */
+  z.object({ kind: z.literal('think'), at: z.string(), text: z.string() }).strict(),
+  /**
+   * 곁 질문 (Claude Code의 /btw): 하던 일을 멈추지 않고 작은 모델이 이 대화의 요약만 보고 답한다. 에이전트의 맥락에는 들어가지 않는다.
+   * answer가 없고 error도 없으면 답을 기다리는 중
+   */
+  z.object({ kind: z.literal('side'), at: z.string(), q: z.string(), answer: z.string().optional(), error: z.string().optional() }).strict(),
 ])
 
 export const ChatRow = z.object({
@@ -113,6 +125,15 @@ export const ChatRow = z.object({
   /** 앱이 그 PR을 합친 커밋, 그리고 그 커밋이 지금 도는 앱에 들어왔는지 (상단바 "#n 반영됨") */
   merged: z.string().optional(),
   shipped: z.boolean().optional(),
+  /**
+   * 차례가 끝나도 에이전트를 잠시 열어 둔다(Claude Code처럼): live = 열려 있음(다음 지시를 바로 받고, 일하는 중에 보낸 말도 그 차례에 섞어 읽는다),
+   * tasks = 뒤에서 도는 명령 수(끝나면 에이전트가 저절로 이어서 일한다), compacting = 앞 내용을 요약하는 중
+   */
+  live: z.boolean().optional(),
+  tasks: z.number().optional(),
+  compacting: z.boolean().optional(),
+  /** 에이전트가 지금 쓰는 중인 글 (다 쓰면 대화 줄이 되고 지워진다. 기록에는 남기지 않는다) */
+  draft: z.string().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -159,6 +180,8 @@ export const NewChatBody = z.object({
 }).strict()
 /** 이어서 지시. 일하는 중이면 다음 차례에 읽는다 */
 export const ChatMessageBody = z.object(message).strict()
+/** POST /agent-chats/:id/side: 곁 질문 */
+export const SideBody = z.object({ text: z.string().trim().min(1).max(4000) }).strict()
 export const ForgetBody = z.object({ label: z.string().min(1) }).strict()
 /** note = 거절하며 할 말(에이전트에게 그대로 간다), mode = 계획을 승인하며 이어 갈 맡기는 정도(ask · edit) */
 export const AskAnswerBody = z.object({ ask: z.string().min(1), answer: z.enum(ASK_ANSWERS), note: z.string().trim().max(4000).optional(), mode: z.enum(CHAT_MODES).optional() }).strict()
@@ -167,6 +190,9 @@ export const UnqueueBody = z.object({ index: z.number().int().min(0) }).strict()
 /** POST /agent-chats/:id/unqueue: 뺀 지시의 그림도 돌려준다 (입력란에서 고쳐 다시 보내게) */
 export const Unqueued = z.object({ chat: Chat, images: z.array(ImageIn).optional() }).strict()
 export const ArchiveBody = z.object({ archived: z.boolean() }).strict()
+/** 되돌리기: 차례를 연 내 지시(user 항목의 point) 앞으로. 지운 지시의 글 · 붙인 것과, 앱 고치기 대화면 되돌린 파일 수 */
+export const RewindBody = z.object({ point: z.string().min(1) }).strict()
+export const Rewound = z.object({ chat: Chat, text: z.string(), attach: z.array(Attach).optional(), files: z.number().optional() }).strict()
 
 // ---------- 앱 고치기 대화: 앱이 대신 하는 일 (에이전트는 앱 MCP app_submit · app_checks로 부른다) ----------
 
@@ -214,11 +240,13 @@ export type Todo = z.infer<typeof Todo>
 export type ImageIn = z.infer<typeof ImageIn>
 export type ChatSettings = z.infer<typeof ChatSettings>
 export type ChatMessageBody = z.input<typeof ChatMessageBody>
+export type SideBody = z.infer<typeof SideBody>
 export type ChatMode = (typeof CHAT_MODES)[number]
 export type ChatModel = z.infer<typeof ChatModel>
 export type ModelChoice = z.infer<typeof ModelChoice>
 export type ChatModels = z.infer<typeof ChatModels>
 export type Unqueued = z.infer<typeof Unqueued>
+export type Rewound = z.infer<typeof Rewound>
 export type ChatEffort = (typeof CHAT_EFFORTS)[number]
 export type AttachKind = (typeof ATTACH_KINDS)[number]
 export type ChatItem = z.infer<typeof ChatItem>
