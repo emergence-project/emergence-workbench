@@ -733,7 +733,7 @@ export class AgentChats {
     const it = c.items.find((x): x is Extract<ChatItem, { kind: 'ask' }> => x.kind === 'ask' && x.id === ask)
     const resolve = this.asks.get(ask)
     if (!it || it.answer || !resolve) throw new WorkbenchError(409, t('이미 답했거나 없는 허락 요청입니다', 'This request was already answered or does not exist'))
-    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 매번 묻기 · 고치기 허용 가운데 하나로 이어 갑니다', 'After approving a plan, continue with ask each time or allow edits'))
+    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 묻고 하기 · 편집 자동 허용 가운데 하나로 이어 갑니다', 'After approving a plan, continue with ask before edits or accept edits'))
     it.answer = a
     if (a === 'deny' && more.note) it.note = clip(more.note, 2000)
     if (a !== 'deny' && it.plan !== undefined && more.mode) it.mode = more.mode

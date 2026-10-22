@@ -74,8 +74,9 @@ type Fill = { text: string; n: number; attach?: Attach[]; images?: ImageIn[] }
 
 /** 권한(예전 이름 맡기는 정도): 읽기 전용(write read) 또는 고치는 대화의 모드 셋 */
 export type Trust = 'read' | ChatMode
-const TRUSTS: Trust[] = ['read', 'ask', 'plan', 'edit']
-const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('매번 묻기', 'Ask each time'), plan: t('계획 후 허용', 'Allow after plan'), edit: t('고치기 허용', 'Allow edits') }
+/** ⇧⇥ 차례: Claude Code처럼 묻고 하기 → 편집 자동 허용 → 계획 모드, 그다음 읽기 전용 (10/22 사용자 결정 "Claude Code 방식") */
+const TRUSTS: Trust[] = ['ask', 'edit', 'plan', 'read']
+const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('묻고 하기', 'Ask before edits'), plan: t('계획 모드', 'Plan mode'), edit: t('편집 자동 허용', 'Accept edits') }
 /** 앱 고치기 대화의 맡기는 정도 설명 (작업 폴더에서 고치고 시험, 올리기는 앱) */
 const APP_HINT: Record<Trust, string> = {
   read: t('읽기만 합니다', 'Reads only'),
@@ -384,8 +385,8 @@ function PlanCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: strin
         <Choices busy={busy}
           choices={[
             // 앱 고치기 대화는 노트가 아니라 작업 폴더의 파일을 고친다
-            { label: t('네, 고치기 허용', 'Yes, allow edits'), ui: '계획 승인 버튼', run: () => void answer('allow', { mode: 'edit' }) },
-            { label: t('네, 매번 묻기', 'Yes, ask each time'), ui: '계획 승인 묻기 버튼', run: () => void answer('allow', { mode: 'ask' }) },
+            { label: t('네, 편집 자동 허용', 'Yes, accept edits'), ui: '계획 승인 버튼', run: () => void answer('allow', { mode: 'edit' }) },
+            { label: t('네, 묻고 하기', 'Yes, ask before edits'), ui: '계획 승인 묻기 버튼', run: () => void answer('allow', { mode: 'ask' }) },
           ]}
           say={{ label: t('아니요, 이렇게 바꿔서…', 'No, change it like this…'), placeholder: t('계획에서 무엇을 바꿀까요?', 'What should change in the plan?'), send: (note) => void answer('deny', note ? { note } : undefined) }} />
       </>}

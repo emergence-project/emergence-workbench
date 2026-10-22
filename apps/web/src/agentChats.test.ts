@@ -16,13 +16,15 @@ describe('에이전트 입력란', () => {
     expect(menuAt('메일 a@b', 6)).toBeNull()
     expect(menuAt('@kem 다음', 9)).toBeNull()
   })
-  it('맡기는 정도: 읽기만이면 모드와 상관없이 읽기만', () => {
+  it('권한: 읽기 전용이면 모드와 상관없이 읽기만', () => {
     expect(trustOf({ write: 'read', mode: 'edit' })).toBe('read')
     expect(trustOf({ write: 'notes', mode: 'plan' })).toBe('plan')
   })
-  it('⇧⇥는 맡기는 정도를 차례로 돌린다', () => {
+  it('⇧⇥는 권한을 Claude Code 차례로 돌린다', () => {
+    expect(nextTrust('ask')).toBe('edit')
+    expect(nextTrust('edit')).toBe('plan')
+    expect(nextTrust('plan')).toBe('read')
     expect(nextTrust('read')).toBe('ask')
-    expect(nextTrust('edit')).toBe('read')
   })
   it('모델 이름: 기본은 실제 모델을 붙이고, 버전마다 따로, 생각 깊이는 그 모델이 받는 것만', () => {
     const list = [
