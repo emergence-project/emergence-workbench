@@ -223,7 +223,7 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-me:hover > .ac-copy, .ac-text:hover > .ac-copy, .ac-card-head:hover .ac-copy, .ac-card:hover .ac-copy, .ac-copy:focus-visible { opacity: 1; }
 .ac-panel .ac-copy { opacity: 1; }
 .ac-panel .ac-text { padding-right: 28px; }
-.ac-panel .ac-me { padding-right: 32px; }
+.ac-panel .ac-me { padding-right: var(--sp-6); }
 /* 위로 올려 읽는 중에 새 줄이 오면: 입력란 위 가운데 「최신으로」 */
 .ac-compose { position: relative; }
 .ac-compose > .ac-latest { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: auto; margin: 0 0 var(--sp-2); box-shadow: var(--shadow); background: var(--bg); }
