@@ -81,7 +81,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
       <div className="set-row" data-ui="피드백 맡기기">
         <div>
           <div className="set-name">{t('맡기기', 'Hand off')}</div>
-          <div className="set-desc">{t('에이전트 차례인 피드백을 이 맥의 Claude가 언제 맡을지 고릅니다. 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 바로면 새 차례가 생길 때 앱이 하나씩 맡깁니다. 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude on this Mac takes feedback that is the agent\'s turn. "When I press" uses Hand to agent on the Feedback screen; "Right away" lets the app hand items off one at a time as they come. Questions and suggestions are only answered, without code changes.')}</div>
+          <div className="set-desc">{t('에이전트 차례인 피드백을 이 맥의 Claude가 언제 맡을지 고릅니다. 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 바로면 새 차례가 생길 때 앱이 맡깁니다(동시에 셋까지). 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude on this Mac takes feedback that is the agent\'s turn. "When I press" uses Hand to agent on the Feedback screen; "Right away" lets the app hand items off as they come (up to three at once). Questions and suggestions are only answered, without code changes.')}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {FEEDBACK_PICKS.map((m) => <button key={m} role="radio" aria-checked={s.feedback === m} className={s.feedback === m ? 'on' : ''} onClick={() => save({ feedback: m })}>{PICK[m]()}</button>)}

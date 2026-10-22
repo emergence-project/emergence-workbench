@@ -57,12 +57,12 @@ function Delta({ added, removed }: { added: number; removed: number }) {
 export type Trust = 'read' | ChatMode
 const TRUSTS: Trust[] = ['read', 'ask', 'plan', 'edit']
 const TRUST_NAME: Record<Trust, string> = { read: t('읽기만', 'Read only'), ask: t('묻고 하기', 'Ask first'), plan: t('계획 먼저', 'Plan first'), edit: t('고치기 바로', 'Edit freely') }
-/** 앱 고치기 대화의 맡기는 정도 설명 (명령은 늘 막고, 시험은 CI) */
+/** 앱 고치기 대화의 맡기는 정도 설명 (작업 폴더에서 고치고 시험, 올리기는 앱) */
 const APP_HINT: Record<Trust, string> = {
   read: t('읽기만 합니다', 'Reads only'),
-  ask: t('파일을 고치거나 PR을 올릴 때마다 묻습니다. 명령은 돌리지 않습니다', 'Asks before each file edit and before opening the PR. Runs no commands'),
-  plan: t('계획을 승인한 뒤 파일을 고치고 PR을 올립니다. 명령은 돌리지 않습니다', 'Edits files and opens the PR after you approve the plan. Runs no commands'),
-  edit: t('작업 폴더의 파일을 바로 고치고 PR을 올립니다. 명령은 돌리지 않고 시험은 CI가 합니다', 'Edits files in its work folder and opens the PR. Runs no commands; CI runs the tests'),
+  ask: t('파일을 고치거나 명령을 돌리거나 PR을 올릴 때마다 묻습니다', 'Asks before each file edit, command and before opening the PR'),
+  plan: t('계획을 승인한 뒤 파일을 고치고 시험한 뒤 PR을 올립니다', 'Edits, tests and opens the PR after you approve the plan'),
+  edit: t('작업 폴더에서 바로 고치고 시험한 뒤 PR을 올립니다', 'Edits and tests in its work folder, then opens the PR'),
 }
 
 const TRUST_HINT: Record<Trust, string> = {
@@ -841,7 +841,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
       {rid && <Composer key={rid} rid={rid} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
       <span className="muted ac-hint">{app
-        ? t('앱 저장소의 따로 둔 폴더에서 파일만 고칩니다. 명령은 돌리지 않고, 커밋 · PR은 앱이, 시험은 GitHub CI가 합니다. 연구 프로젝트는 읽기만 합니다', 'Edits files only, in a separate folder of the app repository. It runs no commands: the app commits and opens the PR, GitHub CI runs the tests. Research projects are read-only')
+        ? t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')
         : `${TRUST_HINT[settings.trust]}. ${t('범위 밖은 읽기만 합니다', 'Outside the scope it only reads')}`}</span>
     </div>
   )

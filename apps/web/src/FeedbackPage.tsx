@@ -305,7 +305,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
 }
 
 /**
- * 피드백을 맡은 에이전트 대화 (2단계 나, 10/21 "앱 안 대화 + CI가 시험"): 맡긴 시각 · 상태 · PR · 대화 보기 · 멈추기.
+ * 피드백을 맡은 에이전트 대화 (2단계 나, 10/21 "앱 안 대화", 10/22 "권한 넓히기"): 맡긴 시각 · 상태 · PR · 대화 보기 · 멈추기.
  * 맡은 대화가 없거나 끝난 뒤 다시 에이전트 차례가 되면 「에이전트에게 맡기기」. 앱 저장소가 있는 맥에서만 보인다.
  * 사용자가 그 뒤에 답했으면(승인 · 수정 · 진행 · 중단) 지난 대화 줄은 감춘다.
  */
@@ -342,7 +342,7 @@ function AgentLine({ e }: { e: FeedbackItem }) {
         </>
       )}
       <span className="sp" />
-      {canHand && <button type="button" className="btn sm" data-ui="에이전트에게 맡기기" disabled={busy} title={t('이 피드백을 이 맥의 Claude에게 맡깁니다. 따로 둔 작업 폴더에서 고치고 PR을 열며, 시험은 CI가 합니다', 'Hand this feedback to Claude on this Mac. It fixes it in a separate work folder and opens a PR; CI runs the tests')} onClick={() => void handOff()}>{t('에이전트에게 맡기기', 'Hand to agent')}</button>}
+      {canHand && <button type="button" className="btn sm" data-ui="에이전트에게 맡기기" disabled={busy} title={t('이 피드백을 이 맥의 Claude에게 맡깁니다. 따로 둔 작업 폴더에서 고치고 시험한 뒤 PR을 엽니다', 'Hand this feedback to Claude on this Mac. It fixes and tests it in a separate work folder, then opens a PR')} onClick={() => void handOff()}>{t('에이전트에게 맡기기', 'Hand to agent')}</button>}
       {error && <span className="error-text fbp-agent-error">{error}</span>}
     </div>
   )

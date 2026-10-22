@@ -1,8 +1,8 @@
 /**
- * 앱 고치기 대화의 작업 폴더와 PR (2단계, 2026-10-21 사용자 결정 "앱 안 대화 + CI가 시험").
+ * 앱 고치기 대화의 작업 폴더와 PR (2단계, 2026-10-21 사용자 결정 "앱 안 대화", 10/22 "권한 넓히기").
  * - 대화마다 앱 저장소의 worktree를 따로 둔다. 실사용 앱이 도는 폴더와 사용자가 고치던 파일은 건드리지 않는다.
- * - 에이전트는 명령을 돌리지 않는다. 커밋 · 올리기 · PR 열기 · CI 결과 받기는 여기의 정해 둔 코드가 한다.
- *   시험은 GitHub CI가 돌리므로, 에이전트가 쓴 코드는 합쳐지기 전에는 맥에서 돌지 않는다.
+ * - 에이전트는 작업 폴더에서 명령(시험 · 형식 검사 · 화면 그림)을 돌린다(10/22 사용자 결정 "권한 넓히기").
+ *   올리기 · PR 열기 · CI 결과 받기 · 합치기는 여기의 정해 둔 코드가 한다. 대화마다 자기 브랜치 · PR이라 다른 PR이 열려 있어도 올린다.
  * 대화를 지우면 작업 폴더를 치운다(브랜치와 PR은 남는다).
  */
 import { execFile } from 'node:child_process'
@@ -24,12 +24,14 @@ export interface AppWork {
   prepare(id: string): Promise<{ dir: string; branch: string }>
   /** 작업 폴더를 치운다 */
   dispose(dir: string): Promise<void>
-  /** 바뀐 것을 모두 커밋해 브랜치를 올리고, PR이 없으면 연다. 다른 열린 PR이 있으면 열지 않는다 */
+  /** 바뀐 것을 모두 커밋해 브랜치를 올리고, PR이 없으면 연다 */
   submit(dir: string, branch: string, o: { title: string; body: string }): Promise<AppPr>
   /** 그 브랜치 PR의 CI. 실패한 것이 있으면 실패 기록 끝부분 */
   checks(dir: string, branch: string): Promise<AppChecks>
   /** 그 브랜치의 PR을 합친다 (squash, 제목 "<PR 제목> (#n)"). 합친 커밋을 돌려준다 */
   merge(dir: string, branch: string): Promise<{ number: number; sha: string }>
+  /** 그 브랜치의 PR이 main과 부딪혀 합칠 수 없는지 (모르면 false) */
+  conflicted?(dir: string, branch: string): Promise<boolean>
   /** 그 브랜치의 마지막 CI가 찍은 화면 그림 하나 (산출물 shots의 <name>.png). 없으면 null */
   shot(dir: string, branch: string, name: string): Promise<Buffer | null>
   /** 관리자 개인 규칙 파일 (맥 사본이 있으면 안내에 적는다) */
@@ -66,6 +68,8 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       fs.mkdirSync(base, { recursive: true })
       await git(root, ['fetch', 'origin', 'main'])
       await git(root, ['worktree', 'add', '-B', branch, dir, 'origin/main'])
+      // 에이전트가 바로 시험을 돌리게 의존성을 깐다 (받아 둔 저장소에서. 실패해도 에이전트가 다시 할 수 있다)
+      await exec('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: dir, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024 }).catch(() => undefined)
       return { dir, branch }
     },
     async dispose(dir) {
@@ -74,9 +78,6 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       await git(root, ['worktree', 'prune']).catch(() => undefined)
     },
     async submit(dir, branch, o) {
-      const open = JSON.parse(await gh(dir, ['pr', 'list', '--state', 'open', '--json', 'number,headRefName,title'])) as { number: number; headRefName: string; title: string }[]
-      const other = open.find((p) => p.headRefName !== branch)
-      if (other) throw new WorkbenchError(409, t(`다른 PR #${other.number}(「${other.title}」)이 열려 있어 올리지 않았습니다. 그 PR이 합쳐진 뒤 다시 올립니다`, `Another PR #${other.number} ("${other.title}") is open, so nothing was pushed. Submit again after it is merged`))
       await git(dir, ['add', '-A'])
       const staged = (await git(dir, ['diff', '--cached', '--name-only'])).trim()
       if (staged) await git(dir, ['commit', '-m', `${o.title}\n\n${o.body}`.trim()])
@@ -120,6 +121,12 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       await git(dir, ['push', 'origin', '--delete', branch]).catch(() => undefined)
       const m = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'mergeCommit'])) as { mergeCommit?: { oid?: string } | null }
       return { number: pr.number, sha: m.mergeCommit?.oid ?? '' }
+    },
+    async conflicted(dir, branch) {
+      const pr = await prOf(dir, branch)
+      if (!pr) return false
+      const v = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'mergeable'])) as { mergeable?: string }
+      return v.mergeable === 'CONFLICTING'
     },
     async shot(dir, branch, name) {
       if (!/^[\w-]+$/.test(name)) return null

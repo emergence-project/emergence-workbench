@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import YAML from 'yaml'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { AgentChats, appBriefFor, feedbackPrompt, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
+import { AgentChats, appBriefFor, feedbackPrompt, pictureImage, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
 import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from '@rw/core'
 import { sampleAppWork, type AppWork } from './appWorktree.js'
@@ -112,14 +112,14 @@ describe('피드백 맡기기 API', () => {
     expect((await app.inject({ method: 'POST', url: '/api/feedback/hand-off', payload: { key: REWORK } })).statusCode).toBe(400)
   })
 
-  it('한 번에 하나: 피드백을 맡은 대화가 도는 동안 다른 항목은 거절한다. 모르는 키 · 맡지 않은 대화도 거절', async () => {
+  it('같은 피드백을 맡은 대화가 도는 동안 그 항목은 다시 맡기지 않는다. 모르는 키 · 맡지 않은 대화도 거절', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/feedback/hand-off', payload: { key: NEW } })
     expect(res.statusCode, res.body).toBe(200)
     const id = res.json().chat.id as string
     // 첫 차례가 끝나기 전에 같은 대화에 이어서 지시해 붙잡아 둔다
     await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/messages`, payload: { text: 'hold' } })
     await vi.waitFor(() => expect(gate).not.toBeNull())
-    expect((await app.inject({ method: 'POST', url: '/api/feedback/hand-off', payload: { key: '2026-10-04 09:30 홈 › 할 일' } })).statusCode).toBe(409)
+    expect((await app.inject({ method: 'POST', url: '/api/feedback/hand-off', payload: { key: NEW } })).statusCode).toBe(409)
     gate!()
     await vi.waitFor(async () => expect((await get(id)).state).toBe('idle'))
     expect((await app.inject({ method: 'POST', url: '/api/feedback/hand-off', payload: { key: 'nope' } })).statusCode).toBe(404)
@@ -129,6 +129,17 @@ describe('피드백 맡기기 API', () => {
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${pid}/feedback/answer`, payload: { state: '답변', note: '답변: 있음' } })).statusCode).toBe(400)
     // state 없이 note만은 받지 않는다
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { note: 'x' } })).statusCode).toBe(400)
+  })
+
+  it('맡길 때 그림은 첫 지시에 붙이고, 너무 크거나 그림이 아니면 붙이지 않는다', () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-pic-'))
+    fs.writeFileSync(path.join(d, 'a.png'), Buffer.from([1, 2, 3]))
+    fs.writeFileSync(path.join(d, 'big.png'), Buffer.alloc(3_600_000))
+    fs.writeFileSync(path.join(d, 'a.txt'), 'x')
+    expect(pictureImage(path.join(d, 'a.png'))).toEqual([{ type: 'image/png', data: 'AQID' }])
+    expect(pictureImage(path.join(d, 'big.png'))).toBeUndefined()
+    expect(pictureImage(path.join(d, 'a.txt'))).toBeUndefined()
+    fs.rmSync(d, { recursive: true, force: true })
   })
 
   it('첫 지시와 안내', () => {
@@ -150,6 +161,7 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
   let ci: { done: boolean; ok: boolean; log?: string; link: string } = { done: false, ok: false, link: 'r1' }
   const merged: string[] = []
   let inApp: boolean | undefined
+  let conflicted = false
   let settings: AgentSettings = { ...DEFAULT_AGENT_SETTINGS }
   const runner: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     prompts.push(input.prompt)
@@ -169,6 +181,7 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
         return { ...r, done: ci.done, ok: ci.ok, checks: [{ name: 'check', state: ci.done ? (ci.ok ? 'SUCCESS' : 'FAILURE') : 'IN_PROGRESS', link: ci.link }], ...(ci.log ? { log: ci.log } : {}) }
       },
       async merge(_dir, branch) { merged.push(branch); return { number: 234, sha: 'abc1234def' } },
+      async conflicted() { return conflicted },
     }
     chats = new AgentChats({
       dir: path.join(tmp, 'chats'), runner, limit: 2,
@@ -189,7 +202,7 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     expect(chats.handOffOk).toBe(true)
   })
 
-  it('CI 빨강은 실패 기록을 대화에 다시 보내고(같은 실패는 한 번), 초록이면 설정대로 합치고, 앱에 들어오면 반영됨', async () => {
+  it('CI 빨강은 실패 기록을 대화에 다시 보내고(같은 실패는 한 번), 초록이면 설정대로 합치고(main과 부딪히면 풀라고 한 번), 앱에 들어오면 반영됨', async () => {
     const id = chats.handOff(REWORK).id
     await idle(id)
     await chats.appSubmit(id, { title: '목차', body: '' })
@@ -211,6 +224,17 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     await chats.tickFeedback()
     expect(merged).toEqual([])
     settings = { ...settings, merge: 'green' }
+    // main과 부딪히면 합치지 않고, 풀라고 한 번만 보낸다
+    conflicted = true
+    await chats.tickFeedback()
+    await idle(id)
+    expect(merged).toEqual([])
+    expect(prompts.at(-1)).toContain('git merge origin/main')
+    const m = prompts.length
+    await chats.tickFeedback()
+    await idle(id)
+    expect(prompts.length).toBe(m)
+    conflicted = false
     await chats.tickFeedback()
     expect(merged).toHaveLength(1)
     const row = chats.list().find((c) => c.id === id)!

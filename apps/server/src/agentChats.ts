@@ -6,8 +6,9 @@
  * - 고치는 동안 그 파일을 「잡은 파일」로 적어, 다른 대화가 같은 파일을 고치지 못하게 한다. 차례가 끝나면 푼다.
  * - 셸 명령 · 웹 · 모르는 도구는 허락 카드로 묻는다(사용자 차례). 「이 대화에서 늘」은 같은 명령에만.
  * - 동시에 도는 대화는 limit개(맥 메모리, 10/14)까지이고 넘치면 줄을 선다.
- * - 앱 고치기 대화(범위 app, 2단계 10/21 "앱 안 대화 + CI가 시험"): 앱 저장소의 따로 둔 작업 폴더(appWorktree.ts)에서
- *   파일만 고친다. 명령은 돌리지 않고, 커밋 · PR · CI 결과는 앱 MCP app_submit · app_checks로 앱에 맡긴다. 연구 프로젝트는 읽기만 한다.
+ * - 앱 고치기 대화(범위 app, 2단계 10/21, 10/22 사용자 결정 "권한 넓히기"): 앱 저장소의 따로 둔 작업 폴더(appWorktree.ts)에서
+ *   파일을 고치고 명령(시험 · 형식 검사 · 화면 그림)도 돌린다. 올리기 · PR · 합치기와 앱 서비스는 앱이 맡는다(app_submit · app_checks).
+ *   대화마다 자기 브랜치 · PR이라 다른 PR이 열려 있어도 올린다. 연구 프로젝트는 읽기만 한다.
  * 대화 기록은 앱 설정 폴더 agent-chats/<id>.json. 계약은 @rw/core/contract/agentChats.
  */
 import crypto from 'node:crypto'
@@ -42,8 +43,10 @@ export interface RunInput {
   /** 대화를 열 때 주는 짧은 안내 (범위 · 단계 · 다른 대화가 잡은 파일) */
   brief: string
   write: ChatWrite
-  /** 앱 고치기 대화: 그 대화 id (앱 MCP에 app_submit · app_checks를 붙이고, 파일 고치기 도구를 연다) */
+  /** 앱 고치기 대화: 그 대화 id (앱 MCP에 app_submit · app_checks를 붙이고, 파일 고치기 도구와 명령을 연다) */
   appChat?: string
+  /** 에이전트 프로세스에 더할 환경 변수 (앱 고치기 대화: 화면 그림 포트 등) */
+  env?: Record<string, string>
   canUseTool: (tool: string, input: Record<string, unknown>) => Promise<ToolDecision>
   signal: AbortSignal
 }
@@ -154,7 +157,13 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
   return { tool, summary: clip(JSON.stringify(input), 160) }
 }
 
-/** 앱 고치기 대화의 도구 판정 (judge가 부른다). 명령은 돌리지 않는다: 시험은 CI가 한다 */
+/**
+ * 앱 고치기 대화에서 에이전트가 직접 하지 않는 명령: 올리기 · PR · 합치기는 앱이(app_submit, 합치기 설정),
+ * 실사용 앱 서비스는 사용자가 다룬다. 나머지(시험 · 형식 검사 · 화면 그림 · 커밋 · main 받기)는 작업 폴더에서 돌린다.
+ */
+const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b|\bservice:|\blaunchctl\b|\bgit\s+worktree\b/
+
+/** 앱 고치기 대화의 도구 판정 (judge가 부른다) */
 function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict {
   const gated = ctx.mode === 'plan' && !ctx.planOk
   const readOnly: Verdict = { kind: 'deny', reason: t('읽기만 하는 대화라 고치지 않습니다', 'This conversation is read-only'), message: 'This conversation is read-only: do not change files. Tell the user what you would change instead.' }
@@ -172,11 +181,18 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
     return { kind: 'allow', claim: rel }
   }
   if (tool === 'Bash') {
-    return {
-      kind: 'deny',
-      reason: t('앱 고치기 대화는 명령을 돌리지 않습니다. 시험은 CI가 합니다', 'App conversations do not run commands; CI runs the tests'),
-      message: `Commands are not available here. Edit files only, then call ${MCP}${APP_SUBMIT} to commit, push and open the pull request; GitHub CI runs type-check, tests and screen pictures. Read the result with ${MCP}${APP_CHECKS}.`,
+    const cmd = str(input.command)
+    if (APP_OWNED.test(cmd)) {
+      return {
+        kind: 'deny',
+        reason: t('올리기 · PR · 합치기와 앱 서비스는 앱이 맡습니다', 'Pushing, PRs, merging and the app service are left to the app'),
+        message: `The app does this, not you: call ${MCP}${APP_SUBMIT} to commit, push and open or update the pull request, and ${MCP}${APP_CHECKS} for CI. Do not touch the running app service or other worktrees.`,
+      }
     }
+    if (ctx.write === 'read') return readOnly
+    if (gated) return notYet
+    if (ctx.mode === 'ask') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`명령 · ${clip(cmd, 80)}`, `Command · ${clip(cmd, 80)}`) }
+    return { kind: 'allow' }
   }
   if (tool.startsWith(MCP)) {
     const name = tool.slice(MCP.length)
@@ -272,13 +288,14 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     `Read CLAUDE.md first${o.rules ? `, then the maintainer's personal rules at ${o.rules} (they take precedence)` : ''}. Feedback handling rules: docs/feedback/agent.md.`,
     o.write === 'read'
       ? 'This conversation is read-only: do not change files. Tell the user what you would change.'
-      : 'Edit files directly inside this folder (Edit / Write). You cannot run commands: no tests, builds or git here.',
-    `When the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes the branch and opens the pull request (one open PR at a time; it refuses while another is open). GitHub CI then runs type-check, tests, build and screen pictures. Call ${APP_CHECKS} to read the result; if a check fails, read the log it returns, fix the files and call ${APP_SUBMIT} again.`,
-    'Because you cannot run anything, read the surrounding code and tests carefully before editing, and update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
+      : 'Edit files directly inside this folder (Edit / Write) and run commands here (Bash). Start with `pnpm install --frozen-lockfile --prefer-offline` if node_modules is missing.',
+    'Check your own work before submitting: `pnpm type-check`, `pnpm test` (or the one test file you touched, e.g. `pnpm --filter @rw/server exec vitest run src/<file>.test.ts`), and for screen changes `pnpm shots` and look at the pictures in shots/ yourself (SHOTS_PORT is already set for this conversation). Fix what fails before submitting.',
+    `Do not push, open or merge PRs yourself and do not touch the running app service: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes this conversation's own branch and opens or updates its pull request (other open PRs do not block it). GitHub CI then runs again. Call ${APP_CHECKS} to read the result; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
+    'Update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
     'Research projects are read-only here: do not change notes, records, tasks or flows.',
   ]
   if (o.feedback) lines.push(
-    `This conversation handles one app feedback item (the first message). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Look at its picture first if it has one.`,
+    `This conversation handles one app feedback item (the first message). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Its picture (the screen at the moment the user left it) is attached to the first message, and its spot is the data-ui name: find it with \`grep -rn 'data-ui="<spot>"' apps/web/src\`.`,
     `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures.`,
   )
   if (o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
@@ -607,22 +624,24 @@ export class AgentChats {
   }
 
   /**
-   * 피드백 하나를 새 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」). 한 번에 하나:
-   * 피드백을 맡은 대화가 도는 중이면 거절한다. 에이전트 차례가 아닌 항목(사용자 차례 · 완료)도 거절한다.
+   * 피드백 하나를 새 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」). 같은 항목은 한 대화만:
+   * 그 피드백을 맡은 대화가 도는 중이면 거절한다. 에이전트 차례가 아닌 항목(사용자 차례 · 완료)도 거절한다.
    */
   handOff(key: string): Chat {
     const fb = this.deps.feedback
     if (!this.deps.app || !fb) throw new WorkbenchError(404, t('이 맥에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)', 'Feedback cannot be handed to an agent on this Mac (needs the app repository and a feedback folder)'))
     if (this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
-    const busy = [...this.chats.values()].find((c) => c.feedback && LIVE.has(c.state))
-    if (busy) throw new WorkbenchError(409, t(`다른 피드백을 맡은 대화(「${busy.title}」)가 일하는 중입니다. 끝난 뒤 맡깁니다`, `Another feedback conversation ("${busy.title}") is working. Hand this one off after it finishes`))
+    const busy = [...this.chats.values()].find((c) => c.feedback === key && LIVE.has(c.state))
+    if (busy) throw new WorkbenchError(409, t(`이 피드백을 맡은 대화(「${busy.title}」)가 일하는 중입니다`, `A conversation ("${busy.title}") is already working on this feedback`))
     const e = listAllFeedback(fb.dir).find((x) => x.key === key)
     if (!e) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     const reasons = agentTurnReasons(e)
     if (!reasons.length) throw new WorkbenchError(400, t('에이전트 차례가 아닌 피드백입니다', 'This feedback is not the agent\'s turn'))
     const picture = e.picture ? path.join(fb.dir, e.picture) : undefined
     const title = `${t('피드백', 'Feedback')} · ${(e.status?.clean ?? e.text).replace(/\s+/g, ' ').trim()}`.slice(0, 60)
-    return this.create({ rid: APP_RID, text: feedbackPrompt(e, reasons, picture && fs.existsSync(picture) ? picture : undefined), title, mode: 'edit' }, { feedback: key })
+    const has = picture && fs.existsSync(picture) ? picture : undefined
+    const images = has ? pictureImage(has) : undefined
+    return this.create({ rid: APP_RID, text: feedbackPrompt(e, reasons, has), title, mode: 'edit', ...(images && { images }) }, { feedback: key })
   }
 
   /**
@@ -669,7 +688,8 @@ export class AgentChats {
    * 1. 맡은 대화의 PR이 CI 빨강이면 실패 기록을 그 대화에 다시 보내 고치게 한다 (두 번까지).
    * 2. CI 초록이면 설정대로 합친다: green = 바로, approved = 사용자가 그 답을 승인한 뒤, never = 합치지 않음.
    * 3. 합친 커밋이 지금 도는 앱에 들어오면 shipped (상단바 "#n 반영됨").
-   * 4. 저절로 맡기기(instant)면, 맡은 대화가 쉬고 있을 때 가장 오래된 에이전트 차례 하나를 맡긴다.
+   *    main과 부딪혀 합치지 못하면 그 대화에 main을 받아 풀라고 한 번 보낸다.
+   * 4. 저절로 맡기기(instant)면, 도는 대화가 한도보다 적을 때 가장 오래된 에이전트 차례 하나를 맡긴다.
    */
   async tickFeedback(): Promise<void> {
     const app = this.deps.app
@@ -697,13 +717,21 @@ export class AgentChats {
         const e = items.get(c.feedback!)
         const approved = !!e?.review && e.review.verdict === '승인' && (!e.status?.handled_at || e.review.at > e.status.handled_at)
         if (s.merge === 'never' || (s.merge === 'approved' && !approved)) continue
+        if (app.conflicted && (await app.conflicted(c.worktree, c.branch))) {
+          const sig = `conflict:${ck.checks.map((x) => x.link ?? x.name).join('|')}`
+          if (sig !== c.ciSeen) {
+            c.ciSeen = sig
+            this.send(c.id, { text: t('PR이 main과 부딪혀 합치지 못했습니다. `git fetch origin main && git merge origin/main`으로 받아 풀고, 확인한 뒤 다시 올려 주세요.', 'The PR conflicts with main, so it was not merged. Run `git fetch origin main && git merge origin/main`, resolve, check and submit again.') })
+          }
+          continue
+        }
         const m = await app.merge(c.worktree, c.branch)
         c.merged = m.sha || 'merged'
         c.items.push({ kind: 'text', at: now(), text: t(`PR #${m.number}을 합쳤습니다. 앱이 새 버전을 받아 쓰지 않는 틈에 다시 시작합니다.`, `Merged PR #${m.number}. The app picks up the new version and restarts when idle.`) })
         this.touch(c)
       } catch { /* gh · git 오류는 다음 차례에 다시 본다 */ }
     }
-    if (s.feedback !== 'instant' || [...this.chats.values()].some((c) => c.feedback && LIVE.has(c.state))) return
+    if (s.feedback !== 'instant' || this.running() + this.queue.length >= this.deps.limit) return
     const chats = [...this.chats.values()]
     const next = [...items.values()]
       .filter((e) => agentTurns(e).length && !chats.some((c) => c.feedback === e.key && new Date(c.created).getTime() >= lastTouched(e)))
@@ -919,7 +947,7 @@ export class AgentChats {
           ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback })
           : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })) }),
         write: c.write,
-        ...(app && { appChat: c.id }),
+        ...(app && { appChat: c.id, env: appEnv(c.id) }),
         canUseTool,
         signal: abort.signal,
       }
@@ -954,6 +982,21 @@ export class AgentChats {
       this.finish(c, ended)
     }
   }
+}
+
+/** 앱 고치기 대화의 환경: 대화마다 다른 화면 그림 포트, 맥의 Chrome (playwright 브라우저를 받지 않아도 되게) */
+export function appEnv(id: string): Record<string, string> {
+  const n = parseInt(crypto.createHash('sha1').update(id).digest('hex').slice(0, 6), 16)
+  const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  return { SHOTS_PORT: String(8200 + (n % 600)), ...(!process.env.CHROMIUM_PATH && fs.existsSync(chrome) && { CHROMIUM_PATH: chrome }) }
+}
+
+/** 피드백 그림을 첫 지시에 붙일 그림으로 (너무 크면 붙이지 않고 경로만) */
+export function pictureImage(file: string): ImageIn[] | undefined {
+  const type = ({ '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' } as const)[path.extname(file).toLowerCase() as '.png']
+  if (!type) return undefined
+  const buf = fs.readFileSync(file)
+  return buf.length <= 3_500_000 ? [{ type, data: buf.toString('base64') }] : undefined
 }
 
 const userItem = (m: ChatMessageBody, queued?: boolean): ChatItem => ({

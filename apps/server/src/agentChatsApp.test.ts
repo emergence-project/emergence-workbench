@@ -1,4 +1,4 @@
-// 앱 고치기 대화 (2단계, 10/21 "앱 안 대화 + CI가 시험"): 작업 폴더 안 파일만 고치고, 명령은 막고, PR · CI는 앱이 한다
+// 앱 고치기 대화 (2단계, 10/21 "앱 안 대화", 10/22 "권한 넓히기"): 작업 폴더에서 고치고 명령도 돌리며, 올리기 · PR · CI는 앱이 한다
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -20,12 +20,20 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx(), 'Edit', { file_path: `${repo}/../other/a.ts` }).kind).toBe('deny')
     expect(judge(ctx(), 'Write', { file_path: `${repo}/.git/config` }).kind).toBe('deny')
   })
-  it('명령은 어느 모드든 막고, 시험은 CI가 한다고 알린다', () => {
-    for (const mode of ['ask', 'plan', 'edit'] as const) {
-      const v = judge(ctx({ mode, planOk: true }), 'Bash', { command: 'pnpm test' })
-      expect(v).toMatchObject({ kind: 'deny' })
+  it('명령은 작업 폴더에서 돌린다: 고치기 바로는 그대로, 묻고 하기는 묻고, 계획 승인 전 · 읽기만은 막는다', () => {
+    expect(judge(ctx({ mode: 'edit' }), 'Bash', { command: 'pnpm test' })).toEqual({ kind: 'allow' })
+    expect(judge(ctx({ mode: 'ask' }), 'Bash', { command: 'pnpm test' })).toMatchObject({ kind: 'ask', key: 'Bash:pnpm test' })
+    expect(judge(ctx({ mode: 'plan' }), 'Bash', { command: 'pnpm test' }).kind).toBe('deny')
+    expect(judge(ctx({ mode: 'plan', planOk: true }), 'Bash', { command: 'pnpm test' }).kind).toBe('allow')
+    expect(judge(ctx({ write: 'read' }), 'Bash', { command: 'pnpm test' }).kind).toBe('deny')
+  })
+  it('올리기 · PR · 합치기 · 앱 서비스 명령은 어느 모드든 앱에 맡기라고 막는다', () => {
+    for (const command of ['git push origin HEAD', 'gh pr merge 3', 'gh pr create --fill', 'pnpm service:restart', 'launchctl kickstart x', 'git worktree remove ../a']) {
+      const v = judge(ctx({ mode: 'edit' }), 'Bash', { command })
+      expect(v.kind, command).toBe('deny')
       expect(v.kind === 'deny' && v.message).toContain('app_submit')
     }
+    expect(judge(ctx({ mode: 'edit' }), 'Bash', { command: 'git commit -am x && git fetch origin main && git merge origin/main' }).kind).toBe('allow')
   })
   it('묻고 하기는 파일 · PR 올리기를 묻고, 계획 먼저는 승인 전에 막고, 읽기만은 늘 막는다', () => {
     expect(judge(ctx({ mode: 'ask' }), 'Edit', { file_path: 'a.ts' })).toMatchObject({ kind: 'ask', key: 'edit:a.ts', claim: 'a.ts' })
@@ -47,7 +55,8 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     const b = appBriefFor({ branch: 'claude/app-1234abcd', write: 'notes', mode: 'plan', rules: '/cfg/personal/CLAUDE.md' })
     expect(b).toContain('claude/app-1234abcd')
     expect(b).toContain('/cfg/personal/CLAUDE.md')
-    expect(b).toContain('cannot run commands')
+    expect(b).toContain('pnpm type-check')
+    expect(b).toContain('git merge origin/main')
     expect(b).toContain('ExitPlanMode')
     expect(fileEditOf('Edit', { old_string: 'a\nb', new_string: 'c' })).toEqual({ parts: [{ old: 'a\nb', new: 'c' }], added: 1, removed: 2 })
     expect(fileEditOf('Write', { content: 'x\ny' })).toMatchObject({ added: 2, removed: 0 })
@@ -92,7 +101,7 @@ describe('앱 고치기 대화 API', () => {
     fs.rmSync(tmp, { recursive: true, force: true })
   })
 
-  it('목록이 앱 고치기를 열 수 있다고 알리고, 대화는 작업 폴더에서 돌며 파일 고침 · PR이 남는다. 명령은 막힌다', async () => {
+  it('목록이 앱 고치기를 열 수 있다고 알리고, 대화는 작업 폴더에서 돌며 파일 고침 · PR이 남고, 명령을 돌린다', async () => {
     expect((await app.inject({ method: 'GET', url: '/api/agent-chats' })).json().app).toBe(true)
     const res = await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: '_app', text: '메뉴가 잘린다' } })
     expect(res.statusCode, res.body).toBe(200)
@@ -109,8 +118,9 @@ describe('앱 고치기 대화 API', () => {
     expect(chat.pr).toEqual({ number: 77, url: 'https://example.test/pull/77' })
     expect(chat.changed).toEqual(['apps/web/src/a.css'])
     expect(chat.items.find((i: { kind: string }) => i.kind === 'edit')).toMatchObject({ file: 'apps/web/src/a.css', added: 1, removed: 1 })
-    expect(chat.items.find((i: { kind: string }) => i.kind === 'blocked')).toMatchObject({ tool: 'Bash' })
-    expect(chat.items.find((i: { kind: string }) => i.kind === 'text').text).toBe('edited no-shell 200')
+    expect(chat.items.find((i: { kind: string }) => i.kind === 'blocked')).toBeUndefined()
+    expect(chat.items.find((i: { kind: string }) => i.kind === 'text').text).toBe('edited ran 200')
+    expect(input.env?.SHOTS_PORT).toMatch(/^\d+$/)
     expect(submitted).toEqual([{ dir: input.cwd, branch: appBranch(id), title: '메뉴 고침' }])
     const checks = await app.inject({ method: 'GET', url: `/api/agent-chats/${id}/app/checks` })
     expect(checks.statusCode, checks.body).toBe(200)

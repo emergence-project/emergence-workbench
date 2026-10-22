@@ -185,7 +185,7 @@ describe('대화 API', () => {
     expect(seen.at(-1)!.sessionId).toBe(`s${seen.length - 1}`)
     const list = (await app.inject({ method: 'GET', url: `/api/agent-chats?rid=${rid}` })).json()
     expect(list.chats.some((x: { id: string }) => x.id === c.id)).toBe(true)
-    expect(list.limit).toBe(2)
+    expect(list.limit).toBe(3)
   })
 
   it('셸 명령은 허락 카드를 띄우고 사용자가 답할 때까지 기다린다. 「늘」은 같은 명령을 다시 묻지 않는다', async () => {
@@ -227,6 +227,7 @@ describe('대화 API', () => {
   it('동시에 limit개까지 돌고 넘치면 줄을 서며, 멈추면 다음이 돈다. 도는 대화는 지우지 못한다', async () => {
     const a = await create({ text: 'wait' })
     const b = await create({ text: 'wait' })
+    const b2 = await create({ text: 'wait' })
     const c = await create({ text: '요약' })
     await settle(c.id, 'queued')
     expect((await app.inject({ method: 'DELETE', url: `/api/agent-chats/${a.id}` })).statusCode).toBe(409)
@@ -235,6 +236,8 @@ describe('대화 API', () => {
     await settle(c.id)
     await app.inject({ method: 'POST', url: `/api/agent-chats/${b.id}/stop` })
     await settle(b.id, 'stopped')
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${b2.id}/stop` })
+    await settle(b2.id, 'stopped')
     expect((await app.inject({ method: 'DELETE', url: `/api/agent-chats/${a.id}` })).statusCode).toBe(200)
     expect((await app.inject({ method: 'GET', url: `/api/agent-chats/${a.id}` })).statusCode).toBe(404)
   })
