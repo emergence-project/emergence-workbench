@@ -115,6 +115,15 @@ try {
         else if (c.state === 'idle') break
         await new Promise((r) => setTimeout(r, 100))
       }
+      // 곁 질문 하나 (작은 모델이 대화 요약만 보고 답하는 점선 카드)
+      if (done) {
+        await fetch(`${base}api/agent-chats/${done}/side`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: options.lang === 'en' ? 'Which degree did the note check before?' : '노트는 원래 차수 몇까지 확인했어?' }) })
+        for (let i = 0; i < 40; i++) {
+          const c = (await (await fetch(`${base}api/agent-chats/${done}`)).json()).chat
+          if (c.items.some((x) => x.kind === 'side' && (x.answer || x.error))) break
+          await new Promise((r) => setTimeout(r, 100))
+        }
+      }
     }
     if (hash.includes('{appchat}') && !appchat) {
       // 앱 고치기 대화 하나 (2단계): 예제 실행기가 파일 하나를 고치고, 앱 MCP가 하듯 PR 올리기를 부른다 (예제 작업 폴더는 정해 둔 PR #234)
