@@ -18,11 +18,9 @@ body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] 
 .fb-pop textarea:focus { outline: none; border-color: var(--line-strong); background: var(--bg); }
 .fb-pop > * { flex-shrink: 0; }
 .fb-preview { min-height: 0; max-height: calc(var(--sp-6) * 3); overflow: auto; font-size: var(--fs-sm); color: var(--text-2); }
-.fb-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
-/* 좁은 창에서 줄이지 않고 다음 줄로 (10/22 맥미니: "GitHub에 보내기"가 있으면 수정·질문·제안이 한 글자씩 끊김) */
+/* 유형 고르기와 의견 등록만 한 줄에 (10/22 10:04: GitHub에 보내기가 있는 컴퓨터에서 의견 등록이 다음 줄로 밀렸다. 공개 이슈는 하나씩 보내지 않아 창에서 뺐다) */
+.fb-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .fb-actions > * { flex-shrink: 0; white-space: nowrap; }
-/* GitHub에 보내기는 저장·취소와 떨어진 왼쪽에 (공개로 나가는 행동이라 저장과 헷갈리지 않게) */
-.fb-actions .fb-send { margin-right: auto; }
 .fb-list { position: fixed; z-index: calc(var(--z-feedback) + 2); right: 16px; bottom: 70px; width: 380px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); }
 .fb-list-head { display: flex; align-items: center; margin-bottom: var(--sp-2); justify-content: space-between; }
 .fb-entry { padding: var(--sp-2) 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
@@ -142,7 +140,6 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbp-compose-row .sp { flex: 1; }
 .fb-pop-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
 .fb-actions .fb-kind { margin-right: auto; }
-.fb-actions .fb-kind ~ .fb-send { margin-right: 0; }
 
 /* 대화 머리 태그의 설명: 대화 아래 각주 (10/11 12:38) */
 .fbp-notes-k { display: inline-flex; align-items: center; gap: 2px; }
