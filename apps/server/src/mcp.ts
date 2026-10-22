@@ -562,10 +562,10 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     })
     server.registerTool('app_checks', {
       title: 'PR checks',
-      description: 'The CI result of this conversation\'s pull request: each check and its state, done / ok, and the end of the failed log when a check failed. Call again later while checks are still running.',
-      inputSchema: {},
+      description: 'The CI result of this conversation\'s pull request: each check and its state, done / ok, and the end of the failed log when a check failed. Pass wait (minutes, up to 10) to wait here until the checks finish instead of calling again; do not sleep in a shell to wait.',
+      inputSchema: { wait: z.number().min(0).max(10).optional().describe('Minutes to wait for the checks to finish (default 0 = answer now)') },
       annotations: ro,
-    }, async () => call(`/api/agent-chats/${chat}/app/checks`))
+    }, async ({ wait }) => call(`/api/agent-chats/${chat}/app/checks${wait ? `?wait=${wait}` : ''}`))
     server.registerTool('feedback_answer', {
       title: 'Record feedback handling',
       description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only.',

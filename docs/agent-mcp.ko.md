@@ -62,7 +62,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `answer_record` | 질문 · 지시 기록 아래에 답을 쓴다 `{ target, id, answer }`. 지시는 먼저 그 일을 하고(노트는 `edit_note`) 답한다. 답 머리에 에이전트 이름이 붙고 기록은 답함이 된다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target/:id/answers` |
 | `add_record` | 사용자에게 남기는 기록 `{ file 또는 target, kind: 질문 \| 메모, text, quote?, line? }`. `by`에 에이전트 이름이 적힌다. 질문은 사용자에게 확인 · 결정을 부탁하는 것(예: 에이전트가 쓴 노트의 한 곳, `quote`로 그 자리에 붙인다)으로, 사용자가 앱에서 답할 때까지 사용자 차례다(앱에서 주황, 홈 "확인 필요"에 셈). 사용자가 답하면 `### 답 · 사용자`가 붙고 답함이 된다. 답은 `read_records`로 읽는다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target` |
 | `app_submit` | 앱 고치기 대화(앱 안에서 앱 자체를 고치는 에이전트, 10/21) 안에서만. 그 대화의 작업 폴더(따로 둔 git worktree)에서 바뀐 것을 모두 커밋해 `claude/app-…` 브랜치를 올리고 PR `{ title, body }`을 연다(이미 있으면 더한다). 대화마다 자기 브랜치라 다른 PR이 열려 있어도 올린다. 그 대화의 에이전트는 작업 폴더에서 검사(형식 검사 · 시험 · 화면 그림)를 스스로 돌리지만, 올리기 · PR · 합치기와 앱 서비스는 하지 않는다. GitHub CI가 한 번 더 돌린다 | `POST /api/agent-chats/:id/app/submit` |
-| `app_checks` | 앱 고치기 대화 안에서만. 그 PR의 CI: 검사마다 상태, `done`, `ok`, 실패한 기록의 끝부분 | `GET /api/agent-chats/:id/app/checks` |
+| `app_checks` | 앱 고치기 대화 안에서만. 그 PR의 CI: 검사마다 상태, `done`, `ok`, 실패한 기록의 끝부분. `wait`(분, 10까지)를 주면 끝날 때까지 기다린다 | `GET /api/agent-chats/:id/app/checks` |
 | `feedback_answer` | 피드백을 맡은 앱 고치기 대화 안에서만(피드백 화면의 「에이전트에게 맡기기」). 처리 기록(`status.yaml`)을 앱이 적는다: 상태와 답, 또는 코멘트 답. 수정 요청을 다시 처리하면 그 전 처리를 `revised`로 옮긴다. `after` = 그 PR의 CI가 찍은 화면 그림 이름, 남길 때 그림과 함께 전/후로 둔다 | `POST /api/agent-chats/:id/feedback/answer` |
 
 ## 지키는 것

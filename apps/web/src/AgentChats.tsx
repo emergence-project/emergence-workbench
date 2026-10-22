@@ -133,6 +133,9 @@ const COMMANDS: { cmd: string; label: string; text: string }[] = [
   { cmd: t('/문헌', '/papers'), label: t('근거 문헌을 찾아 노트에 잇기', 'Find supporting papers and link them'), text: t('이 노트의 주장마다 근거가 되는 문헌을 라이브러리에서 찾아 이어 줘. 없으면 무엇이 없는지 알려 줘.', 'For each claim in this note, find a supporting paper in the library and link it. Tell me where none exists.') },
   { cmd: t('/흐름', '/flow'), label: t('한 일을 흐름 점으로 정리', 'Turn the work into flow dots'), text: t('이번에 한 일을 흐름 점으로 정리해 줘 (한 일 하나에 점 하나).', 'Add the work done here to the flow (one dot per piece of work).') },
   { cmd: t('/요약', '/summary'), label: t('오늘 이 프로젝트에서 한 일', 'What happened in this project today'), text: t('오늘 이 프로젝트에서 한 일을 짧게 요약해 줘.', 'Summarize briefly what happened in this project today.') },
+  // Claude Code 명령: 그대로 보낸다 (에이전트가 아니라 Claude Code가 처리)
+  { cmd: '/compact', label: t('앞 내용을 요약해 맥락 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact' },
+  { cmd: '/context', label: t('맥락이 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context' },
 ]
 
 const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record') }
@@ -421,7 +424,7 @@ const reviewOf = (rid: string, file: string) => go({ page: 'review', key: `note:
 function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, { kind: 'edit' }>; onChanges?(): void }) {
   return (
     <li className="ac-edit-line" data-ui="노트 고침 줄">
-      <span className="ac-edit-what">{chat.rid === APP_RID ? t('파일 고침', 'Edited file') : t('노트 고침', 'Edited')}</span>
+      <span className="ac-edit-what">{it.via === 'command' ? t('명령으로 고침', 'Changed by a command') : chat.rid === APP_RID ? t('파일 고침', 'Edited file') : t('노트 고침', 'Edited')}</span>
       <span className="mono ac-file" title={it.file}>{it.file}</span>
       <Delta added={it.added} removed={it.removed} />
       {(onChanges || chat.rid !== APP_RID) && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={() => (onChanges ? onChanges() : reviewOf(chat.rid, it.file))}>{onChanges ? t('바뀐 곳 보기', 'View changes') : t('수정 검토에서 보기', 'Open in edit review')}</button>}
@@ -461,6 +464,12 @@ function ItemView({ chat, it, onError, onChanges }: { chat: Chat; it: Exclude<Ch
       </li>
     )
     case 'error': return <li className="ac-note error-text" data-ui="대화 오류">! {it.text}</li>
+    case 'compact': return (
+      <li className="ac-note muted" data-ui="앞 내용 요약" title={when}>
+        {it.auto ? t('앞 내용을 요약해 이어 갑니다', 'Summarized earlier messages to keep going') : t('앞 내용을 요약했습니다', 'Summarized earlier messages')}
+        {` · ${t('맥락', 'Context')} ${tokensName(it.before)}${it.after !== undefined ? ` → ${tokensName(it.after)}` : ''}`}
+      </li>
+    )
   }
 }
 
@@ -905,7 +914,8 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
         {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} />)}
-        {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={t('일하는 중', 'Working')} label /></li>}
+        {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('일하는 중', 'Working')} label /></li>}
+        {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
         {canResume && <li className="ac-note"><button className="btn sm" data-ui="이어 하기" onClick={() => void resume()}>{t('이어 하기', 'Continue')}</button><span className="muted ac-hint">{t('같은 대화에서 멈춘 곳부터', 'From where it stopped, in the same conversation')}</span></li>}
       </ol>
       <div className="ac-compose">

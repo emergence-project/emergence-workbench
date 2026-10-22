@@ -830,5 +830,7 @@
   "최신으로": "Jump to latest",
   "이어 하기": "Continue",
   "사용량": "Usage",
-  "대화 알림": "Conversation alerts"
+  "대화 알림": "Conversation alerts",
+  "앞 내용 요약": "Summary of earlier messages",
+  "뒤에서 도는 명령": "Background commands"
 }

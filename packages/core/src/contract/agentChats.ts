@@ -71,8 +71,11 @@ export const ChatItem = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional() }).strict(),
   /** 할 일 목록 (한 차례에 하나, 바뀌면 그 자리에서 고친다) */
   z.object({ kind: z.literal('todos'), at: z.string(), todos: z.array(Todo) }).strict(),
-  /** 노트 고침 (edit_note를 허락한 때). 되돌리기는 수정 검토에서 */
-  z.object({ kind: z.literal('edit'), at: z.string(), file: z.string(), parts: z.array(EditPart), added: z.number(), removed: z.number(), reason: z.string().optional() }).strict(),
+  /**
+   * 노트 고침 (edit_note를 허락한 때). 되돌리기는 수정 검토에서.
+   * via = command: 앱 고치기 대화가 고치기 도구 대신 명령(sed · 스크립트 등)으로 바꾼 파일. 차례가 끝날 때 작업 폴더의 git diff에서 찾는다
+   */
+  z.object({ kind: z.literal('edit'), at: z.string(), file: z.string(), parts: z.array(EditPart), added: z.number(), removed: z.number(), reason: z.string().optional(), via: z.literal('command').optional() }).strict(),
   /** 앱이 막은 일 (범위 밖 고치기, 다른 대화가 잡은 파일 등) */
   z.object({ kind: z.literal('blocked'), at: z.string(), tool: z.string(), reason: z.string() }).strict(),
   /**
@@ -81,6 +84,8 @@ export const ChatItem = z.discriminatedUnion('kind', [
    */
   z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number() }).strict().optional() }).strict(),
   z.object({ kind: z.literal('error'), at: z.string(), text: z.string() }).strict(),
+  /** 앞 내용을 요약해 이어 감 (Claude Code의 맥락 줄이기). auto = 맥락이 커져 저절로, before · after = 줄이기 전후 맥락 토큰 */
+  z.object({ kind: z.literal('compact'), at: z.string(), auto: z.boolean(), before: z.number(), after: z.number().optional() }).strict(),
 ])
 
 export const ChatRow = z.object({
@@ -113,6 +118,13 @@ export const ChatRow = z.object({
   /** 앱이 그 PR을 합친 커밋, 그리고 그 커밋이 지금 도는 앱에 들어왔는지 (상단바 "#n 반영됨") */
   merged: z.string().optional(),
   shipped: z.boolean().optional(),
+  /**
+   * 차례가 끝나도 에이전트를 잠시 열어 둔다(Claude Code처럼): live = 열려 있음(다음 지시를 바로 받고, 일하는 중에 보낸 말도 그 차례에 섞어 읽는다),
+   * tasks = 뒤에서 도는 명령 수(끝나면 에이전트가 저절로 이어서 일한다), compacting = 앞 내용을 요약하는 중
+   */
+  live: z.boolean().optional(),
+  tasks: z.number().optional(),
+  compacting: z.boolean().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
