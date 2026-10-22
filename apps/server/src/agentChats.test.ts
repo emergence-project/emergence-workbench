@@ -109,6 +109,9 @@ describe('SDK 메시지', () => {
     expect(eventsOf({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0.1 })).toEqual([{ type: 'result', ok: true, cost: 0.1 }])
     expect(eventsOf({ type: 'result', subtype: 'error_max_turns', errors: ['too long'] })).toEqual([{ type: 'result', ok: false, error: 'too long' }])
     expect(eventsOf({ type: 'stream_event' })).toEqual([])
+    // 토큰(캐시 포함)과 마지막 요청의 맥락 크기 · 맥락 창
+    expect(eventsOf({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 100, cache_creation_input_tokens: 20 }, modelUsage: { 'claude-opus-5-5': { contextWindow: 200_000 } } }, 3_000))
+      .toEqual([{ type: 'result', ok: true, tokens: { in: 130, out: 5 }, context: { used: 3_000, window: 200_000 } }])
   })
   it('모델 목록: 이름 · 실제 id · 받는 생각 깊이, 계약에 맞지 않는 id · 깊이는 뺀다', () => {
     expect(choicesOf([
@@ -252,6 +255,39 @@ describe('대화 API', () => {
     expect((await app.inject({ method: 'GET', url: `/api/agent-chats/${a.id}` })).statusCode).toBe(404)
   })
 
+  it('줄 선 대화를 멈추면 자리가 비지 않았으니 다음 줄 선 대화는 그대로 기다린다', async () => {
+    const running = [await create({ text: 'wait' }), await create({ text: 'wait' }), await create({ text: 'wait' })]
+    const c = await create({ text: '요약' })
+    const d = await create({ text: '요약' })
+    await settle(d.id, 'queued')
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/stop` })
+    await settle(c.id, 'stopped')
+    expect((await get(d.id)).state).toBe('queued')
+    for (const r of running) await app.inject({ method: 'POST', url: `/api/agent-chats/${r.id}/stop` })
+    await settle(d.id)
+  })
+
+  it('멈춰서 읽지 못한 지시는 남았다가 이어 하기와 함께 읽고, 답하지 못한 카드는 「멈춤」으로 닫힌다', async () => {
+    const c = await create({ text: 'wait' })
+    await settle(c.id, 'running')
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이것도 해 줘' } })
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/stop` })
+    await settle(c.id, 'stopped')
+    expect((await get(c.id)).items.some((i: { queued?: boolean }) => i.queued)).toBe(true)
+    const r = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/resume` })
+    expect(r.statusCode, r.body).toBe(200)
+    await settle(c.id)
+    expect(seen.at(-1)!.prompt).toContain('이것도 해 줘')
+    expect(seen.at(-1)!.prompt).toContain('이어서 해 주세요')
+    expect((await get(c.id)).items.some((i: { queued?: boolean }) => i.queued)).toBe(false)
+    // 허락 카드를 기다리다 멈추면 거절이 아니라 닫힘
+    const b = await create({ text: 'bash once' })
+    await settle(b.id, 'waiting')
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${b.id}/stop` })
+    await settle(b.id, 'stopped')
+    expect((await get(b.id)).items.find((i: { kind: string }) => i.kind === 'ask')).toMatchObject({ answer: 'deny', expired: true })
+  })
+
   it('계획 먼저: 할 일은 한 줄로 고쳐지고, 계획을 승인하면 고친 노트가 고침 카드와 바뀐 파일로 남는다', async () => {
     const file = 'workbench/topics/gauge/fix/note.md'
     const c = await create({ text: `plan ${file}`, mode: 'plan' })
@@ -368,7 +404,7 @@ describe('앱이 다시 켜지면', () => {
     const c = chats.get('c1')
     expect(c.state).toBe('stopped')
     expect(c.claims).toEqual([])
-    expect(c.items[0]).toMatchObject({ kind: 'ask', answer: 'deny' })
+    expect(c.items[0]).toMatchObject({ kind: 'ask', answer: 'deny', expired: true })
     expect(c.items.at(-1)!.kind).toBe('error')
     fs.rmSync(dir, { recursive: true, force: true })
   })

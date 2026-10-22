@@ -214,3 +214,18 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-tab > .ac-chat { min-width: 0; }
 .ac-tab .ac-items > *, .ac-tab .ac-compose > * { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
 .ac-tab .ac-items > .ac-me { width: auto; margin-right: max(0px, calc((100% - 760px) / 2)); }
+
+/* 글 복사 (내 지시 · 에이전트 글 · 계획): 오른쪽 위, 올려 두거나 고르면 보이고 좁은 패널에서는 늘 */
+.ac-me, .ac-text { position: relative; }
+.ac-copy { opacity: 0; }
+.ac-me > .ac-copy, .ac-text > .ac-copy { position: absolute; top: 2px; right: 2px; background: var(--bg); }
+.ac-me > .ac-copy { background: var(--bg-sunken); }
+.ac-me:hover > .ac-copy, .ac-text:hover > .ac-copy, .ac-card-head:hover .ac-copy, .ac-card:hover .ac-copy, .ac-copy:focus-visible { opacity: 1; }
+.ac-panel .ac-copy { opacity: 1; }
+.ac-panel .ac-text { padding-right: 28px; }
+.ac-panel .ac-me { padding-right: 32px; }
+/* 위로 올려 읽는 중에 새 줄이 오면: 입력란 위 가운데 「최신으로」 */
+.ac-compose { position: relative; }
+.ac-compose > .ac-latest { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: auto; margin: 0 0 var(--sp-2); box-shadow: var(--shadow); background: var(--bg); }
+.ac-latest svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ac-usage { display: flex; flex-direction: column; gap: 2px; }

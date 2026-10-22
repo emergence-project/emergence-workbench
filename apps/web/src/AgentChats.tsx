@@ -51,6 +51,25 @@ function Delta({ added, removed }: { added: number; removed: number }) {
   return <span className="ac-delta"><span className="ac-add">+{added}</span><span className="ac-del">−{removed}</span></span>
 }
 
+/** 토큰 수: 1.2k · 48k · 1.3M */
+export function tokensName(n: number): string {
+  if (n < 1000) return String(n)
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`
+  return `${(n / 1_000_000).toFixed(1)}M`
+}
+/** Claude Code가 주는 비용은 쓴 토큰을 API 요금으로 친 값이다. 구독 로그인이면 따로 청구되지 않는다 */
+const costName = (usd: number) => t(`API 가격으로 약 $${usd.toFixed(2)} (구독 로그인이면 청구되지 않음)`, `About $${usd.toFixed(2)} at API prices (not billed on a subscription login)`)
+
+/** 글 복사 (내 지시 · 에이전트 글 · 계획). 누르면 잠깐 체크 */
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false)
+  const copy = () => void navigator.clipboard?.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 1500) }, () => undefined)
+  return <button className="icon-btn sm ac-copy" data-ui="글 복사" data-tip={done ? t('복사했습니다', 'Copied') : t('복사', 'Copy')} aria-label={t('복사', 'Copy')} onClick={copy}>{done ? Icon.check : Icon.copy}</button>
+}
+
+/** 입력란을 바깥에서 채울 때 (기다리는 지시 고치기). n이 바뀌면 채운다 */
+type Fill = { text: string; n: number; attach?: Attach[]; images?: ImageIn[] }
+
 // ---------- 맡기는 정도 · 모델 · 생각 깊이 ----------
 
 /** 맡기는 정도: 읽기만(write read) 또는 고치는 대화의 모드 셋 */
@@ -306,6 +325,7 @@ function useAnswer(chat: Chat, id: string, onError: (m: string) => void) {
 type Ask = Extract<ChatItem, { kind: 'ask' }>
 
 const answeredName = (it: Ask): string => {
+  if (it.expired) return t('답하기 전에 멈춤', 'Stopped before an answer')
   if (it.plan !== undefined) {
     if (it.answer === 'deny') return t('계획을 고쳐 달라고 함', 'Asked to revise the plan')
     return it.mode ? t(`계획 승인함 · ${TRUST_NAME[it.mode]}`, `Plan approved · ${TRUST_NAME[it.mode]}`) : t('계획 승인함', 'Plan approved')
@@ -344,6 +364,8 @@ function PlanCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: strin
       <div className="ac-card-head">
         {!it.answer && <span className="turn-dot" aria-hidden />}
         <b>{it.answer ? answeredName(it) : t('계획', 'Plan')}</b>
+        <span className="sp" />
+        <CopyButton text={it.plan ?? ''} />
       </div>
       <MemoText text={it.plan ?? ''} />
       {it.note && <div className="muted ac-hint">{t('한 말', 'Said')}: {it.note}</div>}
@@ -425,14 +447,19 @@ function ItemView({ chat, it, onError, onChanges }: { chat: Chat; it: Exclude<Ch
       <li className="ac-me" data-ui="내 지시" title={when}>
         <MemoText text={it.text} />
         <AttachChips attach={it.attach} images={it.images} />
+        <CopyButton text={it.text} />
       </li>
     )
-    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /></li>
+    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><CopyButton text={it.text} /></li>
     case 'ask': return it.plan !== undefined ? <PlanCard chat={chat} it={it} onError={onError} /> : <AskCard chat={chat} it={it} onError={onError} />
     case 'todos': return null
     case 'edit': return <EditLine chat={chat} it={it} onChanges={onChanges} />
     case 'blocked': return <li className="ac-note" data-ui="막은 일"><span className="ac-tool mono">{it.tool}</span><span>{t('막음', 'Blocked')} · {it.reason}</span></li>
-    case 'result': return <li className="ac-note muted" data-ui="차례 끝">{it.ok ? `✓ ${t('이번 차례 끝', 'Turn done')}` : t('이번 차례 실패', 'Turn failed')}{it.seconds !== undefined && ` · ${secondsName(it.seconds)}`}{it.cost !== undefined && it.cost > 0 && ` · $${it.cost.toFixed(2)}`}</li>
+    case 'result': return (
+      <li className="ac-note muted" data-ui="차례 끝" title={it.cost ? costName(it.cost) : undefined}>
+        {it.ok ? `✓ ${t('이번 차례 끝', 'Turn done')}` : t('이번 차례 실패', 'Turn failed')}{it.seconds !== undefined && ` · ${secondsName(it.seconds)}`}{it.tokens && ` · ${t('토큰', 'Tokens')} ${tokensName(it.tokens.in + it.tokens.out)}`}
+      </li>
+    )
     case 'error': return <li className="ac-note error-text" data-ui="대화 오류">! {it.text}</li>
   }
 }
@@ -529,7 +556,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
   placeholder: string
   fail?: string | null
   /** 바깥에서 글 칸을 채울 때 (기다리는 지시 고치기). n이 바뀌면 채운다 */
-  fill?: { text: string; n: number }
+  fill?: Fill
   autoFocus?: boolean
 }) {
   const [text, setText] = useState('')
@@ -546,7 +573,14 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
   useInbox(rid, (got) => { setAttach((a) => [...a, ...got]); box.current?.focus() })
   const autoKey = auto ? `${auto.kind}:${auto.ref}` : ''
   useEffect(() => setAutoOff(false), [autoKey])
-  useEffect(() => { if (fill) { setText(fill.text); setCaret(fill.text.length); box.current?.focus() } }, [fill?.n]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!fill) return
+    setText(fill.text); setCaret(fill.text.length)
+    // 기다리던 지시를 고칠 때 붙인 것 · 그림도 함께 돌아온다
+    if (fill.attach?.length) setAttach((a) => [...a, ...fill.attach!])
+    if (fill.images?.length) setImages((xs) => [...xs, ...fill.images!.map((im, i) => ({ ...im, name: t(`그림 ${i + 1}`, `Image ${i + 1}`) }))].slice(0, 4))
+    box.current?.focus()
+  }, [fill?.n]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const menu = (() => { const m = menuAt(text, caret); return m && m.start !== closed ? m : null })()
   // 앱 고치기 대화는 연구 프로젝트가 아니라 @로 붙일 노트 · 주제가 없다
@@ -596,7 +630,10 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
   }
   const onDrop = (e: DragEvent) => {
     const files = [...e.dataTransfer.files]
-    if (files.length) { e.preventDefault(); void addImages(files) }
+    if (!files.length) return
+    e.preventDefault()
+    // 그림이 아닌 파일은 조용히 사라지지 않게 알린다
+    void addImages(files).then((ok) => { if (!ok) setFail(research ? t('그림만 끌어 놓을 수 있습니다. 노트 · 파일은 @로 붙이세요', 'Only images can be dropped. Attach notes and files with @') : t('그림만 끌어 놓을 수 있습니다', 'Only images can be dropped')) })
   }
 
   const all = [...(auto && !autoOff ? [auto] : []), ...attach]
@@ -770,12 +807,12 @@ function HeadMore({ live, archived, onArchive, onRemove }: { live: boolean; arch
 }
 
 /** 입력란 위: 도는 동안 보낸 말 (다음 차례에 읽는다). 연필은 빼서 입력란으로, ×는 빼기 */
-function QueuedBar({ chat, onEdit, onError }: { chat: Chat; onEdit(text: string): void; onError(m: string): void }) {
+function QueuedBar({ chat, onEdit, onError }: { chat: Chat; onEdit(f: Omit<Fill, 'n'>): void; onError(m: string): void }) {
   const client = useQueryClient()
   const queued = chat.items.filter((i): i is Extract<ChatItem, { kind: 'user' }> => i.kind === 'user' && !!i.queued)
   if (!queued.length) return null
   const unqueue = async (i: number) => {
-    try { client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.unqueue(chat.id, i)); return true } catch (e) { onError((e as Error).message); return false }
+    try { const r = await agentChatsApi.unqueue(chat.id, i); client.setQueryData(qk.agentChat(chat.id), r.chat); return r } catch (e) { onError((e as Error).message); return null }
   }
   return (
     <div className="ac-bar" data-ui="다음에 보냄">
@@ -783,7 +820,7 @@ function QueuedBar({ chat, onEdit, onError }: { chat: Chat; onEdit(text: string)
         <div key={q.at + i} className="ac-bar-line ac-queued">
           <span className="muted ac-queued-h">{t('다음에 보냄', 'Sends next')}</span>
           <span className="ac-bar-text" title={q.text}>{q.text}</span>
-          <button className="icon-btn sm" data-ui="기다리는 지시 고치기" data-tip={t('입력란에서 고치기', 'Edit in the input')} aria-label={t('고치기', 'Edit')} onClick={async () => { if (await unqueue(i)) onEdit(q.text) }}>{Icon.pencil}</button>
+          <button className="icon-btn sm" data-ui="기다리는 지시 고치기" data-tip={t('입력란에서 고치기', 'Edit in the input')} aria-label={t('고치기', 'Edit')} onClick={async () => { const r = await unqueue(i); if (r) onEdit({ text: q.text, attach: q.attach, images: r.images }) }}>{Icon.pencil}</button>
           <button className="icon-btn sm" data-ui="기다리는 지시 빼기" data-tip={t('빼기', 'Remove')} aria-label={t('빼기', 'Remove')} onClick={() => void unqueue(i)}>{Icon.x}</button>
         </div>
       ))}
@@ -805,14 +842,31 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const client = useQueryClient()
   const { data: chat, error } = useChat(id)
   const [fail, setFail] = useState<string | null>(null)
-  const [fill, setFill] = useState<{ text: string; n: number }>()
+  const [fill, setFill] = useState<Fill>()
   const listRef = useRef<HTMLOListElement>(null)
+  // 맨 아래를 보고 있을 때만 새 줄을 따라 내려간다. 위로 올려 읽는 중이면 「최신으로」를 보인다
+  const atEnd = useRef(true)
+  const [behind, setBehind] = useState(false)
   // 고른 설정은 서버 답을 기다리지 않고 바로 보이고(over), 고친 순서대로 하나씩 보낸다 (⇧⇥를 빨리 눌러도 하나도 잃지 않게)
   const [over, setOver] = useState<Partial<Settings>>({})
   const saving = useRef({ chain: Promise.resolve(), n: 0 })
   useEffect(() => setOver({}), [id])
-  const n = chat?.items.length ?? 0
-  useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight }, [n, id])
+  // 대화는 마지막 400줄만 두어 줄 수가 그대로일 수 있다: 바뀐 시각으로 본다
+  const changed = chat?.updated
+  useEffect(() => { atEnd.current = true; setBehind(false) }, [id])
+  useEffect(() => {
+    const el = listRef.current
+    if (!el) return
+    if (atEnd.current) el.scrollTop = el.scrollHeight
+    else setBehind(true)
+  }, [changed, id])
+  const onScroll = () => {
+    const el = listRef.current
+    if (!el) return
+    atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+    if (atEnd.current) setBehind(false)
+  }
+  const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
   const live = isLive(chat.state)
   const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, ...over }
@@ -831,10 +885,14 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   }
   const send = async (m: ChatMessageBody) => {
     setFail(null)
+    askNotify()
     client.setQueryData(qk.agentChat(id), await agentChatsApi.send(id, m))
     return true
   }
   const stop = async () => { try { client.setQueryData(qk.agentChat(id), await agentChatsApi.stop(id)) } catch (e) { setFail((e as Error).message) } }
+  const resume = async () => { setFail(null); try { client.setQueryData(qk.agentChat(id), await agentChatsApi.resume(id)) } catch (e) { setFail((e as Error).message) } }
+  // 오류 · 멈춤(앱 재시작 포함)으로 끝난 대화는 같은 세션에서 이어 한다
+  const canResume = chat.state === 'error' || chat.state === 'stopped'
   const placeholder = chat.state === 'waiting' ? t('위 카드에 답하거나 이어서 쓰기', 'Answer the card above, or keep writing')
     : chat.state === 'queued' ? t('앞 대화가 끝나면 시작합니다 · 이어서 쓰기', 'Starts when a running conversation finishes · keep writing')
       : live ? t('보내면 다음 차례에 읽습니다', 'Sent now, read next turn')
@@ -844,13 +902,16 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   return (
     <div className="ac-chat" data-ui="에이전트 대화">
       {head && <ChatHead chat={chat} pane={pane} onPane={onPane} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
-      <ol ref={listRef} className="ac-items" data-ui="대화 줄들">
+      <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
+        {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
         {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} />)}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={t('일하는 중', 'Working')} label /></li>}
+        {canResume && <li className="ac-note"><button className="btn sm" data-ui="이어 하기" onClick={() => void resume()}>{t('이어 하기', 'Continue')}</button><span className="muted ac-hint">{t('같은 대화에서 멈춘 곳부터', 'From where it stopped, in the same conversation')}</span></li>}
       </ol>
       <div className="ac-compose">
+        {behind && <button className="btn sm ac-latest" data-ui="최신으로" onClick={toEnd}>{Icon.down}{t('최신으로', 'Latest')}</button>}
         {showTodos && <TodoBar todos={chat.todos} />}
-        <QueuedBar chat={chat} onEdit={(text) => setFill({ text, n: Date.now() })} onError={setFail} />
+        <QueuedBar chat={chat} onEdit={(f) => setFill({ ...f, n: Date.now() })} onError={setFail} />
         <Composer rid={chat.rid} auto={auto} settings={settings} onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
           placeholder={placeholder} fail={fail} fill={fill} />
         <div className="muted ac-keys">{t('⇧⇥ 맡기는 정도 · ⌘↵ 보내기', '⇧⇥ hand-over level · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
@@ -883,6 +944,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const change = (s: Partial<Settings>) => { const v = { ...settings, ...s }; setSettings(v); store.set(SETTINGS_KEY, v) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
+    askNotify()
     const c = await agentChatsApi.create({ rid, ...m, scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort })
     void client.invalidateQueries({ queryKey: qk.agentChats })
     onCreated(c)
@@ -1007,6 +1069,8 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
   const cost = results.reduce((s, r) => s + (r.cost ?? 0), 0)
   const secs = results.reduce((s, r) => s + (r.seconds ?? 0), 0)
+  const tokens = results.reduce((s, r) => s + (r.tokens ? r.tokens.in + r.tokens.out : 0), 0)
+  const context = [...results].reverse().find((r) => r.context)?.context
   const forget = async (label: string) => client.setQueryData(qk.agentChat(id), await agentChatsApi.forget(id, label))
   const trust = trustOf(chat)
   const hasEdits = chat.items.some((i) => i.kind === 'edit')
@@ -1037,7 +1101,13 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
           {agents.map((s, i) => <div key={i} className="ac-work-row"><span className="ac-file" title={s.summary}>{s.summary}</span></div>)}
         </section>
       )}
-      {!!results.length && <div className="muted ac-hint ac-usage">{t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)}{secs > 0 && ` · ${secondsName(secs)}`}{cost > 0 && ` · $${cost.toFixed(2)}`}</div>}
+      {!!results.length && (
+        <div className="muted ac-hint ac-usage" data-ui="사용량">
+          <div>{t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)}{secs > 0 && ` · ${secondsName(secs)}`}{tokens > 0 && ` · ${t('토큰', 'Tokens')} ${tokensName(tokens)}`}</div>
+          {context && <div>{t('맥락', 'Context')} {Math.round((context.used / context.window) * 100)}% ({tokensName(context.used)} / {tokensName(context.window)})</div>}
+          {cost > 0 && <div>{costName(cost)}</div>}
+        </div>
+      )}
     </aside>
   )
 }
@@ -1126,9 +1196,58 @@ export function ShippedNotice() {
 }
 
 /** 레일 배지: 답을 기다리는 대화 수 (사용자 차례) */
+// ---------- 알림 (10/22): 일하던 대화가 답을 마치거나 · 내 차례가 되거나 · 오류로 멈추면 맥 알림 ----------
+
+const NOTIFY_KEY = 'rw-agent-notify'
+/** 대화 알림을 켰는가 (설정 › 에이전트, 기본 켬) */
+export const notifyOn = () => store.get<boolean>(NOTIFY_KEY, true)
+export const setNotifyOn = (v: boolean) => store.set(NOTIFY_KEY, v)
+/** 맥(브라우저)이 알림을 허락했는가: granted · denied · default(아직 묻지 않음) · none(알림이 없는 곳) */
+export const notifyPermission = (): NotificationPermission | 'none' => (typeof Notification === 'undefined' ? 'none' : Notification.permission)
+/** 알림 허락을 묻는다 (누르는 때에만 물을 수 있다: 보내기 · 설정의 버튼) */
+export function askNotify(): void {
+  if (notifyOn() && notifyPermission() === 'default') void Notification.requestPermission()
+}
+
+/** 알릴 바뀜: 일하던(돌거나 기다리거나 줄 선) 대화가 내 차례(허락 · 계획) · 끝남 · 오류로. 알리지 않으면 null */
+export function notifyWhy(before: ChatState | undefined, c: Pick<ChatRow, 'state' | 'wait'>): string | null {
+  if (!before || before === c.state) return null
+  if (c.state === 'waiting') return stateName(c)
+  if (!isLive(before)) return null
+  if (c.state === 'idle') return t('답을 마쳤습니다', 'Finished its reply')
+  if (c.state === 'error') return t('오류로 멈췄습니다', 'Stopped with an error')
+  return null
+}
+
+/** 대화 목록을 보고 바뀐 대화를 알린다. 창을 보고 있으면 알리지 않는다(레일의 수가 보인다). 알림을 누르면 그 대화로 */
+export function useAgentNotify(): void {
+  const list = useChatList().data?.chats
+  const last = useRef<Map<string, ChatState> | null>(null)
+  useEffect(() => {
+    if (!list) return
+    const before = last.current
+    last.current = new Map(list.map((c) => [c.id, c.state]))
+    if (!before || !notifyOn() || notifyPermission() !== 'granted' || (document.hasFocus() && !document.hidden)) return
+    for (const c of list) {
+      const why = notifyWhy(before.get(c.id), c)
+      if (!why) continue
+      const show = (body: string) => {
+        const n = new Notification(c.title, { body, tag: `agent-${c.id}` })
+        n.onclick = () => { window.focus(); go({ page: 'agent', id: c.id }); n.close() }
+      }
+      // 답을 마쳤으면 마지막 글 앞부분을 함께
+      if (c.state !== 'idle') { show(why); continue }
+      agentChatsApi.get(c.id).then((chat) => {
+        const text = [...chat.items].reverse().find((i): i is Extract<ChatItem, { kind: 'text' }> => i.kind === 'text' && !i.sub)?.text
+        show(text ? `${why} · ${text.replace(/\s+/g, ' ').slice(0, 140)}` : why)
+      }, () => show(why))
+    }
+  }, [list])
+}
+
 export function AgentRailCount() {
   const list = useChatList().data?.chats
-  const n = list?.filter((c) => c.state === 'waiting').length ?? 0
+  const n = list?.filter(myTurn).length ?? 0
   return n ? <span className="rail-count" title={t(`답을 기다리는 대화 ${n}개`, `${n} conversation(s) waiting for you`)}>{n}</span> : null
 }
 

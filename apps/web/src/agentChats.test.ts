@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blocksOf, commentMessage, effortsOf, fitEffort, fitMenu, menuAt, modelName, nextTrust, stepsSummary, trustOf } from './AgentChats'
+import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, fitMenu, menuAt, modelName, nextTrust, stepsSummary, trustOf } from './AgentChats'
 
 describe('에이전트 입력란', () => {
   it('/ 명령은 맨 앞에서만, @ 붙이기는 낱말 앞 어디서나 연다', () => {
@@ -34,6 +34,20 @@ describe('에이전트 입력란', () => {
     expect(fitEffort('max', ['low', 'medium', 'high'])).toEqual({ effort: 'medium' })
     expect(fitEffort('high', ['low', 'medium', 'high'])).toEqual({})
     expect(fitEffort('max', [])).toEqual({})
+  })
+  it('알림은 일하던 대화가 내 차례 · 끝남 · 오류가 될 때만', () => {
+    expect(notifyWhy('running', { state: 'waiting', wait: 'plan' })).toBe('계획 승인 기다림')
+    expect(notifyWhy('running', { state: 'idle' })).toBe('답을 마쳤습니다')
+    expect(notifyWhy('waiting', { state: 'error' })).toBe('오류로 멈췄습니다')
+    expect(notifyWhy('waiting', { state: 'running' })).toBeNull()
+    expect(notifyWhy('stopped', { state: 'idle' })).toBeNull()
+    expect(notifyWhy(undefined, { state: 'idle' })).toBeNull()
+  })
+  it('토큰 수는 짧게', () => {
+    expect(tokensName(950)).toBe('950')
+    expect(tokensName(4_250)).toBe('4.3k')
+    expect(tokensName(48_200)).toBe('48k')
+    expect(tokensName(1_250_000)).toBe('1.3M')
   })
   it('입력란 메뉴는 패널 · 창 끝에서 잘리지 않게 뒤집고 민다', () => {
     const view = { top: 100, bottom: 700, left: 900, right: 1200 }

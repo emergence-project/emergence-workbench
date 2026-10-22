@@ -55,7 +55,7 @@ export type RunEvent =
   | { type: 'session'; id: string }
   | { type: 'text'; text: string; sub?: boolean }
   | { type: 'tool'; tool: string; input: Record<string, unknown>; sub?: boolean }
-  | { type: 'result'; ok: boolean; cost?: number; seconds?: number; error?: string }
+  | { type: 'result'; ok: boolean; cost?: number; seconds?: number; error?: string; tokens?: { in: number; out: number }; context?: { used: number; window: number } }
 
 /** 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음) */
 export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]> }
@@ -471,11 +471,8 @@ export class AgentChats {
           // 앱이 다시 켜지면 돌던 차례는 이어지지 않는다
           c.state = 'stopped'
           c.claims = []
-          c.pending = []
-          for (const it of c.items) {
-            if (it.kind === 'ask' && !it.answer) it.answer = 'deny'
-            if (it.kind === 'user') delete it.queued
-          }
+          // 도는 동안 보낸 지시는 그대로 두었다가 다음 지시와 함께 읽는다 (사라지지 않게)
+          for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true }
           c.items.push({ kind: 'error', at: now(), text: t('앱이 다시 켜져 멈췄습니다. 이어서 지시하면 다시 시작합니다', 'Stopped because the app restarted. Send a message to continue') })
           this.write(c)
         }
@@ -554,6 +551,14 @@ export class AgentChats {
     return wireOf(c)
   }
 
+  /** 오류 · 멈춤 · 앱 재시작 뒤 이어 하기 (같은 세션에 "이어서" 한 마디, 기다리던 지시가 있으면 그것과 함께) */
+  resume(id: string): Chat {
+    const c = this.must(id)
+    if (LIVE.has(c.state)) throw new WorkbenchError(409, t('이미 일하는 중입니다', 'It is already working'))
+    this.start(c, { text: t('이어서 해 주세요.', 'Please continue.') })
+    return wireOf(c)
+  }
+
   /** 읽기만 · 모드 · 모델 · 생각 깊이 (다음 차례부터) */
   settings(id: string, s: ChatSettings): Chat {
     const c = this.must(id)
@@ -589,16 +594,16 @@ export class AgentChats {
   }
 
   /** 도는 동안 보내 기다리는 지시 하나 빼기 (고쳐 쓰려면 빼고 다시 보낸다) */
-  unqueue(id: string, index: number): Chat {
+  unqueue(id: string, index: number): { chat: Chat; images?: ImageIn[] } {
     const c = this.must(id)
     const pending = c.pending ?? []
     if (index >= pending.length) throw new WorkbenchError(409, t('이미 읽었거나 없는 지시입니다', 'This message was already read or does not exist'))
-    pending.splice(index, 1)
+    const [gone] = pending.splice(index, 1)
     let n = -1
     const at = c.items.findIndex((it) => it.kind === 'user' && it.queued && ++n === index)
     if (at >= 0) c.items.splice(at, 1)
     this.touch(c)
-    return wireOf(c)
+    return { chat: wireOf(c), ...(gone?.images?.length && { images: gone.images }) }
   }
 
   /** 보관함에 넣기 · 꺼내기 (지우지 않고 목록에서만 숨긴다) */
@@ -800,7 +805,7 @@ export class AgentChats {
   }
 
   private write(c: Stored): void {
-    if (c.items.length > MAX_ITEMS) c.items.splice(0, c.items.length - MAX_ITEMS)
+    if (c.items.length > MAX_ITEMS) c.trimmed = (c.trimmed ?? 0) + c.items.splice(0, c.items.length - MAX_ITEMS).length
     fs.writeFileSync(this.fileOf(c.id), JSON.stringify(c, null, 1))
   }
 
@@ -820,8 +825,12 @@ export class AgentChats {
   }
 
   private start(c: Stored, m: ChatMessageBody): void {
+    // 멈추거나 실패해 읽지 못한 지시가 있으면 먼저 읽는다
+    const pending = c.pending ?? []
+    c.pending = []
+    for (const it of c.items) if (it.kind === 'user' && it.queued) delete it.queued
     c.items.push(userItem(m))
-    this.begin(c, promptOf(m.text, m.attach), m.images)
+    this.begin(c, [...pending.map((p) => p.prompt), promptOf(m.text, m.attach)].join('\n\n'), [...pending.flatMap((p) => p.images ?? []), ...(m.images ?? [])].slice(0, 4))
   }
 
   private begin(c: Stored, prompt: string, images?: ImageIn[]): void {
@@ -838,14 +847,17 @@ export class AgentChats {
     c.state = state
     c.claims = []
     const pending = c.pending ?? []
-    c.pending = []
-    for (const it of c.items) if (it.kind === 'user' && it.queued) delete it.queued
-    this.touch(c)
-    // 일하는 중에 받은 지시: 차례가 잘 끝났으면 이어서 읽는다 (멈추거나 실패하면 지시로만 남는다)
+    // 일하는 중에 받은 지시: 차례가 잘 끝났으면 이어서 읽는다. 멈추거나 실패하면 "다음에 보냄"에 남아 다음 지시 · 이어 하기와 함께 읽는다
     if (state === 'idle' && pending.length) {
+      c.pending = []
+      for (const it of c.items) if (it.kind === 'user' && it.queued) delete it.queued
+      this.touch(c)
       this.begin(c, pending.map((p) => p.prompt).join('\n\n'), pending.flatMap((p) => p.images ?? []).slice(0, 4))
       return
     }
+    this.touch(c)
+    // 줄 선 대화를 멈춘 때처럼 자리가 비지 않았으면 다음 대화를 시작하지 않는다
+    if (this.running() >= this.deps.limit) return
     const next = this.queue.shift()
     if (next) {
       const n = this.chats.get(next.id)
@@ -921,7 +933,7 @@ export class AgentChats {
         const a = got.answer
         this.asks.delete(id)
         const it = c.items.find((x) => x.kind === 'ask' && x.id === id)
-        if (it && it.kind === 'ask' && !it.answer) it.answer = a
+        if (it && it.kind === 'ask' && !it.answer) { it.answer = a; if (abort.signal.aborted) it.expired = true }
         // 계획 카드의 「늘」은 이 차례만 (계획마다 다시 본다)
         if (a === 'always' && v.plan === undefined) c.alwaysKeys = [...(c.alwaysKeys ?? []), { key: v.key, label: v.label }]
         if (c.state === 'waiting') c.state = 'running'
@@ -968,7 +980,7 @@ export class AgentChats {
           continue
         }
         if (e.type === 'result') {
-          this.push(c, { kind: 'result', at: now(), ok: e.ok, ...(e.cost !== undefined && { cost: e.cost }), ...(e.seconds !== undefined && { seconds: e.seconds }) })
+          this.push(c, { kind: 'result', at: now(), ok: e.ok, ...(e.cost !== undefined && { cost: e.cost }), ...(e.seconds !== undefined && { seconds: e.seconds }), ...(e.tokens && { tokens: e.tokens }), ...(e.context && { context: e.context }) })
           if (!e.ok && e.error) this.push(c, { kind: 'error', at: now(), text: e.error.slice(0, MAX_TEXT) })
           if (!e.ok) ended = 'error'
         }
@@ -984,7 +996,7 @@ export class AgentChats {
       if (limit) clearTimeout(limit)
       if (overtime) c.items.push({ kind: 'error', at: now(), text: t(`한 차례 한도 ${minutes}분을 넘어 멈췄습니다. 이어서 지시하면 다시 시작합니다`, `Stopped after the ${minutes}-minute limit. Send a message to continue`) })
       this.aborts.delete(c.id)
-      for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; this.asks.delete(it.id) }
+      for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.delete(it.id) }
       this.finish(c, ended)
     }
   }
@@ -1025,4 +1037,4 @@ const rowOf = (c: Stored): ChatRow => {
     ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), created: c.created, updated: c.updated,
   }
 }
-const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })) })
+const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

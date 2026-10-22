@@ -14,9 +14,14 @@ import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contra
 import { claudeEnv } from './ask.js'
 
 type Block = { type: string; text?: string; name?: string; input?: unknown }
+type Usage = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }
+
+/** 넣은 토큰 (캐시에서 읽은 것 · 캐시에 쓴 것 포함) */
+const inputOf = (u: Usage) => (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
 
 /** SDK 메시지 하나를 대화 사건으로 (모르는 것은 버린다) */
-export function eventsOf(m: { type: string; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean; total_cost_usd?: number; duration_ms?: number; errors?: string[]; result?: string }): RunEvent[] {
+/** context = 이 차례 마지막 요청의 맥락 크기 (주 에이전트의 마지막 응답에서, 실행기가 세어 넘긴다) */
+export function eventsOf(m: { type: string; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean; total_cost_usd?: number; duration_ms?: number; errors?: string[]; result?: string; usage?: Usage; modelUsage?: Record<string, { contextWindow?: number }> }, context?: number): RunEvent[] {
   if (m.type === 'system' && m.subtype === 'init' && m.session_id) return [{ type: 'session', id: m.session_id }]
   if (m.type === 'assistant') {
     const sub = m.parent_tool_use_id ? true : undefined
@@ -31,7 +36,15 @@ export function eventsOf(m: { type: string; subtype?: string; session_id?: strin
   if (m.type === 'result') {
     const ok = m.subtype === 'success' && !m.is_error
     const error = ok ? undefined : (m.errors?.join('\n') || (m.is_error ? m.result : undefined) || m.subtype)
-    return [{ type: 'result', ok, ...(typeof m.total_cost_usd === 'number' && { cost: m.total_cost_usd }), ...(typeof m.duration_ms === 'number' && { seconds: Math.round(m.duration_ms / 1000) }), ...(error && { error }) }]
+    const window = Math.max(0, ...Object.values(m.modelUsage ?? {}).map((x) => x.contextWindow ?? 0))
+    return [{
+      type: 'result', ok,
+      ...(typeof m.total_cost_usd === 'number' && { cost: m.total_cost_usd }),
+      ...(typeof m.duration_ms === 'number' && { seconds: Math.round(m.duration_ms / 1000) }),
+      ...(m.usage && { tokens: { in: inputOf(m.usage), out: m.usage.output_tokens ?? 0 } }),
+      ...(context && window && { context: { used: context, window } }),
+      ...(error && { error }),
+    }]
   }
   return []
 }
@@ -105,9 +118,12 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
         env: { ...claudeEnv(), ...input.env },
       },
     })
+    let context = 0
     try {
       for await (const m of q) {
-        for (const e of eventsOf(m as Parameters<typeof eventsOf>[0])) {
+        const msg = m as Parameters<typeof eventsOf>[0] & { message?: { usage?: Usage } }
+        if (msg.type === 'assistant' && !msg.parent_tool_use_id && msg.message?.usage) context = inputOf(msg.message.usage) + (msg.message.usage.output_tokens ?? 0)
+        for (const e of eventsOf(msg, context)) {
           yield e
           if (e.type === 'result') done()
         }
