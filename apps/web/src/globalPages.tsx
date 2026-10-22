@@ -91,7 +91,7 @@ export const GLOBAL_PAGES: {
     side: (p) => <NetworkSide person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     render: (p) => <NetworkPage person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     badge: () => <NetworkRailCount /> },
-  // 에이전트 대화 (10/21 사용자 결정 "프로젝트 관리 먼저"): 모든 프로젝트의 대화. 상단바 반짝이는 지금 프로젝트의 대화를 오른쪽 사이드바 자리에.
+  // 에이전트 대화 (10/21 사용자 결정 "프로젝트 관리 먼저"): 모든 프로젝트의 대화. 프로젝트 안에서는 오른쪽 사이드바의 에이전트 탭이 지금 프로젝트의 대화 (10/22 안 A).
   // 띠에서는 홈 바로 아래 (10/21 피드백 "중요한 거니까 위로" · 사용자 "홈 아래는 어때?")
   { page: 'agent', label: '에이전트', name: t('에이전트', 'Agents'), aria: t('에이전트 대화', 'Agent conversations'), tip: t('에이전트 — 프로젝트마다 맡긴 대화', 'Agents: conversations you handed work to, per project'), icon: Icon.spark, rail: 'home',
     side: (p) => <AgentSide id={p.route.page === 'agent' ? p.route.id : undefined} />,

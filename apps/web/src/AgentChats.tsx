@@ -16,7 +16,7 @@ import { useDismiss } from './useDismiss'
  * 에이전트 대화 (10/21 "프로젝트 관리 먼저", 같은 날 "에이전트 창 구조 다시" · "코덱스와 Claude 앱 더 참고"):
  * 앱이 맥의 Claude Code를 띄워 프로젝트 하나 · 일 하나의 대화를 돌린다(서버 agentChats.ts).
  * - 레일 "에이전트" 화면(AgentPage · AgentSide): 모든 프로젝트의 대화 목록 · 대화 · 오른쪽 세부 패널(바뀐 곳 · 작업)
- * - 상단바 반짝이(AgentPanel): 지금 프로젝트의 대화를 오른쪽 사이드바 자리에서. 지금 보는 노트가 저절로 붙는다
+ * - 오른쪽 사이드바의 에이전트 탭(AgentPanel, 10/22 안 A): 지금 프로젝트의 대화. 지금 보는 노트가 저절로 붙는다
  * - 입력란(Composer): / 명령 · @ 붙이기 · 그림, 아래 줄 ＋ · 맡기는 정도 ▾ · 모델 · 생각 ▾ · 보내기(도는 중에는 멈추기)
  * - 대화: 에이전트 글은 본문처럼, 도구는 "n초 동안 일함 ›" 한 줄로 접고, 계획 · 허락은 번호 붙은 세 답(1 · 2 · 3)
  * - 입력란 바로 위: 할 일 한 줄, 도는 동안 보낸 말("다음에 보냄")
@@ -1357,7 +1357,7 @@ export function AgentRailCount() {
   return n ? <span className="rail-count" title={t(`답을 기다리는 대화 ${n}개`, `${n} conversation(s) waiting for you`)}>{n}</span> : null
 }
 
-// ---------- 상단바 반짝이: 오른쪽 사이드바 자리의 패널 ----------
+// ---------- 오른쪽 사이드바의 에이전트 탭 패널 ----------
 
 /** 패널 자리: 오른쪽 사이드바 자리 · 작업 화면 아래 (나란히는 대화를 노트 옆 패널의 탭으로 연다) */
 export type AgentPlace = 'right' | 'bottom'
@@ -1442,6 +1442,19 @@ function PanelChat({ id, auto, onDeleted, onSaved }: { id: string; auto?: Attach
 const DOCK_KEY = 'rw-agent-dock-h'
 
 /** 작업 화면 아래 자리: 위 경계를 끌어 높이를 바꾼다 (높이는 기억한다) */
+/** 패널 자리가 작업 화면 아래일 때 오른쪽 사이드바의 에이전트 탭: 그 자리를 알리고 열고 닫거나 이리로 옮긴다 */
+export function AgentBelow({ open, onOpen, onHere }: { open: boolean; onOpen(v: boolean): void; onHere(): void }) {
+  return (
+    <div className="ac-below rs-pad" data-ui="에이전트 아래 자리 안내">
+      <p className="muted">{open ? t('에이전트 패널은 작업 화면 아래에 열려 있습니다.', 'The agent panel is open below the workspace.') : t('에이전트 패널을 작업 화면 아래에 두었습니다.', 'The agent panel is placed below the workspace.')}</p>
+      <div className="ac-below-acts">
+        <button className="btn sm" onClick={() => onOpen(!open)}>{open ? t('아래 패널 닫기', 'Close the panel below') : t('아래 패널 열기', 'Open the panel below')}</button>
+        <button className="btn sm" onClick={onHere}>{t('여기로 옮기기', 'Move it here')}</button>
+      </div>
+    </div>
+  )
+}
+
 export function AgentDock({ children }: { children: ReactNode }) {
   const [h, setH] = useState(() => store.get<number>(DOCK_KEY, 320))
   const drag = (e: React.PointerEvent) => {

@@ -202,7 +202,11 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ws-col > .ws { flex: 1; min-height: 0; }
 .ac-dock { flex: none; position: relative; display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--line); background: var(--bg); }
 .ac-dock-edge { position: absolute; left: 0; right: 0; top: -3px; height: 6px; cursor: row-resize; z-index: 1; }
+.ac-below { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ac-below-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .ac-dock-edge:hover, body.resizing .ac-dock-edge { background: var(--line-strong); }
+.ac-below { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ac-below-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .ac-dock > .ac-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .ac-panel.bottom .ac-panel-list { flex-direction: row; align-items: flex-start; gap: var(--sp-5); }
 .ac-panel.bottom .ac-panel-list > .ac-new { flex: 1; min-width: 0; max-width: 720px; }

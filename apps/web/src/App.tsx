@@ -2,7 +2,7 @@ import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type Chat, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
-import { AGENT_OPEN, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
+import { AGENT_OPEN, AgentBelow, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
 import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
@@ -31,7 +31,7 @@ import { blockTarget, commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEX
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNoteEditor } from './Library'
 import { QuickMemo } from './memo'
-import { OPEN_RIGHT, setRightMode } from './noteScreen'
+import { OPEN_RIGHT, setRightMode, useRightMode } from './noteScreen'
 import { RecordsPanel } from './RecordsPanel'
 import { recordPdfTab, recordRoute } from './recordsPanelHelpers'
 import { NoInfo, NoteInfo, RightSidebar } from './RightSidebar'
@@ -104,19 +104,25 @@ export function App() {
   }, [route])
   const [error, setError] = useState<string | null>(null)
   const [layout, setLayout] = useLayout(rid)
-  /** 상단바 반짝이: 오른쪽 사이드바 자리를 에이전트 패널로 (10/21) */
+  /** 에이전트 패널은 오른쪽 사이드바의 에이전트 탭이다 (10/22 안 A). 자리를 작업 화면 아래로 옮겼을 때 그 패널이 열려 있는지 */
   const [agentPanel, setAgentPanel] = useState(false)
+  const rightMode = useRightMode()
   /** 패널 자리 (10/21 시안 코멘트 "아래로 내리거나 창 분할"): 오른쪽 사이드바 자리 · 작업 화면 아래. 나란히는 대화를 노트 옆 패널의 탭으로 연다 */
   const [agentPlace, setAgentPlaceState] = useState<AgentPlace>(() => store.get<AgentPlace>('rw-agent-place', 'right'))
-  const setAgentPlace = (v: AgentPlace) => { setAgentPlaceState(v); store.set('rw-agent-place', v); if (v === 'right') setLayout((l) => (l.ctx ? l : { ...l, ctx: true })) }
+  const setAgentPlace = (v: AgentPlace) => {
+    setAgentPlaceState(v); store.set('rw-agent-place', v)
+    if (v === 'right') { setAgentPanel(false); setRightMode('agent'); setLayout((l) => (l.ctx ? l : { ...l, ctx: true })) } else setAgentPanel(true)
+  }
+  /** 아래 자리에서 에이전트 탭을 고르면 아래 패널을 연다 */
+  useEffect(() => { if (rightMode === 'agent' && agentPlace === 'bottom' && layout.ctx) setAgentPanel(true) }, [rightMode, agentPlace, layout.ctx])
   const [recordOpenRequest, setRecordOpenRequest] = useState<WorkspaceOpenRequest | null>(null)
   const workspaceDragging = useWorkspaceDragging()
   // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT)
   useEffect(() => {
     const open = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
     const ask = () => { setRightMode('records'); open() }
-    // 노트의 고른 글 메뉴 「에이전트에게」 (AgentChats.tsx의 sendToAgent): 상단바 패널을 연다
-    const agent = () => { setAgentPanel(true); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') open() }
+    // 노트의 고른 글 메뉴 「에이전트에게」 (AgentChats.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 탭(아래 자리면 아래 패널)을 연다
+    const agent = () => { setRightMode('agent'); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') open(); else setAgentPanel(true) }
     window.addEventListener(OPEN_CONTEXT, ask)
     window.addEventListener(OPEN_RIGHT, open)
     window.addEventListener(AGENT_OPEN, agent)
@@ -431,9 +437,6 @@ export function App() {
     }
   }
 
-  /** 패널이 오른쪽 사이드바 자리에 있는지 · 어디든 보이는지 */
-  const agentRight = agentPanel && agentPlace === 'right'
-  const agentShown = agentPanel && (agentPlace === 'bottom' || layout.ctx)
   /** 지금 칸에서 보는 노트 (에이전트 입력란에 저절로 붙는다) */
   const noteOfPane = (i: number) => {
     const p = layout.panes[i]
@@ -446,6 +449,7 @@ export function App() {
   const openChatBeside = (id: string) => {
     setLayout((l) => { const p = l.panes[l.split ? l.focus : 0]; return showBeside(l, { k: 'chat', chat: id }, p.active ?? '') })
     setAgentPanel(false)
+    if (rightMode === 'agent') setRightMode('info')
   }
   const agentPanelOf = (key: string) => rid ? <AgentPanel key={key} rid={rid} note={agentNote} onSaved={flash} place={agentPlace} onPlace={setAgentPlace} onBeside={openChatBeside} /> : null
 
@@ -458,15 +462,8 @@ export function App() {
       )}
       <TopBar crumbs={crumbs} heading={!pageH1} leftToggle={(!!rid && !globalPage) || !!globalSide} sideOpen={sideOpen} onSide={() => setSideOpen((v) => !v)}
         project={!!rid && !globalPage} split={workspaceVisibility(layout, route.page, workspaceDragging).shown.length === 2} onSplit={() => setLayout((l) => toggleSplit(l, route.page))} rightToggle={(!!rid && !globalPage) || globalRightAble}
-        rightOpen={globalPage ? globalRight : layout.ctx && !agentRight} onRight={() => { if (globalPage) setGlobalRight((v) => !v); else if (agentRight && layout.ctx) setAgentPanel(false); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }}
+        rightOpen={globalPage ? globalRight : layout.ctx} onRight={() => { if (globalPage) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }}
         search={search} onSearch={() => setSearch(true)}
-        agent={route.page === 'agent' || (!!rid && !globalPage && agentShown)}
-        onAgent={() => {
-          if (!rid || globalPage) return go({ page: 'agent' })
-          if (agentShown) return setAgentPanel(false)
-          setAgentPanel(true)
-          if (agentPlace === 'right') setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
-        }}
         feedback={feedback} onFeedback={() => setFeedback((v) => !v)} />
 
       <div className={`body${showSide ? '' : ' no-side'}`}>
@@ -541,13 +538,14 @@ export function App() {
               const row = t?.k === 'block' || t?.k === 'pdf' ? notes.find((n) => n.type === 'block' && n.id === t.bid) : t?.k === 'part' ? notes.find((n) => n.type !== 'block' && n.file === t.file) : undefined
               // 개념노트 탭이면 그 노트의 메모·연결 (2026-10-04 15:18 피드백: 오른쪽 사이드바에서)
               const cmd = t?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md' ? t.id : undefined
-              if (agentRight) return agentPanelOf(rid)
               const info = cmd ? <div className="cn-ctx"><ConceptSidePanel key={cmd} id={cmd} info={library} rid={rid} project={summary.research.title} slot onChanged={libraryChanged} onSaved={flash} /></div>
                 : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} projectKind={current?.kind ?? 'research'} version={version} slot={row.type === 'block' && t?.k === 'block'}
                   onChanged={() => { notesChanged(); changed() }} onSaved={flash} />
                   : <NoInfo />
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
-              return <RightSidebar info={info}
+              // 에이전트 탭 (10/22 안 A): 자리가 아래면 그 패널을 가리킨다
+              const agent = agentPlace === 'right' ? agentPanelOf(rid) : <AgentBelow open={agentPanel} onOpen={setAgentPanel} onHere={() => setAgentPlace('right')} />
+              return <RightSidebar info={info} agent={agent}
                 records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${flowRecords ? 'flow' : ct?.target ?? 'project'}`} rid={rid}
                   target={ct ?? { target: 'project', title: summary.research.title }} group={flowRecords ? 'flow-' : undefined}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />

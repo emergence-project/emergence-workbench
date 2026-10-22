@@ -11,10 +11,15 @@ import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { t } from './i18n'
 
-/** 오른쪽 사이드바: 정보 | 적기. 갈래를 바꿔도 적던 내용은 남긴다. */
-export function RightSidebar({ info, records }: { info: ReactNode; records: ReactNode }) {
-  const mode = useRightMode()
-  const modes: [RightMode, string][] = [['info', t('정보', 'Info')], ['records', t('기록', 'Records')]]
+/**
+ * 오른쪽 사이드바: 정보 | 기록 | 에이전트 (10/22 안 A). 갈래를 바꿔도 적던 내용은 남긴다.
+ * 에이전트 탭은 이 프로젝트의 대화(레일 › 에이전트와 같은 목록)이고, 패널 자리를 작업 화면 아래로 옮겼으면 그 자리를 알린다
+ */
+export function RightSidebar({ info, records, agent }: { info: ReactNode; records: ReactNode; agent?: ReactNode }) {
+  const chosen = useRightMode()
+  // 에이전트 탭이 없는 사이드바(개념노트 화면 안 등)에서는 정보를 보인다
+  const mode = chosen === 'agent' && !agent ? 'info' : chosen
+  const modes: [RightMode, string][] = [['info', t('정보', 'Info')], ['records', t('기록', 'Records')], ...(agent ? [['agent', t('에이전트', 'Agent')] as [RightMode, string]] : [])]
   return (
     <div className="rs" data-ui="오른쪽 사이드바">
       <div className="rs-head side-tabbar">
@@ -24,6 +29,7 @@ export function RightSidebar({ info, records }: { info: ReactNode; records: Reac
       </div>
       {mode === 'info' && <div className="rs-scroll">{info}</div>}
       <div className="rs-col" hidden={mode !== 'records'}>{records}</div>
+      {mode === 'agent' && agent && <div className="rs-col">{agent}</div>}
     </div>
   )
 }
