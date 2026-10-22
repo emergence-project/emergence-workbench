@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blocksOf, commentMessage, menuAt, nextTrust, stepsSummary, trustOf } from './AgentChats'
+import { blocksOf, commentMessage, fitMenu, menuAt, nextTrust, stepsSummary, trustOf } from './AgentChats'
 
 describe('에이전트 입력란', () => {
   it('/ 명령은 맨 앞에서만, @ 붙이기는 낱말 앞 어디서나 연다', () => {
@@ -16,6 +16,15 @@ describe('에이전트 입력란', () => {
   it('⇧⇥는 맡기는 정도를 차례로 돌린다', () => {
     expect(nextTrust('read')).toBe('ask')
     expect(nextTrust('edit')).toBe('read')
+  })
+  it('입력란 메뉴는 패널 · 창 끝에서 잘리지 않게 뒤집고 민다', () => {
+    const view = { top: 100, bottom: 700, left: 900, right: 1200 }
+    // 입력란이 아래에 있으면 위로, 단추 왼쪽에 맞춘다
+    expect(fitMenu({ width: 200, height: 250 }, { top: 600, bottom: 626, left: 920, right: 980 }, view)).toEqual({ down: false, x: 0 })
+    // 위가 모자라면(새 대화 입력란) 아래로 뒤집고, 오른쪽 끝을 넘으면 왼쪽으로 민다
+    expect(fitMenu({ width: 280, height: 250 }, { top: 180, bottom: 206, left: 1050, right: 1110 }, view)).toEqual({ down: true, x: -134 })
+    // 위아래 다 모자라면 넓은 쪽에 들어갈 높이까지
+    expect(fitMenu({ width: 200, height: 500 }, { top: 300, bottom: 326, left: 920, right: 980 }, view)).toEqual({ down: true, x: 0, max: 370 })
   })
   it('바뀐 곳 코멘트는 번호 붙은 지시와 고른 글로 보낸다', () => {
     const m = commentMessage([{ file: 'notes/a/note.md', old: 'x', new: 'y', text: '날짜 대신 커밋' }])

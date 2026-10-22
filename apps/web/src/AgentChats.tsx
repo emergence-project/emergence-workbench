@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentChatsApi, api, APP_RID, notesApi, type AskAnswer, type Attach, type AttachKind, type Chat, type ChatEffort, type ChatItem, type ChatMessageBody, type ChatMode, type ChatModel, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type ImageIn, type Todo } from './api'
 import { askConfirm } from './askText'
@@ -328,7 +328,8 @@ function PlanCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: strin
         <div className="muted ac-hint ac-choices-q">{t('이대로 할까요? 명령은 승인 뒤에도 묻습니다', 'Go ahead? Commands still ask after approval')}</div>
         <Choices busy={busy}
           choices={[
-            { label: t('네, 노트는 바로 고치기', 'Yes, edit notes right away'), ui: '계획 승인 버튼', run: () => void answer('allow', { mode: 'edit' }) },
+            // 앱 고치기 대화는 노트가 아니라 작업 폴더의 파일을 고친다
+            { label: chat.rid === APP_RID ? t('네, 바로 고치기', 'Yes, edit right away') : t('네, 노트는 바로 고치기', 'Yes, edit notes right away'), ui: '계획 승인 버튼', run: () => void answer('allow', { mode: 'edit' }) },
             { label: t('네, 고칠 때마다 묻기', 'Yes, ask before each edit'), ui: '계획 승인 묻기 버튼', run: () => void answer('allow', { mode: 'ask' }) },
           ]}
           say={{ label: t('아니요, 이렇게 바꿔서…', 'No, change it like this…'), placeholder: t('계획에서 무엇을 바꿀까요?', 'What should change in the plan?'), send: (note) => void answer('deny', note ? { note } : undefined) }} />
@@ -438,15 +439,53 @@ function readImage(f: File): Promise<ImageIn & { name: string }> {
   })
 }
 
-/** 입력란 아래 줄의 작은 메뉴 버튼 (＋ · 맡기는 정도 · 모델과 생각) */
+type Box = { top: number; bottom: number; left: number; right: number }
+/**
+ * 메뉴 자리: 바라는 쪽(위, down이면 아래)에 안 들어가고 반대쪽이 더 넓으면 뒤집고, 들어갈 높이를 넘으면 그 높이까지(스크롤).
+ * 가로는 단추 왼쪽(down이면 오른쪽)에 맞추되 보이는 칸(box) 안으로 민다. x = 단추 왼쪽에서 메뉴 왼쪽까지
+ */
+export function fitMenu(menu: { width: number; height: number }, btn: Box, box: Box, down = false, gap = 4): { down: boolean; x: number; max?: number } {
+  const above = btn.top - box.top - gap
+  const below = box.bottom - btn.bottom - gap
+  const flip = down ? menu.height > below && above > below : menu.height > above && below > above
+  const d = down !== flip
+  const room = Math.floor(d ? below : above)
+  const want = down ? btn.right - menu.width : btn.left
+  const left = Math.max(box.left + gap, Math.min(want, box.right - gap - menu.width))
+  return { down: d, x: left - btn.left, ...(menu.height > room && { max: Math.max(room, 0) }) }
+}
+
+/** 메뉴가 보이는 칸: 창과, 넘친 것을 자르는 조상(패널 등)이 겹치는 곳 */
+function visibleBox(el: Element): Box {
+  const b: Box = { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth }
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const s = getComputedStyle(p)
+    if (s.overflowX === 'visible' && s.overflowY === 'visible') continue
+    const r = p.getBoundingClientRect()
+    b.top = Math.max(b.top, r.top); b.left = Math.max(b.left, r.left); b.bottom = Math.min(b.bottom, r.bottom); b.right = Math.min(b.right, r.right)
+  }
+  return b
+}
+
+/** 입력란 아래 줄의 작은 메뉴 버튼 (＋ · 맡기는 정도 · 모델과 생각). 메뉴는 패널 · 창 끝에서 잘리지 않게 뒤집거나 민다 (fitMenu) */
 function PopButton({ label, ui, tip, children, wide, down, icon }: { label: ReactNode; ui: string; tip: string; children(close: () => void): ReactNode; wide?: boolean; down?: boolean; icon?: boolean }) {
   const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState<ReturnType<typeof fitMenu> | null>(null)
   const box = useRef<HTMLSpanElement>(null)
+  const pop = useRef<HTMLDivElement>(null)
   useDismiss(open, box, () => setOpen(false))
+  useLayoutEffect(() => {
+    if (!open) { setPlace(null); return }
+    const btn = box.current?.firstElementChild
+    const m = pop.current
+    if (btn && m) setPlace(fitMenu({ width: m.offsetWidth, height: m.scrollHeight }, btn.getBoundingClientRect(), visibleBox(m), down))
+  }, [open, down])
+  const d = place ? place.down : down
   return (
     <span className="ac-pop" ref={box}>
       <button className={`${icon ? 'icon-btn sm' : 'ac-pop-btn'}${open ? ' on' : ''}`} data-ui={ui} data-tip={open ? undefined : tip} aria-label={icon ? tip : undefined} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>{label}</button>
-      {open && <div className={`menu ac-pop-menu${wide ? ' wide' : ''}${down ? ' down' : ''}`} role="menu" data-ui={`${ui} 항목`}>{children(() => setOpen(false))}</div>}
+      {open && <div ref={pop} className={`menu ac-pop-menu${wide ? ' wide' : ''}${d ? ' down' : ''}`} role="menu" data-ui={`${ui} 항목`}
+        style={place ? { left: place.x, right: 'auto', ...(place.max !== undefined && { maxHeight: place.max, overflowY: 'auto' }) } : { visibility: 'hidden' }}>{children(() => setOpen(false))}</div>}
     </span>
   )
 }
@@ -743,18 +782,30 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const [fail, setFail] = useState<string | null>(null)
   const [fill, setFill] = useState<{ text: string; n: number }>()
   const listRef = useRef<HTMLOListElement>(null)
+  // 고른 설정은 서버 답을 기다리지 않고 바로 보이고(over), 고친 순서대로 하나씩 보낸다 (⇧⇥를 빨리 눌러도 하나도 잃지 않게)
+  const [over, setOver] = useState<Partial<Settings>>({})
+  const saving = useRef({ chain: Promise.resolve(), n: 0 })
+  useEffect(() => setOver({}), [id])
   const n = chat?.items.length ?? 0
   useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight }, [n, id])
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
   const live = isLive(chat.state)
-  const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort }
-  const change = async (s: Partial<Settings>) => {
-    try {
-      client.setQueryData(qk.agentChat(id), await agentChatsApi.settings(id, { ...(s.trust && settingsOf(s.trust)), ...(s.model && { model: s.model }), ...(s.effort && { effort: s.effort }) }))
-      if (live) onSaved(t('다음 차례부터 바뀝니다', 'Applies from the next turn'))
-    } catch (e) { setFail((e as Error).message) }
+  const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, ...over }
+  const change = (s: Partial<Settings>) => {
+    setOver((o) => ({ ...o, ...s }))
+    setFail(null)
+    const q = saving.current
+    q.n++
+    q.chain = q.chain.then(async () => {
+      try {
+        client.setQueryData(qk.agentChat(id), await agentChatsApi.settings(id, { ...(s.trust && settingsOf(s.trust)), ...(s.model && { model: s.model }), ...(s.effort && { effort: s.effort }) }))
+      } catch (e) { setFail((e as Error).message) }
+      if (--q.n === 0) setOver({})
+    })
+    if (live) onSaved(t('다음 차례부터 바뀝니다', 'Applies from the next turn'))
   }
   const send = async (m: ChatMessageBody) => {
+    setFail(null)
     client.setQueryData(qk.agentChat(id), await agentChatsApi.send(id, m))
     return true
   }
