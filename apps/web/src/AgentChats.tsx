@@ -70,12 +70,12 @@ function CopyButton({ text }: { text: string }) {
 /** 입력란을 바깥에서 채울 때 (기다리는 지시 고치기). n이 바뀌면 채운다 */
 type Fill = { text: string; n: number; attach?: Attach[]; images?: ImageIn[] }
 
-// ---------- 맡기는 정도 · 모델 · 생각 깊이 ----------
+// ---------- 권한 · 모델 · 생각 깊이 ----------
 
-/** 맡기는 정도: 읽기만(write read) 또는 고치는 대화의 모드 셋 */
+/** 권한(예전 이름 맡기는 정도): 읽기 전용(write read) 또는 고치는 대화의 모드 셋 */
 export type Trust = 'read' | ChatMode
 const TRUSTS: Trust[] = ['read', 'ask', 'plan', 'edit']
-const TRUST_NAME: Record<Trust, string> = { read: t('읽기만', 'Read only'), ask: t('묻고 하기', 'Ask first'), plan: t('계획 먼저', 'Plan first'), edit: t('고치기 바로', 'Edit freely') }
+const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('매번 묻기', 'Ask each time'), plan: t('계획 후 허용', 'Allow after plan'), edit: t('고치기 허용', 'Allow edits') }
 /** 앱 고치기 대화의 맡기는 정도 설명 (작업 폴더에서 고치고 시험, 올리기는 앱) */
 const APP_HINT: Record<Trust, string> = {
   read: t('읽기만 합니다', 'Reads only'),
@@ -384,8 +384,8 @@ function PlanCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: strin
         <Choices busy={busy}
           choices={[
             // 앱 고치기 대화는 노트가 아니라 작업 폴더의 파일을 고친다
-            { label: chat.rid === APP_RID ? t('네, 바로 고치기', 'Yes, edit right away') : t('네, 노트는 바로 고치기', 'Yes, edit notes right away'), ui: '계획 승인 버튼', run: () => void answer('allow', { mode: 'edit' }) },
-            { label: t('네, 고칠 때마다 묻기', 'Yes, ask before each edit'), ui: '계획 승인 묻기 버튼', run: () => void answer('allow', { mode: 'ask' }) },
+            { label: t('네, 고치기 허용', 'Yes, allow edits'), ui: '계획 승인 버튼', run: () => void answer('allow', { mode: 'edit' }) },
+            { label: t('네, 매번 묻기', 'Yes, ask each time'), ui: '계획 승인 묻기 버튼', run: () => void answer('allow', { mode: 'ask' }) },
           ]}
           say={{ label: t('아니요, 이렇게 바꿔서…', 'No, change it like this…'), placeholder: t('계획에서 무엇을 바꿀까요?', 'What should change in the plan?'), send: (note) => void answer('deny', note ? { note } : undefined) }} />
       </>}
@@ -738,7 +738,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
           </>}
         </PopButton>
         <input ref={file} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={(e) => { void addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
-        <PopButton ui="맡기는 정도" tip={t('얼마나 맡길지 (⇧⇥)', 'How much to hand over (⇧⇥)')} wide label={<>{TRUST_NAME[settings.trust]} ▾</>}>
+        <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{TRUST_NAME[settings.trust]} ▾</>}>
           {(close) => TRUSTS.map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
               <span className="ac-pop-check" aria-hidden>{settings.trust === v ? Icon.check : null}</span>
@@ -971,7 +971,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
         <QueuedBar chat={chat} onEdit={(f) => setFill({ ...f, n: Date.now() })} onError={setFail} />
         <Composer rid={chat.rid} auto={auto} settings={settings} onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
           placeholder={placeholder} fail={fail} fill={fill} />
-        <div className="muted ac-keys">{t('⇧⇥ 맡기는 정도 · ⌘↵ 보내기', '⇧⇥ hand-over level · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
+        <div className="muted ac-keys">{t('⇧⇥ 권한 · ⌘↵ 보내기', '⇧⇥ permissions · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
       </div>
     </div>
   )
@@ -1142,7 +1142,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
         <span className="muted ac-hint">{t('다른 대화가 잡은 파일은 읽기만 합니다', 'Files claimed by another conversation are read only')}</span>
       </section>
       <section data-ui="이 대화의 허락">
-        <h3>{t('이 대화의 허락', 'Permissions here')}</h3>
+        <h3>{t('이 대화의 권한', 'Permissions here')}</h3>
         <div className="ac-work-row"><span>{TRUST_NAME[trust]}</span><span className="muted">{modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</span></div>
         <span className="muted ac-hint">{chat.rid === APP_RID ? APP_HINT[trust] : TRUST_HINT[trust]}</span>
         {chat.always.map((a) => (

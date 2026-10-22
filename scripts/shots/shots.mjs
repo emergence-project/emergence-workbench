@@ -104,7 +104,7 @@ try {
       }
     }
     if (hash.includes('{done}') && !done) {
-      // 노트를 고치고 끝난 대화 하나 (고치기 바로: 명령 허락에 "네"로 답한다). 바뀐 곳 패널을 보이려고
+      // 노트를 고치고 끝난 대화 하나 (고치기 허용: 명령 허락에 "네"로 답한다). 바뀐 곳 패널을 보이려고
       const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Run the Kempe check up to degree 5' : '켐페 확인 계산을 차수 5까지 돌려 줘', scope: { kind: 'project' }, mode: 'edit' }) })
       done = res.ok ? (await res.json()).chat.id : ''
       if (!done) problems.push(`${name}: 예제 대화를 만들지 못함 (${res.status})`)
