@@ -10,7 +10,8 @@ import { ComposeBox, SayCard } from './Conversation'
 import { askConfirm } from './askText'
 import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
-import { feedbackSummary, feedbackWhen } from './feedbackFormat'
+import { feedbackSummary, feedbackWhen, issuesDraftUrl } from './feedbackFormat'
+import { Dialog } from './dialogs'
 import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
 import { REPLY, TAG_NOTES } from './feedbackTags'
@@ -147,6 +148,7 @@ export function FeedbackPage() {
             </div>
           </div>
           <div className="fbp-tools">
+            <IssueButton list={shown} />
             <PublishButton />
           </div>
         </div>
@@ -628,6 +630,50 @@ function CleanText({ e }: { e: FeedbackItem }) {
  * 실사용 앱은 피드백을 남기면 30초 뒤 저절로 올린다(서버). 버튼은 바로 올리거나, 자동 올리기가 실패했을 때 다시 올리는 데 쓴다.
  */
 const NO_FILES: string[] = []
+
+/**
+ * 모아서 GitHub 이슈로 보내기 (10/22 사용자: 항목마다 보내지 않고 등록해 두었다가 한 번에).
+ * 앱 폴더가 공개 저장소를 가리켜 새 이슈 주소가 있을 때만 보인다. 지금 거른 목록에서 고르면 이슈 초안 하나를 새 창에 연다(보내기는 GitHub에서)
+ */
+function IssueButton({ list }: { list: FeedbackItem[] }) {
+  const state = useQuery({ queryKey: FEEDBACK_STATE, queryFn: () => api.feedbackState() })
+  const [open, setOpen] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const base = state.data?.issues
+  if (!base) return null
+  const rows = [...list].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`) || b.n - a.n)
+  const chosen = rows.filter((e) => picked.has(keyOf(e))).reverse()
+  const draft = chosen.length ? issuesDraftUrl(base, chosen.map((e) => ({
+    date: e.date, time: e.time, kind: kindName(kindOf(e)), text: e.status?.clean ?? e.text, area: uiShown(e.target), route: e.route, version: e.version,
+  })), `${navigator.platform} · ${innerWidth}×${innerHeight}`) : null
+  const toggle = (k: string) => setPicked((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n })
+  const close = () => setOpen(false)
+  return <>
+    <button className="btn" data-ui="GitHub 이슈로 보내기" title={t('지금 목록에서 골라 GitHub 이슈 하나로 보냅니다', 'Pick from this list and send them as one GitHub issue')} onClick={() => { setPicked(new Set()); setOpen(true) }}>{t('GitHub 이슈로 보내기', 'Send as GitHub issue')}</button>
+    {open && <Dialog title={t('GitHub 이슈로 보내기', 'Send as GitHub issue')} ui="GitHub 이슈로 보내기" wide onClose={close}
+      footer={<>
+        {draft && draft.included < chosen.length && <span className="muted fbi-cut">{t(`주소가 길어 앞의 ${draft.included}개만 넣습니다`, `Only the first ${draft.included} fit in the address`)}</span>}
+        <span className="sp" />
+        <button className="btn" onClick={close}>{t('취소', 'Cancel')}</button>
+        <button className="btn primary" disabled={!draft} onClick={() => { if (draft) window.open(draft.url, '_blank', 'noopener'); close() }}>{t(`이슈 초안 열기 · ${chosen.length}`, `Open issue draft · ${chosen.length}`)}</button>
+      </>}>
+      <p className="muted fbi-help">{t('고른 피드백을 공개 저장소의 버그 양식 하나에 차례로 적어 새 창에 엽니다. 그림은 넣지 않으니 필요하면 GitHub에서 붙이세요.', 'The picked feedback is written in order into one bug form of the public repository, opened in a new window. Pictures are not included; attach them on GitHub if needed.')}</p>
+      <div className="fbi-all">
+        <button className="a" onClick={() => setPicked(picked.size === rows.length ? new Set() : new Set(rows.map(keyOf)))}>{picked.size === rows.length ? t('모두 빼기', 'Unpick all') : t('모두 고르기', 'Pick all')}</button>
+        <span className="muted">{t(`${rows.length}개 중 ${picked.size}개`, `${picked.size} of ${rows.length}`)}</span>
+      </div>
+      <ul className="fbi-list" data-ui="보낼 피드백 목록">
+        {rows.map((e) => { const k = keyOf(e); return (
+          <li key={k}><label className="fbi-row">
+            <input type="checkbox" checked={picked.has(k)} onChange={() => toggle(k)} />
+            <span className="mono muted">{feedbackWhen(e.date, e.time)}</span>
+            <span className="fbi-text">{feedbackSummary(e.status?.clean ?? e.text)}</span>
+          </label></li>
+        ) })}
+      </ul>
+    </Dialog>}
+  </>
+}
 
 function PublishButton() {
   const client = useQueryClient()

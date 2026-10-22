@@ -27,3 +27,34 @@ export function issueDraftUrl(base: string, f: { text: string; area: string; sni
   q.set('environment', f.environment)
   return `${base}?${q}`
 }
+
+/** 모아 보내는 이슈 초안에 넣는 피드백 하나 */
+export interface IssueItem { date: string; time: string; kind: string; text: string; area: string; route?: string; version?: string }
+/** GitHub 새 이슈 주소가 너무 길면 열리지 않아(약 8천 자) 그 안에서 자른다 */
+export const ISSUE_URL_MAX = 7500
+
+/**
+ * 고른 피드백 여럿을 이슈 하나로 (10/22 사용자: "등록해 두고 한 번에 보낸다").
+ * 버그 양식의 what 칸에 번호를 붙여 차례로 적고, 화면 · 버전은 항목마다 그 줄에 둔다. 그림은 넣지 않는다(issueDraftUrl과 같은 이유).
+ * 주소가 길어지면 거기까지만 넣고, 넣은 수를 돌려준다
+ */
+export function issuesDraftUrl(base: string, items: IssueItem[], environment: string): { url: string; included: number } {
+  const one = (x: IssueItem, i: number) => {
+    const where = [x.area, x.route, x.version && `v ${x.version}`].filter(Boolean).join(' · ')
+    return `${i + 1}. [${x.kind}] ${x.text.trim().replace(/\r?\n/g, '\n   ')}\n   (${x.date} ${x.time}${where ? ` · ${where}` : ''})`
+  }
+  const build = (n: number) => {
+    const list = items.slice(0, n)
+    const title = list.length === 1 ? feedbackSummary(list[0]!.text).slice(0, 80) : `피드백 ${list.length}개 (${list[0]!.date}${list.length > 1 && list.at(-1)!.date !== list[0]!.date ? ` – ${list.at(-1)!.date}` : ''})`
+    const areas = [...new Set(list.map((x) => x.area).filter(Boolean))]
+    const versions = [...new Set(list.map((x) => x.version).filter((v): v is string => !!v))]
+    const q = new URLSearchParams({ template: 'bug.yml', title, what: list.map(one).join('\n\n'), area: areas.join(', ') })
+    if (versions.length) q.set('version', versions.join(', '))
+    q.set('environment', environment)
+    return `${base}?${q}`
+  }
+  let n = items.length
+  let url = build(n)
+  while (n > 1 && url.length > ISSUE_URL_MAX) url = build(--n)
+  return { url, included: n }
+}

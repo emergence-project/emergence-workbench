@@ -39,7 +39,7 @@ Dock에 따로 띄우기: 앱을 연 크롬 창에서 ⋮ → 전송, 저장, �
 
 **프로젝트 정본과 STATUS.md.** 프로젝트의 `workbench/research.yaml`에 `sources:`(정본 위치 `canon`, 작업 목록 `tasks`, `bib`, 자료 폴더 `materials`, 검토 문서 폴더 `reviews`, 원고 `manuscript`)를 적으면 앱이 그것을 읽고, `agent-status: true`이면 에이전트가 먼저 읽을 요약 `workbench/STATUS.md`를 바뀔 때마다 다시 쓴다(생성 파일, git 제외).
 
-**피드백 모드.** 제목줄 오른쪽 말풍선 버튼을 켜고 화면 부위를 누르면 그 부위에 코멘트를 남긴다. 코멘트는 부위 이름(각 요소의 `data-ui`)과 함께 `feedback/날짜.md`에 쌓이고, Claude 같은 코딩 에이전트는 이 파일을 읽어 어느 부위인지 바로 안다. `feedback/`는 설정의 개인 저장소(`personalRepo:`)에 있고, 없으면 이 컴퓨터에만 남는다. 다른 사람에게 알릴 것은 공개 저장소의 Issues에 올린다([maintaining.md](maintaining.md)). 피드백 창에는 이슈로 보내는 단추가 없다(10/22: 하나씩 보내지 않고 모아서 보낸다).
+**피드백 모드.** 제목줄 오른쪽 말풍선 버튼을 켜고 화면 부위를 누르면 그 부위에 코멘트를 남긴다. 코멘트는 부위 이름(각 요소의 `data-ui`)과 함께 `feedback/날짜.md`에 쌓이고, Claude 같은 코딩 에이전트는 이 파일을 읽어 어느 부위인지 바로 안다. `feedback/`는 설정의 개인 저장소(`personalRepo:`)에 있고, 없으면 이 컴퓨터에만 남는다. 다른 사람에게 알릴 것은 공개 저장소의 Issues에 올린다([maintaining.md](maintaining.md)). 피드백 창에는 이슈로 보내는 단추가 없고, 피드백 화면의 "GitHub 이슈로 보내기"에서 여럿을 골라 이슈 초안 하나로 보낸다(10/22).
 
 **개발용.** `pnpm dev`는 서버 8130·화면 5173, `pnpm test`는 테스트. 서비스 없이 손으로 켜려면 `pnpm start`(빌드 후 5174에서 실행, 터미널을 닫으면 꺼짐).
 

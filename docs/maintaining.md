@@ -11,7 +11,7 @@
 | 질문·사용법 | Discussions › Q&A | `.github/DISCUSSION_TEMPLATE/q-a.yml` |
 | 코드 | fork → PR | `.github/pull_request_template.md`, `CONTRIBUTING.md` |
 
-빈 이슈는 막아 두었다(`config.yml`). 이슈 양식의 칸 id(`what`, `area`, `route`, `version`, `environment`)는 앱의 이슈 초안 주소(`apps/web/src/feedbackFormat.ts`의 `issueDraftUrl`)가 미리 채우는 이름이므로 바꾸지 않는다.
+빈 이슈는 막아 두었다(`config.yml`). 이슈 양식의 칸 id(`what`, `area`, `route`, `version`, `environment`)는 앱의 이슈 초안 주소(`apps/web/src/feedbackFormat.ts`의 `issueDraftUrl` · 피드백 화면 "GitHub 이슈로 보내기"의 `issuesDraftUrl`)가 미리 채우는 이름이므로 바꾸지 않는다.
 
 ## 공개 직후 한 번 할 설정 (저장소 Settings)
 
