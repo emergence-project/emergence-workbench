@@ -330,12 +330,14 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
             <div className="segmented small fb-kind" role="radiogroup" aria-label={t('코멘트 유형', 'Comment type')}>
               {(['수정', '질문', '제안'] as const).map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{shown(k)}</button>)}
             </div>
-            {issues && (
-              <button className="btn fb-send" disabled={!text.trim() || !kind || busy} onClick={sendToGithub}
-                title={t('공개 저장소에 이슈 초안을 새 탭으로 엽니다. 여기에도 저장합니다. 화면 그림은 붙이지 않으니, 연구 내용이 보이지 않는 그림만 직접 붙이세요', 'Opens an issue draft on the public repository in a new tab. It is also saved here. Screenshots are not attached; add only pictures that show no research content.')}>{t('GitHub에 보내기', 'Send to GitHub')}</button>
-            )}
             <button className="btn primary" disabled={!text.trim() || !kind || busy} data-tip={kind ? undefined : t('유형을 고르면 등록됩니다', 'Choose a type to post')} onClick={() => kind && void save(kind)}>{busy ? t('등록 중…', 'Submitting…') : <>{t('의견 등록', 'Submit')} <span className="kbd">⌘↵</span></>}</button>
           </div>
+          {issues && (
+            <div className="fb-send-row">
+              <button className="btn sm fb-send" disabled={!text.trim() || !kind || busy} onClick={sendToGithub}
+                title={t('공개 저장소에 이슈 초안을 새 탭으로 엽니다. 여기에도 저장합니다. 화면 그림은 붙이지 않으니, 연구 내용이 보이지 않는 그림만 직접 붙이세요', 'Opens an issue draft on the public repository in a new tab. It is also saved here. Screenshots are not attached; add only pictures that show no research content.')}>{t('GitHub에 보내기', 'Send to GitHub')}</button>
+            </div>
+          )}
         </div>
       )}
 
