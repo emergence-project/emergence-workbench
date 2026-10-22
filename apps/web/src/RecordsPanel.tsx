@@ -114,7 +114,7 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
         </div>
         {/* 프로젝트의 기록을 모두 모은 기록 탭으로 (10/14 13:33 제안). 전체면 메모를 연다. 지식 라이브러리에는 기록 탭이 없다 */}
         {rid !== LIBRARY_RID && <button className="a records-all" data-ui="모두 보기" data-tip={t('기록 탭에서 이 프로젝트의 기록 모두 보기', 'See all records of this project in the Records tab')}
-          onClick={() => { chooseRecordFilter(filter === '전체' ? '메모' : filter); go({ page: 'records', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>}
+          onClick={() => { chooseRecordFilter(filter); go({ page: 'records', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>}
       </div>
     </div>
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">

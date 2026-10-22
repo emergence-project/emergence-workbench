@@ -94,7 +94,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
   }, [focusTodo, view, filter, files])
   const recordsLoaded = recordsQuery.isFetched && !recordsQuery.isFetching
   const recordsError = recordsQuery.error?.message ?? null
-  const groups = workRecordGroups(files, entries, filter === '질문' || filter === '지시' || filter === '할 일' ? filter : '메모')
+  const groups = workRecordGroups(files, entries, filter === '전체' || filter === '질문' || filter === '지시' || filter === '할 일' ? filter : '메모')
   const openRecord = (file: RecordFile, entry: CommentEntry) => {
     if (!(entry.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
@@ -181,10 +181,10 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
                 <div className="todo-sec-h" title="workbench/comments/">{t('앱 할 일', 'App to-dos')}</div>
               </>}
               <div className="work-records" data-ui={filter === '할 일' ? '할 일' : '작업 기록 목록'}>
-                {!count && <p className="empty records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No open to-dos.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
+                {!count && <p className="empty records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No open to-dos.') : filter === '전체' ? t('아직 기록이 없습니다. 노트에서 글을 골라 적거나 오른쪽 사이드바 기록에 적어 보세요.', 'No records yet. Select text in a note, or write in the right sidebar Records.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
                 {groups.map((group) => <div className="record-group" key={group.target}>
                   {group.items.map((item) => item.kind === 'record'
-                    ? <div key={`${item.file.target}/${item.entry.id}`} data-todo-key={todoKey({ target: item.file.target, id: item.entry.id })}><RecordList rid={rid} file={item.file} filter={filter as RecordFilter} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} /></div>
+                    ? <div key={`${item.file.target}/${item.entry.id}`} data-todo-key={todoKey({ target: item.file.target, id: item.entry.id })}><RecordList rid={rid} file={item.file} filter={filter as RecordFilter | '전체'} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} /></div>
                     : <JournalRecordRow key={`journal/${item.entry.date}/${item.entry.index}`} entry={item.entry} rid={rid} titleOf={titleOf} rapi={rapi} reload={reload} onSaved={onSaved} />)}
                 </div>)}
               </div>

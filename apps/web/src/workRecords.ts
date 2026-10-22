@@ -8,11 +8,11 @@ import { kindLabel, type RecordFilter } from './recordLabels'
 export type { RecordFilter } from './recordLabels'
 
 /** 작업 탭과 기록 탭의 필터 (10/7 작업 탭: 판단 · 맡긴 일을 앞에 더함) */
-export const WORK_FILTERS = ['판단', '맡긴 일', '할 일', '메모', '질문', '지시'] as const
+export const WORK_FILTERS = ['판단', '맡긴 일', '전체', '할 일', '메모', '질문', '지시'] as const
 export type WorkFilter = typeof WORK_FILTERS[number]
-/** 기록 › 모두의 종류: 메모 · 할 일 · 질문 · 지시 · 맡긴 일 (10/15 지시를 더함, 10/21 작업 탭을 합쳐 맡긴 일도). work는 옛 작업 탭에 저장된 값을 읽을 때만 */
+/** 기록 › 모두의 종류: 전체 · 메모 · 할 일 · 질문 · 지시 · 맡긴 일 (10/15 지시를 더함, 10/21 작업 탭을 합쳐 맡긴 일도, 10/22 12:09 전체: 노트마다 적은 기록을 종류 없이 한 목록에). work는 옛 작업 탭에 저장된 값을 읽을 때만 */
 export type WorkSection = 'work' | 'records'
-export const SECTION_FILTERS: Record<WorkSection, readonly WorkFilter[]> = { work: ['판단', '맡긴 일'], records: ['메모', '할 일', '질문', '지시', '맡긴 일'] }
+export const SECTION_FILTERS: Record<WorkSection, readonly WorkFilter[]> = { work: ['판단', '맡긴 일'], records: ['전체', '메모', '할 일', '질문', '지시', '맡긴 일'] }
 /** 필터의 화면 이름 (값은 한국어 그대로 저장한다) */
 export const WORK_FILTER_LABEL = Object.fromEntries(WORK_FILTERS.map((f) => [f, kindLabel(f)])) as Record<WorkFilter, string>
 export const isRecordFilter = (f: WorkFilter): f is RecordFilter => f === '할 일' || f === '메모' || f === '질문' || f === '지시'
@@ -20,7 +20,7 @@ export const WORK_FILTER_KEY: Record<WorkSection, string> = { work: 'rw-work-fil
 
 /** 기록 탭을 그 필터로 연다 (10/14 13:33 제안: 오른쪽 사이드바 기록의 "모두 보기"). 이미 열린 기록 탭도 바뀐다 */
 export const WORK_FILTER_EVENT = 'rw-records-filter'
-export function chooseRecordFilter(f: RecordFilter) {
+export function chooseRecordFilter(f: RecordFilter | '전체') {
   try { localStorage.setItem(WORK_FILTER_KEY.records, f) } catch { /* 저장할 수 없어도 열린 기록 탭은 바뀐다. */ }
   window.dispatchEvent(new CustomEvent(WORK_FILTER_EVENT, { detail: f }))
 }
@@ -39,7 +39,7 @@ export function focusTodo(key: string) {
 export const peekTodoFocus = (): string | null => pendingTodo
 export function clearTodoFocus(key: string) { if (pendingTodo === key) pendingTodo = null }
 
-/** 그 탭의 필터가 아니면 그 탭의 첫 필터 (작업은 판단, 기록은 메모) */
+/** 그 탭의 필터가 아니면 그 탭의 첫 필터 (작업은 판단, 기록은 전체) */
 export function parseWorkFilter(value: string | null, section: WorkSection = 'work'): WorkFilter {
   const filters = SECTION_FILTERS[section]
   return filters.find((filter) => filter === value) ?? filters[0]!
@@ -71,6 +71,9 @@ function byDue(items: WorkRecordItem[]): WorkRecordItem[] {
   return [...items].sort((a, b) => due(a).localeCompare(due(b)) || writtenAt(a).stamp.localeCompare(writtenAt(b).stamp) || writtenAt(a).order - writtenAt(b).order)
 }
 
+/** 전체에 넣는 기록: 하이라이트는 노트 위의 칠로 보이므로 뺀다 (오른쪽 사이드바 전체와 같음) */
+const keptInAll = (entry: CommentEntry) => entry.kind !== '하이라이트'
+
 function newestFirst(items: WorkRecordItem[]): WorkRecordItem[] {
   return items.map((item) => ({ item, ...writtenAt(item) })).sort((a, b) =>
     b.stamp.localeCompare(a.stamp)
@@ -82,18 +85,18 @@ function newestFirst(items: WorkRecordItem[]): WorkRecordItem[] {
 
 /**
  * 프로젝트 기록과 예전 일지 메모를 함께, 그다음 노트별로 모은다. 각 묶음 안에서는 최근 것이 먼저다.
- * 할 일은 끝내지 않은 것만 (끝내면 작업 일지에 완료로 남는다)
+ * 할 일은 끝내지 않은 것만 (끝내면 작업 일지에 완료로 남는다). 전체는 종류와 상태를 가리지 않고 모두 (하이라이트만 빼고, 오른쪽 사이드바 전체와 같게)
  */
-export function workRecordGroups(files: RecordFile[], journal: JournalEntry[], filter: RecordFilter): WorkRecordGroup[] {
+export function workRecordGroups(files: RecordFile[], journal: JournalEntry[], filter: RecordFilter | '전체'): WorkRecordGroup[] {
   const project: WorkRecordGroup = { target: 'project', title: t('이 프로젝트', 'This project'), items: [] }
   const notes: WorkRecordGroup[] = []
   const order = filter === '할 일' ? byDue : newestFirst
   for (const file of files) {
-    const items: WorkRecordItem[] = file.comments.filter((entry) => recordKind(entry) === filter && !(filter === '할 일' && entry.state === '끝냄')).map((entry) => ({ kind: 'record', file, entry }))
+    const items: WorkRecordItem[] = file.comments.filter((entry) => filter === '전체' ? keptInAll(entry) : recordKind(entry) === filter && !(filter === '할 일' && entry.state === '끝냄')).map((entry) => ({ kind: 'record', file, entry }))
     if (file.target === 'project') project.items.push(...items)
     else if (items.length) notes.push({ target: file.target, title: file.title, items: order(items) })
   }
-  if (filter === '메모') {
+  if (filter === '메모' || filter === '전체') {
     project.items.push(...journal.filter((entry) => entry.kind === 'memo').map((entry): WorkRecordItem => ({ kind: 'journal', entry })))
   }
   return project.items.length ? [{ ...project, items: order(project.items) }, ...notes] : notes

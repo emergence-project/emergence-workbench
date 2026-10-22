@@ -14,7 +14,8 @@ describe('work filters', () => {
     expect(['메모', '할 일', '질문'].map((v) => parseWorkFilter(v, 'records'))).toEqual(['메모', '할 일', '질문'])
     // 기록 필터는 이제 작업 탭에 없고, 작업 필터는 기록 탭에 없다 (10/15).
     for (const value of [null, '', '전체', 'memo', ' 메모', '"질문"', '할 일']) expect(parseWorkFilter(value, 'work')).toBe('판단')
-    for (const value of [null, '', '전체', '판단']) expect(parseWorkFilter(value, 'records')).toBe('메모')
+    for (const value of [null, '', '판단']) expect(parseWorkFilter(value, 'records')).toBe('전체')
+    expect(parseWorkFilter('전체', 'records')).toBe('전체')
     expect(parseWorkFilter('맡긴 일', 'records')).toBe('맡긴 일')
   })
 })
@@ -35,6 +36,16 @@ describe('work record groups', () => {
     expect(groups.map((g) => [g.target, g.items.map((item) => item.kind === 'record' ? item.entry.body : item.entry.text)])).toEqual([
       ['project', ['10/10 — 이른 마감', '10/12까지 — 늦은 마감', '마감 없는 먼저 것', '마감 없는 나중 것']],
       ['topic-coloring', ['주제 할 일']],
+    ])
+  })
+
+  it('lists every kind and state under 전체, note by note, without highlights (10/22 12:09)', () => {
+    const project = file('project', [record('c-20261020-1000', '지시', { state: '답함' })])
+    const note = file('note-a', [record('c-20261019-1000', '할 일', { state: '끝냄' }), record('c-20261021-1000', '질문', { state: '대기' }), record('c-20261021-1100', '하이라이트')])
+    const groups = workRecordGroups([note, project], [], '전체')
+    expect(groups.map((g) => [g.target, g.items.map(label)])).toEqual([
+      ['project', ['c-20261020-1000']],
+      ['note-a', ['c-20261021-1000', 'c-20261019-1000']],
     ])
   })
 
