@@ -3,6 +3,7 @@ import type { AgentSettings as Settings } from '@rw/core/contract/settings'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { agentChatsApi, api, setupApi, type SetupView } from './api'
+import { notifyOn, notifyPermission, setNotifyOn } from './AgentChats'
 import { href } from './router'
 import { t } from './i18n'
 import { qk } from './queries'
@@ -64,7 +65,35 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
         </select>
       </div>}
     </div>}
+    <AgentNotify />
     {s && <AppFeedback s={s} save={save} />}
+  </>)
+}
+
+/** 대화 알림 (10/22): 이 브라우저에만 저장. 맥이 막았으면 어디서 풀지 알린다 */
+function AgentNotify() {
+  const [on, setOn] = useState(notifyOn)
+  const [perm, setPerm] = useState(notifyPermission)
+  const pick = (v: boolean) => {
+    setOn(v); setNotifyOn(v)
+    if (v && perm === 'default') void Notification.requestPermission().then(setPerm)
+  }
+  return (<>
+    <h3 className="set-h3">{t('알림', 'Notifications')}</h3>
+    <div className="set-rows">
+      <div className="set-row" data-ui="대화 알림">
+        <div>
+          <div className="set-name">{t('대화 알림', 'Conversation alerts')}</div>
+          <div className="set-desc">{t('앱 창을 보고 있지 않을 때, 에이전트가 답을 마치거나 허락 · 계획 승인을 기다리거나 오류로 멈추면 맥 알림을 띄웁니다. 알림을 누르면 그 대화가 열립니다.', 'When you are not looking at the app window, a Mac notification appears when an agent finishes its reply, waits for approval or a plan, or stops with an error. Click it to open the conversation.')}</div>
+          {on && perm === 'denied' && <div className="error-text">{t('브라우저가 이 앱의 알림을 막았습니다. 주소 칸 왼쪽의 사이트 설정에서 알림을 허락하세요.', 'The browser blocks notifications for this app. Allow them in the site settings left of the address bar.')}</div>}
+          {on && perm === 'none' && <div className="muted">{t('이 브라우저는 알림을 띄우지 못합니다.', 'This browser cannot show notifications.')}</div>}
+        </div>
+        <div className="segmented small" role="radiogroup" data-ui="고르기">
+          <button role="radio" aria-checked={on} className={on ? 'on' : ''} onClick={() => pick(true)}>{t('켬', 'On')}</button>
+          <button role="radio" aria-checked={!on} className={!on ? 'on' : ''} onClick={() => pick(false)}>{t('끔', 'Off')}</button>
+        </div>
+      </div>
+    </div>
   </>)
 }
 

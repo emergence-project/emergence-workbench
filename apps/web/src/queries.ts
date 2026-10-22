@@ -57,9 +57,12 @@ export const qk = {
   /** 에이전트 대화 (앱 설정 폴더, 연구 저장소 밖). 지금 작업 상태(agentWork)는 모든 프로젝트 것 */
   agentChats: ['agent-chats'] as const,
   /** 대화 목록 (rid가 없으면 모든 프로젝트) · 대화 하나 */
+  agentChatLists: ['agent-chats', 'list'] as const,
   agentChatList: (rid?: string) => ['agent-chats', 'list', rid ?? '*'] as const,
   agentChat: (id: string) => ['agent-chats', 'one', id] as const,
   agentWork: ['agent-work'] as const,
+  /** 고를 수 있는 모델 (맥의 Claude Code에게 묻는다. 대화 알림으로 다시 받지 않게 agent-chats 밖에 둔다) */
+  agentModels: ['agent-models'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
   /** 연구 공통 규칙 (설정 › 공통 규칙, 개인 저장소 사본. 프로젝트 알림과 상관없다) */
@@ -92,7 +95,11 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   if (e.type === 'library') return e.part === 'papers' ? [qk.library, qk.papers] : e.part === 'concepts' ? [qk.library, qk.agentEdits('library')] : e.part === 'records' ? [qk.records(LIBRARY_RID)] : [qk.library]
   // 에이전트 대화는 파일이 아니라 현황과 상관없다
   // 앱 고치기 대화가 맡은 피드백의 처리 기록을 적으면 피드백 화면도 바뀐다
-  if (e.type === 'agent-chat') return e.research === APP_RID ? [qk.agentChats, qk.agentWork, qk.feedback] : [qk.agentChats, qk.agentWork]
+  // 그 대화 하나와 목록만 다시 받는다 (열린 대화를 모두 다시 받지 않게)
+  if (e.type === 'agent-chat') {
+    const keys: QueryKey[] = [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
+    return e.research === APP_RID ? [...keys, qk.feedback] : keys
+  }
   const keys = projectKeys(e)
   // research는 프로젝트 키 전체라 현황도 들어 있다
   return e.type === 'research' ? keys : [...keys, qk.status(e.research)]

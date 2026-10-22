@@ -2,7 +2,7 @@ import { LIBRARY_RID, RESEARCH_TARGET, sameNoteFile, type UiSettings } from '@rw
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
-import { AGENT_OPEN, AgentDock, AgentPanel, ChatTab, chatTitles, type AgentPlace } from './AgentChats'
+import { AGENT_OPEN, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
 import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
@@ -65,6 +65,8 @@ export type { FlashAction } from './flash'
 
 export function App() {
   const route = useRoute()
+  // 에이전트가 답을 마치거나 내 차례가 되면 맥 알림 (창을 보고 있지 않을 때)
+  useAgentNotify()
   const rid = 'rid' in route ? route.rid : null
   const flowSel = useFlowSelection(rid ?? '')
   /** 연구 하나에 속하지 않는 화면: 홈과 globalPages.tsx의 화면. 연구 사이드바가 필요 없다 */

@@ -28,10 +28,10 @@ export const ASK_ANSWERS = ['allow', 'always', 'deny'] as const
  * 명령 · 웹 · 범위 밖은 어느 모드든 묻거나 막는다
  */
 export const CHAT_MODES = ['ask', 'plan', 'edit'] as const
-/** 모델: default = 맥의 Claude Code 기본값 */
-export const CHAT_MODELS = ['default', 'opus', 'sonnet', 'haiku'] as const
-/** 생각 깊이 */
-export const CHAT_EFFORTS = ['low', 'medium', 'high'] as const
+/** 모델: default = 맥의 Claude Code 기본값. 별칭(opus · sonnet …) 말고도 맥의 Claude Code가 아는 모델 id(claude-opus-5 등)를 쓴다 (GET /agent-chats/models) */
+export const ChatModel = z.string().regex(/^[a-z][a-z0-9.\-[\]]{0,79}$/)
+/** 생각 깊이 (xhigh · max는 그것을 받는 모델만) */
+export const CHAT_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 /** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 */
 export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record'] as const
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
@@ -65,16 +65,21 @@ export const ChatItem = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('step'), at: z.string(), tool: z.string(), summary: z.string(), outside: z.boolean().optional(), sub: z.boolean().optional() }).strict(),
   /**
    * 허락 카드. answer가 없으면 기다리는 중. plan이 있으면 계획 승인 카드(허락 = 이대로 하기).
-   * note = 거절하며 에이전트에게 한 말(아니요, 이렇게 바꿔서…), mode = 계획을 승인하며 고른 맡기는 정도
+   * note = 거절하며 에이전트에게 한 말(아니요, 이렇게 바꿔서…), mode = 계획을 승인하며 고른 맡기는 정도,
+   * expired = 답하기 전에 멈추거나 앱이 다시 켜져 닫힘(answer는 deny)
    */
-  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional() }).strict(),
+  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional() }).strict(),
   /** 할 일 목록 (한 차례에 하나, 바뀌면 그 자리에서 고친다) */
   z.object({ kind: z.literal('todos'), at: z.string(), todos: z.array(Todo) }).strict(),
   /** 노트 고침 (edit_note를 허락한 때). 되돌리기는 수정 검토에서 */
   z.object({ kind: z.literal('edit'), at: z.string(), file: z.string(), parts: z.array(EditPart), added: z.number(), removed: z.number(), reason: z.string().optional() }).strict(),
   /** 앱이 막은 일 (범위 밖 고치기, 다른 대화가 잡은 파일 등) */
   z.object({ kind: z.literal('blocked'), at: z.string(), tool: z.string(), reason: z.string() }).strict(),
-  z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional() }).strict(),
+  /**
+   * 차례 끝. cost = 쓴 토큰을 API 요금으로 친 값(구독 로그인이면 청구되지 않음), tokens = 이 차례에 넣고(in, 캐시 포함) 낸(out) 토큰,
+   * context = 마지막 요청의 맥락 크기와 그 모델의 맥락 창
+   */
+  z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number() }).strict().optional() }).strict(),
   z.object({ kind: z.literal('error'), at: z.string(), text: z.string() }).strict(),
 ])
 
@@ -87,7 +92,7 @@ export const ChatRow = z.object({
   write: z.enum(CHAT_WRITE),
   state: z.enum(CHAT_STATES),
   mode: z.enum(CHAT_MODES),
-  model: z.enum(CHAT_MODELS),
+  model: ChatModel,
   effort: z.enum(CHAT_EFFORTS),
   /** 이 대화가 지금 고치는 중인 파일 (저장소 기준 경로). 다른 대화는 쓰지 못한다 */
   claims: z.array(z.string()),
@@ -113,12 +118,19 @@ export const ChatRow = z.object({
 }).strict()
 
 /** always = 이 대화에서 늘 허락한 것(보일 이름), todos = 마지막 할 일 목록 */
-export const Chat = ChatRow.extend({ items: z.array(ChatItem), always: z.array(z.string()), todos: z.array(Todo) }).strict()
+/** trimmed = 오래되어 지운 앞 줄 수 (대화는 마지막 400줄만 둔다) */
+export const Chat = ChatRow.extend({ items: z.array(ChatItem), always: z.array(z.string()), todos: z.array(Todo), trimmed: z.number().optional() }).strict()
 
 /** GET /agent-chats?rid= */
 /** app = 이 맥에서 앱 고치기 대화를 열 수 있는지 (앱 저장소가 있을 때) */
 /** handOff = 피드백을 맡길 수 있는지 (앱 저장소 · 피드백 폴더가 있고 설정 › 에이전트에서 끄지 않음) */
 export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), app: z.boolean(), handOff: z.boolean() }).strict()
+/**
+ * GET /agent-chats/models: 맥의 Claude Code가 고를 수 있게 하는 모델 (Claude Code를 못 띄우면 빈 목록, 화면은 별칭 넷으로).
+ * resolved = 실제 모델 id (default · opus 같은 별칭이 무엇인지), efforts = 받는 생각 깊이 (없으면 생각 깊이를 고르지 않는다)
+ */
+export const ModelChoice = z.object({ value: ChatModel, name: z.string(), desc: z.string(), resolved: z.string().optional(), efforts: z.array(z.enum(CHAT_EFFORTS)).optional() }).strict()
+export const ChatModels = z.object({ models: z.array(ModelChoice) }).strict()
 /** GET /agent-chats/:id · POST 들의 응답 */
 export const ChatOne = z.object({ chat: Chat }).strict()
 /** GET /agent-work: 도는 대화와 잡은 파일 (화면 · MCP · STATUS가 같은 것을 본다) */
@@ -137,7 +149,7 @@ const message = {
   attach: z.array(Attach).max(20).optional(),
   images: z.array(ImageIn).max(4).optional(),
 }
-export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: z.enum(CHAT_MODELS).optional(), effort: z.enum(CHAT_EFFORTS).optional() }).strict()
+export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional() }).strict()
 export const NewChatBody = z.object({
   rid: z.string().min(1),
   ...message,
@@ -152,6 +164,8 @@ export const ForgetBody = z.object({ label: z.string().min(1) }).strict()
 export const AskAnswerBody = z.object({ ask: z.string().min(1), answer: z.enum(ASK_ANSWERS), note: z.string().trim().max(4000).optional(), mode: z.enum(CHAT_MODES).optional() }).strict()
 /** 도는 동안 보내 기다리는 지시 하나 빼기 (기다리는 것 가운데 몇째) */
 export const UnqueueBody = z.object({ index: z.number().int().min(0) }).strict()
+/** POST /agent-chats/:id/unqueue: 뺀 지시의 그림도 돌려준다 (입력란에서 고쳐 다시 보내게) */
+export const Unqueued = z.object({ chat: Chat, images: z.array(ImageIn).optional() }).strict()
 export const ArchiveBody = z.object({ archived: z.boolean() }).strict()
 
 // ---------- 앱 고치기 대화: 앱이 대신 하는 일 (에이전트는 앱 MCP app_submit · app_checks로 부른다) ----------
@@ -201,7 +215,10 @@ export type ImageIn = z.infer<typeof ImageIn>
 export type ChatSettings = z.infer<typeof ChatSettings>
 export type ChatMessageBody = z.input<typeof ChatMessageBody>
 export type ChatMode = (typeof CHAT_MODES)[number]
-export type ChatModel = (typeof CHAT_MODELS)[number]
+export type ChatModel = z.infer<typeof ChatModel>
+export type ModelChoice = z.infer<typeof ModelChoice>
+export type ChatModels = z.infer<typeof ChatModels>
+export type Unqueued = z.infer<typeof Unqueued>
 export type ChatEffort = (typeof CHAT_EFFORTS)[number]
 export type AttachKind = (typeof ATTACH_KINDS)[number]
 export type ChatItem = z.infer<typeof ChatItem>

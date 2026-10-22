@@ -62,6 +62,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
 
+  /** 고를 수 있는 모델 (맥의 Claude Code에게 물어 30분 기억, 못 띄우면 빈 목록) */
+  app.get('/api/agent-chats/models', replies(C.ChatModels), async (): Promise<C.ChatModels> => ({ models: await chats.models() }))
+
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 
   app.get<{ Params: { id: string } }>('/api/agent-chats/:id', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.get(req.params.id) }))
@@ -80,7 +83,10 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   })
 
   /** 도는 동안 보내 기다리는 지시 하나 빼기 */
-  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/unqueue', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.unqueue(req.params.id, parseBody(C.UnqueueBody, req.body).index) }))
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/unqueue', replies(C.Unqueued), async (req): Promise<C.Unqueued> => chats.unqueue(req.params.id, parseBody(C.UnqueueBody, req.body).index))
+
+  /** 오류 · 멈춤 · 앱 재시작 뒤 이어 하기 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/resume', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.resume(req.params.id) }))
 
   /** 보관함에 넣기 · 꺼내기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/archive', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.archive(req.params.id, parseBody(C.ArchiveBody, req.body).archived) }))
