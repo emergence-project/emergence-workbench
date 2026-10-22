@@ -9,6 +9,8 @@
  * - SDK는 처음 쓸 때 불러온다(dynamic import): 대화를 쓰지 않으면 앱 시작에 들지 않는다.
  * - Claude Code처럼 차례가 끝나도 닫지 않는다(input.inbox): 다음 지시를 같은 프로세스에 넘기고, 일하는 중에 보낸 말은 SDK가 그 차례에 섞어 읽는다.
  *   그래서 뒤에서 돌린 명령(run_in_background)도 살아 있다가, 끝나면 에이전트가 스스로 이어서 일한다. 앱이 inbox를 닫으면 끝난다.
+ * - 글은 쓰는 대로 조각(delta)으로 넘기고(includePartialMessages), 생각은 요약을 받아(summarized) 대화에 접어 보인다.
+ * - 곁 질문(side)은 따로 작은 모델(SIDE_MODEL)을 도구 없이 한 번 띄워 답한다. 하던 대화의 세션 · 맥락에 들지 않는다.
  * - 맥락이 AUTO_COMPACT_WINDOW에 가까워지면 Claude Code가 앞 내용을 요약해 이어 간다(자동 맥락 줄이기). /compact · /context 같은 명령도 그대로 넘긴다.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -16,7 +18,7 @@ import { FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type RunEvent, type RunIn
 import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
 import { claudeEnv } from './ask.js'
 
-type Block = { type: string; text?: string; name?: string; input?: unknown }
+type Block = { type: string; text?: string; thinking?: string; name?: string; input?: unknown }
 type Usage = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }
 
 /** 넣은 토큰 (캐시에서 읽은 것 · 캐시에 쓴 것 포함) */
@@ -31,6 +33,7 @@ export const AUTO_COMPACT_WINDOW = 120_000
 type Sdk = {
   type: string; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean
   total_cost_usd?: number; duration_ms?: number; errors?: string[]; result?: string; usage?: Usage; modelUsage?: Record<string, { contextWindow?: number }>
+  event?: { type?: string; delta?: { type?: string; text?: string } }
   status?: string | null; compact_metadata?: { trigger?: string; pre_tokens?: number; post_tokens?: number }; tasks?: { ambient?: boolean }[]
 }
 
@@ -51,10 +54,13 @@ export function eventsOf(m: Sdk, context?: number): RunEvent[] {
     const out: RunEvent[] = []
     for (const b of blocks) {
       if (b.type === 'text' && b.text) out.push({ type: 'text', text: b.text, ...(sub && { sub }) })
+      else if (b.type === 'thinking' && b.thinking?.trim() && !sub) out.push({ type: 'think', text: b.thinking })
       else if (b.type === 'tool_use' && b.name) out.push({ type: 'tool', tool: b.name, input: (b.input && typeof b.input === 'object' ? b.input : {}) as Record<string, unknown>, ...(sub && { sub }) })
     }
     return out
   }
+  // 쓰는 중인 글 (주 에이전트만)
+  if (m.type === 'stream_event' && !m.parent_tool_use_id && m.event?.type === 'content_block_delta' && m.event.delta?.type === 'text_delta' && m.event.delta.text) return [{ type: 'delta', text: m.event.delta.text }]
   if (m.type === 'result') {
     const ok = m.subtype === 'success' && !m.is_error
     const error = ok ? undefined : (m.errors?.join('\n') || (m.is_error ? m.result : undefined) || m.subtype)
@@ -102,6 +108,25 @@ function modelLister(): () => Promise<ModelChoice[]> {
   }
 }
 
+/** 곁 질문에 쓰는 작은 모델 */
+export const SIDE_MODEL = 'haiku'
+
+/** 곁 질문: 도구 · 저장소 설정 없이 한 번 묻고 답을 받는다 (세션을 남기지 않는다) */
+async function sideAnswer(o: { prompt: string; cwd: string }): Promise<string> {
+  const { query } = await import('@anthropic-ai/claude-agent-sdk')
+  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, model: SIDE_MODEL, persistSession: false, env: claudeEnv() } })
+  let answer = ''
+  try {
+    for await (const m of q) {
+      const r = m as { type: string; subtype?: string; result?: string; is_error?: boolean; errors?: string[] }
+      if (r.type !== 'result') continue
+      if (r.subtype !== 'success' || r.is_error) throw new Error(r.errors?.join('\n') || r.result || r.subtype || 'failed')
+      answer = r.result ?? ''
+    }
+  } finally { q.close() }
+  return answer
+}
+
 export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): AgentRunner {
   return Object.assign(async function* run(input: RunInput): AsyncIterable<RunEvent> {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
@@ -137,6 +162,7 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
         permissionMode: input.mode === 'plan' && input.write !== 'read' ? 'plan' : 'default',
         ...(input.model !== 'default' && { model: input.model }),
         effort: input.effort,
+        includePartialMessages: true,
         canUseTool: async (tool, toolInput) => {
           const d = await input.canUseTool(tool, toolInput)
           return d.allow ? { behavior: 'allow', updatedInput: toolInput } : { behavior: 'deny', message: d.message }
@@ -145,6 +171,8 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
         env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(AUTO_COMPACT_WINDOW), ...claudeEnv(), ...input.env },
       },
     })
+    // 생각은 요약으로 받는다 (모델마다 기본이 '보이지 않음'일 수 있다). 못 바꾸면 그대로 둔다
+    void q.setMaxThinkingTokens(null, 'summarized').catch(() => undefined)
     let context = 0
     try {
       for await (const m of q) {
@@ -159,5 +187,5 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
       done()
       q.close()
     }
-  }, { models: modelLister() })
+  }, { models: modelLister(), side: sideAnswer })
 }

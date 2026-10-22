@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, fitMenu, menuAt, modelName, nextTrust, stepsSummary, trustOf } from './AgentChats'
+import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, fitMenu, menuAt, modelName, nextTrust, sideQuestion, stepsSummary, trustOf } from './AgentChats'
 
 describe('에이전트 입력란', () => {
+  it('곁 질문은 /곁 · /btw 뒤의 글, 빈 질문 · 다른 명령은 아니다', () => {
+    expect(sideQuestion('/곁 이건 뭐야?')).toBe('이건 뭐야?')
+    expect(sideQuestion(' /btw what is $6.29?\nreally ')).toBe('what is $6.29?\nreally')
+    expect(sideQuestion('/곁 ')).toBeUndefined()
+    expect(sideQuestion('/곁질문')).toBeUndefined()
+    expect(sideQuestion('/compact')).toBeUndefined()
+  })
   it('/ 명령은 맨 앞에서만, @ 붙이기는 낱말 앞 어디서나 연다', () => {
     expect(menuAt('/계', 2)).toEqual({ kind: '/', start: 0, query: '계' })
     expect(menuAt('이것 /계', 5)).toBeNull()

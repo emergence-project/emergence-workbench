@@ -19,6 +19,8 @@ export const agentChatsApi = {
   create: (body: NewChatBody) => req(base, send('POST', body)).then(one),
   /** 이어서 지시 (일하는 중이면 다음 차례에 읽는다) */
   send: (id: string, body: ChatMessageBody) => req(`${base}/${enc(id)}/messages`, send('POST', body)).then(one),
+  /** 곁 질문 (하던 일을 멈추지 않고 작은 모델이 대화 요약만 보고 답한다) */
+  side: (id: string, text: string) => req(`${base}/${enc(id)}/side`, send('POST', { text })).then(one),
   settings: (id: string, body: ChatSettings) => req(`${base}/${enc(id)}/settings`, send('POST', body)).then(one),
   forget: (id: string, label: string) => req(`${base}/${enc(id)}/forget`, send('POST', { label })).then(one),
   /** 허락 · 계획 카드에 답하기. 거절에는 할 말(note), 계획 승인에는 이어 갈 맡기는 정도(mode) */

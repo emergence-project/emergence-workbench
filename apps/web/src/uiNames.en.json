@@ -832,5 +832,8 @@
   "사용량": "Usage",
   "대화 알림": "Conversation alerts",
   "앞 내용 요약": "Summary of earlier messages",
-  "뒤에서 도는 명령": "Background commands"
+  "뒤에서 도는 명령": "Background commands",
+  "에이전트 생각": "Agent thinking",
+  "곁 질문": "Side question",
+  "쓰는 중인 글": "Text being written"
 }

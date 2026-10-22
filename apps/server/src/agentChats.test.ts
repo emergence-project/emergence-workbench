@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ChatScope } from '@rw/core/contract/agentChats'
-import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptOf, scopeDir, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
+import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { choicesOf, eventsOf } from './agentRunner.js'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
@@ -112,6 +112,10 @@ describe('SDK 메시지', () => {
     expect(eventsOf({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0.1 })).toEqual([{ type: 'result', ok: true, cost: 0.1 }])
     expect(eventsOf({ type: 'result', subtype: 'error_max_turns', errors: ['too long'] })).toEqual([{ type: 'result', ok: false, error: 'too long' }])
     expect(eventsOf({ type: 'stream_event' })).toEqual([])
+    // 쓰는 중인 글 조각(주 에이전트만) · 생각 요약
+    expect(eventsOf({ type: 'stream_event', parent_tool_use_id: null, event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '아' } } })).toEqual([{ type: 'delta', text: '아' }])
+    expect(eventsOf({ type: 'stream_event', parent_tool_use_id: 'x', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '아' } } })).toEqual([])
+    expect(eventsOf({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'thinking', thinking: '17 × 23' }] } })).toEqual([{ type: 'think', text: '17 × 23' }])
     // 앞 내용 요약 · 뒤에서 도는 명령
     expect(eventsOf({ type: 'system', subtype: 'status', status: 'compacting' })).toEqual([{ type: 'status', compacting: true }])
     expect(eventsOf({ type: 'system', subtype: 'status', status: null })).toEqual([{ type: 'status', compacting: false }])
@@ -158,6 +162,13 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     const plan = await input.canUseTool('ExitPlanMode', { plan: '1. 고치기' })
     const d = plan.allow ? await input.canUseTool('mcp__workbench__edit_note', { project: 'sample-research', file, edits: [{ old: 'a', new: 'b', reason: 'r' }] }) : plan
     yield { type: 'text', text: `${early.allow ? 'early' : 'waited'} ${d.allow ? 'edited' : 'no'}` }
+  } else if (input.prompt === 'stream') {
+    // 쓰는 중인 글 조각 · 생각 요약
+    yield { type: 'think', text: '17 × 23' }
+    yield { type: 'delta', text: '아니요, ' }
+    yield { type: 'delta', text: '소수가 아닙니다' }
+    await new Promise<void>((r) => { gate = r })
+    yield { type: 'text', text: '아니요, 소수가 아닙니다.' }
   } else if (input.prompt === 'live') {
     // 열어 둔 에이전트: 받은 지시마다 한 차례 (뒤에서 도는 명령 · 앞 내용 요약도 낸다), inbox가 닫히면 끝난다
     yield { type: 'text', text: 'first' }
@@ -178,6 +189,10 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
   }
   yield { type: 'result', ok: true, cost: 0.01 }
 }
+
+const sides: string[] = []
+fake.side = async ({ prompt }) => { sides.push(prompt); if (prompt.includes('터져')) throw new Error('boom'); return '17 × 23이라 소수가 아닙니다' }
+const drafts: string[] = []
 
 describe('대화 API', () => {
   let tmp: string
@@ -440,6 +455,42 @@ describe('대화 API', () => {
     expect((await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: 'nope', text: 'x' } })).statusCode).toBe(404)
     expect((await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid, text: 'x', scope: { kind: 'topic' } } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid, text: 'x', scope: { kind: 'note', target: '../x' } } })).statusCode).toBe(400)
+  })
+})
+
+describe('쓰는 중인 글 · 생각 · 곁 질문', () => {
+  it('쓰는 중인 글은 화면에만 보내고 기록하지 않으며, 생각은 접힌 줄로, 곁 질문은 에이전트를 거치지 않고 답한다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-stream-'))
+    const chats = new AgentChats({ dir, runner: fake, limit: 2, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {}, draft: (_c, text) => drafts.push(text) })
+    const c = chats.create({ rid: 'p', text: 'stream' })
+    await vi.waitFor(() => expect(drafts.at(-1)).toBe('아니요, 소수가 아닙니다'))
+    expect(chats.get(c.id).draft).toBe('아니요, 소수가 아닙니다')
+    expect(JSON.parse(fs.readFileSync(path.join(dir, `${c.id}.json`), 'utf8')).draft).toBeUndefined()
+    const runs = seen.length
+    // 곁 질문: 하던 차례 중에도 에이전트에게 보내지 않는다
+    chats.side(c.id, '391은 소수야?')
+    await vi.waitFor(() => expect(chats.get(c.id).items.find((i) => i.kind === 'side')).toMatchObject({ q: '391은 소수야?', answer: '17 × 23이라 소수가 아닙니다' }))
+    expect(seen.length).toBe(runs)
+    expect(sides.at(-1)).toContain('User: stream')
+    expect(sides.at(-1)).toContain('Side question: 391은 소수야?')
+    chats.side(c.id, '터져')
+    await vi.waitFor(() => expect(chats.get(c.id).items.filter((i) => i.kind === 'side').at(-1)).toMatchObject({ error: 'boom' }))
+    gate!()
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    const done = chats.get(c.id)
+    expect(done.draft).toBeUndefined()
+    expect(done.items.filter((i) => i.kind === 'think' || i.kind === 'text').map((i) => (i as { text: string }).text)).toEqual(['17 × 23', '아니요, 소수가 아닙니다.'])
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+  it('곁 질문 글: 뒤에서부터 지시 · 에이전트 글을 정한 길이 안으로', () => {
+    const items = Array.from({ length: 50 }, (_, i) => ({ kind: 'text' as const, at: '', text: `글 ${i} ${'x'.repeat(500)}` }))
+    const p = sidePrompt({ title: 'T', scope: { kind: 'project' }, items, todos: [{ text: '시험', state: 'in_progress' }], changed: ['a.ts'] }, '뭐 해?')
+    expect(p).toContain('글 49')
+    expect(p).not.toContain('글 0 ')
+    expect(p).toContain('[in_progress] 시험')
+    expect(p).toContain('Changed files: a.ts')
+    expect(p.length).toBeLessThan(14_000)
   })
 })
 

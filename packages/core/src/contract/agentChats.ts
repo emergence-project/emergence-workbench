@@ -86,6 +86,13 @@ export const ChatItem = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('error'), at: z.string(), text: z.string() }).strict(),
   /** 앞 내용을 요약해 이어 감 (Claude Code의 맥락 줄이기). auto = 맥락이 커져 저절로, before · after = 줄이기 전후 맥락 토큰 */
   z.object({ kind: z.literal('compact'), at: z.string(), auto: z.boolean(), before: z.number(), after: z.number().optional() }).strict(),
+  /** 에이전트가 생각한 것의 요약 (Claude Code의 생각 보기, 접어서 보인다) */
+  z.object({ kind: z.literal('think'), at: z.string(), text: z.string() }).strict(),
+  /**
+   * 곁 질문 (Claude Code의 /btw): 하던 일을 멈추지 않고 작은 모델이 이 대화의 요약만 보고 답한다. 에이전트의 맥락에는 들어가지 않는다.
+   * answer가 없고 error도 없으면 답을 기다리는 중
+   */
+  z.object({ kind: z.literal('side'), at: z.string(), q: z.string(), answer: z.string().optional(), error: z.string().optional() }).strict(),
 ])
 
 export const ChatRow = z.object({
@@ -125,6 +132,8 @@ export const ChatRow = z.object({
   live: z.boolean().optional(),
   tasks: z.number().optional(),
   compacting: z.boolean().optional(),
+  /** 에이전트가 지금 쓰는 중인 글 (다 쓰면 대화 줄이 되고 지워진다. 기록에는 남기지 않는다) */
+  draft: z.string().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -171,6 +180,8 @@ export const NewChatBody = z.object({
 }).strict()
 /** 이어서 지시. 일하는 중이면 다음 차례에 읽는다 */
 export const ChatMessageBody = z.object(message).strict()
+/** POST /agent-chats/:id/side: 곁 질문 */
+export const SideBody = z.object({ text: z.string().trim().min(1).max(4000) }).strict()
 export const ForgetBody = z.object({ label: z.string().min(1) }).strict()
 /** note = 거절하며 할 말(에이전트에게 그대로 간다), mode = 계획을 승인하며 이어 갈 맡기는 정도(ask · edit) */
 export const AskAnswerBody = z.object({ ask: z.string().min(1), answer: z.enum(ASK_ANSWERS), note: z.string().trim().max(4000).optional(), mode: z.enum(CHAT_MODES).optional() }).strict()
@@ -226,6 +237,7 @@ export type Todo = z.infer<typeof Todo>
 export type ImageIn = z.infer<typeof ImageIn>
 export type ChatSettings = z.infer<typeof ChatSettings>
 export type ChatMessageBody = z.input<typeof ChatMessageBody>
+export type SideBody = z.infer<typeof SideBody>
 export type ChatMode = (typeof CHAT_MODES)[number]
 export type ChatModel = z.infer<typeof ChatModel>
 export type ModelChoice = z.infer<typeof ModelChoice>

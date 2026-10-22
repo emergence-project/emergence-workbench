@@ -134,9 +134,16 @@ const COMMANDS: { cmd: string; label: string; text: string }[] = [
   { cmd: t('/흐름', '/flow'), label: t('한 일을 흐름 점으로 정리', 'Turn the work into flow dots'), text: t('이번에 한 일을 흐름 점으로 정리해 줘 (한 일 하나에 점 하나).', 'Add the work done here to the flow (one dot per piece of work).') },
   { cmd: t('/요약', '/summary'), label: t('오늘 이 프로젝트에서 한 일', 'What happened in this project today'), text: t('오늘 이 프로젝트에서 한 일을 짧게 요약해 줘.', 'Summarize briefly what happened in this project today.') },
   // Claude Code 명령: 그대로 보낸다 (에이전트가 아니라 Claude Code가 처리)
+  { cmd: t('/곁', '/btw'), label: t('하던 일을 멈추지 않고 짧게 묻기 (작은 모델이 대화 요약만 보고 답함)', 'Ask a quick side question without interrupting (a small model answers from a summary)'), text: t('/곁 ', '/btw ') },
   { cmd: '/compact', label: t('앞 내용을 요약해 맥락 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact' },
   { cmd: '/context', label: t('맥락이 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context' },
 ]
+
+/** 곁 질문이면 묻는 글 (/곁 · /btw 뒤), 아니면 없음 */
+export function sideQuestion(text: string): string | undefined {
+  const m = /^\/(곁|btw)\s+([\s\S]+)$/.exec(text.trim())
+  return m?.[2]!.trim() || undefined
+}
 
 const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record') }
 
@@ -464,6 +471,17 @@ function ItemView({ chat, it, onError, onChanges }: { chat: Chat; it: Exclude<Ch
       </li>
     )
     case 'error': return <li className="ac-note error-text" data-ui="대화 오류">! {it.text}</li>
+    case 'think': return (
+      <li className="ac-think" data-ui="에이전트 생각" title={when}>
+        <details><summary className="muted">{t('생각', 'Thinking')}</summary><MemoText text={it.text} /></details>
+      </li>
+    )
+    case 'side': return (
+      <li className="ac-side" data-ui="곁 질문" title={when}>
+        <div className="muted ac-hint">{t('곁 질문', 'Side question')} · {it.q}</div>
+        {it.answer ? <MemoText text={it.answer} /> : it.error ? <span className="error-text">! {it.error}</span> : <span className="muted">{t('답하는 중…', 'Answering…')}</span>}
+      </li>
+    )
     case 'compact': return (
       <li className="ac-note muted" data-ui="앞 내용 요약" title={when}>
         {it.auto ? t('앞 내용을 요약해 이어 갑니다', 'Summarized earlier messages to keep going') : t('앞 내용을 요약했습니다', 'Summarized earlier messages')}
@@ -895,7 +913,9 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const send = async (m: ChatMessageBody) => {
     setFail(null)
     askNotify()
-    client.setQueryData(qk.agentChat(id), await agentChatsApi.send(id, m))
+    // 곁 질문: 에이전트에게 보내지 않고 작은 모델이 따로 답한다
+    const side = sideQuestion(m.text)
+    client.setQueryData(qk.agentChat(id), await (side ? agentChatsApi.side(id, side) : agentChatsApi.send(id, m)))
     return true
   }
   const stop = async () => { try { client.setQueryData(qk.agentChat(id), await agentChatsApi.stop(id)) } catch (e) { setFail((e as Error).message) } }
@@ -914,6 +934,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
         {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} />)}
+        {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('일하는 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
         {canResume && <li className="ac-note"><button className="btn sm" data-ui="이어 하기" onClick={() => void resume()}>{t('이어 하기', 'Continue')}</button><span className="muted ac-hint">{t('같은 대화에서 멈춘 곳부터', 'From where it stopped, in the same conversation')}</span></li>}

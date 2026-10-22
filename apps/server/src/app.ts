@@ -169,7 +169,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const broadcast = (e: WorkbenchEvent) => {
     // 라이브러리 알림은 바뀐 갈래의 캐시만 비운다 (아래 watchLibraryNow). 프로젝트 알림은 그 프로젝트와 프로젝트를 읽는 목록만 (10/15)
     // 에이전트 대화 알림은 파일이 바뀐 것이 아니라 캐시를 그대로 둔다
-    if (e.type === 'agent-chat') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
+    if (e.type === 'agent-chat' || e.type === 'agent-draft') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
     const data = JSON.stringify(e)
     for (const s of sockets) if (s.readyState === 1) s.send(data)
   }

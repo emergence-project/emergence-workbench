@@ -229,3 +229,10 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-compose > .ac-latest { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: auto; margin: 0 0 var(--sp-2); box-shadow: var(--shadow); background: var(--bg); }
 .ac-latest svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ac-usage { display: flex; flex-direction: column; gap: 2px; }
+
+/* 생각 요약(접음) · 쓰는 중인 글 · 곁 질문 (10/22 Claude Code처럼) */
+.ac-think { font-size: var(--fs-xs); color: var(--text-2); }
+.ac-think summary { cursor: pointer; }
+.ac-think .memo-text { color: var(--text-2); padding-left: var(--sp-4); border-left: 2px solid var(--line); margin-top: var(--sp-1); }
+.ac-draft .memo-text { color: var(--text-2); }
+.ac-side { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--line); border-radius: var(--r-sm); display: flex; flex-direction: column; gap: var(--sp-1); }

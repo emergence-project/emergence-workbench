@@ -67,6 +67,10 @@ export type RunEvent =
   | { type: 'status'; compacting: boolean }
   /** 뒤에서 도는 명령 수가 바뀜 */
   | { type: 'tasks'; count: number }
+  /** 쓰는 중인 글 조각 (주 에이전트, 다 쓰면 text가 온다) */
+  | { type: 'delta'; text: string }
+  /** 생각한 것의 요약 */
+  | { type: 'think'; text: string }
 
 /** 지시 하나 (글과 붙인 그림) */
 export type Turn = { prompt: string; images?: ImageIn[] }
@@ -96,8 +100,11 @@ export class Inbox<T> implements AsyncIterable<T> {
   }
 }
 
-/** 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음) */
-export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]> }
+/**
+ * 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음),
+ * side = 곁 질문 하나에 작은 모델이 도구 없이 답한다 (prompt에 대화 요약과 질문이 다 들어 있다)
+ */
+export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: { prompt: string; cwd: string }) => Promise<string> }
 
 // ---------- 허락 규칙 (순수 함수) ----------
 
@@ -460,6 +467,8 @@ interface Session {
 
 /** 차례가 끝난 뒤 에이전트를 열어 두는 시간, 뒤에서 명령이 도는 동안 열어 두는 최대 시간 */
 export const IDLE_MS = 10 * 60_000
+/** 쓰는 중인 글을 화면에 보내는 간격 */
+const DRAFT_MS = 300
 /** app_checks가 기다리는 동안 CI를 다시 보는 간격 */
 const CHECK_EVERY_MS = 20_000
 export const TASKS_MS = 60 * 60_000
@@ -516,6 +525,8 @@ export interface AgentChatsDeps {
   extraDirs: () => string[]
   /** 대화가 바뀌면 (화면 알림) */
   notify: (chat: ChatRow) => void
+  /** 쓰는 중인 글을 화면에 (대화 파일은 쓰지 않는다) */
+  draft?: (chat: Pick<ChatRow, 'id' | 'rid'>, text: string) => void
   /** 앱 고치기 대화의 작업 폴더와 PR (앱 저장소가 있는 맥에서만) */
   app?: AppWork
   /**
@@ -537,6 +548,7 @@ export class AgentChats {
   private readonly queue: { id: string; prompt: string; images?: ImageIn[] }[] = []
   /** 열어 둔 에이전트 */
   private readonly sessions = new Map<string, Session>()
+  private readonly draftTimers = new Map<string, NodeJS.Timeout>()
 
   constructor(private readonly deps: AgentChatsDeps) {
     fs.mkdirSync(deps.dir, { recursive: true })
@@ -552,6 +564,8 @@ export class AgentChats {
         delete c.live
         delete c.tasks
         delete c.compacting
+        delete c.draft
+        for (const it of c.items) if (it.kind === 'side' && it.answer === undefined && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
         if (LIVE.has(c.state)) {
           // 앱이 다시 켜지면 돌던 차례는 이어지지 않는다
           c.state = 'stopped'
@@ -941,7 +955,44 @@ export class AgentChats {
 
   private write(c: Stored): void {
     if (c.items.length > MAX_ITEMS) c.trimmed = (c.trimmed ?? 0) + c.items.splice(0, c.items.length - MAX_ITEMS).length
-    fs.writeFileSync(this.fileOf(c.id), JSON.stringify(c, null, 1))
+    fs.writeFileSync(this.fileOf(c.id), JSON.stringify({ ...c, draft: undefined }, null, 1))
+  }
+
+  /** 쓰는 중인 글: 0.3초에 한 번만 화면에 보낸다 */
+  private drafting(c: Stored, more: string): void {
+    c.draft = (c.draft ?? '') + more
+    if (this.draftTimers.has(c.id)) return
+    const timer = setTimeout(() => {
+      this.draftTimers.delete(c.id)
+      if (c.draft) this.deps.draft?.(c, c.draft.slice(-MAX_TEXT))
+    }, DRAFT_MS)
+    timer.unref?.()
+    this.draftTimers.set(c.id, timer)
+  }
+
+  private undraft(c: Stored): void {
+    if (c.draft === undefined) return
+    delete c.draft
+    clearTimeout(this.draftTimers.get(c.id))
+    this.draftTimers.delete(c.id)
+  }
+
+  /**
+   * 곁 질문 (Claude Code의 /btw): 에이전트를 멈추거나 그 맥락에 넣지 않고, 작은 모델이 이 대화의 짧은 요약만 보고 답한다.
+   * 긴 대화에서 "이건 뭐야?" 한 줄에 앞 내용 전체를 다시 읽지 않게 (10/22)
+   */
+  side(id: string, q: string): Chat {
+    const c = this.must(id)
+    const ask = this.deps.runner.side
+    if (!ask) throw new WorkbenchError(404, t('이 맥에서는 곁 질문을 쓸 수 없습니다', 'Side questions are not available on this Mac'))
+    const it: Extract<ChatItem, { kind: 'side' }> = { kind: 'side', at: now(), q: clip(q, 4000) }
+    this.push(c, it)
+    const cwd = c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
+    void ask({ prompt: sidePrompt(c, q), cwd })
+      .then((a) => { it.answer = clip(a.trim() || t('(답이 비었습니다)', '(empty answer)'), MAX_TEXT) })
+      .catch((e: Error) => { it.error = clip(e.message, 500) })
+      .finally(() => this.touch(c))
+    return wireOf(c)
   }
 
   private touch(c: Stored): void {
@@ -1130,6 +1181,7 @@ export class AgentChats {
       for await (const e of this.deps.runner(input)) {
         session.last = Date.now()
         if (e.type === 'session') { c.sessionId = e.id; this.write(c); continue }
+        if (e.type === 'delta') { this.drafting(c, e.text); continue }
         if (e.type === 'tasks') { if ((c.tasks ?? 0) !== e.count) { c.tasks = e.count || undefined; this.touch(c) } continue }
         if (e.type === 'status') { if (!!c.compacting !== e.compacting) { c.compacting = e.compacting || undefined; this.touch(c) } continue }
         // 쉬던 에이전트가 스스로 이어 감 (뒤에서 돌던 명령이 끝남 등) 또는 쉬는 동안 받은 지시
@@ -1144,7 +1196,12 @@ export class AgentChats {
           this.push(c, { kind: 'compact', at: now(), auto: e.auto, before: e.before, ...(e.after !== undefined && { after: e.after }) })
           continue
         }
-        if (e.type === 'text') { if (e.text.trim()) this.push(c, { kind: 'text', at: now(), text: e.text.slice(0, MAX_TEXT), ...(e.sub && { sub: true }) }); continue }
+        if (e.type === 'text') {
+          if (!e.sub) this.undraft(c)
+          if (e.text.trim()) this.push(c, { kind: 'text', at: now(), text: e.text.slice(0, MAX_TEXT), ...(e.sub && { sub: true }) })
+          continue
+        }
+        if (e.type === 'think') { if (e.text.trim()) this.push(c, { kind: 'think', at: now(), text: e.text.trim().slice(0, MAX_TEXT) }); continue }
         if (e.type === 'tool') {
           if (e.tool === 'TodoWrite') { this.setTodos(c, todosOf(e.input)); continue }
           if (e.tool === PLAN_TOOL || e.tool === 'EnterPlanMode') continue
@@ -1153,6 +1210,7 @@ export class AgentChats {
           continue
         }
         if (e.type === 'result') {
+          this.undraft(c)
           if (limit) clearTimeout(limit)
           limit = undefined
           if (app && c.write !== 'read') await this.commandEdits(c, app, p.repo, touched)
@@ -1191,6 +1249,7 @@ export class AgentChats {
       delete c.live
       delete c.tasks
       delete c.compacting
+      this.undraft(c)
       for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.delete(it.id) }
       this.finish(c, ended)
     }
@@ -1225,6 +1284,33 @@ export class AgentChats {
   }
 }
 
+/** 곁 질문에 줄 글: 대화의 제목 · 범위 · 할 일 · 바뀐 파일과 뒤에서부터 지시 · 에이전트 글 (모두 SIDE_CHARS자 안으로) */
+export function sidePrompt(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' | 'changed'>, q: string): string {
+  const lines: string[] = []
+  let room = SIDE_CHARS
+  for (let i = c.items.length - 1; i >= 0 && room > 0; i--) {
+    const it = c.items[i]!
+    const line = it.kind === 'user' ? `User: ${it.text}` : it.kind === 'text' && !it.sub ? `Agent: ${it.text}` : it.kind === 'side' && it.answer ? `Side question: ${it.q}\nSide answer: ${it.answer}` : it.kind === 'edit' ? `(changed ${it.file} +${it.added} −${it.removed})` : it.kind === 'result' && it.cost !== undefined ? `(turn cost about $${it.cost.toFixed(2)} at API prices${it.tokens ? `, ${it.tokens.in + it.tokens.out} tokens` : ''})` : undefined
+    if (!line) continue
+    const cut = clip(line, Math.min(1500, room))
+    lines.unshift(cut)
+    room -= cut.length
+  }
+  return [
+    'You answer a quick side question about an ongoing agent conversation in Emergence Workbench, without tools and without interrupting it.',
+    'Answer from the conversation below only, briefly (one to four sentences), in the language of the question. If the answer is not in it, say so and suggest asking the agent itself.',
+    '',
+    `Conversation: ${c.title} (scope: ${c.scope.kind}${c.scope.target ? ` ${c.scope.target}` : ''})`,
+    ...(c.todos.length ? [`To-dos: ${c.todos.map((x) => `[${x.state}] ${x.text}`).join('; ')}`] : []),
+    ...(c.changed.length ? [`Changed files: ${c.changed.join(', ')}`] : []),
+    '',
+    ...lines,
+    '',
+    `Side question: ${q}`,
+  ].join('\n')
+}
+const SIDE_CHARS = 12_000
+
 /** 앱 고치기 대화의 환경: 대화마다 다른 화면 그림 포트, 맥의 Chrome (playwright 브라우저를 받지 않아도 되게) */
 export function appEnv(id: string): Record<string, string> {
   const n = parseInt(crypto.createHash('sha1').update(id).digest('hex').slice(0, 6), 16)
@@ -1257,7 +1343,7 @@ const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

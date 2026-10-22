@@ -30,6 +30,8 @@ export type WorkbenchEvent =
   | { type: 'records-publish'; research: string }
   /** 에이전트 대화가 바뀜 (서버 routes/agentChats.ts). 파일 변경이 아니다 */
   | { type: 'agent-chat'; research: string; id: string }
+  /** 에이전트가 쓰는 중인 글 (다 쓰기 전, 0.3초마다). 대화를 다시 받지 않고 열린 대화에 그대로 보인다 */
+  | { type: 'agent-draft'; research: string; id: string; text: string }
   | { type: 'note'; research: string; file: string; hash: string | null }
   /** research.yaml sources의 파일(작업 목록·검토 문서·참고문헌)이 바뀜 */
   | { type: 'sources'; research: string }

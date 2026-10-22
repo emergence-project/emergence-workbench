@@ -29,6 +29,7 @@ const sampleRun = async function* (input: Parameters<AgentRunner>[0]): AsyncIter
       }
     }
     yield { type: 'tool', tool: 'TodoWrite', input: todos(2) }
+    yield { type: 'think', text: t('노트의 Checks 절은 차수 4까지만 확인했다. 차수 5에서 Kempe 사슬이 꼬이는 경우가 있는지 다시 돌려 봐야 한다.', 'The Checks section only covers degree 4. Degree 5 needs a rerun to see whether Kempe chains tangle.') }
     yield { type: 'text', text: t('노트에 적힌 확인은 차수 4까지입니다. 차수 5로 다시 돌리려면 아래 명령이 필요합니다.', 'The note checks up to degree 4. Rerunning up to degree 5 needs the command below.') }
     const d = await input.canUseTool('Bash', { command: 'python3 code/check_kempe.py --max-degree 5' })
     if (input.signal.aborted) return
@@ -84,4 +85,7 @@ const SAMPLE_MODELS: ModelChoice[] = [
   { value: 'claude-opus-5', name: 'Opus 5', desc: 'Best for everyday, complex tasks', resolved: 'claude-opus-5', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
 ]
 
-export const sampleAgentRunner: AgentRunner = Object.assign(sampleRun, { models: async () => SAMPLE_MODELS })
+export const sampleAgentRunner: AgentRunner = Object.assign(sampleRun, {
+  models: async () => SAMPLE_MODELS,
+  side: async () => t('예제 모드라 정해진 답입니다. 맥의 앱에서는 작은 모델이 이 대화의 요약만 보고 답합니다.', 'Sample mode gives a fixed answer. In the app on the Mac, a small model answers from a summary of this conversation.'),
+})

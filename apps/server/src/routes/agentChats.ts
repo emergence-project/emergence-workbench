@@ -51,6 +51,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
+    draft: (c, text) => broadcast({ type: 'agent-draft', research: c.rid, id: c.id, text }),
     ...(appWork && { app: appWork }),
     ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
     settings: () => registry.agents,
@@ -68,6 +69,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 
   app.get<{ Params: { id: string } }>('/api/agent-chats/:id', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.get(req.params.id) }))
+
+  /** 곁 질문: 하던 일을 멈추지 않고 작은 모델이 이 대화의 요약만 보고 답한다 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/side', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.side(req.params.id, parseBody(C.SideBody, req.body).text) }))
 
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.send(req.params.id, parseBody(C.ChatMessageBody, req.body)) }))
 
