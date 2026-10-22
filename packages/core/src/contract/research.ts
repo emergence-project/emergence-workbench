@@ -238,6 +238,8 @@ export const RepoSync = z.object({
   conflictCount: z.number().int().nonnegative(),
   fetchedAt: z.number().nullable(),
   fetchError: z.string().optional(),
+  /** 추적 브랜치가 원격의 기본 브랜치가 아닐 때 그 기본 브랜치 이름 (저절로 받기 · 기록 올리기를 멈춘다, 10/22) */
+  defaultBranch: z.string().optional(),
   /** 앱에서 안전하게 받아올 수 있는지 */
   canUpdate: z.boolean(),
 }).strict()

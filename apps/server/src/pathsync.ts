@@ -43,6 +43,8 @@ export interface PathPublishOptions {
   adopt?: boolean
   /** GitHub에서도 바뀐 파일을 세 갈래로 합쳐 본다 (부딪히면 멈춘다) */
   merge?: boolean
+  /** merge: 파일마다 줄 단위(git merge-file) 대신 쓸 합치기 (없으면 줄 단위. 앱 피드백은 항목 단위, feedbackMerge.ts) */
+  mergeText?: (file: string) => ((base: string, ours: string, theirs: string) => string | null) | undefined
 }
 
 export class PathSyncError extends Error {
@@ -114,7 +116,7 @@ const inPaths = (paths: string[], f: string) => paths.some((p) => f === p || f.s
 const JOURNAL_FILE = /(^|\/)log\/\d{4}-\d{2}-\d{2}\.md$/
 
 /** 세 갈래 합치기: 합친 글, 부딪히면 null. 한쪽에서 지운 파일은 합치지 않는다 */
-async function mergeFile(root: string, tmp: string, file: string, base: string | null, ours: string | null, theirs: string | null): Promise<string | null> {
+async function mergeFile(root: string, tmp: string, file: string, base: string | null, ours: string | null, theirs: string | null, custom?: PathPublishOptions['mergeText']): Promise<string | null> {
   if (!ours || !theirs) return null
   const write = async (name: string, blob: string | null) => {
     const file = path.join(tmp, name)
@@ -122,6 +124,11 @@ async function mergeFile(root: string, tmp: string, file: string, base: string |
     return file
   }
   const [o, b, th] = [await write('ours', ours), await write('base', base), await write('theirs', theirs)]
+  const merger = custom?.(file)
+  if (merger) {
+    const read = (f: string) => fs.readFileSync(f, 'utf8')
+    return merger(read(b), read(o), read(th))
+  }
   try {
     return await gitRun(['merge-file', '-p', o, b, th])
   } catch { // 0보다 큰 끝 값 = 부딪힌 곳 수, 음수 = 오류
@@ -201,7 +208,7 @@ async function publishPathsNow(root: string, paths: string[], opts: PathPublishO
       const out = new Map<string, string>()
       for (const f of conflicts) {
         const ours = await blobOf(root, 'HEAD', f)
-        const text = await mergeFile(root, tmp, f, await blobOf(root, base, f), ours, await blobOf(root, up, f))
+        const text = await mergeFile(root, tmp, f, await blobOf(root, base, f), ours, await blobOf(root, up, f), opts.mergeText)
         const disk = path.join(root, f)
         if (text === null || !fs.existsSync(disk) || await git(root, ['hash-object', '--', f]) !== ours) { out.clear(); break }
         out.set(f, text)

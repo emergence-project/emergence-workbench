@@ -4,6 +4,7 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { git as gitAt, gitRun, GIT_TIMEOUT } from './git.js'
 import { withRepoLock } from './repoLock.js'
+import { feedbackMergeFor } from './feedbackMerge.js'
 import { t } from './i18n.js'
 
 /**
@@ -80,17 +81,43 @@ async function pullNow(dir: string): Promise<{ ok: boolean; error?: string }> {
     try {
       await git(dir, ['merge', '--ff-only', '--quiet', '@{upstream}'])
     } catch {
+      const as = ['-c', 'user.name=research-workspace', '-c', 'user.email=research-workspace@localhost']
       try {
-        await git(dir, ['-c', 'user.name=research-workspace', '-c', 'user.email=research-workspace@localhost', 'merge', '--no-edit', '--quiet', '@{upstream}'])
+        await git(dir, [...as, 'merge', '--no-edit', '--quiet', '@{upstream}'])
       } catch (e) {
-        await git(dir, ['merge', '--abort']).catch(() => undefined)
-        throw e
+        // 줄 단위로 부딪힌 피드백 파일은 항목 단위로 합쳐 본다 (10/22: 두 맥이 같은 날짜 파일 끝에 덧붙이면 멈췄다)
+        if (!await resolveFeedbackConflicts(dir)) {
+          await git(dir, ['merge', '--abort']).catch(() => undefined)
+          throw e
+        }
+        await git(dir, [...as, 'commit', '--no-edit', '--quiet'])
       }
     }
     return { ok: true }
   } catch (e) {
     return { ok: false, error: String((e as { stderr?: string }).stderr || (e as Error).message).split('\n')[0] }
   }
+}
+
+/**
+ * 합치다 멈춘 사본에서 부딪힌 파일을 feedbackMerge.ts로 합쳐 올려 둔다(git add). 모두 합쳤으면 true.
+ * 피드백 파일이 아니거나, 한쪽이 지웠거나, 같은 항목의 같은 칸을 서로 다르게 고쳤으면 false (아무것도 쓰지 않는다)
+ */
+async function resolveFeedbackConflicts(dir: string): Promise<boolean> {
+  const files = (await git(dir, ['diff', '--name-only', '--diff-filter=U', '-z']).catch(() => '')).split('\0').filter(Boolean)
+  if (!files.length) return false
+  const stage = (n: number, f: string) => gitRun(['-C', dir, 'show', `:${n}:${f}`], { timeout: GIT_TIMEOUT.backup }).catch(() => null)
+  const out = new Map<string, string>()
+  for (const f of files) {
+    const merge = feedbackMergeFor(f)
+    const [b, o, th] = [await stage(1, f), await stage(2, f), await stage(3, f)]
+    const text = merge && o !== null && th !== null ? merge(b ?? '', o, th) : null
+    if (text === null) return false
+    out.set(f, text)
+  }
+  for (const [f, text] of out) fs.writeFileSync(path.join(dir, f), text)
+  await git(dir, ['add', '--', ...out.keys()])
+  return true
 }
 
 /** github.com 주소에서 owner/name (https · ssh 둘 다). GitHub가 아니면 null */
