@@ -8,6 +8,7 @@ import type { BackupResult } from '@rw/core/contract/backup'
 import { writeAtomic } from './fsutil'
 import { git as gitAt, gitBuffer, gitRun, GIT_TIMEOUT } from './git.js'
 import { t } from './i18n.js'
+import type { ProjectProfile } from './registry.js'
 
 /**
  * 맥에만 있던 작업대 정보(workbench/)와 앱 설정을 사용자의 비공개 개인 저장소(personalRepo.ts)에 두고, 그것을 정본으로 맞춘다
@@ -48,7 +49,11 @@ export const settingsPath = (machine = machineName()) => `_settings/${machine}/c
  * 컴퓨터마다 올리는 프로젝트 목록 (_settings/<컴퓨터>/projects.yaml). 경로 대신 GitHub 주소와 폴더 이름이라 다른 컴퓨터가 받을 수 있다.
  * 새 컴퓨터의 시작 준비 · 홈이 "다른 컴퓨터의 프로젝트"로 읽는다 (10/21 "목록을 보이고 묻기")
  */
-export interface SharedProject { id: string; title: string; remote: string | null; folder: string; tags: string[]; state?: string }
+export interface SharedProject {
+  id: string; title: string; remote: string | null; folder: string; tags: string[]; state?: string
+  /** 성격 · 분야 · 진행 상태 · 띠 · 색과 고친 때: 다른 컴퓨터가 더 늦게 고친 것을 따른다 (profileSync.ts, 10/22 09:44) */
+  profile?: ProjectProfile; profileAt?: string
+}
 
 /** 백업 사본(이미 받아 둔 개인 저장소)에서 다른 컴퓨터들이 올린 프로젝트 목록. 같은 저장소는 한 번만 */
 export function otherMachineProjects(dir: string, machine = machineName()): (SharedProject & { machine: string })[] {

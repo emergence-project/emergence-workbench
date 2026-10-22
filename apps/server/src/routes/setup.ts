@@ -9,6 +9,7 @@ import { parseBody, replies } from '../contract.js'
 import { agentRegistered, agentSeen } from '../agentSeen.js'
 import { appPath } from '../agentPaths.js'
 import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
+import { adoptOtherProfiles } from '../profileSync.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
 import { realIO } from '../githubRepos.js'
 import { git, gitRun, GIT_TIMEOUT } from '../git.js'
@@ -141,7 +142,11 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       if (!saved || !fs.existsSync(saved)) throw new WorkbenchError(409, t(`${dest}에 받았지만 workbench/가 저장소에도 개인 저장소 백업에도 없습니다. 원래 컴퓨터에서 설정 › 백업의 "지금 맞추기"를 한 번 한 뒤 다시 등록하세요.`, `Downloaded to ${dest}, but workbench/ is neither in the repository nor in the personal repository backup. On the original computer, press "Sync now" in Settings › Backup once, then register again.`))
       fs.cpSync(saved, path.join(dest, 'workbench'), { recursive: true })
     }
-    ensureWatch(registry.register(dest, { tags: body.tags }).id)
+    const id = registry.register(dest, { tags: body.tags }).id
+    // 다른 컴퓨터의 진행 상태 · 띠 · 색도 함께 (10/22 09:44: 맥북에서 완료한 프로젝트가 맥미니에서 진행으로 등록됨)
+    const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))
+    if (dir) await adoptOtherProfiles(registry, dir, { remoteOf, sameRepo }).catch(() => [])
+    ensureWatch(id)
     return view()
   })
 

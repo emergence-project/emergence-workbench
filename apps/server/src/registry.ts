@@ -100,7 +100,8 @@ export const LEGACY_WORK_TAG = '업무'
 /** 분야 이름은 개념노트 분류 이름이라 태그보다 길 수 있다 */
 export const MAX_FIELD_LENGTH = 60
 
-interface RegisteredResearch { id: string; path: string; kind?: unknown; fields?: string[]; state?: ProjectState; rail?: boolean; color?: string; tags?: string[] }
+/** profileAt: 성격 · 분야 · 진행 상태 · 띠 · 색을 마지막으로 고친 때(ISO). 컴퓨터 사이에서 더 늦게 고친 쪽을 따른다 (profileSync.ts) */
+interface RegisteredResearch { id: string; path: string; kind?: unknown; fields?: string[]; state?: ProjectState; rail?: boolean; color?: string; tags?: string[]; profileAt?: string }
 
 export interface ProjectProfile { kind: ProjectKind; fields: string[]; state: ProjectState; rail: boolean; color?: ProjectColor }
 
@@ -328,6 +329,7 @@ export class Registry {
             ...(r.rail === true && { rail: true }),
             ...(isColor(r.color) && { color: r.color }),
             ...(tags.length && { tags }),
+            ...(typeof r.profileAt === 'string' && Number.isFinite(Date.parse(r.profileAt)) && { profileAt: r.profileAt }),
           }
         })
       : []
@@ -382,8 +384,17 @@ export class Registry {
     return this.setProfile(id, { kind: tags.includes(LEGACY_WORK_TAG) ? 'work' : 'research', fields: tags.filter((t) => t !== LEGACY_WORK_TAG) })
   }
 
-  /** 성격 · 분야 · 진행 상태 · 띠에 보이기 · 색 중 받은 것만 바꾼다. 고치면 새 키로 쓰고 예전 tags는 뺀다 */
-  setProfile(id: string, patch: { kind?: unknown; fields?: unknown; state?: unknown; rail?: unknown; color?: unknown }): ResearchListItem {
+  /** 다른 컴퓨터와 나누는 모양: 성격 · 분야 · 진행 상태 · 띠 · 색과 마지막으로 고친 때 (없으면 고친 적 없음) */
+  sharedProfile(id: string): { profile: ProjectProfile; profileAt?: string } | null {
+    const entry = this.config.researches.find((r) => r.id === id)
+    return entry ? { profile: profileOf(entry), ...(entry.profileAt && { profileAt: entry.profileAt }) } : null
+  }
+
+  /**
+   * 성격 · 분야 · 진행 상태 · 띠에 보이기 · 색 중 받은 것만 바꾼다. 고치면 새 키로 쓰고 예전 tags는 뺀다.
+   * at: 고친 때 (기본 지금). 다른 컴퓨터에서 받은 것을 적을 때는 그 컴퓨터가 고친 때를 그대로 적는다
+   */
+  setProfile(id: string, patch: { kind?: unknown; fields?: unknown; state?: unknown; rail?: unknown; color?: unknown }, at = new Date().toISOString()): ResearchListItem {
     const entry = this.config.researches.find((r) => r.id === id)
     if (!entry) throw new WorkbenchError(404, tl(`등록되지 않은 연구: ${id}`, `Project not registered: ${id}`))
     const next = { ...profileOf(entry) }
@@ -418,6 +429,7 @@ export class Registry {
     else delete entry.rail
     if (next.color) entry.color = next.color
     else delete entry.color
+    entry.profileAt = at
     this.save()
     return this.list().find((r) => r.id === id)!
   }
