@@ -62,6 +62,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
 
+  /** 고를 수 있는 모델 (맥의 Claude Code에게 물어 30분 기억, 못 띄우면 빈 목록) */
+  app.get('/api/agent-chats/models', replies(C.ChatModels), async (): Promise<C.ChatModels> => ({ models: await chats.models() }))
+
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 
   app.get<{ Params: { id: string } }>('/api/agent-chats/:id', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.get(req.params.id) }))

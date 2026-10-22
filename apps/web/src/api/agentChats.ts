@@ -2,8 +2,8 @@
 import { enc, json, req, send } from './http'
 
 // 타입은 서버와 같은 계약에서 (packages/core/src/contract/agentChats.ts)
-import type { AskAnswer, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatOne, ChatSettings, NewChatBody, WorkState } from '@rw/core/contract/agentChats'
-export type { AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AskAnswer, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatModels, ChatOne, ChatSettings, NewChatBody, WorkState } from '@rw/core/contract/agentChats'
+export type { AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 
 /** 앱 고치기 대화의 rid (계약의 APP_RID와 같은 값. 값을 가져오면 화면 번들에 zod가 들어가서 여기 다시 적는다) */
 export const APP_RID = '_app'
@@ -14,6 +14,8 @@ export const agentChatsApi = {
   /** rid가 없으면 모든 프로젝트의 대화 */
   list: (rid?: string) => req(`${base}${rid ? `?rid=${enc(rid)}` : ''}`).then((r) => json<ChatList>(r)),
   get: (id: string) => req(`${base}/${enc(id)}`).then(one),
+  /** 고를 수 있는 모델 (맥의 Claude Code가 아는 것, 못 물으면 빈 목록) */
+  models: () => req(`${base}/models`).then((r) => json<ChatModels>(r)).then((x) => x.models),
   create: (body: NewChatBody) => req(base, send('POST', body)).then(one),
   /** 이어서 지시 (일하는 중이면 다음 차례에 읽는다) */
   send: (id: string, body: ChatMessageBody) => req(`${base}/${enc(id)}/messages`, send('POST', body)).then(one),

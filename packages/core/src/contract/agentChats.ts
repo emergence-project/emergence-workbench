@@ -28,10 +28,10 @@ export const ASK_ANSWERS = ['allow', 'always', 'deny'] as const
  * 명령 · 웹 · 범위 밖은 어느 모드든 묻거나 막는다
  */
 export const CHAT_MODES = ['ask', 'plan', 'edit'] as const
-/** 모델: default = 맥의 Claude Code 기본값 */
-export const CHAT_MODELS = ['default', 'opus', 'sonnet', 'haiku'] as const
-/** 생각 깊이 */
-export const CHAT_EFFORTS = ['low', 'medium', 'high'] as const
+/** 모델: default = 맥의 Claude Code 기본값. 별칭(opus · sonnet …) 말고도 맥의 Claude Code가 아는 모델 id(claude-opus-5 등)를 쓴다 (GET /agent-chats/models) */
+export const ChatModel = z.string().regex(/^[a-z][a-z0-9.\-[\]]{0,79}$/)
+/** 생각 깊이 (xhigh · max는 그것을 받는 모델만) */
+export const CHAT_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 /** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 */
 export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record'] as const
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
@@ -87,7 +87,7 @@ export const ChatRow = z.object({
   write: z.enum(CHAT_WRITE),
   state: z.enum(CHAT_STATES),
   mode: z.enum(CHAT_MODES),
-  model: z.enum(CHAT_MODELS),
+  model: ChatModel,
   effort: z.enum(CHAT_EFFORTS),
   /** 이 대화가 지금 고치는 중인 파일 (저장소 기준 경로). 다른 대화는 쓰지 못한다 */
   claims: z.array(z.string()),
@@ -119,6 +119,12 @@ export const Chat = ChatRow.extend({ items: z.array(ChatItem), always: z.array(z
 /** app = 이 맥에서 앱 고치기 대화를 열 수 있는지 (앱 저장소가 있을 때) */
 /** handOff = 피드백을 맡길 수 있는지 (앱 저장소 · 피드백 폴더가 있고 설정 › 에이전트에서 끄지 않음) */
 export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), app: z.boolean(), handOff: z.boolean() }).strict()
+/**
+ * GET /agent-chats/models: 맥의 Claude Code가 고를 수 있게 하는 모델 (Claude Code를 못 띄우면 빈 목록, 화면은 별칭 넷으로).
+ * resolved = 실제 모델 id (default · opus 같은 별칭이 무엇인지), efforts = 받는 생각 깊이 (없으면 생각 깊이를 고르지 않는다)
+ */
+export const ModelChoice = z.object({ value: ChatModel, name: z.string(), desc: z.string(), resolved: z.string().optional(), efforts: z.array(z.enum(CHAT_EFFORTS)).optional() }).strict()
+export const ChatModels = z.object({ models: z.array(ModelChoice) }).strict()
 /** GET /agent-chats/:id · POST 들의 응답 */
 export const ChatOne = z.object({ chat: Chat }).strict()
 /** GET /agent-work: 도는 대화와 잡은 파일 (화면 · MCP · STATUS가 같은 것을 본다) */
@@ -137,7 +143,7 @@ const message = {
   attach: z.array(Attach).max(20).optional(),
   images: z.array(ImageIn).max(4).optional(),
 }
-export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: z.enum(CHAT_MODELS).optional(), effort: z.enum(CHAT_EFFORTS).optional() }).strict()
+export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional() }).strict()
 export const NewChatBody = z.object({
   rid: z.string().min(1),
   ...message,
@@ -201,7 +207,9 @@ export type ImageIn = z.infer<typeof ImageIn>
 export type ChatSettings = z.infer<typeof ChatSettings>
 export type ChatMessageBody = z.input<typeof ChatMessageBody>
 export type ChatMode = (typeof CHAT_MODES)[number]
-export type ChatModel = (typeof CHAT_MODELS)[number]
+export type ChatModel = z.infer<typeof ChatModel>
+export type ModelChoice = z.infer<typeof ModelChoice>
+export type ChatModels = z.infer<typeof ChatModels>
 export type ChatEffort = (typeof CHAT_EFFORTS)[number]
 export type AttachKind = (typeof ATTACH_KINDS)[number]
 export type ChatItem = z.infer<typeof ChatItem>

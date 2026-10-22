@@ -15,7 +15,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID } from '@rw/core/contract/agentChats'
-import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork } from './appWorktree.js'
 import { agentTurnReasons, agentTurns, localDate, localTime, type AgentSettings } from '@rw/core'
 import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
@@ -57,7 +57,8 @@ export type RunEvent =
   | { type: 'tool'; tool: string; input: Record<string, unknown>; sub?: boolean }
   | { type: 'result'; ok: boolean; cost?: number; seconds?: number; error?: string }
 
-export type AgentRunner = (input: RunInput) => AsyncIterable<RunEvent>
+/** 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음) */
+export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]> }
 
 // ---------- 허락 규칙 (순수 함수) ----------
 
@@ -484,6 +485,11 @@ export class AgentChats {
   }
 
   get limit(): number { return this.deps.limit }
+
+  /** 고를 수 있는 모델 (실행기가 모르거나 못 물으면 빈 목록) */
+  async models(): Promise<ModelChoice[]> {
+    try { return (await this.deps.runner.models?.()) ?? [] } catch { return [] }
+  }
 
   /** 이 맥에서 앱 고치기 대화를 열 수 있는지 */
   get app(): boolean { return !!this.deps.app }

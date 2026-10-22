@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blocksOf, commentMessage, fitMenu, menuAt, nextTrust, stepsSummary, trustOf } from './AgentChats'
+import { blocksOf, commentMessage, effortsOf, fitEffort, fitMenu, menuAt, modelName, nextTrust, stepsSummary, trustOf } from './AgentChats'
 
 describe('에이전트 입력란', () => {
   it('/ 명령은 맨 앞에서만, @ 붙이기는 낱말 앞 어디서나 연다', () => {
@@ -16,6 +16,24 @@ describe('에이전트 입력란', () => {
   it('⇧⇥는 맡기는 정도를 차례로 돌린다', () => {
     expect(nextTrust('read')).toBe('ask')
     expect(nextTrust('edit')).toBe('read')
+  })
+  it('모델 이름: 기본은 실제 모델을 붙이고, 버전마다 따로, 생각 깊이는 그 모델이 받는 것만', () => {
+    const list = [
+      { value: 'default', name: 'Default (recommended)', desc: '', resolved: 'claude-opus-5-5', efforts: ['low' as const, 'max' as const] },
+      { value: 'opus', name: 'Opus 5.5', desc: '', resolved: 'claude-opus-5-5', efforts: ['low' as const, 'max' as const] },
+      { value: 'claude-opus-5', name: 'Opus 5', desc: '', resolved: 'claude-opus-5' },
+    ]
+    expect(modelName('default', list)).toBe('기본 (Opus 5.5)')
+    expect(modelName('claude-opus-5', list)).toBe('Opus 5')
+    expect(modelName('claude-old-1', list)).toBe('claude-old-1')
+    expect(modelName('default', [])).toBe('기본 모델')
+    expect(effortsOf('opus', list)).toEqual(['low', 'max'])
+    expect(effortsOf('claude-opus-5', list)).toEqual([])
+    expect(effortsOf('claude-old-1', list)).toEqual(['low', 'medium', 'high'])
+    // 모델을 바꾸면 받지 않는 생각 깊이는 보통으로
+    expect(fitEffort('max', ['low', 'medium', 'high'])).toEqual({ effort: 'medium' })
+    expect(fitEffort('high', ['low', 'medium', 'high'])).toEqual({})
+    expect(fitEffort('max', [])).toEqual({})
   })
   it('입력란 메뉴는 패널 · 창 끝에서 잘리지 않게 뒤집고 민다', () => {
     const view = { top: 100, bottom: 700, left: 900, right: 1200 }

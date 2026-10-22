@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { agentChatsApi, api, APP_RID, notesApi, type AskAnswer, type Attach, type AttachKind, type Chat, type ChatEffort, type ChatItem, type ChatMessageBody, type ChatMode, type ChatModel, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type ImageIn, type Todo } from './api'
+import { agentChatsApi, api, APP_RID, notesApi, type AskAnswer, type Attach, type AttachKind, type Chat, type ChatEffort, type ChatItem, type ChatMessageBody, type ChatMode, type ChatModel, type ChatRow, type ModelChoice, type ChatScope, type ChatSettings, type ChatState, type ImageIn, type Todo } from './api'
 import { askConfirm } from './askText'
 import { relativeTime } from './format'
 import { t } from './i18n'
@@ -75,10 +75,33 @@ export const trustOf = (c: { write: string; mode: ChatMode }): Trust => (c.write
 const settingsOf = (v: Trust): ChatSettings => (v === 'read' ? { write: 'read' } : { write: 'notes', mode: v })
 /** ⇧⇥: 다음 맡기는 정도 */
 export const nextTrust = (v: Trust): Trust => TRUSTS[(TRUSTS.indexOf(v) + 1) % TRUSTS.length]!
-const MODEL_NAME: Record<ChatModel, string> = { default: t('기본 모델', 'Default model'), opus: 'Opus', sonnet: 'Sonnet', haiku: 'Haiku' }
-const EFFORT_NAME: Record<ChatEffort, string> = { low: t('생각 얕게', 'Think less'), medium: t('생각 보통', 'Think normally'), high: t('생각 깊게', 'Think more') }
+const EFFORT_NAME: Record<ChatEffort, string> = { low: t('생각 얕게', 'Think less'), medium: t('생각 보통', 'Think normally'), high: t('생각 깊게', 'Think more'), xhigh: t('생각 더 깊게', 'Think much more'), max: t('생각 가장 깊게', 'Think hardest') }
 /** 입력란 아래 줄의 짧은 이름 (좁은 패널에서도 한 줄) */
-const EFFORT_SHORT: Record<ChatEffort, string> = { low: t('얕게', 'Less'), medium: t('보통', 'Normal'), high: t('깊게', 'More') }
+const EFFORT_SHORT: Record<ChatEffort, string> = { low: t('얕게', 'Less'), medium: t('보통', 'Normal'), high: t('깊게', 'More'), xhigh: t('더 깊게', 'Much more'), max: t('가장 깊게', 'Hardest') }
+const BASIC_EFFORTS: ChatEffort[] = ['low', 'medium', 'high']
+/** 맥의 Claude Code에게 모델을 묻지 못했을 때 (별칭 넷) */
+const FALLBACK_MODELS: ModelChoice[] = [
+  { value: 'default', name: t('기본 모델', 'Default model'), desc: '', efforts: BASIC_EFFORTS },
+  { value: 'opus', name: 'Opus', desc: '', efforts: BASIC_EFFORTS },
+  { value: 'sonnet', name: 'Sonnet', desc: '', efforts: BASIC_EFFORTS },
+  { value: 'haiku', name: 'Haiku', desc: '', efforts: BASIC_EFFORTS },
+]
+/** 고를 수 있는 모델: 맥의 Claude Code가 아는 것 (버전까지, 예: Opus 5.5 · Opus 5) */
+function useModels(): ModelChoice[] {
+  const got = useQuery({ queryKey: qk.agentModels, queryFn: agentChatsApi.models, staleTime: 30 * 60_000 }).data
+  return got?.length ? got : FALLBACK_MODELS
+}
+/** 모델 이름: 기본은 실제로 도는 모델을 붙여 "기본 (Opus 5.5)", 목록에 없는 id는 그대로 */
+export function modelName(value: ChatModel, list: ModelChoice[]): string {
+  const m = list.find((x) => x.value === value)
+  if (value !== 'default') return m?.name ?? value
+  const real = m?.resolved && list.find((x) => x.value !== 'default' && x.resolved === m.resolved)?.name
+  return real ? t(`기본 (${real})`, `Default (${real})`) : t('기본 모델', 'Default model')
+}
+/** 모델을 바꿀 때: 새 모델이 지금 생각 깊이를 받지 않으면 보통(없으면 첫째)으로 */
+export const fitEffort = (now: ChatEffort, efforts: ChatEffort[]): { effort?: ChatEffort } => (!efforts.length || efforts.includes(now) ? {} : { effort: efforts.includes('medium') ? 'medium' : efforts[0]! })
+/** 그 모델이 받는 생각 깊이 (목록에 없는 모델은 기본 셋, 받지 않으면 빈 목록) */
+export const effortsOf = (value: ChatModel, list: ModelChoice[]): ChatEffort[] => { const m = list.find((x) => x.value === value); return m ? m.efforts ?? [] : BASIC_EFFORTS }
 
 interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort }
 
@@ -609,6 +632,8 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
   }
   const stopping = !!onStop && !text.trim()
   const shownFail = fail ?? outerFail
+  const models = useModels()
+  const efforts = effortsOf(settings.model, models)
 
   return (
     <div className="ac-composer" data-ui="에이전트 입력란" onDrop={onDrop} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}>
@@ -654,12 +679,12 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
             </button>
           ))}
         </PopButton>
-        <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<>{MODEL_NAME[settings.model]} · {EFFORT_SHORT[settings.effort]} ▾</>}>
+        <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<>{modelName(settings.model, models)}{efforts.length > 0 && ` · ${EFFORT_SHORT[settings.effort]}`} ▾</>}>
           {(close) => <>
             <div className="ac-pop-h">{t('모델', 'Model')}</div>
-            {(Object.keys(MODEL_NAME) as ChatModel[]).map((m) => <button key={m} role="menuitemradio" aria-checked={settings.model === m} className={settings.model === m ? 'on' : ''} onClick={() => { close(); onSettings({ model: m }) }}><span className="ac-pop-check" aria-hidden>{settings.model === m ? Icon.check : null}</span>{MODEL_NAME[m]}</button>)}
-            <div className="ac-pop-h">{t('생각', 'Thinking')}</div>
-            {(Object.keys(EFFORT_NAME) as ChatEffort[]).map((m) => <button key={m} role="menuitemradio" aria-checked={settings.effort === m} className={settings.effort === m ? 'on' : ''} onClick={() => { close(); onSettings({ effort: m }) }}><span className="ac-pop-check" aria-hidden>{settings.effort === m ? Icon.check : null}</span>{EFFORT_NAME[m]}</button>)}
+            {models.map((m) => <button key={m.value} role="menuitemradio" aria-checked={settings.model === m.value} className={settings.model === m.value ? 'on' : ''} onClick={() => { close(); onSettings({ model: m.value, ...fitEffort(settings.effort, effortsOf(m.value, models)) }) }}><span className="ac-pop-check" aria-hidden>{settings.model === m.value ? Icon.check : null}</span>{modelName(m.value, models)}</button>)}
+            {efforts.length > 0 && <div className="ac-pop-h">{t('생각', 'Thinking')}</div>}
+            {efforts.map((m) => <button key={m} role="menuitemradio" aria-checked={settings.effort === m} className={settings.effort === m ? 'on' : ''} onClick={() => { close(); onSettings({ effort: m }) }}><span className="ac-pop-check" aria-hidden>{settings.effort === m ? Icon.check : null}</span>{EFFORT_NAME[m]}</button>)}
           </>}
         </PopButton>
         <span className="sp" />
@@ -975,6 +1000,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   const client = useQueryClient()
   const chat = useChat(id).data
   const work = useQuery({ queryKey: qk.agentWork, queryFn: () => agentChatsApi.work() }).data
+  const models = useModels()
   if (!chat) return null
   const others = (work?.chats ?? []).filter((c) => c.id !== chat.id && c.rid === chat.rid && c.claims.length)
   const agents = chat.items.filter((i): i is Step => i.kind === 'step' && isAgentStep(i))
@@ -996,7 +1022,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
       </section>
       <section data-ui="이 대화의 허락">
         <h3>{t('이 대화의 허락', 'Permissions here')}</h3>
-        <div className="ac-work-row"><span>{TRUST_NAME[trust]}</span><span className="muted">{MODEL_NAME[chat.model]} · {EFFORT_NAME[chat.effort]}</span></div>
+        <div className="ac-work-row"><span>{TRUST_NAME[trust]}</span><span className="muted">{modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</span></div>
         <span className="muted ac-hint">{chat.rid === APP_RID ? APP_HINT[trust] : TRUST_HINT[trust]}</span>
         {chat.always.map((a) => (
           <div key={a} className="ac-work-row">

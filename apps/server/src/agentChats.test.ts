@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ChatScope } from '@rw/core/contract/agentChats'
 import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptOf, scopeDir, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
-import { eventsOf } from './agentRunner.js'
+import { choicesOf, eventsOf } from './agentRunner.js'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
 
@@ -109,6 +109,16 @@ describe('SDK 메시지', () => {
     expect(eventsOf({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0.1 })).toEqual([{ type: 'result', ok: true, cost: 0.1 }])
     expect(eventsOf({ type: 'result', subtype: 'error_max_turns', errors: ['too long'] })).toEqual([{ type: 'result', ok: false, error: 'too long' }])
     expect(eventsOf({ type: 'stream_event' })).toEqual([])
+  })
+  it('모델 목록: 이름 · 실제 id · 받는 생각 깊이, 계약에 맞지 않는 id · 깊이는 뺀다', () => {
+    expect(choicesOf([
+      { value: 'default', displayName: 'Default (recommended)', description: 'Opus 5.5 · Best', resolvedModel: 'claude-opus-5-5', supportedEffortLevels: ['low', 'max', 'turbo'] },
+      { value: 'haiku', displayName: 'Haiku 4.5', description: 'Fastest' },
+      { value: 'Bad Model!', displayName: 'x', description: '' },
+    ])).toEqual([
+      { value: 'default', name: 'Default (recommended)', desc: 'Opus 5.5 · Best', resolved: 'claude-opus-5-5', efforts: ['low', 'max'] },
+      { value: 'haiku', name: 'Haiku 4.5', desc: 'Fastest' },
+    ])
   })
 })
 
@@ -321,6 +331,13 @@ describe('대화 API', () => {
     expect(seen.at(-1)!.prompt).toContain('note (read_note): workbench/notes/a/note.md')
     expect((await get(c.id)).items.some((i: { queued?: boolean }) => i.queued)).toBe(false)
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { mode: 'nope' } })).statusCode).toBe(400)
+    // 버전까지 고른 모델 id와 더 깊은 생각도 받는다
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { model: 'claude-opus-5', effort: 'max' } })).json().chat).toMatchObject({ model: 'claude-opus-5', effort: 'max' })
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { model: 'Opus 5; rm' } })).statusCode).toBe(400)
+  })
+
+  it('모델 목록은 실행기에게 묻고, 실행기가 모르면 빈 목록', async () => {
+    expect((await app.inject({ method: 'GET', url: '/api/agent-chats/models' })).json()).toEqual({ models: [] })
   })
 
   it('늘 허락한 것은 대화에 보이고 뺄 수 있다', async () => {

@@ -5,10 +5,12 @@
  * - 앱 MCP를 같은 프로세스에서 붙인다(mcpFor). 그래서 에이전트는 화면과 같은 API · hash · 수정 검토를 거친다.
  * - 모드 · 모델 · 생각 깊이는 차례마다 대화의 값으로 (화면에서 바꾸면 다음 차례부터). 붙여 넣은 그림은 지시와 함께 보낸다.
  * - 앱 고치기 대화(appChat)는 작업 폴더의 파일 고치기 도구와 명령을 연다(허락은 judge). 앱 MCP에 app_submit · app_checks가 붙는다.
+ * - 고를 수 있는 모델은 맥의 Claude Code에게 묻는다(models, GET /agent-chats/models). 기본 모델 = 그 계정의 Claude Code 기본값(사용자 설정은 읽지 않으므로).
  * - SDK는 처음 쓸 때 불러온다(dynamic import): 대화를 쓰지 않으면 앱 시작에 들지 않는다.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
+import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
 import { claudeEnv } from './ask.js'
 
 type Block = { type: string; text?: string; name?: string; input?: unknown }
@@ -34,8 +36,39 @@ export function eventsOf(m: { type: string; subtype?: string; session_id?: strin
   return []
 }
 
+const EFFORTS = new Set<string>(CHAT_EFFORTS)
+const MODEL_ID = /^[a-z][a-z0-9.\-[\]]{0,79}$/
+
+/** SDK의 모델 목록을 화면에 보낼 모양으로 (계약에 맞지 않는 id · 생각 깊이는 뺀다) */
+export function choicesOf(list: { value: string; displayName: string; description: string; resolvedModel?: string; supportedEffortLevels?: string[] }[]): ModelChoice[] {
+  return list.filter((m) => MODEL_ID.test(m.value)).map((m) => {
+    const efforts = (m.supportedEffortLevels ?? []).filter((e): e is ChatEffort => EFFORTS.has(e))
+    return { value: m.value, name: m.displayName, desc: m.description, ...(m.resolvedModel && { resolved: m.resolvedModel }), ...(efforts.length && { efforts }) }
+  })
+}
+
+/** 고를 수 있는 모델: 지시 없이 Claude Code를 띄워 묻고 닫는다(토큰을 쓰지 않음). 30분 동안 기억한다 */
+function modelLister(): () => Promise<ModelChoice[]> {
+  let got: { at: number; list: Promise<ModelChoice[]> } | undefined
+  return () => {
+    if (got && Date.now() - got.at < 30 * 60_000) return got.list
+    const list = (async () => {
+      const { query } = await import('@anthropic-ai/claude-agent-sdk')
+      let done!: () => void
+      const finished = new Promise<void>((r) => { done = r })
+      async function* prompt() { await finished }
+      const q = query({ prompt: prompt(), options: { settingSources: [], env: claudeEnv() } })
+      try { return choicesOf(await q.supportedModels()) } finally { done(); q.close() }
+    })()
+    got = { at: Date.now(), list }
+    // 실패하면 다음에 다시 묻는다
+    list.catch(() => { got = undefined })
+    return list
+  }
+}
+
 export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): AgentRunner {
-  return async function* run(input: RunInput): AsyncIterable<RunEvent> {
+  return Object.assign(async function* run(input: RunInput): AsyncIterable<RunEvent> {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
     let done!: () => void
     const finished = new Promise<void>((r) => { done = r })
@@ -83,5 +116,5 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
       done()
       q.close()
     }
-  }
+  }, { models: modelLister() })
 }

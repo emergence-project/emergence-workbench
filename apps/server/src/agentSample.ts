@@ -3,10 +3,11 @@
  * 앱 고치기 대화는 파일 하나를 고치고 PR을 올리는 줄을 낸다(sampleAppWork가 정해 둔 PR #234). 피드백을 맡았으면 처리 기록 줄(feedback_answer)도.
  * 화면 그림(pnpm shots)과 개발용 예제 모드에서 대화 화면을 보이려고 둔다. 지시에 "계산 · 돌려 · run"이 있으면 할 일 · 하위 에이전트 · (계획 먼저면) 계획 카드 · 명령 허락 · 노트 고침을 차례로 낸다.
  */
+import type { ModelChoice } from '@rw/core/contract/agentChats'
 import type { AgentRunner, RunEvent } from './agentChats.js'
 import { t } from './i18n.js'
 
-export const sampleAgentRunner: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
+const sampleRun = async function* (input: Parameters<AgentRunner>[0]): AsyncIterable<RunEvent> {
   yield { type: 'session', id: `sample-${Date.now()}` }
   if (input.appChat) { yield* sampleApp(input); return }
   yield { type: 'tool', tool: 'mcp__workbench__rules', input: {} }
@@ -71,3 +72,16 @@ async function* sampleApp(input: Parameters<AgentRunner>[0]): AsyncIterable<RunE
   yield { type: 'text', text: s.allow ? t('메뉴를 오른쪽 끝에 맞췄습니다. PR #234를 열었고 CI가 모두 통과했습니다.', 'The menu now aligns to the right edge. Opened PR #234; CI passed.') : t('고친 것을 올리지 않았습니다.', 'I did not submit the change.') }
   yield { type: 'result', ok: true, cost: 0, seconds: 4 }
 }
+
+/** 예제의 모델 목록 (맥의 Claude Code가 돌려주는 모양, 2026-10-22) */
+const SAMPLE_MODELS: ModelChoice[] = [
+  { value: 'default', name: 'Default (recommended)', desc: 'Opus 5.5 · Best for everyday, complex tasks', resolved: 'claude-opus-5-5', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { value: 'opus', name: 'Opus 5.5', desc: 'For complex work and everyday tasks', resolved: 'claude-opus-5-5', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { value: 'fable', name: 'Fable 5.1', desc: 'For your toughest challenges', resolved: 'claude-fable-5-1', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { value: 'sonnet', name: 'Sonnet 5.5', desc: 'Most efficient for simpler tasks', resolved: 'claude-sonnet-5-5', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { value: 'haiku', name: 'Haiku 4.5', desc: 'Fastest for quick answers', resolved: 'claude-haiku-4-5-20251001' },
+  { value: 'claude-sonnet-5', name: 'Sonnet 5', desc: 'Efficient for routine tasks', resolved: 'claude-sonnet-5', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  { value: 'claude-opus-5', name: 'Opus 5', desc: 'Best for everyday, complex tasks', resolved: 'claude-opus-5', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+]
+
+export const sampleAgentRunner: AgentRunner = Object.assign(sampleRun, { models: async () => SAMPLE_MODELS })
