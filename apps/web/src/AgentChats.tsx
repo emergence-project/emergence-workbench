@@ -481,7 +481,7 @@ function ItemView({ chat, it, onError, onChanges, onRewind }: { chat: Chat; it: 
       </li>
     )
     case 'side': return (
-      <li className="ac-side" data-ui="곁 질문" title={when}>
+      <li className="ac-sideq" data-ui="곁 질문" title={when}>
         <div className="muted ac-hint">{t('곁 질문', 'Side question')} · {it.q}</div>
         {it.answer ? <MemoText text={it.answer} /> : it.error ? <span className="error-text">! {it.error}</span> : <span className="muted">{t('답하는 중…', 'Answering…')}</span>}
       </li>
@@ -991,6 +991,11 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const listed = useChatList().data
   const appOk = !fixed && !!listed?.app
   const [pick, setPick] = useState(() => store.get<string>('rw-agent-project', ''))
+  useEffect(() => {
+    const on = (e: Event) => setPick((e as CustomEvent<string>).detail)
+    window.addEventListener(PICK_EVENT, on)
+    return () => window.removeEventListener(PICK_EVENT, on)
+  }, [])
   const rid = fixed ?? (projects?.some((p) => p.id === pick) || (appOk && pick === APP_RID) ? pick : projects?.[0]?.id ?? '')
   const app = rid === APP_RID
   const topics = useQuery({ queryKey: qk.topics(rid), queryFn: () => api.research(rid).topics(), enabled: !!rid && !app }).data
@@ -1019,7 +1024,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
         {!fixed && (
           <select className="rs-select" data-ui="대화 프로젝트 고르기" aria-label={t('프로젝트', 'Project')} value={rid} onChange={(e) => { setPick(e.target.value); store.set('rw-agent-project', e.target.value); setTopic('') }}>
             {(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            {appOk && <option value={APP_RID}>{t('앱 고치기 (Emergence Workbench)', 'Fix the app (Emergence Workbench)')}</option>}
+            {appOk && <option value={APP_RID}>{t('워크벤치 전체: 앱 고치기', 'Whole workbench: fix the app')}</option>}
           </select>
         )}
         {!app && <span className="rs-label">{t('범위', 'Scope')}</span>}
@@ -1198,21 +1203,63 @@ type Filter = 'mine' | 'live' | 'all' | 'archived'
 const FILTER_NAME: Record<Exclude<Filter, 'archived'>, string> = { mine: t('내 차례', 'My turn'), live: t('일하는 중', 'Working'), all: t('모두', 'All') }
 const keepFor = (f: Filter) => (c: ChatRow) => (f === 'archived' ? c.archived : !c.archived && (f === 'mine' ? myTurn(c) : f === 'live' ? isLive(c.state) && !myTurn(c) : true))
 
-/** 사이드바: 새 대화, 걸러 보기(내 차례 · 일하는 중 · 모두), 프로젝트마다 대화 줄, 맨 아래 보관함 */
+/** 새 대화를 이 프로젝트(또는 워크벤치)에서 연다: 새 대화 화면이 이미 열려 있어도 고른 것을 바꾼다 */
+const PICK_EVENT = 'rw-agent-pick'
+function newChatIn(rid: string): void {
+  store.set('rw-agent-project', rid)
+  window.dispatchEvent(new CustomEvent(PICK_EVENT, { detail: rid }))
+  go({ page: 'agent' })
+}
+
+const FOLD_KEY = 'rw-agent-fold'
+
+/**
+ * 사이드바 (10/22 "프로젝트별로, 워크벤치 전역은 따로"): 새 대화, 걸러 보기(내 차례 · 일하는 중 · 모두),
+ * 맨 위 「워크벤치」(앱 자체를 고치는 대화 · 피드백 처리), 그 아래 등록한 프로젝트마다 접는 묶음(＋로 그 프로젝트에서 새 대화), 맨 아래 보관함
+ */
 export function AgentSide({ id }: { id?: string }) {
-  const list = useChatList().data?.chats
+  const listed = useChatList().data
+  const list = listed?.chats
   const projects = useProjects()
   const [filter, setFilterState] = useState<Filter>(() => store.get<Filter>('rw-agent-filter', 'all'))
   const setFilter = (f: Filter) => { setFilterState(f); store.set('rw-agent-filter', f) }
+  const [fold, setFoldState] = useState<string[]>(() => store.get<string[]>(FOLD_KEY, []))
+  const toggle = (rid: string) => { const v = fold.includes(rid) ? fold.filter((x) => x !== rid) : [...fold, rid]; setFoldState(v); store.set(FOLD_KEY, v) }
   const count = (f: Filter) => (list ?? []).filter(keepFor(f)).length
-  const groups = useMemo(() => {
-    const by = new Map<string, ChatRow[]>()
-    for (const c of [...(list ?? [])].filter(keepFor(filter)).sort((a, b) => rank(a) - rank(b) || b.updated.localeCompare(a.updated))) by.set(c.rid, [...(by.get(c.rid) ?? []), c])
-    return [...by.entries()]
+  const by = useMemo(() => {
+    const m = new Map<string, ChatRow[]>()
+    for (const c of [...(list ?? [])].filter(keepFor(filter)).sort((a, b) => rank(a) - rank(b) || b.updated.localeCompare(a.updated))) m.set(c.rid, [...(m.get(c.rid) ?? []), c])
+    return m
   }, [list, filter])
+  // 묶음 차례: 워크벤치, 등록한 프로젝트 (대화가 있는데 등록에서 빠진 프로젝트도 끝에)
+  const rids = [...(projects ?? []).map((p) => p.id), ...[...by.keys()].filter((r) => r !== APP_RID && !projects?.some((p) => p.id === r))]
+  const showApp = !!listed?.app || by.has(APP_RID)
   const archived = count('archived')
+  const group = (rid: string, name: string, hint?: string) => {
+    const chats = by.get(rid) ?? []
+    // 걸러 볼 때는 대화가 없는 묶음을 숨긴다 (모두 · 보관함은 프로젝트를 다 보인다)
+    if (!chats.length && filter !== 'all') return null
+    const open = !fold.includes(rid)
+    const app = rid === APP_RID
+    return (
+      <div key={rid} className={`ac-group${app ? ' app' : ''}`} data-ui={app ? '워크벤치 대화' : '프로젝트 대화'} data-ui-item={app ? undefined : name}>
+        <div className={`ac-group-h${open ? ' open' : ''}`}>
+          <button className="ac-group-name" aria-expanded={open} onClick={() => toggle(rid)} title={name}>
+            <span className="tree-chev" aria-hidden><span>›</span></span>
+            <span className="label">{name}</span>
+            {!!chats.length && <span className="n">{chats.length}</span>}
+          </button>
+          {filter !== 'archived' && (rid === APP_RID ? listed?.app : true) && (
+            <button className="icon-btn sm" data-ui="이 묶음에서 새 대화" data-tip={t('여기서 새 대화', 'New conversation here')} aria-label={t(`${name}에서 새 대화`, `New conversation in ${name}`)} onClick={() => newChatIn(rid)}>{Icon.plus}</button>
+          )}
+        </div>
+        {open && chats.map((c) => <ChatLine key={c.id} c={c} on={c.id === id} onOpen={() => go({ page: 'agent', id: c.id })} />)}
+        {open && !chats.length && hint && <div className="muted ac-group-empty">{hint}</div>}
+      </div>
+    )
+  }
   return (
-    <div className="set-side ac-side" data-ui="대화 목록">
+    <div className="set-side ac-list" data-ui="대화 목록">
       <button className={`nav${!id ? ' on' : ''}`} data-ui="새 대화 줄" onClick={() => go({ page: 'agent' })}><span className="label">{t('＋ 새 대화', '＋ New conversation')}</span></button>
       {!!list?.length && filter !== 'archived' && (
         <div className="segmented small full ac-filter" role="radiogroup" aria-label={t('걸러 보기', 'Filter')} data-ui="대화 필터">
@@ -1220,14 +1267,15 @@ export function AgentSide({ id }: { id?: string }) {
         </div>
       )}
       {filter === 'archived' && <button className="a ac-archive-back" data-ui="보관함 닫기" onClick={() => setFilter('all')}>‹ {t('보관함', 'Archive')} {archived}</button>}
-      {list && !list.length && <div className="empty">{t('대화가 아직 없습니다. 새 대화로 일을 맡기세요.', 'No conversations yet. Start one to hand off work.')}</div>}
-      {list && !!list.length && !groups.length && <div className="empty">{filter === 'mine' ? t('답할 대화가 없습니다', 'Nothing waits for you') : filter === 'live' ? t('일하는 대화가 없습니다', 'No conversation is working') : filter === 'archived' ? t('보관한 대화가 없습니다', 'Nothing archived') : t('대화가 없습니다', 'No conversations')}</div>}
-      {groups.map(([rid, chats]) => (
-        <div key={rid}>
-          <div className="ac-side-h">{projectName(rid, projects)}</div>
-          {chats.map((c) => <ChatLine key={c.id} c={c} on={c.id === id} onOpen={() => go({ page: 'agent', id: c.id })} />)}
-        </div>
-      ))}
+      {list && !!list.length && filter !== 'all' && !by.size && <div className="empty">{filter === 'mine' ? t('답할 대화가 없습니다', 'Nothing waits for you') : filter === 'live' ? t('일하는 대화가 없습니다', 'No conversation is working') : t('보관한 대화가 없습니다', 'Nothing archived')}</div>}
+      {showApp && (
+        <>
+          <div className="ac-side-h">{t('워크벤치 전체', 'Whole workbench')}</div>
+          {group(APP_RID, t('앱 고치기 · 피드백', 'App fixes · feedback'), t('앱 자체를 고치는 대화입니다. 피드백을 맡기면 여기에 생깁니다', 'Conversations that fix the app itself. Feedback you hand off shows up here'))}
+        </>
+      )}
+      {!!rids.length && <div className="ac-side-h">{t('프로젝트', 'Projects')}</div>}
+      {rids.map((rid) => group(rid, projectName(rid, projects)))}
       {filter !== 'archived' && archived > 0 && <button className="a ac-archive-link" data-ui="보관함 열기" onClick={() => setFilter('archived')}>{t(`보관함 ${archived} ›`, `Archive ${archived} ›`)}</button>}
     </div>
   )

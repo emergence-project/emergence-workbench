@@ -837,5 +837,8 @@
   "곁 질문": "Side question",
   "쓰는 중인 글": "Text being written",
   "대화 맥락": "Conversation context",
-  "여기로 되돌리기": "Rewind to here"
+  "여기로 되돌리기": "Rewind to here",
+  "워크벤치 대화": "Workbench conversations",
+  "프로젝트 대화": "Project conversations",
+  "이 묶음에서 새 대화": "New conversation in this group"
 }
