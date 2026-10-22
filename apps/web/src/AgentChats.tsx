@@ -791,6 +791,10 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
   }
   const added = chat.items.reduce((s, i) => s + (i.kind === 'edit' ? i.added : 0), 0)
   const removed = chat.items.reduce((s, i) => s + (i.kind === 'edit' ? i.removed : 0), 0)
+  // 맥락 크기는 늘 보이게 (세부는 작업 패널의 사용량). 12만이 넘으면 앞 내용을 요약한다
+  const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
+  const context = [...results].reverse().find((r) => r.context)?.context
+  const cost = results.reduce((s, r) => s + (r.cost ?? 0), 0)
   return (
     <div className="ac-head" data-ui="대화 헤더">
       {onBack && <button className="icon-btn sm" data-ui="대화 목록으로" data-tip={t('대화 목록', 'Conversations')} aria-label={t('대화 목록으로', 'Back to conversations')} onClick={onBack}>{Icon.back}</button>}
@@ -800,6 +804,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
           {chat.rid === APP_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
+          {context && <><span>·</span><span data-ui="대화 맥락" title={[t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('맥락', 'Context')} {tokensName(context.used)}</span></>}
           {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
         </div>
       </div>

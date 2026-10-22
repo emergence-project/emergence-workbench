@@ -181,6 +181,19 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
       yield { type: 'result', ok: true }
     }
     return
+  } else if (input.prompt === 'esc') {
+    // 멈춤 = 하던 차례만 끊기: 끊기면 실패한 result가 오고, 에이전트는 다음 지시를 같은 실행에서 받는다
+    let cut!: () => void
+    const cutP = new Promise<void>((r) => { cut = r })
+    input.control?.({ interrupt: async () => { cut(); return true } })
+    yield { type: 'text', text: 'long' }
+    await cutP
+    yield { type: 'result', ok: false, error: 'error_during_execution' }
+    for await (const x of input.inbox!) {
+      yield { type: 'text', text: `got ${x.prompt}` }
+      yield { type: 'result', ok: true }
+    }
+    return
   } else if (input.prompt === 'wait') {
     await new Promise<void>((r) => { gate = r; input.signal.addEventListener('abort', () => r(), { once: true }) })
   } else {
@@ -409,6 +422,20 @@ describe('대화 API', () => {
     await vi.waitFor(() => expect(seen.length).toBe(runs + 1))
     await settle(c.id)
     expect(seen.at(-1)).toMatchObject({ prompt: '셋째', model: 'sonnet', sessionId: `s${runs}` })
+  })
+
+  it('멈춤은 열어 둔 에이전트의 하던 차례만 끊고, 다음 지시는 같은 실행이 맥락을 이어 받는다', async () => {
+    const c = await create({ text: 'esc' })
+    await settle(c.id, 'running')
+    const runs = seen.length
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/stop`, payload: {} })
+    await settle(c.id, 'stopped')
+    const stopped = await get(c.id)
+    expect(stopped).toMatchObject({ state: 'stopped', live: true })
+    expect(stopped.items.some((i: { kind: string }) => i.kind === 'error')).toBe(false)
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '다시' } })
+    await vi.waitFor(async () => expect((await get(c.id)).items.at(-2)).toMatchObject({ kind: 'text', text: 'got 다시' }))
+    expect(seen.length).toBe(runs)
   })
 
   it('일하는 중에 보낸 지시는 다음 차례에 읽고, 모드 · 모델은 다음 차례부터 바뀐다. 그림 · 붙인 것은 에이전트에게 간다', async () => {

@@ -835,5 +835,6 @@
   "뒤에서 도는 명령": "Background commands",
   "에이전트 생각": "Agent thinking",
   "곁 질문": "Side question",
-  "쓰는 중인 글": "Text being written"
+  "쓰는 중인 글": "Text being written",
+  "대화 맥락": "Conversation context"
 }

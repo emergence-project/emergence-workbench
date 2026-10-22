@@ -173,6 +173,8 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
     })
     // 생각은 요약으로 받는다 (모델마다 기본이 '보이지 않음'일 수 있다). 못 바꾸면 그대로 둔다
     void q.setMaxThinkingTokens(null, 'summarized').catch(() => undefined)
+    // 멈춤: 하던 차례만 끊는다. 이미 넘긴 지시가 남아 이어 돌면(still_queued) false라 앱이 에이전트를 닫는다
+    input.control?.({ interrupt: async () => { const r = await q.interrupt(); return !(r && 'still_queued' in r && Array.isArray(r.still_queued) && r.still_queued.length) } })
     let context = 0
     try {
       for await (const m of q) {

@@ -52,6 +52,8 @@ export interface RunInput {
    * 닫히면(앱이 오래 쉬거나 설정이 바뀜) 하던 차례를 끝낸 뒤 끝난다. 읽지 않고 끝내는 실행기(예제 · 시험)면 남은 지시를 앱이 다음 실행에 넘긴다
    */
   inbox?: Inbox<Turn>
+  /** 실행기가 하던 차례만 끊는 손잡이를 넘긴다 (Claude Code의 Esc). true = 끊겼고 기다리는 지시도 없음 */
+  control?: (c: { interrupt(): Promise<boolean> }) => void
   canUseTool: (tool: string, input: Record<string, unknown>) => Promise<ToolDecision>
   signal: AbortSignal
 }
@@ -463,7 +465,14 @@ interface Session {
   idle?: NodeJS.Timeout
   /** 마지막으로 무엇이 오간 때 (뒤에서 도는 명령이 있어도 너무 오래 열어 두지 않게) */
   last: number
+  /** 하던 차례만 끊기 (실행기가 주면) */
+  interrupt?: () => Promise<boolean>
+  /** 멈춤을 눌러 차례를 끊는 중: 다음 result는 오류가 아니라 멈춤이다 */
+  stopping?: boolean
 }
+
+/** 멈춤 뒤 이만큼 기다려도 차례가 끝나지 않으면 에이전트를 닫는다 */
+export const INTERRUPT_MS = 15_000
 
 /** 차례가 끝난 뒤 에이전트를 열어 두는 시간, 뒤에서 명령이 도는 동안 열어 두는 최대 시간 */
 export const IDLE_MS = 10 * 60_000
@@ -743,8 +752,26 @@ export class AgentChats {
       this.queue.splice(qi, 1)
       this.finish(c, 'stopped')
     }
+    // 열어 둔 에이전트는 하던 차례만 끊고 맥락은 그대로 둔다 (다음 지시를 처음부터 다시 읽지 않게)
+    const s = this.sessions.get(id)
+    if (s?.interrupt && LIVE.has(c.state) && !(c.pending ?? []).length) {
+      void this.interrupt(c, s)
+      return wireOf(c)
+    }
     this.aborts.get(id)?.abort()
     return wireOf(c)
+  }
+
+  private async interrupt(c: Stored, s: Session): Promise<void> {
+    if (s.stopping) return
+    s.stopping = true
+    for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.get(it.id)?.({ answer: 'deny' }) }
+    const abort = this.aborts.get(c.id)
+    const late = setTimeout(() => { if (s.stopping) abort?.abort() }, INTERRUPT_MS)
+    late.unref?.()
+    // 못 끊었거나 끊어도 넘긴 지시가 남아 이어 돌면 에이전트를 닫는다
+    const ok = await s.interrupt!().catch(() => false)
+    if (!ok) { clearTimeout(late); abort?.abort() }
   }
 
   remove(id: string): void {
@@ -1177,6 +1204,7 @@ export class AgentChats {
         canUseTool,
         signal: abort.signal,
         inbox,
+        control: (x) => { session.interrupt = x.interrupt },
       }
       for await (const e of this.deps.runner(input)) {
         session.last = Date.now()
@@ -1216,6 +1244,8 @@ export class AgentChats {
           if (app && c.write !== 'read') await this.commandEdits(c, app, p.repo, touched)
           touched = new Set()
           this.push(c, { kind: 'result', at: now(), ok: e.ok, ...(e.cost !== undefined && { cost: e.cost }), ...(e.seconds !== undefined && { seconds: e.seconds }), ...(e.tokens && { tokens: e.tokens }), ...(e.context && { context: e.context }) })
+          // 멈춤으로 끊긴 차례: 오류가 아니다. 에이전트는 열어 두어 다음 지시가 맥락을 이어 간다
+          if (session.stopping) { session.stopping = false; this.turnEnd(c, session, 'stopped'); continue }
           if (!e.ok && e.error) this.push(c, { kind: 'error', at: now(), text: e.error.slice(0, MAX_TEXT) })
           // 실패한 차례는 에이전트를 닫는다 (이어 하기 · 다음 지시는 새로 열어 같은 세션을 잇는다)
           if (!e.ok) { ended = 'error'; this.close(session); continue }
@@ -1256,8 +1286,8 @@ export class AgentChats {
   }
 
   /** 차례 하나가 잘 끝남: 쉬는 상태로 두고 에이전트는 열어 둔다. 설정을 바꿔 기다리는 지시가 있으면 닫고 다시 연다(finish) */
-  private turnEnd(c: Stored, s: Session): void {
-    c.state = 'idle'
+  private turnEnd(c: Stored, s: Session, state: 'idle' | 'stopped' = 'idle'): void {
+    c.state = state
     c.claims = []
     this.touch(c)
     if ((c.pending ?? []).length) { this.close(s); return }
