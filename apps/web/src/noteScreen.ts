@@ -21,11 +21,13 @@ function tiny<T>(initial: T) {
 
 // ---------- 오른쪽 사이드바 갈래 ----------
 
-export type RightMode = 'info' | 'records'
+/** 정보 · 기록 · 에이전트 (10/22 안 A: 에이전트 패널도 오른쪽 사이드바의 탭) */
+export type RightMode = 'info' | 'records' | 'agent'
 export const normalizeRightMode = (value: string): RightMode => value === 'info' ? 'info' : 'records'
 const MODE_KEY = 'rw-right-mode'
 const mode = tiny<RightMode>(normalizeRightMode(store.get<string>(MODE_KEY, 'info')))
-export function setRightMode(m: RightMode) { mode.set(m); store.set(MODE_KEY, m) }
+/** 에이전트 탭은 기억하지 않는다: 다시 열면 정보나 기록에서 시작한다(예전 패널도 닫힌 채 시작했다) */
+export function setRightMode(m: RightMode) { mode.set(m); if (m !== 'agent') store.set(MODE_KEY, m) }
 export const useRightMode = () => useSyncExternalStore(mode.subscribe, mode.get)
 
 /** 오른쪽 사이드바를 열고 그 갈래를 보여 달라 (App.tsx가 듣는다) */
