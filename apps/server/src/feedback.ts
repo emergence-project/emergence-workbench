@@ -3,6 +3,7 @@ import { assertPrivateRemote } from './personalRepo.js'
 import path from 'node:path'
 import YAML from 'yaml'
 import { localDate, localTime, writeAtomic } from './fsutil.js'
+import { feedbackMergeFor } from './feedbackMerge.js'
 import { currentBranch, locate, pendingPaths, PathSyncError, publishPaths, upstreamText } from './pathsync.js'
 import { t } from './i18n.js'
 import { git, GIT_TIMEOUT } from './git.js'
@@ -522,7 +523,7 @@ export function editFeedback(dir: string, at: { date: string; time: string; targ
  * 피드백 폴더만 커밋하고 GitHub(추적 중인 원격 브랜치)에 올린다. 클라우드의 에이전트가 읽을 수 있게.
  * - 피드백 폴더 밖의 파일은 커밋하지도 올리지도 않는다. 이미 스테이징된 다른 변경도 그대로 둔다.
  * - 원격에 더 새 커밋이 있어도 작업 트리는 바꾸지 않고, 원격 최신 커밋 위에 피드백만 얹어 올린다(pathsync.ts).
- *   원격에서도 같은 피드백 파일이 다르게 바뀌었으면 멈춘다.
+ *   원격에서도 같은 피드백 파일이 바뀌었으면 항목 단위로 합쳐 본다(feedbackMerge.ts). 같은 항목의 같은 칸을 서로 다르게 고쳤으면 멈춘다.
  */
 export async function publishFeedback(dir: string, now = new Date()): Promise<PublishResult> {
   if (!fs.existsSync(dir)) return { commit: null, pushed: false, message: t('아직 남긴 피드백이 없습니다', 'No feedback yet') }
@@ -533,7 +534,8 @@ export async function publishFeedback(dir: string, now = new Date()): Promise<Pu
   // 피드백은 개인 저장소에 둔다: 공개 저장소면 올리지 않는다 (보안 검토 L4)
   try { await assertPrivateRemote(where.top) } catch (e) { throw new PublishError((e as Error).message, null) }
   try {
-    const r = await publishPaths(where.top, [where.rel], { message: `Add app feedback (${localDate(now)})` })
+    // 다른 컴퓨터가 먼저 올린 같은 파일은 항목 단위로 합쳐 올린다 (10/22: 같은 날 두 맥에서 남기면 멈췄다)
+    const r = await publishPaths(where.top, [where.rel], { message: `Add app feedback (${localDate(now)})`, merge: true, mergeText: feedbackMergeFor })
     return {
       commit: r.commit, pushed: r.pushed,
       message: r.pushed ? t(`피드백을 GitHub에 올렸습니다${r.commit ? ` (${r.commit})` : ''}`, `Pushed feedback to GitHub${r.commit ? ` (${r.commit})` : ''}`) : t('올릴 피드백이 없습니다. 이미 GitHub에 있습니다', 'No feedback to push. It is already on GitHub'),
