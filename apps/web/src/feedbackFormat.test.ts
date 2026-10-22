@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedbackSummary, feedbackWhen, hasFeedbackList, issueDraftUrl } from './feedbackFormat'
+import { feedbackSummary, feedbackWhen, hasFeedbackList, ISSUE_URL_MAX, issueDraftUrl, issuesDraftUrl } from './feedbackFormat'
 
 describe('feedbackSummary', () => {
   it('separates every list item, including nested and numbered items', () => {
@@ -49,5 +49,24 @@ describe('issueDraftUrl', () => {
     const q = new URL(issueDraftUrl('https://x/issues/new', { text: 'a'.repeat(100), area: 'p', route: '#/', version: null, environment: 'e' })).searchParams
     expect(q.get('title')).toHaveLength(80)
     expect(q.has('version')).toBe(false)
+  })
+})
+
+describe('issuesDraftUrl', () => {
+  const item = (i: number, text = `항목 ${i}`) => ({ date: '2026-10-22', time: `10:0${i}`, kind: '수정', text, area: `부위 ${i}`, route: '#/r/x', version: 'abc1234' })
+  it('numbers the picked items in one bug form', () => {
+    const { url, included } = issuesDraftUrl('https://github.com/o/r/issues/new', [item(1), item(2)], '맥')
+    const q = new URL(url).searchParams
+    expect(included).toBe(2)
+    expect(q.get('title')).toBe('피드백 2개 (2026-10-22)')
+    expect(q.get('what')).toBe('1. [수정] 항목 1\n   (2026-10-22 10:01 · 부위 1 · #/r/x · v abc1234)\n\n2. [수정] 항목 2\n   (2026-10-22 10:02 · 부위 2 · #/r/x · v abc1234)')
+    expect(q.get('area')).toBe('부위 1, 부위 2')
+    expect(q.get('version')).toBe('abc1234')
+  })
+  it('stops before the address gets too long', () => {
+    const long = Array.from({ length: 9 }, (_, i) => item(i, '가'.repeat(300)))
+    const { url, included } = issuesDraftUrl('https://github.com/o/r/issues/new', long, '맥')
+    expect(included).toBeLessThan(9)
+    expect(url.length).toBeLessThanOrEqual(ISSUE_URL_MAX)
   })
 })

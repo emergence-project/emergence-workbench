@@ -149,3 +149,13 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbp-say-head .tag, .fbp-note { color: var(--text); border-color: var(--line-strong); }
 /* 피드백 글 고치기: 유형 고르기는 왼쪽, 취소 · 저장은 오른쪽 (10/11 12:39) */
 .fbp-edit.on .fbp-kind { margin-right: auto; }
+
+/* GitHub 이슈로 보내기 창 (10/22): 지금 거른 목록에서 골라 이슈 초안 하나로 */
+.fbi-help { margin: 0; white-space: normal; }
+.fbi-all { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); }
+.fbi-list { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.fbi-list li + li { border-top: 1px solid var(--line); }
+.fbi-row { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); cursor: pointer; }
+.fbi-row .mono { flex: none; }
+.fbi-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbi-cut { font-size: var(--fs-sm); }
