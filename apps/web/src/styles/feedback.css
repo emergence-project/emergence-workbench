@@ -18,12 +18,9 @@ body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] 
 .fb-pop textarea:focus { outline: none; border-color: var(--line-strong); background: var(--bg); }
 .fb-pop > * { flex-shrink: 0; }
 .fb-preview { min-height: 0; max-height: calc(var(--sp-6) * 3); overflow: auto; font-size: var(--fs-sm); color: var(--text-2); }
-/* 유형 고르기와 의견 등록은 늘 한 줄 (10/22 10:04: 버튼이 넘치면 의견 등록이 다음 줄로 밀려 자리가 컴퓨터마다 달랐다) */
+/* 유형 고르기와 의견 등록만 한 줄에 (10/22 10:04: GitHub에 보내기가 있는 컴퓨터에서 의견 등록이 다음 줄로 밀렸다. 공개 이슈는 하나씩 보내지 않아 창에서 뺐다) */
 .fb-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .fb-actions > * { flex-shrink: 0; white-space: nowrap; }
-/* GitHub에 보내기는 저장과 떨어진 따로 한 줄에 (공개로 나가는 행동이라 저장과 헷갈리지 않게, 공개 저장소를 쓰는 컴퓨터에만) */
-.fb-send-row { display: flex; justify-content: flex-start; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
-.fb-send-row .btn { white-space: nowrap; }
 .fb-list { position: fixed; z-index: calc(var(--z-feedback) + 2); right: 16px; bottom: 70px; width: 380px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); }
 .fb-list-head { display: flex; align-items: center; margin-bottom: var(--sp-2); justify-content: space-between; }
 .fb-entry { padding: var(--sp-2) 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }

@@ -7,7 +7,7 @@ import { FeedbackText } from './FeedbackPage'
 import { go } from './router'
 import { onListKey } from './listInput'
 import { MemoText } from './memo'
-import { hasFeedbackList, issueDraftUrl } from './feedbackFormat'
+import { hasFeedbackList } from './feedbackFormat'
 import { shown, t } from './i18n'
 import { newDraftId, readFeedbackDrafts, removeFeedbackDraft, saveFeedbackDraft, type FeedbackDraft } from './feedbackDraft'
 
@@ -140,7 +140,6 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   const [publishable, setPublishable] = useState(false)
   /** 공개 저장소의 새 이슈 주소와 앱 버전: 다른 사용자가 관리자에게 보내는 곳 (docs/maintaining.md) */
   const [kind, setKind] = useState<'수정' | '질문' | '제안' | null>(null)
-  const [issues, setIssues] = useState<{ url: string; version: string | null } | null>(null)
   const [busy, setBusy] = useState(false)
   // 적던 글 (10/21): 창에 적는 동안 이 브라우저에 두고, 아래 띠에서 이어 쓰거나 버린다. 여러 개면 "적던 글 n"의 목록에서 고른다
   const [drafts, setDrafts] = useState<FeedbackDraft[]>(readFeedbackDrafts)
@@ -162,7 +161,6 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   useEffect(() => {
     api.feedbackState().then((b) => {
       setPublishable(b.publishable)
-      setIssues(typeof b.issues === 'string' ? { url: b.issues, version: b.version ?? null } : null)
     }).catch(() => setPublishable(false))
   }, [])
 
@@ -250,17 +248,6 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     return theme === 'dark' ? t('다크', 'Dark') : t('라이트', 'Light')
   }
 
-  /** 공개 이슈 초안을 새 탭에 열고, 같은 코멘트를 여기에도 저장한다. 창은 누른 순간에 열어야 막히지 않는다 */
-  const sendToGithub = () => {
-    if (!pending || !text.trim() || !issues || !kind) return
-    const url = issueDraftUrl(issues.url, {
-      text, area: !pending.path ? targetName('') : uiShown(pending.path) === pending.path ? pending.path : `${uiShown(pending.path)} (${pending.path})`, snippet: pending.snippet, route: location.hash || '#/', version: issues.version,
-      environment: `${navigator.platform} · ${innerWidth}×${innerHeight} · ${themeName()}`,
-    })
-    window.open(url, '_blank', 'noopener')
-    void save(kind)
-  }
-
   const save = async (kind: '수정' | '질문' | '제안') => {
     if (!pending || !text.trim() || busy) return
     setBusy(true)
@@ -332,12 +319,6 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
             </div>
             <button className="btn primary" disabled={!text.trim() || !kind || busy} data-tip={kind ? undefined : t('유형을 고르면 등록됩니다', 'Choose a type to post')} onClick={() => kind && void save(kind)}>{busy ? t('등록 중…', 'Submitting…') : <>{t('의견 등록', 'Submit')} <span className="kbd">⌘↵</span></>}</button>
           </div>
-          {issues && (
-            <div className="fb-send-row">
-              <button className="btn sm fb-send" disabled={!text.trim() || !kind || busy} onClick={sendToGithub}
-                title={t('공개 저장소에 이슈 초안을 새 탭으로 엽니다. 여기에도 저장합니다. 화면 그림은 붙이지 않으니, 연구 내용이 보이지 않는 그림만 직접 붙이세요', 'Opens an issue draft on the public repository in a new tab. It is also saved here. Screenshots are not attached; add only pictures that show no research content.')}>{t('GitHub에 보내기', 'Send to GitHub')}</button>
-            </div>
-          )}
         </div>
       )}
 
