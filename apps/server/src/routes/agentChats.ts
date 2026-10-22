@@ -12,7 +12,7 @@ import { repeat } from '../scheduler.js'
 import type { RouteContext } from './context.js'
 
 /** 동시에 도는 대화 수 (맥 메모리가 바닥났던 일, 10/14) */
-export const CHAT_LIMIT = 2
+export const CHAT_LIMIT = 3
 
 /** 앱 MCP가 같은 프로세스에서 앱 API를 부를 때: 네트워크 대신 fastify inject */
 function injectFetch(app: FastifyInstance): typeof fetch {
