@@ -6,6 +6,7 @@ import path from 'node:path'
 import { commentSourceFile, commentsFile, guardBody, isAgentKind, unguardBody, parseComments, readComments, type CommentFile } from './comments.js'
 import { answerHead, type CommentState } from './commentFormat.js'
 import { USER_ANSWER_BY } from '@rw/core/contract/comments'
+import { commentTargetSlug } from '@rw/core'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
@@ -196,4 +197,19 @@ export function applyAnswerFixes(root: string, target: string, id: string, answe
   if (hashOf(fs.readFileSync(source, 'utf8')) !== hashOf(text)) throw new WorkbenchError(409, t('그사이 노트가 바뀌었습니다. 다시 눌러 주세요', 'The note changed in the meantime. Try again'))
   writeAtomic(source, result.text)
   return appendAnswer(root, target, id, '앱', `${fixes.length === 1 ? '고침을' : `고침 ${fixes.length}곳을`} 노트에 적용했습니다.`, now, '끝냄')
+}
+
+const CLOSING: Record<string, string> = { approve: '승인', reject: '기각', end: '종료' }
+/**
+ * 판단 뒤 닫기 (10/23 "판단 설계"): 명제를 승인 · 기각하거나 카드를 종료하면, 그 점에 사용자가 남긴 열린 질문 · 지시(대기 · 답함)를
+ * 앱의 답 "판단 뒤 닫음"과 함께 끝냄으로 둔다. 대화는 그대로 남는다. 닫은 수를 돌려준다
+ */
+export function closeAfterJudgment(root: string, id: string, verdict: string, now = new Date()): number {
+  const label = CLOSING[verdict]
+  if (!label) return 0
+  const target = `flow-${commentTargetSlug(id)}`
+  if (!fs.existsSync(commentsFile(root, target))) return 0
+  const open = readComments(root, target).comments.filter((c) => isAgentKind(c.kind) && !c.by && (c.state === '대기' || c.state === '답함'))
+  for (const c of open) appendAnswer(root, target, c.id, '앱', `판단 뒤 닫음 (${label})`, now, '끝냄')
+  return open.length
 }
