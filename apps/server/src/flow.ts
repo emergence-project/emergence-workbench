@@ -5,9 +5,9 @@ import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tl } from './i18n.js'
-import { claimHash, computeGaps, confirmed, evidenceHash, flowGate, markStale, stepHash } from './flowGaps.js'
+import { claimHash, computeGaps, confirmed, evidenceHash, flowGate, judgmentHash, markJudgments, markStale, stepHash } from './flowGaps.js'
 import { commentTargetSlug, stamp as coreStamp } from '@rw/core'
-import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowReviewBody, type FlowSearchReply, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRowMove, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
+import { CARD_VERDICTS, FINDING_VERDICTS, FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, FLOW_VERDICTS, type FlowCheckBody, type FlowJudgeBody, type FlowReviewBody, type FlowSearchReply, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRowMove, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
 
 export const FLOW_DIR = 'flow'
 export const FLOW_FORMAT = 1
@@ -103,14 +103,43 @@ export function parseFlowNode(id: string, file: string, content: string, diags: 
   }
   const priority = oneOf(FLOW_PRIORITY, y.priority)
   if (y.priority != null && !priority) bad('priority', `priority must be one of ${FLOW_PRIORITY.join(', ')}.`, `priority는 ${FLOW_PRIORITY.join(', ')} 가운데 하나입니다.`)
+  const judgments: FlowNode['judgments'] = []
+  for (const j of Array.isArray(y.judgments) ? y.judgments : []) {
+    const r = rec(j) ?? {}
+    const at = str(r.at), by = str(r.by), verdict = oneOf(FLOW_VERDICTS, r.verdict)
+    if (!at || !by || !verdict) { bad('judgments', `Each judgment needs at, by and verdict (${FLOW_VERDICTS.join(', ')}).`, `판단 기록마다 at, by, verdict(${FLOW_VERDICTS.join(', ')})가 있어야 합니다.`); continue }
+    if (!verdictFits(kind, verdict)) { bad('judgments', `verdict ${verdict} does not fit a ${kind} dot.`, `verdict ${verdict}는 ${kind} 점에 맞지 않습니다.`); continue }
+    judgments.push({ at, by, verdict, ...(str(r.note) && { note: str(r.note) }), ...(str(r.claim) && { claim: str(r.claim) }) })
+  }
+  let card: FlowNode['card']
+  const co = rec(y.card)
+  if (y.card != null) {
+    if (!co || kind !== 'question') bad('card', 'card is only for question dots and must be a mapping.', 'card(카드)는 질문 점에만, 사전으로 적습니다.')
+    else {
+      const terms: NonNullable<FlowNode['card']>['terms'] = []
+      for (const t of Array.isArray(co.terms) ? co.terms : []) {
+        const r: Record<string, unknown> = rec(t) ?? { word: t }
+        const word = str(r.word)
+        if (!word) { bad('card', 'Each term needs word.', '용어마다 word가 있어야 합니다.'); continue }
+        terms.push({ word, ...(str(r.def) && { def: str(r.def) }), ...(str(r.ref) && { ref: str(r.ref) }) })
+      }
+      const findings = Number.isInteger(co.findings) && (co.findings as number) >= 0 ? co.findings as number : undefined
+      if (co.findings != null && findings === undefined) bad('card', 'card findings is a whole number (how many findings to return at most).', 'card의 findings는 돌려받을 명제 수(0 이상 정수)입니다.')
+      card = { givens: strs(co.givens), terms, tools: strs(co.tools), ...(str(co.assignee) && { assignee: str(co.assignee) }), ...(findings !== undefined && { findings }) }
+    }
+  }
   const theorem = kind === 'finding' && evidence.some((e) => e.kind === 'proof' && approved(e, 'human'))
   return {
     id, file, hash: hashOf(content), kind, progress, ...(result && { result }), short, title: title ?? short, topics,
     ...(str(y.date) && { date: str(y.date) }), ...(str(y.ended) && { ended: str(y.ended) }), ...(str(y.by) && { by: str(y.by) }), ...(str(y.task) && { task: str(y.task) }), ...(start && { start }), ...(integration && { integration }), from, fields, ...(y.end === true && { end: true }), evidence,
     ...(run && { run }), steps, ...(str(y.reason) && { reason: str(y.reason) }), ...(str(y.next) && { next: str(y.next) }), ...(priority && { priority }), gaps: [],
-    sources: strs(y.sources), guesses: strs(y.guesses), theorem,
+    sources: strs(y.sources), guesses: strs(y.guesses), theorem, ...(card && { card }), judgments,
   }
 }
+
+/** 판단의 말이 점 종류에 맞나: 발견은 승인 · 수정 · 기각, 질문(카드)은 시작 · 수정 · 종료 */
+export const verdictFits = (kind: FlowNode['kind'], v: string): boolean =>
+  kind === 'finding' ? (FINDING_VERDICTS as readonly string[]).includes(v) : kind === 'question' ? (CARD_VERDICTS as readonly string[]).includes(v) : false
 
 /** 흐름의 점 전부 (날짜·id 순). 없는 점을 가리키는 선은 진단으로 알린다 */
 export function scanFlow(wb: Workbench): FlowScan {
@@ -147,6 +176,8 @@ export function scanFlow(wb: Workbench): FlowScan {
     markStale(wb.repo, n)
     // 승인한 뒤 증명이 바뀌면 정리가 아니다
     n.theorem = n.kind === 'finding' && n.evidence.some((e) => e.kind === 'proof' && approved(e, 'human'))
+    const v = markJudgments(n)
+    if (v) n.verdict = v; else delete n.verdict
   }
   computeGaps(wb.repo, out.nodes)
   return out
@@ -236,7 +267,7 @@ function newId(wb: Workbench, short: string, now: Date): string {
   return id
 }
 
-const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'ended', 'by', 'task', 'start', 'from', 'fields', 'run', 'steps', 'reason', 'next', 'priority', 'end', 'integration', 'evidence', 'sources', 'guesses']
+const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'ended', 'by', 'task', 'start', 'from', 'fields', 'run', 'steps', 'reason', 'next', 'priority', 'end', 'integration', 'card', 'evidence', 'judgments', 'sources', 'guesses']
 
 /**
  * 글로 쓰기: 원래 파일의 목록 들여쓰기를 따른다. 사람 · 파이썬이 쓴 파일은 "key:\n- a"(들여쓰지 않음)가 많고,
@@ -422,6 +453,28 @@ export function checkFlowEvidence(wb: Workbench, id: string, body: FlowCheckBody
   const seq = map.get('checks')
   if (YAML.isSeq(seq)) seq.add(doc.createNode(rec, { flow: true }))
   else map.set('checks', doc.createNode([rec], { flow: true }))
+  return write(wb, id, doc, original)
+}
+
+/**
+ * 사람 판단 (10/23 "판단 설계"): 판단 기록에 한 줄 덧붙인다. 발견은 승인 · 수정 · 기각, 카드가 있는 질문은 시작 · 수정 · 종료.
+ * 판단한 내용(발견의 진술 · 조건, 카드의 질문 · 완료 조건)의 해시를 claim으로 적어, 뒤에 바뀌면 그 판단이 낡는다
+ */
+export function judgeFlow(wb: Workbench, id: string, body: FlowJudgeBody, by = 'user', now = new Date()): FlowNode {
+  const n = readFlowNode(wb, id)
+  checkHash(n, body.baseHash)
+  if (n.kind === 'question' && !n.card) throw new WorkbenchError(400, tl('카드가 아닌 질문은 판단하지 않습니다', 'Only a question with a card is judged'))
+  if (!verdictFits(n.kind, body.verdict)) throw new WorkbenchError(400, tl(`${n.kind} 점에는 ${body.verdict} 판단을 쓸 수 없습니다`, `A ${n.kind} dot cannot take the verdict ${body.verdict}`))
+  const original = fs.readFileSync(fileOf(wb, id), 'utf8')
+  const doc = YAML.parseDocument(original)
+  const rec = { at: stamp(now), by, verdict: body.verdict, ...(body.note?.trim() && { note: body.note.trim() }), claim: judgmentHash(n) }
+  const seq = doc.get('judgments')
+  if (YAML.isSeq(seq)) seq.add(doc.createNode(rec, { flow: true }))
+  else {
+    setKey(doc, 'judgments', [rec])
+    const added = doc.get('judgments')
+    if (YAML.isSeq(added) && YAML.isMap(added.items[0])) added.items[0].flow = true
+  }
   return write(wb, id, doc, original)
 }
 

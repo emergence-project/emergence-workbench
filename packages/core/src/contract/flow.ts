@@ -4,8 +4,8 @@
  */
 import { z } from 'zod'
 
-import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_GAPS, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS } from '../flow-kinds.js'
-export { FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_GAPS, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_REQUIRED, FLOW_RESULTS } from '../flow-kinds.js'
+import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_GAPS, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, FLOW_VERDICTS } from '../flow-kinds.js'
+export { CARD_FIELDS, CARD_LOCKED, CARD_VERDICTS, FINDING_VERDICTS, FLOW_VERDICTS, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_GAPS, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_REQUIRED, FLOW_RESULTS } from '../flow-kinds.js'
 
 const FlowFrom = z.object({ id: z.string(), type: z.enum(FLOW_EDGES) }).strict()
 const FlowCheck = z.object({
@@ -82,6 +82,28 @@ const FlowIntegration = z.object({
   skip: z.string().optional(),
 }).strict()
 
+/**
+ * 사람 판단 (10/23 "판단 설계", 덧붙이기만): 발견(명제)은 approve 승인 · send-back 수정 · reject 기각, 카드(질문)는 start 시작 · send-back 수정 · end 종료.
+ * claim = 판단할 때 그 내용의 해시(발견은 진술 · 조건, 카드는 질문 · 완료 조건). 지금 내용과 다르면 그 판단은 낡는다(stale, 앱이 계산)
+ */
+const FlowJudgment = z.object({
+  at: z.string(),
+  by: z.string(),
+  verdict: z.enum(FLOW_VERDICTS),
+  note: z.string().optional(),
+  claim: z.string().optional(),
+  stale: z.boolean().optional(),
+}).strict()
+/** 카드에서 칸 글이 아닌 것 (10/23): 사전 연구(판단된 명제 점 id) · 용어 · 도구 · 담당 · 돌려받을 명제 수 */
+const FlowTerm = z.object({ word: z.string(), def: z.string().optional(), ref: z.string().optional() }).strict()
+const FlowCard = z.object({
+  givens: z.array(z.string()),
+  terms: z.array(FlowTerm),
+  tools: z.array(z.string()),
+  assignee: z.string().optional(),
+  findings: z.number().int().min(0).optional(),
+}).strict()
+
 export const FlowNode = z.object({
   /** 파일 이름 (확장자 없이) */
   id: z.string(),
@@ -124,6 +146,12 @@ export const FlowNode = z.object({
   guesses: z.array(z.string()),
   /** 사람이 승인한 증명이 근거에 있는 발견 = 정리 */
   theorem: z.boolean(),
+  /** 카드 (질문을 맡길 때, 10/23) */
+  card: FlowCard.optional(),
+  /** 사람 판단 기록 (10/23) */
+  judgments: z.array(FlowJudgment),
+  /** 앱이 계산: 지금의 판단 = 낡지 않은 마지막 판단의 말. 없으면 판단 전 */
+  verdict: z.enum(FLOW_VERDICTS).optional(),
 }).strict()
 
 const Diagnostic = z.object({ file: z.string(), code: z.string(), message: z.string(), line: z.number(), column: z.number().optional() }).strict()
@@ -208,6 +236,8 @@ export const FlowPatchBody = z.object({
 /** 사람 승인 (거두기는 revoked). 에이전트 검토는 에이전트가 파일에 적는다 */
 export const FlowCheckBody = z.object({ baseHash: z.string(), ev: z.number().int().min(0).optional(), step: z.number().int().min(0).optional(), revoked: z.boolean().optional(), note: z.string().max(500).optional() }).strict()
   .refine((b) => (b.ev === undefined) !== (b.step === undefined), { message: 'ev와 step 가운데 하나만' })
+/** 사람 판단 (10/23): 발견은 approve · send-back · reject, 카드가 있는 질문은 start · send-back · end. 사람만 (앱 화면) */
+export const FlowJudgeBody = z.object({ baseHash: z.string(), verdict: z.enum(FLOW_VERDICTS), note: z.string().max(2000).optional() }).strict()
 /** 에이전트 검토 (MCP flow_review): role agent로 덧붙인다 */
 export const FlowReviewBody = z.object({ baseHash: z.string(), by: z.string().min(1).max(40), ev: z.number().int().min(0).optional(), step: z.number().int().min(0).optional(), revoked: z.boolean().optional(), note: z.string().max(500).optional() }).strict()
   .refine((b) => (b.ev === undefined) !== (b.step === undefined), { message: 'ev와 step 가운데 하나만' })
@@ -233,6 +263,10 @@ export type NewFlowBody = z.infer<typeof NewFlowBody>
 export type FlowPatchBody = z.infer<typeof FlowPatchBody>
 export type FlowCheckBody = z.infer<typeof FlowCheckBody>
 export type FlowReviewBody = z.infer<typeof FlowReviewBody>
+export type FlowJudgeBody = z.infer<typeof FlowJudgeBody>
+export type FlowJudgment = z.infer<typeof FlowJudgment>
+export type FlowCard = z.infer<typeof FlowCard>
+export type FlowVerdict = (typeof FLOW_VERDICTS)[number]
 export type FlowSearchReply = z.infer<typeof FlowSearchReply>
 export type FlowStep = z.infer<typeof FlowStep>
 export type FlowGap = z.infer<typeof FlowGap>
