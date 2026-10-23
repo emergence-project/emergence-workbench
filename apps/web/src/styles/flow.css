@@ -5,8 +5,8 @@
 .fl-title { font-size: var(--fs-md); font-weight: var(--fw-strong); color: var(--text); margin: 0; }
 .fl-warn { color: var(--s-blocked); }
 .fl-zoom { display: inline-flex; align-items: center; gap: 2px; }
-.fl-zoom .fl-zl { margin: 0 var(--sp-1) 0 var(--sp-2); white-space: nowrap; }
-.fl-zoom .btn { margin-left: var(--sp-2); white-space: nowrap; }
+.fl-zoom .fl-zl { margin: 0 var(--sp-1); white-space: nowrap; }
+.fl-zoom .btn { margin-left: var(--sp-1); white-space: nowrap; }
 
 .fl-box { overflow: auto; border: 1px solid var(--line); border-radius: var(--r-md) var(--r-md) 0 0; background: var(--bg); cursor: grab; touch-action: none; }
 .fl-box:active { cursor: grabbing; }
@@ -32,6 +32,20 @@
 /* 사용자 차례 (판단할 명제 · 시작할 카드): 주황 고리 */
 .fl-turn { fill: none; stroke: var(--s-blocked); stroke-width: 2; }
 .fl-turn-name { color: var(--s-blocked); }
+/* 접은 흐름 (묶음): 줄은 주제, 다른 주제로 건너는 선은 옅게, 질문 없이 시작한 묶음은 점선 고리, 곁가지는 옅게 */
+.fl-bundles { cursor: default; touch-action: auto; height: auto; max-height: 70vh; border-radius: var(--r-md); }
+.fl-topic { font-size: var(--fs-sm); font-weight: var(--fw-medium); fill: var(--text-2); }
+.fl-tally { font-size: var(--fs-xs); fill: var(--text-3); }
+.fl-e.cross { stroke: var(--line); }
+.fl-noq { fill: none; stroke: var(--line-strong); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.fl-bundle.side { opacity: .55; }
+.fl-bundle.dim { opacity: .35; }
+.fl-side-icon { opacity: .55; }
+.fl-tally-t { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.dialog.fl-bwin { width: min(880px, 94vw); }
+.fl-bwin-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.fl-bwin-q { margin: 0; }
+.fl-bwin-chart { overflow: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
 .fl-name { font-size: var(--fs-xs); fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
 .fl-name.strong { font-weight: var(--fw-strong); }
 .fl-start { fill: var(--text); }
@@ -122,7 +136,7 @@ button.fl-check.on:hover circle { fill: var(--text); }
 /* 흐름 화면 (프로젝트 하나에 한 흐름, 10/14) */
 .page-body.fl-page { max-width: calc(4 * var(--kc-card-width) + 3 * var(--kc-card-gap) + 2 * var(--sp-6)); gap: var(--sp-4); }
 .fl-filter { display: inline-flex; align-items: center; gap: var(--sp-1); }
-.fl-filter select { border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding: 2px var(--sp-2); font-size: var(--fs-sm); max-width: 16em; }
+.fl-filter select { border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); padding: 2px var(--sp-2); font-size: var(--fs-sm); max-width: 9em; }
 .fl-focus { fill: var(--bg-sunken); stroke: var(--line-strong); stroke-width: 1; }
 .fl-topic-link { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); margin: 0; }
 

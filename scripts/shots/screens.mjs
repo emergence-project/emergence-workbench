@@ -41,6 +41,9 @@ export const DEFAULT_SCREENS = [
   ['info', '#/r/{rid}/info', '노트 정보'],
   // 증명 단계와 빈틈 (10/20): 단계마다 쓰는 것과 확인, 확인 안 된 단계는 점선 번호. 새 점 칸이 남지 않게 다른 화면 뒤에
   ['flow-steps', '#/r/{rid}/flow', '흐름 단계', '[data-ui="흐름 차트"] .fl-node[data-id="degree-bound"]'],
+  // 접은 흐름 (10/23 "판단 설계"): 묶음 하나가 점 하나, 누르면 그 묶음의 창. 접기는 기억되므로 흐름 화면 맨 뒤에 둔다
+  ['flow-bundles', '#/r/{rid}/flow', '흐름 묶음', '[data-ui="흐름 접기"] button:text-matches("^(접기|Fold)")'],
+  ['flow-bundle', '#/r/{rid}/flow', '흐름 묶음 창', '[data-ui="흐름 묶음"] .fl-node[data-id="five-colors"]'],
   ['info-status', '#/r/{rid}/status', '최근 기록'],
   // 규칙 쪽 (옛 AGENTS.md 쪽): 저장소의 AGENTS.md, STATUS.md의 규칙 절, workbench/decisions/
   ['info-agents', '#/r/{rid}/agents', '결정'],

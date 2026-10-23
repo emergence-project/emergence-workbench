@@ -22,6 +22,12 @@ export function FlowSymbolTable() {
     { mark: mark('finding', 'active', true), name: tr('승인됨', 'Approved'), meaning: tr('사람이 승인한 명제 (속이 참). 내용이 바뀌면 판단이 풀린다', 'A proposition a person approved (filled). Changing its content clears the judgment') },
     { mark: mark('finding', 'active', false, true), name: tr('내 차례', 'Your turn'), meaning: tr('판단을 기다리는 명제와 시작을 기다리는 카드 (주황 고리)', 'Propositions awaiting judgment and cards awaiting a start (orange ring)') },
   ]
+  // 접은 흐름의 묶음 (10/23)
+  const bundles: { mark: ReactNode; name: string; meaning: string }[] = [
+    { mark: <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><circle className="fl-noq" cx={15} cy={15} r={13.5} /><MarkSvg m="calc" x={15} y={15} state="solved" /></svg>, name: tr('질문 없이 시작', 'Started without a question'), meaning: tr('앞 명제에서 바로 시작한 작업의 묶음 (점선 고리)', 'A bundle of work started straight from an earlier proposition (dashed ring)') },
+    { mark: <svg className="fl-icon fl-side-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><MarkSvg m="question" x={15} y={15} state="open" /></svg>, name: tr('곁가지', 'Side question'), meaning: tr('적어만 두고 시작하지 않은 질문 (옅게)', 'A question written down but not started (faint)') },
+    { mark: <span className="fl-tally-t">□2 §1 !1</span>, name: tr('묶음 안의 수', 'Counts in a bundle'), meaning: tr('묶음 이름 아래: 작업 □ · 문헌 읽기 § · 명제 ! · 반증 ⊥', 'Under a bundle\'s name: work □ · reading § · propositions ! · refuted ⊥') },
+  ]
   const lines: { mark: ReactNode; name: string; meaning: string }[] = [
     { mark: line('fl-e'), name: `${EDGE.origin!()} · ${EDGE.support!()} · ${EDGE.refute!()}`, meaning: tr('앞 걸음이 이 걸음을 낳음 · 받침 · 반박함. 선을 가리키면 이름이 뜹니다', 'The earlier step started, supports or refutes this one. Hover a line to see its name') },
     { mark: line('fl-e use'), name: EDGE.use!(), meaning: tr('앞 걸음의 결과를 가져다 씀 (점선)', 'Uses the earlier step\'s result (dotted)') },
@@ -41,6 +47,8 @@ export function FlowSymbolTable() {
         {states.map((x) => <tr key={x.s}><td className="about-sym">{mark(x.m, x.s)}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
         {group(tr('판단 (속이 빔 · 참 · 주황 고리)', 'Judgment (hollow · filled · orange ring)'))}
         {judged.map((x) => <tr key={x.name}><td className="about-sym">{x.mark}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
+        {group(tr('접은 흐름의 묶음', 'Bundles in the folded flow'))}
+        {bundles.map((x) => <tr key={x.name}><td className="about-sym">{x.mark}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
         {group(tr('선과 표시', 'Lines and marks'))}
         {lines.map((x) => <tr key={x.name}><td className="about-sym">{x.mark}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
       </tbody>
