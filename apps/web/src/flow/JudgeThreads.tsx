@@ -9,7 +9,7 @@ import { Icon } from '../icons'
 import { MemoText } from '../memo'
 import { USER_ANSWER_BY } from '../recordsPanelHelpers'
 import { recordWrites } from '../useRecordActions'
-import { judgeQuestions, readDrafts, threadState, writeDrafts, type JudgeDraft, type ThreadState } from './judgeThreads'
+import { judgeQuestions, readDrafts, threadState, writeDrafts, type JudgeDraft, type ThreadState } from './threadModel'
 
 const STATE_NAME: Record<ThreadState, () => string> = {
   draft: () => tr('보내지 않음', 'Not sent'), waiting: () => tr('답하는 중', 'Waiting for an answer'),
