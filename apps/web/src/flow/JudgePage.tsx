@@ -8,26 +8,13 @@ import { AskButton, FieldThreads, useJudgeThreads } from './JudgeThreads'
 import { EvidenceSource } from './FlowCard'
 import { FlowText } from './evidence'
 import { flowBy } from './flowBy'
-import { FIELD, KIND, MarkIcon, judgeName, markOf, turnOf } from './marks'
+import { CARD_FIELD, CARD_GROUPS, FIELD, KIND, MarkIcon, judgeName, markOf, turnOf } from './marks'
 
 type Verdict = 'approve' | 'send-back' | 'reject' | 'start' | 'end'
 export const VERDICT_NAME: Record<Verdict, () => string> = {
   approve: () => tr('승인', 'Approve'), 'send-back': () => tr('수정', 'Revise'), reject: () => tr('기각', 'Reject'),
   start: () => tr('시작', 'Start'), end: () => tr('종료', 'End'),
 }
-/** 카드의 칸 이름 (10/23 시안 v22): 질문 점의 칸 이름과 다른 것만 */
-const CARD_FIELD: Record<string, () => string> = {
-  criterion: () => tr('완료 조건 · 예', 'Done when · yes'), criterion_no: () => tr('완료 조건 · 아니오', 'Done when · no'), criterion_unclear: () => tr('완료 조건 · 불분명', 'Done when · unclear'),
-  stop: () => tr('중단 조건', 'Stop when'), value: () => tr('가치', 'Value'), out_of_scope: () => tr('제외 범위', 'Out of scope'), budget: () => tr('자원', 'Resources'), deliverable: () => tr('보고서', 'Report'),
-}
-/** 카드의 묶음 (시안 v22): 문제 | 발단 · 가치 | 사전 연구 · 도구 | 완료 · 중단 | 범위 · 자원 | 돌려받을 것 */
-const CARD_GROUPS: { h: () => string; fields: string[] }[] = [
-  { h: () => tr('문제', 'Problem'), fields: ['question', 'guess'] },
-  { h: () => tr('왜', 'Why'), fields: ['motivation', 'value'] },
-  { h: () => tr('언제 끝나나', 'When it ends'), fields: ['criterion', 'criterion_no', 'criterion_unclear', 'stop'] },
-  { h: () => tr('범위와 자원', 'Scope and resources'), fields: ['out_of_scope', 'budget'] },
-  { h: () => tr('돌려받을 것', 'What comes back'), fields: ['deliverable'] },
-]
 
 /**
  * 판단 화면 (10/23 "판단 설계" 5단계): 명제 하나 또는 카드 하나를 읽고 판단한다.

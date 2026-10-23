@@ -31,6 +31,27 @@ export const FIELD_HINT: Record<string, () => string> = {
   result: () => tr('판정 기준에 비춘 값 · 결론', 'The value or conclusion, against the criterion'), interpretation: () => tr('결과가 뜻하는 것', 'What the result means'),
   reading: () => tr('읽은 논문 · 절', 'Paper and section read'), gain: () => tr('얻은 것', 'What it gave'), use: () => tr('어디에 쓰나', 'Where it is used'),
 }
+/** 카드의 칸 이름 (10/23 시안 v22): 질문 점의 칸 이름과 다른 것만 */
+export const CARD_FIELD: Record<string, () => string> = {
+  criterion: () => tr('완료 조건 · 예', 'Done when · yes'), criterion_no: () => tr('완료 조건 · 아니오', 'Done when · no'), criterion_unclear: () => tr('완료 조건 · 불분명', 'Done when · unclear'),
+  stop: () => tr('중단 조건', 'Stop when'), value: () => tr('가치', 'Value'), out_of_scope: () => tr('제외 범위', 'Out of scope'), budget: () => tr('자원', 'Resources'), deliverable: () => tr('보고서', 'Report'),
+}
+/** 카드의 묶음 (시안 v22): 문제 | 발단 · 가치 | 사전 연구 · 도구 | 완료 · 중단 | 범위 · 자원 | 돌려받을 것 */
+export const CARD_GROUPS: { h: () => string; fields: string[] }[] = [
+  { h: () => tr('문제', 'Problem'), fields: ['question', 'guess'] },
+  { h: () => tr('왜', 'Why'), fields: ['motivation', 'value'] },
+  { h: () => tr('언제 끝나나', 'When it ends'), fields: ['criterion', 'criterion_no', 'criterion_unclear', 'stop'] },
+  { h: () => tr('범위와 자원', 'Scope and resources'), fields: ['out_of_scope', 'budget'] },
+  { h: () => tr('돌려받을 것', 'What comes back'), fields: ['deliverable'] },
+]
+/** 카드 칸의 빈 칸 안내 (시안 v22) */
+export const CARD_HINT: Record<string, () => string> = {
+  criterion: () => tr('무엇이 나오면 예인가 (계산 전에 고정)', 'What result means yes (fixed before computing)'), criterion_no: () => tr('무엇이 나오면 아니오인가', 'What result means no'),
+  criterion_unclear: () => tr('그 밖. 불분명도 끝난 것으로 보고하고 더 돌리지 않음', 'Anything else. Unclear is reported as finished, not run further'),
+  stop: () => tr('기준을 바꾸고 싶어질 때 · 자원의 절반을 넘을 때 …', 'When the criterion needs changing, or half the resources are used …'),
+  value: () => tr('예이면 무엇을 하고, 아니오이면 무엇을 하나', 'What happens next if yes, and if no'), out_of_scope: () => tr('이번에 하지 않는 것', 'What this card does not do'),
+  budget: () => tr('시간 · 기계 · 멈출 한도', 'Time, machine, and the limit to stop at'), deliverable: () => tr('보고서가 놓일 노트 절과 그 모양 (첫 줄 · 표 · 그림)', 'Where the report goes and its shape (first line, table, figure)'),
+}
 /** 끝맺음 묶음의 칸 (나머지 칸은 계획 묶음) */
 export const END_FIELDS = ['result', 'interpretation', 'gain', 'use']
 export const PRIORITY: Record<'high' | 'normal' | 'low', () => string> = { high: () => tr('먼저', 'First'), normal: () => tr('보통', 'Normal'), low: () => tr('나중', 'Later') }
