@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ConflictError, flowApi, type FlowCells, type FlowNode, type NoteRow } from '../api'
 import { lineageOf, type FlowLayout } from '../flowLayout'
 import { go } from '../router'
@@ -18,20 +18,27 @@ const CW0 = 116, RH0 = 76, TOP = 30, LEFT = 30
 /** 줄 이름 칸의 폭 (10/20 사용자: 줄 이름은 주제와 따로, 차트 왼쪽에 붙어 있다) */
 const GUT = 112
 const H_KEY = 'rw-flow-h', Z_KEY = 'rw-flow-zoom', SEL_KEY = 'rw-flow-sel', NAME_KEY = 'rw-flow-names'
+/** 묶음 접기 (10/23 "판단 설계"): 기본은 접음. 이 브라우저에 기억한다 */
+export const FOLD_KEY = 'rw-flow-fold'
 const DEFAULT_H = TOP + 5 * RH0 + 16
 
 /** 다른 화면(노트의 오른쪽 사이드바)에서 점을 열 때: 흐름 화면에서 고르고 보이게 한다 */
 let revealNext: string | null = null
 export function openFlowDot(rid: string, n: Pick<FlowNode, 'id'>) {
-  store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: n.id })
-  revealNext = n.id
+  selectFlowDot(rid, n.id)
+  store.set(FOLD_KEY, false)
   go({ page: 'flow', rid })
+}
+/** 펼친 흐름이 다음에 그려질 때 이 점을 고르고 보이게 한다 (접은 흐름의 묶음 창에서) */
+export function selectFlowDot(rid: string, id: string) {
+  store.set(SEL_KEY, { ...store.get<Record<string, string>>(SEL_KEY, {}), [rid]: id })
+  revealNext = id
 }
 
 type Cell = { c: number; r: number }
 
-export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, topics, reload }: {
-  rid: string; focus?: string; all: FlowNode[]; cells: FlowCells; lay: FlowLayout; rowNames: Record<string, string>; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void
+export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, topics, reload, foldSwitch }: {
+  rid: string; focus?: string; all: FlowNode[]; cells: FlowCells; lay: FlowLayout; rowNames: Record<string, string>; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void; foldSwitch?: ReactNode
 }) {
   const ids = new Set(lay.placed.map((p) => p.node.id))
   const [sel, setSelState] = useState<string | null>(() => { const s = store.get<Record<string, string>>(SEL_KEY, {})[rid]; return s && ids.has(s) ? s : null })
@@ -246,7 +253,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
   return (
     <section className="fl" data-ui="흐름">
       <div className="fl-bar">
-        <h2 className="fl-title">{tr('흐름', 'Flow')}</h2>
+        {foldSwitch ?? <h2 className="fl-title">{tr('흐름', 'Flow')}</h2>}
         <span className="fl-sum">{tr(`점 ${lay.placed.length}`, `${lay.placed.length} dots`)}{warn > 0 && <span className="fl-warn" title={tr('형식에 맞지 않는 곳이 있습니다. pnpm agent:check로 봅니다.', 'Some files do not match the format. See pnpm agent:check.')}> · {tr(`형식 경고 ${warn}`, `${warn} format warnings`)}</span>}</span>
         <span className="sp" />
         {topics.length > 0 && <label className="fl-filter" data-ui="흐름 주제 필터"><span className="fl-zl">{tr('주제', 'Topic')}</span>
@@ -256,10 +263,10 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
           </select></label>}
         {gapCount > 0 && <button className={`btn${gapOn ? ' on' : ''}`} data-ui="흐름 빈틈 보기" aria-pressed={gapOn} title={tr('빈틈(근거 · 결과 · 이유 · 다음 할 일 · 단계 확인이 빠진 곳)이 있는 점을 굵게', 'Highlight dots with gaps (missing evidence, result, reason, next step or step checks)')} onClick={() => setGapOn(!gapOn)}>{tr(`빈틈 ${gapCount}`, `Gaps ${gapCount}`)}</button>}
         {lay.placed.length > 0 && <span className="fl-zoom" data-ui="흐름 확대">
-          <span className="fl-zl">{tr('가로', 'Width')}</span>
+          <span className="fl-zl" title={tr('가로', 'Width')} aria-label={tr('가로', 'Width')}>↔</span>
           <button className="icon-btn" title={tr('가로 좁히기', 'Narrower')} aria-label={tr('가로 좁히기', 'Narrower')} onClick={() => step('x', -1)}>−</button>
           <button className="icon-btn" title={tr('가로 넓히기', 'Wider')} aria-label={tr('가로 넓히기', 'Wider')} onClick={() => step('x', 1)}>＋</button>
-          <span className="fl-zl">{tr('세로', 'Height')}</span>
+          <span className="fl-zl" title={tr('세로', 'Height')} aria-label={tr('세로', 'Height')}>↕</span>
           <button className="icon-btn" title={tr('세로 좁히기', 'Shorter')} aria-label={tr('세로 좁히기', 'Shorter')} onClick={() => step('y', -1)}>−</button>
           <button className="icon-btn" title={tr('세로 넓히기', 'Taller')} aria-label={tr('세로 넓히기', 'Taller')} onClick={() => step('y', 1)}>＋</button>
           <button className={`btn${names ? ' on' : ''}`} data-ui="흐름 이름 보기" aria-pressed={names} title={tr('점 이름 켜기·끄기 (꺼도 고른 점과 그 앞뒤 점은 보임)', 'Show or hide dot names (the selected dot and its lineage still show)')} onClick={() => setNames(!names)}>{tr('이름', 'Names')}</button>

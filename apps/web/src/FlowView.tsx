@@ -10,23 +10,34 @@
  * FlowCard(점 자세히) · evidence(근거 승인 표시 · 설명 글) · FlowEditor(점 고치기 · 새 점 적기) · figures(설명 칸 그림 넣기) ·
  * ApproveDialog(근거 승인 창) · NoteFlow(노트 옆 흐름 점) · FlowSymbolTable(소개의 흐름 기호 표). 이 파일은 흐름 화면과 주제 화면의 한 줄.
  */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { NoteRow } from './api'
 import { layoutFlow } from './flowLayout'
 import { go } from './router'
 import { t as tr } from './i18n'
 import { type TopicRef, useFlow } from './flow/data'
-import { FlowChart } from './flow/FlowChart'
+import { FlowChart, FOLD_KEY, selectFlowDot } from './flow/FlowChart'
+import { FlowBundles } from './flow/FlowBundles'
+import { store } from './store'
 
 /** 흐름 화면 (왼쪽 사이드바의 "흐름"): 프로젝트의 점 전부. topic이면 그 주제의 점을 굵게 */
 export function FlowPage({ rid, topic, notes, topics }: { rid: string; topic?: string; notes: NoteRow[]; topics: TopicRef[] }) {
   const { scan, reload } = useFlow(rid)
   const lay = useMemo(() => scan ? layoutFlow(scan.nodes, scan.layout, { rows: scan.rows }) : null, [scan])
+  // 묶음 접기 (10/23 "판단 설계"): 기본은 접은 흐름, "모두 펼치기"로 지금의 점 차트
+  const [fold, setFoldState] = useState(() => store.get<boolean>(FOLD_KEY, true))
+  const setFold = (v: boolean) => { setFoldState(v); store.set(FOLD_KEY, v) }
+  const focus = topic && topics.some((x) => x.id === topic) ? topic : undefined
+  const foldSwitch = <div className="segmented small" role="radiogroup" aria-label={tr('묶음', 'Bundles')} data-ui="흐름 접기">
+    <button type="button" role="radio" aria-checked={fold} className={fold ? 'on' : ''} onClick={() => setFold(true)}>{tr('접기', 'Fold')}</button>
+    <button type="button" role="radio" aria-checked={!fold} className={fold ? '' : 'on'} onClick={() => setFold(false)}>{tr('펼치기', 'Open')}</button>
+  </div>
   return <div className="ws-doc" data-ui="흐름 화면">
     <section className="pane">
       <div className="scroll"><div className="page-body fl-page">
-        {scan && lay ? <FlowChart rid={rid} focus={topic && topics.some((x) => x.id === topic) ? topic : undefined} all={scan.nodes} cells={scan.layout} lay={lay} rowNames={scan.rows?.names ?? {}} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} />
-          : <p className="muted">{tr('불러오는 중…', 'Loading…')}</p>}
+        {!scan || !lay ? <p className="muted">{tr('불러오는 중…', 'Loading…')}</p>
+          : fold ? <FlowBundles all={scan.nodes} topics={topics} focus={focus} foldSwitch={foldSwitch} onOpenDot={(id) => { selectFlowDot(rid, id); setFold(false) }} />
+          : <FlowChart rid={rid} focus={focus} all={scan.nodes} cells={scan.layout} lay={lay} rowNames={scan.rows?.names ?? {}} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} foldSwitch={foldSwitch} />}
       </div></div>
     </section>
   </div>

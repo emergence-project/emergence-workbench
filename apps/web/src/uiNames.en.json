@@ -844,5 +844,10 @@
   "여기로 되돌리기": "Rewind to here",
   "워크벤치 대화": "Workbench conversations",
   "프로젝트 대화": "Project conversations",
-  "이 묶음에서 새 대화": "New conversation in this group"
+  "이 묶음에서 새 대화": "New conversation in this group",
+  "흐름 접기": "Flow fold",
+  "흐름 묶음": "Flow bundles",
+  "흐름 묶음 창": "Flow bundle window",
+  "흐름 묶음 판단할 것": "Flow bundle to judge",
+  "흐름 묶음 펼치기": "Flow bundle open"
 }

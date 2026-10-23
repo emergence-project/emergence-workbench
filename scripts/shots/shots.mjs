@@ -63,6 +63,8 @@ try {
   const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
   // Start in the capture language, so the first screen does not load in the browser language and reload (i18n.ts)
   await page.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
+  // 흐름 화면은 점 차트(모두 펼치기)에서 찍기 시작한다. 접은 흐름은 flow-bundles에서 "접기"를 눌러 찍는다
+  await page.addInitScript(() => { try { if (localStorage.getItem('rw-flow-fold') === null) localStorage.setItem('rw-flow-fold', 'false') } catch { /* ignore */ } })
   let current = ''
   page.on('pageerror', (e) => problems.push(`${current}: ${e.message}`))
   // 아직 컴파일하지 않은 블록의 PDF는 404가 정상이다 (TeX가 없는 곳에서는 늘 그렇다)
