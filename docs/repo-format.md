@@ -563,6 +563,14 @@ date: 2026-10-02         # 시작일: 앱이 점을 만들 때 적는다. 고치
 ended: 2026-10-05        # 끝난 날: 끝남(해결 · 반증 · 폐기)으로 바꿀 때 앱이 적고, 다시 열면 지운다 (10/21)
 by: claude-code          # 한 이: 점을 만든 이. 화면은 user, MCP는 에이전트 이름 (10/21)
 task: 2026-10-05-list-coloring-bound   # 이 점을 만든 맡긴 일 id (선택, MCP flow_add의 task, 10/21)
+start:                   # 시작 기록 (10/23, pnpm agent:start): 아래 "시작 기록"
+  at: 2026-10-02T09:00
+  by: claude
+  query: Kempe 사슬 다섯째 색   # 선행 찾기에 쓴 글
+  hits: [degree-bound, kempe-1879]   # 걸린 점
+  prior: [kempe-1879]    # 가장 가까운 기존 결과 · 반례
+  adds: 사슬이 서로 막는 경우까지   # 이번에 더할 것 (prior가 있을 때)
+  stop: 이틀 안에 반례가 없으면 멈춤   # 멈출 조건 (선택)
 from:                    # 앞선 점. type: origin 발단 · support 근거 · refute 반박 · use 사용
   - { id: degree-bound, type: support }   # type이 없으면 질문은 origin, 그 밖은 support
 fields:                  # 종류마다 설명 칸 (아래 표). 노트처럼 그린다: $…$ 수식, 따로 한 줄의 $$…$$ 줄 수식, 빈 줄은 문단, ![설명](그림 파일 이름)은 이 프로젝트·공용 그림 (10/15). 여러 줄은 YAML |
@@ -581,6 +589,8 @@ reason: …                # 반증 · 폐기 · 멈춤의 이유 (10/20)
 next: 여섯 색으로 넓히기     # 다음 할 일 (10/20)
 priority: high           # high · normal · low
 end: true                # 흐름 종료: 이 갈래는 여기서 끝나 뒤에 이어질 점이 없음 (선택, 10/21 "갈래 종결"에서 이름 바꿈)
+integration:             # 반영 기록 (10/23, pnpm agent:integrate): 아래 "반영 기록"
+  { at: 2026-10-05T18:00, by: claude, into: workbench/notes/overview/note.md, section: 색칠 }   # 또는 skip: <반영하지 않는 이유>
 evidence:                # 근거. ref(라이브러리 논문 키)와 file(저장소 기준 경로) 가운데 하나만
   - kind: proof          # calc · analytic · proof · other · paper
     title: Kempe 사슬     # 보이는 이름 (선택)
@@ -588,7 +598,7 @@ evidence:                # 근거. ref(라이브러리 논문 키)와 file(저�
     section: 두 사슬         # 노트 안의 절(제목) 이름 (10/20). 확인 기록의 hash는 이 절의 내용
     text: 두 사슬이 서로 막는 경우까지
     checks:              # 확인 기록 (덧붙이기만): role agent = 에이전트 검토, human = 사람 승인. hash = 확인할 때 그 절(없으면 파일)의 내용 해시
-      - { at: 2026-10-02T15:00, by: claude, role: agent, hash: 9a… }
+      - { at: 2026-10-02T15:00, by: claude, role: agent, hash: 9a…, claim: 4c… }   # 발견이면 claim = 진술 · 조건의 해시 (10/23)
       - { at: 2026-10-02T22:10, by: 사용자, role: human }
       - { at: 2026-10-03T09:00, by: 사용자, role: human, revoked: true }   # 거두기도 덧붙인다
 sources: [workbench/log/2026-10-02.md]   # 기록 출처 (일지·노트·커밋)
@@ -609,6 +619,9 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 - **해결 문턱** (10/20 사용자 결정, `flowGate` in `apps/server/src/flowGaps.ts`): 점이 이번 저장으로 **끝남이나 멈춤으로 넘어갈 때만** 본다(미해결 · 진행은 빈 칸이 있어도 저장되고, 이미 끝난 옛 점은 빈틈으로만 보인다). 해결: 위 표의 * 칸, 질문이 아니면 절(`section`)이나 논문(`ref`)을 가리킨 근거 하나 이상(발견은 근거 · 사용 선으로도 된다), 수치 계산은 `run.code`, 증명은 단계 하나 이상과 단계마다 `uses`. 반증 · 폐기 · 멈춤: `reason`. 앱 API는 `PATCH`에 `gate: true`가 있을 때 검사하고(MCP · 새 고치기 칸), `agent:check`의 `flow-form`이 파일을 직접 고친 경우를 같은 규칙으로 잡는다.
 - **빈틈** (10/20, `computeGaps`): 앱이 점마다 계산해 `GET …/flow`의 `gaps`, STATUS "흐름 요약"의 빈틈 절, MCP `flow_read`에 같은 글로 싣는다. `no-evidence` 해결인데 근거 없음 · `unverified-base` 아무도 확인하지 않은 발견 위에 근거 · 사용 선으로 쌓음 · `no-result` 끝난 계산 · 증명의 결과 칸이 빔 · `no-reason` 이유 없는 반증 · 폐기 · 멈춤 · `no-criterion` 열린 질문 · 계산에 판정 기준 없음 · `no-next` 해결인데 뒤따른 점도 흐름 종료도 다음 할 일도 없음 · `missing-file` 근거 파일 · 절이 없음 · `changed-evidence` 확인한 뒤 근거 절이 바뀜 · `step-gap` 쓰는 것이나 확인이 없는 단계.
 - **낡은 확인** (10/20): 확인 기록의 `hash`가 지금 근거 절(단계는 글 · 쓰는 것)의 해시와 다르면 그 확인은 없는 것으로 친다(`stale`). 정리도 풀린다. `hash`가 없는 옛 기록은 그대로 센다.
+- **발견은 진술에도 묶인다** (10/23): 발견의 근거를 확인(사람 승인 · 에이전트 검토)하면 앱이 진술 · 조건(`fields.statement` · `condition`)의 해시를 `claim`으로 함께 적는다. 확인한 뒤 진술을 넓히거나 조건을 바꾸면 그 발견의 확인이 모두 낡고(정리도 풀리고, 그 위에 쌓은 점은 `unverified-base`), 빈틈 `changed-evidence` "확인한 뒤 진술 · 조건이 바뀌었다"가 뜬다. 되돌리면 다시 산다. `claim`이 없는 옛 기록은 진술을 보지 않는다.
+- **시작 기록** (10/23, `start`, `apps/server/src/flowStart.ts`): 일을 시작하기 전에 거치는 문이다. 계산뿐 아니라 방향 제안 · 논문 평가 · 외부 LLM 의뢰도 점 하나로 시작한다. `pnpm agent:start <저장소> --kind … --short … --criterion …`가 먼저 흐름에서 지난 점을 찾아(`flow_search`와 같은 낱말 찾기) 보이고, 다음이 있어야 점을 진행으로 연다(못 지나면 아무것도 쓰지 않는다): 가장 가까운 점(`--prior`, 있는 점이어야 한다)과 이번에 더할 것(`--adds`), 또는 왜 새로운지(`--novel`, 걸린 것이 없을 때도 한 줄), 그리고 판정 기준(`--criterion`: 질문 · 수치 계산은 `fields.criterion`에, 칸이 없는 종류는 `start.criterion`에). `--dot <id>`는 있는 점에 붙이고, 이미 끝난 점이나 `--late`면 사후 기록(`late: true`)으로 따로 센다. 시작 기록은 점마다 한 번이다. `--search "<글>"`은 찾기만 한다. 서버 없이 파일만 읽고 써서 클라우드에서도 돈다. 쓴 뒤 그 저장소 main에 먼저 올려 맡았음을 알린다.
+- **반영 기록** (10/23, `integration`): 결과를 만드는 일과 그것을 지금의 이해에 반영하는 일은 다르다. 해결 · 반증으로 끝난 점은 `pnpm agent:integrate <저장소> <점> --into <문서> [--section <절>]`(그 문서 · 절이 점 id를 적어 가리켜야 한다, 예: `flow-<id>`) 또는 `--skip "<이유>"`로 반영 기록을 남긴다. 폐기는 `reason`이 그 몫이라 보지 않는다. `agent:check`의 `flow-integration`이 기록 없이 끝난 점과, 문서 · 절이 없어졌거나 더는 점을 가리키지 않는 기록을 잡는다.
 - 파일 이름 `^[a-z0-9][a-z0-9-]*\.yaml$`. 폴더 맨 위만 읽고, `layout.yaml`(손으로 옮긴 자리, 2단계)은 점이 아니다.
 - **정리**는 고르지 않는다: 근거에 `kind: proof`이고 마지막 `role: human` 확인 기록이 거둔 것(`revoked: true`)이 아닌 발견이 정리(T)로 보인다. 역할마다 마지막 기록이 지금 상태다.
 - 근거로 쓴 논문(`kind: paper`)은 받는 점 이름 뒤 작은 §(둘 이상이면 수)로 보이고 목록은 근거 표에 있다(점 위 § 배지는 10/16에 뺐다). 검토 자체가 다음 걸음을 낳았을 때만 `literature` 점을 만든다.
@@ -633,7 +646,9 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 | `approval` | 노트를 해결로(`note.yaml` `state: done`, 블록 `status: solved`), 맡긴 일을 `done`으로, `judged`·`answers`를 씀, 흐름에 `role: human` 확인 기록을 씀 | 오류 |
 | `flow-human` | 흐름 점의 질문 문장(`fields.question`)·발단 선(`origin`)을 바꿈, `result: dropped`로 갈래를 폐기 | 오류 |
 | `flow-form` | 흐름 점을 끝남 · 멈춤으로 바꿨는데 해결 문턱(§14)의 칸이 빔 | 오류 |
-| `flow-skipped` | 노트 · 블록 노트 폴더의 파일을 바꿨는데 흐름 점은 하나도 바뀌지 않음 (10/20: 점은 일을 시작할 때 만든다) | 경고 |
+| `flow-skipped` | 노트 · 블록 노트를 바꿨는데 이번에 바뀐 흐름 점 가운데 그 노트를 근거 · 실행 파일로 가리키거나 주제가 겹치는 것이 없음 (10/20: 점은 일을 시작할 때 만든다. 10/23: 무관한 점만 고쳐도 통과하던 것을 막음). 노트의 주제는 주제 폴더 · `note.yaml`/머리말 `topics:` · 옛 `topics[].blocks`, 주제가 없는 노트는 주제가 없는 점과 짝짓는다 | 경고 |
+| `flow-start` | 에이전트가 만든 새 점(`by`가 `user`가 아님)에 시작 기록(§14)이 없음 | 경고 |
+| `flow-integration` | 이번에 해결 · 반증으로 끝난 점에 반영 기록(§14)이 없음, 또는 반영 기록의 문서 · 절이 없거나 점 id를 가리키지 않음 | 경고 |
 | `flow-new-dot` | 흐름에 새 점 파일 (`layout.yaml` 빼고). 10/20부터 점은 에이전트가 일을 시작할 때 만드므로 기본은 끔 | 끔 |
 | `nonstandard-new-file` | 표준 배치 저장소에서 표준도 `folders:`도 아닌 맨 위 폴더에 새 파일 | 경고 |
 | `confirmed-edit` | 해결 노트·해결 블록, `status: accepted` 결정·규칙을 고침 | 경고 |
