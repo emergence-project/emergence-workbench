@@ -221,8 +221,8 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
       if (an) dots.push({ topics: an.topics, files: [...an.evidence.map((e) => e.file), an.run?.code, an.run?.output].filter((x): x is string => !!x) })
       const miss = an ? flowGate(an, bn) : []
       if (miss.length) add('flow-form', c.file, `점을 끝남 · 멈춤으로 바꿨는데 채울 칸이 비었습니다: ${miss.join(' · ')}. 채우거나 진행으로 되돌리세요.`, `The dot was finished or paused with empty required fields: ${miss.join(' · ')}. Fill them or set it back to active.`)
-      // 시작 기록 (10/23): 에이전트가 새로 연 점은 선행 찾기와 판정 기준을 적고 시작한다
-      if (an && c.status === 'A' && an.by && an.by !== 'user' && !an.start) add('flow-start', c.file, `시작 기록이 없는 새 점입니다. pnpm agent:start <저장소> --dot ${id} …로 가장 가까운 점(또는 왜 새로운지)과 판정 기준을 적으세요.`, `A new dot without a start record. Record the closest dot (or why it is new) and a criterion with pnpm agent:start <repo> --dot ${id} ….`)
+      // 시작 기록 (10/23): 에이전트가 새로 연 일(질문 · 계산 · 증명 …)은 선행 찾기와 판정 기준을 적고 시작한다. 발견은 일이 아니라 결론이라 뺀다
+      if (an && c.status === 'A' && an.kind !== 'finding' && an.by && an.by !== 'user' && !an.start) add('flow-start', c.file, `시작 기록이 없는 새 점입니다. pnpm agent:start <저장소> --dot ${id} …로 가장 가까운 점(또는 왜 새로운지)과 판정 기준을 적으세요.`, `A new dot without a start record. Record the closest dot (or why it is new) and a criterion with pnpm agent:start <repo> --dot ${id} ….`)
       // 반영 검사 (10/23): 이번에 끝난 점(해결 · 반증)은 이해 문서에 반영했거나 반영하지 않은 이유가 있어야 한다. 폐기는 이유(reason)가 그 몫이다
       if (an && an.progress === 'done' && an.result !== 'dropped' && bn?.progress !== 'done') {
         if (!an.integration) add('flow-integration', c.file, `끝난 점의 반영 기록이 없습니다. 결과를 이해 문서에 반영하고 pnpm agent:integrate <저장소> ${id} --into <문서>로, 반영하지 않으면 --skip "<이유>"로 적으세요.`, `The finished dot has no integration record. Reflect the result in the understanding document and run pnpm agent:integrate <repo> ${id} --into <doc>, or --skip "<reason>".`)
