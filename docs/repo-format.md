@@ -626,8 +626,9 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 
 \* = "해결"로 넘어가기 전에 채울 칸 (`FLOW_REQUIRED`, `packages/core/src/flow-kinds.ts`). 판정 기준 · 가정 · 해석 · 쓰는 곳은 10/20에 더했다.
 
-- **카드** (10/23 결정 "판단 설계", `card` · `CARD_FIELDS` in `packages/core/src/flow-kinds.ts`): 맡기기로 정한 질문 점이다. 새 파일 종류가 아니라 질문 점에 `card`를 더한 것이고, 연구가 아닌 일(정리 · 도구 고치기)은 그대로 맡긴 일(§7)로 맡긴다. 칸 글은 `fields`에 적는다: `question` 질문 · `motivation` 동기 · `guess` 예상 · `criterion` 완료 조건(예) · `criterion_no` 아니오 · `criterion_unclear` 불분명 · `value` 가치(답에 따라 무엇이 바뀌나) · `out_of_scope` 제외 범위 · `budget` 자원(시간 · 계산 장비) · `stop` 중단 조건(멈추고 물을 때) · `deliverable` 보고서(돌려받을 모양). 글이 아닌 것은 `card`에 적는다: `givens` 사전 연구(명제 점 id) · `terms` 용어(`word`, `def` 정의, `ref` 정의가 있는 곳: 노트 경로#절 · 개념노트 · 그림) · `tools` 도구 · `assignee` 담당 · `findings` 돌려받을 명제 수. 판단은 아래 "판단"이고, 시작한 뒤 문제 · 완료 칸(`CARD_LOCKED`: 질문 · 완료 조건 셋)을 바꾸면 시작 판단이 낡아 다시 판단한다. 상한 3 · 판단 전 사전 연구로는 시작하지 않기 · 정의 없는 용어는 `agent:check`가 잡는다(다음 단계).
+- **카드** (10/23 결정 "판단 설계", `card` · `CARD_FIELDS` in `packages/core/src/flow-kinds.ts`): 맡기기로 정한 질문 점이다. 새 파일 종류가 아니라 질문 점에 `card`를 더한 것이고, 연구가 아닌 일(정리 · 도구 고치기)은 그대로 맡긴 일(§7)로 맡긴다. 칸 글은 `fields`에 적는다: `question` 질문 · `motivation` 동기 · `guess` 예상 · `criterion` 완료 조건(예) · `criterion_no` 아니오 · `criterion_unclear` 불분명 · `value` 가치(답에 따라 무엇이 바뀌나) · `out_of_scope` 제외 범위 · `budget` 자원(시간 · 계산 장비) · `stop` 중단 조건(멈추고 물을 때) · `deliverable` 보고서(돌려받을 모양). 글이 아닌 것은 `card`에 적는다: `givens` 사전 연구(명제 점 id) · `terms` 용어(`word`, `def` 정의, `ref` 정의가 있는 곳: 노트 경로#절 · 개념노트 · 그림) · `tools` 도구 · `assignee` 담당 · `findings` 돌려받을 명제 수. 판단은 아래 "판단"이고, 시작한 뒤 문제 · 완료 칸(`CARD_LOCKED`: 질문 · 완료 조건 셋)을 바꾸면 시작 판단이 낡아 다시 판단한다. 카드의 상태는 앱이 계산한다: **대기**(승인되지 않은 사전 연구가 있음) · **준비**(사전 연구가 모두 승인돼 시작을 기다림) · **진행**(사람이 시작함) · **종료**. 판단 전 사전 연구로는 시작하지 않는다(시작 판단을 거절). 에이전트는 진행 중인 카드 아래에서만 일(질문이 아닌 점)을 연다.
 - **판단** (10/23 결정 "판단 버튼 말", `judgments`): 사람의 판단 기록이다. 명제(발견)는 `approve` 승인 · `send-back` 수정 · `reject` 기각, 카드가 있는 질문은 `start` 시작 · `send-back` 수정 · `end` 종료. 기각은 결과가 나쁘다는 뜻이 아니라 사실로 받지 않는다는 뜻이다("아니오" 결과도 근거가 맞으면 승인). 앱은 판단한 내용의 해시를 `claim`으로 적는다(발견은 진술 · 조건, 카드는 질문 · 완료 조건). 지금 내용과 `claim`이 다르면 그 판단은 낡고(`stale`), 지금의 판단(`verdict`, 앱이 계산)은 낡지 않은 마지막 판단의 말이다. 없으면 **판단 전**이다(10/23 결정 "정의와 옛 결과": 지금까지의 점은 모두 판단 전). 앱 화면이 `POST …/flow/:id/judge`로 쓰고, 에이전트가 파일에 쓰면 `agent:check`의 `approval`이 잡는다. 근거의 사람 승인(`checks`의 `role: human`)은 근거 하나를 확인한 것이고 판단과 따로다.
+- **판단 대기열** (10/23, `judgmentQueue` in `apps/server/src/flowGaps.ts`): 판단 전이거나 수정으로 돌려보낸 명제 가운데, 에이전트가 설계 뒤(`JUDGE_SINCE` = 2026-10-23, 점의 `date`) 낸 것과 끝나지 않은 카드가 사전 연구로 고른 것이다. 옛 명제는 카드가 쓸 때만 오른다. 상한은 `JUDGE_CAP` = 3이고, 차면 에이전트는 새 명제를 내지 못한다(앱 `POST …/flow`와 MCP `flow_add`가 거절하고, 파일로 쓰면 `agent:check`의 `queue-cap`이 잡는다). 낸 명제를 고치거나 반례를 확인하는 일은 된다.
 - **해결 문턱** (10/20 사용자 결정, `flowGate` in `apps/server/src/flowGaps.ts`): 점이 이번 저장으로 **끝남이나 멈춤으로 넘어갈 때만** 본다(미해결 · 진행은 빈 칸이 있어도 저장되고, 이미 끝난 옛 점은 빈틈으로만 보인다). 해결: 위 표의 * 칸, 질문이 아니면 절(`section`)이나 논문(`ref`)을 가리킨 근거 하나 이상(발견은 근거 · 사용 선으로도 된다), 수치 계산은 `run.code`, 증명은 단계 하나 이상과 단계마다 `uses`. 반증 · 폐기 · 멈춤: `reason`. 앱 API는 `PATCH`에 `gate: true`가 있을 때 검사하고(MCP · 새 고치기 칸), `agent:check`의 `flow-form`이 파일을 직접 고친 경우를 같은 규칙으로 잡는다.
 - **빈틈** (10/20, `computeGaps`): 앱이 점마다 계산해 `GET …/flow`의 `gaps`, STATUS "흐름 요약"의 빈틈 절, MCP `flow_read`에 같은 글로 싣는다. `no-evidence` 해결인데 근거 없음 · `unverified-base` 아무도 확인하지 않은 발견 위에 근거 · 사용 선으로 쌓음 · `no-result` 끝난 계산 · 증명의 결과 칸이 빔 · `no-reason` 이유 없는 반증 · 폐기 · 멈춤 · `no-criterion` 열린 질문 · 계산에 판정 기준 없음 · `no-next` 해결인데 뒤따른 점도 흐름 종료도 다음 할 일도 없음 · `missing-file` 근거 파일 · 절이 없음 · `changed-evidence` 확인한 뒤 근거 절이 바뀜 · `step-gap` 쓰는 것이나 확인이 없는 단계.
 - **낡은 확인** (10/20): 확인 기록의 `hash`가 지금 근거 절(단계는 글 · 쓰는 것)의 해시와 다르면 그 확인은 없는 것으로 친다(`stale`). 정리도 풀린다. `hash`가 없는 옛 기록은 그대로 센다.
@@ -661,12 +662,17 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 | `flow-skipped` | 노트 · 블록 노트를 바꿨는데 이번에 바뀐 흐름 점 가운데 그 노트를 근거 · 실행 파일로 가리키거나 주제가 겹치는 것이 없음 (10/20: 점은 일을 시작할 때 만든다. 10/23: 무관한 점만 고쳐도 통과하던 것을 막음). 노트의 주제는 주제 폴더 · `note.yaml`/머리말 `topics:` · 옛 `topics[].blocks`, 주제가 없는 노트는 주제가 없는 점과 짝짓는다 | 경고 |
 | `flow-start` | 에이전트가 만든 새 점(`by`가 `user`가 아님)에 시작 기록(§14)이 없음. 발견(`finding`)은 일이 아니라 결론이라 보지 않는다 | 경고 |
 | `flow-integration` | 이번에 해결 · 반증으로 끝난 점에 반영 기록(§14)이 없음, 또는 반영 기록의 문서 · 절이 없거나 점 id를 가리키지 않음 | 경고 |
+| `queue-cap` | 에이전트가 새 명제(발견)를 냈는데 판단 대기열(§14)이 상한 3을 넘음 | 오류 |
+| `card-not-started` | 에이전트가 만든 새 일(질문이 아닌 점)이 진행 중이 아닌 카드(대기 · 준비 · 종료)에서 이어짐 | 오류 |
+| `card-locked` | 시작한 카드의 질문 · 완료 조건(`CARD_LOCKED`)을 바꿈. 사람이 수정으로 돌려보낸 뒤 고친다 | 오류 |
+| `card-terms` | 카드의 용어에 정의(`def`)도 출처(`ref`)도 없음 | 경고 |
 | `flow-new-dot` | 흐름에 새 점 파일 (`layout.yaml` 빼고). 10/20부터 점은 에이전트가 일을 시작할 때 만드므로 기본은 끔 | 끔 |
 | `nonstandard-new-file` | 표준 배치 저장소에서 표준도 `folders:`도 아닌 맨 위 폴더에 새 파일 | 경고 |
 | `confirmed-edit` | 해결 노트·해결 블록, `status: accepted` 결정·규칙을 고침 | 경고 |
 | `outside-workbench` | `workbench/` 밖 변경 (맨 위 폴더마다 한 줄) | 경고 |
 | `move-delete` | 지우거나 옮긴 파일 (한 줄로 묶음) | 경고 |
 
+- **PR 관문** (10/23): 연구 저장소 PR마다 Actions로 이 검사를 돌려 오류가 있으면 PR이 실패한다. 연구 저장소에는 `.github/workflows/agent-check.yml` 하나에 `uses: emergence-project/emergence-workbench/.github/workflows/research-check.yml@main`만 두고(그 파일 머리에 전문), 기준은 PR의 base 브랜치다. 관문은 공통 규칙 파일이 없어 기본 세기로 돈다. 에이전트의 브랜치를 검사하는 것이므로, 사용자가 앱에서 한 판단은 그 브랜치가 아니라 main에 올린다.
 - **세기 바꾸기:** 공통 규칙 파일(§9, 설정 폴더의 `personal/rules/research.md` 또는 `RW_COMMON_RULES`) 머리말의 `checks:`가 이름마다 `error` · `warning` · `off`를 정한다. 모르는 이름과 값은 넘어간다.
 
 ```yaml

@@ -390,6 +390,10 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     f = (await send('PATCH', '/f', { baseHash: f.hash, set: { fields: { statement: '계단이 사라진다', condition: 'κ → 0' } } })).json().node
     expect(f.verdict).toBeUndefined()
     expect(f.judgments.map((j: { stale?: boolean }) => !!j.stale)).toEqual([true, true])
+    // 판단 전 사전 연구로는 카드를 시작하지 않는다
+    const refused = await send('POST', '/q/judge', { baseHash: q.hash, verdict: 'start' })
+    expect([refused.statusCode, refused.json().error]).toEqual([400, expect.stringContaining('사전 연구가 아직 승인되지 않았습니다: f')])
+    f = (await send('POST', '/f/judge', { baseHash: f.hash, verdict: 'approve' })).json().node
     // 카드: 문제 · 완료 칸이 바뀌면 낡고, 가치 · 자원은 판단을 낡게 하지 않는다
     q = (await send('POST', '/q/judge', { baseHash: q.hash, verdict: 'start' })).json().node
     expect(q.verdict).toBe('start')
@@ -406,6 +410,31 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     expect(nodes[0].card).toBeUndefined()
     expect(nodes[0].judgments).toEqual([])
     expect(diagnostics.map((d: { code: string }) => d.code).sort()).toEqual(['card', 'judgments', 'judgments'])
+  })
+
+  it('판단 대기열 (10/23): 에이전트는 상한 3이 차면 새 명제를, 시작하지 않은 카드 아래에서는 일을 열지 못한다', async () => {
+    const finding = (id: string, more = '') => put(id, `format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: ${id}\nfields: { statement: ${id} }\n${more}`)
+    finding('a', 'date: 2026-10-23\nby: codex')
+    finding('b', 'date: 2026-10-24\nby: claude-code')
+    finding('old', 'date: 2026-10-01\nby: claude-code')
+    finding('mine', 'date: 2026-10-24\nby: user')
+    put('q', 'format: 1\nkind: question\nprogress: open\nshort: 카드\nfields: { question: 왜?, criterion: 맞으면 }\ncard: { givens: [old] }')
+    const add = (body: object) => send('POST', '', { short: '새 점', ...body })
+    // 대기: 설계 뒤 에이전트가 낸 a · b와 카드가 고른 옛 명제 old. 사용자가 낸 명제와 고르지 않은 옛 명제는 빠진다
+    let r = await add({ kind: 'finding', by: 'claude-code' })
+    expect([r.statusCode, r.json().error]).toEqual([400, expect.stringContaining('3/3')])
+    expect((await add({ kind: 'finding' })).statusCode).toBe(200)
+    // 카드 아래 일: 사전 연구가 판단 전이면 막고, 승인 뒤에도 사용자가 시작하기 전에는 막는다
+    r = await add({ kind: 'calc', by: 'codex', from: [{ id: 'q', type: 'origin' }] })
+    expect([r.statusCode, r.json().error]).toEqual([400, expect.stringContaining('사전 연구가 아직 승인되지 않았습니다')])
+    const node = async (id: string) => (await get()).nodes.find((m: { id: string }) => m.id === id)
+    await send('POST', '/old/judge', { baseHash: (await node('old')).hash, verdict: 'approve' })
+    r = await add({ kind: 'calc', by: 'codex', from: [{ id: 'q', type: 'origin' }] })
+    expect(r.json().error).toContain('사용자가 아직 시작하지 않았습니다')
+    await send('POST', '/q/judge', { baseHash: (await node('q')).hash, verdict: 'start' })
+    expect((await add({ kind: 'calc', by: 'codex', from: [{ id: 'q', type: 'origin' }] })).statusCode).toBe(200)
+    // 대기열이 줄면 (old 승인) 새 명제를 낸다
+    expect((await add({ kind: 'finding', by: 'claude-code' })).statusCode).toBe(200)
   })
 
   it('에이전트 검토는 단계에도 role agent로, 사람 승인은 단계에도 된다', async () => {

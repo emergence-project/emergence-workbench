@@ -342,7 +342,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
 
   server.registerTool('flow_add', {
     title: 'Add a flow dot',
-    description: 'Add a dot when you start a piece of work (a question, calculation, proof, literature reading or finding). Give the criterion (what result solves or refutes it) for questions and calculations. Usually progress active. Returns the dot id, hash and gaps.',
+    description: 'Add a dot when you start a piece of work (a question, calculation, proof, literature reading or finding). Give the criterion (what result solves or refutes it) for questions and calculations. Usually progress active. Refused while 3 of your findings wait for the user\'s judgment (when kind is finding), and for work that follows a card the user has not started. Returns the dot id, hash and gaps.',
     inputSchema: { project, kind: z.enum(C.FLOW_KINDS), short: z.string().min(1).max(60).describe('Short name shown on the chart'), progress: z.enum(['open', 'active']).optional(),
       task: z.string().optional().describe('The delegated task (workbench/tasks id) this work belongs to, if any'), ...flowSet },
     annotations: { readOnlyHint: false, openWorldHint: false },

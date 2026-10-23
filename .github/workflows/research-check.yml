@@ -1,0 +1,53 @@
+# 연구 저장소의 PR 관문 (10/23 "판단 설계"): 연구 저장소 PR마다 pnpm agent:check를 돌려,
+# 공통 규칙이 막는 변경(오류: 사람 판단을 씀, 상한을 넘긴 명제, 시작하지 않은 카드 아래 일 …)이 있으면 실패한다.
+# 앱을 거치지 않은 에이전트의 일도 여기서 걸린다. 검사 이름과 세기는 docs/repo-format.md §15.
+#
+# 연구 저장소에는 .github/workflows/agent-check.yml 하나만 둔다:
+#
+#   name: agent-check
+#   on: pull_request
+#   permissions:
+#     contents: read
+#   jobs:
+#     check:
+#       uses: emergence-project/emergence-workbench/.github/workflows/research-check.yml@main
+#
+# 바깥 액션은 ci.yml처럼 커밋 SHA로 고정한다.
+name: research-check
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # 기준(PR의 base)과 견주므로 기록 전체가 필요하다
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          path: research
+          fetch-depth: 0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: emergence-project/emergence-workbench
+          path: workbench
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          package_json_file: workbench/package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: workbench/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: workbench
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - run: pnpm agent:check "$GITHUB_WORKSPACE/research" --base "origin/$BASE"
+        working-directory: workbench
+        env:
+          BASE: ${{ github.base_ref }}

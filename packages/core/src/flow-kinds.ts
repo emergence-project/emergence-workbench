@@ -29,6 +29,10 @@ export const CARD_LOCKED = ['question', 'criterion', 'criterion_no', 'criterion_
 export const FINDING_VERDICTS = ['approve', 'send-back', 'reject'] as const
 export const CARD_VERDICTS = ['start', 'send-back', 'end'] as const
 export const FLOW_VERDICTS = ['approve', 'send-back', 'reject', 'start', 'end'] as const
+/** 판단 대기열의 상한 (10/23): 판단 전 명제가 이만큼 차면 에이전트는 새 명제를 내지 못한다 */
+export const JUDGE_CAP = 3
+/** 판단 설계를 정한 날. 그 전에 생긴 판단 전 명제(옛 결과)는 카드가 사전 연구로 고를 때만 대기열에 오른다 */
+export const JUDGE_SINCE = '2026-10-23'
 /** "해결"로 넘어가기 전에 채워야 하는 설명 칸 (10/20 사용자 결정 "해결 문턱"). 그 밖의 조건은 서버 flowGate */
 export const FLOW_REQUIRED: Record<(typeof FLOW_KINDS)[number], readonly string[]> = {
   question: ['question', 'motivation', 'criterion'],

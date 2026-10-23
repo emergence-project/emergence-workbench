@@ -2,7 +2,7 @@
 // 빈틈은 앱이 계산해 화면 · STATUS · MCP가 같은 것을 본다. 문턱(flowGate)은 편집 화면과 함께 쓰려고 core flow-gate.ts에 있다.
 import fs from 'node:fs'
 import path from 'node:path'
-import { CARD_LOCKED, flowGate } from '@rw/core'
+import { CARD_LOCKED, JUDGE_SINCE, flowGate } from '@rw/core'
 import type { FlowGap, FlowNode } from '@rw/core/contract/flow'
 import { hashOf, isInside } from './fsutil.js'
 import { t as tl } from './i18n.js'
@@ -52,6 +52,32 @@ export function markJudgments(n: FlowNode): FlowNode['verdict'] {
   for (const j of n.judgments) { if (j.claim && j.claim !== h) j.stale = true; else delete j.stale }
   return [...n.judgments].reverse().find((j) => !j.stale)?.verdict
 }
+
+/**
+ * 판단 대기열 (10/23 "판단 설계"): 판단 전이거나 수정으로 돌려보낸 명제 가운데, 에이전트가 설계 뒤(JUDGE_SINCE) 낸 것과
+ * 끝나지 않은 카드가 사전 연구로 고른 것. 옛 명제는 카드가 쓸 때만 오른다. verdict는 markJudgments가 채운 값을 쓴다
+ */
+export function judgmentQueue(nodes: FlowNode[]): FlowNode[] {
+  const givens = new Set(nodes.filter((n) => n.card && n.verdict !== 'end').flatMap((n) => n.card!.givens))
+  return nodes.filter((n) => n.kind === 'finding' && (n.verdict === undefined || n.verdict === 'send-back')
+    && (givens.has(n.id) || (!!n.by && n.by !== 'user' && (n.date ?? '') >= JUDGE_SINCE)))
+}
+
+/**
+ * 카드의 상태: 종료 · 진행(사람이 시작했고 사전 연구가 모두 승인됨) · 준비(사전 연구가 모두 승인돼 시작을 기다림) · 대기(승인 안 된 사전 연구가 있음).
+ * 카드가 아닌 점은 null
+ */
+export type CardState = 'ended' | 'active' | 'ready' | 'waiting'
+export function cardState(n: FlowNode, byId: Map<string, FlowNode>): CardState | null {
+  if (!n.card) return null
+  if (n.verdict === 'end') return 'ended'
+  const open = n.card.givens.filter((g) => byId.get(g)?.verdict !== 'approve')
+  if (open.length) return 'waiting'
+  return n.verdict === 'start' ? 'active' : 'ready'
+}
+
+/** 카드에서 정의(def)도 출처(ref)도 없는 용어 */
+export const undefinedTerms = (n: FlowNode): string[] => (n.card?.terms ?? []).filter((x) => !x.def?.trim() && !x.ref?.trim()).map((x) => x.word)
 
 /** 이 근거의 마지막 확인 뒤 발견의 진술 · 조건이 바뀌었나 (claim이 없는 옛 기록은 보지 않는다) */
 export function claimChanged(n: FlowNode, e: FlowNode['evidence'][number]): boolean {
