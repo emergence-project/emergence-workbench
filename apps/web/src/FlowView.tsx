@@ -36,7 +36,7 @@ export function FlowPage({ rid, topic, notes, topics }: { rid: string; topic?: s
     <section className="pane">
       <div className="scroll"><div className="page-body fl-page">
         {!scan || !lay ? <p className="muted">{tr('불러오는 중…', 'Loading…')}</p>
-          : fold ? <FlowBundles all={scan.nodes} topics={topics} focus={focus} foldSwitch={foldSwitch} onOpenDot={(id) => { selectFlowDot(rid, id); setFold(false) }} />
+          : fold ? <FlowBundles rid={rid} all={scan.nodes} topics={topics} focus={focus} foldSwitch={foldSwitch} onOpenDot={(id) => { selectFlowDot(rid, id); setFold(false) }} />
           : <FlowChart rid={rid} focus={focus} all={scan.nodes} cells={scan.layout} lay={lay} rowNames={scan.rows?.names ?? {}} warn={scan.diagnostics.length} notes={notes} topics={topics} reload={reload} foldSwitch={foldSwitch} />}
       </div></div>
     </section>

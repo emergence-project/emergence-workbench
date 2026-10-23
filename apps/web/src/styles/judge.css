@@ -1,0 +1,14 @@
+/* 판단 화면과 판단 대기열 (10/23 "판단 설계" 5단계). 보고서(.tk-rep · .tk-sec)와 판단 카드(.tk · .tk-row) 위에 더한 것만 */
+.jd-claim dd { color: var(--text); font-size: var(--fs-md); }
+.jd-dots, .jd-ev { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.jd-dots li { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.jd-act { gap: var(--sp-2); }
+.jd-note { width: 100%; resize: vertical; padding: var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); font-size: var(--fs-sm); }
+.jd-btns { display: flex; gap: var(--sp-2); justify-content: flex-end; }
+.tk-state .fl-m-icon, .tk-state svg { flex: none; }
+
+.jq { display: flex; flex-direction: column; gap: var(--sp-2); }
+.jq-h { display: flex; align-items: baseline; gap: var(--sp-2); }
+.jq-tip { font-size: var(--fs-xs); font-weight: var(--fw-normal); }
+.jq-row { grid-template-columns: 16px minmax(0, 1fr) auto; }
+.jq-full { font-weight: var(--fw-normal); }

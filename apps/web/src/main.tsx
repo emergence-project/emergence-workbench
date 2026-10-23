@@ -69,6 +69,7 @@ import './styles/file-tab.css'
 import './styles/files.css'
 import './styles/agent-chats.css'
 import './styles/feedback-agent.css'
+import './styles/judge.css'
 
 applyUi(cachedUi())
 
