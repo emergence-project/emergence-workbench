@@ -59,6 +59,7 @@ export const DEFAULT_SCREENS = [
   ['judge-queue', '#/r/{rid}/records', '판단 대기열', '[data-ui="기록 차례"] button:text-matches("^(내 차례|Your turn)")'],
   ['judge', '#/r/{rid}/j/five-color-theorem', '판단 화면 판단'],
   ['judge-card', '#/r/{rid}/j/four-colors', '판단 화면 사전 연구'],
+  ['judge-ask', '#/r/{rid}/j/five-color-theorem', '판단 화면 질문', '[data-ui="판단 화면 묻기"]'],
   ['block', '#/r/{rid}/b/kempe-chains', EDITOR_TEXT],
   ['chapter', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', EDITOR_TEXT],
   ['chapter-cited', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', '인용한 논문', '인용한 논문'],
