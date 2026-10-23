@@ -22,6 +22,8 @@ export const RECORD_AUTHOR_RE = /^[a-z][a-z0-9-]{0,19}$/
 export const RECORD_AUTHOR_REQUIRED_FROM = '20261022'
 /** 사용자가 질문 · 지시 아래에 이어 쓴 답의 이름 (`### 답 · 사용자 · …`) */
 export const USER_ANSWER_BY = '사용자'
+/** 짚은 곳의 칸 이름 (흐름 점의 fields 키, 또는 short · title · reason · next) */
+export const FLOW_FIELD_RE = /^[a-z_]{1,40}$/
 
 const entry = {
   id: z.string(),
@@ -57,6 +59,11 @@ const entry = {
   noAuthor: z.literal(true).optional(),
   /** 이 질문 · 지시가 묻는 할 일 (같은 파일의 할 일 id, 10/19 결정 "할 일에 에이전트에게"). 화면은 그 할 일 아래 대화로 보인다 */
   todo: z.string().optional(),
+  /** 짚은 곳 (10/23 "판단 설계"): 흐름 점(flow-<id>)의 어느 칸에 대한 것인지(statement · condition · criterion …)와 물을 때 그 칸 글의 해시 */
+  field: z.string().optional(),
+  fieldHash: z.string().optional(),
+  /** 물은 뒤 그 칸이 바뀜 (앱이 계산, 파일에 쓰지 않는다) */
+  changed: z.literal(true).optional(),
   body: z.string(),
   state: CommentState.nullable(),
   answers: z.array(CommentAnswer),
@@ -122,6 +129,8 @@ export const NewCommentBody = z.object({
   by: z.string().regex(RECORD_AUTHOR_RE, 'by: lowercase letters, digits and -, up to 20').optional(),
   /** 질문 · 지시를 같은 파일의 할 일에 잇는다 (10/19): 할 일 id */
   todo: z.string().regex(/^c-[\w-]+$/, 'todo: a to-do record id').optional(),
+  /** 흐름 점의 칸에 대해 쓸 때 그 칸 이름 (10/23, flow-<id> 대상만). 앱이 그 칸 글의 해시를 함께 적는다 */
+  field: z.string().regex(FLOW_FIELD_RE, 'field: a flow dot field name').optional(),
   text: z.string(),
 })
 export const ClassifyBody = z.object({ baseHash })

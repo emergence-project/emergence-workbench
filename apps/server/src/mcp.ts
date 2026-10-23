@@ -253,7 +253,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
 
   server.registerTool('answer_record', {
     title: 'Answer a question or instruction record',
-    description: 'Write your answer under a question (질문) or instruction (지시) record (from list_records or read_records). The answer is appended with your agent name and the record becomes answered (답함); the user reads it in the app. Lead with the result in the first line and keep it to a few lines; cite files as path:line. On a question you asked yourself (by set) that the user answered (list_records replied: true), act on the answer, then answer_record saying what you did: that closes the record (끝냄). For a question, answer only what was asked. For an instruction, do the small job first (change notes with edit_note so the user reviews them), then answer saying what you did and where; if it needs an end condition and a report, do not start it and answer suggesting a delegated task instead. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
+    description: 'Write your answer under a question (질문) or instruction (지시) record (from list_records or read_records). The answer is appended with your agent name and the record becomes answered (답함); the user reads it in the app. Lead with the result in the first line and keep it to a few lines; cite files as path:line. On a flow dot (target flow-<id>) the row may carry field (the dot field the user pointed at, e.g. statement) and changed (that field changed since they asked): start with 답: 있음 / 없음 / 일부, or 고침 when you changed the dot, then the grounds (note section, file:line, figure); a changed dot needs the user\'s judgment again. On a question you asked yourself (by set) that the user answered (list_records replied: true), act on the answer, then answer_record saying what you did: that closes the record (끝냄). For a question, answer only what was asked. For an instruction, do the small job first (change notes with edit_note so the user reviews them), then answer saying what you did and where; if it needs an end condition and a report, do not start it and answer suggesting a delegated task instead. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
     inputSchema: {
       project: recordsProject,
       target: z.string().describe('The record\'s target (project, note-<folder>, topic-<id>, flow-<id> …)'),
@@ -280,9 +280,10 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
       text: z.string().trim().min(1).describe('What you ask or note (Markdown)'),
       quote: z.string().optional().describe('Text copied exactly from the note to anchor the record'),
       line: z.number().int().positive().optional().describe('Line of the quote in the note file (1-based), to pick the right place when the quote occurs more than once'),
+      field: z.string().optional().describe('With target flow-<id>: the dot field the record is about (statement, condition, criterion, result …); quote must then be copied from that field'),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, async ({ project: rid, file, target, kind, text: body, quote, line }) => {
+  }, async ({ project: rid, file, target, kind, text: body, quote, line, field }) => {
     let to = target
     let title = target ?? ''
     let source: string | undefined
@@ -304,7 +305,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     }
     if (!to) return fail('Pass file (a note from list_notes) or target (project, topic-<id>, flow-<id>, or concept-<id> with project _library).')
     if (!file && /^(note|calc|block)-/.test(to)) return fail('For a note, pass file (from list_notes) instead of target.')
-    const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(to)}`, { kind, title, ...(source && { source }), text: body, ...(quote && { quote }), ...(line && { line }), by: recordAuthor(server.server.getClientVersion()?.name) })
+    const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(to)}`, { kind, title, ...(source && { source }), text: body, ...(quote && { quote }), ...(line && { line }), ...(field && { field }), by: recordAuthor(server.server.getClientVersion()?.name) })
     if (!r.ok) return r.error
     const b = r.body as { entry: { id: string }; hash: string }
     return text(`Added ${kind} ${b.entry.id} on ${to}.${kind === '질문' ? ' It is now the user\'s turn; read their answer later with read_records.' : ''} Records file hash: ${b.hash}.`)

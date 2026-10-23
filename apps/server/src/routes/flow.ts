@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/flow'
 import { parseBody, replies } from '../contract.js'
 import { checkFlowEvidence, createFlowNode, deleteFlowNode, judgeFlow, moveFlowRow, patchFlowNode, readFlowNode, reviewFlow, scanFlow, searchFlow, setFlowLayout, setFlowRows } from '../flow.js'
+import { closeAfterJudgment } from '../ask.js'
 import { t } from '../i18n.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -36,8 +37,13 @@ export function registerFlow(app: FastifyInstance, ctx: RouteContext): void {
   app.post<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id/check', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
     ({ node: checkFlowEvidence(wbOf(req.params.rid), req.params.id, parseBody(C.FlowCheckBody, req.body)) }))
   /** 사람 판단 (10/23): 발견은 승인 · 수정 · 기각, 카드는 시작 · 수정 · 종료 */
-  app.post<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id/judge', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
-    ({ node: judgeFlow(wbOf(req.params.rid), req.params.id, parseBody(C.FlowJudgeBody, req.body)) }))
+  app.post<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id/judge', replies(C.FlowOne), async (req): Promise<C.FlowOne> => {
+    const wb = wbOf(req.params.rid), body = parseBody(C.FlowJudgeBody, req.body)
+    const node = judgeFlow(wb, req.params.id, body)
+    // 판단이 끝나면 (승인 · 기각 · 종료) 그 점의 열린 질문을 닫는다
+    closeAfterJudgment(wb.root, node.id, body.verdict)
+    return { node }
+  })
   /** 에이전트 검토 (확인 기록에 role agent로 덧붙인다) */
   app.post<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id/review', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
     ({ node: reviewFlow(wbOf(req.params.rid), req.params.id, parseBody(C.FlowReviewBody, req.body)) }))

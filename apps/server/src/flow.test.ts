@@ -437,6 +437,30 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     expect((await add({ kind: 'finding', by: 'claude-code' })).statusCode).toBe(200)
   })
 
+  it('짚은 곳 (10/23): 점의 칸에 단 질문은 칸이 바뀌면 changed, 인용이 사라지면 잃음, 판단이 끝나면 닫힌다', async () => {
+    fs.rmSync(path.join(repo, 'workbench', 'comments', 'flow-f.md'), { force: true })
+    put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 계단\nfields:\n  statement: 계단이 줄고 r = 16과 20이 같다\n  condition: κ → 0')
+    const rec = (payload: object) => app.inject({ method: 'POST', url: `${R}/comments/flow-f`, payload: { kind: '질문', title: '흐름 계단', ...payload } })
+    const records = async () => (await app.inject({ method: 'GET', url: `${R}/comments/flow-f` })).json().comments
+    expect((await rec({ text: '?', field: 'nothing' })).statusCode).toBe(400)
+    expect((await rec({ text: '?', field: 'statement', quote: '없는 글' })).statusCode).toBe(400)
+    expect((await rec({ text: '계단이 무엇인가요?', field: 'statement', quote: '계단' })).statusCode).toBe(200)
+    expect((await rec({ text: 'r = 24는?', field: 'statement', quote: 'r = 16과 20' })).statusCode).toBe(200)
+    expect((await rec({ text: '조건은 충분한가요?', field: 'condition' })).statusCode).toBe(200)
+    let [a, b, c] = await records()
+    expect([a.field, a.fieldHash]).toEqual(['statement', expect.stringMatching(/^[0-9a-f]{16}$/)])
+    expect([a.changed, b.lost, c.changed]).toEqual([undefined, undefined, undefined])
+    let f = (await get()).nodes[0]
+    f = (await send('PATCH', '/f', { baseHash: f.hash, set: { fields: { statement: '계단이 줄고 r = 16, 20, 24가 같다', condition: 'κ → 0' } } })).json().node
+    ;[a, b, c] = await records()
+    expect([a.changed, a.lost, b.changed, b.lost, c.changed]).toEqual([true, undefined, true, true, undefined])
+    // 승인하면 열린 질문이 닫히고 대화는 남는다
+    await send('POST', '/f/judge', { baseHash: f.hash, verdict: 'approve' })
+    ;[a, b, c] = await records()
+    expect([a.state, b.state, c.state]).toEqual(['끝냄', '끝냄', '끝냄'])
+    expect(a.answers.at(-1)).toMatchObject({ by: '앱', body: '판단 뒤 닫음 (승인)' })
+  })
+
   it('에이전트 검토는 단계에도 role agent로, 사람 승인은 단계에도 된다', async () => {
     put('p', 'format: 1\nkind: proof\nprogress: active\nshort: 증명\ntitle: 증명\nsteps: [{ text: 가, uses: 정의 }]')
     let n = (await get()).nodes[0]

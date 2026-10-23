@@ -5,7 +5,7 @@
 import { USER_ANSWER_BY } from '@rw/core/contract/comments'
 
 interface Answer { by: string; at: string; body: string }
-interface Entry { id: string; kind: string; by?: string; state: string | null; where: string; quote?: string; part?: string; partText?: string; edit?: string; unsorted?: true; todo?: string; body: string; answers: Answer[] }
+interface Entry { id: string; kind: string; by?: string; state: string | null; where: string; quote?: string; part?: string; partText?: string; edit?: string; unsorted?: true; todo?: string; field?: string; changed?: true; body: string; answers: Answer[] }
 interface Group { target: string; title: string; comments: Entry[] }
 
 /** 사용자가 남긴, 에이전트가 답하거나 할 차례인 질문 · 지시 */
@@ -36,7 +36,7 @@ export function recordRows(files: Group[], f: RecordFilter = {}): Record<string,
       .map((c) => {
         const last = c.answers.at(-1)
         const row: Record<string, unknown> = { target: file.target, title: file.title, id: c.id, kind: c.kind }
-        for (const k of ['by', 'state', 'where', 'edit', 'unsorted', 'part'] as const) if (c[k] !== undefined && c[k] !== null) row[k] = c[k]
+        for (const k of ['by', 'state', 'where', 'edit', 'unsorted', 'part', 'field', 'changed'] as const) if (c[k] !== undefined && c[k] !== null) row[k] = c[k]
         if (c.quote) row.quote = f.full ? c.quote : clip(c.quote, 160)
         if (c.partText) row.partText = f.full ? c.partText : clip(c.partText, 160)
         // 할 일에 대해 물은 질문 · 지시 (10/19): 그 할 일 id와 글을 함께 (에이전트가 할 일을 다시 찾지 않게)

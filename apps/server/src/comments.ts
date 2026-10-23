@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import YAML from 'yaml'
 import { hashOf, isBackupCopy, writeAtomic } from './fsutil.js'
 import { stamp as coreStamp } from '@rw/core'
 import { ANSWER_RE, COMMENT_STATES, type CommentState } from './commentFormat.js'
@@ -10,7 +11,7 @@ import { writeLinkedTodoFiles, type LinkedTodoFileChange } from './linkedTodoWri
 import type { AskRunner } from './ask.js'
 import { classifyPrompt, parseClassification } from './classify.js'
 import type { z } from 'zod'
-import { RECORD_AUTHOR_RE, RECORD_AUTHOR_REQUIRED_FROM, USER_ANSWER_BY, type CommentAnswer, type CommentEntry, type CommentFile, type CommentKind, type NewCommentBody, type NoteHighlight, type PendingQuestion, type RecordFile as RecordGroup } from '@rw/core/contract/comments'
+import { FLOW_FIELD_RE, RECORD_AUTHOR_RE, RECORD_AUTHOR_REQUIRED_FROM, USER_ANSWER_BY, type CommentAnswer, type CommentEntry, type CommentFile, type CommentKind, type NewCommentBody, type NoteHighlight, type PendingQuestion, type RecordFile as RecordGroup } from '@rw/core/contract/comments'
 import { t } from './i18n.js'
 
 /**
@@ -168,6 +169,8 @@ export function parseComments(target: string, text: string): CommentFile {
           if (typeof m.by === 'string' && RECORD_AUTHOR_RE.test(m.by)) cur.by = m.by
           if (m.src === 'user' || m.src === 'app') cur.src = m.src
           if (typeof m.todo === 'string' && /^c-[\w-]+$/.test(m.todo)) cur.todo = m.todo
+          if (typeof m.field === 'string' && FLOW_FIELD_RE.test(m.field)) cur.field = m.field
+          if (typeof m.fieldHash === 'string' && /^[0-9a-f]{16}$/.test(m.fieldHash)) cur.fieldHash = m.fieldHash
         } catch { /* 깨진 숨은 줄은 무시 */ }
         continue
       }
@@ -199,7 +202,30 @@ export function commentSourceFile(root: string, file: Pick<CommentFile, 'target'
   return undefined
 }
 
+/** 흐름 점 칸의 글 (10/23 "짚은 곳"). 점 파일이 없거나 그 칸이 글이 아니면 undefined */
+export function flowFieldText(root: string, target: string, field: string): string | undefined {
+  if (!target.startsWith('flow-') || !FLOW_FIELD_RE.test(field)) return undefined
+  let y: unknown
+  try { y = YAML.parse(fs.readFileSync(path.join(root, 'flow', `${target.slice(5)}.yaml`), 'utf8')) } catch { return undefined }
+  if (!y || typeof y !== 'object' || Array.isArray(y)) return undefined
+  const r = y as Record<string, unknown>
+  const fields = r.fields && typeof r.fields === 'object' ? r.fields as Record<string, unknown> : {}
+  const v = ['short', 'title', 'reason', 'next'].includes(field) ? r[field] : fields[field]
+  return typeof v === 'string' ? v : undefined
+}
+
+/** 흐름 점의 칸을 짚은 기록: 칸이 없어졌거나 인용이 칸에 없으면 잃음, 물은 뒤 칸 글이 바뀌었으면 changed */
+function reanchorFields(root: string, file: CommentFile): void {
+  for (const entry of [...file.comments, ...file.highlights]) {
+    if (!entry.field) continue
+    const text = flowFieldText(root, file.target, entry.field)
+    if (text === undefined || (entry.quote && !text.includes(entry.quote))) entry.lost = true
+    if (text !== undefined && entry.fieldHash && hashOf(text) !== entry.fieldHash) entry.changed = true
+  }
+}
+
 function reanchor(root: string, file: CommentFile): CommentFile {
+  reanchorFields(root, file)
   const entries = [...file.comments, ...file.highlights].filter((c) => c.quote && !c.page)
   if (!entries.length) return file
   const source = commentSourceFile(root, file)
@@ -299,7 +325,7 @@ export function userTurnRecords(root: string): number {
 /** 서버가 받은 뒤의 모양 (계약 NewCommentBody) */
 export type NewComment = z.output<typeof NewCommentBody>
 /** 앱 안에서 쓰는 기록 (src: app = 앱이 저절로 남기는 것). HTTP 요청 몸에는 없다 */
-type AppComment = NewComment & { src?: 'app' }
+type AppComment = NewComment & { src?: 'app'; fieldHash?: string }
 
 /** by도 src도 없는 새 기록 (10/21 결정 "기록의 쓴 이"): 그 전 기록은 쓴 이 칸이 없던 때라 사용자로 읽는다 */
 function lacksAuthor(c: Pick<CommentEntry, 'id' | 'by' | 'src'>): boolean {
@@ -355,6 +381,8 @@ function prepareComment(target: string, input: AppComment, now: Date, before: st
     ...(typeof input.by === 'string' && RECORD_AUTHOR_RE.test(input.by) ? { by: input.by } : { src: input.src === 'app' ? 'app' : 'user' }),
     // 할 일에 대해 묻기 · 맡기기 (10/19): 같은 파일에 있는 할 일에만
     ...(input.todo && { todo: input.todo }),
+    // 흐름 점의 칸 (10/23): 칸 이름과 그때의 글 해시 (addComment가 점 파일에서 구한다)
+    ...(input.field && { field: input.field, ...(input.fieldHash && { fieldHash: input.fieldHash }) }),
   }
   if (input.todo) {
     if (!isAgentKind(kind)) throw new WorkbenchError(400, t('할 일에는 질문 · 지시만 이을 수 있음', 'Only a question or instruction can be linked to a to-do'))
@@ -386,6 +414,12 @@ function prepareComment(target: string, input: AppComment, now: Date, before: st
 export function addComment(root: string, target: string, input: AppComment, now = new Date()): { entry: CommentEntry; hash: string } {
   const file = commentsFile(root, target)
   const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
+  if (input.field) {
+    const text = flowFieldText(root, target, input.field)
+    if (text === undefined) throw new WorkbenchError(400, t(`흐름 점에 그런 칸이 없음: ${input.field}`, `The flow dot has no such field: ${input.field}`))
+    if (input.quote && !text.includes(input.quote)) throw new WorkbenchError(400, t('인용이 그 칸에 없음', 'The quote is not in that field'))
+    input = { ...input, fieldHash: hashOf(text) }
+  }
   const { chunk, id } = prepareComment(target, input, now, before)
   // 덧붙이기만 한다: 그사이 에이전트가 덧붙인 답이 있어도 덮어쓰지 않는다
   fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -489,7 +523,7 @@ export async function classifyComments(root: string, target: string, baseHash: s
           const prepared = prepareComment(target, {
             kind: item.kind, text: item.text, title: current.title, source,
             quote: entry.quote, color: entry.color, line: entry.line, prefix: entry.prefix, suffix: entry.suffix,
-            page: entry.page, rects: entry.rects, part: entry.part, partText: entry.partText, by: entry.by,
+            page: entry.page, rects: entry.rects, part: entry.part, partText: entry.partText, by: entry.by, field: entry.field, fieldHash: entry.fieldHash,
           }, now, text, { storedAnchors: true })
           out = (text + (text.endsWith('\n') ? '' : '\n') + prepared.chunk).split('\n')
         }
