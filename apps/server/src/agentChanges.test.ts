@@ -111,11 +111,55 @@ describe('바뀐 것 검사', () => {
     commit()
     write('workbench/flow/c.yaml', 'format: 1\nkind: calc\nprogress: done\nresult: solved\ntitle: 계산\nfields:\n  goal: 잰다\n')
     const d = check()!.diagnostics
-    expect(d.map((x) => x.check)).toEqual(['flow-form'])
+    expect(d.map((x) => x.check)).toEqual(['flow-form', 'flow-integration'])
     expect(d[0]!.message).toContain('판정 기준 · 설정 · 결과 · 근거 · 실행의 코드')
     commit()
     write('workbench/topics/t/n/note.md', '# N 고침\n')
     expect(check()!.diagnostics.map((x) => [x.check, x.file])).toEqual([['flow-skipped', 'workbench/topics/t/n/note.md']])
+  })
+
+  it('흐름: 바뀐 점이 그 노트를 가리키거나 같은 주제여야 노트를 바꾼 일로 친다 (10/23)', () => {
+    write('workbench/flow/other.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 다른 주제\ntopics: [u]\n')
+    write('workbench/flow/mine.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 이 주제\ntopics: [x]\n')
+    write('workbench/topics/t/n/note.md', '# N\n')
+    write('workbench/notes/m/note.yaml', 'name: M\ntopics: [v]\n')
+    write('workbench/notes/m/note.md', '# M\n')
+    write('workbench/notes/loose/note.md', '# L\n')
+    commit()
+    // 무관한 점만 고치면 통과하지 않는다
+    write('workbench/topics/t/n/note.md', '# N 고침\n')
+    write('workbench/flow/other.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 다른 주제 고침\ntopics: [u]\n')
+    let d = check()!.diagnostics
+    expect(d.map((x) => [x.check, x.file])).toEqual([['flow-skipped', 'workbench/topics/t/n/note.md']])
+    expect(d[0]!.message).toContain('같은 주제인 것이 없습니다 (topics/t/n)')
+    // 같은 주제(폴더의 주제)면 된다
+    write('workbench/flow/mine.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 이 주제\ntopics: [t]\n')
+    expect(check()!.diagnostics).toEqual([])
+    commit()
+    // note.yaml의 주제가 아니어도, 점이 근거로 그 노트를 가리키면 된다. 주제 없는 노트는 주제 없는 점과 짝짓는다
+    write('workbench/notes/m/note.md', '# M 고침\n')
+    write('workbench/notes/loose/note.md', '# L 고침\n')
+    write('workbench/flow/mine.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 이 주제\ntopics: [t]\nevidence:\n  - { kind: calc, file: workbench/notes/m/note.md, text: 표 }\n')
+    expect(check()!.diagnostics.map((x) => x.message)).toEqual([expect.stringContaining('노트 1개를 바꿨는데 바뀐 흐름 점 가운데 그 노트를 근거로 가리키거나 같은 주제인 것이 없습니다 (notes/loose)')])
+    write('workbench/flow/other.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 주제 없음\n')
+    expect(check()!.diagnostics).toEqual([])
+  })
+
+  it('흐름: 에이전트가 만든 새 점에 시작 기록이 없으면, 끝난 점에 반영 기록이 없거나 맞지 않으면 경고 (10/23)', () => {
+    write('workbench/flow/c.yaml', 'format: 1\nkind: question\nprogress: active\ntitle: 물음\nfields:\n  question: 왜?\n  motivation: 궁금\n  criterion: 예 아니오\n')
+    write('workbench/notes/overview/note.md', '# 개요\n')
+    commit()
+    write('workbench/flow/a.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 에이전트 점\nby: claude\n')
+    write('workbench/flow/b.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 시작 기록 있음\nby: claude\nstart: { at: 2026-10-23T09:00, novel: 처음 }\n')
+    write('workbench/flow/u.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 사람 점\nby: user\n')
+    write('workbench/flow/c.yaml', 'format: 1\nkind: question\nprogress: done\nresult: solved\ntitle: 물음\nfields:\n  question: 왜?\n  motivation: 궁금\n  criterion: 예 아니오\n')
+    expect(found()).toEqual([['warning', 'flow-integration', 'workbench/flow/c.yaml'], ['warning', 'flow-start', 'workbench/flow/a.yaml']])
+    write('workbench/flow/c.yaml', 'format: 1\nkind: question\nprogress: done\nresult: solved\ntitle: 물음\nfields:\n  question: 왜?\n  motivation: 궁금\n  criterion: 예 아니오\nintegration: { at: 2026-10-23T09:00, into: workbench/notes/overview/note.md }\n')
+    expect(check()!.diagnostics.find((x) => x.file === 'workbench/flow/c.yaml')!.message).toContain('반영 기록이 맞지 않습니다')
+    write('workbench/notes/overview/note.md', '# 개요\n\n답은 예 (flow-c).\n')
+    expect(found()).toEqual([['warning', 'flow-start', 'workbench/flow/a.yaml']])
+    write('workbench/flow/c.yaml', 'format: 1\nkind: question\nprogress: done\nresult: solved\ntitle: 물음\nfields:\n  question: 왜?\n  motivation: 궁금\n  criterion: 예 아니오\nintegration: { at: 2026-10-23T09:00, skip: 개요에 넣을 것이 아님 }\n')
+    expect(found()).toEqual([['warning', 'flow-start', 'workbench/flow/a.yaml']])
   })
 
   it('확정한 결정을 고치면 경고, 초안은 넘어간다', () => {

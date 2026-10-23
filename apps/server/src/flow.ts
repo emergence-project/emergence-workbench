@@ -5,7 +5,7 @@ import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tl } from './i18n.js'
-import { computeGaps, confirmed, evidenceHash, flowGate, markStale, stepHash } from './flowGaps.js'
+import { claimHash, computeGaps, confirmed, evidenceHash, flowGate, markStale, stepHash } from './flowGaps.js'
 import { commentTargetSlug, stamp as coreStamp } from '@rw/core'
 import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, type FlowCheckBody, type FlowReviewBody, type FlowSearchReply, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRowMove, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
 
@@ -30,7 +30,7 @@ export function parseFlowNode(id: string, file: string, content: string, diags: 
       const r = c as Record<string, unknown>
       const at = str(r?.at), by = str(r?.by), role = oneOf(['agent', 'human'] as const, r?.role)
       if (!at || !by || !role) { bad('checks', 'Each check needs at, by and role (agent or human).', '확인 기록마다 at, by, role(agent·human)이 있어야 합니다.'); continue }
-      out.push({ at, by, role, ...(str(r.note) && { note: str(r.note) }), ...(r.revoked === true && { revoked: true }), ...(str(r.hash) && { hash: str(r.hash) }) })
+      out.push({ at, by, role, ...(str(r.note) && { note: str(r.note) }), ...(r.revoked === true && { revoked: true }), ...(str(r.hash) && { hash: str(r.hash) }), ...(str(r.claim) && { claim: str(r.claim) }) })
     }
     return out
   }
@@ -88,12 +88,25 @@ export function parseFlowNode(id: string, file: string, content: string, diags: 
     if (o.params && typeof o.params === 'object' && !Array.isArray(o.params)) for (const [k, v] of Object.entries(o.params)) { const x = str(v) ?? (Array.isArray(v) ? v.map(String).join(', ') : undefined); if (x) params[k] = x }
     run = { ...(str(o.code) && { code: str(o.code) }), ...(str(o.commit) && { commit: str(o.commit) }), ...(Object.keys(params).length && { params }), ...(str(o.output) && { output: str(o.output) }) }
   }
+  const rec = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : undefined)
+  let start: FlowNode['start']
+  const so = rec(y.start)
+  if (y.start != null) {
+    if (!so || !str(so.at)) bad('start', 'start needs at (when it was written).', 'start(시작 기록)에는 at(적은 때)이 있어야 합니다.')
+    else start = { at: str(so.at)!, ...(str(so.by) && { by: str(so.by) }), ...(str(so.query) && { query: str(so.query) }), hits: strs(so.hits), prior: strs(so.prior), ...(str(so.adds) && { adds: str(so.adds) }), ...(str(so.novel) && { novel: str(so.novel) }), ...(str(so.criterion) && { criterion: str(so.criterion) }), ...(str(so.stop) && { stop: str(so.stop) }), ...(so.late === true && { late: true }) }
+  }
+  let integration: FlowNode['integration']
+  const io = rec(y.integration)
+  if (y.integration != null) {
+    if (!io || !str(io.at) || !(str(io.into) || str(io.skip))) bad('integration', 'integration needs at and either into (the document it was reflected in) or skip (why not).', 'integration(반영 기록)에는 at과, into(반영한 문서)나 skip(반영하지 않은 이유) 가운데 하나가 있어야 합니다.')
+    else integration = { at: str(io.at)!, ...(str(io.by) && { by: str(io.by) }), ...(str(io.into) && { into: str(io.into) }), ...(str(io.section) && { section: str(io.section) }), ...(str(io.skip) && { skip: str(io.skip) }) }
+  }
   const priority = oneOf(FLOW_PRIORITY, y.priority)
   if (y.priority != null && !priority) bad('priority', `priority must be one of ${FLOW_PRIORITY.join(', ')}.`, `priority는 ${FLOW_PRIORITY.join(', ')} 가운데 하나입니다.`)
   const theorem = kind === 'finding' && evidence.some((e) => e.kind === 'proof' && approved(e, 'human'))
   return {
     id, file, hash: hashOf(content), kind, progress, ...(result && { result }), short, title: title ?? short, topics,
-    ...(str(y.date) && { date: str(y.date) }), ...(str(y.ended) && { ended: str(y.ended) }), ...(str(y.by) && { by: str(y.by) }), ...(str(y.task) && { task: str(y.task) }), from, fields, ...(y.end === true && { end: true }), evidence,
+    ...(str(y.date) && { date: str(y.date) }), ...(str(y.ended) && { ended: str(y.ended) }), ...(str(y.by) && { by: str(y.by) }), ...(str(y.task) && { task: str(y.task) }), ...(start && { start }), ...(integration && { integration }), from, fields, ...(y.end === true && { end: true }), evidence,
     ...(run && { run }), steps, ...(str(y.reason) && { reason: str(y.reason) }), ...(str(y.next) && { next: str(y.next) }), ...(priority && { priority }), gaps: [],
     sources: strs(y.sources), guesses: strs(y.guesses), theorem,
   }
@@ -223,7 +236,7 @@ function newId(wb: Workbench, short: string, now: Date): string {
   return id
 }
 
-const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'ended', 'by', 'task', 'from', 'fields', 'run', 'steps', 'reason', 'next', 'priority', 'end', 'evidence', 'sources', 'guesses']
+const KEY_ORDER = ['format', 'kind', 'progress', 'result', 'short', 'title', 'topics', 'date', 'ended', 'by', 'task', 'start', 'from', 'fields', 'run', 'steps', 'reason', 'next', 'priority', 'end', 'integration', 'evidence', 'sources', 'guesses']
 
 /**
  * 글로 쓰기: 원래 파일의 목록 들여쓰기를 따른다. 사람 · 파이썬이 쓴 파일은 "key:\n- a"(들여쓰지 않음)가 많고,
@@ -290,6 +303,28 @@ function reuseNode(doc: YAML.Document, old: unknown, value: unknown): unknown {
   return doc.createNode(value)
 }
 
+/** 칸 하나를 값으로: 있던 칸은 모양을 되도록 두고, 새 칸은 정한 순서의 자리에 (있는 칸의 순서는 건드리지 않는다) */
+function setKey(doc: YAML.Document, k: string, v: unknown): void {
+  const map = doc.contents
+  if (!YAML.isMap(map)) { doc.set(k, doc.createNode(v)); return }
+  const pair = map.items.find((p) => String(YAML.isScalar(p.key) ? p.key.value : p.key) === k)
+  if (pair) { pair.value = reuseNode(doc, pair.value, v) as typeof pair.value; return }
+  const rank = (x: unknown) => { const i = KEY_ORDER.indexOf(String(YAML.isScalar(x) ? x.value : x)); return i < 0 ? KEY_ORDER.length : i }
+  const at = map.items.findIndex((p) => rank(p.key) > rank(k))
+  const node = doc.createPair(k, v) as (typeof map.items)[number]
+  if (at < 0) map.items.push(node); else map.items.splice(at, 0, node)
+}
+
+/** 시작 · 반영 기록 쓰기 (10/23, agent:start · agent:integrate): 그 칸 하나만 바꾼다 */
+export function setFlowRecord(wb: Workbench, id: string, key: 'start' | 'integration', value: Record<string, unknown>, baseHash: string): FlowNode {
+  const n = readFlowNode(wb, id)
+  checkHash(n, baseHash)
+  const original = fs.readFileSync(fileOf(wb, id), 'utf8')
+  const doc = YAML.parseDocument(original)
+  setKey(doc, key, Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined && v !== '' && !(Array.isArray(v) && !v.length && key !== 'start'))))
+  return write(wb, id, doc, original)
+}
+
 /** 새 점. 앞선 점(from)은 있는 점만 받는다 */
 export function createFlowNode(wb: Workbench, body: NewFlowBody, now = new Date()): FlowNode {
   const ids = new Set(scanFlow(wb).nodes.map((n) => n.id))
@@ -317,15 +352,7 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody, no
   const put = (k: string, v: unknown) => {
     if (v === undefined) return
     if (v === null || v === '' || v === false || (Array.isArray(v) && !v.length) || (typeof v === 'object' && v && !Array.isArray(v) && !Object.keys(v).length)) { doc.delete(k); return }
-    const map = doc.contents
-    if (!YAML.isMap(map)) { doc.set(k, doc.createNode(v)); return }
-    const pair = map.items.find((p) => String(YAML.isScalar(p.key) ? p.key.value : p.key) === k)
-    if (pair) { pair.value = reuseNode(doc, pair.value, v) as typeof pair.value; return }
-    // 새 칸은 정한 순서의 자리에 (있는 칸의 순서는 건드리지 않는다)
-    const rank = (x: unknown) => { const i = KEY_ORDER.indexOf(String(YAML.isScalar(x) ? x.value : x)); return i < 0 ? KEY_ORDER.length : i }
-    const at = map.items.findIndex((p) => rank(p.key) > rank(k))
-    const node = doc.createPair(k, v) as (typeof map.items)[number]
-    if (at < 0) map.items.push(node); else map.items.splice(at, 0, node)
+    setKey(doc, k, v)
   }
   for (const k of ['kind', 'progress', 'short', 'title', 'topics', 'end', 'from', 'priority', 'task'] as const) put(k, s[k])
   // 시작일은 앱이 적는다: 날짜가 없던 옛 점은 처음 고칠 때 한 번 (10/21)
@@ -389,7 +416,9 @@ export function checkFlowEvidence(wb: Workbench, id: string, body: FlowCheckBody
   if (isStep && YAML.isSeq(list) && YAML.isScalar(target)) { const m = doc.createNode({ text: String(target.value) }); list.items[idx] = m; target = m }
   if (!YAML.isMap(target)) throw none()
   const map = target
-  const rec = { at: stamp(now), by, role, ...(body.note?.trim() && { note: body.note.trim() }), ...(body.revoked && { revoked: true }), ...(hash && !body.revoked && { hash }) }
+  // 발견은 근거와 함께 진술 · 조건에도 묶는다 (10/23): 확인한 뒤 진술을 넓히면 그 확인은 낡는다
+  const claim = n.kind === 'finding' && !isStep && !body.revoked ? claimHash(n) : undefined
+  const rec = { at: stamp(now), by, role, ...(body.note?.trim() && { note: body.note.trim() }), ...(body.revoked && { revoked: true }), ...(hash && !body.revoked && { hash }), ...(claim && { claim }) }
   const seq = map.get('checks')
   if (YAML.isSeq(seq)) seq.add(doc.createNode(rec, { flow: true }))
   else map.set('checks', doc.createNode([rec], { flow: true }))

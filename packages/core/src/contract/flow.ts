@@ -18,6 +18,8 @@ const FlowCheck = z.object({
   revoked: z.boolean().optional(),
   /** 확인할 때 그 근거(절 또는 파일)·단계의 내용 해시. 지금 내용과 다르면 그 확인은 낡은 것이다 (10/20) */
   hash: z.string().optional(),
+  /** 발견의 확인일 때 그 진술 · 조건의 해시 (10/23). 지금 진술 · 조건과 다르면 그 확인은 낡은 것이다 */
+  claim: z.string().optional(),
 }).strict()
 const FlowEvidence = z.object({
   kind: z.enum(FLOW_EVIDENCE),
@@ -51,6 +53,34 @@ const FlowStep = z.object({
   stale: z.boolean().optional(),
 }).strict()
 const FlowGap = z.object({ code: z.enum(FLOW_GAPS), text: z.string() }).strict()
+/**
+ * 시작 기록 (10/23, `pnpm agent:start`): 일을 시작하기 전에 찾은 것과 판정 기준. late = 일을 한 뒤에 적은 기록(사후)
+ */
+const FlowStart = z.object({
+  at: z.string(),
+  by: z.string().optional(),
+  /** 선행 찾기에 쓴 글과 걸린 점 */
+  query: z.string().optional(),
+  hits: z.array(z.string()),
+  /** 가장 가까운 기존 결과 · 반례 (점 id)와 이번에 더할 것 */
+  prior: z.array(z.string()),
+  adds: z.string().optional(),
+  /** 가까운 것이 없을 때 왜 새로운지 */
+  novel: z.string().optional(),
+  /** 판정 기준 칸이 없는 종류(증명 · 이론 계산 …)의 판정 기준 */
+  criterion: z.string().optional(),
+  /** 멈출 조건 */
+  stop: z.string().optional(),
+  late: z.boolean().optional(),
+}).strict()
+/** 반영 기록 (10/23, `pnpm agent:integrate`): 끝난 점의 결과를 이해 문서(into › section)에 반영했거나, 반영하지 않은 이유(skip) */
+const FlowIntegration = z.object({
+  at: z.string(),
+  by: z.string().optional(),
+  into: z.string().optional(),
+  section: z.string().optional(),
+  skip: z.string().optional(),
+}).strict()
 
 export const FlowNode = z.object({
   /** 파일 이름 (확장자 없이) */
@@ -72,6 +102,8 @@ export const FlowNode = z.object({
   by: z.string().optional(),
   /** 이 점을 만든 맡긴 일 (workbench/tasks의 id, 10/21) */
   task: z.string().optional(),
+  start: FlowStart.optional(),
+  integration: FlowIntegration.optional(),
   from: z.array(FlowFrom),
   fields: z.record(z.string(), z.string()),
   /** 흐름 종료: 이 갈래는 여기서 끝나 뒤에 이어질 점이 없다 (10/21 "갈래 종결"에서 이름을 바꿈) */
@@ -204,5 +236,7 @@ export type FlowReviewBody = z.infer<typeof FlowReviewBody>
 export type FlowSearchReply = z.infer<typeof FlowSearchReply>
 export type FlowStep = z.infer<typeof FlowStep>
 export type FlowGap = z.infer<typeof FlowGap>
+export type FlowStart = z.infer<typeof FlowStart>
+export type FlowIntegration = z.infer<typeof FlowIntegration>
 export type FlowLayoutBody = z.infer<typeof FlowLayoutBody>
 export type FlowRowMove = z.infer<typeof FlowRowMove>

@@ -346,6 +346,26 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     expect(n.gaps.map((g: { code: string }) => g.code)).toEqual(['changed-evidence'])
   })
 
+  it('발견의 확인은 진술 · 조건에도 묶인다: 확인한 뒤 진술을 넓히면 낡고, 정리도 풀린다 (10/23)', async () => {
+    note('workbench/n.md', '# 노트\n\n## 증명\n\n가\n')
+    put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 발견\ntitle: 발견\nend: true\nfields:\n  statement: 원판에서 J = 1/2\n  condition: 갭이 있을 때\nevidence:\n  - { kind: proof, file: workbench/n.md, section: 증명, text: 증명 }\n  - { kind: paper, ref: zeng2025, text: 같은 값 }')
+    let n = (await get()).nodes[0]
+    n = (await send('POST', '/f/check', { baseHash: n.hash, ev: 0 })).json().node
+    n = (await send('POST', '/f/review', { baseHash: n.hash, by: 'claude', ev: 1 })).json().node
+    expect(n.evidence[0].checks[0].claim).toMatch(/^[0-9a-f]{16}$/)
+    expect(n.evidence[1].checks[0]).toMatchObject({ role: 'agent', claim: n.evidence[0].checks[0].claim })
+    expect(n.theorem).toBe(true)
+    n = (await send('PATCH', '/f', { baseHash: n.hash, set: { fields: { statement: '모든 영역에서 J = 1/2', condition: '갭이 있을 때' } } })).json().node
+    expect(n.theorem).toBe(false)
+    expect(n.evidence.map((e: { stale?: boolean }) => e.stale)).toEqual([true, true])
+    expect(n.gaps.map((g: { text: string }) => g.text)).toEqual(['확인한 뒤 진술 · 조건이 바뀌었다'])
+    // 되돌리면 확인이 다시 산다. claim이 없는 옛 기록은 진술을 보지 않는다
+    n = (await send('PATCH', '/f', { baseHash: n.hash, set: { fields: { statement: '원판에서 J = 1/2', condition: '갭이 있을 때' } } })).json().node
+    expect(n.theorem).toBe(true)
+    put('g', 'format: 1\nkind: finding\nprogress: active\ntitle: 옛 확인\nfields: { statement: 바뀐 진술 }\nevidence:\n  - { kind: paper, ref: a, text: 근거, checks: [ { at: 2026-10-01T10:00, by: x, role: agent } ] }')
+    expect((await get()).nodes.find((m: { id: string }) => m.id === 'g').evidence[0].stale).toBeUndefined()
+  })
+
   it('에이전트 검토는 단계에도 role agent로, 사람 승인은 단계에도 된다', async () => {
     put('p', 'format: 1\nkind: proof\nprogress: active\nshort: 증명\ntitle: 증명\nsteps: [{ text: 가, uses: 정의 }]')
     let n = (await get()).nodes[0]

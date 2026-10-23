@@ -39,6 +39,16 @@ export function evidenceHash(repo: string, file: string, section?: string): stri
 /** 단계의 내용 해시 (글 · 쓰는 것) */
 export const stepHash = (s: { text: string; uses?: string }) => hashOf(`${s.text}\n${s.uses ?? ''}`)
 
+/** 발견의 진술 · 조건 해시 (10/23): 발견의 확인은 근거와 함께 이 문장에도 묶인다. 진술을 넓히면 확인이 낡는다 */
+export const claimHash = (n: Pick<FlowNode, 'fields'>) => hashOf(`${n.fields.statement ?? ''}\n${n.fields.condition ?? ''}`)
+
+/** 이 근거의 마지막 확인 뒤 발견의 진술 · 조건이 바뀌었나 (claim이 없는 옛 기록은 보지 않는다) */
+export function claimChanged(n: FlowNode, e: FlowNode['evidence'][number]): boolean {
+  if (n.kind !== 'finding') return false
+  const last = [...e.checks].reverse().find((c) => !c.revoked && c.claim)
+  return !!last && last.claim !== claimHash(n)
+}
+
 /** 그 역할의 지금 확인 (마지막 기록이 거둔 것도 낡은 것도 아니면) */
 export const confirmed = (x: { checks: FlowNode['evidence'][number]['checks']; stale?: boolean }, role: 'agent' | 'human') => {
   const c = x.checks.filter((y) => y.role === role).pop()
@@ -48,6 +58,7 @@ export const confirmed = (x: { checks: FlowNode['evidence'][number]['checks']; s
 /** 근거 · 단계의 낡은 확인 표시 (마지막 확인의 hash가 지금 내용과 다르면) */
 export function markStale(repo: string, n: FlowNode): void {
   for (const e of n.evidence) {
+    if (claimChanged(n, e)) e.stale = true
     const last = [...e.checks].reverse().find((c) => !c.revoked && c.hash)
     if (!last || !e.file) continue
     const now = evidenceHash(repo, e.file, e.section)
@@ -80,12 +91,14 @@ export function computeGaps(repo: string, nodes: FlowNode[]): void {
     if ((n.progress === 'paused' || (n.progress === 'done' && (n.result === 'refuted' || n.result === 'dropped'))) && !n.reason) add('no-reason', '반증 · 폐기 · 멈춤의 이유가 없다', 'no reason for refuting, dropping or pausing')
     if (n.progress !== 'done' && (n.kind === 'question' || n.kind === 'calc') && !n.fields.criterion) add('no-criterion', '판정 기준이 없다 (무엇이 나오면 해결 · 반증인가)', 'no criterion (what result solves or refutes it)')
     if (isSolved(n) && !hasNext.has(n.id) && !n.end && !n.next) add('no-next', '다음 할 일도, 뒤따른 점도, 흐름 종료도 없다', 'no next step, no following dot and no flow end')
+    if (n.evidence.some((e) => claimChanged(n, e))) add('changed-evidence', '확인한 뒤 진술 · 조건이 바뀌었다', 'the statement or conditions changed after they were checked')
     for (const e of n.evidence) {
       if (!e.file) continue
       const h = evidenceHash(repo, e.file, e.section)
+      const last = [...e.checks].reverse().find((c) => !c.revoked && c.hash)
       if (h === 'missing') add('missing-file', `근거 파일이 없다: ${e.file}`, `evidence file missing: ${e.file}`)
       else if (h === 'no-section') add('missing-file', `근거 절이 없다: ${e.file} › ${e.section}`, `evidence section missing: ${e.file} › ${e.section}`)
-      else if (e.stale) add('changed-evidence', `확인한 뒤 근거가 바뀌었다: ${e.title ?? e.file}`, `evidence changed after it was checked: ${e.title ?? e.file}`)
+      else if (last && last.hash !== h) add('changed-evidence', `확인한 뒤 근거가 바뀌었다: ${e.title ?? e.file}`, `evidence changed after it was checked: ${e.title ?? e.file}`)
     }
     const open = n.steps.map((s, i) => [s, i + 1] as const).filter(([s]) => !s.uses || !(confirmed(s, 'agent') || confirmed(s, 'human')))
     if (open.length) add('step-gap', `확인 안 된 단계: ${open.map(([, i]) => i).join(', ')}번 (${n.steps.length}단계 중)`, `unchecked steps: ${open.map(([, i]) => i).join(', ')} (of ${n.steps.length})`)
