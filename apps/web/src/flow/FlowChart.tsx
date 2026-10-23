@@ -7,7 +7,7 @@ import { store } from '../store'
 import { setFlowSelection } from '../flowSelection'
 import { flash } from '../flash'
 import { t as tr } from '../i18n'
-import { KIND, EDGE, markOf, stateOf, stateName, MarkSvg } from './marks'
+import { KIND, EDGE, markOf, stateOf, stateName, MarkSvg, judgedOf, judgeName, turnOf } from './marks'
 import { Icon } from '../icons'
 import type { TopicRef } from './data'
 import { FlowCard } from './FlowCard'
@@ -334,14 +334,16 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
               onClick={() => { setGhost(null); if (dragged.current) { dragged.current = false; return } tap(n.id) }} onDoubleClick={() => { setSel(n.id); center(n.id) }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(n.id) } }}>
               {/* 가리키면 종류와 이름 (10/16 사용자: 기호의 뜻이 바로 오지 않을 때) */}
-              <title>{`${KIND[markOf(n)].name()} · ${n.short}${n.title && n.title !== n.short ? `\n${n.title}` : ''}`}</title>
+              <title>{`${KIND[markOf(n)].name()}${judgeName(n) ? ` · ${judgeName(n)}` : ''} · ${n.short}${n.title && n.title !== n.short ? `\n${n.title}` : ''}`}</title>
               {hot && <rect className="fl-focus" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />}
               <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
               {/* 고른 점 · 이을 점 · 계보는 점에 바짝 두른 테두리로 (10/16 사용자: 둥근 네모 대신) */}
               {(lg || on || picked) && (KIND[markOf(n)].act
                 ? <rect className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} x={x - 18} y={y - 18} width={36} height={36} rx={8} />
                 : <circle className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} cx={x} cy={y} r={19} />)}
-              <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot || picked} />
+              {/* 사용자 차례: 판단 대기열의 명제와 시작을 기다리는 카드에 주황 고리 (10/23 "판단 설계") */}
+              {turnOf(n) && !(lg || on || picked) && <circle className="fl-turn" cx={x} cy={y} r={19}><title>{tr('내 차례: 판단할 것', 'Your turn: to judge')}</title></circle>}
+              <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot || picked} judged={judgedOf(n)} />
               {/* 시작점 ▶는 차트 왼쪽 벽에 붙여 한 세로줄에 세운다 (10/15 12:11 제안). 그 줄에서 앞에 다른 점이 없으면 점까지 선으로 잇는다 */}
               {start && <g className="fl-startmark" {...rowHandle(r)}><title>{tr('시작점: 앞선 점이 없다 · 위아래로 끌어 줄 옮기기', 'Start: no earlier dot · drag up or down to move the row')}</title>
                 <path className="fl-start" d={`M${LEFT - 22} ${y - 7}L${LEFT - 13} ${y}L${LEFT - 22} ${y + 7}Z`} />

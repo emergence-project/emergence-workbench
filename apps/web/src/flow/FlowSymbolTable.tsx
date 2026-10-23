@@ -4,7 +4,8 @@ import { type Mark, KIND, EDGE, stateOf, MarkSvg } from './marks'
 
 /** 소개 › 기호와 의미의 흐름 표 (10/15 피드백 "기호와 의미 절"): 차트와 같은 그림과 이름을 써서 둘이 어긋나지 않는다 */
 export function FlowSymbolTable() {
-  const mark = (m: Mark, state = 'active') => <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden><MarkSvg m={m} x={15} y={15} state={state} /></svg>
+  const mark = (m: Mark, state = 'active', judged?: boolean, turn?: boolean) => <svg className="fl-icon" width={26} height={26} viewBox="0 0 30 30" aria-hidden>
+    {turn && <circle className="fl-turn" cx={15} cy={15} r={13.5} />}<MarkSvg m={m} x={15} y={15} state={state} judged={judged} /></svg>
   const line = (cls: string) => <svg className="fl-icon" width={40} height={14} viewBox="0 0 40 14" aria-hidden><path className={cls} d="M2 7H38" /></svg>
   const kinds: Mark[] = ['question', 'guess', 'finding', 'theorem', 'calc', 'analytic', 'proof', 'literature']
   const states: { s: ReturnType<typeof stateOf>; m: Mark; name: string; meaning: string }[] = [
@@ -14,6 +15,12 @@ export function FlowSymbolTable() {
     { s: 'solved', m: 'question', name: tr('끝남 · 해결 / 성공', 'Done · solved / succeeded'), meaning: tr('진술은 해결, 행위는 성공', 'Solved for a statement, succeeded for an action') },
     { s: 'refuted', m: 'question', name: tr('끝남 · 반증 / 실패', 'Done · refuted / failed'), meaning: tr('틀린 것으로 끝남 (속이 찬 회색)', 'Ended as wrong (filled gray)') },
     { s: 'dropped', m: 'question', name: tr('끝남 · 폐기', 'Done · dropped'), meaning: tr('그만둔 걸음, 지우지 않음 (속이 빈 회색)', 'A step given up, not deleted (hollow gray)') },
+  ]
+  // 판단 (10/23 "판단 설계"): 명제는 사람이 승인해야 채워지고, 사용자 차례는 주황 고리
+  const judged: { mark: ReactNode; name: string; meaning: string }[] = [
+    { mark: mark('finding', 'active', false), name: tr('판단 전', 'Not judged'), meaning: tr('사람이 아직 판단하지 않은 명제 (속이 빔). 수정 요청 · 기각도 속이 빈다', 'A proposition no one has judged yet (hollow). Sent back and rejected stay hollow too') },
+    { mark: mark('finding', 'active', true), name: tr('승인됨', 'Approved'), meaning: tr('사람이 승인한 명제 (속이 참). 내용이 바뀌면 판단이 풀린다', 'A proposition a person approved (filled). Changing its content clears the judgment') },
+    { mark: mark('finding', 'active', false, true), name: tr('내 차례', 'Your turn'), meaning: tr('판단을 기다리는 명제와 시작을 기다리는 카드 (주황 고리)', 'Propositions awaiting judgment and cards awaiting a start (orange ring)') },
   ]
   const lines: { mark: ReactNode; name: string; meaning: string }[] = [
     { mark: line('fl-e'), name: `${EDGE.origin!()} · ${EDGE.support!()} · ${EDGE.refute!()}`, meaning: tr('앞 걸음이 이 걸음을 낳음 · 받침 · 반박함. 선을 가리키면 이름이 뜹니다', 'The earlier step started, supports or refutes this one. Hover a line to see its name') },
@@ -32,6 +39,8 @@ export function FlowSymbolTable() {
         {kinds.map((k) => <tr key={k}><td className="about-sym">{mark(k)}</td><td>{KIND[k].name()}</td><td>{KIND[k].def()}</td></tr>)}
         {group(tr('상태 (색)', 'State (color)'))}
         {states.map((x) => <tr key={x.s}><td className="about-sym">{mark(x.m, x.s)}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
+        {group(tr('판단 (속이 빔 · 참 · 주황 고리)', 'Judgment (hollow · filled · orange ring)'))}
+        {judged.map((x) => <tr key={x.name}><td className="about-sym">{x.mark}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
         {group(tr('선과 표시', 'Lines and marks'))}
         {lines.map((x) => <tr key={x.name}><td className="about-sym">{x.mark}</td><td>{x.name}</td><td>{x.meaning}</td></tr>)}
       </tbody>

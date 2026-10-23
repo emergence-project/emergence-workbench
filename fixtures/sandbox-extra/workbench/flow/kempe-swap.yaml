@@ -19,3 +19,5 @@ evidence:
     checks:
       - { at: 2026-10-02T15:00, by: claude, role: agent }
       - { at: 2026-10-02T22:10, by: 사용자, role: human }
+judgments:
+  - { at: 2026-10-03T09:30, by: user, verdict: approve, claim: 4f068e902930644a }

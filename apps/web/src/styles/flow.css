@@ -29,6 +29,9 @@
 .fl-ring { fill: none; stroke: var(--text-2); stroke-width: 1.5; }
 .fl-ring.sel { stroke: var(--primary); stroke-width: 2; }
 .fl-ring.pick { stroke: var(--primary); stroke-width: 2; stroke-dasharray: 4 3; }
+/* 사용자 차례 (판단할 명제 · 시작할 카드): 주황 고리 */
+.fl-turn { fill: none; stroke: var(--s-blocked); stroke-width: 2; }
+.fl-turn-name { color: var(--s-blocked); }
 .fl-name { font-size: var(--fs-xs); fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
 .fl-name.strong { font-weight: var(--fw-strong); }
 .fl-start { fill: var(--text); }
@@ -45,6 +48,9 @@
 .fl-m.s-open, .fl-m.s-dropped { --gc: var(--c); }
 .fl-m.s-open .fl-b, .fl-m.s-dropped .fl-b { fill: var(--bg); stroke: var(--c); stroke-width: 1.8; }
 .fl-m.s-open .fl-b { stroke-dasharray: 3 2; }
+/* 판단 전 명제: 속을 비우고 테두리는 실선 (승인되면 채움) */
+.fl-m.unjudged { --gc: var(--c); }
+.fl-m.unjudged .fl-b { fill: var(--bg); stroke: var(--c); stroke-width: 1.8; }
 .fl-m .fl-g { fill: var(--gc); }
 .fl-m .fl-g.serif { font-family: Georgia, 'Times New Roman', serif; }
 .fl-m .fl-g.italic { font-style: italic; }

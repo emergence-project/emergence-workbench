@@ -7,8 +7,8 @@ export type Mark = FlowKind | 'theorem' | 'guess'
 export const KIND: Record<Mark, { act: boolean; name: () => string; def: () => string }> = {
   question: { act: false, name: () => tr('질문', 'Question'), def: () => tr('답을 구할 대상으로 세운 물음. 예상 답이 있으면 기호가 전구 속 ?로 바뀐다.', 'A question set out to be answered. With an expected answer the mark becomes a bulb with ?.') },
   guess: { act: false, name: () => tr('질문 (예상 답 있음)', 'Question (expected answer)'), def: () => tr('예상 답(가설)을 함께 적은 질문.', 'A question written with an expected answer (a hypothesis).') },
-  finding: { act: false, name: () => tr('발견', 'Finding'), def: () => tr('계산이나 문헌에서 확인된 사실. 특정 모형·조건에서 성립이 확인되었으나 일반성은 확립되지 않았다.', 'A fact confirmed by a calculation or the literature, for given models or conditions; generality not established.') },
-  theorem: { act: false, name: () => tr('정리', 'Theorem'), def: () => tr('증명으로 확립된 발견. 따로 고르지 않는다: 발견의 근거에 사람이 승인한 증명이 있으면 정리로 보인다.', 'A finding established by proof. Not chosen directly: a finding shows as a theorem when its evidence has a human-approved proof.') },
+  finding: { act: false, name: () => tr('명제', 'Proposition'), def: () => tr('작업에서 나온 주장 하나. 특정 모형·조건에서 확인되었으나 일반성은 확립되지 않았다. 사람이 판단한다: 속이 빈 것은 판단 전, 채운 것은 승인됨.', 'One claim that came out of the work, confirmed for given models or conditions; generality not established. A person judges it: hollow before judgment, filled when approved.') },
+  theorem: { act: false, name: () => tr('정리', 'Theorem'), def: () => tr('증명으로 확립된 명제. 따로 고르지 않는다: 명제의 근거에 사람이 승인한 증명이 있으면 정리로 보인다.', 'A proposition established by proof. Not chosen directly: a proposition shows as a theorem when its evidence has a human-approved proof.') },
   calc: { act: true, name: () => tr('수치 계산', 'Numerical calculation'), def: () => tr('컴퓨터로 수치를 구하는 계산. 모형·크기·매개변수와 코드가 있고, 결과가 수치·그림이다.', 'A computation of numbers: model, size, parameters and code, with numbers or figures as the result.') },
   analytic: { act: true, name: () => tr('이론 계산', 'Analytic calculation'), def: () => tr('식으로 값이나 표현을 구하는 계산. 주장의 참을 보이는 것은 증명이다.', 'Deriving a value or expression by hand. Showing a claim true is a proof.') },
   proof: { act: true, name: () => tr('증명', 'Proof'), def: () => tr('증명 또는 유도. 가정에서 결론으로 가는 단계가 있다. 실패한 시도도 포함한다.', 'A proof or derivation, with steps from assumptions to conclusion. Failed attempts count too.') },
@@ -53,32 +53,44 @@ export function stateName(n: FlowNode): string {
 }
 export const DOT: Record<ReturnType<typeof stateOf>, BlockStatus> = { open: 'in-progress', active: 'in-progress', paused: 'blocked', solved: 'solved', refuted: 'stopped', dropped: 'stopped' }
 
-/** 점 기호: 진술은 원, 행위는 둥근 네모. 속이 빈 것은 미해결(점선)과 폐기 */
-export function MarkSvg({ m, x, y, state, big }: { m: Mark; x: number; y: number; state: string; big?: boolean }) {
+/** 명제의 판단 (10/23 "판단 설계"): 승인됨이면 채우고, 판단 전 · 수정 요청 · 기각은 속을 비운다. 명제가 아니면 undefined */
+export const judgedOf = (n: FlowNode): boolean | undefined => n.kind === 'finding' ? n.verdict === 'approve' : undefined
+/** 판단 이름: 명제는 판단, 카드(맡긴 질문)는 카드 상태. 둘 다 아니면 undefined */
+export function judgeName(n: FlowNode): string | undefined {
+  if (n.kind === 'finding') return n.verdict === 'approve' ? tr('승인됨', 'Approved') : n.verdict === 'send-back' ? tr('수정 요청', 'Sent back') : n.verdict === 'reject' ? tr('기각', 'Rejected') : tr('판단 전', 'Not judged')
+  switch (n.cardState) {
+    case 'waiting': return tr('카드 · 사전 연구 판단 대기', 'Card · prior work awaiting judgment')
+    case 'ready': return tr('카드 · 시작 전', 'Card · not started')
+    case 'active': return tr('카드 · 진행', 'Card · started')
+    case 'ended': return tr('카드 · 종료', 'Card · ended')
+  }
+  return undefined
+}
+/** 사용자 차례 (주황 고리): 판단 대기열의 명제와 시작을 기다리는 카드 */
+export const turnOf = (n: FlowNode): boolean => !!n.queued || n.cardState === 'ready'
+
+/** 점 기호: 질문 · 명제는 원, 작업은 둥근 네모. 속이 빈 것은 미해결(점선) · 폐기 · 판단 전 명제 */
+export function MarkSvg({ m, x, y, state, big, judged }: { m: Mark; x: number; y: number; state: string; big?: boolean; judged?: boolean }) {
   const r = big ? 14 : 13
   const body = KIND[m].act
     ? <rect className="fl-b" x={x - r + 1} y={y - r + 1} width={2 * r - 2} height={2 * r - 2} rx={5} />
     : <circle className="fl-b" cx={x} cy={y} r={r} />
   let g: ReactNode
-  if (m === 'finding') g = <>
-    <path className="fl-gs" d={`M${x - 9.5} ${y}Q${x} ${y - 9.5} ${x + 9.5} ${y}Q${x} ${y + 9.5} ${x - 9.5} ${y}Z`} />
-    <circle className="fl-g" cx={x} cy={y} r={4.3} />
-  </>
-  else if (m === 'guess') g = <>
+  if (m === 'guess') g = <>
     <path className="fl-gs" d={`M${x - 3} ${y + 5.2}h6M${x - 2.2} ${y + 7.6}h4.4M${x - 3.2} ${y + 3}c-4.6-2.6-4.6-12 3.2-12s7.8 9.4 3.2 12z`} />
     <text className="fl-g" x={x} y={y + 1.6} fontSize={8.5} fontWeight={800} textAnchor="middle">?</text>
   </>
   else {
-    const ch = { question: '?', theorem: 'T', calc: 'π', analytic: '∫', proof: '∴', literature: '§' }[m]
+    const ch = { question: '?', finding: '!', theorem: 'T', calc: 'π', analytic: '∫', proof: '∴', literature: '§' }[m]
     const serif = m === 'theorem' || m === 'calc'
     const fs = { '∴': 20, '∫': 14, T: 17, 'π': 18 }[ch] ?? 15
     const dy = { '∴': 6.5, '∫': 5, T: 6 }[ch] ?? 5.5
     g = <text className={`fl-g${serif ? ' serif' : ''}${m === 'calc' ? ' italic' : ''}`} x={x} y={y + dy} fontSize={fs} fontWeight={serif ? 700 : 800} textAnchor="middle">{ch}</text>
   }
-  return <g className={`fl-m s-${state}`}>{body}{g}</g>
+  return <g className={`fl-m s-${state}${judged === false ? ' unjudged' : ''}`}>{body}{g}</g>
 }
 export const MarkIcon = ({ n, size = 20 }: { n: FlowNode; size?: number }) =>
-  <svg className="fl-icon" width={size} height={size} viewBox="0 0 30 30" aria-hidden><MarkSvg m={markOf(n)} x={15} y={15} state={stateOf(n)} /></svg>
+  <svg className="fl-icon" width={size} height={size} viewBox="0 0 30 30" aria-hidden><MarkSvg m={markOf(n)} x={15} y={15} state={stateOf(n)} judged={judgedOf(n)} /></svg>
 
 export const PROGRESS: Record<FlowProgress, () => string> = { open: () => tr('미해결', 'Open'), active: () => tr('진행', 'In progress'), paused: () => tr('멈춤', 'Paused'), done: () => tr('끝남', 'Done') }
 export const resultName = (r: FlowResult, act: boolean) => r === 'solved' ? (act ? tr('성공', 'Succeeded') : tr('해결', 'Solved')) : r === 'refuted' ? (act ? tr('실패', 'Failed') : tr('반증', 'Refuted')) : tr('폐기', 'Dropped')
