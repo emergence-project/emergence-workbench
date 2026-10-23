@@ -9,7 +9,7 @@ import { flash } from '../flash'
 import { Icon } from '../icons'
 import { useDismiss } from '../useDismiss'
 import { t as tr } from '../i18n'
-import { KIND, FIELD, EDGE, EVK, PRIORITY, markOf, stateOf, stateName, DOT, MarkIcon } from './marks'
+import { KIND, FIELD, EDGE, EVK, PRIORITY, markOf, stateOf, stateName, DOT, MarkIcon, judgeName, turnOf } from './marks'
 import { Check, Chain, FlowText, approvedBy } from './evidence'
 import { ApproveDialog } from './ApproveDialog'
 import { flowBy } from './flowBy'
@@ -73,6 +73,7 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
         <span title={K.def()}><i>{tr('종류', 'Kind')}</i>{K.act ? tr('행위', 'Action') : tr('진술', 'Statement')} · {K.name()}</span>
         {hasProof && !n.theorem && <span className="muted">{tr('증명 승인 대기 · 승인하면 정리', 'Proof awaiting approval · becomes a theorem when approved')}</span>}
         <span><i>{tr('상태', 'State')}</i><StatusDot s={DOT[stateOf(n)]} name={stateName(n)} label /></span>
+        {judgeName(n) && <span className={turnOf(n) ? 'fl-turn-name' : undefined} title={turnOf(n) ? tr('내 차례: 판단할 것', 'Your turn: to judge') : undefined}><i>{tr('판단', 'Judgment')}</i>{judgeName(n)}</span>}
         {n.end && <span title={tr('이 갈래는 여기서 끝나 뒤에 이어질 점이 없음', 'This branch ends here; no dot follows')}>{tr('흐름 종료', 'Flow ends')}</span>}
         {n.date && <span><i>{tr('시작일', 'Started')}</i>{n.date}</span>}
         {n.ended && <span><i>{tr('끝난 날', 'Ended')}</i>{n.ended}</span>}

@@ -152,6 +152,10 @@ export const FlowNode = z.object({
   judgments: z.array(FlowJudgment),
   /** 앱이 계산: 지금의 판단 = 낡지 않은 마지막 판단의 말. 없으면 판단 전 */
   verdict: z.enum(FLOW_VERDICTS).optional(),
+  /** 앱이 계산 (흐름 전체를 읽을 때만): 판단 대기열에 든 명제 (사용자 차례) */
+  queued: z.literal(true).optional(),
+  /** 앱이 계산 (흐름 전체를 읽을 때만): 카드의 상태. 대기 · 준비(사용자가 시작할 차례) · 진행 · 종료 */
+  cardState: z.enum(['waiting', 'ready', 'active', 'ended']).optional(),
 }).strict()
 
 const Diagnostic = z.object({ file: z.string(), code: z.string(), message: z.string(), line: z.number(), column: z.number().optional() }).strict()

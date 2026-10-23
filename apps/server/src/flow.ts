@@ -180,6 +180,10 @@ export function scanFlow(wb: Workbench): FlowScan {
     if (v) n.verdict = v; else delete n.verdict
   }
   computeGaps(wb.repo, out.nodes)
+  // 판단 대기열과 카드 상태 (10/23): 화면의 주황 고리 · 카드 표시
+  for (const q of judgmentQueue(out.nodes)) q.queued = true
+  const byId = new Map(out.nodes.map((n) => [n.id, n]))
+  for (const n of out.nodes) { const st = cardState(n, byId); if (st) n.cardState = st }
   return out
 }
 

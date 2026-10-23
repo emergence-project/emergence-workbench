@@ -34,7 +34,7 @@ export function ApproveDialog({ rid, n, ev, step, onClose, onDone, fail }: { rid
     <p className="fl-help">{on
       ? tr('이 근거의 사람 승인을 거둡니다. 지금까지의 기록은 그대로 남고 거둔 기록이 더해집니다.', 'Revokes the human approval of this evidence. Earlier records stay; a revoke record is added.')
       : tr('이 근거를 읽고 확인했다고 기록합니다.', 'Records that you read and confirmed this evidence.')}
-      {n.kind === 'finding' && e.kind === 'proof' && !on && ' ' + tr('증명을 승인하면 이 발견은 정리가 됩니다.', 'Approving the proof makes this finding a theorem.')}</p>
+      {n.kind === 'finding' && e.kind === 'proof' && !on && ' ' + tr('증명을 승인하면 이 명제는 정리가 됩니다.', 'Approving the proof makes this proposition a theorem.')}</p>
     <div className="fl-approve-ev"><b>{EVK[e.kind]()}</b> · {e.title ?? e.ref ?? e.file}<div>{e.text ? <MathText text={e.text} /> : null}</div></div>
     <label className="field"><span>{tr('메모', 'Note')} <em>{tr('선택', 'optional')}</em></span><input autoFocus value={note} maxLength={500} onChange={(x) => setNote(x.target.value)} onKeyDown={(x) => { if (x.key === 'Enter') void submit() }} /></label>
   </Dialog>
