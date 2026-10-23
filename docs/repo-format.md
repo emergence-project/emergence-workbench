@@ -619,7 +619,7 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 | kind | 이름 | 설명 칸 (`fields`) |
 |---|---|---|
 | `question` | 질문 (기호 ?; `guess`가 있으면 전구 속 ?) | `question` 물음* · `motivation` 동기* · `guess` 예상 답 · `criterion` 판정 기준* (무엇이 나오면 예 · 아니오인가) |
-| `finding` | 발견 (눈) | `statement` 진술* · `condition` 조건(성립 범위)* |
+| `finding` | 명제 (기호 !, 10/23 "판단 설계": 옛 이름 발견. 승인되면 속이 참) | `statement` 진술* · `condition` 조건(성립 범위)* |
 | `calc` | 수치 계산 (π) | `goal` 목적* · `criterion` 판정 기준* (기대값 · 허용 오차) · `setup` 설정* · `result` 결과* · `interpretation` 해석. 그리고 `run` |
 | `analytic` | 이론 계산 (∫) | `goal` 목적* · `setup` 출발점* · `assumptions` 가정* · `result` 결과*. 그리고 `steps`(선택) |
 | `proof` | 증명 (∴) | `goal` 목표(진술)* · `assumptions` 가정* · `method` 방법 · `result` 결과*. 그리고 `steps` |
