@@ -875,5 +875,9 @@
   "판단 화면 보내기": "Judgment: send question",
   "판단 화면 질문 수": "Judgment: question count",
   "판단 화면 모아 보내기": "Judgment: send kept",
-  "판단 대기 질문 수": "Judgment queue question count"
+  "판단 대기 질문 수": "Judgment queue question count",
+  "흐름 카드 켜기": "Flow card toggle",
+  "흐름 카드 고치기": "Flow card editor",
+  "흐름 카드 사전 연구": "Flow card prior work",
+  "흐름 카드 검사": "Flow card check"
 }

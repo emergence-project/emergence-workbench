@@ -200,6 +200,15 @@ const RunIn = z.object({ code: z.string().max(500).optional(), commit: z.string(
 /** 단계 (확인 기록은 같은 자리의 것이 남는다. 글이 바뀌면 낡은 확인이 된다) */
 const StepIn = z.object({ text: Text, uses: z.string().max(1000).optional() }).strict()
 
+/** 카드 고치기 (화면 › 점 고치기 › 카드): 읽을 때의 모양과 같고 길이만 막는다 */
+const FlowCardIn = z.object({
+  givens: z.array(z.string().min(1)).max(40),
+  terms: z.array(z.object({ word: z.string().max(80), def: z.string().max(1000).optional(), ref: z.string().max(300).optional() }).strict()).max(60),
+  tools: z.array(z.string().max(300)).max(40),
+  assignee: z.string().max(40).optional(),
+  findings: z.number().int().min(0).max(20).optional(),
+}).strict()
+
 export const NewFlowBody = z.object({
   kind: z.enum(FLOW_KINDS),
   short: Short,
@@ -232,6 +241,8 @@ export const FlowPatchBody = z.object({
     reason: Text.optional(),
     next: Text.optional(),
     priority: z.enum(FLOW_PRIORITY).nullable().optional(),
+    /** 카드 (질문 점만, 10/23): 사전 연구 · 용어 · 도구 · 담당 · 돌려받을 명제 수. null은 카드를 뺀다 */
+    card: FlowCardIn.nullable().optional(),
   }).strict(),
   /** 해결 문턱 검사 (10/20): 점이 끝남으로 넘어갈 때 필수 칸을 본다. MCP와 새 고치기 칸이 켠다 */
   gate: z.boolean().optional(),

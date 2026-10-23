@@ -37,6 +37,8 @@ export const DEFAULT_SCREENS = [
   ['records-questions', '#/r/{rid}/records', '기록 화면', ['[data-ui="기록 차례"] button:text-matches("^(모두|All)")', '[data-ui="기록 거르기"] button:text-matches("^(질문|Question)")']],
   // 점 고치기 안 A (10/20): 계획 · 실행 · 끝맺음 묶음, 채운 수, 빈 칸의 회색 안내
   ['flow-edit-calc', '#/r/{rid}/flow', '흐름 실행 고치기', ['[data-ui="흐름 차트"] .fl-node[data-id="greedy-check"]', '흐름 점 고치기']],
+  // 점 고치기 › 카드 (10/23 "판단 설계" 2절): 용어 · 사전 연구 · 완료 조건 · 범위 · 산출과 검사 줄
+  ['flow-edit-card', '#/r/{rid}/flow', '흐름 카드 고치기', ['[data-ui="흐름 차트"] .fl-node[data-id="four-colors"]', '흐름 점 고치기']],
   // 프로젝트 정보의 네 쪽 (10/16): 개요 · 현황 · 규칙 · 저장소
   ['info', '#/r/{rid}/info', '노트 정보'],
   // 증명 단계와 빈틈 (10/20): 단계마다 쓰는 것과 확인, 확인 안 된 단계는 점선 번호. 새 점 칸이 남지 않게 다른 화면 뒤에

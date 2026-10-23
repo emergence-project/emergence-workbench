@@ -422,6 +422,19 @@ export function patchFlowNode(wb: Workbench, id: string, body: FlowPatchBody, no
     // 확인 기록은 같은 자리의 단계에 남는다. 글이 바뀌면 그 확인은 hash로 낡은 것이 된다
     put('steps', s.steps.map((st, i) => ({ text: st.text.trim(), ...(st.uses?.trim() && { uses: st.uses.trim() }), ...(n.steps[i]?.checks.length && { checks: n.steps[i]!.checks }) })))
   }
+  // 카드 (10/23): 질문 점에만. 새로 고른 사전 연구는 이 흐름의 명제 점만(전부터 있던 것은 그대로 둔다). 종류를 질문에서 바꾸면 카드를 뺀다
+  const kindAfter = s.kind ?? n.kind
+  if (s.card && kindAfter !== 'question') throw new WorkbenchError(400, tl('카드는 질문 점에만 둡니다', 'A card belongs only on a question dot'))
+  if (s.card) {
+    const byId = new Map(scanFlow(wb).nodes.map((m) => [m.id, m]))
+    const bad = s.card.givens.find((g) => byId.get(g)?.kind !== 'finding' && !n.card?.givens.includes(g))
+    if (bad) throw new WorkbenchError(400, tl(`사전 연구 ${bad}은 이 흐름의 명제가 아닙니다`, `Prior work ${bad} is not a proposition in this flow`))
+    const c = s.card
+    const terms = c.terms.map((x) => ({ word: x.word.trim(), def: x.def?.trim(), ref: x.ref?.trim() })).filter((x) => x.word)
+      .map((x) => x.def || x.ref ? { word: x.word, ...(x.def && { def: x.def }), ...(x.ref && { ref: x.ref }) } : x.word)
+    const tools = c.tools.map((x) => x.trim()).filter(Boolean)
+    put('card', { givens: [...new Set(c.givens)], ...(terms.length && { terms }), ...(tools.length && { tools }), ...(c.assignee?.trim() && { assignee: c.assignee.trim() }), ...(c.findings !== undefined && { findings: c.findings }) })
+  } else if (s.card === null || (kindAfter !== 'question' && n.card)) put('card', null)
   if (s.fields) put('fields', Object.fromEntries(Object.entries(s.fields).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)))
   const progress = s.progress ?? n.progress
   // 끝난 날: 끝남으로 넘어갈 때 적고, 다시 열면 지운다 (10/21)

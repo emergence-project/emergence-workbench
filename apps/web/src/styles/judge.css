@@ -25,3 +25,19 @@
 .jd-thread-act { display: flex; gap: var(--sp-3); font-size: var(--fs-xs); }
 .jd-whole { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
 .jd-qsum { font-size: var(--fs-xs); white-space: nowrap; }
+
+/* 점 고치기 › 카드 (10/23 "판단 설계" 2절) */
+[data-ui="흐름 카드 고치기"] .fl-fields { grid-template-columns: 8.5em minmax(0, 1fr); }
+.fl-card-on { margin-top: var(--sp-2); font-size: var(--fs-sm); }
+.fl-card-h { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }
+.fl-term-row { display: grid; grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.6fr) minmax(0, 1fr) auto; gap: var(--sp-1); align-items: center; padding: var(--sp-1) 0; border-bottom: 1px solid var(--line); }
+.fl-term-row:first-child { border-top: 1px solid var(--line); }
+.fl-card-count { display: flex; align-items: center; gap: var(--sp-2); }
+.fl-card-count input { width: 5em; }
+.fl-card-check { list-style: none; margin: var(--sp-3) 0 var(--sp-1); padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+.fl-card-check li::before { margin-right: var(--sp-1); }
+.fl-card-check .ok { color: var(--text-3); }
+.fl-card-check .ok::before { content: '✓'; }
+.fl-card-check .no { color: var(--s-blocked); }
+.fl-card-check .no::before { content: '✗'; }
+@media (max-width: 900px) { .fl-term-row { grid-template-columns: minmax(0, 1fr) auto; } .fl-term-row > input:not(:first-child) { grid-column: 1; } }

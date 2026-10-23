@@ -437,6 +437,27 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     expect((await add({ kind: 'finding', by: 'claude-code' })).statusCode).toBe(200)
   })
 
+  it('카드 고치기 (10/23 화면 › 점 고치기 › 카드): 질문 점에만, 사전 연구는 명제만, 종류를 바꾸거나 null이면 뺀다', async () => {
+    put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 명제\nfields: { statement: 참 }')
+    put('c', 'format: 1\nkind: calc\nprogress: active\nshort: 계산')
+    put('q', 'format: 1\nkind: question\nprogress: open\nshort: 물음\nfields: { question: 왜? }')
+    const node = async (id: string) => (await get()).nodes.find((m: { id: string }) => m.id === id)
+    const card = { givens: ['f'], terms: [{ word: ' Δn ', def: 'n의 변화' }, { word: 'κ′' }, { word: ' ' }], tools: [' code/a.py ', ''], assignee: 'codex', findings: 2 }
+    let r = await send('PATCH', '/q', { baseHash: (await node('q')).hash, set: { card, fields: { question: '왜?', value: '예이면 다음 카드' } } })
+    expect([r.statusCode, r.json().error]).toEqual([200, undefined])
+    expect(r.json().node.card).toEqual({ givens: ['f'], terms: [{ word: 'Δn', def: 'n의 변화' }, { word: 'κ′' }], tools: ['code/a.py'], assignee: 'codex', findings: 2 })
+    expect(fs.readFileSync(path.join(dir(), 'q.yaml'), 'utf8')).toContain('    - κ′\n')
+    expect((await send('PATCH', '/q', { baseHash: r.json().node.hash, set: { card: { ...card, givens: ['c'] } } })).json().error).toContain('명제가 아닙니다')
+    expect((await send('PATCH', '/c', { baseHash: (await node('c')).hash, set: { card } })).statusCode).toBe(400)
+    r = await send('PATCH', '/q', { baseHash: (await node('q')).hash, set: { kind: 'calc' } })
+    expect(r.json().node.card).toBeUndefined()
+    put('q2', 'format: 1\nkind: question\nprogress: open\nshort: 물음\ncard: { givens: [gone] }')
+    r = await send('PATCH', '/q2', { baseHash: (await node('q2')).hash, set: { card: { givens: ['gone', 'f'], terms: [], tools: [] } } })
+    expect(r.json().node.card).toEqual({ givens: ['gone', 'f'], terms: [], tools: [] })
+    r = await send('PATCH', '/q2', { baseHash: r.json().node.hash, set: { card: null } })
+    expect(r.json().node.card).toBeUndefined()
+  })
+
   it('짚은 곳 (10/23): 점의 칸에 단 질문은 칸이 바뀌면 changed, 인용이 사라지면 잃음, 판단이 끝나면 닫힌다', async () => {
     fs.rmSync(path.join(repo, 'workbench', 'comments', 'flow-f.md'), { force: true })
     put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 계단\nfields:\n  statement: 계단이 줄고 r = 16과 20이 같다\n  condition: κ → 0')

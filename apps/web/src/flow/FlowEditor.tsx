@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { ConflictError, LIBRARY_SCOPE, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_KINDS, FLOW_PRIORITY, FLOW_REQUIRED, flowApi, flowGate, type FlowEdge, type FlowEvidence, type FlowKind, type FlowNode, type FlowProgress, type FlowResult, type FlowSearchReply, type NoteRow } from '../api'
+import { CARD_FIELDS, ConflictError, LIBRARY_SCOPE, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_KINDS, FLOW_PRIORITY, FLOW_REQUIRED, flowApi, flowGate, type FlowEdge, type FlowEvidence, type FlowKind, type FlowNode, type FlowProgress, type FlowResult, type FlowSearchReply, type NoteRow } from '../api'
 import { forgetFigures, useFigureList } from '../figureEmbed'
 import { flash } from '../flash'
 import { Icon } from '../icons'
 import { t as tr } from '../i18n'
-import { KIND, FIELD, FIELD_HINT, END_FIELDS, EDGE, EVK, MarkIcon, PROGRESS, PRIORITY, markOf, resultName } from './marks'
+import { CARD_FIELD, CARD_HINT, KIND, FIELD, FIELD_HINT, END_FIELDS, EDGE, EVK, MarkIcon, PROGRESS, PRIORITY, markOf, resultName } from './marks'
+import { CardSection, cardDraft, cardOut, type CardDraft } from './CardEditor'
 import type { TopicRef } from './data'
 import { FlowText } from './evidence'
 import { FIGURE_FILE, uploadFigure, FigureMenu } from './figures'
@@ -67,6 +68,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
   const [reason, setReason] = useState(n.reason ?? '')
   const [next, setNext] = useState(n.next ?? '')
   const [priority, setPriority] = useState(n.priority ?? '')
+  const [card, setCard] = useState<CardDraft | null>(n.card ? cardDraft(n.card) : null)
   const [pick, setPick] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -74,8 +76,13 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
   /** 설명 칸마다 글 칸 (그림을 커서 자리에 넣으려고) */
   const areas = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const act = KIND[kind].act
-  const shownFields = [...FLOW_FIELDS[kind], ...Object.keys(fields).filter((f) => !FLOW_FIELDS[kind].includes(f) && fields[f]?.trim())]
-  const planFields = shownFields.filter((f) => !END_FIELDS.includes(f)), endFields = shownFields.filter((f) => END_FIELDS.includes(f))
+  // 카드 (10/23 "판단 설계" 2절): 질문 점에서 켜면 카드 칸이 카드 묶음에 열리고, 판정 기준은 그 묶음의 "완료 조건 · 예"로 옮겨 간다
+  const isCard = kind === 'question' && !!card
+  const cardFields: string[] = isCard ? [...CARD_FIELDS] : []
+  const ownFields = [...FLOW_FIELDS[kind], ...cardFields]
+  const shownFields = [...ownFields, ...Object.keys(fields).filter((f) => !ownFields.includes(f) && fields[f]?.trim())]
+  const inCard = (f: string) => isCard && (cardFields.includes(f) || f === 'criterion')
+  const planFields = shownFields.filter((f) => !END_FIELDS.includes(f) && !inCard(f)), endFields = shownFields.filter((f) => END_FIELDS.includes(f))
   const required = new Set<string>(FLOW_REQUIRED[kind])
   const showRun = kind === 'calc' || Object.values(run).some((v) => v.trim())
   const showSteps = kind === 'proof' || steps.length > 0
@@ -120,12 +127,13 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
       run: hasRun ? { ...(run.code.trim() && { code: run.code.trim() }), ...(run.commit.trim() && { commit: run.commit.trim() }), ...(Object.keys(params).length && { params }), ...(run.output.trim() && { output: run.output.trim() }) } : null,
       steps: steps.filter((x) => x.text.trim()).map((x) => ({ text: x.text.trim(), ...(x.uses.trim() && { uses: x.uses.trim() }) })),
       reason: reason.trim(), next: next.trim(), priority: (priority || null) as FlowNode['priority'] | null,
+      ...(isCard ? { card: cardOut(card!) } : n.card && { card: null }),
     }
     try {
       if (!create) { await flowApi(rid).patch(n.id, n.hash, set, true); return onSaved() }
       // 만들기가 받는 칸으로 만들고, 나머지(설명·근거·결과·흐름 종료)가 있으면 이어서 고친다. 시작일 · 한 이는 서버가 적는다 (10/21)
       const made = await flowApi(rid).create({ kind, short: set.short, title: set.title, progress: progress === 'done' || progress === 'paused' ? 'active' : progress, ...(tops.length && { topics: tops }), ...(from.length && { from }) })
-      const more = end || progress !== made.progress || set.evidence.length > 0 || hasRun || set.steps.length > 0 || !!(set.reason || set.next || set.priority) || Object.values(set.fields).some((v) => v.trim())
+      const more = isCard || end || progress !== made.progress || set.evidence.length > 0 || hasRun || set.steps.length > 0 || !!(set.reason || set.next || set.priority) || Object.values(set.fields).some((v) => v.trim())
       if (more) await flowApi(rid).patch(made.id, made.hash, set, true).catch((e: Error) => flash(tr(`점은 만들었지만 나머지 칸을 저장하지 못했습니다: ${e.message}`, `The dot was created, but the other fields were not saved: ${e.message}`)))
       onSaved(made)
     } catch (e) {
@@ -159,10 +167,11 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
     forgetFigures()
   }
   /** 설명 칸 하나: 이름(필요한 빈 칸은 주황) · 밑줄 글 칸(빈 칸은 회색 안내) · 그림 ▾ */
-  const fieldRow = (f: string) => <div key={f}><dt className={need(f) ? 'need' : undefined}>{FIELD[f]?.() ?? f}{!FLOW_FIELDS[kind].includes(f) && <em> {tr('다른 종류', 'other kind')}</em>}</dt>
+  const nameOf = (f: string) => (inCard(f) && CARD_FIELD[f]?.()) || FIELD[f]?.() || CARD_FIELD[f]?.() || f
+  const fieldRow = (f: string) => <div key={f}><dt className={need(f) ? 'need' : undefined}>{nameOf(f)}{!ownFields.includes(f) && <em> {tr('다른 종류', 'other kind')}</em>}</dt>
     <dd className="fl-field">
       <FigureMenu figs={figs} onPick={(file) => insertFigure(f, file)} onFiles={(xs) => void addFiles(f, xs)} />
-      <textarea ref={(el) => { areas.current[f] = el }} className="fl-in" aria-label={FIELD[f]?.() ?? f} placeholder={FIELD_HINT[f]?.()} rows={Math.min(12, Math.max(1, (fields[f] ?? '').split('\n').length))} value={fields[f] ?? ''}
+      <textarea ref={(el) => { areas.current[f] = el }} className="fl-in" aria-label={nameOf(f)} placeholder={(inCard(f) && CARD_HINT[f]?.()) || FIELD_HINT[f]?.()} rows={Math.min(12, Math.max(1, (fields[f] ?? '').split('\n').length))} value={fields[f] ?? ''}
         onChange={(e) => setFields({ ...fields, [f]: e.target.value })}
         onPaste={(e) => { const xs = [...e.clipboardData.files]; if (xs.length) { e.preventDefault(); void addFiles(f, xs) } }}
         onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}
@@ -208,8 +217,12 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
     <section className="fl-sec">
       <GroupHead title={tr('계획', 'Plan')} filled={filled(planFields)} total={planFields.length} />
       <dl className="fl-fields">{planFields.map(fieldRow)}</dl>
+      {kind === 'question' && <label className="check fl-card-on" data-ui="흐름 카드 켜기" title={tr('맡길 질문이면 켭니다. 사전 연구 · 완료 조건 · 범위 · 산출 칸이 열리고, 사용자가 시작해야 그 아래 일이 열립니다', 'Turn on to hand this question off. Prior work, done-when, scope and output open, and work under it opens only after you start it')}>
+        <input type="checkbox" checked={!!card} onChange={(e) => setCard(e.target.checked ? cardDraft(n.card) : null)} />{tr('카드로 맡기기', 'Hand off as a card')}</label>}
       <p className="fl-help">{tr('글 속 수식 $…$, 줄 수식은 $$…$$를 따로 한 줄에, 빈 줄은 문단을 나눈다. 그림은 칸 오른쪽 위 "그림"으로 넣거나 붙여넣기(⌘V) · 끌어 놓기로 넣는다.', 'Inline math $…$; display math $$…$$ on its own line; a blank line starts a paragraph. Add figures with "Figure" at the top right of a field, or paste (⌘V) or drop them in.')}</p>
     </section>
+
+    {isCard && <CardSection rid={rid} n={n} card={card!} setCard={setCard} all={all} fields={fields} row={fieldRow} />}
 
     {showRun && <section className="fl-sec" data-ui="흐름 실행 고치기">
       <GroupHead title={tr('실행', 'Run')} filled={[run.code, run.commit, run.params, run.output].filter((v) => v.trim()).length} total={4} />
