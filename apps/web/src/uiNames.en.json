@@ -868,5 +868,12 @@
   "판단 종료": "End",
   "판단 대기열": "Judgment queue",
   "판단 대기 줄": "Judgment queue row",
-  "흐름 점 판단": "Flow dot judgment"
+  "흐름 점 판단": "Flow dot judgment",
+  "판단 화면 묻기": "Judgment: ask",
+  "판단 화면 질문": "Judgment: questions",
+  "판단 화면 모아 두기": "Judgment: keep question",
+  "판단 화면 보내기": "Judgment: send question",
+  "판단 화면 질문 수": "Judgment: question count",
+  "판단 화면 모아 보내기": "Judgment: send kept",
+  "판단 대기 질문 수": "Judgment queue question count"
 }

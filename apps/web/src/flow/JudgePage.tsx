@@ -4,6 +4,7 @@ import { go } from '../router'
 import { openFlowDot } from '../FlowView'
 import { t as tr } from '../i18n'
 import { useFlow } from './data'
+import { AskButton, FieldThreads, useJudgeThreads } from './JudgeThreads'
 import { EvidenceSource } from './FlowCard'
 import { FlowText } from './evidence'
 import { flowBy } from './flowBy'
@@ -38,6 +39,7 @@ export function JudgePage({ rid, id, notes, onSaved }: { rid: string; id: string
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const n = scan?.nodes.find((x) => x.id === id)
+  const th = useJudgeThreads(rid, id, n?.title ?? id)
   if (!n) return <div className="ws-doc"><section className="pane"><p className="empty tk-empty tk-pad">{scan ? `${tr('점을 찾지 못했습니다', 'Dot not found')}: workbench/flow/${id}.yaml` : tr('불러오는 중…', 'Loading…')}</p></section></div>
   const byId = new Map(scan!.nodes.map((x) => [x.id, x]))
   const card = n.kind === 'question' && n.card
@@ -61,7 +63,11 @@ export function JudgePage({ rid, id, notes, onSaved }: { rid: string; id: string
     setBusy(false)
     reload()
   }
-  const fieldRow = (f: string) => n.fields[f] && <div key={f}><dt>{(card && CARD_FIELD[f]?.()) || FIELD[f]?.() || f}</dt><dd><FlowText rid={rid} text={n.fields[f]!} /></dd></div>
+  const numberOf = (qid: string) => th.questions.findIndex((q) => q.id === qid) + 1
+  const fieldRow = (f: string) => n.fields[f] && <div key={f}><dt>{(card && CARD_FIELD[f]?.()) || FIELD[f]?.() || f}</dt>
+    <dd className="jd-dd"><div className="jd-val"><FlowText rid={rid} text={n.fields[f]!} /></div>{judgeable && <AskButton th={th} field={f} />}</dd>
+    {judgeable && <FieldThreads th={th} field={f} numberOf={numberOf} />}</div>
+  const tc = th.counts()
   const dot = (m: FlowNode, tail?: ReactNode) => <li key={m.id}>
     <button className="a fl-pill" title={m.title} onClick={() => go(m.kind === 'finding' || m.card ? { page: 'judge', rid, id: m.id } : { page: 'flow', rid })}><MarkIcon n={m} size={16} /><span>{m.short}</span></button>
     {tail}
@@ -74,6 +80,8 @@ export function JudgePage({ rid, id, notes, onSaved }: { rid: string; id: string
           <span className={`tk-state${turnOf(n) ? ' fl-turn-name' : ''}`}><MarkIcon n={n} size={18} />{judgeName(n) ?? KIND[markOf(n)].name()}</span>
           <span className="muted crumb">{KIND[markOf(n)].name()}{n.by && ` · ${flowBy(n.by)}`}{n.date && ` · ${n.date}`}</span>
           <span className="sp" />
+          {(tc.all > 0 || tc.drafts > 0) && <span className="muted jd-qsum" data-ui="판단 화면 질문 수">{[tc.all && tr(`질문 ${tc.all}`, `${tc.all} questions`), tc.answered && <span key="a" className="fl-turn-name">{tr(`내 차례 ${tc.answered}`, `${tc.answered} your turn`)}</span>, tc.drafts && tr(`보내지 않음 ${tc.drafts}`, `${tc.drafts} not sent`)].filter(Boolean).flatMap((x, i) => i ? [' · ', x] : [x])}</span>}
+          {tc.drafts > 0 && <button className="btn primary" data-ui="판단 화면 모아 보내기" disabled={th.busy} title={tr('모아 둔 질문을 한 번에 보내면 에이전트가 한 번에 답합니다', 'Send the kept questions together so the agent answers them at once')} onClick={() => void th.sendAll()}>{tr(`모아 보내기 (${tc.drafts})`, `Send kept (${tc.drafts})`)}</button>}
           <button className="btn" data-ui="판단 화면 흐름에서 보기" onClick={() => openFlowDot(rid, { id: n.id })}>{tr('흐름에서 보기', 'Show in the flow')}</button>
         </div>
         <div className="tk-rep jd">
@@ -120,6 +128,9 @@ export function JudgePage({ rid, id, notes, onSaved }: { rid: string; id: string
           </section>}
           {judgeable ? <section className="tk-sec jd-act" data-ui="판단 화면 판단">
             <h2>{tr('판단', 'Judge')}</h2>
+            <div className="jd-whole"><span className="muted">{n.kind === 'finding' ? tr('명제 전체에 묻기', 'Ask about the whole proposition') : tr('카드 전체에 묻기', 'Ask about the whole card')}</span><AskButton th={th} field="" /></div>
+            <FieldThreads th={th} field="" numberOf={numberOf} />
+            {tc.all > 0 && <p className="muted">{tr('답을 기다리는 질문이 있어도 판단할 수 있습니다. 판단하면 열린 질문은 "판단 뒤 닫음"으로 남습니다.', 'You can judge with questions still open; they are closed as "closed after judgment".')}</p>}
             <textarea className="jd-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={tr('판단 메모', 'Judgment note')}
               placeholder={n.kind === 'finding' ? tr('이유 (수정 · 기각은 꼭 적습니다)', 'Reason (required to revise or reject)') : tr('이유 (수정 · 종료는 꼭 적습니다)', 'Reason (required to revise or end)')} />
             <div className="jd-btns">{verdicts.map((v) => {

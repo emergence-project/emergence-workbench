@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useFlow } from './flow/data'
+import { judgeTurns } from './flow/JudgeQueue'
 import { type ManuscriptInfo, type NoteRow, type ResearchApi, type Topic } from './api'
 import { Icon } from './icons'
 import { openPart } from './Manuscript'
@@ -61,6 +63,9 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
   // 고침 검토 (10/14): 이 프로젝트에서 검토할 노트 수 + 확인된 노트 고치기 요청 수
   const edits = useAgentEdits(rid).data
   const editCount = edits ? edits.reviews.length + edits.attempts.length : 0
+  // 판단할 것 (10/23): 대기열의 명제와 시작을 기다리는 카드. 기록 › 내 차례 맨 위와 같은 수
+  const flowScan = useFlow(rid).scan
+  const judgeCount = flowScan ? (({ queued, ready }) => queued.length + ready.length)(judgeTurns(flowScan.nodes)) : 0
 
   const known = new Set(topics.map((t) => t.id))
   const notesOf = (g: Group) => notes.filter((n) => (g === LOOSE ? !n.topics.some((t) => known.has(t)) : n.topics[0] === g))
@@ -92,8 +97,8 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
   const recordsOn = route.page === 'records' || route.page === 'todo' || route.page === 'log' || route.page === 'task' || route.page === 'judge'
   return (
     <div className="project-toc" data-ui="프로젝트 목차">
-      <SideTabs label={t('프로젝트', 'Project')} turn={askCount + editCount}
-        turnTip={t(`내 차례: 에이전트가 물은 기록 ${askCount} · 수정 검토 ${editCount}`, `Your turn: ${askCount} agent question(s), ${editCount} edit review(s)`)}
+      <SideTabs label={t('프로젝트', 'Project')} turn={askCount + judgeCount + editCount}
+        turnTip={t(`내 차례: 에이전트가 물은 기록 ${askCount} · 판단 ${judgeCount} · 수정 검토 ${editCount}`, `Your turn: ${askCount} agent question(s), ${judgeCount} to judge, ${editCount} edit review(s)`)}
         show={!!current || route.page === 'part' || route.page === 'task' || route.page === 'judge' || route.page === 'concept'}>
       <div className="project-nav">
         <div className="side-quick" data-ui="빠른 이동">
@@ -111,7 +116,7 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
           </div>
           <button className={`nav side-row${recordsOn ? ' on' : ''}`} aria-current={recordsOn ? 'page' : undefined} data-ui="기록 블록" title={t('내 차례 · 에이전트 차례 · 모든 기록과 맡긴 일', 'Your turn, agents\' turn, all records and delegated tasks')} onClick={() => go({ page: 'records', rid })}>
             <span className="q-ico" aria-hidden>{Icon.comment}</span><span className="label">{t('기록', 'Records')}</span>
-              {askCount > 0 && <span className="rail-count" data-ui="물은 기록 수" title={t(`에이전트가 물은 기록 ${askCount}개 — 답을 기다립니다`, `${askCount} agent question(s) waiting for your answer`)}>{askCount}</span>}</button>
+              {askCount + judgeCount > 0 && <span className="rail-count" data-ui="물은 기록 수" title={t(`에이전트가 물은 기록 ${askCount}개 · 판단할 것 ${judgeCount}개`, `${askCount} agent question(s), ${judgeCount} to judge`)}>{askCount + judgeCount}</span>}</button>
           <button className={`nav side-row${route.page === 'edits' ? ' on' : ''}`} aria-current={route.page === 'edits' ? 'page' : undefined} data-ui="고침 검토 블록" title={t('에이전트가 고친 노트를 바뀐 곳마다 검토', 'Review each change agents made to notes')} onClick={() => go({ page: 'edits', rid })}>
             <span className="q-ico" aria-hidden>{Icon.review}</span><span className="label">{t('수정 검토', 'Edit review')}</span>{editCount ? <span className="rail-count" title={t(`검토할 노트와 고치기 요청 ${editCount}개`, `${editCount} note(s) to review and edit request(s)`)}>{editCount}</span> : null}</button>
           <button className={`nav side-row${route.page === 'flow' ? ' on' : ''}`} aria-current={route.page === 'flow' ? 'page' : undefined} data-ui="흐름 블록" title={t('연구 흐름: 생각의 걸음과 그 사이의 선', 'Research flow: steps of thinking and the lines between them')} onClick={() => go({ page: 'flow', rid })}>

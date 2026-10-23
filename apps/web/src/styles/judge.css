@@ -12,3 +12,16 @@
 .jq-tip { font-size: var(--fs-xs); font-weight: var(--fw-normal); }
 .jq-row { grid-template-columns: 16px minmax(0, 1fr) auto; }
 .jq-full { font-weight: var(--fw-normal); }
+
+/* 질문과 답 (4-1): 칸 오른쪽 말풍선, 칸 아래 줄기 */
+.jd-dd { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.jd-val { flex: 1; min-width: 0; }
+.jd-ask { flex: none; opacity: .55; }
+.jd-ask:hover, .jd-ask.on, .jd-dd:hover .jd-ask { opacity: 1; }
+.jd-threads { grid-column: 1 / -1; display: flex; flex-direction: column; gap: var(--sp-2); margin: 0 0 var(--sp-2) var(--sp-4); padding-left: var(--sp-3); border-left: 2px solid var(--line); }
+.jd-thread { display: flex; flex-direction: column; gap: var(--sp-1); }
+.jd-thread.answered { border-left: 2px solid var(--s-blocked); margin-left: calc(-1 * var(--sp-3) - 2px); padding-left: var(--sp-3); }
+.jd-thread-h { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
+.jd-thread-act { display: flex; gap: var(--sp-3); font-size: var(--fs-xs); }
+.jd-whole { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
+.jd-qsum { font-size: var(--fs-xs); white-space: nowrap; }
