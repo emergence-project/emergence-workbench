@@ -114,6 +114,29 @@ describe('바뀐 것 검사', () => {
     expect(found()).toEqual([['error', 'approval', 'workbench/flow/g.yaml']])
   })
 
+  it('흐름: 상한을 넘긴 새 명제, 시작하지 않은 카드 아래 새 일, 시작한 카드의 잠긴 칸, 정의 없는 용어 (10/23)', () => {
+    const finding = (id: string) => write(`workbench/flow/${id}.yaml`, `format: 1\nkind: finding\nprogress: open\ndate: 2026-10-24\nby: codex\nfields: { statement: ${id} }\n`)
+    finding('a'); finding('b')
+    write('workbench/flow/q.yaml', 'format: 1\nkind: question\nprogress: open\nfields: { question: 왜?, criterion: 맞으면 }\ncard: { givens: [] }\njudgments:\n  - { at: 2026-10-23T10:00, by: user, verdict: start }\n')
+    write('workbench/flow/w.yaml', 'format: 1\nkind: question\nprogress: open\nfields: { question: 어디?, criterion: 찾으면 }\ncard: { givens: [a] }\n')
+    commit()
+    finding('c'); finding('d')
+    write('workbench/flow/q.yaml', 'format: 1\nkind: question\nprogress: open\nfields: { question: 왜?, criterion: 더 맞으면 }\ncard: { givens: [], terms: [κ′, { word: J, def: 결합 }] }\njudgments:\n  - { at: 2026-10-23T10:00, by: user, verdict: start }\n')
+    write('workbench/flow/x.yaml', 'format: 1\nkind: calc\nprogress: active\nby: codex\nfrom:\n  - { id: w, type: origin }\nstart: { at: 2026-10-24T10:00, novel: 새것 }\n')
+    write('workbench/flow/y.yaml', 'format: 1\nkind: calc\nprogress: active\nby: codex\nfrom:\n  - { id: q, type: origin }\nstart: { at: 2026-10-24T10:00, novel: 새것 }\n')
+    const d = check()!.diagnostics.filter((x) => x.check.startsWith('card') || x.check === 'queue-cap')
+    expect(d.map((x) => [x.level, x.check, x.file])).toEqual([
+      ['error', 'card-locked', 'workbench/flow/q.yaml'],
+      ['warning', 'card-terms', 'workbench/flow/q.yaml'],
+      ['error', 'card-not-started', 'workbench/flow/x.yaml'],
+      ['error', 'queue-cap', 'workbench/flow/c.yaml'],
+    ])
+    expect(d[1]!.message).toContain('κ′')
+    expect(d[1]!.message).not.toContain('J')
+    expect(d[2]!.message).toContain('사전 연구가 아직 승인되지 않았습니다')
+    expect(d[3]!.message).toContain('4개로 상한 3')
+  })
+
   it('흐름: 계산을 끝남으로 바꿀 때 필수 칸이 비면 오류, 노트만 바꾸고 점은 그대로면 경고', () => {
     write('workbench/flow/c.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 계산\nfields:\n  goal: 잰다\n')
     write('workbench/topics/t/n/note.md', '# N\n')

@@ -7,8 +7,9 @@ import type { WorkbenchDiagnostic } from './agentCheck.js'
 import { t } from './i18n.js'
 import { folderMap, usesStandardLayout } from './projectFolders.js'
 import type { Workbench } from './workbench.js'
-import { parseFlowNode } from './flow.js'
-import { flowGate } from './flowGaps.js'
+import { JUDGE_CAP } from '@rw/core'
+import { cardBlock, parseFlowNode, scanFlow } from './flow.js'
+import { flowGate, judgmentHash, judgmentQueue, markJudgments, undefinedTerms } from './flowGaps.js'
 import { integrationProblem } from './flowStart.js'
 import { readTopics } from './topics.js'
 
@@ -27,6 +28,10 @@ export const CHANGE_CHECKS = {
   'flow-start': 'warning',
   'flow-integration': 'warning',
   'flow-new-dot': 'off',
+  'queue-cap': 'error',
+  'card-not-started': 'error',
+  'card-locked': 'error',
+  'card-terms': 'warning',
   'nonstandard-new-file': 'warning',
   'confirmed-edit': 'warning',
   'outside-workbench': 'warning',
@@ -158,6 +163,13 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
   /** 바뀐 흐름 점의 주제와 가리킨 파일 (근거 · 실행) */
   const dots: { topics: string[]; files: string[] }[] = []
   const legacyBlocks = () => { try { return readTopics(wb) } catch { return [] } }
+  /** 지금 흐름 전체 (판단 대기열 · 카드 상태용, 처음 쓸 때 읽는다) */
+  let flowNow: { nodes: ReturnType<typeof scanFlow>['nodes']; byId: Map<string, ReturnType<typeof scanFlow>['nodes'][number]> } | undefined
+  const flow = () => {
+    if (!flowNow) { const nodes = scanFlow(wb).nodes; flowNow = { nodes, byId: new Map(nodes.map((n) => [n.id, n])) } }
+    return flowNow
+  }
+  const newFindings: string[] = []
 
   for (const c of changes) {
     const before = c.status === 'A' ? undefined : oldText(c.from ?? c.file)
@@ -233,6 +245,18 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
         const problem = integrationProblem(repo, id, an.integration.into, an.integration.section)
         if (problem) add('flow-integration', c.file, `반영 기록이 맞지 않습니다: ${problem}`, `The integration record no longer holds: ${problem}`)
       }
+      // 판단 설계 (10/23): 에이전트의 새 명제는 대기열 상한 안에서, 새 일은 시작한 카드 아래에서만
+      const agentMade = c.status === 'A' && !!an?.by && an.by !== 'user'
+      if (an && agentMade && an.kind === 'finding') newFindings.push(c.file)
+      if (an && agentMade && an.kind !== 'question') {
+        const block = an.from.map((f) => flow().byId.get(f.id)).filter((x) => !!x).map((x) => cardBlock(x, flow().byId)).find(Boolean)
+        if (block) add('card-not-started', c.file, `${block}. 시작한 카드 아래에서만 일을 엽니다. 점을 지우거나 카드가 시작될 때까지 기다리세요.`, `${block}. Open work only under a started card. Remove the dot or wait until the card starts.`)
+      }
+      if (an?.card && bn?.card && markJudgments(bn) === 'start' && judgmentHash(an) !== judgmentHash(bn)) {
+        add('card-locked', c.file, '시작한 카드의 질문 · 완료 조건을 바꿨습니다. 잠긴 칸이라 되돌리고, 바꿀 것은 제안으로 남기세요(사용자가 수정으로 돌려보내면 고칩니다).', 'The question or done criteria of a started card changed. They are locked: revert, and leave the change as a proposal (fix it after the user sends the card back).')
+      }
+      const terms = an ? undefinedTerms(an) : []
+      if (terms.length) add('card-terms', c.file, `카드에 정의도 출처도 없는 용어가 있습니다: ${terms.join(', ')}. 정의(def)나 출처(ref)를 적으세요.`, `The card has terms with neither a definition nor a source: ${terms.join(', ')}. Add def or ref.`)
       const a = flowHuman(yamlOf(after)); const b = flowHuman(yamlOf(before))
       if (a.human.some((h) => !b.human.includes(h))) add('approval', c.file, '사람 승인 기록(role: human)이나 판단 기록(judgments)을 썼습니다. 판단은 사람이 앱에서 합니다. 에이전트의 검토는 role: agent로 적습니다.', 'A human approval record (role: human) or a judgment (judgments) was written. People judge in the app. Record agent reviews with role: agent.')
       if (c.status !== 'A') {
@@ -255,6 +279,12 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
     const names = skipped.map(([key]) => key.replace(/^workbench\//, '')).slice(0, 3).join(', ') + (skipped.length > 3 ? ' …' : '')
     if (!flowChanged) add('flow-skipped', skipped[0]![1].file, `노트 ${skipped.length}개를 바꿨는데 흐름 점은 그대로입니다 (${names}). 이 일이 질문 · 계산 · 증명 하나라면 점을 만들거나(pnpm agent:start · flow_add) 결과를 적으세요(flow_update).`, `${skipped.length} note(s) changed but no flow dot did (${names}). If this work is a question, calculation or proof, add a dot (pnpm agent:start · flow_add) or record its result (flow_update).`)
     else add('flow-skipped', skipped[0]![1].file, `노트 ${skipped.length}개를 바꿨는데 바뀐 흐름 점 가운데 그 노트를 근거로 가리키거나 같은 주제인 것이 없습니다 (${names}). 이 일의 점을 만들거나 고치세요.`, `${skipped.length} note(s) changed but no changed flow dot points to them or shares their topic (${names}). Add or update the dot for this work.`)
+  }
+
+  if (newFindings.length) {
+    const queued = judgmentQueue(flow().nodes).length
+    if (queued > JUDGE_CAP) add('queue-cap', newFindings[0]!, `판단 대기 명제가 ${queued}개로 상한 ${JUDGE_CAP}을 넘습니다 (새 명제 ${newFindings.length}개). 사용자가 판단할 때까지 새 명제를 내지 말고, 넘친 점은 지우거나 한 명제로 합치세요.`,
+      `The judgment queue holds ${queued} findings, over the cap of ${JUDGE_CAP} (${newFindings.length} new). Add no findings until the user judges; remove the extra dots or merge them into one finding.`)
   }
 
   for (const [folder, n] of [...outside].sort()) {

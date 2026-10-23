@@ -5,8 +5,8 @@ import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { t as tl } from './i18n.js'
-import { claimHash, computeGaps, confirmed, evidenceHash, flowGate, judgmentHash, markJudgments, markStale, stepHash } from './flowGaps.js'
-import { commentTargetSlug, stamp as coreStamp } from '@rw/core'
+import { cardState, claimHash, computeGaps, confirmed, evidenceHash, flowGate, judgmentHash, judgmentQueue, markJudgments, markStale, stepHash } from './flowGaps.js'
+import { JUDGE_CAP, commentTargetSlug, stamp as coreStamp } from '@rw/core'
 import { CARD_VERDICTS, FINDING_VERDICTS, FLOW_EDGES, FLOW_EVIDENCE, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, FLOW_VERDICTS, type FlowCheckBody, type FlowJudgeBody, type FlowReviewBody, type FlowSearchReply, type FlowEvidence, type FlowLayout, type FlowLayoutBody, type FlowNode, type FlowPatchBody, type FlowRowMove, type FlowRows, type FlowScan, type NewFlowBody } from '@rw/core/contract/flow'
 
 export const FLOW_DIR = 'flow'
@@ -356,11 +356,31 @@ export function setFlowRecord(wb: Workbench, id: string, key: 'start' | 'integra
   return write(wb, id, doc, original)
 }
 
-/** 새 점. 앞선 점(from)은 있는 점만 받는다 */
+/** 카드 아래 일을 막는 까닭 (시작한 카드가 아니면). 막지 않으면 null */
+export function cardBlock(card: FlowNode, byId: Map<string, FlowNode>): string | null {
+  const st = cardState(card, byId)
+  if (st === 'waiting') return tl(`카드 「${card.short}」의 사전 연구가 아직 승인되지 않았습니다`, `The prior work of card "${card.short}" is not approved yet`)
+  if (st === 'ready') return tl(`카드 「${card.short}」를 사용자가 아직 시작하지 않았습니다`, `The user has not started card "${card.short}" yet`)
+  if (st === 'ended') return tl(`카드 「${card.short}」는 종료되었습니다`, `Card "${card.short}" has ended`)
+  return null
+}
+
+/** 대기열이 찼을 때의 말 */
+export const queueFull = (n: number) => tl(`판단 대기 명제가 ${n}/${JUDGE_CAP}로 찼습니다. 사용자가 판단할 때까지 새 명제를 내지 않습니다. 낸 명제를 고치거나 반례를 확인하는 일은 됩니다`,
+  `The judgment queue is full (${n}/${JUDGE_CAP}). Do not add findings until the user judges; revising submitted findings or checking counterexamples is fine`)
+
+/** 새 점. 앞선 점(from)은 있는 점만 받는다. 에이전트의 점은 판단 설계(10/23)의 상한과 카드 시작을 따른다 */
 export function createFlowNode(wb: Workbench, body: NewFlowBody, now = new Date()): FlowNode {
-  const ids = new Set(scanFlow(wb).nodes.map((n) => n.id))
-  const missing = (body.from ?? []).find((f) => !ids.has(f.id))
+  const nodes = scanFlow(wb).nodes
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const missing = (body.from ?? []).find((f) => !byId.has(f.id))
   if (missing) throw new WorkbenchError(400, tl(`앞선 점 ${missing.id}이 없습니다`, `No earlier dot ${missing.id}`))
+  if (body.by?.trim() && body.by.trim() !== 'user') {
+    const queued = judgmentQueue(nodes).length
+    if (body.kind === 'finding' && queued >= JUDGE_CAP) throw new WorkbenchError(400, queueFull(queued))
+    const block = body.kind === 'question' ? null : (body.from ?? []).map((f) => cardBlock(byId.get(f.id)!, byId)).find(Boolean)
+    if (block) throw new WorkbenchError(400, tl(`${block}. 시작한 카드 아래에서만 일을 엽니다`, `${block}. Open work only under a started card`))
+  }
   const id = newId(wb, body.short, now)
   const y: Record<string, unknown> = { format: FLOW_FORMAT, kind: body.kind, progress: body.progress ?? 'open', short: body.short.trim(), title: body.title?.trim() || body.short.trim(), ...(body.topics?.length && { topics: body.topics }), date: localDate(now), by: body.by?.trim() || 'user', ...(body.task?.trim() && { task: body.task.trim() }) }
   if (body.from?.length) y.from = body.from
@@ -465,6 +485,12 @@ export function judgeFlow(wb: Workbench, id: string, body: FlowJudgeBody, by = '
   checkHash(n, body.baseHash)
   if (n.kind === 'question' && !n.card) throw new WorkbenchError(400, tl('카드가 아닌 질문은 판단하지 않습니다', 'Only a question with a card is judged'))
   if (!verdictFits(n.kind, body.verdict)) throw new WorkbenchError(400, tl(`${n.kind} 점에는 ${body.verdict} 판단을 쓸 수 없습니다`, `A ${n.kind} dot cannot take the verdict ${body.verdict}`))
+  if (body.verdict === 'start') {
+    // 판단 전 사전 연구로는 시작하지 않는다 (10/23)
+    const byId = new Map(scanFlow(wb).nodes.map((x) => [x.id, x]))
+    const open = n.card!.givens.filter((g) => byId.get(g)?.verdict !== 'approve')
+    if (open.length) throw new WorkbenchError(400, tl(`사전 연구가 아직 승인되지 않았습니다: ${open.join(', ')}. 먼저 판단하세요`, `Prior work is not approved yet: ${open.join(', ')}. Judge it first`))
+  }
   const original = fs.readFileSync(fileOf(wb, id), 'utf8')
   const doc = YAML.parseDocument(original)
   const rec = { at: stamp(now), by, verdict: body.verdict, ...(body.note?.trim() && { note: body.note.trim() }), claim: judgmentHash(n) }
