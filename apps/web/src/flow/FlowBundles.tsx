@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { go } from '../router'
 import type { FlowNode } from '../api'
 import { bundleFlow, layoutBundle, type Bundle } from '../flowBundles'
 import { roundedPath } from '../flowRoute'
@@ -19,8 +20,8 @@ const turnCount = (b: Bundle) => b.nodes.filter(turnOf).length
  * 접은 흐름 (10/23 "판단 설계" 4단계): 묶음 하나가 점 하나. 속이 찬 것은 명제가 모두 승인된 묶음, 빈 것은 판단 전,
  * 주황 고리는 판단할 것이 든 묶음. 누르면 그 묶음의 점을 작은 흐름으로 보이는 창이 열린다.
  */
-export function FlowBundles({ all, topics, focus, foldSwitch, onOpenDot }: {
-  all: FlowNode[]; topics: TopicRef[]; focus?: string; foldSwitch: ReactNode; onOpenDot(id: string): void
+export function FlowBundles({ rid, all, topics, focus, foldSwitch, onOpenDot }: {
+  rid: string; all: FlowNode[]; topics: TopicRef[]; focus?: string; foldSwitch: ReactNode; onOpenDot(id: string): void
 }) {
   const lay = useMemo(() => bundleFlow(all, topics.map((x) => x.id)), [all, topics])
   const [sel, setSel] = useState<string | null>(null)
@@ -80,13 +81,13 @@ export function FlowBundles({ all, topics, focus, foldSwitch, onOpenDot }: {
             })}
           </svg>
         </div>}
-      {open && <BundleWindow b={open} onClose={() => setOpen(null)} onOpenDot={(id) => { setOpen(null); onOpenDot(id) }} />}
+      {open && <BundleWindow rid={rid} b={open} onClose={() => setOpen(null)} onOpenDot={(id) => { setOpen(null); onOpenDot(id) }} />}
     </section>
   )
 }
 
 /** 접힌 묶음의 창: 그 묶음의 점만 작은 흐름으로. 점을 누르면 펼친 흐름에서 그 점을 연다 */
-function BundleWindow({ b, onClose, onOpenDot }: { b: Bundle; onClose(): void; onOpenDot(id: string): void }) {
+function BundleWindow({ rid, b, onClose, onOpenDot }: { rid: string; b: Bundle; onClose(): void; onOpenDot(id: string): void }) {
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', esc)
@@ -130,7 +131,7 @@ function BundleWindow({ b, onClose, onOpenDot }: { b: Bundle; onClose(): void; o
           </div>
         </div>
         <div className="dialog-foot">
-          {turns.length > 0 && <button className="btn" data-ui="흐름 묶음 판단할 것" onClick={() => onOpenDot(turns[0]!.id)}>{tr(`판단할 것 ${turns.length} 보기`, `View ${turns.length} to judge`)}</button>}
+          {turns.length > 0 && <button className="btn" data-ui="흐름 묶음 판단할 것" onClick={() => { onClose(); go({ page: 'judge', rid, id: turns[0]!.id }) }}>{tr(`판단할 것 ${turns.length} 보기`, `View ${turns.length} to judge`)}</button>}
           <button className="btn primary" data-ui="흐름 묶음 펼치기" onClick={() => onOpenDot(b.id)}>{tr('흐름에서 펼치기', 'Open in the flow')}</button>
         </div>
       </div>

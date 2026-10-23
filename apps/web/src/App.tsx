@@ -44,6 +44,8 @@ import { PdfTab } from './PdfTab'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
 import { FlowPage } from './FlowView'
+import { JudgePage } from './flow/JudgePage'
+import { flowTitles } from './flow/data'
 import { useFlowSelection } from './flowSelection'
 import { moveId, PROJECT_KIND_LABEL, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
@@ -315,6 +317,7 @@ export function App() {
       : route.page === 'file' ? [{ label: t('파일', 'File') }, { label: route.path }]
         : route.page === 'concept' || route.page === 'paper' ? [{ label: route.page === 'concept' ? t('개념노트', 'Concept note') : t('문헌노트', 'Literature note') }, { label: library?.notes.find((n) => n.kind === route.page && n.id === route.id)?.title ?? route.id }]
         : route.page === 'task' ? [{ label: t('기록', 'Records'), to: { page: 'records', rid } as Route }, { label: taskTitles.get(route.task) ?? route.task }]
+        : route.page === 'judge' ? [{ label: t('기록', 'Records'), to: { page: 'records', rid } as Route }, { label: `${t('판단', 'Judge')} · ${flowTitles.get(route.id) ?? route.id}` }]
         : route.page === 'topic' ? [{ label: route.tid === LOOSE_TOPIC_ID ? LOOSE_NOTES_LABEL : topics.find((x) => x.id === route.tid)?.title ?? route.tid }]
         : route.page === 'part' ? (() => {
           const ms = msOfFile(route.file)
@@ -416,6 +419,7 @@ export function App() {
         return <ChatTab key={t.chat} id={t.chat} auto={n && { kind: 'note', ref: n.file, label: n.title }} onSaved={flash} />
       }
       case 'task': return <Lazy><TaskReport key={`${rid}/${t.task}`} rid={rid} id={t.task} version={version} project={current?.title ?? summary.research.title} topics={topics} onSaved={flash} tocOwner={context?.focused ? tabKey(t) : null} /></Lazy>
+      case 'judge': return <JudgePage key={`${rid}/${t.id}`} rid={rid} id={t.id} notes={notes} onSaved={flash} />
       case 'topic': return <TopicPage key={t.tid} rid={rid} rapi={rapi} tid={t.tid} notes={notes} manuscripts={manuscripts} blocks={summary.blocks} project={current?.title ?? summary.research.title} pc={projectColor(rid)}
         version={version} onChanged={() => { changed(); notesChanged() }} onSaved={flash} />
       case 'notes': case 'concepts': case 'papers': return <NotesPage key={t.k} show={t.k} rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} library={library} onChanged={changed} onLibraryChanged={libraryChanged} onNewBlock={() => setDialog('new-block')} onSaved={flash} />
@@ -636,6 +640,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'doc': return tab.name
     case 'file': return tab.path.split('/').pop()!
     case 'task': return taskTitles.get(tab.task) ?? tab.task
+    case 'judge': return `${L('판단', 'Judge')} · ${flowTitles.get(tab.id) ?? tab.id}`
     case 'chat': return chatTitles.get(tab.chat) ?? L('대화', 'Conversation')
     case 'topic': return tab.tid === LOOSE_TOPIC_ID ? (ko ? LOOSE_NOTES_UI : LOOSE_NOTES_LABEL) : topics.find((x) => x.id === tab.tid)?.title ?? tab.tid
     case 'part': return manuscripts.flatMap((m) => m.parts).find((p) => p.file === tab.file && !p.line)?.title ?? manuscripts.find((m) => m.main === tab.file)?.name ?? tab.file.split('/').pop()!

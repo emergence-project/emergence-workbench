@@ -89,12 +89,12 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
       </div>
     )
   }
-  const recordsOn = route.page === 'records' || route.page === 'todo' || route.page === 'log' || route.page === 'task'
+  const recordsOn = route.page === 'records' || route.page === 'todo' || route.page === 'log' || route.page === 'task' || route.page === 'judge'
   return (
     <div className="project-toc" data-ui="프로젝트 목차">
       <SideTabs label={t('프로젝트', 'Project')} turn={askCount + editCount}
         turnTip={t(`내 차례: 에이전트가 물은 기록 ${askCount} · 수정 검토 ${editCount}`, `Your turn: ${askCount} agent question(s), ${editCount} edit review(s)`)}
-        show={!!current || route.page === 'part' || route.page === 'task' || route.page === 'concept'}>
+        show={!!current || route.page === 'part' || route.page === 'task' || route.page === 'judge' || route.page === 'concept'}>
       <div className="project-nav">
         <div className="side-quick" data-ui="빠른 이동">
           <button className={`nav side-row${route.page === 'info' ? ' on' : ''}`} aria-current={route.page === 'info' ? 'page' : undefined} data-ui="프로젝트 정보 블록" title={t('개요: 설명 · 시작일 · 성격과 분야 · 들어 있는 것', 'Overview: description, start date, kind and fields, contents')} onClick={() => go({ page: 'info', rid })}>

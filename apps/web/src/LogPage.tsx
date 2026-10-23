@@ -10,6 +10,8 @@ import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
 import { openFlowDot } from './FlowView'
+import { useFlow } from './flow/data'
+import { JudgeQueue, judgeTurns } from './flow/JudgeQueue'
 import { needsJudgment } from './taskView'
 import { agentTurnRecords, isRecordFilter, openTodoRecords, parseWorkFilter, clearTodoFocus, peekTodoFocus, RECORD_VIEWS, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, userTurnRecords, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, type FlatRecord, type RecordFilter, type RecordView, type WorkFilter } from './workRecords'
 import { EditReviewRow, TurnRecordRow } from './RecordTurns'
@@ -79,7 +81,9 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
   }, [])
   const { tasks, diagnostics, loaded: tasksLoaded, error: tasksError, reload: reloadTasks } = useTasks(rid)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
-  const judgeCount = tasks.filter(needsJudgment).length
+  const flow = useFlow(rid).scan
+  const flowTurns = flow ? judgeTurns(flow.nodes) : { queued: [], ready: [] }
+  const judgeCount = tasks.filter(needsJudgment).length + flowTurns.queued.length + flowTurns.ready.length
   const recordsQuery = useRecords(rid)
   const files = recordsQuery.data?.files ?? NO_FILES
   useEffect(() => {
@@ -153,6 +157,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
           {view === 'mine' && <>
             <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />
             <div className="tk-list" data-ui="내 차례 목록">
+              {flow && <JudgeQueue rid={rid} nodes={flow.nodes} />}
               <JudgeList rid={rid} tasks={tasks} loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks} emptyText={null} openId={openRow} onToggle={(id) => toggleRow(`task/${id}`)}
                 onEditProposal={(x) => setDialog({ mode: 'proposal', from: x, endCondition: x.proposal?.endCondition.length === 1 ? x.proposal.endCondition[0] : (x.proposal?.endCondition ?? []).map((c, i) => `${i + 1}) ${c}`).join('\n') })} />
               {askRecords.map((item) => recordRow(item, true))}

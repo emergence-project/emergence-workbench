@@ -73,7 +73,7 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
         <span title={K.def()}><i>{tr('종류', 'Kind')}</i>{K.act ? tr('행위', 'Action') : tr('진술', 'Statement')} · {K.name()}</span>
         {hasProof && !n.theorem && <span className="muted">{tr('증명 승인 대기 · 승인하면 정리', 'Proof awaiting approval · becomes a theorem when approved')}</span>}
         <span><i>{tr('상태', 'State')}</i><StatusDot s={DOT[stateOf(n)]} name={stateName(n)} label /></span>
-        {judgeName(n) && <span className={turnOf(n) ? 'fl-turn-name' : undefined} title={turnOf(n) ? tr('내 차례: 판단할 것', 'Your turn: to judge') : undefined}><i>{tr('판단', 'Judgment')}</i>{judgeName(n)}</span>}
+        {judgeName(n) && <span><i>{tr('판단', 'Judgment')}</i><button className={`a${turnOf(n) ? ' fl-turn-name' : ''}`} data-ui="흐름 점 판단" title={turnOf(n) ? tr('내 차례: 판단 화면 열기', 'Your turn: open the judgment screen') : tr('판단 화면 열기', 'Open the judgment screen')} onClick={() => go({ page: 'judge', rid, id: n.id })}>{judgeName(n)}</button></span>}
         {n.end && <span title={tr('이 갈래는 여기서 끝나 뒤에 이어질 점이 없음', 'This branch ends here; no dot follows')}>{tr('흐름 종료', 'Flow ends')}</span>}
         {n.date && <span><i>{tr('시작일', 'Started')}</i>{n.date}</span>}
         {n.ended && <span><i>{tr('끝난 날', 'Ended')}</i>{n.ended}</span>}
@@ -163,7 +163,7 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
   )
 }
 
-function EvidenceSource({ rid, e, notes }: { rid: string; e: FlowEvidence; notes: NoteRow[] }) {
+export function EvidenceSource({ rid, e, notes }: { rid: string; e: FlowEvidence; notes: NoteRow[] }) {
   if (e.ref) return <button className="a fl-ref-link" title={tr('라이브러리에서 열기', 'Open in the library')} onClick={() => go({ page: 'shelf', open: e.ref })}>{Chain}<span>{e.title ?? e.ref}</span></button>
   const file = e.file ?? ''
   // 노트 폴더(note.md · note.yaml · 그림)의 어느 파일이든 그 노트로
