@@ -152,6 +152,7 @@ describe('바뀐 것 검사', () => {
     write('workbench/flow/a.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 에이전트 점\nby: claude\n')
     write('workbench/flow/b.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 시작 기록 있음\nby: claude\nstart: { at: 2026-10-23T09:00, novel: 처음 }\n')
     write('workbench/flow/u.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 사람 점\nby: user\n')
+    write('workbench/flow/f.yaml', 'format: 1\nkind: finding\nprogress: active\ntitle: 노트에서 옮긴 발견\nby: claude\n')
     write('workbench/flow/c.yaml', 'format: 1\nkind: question\nprogress: done\nresult: solved\ntitle: 물음\nfields:\n  question: 왜?\n  motivation: 궁금\n  criterion: 예 아니오\n')
     expect(found()).toEqual([['warning', 'flow-integration', 'workbench/flow/c.yaml'], ['warning', 'flow-start', 'workbench/flow/a.yaml']])
     write('workbench/flow/c.yaml', 'format: 1\nkind: question\nprogress: done\nresult: solved\ntitle: 물음\nfields:\n  question: 왜?\n  motivation: 궁금\n  criterion: 예 아니오\nintegration: { at: 2026-10-23T09:00, into: workbench/notes/overview/note.md }\n')
