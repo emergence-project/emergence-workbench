@@ -4,7 +4,7 @@ import { layoutFlow, lineageOf } from './flowLayout'
 
 const node = (id: string, date: string, from: string[] = [], topics = ['t']): FlowNode => ({
   id, file: `workbench/flow/${id}.yaml`, hash: 'h', kind: 'question', progress: 'open', short: id, title: id, topics, date,
-  from: from.map((f) => ({ id: f, type: 'origin' })), fields: {}, evidence: [], steps: [], gaps: [], sources: [], guesses: [], theorem: false,
+  from: from.map((f) => ({ id: f, type: 'origin' })), fields: {}, evidence: [], steps: [], gaps: [], sources: [], guesses: [], theorem: false, judgments: [],
 })
 const at = (l: ReturnType<typeof layoutFlow>, id: string) => { const p = l.placed.find((x) => x.node.id === id)!; return [p.c, p.r] }
 

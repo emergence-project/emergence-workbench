@@ -18,6 +18,17 @@ export const FLOW_FIELDS: Record<(typeof FLOW_KINDS)[number], readonly string[]>
   proof: ['goal', 'assumptions', 'method', 'result'],
   literature: ['reading', 'gain', 'use'],
 }
+/**
+ * 카드 (10/23 "판단 설계"): 질문 점을 맡길 때 더 적는 설명 칸. 화면 이름: 가치 · 제외 범위 · 자원 · 중단 조건 · 보고서 · 완료 조건(아니오 · 불분명).
+ * 완료 조건의 "예"는 질문의 criterion이다. 사전 연구 · 용어 · 도구 · 담당은 칸 글이 아니라 card에 적는다 (docs/repo-format.md §14 "카드")
+ */
+export const CARD_FIELDS = ['value', 'out_of_scope', 'budget', 'stop', 'deliverable', 'criterion_no', 'criterion_unclear'] as const
+/** 카드를 판단한 뒤 바뀌면 그 판단이 낡는 칸 (문제 · 완료). 바꾸면 새 판본이라 다시 판단한다 */
+export const CARD_LOCKED = ['question', 'criterion', 'criterion_no', 'criterion_unclear'] as const
+/** 사람 판단의 말 (10/23 "판단 버튼 말"): 명제(발견)는 승인 · 수정 · 기각, 카드(질문)는 시작 · 수정 · 종료 */
+export const FINDING_VERDICTS = ['approve', 'send-back', 'reject'] as const
+export const CARD_VERDICTS = ['start', 'send-back', 'end'] as const
+export const FLOW_VERDICTS = ['approve', 'send-back', 'reject', 'start', 'end'] as const
 /** "해결"로 넘어가기 전에 채워야 하는 설명 칸 (10/20 사용자 결정 "해결 문턱"). 그 밖의 조건은 서버 flowGate */
 export const FLOW_REQUIRED: Record<(typeof FLOW_KINDS)[number], readonly string[]> = {
   question: ['question', 'motivation', 'criterion'],

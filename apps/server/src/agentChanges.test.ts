@@ -105,6 +105,15 @@ describe('바뀐 것 검사', () => {
     ])
   })
 
+  it('흐름: 판단 기록(judgments)을 쓰면 오류, 카드 칸만 바꾸면 통과 (10/23)', () => {
+    write('workbench/flow/g.yaml', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nfields:\n  statement: 가\nintegration: { at: 2026-10-23T10:00, skip: 시험 }\n')
+    write('workbench/flow/q.yaml', 'format: 1\nkind: question\nprogress: open\nfields:\n  question: 왜?\n')
+    commit()
+    write('workbench/flow/g.yaml', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nfields:\n  statement: 가\nintegration: { at: 2026-10-23T10:00, skip: 시험 }\njudgments:\n  - { at: 2026-10-23T11:00, by: user, verdict: approve }\n')
+    write('workbench/flow/q.yaml', 'format: 1\nkind: question\nprogress: open\nfields:\n  question: 왜?\n  value: 다음 카드\ncard:\n  givens: [g]\n')
+    expect(found()).toEqual([['error', 'approval', 'workbench/flow/g.yaml']])
+  })
+
   it('흐름: 계산을 끝남으로 바꿀 때 필수 칸이 비면 오류, 노트만 바꾸고 점은 그대로면 경고', () => {
     write('workbench/flow/c.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 계산\nfields:\n  goal: 잰다\n')
     write('workbench/topics/t/n/note.md', '# N\n')

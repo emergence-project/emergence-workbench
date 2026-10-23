@@ -20,7 +20,7 @@ export function newDraftNode(from: FlowNode[], topic?: string): FlowNode {
   return {
     id: '', file: '', hash: '', kind, progress: 'open', short: '', title: '', topics: topic ? [topic] : from[0]?.topics ?? [],
     date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`, from: from.map((m) => ({ id: m.id, type: defaultEdge(kind) })),
-    fields: {}, evidence: [], steps: [], gaps: [], sources: [], guesses: [], theorem: false,
+    fields: {}, evidence: [], steps: [], gaps: [], sources: [], guesses: [], theorem: false, judgments: [],
   }
 }
 

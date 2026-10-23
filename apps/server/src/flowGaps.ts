@@ -2,7 +2,7 @@
 // 빈틈은 앱이 계산해 화면 · STATUS · MCP가 같은 것을 본다. 문턱(flowGate)은 편집 화면과 함께 쓰려고 core flow-gate.ts에 있다.
 import fs from 'node:fs'
 import path from 'node:path'
-import { flowGate } from '@rw/core'
+import { CARD_LOCKED, flowGate } from '@rw/core'
 import type { FlowGap, FlowNode } from '@rw/core/contract/flow'
 import { hashOf, isInside } from './fsutil.js'
 import { t as tl } from './i18n.js'
@@ -41,6 +41,17 @@ export const stepHash = (s: { text: string; uses?: string }) => hashOf(`${s.text
 
 /** 발견의 진술 · 조건 해시 (10/23): 발견의 확인은 근거와 함께 이 문장에도 묶인다. 진술을 넓히면 확인이 낡는다 */
 export const claimHash = (n: Pick<FlowNode, 'fields'>) => hashOf(`${n.fields.statement ?? ''}\n${n.fields.condition ?? ''}`)
+
+/** 판단할 내용의 해시 (10/23): 발견은 진술 · 조건(claimHash), 질문(카드)은 질문과 완료 조건 */
+export const judgmentHash = (n: Pick<FlowNode, 'kind' | 'fields'>) =>
+  n.kind === 'finding' ? claimHash(n) : hashOf(CARD_LOCKED.map((k) => n.fields[k] ?? '').join('\n'))
+
+/** 판단 기록의 낡음을 적고, 지금의 판단(낡지 않은 마지막 판단의 말)을 돌려준다. claim이 없는 기록은 내용을 보지 않는다 */
+export function markJudgments(n: FlowNode): FlowNode['verdict'] {
+  const h = judgmentHash(n)
+  for (const j of n.judgments) { if (j.claim && j.claim !== h) j.stale = true; else delete j.stale }
+  return [...n.judgments].reverse().find((j) => !j.stale)?.verdict
+}
 
 /** 이 근거의 마지막 확인 뒤 발견의 진술 · 조건이 바뀌었나 (claim이 없는 옛 기록은 보지 않는다) */
 export function claimChanged(n: FlowNode, e: FlowNode['evidence'][number]): boolean {

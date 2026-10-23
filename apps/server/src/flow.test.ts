@@ -366,6 +366,48 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     expect((await get()).nodes.find((m: { id: string }) => m.id === 'g').evidence[0].stale).toBeUndefined()
   })
 
+  it('판단 (10/23): 명제는 승인 · 수정 · 기각, 카드는 시작 · 수정 · 종료. 판단한 내용이 바뀌면 낡는다', async () => {
+    put('f', 'format: 1\nkind: finding\nprogress: done\nresult: solved\nshort: 계단\ntitle: 계단 줄어듦\nfields:\n  statement: 계단이 줄어든다\n  condition: κ → 0')
+    put('q', 'format: 1\nkind: question\nprogress: open\nshort: 꼭짓점\ntitle: 꼭짓점 Δn\nfields:\n  question: 세 각도만의 함수인가\n  criterion: 0.01 안\n  value: 둘째 보편량\n  budget: 하루\ncard:\n  givens: [f]\n  terms:\n    - { word: Δn, def: n의 변화, ref: workbench/n.md#질문 }\n    - κ′\n  tools: [code/a.py]\n  assignee: claude-code\n  findings: 2')
+    put('p', 'format: 1\nkind: question\nprogress: open\ntitle: 카드 아님')
+    let { nodes } = await get()
+    let f = nodes.find((m: { id: string }) => m.id === 'f'), q = nodes.find((m: { id: string }) => m.id === 'q')
+    expect(f.judgments).toEqual([])
+    expect(f.verdict).toBeUndefined()
+    expect(q.card).toEqual({ givens: ['f'], terms: [{ word: 'Δn', def: 'n의 변화', ref: 'workbench/n.md#질문' }, { word: 'κ′' }], tools: ['code/a.py'], assignee: 'claude-code', findings: 2 })
+    // 종류에 맞지 않는 말 · 카드가 아닌 질문은 거절
+    expect((await send('POST', '/f/judge', { baseHash: f.hash, verdict: 'start' })).statusCode).toBe(400)
+    expect((await send('POST', '/p/judge', { baseHash: nodes.find((m: { id: string }) => m.id === 'p').hash, verdict: 'start' })).statusCode).toBe(400)
+    expect((await send('POST', '/f/judge', { baseHash: 'old', verdict: 'approve' })).statusCode).toBe(409)
+    f = (await send('POST', '/f/judge', { baseHash: f.hash, verdict: 'send-back', note: '명제를 알 수 없음' })).json().node
+    f = (await send('POST', '/f/judge', { baseHash: f.hash, verdict: 'approve' })).json().node
+    expect(f.verdict).toBe('approve')
+    expect(f.judgments).toHaveLength(2)
+    expect(f.judgments[0]).toMatchObject({ by: 'user', verdict: 'send-back', note: '명제를 알 수 없음' })
+    expect(f.judgments[1].claim).toMatch(/^[0-9a-f]{16}$/)
+    expect(fs.readFileSync(path.join(dir(), 'f.yaml'), 'utf8')).toMatch(/\njudgments:\n {2}- \{ at: [^\n]*send-back[^\n]*\}\n {2}- \{ at: [^\n]*verdict: approve, claim: \w+ \}\n$/)
+    // 진술을 바꾸면 판단이 낡아 판단 전으로
+    f = (await send('PATCH', '/f', { baseHash: f.hash, set: { fields: { statement: '계단이 사라진다', condition: 'κ → 0' } } })).json().node
+    expect(f.verdict).toBeUndefined()
+    expect(f.judgments.map((j: { stale?: boolean }) => !!j.stale)).toEqual([true, true])
+    // 카드: 문제 · 완료 칸이 바뀌면 낡고, 가치 · 자원은 판단을 낡게 하지 않는다
+    q = (await send('POST', '/q/judge', { baseHash: q.hash, verdict: 'start' })).json().node
+    expect(q.verdict).toBe('start')
+    q = (await send('PATCH', '/q', { baseHash: q.hash, set: { fields: { question: '세 각도만의 함수인가', criterion: '0.01 안', value: '둘째 보편량', budget: '이틀' } } })).json().node
+    expect(q.verdict).toBe('start')
+    q = (await send('PATCH', '/q', { baseHash: q.hash, set: { fields: { question: '세 각도만의 함수인가', criterion: '0.01 안', criterion_no: '0.03 넘음', value: '둘째 보편량', budget: '이틀' } } })).json().node
+    expect(q.verdict).toBeUndefined()
+    expect(q.card.givens).toEqual(['f'])
+  })
+
+  it('판단 · 카드의 틀린 곳은 진단으로 알린다', async () => {
+    put('a', 'format: 1\nkind: calc\nprogress: active\ntitle: 계산\ncard: { givens: [x] }\njudgments:\n  - { at: 2026-10-23T10:00, by: user, verdict: approve }\n  - { at: 2026-10-23T10:00, verdict: approve }')
+    const { nodes, diagnostics } = await get()
+    expect(nodes[0].card).toBeUndefined()
+    expect(nodes[0].judgments).toEqual([])
+    expect(diagnostics.map((d: { code: string }) => d.code).sort()).toEqual(['card', 'judgments', 'judgments'])
+  })
+
   it('에이전트 검토는 단계에도 role agent로, 사람 승인은 단계에도 된다', async () => {
     put('p', 'format: 1\nkind: proof\nprogress: active\nshort: 증명\ntitle: 증명\nsteps: [{ text: 가, uses: 정의 }]')
     let n = (await get()).nodes[0]

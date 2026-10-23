@@ -591,6 +591,13 @@ priority: high           # high · normal · low
 end: true                # 흐름 종료: 이 갈래는 여기서 끝나 뒤에 이어질 점이 없음 (선택, 10/21 "갈래 종결"에서 이름 바꿈)
 integration:             # 반영 기록 (10/23, pnpm agent:integrate): 아래 "반영 기록"
   { at: 2026-10-05T18:00, by: claude, into: workbench/notes/overview/note.md, section: 색칠 }   # 또는 skip: <반영하지 않는 이유>
+card:                    # 카드 (10/23, 질문 점에만): 아래 "카드"
+  givens: [degree-bound]   # 사전 연구: 바탕으로 쓸 명제(발견) 점 id
+  terms:                 # 용어: 문장의 기호 · 말과 정의가 있는 곳
+    - { word: Δn, def: 소용돌이를 둘 때 n의 변화, ref: workbench/topics/coloring/kempe/note.md#질문 }
+  tools: [workbench/topics/coloring/kempe/code/swap.py]   # 도구: 쓸 코드 · 문헌
+  assignee: claude-code  # 담당
+  findings: 2            # 돌려받을 명제 수의 상한
 evidence:                # 근거. ref(라이브러리 논문 키)와 file(저장소 기준 경로) 가운데 하나만
   - kind: proof          # calc · analytic · proof · other · paper
     title: Kempe 사슬     # 보이는 이름 (선택)
@@ -601,6 +608,9 @@ evidence:                # 근거. ref(라이브러리 논문 키)와 file(저�
       - { at: 2026-10-02T15:00, by: claude, role: agent, hash: 9a…, claim: 4c… }   # 발견이면 claim = 진술 · 조건의 해시 (10/23)
       - { at: 2026-10-02T22:10, by: 사용자, role: human }
       - { at: 2026-10-03T09:00, by: 사용자, role: human, revoked: true }   # 거두기도 덧붙인다
+judgments:               # 사람 판단 (10/23, 덧붙이기만): 아래 "판단"
+  - { at: 2026-10-03T10:00, by: user, verdict: send-back, note: 명제를 알 수 없음, claim: 4c… }
+  - { at: 2026-10-04T09:00, by: user, verdict: approve, claim: 7d… }
 sources: [workbench/log/2026-10-02.md]   # 기록 출처 (일지·노트·커밋)
 guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하지 않음)
 ```
@@ -616,6 +626,8 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 
 \* = "해결"로 넘어가기 전에 채울 칸 (`FLOW_REQUIRED`, `packages/core/src/flow-kinds.ts`). 판정 기준 · 가정 · 해석 · 쓰는 곳은 10/20에 더했다.
 
+- **카드** (10/23 결정 "판단 설계", `card` · `CARD_FIELDS` in `packages/core/src/flow-kinds.ts`): 맡기기로 정한 질문 점이다. 새 파일 종류가 아니라 질문 점에 `card`를 더한 것이고, 연구가 아닌 일(정리 · 도구 고치기)은 그대로 맡긴 일(§7)로 맡긴다. 칸 글은 `fields`에 적는다: `question` 질문 · `motivation` 동기 · `guess` 예상 · `criterion` 완료 조건(예) · `criterion_no` 아니오 · `criterion_unclear` 불분명 · `value` 가치(답에 따라 무엇이 바뀌나) · `out_of_scope` 제외 범위 · `budget` 자원(시간 · 계산 장비) · `stop` 중단 조건(멈추고 물을 때) · `deliverable` 보고서(돌려받을 모양). 글이 아닌 것은 `card`에 적는다: `givens` 사전 연구(명제 점 id) · `terms` 용어(`word`, `def` 정의, `ref` 정의가 있는 곳: 노트 경로#절 · 개념노트 · 그림) · `tools` 도구 · `assignee` 담당 · `findings` 돌려받을 명제 수. 판단은 아래 "판단"이고, 시작한 뒤 문제 · 완료 칸(`CARD_LOCKED`: 질문 · 완료 조건 셋)을 바꾸면 시작 판단이 낡아 다시 판단한다. 상한 3 · 판단 전 사전 연구로는 시작하지 않기 · 정의 없는 용어는 `agent:check`가 잡는다(다음 단계).
+- **판단** (10/23 결정 "판단 버튼 말", `judgments`): 사람의 판단 기록이다. 명제(발견)는 `approve` 승인 · `send-back` 수정 · `reject` 기각, 카드가 있는 질문은 `start` 시작 · `send-back` 수정 · `end` 종료. 기각은 결과가 나쁘다는 뜻이 아니라 사실로 받지 않는다는 뜻이다("아니오" 결과도 근거가 맞으면 승인). 앱은 판단한 내용의 해시를 `claim`으로 적는다(발견은 진술 · 조건, 카드는 질문 · 완료 조건). 지금 내용과 `claim`이 다르면 그 판단은 낡고(`stale`), 지금의 판단(`verdict`, 앱이 계산)은 낡지 않은 마지막 판단의 말이다. 없으면 **판단 전**이다(10/23 결정 "정의와 옛 결과": 지금까지의 점은 모두 판단 전). 앱 화면이 `POST …/flow/:id/judge`로 쓰고, 에이전트가 파일에 쓰면 `agent:check`의 `approval`이 잡는다. 근거의 사람 승인(`checks`의 `role: human`)은 근거 하나를 확인한 것이고 판단과 따로다.
 - **해결 문턱** (10/20 사용자 결정, `flowGate` in `apps/server/src/flowGaps.ts`): 점이 이번 저장으로 **끝남이나 멈춤으로 넘어갈 때만** 본다(미해결 · 진행은 빈 칸이 있어도 저장되고, 이미 끝난 옛 점은 빈틈으로만 보인다). 해결: 위 표의 * 칸, 질문이 아니면 절(`section`)이나 논문(`ref`)을 가리킨 근거 하나 이상(발견은 근거 · 사용 선으로도 된다), 수치 계산은 `run.code`, 증명은 단계 하나 이상과 단계마다 `uses`. 반증 · 폐기 · 멈춤: `reason`. 앱 API는 `PATCH`에 `gate: true`가 있을 때 검사하고(MCP · 새 고치기 칸), `agent:check`의 `flow-form`이 파일을 직접 고친 경우를 같은 규칙으로 잡는다.
 - **빈틈** (10/20, `computeGaps`): 앱이 점마다 계산해 `GET …/flow`의 `gaps`, STATUS "흐름 요약"의 빈틈 절, MCP `flow_read`에 같은 글로 싣는다. `no-evidence` 해결인데 근거 없음 · `unverified-base` 아무도 확인하지 않은 발견 위에 근거 · 사용 선으로 쌓음 · `no-result` 끝난 계산 · 증명의 결과 칸이 빔 · `no-reason` 이유 없는 반증 · 폐기 · 멈춤 · `no-criterion` 열린 질문 · 계산에 판정 기준 없음 · `no-next` 해결인데 뒤따른 점도 흐름 종료도 다음 할 일도 없음 · `missing-file` 근거 파일 · 절이 없음 · `changed-evidence` 확인한 뒤 근거 절이 바뀜 · `step-gap` 쓰는 것이나 확인이 없는 단계.
 - **낡은 확인** (10/20): 확인 기록의 `hash`가 지금 근거 절(단계는 글 · 쓰는 것)의 해시와 다르면 그 확인은 없는 것으로 친다(`stale`). 정리도 풀린다. `hash`가 없는 옛 기록은 그대로 센다.
@@ -643,7 +655,7 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 |---|---|---|
 | `frozen-folder` | `sources/`·`archive/`의 있는 파일을 고치거나 지우거나 옮김. 새로 넣는 것과 폴더 맨 위 `README.md`(안내, 옛 경로 → 새 경로 표)는 아래 경고만 | 오류 |
 | `locked` | 머리말(또는 YAML) `locked: true`인 파일을 고침 | 오류 |
-| `approval` | 노트를 해결로(`note.yaml` `state: done`, 블록 `status: solved`), 맡긴 일을 `done`으로, `judged`·`answers`를 씀, 흐름에 `role: human` 확인 기록을 씀 | 오류 |
+| `approval` | 노트를 해결로(`note.yaml` `state: done`, 블록 `status: solved`), 맡긴 일을 `done`으로, `judged`·`answers`를 씀, 흐름에 `role: human` 확인 기록이나 판단 기록(`judgments`, 10/23)을 씀 | 오류 |
 | `flow-human` | 흐름 점의 질문 문장(`fields.question`)·발단 선(`origin`)을 바꿈, `result: dropped`로 갈래를 폐기 | 오류 |
 | `flow-form` | 흐름 점을 끝남 · 멈춤으로 바꿨는데 해결 문턱(§14)의 칸이 빔 | 오류 |
 | `flow-skipped` | 노트 · 블록 노트를 바꿨는데 이번에 바뀐 흐름 점 가운데 그 노트를 근거 · 실행 파일로 가리키거나 주제가 겹치는 것이 없음 (10/20: 점은 일을 시작할 때 만든다. 10/23: 무관한 점만 고쳐도 통과하던 것을 막음). 노트의 주제는 주제 폴더 · `note.yaml`/머리말 `topics:` · 옛 `topics[].blocks`, 주제가 없는 노트는 주제가 없는 점과 짝짓는다 | 경고 |

@@ -127,6 +127,8 @@ function flowHuman(y: Record<string, unknown> | undefined) {
   const human = list(y?.evidence).flatMap((e) => list(e && typeof e === 'object' ? (e as Record<string, unknown>).checks : undefined))
     .filter((c) => c && typeof c === 'object' && (c as Record<string, unknown>).role === 'human')
     .map((c) => JSON.stringify(c))
+  // 판단 기록 (10/23): 사람만 쓴다
+  human.push(...list(y?.judgments).map((j) => `judgment:${JSON.stringify(j)}`))
   return { question: y?.kind === 'question' ? String(fields.question ?? '') : '', origins: origins.join(','), dropped: y?.result === 'dropped', human }
 }
 
@@ -232,7 +234,7 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
         if (problem) add('flow-integration', c.file, `반영 기록이 맞지 않습니다: ${problem}`, `The integration record no longer holds: ${problem}`)
       }
       const a = flowHuman(yamlOf(after)); const b = flowHuman(yamlOf(before))
-      if (a.human.some((h) => !b.human.includes(h))) add('approval', c.file, '사람 승인 기록(role: human)을 썼습니다. 에이전트의 검토는 role: agent로 적습니다.', 'A human approval record (role: human) was written. Record agent reviews with role: agent.')
+      if (a.human.some((h) => !b.human.includes(h))) add('approval', c.file, '사람 승인 기록(role: human)이나 판단 기록(judgments)을 썼습니다. 판단은 사람이 앱에서 합니다. 에이전트의 검토는 role: agent로 적습니다.', 'A human approval record (role: human) or a judgment (judgments) was written. People judge in the app. Record agent reviews with role: agent.')
       if (c.status !== 'A') {
         if (a.question !== b.question) add('flow-human', c.file, '질문 문장을 바꿨습니다. 사람이 정하는 칸이라 되돌리고 제안으로 남기세요.', 'The question wording was changed. A person decides it; revert and leave a proposal.')
         if (a.origins !== b.origins) add('flow-human', c.file, '발단 선(origin)을 바꿨습니다. 사람이 정하는 선이라 되돌리고 제안으로 남기세요.', 'An origin link was changed. A person decides it; revert and leave a proposal.')
