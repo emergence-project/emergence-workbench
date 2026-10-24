@@ -325,6 +325,21 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     next: z.string().optional().describe('What to do next'),
     priority: z.enum(C.FLOW_PRIORITY).optional(),
   }
+  /** 시작 기록 문 (POST …/flow/start). 못 지나면 걸린 지난 점을 오류에 붙여 다음 부름에 prior를 고르게 한다 */
+  const startGate = async (rid: string, body: C.FlowStartBody, q: string): Promise<{ ok: true; reply: C.FlowStartReply } | { ok: false; error: Text }> => {
+    const made = await post(base, f, `/api/researches/${enc(rid)}/flow/start`, body)
+    if (made.ok) return { ok: true, reply: made.body as C.FlowStartReply }
+    const found = q.trim().length >= 2 ? await get(base, f, `/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`) : undefined
+    const rows = (found?.ok ? (found.body as C.FlowSearchReply).rows : []).filter((r) => r.id !== body.dot)
+    return { ok: false, error: rows.length ? fail(`${made.error.content[0]!.text}\nEarlier dots that matched:\n${rows.map((r) => `- ${r.id} · ${r.kind} · ${r.state} — ${r.title}${r.result ? ` (result: ${r.result})` : ''}${r.reason ? ` (reason: ${r.reason})` : ''}`).join('\n')}`) : made.error }
+  }
+  /** 시작 기록 문의 칸 (flow_add · flow_update) */
+  const startArgs = {
+    criterion: z.string().optional().describe('What result solves or refutes it (stored in fields.criterion for questions and calculations)'),
+    prior: z.array(z.string()).optional().describe('The closest earlier dot ids (from flow_search or the refusal)'), adds: z.string().optional().describe('What this adds to the closest dots'),
+    novel: z.string().optional().describe('Why this is new when no earlier dot is close'), stop: z.string().optional().describe('When to stop'),
+    query: z.string().optional().describe('Words for the earlier-dot search (default: short, title and fields)'),
+  }
   const flowShort = (n: C.FlowNode) => ({ id: n.id, hash: n.hash, kind: n.kind, progress: n.progress, ...(n.result && { result: n.result }), short: n.short, ...(n.gaps.length && { gaps: n.gaps.map((g) => g.text) }) })
 
   server.registerTool('flow_search', {
@@ -345,11 +360,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     title: 'Add a flow dot',
     description: 'Add a dot when you start a piece of work (a question, calculation, proof, literature reading or finding). Work other than a finding opens only through the start gate (same as pnpm agent:start): it searches earlier dots first and needs prior (the closest earlier dot ids) with adds (what this adds), or novel (why it is new), and a criterion (what result solves or refutes it). When refused, the error lists the earlier dots that matched; read them with flow_read and call again. progress open (a question for later) skips the gate. Refused while 3 of your findings wait for the user\'s judgment (when kind is finding), and for work that follows a card the user has not started. Returns the dot id, hash, gaps and the earlier dots that matched.',
     inputSchema: { project, kind: z.enum(C.FLOW_KINDS), short: z.string().min(1).max(60).describe('Short name shown on the chart'), progress: z.enum(['open', 'active']).optional(),
-      task: z.string().optional().describe('The delegated task (workbench/tasks id) this work belongs to, if any'),
-      criterion: z.string().optional().describe('What result solves or refutes it (stored in fields.criterion for questions and calculations)'),
-      prior: z.array(z.string()).optional().describe('The closest earlier dot ids (from flow_search or the refusal)'), adds: z.string().optional().describe('What this adds to the closest dots'),
-      novel: z.string().optional().describe('Why this is new when no earlier dot is close'), stop: z.string().optional().describe('When to stop'),
-      query: z.string().optional().describe('Words for the earlier-dot search (default: short, title and fields)'), ...flowSet },
+      task: z.string().optional().describe('The delegated task (workbench/tasks id) this work belongs to, if any'), ...startArgs, ...flowSet },
     annotations: { readOnlyHint: false, openWorldHint: false },
   }, async ({ project: rid, kind, short, progress, title, topics, from, task, criterion, prior, adds, novel, stop, query, fields, ...rest }) => {
     const by = agentOf(server.server.getClientVersion()?.name)
@@ -365,15 +376,9 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     } else {
       const body: C.FlowStartBody = { kind, short, by, ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }), ...(fields && { fields }),
         ...(criterion && { criterion }), ...(prior?.length && { prior }), ...(adds && { adds }), ...(novel && { novel }), ...(stop && { stop }), ...(query && { query }) }
-      const made = await post(base, f, `/api/researches/${enc(rid)}/flow/start`, body)
-      if (!made.ok) {
-        // 문을 못 지나면 걸린 점을 함께 보여 다음 부름에 prior를 고르게 한다
-        const q = query || [short, title, fields?.question, fields?.goal, fields?.statement].filter(Boolean).join(' ')
-        const found = q.trim().length >= 2 ? await get(base, f, `/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`) : undefined
-        const rows = found?.ok ? (found.body as C.FlowSearchReply).rows : []
-        return rows.length ? fail(`${made.error.content[0]!.text}\nEarlier dots that matched:\n${rows.map((r) => `- ${r.id} · ${r.kind} · ${r.state} — ${r.title}${r.result ? ` (result: ${r.result})` : ''}${r.reason ? ` (reason: ${r.reason})` : ''}`).join('\n')}`) : made.error
-      }
-      ;({ node: n, hits } = made.body as C.FlowStartReply)
+      const made = await startGate(rid, body, query || [short, title, fields?.question, fields?.goal, fields?.statement].filter(Boolean).join(' '))
+      if (!made.ok) return made.error
+      ;({ node: n, hits } = made.reply)
     }
     const matched = hits.length ? { matched: hits.map((h) => h.id) } : {}
     if (!Object.values(set).some((v) => v !== undefined)) return json({ ...flowShort(n), ...matched })
@@ -383,21 +388,39 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
 
   server.registerTool('flow_update', {
     title: 'Update a flow dot',
-    description: 'Change a dot: when the work ends, set progress done with result (solved, refuted) and fill the result, evidence (with section), run or steps, reason and next. Finishing or pausing is refused while required fields are empty; the error names them. People decide the question wording, origin links and dropping a branch: those are refused here. Pass the hash from flow_read or flow_add.',
+    description: 'Change a dot: when the work ends, set progress done with result (solved, refuted) and fill the result, evidence (with section), run or steps, reason and next. Finishing or pausing is refused while required fields are empty; the error names them. People decide the question wording, origin links and dropping a branch: those are refused here. Pass the hash from flow_read or flow_add. Starting an open dot (progress active, paused or done) that is not a finding goes through the same start gate as flow_add: give prior with adds, or novel, and a criterion.',
     inputSchema: {
       project, id: z.string(), baseHash: z.string(),
       progress: z.enum(C.FLOW_PROGRESS).optional(), result: z.enum(['solved', 'refuted']).optional(), short: z.string().min(1).max(60).optional(), end: z.boolean().optional().describe('Flow ends here: no dot follows on this branch'),
-      ...flowSet,
+      ...startArgs, ...flowSet,
     },
     annotations: { readOnlyHint: false, openWorldHint: false },
-  }, async ({ project: rid, id, baseHash, ...set }) => {
+  }, async ({ project: rid, id, baseHash, criterion, prior, adds, novel, stop, query, ...set }) => {
     const cur = await get(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`)
     if (!cur.ok) return cur.error
     const n = (cur.body as C.FlowOne).node
     const origins = (xs: { id: string; type: string }[]) => xs.filter((x) => x.type === 'origin').map((x) => x.id).sort().join(',')
     if (n.kind === 'question' && set.fields?.question !== undefined && n.fields.question && set.fields.question !== n.fields.question) return fail('The question wording is decided by the user. Leave it as is and propose a change with add_record (kind 질문, target flow-' + id + ').')
     if (set.from && origins(set.from) !== origins(n.from)) return fail('Origin links are decided by the user. Keep them and propose a change with add_record (target flow-' + id + ').')
-    const fields = set.fields && { ...n.fields, ...set.fields }
+    // 열린 점을 시작하면 (10/24) 시작 기록 문을 먼저 지난다. 발견은 일이 아니라 결론이라 뺀다
+    if (n.progress === 'open' && n.kind !== 'finding' && !n.start && set.progress && set.progress !== 'open') {
+      if (n.hash !== baseHash) return fail(`The dot ${id} changed since you read it. Read it again with flow_read and retry with the new hash.`)
+      const { fields: given, ...others } = set
+      const body: C.FlowStartBody = { dot: id, by: agentOf(server.server.getClientVersion()?.name), ...(given && { fields: given }),
+        ...(criterion && { criterion }), ...(prior?.length && { prior }), ...(adds && { adds }), ...(novel && { novel }), ...(stop && { stop }), ...(query && { query }) }
+      const made = await startGate(rid, body, query || [n.short, n.title, n.fields.question, n.fields.goal, n.fields.statement].filter(Boolean).join(' '))
+      if (!made.ok) return made.error
+      const { node: started, hits } = made.reply
+      const matched = hits.length ? { matched: hits.map((h) => h.id) } : {}
+      // 시작 기록 문이 진행으로 열었으니, 그 밖의 칸 (진행 말고 다른 상태 포함)만 이어서 고친다
+      const rest = { ...others, ...(set.progress === 'active' && { progress: undefined }) }
+      if (!Object.values(rest).some((v) => v !== undefined)) return json({ ...flowShort(started), ...matched })
+      const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`, { baseHash: started.hash, gate: true, set: rest }, 'PATCH')
+      return r.ok ? json({ ...flowShort((r.body as C.FlowOne).node), ...matched }) : fail(`The dot ${id} was started, but the other fields were not saved: ${r.error.content[0]!.text}`)
+    }
+    if (prior || adds || novel || stop || query) return fail(`prior, adds, novel, stop and query belong to the start record, written only when an open dot starts. Dot ${id} is ${n.progress}${n.start ? ' and already has one' : ''}; leave them out.`)
+    if (criterion && !C.FLOW_FIELDS[n.kind].includes('criterion')) return fail(`A ${n.kind} dot has no criterion field; its criterion lives in the start record. Leave criterion out.`)
+    const fields = (set.fields || criterion) && { ...n.fields, ...set.fields, ...(criterion && { criterion }) }
     const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`, { baseHash, gate: true, set: { ...set, ...(fields && { fields }) } }, 'PATCH')
     return r.ok ? json(flowShort((r.body as C.FlowOne).node)) : r.error
   })
