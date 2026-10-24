@@ -4,6 +4,7 @@ import * as C from '@rw/core/contract/flow'
 import { parseBody, replies } from '../contract.js'
 import { checkFlowEvidence, createFlowNode, deleteFlowNode, judgeFlow, moveFlowRow, patchFlowNode, readFlowNode, reviewFlow, scanFlow, searchFlow, setFlowLayout, setFlowRows } from '../flow.js'
 import { closeAfterJudgment } from '../ask.js'
+import { startFlow } from '../flowStart.js'
 import { t } from '../i18n.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -21,6 +22,9 @@ export function registerFlow(app: FastifyInstance, ctx: RouteContext): void {
   /** 새 점 (파일 이름은 짧은 제목에서) */
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/flow', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
     ({ node: createFlowNode(wbOf(req.params.rid), parseBody(C.NewFlowBody, req.body)) }))
+  /** 시작 기록과 함께 새 점 (MCP flow_add): 가장 가까운 점이나 왜 새로운지, 판정 기준이 없으면 400이고 아무것도 쓰지 않는다 */
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/flow/start', replies(C.FlowStartReply), async (req): Promise<C.FlowStartReply> =>
+    startFlow(wbOf(req.params.rid), parseBody(C.FlowStartBody, req.body)))
   /** 손으로 옮긴 자리 정하기·풀기 (at: null) */
   app.put<{ Params: { rid: string } }>('/api/researches/:rid/flow/layout', replies(C.FlowLayoutReply), async (req): Promise<C.FlowLayoutReply> =>
     ({ layout: setFlowLayout(wbOf(req.params.rid), parseBody(C.FlowLayoutBody, req.body)) }))

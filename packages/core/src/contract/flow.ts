@@ -222,6 +222,28 @@ export const NewFlowBody = z.object({
   task: z.string().max(120).optional(),
 }).strict()
 
+/** 시작 기록과 함께 새 점, 또는 열린 점을 시작 (MCP flow_add · flow_update, 10/24): pnpm agent:start와 같은 문 (apps/server/src/flowStart.ts startFlow).
+ *  dot이 없으면 kind · short가 있어야 한다 (startFlow가 거절한다) */
+export const FlowStartBody = z.object({
+  dot: z.string().min(1).optional(),
+  kind: z.enum(FLOW_KINDS).optional(),
+  short: Short.optional(),
+  title: z.string().max(300).optional(),
+  topics: z.array(z.string().min(1)).optional(),
+  from: z.array(FlowFrom).optional(),
+  task: z.string().max(120).optional(),
+  fields: z.record(z.string(), Text).optional(),
+  criterion: Text.optional(),
+  stop: Text.optional(),
+  prior: z.array(z.string().min(1)).max(20).optional(),
+  adds: Text.optional(),
+  novel: Text.optional(),
+  query: z.string().max(500).optional(),
+  by: z.string().min(1).max(40),
+}).strict()
+/** 점과 선행 찾기에 걸린 점들 */
+export const FlowStartReply = z.object({ node: FlowNode, hits: FlowSearchReply.shape.rows }).strict()
+
 export const FlowPatchBody = z.object({
   baseHash: z.string(),
   set: z.object({
@@ -276,6 +298,8 @@ export type FlowDeleted = z.infer<typeof FlowDeleted>
 export type FlowLayoutReply = z.infer<typeof FlowLayoutReply>
 export type NewFlowBody = z.infer<typeof NewFlowBody>
 export type FlowPatchBody = z.infer<typeof FlowPatchBody>
+export type FlowStartBody = z.infer<typeof FlowStartBody>
+export type FlowStartReply = z.infer<typeof FlowStartReply>
 export type FlowCheckBody = z.infer<typeof FlowCheckBody>
 export type FlowReviewBody = z.infer<typeof FlowReviewBody>
 export type FlowJudgeBody = z.infer<typeof FlowJudgeBody>
