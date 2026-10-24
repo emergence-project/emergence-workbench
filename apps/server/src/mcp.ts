@@ -354,13 +354,14 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
   }, async ({ project: rid, kind, short, progress, title, topics, from, task, criterion, prior, adds, novel, stop, query, fields, ...rest }) => {
     const by = agentOf(server.server.getClientVersion()?.name)
     let n: C.FlowNode, hits: C.FlowSearchReply['rows'] = []
+    // 점을 만든 뒤 PATCH로 채울 칸. 시작 기록 문은 설명 칸을 스스로 쓰므로 그 밖의 것만
+    let set: Record<string, unknown> = rest
     if (kind === 'finding' || progress === 'open') {
       // 발견은 일이 아니라 결론이고, 열린 질문은 아직 시작하지 않았다: 시작 기록 없이 (docs/repo-format.md §14)
       const made = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind, short, progress: progress ?? 'active', by, ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }) })
       if (!made.ok) return made.error
       n = (made.body as C.FlowOne).node
-      const crit = criterion && { ...fields, criterion }
-      if (crit || fields) rest = { ...rest, fields: crit || fields } as typeof rest
+      if (fields || criterion) set = { ...rest, fields: { ...fields, ...(criterion && { criterion }) } }
     } else {
       const body: C.FlowStartBody = { kind, short, by, ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }), ...(fields && { fields }),
         ...(criterion && { criterion }), ...(prior?.length && { prior }), ...(adds && { adds }), ...(novel && { novel }), ...(stop && { stop }), ...(query && { query }) }
@@ -374,10 +375,10 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
       }
       ;({ node: n, hits } = made.body as C.FlowStartReply)
     }
-    const short1 = { ...flowShort(n), ...(hits.length && { matched: hits.map((h) => h.id) }) }
-    if (!Object.values(rest).some((v) => v !== undefined)) return json(short1)
-    const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(n.id)}`, { baseHash: n.hash, gate: true, set: rest }, 'PATCH')
-    return r.ok ? json({ ...flowShort((r.body as C.FlowOne).node), ...(hits.length && { matched: hits.map((h) => h.id) }) }) : fail(`The dot ${n.id} was created, but its fields were not saved: ${r.error.content[0]!.text}`)
+    const matched = hits.length ? { matched: hits.map((h) => h.id) } : {}
+    if (!Object.values(set).some((v) => v !== undefined)) return json({ ...flowShort(n), ...matched })
+    const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(n.id)}`, { baseHash: n.hash, gate: true, set }, 'PATCH')
+    return r.ok ? json({ ...flowShort((r.body as C.FlowOne).node), ...matched }) : fail(`The dot ${n.id} was created, but its fields were not saved: ${r.error.content[0]!.text}`)
   })
 
   server.registerTool('flow_update', {
