@@ -41,7 +41,7 @@ export const INSTRUCTIONS = [
   'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: rules with part: "concepts" (once) → search_library → read_concept → edit_concept.',
   'Delegated tasks: rules with part: "tasks" (once) → list_tasks → read_task → report_task with kind proposal when end-condition is empty (then stop), or kind result when the work is done. A to-do, handoff or proposal of new work: add_task.',
   'When you finish a piece of work: add_journal with one or two sentences on what you did and the files you touched.',
-  'Research flow (one dot = one piece of work: a question, a calculation, a proof, a finding): before you start a calculation or proof, flow_search for earlier attempts (refuted and dropped ones carry their reason), then flow_add the dot as active with its criterion. When it ends, flow_update with the result, evidence pointing to a note section, run (code · commit · params) for calculations, steps for proofs, reason for refuted/dropped/paused, and next. Finishing is refused while required fields are empty. Review a piece of evidence or a step with flow_review.',
+  'Research flow (one dot = one piece of work: a question, a calculation, a proof, a finding): before you start a calculation or proof, flow_search for earlier attempts (refuted and dropped ones carry their reason), then flow_add the dot as active with its criterion and the closest earlier dot (prior, adds) or why it is new (novel). When it ends, flow_update with the result, evidence pointing to a note section, run (code · commit · params) for calculations, steps for proofs, reason for refuted/dropped/paused, and next. Finishing is refused while required fields are empty. Review a piece of evidence or a step with flow_review.',
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
   'The user\'s turn (notes to review, task results to judge, agent edits) is for the user; never act on it for them.',
 ].join('\n')
@@ -343,17 +343,41 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
 
   server.registerTool('flow_add', {
     title: 'Add a flow dot',
-    description: 'Add a dot when you start a piece of work (a question, calculation, proof, literature reading or finding). Give the criterion (what result solves or refutes it) for questions and calculations. Usually progress active. Refused while 3 of your findings wait for the user\'s judgment (when kind is finding), and for work that follows a card the user has not started. Returns the dot id, hash and gaps.',
+    description: 'Add a dot when you start a piece of work (a question, calculation, proof, literature reading or finding). Work other than a finding opens only through the start gate (same as pnpm agent:start): it searches earlier dots first and needs prior (the closest earlier dot ids) with adds (what this adds), or novel (why it is new), and a criterion (what result solves or refutes it). When refused, the error lists the earlier dots that matched; read them with flow_read and call again. progress open (a question for later) skips the gate. Refused while 3 of your findings wait for the user\'s judgment (when kind is finding), and for work that follows a card the user has not started. Returns the dot id, hash, gaps and the earlier dots that matched.',
     inputSchema: { project, kind: z.enum(C.FLOW_KINDS), short: z.string().min(1).max(60).describe('Short name shown on the chart'), progress: z.enum(['open', 'active']).optional(),
-      task: z.string().optional().describe('The delegated task (workbench/tasks id) this work belongs to, if any'), ...flowSet },
+      task: z.string().optional().describe('The delegated task (workbench/tasks id) this work belongs to, if any'),
+      criterion: z.string().optional().describe('What result solves or refutes it (stored in fields.criterion for questions and calculations)'),
+      prior: z.array(z.string()).optional().describe('The closest earlier dot ids (from flow_search or the refusal)'), adds: z.string().optional().describe('What this adds to the closest dots'),
+      novel: z.string().optional().describe('Why this is new when no earlier dot is close'), stop: z.string().optional().describe('When to stop'),
+      query: z.string().optional().describe('Words for the earlier-dot search (default: short, title and fields)'), ...flowSet },
     annotations: { readOnlyHint: false, openWorldHint: false },
-  }, async ({ project: rid, kind, short, progress, title, topics, from, task, ...rest }) => {
-    const made = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind, short, progress: progress ?? 'active', by: agentOf(server.server.getClientVersion()?.name), ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }) })
-    if (!made.ok) return made.error
-    const n = (made.body as C.FlowOne).node
-    if (!Object.values(rest).some((v) => v !== undefined)) return json(flowShort(n))
+  }, async ({ project: rid, kind, short, progress, title, topics, from, task, criterion, prior, adds, novel, stop, query, fields, ...rest }) => {
+    const by = agentOf(server.server.getClientVersion()?.name)
+    let n: C.FlowNode, hits: C.FlowSearchReply['rows'] = []
+    if (kind === 'finding' || progress === 'open') {
+      // 발견은 일이 아니라 결론이고, 열린 질문은 아직 시작하지 않았다: 시작 기록 없이 (docs/repo-format.md §14)
+      const made = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind, short, progress: progress ?? 'active', by, ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }) })
+      if (!made.ok) return made.error
+      n = (made.body as C.FlowOne).node
+      const crit = criterion && { ...fields, criterion }
+      if (crit || fields) rest = { ...rest, fields: crit || fields } as typeof rest
+    } else {
+      const body: C.FlowStartBody = { kind, short, by, ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }), ...(fields && { fields }),
+        ...(criterion && { criterion }), ...(prior?.length && { prior }), ...(adds && { adds }), ...(novel && { novel }), ...(stop && { stop }), ...(query && { query }) }
+      const made = await post(base, f, `/api/researches/${enc(rid)}/flow/start`, body)
+      if (!made.ok) {
+        // 문을 못 지나면 걸린 점을 함께 보여 다음 부름에 prior를 고르게 한다
+        const q = query || [short, title, fields?.question, fields?.goal, fields?.statement].filter(Boolean).join(' ')
+        const found = q.trim().length >= 2 ? await get(base, f, `/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`) : undefined
+        const rows = found?.ok ? (found.body as C.FlowSearchReply).rows : []
+        return rows.length ? fail(`${made.error.content[0]!.text}\nEarlier dots that matched:\n${rows.map((r) => `- ${r.id} · ${r.kind} · ${r.state} — ${r.title}${r.result ? ` (result: ${r.result})` : ''}${r.reason ? ` (reason: ${r.reason})` : ''}`).join('\n')}`) : made.error
+      }
+      ;({ node: n, hits } = made.body as C.FlowStartReply)
+    }
+    const short1 = { ...flowShort(n), ...(hits.length && { matched: hits.map((h) => h.id) }) }
+    if (!Object.values(rest).some((v) => v !== undefined)) return json(short1)
     const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(n.id)}`, { baseHash: n.hash, gate: true, set: rest }, 'PATCH')
-    return r.ok ? json(flowShort((r.body as C.FlowOne).node)) : fail(`The dot ${n.id} was created, but its fields were not saved: ${r.error.content[0]!.text}`)
+    return r.ok ? json({ ...flowShort((r.body as C.FlowOne).node), ...(hits.length && { matched: hits.map((h) => h.id) }) }) : fail(`The dot ${n.id} was created, but its fields were not saved: ${r.error.content[0]!.text}`)
   })
 
   server.registerTool('flow_update', {
