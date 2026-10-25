@@ -117,6 +117,11 @@ export function judgeOrder(tasks: Task[]): Task[] {
   return tasks.filter(needsJudgment).sort((a, b) => (stampMs(a.resultAt) ?? a.mtime) - (stampMs(b.resultAt) ?? b.mtime))
 }
 
+/** 기록 화면 내 차례에서 펼친 줄 키: 판단 카드는 `task/<id>`, 기록 줄은 `<대상>/<기록 id>` */
+export const taskRowKey = (id: string) => `task/${id}`
+/** 펼친 줄 키 → 펼친 판단 카드 id. 기록 줄이 펼쳐져 있거나 아무것도 없으면 null */
+export const openTaskId = (row: string | null) => (row?.startsWith('task/') ? row.slice('task/'.length) : null)
+
 // ---------- 작업 탭의 한 주 달력 ----------
 
 /** result: 결과가 와서 판단을 기다림(사용자 차례, 주황), returned: 결과가 왔고 이미 판단함 */

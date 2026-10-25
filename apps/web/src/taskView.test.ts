@@ -1,7 +1,7 @@
 import { t } from './i18n'
 import { describe, expect, it } from 'vitest'
 import type { Task } from './api/tasks'
-import { agentPrompt, briefCounts, cardAsks, cardConclusion, durationText, judgeOrder, shortStamp, splitReport, taskLine, taskTiming, weekItems } from './taskView'
+import { agentPrompt, briefCounts, cardAsks, cardConclusion, durationText, judgeOrder, openTaskId, shortStamp, splitReport, taskLine, taskRowKey, taskTiming, weekItems } from './taskView'
 
 const task = (over: Partial<Task>): Task => ({
   id: '2026-10-05-x', file: 'workbench/tasks/2026-10-05-x.md', title: 'x', agent: 'claude-code', created: '2026-10-05 09:10', state: 'working', task: '일',
@@ -59,5 +59,11 @@ describe('맡긴 일 화면 말', () => {
     expect(byDay.get('2026-10-06')!.map((x) => x.mark)).toEqual(['memo', 'result'])
     expect(byDay.get('2026-10-09')!.map((x) => [x.mark, x.text])).toEqual([['due', '마감 · 검토']])
     expect(briefCounts(tasks, ['2026-10-07', '2026-10-08', '2026-10-09'], byDay)).toMatchObject({ judge: 1, working: 1, due: 1 })
+  })
+
+  it('기록 화면 내 차례: 판단 카드 줄 키를 다시 카드 id로 푼다 (기록 줄 키는 카드가 아님)', () => {
+    expect(openTaskId(taskRowKey('2026-10-15-renyi-noninteger'))).toBe('2026-10-15-renyi-noninteger')
+    expect(openTaskId('flow-renyi-finding/c-20261015-2243')).toBeNull()
+    expect(openTaskId(null)).toBeNull()
   })
 })
