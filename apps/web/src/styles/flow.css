@@ -276,3 +276,25 @@ input.fl-chip { border-radius: var(--r-pill); }
 .fl-sec-ref { color: var(--text-3); }
 /* 차트의 빈틈 점: 점 오른쪽 위 작은 주황 점 */
 .fl-gapdot { fill: var(--s-blocked); stroke: var(--bg); stroke-width: 1.5; }
+
+/* 근거의 노트 · 절 고르기 (10/26 "흐름 연결" ②): 노트별로 묶인 찾기 창, 절을 누르면 노트와 절이 함께 정해진다 */
+.fl-evpick { position: relative; grid-column: 2 / 4; min-width: 0; }
+.fl-evpick-btn { display: flex; align-items: baseline; gap: var(--sp-2); width: 100%; text-align: left; cursor: pointer; }
+.fl-evpick-btn.empty .fl-evpick-note { color: var(--text-3); }
+.fl-evpick-note { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl-evpick-sec { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); font-size: var(--fs-xs); }
+.fl-evpick-pop { position: absolute; left: 0; right: 0; top: calc(100% + var(--sp-1)); z-index: var(--z-menu); display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); max-height: 420px; }
+.fl-evpick-q { width: 100%; }
+.fl-evpick-list { display: flex; flex-direction: column; gap: var(--sp-1); overflow-y: auto; min-height: 0; }
+.fl-evpick-grp { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); border-radius: var(--r-sm); }
+.fl-evpick-grp.on { background: var(--bg-side); }
+.fl-evpick-head { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); min-width: 0; }
+.fl-evpick-title { font-weight: var(--fw-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fl-evpick-kind { margin-left: auto; color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; }
+.fl-evpick-secs { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.fl-evpick-chip { font: inherit; font-size: var(--fs-xs); border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: var(--r-sm); padding: 1px var(--sp-2); cursor: pointer; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.fl-evpick-chip:hover, .fl-evpick-chip:focus-visible { background: var(--bg-hover); outline: none; }
+.fl-evpick-chip.sub { color: var(--text-2); }
+.fl-evpick-chip.whole { color: var(--text-2); border-style: dashed; }
+.fl-evpick-chip.on { background: var(--bg-hover); border-color: var(--line-strong); font-weight: var(--fw-medium); }
+.fl-evpick-peek { font-size: var(--fs-xs); color: var(--text-2); border-top: 1px solid var(--line); padding-top: var(--sp-2); }

@@ -36,6 +36,34 @@ export function evidenceHash(repo: string, file: string, section?: string): stri
   for (let i = at + 1; i < lines.length; i++) { const h = headingOf(lines[i]!); if (h && h.level <= level) { end = i; break } }
   return hashOf(lines.slice(at, end).join('\n'))
 }
+/** 그림 · 표 머리 · 수식 줄을 뺀 첫 글 (절 미리 보기) */
+function firstText(lines: string[]): string {
+  for (const l of lines) {
+    const t = l.trim()
+    if (!t || /^(!\[|<|\$\$|\\begin|\|)/.test(t)) continue
+    const s = t.replace(/^[-*>]\s+/, '').replace(/\*\*/g, '')
+    return s.length > 160 ? `${s.slice(0, 159)}…` : s
+  }
+  return ''
+}
+
+/**
+ * 노트의 절 목록 (10/26 "흐름 연결" ②, 근거 고르기): 근거의 절 이름과 같은 규칙(headingOf)으로 읽어
+ * 고른 절이 evidenceHash에서 그대로 찾아진다. 맨 위 제목(# 하나)만 있는 노트는 빈 목록
+ */
+export function noteSections(repo: string, file: string): { name: string; level: number; preview: string }[] {
+  const p = path.join(repo, file)
+  if (!isInside(repo, p)) return []
+  let lines: string[]
+  try { lines = fs.readFileSync(p, 'utf8').split('\n') } catch { return [] }
+  const heads = lines.map((l, i) => ({ i, h: headingOf(l) })).filter((x): x is { i: number; h: { level: number; name: string } } => !!x.h && x.h.name.trim() !== '')
+  const top = heads.length && heads[0]!.h.level === 1 && heads.filter((x) => x.h.level === 1).length === 1 ? heads[0]!.i : -1
+  return heads.filter((x) => x.i !== top).map((x, k, all) => {
+    const next = all[k + 1]?.i ?? lines.length
+    return { name: x.h.name.replace(/\\label\{[^}]*\}/g, '').trim(), level: x.h.level, preview: firstText(lines.slice(x.i + 1, next)) }
+  })
+}
+
 /** 단계의 내용 해시 (글 · 쓰는 것) */
 export const stepHash = (s: { text: string; uses?: string }) => hashOf(`${s.text}\n${s.uses ?? ''}`)
 

@@ -184,6 +184,10 @@ export const FlowSearchReply = z.object({
     tasks: z.array(FlowSearchTask).optional(),
   }).strict()),
 }).strict()
+/** 근거 고르기의 노트별 절 목록 (10/26): 노트 파일마다 절 이름 · 수준 · 첫 글 */
+export const FlowNoteSections = z.object({
+  notes: z.array(z.object({ file: z.string(), sections: z.array(z.object({ name: z.string(), level: z.number(), preview: z.string() }).strict()) }).strict()),
+}).strict()
 /** trashed: flow/.trash/로 옮긴 점 파일과 그 점의 기록 (workbench 기준 경로) */
 export const FlowDeleted = z.object({ id: z.string(), changed: z.array(z.string()), trashed: z.array(z.string()) }).strict()
 export const FlowLayoutReply = z.object({ layout: FlowLayout }).strict()
@@ -313,6 +317,7 @@ export type FlowJudgment = z.infer<typeof FlowJudgment>
 export type FlowCard = z.infer<typeof FlowCard>
 export type FlowVerdict = (typeof FLOW_VERDICTS)[number]
 export type FlowSearchReply = z.infer<typeof FlowSearchReply>
+export type FlowNoteSections = z.infer<typeof FlowNoteSections>
 export type FlowStep = z.infer<typeof FlowStep>
 export type FlowGap = z.infer<typeof FlowGap>
 export type FlowStart = z.infer<typeof FlowStart>

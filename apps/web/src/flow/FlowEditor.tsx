@@ -6,6 +6,7 @@ import { Icon } from '../icons'
 import { t as tr } from '../i18n'
 import { CARD_FIELD, CARD_HINT, KIND, FIELD, FIELD_HINT, END_FIELDS, EDGE, EVK, MarkIcon, PROGRESS, PRIORITY, markOf, resultName } from './marks'
 import { CardSection, cardDraft, cardOut, type CardDraft } from './CardEditor'
+import { EvidencePicker } from './EvidencePicker'
 import type { TopicRef } from './data'
 import { FlowText } from './evidence'
 import { FIGURE_FILE, uploadFigure, FigureMenu } from './figures'
@@ -32,6 +33,8 @@ type StepRow = { text: string; uses: string }
 const paramsText = (p?: Record<string, string>) => Object.entries(p ?? {}).map(([k, v]) => `${k}=${v}`).join('; ')
 const paramsOf = (s: string) => Object.fromEntries(s.split(/;|\n/).map((x) => x.trim()).filter(Boolean).map((x) => { const i = x.indexOf('='); return i > 0 ? [x.slice(0, i).trim(), x.slice(i + 1).trim()] : [x, ''] }))
 const ACTS: FlowKind[] = ['calc', 'analytic', 'proof']
+/** 노트 성격 → 근거 종류: 노트를 고르면 종류가 따라온다 (10/26 피드백 "제목을 적으면 유형은 자연스럽게") */
+const NOTE_EV: Partial<Record<NonNullable<NoteRow['kind']>, FlowEvidence['kind']>> = { calc: 'calc', proof: 'proof' }
 const STATE: Record<string, () => string> = {
   open: () => tr('미해결', 'open'), active: () => tr('진행', 'in progress'), paused: () => tr('멈춤', 'paused'), solved: () => tr('해결', 'solved'),
   refuted: () => tr('반증', 'refuted'), dropped: () => tr('폐기', 'dropped'), theorem: () => tr('정리', 'theorem'),
@@ -264,13 +267,13 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
 
     <section className="fl-sec" data-ui="흐름 근거 고치기">
       <h3>{tr('근거', 'Evidence')}</h3>
-      <datalist id="fl-note-files">{notes.map((x) => <option key={x.file} value={x.file}>{x.title}</option>)}</datalist>
       <div className="fl-evlist">{ev.map((x, i) => <div key={i} className="fl-evrow">
         <select className="fl-in" aria-label={tr('근거 종류', 'Evidence kind')} value={x.kind} onChange={(e) => setEvAt(i, { kind: e.target.value as EvRow['kind'] })}>{FLOW_EVIDENCE.map((k) => <option key={k} value={k}>{EVK[k]()}</option>)}</select>
-        <input className="fl-in" aria-label={x.kind === 'paper' ? tr('논문 키', 'Paper key') : tr('노트 경로', 'Note path')} list={x.kind === 'paper' ? undefined : 'fl-note-files'} value={x.src}
-          placeholder={x.kind === 'paper' ? tr('논문 키 (예: kitaev2006)', 'Paper key (e.g. kitaev2006)') : tr('노트 경로 (workbench/…)', 'Note path (workbench/…)')} onChange={(e) => setEvAt(i, { src: e.target.value })} />
-        {x.kind === 'paper' ? <input className="fl-in" aria-label={tr('보이는 이름', 'Shown name')} value={x.title} placeholder={tr('보이는 이름 (비우면 키)', 'Shown name (empty = key)')} onChange={(e) => setEvAt(i, { title: e.target.value })} />
-          : <input className="fl-in" aria-label={tr('절', 'Section')} value={x.section} placeholder={tr('절 (노트 안의 제목 이름)', 'Section (a heading in the note)')} onChange={(e) => setEvAt(i, { section: e.target.value })} />}
+        {x.kind === 'paper' ? <>
+          <input className="fl-in" aria-label={tr('논문 키', 'Paper key')} value={x.src} placeholder={tr('논문 키 (예: kitaev2006)', 'Paper key (e.g. kitaev2006)')} onChange={(e) => setEvAt(i, { src: e.target.value })} />
+          <input className="fl-in" aria-label={tr('보이는 이름', 'Shown name')} value={x.title} placeholder={tr('보이는 이름 (비우면 키)', 'Shown name (empty = key)')} onChange={(e) => setEvAt(i, { title: e.target.value })} />
+        </> : <EvidencePicker rid={rid} notes={notes} file={x.src} section={x.section} topicTitle={topicTitle}
+          onPick={(f, sec, note) => setEvAt(i, { src: f, section: sec, ...(note?.kind && NOTE_EV[note.kind] && { kind: NOTE_EV[note.kind] }) })} />}
         <button type="button" className="icon-btn" title={tr('이 근거 빼기 (확인 기록도 빠짐)', 'Remove this evidence (and its checks)')} aria-label={tr('근거 빼기', 'Remove evidence')} onClick={() => setEv(ev.filter((_, j) => j !== i))}>{Icon.x}</button>
         <input className="fl-in fl-evtext" aria-label={tr('무엇을 보이는지', 'What it shows')} value={x.text} placeholder={tr('이 근거가 무엇을 보이는지', 'What this evidence shows')} onChange={(e) => setEvAt(i, { text: e.target.value })} />
       </div>)}</div>

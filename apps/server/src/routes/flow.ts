@@ -6,6 +6,8 @@ import { checkFlowEvidence, createFlowNode, deleteFlowNode, judgeFlow, moveFlowR
 import { closeAfterJudgment } from '../ask.js'
 import { startFlow } from '../flowStart.js'
 import { t } from '../i18n.js'
+import { noteSections } from '../flowGaps.js'
+import { listNotes } from '../noteList.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 
@@ -17,6 +19,11 @@ export function registerFlow(app: FastifyInstance, ctx: RouteContext): void {
   app.get<{ Params: { rid: string }; Querystring: { q?: string } }>('/api/researches/:rid/flow/search', replies(C.FlowSearchReply), async (req): Promise<C.FlowSearchReply> =>
     searchFlow(wbOf(req.params.rid), String(req.query.q ?? '')))
   /** 점 하나 (빈틈 포함) */
+  /** 근거 고르기: 노트마다 절 목록 (근거의 절 이름과 같은 규칙) */
+  app.get<{ Params: { rid: string } }>('/api/researches/:rid/flow/sections', replies(C.FlowNoteSections), async (req): Promise<C.FlowNoteSections> => {
+    const wb = wbOf(req.params.rid)
+    return { notes: listNotes(wb).map((n) => ({ file: n.file, sections: noteSections(wb.repo, n.file) })) }
+  })
   app.get<{ Params: { rid: string; id: string } }>('/api/researches/:rid/flow/:id', replies(C.FlowOne), async (req): Promise<C.FlowOne> =>
     ({ node: readFlowNode(wbOf(req.params.rid), req.params.id) }))
   /** 새 점 (파일 이름은 짧은 제목에서) */
