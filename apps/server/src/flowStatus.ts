@@ -3,6 +3,8 @@
 // STATUS는 연구 파일이라 한국어로 쓴다. 상태 이름이 바뀌면 고칠 곳은 아래 이름표뿐이다.
 import type { FlowNode } from '@rw/core/contract/flow'
 import { approved, scanFlow } from './flow.js'
+import { TASK_STATE_NAME, taskLinks } from './flowTasks.js'
+import { listTasks } from './tasks.js'
 import type { Workbench } from './workbench.js'
 
 const KIND: Record<FlowNode['kind'], [string, string]> = {
@@ -16,6 +18,8 @@ const PROGRESS: Record<FlowNode['progress'], string> = { open: '미해결', acti
 const RESULT: Record<NonNullable<FlowNode['result']>, string> = { solved: '해결', refuted: '반증', dropped: '폐기' }
 const PRIORITY: Record<NonNullable<FlowNode['priority']>, string> = { high: '우선 높음', normal: '우선 보통', low: '우선 낮음' }
 const RECENT = 5
+/** "흐름 지금"에 싣는 열린 점 수 (요약에 그대로 실리도록 짧게) */
+const NOW_SHOWN = 12
 const GAPS_SHOWN = 10
 const CLIP = 240
 
@@ -56,6 +60,30 @@ function brief(n: FlowNode, all: FlowNode[], full: boolean): string[] {
   return out
 }
 
+/**
+ * "흐름 지금" (10/26 "흐름 연결" ①): 열린 점 한 줄씩과 이어진 맡긴 일. 짧아서 project_status 요약에 그대로 실린다.
+ * 결과가 맡긴 일에만 있어 점이 미해결로 보이던 것을 에이전트가 첫 요약에서 보게 한다.
+ */
+function flowNow(wb: Workbench, nodes: FlowNode[], newest: FlowNode[]): string[] {
+  const tasks = listTasks(wb)
+  const links = taskLinks(nodes, tasks)
+  const open = newest.filter(isOpen)
+  const noCriterion = open.filter((n) => n.gaps.some((g) => g.code === 'no-criterion')).length
+  const linkedIds = new Set([...links.values()].flat().map((l) => l.task.id))
+  const loose = tasks.filter((t) => t.state !== 'done' && t.state !== 'stopped' && !linkedIds.has(t.id))
+  const out = ['## 흐름 지금 — 열린 점과 이어진 맡긴 일', '',
+    [`열린 점 ${open.length}`, noCriterion && `판정 기준 없음 ${noCriterion}`, loose.length && `흐름 점과 잇지 않은 맡긴 일 ${loose.length}`].filter(Boolean).join(' · '), '']
+  for (const n of open.slice(0, NOW_SHOWN)) {
+    const ts = (links.get(n.id) ?? []).map(({ task: t }) => `맡긴 일 \`${t.id}\` ${TASK_STATE_NAME[t.state]}${t.resultAt ? ` (${t.resultAt.slice(5, 10).replace('-', '/')})` : ''}`)
+    const crit = n.gaps.some((g) => g.code === 'no-criterion') ? ' · 기준 없음' : ''
+    out.push(`- ${KIND[n.kind][1]} ${n.short} · \`${n.id}\` · ${stateName(n)}${crit}${ts.length ? ` · ${ts.join(' · ')}` : ''}`)
+  }
+  if (open.length > NOW_SHOWN) out.push(`- 그 밖 ${open.length - NOW_SHOWN}점 (절 "흐름 요약")`)
+  if (loose.length) out.push(`- 잇지 않은 맡긴 일: ${loose.slice(0, 3).map((t) => `\`${t.id}\``).join(' · ')}${loose.length > 3 ? ` 외 ${loose.length - 3}` : ''}`)
+  out.push('', '> 지난 시도와 이어진 맡긴 일의 결론: MCP `flow_search`. 점 하나의 전부: `flow_read`.', '')
+  return out
+}
+
 /** 점이 없으면 빈 배열 (절을 만들지 않는다) */
 export function flowStatusSections(wb: Workbench): string[] {
   const nodes = scanFlow(wb).nodes
@@ -64,7 +92,7 @@ export function flowStatusSections(wb: Workbench): string[] {
   const recent = newest.slice(0, RECENT)
   const olderOpen = newest.slice(RECENT).filter(isOpen)
   const awaiting = nodes.filter(awaitsHuman)
-  const out = [
+  const out = [...flowNow(wb, nodes, newest),
     '## 흐름 요약 — 원본 `workbench/flow/` · 점 주소 `flow-<id>` (기록 대상과 같다)', '',
     `점 ${nodes.length} · ${counts(nodes)}`, '',
     '> 점 하나 = 일 하나(질문 · 계산 · 증명 · 문헌 · 발견). 일을 시작할 때 점을 진행으로 만들고(MCP `flow_add`, 계산 전에 `flow_search`로 지난 시도 확인), 끝날 때 결과 · 절까지 가리킨 근거 · 이유 · 다음 할 일을 적는다(`flow_update`). 필수 칸이 비면 끝냄이 거절된다. 질문 문장 · 발단 선 · 갈래 폐기 · 승인은 사람이 정한다. 에이전트의 검토는 `flow_review`(role: agent).',

@@ -139,6 +139,7 @@ function taskFromInspection(id: string, file: string, content: string, mtime: nu
   return {
     id, file, title,
     ...optional('topic', text(fm.topic)),
+    ...optional('flow', text(fm.flow)),
     ...(fm.priority === 1 || fm.priority === 2 || fm.priority === 3 ? { priority: fm.priority } : {}),
     agent: text(fm.agent) ?? '',
     created: text(fm.created) ?? '',
@@ -246,10 +247,13 @@ export function createTask(wb: Workbench, input: NewTask, now = new Date()): Tas
   const agent = one(input.agent) ?? 'claude-code'
   const topic = one(input.topic)
   if (topic && !/^[a-z0-9][a-z0-9-]*$/.test(topic)) throw new WorkbenchError(400, tl(`주제 id가 아님: ${topic}`, `Not a topic id: ${topic}`))
+  const flow = one(input.flow)
+  if (flow && !/^[a-z0-9][a-z0-9-]*$/.test(flow)) throw new WorkbenchError(400, tl(`흐름 점 id가 아님: ${flow}`, `Not a flow dot id: ${flow}`))
   const references = (input.references ?? []).map((r) => r.trim()).filter(Boolean)
   const fm: Record<string, unknown> = {
     title,
     ...(topic ? { topic } : {}),
+    ...(flow ? { flow } : {}),
     agent,
     created: stamp(now),
     state: 'working',

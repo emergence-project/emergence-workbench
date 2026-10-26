@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { app, R, repo, useSampleApp } from './testkit.js'
 import { classify } from './watcher.js'
 import { evidenceHash } from './flowGaps.js'
+import { flowStatusSections } from './flowStatus.js'
+import { statusSummary } from './agentStatus.js'
+import { Workbench } from './workbench.js'
 
 useSampleApp()
 
@@ -505,5 +508,30 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     expect(rows[0]).toMatchObject({ state: 'refuted', reason: 'flake 모양 효과', params: { geometry: 'flake', r: '30' }, score: 2 })
     expect((await send('GET', '/search?q=x')).json().rows).toEqual([])
     expect((await send('GET', '/a')).json().node.id).toBe('a')
+  })
+
+  it('지난 시도 찾기: 이어진 맡긴 일의 결론까지 찾고 줄에 싣는다 (flow 칸 · 점의 task · 글의 점 이름)', async () => {
+    put('q', 'format: 1\nkind: question\nprogress: open\nshort: Beyond\ntitle: 정수 아닌 지수\ndate: 2026-10-08')
+    put('c', 'format: 1\nkind: calc\nprogress: active\nshort: Branch\ntitle: 분기점\ndate: 2026-10-22\ntask: 2026-10-21-made')
+    const tasks = path.join(repo, 'workbench', 'tasks')
+    fs.mkdirSync(tasks, { recursive: true })
+    const task = (id: string, extra: string) => fs.writeFileSync(path.join(tasks, `${id}.md`), `---\ntitle: ${id}\nagent: claude-code\ncreated: 2026-10-15 09:45\n${extra}\n---\n\n## 1. 요약과 결론\n`)
+    task('2026-10-15-text', "state: result\ntask: 흐름 점 q의 첫 갈래. noninteger 잔차\nresult-at: 2026-10-20 23:20\nconclusion: 잔차가 같은 빠르기로 줄어든다\noutputs: [code/run.py]")
+    task('2026-10-16-field', 'state: working\nflow: q\ntask: 상호작용 상태')
+    task('2026-10-21-made', 'state: result\ntask: 계산')
+    task('2026-10-17-gone', 'state: stopped\ntask: 흐름 점 q 폐기한 일')
+    const rows = (await send('GET', '/search?q=noninteger')).json().rows
+    expect(rows.map((r: { id: string }) => r.id)).toEqual(['q'])
+    expect(rows[0].tasks).toEqual([
+      { id: '2026-10-15-text', title: '2026-10-15-text', state: 'result', link: 'text', resultAt: '2026-10-20 23:20', conclusion: '잔차가 같은 빠르기로 줄어든다', outputs: ['code/run.py'] },
+      { id: '2026-10-16-field', title: '2026-10-16-field', state: 'working', link: 'field' },
+    ])
+    expect((await send('GET', '/search?q=branch')).json().rows[0].tasks).toEqual([{ id: '2026-10-21-made', title: '2026-10-21-made', state: 'result', link: 'dot' }])
+    // STATUS 첫 요약의 "흐름 지금": 열린 점 한 줄씩과 이어진 맡긴 일 (흐름 요약은 길어 이름만)
+    const summary = statusSummary('# s\n\n' + flowStatusSections(new Workbench(path.join(repo, 'workbench'))).join('\n'), 'how')
+    expect(summary).toContain('## 흐름 지금')
+    expect(summary).toContain('- ? Beyond · `q` · 미해결 · 기준 없음 · 맡긴 일 `2026-10-15-text` 결과 도착 · 판단 대기 (10/20) · 맡긴 일 `2026-10-16-field` 진행')
+    expect(summary).toContain('- π Branch · `c` · 진행 · 기준 없음 · 맡긴 일 `2026-10-21-made` 결과 도착 · 판단 대기')
+    fs.rmSync(tasks, { recursive: true, force: true })
   })
 })
