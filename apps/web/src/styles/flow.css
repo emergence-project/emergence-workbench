@@ -62,6 +62,8 @@
 .fl-m.s-open, .fl-m.s-dropped { --gc: var(--c); }
 .fl-m.s-open .fl-b, .fl-m.s-dropped .fl-b { fill: var(--bg); stroke: var(--c); stroke-width: 1.8; }
 .fl-m.s-open .fl-b { stroke-dasharray: 3 2; }
+/* 판단할 차례(사용자 차례) 명제 · 시작을 기다리는 카드: 주황으로 채움 (10/26 "흐름 점 표식") */
+.fl-m.turn { --c: var(--s-blocked); }
 /* 판단 전 명제: 속을 비우고 테두리는 실선 (승인되면 채움) */
 .fl-m.unjudged { --gc: var(--c); }
 .fl-m.unjudged .fl-b { fill: var(--bg); stroke: var(--c); stroke-width: 1.8; }

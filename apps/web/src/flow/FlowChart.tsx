@@ -7,7 +7,7 @@ import { store } from '../store'
 import { setFlowSelection } from '../flowSelection'
 import { flash } from '../flash'
 import { t as tr } from '../i18n'
-import { KIND, EDGE, markOf, stateOf, stateName, MarkSvg, judgedOf, judgeName, turnOf } from './marks'
+import { KIND, EDGE, markOf, roleOf, stateOf, stateName, MarkSvg, judgedOf, judgeName, turnOf } from './marks'
 import { Icon } from '../icons'
 import type { TopicRef } from './data'
 import { FlowCard } from './FlowCard'
@@ -313,8 +313,6 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
             const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = inLin(n.id) && !on && !picked
             const hot = (!!focus && n.topics.includes(focus)) || (gapOn && n.gaps.length > 0)
             const start = !n.from.length
-            // 근거로 단 논문은 이름 뒤 작은 §(둘 이상이면 수)로 (10/16: 점 위 배지 대신)
-            const cites = n.evidence.filter((e) => e.kind === 'paper' && e.ref)
             return <g key={n.id} className={`fl-node${on ? ' sel' : ''}${picked ? ' pick' : ''}`} tabIndex={0} role="button" data-id={n.id}
               aria-label={`${n.short}: ${KIND[markOf(n)].name()}, ${stateName(n)}`}
               onPointerDown={(e) => { if (e.button === 0) { drag.current = { id: n.id, x: e.clientX, y: e.clientY, moved: false }; (e.currentTarget as Element).setPointerCapture(e.pointerId) } }}
@@ -345,20 +343,19 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
               {hot && <rect className="fl-focus" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />}
               <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
               {/* 고른 점 · 이을 점 · 계보는 점에 바짝 두른 테두리로 (10/16 사용자: 둥근 네모 대신) */}
-              {(lg || on || picked) && (KIND[markOf(n)].act
-                ? <rect className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} x={x - 18} y={y - 18} width={36} height={36} rx={8} />
-                : <circle className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} cx={x} cy={y} r={19} />)}
+              {(lg || on || picked) && (roleOf(markOf(n)) === 'work'
+                ? <circle className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} cx={x} cy={y} r={19} />
+                : <rect className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} x={x - 18} y={y - 18} width={36} height={36} rx={8} />)}
               {/* 사용자 차례: 판단 대기열의 명제와 시작을 기다리는 카드에 주황 고리 (10/23 "판단 설계") */}
               {turnOf(n) && !(lg || on || picked) && <circle className="fl-turn" cx={x} cy={y} r={19}><title>{tr('내 차례: 판단할 것', 'Your turn: to judge')}</title></circle>}
-              <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot || picked} judged={judgedOf(n)} />
+              <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} big={on || lg || hot || picked} judged={judgedOf(n)} turn={turnOf(n)} />
               {/* 시작점 ▶는 차트 왼쪽 벽에 붙여 한 세로줄에 세운다 (10/15 12:11 제안). 그 줄에서 앞에 다른 점이 없으면 점까지 선으로 잇는다 */}
               {start && <g className="fl-startmark" {...rowHandle(r)}><title>{tr('시작점: 앞선 점이 없다 · 위아래로 끌어 줄 옮기기', 'Start: no earlier dot · drag up or down to move the row')}</title>
                 <path className="fl-start" d={`M${LEFT - 22} ${y - 7}L${LEFT - 13} ${y}L${LEFT - 22} ${y + 7}Z`} />
                 {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
               </g>}
-              {n.gaps.length > 0 && <circle className="fl-gapdot" cx={x + 14} cy={y - 14} r={4}><title>{`${tr('빈틈', 'Gaps')}\n${n.gaps.map((g) => `· ${g.text}`).join('\n')}`}</title></circle>}
-              {n.end && <line className="fl-end" x1={x + 20} y1={y - 10} x2={x + 20} y2={y + 10}><title>{tr('흐름 종료', 'Flow ends')}</title></line>}
-              {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}{cites.length > 0 && <tspan className="fl-cite" dx={3}>§{cites.length > 1 ? cites.length : ''}<title>{cites.map((e) => e.title ?? e.ref).join('\n')}</title></tspan>}</text> : null}
+              {/* 빈틈 · 흐름 종료는 점에 표시하지 않고 툴바 "빈틈"과 점의 자세히에서만 (10/26 "흐름 점 표식") */}
+              {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : null}
             </g>
           })}
         </svg>
