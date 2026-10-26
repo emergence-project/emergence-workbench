@@ -23,6 +23,8 @@ export const Task = z.object({
   file: z.string(),
   title: z.string(),
   topic: z.string().optional(),
+  /** 이 일이 다루는 흐름 점 id (10/26). 없으면 앱이 본문에 적힌 점 이름으로 짝을 찾는다 */
+  flow: z.string().optional(),
   /** 우선순위 (10/13 W1): 1 먼저 · 2 보통 · 3 나중. 없으면 보통 */
   priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   agent: z.string(),
@@ -79,6 +81,7 @@ export const NewTaskBody = z.object({
   task: z.string(),
   endCondition: optionalText,
   topic: optionalText,
+  flow: optionalText,
   agent: optionalText,
   references: z.array(z.string()).optional(),
   avoid: optionalText,

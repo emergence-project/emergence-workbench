@@ -172,10 +172,16 @@ export const FlowRows = z.object({ top: z.number().int().max(0), bottom: z.numbe
 export const FlowScan = z.object({ nodes: z.array(FlowNode), diagnostics: z.array(Diagnostic), layout: FlowLayout, rows: FlowRows.nullable() }).strict()
 export const FlowOne = z.object({ node: FlowNode }).strict()
 /** 지난 시도 찾기 (MCP flow_search): 점마다 한 줄 */
+/** 찾은 점에 이어진 맡긴 일 (10/26): link는 짝을 찾은 길 — field 맡긴 일의 flow 칸 · dot 점의 task 칸 · text 맡긴 일 글의 점 이름 */
+export const FlowSearchTask = z.object({
+  id: z.string(), title: z.string(), state: z.string(), link: z.enum(['field', 'dot', 'text']),
+  resultAt: z.string().optional(), conclusion: z.string().optional(), outputs: z.array(z.string()).optional(),
+}).strict()
 export const FlowSearchReply = z.object({
   rows: z.array(z.object({
     id: z.string(), kind: z.enum(FLOW_KINDS), state: z.string(), short: z.string(), title: z.string(), date: z.string().optional(),
     params: z.record(z.string(), z.string()).optional(), result: z.string().optional(), reason: z.string().optional(), score: z.number(),
+    tasks: z.array(FlowSearchTask).optional(),
   }).strict()),
 }).strict()
 /** trashed: flow/.trash/로 옮긴 점 파일과 그 점의 기록 (workbench 기준 경로) */

@@ -344,7 +344,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
 
   server.registerTool('flow_search', {
     title: 'Search the research flow',
-    description: 'Earlier dots of the project flow that match the words (title, fields, run parameters, reasons), best first: state, parameters, result and the reason a dot was refuted or dropped. Use it before starting a calculation or proof so you do not repeat one.',
+    description: 'Earlier dots of the project flow that match the words (title, fields, run parameters, reasons), best first: state, parameters, result and the reason a dot was refuted or dropped. Delegated tasks linked to a dot are searched too and shown under it with their state, conclusion and outputs. Use it before starting a calculation or proof so you do not repeat one.',
     inputSchema: { project, q: z.string().min(2).describe('Words, e.g. the model, method or parameter values') },
     annotations: ro,
   }, async ({ project: rid, q }) => call(`/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`))
@@ -464,6 +464,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
       task: z.string().trim().min(1).describe('What to do'),
       endCondition: z.string().optional().describe('Against what and by which criterion it is finished'),
       topic: z.string().optional().describe('Topic id'),
+      flow: z.string().optional().describe('The flow dot this task works on (usually a question), so flow_search finds its result'),
       agent: z.string().optional().describe('claude-code or codex (default claude-code)'),
       references: z.array(z.string()).optional().describe('Notes, papers or folders to read first'),
       avoid: z.string().optional().describe('What not to do'),

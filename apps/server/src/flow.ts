@@ -4,6 +4,8 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { hashOf, isBackupCopy, localDate, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
+import { taskLinks } from './flowTasks.js'
+import { listTasks } from './tasks.js'
 import { t as tl } from './i18n.js'
 import { cardState, claimHash, computeGaps, confirmed, evidenceHash, flowGate, judgmentHash, judgmentQueue, markJudgments, markStale, stepHash } from './flowGaps.js'
 import { JUDGE_CAP, commentTargetSlug, stamp as coreStamp } from '@rw/core'
@@ -527,18 +529,26 @@ export function reviewFlow(wb: Workbench, id: string, body: FlowReviewBody, now 
   return checkFlowEvidence(wb, id, rest, by, now, 'agent')
 }
 
-/** 지난 시도 찾기: 낱말이 짧은 제목 · 제목 · 설명 · 매개변수 · 이유에 몇 번 걸리나. 많이 걸린 것부터 10개 */
+/**
+ * 지난 시도 찾기: 낱말이 짧은 제목 · 제목 · 설명 · 매개변수 · 이유, 그리고 이어진 맡긴 일의 제목 · 작업 · 결론에 몇 번 걸리나.
+ * 많이 걸린 것부터 10개. 이어진 맡긴 일은 줄마다 결론 · 산출물과 함께 싣는다(10/26: 결과가 맡긴 일에만 있어 점이 미해결로 보이던 것)
+ */
 export function searchFlow(wb: Workbench, q: string, limit = 10): FlowSearchReply {
   const words = q.toLowerCase().split(/[^\p{L}\p{N}.]+/u).filter((w) => w.length >= 2)
   if (!words.length) return { rows: [] }
   const rows: FlowSearchReply['rows'] = []
-  for (const n of scanFlow(wb).nodes) {
-    const hay = [n.id, n.short, n.title, ...Object.values(n.fields), ...Object.entries(n.run?.params ?? {}).map(([k, v]) => `${k} ${v}`), n.run?.code ?? '', n.reason ?? '', n.next ?? ''].join(' ').toLowerCase()
+  const nodes = scanFlow(wb).nodes
+  const links = taskLinks(nodes, listTasks(wb))
+  const clip = (s?: string) => s && (s.length > 200 ? `${s.slice(0, 199)}…` : s)
+  for (const n of nodes) {
+    const linked = links.get(n.id) ?? []
+    const hay = [n.id, n.short, n.title, ...Object.values(n.fields), ...Object.entries(n.run?.params ?? {}).map(([k, v]) => `${k} ${v}`), n.run?.code ?? '', n.reason ?? '', n.next ?? '',
+      ...linked.flatMap(({ task: t }) => [t.title, t.task, t.conclusion ?? ''])].join(' ').toLowerCase()
     const score = words.reduce((acc, w) => acc + (hay.includes(w) ? 1 : 0), 0)
     if (!score) continue
     const state = n.theorem ? 'theorem' : n.progress === 'done' ? (n.result ?? 'solved') : n.progress
-    const clip = (s?: string) => s && (s.length > 200 ? `${s.slice(0, 199)}…` : s)
-    rows.push({ id: n.id, kind: n.kind, state, short: n.short, title: n.title, ...(n.date && { date: n.date }), ...(n.run?.params && { params: n.run.params }), ...(n.fields.result && { result: clip(n.fields.result) }), ...(n.reason && { reason: clip(n.reason) }), score })
+    const tasks = linked.map(({ task: t, how }) => ({ id: t.id, title: t.title, state: t.state, link: how, ...(t.resultAt && { resultAt: t.resultAt }), ...(t.conclusion && { conclusion: clip(t.conclusion) }), ...(t.outputs.length && { outputs: t.outputs.slice(0, 3) }) }))
+    rows.push({ id: n.id, kind: n.kind, state, short: n.short, title: n.title, ...(n.date && { date: n.date }), ...(n.run?.params && { params: n.run.params }), ...(n.fields.result && { result: clip(n.fields.result) }), ...(n.reason && { reason: clip(n.reason) }), ...(tasks.length && { tasks }), score })
   }
   rows.sort((a, b) => b.score - a.score || (b.date ?? '').localeCompare(a.date ?? ''))
   return { rows: rows.slice(0, limit) }
