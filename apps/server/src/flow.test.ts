@@ -510,6 +510,22 @@ describe('흐름의 양식 · 해결 문턱 · 빈틈 (10/20)', () => {
     expect((await send('GET', '/a')).json().node.id).toBe('a')
   })
 
+  it('근거 고르기: 노트마다 절 목록과 첫 글 (근거의 절과 같은 규칙)', async () => {
+    const dirN = path.join(repo, 'workbench', 'notes', 'sec-test')
+    fs.mkdirSync(dirN, { recursive: true })
+    fs.writeFileSync(path.join(dirN, 'note.yaml'), 'name: 절 시험\n')
+    fs.writeFileSync(path.join(dirN, 'note.md'), '# 절 시험\n\n## Summary\n\n- **H1** holds.\n\n## Results\n\n![fig](a.png)\n\n### H1: 성립 \\label{x}\n\n표 하나.\n')
+    const r = await app.inject({ method: 'GET', url: `${R}/flow/sections` })
+    expect(r.statusCode).toBe(200)
+    const one = r.json().notes.find((n: { file: string }) => n.file === 'workbench/notes/sec-test/note.md')
+    expect(one.sections).toEqual([
+      { name: 'Summary', level: 2, preview: 'H1 holds.' },
+      { name: 'Results', level: 2, preview: '' },
+      { name: 'H1: 성립', level: 3, preview: '표 하나.' },
+    ])
+    fs.rmSync(dirN, { recursive: true, force: true })
+  })
+
   it('지난 시도 찾기: 이어진 맡긴 일의 결론까지 찾고 줄에 싣는다 (flow 칸 · 점의 task · 글의 점 이름)', async () => {
     put('q', 'format: 1\nkind: question\nprogress: open\nshort: Beyond\ntitle: 정수 아닌 지수\ndate: 2026-10-08')
     put('c', 'format: 1\nkind: calc\nprogress: active\nshort: Branch\ntitle: 분기점\ndate: 2026-10-22\ntask: 2026-10-21-made')
