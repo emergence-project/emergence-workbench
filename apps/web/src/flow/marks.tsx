@@ -7,7 +7,7 @@ export type Mark = FlowKind | 'theorem' | 'guess'
 export const KIND: Record<Mark, { act: boolean; name: () => string; def: () => string }> = {
   question: { act: false, name: () => tr('질문', 'Question'), def: () => tr('일을 여는 점(◇). 답을 구할 대상으로 세운 물음.', 'A dot that opens work (◇). A question set out to be answered.') },
   guess: { act: false, name: () => tr('질문 (예상 답 있음)', 'Question (expected answer)'), def: () => tr('예상 답(가설)을 함께 적은 질문.', 'A question written with an expected answer (a hypothesis).') },
-  finding: { act: false, name: () => tr('명제', 'Proposition'), def: () => tr('일을 맺는 닫는 점(□). 작업에서 나온 주장 하나. 특정 모형·조건에서 확인되었으나 일반성은 확립되지 않았다. 사람이 판단한다: 속이 빈 것은 판단 전, 채운 것은 승인됨.', 'A dot that closes work (□). One claim that came out of the work, confirmed for given models or conditions; generality not established. A person judges it: hollow before judgment, filled when approved.') },
+  finding: { act: false, name: () => tr('명제', 'Proposition'), def: () => tr('일을 맺는 닫는 점(□). 작업에서 나온 주장 하나. 특정 모형·조건에서 확인되었으나 일반성은 확립되지 않았다. 사람이 판단한다: 판단 전은 주황, 승인은 청록, 기각은 회색 고리.', 'A dot that closes work (□). One claim that came out of the work, confirmed for given models or conditions; generality not established. A person judges it: orange before judgment, teal when approved, a gray ring when rejected.') },
   theorem: { act: false, name: () => tr('정리', 'Theorem'), def: () => tr('증명으로 확립된 명제. 따로 고르지 않는다: 명제의 근거에 사람이 승인한 증명이 있으면 정리로 보인다.', 'A proposition established by proof. Not chosen directly: a proposition shows as a theorem when its evidence has a human-approved proof.') },
   calc: { act: true, name: () => tr('수치 계산', 'Numerical calculation'), def: () => tr('작업 점(○). 컴퓨터로 수치를 구하는 계산. 모형·크기·매개변수와 코드가 있고, 결과가 수치·그림이다.', 'A work dot (○). A computation of numbers: model, size, parameters and code, with numbers or figures as the result.') },
   analytic: { act: true, name: () => tr('이론 계산', 'Analytic calculation'), def: () => tr('식으로 값이나 표현을 구하는 계산. 주장의 참을 보이는 것은 증명이다.', 'Deriving a value or expression by hand. Showing a claim true is a proof.') },
@@ -89,6 +89,10 @@ export function judgeName(n: FlowNode): string | undefined {
 }
 /** 사용자 차례 (주황 고리): 판단 대기열의 명제와 시작을 기다리는 카드 */
 export const turnOf = (n: FlowNode): boolean => !!n.queued || n.cardState === 'ready'
+/** 점 기호의 주황 채움 (10/26 "흐름 점 표식"): 내 차례인 점과, 아직 승인 · 기각되지 않은 명제 모두 */
+export const markTurn = (n: FlowNode): boolean => turnOf(n) || (n.kind === 'finding' && n.verdict !== 'approve' && n.verdict !== 'reject')
+/** 점 기호의 상태: 기각된 명제는 폐기처럼 회색 고리 (10/26) */
+export const markState = (n: FlowNode): ReturnType<typeof stateOf> => n.kind === 'finding' && n.verdict === 'reject' ? 'dropped' : stateOf(n)
 
 /** 점의 역할 (10/26 "흐름 점 표식"): 여는 점(질문) ◇ · 작업 ○ · 닫는 점(명제 · 정리) □ */
 export const roleOf = (m: Mark): 'open' | 'work' | 'close' => KIND[m].act ? 'work' : m === 'question' || m === 'guess' ? 'open' : 'close'
@@ -111,7 +115,7 @@ export function MarkSvg({ m, x, y, state, big, judged, turn }: { m: Mark; x: num
   return <g className={`fl-m s-${state}${turn ? ' turn' : judged === false ? ' unjudged' : ''}`}>{body}{g}</g>
 }
 export const MarkIcon = ({ n, size = 20 }: { n: FlowNode; size?: number }) =>
-  <svg className="fl-icon" width={size} height={size} viewBox="0 0 30 30" aria-hidden><MarkSvg m={markOf(n)} x={15} y={15} state={stateOf(n)} judged={judgedOf(n)} turn={turnOf(n)} /></svg>
+  <svg className="fl-icon" width={size} height={size} viewBox="0 0 30 30" aria-hidden><MarkSvg m={markOf(n)} x={15} y={15} state={markState(n)} judged={judgedOf(n)} turn={markTurn(n)} /></svg>
 
 export const PROGRESS: Record<FlowProgress, () => string> = { open: () => tr('미해결', 'Open'), active: () => tr('진행', 'In progress'), paused: () => tr('멈춤', 'Paused'), done: () => tr('끝남', 'Done') }
 export const resultName = (r: FlowResult, act: boolean) => r === 'solved' ? (act ? tr('성공', 'Succeeded') : tr('해결', 'Solved')) : r === 'refuted' ? (act ? tr('실패', 'Failed') : tr('반증', 'Refuted')) : tr('폐기', 'Dropped')
