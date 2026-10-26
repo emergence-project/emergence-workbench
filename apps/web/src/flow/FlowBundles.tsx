@@ -7,7 +7,7 @@ import { roundedPath } from '../flowRoute'
 import { t as tr } from '../i18n'
 import { Icon } from '../icons'
 import type { TopicRef } from './data'
-import { KIND, markOf, stateOf, MarkSvg, judgedOf, turnOf } from './marks'
+import { KIND, markOf, markState, markTurn, stateOf, MarkSvg, judgedOf, turnOf } from './marks'
 
 const CW = 170, RH = 96, TOP = 14, LEFT = 128
 
@@ -64,7 +64,7 @@ export function FlowBundles({ rid, all, topics, focus, foldSwitch, onOpenDot }: 
             {lay.bundles.map((b) => {
               const x = X(b), y = Y(b), face = faceOf(b), m = markOf(face)
               const c = b.counts
-              const tally = [c.work && `□${c.work}`, c.literature && `§${c.literature}`, c.finding && `!${c.finding}`, c.refuted && `⊥${c.refuted}`].filter(Boolean).join(' ')
+              const tally = [c.work && tr(`작업 ${c.work}`, `${c.work} work`), c.literature && tr(`문헌 ${c.literature}`, `${c.literature} reading`), c.finding && tr(`명제 ${c.finding}`, `${c.finding} propositions`), c.refuted && tr(`반증 ${c.refuted}`, `${c.refuted} refuted`)].filter(Boolean).join(' · ')
               return <g key={b.id} className={`fl-node fl-bundle${b.side ? ' side' : ''}${hot(b) ? '' : ' dim'}`} data-id={b.id} tabIndex={0} role="button"
                 aria-label={`${b.answer ? '!' : '?'} ${nameOf(b)}`}
                 onClick={() => { setSel(b.id); setOpen(b) }}
@@ -74,7 +74,7 @@ export function FlowBundles({ rid, all, topics, focus, foldSwitch, onOpenDot }: 
                 {!b.question && <circle className="fl-noq" cx={x} cy={y} r={22}><title>{tr('질문 없이 시작', 'Started without a question')}</title></circle>}
                 {sel === b.id && <circle className="fl-ring sel" cx={x} cy={y} r={19} />}
                 {turnCount(b) > 0 && sel !== b.id && <circle className="fl-turn" cx={x} cy={y} r={19} />}
-                <MarkSvg m={m} x={x} y={y} state={stateOf(face)} judged={b.answer ? b.judged : undefined} />
+                <MarkSvg m={m} x={x} y={y} state={markState(face)} judged={b.answer ? b.judged : undefined} turn={markTurn(face)} />
                 <text className="fl-name" x={x} y={y + 32} textAnchor="middle">{nameOf(b)}</text>
                 {tally && <text className="fl-tally" x={x} y={y + 47} textAnchor="middle">{tally}</text>}
               </g>
@@ -123,7 +123,7 @@ function BundleWindow({ rid, b, onClose, onOpenDot }: { rid: string; b: Bundle; 
                   <title>{`${KIND[markOf(n)].name()} · ${n.title}`}</title>
                   <rect className="fl-hit" x={x - cw / 2 + 4} y={y - 18} width={cw - 8} height={48} rx={6} />
                   {turnOf(n) && <circle className="fl-turn" cx={x} cy={y} r={19} />}
-                  <MarkSvg m={markOf(n)} x={x} y={y} state={stateOf(n)} judged={judgedOf(n)} />
+                  <MarkSvg m={markOf(n)} x={x} y={y} state={markState(n)} judged={judgedOf(n)} turn={markTurn(n)} />
                   <text className="fl-name" x={x} y={y + 30} textAnchor="middle">{n.short}</text>
                 </g>
               })}
