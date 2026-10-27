@@ -6,7 +6,7 @@ created: 2026-10-05 09:10
 state: result
 task: On random planar graphs with at most 12 vertices, check numerically that coloring with Kempe swaps stays within five colors and the number of swaps stays within the bound n².
 end-condition: Zero cases above the bound among 1000 random graphs, and three seeds agree
-references: [workbench/notes/kempe-recoloring/note.md]
+references: [workbench/notes/kempe-recoloring/note.md, workbench/flow/greedy-check.yaml]
 avoid: Do not edit the body of the research note
 result-at: 2026-10-06 12:59
 conclusion: All 1000 stayed within the bound; once there are more than 10 vertices the bound becomes loose, more than 4 times the actual count.

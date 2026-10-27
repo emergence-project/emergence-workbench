@@ -1,0 +1,12 @@
+/* 맡긴 일 ↔ 흐름 점 (10/27): 기록 › 내 차례 맨 위 짝 제안 띠, 보고서 · 판단 카드의 점 칩 */
+.fp { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--bg-sunken); border-radius: var(--r-lg); }
+.fp-h { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); }
+.fp-tip { font-size: var(--fs-xs); }
+.fp-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.fp-rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.8fr) auto; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.fp-task { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-dot { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.fp-dot select { min-width: 0; max-width: 100%; }
+.tk-flow { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.tk-flow-chip { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-pill); font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
+.fp-h .sp { flex: 1; }

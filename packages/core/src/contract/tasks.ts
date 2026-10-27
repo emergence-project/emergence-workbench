@@ -63,6 +63,8 @@ export const TaskDiagnostic = z.object({
 export const TaskScan = z.object({ tasks: z.array(Task), diagnostics: z.array(TaskDiagnostic), rules: z.string() }).strict()
 /** GET /tasks/:id, POST judge · answer */
 export const TaskOne = z.object({ task: Task }).strict()
+/** POST judge: 결과를 승인해 이은 흐름 점에 반영했으면 flow (10/27): closed 끝남 · 해결로 둔 점, added 새로 만든 닫는 점 */
+export const TaskJudged = TaskOne.extend({ flow: z.object({ closed: z.string().optional(), added: z.string().optional() }).strict().optional() }).strict()
 /** POST /tasks (맡기기) */
 export const TaskCreated = z.object({ task: Task, rules: z.string() }).strict()
 /** POST next: start면 새로 맡긴 일(started)도 */
@@ -95,6 +97,8 @@ export const JudgeBody = z.object({
   endCondition: z.string().optional(),
   baseHash,
 })
+/** POST flow: 흐름 점과 잇기 (null이면 풀기). 사용자가 "잇기"를 누를 때만 (10/27) */
+export const LinkFlowBody = z.object({ flow: z.string().min(1).nullable(), baseHash }).strict()
 export const AnswerBody = z.object({ n: ordinal, answer: z.string(), note: z.string().optional(), baseHash })
 export const NextBody = z.object({ i: ordinal, action: z.enum(['start', 'drop', 'restore']), edit: NewTaskBody.partial().optional(), baseHash })
 /**
@@ -131,8 +135,10 @@ export type TaskScan = z.infer<typeof TaskScan>
 export type TaskOne = z.infer<typeof TaskOne>
 export type TaskCreated = z.infer<typeof TaskCreated>
 export type TaskNextDone = z.infer<typeof TaskNextDone>
+export type TaskJudged = z.infer<typeof TaskJudged>
 /** 보내는 쪽(화면) 모양. 서버가 받은 뒤의 모양은 z.output */
 export type NewTaskBody = z.input<typeof NewTaskBody>
 export type JudgeBody = z.input<typeof JudgeBody>
 export type AnswerBody = z.input<typeof AnswerBody>
 export type NextBody = z.input<typeof NextBody>
+export type LinkFlowBody = z.input<typeof LinkFlowBody>

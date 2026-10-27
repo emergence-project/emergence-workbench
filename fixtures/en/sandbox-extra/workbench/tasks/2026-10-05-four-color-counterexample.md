@@ -4,7 +4,7 @@ topic: four-color
 agent: claude-code
 created: 2026-10-05 10:30
 state: paused
-task: Look for a graph with at most 12 vertices where the Kempe chain argument fails with four colors.
+task: Look for a graph with at most 12 vertices where the Kempe chain argument fails with four colors (flow dot `workbench/flow/four-colors.yaml`).
 end-condition: One counterexample, or none among 10,000 random graphs
 result-at: 2026-10-05 16:02
 conclusion: No counterexample among 10,000 random graphs with at most 12 vertices.

@@ -15,6 +15,7 @@ import { ApproveDialog } from './ApproveDialog'
 import { flowBy } from './flowBy'
 import { citeKeys } from '../ObsidianMarkdown'
 import { taskTitles } from '../taskView'
+import { useTaskScan } from '../projectQueries'
 
 export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick, onAdd, onPickFrom, onEdit, onUnplace, onDeleted, reload, fail }: {
   reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; notes: NoteRow[]
@@ -38,6 +39,8 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
     try { await flowApi(rid).remove(n.id, n.hash); flash(tr(`점 "${n.short}"을 지웠습니다`, `Deleted the dot "${n.short}"`)); onDeleted() } catch (e) { fail(e) }
   }
   const K = KIND[markOf(n)]
+  // 이 점과 이은 맡긴 일 (10/27): 사용자가 이은 것(flow 칸)과 이 점을 만든 일
+  const linked = (useTaskScan(rid).data?.tasks ?? []).filter((x) => x.flow === n.id && x.id !== n.task)
   const el = useRef<HTMLElement>(null)
   useEffect(() => {
     if (!reveal.current) return
@@ -79,6 +82,7 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
         {n.ended && <span><i>{tr('끝난 날', 'Ended')}</i>{n.ended}</span>}
         {n.by && <span><i>{tr('한 이', 'By')}</i>{flowBy(n.by)}</span>}
         {n.task && <span><i>{tr('작업', 'Task')}</i><button className="a" data-ui="흐름 점 작업" title={tr('이 점을 만든 맡긴 일 보고서 열기', 'Open the delegated task report behind this dot')} onClick={() => go({ page: 'task', rid, task: n.task! })}>{taskTitles.get(n.task) ?? n.task}</button></span>}
+        {linked.map((x) => <span key={x.id}><i>{tr('맡긴 일', 'Delegated task')}</i><button className="a" data-ui="흐름 점 맡긴 일" title={tr('이은 맡긴 일 보고서 열기', 'Open the linked delegated task report')} onClick={() => go({ page: 'task', rid, task: x.id })}>{x.title}</button></span>)}
         {row && <span className="fl-rowfield" data-ui="흐름 줄 이름 고치기"><i>{tr('줄', 'Row')}</i>
           {rowText !== null
             ? <input className="fl-rowname-in" autoFocus aria-label={tr('줄 이름', 'Row name')} placeholder={tr('줄 이름', 'Row name')} value={rowText}

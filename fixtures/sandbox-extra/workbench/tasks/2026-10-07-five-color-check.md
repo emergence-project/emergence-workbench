@@ -1,6 +1,7 @@
 ---
 title: 5색 정리 증명 초안 대조
 topic: coloring
+flow: five-colors
 agent: claude-code
 created: 2026-10-07 09:40
 state: proposed

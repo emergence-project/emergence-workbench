@@ -393,7 +393,7 @@ workbench/notes/
 | `end-check` | `pass` · `fail` · `unknown` |
 | `references`, `outputs` | 글자 목록 |
 | `proposal` | `state: proposed`일 때 필수: `{end-condition: [글자…], reason: 글자}` |
-| `flow` | 이 일이 다루는 흐름 점 id(보통 질문, §14, 2026-10-26~). 없으면 앱이 짝을 찾는다: 점의 `task` 칸이 이 일을 가리키거나, 작업 내용 · 참고 · 종결 조건 · 본문에 `workbench/flow/<id>.yaml` 또는 "흐름 점 <id>"가 있으면 그 점(있는 점만, 폐기한 일은 빼고). 이어진 일은 흐름 찾기(`flow_search`)와 STATUS "흐름 지금"에 결론 · 상태와 함께 보인다 |
+| `flow` | 이 일이 다루는 흐름 점 id(보통 질문, §14, 2026-10-26~). 없으면 앱이 짝을 찾는다: 점의 `task` 칸이 이 일을 가리키거나, 작업 내용 · 참고 · 종결 조건 · 본문에 `workbench/flow/<id>.yaml` 또는 "흐름 점 <id>"가 있으면 그 점(있는 점만, 폐기한 일은 빼고). 이어진 일은 흐름 찾기(`flow_search`)와 STATUS "흐름 지금"에 결론 · 상태와 함께 보인다. 찾은 짝(`task` 칸 · 글)은 화면에 제안만 하고, 사용자가 "잇기"를 누를 때 이 칸을 쓴다(`POST …/tasks/:id/flow`, `null`이면 지움, 2026-10-27~). 이 칸으로 이은 점이 끝나지 않은 질문 · 작업 점이면 결과를 승인할 때 그 점은 끝남 · 해결이 되고 `conclusion`을 진술로 한 명제 점이 새로 생긴다(`docs/agent-delegated-work.md` 4절) |
 | `ask` | 3개까지: 글자 또는 `{q, options?: [글자]}` |
 | `next` | 글자 또는 `{task, end-condition?, started?, dropped?}` |
 | `issues` | 글자 또는 `{text, impact?, next?: 양의 정수}` |

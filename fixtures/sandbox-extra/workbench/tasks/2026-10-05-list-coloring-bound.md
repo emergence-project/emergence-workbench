@@ -6,7 +6,7 @@ created: 2026-10-05 09:10
 state: result
 task: 꼭짓점 12개 이하의 무작위 평면 그래프에서, Kempe 바꾸기로 칠한 색칠이 다섯 색 안에 들고 바꾸기 횟수가 n² 한계 안에 드는지 수치로 확인한다.
 end-condition: 무작위 그래프 1000개에서 한계를 넘는 경우가 0개, 시드 3개 일치
-references: [workbench/notes/kempe-recoloring/note.md]
+references: [workbench/notes/kempe-recoloring/note.md, workbench/flow/greedy-check.yaml]
 avoid: 연구노트 본문은 고치지 않는다
 result-at: 2026-10-06 12:59
 conclusion: 1000개 모두 한계 안에 들었고, 꼭짓점이 10개를 넘으면 한계가 실제 횟수의 4배 이상으로 느슨해진다.
