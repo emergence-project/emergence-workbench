@@ -127,7 +127,7 @@ export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEdi
       <button className="tk-row" aria-expanded={open} onClick={onToggle}>
         <StatusDot s={TASK_DOT[tk.state]} name={TASK_STATE_LABEL[tk.state]} />
         <span className="tk-title">{tk.title}</span>
-        <span className="tk-meta"><TaskFlowChip rid={rid} task={tk} nodes={nodes} /><span>{agentName(tk.agent)}</span><span title={timing.tip}>{timing.text}</span></span>
+        <span className="tk-meta"><TaskFlowChip rid={rid} task={tk} nodes={nodes} inRow /><span>{agentName(tk.agent)}</span><span title={timing.tip}>{timing.text}</span></span>
         <span className="tk-chev" aria-hidden />
       </button>
       {open && <div className="tk-open">
