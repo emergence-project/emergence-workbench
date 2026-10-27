@@ -14,7 +14,7 @@ import { FlowCard } from './FlowCard'
 import { newDraftNode, FlowEditor } from './FlowEditor'
 
 const ZS = [0.5, 0.67, 0.8, 1, 1.25, 1.5]
-const CW0 = 116, RH0 = 76, TOP = 30, LEFT = 30
+const CW0 = 160, RH0 = 76, TOP = 30, LEFT = 30
 /** 줄 이름 칸의 폭 (10/20 사용자: 줄 이름은 주제와 따로, 차트 왼쪽에 붙어 있다) */
 const GUT = 112
 const H_KEY = 'rw-flow-h', Z_KEY = 'rw-flow-zoom', SEL_KEY = 'rw-flow-sel', NAME_KEY = 'rw-flow-names'
@@ -36,6 +36,18 @@ export function selectFlowDot(rid: string, id: string) {
 }
 
 type Cell = { c: number; r: number }
+
+/** 알약 안 이름이 넘치면 … (SVG 글은 저절로 줄이지 않는다. 한글은 넓게 센다) */
+export function fitName(text: string, px: number, fs = 11.5): string {
+  const w = (ch: string) => (/[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af\u4e00-\u9fff]/.test(ch) ? fs : fs * 0.56)
+  let used = 0
+  const chars = [...text]
+  for (let i = 0; i < chars.length; i++) {
+    used += w(chars[i]!)
+    if (used > px) return chars.slice(0, Math.max(1, i - 1)).join('') + '…'
+  }
+  return text
+}
 
 export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, topics, reload, foldSwitch }: {
   rid: string; focus?: string; all: FlowNode[]; cells: FlowCells; lay: FlowLayout; rowNames: Record<string, string>; warn: number; notes: NoteRow[]; topics: TopicRef[]; reload(): void; foldSwitch?: ReactNode
@@ -96,6 +108,11 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
   const CW = zoom.fit ? fitCW : CW0 * zoom.x
   const RH = RH0 * zoom.y
   const compact = CW < 64 || RH < 48
+  /**
+   * 알약 (10/26 "흐름 점 표식" 안 B): 이름을 켜면 점이 왼쪽 기호 · 오른쪽 이름의 알약이 된다. 끄거나 좁으면 기호만.
+   * 고른 점 · 계보 · 내 차례 테두리도 알약에 두른다
+   */
+  const PW = Math.min(CW - 28, 132), PH = 28
   const X = (c: number) => LEFT + CW * c + CW / 2
   const Y = (r: number) => TOP + RH * r + RH / 2 - 6
   const cellAt = (e: React.PointerEvent): Cell | null => {
@@ -313,6 +330,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
             const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = inLin(n.id) && !on && !picked
             const hot = (!!focus && n.topics.includes(focus)) || (gapOn && n.gaps.length > 0)
             const start = !n.from.length
+            const pill = names && !compact
             return <g key={n.id} className={`fl-node${on ? ' sel' : ''}${picked ? ' pick' : ''}`} tabIndex={0} role="button" data-id={n.id}
               aria-label={`${n.short}: ${KIND[markOf(n)].name()}, ${stateName(n)}`}
               onPointerDown={(e) => { if (e.button === 0) { drag.current = { id: n.id, x: e.clientX, y: e.clientY, moved: false }; (e.currentTarget as Element).setPointerCapture(e.pointerId) } }}
@@ -342,6 +360,12 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
               <title>{`${KIND[markOf(n)].name()}${judgeName(n) ? ` · ${judgeName(n)}` : ''} · ${n.short}${n.title && n.title !== n.short ? `\n${n.title}` : ''}`}</title>
               {hot && <rect className="fl-focus" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />}
               <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
+              {pill ? <>
+                <rect className={`fl-pl${turnOf(n) && !(lg || on || picked) ? ' turn' : ''}`} x={x - PW / 2} y={y - PH / 2} width={PW} height={PH} rx={PH / 2} />
+                {(lg || on || picked) && <rect className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} x={x - PW / 2 - 3} y={y - PH / 2 - 3} width={PW + 6} height={PH + 6} rx={PH / 2 + 3} />}
+                <g transform={`translate(${x - PW / 2 + 15} ${y}) scale(0.72)`}><MarkSvg m={markOf(n)} x={0} y={0} state={markState(n)} judged={judgedOf(n)} turn={markTurn(n)} /></g>
+                <text className={`fl-name in${on || lg || hot || picked ? ' strong' : ''}`} x={x - PW / 2 + 29} y={y + 4}>{fitName(n.short, PW - 38)}</text>
+              </> : <>
               {/* 고른 점 · 이을 점 · 계보는 점에 바짝 두른 테두리로 (10/16 사용자: 둥근 네모 대신) */}
               {(lg || on || picked) && (roleOf(markOf(n)) === 'work'
                 ? <circle className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} cx={x} cy={y} r={19} />
@@ -349,13 +373,14 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
               {/* 사용자 차례: 판단 대기열의 명제와 시작을 기다리는 카드에 주황 고리 (10/23 "판단 설계") */}
               {turnOf(n) && !(lg || on || picked) && <circle className="fl-turn" cx={x} cy={y} r={19}><title>{tr('내 차례: 판단할 것', 'Your turn: to judge')}</title></circle>}
               <MarkSvg m={markOf(n)} x={x} y={y} state={markState(n)} big={on || lg || hot || picked} judged={judgedOf(n)} turn={markTurn(n)} />
+              </>}
               {/* 시작점 ▶는 차트 왼쪽 벽에 붙여 한 세로줄에 세운다 (10/15 12:11 제안). 그 줄에서 앞에 다른 점이 없으면 점까지 선으로 잇는다 */}
               {start && <g className="fl-startmark" {...rowHandle(r)}><title>{tr('시작점: 앞선 점이 없다 · 위아래로 끌어 줄 옮기기', 'Start: no earlier dot · drag up or down to move the row')}</title>
                 <path className="fl-start" d={`M${LEFT - 22} ${y - 7}L${LEFT - 13} ${y}L${LEFT - 22} ${y + 7}Z`} />
-                {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${x - 20}`} />}
+                {!lay.placed.some((o) => o.r === r && o.c < c) && <path className="fl-start-line" d={`M${LEFT - 13} ${y}H${pill ? x - PW / 2 : x - 20}`} />}
               </g>}
               {/* 빈틈 · 흐름 종료는 점에 표시하지 않고 툴바 "빈틈"과 점의 자세히에서만 (10/26 "흐름 점 표식") */}
-              {on || (names ? !compact : lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : null}
+              {!pill && (on || lg || hot || picked) ? <text className={`fl-name${on || lg || hot || picked ? ' strong' : ''}`} x={x} y={y + (compact ? 27 : 30)} textAnchor="middle">{n.short}</text> : null}
             </g>
           })}
         </svg>
