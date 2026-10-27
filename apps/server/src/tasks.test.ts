@@ -252,7 +252,7 @@ describe('STATUS.md와 파일 감시', () => {
     fs.writeFileSync(path.join(dir(), `${b.id}.md`), fs.readFileSync(path.join(dir(), `${b.id}.md`), 'utf8').replace('state: working', 'state: proposed'))
     const after = await issues()
     expect(after.tasks['sample-research']).toBe(2)
-    expect(after.counts['sample-research']).toBe(after.notes['sample-research'] + 2)
+    expect(after.counts['sample-research']).toBe(before.counts['sample-research'] + 2)
   })
 
   it('workbench/tasks/의 .md가 바뀌면 알린다', () => {

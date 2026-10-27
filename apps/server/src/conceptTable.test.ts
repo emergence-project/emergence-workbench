@@ -44,7 +44,9 @@ beforeAll(async () => {
     { id: 'draft-empty', term: 'Empty', at: '2026-10-06', concept: 'empty' },
     { id: 'done', term: 'Delta', at: '2026-10-06', concept: 'delta' },
   ] }))
-  fs.writeFileSync(path.join(repo, 'workbench/blocks/table-uses.md'), `---\nid: table-uses\ntitle: Uses\nstatus: in-progress\nconcepts: [delta, empty]\n---\n[[A]] [[Alpha]]\n`)
+  fs.mkdirSync(path.join(repo, 'workbench/notes/table-uses'), { recursive: true })
+  fs.writeFileSync(path.join(repo, 'workbench/notes/table-uses/note.yaml'), 'name: Uses\nconcepts: [delta, empty]\n')
+  fs.writeFileSync(path.join(repo, 'workbench/notes/table-uses/note.md'), '[[A]] [[Alpha]]\n')
   app.registry.setLibrary(lib)
   index = new ConceptIndex(lib)
   index.refresh(true)

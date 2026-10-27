@@ -21,7 +21,7 @@ fields:
 card:
   givens: [kempe-swap, five-color-theorem]
   terms:
-    - { word: Kempe 사슬, def: 두 색만 쓰는 꼭짓점이 이어진 연결 성분, ref: workbench/blocks/kempe-chains.tex }
+    - { word: Kempe 사슬, def: 두 색만 쓰는 꼭짓점이 이어진 연결 성분, ref: workbench/notes/kempe-chains/main.tex }
   findings: 1
 guesses:
   - 일지에 질문으로 적혀 있지 않아 질문 문장은 에이전트가 썼다.

@@ -1,13 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { awaitsUserReview, buildTree, STATUS_LABEL_KO, isValidBlockId, RESEARCH_TARGET, sameNoteFile, todoDue, type JournalEntry, frontMatter } from '@rw/core'
+import { awaitsUserReview, STATUS_LABEL_KO, RESEARCH_TARGET, sameNoteFile, todoDue, type JournalEntry, frontMatter } from '@rw/core'
 import YAML from 'yaml'
 import type { EditList } from '@rw/core/contract/agentEdits'
 import { AgentEditStore, listEdits } from './agentEdits.js'
 import { isLatexSafePath, localDate, writeAtomic } from './fsutil.js'
 import { appPath, homeShort } from './agentPaths.js'
 import { localSyncState } from './gitSyncState.js'
-import { allManuscripts, groundsOf, lastCompile } from './manuscript.js'
+import { allManuscripts, lastCompile } from './manuscript.js'
 import { listMaterials } from './materials.js'
 import { listStatements } from './statements.js'
 import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './noteList.js'
@@ -125,10 +125,8 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   const info = wb.readResearch()
   const repo = wb.repo
   const src = info.sources
-  const blocks = wb.listBlocks()
-  const notes = listNotes(wb).filter((n) => n.type !== 'block')
-  const tree = buildTree(blocks)
-  const byId = new Map(blocks.map((b) => [b.id, b]))
+  const notes = listNotes(wb)
+  const byId = new Map(notes.map((n) => [n.id, n]))
   const statements = listStatements(wb.root)
   const journal: JournalEntry[] = wb.recentJournal(365)
   const today = localDate(now)
@@ -157,7 +155,6 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
 
   p('## 정본 위치', '')
   for (const c of src.canon) p(`- \`${c.path}\`${c.note ? ` — ${c.note}` : ''}`)
-  if (blocks.length) p(`- \`workbench/blocks/*.md\` (예전 것은 \`*.tex\`) — 블록 노트 ${blocks.length}개 (과정 기록: 상태·다음 할 일·멈춘 이유)`)
   if (wb.usesTopicFolders()) p(`- \`workbench/topics/<주제>/topic.yaml\` — 주제 ${wb.topicFolders().length}개의 정보 (순서는 \`research.yaml\` \`topics:\`)`)
   if (notes.length) p(`- ${noteDirs(notes).map((d) => `\`${d}\``).join(' · ')} — 노트 ${notes.length}개 (본문 \`note.md\` 또는 \`main.tex\`, 정보는 \`note.yaml\`)`)
   if (statements.length) p(`- \`${statements[0]!.file.split('/')[0]}/\` — 진술 ${statements.length}개 (정의·정리; uses·proofs 관계)`)
@@ -292,17 +289,17 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
 
   // ---------- research.yaml에 명시한 .tex 원고만 ----------
   const mss = allManuscripts(wb)
-  const ms = mss[0] ?? null
+  const declared = new Set(src.manuscripts.filter((m) => m.declared && m.path.endsWith('.tex')).map((m) => m.path))
+  const shown = mss.filter((m) => declared.has(m.main))
   const partLabel = (id: string) => {
     const m = mss.find((x) => x.parts.some((y) => y.id === id))
     if (!m) return id
     const i = m.parts.findIndex((x) => x.id === id)
     const part = m.parts[i]!
     const n = m.parts.slice(0, i + 1).filter((x) => x.appendix === part.appendix).length
-    return `${mss.length > 1 ? `${m.name} ` : ''}${part.appendix ? `부록 ${String.fromCharCode(64 + n)}` : `${n}장`} ${part.title}`
+    return `${shown.length > 1 ? `${m.name} ` : ''}${part.appendix ? `부록 ${String.fromCharCode(64 + n)}` : `${n}장`} ${part.title}`
   }
-  const declared = new Set(src.manuscripts.filter((m) => m.declared && m.path.endsWith('.tex')).map((m) => m.path))
-  for (const m of mss.filter((m) => declared.has(m.main))) {
+  for (const m of shown) {
     p(`## 원고 — ${m.name} (\`${m.main}\`)`, '')
     if (m.parts.every((part) => part.file === m.main)) {
       const chapters = m.parts.filter((part) => !part.appendix).length
@@ -323,7 +320,7 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
     const counts = (t: TopicStats) => t.notes
       ? (['in-progress', 'blocked', 'solved', 'stopped'] as const).filter((k) => t.byStatus[k]).map((k) => `${LABEL[k]} ${t.byStatus[k]}`).join(' · ')
       : '노트 없음'
-    p(`## 주제 ${overview.topics.length}`, '', '> 노트의 주제는 노트 머리말 `topics:`에 적는다 (첫째 = 주 주제). 폴더 노트는 `note.yaml`, 블록 노트는 파일 맨 위 머리말.', '')
+    p(`## 주제 ${overview.topics.length}`, '', '> 노트의 주제는 노트 머리말 `topics:`에 적는다 (첫째 = 주 주제). 정보는 `note.yaml`.', '')
     for (const t of [...overview.topics].sort((a, b) => Number(b.star) - Number(a.star))) {
       const first = t.description?.split('\n')[0]?.replace(/^-\s+/, '')
       p(`- ${t.star ? '★ ' : ''}**${t.title}** (\`${t.id}\`)${t.done ? ' · 완결' : ''} — ${counts(t)}${first ? ` — ${clip(first, 120)}` : ''}`)
@@ -348,36 +345,17 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
     p('')
   }
 
-  // ---------- 유도 ----------
-  if (blocks.length) p(`## 블록 노트 ${blocks.length}${ms ? ' — 원고 밖의 열린 문제 (결론은 원고의 해당 장으로 옮긴다)' : ''}`, '')
-  for (const { id, depth } of tree.order) {
-    const b = byId.get(id)!.meta
-    const s = b.status ?? 'in-progress'
-    const proves = statements.filter((x) => x.proofs.includes(id)).map((x) => x.label ?? x.id)
-    p(`${'  '.repeat(depth)}- ${GLYPH[s] ?? '●'} **${b.title ?? id}** — ${LABEL[s] ?? s}${proves.length ? ` · 증명: ${proves.join(', ')}` : ''} · \`workbench/blocks/${id}.${byId.get(id)!.format}\``)
-    if (b.next) p(`${'  '.repeat(depth)}  - 다음: ${b.next}`)
-    if (s === 'blocked') p(`${'  '.repeat(depth)}  - 멈춘 이유: ${b.blockedReason ?? '—'} / 다시 시작할 조건: ${b.resumeCondition ?? '—'}`)
-    const content = byId.get(id)!.content
-    const grounds = mss.length ? groundsOf(content, mss.flatMap((m) => m.parts)) : []
-    if (grounds.length) p(`${'  '.repeat(depth)}  - 원고: ${grounds.map(partLabel).join(' · ')}`)
-    else {
-      const ref = /^(?:%\s*(?:근거|grounds)|grounds):\s*(.+)$/m.exec(content)?.[1]
-      if (ref) p(`${'  '.repeat(depth)}  - 근거: ${ref}`)
-    }
-  }
-  p('')
-
   // ---------- 진술 ----------
   if (statements.length) {
     const given = (k: string) => k === 'axiom' || k === 'definition'
     const status = (x: (typeof statements)[number]) => {
       if (given(x.kind)) return 'given'
-      const ps = x.proofs.map((id) => byId.get(id)?.meta.status ?? 'in-progress')
+      const ps = x.proofs.map((id) => byId.get(id)?.status ?? 'in-progress')
       return ps.includes('solved') ? 'solved' : ps.length ? 'working' : 'none'
     }
     const count = (k: string) => statements.filter((x) => status(x) === k).length
     p(`## 진술 ${statements.length}`, '', `공리·정의 ${count('given')} · 증명됨 ${count('solved')} · 증명 작업 중 ${count('working')} · 증명 작업 없음 ${count('none')}`, '')
-    for (const x of statements.filter((y) => status(y) === 'working')) p(`- 작업 중: ${x.label ?? x.id} ${x.title ?? ''} ← 블록 노트 ${x.proofs.join(', ')}`)
+    for (const x of statements.filter((y) => status(y) === 'working')) p(`- 작업 중: ${x.label ?? x.id} ${x.title ?? ''} ← 노트 ${x.proofs.join(', ')}`)
     p('')
   }
 
@@ -397,7 +375,7 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   const recent = journal.filter((e) => e.date >= since && e.kind !== 'todo')
   p('## 최근 7일 기록', '')
   if (!recent.length) p('(없음)')
-  for (const e of recent) p(`- ${e.date} ${e.time} · ${e.kind === 'done' ? '끝냄' : e.kind === 'status' ? '상태' : e.kind === 'memo' ? '메모' : e.kind} · ${e.target === RESEARCH_TARGET ? '' : `${byId.get(e.target)?.meta.title ?? e.target}: `}${clip(e.text.split('\n')[0]!, 160)}`)
+  for (const e of recent) p(`- ${e.date} ${e.time} · ${e.kind === 'done' ? '끝냄' : e.kind === 'status' ? '상태' : e.kind === 'memo' ? '메모' : e.kind} · ${e.target === RESEARCH_TARGET ? '' : `${byId.get(e.target)?.title ?? e.target}: `}${clip(e.text.split('\n')[0]!, 160)}`)
   p('')
   return out.join('\n')
 }
@@ -449,7 +427,7 @@ const INLINE_MAX = 1500
 
 interface StatusPart { name: string; heading: string; text: string }
 
-/** '## 노트 15' → '노트', '## 원고 — 이름 (`main.tex`)' → '원고 — 이름', '## 블록 노트 3 — …' → '블록 노트' */
+/** '## 노트 15' → '노트', '## 원고 — 이름 (`main.tex`)' → '원고 — 이름', '## 진술 3' → '진술' */
 export function sectionName(heading: string): string {
   const h = heading.replace(/^##\s+/, '').trim()
   if (h.startsWith('원고 — ')) return h.replace(/\s*\(`[^`]*`\)\s*$/, '')

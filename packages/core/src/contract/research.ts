@@ -1,12 +1,10 @@
 /**
- * 프로젝트(연구 하나) API의 계약 (서버 routes/researches.ts · project.ts · topics.ts · blocks.ts · manuscript.ts …, 화면 api/research.ts).
+ * 프로젝트(연구 하나) API의 계약 (서버 routes/researches.ts · project.ts · topics.ts · manuscript.ts …, 화면 api/research.ts).
  * 파일 형식은 docs/repo-format.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */
 import { z } from 'zod'
-import { BLOCK_STATUSES, type BlockMeta as BlockMetaType } from '../block-header.js'
 import type { JournalEntry as JournalEntryType } from '../journal.js'
 import type { PdfBox as PdfBoxType } from '../synctex.js'
-import type { BlockTree as BlockTreeType } from '../tree.js'
 
 // ---------- 다른 갈래도 쓰는 것 ----------
 
@@ -46,8 +44,6 @@ export const Topic = z.object({
   title: z.string(),
   /** 원고의 장 id */
   parts: z.array(z.string()),
-  /** 예전 기록: 이 주제에 든 보조 노트 id */
-  blocks: z.array(z.string()),
   done: z.boolean(),
   star: z.boolean(),
   /** 메인 노트 main .tex (저장소 기준) */
@@ -90,7 +86,6 @@ export const ResearchOrder = z.object({ researches: z.array(ResearchListItem) })
 /** 프로젝트마다 확인할 것의 수: counts = notes(확인이 필요한 노트) + tasks(판단할 맡긴 일) + edits(에이전트 고침 검토 · 고치기 요청) */
 export const ProjectIssues = z.object({
   counts: z.record(z.string(), z.number()),
-  notes: z.record(z.string(), z.number()),
   tasks: z.record(z.string(), z.number()),
   edits: z.record(z.string(), z.number()),
   /** 에이전트가 사용자에게 물은 기록 중 답을 기다리는 것 (10/15) */
@@ -99,55 +94,6 @@ export const ProjectIssues = z.object({
 
 // ---------- 프로젝트 요약 (GET /researches/:rid) ----------
 
-/** 보조 노트 머리말 (@rw/core block-header.ts) */
-export const BlockMeta = z.object({
-  id: z.string().optional(),
-  title: z.string().optional(),
-  status: z.string().optional(),
-  parent: z.string().optional(),
-  alternatives: z.array(z.string()),
-  next: z.string().optional(),
-  blockedReason: z.string().optional(),
-  resumeCondition: z.string().optional(),
-  stoppedReason: z.string().optional(),
-  created: z.string().optional(),
-  /** 앱이 모르는 키 (그대로 보존된다) */
-  extra: z.record(z.string(), z.string()),
-}).strict() satisfies z.ZodType<BlockMetaType>
-
-const statusCounts = z.object(Object.fromEntries(BLOCK_STATUSES.map((s) => [s, z.number()])) as Record<(typeof BLOCK_STATUSES)[number], z.ZodNumber>).strict()
-export const TreeIssue = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('id-mismatch'), id: z.string(), headerId: z.string() }).strict(),
-  z.object({ kind: z.literal('missing-parent'), id: z.string(), parent: z.string() }).strict(),
-  z.object({ kind: z.literal('missing-alternative'), id: z.string(), alternative: z.string() }).strict(),
-  z.object({ kind: z.literal('cycle'), id: z.string() }).strict(),
-  z.object({ kind: z.literal('bad-status'), id: z.string(), status: z.string() }).strict(),
-  z.object({ kind: z.literal('blocked-without-reason'), id: z.string() }).strict(),
-  z.object({ kind: z.literal('stopped-without-reason'), id: z.string() }).strict(),
-])
-/** 보조 노트 나무 (@rw/core tree.ts) */
-export const BlockTree = z.object({
-  roots: z.array(z.string()),
-  children: z.record(z.string(), z.array(z.string())),
-  parentOf: z.record(z.string(), z.string().nullable()),
-  alternatives: z.array(z.tuple([z.string(), z.string()])),
-  order: z.array(z.object({ id: z.string(), depth: z.number() }).strict()),
-  counts: statusCounts,
-  frontier: z.array(z.string()),
-  issues: z.array(TreeIssue),
-}).strict() satisfies z.ZodType<BlockTreeType>
-
-/** 'md' = Markdown + KaTeX (blocks/<id>.md), 'tex' = 예전 LaTeX */
-export const BlockFormat = z.enum(['md', 'tex'])
-/** 요약의 보조 노트 한 줄: 머리말 칸을 펼친 것 */
-export const BlockRow = BlockMeta.extend({
-  id: z.string(),
-  format: BlockFormat,
-  hash: z.string(),
-  mtime: z.number(),
-  /** 이 노트가 "% 근거:"로 적은 원고의 장·부록 id (장 파일이면 저장소 기준 경로, 한 파일 원고의 절이면 "file#라벨") */
-  grounds: z.array(z.string()),
-}).strict()
 
 /** 진술: 정의·공리·보조정리·명제·정리 (서버 statements.ts) */
 export const Statement = z.object({
@@ -195,13 +141,13 @@ export const ResearchInfo = z.object({
 }).strict()
 /** 끝내지 않은 할 일 하나: 기록 파일(comments/<대상>.md)의 할 일 기록 */
 export const OpenTodo = z.object({
-  /** 기록 대상 (project · note-<폴더> · block-<id> · topic-<id> · flow-<id> …) */
+  /** 기록 대상 (project · note-<폴더> · topic-<id> · flow-<id> …) */
   target: z.string(),
   /** 기록 id (c-YYYYMMDD-HHMM) */
   id: z.string(),
   /** 기록 파일 머리의 이름 (연구노트 …, 주제 …) */
   where: z.string(),
-  /** 기록 파일의 원래 대상 (노트 경로 · 블록 id · 주제 id · 흐름 점 id). 화면이 그곳으로 이동할 때 쓴다 */
+  /** 기록 파일의 원래 대상 (노트 경로 · 주제 id · 흐름 점 id). 화면이 그곳으로 이동할 때 쓴다 */
   source: z.string().optional(),
   /** 본문 첫 줄 (없으면 인용) */
   text: z.string(),
@@ -216,8 +162,6 @@ export const ResearchSummary = z.object({
   root: z.string(),
   engine: Engine,
   research: ResearchInfo,
-  blocks: z.array(BlockRow),
-  tree: BlockTree,
   /** 진술 (저장소의 statements/). 없으면 빈 목록 */
   statements: z.array(Statement),
   /** 끝내지 않은 할 일 (정본은 기록 파일, 2026-10-16). 사이드바 수 · 첫 화면 할 일 · 달력 마감이 이것을 쓴다 */
@@ -248,22 +192,15 @@ export const SyncReply = z.object({ sync: RepoSync.nullable() }).strict()
 export const SyncUpdated = z.object({ sync: RepoSync }).strict()
 export const RepoReply = z.object({ repo: RepoInfo }).strict()
 
-// ---------- 보조 노트 (routes/blocks.ts) ----------
+// ---------- 공통 응답 ----------
 
-/** GET /blocks/:bid · POST /blocks. ownHeader: 머리(\documentclass)가 있는 LaTeX 노트 */
-export const BlockDoc = z.object({ id: z.string(), format: BlockFormat, content: z.string(), hash: z.string(), meta: BlockMeta, ownHeader: z.boolean().optional() }).strict()
-/** PATCH /blocks/:bid/meta (id·format 없음) */
-export const BlockMetaSaved = z.object({ content: z.string(), hash: z.string(), meta: BlockMeta }).strict()
 export const Saved = z.object({ hash: z.string() }).strict()
 export const Ok = z.object({ ok: z.literal(true) }).strict()
-/** 결과 PDF가 지금 노트의 것인지 (stale = 노트를 PDF 뒤에 고침) */
-export const BlockPdfState = z.object({ hasPdf: z.boolean(), pdfAt: z.string().optional(), stale: z.boolean() }).strict()
 /** 원고 위치 → PDF 영역 (@rw/core synctex.ts) */
 export const PdfBox = z.object({ page: z.number(), h: z.number(), v: z.number(), width: z.number(), height: z.number() }).strict() satisfies z.ZodType<PdfBoxType>
 export const PdfBoxes = z.object({ boxes: z.array(PdfBox) }).strict()
 /** PDF 위치 → 노트 줄. 노트 밖(틀·서식)이면 inBlock=false */
 export const SourceSpot = z.object({ file: z.string(), line: z.number(), inBlock: z.boolean() }).strict()
-export const BlockSpot = z.object({ spot: SourceSpot.nullable() }).strict()
 /** PDF 위치 → 원고 장 파일과 줄 (원고 밖이면 null) */
 export const ManuscriptSpot = z.object({ spot: z.object({ file: z.string(), line: z.number() }).strict().nullable() }).strict()
 
@@ -435,14 +372,8 @@ export const ProfileBody = z.object({
   tags: z.array(z.string()).optional(),
 })
 export const OrderBody = z.object({ ids: z.array(z.string()) })
-export const BlockCreateBody = z.object({ title: z.string(), id: z.string().optional(), parent: z.string().optional(), alternativeOf: z.string().optional() })
 export const ContentBody = z.object({ content: z.string(), baseHash: z.string() })
 export const BaseHashBody = z.object({ baseHash: z.string().min(1) })
-/** 머리말 고치기: 키는 파일에 쓰는 이름(blocked-reason …), null이면 그 줄을 지운다. 고칠 수 있는 키는 서버가 본다 */
-export const MetaPatchBody = z.object({
-  patch: z.record(z.string(), z.union([z.string(), z.array(z.string()), z.null()]).optional()),
-  baseHash: z.string().optional(),
-})
 /** 사람이 직접 남기는 일지 기록 (메모 · 할 일). target이 없으면 연구 전체 */
 export const JournalAddBody = z.object({ kind: z.enum(['memo']), text: z.string(), target: z.string().optional() })
 /** 할 일 끝냄(done) 또는 글 고치기(text). was·link: 읽을 때의 글과 연결 (그새 바뀌었으면 409) */
@@ -468,10 +399,6 @@ export type ResearchListItem = z.infer<typeof ResearchListItem>
 export type ResearchList = z.infer<typeof ResearchList>
 export type ResearchOrder = z.infer<typeof ResearchOrder>
 export type ProjectIssues = z.infer<typeof ProjectIssues>
-export type BlockMeta = z.infer<typeof BlockMeta>
-export type TreeIssue = z.infer<typeof TreeIssue>
-export type BlockTree = z.infer<typeof BlockTree>
-export type BlockRow = z.infer<typeof BlockRow>
 export type Statement = z.infer<typeof Statement>
 export type NoteKind = (typeof NOTE_KINDS)[number]
 export type ManuscriptSource = z.infer<typeof ManuscriptSource>
@@ -482,15 +409,11 @@ export type RepoSync = z.infer<typeof RepoSync>
 export type SyncReply = z.infer<typeof SyncReply>
 export type SyncUpdated = z.infer<typeof SyncUpdated>
 export type RepoReply = z.infer<typeof RepoReply>
-export type BlockDoc = z.infer<typeof BlockDoc>
-export type BlockMetaSaved = z.infer<typeof BlockMetaSaved>
 export type Saved = z.infer<typeof Saved>
 export type Ok = z.infer<typeof Ok>
-export type BlockPdfState = z.infer<typeof BlockPdfState>
 export type PdfBox = z.infer<typeof PdfBox>
 export type PdfBoxes = z.infer<typeof PdfBoxes>
 export type SourceSpot = z.infer<typeof SourceSpot>
-export type BlockSpot = z.infer<typeof BlockSpot>
 export type ManuscriptSpot = z.infer<typeof ManuscriptSpot>
 export type JournalEntry = z.infer<typeof JournalEntry>
 export type JournalList = z.infer<typeof JournalList>
@@ -530,10 +453,8 @@ export type RepoFileOpen = z.infer<typeof RepoFileOpen>
 export type TopicList = z.infer<typeof TopicList>
 export type ProfileBody = z.input<typeof ProfileBody>
 export type OrderBody = z.input<typeof OrderBody>
-export type BlockCreateBody = z.input<typeof BlockCreateBody>
 export type ContentBody = z.input<typeof ContentBody>
 export type BaseHashBody = z.input<typeof BaseHashBody>
-export type MetaPatchBody = z.input<typeof MetaPatchBody>
 export type JournalAddBody = z.input<typeof JournalAddBody>
 export type JournalPatchBody = z.input<typeof JournalPatchBody>
 export type InfoBody = z.input<typeof InfoBody>

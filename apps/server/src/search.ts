@@ -1,4 +1,4 @@
-// 전역 검색의 목록: 모든 프로젝트의 카드·노트·장·블록 노트·진술 이름, 라이브러리 문헌노트, 네트워킹의 사람 (10/4 19:33 피드백)
+// 전역 검색의 목록: 모든 프로젝트의 카드·노트·장·진술 이름, 라이브러리 문헌노트, 네트워킹의 사람 (10/4 19:33 피드백)
 import { personId } from '@rw/core'
 import type { SearchItem } from '@rw/core/contract/search'
 import { listLibraryNotes, type LibraryNote } from './libraryNotes.js'
@@ -30,7 +30,6 @@ export function searchCatalog(registry: Registry, notes: LibraryNote[] = listLib
           out.push({ kind: 'part', id: p.id, title: p.title, also: `${p.file} ${m.name}`, file: p.file, ...at })
         }
       }
-      for (const b of wb.listBlocks()) out.push({ kind: 'block', id: b.id, title: b.meta.title || b.id, also: b.id, ...at })
       for (const s of listStatements(wb.root)) {
         const label = (s.label ?? '').split(',')[0]!.trim()
         out.push({ kind: 'statement', id: s.id, title: [label, s.title].filter(Boolean).join(' ') || s.id, also: s.id, ...at })

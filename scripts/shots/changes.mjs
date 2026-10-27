@@ -18,9 +18,9 @@ export function seedChanges(repo, configDir, rid) {
   git(['init', '-q', '-b', 'main'])
   commit('예제 연구', 'Ada E. Example', ago(24 * 20))
   // 사흘 전 · 이틀 전: 노트 하나를 이틀에 걸쳐 고침 (작성일시가 범위로 보인다)
-  touch('workbench/blocks/kempe-chains.tex', '\n% 사례 하나 더\n')
+  touch('workbench/notes/kempe-chains/main.tex', '\n% 사례 하나 더\n')
   commit('Kempe 노트 사례', 'Ada E. Example', ago(24 * 3))
-  touch('workbench/blocks/kempe-chains.tex', '\n% 사례 정리\n')
+  touch('workbench/notes/kempe-chains/main.tex', '\n% 사례 정리\n')
   commit('Kempe 노트 정리', 'Ada E. Example', ago(24 * 2))
   // 어제: Codex가 맡긴 일 결과와 흐름 점
   touch('workbench/tasks/2026-10-07-five-color-check.md', '\n')
@@ -29,7 +29,7 @@ export function seedChanges(repo, configDir, rid) {
   // 오늘: 기록 · 노트 하나 새로 (커밋), 이 맥에서 커밋 안 한 노트 고침
   touch('workbench/comments/project.md', '\n')
   commit('기록', 'Ada E. Example', ago(5))
-  touch('workbench/blocks/discharging.tex', '\n% 방전 규칙 다시\n')
+  touch('workbench/topics/coloring/discharging/main.tex', '\n% 방전 규칙 다시\n')
   // 에이전트가 받은 때: Claude는 이틀 전 노트 뒤에, Codex는 어제 결과 뒤에
   const file = path.join(configDir, 'changes-seen.json')
   fs.writeFileSync(file, `${JSON.stringify({ 'claude-code:sample-account': { [rid]: ago(30) }, codex: { [rid]: ago(20) } }, null, 1)}\n`)

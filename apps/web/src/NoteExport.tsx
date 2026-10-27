@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { blockExportUrl, networkApi, noteExportApi, noteExportUrl, type ExportChoice, type ExportOptions, type ManuscriptInfo, type PersonView } from './api'
+import { networkApi, noteExportApi, noteExportUrl, type ExportChoice, type ExportOptions, type ManuscriptInfo, type PersonView } from './api'
 import { NOTE_KIND_LABEL } from './NewNote'
 import { Icon } from './icons'
 import { Avatar } from './NetworkPage'
@@ -292,7 +292,7 @@ function PopDialog({ pop, ui, title, children, foot }: { pop: React.RefObject<HT
  * 누르면 바로 받지 않고 서식·저자·날짜를 고르는 상자가 열린다 (10/4 반려). 머리가 있는 노트는 파일을 그대로 묶어 고를 것이 없다고 알린다.
  * small: 카드 오른쪽 위의 아이콘 버튼, icon: 머리줄의 기호 버튼, 둘 다 없으면 글자 버튼.
  */
-export type ExportNote = Pick<ManuscriptInfo, 'name' | 'kind' | 'ownHeader'> & ({ key: string } | { block: string })
+export type ExportNote = Pick<ManuscriptInfo, 'name' | 'kind' | 'ownHeader' | 'key'>
 
 export function ExportLink({ rid, ms, icon, small, control }: { rid: string; ms: ExportNote; icon?: boolean; small?: boolean
   /** 있으면 단추 없이 바깥(⋯ 메뉴)이 연다 */
@@ -311,7 +311,7 @@ export function ExportLink({ rid, ms, icon, small, control }: { rid: string; ms:
       {open && (
         <PopDialog pop={pop} ui="내보내기 저자 고르기" title={t(`${ms.name} 내보내기`, `Export ${ms.name}`)} foot={<>
           {ms.ownHeader || c.ready
-            ? <a className="btn primary" href={'block' in ms ? blockExportUrl(rid, ms.block, ms.ownHeader ? {} : c.query) : noteExportUrl(rid, [ms.key], ms.ownHeader ? {} : c.query)} download onClick={() => setOpen(false)}>{t('내보내기', 'Export')}</a>
+            ? <a className="btn primary" href={noteExportUrl(rid, [ms.key], ms.ownHeader ? {} : c.query)} download onClick={() => setOpen(false)}>{t('내보내기', 'Export')}</a>
             : <button className="btn primary" disabled>{t('내보내기', 'Export')}</button>}
           <button className="btn" onClick={() => setOpen(false)}>{t('닫기', 'Close')}</button>
         </>}>

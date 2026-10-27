@@ -9,8 +9,7 @@ const projectInfo = (hash: string): ProjectInfo => ({
 const summary: ResearchSummary = {
   id: 'project', root: '/project', engine: 'xelatex',
   research: { title: '새 이름', question: '새 설명', started: '2026-10-06', image: 'figures/new.svg', sources, agentStatus: false, concepts: [] },
-  blocks: [], statements: [], todos: [],
-  tree: { roots: [], children: {}, parentOf: {}, alternatives: [], order: [], counts: { 'in-progress': 0, blocked: 0, stopped: 0, solved: 0 }, frontier: [], issues: [] },
+  statements: [], todos: [],
 }
 
 describe('프로젝트 고치기 읽기', () => {

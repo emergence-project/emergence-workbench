@@ -14,6 +14,6 @@ fields:
 evidence:
   - kind: other
     title: 방전법
-    file: workbench/blocks/discharging.tex
+    file: workbench/topics/coloring/discharging/main.tex
     text: 요약 초안
     checks: []

@@ -1,11 +1,11 @@
-import type { BlockRow, ResearchSummary, Statement } from './api'
+import type { NoteRow, Statement } from './api'
 import { statusOf } from './format'
 import { t } from './i18n'
 
 /**
- * 노트 = 진술 · 작업노트 · 개념.
+ * 진술 · 노트 · 개념.
  * - 진술: 무엇이 참인가 (저장소의 statements/). 사용(uses)으로 다른 진술에 기댄다
- * - 작업노트: 진술을 얻는 작업 (workbench/blocks/ — 파일 이름은 그대로). 상태가 있다. 진술의 proofs가 어느 작업노트가 그 진술을 증명하는지 적는다
+ * - 노트: 진술을 얻는 작업. 상태가 있다. 진술의 proofs가 어느 노트(폴더 이름)가 그 진술을 증명하는지 적는다
  * - 개념: 공부한 배경 (아직 없음)
  */
 export type NoteRef = { k: 'statement'; id: string } | { k: 'derivation'; id: string }
@@ -26,22 +26,24 @@ export function shortLabel(s: Statement): string {
   return l || s.title || s.id
 }
 
-/** 진술을 증명하는 작업노트: 진술의 proofs + 작업노트 머리말의 proves */
-export function proofsOf(summary: ResearchSummary, s: Statement): BlockRow[] {
+/** 진술과 노트: 증명 관계를 셀 때 함께 본다 */
+export interface ProofCtx { statements: Statement[]; notes: NoteRow[] }
+
+/** 진술을 증명하는 노트: 진술의 proofs에 적은 노트 폴더 이름 */
+export function proofsOf(ctx: ProofCtx, s: Statement): NoteRow[] {
   const ids = new Set(s.proofs)
-  return summary.blocks.filter((b) => ids.has(b.id) || b.extra?.proves === s.id)
+  return ctx.notes.filter((n) => ids.has(n.id))
 }
 
-/** 작업노트가 증명하려는 진술 */
-export function provesOf(summary: ResearchSummary, bid: string): Statement[] {
-  const b = summary.blocks.find((x) => x.id === bid)
-  return summary.statements.filter((s) => s.proofs.includes(bid) || b?.extra?.proves === s.id)
+/** 노트가 증명하려는 진술 */
+export function provesOf(ctx: ProofCtx, id: string): Statement[] {
+  return ctx.statements.filter((s) => s.proofs.includes(id))
 }
 
 /** 진술이 어디까지 됐나: 공리·정의 / 해결 / 멈춤 / 증명 작업 중 / 증명 작업 없음 */
-export function proofState(summary: ResearchSummary, s: Statement): 'given' | 'solved' | 'blocked' | 'in-progress' | 'none' {
+export function proofState(ctx: ProofCtx, s: Statement): 'given' | 'solved' | 'blocked' | 'in-progress' | 'none' {
   if (isGiven(s)) return 'given'
-  const ps = proofsOf(summary, s).map((b) => statusOf(b.status))
+  const ps = proofsOf(ctx, s).map((b) => statusOf(b.status))
   if (ps.includes('solved')) return 'solved'
   if (ps.includes('in-progress')) return 'in-progress'
   if (ps.includes('blocked')) return 'blocked'
@@ -50,8 +52,8 @@ export function proofState(summary: ResearchSummary, s: Statement): 'given' | 's
 export const PROOF_TEXT = { given: t('공리·정의', 'Axiom or definition'), solved: t('증명됨', 'Proved'), blocked: t('증명 멈춤', 'Proof blocked'), 'in-progress': t('증명 작업 중', 'Proof in progress'), none: t('증명 작업 없음', 'No proof work') }
 
 /** 진술을 쓰는 진술 */
-export function usedBy(summary: ResearchSummary, sid: string): Statement[] {
-  return summary.statements.filter((s) => s.uses.includes(sid))
+export function usedBy(ctx: Pick<ProofCtx, 'statements'>, sid: string): Statement[] {
+  return ctx.statements.filter((s) => s.uses.includes(sid))
 }
 
 /** 논문 순서: 바탕(외부 정리) → 공리 → 본문 → 부록. 같은 묶음 안에서는 번호 순 */
@@ -74,8 +76,3 @@ export function paperOrder(list: Statement[]): Statement[] {
   })
 }
 
-/**
- * 메인 노트를 받치는 계산·논증 노트(파일은 workbench/blocks/)의 화면 이름. **가칭** — 사용자가 이름을 정하면 여기만 바꾼다.
- * 조사가 받침에 따라 달라지지 않도록, 이 이름 바로 뒤에는 조사를 붙이지 않는 문장으로 쓴다.
- */
-export const AUX_NOTE = t('노트', 'Note')

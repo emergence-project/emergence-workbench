@@ -3,7 +3,7 @@
 // 예전에는 일지(log/)에도 할 일을 한 줄씩 썼다. 끝내지 않은 그 줄은 앱이 한 번 기록으로 옮기고 일지에서 뺀다(migrateJournalTodos).
 import fs from 'node:fs'
 import path from 'node:path'
-import { commentTargetSlug, compactStamp, editJournalEntry, isValidBlockId, noteRecordTarget, parseJournal, RESEARCH_TARGET, sameNoteFile, todoDue } from '@rw/core'
+import { compactStamp, editJournalEntry, noteRecordTarget, parseJournal, RESEARCH_TARGET, sameNoteFile, todoDue } from '@rw/core'
 import type { OpenTodo } from '@rw/core/contract/research'
 import { addComment, listComments } from './comments.js'
 import { todoText } from './commentJournal.js'
@@ -23,8 +23,7 @@ export function openTodos(root: string): OpenTodo[] {
       const text = todoText(c.body, c.quote)
       const written = writtenOf(c.id)
       const due = written ? todoDue(text, written) : null
-      // 블록 노트 기록 파일의 머리는 예전 이름 '노트 결과 <제목>'이다. 보일 때는 제목만
-      out.push({ target: file.target, id: c.id, where: file.target.startsWith('block-') ? file.title.replace(/^노트 결과 /, '') : file.title, ...(file.source && { source: file.source }), text, written, ...(due && { due }) })
+      out.push({ target: file.target, id: c.id, where: file.title, ...(file.source && { source: file.source }), text, written, ...(due && { due }) })
     }
   }
   return out.sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || a.id.localeCompare(b.id))
@@ -37,12 +36,10 @@ export function legacyJournalTodos(wb: Workbench): number {
 
 interface Place { target: string; title: string; source?: string; suffix?: string }
 
-/** 일지의 대상(연구 · 블록 id · 노트 경로)을 기록 대상으로. 기록 칸이 없는 곳은 프로젝트에 두고 글 끝에 원래 대상을 적는다 */
+/** 일지의 대상(연구 · 노트 경로)을 기록 대상으로. 기록 칸이 없는 곳은 프로젝트에 두고 글 끝에 원래 대상을 적는다 */
 function placeOf(wb: Workbench, target: string, notes: ReturnType<typeof listNotes>): Place {
   const project: Place = { target: 'project', title: wb.readResearch().title }
   if (target === RESEARCH_TARGET) return project
-  const block = isValidBlockId(target) ? wb.listBlocks().find((b) => b.id === target) : undefined
-  if (block) return { target: `block-${commentTargetSlug(block.id)}`, title: `노트 결과 ${block.meta.title ?? block.id}`, source: block.id }
   const note = notes.find((n) => n.file === target) ?? notes.find((n) => sameNoteFile(n.file, target))
   const noteTarget = note && noteRecordTarget(note)
   if (note && noteTarget) return { target: noteTarget, title: `노트 ${note.title || note.id}`, source: note.file }

@@ -31,7 +31,7 @@ function rows(node: ReactNode, prefix = ''): { key: string; entry: JournalEntry 
 
 it('앞 할 일이 외부에서 삭제돼 번호와 날짜 머리줄이 밀려도 편집기는 같은 연결 항목에 남는다', () => {
   const entries: JournalEntry[] = ['a', 'b', 'c'].map((id, index) => ({ date: '2026-10-07', time: '12:34', kind: 'todo', target: '연구', text: '같은 글', done: false, index, link: `project/${id}` }))
-  const render = (items: JournalEntry[]) => rows(MemoList({ entries: items, rid: 'sample', titleOf: (id) => id, onToggle: () => {}, empty: '비어 있음' }))
+  const render = (items: JournalEntry[]) => rows(MemoList({ entries: items, rid: 'sample', noteOf: () => undefined, onToggle: () => {}, empty: '비어 있음' }))
   const selected = render(entries).find((r) => r.entry.link === 'project/b')!
   const reloaded = render(entries.slice(1).map((e, index) => ({ ...e, index })))
   expect(reloaded.find((r) => r.key === selected.key)?.entry.link).toBe('project/b')

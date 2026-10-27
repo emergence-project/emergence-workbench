@@ -1,14 +1,15 @@
-// 연구 등록, 블록, 원고 저장, 일지, 파일 감시, 서식, 컴파일, 화면 설정
+// 연구 등록, 노트 저장, 일지, 파일 감시, 서식, 컴파일, 화면 설정
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseBlock, type JournalEntry } from '@rw/core'
+import type { JournalEntry } from '@rw/core'
 import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from './app.js'
 import { hashOf } from './fsutil.js'
 import * as comments from './comments.js'
 import { judgeCompile } from './latex.js'
-import { app, block, blockHash, hasLatex, makeRepo, R, repo, tmp, useSampleApp } from './testkit.js'
+import { pathKeyOf } from './manuscript.js'
+import { app, hasLatex, makeRepo, R, repo, tmp, useSampleApp } from './testkit.js'
 import { watchWorkbench, type WorkbenchEvent } from './watcher.js'
 import { Workbench, WorkbenchError } from './workbench.js'
 
@@ -30,14 +31,15 @@ describe('연구 등록', () => {
 
     const ok = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: other, createWorkbench: true, title: '다른 연구' } })).json()
     expect(ok.id).toBe('other-project')
-    expect(fs.readdirSync(path.join(other, 'workbench')).sort()).toEqual(['.gitignore', 'blocks', 'figures', 'log', 'preamble.tex', 'research.yaml'])
+    expect(fs.readdirSync(path.join(other, 'workbench')).sort()).toEqual(['.gitignore', 'figures', 'log', 'preamble.tex', 'research.yaml'])
     expect(fs.readdirSync(other).sort()).toEqual(['.git', 'src', 'workbench'])
   })
 
-  it('왼쪽 띠의 프로젝트 수는 첫 화면의 확인이 필요한 보조 노트 수와 같다', async () => {
-    const { counts } = (await app.inject({ method: 'GET', url: '/api/research-issues' })).json()
-    const summary = (await app.inject({ method: 'GET', url: R })).json()
-    expect(counts['sample-research']).toBe(summary.tree.issues.length)
+  it('왼쪽 띠의 프로젝트 수는 판단할 맡긴 일 · 에이전트 고침 · 물은 기록의 합이다 (노트 수는 세지 않는다)', async () => {
+    const issues = (await app.inject({ method: 'GET', url: '/api/research-issues' })).json()
+    const id = 'sample-research'
+    expect(issues.counts[id] ?? 0).toBe((issues.tasks[id] ?? 0) + (issues.edits[id] ?? 0) + (issues.records[id] ?? 0))
+    expect(issues).not.toHaveProperty('notes')
   })
 
   it('없는 경로, 상대 경로, 두 번 등록을 거부한다', async () => {
@@ -115,89 +117,32 @@ describe('연구 등록', () => {
     const third = makeRepo('third')
     const { id } = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: third } })).json()
     expect((await app.inject({ method: 'DELETE', url: `/api/researches/${id}` })).statusCode).toBe(200)
-    expect(fs.existsSync(path.join(third, 'workbench/blocks/kempe-chains.tex'))).toBe(true)
+    expect(fs.existsSync(path.join(third, 'workbench/notes/kempe-chains/main.tex'))).toBe(true)
   })
 })
 
-describe('블록과 나무', () => {
-  it('연구 개괄 자료에 블록 머리말과 나무가 들어 있다', async () => {
-    const s = (await app.inject({ method: 'GET', url: R })).json()
-    expect(s.research.title).toBe('예제 연구 — 5색 정리 재유도')
-    expect(s.blocks).toContainEqual(expect.objectContaining({ id: 'kempe-chains', title: 'Kempe 사슬 이용', status: 'in-progress' }))
-    expect(s.tree.order.map((o: { id: string }) => o.id).sort()).toEqual(['broken-example', 'kempe-chains'])
-  })
-
-  it('새 블록을 만들면 머리말이 채워지고, 다른 시도로 만들면 양쪽에 적힌다', async () => {
-    const created = (await app.inject({ method: 'POST', url: `${R}/blocks`, payload: { title: 'Brooks theorem 직접', alternativeOf: 'kempe-chains' } })).json()
-    expect(created.id).toBe('brooks-theorem')
-    expect(created.meta).toMatchObject({ title: 'Brooks theorem 직접', status: 'in-progress', alternatives: ['kempe-chains'] })
-    expect(parseBlock(block('kempe-chains')).meta.alternatives).toContain('brooks-theorem')
-    expect((await app.inject({ method: 'POST', url: `${R}/blocks`, payload: { title: 'x', id: 'kempe-chains' } })).statusCode).toBe(409)
-    // 원고 컴파일 폴더(.build/manuscript…)와 겹치는 id는 만들지 않는다
-    expect((await app.inject({ method: 'POST', url: `${R}/blocks`, payload: { title: 'x', id: 'manuscript-notes' } })).statusCode).toBe(400)
-  })
-
-  it('머리말을 고쳐도 본문은 바이트 그대로다', async () => {
-    const before = block('kempe-chains')
-    const body = before.slice(parseBlock(before).bodyStart)
-    const res = await app.inject({ method: 'PATCH', url: `${R}/blocks/kempe-chains/meta`, payload: { baseHash: await blockHash('kempe-chains'), patch: { next: '새 다음 할 일', title: '제목 바꿈' } } })
-    expect(res.statusCode).toBe(200)
-    const after = block('kempe-chains')
-    expect(after.slice(parseBlock(after).bodyStart)).toBe(body)
-    expect(parseBlock(after).meta).toMatchObject({ next: '새 다음 할 일', title: '제목 바꿈' })
-  })
-
-  it('멈춤으로 바꾸려면 이유와 다시 시작할 조건이 필요하고, 바꾸면 일지에 남는다', async () => {
-    const bad = await app.inject({ method: 'PATCH', url: `${R}/blocks/brooks-theorem/meta`, payload: { baseHash: await blockHash('brooks-theorem'), patch: { status: 'blocked' } } })
-    expect(bad.statusCode).toBe(400)
-    const ok = await app.inject({ method: 'PATCH', url: `${R}/blocks/brooks-theorem/meta`, payload: { baseHash: await blockHash('brooks-theorem'), patch: { status: 'blocked', 'blocked-reason': '보조정리 없음', 'resume-condition': '부록 확인' } } })
-    expect(ok.statusCode).toBe(200)
-    const j = (await app.inject({ method: 'GET', url: `${R}/journal` })).json()
-    expect(j.entries[0]).toMatchObject({ kind: 'status', target: 'brooks-theorem', text: '진행 → 멈춤 — 보조정리 없음 / 다시 시작할 조건: 부록 확인' })
-    const s = (await app.inject({ method: 'GET', url: R })).json()
-    expect(s.tree.counts.blocked).toBe(1)
-  })
-
-  it('다른 시도를 빼면 상대 블록에서도 빠진다', async () => {
-    await app.inject({ method: 'PATCH', url: `${R}/blocks/brooks-theorem/meta`, payload: { baseHash: await blockHash('brooks-theorem'), patch: { alternatives: [] } } })
-    expect(parseBlock(block('kempe-chains')).meta.alternatives).not.toContain('brooks-theorem')
-  })
-
-  it('고리가 생기는 부모, 없는 블록, 고칠 수 없는 키를 거부한다', async () => {
-    await app.inject({ method: 'PATCH', url: `${R}/blocks/brooks-theorem/meta`, payload: { baseHash: await blockHash('brooks-theorem'), patch: { parent: 'kempe-chains' } } })
-    const cycle = await app.inject({ method: 'PATCH', url: `${R}/blocks/kempe-chains/meta`, payload: { baseHash: await blockHash('kempe-chains'), patch: { parent: 'brooks-theorem' } } })
-    expect(cycle.statusCode).toBe(400)
-    expect((await app.inject({ method: 'PATCH', url: `${R}/blocks/kempe-chains/meta`, payload: { baseHash: await blockHash('kempe-chains'), patch: { parent: 'ghost' } } })).statusCode).toBe(400)
-    expect((await app.inject({ method: 'PATCH', url: `${R}/blocks/kempe-chains/meta`, payload: { baseHash: await blockHash('kempe-chains'), patch: { id: 'renamed' } } })).statusCode).toBe(400)
-  })
-
-  it('머리말 고치기도 읽은 뒤 바뀐 파일은 건드리지 않는다', async () => {
-    const { hash } = (await app.inject({ method: 'GET', url: `${R}/blocks/kempe-chains` })).json()
-    fs.appendFileSync(path.join(repo, 'workbench/blocks/kempe-chains.tex'), '% 에이전트 수정\n')
-    const res = await app.inject({ method: 'PATCH', url: `${R}/blocks/kempe-chains/meta`, payload: { patch: { next: 'x' }, baseHash: hash } })
-    expect(res.statusCode).toBe(409)
-    expect(block('kempe-chains')).toContain('% 에이전트 수정')
-  })
-})
-
-describe('원고 저장', () => {
+describe('노트 저장', () => {
+  const file = 'workbench/notes/broken-example/main.tex'
   it('읽은 뒤 바뀌지 않았으면 저장하고, 바뀌었으면 덮어쓰지 않는다', async () => {
-    const read = (await app.inject({ method: 'GET', url: `${R}/blocks/broken-example` })).json()
-    const saved = await app.inject({ method: 'PUT', url: `${R}/blocks/broken-example`, payload: { content: `${read.content}% 추가\n`, baseHash: read.hash } })
+    const read = (await app.inject({ method: 'GET', url: `${R}/manuscript/part?file=${encodeURIComponent(file)}` })).json()
+    const saved = await app.inject({ method: 'PUT', url: `${R}/manuscript/part`, payload: { file, content: `${read.content}% 추가\n`, baseHash: read.hash } })
     expect(saved.statusCode).toBe(200)
-    fs.appendFileSync(path.join(repo, 'workbench/blocks/broken-example.tex'), '% 에이전트 수정\n')
-    const stale = await app.inject({ method: 'PUT', url: `${R}/blocks/broken-example`, payload: { content: 'x', baseHash: saved.json().hash } })
+    fs.appendFileSync(path.join(repo, file), '% 에이전트 수정\n')
+    const stale = await app.inject({ method: 'PUT', url: `${R}/manuscript/part`, payload: { file, content: 'x', baseHash: saved.json().hash } })
     expect(stale.statusCode).toBe(409)
-    expect(block('broken-example')).toContain('% 에이전트 수정')
+    expect(fs.readFileSync(path.join(repo, file), 'utf8')).toContain('% 에이전트 수정')
   })
 
-  it('잘못된 id와 workbench 밖을 가리키는 링크를 거부한다', async () => {
-    expect((await app.inject({ method: 'GET', url: `${R}/blocks/..%2Fpreamble` })).statusCode).toBe(400)
+  it('저장소 밖을 가리키는 경로와 링크를 거부한다', async () => {
+    expect((await app.inject({ method: 'GET', url: `${R}/manuscript/part?file=${encodeURIComponent('../outside.tex')}` })).statusCode).toBeGreaterThanOrEqual(400)
     const outside = path.join(tmp, 'outside.tex')
     fs.writeFileSync(outside, 'secret')
-    fs.symlinkSync(outside, path.join(repo, 'workbench/blocks/escape.tex'))
-    expect((await app.inject({ method: 'GET', url: `${R}/blocks/escape` })).statusCode).toBe(403)
-    fs.rmSync(path.join(repo, 'workbench/blocks/escape.tex'))
+    fs.mkdirSync(path.join(repo, 'workbench/notes/escape'))
+    fs.symlinkSync(outside, path.join(repo, 'workbench/notes/escape/main.tex'))
+    const res = await app.inject({ method: 'GET', url: `${R}/manuscript/part?file=${encodeURIComponent('workbench/notes/escape/main.tex')}` })
+    expect(res.statusCode).toBeGreaterThanOrEqual(400)
+    expect(res.body).not.toContain('secret')
+    fs.rmSync(path.join(repo, 'workbench/notes/escape'), { recursive: true })
   })
 })
 
@@ -282,7 +227,7 @@ describe('일지', () => {
     expect(remaining.some((e) => e.kind === 'done' && e.text === text)).toBe(false)
   })
 
-  it('상태 · 완료 기록을 손으로 남기거나 없는 블록에 붙이는 것은 거부한다', async () => {
+  it('상태 · 완료 기록을 손으로 남기거나 없는 노트에 붙이는 것은 거부한다', async () => {
     expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'status', text: 'x' } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'done', text: 'x' } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: `${R}/journal`, payload: { kind: 'memo', target: 'ghost', text: 'x' } })).statusCode).toBe(400)
@@ -290,9 +235,9 @@ describe('일지', () => {
   })
 
   it('바깥에서 기록이 바뀌면 오래된 해시의 완료 요청은 일지도 건드리지 않는다', async () => {
-    const url = `${R}/comments/block-kempe-chains`
-    const added = (await app.inject({ method: 'POST', url, payload: { kind: '할 일', title: '보조 노트', text: '오래된 해시 검증용 할 일' } })).json()
-    const fresh = (await app.inject({ method: 'POST', url, payload: { kind: '메모', title: '보조 노트', text: '바깥의 새 기록' } })).json()
+    const url = `${R}/comments/note-kempe-chains`
+    const added = (await app.inject({ method: 'POST', url, payload: { kind: '할 일', title: '노트', text: '오래된 해시 검증용 할 일' } })).json()
+    const fresh = (await app.inject({ method: 'POST', url, payload: { kind: '메모', title: '노트', text: '바깥의 새 기록' } })).json()
     const before = (await app.inject({ method: 'GET', url: `${R}/journal` })).json()
     const res = await app.inject({ method: 'PATCH', url: `${url}/${added.entry.id}`, payload: { state: '끝냄', baseHash: added.hash } })
     expect(res.statusCode).toBe(409)
@@ -302,22 +247,6 @@ describe('일지', () => {
 })
 
 describe('파일 감시', () => {
-  it('바깥에서 블록을 고치면 새 내용의 해시와 함께 알린다', async () => {
-    const root = path.join(repo, 'workbench')
-    const events: WorkbenchEvent[] = []
-    const w = watchWorkbench('sample-research', root, (e) => events.push(e))
-    await new Promise<void>((r) => w.on('ready', () => r()))
-    fs.appendFileSync(path.join(root, 'blocks/broken-example.tex'), '% 감시 확인\n')
-    fs.writeFileSync(path.join(root, '.build-ignored.tex'), 'x') // 숨김 파일은 무시
-    try {
-      await vi.waitFor(() => expect(events.some((e) => e.type === 'block')).toBe(true), { timeout: 15_000, interval: 50 })
-    } finally { await w.close() }
-    const ev = events.find((e) => e.type === 'block')
-    expect(ev).toMatchObject({ type: 'block', research: 'sample-research', id: 'broken-example' })
-    const { hash } = (await app.inject({ method: 'GET', url: `${R}/blocks/broken-example` })).json()
-    expect(ev && 'hash' in ev ? ev.hash : null).toBe(hash)
-  }, 30_000)
-
   it('바깥에서 노트를 고치면 저장소 기준 경로와 해시로 알린다', async () => {
     // 앞 테스트가 같은 폴더를 보던 감시를 닫는 것과 겹치지 않게 따로 만든 폴더를 본다.
     // chokidar는 한 프로세스 안에서 같은 경로의 감시 손잡이를 나눠 써서, 닫히는 감시와 새 감시가 겹치면 알림이 빠질 수 있다 (10/20 점검)
@@ -384,10 +313,12 @@ describe('서식 라이브러리', () => {
 
   it.skipIf(!hasLatex)('저장소 서식과 라이브러리가 같은 기호·환경을 정의해도 충돌 없이 컴파일된다 (저장소 쪽이 이긴다)', async () => {
     const rid = 'alpha-like'
-    const b = (await app.inject({ method: 'POST', url: `/api/researches/${rid}/blocks`, payload: { title: 'Library check', id: 'lib-check' } })).json()
-    const content = `${b.content}\\begin{lemma}한글 보조정리: $\\Tr \\rho = 1$, $x \\in \\R$, $n \\in \\N$, $\\abs{x}$, $\\ICS$\\end{lemma}\n\\begin{theorem}번호 있는 정리.\\end{theorem}\n`
-    expect((await app.inject({ method: 'PUT', url: `/api/researches/${rid}/blocks/lib-check`, payload: { content, baseHash: b.hash } })).statusCode).toBe(200)
-    const compiled = (await app.inject({ method: 'POST', url: `/api/researches/${rid}/blocks/lib-check/compile` })).json()
+    const file = 'workbench/notes/lib-check/main.tex'
+    const root = path.join(tmp, 'alpha-like')
+    fs.mkdirSync(path.join(root, 'workbench/notes/lib-check'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'workbench/notes/lib-check/note.yaml'), 'name: Library check\n')
+    fs.writeFileSync(path.join(root, file), '\\section{Library check}\n\\begin{lemma}한글 보조정리: $\\Tr \\rho = 1$, $x \\in \\R$, $n \\in \\N$, $\\abs{x}$, $\\ICS$\\end{lemma}\n\\begin{theorem}번호 있는 정리.\\end{theorem}\n')
+    const compiled = (await app.inject({ method: 'POST', url: `/api/researches/${rid}/manuscript/compile?ms=${encodeURIComponent(pathKeyOf(file))}` })).json()
     expect(compiled.problems).toEqual([])
     expect(compiled.ok).toBe(true)
   }, 60_000)
@@ -420,40 +351,6 @@ describe('서식 라이브러리', () => {
     expect(bbl).toContain('Discharging rules')
   }, 90_000)
 })
-
-describe.skipIf(!hasLatex)('컴파일과 위치 이동', () => {
-  it('컴파일하면 PDF가 생기고, 원고 줄 ↔ PDF 위치가 서로 맞는다', async () => {
-    const compiled = (await app.inject({ method: 'POST', url: `${R}/blocks/kempe-chains/compile` })).json()
-    expect(compiled).toMatchObject({ ok: true, hasPdf: true })
-    const lines = block('kempe-chains').split('\n')
-    const eqLine = lines.findIndex((l) => l.includes('\\kc{1}{3}{v_1}')) + 1
-    const view = (await app.inject({ method: 'GET', url: `${R}/blocks/kempe-chains/synctex/view?line=${eqLine}` })).json()
-    const box = view.boxes[0]
-    const edit = (await app.inject({ method: 'GET', url: `${R}/blocks/kempe-chains/synctex/edit?page=${box.page}&x=${box.h + box.width / 2}&y=${box.v - box.height / 2}` })).json()
-    expect(edit.spot.inBlock).toBe(true)
-    expect(Math.abs(edit.spot.line - eqLine)).toBeLessThanOrEqual(1)
-  }, 60_000)
-
-  it('참조가 없는 새 블록도 첫 컴파일에 성공으로 판정한다', async () => {
-    const b = (await app.inject({ method: 'POST', url: `${R}/blocks`, payload: { title: 'Plain first compile', id: 'plain-first' } })).json()
-    await app.inject({ method: 'PUT', url: `${R}/blocks/plain-first`, payload: { content: `${b.content}참조 없는 문장.\n`, baseHash: b.hash } })
-    const compiled = (await app.inject({ method: 'POST', url: `${R}/blocks/plain-first/compile` })).json()
-    expect(compiled).toMatchObject({ ok: true, hasPdf: true, problems: [] })
-  }, 60_000)
-
-  it('오류가 있으면 블록 파일의 줄 번호로 알려 주고, PDF는 가능한 만큼 만든다', async () => {
-    const compiled = (await app.inject({ method: 'POST', url: `${R}/blocks/broken-example/compile` })).json()
-    const badLine = block('broken-example').split('\n').findIndex((l) => l.includes('\\undefinedmacro')) + 1
-    expect(compiled.ok).toBe(false)
-    expect(compiled.problems).toContainEqual(expect.objectContaining({ file: 'blocks/broken-example.tex', line: badLine, inBlock: true }))
-    expect(compiled.hasPdf).toBe(true)
-    // 고치지 않고 다시 컴파일해도 오류는 그대로 오류다
-    const again = (await app.inject({ method: 'POST', url: `${R}/blocks/broken-example/compile` })).json()
-    expect(again.ok).toBe(false)
-    expect(again.problems).toContainEqual(expect.objectContaining({ line: badLine, inBlock: true }))
-  }, 120_000)
-})
-
 
 describe('화면 설정', () => {
   it('바꾼 항목만 합쳐 config.yaml에 남기고, 고를 수 없는 값은 무시한다', async () => {

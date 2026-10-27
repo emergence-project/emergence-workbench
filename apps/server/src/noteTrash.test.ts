@@ -11,6 +11,7 @@ useSampleApp()
 describe('연구노트 지우기', () => {
   it('지우면 .trash로 옮겨 두고, 되살리면 원래 자리로, 15일이 지나면 정말 지운다. 원고는 지우지 않는다', async () => {
     const proj = makeRepo('note-trash')
+    fs.rmSync(path.join(proj, 'workbench/notes'), { recursive: true }) // 예제의 노트 없이 시작한다
     fs.mkdirSync(path.join(proj, 'workbench'), { recursive: true })
     fs.writeFileSync(path.join(proj, 'PRB.tex'), '\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n')
     fs.writeFileSync(path.join(proj, 'workbench/research.yaml'), 'title: N\nsources:\n  manuscript: PRB.tex — 논문 원고\n')

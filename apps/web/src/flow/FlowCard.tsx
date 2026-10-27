@@ -173,8 +173,7 @@ export function EvidenceSource({ rid, e, notes }: { rid: string; e: FlowEvidence
   // 노트 폴더(note.md · note.yaml · 그림)의 어느 파일이든 그 노트로
   const dir = (f: string) => f.replace(/\/[^/]*$/, '')
   const row = notes.find((x) => x.file === file) ?? notes.find((x) => /\/note\.(md|tex)$/.test(x.file) && dir(x.file) === dir(file))
-  const block = /^workbench\/blocks\/([^/]+)\.(tex|md)$/.exec(file)
-  const open = row ? () => go(routeOfNote(rid, row)) : block ? () => go({ page: 'block', rid, bid: block[1]! }) : null
+  const open = row ? () => go(routeOfNote(rid, row)) : null
   const label = e.title ?? (row?.title || file)
   return open ? <button className="a fl-note" title={file} onClick={open}>{label}</button> : <span className="fl-note" title={file}>{label}</span>
 }

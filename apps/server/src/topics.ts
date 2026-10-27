@@ -25,7 +25,6 @@ import { TOPIC_COLORS, type Topic, type TopicColor, type TopicPreview } from '@r
  *         image: figure:library/phase-diagram.png   # 그림 id (예전 저장소 기준 경로도 읽는다)
  *         color: violet       # 바탕색: 없으면 기본(프로젝트 색). TOPIC_COLORS 중 하나
  *       parts: [docs/model/chapters/02-model-graph.tex]   # 원고의 장 (예전 기록, 그대로 읽고 둔다)
- *       blocks: [vortex-core]   # 예전 기록: 이 주제에 든 블록 노트. 노트의 주제는 이제 노트 머리말 topics:에 적는다
  *       done: true            # 없으면 진행 중
  *       manuscript: docs/model/main.tex   # 없으면 첫째 메인 노트
  * parts는 장 id (장 파일이면 저장소 기준 경로, \section으로 나눈 원고면 "파일#label").
@@ -165,7 +164,7 @@ function normalizeIndexed(list: unknown[], strict: boolean, before: Topic[] = []
       }
     }
     out.push({
-      id, title, parts: list_(r.parts), blocks: list_(r.blocks), done: r.done === true, star: r.star === true,
+      id, title, parts: list_(r.parts), done: r.done === true, star: r.star === true,
       ...(manuscript && { manuscript }), ...(description && { description }), ...(preview && { preview }),
     })
     from.push(at)
@@ -199,7 +198,7 @@ export function checkTopicsHash(wb: Workbench, baseHash: unknown): void {
 function topicYaml(t: Topic): Record<string, unknown> {
   return {
     id: t.id, title: t.title, ...(t.star && { star: true }), ...(t.description && { description: t.description }),
-    ...(t.preview && { preview: t.preview }), parts: t.parts, ...(t.blocks.length && { blocks: t.blocks }),
+    ...(t.preview && { preview: t.preview }), parts: t.parts,
     ...(t.done && { done: true }), ...(t.manuscript && { manuscript: t.manuscript }),
   }
 }
@@ -212,7 +211,6 @@ const TOPIC_FIELDS: Record<string, (t: Topic) => unknown> = {
   description: (t) => t.description,
   preview: (t) => t.preview,
   parts: (t) => t.parts,
-  blocks: (t) => (t.blocks.length ? t.blocks : undefined),
   done: (t) => (t.done ? true : undefined),
   manuscript: (t) => t.manuscript,
 }
@@ -333,7 +331,7 @@ export function createTopic(wb: Workbench, input: { title?: unknown; description
   if (charCount(title) > TITLE_MAX) throw new WorkbenchError(400, tx(`주제 이름은 ${TITLE_MAX}자까지`, `A topic name can have up to ${TITLE_MAX} characters`))
   const now = readTopics(wb)
   const id = topicIdOf(title, now.map((t) => t.id))
-  const next = applyPatch({ id, title, parts: [], blocks: [], done: false, star: false }, { description: input.description, preview: input.preview })
+  const next = applyPatch({ id, title, parts: [], done: false, star: false }, { description: input.description, preview: input.preview })
   return saveTopics(wb, [...now, next]).find((t) => t.id === id)!
 }
 

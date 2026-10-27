@@ -121,24 +121,21 @@ describe('Git freshness in agent STATUS', () => {
   })
 })
 describe('멈춘 연구·계산 노트의 재개 조건', () => {
-  it('본문 경로·note.yaml·재개 조건을 표시하고 블록 노트는 기존 절에만 둔다', async () => {
+  it('본문 경로·note.yaml·재개 조건을 표시한다', async () => {
     for (const [folder, body, resume] of [['notes/pause', 'note.md', '외부 수치 결과'], ['calc/pause', 'main.tex', '다른 크기의 계산']] as const) {
       const dir = path.join(repo, 'workbench', folder)
       fs.mkdirSync(dir, { recursive: true })
       fs.writeFileSync(path.join(dir, body), body.endsWith('.md') ? '# 멈춘 노트\n' : '\\section{멈춘 계산}\n')
       fs.writeFileSync(path.join(dir, 'note.yaml'), `name: ${folder}\nstate: paused\nresume: ${resume}\n`)
     }
-    const block = path.join(repo, 'workbench/blocks/broken-example.tex')
-    fs.writeFileSync(block, fs.readFileSync(block, 'utf8').replace('% status: in-progress', '% status: blocked').replace('% ---\n', '% ---\n% resume-condition: 보조 재개 조건\n'))
     const status = await generateStatus(new Workbench(path.join(repo, 'workbench')))
-    expect(status).toContain('## 노트 2')
+    expect(status).toContain('## 노트 4')
     expect(status).toContain('workbench/notes/pause/note.md')
     expect(status).toContain('workbench/notes/pause/note.yaml')
     expect(status).toContain('다시 시작할 조건: 외부 수치 결과')
     expect(status).toContain('workbench/calc/pause/main.tex')
     expect(status).toContain('workbench/calc/pause/note.yaml')
     expect(status).toContain('다시 시작할 조건: 다른 크기의 계산')
-    expect(status.split('workbench/blocks/broken-example.tex')).toHaveLength(2)
   })
 })
 
@@ -168,6 +165,7 @@ describe('에이전트 맥락 요약', () => {
 
   it('노트를 상태 순·최근 수정 순으로 보이고 해결 노트의 기록 대상을 화면처럼 만든다', async () => {
     const wb = fresh()
+    fs.rmSync(path.join(wb.root, 'notes'), { recursive: true, force: true })
     write(wb, 'research.yaml', 'title: 연구\ntopics: [{id: wheels, title: 바퀴}]\n')
     for (const [folder, state, name, body] of [
       ['notes/done 한..글', 'done', '확인한 노트', 'note.md'],
@@ -193,7 +191,6 @@ describe('에이전트 맥락 요약', () => {
     const names = ['최근 노트', '먼저 쓴 노트', '멈춘 노트', '확인한 노트', '그만둔 노트']
     for (let i = 1; i < names.length; i++) expect(notes.indexOf(`**${names[i - 1]}**`)).toBeLessThan(notes.indexOf(`**${names[i]}**`))
     expect(status.indexOf('## 주제')).toBeLessThan(status.indexOf('## 노트'))
-    expect(status.indexOf('## 노트')).toBeLessThan(status.indexOf('## 블록 노트'))
   })
 
   it('명시한 .tex 원고만 장 수·마지막 컴파일 절을 보인다', async () => {
@@ -230,16 +227,14 @@ describe('에이전트 맥락 요약', () => {
     expect(status.match(/컴파일 오류/g)).toHaveLength(1)
   })
 
-  it('명시한 input 원고의 장 목록과 선언하지 않은 노트에 대한 블록 참조를 유지한다', async () => {
+  it('명시한 input 원고의 장 목록을 보이고 선언하지 않은 노트는 원고 절을 두지 않는다', async () => {
     const wb = fresh()
     write(wb, 'research.yaml', 'title: 연구\nsources:\n  manuscript: workbench/notes/multi/main.tex — multi\n')
     write(wb, 'notes/multi/main.tex', '\\documentclass{article}\n\\begin{document}\n\\input{chapter}\n\\end{document}\n')
     write(wb, 'notes/multi/chapter.tex', '\\section{다른 파일 장}\n')
     write(wb, 'calc/loose/main.tex', '\\begin{document}\n\\section{노트 장}\n\\end{document}\n')
-    write(wb, 'blocks/reference.md', '---\nid: reference\n---\ngrounds: workbench/notes/multi/chapter.tex, workbench/calc/loose/main.tex#노트 장\n')
     const status = await generateStatus(wb)
-    expect(section(status, '## 원고 — multi')).toContain('- multi 1장 다른 파일 장 — `workbench/notes/multi/chapter.tex`')
-    expect(section(status, '## 블록 노트')).toContain('원고: multi 1장 다른 파일 장 · loose 1장 노트 장')
+    expect(section(status, '## 원고 — multi')).toContain('- 1장 다른 파일 장 — `workbench/notes/multi/chapter.tex`')
     expect(status).not.toContain('## 원고 — loose')
   })
 
@@ -307,12 +302,10 @@ describe('에이전트 맥락 요약', () => {
 
   const fileHash = (wb: Workbench, file: string) => hashOf(fs.readFileSync(path.join(wb.repo, file), 'utf8'))
 
-  it('블록·노트가 없으면 해당 절과 정본 줄을 생략하고 있는 노트 폴더만 안내한다', async () => {
+  it('노트가 없으면 노트 절을 생략하고 있는 노트 폴더만 안내한다', async () => {
     const wb = fresh()
-    fs.rmSync(wb.blocksDir, { recursive: true })
+    fs.rmSync(path.join(wb.root, 'notes'), { recursive: true, force: true })
     let status = await generateStatus(wb)
-    expect(status).not.toContain('## 블록 노트')
-    expect(status).not.toContain('workbench/blocks/*.md')
     expect(status).not.toContain('## 노트')
     write(wb, 'calc/only/note.md', '# 계산\n')
     status = await generateStatus(new Workbench(wb.root))

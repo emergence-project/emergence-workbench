@@ -41,10 +41,10 @@ export function moveId(ids: string[], from: string, to: string): string[] {
   return [...rest.slice(0, at), from, ...rest.slice(at)]
 }
 
-/** 프로젝트의 최근 시각(ms): 보조 노트를 고친 때와 일지 기록 중 가장 늦은 것 */
-export function lastWorkMs(summary: Pick<ResearchSummary, 'blocks'>, entries: Pick<JournalEntry, 'date' | 'time'>[]): number | undefined {
+/** 프로젝트의 최근 시각(ms): 일지 기록과 (받았으면) 노트를 고친 때 중 가장 늦은 것 */
+export function lastWorkMs(entries: Pick<JournalEntry, 'date' | 'time'>[], noteTimes: number[] = []): number | undefined {
   const times = [
-    ...summary.blocks.map((b) => b.mtime),
+    ...noteTimes,
     ...entries.map((e) => new Date(`${e.date}T${/^\d{1,2}:\d{2}$/.test(e.time) ? e.time.padStart(5, '0') : '00:00'}:00`).getTime()),
   ].filter((t) => Number.isFinite(t) && t > 0)
   return times.length ? Math.max(...times) : undefined
@@ -52,9 +52,9 @@ export function lastWorkMs(summary: Pick<ResearchSummary, 'blocks'>, entries: Pi
 
 /** 상태 기호 (홈): 확인 필요(빨간 점) · 업데이트 필요(돌아가는 화살표) · 둘 다(화살표 오른쪽 위 빨간 점) */
 export type AttentionMark = 'check' | 'update' | 'both' | null
-/** "확인 필요"의 내역 (왼쪽 띠의 수와 첫 화면 점의 툴팁): 확인이 필요한 노트 + 판단할 맡긴 일(결과 · 종결 조건 제안, 10/7) */
-export function issueTip(notes: number, tasks: number, edits = 0, records = 0): string {
-  const parts = [notes > 0 && t(`확인이 필요한 노트 ${notes}개`, `${plural(notes, 'note')} to review`), tasks > 0 && t(`판단할 맡긴 일 ${tasks}개`, `${plural(tasks, 'delegated task')} to decide`), edits > 0 && t(`에이전트 고침 ${edits}개`, `${plural(edits, 'agent edit')} to review`), records > 0 && t(`에이전트가 물은 기록 ${records}개`, `${plural(records, 'agent question')} to answer`)].filter(Boolean)
+/** "확인 필요"의 내역 (왼쪽 띠의 수와 첫 화면 점의 툴팁): 판단할 맡긴 일(결과 · 종결 조건 제안, 10/7) + 에이전트 고침 + 에이전트가 물은 기록 */
+export function issueTip(tasks: number, edits = 0, records = 0): string {
+  const parts = [tasks > 0 && t(`판단할 맡긴 일 ${tasks}개`, `${plural(tasks, 'delegated task')} to decide`), edits > 0 && t(`에이전트 고침 ${edits}개`, `${plural(edits, 'agent edit')} to review`), records > 0 && t(`에이전트가 물은 기록 ${records}개`, `${plural(records, 'agent question')} to answer`)].filter(Boolean)
   return parts.join(' · ') || t('확인할 것 없음', 'Nothing to review')
 }
 export function attentionOf(issues: number, behind: number): AttentionMark {

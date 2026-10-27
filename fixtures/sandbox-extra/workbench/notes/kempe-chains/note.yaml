@@ -1,0 +1,5 @@
+name: "Kempe 사슬 이용"
+description: "꼭짓점 순서를 바꿔도 식 (1)이 유지되는지 계산으로 확인"
+topics: [coloring]
+concepts: [euler-formula, kempe-chain]
+kind: calc

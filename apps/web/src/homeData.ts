@@ -1,4 +1,4 @@
-import { localTime, type JournalEntry } from '@rw/core'
+import type { JournalEntry } from '@rw/core'
 import type { ResearchListItem, ResearchSummary } from './api'
 import { isoDay, monthDay } from './format'
 import { t } from './i18n'
@@ -51,10 +51,6 @@ export function doneByDay(researches: ResearchListItem[], loaded: Record<string,
       if (e.kind === 'todo') continue
       const first = e.text.split('\n').find((x) => x.trim()) ?? ''
       push(e.date, r, { key: `${e.date}-${e.index}`, kind: e.kind, text: e.kind === 'done' ? stripDue(first) : first, time: e.time })
-    }
-    for (const b of l.summary.blocks) {
-      const d = new Date(b.mtime)
-      push(isoDay(d), r, { key: `edit-${b.id}`, kind: 'edit', text: t(`${b.title ?? b.id} 수정`, `Edited ${b.title ?? b.id}`), time: localTime(d) })
     }
   }
   for (const groups of out.values()) for (const g of groups) g.events.sort((a, b) => a.time.localeCompare(b.time))

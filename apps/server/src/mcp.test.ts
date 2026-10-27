@@ -147,12 +147,16 @@ describe('MCP 입구 (읽기)', () => {
     }) as typeof fetch
     const c = await connect(full)
     const rid = R.split('/').pop()!
+    const md = path.join(repo, 'workbench/notes/mcp-record')
+    fs.mkdirSync(md, { recursive: true })
+    fs.writeFileSync(path.join(md, 'note.yaml'), 'name: 기록 노트\n')
+    fs.writeFileSync(path.join(md, 'note.md'), '# 기록 노트\n\n$\\sum_i x_i = 1$ 이 식을 확인한다.\n')
     const notes = (await app.inject({ method: 'GET', url: `${R}/notes` })).json().notes as { id: string; file: string; type: string }[]
-    const note = notes.find((n) => n.type === 'block')!
-    const body = (await app.inject({ method: 'GET', url: `${R}/blocks/${note.id}` })).json().content as string
+    const note = notes.find((n) => n.id === 'mcp-record')!
+    const body = (await app.inject({ method: 'GET', url: `${R}/manuscript/part?file=${encodeURIComponent(note.file)}` })).json().content as string
     const quote = body.split('\n').find((l) => l.trim().length > 12 && !l.startsWith('%') && !l.startsWith('\\'))!.trim().slice(0, 12)
     const r = await c.callTool({ name: 'add_record', arguments: { project: rid, file: note.file, kind: '질문', text: '이 식이 맞는지 봐 주세요', quote } })
-    expect(r.isError).toBeFalsy()
+    expect(r.isError, textOf(r)).toBeFalsy()
     expect(textOf(r)).toContain('user\'s turn')
     const records = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid, kind: '질문' } }))).records as { by?: string; body: string; quote?: string }[]
     expect(records).toEqual(expect.arrayContaining([expect.objectContaining({ by: 'test', body: '이 식이 맞는지 봐 주세요', quote })]))
@@ -337,19 +341,18 @@ describe('MCP 입구 (읽기)', () => {
     const full = textOf(await c.callTool({ name: 'project_status', arguments: { project: 'sample-research', full: true } }))
     expect(status).toContain('## 다른 절 (필요할 때만 읽는다)')
     expect(status.length).toBeLessThan(full.length)
-    const notesPart = textOf(await c.callTool({ name: 'project_status', arguments: { project: 'sample-research', section: '블록 노트' } }))
-    expect(notesPart).toMatch(/^## 블록 노트 \d+/)
+    const notesPart = textOf(await c.callTool({ name: 'project_status', arguments: { project: 'sample-research', section: '노트' } }))
+    expect(notesPart).toMatch(/^## 노트 \d+/)
     expect(full).toContain(notesPart)
     const missing = await c.callTool({ name: 'project_status', arguments: { project: 'sample-research', section: '없는 절' } })
     expect(missing.isError).toBe(true)
-    expect(textOf(missing)).toContain('블록 노트')
+    expect(textOf(missing)).toContain('노트')
 
     const notes = JSON.parse(textOf(await c.callTool({ name: 'list_notes', arguments: { project: 'sample-research' } }))) as { file: string; status: string }[]
     expect(notes.length).toBeGreaterThan(0)
     const note = notes[0]!
     const read = textOf(await c.callTool({ name: 'read_note', arguments: { project: 'sample-research', file: note.file } }))
-    const id = /^workbench\/blocks\/([^/]+)\./.exec(note.file)?.[1]
-    const part = (await app.inject({ method: 'GET', url: id ? `${R}/blocks/${id}` : `${R}/manuscript/part?file=${encodeURIComponent(note.file)}` })).json() as { content: string; hash: string }
+    const part = (await app.inject({ method: 'GET', url: `${R}/manuscript/part?file=${encodeURIComponent(note.file)}` })).json() as { content: string; hash: string }
     expect(part.hash).toBeTruthy()
     expect(read).toBe(`file: ${note.file}\nhash: ${part.hash}\n\n${part.content}`)
 
@@ -361,13 +364,12 @@ describe('MCP 입구 (읽기)', () => {
     const rows = [
       { id: '한..글', type: 'note', file: 'workbench/notes/한..글/note.md', status: 'solved' },
       { id: 'calc name', type: 'calc', file: 'workbench/calc/calc name/note.md', status: 'in-progress' },
-      { id: 'block-id', type: 'block', file: 'workbench/blocks/block-id.tex', status: 'in-progress' },
       { id: 'old', type: 'note', file: 'workbench/notes/old/main.tex', status: 'in-progress' },
     ]
     const fake = (async () => new Response(JSON.stringify({ notes: rows }), { status: 200 })) as typeof fetch
     const c = await connect(fake)
     const list = JSON.parse(textOf(await c.callTool({ name: 'list_notes', arguments: { project: 'p' } })))
-    expect(list.map((n: { target?: string }) => n.target)).toEqual(['note-___', 'calc-calc_name', 'block-block-id', undefined])
+    expect(list.map((n: { target?: string }) => n.target)).toEqual(['note-___', 'calc-calc_name', undefined])
   })
 
   it('list_edit_reviews는 선택한 프로젝트 또는 전체 대기 목록을 읽는다', async () => {

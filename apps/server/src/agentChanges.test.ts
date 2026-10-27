@@ -57,24 +57,18 @@ describe('바뀐 것 검사', () => {
     expect(found()).toEqual([['error', 'locked', 'workbench/rules/style.md']])
   })
 
-  it('노트·블록 노트를 해결로 바꾸면 오류, 해결 노트를 고치면 경고', () => {
+  it('노트를 해결로 바꾸면 오류, 해결 노트를 고치면 경고', () => {
     write('workbench/notes/a/note.yaml', 'name: A\n')
     write('workbench/notes/a/note.md', '# A\n')
     write('workbench/topics/t/b/note.yaml', 'name: B\nstate: done\n')
     write('workbench/topics/t/b/note.md', '# B\n')
-    write('workbench/blocks/c.md', '---\nid: c\nstatus: in-progress\n---\n본문\n')
-    write('workbench/blocks/d.md', '---\nid: d\nstatus: solved\n---\n본문\n')
     commit()
     write('workbench/notes/a/note.yaml', 'name: A\nstate: done\n')
     write('workbench/topics/t/b/note.md', '# B 고침\n')
-    write('workbench/blocks/c.md', '---\nid: c\nstatus: solved\n---\n본문\n')
-    write('workbench/blocks/d.md', '---\nid: d\nstatus: solved\n---\n본문 고침\n')
     expect(found()).toEqual([
-      ['error', 'approval', 'workbench/blocks/c.md'],
-      ['warning', 'confirmed-edit', 'workbench/blocks/d.md'],
       ['error', 'approval', 'workbench/notes/a/note.yaml'],
       ['warning', 'confirmed-edit', 'workbench/topics/t/b/note.md'],
-      ['warning', 'flow-skipped', 'workbench/blocks/c.md'],
+      ['warning', 'flow-skipped', 'workbench/notes/a/note.yaml'],
     ])
   })
 

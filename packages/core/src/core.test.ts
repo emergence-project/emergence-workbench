@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildBlockMainTex, buildLibraryNoteMainTex, isValidBlockId, parseLatexErrors, parseSynctexEdit, parseSynctexView, refineSourceLine, titleToLatex, todoDue } from './index.js'
+import { buildLibraryNoteMainTex, isValidBlockId, parseLatexErrors, parseSynctexEdit, parseSynctexView, refineSourceLine, titleToLatex, todoDue } from './index.js'
 
 describe('isValidBlockId', () => {
   it('소문자·숫자·하이픈만 허용한다', () => {
@@ -24,45 +24,6 @@ describe('buildLibraryNoteMainTex', () => {
     const withBib = buildLibraryNoteMainTex({ library: '/lib', preambles: [], note: '/lib/concepts/x.tex', bib: '/lib/references.bib' })
     expect(withBib.indexOf('\\input{/lib/concepts/x.tex}')).toBeLessThan(withBib.indexOf('\\bibliography{/lib/references}'))
     expect(withBib.indexOf('\\bibliography{/lib/references}')).toBeLessThan(withBib.indexOf('\\end{document}'))
-  })
-})
-
-describe('buildBlockMainTex', () => {
-  const paths = { preamble: '/w/preamble.tex', block: '/w/blocks/b.tex', figures: '/w/figures' }
-
-  it('서식 → 그림 경로 → 본문 순서로 불러온다', () => {
-    const tex = buildBlockMainTex(paths)
-    const i = (s: string) => tex.indexOf(s)
-    expect(i('\\documentclass')).toBeLessThan(i('\\input{/w/preamble.tex}'))
-    expect(i('\\input{/w/preamble.tex}')).toBeLessThan(i('\\graphicspath{{/w/figures/}}'))
-    expect(i('\\graphicspath')).toBeLessThan(i('\\begin{document}'))
-    expect(i('\\begin{document}')).toBeLessThan(i('\\input{/w/blocks/b.tex}'))
-  })
-
-  it('서식·블록 안의 상대 경로는 workbench 기준으로 찾게 한다', () => {
-    const tex = buildBlockMainTex(paths)
-    expect(tex).toContain('\\def\\input@path{{/w/}}')
-    expect(tex.indexOf('\\input@path')).toBeLessThan(tex.indexOf('\\input{/w/preamble.tex}'))
-  })
-
-  it('라이브러리가 있으면 workbench 다음으로 라이브러리에서 찾는다', () => {
-    expect(buildBlockMainTex({ ...paths, library: '/lib' })).toContain('\\def\\input@path{{/w/}{/lib/}}')
-    expect(() => buildBlockMainTex({ ...paths, library: '/my lib' })).toThrow()
-  })
-
-  it('고른 서식과 앞머리를 쓰고 기존 프로젝트 서식과 경로를 유지한다', () => {
-    const tex = buildBlockMainTex(paths, { template: { documentClass: '\\documentclass{report}', preamble: '\\input{setting}' }, front: ['Chosen title'] })
-    expect(tex).toContain('\\documentclass{report}')
-    expect(tex).not.toContain('\\documentclass[11pt]{article}')
-    expect(tex.indexOf('\\input{setting}')).toBeLessThan(tex.indexOf('\\input{/w/preamble.tex}'))
-    expect(tex.indexOf('\\begin{document}')).toBeLessThan(tex.indexOf('Chosen title'))
-    expect(tex.indexOf('Chosen title')).toBeLessThan(tex.indexOf('\\input{/w/blocks/b.tex}'))
-  })
-
-  it('상대 경로와 LaTeX에서 깨지는 경로를 거부한다', () => {
-    expect(() => buildBlockMainTex({ ...paths, block: 'blocks/b.tex' })).toThrow()
-    expect(() => buildBlockMainTex({ ...paths, block: '/Mobile Documents/b.tex' })).toThrow()
-    expect(() => buildBlockMainTex({ ...paths, block: '/w/100%.tex' })).toThrow()
   })
 })
 

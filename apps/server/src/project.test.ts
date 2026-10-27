@@ -147,21 +147,10 @@ describe('진술 (저장소의 statements/)', () => {
   })
 })
 
-describe('프로젝트 요약의 보조 노트', () => {
-  it('머리말 id가 파일 이름과 달라도 목록의 id는 파일 이름이다 (열 수 있는 id, 나무의 id-mismatch와 같은 기준)', async () => {
-    const file = path.join(tmp, 'sample-research/workbench/blocks/odd-name.tex')
-    fs.writeFileSync(file, '% ---\n% id: header-id\n% title: 다른 id\n% status: in-progress\n% ---\n본문\n')
-    try {
-      const rows = (await app.inject({ method: 'GET', url: R })).json().blocks as { id: string; title?: string }[]
-      expect(rows.find((b) => b.title === '다른 id')?.id).toBe('odd-name')
-      expect((await app.inject({ method: 'GET', url: `${R}/blocks/odd-name` })).statusCode).toBe(200)
-    } finally { fs.rmSync(file) }
-  })
-})
-
 describe('프로젝트 정본과 STATUS.md', () => {
   it('research.yaml의 sources로 작업 목록·검토 문서·bib·자료 폴더를 읽고, agent-status일 때만 STATUS.md를 쓴다', async () => {
     const proj = makeRepo('gamma-like')
+    fs.rmSync(path.join(proj, 'workbench/notes'), { recursive: true }) // 예제의 노트 없이 시작한다
     const w = (rel: string, text: string) => { fs.mkdirSync(path.dirname(path.join(proj, rel)), { recursive: true }); fs.writeFileSync(path.join(proj, rel), text) }
     w('docs/TASK-QUEUE.md', '# Q\n\n| 날짜 | 일정 | 상태 |\n|---|---|---|\n| 10-13 | 심의 | 확정 |\n\n| 순위 | 내용 | 상태 | 파일 |\n|---|---|---|---|\n| 1 | [이론 문서](x.md) 작성 | in-review | `a.md` |\n| 2 | 솔버 | pending | b |\n\n본문\n')
     w('docs/theory/00-a.md', '---\ntitle: Topology\nstatus: draft\n---\n# T\n')
@@ -239,7 +228,6 @@ describe('원고 (sources.manuscript)', () => {
     w('docs/note/chapters/02-model.tex', '\\section{The \\emph{model}}\nEuler formula $V - E + F = 2$.\n')
     w('docs/note/appendices/a-proof.tex', '\\section{Proof}\nDetails.\n')
     w('workbench/research.yaml', 'title: M\nsources:\n  manuscript: docs/note/main.tex — 연구노트\n')
-    w('workbench/blocks/model-gap.tex', '% ---\n% id: model-gap\n% title: 모형의 빈틈\n% status: in-progress\n% ---\n\\section{빈틈}\n% 근거: docs/note/chapters/02-model.tex, a-proof.tex, 없는-장.tex\n')
     const a = buildApp({ configDir: path.join(tmp, 'config-ms') })
     const id = (await a.inject({ method: 'POST', url: '/api/researches', payload: { path: proj } })).json().id
     const M = `/api/researches/${id}/manuscript`
@@ -282,15 +270,11 @@ describe('원고 (sources.manuscript)', () => {
     const edit = (await a.inject({ method: 'GET', url: `${M}/synctex/edit?page=${b.page}&x=${b.h + b.width / 2}&y=${b.v - b.height / 2}` })).json()
     expect(edit.spot).toEqual({ file: 'docs/note/chapters/02-model.tex', line: 2 })
 
-    // 유도의 "근거:" 줄이 원고 장으로 이어진다 (경로 전체든 파일 이름만이든)
-    const sum = (await a.inject({ method: 'GET', url: `/api/researches/${id}` })).json()
-    expect(sum.blocks.find((x: { id: string }) => x.id === 'model-gap').grounds).toEqual(['docs/note/chapters/02-model.tex', 'docs/note/appendices/a-proof.tex'])
-    // STATUS.md에 원고 절과 마지막 컴파일, 유도의 원고 장
+    // STATUS.md에 원고 절과 마지막 컴파일
     const md = (await a.inject({ method: 'GET', url: `/api/researches/${id}/agent-status` })).json().markdown as string
     expect(md).toContain('## 원고 — 연구노트 (`docs/note/main.tex`)')
     expect(md).toContain('- 2장 The model — `docs/note/chapters/02-model.tex`')
     expect(md).toMatch(/마지막 앱 컴파일: .* · 오류 없음/)
-    expect(md).toContain('  - 원고: 2장 The model · 부록 A Proof')
     await a.close()
   }, 120_000)
 })
@@ -337,16 +321,15 @@ describe('라이브러리 노트 (개념·문헌)와 Study', () => {
 
     // 작업노트가 개념에 기댄다 (머리말 concepts) → 쓰는 곳
     const R2 = `/api/researches/${id}`
-    const blk = (await a.inject({ method: 'GET', url: `${R2}/blocks/kempe-chains` })).json()
-    expect((await a.inject({ method: 'PATCH', url: `${R2}/blocks/kempe-chains/meta`, payload: { patch: { concepts: ['kempe-recoloring'] }, baseHash: blk.hash } })).statusCode).toBe(200)
+    fs.writeFileSync(path.join(proj, 'workbench/notes/kempe-chains/note.yaml'), 'name: Kempe 사슬 이용\nconcepts: [kempe-recoloring]\n')
 
     const L = (await a.inject({ method: 'GET', url: '/api/library' })).json()
     expect(L.notes.map((n: { kind: string; id: string; status: string; empty: boolean }) => `${n.kind}:${n.id}:${n.status}:${n.empty}`).sort())
       .toEqual(['concept:kempe-recoloring-2:draft:true', 'concept:kempe-recoloring:draft:true', 'paper:st20:draft:true'])
-    expect(L.usedBy['concept:kempe-recoloring']).toEqual([expect.objectContaining({ rid: id, note: 'kempe-chains' })])
+    expect(L.usedBy['concept:kempe-recoloring']).toEqual([expect.objectContaining({ rid: id, file: 'workbench/notes/kempe-chains/main.tex' })])
     expect(L.usedBy['paper:st20']).toEqual([expect.objectContaining({ rid: id })])
 
-    // 블록 노트 없이 프로젝트 전체를 개념에 잇기 (research.yaml의 concepts:), 주석과 다른 칸은 그대로
+    // 노트 없이 프로젝트 전체를 개념에 잇기 (research.yaml의 concepts:), 주석과 다른 칸은 그대로
     const ry = path.join(proj, 'workbench/research.yaml')
     fs.appendFileSync(ry, '# 남길 주석\n')
     const linked = (on: boolean, cid = 'kempe-recoloring-2') => a.inject({ method: 'POST', url: `${R2}/concepts`, payload: { id: cid, on } })
@@ -405,15 +388,15 @@ describe('메인 노트 정하기 (sources.manuscript)', () => {
     await a.close()
   })
 
-  it('메인 노트를 하나 더 정하면 manuscript를 목록으로 바꾸고, 장·컴파일·근거를 메인 노트마다 따로 본다', async () => {
+  it('메인 노트를 하나 더 정하면 manuscript를 목록으로 바꾸고, 장·컴파일을 메인 노트마다 따로 본다', async () => {
     const proj = makeRepo('two-main-notes')
+    fs.rmSync(path.join(proj, 'workbench/notes'), { recursive: true }) // 예제의 노트 없이 시작한다
     const w = (rel: string, text: string) => { fs.mkdirSync(path.dirname(path.join(proj, rel)), { recursive: true }); fs.writeFileSync(path.join(proj, rel), text) }
     w('docs/model/main.tex', '\\documentclass{article}\n\\begin{document}\n\\input{chapters/01}\n\\end{document}\n')
     w('docs/model/chapters/01.tex', '\\section{Model}\n')
     w('docs/dev/main.tex', '\\documentclass{beamer}\n\\begin{document}\n\\input{design}\n\\end{document}\n')
     w('docs/dev/design.tex', '\\section{Solver design}\n')
     w('workbench/research.yaml', 'title: N\nsources:\n  manuscript: docs/model/main.tex — 모형 연구노트  # 원고\n  bib: [refs.bib]\n')
-    w('workbench/blocks/x.tex', '% ---\n% id: x\n% title: X\n% ---\n% 근거: design.tex\n')
     const a = buildApp({ configDir: path.join(tmp, 'config-two-main') })
     const id = (await a.inject({ method: 'POST', url: '/api/researches', payload: { path: proj } })).json().id
     const R = `/api/researches/${id}`
@@ -429,9 +412,8 @@ describe('메인 노트 정하기 (sources.manuscript)', () => {
     expect(list[1].parts).toEqual([{ id: 'docs/dev/design.tex', file: 'docs/dev/design.tex', title: 'Solver design', appendix: false }])
     expect((await a.inject({ method: 'GET', url: `${R}/manuscript?ms=docs-dev-main` })).json()).toMatchObject({ main: 'docs/dev/main.tex' })
     expect((await a.inject({ method: 'GET', url: `${R}/manuscript?ms=nope` })).statusCode).toBe(404)
-    // 둘째 메인 노트의 장도 읽고, 근거도 찾는다
+    // 둘째 메인 노트의 장도 읽는다
     expect((await a.inject({ method: 'GET', url: `${R}/manuscript/part?file=docs/dev/design.tex` })).json().content).toContain('Solver design')
-    expect((await a.inject({ method: 'GET', url: R })).json().blocks.find((b: { id: string }) => b.id === 'x').grounds).toEqual(['docs/dev/design.tex'])
     // PDF가 아직 없으면 위치 이동은 빈 결과
     expect((await a.inject({ method: 'GET', url: `${R}/manuscript/synctex/view?file=docs/dev/design.tex&line=1` })).json()).toEqual({ boxes: [] })
     expect((await a.inject({ method: 'GET', url: `${R}/manuscript/synctex/edit?page=1&x=10&y=10&ms=docs-dev-main` })).json()).toEqual({ spot: null })

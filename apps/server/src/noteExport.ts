@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { isOutside } from './fsutil.js'
-import { buildExportMainTex, buildSettingTex, inputBlockPreamble, markdownToLatex, MD_PREAMBLE, parseBlock, type Author, type LatexTemplate } from '@rw/core'
+import { buildExportMainTex, buildSettingTex, markdownToLatex, MD_PREAMBLE, type Author, type LatexTemplate } from '@rw/core'
 import { SHARED_MACROS, templateFilePath } from './latexFiles.js'
 import { allManuscripts, frontFor, isBodyOnly, NO_TITLE_BLOCK, type ManuscriptInfo } from './manuscript.js'
 import { bibliographyLines, libraryCitedBib, LIBRARY_CITED_BIB, noteBibFiles } from './noteBib.js'
@@ -32,7 +32,7 @@ import { t as tl } from './i18n.js'
 /** libraryBib: 공유 라이브러리 references.bib 경로 (노트·프로젝트 bib에 없는 인용 키를 여기서 찾는다) */
 export interface ExportLatex { template: LatexTemplate; authors?: Author[]; allAuthors?: Author[]; date?: string; sharedMacros?: string | null; figures?: FigureEmbedResolver; libraryBib?: string }
 export interface ExportedNotes { filename: string; zip: Buffer; files: string[] }
-type ExportSource = Pick<ManuscriptInfo, 'main' | 'name' | 'kind' | 'format'> & { block?: Workbench }
+type ExportSource = Pick<ManuscriptInfo, 'main' | 'name' | 'kind' | 'format'>
 
 
 /** 여러 노트를 모을 때 노트 각자의 제목 줄은 주석으로 돌린다 (한 줄 안에서 괄호가 닫히는 것만) */
@@ -47,11 +47,11 @@ export function quietTitles(body: string): string {
 }
 
 /** Markdown 노트가 부르는 그림 (노트 폴더 기준, 있는 것만) */
-function markdownAssets(text: string, dir: string, allowParent = false): string[] {
+function markdownAssets(text: string, dir: string): string[] {
   const out: string[] = []
   for (const m of text.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)|!\[\[([^\]|]+)/g)) {
     const rel = path.normalize((m[1] ?? m[2]!).trim())
-    if ((allowParent || !isOutside(rel)) && !path.isAbsolute(rel) && fs.existsSync(path.join(dir, rel)) && fs.statSync(path.join(dir, rel)).isFile()) out.push(rel)
+    if (!isOutside(rel) && !path.isAbsolute(rel) && fs.existsSync(path.join(dir, rel)) && fs.statSync(path.join(dir, rel)).isFile()) out.push(rel)
   }
   return out
 }
@@ -70,11 +70,9 @@ function exportBody(m: ExportSource, text: string, files: string[], dir: string,
   }
   let assets = 'note-assets'
   for (let n = 2; files.some((f) => overlaps(f, assets)); n++) assets = `note-assets-${n}`
-  // 블록 노트의 기존 graphicspath 순서. 같은 상대 이름이 여러 곳에 있으면 먼저 찾던 것을 쓴다.
-  const dirs = m.block ? [m.block.figuresDir, m.block.blocksDir, m.block.root] : [dir]
-  for (const local of dirs) for (const ref of markdownAssets(text, local, !!m.block)) {
+  for (const ref of markdownAssets(text, dir)) {
     if (!figures.files.some((f) => overlaps(ref, f.name))) continue
-    const file = path.relative(dir, path.join(local, ref))
+    const file = ref
     if (!files.includes(file)) continue
     const moved = `${assets}/${file}`
     renamed.set(file, moved)
@@ -107,26 +105,6 @@ function exportBody(m: ExportSource, text: string, files: string[], dir: string,
 function filesOf(m: ExportSource, repo: string): { mainAbs: string; text: string; files: string[]; skipped: string[]; dir: string; prefix: string } {
   const mainAbs = path.join(repo, m.main)
   const text = fs.readFileSync(mainAbs, 'utf8')
-  if (m.block) {
-    const wb = m.block
-    const options = { baseDir: wb.root, searchDirs: [wb.blocksDir], graphicsDirs: [wb.figuresDir] }
-    const { files, skipped } = collectTexFiles(mainAbs, options)
-    if (fs.existsSync(wb.preamblePath)) {
-      const preamble = collectTexFiles(wb.preamblePath, options)
-      for (const file of preamble.files) files.add(file)
-      skipped.push(...preamble.skipped)
-    }
-    if (m.format === 'md') for (const dir of [wb.root, wb.blocksDir, wb.figuresDir]) {
-      for (const file of markdownAssets(text, dir, true)) files.add(path.relative(wb.root, path.join(dir, file)))
-    }
-    for (const file of fs.readdirSync(wb.blocksDir)) if (file.endsWith('.bib')) files.add(`blocks/${file}`)
-    const safe = [...files].filter((file) => {
-      const rel = path.relative(wb.root, fs.realpathSync(path.join(wb.root, file)))
-      if (isOutside(rel)) { skipped.push(file); return false }
-      return true
-    })
-    return { mainAbs, text, files: safe, skipped, dir: wb.root, prefix: 'block-files/' }
-  }
   const { files, skipped } = m.format === 'md' ? { files: new Set([path.basename(mainAbs), ...markdownAssets(fs.readFileSync(mainAbs, 'utf8'), path.dirname(mainAbs))]), skipped: [] } : collectTexFiles(mainAbs)
   const dir = path.dirname(mainAbs)
   // 같은 폴더의 .bib는 \bibliography 없이도 빌드에 쓰일 수 있어 함께 둔다 (연구노트 복사와 같게)
@@ -147,19 +125,6 @@ export function exportNotes(wb: Workbench, keys: string[], latex: ExportLatex): 
   return exportSources(wb, picked, latex)
 }
 
-/** 블록 노트도 같은 서식·저자·날짜와 zip 묶기를 쓴다. 원문과 기록 파일은 읽기만 한다. */
-export function exportBlock(wb: Workbench, id: string, latex: ExportLatex): ExportedNotes {
-  const { content } = wb.readBlock(id)
-  const name = parseBlock(content).meta.title || id
-  return exportSources(wb, [{
-    main: path.relative(wb.repo, wb.blockPath(id)),
-    name,
-    kind: 'note',
-    ...(wb.blockFormat(id) === 'md' ? { format: 'md' as const } : {}),
-    ...((wb.blockFormat(id) === 'md' || isBodyOnly(content)) ? { block: wb } : {}),
-  }], latex)
-}
-
 function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex): ExportedNotes {
   const repo = wb.repo
   const research = wb.readResearch()
@@ -169,7 +134,7 @@ function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex
   const byline = hasPaper || authors.length > 0
   const date = latex.date ?? (hasPaper ? '\\today' : '')
   const own = research.latexMacros ? path.join(repo, research.latexMacros) : path.join(wb.root, 'macros.tex')
-  const macros = !picked[0]?.block && fs.existsSync(own) ? fs.readFileSync(own, 'utf8') : null
+  const macros = fs.existsSync(own) ? fs.readFileSync(own, 'utf8') : null
   const header = (bodyOnlyFiles: boolean): ZipEntry[] => (bodyOnlyFiles
     ? [
         { name: 'setting.tex', data: buildSettingTex(t) },
@@ -187,7 +152,7 @@ function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex
   const svgFigures = new Set<string>()
   const excludedFigures = new Set<string>()
   const figuresFor = (m: ExportSource, text: string, dir: string) => m.format === 'md'
-    ? latex.figures?.(text, m.block ? [m.block.root, m.block.blocksDir, m.block.figuresDir] : [dir], !!m.block)
+    ? latex.figures?.(text, [dir], false)
     : undefined
   const collectFigures = (figures?: FigureEmbeds) => {
     if (!figures) return
@@ -212,23 +177,13 @@ function exportSources(wb: Workbench, picked: ExportSource[], latex: ExportLatex
       const figures = figuresFor(m, text, dir)
       const { body, renamed } = exportBody(m, text, files, dir, prefix, figures)
       collectFigures(figures)
-      const own = !m.block && fs.existsSync(path.join(dir, NOTE_MACROS))
+      const own = fs.existsSync(path.join(dir, NOTE_MACROS))
       if (own && !files.includes(NOTE_MACROS)) files.push(NOTE_MACROS)
       const front = frontFor(t, authors, titleFor(m.name), body, m.kind, { byline, date })
-      const blockPreamble = m.block ? [
-        '\\makeatletter\\def\\input@path{{block-files/}{block-files/blocks/}}\\makeatother',
-        ...(files.includes('preamble.tex') ? [inputBlockPreamble('block-files/preamble.tex', true)] : []),
-        '\\makeatletter\\@ifpackageloaded{graphicx}{\\graphicspath{{block-files/figures/}{block-files/blocks/}{block-files/}}}{}\\makeatother',
-      ] : []
-      const extra = [...blockPreamble, ...(own ? [`\\input{${NOTE_MACROS.replace(/\.tex$/, '')}}`] : []), ...(m.format === 'md' ? [MD_PREAMBLE] : []), ...figurePreambles]
+      const extra = [...(own ? [`\\input{${NOTE_MACROS.replace(/\.tex$/, '')}}`] : []), ...(m.format === 'md' ? [MD_PREAMBLE] : []), ...figurePreambles]
       // Markdown 노트의 참고문헌: 노트 폴더의 .bib(함께 묶인다), 없으면 프로젝트 bib를 묶음에 넣어 쓴다.
       // 거기 없는 인용 키는 공유 라이브러리 references.bib에서 그 항목만 뽑아 library-refs.bib로 넣는다
-      const bibFiles = (m.format === 'md' ? noteBibFiles(wb, mainAbs, body) : []).filter((file) => {
-        if (!m.block) return true
-        const rel = path.relative(repo, fs.realpathSync(file))
-        if (isOutside(rel)) { skippedAll.push(`${m.name}: ${file}`); return false }
-        return true
-      })
+      const bibFiles = m.format === 'md' ? noteBibFiles(wb, mainAbs, body) : []
       const bibName = (f: string) => files.includes(path.relative(dir, f)) ? `${prefix}${path.relative(dir, f)}` : path.basename(f)
       for (const f of bibFiles) if (!files.includes(path.relative(dir, f))) entries.push({ name: path.basename(f), data: fs.readFileSync(f) })
       const libBib = m.format === 'md' ? libraryCitedBib(body, bibFiles, latex.libraryBib) : null

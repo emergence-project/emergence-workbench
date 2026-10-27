@@ -3,7 +3,6 @@ import { conceptsApi, searchApi, type ConceptRow, type SearchItem } from './api'
 import { GLOBAL_PAGES } from './globalPages'
 import { Icon } from './icons'
 import { NOTE_KIND_LABEL } from './NewNote'
-import { AUX_NOTE } from './notes'
 import { go, type Route } from './router'
 import { rank } from './searchMatch'
 import { resultsForQuery, type QueryResults } from './queryResults'
@@ -13,10 +12,10 @@ import { t } from './i18n'
 interface Hit { key: string; title: string; kind: string; where?: string; icon: ReactNode; to: Route }
 
 const KIND_LABEL: Record<SearchItem['kind'], string> = {
-  project: t('프로젝트', 'Project'), card: t('주제', 'Topic'), note: t('노트', 'Note'), part: t('장', 'Chapter'), block: AUX_NOTE, statement: t('진술', 'Statement'), paper: t('문헌노트', 'Literature note'), concept: t('개념노트', 'Concept note'), person: t('사람', 'Person'),
+  project: t('프로젝트', 'Project'), card: t('주제', 'Topic'), note: t('노트', 'Note'), part: t('장', 'Chapter'), statement: t('진술', 'Statement'), paper: t('문헌노트', 'Literature note'), concept: t('개념노트', 'Concept note'), person: t('사람', 'Person'),
 }
 const KIND_ICON: Record<SearchItem['kind'], ReactNode> = {
-  project: Icon.research, card: Icon.card, note: Icon.block, part: Icon.block, block: Icon.block, statement: Icon.statement, paper: Icon.paper, concept: Icon.concept, person: Icon.network,
+  project: Icon.research, card: Icon.card, note: Icon.block, part: Icon.block, statement: Icon.statement, paper: Icon.paper, concept: Icon.concept, person: Icon.network,
 }
 /** 묶음 순서 */
 const GROUPS = ['화면', '프로젝트', '주제', '노트', '개념노트', '문헌노트', '사람'] as const
@@ -31,7 +30,7 @@ const GROUP_KIND: Record<Group, string> = {
   화면: SCREEN, 프로젝트: KIND_LABEL.project, 주제: KIND_LABEL.card, 노트: KIND_LABEL.note, 개념노트: KIND_LABEL.concept, 문헌노트: KIND_LABEL.paper, 사람: KIND_LABEL.person,
 }
 const GROUP_OF: Record<SearchItem['kind'], Group> = {
-  project: '프로젝트', card: '주제', note: '노트', part: '노트', block: '노트', statement: '노트', concept: '개념노트', paper: '문헌노트', person: '사람',
+  project: '프로젝트', card: '주제', note: '노트', part: '노트', statement: '노트', concept: '개념노트', paper: '문헌노트', person: '사람',
 }
 
 /**
@@ -82,7 +81,6 @@ export function SearchOverlay({ rid, onClose }: { rid: string | null; onClose():
         case 'project': return { ...base, kind, where: undefined, to: { page: 'overview', rid: x.id } }
         case 'card': return { ...base, kind, to: { page: 'topic', rid: x.rid!, tid: x.id } }
         case 'note': case 'part': return { ...base, kind, to: { page: 'part', rid: x.rid!, file: x.file! } }
-        case 'block': return { ...base, kind, to: { page: 'block', rid: x.rid!, bid: x.id } }
         case 'statement': return { ...base, kind, to: { page: 'statement', rid: x.rid!, sid: x.id } }
         case 'paper': case 'concept': return libRid ? { ...base, kind, to: { page: x.kind, rid: libRid, id: x.id } } : null
         case 'person': return { ...base, kind, to: { page: 'network', person: x.id } }

@@ -41,7 +41,6 @@ const ROUTES: Route[] = [
   { page: 'papers', rid: 'alpha' },
   { page: 'statement', rid: 'alpha', sid: 'prop-3.9' },
   { page: 'log', rid: 'alpha' },
-  { page: 'block', rid: 'alpha', bid: 'B-001' },
   { page: 'doc', rid: 'alpha', name: 'paper 1.pdf' },
   { page: 'part', rid: 'alpha', file: 'docs/main.tex#sec:intro' },
   { page: 'topic', rid: 'alpha', tid: 't1' },

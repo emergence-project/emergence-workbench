@@ -546,7 +546,7 @@ function ConceptUses({ id, info, rid, project, onChanged, onSaved }: {
               <button className="a cn-use-name" onClick={(ev) => { ev.stopPropagation(); go({ page: 'map', rid: u.rid }) }}>{u.project}</button>
               {u.linked && <span className="hover-actions"><button className="icon-btn" data-ui="개념 연결 끊기" title={t(`연결 끊기 — ${u.project}의 research.yaml concepts:에서 뺍니다`, `Unlink: removes it from concepts: in ${u.project}'s research.yaml`)} aria-label={t('연결 끊기', 'Unlink')} onClick={() => link(u.rid, u.project, false)}>×</button></span>}
             </div>
-            {u.notes.length > 0 && <div className="cn-facts">{u.notes.map((n) => <button key={n.id} className="dep-chip" onClick={(ev) => { ev.stopPropagation(); go({ page: 'block', rid: u.rid, bid: n.id }) }}>{n.title}</button>)}</div>}
+            {u.notes.length > 0 && <div className="cn-facts">{u.notes.map((n) => <button key={n.file} className="dep-chip" onClick={(ev) => { ev.stopPropagation(); go({ page: 'part', rid: u.rid, file: n.file }) }}>{n.title}</button>)}</div>}
             {u.cites.length > 0 && (
               <p className="cn-use-cites" title={t('이 개념노트의 출처가 프로젝트 bib에도 있는지 (같은 논문을 다른 키로 적어도 arXiv 번호·DOI·제목으로 찾습니다)', "Whether this concept note's sources are also in the project bib (matched by arXiv number, DOI, or title even under a different key)")}>
                 {lack.length === 0 ? <>✓ {t(`출처 ${have.length}개 모두 이 프로젝트 bib에 있음`, `All ${plural(have.length, 'source')} are in this project's bib`)}</> : <>{t(`출처 ${u.cites.length}개 중 ${have.length}개가 이 프로젝트 bib에 있음`, `${have.length} of ${plural(u.cites.length, 'source')} are in this project's bib`)}</>}

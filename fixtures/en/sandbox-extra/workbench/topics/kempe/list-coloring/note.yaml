@@ -1,0 +1,8 @@
+name: "Extending to list coloring"
+description: |-
+  Check whether a graph is colorable when every vertex has a list of five allowed colors
+  - Bound the effect of the Kempe swap $\Kempe{c}{1}{3}$ by the list size
+state: paused
+resume: "After checking the original assumptions and the outer face"
+topics: [kempe, coloring]
+kind: check

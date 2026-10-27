@@ -60,7 +60,9 @@ describe('지식 첫 화면 (GET /api/concepts/brief)', () => {
     const ry = path.join(repo, 'workbench', 'research.yaml')
     fs.writeFileSync(ry, `${fs.readFileSync(ry, 'utf8').trimEnd()}\nconcepts: [delta]\n`)
     // 프로젝트 노트 이름([[kempe-chains]])은 개념노트로 보지 않는다
-    fs.writeFileSync(path.join(repo, 'workbench', 'blocks', 'uses-alpha.md'), `---\nid: uses-alpha\ntitle: Uses alpha\nstatus: in-progress\n---\nSee [[Alpha]] and [[kempe-chains]].\n`)
+    fs.mkdirSync(path.join(repo, 'workbench', 'notes', 'uses-alpha'), { recursive: true })
+    fs.writeFileSync(path.join(repo, 'workbench', 'notes', 'uses-alpha', 'note.yaml'), 'name: Uses alpha\n')
+    fs.writeFileSync(path.join(repo, 'workbench', 'notes', 'uses-alpha', 'note.md'), 'See [[Alpha]] and [[kempe-chains]].\n')
 
     fs.mkdirSync(path.join(tmp, 'config'), { recursive: true })
     fs.writeFileSync(path.join(tmp, 'config', 'config.yaml'), `library: ${lib}\nresearches: []\n`)

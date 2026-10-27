@@ -61,7 +61,7 @@ describe('sidebar records', () => {
     expect(recordRoute('r', { target: 'calc-identity', source: 'workbench/calc/identity/note.md' }, () => undefined)).toEqual({ page: 'part', rid: 'r', file: 'workbench/calc/identity/note.md' })
     expect(recordRoute('r', { target: 'note-missing' }, () => undefined)).toBeNull()
     expect(recordRoute('r', { target: 'project' }, () => 'part.tex')).toBeNull()
-    expect(recordRoute('r', { target: 'block-proof', source: 'proof' }, () => undefined)).toEqual({ page: 'block', rid: 'r', bid: 'proof' })
+    expect(recordRoute('r', { target: 'block-proof', source: 'proof' }, () => undefined)).toBeNull()
     expect(recordRoute('r', { target: 'manuscript' }, () => 'main.tex')).toEqual({ page: 'part', rid: 'r', file: 'main.tex' })
   })
   it('migrates both saved old writing modes and tolerates legacy ids', () => {
@@ -72,7 +72,7 @@ describe('sidebar records', () => {
     expect(recordDate('legacy')).toBe('')
   })
   it('opens PDF anchors in the matching result tab without guessing a manuscript key', () => {
-    expect(recordPdfTab({ target: 'block-proof', source: 'proof' }, () => undefined)).toEqual({ k: 'pdf', bid: 'proof' })
+    expect(recordPdfTab({ target: 'block-proof', source: 'proof' }, () => undefined)).toBeNull()
     expect(recordPdfTab({ target: 'manuscript' }, () => '')).toEqual({ k: 'mspdf' })
     expect(recordPdfTab({ target: 'manuscript-key' }, () => 'workbench/notes/한글/main.tex')).toEqual({ k: 'mspdf', ms: 'workbench/notes/한글/main.tex' })
     expect(recordPdfTab({ target: 'manuscript-missing' }, () => undefined)).toBeNull()

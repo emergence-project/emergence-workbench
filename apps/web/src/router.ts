@@ -8,7 +8,6 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/r/<연구>/flow[?topic=] 연구 흐름 (프로젝트 전체, topic = 굵게 볼 주제, 10/14)
  *   #/r/<연구>/edits[?key=] 고침 검토 (그 프로젝트의 에이전트 고침만, 10/14 사용자 결정)
  *   #/r/<연구>/map        지도 (예전 /tree도 여기로)
- *   #/r/<연구>/b/<작업>    작업노트 편집 (파일은 workbench/blocks/)
  *   #/r/<연구>/s/<진술>    진술 노트 (저장소의 statements/)
  *   #/r/<연구>/log        기록
  *   #/r/<연구>/k/<작업>    맡긴 일의 보고서 (workbench/tasks/<작업>.md)
@@ -75,7 +74,6 @@ export type Route =
   | { page: 'papers'; rid: string }
   | { page: 'statement'; rid: string; sid: string }
   | { page: 'log'; rid: string }
-  | { page: 'block'; rid: string; bid: string }
   | { page: 'doc'; rid: string; name: string }
   | { page: 'file'; rid: string; path: string }
   | { page: 'part'; rid: string; file: string }
@@ -108,7 +106,6 @@ export function parseRoute(hash: string): Route {
     if (parts[2] === 'papers') return { page: 'papers', rid: parts[1] }
     if (parts[2] === 's' && parts[3]) return { page: 'statement', rid: parts[1], sid: parts[3] }
     if (parts[2] === 'log') return { page: 'log', rid: parts[1] }
-    if (parts[2] === 'b' && parts[3]) return { page: 'block', rid: parts[1], bid: parts[3] }
     if (parts[2] === 'm' && parts[3]) return { page: 'doc', rid: parts[1], name: parts[3] }
     if (parts[2] === 'f' && parts[3]) return { page: 'file', rid: parts[1], path: parts[3] }
     if (parts[2] === 'w' && parts[3]) return { page: 'part', rid: parts[1], file: parts[3] }
@@ -209,7 +206,6 @@ export function href(r: Route): string {
     case 'papers': return `#/r/${e(r.rid)}/papers`
     case 'statement': return `#/r/${e(r.rid)}/s/${e(r.sid)}`
     case 'log': return `#/r/${e(r.rid)}/log`
-    case 'block': return `#/r/${e(r.rid)}/b/${e(r.bid)}`
     case 'doc': return `#/r/${e(r.rid)}/m/${e(r.name)}`
     case 'file': return `#/r/${e(r.rid)}/f/${e(r.path)}`
     case 'part': return `#/r/${e(r.rid)}/w/${e(r.file)}`

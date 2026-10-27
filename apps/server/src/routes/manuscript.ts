@@ -10,7 +10,7 @@ import { recordScopeOf } from '../pdfRecords.js'
 import { mainNoteCandidates, setMainNote, unsetMainNote } from '../mainNote.js'
 import { createNote, makeAllBodyOnly, makeBodyOnly } from '../noteCopy.js'
 import { writeNoteMeta } from '../noteMeta.js'
-import { exportBlock, exportNotes } from '../noteExport.js'
+import { exportNotes } from '../noteExport.js'
 import { sharedMacrosTex } from '../latexFiles.js'
 import { requireHash, WorkbenchError, ConflictError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -130,17 +130,15 @@ export function registerManuscript(app: FastifyInstance, ctx: RouteContext): voi
     noteTemplate: projectTemplate(wbOf(req.params.rid), 'note'),
     templates: registry.latexTemplates.map((t) => ({ id: t.id, name: t.name, kind: t.kind })),
   }))
-  /** 노트 내보내기: ms(메인 노트 key) 하나 또는 여럿, 또는 block(블록 노트 id) 하나를 LaTeX 폴더 zip으로. 여럿이면 main.tex 하나로 모은다 */
+  /** 노트 내보내기: ms(메인 노트 key) 하나 또는 여럿을 LaTeX 폴더 zip으로. 여럿이면 main.tex 하나로 모은다 */
   // 내보내기 상자에서 고른 것 (10/4 반려 "옵션으로 선택하게하자. 1. 디자인 템플릿, 2. 저자 포함 여부, 3. 날짜"): 위의 latexPick.
   // au가 없으면 원고는 설정의 저자 목록 차례 그대로·노트는 저자 없이, date가 없으면 원고는 today, 노트는 none
-  app.get<{ Params: { rid: string }; Querystring: { ms?: string | string[]; block?: string } & Pick }>('/api/researches/:rid/export', async (req, reply) => {
+  app.get<{ Params: { rid: string }; Querystring: { ms?: string | string[] } & Pick }>('/api/researches/:rid/export', async (req, reply) => {
     const wb = wbOf(req.params.rid)
     const keys = list(req.query.ms)
-    const block = req.query.block
-    if (block !== undefined && (typeof block !== 'string' || keys.length > 0)) throw new WorkbenchError(400, t('보조 노트는 하나씩 따로 내보내세요', 'Export notes one at a time'))
-    const kind = block !== undefined || (keys.length > 0 && keys.every((k) => manuscriptKind(wb, k) !== 'paper')) ? 'note' : 'paper'
+    const kind = (keys.length > 0 && keys.every((k) => manuscriptKind(wb, k) !== 'paper')) ? 'note' : 'paper'
     const latex = { ...latexPick(wb, req.query, false, kind), allAuthors: registry.authors, sharedMacros: sharedMacrosTex(registry.libraryPath), figures: figureEmbedResolver(registry, req.params.rid), ...libraryBibOf() }
-    const r = block !== undefined ? exportBlock(wb, block, latex) : exportNotes(wb, keys, latex)
+    const r = exportNotes(wb, keys, latex)
     const ascii = /[A-Za-z0-9]/.test(r.filename.replace(/\.zip$/, '')) ? r.filename.replace(/[^\x20-\x7e]+/g, '_').replace(/["\\]/g, '_') : 'notes.zip'
     return reply.type('application/zip').header('cache-control', 'no-store')
       .header('content-disposition', `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(r.filename)}`).send(r.zip)

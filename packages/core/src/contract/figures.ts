@@ -13,7 +13,7 @@ export const LIBRARY_SCOPE = 'library'
 export const FigureUse = z.object({
   /** 노트가 있는 프로젝트 (개념노트는 없음) */
   rid: z.string().optional(),
-  type: z.enum(['note', 'calc', 'block', 'concept']),
+  type: z.enum(['note', 'calc', 'concept']),
   id: z.string(),
   /** 저장소 기준 본문 파일 */
   file: z.string(),

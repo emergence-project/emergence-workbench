@@ -80,15 +80,12 @@ async function setupFigureExport(name: string) {
   const source = '## Figures\r\n\r\n![[Project drawing|300]]\r\n\r\n![[Shared picture]]\r\n\r\n![[vector.svg]]\r\n\r\n![[Shared name]]\r\n\r\n![[local.png]]\r\n\r\n![[full]]\r\n'
   fs.writeFileSync(path.join(proj, 'workbench/notes/proof/note.md'), source)
   fs.writeFileSync(path.join(proj, 'workbench/calc/num/note.md'), source)
-  fs.writeFileSync(path.join(proj, 'workbench/blocks/figure-aux.md'), `---\r\nid: figure-aux\r\ntitle: Figure aux\r\n---\r\n${source}`)
-  for (const dir of ['notes/proof', 'calc/num', 'blocks']) fs.writeFileSync(path.join(proj, 'workbench', dir, 'local.png'), png)
+  for (const dir of ['notes/proof', 'calc/num']) fs.writeFileSync(path.join(proj, 'workbench', dir, 'local.png'), png)
   const list = (await a.inject({ method: 'GET', url: `${ctx.R}/manuscripts` })).json() as { key: string; name: string }[]
   const key = (title: string) => list.find((m) => m.name === title)!.key
   const snapshot = () => [proj, lib].map((dir) => Object.fromEntries(tree(dir).map((f) => [f, fs.readFileSync(path.join(dir, f)).toString('base64')])))
-  const exportTo = async (kind: 'one' | 'many' | 'block', suffix: string) => {
-    const res = kind === 'block'
-      ? await a.inject({ method: 'GET', url: `${ctx.R}/export?block=figure-aux` })
-      : await ctx.get(kind === 'one' ? [key('증명 노트')] : [key('증명 노트'), key('계산 노트')])
+  const exportTo = async (kind: 'one' | 'many', suffix: string) => {
+    const res = await ctx.get(kind === 'one' ? [key('증명 노트')] : [key('증명 노트'), key('계산 노트')])
     expect(res.statusCode).toBe(200)
     const dir = ctx.unzip(res.rawPayload, `${name}-${suffix}`)
     return path.join(dir, fs.readdirSync(dir)[0]!)
@@ -97,7 +94,7 @@ async function setupFigureExport(name: string) {
 }
 
 describe('노트 내보내기', () => {
-  it.each(['one', 'many', 'block'] as const)('%s: 그림 라이브러리 원본·우선순위·변환 안내를 담고 원문은 보존한다', async (kind) => {
+  it.each(['one', 'many'] as const)('%s: 그림 라이브러리 원본·우선순위·변환 안내를 담고 원문은 보존한다', async (kind) => {
     const { a, originals, snapshot, exportTo, scope } = await setupFigureExport(`export-figures-${kind}`)
     try {
       const before = snapshot()
@@ -130,11 +127,11 @@ describe('노트 내보내기', () => {
     } finally { await a.close() }
   })
 
-  it.skipIf(!hasLatex)('TikZ·PNG가 있는 단일·여러·보조 Markdown 노트 zip이 그대로 PDF로 컴파일된다', async () => {
+  it.skipIf(!hasLatex)('TikZ·PNG가 있는 단일·여러 Markdown 노트 zip이 그대로 PDF로 컴파일된다', async () => {
     const { a, snapshot, exportTo } = await setupFigureExport('export-figures-build')
     try {
       const before = snapshot()
-      for (const kind of ['one', 'many', 'block'] as const) {
+      for (const kind of ['one', 'many'] as const) {
         const root = await exportTo(kind, kind)
         execFileSync('latexmk', ['-xelatex', '-interaction=nonstopmode', '-halt-on-error', 'main.tex'], { cwd: root, stdio: 'pipe' })
         expect(fs.statSync(path.join(root, 'main.pdf')).size).toBeGreaterThan(0)
@@ -284,113 +281,6 @@ describe('노트 내보내기', () => {
     expect(notesDated).not.toContain('\\author')
     expect(notesDated).toContain('{\\centering\\small 2026-01-02\\par}\\bigskip')
     expect((await a.inject({ method: 'GET', url: `${R}/export?ms=${encodeURIComponent(key('증명 노트'))}&date=tomorrow` })).statusCode).toBe(400)
-    await a.close()
-  })
-
-  it('Markdown 보조 노트: 같은 서식·저자·날짜로 그림·참고문헌을 묶고 원문과 기록은 그대로', async () => {
-    const { a, proj, R, unzip } = await setup('export-block-md')
-    const blocks = path.join(proj, 'workbench/blocks')
-    const source = '---\r\nid: aux-md\r\ntitle: 보조 노트\r\nstatus: in-progress\r\n---\r\n## 목표\r\n\r\n$E = 1$ [@aux2026].\r\n\r\n![그림](aux.png)\r\n\r\n```tex\r\n\\documentclass{article}\r\n```\r\n'
-    fs.writeFileSync(path.join(blocks, 'aux-md.md'), source)
-    fs.copyFileSync(path.join(proj, 'workbench/notes/proof/fig/a.png'), path.join(blocks, 'aux.png'))
-    fs.writeFileSync(path.join(blocks, 'refs.bib'), '@article{aux2026, title={Auxiliary note}, author={Ann A}, year={2026}}\n')
-    fs.mkdirSync(path.join(proj, 'workbench/comments'), { recursive: true })
-    fs.writeFileSync(path.join(proj, 'workbench/comments/block-aux-md.md'), '메모와 하이라이트는 원래 자리에 둡니다.\n')
-    await a.inject({ method: 'PUT', url: '/api/authors', payload: { authors: [{ name: 'Ann A', affiliations: ['X'] }] } })
-    const snapshot = () => Object.fromEntries(tree(proj).map((f) => [f, fs.readFileSync(path.join(proj, f)).toString('base64')]))
-    const before = snapshot()
-    const res = await a.inject({ method: 'GET', url: `${R}/export?block=aux-md&tpl=prb&au=Ann%20A&date=2026-10-06` })
-    expect(res.statusCode).toBe(200)
-    expect(res.headers['content-type']).toBe('application/zip')
-    expect(String(res.headers['content-disposition'])).toContain(encodeURIComponent('보조 노트.zip'))
-    const root = path.join(unzip(res.rawPayload, 'block-md'), 'note')
-    const main = fs.readFileSync(path.join(root, 'main.tex'), 'utf8')
-    expect(main).toContain('revtex')
-    expect(main).toContain('\\title{보조 노트}')
-    expect(main).toContain('Ann A')
-    expect(main).toContain('\\date{2026-10-06}')
-    expect(main).toContain('\\section{목표}')
-    expect(main).toContain('\\begin{verbatim}')
-    expect(main).toContain('\\bibliography{block-files/blocks/refs}')
-    expect(main).not.toContain('status: in-progress')
-    expect(tree(root)).toEqual(expect.arrayContaining(['main.tex', 'setting.tex', 'block-files/blocks/aux.png', 'block-files/blocks/refs.bib', 'block-files/preamble.tex']))
-    expect(tree(root)).not.toContain('aux-md.md')
-    expect(snapshot()).toEqual(before)
-    await a.close()
-  })
-
-  it('LaTeX 보조 노트: 본문은 감싸고 자체 머리가 있으면 그대로 묶는다', async () => {
-    const { a, proj, R, unzip } = await setup('export-block-tex')
-    const blocks = path.join(proj, 'workbench/blocks')
-    fs.mkdirSync(path.join(blocks, 'sections'), { recursive: true })
-    const body = '% ---\n% id: aux-tex\n% title: Aux tex\n% ---\n\\section{Auxiliary}\\input{sections/aux}\n'
-    const part = 'The claim \\ADA{check}.\n'
-    fs.writeFileSync(path.join(blocks, 'aux-tex.tex'), body)
-    fs.writeFileSync(path.join(blocks, 'sections/aux.tex'), part)
-    const get = () => a.inject({ method: 'GET', url: `${R}/export?block=aux-tex` })
-    const res = await get()
-    expect(res.statusCode).toBe(200)
-    const root = path.join(unzip(res.rawPayload, 'block-tex'), 'aux-tex')
-    const main = fs.readFileSync(path.join(root, 'main.tex'), 'utf8')
-    expect(main).toContain('\\documentclass')
-    expect(main).toContain(body)
-    expect(main).not.toContain('\\author')
-    expect(fs.readFileSync(path.join(root, 'block-files/blocks/sections/aux.tex'), 'utf8')).toBe(part)
-    expect(fs.readFileSync(path.join(blocks, 'aux-tex.tex'), 'utf8')).toBe(body)
-
-    const full = `% ---\n% title: Aux tex\n% ---\n${PAPER.replace('sections/intro', 'sections/aux')}`
-    fs.writeFileSync(path.join(blocks, 'aux-tex.tex'), full)
-    const own = path.join(unzip((await get()).rawPayload, 'block-tex-own'), 'aux-tex')
-    expect(fs.readFileSync(path.join(own, 'aux-tex.tex'), 'utf8')).toBe(full)
-    expect(tree(own)).toEqual(['README.txt', 'aux-tex.tex', 'sections/aux.tex'])
-    expect(fs.readFileSync(path.join(blocks, 'aux-tex.tex'), 'utf8')).toBe(full)
-    await a.close()
-  })
-
-  it('보조 노트 내보내기는 없는 대상·잘못된 id·바깥 링크·섞인 대상을 거절한다', async () => {
-    const { a, proj, R, key, unzip } = await setup('export-block-invalid')
-    const get = (q: string) => a.inject({ method: 'GET', url: `${R}/export?${q}` })
-    expect((await get('block=missing')).statusCode).toBe(404)
-    expect((await get('block=..%2Foutside')).statusCode).toBe(400)
-    expect((await get('block=')).statusCode).toBe(400)
-    expect((await get('block=one&block=two')).statusCode).toBe(400)
-    expect((await get(`block=one&ms=${encodeURIComponent(key('증명 노트'))}`)).statusCode).toBe(400)
-    const outside = path.join(tmp, 'outside-block.md')
-    fs.writeFileSync(outside, '원본 그대로\n')
-    fs.symlinkSync(outside, path.join(proj, 'workbench/blocks/outside.md'))
-    expect((await get('block=outside')).statusCode).toBe(403)
-    fs.symlinkSync(outside, path.join(proj, 'workbench/blocks/linked.tex'))
-    fs.writeFileSync(path.join(proj, 'workbench/blocks/safe.tex'), '\\input{linked}\n')
-    const safe = await get('block=safe')
-    expect(safe.statusCode).toBe(200)
-    const root = path.join(unzip(safe.rawPayload, 'block-safe'), 'safe')
-    expect(tree(root)).not.toContain('block-files/blocks/linked.tex')
-    expect(fs.readFileSync(path.join(root, 'README.txt'), 'utf8')).toContain('blocks/linked.tex')
-    expect(fs.readFileSync(outside, 'utf8')).toBe('원본 그대로\n')
-    await a.close()
-  })
-
-  it.skipIf(!hasLatex).each(['md', 'tex'])('보조 노트 %s: 공통 머리·기호·그림을 포함한 zip은 그대로 컴파일된다', async (format) => {
-    const { a, proj, R, unzip } = await setup(`export-block-build-${format}`)
-    const wb = path.join(proj, 'workbench')
-    fs.writeFileSync(path.join(wb, 'preamble.tex'), '\\usepackage{graphicx}\n\\input{aux-macros}\n')
-    fs.writeFileSync(path.join(wb, 'aux-macros.tex'), '\\newcommand{\\BlockMacro}{1}\n')
-    fs.mkdirSync(path.join(wb, 'figures'), { recursive: true })
-    fs.copyFileSync(path.join(wb, 'notes/proof/fig/a.png'), path.join(wb, 'figures/aux.png'))
-    const source = format === 'md'
-      ? '---\nid: aux-build\ntitle: Aux build\n---\n## Result\n\n$E = \\BlockMacro$\n\n![Figure](aux.png)\n'
-      : '% ---\n% id: aux-build\n% title: Aux build\n% ---\n\\section{Result}\n\\BlockMacro\n\\includegraphics[width=1cm]{aux}\n'
-    const file = path.join(wb, `blocks/aux-build.${format}`)
-    fs.writeFileSync(file, source)
-    const before = tree(wb)
-    const res = await a.inject({ method: 'GET', url: `${R}/export?block=aux-build&tpl=article&au=&date=none` })
-    expect(res.statusCode).toBe(200)
-    const root = path.join(unzip(res.rawPayload, `block-build-${format}`), 'aux-build')
-    expect(tree(root)).toEqual(expect.arrayContaining(['block-files/preamble.tex', 'block-files/aux-macros.tex', 'block-files/figures/aux.png']))
-    execFileSync('latexmk', ['-xelatex', '-interaction=nonstopmode', '-halt-on-error', 'main.tex'], { cwd: root, stdio: 'ignore' })
-    expect(fs.existsSync(path.join(root, 'main.pdf'))).toBe(true)
-    expect(tree(wb)).toEqual(before)
-    expect(fs.readFileSync(file, 'utf8')).toBe(source)
     await a.close()
   })
 

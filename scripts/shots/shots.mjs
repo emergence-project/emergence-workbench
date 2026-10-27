@@ -68,7 +68,7 @@ try {
   await page.addInitScript(() => { try { if (localStorage.getItem('rw-flow-fold') === null) localStorage.setItem('rw-flow-fold', 'false') } catch { /* ignore */ } })
   let current = ''
   page.on('pageerror', (e) => problems.push(`${current}: ${e.message}`))
-  // 아직 컴파일하지 않은 블록의 PDF는 404가 정상이다 (TeX가 없는 곳에서는 늘 그렇다)
+  // 아직 컴파일하지 않은 노트의 PDF는 404가 정상이다 (TeX가 없는 곳에서는 늘 그렇다)
   const expected = (m) => /\/pdf(\?|$)/.test(m.location().url ?? '') && m.text().includes('404')
   page.on('console', (m) => { if (m.type() === 'error' && !expected(m)) problems.push(`${current}: console ${m.text()} ${m.location().url ?? ''}`) })
   let chat = ''

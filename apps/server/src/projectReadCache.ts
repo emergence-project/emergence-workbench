@@ -32,10 +32,15 @@ export function projectStamp(wb: Workbench): string {
   })
 }
 
-/** 라이브러리가 프로젝트에서 읽는 것만: research.yaml(개념·자료), 블록 노트 폴더, bib, 자료 폴더. 노트 본문을 고쳐도 바뀌지 않는다. */
+/** 노트마다 머리말 파일(note.yaml: concepts:를 적는 곳). 노트가 생기거나 없어져도 목록이 바뀐다 */
+function noteHeads(wb: Workbench): string[] {
+  return wb.ownNotes().filter((n) => n.kind !== 'paper').map((n) => path.join(wb.repo, path.dirname(n.path), 'note.yaml'))
+}
+
+/** 라이브러리가 프로젝트에서 읽는 것만: research.yaml(개념·자료), 노트 머리말, bib, 자료 폴더. 노트 본문을 고쳐도 바뀌지 않는다. */
 const refStamps = new WeakMap<Workbench, DerivedCache<string>>()
 export function projectRefsStamp(wb: Workbench): string {
-  return cachedStamp(refStamps, wb, () => treeStamp([wb.researchPath, wb.blocksDir, ...bibFiles(wb), materialsDir(wb.root)], { dirStats: false }))
+  return cachedStamp(refStamps, wb, () => treeStamp([wb.researchPath, ...noteHeads(wb), ...bibFiles(wb), materialsDir(wb.root)], { dirStats: false }))
 }
 
 /** 프로젝트 하나의 stamp만 비운다 (그 프로젝트의 파일 알림, 10/15) */

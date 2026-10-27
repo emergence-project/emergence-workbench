@@ -12,8 +12,10 @@ describe('일지에서 노트 열기', () => {
     },
   )
 
-  it('보조 노트 id는 기존 블록 화면을 연다', () => {
+  it('옛 블록 노트 id는 같은 이름의 노트를 연다, 없으면 프로젝트 첫 화면', () => {
     expect(isNoteTarget('kempe-chains')).toBe(false)
-    expect(journalTargetRoute('sample-research', 'kempe-chains')).toEqual({ page: 'block', rid: 'sample-research', bid: 'kempe-chains' })
+    const file = 'workbench/topics/kempe/kempe-chains/main.tex'
+    expect(journalTargetRoute('sample-research', 'kempe-chains', (id) => (id === 'kempe-chains' ? { title: 'Kempe', file } : undefined))).toEqual({ page: 'part', rid: 'sample-research', file })
+    expect(journalTargetRoute('sample-research', 'gone')).toEqual({ page: 'overview', rid: 'sample-research' })
   })
 })

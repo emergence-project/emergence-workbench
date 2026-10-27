@@ -1,8 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { BlockStatus } from '@rw/core'
-import type { AgentRules, ManuscriptInfo, RepoInfo, ResearchApi, ResearchListItem, ResearchSummary } from './api'
+import type { AgentRules, ManuscriptInfo, NoteRow, RepoInfo, ResearchApi, ResearchListItem, ResearchSummary } from './api'
 import { isoDay, monthDay, projectColor, relativeTime, statusLabel, statusOf } from './format'
-import { AUX_NOTE } from './notes'
 import { go } from './router'
 import { ProjectStateDot, type ProfilePatch } from './ProjectProfileFields'
 import { Icon } from './icons'
@@ -51,10 +50,11 @@ export function SubHead({ title, desc }: { title: string; desc: string }) {
  * 읽기가 기본이며 제목 옆 연필로 첫 화면과 같은 고치기 창을 연다 (10/6 D3).
  * 제목·설명·시작일·카드 그림은 research.yaml, 성격·분야·진행 상태는 이 컴퓨터의 설정에 쓴다.
  */
-export function ProjectInfoPage({ rid, rapi, summary, manuscripts, project: listed, all, onProfile, onChanged, onSaved }: {
+export function ProjectInfoPage({ rid, rapi, summary, notes, manuscripts, project: listed, all, onProfile, onChanged, onSaved }: {
   rid: string
   rapi: ResearchApi
   summary: ResearchSummary
+  notes: NoteRow[]
   manuscripts: ManuscriptInfo[]
   /** 이 프로젝트의 등록 정보 (성격 · 분야 · 진행 상태, 이 컴퓨터의 설정) */
   project?: ResearchListItem
@@ -63,10 +63,10 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, project: list
   onChanged(): void
   onSaved(message: string): void
 }) {
-  const { research, blocks, statements } = summary
+  const { research, statements } = summary
   const [editing, setEditing] = useState(false)
   const topics = useTopicsOverview(rid).data?.topics
-  const n = (s: string) => blocks.filter((b) => statusOf(b.status) === s).length
+  const n = (s: string) => notes.filter((b) => statusOf(b.status) === s).length
 
   return (
     <InfoShell ui="프로젝트 정보">
@@ -102,8 +102,8 @@ export function ProjectInfoPage({ rid, rapi, summary, manuscripts, project: list
           <dd>{manuscripts.length ? manuscripts.map((m) => (
             <div key={m.key}><button className="a info-manuscript" onClick={() => m.parts[0] && go({ page: 'part', rid, file: m.parts[0].file })}>{Icon.manuscript} {m.name}</button> <PathName path={m.main} /> <span className="muted">· {t(`${m.parts.length}장`, plural(m.parts.length, 'chapter'))}{m.hasPdf ? t(' · PDF 있음', ' · has PDF') : ''}</span></div>
           )) : <span className="muted">{t('없음 — 첫 화면에서 정합니다', 'None. Set it on the first screen')}</span>}</dd>
-          <dt>{AUX_NOTE}</dt>
-          <dd><span>{blocks.length} <span className="muted">({(['solved', 'in-progress', 'blocked', 'stopped'] as const).filter((s) => n(s) > 0).map((s) => `${statusLabel(s)} ${n(s)}`).join(' · ') || t('없음', 'None')})</span></span></dd>
+          <dt>{t('노트', 'Notes')}</dt>
+          <dd><span>{notes.length} <span className="muted">({(['solved', 'in-progress', 'blocked', 'stopped'] as const).filter((s) => n(s) > 0).map((s) => `${statusLabel(s)} ${n(s)}`).join(' · ') || t('없음', 'None')})</span></span></dd>
           <dt>{t('진술', 'Statements')}</dt><dd>{statements.length || <span className="muted">{t('없음', 'None')}</span>}</dd>
         </dl>
       </section>

@@ -7,7 +7,7 @@ import type { CommentEntry, CommentFile } from './comments.js'
 import { localDate, localTime } from './fsutil.js'
 import { Workbench } from './workbench.js'
 
-/** 일지의 대상은 기록 파일 이름 대신 실제 노트 경로 또는 블록 노트 id다. 주제 · 흐름 점과 경로를 모르는 노트는 프로젝트(rw-todo 줄이 정확한 기록을 가리킨다) */
+/** 일지의 대상은 기록 파일 이름 대신 실제 노트 경로다. 주제 · 흐름 점과 경로를 모르는 노트는 프로젝트(rw-todo 줄이 정확한 기록을 가리킨다) */
 export function todoJournalTarget(target: string, source?: string): string {
   if (/^(note|calc)-/.test(target)) return source || RESEARCH_TARGET
   if (target.startsWith('block-')) return source || target.slice('block-'.length)

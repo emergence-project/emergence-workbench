@@ -281,12 +281,9 @@ describe('에이전트 고침 API', () => {
     } finally { fs.writeFileSync(research, original) }
   })
 
-  it('노트·블록 노트 되돌림은 같은 일지 형식으로, 개념노트는 일지 없이 남긴다', async () => {
-    const blockFile = 'workbench/blocks/revert-log.md'
-    fs.writeFileSync(path.join(repo, blockFile), '---\nid: revert-log\ntitle: 되돌림\n---\n\nOriginal.\n')
+  it('노트 되돌림은 일지에, 개념노트는 일지 없이 남긴다', async () => {
     const targets = [
       { kind: 'note' as const, rid: RID, file: noteFile },
-      { kind: 'note' as const, rid: RID, file: blockFile },
       { kind: 'concept' as const, id: 'revert-log' },
     ]
     concept('revert-log', { title: 'Revert' }, '# Revert\n\nOriginal.\n')
@@ -304,7 +301,7 @@ describe('에이전트 고침 API', () => {
       const entries = wb.recentJournal(365).filter((e) => e.text.startsWith('에이전트 고침 되돌림'))
       expect(entries.length).toBe(before + (target.kind === 'note' ? 1 : 0))
       if (target.kind === 'note') {
-        expect(entries[0]).toMatchObject({ kind: 'status', target: target.file === blockFile ? 'revert-log' : noteFile, text: `에이전트 고침 되돌림 · codex, claude-code · "${'가'.repeat(60)}…"` })
+        expect(entries[0]).toMatchObject({ kind: 'status', target: noteFile, text: `에이전트 고침 되돌림 · codex, claude-code · "${'가'.repeat(60)}…"` })
       }
     }
   })

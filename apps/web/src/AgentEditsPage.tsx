@@ -407,8 +407,7 @@ const isMarkdown = (tg: EditTarget) => tg.kind === 'concept' || tg.file.endsWith
 const whereOf = (tg: EditTarget) => (tg.kind === 'concept' ? t('개념노트', 'Concept note') : tg.file)
 export function routeOfTarget(tg: EditTarget): Route {
   if (tg.kind === 'concept') return { page: 'library', topic: tg.id }
-  const block = /^workbench\/blocks\/([^/]+)\.(md|tex)$/.exec(tg.file)
-  return block ? { page: 'block', rid: tg.rid, bid: block[1]! } : { page: 'part', rid: tg.rid, file: tg.file }
+  return { page: 'part', rid: tg.rid, file: tg.file }
 }
 const openTargetOf = (tg: EditTarget) => go(routeOfTarget(tg))
 

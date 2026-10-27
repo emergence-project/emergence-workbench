@@ -131,11 +131,11 @@ describe('PDF 질문에 Claude가 답하기', () => {
     expect(calls[0]!.prompt).toContain('- 파일: workbench/materials/x.pdf')
     expect((await a.inject({ method: 'POST', url: `${R}/comments/paper-x/c-nope/answer` })).statusCode).toBe(404)
 
-    // 노트에서 고른 글로 남긴 부탁: 블록 노트 본문 파일을 가리키고, 노트용 지침을 준다
-    const bid = fs.readdirSync(path.join(repo, 'workbench/blocks')).find((n) => /\.(md|tex)$/.test(n))!
-    const b = await a.inject({ method: 'POST', url: `${R}/comments/block-${bid.replace(/\.\w+$/, '')}`, payload: { kind: '질문', title: '보조 노트', source: bid.replace(/\.\w+$/, ''), quote: 'x = y', text: '검산해 줘' } })
-    expect((await a.inject({ method: 'POST', url: `${R}/comments/block-${bid.replace(/\.\w+$/, '')}/${b.json().entry.id}/answer` })).statusCode).toBe(200)
-    expect(calls[1]!.prompt).toContain(`- 파일: workbench/blocks/${bid} (이 폴더 기준)`)
+    // 노트에서 고른 글로 남긴 부탁: 노트 본문 파일을 가리키고, 노트용 지침을 준다
+    const nf = 'workbench/notes/kempe-chains/main.tex'
+    const b = await a.inject({ method: 'POST', url: `${R}/comments/note-kempe-chains`, payload: { kind: '질문', title: '노트', source: nf, quote: 'x = y', text: '검산해 줘' } })
+    expect((await a.inject({ method: 'POST', url: `${R}/comments/note-kempe-chains/${b.json().entry.id}/answer` })).statusCode).toBe(200)
+    expect(calls[1]!.prompt).toContain(`- 파일: ${nf} (이 폴더 기준)`)
     expect(calls[1]!.prompt).toContain('자기 노트를 읽다가 남긴 질문이나 부탁')
     await a.close()
   })

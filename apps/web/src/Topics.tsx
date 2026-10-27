@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ConflictError, notesApi, type BlockRow, type NoteRow, type ManuscriptInfo, type ManuscriptPart, type ResearchApi, type Topic, type TopicStats, type TrashedNote } from './api'
+import { ConflictError, notesApi, type NoteRow, type ManuscriptInfo, type ManuscriptPart, type ResearchApi, type Topic, type TopicStats, type TrashedNote } from './api'
 import type { BlockStatus } from '@rw/core'
 import type { FlashAction } from './App'
 import { statusLabel, statusOf } from './format'
@@ -12,7 +12,7 @@ import { store } from './store'
 import { TopicEditDialog } from './TopicEditDialog'
 import { isClosed, notesOfTopic, SORTS, sortNotes, STATUS_ORDER, type NoteSort } from './topicNotes'
 import { openPart } from './Manuscript'
-import { partNumber, StatusCounts } from './OverviewPage'
+import { partNumber } from './OverviewPage'
 import { NOTE_KIND_LABEL } from './NewNote'
 import { Icon } from './icons'
 import { go } from './router'
@@ -37,7 +37,6 @@ export interface PartRef { ms: ManuscriptInfo; p: ManuscriptPart; num: string }
 
 const allParts = (manuscripts: ManuscriptInfo[]): PartRef[] =>
   manuscripts.flatMap((ms) => ms.parts.map((p, i) => ({ ms, p, num: partNumber(ms.parts, i) })))
-const live = (blocks: BlockRow[]) => blocks.filter((b) => statusOf(b.status) !== 'stopped')
 
 /** 카드의 장 (원고 순서) */
 export const topicParts = (t: Topic, manuscripts: ManuscriptInfo[]) => allParts(manuscripts).filter((r) => t.parts.includes(r.p.id))
@@ -87,12 +86,11 @@ function PaperCard({ rid, ms, onCopy, onRemove }: { rid: string; ms: ManuscriptI
   )
 }
 
-const partRow = (rid: string, r: PartRef, blocks: BlockRow[], showMs: boolean) => (
+const partRow = (rid: string, r: PartRef, showMs: boolean) => (
   <div key={r.p.id} className="chapter-wrap">
     <button className="chapter" data-ui="장" data-ui-item={r.p.title} title={r.p.line ? `${r.p.file}:${r.p.line}` : r.p.file} onClick={() => openPart(rid, r.ms, r.p)}>
       <span className="num">{r.num}</span>
       <span className="t">{r.p.title}{showMs && <span className="muted"> · {r.ms.name}</span>}</span>
-      <StatusCounts list={live(blocks).filter((b) => b.grounds?.includes(r.p.id))} />
     </button>
   </div>
 )
@@ -102,8 +100,8 @@ const partRow = (rid: string, r: PartRef, blocks: BlockRow[], showMs: boolean) =
  * 아래 노트 카드 격자(정렬: 최근 작업 · 상태 · 이름)와 점선 "＋ 노트 만들기". 해결 · 폐기 노트는 아래 접는 칸(정렬 "상태"면 함께).
  * tid가 LOOSE_TOPIC_ID면 "노트들"(주제 없는 노트)을 같은 모양으로 보인다. 예전 기록의 원고 장(parts)은 "원고의 장 n개"로 열어 본다.
  */
-export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project, pc, version, onChanged, onSaved }: {
-  rid: string; rapi: ResearchApi; tid: string; notes: NoteRow[]; manuscripts: ManuscriptInfo[]; blocks: BlockRow[]
+export function TopicPage({ rid, rapi, tid, notes, manuscripts, project, pc, version, onChanged, onSaved }: {
+  rid: string; rapi: ResearchApi; tid: string; notes: NoteRow[]; manuscripts: ManuscriptInfo[]
   /** 프로젝트 이름과 색 (주제 고치기 창 머리 · 카드 미리보기 기본 바탕) */
   project: string; pc: string
   version: number
@@ -219,7 +217,7 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
     {parts.length > 0 && (
       <section className="ts-parts" data-ui="카드의 장">
         <button className="a" aria-expanded={partsOpen} onClick={() => setPartsOpen((v) => !v)}>{tr(`원고의 장 ${parts.length}개`, `Manuscript chapters: ${parts.length}`)}{partsOpen ? tr(' 접기', ' (collapse)') : ''}</button>
-        {partsOpen && <div className="chapters">{parts.map((r) => partRow(rid, r, blocks, manuscripts.length > 1))}</div>}
+        {partsOpen && <div className="chapters">{parts.map((r) => partRow(rid, r, manuscripts.length > 1))}</div>}
       </section>
     )}
 

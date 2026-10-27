@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { api, type LibraryInfo, type LibraryNote, type ManuscriptInfo, type ResearchApi, type ResearchSummary } from './api'
-import { AUX_NOTE, KIND_COLOR, KIND_LABEL, paperOrder, proofState, shortLabel } from './notes'
+import { api, type LibraryInfo, type LibraryNote, type ManuscriptInfo, type NoteRow, type ResearchApi, type ResearchSummary } from './api'
+import { KIND_COLOR, KIND_LABEL, paperOrder, proofState, shortLabel } from './notes'
 import { NewNote } from './NewNote'
 import { ExportPicker } from './NoteExport'
 import { MainNotePicker } from './OverviewPage'
@@ -20,16 +20,16 @@ export type NotesSection = 'notes' | 'concepts' | 'papers'
  * - 개념노트(concepts): 이 프로젝트가 기대는 개념노트, 연결·새로 만들기
  * - 문헌노트(papers): 이 프로젝트 bib에 있는 논문의 문헌노트
  */
-export function NotesPage({ show, rid, rapi, summary, manuscripts, library, onChanged, onLibraryChanged, onNewBlock, onSaved }: {
+export function NotesPage({ show, rid, rapi, summary, notes, manuscripts, library, onChanged, onLibraryChanged, onSaved }: {
   show: NotesSection
   rid: string
   rapi: ResearchApi
   summary: ResearchSummary
+  notes: NoteRow[]
   manuscripts: ManuscriptInfo[]
   library: LibraryInfo | null
   onChanged(): void
   onLibraryChanged(): void
-  onNewBlock(): void
   onSaved(message: string): void
 }) {
   return (
@@ -37,7 +37,7 @@ export function NotesPage({ show, rid, rapi, summary, manuscripts, library, onCh
       <section className="pane" data-ui="본문">
         <div className="scroll">
           <div className="page-body notes-page">
-            {show === 'notes' && <ResearchNotes rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} onChanged={onChanged} onNewBlock={onNewBlock} onSaved={onSaved} />}
+            {show === 'notes' && <ResearchNotes rid={rid} rapi={rapi} summary={summary} notes={notes} manuscripts={manuscripts} onChanged={onChanged} onSaved={onSaved} />}
             {show === 'concepts' && <LibraryNotes kind="concept" rid={rid} library={library} onLibraryChanged={onLibraryChanged} onSaved={onSaved} />}
             {show === 'papers' && <LibraryNotes kind="paper" rid={rid} library={library} onLibraryChanged={onLibraryChanged} onSaved={onSaved} />}
           </div>
@@ -52,8 +52,8 @@ export function NotesPage({ show, rid, rapi, summary, manuscripts, library, onCh
  * 10/5 "주제와 노트" 4단계: 예전 "연구노트" 화면의 카드(주제 · 연구노트 · 장 밖의 보조 노트)는 주제 화면과 "노트들"로,
  * 지운 노트는 프로젝트 첫 화면 노트 섹션 아래로 옮겼다. 원고 기능은 여기 그대로 둔다.
  */
-function ResearchNotes({ rid, rapi, summary, manuscripts, onChanged, onNewBlock, onSaved }: {
-  rid: string; rapi: ResearchApi; summary: ResearchSummary; manuscripts: ManuscriptInfo[]; onChanged(): void; onNewBlock(): void; onSaved(message: string): void
+function ResearchNotes({ rid, rapi, summary, notes, manuscripts, onChanged, onSaved }: {
+  rid: string; rapi: ResearchApi; summary: ResearchSummary; notes: NoteRow[]; manuscripts: ManuscriptInfo[]; onChanged(): void; onSaved(message: string): void
 }) {
   const { statements } = summary
   /** 새 노트 칸: null이면 닫힘, 문자열이면 그 원고를 복사해서 */
@@ -68,7 +68,6 @@ function ResearchNotes({ rid, rapi, summary, manuscripts, onChanged, onNewBlock,
         <div className="topic-tools">
           <button className="btn" data-ui="노트 관계도 버튼" onClick={() => go({ page: 'map', rid })}>{t('지도 보기', 'View map')}</button>
           {manuscripts.length > 0 && <button className={`btn${exporting ? ' on' : ''}`} data-ui="노트 골라 내보내기 버튼" onClick={() => setExporting((v) => !v)}>{t('내보내기', 'Export')}</button>}
-          <button className="btn" data-ui="새 보조 노트" onClick={onNewBlock}>＋ {t(`${AUX_NOTE} 만들기`, `New ${AUX_NOTE.toLowerCase()}`)}</button>
         </div>
       </header>
       {manuscripts.some((m) => m.needsBodyOnly) && (
@@ -93,7 +92,7 @@ function ResearchNotes({ rid, rapi, summary, manuscripts, onChanged, onNewBlock,
           <h2>{t('진술', 'Statements')} <span className="muted">{statements.length}</span></h2>
           <ul className="notes-list">{paperOrder(statements).map((x) => (
             <li key={x.id}><button className="notes-row" data-ui="진술 항목" onClick={() => go({ page: 'statement', rid, sid: x.id })}>
-              <span className="notes-proof"><ProofMark p={proofState(summary, x)} /></span>
+              <span className="notes-proof"><ProofMark p={proofState({ statements, notes }, x)} /></span>
               <span className="notes-kind" style={{ color: KIND_COLOR[x.kind] ?? KIND_COLOR.statement }}>{KIND_LABEL[x.kind] ?? x.kind}</span><span className="t">{shortLabel(x)} · {x.title}</span>
             </button></li>
           ))}</ul>

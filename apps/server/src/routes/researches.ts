@@ -4,11 +4,9 @@ import { CloneBody, Cloned, GitHubRepoList, GitHubRepoParsed, GitHubUrlBody, Ins
 import * as C from '@rw/core/contract/research'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
-import { buildTree } from '@rw/core'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
 import { listGitHubRepos, realIO, type RepoIO } from '../githubRepos.js'
 import { AgentEditStore } from '../agentEdits.js'
-import { allManuscripts, groundsOf } from '../manuscript.js'
 import { listStatements } from '../statements.js'
 import { openTodos } from '../todos.js'
 import { generateOverview, overviewRow, userTurnOf } from '../agentOverview.js'
@@ -30,7 +28,6 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
    */
   app.get('/api/research-issues', replies(C.ProjectIssues), async (): Promise<C.ProjectIssues> => {
     const counts: Record<string, number> = {}
-    const notes: Record<string, number> = {}
     const tasks: Record<string, number> = {}
     const edits: Record<string, number> = {}
     const records: Record<string, number> = {}
@@ -39,15 +36,14 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     for (const id of registry.ids()) {
       try {
         const u = userTurnOf(wbOf(id), edits[id] ?? 0)
-        notes[id] = u.notes
         tasks[id] = u.tasks
         edits[id] = u.edits
         records[id] = u.records
-        counts[id] = u.notes + u.tasks + u.edits + u.records
+        counts[id] = u.tasks + u.edits + u.records
       } catch { delete edits[id] /* 없는 폴더 등 */ }
     }
     for (const id of Object.keys(edits)) if (!(id in counts)) delete edits[id]
-    return { counts, notes, tasks, edits, records }
+    return { counts, tasks, edits, records }
   })
 
   /** 에이전트용 여러 프로젝트 한눈에 (pnpm agent:status 여러 폴더, MCP overview): 사용자 차례는 위 research-issues와 같은 계산 */
@@ -125,21 +121,15 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     return { ok: true as const }
   })
 
-  /** 연구 개괄에 필요한 것 전부: 연구 정보, 블록 목록, 나무, 문제 */
+  /** 연구 개괄에 필요한 것 전부: 연구 정보, 진술, 할 일 */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid', replies(C.ResearchSummary), async (req): Promise<C.ResearchSummary> => {
     const wb = wbOf(req.params.rid)
-    const blocks = wb.listBlocks()
-    // 메인 노트가 여럿이면 장·부록을 모두 합쳐 근거를 찾는다
-    const parts = allManuscripts(wb).flatMap((m) => m.parts)
     return {
       id: req.params.rid,
       root: wb.root,
       research: wb.readResearch(),
       engine: registry.engine,
-      // grounds: 유도가 근거로 적은 원고의 장·부록 (저장소 기준 경로)
-      blocks: blocks.map(({ id, format, meta, hash, mtime, content }) => ({ ...meta, id, format, hash, mtime, grounds: parts.length ? groundsOf(content, parts) : [] })),
       todos: openTodos(wb.root),
-      tree: buildTree(blocks),
       statements: listStatements(wb.root),
     }
   })

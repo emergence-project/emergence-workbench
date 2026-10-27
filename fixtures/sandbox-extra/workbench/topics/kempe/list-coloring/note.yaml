@@ -1,0 +1,8 @@
+name: "목록 색칠로 넓히기"
+description: |-
+  꼭짓점마다 허용 색 목록이 다섯 개여도 칠할 수 있는지 본다
+  - Kempe 바꾸기 $\Kempe{c}{1}{3}$의 효과를 목록 크기로 묶기
+state: paused
+resume: "원문 가정과 바깥 면 처리를 확인한 뒤"
+topics: [kempe, coloring]
+kind: check

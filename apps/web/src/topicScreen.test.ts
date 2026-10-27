@@ -5,7 +5,7 @@ import { LOOSE_TOPIC_ID } from './noteKinds'
 import { gridColumns, notesInPeriod, notesOfTopic, periodStart, sortNotes, sortTopics } from './topicNotes'
 
 const row = (id: string, p: Partial<NoteRow>): NoteRow => ({
-  id, type: 'block', file: `workbench/blocks/${id}.md`, format: 'md', title: id, status: 'in-progress', topics: [], star: false, mtime: 0, hash: '', ...p,
+  id, type: 'note', file: `workbench/topics/t/${id}/note.md`, format: 'md', title: id, status: 'in-progress', topics: [], star: false, mtime: 0, hash: '', ...p,
 })
 
 describe('주제 화면 노트 순서', () => {

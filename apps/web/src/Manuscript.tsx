@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ConflictError, notesApi, type NoteRow, type BlockRow, type LibraryInfo, type ManuscriptInfo, type ManuscriptPart, type ResearchApi, type ResearchSummary } from './api'
+import { ConflictError, notesApi, type NoteRow, type LibraryInfo, type ManuscriptInfo, type ManuscriptPart, type ResearchApi, type ResearchSummary } from './api'
 import type { BlockStatus } from '@rw/core'
 import type { FlashAction } from './App'
 import { statusLabel, statusOf } from './format'
@@ -20,7 +20,6 @@ import { TRASH_DAYS, trashNoteWithUndo } from './Topics'
 import { CompileSettings, ExportLink, groupOf, savedLatexChoice } from './NoteExport'
 import { MarkdownNoteBody } from './MarkdownNote'
 import { NOTE_KIND_LABEL } from './NewNote'
-import { groupPartProblems } from './partProblems'
 import { useFileEvents } from './autosave'
 import { useNoteEdit } from './noteEdit'
 import { plural, t } from './i18n'
@@ -146,7 +145,7 @@ function ResearchNoteStatus({ row, rapi, onSaved, onChanged }: Pick<PartProps, '
     } finally { setBusy(false) }
   }
   return row ? <NoteStatus status={row.status} title={row.resume ? t(`다시 열 조건: ${row.resume}`, `Reopen when: ${row.resume}`) : undefined}
-    onChange={row.type !== 'block' && row.ms !== undefined ? (status) => void changeStatus(status) : undefined} disabled={busy} /> : null
+    onChange={row.ms !== undefined ? (status) => void changeStatus(status) : undefined} disabled={busy} /> : null
 }
 
 /**
@@ -310,12 +309,6 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
   /** 본문만 남긴 노트 (원고 목록이 다시 읽히기 전까지 안내를 숨긴다) */
   const [stripped, setStripped] = useState<string | null>(null)
   const problems = (ms.result?.problems ?? []).filter((p) => p.file === file)
-  const { open, records, stopped, solved } = groupPartProblems(info?.parts ?? [], file, summary.blocks)
-  const problemChip = (b: BlockRow) => (
-    <button key={b.id} className="dep-chip" title={b.next ? t(`다음: ${b.next}`, `Next: ${b.next}`) : undefined} onClick={() => go({ page: 'block', rid, bid: b.id })}>
-      <StatusDot s={statusOf(b.status)} /> {b.title ?? b.id} · {statusLabel(statusOf(b.status))}
-    </button>
-  )
   const title = row?.title ?? (part ? `${part.appendix ? t('부록 · ', 'Appendix · ') : ''}${part.title}` : info?.name ?? file)
   const finishTitle = () => edit.finish(async (draft) => { if (await commitTitle(rid, row, draft, onSaved)) onChanged?.() })
   const mode = useRightMode()
@@ -348,16 +341,6 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
                 .catch((e: Error) => onSaved(e.message))
             }}>{t('본문만 남기기', 'Keep body only')}</button></div>
         )}>
-        {(open.length > 0 || records.length > 0) && (
-          <div className="part-open" data-ui="이 장의 열린 문제">
-            <span className="muted">{t('이 장의 열린 문제', 'Open problems in this chapter')}</span>
-            {open.map(problemChip)}
-            {records.length > 0 && <details className="part-records" key={file}>
-              <summary>{t(`폐기 ${stopped} · 해결 ${solved}`, `Dropped ${stopped} · Solved ${solved}`)}</summary>
-              <div className="part-record-list">{records.map(problemChip)}</div>
-            </details>}
-          </div>
-        )}
         {loaded !== null && <Editor key={file} ref={editor} initial={loaded} errorLines={problems.map((p) => p.line)} onChange={onChange} onCursorLine={onCursorLine} onSave={() => void save()} onCompile={() => void compile()} />}
         {problems.length > 0 && (
           <div className="problems"><div className="problems-head">{t(`이 장의 오류 ${problems.length}`, `Errors in this chapter ${problems.length}`)}</div>

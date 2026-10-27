@@ -17,20 +17,20 @@ describe('소문제 카드', () => {
     const put = async (topics: unknown) => app.inject({ method: 'PUT', url: `${R}/topics`, payload: { baseHash: await topicsHash(), topics } })
     const r = await put([
       { title: 'Example phase diagram', parts: ['a.tex', 'b.tex', 'a.tex'] },
-      { title: 'Example phase diagram', parts: [], blocks: ['note-a', 'note-a'], star: true },
+      { title: 'Example phase diagram', parts: [], star: true },
       { id: 'sky', title: 'Skyrmion', parts: ['c.tex'], done: true },
     ])
     expect(r.statusCode).toBe(200)
     expect(r.json().topics).toEqual([
-      { id: 'example-phase-diagram', title: 'Example phase diagram', parts: ['a.tex', 'b.tex'], blocks: [], done: false, star: false },
-      { id: 'example-phase-diagram-2', title: 'Example phase diagram', parts: [], blocks: ['note-a'], done: false, star: true },
-      { id: 'sky', title: 'Skyrmion', parts: ['c.tex'], blocks: [], done: true, star: false },
+      { id: 'example-phase-diagram', title: 'Example phase diagram', parts: ['a.tex', 'b.tex'], done: false, star: false },
+      { id: 'example-phase-diagram-2', title: 'Example phase diagram', parts: [], done: false, star: true },
+      { id: 'sky', title: 'Skyrmion', parts: ['c.tex'], done: true, star: false },
     ])
     const text = fs.readFileSync(file, 'utf8')
     expect(text.startsWith('# 머리 주석\n')).toBe(true)
     const { topics, ...rest } = YAML.parse(text)
     expect(rest).toEqual(YAML.parse(before))
-    expect(topics[1]).toEqual({ id: 'example-phase-diagram-2', title: 'Example phase diagram', star: true, parts: [], blocks: ['note-a'] })
+    expect(topics[1]).toEqual({ id: 'example-phase-diagram-2', title: 'Example phase diagram', star: true, parts: [] })
     expect(topics[2]).toEqual({ id: 'sky', title: 'Skyrmion', parts: ['c.tex'], done: true })
 
     expect((await put([{ title: ' ', parts: [] }])).statusCode).toBe(400)
@@ -78,7 +78,7 @@ describe('주제 기록 (10/5): 설명 · 미리보기 · ★ · 만들기 · �
     const now = (await app.inject({ method: 'GET', url: `${R}/topics` })).json().topics
     const put = await app.inject({ method: 'PUT', url: `${R}/topics`, payload: { baseHash: await topicsHash(), topics: now.map((t: object) => ({ ...t, star: true })) } })
     expect(put.statusCode).toBe(200)
-    expect(put.json().topics[0]).toMatchObject({ id: 'long', star: true, description: '설명', preview: { text: '식' }, blocks: ['kempe-chains'] })
+    expect(put.json().topics[0]).toMatchObject({ id: 'long', star: true, description: '설명', preview: { text: '식' } })
   })
 
   it('그림을 올리면 workbench/figures/topics/<id>.<확장자>에 두고 미리보기에 건다. 지우면 노트는 "노트들"로', async () => {
@@ -94,11 +94,12 @@ describe('주제 기록 (10/5): 설명 · 미리보기 · ★ · 만들기 · �
     expect((await app.inject({ method: 'PUT', url: `${R}/topics/pic/image?name=a.exe`, headers: { 'content-type': 'application/octet-stream' }, payload: png })).statusCode).toBe(400)
 
     // 노트 머리말에 든 주제를 지우면 머리말에서도 빠진다
-    await app.inject({ method: 'PATCH', url: `${R}/notes/head`, payload: { file: 'workbench/blocks/kempe-chains.tex', patch: { topics: ['pic', 'long'] }, baseHash: await noteHash('workbench/blocks/kempe-chains.tex') } })
+    const kempe = 'workbench/notes/kempe-chains/main.tex'
+    expect((await app.inject({ method: 'PATCH', url: `${R}/notes/head`, payload: { file: kempe, patch: { topics: ['pic', 'long'] }, baseHash: await noteHash(kempe) } })).statusCode).toBe(200)
     const del = await app.inject({ method: 'DELETE', url: `${R}/topics/pic?baseHash=${await topicsHash()}` })
     expect(del.statusCode).toBe(200)
     expect(del.json().notes).toBe(1)
-    expect(fs.readFileSync(path.join(repo, 'workbench/blocks/kempe-chains.tex'), 'utf8')).toContain('% topics: [long]\n')
+    expect(YAML.parse(fs.readFileSync(path.join(repo, 'workbench/notes/kempe-chains/note.yaml'), 'utf8')).topics).toEqual(['long'])
     expect(fs.existsSync(path.join(repo, 'workbench/figures/topics/pic.png'))).toBe(true)
     expect((await app.inject({ method: 'DELETE', url: `${R}/topics/pic?baseHash=${await topicsHash()}` })).statusCode).toBe(404)
   })
@@ -106,7 +107,6 @@ describe('주제 기록 (10/5): 설명 · 미리보기 · ★ · 만들기 · �
 
 describe('research.yaml topics: 지키기 (10/5 검토)', () => {
   const file = () => path.join(repo, 'workbench', 'research.yaml')
-  const block = (id: string) => path.join(repo, 'workbench', 'blocks', `${id}.tex`)
   const withTopics = (yaml: string) => {
     const base = fs.readFileSync(file(), 'utf8').replace(/^topics:[\s\S]*$/m, '')
     fs.writeFileSync(file(), `${base}${yaml}`)
@@ -148,17 +148,6 @@ describe('research.yaml topics: 지키기 (10/5 검토)', () => {
     // 지우기도 그 주제만 뺀다
     expect((await app.inject({ method: 'DELETE', url: `${R}/topics/other?baseHash=${await topicsHash()}` })).statusCode).toBe(200)
     expect(YAML.parse(fs.readFileSync(file(), 'utf8')).topics.map((t: { id: string }) => t.id)).toEqual(['Phase_Diagram', 'ok'])
-  })
-
-  it('주제를 지워도 예전 기록(blocks:)으로 든 다른 주제에서는 빠지지 않는다', async () => {
-    withTopics('topics:\n  - id: a\n    title: A\n    parts: []\n  - id: b\n    title: B\n    parts: []\n    blocks: [broken-example]\n')
-    const before = fs.readFileSync(block('broken-example'), 'utf8')
-    fs.writeFileSync(block('broken-example'), before.replace('% ---\n', '% ---\n% topics: [a]\n'))
-    const notes = async () => (await app.inject({ method: 'GET', url: `${R}/notes` })).json().notes as { id: string; topics: string[] }[]
-    expect((await notes()).find((n) => n.id === 'broken-example')!.topics).toEqual(['a', 'b'])
-    expect((await app.inject({ method: 'DELETE', url: `${R}/topics/a?baseHash=${await topicsHash()}` })).statusCode).toBe(200)
-    expect((await notes()).find((n) => n.id === 'broken-example')!.topics).toEqual(['b'])
-    fs.writeFileSync(block('broken-example'), before)
   })
 })
 

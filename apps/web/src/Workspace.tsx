@@ -22,14 +22,14 @@ import { t } from './i18n'
  */
 export type Tab =
   | { k: 'overview' } | { k: 'log' } | { k: 'map' } | { k: 'todo' } | { k: 'records' } | { k: 'info' } | { k: 'agents' } | { k: 'status' } | { k: 'changes' } | { k: 'repo' } | { k: 'files' } | { k: 'notes' } | { k: 'concepts' } | { k: 'papers' } | { k: 'edits' } | { k: 'flow' }
-  | { k: 'block'; bid: string } | { k: 'pdf'; bid: string } | { k: 'doc'; name: string } | { k: 'file'; path: string } | { k: 'statement'; sid: string }
+  | { k: 'doc'; name: string } | { k: 'file'; path: string } | { k: 'statement'; sid: string }
   | { k: 'part'; file: string } | { k: 'mspdf'; ms?: string } | { k: 'concept'; id: string } | { k: 'paper'; id: string } | { k: 'topic'; tid: string } | { k: 'task'; task: string }
   /** 판단 화면 (흐름의 명제 · 카드, 10/23) */
   | { k: 'judge'; id: string }
   /** 에이전트 대화를 노트 옆 칸에 (10/21 "창 분할로 나란히"): 주소는 없고 탭으로만 */
   | { k: 'chat'; chat: string }
 
-export const tabKey = (t: Tab) => ('path' in t ? `file:${t.path}` : 'chat' in t ? `chat:${t.chat}` : 'task' in t ? `task:${t.task}` : 'tid' in t ? `topic:${t.tid}` : 'bid' in t ? `${t.k}:${t.bid}` : 'name' in t ? `doc:${t.name}` : 'sid' in t ? `statement:${t.sid}` : 'file' in t ? `part:${t.file}` : 'id' in t ? `${t.k}:${t.id}` : t.k === 'mspdf' && t.ms ? `mspdf:${t.ms}` : t.k)
+export const tabKey = (t: Tab) => ('path' in t ? `file:${t.path}` : 'chat' in t ? `chat:${t.chat}` : 'task' in t ? `task:${t.task}` : 'tid' in t ? `topic:${t.tid}` : 'name' in t ? `doc:${t.name}` : 'sid' in t ? `statement:${t.sid}` : 'file' in t ? `part:${t.file}` : 'id' in t ? `${t.k}:${t.id}` : t.k === 'mspdf' && t.ms ? `mspdf:${t.ms}` : t.k)
 
 /**
  * 갈래 화면(첫 화면 · 프로젝트 정보 · 할 일 · 지도 · 기록)은 탭이 아니다: 사이드바에서 고르면 칸에 고른 탭이 없을 때처럼
@@ -43,7 +43,6 @@ export function tabOfRoute(r: Route): Tab | null {
   if (isSection(r.page)) return null
   switch (r.page) {
     case 'statement': return { k: 'statement', sid: r.sid }
-    case 'block': return { k: 'block', bid: r.bid }
     case 'doc': return { k: 'doc', name: r.name }
     case 'file': return { k: 'file', path: r.path }
     case 'part': return { k: 'part', file: r.file }
@@ -76,8 +75,6 @@ function routeOfTab(rid: string, t: Tab): Route | null {
     case 'edits': return { page: 'edits', rid }
     case 'flow': return { page: 'flow', rid }
     case 'statement': return { page: 'statement', rid, sid: t.sid }
-    case 'block': return { page: 'block', rid, bid: t.bid }
-    case 'pdf': return null
     case 'doc': return { page: 'doc', rid, name: t.name }
     case 'file': return { page: 'file', rid, path: t.path }
     case 'part': return { page: 'part', rid, file: t.file }
@@ -150,12 +147,14 @@ export const hasVisibleManuscriptEditor = (tabs: Tab[], ms: string, msOfFile: (f
 const DEFAULT: Layout = { panes: [{ tabs: [], active: null }, { tabs: [], active: null }], focus: 0, split: true, ctx: false, frac: 0.5, ctxWidth: 300, v: 2 }
 const storeKey = (rid: string) => `rw-ws-${rid}`
 
-const isNoteTab = (t: Tab) => t.k === 'part' || t.k === 'block'
-const isPdfTab = (t: Tab) => t.k === 'pdf' || t.k === 'mspdf'
+const isNoteTab = (t: Tab) => t.k === 'part'
+const isPdfTab = (t: Tab) => t.k === 'mspdf'
+/** 없앤 탭 갈래 (블록 노트와 그 결과 PDF, 2026-10-27): 저장해 둔 배치에서 뺀다 */
+const GONE = new Set(['block', 'pdf'])
 
 /** 탭 목록과 칸 배치는 복원하되, 이전 노트·결과의 선택은 주소로 다시 정한다. 노트 탭은 왼쪽 칸, PDF 탭은 오른쪽 칸으로 바로잡는다. */
 export function restoreLayout(v: Layout): Layout {
-  const kept = v.panes.map((p) => p.tabs.filter((t) => !isSection(t.k)))
+  const kept = v.panes.map((p) => p.tabs.filter((t) => !isSection(t.k) && !GONE.has(t.k)))
   const tabs: [Tab[], Tab[]] = [
     [...kept[0]!.filter((t) => !isPdfTab(t)), ...kept[1]!.filter(isNoteTab)],
     [...kept[1]!.filter((t) => !isNoteTab(t)), ...kept[0]!.filter(isPdfTab)],
@@ -300,7 +299,7 @@ function placeTab(p: PaneState, t: Tab, how: OpenHow): { pane: PaneState; replac
 /** 바꿔 낸 노트의 PDF 탭을 닫는다 (연구노트는 노트마다 PDF가 있다. 원고 PDF는 같은 원고의 다른 장이 함께 쓰므로 둔다) */
 function dropResultPdf(l: Layout, replaced: Tab | null, how: OpenHow): Layout {
   const own = replaced?.k === 'part' ? how.ownPdfOf?.(replaced) : null
-  const key = replaced?.k === 'block' ? tabKey({ k: 'pdf', bid: replaced.bid }) : own ? tabKey(own) : null
+  const key = own ? tabKey(own) : null
   if (!key) return l
   const at = paneOf(l, key)
   return at === -1 ? l : withPane(l, at, removeTab(l.panes[at], key))
@@ -331,7 +330,7 @@ export function openRoute(l: Layout, t: Tab, pdf: Tab | null = null, how: OpenHo
     return pdf ? pairRoutePdf(next, t, pdf) : next
   }
   // 노트를 쓰는 칸에서 논문·자료·진술을 열면 다른 칸에 연다 (쓰던 화면을 가리지 않게)
-  const writing = l.panes[l.focus].active?.startsWith('block:') || l.panes[l.focus].active?.startsWith('part:')
+  const writing = l.panes[l.focus].active?.startsWith('part:')
   const here = at !== -1 ? at as 0 | 1 : !l.split ? 0 : (t.k === 'doc' || t.k === 'file' || t.k === 'statement' || t.k === 'concept' || t.k === 'paper') && writing ? (1 - l.focus) as 0 | 1 : l.focus
   const placed = placeTab(l.panes[here], t, how)
   return dropResultPdf({ ...withPane(l, here, placed.pane), focus: here }, placed.replaced, how)
@@ -360,8 +359,7 @@ export function pairRoutePdf(l: Layout, t: Tab, pdf: Tab): Layout {
 }
 
 /** 처음 불러오는 중인 원고 목록을 첫 원고('')로 오인하지 않고 실제 결과만 돌려준다. */
-export async function routePdf(t: Tab, rapi: Pick<ResearchApi, 'pdfState' | 'manuscripts'>): Promise<Tab | null> {
-  if (t.k === 'block') return (await rapi.pdfState(t.bid)).hasPdf ? { k: 'pdf', bid: t.bid } : null
+export async function routePdf(t: Tab, rapi: Pick<ResearchApi, 'manuscripts'>): Promise<Tab | null> {
   if (t.k === 'part') {
     const ms = (await rapi.manuscripts()).find((m) => m.main === t.file || m.parts.some((p) => p.file === t.file))
     return ms?.hasPdf ? manuscriptPdfTab(ms.key) : null
@@ -559,7 +557,7 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
   )
 }
 
-const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, changes: Icon.projectInfo, repo: Icon.projectInfo, files: Icon.projectInfo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, block: Icon.block, statement: Icon.statement, pdf: Icon.pdf, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task, judge: Icon.approve, chat: Icon.spark }
+const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, changes: Icon.projectInfo, repo: Icon.projectInfo, files: Icon.projectInfo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, statement: Icon.statement, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task, judge: Icon.approve, chat: Icon.spark }
 
 function Pane({ i, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
   i: 0 | 1; visible: boolean; pane: PaneState; focused: boolean; isFocus: boolean; titleOf(t: Tab): string; uiTitleOf(t: Tab): string; kindOf(t: Tab): string | null; renderTab(t: Tab, context: TabRenderContext): ReactNode; visibleTabs: Tab[]; home: ReactNode

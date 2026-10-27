@@ -21,17 +21,13 @@ describe('GET /api', () => {
     for (const s of j.start) expect(has, `${s.method} ${s.url}`).toContain(`${s.method} ${s.url}`)
     expect(j.writes).toContain('baseHash')
   })
-  it('API 안내와 MCP 도구는 블록 노트라는 같은 이름을 쓴다', async () => {
+  it('API 안내와 MCP 도구는 없앤 블록 노트를 말하지 않는다', async () => {
     const j = (await app.inject('/api')).json()
-    const summary = j.start.find((r: { method: string; url: string }) => r.method === 'GET' && r.url === '/api/researches/:rid')
-    expect(summary.does).toContain('블록 노트')
-    expect(JSON.stringify(j.start)).not.toContain('보조 노트')
-    const source = fs.readFileSync(new URL('./routes/apiIndex.ts', import.meta.url), 'utf8')
-    expect(source).toContain('block notes')
-    expect(source).not.toContain('보조 노트')
-    const mcp = fs.readFileSync(new URL('./mcp.ts', import.meta.url), 'utf8')
-    expect(mcp).toContain('block notes')
-    expect(mcp).not.toContain('short note')
+    expect(JSON.stringify(j.start)).not.toMatch(/블록 노트|보조 노트/)
+    for (const f of ['./routes/apiIndex.ts', './mcp.ts']) {
+      const source = fs.readFileSync(new URL(f, import.meta.url), 'utf8')
+      expect(source).not.toMatch(/block notes?|블록 노트|보조 노트|short note|block-/)
+    }
   })
 
   it('한·영 MCP 문서의 절·표가 같은 도구를 같은 순서로 안내한다', () => {

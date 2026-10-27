@@ -14,7 +14,7 @@ fields:
 evidence:
   - kind: proof
     title: Kempe 사슬
-    file: workbench/blocks/kempe-chains.tex
+    file: workbench/notes/kempe-chains/main.tex
     text: 두 사슬이 서로 막는 경우까지
     checks:
       - { at: 2026-10-02T15:00, by: claude, role: agent }

@@ -16,7 +16,7 @@ export type { Statement }
  *   % label: Corollary 3.9.1
  *   % title: Distance preservation
  *   % uses: [skk-prop-elementary-step]   사용 — 이 진술이 기대는 진술
- *   % proofs: [distance-preservation]    증명 — 이 진술을 증명하는 유도(workbench/blocks/의 id)
+ *   % proofs: [distance-preservation]    증명 — 이 진술을 증명하는 노트의 id(노트 폴더 이름)
  *   % source: sampletesterexample2020kempe       인용 — refs.bib 키
  *   % page: 16
  */

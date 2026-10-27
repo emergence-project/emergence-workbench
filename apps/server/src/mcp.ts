@@ -248,7 +248,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
 
   server.registerTool('list_notes', {
     title: 'List notes',
-    description: 'Notes of a project (research, calculation and block notes): file, record target (when available), title, status (in-progress, blocked = paused, stopped = discarded, solved), resume condition, topics. Most recently edited first.',
+    description: 'Notes of a project (research and calculation notes): file, record target (when available), title, status (in-progress, blocked = paused, stopped = discarded, solved), resume condition, topics. Most recently edited first.',
     inputSchema: { project, status: z.enum(['in-progress', 'blocked', 'stopped', 'solved']).optional().describe('Only notes with this status') },
     annotations: ro,
   }, async ({ project: rid, status }) => call(`/api/researches/${enc(rid)}/notes`, (b: { notes: NoteRow[] }) =>
@@ -271,9 +271,8 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     inputSchema: { project, file: z.string().describe('Repository-relative path, e.g. workbench/notes/<name>/note.md or workbench/topics/<topic>/<name>/note.md') },
     annotations: ro,
   }, async ({ project: rid, file }) => {
-    // 블록 노트(workbench/blocks/<id>.md|.tex)는 블록 API, 연구노트·계산 노트·원고 파일은 원고 API가 읽는다
-    const block = /^workbench\/blocks\/([^/]+)\.(md|tex)$/.exec(file)
-    const r = await get(base, f, block ? `/api/researches/${enc(rid)}/blocks/${enc(block[1]!)}` : `/api/researches/${enc(rid)}/manuscript/part?file=${enc(file)}`)
+    // 연구노트·계산 노트·원고 파일은 원고 API가 읽는다
+    const r = await get(base, f, `/api/researches/${enc(rid)}/manuscript/part?file=${enc(file)}`)
     if (!r.ok) return r.error
     const { content, hash } = r.body as { content: string; hash: string }
     return text(`file: ${file}\nhash: ${hash}\n\n${content}`)
@@ -281,8 +280,8 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
 
   server.registerTool('read_records', {
     title: 'Read records',
-    description: 'Records left on a note or the project (memos, to-dos, questions with answers, highlights) and their hash. target: project, note-<folder>, calc-<folder>, block-<id>, topic-<id>, flow-<id> or manuscript. part/partText = the screen part the user pointed at.',
-    inputSchema: { project: recordsProject, target: z.string().describe('project | note-<folder> | calc-<folder> | block-<id> | topic-<id> | flow-<id> | manuscript') },
+    description: 'Records left on a note or the project (memos, to-dos, questions with answers, highlights) and their hash. target: project, note-<folder>, calc-<folder>, topic-<id>, flow-<id> or manuscript. part/partText = the screen part the user pointed at.',
+    inputSchema: { project: recordsProject, target: z.string().describe('project | note-<folder> | calc-<folder> | topic-<id> | flow-<id> | manuscript') },
     annotations: ro,
   }, async ({ project: rid, target }) => call(`/api/researches/${enc(rid)}/comments/${enc(target)}`))
 
@@ -325,7 +324,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     description: 'Leave a record the user reads in the app, written under your agent name. Use kind 질문 (question) to ask the user to check or decide something, for example a passage of a note you wrote: it shows in orange as the user\'s turn until the user answers in the app (for project ' + LIBRARY_RID + ' it shows only on that concept note, not in the counts) (their answer is appended as `### 답 · 사용자` and the record becomes 답함). Use 메모 (memo) for a remark that needs no answer. For a note, pass file (from list_notes) and optionally quote (text copied exactly from the note, it is highlighted there) and line; otherwise pass target (project, topic-<id>, flow-<id>). Do not use it to answer a record (use answer_record) or to change notes (use edit_note).',
     inputSchema: {
       project: recordsProject,
-      file: z.string().optional().describe('Note file from list_notes (workbench/notes/<name>/note.md, workbench/topics/<topic>/<name>/note.md, workbench/blocks/<id>.md …)'),
+      file: z.string().optional().describe('Note file from list_notes (workbench/notes/<name>/note.md, workbench/topics/<topic>/<name>/note.md)'),
       target: z.string().optional().describe(`Instead of file: project | topic-<id> | flow-<id>; with project ${LIBRARY_RID}: concept-<concept id>`),
       kind: z.enum(['질문', '메모']).describe('질문 (question for the user) | 메모 (memo)'),
       text: z.string().trim().min(1).describe('What you ask or note (Markdown)'),
@@ -345,8 +344,8 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
       const noteTarget = n && noteRecordTarget(n)
       if (!n || !noteTarget) return fail(`No note with records at ${file}. Use a file from list_notes that has a target.`)
       to = noteTarget
-      title = n.type === 'block' ? `노트 결과 ${n.title}` : `노트 ${n.title}`
-      source = n.type === 'block' ? n.id : n.file
+      title = `노트 ${n.title}`
+      source = n.file
     }
     // 개념노트 기록 (지식 라이브러리, 10/18): target concept-<개념노트 id>, 인용은 그 개념노트 본문에서 찾는다
     if (rid === LIBRARY_RID && to?.startsWith('concept-')) {
@@ -355,7 +354,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
       source = `concepts/${id}.md`
     }
     if (!to) return fail('Pass file (a note from list_notes) or target (project, topic-<id>, flow-<id>, or concept-<id> with project _library).')
-    if (!file && /^(note|calc|block)-/.test(to)) return fail('For a note, pass file (from list_notes) instead of target.')
+    if (!file && /^(note|calc)-/.test(to)) return fail('For a note, pass file (from list_notes) instead of target.')
     const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(to)}`, { kind, title, ...(source && { source }), text: body, ...(quote && { quote }), ...(line && { line }), ...(field && { field }), by: recordAuthor(server.server.getClientVersion()?.name) })
     if (!r.ok) return r.error
     const b = r.body as { entry: { id: string }; hash: string }
@@ -613,7 +612,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     inputSchema: {
       project,
       text: z.string().trim().min(1).describe('The memo (Markdown, one or two sentences)'),
-      target: z.string().optional().describe('Attach to a note: workbench/notes/<name>/note.md, workbench/topics/<topic>/<name>/note.md or a block id (default: the whole project)'),
+      target: z.string().optional().describe('Attach to a note: workbench/notes/<name>/note.md, or workbench/topics/<topic>/<name>/note.md (default: the whole project)'),
     },
     annotations: writeOnce,
   }, async ({ project: rid, text: body, target }) => {
@@ -681,7 +680,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
 
   server.registerTool('edit_note', {
     title: 'Edit note',
-    description: 'Change a project note (research, calculation or block note; not manuscripts) by exact text replacement. Read it first with read_note and pass its hash as baseHash. The app keeps the text before your first edit as a baseline and the user approves, reverts or edits each changed paragraph. A note with status solved is refused on the first attempt (the user is notified); ask the user in the conversation, then send again with approved: true.',
+    description: 'Change a project note (research or calculation note; not manuscripts) by exact text replacement. Read it first with read_note and pass its hash as baseHash. The app keeps the text before your first edit as a baseline and the user approves, reverts or edits each changed paragraph. A note with status solved is refused on the first attempt (the user is notified); ask the user in the conversation, then send again with approved: true.',
     inputSchema: { project, file: z.string().describe('Repository-relative note path from list_notes'), baseHash: z.string().describe('hash from read_note'), edits, approved, summary },
     annotations: w,
   }, async ({ project: rid, file, ...a }) => write({ kind: 'note', rid, file }, a))

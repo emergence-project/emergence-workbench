@@ -1,0 +1,4 @@
+name: "방전법으로 직접 증명"
+state: stopped
+topics: [coloring]
+kind: proof

@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { NoteFlow } from './FlowView'
-import { ConflictError, notesApi, type NoteCategory, type NoteHeadPatch, type NoteLinks, type NoteRow, type ProjectKind, type Topic, LIMITS } from './api'
+import { ConflictError, notesApi, type NoteCategory, type NoteHeadPatch, type NoteLinks, type NoteRow, type ProjectKind, type Statement, type Topic, LIMITS } from './api'
 import { descriptionLines, MathText } from './cardParts'
 import { useConceptMacros } from './conceptMacros'
 import { Icon } from './icons'
+import { shortLabel } from './notes'
 import { LOOSE_NOTES_LABEL, NO_KIND_LABEL, NOTE_KIND_LABEL, noteKindChoices } from './noteKinds'
-import { headWriterOf, setRightMode, setRightSlot, useRightMode, type RightMode } from './noteScreen'
+import { headWriterOf, setRightMode, useRightMode, type RightMode } from './noteScreen'
 import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
@@ -34,9 +35,8 @@ export function RightSidebar({ info, records, agent }: { info: ReactNode; record
   )
 }
 
-/** 노트를 여는 주소: 보조 노트는 블록 화면, 연구노트·계산 노트는 본문 파일 */
-export const routeOfNote = (rid: string, n: Pick<NoteRow, 'type' | 'id' | 'file'>): Route =>
-  n.type === 'block' ? { page: 'block', rid, bid: n.id } : { page: 'part', rid, file: n.file }
+/** 노트를 여는 주소: 본문 파일 */
+export const routeOfNote = (rid: string, n: Pick<NoteRow, 'type' | 'id' | 'file'>): Route => ({ page: 'part', rid, file: n.file })
 
 /** 설명 글자 수 (줄바꿈은 세지 않는다, 서버와 같게) */
 const lengthOf = (s: string) => s.replace(/\n/g, '').length
@@ -96,20 +96,20 @@ function MoreList<T>({ items, render, empty }: { items: T[]; render(x: T): React
 }
 
 /** 정보 갈래: 상태와 다시 열 조건 · 성격 · 주제 · 설명 · 개념노트(본문에 쓴 것) · 이 노트를 인용한 노트 · 맨 아래 파일 경로 */
-export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, onSaved, slot }: {
+export function NoteInfo({ rid, row, topics, proves = [], projectKind, version, onChanged, onSaved }: {
   rid: string; row: NoteRow; topics: Topic[]
+  /** 이 노트를 증명으로 단 진술 (진술의 proofs) */
+  proves?: Statement[]
   /** 프로젝트 성격: 업무 프로젝트면 노트 성격에 설계를 더한다 */
   projectKind: ProjectKind
   version: number
   onChanged(): void; onSaved(m: string): void
-  /** 노트 화면이 그려 넣는 칸이 있는지 (보조 노트의 연결) */
-  slot?: boolean
 }) {
   const [links, setLinks] = useState<NoteLinks | null>(null)
   useEffect(() => { notesApi(rid).links(row.file).then(setLinks).catch(() => setLinks(null)) }, [rid, row.file, version])
   const [desc, setDesc] = useState<string | null>(null)
   useEffect(() => setDesc(null), [row.file])
-  /** 머리말 고치기. 보조 노트가 열려 있으면 그 화면이 맡는다(고치던 본문을 먼저 저장하고 편집기에 반영). 됐으면 true */
+  /** 머리말 고치기. 노트 화면이 열려 있으면 그 화면이 맡는다(고치던 본문을 먼저 저장하고 편집기에 반영). 됐으면 true */
   const patch = (p: NoteHeadPatch, message: string): Promise<boolean> => {
     const writer = headWriterOf(rid, row.file)
     return (writer ? writer(p) : notesApi(rid).setHead(row.file, p, row.hash)).then(() => { onChanged(); onSaved(message); return true })
@@ -176,12 +176,13 @@ export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, on
         <MoreList items={links?.citedBy ?? []} empty={t('없음', 'None')}
           render={(n) => <button type="button" className="a rs-note" onClick={() => go(routeOfNote(rid, n))}><StatusDot s={n.status} />{n.title}</button>} />
       </Section>
+      {proves.length > 0 && <Section label={t('증명하는 진술', 'Statements proved')} count={proves.length} hint={t('이 노트를 증명으로 단 진술', 'Statements that list this note as a proof')} ui="증명하는 진술">
+        <MoreList items={proves} empty={t('없음', 'None')}
+          render={(s) => <button type="button" className="a" onClick={() => go({ page: 'statement', rid, sid: s.id })}>{shortLabel(s)}</button>} />
+      </Section>}
       <Section label={t('흐름', 'Flow')} hint={t('이 노트를 근거로 단 흐름의 점. 누르면 흐름 화면에서 엽니다', 'Flow dots that use this note as evidence. Click to open in the flow')} ui="노트 흐름">
         <NoteFlow rid={rid} row={row} onSaved={onSaved} />
       </Section>
-      {/* 보조 노트가 그려 넣는 칸: 증명할 진술 · 원고 장 · 개념 연결 · 기대는 노트 · 다른 방법 · 다음 할 일.
-          위의 두 목록(앱이 링크에서 모은 것)에는 없는 것이라 그대로 두되, 이름은 다른 칸처럼 내용을 가리킨다 (data-ui 값은 이전 피드백 기록과 맞추어 그대로) */}
-      {slot && <Section label={t('연결과 할 일', 'Links and to-dos')} ui="보조 노트 연결"><div ref={setRightSlot} className="rs-slot" /></Section>}
       <div className="rs-path mono" data-ui="파일 경로" title={row.file}>{row.file.split('/').filter(Boolean).pop() ?? row.file}</div>
     </div>
   )

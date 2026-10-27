@@ -27,7 +27,7 @@ import { recordWrites, useRecordActions, type RecordWrites } from './useRecordAc
 
 /**
  * PDF 코멘트·질문 (구조 제안 §4·§6). 대상마다 workbench/comments/<대상>.md.
- * - 자료 PDF(논문) `paper-<파일 이름>`, 원고 PDF `manuscript`, 작업노트 결과 PDF `block-<id>`
+ * - 자료 PDF(논문) `paper-<파일 이름>`, 원고 PDF `manuscript`
  * - PDF 칸 가운데 위 도구 막대의 코멘트·질문, 또는 글을 끌어 고르면 뜨는 메뉴로 남긴다
  * - 맥락 칸에 지금 대상의 코멘트, 에이전트 함에 이 프로젝트의 대기 중인 질문
  */
@@ -45,7 +45,6 @@ export const paperTarget = (name: string): CommentTarget => ({ target: `paper-${
 export const topicTarget = (tid: string, title: string): CommentTarget => ({ target: `topic-${slug(tid)}`, title: `주제 ${title}`, source: tid })
 export const flowTarget = (id: string, title: string): CommentTarget => ({ target: `flow-${slug(id)}`, title: `흐름 점 ${title}`, source: id })
 export const manuscriptTarget = (name?: string, ms?: string): CommentTarget => ({ target: ms ? `manuscript-${slug(ms)}` : 'manuscript', title: `원고 PDF${name ? ` ${name}` : ''}` })
-export const blockTarget = (bid: string, title?: string): CommentTarget => ({ target: `block-${slug(bid)}`, title: `노트 결과 ${title ?? bid}`, source: bid })
 /** Markdown 연구·계산 노트 (같은 폴더 이름이어도 기록 대상은 나눈다). 주제 폴더 안 노트는 notes/의 노트와 같은 대상 (주제를 바꿔 옮겨도 코멘트가 따라간다) */
 const NOTE_FILE = /^workbench\/(notes|calc)\/([^/]+)\/note\.md$/
 export const noteTarget = (file: string, title?: string): CommentTarget | null => {
@@ -53,12 +52,11 @@ export const noteTarget = (file: string, title?: string): CommentTarget | null =
   return m ? { target: `${m[1] === 'calc' ? 'calc' : 'note'}-${slug(m[2]!)}`, title: `노트 ${title ?? m[2]}`, source: file } : null
 }
 
-/** 작업 화면 탭의 코멘트 대상. PDF가 아닌 탭은 null (작업노트 편집 탭은 그 결과 PDF의 코멘트를 함께 본다) */
+/** 작업 화면 탭의 코멘트 대상. PDF가 아닌 탭은 null */
 export function targetOfTab(t: Tab | undefined, titleOf: (t: Tab) => string): CommentTarget | null {
   if (!t) return null
   if (t.k === 'doc') return /\.pdf$/i.test(t.name) ? paperTarget(t.name) : null
   if (t.k === 'mspdf') return manuscriptTarget(undefined, t.ms)
-  if (t.k === 'pdf' || t.k === 'block') return blockTarget(t.bid, titleOf({ k: 'block', bid: t.bid }))
   if (t.k === 'part') return noteTarget(t.file, titleOf(t))
   if (t.k === 'statement') return { target: `statement-${slug(t.sid)}`, title: `진술 ${titleOf(t)}`, source: t.sid }
   if (t.k === 'topic') return topicTarget(t.tid, titleOf(t))
