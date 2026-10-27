@@ -376,12 +376,13 @@ export const queueFull = (n: number) => tl(`판단 대기 명제가 ${n}/${JUDGE
   `The judgment queue is full (${n}/${JUDGE_CAP}). Do not add findings until the user judges; revising submitted findings or checking counterexamples is fine`)
 
 /** 새 점. 앞선 점(from)은 있는 점만 받는다. 에이전트의 점은 판단 설계(10/23)의 상한과 카드 시작을 따른다 */
-export function createFlowNode(wb: Workbench, body: NewFlowBody, now = new Date()): FlowNode {
+export function createFlowNode(wb: Workbench, body: NewFlowBody, now = new Date(), opts: { approved?: boolean } = {}): FlowNode {
   const nodes = scanFlow(wb).nodes
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const missing = (body.from ?? []).find((f) => !byId.has(f.id))
   if (missing) throw new WorkbenchError(400, tl(`앞선 점 ${missing.id}이 없습니다`, `No earlier dot ${missing.id}`))
-  if (body.by?.trim() && body.by.trim() !== 'user') {
+  // approved: 사용자가 승인한 맡긴 일의 결과로 만드는 닫는 점 (10/27, taskFlow.ts). 곧 승인 판단이 붙으므로 상한 · 카드 검사를 하지 않는다
+  if (!opts.approved && body.by?.trim() && body.by.trim() !== 'user') {
     const queued = judgmentQueue(nodes).length
     if (body.kind === 'finding' && queued >= JUDGE_CAP) throw new WorkbenchError(400, queueFull(queued))
     const block = body.kind === 'question' ? null : (body.from ?? []).map((f) => cardBlock(byId.get(f.id)!, byId)).find(Boolean)

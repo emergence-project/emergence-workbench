@@ -886,5 +886,10 @@
   "변경사항 쪽": "Changes page",
   "변경사항 표": "Changes table",
   "변경사항 줄": "Change row",
-  "변경사항 수": "Change count"
+  "변경사항 수": "Change count",
+  "흐름 짝 제안": "Flow pair suggestions",
+  "흐름 짝 줄": "Flow pair row",
+  "맡긴 일 흐름 점": "Task flow dot",
+  "보고서 흐름 점": "Report flow dot",
+  "흐름 점 맡긴 일": "Flow dot delegated task"
 }

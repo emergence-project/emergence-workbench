@@ -61,6 +61,8 @@ export const DEFAULT_SCREENS = [
   ['task-day', '#/r/{rid}/records', '하루 자세히', ['[data-ui="기록 차례"] button:text-matches("^(내 차례|Your turn)")', '[data-ui="하루"].is-today']],
   ['task-report', '#/r/{rid}/k/2026-10-05-list-coloring-bound', '다음 지시'],
   ['judge-queue', '#/r/{rid}/records', '판단 대기열', '[data-ui="기록 차례"] button:text-matches("^(내 차례|Your turn)")'],
+  // 맡긴 일 ↔ 흐름 점 짝 제안 (10/27): 내 차례 맨 위 띠를 펼친 것
+  ['flow-pairs', '#/r/{rid}/records', '흐름 짝 제안', ['[data-ui="기록 차례"] button:text-matches("^(내 차례|Your turn)")', '[data-ui="흐름 짝 제안"] button:text-matches("^(하나씩 보기|Review one by one)")']],
   ['judge', '#/r/{rid}/j/five-color-theorem', '판단 화면 판단'],
   ['judge-card', '#/r/{rid}/j/four-colors', '판단 화면 사전 연구'],
   ['judge-ask', '#/r/{rid}/j/five-color-theorem', '판단 화면 질문', '[data-ui="판단 화면 묻기"]'],

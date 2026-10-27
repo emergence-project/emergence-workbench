@@ -10,6 +10,7 @@ import { answerNoteSaveTicket, answerQuestionKeys, beginAnswerNoteSave, editAnsw
 import { agentName, askOptionLabel, askOptions, cardAsks, cardConclusion, splitReport, TASK_DOT, TASK_STATE_LABEL, taskTiming } from './taskView'
 import { agentAction, copyAgentPrompt, JudgeButtons, sendJudgment, SendBackRow, TaskDialog, TaskMoreMenu, useTasks, type TaskDraft } from './WorkTasks'
 import { t as tr } from './i18n'
+import { TaskFlowField } from './flow/FlowPairs'
 
 const END_CHECK = { pass: tr('✓ 통과', '✓ Met'), fail: tr('! 미달', '! Not met'), unknown: tr('확인 못 함', 'Not checked') }
 
@@ -65,6 +66,7 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
             <dt>{tr('프로젝트', 'Project')}</dt><dd>{project}</dd>
             {topic && <><dt>{tr('주제', 'Topic')}</dt><dd><button className="a" onClick={() => go({ page: 'topic', rid, tid: t.topic! })}>{topic}</button></dd></>}
             <dt>{tr('상태', 'Status')}</dt><dd><StatusDot s={TASK_DOT[t.state]} name={TASK_STATE_LABEL[t.state]} /> {TASK_STATE_LABEL[t.state]}</dd>
+            <TaskFlowField rid={rid} task={t} onSaved={onSaved} reload={reload} />
             <dt>{tr('맡긴 날', 'Delegated on')}</dt><dd>{t.created}</dd>
             {t.resultAt && <><dt>{tr('결과', 'Result')}</dt><dd>{t.resultAt}</dd></>}
             <dt>{tr('맡은 에이전트', 'Agent')}</dt><dd>{agentName(t.agent)}</dd>

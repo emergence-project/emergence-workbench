@@ -1,7 +1,7 @@
 import type { JournalEntry } from '@rw/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ConflictError, taskRules, tasksApi, type NewTask, type OpenTodo, type Task, type TaskDiagnostic, type Topic, type Verdict } from './api'
+import { ConflictError, taskRules, tasksApi, type NewTask, type OpenTodo, type FlowNode, type Task, type TaskDiagnostic, type Topic, type Verdict } from './api'
 import { Dialog } from './dialogs'
 import type { FlashAction } from './flash'
 import { isoDay, monthDay } from './format'
@@ -18,6 +18,7 @@ import {
 } from './taskView'
 import { t } from './i18n'
 import { MarkIcon } from './marks'
+import { TaskFlowChip } from './flow/FlowPairs'
 
 /**
  * 기록 화면의 맡긴 일 (10/7 사용자 결정, 시안 v31. 10/21 작업 탭을 기록 안으로 합침): 브리핑 · 한 주 달력, 판단 카드, 맡긴 일 목록, 맡기기 창.
@@ -52,9 +53,13 @@ export const agentAction = (file: string, onSaved: Saved): FlashAction => ({ lab
 /** 판단 하나를 보내고, 다른 곳에서 파일이 바뀌었으면 다시 읽으라고 알린다. 에이전트가 이어서 할 판단(종결 조건 승인 · 수정)이면 깨울 말 복사를 붙인다 */
 export async function sendJudgment(rid: string, tk: Task, verdict: Verdict, extra: { note?: string; seconds?: number; endCondition?: string }, onSaved: Saved, reload: () => unknown) {
   try {
-    await tasksApi(rid).judge(tk.id, { verdict, ...extra, baseHash: tk.hash })
-    const wake = verdict === 'send-back' || (verdict === 'approve' && tk.state === 'proposed') ? agentAction(tk.file, onSaved) : undefined
-    onSaved(verdict === 'approve' ? (tk.state === 'proposed' ? t('종결 조건을 승인했습니다', 'Approved the completion criteria') : t('승인했습니다', 'Approved')) : verdict === 'send-back' ? t('수정으로 돌려보냈습니다', 'Sent back to revise') : verdict === 'pause' ? t('멈춤으로 두었습니다', 'Set to blocked') : t('폐기했습니다', 'Dropped'), wake)
+    const r = await tasksApi(rid).judge(tk.id, { verdict, ...extra, baseHash: tk.hash })
+    // 결과를 승인해 이은 흐름 점에 반영했으면 (10/27): 점은 끝남 · 해결, 결론은 새 명제
+    const toFlow: FlashAction = { label: t('흐름 보기', 'Open flow'), run: () => go({ page: 'flow', rid }) }
+    const wake = verdict === 'send-back' || (verdict === 'approve' && tk.state === 'proposed') ? agentAction(tk.file, onSaved) : r.flow ? toFlow : undefined
+    onSaved(verdict === 'approve' ? (tk.state === 'proposed' ? t('종결 조건을 승인했습니다', 'Approved the completion criteria')
+      : r.flow?.added ? t('승인했습니다. 이은 흐름 점은 끝남 · 해결, 결론은 새 명제로 더했습니다', 'Approved. The linked flow dot is done · solved, and the conclusion is a new proposition')
+      : r.flow ? t('승인했습니다. 이은 흐름 점은 끝남 · 해결입니다', 'Approved. The linked flow dot is done · solved') : t('승인했습니다', 'Approved')) : verdict === 'send-back' ? t('수정으로 돌려보냈습니다', 'Sent back to revise') : verdict === 'pause' ? t('멈춤으로 두었습니다', 'Set to blocked') : t('폐기했습니다', 'Dropped'), wake)
   } catch (e) {
     onSaved(e instanceof ConflictError ? t('에이전트가 파일을 고쳤습니다. 새 내용을 보고 다시 판단하세요', 'The agent edited the file. Read the new content and decide again') : (e as Error).message)
   }
@@ -107,8 +112,8 @@ function Items({ list, empty }: { list: ReactNode[]; empty?: string }) {
  * 판단 카드 (시안 v31): 접힌 줄 = 상태 점 · 제목 · 에이전트 · 시작 시각 · 작업 시간(끝 시각은 툴팁).
  * 펼치면 결론 · 작업 내용, 그 아래 왼쪽 사용자 확인 요청 | 오른쪽 남은 문제. 판단에 쓴 시간은 펼친 때부터 잰다(보이지 않음).
  */
-export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEditProposal }: {
-  rid: string; task: Task; open: boolean; onToggle(): void; onSaved: Saved; reload(): unknown; onEditProposal(t: Task): void
+export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEditProposal, nodes = [] }: {
+  rid: string; task: Task; open: boolean; onToggle(): void; onSaved: Saved; reload(): unknown; onEditProposal(t: Task): void; nodes?: FlowNode[]
 }) {
   const opened = useRef<number | null>(null)
   useEffect(() => { opened.current = open ? Date.now() : null }, [open])
@@ -122,7 +127,7 @@ export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEdi
       <button className="tk-row" aria-expanded={open} onClick={onToggle}>
         <StatusDot s={TASK_DOT[tk.state]} name={TASK_STATE_LABEL[tk.state]} />
         <span className="tk-title">{tk.title}</span>
-        <span className="tk-meta"><span>{agentName(tk.agent)}</span><span title={timing.tip}>{timing.text}</span></span>
+        <span className="tk-meta"><TaskFlowChip rid={rid} task={tk} nodes={nodes} /><span>{agentName(tk.agent)}</span><span title={timing.tip}>{timing.text}</span></span>
         <span className="tk-chev" aria-hidden />
       </button>
       {open && <div className="tk-open">
@@ -152,8 +157,10 @@ export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEdi
  * 판단: 사용자 차례인 맡긴 일 (오래 기다린 것부터). 처음에는 모두 접어 둔다: 기록 화면 내 차례에서 다른 줄과 같은 무게로
  * (10/21 시각 위계). 펼친 줄은 하나만. openId · onToggle을 주면 바깥 목록과 펼침을 함께 쓴다
  */
-export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal, openId: outerOpen, onToggle, emptyText, children }: {
+export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal, openId: outerOpen, onToggle, emptyText, children, nodes }: {
   rid: string; tasks: Task[]; loaded: boolean; onSaved: Saved; reload(): unknown; onEditProposal(t: Task): void
+  /** 흐름 점 (있으면 이은 점을 칩으로) */
+  nodes?: FlowNode[]
   openId?: string | null; onToggle?(id: string): void
   /** 판단할 것이 없을 때의 글. null이면 아무것도 보이지 않는다 */
   emptyText?: string | null
@@ -165,7 +172,7 @@ export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal,
   const toggle = (id: string) => onToggle ? onToggle(id) : setInnerOpen(shown === id ? null : id)
   return (
     <div className="tk-list" data-ui="판단 목록">
-      {list.map((t) => <TaskCard key={t.id} rid={rid} task={t} open={shown === t.id} onToggle={() => toggle(t.id)} onSaved={onSaved} reload={reload} onEditProposal={onEditProposal} />)}
+      {list.map((t) => <TaskCard key={t.id} rid={rid} task={t} open={shown === t.id} onToggle={() => toggle(t.id)} onSaved={onSaved} reload={reload} onEditProposal={onEditProposal} nodes={nodes} />)}
       {!list.length && emptyText !== null && <p className="empty tk-empty">{loaded ? emptyText ?? t('판단할 것이 없습니다. 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing to decide. Results of delegated tasks show up here.') : t('불러오는 중…', 'Loading…')}</p>}
       {children}
     </div>

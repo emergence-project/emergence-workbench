@@ -71,6 +71,7 @@ import './styles/agent-chats.css'
 import './styles/feedback-agent.css'
 import './styles/judge.css'
 import './styles/changes.css'
+import './styles/flow-pairs.css'
 
 applyUi(cachedUi())
 

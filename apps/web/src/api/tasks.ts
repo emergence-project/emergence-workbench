@@ -2,7 +2,7 @@
 import { enc, json, req, send } from './http'
 
 // 타입은 서버와 같은 계약에서 (packages/core/src/contract/tasks.ts). 타입만 가져와 번들에 zod가 들어가지 않는다
-import type { AnswerBody, JudgeBody, NewTaskBody, NextBody, TaskCreated, TaskNextDone, TaskOne, TaskScan } from '@rw/core/contract/tasks'
+import type { AnswerBody, JudgeBody, LinkFlowBody, NewTaskBody, NextBody, TaskCreated, TaskJudged, TaskNextDone, TaskOne, TaskScan } from '@rw/core/contract/tasks'
 export type { Task, TaskAnswer, TaskAsk, TaskDiagnostic, TaskIssue, TaskJudgment, TaskNext, TaskScan, TaskState, Verdict } from '@rw/core/contract/tasks'
 export type NewTask = NewTaskBody
 
@@ -20,7 +20,10 @@ export function tasksApi(rid: string) {
     get: (id: string) => req(one(id)).then((r) => json<TaskOne>(r)).then((r) => r.task),
     create: (input: NewTask) => req(base, send('POST', input)).then((r) => json<TaskCreated>(r)).then(keepRules).then((r) => r.task),
     judge: (id: string, body: JudgeBody) =>
-      req(`${one(id)}/judge`, send('POST', body)).then((r) => json<TaskOne>(r)).then((r) => r.task),
+      req(`${one(id)}/judge`, send('POST', body)).then((r) => json<TaskJudged>(r)),
+    /** 흐름 점과 잇기 (null이면 풀기) */
+    linkFlow: (id: string, body: LinkFlowBody) =>
+      req(`${one(id)}/flow`, send('POST', body)).then((r) => json<TaskOne>(r)).then((r) => r.task),
     answer: (id: string, body: AnswerBody) =>
       req(`${one(id)}/answer`, send('POST', body)).then((r) => json<TaskOne>(r)).then((r) => r.task),
     next: (id: string, body: NextBody) =>

@@ -1,6 +1,7 @@
 ---
 title: Compare the five-color theorem proof draft
 topic: coloring
+flow: five-colors
 agent: claude-code
 created: 2026-10-07 09:40
 state: proposed
