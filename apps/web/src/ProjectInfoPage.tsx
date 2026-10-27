@@ -24,7 +24,7 @@ function PathName({ path }: { path: string }) {
 }
 
 /** 프로젝트 정보의 하위 쪽 하나의 겉 (개요 · 현황 · 규칙 · 저장소, 10/16 사용자 승인 "네 쪽으로") */
-function InfoShell({ ui, children }: { ui: string; children: ReactNode }) {
+export function InfoShell({ ui, children }: { ui: string; children: ReactNode }) {
   return (
     <div className="ws-doc" data-ui={ui}>
       <section className="pane" data-ui="본문">
@@ -36,7 +36,7 @@ function InfoShell({ ui, children }: { ui: string; children: ReactNode }) {
   )
 }
 
-function SubHead({ title, desc }: { title: string; desc: string }) {
+export function SubHead({ title, desc }: { title: string; desc: string }) {
   return (
     <header className="info-head">
       <h1 className="h-title">{title}</h1>

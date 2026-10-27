@@ -10,6 +10,7 @@ import { chromium } from 'playwright-core'
 import { parseShotOptions, screenScheme, SHOTS_HELP } from './options.mjs'
 import { selectScreens } from './screens.mjs'
 import { clearAgentEdits, seedAgentEdits, seedEditTalk } from './agent-edits.mjs'
+import { seedChanges } from './changes.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const out = path.resolve(process.env.SHOTS_DIR ?? path.join(root, 'shots'))
@@ -89,6 +90,12 @@ try {
       if (name === 'review-talk') await page.goto('about:blank')
       const why = await seedAgentEdits(base, rid, options.lang) ?? (name === 'review-talk' ? await seedEditTalk(base, rid, options.lang) : null)
       if (why) problems.push(`${name}: 예제 고침을 넣지 못함 (${why})`)
+    }
+    // 변경사항 (10/27): 이때만 예제를 git 저장소로 만든다 (맨 끝 두 화면)
+    if (name === 'home-changes') {
+      // 앞에서 받아 둔 수(0)가 남지 않게 새로 연다
+      await page.goto('about:blank')
+      try { seedChanges(researches[0].path, path.join(sandbox, options.sample === 'subjects' ? 'subjects-config' : 'config'), rid) } catch (e) { problems.push(`${name}: 예제 git을 만들지 못함 (${e.message})`) }
     }
     // 앞 화면(노트 고치기)과 주소가 같아 편집기가 남지 않게 새로 연다
     if (name === 'figure-zoom') await page.goto('about:blank')
@@ -212,6 +219,9 @@ try {
     if (name === 'info-status') {
       await page.waitForFunction(() => [...document.querySelectorAll('[data-ui="현황 쪽"] .info-sec')].every((el) => !/읽는 중…|Loading…|…$/.test(el.textContent.trim())), undefined, { timeout: 10_000 })
         .catch(() => problems.push(`${name}: 현황을 아직 읽는 중`))
+    }
+    if (name === 'info-changes') {
+      await page.locator('[data-ui="변경사항 줄"]').first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: 변경사항 줄이 없음`))
     }
     if (name === 'info-repo') {
       await page.waitForFunction(() => {

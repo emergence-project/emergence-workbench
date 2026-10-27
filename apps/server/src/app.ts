@@ -51,6 +51,7 @@ import { registerPapers } from './routes/papers.js'
 import { registerFigures } from './routes/figures.js'
 import { registerTasks } from './routes/tasks.js'
 import { registerFlow } from './routes/flow.js'
+import { registerChanges } from './routes/changes.js'
 import { registerAgentEdits } from './routes/agentEdits.js'
 import { registerAgentChats } from './routes/agentChats.js'
 import type { AgentRunner } from './agentChats.js'
@@ -339,6 +340,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerFigures(app, ctx)
   registerTasks(app, ctx)
   registerFlow(app, ctx)
+  registerChanges(app, ctx)
   registerAgentEdits(app, ctx)
   registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined))
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))

@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { describe, expect, it } from 'vitest'
-import { agentOf, createMcpServer, INSTRUCTIONS, recordAuthor } from './mcp.js'
+import { agentOf, claudeAccount, createMcpServer, INSTRUCTIONS, recordAuthor } from './mcp.js'
 import { app, R, repo, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -35,10 +35,37 @@ describe('MCP 입구 (읽기)', () => {
     expect(agentOf(undefined)).toBe('mcp')
   })
 
-  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task, 일지 add_journal뿐이다', async () => {
+  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task, 일지 add_journal, 변경사항 기준을 옮기는 changes_since뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'edit_concept', 'edit_note', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'finish_work', 'add_task', 'report_task', 'add_journal'].includes(t.name))
+    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'changes_since', 'edit_concept', 'edit_note', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'finish_work', 'add_task', 'report_task', 'add_journal', 'changes_since'].includes(t.name))
+  })
+
+  it('changes_since는 Claude 계정 id를 붙여 받고, 화면 이름으로 한 줄씩 돌려준다', async () => {
+    const seen: { url: string; headers: Record<string, string> }[] = []
+    const f = (async (input: string | URL, init?: RequestInit) => {
+      seen.push({ url: `${init?.method} ${new URL(String(input)).pathname}`, headers: init?.headers as Record<string, string> })
+      return new Response(JSON.stringify({ machine: 'mini', since: '2026-10-26T00:00:00.000Z', agents: { claude: null, codex: null }, items: [
+        { kind: 'note', id: 'n1', name: '첫 노트', action: 'edited', authors: ['Kim'], first: '2026-10-27T01:00:00.000Z', last: '2026-10-27T02:00:00.000Z', uncommitted: true, files: [] },
+      ] }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    const [a, b] = InMemoryTransport.createLinkedPair()
+    await createMcpServer({ baseUrl: 'http://127.0.0.1:1', fetch: f, account: 'acc-1' }).connect(a)
+    const client = new Client({ name: 'claude-code', version: '0' })
+    await client.connect(b)
+    const out = textOf(await client.callTool({ name: 'changes_since', arguments: { project: 'p' } }))
+    expect(seen[0]!.url).toBe('POST /api/researches/p/changes/read')
+    expect(seen[0]!.headers).toMatchObject({ 'x-rw-agent': 'claude-code', 'x-rw-account': 'acc-1' })
+    expect(out.split('\n')[0]).toMatch(/^변경사항 1 · since .* · this Mac: mini/)
+    expect(out).toMatch(/- 노트 첫 노트 \(n1\) · 고침 · Kim · .* · 커밋 안 됨/)
+  })
+
+  it('Claude 계정 id는 .claude.json의 oauthAccount에서 읽는다 (CLAUDE_CONFIG_DIR가 있으면 거기)', () => {
+    const dir = fs.mkdtempSync(path.join(repo, '.acc-'))
+    fs.writeFileSync(path.join(dir, '.claude.json'), JSON.stringify({ oauthAccount: { accountUuid: 'abc-123', emailAddress: 'x' } }))
+    expect(claudeAccount({ CLAUDE_CONFIG_DIR: dir }, '/nowhere')).toBe('abc-123')
+    expect(claudeAccount({}, dir)).toBe('abc-123')
+    expect(claudeAccount({}, '/nowhere')).toBeUndefined()
   })
 
   it('앱 고치기 대화 안에서만 app_submit · app_checks · feedback_answer가 붙고, 그 대화의 앱 API를 부른다', async () => {

@@ -33,9 +33,9 @@ Inside the app folder, `pnpm mcp` also starts it (it speaks MCP over stdio, so y
 
 Flow outputs (`flow_search`, `flow_read`, `flow_add`, `flow_update`, `finish_work`) carry `shown`: the dot in the words the screen uses (for example `명제 (닫는 점) · 끝남 · 해결 · 판단 전`), so an agent can quote it to the user as is. MCP keeps the screen's names, rules and turn boundary, but its tools are cut by job, not by screen (10/27).
 
-## Tools (read-only except edit_note, edit_concept, answer_record, add_record, flow_add, flow_update, flow_review, finish_work, add_task, report_task and add_journal)
+## Tools (read-only except edit_note, edit_concept, answer_record, add_record, flow_add, flow_update, flow_review, finish_work, add_task, report_task, add_journal and changes_since, which only moves its own baseline)
 
-When it connects, the server tells the agent which tools to use in which order for each kind of job (`INSTRUCTIONS` in `apps/server/src/mcp.ts`): start with `rules`, then `overview`, then `project_status`. If you add or rename a tool, update that order too; `mcp.test.ts` checks that every tool name there exists.
+When it connects, the server tells the agent which tools to use in which order for each kind of job (`INSTRUCTIONS` in `apps/server/src/mcp.ts`): start with `rules`, then `overview`, then `project_status`, then `changes_since`. If you add or rename a tool, update that order too; `mcp.test.ts` checks that every tool name there exists.
 
 | Tool | What it does | API it calls |
 | --- | --- | --- |
@@ -43,6 +43,7 @@ When it connects, the server tells the agent which tools to use in which order f
 | `list_projects` | Registered projects: id, title, repository path, progress | `GET /api/researches` |
 | `overview` | Every active project in one table: the user's turn (notes to review, delegated-task results to judge, agent edits; the same count as Home's "needs review"), the agent's turn (unanswered questions, working tasks, open to-dos), repository sync, last record. Use it to choose where to work | `GET /api/agent-overview` |
 | `project_status` | Short project summary: the header, the goal and the sections that say what to do now (to-dos, delegated tasks, the flow summary, pending questions and instructions, reviews), with every other section listed by name and size. `section` returns one section of `workbench/STATUS.md`, `full` the whole file | `GET …/:rid/agent-status?view=summary`, `?section=<name>` |
+| `changes_since` | What changed in a project since this agent last called it: new commits (also from the other Mac once pulled), this Mac's uncommitted edits, and the notes, flow dots, delegated tasks, records and other files they touched, one line each with author and time. The baseline is per agent and per Claude account (`oauthAccount.accountUuid` in Claude Code's `.claude.json`, sent as `x-rw-account`) and moves to now on each call; `since` looks from an earlier time; the first call looks back 7 days. The app shows the same list under Project info › Changes | `POST …/:rid/changes/read` |
 | `list_notes` | Notes: body file, record name `target` (Markdown notes and block notes; absent for `main.tex`), state, condition to reopen, topic (filter with `status`) | `GET …/:rid/notes` |
 | `list_edit_reviews` | Pending agent edits and permission requests; optional `project` limits the list to one project, otherwise all projects and concept notes | `GET /api/agent-edits?scope=` |
 | `read_note` | A note's body and hash | `GET …/:rid/manuscript/part`, block notes `GET …/:rid/blocks/:id` |

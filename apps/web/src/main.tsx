@@ -70,6 +70,7 @@ import './styles/files.css'
 import './styles/agent-chats.css'
 import './styles/feedback-agent.css'
 import './styles/judge.css'
+import './styles/changes.css'
 
 applyUi(cachedUi())
 
