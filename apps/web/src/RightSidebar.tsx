@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { NoteFlow } from './FlowView'
-import { ConflictError, notesApi, type NoteCategory, type NoteHeadPatch, type NoteLinks, type NoteRow, type ProjectKind, type Topic, LIMITS } from './api'
+import { ConflictError, notesApi, type NoteCategory, type NoteHeadPatch, type NoteLinks, type NoteRow, type ProjectKind, type Statement, type Topic, LIMITS } from './api'
 import { descriptionLines, MathText } from './cardParts'
 import { useConceptMacros } from './conceptMacros'
 import { Icon } from './icons'
+import { shortLabel } from './notes'
 import { LOOSE_NOTES_LABEL, NO_KIND_LABEL, NOTE_KIND_LABEL, noteKindChoices } from './noteKinds'
 import { headWriterOf, setRightMode, useRightMode, type RightMode } from './noteScreen'
 import { go, type Route } from './router'
@@ -95,8 +96,10 @@ function MoreList<T>({ items, render, empty }: { items: T[]; render(x: T): React
 }
 
 /** 정보 갈래: 상태와 다시 열 조건 · 성격 · 주제 · 설명 · 개념노트(본문에 쓴 것) · 이 노트를 인용한 노트 · 맨 아래 파일 경로 */
-export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, onSaved }: {
+export function NoteInfo({ rid, row, topics, proves = [], projectKind, version, onChanged, onSaved }: {
   rid: string; row: NoteRow; topics: Topic[]
+  /** 이 노트를 증명으로 단 진술 (진술의 proofs) */
+  proves?: Statement[]
   /** 프로젝트 성격: 업무 프로젝트면 노트 성격에 설계를 더한다 */
   projectKind: ProjectKind
   version: number
@@ -173,6 +176,10 @@ export function NoteInfo({ rid, row, topics, projectKind, version, onChanged, on
         <MoreList items={links?.citedBy ?? []} empty={t('없음', 'None')}
           render={(n) => <button type="button" className="a rs-note" onClick={() => go(routeOfNote(rid, n))}><StatusDot s={n.status} />{n.title}</button>} />
       </Section>
+      {proves.length > 0 && <Section label={t('증명하는 진술', 'Statements proved')} count={proves.length} hint={t('이 노트를 증명으로 단 진술', 'Statements that list this note as a proof')} ui="증명하는 진술">
+        <MoreList items={proves} empty={t('없음', 'None')}
+          render={(s) => <button type="button" className="a" onClick={() => go({ page: 'statement', rid, sid: s.id })}>{shortLabel(s)}</button>} />
+      </Section>}
       <Section label={t('흐름', 'Flow')} hint={t('이 노트를 근거로 단 흐름의 점. 누르면 흐름 화면에서 엽니다', 'Flow dots that use this note as evidence. Click to open in the flow')} ui="노트 흐름">
         <NoteFlow rid={rid} row={row} onSaved={onSaved} />
       </Section>

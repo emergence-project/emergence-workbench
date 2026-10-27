@@ -21,7 +21,7 @@ import { AgentEditsPage, Lazy, MapPage, prefetchLazyPages, TaskReport } from './
 import { NotesPage } from './NotesPage'
 import { NOTE_KIND_LABEL } from './NewNote'
 import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
-import { shortLabel } from './notes'
+import { provesOf, shortLabel } from './notes'
 import { StatementTab } from './StatementTab'
 import { DocTab, MaterialsNav } from './Materials'
 import { RepoFileTab } from './RepoFileTab'
@@ -525,7 +525,7 @@ export function App() {
               // 개념노트 탭이면 그 노트의 메모·연결 (2026-10-04 15:18 피드백: 오른쪽 사이드바에서)
               const cmd = t?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md' ? t.id : undefined
               const info = cmd ? <div className="cn-ctx"><ConceptSidePanel key={cmd} id={cmd} info={library} rid={rid} project={summary.research.title} slot onChanged={libraryChanged} onSaved={flash} /></div>
-                : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} projectKind={current?.kind ?? 'research'} version={version}
+                : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} proves={provesOf({ statements: summary.statements, notes }, row.id)} projectKind={current?.kind ?? 'research'} version={version}
                   onChanged={() => { notesChanged(); changed() }} onSaved={flash} />
                   : <NoInfo />
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
