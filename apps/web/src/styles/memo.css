@@ -59,3 +59,4 @@ button.memo-chip:hover { border-color: var(--line-strong); color: var(--text); }
 .memo-item { position: relative; }
 .memo-item .mi-actions.icons { position: absolute; top: var(--sp-2); right: var(--sp-2); }
 .memo-item .mi-text { padding-right: 52px; }
+.memo-text .memo-link { overflow-wrap: anywhere; font-weight: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); }
