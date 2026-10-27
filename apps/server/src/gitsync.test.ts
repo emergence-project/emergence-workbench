@@ -5,7 +5,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { RepoSync } from '@rw/core/contract/research'
 import { buildApp } from './app.js'
-import { autoPull, fastForward, repoSync } from './gitsync.js'
+import { autoPull, fastForward, repoInfo, repoSync, switchToDefault, syncNow } from './gitsync.js'
 import { localSyncState } from './gitSyncState.js'
 import { withLang } from './i18n.js'
 import { gitTest as g, syncRepo } from './gitSyncTestkit.js'
@@ -214,5 +214,47 @@ describe('STATUS용 상태 캐시', () => {
     expect(await localSyncState(mine)).toBeNull()
     g(mine, 'checkout', '-q', 'main')
     expect(await localSyncState(mine)).toMatchObject({ ahead: 1, behind: 0 })
+  })
+})
+
+// 프로젝트 정보 › 저장소의 「동기화하기」와 「main으로 돌리기」 (10/28 07:37)
+describe('sync button', () => {
+  it('pulls with uncommitted changes in other files, pushes local-only commits, and stops when both sides moved', async () => {
+    const { mine, remote, incoming } = syncRepo(tmp, 'sync-now', { 'a.md': 'a\n', 'b.md': 'b\n' })
+    incoming({ 'a.md': 'remote a\n' })
+    fs.writeFileSync(path.join(mine, 'b.md'), 'my edit\n')
+    expect(await syncNow(mine)).toMatchObject({ ahead: 0, behind: 0, dirty: 1 })
+    expect(fs.readFileSync(path.join(mine, 'a.md'), 'utf8')).toBe('remote a\n')
+    expect(fs.readFileSync(path.join(mine, 'b.md'), 'utf8')).toBe('my edit\n')
+
+    g(mine, 'commit', '-qam', 'Local b')
+    expect(await syncNow(mine)).toMatchObject({ ahead: 0, behind: 0 })
+    expect(execFileSync('git', ['-C', remote, 'rev-parse', 'main'], { encoding: 'utf8' }).trim()).toBe(g(mine, 'rev-parse', 'HEAD'))
+
+    fs.writeFileSync(path.join(mine, 'b.md'), 'again\n')
+    g(mine, 'commit', '-qam', 'Local again')
+    incoming({ 'c.md': 'c\n' })
+    const before = snapshot(mine)
+    await expect(syncNow(mine)).rejects.toThrow('합쳐야 합니다')
+    expect(snapshot(mine)).toEqual(before)
+  })
+
+  it('switches back to main only when nothing would be lost', async () => {
+    const { mine } = syncRepo(tmp, 'to-main', { 'a.md': 'a\n' })
+    g(mine, 'switch', '-qc', 'claude/work')
+    fs.writeFileSync(path.join(mine, 'a.md'), 'work\n')
+    g(mine, 'commit', '-qam', 'Work')
+    g(mine, 'push', '-qu', 'origin', 'claude/work')
+    expect(await repoInfo(mine)).toMatchObject({ branch: 'claude/work', defaultBranch: 'main' })
+    fs.writeFileSync(path.join(mine, 'a.md'), 'dirty\n')
+    await expect(switchToDefault(mine)).rejects.toThrow('커밋 안 한 변경')
+    g(mine, 'checkout', '--', 'a.md')
+    fs.writeFileSync(path.join(mine, 'a.md'), 'unpushed\n')
+    g(mine, 'commit', '-qam', 'Unpushed')
+    await expect(switchToDefault(mine)).rejects.toThrow('올리지 않은 커밋')
+    g(mine, 'push', '-q')
+    await switchToDefault(mine)
+    expect(g(mine, 'branch', '--show-current')).toBe('main')
+    expect((await repoInfo(mine)).defaultBranch).toBeUndefined()
   })
 })

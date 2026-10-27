@@ -77,8 +77,11 @@ export async function repoInfo(root: string, opts: { fetch?: boolean } = {}): Pr
   const lines = status ? status.split('\n') : []
   const [sha = '', date = '', ...subject] = log ? log.split('\t') : []
   const f = lastFetch.get(root)
+  // 기본 브랜치가 아닌 브랜치를 따라가면 그 이름 (「main으로 돌리기」, 10/28)
+  const main = upstream && upRemote ? await defaultBranchOf(root, upRemote) : null
   return {
     state: 'ok', branch: head, remote, upstream,
+    ...(main && upstream !== `${upRemote}/${main}` && { defaultBranch: main }),
     last: log ? { sha, date, subject: subject.join('\t') } : null,
     dirty: lines.filter((l) => !l.startsWith('??')).length,
     untracked: lines.filter((l) => l.startsWith('??')).length,
@@ -216,4 +219,46 @@ export async function autoPull(root: string): Promise<boolean> {
   const s = await repoSync(root, { fetch: true })
   if (!s?.canUpdate || s.fetchError || s.defaultBranch) return false
   try { await fastForward(root); return true } catch { return false }
+}
+
+/**
+ * 프로젝트 정보 › 저장소의 「동기화」 (10/28 07:37 "버튼만 누르면 동기화"): 원격을 바로 확인하고,
+ * GitHub에만 새 커밋이 있으면 받기(fastForward와 같은 조건), 이 컴퓨터에만 커밋이 있으면 그 브랜치로 올린다.
+ * 양쪽에 다 새 커밋이 있으면 합치지 않고 멈춘다. 커밋 안 한 변경은 커밋하지 않고 그대로 둔다
+ */
+export async function syncNow(root: string): Promise<RepoSync> {
+  const s = await repoSync(root, { fetch: true, force: true })
+  if (!s) throw new SyncError(t('GitHub 브랜치를 추적하는 git 저장소가 아닙니다', 'Not a git repository that tracks a GitHub branch'))
+  if (s.fetchError) throw new SyncError(t(`GitHub를 확인하지 못했습니다: ${fetchProblem(s.fetchError)}`, `Could not check GitHub: ${fetchProblem(s.fetchError)}`))
+  if (s.ahead > 0 && s.behind > 0) throw new SyncError(t(`이 컴퓨터에 커밋 ${s.ahead}개, GitHub에 새 커밋 ${s.behind}개가 따로 있어 합쳐야 합니다. 앱은 합치지 않습니다. 터미널에서 git pull로 합쳐 주세요`, `This computer has ${s.ahead} commit(s) and GitHub has ${s.behind} new commit(s); they need merging, which the app does not do. Merge with git pull in a terminal`))
+  if (s.behind > 0) return fastForward(root)
+  if (s.ahead > 0) {
+    const [remote, ...rest] = s.upstream.split('/')
+    try { await git(root, 'push', '--quiet', remote!, `HEAD:refs/heads/${rest.join('/')}`) } catch (e) {
+      throw new SyncError(t(`GitHub에 올리지 못했습니다: ${firstLine(e)}`, `Could not push to GitHub: ${firstLine(e)}`))
+    }
+    await fetchRemote(root, remote!, true)
+    return (await repoSync(root))!
+  }
+  return s
+}
+
+/**
+ * 「main으로 돌리기」: 연구 폴더가 기본 브랜치가 아닌 브랜치(에이전트의 claude/… 등)에 있으면 기본 브랜치로 돌린다.
+ * 아무것도 잃지 않을 때만: 커밋 안 한 변경이 없고, 그 브랜치의 커밋이 모두 GitHub에 올라가 있을 때. 돌린 뒤 받을 것이 있으면 받는다
+ */
+export async function switchToDefault(root: string): Promise<RepoSync> {
+  const s = await repoSync(root, { fetch: true, force: true })
+  if (!s?.defaultBranch) throw new SyncError(t('이미 기본 브랜치에 있습니다', 'Already on the default branch'))
+  const main = s.defaultBranch
+  if (s.dirty > 0) throw new SyncError(t(`커밋 안 한 변경 ${s.dirty}개가 있어 돌리지 않습니다. 먼저 커밋하거나 정리해 주세요`, `Not switched: ${s.dirty} uncommitted change(s). Commit or clean them up first`))
+  if (s.ahead > 0) throw new SyncError(t(`${s.branch} 브랜치에 GitHub에 올리지 않은 커밋 ${s.ahead}개가 있어 돌리지 않습니다`, `Not switched: ${s.branch} has ${s.ahead} commit(s) not on GitHub`))
+  const remote = s.upstream.split('/')[0]!
+  const local = await git(root, 'rev-parse', '--verify', '--quiet', `refs/heads/${main}`).then(() => true, () => false)
+  try { await git(root, 'switch', '--quiet', ...(local ? [main] : ['-c', main, '--track', `${remote}/${main}`])) } catch (e) {
+    throw new SyncError(t(`${main} 브랜치로 돌리지 못했습니다: ${firstLine(e)}`, `Could not switch to ${main}: ${firstLine(e)}`))
+  }
+  const after = await repoSync(root)
+  if (after?.canUpdate) { try { return await fastForward(root) } catch { /* 받기는 다음 동기화에서 */ } }
+  return after ?? s
 }
