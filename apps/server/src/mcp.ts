@@ -10,6 +10,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { FEEDBACK_MISSES, LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { recordRows } from './recordRows.js'
+import { KIND_NAME, shownName } from './flowNames.js'
 import * as C from '@rw/core/contract/flow'
 
 // 기본은 맥의 실사용 서버(scripts/serve.sh, 5174). 예제 모드(pnpm dev, 8130)는 RW_URL로 준다.
@@ -41,7 +42,7 @@ export const INSTRUCTIONS = [
   'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: rules with part: "concepts" (once) → search_library → read_concept → edit_concept.',
   'Delegated tasks: rules with part: "tasks" (once) → list_tasks → read_task → report_task with kind proposal when end-condition is empty (then stop), or kind result when the work is done. A to-do, handoff or proposal of new work: add_task.',
   'When you finish a piece of work: add_journal with one or two sentences on what you did and the files you touched.',
-  'Research flow (one dot = one piece of work: a question, a calculation, a proof, a finding): before you start a calculation or proof, flow_search for earlier attempts (refuted and dropped ones carry their reason), then flow_add the dot as active with its criterion and the closest earlier dot (prior, adds) or why it is new (novel). When it ends, flow_update with the result, evidence pointing to a note section, run (code · commit · params) for calculations, steps for proofs, reason for refuted/dropped/paused, and next. Finishing is refused while required fields are empty. Review a piece of evidence or a step with flow_review.',
+  'Research flow (one dot = one piece of work: a question, a calculation, a proof, a finding): before you start a calculation or proof, flow_search for earlier attempts (refuted and dropped ones carry their reason), then flow_add the dot as active with its criterion and the closest earlier dot (prior, adds) or why it is new (novel). When a work dot ends, finish_work with its result notes and the propositions it reached (one call), or flow_update with the result, evidence pointing to a note section, run (code · commit · params) for calculations, steps for proofs, reason for refuted/dropped/paused, and next. Finishing is refused while required fields are empty. Review a piece of evidence or a step with flow_review.',
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
   'The user\'s turn (notes to review, task results to judge, agent edits) is for the user; never act on it for them.',
 ].join('\n')
@@ -53,6 +54,8 @@ const text = (s: string): Text => ({ content: [{ type: 'text', text: s }] })
 const fail = (s: string): Text => ({ content: [{ type: 'text', text: s }], isError: true })
 const json = (v: unknown): Text => text(JSON.stringify(v, null, 1))
 const enc = encodeURIComponent
+/** 찾기 줄의 상태 → 화면 이름 (flowNames.stateLabel과 같은 말) */
+const SEARCH_STATE: Record<string, string> = { open: '미해결', active: '진행', paused: '멈춤', solved: '끝남 · 해결', refuted: '끝남 · 반증', dropped: '끝남 · 폐기', theorem: '끝남 · 해결' }
 
 /** 앱 서버의 GET 하나. 서버가 꺼져 있거나 오류면 에이전트가 읽을 한 줄 오류로 */
 async function get(base: string, f: Fetch, url: string): Promise<{ ok: true; body: unknown } | { ok: false; error: Text }> {
@@ -340,21 +343,23 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     novel: z.string().optional().describe('Why this is new when no earlier dot is close'), stop: z.string().optional().describe('When to stop'),
     query: z.string().optional().describe('Words for the earlier-dot search (default: short, title and fields)'),
   }
-  const flowShort = (n: C.FlowNode) => ({ id: n.id, hash: n.hash, kind: n.kind, progress: n.progress, ...(n.result && { result: n.result }), short: n.short, ...(n.gaps.length && { gaps: n.gaps.map((g) => g.text) }) })
+  const flowShort = (n: C.FlowNode) => ({ id: n.id, hash: n.hash, kind: n.kind, shown: shownName(n), progress: n.progress, ...(n.result && { result: n.result }), short: n.short, ...(n.gaps.length && { gaps: n.gaps.map((g) => g.text) }) })
 
   server.registerTool('flow_search', {
     title: 'Search the research flow',
     description: 'Earlier dots of the project flow that match the words (title, fields, run parameters, reasons), best first: state, parameters, result and the reason a dot was refuted or dropped. Delegated tasks linked to a dot are searched too and shown under it with their state, conclusion and outputs. Use it before starting a calculation or proof so you do not repeat one.',
     inputSchema: { project, q: z.string().min(2).describe('Words, e.g. the model, method or parameter values') },
     annotations: ro,
-  }, async ({ project: rid, q }) => call(`/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`))
+  }, async ({ project: rid, q }) => call(`/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`, (b: C.FlowSearchReply) => ({
+    rows: b.rows.map((r) => ({ ...r, shown: `${r.state === 'theorem' ? '정리' : KIND_NAME[r.kind].name} (${KIND_NAME[r.kind].role}) · ${SEARCH_STATE[r.state] ?? r.state}` })),
+  })))
 
   server.registerTool('flow_read', {
     title: 'Read a flow dot',
     description: 'One dot of the project flow with every field, its evidence and step checks, and the gaps the app found.',
     inputSchema: { project, id: z.string() },
     annotations: ro,
-  }, async ({ project: rid, id }) => call(`/api/researches/${enc(rid)}/flow/${enc(id)}`, (b: C.FlowOne) => b.node))
+  }, async ({ project: rid, id }) => call(`/api/researches/${enc(rid)}/flow/${enc(id)}`, (b: C.FlowOne) => ({ shown: shownName(b.node), ...b.node })))
 
   server.registerTool('flow_add', {
     title: 'Add a flow dot',
@@ -434,6 +439,50 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
     if ((body.ev === undefined) === (body.step === undefined)) return fail('Pass exactly one of ev or step.')
     const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}/review`, { ...body, by: recordAuthor(server.server.getClientVersion()?.name) })
     return r.ok ? json(flowShort((r.body as C.FlowOne).node)) : r.error
+  })
+
+  /**
+   * 작업 끝내기 (10/27 "MCP는 일 단위로"): 결과 노트를 edit_note로 쓴 뒤 한 번에 — 작업 점을 끝내고(결과 노트를 근거로),
+   * 거기서 나온 명제(닫는 점)를 결과 노트의 절을 근거로 더한다. 문턱은 각 점의 PATCH(gate)가 본다
+   */
+  server.registerTool('finish_work', {
+    title: 'Finish a piece of work',
+    description: 'One call when a calculation, proof or literature reading is done. Write the result notes first with edit_note (a "실행" section for a numerical calculation, a "단계" section for a proof, one heading per result). Then this ends the work dot (done, solved or refuted) with those notes as its evidence and adds each proposition (closing dot) that came out of it, pointing to the result-note section that shows it. The finishing gate checks every dot. Propositions join the user\'s judgment queue; when it is full they are refused and the work dot stays finished.',
+    inputSchema: {
+      project, id: z.string().describe('The work dot (calc, analytic, proof or literature)'), baseHash: z.string(),
+      result: z.enum(['solved', 'refuted']).optional().describe('solved (default) or refuted'),
+      notes: z.array(z.object({ file: z.string(), section: z.string().optional(), text: z.string().optional() })).min(1).describe('Result notes: repository path, optional section, what it shows'),
+      fields: z.record(z.string(), z.string()).optional().describe('Fields to set, e.g. result, interpretation'),
+      run: flowSet.run, steps: flowSet.steps, reason: flowSet.reason, next: flowSet.next,
+      claims: z.array(z.object({
+        short: z.string().min(1).max(60), title: z.string().optional(), statement: z.string(), condition: z.string(),
+        evidence: z.array(z.object({ file: z.string(), section: z.string().min(1), text: z.string().optional() })).min(1).describe('Result-note sections that show it'),
+      })).optional().describe('Propositions that came out of the work'),
+    },
+    annotations: { readOnlyHint: false, openWorldHint: false },
+  }, async ({ project: rid, id, baseHash, result, notes, fields, run, steps, reason, next, claims }) => {
+    const cur = await get(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`)
+    if (!cur.ok) return cur.error
+    const n = (cur.body as C.FlowOne).node
+    if (!['calc', 'analytic', 'proof', 'literature'].includes(n.kind)) return fail(`finish_work ends a work dot (calculation, proof or literature); ${id} is ${shownName(n)}. Use flow_update for questions and propositions.`)
+    const evKind = (n.kind === 'literature' ? 'other' : n.kind) as C.FlowEvidence['kind']
+    const same = (e: { file?: string; section?: string }) => notes.some((x) => x.file === e.file && (x.section ?? '') === (e.section ?? ''))
+    const kept = n.evidence.filter((e) => !same(e)).map((e) => ({ kind: e.kind, text: e.text, ...(e.title && { title: e.title }), ...(e.file && { file: e.file }), ...(e.section && { section: e.section }), ...(e.ref && { ref: e.ref }) }))
+    const evidence = [...kept, ...notes.map((x) => ({ kind: evKind, file: x.file, text: x.text ?? '', ...(x.section && { section: x.section }) }))]
+    const set = { progress: 'done', result: result ?? 'solved', evidence, ...(fields && { fields: { ...n.fields, ...fields } }), ...(run && { run }), ...(steps && { steps }), ...(reason && { reason }), ...(next && { next }) }
+    const done = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`, { baseHash, gate: true, set }, 'PATCH')
+    if (!done.ok) return done.error
+    const by = agentOf(server.server.getClientVersion()?.name)
+    const made: unknown[] = []
+    for (const c of claims ?? []) {
+      const add = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind: 'finding', short: c.short, progress: 'active', by, ...(c.title && { title: c.title }), topics: n.topics, from: [{ id, type: 'support' }], ...(n.task && { task: n.task }) })
+      if (!add.ok) { made.push({ short: c.short, error: add.error.content[0]!.text }); continue }
+      const m = (add.body as C.FlowOne).node
+      const fill = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(m.id)}`, { baseHash: m.hash, gate: true, set: { progress: 'done', result: 'solved', fields: { statement: c.statement, condition: c.condition },
+        evidence: c.evidence.map((e) => ({ kind: evKind, file: e.file, section: e.section, text: e.text ?? '' })) } }, 'PATCH')
+      made.push(fill.ok ? flowShort((fill.body as C.FlowOne).node) : { ...flowShort(m), error: `created but not finished: ${fill.error.content[0]!.text}` })
+    }
+    return json({ work: flowShort((done.body as C.FlowOne).node), ...(made.length && { claims: made }) })
   })
 
   server.registerTool('list_tasks', {

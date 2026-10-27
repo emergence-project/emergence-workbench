@@ -8,7 +8,7 @@ import { listTasks } from './tasks.js'
 import type { Workbench } from './workbench.js'
 
 const KIND: Record<FlowNode['kind'], [string, string]> = {
-  question: ['질문', '?'], finding: ['발견', '◉'], calc: ['수치 계산', 'π'], analytic: ['이론 계산', '∫'], proof: ['증명', '∴'], literature: ['문헌', '§'],
+  question: ['질문', '?'], finding: ['명제', '□'], calc: ['수치 계산', 'π'], analytic: ['이론 계산', '∫'], proof: ['증명', '∴'], literature: ['문헌', '§'],
 }
 const FIELD: Record<string, string> = {
   question: '물음', guess: '예상 답', motivation: '동기', criterion: '판정 기준', statement: '진술', condition: '조건', goal: '목표', setup: '설정', method: '방법', result: '결과', interpretation: '해석', assumptions: '가정', reading: '문헌', gain: '얻은 것', use: '쓰는 곳',
@@ -95,7 +95,7 @@ export function flowStatusSections(wb: Workbench): string[] {
   const out = [...flowNow(wb, nodes, newest),
     '## 흐름 요약 — 원본 `workbench/flow/` · 점 주소 `flow-<id>` (기록 대상과 같다)', '',
     `점 ${nodes.length} · ${counts(nodes)}`, '',
-    '> 점 하나 = 일 하나(질문 · 계산 · 증명 · 문헌 · 발견). 일을 시작할 때 점을 진행으로 만들고(MCP `flow_add`, 계산 전에 `flow_search`로 지난 시도 확인), 끝날 때 결과 · 절까지 가리킨 근거 · 이유 · 다음 할 일을 적는다(`flow_update`). 필수 칸이 비면 끝냄이 거절된다. 질문 문장 · 발단 선 · 갈래 폐기 · 승인은 사람이 정한다. 에이전트의 검토는 `flow_review`(role: agent).',
+    '> 점 하나 = 일 하나. 여는 점(질문) ◇ · 작업(계산 · 증명 · 문헌) ○ · 닫는 점(명제) □. 일을 시작할 때 점을 진행으로 만들고(MCP `flow_add`, 계산 전에 `flow_search`로 지난 시도 확인), 끝날 때 결과 · 절까지 가리킨 근거 · 이유 · 다음 할 일을 적는다(`flow_update`). 필수 칸이 비면 끝냄이 거절된다. 질문 문장 · 발단 선 · 갈래 폐기 · 승인은 사람이 정한다. 에이전트의 검토는 `flow_review`(role: agent).',
     '> 모든 점: 절 "흐름 지도". 점 하나의 전부: `workbench/flow/<id>.yaml`.', '',
     `### 최근 점 ${recent.length} (새것부터. 열린 점 = 미해결 · 진행 · 멈춤은 핵심 칸까지)`, '',
   ]
@@ -109,7 +109,7 @@ export function flowStatusSections(wb: Workbench): string[] {
   if (awaiting.length) out.push('')
 
   const gapped = newest.filter((n) => n.gaps.length)
-  out.push(`### 빈틈 ${gapped.length}${gapped.length ? ' (새것부터. 앱이 계산: 근거 없는 해결 · 검토 안 된 발견 위에 쌓음 · 이유 없는 반증 · 폐기 · 멈춤 · 다음이 없는 끝 · 확인 안 된 단계 …)' : ' (없음)'}`, '')
+  out.push(`### 빈틈 ${gapped.length}${gapped.length ? ' (새것부터. 앱이 계산: 근거 없는 해결 · 검토 안 된 명제 위에 쌓음 · 이유 없는 반증 · 폐기 · 멈춤 · 다음이 없는 끝 · 확인 안 된 단계 …)' : ' (없음)'}`, '')
   for (const n of gapped.slice(0, GAPS_SHOWN)) out.push(`- \`${n.id}\` ${n.short}: ${n.gaps.map((g) => g.text).join(' · ')}`)
   if (gapped.length > GAPS_SHOWN) out.push(`- 그 밖 ${gapped.length - GAPS_SHOWN}점 (점 하나: MCP \`flow_read\`)`)
   if (gapped.length) out.push('')
