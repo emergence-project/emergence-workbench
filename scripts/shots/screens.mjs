@@ -66,22 +66,22 @@ export const DEFAULT_SCREENS = [
   ['judge', '#/r/{rid}/j/five-color-theorem', '판단 화면 판단'],
   ['judge-card', '#/r/{rid}/j/four-colors', '판단 화면 사전 연구'],
   ['judge-ask', '#/r/{rid}/j/five-color-theorem', '판단 화면 질문', '[data-ui="판단 화면 묻기"]'],
-  ['block', '#/r/{rid}/b/kempe-chains', EDITOR_TEXT],
+  ['tex-note', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-chains%2Fmain.tex', EDITOR_TEXT],
   ['chapter', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', EDITOR_TEXT],
   ['chapter-cited', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', '인용한 논문', '인용한 논문'],
   ['statement', '#/r/{rid}/s/five-color', '진술 머리'],
-  // Markdown + KaTeX 연구노트·보조 노트 (10/4 결정): 읽기, 고치기
+  // Markdown + KaTeX 노트 (10/4 결정): 읽기, 고치기
   ['research-note', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '노트 본문'],
   ['research-note-edit', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '개념노트 편집기', '고치기'],
   // 노트 본문의 그림을 누르면 겹창으로 크게 (10/15 B′): 라이브러리 그림이면 "그림 화면에서 열기"
   ['figure-zoom', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '그림 크게 보기', '[data-ui="노트 본문"] :is(figure.md-fig[data-fig-id] img, img.ob-fig[data-fig-id])'],
-  ['aux-note', '#/r/{rid}/b/list-coloring', '노트 본문'],
+  ['aux-note', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 본문'],
   // 노트 화면 (10/5 시안): 오른쪽 사이드바 정보를 연 모습
-  ['note-info', '#/r/{rid}/b/list-coloring', '노트 정보', '맥락 칸 켜고 끄기'],
+  ['note-info', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '맥락 칸 켜고 끄기'],
   // 오른쪽 사이드바 정보에서 설명을 고치는 모습 (10/5 피드백 "문서 정보 수정의 디자인")
-  ['note-info-edit', '#/r/{rid}/b/list-coloring', '노트 정보', '[aria-label="고치기 — 설명"], [aria-label="Edit description"]'],
+  ['note-info-edit', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '[aria-label="고치기 — 설명"], [aria-label="Edit description"]'],
   // 고치는 중의 노트 머리: 제목이 이름 칸이 된다 (10/5 피드백 "제목 영역 편집")
-  ['note-title-edit', '#/r/{rid}/b/list-coloring', '노트 이름', '고치기'],
+  ['note-title-edit', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 이름', '고치기'],
   // 지식 첫 화면 (라이브러리 L1, 10/6): 최근 노트 · 점검 · 통계 · 라이브러리 정보, "개념노트 만들기" 메뉴. 지도는 지식 안의 페이지(사이드바 "지도" 줄)
   ['knowledge', '#/library', '통계 줄'],
   ['knowledge-list', '#/library/list', '지식 목록 줄'],
@@ -152,7 +152,7 @@ export const DEFAULT_SCREENS = [
   // 다크 모드 (10/5 시안 "밝은 다크"): 카드가 모인 주제 화면과 오른쪽 사이드바를 연 노트 화면
   // dark-topic은 배치를 비우고, dark-note-info에서 오른쪽 사이드바를 다시 연다.
   ['dark-topic', '#/r/{rid}/t/coloring', '노트 카드 목록'],
-  ['dark-note-info', '#/r/{rid}/b/list-coloring', '노트 정보', '맥락 칸 켜고 끄기'],
+  ['dark-note-info', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '맥락 칸 켜고 끄기'],
   // 프로젝트 안의 개념노트 탭 (10/10 노트 화면 틀 하나): 지식 화면(knowledge-note)과 같은 노트를 탭으로 연 모습. 탭 주소는 별칭을 풀지 않아 파일 id(planar-graph)를 쓴다.
   // 앞 화면의 기억(탭 · 오른쪽 사이드바)을 바꾸지 않게 맨 끝에 둔다
   ['concept-tab', '#/r/{rid}/c/planar-graph', '개념노트'],

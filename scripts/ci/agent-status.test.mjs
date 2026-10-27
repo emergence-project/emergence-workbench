@@ -32,13 +32,13 @@ test('예제의 임시 복사본 요약을 보이고 설정이 없어도 STATUS.
     const full = spawnSync('node', ['scripts/agent-status.mjs', repo, '--full'], { cwd: root, encoding: 'utf8', env })
     assert.equal(full.status, 0, full.stderr)
     assert.ok(full.stdout.length > r.stdout.length)
-    const part = spawnSync('node', ['scripts/agent-status.mjs', '--section', '블록 노트', repo], { cwd: root, encoding: 'utf8', env })
+    const part = spawnSync('node', ['scripts/agent-status.mjs', '--section', '노트', repo], { cwd: root, encoding: 'utf8', env })
     assert.equal(part.status, 0, part.stderr)
-    assert.match(part.stdout, /^## 블록 노트 \d+/)
+    assert.match(part.stdout, /^## 노트 \d+/)
     assert.ok(full.stdout.includes(part.stdout))
     const nope = spawnSync('node', ['scripts/agent-status.mjs', repo, '--section', '없는 절'], { cwd: root, encoding: 'utf8', env })
     assert.equal(nope.status, 1)
-    assert.match(nope.stderr, /있는 절: .*블록 노트/)
+    assert.match(nope.stderr, /있는 절: .*노트/)
   } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 })
 

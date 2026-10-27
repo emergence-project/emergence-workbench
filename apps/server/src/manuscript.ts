@@ -496,34 +496,6 @@ export function lastCompile(wb: Workbench, key = ''): LastCompile | null {
   try { return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) as LastCompile : null } catch { return null }
 }
 
-/**
- * 유도 노트의 "% 근거: docs/model/chapters/10-discussion.tex, 09-phase.tex" 줄에서 원고 장을 찾는다.
- * 경로 전체나 파일 이름만 적어도 원고의 장·부록 파일과 맞춘다. 한 파일 원고는 "PRB.tex#라벨"이나 "PRB.tex#절 제목"으로 절을 가리킨다.
- * 돌려주는 값은 장의 id다.
- */
-export function groundsOf(content: string, parts: ManuscriptPart[]): string[] {
-  const out: string[] = []
-  const add = (id: string) => { if (!out.includes(id)) out.push(id) }
-  const norm = (x: string) => x.replace(/\s+/g, ' ').trim().toLowerCase()
-  // Markdown 블록 노트는 머리말의 grounds: 줄
-  for (const m of content.matchAll(/^(?:%\s*(?:근거|grounds)|grounds):\s*(.+)$/gm)) {
-    for (const ref of m[1]!.split(/[,;]/)) {
-      // "PRB.tex#라벨" 또는 "PRB.tex#절 제목": 한 파일 원고의 절
-      const sec = /([\w./-]+\.tex)\s*#\s*(.+)$/.exec(ref.trim())
-      if (sec) {
-        const want = norm(sec[2]!)
-        const hit = parts.find((p) => p.line && (p.file === sec[1] || p.file.endsWith(`/${sec[1]}`)) && (norm(p.id.slice(p.file.length + 1)) === want || norm(p.title) === want))
-        if (hit) add(hit.id)
-        continue
-      }
-      for (const tok of ref.match(/[\w./-]+\.tex/g) ?? []) {
-        const hit = parts.find((p) => !p.line && (p.file === tok || p.file.endsWith(`/${tok}`)))
-        if (hit) add(hit.id)
-      }
-    }
-  }
-  return out
-}
 
 /** 장 파일의 줄 → PDF 영역 */
 export async function manuscriptView(wb: Workbench, file: string, line: number): Promise<PdfBox[]> {

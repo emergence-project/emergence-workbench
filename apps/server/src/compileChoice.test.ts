@@ -19,7 +19,7 @@ describe('컴파일 설정', () => {
     const id = (await a.inject({ method: 'POST', url: '/api/researches', payload: { path: proj } })).json().id
     const R = `/api/researches/${id}`
     // 적지 않은 연구노트의 key는 경로에서
-    const key = (await a.inject({ method: 'GET', url: `${R}/manuscripts` })).json()[0].key as string
+    const key = ((await a.inject({ method: 'GET', url: `${R}/manuscripts` })).json() as { key: string; main: string }[]).find((m) => m.main.includes('/proof/'))!.key
     expect(key).toBe('workbench-notes-proof-main')
     const wrap = async (q: string) => {
       await a.inject({ method: 'POST', url: `${R}/manuscript/compile?ms=${key}${q}` })

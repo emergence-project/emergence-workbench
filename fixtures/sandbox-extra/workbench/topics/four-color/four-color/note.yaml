@@ -1,0 +1,4 @@
+name: "네 색으로 줄이기"
+state: paused
+topics: [four-color, coloring]
+kind: explore

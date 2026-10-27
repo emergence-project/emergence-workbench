@@ -190,9 +190,7 @@ export function parseComments(target: string, text: string): CommentFile {
 export function commentSourceFile(root: string, file: Pick<CommentFile, 'target' | 'source'>): string | undefined {
   if (!file.source || path.isAbsolute(file.source) || file.source.split(/[\\/]/).includes('..')) return undefined
   const repo = path.dirname(root)
-  const candidates = file.target.startsWith('block-') && !/[\\/]/.test(file.source)
-    ? ['md', 'tex'].map((ext) => path.join(root, 'blocks', `${file.source}.${ext}`))
-    : /^(note|calc|concept)-/.test(file.target) ? [path.join(repo, file.source)] : []
+  const candidates = /^(note|calc|concept)-/.test(file.target) ? [path.join(repo, file.source)] : []
   for (const candidate of candidates) {
     try {
       const relative = path.relative(fs.realpathSync(repo), fs.realpathSync(candidate))

@@ -137,12 +137,12 @@ export const ConceptBibEntry = z.object({
 export const ConceptSource = z.union([ConceptBibEntry, z.object({ key: z.string(), missing: z.literal(true) }).strict()])
 /** GET /concepts/:id/sources. cited: 본문 [@키], unsorted: 아직 bib 키로 바꾸지 못한 출처 글 */
 export const ConceptSources = z.object({ sources: z.array(ConceptSource), cited: z.array(z.string()), unsorted: z.array(z.string()) }).strict()
-/** 이 개념을 쓰는 프로젝트 하나: 프로젝트 전체 연결(research.yaml), 기대는 연구노트, 개념노트 출처가 그 bib에 있는지 */
+/** 이 개념을 쓰는 프로젝트 하나: 프로젝트 전체 연결(research.yaml), 기대는 노트(머리말 concepts:, file = 본문 파일), 개념노트 출처가 그 bib에 있는지 */
 export const ConceptUse = z.object({
   rid: z.string(),
   project: z.string(),
   linked: z.boolean(),
-  notes: z.array(z.object({ id: z.string(), title: z.string() }).strict()),
+  notes: z.array(z.object({ file: z.string(), title: z.string() }).strict()),
   cites: z.array(z.object({ key: z.string(), projectKey: z.string().optional() }).strict()),
 }).strict()
 /** GET /concepts/:id/usage */

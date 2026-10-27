@@ -19,24 +19,6 @@ const notes = async () => (await app.inject({ method: 'GET', url: `${R}/notes` }
 const row = async (id: string) => (await notes()).find((r) => r.id === id)!
 const head = async (file: string, patch: object, baseHash?: string) => app.inject({ method: 'PATCH', url: `${R}/notes/head`, payload: { file, patch, baseHash: baseHash ?? await noteHash(file) } })
 
-describe('블록 노트의 자동 설명', () => {
-  it('본문이 주석뿐인 .md 블록은 노트 목록에 설명이 없다', () => {
-    const file = 'blocks/comment-only.md'
-    const content = '---\nid: comment-only\ntitle: Comment-only note\nstatus: in-progress\n---\n<!-- The conclusion is kept in a research note. -->\n'
-    write(file, content)
-    try {
-      const note = listNotes(app.registry.get('sample-research')).find((n) => n.id === 'comment-only')
-      expect(note).toMatchObject({ type: 'block', file: `workbench/${file}`, format: 'md', title: 'Comment-only note' })
-      expect(note).not.toHaveProperty('description')
-      expect(note).not.toHaveProperty('descriptionAuto')
-      expect(fs.readFileSync(wb(file), 'utf8')).toBe(content)
-    } finally {
-      fs.unlinkSync(wb(file))
-      outside()
-    }
-  })
-})
-
 describe('예전 기록 읽기', () => {
   it('원고에서 옮긴 연구노트 모양: 연구노트 note.yaml의 summary(접힌 줄)를 설명으로, parts만 있는 주제에는 노트가 들지 않는다. calc/는 성격 계산', async () => {
     write('notes/phase/note.md', '# Map\n\n본문 첫 문단.\n')
@@ -50,15 +32,15 @@ describe('예전 기록 읽기', () => {
     expect(phase.descriptionAuto).toBeUndefined()
     expect(typeof phase.ms).toBe('string')
     expect(await row('disp')).toMatchObject({ type: 'calc', kind: 'calc', kindAuto: true, description: '분산 계산 결과.', descriptionAuto: true })
-    // 블록 노트도 한 목록에 (머리말 status → 색 점 값)
-    expect(await row('kempe-chains')).toMatchObject({ type: 'block', file: 'workbench/blocks/kempe-chains.tex', title: 'Kempe 사슬 이용', status: 'in-progress', topics: [] })
+    // LaTeX 노트(main.tex + note.yaml)도 한 목록에 (2026-10-27 블록 노트에서 옮긴 것)
+    expect(await row('kempe-chains')).toMatchObject({ type: 'note', file: 'workbench/notes/kempe-chains/main.tex', format: 'tex', title: 'Kempe 사슬 이용', status: 'in-progress', topics: [] })
   })
 
-  it('보조 노트를 주제에 묶은 모양: topics[].blocks의 보조 노트는 그 주제에 들고, 머리말 topics가 앞(주 주제). 없는 주제는 뺀다', async () => {
+  it('note.yaml topics:의 주제에 들고 첫째가 주 주제다. 없는 주제는 뺀다', async () => {
     const y = fs.readFileSync(wb('research.yaml'), 'utf8').replace(/^topics:[\s\S]*$/m, '')
-    fs.writeFileSync(wb('research.yaml'), `${y}topics:\n  - id: iso\n    title: Isomorphism theorem\n    parts: []\n    blocks:\n      - kempe-chains\n      - broken-example\n  - id: wheels\n    title: Wheels\n    parts: []\n`)
-    const block = fs.readFileSync(wb('blocks/broken-example.tex'), 'utf8')
-    fs.writeFileSync(wb('blocks/broken-example.tex'), block.replace('% ---\n', '% ---\n% topics: [wheels, gone, iso]\n'))
+    fs.writeFileSync(wb('research.yaml'), `${y}topics:\n  - id: iso\n    title: Isomorphism theorem\n    parts: []\n  - id: wheels\n    title: Wheels\n    parts: []\n`)
+    fs.appendFileSync(wb('notes/kempe-chains/note.yaml'), 'topics: [iso]\n')
+    fs.appendFileSync(wb('notes/broken-example/note.yaml'), 'topics: [wheels, gone, iso]\n')
     outside()
     expect((await row('kempe-chains')).topics).toEqual(['iso'])
     expect((await row('broken-example')).topics).toEqual(['wheels', 'iso'])
@@ -73,21 +55,15 @@ describe('예전 기록 읽기', () => {
 })
 
 describe('머리말 쓰기', () => {
-  it('보조 노트: 주제를 고치면 머리말에 쓰고 topics[].blocks에서 뺀다. 본문과 다른 줄은 그대로', async () => {
-    const before = fs.readFileSync(wb('blocks/kempe-chains.tex'), 'utf8')
-    const r = await head('workbench/blocks/kempe-chains.tex', { topics: ['wheels', 'iso'], kind: 'proof', description: '첫 줄\n- 둘째', star: true }, (await row('kempe-chains')).hash)
+  it('LaTeX 노트: 주제 · 성격 · 설명 · ★를 note.yaml에 쓰고 본문은 바이트 그대로, concepts: 줄도 그대로', async () => {
+    const before = fs.readFileSync(wb('notes/kempe-chains/main.tex'), 'utf8')
+    const r = await head('workbench/notes/kempe-chains/main.tex', { topics: ['wheels', 'iso'], kind: 'proof', description: '첫 줄\n- 둘째', star: true }, (await row('kempe-chains')).hash)
     expect(r.statusCode).toBe(200)
     expect(r.json().note).toMatchObject({ topics: ['wheels', 'iso'], kind: 'proof', description: '첫 줄\n- 둘째', star: true })
-    const after = fs.readFileSync(wb('blocks/kempe-chains.tex'), 'utf8')
-    expect(after).toContain('% topics: [wheels, iso]\n% kind: proof\n% description: "첫 줄\\n- 둘째"\n% star: true\n% ---\n')
-    const body = (s: string) => s.slice(s.indexOf('\\section'))
-    expect(body(after)).toBe(body(before))
-    expect(after).toContain('% concepts: [euler-formula, kempe-chain]\n')
-    const topics = YAML.parse(fs.readFileSync(wb('research.yaml'), 'utf8')).topics
-    expect(topics.find((t: { id: string }) => t.id === 'iso').blocks).toEqual(['broken-example'])
-    // 지운 노트를 주제에서 빼면 "노트들"
-    expect((await head('workbench/blocks/kempe-chains.tex', { topics: [], star: false })).json().note).toMatchObject({ topics: [], star: false })
-    expect(fs.readFileSync(wb('blocks/kempe-chains.tex'), 'utf8')).not.toMatch(/% (topics|star):/)
+    expect(fs.readFileSync(wb('notes/kempe-chains/main.tex'), 'utf8')).toBe(before)
+    expect(YAML.parse(fs.readFileSync(wb('notes/kempe-chains/note.yaml'), 'utf8'))).toMatchObject({ name: 'Kempe 사슬 이용', concepts: ['euler-formula', 'kempe-chain'], topics: ['wheels', 'iso'], kind: 'proof', description: '첫 줄\n- 둘째', star: true })
+    // 주제를 모두 빼면 "노트들"
+    expect((await head('workbench/notes/kempe-chains/main.tex', { topics: [], star: false })).json().note).toMatchObject({ topics: [], star: false })
   })
 
   it('연구노트: note.yaml에 쓰고 이름·출처·상태 줄은 그대로, 예전 summary:는 여러 줄 description:으로', async () => {
@@ -107,14 +83,14 @@ describe('머리말 쓰기', () => {
     expect((await head('workbench/calc/disp/note.md', { kind: 'calc' })).json().note).toMatchObject({ kind: 'calc' })
   })
 
-  it('이름 고치기: 연구노트는 note.yaml의 name, 보조 노트는 머리말 title (10/5 노트 이름 고치기)', async () => {
+  it('이름 고치기: note.yaml의 name (10/5 노트 이름 고치기)', async () => {
     const r = await head('workbench/notes/phase/note.md', { title: '  예제  모형 ' })
     expect(r.json().note).toMatchObject({ title: '예제 모형' })
     expect(YAML.parse(fs.readFileSync(wb('notes/phase/note.yaml'), 'utf8'))).toMatchObject({ name: '예제 모형', from: 'docs/model/main.tex' })
-    const b = await head('workbench/blocks/kempe-chains.tex', { title: '새 이름' })
+    const b = await head('workbench/notes/kempe-chains/main.tex', { title: '새 이름' })
     expect(b.json().note).toMatchObject({ title: '새 이름' })
-    expect(fs.readFileSync(wb('blocks/kempe-chains.tex'), 'utf8')).toContain('% title: 새 이름\n')
-    await head('workbench/blocks/kempe-chains.tex', { title: 'Kempe 사슬 이용' })
+    expect(YAML.parse(fs.readFileSync(wb('notes/kempe-chains/note.yaml'), 'utf8')).name).toBe('새 이름')
+    await head('workbench/notes/kempe-chains/main.tex', { title: 'Kempe 사슬 이용' })
     await head('workbench/notes/phase/note.md', { title: 'Example map and color table' })
   })
 
@@ -145,7 +121,7 @@ describe('링크 두 목록과 STATUS.md', () => {
     write('calc/disp/note.md', '# 수치\n\n[[Kempe 사슬 이용#절]] 결과.\n')
     const t = Date.now() / 1000
     fs.utimesSync(wb('notes/phase/note.md'), t - 100, t - 100)
-    const links = (await app.inject({ method: 'GET', url: `${R}/notes/links?file=${encodeURIComponent('workbench/blocks/kempe-chains.tex')}` })).json()
+    const links = (await app.inject({ method: 'GET', url: `${R}/notes/links?file=${encodeURIComponent('workbench/notes/kempe-chains/main.tex')}` })).json()
     expect(links.concepts).toEqual([{ id: 'euler-formula', title: 'euler-formula' }, { id: 'kempe-chain', title: 'kempe-chain' }])
     expect(links.bodyConcepts).toEqual([])
     expect(links.citedBy.map((n: { id: string }) => n.id)).toEqual(['disp', 'phase'])
@@ -162,9 +138,10 @@ describe('링크 두 목록과 STATUS.md', () => {
     { scope: '머리말 전용', body: '본문', head: ['head-only'], bodyIds: [], allIds: ['head-only'] },
     { scope: '양쪽 중복', body: '[[shared]] [[body-only]] [[shared]]', head: ['head-only', 'shared'], bodyIds: ['shared', 'body-only'], allIds: ['shared', 'body-only', 'head-only'] },
   ])('개념노트 범위를 구분한다: $scope', ({ body, head, bodyIds, allIds }) => {
-    const file = 'blocks/concept-scopes.tex'
-    const content = `% ---\n% id: concept-scopes\n% title: Concept scopes\n% status: in-progress\n% concepts: [${head.join(', ')}]\n% ---\n${body}\n`
+    const file = 'notes/concept-scopes/main.tex'
+    const content = `${body}\n`
     const concept = (id: string) => ({ id, title: `Concept ${id}` })
+    write('notes/concept-scopes/note.yaml', `name: Concept scopes\nconcepts: [${head.join(', ')}]\n`)
     write(file, content)
     try {
       const links = noteLinks(app.registry.get('sample-research'), `workbench/${file}`, {
@@ -174,7 +151,7 @@ describe('링크 두 목록과 STATUS.md', () => {
       expect(links.bodyConcepts).toEqual(bodyIds.map(concept))
       expect(links.concepts).toEqual(allIds.map(concept))
       expect(fs.readFileSync(wb(file), 'utf8')).toBe(content)
-    } finally { fs.unlinkSync(wb(file)) }
+    } finally { fs.rmSync(wb('notes/concept-scopes'), { recursive: true }); outside() }
   })
 
   it('STATUS.md에 주제마다 이름·설명 첫 줄·상태별 노트 수와 "노트들"을 적는다', async () => {
@@ -185,46 +162,18 @@ describe('링크 두 목록과 STATUS.md', () => {
     expect(md).toContain('- ★ **Wheels** (`wheels`) — 진행 1 — 바퀴 규칙')
     expect(md).toMatch(/- \*\*Isomorphism theorem\*\* \(`iso`\) — 진행 1 · 멈춤 1\n/)
     expect(md).toMatch(/- \*\*노트들\*\* \(주제 없음\) — 진행 \d/)
-    expect(md.indexOf('## 주제')).toBeLessThan(md.indexOf('## 블록 노트'))
-  })
-})
-
-describe('보조 노트 결과 PDF 상태 (PDF 이전 결과 표시)', () => {
-  it('PDF가 없으면 hasPdf: false, 노트를 PDF보다 나중에 고쳤으면 stale', async () => {
-    const url = `${R}/blocks/kempe-chains/pdf/state`
-    expect((await app.inject({ method: 'GET', url })).json()).toEqual({ hasPdf: false, stale: false })
-    // PDF가 없으면 위치 이동은 빈 결과
-    expect((await app.inject({ method: 'GET', url: `${R}/blocks/kempe-chains/synctex/view?line=1` })).json()).toEqual({ boxes: [] })
-    expect((await app.inject({ method: 'GET', url: `${R}/blocks/kempe-chains/synctex/edit?page=1&x=10&y=10` })).json()).toEqual({ spot: null })
-    fs.mkdirSync(wb('.build/kempe-chains'), { recursive: true })
-    fs.writeFileSync(wb('.build/kempe-chains/main.pdf'), '%PDF')
-    const t = Date.now() / 1000
-    fs.utimesSync(wb('blocks/kempe-chains.tex'), t - 100, t - 100)
-    expect((await app.inject({ method: 'GET', url })).json()).toMatchObject({ hasPdf: true, stale: false })
-    fs.utimesSync(wb('blocks/kempe-chains.tex'), t + 100, t + 100)
-    expect((await app.inject({ method: 'GET', url })).json()).toMatchObject({ hasPdf: true, stale: true })
   })
 })
 
 describe('노트 머리말 지키기 (10/5 검토)', () => {
-  it('머리말 없는 Markdown 노트에는 LaTeX(%) 머리말이 아니라 --- 머리말을 쓴다', async () => {
-    write('blocks/plain-md.md', '# 그냥 노트\n\n본문.\n')
-    const r = await head('workbench/blocks/plain-md.md', { star: true })
-    expect(r.statusCode).toBe(200)
-    expect(fs.readFileSync(wb('blocks/plain-md.md'), 'utf8')).toBe('---\nstar: true\n---\n# 그냥 노트\n\n본문.\n')
-    fs.rmSync(wb('blocks/plain-md.md'))
-  })
-
-  it('설명은 20줄까지, 머리말이 너무 길어져 다시 찾지 못하게 되면 쓰지 않는다', async () => {
-    const many = Array.from({ length: 70 }, (_, i) => `x${i}: ${i}`).join('\n')
-    const text = `---\nid: long-head\ntitle: 긴 머리말\nstatus: blocked\n${many}\n---\n본문\n`
-    write('blocks/long-head.md', text)
-    expect((await head('workbench/blocks/long-head.md', { description: Array(21).fill('a').join('\n') })).statusCode).toBe(400)
-    const r = await head('workbench/blocks/long-head.md', { description: Array(15).fill('a').join('\n') })
-    expect(r.statusCode).toBe(422)
-    expect(fs.readFileSync(wb('blocks/long-head.md'), 'utf8')).toBe(text)
-    expect(await row('long-head')).toMatchObject({ title: '긴 머리말', status: 'blocked' })
-    fs.rmSync(wb('blocks/long-head.md'))
+  it('설명은 20줄까지', async () => {
+    write('notes/long-head/note.md', '본문\n')
+    write('notes/long-head/note.yaml', 'name: 긴 설명\nstate: paused\n')
+    expect((await head('workbench/notes/long-head/note.md', { description: Array(21).fill('a').join('\n') })).statusCode).toBe(400)
+    expect((await head('workbench/notes/long-head/note.md', { description: Array(15).fill('a').join('\n') })).statusCode).toBe(200)
+    expect(await row('long-head')).toMatchObject({ title: '긴 설명', status: 'blocked' })
+    fs.rmSync(wb('notes/long-head'), { recursive: true })
+    outside()
   })
 })
 

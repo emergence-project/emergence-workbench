@@ -1,7 +1,7 @@
-// ---------- 프로젝트 (연구 저장소 하나: 요약·작업노트·진술·원고·카드·자료·일지) ----------
+// ---------- 프로젝트 (연구 저장소 하나: 요약·진술·원고·카드·자료·일지) ----------
 import type { JournalEntry, MetaPatch } from '@rw/core'
 import type {
-  AgentRules, AgentStatusPreview, AllBodyOnlyResult, BlockCreateBody, BlockDoc, BlockMetaSaved, BlockPdfState, BlockSpot, BodyOnlyResult, CompileResult, CreatedNote, InfoBody, InfoSaved,
+  AgentRules, AgentStatusPreview, AllBodyOnlyResult, BodyOnlyResult, CompileResult, CreatedNote, InfoBody, InfoSaved,
   JournalEdited, JournalEntryReply, JournalList, MainNoteCandidates, ManuscriptCompileResult, ManuscriptInfo, ManuscriptList, ManuscriptSpot, ManuscriptView, MaterialFile,
   MaterialList, MaterialUploaded, NoteMetaBody, Ok, RepoFile, RepoTree, PartDoc, PdfBoxes, ProfileBody, ProjectInfo, ProjectIssues, RepoReply, ResearchList, ResearchListItem, ResearchOrder,
   ResearchSummary, RestoredNote, Saved, StatementDoc, SyncReply, SyncUpdated, TopicList, TrashedNote, TrashList,
@@ -10,14 +10,13 @@ import { choiceParams, type ExportChoice } from './noteExport'
 import { ConflictError, enc, json, req, send } from './http'
 
 export type {
-  AgentRules, BibEntry, BlockDoc, BlockMetaSaved, BlockRow, CompileResult, LatexProblem as Problem, ManuscriptCompileResult, ManuscriptInfo, ManuscriptPart, ManuscriptPdfStatus, ManuscriptView,
+  AgentRules, BibEntry, CompileResult, LatexProblem as Problem, ManuscriptCompileResult, ManuscriptInfo, ManuscriptPart, ManuscriptPdfStatus, ManuscriptView,
   MaterialFile, RepoFile, RepoTree, NoteKind, NoteState, OpenTodo, PdfBox, ProjectColor, ProjectInfo, ProjectIssues, ProjectKind, ProjectState, RepoInfo, RepoSync, ResearchListItem, ResearchSummary, SourceSpot, Statement,
   Topic, TrashedNote,
 } from '@rw/core/contract/research'
 
 /** 서버가 보내는 파일 변경 알림 */
 export type WorkbenchEvent =
-  | { type: 'block'; research: string; id: string; hash: string | null }
   | { type: 'journal'; research: string; date: string }
   | { type: 'research'; research: string }
   | { type: 'preamble'; research: string }
@@ -55,7 +54,6 @@ export const researchListCalls = {
 /** 연구 하나에 대한 요청들 */
 export function researchApi(rid: string) {
   const base = `/api/researches/${enc(rid)}`
-  const b = (id: string) => `${base}/blocks/${enc(id)}`
   return {
     /** 이 묶음의 프로젝트 id (화면 캐시 키에 쓴다) */
     rid,
@@ -63,22 +61,6 @@ export function researchApi(rid: string) {
     sync: (fetch = false) => req(`${base}/sync${fetch ? '?fetch=1' : ''}`).then((r) => json<SyncReply>(r)).then((r) => r.sync),
     repo: (fetch = false) => req(`${base}/repo${fetch ? '?fetch=1' : ''}`).then((r) => json<RepoReply>(r)).then((r) => r.repo),
     update: () => req(`${base}/sync/update`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
-    readBlock: (id: string) => req(b(id)).then((r) => json<BlockDoc>(r)),
-    saveBlock: (id: string, content: string, baseHash: string) =>
-      req(b(id), send('PUT', { content, baseHash })).then((r) => json<Saved>(r)).then((r) => r.hash),
-    deleteBlock: (id: string, baseHash: string) =>
-      req(b(id), send('DELETE', { baseHash })).then((r) => json<Ok>(r)),
-    patchMeta: (id: string, patch: MetaPatch, baseHash: string) =>
-      req(`${b(id)}/meta`, send('PATCH', { patch, baseHash })).then((r) => json<BlockMetaSaved>(r)),
-    createBlock: (input: Omit<BlockCreateBody, 'id'>) =>
-      req(`${base}/blocks`, send('POST', input)).then((r) => json<BlockDoc>(r)),
-    compile: (id: string, o: ExportChoice = {}) => req(`${b(id)}/compile?${choiceParams(o).join('&')}`, { method: 'POST' }).then((r) => json<CompileResult>(r)),
-    pdfUrl: (id: string, version: number) => `${b(id)}/pdf?v=${version}`,
-    /** 결과 PDF가 지금 노트의 것인지 (stale = 노트를 PDF 뒤에 고침) */
-    pdfState: (id: string) => req(`${b(id)}/pdf/state`).then((r) => json<BlockPdfState>(r)),
-    view: (id: string, line: number) => req(`${b(id)}/synctex/view?line=${line}`).then((r) => json<PdfBoxes>(r)),
-    edit: (id: string, page: number, x: number, y: number) =>
-      req(`${b(id)}/synctex/edit?page=${page}&x=${x}&y=${y}`).then((r) => json<BlockSpot>(r)),
     journal: (days = 30) => req(`${base}/journal?days=${days}`).then((r) => json<JournalList>(r)),
     readStatement: (sid: string) => req(`${base}/statements/${enc(sid)}`).then((r) => json<StatementDoc>(r)),
     saveStatement: async (sid: string, content: string, baseHash: string): Promise<string> => {

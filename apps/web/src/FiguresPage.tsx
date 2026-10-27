@@ -303,7 +303,7 @@ function FigureSide({ fig, data, onClose, onSaved }: { fig: FigureRow; data: Fig
   }
   const run = (f: () => Promise<unknown>) => { void f().catch((e: Error) => onSaved(e.message)) }
   const usageRow = (u: FigureRow['uses'][number]): ReactNode => (u.rid && u.type !== 'concept'
-    ? <button className="a fg-use" onClick={() => go(routeOfNote(u.rid!, { ...u, type: u.type as 'note' | 'calc' | 'block' }))}>{u.title}<span className="muted"> · {scopeTitle(data, u.rid)}</span></button>
+    ? <button className="a fg-use" onClick={() => go(routeOfNote(u.rid!, { ...u, type: u.type as 'note' | 'calc' }))}>{u.title}<span className="muted"> · {scopeTitle(data, u.rid)}</span></button>
     : <span className="fg-use">{u.title}<span className="muted"> · {t('개념노트', 'Concept note')}</span></span>)
   return (
     <aside className="pane fg-rs" data-ui="그림 정보" aria-label={t('고른 그림', 'Selected figure')}>

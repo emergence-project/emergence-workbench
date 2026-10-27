@@ -1,13 +1,14 @@
 import { flash } from './flash'
-import { awaitsUserReview, type TreeIssue } from '@rw/core'
+import { awaitsUserReview } from '@rw/core'
 import { fill } from './projectData'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { agentEditsApi, ConflictError, notesApi, LIMITS, type BlockRow, type ManuscriptInfo, type NoteRow, type OpenTodo, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
+import { agentEditsApi, ConflictError, notesApi, LIMITS, type ManuscriptInfo, type NoteRow, type OpenTodo, type ProjectInfo, type ResearchApi, type ResearchListItem, type ResearchSummary, type Topic, type TopicStats } from './api'
 import { monthDay, statusOf } from './format'
 import { Icon } from './icons'
 import { lastWorkMs, PROJECT_KIND_LABEL } from './projectProfile'
 import { ProjectStateDot, type ProfilePatch } from './ProjectProfileFields'
 import { StatusDot } from './StatusDot'
+import { NOTE_STATE } from './NoteStatus'
 import { stripDue } from './homeData'
 import { ProjectEditDialog } from './ProjectEditDialog'
 import { useAgentEdits, useJournal, useProjectInfo, useTopicsOverview } from './projectQueries'
@@ -16,7 +17,6 @@ import { qk } from './queries'
 import { recordWrites } from './useRecordActions'
 import { MemoText } from './memo'
 import { openTodoPlace, todoPlace } from './todoItems'
-import { AUX_NOTE } from './notes'
 import { go } from './router'
 import { focusTodo, todoKey } from './workRecords'
 import { reviewStatusLabel } from './reviewStatus'
@@ -57,17 +57,6 @@ export function partNumber(parts: ManuscriptInfo['parts'], i: number): string {
   const p = parts[i]!
   const n = parts.slice(0, i + 1).filter((x) => x.appendix === p.appendix).length
   return p.appendix ? String.fromCharCode(64 + n) : String(n)
-}
-
-/** 장 오른쪽의 상태별 수: 해결 · 진행 · 멈춤 (색 점 + 수) */
-export function StatusCounts({ list }: { list: BlockRow[] }) {
-  if (list.length === 0) return <span className="none">—</span>
-  const n = (s: string) => list.filter((b) => statusOf(b.status) === s).length
-  return (
-    <span className="counts">
-      {(['solved', 'in-progress', 'blocked'] as const).map((s) => n(s) > 0 && <span key={s} className="count"><StatusDot s={s} />{n(s)}</span>)}
-    </span>
-  )
 }
 
 /** 첫 화면 작업 칸에는 제목만: 첫 줄의 " — " 앞 (전체는 툴팁, 10/7 15:31) */
@@ -166,13 +155,10 @@ export const todoRows = (todos: OpenTodo[]) => todos.map((todo) => ({ todo, due:
  * 10/5 시안 "프로젝트 첫 화면": 원고 칸은 뺐다(원고는 왼쪽 사이드바 "원고"에서). 오른쪽 작업 칸은 그대로.
  */
 export function OverviewPage({ rid, rapi, summary, notes, project: projectName, pc, anchor, listed, all, onProfile, onChanged, onSaved }: Props) {
-  const { research, tree, blocks } = summary
-  const byId = new Map(blocks.map((b) => [b.id, b]))
-  const titleOf = (id: string) => byId.get(id)?.title ?? id
+  const { research } = summary
   const { entries } = useJournal(rapi)
   const todos = todoRows(summary.todos)
   const today = new Date().toLocaleDateString('sv')
-  const open = (bid: string) => go({ page: 'block', rid, bid })
   const project = useProjectInfo(rid).data ?? null
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -181,7 +167,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
     if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }, [anchor])
 
-  const blocked = blocks.filter((b) => statusOf(b.status) === 'blocked')
+  const blocked = notes.filter((b) => statusOf(b.status) === 'blocked')
   const reviews = project?.reviews.filter((r) => awaitsUserReview(r.status)) ?? []
   // 에이전트 고침 (10/8): 검토할 노트와 확인된 노트 고치기 요청. 작업 패널에 한 줄씩, 누르면 고침 검토 화면
   const editList = useAgentEdits(rid).data
@@ -196,8 +182,9 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
     recordWrites(rid).updateLatest(todo.target, todo.id, () => ({ state: '끝냄' })).then(() => onChanged())
       .catch((e: Error) => flash(e.message)).finally(() => setFinishing(null))
   }
-  const reopen = (b: { id: string; hash: string }) => {
-    rapi.patchMeta(b.id, { status: 'in-progress' }, b.hash).then(onChanged).catch((e: Error) => setError(e.message))
+  const reopen = (b: NoteRow) => {
+    if (b.ms === undefined) return
+    rapi.setNoteMeta(b.ms, { state: NOTE_STATE['in-progress'] }, b.hash).then(onChanged).catch((e: Error) => setError(e.message))
   }
 
   // 제목이나 설명을 눌러도 프로젝트 정보로 간다 (피드백 10/3 14:47)
@@ -225,12 +212,12 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
     {
       key: 'blocked', title: t('멈춤', 'Blocked'), count: blocked.length, ui: '멈춘 노트',
       rows: blocked.map((b) => (tag?: string) => {
-        const detail = [b.blockedReason && t(`멈춘 이유: ${b.blockedReason}`, `Blocked because: ${b.blockedReason}`), b.resumeCondition && t(`다시 시작: ${b.resumeCondition}`, `Resume when: ${b.resumeCondition}`)].filter(Boolean).join(' · ')
+        const detail = b.resume ? t(`다시 시작: ${b.resume}`, `Resume when: ${b.resume}`) : undefined
         return (
-          <NowRow key={b.id} tag={tag} ui="막힌 보조 노트" item={b.title ?? b.id} mark={<StatusDot s="blocked" />}
-            title={b.title ?? b.id} full={detail ? `${b.title ?? b.id}\n${detail}` : b.title ?? b.id} onOpen={() => open(b.id)}
-            sub={b.resumeCondition ? t(`다시 시작: ${b.resumeCondition}`, `Resume when: ${b.resumeCondition}`) : b.blockedReason}
-            end={<button className="icon-btn now-act" data-ui="다시 열기 버튼" data-tip={t('다시 열기', 'Reopen')} aria-label={t(`다시 열기 — ${b.title ?? b.id}`, `Reopen: ${b.title ?? b.id}`)} onClick={(event) => { event.stopPropagation(); reopen(b) }} onKeyDown={(event) => event.stopPropagation()}>{Icon.reopen}</button>} />
+          <NowRow key={b.file} tag={tag} ui="막힌 보조 노트" item={b.title} mark={<StatusDot s="blocked" />}
+            title={b.title} full={detail ? `${b.title}\n${detail}` : b.title} onOpen={() => go(routeOfNote(rid, b))}
+            sub={detail}
+            end={b.ms !== undefined && <button className="icon-btn now-act" data-ui="다시 열기 버튼" data-tip={t('다시 열기', 'Reopen')} aria-label={t(`다시 열기 — ${b.title}`, `Reopen: ${b.title}`)} onClick={(event) => { event.stopPropagation(); reopen(b) }} onKeyDown={(event) => event.stopPropagation()}>{Icon.reopen}</button>} />
         )
       }),
     },
@@ -282,13 +269,6 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
                   </dl>
                 )}
 
-                {tree.issues.length > 0 && (
-                  <details className="issues" role="note" data-ui="확인이 필요한 보조 노트">
-                    <summary><b>{t(`확인이 필요한 ${AUX_NOTE}`, `${AUX_NOTE} needing review`)}</b> <span className="rail-count" title={t('확인이 필요한 노트 수', 'Notes needing review')}>{tree.issues.length}</span></summary>
-                    <ul>{tree.issues.map((i, n) => <li key={n}>{issueText(i, titleOf)}</li>)}</ul>
-                  </details>
-                )}
-
                 {/* 흐름은 지도 대신 한 줄로 (10/26 "프로젝트의 중심은 주제", 시안 HomeAfter) */}
                 <FlowLine rid={rid} />
               </div>
@@ -301,7 +281,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
         </div>
       </section>
       {editing && listed && <ProjectEditDialog rapi={rapi} summary={summary} listed={listed} all={all} pc={pc}
-        last={lastWorkMs(summary, entries)} onProfile={onProfile} onChanged={onChanged} onSaved={onSaved} onDone={() => setEditing(false)} />}
+        last={lastWorkMs(entries, notes.map((n) => n.mtime))} onProfile={onProfile} onChanged={onChanged} onSaved={onSaved} onDone={() => setEditing(false)} />}
     </div>
   )
 }
@@ -362,19 +342,6 @@ export function MainNotePicker({ rapi, more, open, onClose, onDone }: { rapi: Re
       {error && <p className="error-text">{error}</p>}
     </section>
   )
-}
-
-function issueText(i: TreeIssue, titleOf: (id: string) => string): string {
-  const n = titleOf(i.id)
-  switch (i.kind) {
-    case 'missing-parent': return t(`“${n}”의 갈라져 나온 곳(${i.parent})이 없습니다.`, `The parent of “${n}” (${i.parent}) is missing.`)
-    case 'missing-alternative': return t(`“${n}”의 다른 시도(${i.alternative})가 없습니다.`, `The alternative of “${n}” (${i.alternative}) is missing.`)
-    case 'cycle': return t(`“${n}”의 갈라져 나온 곳이 고리를 이룹니다.`, `The parents of “${n}” form a cycle.`)
-    case 'bad-status': return t(`“${n}”의 상태 값(${i.status})을 알 수 없어 진행으로 봅니다.`, `Unknown status of “${n}” (${i.status}); treated as in progress.`)
-    case 'blocked-without-reason': return t(`“${n}”는 멈춤인데 멈춘 이유나 다시 시작할 조건이 없습니다.`, `“${n}” is blocked but has no reason or resume condition.`)
-    case 'stopped-without-reason': return t(`“${n}”는 정지인데 정지 이유가 없습니다.`, `“${n}” is stopped but has no reason.`)
-    case 'id-mismatch': return t(`“${n}”의 머리말 id(${i.headerId})가 파일 이름과 다릅니다.`, `The front matter id of “${n}” (${i.headerId}) differs from the file name.`)
-  }
 }
 
 /** 저장해 두는 고르기 (정렬 · 기간): 다음에 열어도 그대로 */

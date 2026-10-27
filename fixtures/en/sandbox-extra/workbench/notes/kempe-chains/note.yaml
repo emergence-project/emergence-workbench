@@ -1,0 +1,5 @@
+name: "Using Kempe chains"
+description: "Check by calculation that Eq. (1) still holds when the vertices are reordered"
+topics: [coloring]
+concepts: [euler-formula, kempe-chain]
+kind: calc

@@ -467,10 +467,11 @@ describe('본문 선택 다시 찾기', () => {
     expect(entry.lost).toBeUndefined()
   })
 
-  it.each(['md', 'tex'])('보조 노트의 %s 본문에서 선택을 찾는다', (extension) => {
-    writeSource(`workbench/blocks/anchor.${extension}`, '첫 줄\n둘째 줄\n고른 글\n')
-    addComment(root, 'block-anchor', { kind: '메모', title: '보조 노트', source: 'anchor', text: '메모', line: 1, quote: '고른 글' }, at)
-    expect(readComments(root, 'block-anchor').comments[0]!.line).toBe(3)
+  it.each(['note.md', 'main.tex'])('노트 본문 %s에서 선택을 찾는다', (name) => {
+    const source = `workbench/notes/anchor/${name}`
+    writeSource(source, '첫 줄\n둘째 줄\n고른 글\n')
+    addComment(root, 'note-anchor', { kind: '메모', title: '노트', source, text: '메모', line: 1, quote: '고른 글' }, at)
+    expect(readComments(root, 'note-anchor').comments[0]!.line).toBe(3)
   })
 
   it('PDF 선택은 본문 재탐색 없이 쪽과 좌표를 유지한다', () => {

@@ -1,0 +1,6 @@
+name: "Extending to list coloring"
+description: "|-"
+state: paused
+resume: "After checking the original assumptions and the outer face"
+topics: [kempe, coloring]
+kind: check

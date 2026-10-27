@@ -144,7 +144,7 @@ async function snapshot(app, rid, libraryPresent) {
     const base = `/api/researches/${enc(rid)}`
     const research = await jsonRequest(app, base)
     // File mtimes are not canonical state and change during no-op writes.
-    result.research = { research: research.research, tree: research.tree, blocks: research.blocks.map(({ mtime, ...rest }) => rest), statements: research.statements.map(({ mtime, ...rest }) => rest) }
+    result.research = { research: research.research, statements: research.statements.map(({ mtime, ...rest }) => rest) }
     result.manuscripts = await jsonRequest(app, `${base}/manuscripts`)
     result.topics = await jsonRequest(app, `${base}/topics`)
     const comments = await jsonRequest(app, `${base}/comments`)
@@ -284,8 +284,6 @@ export async function runRepositoryCheck(input, options = {}) {
         seen.add(file)
         targets.push({ kind: file.endsWith('.md') ? 'research-note-md' : 'manuscript-tex', file, url: `${base}/manuscript/part?file=${enc(file)}`, putUrl: `${base}/manuscript/part`, extra: { file } })
       }
-      const project = await jsonRequest(app, base)
-      for (const block of project.blocks) targets.push({ kind: `block-${block.format}`, file: `workbench/blocks/${block.id}.${block.format}`, url: `${base}/blocks/${enc(block.id)}` })
     }
     if (libraryPresent) {
       const library = await jsonRequest(app, '/api/library')

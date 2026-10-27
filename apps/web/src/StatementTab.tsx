@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { type ResearchApi, type ResearchSummary, type WorkbenchEvent } from './api'
+import { type NoteRow, type ResearchApi, type ResearchSummary, type WorkbenchEvent } from './api'
 import { Editor, type EditorHandle } from './Editor'
 import { statusLabel, statusOf } from './format'
 import { Icon } from './icons'
@@ -18,8 +18,8 @@ import { t } from './i18n'
  * 진술 노트: 저장소 statements/의 파일을 그 자리에서 읽고 고친다.
  * 위는 관계(사용·쓰이는 곳·증명 작업·출처), 아래는 LaTeX 원문. 저장은 블록과 같은 안전장치(바깥에서 바뀌었으면 덮어쓰지 않음).
  */
-export function StatementTab({ rid, sid, rapi, summary, bus, onChanged }: {
-  rid: string; sid: string; rapi: ResearchApi; summary: ResearchSummary; bus: EventTarget; onChanged(): void
+export function StatementTab({ rid, sid, rapi, summary, notes, bus, onChanged }: {
+  rid: string; sid: string; rapi: ResearchApi; summary: ResearchSummary; notes: NoteRow[]; bus: EventTarget; onChanged(): void
 }) {
   const s = summary.statements.find((x) => x.id === sid)
   const [loaded, setLoaded] = useState<{ content: string; file: string } | null>(null)
@@ -65,11 +65,12 @@ export function StatementTab({ rid, sid, rapi, summary, bus, onChanged }: {
   }, [bus, rid, sid, load, saver])
 
   if (!s) return <div className="empty center">{t('진술을 찾지 못했습니다: ', 'Statement not found: ')}{sid}</div>
-  const p = proofState(summary, s)
+  const ctx = { statements: summary.statements, notes }
+  const p = proofState(ctx, s)
   const byS = new Map(summary.statements.map((x) => [x.id, x]))
   const uses = s.uses.map((u) => byS.get(u)).filter((x): x is NonNullable<typeof x> => !!x)
-  const users = usedBy(summary, s.id)
-  const proofs = proofsOf(summary, s)
+  const users = usedBy(ctx, s.id)
+  const proofs = proofsOf(ctx, s)
   const chip = (x: (typeof uses)[number]) => (
     <button key={x.id} className="dep-chip" onClick={() => go({ page: 'statement', rid, sid: x.id })} title={x.title}>{shortLabel(x)}</button>
   )
@@ -102,8 +103,8 @@ export function StatementTab({ rid, sid, rapi, summary, bus, onChanged }: {
             {!isGiven(s) && <>
               <dt>{t('증명 작업', 'Proof work')}</dt>
               <dd>{proofs.length ? proofs.map((b) => (
-                <button key={b.id} className="dep-chip" onClick={() => go({ page: 'block', rid, bid: b.id })}>
-                  <StatusDot s={statusOf(b.status)} /> <span className="ico" aria-hidden>{Icon.block}</span> {b.title ?? b.id} · {statusLabel(statusOf(b.status))}
+                <button key={b.id} className="dep-chip" onClick={() => go({ page: 'part', rid, file: b.file })}>
+                  <StatusDot s={statusOf(b.status)} /> <span className="ico" aria-hidden>{Icon.block}</span> {b.title} · {statusLabel(statusOf(b.status))}
                 </button>
               )) : <span className="muted">{t('없음', 'None')}</span>}</dd>
             </>}

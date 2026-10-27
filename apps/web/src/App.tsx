@@ -4,14 +4,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type Chat, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { AGENT_OPEN, AgentBelow, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
-import { BlockPage } from './BlockPage'
 import { FeedbackMode } from './FeedbackMode'
 import { AskTextHost } from './askText'
 import { partOf } from './aboutContent'
 import { ConceptNoteView, ConceptSidePanel } from './ConceptNotes'
 import { ConceptRecordsPanel } from './ConceptRecords'
 import { GLOBAL_PAGES, globalPageOf } from './globalPages'
-import { NewBlockDialog } from './dialogs'
 import { RegisterDialog } from './RegisterDialog'
 import { initials, projectColor, setProjectColors } from './format'
 import { Icon } from './icons'
@@ -23,11 +21,11 @@ import { AgentEditsPage, Lazy, MapPage, prefetchLazyPages, TaskReport } from './
 import { NotesPage } from './NotesPage'
 import { NOTE_KIND_LABEL } from './NewNote'
 import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
-import { AUX_NOTE, shortLabel } from './notes'
+import { shortLabel } from './notes'
 import { StatementTab } from './StatementTab'
 import { DocTab, MaterialsNav } from './Materials'
 import { RepoFileTab } from './RepoFileTab'
-import { blockTarget, commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
+import { commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNoteEditor } from './Library'
 import { QuickMemo } from './memo'
@@ -41,7 +39,6 @@ import { AgentsPage, ProjectInfoPage, RepoPage, StatusPage } from './ProjectInfo
 import { ChangesPage } from './ChangesPage'
 import { FilesPage } from './FilesPage'
 import { ProjectRailCount, useProjectIssues } from './projectIssues'
-import { PdfTab } from './PdfTab'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
 import { FlowPage } from './FlowView'
@@ -83,8 +80,7 @@ export function App() {
   const closeSearch = useCallback(() => setSearch(false), [])
   // 다른 화면으로 가면(뒤로 가기 포함) 검색 창을 닫는다
   useEffect(() => setSearch(false), [route])
-  const [dialog, setDialog] = useState<'new-block' | 'register' | null>(null)
-  const [recent, setRecent] = useState<Record<string, string[]>>(() => store.get('rw-recent', {}))
+  const [dialog, setDialog] = useState<'register' | null>(null)
   const [ui, setUi] = useState<UiSettings>(cachedUi)
   const [lastRid, setLastRid] = useState<string | null>(() => store.get('rw-last-research', null))
   useEffect(() => { if (rid) { setLastRid(rid); store.set('rw-last-research', rid) } }, [rid])
@@ -199,7 +195,7 @@ export function App() {
   // 주제를 바꿔 옮겨 간 노트(10/13 주제 폴더)를 옛 경로로 연 탭·주소는 지금 경로로 바꾼다
   const routeFile = route.page === 'part' && route.rid === rid ? route.file : null
   useEffect(() => {
-    const own = notes.filter((n) => n.type !== 'block')
+    const own = notes
     if (!rid || notesOf !== rid || !own.length) return
     const files = new Set(own.map((n) => n.file))
     const moved = (file: string) => (files.has(file) ? undefined : own.find((n) => sameNoteFile(n.file, file))?.file)
@@ -218,9 +214,9 @@ export function App() {
       const ms = tab.k === 'part' ? msOfFile(tab.file) : manuscripts.find((m) => m.key === msKeyOfTab(tab))
       return ms ? NOTE_KIND_LABEL[ms.kind] : null
     }
-    return tab.k === 'block' || tab.k === 'pdf' ? AUX_NOTE : tab.k === 'concept' ? t('개념노트', 'Concept note') : tab.k === 'paper' ? t('문헌노트', 'Literature note') : null
+    return tab.k === 'concept' ? t('개념노트', 'Concept note') : tab.k === 'paper' ? t('문헌노트', 'Literature note') : null
   }
-  // 파일 변경 알림: 목록·개괄을 새로 읽고, 블록 화면에는 그대로 전달.
+  // 파일 변경 알림: 목록·개괄을 새로 읽는다.
   // 연결은 한 번만 연다 (화면을 옮길 때마다 다시 열면 그 사이의 알림을 놓친다). 처리는 지금 화면의 것
   const onWorkbenchEvent = useRef<(e: WorkbenchEvent) => void>(() => undefined)
   onWorkbenchEvent.current = (e: WorkbenchEvent) => {
@@ -248,17 +244,6 @@ export function App() {
     bus.dispatchEvent(new CustomEvent('rw', { detail: e }))
     onWorkbenchEvent.current(e)
   }, () => onReconnect.current()), [bus])
-
-  // 최근 연 블록 (이 브라우저에만)
-  useEffect(() => {
-    if (route.page !== 'block') return
-    setRecent((prev) => {
-      const list = [route.bid, ...(prev[route.rid] ?? []).filter((b) => b !== route.bid)].slice(0, 5)
-      const next = { ...prev, [route.rid]: list }
-      store.set('rw-recent', next)
-      return next
-    })
-  }, [route])
 
   // 화면 설정: 정본은 서버의 config.yaml. 바꾸면 바로 입히고 서버에 저장한다
   useEffect(() => { api.settings().then((u) => { setUi(u); applyUi(u) }).catch(() => undefined) }, [])
@@ -300,8 +285,7 @@ export function App() {
   if (error && !researches) return <div className="fatal">{t('서버에 연결하지 못했습니다', 'Could not connect to the server')}: {error}<p className="muted">{t('서버가 다시 켜지면 이 화면은 저절로 돌아옵니다.', 'This screen comes back by itself when the server is up again.')}</p></div>
 
   const current = researches?.find((r) => r.id === rid)
-  const blockTitle = route.page === 'block' ? summary?.blocks.find((b) => b.id === route.bid)?.title ?? route.bid : null
-  /** 지금 연 노트 (연구노트 · 계산 노트 · 보조 노트) */
+  /** 지금 연 노트 (연구노트 · 계산 노트) */
   const openNote = noteOfRoute(route, notes)
   setFeedbackNote(openNote && current ? `${current.title} › ${openNote.title} (${openNote.file})` : undefined)
   /**
@@ -313,7 +297,6 @@ export function App() {
         const topic = topics.find((x) => x.id === openNote.topics[0])
         return [topic ? { label: topic.title, to: { page: 'topic', rid, tid: topic.id } as Route, title: t('주제 화면으로', 'Go to the topic') } : { label: LOOSE_NOTES_LABEL, to: { page: 'topic', rid, tid: LOOSE_TOPIC_ID } as Route, title: t('주제가 없는 노트 — 노트들 화면으로', 'A note without a topic: go to loose notes') }]
       })()
-      : route.page === 'block' ? [{ label: AUX_NOTE }, { label: blockTitle! }]
       : route.page === 'doc' ? [{ label: t('자료', 'Materials') }, { label: route.name }]
       : route.page === 'file' ? [{ label: t('파일', 'File') }, { label: route.path }]
         : route.page === 'concept' || route.page === 'paper' ? [{ label: route.page === 'concept' ? t('개념노트', 'Concept note') : t('문헌노트', 'Literature note') }, { label: library?.notes.find((n) => n.kind === route.page && n.id === route.id)?.title ?? route.id }]
@@ -392,12 +375,10 @@ export function App() {
   const renderTab = (t: Tab, context?: TabRenderContext) => {
     if (!rid || !summary || !rapi) return null
     switch (t.k) {
-      case 'block': return <BlockPage key={`${rid}/${t.bid}`} rid={rid} bid={t.bid} rapi={rapi} summary={summary} manuscripts={manuscripts} bus={bus} onChanged={changed} onSaved={flash} library={library} onLibraryChanged={libraryChanged}
-        tocOwner={context?.focused ? tabKey(t) : null} onShowPdf={() => setLayout((l) => showBeside(l, { k: 'pdf', bid: t.bid }, tabKey(t)))} />
       case 'doc': return <DocTab rid={rid} name={t.name} rapi={rapi} />
       case 'file': return <RepoFileTab key={`${rid}/${t.path}`} rid={rid} path={t.path} />
       case 'part': return <PartTab key={`${rid}/${t.file}`} rid={rid} file={t.file} info={msOfFile(t.file)} rapi={rapi} summary={summary} bus={bus} onSaved={flash} library={library} onLibraryChanged={libraryChanged}
-        row={notes.find((n) => n.type !== 'block' && n.file === t.file) ?? null} tocOwner={context?.focused ? tabKey(t) : null} onChanged={() => { changed(); notesChanged() }}
+        row={notes.find((n) => n.file === t.file) ?? null} tocOwner={context?.focused ? tabKey(t) : null} onChanged={() => { changed(); notesChanged() }}
         onShowPdf={() => setLayout((l) => showBeside(l, manuscriptPdfTab(msOfFile(t.file)?.key ?? ''), tabKey(t)))} />
       case 'concept': case 'paper':
         // Markdown 개념노트는 읽기 화면 (2026-10-04 재설계), LaTeX 노트는 예전 편집기.
@@ -406,11 +387,10 @@ export function App() {
         return <LibraryNoteEditor key={`${t.k}/${t.id}`} kind={t.k} id={t.id} info={library} rid={rid} project={summary.research.title} onChanged={libraryChanged} onSaved={flash} />
       case 'mspdf': return <ManuscriptPdfTab key={msKeyOfTab(t)} rid={rid} info={manuscripts.find((m) => m.key === msKeyOfTab(t)) ?? null} rapi={rapi} onSaved={flash} version={version}
         active={context?.active ?? false} pairedEditor={hasVisibleManuscriptEditor(context?.visibleTabs ?? [], msKeyOfTab(t), (file) => msOfFile(file)?.key)} />
-      case 'pdf': return <PdfTab rid={rid} bid={t.bid} title={tabTitle({ k: 'block', bid: t.bid }, summary)} rapi={rapi} />
       // 옛 작업 탭(todo)은 기록 화면으로 합쳤다 (10/21): 남은 탭도 기록을 연다
-      case 'todo': case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} version={version} />
-      case 'log': return <WorkPage key="log" rid={rid} rapi={rapi} summary={summary} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
-      case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} /></Lazy>
+      case 'todo': case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} version={version} />
+      case 'log': return <WorkPage key="log" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
+      case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} notes={notes} /></Lazy>
       case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
       case 'chat': {
@@ -421,17 +401,17 @@ export function App() {
       }
       case 'task': return <Lazy><TaskReport key={`${rid}/${t.task}`} rid={rid} id={t.task} version={version} project={current?.title ?? summary.research.title} topics={topics} onSaved={flash} tocOwner={context?.focused ? tabKey(t) : null} /></Lazy>
       case 'judge': return <JudgePage key={`${rid}/${t.id}`} rid={rid} id={t.id} notes={notes} onSaved={flash} />
-      case 'topic': return <TopicPage key={t.tid} rid={rid} rapi={rapi} tid={t.tid} notes={notes} manuscripts={manuscripts} blocks={summary.blocks} project={current?.title ?? summary.research.title} pc={projectColor(rid)}
+      case 'topic': return <TopicPage key={t.tid} rid={rid} rapi={rapi} tid={t.tid} notes={notes} manuscripts={manuscripts} project={current?.title ?? summary.research.title} pc={projectColor(rid)}
         version={version} onChanged={() => { changed(); notesChanged() }} onSaved={flash} />
-      case 'notes': case 'concepts': case 'papers': return <NotesPage key={t.k} show={t.k} rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts} library={library} onChanged={changed} onLibraryChanged={libraryChanged} onNewBlock={() => setDialog('new-block')} onSaved={flash} />
-      case 'statement': return <StatementTab key={`${rid}/${t.sid}`} rid={rid} sid={t.sid} rapi={rapi} summary={summary} bus={bus} onChanged={changed} />
+      case 'notes': case 'concepts': case 'papers': return <NotesPage key={t.k} show={t.k} rid={rid} rapi={rapi} summary={summary} notes={notes} manuscripts={manuscripts} library={library} onChanged={changed} onLibraryChanged={libraryChanged} onSaved={flash} />
+      case 'statement': return <StatementTab key={`${rid}/${t.sid}`} rid={rid} sid={t.sid} rapi={rapi} summary={summary} notes={notes} bus={bus} onChanged={changed} />
       case 'agents': return <AgentsPage key="agents" rid={rid} rapi={rapi} version={version} />
       case 'status': return <StatusPage key="status" rid={rid} rapi={rapi} />
       case 'changes': return <ChangesPage key="changes" rid={rid} />
       case 'repo': return <RepoPage key="repo" rid={rid} rapi={rapi} root={summary.root} version={version} />
       case 'files': return <FilesPage key="files" rid={rid} />
       case 'info': return (
-        <ProjectInfoPage rid={rid} rapi={rapi} summary={summary} manuscripts={manuscripts}
+        <ProjectInfoPage rid={rid} rapi={rapi} summary={summary} notes={notes} manuscripts={manuscripts}
           project={current} all={researches ?? []} onProfile={setProfile}
           onChanged={() => { changed(); void loadResearches() }} onSaved={flash} />
       )
@@ -447,7 +427,7 @@ export function App() {
   const noteOfPane = (i: number) => {
     const p = layout.panes[i]
     const t = isSection(route.page) && i === (layout.split ? layout.focus : 0) ? undefined : p?.tabs.find((x) => tabKey(x) === p.active)
-    const row = t?.k === 'block' || t?.k === 'pdf' ? notes.find((n) => n.type === 'block' && n.id === t.bid) : t?.k === 'part' ? notes.find((n) => n.type !== 'block' && n.file === t.file) : undefined
+    const row = t?.k === 'part' ? notes.find((n) => n.file === t.file) : undefined
     return row ? { file: row.file, title: row.title } : t?.k === 'part' ? { file: t.file, title: tabTitle(t, summary, manuscripts, library, topics) } : undefined
   }
   const agentNote = noteOfPane(layout.split ? layout.focus : 0)
@@ -482,7 +462,7 @@ export function App() {
               <button key={r.id} data-rid={r.id} className={`rail-proj${r.id === rid ? ' on' : ''}${r.available ? '' : ' off'}${railDrag.from === r.id && railDrag.over ? ' lifted' : ''}`} aria-current={r.id === rid ? 'true' : undefined} style={{ ['--pc' as string]: projectColor(r.id) }}
                 {...railDragProps(r.id)}
                 data-ui="프로젝트 버튼" data-ui-item={r.title} data-tip={`${r.title}  ${PROJECT_KIND_LABEL[r.kind]}${r.fields.length ? ` ${r.fields.map((t) => `#${t}`).join(' ')}` : ''}`} aria-label={r.title}
-                onClick={() => go({ page: 'overview', rid: r.id })}>{initials(r.title)}<ProjectRailCount n={issues.counts[r.id]} notes={issues.notes[r.id]} tasks={issues.tasks[r.id]} edits={issues.edits[r.id]} records={issues.records[r.id]} /></button>
+                onClick={() => go({ page: 'overview', rid: r.id })}>{initials(r.title)}<ProjectRailCount n={issues.counts[r.id]} tasks={issues.tasks[r.id]} edits={issues.edits[r.id]} records={issues.records[r.id]} /></button>
             ))}
             <button className="rail-proj add" data-ui="프로젝트 등록" data-tip={t('프로젝트 등록', 'Register project')} aria-label={t('프로젝트 등록', 'Register project')} onClick={() => setDialog('register')}>＋</button>
           </div>
@@ -541,11 +521,11 @@ export function App() {
                 ?? (route.page === 'flow' && flowSel ? flowTarget(flowSel.id, flowSel.title) : null)
               // 흐름 화면: 흐름 점의 기록을 모두 한 목록에 (10/20 사용자: 점을 누를 때마다 나뉘어 보기 어렵다). 적기는 고른 점에
               const flowRecords = route.page === 'flow'
-              const row = t?.k === 'block' || t?.k === 'pdf' ? notes.find((n) => n.type === 'block' && n.id === t.bid) : t?.k === 'part' ? notes.find((n) => n.type !== 'block' && n.file === t.file) : undefined
+              const row = t?.k === 'part' ? notes.find((n) => n.file === t.file) : undefined
               // 개념노트 탭이면 그 노트의 메모·연결 (2026-10-04 15:18 피드백: 오른쪽 사이드바에서)
               const cmd = t?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md' ? t.id : undefined
               const info = cmd ? <div className="cn-ctx"><ConceptSidePanel key={cmd} id={cmd} info={library} rid={rid} project={summary.research.title} slot onChanged={libraryChanged} onSaved={flash} /></div>
-                : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} projectKind={current?.kind ?? 'research'} version={version} slot={row.type === 'block' && t?.k === 'block'}
+                : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} projectKind={current?.kind ?? 'research'} version={version}
                   onChanged={() => { notesChanged(); changed() }} onSaved={flash} />
                   : <NoInfo />
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
@@ -560,24 +540,15 @@ export function App() {
         )}
       </div>
 
-      {dialog === 'new-block' && rapi && summary && rid && (
-        <NewBlockDialog blocks={summary.blocks} from={route.page === 'block' ? route.bid : undefined} onClose={() => setDialog(null)}
-          onCreate={async (input) => {
-            const b = await rapi.createBlock(input)
-            setDialog(null)
-            changed()
-            go({ page: 'block', rid, bid: b.id })
-          }} />
-      )}
       {quickMemo && rapi && summary && (() => {
-        const target = route.page === 'block' ? route.bid : RESEARCH_TARGET
-        const label = target === RESEARCH_TARGET ? t('이 프로젝트', 'This project') : summary.blocks.find((b) => b.id === target)?.title ?? target
+        const target = RESEARCH_TARGET
+        const label = t('이 프로젝트', 'This project')
         return (
           <QuickMemo target={target} targetLabel={label} onClose={() => setQuickMemo(false)}
             onSave={async (kind, text, to) => {
               // 할 일의 정본은 기록 파일 (2026-10-16). 메모는 오늘 일지에
               if (kind === 'todo') {
-                const place = to === RESEARCH_TARGET ? { target: 'project', title: summary.research.title } : blockTarget(to, label)
+                const place = { target: 'project', title: summary.research.title }
                 await recordWrites(summary.id).add(place.target, { kind: '할 일', text, ...place })
               } else await rapi.addJournal(kind, text, to)
               changed()
@@ -638,8 +609,6 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'edits': return L('수정 검토', 'Edit review')
     case 'flow': return L('흐름', 'Flow')
     case 'statement': { const x = summary?.statements.find((y) => y.id === tab.sid); return x ? shortLabel(x) : tab.sid }
-    case 'block': return summary?.blocks.find((b) => b.id === tab.bid)?.title ?? tab.bid
-    case 'pdf': return `${L('결과', 'Result')} · ${summary?.blocks.find((b) => b.id === tab.bid)?.title ?? tab.bid}`
     case 'doc': return tab.name
     case 'file': return tab.path.split('/').pop()!
     case 'task': return taskTitles.get(tab.task) ?? tab.task

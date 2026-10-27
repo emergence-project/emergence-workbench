@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { BlockRow, ResearchSummary, Statement } from './api'
+import type { NoteRow, Statement } from './api'
 import { paperOrder, proofState, shortLabel, statementGroup } from './notes'
 
 const st = (id: string, kind: string, label?: string, more: Partial<Statement> = {}): Statement =>
   ({ id, kind, label, uses: [], proofs: [], file: `${id}.md`, mtime: 0, hash: '', ...more })
-const block = (id: string, status: string, proves?: string) => ({ id, status, ...(proves && { extra: { proves } }) }) as unknown as BlockRow
-const summary = (statements: Statement[], blocks: BlockRow[]) => ({ statements, blocks }) as unknown as ResearchSummary
+const note = (id: string, status: string) => ({ id, status }) as unknown as NoteRow
+const ctx = (statements: Statement[], notes: NoteRow[]) => ({ statements, notes })
 
 describe('notes', () => {
   it('논문 순서: 바탕 → 공리 → 본문 → 부록, 묶음 안은 번호 순', () => {
@@ -27,11 +27,11 @@ describe('notes', () => {
   })
 
   it('증명 상태: 해결 > 진행 > 막힘 > 없음, 공리·정의는 따로', () => {
-    const s = st('s', 'proposition', undefined, { proofs: ['b1'] })
-    expect(proofState(summary([s], [block('b1', 'blocked')]), s)).toBe('blocked')
-    expect(proofState(summary([s], [block('b1', 'blocked'), block('b2', 'in-progress', 's')]), s)).toBe('in-progress')
-    expect(proofState(summary([s], [block('b1', 'solved'), block('b2', 'in-progress', 's')]), s)).toBe('solved')
-    expect(proofState(summary([s], []), s)).toBe('none')
-    expect(proofState(summary([], []), st('d', 'definition'))).toBe('given')
+    const s = st('s', 'proposition', undefined, { proofs: ['b1', 'b2'] })
+    expect(proofState(ctx([s], [note('b1', 'blocked')]), s)).toBe('blocked')
+    expect(proofState(ctx([s], [note('b1', 'blocked'), note('b2', 'in-progress')]), s)).toBe('in-progress')
+    expect(proofState(ctx([s], [note('b1', 'solved'), note('b2', 'in-progress')]), s)).toBe('solved')
+    expect(proofState(ctx([s], [note('b3', 'solved')]), s)).toBe('none')
+    expect(proofState(ctx([], []), st('d', 'definition'))).toBe('given')
   })
 })

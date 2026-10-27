@@ -9,16 +9,16 @@ import { Topic, TOPIC_COLORS } from './research.js'
 /** 노트 성격 하나 (없으면 미분류). design(설계)은 업무 프로젝트에만 고르게 한다 */
 export const NOTE_CATEGORIES = ['proof', 'calc', 'check', 'summary', 'explore', 'design'] as const
 export const NoteCategory = z.enum(NOTE_CATEGORIES)
-/** 색 점 값 (보조 노트 상태 이름, @rw/core BLOCK_STATUSES) */
+/** 색 점 값 (노트 상태 이름, @rw/core BLOCK_STATUSES) */
 export const BlockStatus = z.enum(['in-progress', 'blocked', 'stopped', 'solved']) satisfies z.ZodType<CoreBlockStatus>
 
 // ---------- 응답 ----------
 
-/** 노트 한 줄: 연구노트(note) · 계산 노트(calc) · 보조 노트(block) */
+/** 노트 한 줄: 연구노트(note) · 계산 노트(calc) */
 export const NoteRow = z.object({
-  /** 폴더 이름(연구노트·계산 노트) 또는 보조 노트 id. 갈래가 다르면 겹칠 수 있어 고칠 때는 file로 가리킨다 */
+  /** 노트 폴더 이름. 고칠 때는 file로 가리킨다 */
   id: z.string(),
-  type: z.enum(['note', 'calc', 'block']),
+  type: z.enum(['note', 'calc']),
   /** 본문 파일 (저장소 기준). 머리말을 고칠 때 이것으로 가리킨다 */
   file: z.string(),
   /** 연구노트·계산 노트를 원고 API로 열 때의 key */

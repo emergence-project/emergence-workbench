@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 /** 검색 창이 고를 수 있는 것 하나. 화면은 kind로 주소를 만든다. 개념노트(Markdown)는 개념노트 색인에서 따로 찾는다 */
 export const SearchItem = z.object({
-  kind: z.enum(['project', 'card', 'note', 'part', 'block', 'statement', 'paper', 'concept', 'person']),
+  kind: z.enum(['project', 'card', 'note', 'part', 'statement', 'paper', 'concept', 'person']),
   id: z.string(),
   title: z.string(),
   /** 이름 말고도 찾는 글 (다른 이름, 파일 이름, 저자, 소속) */

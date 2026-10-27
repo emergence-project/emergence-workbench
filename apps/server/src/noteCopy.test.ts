@@ -132,6 +132,7 @@ describe('연구노트·계산 노트 (원고 복사, 빈 노트)', () => {
 
   it('원고를 복사하면 부르는 파일까지 workbench/notes/ 아래로 옮겨 연구노트가 되고, 원고는 그대로다', async () => {
     const proj = makeRepo('note-kinds')
+    fs.rmSync(path.join(proj, 'workbench/notes'), { recursive: true }) // 예제의 노트 없이 시작한다
     const w = (rel: string, text: string) => { fs.mkdirSync(path.dirname(path.join(proj, rel)), { recursive: true }); fs.writeFileSync(path.join(proj, rel), text) }
     const paper = '\\documentclass{mypaper}\n\\usepackage{mymacros,amsmath}\n% \\input{commented}\n\\begin{document}\n\\input{sections/intro}\n\\includegraphics[width=1cm]{fig/a}\n\\bibliography{refs}\n\\end{document}\n'
     w('PRB.tex', paper)

@@ -30,7 +30,6 @@ import { registerKnowledge } from './routes/knowledge.js'
 import { registerSubjects } from './routes/subjects.js'
 import { registerConcepts } from './routes/concepts.js'
 import { registerStatements } from './routes/statements.js'
-import { registerBlocks } from './routes/blocks.js'
 import { registerProject } from './routes/project.js'
 import { registerManuscript } from './routes/manuscript.js'
 import { registerMaterials } from './routes/materials.js'
@@ -128,7 +127,6 @@ export const READ_ONLY_REQUESTS = new Set([
   'POST /api/app/update',
   'POST /api/app/restart',
   // 컴파일은 결과를 .build/·설정 폴더에만 쓴다(원본·캐시 stamp에 안 걸림). GitHub 주소 읽기는 아무것도 쓰지 않는다
-  'POST /api/researches/:rid/blocks/:bid/compile',
   'POST /api/researches/:rid/manuscript/compile',
   'POST /api/library/notes/:kind/:id/compile',
   'POST /api/researches/github',
@@ -321,7 +319,6 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerConcepts(app, ctx)
   registerSubjects(app, ctx)
   registerStatements(app, ctx)
-  registerBlocks(app, ctx)
   registerProject(app, ctx)
   registerManuscript(app, ctx)
   registerMaterials(app, ctx)

@@ -31,16 +31,17 @@ describe('project read stamps', () => {
   })
 
   it('a note body edit changes the project stamp but not the library one', () => {
-    const before = stamps()
     write('notes/n1/note.md', '# N1\n')
+    const before = stamps()
+    write('notes/n1/note.md', '# N1 edited\n')
     const after = stamps()
     expect(after.project).not.toBe(before.project)
     expect(after.refs).toBe(before.refs)
   })
 
-  it('blocks and research.yaml change both', () => {
+  it('note heads (note.yaml) and research.yaml change both', () => {
     let before = stamps()
-    write('blocks/new-block.tex', '% ---\n% title: New\n% ---\n')
+    write('notes/n1/note.yaml', 'name: N1\nconcepts: [x]\n')
     let after = stamps()
     expect(after.project).not.toBe(before.project); expect(after.refs).not.toBe(before.refs)
     before = after
@@ -56,7 +57,7 @@ describe('project read stamps', () => {
     read.invalidate()
     expect(read.papers()).toBe(papers)
     expect(await read.library()).toBe(library)
-    write('blocks/another.tex', '% ---\n% title: Another\n% ---\n')
+    write('notes/n1/note.yaml', 'name: N1\nconcepts: [y]\n')
     read.invalidate()
     expect(read.papers()).not.toBe(papers)
   })

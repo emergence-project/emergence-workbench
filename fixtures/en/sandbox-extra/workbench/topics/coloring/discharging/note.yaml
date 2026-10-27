@@ -1,0 +1,4 @@
+name: "Direct proof by discharging"
+state: stopped
+topics: [coloring]
+kind: proof

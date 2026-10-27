@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  appendJournalEntry, buildTree, parseBlock, parseInline, parseJournal, parseMemo, setTodoDone, editJournalEntry, suggestBlockId, updateBlockMeta,
+  appendJournalEntry, parseBlock, parseInline, parseJournal, parseMemo, setTodoDone, editJournalEntry, updateBlockMeta,
   type BlockMeta, type MemoBlock, type MetaPatch,
 } from './index.js'
 
@@ -92,53 +92,6 @@ describe('updateBlockMeta — 본문 무손실', () => {
   })
 })
 
-describe('buildTree', () => {
-  const m = (partial: Partial<BlockMeta>): BlockMeta => ({ alternatives: [], extra: {}, ...partial })
-  const blocks = [
-    { id: 'axioms', meta: m({ status: 'solved', created: '2026-09-12' }) },
-    { id: 'convex', meta: m({ status: 'solved', parent: 'axioms', created: '2026-09-18' }) },
-    { id: 'boundary', meta: m({ status: 'stopped', parent: 'axioms', stoppedReason: '범위 밖', created: '2026-09-20' }) },
-    { id: 'five', meta: m({ status: 'in-progress', parent: 'convex', created: '2026-09-21' }) },
-    { id: 'modular', meta: m({ status: 'in-progress', parent: 'convex', created: '2026-09-22' }) },
-    { id: 'low', meta: m({ status: 'blocked', parent: 'five', alternatives: ['kempe'], blockedReason: 'x', resumeCondition: 'y', created: '2026-09-25' }) },
-    { id: 'kempe', meta: m({ status: 'in-progress', parent: 'five', alternatives: ['low'], created: '2026-09-26' }) },
-  ]
-
-  it('뿌리·자식·펼친 순서·상태 수를 계산한다', () => {
-    const t = buildTree(blocks)
-    expect(t.roots).toEqual(['axioms'])
-    expect(t.children.axioms).toEqual(['convex', 'boundary'])
-    expect(t.order.map((o) => `${o.depth}:${o.id}`)).toEqual(['0:axioms', '1:convex', '2:five', '3:low', '3:kempe', '2:modular', '1:boundary'])
-    expect(t.counts).toEqual({ 'in-progress': 3, blocked: 1, stopped: 1, solved: 2 })
-    expect(t.issues).toEqual([])
-  })
-
-  it('양쪽에 적힌 다른 시도는 한 쌍으로 합친다', () => {
-    expect(buildTree(blocks).alternatives).toEqual([['kempe', 'low']])
-  })
-
-  it('이어서 할 것은 아래에 진행 중인 블록이 없는 진행 중 블록이다', () => {
-    expect(buildTree(blocks).frontier).toEqual(['kempe', 'modular'])
-  })
-
-  it('없는 부모, 고리, 이유 없는 막힘을 문제로 알리고 나무는 계속 만든다', () => {
-    const t = buildTree([
-      { id: 'a', meta: m({ parent: 'b' }) },
-      { id: 'b', meta: m({ parent: 'a' }) },
-      { id: 'c', meta: m({ parent: 'nowhere', status: 'blocked' }) },
-      { id: 'd', meta: m({ id: 'different', status: 'weird' }) },
-    ])
-    expect(t.issues).toEqual(expect.arrayContaining([
-      { kind: 'cycle', id: 'a' },
-      { kind: 'missing-parent', id: 'c', parent: 'nowhere' },
-      { kind: 'blocked-without-reason', id: 'c' },
-      { kind: 'id-mismatch', id: 'd', headerId: 'different' },
-      { kind: 'bad-status', id: 'd', status: 'weird' },
-    ]))
-    expect(t.order).toHaveLength(4)
-  })
-})
-
 describe('일지', () => {
   it('덧붙이고 다시 읽으면 같은 기록이 나온다', () => {
     let md = ''
@@ -207,23 +160,6 @@ describe('일지', () => {
     expect(parseJournal(md, '2026-10-01')).toEqual([
       { date: '2026-10-01', time: '09:05', kind: 'memo', target: '연구', text: '손으로 쓴 메모', index: 0 },
     ])
-  })
-})
-
-describe('suggestBlockId', () => {
-  const d = new Date(2026, 8, 30)
-  it('영문 단어로 id를 만들고, 한글 제목은 날짜로 만든다', () => {
-    expect(suggestBlockId('Five color 재유도', [], d)).toBe('five-color')
-    expect(suggestBlockId('강한 부가법칙으로 직접', [], d)).toBe('b-0930')
-  })
-  it('원고 컴파일 폴더와 겹치는 id(manuscript, manuscript-…)는 b-를 붙인다', () => {
-    expect(suggestBlockId('Manuscript notes', [], d)).toBe('b-manuscript-notes')
-    expect(suggestBlockId('Manuscript', [], d)).toBe('b-manuscript')
-    expect(suggestBlockId('Manuscripts', [], d)).toBe('manuscripts')
-  })
-  it('겹치면 번호를 붙인다', () => {
-    expect(suggestBlockId('Kempe', ['kempe', 'kempe-2'], d)).toBe('kempe-3')
-    expect(suggestBlockId('가나다', ['b-0930'], d)).toBe('b-0930-2')
   })
 })
 

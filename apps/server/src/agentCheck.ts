@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { awaitsUserReview, frontMatter, isValidBlockId, isBlockStatus, parseBlock, parseList } from '@rw/core'
+import { awaitsUserReview, frontMatter } from '@rw/core'
 import { NOTE_CATEGORIES } from '@rw/core/contract/notes'
 import { NOTE_STATES } from './noteMeta.js'
 import { researchText } from './researchYaml.js'
@@ -22,7 +22,6 @@ const NOTE_KEYS = new Set(['name', 'from', 'description', 'state', 'resume', 'to
 /** 주제 칸 (research.yaml topics: 안 모양, 주제 폴더의 topic.yaml) */
 const TOPIC_KEYS = new Set(['id', 'title', 'star', 'description', 'preview', 'parts', 'blocks', 'done', 'manuscript'])
 const TOPIC_ID = /^[a-z0-9][a-z0-9-]*$/
-const BLOCK_KEYS = new Set(['id', 'created', 'title', 'status', 'blocked-reason', 'resume-condition', 'stopped-reason', 'parent', 'alternatives', 'next', 'concepts', 'topics', 'kind', 'description', 'star'])
 const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {}
 const list = (v: unknown): unknown[] => Array.isArray(v) ? v : v == null ? [] : [v]
 
@@ -171,7 +170,7 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
     const n = text === undefined ? undefined : yaml(file, text)
     if (!n) continue
     const { data, line } = n
-    if ('status' in data) issue('error', file, line('status'), 'note.yaml은 `state:`를 쓴다. `status:`는 블록 노트 머리의 키입니다.', 'note.yaml uses `state:`. `status:` is a block note header key.')
+    if ('status' in data) issue('error', file, line('status'), 'note.yaml은 `state:`를 쓴다. `status:`는 쓰지 않습니다.', 'note.yaml uses `state:`, not `status:`.')
     if ('state' in data && (!NOTE_STATES.some((state) => state === data.state) || data.state === 'active')) issue('error', file, line('state'), 'state는 paused · stopped · done 중 하나입니다. 진행이면 키를 두지 않는다.', 'state must be paused · stopped · done. Omit the key for an active note.')
     for (const key of Object.keys(data)) if (!NOTE_KEYS.has(key) && key !== 'status') {
       const replacement = key === 'summary' ? 'description' : key === 'done' ? 'state: done' : undefined
@@ -208,41 +207,9 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
       if (!(typeof fm.title === 'string' && fm.title.trim()) && !/^#\s+\S/m.test(f.body)) issue('warning', file, 1, '머리말 title이나 # 제목이 없습니다.', 'No title in the front matter and no # heading.')
     }
   }
-  const blocks = entries(wb.blocksDir).filter((e) => /\.(md|tex)$/.test(e.name))
-  const names = new Set(blocks.map((e) => e.name))
-  for (const entry of blocks) {
-    const file = rel(path.join(wb.blocksDir, entry.name))
-    const id = entry.name.replace(/\.(md|tex)$/, '')
-    if (!isValidBlockId(id)) issue('error', file, 1, '파일 이름이 블록 id 모양이 아닙니다 (소문자·숫자·하이픈, 80자까지).', 'Filename is not a block id (lowercase letters, digits, hyphens, up to 80 characters).')
-    if (entry.name.endsWith('.md') && names.has(`${id}.tex`)) issue('warning', file, 1, `같은 id의 .md·.tex가 함께 있습니다. .md가 이긴다: ${id}`, `Both .md and .tex exist for ${id}; .md takes precedence.`)
-    const text = read(path.join(wb.blocksDir, entry.name))
-    if (text === undefined) continue
-    const parsed = parseBlock(text)
-    const rows = text.split(/\r?\n/)
-    if (/^(?:%\s*)?---\s*$/.test(rows[0]!) && !parsed.hasHeader) issue('error', file, 1, '블록 머리가 80줄 안에서 닫히지 않았거나 % 줄 형식이 깨졌습니다.', 'Block header is not closed within 80 lines or has invalid % lines.')
-    if (!parsed.hasHeader) continue
-    const header = rows.slice(1, parsed.bodyStartLine - 2).map((row) => row.replace(/^%\s?/, ''))
-    const line = (key: string) => { const i = header.findIndex((row) => /^([a-z][a-z0-9_-]*)\s*:/.exec(row)?.[1] === key); return i < 0 ? 1 : i + 2 }
-    const { meta } = parsed
-    if (meta.id !== undefined && meta.id !== id) issue('error', file, line('id'), '머리 id가 파일 이름과 다릅니다.', 'Header id differs from the filename.')
-    if (meta.status !== undefined && !isBlockStatus(meta.status)) issue('error', file, line('status'), 'status는 in-progress · blocked · stopped · solved 중 하나입니다. 앱은 틀린 값을 진행으로 읽습니다.', 'status must be in-progress · blocked · stopped · solved. The app treats invalid values as in-progress.')
-    if (meta.status === 'blocked') for (const [key, value] of [['blocked-reason', meta.blockedReason], ['resume-condition', meta.resumeCondition]]) if (!value) issue('warning', file, line('status'), `blocked이면 ${key}이 필요합니다.`, `${key} is required for blocked notes.`)
-    if (meta.status === 'stopped' && !meta.stoppedReason) issue('warning', file, line('status'), 'stopped이면 stopped-reason이 필요합니다.', 'stopped-reason is required for stopped notes.')
-    header.forEach((row, i) => {
-      const key = /^([a-z][a-z0-9_-]*)\s*:/.exec(row)?.[1]
-      if (!key) return
-      if (key.includes('_')) issue('warning', file, i + 2, `키에 _ 대신 -를 쓰세요: ${key}`, `Use - instead of _ in key: ${key}`)
-      if (BLOCK_KEYS.has(key) && /^[a-z][a-z0-9-]*\s*:\s*$/.test(row)) {
-        const more: string[] = []
-        for (let j = i + 1; j < header.length; j++) {
-          if (!header[j]!.trim()) continue
-          if (/^\s/.test(header[j]!) || /^-\s/.test(header[j]!)) more.push(header[j]!); else break
-        }
-        if (more.some((v) => /^\s*-\s/.test(v))) issue('error', file, i + 2, `${key}는 여러 줄 목록 대신 한 줄 [a, b]로 적으세요. 앱은 목록을 []로 읽습니다.`, `Write ${key} as a single-line [a, b], not a multiline list. The app reads it as [].`)
-      }
-    })
-    checkTopics(file, line('topics'), parseList(meta.extra.topics ?? ''))
-  }
+  // 블록 노트는 2026-10-27에 없앴다: 앱이 읽지 않으니 같은 id의 노트(topics/<주제>/<id>/)로 옮긴다
+  const blocks = entries(path.join(wb.root, 'blocks')).filter((e) => /\.(md|tex)$/.test(e.name))
+  for (const entry of blocks) issue('error', rel(path.join(wb.root, 'blocks', entry.name)), 1, '블록 노트는 2026-10-27부터 앱이 읽지 않습니다. 같은 이름의 노트 폴더(topics/<주제>/<id>/)로 옮기고 머리를 note.yaml에 적으세요.', 'Block notes are no longer read since 2026-10-27. Move this into a note folder of the same name (topics/<topic>/<id>/) with its header in note.yaml.')
   for (const entry of entries(path.join(wb.root, 'tasks'))) if (entry.name.endsWith('.md') && entry.isFile()) read(path.join(wb.root, 'tasks', entry.name))
   diagnostics.push(...scanTasks(wb).diagnostics.map(({ file, line, message }) => ({ level: 'error' as const, file, line, message })))
   // 기록의 쓴 이 (10/21): 앱 · MCP는 늘 by나 src를 적으므로, 둘 다 없는 새 기록은 파일에 직접 쓴 것이다

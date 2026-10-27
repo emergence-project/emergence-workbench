@@ -17,8 +17,6 @@ export const noteExportUrl = (rid: string, keys: string[], o: ExportChoice = {})
   `/api/researches/${enc(rid)}/export?${[...keys.map((k) => `ms=${enc(k)}`), ...choiceParams({ ...o, records: undefined })].join('&')}`
 
 /** 보조 노트도 같은 서식·저자·날짜로 LaTeX 폴더 zip을 받는다. */
-export const blockExportUrl = (rid: string, id: string, o: ExportChoice = {}) =>
-  `/api/researches/${enc(rid)}/export?${[`block=${enc(id)}`, ...choiceParams({ ...o, records: undefined })].join('&')}`
 
 /** 고른 서식·저자·날짜를 주소 뒤에 붙일 조각으로 (내보내기와 컴파일이 같이 쓴다) */
 export const choiceParams = (o: ExportChoice): string[] => [

@@ -12,7 +12,6 @@ import { statementsDir } from './statements.js'
  * 화면은 자기가 아는 해시와 비교해, 자기가 저장한 변경인지 바깥 변경인지 가린다.
  */
 type Target =
-  | { type: 'block'; id: string }
   | { type: 'journal'; date: string }
   | { type: 'research' }
   | { type: 'preamble' }
@@ -23,7 +22,6 @@ type Target =
   | { type: 'sources' }
 
 export type WorkbenchEvent =
-  | { type: 'block'; research: string; id: string; hash: string | null }
   | { type: 'journal'; research: string; date: string }
   | { type: 'research'; research: string }
   | { type: 'preamble'; research: string }
@@ -50,7 +48,6 @@ export function classify(root: string, file: string): Target | null {
   const rel = path.relative(root, file).split(path.sep)
   if (rel.some((p) => p.startsWith('.'))) return null
   const [a, b] = rel
-  if (rel.length === 2 && a === 'blocks' && /\.(tex|md)$/.test(b!)) return { type: 'block', id: b!.replace(/\.(tex|md)$/, '') }
   if (rel.length === 2 && a === 'log') {
     const m = /^(\d{4}-\d{2}-\d{2})\.md$/.exec(b!)
     return m ? { type: 'journal', date: m[1]! } : null
@@ -97,9 +94,7 @@ export function watchWorkbench(research: string, root: string, emit: (e: Workben
     const t = classify(root, file)
     if (!t) return
     const hash = () => (event === 'unlink' || !fs.existsSync(file) ? null : hashOf(fs.readFileSync(file, 'utf8')))
-    if (t.type === 'block') {
-      emit({ type: 'block', research, id: t.id, hash: hash() })
-    } else if (t.type === 'note') {
+    if (t.type === 'note') {
       emit({ type: 'note', research, file: t.file, hash: hash() })
     } else {
       emit({ ...t, research })

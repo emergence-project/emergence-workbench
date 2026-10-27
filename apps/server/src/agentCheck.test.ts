@@ -23,7 +23,7 @@ const check = () => withLang('ko', () => checkWorkbench(wb))
 describe('직접 고친 연구 파일의 읽기 전용 검사', () => {
   it('예제 연구는 오류가 없고 파일 수를 센다', () => {
     const result = check()
-    expect(result.files).toBe(3)
+    expect(result.files).toBe(5)
     expect(result.diagnostics.filter((d) => d.level === 'error')).toEqual([])
     for (const d of result.diagnostics) console.info(d)
   })
@@ -40,7 +40,6 @@ describe('직접 고친 연구 파일의 읽기 전용 검사', () => {
     ['notes/example/note.yaml', '\uFEFFname: 노트\n'],
     ['notes/example/note.md', '\uFEFF# 노트\n'],
     ['calc/example/main.tex', '\uFEFF\\section{계산}\n'],
-    ['blocks/example.tex', '\uFEFF% ---\n% id: example\n% ---\n'],
     ['tasks/2026-10-10-example.md', '\uFEFF---\ntitle: 일\nstate: working\ntask: 검사\n---\n'],
   ])('%s의 BOM을 오류로 보고한다', (file, text) => {
     write(file, text)
@@ -88,50 +87,17 @@ describe('직접 고친 연구 파일의 읽기 전용 검사', () => {
     ]))
   })
 
-  it.each([
-    ['닫히지 않은 머리', '---\nid: example\n', 'error', '80줄'],
-    ['80줄 넘는 머리', `---\n${'unknown: x\n'.repeat(79)}---\n`, 'error', '80줄'],
-    ['다른 id', '---\nid: another\n---\n', 'error', '파일 이름과 다릅니다'],
-    ['틀린 상태', '---\nstatus: done\n---\n', 'error', 'status는'],
-    ['멈춘 이유 없음', '---\nstatus: blocked\nresume-condition: 재개\n---\n', 'warning', 'blocked-reason'],
-    ['재개 조건 없음', '---\nstatus: blocked\nblocked-reason: 이유\n---\n', 'warning', 'resume-condition'],
-    ['폐기 이유 없음', '---\nstatus: stopped\n---\n', 'warning', 'stopped-reason'],
-    ['밑줄 키', '---\nblocked_reason: 이유\n---\n', 'warning', '_ 대신 -'],
-    ['없는 주제', '---\ntopics: [missing]\n---\n', 'warning', '없는 주제 id'],
-  ] as const)('블록 머리: %s', (_, text, level, message) => {
-    block(text)
-    expect(check().diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ level, file: 'workbench/blocks/example.md', message: expect.stringContaining(message) })]))
-  })
-
-  it.each(['parent', 'alternatives', 'next', 'concepts', 'topics'])('%s의 여러 줄 목록을 오류로 보고한다', (key) => {
-    block(`---\n${key}:\n  - something\n---\n`)
-    expect(check().diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ level: 'error', line: 2, message: expect.stringContaining(`${key}는 여러 줄 목록`) })]))
-  })
-
-  it('여러 줄 설명 안의 목록은 한 줄 키의 목록 형식 오류로 오해하지 않는다', () => {
-    block('---\ndescription: |-\n  - 첫 설명\n  - 둘째 설명\n---\n')
-    expect(check().diagnostics).toEqual([])
-  })
-
-  it('TeX 머리도 같은 키와 목록을 검사한다', () => {
-    block('% ---\n% id: different\n% topics:\n%   - missing\n% ---\n', 'example.tex')
-    expect(check().diagnostics.filter((d) => d.level === 'error')).toHaveLength(2)
-  })
-
-  it('틀린 파일 이름과 같은 id의 두 확장자를 보고한다', () => {
-    block('# 본문\n', 'Invalid.md')
-    block('# 본문\n')
-    block('\\section{본문}\n', 'example.tex')
-    expect(check().diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: 'error', file: 'workbench/blocks/Invalid.md' }),
-      expect.objectContaining({ level: 'warning', file: 'workbench/blocks/example.md', message: expect.stringContaining('.md가 이긴다') }),
-    ]))
+  it('블록 노트 폴더(blocks/)가 남아 있으면 노트 폴더로 옮기라고 오류로 보고한다 (2026-10-27)', () => {
+    block('---\nstatus: blocked\n---\n')
+    block('\\section{본문}\n', 'other.tex')
+    const errors = check().diagnostics.filter((d) => d.level === 'error')
+    expect(errors.map((d) => d.file).sort()).toEqual(['workbench/blocks/example.md', 'workbench/blocks/other.tex'])
+    expect(errors[0]!.message).toContain('topics/<주제>/<id>/')
   })
 
   it('유효한 새·옛 노트 상태와 주제는 오류로 세지 않는다', () => {
     write('research.yaml', 'topics:\n  - title: 주제\n    id: topic\n')
     note('state: paused\nresume: 재개\nkind: none\ntopics: [topic]\n')
-    block('---\nstatus: blocked\nblocked-reason: 이유\nresume-condition: 재개\ntopics: [topic]\n---\n')
     write('calc/done/main.tex', '\\section{계산}\n')
     write('calc/done/note.yaml', 'done: true\n')
     expect(check().diagnostics.filter((d) => d.level === 'error')).toEqual([])

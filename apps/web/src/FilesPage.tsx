@@ -46,9 +46,9 @@ export function meaningOf(rid: string, path: string, dir: Dir | null, sources: P
     if (a === 'research.yaml') return { label: t('프로젝트 정보', 'Project info'), to: { page: 'info', rid } }
     if (a === 'topics' && seg.length === 2) return { label: t(`주제${n(subdirs)}`, `Topics${n(subdirs)}`) }
     if (a === 'topics' && b && seg.length === 3 && dir) return { label: t('주제', 'Topic'), to: { page: 'topic', rid, tid: b } }
-    if (a === 'topics' && c && seg.length === 4 && dir) return { label: t('노트', 'Note'), to: { page: 'block', rid, bid: c } }
+    if (a === 'topics' && c && seg.length === 4 && dir) return { label: t('노트', 'Note') }
     if (a === 'notes' && seg.length === 2) return { label: t(`노트${n(subdirs)}`, `Notes${n(subdirs)}`) }
-    if (a === 'notes' && b && seg.length === 3 && dir) return { label: t('노트', 'Note'), to: { page: 'block', rid, bid: b } }
+    if (a === 'notes' && b && seg.length === 3 && dir) return { label: t('노트', 'Note') }
     if (seg.length === 2 && dir) {
       if (a === 'flow') return { label: t(`흐름 점${n(kids)}`, `Flow dots${n(kids)}`), to: { page: 'flow', rid } }
       if (a === 'comments') return { label: t(`기록${n(kids)}`, `Records${n(kids)}`), to: { page: 'records', rid } }

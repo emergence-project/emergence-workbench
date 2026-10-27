@@ -1,6 +1,7 @@
 import { awaitsUserReview, type JournalEntry } from '@rw/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { type CommentEntry, type ProjectInfo, type RecordFile, type ResearchApi, type ResearchSummary, type Topic } from './api'
+import { type CommentEntry, type NoteRow, type ProjectInfo, type RecordFile, type ResearchApi, type ResearchSummary, type Topic } from './api'
+import type { NoteOf } from './journalTargets'
 import type { FlashAction } from './flash'
 import { MemoList } from './memo'
 import { reviewStatusLabel } from './reviewStatus'
@@ -33,9 +34,10 @@ function useJournalEdit(rapi: ResearchApi, reload: () => Promise<unknown>, onSav
 
 const NO_FILES: RecordFile[] = []
 
-export function useTitles(summary: ResearchSummary) {
-  const byId = useMemo(() => new Map(summary.blocks.map((b) => [b.id, b])), [summary.blocks])
-  return (id: string) => byId.get(id)?.title ?? id
+/** 기록 대상 id → 노트 (옛 블록 노트 id는 같은 이름의 노트 폴더) */
+export function useNoteOf(notes: NoteRow[]): NoteOf {
+  const byId = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
+  return (id: string) => byId.get(id)
 }
 
 /**
@@ -46,8 +48,8 @@ export function useTitles(summary: ResearchSummary) {
  * - 모두: 종류(메모 · 할 일 · 질문 · 지시 · 맡긴 일)로 거르고 적는다. 끝낸 것과 작업 일지는 맨 아래에 접어 둔다.
  * 옛 작업 탭 주소(#/…/todo, #/…/log)도 이 화면을 연다.
  */
-export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPartOf, onOpenPdf, version = 0 }: {
-  rid: string; rapi: ResearchApi; summary: ResearchSummary; topics: Topic[]; onSaved(message: string, action?: FlashAction): void
+export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, firstPartOf, onOpenPdf, version = 0 }: {
+  rid: string; rapi: ResearchApi; summary: ResearchSummary; notes: NoteRow[]; topics: Topic[]; onSaved(message: string, action?: FlashAction): void
   /** log: 옛 작업 일지 주소. 모두를 열고 작업 일지를 펼쳐 그 자리로 내려간다 */
   focus?: 'log'
   firstPartOf(target: string): string | undefined; onOpenPdf(file: RecordFile): boolean
@@ -56,7 +58,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
 }) {
   const { entries, loaded: journalLoaded, reload, toggle } = useJournal(rapi)
   const edit = useJournalEdit(rapi, reload, onSaved)
-  const titleOf = useTitles(summary)
+  const noteOf = useNoteOf(notes)
   // 할 일의 정본은 기록 파일이다 (2026-10-16). 일지에는 끝낸 일 · 상태 · 메모 (예전 일지의 끝낸 할 일 포함)
   const past = entries.filter((e) => !(e.kind === 'todo' && !e.done))
   // 처음 열면 내 차례 (오른쪽 사이드바 "모두 보기"와 첫 화면 할 일은 모두로 연다)
@@ -193,7 +195,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
                 {groups.map((group) => <div className="record-group" key={group.target}>
                   {group.items.map((item) => item.kind === 'record'
                     ? <div key={`${item.file.target}/${item.entry.id}`} data-todo-key={todoKey({ target: item.file.target, id: item.entry.id })}><RecordList rid={rid} file={item.file} filter={filter as RecordFilter | '전체'} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} /></div>
-                    : <JournalRecordRow key={`journal/${item.entry.date}/${item.entry.index}`} entry={item.entry} rid={rid} titleOf={titleOf} rapi={rapi} reload={reload} onSaved={onSaved} />)}
+                    : <JournalRecordRow key={`journal/${item.entry.date}/${item.entry.index}`} entry={item.entry} rid={rid} noteOf={noteOf} rapi={rapi} reload={reload} onSaved={onSaved} />)}
                 </div>)}
               </div>
               {isRecordFilter(filter) && <WorkComposer key={rid} filter={filter} onSave={async (kind, text) => {
@@ -204,7 +206,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
             </>}
             <details ref={logRef} className="work-log" data-ui="기록">
               <summary className="work-h" title={t('끝낸 할 일, 상태 변화, 메모 · workbench/log/ (읽기만 해도 됩니다)', 'Finished to-dos, status changes, memos · workbench/log/')}>{t('작업 일지', 'Work journal')} <span className="muted">{t(`끝낸 것 · 상태 변화 ${past.length}`, `Done · status changes ${past.length}`)}</span></summary>
-              <MemoList entries={past} rid={rid} titleOf={titleOf} onToggle={toggle} {...edit}
+              <MemoList entries={past} rid={rid} noteOf={noteOf} onToggle={toggle} {...edit}
                 empty={t('아직 기록이 없습니다. 할 일을 끝내거나 노트의 상태를 바꾸면 여기에 쌓입니다.', 'No records yet. Finishing a to-do or changing a note status adds one here.')} />
             </details>
           </>}

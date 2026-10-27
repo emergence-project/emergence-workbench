@@ -27,8 +27,7 @@ const LOOSE = LOOSE_TOPIC_ID
 
 /** 지금 주소가 연 노트 */
 export function noteOfRoute(route: Route, notes: NoteRow[]): NoteRow | null {
-  if (route.page === 'block') return notes.find((n) => n.type === 'block' && n.id === route.bid) ?? null
-  if (route.page === 'part') return notes.find((n) => n.type !== 'block' && n.file === route.file) ?? null
+  if (route.page === 'part') return notes.find((n) => n.file === route.file) ?? null
   return null
 }
 

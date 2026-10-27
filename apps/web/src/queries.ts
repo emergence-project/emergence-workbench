@@ -118,8 +118,6 @@ function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat'
   switch (e.type) {
     // research.yaml(제목 · 주제 · 원고 선언 …)이 바뀌면 그 프로젝트의 모든 자료와 프로젝트 목록
     case 'research': return [qk.project(rid), qk.researches, qk.agentEdits(rid)]
-    // 블록 노트: 요약(블록 줄 · 나무), 노트 목록(블록 노트 줄), 주제 카드 수, 라이브러리의 "쓰는 곳", 고침 검토(에이전트가 고친 노트)
-    case 'block': return [qk.summary(rid), qk.notes(rid), qk.topics(rid), qk.library, qk.agentEdits(rid), qk.records(rid), qk.repoFiles(rid)]
     // 노트 파일: 노트 목록 · 주제 카드 수 · 원고(노트도 원고일 수 있다) · 라이브러리의 "쓰는 곳" · 고침 검토
     case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library, qk.agentEdits(rid), qk.records(rid), qk.repoFiles(rid)]
     case 'statement': return [qk.summary(rid)]

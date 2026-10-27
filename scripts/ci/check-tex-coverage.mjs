@@ -15,7 +15,7 @@ export const TEX_INPUT_FILES = [
   'apps/server/src/conceptNotes.ts', 'apps/server/src/figureEmbeds.ts', 'apps/server/src/figures.ts',
   'apps/server/src/noteBody.ts', 'apps/server/src/noteBib.ts', 'apps/server/src/noteMeta.ts',
   'apps/server/src/noteCopy.ts', 'apps/server/src/noteExport.ts',
-  'apps/server/src/routes/blocks.ts', 'apps/server/src/routes/manuscript.ts', 'apps/server/src/routes/library.ts',
+  'apps/server/src/routes/manuscript.ts', 'apps/server/src/routes/library.ts',
   'apps/server/src/routes/latexChoice.ts', 'apps/server/src/routes/latexSetup.ts',
   'apps/server/src/testkit.ts', 'packages/core/src/block-header.ts',
 ]

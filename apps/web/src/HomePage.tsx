@@ -114,7 +114,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
       r,
       question: l && !(l instanceof Error) ? l.summary.research.question : '',
       image: l && !(l instanceof Error) ? l.summary.research.image : undefined,
-      last: l && !(l instanceof Error) ? lastWorkMs(l.summary, l.entries) : undefined,
+      last: l && !(l instanceof Error) ? lastWorkMs(l.entries) : undefined,
       error: l instanceof Error ? l.message : r.problem,
       // 기본 브랜치가 아닌 폴더는 새 커밋이 없어도 업데이트 기호로 알린다 (저절로 받기 · 기록 올리기가 멈춤, 10/22)
       mark: attentionOf(issues[r.id] ?? 0, sync?.defaultBranch ? Math.max(1, sync.behind) : sync?.behind ?? 0),
@@ -284,7 +284,7 @@ export function ProjectCard(p: ProjectCardProps) {
 /** 상태 기호 하나. 업데이트 필요이고 앱에서 받을 수 있으면(빨리 감기만) 누르면 받는다 */
 function Attention({ mark, issues, tasks = 0, edits = 0, records = 0, sync, onUpdate }: Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'records' | 'sync'> & { onUpdate?(): void }) {
   if (!mark) return null
-  const tip0 = issueTip(issues - tasks - edits - records, tasks, edits, records)
+  const tip0 = issueTip(tasks, edits, records)
   const checkTip = t(`확인 필요 — ${tip0}`, `Needs review: ${tip0}`)
   const updateReason = sync?.ahead ? t(' · 이 컴퓨터에 커밋이나 변경이 있어 터미널에서 git pull', ' · this computer has commits or changes, so run git pull in a terminal')
     : sync?.conflictCount ? t(` · 이 컴퓨터의 변경과 겹치는 파일: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` 외 ${sync.conflictCount - sync.conflicts.length}개` : ''} (터미널에서 합치기)`, ` · Files overlapping with changes on this computer: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` and ${sync.conflictCount - sync.conflicts.length} more` : ''} (merge in a terminal)`)

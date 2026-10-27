@@ -16,11 +16,11 @@ const msOfFile = (file: string) => ({ 'a.tex': '', 'b.tex': 'b' })[file]
 
 describe('opening notes from an address, sidebar or topic', () => {
   const cases: [[Tab, Tab], [Tab, Tab], [Tab, Tab]] = [
-    [{ k: 'block', bid: 'proof' }, { k: 'pdf', bid: 'proof' }],
+    [{ k: 'part', file: 'workbench/topics/t/proof/main.tex' }, manuscriptPdfTab('workbench/topics/t/proof/main.tex')],
     [{ k: 'part', file: 'workbench/notes/x/note.md' }, manuscriptPdfTab('workbench/notes/x/note.md')],
     [{ k: 'part', file: 'a.tex' }, manuscriptPdfTab('')],
   ]
-  const key = (t: Tab) => t.k === 'block' ? `block:${t.bid}` : t.k === 'part' ? `part:${t.file}` : ''
+  const key = (t: Tab) => t.k === 'part' ? `part:${t.file}` : ''
   /** 패널 나누기를 켠 빈 화면 (두 칸이 보인다) */
   const empty = (focus: 0 | 1): Layout => ({ ...layout(), panes: [{ tabs: [], active: null }, { tabs: [], active: null }], focus, showBothPanes: true })
 
@@ -106,7 +106,7 @@ describe('opening notes from an address, sidebar or topic', () => {
 
   it('adds a tab only for ⌘/Ctrl+click, unsaved edits, or no current tab', () => {
     const [a] = cases[0]
-    const b: Tab = { k: 'block', bid: 'other' }
+    const b: Tab = { k: 'part', file: 'other.md' }
     const state: Layout = { ...empty(0), panes: [{ tabs: [a], active: key(a) }, { tabs: [], active: null }] }
     expect(openRoute(state, b, null, { newTab: true }).panes[0].tabs).toEqual([a, b])
     expect(openRoute(state, b, null, { keep: (k) => k === key(a) }).panes[0].tabs).toEqual([a, b])
@@ -114,10 +114,11 @@ describe('opening notes from an address, sidebar or topic', () => {
     const none: Layout = { ...state, panes: [{ tabs: [a], active: null }, { tabs: [], active: null }] }
     expect(openRoute(none, b).panes[0].tabs).toEqual([a, b])
     // 논문은 노트를 가리지 않게 옆 칸에 열고, 옆 칸의 PDF 탭은 바꾸지 않는다
-    const writing: Layout = { ...state, panes: [{ tabs: [a], active: key(a) }, { tabs: [{ k: 'pdf', bid: 'proof' }], active: 'pdf:proof' }] }
+    const pdfTab = manuscriptPdfTab('proof')
+    const writing: Layout = { ...state, panes: [{ tabs: [a], active: key(a) }, { tabs: [pdfTab], active: tabKey(pdfTab) }] }
     const paper = openRoute(writing, { k: 'paper', id: 'p' })
-    expect(paper.panes[1].tabs).toEqual([{ k: 'pdf', bid: 'proof' }, { k: 'paper', id: 'p' }])
-    expect(openRoute(paper, { k: 'paper', id: 'q' }).panes[1].tabs).toEqual([{ k: 'pdf', bid: 'proof' }, { k: 'paper', id: 'q' }])
+    expect(paper.panes[1].tabs).toEqual([pdfTab, { k: 'paper', id: 'p' }])
+    expect(openRoute(paper, { k: 'paper', id: 'q' }).panes[1].tabs).toEqual([pdfTab, { k: 'paper', id: 'q' }])
   })
 
   it('moves a note tab opened again from the right pane to the left', () => {
@@ -125,7 +126,7 @@ describe('opening notes from an address, sidebar or topic', () => {
     const state = empty(1)
     state.panes = [{ tabs: [{ k: 'part', file: 'a.tex' }], active: 'part:a.tex' }, { tabs: [note, { k: 'paper', id: 'p' }], active: 'paper:p' }]
     const opened = openRoute(state, note, pdf, { newTab: true })
-    expect(opened.panes[0]).toEqual({ tabs: [{ k: 'part', file: 'a.tex' }, note], active: 'block:proof' })
+    expect(opened.panes[0]).toEqual({ tabs: [{ k: 'part', file: 'a.tex' }, note], active: key(note) })
     // 오른쪽 칸의 논문은 가리지 않는다
     expect(opened.panes[1]).toEqual({ tabs: [{ k: 'paper', id: 'p' }], active: 'paper:p' })
   })
@@ -168,15 +169,17 @@ describe('opening notes from an address, sidebar or topic', () => {
     expect(workspaceVisibility(opened, 'part').visibleTabs).toEqual([cases[1][0], { k: 'paper', id: 'p' }])
   })
 
-  it('corrects a saved flipped layout: notes left, PDFs right (10/7 버그)', () => {
+  it('corrects a saved flipped layout: notes left, PDFs right (10/7 버그), and drops removed block-note tabs', () => {
     const [note, pdf] = cases[1]
+    // 2026-10-27 전에 저장한 블록 노트 탭과 그 결과 PDF 탭
+    const old = [{ k: 'block', bid: 'old' }, { k: 'pdf', bid: 'old' }] as unknown as Tab[]
     const saved: Layout = {
       ...empty(1),
-      panes: [{ tabs: [pdf, { k: 'paper', id: 'p' }], active: tabKey(pdf) }, { tabs: [{ k: 'block', bid: 'old' }, note], active: key(note) }],
+      panes: [{ tabs: [pdf, { k: 'paper', id: 'p' }, old[1]!], active: tabKey(pdf) }, { tabs: [old[0]!, note], active: key(note) }],
     }
     const restored = restoreLayout(saved)
     expect(restored.focus).toBe(0)
-    expect(restored.panes[0]).toEqual({ tabs: [{ k: 'paper', id: 'p' }, { k: 'block', bid: 'old' }, note], active: null })
+    expect(restored.panes[0]).toEqual({ tabs: [{ k: 'paper', id: 'p' }, note], active: null })
     expect(restored.panes[1]).toEqual({ tabs: [pdf], active: null })
     const opened = openRoute(restored, note, pdf)
     expect(opened.panes[0].active).toBe(key(note))
@@ -208,16 +211,9 @@ describe('opening notes from an address, sidebar or topic', () => {
 })
 
 describe('route PDF existence', () => {
-  it.each([false, true])('uses block PDF state (hasPdf=%s)', async (hasPdf) => {
-    const rapi = { pdfState: vi.fn().mockResolvedValue({ hasPdf, stale: false }), manuscripts: vi.fn() }
-    expect(await routePdf({ k: 'block', bid: 'proof' }, rapi)).toEqual(hasPdf ? { k: 'pdf', bid: 'proof' } : null)
-    expect(rapi.pdfState).toHaveBeenCalledWith('proof')
-    expect(rapi.manuscripts).not.toHaveBeenCalled()
-  })
-
   it('waits for manuscript metadata and matches main or part instead of defaulting to the first manuscript', async () => {
     let resolve!: (rows: ManuscriptInfo[]) => void
-    const rapi = { pdfState: vi.fn(), manuscripts: vi.fn(() => new Promise<ManuscriptInfo[]>((r) => { resolve = r })) }
+    const rapi = { manuscripts: vi.fn(() => new Promise<ManuscriptInfo[]>((r) => { resolve = r })) }
     const pending = routePdf({ k: 'part', file: 'note.md' }, rapi)
     const rows: ManuscriptInfo[] = [
       { key: '', main: 'main.tex', name: 'Paper', kind: 'paper', parts: [], hasPdf: true, pdfState: 'current' },
@@ -246,18 +242,6 @@ describe('opening a record at its PDF page', () => {
     expect(opened.panes[1].active).toBe('mspdf:b')
     expect(opened.panes[1].tabs).toEqual(state.panes[1].tabs)
     expect(workspaceVisibility(opened, route.page).visibleTabs).toContainEqual(request.tab)
-  })
-
-  it('opens a block result PDF in a single pane and keeps the source tab available', () => {
-    const state = toggleSplit(layout(), 'part')
-    const route = { page: 'block', rid: 'sample', bid: 'proof' } as const
-    const request = { route, tab: { k: 'pdf', bid: 'proof' } } as const
-    const opened = applyWorkspaceOpenRequest(state, route, request)
-    expect(opened.split).toBe(false)
-    expect(opened.panes[0].active).toBe('pdf:proof')
-    expect(opened.panes[0].tabs).toEqual([...state.panes[0].tabs, request.tab])
-    expect(workspaceVisibility(opened, route.page).visibleTabs).toEqual([request.tab])
-    expect(applyWorkspaceOpenRequest(opened, route, request).panes[0].tabs).toEqual(opened.panes[0].tabs)
   })
 })
 

@@ -5,7 +5,7 @@ started: 2026-09-30
 image: workbench/figures/project.svg
 sources:
   manuscript: docs/note/main.tex — Five-color theorem
-# Topics (10/5): a note's topic goes in the note's own front matter under topics:. blocks: shows the older record shape
+# Topics (10/5): a note's topic goes in the note's own front matter under topics:
 topics:
   - id: coloring
     title: Five-color theorem
@@ -21,7 +21,6 @@ topics:
     title: Kempe chains
     description: Color swaps and Kempe chains
     parts: []
-    blocks: [degree-five]
   - id: four-color
     title: Getting down to four colors
     parts: []

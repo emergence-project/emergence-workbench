@@ -42,7 +42,6 @@ export const sortRecords = (items: CommentEntry[]) => [...items].sort((a, b) => 
 export function recordRoute(rid: string, file: Pick<RecordFile, 'target' | 'source'>, firstPartOf: (target: string) => string | undefined): Route | null {
   if (file.target === 'project') return null
   if (file.target.startsWith('note-') || file.target.startsWith('calc-')) return file.source ? { page: 'part', rid, file: file.source } : null
-  if (file.target.startsWith('block-')) return { page: 'block', rid, bid: file.source ?? file.target.slice(6) }
   if (file.target.startsWith('statement-')) return { page: 'statement', rid, sid: file.source ?? file.target.slice(10) }
   if (file.target.startsWith('paper-')) return file.source ? { page: 'doc', rid, name: file.source } : null
   if (file.target.startsWith('topic-')) return { page: 'topic', rid, tid: file.source ?? file.target.slice(6) }
@@ -53,7 +52,6 @@ export function recordRoute(rid: string, file: Pick<RecordFile, 'target' | 'sour
 
 /** PDF 쪽에 붙은 기록은 원문과 주소를 공유하되 결과 PDF 탭에서 보여 준다. */
 export function recordPdfTab(file: Pick<RecordFile, 'target' | 'source'>, manuscriptKeyOf: (target: string) => string | undefined): Tab | null {
-  if (file.target.startsWith('block-')) return { k: 'pdf', bid: file.source ?? file.target.slice(6) }
   if (file.target === 'manuscript' || file.target.startsWith('manuscript-')) {
     const ms = manuscriptKeyOf(file.target)
     return ms === undefined ? null : ms ? { k: 'mspdf', ms } : { k: 'mspdf' }

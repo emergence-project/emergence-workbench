@@ -36,14 +36,15 @@ describe('상태 기호와 최근 시각', () => {
     expect(attentionOf(2, 0)).toBe('check')
     expect(attentionOf(0, 3)).toBe('update')
     expect(attentionOf(1, 1)).toBe('both')
-    expect(issueTip(2, 0)).toBe('확인이 필요한 노트 2개')
-    expect(issueTip(0, 1)).toBe('판단할 맡긴 일 1개')
-    expect(issueTip(1, 3)).toBe('확인이 필요한 노트 1개 · 판단할 맡긴 일 3개')
+    expect(issueTip(0)).toBe('확인할 것 없음')
+    expect(issueTip(1)).toBe('판단할 맡긴 일 1개')
+    expect(issueTip(3, 1)).toBe('판단할 맡긴 일 3개 · 에이전트 고침 1개')
   })
-  it('최근 시각은 보조 노트를 고친 때와 일지 기록 중 늦은 것', () => {
+  it('최근 시각은 노트를 고친 때와 일지 기록 중 늦은 것', () => {
     const at = new Date('2026-10-05T09:52:00').getTime()
-    expect(lastWorkMs({ blocks: [{ mtime: at - 1000 }] as never }, [{ date: '2026-10-05', time: '09:52' }])).toBe(at)
-    expect(lastWorkMs({ blocks: [] }, [])).toBeUndefined()
+    expect(lastWorkMs([{ date: '2026-10-05', time: '09:52' }], [at - 1000])).toBe(at)
+    expect(lastWorkMs([{ date: '2026-10-05', time: '09:52' }], [at + 1000])).toBe(at + 1000)
+    expect(lastWorkMs([])).toBeUndefined()
   })
 })
 

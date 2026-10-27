@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { frontMatter, parseBlock } from '@rw/core'
+import { frontMatter } from '@rw/core'
 import type { WorkbenchDiagnostic } from './agentCheck.js'
 import { t } from './i18n.js'
 import { folderMap, usesStandardLayout } from './projectFolders.js'
@@ -11,7 +11,6 @@ import { JUDGE_CAP } from '@rw/core'
 import { cardBlock, parseFlowNode, scanFlow } from './flow.js'
 import { flowGate, judgmentHash, judgmentQueue, markJudgments, undefinedTerms } from './flowGaps.js'
 import { integrationProblem } from './flowStart.js'
-import { readTopics } from './topics.js'
 
 /**
  * 바뀐 것 검사 (`pnpm agent:check`, docs/repo-format.md §15). 공통 규칙 가운데 기계가 판정할 수 있는 것을
@@ -115,7 +114,6 @@ const headOf = (text: string | undefined) => {
 }
 const list = (v: unknown): unknown[] => Array.isArray(v) ? v : []
 const NOTE_DIR = /^(workbench\/(?:notes|calc)\/[^/]+|workbench\/topics\/[^/]+\/[^/]+)\/[^/]/
-const BLOCK = /^workbench\/blocks\/[^/]+\.(?:md|tex)$/
 const TASK = /^workbench\/tasks\/[^/]+\.md$/
 const FLOW = /^workbench\/flow\/[^/]+\.yaml$/
 const DOC = /^workbench\/(?:decisions|rules)\/[^/]+\.md$/
@@ -158,11 +156,10 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
   const moved: string[] = []
   const confirmedNotes = new Set<string>()
   let flowChanged = false
-  /** 바뀐 노트 · 블록 노트 (폴더 또는 파일 하나)와 그 주제 */
+  /** 바뀐 노트 (폴더)와 그 주제 */
   const work = new Map<string, { file: string; topics: string[] }>()
   /** 바뀐 흐름 점의 주제와 가리킨 파일 (근거 · 실행) */
   const dots: { topics: string[]; files: string[] }[] = []
-  const legacyBlocks = () => { try { return readTopics(wb) } catch { return [] } }
   /** 지금 흐름 전체 (판단 대기열 · 카드 상태용, 처음 쓸 때 읽는다) */
   let flowNow: { nodes: ReturnType<typeof scanFlow>['nodes']; byId: Map<string, ReturnType<typeof scanFlow>['nodes'][number]> } | undefined
   const flow = () => {
@@ -205,24 +202,18 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
       confirmedNotes.add(dir)
       add('confirmed-edit', c.file, '사용자가 해결로 정한 노트를 고쳤습니다. 허락받았는지 답에 적으세요.', 'A note the user marked solved was changed. Say in your reply whether you had permission.')
     }
-    if (BLOCK.test(c.file)) {
-      const was = before === undefined ? undefined : parseBlock(before).meta.status
-      if (parseBlock(after).meta.status === 'solved' && was !== 'solved') add('approval', c.file, '블록 노트를 해결(status: solved)로 바꿨습니다. 해결은 사용자만 정합니다.', 'The block note was marked solved (status: solved). Only the user marks notes solved.')
-      else if (was === 'solved') add('confirmed-edit', c.file, '사용자가 해결로 정한 블록 노트를 고쳤습니다. 허락받았는지 답에 적으세요.', 'A block note the user marked solved was changed. Say in your reply whether you had permission.')
-    }
     if (TASK.test(c.file)) {
       const a = headOf(after); const b = headOf(before)
       if (a?.state === 'done' && b?.state !== 'done') add('approval', c.file, '맡긴 일을 done으로 바꿨습니다. 승인은 사용자가 앱에서 합니다. 결과를 냈으면 state: result로 둡니다.', 'The task was set to done. The user approves in the app; leave a finished result as state: result.')
       if (list(a?.judged).length > list(b?.judged).length || list(a?.answers).length > list(b?.answers).length) add('approval', c.file, '판단·답 기록(judged · answers)을 썼습니다. 이 칸은 앱이 사용자의 선택으로만 씁니다.', 'Judgement or answer records (judged · answers) were written. Only the app writes them from the user\'s choices.')
     }
-    if (dir || BLOCK.test(c.file)) {
-      const key = dir ?? c.file
+    if (dir) {
+      const key = dir
       if (!work.has(key)) {
-        // 노트의 주제: 주제 폴더(topics/<주제>/<노트>/), note.yaml · 블록 머리말의 topics:, 옛 research.yaml topics[].blocks
-        const head = dir ? yamlOf(newText(`${dir}/note.yaml`)) : headOf(after)
+        // 노트의 주제: 주제 폴더(topics/<주제>/<노트>/)와 note.yaml의 topics:
+        const head = yamlOf(newText(`${dir}/note.yaml`))
         const folder = /^workbench\/topics\/([^/]+)\//.exec(key)?.[1]
-        const block = !dir ? path.basename(key).replace(/\.(md|tex)$/, '') : undefined
-        const topics = [...(folder ? [folder] : []), ...list(head?.topics).filter((x): x is string => typeof x === 'string'), ...(block ? legacyBlocks().filter((x) => x.blocks.includes(block)).map((x) => x.id) : [])]
+        const topics = [...(folder ? [folder] : []), ...list(head?.topics).filter((x): x is string => typeof x === 'string')]
         work.set(key, { file: c.file, topics })
       }
     }

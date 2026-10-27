@@ -119,11 +119,10 @@ describe('예전 일지의 할 일 옮기기', () => {
     const todos = openTodos(root())
     expect(todos).toEqual(expect.arrayContaining([
       expect.objectContaining({ target: 'project', id: 'c-20260930-0910', text: '2장 그림 다시 그리기', written: '2026-09-30' }),
-      expect.objectContaining({ target: 'block-kempe-chains', id: 'c-20260930-0920', due: '2026-10-20' }),
+      expect.objectContaining({ target: 'project', id: 'c-20260930-0920', due: '2026-10-20' }),
       expect.objectContaining({ target: 'note-todo-note', id: 'c-20260930-0925', text: '노트 할 일' }),
       expect.objectContaining({ target: 'project', id: 'c-20260930-0930', text: '원고 할 일 (docs/old.tex)' }),
     ]))
-    expect(readComments(root(), 'block-kempe-chains').source).toBe('kempe-chains')
     expect(readComments(root(), 'note-todo-note').source).toBe(notePath)
     // 다시 돌아도 아무것도 하지 않는다
     expect(migrateJournalTodos(wb())).toEqual({ moved: 0, removed: 0 })

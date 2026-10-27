@@ -27,7 +27,7 @@ steps:
 evidence:
   - kind: proof
     title: 차수 5 이하 꼭짓점
-    file: workbench/blocks/degree-five.tex
+    file: workbench/topics/kempe/degree-five/main.tex
     text: 오일러 공식에서 바로
     checks:
       - { at: 2026-10-01T10:20, by: claude, role: agent }

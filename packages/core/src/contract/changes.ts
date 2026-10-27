@@ -22,7 +22,7 @@ export const ChangeItem = z.object({
   uncommitted: z.boolean(),
   /** 바뀐 파일 (저장소 기준, 20개까지) */
   files: z.array(z.string()),
-  /** 노트: 여는 파일 (저장소 기준 note.md · main.tex · blocks/<id>.tex). 지운 노트는 없다 */
+  /** 노트: 여는 파일 (저장소 기준 note.md · main.tex). 지운 노트는 없다 */
   main: z.string().optional(),
 }).strict()
 export type ChangeItem = z.infer<typeof ChangeItem>

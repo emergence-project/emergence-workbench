@@ -62,11 +62,8 @@ export function useSampleApp(): void {
   })
 }
 
-export const block = (id: string) => fs.readFileSync(path.join(repo, 'workbench/blocks', `${id}.tex`), 'utf8')
-
 type Injector = { inject: ReturnType<typeof buildApp>['inject'] }
 /** 고치는 API에 보낼 지금 해시 (화면이 읽을 때 받는 값과 같다). 없는 대상이면 맞지 않는 값 */
 export const topicsHash = async (a: Injector = app, rid = R): Promise<string> => (await a.inject({ method: 'GET', url: `${rid}/topics` })).json().hash
-export const blockHash = async (id: string, a: Injector = app, rid = R): Promise<string> => (await a.inject({ method: 'GET', url: `${rid}/blocks/${id}` })).json().hash ?? 'none'
 export const noteHash = async (file: string, a: Injector = app, rid = R): Promise<string> =>
   ((await a.inject({ method: 'GET', url: `${rid}/notes` })).json().notes as { file: string; hash: string }[]).find((n) => n.file === file)?.hash ?? 'none'

@@ -44,9 +44,9 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `overview` | 진행 중인 모든 프로젝트를 한 표로: 사용자 차례(확인할 노트 · 판단할 맡긴 일 · 에이전트 고침, 홈의 "확인 필요"와 같은 수), 에이전트 차례(답 없는 질문 · 진행 중 맡긴 일 · 할 일), 저장소 동기화, 최근 기록. 어디서 일할지 고를 때 | `GET /api/agent-overview` |
 | `project_status` | 짧은 프로젝트 요약: 머리 · 목표 · 지금 할 것을 말하는 절(할 일, 맡긴 일, 흐름 요약, 대기 중인 질문·지시, 검토 대기)만 싣고, 다른 절은 이름과 크기만 적는다. `section`은 `workbench/STATUS.md`의 절 하나, `full`은 전부 | `GET …/:rid/agent-status?view=summary`, `?section=<절 이름>` |
 | `changes_since` | 이 에이전트가 지난번 부른 뒤 프로젝트에서 바뀐 것: 새 커밋(다른 맥에서 올린 것도 받은 뒤에는), 이 맥에서 아직 커밋하지 않은 고침, 그것이 건드린 노트 · 흐름 점 · 맡긴 일 · 기록 · 다른 파일을 작성자 · 시각과 함께 한 줄씩. 기준은 에이전트마다, Claude는 계정마다(Claude Code `.claude.json`의 `oauthAccount.accountUuid`를 `x-rw-account`로 보냄) 따로이고 부를 때마다 지금으로 옮긴다. `since`를 주면 그때부터, 처음에는 7일 전부터. 앱의 프로젝트 정보 › 변경사항이 같은 목록이다 | `POST …/:rid/changes/read` |
-| `list_notes` | 노트 목록: 본문 파일 · 기록 이름 `target`(Markdown 노트·블록 노트, `main.tex`에는 없음) · 상태 · 다시 열 조건 · 주제 (`status`로 거르기) | `GET …/:rid/notes` |
+| `list_notes` | 노트 목록: 본문 파일 · 기록 이름 `target`(Markdown 노트, `main.tex`에는 없음) · 상태 · 다시 열 조건 · 주제 (`status`로 거르기) | `GET …/:rid/notes` |
 | `list_edit_reviews` | 에이전트 수정 검토 대기와 허락 대기. 선택 인자 `project`를 주면 그 프로젝트만, 없으면 모든 프로젝트와 개념노트 | `GET /api/agent-edits?scope=` |
-| `read_note` | 노트 본문과 hash | `GET …/:rid/manuscript/part`, 블록 노트는 `GET …/:rid/blocks/:id` |
+| `read_note` | 노트 본문과 hash | `GET …/:rid/manuscript/part` |
 | `read_records` | 노트·프로젝트 기록(메모 · 할 일 · 질문과 답 · 하이라이트)과 hash. 대상은 `project` · `note-<폴더>` · `topic-<id>` · `flow-<id>` 등이고, `part` · `partText`는 사용자가 가리킨 화면 부위다 | `GET …/:rid/comments/:target` |
 | `list_records` | 프로젝트의 모든 기록(프로젝트 · 노트 · 주제 · 흐름 점, 하이라이트 제외)을 한 목록으로, 종류 · 상태 · 대상(정확히 또는 `topic-`처럼 앞부분)으로 거른다. `unanswered: true`면 답을 기다리는 사용자의 질문과 지시(10/15: 에이전트가 하고 나서 답하는 기록)만. `replied: true`면 에이전트가 물은 질문에 사용자가 답한 것(답을 반영하고 `answer_record`로 답하면 끝냄), `unsorted: true`면 "자동"으로 남기고 아직 분류하지 않은 기록. `by`는 기록을 쓴 에이전트(없으면 사용자), 답 이름 `사용자`는 사용자가 이어 쓴 것. 줄은 짧다(본문과 마지막 답은 300자까지, 답 수). `full: true`면 전부. 앱 서버 없이는 `pnpm agent:records <저장소>`가 같은 줄을, `pnpm agent:answer <저장소> <대상> <id> "<답>"`이 같은 답을 쓴다 | `GET …/:rid/records` |
 | `list_tasks` · `read_task` | 맡긴 일 목록과 하나의 모든 칸 | `GET …/:rid/tasks`, `…/tasks/:id` |
@@ -74,7 +74,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 - 노트 · 개념노트는 `edit_note` · `edit_concept`를 먼저 쓴다(사용자가 바뀐 문단마다 검토한다). 그 밖은 앱 서버 API(`GET /api`가 대표 경로와 쓰는 법을, `GET /api?all=1`이 모든 경로를 준다)에 읽을 때 받은 hash를 `baseHash`로 보낸다. 그사이 바깥에서 바뀌었으면 409로 거절된다. 새로 만들기·덧붙이기·한 칸만 고치기는 hash가 없고, 일지 고치기는 기록의 지금 글을 `was`로 보낸다. 예외는 `GET /api`와 `docs/repo-format.md` §12에 있다.
 - 앱 서버가 꺼져 있을 때도 저장소 파일을 직접 고칠 수 있다. 서버에 닿지 못하면 사용자에게 알리고, 직접 고칠 때는 `docs/repo-format.md`를 따르며 고친 뒤 `pnpm --dir <앱 폴더> agent:check <저장소>`로 검사한다. 사용자가 확인한 노트·개념노트는 여전히 대화에서 허락을 받아야 하고, 원고는 사용자가 요청할 때만 고친다. 잠긴 개념노트는 고치지 않는다.
 - 지시: 설정 › 에이전트에서 맥의 Claude가 직접 할지(바로, 또는 고른 시각에 하루 한 번) 고른다(처음 값은 하지 않음: 에이전트 세션이 집어 간다). 맥의 Claude는 한 번에 하나씩 읽기 도구만으로 하고 `claude`로 답하며, 노트 고침은 사용자가 적용하는 고침 블록으로 적는다. 이미 답한 기록은 `unanswered`에 없다.
-- `list_edit_reviews`나 프로젝트 요약에서 검토 대기를 확인한다. 사용자가 되돌린 문단을 다시 넣지 않는다. 프로젝트 노트·블록 노트의 에이전트 고침을 되돌리면 프로젝트 일지에 상태 기록을 남긴다. 개념노트에는 프로젝트 일지가 없어 이 기록을 남기지 않는다.
+- `list_edit_reviews`나 프로젝트 요약에서 검토 대기를 확인한다. 사용자가 되돌린 문단을 다시 넣지 않는다. 프로젝트 노트의 에이전트 고침을 되돌리면 프로젝트 일지에 상태 기록을 남긴다. 개념노트에는 프로젝트 일지가 없어 이 기록을 남기지 않는다.
 - 각 연구 저장소의 `AGENTS.md` · `CLAUDE.md` 규칙이 이 입구보다 앞선다.
 - 코드: `apps/server/src/mcp.ts`(도구), `scripts/mcp.mjs`(표준 입출력 시작), 테스트 `apps/server/src/mcp.test.ts`.
 

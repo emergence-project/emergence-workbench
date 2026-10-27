@@ -45,18 +45,17 @@ test('working-tree copy includes ignored data and confines internal links', () =
   } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 })
 
-test('real APIs cover manuscript, Markdown, blocks and comments while preserving a dirty source', async () => {
+test('real APIs cover manuscript, Markdown notes and comments while preserving a dirty source', async () => {
   const tmp = temporary()
   try {
     const source = path.join(tmp, 'research')
     fs.cpSync(path.join(root, 'fixtures/sample-research'), source, { recursive: true })
-    write(source, 'workbench/research.yaml', 'title: Safety fixture\nsources:\n  manuscript: docs/main.tex — Draft\ntopics:\n  - id: result\n    title: Result\n    parts: [docs/chapter.tex]\n    blocks: [md-block]\n')
+    write(source, 'workbench/research.yaml', 'title: Safety fixture\nsources:\n  manuscript: docs/main.tex — Draft\ntopics:\n  - id: result\n    title: Result\n    parts: [docs/chapter.tex]\n')
     write(source, 'docs/main.tex', '% !TeX program = pdflatex\n\\documentclass{article}\n\\begin{document}\n\\input{chapter}\n\\end{document}\n')
     write(source, 'docs/chapter.tex', '\\section{Result}\nA test result.\r\n\r\n')
     write(source, 'workbench/notes/topic/note.md', '## Goal\r\n\r\nA Markdown note.\r\n\r\n')
     write(source, 'workbench/notes/topic/note.yaml', 'name: Topic\nstate: blocked\nresume: Check an assumption\n')
-    write(source, 'workbench/blocks/md-block.md', '---\nid: md-block\ntitle: Markdown block\nstatus: in-progress\n---\n## Goal\n\nAn independent argument.\n')
-    write(source, 'workbench/comments/block-md-block.md', '# Comment\n\n## c-test · 질문 · p.1\n- 상태: 대기\n\nKeep this comment.\n')
+    write(source, 'workbench/comments/note-topic.md', '# Comment\n\n## c-test · 질문 · p.1\n- 상태: 대기\n\nKeep this comment.\n')
     git(source, 'init', '-q')
     git(source, 'add', 'docs/main.tex')
     const before = git(source, 'status', '--porcelain=v1', '-uall')
@@ -73,7 +72,6 @@ test('real APIs cover manuscript, Markdown, blocks and comments while preserving
       assert.equal(result.index.preservedAfterWrites, true)
       assert.equal(result.copyRestoration.status, 'pass')
       assert(result.targets.some((x) => x.kind === 'research-note-md'))
-      assert(result.targets.some((x) => x.kind === 'block-md'))
       assert(result.targets.some((x) => x.file === 'docs/chapter.tex'))
       for (const t of result.targets) {
         assert.equal(t.noOp.status, 'pass', JSON.stringify(t))

@@ -29,8 +29,8 @@ export function LibraryNoteEditor({ kind, id, info, rid, project, onChanged, onS
 }) {
   const note = info?.notes.find((n) => n.kind === kind && n.id === id)
   const uses = info?.usedBy[`${kind}:${id}`] ?? []
-  // 프로젝트 전체가 이 개념에 기대는지 (보조 노트 없이, research.yaml의 concepts:)
-  const linkedHere = !!rid && uses.some((u) => u.rid === rid && !u.note)
+  // 프로젝트 전체가 이 개념에 기대는지 (노트 없이, research.yaml의 concepts:)
+  const linkedHere = !!rid && uses.some((u) => u.rid === rid && !u.file)
   const link = (on: boolean) => {
     if (!rid) return
     api.linkConcept(rid, id, on).then(() => { onChanged(); onSaved(on ? t(`${project ?? '이 프로젝트'}에 이 개념노트를 연결했습니다`, `Linked this concept note to ${project ?? 'this project'}`) : t(`${project ?? '이 프로젝트'}와의 연결을 끊었습니다`, `Unlinked from ${project ?? 'this project'}`)) }).catch((e: Error) => onSaved(e.message))
@@ -132,7 +132,7 @@ export function LibraryNoteEditor({ kind, id, info, rid, project, onChanged, onS
           <span className="muted">{t('쓰는 곳', 'Used in')}</span>
           {uses.length === 0 && <span className="muted">{t('아직 없음', 'None yet')}</span>}
           {uses.map((u, i) => (
-            <button key={i} className="dep-chip" onClick={() => go(u.note ? { page: 'block', rid: u.rid, bid: u.note } : { page: 'map', rid: u.rid })}>
+            <button key={i} className="dep-chip" onClick={() => go(u.file ? { page: 'part', rid: u.rid, file: u.file } : { page: 'map', rid: u.rid })}>
               {u.project}{u.noteTitle ? ` · ${u.noteTitle}` : ''}
             </button>
           ))}

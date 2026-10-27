@@ -11,7 +11,7 @@ const study = path.join(root, 'study')
 const reviews = path.join(root, 'topic-reviews')
 
 describe('지식 색인', () => {
-  const k = buildKnowledge({ library, study, reviews, notes: listLibraryNotes(library), usedBy: { 'concept:kempe-chain': [{ rid: 'alpha', project: 'Alpha', note: 'p39', noteTitle: 'Prop 3.9' }] } })
+  const k = buildKnowledge({ library, study, reviews, notes: listLibraryNotes(library), usedBy: { 'concept:kempe-chain': [{ rid: 'alpha', project: 'Alpha', file: 'workbench/notes/p39/note.md', noteTitle: 'Prop 3.9' }] } })
   const t = (title: string) => k.topics.find((x) => x.title === title)!
 
   it('이름이 같은 Study 노트·개념노트·Topic Review를 주제 하나로 묶는다', () => {

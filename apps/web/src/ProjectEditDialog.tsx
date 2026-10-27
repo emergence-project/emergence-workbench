@@ -105,7 +105,7 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
     <CardEditDialog title={t('프로젝트 고치기', 'Edit project')} location={`${t('홈', 'Home')} › ${summary.research.title}`} pc={shown} ui="프로젝트 고치기 칸"
       className="project-dialog" canSave={canSave} onClose={() => { if (!saving.current) onDone() }} onSave={() => void save()} preview={
         <ProjectCard preview pc={shown} r={{ ...listed, ...profile, color: profile.color ?? undefined, title: title.trim() }} question={question} image={image.trim()}
-          last={last} issues={summary.tree.issues.length} mark={summary.tree.issues.length ? 'check' : null} />
+          last={last} issues={0} mark={null} />
       } lower={
         <fieldset className="td-fields" disabled={busy || !baseHash}>
           <ProjectProfileFields kind={profile.kind} fields={profile.fields} state={profile.state} all={all}

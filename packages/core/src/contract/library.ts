@@ -8,7 +8,8 @@ import { CheckState } from './concepts.js'
 import { CompileResult, RepoInfo } from './research.js'
 
 /** 라이브러리 노트를 쓰는 프로젝트 노트 하나 */
-export const LibraryUse = z.object({ rid: z.string(), project: z.string(), note: z.string().optional(), noteTitle: z.string().optional() }).strict()
+/** file · noteTitle: 머리말 concepts:로 기대는 노트의 본문 파일과 제목 (없으면 프로젝트 전체) */
+export const LibraryUse = z.object({ rid: z.string(), project: z.string(), file: z.string().optional(), noteTitle: z.string().optional() }).strict()
 
 export const LIBRARY_KINDS = ['concept', 'paper'] as const
 /** 공유 라이브러리의 개념노트 · 문헌노트 (서버 libraryNotes.ts) */

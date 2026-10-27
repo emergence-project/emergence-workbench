@@ -168,7 +168,7 @@ export function replyToRecord(root: string, target: string, id: string, text: st
   return appendAnswer(root, target, id, USER_ANSWER_BY, text, now, q.by ? '답함' : '대기')
 }
 
-/** 앱이 고침을 적용할 수 있는 대상: 연구 저장소의 Markdown 노트 (원고 · 유도 블록 · PDF는 아니다) */
+/** 앱이 고침을 적용할 수 있는 대상: 연구 저장소의 Markdown 노트 (원고 · PDF는 아니다) */
 export const canFix = (target: string) => /^(note|calc)-/.test(target)
 
 /**

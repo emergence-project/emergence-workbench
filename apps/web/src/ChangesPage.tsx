@@ -28,9 +28,7 @@ export function changeRoute(rid: string, i: ChangeItem): Route | null {
   if (i.action === 'deleted') return null
   switch (i.kind) {
     case 'note': {
-      if (!i.main) return null
-      const block = /(?:^|\/)blocks\/([^/]+)\.(?:tex|md)$/.exec(i.main)
-      return block ? { page: 'block', rid, bid: block[1]! } : { page: 'part', rid, file: i.main }
+      return i.main ? { page: 'part', rid, file: i.main } : null
     }
     case 'flow': return { page: 'flow', rid }
     case 'task': return { page: 'task', rid, task: i.id }

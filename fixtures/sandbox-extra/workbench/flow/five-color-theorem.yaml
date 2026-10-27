@@ -23,7 +23,7 @@ fields:
 evidence:
   - kind: proof
     title: 5색 정리
-    file: workbench/blocks/five-color.tex
+    file: workbench/topics/coloring/five-color/main.tex
     text: 귀납 전체
     checks:
       - { at: 2026-10-04T11:00, by: claude, role: agent }

@@ -207,7 +207,7 @@ function FocusView({ t, byKey, onOpen }: { t: KnowledgeTopic; byKey: Map<string,
         <span className="muted">{tl('쓰는 프로젝트', 'Used in projects')}</span>
         {t.uses.length === 0 && <span className="muted">{tl('아직 없음', 'None yet')}</span>}
         {t.uses.map((u, i) => (
-          <button key={i} className="dep-chip" onClick={() => go(u.note ? { page: 'block', rid: u.rid, bid: u.note } : { page: 'map', rid: u.rid })}>{u.project}{u.noteTitle ? ` · ${u.noteTitle}` : ''}</button>
+          <button key={i} className="dep-chip" onClick={() => go(u.file ? { page: 'part', rid: u.rid, file: u.file } : { page: 'map', rid: u.rid })}>{u.project}{u.noteTitle ? ` · ${u.noteTitle}` : ''}</button>
         ))}
       </div>
     </div>

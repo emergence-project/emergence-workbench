@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {
-  appendJournalEntry, buildTree, hasBlockHeader, isReservedBlockId, isValidBlockId, parseBlock, parseCardFigureRef, parseJournal, setTodoDone, editJournalEntry, suggestBlockId, updateBlockMeta,
-  type BlockFormat, type BlockMeta, type BlockTree, type JournalEntry, type MetaPatch, type NewJournalEntry,
+  appendJournalEntry, isValidBlockId, parseCardFigureRef, parseJournal, setTodoDone, editJournalEntry,
+  type JournalEntry, type NewJournalEntry,
 } from '@rw/core'
 import YAML from 'yaml'
 import { fileCache } from './readCache.js'
@@ -17,7 +17,7 @@ export interface ResearchInfo {
   sources: ProjectSources
   /** true면 앱이 workbench/STATUS.md를 저절로 다시 쓴다 (research.yaml의 agent-status:) */
   agentStatus: boolean
-  /** 프로젝트 전체가 기대는 공유 라이브러리 개념노트 id (research.yaml의 concepts:). 블록 노트 없이도 연결된다 */
+  /** 프로젝트 전체가 기대는 공유 라이브러리 개념노트 id (research.yaml의 concepts:). 노트 없이도 연결된다 */
   concepts: string[]
   /** 본문만 있는 노트(\documentclass 없음)를 컴파일할 때 붙일 LaTeX 서식 id (research.yaml의 latex-template:). 없으면 앱의 내보내기 기본 서식 */
   latexTemplate?: string
@@ -76,18 +76,6 @@ export const NOTE_MD = 'note.md'
 export const NOTE_MAINS = [NOTE_MD, 'main.tex'] as const
 export const isMarkdownNote = (file: string) => file.endsWith('.md')
 
-export interface BlockFile {
-  id: string
-  /** 'md' = Markdown + KaTeX (blocks/<id>.md), 'tex' = 예전 LaTeX */
-  format: BlockFormat
-  meta: BlockMeta
-  hash: string
-  /** 파일 마지막 수정 시각 (ms) */
-  mtime: number
-  /** 파일 전체 (머리말 포함) */
-  content: string
-}
-
 export type SaveResult = { ok: true; content: string; hash: string } | { ok: false; currentHash: string }
 
 const DATE_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/
@@ -107,7 +95,6 @@ export class Workbench {
 
   /** 연구 저장소 (workbench/의 부모) */
   get repo() { return path.dirname(this.root) }
-  get blocksDir() { return path.join(this.root, 'blocks') }
   get topicsDir() { return path.join(this.root, TOPICS_DIR) }
   /** 주제 폴더 배치를 쓰는 프로젝트 (workbench/topics/가 있음): 새 주제는 주제 폴더에, 주인 주제를 바꾼 노트는 그 폴더로 */
   usesTopicFolders() { return fs.existsSync(this.topicsDir) }
@@ -124,16 +111,6 @@ export class Workbench {
   get preamblePath() { return path.join(this.root, 'preamble.tex') }
   get researchPath() { return path.join(this.root, 'research.yaml') }
   buildDir(id: string) { return path.join(this.root, '.build', this.checkId(id)) }
-  /**
-   * 블록 노트 파일: blocks/<id>.md (10/4 결정, Markdown + KaTeX), 아직 바꾸지 않은 것은 blocks/<id>.tex.
-   * 둘 다 없으면 새로 만들 .md 경로
-   */
-  blockPath(id: string) {
-    const base = path.join(this.blocksDir, this.checkId(id))
-    return fs.existsSync(`${base}.md`) || !fs.existsSync(`${base}.tex`) ? `${base}.md` : `${base}.tex`
-  }
-  blockFormat(id: string): BlockFormat { return this.blockPath(id).endsWith('.md') ? 'md' : 'tex' }
-
   /** workbench 기준 상대 경로. 밖이면 null. */
   relative(absPath: string): string | null {
     const rel = path.relative(this.root, absPath)
@@ -222,96 +199,6 @@ export class Workbench {
     }
   }
 
-  // ---------- 블록 ----------
-
-  listBlocks(): BlockFile[] {
-    if (!fs.existsSync(this.blocksDir)) return []
-    const ids = new Set(fs.readdirSync(this.blocksDir).flatMap((f) => { const m = /^(.+)\.(tex|md)$/.exec(f); return m && isValidBlockId(m[1]!) ? [m[1]!] : [] }))
-    return [...ids].sort()
-      .flatMap((id) => {
-        try {
-          const { content, hash } = this.readBlock(id)
-          const mtime = fs.statSync(this.blockPath(id)).mtimeMs
-          return [{ id, format: this.blockFormat(id), meta: parseBlock(content).meta, hash, mtime, content }]
-        } catch {
-          return [] // 밖을 가리키는 링크 등은 목록에서 뺀다
-        }
-      })
-  }
-
-  tree(blocks = this.listBlocks()): BlockTree {
-    return buildTree(blocks)
-  }
-
-  readBlock(id: string): { content: string; hash: string } {
-    const file = this.safeExisting(this.blockPath(id))
-    const content = fs.readFileSync(file, 'utf8')
-    return { content, hash: hashOf(content) }
-  }
-
-  /** 사용자가 읽은 뒤 파일이 바뀌었으면(에이전트·다른 편집기) 덮어쓰지 않는다. */
-  writeBlock(id: string, content: string, baseHash: string): SaveResult {
-    const file = this.safeExisting(this.blockPath(id))
-    const current = hashOf(fs.readFileSync(file, 'utf8'))
-    if (current !== baseHash) return { ok: false, currentHash: current }
-    writeAtomic(file, content)
-    return { ok: true, content, hash: hashOf(content) }
-  }
-
-  /** 읽은 블록 노트 파일 하나만 지운다. 기록·연결·컴파일 결과는 보존한다. */
-  deleteBlock(id: string, baseHash: string): { ok: true } | { ok: false; currentHash: string } {
-    if (typeof baseHash !== 'string' || !baseHash) throw new WorkbenchError(400, t('baseHash가 필요함', 'baseHash is required'))
-    const file = this.blockPath(id)
-    const real = this.safeExisting(file)
-    if (fs.realpathSync(this.blocksDir) !== this.blocksDir) throw new WorkbenchError(403, t('blocks 폴더가 링크라 지우지 않았습니다', 'Not deleted: the blocks folder is a link'))
-    const current = hashOf(fs.readFileSync(real, 'utf8'))
-    if (current !== baseHash) return { ok: false, currentHash: current }
-    const other = file.endsWith('.md') ? file.slice(0, -3) + '.tex' : file.slice(0, -4) + '.md'
-    if (fs.existsSync(other)) throw new WorkbenchError(409, t('같은 이름의 Markdown과 LaTeX 파일이 모두 있어 지우지 않았습니다', 'Not deleted: both a Markdown and a LaTeX file have this name'))
-    // 내부 링크라도 가리키는 다른 파일은 지우지 않고 blocks/ 안의 링크만 지운다.
-    fs.unlinkSync(file)
-    return { ok: true }
-  }
-
-  /** 머리말만 고친다. baseHash를 주면 그 뒤로 바뀐 파일은 고치지 않는다. */
-  patchMeta(id: string, patch: MetaPatch, baseHash?: string): SaveResult & { before?: BlockMeta } {
-    const { content, hash } = this.readBlock(id)
-    if (baseHash && baseHash !== hash) return { ok: false, currentHash: hash }
-    const next = updateBlockMeta(content, patch, this.blockFormat(id))
-    const before = parseBlock(content).meta
-    if (next === content) return { ok: true, content, hash, before }
-    // 머리말이 길어져 다시 찾지 못하게 되면 쓰지 않는다 (다음 저장 때 머리말이 하나 더 생긴다)
-    if (!hasBlockHeader(next)) throw new WorkbenchError(422, t('머리말이 너무 길어져 저장하지 않았습니다. 설명을 줄여 주세요', 'Not saved: the header got too long. Shorten the description'))
-    writeAtomic(this.safeExisting(this.blockPath(id)), next)
-    return { ok: true, content: next, hash: hashOf(next), before }
-  }
-
-  createBlock(input: { title: string; id?: string; parent?: string; alternativeOf?: string; now?: Date }): string {
-    const title = input.title.trim()
-    if (!title) throw new WorkbenchError(400, t('제목이 필요함', 'A title is required'))
-    const existing = this.listBlocks().map((b) => b.id)
-    const id = input.id ?? suggestBlockId(title, existing, input.now)
-    if (!isValidBlockId(id)) throw new WorkbenchError(400, t(`잘못된 블록 id: ${id}`, `Invalid block id: ${id}`))
-    if (isReservedBlockId(id)) throw new WorkbenchError(400, t(`원고 컴파일 폴더와 겹쳐 쓸 수 없는 블록 id: ${id}`, `Block id clashes with the manuscript build folder: ${id}`))
-    if (existing.includes(id) || fs.existsSync(this.blockPath(id)) || fs.existsSync(path.join(this.blocksDir, `${id}.tex`))) throw new WorkbenchError(409, t(`이미 있는 블록: ${id}`, `Block already exists: ${id}`))
-    for (const ref of [input.parent, input.alternativeOf]) {
-      if (ref && !existing.includes(ref)) throw new WorkbenchError(400, t(`없는 블록: ${ref}`, `No such block: ${ref}`))
-    }
-    // 새 블록 노트는 Markdown (제목은 머리말에만 두고 본문에 다시 쓰지 않는다)
-    const content = updateBlockMeta('\n', {
-      id,
-      title,
-      status: 'in-progress',
-      parent: input.parent ?? null,
-      alternatives: input.alternativeOf ? [input.alternativeOf] : null,
-      created: localDate(input.now),
-    }, 'md')
-    fs.mkdirSync(this.blocksDir, { recursive: true })
-    const file = this.blockPath(id)
-    fs.writeFileSync(file, content, { encoding: 'utf8', flag: 'wx' }) // 이미 있으면 실패
-    return id
-  }
-
   // ---------- 일지 ----------
 
   journalDates(): string[] {
@@ -394,7 +281,7 @@ export class Workbench {
 
   /** 연구 저장소 안에 workbench/를 만든다. 이미 있는 파일은 건드리지 않는다. */
   static scaffold(root: string, info: { title: string; question?: string; now?: Date; preamble?: PreambleChoice }): void {
-    fs.mkdirSync(path.join(root, 'blocks'), { recursive: true })
+    fs.mkdirSync(root, { recursive: true })
     writeIfMissing(path.join(root, 'research.yaml'), YAML.stringify({
       title: info.title,
       question: info.question ?? '',

@@ -25,7 +25,6 @@ on:
       - apps/server/src/workbench.ts
       - apps/server/src/library.ts
       - apps/server/src/noteExport.ts
-      - apps/server/src/routes/blocks.ts
       - apps/server/src/routes/latexChoice.ts
       - apps/server/src/routes/latexSetup.ts
       - apps/server/src/routes/manuscript.ts

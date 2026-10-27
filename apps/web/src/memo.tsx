@@ -8,7 +8,7 @@ import { onListKey } from './listInput'
 import { Icon } from './icons'
 import { askConfirm } from './askText'
 import { journalDeletePrompt, journalEntryActions } from './journalActions'
-import { isNoteTarget, journalTargetRoute } from './journalTargets'
+import { isNoteTarget, journalTargetRoute, type NoteOf } from './journalTargets'
 import { shown, t } from './i18n'
 import { CodeText, RepoPathContext } from './repoPaths'
 export { isNoteTarget } from './journalTargets'
@@ -96,10 +96,10 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, onSave, 
 }
 
 /**
- * 메모·할 일이 붙은 곳: 작업노트 id, 연구 전체(RESEARCH_TARGET), 또는 TeX·Markdown 노트 파일.
+ * 메모·할 일이 붙은 곳: 옛 블록 노트 id(같은 이름의 노트), 연구 전체(RESEARCH_TARGET), 또는 TeX·Markdown 노트 파일.
  */
-export const targetTitle = (target: string, titleOf: (id: string) => string) => isNoteTarget(target) ? target.split('/').pop()! : titleOf(target)
-export const openTarget = (rid: string, target: string) => go(journalTargetRoute(rid, target))
+export const targetTitle = (target: string, noteOf: NoteOf) => isNoteTarget(target) ? target.split('/').pop()! : noteOf(target)?.title ?? target
+export const openTarget = (rid: string, target: string, noteOf: NoteOf) => go(journalTargetRoute(rid, target, noteOf))
 
 /** 화면 아래쪽에 뜨는 빠른 메모 창 */
 export function QuickMemo({ target, targetLabel, onClose, onSave }: {
@@ -117,10 +117,10 @@ export function QuickMemo({ target, targetLabel, onClose, onSave }: {
 }
 
 /** 일지를 날짜별로. 메모·할 일은 고치기·지우기, 완료 기록은 지우기만 한다. */
-export function MemoList({ entries, rid, titleOf, onToggle, onEdit, onDelete, hideTodoKind = false, empty }: {
+export function MemoList({ entries, rid, noteOf, onToggle, onEdit, onDelete, hideTodoKind = false, empty }: {
   entries: JournalEntry[]
   rid: string
-  titleOf(id: string): string
+  noteOf: NoteOf
   onToggle(e: JournalEntry): void
   onEdit?(e: JournalEntry, text: string): Promise<void>
   onDelete?(e: JournalEntry): void
@@ -137,14 +137,14 @@ export function MemoList({ entries, rid, titleOf, onToggle, onEdit, onDelete, hi
       {entries.map((e) => {
         const head = e.date !== day ? (day = e.date, <div key={`d-${e.date}`} className="memo-day" data-ui="날짜">{journalWhen(e.date, '').trim() || e.date}</div>) : null
         const key = e.link && links.get(e.link) === 1 ? `linked:${e.link}` : `position:${e.date}:${e.index}`
-        return <Fragment key={key}>{head}<MemoItem key="entry" e={e} rid={rid} titleOf={titleOf} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} hideTodoKind={hideTodoKind} /></Fragment>
+        return <Fragment key={key}>{head}<MemoItem key="entry" e={e} rid={rid} noteOf={noteOf} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} hideTodoKind={hideTodoKind} /></Fragment>
       })}
     </RepoPathContext.Provider>
   )
 }
 
-function MemoItem({ e, rid, titleOf, onToggle, onEdit, onDelete, hideTodoKind }: {
-  e: JournalEntry; rid: string; titleOf(id: string): string; onToggle(e: JournalEntry): void
+function MemoItem({ e, rid, noteOf, onToggle, onEdit, onDelete, hideTodoKind }: {
+  e: JournalEntry; rid: string; noteOf: NoteOf; onToggle(e: JournalEntry): void
   onEdit?(e: JournalEntry, text: string): Promise<void>; onDelete?(e: JournalEntry): void
   hideTodoKind: boolean
 }) {
@@ -167,7 +167,7 @@ function MemoItem({ e, rid, titleOf, onToggle, onEdit, onDelete, hideTodoKind }:
           : <div className="mi-text"><MemoText text={e.text} /></div>}
         <div className="mi-meta" data-ui="시각·붙은 곳">
           <span>
-            {e.time} · {e.target === RESEARCH_TARGET ? t('이 프로젝트', 'This project') : <button type="button" className="a" onClick={() => openTarget(rid, e.target)}>{targetTitle(e.target, titleOf)}</button>}
+            {e.time} · {e.target === RESEARCH_TARGET ? t('이 프로젝트', 'This project') : <button type="button" className="a" onClick={() => openTarget(rid, e.target, noteOf)}>{targetTitle(e.target, noteOf)}</button>}
             {e.kind !== 'memo' && !(e.kind === 'todo' && hideTodoKind) && ` · ${shown(JOURNAL_LABEL[e.kind])}`}
           </span>
           {draft !== null && editable && onEdit

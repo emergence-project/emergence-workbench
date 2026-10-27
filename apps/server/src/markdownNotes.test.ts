@@ -2,10 +2,9 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { parseBlock } from '@rw/core'
 import { describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
-import { blockHash, hasLatex, makeRepo, tmp, useSampleApp } from './testkit.js'
+import { hasLatex, makeRepo, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
 
@@ -23,7 +22,6 @@ async function setup(name: string) {
   w('workbench/notes/ground/dot.png', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'))
   w('workbench/notes/old/main.tex', '\\begin{document}\n\\section{Old}\n\\end{document}\n')
   w('workbench/notes/old/note.yaml', 'name: 예전 노트\n')
-  w('workbench/blocks/old-block.tex', '% ---\n% id: old-block\n% title: 예전 보조 노트\n% status: in-progress\n% ---\n\\section{x}\n')
   const a = buildApp({ configDir: path.join(tmp, `config-${name}`) })
   const id = (await a.inject({ method: 'POST', url: '/api/researches', payload: { path: proj } })).json().id
   return { a, proj, R: `/api/researches/${id}` }
@@ -90,37 +88,8 @@ describe('Markdown 연구노트', () => {
   })
 })
 
-describe('Markdown 보조 노트', () => {
-  it('새 보조 노트는 blocks/<id>.md, 예전 .tex도 목록에 있고, 머리말을 고쳐도 본문 바이트는 그대로', async () => {
-    const { a, proj, R } = await setup('md-blocks')
-    const made = (await a.inject({ method: 'POST', url: `${R}/blocks`, payload: { title: 'Lemma: 경계 항' } })).json()
-    expect(made.format).toBe('md')
-    const file = path.join(proj, 'workbench/blocks', `${made.id}.md`)
-    expect(fs.existsSync(file)).toBe(true)
-    expect(parseBlock(fs.readFileSync(file, 'utf8')).meta).toMatchObject({ id: made.id, title: 'Lemma: 경계 항', status: 'in-progress' })
-
-    // 본문을 쓰고 상태를 바꾼다
-    const body = '\n$$\n\\sum_i x_i\n$$\n'
-    const head = fs.readFileSync(file, 'utf8')
-    const r = await a.inject({ method: 'PUT', url: `${R}/blocks/${made.id}`, payload: { content: head.trimEnd() + body, baseHash: made.hash } })
-    expect(r.statusCode).toBe(200)
-    const before = fs.readFileSync(file, 'utf8')
-    const p = await a.inject({ method: 'PATCH', url: `${R}/blocks/${made.id}/meta`, payload: { baseHash: await blockHash(made.id, a, R), patch: { status: 'blocked', 'blocked-reason': '반례: n=3', 'resume-condition': '부록 B' } } })
-    expect(p.statusCode).toBe(200)
-    const after = fs.readFileSync(file, 'utf8')
-    expect(after.slice(parseBlock(after).bodyStart)).toBe(before.slice(parseBlock(before).bodyStart))
-    expect(after).toContain('blocked-reason: "반례: n=3"')
-
-    const summary = (await a.inject({ method: 'GET', url: R })).json() as { blocks: { id: string }[] }
-    expect(summary.blocks.map((b) => b.id)).toEqual(expect.arrayContaining([made.id, 'old-block']))
-    const old = (await a.inject({ method: 'GET', url: `${R}/blocks/old-block` })).json()
-    expect(old.format).toBe('tex')
-    await a.close()
-  })
-})
-
 describe.skipIf(!hasLatex)('Markdown 노트 컴파일', () => {
-  it('연구노트와 보조 노트를 LaTeX로 바꿔 PDF를 만든다', async () => {
+  it('연구노트를 LaTeX로 바꿔 PDF를 만든다', async () => {
     const { a, proj, R } = await setup('md-compile')
     fs.writeFileSync(path.join(proj, 'workbench/notes/ground/note.md'), NOTE + NUMBERED)
     const list = (await a.inject({ method: 'GET', url: `${R}/manuscripts` })).json() as { key: string; name: string }[]
@@ -137,11 +106,6 @@ describe.skipIf(!hasLatex)('Markdown 노트 컴파일', () => {
     const log = fs.readFileSync(path.join(proj, 'workbench/.build', fs.readdirSync(path.join(proj, 'workbench/.build')).find((d) => d.startsWith('manuscript'))!, 'note.log'), 'utf8')
     expect(log).not.toMatch(/undefined (references|citations)|Reference .* undefined|Citation .* undefined/)
 
-    const made = (await a.inject({ method: 'POST', url: `${R}/blocks`, payload: { title: '경계 항' } })).json()
-    await a.inject({ method: 'PUT', url: `${R}/blocks/${made.id}`, payload: { content: `${made.content}\n## 계산\n\n$$\n\\sum_i x_i = 1\n$$\n\n**Proof.** 끝. ∎\n`, baseHash: made.hash } })
-    const b = (await a.inject({ method: 'POST', url: `${R}/blocks/${made.id}/compile` })).json()
-    expect(b.problems).toEqual([])
-    expect(b.ok).toBe(true)
     await a.close()
   }, 120_000)
 

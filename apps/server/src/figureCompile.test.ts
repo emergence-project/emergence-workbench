@@ -34,11 +34,11 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 const write = (file: string, data: string | Buffer) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, data) }
 const read = (dir: string, file: string) => fs.readFileSync(path.join(dir, file), 'utf8')
 
-function fixture(id: string, block = false) {
+function fixture(id: string) {
   const own = path.join(repo, 'workbench/figures')
   const lib = path.join(tmp, `compile-library-${id}`)
   const shared = path.join(lib, 'figures')
-  const note = path.join(repo, block ? `workbench/blocks/${id}.md` : `workbench/notes/${id}/note.md`)
+  const note = path.join(repo, `workbench/notes/${id}/note.md`)
   const diagram = `${id}-diagram`
   const photoName = `${id}-shared-photo`
   const content = `---\nid: ${id}\ntitle: Figure note\n---\n![[${diagram}]]\n\n![[${photoName}]]\n\n![[scope-clash]]\n\n![[vector]]\n\n![[full-document]]\n\n![[local.png]]\n\n![[unknown-name]]\n`
@@ -58,7 +58,7 @@ function fixture(id: string, block = false) {
   write(path.join(shared, 'figures.yaml'), YAML.stringify({ 'photo.png': { name: photoName }, 'clash.png': { name: 'scope-clash' }, 'full.tex': { name: 'full-document' } }))
   app.registry.setLibrary(lib)
   const key = pathKeyOf(path.relative(repo, note))
-  const out = path.join(repo, 'workbench/.build', block ? id : `manuscript-${key}`)
+  const out = path.join(repo, 'workbench/.build', `manuscript-${key}`)
   return { note, content, originals, own, shared, out, key, diagram, photoName }
 }
 
@@ -104,57 +104,26 @@ describe('Markdown 그림 라이브러리 컴파일 준비', () => {
     expect(fake.calls.at(-1)?.args[0]).toBe('-norc')
   })
 
-  it.each(['', '?tpl=article'])('보조 노트도 기본·선택 서식에서 같은 원본을 쓴다 (%s)', async (query) => {
-    const id = query ? 'figure-block-picked' : 'figure-block-default'
-    const f = fixture(id, true)
-    const result = await app.inject({ method: 'POST', url: `${R}/blocks/${id}/compile${query}` })
-    expect(result.statusCode).toBe(200)
-    expect(result.json()).toMatchObject({ ok: true, hasPdf: true })
-    assertBuilt(f, id, 'block-body.tex', 'main.tex')
-    expect(fake.calls.at(-1)?.cwd).toBe(f.out)
-  })
-
-  it('그림 패키지가 없는 보조 노트 서식에도 PNG 원본을 넣을 준비를 한다', async () => {
-    const id = 'figure-block-png'
-    const f = fixture(id, true)
-    write(f.note, `![[${f.photoName}]]\n`)
-    const preamble = path.join(repo, 'workbench/preamble.tex')
-    const before = fs.readFileSync(preamble)
-    try {
-      write(preamble, '\\usepackage{amsmath}\n')
-      const result = await app.inject({ method: 'POST', url: `${R}/blocks/${id}/compile` })
-      expect(result.json()).toMatchObject({ ok: true, hasPdf: true })
-      const main = read(f.out, 'main.tex')
-      expect(main).toContain('\\@ifpackageloaded{graphicx}{}{\\usepackage{graphicx}}')
-      expect(main.indexOf('\\usepackage{graphicx}')).toBeLessThan(main.indexOf('\\begin{document}'))
-      expect(main).not.toContain('\\usepackage{tikz}')
-      expect(read(f.out, 'block-body.tex')).toContain('\\includegraphics[width=0.8\\linewidth]{figure-library/library/photo.png}')
-      expect(fs.readFileSync(path.join(f.out, 'figure-library/library/photo.png'))).toEqual(PNG)
-      expect(fs.readFileSync(f.note, 'utf8')).toBe(`![[${f.photoName}]]\n`)
-      expect(fs.readFileSync(preamble, 'utf8')).toBe('\\usepackage{amsmath}\n')
-    } finally { write(preamble, before) }
-  })
-
-  it.each([false, true])('확장자를 생략한 노트 첨부 파일도 라이브러리보다 먼저 쓴다 (보조 노트: %s)', async (block) => {
-    const id = block ? 'figure-block-local-stem' : 'figure-main-local-stem'
-    const f = fixture(id, block)
+  it('확장자를 생략한 노트 첨부 파일도 라이브러리보다 먼저 쓴다', async () => {
+    const id = 'figure-main-local-stem'
+    const f = fixture(id)
     write(f.note, `![[${f.photoName}]]\n`)
     write(path.join(path.dirname(f.note), `${f.photoName}.png`), PNG)
-    const url = block ? `${R}/blocks/${id}/compile` : `${R}/manuscript/compile?ms=${f.key}&tpl=article`
+    const url = `${R}/manuscript/compile?ms=${f.key}&tpl=article`
     expect((await app.inject({ method: 'POST', url })).json().ok).toBe(true)
-    expect(read(f.out, block ? 'block-body.tex' : 'rw-note-body.tex')).toContain(`\\includegraphics[width=0.8\\linewidth]{${f.photoName}}`)
+    expect(read(f.out, 'rw-note-body.tex')).toContain(`\\includegraphics[width=0.8\\linewidth]{${f.photoName}}`)
     expect(fs.existsSync(path.join(f.out, 'figure-library/library/photo.png'))).toBe(false)
   })
 
-  it.each([false, true])('생성 그림 경로와 겹치는 노트 첨부 파일도 원래 파일을 가리킨다 (보조 노트: %s)', async (block) => {
-    const id = block ? 'figure-block-collision' : 'figure-main-collision'
-    const f = fixture(id, block)
+  it('생성 그림 경로와 겹치는 노트 첨부 파일도 원래 파일을 가리킨다', async () => {
+    const id = 'figure-main-collision'
+    const f = fixture(id)
     const local = path.join(path.dirname(f.note), 'figure-library/library/photo.png')
     write(local, Buffer.from('local figure'))
     write(f.note, `![[figure-library/library/photo.png]]\n\n![[${f.photoName}]]\n`)
-    const url = block ? `${R}/blocks/${id}/compile` : `${R}/manuscript/compile?ms=${f.key}&tpl=article`
+    const url = `${R}/manuscript/compile?ms=${f.key}&tpl=article`
     expect((await app.inject({ method: 'POST', url })).json().ok).toBe(true)
-    const body = read(f.out, block ? 'block-body.tex' : 'rw-note-body.tex')
+    const body = read(f.out, 'rw-note-body.tex')
     expect(body).toContain(`\\includegraphics[width=0.8\\linewidth]{${local}}`)
     expect(body).toContain('\\includegraphics[width=0.8\\linewidth]{figure-library/library/photo.png}')
     expect(fs.readFileSync(local, 'utf8')).toBe('local figure')

@@ -106,7 +106,6 @@ export function classify(file: string, wbRel: string): { kind: ChangeKind; id: s
   const [top, a, b] = p
   if (top === 'topics' && a && b && p.length >= 4) return { kind: 'note', id: b }
   if ((top === 'notes' || top === 'calc') && a && p.length >= 3) return { kind: 'note', id: a }
-  if (top === 'blocks' && a && p.length === 2) { const m = /^(.+)\.(tex|md)$/.exec(a); if (m) return { kind: 'note', id: m[1]! } }
   if (top === 'flow' && a && p.length === 2 && /\.ya?ml$/.test(a) && !/^layout\.ya?ml$/.test(a)) return { kind: 'flow', id: a.replace(/\.ya?ml$/, '') }
   if (top === 'tasks' && a && p.length === 2 && a.endsWith('.md')) return { kind: 'task', id: a.slice(0, -3) }
   if (top === 'comments' && a) return { kind: 'record', id: p.slice(1).join('/').replace(/\.(md|ya?ml)$/, '') }
@@ -120,8 +119,6 @@ function namer(wb: Workbench): { name: (kind: ChangeKind, id: string) => string;
     if (notes) return notes
     notes = new Map()
     try { for (const n of wb.ownNotes()) notes.set(path.basename(path.dirname(n.path)), { name: n.name, main: n.path }) } catch { /* 이름 없이 */ }
-    const rel = path.relative(wb.repo, wb.blocksDir).split(path.sep).join('/')
-    try { for (const b of wb.listBlocks()) notes.set(b.id, { name: b.meta.title || b.id, main: `${rel}/${b.id}.${b.format === 'md' ? 'md' : 'tex'}` }) } catch { /* 위와 같음 */ }
     return notes
   }
   const read = (rel: string) => { try { return fs.readFileSync(path.join(wb.root, rel), 'utf8') } catch { return null } }

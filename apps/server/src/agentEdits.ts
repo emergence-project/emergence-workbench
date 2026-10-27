@@ -314,7 +314,7 @@ export function readTarget(io: TargetIo, t0: EditTarget): TargetState {
   }
   const row = noteRow(io, t0)
   const wb = io.wbOf(t0.rid)
-  const { content, hash } = row.type === 'block' ? wb.readBlock(row.id) : readNoteFile(wb, row.file)
+  const { content, hash } = readNoteFile(wb, row.file)
   return { title: row.title || row.file, text: content, hash, confirmed: row.status === 'solved' }
 }
 
@@ -328,7 +328,7 @@ function readNoteFile(wb: Workbench, file: string): { content: string; hash: str
 function noteRow(io: TargetIo, t0: Extract<EditTarget, { kind: 'note' }>) {
   const rows = listNotes(io.wbOf(t0.rid), true)
   // 주인 주제를 바꿔 옮겨 간 노트의 옛 경로도 같은 노트
-  const row = rows.find((r) => r.file === t0.file) ?? rows.find((r) => r.type !== 'block' && sameNoteFile(r.file, t0.file))
+  const row = rows.find((r) => r.file === t0.file) ?? rows.find((r) => sameNoteFile(r.file, t0.file))
   if (!row) throw new WorkbenchError(404, t(`노트가 아님: ${t0.file} (원고 · 노트가 아닌 파일은 고치지 않음)`, `Not a note: ${t0.file} (manuscripts and other files are not changed)`))
   return row
 }
@@ -339,11 +339,6 @@ export function writeTarget(io: TargetIo, t0: EditTarget, text: string, baseHash
   const row = noteRow(io, t0)
   const wb = io.wbOf(t0.rid)
   const conflict = (current: string) => new ConflictError(t('다른 곳에서 파일이 바뀌어 쓰지 않았음. 다시 읽어 주세요', 'Not written: the file was changed elsewhere. Read it again'), current)
-  if (row.type === 'block') {
-    const r = wb.writeBlock(row.id, text, baseHash)
-    if (!r.ok) throw conflict(r.currentHash)
-    return r.hash
-  }
   const current = readNoteFile(wb, row.file).hash
   if (current !== baseHash) throw conflict(current)
   writeAtomic(noteAbs(wb, row.file), text)
@@ -506,9 +501,7 @@ export function recordOf(io: TargetIo, t0: EditTarget): { target: string; title:
   try { row = noteRow(io, t0) } catch { return undefined }
   const target = noteRecordTarget(row)
   if (!target) return undefined
-  return row.type === 'block'
-    ? { target, title: `노트 결과 ${row.title}`, source: row.id }
-    : { target, title: `노트 ${row.title}`, source: row.file }
+  return { target, title: `노트 ${row.title}`, source: row.file }
 }
 
 export type DecideRequest = DecideBody
@@ -540,7 +533,7 @@ export function decide(io: TargetIo, store: AgentEditStore, req: DecideRequest):
         const row = noteRow(io, p.target)
         const now = new Date()
         const excerpt = Array.from(h.current.replace(/\s+/g, ' ').trim()).slice(0, 60).join('')
-        wb.appendJournal({ date: localDate(now), time: localTime(now), kind: 'status', target: row.type === 'block' ? row.id : row.file, text: `에이전트 고침 되돌림 · ${agentsOf(p).join(', ') || '—'} · "${excerpt}…"` })
+        wb.appendJournal({ date: localDate(now), time: localTime(now), kind: 'status', target: row.file, text: `에이전트 고침 되돌림 · ${agentsOf(p).join(', ') || '—'} · "${excerpt}…"` })
       } catch (e) { console.error('[agent-edits] 되돌림 일지 기록 실패', e) }
     }
   } else if (req.action === 'edit') {
