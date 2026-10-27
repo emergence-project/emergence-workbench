@@ -8,6 +8,7 @@ import { buildApp } from './app.js'
 import { hashOf } from './fsutil.js'
 import * as comments from './comments.js'
 import { judgeCompile } from './latex.js'
+import { pathKeyOf } from './manuscript.js'
 import { app, hasLatex, makeRepo, R, repo, tmp, useSampleApp } from './testkit.js'
 import { watchWorkbench, type WorkbenchEvent } from './watcher.js'
 import { Workbench, WorkbenchError } from './workbench.js'
@@ -317,7 +318,7 @@ describe('서식 라이브러리', () => {
     fs.mkdirSync(path.join(root, 'workbench/notes/lib-check'), { recursive: true })
     fs.writeFileSync(path.join(root, 'workbench/notes/lib-check/note.yaml'), 'name: Library check\n')
     fs.writeFileSync(path.join(root, file), '\\section{Library check}\n\\begin{lemma}한글 보조정리: $\\Tr \\rho = 1$, $x \\in \\R$, $n \\in \\N$, $\\abs{x}$, $\\ICS$\\end{lemma}\n\\begin{theorem}번호 있는 정리.\\end{theorem}\n')
-    const compiled = (await app.inject({ method: 'POST', url: `/api/researches/${rid}/manuscript/compile?ms=${encodeURIComponent(file)}` })).json()
+    const compiled = (await app.inject({ method: 'POST', url: `/api/researches/${rid}/manuscript/compile?ms=${encodeURIComponent(pathKeyOf(file))}` })).json()
     expect(compiled.problems).toEqual([])
     expect(compiled.ok).toBe(true)
   }, 60_000)
