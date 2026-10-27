@@ -107,6 +107,8 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
           <div className="tree-notes side-sub">
             <button className={`nav tree-note${route.page === 'status' ? ' on' : ''}`} aria-current={route.page === 'status' ? 'page' : undefined} data-ui="현황 블록" title={t('내 차례 · 맡긴 일 · 주제 · 최근 기록 (에이전트가 STATUS.md로 읽는 것과 같은 내용)', 'Your turn, delegated work, topics, recent journal (same as what agents read in STATUS.md)')} onClick={() => go({ page: 'status', rid })}>
               <span className="label">{t('현황', 'Status')}</span></button>
+            <button className={`nav tree-note${route.page === 'changes' ? ' on' : ''}`} aria-current={route.page === 'changes' ? 'page' : undefined} data-ui="변경사항 블록" title={t('내가 마지막으로 본 뒤 바뀐 노트 · 흐름 점 · 맡긴 일 · 기록 · 파일, 에이전트가 본 것', 'Notes, flow dots, tasks, records and files changed since you last looked, and what agents have seen')} onClick={() => go({ page: 'changes', rid })}>
+              <span className="label">{t('변경사항', 'Changes')}</span></button>
             <button className={`nav tree-note${route.page === 'agents' ? ' on' : ''}`} aria-current={route.page === 'agents' ? 'page' : undefined} data-ui="AGENTS.md 블록" title={t('에이전트가 이 저장소에서 먼저 읽는 규칙과 그 근거가 된 결정', 'Rules agents read first in this repository, and the decisions behind them')} onClick={() => go({ page: 'agents', rid })}>
               <span className="label">{t('규칙', 'Rules')}</span></button>
             <button className={`nav tree-note${route.page === 'repo' ? ' on' : ''}`} aria-current={route.page === 'repo' ? 'page' : undefined} data-ui="저장소 블록" title={t('폴더 · 브랜치 · GitHub와 비교 · 자료 위치', 'Folder, branch, comparison with GitHub, material locations')} onClick={() => go({ page: 'repo', rid })}>

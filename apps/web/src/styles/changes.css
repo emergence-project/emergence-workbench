@@ -1,0 +1,15 @@
+/* 프로젝트 정보 › 변경사항 (ChangesPage, 10/27 시안 안 B): 한 줄에 하나, 에이전트 칸은 에이전트 색 */
+.chg-bar { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin: 0 0 var(--sp-2); font-size: var(--fs-xs); }
+.chg-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); }
+.chg-table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); }
+.chg-table th, .chg-table td { text-align: left; padding: var(--sp-1) var(--sp-3); border-top: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+.chg-table th { border-top: 0; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
+.chg-table .r { text-align: right; font-variant-numeric: tabular-nums; }
+.chg-table td.chg-what { white-space: normal; min-width: 16em; }
+.chg-name { font-weight: var(--fw-medium); color: var(--text); overflow-wrap: anywhere; }
+.chg-kind { font-size: var(--fs-xs); color: var(--text-3); }
+.chg-uncommitted { margin-left: var(--sp-1); margin-right: 0; }
+.chg-who { font-size: var(--fs-xs); color: var(--text-3); }
+.chg-table .chg-ag { width: 56px; text-align: center; color: var(--text-3); }
+.chg-table td.chg-ag.cc.on { background: var(--ag-cc-bg); color: var(--ag-cc); font-weight: var(--fw-strong); }
+.chg-table td.chg-ag.cx.on { background: var(--ag-cx-bg); color: var(--ag-cx); font-weight: var(--fw-strong); }

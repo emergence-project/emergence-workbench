@@ -3,6 +3,7 @@
 // 강점 강화 계획(2026-10-08)의 A단계. 쓰기 도구는 노트 · 개념노트 고치기(edit_note · edit_concept, 10/8 에이전트 고침 검토), 질문에 답하기(answer_record, 10/15), 사용자에게 묻는 기록 남기기(add_record, 10/15),
 // 흐름(flow_*, 10/20), 맡긴 일 만들기 · 보고(add_task · report_task)와 일지(add_journal, 10/21: 에이전트가 workbench 파일을 직접 고치지 않게). 등록은 docs/agent-mcp.md
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -12,6 +13,7 @@ import { FEEDBACK_MISSES, LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { recordRows } from './recordRows.js'
 import { KIND_NAME, shownName } from './flowNames.js'
 import * as C from '@rw/core/contract/flow'
+import type { Changes } from '@rw/core/contract/changes'
 
 // 기본은 맥의 실사용 서버(scripts/serve.sh, 5174). 예제 모드(pnpm dev, 8130)는 RW_URL로 준다.
 export const DEFAULT_URL = process.env.RW_URL ?? `http://127.0.0.1:${process.env.RW_PORT ?? 5174}`
@@ -34,7 +36,7 @@ export const SAFETY = [
  */
 export const INSTRUCTIONS = [
   'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server.',
-  'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on (a short summary; fetch one section by name when needed).',
+  'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on (a short summary; fetch one section by name when needed) → changes_since for what changed since you last looked (other sessions, the other Mac, the user).',
   'Use these tools instead of reading or writing files under workbench/: they keep the app\'s format, show your work to the user (records, flow, task tab, edit reviews) and return short outputs. Edit files directly only for what no tool covers.',
   'Outputs are short on purpose: read a longer rule (rules part) or STATUS section (project_status section) only when the work needs it.',
   'Answer the user\'s questions: list_records with unanswered: true → read_note for the context → answer_record (result first, a few lines).',
@@ -111,12 +113,47 @@ export function agentOf(clientName: string | undefined): string {
   return n.slice(0, 40) || 'mcp'
 }
 
+/**
+ * 이 맥에 로그인한 Claude 계정 id (변경사항의 기준을 계정마다 두려고, 10/27). Claude Code의 .claude.json oauthAccount.accountUuid.
+ * 요금제는 캐시가 늦을 수 있어 쓰지 않는다. 없거나 못 읽으면 undefined (기준이 claude-code 하나)
+ */
+export function claudeAccount(env: NodeJS.ProcessEnv = process.env, home = os.homedir()): string | undefined {
+  const dir = env.CLAUDE_CONFIG_DIR || home
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(dir, '.claude.json'), 'utf8')) as { oauthAccount?: { accountUuid?: unknown } }
+    const id = j.oauthAccount?.accountUuid
+    return typeof id === 'string' && /^[\w-]{1,64}$/.test(id) ? id : undefined
+  } catch { return undefined }
+}
+
+const KIND_LABEL: Record<Changes['items'][number]['kind'], string> = { note: '노트', flow: '흐름 점', task: '맡긴 일', record: '기록', file: '파일' }
+const ACTION_LABEL: Record<Changes['items'][number]['action'], string> = { created: '새로 만듦', edited: '고침', moved: '옮김', deleted: '지움' }
+const localTime = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}` }
+
+/** changes_since의 답: 머리 한 줄과 바뀐 것 한 줄씩 (화면 프로젝트 정보 › 변경사항과 같은 목록) */
+export function changesText(c: Changes, limit = 40): string {
+  const head = `변경사항 ${c.items.length} · since ${localTime(c.since)} · this Mac: ${c.machine} (uncommitted edits on another Mac are not visible until committed and pulled)`
+  if (!c.items.length) return `${head}
+Nothing changed.`
+  const lines = c.items.slice(0, limit).map((i) => {
+    const when = i.first.slice(0, 10) !== i.last.slice(0, 10) ? `${localTime(i.first)} – ${localTime(i.last)}` : localTime(i.last)
+    const name = i.kind === 'file' ? i.id : i.name === i.id ? i.id : `${i.name} (${i.id})`
+    return `- ${KIND_LABEL[i.kind]} ${name} · ${ACTION_LABEL[i.action]} · ${i.authors.join(', ')} · ${when}${i.uncommitted ? ' · 커밋 안 됨' : ''}`
+  })
+  return [head, ...lines, ...(c.items.length > limit ? [`… ${c.items.length - limit} more (pass since to narrow)`] : [])].join('\n')
+}
+
 /** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_checks · feedback_answer를 더한다) */
-export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat?: string } = {}): McpServer {
+export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat?: string; account?: string } = {}): McpServer {
   const base = (opts.baseUrl ?? DEFAULT_URL).replace(/\/$/, '')
   const f0 = opts.fetch ?? fetch
   // 앱이 에이전트 연결을 알아보게 (설정 › 계정 › 시작 준비, agentSeen.ts)
-  const f: Fetch = (url, init) => f0(url, { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), 'x-rw-agent': agentOf(server.server.getClientVersion()?.name) } })
+  // Claude 계정 id도 붙인다: 변경사항의 기준이 계정마다 (한 맥에 계정이 둘이어도 섞이지 않게, 10/27)
+  const account = opts.account !== undefined ? opts.account || undefined : claudeAccount()
+  const f: Fetch = (url, init) => {
+    const agent = agentOf(server.server.getClientVersion()?.name)
+    return f0(url, { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), 'x-rw-agent': agent, ...(agent === 'claude-code' && account && { 'x-rw-account': account }) } })
+  }
   const call = async (url: string, shape: (body: never) => unknown = (b) => b): Promise<Text> => {
     const r = await get(base, f, url)
     return r.ok ? json(shape(r.body as never)) : r.error
@@ -196,6 +233,17 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
   }, async ({ project: rid, section, full }) => {
     const r = await get(base, f, `/api/researches/${enc(rid)}/agent-status${section ? `?section=${enc(section)}` : full ? '' : '?view=summary'}`)
     return r.ok ? text((r.body as { markdown: string }).markdown) : r.error
+  })
+
+  server.registerTool('changes_since', {
+    title: 'Changes since',
+    description: 'What changed in a project since you last called this tool (per agent, and per Claude account): new commits (also from the other Mac, once pulled), edits on this Mac not committed yet, and which notes, flow dots, delegated tasks, records and other files they touched, one line each with author and time. Calling it moves your baseline to now. Pass since (ISO time) to look from an earlier point instead; the first call looks back 7 days.',
+    inputSchema: { project, since: z.string().optional().describe('ISO time, e.g. 2026-10-26T09:00') },
+    // 기준 시각만 옮긴다 (프로젝트 파일은 쓰지 않음)
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  }, async ({ project: rid, since }) => {
+    const r = await post(base, f, `/api/researches/${enc(rid)}/changes/read`, since ? { since } : {})
+    return r.ok ? text(changesText(r.body as Changes)) : r.error
   })
 
   server.registerTool('list_notes', {

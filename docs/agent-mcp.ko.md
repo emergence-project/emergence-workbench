@@ -33,9 +33,9 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 
 흐름 출력(`flow_search` · `flow_read` · `flow_add` · `flow_update` · `finish_work`)에는 `shown`이 실린다: 화면이 쓰는 말로 적은 점(예: `명제 (닫는 점) · 끝남 · 해결 · 판단 전`)이라 에이전트가 사용자에게 그대로 옮길 수 있다. MCP는 화면과 이름 · 규칙 · 차례의 경계를 같게 두고, 도구는 화면이 아니라 일 단위로 나눈다(10/27).
 
-## 도구 (edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · add_task · report_task · add_journal 말고는 읽기 전용)
+## 도구 (edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · add_task · report_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
 
-연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
+연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status` → `changes_since`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
 
 | 도구 | 하는 일 | 부르는 API |
 | --- | --- | --- |
@@ -43,6 +43,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `list_projects` | 등록한 프로젝트: id · 제목 · 저장소 경로 · 진행 상태 | `GET /api/researches` |
 | `overview` | 진행 중인 모든 프로젝트를 한 표로: 사용자 차례(확인할 노트 · 판단할 맡긴 일 · 에이전트 고침, 홈의 "확인 필요"와 같은 수), 에이전트 차례(답 없는 질문 · 진행 중 맡긴 일 · 할 일), 저장소 동기화, 최근 기록. 어디서 일할지 고를 때 | `GET /api/agent-overview` |
 | `project_status` | 짧은 프로젝트 요약: 머리 · 목표 · 지금 할 것을 말하는 절(할 일, 맡긴 일, 흐름 요약, 대기 중인 질문·지시, 검토 대기)만 싣고, 다른 절은 이름과 크기만 적는다. `section`은 `workbench/STATUS.md`의 절 하나, `full`은 전부 | `GET …/:rid/agent-status?view=summary`, `?section=<절 이름>` |
+| `changes_since` | 이 에이전트가 지난번 부른 뒤 프로젝트에서 바뀐 것: 새 커밋(다른 맥에서 올린 것도 받은 뒤에는), 이 맥에서 아직 커밋하지 않은 고침, 그것이 건드린 노트 · 흐름 점 · 맡긴 일 · 기록 · 다른 파일을 작성자 · 시각과 함께 한 줄씩. 기준은 에이전트마다, Claude는 계정마다(Claude Code `.claude.json`의 `oauthAccount.accountUuid`를 `x-rw-account`로 보냄) 따로이고 부를 때마다 지금으로 옮긴다. `since`를 주면 그때부터, 처음에는 7일 전부터. 앱의 프로젝트 정보 › 변경사항이 같은 목록이다 | `POST …/:rid/changes/read` |
 | `list_notes` | 노트 목록: 본문 파일 · 기록 이름 `target`(Markdown 노트·블록 노트, `main.tex`에는 없음) · 상태 · 다시 열 조건 · 주제 (`status`로 거르기) | `GET …/:rid/notes` |
 | `list_edit_reviews` | 에이전트 수정 검토 대기와 허락 대기. 선택 인자 `project`를 주면 그 프로젝트만, 없으면 모든 프로젝트와 개념노트 | `GET /api/agent-edits?scope=` |
 | `read_note` | 노트 본문과 hash | `GET …/:rid/manuscript/part`, 블록 노트는 `GET …/:rid/blocks/:id` |

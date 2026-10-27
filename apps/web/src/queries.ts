@@ -39,6 +39,9 @@ export const qk = {
   tasks: (rid: string) => ['project', rid, 'tasks'] as const,
   /** STATUS.md와 같은 현황 글: 프로젝트의 거의 모든 파일에서 뽑으므로 그 프로젝트의 알림마다 다시 받는다 */
   status: (rid: string) => ['project', rid, 'status'] as const,
+  /** 변경사항 (프로젝트 정보 › 변경사항 · 홈 카드의 수): 저장소의 거의 모든 파일에서 뽑으므로 현황처럼 그 프로젝트의 알림마다 다시 받는다 */
+  changes: (rid: string) => ['project', rid, 'changes'] as const,
+  changesCount: (rid: string) => ['project', rid, 'changes', 'count'] as const,
   /** 주제 카드와 그 수: 주제 키 아래에 두어 주제를 다시 받을 때 함께 */
   topicsOverview: (rid: string) => ['project', rid, 'topics', 'overview'] as const,
   /** 지운 노트: 노트 키 아래에 두어 노트를 다시 받을 때 함께 */
@@ -104,7 +107,7 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   }
   const keys = projectKeys(e)
   // research는 프로젝트 키 전체라 현황도 들어 있다
-  return e.type === 'research' ? keys : [...keys, qk.status(e.research)]
+  return e.type === 'research' ? keys : [...keys, qk.status(e.research), qk.changes(e.research)]
 }
 
 /** 모든 사람 페이지 (qk.person(id)의 앞부분) */

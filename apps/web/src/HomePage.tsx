@@ -1,6 +1,6 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState, type DragEvent, type ReactNode } from 'react'
-import { api, type ProjectState, type RepoSync, type ResearchListItem } from './api'
+import { api, changesApi, type ChangesCount, type ProjectState, type RepoSync, type ResearchListItem } from './api'
 import { CardImage } from './CardImage'
 import { cardTime, TagLine } from './cardParts'
 import { SetupHomeCard } from './SetupChecklist'
@@ -61,6 +61,9 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
   const summaryQs = useQueries({ queries: available.map((r) => ({ queryKey: qk.summary(r.id), queryFn: () => api.research(r.id).summary() })) })
   const journalQs = useQueries({ queries: available.map((r) => ({ queryKey: qk.journal(r.id, 365), queryFn: () => api.research(r.id).journal(365) })) })
   const syncQs = useQueries({ queries: available.map((r) => ({ queryKey: qk.sync(r.id), queryFn: () => api.research(r.id).sync(true).catch(() => null), staleTime: 60_000 })) })
+  // 카드 바닥 줄 "변경사항 N": 내가 그 프로젝트의 변경사항 쪽을 마지막으로 연 뒤 바뀐 것 (10/27)
+  const changeQs = useQueries({ queries: available.map((r) => ({ queryKey: qk.changesCount(r.id), queryFn: () => changesApi(r.id).count().catch(() => null) })) })
+  const changes: Record<string, ChangesCount | null | undefined> = Object.fromEntries(available.map((r, i) => [r.id, changeQs[i]!.data]))
   const stamp = [...summaryQs, ...journalQs].map((q) => `${q.dataUpdatedAt}:${q.errorUpdatedAt}`).join() + available.map((r) => r.id).join()
   const loaded = useMemo(() => {
     const out: Record<string, Loaded | Error> = {}
@@ -120,6 +123,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
       edits: agentEdits[r.id] ?? 0,
       records: askRecords[r.id] ?? 0,
       sync: sync ?? null,
+      changes: changes[r.id] ?? null,
       onUpdate: () => update(r.id),
       drag: dragProps(r.id), dropTarget: dropProps(r.id),
       dragging: dragging === r.id, over: over === r.id && dragging !== r.id,
@@ -200,6 +204,8 @@ interface ProjectRowData {
   /** issues 가운데 에이전트가 물은 기록 */
   records?: number
   sync: RepoSync | null
+  /** 내가 변경사항 쪽을 마지막으로 연 뒤 바뀐 것 */
+  changes?: ChangesCount | null
   onUpdate(): void
   drag: { draggable: boolean; onDragStart(e: DragEvent): void; onDragEnd(): void }
   dropTarget: { onDragOver(e: DragEvent): void; onDrop(e: DragEvent): void }
@@ -264,7 +270,9 @@ export function ProjectCard(p: ProjectCardProps) {
         <TagLine tags={tags} />
         {p.error && <span className="error-text">{p.error}</span>}
         <span className="pcard-foot">
-          <span className="kc-time">{p.last ? t(`최근 ${cardTime(p.last)}`, `Last ${cardTime(p.last)}`) : ''}</span>
+          {!p.preview && p.changes?.count
+            ? <span className="kc-time" data-ui="변경사항 수" title={t('내가 마지막으로 본 뒤 바뀐 것 (프로젝트 정보 › 변경사항)', 'Changed since you last looked (Project info › Changes)')}><b>{t(`변경사항 ${p.changes.count}`, `Changes ${p.changes.count}`)}</b>{p.changes.last && ` · ${cardTime(Date.parse(p.changes.last))}`}</span>
+            : <span className="kc-time">{p.last ? t(`최근 ${cardTime(p.last)}`, `Last ${cardTime(p.last)}`) : ''}</span>}
           {r.state !== 'active' && <span className="kc-state"><ProjectStateDot state={r.state} /></span>}
           <span className="pcard-mark"><Attention mark={p.mark ?? null} issues={p.issues ?? 0} tasks={p.tasks ?? 0} edits={p.edits ?? 0} records={p.records ?? 0} sync={p.sync ?? null} onUpdate={p.preview ? undefined : p.onUpdate} /></span>
         </span>

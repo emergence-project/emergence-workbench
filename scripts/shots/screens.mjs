@@ -158,6 +158,10 @@ export const DEFAULT_SCREENS = [
   ['knowledge-records', '#/library/t/planargraph', '적기', '코멘트 버튼'],
   // 프로젝트의 오른쪽 사이드바 기록 (10/14 "모두 보기" → 작업 탭). 앞 화면이 기록 갈래를 켜 두었다
   ['project-records', '#/r/{rid}', '모두 보기'],
+  // 프로젝트 정보 › 변경사항 (10/27): 예제를 이때 git 저장소로 만들고 커밋 · 커밋 안 된 고침 · 에이전트가 받은 때를 넣는다(changes.mjs). 다른 화면이 git 없이 찍히게 맨 끝
+  // 홈 카드의 "변경사항 N"(내가 변경사항 쪽을 열기 전)과 그 쪽. 카드 보기는 home-cards가 기억해 두었다
+  ['home-changes', '#/', '변경사항 수'],
+  ['info-changes', '#/r/{rid}/changes', '변경사항 표'],
 ]
 
 // --sample subjects: a separate .sandbox-shots/subjects-library fixture, preserving the default L2b shots.

@@ -32,6 +32,7 @@ export * from './api/agentEdits'
 export * from './api/agentChats'
 export * from './api/app'
 export * from './api/setup'
+export * from './api/changes'
 
 export const api = {
   ...researchListCalls,
