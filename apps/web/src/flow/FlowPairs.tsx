@@ -61,12 +61,15 @@ export function FlowPairs({ rid, nodes, tasks, onSaved, reload }: { rid: string;
   )
 }
 
-/** 맡긴 일이 이은 흐름 점 칩 (판단 카드 · 보고서). 누르면 흐름 */
-export function TaskFlowChip({ rid, task, nodes }: { rid: string; task: Task; nodes: FlowNode[] }) {
+/** 맡긴 일이 이은 흐름 점 칩 (판단 카드 · 보고서). 누르면 흐름. inRow: 펼치기 버튼(판단 카드 줄) 안이면 버튼 안에 버튼을 두지 않게 span으로 */
+export function TaskFlowChip({ rid, task, nodes, inRow = false }: { rid: string; task: Task; nodes: FlowNode[]; inRow?: boolean }) {
   const n = task.flow ? nodes.find((x) => x.id === task.flow) : undefined
   if (!n) return null
-  return <button className="a tk-flow-chip" data-ui="맡긴 일 흐름 점" title={tr(`흐름 점: ${n.title}`, `Flow dot: ${n.title}`)}
-    onClick={(e) => { e.stopPropagation(); go({ page: 'flow', rid }) }}><MarkIcon n={n} size={14} />{n.short}</button>
+  const open = (e: { stopPropagation(): void; preventDefault(): void }) => { e.stopPropagation(); e.preventDefault(); go({ page: 'flow', rid }) }
+  const props = { className: 'a tk-flow-chip', 'data-ui': '맡긴 일 흐름 점', title: tr(`흐름 점: ${n.title}`, `Flow dot: ${n.title}`) }
+  return inRow
+    ? <span {...props} role="link" tabIndex={0} onClick={open} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') open(e) }}><MarkIcon n={n} size={14} />{n.short}</span>
+    : <button {...props} onClick={open}><MarkIcon n={n} size={14} />{n.short}</button>
 }
 
 /**
