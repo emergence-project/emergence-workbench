@@ -109,7 +109,7 @@ function Items({ list, empty }: { list: ReactNode[]; empty?: string }) {
 }
 
 /**
- * 판단 카드 (시안 v31): 접힌 줄 = 상태 점 · 제목 · 에이전트 · 시작 시각 · 작업 시간(끝 시각은 툴팁).
+ * 맡긴 일 결과 줄 (시안 v31, 10/27까지 이름 "판단 카드". data-ui는 그대로): 접힌 줄 = 상태 점 · 제목 · 에이전트 · 시작 시각 · 작업 시간(끝 시각은 툴팁).
  * 펼치면 결론 · 작업 내용, 그 아래 왼쪽 사용자 확인 요청 | 오른쪽 남은 문제. 판단에 쓴 시간은 펼친 때부터 잰다(보이지 않음).
  */
 export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEditProposal, nodes = [] }: {
@@ -157,7 +157,7 @@ export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEdi
  * 판단: 사용자 차례인 맡긴 일 (오래 기다린 것부터). 처음에는 모두 접어 둔다: 기록 화면 내 차례에서 다른 줄과 같은 무게로
  * (10/21 시각 위계). 펼친 줄은 하나만. openId · onToggle을 주면 바깥 목록과 펼침을 함께 쓴다
  */
-export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal, openId: outerOpen, onToggle, emptyText, children, nodes }: {
+export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal, openId: outerOpen, onToggle, emptyText, children, nodes, heading }: {
   rid: string; tasks: Task[]; loaded: boolean; onSaved: Saved; reload(): unknown; onEditProposal(t: Task): void
   /** 흐름 점 (있으면 이은 점을 칩으로) */
   nodes?: FlowNode[]
@@ -165,6 +165,8 @@ export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal,
   /** 판단할 것이 없을 때의 글. null이면 아무것도 보이지 않는다 */
   emptyText?: string | null
   children?: ReactNode
+  /** 줄 위에 "맡긴 일 결과 n" 머리 (기록 › 내 차례: 흐름의 판단 대기와 갈라 보이게, 10/27) */
+  heading?: boolean
 }) {
   const list = judgeOrder(tasks)
   const [innerOpen, setInnerOpen] = useState<string | null>(null)
@@ -172,6 +174,8 @@ export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal,
   const toggle = (id: string) => onToggle ? onToggle(id) : setInnerOpen(shown === id ? null : id)
   return (
     <div className="tk-list" data-ui="판단 목록">
+      {heading && list.length > 0 && <div className="tk-group-h jq-h" data-ui="맡긴 일 결과 머리">{t('맡긴 일 결과', 'Delegated task results')} <span className="rail-count tk-turn">{list.length}</span>
+        <span className="muted jq-tip">{t('에이전트가 결과나 종결 조건을 보냈습니다. 펼쳐서 승인하거나 수정을 보냅니다', 'An agent sent a result or completion criteria. Expand to approve or send back')}</span></div>}
       {list.map((t) => <TaskCard key={t.id} rid={rid} task={t} open={shown === t.id} onToggle={() => toggle(t.id)} onSaved={onSaved} reload={reload} onEditProposal={onEditProposal} nodes={nodes} />)}
       {!list.length && emptyText !== null && <p className="empty tk-empty">{loaded ? emptyText ?? t('판단할 것이 없습니다. 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing to decide. Results of delegated tasks show up here.') : t('불러오는 중…', 'Loading…')}</p>}
       {children}

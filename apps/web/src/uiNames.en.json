@@ -891,5 +891,6 @@
   "흐름 짝 줄": "Flow pair row",
   "맡긴 일 흐름 점": "Task flow dot",
   "보고서 흐름 점": "Report flow dot",
-  "흐름 점 맡긴 일": "Flow dot delegated task"
+  "흐름 점 맡긴 일": "Flow dot delegated task",
+  "맡긴 일 결과 머리": "Delegated task results heading"
 }
