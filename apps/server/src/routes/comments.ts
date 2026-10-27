@@ -34,7 +34,7 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     readComments(recordsRoot(req.params.rid), req.params.target))
   app.post<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target', replies(C.CommentAdded), async (req): Promise<C.CommentAdded> => {
     const added = addComment(recordsRoot(req.params.rid), req.params.target, parseBody(C.NewCommentBody, req.body))
-    if (added.entry.kind === '지시') instantFor(req.params.rid, req.params.target)
+    if (isAgentKind(added.entry.kind)) instantFor(req.params.rid, req.params.target)
     return added
   })
   app.post<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target/classify', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
@@ -88,20 +88,20 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     answerWithClaude(req.params.rid, req.params.target, req.params.id))
 
   /*
-   * 지시를 맥의 Claude가 하는 때 (설정 › 에이전트, 10/16): 바로(instant)면 지시를 남기거나 이어 쓸 때, 하루 한 번(daily)이면 고른 시각에.
-   * 사용자가 남긴 대기 중인 지시만 집고, 차례(ClaudeQueue)로 하나씩 한다. 차례가 왔을 때 이미 답이 있으면 건너뛴다.
+   * 질문 · 지시를 맥의 Claude가 하는 때 (설정 › 에이전트, 10/16. 질문도 10/27 피드백): 바로(instant)면 남기거나 이어 쓸 때, 하루 한 번(daily)이면 고른 시각에.
+   * 사용자가 남긴 대기 중인 질문 · 지시만 집고, 차례(ClaudeQueue)로 하나씩 한다. 차례가 왔을 때 이미 답이 있으면 건너뛴다.
    */
   const queue = new ClaudeQueue()
   function enqueue(rid: string, target: string, id: string): void {
     queue.add(`${rid}/${target}/${id}`, async () => {
       const q = readComments(recordsRoot(rid), target).comments.find((c) => c.id === id)
-      if (q?.kind === '지시' && q.state === '대기' && !q.by) await answerWithClaude(rid, target, id)
+      if (q && isAgentKind(q.kind) && q.state === '대기' && !q.by && !asking.has(`${rid}/${target}/${id}`)) await answerWithClaude(rid, target, id)
     })
   }
-  /** 한 기록 파일의 대기 중인 지시를 모두 차례에 넣는다 (바로일 때만) */
+  /** 한 기록 파일의 대기 중인 질문 · 지시를 모두 차례에 넣는다 (바로일 때만) */
   function instantFor(rid: string, target: string): void {
     if (registry.agents.instructions !== 'instant') return
-    for (const c of readComments(recordsRoot(rid), target).comments) if (c.kind === '지시' && c.state === '대기' && !c.by) enqueue(rid, target, c.id)
+    for (const c of readComments(recordsRoot(rid), target).comments) if (isAgentKind(c.kind) && c.state === '대기' && !c.by) enqueue(rid, target, c.id)
   }
   let lastDaily: string | null = null
   repeat(app, { first: 60_000, every: 60_000, run: async () => {
@@ -113,7 +113,7 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     // 멈춤 · 완료 프로젝트는 하루 한 번 모아 돌리지 않는다 (사용자가 그 프로젝트에 바로 쓴 지시는 instantFor가 받는다)
     // 지식 라이브러리의 지시도 함께 모은다 (10/18)
     for (const rid of [...registry.list().filter((x) => x.state === 'active').map((x) => x.id), ...(registry.libraryPath ? [LIBRARY_RID] : [])]) {
-      try { for (const p of pendingQuestions(recordsRoot(rid), '지시')) enqueue(rid, p.target, p.id) } catch { /* 저장소가 없거나 읽지 못하면 그 연구는 건너뛴다 */ }
+      try { for (const p of [...pendingQuestions(recordsRoot(rid), '질문'), ...pendingQuestions(recordsRoot(rid), '지시')]) enqueue(rid, p.target, p.id) } catch { /* 저장소가 없거나 읽지 못하면 그 연구는 건너뛴다 */ }
     }
   } })
   ;(app as unknown as { instructionQueue?: ClaudeQueue }).instructionQueue = queue
