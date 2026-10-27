@@ -11,6 +11,7 @@ import { journalDeletePrompt, journalEntryActions } from './journalActions'
 import { isNoteTarget, journalTargetRoute, type NoteOf } from './journalTargets'
 import { shown, t } from './i18n'
 import { CodeText, RepoPathContext } from './repoPaths'
+import { textLinks } from './textLinks'
 export { isNoteTarget } from './journalTargets'
 
 function InlineText({ parts }: { parts: Inline[] }) {
@@ -19,7 +20,9 @@ function InlineText({ parts }: { parts: Inline[] }) {
       case 'math': return <span key={i} dangerouslySetInnerHTML={{ __html: katex.renderToString(p.tex, { throwOnError: false }) }} />
       case 'bold': return <strong key={i}>{p.text}</strong>
       case 'code': return <CodeText key={i} text={p.text} />
-      default: return <span key={i}>{p.text}</span>
+      default: return <span key={i}>{textLinks(p.text).map((x, j) => x.kind === 'url'
+        ? <a key={j} className="a memo-link" href={x.text} target="_blank" rel="noreferrer">{x.text}</a>
+        : x.text)}</span>
     }
   })}</>
 }
