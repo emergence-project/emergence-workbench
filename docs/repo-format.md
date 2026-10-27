@@ -198,7 +198,7 @@ description: |-
 | `blocked-reason`, `resume-condition` | `blocked`일 때 둘 다 필요 |
 | `stopped-reason` | `stopped`일 때 필요 |
 | `concepts`, `topics` | 개념 id·주제 id 목록 |
-| `kind` | `proof calc check summary explore design` |
+| `kind` | `proof calc theory check summary explore design` |
 | `description` | 200자, 20줄 |
 | `star` | `true` 또는 없음 |
 
@@ -236,7 +236,7 @@ star: true
 | `state` | `paused` · `stopped` · `done`. 진행 중이면 키를 두지 않는다. 옛 `done: true`도 `done`으로 읽는다 |
 | `resume` | `paused`·`stopped`일 때 다시 시작할 조건 (300자) |
 | `topics`, `concepts` | id 목록 |
-| `kind` | `proof calc check summary explore design`. `calc/`는 없으면 `calc`. `none`은 분류 안 함 |
+| `kind` | `proof calc theory check summary explore design`. `calc/`는 없으면 `calc`. `none`은 분류 안 함 |
 | `star` | `true` 또는 없음 |
 
 - 화면 상태: `paused`→멈춤, `stopped`→폐기, `done`→해결, 그 밖→진행.

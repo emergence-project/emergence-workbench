@@ -5,6 +5,7 @@ import { t } from './i18n'
 export const NOTE_KIND_LABEL: Record<NoteCategory, string> = {
   proof: t('증명', 'Proof'),
   calc: t('계산', 'Calculation'),
+  theory: t('이론', 'Theory'),
   check: t('검증', 'Verification'),
   summary: t('요약', 'Summary'),
   explore: t('탐색', 'Exploration'),
@@ -13,7 +14,7 @@ export const NOTE_KIND_LABEL: Record<NoteCategory, string> = {
 /** 성격을 적지 않은 노트 */
 export const NO_KIND_LABEL = t('미분류', 'No kind')
 /** 고를 수 있는 성격: 설계는 업무 프로젝트에만 (프로젝트 성격, 10/5) */
-export const noteKindChoices = (project: ProjectKind): NoteCategory[] => ['proof', 'calc', 'check', 'summary', 'explore', ...(project === 'work' ? ['design' as const] : [])]
+export const noteKindChoices = (project: ProjectKind): NoteCategory[] => ['proof', 'calc', 'theory', 'check', 'summary', 'explore', ...(project === 'work' ? ['design' as const] : [])]
 export const noteKindLabel = (k: NoteCategory | null | undefined) => (k ? NOTE_KIND_LABEL[k] : NO_KIND_LABEL)
 /** 주제 없는 노트 묶음의 이름 ("분류 전" 대신, 10/5) */
 export const LOOSE_NOTES_LABEL = t('노트들', 'Loose notes')

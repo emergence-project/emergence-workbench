@@ -180,7 +180,7 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
       if (data.state !== 'paused' && data.state !== 'stopped') issue('warning', file, line('resume'), 'resume은 멈춤·폐기 노트에만 적습니다.', 'resume is only for paused or stopped notes.')
       if (typeof data.resume === 'string' && data.resume.length > 300) issue('warning', file, line('resume'), 'resume은 300자까지입니다.', 'resume is limited to 300 characters.')
     }
-    if ('kind' in data && ![...NOTE_CATEGORIES, 'none'].some((kind) => kind === data.kind)) issue('error', file, line('kind'), 'kind는 proof calc check summary explore design none 중 하나입니다.', 'kind must be proof calc check summary explore design none.')
+    if ('kind' in data && ![...NOTE_CATEGORIES, 'none'].some((kind) => kind === data.kind)) issue('error', file, line('kind'), 'kind는 proof calc theory check summary explore design none 중 하나입니다.', 'kind must be proof calc theory check summary explore design none.')
     checkTopics(file, line('topics'), list(data.topics))
     const topics = list(data.topics).map(String)
     if (owner !== undefined && topics.length && topics[0] !== owner) issue('warning', file, line('topics'), `주인 주제는 폴더(${owner})로 정합니다. topics:는 ${owner}를 맨 앞에 적으세요.`, `The owner topic is the folder (${owner}). List ${owner} first in topics:.`)
