@@ -288,6 +288,15 @@ describe('split button follows rendered panes', () => {
     expect(closed.panes[0]).toEqual(state.panes[0])
   })
 
+  it('puts PDF tabs merged into the left pane back on the right when splitting again', () => {
+    const merged = toggleSplit({ ...layout(), showBothPanes: true }, 'part')
+    expect(merged.panes[1].tabs).toEqual([])
+    const opened = toggleSplit(merged, 'part')
+    expect(workspaceVisibility(opened, 'part').shown).toEqual([0, 1])
+    expect(opened.panes[0]).toEqual({ tabs: [{ k: 'part', file: 'a.tex' }, { k: 'part', file: 'b.tex' }], active: 'part:a.tex' })
+    expect(opened.panes[1]).toEqual({ tabs: [{ k: 'mspdf' }, { k: 'mspdf', ms: 'b' }], active: 'mspdf' })
+  })
+
   it('opens and closes two empty panes', () => {
     const state = layout()
     state.panes = [{ tabs: [], active: null }, { tabs: [], active: null }]

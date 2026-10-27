@@ -227,11 +227,35 @@ const MD_BODY_FILE = 'rw-note-body.tex'
 /** \documentclass가 없는 노트: 본문만 두고 머리는 앱의 LaTeX 서식이 붙인다 (10/4 사용자 "본문만 남기고, 컴파일러가 처리하도록") */
 export { isBodyOnly } from '@rw/core'
 
+/** 연구의 공통 서식 파일 (옛 블록 노트가 읽던 workbench/preamble.tex) */
+export const repoPreambleOf = (wb: Workbench) => path.join(wb.root, 'preamble.tex')
+
+/**
+ * 저장소 서식을 앱 서식 다음에 부른다. 앱 서식이 먼저 부른 패키지는 다시 부르지 않게 \usepackage를 잠시 감싼다.
+ * 그 안의 상대 \input은 workbench/ 기준으로, 없으면 공유 라이브러리 기준으로 찾는다(\input@path). 옛 블록 노트와 같게 (10/27 블록 노트를 노트로 합침)
+ * LaTeX 경로에 쓸 수 없는 문자가 든 경로는 빼고, 서식 파일 경로가 그렇면 아무것도 넣지 않는다
+ */
+export function inputRepoPreamble(file: string, searchPath: string[]): string[] {
+  const ok = (p: string) => !/[\s{}%\\#~$^&]/.test(p)
+  if (!ok(file)) return []
+  const dirs = searchPath.filter(ok).map((d) => `{${d.endsWith('/') ? d : `${d}/`}}`)
+  return [
+    `\\makeatletter\\def\\input@path{${dirs.join('')}}\\makeatother`,
+    '\\makeatletter',
+    '\\let\\rw@repo@usepackage\\usepackage',
+    '\\renewcommand{\\usepackage}[2][]{\\@for\\rw@repo@package:=#2\\do{\\@ifpackageloaded{\\rw@repo@package}{}{\\rw@repo@usepackage[#1]{\\rw@repo@package}}}}',
+    '\\makeatother',
+    `\\input{${file}}`,
+    '\\makeatletter\\let\\usepackage\\rw@repo@usepackage\\makeatother',
+  ]
+}
+
 /**
  * 본문만 있는 노트를 감싸는 main: 서식의 문서 종류 줄 → 공통 줄(\input{setting}) → 프로젝트 기호(workbench/macros.tex) →
  * pdftitle(노트 이름) → 노트 본문(\input). 빌드 폴더에 같은 이름으로 두고 원고 폴더에서 컴파일하므로 그림·\input 경로는 원래대로 풀린다.
  */
-export function wrapBodyOnly(o: { template: LatexTemplate; noteFile: string; title: string; macros?: string; noteMacros?: boolean; shared?: boolean; front?: string[] }): string {
+// repoPreamble: 저장소 서식(workbench/preamble.tex)의 경로와 그 안 \input을 찾을 폴더. fragment: \begin{document} 없이 본문만 쓴 노트(옛 블록 노트)면 감싸는 main이 문서를 연다
+export function wrapBodyOnly(o: { template: LatexTemplate; noteFile: string; title: string; macros?: string; noteMacros?: boolean; shared?: boolean; front?: string[]; repoPreamble?: { file: string; searchPath: string[] }; fragment?: boolean }): string {
   const preamble = o.template.preamble.trim()
   const title = o.title.replace(/[\\{}%#&$^_~]/g, ' ').replace(/\s+/g, ' ').trim()
   const q = (f: string) => (/\s/.test(f) ? `"${f}"` : f)
@@ -239,6 +263,7 @@ export function wrapBodyOnly(o: { template: LatexTemplate; noteFile: string; tit
     `% research-workspace가 만든 파일: 서식 "${o.template.name}"으로 본문만 있는 노트를 감싼다. 고치지 말 것.`,
     o.template.documentClass,
     ...(preamble ? [preamble] : []),
+    ...(o.repoPreamble ? inputRepoPreamble(o.repoPreamble.file, o.repoPreamble.searchPath) : []),
     ...(o.macros ? [`\\input{${q(o.macros)}}`] : []),
     ...(o.noteMacros ? [`\\input{${NOTE_MACROS}}`] : []),
     // 공통 기호는 마지막: \\providecommand라 앞의 프로젝트·노트 기호가 앞선다
@@ -247,7 +272,7 @@ export function wrapBodyOnly(o: { template: LatexTemplate; noteFile: string; tit
     // 제목·저자는 노트에 두지 않고 앱이 붙인다 (\\begin{document}이 끝난 뒤, 본문의 초록·\\maketitle 앞).
     // \\AtBeginDocument 안에서는 revtex의 \\author가 깨져서 begindocument/end 고리에 둔다
     ...(o.front?.length ? ['\\AddToHook{begindocument/end}{%', ...o.front, '}'] : []),
-    `\\input{${q(o.noteFile)}}`,
+    ...(o.fragment ? ['\\begin{document}', `\\input{${q(o.noteFile)}}`, '\\end{document}'] : [`\\input{${q(o.noteFile)}}`]),
     '',
   ].join('\n')
 }
@@ -309,7 +334,7 @@ function compileInputs(wb: Workbench, key: string, o: ManuscriptCompileOptions) 
   const bibs = body ? noteBibFiles(wb, main, body) : []
   // 라이브러리에서 뽑을 항목이 있으면 references.bib도 입력으로 본다 (그 파일이 바뀌면 PDF가 낡는다)
   const libBib = body && libraryCitedBib(body, bibs, o.libraryBib) !== null ? [o.libraryBib!] : []
-  const files = [main, ...(wrapped ? [macros, noteMacros, ...bibs, ...libBib, ...(figures?.inputs ?? []), ...(o.template?.files ?? []).flatMap((f) => templateFilePath(f) ?? [])] : [])]
+  const files = [main, ...(wrapped ? [macros, noteMacros, repoPreambleOf(wb), ...bibs, ...libBib, ...(figures?.inputs ?? []), ...(o.template?.files ?? []).flatMap((f) => templateFilePath(f) ?? [])] : [])]
   const hash = hashOf(JSON.stringify({ main, dir, engine, ...(wrapped && {
     name, kind, template: o.template, shared: o.shared, bibs, macros, ...(marks.length && { records: marks }),
     ...(figures && { figures: { body, preamble: figures.preamble, files: figures.files.map(({ name, abs }) => ({ name, abs })) } }),
@@ -426,6 +451,8 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
           ...(pick.date !== undefined && { date: pick.date }),
         }),
         noteMacros: fs.existsSync(path.join(dir, NOTE_MACROS)), shared: !!shared, ...(fs.existsSync(macros) && { macros: path.relative(dir, macros) }),
+        ...(fs.existsSync(repoPreambleOf(wb)) && { repoPreamble: { file: repoPreambleOf(wb), searchPath: [wb.root, ...(options.libraryBib ? [path.dirname(options.libraryBib)] : [])] } }),
+        ...(!md && !/\\begin\{document\}/.test(text) && { fragment: true }),
       }))
     }
     // 지난 컴파일이 실패했으면 다시 돌게 한다(-g). 파일이 그대로면 latexmk는 돌지 않고 지난 오류만 다시 알려,

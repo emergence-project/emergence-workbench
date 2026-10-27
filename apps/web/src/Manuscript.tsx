@@ -330,7 +330,7 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
         </>,
       }}
       head={titleDraft === null && <NoteHead title={title} editing={false}>
-        {!row && info && <span className="nk-tag">{info.name}</span>}
+        {!row && info && info.name !== title && <span className="nk-tag" title={info.name}>{info.name}</span>}
       </NoteHead>}
       banner={info?.needsBodyOnly && file === info.main && stripped !== info.key && (
           // 10/4 15:41 피드백: 머리와 제목·저자는 노트에 두지 않고 앱이 컴파일·내보내기 때 붙인다

@@ -59,6 +59,8 @@
 /* 긴 제목은 제 칸 안에서 줄을 바꾼다 */
 .note-head > .note-title { flex: 0 1 auto; }
 .note-head > :not(.note-title):not(.note-title-input) { flex: none; }
+/* 원고 장의 원고 이름 태그: 좁은 칸에서는 태그가 줄어든다 (제목이 한 글자씩 끊기지 않게, 10/28) */
+.note-head > .nk-tag { flex: 0 1 auto; min-width: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .md-note-read > .note-head, .md-note-editing > .note-head { max-width: 760px; width: 100%; margin: 0 auto; padding: var(--sp-6) var(--sp-6) 0; box-sizing: border-box; }
 .md-note-read > .note-head + .page-body { padding-top: var(--sp-4); }
 .md-note-editing > .note-head { padding: var(--sp-3) var(--sp-4); max-width: none; border-bottom: 1px solid var(--line); }
