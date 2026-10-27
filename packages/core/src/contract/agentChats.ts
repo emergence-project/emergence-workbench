@@ -33,7 +33,7 @@ export const ChatModel = z.string().regex(/^[a-z][a-z0-9.\-[\]]{0,79}$/)
 /** 생각 깊이 (xhigh · max는 그것을 받는 모델만) */
 export const CHAT_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 /** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 */
-export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record'] as const
+export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record', 'connector'] as const
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
 export const TODO_STATES = ['pending', 'in_progress', 'completed'] as const
 
@@ -152,6 +152,14 @@ export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), a
  */
 export const ModelChoice = z.object({ value: ChatModel, name: z.string(), desc: z.string(), resolved: z.string().optional(), efforts: z.array(z.enum(CHAT_EFFORTS)).optional() }).strict()
 export const ChatModels = z.object({ models: z.array(ModelChoice) }).strict()
+/**
+ * GET /agent-chats/extras: 맥의 Claude Code에 있는 스킬(~/.claude/skills)과 커넥터(~/.claude.json의 MCP 서버). / 메뉴 · @ 메뉴에 보인다.
+ * 커넥터는 이름과 방식만 (명령 · 주소 · 키는 보내지 않는다)
+ */
+export const ChatExtras = z.object({
+  skills: z.array(z.object({ name: z.string(), description: z.string() }).strict()),
+  connectors: z.array(z.object({ name: z.string(), type: z.enum(['stdio', 'http', 'sse']) }).strict()),
+}).strict()
 /** GET /agent-chats/:id · POST 들의 응답 */
 export const ChatOne = z.object({ chat: Chat }).strict()
 /** GET /agent-work: 도는 대화와 잡은 파일 (화면 · MCP · STATUS가 같은 것을 본다) */
@@ -245,6 +253,7 @@ export type ChatMode = (typeof CHAT_MODES)[number]
 export type ChatModel = z.infer<typeof ChatModel>
 export type ModelChoice = z.infer<typeof ModelChoice>
 export type ChatModels = z.infer<typeof ChatModels>
+export type ChatExtras = z.infer<typeof ChatExtras>
 export type Unqueued = z.infer<typeof Unqueued>
 export type Rewound = z.infer<typeof Rewound>
 export type ChatEffort = (typeof CHAT_EFFORTS)[number]

@@ -66,6 +66,7 @@ export const qk = {
   agentWork: ['agent-work'] as const,
   /** 고를 수 있는 모델 (맥의 Claude Code에게 묻는다. 대화 알림으로 다시 받지 않게 agent-chats 밖에 둔다) */
   agentModels: ['agent-models'] as const,
+  agentExtras: ['agent-extras'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
   /** 연구 공통 규칙 (설정 › 공통 규칙, 개인 저장소 사본. 프로젝트 알림과 상관없다) */

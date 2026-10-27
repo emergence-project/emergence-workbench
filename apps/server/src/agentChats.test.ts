@@ -20,6 +20,9 @@ describe('모드', () => {
     expect(judge(ctx({ mode: 'plan' }), 'ExitPlanMode', { plan: '1. 읽기\n2. 고치기' })).toMatchObject({ kind: 'ask', plan: '1. 읽기\n2. 고치기' })
     expect(judge(ctx({ mode: 'plan', planOk: true }), `${W}edit_note`, edit)).toEqual({ kind: 'allow', claim: edit.file })
     expect(judge(ctx(), 'ExitPlanMode', { plan: 'x' }).kind).toBe('allow')
+    // 맥의 스킬은 묻지 않고 읽고, 커넥터 도구는 묻는다 (10/21 22:40)
+    expect(judge(ctx(), 'Skill', { skill: 'my-skills:lean-check' }).kind).toBe('allow')
+    expect(judge(ctx(), 'mcp__zotero__search', { q: 'x' })).toMatchObject({ kind: 'ask', key: 'mcp__zotero__search' })
   })
   it('묻고 하기: 노트 고치기도 파일마다 묻고, 허락하면 그 파일을 잡는다', () => {
     expect(judge(ctx({ mode: 'ask' }), `${W}edit_note`, edit)).toMatchObject({ kind: 'ask', key: `edit_note:${edit.file}`, claim: edit.file })
