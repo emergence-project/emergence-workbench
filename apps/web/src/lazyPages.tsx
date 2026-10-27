@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
+import { t } from './i18n'
 
 /**
  * 따로 받는 화면 (2026-10-15 종합 검토 묶음 D).
@@ -11,16 +12,29 @@ const loaders = {
   AgentEditsPage: () => import('./AgentEditsPage'),
 }
 
+/**
+ * 앱이 새 버전으로 다시 시작하면 옛 화면이 가리키던 조각 파일이 없어져 받기가 실패한다.
+ * 그대로 두면 화면 전체가 비므로 한 번 새로 고치고, 그래도 안 되면 안내를 보인다
+ */
+function Failed() {
+  return <p className="muted" style={{ padding: 'var(--sp-5)' }}>{t('화면을 불러오지 못했습니다. 서버가 켜져 있는지 보고 새로 고쳐 주세요.', 'Could not load this screen. Check that the server is running, then reload.')}</p>
+}
+const RELOADED = 'rw-lazy-reloaded'
 const pick = <M, K extends keyof M>(load: () => Promise<M>, key: K) =>
-  lazy(() => load().then((m) => ({ default: m[key] as ComponentType<M[K] extends ComponentType<infer P> ? P : never> })))
+  lazy(() => load().then((m) => { try { sessionStorage.removeItem(RELOADED) } catch { /* 저장소 없음 */ } return { default: m[key] as ComponentType<M[K] extends ComponentType<infer P> ? P : never> } }, () => {
+    let again = false
+    try { again = !sessionStorage.getItem(RELOADED); if (again) sessionStorage.setItem(RELOADED, '1') } catch { /* 저장소 없음 */ }
+    if (again) { location.reload(); return new Promise<never>(() => undefined) }
+    return { default: Failed as ComponentType<M[K] extends ComponentType<infer P> ? P : never> }
+  }))
 
 export const MapPage = pick(loaders.MapPage, 'MapPage')
 export const TaskReport = pick(loaders.TaskReport, 'TaskReport')
 export const AgentEditsPage = pick(loaders.AgentEditsPage, 'AgentEditsPage')
 
-/** 받는 동안은 빈 칸: 미리 받아 두므로 실제로는 거의 보이지 않는다 */
+/** 받는 동안은 "불러오는 중…": 미리 받아 두므로 대개는 거의 보이지 않지만, 빈 칸이면 화면이 멈춘 것처럼 보인다 */
 export function Lazy({ children }: { children: ReactNode }) {
-  return <Suspense fallback={null}>{children}</Suspense>
+  return <Suspense fallback={<p className="muted" style={{ padding: 'var(--sp-5)' }}>{t('불러오는 중…', 'Loading…')}</p>}>{children}</Suspense>
 }
 
 let prefetched = false

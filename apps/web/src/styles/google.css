@@ -21,6 +21,8 @@ p.g-err { margin-top: var(--sp-2); }
 .week-gcal { display: flex; flex-direction: column; gap: 1px; padding: 2px 0 2px 7px; border-left: 3px solid var(--line-strong); text-decoration: none; color: inherit; min-width: 0; border-radius: 2px; }
 .week-gcal:hover { background: var(--bg-hover); }
 .week-gcal .week-ev { color: var(--text-2); }
+.week-gcal.cont { border-left-style: dashed; }
+.week-gcal.cont .week-ev { color: var(--text-3); }
 .week-gcal .week-ev b { font-weight: var(--fw-medium); color: var(--text-3); margin-right: var(--sp-1); font-variant-numeric: tabular-nums; }
 .week-gnote { font-size: var(--fs-xs); color: var(--text-3); }
 .week-gnote a { color: inherit; }

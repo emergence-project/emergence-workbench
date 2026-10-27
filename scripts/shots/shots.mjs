@@ -236,6 +236,11 @@ try {
       })
       if (left.length) hangul.push(`${name}:\n    ${left.join('\n    ')}`)
     }
+    if (name === 'home-calendar') {
+      await page.locator('[data-ui="구글 일정"]').first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: 구글 일정이 보이지 않음`))
+      await page.locator('[data-ui="한 일 달력"]').first().scrollIntoViewIfNeeded({ timeout: 10_000 })
+        .catch(() => problems.push(`${name}: 한 일 달력까지 스크롤하지 못함`))
+    }
     if (name === 'latex') {
       const card = page.locator('[data-ui="서식 카드"]').first()
       await card.scrollIntoViewIfNeeded({ timeout: 10_000 })

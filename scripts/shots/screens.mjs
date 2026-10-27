@@ -8,6 +8,8 @@ const EDITOR_TEXT = '[data-ui="LaTeX 편집기"] .cm-line:not(:has(br:only-child
 export const DEFAULT_SCREENS = [
   ['home', '#/', '홈'],
   // 홈 카드 보기 (10/5 시안 5단계). 보기는 기억되므로 목록 보기(home)보다 뒤에 둔다
+  // 한 일 달력 (10/27): 홈 아래의 달력까지 내려 찍는다. 구글 예제 일정에 여러 날 일정이 있다
+  ['home-calendar', '#/', '한 일 달력'],
   ['home-cards', '#/', '프로젝트 카드', '[data-ui="보기 고르기"] button:text-matches("^(카드|Cards)")'],
   ['search', '#/', '검색 창', '검색 버튼'],
   ['project', '#/r/{rid}', '최근 손댄 노트'],

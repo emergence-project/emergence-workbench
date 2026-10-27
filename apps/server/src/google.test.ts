@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
-import { Google, mockGoogleFetch } from './google.js'
+import { Google, mockGoogleFetch, toEvent } from './google.js'
 import { localDate } from './fsutil.js'
 import { publicRemote } from './routes/google.js'
 import { mergeGoogleAuthor } from './googleProfile.js'
@@ -92,11 +92,19 @@ describe('구글 연결', () => {
     const sat = new Date(sun.getFullYear(), sun.getMonth(), sun.getDate() + 6)
     const res = await app.inject({ url: `/api/google/events?from=${localDate(sun)}&to=${localDate(sat)}` })
     const { events } = res.json() as { events: { title: string; date: string; endDate: string; time?: string }[] }
-    expect(events.map((e) => e.title)).toEqual(['그룹 미팅', '세미나: 그래프 마이너', '지도교수 면담', '학회 초록 마감'])
+    expect(events.map((e) => e.title)).toEqual(['그룹 미팅', '겨울 학교', '세미나: 그래프 마이너', '지도교수 면담', '학회 초록 마감'])
     expect(events[0]).toMatchObject({ date: localDate(mon), time: '10:00' })
-    const allDay = events[3]!
+    expect(events[1]!.endDate > events[1]!.date).toBe(true)
+    const allDay = events[4]!
     expect(allDay.time).toBeUndefined()
     expect(allDay.endDate).toBe(allDay.date)
+  })
+
+  it('자정에 끝나는 일정은 다음 날에 걸치지 않고, 여러 날 종일 일정은 마지막 날까지 간다', () => {
+    const late = toEvent({ id: 'a', summary: '늦은 회의', start: { dateTime: '2026-10-26T23:00:00' }, end: { dateTime: '2026-10-27T00:00:00' } }, '기본')!
+    expect(late).toMatchObject({ date: '2026-10-26', endDate: '2026-10-26', time: '23:00', endTime: '00:00' })
+    const trip = toEvent({ id: 'b', summary: '학회', start: { date: '2026-10-26' }, end: { date: '2026-10-29' } }, '기본')!
+    expect(trip).toMatchObject({ date: '2026-10-26', endDate: '2026-10-28' })
   })
 
   it('로그인하면 구글 계정의 이름 · 이메일 · 사진으로 저자와 네트워킹 내 페이지를 채운다', async () => {

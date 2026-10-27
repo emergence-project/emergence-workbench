@@ -154,12 +154,13 @@ export function subscribeEvents(onEvent: (e: WorkbenchEvent) => void, onReconnec
   let ws: WebSocket | null = null
   let stopped = false
   let retry: number | undefined
-  let opened = false
+  // 한 번이라도 끊겼으면(처음 연결부터 실패한 것도: 서버가 다시 시작하는 중에 연 화면) 붙을 때 다시 읽는다
+  let lost = false
   const connect = () => {
     ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/events`)
-    ws.onopen = () => { if (opened) onReconnect?.(); opened = true }
+    ws.onopen = () => { if (lost) onReconnect?.(); lost = false }
     ws.onmessage = (m) => { try { onEvent(JSON.parse(String(m.data))) } catch { /* 무시 */ } }
-    ws.onclose = () => { if (!stopped) retry = window.setTimeout(connect, 1500) }
+    ws.onclose = () => { lost = true; if (!stopped) retry = window.setTimeout(connect, 1500) }
   }
   connect()
   return () => { stopped = true; window.clearTimeout(retry); ws?.close() }

@@ -6,6 +6,14 @@ import { briefing, markOf, WEEK_DAYS, weekStartOf, type DayGroup, type Deadline 
 import { go } from './router'
 import { t } from './i18n'
 
+/**
+ * 하루 칸의 구글 일정. 여러 날에 걸친 일정은 시작한 날(이 주보다 먼저 시작했으면 이 주 첫날)에만 시각 · 끝나는 날과 함께 보이고,
+ * 나머지 날에는 제목만 옅게 이어 보인다 (10/26 실사용: 여러 날 일정이 날마다 되풀이되어 보임)
+ */
+export function gcalDay(events: GoogleEvent[], iso: string, weekFirst: string): { e: GoogleEvent; cont: boolean }[] {
+  return events.filter((e) => e.date <= iso && iso <= e.endDate).map((e) => ({ e, cont: iso !== (e.date < weekFirst ? weekFirst : e.date) }))
+}
+
 /** 한 칸에서 연구마다 보여 줄 기록 수 */
 const SHOWN = 3
 
@@ -32,7 +40,7 @@ export function WeekCalendar({ byDay, deadlines, now = new Date(), onCopied }: {
     googleApi.events(from, to).then((r) => { if (live) { setGcal(r.connected && !r.expired ? r.events : null); setExpired(!!r.expired) } }, () => { if (live) setGcal(undefined) })
     return () => { live = false }
   }, [from, to])
-  const gcalOn = (iso: string) => (gcal ?? []).filter((e) => e.date <= iso && iso <= e.endDate)
+  const gcalOn = (iso: string) => gcalDay(gcal ?? [], iso, days[0]!)
   const done = days.filter((d) => d <= today)
   const copy = () => {
     const text = briefing(done, byDay)
@@ -60,10 +68,12 @@ export function WeekCalendar({ byDay, deadlines, now = new Date(), onCopied }: {
             <div key={iso} className={`week-day${iso === today ? ' is-today' : ''}${iso > today ? ' future' : ''}`} data-ui="하루">
               <div className="week-dh"><b>{WEEK_DAYS[i]}</b><span>{monthDay(iso)}</span>{count > 0 && <span className="cnt">{count}</span>}</div>
               <div className="week-db">
-                {gcalOn(iso).map((e) => (
-                  <a key={e.id} className="week-gcal" data-ui="구글 일정" href={e.link} target="_blank" rel="noreferrer"
-                    title={`${e.calendar}\n${e.time ? `${e.time}–${e.endTime} ` : t('종일 ', 'All day ')}${e.title}${e.location ? `\n${e.location}` : ''}`}>
-                    <span className="week-ev">{e.time ? <b>{e.time}</b> : <b>{t('종일', 'All day')}</b>}{e.title}</span>
+                {gcalOn(iso).map(({ e, cont }) => (
+                  <a key={e.id} className={`week-gcal${cont ? ' cont' : ''}`} data-ui="구글 일정" href={e.link} target="_blank" rel="noreferrer"
+                    title={`${e.calendar}\n${e.endDate !== e.date ? `${monthDay(e.date)} ${e.time ?? ''} – ${monthDay(e.endDate)} ${e.endTime ?? ''} ` : e.time ? `${e.time}–${e.endTime} ` : t('종일 ', 'All day ')}${e.title}${e.location ? `\n${e.location}` : ''}`}>
+                    {cont
+                      ? <span className="week-ev">{e.title}</span>
+                      : <span className="week-ev">{e.time ? <b>{e.time}</b> : <b>{t('종일', 'All day')}</b>}{e.endDate !== e.date && <b>~{monthDay(e.endDate)}</b>}{e.title}</span>}
                   </a>
                 ))}
                 {groups.map((g) => (
