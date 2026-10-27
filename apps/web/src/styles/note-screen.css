@@ -107,6 +107,9 @@ button.note-status-control:hover { background: var(--bg-hover); }
 .tree-notes { margin: 1px 0 var(--sp-1) 10px; padding-left: var(--sp-2); border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 1px; }
 .nav.tree-note { gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
 .nav.tree-note.on { color: var(--text); }
+/* 두 번째 주제 아래에 한 번 더 보이는 노트: 흐리게 (주 주제 아래가 원래 자리, 10/27) */
+.nav.tree-note.also { color: var(--text-3); }
+.nav.tree-note.also .g { opacity: 0.5; }
 .nav.tree-note .num { flex: none; min-width: 1.4em; color: var(--text-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 .nav.tree-part { padding-left: var(--sp-3); }
 .side-papers { margin-left: 14px; }

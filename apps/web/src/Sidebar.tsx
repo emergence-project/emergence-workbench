@@ -68,18 +68,24 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
 
   const known = new Set(topics.map((t) => t.id))
   const notesOf = (g: Group) => notes.filter((n) => (g === LOOSE ? !n.topics.some((t) => known.has(t)) : n.topics[0] === g))
+  // 두 번째 이후 주제에도 걸친 노트는 그 주제 아래에 흐리게 한 번 더 (주제 화면의 노트 수와 같게, 10/27 18:27 피드백)
+  const alsoOf = (g: Group) => (g === LOOSE ? [] : notes.filter((n) => n.topics[0] !== g && n.topics.slice(1).includes(g)))
+  const titleOf = new Map(topics.map((x) => [x.id, x.title]))
   const papers = manuscripts.filter((m) => m.kind === 'paper')
   const manuscriptSelected = paperOpen || route.page === 'notes' || route.page === 'map'
 
-  const noteRow = (n: NoteRow) => {
-    const on = current?.file === n.file
+  const noteRow = (n: NoteRow, also = false) => {
+    const on = !also && current?.file === n.file
+    const home = also ? titleOf.get(n.topics[0] ?? '') : undefined
     return (
-      <button key={n.file} className={`nav tree-note${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined} data-ui="나무 노트" data-ui-item={n.title} title={n.title}
+      <button key={n.file} className={`nav tree-note${on ? ' on' : ''}${also ? ' also' : ''}`} aria-current={on ? 'page' : undefined} data-ui="나무 노트" data-ui-item={n.title}
+        title={home ? t(`${n.title} — 주 주제: ${home}`, `${n.title}. Main topic: ${home}`) : n.title}
         onClick={() => go(routeOfNote(rid, n))}><StatusDot s={n.status} /><span className="label">{n.title}</span></button>
     )
   }
   const branch = (g: Group, label: string, onName: () => void, star = false) => {
     const list = notesOf(g)
+    const also = alsoOf(g)
     const opened = isOpen(g)
     const on = route.page === 'topic' && route.tid === g
     return (
@@ -87,9 +93,9 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
         <div className={`tree-head${on ? ' on' : ''}${opened ? ' open' : ''}`}>
           <button className="tree-chev" aria-expanded={opened} aria-label={`${opened ? t('접기', 'Collapse') : t('펼치기', 'Expand')}: ${label}`} onClick={() => toggle(g)}><span aria-hidden>›</span></button>
           <button className="tree-name" aria-current={on ? 'page' : undefined} title={g === LOOSE ? t('주제가 없는 노트 — 노트들 화면으로', 'Notes without a topic. Open the notes screen') : t(`${label} — 주제 화면으로`, `${label}: open the topic screen`)} onClick={onName}>{star && <StarIcon on />}{label}</button>
-          <span className="n">{list.length || ''}</span>
+          <span className="n">{list.length + also.length || ''}</span>
         </div>
-        {opened && list.length > 0 && <div className="tree-notes">{list.map(noteRow)}</div>}
+        {opened && list.length + also.length > 0 && <div className="tree-notes">{list.map((n) => noteRow(n))}{also.map((n) => noteRow(n, true))}</div>}
       </div>
     )
   }
