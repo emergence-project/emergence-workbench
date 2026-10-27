@@ -148,3 +148,9 @@ button.t:hover { text-decoration: underline; }
 .ov-state { display: inline-flex; align-items: center; gap: 3px; margin-left: var(--sp-2); color: var(--text-2); }
 /* 할 일 줄의 완료 칸 (10/19): 기록 탭의 할 일 칸과 같은 체크 칸 */
 input.now-done { margin: 0; width: 13px; height: 13px; align-self: center; justify-self: center; accent-color: var(--text); cursor: pointer; }
+/* 흐름 한 줄 (10/26 시안 HomeAfter): 열린 질문 · 진행 · 판단 대기, 누르면 흐름 지도 */
+.flow-line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); width: 100%; text-align: left; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg-sunken); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); color: var(--text); }
+.flow-line:hover { border-color: var(--line-strong); }
+.flow-line .fln-n { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
+.flow-line .fln-n.turn { color: var(--s-blocked); }
+.flow-line .fln-more { margin-left: auto; color: var(--text-3); white-space: nowrap; }
