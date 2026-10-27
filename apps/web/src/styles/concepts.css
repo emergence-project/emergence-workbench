@@ -46,10 +46,13 @@
 /* 본문 고치기 (2026-10-04): 바로 보기(기본, Obsidian처럼) 또는 왼쪽 원문 + 오른쪽 미리보기 */
 .cn-edit { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .cn-edit-panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
-.cn-edit-split .cn-edit-panes { grid-template-columns: 1fr 1fr; }
-.cn-edit-src { min-height: 0; overflow: hidden; }
+/* 넓은 수식 · 그림이 칸을 밀어 오른쪽 사이드바를 덮지 않게 두 칸을 반씩 고정하고, 넘치면 미리보기 안에서 스크롤 (10/27 피드백 17:05) */
+.cn-edit-split .cn-edit-panes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.cn-edit-src { min-height: 0; min-width: 0; overflow: hidden; }
 .cn-edit-split .cn-edit-src { border-right: 1px solid var(--line); }
-.cn-edit-preview { min-height: 0; overflow: auto; padding: var(--sp-3) var(--sp-4); }
+.cn-edit-preview { min-height: 0; min-width: 0; overflow: auto; padding: var(--sp-3) var(--sp-4); }
+/* page-body의 margin auto는 칸을 내용 폭으로 줄이므로(긴 수식이면 칸보다 넓어짐) 칸 폭에 맞춘다 */
+.cn-edit-split .cn-edit-preview { width: 100%; margin: 0; }
 
 .cn-edit .cm-editor { height: 100%; color: var(--text); }
 .cn-edit .cm-editor.cm-focused { outline: none; }

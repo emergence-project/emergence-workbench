@@ -150,19 +150,20 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
         </table></div> : <span className="muted">{tr('없음. 연필로 노트·논문을 근거로 답니다.', 'None. Use the pencil to attach notes or papers.')}</span>}
         {approving && <ApproveDialog rid={rid} n={n} {...approving} onClose={() => setApproving(null)} onDone={() => { setApproving(null); reload() }} fail={fail} />}
       </section>
-      {(n.guesses.length > 0 || n.sources.length > 0) && <details className="fl-sec fl-fold">
-        <summary><h3>{tr('기록', 'Records')}</h3><span className="muted">{n.guesses.length > 0 && tr(`추정 ${n.guesses.length} · `, `${n.guesses.length} guessed · `)}{tr(`출처 ${n.sources.length}`, `${n.sources.length} sources`)}</span></summary>
+      {/* 기록 · 연결은 접지 않는다 (10/27 피드백 17:32) */}
+      {(n.guesses.length > 0 || n.sources.length > 0) && <section className="fl-sec fl-lists">
+        <h3 className="fl-grp-h">{tr('기록', 'Records')}<span className="fl-cnt">{n.guesses.length > 0 && tr(`추정 ${n.guesses.length} · `, `${n.guesses.length} guessed · `)}{tr(`출처 ${n.sources.length}`, `${n.sources.length} sources`)}</span></h3>
         {n.guesses.length > 0 && <><h4>{tr('추정 (에이전트가 짐작한 것)', 'Guessed by the agent')}</h4><ul>{n.guesses.map((g, i) => <li key={i}>{g}</li>)}</ul></>}
         {n.sources.length > 0 && <><h4>{tr('출처', 'Sources')}</h4><ul className="fl-src">{n.sources.map((g, i) => <li key={i}>{g}</li>)}</ul></>}
         <p className="muted fl-file">{n.file}</p>
-      </details>}
-      <details className="fl-sec fl-fold" data-ui="흐름 연결">
-        <summary><h3>{tr('연결', 'Links')}</h3><span className="muted">{tr(`이전 ${prev.length} · 이후 ${next.length}`, `${prev.length} before · ${next.length} after`)}</span></summary>
+      </section>}
+      <section className="fl-sec fl-lists" data-ui="흐름 연결">
+        <h3 className="fl-grp-h">{tr('연결', 'Links')}<span className="fl-cnt">{tr(`이전 ${prev.length} · 이후 ${next.length}`, `${prev.length} before · ${next.length} after`)}</span></h3>
         <div className="fl-links">
           <div><h4>{tr('이전', 'Before')}</h4>{prev.length ? <ul>{prev.map(link)}</ul> : <span className="muted">{tr('없음 (시작점)', 'None (start)')}</span>}</div>
           <div><h4>{tr('이후', 'After')}</h4>{next.length ? <ul>{next.map(link)}</ul> : <span className="muted">{tr('없음', 'None')}</span>}</div>
         </div>
-      </details>
+      </section>
     </article>
   )
 }

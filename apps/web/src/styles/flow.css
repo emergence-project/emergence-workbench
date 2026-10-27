@@ -107,13 +107,7 @@
 .fl-note, .fl-ref-link { text-align: left; }
 .fl-ref-link { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .fl-chain path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
-.fl-fold summary { display: flex; align-items: baseline; gap: var(--sp-2); cursor: pointer; list-style: none; }
-.fl-fold summary::-webkit-details-marker { display: none; }
-.fl-fold summary::before { content: '›'; color: var(--text-3); transition: transform .15s; display: inline-block; }
-.fl-fold[open] summary::before { transform: rotate(90deg); }
-.fl-fold summary h3 { margin: 0; }
-.fl-fold summary .muted { font-size: var(--fs-sm); }
-.fl-fold ul { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); }
+.fl-lists ul { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); }
 .fl-src, .fl-file { font-size: var(--fs-xs); word-break: break-all; }
 .fl-links { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); margin-top: var(--sp-2); }
 .fl-links ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
