@@ -7,7 +7,7 @@ import type { BlockStatus as CoreBlockStatus } from '../block-header.js'
 import { Topic, TOPIC_COLORS } from './research.js'
 
 /** 노트 성격 하나 (없으면 미분류). design(설계)은 업무 프로젝트에만 고르게 한다 */
-export const NOTE_CATEGORIES = ['proof', 'calc', 'check', 'summary', 'explore', 'design'] as const
+export const NOTE_CATEGORIES = ['proof', 'calc', 'theory', 'check', 'summary', 'explore', 'design'] as const
 export const NoteCategory = z.enum(NOTE_CATEGORIES)
 /** 색 점 값 (노트 상태 이름, @rw/core BLOCK_STATUSES) */
 export const BlockStatus = z.enum(['in-progress', 'blocked', 'stopped', 'solved']) satisfies z.ZodType<CoreBlockStatus>
