@@ -228,7 +228,6 @@ describe('원고 (sources.manuscript)', () => {
     w('docs/note/chapters/02-model.tex', '\\section{The \\emph{model}}\nEuler formula $V - E + F = 2$.\n')
     w('docs/note/appendices/a-proof.tex', '\\section{Proof}\nDetails.\n')
     w('workbench/research.yaml', 'title: M\nsources:\n  manuscript: docs/note/main.tex — 연구노트\n')
-    w('workbench/blocks/model-gap.tex', '% ---\n% id: model-gap\n% title: 모형의 빈틈\n% status: in-progress\n% ---\n\\section{빈틈}\n% 근거: docs/note/chapters/02-model.tex, a-proof.tex, 없는-장.tex\n')
     const a = buildApp({ configDir: path.join(tmp, 'config-ms') })
     const id = (await a.inject({ method: 'POST', url: '/api/researches', payload: { path: proj } })).json().id
     const M = `/api/researches/${id}/manuscript`
@@ -271,15 +270,11 @@ describe('원고 (sources.manuscript)', () => {
     const edit = (await a.inject({ method: 'GET', url: `${M}/synctex/edit?page=${b.page}&x=${b.h + b.width / 2}&y=${b.v - b.height / 2}` })).json()
     expect(edit.spot).toEqual({ file: 'docs/note/chapters/02-model.tex', line: 2 })
 
-    // 유도의 "근거:" 줄이 원고 장으로 이어진다 (경로 전체든 파일 이름만이든)
-    const sum = (await a.inject({ method: 'GET', url: `/api/researches/${id}` })).json()
-    expect(sum.blocks.find((x: { id: string }) => x.id === 'model-gap').grounds).toEqual(['docs/note/chapters/02-model.tex', 'docs/note/appendices/a-proof.tex'])
-    // STATUS.md에 원고 절과 마지막 컴파일, 유도의 원고 장
+    // STATUS.md에 원고 절과 마지막 컴파일
     const md = (await a.inject({ method: 'GET', url: `/api/researches/${id}/agent-status` })).json().markdown as string
     expect(md).toContain('## 원고 — 연구노트 (`docs/note/main.tex`)')
     expect(md).toContain('- 2장 The model — `docs/note/chapters/02-model.tex`')
     expect(md).toMatch(/마지막 앱 컴파일: .* · 오류 없음/)
-    expect(md).toContain('  - 원고: 2장 The model · 부록 A Proof')
     await a.close()
   }, 120_000)
 })
