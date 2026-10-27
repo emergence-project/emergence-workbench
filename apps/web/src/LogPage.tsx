@@ -161,7 +161,7 @@ export function WorkPage({ rid, rapi, summary, topics, onSaved, focus, firstPart
             <div className="tk-list" data-ui="내 차례 목록">
               {flow && <FlowPairs rid={rid} nodes={flow.nodes} tasks={tasks} onSaved={onSaved} reload={reloadTasks} />}
               {flow && <JudgeQueue rid={rid} nodes={flow.nodes} threads={threadCounts(files)} />}
-              <JudgeList rid={rid} tasks={tasks} nodes={flow?.nodes} loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks} emptyText={null} openId={openTaskId(openRow)} onToggle={(id) => toggleRow(taskRowKey(id))}
+              <JudgeList rid={rid} tasks={tasks} nodes={flow?.nodes} heading loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks} emptyText={null} openId={openTaskId(openRow)} onToggle={(id) => toggleRow(taskRowKey(id))}
                 onEditProposal={(x) => setDialog({ mode: 'proposal', from: x, endCondition: x.proposal?.endCondition.length === 1 ? x.proposal.endCondition[0] : (x.proposal?.endCondition ?? []).map((c, i) => `${i + 1}) ${c}`).join('\n') })} />
               {askRecords.map((item) => recordRow(item, true))}
               {reviews.length > 0 && <Reviews list={reviews} />}
