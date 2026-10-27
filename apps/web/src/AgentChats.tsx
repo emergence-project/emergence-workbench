@@ -1411,15 +1411,17 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
       </div>
       {current
         ? <PanelChat key={current} id={current} auto={auto} onDeleted={() => setOpen(null)} onSaved={onSaved} />
-        : (
-          <div className="rs-scroll ac-panel-list">
-            <NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} />
-            {!!sorted.length && <div className="ac-panel-chats">
-              <div className="ac-side-h">{t('이 프로젝트의 대화', 'Conversations in this project')}</div>
-              <div className="set-side">{sorted.map((c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />)}</div>
-            </div>}
+        : (() => {
+          const newChat = <NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} />
+          const chats = !!sorted.length && <div className="ac-panel-chats">
+            <div className="ac-side-h">{t('이 프로젝트의 대화', 'Conversations in this project')}</div>
+            <div className="set-side">{sorted.map((c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />)}</div>
           </div>
-        )}
+          // 오른쪽 자리: 새 대화의 범위 · 입력란은 연 대화의 입력란처럼 패널 아래에 고정하고, 대화 목록은 그 위에서 스크롤 (10/27 17:06 피드백)
+          return place === 'bottom'
+            ? <div className="rs-scroll ac-panel-list">{newChat}{chats}</div>
+            : <><div className="rs-scroll ac-panel-list">{chats}</div><div className="ac-compose ac-new-dock">{newChat}</div></>
+        })()}
     </div>
   )
 }
