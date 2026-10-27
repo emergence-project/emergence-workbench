@@ -330,7 +330,7 @@ interface RawEvent {
   start?: { date?: string; dateTime?: string }; end?: { date?: string; dateTime?: string }
 }
 
-function toEvent(e: RawEvent, calendar: string): CalendarEvent | null {
+export function toEvent(e: RawEvent, calendar: string): CalendarEvent | null {
   if (e.status === 'cancelled' || !e.start) return null
   const base = { id: e.id, calendar, title: e.summary?.trim() || tx('(제목 없음)', '(untitled)'), ...(e.location && { location: e.location }), ...(e.htmlLink && { link: e.htmlLink }) }
   if (e.start.date) {
@@ -343,7 +343,9 @@ function toEvent(e: RawEvent, calendar: string): CalendarEvent | null {
   if (!e.start.dateTime) return null
   const s = new Date(e.start.dateTime)
   const en = e.end?.dateTime ? new Date(e.end.dateTime) : s
-  return { ...base, date: localDate(s), endDate: localDate(en), time: hm(s), endTime: hm(en) }
+  // 자정에 끝나는 일정(23:00–00:00)은 다음 날에 걸치지 않는다
+  const last = en > s && en.getHours() === 0 && en.getMinutes() === 0 ? new Date(en.getTime() - 1) : en
+  return { ...base, date: localDate(s), endDate: localDate(last), time: hm(s), endTime: hm(en) }
 }
 
 const hm = (d: Date) => localTime(d)
@@ -379,6 +381,7 @@ export function mockGoogleFetch(now = () => new Date()): typeof fetch & { files:
         { id: 'm2', summary: tx('세미나: 그래프 마이너', 'Seminar: graph minors'), start: { dateTime: at(2, 16) }, end: { dateTime: at(2, 17, 30) } },
         { id: 'm3', summary: tx('지도교수 면담', 'Meeting with advisor'), start: { dateTime: at(3, 14) }, end: { dateTime: at(3, 14, 30) } },
         { id: 'm4', summary: tx('학회 초록 마감', 'Conference abstract deadline'), start: { date: day(4) }, end: { date: day(5) } },
+        { id: 'm5', summary: tx('겨울 학교', 'Winter school'), start: { date: day(1) }, end: { date: day(3) } },
       ]
       const min = url.searchParams.get('timeMin'), max = url.searchParams.get('timeMax')
       return ok({ items: items.filter((e) => {

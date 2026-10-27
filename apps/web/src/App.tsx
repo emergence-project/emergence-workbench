@@ -242,7 +242,7 @@ export function App() {
   }
   // 다시 붙었을 때(서버 재시작·잠자기 뒤): 끊긴 동안 바뀐 것을 한 번 다시 읽는다
   const onReconnect = useRef<() => void>(() => undefined)
-  onReconnect.current = () => { void loadResearches(); void client.invalidateQueries(); changedSoon(); bumpHome() }
+  onReconnect.current = () => { void loadResearches().then(() => setError(null), () => undefined); void client.invalidateQueries(); changedSoon(); bumpHome() }
   useEffect(() => subscribeEvents((e: WorkbenchEvent) => {
     bus.dispatchEvent(new CustomEvent('rw', { detail: e }))
     onWorkbenchEvent.current(e)
@@ -296,7 +296,7 @@ export function App() {
   const railBox = useRef<HTMLDivElement>(null)
   useRailSlide(railBox, railShown.join('\n'))
 
-  if (error && !researches) return <div className="fatal">{t('서버에 연결하지 못했습니다', 'Could not connect to the server')}: {error}</div>
+  if (error && !researches) return <div className="fatal">{t('서버에 연결하지 못했습니다', 'Could not connect to the server')}: {error}<p className="muted">{t('서버가 다시 켜지면 이 화면은 저절로 돌아옵니다.', 'This screen comes back by itself when the server is up again.')}</p></div>
 
   const current = researches?.find((r) => r.id === rid)
   const blockTitle = route.page === 'block' ? summary?.blocks.find((b) => b.id === route.bid)?.title ?? route.bid : null
