@@ -182,7 +182,16 @@ function load(rid: string): Layout {
 /** Toggle the drawn panes; merging keeps every tab and the focused selection. */
 export function toggleSplit(l: Layout, page: string): Layout {
   if (hasClosingTabs()) return l
-  if (workspaceVisibility(l, page).shown.length !== 2) return { ...l, split: true, showBothPanes: true }
+  if (workspaceVisibility(l, page).shown.length !== 2) {
+    // 두 칸을 합칠 때 왼쪽으로 옮겨 간 PDF 탭은 다시 열 때 오른쪽 칸으로 (10/28 피드백: 다시 나누면 PDF가 사라졌다)
+    const [a, b] = l.panes
+    const pdfs = b.tabs.length ? [] : a.tabs.filter(isPdfTab)
+    if (!pdfs.length || pdfs.length === a.tabs.length) return { ...l, split: true, showBothPanes: true }
+    const rest = a.tabs.filter((t) => !isPdfTab(t))
+    const left = rest.some((t) => tabKey(t) === a.active) ? a.active : tabKey(rest[rest.length - 1]!)
+    const right = pdfs.some((t) => tabKey(t) === a.active) ? a.active : tabKey(pdfs[0]!)
+    return { ...l, split: true, showBothPanes: true, focus: 0, panes: [{ tabs: rest, active: left }, { tabs: pdfs, active: right }] }
+  }
   const [a, b] = l.panes
   const tabs = [...a.tabs, ...b.tabs.filter((t) => !a.tabs.some((x) => tabKey(x) === tabKey(t)))]
   const active = l.focus === 1 && b.active ? b.active : a.active ?? b.active

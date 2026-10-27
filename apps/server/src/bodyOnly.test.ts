@@ -37,6 +37,21 @@ describe('본문만 있는 노트를 서식으로 감싼다', () => {
     expect(tex.trimEnd().endsWith('\\input{"main note.tex"}')).toBe(true)
   })
 
+  it('옛 블록 노트처럼 문서 없이 쓴 본문: 저장소 서식을 앱 서식 다음에 부르고 감싸는 main이 문서를 연다 (10/27)', () => {
+    const t = BUILTIN_TEMPLATES.find((x) => x.id === 'prb')!
+    const tex = wrapBodyOnly({ template: t, noteFile: 'note.tex', title: 'Lemma', fragment: true,
+      repoPreamble: { file: '/r/workbench/preamble.tex', searchPath: ['/r/workbench', '/lib', '/has space'] } })
+    const at = (s: string) => tex.indexOf(s)
+    expect(at('\\input{setting}')).toBeLessThan(at('\\input{/r/workbench/preamble.tex}'))
+    expect(tex).toContain('\\def\\input@path{{/r/workbench/}{/lib/}}')
+    // 앱 서식이 부른 패키지는 다시 부르지 않고, 저장소 서식 뒤에는 \usepackage를 되돌린다
+    expect(at('\\renewcommand{\\usepackage}')).toBeLessThan(at('\\input{/r/workbench/preamble.tex}'))
+    expect(at('\\let\\usepackage\\rw@repo@usepackage')).toBeGreaterThan(at('\\input{/r/workbench/preamble.tex}'))
+    expect(tex.trimEnd().endsWith('\\begin{document}\n\\input{note.tex}\n\\end{document}')).toBe(true)
+    // 경로에 LaTeX가 못 읽는 문자가 있으면 저장소 서식을 넣지 않는다
+    expect(wrapBodyOnly({ template: t, noteFile: 'n.tex', title: '', repoPreamble: { file: '/a b/preamble.tex', searchPath: [] } })).not.toContain('preamble.tex')
+  })
+
   it('메인 노트 후보에 본문만 있는 노트도 나온다', async () => {
     const dir = path.join(repo, 'notes-src')
     fs.mkdirSync(dir, { recursive: true })
