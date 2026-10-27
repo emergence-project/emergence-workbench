@@ -1,9 +1,11 @@
+import path from 'node:path'
+import fs from 'node:fs'
 // 에이전트용 입구(MCP): 도구가 앱 서버 API를 거쳐 읽고, 서버가 꺼져 있으면 쓰지 않고 알린다
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { describe, expect, it } from 'vitest'
 import { agentOf, createMcpServer, INSTRUCTIONS, recordAuthor } from './mcp.js'
-import { app, R, useSampleApp } from './testkit.js'
+import { app, R, repo, useSampleApp } from './testkit.js'
 
 useSampleApp()
 
@@ -35,8 +37,8 @@ describe('MCP 입구 (읽기)', () => {
 
   it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task, 일지 add_journal뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'edit_concept', 'edit_note', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'add_task', 'report_task', 'add_journal'].includes(t.name))
+    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'edit_concept', 'edit_note', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'finish_work', 'add_task', 'report_task', 'add_journal'].includes(t.name))
   })
 
   it('앱 고치기 대화 안에서만 app_submit · app_checks · feedback_answer가 붙고, 그 대화의 앱 API를 부른다', async () => {
@@ -156,6 +158,35 @@ describe('MCP 입구 (읽기)', () => {
     const rows = JSON.parse(textOf(await c.callTool({ name: 'flow_search', arguments: { project: rid, q: 'MCP question' } }))).rows as { id: string }[]
     expect(rows[0]!.id).toBe('mcp-question')
     expect(JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: q.id } }))).fields).toEqual({ question: '되나?', motivation: '궁금', criterion: '예 / 아니오' })
+  })
+
+  it('finish_work: 작업 점을 결과 노트와 함께 끝내고 명제를 절 근거로 더한다. 출력에 화면 이름(shown)', async () => {
+    const full = (async (input: string | URL, init?: RequestInit) => {
+      const u = new URL(String(input))
+      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST' | 'PATCH', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
+      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    const c = await connect(full)
+    const rid = R.split('/').pop()!
+    const note = 'workbench/notes/fw-result/note.md'
+    fs.mkdirSync(path.join(repo, 'workbench', 'notes', 'fw-result'), { recursive: true })
+    fs.writeFileSync(path.join(repo, note), '## 실행\n\nrun.py\n\n## 결과\n\n### H1: 성립\n\n표.\n')
+    const w = JSON.parse(textOf(await c.callTool({ name: 'flow_add', arguments: { project: rid, kind: 'calc', short: 'FW calc', fields: { goal: '끝내기 시험' }, criterion: '잔차 < 1e-4', novel: '처음' } })))
+    expect(w.shown).toBe('수치 계산 (작업) · 진행')
+    const notQuestion = await c.callTool({ name: 'finish_work', arguments: { project: rid, id: 'mcp-x', baseHash: 'h', notes: [{ file: note }] } })
+    expect(notQuestion.isError).toBe(true)
+    const out = JSON.parse(textOf(await c.callTool({ name: 'finish_work', arguments: { project: rid, id: w.id, baseHash: w.hash,
+      notes: [{ file: note, section: '결과', text: '결과 표' }], fields: { setup: 'r = 10', result: '성립' }, run: { code: 'run.py' },
+      claims: [{ short: 'FW holds', statement: 'H1이 성립한다', condition: '이 모형', evidence: [{ file: note, section: 'H1: 성립' }] }] } })))
+    expect(out.work).toMatchObject({ id: w.id, progress: 'done', result: 'solved', shown: '수치 계산 (작업) · 끝남 · 성공' })
+    expect(out.claims[0]).toMatchObject({ id: 'fw-holds', progress: 'done', shown: '명제 (닫는 점) · 끝남 · 해결 · 판단 전' })
+    const claim = JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: 'fw-holds' } })))
+    expect(claim.from).toEqual([{ id: w.id, type: 'support' }])
+    expect(claim.evidence[0]).toMatchObject({ kind: 'calc', file: note, section: 'H1: 성립' })
+    const work = JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: w.id } })))
+    expect(work.evidence.map((e: { section?: string }) => e.section)).toEqual(['결과'])
+    const rows = JSON.parse(textOf(await c.callTool({ name: 'flow_search', arguments: { project: rid, q: 'FW holds' } }))).rows as { id: string; shown: string }[]
+    expect(rows.find((r) => r.id === 'fw-holds')!.shown).toBe('명제 (닫는 점) · 끝남 · 해결')
   })
 
   it('flow_add는 발견이 아닌 일을 시작 기록 문으로 연다: 가장 가까운 점 또는 왜 새로운지와 판정 기준이 없으면 걸린 점을 보이고 거절한다', async () => {

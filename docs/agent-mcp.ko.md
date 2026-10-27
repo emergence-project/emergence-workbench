@@ -31,7 +31,9 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 
 도구 이름과 설명은 영어다(앱 화면 언어와 상관없이 에이전트가 읽는다).
 
-## 도구 (edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · add_task · report_task · add_journal 말고는 읽기 전용)
+흐름 출력(`flow_search` · `flow_read` · `flow_add` · `flow_update` · `finish_work`)에는 `shown`이 실린다: 화면이 쓰는 말로 적은 점(예: `명제 (닫는 점) · 끝남 · 해결 · 판단 전`)이라 에이전트가 사용자에게 그대로 옮길 수 있다. MCP는 화면과 이름 · 규칙 · 차례의 경계를 같게 두고, 도구는 화면이 아니라 일 단위로 나눈다(10/27).
+
+## 도구 (edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · add_task · report_task · add_journal 말고는 읽기 전용)
 
 연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
 
@@ -58,6 +60,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `flow_read` | 흐름 점 하나의 모든 칸, 근거와 단계의 확인, 앱이 찾은 빈틈 | `GET …/:rid/flow/:id` |
 | `flow_add` | 일을 시작할 때 점을 더한다(대개 `active`, 판정 기준과 함께). 발견이 아닌 일은 `pnpm agent:start`와 같은 시작 기록 문을 지난다(`docs/repo-format.md` §14 "시작 기록"): 가장 가까운 점 `prior`와 `adds`, 또는 `novel`, 그리고 `criterion`. 거절하면 걸린 점을 보이고, 답에는 `matched`로 보인다. `progress: open`(나중에 할 질문)은 문을 건너뛴다. 함께 준 칸은 `flow_update`와 같은 해결 문턱을 지난다 | `POST …/:rid/flow/start`(발견 · `open`은 `POST …/:rid/flow`) 뒤 `PATCH …/:rid/flow/:id`(`gate: true`) |
 | `flow_update` | 점을 고친다. 필수 칸이 비면 끝냄(`done`) · 멈춤을 거절하고 빈 칸 이름을 알린다(`docs/repo-format.md` §14 "해결 문턱"). 질문 문장 · 발단 선 · 갈래 폐기는 사용자가 정하므로 거절한다. 발견이 아닌 열린 점을 시작하면(`active` · `paused` · `done`으로) `flow_add`와 같은 시작 기록 문을 먼저 지난다(`prior` + `adds` 또는 `novel`, 그리고 `criterion`). 이미 시작한 점에는 이 칸들을 거절한다 | `PATCH …/:rid/flow/:id`(`gate: true`). 열린 점 시작은 먼저 `POST …/:rid/flow/start`(`dot`) |
+| `finish_work` | 작업 점(계산 · 증명 · 문헌)을 한 번에 끝낸다: 결과 노트를 근거(노트 · 절)로 달고, 다다른 명제마다 그 아래 명제 점(`support` 선, 같은 주제)을 진술 · 조건 · 절 근거와 함께 끝난 채로 더해 사용자 판단을 기다리게 한다. 해결 문턱은 작업 점과 명제마다 걸리고, 실패한 명제는 알리고 나머지는 남긴다. 질문 · 명제를 고칠 때는 `flow_update` | `PATCH …/:rid/flow/:id`(`gate: true`), 명제마다 `POST …/:rid/flow`와 `PATCH …/:rid/flow/:id` |
 | `flow_review` | 근거 하나(`ev`)나 증명 단계 하나(`step`)의 에이전트 검토를 `role: agent`로, 확인한 내용의 hash와 함께 남긴다 | `POST …/:rid/flow/:id/review` |
 | `answer_record` | 질문 · 지시 기록 아래에 답을 쓴다 `{ target, id, answer }`. 지시는 먼저 그 일을 하고(노트는 `edit_note`) 답한다. 답 머리에 에이전트 이름이 붙고 기록은 답함이 된다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target/:id/answers` |
 | `add_record` | 사용자에게 남기는 기록 `{ file 또는 target, kind: 질문 \| 메모, text, quote?, line? }`. `by`에 에이전트 이름이 적힌다. 질문은 사용자에게 확인 · 결정을 부탁하는 것(예: 에이전트가 쓴 노트의 한 곳, `quote`로 그 자리에 붙인다)으로, 사용자가 앱에서 답할 때까지 사용자 차례다(앱에서 주황, 홈 "확인 필요"에 셈). 사용자가 답하면 `### 답 · 사용자`가 붙고 답함이 된다. 답은 `read_records`로 읽는다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target` |

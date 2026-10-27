@@ -267,7 +267,7 @@ describe('STATUS의 흐름 절', () => {
     // 최근 5개 밖의 열린 점도 핵심 칸까지
     expect(brief).toMatch(/### 그 밖의 열린 점 1\n\n- 2026-10-01 \? 물음 · `flow-q` · 질문 · 멈춤 — 물음 하나\n  - 물음: 되나\?\n  - 뒤따른 점 → `p` \(폐기 · 흐름 종료\) · `f` \(해결\)\n  - 빈틈: 반증 · 폐기 · 멈춤의 이유가 없다\n  - 빈틈: 판정 기준이 없다 \(무엇이 나오면 해결 · 반증인가\)\n  - 짐작\(사람 확인 안 함\): 에이전트가 쓴 물음/)
     expect(brief).toContain('### 사람 승인 대기 1\n')
-    expect(brief).toContain('`flow-f` · 발견 · 해결 — 발견 하나')
+    expect(brief).toContain('`flow-f` · 명제 · 해결 — 발견 하나')
     const map = statusPart(status, '흐름 지도')!
     expect(map).toContain('## 흐름 지도 8')
     expect(map).toContain('- ▶ `q` · 질문 · 멈춤 · 빈틈 2 → 흐름 요약')
