@@ -5,7 +5,7 @@ import type { AboutSection } from '../types'
 // 소개 › notes › 글의 종류와 쓰는 법. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '글의 종류와 쓰는 법', prs: [105, 143],
+  title: '글의 종류와 쓰는 법', prs: [105, 143, 277],
   figure: <NoteSyntaxTable />,
   items: [
     { text: <><b>원고</b>는 {c('research.yaml')}의 {c('sources.manuscript')}에 적은 LaTeX 파일입니다. 원고는 개인 연구와 초고까지, 공동 집필·투고는 Overleaf에 둡니다. 한 파일 원고(예: 논문 하나인 PRB.tex)는 {c('\\section')}마다 한 장으로 보입니다.</> },

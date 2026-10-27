@@ -4,7 +4,7 @@ import type { AboutSection } from '../types'
 // 소개 › notes › 주장 하나의 노트와 진술. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '주장 하나의 노트와 진술',
+  title: '주장 하나의 노트와 진술', prs: [277],
   items: [
     { text: <>주장 하나(보조정리·유도·계산·열린 문제)도 다른 노트처럼 주제 폴더 안의 노트 하나({c('note.md')} 또는 {c('main.tex')} + {c('note.yaml')})로 적습니다. 따로 있던 블록 노트({c('workbench/blocks/')})는 2026-10-27에 없앴고, 같은 이름의 노트 폴더로 옮겼습니다. 상태는 진행 · 멈춤 · 폐기 · 해결입니다.</> },
     { text: <>연구 질문은 '열린 질문' 노트로 본문에 남기고, 옆 메모에는 할 일만 둡니다.</> },
