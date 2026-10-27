@@ -289,16 +289,17 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
 
   // ---------- research.yaml에 명시한 .tex 원고만 ----------
   const mss = allManuscripts(wb)
+  const declared = new Set(src.manuscripts.filter((m) => m.declared && m.path.endsWith('.tex')).map((m) => m.path))
+  const shown = mss.filter((m) => declared.has(m.main))
   const partLabel = (id: string) => {
     const m = mss.find((x) => x.parts.some((y) => y.id === id))
     if (!m) return id
     const i = m.parts.findIndex((x) => x.id === id)
     const part = m.parts[i]!
     const n = m.parts.slice(0, i + 1).filter((x) => x.appendix === part.appendix).length
-    return `${mss.length > 1 ? `${m.name} ` : ''}${part.appendix ? `부록 ${String.fromCharCode(64 + n)}` : `${n}장`} ${part.title}`
+    return `${shown.length > 1 ? `${m.name} ` : ''}${part.appendix ? `부록 ${String.fromCharCode(64 + n)}` : `${n}장`} ${part.title}`
   }
-  const declared = new Set(src.manuscripts.filter((m) => m.declared && m.path.endsWith('.tex')).map((m) => m.path))
-  for (const m of mss.filter((m) => declared.has(m.main))) {
+  for (const m of shown) {
     p(`## 원고 — ${m.name} (\`${m.main}\`)`, '')
     if (m.parts.every((part) => part.file === m.main)) {
       const chapters = m.parts.filter((part) => !part.appendix).length

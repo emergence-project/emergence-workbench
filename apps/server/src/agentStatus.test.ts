@@ -234,7 +234,7 @@ describe('에이전트 맥락 요약', () => {
     write(wb, 'notes/multi/chapter.tex', '\\section{다른 파일 장}\n')
     write(wb, 'calc/loose/main.tex', '\\begin{document}\n\\section{노트 장}\n\\end{document}\n')
     const status = await generateStatus(wb)
-    expect(section(status, '## 원고 — multi')).toContain('- multi 1장 다른 파일 장 — `workbench/notes/multi/chapter.tex`')
+    expect(section(status, '## 원고 — multi')).toContain('- 1장 다른 파일 장 — `workbench/notes/multi/chapter.tex`')
     expect(status).not.toContain('## 원고 — loose')
   })
 
