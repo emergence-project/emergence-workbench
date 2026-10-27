@@ -3,7 +3,8 @@ import { ConflictError, notesApi, type BlockRow, type NoteRow, type ManuscriptIn
 import type { BlockStatus } from '@rw/core'
 import type { FlashAction } from './App'
 import { statusLabel, statusOf } from './format'
-import { descriptionLines } from './cardParts'
+import { descriptionLines, MathText } from './cardParts'
+import { useConceptMacros } from './conceptMacros'
 import { NewCard, NoteCardView } from './NoteCardView'
 import { AddNotesDialog } from './AddNotesDialog'
 import { LOOSE_NOTES_LABEL, LOOSE_TOPIC_ID } from './noteKinds'
@@ -109,6 +110,8 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
   version: number
   onChanged(): void; onSaved(message: string): void
 }) {
+  // 설명의 $…$는 카드와 같게 수식으로 (10/27 피드백 18:26)
+  const macros = useConceptMacros()
   const api = notesApi(rid)
   const client = useQueryClient()
   const overview = useTopicsOverview(rid)
@@ -175,8 +178,8 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, blocks, project,
       </div>
       {desc.length > 0 ? (
         <div className={`ts-desc${loose ? ' muted' : ''}`} data-ui="주제 설명">
-          {desc.filter((l) => !l.bullet).map((l, i) => <p key={`p${i}`}>{l.text}</p>)}
-          {desc.some((l) => l.bullet) && <ul>{desc.filter((l) => l.bullet).map((l, i) => <li key={i}>{l.text}</li>)}</ul>}
+          {desc.filter((l) => !l.bullet).map((l, i) => <p key={`p${i}`}><MathText text={l.text} macros={macros} /></p>)}
+          {desc.some((l) => l.bullet) && <ul>{desc.filter((l) => l.bullet).map((l, i) => <li key={i}><MathText text={l.text} macros={macros} /></li>)}</ul>}
         </div>
       ) : t && <p className="ts-desc muted">{tr('설명이 없습니다. 연필을 눌러 적습니다.', 'No description. Click the pencil to write one.')}</p>}
     </header>
