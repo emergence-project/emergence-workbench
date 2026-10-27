@@ -33,6 +33,8 @@ export const RepoInfo = z.object({
   fetchedAt: z.number().nullable().optional(),
   fetchError: z.string().optional(),
   fetchDetail: z.string().optional(),
+  /** 따라가는 브랜치가 원격의 기본 브랜치가 아니면 그 기본 브랜치 이름 (「main으로 돌리기」) */
+  defaultBranch: z.string().optional(),
 }).strict()
 
 /** 주제 카드 바탕색: 기본(프로젝트 색) 말고 정해 둔 다섯 색 */

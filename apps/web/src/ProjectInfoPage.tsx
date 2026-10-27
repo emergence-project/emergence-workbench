@@ -281,8 +281,9 @@ export function RepoPage({ rid, rapi, root, version }: { rid: string; rapi: Rese
 
 /**
  * 저장소: 폴더, 브랜치, GitHub 주소, 마지막 커밋, 커밋 안 한 변경, GitHub와 같은지 (10/4 19:25 피드백 "깃도 포함시키고 최신상태 여부도").
- * GitHub 확인(git fetch)은 "확인하기"를 눌렀을 때만 한다. 올리기는 하지 않는다.
- * 받아오기는 "업데이트"(홈 카드와 같은 빨리 감기만, 10/5 "개별 프로젝트에서 git 최신화를 확인하고 업데이트할 수 있도록").
+ * "동기화하기" 하나로 GitHub를 확인하고 받거나 올린다(10/28 07:37 "버튼만 누르면 동기화"). 받기는 홈 카드와 같은 빨리 감기만,
+ * 올리기는 이 컴퓨터에만 있는 커밋만. 양쪽에 새 커밋이 있으면 합치지 않고, 커밋 안 한 변경은 커밋하지 않는다.
+ * 기본 브랜치가 아닌 브랜치에 있으면 "main으로 돌리기"(아무것도 잃지 않을 때만).
  */
 function RepoSection({ rapi, root, version }: { rapi: ResearchApi; root: string; version: number }) {
   const [repo, setRepo] = useState<RepoInfo | null | undefined>(undefined)
@@ -291,16 +292,13 @@ function RepoSection({ rapi, root, version }: { rapi: ResearchApi; root: string;
   useEffect(() => { rapi.repo().then(setRepo).catch(() => setRepo(null)) }, [rapi, version])
   // "N분 전"이 흘러가게
   useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 60_000); return () => window.clearInterval(t) }, [])
-  const check = () => {
-    setChecking(true)
-    rapi.repo(true).then(setRepo).catch(() => setRepo(null)).finally(() => setChecking(false))
-  }
-  const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
-  const update = () => {
-    setUpdating(true); setUpdateError(null)
-    rapi.update().then(() => rapi.repo()).then(setRepo).catch((e: Error) => setUpdateError(e.message)).finally(() => setUpdating(false))
+  const run = (call: () => Promise<unknown>) => {
+    setChecking(true); setUpdateError(null)
+    call().catch((e: Error) => setUpdateError(e.message)).then(() => rapi.repo()).then(setRepo).catch(() => setRepo(null)).finally(() => setChecking(false))
   }
+  const sync = () => run(() => rapi.syncNow())
+  const toMain = () => run(() => rapi.toMain())
   // summary.root는 workbench/ 폴더다. 보여 줄 것은 그 위의 저장소 폴더
   const folder = <><dt>{t('폴더', 'Folder')}</dt><dd><PathName path={root.replace(/\/workbench\/?$/, '')} /></dd></>
   const body = (() => {
@@ -317,7 +315,8 @@ function RepoSection({ rapi, root, version }: { rapi: ResearchApi; root: string;
         <dt>{t('브랜치', 'Branch')}</dt>
         <dd>{repo.branch
           ? <span>{gh && repo.upstream ? <a className="a" href={`${web}/tree/${encodeURI(repo.upstream.slice(repo.upstream.indexOf('/') + 1))}`} target="_blank" rel="noreferrer"><code>{repo.branch}</code></a> : <code>{repo.branch}</code>}
-            {repo.upstream ? <span className="muted"> · {t('따라가는 브랜치', 'Tracking')} {repo.upstream}</span> : <span className="muted"> · {t('GitHub 브랜치를 따라가지 않음', 'Not tracking a GitHub branch')}</span>}</span>
+            {repo.upstream ? <span className="muted"> · {t('따라가는 브랜치', 'Tracking')} {repo.upstream}</span> : <span className="muted"> · {t('GitHub 브랜치를 따라가지 않음', 'Not tracking a GitHub branch')}</span>}
+            {repo.defaultBranch && <ToMain repo={repo} main={repo.defaultBranch} busy={checking} onRun={toMain} />}</span>
           : <span className="muted">{t('브랜치가 아닌 커밋을 꺼내 둔 상태', 'A commit is checked out, not a branch')}</span>}</dd>
         <dt>{t('원격', 'Remote')}</dt>
         <dd>{repo.remote
@@ -334,7 +333,7 @@ function RepoSection({ rapi, root, version }: { rapi: ResearchApi; root: string;
         <dt>{t('변경', 'Changes')}</dt>
         <dd>{changes || <span className="muted">{t('없음 — 모두 커밋했습니다', 'None. Everything is committed')}</span>}</dd>
         <dt>{t('GitHub와 비교', 'Compared with GitHub')}</dt>
-        <dd data-ui="GitHub와 비교"><RepoCompare repo={repo} checking={checking} onCheck={check} updating={updating} updateError={updateError} onUpdate={update} /></dd>
+        <dd data-ui="GitHub와 비교"><RepoCompare repo={repo} checking={checking} onSync={sync} updateError={updateError} /></dd>
       </dl>
     )
   })()
@@ -346,18 +345,25 @@ function RepoSection({ rapi, root, version }: { rapi: ResearchApi; root: string;
   )
 }
 
-/** GitHub와 같은지 한 줄 + "확인하기". 결과 줄은 성공 ✓, 오류 ! (디자인 시스템 4절) */
-function RepoCompare({ repo, checking, onCheck, updating, updateError, onUpdate }: { repo: RepoInfo; checking: boolean; onCheck(): void; updating: boolean; updateError: string | null; onUpdate(): void }) {
+/** 기본 브랜치가 아닌 브랜치에 있을 때: 「main으로 돌리기」. 잃을 것이 있으면 버튼 대신 까닭 (10/28) */
+function ToMain({ repo, main, busy, onRun }: { repo: RepoInfo; main: string; busy: boolean; onRun(): void }) {
+  const why = repo.dirty || repo.untracked ? t('커밋 안 한 변경이 있어 돌리지 않습니다', 'Not switched: there are uncommitted changes')
+    : repo.ahead ? t('GitHub에 올리지 않은 커밋이 있어 돌리지 않습니다', 'Not switched: some commits are not on GitHub') : null
+  return <span className="repo-main"> {why
+    ? <span className="muted">· {t(`${main} 브랜치가 아님 — ${why}`, `Not on ${main}. ${why}`)}</span>
+    : <button className="btn sm" disabled={busy} title={t(`${main} 브랜치로 돌립니다. 이 브랜치의 커밋은 모두 GitHub에 있어 잃는 것이 없습니다`, `Switch to ${main}. Every commit on this branch is on GitHub, so nothing is lost`)} onClick={onRun}>{t(`${main} 브랜치로 돌리기`, `Switch to ${main}`)}</button>}</span>
+}
+
+/** GitHub와 같은지 한 줄 + "동기화하기"(확인하고 받거나 올림). 결과 줄은 성공 ✓, 오류 ! (디자인 시스템 4절) */
+function RepoCompare({ repo, checking, onSync, updateError }: { repo: RepoInfo; checking: boolean; onSync(): void; updateError: string | null }) {
   if (!repo.remote) return <span className="muted">{t('원격 저장소가 없어 비교할 수 없습니다', 'No remote repository to compare with')}</span>
-  const button = <button className="btn sm" disabled={checking} title={t('GitHub에 새 커밋이 있는지 확인합니다. 받아오거나 올리지는 않습니다', 'Check GitHub for new commits. Does not pull or push')} onClick={onCheck}>{checking ? t('확인하는 중…', 'Checking…') : t('확인하기', 'Check')}</button>
+  const button = <button className="btn sm" disabled={checking} title={t('GitHub를 확인하고, 새 커밋은 받고 이 컴퓨터에만 있는 커밋은 올립니다. 커밋 안 한 변경은 그대로 두고, 합쳐야 하면 멈춥니다', 'Check GitHub, pull new commits and push commits only on this computer. Uncommitted changes stay as they are; stops if a merge is needed')} onClick={onSync}>{checking ? t('동기화하는 중…', 'Syncing…') : t('동기화하기', 'Sync')}</button>
   const when = repo.fetchedAt ? t(`마지막 확인 ${relativeTime(repo.fetchedAt)}`, `Last checked ${relativeTime(repo.fetchedAt)}`) : t('아직 확인하지 않았습니다 — 앞서 받아 둔 기록과 비교한 것입니다', 'Not checked yet. Compared with the history fetched earlier')
   let line: ReactNode
   if (repo.upstream == null || repo.ahead == null || repo.behind == null) line = <span className="muted">{repo.branch ? t(`${repo.branch} 브랜치가 GitHub 브랜치를 따라가지 않아 비교할 수 없습니다`, `Cannot compare: branch ${repo.branch} does not track a GitHub branch`) : t('브랜치가 아니라 비교할 수 없습니다', 'Cannot compare: not on a branch')}</span>
   else if (!repo.ahead && !repo.behind) line = <span><span className="repo-ok">✓</span> {t('GitHub와 같습니다', 'Same as GitHub')}</span>
   else line = <span>{[repo.behind ? t(`GitHub에 새 커밋 ${repo.behind}개`, `${plural(repo.behind, 'new commit')} on GitHub`) : '', repo.ahead ? t(`올리지 않은 커밋 ${repo.ahead}개`, plural(repo.ahead, 'unpushed commit')) : ''].filter(Boolean).join(' · ')}
-    {!!repo.behind && (!repo.ahead && !repo.dirty && !repo.fetchError
-      ? <> <button className="btn sm" disabled={updating} title={t('GitHub의 새 커밋을 받아옵니다. 빨리 감기만 하고, 이 컴퓨터의 파일을 덮어쓰거나 합치지 않습니다', 'Pull the new commits from GitHub. Fast-forward only; files on this computer are never overwritten or merged')} onClick={onUpdate}>{updating ? t('받는 중…', 'Pulling…') : t('업데이트', 'Update')}</button></>
-      : <span className="muted">{t(' — 이 컴퓨터에 커밋이나 커밋 안 한 변경이 있어 앱에서 받지 않습니다. 터미널의 git pull로 합쳐 주세요', '. This computer has commits or uncommitted changes, so the app does not pull. Merge with git pull in a terminal')}</span>)}</span>
+    {!!repo.behind && !!repo.ahead && <span className="muted">{t(' — 양쪽에 새 커밋이 있어 합쳐야 합니다. 앱은 합치지 않으니 터미널의 git pull로 합쳐 주세요', '. Both sides have new commits and need merging; the app does not merge, so use git pull in a terminal')}</span>}</span>
   return (
     <div className="repo-compare">
       <div className="repo-line">{line}{button}</div>

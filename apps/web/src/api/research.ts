@@ -61,6 +61,10 @@ export function researchApi(rid: string) {
     sync: (fetch = false) => req(`${base}/sync${fetch ? '?fetch=1' : ''}`).then((r) => json<SyncReply>(r)).then((r) => r.sync),
     repo: (fetch = false) => req(`${base}/repo${fetch ? '?fetch=1' : ''}`).then((r) => json<RepoReply>(r)).then((r) => r.repo),
     update: () => req(`${base}/sync/update`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
+    /** 「동기화하기」: 받기 또는 올리기 (10/28) */
+    syncNow: () => req(`${base}/sync/now`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
+    /** 「main으로 돌리기」 */
+    toMain: () => req(`${base}/sync/main`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
     journal: (days = 30) => req(`${base}/journal?days=${days}`).then((r) => json<JournalList>(r)),
     readStatement: (sid: string) => req(`${base}/statements/${enc(sid)}`).then((r) => json<StatementDoc>(r)),
     saveStatement: async (sid: string, content: string, baseHash: string): Promise<string> => {
