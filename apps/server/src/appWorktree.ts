@@ -80,8 +80,9 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       fs.mkdirSync(base, { recursive: true })
       await git(root, ['fetch', 'origin', 'main'])
       await git(root, ['worktree', 'add', '-B', branch, dir, 'origin/main'])
-      // 에이전트가 바로 시험을 돌리게 의존성을 깐다 (받아 둔 저장소에서. 실패해도 에이전트가 다시 할 수 있다)
-      await exec('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: dir, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024 }).catch(() => undefined)
+      // 에이전트가 바로 시험을 돌리게 의존성을 깐다 (받아 둔 저장소에서. 실패해도 에이전트가 다시 할 수 있다).
+      // package.json이 없으면 깔지 않는다: pnpm 12는 없는 package.json · 잠금 파일을 새로 만든다
+      if (fs.existsSync(path.join(dir, 'package.json'))) await exec('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: dir, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024 }).catch(() => undefined)
       return { dir, branch }
     },
     diff: worktreeDiff,

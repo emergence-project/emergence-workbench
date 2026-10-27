@@ -35,7 +35,7 @@ if [ "$(node_major)" != 22 ]; then
     echo "Node 22가 없습니다. https://nodejs.org 에서 22를 깔거나 Homebrew(https://brew.sh)를 깐 뒤 다시 실행하세요."; exit 1
   fi
 fi
-if ! command -v pnpm >/dev/null; then corepack enable pnpm 2>/dev/null || npm install -g pnpm@9; fi
+if ! command -v pnpm >/dev/null; then corepack enable pnpm 2>/dev/null || npm install -g pnpm@12; fi
 command -v git >/dev/null || { echo "git이 없습니다. 터미널에서 xcode-select --install 을 한 뒤 다시 실행하세요."; exit 1; }
 NODE="$(command -v node)"
 echo "node $(node -v) · pnpm $(pnpm -v)"
