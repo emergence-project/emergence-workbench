@@ -513,6 +513,9 @@ type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archived'> &
   snap?: Snap
   /** 되돌린 뒤 다음 실행: sessionId의 이 메시지까지만 잇는다 */
   resumeAt?: string
+  /** 기록 대화: 마지막으로 넘긴 기록 글의 수 (같은 글을 두 번 넘기지 않게), 지금 차례가 기록에서 왔는지 (끝나면 답을 기록에 적는다) */
+  recordSent?: number
+  recordTurn?: boolean
 }
 
 /** 내 지시 하나 앞으로 되돌릴 때 쓰는 것. session이 없으면 처음부터 */
@@ -608,6 +611,8 @@ export interface AgentChatsDeps {
   settings?: () => AgentSettings
   /** 합친 커밋이 지금 도는 앱에 들어 있는가 (모르면 undefined) */
   inApp?: (sha: string) => Promise<boolean | undefined>
+  /** 기록 대화의 차례가 잘 끝나면 마지막 답 글과 이번 차례에 고친 곳을 그 기록에 적는다 (routes/comments.ts) */
+  recordAnswer?: (rid: string, record: { target: string; id: string }, text: string, edits: { file: string; added: number; removed: number }[]) => void
 }
 
 export class AgentChats {
@@ -675,7 +680,7 @@ export class AgentChats {
     return { chats: [...this.chats.values()].filter((c) => LIVE.has(c.state)).map((c) => ({ id: c.id, rid: c.rid, title: c.title, state: c.state, scope: c.scope, claims: c.claims })) }
   }
 
-  create(b: NewChatBody, link: { feedback?: string } = {}): Chat {
+  create(b: NewChatBody, link: { feedback?: string; record?: { target: string; id: string } } = {}): Chat {
     const app = b.rid === APP_RID
     if (app && !this.deps.app) throw new WorkbenchError(404, t('이 맥에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다', 'No app repository on this Mac, so app conversations are not available'))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
@@ -702,6 +707,7 @@ export class AgentChats {
       updated: at,
       items: [],
       ...(link.feedback && { feedback: link.feedback }),
+      ...(link.record && { record: { ...link.record } }),
     }
     this.chats.set(c.id, c)
     this.start(c, b)
@@ -901,6 +907,38 @@ export class AgentChats {
     this.chats.delete(id)
     fs.rmSync(this.fileOf(id), { force: true })
     if (c.worktree && this.deps.app) void this.deps.app.dispose(c.worktree).catch(() => undefined)
+  }
+
+  /** 기록에 이어진 대화 (보관한 것도 찾는다: 한 기록에 대화 하나) */
+  recordChat(rid: string, target: string, id: string): ChatRow | undefined {
+    const c = this.findRecord(rid, target, id)
+    return c && rowOf(c)
+  }
+
+  private findRecord(rid: string, target: string, id: string): Stored | undefined {
+    return [...this.chats.values()].find((c) => c.rid === rid && c.record?.target === target && c.record.id === id)
+  }
+
+  /**
+   * 기록의 질문 · 지시를 그 기록의 대화에 넘긴다 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ). 처음이면 대화를 열고(질문은 읽기만, 지시는 노트 고치기 → 수정 검토),
+   * 있으면 사용자가 기록에 이어 쓴 글을 그 대화에 보낸다. count = 지금 기록의 글 수: 이미 넘긴 글이면 아무것도 하지 않는다(null).
+   * 차례가 잘 끝나면 마지막 답을 deps.recordAnswer가 기록에 적는다. 멈추면 적지 않고 맥락은 그대로 둔다.
+   */
+  forRecord(rid: string, record: { target: string; id: string }, o: { kind: '질문' | '지시'; title: string; first: string; reply?: string; count: number }): Chat | null {
+    const c = this.findRecord(rid, record.target, record.id)
+    if (c && c.recordSent === o.count) return null
+    if (!c) {
+      const made = this.create({ rid, text: o.first, title: o.title, write: o.kind === '질문' ? 'read' : 'notes', mode: 'edit' }, { record })
+      const s = this.must(made.id)
+      s.recordSent = o.count
+      s.recordTurn = true
+      this.write(s)
+      return wireOf(s)
+    }
+    if (c.archived) { c.archived = false }
+    c.recordSent = o.count
+    c.recordTurn = true
+    return this.send(c.id, { text: o.reply ?? o.first })
   }
 
   /**
@@ -1423,10 +1461,29 @@ export class AgentChats {
   private turnEnd(c: Stored, s: Session, state: 'idle' | 'stopped' = 'idle'): void {
     c.state = state
     c.claims = []
+    if (c.record && c.recordTurn) {
+      // 멈춘 차례는 기록에 적지 않는다 (사용자가 이어 쓰거나 대화에서 이어 하면 다시 넘긴다)
+      c.recordTurn = false
+      if (state === 'idle') this.writeRecordAnswer(c)
+    }
     this.touch(c)
     if ((c.pending ?? []).length) { this.close(s); return }
     this.idleLater(c, s)
     this.next()
+  }
+
+  /** 기록 대화의 이번 차례(마지막 내 지시 뒤) 답: 주 에이전트의 마지막 글과 고친 곳 */
+  private writeRecordAnswer(c: Stored): void {
+    if (!c.record || !this.deps.recordAnswer) return
+    let from = c.items.length
+    while (from > 0 && c.items[from - 1]!.kind !== 'user') from--
+    const turn = c.items.slice(from)
+    const text = [...turn].reverse().find((it): it is Extract<ChatItem, { kind: 'text' }> => it.kind === 'text' && !it.sub)?.text.trim()
+    const edits = turn.filter((it): it is Extract<ChatItem, { kind: 'edit' }> => it.kind === 'edit').map((it) => ({ file: it.file, added: it.added, removed: it.removed }))
+    if (!text && !edits.length) return
+    try { this.deps.recordAnswer(c.rid, c.record, text ?? '', edits) } catch (e) {
+      c.items.push({ kind: 'error', at: now(), text: t(`답을 기록에 적지 못했습니다: ${(e as Error).message}`, `Could not write the answer to the record: ${(e as Error).message}`).slice(0, MAX_TEXT) })
+    }
   }
 
   /** 앱 고치기 대화: 고치기 도구를 거치지 않고(명령 · 스크립트) 바뀐 파일을 작업 폴더의 git diff에서 찾아 고친 줄로 보인다 */
@@ -1500,14 +1557,16 @@ const rowOf = (c: Stored): ChatRow => {
   let added = 0
   let removed = 0
   let wait: ChatRow['wait']
+  let since: string | undefined
   for (const it of c.items) {
+    if (it.kind === 'user' && !it.queued) since = it.at
     if (it.kind === 'edit') { added += it.added; removed += it.removed }
     if (it.kind === 'ask' && !it.answer) wait = it.plan !== undefined ? 'plan' : 'ask'
   }
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.record && { record: { ...c.record } }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

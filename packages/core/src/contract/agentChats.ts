@@ -132,6 +132,10 @@ export const ChatRow = z.object({
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(),
   /** 앱 고치기 대화가 맡은 피드백 (status.yaml · reviews.yaml의 키) */
   feedback: z.string().optional(),
+  /** 기록의 질문 · 지시가 연 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ: 기록에는 결과만, 대화는 에이전트 탭에) */
+  record: z.object({ target: z.string(), id: z.string() }).strict().optional(),
+  /** 일하는 중이면 이번 차례를 연 내 지시의 시각 (기록의 「Claude가 답을 쓰는 중 · 0:18」) */
+  since: z.string().optional(),
   /** 앱이 그 PR을 합친 커밋, 그리고 그 커밋이 지금 도는 앱에 들어왔는지 (상단바 "#n 반영됨") */
   merged: z.string().optional(),
   shipped: z.boolean().optional(),
