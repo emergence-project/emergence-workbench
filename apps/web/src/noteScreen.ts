@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import type { NoteHeadPatch } from './api'
 import { store } from './store'
 import { t } from './i18n'
@@ -71,6 +71,28 @@ export function latexSections(text: string): (NoteSection & { line: number })[] 
 }
 /** 줄 번호가 든 절 */
 export const sectionAtLine = (secs: { line: number }[], line: number) => secs.reduce((cur, s, i) => (s.line <= line ? i : cur), -1)
+
+// ---------- 왼쪽 사이드바 목차 탭의 파일 나무 ----------
+
+/**
+ * 저장소 쪽(10/28 08:28 · 17:22 · 17:28, 시안 1-2절)은 파일 나무를 본문 옆이 아니라 왼쪽 사이드바의 「목차」 탭에 둔다.
+ * 쪽이 열려 있는 동안 treeWanted가 켜지고, 사이드바의 목차 탭이 비워 둔 자리(slot)에 쪽이 나무를 그려 넣는다(createPortal).
+ * 사이드바가 접혀 있으면(sides 0) 쪽이 나무를 본문 왼쪽에 그린다.
+ */
+const treeWanted = tiny(false)
+const treeSlot = tiny<HTMLElement | null>(null)
+const sides = tiny(0)
+export const useTreeWanted = () => useSyncExternalStore(treeWanted.subscribe, treeWanted.get)
+export const setTreeSlot = (el: HTMLElement | null) => treeSlot.set(el)
+/** 목차 탭을 가진 사이드바가 화면에 있는 동안 (SideTabs가 부른다) */
+export function sideMounted() { sides.set(sides.get() + 1); return () => sides.set(sides.get() - 1) }
+/** 저장소 쪽: 켜 두는 동안 목차 탭이 나무 자리가 된다. 자리와 사이드바가 보이는지를 돌려준다 */
+export function useSideTree(): { slot: HTMLElement | null; side: boolean } {
+  useEffect(() => { treeWanted.set(true); return () => treeWanted.set(false) }, [])
+  const slot = useSyncExternalStore(treeSlot.subscribe, treeSlot.get)
+  const side = useSyncExternalStore(sides.subscribe, sides.get) > 0
+  return { slot, side }
+}
 
 // ---------- 오른쪽 사이드바의 노트 칸 ----------
 

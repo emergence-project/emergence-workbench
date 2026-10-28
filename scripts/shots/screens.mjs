@@ -51,7 +51,8 @@ export const DEFAULT_SCREENS = [
   ['info-status', '#/r/{rid}/status', '최근 기록'],
   // 규칙 쪽 (옛 AGENTS.md 쪽): 저장소의 AGENTS.md, STATUS.md의 규칙 절, workbench/decisions/
   ['info-agents', '#/r/{rid}/agents', '결정'],
-  ['info-repo', '#/r/{rid}/repo', '저장소 정보'],
+  // 저장소 쪽 (10/28: 저장소와 파일을 합침, 나무는 왼쪽 사이드바 목차 탭). info-repo는 「자세히」를 펼친 모습
+  ['info-repo', '#/r/{rid}/repo', '저장소 정보', '[data-ui="저장소 상태 줄"] > .btn'],
   ['info-files', '#/r/{rid}/files', '파일 나무'],
   ['map', '#/r/{rid}/map', '지도'],
   ['log', '#/r/{rid}/log', '기록'],

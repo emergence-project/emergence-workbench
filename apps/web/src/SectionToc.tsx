@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { t } from './i18n'
-import { useNoteToc } from './noteScreen'
+import { setTreeSlot, sideMounted, useNoteToc, useTreeWanted } from './noteScreen'
 import { store } from './store'
 
 /* 프로젝트 사이드바와 지식 사이드바가 함께 쓰는 맨 위 탭 "이동 | 목차" (10/18 결정 "사이드바 탭과 수") */
@@ -24,18 +24,25 @@ export function SideTabs({ label, turn = 0, turnTip, show, children }: {
   const hasToc = show && !!toc && toc.sections.length >= 2
   const [want, setWant] = useState<SideTab>(() => store.get<SideTab>(TAB_KEY, 'nav'))
   useEffect(() => store.set(TAB_KEY, want), [want])
-  const tab: SideTab = want === 'toc' && hasToc ? 'toc' : 'nav'
+  useEffect(() => sideMounted(), [])
+  // 저장소 쪽을 열면 목차 탭이 파일 나무가 된다(10/28 시안 1-2절). 그동안 고른 탭은 기억하지 않는다
+  const tree = useTreeWanted()
+  const [treeNav, setTreeNav] = useState(false)
+  useEffect(() => { if (tree) setTreeNav(false) }, [tree])
+  const tab: SideTab = tree ? (treeNav ? 'nav' : 'toc') : want === 'toc' && hasToc ? 'toc' : 'nav'
+  const pick = (to: SideTab) => (tree ? setTreeNav(to === 'nav') : setWant(to))
   return (
     <>
       <div className="side-tabbar" data-ui="왼쪽 사이드바 갈래">
         <div className="segmented small full" role="tablist" aria-label={t('왼쪽 사이드바 갈래', 'Left sidebar view')}>
-          <button role="tab" aria-selected={tab === 'nav'} className={tab === 'nav' ? 'on' : ''} onClick={() => setWant('nav')}>
+          <button role="tab" aria-selected={tab === 'nav'} className={tab === 'nav' ? 'on' : ''} onClick={() => pick('nav')}>
             {label}{tab === 'toc' && turn > 0 && <span className="rail-count" title={turnTip}>{turn}</span>}</button>
-          <button role="tab" aria-selected={tab === 'toc'} className={tab === 'toc' ? 'on' : ''} disabled={!hasToc}
-            title={hasToc ? undefined : t('이 화면에는 목차가 없습니다', 'This screen has no contents')} onClick={() => setWant('toc')}>{t('목차', 'Contents')}</button>
+          <button role="tab" aria-selected={tab === 'toc'} className={tab === 'toc' ? 'on' : ''} disabled={!tree && !hasToc}
+            title={tree ? t('저장소의 파일 나무', 'File tree of the repository') : hasToc ? undefined : t('이 화면에는 목차가 없습니다', 'This screen has no contents')} onClick={() => pick('toc')}>{t('목차', 'Contents')}</button>
         </div>
       </div>
-      {tab === 'toc' && toc ? <TocList sections={toc.sections} current={toc.current} jump={toc.jump} /> : children}
+      {tab === 'toc' && tree ? <div ref={setTreeSlot} className="side-toc-full side-files" />
+        : tab === 'toc' && toc ? <TocList sections={toc.sections} current={toc.current} jump={toc.jump} /> : children}
     </>
   )
 }

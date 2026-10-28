@@ -35,7 +35,7 @@ import { recordPdfTab, recordRoute } from './recordsPanelHelpers'
 import { NoInfo, NoteInfo, RightSidebar } from './RightSidebar'
 import { TopBar, type Crumb } from './TopBar'
 import { OverviewPage, partNumber } from './OverviewPage'
-import { AgentsPage, ProjectInfoPage, RepoPage, StatusPage } from './ProjectInfoPage'
+import { AgentsPage, ProjectInfoPage, StatusPage } from './ProjectInfoPage'
 import { ChangesPage } from './ChangesPage'
 import { FilesPage } from './FilesPage'
 import { ProjectRailCount, useProjectIssues } from './projectIssues'
@@ -408,8 +408,8 @@ export function App() {
       case 'agents': return <AgentsPage key="agents" rid={rid} rapi={rapi} version={version} />
       case 'status': return <StatusPage key="status" rid={rid} rapi={rapi} />
       case 'changes': return <ChangesPage key="changes" rid={rid} />
-      case 'repo': return <RepoPage key="repo" rid={rid} rapi={rapi} root={summary.root} version={version} />
-      case 'files': return <FilesPage key="files" rid={rid} />
+      // 저장소와 파일은 한 쪽이다(10/28 시안 1-2절). 예전 주소 #/…/files도 같은 쪽
+      case 'repo': case 'files': return <FilesPage key="repo" rid={rid} rapi={rapi} root={summary.root} version={version} />
       case 'info': return (
         <ProjectInfoPage rid={rid} rapi={rapi} summary={summary} notes={notes} manuscripts={manuscripts}
           project={current} all={researches ?? []} onProfile={setProfile}
@@ -600,7 +600,7 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'status': return L('현황', 'Status')
     case 'changes': return L('변경사항', 'Changes')
     case 'repo': return L('저장소', 'Repository')
-    case 'files': return L('파일', 'Files')
+    case 'files': return L('저장소', 'Repository')
     case 'log': return L('기록', 'Records')
     case 'map': return L('지도', 'Map')
     case 'notes': return L('원고', 'Manuscript')

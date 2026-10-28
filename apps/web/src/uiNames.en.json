@@ -893,5 +893,7 @@
   "맡긴 일 흐름 점": "Task flow dot",
   "보고서 흐름 점": "Report flow dot",
   "흐름 점 맡긴 일": "Flow dot delegated task",
-  "맡긴 일 결과 머리": "Delegated task results heading"
+  "맡긴 일 결과 머리": "Delegated task results heading",
+  "저장소 상태 줄": "Repository status row",
+  "열린 파일 탭": "Open file tabs"
 }
