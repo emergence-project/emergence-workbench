@@ -54,3 +54,13 @@ button.info-row:hover { background: var(--bg-hover); }
 .info-counts { flex: none; display: inline-flex; gap: var(--sp-3); font-size: var(--fs-xs); color: var(--text-2); }
 .info-counts > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .info-raw > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); margin-bottom: var(--sp-2); }
+
+/* 현황 맨 위 동기화 줄 (10/28 안 C): GitHub와 같은지 · 커밋 안 한 변경 · 확인 시각 · 저장소 › · 동기화 아이콘 */
+.info-sync { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-sm); }
+.info-sync .sp { flex: 1; }
+.info-sync .turn-dot { vertical-align: middle; }
+.info-sync-err { flex-basis: 100%; }
+.repo-sync svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.repo-sync.busy svg { animation: repo-spin 1s linear infinite; }
+@keyframes repo-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .repo-sync.busy svg { animation: none; } }

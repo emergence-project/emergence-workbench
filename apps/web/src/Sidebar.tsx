@@ -14,6 +14,7 @@ import { store } from './store'
 import { byStar } from './Topics'
 import { t } from './i18n'
 import { useAgentEdits, useMaterials, usePapers } from './projectQueries'
+import { repoBehindAhead, useRepoInfo } from './ProjectInfoPage'
 import { StarIcon } from './marks'
 
 /**
@@ -100,6 +101,7 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
     )
   }
   const repoOn = route.page === 'repo' || route.page === 'files'
+  const ba = repoBehindAhead(useRepoInfo(rapi).data)
   const recordsOn = route.page === 'records' || route.page === 'todo' || route.page === 'log' || route.page === 'task' || route.page === 'judge'
   return (
     <div className="project-toc" data-ui="프로젝트 목차">
@@ -117,8 +119,6 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
               <span className="label">{t('변경사항', 'Changes')}</span></button>
             <button className={`nav tree-note${route.page === 'agents' ? ' on' : ''}`} aria-current={route.page === 'agents' ? 'page' : undefined} data-ui="AGENTS.md 블록" title={t('에이전트가 이 저장소에서 먼저 읽는 규칙과 그 근거가 된 결정', 'Rules agents read first in this repository, and the decisions behind them')} onClick={() => go({ page: 'agents', rid })}>
               <span className="label">{t('규칙', 'Rules')}</span></button>
-            <button className={`nav tree-note${repoOn ? ' on' : ''}`} aria-current={repoOn ? 'page' : undefined} data-ui="저장소 블록" title={t('폴더 · 브랜치 · GitHub와 같은지, 그리고 모든 파일 (나무는 목차 탭에)', 'Folder, branch, whether it matches GitHub, and every file (the tree is on the Contents tab)')} onClick={() => go({ page: 'repo', rid })}>
-              <span className="label">{t('저장소', 'Repository')}</span></button>
           </div>
           <button className={`nav side-row${recordsOn ? ' on' : ''}`} aria-current={recordsOn ? 'page' : undefined} data-ui="기록 블록" title={t('내 차례 · 에이전트 차례 · 모든 기록과 맡긴 일', 'Your turn, agents\' turn, all records and delegated tasks')} onClick={() => go({ page: 'records', rid })}>
             <span className="q-ico" aria-hidden>{Icon.comment}</span><span className="label">{t('기록', 'Records')}</span>
@@ -127,6 +127,13 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
             <span className="q-ico" aria-hidden>{Icon.review}</span><span className="label">{t('수정 검토', 'Edit review')}</span>{editCount ? <span className="rail-count" title={t(`검토할 노트와 고치기 요청 ${editCount}개`, `${editCount} note(s) to review and edit request(s)`)}>{editCount}</span> : null}</button>
           <button className={`nav side-row${route.page === 'flow' ? ' on' : ''}`} aria-current={route.page === 'flow' ? 'page' : undefined} data-ui="흐름 블록" title={t('연구 흐름: 생각의 걸음과 그 사이의 선', 'Research flow: steps of thinking and the lines between them')} onClick={() => go({ page: 'flow', rid })}>
             <span className="q-ico" aria-hidden>{Icon.flow}</span><span className="label">{t('흐름', 'Flow')}</span></button>
+          <div className={`side-row-wrap${repoOn ? ' on' : ''}`}>
+            <button className={`nav side-row${repoOn ? ' on' : ''}`} aria-current={repoOn ? 'page' : undefined} data-ui="저장소 블록" title={t('폴더 · 브랜치 · GitHub와 같은지, 그리고 모든 파일 (나무는 목차 탭에)', 'Folder, branch, whether it matches GitHub, and every file (the tree is on the Contents tab)')} onClick={() => go({ page: 'repo', rid })}>
+              <span className="q-ico" aria-hidden>{Icon.repo}</span><span className="label">{t('저장소', 'Repository')}</span></button>
+            {ba && (ba.behind > 0 || ba.ahead > 0) && <button className="side-sync" data-ui="저장소 받기 올리기 수"
+              title={t(`GitHub에 새 커밋 ${ba.behind} · 올리지 않은 커밋 ${ba.ahead} — 현황에서 동기화합니다`, `${ba.behind} new on GitHub · ${ba.ahead} unpushed. Sync from Status`)}
+              onClick={() => go({ page: 'status', rid })}><span className="turn-dot" aria-hidden />{ba.behind > 0 && `↓${ba.behind}`}{ba.ahead > 0 && ` ↑${ba.ahead}`}</button>}
+          </div>
         </div>
 
         <div className="side-label">{t('주제', 'Topics')}</div>
