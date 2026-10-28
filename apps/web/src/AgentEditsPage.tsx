@@ -14,10 +14,11 @@ import { useAgentEdits, useTopicsOverview } from './projectQueries'
 import { LOOSE_NOTES_LABEL } from './noteKinds'
 import { qk } from './queries'
 import { go, type Route } from './router'
-import { noteToc } from './noteScreen'
 import { editNotes } from './editNotes'
 import { agentName } from './taskView'
 import { chooseRecordFilter, chooseRecordPlace } from './workRecords'
+import { openChatInSidebar } from './agentPanelOpen'
+import { noteToc, openRight } from './noteScreen'
 
 /**
  * 에이전트 고침 검토 (10/8 사용자 결정, 첫 판): 에이전트가 고친 노트 · 개념노트를 고치기 전 글(기준판)과 문단 단위로 비교한다.
@@ -158,8 +159,8 @@ function EditSources({ rid, file }: { rid: string; file: string }) {
           <span className="muted">{when(c.updated)}</span>
           <span className="sp" />
           {c.record && <button className="icon-btn sm" data-ui="기록 보기" data-tip={t('기록 보기', 'Show the record')} aria-label={t('기록 보기', 'Show the record')}
-            onClick={() => { chooseRecordFilter('전체'); chooseRecordPlace(c.record!.target); go({ page: 'records', rid }) }}>{Icon.comment}</button>}
-          <button className="icon-btn sm" data-ui="대화 보기" data-tip={t('대화 보기', 'Show the conversation')} aria-label={t('대화 보기', 'Show the conversation')} onClick={() => go({ page: 'agent', id: c.id })}>{Icon.bot}</button>
+            onClick={() => { chooseRecordFilter('전체'); chooseRecordPlace(c.record!.target); openRight('records') }}>{Icon.comment}</button>}
+          <button className="icon-btn sm" data-ui="대화 보기" data-tip={t('대화 보기', 'Show the conversation')} aria-label={t('대화 보기', 'Show the conversation')} onClick={() => openChatInSidebar(rid, c.id)}>{Icon.bot}</button>
         </div>
       ))}
     </div>

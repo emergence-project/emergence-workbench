@@ -16,7 +16,8 @@ import { useDismiss } from './useDismiss'
 import { flash } from './flash'
 import { openRecordComposer } from './RecordContext'
 import { useRecords } from './projectQueries'
-import { chooseRecordFilter, chooseRecordPlace } from './workRecords'
+import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
+import { InlineEdits } from './InlineEdits'
 
 /**
  * 에이전트 대화 (10/21 "프로젝트 관리 먼저", 같은 날 "에이전트 창 구조 다시" · "코덱스와 Claude 앱 더 참고"):
@@ -518,13 +519,18 @@ const reviewOf = (rid: string, file: string) => go({ page: 'review', key: `note:
 
 /** 노트 고침: 대화 안에는 한 줄(무엇을 · +n −n), 바뀐 곳은 오른쪽 칸과 수정 검토에서 */
 function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, { kind: 'edit' }>; onChanges?(): void }) {
+  // 오른쪽 사이드바의 대화에서는 고친 곳을 이 줄 아래에 펼쳐 그 자리에서 검토한다 (10/28 사용자 정정: 페이지를 옮기지 않고)
+  const [open, setOpen] = useState(false)
+  const inline = !onChanges && chat.rid !== APP_RID
   return (
     <li className="ac-edit-line" data-ui="노트 고침 줄">
       <span className="ac-edit-what">{it.via === 'command' ? t('명령으로 고침', 'Changed by a command') : chat.rid === APP_RID ? t('파일 고침', 'Edited file') : t('노트 고침', 'Edited')}</span>
       <span className="mono ac-file" title={it.file}>{it.file}</span>
       <Delta added={it.added} removed={it.removed} />
-      {(onChanges || chat.rid !== APP_RID) && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={() => (onChanges ? onChanges() : reviewOf(chat.rid, it.file))}>{onChanges ? t('바뀐 곳 보기', 'View changes') : t('수정 검토에서 보기', 'Open in edit review')}</button>}
+      {onChanges && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={onChanges}>{t('바뀐 곳 보기', 'View changes')}</button>}
+      {inline && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t('고친 곳 접기', 'Hide changes') : t('고친 곳 검토 ›', 'Review changes ›')}</button>}
       {it.reason && <span className="muted ac-hint ac-edit-why">{it.reason}</span>}
+      {inline && open && <div className="ac-edit-inline"><InlineEdits rid={chat.rid} files={[it.file]} /></div>}
     </li>
   )
 }
@@ -1585,9 +1591,15 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
   /** 오른쪽 사이드바 적기 칸의 대상 (「기록으로 남기기」 초안이 그 칸에 뜬다) */
   recordTarget?: { target: string; title: string; source?: string }
 }) {
-  const key = `rw-agent-panel-${rid}`
+  const key = agentPanelKey(rid)
   const [open, setOpenState] = useState<string | null>(() => store.get<string | null>(key, null))
   const setOpen = (v: string | null) => { setOpenState(v); store.set(key, v) }
+  // 기록 · 수정 검토의 「대화 보기」가 이 패널에서 대화를 연다 (agentPanelOpen.ts)
+  useEffect(() => {
+    const take = (e: Event) => { const d = (e as CustomEvent<{ rid: string; id: string }>).detail; if (d.rid === rid) setOpenState(d.id) }
+    window.addEventListener(AGENT_PANEL_OPEN, take)
+    return () => window.removeEventListener(AGENT_PANEL_OPEN, take)
+  }, [rid])
   const list = useChatList(rid).data?.chats
   const known = open && list?.some((c) => c.id === open)
   const current = open && (known || !list) ? open : null
@@ -1641,6 +1653,8 @@ function RecordBanner({ rid, record }: { rid: string; record: { target: string; 
   const files = useRecords(rid).data?.files
   const file = files?.find((f) => f.target === record.target)
   const c = file?.comments.find((x) => x.id === record.id)
+  // 기록 보기 (10/28 사용자 정정): 기록 화면으로 가지 않고 이 자리에서 기록의 답을 펼친다
+  const [open, setOpen] = useState(false)
   return (
     <div className="ac-record" data-ui="맡은 기록">
       <div className="ac-record-h muted">{t('이 대화는 기록 하나를 맡았습니다. 차례가 끝나면 마지막 글이 그 기록의 답으로 붙습니다.', 'This conversation handles one record. When a turn ends, its last message is added to that record as the answer.')}</div>
@@ -1651,8 +1665,11 @@ function RecordBanner({ rid, record }: { rid: string; record: { target: string; 
       <div className="ac-record-foot muted">
         <span>{file ? (file.target === 'project' ? t('이 프로젝트', 'This project') : file.title) : ''}</span>
         <span className="sp" />
-        <button className="a" data-ui="기록으로 가기" onClick={() => { chooseRecordFilter('전체'); chooseRecordPlace(record.target); go({ page: 'records', rid }) }}>{t('기록으로 가기 ›', 'Go to the record ›')}</button>
+        {c && c.answers.length > 0 && <button className="a" data-ui="기록 보기" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t('기록 접기', 'Hide the record') : t(`기록 보기 · 답 ${c.answers.length} ›`, `Show the record · ${c.answers.length} answers ›`)}</button>}
       </div>
+      {open && c && <div className="ac-record-answers">
+        {c.answers.map((a, i) => <div key={i} className="ac-record-answer"><div className="muted ac-record-who">{a.by === 'claude' ? 'Claude' : a.by} · {a.at}</div><MemoText text={a.body} /></div>)}
+      </div>}
     </div>
   )
 }

@@ -1,0 +1,19 @@
+/* 기록 안 수정 검토 (InlineEdits.tsx, 10/28 사용자 정정): 좁은 칸이라 전 · 후를 위아래로 */
+.ie { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.ie-empty { margin: var(--sp-1) 0 0; font-size: var(--fs-xs); }
+.ie-note { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.ie-title { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); background: var(--bg-sunken); font-size: var(--fs-xs); }
+.ie-title .sp { flex: 1; }
+.ie-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-strong); }
+.ie-fail { margin: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); }
+.ie-hunk { padding: var(--sp-1) var(--sp-2) var(--sp-2); border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.ie-head { display: flex; align-items: center; gap: 2px; min-height: 24px; }
+.ie-head .sp { flex: 1; }
+.ie-sec { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); }
+.ie-base { color: var(--text-2); padding-left: var(--sp-2); border-left: 2px solid var(--line); }
+.ie-cur { margin-top: var(--sp-1); padding-left: var(--sp-2); border-left: 2px solid var(--text-3); }
+.ie-base .ae-text, .ie-cur .ae-text { margin: 0; word-break: break-word; }
+.ie-base pre.ae-text, .ie-cur pre.ae-text { white-space: pre-wrap; }
+.ie .ae-md p { margin: 0 0 var(--sp-1); }
+.ie-cur .ae-edit { width: 100%; }
+.ie-edit-acts { display: flex; justify-content: flex-end; gap: var(--sp-1); margin-top: var(--sp-1); }
