@@ -115,3 +115,8 @@
 .side-row[aria-expanded='true'] .tree-chev span { transform: rotate(90deg); }
 .note-sub .q-ico { display: inline-grid; place-items: center; }
 .note-sub .q-ico svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 저장소 줄 오른쪽의 받을 ↓ · 올릴 ↑ 커밋 수 (10/28 안 C). 누르면 현황의 동기화 줄로. 동기화 버튼은 현황에만 */
+.side-row-wrap { position: relative; }
+.side-row-wrap .side-sync { position: absolute; right: var(--sp-2); top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; padding: 0 2px; border-radius: var(--r-sm); }
+.side-row-wrap .side-sync:hover { color: var(--text); background: var(--bg-hover); }

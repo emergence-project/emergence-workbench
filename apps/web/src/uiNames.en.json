@@ -902,5 +902,8 @@
   "흐름 연결 빼기": "Remove flow link",
   "흐름 연결 더하기": "Add flow link",
   "대화 제목 바꾸기": "Rename conversation",
-  "대화 줄 고치기·지우기": "Conversation row edit and delete"
+  "대화 줄 고치기·지우기": "Conversation row edit and delete",
+  "동기화하기": "Sync",
+  "동기화 줄": "Sync line",
+  "저장소 받기 올리기 수": "Repository pull/push counts"
 }
