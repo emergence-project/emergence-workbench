@@ -1,10 +1,28 @@
-/* 프로젝트 정보 › 파일 (FilesPage.tsx, 10/21 시안 안 B): 왼쪽 나무, 오른쪽 미리 보기 */
+/* 프로젝트 정보 › 저장소 (FilesPage.tsx, 10/28 시안 1-2절): 위 줄은 저장소 상태, 아래는 연 파일 탭, 나무는 왼쪽 사이드바 목차 탭 */
 .ws-doc.files-page { flex-direction: column; }
-.files-page .fv-find { width: 180px; min-width: 0; }
+.repo-strip { flex-wrap: wrap; row-gap: var(--sp-1); }
+.repo-brief { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); min-width: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.repo-brief code { font-size: var(--fs-xs); }
+.repo-brief .repo-main { display: inline-flex; margin-left: var(--sp-1); }
+.repo-more { flex: none; margin: 0; padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); }
 .files-page .fv-body { flex: 1; min-height: 0; display: flex; }
-.files-page .fv-tree { width: var(--fv-tree); flex: none; overflow: auto; padding: var(--sp-2) var(--sp-1); display: flex; flex-direction: column; }
-.files-page .ws-divider { width: 5px; flex: none; }
-.files-page .fv-pad { padding: var(--sp-2) var(--sp-3); }
+.fv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fv-tabs { flex: none; display: flex; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--bg-side); }
+.fv-tab { display: inline-flex; align-items: center; flex: none; max-width: 260px; border-right: 1px solid var(--line); color: var(--text-2); }
+.fv-tab.on { background: var(--bg); color: var(--text); font-weight: var(--fw-strong); margin-bottom: -1px; }
+.fv-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-3); border: 0; background: none; color: inherit; font: inherit; font-size: var(--fs-sm); font-family: var(--editor-font); cursor: pointer; }
+.fv-tab-x { flex: none; padding: 0 var(--sp-2); border: 0; background: none; color: var(--text-3); font: inherit; cursor: pointer; }
+.fv-tab-x:hover { color: var(--text); }
+/* 나무: 사이드바 목차 탭 안(.side-files), 사이드바를 접었으면 본문 왼쪽 */
+.side-files { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.fv-side { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; min-width: 0; }
+.files-page .fv-side { flex: none; width: 260px; border-right: 1px solid var(--line); }
+.fv-side .fv-find { flex: none; margin: var(--sp-2) var(--sp-2) var(--sp-1); min-width: 0; height: var(--input-h); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font-size: var(--fs-sm); }
+.fv-side .fv-find:focus { outline: none; border-color: var(--text); }
+.fv-tree { flex: 1 1 0; min-height: 0; overflow: auto; padding: var(--sp-1); display: flex; flex-direction: column; }
+.fv-pad { padding: var(--sp-2) var(--sp-3); }
+.fv-count { flex: none; margin: 0; padding: var(--sp-1) var(--sp-3); border-top: 1px solid var(--line); font-size: var(--fs-xs); }
+.side-files .fv-mean { max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
 .fv-row { display: flex; align-items: center; gap: var(--sp-1); width: 100%; min-height: 26px; padding: 0 var(--sp-2) 0 calc(var(--sp-2) + var(--fv-depth, 0) * 14px); border: 0; border-radius: var(--r-sm); background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
 .fv-row:hover { background: var(--bg-hover); }
 .fv-row.on { background: var(--bg-hover); font-weight: var(--fw-strong); }
@@ -19,4 +37,3 @@
 .fv-head .fv-path { overflow-wrap: anywhere; min-width: 0; }
 .fv-head .fv-path b { color: var(--text); font-weight: var(--fw-medium); font-family: var(--editor-font); }
 .fv-content { flex: 1; min-height: 0; overflow: auto; }
-.fv-legend { flex: none; display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-4); border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-2); }

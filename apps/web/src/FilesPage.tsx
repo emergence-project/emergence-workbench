@@ -1,19 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useRef, useState, type CSSProperties } from 'react'
-import { api, type ProjectInfo, type RepoTree } from './api'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
+import { api, type ProjectInfo, type RepoTree, type ResearchApi } from './api'
 import { flash } from './flash'
 import { plural, t } from './i18n'
+import { useSideTree } from './noteScreen'
+import { RepoBrief, RepoDetails, useRepoState } from './ProjectInfoPage'
 import { useProjectInfo } from './projectQueries'
 import { qk } from './queries'
 import { useRepoFile } from './repoPaths'
 import { RepoFileBody } from './RepoFileTab'
 import { go, type Route } from './router'
+import { store } from './store'
 
 /**
- * 프로젝트 정보 › 파일 (10/21 사용자 "프로젝트 폴더 전체를 볼 수 있는 페이지", 시안 안 B):
- * 왼쪽은 저장소 폴더 나무, 오른쪽은 고른 파일의 미리 보기. 읽기만 한다(고치기 · 옮기기 · 지우기 없음).
- * 폴더 옆 회색 말은 앱에서 그것이 무엇인지(주제 · 노트 · 흐름 점 · 기록 · 규칙 · 참고문헌 …), 주황 점은 커밋 안 한 변경.
- * 크게 보려면 경계를 끌거나 나무를 접고, "탭으로 열기"는 지금도 있는 읽기 전용 파일 탭으로 연다.
+ * 프로젝트 정보 › 저장소 (10/28 08:28 · 17:22 · 17:28, 시안 1-2절: 예전 저장소 쪽과 파일 쪽을 합침).
+ * 맨 위 한 줄은 저장소 상태(폴더 · 브랜치 · GitHub와 같은지 · 동기화하기, 「자세히」로 원격 · 마지막 커밋),
+ * 그 아래는 VS Code처럼 연 파일이 탭으로 쌓인다. 폴더 나무는 왼쪽 사이드바의 「목차」 탭에 있다(사이드바를 접으면 본문 왼쪽).
+ * 읽기만 한다(고치기 · 옮기기 · 지우기 없음). 폴더 옆 회색 말은 앱에서 그것이 무엇인지(주제 · 노트 · 흐름 점 · 기록 · 규칙 · 참고문헌 …),
+ * 주황 점은 커밋 안 한 변경. "탭으로 열기"는 작업 화면의 읽기 전용 파일 탭으로 연다.
  */
 
 interface Dir { name: string; path: string; dirs: Map<string, Dir>; files: { name: string; path: string; size: number }[] }
@@ -77,43 +82,58 @@ const kb = (size: number) => (size < 1024 ? `${size} B` : size < 1024 * 1024 ? `
 const firstPick = (files: RepoTree['files']) =>
   files.find((f) => /^readme\.md$/i.test(f.path))?.path ?? files.find((f) => f.path === 'workbench/research.yaml')?.path ?? null
 
-export function FilesPage({ rid }: { rid: string }) {
+const TABS_KEY = (rid: string) => `rw-repo-tabs-${rid}`
+
+export function FilesPage({ rid, rapi, root, version }: { rid: string; rapi: ResearchApi; root: string; version: number }) {
   const tree = useQuery({ queryKey: qk.repoTree(rid), queryFn: () => api.research(rid).repoTree(), refetchOnMount: 'always' })
   const sources = useProjectInfo(rid).data?.sources
+  const repo = useRepoState(rapi, version)
+  const [more, setMore] = useState(false)
+  const { slot, side } = useSideTree()
   const [open, setOpen] = useState<Set<string>>(() => new Set(['workbench']))
-  const [picked, setPicked] = useState<string | null>(null)
+  // 연 파일 탭 (VS Code처럼). 프로젝트마다 기억한다
+  const [tabs, setTabs] = useState<string[]>(() => store.get<string[]>(TABS_KEY(rid), []))
+  const [picked, setPicked] = useState<string | null>(() => tabs[0] ?? null)
   const [query, setQuery] = useState('')
-  const [folded, setFolded] = useState(false)
-  const [width, setWidth] = useState(280)
-  const body = useRef<HTMLDivElement>(null)
 
   const data = tree.data
-  const root = useMemo(() => (data ? buildTree(data.files) : null), [data])
+  // 저장소에 없는 파일의 탭은 지우고, 처음이면 README(없으면 research.yaml)를 연다
+  useEffect(() => {
+    if (!data) return
+    const have = new Set(data.files.map((f) => f.path))
+    setTabs((prev) => {
+      const kept = prev.filter((p) => have.has(p))
+      const first = firstPick(data.files)
+      return kept.length ? kept : first ? [first] : []
+    })
+  }, [data])
+  useEffect(() => store.set(TABS_KEY(rid), tabs), [rid, tabs])
+  const current = picked && tabs.includes(picked) ? picked : tabs[0] ?? null
+  const openFile = (path: string) => { setTabs((prev) => (prev.includes(path) ? prev : [...prev, path])); setPicked(path) }
+  const closeTab = (path: string) => {
+    const i = tabs.indexOf(path)
+    const rest = tabs.filter((p) => p !== path)
+    setTabs(rest)
+    if (current === path) setPicked(rest[Math.min(i, rest.length - 1)] ?? null)
+  }
+
+  const root_ = useMemo(() => (data ? buildTree(data.files) : null), [data])
   // 바뀐 파일과 그 위 폴더 모두에 점
   const changed = useMemo(() => {
     const s = new Set<string>()
     for (const p of data?.changed ?? []) { const seg = p.split('/'); for (let i = 1; i <= seg.length; i++) s.add(seg.slice(0, i).join('/')) }
     return s
   }, [data])
-  const current = picked ?? (data ? firstPick(data.files) : null)
   const q = query.trim().toLowerCase()
   const found = q && data ? data.files.filter((f) => f.path.toLowerCase().includes(q)).slice(0, 300) : null
 
   const toggle = (p: string) => setOpen((s) => { const n = new Set(s); if (n.has(p)) n.delete(p); else n.add(p); return n })
-  const drag = (e: React.PointerEvent) => {
-    const left = body.current!.getBoundingClientRect().left
-    document.body.classList.add('resizing')
-    const move = (ev: PointerEvent) => setWidth(Math.min(640, Math.max(180, ev.clientX - left)))
-    const up = () => { document.body.classList.remove('resizing'); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
-    e.preventDefault()
-  }
 
   const fileRow = (f: { name: string; path: string }, depth: number, showPath = false) => {
     const m = meaningOf(rid, f.path, null, sources)
     return (
       <button key={f.path} className={`fv-row file${current === f.path ? ' on' : ''}`} style={{ '--fv-depth': depth } as CSSProperties} title={f.path}
-        aria-current={current === f.path ? 'true' : undefined} onClick={() => setPicked(f.path)}>
+        aria-current={current === f.path ? 'true' : undefined} onClick={() => openFile(f.path)}>
         <span className="fv-name">{showPath ? f.path : f.name}</span>
         {changed.has(f.path) && <span className="fv-mod" role="img" aria-label={t('커밋 안 한 변경', 'Uncommitted change')} />}
         {m && <span className="fv-mean">{m.label}</span>}
@@ -140,35 +160,51 @@ export function FilesPage({ rid }: { rid: string }) {
     ]
   }
 
+  const treeView = (
+    <div className="fv-side" data-ui="파일 나무">
+      <input className="fv-find" type="search" data-ui="파일 찾기" value={query} placeholder={t('파일 이름 찾기', 'Find a file name')} aria-label={t('파일 이름 찾기', 'Find a file name')} onChange={(e) => setQuery(e.target.value)} />
+      <nav className="fv-tree" aria-label={t('파일 나무', 'File tree')}>
+        {tree.error ? <p className="empty">{(tree.error as Error).message}</p>
+          : !root_ ? <p className="muted fv-pad">{t('읽는 중…', 'Reading…')}</p>
+            : found ? (found.length ? found.map((f) => fileRow({ name: f.path, path: f.path }, 0, true)) : <p className="muted fv-pad">{t('맞는 파일이 없습니다', 'No matching files')}</p>)
+              : dirRows(root_, 0)}
+      </nav>
+      {data && <p className="fv-count muted">{data.source === 'git'
+        ? t(`git이 추적하는 파일과 새 파일 ${data.files.length}개`, `${plural(data.files.length, 'file')} tracked by git or new`)
+        : t(`폴더의 파일 ${data.files.length}개`, `${plural(data.files.length, 'file')} in the folder`)}{data.truncated ? t(' (앞부분만)', ' (first part only)') : ''}</p>}
+    </div>
+  )
+  const name = (p: string) => p.split('/').pop() ?? p
+
   return (
-    <div className="ws-doc files-page" data-ui="파일 쪽">
-      <div className="pane-head" data-ui="머리줄">
-        <span className="crumb"><b>{t('파일', 'Files')}</b>{data && <span className="muted"> · {data.source === 'git'
-          ? t(`git이 추적하는 파일과 새 파일 ${data.files.length}개`, `${plural(data.files.length, 'file')} tracked by git or new`)
-          : t(`폴더의 파일 ${data.files.length}개`, `${plural(data.files.length, 'file')} in the folder`)}{data.truncated ? t(' (앞부분만)', ' (first part only)') : ''}</span>}</span>
+    <div className="ws-doc files-page" data-ui="저장소 쪽">
+      <div className="pane-head repo-strip" data-ui="저장소 상태 줄">
+        <RepoBrief state={repo} root={root} />
         <span className="sp" />
-        {!folded && <input className="fv-find" type="search" data-ui="파일 찾기" value={query} placeholder={t('파일 이름 찾기', 'Find a file name')} aria-label={t('파일 이름 찾기', 'Find a file name')} onChange={(e) => setQuery(e.target.value)} />}
-        <button className="btn sm" data-ui="나무 접기" onClick={() => setFolded((f) => !f)}>{folded ? t('나무 보기', 'Show tree') : t('나무 접기', 'Hide tree')}</button>
+        <button className="btn sm" aria-expanded={more} onClick={() => setMore((v) => !v)}>{more ? t('자세히 접기', 'Hide details') : t('자세히', 'Details')}</button>
       </div>
-      <div className="fv-body" ref={body} style={{ '--fv-tree': `${width}px` } as CSSProperties}>
-        {!folded && <>
-          <nav className="fv-tree" data-ui="파일 나무" aria-label={t('파일 나무', 'File tree')}>
-            {tree.error ? <p className="empty">{(tree.error as Error).message}</p>
-              : !root ? <p className="muted fv-pad">{t('읽는 중…', 'Reading…')}</p>
-                : found ? (found.length ? found.map((f) => fileRow({ name: f.path, path: f.path }, 0, true)) : <p className="muted fv-pad">{t('맞는 파일이 없습니다', 'No matching files')}</p>)
-                  : dirRows(root, 0)}
-          </nav>
-          <div className="ws-divider" onPointerDown={drag} role="separator" aria-label={t('나무와 미리 보기 경계 — 끌어서 크기 조절', 'Border between tree and preview: drag to resize')} />
-        </>}
-        <Preview rid={rid} path={current} size={data?.files.find((f) => f.path === current)?.size} sources={sources} />
+      {more && <section className="info-sec repo-more" data-ui="저장소 정보"><RepoDetails state={repo} root={root} /></section>}
+      {slot && createPortal(treeView, slot)}
+      <div className="fv-body">
+        {!side && treeView}
+        <section className="fv-main">
+          {tabs.length > 0 && <div className="fv-tabs" role="tablist" data-ui="열린 파일 탭">
+            {tabs.map((p) => (
+              <span key={p} className={`fv-tab${p === current ? ' on' : ''}`} title={p}>
+                <button role="tab" aria-selected={p === current} className="fv-tab-name" onClick={() => setPicked(p)}>{name(p)}</button>
+                <button className="fv-tab-x" aria-label={t(`닫기: ${name(p)}`, `Close: ${name(p)}`)} onClick={() => closeTab(p)}>×</button>
+              </span>
+            ))}
+          </div>}
+          <Preview rid={rid} path={current} size={data?.files.find((f) => f.path === current)?.size} sources={sources} />
+        </section>
       </div>
-      {!!data?.changed.length && <div className="fv-legend" data-ui="파일 표시 뜻"><span className="fv-mod" aria-hidden /> {t(`커밋 안 한 변경 ${data.changed.length}`, `${plural(data.changed.length, 'uncommitted change')}`)}<span className="muted"> · {t('회색 말은 앱에서 무엇인지', 'Grey words say what it is in the app')}</span></div>}
     </div>
   )
 }
 
 function Preview({ rid, path, size, sources }: { rid: string; path: string | null; size?: number; sources: ProjectInfo['sources'] | undefined }) {
-  if (!path) return <section className="fv-preview" data-ui="파일 미리 보기"><p className="empty center">{t('왼쪽에서 파일을 고르세요', 'Pick a file on the left')}</p></section>
+  if (!path) return <section className="fv-preview" data-ui="파일 미리 보기"><p className="empty center">{t('나무에서 파일을 고르세요', 'Pick a file in the tree')}</p></section>
   return <PreviewFile key={path} rid={rid} path={path} size={size} sources={sources} />
 }
 
