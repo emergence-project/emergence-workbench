@@ -34,6 +34,9 @@ button.memo-chip:hover { border-color: var(--line-strong); color: var(--text); }
 .memo-text p + p, .memo-text p + ul, .memo-text p + ol, .memo-text ul + p, .memo-text ol + p { margin-top: 6px; }
 .memo-text ul, .memo-text ol { margin: 2px 0 0; padding-left: 20px; }
 .memo-text li + li { margin-top: 2px; }
+/* 가운데 한 줄 수식 ($$…$$ · \[…\]): 넓으면 그 안에서 옆으로 넘긴다 */
+.memo-text .memo-math-block { display: block; overflow-x: auto; overflow-y: hidden; margin: var(--sp-1) 0; }
+.memo-text .memo-math-block .katex-display { margin: 0; }
 .memo-code { font: var(--fs-sm) "SF Mono", Menlo, monospace; background: var(--bg-sunken); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 0 var(--sp-1); }
 .memo-item.is-done .mi-text { color: var(--text-3); text-decoration: line-through; }
 .mi-meta { font-size: var(--fs-xs); color: var(--text-3); margin-top: 2px; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
