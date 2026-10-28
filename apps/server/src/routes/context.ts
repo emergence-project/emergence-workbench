@@ -1,5 +1,6 @@
 import type { LibraryReadIndex } from '../libraryReadIndex.js'
 import type { FSWatcher } from 'chokidar'
+import type { AgentChats } from '../agentChats.js'
 import type { AppOptions } from '../app.js'
 import type { ConceptIndex } from '../conceptIndex.js'
 import type { Registry } from '../registry.js'
@@ -27,4 +28,6 @@ export interface RouteContext {
   conceptIndex: () => ConceptIndex | null
   /** 앱이 피드백 처리 기록을 대신 적은 뒤 (routes/feedback.ts가 저절로 올리기를 건다) */
   feedbackWritten?: () => void
+  /** 에이전트 대화 (registerAgentChats가 채운다). 기록의 질문 · 지시가 그 기록의 대화로 간다 */
+  agentChats?: AgentChats
 }

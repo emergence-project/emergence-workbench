@@ -107,7 +107,20 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 /* 할 일 아래 대화 (10/19 "할 일에 에이전트에게"): 기록 대화와 같은 말풍선, 아래 입력란 */
 .todo-talk { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 /* 대화 맨 아래 이어 쓰기 (10/19 11:31) */
-.record-follow { display: flex; justify-content: flex-end; margin-top: var(--sp-1); font-size: var(--fs-xs); }
+.record-follow { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-3); margin-top: var(--sp-1); font-size: var(--fs-xs); }
+/* 대화 보기 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 로봇 아이콘 + 글. 기록에는 결과만, 대화는 에이전트 탭에 */
+.record-chat-link { display: inline-flex; align-items: center; gap: 3px; }
+.record-chat-link svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+/* 답을 쓰는 중 (시안 1-3): 다음 답이 붙을 자리에 숨 쉬는 점 · 글 · 걸린 시간, 오른쪽 ■. 허락을 기다리면 주황 점(사용자 차례) */
+.record-working { display: flex; align-items: center; gap: var(--sp-1); margin-top: var(--sp-2); font-size: var(--fs-xs); color: var(--text-2); }
+.record-working .sp { flex: 1; }
+.record-working-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--s-progress); flex: none; animation: record-breathe 1.2s ease-in-out infinite; }
+.record-working-label { background: linear-gradient(90deg, var(--text-2) 0%, var(--text-2) 40%, var(--s-progress) 50%, var(--text-2) 60%, var(--text-2) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: record-shimmer 2s linear infinite; }
+.record-working-time { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.record-stop-sq { display: block; width: 9px; height: 9px; border-radius: 2px; background: currentColor; }
+@keyframes record-breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+@keyframes record-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .record-working-dot, .record-working-label { animation: none; } .record-working-label { color: var(--text-2); background: none; } }
 
 /* 대화 접기 (10/28 피드백 20:57): 앞 답은 「앞 답 N개」로, 마지막 답은 다섯 줄까지 */
 .record-fold { align-self: flex-start; margin-top: var(--sp-1); font-size: var(--fs-xs); }

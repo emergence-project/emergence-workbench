@@ -126,6 +126,34 @@ export function askPrompt(f: Omit<CommentFile, 'highlights'>, id: string, ctx: A
   ].filter((l) => l !== null).join('\n')
 }
 
+/**
+ * 기록의 질문 · 지시가 연 에이전트 대화의 첫 지시 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ). 기록에는 결과만 남고 풀어 쓴 대화는 에이전트 탭에 있으므로,
+ * 마지막 글을 앱이 기록의 답으로 옮긴다는 것과 그 글의 모양(결론 몇 줄)을 알린다. 지시의 노트 고침은 edit_note로 해서 수정 검토로 간다.
+ */
+export function recordChatPrompt(f: Omit<CommentFile, 'highlights'>, id: string, file?: string): string {
+  const q = f.comments.find((c) => c.id === id)!
+  return [
+    q.kind === '지시'
+      ? t('연구자가 기록에 남긴 지시입니다. 할 수 있는 만큼 해 주세요.', 'An instruction the researcher left in the records. Do as much of it as you can.')
+      : t('연구자가 기록에 남긴 질문입니다. 답해 주세요.', 'A question the researcher left in the records. Please answer it.'),
+    '',
+    t(`- 대상: ${f.title} (기록 ${f.target} · ${id})`, `- Target: ${f.title} (record ${f.target} · ${id})`),
+    file ? t(`- 파일: ${file}`, `- File: ${file}`) : f.source ? t(`- 원래 파일 이름: ${f.source} (저장소 안에서 찾아 주세요)`, `- Original file name: ${f.source} (find it in the repository)`) : null,
+    q.page ? t(`- 위치: ${q.page}쪽`, `- Location: page ${q.page}`) : null,
+    q.quote ? t(`- 고른 글: "${q.quote}"`, `- Selected text: "${q.quote}"`) : null,
+    q.answers.length ? t(`- 앞서 주고받은 글:\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`, `- Earlier messages:\n${q.answers.map((a) => `  ${a.by}: ${a.body.replace(/\n/g, '\n  ')}`).join('\n')}`) : null,
+    '',
+    q.body || t('(고른 글을 설명해 주세요)', '(Explain the selected text)'),
+    '',
+    t('지침:', 'Instructions:'),
+    t('- 앱이 이 대화의 마지막 글을 그 기록의 답으로 옮깁니다. 마지막 글은 결론부터 몇 줄로 쓰고(근거는 쪽·식·절, 파일:줄), 풀어 쓴 설명은 그 앞의 글에 둡니다. answer_record로 이 기록에 따로 답하지 않습니다.', '- The app copies the last message of this conversation into the record as the answer. Write it conclusion first, in a few lines (grounds as page, equation, section or file:line); keep longer explanations in earlier messages. Do not answer this record yourself with answer_record.'),
+    q.kind === '지시'
+      ? t('- 노트를 고치는 일이면 edit_note로 고칩니다(연구자가 수정 검토에서 문단마다 봅니다). 끝낼 조건과 보고가 필요한 큰 일이면 시작하지 말고 맡긴 일로 옮기자고 적습니다.', '- To change a note, use edit_note (the researcher reviews each paragraph in change review). If it is a large job that needs an end condition and a report, do not start it; suggest making it a delegated task.')
+      : t('- 질문에는 답만 합니다. 파일과 노트는 고치지 않습니다.', '- Answer only; do not change files or notes.'),
+    t('- 모르면 모른다고 하고, 논문 · 노트에 없는 추론은 추론이라고 밝힙니다.', '- If you do not know, say so; mark reasoning that is not in the paper or note as your own inference.'),
+  ].filter((l) => l !== null).join('\n')
+}
+
 /** 질문 아래(다음 코멘트 머리 앞)에 답을 덧붙이고 상태를 답함으로. 그사이 바뀐 파일도 덮어쓰지 않고 그 자리에만 끼운다 */
 export function appendAnswer(root: string, target: string, id: string, by: string, body: string, now = new Date(), state: CommentState = '답함'): CommentFile {
   const file = commentsFile(root, target)

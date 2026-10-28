@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useCmdEnter } from './cmdEnter'
 import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
-import type { CommentEntry, CommentKind, RecordFile } from './api'
+import { agentChatsApi, type ChatRow, type CommentEntry, type CommentKind, type RecordFile } from './api'
 import { askClaude, askErrors, asking, askKey, useAskTick, useSlot } from './Comments'
 import { useRecordActions, type RecordWrites } from './useRecordActions'
 import { MemoText } from './memo'
@@ -18,6 +18,9 @@ import { t } from './i18n'
 import { uiShown } from './uiNames'
 import { chooseRecordFilter } from './workRecords'
 import { foldedCount, recordOpenKey, useRecordOpen } from './recordFold'
+import { useQuery } from '@tanstack/react-query'
+import { qk } from './queries'
+import { liveChat, workedFor } from './recordChat'
 
 /** 붙은 곳의 이름과 툴팁 (주면 줄 번호 대신). 없으면 줄 · 쪽 번호 */
 export type RecordPlaceOf = (c: CommentEntry) => { label: string; tip: string } | undefined
@@ -59,12 +62,15 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
     const ok = await act(async (w) => { id = (await w.add(file.target, { kind, title: file.title, ...(file.source && { source: file.source }), text, todo: todo.id })).entry.id })
     return ok
   }
+  // 기록마다 에이전트 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 일하는 중 줄 · 「대화 보기」. 대화는 이 맥의 앱 설정 폴더에 있다
+  const chats = useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid), enabled: rid !== LIBRARY_RID }).data?.chats
+  const chatOf = (id: string) => chats?.find((x) => x.record?.target === file.target && x.record.id === id)
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
   return <>
     {(error ?? askError) && <div className="banner danger" role="alert">{error ?? askError}</div>}
     {!items.length && suppliedItems === undefined && <p className="empty records-empty">{kindItems.length && status ? (status === '완료' ? t('완료한 기록이 없습니다.', 'No done records.') : t('진행 중인 기록이 없습니다.', 'No records in progress.'))
       : filter === '전체' ? t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.') : t(`${filter} 기록이 없습니다.`, `No ${kindLabel(filter).toLowerCase()} records.`)}</p>}
-    {items.map((c) => <RecordRow key={c.id} active={active === c.id} c={c} hash={file.hash} busy={busy} onGo={() => onGo(c)}
+    {items.map((c) => <RecordRow key={c.id} active={active === c.id} c={c} hash={file.hash} busy={busy} onGo={() => onGo(c)} chat={chatOf(c.id)}
       asking={asking.has(askKey(rid, file.target, c.id))} onAsk={() => void askClaude(rid, file.target, c.id)}
       onState={(state) => act((w) => w.setState(file.target, c.id, state, file.hash))}
       onEdit={(text, baseHash, kind) => act((w) => w.update(file.target, c.id, { text, baseHash, ...(kind && kind !== c.kind && { kind }) }))}
@@ -111,9 +117,11 @@ export interface RecordRowProps {
   talk?: TodoTalkActions & { records: CommentEntry[]; send(kind: '질문' | '지시', text: string): Promise<boolean> }
   /** 이 질문 · 지시가 묻는 할 일 글 (할 일과 따로 보일 때, 10/19) */
   todoText?: string
+  /** 이 기록의 에이전트 대화 (있으면 「대화 보기」, 일하는 중이면 맨 아래 한 줄과 ■) */
+  chat?: ChatRow
 }
 
-export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place, talk: todoTalk, todoText }: RecordRowProps) {
+export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place, talk: todoTalk, todoText, chat }: RecordRowProps) {
   const [talkOpen, setTalkOpen] = useState(false)
   const row = useRef<HTMLElement>(null)
   useEffect(() => { if (active) row.current?.scrollIntoView({ block: 'nearest' }) }, [active])
@@ -130,7 +138,9 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const [replying, setReplying] = useState(false)
   // 내가 쓴 질문 · 지시에 아직 답이 없으면 덧붙일 대화가 없어 글을 고친다 (10/19 피드백 10:36)
   const unanswered = !c.by && c.answers.length === 0
-  const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && (turn || (replying && !unanswered))
+  // 대화가 일하는 동안은 답하기 · 반짝이를 숨긴다 (멈추기는 맨 아래 줄의 ■)
+  const live = liveChat(chat)
+  const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && !live && (turn || (replying && !unanswered))
   // 아직 적용하지 않은 Claude 답만 "노트에 적용"을 단다 (적용하면 앱이 그 아래에 답을 남긴다)
   const applicable = (i: number) => onApply && c.answers[i]!.by === 'claude' && !c.answers.slice(i + 1).some((a) => a.by === '앱') ? () => void onApply(i) : undefined
   // 고칠 때 종류 바꾸기 (10/21): 내가 쓰고 답이 없는 메모 · 할 일 · 질문 · 지시만. 할 일 · 바뀐 곳에 이은 질문과 일지 줄은 그대로
@@ -158,7 +168,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
           {/* 질문 · 지시를 누가 언제 하는지는 설정 › 에이전트 › 질문 · 지시 처리(직접 부탁이면 에이전트 세션이 MCP로 집어 감). 질문은 여기서 바로 물을 수도 있다 */}
-          {kind === '질문' && !c.by && <button className="icon-btn sm" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
+          {kind === '질문' && !c.by && !live && <button className="icon-btn sm" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
           <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
         </>}
         <button className="icon-btn sm" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
@@ -205,13 +215,40 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       </ul>
         : shown.map(({ a, i }) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} clamp={(body) => clampLast(i, body)} />)}
       {/* 답하기는 대화 맨 아래에 (10/19 피드백 11:31: 긴 대화 위로 올라가 누르지 않게). 내가 쓰고 아직 답이 없으면 두지 않는다(고치기는 위 연필, 10:36) */}
-      {onReply && talk && c.state !== '끝냄' && !turn && !unanswered && !replying && <div className="record-follow"><button className="a" onClick={() => setReplying(true)}>{t('답하기', 'Reply')}</button></div>}
+      {live && chat && <RecordWorking chat={chat} />}
+      {(() => {
+        const canReply = onReply && talk && c.state !== '끝냄' && !live && !turn && !unanswered && !replying
+        if (!canReply && !chat) return null
+        return <div className="record-follow">
+          {canReply && <button className="a" onClick={() => setReplying(true)}>{t('답하기', 'Reply')}</button>}
+          {/* 대화 보기 (10/28 시안): 기록에는 결과만, 풀어 쓴 대화는 에이전트 탭에 */}
+          {chat && <button className="a record-chat-link" data-ui="대화 보기" onClick={() => go({ page: 'agent', id: chat.id })}>{Icon.bot}{t('대화 보기', 'View conversation')} ›</button>}
+        </div>
+      })()}
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
         onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
       {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy} actions={todoTalk}
         onSend={async (k, text) => { const ok = await todoTalk.send(k, text); if (ok) setTalkOpen(false); return ok }} onCancel={todoTalk.records.length ? undefined : () => setTalkOpen(false)} />}
     </div>
   </article></RepoPathContext.Provider>
+}
+
+/** 기록의 대화가 일하는 동안 맨 아래 한 줄 (10/28 시안 1-3): 숨 쉬는 점 · 무엇을 하는지 · 걸린 시간, 오른쪽 ■ 멈추기(그 차례만 끊고 맥락은 남는다) */
+function RecordWorking({ chat }: { chat: ChatRow }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { const h = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(h) }, [])
+  const [stopping, setStopping] = useState(false)
+  const wait = chat.state === 'waiting'
+  const label = wait ? t('Claude가 허락을 기다려요', 'Claude is waiting for your permission') : chat.state === 'queued' ? t('차례를 기다리는 중', 'Waiting in line') : t('Claude가 답을 쓰는 중', 'Claude is writing an answer')
+  const took = workedFor(chat.since, now)
+  return <div className={`record-working${wait ? ' wait' : ''}`} role="status" data-ui="답 쓰는 중">
+    {wait ? <span className="turn-dot" aria-hidden /> : <span className="record-working-dot" aria-hidden />}
+    {wait ? <button className="a" onClick={() => go({ page: 'agent', id: chat.id })}>{label}</button> : <span className="record-working-label">{label}</span>}
+    {took && <span className="record-working-time">· {took}</span>}
+    <span className="sp" />
+    <button className="icon-btn sm tip-end" data-ui="답 멈추기" data-tip={t('멈추기', 'Stop')} aria-label={t('멈추기', 'Stop')} disabled={stopping}
+      onClick={() => { setStopping(true); void agentChatsApi.stop(chat.id).catch(() => undefined).finally(() => setStopping(false)) }}><span className="record-stop-sq" aria-hidden /></button>
+  </div>
 }
 
 /** 할 일 아래 줄의 대화 요약: "· 지시 1 · 에이전트 대기" */

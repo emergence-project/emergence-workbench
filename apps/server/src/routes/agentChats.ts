@@ -13,6 +13,8 @@ import { repeat } from '../scheduler.js'
 import { machineName } from '../backup.js'
 import { publishFeedback } from '../feedback.js'
 import { claimedElsewhere, claimFeedback } from '../feedbackClaims.js'
+import { agentAnswer } from '../ask.js'
+import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
 
 /** 동시에 도는 대화 수 (맥 메모리가 바닥났던 일, 10/14) */
@@ -57,7 +59,12 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
     settings: () => registry.agents,
     ...(ctx.opts.appRepo && { inApp: commitChecker(ctx.opts.appRepo.root, ctx.opts.appRepo.running) }),
+    recordAnswer: (rid, rec, text, edits) => {
+      const changed = edits.length ? [t('고친 곳 (수정 검토에서 승인):', 'Changed (approve in change review):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''
+      agentAnswer(ctx.recordsRoot(rid), rec.target, rec.id, 'claude', [text, changed].filter(Boolean).join('\n\n'))
+    },
   })
+  ctx.agentChats = chats
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
   if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
   app.addHook('onClose', async () => chats.stopAll())

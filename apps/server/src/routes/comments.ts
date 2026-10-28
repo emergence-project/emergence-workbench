@@ -1,7 +1,7 @@
 // 노트 본문·PDF 기록
 import type { FastifyInstance } from 'fastify'
 import path from 'node:path'
-import { agentAnswer, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, claudeRunner, replyToRecord } from '../ask.js'
+import { agentAnswer, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, claudeRunner, recordChatPrompt, replyToRecord } from '../ask.js'
 import { repeat } from '../scheduler.js'
 import * as C from '@rw/core/contract/comments'
 import { LIBRARY_RID } from '@rw/core'
@@ -65,6 +65,22 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     const f = readComments(root, target)
     const q = f.comments.find((c) => c.id === id)
     if (!q || !isAgentKind(q.kind)) throw new WorkbenchError(404, t(`질문이나 지시가 없음: ${id}`, `No such question or instruction: ${id}`))
+    // 프로젝트의 기록은 그 기록의 에이전트 대화로 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 기록에는 결과만, 대화는 에이전트 탭에. 기다리지 않는다.
+    // 지식 라이브러리와 시험(opts.ask)은 예전처럼 claude -p 한 번
+    const chats = ctx.agentChats
+    if (chats && !opts.ask && rid !== LIBRARY_RID) {
+      const repo = repoPath(rid)
+      const source = commentSourceFile(root, f)
+      const last = q.answers.at(-1)
+      chats.forRecord(rid, { target, id }, {
+        kind: q.kind as '질문' | '지시',
+        title: (q.body || q.quote || f.title).split('\n')[0]!.slice(0, 60),
+        first: recordChatPrompt(f, id, source ? path.relative(repo, source) : undefined),
+        ...(last?.by === C.USER_ANSWER_BY && { reply: t(`연구자가 기록에 이어 썼습니다:\n${last.body}`, `The researcher wrote more in the record:\n${last.body}`) }),
+        count: q.answers.length,
+      })
+      return f
+    }
     const key = `${rid}/${target}/${id}`
     if (asking.has(key)) throw new WorkbenchError(409, t('Claude가 이미 이 기록에 답을 쓰고 있습니다', 'Claude is already writing an answer to this record'))
     asking.add(key)
