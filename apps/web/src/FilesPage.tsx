@@ -70,7 +70,7 @@ export function FilesPage({ rid, rapi, root, version }: { rid: string; rapi: Res
   return (
     <div className="ws-doc files-page" data-ui="저장소 쪽">
       <div className="pane-head repo-strip" data-ui="저장소 상태 줄">
-        <RepoBrief state={repo} root={root} />
+        <RepoBrief state={repo} root={root} rid={rid} />
         <span className="sp" />
         <button className="btn sm" aria-expanded={more} onClick={() => setMore((v) => !v)}>{more ? t('자세히 접기', 'Hide details') : t('자세히', 'Details')}</button>
       </div>

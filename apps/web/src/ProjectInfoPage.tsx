@@ -324,7 +324,8 @@ const repoFolder = (root: string) => root.replace(/\/workbench\/?$/, '')
  * 저장소 쪽 맨 위 한 줄 (10/28 시안 1-2절): 폴더 · 브랜치 · GitHub와 같은지 · 커밋 안 한 변경. 동기화하기는 현황에만(10/28 안 C).
  * 원격 · 마지막 커밋 같은 자세한 것은 RepoDetails (「자세히」로 펼침)
  */
-export function RepoBrief({ state, root }: { state: RepoState; root: string }) {
+/** 저장소 쪽 맨 위 줄. GitHub와 다르면 「현황에서 동기화 ›」: 동기화 버튼은 현황 한 곳에만 둔다 (10/29 결정) */
+export function RepoBrief({ state, root, rid }: { state: RepoState; root: string; rid?: string }) {
   const { repo, checking, toMain, updateError } = state
   const folder = repoFolder(root)
   const name = <span className="repo-brief-folder" title={folder}><span className="muted">{t('폴더', 'Folder')}</span> <code>{folder.split('/').pop()}</code></span>
@@ -341,6 +342,7 @@ export function RepoBrief({ state, root }: { state: RepoState; root: string }) {
       {repo.branch ? <span><span className="muted">{t('브랜치', 'Branch')}</span> <code>{repo.branch}</code>{repo.defaultBranch && <ToMain repo={repo} main={repo.defaultBranch} busy={checking} onRun={toMain} />}</span>
         : <span className="muted">{t('브랜치가 아님', 'Not on a branch')}</span>}
       {compare}
+      {rid && (!!repo.ahead || !!repo.behind) && <button className="a" data-ui="현황에서 동기화" title={t('동기화 버튼은 현황 맨 위에 있습니다', 'The sync button is at the top of Status')} onClick={() => go({ page: 'status', rid })}>{t('현황에서 동기화 ›', 'Sync from Status ›')}</button>}
       {changes > 0 && <span className="muted"><span className="fv-mod" aria-hidden /> {t(`커밋 안 한 변경 ${changes}`, plural(changes, 'uncommitted change'))}</span>}
       {updateError && <span className="repo-err">! {updateError}</span>}
       {repo.fetchError && <span className="repo-err" title={repo.fetchDetail}>! {repo.fetchError}</span>}
