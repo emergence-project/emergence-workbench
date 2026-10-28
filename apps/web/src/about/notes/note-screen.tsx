@@ -5,7 +5,7 @@ import type { AboutSection } from '../types'
 // 소개 › notes › 노트 화면. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '노트 화면', prs: [104, 113, 122, 123, 143, 187, 194, 197],
+  title: '노트 화면', prs: [104, 113, 122, 123, 143, 187, 194, 197, 306],
   figure: <NoteToolbarFigure />,
   items: [
     { text: <>모든 노트는 같은 화면입니다. 위에서부터 상단바 › 탭 바 › <b>노트 툴바</b> › 본문입니다. 읽을 때 본문 머리에는 제목, 맨 아래에는 인용한 논문이 있습니다. 상태는 툴바 왼쪽에 둡니다.</> },
