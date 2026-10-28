@@ -348,15 +348,15 @@ export function Composer({ rid, target, draft, onClose, onSaved }: { rid: string
       bumpPending()
       onSaved(id)
       onClose()
-      // 질문은 남기자마자 Claude에게 넘기고, 답이 붙는 맥락 칸을 연다
-      if (kind === '질문') { void askClaude(rid, target.target, id); window.dispatchEvent(new Event(OPEN_CONTEXT)) }
+      // 질문은 답이 붙는 맥락 칸을 연다. 맥의 Claude가 언제 답할지는 설정 › 에이전트 › 질문 · 지시 처리를 따른다 (서버가 받음, 10/28 피드백 22:19)
+      if (kind === '질문') window.dispatchEvent(new Event(OPEN_CONTEXT))
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
   return (
     <div className={`pdf-pop composer ${kind === '질문' ? 'question' : 'comment'}`} data-ui="코멘트 쓰기">
       <div className="pdf-pop-head"><div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>
         {(['메모', '질문'] as const).map((k) => <button key={k} type="button" className={kind === k || (kind === '코멘트' && k === '메모') ? 'on' : ''} aria-pressed={kind === k || (kind === '코멘트' && k === '메모')} onClick={() => setKind(k)}>{kindLabel(k)}</button>)}
-      </div> <span className="muted">{draft.page ? t(`· ${draft.page}쪽`, `· p. ${draft.page}`) : rid === LIBRARY ? t('· 논문 전체', '· Whole paper') : `· ${target.title}`}{kind === '질문' ? t(' · 남기면 이 컴퓨터의 Claude가 답합니다', ' · Claude on this computer will answer it') : ''}</span></div>
+      </div> <span className="muted">{draft.page ? t(`· ${draft.page}쪽`, `· p. ${draft.page}`) : rid === LIBRARY ? t('· 논문 전체', '· Whole paper') : `· ${target.title}`}</span></div>
       {(draft.sel?.text ?? draft.quote) && <blockquote className="cmt-quote" style={draft.color ? { borderColor: `var(--paint-${draft.color})` } : undefined}>{clip(draft.sel?.text ?? draft.quote!, 400)}</blockquote>}
       <textarea ref={area} rows={3} value={text} placeholder={kind === '질문' ? t('무엇이 궁금한가요? 검산·정리·반례 찾기 같은 부탁도 됩니다 (⌘↵ 저장)', 'What do you want to know? You can also ask for checks, summaries, or counterexamples (⌘↵ to save)') : t('코멘트 (⌘↵ 저장)', 'Comment (⌘↵ to save)')}
         onChange={(e) => setText(e.target.value)}

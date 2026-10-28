@@ -5,7 +5,7 @@ import type { NoteOf } from './journalTargets'
 import type { FlashAction } from './flash'
 import { MemoList } from './memo'
 import { reviewStatusLabel } from './reviewStatus'
-import { askClaude, revealComment } from './Comments'
+import { revealComment } from './Comments'
 import { recordWrites } from './useRecordActions'
 import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
@@ -218,7 +218,6 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
               </div>
               {isRecordFilter(filter) && <WorkComposer key={rid} filter={filter} onSave={async (kind, text) => {
                 const result = await recordWrites(rid).add('project', { kind, title: summary.research.title, text })
-                if (kind === '질문') void askClaude(rid, 'project', result.entry.id)
                 onSaved(t(`${kind} 저장됨`, `${WORK_FILTER_LABEL[kind]} saved`))
               }} />}
             </>}

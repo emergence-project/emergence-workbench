@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCmdEnter } from './cmdEnter'
 import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
 import type { CommentEntry, CommentKind, RecordFile } from './api'
@@ -52,12 +53,10 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
     const last = linked.get(todo.id)?.at(-1)
     if (last && last.kind === kind && last.state !== '끝냄' && !last.by) {
       const ok = await act((w) => w.reply(file.target, last.id, text))
-      if (ok && kind === '질문') void askClaude(rid, file.target, last.id)
       return ok
     }
     let id = ''
     const ok = await act(async (w) => { id = (await w.add(file.target, { kind, title: file.title, ...(file.source && { source: file.source }), text, todo: todo.id })).entry.id })
-    if (ok && kind === '질문') void askClaude(rid, file.target, id)
     return ok
   }
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
@@ -70,12 +69,8 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
       onState={(state) => act((w) => w.setState(file.target, c.id, state, file.hash))}
       onEdit={(text, baseHash, kind) => act((w) => w.update(file.target, c.id, { text, baseHash, ...(kind && kind !== c.kind && { kind }) }))}
       onApply={/^(note|calc)-/.test(file.target) ? (i) => act((w) => w.apply(file.target, c.id, i, file.hash)) : undefined}
-      onReply={async (text) => {
-        const ok = await act((w) => w.reply(file.target, c.id, text))
-        // 사용자가 쓴 질문에 이어 물으면 새 질문처럼 맥의 Claude에게 넘긴다 (에이전트가 물은 것에 답하면 넘기지 않는다)
-        if (ok && c.kind === '질문' && !c.by) void askClaude(rid, file.target, c.id)
-        return ok
-      }}
+      // 이어 물은 질문도 맥의 Claude가 언제 답할지는 설정 › 에이전트 › 질문 · 지시 처리를 따른다 (서버가 받음, 10/28 피드백 22:19)
+      onReply={(text) => act((w) => w.reply(file.target, c.id, text))}
       onDelete={async () => {
         // Capture the read hash before the confirmation: an appended answer must cause a conflict.
         const baseHash = file.hash
@@ -319,10 +314,11 @@ function AnswerBody({ answer, busy, onApply }: { answer: CommentEntry['answers']
 function RecordReply({ busy, asked, onReply, onCancel }: { busy: boolean; asked: boolean; onReply(text: string): Promise<boolean>; onCancel?(): void }) {
   const [text, setText] = useState('')
   const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) setText('') }
+  const sendKey = useCmdEnter(() => void send())
   const label = asked ? t('에이전트에게 답하기', 'Answer the agent') : t('이어서 묻거나 덧붙이기', 'Ask more or add to it')
   return <div className="fbp-compose record-reply" data-ui="이어 쓰기">
     <textarea rows={2} value={text} disabled={busy} aria-label={label} placeholder={label}
-      onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } else onListKey(e, setText) }} />
+      onChange={(e) => setText(e.target.value)} onCompositionEnd={sendKey.onCompositionEnd} onKeyDown={(e) => { if (!sendKey.onKeyDown(e)) onListKey(e, setText) }} />
     <div className="fbp-compose-row"><span className="sp" />{onCancel && <button className="btn sm" disabled={busy} onClick={onCancel}>{t('취소', 'Cancel')}</button>}<button className="btn primary sm" data-tip={t('답하기 (⌘↵)', 'Reply (⌘↵)')} disabled={busy || !text.trim()} onClick={() => void send()}>{t('답하기', 'Reply')}</button></div>
   </div>
 }
