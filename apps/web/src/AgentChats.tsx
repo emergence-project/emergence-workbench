@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useCmdEnter } from './cmdEnter'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { autoCustom, autoOf, type ChatAutoValues } from '@rw/core'
 import { agentChatsApi, api, APP_RID, notesApi, type AskAnswer, type Attach, type AttachKind, type Chat, type ChatEffort, type ChatItem, type ChatMessageBody, type ChatMode, type ChatModel, type ChatRow, type ModelChoice, type ChatScope, type ChatSettings, type ChatState, type ImageIn, type Todo } from './api'
 import { askConfirm } from './askText'
 import { relativeTime } from './format'
@@ -125,7 +126,8 @@ export const fitEffort = (now: ChatEffort, efforts: ChatEffort[]): { effort?: Ch
 /** 그 모델이 받는 생각 깊이 (목록에 없는 모델은 기본 셋, 받지 않으면 빈 목록) */
 export const effortsOf = (value: ChatModel, list: ModelChoice[]): ChatEffort[] => { const m = list.find((x) => x.value === value); return m ? m.efforts ?? [] : BASIC_EFFORTS }
 
-interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort }
+/** custom = 권한 표의 토글을 하나씩 바꿔 이름이 「직접 정함」 */
+interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; custom?: boolean }
 
 // ---------- / 명령 ----------
 
@@ -384,6 +386,15 @@ const answeredName = (it: Ask): string => {
   return it.answer === 'allow' ? t('허락함', 'Allowed') : it.answer === 'always' ? t('이 대화에서 늘 허락함', 'Always allowed here') : t('거절함', 'Declined')
 }
 
+/** 「늘」 버튼 말: 토글이 있는 일은 그 토글을 켠다고, 실행은 그 프로그램을 */
+const ALWAYS_NAME: Partial<Record<NonNullable<Ask['does']>, string>> = {
+  read: t('네, 읽기는 늘 (자동 허용 켜기)', 'Yes, always for reading (turn on auto)'),
+  edit: t('네, 편집은 늘 (편집 자동 허용)', 'Yes, always for edits (accept edits)'),
+  web: t('네, 웹 보기는 늘 (자동 허용 켜기)', 'Yes, always for the web (turn on auto)'),
+}
+const alwaysName = (it: Ask) => (it.does && ALWAYS_NAME[it.does]) || (it.does === 'run' ? t('네, 이 대화에서 이 프로그램은 늘', 'Yes, always for this program here') : t('네, 이 대화에서 이것은 늘', 'Yes, always for this in this conversation'))
+const DOES_NAME: Record<NonNullable<Ask['does']>, string> = { read: t('읽기', 'Read'), edit: t('편집', 'Edit'), delete: t('삭제', 'Delete'), run: t('실행', 'Run'), web: t('웹 보기', 'Web'), outside: t('외부', 'Outside') }
+
 function AskCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: string): void }) {
   const { busy, answer } = useAnswer(chat, it.id, onError)
   return (
@@ -391,6 +402,7 @@ function AskCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: string
       <div className="ac-card-head">
         {!it.answer && <span className="turn-dot" aria-hidden />}
         <b>{it.answer ? answeredName(it) : t('허락이 필요합니다', 'Approval needed')}</b>
+        {it.does && <span className="tag">{DOES_NAME[it.does]}</span>}
         <span className="ac-tool mono">{it.tool}</span>
       </div>
       <code className="ac-ask-sum">{it.summary}</code>
@@ -399,7 +411,8 @@ function AskCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: string
         <Choices busy={busy}
           choices={[
             { label: t('네', 'Yes'), ui: '허락 버튼', run: () => void answer('allow') },
-            { label: t('네, 이 대화에서 이것은 늘', 'Yes, always for this in this conversation'), ui: '늘 허락 버튼', run: () => void answer('always') },
+            // 삭제 · 외부는 「늘」 없이 한 번씩 (되돌리기 어려워서)
+            ...(it.once ? [] : [{ label: alwaysName(it), ui: '늘 허락 버튼', run: () => void answer('always') }]),
           ]}
           say={{ label: t('아니요, 다르게 하라고 말하기', 'No, tell it what to do instead'), placeholder: t('어떻게 하라고 할까요? (비워 두면 그냥 거절)', 'What should it do instead? (empty = just decline)'), send: (note) => void answer('deny', note ? { note } : undefined) }} />
       )}
@@ -789,7 +802,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
           </>}
         </PopButton>
         <input ref={file} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={(e) => { void addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
-        <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{TRUST_NAME[settings.trust]} ▾</>}>
+        <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{settings.custom ? CUSTOM_NAME : TRUST_NAME[settings.trust]} ▾</>}>
           {(close) => TRUSTS.map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
               <span className="ac-pop-check" aria-hidden>{settings.trust === v ? Icon.check : null}</span>
@@ -956,7 +969,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
   const live = isLive(chat.state)
-  const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, ...over }
+  const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
   const change = (s: Partial<Settings>) => {
     setOver((o) => ({ ...o, ...s }))
     setFail(null)
@@ -1111,7 +1124,7 @@ export function commentMessage(notes: { file: string; old: string; new: string; 
   }
 }
 
-/** 바뀐 곳: 파일마다 고친 문단(− · +), 문단을 누르면 코멘트, 모아서 에이전트에게 보내기. 승인 · 되돌리기는 수정 검토에서 */
+/** 바뀐 곳: 파일마다 고친 문단(− · +), 문단을 누르면 코멘트, 모아서 에이전트에게 보내기. 승인 · 되돌리기는 수정 검토에서(파일 줄 오른쪽 「수정 검토 ›」, 10/28 21:39 정렬) */
 function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
   const client = useQueryClient()
   const edits = chat.items.filter((i): i is Edit => i.kind === 'edit')
@@ -1140,6 +1153,7 @@ function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
             <div className="ac-work-row">
               <span className="mono ac-file" title={f}>{f}</span>
               <Delta added={mine.reduce((s, x) => s + x.e.added, 0)} removed={mine.reduce((s, x) => s + x.e.removed, 0)} />
+              {chat.rid !== APP_RID && <button className="a ac-change-review" data-ui="수정 검토로" title={t('수정 검토에서 승인 · 되돌리기', 'Approve or revert in edit review')} onClick={() => reviewOf(chat.rid, f)}>{t('수정 검토 ›', 'Edit review ›')}</button>}
             </div>
             {mine.map(({ e, ei }) => e.parts.map((p, pi) => {
               const k = `${ei}:${pi}`
@@ -1157,7 +1171,6 @@ function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
               )
             }))}
             {mine.at(-1)?.e.reason && <span className="muted ac-hint">{mine.at(-1)!.e.reason}</span>}
-            {chat.rid !== APP_RID && <div className="ac-card-row"><span className="sp" /><button className="btn sm" data-ui="수정 검토로" onClick={() => reviewOf(chat.rid, f)}>{t('수정 검토에서 승인 · 되돌리기', 'Approve or revert in edit review')}</button></div>}
           </div>
         )
       })}
@@ -1171,25 +1184,106 @@ function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
   )
 }
 
-/** 세부 패널: 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 · 사용량 */
-export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
-  const client = useQueryClient()
-  const chat = useChat(id).data
-  const work = useQuery({ queryKey: qk.agentWork, queryFn: () => agentChatsApi.work() }).data
+/** 맥락 창이 이만큼 차면 /compact를 권한다 */
+const COMPACT_HINT = 0.8
+
+/**
+ * 「이 대화」 칸 (10/28 20:10 피드백 "컨텍스트 윈도우, 기본정보등이 다 있으면", 시안 1절):
+ * 맥락 창 막대 · 모델 · 범위 · 쓴 토큰과 가격 · 일한 시간 · 시작과 마지막 · 작업 폴더(앱 고치기). 차례가 끝나기 전에도 보인다
+ */
+function ChatInfo({ chat }: { chat: Chat }) {
   const models = useModels()
-  if (!chat) return null
-  const others = (work?.chats ?? []).filter((c) => c.id !== chat.id && c.rid === chat.rid && c.claims.length)
-  const agents = chat.items.filter((i): i is Step => i.kind === 'step' && isAgentStep(i))
+  const topics = useQuery({ queryKey: qk.topics(chat.rid), queryFn: () => api.research(chat.rid).topics(), enabled: chat.scope.kind === 'topic' }).data
   const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
   const cost = results.reduce((s, r) => s + (r.cost ?? 0), 0)
   const secs = results.reduce((s, r) => s + (r.seconds ?? 0), 0)
   const tokens = results.reduce((s, r) => s + (r.tokens ? r.tokens.in + r.tokens.out : 0), 0)
   const context = [...results].reverse().find((r) => r.context)?.context
+  const share = context ? Math.min(1, context.used / context.window) : 0
+  const when = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  return (
+    <section className="ac-info" data-ui="이 대화 정보">
+      <h3>{t('이 대화', 'This conversation')}</h3>
+      <div className="ac-work-row"><span>{t('맥락 창', 'Context window')}</span>
+        <span className="muted">{context ? `${tokensName(context.used)} / ${tokensName(context.window)} · ${Math.round(share * 100)}%` : t('첫 차례가 끝나면 보입니다', 'Shown after the first turn')}</span></div>
+      {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('맥락 창', 'Context window')}><i style={{ width: `${share * 100}%` }} /></div>}
+      {context && share >= COMPACT_HINT && <span className="muted ac-hint">{t('맥락 창이 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
+      <dl className="ac-info-list">
+        <dt>{t('모델', 'Model')}</dt><dd>{modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</dd>
+        <dt>{t('범위', 'Scope')}</dt><dd>{scopeName(chat.scope, topics)}</dd>
+        <dt>{t('쓴 토큰', 'Tokens used')}</dt><dd>{tokens > 0 ? `${tokensName(tokens)} (${t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)})` : t('아직 없음', 'None yet')}{cost > 0 && <span className="muted" title={costName(cost)}> · {t(`API 가격 약 $${cost.toFixed(2)}`, `about $${cost.toFixed(2)} at API prices`)}</span>}</dd>
+        {secs > 0 && <><dt>{t('일한 시간', 'Time worked')}</dt><dd>{secondsName(secs)}</dd></>}
+        <dt>{t('시작', 'Started')}</dt><dd>{when(chat.created)} <span className="muted">· {t('마지막', 'last')} {when(chat.updated)}</span></dd>
+        {chat.branch && <><dt>{t('작업 폴더', 'Work folder')}</dt><dd className="mono ac-file" title={chat.branch}>{chat.branch}</dd></>}
+      </dl>
+    </section>
+  )
+}
+
+/** 하나씩 바꿔 권한 이름의 기본값과 다를 때의 이름 */
+const CUSTOM_NAME = t('직접 정함', 'Custom')
+type PermRow = { ui: string; name: string; what: string; turn?: keyof ChatAutoValues | 'edit'; asks?: boolean }
+/** 권한 표 (10/28 사용자 결정 "권한을 명령 대신 하는 일로", 시안 4절): 앱이 명령을 하는 일로 나누고, 켠 것은 묻지 않는다 */
+const PERM_ROWS: PermRow[] = [
+  { ui: '읽기', name: t('읽기', 'Read'), what: t('ls · cat · grep · git log (프로젝트와 등록한 폴더 안)', 'ls · cat · grep · git log (inside the project and registered folders)'), turn: 'read' },
+  { ui: '편집', name: t('편집', 'Edit'), what: t('범위 안 노트 고치기 · sed -i · mv', 'Edit notes in scope · sed -i · mv'), turn: 'edit' },
+  { ui: '삭제', name: t('삭제', 'Delete'), what: t('rm · 파일 지우기 · 고친 것 버리기', 'rm · deleting files · discarding changes'), asks: true },
+  { ui: '실행', name: t('실행', 'Run'), what: t('python · julia · pnpm test …', 'python · julia · pnpm test …'), turn: 'run' },
+  { ui: '웹 보기', name: t('웹 보기', 'Web'), what: t('웹 검색 · 페이지 읽기', 'Web search · reading pages'), turn: 'web' },
+  { ui: '외부', name: t('외부', 'Outside'), what: t('폴더 밖 · git push · 설치 · 내려받기', 'Outside the folders · git push · installs · downloads'), asks: true },
+]
+
+function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
+  const client = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const auto = autoOf(chat)
+  const readOnly = chat.write === 'read'
+  const set = async (row: PermRow, on: boolean) => {
+    setBusy(true)
+    try {
+      const body: ChatSettings = row.turn === 'edit'
+        ? { write: 'notes', mode: on ? 'edit' : 'ask', auto }
+        : { auto: { ...auto, [row.turn!]: on } }
+      client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.settings(chat.id, body))
+      if (isLive(chat.state) && row.turn === 'edit') onSaved(t('다음 차례부터 바뀝니다', 'Applies from the next turn'))
+    } catch (e) { onSaved((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <div className="ac-perm" role="table" aria-label={t('권한', 'Permissions')}>
+      <div className="ac-perm-row ac-perm-head" role="row"><span role="columnheader">{t('하는 일', 'Does')}</span><span role="columnheader">{t('자동 허용', 'Auto')}</span></div>
+      {PERM_ROWS.map((r) => {
+        const on = r.turn === 'edit' ? chat.mode === 'edit' && !readOnly : r.turn ? auto[r.turn] : false
+        const blocked = readOnly && (r.turn === 'edit' || r.ui === '삭제')
+        return (
+          <div key={r.ui} className="ac-perm-row" role="row" data-ui={`권한 ${r.ui}`}>
+            <span className="ac-perm-what" role="cell"><b>{r.name}</b><span className="muted">{r.what}</span></span>
+            <span role="cell" className="ac-perm-ctl">
+              {blocked ? <span className="muted">{t('막음', 'Blocked')}</span>
+                : r.asks ? <span className="muted">{t('늘 물음', 'Always asks')}</span>
+                : <button type="button" role="switch" className="switch" aria-checked={on} aria-label={r.name} disabled={busy} onClick={() => void set(r, !on)} />}
+            </span>
+          </div>
+        )
+      })}
+      {chat.mode === 'plan' && !readOnly && <span className="muted ac-hint">{t('계획 모드: 계획을 승인하기 전에는 편집 · 삭제를 막습니다', 'Plan mode: edits and deletes are blocked until you approve the plan')}</span>}
+    </div>
+  )
+}
+
+/** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */
+export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
+  const client = useQueryClient()
+  const chat = useChat(id).data
+  const work = useQuery({ queryKey: qk.agentWork, queryFn: () => agentChatsApi.work() }).data
+  if (!chat) return null
+  const others = (work?.chats ?? []).filter((c) => c.id !== chat.id && c.rid === chat.rid && c.claims.length)
+  const agents = chat.items.filter((i): i is Step => i.kind === 'step' && isAgentStep(i))
   const forget = async (label: string) => client.setQueryData(qk.agentChat(id), await agentChatsApi.forget(id, label))
   const trust = trustOf(chat)
   const hasEdits = chat.items.some((i) => i.kind === 'edit')
   return (
     <aside className="ac-work" data-ui="작업 상태">
+      <ChatInfo chat={chat} />
       {hasEdits && <><h3>{t('바뀐 곳', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
         <h3>{t('잡은 파일', 'Claimed files')}</h3>
@@ -1200,8 +1294,8 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
       </section>
       <section data-ui="이 대화의 허락">
         <h3>{t('이 대화의 권한', 'Permissions here')}</h3>
-        <div className="ac-work-row"><span>{TRUST_NAME[trust]}</span><span className="muted">{modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</span></div>
-        <span className="muted ac-hint">{chat.rid === APP_RID ? APP_HINT[trust] : TRUST_HINT[trust]}</span>
+        <div className="ac-work-row"><span>{chat.rid !== APP_RID && autoCustom(chat) ? CUSTOM_NAME : TRUST_NAME[trust]}</span></div>
+        {chat.rid === APP_RID ? <span className="muted ac-hint">{APP_HINT[trust]}</span> : <PermTable chat={chat} onSaved={onSaved} />}
         {chat.always.map((a) => (
           <div key={a} className="ac-work-row">
             <span className="ac-file" title={a}>{a}</span><span className="muted">{t('늘', 'Always')}</span>
@@ -1214,13 +1308,6 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
           <h3>{t('하위 에이전트', 'Subagents')}</h3>
           {agents.map((s, i) => <div key={i} className="ac-work-row"><span className="ac-file" title={s.summary}>{s.summary}</span></div>)}
         </section>
-      )}
-      {!!results.length && (
-        <div className="muted ac-hint ac-usage" data-ui="사용량">
-          <div>{t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)}{secs > 0 && ` · ${secondsName(secs)}`}{tokens > 0 && ` · ${t('토큰', 'Tokens')} ${tokensName(tokens)}`}</div>
-          {context && <div>{t('맥락', 'Context')} {Math.round((context.used / context.window) * 100)}% ({tokensName(context.used)} / {tokensName(context.window)})</div>}
-          {cost > 0 && <div>{costName(cost)}</div>}
-        </div>
       )}
     </aside>
   )

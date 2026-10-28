@@ -85,9 +85,25 @@ describe('허락 규칙', () => {
     expect(taken).toMatchObject({ kind: 'deny' })
     expect(taken.kind === 'deny' && taken.reason).toContain('다른 일')
   })
-  it('셸 · 웹 · 모르는 도구는 묻고, 셸은 명령마다 따로 기억한다', () => {
-    expect(judge(ctx(), 'Bash', { command: 'python run.py' })).toMatchObject({ kind: 'ask', key: 'Bash:python run.py', summary: 'python run.py' })
-    expect(judge(ctx(), 'WebFetch', { url: 'https://x' })).toMatchObject({ kind: 'ask', key: 'WebFetch' })
+  it('명령은 하는 일로 나눠 토글대로: 읽기 · 편집은 맡기는 정도, 실행은 프로그램마다, 삭제 · 외부는 늘 한 번씩', () => {
+    expect(judge(ctx(), 'Bash', { command: 'python run.py' })).toMatchObject({ kind: 'ask', key: 'run:python', does: 'run', summary: 'python run.py' })
+    expect(judge(ctx({ always: (k) => k === 'run:python' }), 'Bash', { command: 'python other.py' }).kind).toBe('allow')
+    expect(judge(ctx({ auto: () => ({ read: true, run: true, web: false }) }), 'Bash', { command: 'julia x.jl' }).kind).toBe('allow')
+    // 편집 자동 허용: 읽기 · 편집은 묻지 않는다
+    expect(judge(ctx(), 'Bash', { command: 'ls workbench | head -3 && git log -1' }).kind).toBe('allow')
+    expect(judge(ctx(), 'Bash', { command: "sed -i '' 's/a/b/' x.md" }).kind).toBe('allow')
+    // 묻고 하기: 읽기도 묻고, 「늘」은 그 토글을 켠다
+    expect(judge(ctx({ mode: 'ask' }), 'Bash', { command: 'ls' })).toMatchObject({ kind: 'ask', does: 'read', turnOn: 'read' })
+    expect(judge(ctx({ mode: 'ask' }), 'Bash', { command: 'mv a.md b.md' })).toMatchObject({ kind: 'ask', does: 'edit', turnOn: 'edit' })
+    expect(judge(ctx({ write: 'read' }), 'Bash', { command: 'mv a.md b.md' }).kind).toBe('deny')
+    expect(judge(ctx({ mode: 'plan' }), 'Bash', { command: 'mv a.md b.md' }).kind).toBe('deny')
+    // 삭제 · 외부는 토글과 상관없이 한 번씩
+    expect(judge(ctx(), 'Bash', { command: 'rm -rf build' })).toMatchObject({ kind: 'ask', does: 'delete', once: true })
+    expect(judge(ctx(), 'Bash', { command: 'git push origin main' })).toMatchObject({ kind: 'ask', does: 'outside', once: true })
+    expect(judge(ctx(), 'Bash', { command: 'cat /etc/hosts' })).toMatchObject({ does: 'outside' })
+    expect(judge(ctx(), 'Bash', { command: 'cat /r/lib/concepts/a.md' }).kind).toBe('allow')
+    expect(judge(ctx(), 'WebFetch', { url: 'https://x' })).toMatchObject({ kind: 'ask', key: 'WebFetch', does: 'web', turnOn: 'web' })
+    expect(judge(ctx({ auto: () => ({ read: true, run: false, web: true }) }), 'WebSearch', { query: 'x' }).kind).toBe('allow')
     expect(judge(ctx(), 'TodoWrite', {}).kind).toBe('allow')
     expect(judge(ctx(), 'Task', { description: 'look' }).kind).toBe('allow')
   })
@@ -149,7 +165,7 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
   seen.push(input)
   yield { type: 'session', id: `s${seen.length}` }
   if (input.prompt.startsWith('bash')) {
-    const d = await input.canUseTool('Bash', { command: 'ls' })
+    const d = await input.canUseTool('Bash', { command: 'python run.py' })
     yield { type: 'text', text: d.allow ? 'ran' : 'declined' }
   } else if (input.prompt.startsWith('edit ')) {
     const file = input.prompt.slice(5).split(' ')[0]!
@@ -266,7 +282,7 @@ describe('대화 API', () => {
     const c = await create({ text: 'bash please' })
     await settle(c.id, 'waiting')
     const ask = (await get(c.id)).items.find((i: { kind: string }) => i.kind === 'ask')
-    expect(ask).toMatchObject({ tool: 'Bash', summary: 'ls' })
+    expect(ask).toMatchObject({ tool: 'Bash', summary: 'python run.py', does: 'run' })
     const res = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/answer`, payload: { ask: ask.id, answer: 'always' } })
     expect(res.statusCode).toBe(200)
     await settle(c.id)
@@ -503,6 +519,12 @@ describe('대화 API', () => {
     // 버전까지 고른 모델 id와 더 깊은 생각도 받는다
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { model: 'claude-opus-5', effort: 'max' } })).json().chat).toMatchObject({ model: 'claude-opus-5', effort: 'max' })
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { model: 'Opus 5; rm' } })).statusCode).toBe(400)
+
+    // 토글: 하나씩 바꾼 값은 두고, 권한 이름을 바꾸면 그 이름의 기본값으로
+    const post = async (payload: object) => (await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload })).json().chat
+    expect((await post({ auto: { read: false, run: true, web: false } })).auto).toEqual({ read: false, run: true, web: false })
+    expect((await post({ mode: 'edit' })).auto).toBeUndefined()
+    expect((await post({ auto: { read: true, run: false, web: false } })).auto).toBeUndefined()
   })
 
   it('모델 목록은 실행기에게 묻고, 실행기가 모르면 빈 목록', async () => {
@@ -516,7 +538,7 @@ describe('대화 API', () => {
     await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/answer`, payload: { ask: ask.id, answer: 'always' } })
     await settle(c.id)
     const label = (await get(c.id)).always[0]
-    expect(label).toContain('ls')
+    expect(label).toBe('실행 · python')
     const f = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/forget`, payload: { label } })
     expect(f.json().chat.always).toEqual([])
   })

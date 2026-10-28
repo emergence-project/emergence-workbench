@@ -269,3 +269,23 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 @media (hover: none) { .ac-line-wrap .ac-line .label { padding-right: 48px; } }
 .ac-line .label.hide { visibility: hidden; }
 .ac-line-edit { position: absolute; top: 2px; left: calc(var(--sp-2) + 10px + var(--sp-2)); right: var(--sp-1); width: auto; font-size: var(--fs-sm); font-weight: var(--fw-normal); }
+
+/* 「이 대화」 칸 (10/28 20:10, 시안 1절): 맥락 창 막대와 기본 정보 */
+.ac-meter { height: 6px; border-radius: var(--r-pill); background: var(--bg-sunken); overflow: hidden; }
+.ac-meter i { display: block; height: 100%; background: var(--text-2); }
+.ac-info-list { margin: var(--sp-1) 0 0; display: grid; grid-template-columns: auto 1fr; gap: 2px var(--sp-3); }
+.ac-info-list dt { color: var(--text-3); }
+.ac-info-list dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+/* 바뀐 곳 파일 줄 오른쪽 「수정 검토 ›」 (10/28 21:39: 버튼 둘이 다른 폭으로 쌓여 정렬이 깨지던 것) */
+.ac-change-review { flex: none; font-size: var(--fs-xs); }
+.ac-info .ac-work-row { justify-content: space-between; }
+
+/* 권한 표 (10/28): 하는 일 · 자동 허용 두 칸, 줄마다 이름과 예를 쌓고 오른쪽 끝에 토글 또는 "늘 물음" */
+.ac-perm { display: flex; flex-direction: column; min-width: 0; }
+.ac-perm-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; border-top: 1px solid var(--line); }
+.ac-perm-head { border-top: none; font-size: var(--fs-xs); color: var(--text-3); }
+.ac-perm-head span:last-child, .ac-perm-ctl { justify-self: end; text-align: right; }
+.ac-perm-what { display: flex; flex-direction: column; min-width: 0; }
+.ac-perm-what b { font-weight: var(--fw-medium); font-size: var(--fs-sm); }
+.ac-perm-what .muted, .ac-perm-ctl .muted { font-size: var(--fs-xs); }
+.ac-perm .ac-hint { margin-top: var(--sp-1); }

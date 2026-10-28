@@ -28,6 +28,13 @@ export const ASK_ANSWERS = ['allow', 'always', 'deny'] as const
  * 명령 · 웹 · 범위 밖은 어느 모드든 묻거나 막는다
  */
 export const CHAT_MODES = ['ask', 'plan', 'edit'] as const
+/**
+ * 명령이 하는 일 (10/28 사용자 결정 "권한을 명령 대신 하는 일로", 시안 4절): 앱이 명령의 첫 낱말과 경로로 판정하고, 모르면 run.
+ * read 읽기(프로젝트와 등록한 폴더 안) · edit 편집 · delete 삭제 · run 실행 · web 웹 보기 · outside 외부(폴더 밖 쓰기 · 올리기 · 설치)
+ */
+export const CHAT_KINDS = ['read', 'edit', 'delete', 'run', 'web', 'outside'] as const
+/** 「자동 허용」 토글이 있는 일. 편집은 모드(edit = 켬)가 정하고, 삭제 · 외부는 늘 묻는다 */
+export const ChatAuto = z.object({ read: z.boolean().optional(), run: z.boolean().optional(), web: z.boolean().optional() }).strict()
 /** 모델: default = 맥의 Claude Code 기본값. 별칭(opus · sonnet …) 말고도 맥의 Claude Code가 아는 모델 id(claude-opus-5 등)를 쓴다 (GET /agent-chats/models) */
 export const ChatModel = z.string().regex(/^[a-z][a-z0-9.\-[\]]{0,79}$/)
 /** 생각 깊이 (xhigh · max는 그것을 받는 모델만) */
@@ -68,7 +75,8 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * note = 거절하며 에이전트에게 한 말(아니요, 이렇게 바꿔서…), mode = 계획을 승인하며 고른 맡기는 정도,
    * expired = 답하기 전에 멈추거나 앱이 다시 켜져 닫힘(answer는 deny)
    */
-  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional() }).strict(),
+  // does = 명령이 하는 일, once = 「늘」 없이 한 번씩 (삭제 · 외부)
+  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional(), does: z.enum(CHAT_KINDS).optional(), once: z.boolean().optional() }).strict(),
   /** 할 일 목록 (한 차례에 하나, 바뀌면 그 자리에서 고친다) */
   z.object({ kind: z.literal('todos'), at: z.string(), todos: z.array(Todo) }).strict(),
   /**
@@ -106,6 +114,8 @@ export const ChatRow = z.object({
   mode: z.enum(CHAT_MODES),
   model: ChatModel,
   effort: z.enum(CHAT_EFFORTS),
+  /** 권한 토글을 하나씩 바꿨으면 그 값 (없으면 권한 이름의 기본값, 화면은 「직접 정함」) */
+  auto: ChatAuto.optional(),
   /** 이 대화가 지금 고치는 중인 파일 (저장소 기준 경로). 다른 대화는 쓰지 못한다 */
   claims: z.array(z.string()),
   /** 이 대화가 고친 파일 (수정 검토로 간다) */
@@ -178,7 +188,8 @@ const message = {
   attach: z.array(Attach).max(20).optional(),
   images: z.array(ImageIn).max(4).optional(),
 }
-export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional() }).strict()
+/** auto: 토글 값(권한 이름을 바꾸면 빠지고 그 이름의 기본값으로, 같이 보내면 그대로 둔다) */
+export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional(), auto: ChatAuto.optional() }).strict()
 export const NewChatBody = z.object({
   rid: z.string().min(1),
   ...message,
@@ -244,6 +255,8 @@ export const FeedbackAnswerBody = z.object({
 export const FeedbackAnswered = z.object({ key: z.string(), state: z.string().optional(), pictures: z.array(z.string()).optional(), replies: z.number() }).strict()
 
 export type ChatScope = z.infer<typeof ChatScope>
+export type ChatAuto = z.infer<typeof ChatAuto>
+export type ChatKind = (typeof CHAT_KINDS)[number]
 export type Attach = z.infer<typeof Attach>
 export type Todo = z.infer<typeof Todo>
 export type ImageIn = z.infer<typeof ImageIn>

@@ -89,11 +89,12 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
   )
   const adder = (side: 'prev' | 'next') => {
     const xs = choices(side)
-    return xs.length > 0 && <select className="fl-in fl-linkadd" data-ui="흐름 연결 더하기" disabled={linkBusy} value="" aria-label={side === 'prev' ? tr('이전 점 더하기', 'Add an earlier dot') : tr('이후 점 더하기', 'Add a later dot')}
+    // 이어 보이는 선 줄과 같은 자리에서 시작하게 선 종류 칸만큼 비운다 (10/28 22:21 "이후 점 잇기에 정렬을 맞춰줘")
+    return xs.length > 0 && <div className="fl-linkadd-row"><span className="fl-ety" aria-hidden /><select className="fl-in fl-linkadd" data-ui="흐름 연결 더하기" disabled={linkBusy} value="" aria-label={side === 'prev' ? tr('이전 점 더하기', 'Add an earlier dot') : tr('이후 점 더하기', 'Add a later dot')}
       onChange={(e) => { if (e.target.value) void addLink(side, e.target.value) }}>
       <option value="">{side === 'prev' ? tr('＋ 이전 점 잇기…', '＋ Link an earlier dot…') : tr('＋ 이후 점 잇기…', '＋ Link a later dot…')}</option>
       {xs.map((m) => <option key={m.id} value={m.id}>{m.short}</option>)}
-    </select>
+    </select></div>
   }
   return (
     <article className="fl-card" ref={el} data-ui="흐름 점 자세히">
