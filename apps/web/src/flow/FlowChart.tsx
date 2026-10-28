@@ -11,7 +11,7 @@ import { KIND, EDGE, markOf, markState, markTurn, roleOf, stateOf, stateName, Ma
 import { Icon } from '../icons'
 import type { TopicRef } from './data'
 import { FlowCard } from './FlowCard'
-import { newDraftNode, FlowEditor } from './FlowEditor'
+import { defaultEdge, newDraftNode, FlowEditor } from './FlowEditor'
 
 const ZS = [0.5, 0.67, 0.8, 1, 1.25, 1.5]
 const CW0 = 160, RH0 = 76, TOP = 30, LEFT = 30
@@ -61,7 +61,8 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
    * 새 점 (10/16 사용자 승인 "이어서 · 지정 · 새로 시작"): 창 없이 차트에 점선 점이 생기고 자세히 자리에서 바로 적는다.
    * from이 비면 시작점: 저장하면 맨 왼쪽 열의 새 아랫줄에 둔다 (layout.yaml)
    */
-  const [draft, setDraft] = useState<{ from: string[] } | null>(null)
+  // before: 새 점을 그 점의 이전 점으로 잇는다 (10/28 21:58 · 22:21, 자세히의 「이전 점 잇기」 › 새 점)
+  const [draft, setDraft] = useState<{ from: string[]; before?: string } | null>(null)
   /** 앞선 점 고르기: 차트에서 누른 점을 모은다 */
   const [picking, setPicking] = useState<string[] | null>(null)
   const [editing, setEditing] = useState<FlowNode | null>(null)
@@ -236,12 +237,14 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
   const s = sel ? byId.get(sel) : undefined
   /** 점 누르기: 앞선 점을 고르는 중이면 넣고 빼기, 아니면 고르기 */
   const tap = (id: string) => { if (picking) setPicking(picking.includes(id) ? picking.filter((x) => x !== id) : [...picking, id]); else setSel(id) }
-  const startDraft = (from: string[]) => { setPicking(null); setEditing(null); setDraft({ from }) }
+  const startDraft = (from: string[], before?: string) => { setPicking(null); setEditing(null); setDraft({ from, before }) }
   const madeDraft = (made: FlowNode) => {
     const cell = draft && !draft.from.length && draftAt && lay.placed.length ? { c: 0, r: draftAt.r - lay.mid } : null
+    const target = draft?.before ? byId.get(draft.before) : undefined
     setDraft(null)
     setSel(made.id)
-    if (cell) void place(made.id, cell)
+    if (target) void api.patch(target.id, target.hash, { from: [...target.from, { id: made.id, type: defaultEdge(target.kind) }] }).then(() => cell ? place(made.id, cell) : reload(), fail)
+    else if (cell) void place(made.id, cell)
     else reload()
   }
   const draftEditor = draftNode && <FlowEditor key="new" rid={rid} n={draftNode} create all={all} notes={notes} topics={topics} onClose={() => setDraft(null)} onSaved={(made) => made ? madeDraft(made) : setDraft(null)} />
@@ -405,7 +408,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
         </div>
         : s && editing?.id === s.id ? <FlowEditor key={s.id} rid={rid} n={editing} all={all} notes={notes} topics={topics} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />
         : s ? <FlowCard reveal={reveal} rid={rid} n={s} all={all} byId={byId} notes={notes} manual={!!cells[s.id]} row={selRow === undefined ? undefined : { name: rowNames[String(selRow - lay.mid)] ?? '', save: (t) => saveRowName(selRow, t) }} onPick={(id) => { setSel(id); center(id) }}
-        onAdd={() => startDraft([s.id])} onPickFrom={() => { setEditing(null); setPicking([s.id]) }} onEdit={() => setEditing(s)} onUnplace={() => void place(s.id, null)} reload={reload} fail={fail}
+        onAdd={() => startDraft([s.id])} onAddBefore={() => startDraft([], s.id)} onPickFrom={() => { setEditing(null); setPicking([s.id]) }} onEdit={() => setEditing(s)} onUnplace={() => void place(s.id, null)} reload={reload} fail={fail}
         onDeleted={() => { setSel(null); reload() }} />
         : <p className="fl-hint muted">{tr('점을 누르면 아래에 자세히 보입니다. 두 번 누르면 가운데로, 끌면 다른 칸으로 옮깁니다.', 'Click a dot to see it below. Double-click to center it; drag it to another cell.')}</p>}
       </>}
