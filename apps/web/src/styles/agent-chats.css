@@ -289,3 +289,12 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-perm-what b { font-weight: var(--fw-medium); font-size: var(--fs-sm); }
 .ac-perm-what .muted, .ac-perm-ctl .muted { font-size: var(--fs-xs); }
 .ac-perm .ac-hint { margin-top: var(--sp-1); }
+
+/* 여러 개 고르기 (10/28 시안 4절): 줄 앞 네모, 위 툴바 */
+.ac-pick-start { align-self: flex-end; margin: var(--sp-1) var(--sp-2) 0; font-size: var(--fs-xs); }
+.ac-pickbar { display: flex; align-items: center; gap: var(--sp-1); margin: var(--sp-1) var(--sp-1) 0; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-md); background: var(--bg-hover); font-size: var(--fs-xs); }
+.ac-pickbar .sp { flex: 1; }
+.ac-pick { flex: none; width: 13px; height: 13px; border: 1.4px solid var(--line-strong); border-radius: 3px; box-sizing: border-box; }
+.ac-pick.on { background: var(--text-2); border-color: var(--text-2); }
+.ac-line.picked { background: var(--bg-hover); }
+.ac-pickbar .btn.danger { color: var(--danger); }

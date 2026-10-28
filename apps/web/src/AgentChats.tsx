@@ -199,12 +199,13 @@ const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error'
 const rank = (c: ChatRow) => (myTurn(c) ? 0 : isLive(c.state) ? 1 : 2)
 
 /** 목록 한 줄: 상태 점 · 이름, 아래 줄에 무엇을 기다리는지(상태) · +n −n · 시각 */
-function ChatLine({ c, on, onOpen, actions = false }: { c: ChatRow; on: boolean; onOpen(): void; actions?: boolean }) {
+function ChatLine({ c, on, onOpen, actions = false, pick }: { c: ChatRow; on: boolean; onOpen(): void; actions?: boolean; pick?: { on: boolean; disabled?: string; toggle(): void } }) {
   const [editing, setEditing] = useState(false)
-  const { rename, remove } = useChatActions(c.id)
+  const { rename } = useChatActions(c.id)
   const line = (
-    <button className={`nav ac-line${on ? ' on' : ''}`} data-ui="대화 줄" data-ui-item={c.title} title={c.title} onClick={onOpen}>
-      <span className="ac-line-top"><span className="ac-line-dot"><ChatStateMark state={c.state} name={stateName(c)} /></span>
+    <button className={`nav ac-line${on && !pick ? ' on' : ''}${pick?.on ? ' picked' : ''}`} data-ui="대화 줄" data-ui-item={c.title} title={pick?.disabled ?? c.title}
+      disabled={!!pick?.disabled} aria-pressed={pick ? pick.on : undefined} onClick={pick ? pick.toggle : onOpen}>
+      <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot"><ChatStateMark state={c.state} name={stateName(c)} /></span>
         <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
         {stateName(c)}
@@ -213,15 +214,15 @@ function ChatLine({ c, on, onOpen, actions = false }: { c: ChatRow; on: boolean;
       </span>
     </button>
   )
-  if (!actions) return line
-  // 목록 줄의 고치기 · 지우기 (10/28 피드백 21:19, 시안 5절): 줄에 마우스를 올리면 오른쪽 위에 연필 · 휴지통
+  if (!actions || pick) return line
+  // 목록 줄의 고치기 (10/28 피드백 21:19, 시안 5절): 줄에 마우스를 올리면 오른쪽 위에 연필.
+  // 지우기는 줄마다 두지 않고 보관함에서 골라 한꺼번에 (10/28 시안 4절 코멘트 "보관된 채팅만 지울 수 있게")
   return (
     <div className="ac-line-wrap">
       {line}
       {editing ? <TitleInput className="ac-line-edit" value={c.title} onDone={(v) => { setEditing(false); if (v !== null) void rename(v) }} />
         : <span className="ac-line-actions hover-actions" data-ui="대화 줄 고치기·지우기">
-          <button className="icon-btn sm" data-tip={t('제목 바꾸기', 'Rename')} aria-label={t('제목 바꾸기', 'Rename')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
-          <button className="icon-btn sm tip-end" data-tip={isLive(c.state) ? t('도는 대화는 멈춘 뒤 지웁니다', 'Stop it before deleting') : t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={isLive(c.state)} onClick={() => void remove().then((ok) => { if (ok && on) go({ page: 'agent' }) })}>{Icon.trash}</button>
+          <button className="icon-btn sm tip-end" data-tip={t('제목 바꾸기', 'Rename')} aria-label={t('제목 바꾸기', 'Rename')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
         </span>}
     </div>
   )
@@ -244,10 +245,27 @@ function useChatActions(id: string) {
     try { client.setQueryData(qk.agentChat(id), await agentChatsApi.rename(id, title)); void client.invalidateQueries({ queryKey: qk.agentChats }) } catch (e) { flash((e as Error).message) }
   }
   const remove = async (): Promise<boolean> => {
-    if (!await askConfirm({ title: t('이 대화를 지울까요?', 'Delete this conversation?'), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토는 그대로 남습니다. 지우지 않고 숨기려면 보관함에 넣으세요.', 'Only the conversation is deleted. Notes, records and edit review stay. To hide it without deleting, archive it.'), ok: t('지우기', 'Delete') })) return false
+    if (!await askConfirm({ title: t('이 대화를 지울까요?', 'Delete this conversation?'), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토는 그대로 남습니다.', 'Only the conversation is deleted. Notes, records and edit review stay.'), ok: t('지우기', 'Delete') })) return false
     try { await agentChatsApi.remove(id); void client.invalidateQueries({ queryKey: qk.agentChats }); flash(t('대화를 지웠습니다', 'Conversation deleted')); return true } catch (e) { flash((e as Error).message); return false }
   }
   return { rename, remove }
+}
+
+/** 고른 대화 여러 개를 보관 · 꺼내기 · 지우기 (지우기는 보관한 것만, 한 번 묻고) */
+function useBulkChats() {
+  const client = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const run = async (ids: string[], one: (id: string) => Promise<unknown>, done: string) => {
+    setBusy(true)
+    try { for (const id of ids) await one(id); flash(done) } catch (e) { flash((e as Error).message) } finally { setBusy(false); void client.invalidateQueries({ queryKey: qk.agentChats }) }
+  }
+  const archive = (ids: string[], v: boolean) => run(ids, (id) => agentChatsApi.archive(id, v), v ? t(`${ids.length}개를 보관함에 넣었습니다`, `Archived ${ids.length}`) : t(`${ids.length}개를 보관함에서 꺼냈습니다`, `Unarchived ${ids.length}`))
+  const remove = async (ids: string[]): Promise<boolean> => {
+    if (!await askConfirm({ title: t(`보관한 대화 ${ids.length}개를 지울까요?`, `Delete ${ids.length} archived conversations?`), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토, 바꾼 파일과 PR은 그대로 남습니다.', 'Only the conversations are deleted. Notes, records, edit review, changed files and PRs stay.'), ok: t('지우기', 'Delete') })) return false
+    await run(ids, (id) => agentChatsApi.remove(id), t(`${ids.length}개를 지웠습니다`, `Deleted ${ids.length}`))
+    return true
+  }
+  return { busy, archive, remove }
 }
 
 // ---------- 대화 줄들 ----------
@@ -899,7 +917,7 @@ function HeadMore({ live, archived, onRename, onArchive, onRemove }: { live: boo
         <div className="menu ac-head-menu" role="menu" data-ui="대화 더 보기 항목">
           <button role="menuitem" data-ui="대화 제목 바꾸기" onClick={() => { setOpen(false); onRename() }}>{t('제목 바꾸기', 'Rename')}</button>
           <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 꺼내기', 'Unarchive') : t('보관함에 넣기', 'Archive')}</button>
-          <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live} onClick={() => { setOpen(false); onRemove() }}>{t('지우기', 'Delete')}</button>
+          <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live || !archived} title={!archived ? t('보관함에 넣은 대화만 지웁니다', 'Only archived conversations can be deleted') : undefined} onClick={() => { setOpen(false); onRemove() }}>{t('지우기', 'Delete')}</button>
         </div>
       )}
     </span>
@@ -1373,6 +1391,17 @@ export function AgentSide({ id }: { id?: string }) {
   const rids = [...(projects ?? []).map((p) => p.id), ...[...by.keys()].filter((r) => r !== APP_RID && !projects?.some((p) => p.id === r))]
   const showApp = !!listed?.app || by.has(APP_RID)
   const archived = count('archived')
+  // 여러 개 고르기 (10/28 피드백 21:19 코멘트, 시안 4절): 목록에서는 보관만, 보관함에서는 꺼내기 · 지우기
+  const [picking, setPicking] = useState(false)
+  const [picked, setPicked] = useState<string[]>([])
+  const bulk = useBulkChats()
+  const stopPicking = () => { setPicking(false); setPicked([]) }
+  const shown = [...by.values()].flat()
+  const pickOf = (c: ChatRow) => picking ? {
+    on: picked.includes(c.id),
+    disabled: filter !== 'archived' && isLive(c.state) ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined,
+    toggle: () => setPicked(picked.includes(c.id) ? picked.filter((x) => x !== c.id) : [...picked, c.id]),
+  } : undefined
   const group = (rid: string, name: string, hint?: string) => {
     const chats = by.get(rid) ?? []
     // 걸러 볼 때는 대화가 없는 묶음을 숨긴다 (모두 · 보관함은 프로젝트를 다 보인다)
@@ -1391,7 +1420,7 @@ export function AgentSide({ id }: { id?: string }) {
             <button className="icon-btn sm" data-ui="이 묶음에서 새 대화" data-tip={t('여기서 새 대화', 'New conversation here')} aria-label={t(`${name}에서 새 대화`, `New conversation in ${name}`)} onClick={() => newChatIn(rid)}>{Icon.plus}</button>
           )}
         </div>
-        {open && chats.map((c) => <ChatLine key={c.id} c={c} on={c.id === id} actions onOpen={() => go({ page: 'agent', id: c.id })} />)}
+        {open && chats.map((c) => <ChatLine key={c.id} c={c} on={c.id === id} actions pick={pickOf(c)} onOpen={() => go({ page: 'agent', id: c.id })} />)}
         {open && !chats.length && hint && <div className="muted ac-group-empty">{hint}</div>}
       </div>
     )
@@ -1404,7 +1433,20 @@ export function AgentSide({ id }: { id?: string }) {
           {(['mine', 'live', 'all'] as const).map((f) => <button key={f} role="radio" aria-checked={filter === f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{FILTER_NAME[f]}{f !== 'all' && count(f) ? ` ${count(f)}` : ''}</button>)}
         </div>
       )}
-      {filter === 'archived' && <button className="a ac-archive-back" data-ui="보관함 닫기" onClick={() => setFilter('all')}>‹ {t('보관함', 'Archive')} {archived}</button>}
+      {filter === 'archived' && <button className="a ac-archive-back" data-ui="보관함 닫기" onClick={() => { stopPicking(); setFilter('all') }}>‹ {t('보관함', 'Archive')} {archived}</button>}
+      {!!shown.length && (picking
+        ? <div className="ac-pickbar" data-ui="대화 고르기 툴바">
+          <b>{t(`${picked.length}개 고름`, `${picked.length} picked`)}</b>
+          <span className="sp" />
+          {filter === 'archived'
+            ? <>
+              <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, false).then(stopPicking)}>{t('꺼내기', 'Unarchive')}</button>
+              <button className="btn sm danger" data-ui="대화 지우기" disabled={!picked.length || bulk.busy} onClick={() => void bulk.remove(picked).then((ok) => { if (ok) { if (id && picked.includes(id)) go({ page: 'agent' }); stopPicking() } })}>{t('지우기', 'Delete')}</button>
+            </>
+            : <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, true).then(stopPicking)}>{t('보관', 'Archive')}</button>}
+          <button className="btn sm" onClick={stopPicking}>{t('끝', 'Done')}</button>
+        </div>
+        : <button className="a ac-pick-start" data-ui="대화 여러 개 고르기" onClick={() => setPicking(true)}>{filter === 'archived' ? t('골라서 꺼내기 · 지우기', 'Pick to unarchive or delete') : t('골라서 보관', 'Pick to archive')}</button>)}
       {list && !!list.length && filter !== 'all' && !by.size && <div className="empty">{filter === 'mine' ? t('답할 대화가 없습니다', 'Nothing waits for you') : filter === 'live' ? t('일하는 대화가 없습니다', 'No conversation is working') : t('보관한 대화가 없습니다', 'Nothing archived')}</div>}
       {showApp && (
         <>
@@ -1414,7 +1456,7 @@ export function AgentSide({ id }: { id?: string }) {
       )}
       {!!rids.length && <div className="ac-side-h">{t('프로젝트', 'Projects')}</div>}
       {rids.map((rid) => group(rid, projectName(rid, projects)))}
-      {filter !== 'archived' && archived > 0 && <button className="a ac-archive-link" data-ui="보관함 열기" onClick={() => setFilter('archived')}>{t(`보관함 ${archived} ›`, `Archive ${archived} ›`)}</button>}
+      {filter !== 'archived' && archived > 0 && <button className="a ac-archive-link" data-ui="보관함 열기" onClick={() => { stopPicking(); setFilter('archived') }}>{t(`보관함 ${archived} ›`, `Archive ${archived} ›`)}</button>}
     </div>
   )
 }
