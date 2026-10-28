@@ -164,6 +164,16 @@ describe('일지', () => {
 })
 
 describe('메모 마크다운', () => {
+  it('메모의 수식: $…$ · \\(…\\)는 글 안에, $$…$$ · \\[…\\]는 가운데 한 줄 (여러 줄도)', () => {
+    expect(parseInline('a \\(x^2\\) b $y$')).toEqual([{ kind: 'text', text: 'a ' }, { kind: 'math', tex: 'x^2' }, { kind: 'text', text: ' b ' }, { kind: 'math', tex: 'y' }])
+    expect(parseInline('식 $$E=mc^2$$ 끝')[1]).toEqual({ kind: 'math', tex: 'E=mc^2', display: true })
+    const blocks = parseMemo('앞 문단\n$$\nM = \\frac{1}{3}\n$$\n\\[ h_c \\]\n$$a$$ 와 $$b$$\n뒤')
+    expect(blocks[0]!.kind).toBe('para')
+    expect(blocks[1]).toEqual({ kind: 'math', tex: 'M = \\frac{1}{3}' })
+    expect(blocks[2]).toEqual({ kind: 'math', tex: 'h_c' })
+    expect(blocks[3]!.kind).toBe('para')
+    expect(parseMemo('$$ 닫지 않음')).toEqual([{ kind: 'para', lines: [[{ kind: 'text', text: '$$ 닫지 않음' }]] }])
+  })
   it('글머리·번호 목록과 들여쓰기, 문단을 나눈다', () => {
     const blocks = parseMemo('확인할 것\n- 첫째 $x$\n  - 하위 **중요**\n- 둘째\n\n1. 번호 하나\n2. 번호 둘\n다음 문단')
     expect(blocks.map((b) => b.kind)).toEqual(['para', 'list', 'list', 'para'])

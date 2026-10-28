@@ -17,7 +17,7 @@ export { isNoteTarget } from './journalTargets'
 function InlineText({ parts }: { parts: Inline[] }) {
   return <>{parts.map((p, i) => {
     switch (p.kind) {
-      case 'math': return <span key={i} dangerouslySetInnerHTML={{ __html: katex.renderToString(p.tex, { throwOnError: false }) }} />
+      case 'math': return <span key={i} className={p.display ? 'memo-math-block' : undefined} dangerouslySetInnerHTML={{ __html: katex.renderToString(p.tex, { throwOnError: false, displayMode: !!p.display }) }} />
       case 'bold': return <strong key={i}>{p.text}</strong>
       case 'code': return <CodeText key={i} text={p.text} />
       default: return <span key={i}>{textLinks(p.text).map((x, j) => x.kind === 'url'
@@ -35,7 +35,9 @@ export function MemoText({ text }: { text: string }) {
   const blocks = useMemo(() => parseMemo(text), [text])
   return (
     <div className="memo-text">
-      {blocks.map((b, i) => b.kind === 'para'
+      {blocks.map((b, i) => b.kind === 'math'
+        ? <div key={i} className="memo-math-block" dangerouslySetInnerHTML={{ __html: katex.renderToString(b.tex, { throwOnError: false, displayMode: true }) }} />
+        : b.kind === 'para'
         ? <p key={i}>{b.lines.map((line, j) => <span key={j}>{j > 0 && <br />}<InlineText parts={line} /></span>)}</p>
         : (() => {
           const Tag = b.ordered ? 'ol' : 'ul'

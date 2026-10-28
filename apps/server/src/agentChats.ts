@@ -379,7 +379,7 @@ export function briefFor(o: { rid: string; title: string; scope: ChatScope; writ
   lines.push(`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`)
   const busy = o.others.filter((c) => c.claims.length)
   if (busy.length) lines.push(`Other conversations are changing these files now; do not change them: ${busy.map((c) => `${c.title}: ${c.claims.join(', ')}`).join('; ')}.`)
-  lines.push('Write to the user in Korean, briefly: result first.')
+  lines.push('Write to the user in Korean, briefly: result first. Write math as $…$ inside a sentence and $$…$$ on its own lines; the conversation renders them.')
   return lines.join('\n')
 }
 
