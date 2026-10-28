@@ -14,6 +14,9 @@ import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
+import { openRecordComposer } from './RecordContext'
+import { useRecords } from './projectQueries'
+import { chooseRecordFilter, chooseRecordPlace } from './workRecords'
 
 /**
  * 에이전트 대화 (10/21 "프로젝트 관리 먼저", 같은 날 "에이전트 창 구조 다시" · "코덱스와 Claude 앱 더 참고"):
@@ -196,6 +199,20 @@ const projectName = (rid: string, projects?: { id: string; title: string }[]) =>
 
 /** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화 */
 const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error'
+/** 대화의 묶음 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 2절): 기록의 질문 · 지시가 연 대화와 직접 연 대화를 섞지 않는다 */
+export const chatGroupName = (c: Pick<ChatRow, 'record'>) => c.record ? t('기록의 질문 · 지시', 'Record questions and instructions') : t('직접 연 대화', 'Conversations you opened')
+function ChatGroups({ chats, line }: { chats: ChatRow[]; line(c: ChatRow): ReactNode }) {
+  const records = chats.filter((c) => c.record)
+  const direct = chats.filter((c) => !c.record)
+  // 기록 대화가 없으면 묶음 머리 없이 예전 목록 그대로
+  if (!records.length) return <>{direct.map(line)}</>
+  return <>
+    <div className="ac-sub-h" data-ui="기록 대화 묶음">{chatGroupName({ record: { target: '', id: '' } })} <span className="n">{records.length}</span></div>
+    {records.map(line)}
+    {!!direct.length && <div className="ac-sub-h" data-ui="직접 연 대화 묶음">{chatGroupName({})} <span className="n">{direct.length}</span></div>}
+    {direct.map(line)}
+  </>
+}
 const rank = (c: ChatRow) => (myTurn(c) ? 0 : isLive(c.state) ? 1 : 2)
 
 /** 목록 한 줄: 상태 점 · 이름, 아래 줄에 무엇을 기다리는지(상태) · +n −n · 시각 */
@@ -848,9 +865,15 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
 // ---------- 대화 하나 ----------
 
 /** 대화의 머리: 이름 · 프로젝트 · 범위, 오른쪽 상태 · +n −n 바뀐 곳 · 작업 · ⋯(보관 · 지우기) */
-function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
+function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, compact = false, tools, onRecord }: {
   chat: Chat
   onBack?(): void
+  /** 오른쪽 사이드바 패널 (10/28 안 A): ‹ 목록으로 · 제목 한 줄 · 아래 줄은 묶음 · 상태 · 시각 */
+  compact?: boolean
+  /** 머리 오른쪽에 더 놓을 버튼 (패널의 자리 · 넓게 보기) */
+  tools?: ReactNode
+  /** 「기록으로 남기기」 (직접 연 대화, 적기 칸이 있는 패널에서만) */
+  onRecord?(): void
   /** 오른쪽 세부 패널(바뀐 곳 · 작업)이 열렸는지와 여닫기. 없으면(패널) 바뀐 곳은 에이전트 화면에서 연다 */
   pane?: boolean
   onPane?(): void
@@ -879,34 +902,40 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
   const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
   const context = [...results].reverse().find((r) => r.context)?.context
   const cost = results.reduce((s, r) => s + (r.cost ?? 0), 0)
+  const sname = stateName({ state: chat.state, wait: chat.items.some((i) => i.kind === 'ask' && !i.answer && i.plan !== undefined) ? 'plan' : 'ask' })
   return (
     <div className="ac-head" data-ui="대화 헤더">
       {onBack && <button className="icon-btn sm" data-ui="대화 목록으로" data-tip={t('대화 목록', 'Conversations')} aria-label={t('대화 목록으로', 'Back to conversations')} onClick={onBack}>{Icon.back}</button>}
       <div className="ac-head-what">
         {renaming ? <TitleInput value={chat.title} onDone={(v) => { setRenaming(false); if (v !== null) void actions.rename(v) }} />
           : <div className="ac-title" title={chat.title}>{chat.title}</div>}
-        <div className="ac-meta">
+        {compact ? <div className="ac-meta compact" data-ui="대화 묶음 줄">
+          <span>{chat.rid === APP_RID ? project : chatGroupName(chat)}</span><span>·</span><span>{stateName({ state: chat.state, wait: chat.items.some((i) => i.kind === 'ask' && !i.answer && i.plan !== undefined) ? 'plan' : 'ask' })}</span>
+          <span>·</span><span>{relativeTime(Date.parse(chat.updated))}</span>
+          {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
+        </div> : <div className="ac-meta">
           {chat.rid === APP_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
           {context && <><span>·</span><span data-ui="대화 맥락" title={[t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('맥락', 'Context')} {tokensName(context.used)}</span></>}
           {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
-        </div>
+        </div>}
       </div>
-      <ChatStateMark state={chat.state} label name={stateName({ state: chat.state, wait: chat.items.some((i) => i.kind === 'ask' && !i.answer && i.plan !== undefined) ? 'plan' : 'ask' })} />
-      {!!chat.changed.length && (
+      <ChatStateMark state={chat.state} label={!compact} name={sname} />
+      {!!chat.changed.length && !compact && (
         <button className={`btn sm ac-changes-btn${pane ? ' on' : ''}`} data-ui="바뀐 곳 버튼" aria-pressed={onPane ? !!pane : undefined} data-tip={onPane ? t('바뀐 곳 · 작업 패널 여닫기', 'Show or hide changes and work') : t('에이전트 화면에서 바뀐 곳 보기', 'View changes in the agent page')}
           onClick={() => (onPane ? onPane() : go({ page: 'agent', id: chat.id }))}>
           <Delta added={added} removed={removed} />{t('바뀐 곳', 'Changes')}
         </button>
       )}
       {onPane && !chat.changed.length && <button className={`btn sm${pane ? ' on' : ''}`} data-ui="작업 버튼" aria-pressed={!!pane} onClick={onPane}>{t('작업', 'Work')}</button>}
-      <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} />
+      {tools}
+      <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} onRecord={onRecord} />
     </div>
   )
 }
 
-function HeadMore({ live, archived, onRename, onArchive, onRemove }: { live: boolean; archived: boolean; onRename(): void; onArchive(v: boolean): void; onRemove(): void }) {
+function HeadMore({ live, archived, onRename, onArchive, onRemove, onRecord }: { live: boolean; archived: boolean; onRename(): void; onArchive(v: boolean): void; onRemove(): void; onRecord?(): void }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
   useDismiss(open, box, () => setOpen(false))
@@ -916,6 +945,7 @@ function HeadMore({ live, archived, onRename, onArchive, onRemove }: { live: boo
       {open && (
         <div className="menu ac-head-menu" role="menu" data-ui="대화 더 보기 항목">
           <button role="menuitem" data-ui="대화 제목 바꾸기" onClick={() => { setOpen(false); onRename() }}>{t('제목 바꾸기', 'Rename')}</button>
+          {onRecord && <button role="menuitem" data-ui="기록으로 남기기" onClick={() => { setOpen(false); onRecord() }}>{t('기록으로 남기기', 'Keep as a record')}</button>}
           <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 꺼내기', 'Unarchive') : t('보관함에 넣기', 'Archive')}</button>
           <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live || !archived} title={!archived ? t('보관함에 넣은 대화만 지웁니다', 'Only archived conversations can be deleted') : undefined} onClick={() => { setOpen(false); onRemove() }}>{t('지우기', 'Delete')}</button>
         </div>
@@ -1040,6 +1070,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   return (
     <div className="ac-chat" data-ui="에이전트 대화">
       {head && <ChatHead chat={chat} pane={pane} onPane={onPane} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
+      {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
         {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} />)}
@@ -1420,7 +1451,7 @@ export function AgentSide({ id }: { id?: string }) {
             <button className="icon-btn sm" data-ui="이 묶음에서 새 대화" data-tip={t('여기서 새 대화', 'New conversation here')} aria-label={t(`${name}에서 새 대화`, `New conversation in ${name}`)} onClick={() => newChatIn(rid)}>{Icon.plus}</button>
           )}
         </div>
-        {open && chats.map((c) => <ChatLine key={c.id} c={c} on={c.id === id} actions pick={pickOf(c)} onOpen={() => go({ page: 'agent', id: c.id })} />)}
+        {open && <ChatGroups chats={chats} line={(c) => <ChatLine key={c.id} c={c} on={c.id === id} actions pick={pickOf(c)} onOpen={() => go({ page: 'agent', id: c.id })} />} />}
         {open && !chats.length && hint && <div className="muted ac-group-empty">{hint}</div>}
       </div>
     )
@@ -1543,7 +1574,7 @@ export function AgentRailCount() {
 export type AgentPlace = 'right' | 'bottom'
 
 /** 지금 프로젝트의 대화. 머리에서 대화를 고르고(▾) · 자리 · 새 대화 · 에이전트 화면에서 넓게 보기. 연 대화는 프로젝트마다 기억한다 */
-export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBeside }: {
+export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBeside, recordTarget }: {
   rid: string
   note?: { file: string; title: string }
   onSaved(m: string): void
@@ -1551,6 +1582,8 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
   onPlace?(p: AgentPlace): void
   /** 연 대화를 노트 옆 패널의 탭으로 */
   onBeside?(id: string): void
+  /** 오른쪽 사이드바 적기 칸의 대상 (「기록으로 남기기」 초안이 그 칸에 뜬다) */
+  recordTarget?: { target: string; title: string; source?: string }
 }) {
   const key = `rw-agent-panel-${rid}`
   const [open, setOpenState] = useState<string | null>(() => store.get<string | null>(key, null))
@@ -1558,61 +1591,90 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
   const list = useChatList(rid).data?.chats
   const known = open && list?.some((c) => c.id === open)
   const current = open && (known || !list) ? open : null
-  const chat = list?.find((c) => c.id === current)
   const auto: Attach | undefined = note ? { kind: 'note', ref: note.file, label: note.title } : undefined
   const sorted = [...(list ?? [])].filter((c) => !c.archived || c.id === current).sort((a, b) => rank(a) - rank(b) || b.updated.localeCompare(a.updated))
+  const placeMenu = onPlace && (
+    <PopButton icon down ui="대화 자리" tip={t('패널 자리', 'Panel position')} label={Icon.split}>
+      {(close) => <>
+        {(['right', 'bottom'] as const).map((v) => (
+          <button key={v} role="menuitemradio" aria-checked={place === v} className={place === v ? 'on' : ''} onClick={() => { close(); onPlace(v) }}>
+            <span className="ac-pop-check" aria-hidden>{place === v ? Icon.check : null}</span>{v === 'right' ? t('오른쪽 사이드바 자리', 'In the right sidebar') : t('작업 화면 아래', 'Below the workspace')}
+          </button>
+        ))}
+        {onBeside && <button role="menuitem" disabled={!current} title={current ? undefined : t('대화를 먼저 여세요', 'Open a conversation first')} onClick={() => { close(); if (current) onBeside(current) }}>
+          <span className="ac-pop-check" aria-hidden />{t('노트 옆 패널에 나란히', 'Side by side with the note')}
+        </button>}
+      </>}
+    </PopButton>
+  )
+  // 안 A (10/28 23:08 결정): 목록 ↔ 대화. 대화를 열면 머리가 ‹ · 제목 · 묶음 · 상태 · ⋯ 로 바뀐다
+  if (current) return (
+    <div className={`rs ac-panel${place === 'bottom' ? ' bottom' : ''}`} data-ui="에이전트 패널">
+      <PanelChat key={current} id={current} auto={auto} onBack={() => setOpen(null)} onDeleted={() => setOpen(null)} onSaved={onSaved} recordTarget={recordTarget} tools={<>
+        {placeMenu}
+        <button className="icon-btn sm" data-ui="넓게 보기" data-tip={t('에이전트 화면에서 넓게 보기', 'Open wide in the agent page')} aria-label={t('넓게 보기', 'Open wide')} onClick={() => go({ page: 'agent', id: current })}>{Icon.openNote}</button>
+      </>} />
+    </div>
+  )
+  const newChat = <NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} />
+  const chats = !!sorted.length && <div className="ac-panel-chats">
+    <div className="set-side"><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
+  </div>
   return (
     <div className={`rs ac-panel${place === 'bottom' ? ' bottom' : ''}`} data-ui="에이전트 패널">
       <div className="rs-head ac-panel-head">
         <span className="ac-panel-name" aria-hidden>{Icon.spark}</span>
-        <select className="rs-select ac-switch" data-ui="대화 고르기" aria-label={t('대화 고르기', 'Pick a conversation')} value={current ?? ''} onChange={(e) => setOpen(e.target.value || null)}>
-          <option value="">{t('새 대화', 'New conversation')}</option>
-          {sorted.map((c) => <option key={c.id} value={c.id}>{c.title}{myTurn(c) ? ` · ${stateName(c)}` : ''}</option>)}
-        </select>
-        {chat && <ChatStateMark state={chat.state} name={stateName(chat)} />}
+        <span className="ac-panel-title">{t('이 프로젝트의 대화', 'Conversations in this project')}</span>
         <span className="sp" />
-        {chat && (chat.added > 0 || chat.removed > 0) && <button className="btn sm ac-changes-btn" data-ui="바뀐 곳 버튼" data-tip={t('에이전트 화면에서 바뀐 곳 보기', 'View changes in the agent page')} onClick={() => go({ page: 'agent', id: chat.id })}><Delta added={chat.added} removed={chat.removed} /></button>}
-        {onPlace && (
-          <PopButton icon down ui="대화 자리" tip={t('패널 자리', 'Panel position')} label={Icon.split}>
-            {(close) => <>
-              {(['right', 'bottom'] as const).map((v) => (
-                <button key={v} role="menuitemradio" aria-checked={place === v} className={place === v ? 'on' : ''} onClick={() => { close(); onPlace(v) }}>
-                  <span className="ac-pop-check" aria-hidden>{place === v ? Icon.check : null}</span>{v === 'right' ? t('오른쪽 사이드바 자리', 'In the right sidebar') : t('작업 화면 아래', 'Below the workspace')}
-                </button>
-              ))}
-              {onBeside && <button role="menuitem" disabled={!current} title={current ? undefined : t('대화를 먼저 여세요', 'Open a conversation first')} onClick={() => { close(); if (current) onBeside(current) }}>
-                <span className="ac-pop-check" aria-hidden />{t('노트 옆 패널에 나란히', 'Side by side with the note')}
-              </button>}
-            </>}
-          </PopButton>
-        )}
-        {current && <button className="icon-btn sm" data-ui="새 대화 버튼" data-tip={t('새 대화', 'New conversation')} aria-label={t('새 대화', 'New conversation')} onClick={() => setOpen(null)}>{Icon.plus}</button>}
-        {current && <button className="icon-btn sm" data-ui="넓게 보기" data-tip={t('에이전트 화면에서 넓게 보기', 'Open wide in the agent page')} aria-label={t('넓게 보기', 'Open wide')} onClick={() => go({ page: 'agent', id: current })}>{Icon.openNote}</button>}
+        {placeMenu}
       </div>
-      {current
-        ? <PanelChat key={current} id={current} auto={auto} onDeleted={() => setOpen(null)} onSaved={onSaved} />
-        : (() => {
-          const newChat = <NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} />
-          const chats = !!sorted.length && <div className="ac-panel-chats">
-            <div className="ac-side-h">{t('이 프로젝트의 대화', 'Conversations in this project')}</div>
-            <div className="set-side">{sorted.map((c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />)}</div>
-          </div>
-          // 오른쪽 자리: 새 대화의 범위 · 입력란은 연 대화의 입력란처럼 패널 아래에 고정하고, 대화 목록은 그 위에서 스크롤 (10/27 17:06 피드백)
-          return place === 'bottom'
-            ? <div className="rs-scroll ac-panel-list">{newChat}{chats}</div>
-            : <><div className="rs-scroll ac-panel-list">{chats}</div><div className="ac-compose ac-new-dock">{newChat}</div></>
-        })()}
+      {/* 오른쪽 자리: 새 대화의 범위 · 입력란은 연 대화의 입력란처럼 패널 아래에 고정하고, 대화 목록은 그 위에서 스크롤 (10/27 17:06 피드백) */}
+      {place === 'bottom'
+        ? <div className="rs-scroll ac-panel-list">{newChat}{chats}</div>
+        : <><div className="rs-scroll ac-panel-list">{chats}</div><div className="ac-compose ac-new-dock">{newChat}</div></>}
     </div>
   )
 }
 
-/** 패널 안의 대화: 머리(이름 · 범위 · ⋯)와 대화. 바뀐 곳은 에이전트 화면에서 */
-function PanelChat({ id, auto, onDeleted, onSaved }: { id: string; auto?: Attach; onDeleted(): void; onSaved(m: string): void }) {
+/** 기록에 딸린 대화의 맨 위 (10/28 시안 2절): 맡은 기록 하나와 「기록으로 가기 ›」. 답은 차례가 끝나면 앱이 그 기록에 적는다 */
+function RecordBanner({ rid, record }: { rid: string; record: { target: string; id: string } }) {
+  const files = useRecords(rid).data?.files
+  const file = files?.find((f) => f.target === record.target)
+  const c = file?.comments.find((x) => x.id === record.id)
+  return (
+    <div className="ac-record" data-ui="맡은 기록">
+      <div className="ac-record-h muted">{t('이 대화는 기록 하나를 맡았습니다. 차례가 끝나면 마지막 글이 그 기록의 답으로 붙습니다.', 'This conversation handles one record. When a turn ends, its last message is added to that record as the answer.')}</div>
+      <div className="ac-record-body">
+        <span className="ac-record-kind" aria-hidden>{c?.kind === '지시' ? Icon.send : Icon.ask}</span>
+        <span className="ac-record-text" title={c?.body}>{c ? c.body.split('\n')[0] : files ? t('기록을 찾지 못했습니다 (지웠을 수 있음)', 'Record not found (it may have been deleted)') : '…'}</span>
+      </div>
+      <div className="ac-record-foot muted">
+        <span>{file ? (file.target === 'project' ? t('이 프로젝트', 'This project') : file.title) : ''}</span>
+        <span className="sp" />
+        <button className="a" data-ui="기록으로 가기" onClick={() => { chooseRecordFilter('전체'); chooseRecordPlace(record.target); go({ page: 'records', rid }) }}>{t('기록으로 가기 ›', 'Go to the record ›')}</button>
+      </div>
+    </div>
+  )
+}
+
+/** 패널 안의 대화: 머리(‹ · 제목 · 묶음 · 상태 · ⋯)와 대화. 바뀐 곳은 에이전트 화면에서 */
+function PanelChat({ id, auto, onBack, onDeleted, onSaved, tools, recordTarget }: { id: string; auto?: Attach; onBack(): void; onDeleted(): void; onSaved(m: string): void; tools?: ReactNode; recordTarget?: { target: string; title: string; source?: string } }) {
   const chat = useChat(id).data
   const [fail, setFail] = useState<string | null>(null)
+  const [drafting, setDrafting] = useState(false)
+  // 기록으로 남기기 (10/28 시안 2절): 에이전트가 대화에서 초안을 쓰고, 초안은 적기 칸에 뜬다. 사용자가 고쳐 「저장」해야 기록이 된다
+  const keep = recordTarget && chat && !chat.record && chat.rid !== APP_RID ? async () => {
+    if (drafting) return
+    setDrafting(true); setFail(null)
+    try {
+      const d = await agentChatsApi.recordDraft(chat.id, recordTarget.target === 'project' ? t('이 프로젝트', 'this project') : recordTarget.title)
+      openRecordComposer(chat.rid, recordTarget, {}, { text: d.text, kind: '메모' })
+    } catch (e) { setFail((e as Error).message) } finally { setDrafting(false) }
+  } : undefined
   return (
     <div className="ac-panel-chat">
-      {chat && <ChatHead chat={chat} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
+      {chat && <ChatHead chat={chat} compact onBack={onBack} tools={tools} onRecord={keep} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
+      {drafting && <div className="muted ac-hint" role="status">{t('기록 초안을 쓰는 중…', 'Writing a record draft…')}</div>}
       {fail && <div className="error-text ac-hint">{fail}</div>}
       <ChatView id={id} auto={auto} head={false} onDeleted={onDeleted} onSaved={onSaved} />
     </div>

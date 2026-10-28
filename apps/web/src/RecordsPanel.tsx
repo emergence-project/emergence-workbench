@@ -162,7 +162,8 @@ function RecordComposer({ rid, target, needsDot = false }: { rid: string; target
   const area = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
     if (busy || !request || request.rid !== rid || request.target.target !== target.target) return
-    setDraft(attachRecordDraft(draft, request.draft, defaultColor))
+    const next = attachRecordDraft(draft, request.draft, defaultColor)
+    setDraft(request.fill ? { ...next, text: request.fill.text, kind: request.fill.kind } : next)
     clearRecordComposerRequest(request.nonce)
     area.current?.focus()
   }, [request, rid, target.target, busy]) // eslint-disable-line react-hooks/exhaustive-deps

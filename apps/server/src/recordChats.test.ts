@@ -55,6 +55,9 @@ describe('기록의 질문 · 지시와 에이전트 대화', () => {
     const [c] = (await chats()).filter((x) => x.record?.id === id)
     expect(c).toMatchObject({ write: 'read', record: { target: 'project', id } })
     expect(seen.at(-1)!.prompt).toContain('projED가 뭐야?')
+    expect(seen.at(-1)!.prompt).toContain('answer_record')
+    // 대화에는 기록 글만 보인다 (지침은 에이전트에게만)
+    expect((await a.inject({ method: 'GET', url: `/api/agent-chats/${c!.id}` })).json().chat.items[0]).toMatchObject({ kind: 'user', text: 'projED가 뭐야?' })
     const r = await record(id)
     expect(r.answers[0]).toMatchObject({ by: 'claude', body: '결론: 첫 답' })
     expect(r.state).toBe('답함')
@@ -63,6 +66,10 @@ describe('기록의 질문 · 지시와 에이전트 대화', () => {
     await a.inject({ method: 'POST', url: `${R}/${id}/reply`, payload: { text: '논문에서 찾아 줘' } })
     await vi.waitFor(async () => expect((await record(id)).answers).toHaveLength(3))
     expect((await record(id)).answers[2]).toMatchObject({ by: 'claude', body: '결론: 이어 답함' })
+    // 기록을 완료하면 그 대화는 보관함으로
+    const hash = (await a.inject({ method: 'GET', url: R })).json().hash
+    expect((await a.inject({ method: 'PATCH', url: `${R}/${id}`, payload: { state: '끝냄', baseHash: hash } })).statusCode).toBe(200)
+    expect((await a.inject({ method: 'GET', url: `/api/agent-chats/${c!.id}` })).json().chat.archived).toBe(true)
     // 같은 대화(열어 둔 에이전트)에 보냈다: 새로 열지 않았고 대화도 하나
     expect(seen.length).toBe(runs)
     expect((await chats()).filter((x) => x.record?.id === id)).toHaveLength(1)
@@ -93,5 +100,29 @@ describe('기록의 질문 · 지시와 에이전트 대화', () => {
     await add('다른 질문', '질문')
     await vi.waitFor(async () => expect(seen.length).toBe(runs + 1))
     expect((await chats()).find((x) => x.id === c.id)!.state).toBe('stopped')
+  })
+})
+
+describe('기록으로 남기기', () => {
+  it('작은 모델이 대화를 읽고 붙일 곳을 받아 초안을 쓴다. 에이전트 답이 없으면 거절한다', async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const { AgentChats } = await import('./agentChats.js')
+    const prompts: string[] = []
+    const runner: AgentRunner = Object.assign(async function* (): AsyncIterable<RunEvent> {
+      yield { type: 'text', text: '차수 5까지 모든 경우가 다섯 색으로 칠해집니다.' }
+      yield { type: 'result', ok: true }
+    }, { side: async (o: { prompt: string }) => { prompts.push(o.prompt); return '  차수 5까지 돌려 줘\n모두 다섯 색으로 칠해짐.  ' } })
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-record-draft-'))
+    const chats = new AgentChats({ dir, runner, limit: 2, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    const c = chats.create({ rid: 'p', text: '차수 5까지 돌려 줘' })
+    await expect(chats.recordDraft(c.id, '켐페 노트')).rejects.toThrow()
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    expect(await chats.recordDraft(c.id, '켐페 노트')).toEqual({ text: '차수 5까지 돌려 줘\n모두 다섯 색으로 칠해짐.' })
+    expect(prompts[0]).toContain('켐페 노트')
+    expect(prompts[0]).toContain('Agent: 차수 5까지 모든 경우가 다섯 색으로 칠해집니다.')
+    expect(prompts[0]).toContain('고친 곳:')
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
   })
 })

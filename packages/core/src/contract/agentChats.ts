@@ -214,6 +214,11 @@ export const UnqueueBody = z.object({ index: z.number().int().min(0) }).strict()
 export const Unqueued = z.object({ chat: Chat, images: z.array(ImageIn).optional() }).strict()
 export const ArchiveBody = z.object({ archived: z.boolean() }).strict()
 export const TitleBody = z.object({ title: z.string().min(1).max(200) }).strict()
+/** 「기록으로 남기기」(10/28): 붙일 곳의 이름을 주면 작은 모델이 대화에서 기록 초안을 쓴다 */
+export const RecordDraftBody = z.object({ place: z.string().min(1).max(300) }).strict()
+export const RecordDraft = z.object({ text: z.string() }).strict()
+export type RecordDraftBody = z.infer<typeof RecordDraftBody>
+export type RecordDraft = z.infer<typeof RecordDraft>
 /** 되돌리기: 차례를 연 내 지시(user 항목의 point) 앞으로. 지운 지시의 글 · 붙인 것과, 앱 고치기 대화면 되돌린 파일 수 */
 export const RewindBody = z.object({ point: z.string().min(1) }).strict()
 export const Rewound = z.object({ chat: Chat, text: z.string(), attach: z.array(Attach).optional(), files: z.number().optional() }).strict()

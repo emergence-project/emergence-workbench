@@ -2,7 +2,7 @@
 import { enc, json, req, send } from './http'
 
 // 타입은 서버와 같은 계약에서 (packages/core/src/contract/agentChats.ts)
-import type { AskAnswer, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, NewChatBody, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
+import type { AskAnswer, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, NewChatBody, RecordDraft, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
 export type { AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 
 /** 앱 고치기 대화의 rid (계약의 APP_RID와 같은 값. 값을 가져오면 화면 번들에 zod가 들어가서 여기 다시 적는다) */
@@ -33,6 +33,8 @@ export const agentChatsApi = {
   /** 오류 · 멈춤 · 앱 재시작 뒤 이어 하기 */
   resume: (id: string) => req(`${base}/${enc(id)}/resume`, send('POST', {})).then(one),
   rename: (id: string, title: string) => req(`${base}/${enc(id)}/title`, send('POST', { title })).then(one),
+  /** 기록으로 남기기: 대화에서 기록 초안 (10/28) */
+  recordDraft: (id: string, place: string) => req(`${base}/${enc(id)}/record-draft`, send('POST', { place })).then((r) => json<RecordDraft>(r)),
   archive: (id: string, archived: boolean) => req(`${base}/${enc(id)}/archive`, send('POST', { archived })).then(one),
   stop: (id: string) => req(`${base}/${enc(id)}/stop`, send('POST', {})).then(one),
   remove: (id: string) => req(`${base}/${enc(id)}`, { method: 'DELETE' }).then((r) => json<ChatDeleted>(r)),

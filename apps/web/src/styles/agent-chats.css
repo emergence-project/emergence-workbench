@@ -190,7 +190,6 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-panel-head .sp { flex: 1; }
 .ac-panel-name { display: inline-flex; align-items: center; color: var(--text); flex: none; }
 .ac-panel-name svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.ac-switch { flex: 0 1 auto; min-width: 0; max-width: 70%; width: auto; font-weight: var(--fw-strong); }
 .ac-panel-list { padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
 .ac-panel-list .ac-side-h { padding-left: 0; }
 .ac-panel-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -298,3 +297,20 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-pick.on { background: var(--text-2); border-color: var(--text-2); }
 .ac-line.picked { background: var(--bg-hover); }
 .ac-pickbar .btn.danger { color: var(--danger); }
+/* 대화 묶음 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 2절): 기록의 질문 · 지시 | 직접 연 대화. 기록 대화가 없으면 머리를 두지 않는다 */
+.ac-sub-h { font-size: var(--fs-xs); color: var(--text-3); padding: var(--sp-2) var(--sp-2) var(--sp-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-sub-h .n { margin-left: var(--sp-1); }
+.ac-panel-list .ac-sub-h { padding-left: 0; }
+.ac-panel-title { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* 기록에 딸린 대화의 맨 위: 맡은 기록 하나와 「기록으로 가기 ›」 */
+.ac-record { flex: none; margin: var(--sp-2) var(--sp-3) 0; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-sunken); font-size: var(--fs-sm); }
+.ac-record-h { font-size: var(--fs-xs); }
+.ac-record-body { display: flex; align-items: baseline; gap: var(--sp-1); margin-top: var(--sp-1); color: var(--text); min-width: 0; }
+.ac-record-kind { flex: none; display: inline-flex; color: var(--text-2); }
+.ac-record-kind svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ac-record-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-record-foot { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-1); font-size: var(--fs-xs); }
+.ac-record-foot .sp { flex: 1; }
+/* 패널 머리의 아래 줄 (안 A): 묶음 · 상태 · 시각을 한 줄로, 넘치면 줄임표 */
+.ac-meta.compact { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+.ac-meta.compact > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
