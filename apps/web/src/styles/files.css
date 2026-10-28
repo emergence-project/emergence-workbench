@@ -1,4 +1,4 @@
-/* 프로젝트 정보 › 저장소 (FilesPage.tsx, 10/28 시안 1-2절): 위 줄은 저장소 상태, 아래는 연 파일 탭, 나무는 왼쪽 사이드바 목차 탭 */
+/* 프로젝트 정보 › 저장소 (FilesPage.tsx, 10/28 시안 1-2절): 위 줄은 저장소 상태, 아래는 연 파일 탭, 나무는 왼쪽 사이드바 파일 탭 (FileTree.tsx) */
 .ws-doc.files-page { flex-direction: column; }
 .repo-strip { flex-wrap: wrap; row-gap: var(--sp-1); }
 .repo-brief { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); min-width: 0; font-size: var(--fs-sm); color: var(--text-2); }
@@ -13,7 +13,7 @@
 .fv-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-3); border: 0; background: none; color: inherit; font: inherit; font-size: var(--fs-sm); font-family: var(--editor-font); cursor: pointer; }
 .fv-tab-x { flex: none; padding: 0 var(--sp-2); border: 0; background: none; color: var(--text-3); font: inherit; cursor: pointer; }
 .fv-tab-x:hover { color: var(--text); }
-/* 나무: 사이드바 목차 탭 안(.side-files), 사이드바를 접었으면 본문 왼쪽 */
+/* 나무: 사이드바 파일 탭 안(.side-files), 사이드바를 접었으면 본문 왼쪽 */
 .side-files { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 .fv-side { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; min-width: 0; }
 .files-page .fv-side { flex: none; width: 260px; border-right: 1px solid var(--line); }
