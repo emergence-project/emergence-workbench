@@ -17,6 +17,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type Turn } from './agentChats.js'
 import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
 import { claudeEnv } from './ask.js'
+import { skillsPluginDir, userConnectors } from './agentExtras.js'
+import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 
 type Block = { type: string; text?: string; thinking?: string; name?: string; input?: unknown }
 type Usage = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }
@@ -169,7 +171,9 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
         agents: { [EXPLORE_AGENT]: exploreAgent },
         settingSources: [],
         strictMcpConfig: true,
-        mcpServers: { [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor(input.appChat) } },
+        // 맥의 Claude Code 커넥터(사용자 범위 MCP 서버)와 스킬 (10/21 22:40). 사용자 설정 파일은 여전히 읽지 않는다
+        mcpServers: { ...userConnectors(MCP_NAME) as Record<string, McpServerConfig>, [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor(input.appChat) } },
+        ...(() => { const dir = skillsPluginDir(); return dir ? { plugins: [{ type: 'local' as const, path: dir }], skills: 'all' as const } : {} })(),
         disallowedTools: input.appChat ? [] : [...FILE_WRITE_TOOLS],
         systemPrompt: { type: 'preset', preset: 'claude_code', append: input.brief },
         // 계획 먼저: SDK의 계획 모드로 시작하고, ExitPlanMode(계획 카드)를 허락하면 SDK가 보통 모드로 돌아온다. 고치기 허락은 늘 앱이 정한다

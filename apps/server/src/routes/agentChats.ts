@@ -2,7 +2,8 @@
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/agentChats'
-import { AgentChats, type AgentRunner } from '../agentChats.js'
+import { AgentChats, MCP_NAME, type AgentRunner } from '../agentChats.js'
+import { chatExtras } from '../agentExtras.js'
 import type { AppWork } from '../appWorktree.js'
 import { claudeAgentRunner } from '../agentRunner.js'
 import { parseBody, replies } from '../contract.js'
@@ -64,6 +65,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
 
   /** 고를 수 있는 모델 (맥의 Claude Code에게 물어 30분 기억, 못 띄우면 빈 목록) */
+  app.get('/api/agent-chats/extras', replies(C.ChatExtras), async (): Promise<C.ChatExtras> => chatExtras(MCP_NAME))
   app.get('/api/agent-chats/models', replies(C.ChatModels), async (): Promise<C.ChatModels> => ({ models: await chats.models() }))
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))

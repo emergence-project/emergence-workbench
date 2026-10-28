@@ -122,8 +122,8 @@ export const MCP_NAME = 'workbench'
 const MCP = `mcp__${MCP_NAME}__`
 
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'NotebookRead'])
-/** 묻지 않고 두는 것: 할 일 목록 · 서브에이전트(그 도구 호출도 같은 규칙을 거친다) · 도구 찾기 · 셸 결과 보기 */
-const FREE_TOOLS = new Set(['TodoWrite', 'Task', 'Agent', 'ToolSearch', 'BashOutput', 'KillBash', 'KillShell', 'EnterPlanMode'])
+/** 묻지 않고 두는 것: 스킬 읽기(스킬이 시키는 명령 · 고치기는 같은 규칙을 거친다) · 할 일 목록 · 서브에이전트(그 도구 호출도 같은 규칙을 거친다) · 도구 찾기 · 셸 결과 보기 */
+const FREE_TOOLS = new Set(['Skill', 'TodoWrite', 'Task', 'Agent', 'ToolSearch', 'BashOutput', 'KillBash', 'KillShell', 'EnterPlanMode'])
 /** 계획 모드에서 계획을 보이는 도구: 계획 승인 카드가 된다 */
 export const PLAN_TOOL = 'ExitPlanMode'
 /** 파일을 바로 쓰는 도구: 1단계에서는 막는다 (노트는 edit_note로) */
@@ -392,7 +392,7 @@ export function promptOf(text: string, attach?: Attach[]): string {
   if (CC_COMMAND.test(text.trim())) return text.trim()
   if (!attach?.length) return text
   const how: Record<Attach['kind'], string> = {
-    note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)',
+    note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)', connector: 'connector (MCP server; its tools are mcp__<name>__*, use them for this)',
   }
   const lines = attach.map((a) => a.kind === 'selection'
     ? `- ${how.selection} from ${a.ref}:\n${(a.text ?? '').split('\n').map((l) => `  > ${l}`).join('\n')}`

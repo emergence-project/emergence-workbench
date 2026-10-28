@@ -108,6 +108,8 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-input { position: relative; }
 .ac-input textarea { width: 100%; box-sizing: border-box; border: 0; padding: 2px; resize: vertical; min-height: 54px; font: inherit; font-size: var(--fs-sm); line-height: 1.5; color: var(--text); background: transparent; outline: none; }
 .ac-menu { position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: var(--sp-1); z-index: var(--z-menu); display: flex; flex-direction: column; padding: var(--sp-1); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); box-shadow: var(--shadow); max-height: 280px; overflow: auto; }
+/* 입력란 위에 메뉴가 들어갈 자리가 없으면(새 대화가 화면 위쪽일 때) 아래로 연다 */
+.ac-menu.down { bottom: auto; top: 100%; margin-bottom: 0; margin-top: var(--sp-1); }
 .ac-menu-item { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; min-width: 0; }
 .ac-menu-item.on { background: var(--bg-hover); }
 .ac-menu-cmd { flex: none; min-width: 64px; font-size: var(--fs-xs); }

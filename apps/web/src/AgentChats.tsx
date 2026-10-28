@@ -146,7 +146,7 @@ export function sideQuestion(text: string): string | undefined {
   return m?.[2]!.trim() || undefined
 }
 
-const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record') }
+const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector') }
 
 // ---------- 노트에서 「에이전트에게」 (고른 글 메뉴) ----------
 
@@ -618,6 +618,8 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
   const research = rid !== APP_RID
   const notes = useQuery({ queryKey: qk.notes(rid), queryFn: () => notesApi(rid).list(), enabled: research && menu?.kind === '@' }).data
   const topics = useQuery({ queryKey: qk.topics(rid), queryFn: () => api.research(rid).topics(), enabled: research && menu?.kind === '@' }).data
+  // 맥의 Claude Code 스킬 · 커넥터 (10/21 22:40): / 메뉴 · @ 메뉴에 함께 보인다
+  const extras = useQuery({ queryKey: qk.agentExtras, queryFn: () => agentChatsApi.extras(), enabled: !!menu, staleTime: 60_000 }).data
   const tree = useQuery({ queryKey: qk.repoTree(rid), queryFn: () => api.research(rid).repoTree(), enabled: research && menu?.kind === '@' && (menu.query.length >= 2) }).data
 
   const focusAt = (at: number) => requestAnimationFrame(() => { box.current?.focus(); box.current?.setSelectionRange(at, at) })
@@ -635,11 +637,18 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
     if (!menu) return []
     const q = menu.query.toLowerCase()
     if (menu.kind === '/') {
-      return COMMANDS.filter((c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.label.toLowerCase().includes(q))
-        .map((c) => ({ key: c.cmd, label: c.cmd, meta: c.label, run: () => { setText(c.text); setCaret(c.text.length); requestAnimationFrame(() => box.current?.focus()) } }))
+      const fill = (v: string) => { setText(v); setCaret(v.length); requestAnimationFrame(() => box.current?.focus()) }
+      const cmds = COMMANDS.filter((c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.label.toLowerCase().includes(q))
+        .map((c) => ({ key: c.cmd, label: c.cmd, meta: c.label, run: () => fill(c.text) }))
+      // 스킬: 고르면 그 스킬을 쓰라는 글로 시작한다 (에이전트가 Skill 도구로 읽는다)
+      const skills = (extras?.skills ?? []).filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
+        .map((s) => ({ key: `s:${s.name}`, label: s.name, meta: `${t('스킬', 'Skill')}${s.description ? ` · ${s.description}` : ''}`, run: () => fill(t(`「${s.name}」 스킬로 `, `Using the ${s.name} skill, `)) }))
+      return [...cmds, ...skills].slice(0, 12)
     }
     const has = (s: string) => s.toLowerCase().includes(q)
     const out: MenuPick[] = []
+    // 커넥터는 몇 개뿐이라 앞에 둔다 (노트가 많아도 묻히지 않게)
+    for (const c of extras?.connectors ?? []) if (has(c.name)) out.push({ key: `c:${c.name}`, label: c.name, meta: ATTACH_NAME.connector, run: () => addAttach({ kind: 'connector', ref: c.name, label: c.name }) })
     for (const n of notes ?? []) if (has(n.title) || has(n.file)) out.push({ key: `n:${n.file}`, label: n.title, meta: ATTACH_NAME.note, run: () => addAttach({ kind: 'note', ref: n.file, label: n.title }) })
     for (const x of topics ?? []) if (has(x.title) || has(x.id)) out.push({ key: `t:${x.id}`, label: x.title, meta: ATTACH_NAME.topic, run: () => addAttach({ kind: 'topic', ref: x.id, label: x.title }) })
     if (q.length >= 2) for (const f of tree?.files ?? []) if (has(f.path)) out.push({ key: `f:${f.path}`, label: f.path, meta: ATTACH_NAME.file, run: () => addAttach({ kind: 'file', ref: f.path, label: f.path.split('/').pop() ?? f.path }) })
@@ -717,7 +726,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
           onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart); setClosed(null) }}
           onSelect={(e) => setCaret(e.currentTarget.selectionStart)} onKeyDown={onKey} onPaste={onPaste} />
         {menu && (
-          <div className="ac-menu" role="listbox" data-ui={menu.kind === '/' ? '명령 메뉴' : '붙이기 메뉴'}>
+          <div className={`ac-menu${(box.current?.getBoundingClientRect().top ?? 999) < 320 ? ' down' : ''}`} role="listbox" data-ui={menu.kind === '/' ? '명령 메뉴' : '붙이기 메뉴'}>
             {picks.length
               ? picks.map((p, i) => (
                 <button key={p.key} role="option" aria-selected={i === hi} className={`ac-menu-item${i === hi ? ' on' : ''}`} onMouseDown={(e) => e.preventDefault()} onMouseEnter={() => setHi(i)} onClick={() => p.run()}>
@@ -725,7 +734,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
                   {p.meta && <span className="muted ac-menu-meta">{p.meta}</span>}
                 </button>
               ))
-              : <div className="muted ac-menu-none">{menu.kind === '@' ? (menu.query ? t('맞는 것이 없습니다', 'Nothing matches') : t('노트 · 주제 이름을 쓰세요 (파일은 두 글자부터)', 'Type a note or topic name (files from two letters)')) : t('맞는 명령이 없습니다', 'No matching command')}</div>}
+              : <div className="muted ac-menu-none">{menu.kind === '@' ? (menu.query ? t('맞는 것이 없습니다', 'Nothing matches') : t('노트 · 주제 · 커넥터 이름을 쓰세요 (파일은 두 글자부터)', 'Type a note, topic or connector name (files from two letters)')) : t('맞는 명령이 없습니다', 'No matching command')}</div>}
           </div>
         )}
       </div>
@@ -733,8 +742,8 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
       <div className="ac-compose-row">
         <PopButton ui="붙이기 버튼" tip={t('붙이기 · 명령 · 그림', 'Attach · commands · images')} label={<span className="ac-pop-ico">{Icon.plus}</span>}>
           {(close) => <>
-            <button role="menuitem" onClick={() => { close(); startToken('@') }}>{t('노트 · 주제 · 파일 붙이기', 'Attach a note, topic or file')}<span className="muted mono ac-key">@</span></button>
-            <button role="menuitem" onClick={() => { close(); startToken('/') }}>{t('명령', 'Commands')}<span className="muted mono ac-key">/</span></button>
+            <button role="menuitem" onClick={() => { close(); startToken('@') }}>{t('노트 · 주제 · 파일 · 커넥터 붙이기', 'Attach a note, topic, file or connector')}<span className="muted mono ac-key">@</span></button>
+            <button role="menuitem" onClick={() => { close(); startToken('/') }}>{t('명령 · 스킬', 'Commands and skills')}<span className="muted mono ac-key">/</span></button>
             <button role="menuitem" onClick={() => { close(); file.current?.click() }}>{t('그림 고르기', 'Choose images')}<span className="muted ac-key">{t('붙여넣기도', 'or paste')}</span></button>
           </>}
         </PopButton>
