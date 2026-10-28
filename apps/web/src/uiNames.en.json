@@ -924,5 +924,8 @@
   "대화 묶음 줄": "Conversation group line",
   "기록으로 남기기": "Keep as a record",
   "맡은 기록": "Handled record",
-  "기록으로 가기": "Go to the record"
+  "기록으로 가기": "Go to the record",
+  "고친 대화": "Conversations that edited",
+  "기록 보기": "Show record",
+  "수정 검토에서 보기": "Open in edit review"
 }

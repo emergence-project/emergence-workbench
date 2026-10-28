@@ -1,10 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useConceptRender } from './ConceptNotes'
 import { onlySpacing, paintDiff } from './diffPaint'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
 import { splitNoteFixes } from '@rw/core'
-import { agentEditsApi, commentsApi, ConflictError, type CommentEntry, type EditAction, type EditAsk, type EditAttempt, type EditHunk, type EditReview, type EditReviewRow, type EditTarget } from './api'
+import { agentChatsApi, agentEditsApi, commentsApi, ConflictError, type CommentEntry, type EditAction, type EditAsk, type EditAttempt, type EditHunk, type EditReview, type EditReviewRow, type EditTarget } from './api'
 import { ComposeBox, SayCard } from './Conversation'
 import { talksOf, talkTurn, talkWhen } from './editTalk'
 import { MemoText } from './memo'
@@ -17,6 +17,7 @@ import { go, type Route } from './router'
 import { noteToc } from './noteScreen'
 import { editNotes } from './editNotes'
 import { agentName } from './taskView'
+import { chooseRecordFilter, chooseRecordPlace } from './workRecords'
 
 /**
  * 에이전트 고침 검토 (10/8 사용자 결정, 첫 판): 에이전트가 고친 노트 · 개념노트를 고치기 전 글(기준판)과 문단 단위로 비교한다.
@@ -138,6 +139,33 @@ function groupsOf(hunks: EditHunk[]): { section?: string; hunks: EditHunk[] }[] 
   return out
 }
 
+/**
+ * 이 노트를 고친 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 1절): 기록의 질문 · 지시나 직접 연 대화에서 왔는지 한 줄씩,
+ * 오른쪽에 기록 보기(말풍선) · 대화 보기(봇). 노트 고침은 모두 여기서 고쳐 승인한다(「노트에 적용」은 없앴다)
+ */
+function EditSources({ rid, file }: { rid: string; file: string }) {
+  const chats = useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) }).data?.chats ?? []
+  // 옛 배치(notes/)와 주제 폴더(topics/<주제>/) 경로가 섞여도 노트 폴더 이름으로 맞춘다 (기록도 폴더 이름으로 이어진다)
+  const folder = (f: string) => f.split('/').slice(-2).join('/')
+  const from = chats.filter((c) => c.changed.includes(file) || c.changed.some((f) => folder(f) === folder(file)))
+  if (!from.length) return null
+  return (
+    <div className="ae-sources" data-ui="고친 대화">
+      {from.map((c) => (
+        <div key={c.id} className="ae-source">
+          <span className="muted">{c.record ? t('기록의 질문 · 지시에서', 'From a record question or instruction') : t('직접 연 대화에서', 'From a conversation you opened')}</span>
+          <span className="ae-source-title" title={c.title}>{c.title}</span>
+          <span className="muted">{when(c.updated)}</span>
+          <span className="sp" />
+          {c.record && <button className="icon-btn sm" data-ui="기록 보기" data-tip={t('기록 보기', 'Show the record')} aria-label={t('기록 보기', 'Show the record')}
+            onClick={() => { chooseRecordFilter('전체'); chooseRecordPlace(c.record!.target); go({ page: 'records', rid }) }}>{Icon.comment}</button>}
+          <button className="icon-btn sm" data-ui="대화 보기" data-tip={t('대화 보기', 'Show the conversation')} aria-label={t('대화 보기', 'Show the conversation')} onClick={() => go({ page: 'agent', id: c.id })}>{Icon.bot}</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; raw: boolean; version: number; view?: ReactNode; onChanged(): void; onSaved(msg: string): void }) {
   const [rv, setRv] = useState<EditReview | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
@@ -198,6 +226,7 @@ function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; ra
         <span className="sp" />
         {view}
       </div>
+      {rv.target.kind === 'note' && <EditSources rid={rv.target.rid} file={rv.target.file} />}
       {/* 고친 까닭 (10/20 18:01 피드백): 이 고침 묶음 전체를 왜 했는지. 이름표를 달고, 바뀐 곳의 이유와 같은 말 · 되풀이는 뺀다 */}
       {notes.length > 0 && <div className="ae-notes" data-ui="고친 까닭">
         <span className="ae-notes-h">{t('에이전트가 적은 고친 까닭', 'Why the agent made these edits')}</span>
