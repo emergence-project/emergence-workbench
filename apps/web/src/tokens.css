@@ -29,6 +29,9 @@
   --code-cmd: #7c3aed;
   --code-math: #0e7490;
   --code-comment: var(--text-3);
+  /* 편집기 수식 범위 (10/28): 회색 바탕과 기호 종류 넷의 색. 원문 편집기 안에서만 쓴다 */
+  --math-zone: rgba(0,0,0,.05);
+  --math-dollar: #1d5fd6; --math-paren: #7c3aed; --math-display: #b45309; --math-bracket: #be185d;
   --paper: #ffffff;
   --record-menu-ink: #0d0d0d; /* 검은 고른 글 메뉴와 흰 하이라이트 메뉴는 두 테마에서 같은 대비 */
   --banner-bg: #ffe08a; --banner-stripe: #ffd55c; --banner-text: #3d2c00;
@@ -107,6 +110,7 @@
     --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
     --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40;
     --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
+    --math-zone: rgba(255,255,255,.07); --math-dollar: #7aa2f7; --math-paren: #c9a9ff; --math-display: #f08a4b; --math-bracket: #f472b6;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
     --banner-bg: #5a4810; --banner-stripe: #665218; --banner-text: #ffe8a8;
     --mark-bg: #685a1c;
@@ -132,6 +136,7 @@
     --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
     --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40;
     --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
+    --math-zone: rgba(255,255,255,.07); --math-dollar: #7aa2f7; --math-paren: #c9a9ff; --math-display: #f08a4b; --math-bracket: #f472b6;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
     --banner-bg: #5a4810; --banner-stripe: #665218; --banner-text: #ffe8a8;
     --mark-bg: #685a1c;
