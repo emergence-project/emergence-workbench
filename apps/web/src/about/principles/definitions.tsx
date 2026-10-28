@@ -5,7 +5,7 @@ import type { AboutSection } from '../types'
 // 소개 › principles › 정의. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '정의', prs: [277],
+  title: '정의', prs: [277, 300],
   figure: <><DocMapFigure /><DocKindsTable /></>,
   items: [
     { text: <><b>프로젝트</b> — 연구 하나. 그 연구의 저장소와 짝입니다. 성격은 연구 · 업무 둘입니다.</> },
