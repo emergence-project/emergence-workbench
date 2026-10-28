@@ -35,3 +35,28 @@
 .records-publish-error, .records-publish-pending { flex: none; display: flex; gap: var(--sp-2); align-items: baseline; padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--text-2); }
 .records-publish-error span, .records-publish-pending > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .records-publish-error .a, .records-publish-pending .a { white-space: nowrap; }
+
+/* 기록 › 모두: 기록이 달린 곳 목록 + 고른 곳의 기록 (10/22 12:09 안 C) */
+.rp-split { display: flex; gap: var(--sp-4); align-items: flex-start; min-width: 0; }
+.rp-main { flex: 1; min-width: 0; }
+.rp-list { position: sticky; top: 0; flex: none; width: 220px; max-height: calc(100vh - 220px); overflow-y: auto; display: flex; flex-direction: column; gap: 1px; padding-right: var(--sp-2); border-right: 1px solid var(--line); }
+.rp-find { flex: none; height: var(--input-h); margin-bottom: var(--sp-2); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font-size: var(--fs-sm); min-width: 0; }
+.rp-find:focus { outline: none; border-color: var(--text); }
+.rp-kind { display: flex; flex-direction: column; gap: 1px; margin-top: var(--sp-2); }
+.rp-kind-h { padding: 0 var(--sp-2) 2px; font-size: var(--fs-xs); color: var(--text-3); }
+.rp-row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 28px; padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--text-2); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.rp-row:hover { background: var(--bg-hover); }
+.rp-row.on { background: var(--bg-hover); color: var(--text); font-weight: var(--fw-strong); }
+.rp-row .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-row .n { flex: none; color: var(--text-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.rp-dot { flex: none; width: 8px; height: 8px; }
+.rp-none { padding: var(--sp-2); font-size: var(--fs-xs); }
+.rp-head { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-2); font-size: var(--fs-sm); }
+.rp-head .sp { flex: 1; }
+.rp-select { display: none; }
+@media (max-width: 900px) {
+  .rp-split { flex-direction: column; gap: var(--sp-2); }
+  .rp-list { display: none; }
+  .rp-select { display: block; max-width: 100%; height: var(--input-h); }
+  .rp-main { width: 100%; }
+}

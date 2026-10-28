@@ -16,7 +16,7 @@ import { JudgeQueue, judgeTurns } from './flow/JudgeQueue'
 import { FlowPairs } from './flow/FlowPairs'
 import { threadCounts } from './flow/threadModel'
 import { needsJudgment, openTaskId, taskRowKey } from './taskView'
-import { agentTurnRecords, isRecordFilter, openTodoRecords, parseWorkFilter, clearTodoFocus, peekTodoFocus, RECORD_VIEWS, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, userTurnRecords, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, type FlatRecord, type RecordFilter, type RecordView, type WorkFilter } from './workRecords'
+import { agentTurnRecords, isRecordFilter, openTodoRecords, parseWorkFilter, clearTodoFocus, peekTodoFocus, RECORD_VIEWS, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, userTurnRecords, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, recordPlaces, PLACE_KINDS, PLACE_KIND_LABEL, type FlatRecord, type RecordPlace, type WorkRecordGroup, type RecordFilter, type RecordView, type WorkFilter } from './workRecords'
 import { EditReviewRow, TurnRecordRow } from './RecordTurns'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
 import { useAgentEdits, useJournal, useProjectInfo, useRecords } from './projectQueries'
@@ -103,6 +103,11 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   const recordsLoaded = recordsQuery.isFetched && !recordsQuery.isFetching
   const recordsError = recordsQuery.error?.message ?? null
   const groups = workRecordGroups(files, entries, filter === '전체' || filter === '질문' || filter === '지시' || filter === '할 일' ? filter : '메모')
+  // 기록이 달린 곳 (10/22 12:09 안 C): 왼쪽에서 고른 곳의 기록만 오른쪽에. null = 전체
+  const places = useMemo(() => recordPlaces(groups), [groups])
+  const [place, setPlace] = useState<string | null>(null)
+  const picked = place && places.some((p) => p.target === place) ? place : null
+  const shownGroups = picked ? groups.filter((g) => g.target === picked) : groups
   const openRecord = (file: RecordFile, entry: CommentEntry) => {
     if (!(entry.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
@@ -190,13 +195,19 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
                 <ProjectTasks t={project.tasks} />
                 <div className="todo-sec-h" title="workbench/comments/">{t('앱 할 일', 'App to-dos')}</div>
               </>}
-              <div className="work-records" data-ui={filter === '할 일' ? '할 일' : '작업 기록 목록'}>
-                {!count && <p className="empty records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No open to-dos.') : filter === '전체' ? t('아직 기록이 없습니다. 노트에서 글을 골라 적거나 오른쪽 사이드바 기록에 적어 보세요.', 'No records yet. Select text in a note, or write in the right sidebar Records.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
-                {groups.map((group) => <div className="record-group" key={group.target}>
-                  {group.items.map((item) => item.kind === 'record'
-                    ? <div key={`${item.file.target}/${item.entry.id}`} data-todo-key={todoKey({ target: item.file.target, id: item.entry.id })}><RecordList rid={rid} file={item.file} filter={filter as RecordFilter | '전체'} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} /></div>
-                    : <JournalRecordRow key={`journal/${item.entry.date}/${item.entry.index}`} entry={item.entry} rid={rid} noteOf={noteOf} rapi={rapi} reload={reload} onSaved={onSaved} />)}
-                </div>)}
+              <div className="rp-split">
+                {places.length > 0 && <PlaceList places={places} picked={picked} total={count} onPick={setPlace} />}
+                <div className="rp-main">
+                <div className="work-records" data-ui={filter === '할 일' ? '할 일' : '작업 기록 목록'}>
+                  {picked && <PlaceHead rid={rid} group={shownGroups[0]} firstPartOf={firstPartOf} />}
+                  {!count && <p className="empty records-empty">{!recordsLoaded || !journalLoaded ? t('불러오는 중…', 'Loading…') : recordsError ? t('기록을 불러오지 못했습니다.', 'Could not load records.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No open to-dos.') : filter === '전체' ? t('아직 기록이 없습니다. 노트에서 글을 골라 적거나 오른쪽 사이드바 기록에 적어 보세요.', 'No records yet. Select text in a note, or write in the right sidebar Records.') : t(`아직 ${filter === '질문' ? '질문이' : filter === '지시' ? '지시가' : '메모가'} 없습니다. 노트에서 글을 골라 적거나 아래에 적어 보세요.`, `No ${filter === '질문' ? 'questions' : filter === '지시' ? 'instructions' : 'memos'} yet. Select text in a note to write one, or write below.`)}</p>}
+                  {shownGroups.map((group) => <div className="record-group" key={group.target}>
+                    {group.items.map((item) => item.kind === 'record'
+                      ? <div key={`${item.file.target}/${item.entry.id}`} data-todo-key={todoKey({ target: item.file.target, id: item.entry.id })}><RecordList rid={rid} file={item.file} filter={filter as RecordFilter | '전체'} items={[item.entry]} work onGo={(c) => openRecord(item.file, c)} /></div>
+                      : <JournalRecordRow key={`journal/${item.entry.date}/${item.entry.index}`} entry={item.entry} rid={rid} noteOf={noteOf} rapi={rapi} reload={reload} onSaved={onSaved} />)}
+                  </div>)}
+                </div>
+                </div>
               </div>
               {isRecordFilter(filter) && <WorkComposer key={rid} filter={filter} onSave={async (kind, text) => {
                 const result = await recordWrites(rid).add('project', { kind, title: summary.research.title, text })
@@ -213,6 +224,56 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
         </div>
       </section>
       {dialog && <TaskDialog rid={rid} topics={topics} draft={dialog} onClose={() => setDialog(null)} onSaved={onSaved} reload={reloadTasks} />}
+    </div>
+  )
+}
+
+/**
+ * 기록이 달린 곳 목록 (10/22 12:09 안 C, 10/28 코멘트 "관련된 페이지 또는 노트로 구분"): 기록이 있는 곳만, 갈래(프로젝트 · 주제 · 노트 · 원고 · 흐름 점 · 그 밖)로 묶고
+ * 최근에 기록이 생긴 곳이 위로. 수는 지금 종류 필터의 기록 수, 주황 점은 내 차례. 위 찾기 칸으로 이름을 찾는다. 좁은 폭에서는 고르기 메뉴 하나
+ */
+function PlaceList({ places, picked, total, onPick }: { places: RecordPlace[]; picked: string | null; total: number; onPick(target: string | null): void }) {
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const shown = q ? places.filter((p) => p.title.toLowerCase().includes(q)) : places
+  const row = (p: RecordPlace) => (
+    <button key={p.target} className={`rp-row${picked === p.target ? ' on' : ''}`} aria-current={picked === p.target ? 'true' : undefined} title={p.title} onClick={() => onPick(p.target)}>
+      {p.turn > 0 ? <span className="turn-dot" role="img" aria-label={t(`내 차례 ${p.turn}`, `${p.turn} for you`)} title={t(`내 차례 ${p.turn}`, `${p.turn} for you`)} /> : <span className="rp-dot" aria-hidden />}<span className="label">{p.kind === 'flow' ? p.title.replace(/^흐름 점\s+/, '') : p.title}</span><span className="n">{p.count}</span>
+    </button>
+  )
+  return (
+    <>
+      <nav className="rp-list" data-ui="기록이 달린 곳" aria-label={t('기록이 달린 곳', 'Where records are attached')}>
+        <input className="rp-find" type="search" value={query} placeholder={t('이름 찾기', 'Find a name')} aria-label={t('기록이 달린 곳 찾기', 'Find a place')} onChange={(e) => setQuery(e.target.value)} />
+        <button className={`rp-row${picked === null ? ' on' : ''}`} aria-current={picked === null ? 'true' : undefined} onClick={() => onPick(null)}><span className="rp-dot" aria-hidden /><span className="label">{t('전체', 'All')}</span><span className="n">{total}</span></button>
+        {PLACE_KINDS.map((k) => {
+          const list = shown.filter((p) => p.kind === k)
+          return list.length ? <div key={k} className="rp-kind"><div className="rp-kind-h">{PLACE_KIND_LABEL[k]}</div>{list.map(row)}</div> : null
+        })}
+        {q && !shown.length && <p className="muted rp-none">{t('맞는 곳이 없습니다', 'No match')}</p>}
+      </nav>
+      <select className="rp-select" data-ui="기록이 달린 곳 고르기" aria-label={t('기록이 달린 곳', 'Where records are attached')} value={picked ?? ''} onChange={(e) => onPick(e.target.value || null)}>
+        <option value="">{t(`전체 (${total})`, `All (${total})`)}</option>
+        {PLACE_KINDS.map((k) => {
+          const list = places.filter((p) => p.kind === k)
+          return list.length ? <optgroup key={k} label={PLACE_KIND_LABEL[k]}>{list.map((p) => <option key={p.target} value={p.target}>{`${p.title} (${p.count})`}</option>)}</optgroup> : null
+        })}
+      </select>
+    </>
+  )
+}
+
+/** 고른 곳의 머리: 이름 · 기록 수 · 그곳으로 가기 */
+function PlaceHead({ rid, group, firstPartOf }: { rid: string; group: WorkRecordGroup | undefined; firstPartOf(target: string): string | undefined }) {
+  if (!group) return null
+  const file = group.items.find((x) => x.kind === 'record')
+  const route = file?.kind === 'record' ? (file.file.target.startsWith('flow-') ? null : recordRoute(rid, file.file, firstPartOf)) : null
+  const flowId = file?.kind === 'record' && file.file.target.startsWith('flow-') ? file.file.source : undefined
+  return (
+    <div className="rp-head" data-ui="고른 곳 머리">
+      <b>{group.title}</b><span className="muted">{t(`기록 ${group.items.length}`, `${group.items.length} record(s)`)}</span>
+      <span className="sp" />
+      {(route || flowId) && <button className="btn sm" onClick={() => (flowId ? openFlowDot(rid, { id: flowId }) : go(route!))}>{t('열기', 'Open')}</button>}
     </div>
   )
 }

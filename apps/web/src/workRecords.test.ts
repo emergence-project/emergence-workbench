@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RESEARCH_TARGET, type JournalEntry } from '@rw/core'
 import type { CommentEntry, RecordFile } from './api/comments'
-import { agentTurnRecords, openTodoRecords, parseWorkFilter, recordLine, userTurnRecords, workRecordGroups, type WorkRecordItem } from './workRecords'
+import { agentTurnRecords, openTodoRecords, parseWorkFilter, placeKind, recordLine, recordPlaces, userTurnRecords, workRecordGroups, type WorkRecordItem } from './workRecords'
 
 const record = (id: string, kind: CommentEntry['kind'] = '메모', rest: Partial<CommentEntry> = {}): CommentEntry => ({ id, kind, body: id, where: '전체', rects: [], state: null, answers: [], ...rest })
 const file = (target: string, comments: CommentEntry[]): RecordFile => ({ target, title: `${target} 제목`, hash: `${target}-hash`, comments })
@@ -144,5 +144,25 @@ describe('record turns (10/21 작업 탭을 기록 안으로)', () => {
     expect(recordLine(record('x', '질문', { body: ' 첫 줄\n둘째 ' }))).toBe('첫 줄')
     expect(recordLine(record('x', '메모', { body: '', quote: '인용\n뒤' }))).toBe('인용')
     expect(recordLine(record('x', '메모', { body: '' }))).toBe('')
+  })
+})
+
+describe('recordPlaces (기록이 달린 곳 목록)', () => {
+  const rec = (id: string, extra: Partial<CommentEntry> = {}) => ({ kind: 'record' as const, file: {} as RecordFile, entry: { id, kind: '메모', body: 'x', ...extra } as CommentEntry })
+  it('갈래 차례로 묶고, 갈래 안에서는 최근 기록이 있는 곳이 위로, 내 차례를 센다', () => {
+    const places = recordPlaces([
+      { target: 'note-a', title: 'A', items: [rec('c-20261001-1000')] },
+      { target: 'project', title: '이 프로젝트', items: [rec('c-20260901-1000')] },
+      { target: 'note-b', title: 'B', items: [rec('c-20261020-1000'), rec('c-20261021-1000', { kind: '질문', by: 'claude', state: '대기' })] },
+      { target: 'topic-t', title: 'T', items: [rec('c-20261002-1000')] },
+      { target: 'flow-x', title: 'X', items: [rec('c-20261003-1000')] },
+    ])
+    expect(places.map((p) => p.target)).toEqual(['project', 'topic-t', 'note-b', 'note-a', 'flow-x'])
+    expect(places.find((p) => p.target === 'note-b')).toMatchObject({ count: 2, turn: 1, kind: 'note' })
+  })
+  it('원고 · 그 밖', () => {
+    expect(placeKind('manuscript')).toBe('manuscript')
+    expect(placeKind('02-five-color')).toBe('manuscript')
+    expect(placeKind('statement-s1')).toBe('other')
   })
 })
