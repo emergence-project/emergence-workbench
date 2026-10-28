@@ -198,6 +198,7 @@ export const UnqueueBody = z.object({ index: z.number().int().min(0) }).strict()
 /** POST /agent-chats/:id/unqueue: 뺀 지시의 그림도 돌려준다 (입력란에서 고쳐 다시 보내게) */
 export const Unqueued = z.object({ chat: Chat, images: z.array(ImageIn).optional() }).strict()
 export const ArchiveBody = z.object({ archived: z.boolean() }).strict()
+export const TitleBody = z.object({ title: z.string().min(1).max(200) }).strict()
 /** 되돌리기: 차례를 연 내 지시(user 항목의 point) 앞으로. 지운 지시의 글 · 붙인 것과, 앱 고치기 대화면 되돌린 파일 수 */
 export const RewindBody = z.object({ point: z.string().min(1) }).strict()
 export const Rewound = z.object({ chat: Chat, text: z.string(), attach: z.array(Attach).optional(), files: z.number().optional() }).strict()

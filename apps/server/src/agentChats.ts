@@ -799,6 +799,16 @@ export class AgentChats {
     return { chat: wireOf(c), text: it.text, ...(it.attach?.length && { attach: it.attach.map((a) => ({ ...a })) }), ...(files !== undefined && { files }) }
   }
 
+  /** 제목 바꾸기 (10/28 피드백 21:19). 처음 제목은 첫 말에서 정해진다 */
+  rename(id: string, title: string): Chat {
+    const c = this.must(id)
+    const next = title.replace(/\s+/g, ' ').trim().slice(0, 60)
+    if (!next) throw new WorkbenchError(400, t('제목이 비었습니다', 'The title is empty'))
+    c.title = next
+    this.touch(c)
+    return wireOf(c)
+  }
+
   /** 보관함에 넣기 · 꺼내기 (지우지 않고 목록에서만 숨긴다) */
   archive(id: string, archived: boolean): Chat {
     const c = this.must(id)

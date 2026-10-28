@@ -253,6 +253,15 @@ describe('대화 API', () => {
     expect(list.limit).toBe(3)
   })
 
+  it('제목을 바꾸면 공백을 줄여 저장하고, 빈 제목은 받지 않는다', async () => {
+    const c = await create({ text: '처음 제목' })
+    await settle(c.id)
+    const res = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/title`, payload: { title: '  새   제목 ' } })
+    expect(res.statusCode, res.body).toBe(200)
+    expect((await get(c.id)).title).toBe('새 제목')
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/title`, payload: { title: '   ' } })).statusCode).toBe(400)
+  })
+
   it('셸 명령은 허락 카드를 띄우고 사용자가 답할 때까지 기다린다. 「늘」은 같은 명령을 다시 묻지 않는다', async () => {
     const c = await create({ text: 'bash please' })
     await settle(c.id, 'waiting')
