@@ -21,6 +21,8 @@ import { foldedCount, recordOpenKey, useRecordOpen } from './recordFold'
 import { useQuery } from '@tanstack/react-query'
 import { qk } from './queries'
 import { liveChat, workedFor } from './recordChat'
+import { openChatInSidebar } from './agentPanelOpen'
+import { InlineEdits } from './InlineEdits'
 
 /** 붙은 곳의 이름과 툴팁 (주면 줄 번호 대신). 없으면 줄 · 쪽 번호 */
 export type RecordPlaceOf = (c: CommentEntry) => { label: string; tip: string } | undefined
@@ -133,6 +135,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const turn = isUserTurnRecord(c)
   const talk = isTalkKind(kind)
   const [replying, setReplying] = useState(false)
+  // 고친 곳 (10/28 사용자 정정): 수정 검토 화면으로 가지 않고 기록 아래에 펼쳐 그 자리에서 고쳐 승인한다
+  const [editsOpen, setEditsOpen] = useState(false)
   // 내가 쓴 질문 · 지시에 아직 답이 없으면 덧붙일 대화가 없어 글을 고친다 (10/19 피드백 10:36)
   const unanswered = !c.by && c.answers.length === 0
   // 대화가 일하는 동안은 답하기 · 반짝이를 숨긴다 (멈추기는 맨 아래 줄의 ■)
@@ -217,11 +221,13 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         return <div className="record-follow">
           {canReply && <button className="a" onClick={() => setReplying(true)}>{t('답하기', 'Reply')}</button>}
           {/* 대화 보기 (10/28 시안): 기록에는 결과만, 풀어 쓴 대화는 에이전트 탭에 */}
-          {/* 이 기록의 대화가 노트를 고쳤으면 수정 검토로 (시안 1절: 고친 곳은 수정 검토에서 고쳐 승인) */}
-          {chat && chat.changed.length > 0 && <button className="a" data-ui="수정 검토에서 보기" onClick={() => go({ page: 'edits', rid })}>{t('수정 검토에서 보기 ›', 'Open in edit review ›')}</button>}
-          {chat && <button className="a record-chat-link" data-ui="대화 보기" onClick={() => go({ page: 'agent', id: chat.id })}>{Icon.bot}{t('대화 보기', 'View conversation')} ›</button>}
+          {/* 이 기록의 대화가 노트를 고쳤으면 고친 곳을 이 자리에 펼친다 (10/28 정정: 페이지를 옮기지 않고, 넓게 볼 때만 수정 검토로) */}
+          {chat && chat.changed.length > 0 && <button className="a" data-ui="수정 검토에서 보기" aria-expanded={editsOpen} onClick={() => setEditsOpen(!editsOpen)}>{editsOpen ? t('고친 곳 접기', 'Hide changes') : t('고친 곳 검토 ›', 'Review changes ›')}</button>}
+          {/* 대화는 오른쪽 사이드바 에이전트 탭에서 연다 */}
+          {chat && <button className="a record-chat-link" data-ui="대화 보기" onClick={() => openChatInSidebar(rid, chat.id)}>{Icon.bot}{t('대화 보기', 'View conversation')} ›</button>}
         </div>
       })()}
+      {editsOpen && chat && <InlineEdits rid={rid} files={chat.changed} />}
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
         onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
       {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy} actions={todoTalk}
@@ -232,6 +238,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
 
 /** 기록의 대화가 일하는 동안 맨 아래 한 줄 (10/28 시안 1-3): 숨 쉬는 점 · 무엇을 하는지 · 걸린 시간, 오른쪽 ■ 멈추기(그 차례만 끊고 맥락은 남는다) */
 function RecordWorking({ chat }: { chat: ChatRow }) {
+  const rid = chat.rid
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => { const h = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(h) }, [])
   const [stopping, setStopping] = useState(false)
@@ -240,7 +247,7 @@ function RecordWorking({ chat }: { chat: ChatRow }) {
   const took = workedFor(chat.since, now)
   return <div className={`record-working${wait ? ' wait' : ''}`} role="status" data-ui="답 쓰는 중">
     {wait ? <span className="turn-dot" aria-hidden /> : <span className="record-working-dot" aria-hidden />}
-    {wait ? <button className="a" onClick={() => go({ page: 'agent', id: chat.id })}>{label}</button> : <span className="record-working-label">{label}</span>}
+    {wait ? <button className="a" onClick={() => openChatInSidebar(rid, chat.id)}>{label}</button> : <span className="record-working-label">{label}</span>}
     {took && <span className="record-working-time">· {took}</span>}
     <span className="sp" />
     <button className="icon-btn sm tip-end" data-ui="답 멈추기" data-tip={t('멈추기', 'Stop')} aria-label={t('멈추기', 'Stop')} disabled={stopping}

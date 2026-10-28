@@ -60,7 +60,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     settings: () => registry.agents,
     ...(ctx.opts.appRepo && { inApp: commitChecker(ctx.opts.appRepo.root, ctx.opts.appRepo.running) }),
     recordAnswer: (rid, rec, text, edits) => {
-      const changed = edits.length ? [t('고친 곳 (수정 검토에서 승인):', 'Changed (approve in change review):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''
+      const changed = edits.length ? [t('고친 곳 (아래 「고친 곳 검토」에서 승인):', 'Changed (approve under "Review changes" below):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''
       agentAnswer(ctx.recordsRoot(rid), rec.target, rec.id, 'claude', [text, changed].filter(Boolean).join('\n\n'))
     },
   })
