@@ -918,5 +918,11 @@
   "대화 고르기 툴바": "Picked conversations toolbar",
   "대화 여러 개 고르기": "Pick several conversations",
   "답 쓰는 중": "Writing an answer",
-  "답 멈추기": "Stop answer"
+  "답 멈추기": "Stop answer",
+  "기록 대화 묶음": "Record conversations group",
+  "직접 연 대화 묶음": "Opened conversations group",
+  "대화 묶음 줄": "Conversation group line",
+  "기록으로 남기기": "Keep as a record",
+  "맡은 기록": "Handled record",
+  "기록으로 가기": "Go to the record"
 }

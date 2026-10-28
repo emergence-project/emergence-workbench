@@ -107,6 +107,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   /** 제목 바꾸기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/title', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.rename(req.params.id, parseBody(C.TitleBody, req.body).title) }))
 
+  /** 기록으로 남기기: 대화에서 기록 초안 (화면이 적기 칸에 띄우고 사용자가 고쳐 저장한다) */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/record-draft', replies(C.RecordDraft), async (req): Promise<C.RecordDraft> => chats.recordDraft(req.params.id, parseBody(C.RecordDraftBody, req.body).place))
+
   /** 보관함에 넣기 · 꺼내기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/archive', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.archive(req.params.id, parseBody(C.ArchiveBody, req.body).archived) }))
 

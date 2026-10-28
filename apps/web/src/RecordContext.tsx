@@ -13,6 +13,8 @@ export interface RecordDraft {
 interface RecordDraftTarget { target: string; title: string; source?: string }
 export interface RecordComposerRequest {
   rid: string; target: RecordDraftTarget; draft: RecordDraft; nonce: number
+  /** 적기 칸에 미리 채울 글과 종류 (에이전트 대화의 「기록으로 남기기」 초안, 10/28) */
+  fill?: { text: string; kind: '메모' | '할 일' | '질문' | '지시' }
 }
 let composerRequest: RecordComposerRequest | null = null
 let requestNonce = 0
@@ -23,8 +25,8 @@ export function setRecordSelectionDraft(rid: string, target: string, draft: Reco
   if (draft) selections.set(key, draft); else selections.delete(key)
 }
 /** Keep the quote until a sidebar that was closed has mounted and consumed it. */
-export function openRecordComposer(rid: string, target: RecordDraftTarget, draft?: RecordDraft) {
-  composerRequest = { rid, target, draft: draft ?? selections.get(`${rid}|${target.target}`) ?? {}, nonce: ++requestNonce }
+export function openRecordComposer(rid: string, target: RecordDraftTarget, draft?: RecordDraft, fill?: RecordComposerRequest['fill']) {
+  composerRequest = { rid, target, draft: draft ?? selections.get(`${rid}|${target.target}`) ?? {}, nonce: ++requestNonce, ...(fill && { fill }) }
   requestListeners.forEach((listener) => listener())
   openRight('records')
 }

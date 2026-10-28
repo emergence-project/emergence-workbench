@@ -52,7 +52,10 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   })
   app.patch<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
     const { state, color, text, kind, baseHash } = parseBody(C.CommentChangeBody, req.body)
-    return updateComment(recordsRoot(req.params.rid), req.params.target, req.params.id, { state, color, text, kind }, baseHash)
+    const f = updateComment(recordsRoot(req.params.rid), req.params.target, req.params.id, { state, color, text, kind }, baseHash)
+    // 기록을 완료하면 그 기록의 대화는 보관함으로 (10/28 시안 2절). 도는 대화는 그대로 둔다
+    if (state === '끝냄') ctx.agentChats?.archiveRecord(req.params.rid, req.params.target, req.params.id)
+    return f
   })
   app.delete<{ Params: { rid: string; target: string; id: string }; Querystring: { baseHash?: string } }>('/api/researches/:rid/comments/:target/:id', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
     const baseHash = req.query.baseHash
@@ -75,8 +78,9 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
       chats.forRecord(rid, { target, id }, {
         kind: q.kind as '질문' | '지시',
         title: (q.body || q.quote || f.title).split('\n')[0]!.slice(0, 60),
+        shown: q.body || q.quote || f.title,
         first: recordChatPrompt(f, id, source ? path.relative(repo, source) : undefined),
-        ...(last?.by === C.USER_ANSWER_BY && { reply: t(`연구자가 기록에 이어 썼습니다:\n${last.body}`, `The researcher wrote more in the record:\n${last.body}`) }),
+        ...(last?.by === C.USER_ANSWER_BY && { reply: { shown: last.body, prompt: t(`연구자가 기록에 이어 썼습니다:\n${last.body}`, `The researcher wrote more in the record:\n${last.body}`) } }),
         count: q.answers.length,
       })
       return f

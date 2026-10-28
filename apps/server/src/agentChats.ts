@@ -680,7 +680,7 @@ export class AgentChats {
     return { chats: [...this.chats.values()].filter((c) => LIVE.has(c.state)).map((c) => ({ id: c.id, rid: c.rid, title: c.title, state: c.state, scope: c.scope, claims: c.claims })) }
   }
 
-  create(b: NewChatBody, link: { feedback?: string; record?: { target: string; id: string } } = {}): Chat {
+  create(b: NewChatBody, link: { feedback?: string; record?: { target: string; id: string } } = {}, prompt?: string): Chat {
     const app = b.rid === APP_RID
     if (app && !this.deps.app) throw new WorkbenchError(404, t('이 맥에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다', 'No app repository on this Mac, so app conversations are not available'))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
@@ -710,7 +710,7 @@ export class AgentChats {
       ...(link.record && { record: { ...link.record } }),
     }
     this.chats.set(c.id, c)
-    this.start(c, b)
+    this.start(c, b, prompt)
     return wireOf(c)
   }
 
@@ -718,10 +718,11 @@ export class AgentChats {
    * 이어서 지시. 에이전트가 열려 있으면 바로 넘긴다: 일하는 중이면 그 차례에 섞어 읽고(Claude Code처럼), 쉬는 중이면 새 차례를 연다.
    * 줄 서 있거나 설정을 바꿔 다시 열어야 하면 다음 차례에 읽는다(줄 선 지시)
    */
-  send(id: string, m: ChatMessageBody): Chat {
+  /** prompt = 에이전트에게 넘길 글이 보일 글과 다를 때 (기록 대화: 보이는 것은 기록 글, 넘기는 것은 지침까지) */
+  send(id: string, m: ChatMessageBody, prompt?: string): Chat {
     const c = this.must(id)
     const s = this.sessions.get(id)
-    if (s && s.key === keyOf(c) && !(c.pending ?? []).length && s.inbox.push({ prompt: promptOf(m.text, m.attach), ...(m.images?.length && { images: m.images }) })) {
+    if (s && s.key === keyOf(c) && !(c.pending ?? []).length && s.inbox.push({ prompt: (prompt ?? promptOf(m.text, m.attach)), ...(m.images?.length && { images: m.images }) })) {
       if (s.idle) { clearTimeout(s.idle); s.idle = undefined }
       s.last = Date.now()
       // 쉬던 에이전트에 보낸 지시는 새 차례를 연다: 되돌릴 자리 (일하는 중에 섞여 읽힌 지시는 아니다)
@@ -732,7 +733,7 @@ export class AgentChats {
     }
     if (s && !LIVE.has(c.state)) {
       // 쉬는 에이전트를 설정이 바뀌어 닫는다: 닫히면(finish) 이 지시로 다시 연다
-      c.pending = [...(c.pending ?? []), { prompt: promptOf(m.text, m.attach), ...(m.images?.length && { images: m.images }) }]
+      c.pending = [...(c.pending ?? []), { prompt: (prompt ?? promptOf(m.text, m.attach)), ...(m.images?.length && { images: m.images }) }]
       c.items.push(userItem(m, false, this.point(c)))
       c.state = 'running'
       this.touch(c)
@@ -740,7 +741,7 @@ export class AgentChats {
       return wireOf(c)
     }
     if (LIVE.has(c.state)) {
-      c.pending = [...(c.pending ?? []), { prompt: promptOf(m.text, m.attach), ...(m.images?.length && { images: m.images }) }]
+      c.pending = [...(c.pending ?? []), { prompt: (prompt ?? promptOf(m.text, m.attach)), ...(m.images?.length && { images: m.images }) }]
       this.push(c, userItem(m, true))
       return wireOf(c)
     }
@@ -915,6 +916,13 @@ export class AgentChats {
     return c && rowOf(c)
   }
 
+  /** 기록을 완료하면 그 대화를 보관함으로 (도는 중이면 두고, 다시 열어 이어 쓰면 forRecord가 꺼낸다) */
+  archiveRecord(rid: string, target: string, id: string): void {
+    const c = this.findRecord(rid, target, id)
+    if (!c || c.archived || LIVE.has(c.state)) return
+    this.archive(c.id, true)
+  }
+
   private findRecord(rid: string, target: string, id: string): Stored | undefined {
     return [...this.chats.values()].find((c) => c.rid === rid && c.record?.target === target && c.record.id === id)
   }
@@ -924,11 +932,12 @@ export class AgentChats {
    * 있으면 사용자가 기록에 이어 쓴 글을 그 대화에 보낸다. count = 지금 기록의 글 수: 이미 넘긴 글이면 아무것도 하지 않는다(null).
    * 차례가 잘 끝나면 마지막 답을 deps.recordAnswer가 기록에 적는다. 멈추면 적지 않고 맥락은 그대로 둔다.
    */
-  forRecord(rid: string, record: { target: string; id: string }, o: { kind: '질문' | '지시'; title: string; first: string; reply?: string; count: number }): Chat | null {
+  forRecord(rid: string, record: { target: string; id: string }, o: { kind: '질문' | '지시'; title: string; shown: string; first: string; reply?: { shown: string; prompt: string }; count: number }): Chat | null {
     const c = this.findRecord(rid, record.target, record.id)
     if (c && c.recordSent === o.count) return null
     if (!c) {
-      const made = this.create({ rid, text: o.first, title: o.title, write: o.kind === '질문' ? 'read' : 'notes', mode: 'edit' }, { record })
+      // 대화에는 기록 글만 보이고, 에이전트는 지침까지 받는다
+      const made = this.create({ rid, text: o.shown, title: o.title, write: o.kind === '질문' ? 'read' : 'notes', mode: 'edit' }, { record }, o.first)
       const s = this.must(made.id)
       s.recordSent = o.count
       s.recordTurn = true
@@ -938,7 +947,7 @@ export class AgentChats {
     if (c.archived) { c.archived = false }
     c.recordSent = o.count
     c.recordTurn = true
-    return this.send(c.id, { text: o.reply ?? o.first })
+    return o.reply ? this.send(c.id, { text: o.reply.shown }, o.reply.prompt) : this.send(c.id, { text: o.shown }, o.first)
   }
 
   /**
@@ -1180,6 +1189,18 @@ export class AgentChats {
     return wireOf(c)
   }
 
+  /** 「기록으로 남기기」: 작은 모델이 대화를 읽고 기록 초안을 쓴다 (대화의 맥락에는 들지 않는다) */
+  async recordDraft(id: string, place: string): Promise<{ text: string }> {
+    const c = this.must(id)
+    const ask = this.deps.runner.side
+    if (!ask) throw new WorkbenchError(404, t('이 맥에서는 기록 초안을 쓸 수 없습니다', 'Record drafts are not available on this Mac'))
+    if (!c.items.some((it) => it.kind === 'text' && !it.sub)) throw new WorkbenchError(400, t('아직 에이전트의 답이 없어 남길 것이 없습니다', 'Nothing to keep yet: the agent has not answered'))
+    const cwd = c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
+    const text = (await ask({ prompt: recordDraftPrompt(c, place), cwd })).trim()
+    if (!text) throw new WorkbenchError(502, t('초안이 비었습니다. 다시 눌러 주세요', 'The draft came back empty. Try again'))
+    return { text: clip(text, 4000) }
+  }
+
   private touch(c: Stored): void {
     c.updated = now()
     this.write(c)
@@ -1195,13 +1216,13 @@ export class AgentChats {
     return [...this.chats.values()].filter((c) => c.state === 'running' || c.state === 'waiting').length
   }
 
-  private start(c: Stored, m: ChatMessageBody): void {
+  private start(c: Stored, m: ChatMessageBody, prompt?: string): void {
     // 멈추거나 실패해 읽지 못한 지시가 있으면 먼저 읽는다
     const pending = c.pending ?? []
     c.pending = []
     for (const it of c.items) if (it.kind === 'user' && it.queued) delete it.queued
     c.items.push(userItem(m, false, pending.length ? undefined : this.point(c)))
-    this.begin(c, [...pending.map((p) => p.prompt), promptOf(m.text, m.attach)].join('\n\n'), [...pending.flatMap((p) => p.images ?? []), ...(m.images ?? [])].slice(0, 4))
+    this.begin(c, [...pending.map((p) => p.prompt), (prompt ?? promptOf(m.text, m.attach))].join('\n\n'), [...pending.flatMap((p) => p.images ?? []), ...(m.images ?? [])].slice(0, 4))
   }
 
   private begin(c: Stored, prompt: string, images?: ImageIn[]): void {
@@ -1507,6 +1528,32 @@ export class AgentChats {
 
 /** 곁 질문에 줄 글: 대화의 제목 · 범위 · 할 일 · 바뀐 파일과 뒤에서부터 지시 · 에이전트 글 (모두 SIDE_CHARS자 안으로) */
 export function sidePrompt(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' | 'changed'>, q: string): string {
+  return [
+    'You answer a quick side question about an ongoing agent conversation in Emergence Workbench, without tools and without interrupting it.',
+    'Answer from the conversation below only, briefly (one to four sentences), in the language of the question. If the answer is not in it, say so and suggest asking the agent itself.',
+    '',
+    ...chatDigest(c),
+    '',
+    `Side question: ${q}`,
+  ].join('\n')
+}
+
+/**
+ * 「기록으로 남기기」(10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 2절): 직접 연 대화에서 기록 초안을 쓴다. 초안은 적기 칸에 뜨고 사용자가 고쳐 저장한다.
+ * 물은 것 한 줄 · 결론 몇 줄 · 고친 곳 (기록 파일의 글은 한국어)
+ */
+export function recordDraftPrompt(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' | 'changed'>, place: string): string {
+  return [
+    'From the agent conversation below (Emergence Workbench), write a draft record the researcher will keep, without tools.',
+    'Write in Korean, plain text, no heading lines and no preamble: the first line is what was asked, in one line. Then the conclusion in two to five lines, with grounds (section, equation, file:line) when the conversation gives them. If notes or files changed, end with a line "고친 곳:" and one "- <file>" line each. Use only what is in the conversation; mark open points as open.',
+    `The record will be attached to: ${place}.`,
+    '',
+    ...chatDigest(c),
+  ].join('\n')
+}
+
+/** 대화를 작은 모델에게 줄 글로: 제목 · 범위 · 할 일 · 바뀐 파일과 뒤에서부터 지시 · 에이전트 글 (모두 SIDE_CHARS자 안으로) */
+function chatDigest(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' | 'changed'>): string[] {
   const lines: string[] = []
   let room = SIDE_CHARS
   for (let i = c.items.length - 1; i >= 0 && room > 0; i--) {
@@ -1518,17 +1565,12 @@ export function sidePrompt(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' |
     room -= cut.length
   }
   return [
-    'You answer a quick side question about an ongoing agent conversation in Emergence Workbench, without tools and without interrupting it.',
-    'Answer from the conversation below only, briefly (one to four sentences), in the language of the question. If the answer is not in it, say so and suggest asking the agent itself.',
-    '',
     `Conversation: ${c.title} (scope: ${c.scope.kind}${c.scope.target ? ` ${c.scope.target}` : ''})`,
     ...(c.todos.length ? [`To-dos: ${c.todos.map((x) => `[${x.state}] ${x.text}`).join('; ')}`] : []),
     ...(c.changed.length ? [`Changed files: ${c.changed.join(', ')}`] : []),
     '',
     ...lines,
-    '',
-    `Side question: ${q}`,
-  ].join('\n')
+  ]
 }
 const SIDE_CHARS = 12_000
 

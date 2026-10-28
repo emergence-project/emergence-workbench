@@ -437,7 +437,7 @@ export function App() {
     setAgentPanel(false)
     if (rightMode === 'agent') setRightMode('info')
   }
-  const agentPanelOf = (key: string) => rid ? <AgentPanel key={key} rid={rid} note={agentNote} onSaved={flash} place={agentPlace} onPlace={setAgentPlace} onBeside={openChatBeside} /> : null
+  const agentPanelOf = (key: string, recordTarget?: { target: string; title: string; source?: string }) => rid ? <AgentPanel key={key} rid={rid} note={agentNote} onSaved={flash} place={agentPlace} onPlace={setAgentPlace} onBeside={openChatBeside} recordTarget={recordTarget} /> : null
 
   return (
     <div className={`shell${sandbox ? ' sandbox' : ''}`}>
@@ -530,7 +530,7 @@ export function App() {
                   : <NoInfo />
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
               // 에이전트 탭 (10/22 안 A): 자리가 아래면 그 패널을 가리킨다
-              const agent = agentPlace === 'right' ? agentPanelOf(rid) : <AgentBelow open={agentPanel} onOpen={setAgentPanel} onHere={() => setAgentPlace('right')} />
+              const agent = agentPlace === 'right' ? agentPanelOf(rid, cmd ? undefined : ct ?? { target: 'project', title: summary.research.title }) : <AgentBelow open={agentPanel} onOpen={setAgentPanel} onHere={() => setAgentPlace('right')} />
               return <RightSidebar info={info} agent={agent}
                 records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${flowRecords ? 'flow' : ct?.target ?? 'project'}`} rid={rid}
                   target={ct ?? { target: 'project', title: summary.research.title }} group={flowRecords ? 'flow-' : undefined}
