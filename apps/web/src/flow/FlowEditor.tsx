@@ -13,7 +13,7 @@ import { FIGURE_FILE, uploadFigure, FigureMenu } from './figures'
 import { flowBy } from './flowBy'
 
 /** 받는 점의 종류로 정하는 기본 선 종류 (서버가 종류 없는 선을 읽는 규칙과 같다) */
-const defaultEdge = (k: FlowKind): FlowEdge => k === 'question' ? 'origin' : 'support'
+export const defaultEdge = (k: FlowKind): FlowEdge => k === 'question' ? 'origin' : 'support'
 
 /** 새 점의 처음 값: 앞선 점이 질문이면 증명, 아니면 질문. 주제는 고른 주제, 없으면 첫 앞선 점의 주제 */
 export function newDraftNode(from: FlowNode[], topic?: string): FlowNode {

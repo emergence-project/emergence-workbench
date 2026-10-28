@@ -12,6 +12,7 @@ import { t as tr } from '../i18n'
 import { KIND, FIELD, EDGE, EVK, PRIORITY, markOf, stateOf, stateName, DOT, MarkIcon, judgeName, turnOf } from './marks'
 import { Check, Chain, FlowText, approvedBy } from './evidence'
 import { ApproveDialog } from './ApproveDialog'
+import { defaultEdge } from './FlowEditor'
 import { flowBy } from './flowBy'
 import { citeKeys } from '../ObsidianMarkdown'
 import { taskTitles } from '../taskView'
@@ -54,12 +55,46 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
   const next = all.filter((m) => m.from.some((f) => f.id === n.id)).map((m) => ({ f: m.from.find((f) => f.id === n.id)!, m }))
   const hasProof = n.kind === 'finding' && n.evidence.some((e) => e.kind === 'proof')
   const openLink = (m: FlowNode) => onPick(m.id)
-  const link = ({ f, m }: { f: { type: string }; m: FlowNode }) => (
+  // 연결을 자세히에서 바로 더하고 뺀다 (10/28 19:59 피드백). 이전은 이 점의 from, 이후는 그 점의 from을 고친다
+  const [linkBusy, setLinkBusy] = useState(false)
+  const setFrom = async (m: FlowNode, from: FlowNode['from']) => {
+    setLinkBusy(true)
+    try { await flowApi(rid).patch(m.id, m.hash, { from }); reload() } catch (e) { fail(e) } finally { setLinkBusy(false) }
+  }
+  const unlink = (side: 'prev' | 'next', m: FlowNode) => side === 'prev'
+    ? setFrom(n, n.from.filter((f) => f.id !== m.id))
+    : setFrom(m, m.from.filter((f) => f.id !== n.id))
+  const addLink = (side: 'prev' | 'next', id: string) => {
+    const m = byId.get(id)
+    if (!m) return
+    return side === 'prev' ? setFrom(n, [...n.from, { id, type: defaultEdge(n.kind) }]) : setFrom(m, [...m.from, { id: n.id, type: defaultEdge(m.kind) }])
+  }
+  // 고를 수 있는 점: 이미 이은 점과, 이으면 고리가 되는 점(이전에는 이 점의 뒤, 이후에는 이 점의 앞)은 뺀다
+  const reach = (start: string, step: (id: string) => string[]) => {
+    const seen = new Set<string>(), todo = [start]
+    while (todo.length) { const id = todo.pop()!; for (const x of step(id)) if (!seen.has(x)) { seen.add(x); todo.push(x) } }
+    return seen
+  }
+  const after = reach(n.id, (id) => all.filter((m) => m.from.some((f) => f.id === id)).map((m) => m.id))
+  const before = reach(n.id, (id) => byId.get(id)?.from.map((f) => f.id) ?? [])
+  const choices = (side: 'prev' | 'next') => all.filter((m) => m.id !== n.id && !(side === 'prev' ? after : before).has(m.id)
+    && !(side === 'prev' ? prev : next).some((x) => x.m.id === m.id))
+    .sort((a, b) => Number(!a.topics.some((x) => n.topics.includes(x))) - Number(!b.topics.some((x) => n.topics.includes(x))) || a.short.localeCompare(b.short))
+  const link = (side: 'prev' | 'next') => ({ f, m }: { f: { type: string }; m: FlowNode }) => (
     <li key={m.id}>
       <span className="fl-ety">{EDGE[f.type]!()}</span>
       <button className="a fl-pill" onClick={() => openLink(m)} title={m.title}><MarkIcon n={m} size={16} /><span>{m.short}</span></button>
+      <button className="icon-btn sm fl-unlink" data-ui="흐름 연결 빼기" disabled={linkBusy} title={tr('이 선 빼기', 'Remove this line')} aria-label={tr(`선 빼기: ${m.short}`, `Remove line: ${m.short}`)} onClick={() => void unlink(side, m)}>{Icon.x}</button>
     </li>
   )
+  const adder = (side: 'prev' | 'next') => {
+    const xs = choices(side)
+    return xs.length > 0 && <select className="fl-in fl-linkadd" data-ui="흐름 연결 더하기" disabled={linkBusy} value="" aria-label={side === 'prev' ? tr('이전 점 더하기', 'Add an earlier dot') : tr('이후 점 더하기', 'Add a later dot')}
+      onChange={(e) => { if (e.target.value) void addLink(side, e.target.value) }}>
+      <option value="">{side === 'prev' ? tr('＋ 이전 점 잇기…', '＋ Link an earlier dot…') : tr('＋ 이후 점 잇기…', '＋ Link a later dot…')}</option>
+      {xs.map((m) => <option key={m.id} value={m.id}>{m.short}</option>)}
+    </select>
+  }
   return (
     <article className="fl-card" ref={el} data-ui="흐름 점 자세히">
       <div className="fl-head"><MarkIcon n={n} size={30} /><span className="fl-short">{n.short}</span>
@@ -160,8 +195,8 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
       <section className="fl-sec fl-lists" data-ui="흐름 연결">
         <h3 className="fl-grp-h">{tr('연결', 'Links')}<span className="fl-cnt">{tr(`이전 ${prev.length} · 이후 ${next.length}`, `${prev.length} before · ${next.length} after`)}</span></h3>
         <div className="fl-links">
-          <div><h4>{tr('이전', 'Before')}</h4>{prev.length ? <ul>{prev.map(link)}</ul> : <span className="muted">{tr('없음 (시작점)', 'None (start)')}</span>}</div>
-          <div><h4>{tr('이후', 'After')}</h4>{next.length ? <ul>{next.map(link)}</ul> : <span className="muted">{tr('없음', 'None')}</span>}</div>
+          <div><h4>{tr('이전', 'Before')}</h4>{prev.length ? <ul>{prev.map(link('prev'))}</ul> : <span className="muted">{tr('없음 (시작점)', 'None (start)')}</span>}{adder('prev')}</div>
+          <div><h4>{tr('이후', 'After')}</h4>{next.length ? <ul>{next.map(link('next'))}</ul> : <span className="muted">{tr('없음', 'None')}</span>}{adder('next')}</div>
         </div>
       </section>
     </article>
@@ -174,9 +209,10 @@ export function EvidenceSource({ rid, e, notes }: { rid: string; e: FlowEvidence
   // 노트 폴더(note.md · note.yaml · 그림)의 어느 파일이든 그 노트로
   const dir = (f: string) => f.replace(/\/[^/]*$/, '')
   const row = notes.find((x) => x.file === file) ?? notes.find((x) => /\/note\.(md|tex)$/.test(x.file) && dir(x.file) === dir(file))
-  const open = row ? () => go(routeOfNote(rid, row)) : null
+  // 노트가 아닌 파일(원고 · 코드 …)은 저장소 파일 탭으로 연다 (10/28 20:51 피드백)
+  const open = row ? () => go(routeOfNote(rid, row)) : file ? () => go({ page: 'file', rid, path: file }) : null
   const label = e.title ?? (row?.title || file)
-  return open ? <button className="a fl-note" title={file} onClick={open}>{label}</button> : <span className="fl-note" title={file}>{label}</span>
+  return open ? <button className="a fl-note" title={row ? file : tr(`파일 열기: ${file}`, `Open file: ${file}`)} onClick={open}>{label}</button> : <span className="fl-note" title={file}>{label}</span>
 }
 
 /** 자세히의 ＋ (이 점에서 잇기)와 ▾ (앞선 점 여러 개 고르기) */
