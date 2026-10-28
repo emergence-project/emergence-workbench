@@ -282,11 +282,13 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
           ? <button type="button" className="a fbp-target tip-start" data-ui="그 자리로 가기" data-tip={t('그 자리로 가기', 'Go to the spot')} aria-label={`${t('그 자리로 가기', 'Go to the spot')}: ${uiShown(e.target)}`} onClick={() => jumpToFeedbackTarget(e.route, e.target)}><span className="fbp-target-text">{uiShown(e.target)}</span></button>
           : <span className="fbp-target">{uiShown(e.target)}</span>}
         <span className="sp" />
+        {/* 「에이전트에게 맡기기」는 머리 줄 오른쪽에 (10/28 07:38: 버튼 하나 때문에 항목이 길어짐) */}
+        <AgentLine e={e} part="button" />
         {/* 10/4 20:43 "접기도 아이콘으로, 오른쪽 끝에" */}
         {onFold && <button className="icon-btn fbp-foldback" data-ui="접기" data-tip={t('접기', 'Collapse')} aria-label={t('접기', 'Collapse')} onClick={onFold}>{Icon.fold}</button>}
       </div>
       {e.status?.clean ? <CleanText e={e} /> : e.source ? <div className="fbp-text"><MemoText text={e.text} /></div> : <FeedbackText e={e} locked={!!e.status} />}
-      <AgentLine e={e} />
+      <AgentLine e={e} part="line" />
       {needsAnswer(e) && <div className="fbp-ask" data-ui="물음"><b>{t('Claude가 묻는 것', 'Claude asks')}</b> {e.status!.ask}</div>}
       {e.status && <Summary e={e} />}
       {(e.status || e.comments) && <Conversation e={e} />}
@@ -309,9 +311,10 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
 /**
  * 피드백을 맡은 에이전트 대화 (2단계 나, 10/21 "앱 안 대화", 10/22 "권한 넓히기"): 맡긴 시각 · 상태 · PR · 대화 보기 · 멈추기.
  * 맡은 대화가 없거나 끝난 뒤 다시 에이전트 차례가 되면 「에이전트에게 맡기기」. 앱 저장소가 있는 맥에서만 보인다.
+ * 버튼은 항목 머리 줄 오른쪽(part "button"), 대화 줄은 대화가 있을 때만 본문 아래(part "line") (10/28 07:38).
  * 사용자가 그 뒤에 답했으면(승인 · 수정 · 진행 · 중단) 지난 대화 줄은 감춘다.
  */
-function AgentLine({ e }: { e: FeedbackItem }) {
+function AgentLine({ e, part }: { e: FeedbackItem; part: 'button' | 'line' }) {
   const client = useQueryClient()
   const list = useQuery({ queryKey: qk.agentChatList(), queryFn: () => agentChatsApi.list() })
   const [busy, setBusy] = useState(false)
@@ -323,7 +326,7 @@ function AgentLine({ e }: { e: FeedbackItem }) {
   const answeredAfter = !!chat && !!e.review && new Date(e.review.at).getTime() > new Date(chat.updated).getTime()
   const showChat = !!chat && (live || !answeredAfter)
   const canHand = turn && !live && list.data.handOff
-  if (!showChat && !canHand) return null
+  if (part === 'button' ? !canHand : !showChat) return null
   const handOff = async () => {
     setBusy(true); setError('')
     try {
@@ -332,19 +335,19 @@ function AgentLine({ e }: { e: FeedbackItem }) {
     } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
   }
   const stop = () => void agentChatsApi.stop(chat!.id).then(() => client.invalidateQueries({ queryKey: qk.agentChats }), (err: Error) => setError(err.message))
+  if (part === 'button') return (
+    <>
+      {error && <span className="error-text fbp-agent-error" role="alert">{error}</span>}
+      <button type="button" className="btn sm fbp-hand" data-ui="에이전트에게 맡기기" disabled={busy} title={t('이 피드백을 이 맥의 Claude에게 맡깁니다. 따로 둔 작업 폴더에서 고치고 시험한 뒤 PR을 엽니다', 'Hand this feedback to Claude on this Mac. It fixes and tests it in a separate work folder, then opens a PR')} onClick={() => void handOff()}>{t('에이전트에게 맡기기', 'Hand to agent')}</button>
+    </>
+  )
   return (
     <div className="fbp-agent" data-ui="에이전트 진행">
-      {showChat && chat && (
-        <>
-          <ChatStateMark state={chat.state} label name={chatStateName(chat)} />
-          <span className="muted">{t('맡김', 'Handed off')} {localDate(new Date(chat.created)).slice(5)} {localTime(new Date(chat.created))}</span>
-          {chat.pr && <a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a>}
-          <a className="a" data-ui="대화 보기" href={href({ page: 'agent', id: chat.id })}>{t('대화 보기', 'Open conversation')}</a>
-          {live && <button type="button" className="fb-link" data-ui="대화 멈추기" onClick={stop}>{t('멈추기', 'Stop')}</button>}
-        </>
-      )}
-      <span className="sp" />
-      {canHand && <button type="button" className="btn sm" data-ui="에이전트에게 맡기기" disabled={busy} title={t('이 피드백을 이 맥의 Claude에게 맡깁니다. 따로 둔 작업 폴더에서 고치고 시험한 뒤 PR을 엽니다', 'Hand this feedback to Claude on this Mac. It fixes and tests it in a separate work folder, then opens a PR')} onClick={() => void handOff()}>{t('에이전트에게 맡기기', 'Hand to agent')}</button>}
+      <ChatStateMark state={chat!.state} label name={chatStateName(chat!)} />
+      <span className="muted">{t('맡김', 'Handed off')} {localDate(new Date(chat!.created)).slice(5)} {localTime(new Date(chat!.created))}</span>
+      {chat!.pr && <a className="a" data-ui="대화 PR" href={chat!.pr.url} target="_blank" rel="noreferrer">PR #{chat!.pr.number}</a>}
+      <a className="a" data-ui="대화 보기" href={href({ page: 'agent', id: chat!.id })}>{t('대화 보기', 'Open conversation')}</a>
+      {live && <button type="button" className="fb-link" data-ui="대화 멈추기" onClick={stop}>{t('멈추기', 'Stop')}</button>}
       {error && <span className="error-text fbp-agent-error">{error}</span>}
     </div>
   )

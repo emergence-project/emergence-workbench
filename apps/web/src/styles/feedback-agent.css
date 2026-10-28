@@ -6,3 +6,5 @@
 .tb-shipped { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); margin-right: var(--sp-2); white-space: nowrap; }
 /* 설정 줄 오른쪽의 select (다크에서도 읽히게 rs-select 바탕, 폭은 내용만큼) */
 .set-row .rs-select.set-select { width: auto; flex: none; }
+.fbp-head .fbp-hand { flex: none; align-self: center; }
+.fbp-head .fbp-agent-error { flex: 0 1 auto; flex-basis: auto; min-width: 0; }
