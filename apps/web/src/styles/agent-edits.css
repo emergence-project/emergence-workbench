@@ -107,3 +107,9 @@ img.ae-del, canvas.ae-del { background: none; outline: 3px solid var(--paint-pin
 .ae-review-head .muted { font-size: var(--fs-xs); }
 /* 노트에서 이 자리로: 찾은 문단에 잠깐 테두리 */
 .ae-flash { scroll-margin-top: var(--sp-6); outline: 2px solid var(--focus-line); outline-offset: 3px; border-radius: var(--r-xs); transition: outline-color .6s; }
+
+/* 이 노트를 고친 대화 (10/28): 어디서 왔는지 · 오른쪽 기록 보기 · 대화 보기 */
+.ae-sources { display: flex; flex-direction: column; gap: 2px; margin: var(--sp-1) 0 var(--sp-2); font-size: var(--fs-xs); }
+.ae-source { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ae-source .sp { flex: 1; }
+.ae-source-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

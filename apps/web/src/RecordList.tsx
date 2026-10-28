@@ -74,7 +74,6 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
       asking={asking.has(askKey(rid, file.target, c.id))} onAsk={() => void askClaude(rid, file.target, c.id)}
       onState={(state) => act((w) => w.setState(file.target, c.id, state, file.hash))}
       onEdit={(text, baseHash, kind) => act((w) => w.update(file.target, c.id, { text, baseHash, ...(kind && kind !== c.kind && { kind }) }))}
-      onApply={/^(note|calc)-/.test(file.target) ? (i) => act((w) => w.apply(file.target, c.id, i, file.hash)) : undefined}
       // 이어 물은 질문도 맥의 Claude가 언제 답할지는 설정 › 에이전트 › 질문 · 지시 처리를 따른다 (서버가 받음, 10/28 피드백 22:19)
       onReply={(text) => act((w) => w.reply(file.target, c.id, text))}
       onDelete={async () => {
@@ -106,8 +105,6 @@ const EDIT_KINDS = ['메모', '할 일', '질문', '지시'] as const satisfies 
 export interface RecordRowProps {
   c: CommentEntry; active: boolean; hash: string; busy: boolean; asking: boolean; onAsk(): void; onGo(): void
   onState(state: '대기' | '끝냄'): Promise<boolean>; onEdit(text: string, baseHash: string, kind?: CommentKind): Promise<boolean>; onDelete(): Promise<void>; rid: string
-  /** 답 i의 고침을 노트에 적용 (연구 노트의 기록만) */
-  onApply?(answer: number): Promise<boolean>
   /** 질문 · 지시 아래에 이어 쓰기 (10/15) */
   onReply?(text: string): Promise<boolean>
   file: Pick<RecordFile, 'target' | 'title'>; work?: boolean; showSource?: boolean; dateLabel?: string; journal?: boolean
@@ -121,7 +118,7 @@ export interface RecordRowProps {
   chat?: ChatRow
 }
 
-export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onApply, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place, talk: todoTalk, todoText, chat }: RecordRowProps) {
+export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place, talk: todoTalk, todoText, chat }: RecordRowProps) {
   const [talkOpen, setTalkOpen] = useState(false)
   const row = useRef<HTMLElement>(null)
   useEffect(() => { if (active) row.current?.scrollIntoView({ block: 'nearest' }) }, [active])
@@ -141,8 +138,6 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   // 대화가 일하는 동안은 답하기 · 반짝이를 숨긴다 (멈추기는 맨 아래 줄의 ■)
   const live = liveChat(chat)
   const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && !live && (turn || (replying && !unanswered))
-  // 아직 적용하지 않은 Claude 답만 "노트에 적용"을 단다 (적용하면 앱이 그 아래에 답을 남긴다)
-  const applicable = (i: number) => onApply && c.answers[i]!.by === 'claude' && !c.answers.slice(i + 1).some((a) => a.by === '앱') ? () => void onApply(i) : undefined
   // 고칠 때 종류 바꾸기 (10/21): 내가 쓰고 답이 없는 메모 · 할 일 · 질문 · 지시만. 할 일 · 바뀐 곳에 이은 질문과 일지 줄은 그대로
   const kindEditable = !journal && !c.by && c.answers.length === 0 && !c.todo && !c.edit && (EDIT_KINDS as readonly string[]).includes(kind)
   const [editKind, setEditKind] = useState<CommentKind>(kind as CommentKind)
@@ -210,10 +205,10 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {work ? c.answers.length > 0 && <ul className="fbp-thread record-thread" data-ui="기록 대화">
         {shown.map(({ a, i }) => a.by === '앱' ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
           : <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : <Author by={a.by} />} when={a.at}>
-            {clampLast(i, <AnswerBody answer={a} busy={busy} onApply={applicable(i)} />)}
+            {clampLast(i, <AnswerBody answer={a} />)}
           </SayCard>)}
       </ul>
-        : shown.map(({ a, i }) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} clamp={(body) => clampLast(i, body)} />)}
+        : shown.map(({ a, i }) => <RecordAnswer key={i} answer={a} clamp={(body) => clampLast(i, body)} />)}
       {/* 답하기는 대화 맨 아래에 (10/19 피드백 11:31: 긴 대화 위로 올라가 누르지 않게). 내가 쓰고 아직 답이 없으면 두지 않는다(고치기는 위 연필, 10:36) */}
       {live && chat && <RecordWorking chat={chat} />}
       {(() => {
@@ -222,6 +217,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         return <div className="record-follow">
           {canReply && <button className="a" onClick={() => setReplying(true)}>{t('답하기', 'Reply')}</button>}
           {/* 대화 보기 (10/28 시안): 기록에는 결과만, 풀어 쓴 대화는 에이전트 탭에 */}
+          {/* 이 기록의 대화가 노트를 고쳤으면 수정 검토로 (시안 1절: 고친 곳은 수정 검토에서 고쳐 승인) */}
+          {chat && chat.changed.length > 0 && <button className="a" data-ui="수정 검토에서 보기" onClick={() => go({ page: 'edits', rid })}>{t('수정 검토에서 보기 ›', 'Open in edit review ›')}</button>}
           {chat && <button className="a record-chat-link" data-ui="대화 보기" onClick={() => go({ page: 'agent', id: chat.id })}>{Icon.bot}{t('대화 보기', 'View conversation')} ›</button>}
         </div>
       })()}
@@ -306,10 +303,10 @@ function TodoTalk({ records, busy, actions, onSend, onCancel }: { records: Comme
 /** 기록 파일에 적을 때 머리처럼 보이는 줄 앞에 붙인 \를 보일 때만 뗀다 */
 const unguard = (s: string) => s.replace(/^\\(?=#{1,6} )/gm, '')
 
-function RecordAnswer({ answer, busy = false, onApply, clamp = (body) => body }: { answer: CommentEntry['answers'][number]; busy?: boolean; onApply?(): void; clamp?(body: ReactNode): ReactNode }) {
+function RecordAnswer({ answer, clamp = (body) => body }: { answer: CommentEntry['answers'][number]; clamp?(body: ReactNode): ReactNode }) {
   const mine = answer.by === USER_ANSWER_BY
   return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head">{mine ? <span>{t('사용자', 'User')}</span> : <><span>{t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· <Author by={answer.by} /></span></>}<span className="muted cmt-time">· {answer.at}</span></div>
-    {clamp(<AnswerBody answer={answer} busy={busy} onApply={onApply} />)}
+    {clamp(<AnswerBody answer={answer} />)}
   </div>
 }
 
@@ -332,8 +329,11 @@ function Clamp({ onMore, children }: { onMore(): void; children: ReactNode }) {
   </>
 }
 
-/** 답 글과 고침 제안(바꿀 글 → 바꾼 글, "노트에 적용") */
-function AnswerBody({ answer, busy, onApply }: { answer: CommentEntry['answers'][number]; busy: boolean; onApply?(): void }) {
+/**
+ * 답 글과 고침 제안(바꿀 글 → 바꾼 글). 「노트에 적용」은 10/28 결정으로 없앴다: 에이전트의 노트 고침은 모두 수정 검토로 가서 고친 뒤 승인한다.
+ * 그 전에 받은 답의 제안은 읽을 수 있게 그대로 보인다
+ */
+function AnswerBody({ answer }: { answer: CommentEntry['answers'][number] }) {
   const { text, fixes } = useMemo(() => splitNoteFixes(answer.body), [answer.body])
   return <>
     {text && <MemoText text={text} />}
@@ -342,7 +342,6 @@ function AnswerBody({ answer, busy, onApply }: { answer: CommentEntry['answers']
         <pre className="record-fix-before"><span className="record-fix-label">{t('바꿀 글', 'Text to replace')}{'\n'}</span>{unguard(f.before)}</pre>
         <pre className="record-fix-after"><span className="record-fix-label">{t('바꾼 글', 'Replacement')}{'\n'}</span>{unguard(f.after)}</pre>
       </div>)}
-      {onApply && <button className="btn sm" disabled={busy} title={t('바꿀 글을 바꾼 글로 노트에서 바꿉니다', 'Replace the text in the note with the replacement')} onClick={onApply}>{t('노트에 적용', 'Apply to note')}</button>}
     </div>}
   </>
 }
