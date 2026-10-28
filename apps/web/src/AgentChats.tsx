@@ -1109,7 +1109,7 @@ export function commentMessage(notes: { file: string; old: string; new: string; 
   }
 }
 
-/** 바뀐 곳: 파일마다 고친 문단(− · +), 문단을 누르면 코멘트, 모아서 에이전트에게 보내기. 승인 · 되돌리기는 수정 검토에서 */
+/** 바뀐 곳: 파일마다 고친 문단(− · +), 문단을 누르면 코멘트, 모아서 에이전트에게 보내기. 승인 · 되돌리기는 수정 검토에서(파일 줄 오른쪽 「수정 검토 ›」, 10/28 21:39 정렬) */
 function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
   const client = useQueryClient()
   const edits = chat.items.filter((i): i is Edit => i.kind === 'edit')
@@ -1138,6 +1138,7 @@ function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
             <div className="ac-work-row">
               <span className="mono ac-file" title={f}>{f}</span>
               <Delta added={mine.reduce((s, x) => s + x.e.added, 0)} removed={mine.reduce((s, x) => s + x.e.removed, 0)} />
+              {chat.rid !== APP_RID && <button className="a ac-change-review" data-ui="수정 검토로" title={t('수정 검토에서 승인 · 되돌리기', 'Approve or revert in edit review')} onClick={() => reviewOf(chat.rid, f)}>{t('수정 검토 ›', 'Edit review ›')}</button>}
             </div>
             {mine.map(({ e, ei }) => e.parts.map((p, pi) => {
               const k = `${ei}:${pi}`
@@ -1155,7 +1156,6 @@ function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
               )
             }))}
             {mine.at(-1)?.e.reason && <span className="muted ac-hint">{mine.at(-1)!.e.reason}</span>}
-            {chat.rid !== APP_RID && <div className="ac-card-row"><span className="sp" /><button className="btn sm" data-ui="수정 검토로" onClick={() => reviewOf(chat.rid, f)}>{t('수정 검토에서 승인 · 되돌리기', 'Approve or revert in edit review')}</button></div>}
           </div>
         )
       })}
@@ -1169,25 +1169,56 @@ function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
   )
 }
 
-/** 세부 패널: 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 · 사용량 */
-export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
-  const client = useQueryClient()
-  const chat = useChat(id).data
-  const work = useQuery({ queryKey: qk.agentWork, queryFn: () => agentChatsApi.work() }).data
+/** 맥락 창이 이만큼 차면 /compact를 권한다 */
+const COMPACT_HINT = 0.8
+
+/**
+ * 「이 대화」 칸 (10/28 20:10 피드백 "컨텍스트 윈도우, 기본정보등이 다 있으면", 시안 1절):
+ * 맥락 창 막대 · 모델 · 범위 · 쓴 토큰과 가격 · 일한 시간 · 시작과 마지막 · 작업 폴더(앱 고치기). 차례가 끝나기 전에도 보인다
+ */
+function ChatInfo({ chat }: { chat: Chat }) {
   const models = useModels()
-  if (!chat) return null
-  const others = (work?.chats ?? []).filter((c) => c.id !== chat.id && c.rid === chat.rid && c.claims.length)
-  const agents = chat.items.filter((i): i is Step => i.kind === 'step' && isAgentStep(i))
+  const topics = useQuery({ queryKey: qk.topics(chat.rid), queryFn: () => api.research(chat.rid).topics(), enabled: chat.scope.kind === 'topic' }).data
   const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
   const cost = results.reduce((s, r) => s + (r.cost ?? 0), 0)
   const secs = results.reduce((s, r) => s + (r.seconds ?? 0), 0)
   const tokens = results.reduce((s, r) => s + (r.tokens ? r.tokens.in + r.tokens.out : 0), 0)
   const context = [...results].reverse().find((r) => r.context)?.context
+  const share = context ? Math.min(1, context.used / context.window) : 0
+  const when = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  return (
+    <section className="ac-info" data-ui="이 대화 정보">
+      <h3>{t('이 대화', 'This conversation')}</h3>
+      <div className="ac-work-row"><span>{t('맥락 창', 'Context window')}</span>
+        <span className="muted">{context ? `${tokensName(context.used)} / ${tokensName(context.window)} · ${Math.round(share * 100)}%` : t('첫 차례가 끝나면 보입니다', 'Shown after the first turn')}</span></div>
+      {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('맥락 창', 'Context window')}><i style={{ width: `${share * 100}%` }} /></div>}
+      {context && share >= COMPACT_HINT && <span className="muted ac-hint">{t('맥락 창이 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
+      <dl className="ac-info-list">
+        <dt>{t('모델', 'Model')}</dt><dd>{modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</dd>
+        <dt>{t('범위', 'Scope')}</dt><dd>{scopeName(chat.scope, topics)}</dd>
+        <dt>{t('쓴 토큰', 'Tokens used')}</dt><dd>{tokens > 0 ? `${tokensName(tokens)} (${t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)})` : t('아직 없음', 'None yet')}{cost > 0 && <span className="muted" title={costName(cost)}> · {t(`API 가격 약 $${cost.toFixed(2)}`, `about $${cost.toFixed(2)} at API prices`)}</span>}</dd>
+        {secs > 0 && <><dt>{t('일한 시간', 'Time worked')}</dt><dd>{secondsName(secs)}</dd></>}
+        <dt>{t('시작', 'Started')}</dt><dd>{when(chat.created)} <span className="muted">· {t('마지막', 'last')} {when(chat.updated)}</span></dd>
+        {chat.branch && <><dt>{t('작업 폴더', 'Work folder')}</dt><dd className="mono ac-file" title={chat.branch}>{chat.branch}</dd></>}
+      </dl>
+    </section>
+  )
+}
+
+/** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */
+export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
+  const client = useQueryClient()
+  const chat = useChat(id).data
+  const work = useQuery({ queryKey: qk.agentWork, queryFn: () => agentChatsApi.work() }).data
+  if (!chat) return null
+  const others = (work?.chats ?? []).filter((c) => c.id !== chat.id && c.rid === chat.rid && c.claims.length)
+  const agents = chat.items.filter((i): i is Step => i.kind === 'step' && isAgentStep(i))
   const forget = async (label: string) => client.setQueryData(qk.agentChat(id), await agentChatsApi.forget(id, label))
   const trust = trustOf(chat)
   const hasEdits = chat.items.some((i) => i.kind === 'edit')
   return (
     <aside className="ac-work" data-ui="작업 상태">
+      <ChatInfo chat={chat} />
       {hasEdits && <><h3>{t('바뀐 곳', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
         <h3>{t('잡은 파일', 'Claimed files')}</h3>
@@ -1198,7 +1229,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
       </section>
       <section data-ui="이 대화의 허락">
         <h3>{t('이 대화의 권한', 'Permissions here')}</h3>
-        <div className="ac-work-row"><span>{TRUST_NAME[trust]}</span><span className="muted">{modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</span></div>
+        <div className="ac-work-row"><span>{TRUST_NAME[trust]}</span></div>
         <span className="muted ac-hint">{chat.rid === APP_RID ? APP_HINT[trust] : TRUST_HINT[trust]}</span>
         {chat.always.map((a) => (
           <div key={a} className="ac-work-row">
@@ -1212,13 +1243,6 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
           <h3>{t('하위 에이전트', 'Subagents')}</h3>
           {agents.map((s, i) => <div key={i} className="ac-work-row"><span className="ac-file" title={s.summary}>{s.summary}</span></div>)}
         </section>
-      )}
-      {!!results.length && (
-        <div className="muted ac-hint ac-usage" data-ui="사용량">
-          <div>{t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)}{secs > 0 && ` · ${secondsName(secs)}`}{tokens > 0 && ` · ${t('토큰', 'Tokens')} ${tokensName(tokens)}`}</div>
-          {context && <div>{t('맥락', 'Context')} {Math.round((context.used / context.window) * 100)}% ({tokensName(context.used)} / {tokensName(context.window)})</div>}
-          {cost > 0 && <div>{costName(cost)}</div>}
-        </div>
       )}
     </aside>
   )
