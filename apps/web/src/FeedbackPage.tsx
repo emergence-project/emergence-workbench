@@ -338,7 +338,8 @@ function AgentLine({ e, part }: { e: FeedbackItem; part: 'button' | 'line' }) {
   if (part === 'button') return (
     <>
       {error && <span className="error-text fbp-agent-error" role="alert">{error}</span>}
-      <button type="button" className="btn sm fbp-hand" data-ui="에이전트에게 맡기기" disabled={busy} title={t('이 피드백을 이 맥의 Claude에게 맡깁니다. 따로 둔 작업 폴더에서 고치고 시험한 뒤 PR을 엽니다', 'Hand this feedback to Claude on this Mac. It fixes and tests it in a separate work folder, then opens a PR')} onClick={() => void handOff()}>{t('에이전트에게 맡기기', 'Hand to agent')}</button>
+      {/* 고치기 · 지우기처럼 마우스를 올릴 때만 보이는 아이콘 (10/28 20:08 반려) */}
+      <button type="button" className="icon-btn fbp-hand hover-actions" data-ui="에이전트에게 맡기기" disabled={busy} aria-label={t('에이전트에게 맡기기', 'Hand to agent')} title={t('에이전트에게 맡기기: 이 피드백을 이 맥의 Claude에게 맡깁니다. 따로 둔 작업 폴더에서 고치고 시험한 뒤 PR을 엽니다', 'Hand to agent: Claude on this Mac fixes and tests it in a separate work folder, then opens a PR')} onClick={() => void handOff()}>{Icon.spark}</button>
     </>
   )
   return (
