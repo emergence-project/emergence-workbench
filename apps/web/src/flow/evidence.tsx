@@ -15,8 +15,8 @@ export function Check({ e, role, onClick }: { e: Checked; role: 'agent' | 'human
   const name = role === 'agent' ? tr('에이전트 검토', 'Agent check') : tr('사람 승인', 'Human approval')
   const tip = c ? `${name}: ${c.revoked ? tr('거둠', 'revoked') + ' · ' : ''}${e.stale && !c.revoked ? tr('확인 뒤 바뀜', 'changed since') + ' · ' : ''}${c.by} · ${c.at}${c.note ? `\n${c.note}` : ''}` : `${name}: ${tr('안 됨', 'not yet')}`
   const mark = <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>{on
-    ? <><circle cx="8" cy="8" r="7" /><path d="M4.6 8.2l2.2 2.2 4.4-4.6" /></>
-    : <circle cx="8" cy="8" r="6.2" />}</svg>
+    ? <><rect x="1.5" y="1.5" width="13" height="13" rx="3" /><path d="M4.6 8.2l2.2 2.2 4.4-4.6" /></>
+    : <rect x="2" y="2" width="12" height="12" rx="2.6" />}</svg>
   if (onClick) return <button className={`fl-check${on ? ' on' : ''}`} data-ui="흐름 사람 승인" aria-label={`${tip}. ${on ? tr('누르면 승인 거두기', 'Click to revoke') : tr('누르면 승인', 'Click to approve')}`} title={`${tip}\n${on ? tr('누르면 승인을 거둡니다', 'Click to revoke') : tr('누르면 승인합니다', 'Click to approve')}`} onClick={onClick}>{mark}</button>
   return <span className={`fl-check${on ? ' on' : ''}`} role="img" aria-label={tip} title={tip}>{mark}</span>
 }

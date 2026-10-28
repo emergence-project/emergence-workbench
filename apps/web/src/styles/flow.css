@@ -95,16 +95,16 @@
 .fl-fields dt { color: var(--text-3); font-size: var(--fs-sm); }
 .fl-fields dd { margin: 0; }
 .fl-tbox { overflow-x: auto; }
-.fl-ev { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.fl-ev { width: auto; max-width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .fl-ev th { text-align: left; font-weight: var(--fw-medium); color: var(--text-3); border-bottom: 1px solid var(--line); padding: var(--sp-1) var(--sp-2); white-space: nowrap; }
 .fl-ev td { border-bottom: 1px solid var(--line); padding: 6px var(--sp-2); vertical-align: top; }
 .fl-ev .kd { white-space: nowrap; color: var(--text-2); }
-.fl-ev .vc { text-align: center; width: 1%; }
+.fl-ev .vc { text-align: center; }
 .fl-ev td.vc { padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
 .fl-check { display: inline-flex; padding: 2px; vertical-align: top; }
 .fl-check svg { display: block; margin: 0 auto; }
-.fl-check circle { fill: none; stroke: var(--line-strong); stroke-width: 1.4; }
-.fl-check.on circle { fill: var(--text-2); stroke: none; }
+.fl-check rect { fill: none; stroke: var(--line-strong); stroke-width: 1.4; }
+.fl-check.on rect { fill: var(--text-2); stroke: none; }
 .fl-check path { fill: none; stroke: var(--bg); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .fl-note, .fl-ref-link { text-align: left; }
 .fl-ref-link { display: inline-flex; align-items: center; gap: var(--sp-1); }
@@ -129,9 +129,9 @@
 .fl-tools { display: inline-flex; align-items: center; gap: 2px; margin-left: var(--sp-2); }
 .fl-head .muted + .fl-tools { margin-left: var(--sp-2); }
 .fl-head > .fl-short + .fl-tools { margin-left: auto; }
-button.fl-check { border-radius: var(--r-pill); cursor: pointer; }
-button.fl-check:hover circle { stroke: var(--text-2); }
-button.fl-check.on:hover circle { fill: var(--text); }
+button.fl-check { border-radius: var(--r-sm); cursor: pointer; }
+button.fl-check:hover rect { stroke: var(--text-2); }
+button.fl-check.on:hover rect { fill: var(--text); }
 .fl-ghost { fill: none; stroke: var(--primary); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .fl-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-1); }
 .fl-kinds button { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); text-align: left; }
