@@ -100,6 +100,8 @@
 .fl-ev td { border-bottom: 1px solid var(--line); padding: 6px var(--sp-2); vertical-align: top; }
 .fl-ev .kd { white-space: nowrap; color: var(--text-2); }
 .fl-ev .vc { text-align: center; width: 1%; }
+.fl-ev td.vc { padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
+.fl-check { display: inline-flex; padding: 2px; vertical-align: top; }
 .fl-check svg { display: block; margin: 0 auto; }
 .fl-check circle { fill: none; stroke: var(--line-strong); stroke-width: 1.4; }
 .fl-check.on circle { fill: var(--text-2); stroke: none; }
@@ -112,6 +114,11 @@
 .fl-links { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); margin-top: var(--sp-2); }
 .fl-links ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
 .fl-links li { display: flex; align-items: center; gap: var(--sp-2); }
+/* 선 빼기 ×는 마우스를 올리거나 키보드로 갔을 때만 (10/28 19:59) */
+.fl-links .fl-unlink { visibility: hidden; }
+.fl-links li:hover .fl-unlink, .fl-links .fl-unlink:focus-visible { visibility: visible; }
+@media (hover: none) { .fl-links .fl-unlink { visibility: visible; } }
+.fl-links .fl-linkadd { margin-top: var(--sp-2); max-width: 100%; }
 .fl-ety { font-size: var(--fs-xs); color: var(--text-3); min-width: 2.5em; }
 /* 차트 밖의 점 이름도 차트와 같은 알약으로 (안 B: 노트 흐름 줄 · 판단 카드 · 점 자세히) */
 .fl-pill { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; padding: 1px var(--sp-2) 1px 2px; border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--bg); }
@@ -121,7 +128,7 @@
 .fl-tools { display: inline-flex; align-items: center; gap: 2px; margin-left: var(--sp-2); }
 .fl-head .muted + .fl-tools { margin-left: var(--sp-2); }
 .fl-head > .fl-short + .fl-tools { margin-left: auto; }
-button.fl-check { padding: 2px; border-radius: var(--r-pill); cursor: pointer; }
+button.fl-check { border-radius: var(--r-pill); cursor: pointer; }
 button.fl-check:hover circle { stroke: var(--text-2); }
 button.fl-check.on:hover circle { fill: var(--text); }
 .fl-ghost { fill: none; stroke: var(--primary); stroke-width: 1.5; stroke-dasharray: 4 3; }

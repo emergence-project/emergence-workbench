@@ -898,5 +898,7 @@
   "열린 파일 탭": "Open file tabs",
   "기록이 달린 곳": "Record places",
   "기록이 달린 곳 고르기": "Record place picker",
-  "고른 곳 머리": "Picked place header"
+  "고른 곳 머리": "Picked place header",
+  "흐름 연결 빼기": "Remove flow link",
+  "흐름 연결 더하기": "Add flow link"
 }
