@@ -914,5 +914,7 @@
   "권한 삭제": "Permission delete",
   "권한 실행": "Permission run",
   "권한 웹 보기": "Permission web",
-  "권한 외부": "Permission outside"
+  "권한 외부": "Permission outside",
+  "대화 고르기 툴바": "Picked conversations toolbar",
+  "대화 여러 개 고르기": "Pick several conversations"
 }
