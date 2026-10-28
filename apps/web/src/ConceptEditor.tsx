@@ -6,6 +6,7 @@ import { Decoration, EditorView, highlightActiveLine, keymap, placeholder } from
 import { useEffect, useRef, useState } from 'react'
 import { conceptCommands, type Command } from './conceptCommands'
 import { livePreview, macrosFacet, notePreviewFacet, sourceHighlight } from './conceptLive'
+import { mathZones } from './mathZones'
 import { continueListItem, indentListItem, outdentListItem } from './conceptLists'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
 import { NoteMarkdown } from './NoteMarkdown'
@@ -80,6 +81,7 @@ export function ConceptEditor({ initial, options, onSave, onCancel, commands, la
           Prec.high(keymap.of([{ key: 'Enter', run: continueListItem }])),
           markdown(),
           conceptCommands(commands),
+          mathZones(),
           parts.current.mode.of(mode === 'live' ? livePreview() : sourceHighlight()),
           parts.current.macros.of(macrosFacet.of(options.macros)),
           parts.current.note.of(notePreviewFacet.of(notePreview ? { options, asset } : undefined)),
