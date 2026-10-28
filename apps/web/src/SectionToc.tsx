@@ -25,7 +25,7 @@ export function SideTabs({ label, turn = 0, turnTip, show, children }: {
   const [want, setWant] = useState<SideTab>(() => store.get<SideTab>(TAB_KEY, 'nav'))
   useEffect(() => store.set(TAB_KEY, want), [want])
   useEffect(() => sideMounted(), [])
-  // 저장소 쪽을 열면 목차 탭이 파일 나무가 된다(10/28 시안 1-2절). 그동안 고른 탭은 기억하지 않는다
+  // 저장소 쪽을 열면 목차 탭이 파일 나무가 되고 이름도 「파일」이 된다(10/28 시안 1-2절, 20:07 반려). 그동안 고른 탭은 기억하지 않는다
   const tree = useTreeWanted()
   const [treeNav, setTreeNav] = useState(false)
   useEffect(() => { if (tree) setTreeNav(false) }, [tree])
@@ -38,7 +38,7 @@ export function SideTabs({ label, turn = 0, turnTip, show, children }: {
           <button role="tab" aria-selected={tab === 'nav'} className={tab === 'nav' ? 'on' : ''} onClick={() => pick('nav')}>
             {label}{tab === 'toc' && turn > 0 && <span className="rail-count" title={turnTip}>{turn}</span>}</button>
           <button role="tab" aria-selected={tab === 'toc'} className={tab === 'toc' ? 'on' : ''} disabled={!tree && !hasToc}
-            title={tree ? t('저장소의 파일 나무', 'File tree of the repository') : hasToc ? undefined : t('이 화면에는 목차가 없습니다', 'This screen has no contents')} onClick={() => pick('toc')}>{t('목차', 'Contents')}</button>
+            title={tree ? t('저장소의 파일 나무', 'File tree of the repository') : hasToc ? undefined : t('이 화면에는 목차가 없습니다', 'This screen has no contents')} onClick={() => pick('toc')}>{tree ? t('파일', 'Files') : t('목차', 'Contents')}</button>
         </div>
       </div>
       {tab === 'toc' && tree ? <div ref={setTreeSlot} className="side-toc-full side-files" />
