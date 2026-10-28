@@ -259,3 +259,13 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-group-h .icon-btn { color: var(--text-3); }
 .ac-group-empty { font-size: var(--fs-xs); padding: 0 var(--sp-2) var(--sp-2); }
 .ac-group + .ac-group { margin-top: var(--sp-1); }
+
+/* 제목 바꾸기 (10/28 피드백 21:19): 머리 제목 자리와 목록 줄 이름 자리가 입력란이 된다. 목록 줄의 연필 · 휴지통은 마우스를 올릴 때 */
+.ac-title-input { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: var(--fs-md); font-weight: var(--fw-strong); color: var(--text); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 var(--sp-1); }
+.ac-line-wrap { position: relative; }
+.ac-line-wrap:is(:hover, :focus-within) .hover-actions { opacity: 1; }
+.ac-line-actions { position: absolute; top: 2px; right: var(--sp-1); display: flex; gap: 2px; }
+.ac-line-wrap:is(:hover, :focus-within) .ac-line .label { padding-right: 48px; }
+@media (hover: none) { .ac-line-wrap .ac-line .label { padding-right: 48px; } }
+.ac-line .label.hide { visibility: hidden; }
+.ac-line-edit { position: absolute; top: 2px; left: calc(var(--sp-2) + 10px + var(--sp-2)); right: var(--sp-1); width: auto; font-size: var(--fs-sm); font-weight: var(--fw-normal); }

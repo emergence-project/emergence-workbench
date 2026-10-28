@@ -97,6 +97,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   /** 오류 · 멈춤 · 앱 재시작 뒤 이어 하기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/resume', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.resume(req.params.id) }))
 
+  /** 제목 바꾸기 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/title', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.rename(req.params.id, parseBody(C.TitleBody, req.body).title) }))
+
   /** 보관함에 넣기 · 꺼내기 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/archive', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.archive(req.params.id, parseBody(C.ArchiveBody, req.body).archived) }))
 

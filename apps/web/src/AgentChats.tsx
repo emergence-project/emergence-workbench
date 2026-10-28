@@ -11,6 +11,7 @@ import { go } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { useDismiss } from './useDismiss'
+import { flash } from './flash'
 
 /**
  * 에이전트 대화 (10/21 "프로젝트 관리 먼저", 같은 날 "에이전트 창 구조 다시" · "코덱스와 Claude 앱 더 참고"):
@@ -195,10 +196,13 @@ const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error'
 const rank = (c: ChatRow) => (myTurn(c) ? 0 : isLive(c.state) ? 1 : 2)
 
 /** 목록 한 줄: 상태 점 · 이름, 아래 줄에 무엇을 기다리는지(상태) · +n −n · 시각 */
-function ChatLine({ c, on, onOpen }: { c: ChatRow; on: boolean; onOpen(): void }) {
-  return (
+function ChatLine({ c, on, onOpen, actions = false }: { c: ChatRow; on: boolean; onOpen(): void; actions?: boolean }) {
+  const [editing, setEditing] = useState(false)
+  const { rename, remove } = useChatActions(c.id)
+  const line = (
     <button className={`nav ac-line${on ? ' on' : ''}`} data-ui="대화 줄" data-ui-item={c.title} title={c.title} onClick={onOpen}>
-      <span className="ac-line-top"><span className="ac-line-dot"><ChatStateMark state={c.state} name={stateName(c)} /></span><span className="label">{c.title}</span></span>
+      <span className="ac-line-top"><span className="ac-line-dot"><ChatStateMark state={c.state} name={stateName(c)} /></span>
+        <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
         {stateName(c)}
         {(c.added > 0 || c.removed > 0) && <> · <Delta added={c.added} removed={c.removed} /></>}
@@ -206,6 +210,41 @@ function ChatLine({ c, on, onOpen }: { c: ChatRow; on: boolean; onOpen(): void }
       </span>
     </button>
   )
+  if (!actions) return line
+  // 목록 줄의 고치기 · 지우기 (10/28 피드백 21:19, 시안 5절): 줄에 마우스를 올리면 오른쪽 위에 연필 · 휴지통
+  return (
+    <div className="ac-line-wrap">
+      {line}
+      {editing ? <TitleInput className="ac-line-edit" value={c.title} onDone={(v) => { setEditing(false); if (v !== null) void rename(v) }} />
+        : <span className="ac-line-actions hover-actions" data-ui="대화 줄 고치기·지우기">
+          <button className="icon-btn sm" data-tip={t('제목 바꾸기', 'Rename')} aria-label={t('제목 바꾸기', 'Rename')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
+          <button className="icon-btn sm tip-end" data-tip={isLive(c.state) ? t('도는 대화는 멈춘 뒤 지웁니다', 'Stop it before deleting') : t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={isLive(c.state)} onClick={() => void remove().then((ok) => { if (ok && on) go({ page: 'agent' }) })}>{Icon.trash}</button>
+        </span>}
+    </div>
+  )
+}
+
+/** 제목 입력란: Enter · 칸을 벗어나면 저장, Esc는 취소. 바뀐 것이 없으면 null */
+function TitleInput({ value, onDone, className }: { value: string; onDone(title: string | null): void; className?: string }) {
+  const [text, setText] = useState(value)
+  const done = useRef(false)
+  const finish = (v: string | null) => { if (done.current) return; done.current = true; onDone(v !== null && v.trim() && v.trim() !== value ? v.trim() : null) }
+  return <input className={`ac-title-input${className ? ` ${className}` : ''}`} autoFocus aria-label={t('대화 제목', 'Conversation title')} value={text} maxLength={60}
+    onFocus={(e) => e.currentTarget.select()} onChange={(e) => setText(e.target.value)} onBlur={() => finish(text)}
+    onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); finish(text) } else if (e.key === 'Escape') { e.preventDefault(); finish(null) } }} />
+}
+
+/** 대화 제목 바꾸기 · 지우기 (머리 ⋯ 메뉴와 목록 줄이 함께 쓴다) */
+function useChatActions(id: string) {
+  const client = useQueryClient()
+  const rename = async (title: string) => {
+    try { client.setQueryData(qk.agentChat(id), await agentChatsApi.rename(id, title)); void client.invalidateQueries({ queryKey: qk.agentChats }) } catch (e) { flash((e as Error).message) }
+  }
+  const remove = async (): Promise<boolean> => {
+    if (!await askConfirm({ title: t('이 대화를 지울까요?', 'Delete this conversation?'), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토는 그대로 남습니다. 지우지 않고 숨기려면 보관함에 넣으세요.', 'Only the conversation is deleted. Notes, records and edit review stay. To hide it without deleting, archive it.'), ok: t('지우기', 'Delete') })) return false
+    try { await agentChatsApi.remove(id); void client.invalidateQueries({ queryKey: qk.agentChats }); flash(t('대화를 지웠습니다', 'Conversation deleted')); return true } catch (e) { flash((e as Error).message); return false }
+  }
+  return { rename, remove }
 }
 
 // ---------- 대화 줄들 ----------
@@ -791,10 +830,9 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
   const topics = useQuery({ queryKey: qk.topics(chat.rid), queryFn: () => api.research(chat.rid).topics(), enabled: chat.scope.kind === 'topic' }).data
   const project = projectName(chat.rid, projects)
   const live = isLive(chat.state)
-  const remove = async () => {
-    if (!await askConfirm({ title: t('이 대화를 지울까요?', 'Delete this conversation?'), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토는 그대로 남습니다. 지우지 않고 숨기려면 보관함에 넣으세요.', 'Only the conversation is deleted. Notes, records and edit review stay. To hide it without deleting, archive it.'), ok: t('지우기', 'Delete') })) return
-    try { await agentChatsApi.remove(chat.id); void client.invalidateQueries({ queryKey: qk.agentChats }); onSaved(t('대화를 지웠습니다', 'Conversation deleted')); onDeleted() } catch (e) { onError((e as Error).message) }
-  }
+  const actions = useChatActions(chat.id)
+  const [renaming, setRenaming] = useState(false)
+  const remove = async () => { if (await actions.remove()) onDeleted() }
   const archive = async (v: boolean) => {
     try {
       client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.archive(chat.id, v))
@@ -812,7 +850,8 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
     <div className="ac-head" data-ui="대화 헤더">
       {onBack && <button className="icon-btn sm" data-ui="대화 목록으로" data-tip={t('대화 목록', 'Conversations')} aria-label={t('대화 목록으로', 'Back to conversations')} onClick={onBack}>{Icon.back}</button>}
       <div className="ac-head-what">
-        <div className="ac-title" title={chat.title}>{chat.title}</div>
+        {renaming ? <TitleInput value={chat.title} onDone={(v) => { setRenaming(false); if (v !== null) void actions.rename(v) }} />
+          : <div className="ac-title" title={chat.title}>{chat.title}</div>}
         <div className="ac-meta">
           {chat.rid === APP_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
@@ -829,12 +868,12 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError }: {
         </button>
       )}
       {onPane && !chat.changed.length && <button className={`btn sm${pane ? ' on' : ''}`} data-ui="작업 버튼" aria-pressed={!!pane} onClick={onPane}>{t('작업', 'Work')}</button>}
-      <HeadMore live={live} archived={!!chat.archived} onArchive={(v) => void archive(v)} onRemove={() => void remove()} />
+      <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} />
     </div>
   )
 }
 
-function HeadMore({ live, archived, onArchive, onRemove }: { live: boolean; archived: boolean; onArchive(v: boolean): void; onRemove(): void }) {
+function HeadMore({ live, archived, onRename, onArchive, onRemove }: { live: boolean; archived: boolean; onRename(): void; onArchive(v: boolean): void; onRemove(): void }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
   useDismiss(open, box, () => setOpen(false))
@@ -843,6 +882,7 @@ function HeadMore({ live, archived, onArchive, onRemove }: { live: boolean; arch
       <button className={`icon-btn sm${open ? ' on' : ''}`} data-ui="대화 더 보기" data-tip={open ? undefined : t('더 보기', 'More')} aria-label={t('더 보기', 'More')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>{Icon.more}</button>
       {open && (
         <div className="menu ac-head-menu" role="menu" data-ui="대화 더 보기 항목">
+          <button role="menuitem" data-ui="대화 제목 바꾸기" onClick={() => { setOpen(false); onRename() }}>{t('제목 바꾸기', 'Rename')}</button>
           <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 꺼내기', 'Unarchive') : t('보관함에 넣기', 'Archive')}</button>
           <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live} onClick={() => { setOpen(false); onRemove() }}>{t('지우기', 'Delete')}</button>
         </div>
@@ -1262,7 +1302,7 @@ export function AgentSide({ id }: { id?: string }) {
             <button className="icon-btn sm" data-ui="이 묶음에서 새 대화" data-tip={t('여기서 새 대화', 'New conversation here')} aria-label={t(`${name}에서 새 대화`, `New conversation in ${name}`)} onClick={() => newChatIn(rid)}>{Icon.plus}</button>
           )}
         </div>
-        {open && chats.map((c) => <ChatLine key={c.id} c={c} on={c.id === id} onOpen={() => go({ page: 'agent', id: c.id })} />)}
+        {open && chats.map((c) => <ChatLine key={c.id} c={c} on={c.id === id} actions onOpen={() => go({ page: 'agent', id: c.id })} />)}
         {open && !chats.length && hint && <div className="muted ac-group-empty">{hint}</div>}
       </div>
     )

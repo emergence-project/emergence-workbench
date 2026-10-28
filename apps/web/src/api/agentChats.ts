@@ -32,6 +32,7 @@ export const agentChatsApi = {
   rewind: (id: string, point: string) => req(`${base}/${enc(id)}/rewind`, send('POST', { point })).then((r) => json<Rewound>(r)),
   /** 오류 · 멈춤 · 앱 재시작 뒤 이어 하기 */
   resume: (id: string) => req(`${base}/${enc(id)}/resume`, send('POST', {})).then(one),
+  rename: (id: string, title: string) => req(`${base}/${enc(id)}/title`, send('POST', { title })).then(one),
   archive: (id: string, archived: boolean) => req(`${base}/${enc(id)}/archive`, send('POST', { archived })).then(one),
   stop: (id: string) => req(`${base}/${enc(id)}/stop`, send('POST', {})).then(one),
   remove: (id: string) => req(`${base}/${enc(id)}`, { method: 'DELETE' }).then((r) => json<ChatDeleted>(r)),
