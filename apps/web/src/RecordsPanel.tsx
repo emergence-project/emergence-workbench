@@ -13,7 +13,7 @@ import { flash } from './flash'
 import { RecordList, type RecordPlaceOf } from './RecordList'
 import { recordWrites, useRecordActions } from './useRecordActions'
 import { LIBRARY_RID } from '@rw/core'
-import { chooseRecordFilter } from './workRecords'
+import { chooseRecordFilter, chooseRecordPlace } from './workRecords'
 import { RECORD_KINDS, recordDrafts, attachRecordDraft, type ComposerDraft } from './recordDrafts'
 import { t } from './i18n'
 import { uiShown } from './uiNames'
@@ -112,9 +112,9 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
         <div className="segmented small" role="group" aria-label={t('기록 상태', 'Record status')} data-ui="기록 상태">
           {STATUSES.map((s) => <button key={s} className={status === s ? 'on' : ''} aria-pressed={status === s} onClick={() => setStatus(s)}>{statusName(s)} <span className="n">{filterByStatus(kindShown, s).length}</span></button>)}
         </div>
-        {/* 프로젝트의 기록을 모두 모은 기록 탭으로 (10/14 13:33 제안). 전체면 메모를 연다. 지식 라이브러리에는 기록 탭이 없다 */}
-        {rid !== LIBRARY_RID && <button className="a records-all" data-ui="모두 보기" data-tip={t('기록 탭에서 이 프로젝트의 기록 모두 보기', 'See all records of this project in the Records tab')}
-          onClick={() => { chooseRecordFilter(filter); go({ page: 'records', rid }) }}>{t('모두 보기 ›', 'See all ›')}</button>}
+        {/* 기록 탭으로 (10/14 13:33 제안). 사이드바가 좁을 때 넓게 보도록 지금 노트 · 흐름 점을 고른 채로 연다 (10/28 22:25 수정 요청). 지식 라이브러리에는 기록 탭이 없다 */}
+        {rid !== LIBRARY_RID && <button className="a records-all" data-ui="모두 보기" data-tip={many ? t('기록 탭에서 이 프로젝트의 기록 보기', 'See this project\'s records in the Records tab') : t('기록 탭에서 이곳의 기록을 넓게 보기', 'See these records in the Records tab')}
+          onClick={() => { chooseRecordFilter(filter); chooseRecordPlace(many ? null : slot.file?.target ?? target.target); go({ page: 'records', rid }) }}>{t('기록 탭에서 보기 ›', 'Open in Records ›')}</button>}
       </div>
     </div>
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">

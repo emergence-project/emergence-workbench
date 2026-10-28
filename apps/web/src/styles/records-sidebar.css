@@ -108,3 +108,8 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 .todo-talk { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 /* 대화 맨 아래 이어 쓰기 (10/19 11:31) */
 .record-follow { display: flex; justify-content: flex-end; margin-top: var(--sp-1); font-size: var(--fs-xs); }
+
+/* 대화 접기 (10/28 피드백 20:57): 앞 답은 「앞 답 N개」로, 마지막 답은 다섯 줄까지 */
+.record-fold { align-self: flex-start; margin-top: var(--sp-1); font-size: var(--fs-xs); }
+.record-clamp { max-height: calc(5 * 1.55em); overflow: hidden; }
+.record-more { align-self: flex-start; font-size: var(--fs-xs); }
