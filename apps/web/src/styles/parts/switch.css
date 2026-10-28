@@ -1,0 +1,8 @@
+/* 토글 (10/28, 에이전트 대화의 「자동 허용」): 켬 · 끔 둘뿐인 설정. button[role=switch][aria-checked].
+   켜면 강조 색(선택 표시), 끄면 --line-strong. 바뀌는 즉시 적용되고 저장 버튼이 없다 */
+.switch { flex: none; position: relative; width: 28px; height: 16px; padding: 0; border: none; border-radius: var(--r-pill); background: var(--line-strong); cursor: pointer; transition: background 0.12s; }
+.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); transition: left 0.12s; }
+.switch[aria-checked='true'] { background: var(--primary); }
+.switch[aria-checked='true']::after { left: 14px; background: var(--on-primary); }
+.switch:disabled { opacity: 0.45; cursor: default; }
+.switch:focus-visible { outline: 2px solid var(--focus-line); outline-offset: 2px; }

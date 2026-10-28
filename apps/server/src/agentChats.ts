@@ -17,7 +17,8 @@ import path from 'node:path'
 import { APP_RID } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, FileDiff, Snap } from './appWorktree.js'
-import { agentTurnReasons, agentTurns, localDate, localTime, type AgentSettings } from '@rw/core'
+import { agentTurnReasons, agentTurns, autoCustom, autoOf, commandKind, localDate, localTime, runProgram, type AgentSettings, type ChatAutoValues, type ChatKind } from '@rw/core'
+import os from 'node:os'
 import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
@@ -149,12 +150,19 @@ export interface PolicyCtx {
   readable: string[]
   /** 다른 대화가 잡은 파일이면 그 대화 이름 */
   claimedBy: (file: string) => string | undefined
+  /** 「자동 허용」 토글 (읽기 · 실행 · 웹 보기, 지금 값: 차례 중에 「늘」로 켜면 바로) */
+  auto?: () => ChatAutoValues
+  /** 「늘」로 허락한 실행 프로그램 열쇠 (run:<프로그램>) */
+  always?: (key: string) => boolean
 }
 
 export type Verdict =
   | { kind: 'allow'; claim?: string }
-  /** label = 「늘 허락」했을 때 보일 이름, claim = 허락하면 잡을 파일, plan = 계획 승인 카드 */
-  | { kind: 'ask'; summary: string; key: string; label: string; claim?: string; plan?: string }
+  /**
+   * label = 「늘 허락」했을 때 보일 이름, claim = 허락하면 잡을 파일, plan = 계획 승인 카드,
+   * does = 명령이 하는 일, once = 「늘」 없이 (삭제 · 외부), turnOn = 「늘」이 켜는 토글(편집은 맡기는 정도)
+   */
+  | { kind: 'ask'; summary: string; key: string; label: string; claim?: string; plan?: string; does?: ChatKind; once?: boolean; turnOn?: 'read' | 'web' | 'edit' }
   /** reason = 사용자에게 보일 말, message = 에이전트에게 돌려줄 말 (영어) */
   | { kind: 'deny'; reason: string; message: string }
 
@@ -331,8 +339,41 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     return { kind: 'allow' }
   }
   const step = describeStep(ctx, tool, input)
-  if (tool === 'Bash') return { kind: 'ask', summary: step.summary, key: `Bash:${str(input.command)}`, label: t(`명령 · ${clip(str(input.command), 80)}`, `Command · ${clip(str(input.command), 80)}`) }
+  if (tool === 'Bash') return judgeCommand(ctx, str(input.command), step.summary)
+  if (tool === 'WebFetch' || tool === 'WebSearch') {
+    if ((ctx.auto?.() ?? autoOf({ write: ctx.write, mode: ctx.mode })).web) return { kind: 'allow' }
+    return { kind: 'ask', summary: `${tool} · ${step.summary}`, key: tool, label: t('웹 보기', 'Web'), does: 'web', turnOn: 'web' }
+  }
   return { kind: 'ask', summary: `${tool} · ${step.summary}`, key: tool, label: tool }
+}
+
+/**
+ * 명령 한 줄 (10/28 사용자 결정 "권한을 명령 대신 하는 일로"): 하는 일로 나눠 토글대로.
+ * 읽기 · 실행은 토글이 켜져 있으면 묻지 않고, 편집은 맡기는 정도(편집 자동 허용)가, 삭제 · 외부는 늘 한 번씩 묻는다
+ */
+function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
+  const roots = [ctx.repo, ...ctx.readable]
+  const does = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: (abs) => roots.some((d) => abs === d || isInside(d, abs)) })
+  const auto = ctx.auto?.() ?? autoOf({ write: ctx.write, mode: ctx.mode })
+  const what = clip(cmd, 80)
+  const gated = ctx.mode === 'plan' && !ctx.planOk
+  if (does === 'read') {
+    if (auto.read) return { kind: 'allow' }
+    return { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does, turnOn: 'read' }
+  }
+  if (does === 'edit' || does === 'delete') {
+    if (ctx.write === 'read') return { kind: 'deny', reason: t('읽기만 하는 대화라 고치지 않습니다', 'This conversation is read-only'), message: 'This conversation is read-only: do not change, move or delete files. Tell the user what you would change instead.' }
+    if (gated) return { kind: 'deny', reason: t('계획을 승인하기 전이라 고치지 않습니다', 'Not changed before the plan is approved'), message: `Plan first: do not change anything yet. When your plan is ready, call ${PLAN_TOOL} with the plan; the user approves it in the app, then you can make the changes.` }
+    if (does === 'delete') return { kind: 'ask', summary, key: `delete:${cmd}`, label: t(`삭제 · ${what}`, `Delete · ${what}`), does, once: true }
+    if (ctx.mode === 'edit') return { kind: 'allow' }
+    return { kind: 'ask', summary, key: 'edit', label: t('편집', 'Edit'), does, turnOn: 'edit' }
+  }
+  if (does === 'run') {
+    const prog = runProgram(cmd)
+    if (auto.run || ctx.always?.(`run:${prog}`)) return { kind: 'allow' }
+    return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does }
+  }
+  return { kind: 'ask', summary, key: `${does}:${cmd}`, label: t(`외부 · ${what}`, `Outside · ${what}`), does: 'outside', once: true }
 }
 
 // ---------- 안내 (대화를 열 때 한 번, 짧게) ----------
@@ -370,8 +411,8 @@ export function briefFor(o: { rid: string; title: string; scope: ChatScope; writ
     `You are working inside Emergence Workbench on the project "${o.title}" (project id ${o.rid}). The current folder is its repository.`,
     `Scope: ${scope}. Read outside the scope only when the work needs it. You cannot change anything outside the scope: say what should change, where and why, and stop there.`,
     o.write === 'read'
-      ? 'This conversation is read-only: do not change notes, records or files. Running a command needs the user\'s approval each time.'
-      : 'Change notes only with the workbench MCP tool edit_note (read_note first, pass its hash as baseHash); the user reviews each changed paragraph. Records: add_record / answer_record. Files cannot be edited directly. Running a command needs the user\'s approval.',
+      ? 'This conversation is read-only: do not change notes, records or files. Commands that change files are blocked; reading and running commands follow the user\'s permission switches (the app may ask).'
+      : 'Change notes only with the workbench MCP tool edit_note (read_note first, pass its hash as baseHash); the user reviews each changed paragraph. Records: add_record / answer_record. The Write / Edit tools are disabled; prefer edit_note over shell edits so the user can review them. Commands follow the user\'s permission switches: deleting and anything outside the project folders (git push, installs, downloads) always asks.',
     `Start with the workbench MCP tools: rules (project ${o.rid}) and project_status; keep reads short and read more only when needed.`,
   ]
   if (o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
@@ -713,6 +754,10 @@ export class AgentChats {
     const c = this.must(id)
     if (s.write) c.write = s.write
     if (s.mode) c.mode = s.mode
+    // 토글: 같이 보내면 그 값, 권한 이름만 바꾸면 그 이름의 기본값으로. 기본값과 같으면 두지 않는다
+    if (s.auto) c.auto = s.auto
+    else if (s.write || s.mode) delete c.auto
+    if (c.auto && !autoCustom(c)) delete c.auto
     if (s.model) c.model = s.model
     if (s.effort) c.effort = s.effort
     this.touch(c)
@@ -1205,7 +1250,7 @@ export class AgentChats {
       // 앱 고치기 대화는 작업 폴더만, 피드백을 맡았으면 피드백 폴더(그림)도 묻지 않고 읽는다
       const readable = app ? (c.feedback && this.deps.feedback ? [this.deps.feedback.dir] : []) : this.deps.readable().filter((d) => d !== p.repo)
       const mode = c.mode
-      const ctx: PolicyCtx = { rid: c.rid, write: c.write, mode, planOk: false, scope: c.scope, repo: p.repo, readable, claimedBy: (f) => this.claimedBy(c.id, f) }
+      const ctx: PolicyCtx = { rid: c.rid, write: c.write, mode, planOk: false, scope: c.scope, repo: p.repo, readable, claimedBy: (f) => this.claimedBy(c.id, f), auto: () => autoOf({ write: c.write, mode: ctx.mode, ...(c.auto && { auto: c.auto }) }), always: (k) => !!c.alwaysKeys?.some((a) => a.key === k) }
       const claim = (file?: string) => {
         if (!file) return
         if (!c.claims.includes(file)) c.claims.push(file)
@@ -1243,14 +1288,19 @@ export class AgentChats {
           abort.signal.addEventListener('abort', () => resolve({ answer: 'deny' }), { once: true })
         })
         c.state = 'waiting'
-        this.push(c, { kind: 'ask', at: now(), id, tool: tool.replace(MCP, ''), summary: v.summary, ...(v.plan !== undefined && { plan: v.plan }) })
+        this.push(c, { kind: 'ask', at: now(), id, tool: tool.replace(MCP, ''), summary: v.summary, ...(v.plan !== undefined && { plan: v.plan }), ...(v.does && { does: v.does }), ...(v.once && { once: true }) })
         const got = await answer
         const a = got.answer
         this.asks.delete(id)
         const it = c.items.find((x) => x.kind === 'ask' && x.id === id)
         if (it && it.kind === 'ask' && !it.answer) { it.answer = a; if (abort.signal.aborted) it.expired = true }
         // 계획 카드의 「늘」은 이 차례만 (계획마다 다시 본다)
-        if (a === 'always' && v.plan === undefined) c.alwaysKeys = [...(c.alwaysKeys ?? []), { key: v.key, label: v.label }]
+        // 「늘」: 토글이 있는 일은 그 토글을 켜고(편집은 편집 자동 허용으로), 실행은 프로그램마다 기억한다. 삭제 · 외부는 「늘」이 없다
+        if (a === 'always' && v.plan === undefined && !v.once) {
+          if (v.turnOn === 'edit') { ctx.mode = 'edit'; c.mode = 'edit' }
+          else if (v.turnOn) c.auto = { ...autoOf({ write: c.write, mode: ctx.mode, ...(c.auto && { auto: c.auto }) }), [v.turnOn]: true }
+          else c.alwaysKeys = [...(c.alwaysKeys ?? []), { key: v.key, label: v.label }]
+        }
         if (c.state === 'waiting') c.state = 'running'
         if (a !== 'deny') {
           if (v.plan !== undefined) {
@@ -1456,7 +1506,7 @@ const rowOf = (c: Stored): ChatRow => {
   }
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
-    mode: c.mode, model: c.model, effort: c.effort, claims: [...c.claims], changed: [...c.changed], added, removed,
+    mode: c.mode, model: c.model, effort: c.effort, ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
     ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }

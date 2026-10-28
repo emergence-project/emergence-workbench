@@ -279,3 +279,13 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 /* 바뀐 곳 파일 줄 오른쪽 「수정 검토 ›」 (10/28 21:39: 버튼 둘이 다른 폭으로 쌓여 정렬이 깨지던 것) */
 .ac-change-review { flex: none; font-size: var(--fs-xs); }
 .ac-info .ac-work-row { justify-content: space-between; }
+
+/* 권한 표 (10/28): 하는 일 · 자동 허용 두 칸, 줄마다 이름과 예를 쌓고 오른쪽 끝에 토글 또는 "늘 물음" */
+.ac-perm { display: flex; flex-direction: column; min-width: 0; }
+.ac-perm-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; border-top: 1px solid var(--line); }
+.ac-perm-head { border-top: none; font-size: var(--fs-xs); color: var(--text-3); }
+.ac-perm-head span:last-child, .ac-perm-ctl { justify-self: end; text-align: right; }
+.ac-perm-what { display: flex; flex-direction: column; min-width: 0; }
+.ac-perm-what b { font-weight: var(--fw-medium); font-size: var(--fs-sm); }
+.ac-perm-what .muted, .ac-perm-ctl .muted { font-size: var(--fs-xs); }
+.ac-perm .ac-hint { margin-top: var(--sp-1); }
