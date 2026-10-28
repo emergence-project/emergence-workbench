@@ -18,13 +18,13 @@ import { citeKeys } from '../ObsidianMarkdown'
 import { taskTitles } from '../taskView'
 import { useTaskScan } from '../projectQueries'
 
-export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick, onAdd, onPickFrom, onEdit, onUnplace, onDeleted, reload, fail }: {
+export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick, onAdd, onAddBefore, onPickFrom, onEdit, onUnplace, onDeleted, reload, fail }: {
   reveal: React.MutableRefObject<boolean>; rid: string; n: FlowNode; all: FlowNode[]; byId: Map<string, FlowNode>; notes: NoteRow[]
   /** 손으로 옮긴 자리인지 */
   manual: boolean
   /** 이 점이 있는 줄의 이름 (10/21: 줄 이름은 여기서 고친다) */
   row?: { name: string; save(name: string): void }
-  onPick(id: string): void; onAdd(): void; onPickFrom(): void; onEdit(): void; onUnplace(): void; onDeleted(): void; reload(): void; fail(e: unknown): void
+  onPick(id: string): void; onAdd(): void; onAddBefore(): void; onPickFrom(): void; onEdit(): void; onUnplace(): void; onDeleted(): void; reload(): void; fail(e: unknown): void
 }) {
   const [rowText, setRowText] = useState<string | null>(null)
   const saveRow = () => { if (rowText !== null) row?.save(rowText); setRowText(null) }
@@ -90,10 +90,13 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
   const adder = (side: 'prev' | 'next') => {
     const xs = choices(side)
     // 이어 보이는 선 줄과 같은 자리에서 시작하게 선 종류 칸만큼 비운다 (10/28 22:21 "이후 점 잇기에 정렬을 맞춰줘")
-    return xs.length > 0 && <div className="fl-linkadd-row"><span className="fl-ety" aria-hidden /><select className="fl-in fl-linkadd" data-ui="흐름 연결 더하기" disabled={linkBusy} value="" aria-label={side === 'prev' ? tr('이전 점 더하기', 'Add an earlier dot') : tr('이후 점 더하기', 'Add a later dot')}
-      onChange={(e) => { if (e.target.value) void addLink(side, e.target.value) }}>
+    // 이을 점이 없어도 줄은 남기고 그 까닭을 보인다. 맨 아래는 새 점을 만들어 잇기 (10/28 22:20 · 22:21 · 21:58, 시안 7절)
+    return <div className="fl-linkadd-row"><span className="fl-ety" aria-hidden /><select className="fl-in fl-linkadd" data-ui="흐름 연결 더하기" disabled={linkBusy} value="" aria-label={side === 'prev' ? tr('이전 점 더하기', 'Add an earlier dot') : tr('이후 점 더하기', 'Add a later dot')}
+      onChange={(e) => { const v = e.target.value; if (v === NEW) { if (side === 'next') onAdd(); else onAddBefore() } else if (v) void addLink(side, v) }}>
       <option value="">{side === 'prev' ? tr('＋ 이전 점 잇기…', '＋ Link an earlier dot…') : tr('＋ 이후 점 잇기…', '＋ Link a later dot…')}</option>
-      {xs.map((m) => <option key={m.id} value={m.id}>{m.short}</option>)}
+      {xs.length ? xs.map((m) => <option key={m.id} value={m.id}>{m.short}</option>) : <option disabled>{tr('이을 점 없음 (모두 이었거나 이으면 고리가 생김)', 'No dot to link (all linked, or it would make a loop)')}</option>}
+      <option disabled>──────</option>
+      <option value={NEW}>{tr('＋ 새 점을 만들어 잇기', '＋ Make a new dot and link it')}</option>
     </select></div>
   }
   return (
@@ -217,6 +220,8 @@ export function EvidenceSource({ rid, e, notes }: { rid: string; e: FlowEvidence
 }
 
 /** 자세히의 ＋ (이 점에서 잇기)와 ▾ (앞선 점 여러 개 고르기) */
+const NEW = '__new'
+
 function NextDotButtons({ onAdd, onPickFrom }: { onAdd(): void; onPickFrom(): void }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
