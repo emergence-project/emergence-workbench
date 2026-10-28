@@ -89,9 +89,13 @@ export function ensureMaterialsDir(wbRoot: string): string {
 
 const NO_SOURCES: ProjectSources = { canon: [], bib: [], materials: [], reviews: [], manuscripts: [] }
 
+/** 참고 자료에 두는 읽을 자료 (10/28 피드백 20:56): PDF · 발표 · 그림과 글 문서. 코드(.py · .jl · .ipynb …)와 데이터는 저장소 파일 나무에서 본다 */
+const READABLE_DOC = /^\.(md|txt|docx?|rtf|odt|html?)$/
+const isReadable = (name: string) => kindOf(name) !== 'other' || READABLE_DOC.test(path.extname(name).toLowerCase())
+
 function filesIn(dir: string, nameOf: (file: string) => string): MaterialFile[] {
   if (!fs.existsSync(dir)) return []
-  return fs.readdirSync(dir).filter((n) => !n.startsWith('.')).flatMap((n) => {
+  return fs.readdirSync(dir).filter((n) => !n.startsWith('.') && isReadable(n)).flatMap((n) => {
     const st = fs.statSync(path.join(dir, n))
     return st.isFile() ? [{ name: nameOf(n), size: st.size, mtime: st.mtimeMs, kind: kindOf(n) }] : []
   })

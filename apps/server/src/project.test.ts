@@ -160,6 +160,8 @@ describe('프로젝트 정본과 STATUS.md', () => {
     w('docs/theory/sources/skip.md', '---\nstatus: draft\n---\n')
     w('docs/model/references.bib', '@article{k1, title={P}, eprint={1402.6069}}\n')
     w('docs/papers/1402.6069v4.pdf', '%PDF-1.4')
+    w('docs/papers/plot.py', 'print(1)')
+    w('docs/papers/reading.md', '# 읽을 것')
     const research = (extra: string) => w('workbench/research.yaml', `title: Model\nquestion: A·B 상\n${extra}`)
     research(['sources:', '  canon:', '    - docs/model — 모형 원고', '    - ../outside — 무시', '  tasks: docs/TASK-QUEUE.md', '  bib: [docs/model/references.bib]',
       '  materials: [docs/papers, /etc]', '  reviews: [docs/theory]', ''].join('\n'))
@@ -181,7 +183,9 @@ describe('프로젝트 정본과 STATUS.md', () => {
     // 자료: 다른 위치의 bib와 자료 폴더. 자료 폴더 밖 경로는 거절
     const mats = (await a.inject({ method: 'GET', url: `${P}/materials` })).json()
     expect(mats.bib).toEqual([expect.objectContaining({ key: 'k1', source: 'docs/model/references.bib' })])
-    expect(mats.files).toEqual([expect.objectContaining({ name: 'docs/papers/1402.6069v4.pdf', kind: 'pdf' })])
+    // 코드 파일(.py)은 참고 자료에 두지 않는다 (10/28 피드백 20:56)
+    expect(mats.files.map((f: { name: string }) => f.name).sort()).toEqual(['docs/papers/1402.6069v4.pdf', 'docs/papers/reading.md'])
+    expect(mats.files).toContainEqual(expect.objectContaining({ name: 'docs/papers/1402.6069v4.pdf', kind: 'pdf' }))
     expect((await a.inject({ method: 'GET', url: `${P}/materials/${encodeURIComponent('docs/papers/1402.6069v4.pdf')}` })).statusCode).toBe(200)
     expect((await a.inject({ method: 'GET', url: `${P}/materials/${encodeURIComponent('docs/model/references.bib')}` })).statusCode).toBe(400)
 
