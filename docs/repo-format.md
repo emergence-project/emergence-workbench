@@ -108,7 +108,7 @@ YAML 지도 하나. 깨진 YAML이면 프로젝트가 "열 수 없음"으로 보
 | `manuscript` | `"경로.tex — 이름"` 하나 또는 목록. **`.tex`만** 받는다. 첫째가 메인 원고. 이름이 없으면 부모 폴더 이름. |
 | `tasks` | 경로 하나. 그 파일에서 `상태`(`Status`) 열과 `내용`(`작업`·`항목`·`Task`) 열이 함께 있는 첫 Markdown 표를 읽는다. 없으면 `상태` 열이 있는 첫 표, 그것도 없으면 첫 표. 작업 표 위에 일정표 같은 다른 표가 있어도 된다. |
 | `bib` | 경로 하나 또는 목록. 없으면 저장소 맨 위의 `*.bib`. 노트가 인용한 키가 여기 없으면 공유 라이브러리 `references.bib`에서 찾는다(화면의 인용 정보, Markdown 노트 PDF의 참고문헌은 그 항목만 뽑은 `library-refs.bib`). 저장소 밖 경로는 받지 않는다. |
-| `materials` | 경로 하나 또는 목록. |
+| `materials` | 경로 하나 또는 목록. 그 폴더 바로 아래의 PDF · 발표 · 그림과 글 문서(`.md` · `.txt` · `.docx` · `.html` 등)만 참고 자료에 보인다. 코드(`.py` · `.jl` · `.ipynb` …)와 데이터는 빼고, 저장소 쪽 파일 나무에서 본다. |
 | `reviews` | 폴더 목록. 안의 `.md` 중 머리말에 `status:`가 있는 것을 읽고(`sources/`·`archive/` 폴더는 건너뜀), `in-review`(옛 이름 `proposed`·`needs-review`·`needs-revision` 포함)만 "검토 대기"(사용자 차례)로 센다. `draft`·`in-progress`는 쓰는 중, `accepted`·`closed`·`superseded`는 끝난 것이다(`core/review-status.ts`). |
 
 - 경로와 설명은 `—` 또는 `-` 앞뒤 공백으로 나눈다. 그래서 **경로에 ` - `나 ` — `가 있으면 거기서 잘린다.** 이름에도 `—`·` - `를 쓰지 않는다.
