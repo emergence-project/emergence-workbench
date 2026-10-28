@@ -29,6 +29,8 @@
   --code-cmd: #7c3aed;
   --code-math: #0e7490;
   --code-comment: var(--text-3);
+  /* 원문 편집기의 수식 기호 색 (10/28 21:39 사용자 결정): 상태가 아니라 기호 종류. 노트 원문 보기에만 쓴다 */
+  --math-dollar: var(--s-progress); --math-paren: var(--s-solved); --math-display: var(--s-blocked); --math-bracket: var(--code-cmd);
   --paper: #ffffff;
   --record-menu-ink: #0d0d0d; /* 검은 고른 글 메뉴와 흰 하이라이트 메뉴는 두 테마에서 같은 대비 */
   --banner-bg: #ffe08a; --banner-stripe: #ffd55c; --banner-text: #3d2c00;

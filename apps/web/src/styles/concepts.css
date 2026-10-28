@@ -75,6 +75,13 @@
 .cn-edit-live .cm-h1 { font-size: 1.5em; } .cn-edit-live .cm-h2 { font-size: 1.25em; } .cn-edit-live .cm-h3 { font-size: 1.1em; }
 .cn-edit .cm-math-src { font-family: var(--editor-font); font-size: .92em; color: var(--code-math); }
 .cn-edit .cm-math { cursor: text; }
+.cn-edit .cm-math-range { background: var(--line); border-radius: var(--r-xs); }
+.cn-edit .cm-md-dollar, .cn-edit .cm-md-paren, .cn-edit .cm-md-display, .cn-edit .cm-md-bracket { font-weight: var(--fw-strong); }
+.cn-edit .cm-md-dollar { color: var(--math-dollar); }
+.cn-edit .cm-md-paren { color: var(--math-paren); }
+.cn-edit .cm-md-display { color: var(--math-display); }
+.cn-edit .cm-md-bracket { color: var(--math-bracket); }
+.cn-edit .cm-md-unclosed { color: var(--danger); text-decoration: underline wavy var(--danger); }
 .cn-edit .cm-math-block { text-align: center; padding: var(--sp-1) 0; }
 .cn-edit .cm-wikilink { text-decoration: underline; text-decoration-color: var(--text-3); cursor: text; }
 .cn-edit .cm-cite { color: var(--text-2); }

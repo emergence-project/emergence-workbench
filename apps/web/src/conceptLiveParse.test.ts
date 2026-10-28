@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findCites, findMath, findWikiLinks, slashQuery } from './conceptLiveParse'
+import { findCites, findMath, findMathRanges, findWikiLinks, slashQuery } from './conceptLiveParse'
 
 describe('개념노트 편집기 자리 찾기', () => {
   it('수식: 블록과 줄 안, 글자 달러와 코드는 빼고', () => {
@@ -25,5 +25,21 @@ describe('개념노트 편집기 자리 찾기', () => {
     expect(slashQuery('text /정')).toBe('정')
     expect(slashQuery('a/b')).toBeNull()
     expect(slashQuery('http://x')).toBeNull()
+  })
+})
+
+describe('findMathRanges', () => {
+  it('finds each delimiter kind with its lengths', () => {
+    const r = findMathRanges('a $x$ b \\(y\\) c $$z$$ d \\[w\\]')
+    expect(r.map((m) => [m.kind, m.open, m.close])).toEqual([['$', 1, 1], ['\\(', 2, 2], ['$$', 2, 2], ['\\[', 2, 2]])
+    expect(r.map((m) => [m.from, m.to])).toEqual([[2, 5], [8, 13], [16, 21], [24, 29]])
+  })
+  it('spans lines for blocks and marks an unclosed opener', () => {
+    expect(findMathRanges('$$a\nb$$')[0]).toMatchObject({ from: 0, to: 7, kind: '$$' })
+    expect(findMathRanges('text \\[ a + b')).toEqual([{ from: 5, to: 7, kind: '\\[', open: 2, close: 0 }])
+  })
+  it('skips escaped dollars, money and code', () => {
+    expect(findMathRanges('\\$5 and $6 or $ 7$')).toEqual([])
+    expect(findMathRanges('`$a$` $b$', [[0, 5]]).map((m) => m.from)).toEqual([6])
   })
 })

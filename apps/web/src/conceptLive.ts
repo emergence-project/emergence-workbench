@@ -3,7 +3,7 @@ import { type EditorState, Facet, type Range, StateField } from '@codemirror/sta
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import katex from 'katex'
-import { findCites, findMath, findWikiLinks } from './conceptLiveParse'
+import { findCites, findMath, findMathRanges, findWikiLinks, type MathDelim } from './conceptLiveParse'
 import { notePreview as prepareNotePreview } from './notePreview'
 import { CITE, type RenderOptions } from './ObsidianMarkdown'
 import { noteInline, noteRenderOptions, renderNoteFigure, renderNoteFootnote } from './noteRender'
@@ -199,7 +199,31 @@ export function livePreview() {
   return [liveField, syntaxHighlighting(liveStyle)]
 }
 
+const delimClass: Record<MathDelim, string> = { '$': 'cm-md-dollar', '\\(': 'cm-md-paren', '$$': 'cm-md-display', '\\[': 'cm-md-bracket' }
+const mathBody = Decoration.mark({ class: 'cm-math-range' })
+const unclosed = Decoration.mark({ class: 'cm-md-unclosed' })
+
+/** 원문 보기의 수식 범위: 수식마다 회색 바탕, 여는 · 닫는 기호는 종류마다 색, 짝이 없는 기호는 빨강 물결 (21:39 피드백) */
+function mathRanges(state: EditorState): DecorationSet {
+  const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state)
+  const code: [number, number][] = []
+  tree.iterate({ enter: (n) => { if (n.name === 'InlineCode' || n.name === 'FencedCode' || n.name === 'CodeBlock') { code.push([n.from, n.to]); return false } } })
+  const out: Range<Decoration>[] = []
+  for (const m of findMathRanges(state.doc.toString(), code)) {
+    if (!m.close) { out.push(unclosed.range(m.from, m.to)); continue }
+    const mark = Decoration.mark({ class: delimClass[m.kind] })
+    out.push(mathBody.range(m.from, m.to), mark.range(m.from, m.from + m.open), mark.range(m.to - m.close, m.to))
+  }
+  return Decoration.set(out, true)
+}
+
+const mathRangeField = StateField.define<DecorationSet>({
+  create: mathRanges,
+  update: (deco, tr) => (tr.docChanged || tr.reconfigured ? mathRanges(tr.state) : deco),
+  provide: (f) => EditorView.decorations.from(f),
+})
+
 /** 원문 보기: 색만 입힌 원문 (# * ` 표시가 그대로 보인다) */
 export function sourceHighlight() {
-  return syntaxHighlighting(style)
+  return [syntaxHighlighting(style), mathRangeField]
 }
