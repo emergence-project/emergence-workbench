@@ -6,6 +6,8 @@ import { Icon } from './icons'
 import { openPart } from './Manuscript'
 import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
 import { partNumber } from './OverviewPage'
+import { FileTree } from './FileTree'
+import { useRepoCurrent, wantRepoFile } from './noteScreen'
 import { routeOfNote } from './RightSidebar'
 import { SideTabs } from './SectionToc'
 import { go, type Route } from './router'
@@ -20,7 +22,7 @@ import { StarIcon } from './marks'
 /**
  * 왼쪽 사이드바 = 지금 프로젝트에서 어디로 갈지 (10/5 시안 S2 "주제 › 노트 나무").
  * 프로젝트 정보 · 작업 · 주제(주제 › 노트, 지금 연 노트의 주제만 펼침, 노트마다 상태 점) · "노트들"(주제 없는 노트) · 자료(원고 · 참고 자료).
- * 맨 위 탭 "프로젝트 | 목차"(10/18)로 이 목록과 지금 연 노트의 절 목차를 바꿔 본다. 개념노트 · 문헌노트는 레일 "지식", 지도는 원고의 보기로 둔다.
+ * 맨 위 탭 "프로젝트 | 파일 | 목차"(10/18, 10/29 세 탭)로 이 목록과 지금 연 노트의 절 목차를 바꿔 본다. 개념노트 · 문헌노트는 레일 "지식", 지도는 원고의 보기로 둔다.
  * 수는 사용자 차례만 주황 알약(기록 = 에이전트가 물은 기록, 수정 검토 = 검토할 노트, 10/18)이다.
  */
 type Group = string
@@ -101,13 +103,18 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
     )
   }
   const repoOn = route.page === 'repo' || route.page === 'files'
+  // 「파일」 탭에서 고른 줄: 저장소 쪽의 연 파일, 아니면 지금 연 노트 · 파일 탭
+  const repoCurrent = useRepoCurrent()
+  const currentFile = repoOn ? (repoCurrent?.rid === rid ? repoCurrent.path : null) : route.page === 'part' ? route.file : route.page === 'file' ? route.path : null
+  const openFile = (path: string) => { wantRepoFile(rid, path); if (!repoOn) go({ page: 'repo', rid }) }
   const ba = repoBehindAhead(useRepoInfo(rapi).data)
   const recordsOn = route.page === 'records' || route.page === 'todo' || route.page === 'log' || route.page === 'task' || route.page === 'judge'
   return (
     <div className="project-toc" data-ui="프로젝트 목차">
       <SideTabs label={t('프로젝트', 'Project')} turn={askCount + judgeCount + editCount}
         turnTip={t(`내 차례: 에이전트가 물은 기록 ${askCount} · 판단 ${judgeCount} · 수정 검토 ${editCount}`, `Your turn: ${askCount} agent question(s), ${judgeCount} to judge, ${editCount} edit review(s)`)}
-        show={!!current || route.page === 'part' || route.page === 'task' || route.page === 'judge' || route.page === 'concept'}>
+        show={!!current || route.page === 'part' || route.page === 'task' || route.page === 'judge' || route.page === 'concept'}
+        files={<FileTree rid={rid} current={currentFile} onOpen={openFile} />}>
       <div className="project-nav">
         <div className="side-quick" data-ui="빠른 이동">
           <button className={`nav side-row${route.page === 'info' ? ' on' : ''}`} aria-current={route.page === 'info' ? 'page' : undefined} data-ui="프로젝트 정보 블록" title={t('개요: 설명 · 시작일 · 성격과 분야 · 들어 있는 것', 'Overview: description, start date, kind and fields, contents')} onClick={() => go({ page: 'info', rid })}>
@@ -128,7 +135,7 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
           <button className={`nav side-row${route.page === 'flow' ? ' on' : ''}`} aria-current={route.page === 'flow' ? 'page' : undefined} data-ui="흐름 블록" title={t('연구 흐름: 생각의 걸음과 그 사이의 선', 'Research flow: steps of thinking and the lines between them')} onClick={() => go({ page: 'flow', rid })}>
             <span className="q-ico" aria-hidden>{Icon.flow}</span><span className="label">{t('흐름', 'Flow')}</span></button>
           <div className={`side-row-wrap${repoOn ? ' on' : ''}`}>
-            <button className={`nav side-row${repoOn ? ' on' : ''}`} aria-current={repoOn ? 'page' : undefined} data-ui="저장소 블록" title={t('폴더 · 브랜치 · GitHub와 같은지, 그리고 모든 파일 (나무는 목차 탭에)', 'Folder, branch, whether it matches GitHub, and every file (the tree is on the Contents tab)')} onClick={() => go({ page: 'repo', rid })}>
+            <button className={`nav side-row${repoOn ? ' on' : ''}`} aria-current={repoOn ? 'page' : undefined} data-ui="저장소 블록" title={t('폴더 · 브랜치 · GitHub와 같은지, 그리고 모든 파일 (나무는 파일 탭에)', 'Folder, branch, whether it matches GitHub, and every file (the tree is on the Files tab)')} onClick={() => go({ page: 'repo', rid })}>
               <span className="q-ico" aria-hidden>{Icon.repo}</span><span className="label">{t('저장소', 'Repository')}</span></button>
             {ba && (ba.behind > 0 || ba.ahead > 0) && <button className="side-sync" data-ui="저장소 받기 올리기 수"
               title={t(`GitHub에 새 커밋 ${ba.behind} · 올리지 않은 커밋 ${ba.ahead} — 현황에서 동기화합니다`, `${ba.behind} new on GitHub · ${ba.ahead} unpushed. Sync from Status`)}

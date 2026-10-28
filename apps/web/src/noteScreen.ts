@@ -72,27 +72,33 @@ export function latexSections(text: string): (NoteSection & { line: number })[] 
 /** 줄 번호가 든 절 */
 export const sectionAtLine = (secs: { line: number }[], line: number) => secs.reduce((cur, s, i) => (s.line <= line ? i : cur), -1)
 
-// ---------- 왼쪽 사이드바 목차 탭의 파일 나무 ----------
+// ---------- 왼쪽 사이드바 「파일」 탭의 파일 나무 ----------
 
 /**
- * 저장소 쪽(10/28 08:28 · 17:22 · 17:28, 시안 1-2절)은 파일 나무를 본문 옆이 아니라 왼쪽 사이드바의 「목차」 탭에 둔다.
- * 쪽이 열려 있는 동안 treeWanted가 켜지고, 사이드바의 목차 탭이 비워 둔 자리(slot)에 쪽이 나무를 그려 넣는다(createPortal).
- * 사이드바가 접혀 있으면(sides 0) 쪽이 나무를 본문 왼쪽에 그린다.
+ * 왼쪽 사이드바는 「프로젝트 · 파일 · 목차」 세 탭이다(10/28 시안 6절, 10/29 결정). 파일 나무는 「파일」 탭 한 곳에만 있고,
+ * 저장소 쪽 가운데에는 연 파일만 보인다. 나무에서 파일을 누르면 저장소 쪽을 열고 그 파일을 탭으로 연다.
+ * 사이드바가 접혀 있으면(sides 0) 저장소 쪽이 나무를 본문 왼쪽에 그린다.
  */
-const treeWanted = tiny(false)
-const treeSlot = tiny<HTMLElement | null>(null)
+const repoOpen = tiny(false)
 const sides = tiny(0)
-export const useTreeWanted = () => useSyncExternalStore(treeWanted.subscribe, treeWanted.get)
-export const setTreeSlot = (el: HTMLElement | null) => treeSlot.set(el)
+/** 저장소 쪽에서 지금 보이는 파일 (나무가 그 줄을 고른다) */
+const repoCurrent = tiny<{ rid: string; path: string } | null>(null)
+/** 나무에서 누른 파일: 저장소 쪽이 받아 탭으로 연다 */
+const repoWant = tiny<{ rid: string; path: string; n: number } | null>(null)
+export const useRepoOpen = () => useSyncExternalStore(repoOpen.subscribe, repoOpen.get)
 /** 목차 탭을 가진 사이드바가 화면에 있는 동안 (SideTabs가 부른다) */
 export function sideMounted() { sides.set(sides.get() + 1); return () => sides.set(sides.get() - 1) }
-/** 저장소 쪽: 켜 두는 동안 목차 탭이 나무 자리가 된다. 자리와 사이드바가 보이는지를 돌려준다 */
-export function useSideTree(): { slot: HTMLElement | null; side: boolean } {
-  useEffect(() => { treeWanted.set(true); return () => treeWanted.set(false) }, [])
-  const slot = useSyncExternalStore(treeSlot.subscribe, treeSlot.get)
-  const side = useSyncExternalStore(sides.subscribe, sides.get) > 0
-  return { slot, side }
+export const useSideShown = () => useSyncExternalStore(sides.subscribe, sides.get) > 0
+export const useRepoCurrent = () => useSyncExternalStore(repoCurrent.subscribe, repoCurrent.get)
+export const useRepoWant = () => useSyncExternalStore(repoWant.subscribe, repoWant.get)
+/** 저장소 쪽: 열려 있는 동안 켜 두고, 지금 보이는 파일을 알린다 */
+export function useRepoPage(rid: string, current: string | null) {
+  useEffect(() => { repoOpen.set(true); return () => { repoOpen.set(false); repoCurrent.set(null) } }, [])
+  useEffect(() => { repoCurrent.set(current ? { rid, path: current } : null) }, [rid, current])
 }
+/** 나무에서 파일을 열 때: 저장소 쪽이 받는다 (쪽이 아직 없으면 열면서 받는다) */
+export function wantRepoFile(rid: string, path: string) { repoWant.set({ rid, path, n: (repoWant.get()?.n ?? 0) + 1 }) }
+export function takeRepoWant() { repoWant.set(null) }
 
 // ---------- 오른쪽 사이드바의 노트 칸 ----------
 
