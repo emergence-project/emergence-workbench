@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { useCmdEnter } from './cmdEnter'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { autoCustom, autoOf, type ChatAutoValues } from '@rw/core'
 import { agentChatsApi, api, APP_RID, notesApi, type AskAnswer, type Attach, type AttachKind, type Chat, type ChatEffort, type ChatItem, type ChatMessageBody, type ChatMode, type ChatModel, type ChatRow, type ModelChoice, type ChatScope, type ChatSettings, type ChatState, type ImageIn, type Todo } from './api'
@@ -738,8 +739,9 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
       if (ok) { setText(''); setCaret(0); setAttach([]); setImages([]) }
     } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
   }
+  const sendKey = useCmdEnter(() => void submit())
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.nativeEvent.isComposing) return
+    if (e.nativeEvent.isComposing) { if (!menu) sendKey.onKeyDown(e); return }
     if (menu && picks.length) {
       if (e.key === 'ArrowDown') { e.preventDefault(); setHi((hi + 1) % picks.length); return }
       if (e.key === 'ArrowUp') { e.preventDefault(); setHi((hi - 1 + picks.length) % picks.length); return }
@@ -748,7 +750,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
     if (menu && e.key === 'Escape') { e.preventDefault(); setClosed(menu.start); return }
     if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust) }); return }
     if (e.key === 'Escape' && onStop && !text) { e.preventDefault(); onStop(); return }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submit() }
+    sendKey.onKeyDown(e)
   }
   const startToken = (ch: '@' | '/') => {
     if (ch === '/') { setText('/'); setCaret(1); setClosed(null); focusAt(1); return }
@@ -776,7 +778,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
       <div className="ac-input">
         <textarea ref={box} rows={2} value={text} placeholder={placeholder} aria-label={placeholder} autoFocus={autoFocus}
           onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart); setClosed(null) }}
-          onSelect={(e) => setCaret(e.currentTarget.selectionStart)} onKeyDown={onKey} onPaste={onPaste} />
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart)} onKeyDown={onKey} onCompositionEnd={sendKey.onCompositionEnd} onPaste={onPaste} />
         {menu && (
           <div className={`ac-menu${(box.current?.getBoundingClientRect().top ?? 999) < 320 ? ' down' : ''}`} role="listbox" data-ui={menu.kind === '/' ? '명령 메뉴' : '붙이기 메뉴'}>
             {picks.length

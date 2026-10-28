@@ -18,12 +18,25 @@ export const WORK_FILTER_LABEL = Object.fromEntries(WORK_FILTERS.map((f) => [f, 
 export const isRecordFilter = (f: WorkFilter): f is RecordFilter => f === '할 일' || f === '메모' || f === '질문' || f === '지시'
 export const WORK_FILTER_KEY: Record<WorkSection, string> = { work: 'rw-work-filter', records: 'rw-records-filter' }
 
-/** 기록 탭을 그 필터로 연다 (10/14 13:33 제안: 오른쪽 사이드바 기록의 "모두 보기"). 이미 열린 기록 탭도 바뀐다 */
+/** 기록 탭을 그 필터로 연다 (10/14 13:33 제안: 오른쪽 사이드바 기록의 "기록 탭에서 보기"). 이미 열린 기록 탭도 바뀐다 */
 export const WORK_FILTER_EVENT = 'rw-records-filter'
 export function chooseRecordFilter(f: RecordFilter | '전체') {
   try { localStorage.setItem(WORK_FILTER_KEY.records, f) } catch { /* 저장할 수 없어도 열린 기록 탭은 바뀐다. */ }
   window.dispatchEvent(new CustomEvent(WORK_FILTER_EVENT, { detail: f }))
 }
+
+/** 오른쪽 사이드바의 「기록 탭에서 보기」(10/28 22:25 수정 요청): 기록 › 모두를 그 노트 · 흐름 점이 골라진 채로 연다. null = 전체 */
+export const RECORD_PLACE_EVENT = 'rw-records-place'
+let pendingPlace: string | null | undefined
+export function chooseRecordPlace(target: string | null) {
+  pendingPlace = target
+  window.dispatchEvent(new CustomEvent(RECORD_PLACE_EVENT, { detail: target }))
+}
+/** 고른 곳이 기다리는가 (기록 탭을 모두로 열지 정할 때) */
+export const hasRecordPlace = () => pendingPlace !== undefined
+/** 기다리는 곳 (없으면 null = 전체). 렌더 중에 읽기만 하고, 보인 뒤 clearRecordPlace로 지운다 */
+export const peekRecordPlace = (): string | null => pendingPlace ?? null
+export function clearRecordPlace() { pendingPlace = undefined }
 
 /** 첫 화면 작업 패널의 할 일을 누르면 작업 탭의 할 일에서 그 항목을 보인다 (10/7 15:31 수정 요청) */
 export const TODO_FOCUS_EVENT = 'rw-work-todo-focus'

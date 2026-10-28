@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCmdEnter } from './cmdEnter'
 import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
 import type { CommentEntry, CommentKind, RecordFile } from './api'
@@ -16,6 +17,7 @@ import { SayCard } from './Conversation'
 import { t } from './i18n'
 import { uiShown } from './uiNames'
 import { chooseRecordFilter } from './workRecords'
+import { foldedCount, recordOpenKey, useRecordOpen } from './recordFold'
 
 /** 붙은 곳의 이름과 툴팁 (주면 줄 번호 대신). 없으면 줄 · 쪽 번호 */
 export type RecordPlaceOf = (c: CommentEntry) => { label: string; tip: string } | undefined
@@ -51,12 +53,10 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
     const last = linked.get(todo.id)?.at(-1)
     if (last && last.kind === kind && last.state !== '끝냄' && !last.by) {
       const ok = await act((w) => w.reply(file.target, last.id, text))
-      if (ok && kind === '질문') void askClaude(rid, file.target, last.id)
       return ok
     }
     let id = ''
     const ok = await act(async (w) => { id = (await w.add(file.target, { kind, title: file.title, ...(file.source && { source: file.source }), text, todo: todo.id })).entry.id })
-    if (ok && kind === '질문') void askClaude(rid, file.target, id)
     return ok
   }
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
@@ -69,12 +69,8 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
       onState={(state) => act((w) => w.setState(file.target, c.id, state, file.hash))}
       onEdit={(text, baseHash, kind) => act((w) => w.update(file.target, c.id, { text, baseHash, ...(kind && kind !== c.kind && { kind }) }))}
       onApply={/^(note|calc)-/.test(file.target) ? (i) => act((w) => w.apply(file.target, c.id, i, file.hash)) : undefined}
-      onReply={async (text) => {
-        const ok = await act((w) => w.reply(file.target, c.id, text))
-        // 사용자가 쓴 질문에 이어 물으면 새 질문처럼 맥의 Claude에게 넘긴다 (에이전트가 물은 것에 답하면 넘기지 않는다)
-        if (ok && c.kind === '질문' && !c.by) void askClaude(rid, file.target, c.id)
-        return ok
-      }}
+      // 이어 물은 질문도 맥의 Claude가 언제 답할지는 설정 › 에이전트 › 질문 · 지시 처리를 따른다 (서버가 받음, 10/28 피드백 22:19)
+      onReply={(text) => act((w) => w.reply(file.target, c.id, text))}
       onDelete={async () => {
         // Capture the read hash before the confirmation: an appended answer must cause a conflict.
         const baseHash = file.hash
@@ -142,6 +138,11 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const [editKind, setEditKind] = useState<CommentKind>(kind as CommentKind)
   useEffect(() => { if (!edit) setEditKind(kind as CommentKind) }, [edit, kind])
   const save = async () => { if (edit && !conflict && edit.text.trim() && await onEdit(edit.text, edit.hash, kindEditable ? editKind : undefined)) setEdit(null) }
+  // 대화 접기 (10/28 피드백 20:57): 답이 둘 이상이면 마지막 답만, 마지막 답도 길면 다섯 줄까지. 펼친 것은 기록마다 기억한다
+  const [open, setOpen] = useRecordOpen(recordOpenKey(rid, file.target, c.id))
+  const folded = foldedCount(c.answers.length, open)
+  const shown = c.answers.map((a, i) => ({ a, i })).slice(folded)
+  const clampLast = (i: number, body: ReactNode) => i === c.answers.length - 1 && !open ? <Clamp onMore={() => setOpen(true)}>{body}</Clamp> : body
   // 글 속 저장소 경로는 링크로, 누르면 파일 탭 (10/19). 지식 라이브러리 기록은 프로젝트 탭이 없어 글 그대로
   const paths = useMemo(() => rid === LIBRARY_RID ? null : { rid, from: { target: file.target, id: c.id } }, [rid, file.target, c.id])
   return <RepoPathContext.Provider value={paths}><article ref={row} className={`record-row${work ? ' record-row-work' : ''}${active ? ' on' : ''}${turn ? ' turn' : ''}${c.state === '끝냄' ? ' done' : ''}${c.split ? ' split' : ''}`} data-ui="기록 줄" data-ui-item={c.id}
@@ -194,13 +195,15 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         {date && <span className="record-when" title={dateLabel ? undefined : when.title}>{date}</span>}
       </div>
       {/* 기록 탭은 답을 대화로(내 글 오른쪽, 에이전트 글 왼쪽), 오른쪽 사이드바는 좁아서 답을 차례로 쌓는다 (10/15) */}
+      {c.answers.length > 1 && <button className="a record-fold" data-ui="대화 접기" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? t('앞 답 접기', 'Fold earlier answers') : t(`› 앞 답 ${folded}개`, `› ${folded} earlier ${folded === 1 ? 'answer' : 'answers'}`)}</button>}
       {work ? c.answers.length > 0 && <ul className="fbp-thread record-thread" data-ui="기록 대화">
-        {c.answers.map((a, i) => a.by === '앱' ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
+        {shown.map(({ a, i }) => a.by === '앱' ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
           : <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : <Author by={a.by} />} when={a.at}>
-            <AnswerBody answer={a} busy={busy} onApply={applicable(i)} />
+            {clampLast(i, <AnswerBody answer={a} busy={busy} onApply={applicable(i)} />)}
           </SayCard>)}
       </ul>
-        : c.answers.map((a, i) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} />)}
+        : shown.map(({ a, i }) => <RecordAnswer key={i} answer={a} busy={busy} onApply={applicable(i)} clamp={(body) => clampLast(i, body)} />)}
       {/* 답하기는 대화 맨 아래에 (10/19 피드백 11:31: 긴 대화 위로 올라가 누르지 않게). 내가 쓰고 아직 답이 없으면 두지 않는다(고치기는 위 연필, 10:36) */}
       {onReply && talk && c.state !== '끝냄' && !turn && !unanswered && !replying && <div className="record-follow"><button className="a" onClick={() => setReplying(true)}>{t('답하기', 'Reply')}</button></div>}
       {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
@@ -266,11 +269,30 @@ function TodoTalk({ records, busy, actions, onSend, onCancel }: { records: Comme
 /** 기록 파일에 적을 때 머리처럼 보이는 줄 앞에 붙인 \를 보일 때만 뗀다 */
 const unguard = (s: string) => s.replace(/^\\(?=#{1,6} )/gm, '')
 
-function RecordAnswer({ answer, busy = false, onApply }: { answer: CommentEntry['answers'][number]; busy?: boolean; onApply?(): void }) {
+function RecordAnswer({ answer, busy = false, onApply, clamp = (body) => body }: { answer: CommentEntry['answers'][number]; busy?: boolean; onApply?(): void; clamp?(body: ReactNode): ReactNode }) {
   const mine = answer.by === USER_ANSWER_BY
   return <div className={`cmt-answer${mine ? ' mine' : ''}`}><div className="cmt-answer-head">{mine ? <span>{t('사용자', 'User')}</span> : <><span>{t('답', 'Answer')}</span><span className="cmt-answer-by" title={answer.by}>· <Author by={answer.by} /></span></>}<span className="muted cmt-time">· {answer.at}</span></div>
-    <AnswerBody answer={answer} busy={busy} onApply={onApply} />
+    {clamp(<AnswerBody answer={answer} busy={busy} onApply={onApply} />)}
   </div>
+}
+
+/** 마지막 답이 다섯 줄을 넘으면 접고 「더 보기」 (10/28 피드백 20:57). 누르면 그 기록을 펼친다 */
+function Clamp({ onMore, children }: { onMore(): void; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [over, setOver] = useState(false)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const check = () => setOver(el.scrollHeight > el.clientHeight + 1)
+    check()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check)
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [])
+  return <>
+    <div ref={box} className={`record-clamp${over ? ' over' : ''}`}>{children}</div>
+    {over && <button className="a record-more" data-ui="더 보기" onClick={onMore}>{t('더 보기', 'Show more')}</button>}
+  </>
 }
 
 /** 답 글과 고침 제안(바꿀 글 → 바꾼 글, "노트에 적용") */
@@ -292,10 +314,11 @@ function AnswerBody({ answer, busy, onApply }: { answer: CommentEntry['answers']
 function RecordReply({ busy, asked, onReply, onCancel }: { busy: boolean; asked: boolean; onReply(text: string): Promise<boolean>; onCancel?(): void }) {
   const [text, setText] = useState('')
   const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) setText('') }
+  const sendKey = useCmdEnter(() => void send())
   const label = asked ? t('에이전트에게 답하기', 'Answer the agent') : t('이어서 묻거나 덧붙이기', 'Ask more or add to it')
   return <div className="fbp-compose record-reply" data-ui="이어 쓰기">
     <textarea rows={2} value={text} disabled={busy} aria-label={label} placeholder={label}
-      onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void send() } else onListKey(e, setText) }} />
+      onChange={(e) => setText(e.target.value)} onCompositionEnd={sendKey.onCompositionEnd} onKeyDown={(e) => { if (!sendKey.onKeyDown(e)) onListKey(e, setText) }} />
     <div className="fbp-compose-row"><span className="sp" />{onCancel && <button className="btn sm" disabled={busy} onClick={onCancel}>{t('취소', 'Cancel')}</button>}<button className="btn primary sm" data-tip={t('답하기 (⌘↵)', 'Reply (⌘↵)')} disabled={busy || !text.trim()} onClick={() => void send()}>{t('답하기', 'Reply')}</button></div>
   </div>
 }

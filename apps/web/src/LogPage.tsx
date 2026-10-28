@@ -5,7 +5,7 @@ import type { NoteOf } from './journalTargets'
 import type { FlashAction } from './flash'
 import { MemoList } from './memo'
 import { reviewStatusLabel } from './reviewStatus'
-import { askClaude, revealComment } from './Comments'
+import { revealComment } from './Comments'
 import { recordWrites } from './useRecordActions'
 import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
@@ -16,7 +16,7 @@ import { JudgeQueue, judgeTurns } from './flow/JudgeQueue'
 import { FlowPairs } from './flow/FlowPairs'
 import { threadCounts } from './flow/threadModel'
 import { needsJudgment, openTaskId, taskRowKey } from './taskView'
-import { agentTurnRecords, isRecordFilter, openTodoRecords, parseWorkFilter, clearTodoFocus, peekTodoFocus, RECORD_VIEWS, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, userTurnRecords, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, recordPlaces, PLACE_KINDS, PLACE_KIND_LABEL, type FlatRecord, type RecordPlace, type WorkRecordGroup, type RecordFilter, type RecordView, type WorkFilter } from './workRecords'
+import { agentTurnRecords, isRecordFilter, openTodoRecords, parseWorkFilter, clearTodoFocus, peekTodoFocus, RECORD_VIEWS, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, RECORD_PLACE_EVENT, peekRecordPlace, clearRecordPlace, hasRecordPlace, userTurnRecords, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, recordPlaces, PLACE_KINDS, PLACE_KIND_LABEL, type FlatRecord, type RecordPlace, type WorkRecordGroup, type RecordFilter, type RecordView, type WorkFilter } from './workRecords'
 import { EditReviewRow, TurnRecordRow } from './RecordTurns'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
 import { useAgentEdits, useJournal, useProjectInfo, useRecords } from './projectQueries'
@@ -61,8 +61,8 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   const noteOf = useNoteOf(notes)
   // 할 일의 정본은 기록 파일이다 (2026-10-16). 일지에는 끝낸 일 · 상태 · 메모 (예전 일지의 끝낸 할 일 포함)
   const past = entries.filter((e) => !(e.kind === 'todo' && !e.done))
-  // 처음 열면 내 차례 (오른쪽 사이드바 "모두 보기"와 첫 화면 할 일은 모두로 연다)
-  const [view, setView] = useState<RecordView>(() => focus === 'log' || peekTodoFocus() ? 'all' : 'mine')
+  // 처음 열면 내 차례 (오른쪽 사이드바 "기록 탭에서 보기"와 첫 화면 할 일은 모두로 연다)
+  const [view, setView] = useState<RecordView>(() => focus === 'log' || peekTodoFocus() || hasRecordPlace() ? 'all' : 'mine')
   const [filter, setFilter] = useState<WorkFilter>(() => {
     try { return parseWorkFilter(localStorage.getItem(WORK_FILTER_KEY.records), 'records') } catch { return '메모' }
   })
@@ -70,7 +70,7 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
     setFilter(next)
     try { localStorage.setItem(WORK_FILTER_KEY.records, next) } catch { /* 저장할 수 없어도 거르기는 쓴다. */ }
   }
-  // 오른쪽 사이드바 기록의 "모두 보기"가 고른 필터
+  // 오른쪽 사이드바 기록의 "기록 탭에서 보기"가 고른 필터
   useEffect(() => {
     const take = (e: Event) => { setView('all'); setFilter(parseWorkFilter((e as CustomEvent<string>).detail, 'records')) }
     window.addEventListener(WORK_FILTER_EVENT, take)
@@ -105,7 +105,14 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   const groups = workRecordGroups(files, entries, filter === '전체' || filter === '질문' || filter === '지시' || filter === '할 일' ? filter : '메모')
   // 기록이 달린 곳 (10/22 12:09 안 C): 왼쪽에서 고른 곳의 기록만 오른쪽에. null = 전체
   const places = useMemo(() => recordPlaces(groups), [groups])
-  const [place, setPlace] = useState<string | null>(null)
+  const [place, setPlace] = useState<string | null>(() => peekRecordPlace())
+  // 오른쪽 사이드바의 「기록 탭에서 보기」가 고른 곳 (이미 열린 기록 탭도 바뀐다)
+  useEffect(() => {
+    clearRecordPlace()
+    const take = () => { setView('all'); setPlace(peekRecordPlace()); clearRecordPlace() }
+    window.addEventListener(RECORD_PLACE_EVENT, take)
+    return () => window.removeEventListener(RECORD_PLACE_EVENT, take)
+  }, [])
   const picked = place && places.some((p) => p.target === place) ? place : null
   const shownGroups = picked ? groups.filter((g) => g.target === picked) : groups
   const openRecord = (file: RecordFile, entry: CommentEntry) => {
@@ -211,7 +218,6 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
               </div>
               {isRecordFilter(filter) && <WorkComposer key={rid} filter={filter} onSave={async (kind, text) => {
                 const result = await recordWrites(rid).add('project', { kind, title: summary.research.title, text })
-                if (kind === '질문') void askClaude(rid, 'project', result.entry.id)
                 onSaved(t(`${kind} 저장됨`, `${WORK_FILTER_LABEL[kind]} saved`))
               }} />}
             </>}
