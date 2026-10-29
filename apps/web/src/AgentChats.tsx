@@ -1325,9 +1325,13 @@ function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) 
   )
 }
 
+const PERM_OPEN_KEY = 'rw-agent-perm-open'
+
 /** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */
 export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
   const client = useQueryClient()
+  const [permOpen, setPermOpen] = useState(() => store.get<boolean>(PERM_OPEN_KEY, false))
+  const setPerm = (v: boolean) => { setPermOpen(v); store.set(PERM_OPEN_KEY, v) }
   const chat = useChat(id).data
   const work = useQuery({ queryKey: qk.agentWork, queryFn: () => agentChatsApi.work() }).data
   if (!chat) return null
@@ -1347,11 +1351,16 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
         {!chat.claims.length && !others.length && <span className="muted ac-hint">{t('지금 고치는 파일이 없습니다', 'No file is being changed now')}</span>}
         <span className="muted ac-hint">{t('다른 대화가 잡은 파일은 읽기만 합니다', 'Files claimed by another conversation are read only')}</span>
       </section>
+      {/* 권한은 이름 한 줄만, 토글은 「상세 보기」로 펼쳐서 (10/28 21:19 수정 요청) */}
       <section data-ui="이 대화의 허락">
         <h3>{t('이 대화의 권한', 'Permissions here')}</h3>
-        <div className="ac-work-row"><span>{chat.rid !== APP_RID && autoCustom(chat) ? CUSTOM_NAME : TRUST_NAME[trust]}</span></div>
-        {chat.rid === APP_RID ? <span className="muted ac-hint">{APP_HINT[trust]}</span> : <PermTable chat={chat} onSaved={onSaved} />}
-        {chat.always.map((a) => (
+        <div className="ac-work-row">
+          <span className="ac-perm-name">{chat.rid !== APP_RID && autoCustom(chat) ? CUSTOM_NAME : TRUST_NAME[trust]}</span>
+          {!!chat.always.length && <span className="muted">{t(`늘 허락 ${chat.always.length}`, `${chat.always.length} always allowed`)}</span>}
+          <button className="a" data-ui="권한 상세 보기" aria-expanded={permOpen} onClick={() => setPerm(!permOpen)}>{permOpen ? t('접기', 'Collapse') : t('상세 보기 ›', 'Details ›')}</button>
+        </div>
+        {permOpen && (chat.rid === APP_RID ? <span className="muted ac-hint">{APP_HINT[trust]}</span> : <PermTable chat={chat} onSaved={onSaved} />)}
+        {permOpen && chat.always.map((a) => (
           <div key={a} className="ac-work-row">
             <span className="ac-file" title={a}>{a}</span><span className="muted">{t('늘', 'Always')}</span>
             <button className="icon-btn sm" aria-label={t('늘 허락 빼기', 'Stop always allowing')} data-tip={t('다시 묻게 합니다', 'Ask again next time')} onClick={() => void forget(a)}>{Icon.x}</button>
