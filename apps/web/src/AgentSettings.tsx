@@ -28,7 +28,7 @@ const MODE: Record<InstructionMode, () => string> = {
 
 /**
  * 설정 › 에이전트 (10/16 사용자 결정 "설정에서 조절할 수 있게 하자"): 기록에 남긴 질문 · 지시를 이 맥의 Claude가 언제 하는지(질문은 10/27 피드백).
- * 맥의 Claude는 한 번에 하나씩 하고, 파일은 직접 고치지 않는다(노트 고침은 답에 적고 "노트에 적용"으로).
+ * 맥의 Claude는 한 번에 하나씩 하고, 노트 고침은 수정 검토로 간다(「노트에 적용」은 10/28에 없앰).
  */
 export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
   const [s, setS] = useState<Settings | null>(null)
@@ -46,7 +46,7 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
       <div className="set-row" data-ui="지시 처리">
         <div>
           <div className="set-name">{t('질문 · 지시 처리', 'Questions and instructions')}</div>
-          <div className="set-desc">{t('기록에 남긴 질문 · 지시에 이 맥의 Claude가 언제 답할지 고릅니다. 바로면 남기거나 이어 쓰는 즉시 답합니다. 직접 부탁이면 맥은 하지 않고, 다음에 일하는 에이전트가 집어 갑니다(질문은 "Claude에게 묻기"로 바로 물을 수도 있습니다). 한 번에 하나씩 하고, 노트 고침은 답에 적어 "노트에 적용"으로 반영합니다. 하나마다 Claude 사용량이 듭니다.', 'Choose when Claude on this Mac answers questions and instructions left in records. With "Right away", it answers as soon as you leave or continue one. With "When asked", the Mac does nothing and the next agent session picks them up (you can still ask a question now with "Ask Claude"). One runs at a time, and note changes come in the answer for you to apply with "Apply to note". Each one uses Claude usage.')}</div>
+          <div className="set-desc">{t('기록에 남긴 질문 · 지시에 이 맥의 Claude가 언제 답할지 고릅니다. 바로면 남기거나 이어 쓰는 즉시 답합니다. 직접 부탁이면 맥은 하지 않고, 다음에 일하는 에이전트가 집어 갑니다(질문은 "Claude에게 묻기"로 바로 물을 수도 있습니다). 한 번에 하나씩 하고, 노트를 고치면 수정 검토에서 승인합니다. 하나마다 Claude 사용량이 듭니다.', 'Choose when Claude on this Mac answers questions and instructions left in records. With "Right away", it answers as soon as you leave or continue one. With "When asked", the Mac does nothing and the next agent session picks them up (you can still ask a question now with "Ask Claude"). One runs at a time, and note changes wait for your approval in Edit review. Each one uses Claude usage.')}</div>
           {err && <div className="error-text">{err}</div>}
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
