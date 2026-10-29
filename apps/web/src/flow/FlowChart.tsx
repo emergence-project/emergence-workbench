@@ -334,6 +334,9 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
             const hot = (!!focus && n.topics.includes(focus)) || (gapOn && n.gaps.length > 0)
             const start = !n.from.length
             const pill = names && !compact
+            // 주제 하이라이트 · 누르는 자리: 이름 알약이면 알약에 맞추고, 아니면 기호와 아래 이름을 함께 감싼다 (10/29 09:57: 알약 아래로 어긋난 상자)
+            const box = pill ? { x: x - PW / 2 - 5, y: y - PH / 2 - 5, width: PW + 10, height: PH + 10, rx: PH / 2 + 5 }
+              : { x: x - CW / 2 + 4, y: y - 18, width: CW - 8, height: compact ? 34 : 52, rx: 6 }
             return <g key={n.id} className={`fl-node${on ? ' sel' : ''}${picked ? ' pick' : ''}`} tabIndex={0} role="button" data-id={n.id}
               aria-label={`${n.short}: ${KIND[markOf(n)].name()}, ${stateName(n)}`}
               onPointerDown={(e) => { if (e.button === 0) { drag.current = { id: n.id, x: e.clientX, y: e.clientY, moved: false }; (e.currentTarget as Element).setPointerCapture(e.pointerId) } }}
@@ -361,8 +364,8 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(n.id) } }}>
               {/* 가리키면 종류와 이름 (10/16 사용자: 기호의 뜻이 바로 오지 않을 때) */}
               <title>{`${KIND[markOf(n)].name()}${judgeName(n) ? ` · ${judgeName(n)}` : ''} · ${n.short}${n.title && n.title !== n.short ? `\n${n.title}` : ''}`}</title>
-              {hot && <rect className="fl-focus" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />}
-              <rect className="fl-hit" x={x - CW / 2 + 4} y={y - 18} width={CW - 8} height={compact ? 34 : 52} rx={6} />
+              {hot && <rect className="fl-focus" {...box} />}
+              <rect className="fl-hit" {...box} />
               {pill ? <>
                 <rect className={`fl-pl${turnOf(n) && !(lg || on || picked) ? ' turn' : ''}`} x={x - PW / 2} y={y - PH / 2} width={PW} height={PH} rx={PH / 2} />
                 {(lg || on || picked) && <rect className={`fl-ring${on ? ' sel' : picked ? ' pick' : ''}`} x={x - PW / 2 - 3} y={y - PH / 2 - 3} width={PW + 6} height={PH + 6} rx={PH / 2 + 3} />}
