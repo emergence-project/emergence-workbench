@@ -63,6 +63,8 @@ import { t } from './i18n'
 
 export type { FlashAction } from './flash'
 
+const SIDE_W = 244, SIDE_MIN = 200, SIDE_MAX = 480
+
 export function App() {
   const route = useRoute()
   // 에이전트가 답을 마치거나 내 차례가 되면 맥 알림 (창을 보고 있지 않을 때)
@@ -255,6 +257,19 @@ export function App() {
   const globalSide = globalPageOf(route.page)?.side
   const globalRightAble = !!globalPageOf(route.page)?.right?.(route)
   const showSide = (!globalPage && !!rid && sideOpen) || (!!globalSide && sideOpen)
+  // 왼쪽 사이드바 폭: 오른쪽 경계를 끌어 바꾸고, 두 번 누르면 처음 폭 (10/29 09:15 피드백: 오른쪽처럼 폭 조절)
+  const [sideW, setSideW] = useState(() => { try { const v = Number(localStorage.getItem('rw-side-width')); return v >= SIDE_MIN && v <= SIDE_MAX ? v : SIDE_W } catch { return SIDE_W } })
+  const saveSideW = (w: number) => { setSideW(w); try { localStorage.setItem('rw-side-width', String(w)) } catch { /* 저장 못 해도 이번에는 바뀐다 */ } }
+  const dragSide = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const x0 = e.clientX, w0 = sideW
+    let w = w0
+    const onMove = (ev: PointerEvent) => { w = Math.min(SIDE_MAX, Math.max(SIDE_MIN, w0 + ev.clientX - x0)); setSideW(w) }
+    const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); document.body.classList.remove('resizing'); saveSideW(w) }
+    document.body.classList.add('resizing')
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   // 빠른 메모: 글을 쓰는 중이 아닐 때 M 키 (브라우저에서 ⌘M은 창 최소화라 쓰지 않는다)
   useEffect(() => {
@@ -452,7 +467,7 @@ export function App() {
         search={search} onSearch={() => setSearch(true)}
         feedback={feedback} onFeedback={() => setFeedback((v) => !v)} />
 
-      <div className={`body${showSide ? '' : ' no-side'}`}>
+      <div className={`body${showSide ? '' : ' no-side'}`} style={{ '--side-w': `${sideW}px` } as React.CSSProperties}>
         <nav className="rail" aria-label={t('공간', 'Spaces')} data-ui="왼쪽 띠">
           <button className={`rail-btn tip-right${route.page === 'home' ? ' on' : ''}`} aria-current={route.page === 'home' ? 'page' : undefined} data-ui="홈" data-tip={t('홈 — 모든 프로젝트', 'Home: all projects')} aria-label={t('홈', 'Home')} onClick={() => go({ page: 'home' })}>{Icon.home}</button>
           {GLOBAL_PAGES.filter((g) => g.rail === 'home').map(railPage)}
@@ -474,6 +489,8 @@ export function App() {
         </nav>
 
         {showSide && <aside className="side" data-ui="사이드바">
+          <div className="side-resize" data-ui="사이드바 폭 조절" role="separator" aria-orientation="vertical" title={t('끌어 폭 바꾸기 · 두 번 누르면 처음 폭', 'Drag to resize · double-click to reset')}
+            onPointerDown={dragSide} onDoubleClick={() => saveSideW(SIDE_W)} />
           {globalSide ? (
             <div className="side-scroll">{globalSide({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight })}</div>
           ) : current && <>

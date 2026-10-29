@@ -90,13 +90,13 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
   const adder = (side: 'prev' | 'next') => {
     const xs = choices(side)
     // 이어 보이는 선 줄과 같은 자리에서 시작하게 선 종류 칸만큼 비운다 (10/28 22:21 "이후 점 잇기에 정렬을 맞춰줘")
-    // 이을 점이 없어도 줄은 남기고 그 까닭을 보인다. 맨 아래는 새 점을 만들어 잇기 (10/28 22:20 · 22:21 · 21:58, 시안 7절)
+    // 이을 점이 없어도 줄은 남기고 그 까닭을 보인다. 맨 아래는 새 점 만들기 (10/28 22:20 · 22:21 · 21:58, 시안 7절; 10/29 이름 "만들기")
     return <div className="fl-linkadd-row"><span className="fl-ety" aria-hidden /><select className="fl-in fl-linkadd" data-ui="흐름 연결 더하기" disabled={linkBusy} value="" aria-label={side === 'prev' ? tr('이전 점 더하기', 'Add an earlier dot') : tr('이후 점 더하기', 'Add a later dot')}
       onChange={(e) => { const v = e.target.value; if (v === NEW) { if (side === 'next') onAdd(); else onAddBefore() } else if (v) void addLink(side, v) }}>
       <option value="">{side === 'prev' ? tr('＋ 이전 점 잇기…', '＋ Link an earlier dot…') : tr('＋ 이후 점 잇기…', '＋ Link a later dot…')}</option>
       {xs.length ? xs.map((m) => <option key={m.id} value={m.id}>{m.short}</option>) : <option disabled>{tr('이을 점 없음 (모두 이었거나 이으면 고리가 생김)', 'No dot to link (all linked, or it would make a loop)')}</option>}
       <option disabled>──────</option>
-      <option value={NEW}>{tr('＋ 새 점을 만들어 잇기', '＋ Make a new dot and link it')}</option>
+      <option value={NEW}>{tr('＋ 새 점 만들기', '＋ Make a new dot')}</option>
     </select></div>
   }
   return (
