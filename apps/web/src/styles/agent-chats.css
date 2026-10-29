@@ -152,6 +152,7 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-work-row .ac-file { flex: 1; }
 .ac-work-row .tag, .ac-work-row .muted { flex: none; white-space: nowrap; font-size: var(--fs-xs); }
 .ac-work .a.ac-file { padding: 0; border: 0; background: none; cursor: pointer; }
+.ac-perm-name { flex: 1; min-width: 0; }
 .ac-other { flex: none; max-width: 45%; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-usage { margin-top: auto; }
 .ac-changes { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
