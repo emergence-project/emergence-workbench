@@ -58,6 +58,8 @@ import type { AgentRunner } from './agentChats.js'
 import { appWorktrees, type AppWork } from './appWorktree.js'
 import { registerCommonRules } from './routes/commonRules.js'
 import { allowedRequest, extraHosts, fileResponseHeaders } from './hostGuard.js'
+import { phoneRequestOk, samplePhone, tailscalePhone, type Phone } from './phone.js'
+import { registerPhone } from './routes/phone.js'
 import { Google } from './google.js'
 import type { RepoIO } from './githubRepos.js'
 
@@ -108,6 +110,10 @@ export interface AppOptions {
   google?: Google
   /** 맥에만 있는 workbench/의 백업 (실사용만): 앱이 쓰는 백업 저장소 사본 폴더, GitHub 주소, 저절로 올리는 간격(ms) */
   backup?: { dir: string; remote: string; intervalMs?: number; settings?: string }
+  /** 폰에서 보기 (기본: 이 맥의 Tailscale. 예제 모드는 가짜, 테스트에서 바꿈) */
+  phone?: Phone
+  /** 이 서버가 받는 포트 (시작할 때 폰에서 보기 상태를 읽는 데 쓴다) */
+  port?: number
 }
 
 /**
@@ -150,8 +156,15 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
 
   // 맥 밖의 웹 페이지가 보낸 요청은 받지 않는다 (hostGuard.ts)
   const hosts = extraHosts()
+  // 폰에서 보기 (phone.ts): Tailscale이 전해 준 이 맥의 ts.net 이름은 이 맥의 계정에서 온 것만 받는다
+  const phone = opts.phone ?? (opts.sandbox ? samplePhone() : tailscalePhone())
+  let phoneSeen: { host: string | null; login: string | null } = { host: null, login: null }
   app.addHook('onRequest', async (req, reply) => {
-    if (!allowedRequest({ host: req.headers.host, origin: req.headers.origin, site: req.headers['sec-fetch-site'] as string | undefined, mode: req.headers['sec-fetch-mode'] as string | undefined }, hosts)) {
+    const login = req.headers['tailscale-user-login']
+    const viaPhone = phoneRequestOk(req.headers.host, typeof login === 'string' ? login : undefined, phoneSeen)
+    const seen = { host: req.headers.host, origin: req.headers.origin, site: req.headers['sec-fetch-site'] as string | undefined, mode: req.headers['sec-fetch-mode'] as string | undefined }
+    if (viaPhone === true && allowedRequest(seen, phoneSeen.host ? [phoneSeen.host] : [])) return
+    if (viaPhone === false || !allowedRequest(seen, hosts)) {
       return reply.status(403).send({ error: t('이 맥의 작업대 화면에서 온 요청만 받습니다', 'Only requests from the workbench screen on this computer are accepted') })
     }
   })
@@ -330,6 +343,10 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerComments(app, ctx)
   registerTopics(app, ctx)
   registerBackup(app, ctx)
+  const seePhone = (st: { on: boolean; host: string | null; login: string | null }) => { phoneSeen = st.on ? { host: st.host, login: st.login } : { host: null, login: null } }
+  registerPhone(app, phone, seePhone)
+  // serve 설정은 tailscaled가 기억하므로, 시작할 때 한 번 읽어 폰에서 오는 요청을 받을 준비를 한다
+  if (opts.port) void phone.status(opts.port).then(seePhone).catch(() => {})
   registerLatexSetup(app, ctx)
   registerNetwork(app, ctx)
   registerNoteTrash(app, ctx)

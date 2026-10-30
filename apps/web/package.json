@@ -24,6 +24,7 @@
     "katex": "^0.18.10",
     "markdown-it": "^14.3.3",
     "pdfjs-dist": "^6.4.299",
+    "qrcode-generator": "2.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
