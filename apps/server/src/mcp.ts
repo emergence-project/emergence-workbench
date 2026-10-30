@@ -534,7 +534,7 @@ export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat
   })
 
   const writeOnce = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const
-  registerTaskTools(server, { project, call, write: (url, payload) => post(base, f, url, payload), ro, writeOnce })
+  registerTaskTools(server, { project, call, write: (url, payload) => post(base, f, url, payload), ro, writeOnce, by: () => agentOf(server.server.getClientVersion()?.name) })
 
   server.registerTool('add_journal', {
     title: 'Add a line to today\'s journal',

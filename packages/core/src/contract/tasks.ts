@@ -4,6 +4,7 @@
  * 파일 형식은 docs/agent-delegated-work.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */
 import { z } from 'zod'
+import { WORK_KINDS } from '../flow-kinds.js'
 
 // ---------- 응답 ----------
 
@@ -69,7 +70,8 @@ export const TaskOne = z.object({ task: Task }).strict()
 /** POST judge: 결과를 승인해 이은 흐름 점에 반영했으면 flow (10/27): closed 끝남 · 해결로 둔 점, added 새로 만든 닫는 점 */
 export const TaskJudged = TaskOne.extend({ flow: z.object({ closed: z.string().optional(), added: z.string().optional() }).strict().optional() }).strict()
 /** POST /tasks (맡기기) */
-export const TaskCreated = z.object({ task: Task, rules: z.string() }).strict()
+/** dot: 함께 만든(또는 이어 받은) 작업 점, hits: 그 점의 선행 찾기에 걸린 점 (10/30) */
+export const TaskCreated = z.object({ task: Task, rules: z.string(), dot: z.string().optional(), hits: z.array(z.string()).optional() }).strict()
 /** POST next: start면 새로 맡긴 일(started)도 */
 export const TaskNextDone = z.object({ task: Task, started: Task.optional() }).strict()
 
@@ -90,6 +92,10 @@ export const NewTaskBody = z.object({
   agent: optionalText,
   references: z.array(z.string()).optional(),
   avoid: optionalText,
+  /** 이 일이 만드는 작업 점의 종류 (10/30: 주제나 흐름 점이 있는 일은 작업 점이 된다). 비우면 수치 계산 */
+  kind: z.enum(WORK_KINDS).optional(),
+  /** 맡긴 이 (MCP는 에이전트 이름, 화면은 비움 = 사용자). 작업 점의 by에 적는다 */
+  by: z.string().max(40).optional(),
 })
 export const JudgeBody = z.object({
   verdict: z.enum(VERDICTS),

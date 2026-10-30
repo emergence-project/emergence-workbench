@@ -12,7 +12,8 @@ import { Workbench } from './workbench.js'
 useSampleApp()
 
 const dir = () => path.join(repo, 'workbench', 'flow')
-const put = (id: string, text: string) => fs.writeFileSync(path.join(dir(), `${id}.yaml`), text.trim() + '\n')
+/** 시험 점은 사용자가 만든 것으로 (by: user). by도 start도 없는 점은 옛 점이라 빈틈을 세지 않는다 (10/30) */
+const put = (id: string, text: string) => fs.writeFileSync(path.join(dir(), `${id}.yaml`), text.trim() + (/^(by|start):/m.test(text) ? '' : '\nby: user') + '\n')
 const get = async () => { const r = await app.inject({ method: 'GET', url: `${R}/flow` }); expect(r.statusCode).toBe(200); return r.json() }
 beforeEach(() => { fs.rmSync(dir(), { recursive: true, force: true }); fs.mkdirSync(dir(), { recursive: true }) })
 
