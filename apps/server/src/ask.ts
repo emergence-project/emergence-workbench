@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { applyNoteFixes, parseNoteFixes } from '@rw/core'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -31,6 +32,17 @@ export function claudeEnv(): NodeJS.ProcessEnv {
   const home = os.homedir()
   const extra = [path.join(home, '.local/bin'), path.join(home, '.claude/local'), '/opt/homebrew/bin', '/usr/local/bin']
   return { ...process.env, PATH: [process.env.PATH ?? '', ...extra].filter(Boolean).join(':') }
+}
+
+/**
+ * 에이전트 대화(Agent SDK)가 띄울 Claude Code 실행 파일. undefined면 SDK가 자기 플랫폼 패키지의 것을 쓴다.
+ * 내려받은 앱(scripts/bundle-app.mjs)에는 그 패키지(200MB 남짓)가 없으므로 이 컴퓨터에 깐 claude를 찾는다. RW_CLAUDE_BIN이 먼저.
+ */
+export function claudeExecutable(resolve: (id: string) => string = createRequire(import.meta.url).resolve): string | undefined {
+  if (process.env.RW_CLAUDE_BIN) return process.env.RW_CLAUDE_BIN
+  try { resolve(`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/package.json`); return undefined } catch { /* 묶은 앱 */ }
+  const dirs = (claudeEnv().PATH ?? '').split(':').filter(Boolean)
+  return dirs.map((d) => path.join(d, 'claude')).find((p) => { try { fs.accessSync(p, fs.constants.X_OK); return true } catch { return false } })
 }
 
 /**

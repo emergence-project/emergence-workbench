@@ -14,7 +14,7 @@
 </head>
 <body>
 <p id="wait">여는 중…</p>
-<p id="late">서버가 답하지 않습니다.<br>터미널에서 <code>pnpm service:restart</code>를 한 뒤 창을 다시 여세요.</p>
+<p id="late">서버가 답하지 않습니다.<br><span id="late-how">터미널에서 <code>pnpm service:restart</code>를 한 뒤 창을 다시 여세요.</span></p>
 <script>
   const SERVER = 'http://127.0.0.1:5174/'
   // 지난번에 보던 화면 (창이 닫힐 때 앱이 기억해 둔 서버 주소, main.rs resume_script)
@@ -28,6 +28,8 @@
     } catch { /* 아직 켜지는 중 */ }
     if (Date.now() - started > 20000) {
       document.getElementById('wait').style.display = 'none'
+      // 앱이 서버를 품은 경우(main.rs start_bundled): 서비스 명령 대신 앱을 다시 열게
+      if (window.__rwStandalone === true) document.getElementById('late-how').textContent = '앱을 끝냈다가(⌘Q) 다시 여세요.'
       document.getElementById('late').style.display = 'block'
     }
     setTimeout(tryOpen, 400)

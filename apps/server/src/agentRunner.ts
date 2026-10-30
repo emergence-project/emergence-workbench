@@ -16,9 +16,12 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type Turn } from './agentChats.js'
 import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
-import { claudeEnv } from './ask.js'
+import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+
+/** 묶은 앱이면 이 컴퓨터의 claude를 쓴다 (ask.ts의 claudeExecutable) */
+const executable = (): { pathToClaudeCodeExecutable?: string } => { const p = claudeExecutable(); return p ? { pathToClaudeCodeExecutable: p } : {} }
 
 type Block = { type: string; text?: string; thinking?: string; name?: string; input?: unknown }
 type Usage = { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }
@@ -100,7 +103,7 @@ function modelLister(): () => Promise<ModelChoice[]> {
       let done!: () => void
       const finished = new Promise<void>((r) => { done = r })
       async function* prompt() { await finished }
-      const q = query({ prompt: prompt(), options: { settingSources: [], env: claudeEnv() } })
+      const q = query({ prompt: prompt(), options: { settingSources: [], env: claudeEnv(), ...executable() } })
       try { return choicesOf(await q.supportedModels()) } finally { done(); q.close() }
     })()
     got = { at: Date.now(), list }
@@ -116,7 +119,7 @@ export const SIDE_MODEL = 'haiku'
 /** 곁 질문: 도구 · 저장소 설정 없이 한 번 묻고 답을 받는다 (세션을 남기지 않는다) */
 async function sideAnswer(o: { prompt: string; cwd: string }): Promise<string> {
   const { query } = await import('@anthropic-ai/claude-agent-sdk')
-  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, model: SIDE_MODEL, persistSession: false, env: claudeEnv() } })
+  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, model: SIDE_MODEL, persistSession: false, env: claudeEnv(), ...executable() } })
   let answer = ''
   try {
     for await (const m of q) {
@@ -187,6 +190,7 @@ export function claudeAgentRunner(mcpFor: (appChat?: string) => McpServer): Agen
         },
         abortController,
         env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(AUTO_COMPACT_WINDOW), ...claudeEnv(), ...input.env },
+        ...executable(),
       },
     })
     // 생각은 요약으로 받는다 (모델마다 기본이 '보이지 않음'일 수 있다). 못 바꾸면 그대로 둔다

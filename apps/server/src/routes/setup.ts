@@ -7,7 +7,7 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/setup'
 import { parseBody, replies } from '../contract.js'
 import { agentRegistered, agentSeen } from '../agentSeen.js'
-import { appPath } from '../agentPaths.js'
+import { appPath, mcpCommand } from '../agentPaths.js'
 import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { adoptOtherProfiles } from '../profileSync.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
@@ -69,12 +69,12 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
   const agentRows = (): C.SetupView['agents'] => {
     const registered = opts.sandbox ? [] : agentRegistered()
     const seen = agentSeen(opts.configDir)
-    const mcp = appPath('scripts/mcp.mjs')
+    const mcp = mcpCommand()
     const codex = opts.sandbox ? 'path' : agentInstalled('codex')
     const codexCmd = codex && codex !== 'path' ? `"${codex}"` : 'codex'
     return [
-      { key: 'claude-code', name: 'Claude Code', command: `claude mcp add --scope user emergence-workbench -- node ${mcp}` },
-      { key: 'codex', name: 'Codex', command: `${codexCmd} mcp add emergence-workbench -- node ${mcp}` },
+      { key: 'claude-code', name: 'Claude Code', command: `claude mcp add --scope user emergence-workbench -- ${mcp}` },
+      { key: 'codex', name: 'Codex', command: `${codexCmd} mcp add emergence-workbench -- ${mcp}` },
     ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', installed: opts.sandbox || !!(a.key === 'codex' ? codex : agentInstalled('claude')), registered: registered.includes(a.name), at: seen[a.key] ?? null }))
   }
 

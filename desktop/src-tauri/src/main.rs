@@ -1,12 +1,18 @@
 // Emergence Workbench 창 (Tauri, 10/30 결정 "데스크톱 앱은 Tauri").
-// 창만 맡는다: 서버는 그대로 로그인 때 켜지는 서비스(scripts/service.sh)이고, 창을 닫아도 에이전트 · 동기화는 계속 돈다.
+// 서버는 둘 중 하나다.
+// - 저장소에서 설치한 맥(scripts/install.sh): 로그인 때 켜지는 서비스(scripts/service.sh). 창을 닫아도 에이전트 · 동기화는 계속 돈다.
+// - 내려받은 앱(make-desktop.sh --standalone): 앱 안에 묶은 Node와 서버(scripts/bundle-app.mjs)를 창이 켜고, 앱을 끝내면 함께 끈다.
+//   서비스가 있거나 서버가 이미 답하면 묶은 서버를 켜지 않는다.
 // 창은 먼저 loading/index.html을 띄워 서버가 답할 때까지 기다린 뒤 서버 화면(127.0.0.1:5174)으로 넘어간다.
 // 서버 밖 주소(논문 링크, GitHub 등)는 창 안에서도, 새 창으로도 열지 않고 기본 브라우저로 보낸다.
 // 창 크기 · 자리는 window-state가, 마지막에 보던 화면은 last-url 파일이 기억한다. 메뉴는 맥 표준 메뉴에 설정 · 업데이트 · 새로 고침을 더한 것.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::path::PathBuf;
-use std::process::Command;
+use std::net::{SocketAddr, TcpStream};
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
+use std::time::Duration;
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry};
@@ -123,6 +129,86 @@ fn open_outside(url: &Url) {
     let _ = Command::new("xdg-open").arg(url.as_str()).spawn();
 }
 
+/// 앱이 켠 묶은 서버 (끝낼 때 함께 끈다)
+struct BundledServer(Mutex<Option<Child>>);
+
+/// 서버 서비스(launchd)가 이 맥에 등록돼 있는지
+fn service_installed() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(home) = std::env::var_os("HOME") {
+            return Path::new(&home).join("Library/LaunchAgents/com.research-workspace.app.plist").exists();
+        }
+    }
+    false
+}
+
+fn server_answers() -> bool {
+    let addr = SocketAddr::from(([127, 0, 0, 1], SERVER_PORT));
+    TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+}
+
+/// 앱 안에 묶은 Node와 서버 (resources/standalone, scripts/bundle-app.mjs). 없으면 None
+fn bundled_paths(resources: &Path) -> Option<(PathBuf, PathBuf)> {
+    let root = resources.join("standalone");
+    let node = root.join("node/bin/node");
+    let entry = root.join("app/apps/server/dist/server.mjs");
+    (node.is_file() && entry.is_file()).then_some((node, entry))
+}
+
+/// 묶은 서버가 쓸 PATH: 서비스(serve.sh)처럼 TeX · Homebrew · 사용자 도구(claude 등)를 찾게 한다
+fn bundled_path_env() -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let mut dirs = vec![
+        format!("{home}/.local/bin"),
+        "/opt/homebrew/bin".into(),
+        "/usr/local/bin".into(),
+        "/Library/TeX/texbin".into(),
+        "/usr/bin".into(),
+        "/bin".into(),
+        "/usr/sbin".into(),
+        "/sbin".into(),
+    ];
+    if let Ok(p) = std::env::var("PATH") {
+        dirs.extend(p.split(':').map(String::from));
+    }
+    dirs.dedup();
+    dirs.join(":")
+}
+
+/// 묶은 서버를 켠다. 출력은 앱 기록 폴더의 server.log에
+fn start_bundled(app: &AppHandle) -> Option<Child> {
+    let (node, entry) = bundled_paths(&app.path().resource_dir().ok()?)?;
+    let log = app.path().app_log_dir().ok().and_then(|d| {
+        std::fs::create_dir_all(&d).ok()?;
+        std::fs::File::create(d.join("server.log")).ok()
+    });
+    let (out, err) = match log.and_then(|f| f.try_clone().ok().map(|g| (f, g))) {
+        Some((f, g)) => (Stdio::from(f), Stdio::from(g)),
+        None => (Stdio::null(), Stdio::null()),
+    };
+    Command::new(node)
+        .arg(entry)
+        .env("RW_STATIC", "1")
+        .env("RW_PORT", SERVER_PORT.to_string())
+        .env("PATH", bundled_path_env())
+        .stdin(Stdio::null())
+        .stdout(out)
+        .stderr(err)
+        .spawn()
+        .ok()
+}
+
+/// 앱을 끝낼 때 묶은 서버도 끈다
+fn stop_bundled(app: &AppHandle) {
+    if let Some(state) = app.try_state::<BundledServer>() {
+        if let Some(mut child) = state.0.lock().ok().and_then(|mut c| c.take()) {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
 /// 서버 서비스를 깨운다. 이미 돌고 있으면 아무 일도 하지 않는다(맥만, 다른 OS는 서비스가 아직 없다)
 fn wake_server() {
     #[cfg(target_os = "macos")]
@@ -160,9 +246,18 @@ fn main() {
             }
         })
         .setup(|app| {
-            wake_server();
+            let bundled = if service_installed() {
+                wake_server();
+                None
+            } else if server_answers() {
+                None
+            } else {
+                start_bundled(app.handle())
+            };
+            let standalone = bundled.is_some();
+            app.manage(BundledServer(Mutex::new(bundled)));
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .initialization_script(resume_script(app.handle()))
+                .initialization_script(format!("{} window.__rwStandalone = {standalone};", resume_script(app.handle())))
                 .title("Emergence Workbench")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(900.0, 600.0)
@@ -193,12 +288,36 @@ fn main() {
                     remember_page(&w);
                 }
             }
+            if let tauri::RunEvent::Exit = event {
+                stop_bundled(app);
+            }
         });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bundled_paths_need_node_and_server() {
+        let dir = std::env::temp_dir().join(format!("rw-bundled-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(bundled_paths(&dir).is_none());
+        std::fs::create_dir_all(dir.join("standalone/node/bin")).unwrap();
+        std::fs::write(dir.join("standalone/node/bin/node"), "").unwrap();
+        assert!(bundled_paths(&dir).is_none());
+        std::fs::create_dir_all(dir.join("standalone/app/apps/server/dist")).unwrap();
+        std::fs::write(dir.join("standalone/app/apps/server/dist/server.mjs"), "").unwrap();
+        let (node, entry) = bundled_paths(&dir).unwrap();
+        assert!(node.ends_with("standalone/node/bin/node") && entry.ends_with("server.mjs"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn bundled_path_finds_tex_and_user_tools() {
+        let p = bundled_path_env();
+        assert!(p.contains("/Library/TeX/texbin") && p.contains("/opt/homebrew/bin") && p.contains("/.local/bin"));
+    }
 
     #[test]
     fn server_and_loading_stay_inside() {
