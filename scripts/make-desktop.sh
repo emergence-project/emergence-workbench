@@ -10,9 +10,13 @@ command -v cargo >/dev/null || { echo "cargo가 없습니다. Rust(https://rustu
 TAURI=(npx -y @tauri-apps/cli@2.12.4)
 
 cd "$REPO/desktop/src-tauri"
-# 아이콘은 scripts/app-icon.svg에서 만든다(저장소에 그림 파일을 두지 않는다)
-"${TAURI[@]}" icon "$REPO/scripts/app-icon.svg" >/dev/null
-"${TAURI[@]}" build --bundles app
+# 아이콘은 scripts/app-icon.svg에서 만든다(저장소에 그림 파일을 두지 않는다).
+# 아이콘 · 컴파일의 긴 출력은 기록 파일에만 두고, 실패하면 끝부분만 보인다
+LOG="$REPO/desktop/src-tauri/target/make-desktop.log"
+mkdir -p "${LOG:h}"
+echo "창 빌드 중… (처음은 몇 분, 기록: $LOG)"
+{ "${TAURI[@]}" icon "$REPO/scripts/app-icon.svg" && "${TAURI[@]}" build --bundles app; } >"$LOG" 2>&1 \
+  || { tail -n 30 "$LOG"; echo "창을 빌드하지 못했습니다. 기록: $LOG"; exit 1; }
 BUILT="$REPO/desktop/src-tauri/target/release/bundle/macos/Emergence Workbench.app"
 [ -d "$BUILT" ] || { echo "빌드한 앱이 없습니다: $BUILT"; exit 1; }
 
