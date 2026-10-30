@@ -44,3 +44,26 @@ export async function cloneInto(source: string, parent: string, name: string): P
   }
   return dest
 }
+
+/** 새 프로젝트 폴더 이름: 제목의 공백은 -로, 경로·LaTeX에 쓸 수 없는 글자는 뺀다 (한글은 그대로) */
+export function folderNameOf(title: string): string {
+  const name = title.trim().replace(/[/\\:*?"<>|{}%#~$^&]/g, '').replace(/\s+/g, '-').replace(/^[.-]+|-+$/g, '')
+  return name || 'project'
+}
+
+/**
+ * 저장소 없이 새로 시작하기: parent/폴더이름을 새로 만들고 git 저장소로 시작한다(변경 이력이 남게).
+ * 이미 있는 폴더는 덮어쓰지 않고 거절한다. git이 없으면 폴더만 만들고 git: false
+ */
+export async function createProjectFolder(parent: string, title: string): Promise<{ path: string; git: boolean }> {
+  if (!path.isAbsolute(parent)) throw new WorkbenchError(400, t('만들 곳은 절대 경로여야 합니다.', 'The location must be an absolute path.'))
+  const dest = path.join(parent, folderNameOf(title))
+  if (fs.existsSync(dest)) throw new WorkbenchError(409, t(`이미 있는 폴더입니다: ${dest}. 다른 이름을 쓰거나 「이 컴퓨터 폴더」로 그 폴더를 등록하세요.`, `This folder already exists: ${dest}. Use another name, or add that folder with "Folder on this computer".`))
+  fs.mkdirSync(dest, { recursive: true })
+  try {
+    await gitRun(['init', '--quiet', dest], { timeout: GIT_TIMEOUT.remote })
+    return { path: dest, git: true }
+  } catch {
+    return { path: dest, git: false }
+  }
+}

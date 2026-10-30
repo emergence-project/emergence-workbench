@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { cloneInto, defaultCloneDir, parseGitHubRepo } from './clone.js'
+import { cloneInto, createProjectFolder, defaultCloneDir, folderNameOf, parseGitHubRepo } from './clone.js'
 
 describe('parseGitHubRepo', () => {
   it('reads the usual forms of a GitHub address', () => {
@@ -39,5 +39,26 @@ describe('cloneInto', () => {
     await expect(cloneInto(src, path.join(tmp, 'repos'), 'r')).rejects.toThrow(/이미 있는 폴더/)
     await expect(cloneInto(path.join(tmp, 'nope'), path.join(tmp, 'repos'), 'q')).rejects.toThrow(/받지 못했습니다/)
     expect(fs.existsSync(path.join(tmp, 'repos', 'q'))).toBe(false)
+  })
+})
+
+describe('folderNameOf', () => {
+  it('turns a title into a safe folder name, keeping Korean', () => {
+    expect(folderNameOf('그래프 색칠 문제')).toBe('그래프-색칠-문제')
+    expect(folderNameOf('  a/b: c?  ')).toBe('ab-c')
+    expect(folderNameOf('../..')).toBe('project')
+    expect(folderNameOf('$%#')).toBe('project')
+  })
+})
+
+describe('createProjectFolder', () => {
+  it('makes parent/name as a new git repository and refuses an existing folder', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-new-'))
+    const made = await createProjectFolder(path.join(tmp, 'projects'), '내 연구')
+    expect(made).toEqual({ path: path.join(tmp, 'projects', '내-연구'), git: true })
+    expect(fs.existsSync(path.join(made.path, '.git'))).toBe(true)
+    await expect(createProjectFolder(path.join(tmp, 'projects'), '내 연구')).rejects.toThrow(/이미 있는 폴더/)
+    await expect(createProjectFolder('relative', 'x')).rejects.toThrow(/절대 경로/)
+    fs.rmSync(tmp, { recursive: true, force: true })
   })
 })

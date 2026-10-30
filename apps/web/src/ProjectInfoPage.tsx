@@ -290,7 +290,8 @@ export function WorkbenchUpload({ rapi }: { rapi: ResearchApi }) {
   const repo = useRepoInfo(rapi).data
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  if (!repo || repo.state !== 'ok' || !repo.workbenchUnpublished) return null
+  // GitHub 주소(원격)가 없는 저장소는 이 컴퓨터에서만 쓰기로 한 것이다(「새로 만들기」 등): 올릴 곳이 없으니 알리지 않는다
+  if (!repo || repo.state !== 'ok' || !repo.workbenchUnpublished || !repo.remote) return null
   const upload = () => {
     setBusy(true); setError(null)
     rapi.publishWorkbench()
@@ -303,11 +304,9 @@ export function WorkbenchUpload({ rapi }: { rapi: ResearchApi }) {
       <span className="turn-dot" aria-hidden />
       <span className="wb-upload-text">
         <b><code>workbench/</code>{t(' 폴더가 아직 GitHub에 없습니다.', ' is not on GitHub yet.')}</b>{' '}
-        <span className="muted">{repo.remote
-          ? t('이 컴퓨터에만 있어 다른 컴퓨터와 클라우드의 에이전트가 노트 · 흐름 · 기록을 보지 못합니다. 올리면 workbench/ 안의 파일만 커밋합니다.', 'It exists only on this computer, so other computers and cloud agents cannot see the notes, flow or records. Uploading commits only the files inside workbench/.')
-          : t('이 저장소에 GitHub 주소(원격)가 없어 올릴 수 없습니다. 터미널에서 git remote add로 연결한 뒤 올려 주세요.', 'This repository has no GitHub address (remote), so it cannot be uploaded. Link one with git remote add in a terminal first.')}</span>
+        <span className="muted">{t('이 컴퓨터에만 있어 다른 컴퓨터와 클라우드의 에이전트가 노트 · 흐름 · 기록을 보지 못합니다. 올리면 workbench/ 안의 파일만 커밋합니다.', 'It exists only on this computer, so other computers and cloud agents cannot see the notes, flow or records. Uploading commits only the files inside workbench/.')}</span>
       </span>
-      {repo.remote && <button className="btn primary" data-ui="커밋하고 올리기" disabled={busy} onClick={upload}>{busy ? t('올리는 중…', 'Uploading…') : t('커밋하고 올리기', 'Commit and upload')}</button>}
+      <button className="btn primary" data-ui="커밋하고 올리기" disabled={busy} onClick={upload}>{busy ? t('올리는 중…', 'Uploading…') : t('커밋하고 올리기', 'Commit and upload')}</button>
       {error && <span className="repo-err info-sync-err">! {error}</span>}
     </section>
   )

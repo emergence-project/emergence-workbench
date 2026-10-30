@@ -141,7 +141,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
             {/* 시작 준비가 맨 위 (10/22 피드백 "상단에 두자") */}
             <SetupHomeCard />
             {all.length === 0 && (
-              <p className="h-sub" data-ui="첫 안내">{t('연구 저장소를 등록해 시작하세요. 저장소는 옮기지 않고, 그 안에 workbench/ 폴더만 만듭니다.', 'Register a research repository to start. The repository is not moved; only a workbench/ folder is created inside it.')}</p>
+              <p className="h-sub" data-ui="첫 안내">{t('아래 「프로젝트 등록」에서 새로 만들거나, 쓰던 GitHub 저장소나 폴더를 가져와 시작하세요. 가져온 저장소는 옮기지 않고 그 안에 workbench/ 폴더만 만듭니다.', 'Start with Register project below: start a new one, or bring in a GitHub repository or folder you already have. A repository you bring in stays where it is; only a workbench/ folder is created inside it.')}</p>
             )}
             <section className="home-projects" data-ui="프로젝트 카드">
               <div className="sec-head hp-head">
