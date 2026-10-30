@@ -182,7 +182,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
   const [open, setOpen] = useState<string | null>(null)
   const rows = [...list].sort((a, b) => { const d = `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`) || a.n - b.n; return newest ? -d : d })
   return (
-    <table className="fbp-table" data-ui="피드백 표">
+    <div className="fbp-table-box"><table className="fbp-table" data-ui="피드백 표">
       <thead>
         <tr>
           <th><button className="fb-link" title={t('순서 바꾸기', 'Reverse order')} onClick={() => setNewest((v) => !v)}>{t('시각', 'Time')} {newest ? '↓' : '↑'}</button></th>
@@ -211,7 +211,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
           ]
         })}
       </tbody>
-    </table>
+    </table></div>
   )
 }
 
