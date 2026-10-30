@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { githubRepos, pickFolder, req, type GitHubRepoItem, type GitHubRepoList } from './api'
+import { githubRepos, newProject, pickFolder, req, type GitHubRepoItem, type GitHubRepoList } from './api'
 import { Dialog, PreamblePicker, type Inspection, type LibraryPreamble } from './dialogs'
 import { relativeTime } from './format'
 import { ProjectProfileFields } from './ProjectProfileFields'
 import type { ProjectKind, ResearchListItem } from './api'
 import { locale, t } from './i18n'
 
-type Way = 'github' | 'folder'
+type Way = 'new' | 'github' | 'folder'
 
 /** 저장소를 고친 때: 올해면 "어제", "9/21", 해가 다르면 "2025. 12. 1." */
 function updatedLabel(iso: string): string {
@@ -35,11 +35,11 @@ function RepoRow({ r, picked, onPick }: { r: GitHubRepoItem; picked: boolean; on
 
 /**
  * 프로젝트 등록 (10/4 19:22 피드백 "등록 UI/UX 개선, 계정으로 온라인 등록").
- * 두 길: GitHub에서(이 컴퓨터의 GitHub 로그인으로 내 저장소 목록 → 받아 와서 등록) · 이 컴퓨터 폴더(경로).
- * 어느 길이든 마지막은 같다: 경로 검사 → (workbench가 없으면 만들지 확인) → 등록
+ * 세 길: 새로 만들기(저장소 없이 시작, 10/30 "누구나 쓰는 공개 앱") · GitHub에서(이 컴퓨터의 GitHub 로그인으로 내 저장소 목록 → 받아 와서 등록) · 이 컴퓨터 폴더(경로).
+ * GitHub · 폴더는 마지막이 같다: 경로 검사 → (workbench가 없으면 만들지 확인) → 등록. 새로 만들기는 서버가 폴더 · git · workbench/를 한 번에 만든다
  */
 export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbox?: boolean; all: ResearchListItem[]; onClose(): void; onRegistered(id: string): void }) {
-  const [way, setWay] = useState<Way>('github')
+  const [way, setWay] = useState<Way>('new')
   const [path, setPath] = useState('')
   const [ins, setIns] = useState<Inspection | null>(null)
   const [create, setCreate] = useState(false)
@@ -130,6 +130,21 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
     }
   }
 
+  /** 새로 만들기: 만들 곳(parent 아래 제목 이름의 폴더)과 제목으로 바로 만든다 */
+  const [making, setMaking] = useState(false)
+  const make = async () => {
+    setError(null)
+    setMaking(true)
+    try {
+      const item = await newProject({ title: title.trim(), parent: parent.trim(), question: question.trim() || undefined, kind, fields })
+      onRegistered(item.id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setMaking(false)
+    }
+  }
+
   /** 검사 결과를 지우고 고르기로 돌아간다 */
   /** 맥의 Finder 폴더 고르기 창 (10/15 피드백). 취소하면 그대로 */
   const [picking, setPicking] = useState(false)
@@ -143,7 +158,9 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
   const canRegister = !!ins && ins.errors.length === 0 && (ins.hasWorkbench || create)
   const primary = ins
     ? <button className="btn primary" disabled={!canRegister} onClick={() => void register()}>{t('등록', 'Add')}</button>
-    : way === 'github'
+    : way === 'new'
+      ? <button className="btn primary" disabled={making || !title.trim() || !parent.trim()} onClick={() => void make()}>{making ? t('만드는 중…', 'Creating…') : t('만들기', 'Create')}</button>
+      : way === 'github'
       ? <button className="btn primary" disabled={cloning || !cloneSource || !parent.trim()} onClick={() => void clone()}>{cloning ? t('받는 중…', 'Cloning…') : t('받아 오기', 'Clone')}</button>
       : <button className="btn primary" disabled={!path.trim()} onClick={() => void inspect(path.trim())}>{t('확인', 'Check')}</button>
 
@@ -161,10 +178,25 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
         </div>
       ) : <>
         <div className="segmented reg-way" role="radiogroup" aria-label={t('등록 방법', 'How to add')} data-ui="등록 방법 고르기">
+          <button role="radio" aria-checked={way === 'new'} className={way === 'new' ? 'on' : ''} onClick={() => { setWay('new'); setError(null) }}>{t('새로 만들기', 'Start new')}</button>
           <button role="radio" aria-checked={way === 'github'} className={way === 'github' ? 'on' : ''} onClick={() => { setWay('github'); setError(null) }}>{t('GitHub에서', 'From GitHub')}</button>
           <button role="radio" aria-checked={way === 'folder'} className={way === 'folder' ? 'on' : ''} onClick={() => { setWay('folder'); setError(null) }}>{t('이 컴퓨터 폴더', 'Folder on this computer')}</button>
         </div>
-        {way === 'github' ? <>
+        {way === 'new' ? <>
+          <label className="field" data-ui="새 프로젝트 제목"><span>{t('프로젝트 제목', 'Project title')}</span>
+            <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('예: 그래프 색칠 문제', 'For example: Graph coloring')}
+              onKeyDown={(e) => { if (e.key === 'Enter' && title.trim() && parent.trim()) void make() }} />
+          </label>
+          <label className="field"><span>{t('연구 목표 한 문장 (선택)', 'Project goal in one sentence (optional)')}</span><input value={question} onChange={(e) => setQuestion(e.target.value)} /></label>
+          <div className="field" data-ui="태그 고르기"><span>{t('성격과 분야 — 홈에서 성격으로 거릅니다', 'Kind and fields: Home filters by kind')}</span>
+            <ProjectProfileFields kind={kind} fields={fields} all={all}
+              onChange={(p) => { if (p.kind) setKind(p.kind); if (p.fields) setFields(p.fields) }} />
+          </div>
+          <label className="field" data-ui="만들 곳"><span>{t('만들 곳 — 이 안에 제목 이름의 폴더가 생깁니다', 'Location: a folder named after the title is created inside')}</span>
+            <span className="reg-pathrow"><input className="mono" value={parent} onChange={(e) => setParent(e.target.value)} />{finderBtn(parent, setParent)}</span>
+          </label>
+          <p className="muted reg-hint">{t('GitHub 계정이 없어도 됩니다. 노트와 기록은 이 폴더에 평범한 파일로 남습니다. 폴더를 git 저장소로 시작해 두므로 나중에 GitHub에 올릴 수 있습니다.', 'No GitHub account needed. Notes and records stay in this folder as plain files. The folder starts as a git repository, so you can put it on GitHub later.')}</p>
+        </> : way === 'github' ? <>
           {repos === null && <p className="muted reg-hint">{t('GitHub 저장소 목록을 읽는 중…', 'Loading GitHub repositories…')}</p>}
           {repos?.ok && <>
             <label className="reg-search" data-ui="저장소 찾기">

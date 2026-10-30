@@ -1,10 +1,11 @@
 // 연구 목록·등록·개괄
 import type { FastifyInstance } from 'fastify'
-import { CloneBody, Cloned, GitHubRepoList, GitHubRepoParsed, GitHubUrlBody, InspectBody, Inspection, PickFolderBody, PickedFolder, RegisterBody } from '@rw/core/contract/register'
+import { CloneBody, Cloned, GitHubRepoList, GitHubRepoParsed, GitHubUrlBody, InspectBody, Inspection, NewProjectBody, PickFolderBody, PickedFolder, RegisterBody } from '@rw/core/contract/register'
 import * as C from '@rw/core/contract/research'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
-import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
+import fs from 'node:fs'
+import { cloneInto, createProjectFolder, defaultCloneDir, parseGitHubRepo } from '../clone.js'
 import { listGitHubRepos, realIO, type RepoIO } from '../githubRepos.js'
 import { AgentEditStore } from '../agentEdits.js'
 import { listStatements } from '../statements.js'
@@ -96,6 +97,21 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     const item = registry.register(b.path, b)
     ensureWatch(item.id)
     return item
+  })
+
+  /** 저장소 없이 새로 시작 (10/30 "누구나 쓰는 공개 앱"): 폴더를 만들고 git 저장소로 시작한 뒤 workbench/를 만들어 등록한다 */
+  app.post('/api/researches/new', replies(C.ResearchListItem), async (req): Promise<C.ResearchListItem> => {
+    const b = parseBody(NewProjectBody, req.body)
+    const made = await createProjectFolder(b.parent, b.title)
+    try {
+      const item = registry.register(made.path, { createWorkbench: true, title: b.title, question: b.question, kind: b.kind, fields: b.fields })
+      ensureWatch(item.id)
+      return item
+    } catch (e) {
+      // 방금 만든 빈 폴더만 지운다 (등록하지 못했으면 남길 것이 없다)
+      fs.rmSync(made.path, { recursive: true, force: true })
+      throw e
+    }
   })
 
   /**

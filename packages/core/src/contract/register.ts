@@ -76,6 +76,15 @@ export const RegisterBody = z.object({
   repoPreambles: z.array(z.string()).optional(),
 }).strict()
 
+/** POST /researches/new: 저장소 없이 새로 시작. parent 아래에 제목 이름의 폴더를 만들고 git 저장소로 시작한 뒤 등록한다 */
+export const NewProjectBody = z.object({
+  title: z.string().min(1),
+  parent: z.string(),
+  question: z.string().optional(),
+  kind: z.unknown().optional(),
+  fields: z.unknown().optional(),
+}).strict()
+
 export type GitHubUrlBody = z.infer<typeof GitHubUrlBody>
 export type GitHubRepoParsed = z.infer<typeof GitHubRepoParsed>
 export type CloneBody = z.infer<typeof CloneBody>
@@ -84,6 +93,7 @@ export type TexDefinitions = z.infer<typeof TexDefinitions>
 export type InspectBody = z.infer<typeof InspectBody>
 export type Inspection = z.infer<typeof Inspection>
 export type RegisterBody = z.infer<typeof RegisterBody>
+export type NewProjectBody = z.infer<typeof NewProjectBody>
 
 export type GitHubRepoItem = z.infer<typeof GitHubRepoItem>
 export type GitHubRepoList = z.infer<typeof GitHubRepoList>
