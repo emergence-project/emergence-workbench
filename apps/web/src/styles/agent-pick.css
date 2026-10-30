@@ -1,4 +1,4 @@
-/* 에이전트 대화의 에이전트 표 (10/30 Codex · Gemini 연결): 에이전트 색 셋 (디자인 문서 2절). 입력란 · 대화 머리 · 설정 › 에이전트 */
+/* 에이전트 대화의 에이전트 표 (10/30 Codex · Gemini 연결): 에이전트 색 셋 (디자인 문서 2절). 모델 메뉴 · Codex · Gemini 입력란 · 「이 대화」 모델 칸 */
 .ag-chip { display: inline-flex; align-items: center; padding: 0 6px; border-radius: var(--r-sm); font-size: var(--fs-xs); font-weight: var(--fw-strong); line-height: 1.6; white-space: nowrap; }
 .ag-chip.cc { background: var(--ag-cc-bg); color: var(--ag-cc); }
 .ag-chip.cx { background: var(--ag-cx-bg); color: var(--ag-cx); }

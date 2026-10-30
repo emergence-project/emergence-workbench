@@ -831,7 +831,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
             </button>
           ))}
         </PopButton>
-        <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<><AgentChip agent={settings.agent} /> {modelName(settings.model, models)}{efforts.length > 0 && ` · ${EFFORT_SHORT[settings.effort]}`} ▾</>}>
+        <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{modelName(settings.model, models)}{efforts.length > 0 && ` · ${EFFORT_SHORT[settings.effort]}`} ▾</>}>
           {(close) => <>
             <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings({ agent: a, model: 'default', effort: 'medium', ...(a !== 'claude-code' && settings.trust === 'plan' && { trust: 'ask' }) }) }} />
             <div className="ac-pop-h">{t('모델', 'Model')}</div>
