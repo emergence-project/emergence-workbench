@@ -691,7 +691,7 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
         <div className="rs-head">
           <div className="segmented small" role="radiogroup" aria-label={t('오른쪽 사이드바', 'Right sidebar')}>
             <button className={side === 'info' ? 'on' : ''} role="radio" aria-checked={side === 'info'} onClick={() => setSide('info')}>{t('정보', 'Info')}</button>
-            <button className={side === 'comments' ? 'on' : ''} role="radio" aria-checked={side === 'comments'} onClick={() => setSide('comments')}>{t('코멘트', 'Comments')} {paper.comments || ''}</button>
+            <button className={side === 'comments' ? 'on' : ''} role="radio" aria-checked={side === 'comments'} onClick={() => setSide('comments')}>{t('정리', 'Notes')} {paper.comments || ''}</button>
           </div>
         </div>
         {side === 'info' ? <PaperInfo paper={paper} projects={data.projects} ctx={ctx} opened onSaved={onSaved} /> : <div className="rs-col"><CommentsPanel rid={LIBRARY} target={target} /></div>}
