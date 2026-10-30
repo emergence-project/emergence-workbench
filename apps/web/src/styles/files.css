@@ -31,6 +31,16 @@
 .fv-row.open .fv-chev { transform: rotate(90deg); }
 .fv-name { font-family: var(--editor-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .fv-mean { margin-left: auto; padding-left: var(--sp-2); flex: none; color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; }
+/* 종류 기호 (10/29 08:08): 무채색 선 그림, 글자 높이에 맞춘 16px */
+.fv-ic { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.fv-ic .fill { fill: var(--text-3); stroke: none; }
+.fv-row.on .fv-ic, .fv-row:hover .fv-ic { stroke: var(--text-2); }
+/* 파일 줄의 ⋯: 가리키거나 메뉴가 열린 줄에만. 오른쪽 클릭도 같은 메뉴 */
+.fv-line { position: relative; display: flex; }
+.fv-line .fv-more { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; opacity: 0; }
+.fv-line:hover .fv-more, .fv-line.menu-on .fv-more, .fv-line .fv-more:focus-visible { opacity: 1; }
+.fv-line:hover .fv-mean, .fv-line.menu-on .fv-mean { visibility: hidden; }
+.fv-menu { position: fixed; z-index: var(--z-menu); min-width: 180px; }
 .fv-mod { width: 6px; height: 6px; border-radius: 50%; background: var(--s-blocked); flex: none; display: inline-block; }
 .fv-preview { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .fv-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--text-2); min-width: 0; flex-wrap: wrap; }

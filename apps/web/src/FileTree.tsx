@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { api, type ProjectInfo, type RepoTree } from './api'
+import { FileIcon, FolderIcon } from './fileIcons'
+import { Icon } from './icons'
 import { plural, t } from './i18n'
 import { useProjectInfo } from './projectQueries'
 import { qk } from './queries'
 import { type Route } from './router'
 import { store } from './store'
+import { useDismiss } from './useDismiss'
 
 /**
  * 저장소의 파일 나무 (왼쪽 사이드바 「파일」 탭, 10/28 시안 6절). 나무는 이 한 곳에만 두고, 누르면 저장소 쪽이 그 파일을 탭으로 연다.
@@ -98,16 +101,34 @@ export function FileTree({ rid, current, onOpen }: { rid: string; current: strin
   const q = query.trim().toLowerCase()
   const found = q && data ? data.files.filter((f) => f.path.toLowerCase().includes(q)).slice(0, 300) : null
   const toggle = (p: string) => setOpen((s) => { const n = new Set(s); if (n.has(p)) n.delete(p); else n.add(p); return n })
+  // 파일 줄의 ⋯ · 오른쪽 클릭 메뉴: 경로 복사 · 맥 앱으로 열기 (10/29 08:08)
+  const repoRoot = useQuery({ queryKey: qk.summary(rid), queryFn: () => api.research(rid).summary() }).data?.root
+  const [menu, setMenu] = useState<{ path: string; x: number; y: number } | null>(null)
+  const [note, setNote] = useState<{ path: string; text: string } | null>(null)
+  const menuBox = useRef<HTMLDivElement>(null)
+  useDismiss(!!menu, menuBox, () => setMenu(null))
+  useEffect(() => { if (!note) return; const id = setTimeout(() => setNote(null), 1800); return () => clearTimeout(id) }, [note])
+  const openMenu = (path: string, x: number, y: number) => setMenu({ path, x: Math.min(x, window.innerWidth - 200), y: Math.min(y, window.innerHeight - 120) })
+  const copy = (path: string, text: string) => {
+    setMenu(null)
+    navigator.clipboard.writeText(text).then(() => setNote({ path, text: t('복사했습니다', 'Copied') }), () => setNote({ path, text: t('복사하지 못했습니다', 'Could not copy') }))
+  }
 
   const fileRow = (f: { name: string; path: string }, depth: number, showPath = false) => {
     const m = meaningOf(rid, f.path, null, sources)
+    const said = note?.path === f.path ? note.text : null
     return (
-      <button key={f.path} className={`fv-row file${current === f.path ? ' on' : ''}`} style={{ '--fv-depth': depth } as CSSProperties} title={f.path}
-        aria-current={current === f.path ? 'true' : undefined} onClick={() => onOpen(f.path)}>
-        <span className="fv-name">{showPath ? f.path : f.name}</span>
-        {changed.has(f.path) && <span className="fv-mod" role="img" aria-label={t('커밋 안 한 변경', 'Uncommitted change')} />}
-        {m && <span className="fv-mean">{m.label}</span>}
-      </button>
+      <div key={f.path} className={`fv-line${menu?.path === f.path ? ' menu-on' : ''}`} onContextMenu={(e) => { e.preventDefault(); openMenu(f.path, e.clientX, e.clientY) }}>
+        <button className={`fv-row file${current === f.path ? ' on' : ''}`} style={{ '--fv-depth': depth } as CSSProperties} title={f.path}
+          aria-current={current === f.path ? 'true' : undefined} onClick={() => onOpen(f.path)}>
+          <FileIcon name={f.name} />
+          <span className="fv-name">{showPath ? f.path : f.name}</span>
+          {changed.has(f.path) && <span className="fv-mod" role="img" aria-label={t('커밋 안 한 변경', 'Uncommitted change')} />}
+          {said ? <span className="fv-mean">{said}</span> : m && <span className="fv-mean">{m.label}</span>}
+        </button>
+        <button className="fv-more icon-btn" data-ui="파일 줄 메뉴" aria-label={t('더 보기', 'More')} aria-haspopup="menu" title={t('경로 복사 · 맥 앱으로 열기', 'Copy path · Open in Mac app')}
+          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); openMenu(f.path, r.right - 180, r.bottom + 2) }}>{Icon.more}</button>
+      </div>
     )
   }
   const dirRows = (d: Dir, depth: number): ReactNode[] => {
@@ -119,7 +140,7 @@ export function FileTree({ rid, current, onOpen }: { rid: string; current: strin
         const m = meaningOf(rid, x.path, x, sources)
         return [
           <button key={x.path} className={`fv-row dir${opened ? ' open' : ''}`} style={{ '--fv-depth': depth } as CSSProperties} aria-expanded={opened} title={x.path} onClick={() => toggle(x.path)}>
-            <span className="fv-chev" aria-hidden>›</span><span className="fv-name">{x.name}/</span>
+            <span className="fv-chev" aria-hidden>›</span><FolderIcon open={opened} /><span className="fv-name">{x.name}</span>
             {changed.has(x.path) && <span className="fv-mod" role="img" aria-label={t('커밋 안 한 변경이 있음', 'Has uncommitted changes')} />}
             {m && <span className="fv-mean">{m.label}</span>}
           </button>,
@@ -139,6 +160,12 @@ export function FileTree({ rid, current, onOpen }: { rid: string; current: strin
             : found ? (found.length ? found.map((f) => fileRow({ name: f.path, path: f.path }, 0, true)) : <p className="muted fv-pad">{t('맞는 파일이 없습니다', 'No matching files')}</p>)
               : dirRows(root, 0)}
       </nav>
+      {menu && <div ref={menuBox} className="menu fv-menu" role="menu" data-ui="파일 줄 메뉴 항목" style={{ left: menu.x, top: menu.y }}>
+        {repoRoot && <button role="menuitem" onClick={() => copy(menu.path, `${repoRoot.replace(/\/$/, '')}/${menu.path}`)}>{t('경로 복사', 'Copy path')}</button>}
+        <button role="menuitem" onClick={() => copy(menu.path, menu.path)}>{t('저장소 안 경로 복사', 'Copy path in repository')}</button>
+        <button role="menuitem" onClick={() => copy(menu.path, menu.path.split('/').pop() ?? menu.path)}>{t('이름 복사', 'Copy name')}</button>
+        <button role="menuitem" onClick={() => { const p = menu.path; setMenu(null); api.research(rid).openRepoFile(p).catch((e: Error) => setNote({ path: p, text: e.message })) }}>{t('맥 앱으로 열기', 'Open in Mac app')}</button>
+      </div>}
       {data && <p className="fv-count muted">{data.source === 'git'
         ? t(`git이 추적하는 파일과 새 파일 ${data.files.length}개`, `${plural(data.files.length, 'file')} tracked by git or new`)
         : t(`폴더의 파일 ${data.files.length}개`, `${plural(data.files.length, 'file')} in the folder`)}{data.truncated ? t(' (앞부분만)', ' (first part only)') : ''}</p>}
