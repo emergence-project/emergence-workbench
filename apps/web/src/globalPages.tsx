@@ -87,7 +87,7 @@ export const GLOBAL_PAGES: {
       ? <FiguresHome info={p.library} rightOpen={p.rightOpen} onSaved={p.onSaved} />
       : <FiguresPage filter={p.route.page === 'figures' ? p.route.filter : undefined} open={p.route.page === 'figures' ? p.route.open : undefined} onSaved={p.onSaved} />) },
   // 저자와 소속을 설정에서 옮겨 왔다 (10/4 피드백). 사이드바에 사람, 사람마다 노트 참고 문헌의 논문
-  { page: 'network', label: '네트워킹', name: t('네트워킹', 'Networking'), aria: t('네트워킹', 'Networking'), tip: t('네트워킹 — 저자와 소속, 함께 연구하는 사람들', 'Networking: authors, affiliations and collaborators'), icon: Icon.network, rail: 'top',
+  { page: 'network', label: '네트워킹', name: t('네트워킹', 'Networking'), aria: t('네트워킹', 'Networking'), tip: t('네트워킹 — 저자와 소속, 공동 연구자들', 'Networking: authors, affiliations and collaborators'), icon: Icon.network, rail: 'top',
     side: (p) => <NetworkSide person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     render: (p) => <NetworkPage person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,
     badge: () => <NetworkRailCount /> },

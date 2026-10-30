@@ -48,7 +48,7 @@ export function LatexSetupPage({ onSaved, editor, scrollTo }: { onSaved(message:
     if (v && 'created' in v) setSel((v as LatexSetupView & { created: string }).created)
   }
   const remove = async (x: LatexTemplate) => {
-    if (!await askConfirm({ title: t(`"${x.name}" 서식을 지울까요?`, `Delete template "${x.name}"?`), hint: t('이 컴퓨터의 앱 설정에서만 지워지고, 이 서식으로 만든 노트와 PDF는 그대로 남습니다.', 'It is removed only from this computer\'s app settings. Notes and PDFs made with it stay.'), ok: t('지우기', 'Delete') })) return
+    if (!await askConfirm({ title: t(`"${x.name}" 서식을 지울까요?`, `Delete template "${x.name}"?`), hint: t('이 컴퓨터의 앱 설정에서만 지워지고, 이 서식으로 만든 노트와 PDF는 그대로 남습니다.', 'It is removed only from this computer\'s app settings. Notes and PDFs made with it stay.'), ok: t('삭제', 'Delete') })) return
     void run(latexApi.removeTemplate(x.id), t(`${x.name} 서식을 지웠습니다`, `Deleted template ${x.name}`)).then(() => setSel(null))
   }
 
@@ -97,7 +97,7 @@ export function LatexSetupPage({ onSaved, editor, scrollTo }: { onSaved(message:
                   <span className="sp" />
                   <button className="btn" onClick={() => void copy(cur)}>{t('복사해 새 서식 만들기', 'Copy as new template')}</button>
                   <button className="btn" disabled={cur.id === defaultTemplate} title={t('노트를 내보낼 때 처음에 골라 둘 서식', 'The template picked first when exporting notes')} onClick={() => void run(latexApi.setDefault(cur.id), t(`내보낼 때 ${cur.name}을 씁니다`, `Export now uses ${cur.name}`))}>{t('내보내기 기본으로', 'Set as default for export')}</button>
-                  <button className="icon-btn" disabled={templates.length <= 1} title={t('지우기 — 이 서식을 앱 설정에서 지웁니다', 'Delete this template from the app settings')} aria-label={t('지우기', 'Delete')} onClick={() => void remove(cur)}>{Icon.trash}</button>
+                  <button className="icon-btn" disabled={templates.length <= 1} title={t('삭제 — 이 서식을 앱 설정에서 지웁니다', 'Delete this template from the app settings')} aria-label={t('삭제', 'Delete')} onClick={() => void remove(cur)}>{Icon.trash}</button>
                   <button className="icon-btn" title={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={() => setSel(null)}>{Icon.x}</button>
                 </div>
 

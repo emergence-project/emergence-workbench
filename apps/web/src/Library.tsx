@@ -129,7 +129,7 @@ export function LibraryNoteEditor({ kind, id, info, rid, project, onChanged, onS
         )}
         {notice && <div className="banner">{notice}<span className="sp" /><button className="btn ghost" onClick={() => setNotice(null)}>{t('닫기', 'Close')}</button></div>}
         <div className="lib-meta" data-ui="쓰는 곳">
-          <span className="muted">{t('쓰는 곳', 'Used in')}</span>
+          <span className="muted">{t('사용처', 'Used in')}</span>
           {uses.length === 0 && <span className="muted">{t('아직 없음', 'None yet')}</span>}
           {uses.map((u, i) => (
             <button key={i} className="dep-chip" onClick={() => go(u.file ? { page: 'part', rid: u.rid, file: u.file } : { page: 'map', rid: u.rid })}>

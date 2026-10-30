@@ -452,13 +452,13 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
   const gallery: GalleryPicture[] = pictures.slice(0, 2).map((p, k) => ({
     src: `/api/feedback/picture?path=${encodeURIComponent(p)}`,
     label: k ? t('후', 'After') : t('전', 'Before'),
-    alt: k ? t('고친 뒤 화면', 'Screen after the fix') : t('고치기 전 화면', 'Screen before the fix'),
+    alt: k ? t('고친 뒤 화면', 'Screen after the fix') : t('수정 전 화면', 'Screen before the fix'),
   }))
   return (
     <SayCard me={me} ui={me ? '사용자 글' : '관리자 글'} name={name} tag={what}
       afterTag={undo && <button className="fb-link" title={t('마지막 답(승인 · 수정 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
       when={at && <>{whenOf(at)}{edited && ` · ${t('고침', 'edited')} ${edited.slice(11, 16)}`}</>}
-      end={me && at && s.kind !== '승인' && !locked && !editing && <button className="icon-btn sm fbp-say-edit" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}>
+      end={me && at && s.kind !== '승인' && !locked && !editing && <button className="icon-btn sm fbp-say-edit" data-tip={t('수정', 'Edit')} aria-label={t(`수정: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}>
       {editing
         ? (
           <div className="fbp-text">
@@ -560,7 +560,7 @@ export function FeedbackRailCount() {
   const turn = n ? n.ask + n.confirm : 0
   if (!turn && !unregistered) return null
   const why = [
-    turn ? t(`확인 필요 — 답할 것 ${n!.ask} · 확인할 것 ${n!.confirm}`, `Needs review: ${n!.ask} to answer · ${n!.confirm} to check`) : '',
+    turn ? t(`확인 필요 — 답할 것 ${n!.ask} · 확인 항목 ${n!.confirm}`, `Needs review: ${n!.ask} to answer · ${n!.confirm} to check`) : '',
     unregistered ? t(`등록할 피드백 ${unregistered} (피드백 화면 오른쪽 위 "피드백 등록")`, `${unregistered} feedback item(s) to register ("Register feedback" at the top right of the feedback page)`) : '',
   ].filter(Boolean).join('\n')
   if (!turn) return <span className="rail-count dot" data-ui="등록할 피드백 표시" role="img" aria-label={why} title={why} />
@@ -592,9 +592,9 @@ export function FeedbackText({ e, locked, onChanged }: { e: Pick<FeedbackItem, '
         <MemoText text={e.text} />
         {/* 10/4 15:54 "고치기 지우기 우측 상단으로 옮기고 아이콘으로" */}
         <span className="fbp-edit fbp-edit-icons hover-actions">
-          {!locked && <button className="icon-btn" title={t('고치기', 'Edit')} aria-label={t(`고치기: ${e.date} ${e.time} 피드백`, `Edit: ${e.date} ${e.time} feedback`)} onClick={() => { setDraft(e.text); setKind(pickable(e.kind)); setEditing(true) }}>{Icon.pencil}</button>}
-          <button className="icon-btn" title={t('지우기', 'Delete')} aria-label={t(`지우기: ${e.date} ${e.time} 피드백`, `Delete: ${e.date} ${e.time} feedback`)}
-            onClick={() => void askConfirm({ title: t('이 피드백을 지울까요?', 'Delete this feedback?'), hint: t('그날 피드백 파일에서 이 항목만 지워지고, 처리 기록(feedback/status.yaml)은 그대로 남습니다.', 'Only this item is removed from that day\'s feedback file. The handling record (feedback/status.yaml) stays.'), ok: t('지우기', 'Delete') }).then((y) => { if (y) save(null) })}>{Icon.trash}</button>
+          {!locked && <button className="icon-btn" title={t('수정', 'Edit')} aria-label={t(`수정: ${e.date} ${e.time} 피드백`, `Edit: ${e.date} ${e.time} feedback`)} onClick={() => { setDraft(e.text); setKind(pickable(e.kind)); setEditing(true) }}>{Icon.pencil}</button>}
+          <button className="icon-btn" title={t('삭제', 'Delete')} aria-label={t(`삭제: ${e.date} ${e.time} 피드백`, `Delete: ${e.date} ${e.time} feedback`)}
+            onClick={() => void askConfirm({ title: t('이 피드백을 지울까요?', 'Delete this feedback?'), hint: t('그날 피드백 파일에서 이 항목만 지워지고, 처리 기록(feedback/status.yaml)은 그대로 남습니다.', 'Only this item is removed from that day\'s feedback file. The handling record (feedback/status.yaml) stays.'), ok: t('삭제', 'Delete') }).then((y) => { if (y) save(null) })}>{Icon.trash}</button>
         </span>
         {error && <div className="error-text">{error}</div>}
       </div>
@@ -663,7 +663,7 @@ function IssueButton({ list }: { list: FeedbackItem[] }) {
       </>}>
       <p className="muted fbi-help">{t('고른 피드백을 공개 저장소의 버그 양식 하나에 차례로 적어 새 창에 엽니다. 그림은 넣지 않으니 필요하면 GitHub에서 붙이세요.', 'The picked feedback is written in order into one bug form of the public repository, opened in a new window. Pictures are not included; attach them on GitHub if needed.')}</p>
       <div className="fbi-all">
-        <button className="a" onClick={() => setPicked(picked.size === rows.length ? new Set() : new Set(rows.map(keyOf)))}>{picked.size === rows.length ? t('모두 빼기', 'Unpick all') : t('모두 고르기', 'Pick all')}</button>
+        <button className="a" onClick={() => setPicked(picked.size === rows.length ? new Set() : new Set(rows.map(keyOf)))}>{picked.size === rows.length ? t('선택 해제', 'Unpick all') : t('모두 고르기', 'Pick all')}</button>
         <span className="muted">{t(`${rows.length}개 중 ${picked.size}개`, `${picked.size} of ${rows.length}`)}</span>
       </div>
       <ul className="fbi-list" data-ui="보낼 피드백 목록">
@@ -702,11 +702,11 @@ function PublishButton() {
 
   return (
     <>
-      {!note && auto.error && files.length > 0 && <span className="error-text" data-ui="올리기 결과" style={{ fontSize: 'var(--fs-sm)', marginRight: 'var(--sp-2)' }}>{t('저절로 등록하지 못했습니다', 'Automatic registration failed')}: {auto.error}</span>}
+      {!note && auto.error && files.length > 0 && <span className="error-text" data-ui="올리기 결과" style={{ fontSize: 'var(--fs-sm)', marginRight: 'var(--sp-2)' }}>{t('자동으로 등록하지 못했습니다', 'Automatic registration failed')}: {auto.error}</span>}
       {note && <span className={note.error ? 'error-text' : 'muted'} data-ui="올리기 결과" style={{ fontSize: 'var(--fs-sm)', marginRight: 'var(--sp-2)' }}>{note.text}</span>}
       {publishable && (
         <button className={`btn${files.length > 0 ? ' primary' : ''}`} data-ui="GitHub에 올리기" disabled={busy || files.length === 0} style={{ marginRight: 'var(--sp-2)' }} onClick={() => void publish()}
-          title={files.length > 0 ? `${auto.on ? t(`남긴 뒤 ${syncEveryLabel(delay ?? 30)} 지나면 저절로 등록됩니다. 지금 바로 등록하려면 누르세요.\n`, `Feedback is registered automatically ${syncEveryLabel(delay ?? 30, false)} after you leave it. Click to register now.\n`) : ''}${t('아직 GitHub에 없는 피드백만 GitHub에 올려 등록합니다. 다른 파일은 올리지 않습니다', 'Pushes only feedback not yet on GitHub. No other files are pushed')}\n\n${files.join('\n')}` : t('남긴 피드백이 모두 GitHub에 등록되어 있습니다', 'All feedback is registered on GitHub')}>
+          title={files.length > 0 ? `${auto.on ? t(`남긴 뒤 ${syncEveryLabel(delay ?? 30)} 지나면 자동으로 등록됩니다. 지금 바로 등록하려면 누르세요.\n`, `Feedback is registered automatically ${syncEveryLabel(delay ?? 30, false)} after you leave it. Click to register now.\n`) : ''}${t('아직 GitHub에 없는 피드백만 GitHub에 올려 등록합니다. 다른 파일은 올리지 않습니다', 'Pushes only feedback not yet on GitHub. No other files are pushed')}\n\n${files.join('\n')}` : t('남긴 피드백이 모두 GitHub에 등록되어 있습니다', 'All feedback is registered on GitHub')}>
           {busy ? t('등록 중…', 'Registering…') : files.length > 0 ? `${t('피드백 등록', 'Register feedback')} · ${count}` : t('모두 등록함', 'All registered')}
         </button>
       )}

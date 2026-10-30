@@ -21,7 +21,7 @@ function RowTools({ at, count, what, onMove, onRemove }: { at: number; count: nu
     <td className="ex-tools">
       <button className="icon-btn" disabled={at === 0} title={t(`위로 — ${what}에서 한 칸 앞으로`, `Move up one place in the ${what}`)} aria-label={t('위로', 'Move up')} onClick={() => onMove(-1)}>{Icon.up}</button>
       <button className="icon-btn" disabled={at === count - 1} title={t(`아래로 — ${what}에서 한 칸 뒤로`, `Move down one place in the ${what}`)} aria-label={t('아래로', 'Move down')} onClick={() => onMove(1)}>{Icon.down}</button>
-      <button className="icon-btn" title={t(`빼기 — 이번 내보내기의 ${what}에서만 빠집니다`, `Remove from the ${what} for this export only`)} aria-label={t('빼기', 'Remove')} onClick={onRemove}>{Icon.x}</button>
+      <button className="icon-btn" title={t(`제거 — 이번 내보내기의 ${what}에서만 빠집니다`, `Remove from the ${what} for this export only`)} aria-label={t('제거', 'Remove')} onClick={onRemove}>{Icon.x}</button>
     </td>
   )
 }
@@ -86,7 +86,7 @@ function AuthorSection({ pool, order, setOrder }: { pool: PersonView[] | null; o
       ) : <p className="muted ex-note">{t('저자 없이 내보냅니다. 아래에서 더하세요.', 'Exporting without authors. Add them below.')}</p>}
       <div className="ex-add" data-ui="저자 더하기">
         <label className="ex-search">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('저자 더하기 — 이름이나 기관으로 찾기', 'Add author: search by name or institution')} aria-label={t('저자 찾기', 'Search authors')} data-ui="저자 찾기"
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('저자 추가 — 이름이나 기관으로 찾기', 'Add author: search by name or institution')} aria-label={t('저자 찾기', 'Search authors')} data-ui="저자 찾기"
             onKeyDown={(e) => { if (e.key === 'Enter' && q && rest[0]) add(rest[0].name); if (e.key === 'Escape') setQuery('') }} />
           {q && <span className="muted ex-count">{t(`${rest.length}명`, plural(rest.length, 'person', 'people'))}</span>}
         </label>
@@ -97,7 +97,7 @@ function AuthorSection({ pool, order, setOrder }: { pool: PersonView[] | null; o
               <div className="ex-gname">{g} <span className="muted">{list.length}</span></div>
               <div className="ex-cgrid">
                 {list.map((p, i) => (
-                  <button key={p.name} className={`ex-cand${q && i === 0 && g === [...groups.keys()][0] ? ' first' : ''}`} title={t('더하기 — 저자 순서 끝에 넣습니다', 'Add to the end of the author order')} onClick={() => add(p.name)}>
+                  <button key={p.name} className={`ex-cand${q && i === 0 && g === [...groups.keys()][0] ? ' first' : ''}`} title={t('추가 — 저자 순서 끝에 넣습니다', 'Add to the end of the author order')} onClick={() => add(p.name)}>
                     <Avatar name={p.name} />
                     <span className="ex-cname"><b>{p.name}</b><span className="muted">{p.affiliations[0] ?? t('소속 없음', 'No affiliation')}</span></span>
                     <span className="ex-cplus" aria-hidden>{Icon.plus}</span>
@@ -386,8 +386,8 @@ export function ExportPicker({ rid, manuscripts, onClose }: { rid: string; manus
         ) : <p className="muted ex-note">{t('아래에서 내보낼 노트를 더하세요. 더한 순서대로 한 문서(main.tex)에 배치됩니다.', 'Add notes to export below. They are placed in one document (main.tex) in the order you add them.')}</p>}
         {rest.length > 0 && (
           <div className="ex-group">
-            {rest.map((m) => <button key={m.key} className="chip ex-chip" title={t('더하기 — 문서 배치 순서 끝에 둡니다', 'Add to the end of the document order')} onClick={() => setPicked([...picked, m.key])}>＋ {m.name}</button>)}
-            {rest.length > 1 && <button className="a" onClick={() => setPicked([...picked, ...rest.map((m) => m.key)])}>{t('모두 더하기', 'Add all')}</button>}
+            {rest.map((m) => <button key={m.key} className="chip ex-chip" title={t('추가 — 문서 배치 순서 끝에 둡니다', 'Add to the end of the document order')} onClick={() => setPicked([...picked, m.key])}>＋ {m.name}</button>)}
+            {rest.length > 1 && <button className="a" onClick={() => setPicked([...picked, ...rest.map((m) => m.key)])}>{t('모두 추가', 'Add all')}</button>}
           </div>
         )}
       </div>

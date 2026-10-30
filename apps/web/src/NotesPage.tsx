@@ -82,7 +82,7 @@ function ResearchNotes({ rid, rapi, summary, notes, manuscripts, onChanged, onSa
 
       <section className="notes-sec" data-ui="원고 목록">
         {papers.length > 0 && <PaperCards rid={rid} manuscripts={papers} onCopy={(key) => setNewFrom(key)} onAdd={() => setPicking(true)}
-          onRemove={(ms) => rapi.unsetMainNote(ms.main).then(() => { onChanged(); onSaved(t(`"${ms.name}"을 목록에서 뺐습니다. 파일 ${ms.main}은 그대로이고, 카드 줄 끝의 "＋ 원고 더하기"로 다시 넣을 수 있습니다`, `Removed "${ms.name}" from the list. The file ${ms.main} stays, and "＋ Add manuscript" at the end of the card row puts it back`)) }).catch((e: Error) => onSaved(e.message))} />}
+          onRemove={(ms) => rapi.unsetMainNote(ms.main).then(() => { onChanged(); onSaved(t(`"${ms.name}"을 목록에서 뺐습니다. 파일 ${ms.main}은 그대로이고, 카드 줄 끝의 "＋ 원고 추가"로 다시 넣을 수 있습니다`, `Removed "${ms.name}" from the list. The file ${ms.main} stays, and "＋ Add manuscript" at the end of the card row puts it back`)) }).catch((e: Error) => onSaved(e.message))} />}
         {newFrom !== null && <NewNote key={newFrom} rid={rid} rapi={rapi} manuscripts={manuscripts} from={newFrom} onChanged={onChanged} onSaved={onSaved} onClose={() => setNewFrom(null)} />}
         <MainNotePicker rapi={rapi} more={papers.length > 0} open={picking} onClose={() => setPicking(false)} onDone={() => { setPicking(false); onSaved(t('원고를 정했습니다 — research.yaml에 적었습니다', 'Set the manuscript in research.yaml')); onChanged() }} />
       </section>

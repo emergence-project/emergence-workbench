@@ -522,7 +522,7 @@ export function AddPaper({ look, onSaved, onAdded, compact = false }: { look: 'r
   if (!editing) {
     return (
       <button className={`pl-add add-card ${look}${compact && look === 'card' ? ' lh-add' : ''}${hover ? ' hover' : ''}`} data-ui="논문 더하기" onClick={() => setEditing(true)} {...dropProps}>
-        {t('＋ 논문 더하기', '＋ Add paper')} <span className="muted">{t('arXiv 번호 · DOI, 또는 PDF를 여기에 놓기', 'arXiv ID · DOI, or drop a PDF here')}</span>
+        {t('＋ 논문 추가', '＋ Add paper')} <span className="muted">{t('arXiv 번호 · DOI, 또는 PDF를 여기에 놓기', 'arXiv ID · DOI, or drop a PDF here')}</span>
       </button>
     )
   }
@@ -532,7 +532,7 @@ export function AddPaper({ look, onSaved, onAdded, compact = false }: { look: 'r
       <input autoFocus value={text} disabled={busy} placeholder={pending ? t('이 PDF의 arXiv 번호나 DOI', 'arXiv ID or DOI of this PDF') : t('arXiv 번호(0000.00001)나 DOI(10.1103/…) — PDF를 놓아도 됩니다', 'arXiv ID (0000.00001) or DOI (10.1103/…). You can also drop a PDF')}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') { setEditing(false); setPending(null); setErr('') } }} />
-      <button className="btn sm primary" disabled={busy || !text.trim()} onClick={submit}>{busy ? t('받는 중…', 'Downloading…') : t('더하기', 'Add')}</button>
+      <button className="btn sm primary" disabled={busy || !text.trim()} onClick={submit}>{busy ? t('받는 중…', 'Downloading…') : t('추가', 'Add')}</button>
       <button className="btn sm ghost" disabled={busy} onClick={() => { setEditing(false); setPending(null); setErr('') }}>{t('취소', 'Cancel')}</button>
       {err && <span className="pl-add-err">{err}</span>}
     </div>
@@ -636,12 +636,12 @@ function PaperInfo({ paper, projects, ctx, opened, onSaved }: { paper: PaperRow;
           <div className="rs-label">{t('프로젝트', 'Projects')}</div>
           <div className="pl-rs-chips">
             {paper.projects.map((id) => (
-              <span key={id} className="tag" title={paper.autoProjects.includes(id) ? t('이 프로젝트의 bib에 있어서 저절로 이어졌습니다', 'Linked automatically because it is in this project\'s bib') : undefined}>
+              <span key={id} className="tag" title={paper.autoProjects.includes(id) ? t('이 프로젝트의 bib에 있어서 자동으로 이어졌습니다', 'Linked automatically because it is in this project\'s bib') : undefined}>
                 {ctx.projectTitle(id)}
-                {!paper.autoProjects.includes(id) && <button className="pl-chip-x" aria-label={t(`${ctx.projectTitle(id)} 빼기`, `Remove ${ctx.projectTitle(id)}`)} onClick={() => void save(manual.filter((x) => x !== id))}>×</button>}
+                {!paper.autoProjects.includes(id) && <button className="pl-chip-x" aria-label={t(`${ctx.projectTitle(id)} 제거`, `Remove ${ctx.projectTitle(id)}`)} onClick={() => void save(manual.filter((x) => x !== id))}>×</button>}
               </span>
             ))}
-            {free.length > 0 && !adding && <button className="btn sm" onClick={() => setAdding(true)}>{t('＋ 더하기', '＋ Add')}</button>}
+            {free.length > 0 && !adding && <button className="btn sm" onClick={() => setAdding(true)}>{t('＋ 추가', '＋ Add')}</button>}
             {adding && (
               <select className="rs-select" autoFocus value="" onBlur={() => setAdding(false)} onChange={(e) => { setAdding(false); if (e.target.value) void save([...manual, e.target.value]) }}>
                 <option value="">{t('프로젝트 고르기', 'Choose project')}</option>

@@ -111,11 +111,11 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
                     <span className="n">{i}</span>
                     <div className="b"><div>{n.task}</div>{n.endCondition && <div className="c">{tr('종결 조건', 'Completion criteria')} · {n.endCondition}</div>}</div>
                     {n.started ? <button className="a" onClick={() => go({ page: 'task', rid, task: n.started! })}>{tr('맡김', 'Delegated')} · {titleOf(n.started)}</button>
-                      : n.dropped ? <button className="a" onClick={() => void next(i, 'restore')}>{tr('되살리기', 'Restore')}</button>
+                      : n.dropped ? <button className="a" onClick={() => void next(i, 'restore')}>{tr('복원', 'Restore')}</button>
                       : <span className="tk-next-act">
                         <button className="icon-btn" data-tip={tr('승인: 이대로 맡기기', 'Approve: delegate as is')} aria-label={tr('승인: 이대로 맡기기', 'Approve: delegate as is')} onClick={() => void next(i, 'start')}>{Icon.approve}</button>
-                        <button className="icon-btn" data-tip={tr('고치기', 'Edit')} aria-label={tr('고쳐서 맡기기', 'Edit and delegate')} onClick={() => setDialog({ mode: 'next', from: t, nextIndex: i, title: n.task.slice(0, 80), task: n.task, endCondition: n.endCondition, topic: t.topic, agent: t.agent, avoid: t.avoid, references: [t.file] })}>{Icon.pencil}</button>
-                        <button className="icon-btn" data-tip={tr('빼기', 'Remove')} aria-label={tr('빼기', 'Remove')} onClick={() => void next(i, 'drop')}>{Icon.x}</button>
+                        <button className="icon-btn" data-tip={tr('수정', 'Edit')} aria-label={tr('고쳐서 맡기기', 'Edit and delegate')} onClick={() => setDialog({ mode: 'next', from: t, nextIndex: i, title: n.task.slice(0, 80), task: n.task, endCondition: n.endCondition, topic: t.topic, agent: t.agent, avoid: t.avoid, references: [t.file] })}>{Icon.pencil}</button>
+                        <button className="icon-btn" data-tip={tr('제거', 'Remove')} aria-label={tr('제거', 'Remove')} onClick={() => void next(i, 'drop')}>{Icon.x}</button>
                       </span>}
                   </div>
                 )

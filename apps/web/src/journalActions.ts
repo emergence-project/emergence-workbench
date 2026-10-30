@@ -16,6 +16,6 @@ export function journalDeletePrompt(entry: Pick<JournalEntry, 'kind' | 'text'>):
   return {
     title: t(`이 ${JOURNAL_LABEL[entry.kind]} 기록을 지울까요?`, `Delete this ${shown(JOURNAL_LABEL[entry.kind]).toLowerCase()} record?`),
     hint: t(`${short} — 일지 파일의 이 항목만 지우며 되돌릴 수 없습니다. ${remains}`, `${short}: deletes only this entry from the journal file. This can't be undone. ${remains}`),
-    ok: t('지우기', 'Delete'),
+    ok: t('삭제', 'Delete'),
   }
 }

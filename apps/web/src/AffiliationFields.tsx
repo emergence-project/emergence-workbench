@@ -48,7 +48,7 @@ export function AffiliationFields({ value, known, disabled, onChange }: { value:
           )}
         </div>
       ))}
-      <button type="button" className="a pe-add" disabled={disabled || !rows[rows.length - 1]?.trim()} onClick={() => onChange([...rows, ''])}>{t('＋ 소속 더하기', '＋ Add affiliation')}</button>
+      <button type="button" className="a pe-add" disabled={disabled || !rows[rows.length - 1]?.trim()} onClick={() => onChange([...rows, ''])}>{t('＋ 소속 추가', '＋ Add affiliation')}</button>
     </div>
   )
 }

@@ -27,8 +27,8 @@ export function CardImageField({ value, legacyUrl, ui, previewUi = ui, disabled,
       <span className="cip-thumb"><CardImage image={value} legacyUrl={legacyUrl} /></span>
       <span className="cip-name">{name}</span>
     </button>
-    <button type="button" className="icon-btn" disabled={disabled} aria-label={t('그림 빼기', 'Remove figure')} title={t('그림 빼기', 'Remove figure')} onClick={() => onChange('')}>×</button>
-  </span> : <button type="button" className="td-pick" data-ui={ui} disabled={disabled} onClick={onOpen}>{t('＋ 그림 더하기', '＋ Add figure')}</button>
+    <button type="button" className="icon-btn" disabled={disabled} aria-label={t('그림 제거', 'Remove figure')} title={t('그림 제거', 'Remove figure')} onClick={() => onChange('')}>×</button>
+  </span> : <button type="button" className="td-pick" data-ui={ui} disabled={disabled} onClick={onOpen}>{t('＋ 그림 추가', '＋ Add figure')}</button>
 }
 
 /** 부모 고치기 창과 나란히 두어 탭을 숨겨도 찾는 글과 초안을 보존한다. */
@@ -146,11 +146,11 @@ export function CardImagePicker({ rid, project, pc, value, onChange, onClose }: 
                 <span className="cip-help">{t('SVG · PNG · JPG · PDF · PDF는 첫 쪽을 씁니다.', 'SVG · PNG · JPG · PDF · PDFs use the first page.')}</span>
                 <input ref={input} type="file" accept="image/*,.svg,.pdf" hidden disabled={busy} onChange={(e) => { if (e.target.files?.length) void add([...e.target.files]); e.target.value = '' }} />
               </div>
-              <p className="cip-help">{t('이 프로젝트의 그림 라이브러리에 둡니다. 고치기를 취소해도 올린 그림은 남습니다.', 'Saved to this project\'s figure library. Uploaded figures stay even if you cancel editing.')}</p>
+              <p className="cip-help">{t('이 프로젝트의 그림 라이브러리에 둡니다. 수정을 취소해도 올린 그림은 남습니다.', 'Saved to this project\'s figure library. Uploaded figures stay even if you cancel editing.')}</p>
               {uploadError && <p className="td-err" role="alert">{uploadError}</p>}
             </>}
           </div>
-          {value && <div className="dialog-foot"><button type="button" className="btn" disabled={busy} onClick={() => choose('')}>{t('× 그림 빼기', '× Remove figure')}</button></div>}
+          {value && <div className="dialog-foot"><button type="button" className="btn" disabled={busy} onClick={() => choose('')}>{t('× 그림 제거', '× Remove figure')}</button></div>}
         </div>
       </div>, document.body,
     )}

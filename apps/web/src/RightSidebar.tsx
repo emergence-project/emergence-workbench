@@ -138,20 +138,20 @@ export function NoteInfo({ rid, row, topics, proves = [], projectKind, version, 
             <span key={id} className="tag rs-topic" data-ui="주제 이름표" data-ui-item={titleOfTopic(id)}>
               <button type="button" className="a" title={t('주제 화면으로', 'Go to topic')} onClick={() => go({ page: 'topic', rid, tid: id })}>{titleOfTopic(id)}</button>
               {i > 0 && <button className="x" title={t('위로 — 앞에 두면 주 주제', 'Move up. The first one is the main topic')} aria-label={t(`위로: ${titleOfTopic(id)}`, `Move up: ${titleOfTopic(id)}`)} onClick={() => moveUp(i)}>↑</button>}
-              <button className="x" title={t('빼기', 'Remove')} aria-label={t(`빼기: ${titleOfTopic(id)}`, `Remove: ${titleOfTopic(id)}`)} onClick={() => void patch({ topics: row.topics.filter((x) => x !== id) }, t(`주제에서 뺐습니다: ${titleOfTopic(id)}`, `Removed from topic: ${titleOfTopic(id)}`))}>×</button>
+              <button className="x" title={t('제거', 'Remove')} aria-label={t(`제거: ${titleOfTopic(id)}`, `Remove: ${titleOfTopic(id)}`)} onClick={() => void patch({ topics: row.topics.filter((x) => x !== id) }, t(`주제에서 뺐습니다: ${titleOfTopic(id)}`, `Removed from topic: ${titleOfTopic(id)}`))}>×</button>
             </span>
           ))}
           {row.topics.length === 0 && <span className="muted" title={t(`주제에 넣지 않은 노트는 ${LOOSE_NOTES_LABEL}에 모입니다`, `Notes without a topic are gathered in ${LOOSE_NOTES_LABEL}`)}>{t('없음', 'None')}</span>}
           {rest.length > 0 && (
-            <select className="rs-select rs-add" value="" aria-label={t('주제 더하기', 'Add topic')} onChange={(e) => e.target.value && void patch({ topics: [...row.topics, e.target.value] }, t(`주제에 넣었습니다: ${titleOfTopic(e.target.value)}`, `Added to topic: ${titleOfTopic(e.target.value)}`))}>
-              <option value="">{t('＋ 더하기…', '＋ Add…')}</option>
+            <select className="rs-select rs-add" value="" aria-label={t('주제 추가', 'Add topic')} onChange={(e) => e.target.value && void patch({ topics: [...row.topics, e.target.value] }, t(`주제에 넣었습니다: ${titleOfTopic(e.target.value)}`, `Added to topic: ${titleOfTopic(e.target.value)}`))}>
+              <option value="">{t('＋ 추가…', '＋ Add…')}</option>
               {rest.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
             </select>
           )}
         </div>
       </Section>
       <Section label={t('설명', 'Description')} ui="설명" className="rs-desc"
-        actions={desc === null && <span className="hover-actions rs-desc-act"><button className="icon-btn sm" title={t('고치기 — 설명', 'Edit description')} aria-label={t('고치기 — 설명', 'Edit description')} onClick={() => setDesc(row.descriptionAuto ? '' : row.description ?? '')}>{Icon.pencil}</button></span>}>
+        actions={desc === null && <span className="hover-actions rs-desc-act"><button className="icon-btn sm" title={t('수정 — 설명', 'Edit description')} aria-label={t('수정 — 설명', 'Edit description')} onClick={() => setDesc(row.descriptionAuto ? '' : row.description ?? '')}>{Icon.pencil}</button></span>}>
         {desc === null
           ? row.description
             ? <div className={row.descriptionAuto ? 'muted' : ''} title={row.descriptionAuto ? t('적은 설명이 없어 본문 첫 문단에서 뽑았습니다', 'No description written, so the first paragraph is used') : undefined}><DescriptionText text={row.description} /></div>

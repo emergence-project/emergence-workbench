@@ -19,7 +19,7 @@ export const FIELD: Record<string, () => string> = {
   statement: () => tr('진술', 'Statement'), condition: () => tr('조건', 'Conditions'),
   goal: () => tr('목적', 'Goal'), setup: () => tr('설정', 'Setup'), method: () => tr('방법', 'Method'), result: () => tr('결과', 'Result'),
   reading: () => tr('문헌', 'Reading'), gain: () => tr('얻은 것', 'What it gave'),
-  criterion: () => tr('판정 기준', 'Criterion'), assumptions: () => tr('가정', 'Assumptions'), interpretation: () => tr('해석', 'Interpretation'), use: () => tr('쓰는 곳', 'Where it is used'),
+  criterion: () => tr('판정 기준', 'Criterion'), assumptions: () => tr('가정', 'Assumptions'), interpretation: () => tr('해석', 'Interpretation'), use: () => tr('사용처', 'Where it is used'),
 }
 /** 빈 칸에 회색으로 보이는 "무엇을 적을지" (10/20 안 A) */
 export const FIELD_HINT: Record<string, () => string> = {
@@ -39,10 +39,10 @@ export const CARD_FIELD: Record<string, () => string> = {
 /** 카드의 묶음 (시안 v22): 문제 | 발단 · 가치 | 사전 연구 · 도구 | 완료 · 중단 | 범위 · 자원 | 돌려받을 것 */
 export const CARD_GROUPS: { h: () => string; fields: string[] }[] = [
   { h: () => tr('문제', 'Problem'), fields: ['question', 'guess'] },
-  { h: () => tr('왜', 'Why'), fields: ['motivation', 'value'] },
-  { h: () => tr('언제 끝나나', 'When it ends'), fields: ['criterion', 'criterion_no', 'criterion_unclear', 'stop'] },
+  { h: () => tr('의의', 'Why'), fields: ['motivation', 'value'] },
+  { h: () => tr('종료 조건', 'When it ends'), fields: ['criterion', 'criterion_no', 'criterion_unclear', 'stop'] },
   { h: () => tr('범위와 자원', 'Scope and resources'), fields: ['out_of_scope', 'budget'] },
-  { h: () => tr('돌려받을 것', 'What comes back'), fields: ['deliverable'] },
+  { h: () => tr('산출물', 'What comes back'), fields: ['deliverable'] },
 ]
 /** 카드 칸의 빈 칸 안내 (시안 v22) */
 export const CARD_HINT: Record<string, () => string> = {

@@ -41,3 +41,6 @@
 .fl-card-check .no { color: var(--s-blocked); }
 .fl-card-check .no::before { content: '✗'; }
 @media (max-width: 900px) { .fl-term-row { grid-template-columns: minmax(0, 1fr) auto; } .fl-term-row > input:not(:first-child) { grid-column: 1; } }
+
+/* 라벨 열 하나 (10/30 화면 감사 1): 칸마다 라벨 길이를 따라 값 열이 밀리지 않게 화면 안의 모든 칸이 같은 폭에서 시작한다. 긴 라벨은 줄을 넘긴다 */
+.jd-doc .fl-fields { grid-template-columns: var(--fl-label-w) minmax(0, 1fr); }

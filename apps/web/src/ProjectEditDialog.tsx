@@ -102,7 +102,7 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
     </span>
   )
   return (<>
-    <CardEditDialog title={t('프로젝트 고치기', 'Edit project')} location={`${t('홈', 'Home')} › ${summary.research.title}`} pc={shown} ui="프로젝트 고치기 칸"
+    <CardEditDialog title={t('프로젝트 수정', 'Edit project')} location={`${t('홈', 'Home')} › ${summary.research.title}`} pc={shown} ui="프로젝트 수정 칸"
       className="project-dialog" canSave={canSave} onClose={() => { if (!saving.current) onDone() }} onSave={() => void save()} preview={
         <ProjectCard preview pc={shown} r={{ ...listed, ...profile, color: profile.color ?? undefined, title: title.trim() }} question={question} image={image.trim()}
           last={last} issues={0} mark={null} />

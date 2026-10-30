@@ -6,7 +6,7 @@ import type { AboutSection } from '../types'
 export const ko: AboutSection = {
   title: '저자 정보',
   items: [
-    { text: <>노트 저자는 내 페이지("나")의 프로필 카드 안 "노트 저자" 칸에서 사람 카드로 고릅니다(＋ 저자 더하기, × 빼기, 교신 저자는 "교신" 태그). 순서는 내보낼 때 정합니다. 내보낼 때 {c('\\author')}·{c('\\email')}(첫 이메일)·{c('\\affiliation')} 줄이 자동으로 들어갑니다. 저장은 {c('~/.config/research-workspace/config.yaml')}입니다.</> },
+    { text: <>노트 저자는 내 페이지("나")의 프로필 카드 안 "노트 저자" 칸에서 사람 카드로 고릅니다(＋ 저자 추가, × 제거, 교신 저자는 "교신" 태그). 순서는 내보낼 때 정합니다. 내보낼 때 {c('\\author')}·{c('\\email')}(첫 이메일)·{c('\\affiliation')} 줄이 자동으로 들어갑니다. 저장은 {c('~/.config/research-workspace/config.yaml')}입니다.</> },
   ],
 }
 

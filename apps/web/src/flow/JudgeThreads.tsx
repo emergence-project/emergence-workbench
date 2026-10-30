@@ -74,7 +74,7 @@ export function FieldThreads({ th, field, numberOf }: { th: JudgeThreadsState; f
     {list.map((q) => <Thread key={q.id} th={th} q={q} n={numberOf(q.id)} />)}
     {drafts.map(({ d, i }) => <div key={`d${i}`} className="jd-thread draft">
       <div className="jd-thread-h"><span className="muted">{STATE_NAME.draft()}</span><span className="sp" />
-        <button className="icon-btn sm" title={tr('빼기', 'Remove')} aria-label={tr('빼기', 'Remove')} onClick={() => th.dropDraft(i)}>{Icon.x}</button></div>
+        <button className="icon-btn sm" title={tr('제거', 'Remove')} aria-label={tr('제거', 'Remove')} onClick={() => th.dropDraft(i)}>{Icon.x}</button></div>
       <MemoText text={d.text} />
     </div>)}
     {th.open === field && <Composer th={th} field={field} />}
@@ -96,7 +96,7 @@ function Thread({ th, q, n }: { th: JudgeThreadsState; q: CommentEntry; n: numbe
   const st = threadState(q)
   return <div className={`jd-thread ${st}`} data-ui-item={q.id}>
     <div className="jd-thread-h"><b>{n}</b><span className={st === 'answered' ? 'fl-turn-name' : 'muted'}>{STATE_NAME[st]()}</span>
-      {q.changed && <span className="fl-stale">{tr('물은 뒤 칸이 바뀜', 'changed since asked')}</span>}</div>
+      {q.changed && <span className="fl-stale">{tr('질문 후 변경', 'changed since asked')}</span>}</div>
     <ul className="fbp-thread">
       <SayCard me ui="사용자 글" name={tr('사용자', 'User')}><MemoText text={q.body} /></SayCard>
       {q.answers.map((a, i) => <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? tr('사용자', 'User') : <Author by={a.by} />} when={a.at}><MemoText text={a.body} /></SayCard>)}

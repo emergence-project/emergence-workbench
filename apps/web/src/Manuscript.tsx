@@ -116,7 +116,7 @@ function partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, c
     ...(info ? [{ label: t('내보내기…', 'Export…'), ui: '노트 내보내기', tip: t('그대로 컴파일되는 LaTeX 폴더(zip)로 받습니다', 'Download as a LaTeX folder (zip) that compiles as is'), onClick: exOpen }] : []),
     { label: t('파일 다시 읽기', 'Reload file'), ui: '파일 다시 읽기', tip: t('파일을 다시 읽습니다. 이 화면에서 저장하지 않은 고침은 버립니다', 'Reads the file again. Unsaved edits on this screen are discarded'), onClick: reload },
     ...(row ? [{ label: t('Finder에서 보기', 'Show in Finder'), ui: 'Finder에서 보기', onClick: () => { notesApi(rid).reveal(row.file).catch((e: Error) => onSaved(e.message)) } }] : []),
-    ...(note && info ? [{ label: t('지우기', 'Delete'), ui: '노트 지우기', danger: true, tip: t(`${TRASH_DAYS}일 보관 뒤 지웁니다`, `Kept for ${TRASH_DAYS} days, then deleted`), onClick: () => void trashNoteWithUndo(rapi, info, () => onChanged?.(), onSaved) }] : []),
+    ...(note && info ? [{ label: t('삭제', 'Delete'), ui: '노트 삭제', danger: true, tip: t(`${TRASH_DAYS}일 보관 뒤 지웁니다`, `Kept for ${TRASH_DAYS} days, then deleted`), onClick: () => void trashNoteWithUndo(rapi, info, () => onChanged?.(), onSaved) }] : []),
   ]
 }
 

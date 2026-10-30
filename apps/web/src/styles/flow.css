@@ -89,7 +89,8 @@
 .fl-cls > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .fl-cls i { font-style: normal; color: var(--text-3); margin-right: var(--sp-1); }
 .fl-sec h3 { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); margin: 0 0 var(--sp-2); }
-.fl-sec h4 { font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-3); margin: var(--sp-2) 0 var(--sp-1); }
+/* 소제목은 칸 이름(dt, 작은 회색)보다 진하게 (10/30 화면 감사 2: 소제목이 칸 이름보다 옅어 위계가 뒤집혀 있었다) */
+.fl-sec h4 { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); margin: var(--sp-3) 0 var(--sp-1); }
 .fl-fields { display: grid; grid-template-columns: max-content 1fr; gap: var(--sp-2) var(--sp-4); margin: 0; }
 .fl-fields > div { display: contents; }
 .fl-fields dt { color: var(--text-3); font-size: var(--fs-sm); }
@@ -168,6 +169,8 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-in.fl-full { width: 100%; font-size: var(--fs-md); color: var(--text-2); }
 .fl-editing .fl-fields dd textarea { width: 100%; display: block; }
 .fl-editing .fl-fields dt { padding-top: var(--sp-1); }
+/* 라벨 열 하나 (10/30 화면 감사 1): 계획 · 카드 묶음마다 값 열이 다른 자리에서 시작하지 않게 */
+.fl-editing .fl-fields { grid-template-columns: var(--fl-label-w) minmax(0, 1fr); }
 .fl-editing .fl-fields em { font-style: normal; font-size: var(--fs-xs); }
 .fl-cls-edit { gap: var(--sp-2) var(--sp-5); }
 .fl-cls-edit > span { flex-wrap: wrap; gap: var(--sp-2); }
@@ -190,6 +193,9 @@ input.fl-in, select.fl-in { background: transparent; border-bottom-color: var(--
 .fl-field { position: relative; }
 .fl-figmenu { position: absolute; top: 2px; right: 2px; z-index: 1; }
 .fl-figmenu.open { z-index: 3; }
+/* 칸마다 붙은 「그림」은 그 칸을 가리키거나 그 칸에 있을 때만 (10/30 화면 감사 2: 한 창에 같은 버튼이 여러 번 보였다) */
+.fl-editing dd .fl-figmenu:not(.open) { opacity: 0; }
+.fl-editing dd:hover .fl-figmenu, .fl-editing dd:focus-within .fl-figmenu { opacity: 1; }
 .fl-figmenu > .btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.7; }
 .fl-figmenu-pop { right: 0; top: calc(100% + 4px); min-width: 220px; }
 .fl-figmenu-pop button svg { flex: none; width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; }

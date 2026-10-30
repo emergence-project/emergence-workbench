@@ -106,7 +106,7 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
                 {sync?.remote
                   ? <>{t('구글에 저장된 것: ', 'Saved on Google: ')}{new Date(sync.remote.savedAt).toLocaleString(locale())} · {sync.remote.machine} · {t(`프로젝트 ${sync.remote.researches.length}개`, plural(sync.remote.researches.length, 'project'))}.</>
                   : t('구글에 아직 저장된 설정이 없습니다.', 'No settings saved on Google yet.')}
-                {st.synced ? t(' 이 컴퓨터에서 바꾸면 저절로 올립니다.', ' Changes on this computer are uploaded automatically.') : t(' 올리거나 불러오면 그다음부터 저절로 올립니다.', ' After you upload or restore once, changes are uploaded automatically.')}
+                {st.synced ? t(' 이 컴퓨터에서 바꾸면 자동으로 올립니다.', ' Changes on this computer are uploaded automatically.') : t(' 올리거나 불러오면 그다음부터 자동으로 올립니다.', ' After you upload or restore once, changes are uploaded automatically.')}
                 {st.lastPush?.error && <span className="g-err">{t(' 마지막 올리기 실패: ', ' Last upload failed: ')}{st.lastPush.error}</span>}
               </div>
             </div>

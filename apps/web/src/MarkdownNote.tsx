@@ -132,7 +132,7 @@ export function MarkdownNoteBody({ rid, text, rapi, kind, editing, onSave, onCan
     <div ref={scroller} className="scroll md-note-read" onClick={(e) => followLink(rid, e)} data-ui="노트 본문">
       {head}
       <div className="page-body cn-body md-note-body">
-        {body.trim() ? <NoteAsk rid={rid} target={target ?? null} source={text} contentOffset={start}><NoteMarkdown text={body} options={options} asset={asset} /></NoteAsk> : <p className="muted">{empty ?? t('아직 본문이 없습니다. 고치기를 눌러 적습니다.', 'No text yet. Click Edit to write.')}</p>}
+        {body.trim() ? <NoteAsk rid={rid} target={target ?? null} source={text} contentOffset={start}><NoteMarkdown text={body} options={options} asset={asset} /></NoteAsk> : <p className="muted">{empty ?? t('아직 본문이 없습니다. 수정을 눌러 적습니다.', 'No text yet. Click Edit to write.')}</p>}
         {footer}
       </div>
     </div>

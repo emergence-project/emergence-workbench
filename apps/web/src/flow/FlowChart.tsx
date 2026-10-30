@@ -159,9 +159,9 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
   const edgeTools = (top: boolean) => {
     const r = top ? 0 : lay.rows - 1
     return <span className="fl-rowedge" style={{ top: top ? 4 : H - 32 }}>
-      <button className="fl-rowadd" data-ui="흐름 줄 더하기" title={top ? tr('위에 줄 더하기', 'Add a row above') : tr('아래에 줄 더하기', 'Add a row below')}
+      <button className="fl-rowadd" data-ui="흐름 줄 더하기" title={top ? tr('위에 줄 추가', 'Add a row above') : tr('아래에 줄 추가', 'Add a row below')}
         onClick={(e) => { e.stopPropagation(); void (top ? setRows(rowTop - 1, rowBottom) : setRows(rowTop, rowBottom + 1)) }}>＋ {tr('줄', 'Row')}</button>
-      {!outside && canDrop(r) && <button className="icon-btn sm" data-ui="흐름 줄 빼기" title={top ? tr('맨 위 빈 줄 빼기', 'Remove the empty top row') : tr('맨 아래 빈 줄 빼기', 'Remove the empty bottom row')} aria-label={top ? tr('맨 위 빈 줄 빼기', 'Remove the empty top row') : tr('맨 아래 빈 줄 빼기', 'Remove the empty bottom row')}
+      {!outside && canDrop(r) && <button className="icon-btn sm" data-ui="흐름 줄 빼기" title={top ? tr('맨 위 빈 줄 제거', 'Remove the empty top row') : tr('맨 아래 빈 줄 제거', 'Remove the empty bottom row')} aria-label={top ? tr('맨 위 빈 줄 제거', 'Remove the empty top row') : tr('맨 아래 빈 줄 제거', 'Remove the empty bottom row')}
         onClick={(e) => { e.stopPropagation(); void (top ? setRows(rowTop + 1, rowBottom) : setRows(rowTop, rowBottom - 1)) }}>{Icon.x}</button>}
     </span>
   }
@@ -263,7 +263,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
           {Array.from({ length: lay.rows }, (_, r) => {
             const name = rowNames[String(r - lay.mid)]
             return <button key={r} type="button" className={`fl-rowhead${rowGhost === r ? ' to' : ''}${rowEdit === r ? ' on' : ''}${name ? '' : ' blank'}`} style={{ top: Y(r) - headH / 2, height: headH }}
-              data-ui="흐름 줄 이름 단추" title={name ? tr(`${name} — 눌러서 이름 고치기 · 줄 빼기`, `${name} — click to rename or remove the row`) : tr('줄 이름 붙이기', 'Name this row')} onClick={(e) => { e.stopPropagation(); setRowEdit(r) }}>
+              data-ui="흐름 줄 이름 단추" title={name ? tr(`${name} — 눌러서 이름 수정 · 줄 제거`, `${name} — click to rename or remove the row`) : tr('줄 이름 붙이기', 'Name this row')} onClick={(e) => { e.stopPropagation(); setRowEdit(r) }}>
               {name ? <span className="fl-rowname"><span className="fl-rowname-t" style={{ WebkitLineClamp: clamp }}>{name}</span></span> : <span className="fl-rowname-add" aria-hidden>{Icon.pencil}</span>}
             </button>
           })}
@@ -434,7 +434,7 @@ function RowEditor({ top, name, canDrop, empty, onClose, onSave, onDrop }: { top
       <input autoFocus aria-label={tr('줄 이름', 'Row name')} placeholder={tr('줄 이름', 'Row name')} value={text} onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onSave(text) } else if (e.key === 'Escape') onClose() }} />
       <div className="fl-rowpop-foot">
-        <button type="button" className="btn sm" data-ui="흐름 줄 빼기" disabled={!canDrop} title={why || undefined} onClick={onDrop}>{tr('줄 빼기', 'Remove row')}</button>
+        <button type="button" className="btn sm" data-ui="흐름 줄 빼기" disabled={!canDrop} title={why || undefined} onClick={onDrop}>{tr('줄 제거', 'Remove row')}</button>
         <span className="sp" />
         <button type="button" className="btn sm" onClick={onClose}>{tr('취소', 'Cancel')}</button>
         <button type="button" className="btn primary sm" onClick={() => onSave(text)}>{tr('저장', 'Save')}</button>

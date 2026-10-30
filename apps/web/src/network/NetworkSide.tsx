@@ -6,7 +6,7 @@ import { StarIcon } from '../marks'
 import { addedOf, announce, Avatar, byStarThenName, subOf, useMe, usePeople } from './people'
 
 async function addPerson(people: PersonView[], onSaved: (m: string) => void) {
-  const name = (await askText({ title: t('사람 더하기', 'Add person'), label: t('이름', 'Name'), placeholder: t('예: Bea Sample', 'e.g. Bea Sample'), hint: t('참고 문헌에서 이 성과 이름 첫 글자로 논문을 찾습니다.', 'Papers in your references are found by this last name and first initial.'), ok: t('더하기', 'Add') }))?.replace(/\s+/g, ' ').trim()
+  const name = (await askText({ title: t('사람 추가', 'Add person'), label: t('이름', 'Name'), placeholder: t('예: Bea Sample', 'e.g. Bea Sample'), hint: t('참고 문헌에서 이 성과 이름 첫 글자로 논문을 찾습니다.', 'Papers in your references are found by this last name and first initial.'), ok: t('추가', 'Add') }))?.replace(/\s+/g, ' ').trim()
   if (!name) return
   try {
     const v = await networkApi.savePeople([...addedOf(people), { name }])
@@ -38,7 +38,7 @@ export function NetworkSide({ person, onSaved }: { person?: string; onSaved(m: s
           {!!p.newPapers && <span className="meta net-new-n" data-ui="새 논문 수" title={t(`새 논문 ${p.newPapers}편`, plural(p.newPapers, 'new paper'))}>{p.newPapers}</span>}
         </button>
       ))}
-      {people && <button className="nav net-add" data-ui="사람 더하기" onClick={() => void addPerson(people, onSaved)}><span className="label">{t('＋ 사람 더하기', '＋ Add person')}</span></button>}
+      {people && <button className="nav net-add" data-ui="사람 더하기" onClick={() => void addPerson(people, onSaved)}><span className="label">{t('＋ 사람 추가', '＋ Add person')}</span></button>}
     </div>
   )
 }

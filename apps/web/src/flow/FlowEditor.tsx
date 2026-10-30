@@ -193,7 +193,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
   </>
   const shown = { ...n, kind, progress, result: progress === 'done' ? result : undefined, fields }
 
-  return <article className={`fl-card fl-editing${create ? ' fl-new' : ''}`} data-ui={create ? '흐름 새 점 창' : '흐름 점 고치기 창'} aria-label={create ? tr('새 점', 'New dot') : tr('점 고치기', 'Edit dot')}
+  return <article className={`fl-card fl-editing${create ? ' fl-new' : ''}`} data-ui={create ? '흐름 새 점 창' : '흐름 점 고치기 창'} aria-label={create ? tr('새 점', 'New dot') : tr('점 수정', 'Edit dot')}
     onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }}>
     <div className="fl-head"><MarkIcon n={shown} size={30} />
       <input className="fl-in fl-short fl-grow" autoFocus aria-label={tr('짧은 제목', 'Short title')} placeholder={tr('짧은 제목', 'Short title')} value={short} maxLength={60} onChange={(e) => setShort(e.target.value)} />
@@ -245,7 +245,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
           <textarea className="fl-in" aria-label={tr(`단계 ${i + 1}`, `Step ${i + 1}`)} placeholder={tr('이 단계에서 보이는 것', 'What this step shows')} rows={Math.max(1, x.text.split('\n').length)} value={x.text} onChange={(e) => setStepAt(i, { text: e.target.value })} />
           <input className={`fl-in fl-line${!x.uses.trim() ? ' fl-need-in' : ''}`} aria-label={tr(`단계 ${i + 1}이 쓰는 것`, `What step ${i + 1} uses`)} placeholder={tr('쓰는 것: 가정 · 앞 단계 · 공리 · 논문 (예: 가정 1, 단계 2)', 'Uses: assumptions, earlier steps, axioms, papers (e.g. assumption 1, step 2)')} value={x.uses} onChange={(e) => setStepAt(i, { uses: e.target.value })} />
         </div>
-        <button type="button" className="icon-btn" title={tr('이 단계 빼기 (확인 기록도 빠짐)', 'Remove this step (and its checks)')} aria-label={tr('단계 빼기', 'Remove step')} onClick={() => setSteps(steps.filter((_, j) => j !== i))}>{Icon.x}</button>
+        <button type="button" className="icon-btn" title={tr('이 단계 제거 (확인 기록도 빠짐)', 'Remove this step (and its checks)')} aria-label={tr('단계 제거', 'Remove step')} onClick={() => setSteps(steps.filter((_, j) => j !== i))}>{Icon.x}</button>
       </li>)}</ol>
       <div className="fl-linkrow"><button type="button" className="a" onClick={() => setSteps([...steps, { text: '', uses: '' }])}>＋ {tr('단계', 'Step')}</button>
         <span className="fl-help">{tr('단계마다 무엇을 쓰는지 적어야 끝낼 수 있습니다. 단계마다 AI 검토 · 사람 승인을 받습니다.', 'Each step needs what it uses before the proof can finish. Each step gets its own AI check and approval.')}</span></div>
@@ -274,7 +274,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
           <input className="fl-in" aria-label={tr('보이는 이름', 'Shown name')} value={x.title} placeholder={tr('보이는 이름 (비우면 키)', 'Shown name (empty = key)')} onChange={(e) => setEvAt(i, { title: e.target.value })} />
         </> : <EvidencePicker rid={rid} notes={notes} file={x.src} section={x.section} topicTitle={topicTitle}
           onPick={(f, sec, note) => setEvAt(i, { src: f, section: sec, ...(note?.kind && NOTE_EV[note.kind] && { kind: NOTE_EV[note.kind] }) })} />}
-        <button type="button" className="icon-btn" title={tr('이 근거 빼기 (확인 기록도 빠짐)', 'Remove this evidence (and its checks)')} aria-label={tr('근거 빼기', 'Remove evidence')} onClick={() => setEv(ev.filter((_, j) => j !== i))}>{Icon.x}</button>
+        <button type="button" className="icon-btn" title={tr('이 근거 제거 (확인 기록도 빠짐)', 'Remove this evidence (and its checks)')} aria-label={tr('근거 제거', 'Remove evidence')} onClick={() => setEv(ev.filter((_, j) => j !== i))}>{Icon.x}</button>
         <input className="fl-in fl-evtext" aria-label={tr('무엇을 보이는지', 'What it shows')} value={x.text} placeholder={tr('이 근거가 무엇을 보이는지', 'What this evidence shows')} onChange={(e) => setEvAt(i, { text: e.target.value })} />
       </div>)}</div>
       <div className="fl-linkrow"><button type="button" className="a" onClick={() => setEv([...ev, { kind: ACTS.includes(kind) ? kind as EvRow['kind'] : 'other', text: '', title: '', src: '', section: '' }])}>＋ {tr('근거', 'Evidence')}</button>
@@ -286,7 +286,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
       <ul className="fl-fromlist">{from.map((f, i) => { const m = byId.get(f.id); return <li key={f.id}>
         <select className="fl-in" aria-label={tr('선 종류', 'Line type')} value={f.type} onChange={(e) => setFrom(from.map((g, j) => j === i ? { ...g, type: e.target.value as FlowEdge } : g))}>{FLOW_EDGES.map((x) => <option key={x} value={x}>{EDGE[x]!()}</option>)}</select>
         {m && <MarkIcon n={m} size={16} />}<span className="fl-grow">{m?.short ?? f.id}</span>
-        <button type="button" className="icon-btn" title={tr('이 선 빼기', 'Remove this line')} aria-label={tr('선 빼기', 'Remove line')} onClick={() => setFrom(from.filter((_, j) => j !== i))}>{Icon.x}</button>
+        <button type="button" className="icon-btn" title={tr('이 선 제거', 'Remove this line')} aria-label={tr('선 제거', 'Remove line')} onClick={() => setFrom(from.filter((_, j) => j !== i))}>{Icon.x}</button>
       </li> })}</ul>
       {!from.length && <span className="muted fl-help">{tr('없음 (시작점)', 'None (start)')}</span>}
       {candidates.length > 0 && <div className="fl-linkrow">

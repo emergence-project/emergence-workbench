@@ -53,7 +53,7 @@ function RepoPathLink({ rid, path, from }: { rid: string; path: string; from?: R
   if (!data || data.status === 'missing') return <code className="memo-code" title={data ? t('저장소에 없는 파일', 'File not in the repository') : undefined}>{path}</code>
   const note = movedNote(data)
   const tip = data.status === 'moved' ? t(`옮긴 파일 · 지금 자리 ${data.path}`, `Moved · now at ${data.path}`)
-    : data.status === 'deleted' ? t('지운 파일 · 지우기 전 판을 엽니다', 'Deleted file · opens the last version')
+    : data.status === 'deleted' ? t('지운 파일 · 삭제 전 판을 엽니다', 'Deleted file · opens the last version')
       : t('작업 화면 탭으로 엽니다', 'Opens in a workspace tab')
   return <>
     <button type="button" className="memo-path" title={tip} onClick={(e) => {

@@ -33,7 +33,7 @@ export function LatexMacros({ onSaved }: { onSaved(message: string): void }) {
     <section id="latex-macros" data-ui="공통 기호">
       <div className="sec-head">
         <h2>{t('명령어', 'Macros')}</h2>{view && <span className="count">{t(`${list.length}개`, `${list.length}`)}</span>}<span className="sp" />
-        {view?.library && draft === null && <button className="icon-btn" data-ui="기호 고치기" title={t('고치기 — 명령어 파일을 고칩니다', 'Edit the macros file')} aria-label={t('고치기', 'Edit')} onClick={() => setDraft(view.text)}>{Icon.pencil}</button>}
+        {view?.library && draft === null && <button className="icon-btn" data-ui="기호 고치기" title={t('수정 — 명령어 파일을 고칩니다', 'Edit the macros file')} aria-label={t('수정', 'Edit')} onClick={() => setDraft(view.text)}>{Icon.pencil}</button>}
       </div>
       <p className="set-desc tex-note">{t('모든 노트가 함께 쓰는 LaTeX 명령어(\\newcommand)입니다. 개념노트 화면과 LaTeX 컴파일·내보내기가 같은 목록을 씁니다. 한 연구에만 쓰는 명령어는 그 연구의 ', 'LaTeX macros (\\newcommand) shared by all notes. Concept notes and LaTeX compile and export use the same list. Put macros for one project only in that project\'s ')}<code>workbench/macros.tex</code>{t('에 두면 되고, 이름이 같으면 그쪽이 앞섭니다.', '. If a name matches, that one wins.')}</p>
       {!view && <p className="muted">{error || t('불러오는 중…', 'Loading…')}</p>}

@@ -48,10 +48,10 @@ export function RepoFileTab({ rid, path }: { rid: string; path: string }) {
         <span>{when
           ? t(`기록에 적힌 자리(${data.asked})에는 없어서, git 이력에서 옮긴 곳을 찾아 열었습니다 (${when} 옮김).`, `Not at the path in the record (${data.asked}); opened where git history moved it (moved ${when}).`)
           : t(`기록에 적힌 자리(${data.asked})에는 없어서, 저장소에서 같은 이름의 파일을 찾아 열었습니다.`, `Not at the path in the record (${data.asked}); opened the file with the same name in the repository.`)}</span>
-        {from && !fixed && <button className="a" onClick={() => void fixPath()}>{t('기록의 경로를 새 자리로 고치기', 'Update the path in the record')}</button>}
+        {from && !fixed && <button className="a" onClick={() => void fixPath()}>{t('기록의 경로를 새 자리로 수정', 'Update the path in the record')}</button>}
       </div>}
       {data.status === 'deleted' && <div className="file-notice" data-ui="지운 파일 알림">
-        <span>{t(`지운 파일입니다${when ? ` (${when} 지움)` : ''}. 지우기 전 마지막 판을 읽기만 합니다.`, `This file was deleted${when ? ` (${when})` : ''}. Showing the last version before deletion, read-only.`)}</span>
+        <span>{t(`지운 파일입니다${when ? ` (${when} 지움)` : ''}. 삭제 전 마지막 판을 읽기만 합니다.`, `This file was deleted${when ? ` (${when})` : ''}. Showing the last version before deletion, read-only.`)}</span>
       </div>}
       <section className="pane" data-ui="본문">
         <div className="scroll">

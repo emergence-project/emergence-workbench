@@ -22,7 +22,7 @@ const COLUMNS: { id: ConceptSort; label: string; width: string; num?: boolean }[
   { id: 'sources', label: t('출처', 'Sources'), width: '--kl-col-num', num: true },
   { id: 'links', label: t('링크', 'Links'), width: '--kl-col-num', num: true },
   { id: 'issues', label: t('이상', 'Issues'), width: '--kl-col-issues' },
-  { id: 'mtime', label: t('고친 날', 'Edited'), width: '--kl-col-date' },
+  { id: 'mtime', label: t('수정일', 'Edited'), width: '--kl-col-date' },
   { id: 'aliases', label: t('다른 이름', 'Aliases'), width: '--kl-col-aliases' },
   { id: 'checked', label: t('확인', 'Review'), width: '--kl-col-checked' },
 ]
@@ -144,7 +144,7 @@ export function KnowledgeList({ info, filters, rightOpen, onChanged, onSaved }: 
           </div>
           <div className="kl-tags" data-ui="거르기 이름표">
             {tags.map((tag) => <span className="tag" key={tag.key} title={tag.key === 'subjectPrefix' ? filters.subjectPrefix : undefined}>
-              <span>{tag.text}</span><button data-tip={t('빼기', 'Remove')} aria-label={t(`필터 빼기 — ${tag.text}`, `Remove filter: ${tag.text}`)} onClick={() => remove(tag.key)}>×</button>
+              <span>{tag.text}</span><button data-tip={t('제거', 'Remove')} aria-label={t(`필터 제거 — ${tag.text}`, `Remove filter: ${tag.text}`)} onClick={() => remove(tag.key)}>×</button>
             </span>)}
           </div>
           {error && <div className="banner danger">{t('목록을 읽지 못했습니다: ', 'Could not read the list: ')}{error} <button className="a" onClick={() => setRevision((r) => r + 1)}>{t('다시 읽기', 'Reload')}</button></div>}
@@ -191,12 +191,12 @@ function SubjectInfo({ node, path, filters, tree, onSaved, onChanged }: { node?:
   const parentPath = tree?.enabled ? path.split('/').slice(0, -1).map((_, i, parts) => tree.items.find((s) => s.id === parts.slice(0, i + 1).join('/'))?.name).join(' › ') : path.split(' › ').slice(0, -1).join(' › ')
   const change = async (add: boolean) => {
     if (!tree) return
-    const name = await askText({ title: add ? t('하위 분류 더하기', 'Add child subject') : t('분류 이름 고치기', 'Rename subject'), label: t('이름', 'Name'), initial: add ? '' : node?.name, ok: add ? t('더하기', 'Add') : t('고치기', 'Edit') })
+    const name = await askText({ title: add ? t('하위 분류 추가', 'Add child subject') : t('분류 이름 수정', 'Rename subject'), label: t('이름', 'Name'), initial: add ? '' : node?.name, ok: add ? t('추가', 'Add') : t('수정', 'Edit') })
     if (!name?.trim()) return
     try {
       if (add) {
         const initial = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-        const slug = await askText({ title: t('하위 분류 ID', 'Child subject ID'), label: t('ID 끝부분', 'Last part of the ID'), initial, hint: t('영문 소문자·숫자·하이픈으로 적습니다.', 'Use lowercase letters, digits and hyphens.'), ok: t('더하기', 'Add') })
+        const slug = await askText({ title: t('하위 분류 ID', 'Child subject ID'), label: t('ID 끝부분', 'Last part of the ID'), initial, hint: t('영문 소문자·숫자·하이픈으로 적습니다.', 'Use lowercase letters, digits and hyphens.'), ok: t('추가', 'Add') })
         if (!slug) return
         await subjectsApi.add(path, name, slug, tree.hash)
       } else await subjectsApi.rename(path, name, tree.hash)
@@ -206,9 +206,9 @@ function SubjectInfo({ node, path, filters, tree, onSaved, onChanged }: { node?:
   return <div className="kh-info">
     <h2 className="kh-side-h">{t('분류 정보', 'Subject info')}</h2>
     {tree?.enabled && path ? <div className="subject-title"><h3 className="kl-subject-title" title={path}>{node?.name ?? path}</h3>
-      <button className="icon-btn" data-tip={t('분류 이름 고치기', 'Rename subject')} aria-label={t('분류 이름 고치기', 'Rename subject')} onClick={() => void change(false)}>{Icon.pencil}</button></div>
+      <button className="icon-btn" data-tip={t('분류 이름 수정', 'Rename subject')} aria-label={t('분류 이름 수정', 'Rename subject')} onClick={() => void change(false)}>{Icon.pencil}</button></div>
       : <h3 className="kl-subject-title">{node?.name ?? (path.split(' › ').pop() || t('분류 없음', 'No subject'))}</h3>}
-    {tree?.enabled && path && path.split('/').length < 3 && <button className="a" onClick={() => void change(true)}>{t('＋ 하위 분류 더하기', '＋ Add child subject')}</button>}
+    {tree?.enabled && path && path.split('/').length < 3 && <button className="a" onClick={() => void change(true)}>{t('＋ 하위 분류 추가', '＋ Add child subject')}</button>}
     {parentPath && <p className="kl-subject-path" title={path}>{parentPath}</p>}
     <span className="kh-side-label">{t('개념노트', 'Concept notes')} {node?.count ?? 0}{!filters.showEmpty && t(' · 빈 노트 숨김', ' · empty notes hidden')}</span>
     {!!node?.kids.length && <div>

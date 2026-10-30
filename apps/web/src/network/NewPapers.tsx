@@ -62,7 +62,7 @@ export function NewPapersSection({ person, onSaved }: { person: PersonView; onSa
                 <div className="muted net-meta">{[p.arxiv && `arXiv:${p.arxiv}`, p.date, p.authors.slice(0, 4).join(', ') + (p.authors.length > 4 ? ' …' : '')].filter(Boolean).join(' · ')}</div>
                 <div className="net-new-acts">
                   {p.inLibrary ? <span className="muted">{t('라이브러리에 있음', 'In the library')}</span>
-                    : (p.arxiv || p.doi) && <button className="a" disabled={busy === p.id} onClick={() => void add(p)}>{t('논문 라이브러리에 더하기', 'Add to paper library')}</button>}
+                    : (p.arxiv || p.doi) && <button className="a" disabled={busy === p.id} onClick={() => void add(p)}>{t('논문 라이브러리에 추가', 'Add to paper library')}</button>}
                   <button className="a" disabled={busy === p.id} title={t('같은 이름의 다른 사람 논문이면 숨깁니다', 'Hide it if it is by someone else with the same name')} onClick={() => void hide(p)}>{t('이 사람 아님', 'Not this person')}</button>
                 </div>
               </li>

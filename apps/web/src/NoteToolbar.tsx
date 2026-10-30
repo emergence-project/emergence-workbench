@@ -99,13 +99,13 @@ export function NoteToolbar({ ui = '노트 도구 줄', title, status, save, sav
           </span>
           <div className="nt-actions">
             {editing ? <>
-              <button className="btn primary" data-ui="다 고침" disabled={doneDisabled} title={t(`${saveLabel} — 고치기를 마칩니다 (Esc). 고친 것은 저절로 저장됩니다`, `${saveLabel}. Finish editing (Esc). Edits save automatically`)} onClick={onDone}>{t('편집 완료', 'Done')}</button>
+              <button className="btn primary" data-ui="다 고침" disabled={doneDisabled} title={t(`${saveLabel} — 수정을 마칩니다 (Esc). 고친 것은 자동으로 저장됩니다`, `${saveLabel}. Finish editing (Esc). Edits save automatically`)} onClick={onDone}>{t('편집 완료', 'Done')}</button>
             </> : <>
               {extra}
               {onComment && <button className={`icon-btn${commentOn ? ' on' : ''}`} data-ui="코멘트 버튼" data-tip={t('코멘트', 'Comment')} aria-label={t('코멘트 — 오른쪽 사이드바에서', 'Comment in the right sidebar')} aria-pressed={!!commentOn}
                 // The selection menu closes on document pointerdown. Preserve the selection until this button's click attaches it.
                 onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.preventDefault()} onClick={onComment}>{Icon.comment}</button>}
-              {onEdit && <button className="icon-btn" data-ui="고치기" data-tip={`${t('고치기', 'Edit')} · ${saveLabel}`} aria-label={t('고치기', 'Edit')} disabled={editDisabled} onClick={onEdit}>{Icon.pencil}</button>}
+              {onEdit && <button className="icon-btn" data-ui="고치기" data-tip={`${t('수정', 'Edit')} · ${saveLabel}`} aria-label={t('수정', 'Edit')} disabled={editDisabled} onClick={onEdit}>{Icon.pencil}</button>}
               {onCompile && <button className="btn primary btn-icon nt-play" data-ui={compileUi} disabled={compileDisabled || compiling} aria-label={compileTip ?? t('컴파일', 'Compile')} title={t(`${compileTip ?? '컴파일'} — 컴파일하고 PDF를 엽니다${compileKey ? ' (⌘↵)' : ''}`, `${compileTip ?? 'Compile'}: compile and open the PDF${compileKey ? ' (⌘↵)' : ''}`)} onClick={onCompile}>{compiling ? '…' : Icon.play}</button>}
               <span className="nt-more" ref={box}>
                 <button className={`icon-btn${open ? ' on' : ''}`} data-ui="더 보기 메뉴" data-tip={t('더 보기', 'More')} aria-label={t('더 보기', 'More')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{Icon.more}</button>

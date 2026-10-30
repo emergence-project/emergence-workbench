@@ -81,8 +81,8 @@ export function Suggestions({ people, onSaved }: { people: PersonView[]; onSaved
               {s.latest?.title && <span className="muted net-sug-sub" title={s.latest.title}>{s.latest.title}</span>}
             </div>
             <div className="net-sug-actions">
-              <button className="icon-btn sm" title={t(`더하기 — 네트워킹에 더합니다${s.aliases?.length ? ` (다른 이름: ${s.aliases.join(', ')})` : ''}`, `Add to Networking${s.aliases?.length ? ` (also called: ${s.aliases.join(', ')})` : ''}`)} aria-label={t(`${s.name} 더하기`, `Add ${s.name}`)} onClick={() => void add(s)}>{Icon.plus}</button>
-              <button className="icon-btn sm" title={t('빼기 — 이 추천에서만 뺍니다', 'Remove from these suggestions only')} aria-label={t(`${s.name} 추천 빼기`, `Remove suggestion ${s.name}`)} onClick={() => hide(s.name)}>{Icon.x}</button>
+              <button className="icon-btn sm" title={t(`추가 — 네트워킹에 더합니다${s.aliases?.length ? ` (다른 이름: ${s.aliases.join(', ')})` : ''}`, `Add to Networking${s.aliases?.length ? ` (also called: ${s.aliases.join(', ')})` : ''}`)} aria-label={t(`${s.name} 추가`, `Add ${s.name}`)} onClick={() => void add(s)}>{Icon.plus}</button>
+              <button className="icon-btn sm" title={t('제거 — 이 추천에서만 뺍니다', 'Remove from these suggestions only')} aria-label={t(`${s.name} 추천 제거`, `Remove suggestion ${s.name}`)} onClick={() => hide(s.name)}>{Icon.x}</button>
             </div>
           </div>
         ))}

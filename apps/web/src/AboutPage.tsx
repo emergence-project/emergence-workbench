@@ -161,7 +161,7 @@ function Intro() {
           <p className="about-lead">
             이 소개는 Claude(코딩 에이전트)가 지금까지의 대화와 피드백에서 무엇을 알아들었고 그것을 화면에 어떻게 만들었는지 보여 드리는 곳입니다.
             쪽마다 화면 하나를 다루고, 지금 앱이 어떤지를 화면의 짜임대로 적습니다. 승인하신 피드백은 여기 설명으로 옮기고 피드백 목록에서는 지웁니다.
-            틀린 곳이 있으면 절 제목 오른쪽 연필(고치기)로 글을 직접 고쳐 보내 주세요.
+            틀린 곳이 있으면 절 제목 오른쪽 연필(수정)로 글을 직접 고쳐 보내 주세요.
           </p>
         ) : (
           <p className="about-lead">
@@ -243,8 +243,8 @@ function UnsureNotice({ part }: { part: AboutPart }) {
     setError('')
     try {
       await api.addFeedback({
-        kind: '미분류', target: `소개 › ${part.ui ?? part.title} › 확인할 것`, route: location.hash.slice(1) || undefined, snippet: (item.ask ?? '').slice(0, 120),
-        text: `확인할 것에 답함 (${section}).\n\n질문: ${item.ask ?? '"확인 필요" 문장이 맞는지'}\n\n답: ${reply}`,
+        kind: '미분류', target: `소개 › ${part.ui ?? part.title} › 확인 항목`, route: location.hash.slice(1) || undefined, snippet: (item.ask ?? '').slice(0, 120),
+        text: `확인 항목에 답함 (${section}).\n\n질문: ${item.ask ?? '"확인 필요" 문장이 맞는지'}\n\n답: ${reply}`,
       })
       markAnswered(askOf(item))
     } catch (e) { setError((e as Error).message) }
@@ -273,7 +273,7 @@ function UnsureNotice({ part }: { part: AboutPart }) {
         })}
       </ul>
       {error && <p className="muted">{error}</p>}
-      <p className="muted">{t('"맞아요"나 "답하기"로 보낸 답은 피드백으로 남고, 다음 피드백 처리 때 반영됩니다. 글을 직접 고치려면 절 제목 오른쪽 연필(고치기)을 누르세요.', 'Answers sent with "That is right" or "Reply" are saved as feedback and applied at the next round of feedback handling. To edit the text directly, press the pencil (Edit) at the right of a section heading.')}</p>
+      <p className="muted">{t('"맞아요"나 "답하기"로 보낸 답은 피드백으로 남고, 다음 피드백 처리 때 반영됩니다. 글을 직접 고치려면 절 제목 오른쪽 연필(수정)을 누르세요.', 'Answers sent with "That is right" or "Reply" are saved as feedback and applied at the next round of feedback handling. To edit the text directly, press the pencil (Edit) at the right of a section heading.')}</p>
     </aside>
   )
 }
@@ -323,7 +323,7 @@ function Sections({ part, at }: { part: AboutPart; at: number }) {
 function SymbolTable({ id }: { id: string }) {
   if (id === 'colors') return (
     <table className="about-sym-table about-color-table">
-      <thead><tr><th>{t('색', 'Color')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('쓰는 곳', 'Where')}</th></tr></thead>
+      <thead><tr><th>{t('색', 'Color')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('사용처', 'Where')}</th></tr></thead>
       <tbody>
         {COLOR_ROWS.map((r) => (
           <tr key={r.name}>
@@ -340,7 +340,7 @@ function SymbolTable({ id }: { id: string }) {
   if (!rows) return null
   return (
     <table className="about-sym-table">
-      <thead><tr><th>{t('기호', 'Symbol')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('쓰는 곳', 'Where')}</th></tr></thead>
+      <thead><tr><th>{t('기호', 'Symbol')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('사용처', 'Where')}</th></tr></thead>
       <tbody>
         {rows.map((r) => <tr key={r.name}><td className="about-sym">{r.mark}</td><td>{r.name}</td><td>{r.meaning}</td><td className="muted">{r.where}</td></tr>)}
       </tbody>
@@ -354,14 +354,14 @@ const screenIcons = () => [
   { mark: Icon.library, name: t('지식', 'Knowledge'), meaning: t('개념노트 라이브러리', 'Concept note library'), where: t('레일', 'Rail') },
   { mark: Icon.papers, name: t('논문', 'Papers'), meaning: t('논문과 책, PDF', 'Papers, books and PDFs'), where: t('레일', 'Rail') },
   { mark: Icon.figures, name: t('그림', 'Figures'), meaning: t('노트에서 함께 쓰는 그림', 'Figures shared across notes'), where: t('레일', 'Rail') },
-  { mark: Icon.network, name: t('네트워킹', 'Networking'), meaning: t('저자와 함께 연구하는 사람들', 'Authors and collaborators'), where: t('레일', 'Rail') },
+  { mark: Icon.network, name: t('네트워킹', 'Networking'), meaning: t('저자와 공동 연구자들', 'Authors and collaborators'), where: t('레일', 'Rail') },
   { mark: Icon.info, name: t('소개', 'About'), meaning: t('이 앱 소개', 'This About page'), where: t('레일 아래', 'Bottom of the rail') },
   { mark: Icon.projectInfo, name: t('프로젝트 정보', 'Project info'), meaning: t('그 프로젝트의 설명 · 시작일 · 현황 · 변경사항 · 규칙', 'That project\'s description, start date, status, changes and rules'), where: t('왼쪽 사이드바 맨 위', 'Top of the left sidebar') },
   { mark: Icon.repo, name: t('저장소', 'Repository'), meaning: t('그 프로젝트의 폴더 · 브랜치 · GitHub와 같은지 · 파일', 'That project\'s folder, branch, sync with GitHub and files'), where: t('왼쪽 사이드바 흐름 아래', 'Left sidebar, below Flow') },
   { mark: Icon.settings, name: t('설정', 'Settings'), meaning: t('앱 설정과 업데이트', 'App settings and updates'), where: t('레일 맨 아래', 'Bottom of the rail') },
   { mark: Icon.task, name: t('작업', 'Work'), meaning: t('판단 · 맡긴 일 · 할 일 · 메모 · 질문', 'Decisions · delegated tasks · to-dos · memos · questions'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.comment, name: t('기록', 'Records'), meaning: t('프로젝트의 메모 · 할 일 · 질문 · 지시', 'The project\'s memos, to-dos, questions and instructions'), where: t('왼쪽 사이드바', 'Left sidebar') },
-  { mark: Icon.review, name: t('수정 검토', 'Edit review'), meaning: t('에이전트가 고친 노트를 바뀐 곳마다 검토', 'Review each change agents made to notes'), where: t('왼쪽 사이드바', 'Left sidebar') },
+  { mark: Icon.review, name: t('수정 검토', 'Edit review'), meaning: t('에이전트가 고친 노트를 변경사항마다 검토', 'Review each change agents made to notes'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.flow, name: t('흐름', 'Flow'), meaning: t('연구를 생각의 걸음과 선으로 본 차트', 'The research as steps of thinking and lines'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.manuscript, name: t('원고', 'Manuscript'), meaning: t('원고 화면과 원고 목록', 'Manuscript screen and list'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.clip, name: t('참고 자료', 'References'), meaning: t('프로젝트에 둔 자료 파일', 'Material files in the project'), where: t('왼쪽 사이드바', 'Left sidebar') },
@@ -375,19 +375,19 @@ function Reference() {
       <Section name={t('단축키와 조작', 'Shortcuts and actions')} ui="단축키와 조작">
         <dl className="props">
           <dt><kbd>/</kbd></dt><dd>{t('앱 전체 검색 — 글을 쓰는 중이 아닐 때 (상단바 돋보기와 같음)', 'Search the whole app, when you are not typing (same as the magnifier in the top bar)')}</dd>
-          <dt><kbd>⌘</kbd> <kbd>↵</kbd></dt><dd>{t('LaTeX 편집기(원고·LaTeX 노트)에서 컴파일. 고치기 창 · 맡기기 창 · 기록 입력란에서는 저장', 'Compile in the LaTeX editor (manuscripts, LaTeX notes). Save in edit dialogs, the Delegate dialog and the records input')}</dd>
-          <dt><kbd>⌘</kbd> <kbd>S</kbd></dt><dd>{t('편집기에서 저장 (노트는 고치면 잠시 뒤 저절로 저장됩니다)', 'Save in the editor (notes save on their own shortly after you edit)')}</dd>
+          <dt><kbd>⌘</kbd> <kbd>↵</kbd></dt><dd>{t('LaTeX 편집기(원고·LaTeX 노트)에서 컴파일. 수정 창 · 맡기기 창 · 기록 입력란에서는 저장', 'Compile in the LaTeX editor (manuscripts, LaTeX notes). Save in edit dialogs, the Delegate dialog and the records input')}</dd>
+          <dt><kbd>⌘</kbd> <kbd>S</kbd></dt><dd>{t('편집기에서 저장 (노트는 고치면 잠시 뒤 자동으로 저장됩니다)', 'Save in the editor (notes save on their own shortly after you edit)')}</dd>
           <dt><kbd>⌘</kbd> <kbd>\</kbd></dt><dd>{t('왼쪽 사이드바 켜고 끄기', 'Toggle the left sidebar')}</dd>
           <dt><kbd>⌥</kbd> <kbd>⌘</kbd> <kbd>\</kbd></dt><dd>{t('오른쪽 사이드바 켜고 끄기', 'Toggle the right sidebar')}</dd>
           <dt><kbd>M</kbd></dt><dd>{t('빠른 메모 — 글을 쓰는 중이 아닐 때', 'Quick memo, when you are not typing')}</dd>
-          <dt><kbd>Esc</kbd></dt><dd>{t('창 닫기, 고치기 취소', 'Close a dialog, cancel editing')}</dd>
+          <dt><kbd>Esc</kbd></dt><dd>{t('창 닫기, 수정 취소', 'Close a dialog, cancel editing')}</dd>
           <dt><kbd>⌘</kbd> <kbd>K</kbd>, <kbd>/</kbd></dt><dd>{lang === 'ko' ? <>개념노트 편집기의 명령 메뉴 (<kbd>/</kbd>는 줄 맨 앞이나 띄어쓰기 뒤에서). <kbd>[[</kbd>로 개념, <kbd>[@</kbd>로 출처 찾기</> : <>Command menu in the concept note editor (<kbd>/</kbd> at the start of a line or after a space). <kbd>[[</kbd> finds concepts, <kbd>[@</kbd> finds sources</>}</dd>
           <dt>{t('PDF 누르기', 'Click in a PDF')}</dt><dd>{t('원고·LaTeX 노트의 그 줄로 이동 (원고는 다른 장이면 그 장을 엽니다)', 'Go to that line of the manuscript or LaTeX note (for a manuscript, opens the chapter if it is a different one)')}</dd>
           <dt>{t('커서 옮기기', 'Move the cursor')}</dt><dd>{t('PDF에서 그 부분을 노랗게 표시', 'Marks that part of the PDF in yellow')}</dd>
           <dt>{t('피드백 모드', 'Feedback mode')}</dt><dd>{t('상단바 피드백(핀 + 글줄) 버튼. 화면 부위를 눌러 남기면 부위 이름과 화면 그림이 함께 쌓입니다', 'The Feedback button in the top bar (pin with text lines). Click a part of the screen to leave a comment; the part name and a picture of the screen are saved with it')}</dd>
         </dl>
       </Section>
-      <Section name={t('파일이 있는 곳', 'Where files are')} ui="파일이 있는 곳">
+      <Section name={t('파일 위치', 'Where files are')} ui="파일 위치">
         <FileTreeFigure />
         <p className="about-note">{lang === 'ko' ? <>원고는 <code>research.yaml</code>의 <code>sources.manuscript</code>에 적은 자리에 그대로 있고, 앱 컴파일 결과는 <code>workbench/.build/</code>에만 둡니다. 옮기지 않은 Study 노트는 iCloud Obsidian의 Study vault에서 읽기만 합니다.</> : <>Manuscripts stay where <code>sources.manuscript</code> in <code>research.yaml</code> says, and the app's compile output goes only in <code>workbench/.build/</code>. Study notes not moved yet are read only from the Study vault in iCloud Obsidian.</>}</p>
       </Section>
@@ -415,7 +415,7 @@ function Next() {
             ['노트 쓰기 도움', <><code>\ref</code> 자동완성, 그림 끌어다 넣기 (<code>[@</code> 인용 찾기는 있습니다)</>],
             ['재현 맡기기', '맡긴 일의 결과를 다른 세션이 다시 돌려 확인하게 맡기기'],
             ['개념노트 그림과 내보내기', 'tikz·양자 회로 그림, 손그림 붙이기, LaTeX로 내보내기'],
-            ['네트워킹의 새 논문', '함께 연구하는 사람들의 arXiv 새 논문'],
+            ['네트워킹의 새 논문', '공동 연구자들의 arXiv 새 논문'],
             ['개념노트로 옮기기', '노트의 일부를 개념노트로 옮기고, 원래 자리에는 링크를 남기기'],
             ['원고 보호 훅', '에이전트가 원고나 맡긴 폴더 밖을 고치려 하면 실제로 막기'],
             ['에이전트용 입구 (MCP)', '에이전트가 작업대의 노트·할 일·맡긴 일을 도구로 바로 읽고 쓰기'],
@@ -423,7 +423,7 @@ function Next() {
             ['지식 연결 그래프', '개념노트와 노트가 어떻게 이어지는지 그림으로 보기'],
             ['컴파일한 PDF에 하이라이트·메모', '논문 PDF처럼 내 원고 PDF에도 남기기'],
             ['레일에서 프로젝트 숨기기'],
-            ['사람 정보 고치는 창', '네트워킹의 사람 정보를 한 창에서 고치기'],
+            ['사람 정보 고치는 창', '네트워킹의 사람 정보를 한 창에서 수정'],
             ['Zotero 연결', '나중에'],
           ]) : rowsEn([
             ['Full-text search', 'The top bar search finds names and concept note bodies only. Memo and journal text, manuscript and note bodies, the paper and figure libraries, and delegated tasks are not searched yet'],
@@ -485,7 +485,7 @@ function Section({ name, ui, id, prs, children }: { name: string; ui: string; id
         <h2>{name}</h2><span className="sp" />
         {last && <a className="a about-pr" data-ui="고친 업데이트" href={href({ page: 'settings', part: 'update', pr: last })}
           title={t(`이 절을 마지막으로 고친 업데이트. 이 절을 고친 업데이트: ${prs!.map((x) => `#${x}`).join(' · ')}`, `The update that last changed this section. Updates that changed it: ${prs!.map((x) => `#${x}`).join(' · ')}`)}>{t(`업데이트 #${last}`, `Update #${last}`)}</a>}
-        {!draft && <button className="icon-btn about-fix" data-ui="고치기" data-tip={t('고치기', 'Edit')} aria-label={t(`고치기 — ${name}`, `Edit: ${name}`)}
+        {!draft && <button className="icon-btn about-fix" data-ui="고치기" data-tip={t('수정', 'Edit')} aria-label={t(`수정 — ${name}`, `Edit: ${name}`)}
           onClick={() => { const t = body.current?.innerText.trim() ?? ''; setDraft({ before: t, text: t }) }}>{Icon.pencil}</button>}
       </div>
       {draft ? <AboutFix name={ui} draft={draft} onChange={(text) => setDraft({ ...draft, text })} onClose={() => setDraft(null)} /> : <div ref={body}>{children}</div>}

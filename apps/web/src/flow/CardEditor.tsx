@@ -51,38 +51,38 @@ export function CardSection({ n, card, setCard, all, fields, row }: {
       <input className="fl-in" aria-label={tr(`용어 ${i + 1}`, `Term ${i + 1}`)} placeholder={tr('말 · 기호', 'Word or symbol')} value={x.word} maxLength={80} onChange={(e) => setTerm(i, { word: e.target.value })} />
       <input className={`fl-in${x.word.trim() && !x.def.trim() && !x.ref.trim() ? ' fl-need-in' : ''}`} aria-label={tr(`용어 ${i + 1}의 정의`, `Definition of term ${i + 1}`)} placeholder={tr('정의 (한 줄)', 'Definition (one line)')} value={x.def} maxLength={1000} onChange={(e) => setTerm(i, { def: e.target.value })} />
       <input className="fl-in mono" aria-label={tr(`용어 ${i + 1}의 출처`, `Source of term ${i + 1}`)} placeholder={tr('출처 (노트 경로#절)', 'Source (note path#section)')} value={x.ref} maxLength={300} onChange={(e) => setTerm(i, { ref: e.target.value })} />
-      <button type="button" className="icon-btn" title={tr('이 용어 빼기', 'Remove this term')} aria-label={tr('용어 빼기', 'Remove term')} onClick={() => set({ terms: card.terms.filter((_, j) => j !== i) })}>{Icon.x}</button>
+      <button type="button" className="icon-btn" title={tr('이 용어 제거', 'Remove this term')} aria-label={tr('용어 제거', 'Remove term')} onClick={() => set({ terms: card.terms.filter((_, j) => j !== i) })}>{Icon.x}</button>
     </div>)}</div>
     <div className="fl-linkrow"><button type="button" className="a" onClick={() => set({ terms: [...card.terms, { word: '', def: '', ref: '' }] })}>＋ {tr('용어', 'Term')}</button>
       <span className="fl-help">{tr('물음 · 완료 조건에 쓴 기호마다 정의나 출처를 적습니다. 둘 다 없으면 검사가 시작을 막습니다.', 'Give each symbol used in the question or done-when a definition or a source. Without either, the check blocks the start.')}</span></div>
 
-    {head(tr('왜', 'Why'))}
+    {head(tr('의의', 'Why'))}
     <dl className="fl-fields">{row('value')}</dl>
 
     {head(tr('사전 연구와 도구', 'Prior work and tools'))}
     <ul className="fl-fromlist" data-ui="흐름 카드 사전 연구">{card.givens.map((g) => { const m = byId.get(g); return <li key={g}>
       {m && <MarkIcon n={m} size={16} />}<span className="fl-grow">{m?.short ?? g}</span>
       <span className={m?.verdict === 'approve' ? 'muted' : 'fl-turn-name'}>{m ? judgeName(m) ?? tr('판단 전', 'Not judged') : tr('없는 점', 'Missing dot')}</span>
-      <button type="button" className="icon-btn" title={tr('사전 연구에서 빼기', 'Remove from prior work')} aria-label={tr('사전 연구 빼기', 'Remove prior work')} onClick={() => set({ givens: card.givens.filter((x) => x !== g) })}>{Icon.x}</button>
+      <button type="button" className="icon-btn" title={tr('사전 연구에서 제거', 'Remove from prior work')} aria-label={tr('사전 연구 제거', 'Remove prior work')} onClick={() => set({ givens: card.givens.filter((x) => x !== g) })}>{Icon.x}</button>
     </li> })}</ul>
     {findings.length > 0 ? <div className="fl-linkrow">
       <select className="fl-in fl-grow" aria-label={tr('사전 연구로 고를 명제', 'Proposition to use as prior work')} value={pick} onChange={(e) => setPick(e.target.value)}>
         <option value="">{tr('명제 고르기…', 'Choose a proposition…')}</option>
         {findings.map((m) => <option key={m.id} value={m.id}>{m.short}{m.verdict === 'approve' ? '' : ` · ${tr('판단 전', 'not judged')}`}</option>)}
       </select>
-      <button type="button" className="btn" disabled={!pick} onClick={() => { set({ givens: [...card.givens, pick] }); setPick('') }}>{tr('더하기', 'Add')}</button>
+      <button type="button" className="btn" disabled={!pick} onClick={() => { set({ givens: [...card.givens, pick] }); setPick('') }}>{tr('추가', 'Add')}</button>
     </div> : !card.givens.length && <span className="muted fl-help">{tr('이 흐름에 명제가 없습니다', 'No propositions in this flow')}</span>}
     <p className="fl-help">{tr('판단 전 명제를 고르면 판단 대기에 오르고, 모두 승인되어야 카드를 시작할 수 있습니다.', 'A proposition not yet judged joins the judgment queue; the card can start only when all are approved.')}</p>
     <dl className="fl-fields"><div><dt>{tr('도구', 'Tools')}</dt>
       <dd><textarea className="fl-in mono" aria-label={tr('도구', 'Tools')} placeholder={tr('쓸 코드 · 폴더 (한 줄에 하나). 비우면 에이전트가 고르고 보고서에 적습니다', 'Code or folders to use (one per line). If empty, the agent picks and says so in the report')} rows={Math.max(1, card.tools.split('\n').length)} value={card.tools} onChange={(e) => set({ tools: e.target.value })} /></dd></div></dl>
 
-    {head(tr('언제 끝나나 (계산 전에 고정)', 'When it ends (fixed before computing)'))}
+    {head(tr('종료 조건 (계산 전에 고정)', 'When it ends (fixed before computing)'))}
     <dl className="fl-fields">{['criterion', 'criterion_no', 'criterion_unclear', 'stop'].map(row)}</dl>
 
     {head(tr('범위와 자원', 'Scope and resources'))}
     <dl className="fl-fields">{['out_of_scope', 'budget'].map(row)}</dl>
 
-    {head(tr('돌려받을 것', 'What comes back'))}
+    {head(tr('산출물', 'What comes back'))}
     <dl className="fl-fields">
       {row('deliverable')}
       <div><dt>{tr('명제', 'Propositions')}</dt>

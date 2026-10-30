@@ -61,7 +61,7 @@ export function JudgePage({ rid, id, notes, onSaved }: { rid: string; id: string
   </li>
   const prev = n.from.map((f) => byId.get(f.id)).filter((m): m is FlowNode => !!m)
   return (
-    <div className="ws-doc" data-ui="판단 화면">
+    <div className="ws-doc jd-doc" data-ui="판단 화면">
       <section className="pane">
         <div className="pane-head tk-rep-head" data-ui="머리줄">
           <span className={`tk-state${turnOf(n) ? ' fl-turn-name' : ''}`}><MarkIcon n={n} size={18} />{judgeName(n) ?? KIND[markOf(n)].name()}</span>
@@ -101,7 +101,7 @@ export function JudgePage({ rid, id, notes, onSaved }: { rid: string; id: string
             </section>
           </>}
           {prev.length > 0 && <section className="tk-sec" data-ui="판단 화면 앞선 점">
-            <h2>{n.kind === 'finding' ? tr('나온 곳', 'Where it came from') : tr('발단', 'Origin')}</h2>
+            <h2>{n.kind === 'finding' ? tr('출처', 'Where it came from') : tr('발단', 'Origin')}</h2>
             <ul className="jd-dots">{prev.map((m) => dot(m))}</ul>
           </section>}
           {n.kind === 'finding' && <section className="tk-sec" data-ui="판단 화면 근거">
@@ -111,7 +111,7 @@ export function JudgePage({ rid, id, notes, onSaved }: { rid: string; id: string
           </section>}
           {n.judgments.length > 0 && <section className="tk-sec" data-ui="판단 화면 기록">
             <h2>{tr('판단 기록', 'Judgments')}</h2>
-            <ul className="tk-judged">{n.judgments.map((j, k) => <li key={k}><span className="muted">{j.at}</span> {VERDICT_NAME[j.verdict]()}{j.note ? ` · ${j.note}` : ''}{j.stale && <span className="fl-stale">{tr('판단 뒤 바뀜', 'changed since judged')}</span>}</li>)}</ul>
+            <ul className="tk-judged">{n.judgments.map((j, k) => <li key={k}><span className="muted">{j.at}</span> {VERDICT_NAME[j.verdict]()}{j.note ? ` · ${j.note}` : ''}{j.stale && <span className="fl-stale">{tr('판단 후 변경', 'changed since judged')}</span>}</li>)}</ul>
           </section>}
           {judgeable ? <section className="tk-sec jd-act" data-ui="판단 화면 판단">
             <h2>{tr('판단', 'Judge')}</h2>

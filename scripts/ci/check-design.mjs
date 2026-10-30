@@ -64,7 +64,8 @@ for (const f of code) readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
 // 버튼 줄(<button … 이 있는 줄)의 글자와 title·aria-label만 본다. 설명 글·주석은 보지 않는다.
 /** @type {[RegExp, string][]} */
 const WORDS = [
-  [/삭제/, '지우기'], [/제거/, '빼기'], [/추가/, '더하기'], [/편집하기|편집 버튼|>편집</, '고치기'], [/수정하기|>수정</, '고치기'], [/그만두기/, '취소'],
+  // 10/30 사용자 결정 "행동 이름까지 한자어로": 고치기·지우기·더하기·빼기 → 수정·삭제·추가·제거 (10/3 결정을 바꿈)
+  [/(?<![가-힣])지우기/, '삭제'], [/(?<![가-힣])빼기/, '제거'], [/(?<![가-힣])더하기/, '추가'], [/(?<![가-힣])고치기|편집하기|편집 버튼|>편집</, '수정'], [/수정하기/, '수정'], [/그만두기/, '취소'],
   // 10/5 시안: 양쪽 칸 이름은 "왼쪽 사이드바"·"오른쪽 사이드바" (data-ui 값 "맥락 칸 …"은 이전 피드백과 맞추려 그대로)
   [/(?<!data-ui=")맥락 칸/, '오른쪽 사이드바'],
 ]
@@ -97,7 +98,9 @@ for (const f of tsx) {
     if (line.includes('디자인 예외:') || /^\s*(\/\/|\*|\/\*)/.test(line)) return
     const code = line.replace(/\{\/\*.*?\*\/\}/g, '')
     const where = `${f.slice(root.length)}:${i + 1}`
-    if (/<button|title=|aria-label=/.test(code)) for (const [re, use] of WORDS) if (re.test(code)) problems.push(`${where}  버튼 말은 "${use}"로\n    ${line.trim().slice(0, 140)}`)
+    // data-ui 값(피드백 부위 이름)은 예전 이름 그대로 둔다
+    const said = code.replace(/data-ui(?:-[a-z]+)?=(?:"[^"]*"|\{[^}]*\})/g, '')
+    if (/<button|title=|aria-label=/.test(said)) for (const [re, use] of WORDS) if (re.test(said)) problems.push(`${where}  버튼 말은 "${use}"로\n    ${line.trim().slice(0, 140)}`)
     for (const [re, why] of GLYPHS) if (re.test(code)) problems.push(`${where}  ${why}\n    ${line.trim().slice(0, 140)}`)
   })
   const tree = ts.createSourceFile(f, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)

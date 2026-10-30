@@ -34,7 +34,7 @@ export function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): vo
   }
   const setTags = (tags: string[], message: string) => void save(withChange(people, person, { tags }), message)
   const remove = async () => {
-    if (!await askConfirm({ title: t(`"${person.name}"을 네트워킹에서 뺄까요?`, `Remove "${person.name}" from Networking?`), hint: t('적어 둔 소속·분야·메모가 사라지고, 참고 문헌은 그대로입니다.', 'The affiliation, fields and memo you wrote are lost. References stay.'), ok: t('빼기', 'Remove') })) return
+    if (!await askConfirm({ title: t(`"${person.name}"을 네트워킹에서 뺄까요?`, `Remove "${person.name}" from Networking?`), hint: t('적어 둔 소속·분야·메모가 사라지고, 참고 문헌은 그대로입니다.', 'The affiliation, fields and memo you wrote are lost. References stay.'), ok: t('제거', 'Remove') })) return
     void save(people.filter((p) => p.id !== person.id), t(`"${person.name}"을 뺐습니다`, `Removed "${person.name}"`)).then(() => go({ page: 'network' }))
   }
   const [main, ...more] = person.affiliations
@@ -45,8 +45,8 @@ export function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): vo
       {/* 10/4 18:55 "사람 프로필 다시": 큰 머리글자, 주소속·보조 소속, 이메일, 그 밖에 홈페이지·찾아보기·함께 쓴 사람 */}
       <section className="net-profile" data-ui="프로필">
         <div className="hover-actions net-profile-actions">
-          <button className="icon-btn" data-ui="저자 정보 고치기" title={t('고치기 — 이름·소속·이메일·홈페이지·메모', 'Edit name, affiliation, email, homepage and memo')} aria-label={t('프로필 고치기', 'Edit profile')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
-          {person.added && !person.author && <button className="icon-btn" data-ui="사람 빼기" title={t('빼기 — 네트워킹에서 뺍니다', 'Remove from Networking')} aria-label={t('네트워킹에서 빼기', 'Remove from Networking')} onClick={() => void remove()}>{Icon.x}</button>}
+          <button className="icon-btn" data-ui="저자 정보 고치기" title={t('수정 — 이름·소속·이메일·홈페이지·메모', 'Edit name, affiliation, email, homepage and memo')} aria-label={t('프로필 수정', 'Edit profile')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
+          {person.added && !person.author && <button className="icon-btn" data-ui="사람 빼기" title={t('제거 — 네트워킹에서 뺍니다', 'Remove from Networking')} aria-label={t('네트워킹에서 제거', 'Remove from Networking')} onClick={() => void remove()}>{Icon.x}</button>}
         </div>
         <div className="net-profile-top">
           <PhotoPicker person={person} onSaved={onSaved} />
@@ -164,7 +164,7 @@ function Relations({ people, coauthors }: { people: PersonView[]; coauthors: Coa
     <section className="net-author-sec" data-ui="함께하는 사람">
       {others.length > 0 && (
         <div className="net-group" data-ui="함께 쓴 사람">
-          <div className="sec-head"><h2>{t('함께 쓴 사람', 'Coauthors')}</h2><span className="count">{t('노트 참고 문헌에서 함께 저자인 논문 수', 'Shared papers in note references')}</span></div>
+          <div className="sec-head"><h2>{t('공저자', 'Coauthors')}</h2><span className="count">{t('노트 참고 문헌에서 함께 저자인 논문 수', 'Shared papers in note references')}</span></div>
           <div className="net-cards">
             {coauthors.map((c) => { const p = byId.get(c.id); return p && <PersonCard key={c.id} p={p} people={people} sub={t(`함께 쓴 논문 ${c.count}편`, plural(c.count, 'shared paper'))} /> })}
           </div>
