@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Tauri가 앱의 Info.plist에 합친다: 맥이 채우는 말(창 안 오른쪽 클릭 메뉴 등)을 한국어로 -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>ko</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>ko</string>
+    <string>en</string>
+  </array>
+</dict>
+</plist>
