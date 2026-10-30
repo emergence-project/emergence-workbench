@@ -3,7 +3,7 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from './app.js'
-import { appendAnswer, askPrompt, claudeClassifierRunner, claudeRunner, type AskRunner } from './ask.js'
+import { appendAnswer, askPrompt, claudeClassifierRunner, claudeExecutable, claudeRunner, type AskRunner } from './ask.js'
 import { addComment, readComments } from './comments.js'
 import { app, makeRepo, R, tmp, useSampleApp } from './testkit.js'
 
@@ -88,6 +88,29 @@ describe('Claude 실행 옵션', () => {
     expect(spawnMock).toHaveBeenCalledTimes(1)
     expect(spawnMock).toHaveBeenCalledWith(expect.any(String), ['-p', '--output-format', 'text', '--setting-sources', 'user', '--strict-mcp-config', ...args], expect.objectContaining({ cwd: '/test/research', stdio: ['pipe', 'pipe', 'pipe'] }))
     expect(child.stdin.end).toHaveBeenCalledWith('분류할 기록')
+  })
+})
+
+describe('에이전트 대화가 띄울 Claude Code', () => {
+  const noPackage = () => { throw new Error('not found') }
+  it('SDK의 플랫폼 패키지가 있으면 그것을 쓴다', () => {
+    vi.stubEnv('RW_CLAUDE_BIN', '')
+    expect(claudeExecutable(() => '/x/package.json')).toBeUndefined()
+    vi.unstubAllEnvs()
+  })
+  it('묶은 앱(패키지 없음)은 PATH에서 claude를 찾는다', () => {
+    const dir = path.join(tmp, 'claude-bin')
+    fs.mkdirSync(dir)
+    fs.writeFileSync(path.join(dir, 'claude'), '#!/bin/sh\n', { mode: 0o755 })
+    vi.stubEnv('RW_CLAUDE_BIN', '')
+    vi.stubEnv('PATH', `/nowhere:${dir}`)
+    expect(claudeExecutable(noPackage)).toBe(path.join(dir, 'claude'))
+    vi.unstubAllEnvs()
+  })
+  it('RW_CLAUDE_BIN이 먼저다', () => {
+    vi.stubEnv('RW_CLAUDE_BIN', '/opt/claude')
+    expect(claudeExecutable(noPackage)).toBe('/opt/claude')
+    vi.unstubAllEnvs()
   })
 })
 

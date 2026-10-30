@@ -31,6 +31,8 @@ pnpm service:uninstall  # 서비스 지우기 (연구 파일·설정은 그대�
 
 **Tauri 창 (10/30):** Rust(`cargo`, https://rustup.rs)가 있으면 설치가 `zsh scripts/make-desktop.sh`(= `pnpm desktop:build`)로 같은 이름의 앱을 크롬 대신 자기 창으로 만든다(코드 `desktop/`, 맥은 Safari 엔진). 창만 맡고 서버는 아래 서비스 그대로라 창을 닫아도 에이전트 · 동기화는 돈다. 창은 서버가 답할 때까지 "여는 중…"을 보이고, 서버 밖 주소(논문 · GitHub 링크)는 기본 브라우저로 연다. 창 크기 · 자리와 마지막에 보던 화면을 기억해 다음에 거기서 연다. 메뉴는 맥 표준 메뉴(편집의 복사 · 붙여넣기 등)에 설정…(⌘,) · 업데이트 확인…(설정 › 동기화) · 새로 고침(⌘R) · 처음 화면(⇧⌘H)을 더했다. 처음 빌드는 몇 분 걸린다. Rust가 없거나 `--no-desktop`이면 아래 실행기를 만든다.
 
+**서버를 품은 앱 (10/30, 내려받는 앱의 첫 단계):** `zsh scripts/make-desktop.sh --standalone`은 `scripts/bundle-app.mjs`로 Node 22 · 서버 · 화면 · MCP 입구를 한 폴더(`desktop/standalone/`)에 묶어 앱 안에 넣는다. Homebrew · pnpm 없이 앱만 열면 창이 묶은 서버를 켜고, 앱을 끝내면(⌘Q) 함께 끈다. 이 맥에 서비스가 등록돼 있거나 서버가 이미 답하면 묶은 서버를 켜지 않고 그것을 쓴다. 묶은 서버의 출력은 `~/Library/Logs/io.github.emergence-project.workbench/server.log`. git 저장소가 아니므로 스스로 업데이트를 받지 않고(묶은 커밋은 `build.json`), 에이전트는 이 맥에 깐 `claude`를 쓴다(Claude Code 실행 파일은 묶지 않는다). 앱은 약 130MB이고 ~/Applications에 두지 않고 만든 자리만 알린다.
+
 여는 법: 바탕화면의 **Emergence Workbench** 아이콘(또는 `~/Applications/Emergence Workbench.app`, Spotlight에서 찾기). 주소창 없는 전용 창으로 열린다. 설치가 `zsh scripts/make-app.sh`로 만들고(원본 그림 `scripts/app-icon.svg`), 예전 이름의 실행기(`연구 작업대.app`)는 지우며 그것을 가리키던 바탕화면 바로가기는 새 앱을 가리키게 한다.
 
 Dock에 따로 띄우기: 앱을 연 크롬 창에서 ⋮ → 전송, 저장, 공유 → **페이지를 앱으로 설치**(설치 정보는 `apps/web/public/manifest.webmanifest`와 아이콘). 그러면 크롬과 별개인 자기 창·자기 Dock 아이콘으로 열리고(`~/Applications/Chrome Apps/연구 작업대.app`), Dock에서 우클릭 → 옵션 → Dock에 유지(설치는 이 앱이 이미 있으면 이것을, 없으면 실행기를 Dock에 둔다). 바탕화면 아이콘도 설치된 앱이 있으면 그것을 연다. 서비스가 늘 켜져 있어(로그인 때 켜지고 꺼지면 다시 켜짐) 설치한 앱을 바로 눌러도 된다.
