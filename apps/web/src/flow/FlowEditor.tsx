@@ -222,7 +222,7 @@ export function FlowEditor({ rid, n, create, all, notes, topics, onClose, onSave
       <dl className="fl-fields">{planFields.map(fieldRow)}</dl>
       {kind === 'question' && <label className="check fl-card-on" data-ui="흐름 카드 켜기" title={tr('맡길 질문이면 켭니다. 사전 연구 · 완료 조건 · 범위 · 산출 칸이 열리고, 사용자가 시작해야 그 아래 일이 열립니다', 'Turn on to hand this question off. Prior work, done-when, scope and output open, and work under it opens only after you start it')}>
         <input type="checkbox" checked={!!card} onChange={(e) => setCard(e.target.checked ? cardDraft(n.card) : null)} />{tr('카드로 맡기기', 'Hand off as a card')}</label>}
-      <p className="fl-help">{tr('글 속 수식 $…$, 줄 수식은 $$…$$를 따로 한 줄에, 빈 줄은 문단을 나눈다. 그림은 칸 오른쪽 위 "그림"으로 넣거나 붙여넣기(⌘V) · 끌어 놓기로 넣는다.', 'Inline math $…$; display math $$…$$ on its own line; a blank line starts a paragraph. Add figures with "Figure" at the top right of a field, or paste (⌘V) or drop them in.')}</p>
+      <p className="fl-help">{tr('글 속 수식 $…$, 줄 수식은 $$…$$를 따로 한 줄에, 빈 줄은 문단을 나눈다. 그림은 칸을 가리키면 오른쪽 위에 보이는 "그림"으로 넣거나 붙여넣기(⌘V) · 끌어 놓기로 넣는다.', 'Inline math $…$; display math $$…$$ on its own line; a blank line starts a paragraph. Add figures with "Figure" at the top right of a field, or paste (⌘V) or drop them in.')}</p>
     </section>
 
     {isCard && <CardSection rid={rid} n={n} card={card!} setCard={setCard} all={all} fields={fields} row={fieldRow} />}
