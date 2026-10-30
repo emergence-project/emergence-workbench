@@ -59,7 +59,7 @@ fn remember_page(window: &WebviewWindow) {
     }
 }
 
-/// 맥 표준 메뉴(앱 · 편집 · 보기 · 창)에 앱의 설정 · 업데이트 · 새로 고침 · 처음 화면을 더한다
+/// 맥 표준 메뉴(앱 · 편집 · 보기 · 창, 이름은 맥 한국어 메뉴와 같게)에 앱의 설정 · 업데이트 · 새로 고침 · 처음 화면을 더한다
 fn app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let about = AboutMetadata { name: Some("Emergence Workbench".into()), ..Default::default() };
     let app_sub = Submenu::with_items(app, "Emergence Workbench", true, &[
@@ -68,34 +68,34 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &MenuItem::with_id(app, "settings", "설정…", true, Some("CmdOrCtrl+,"))?,
         &MenuItem::with_id(app, "update", "업데이트 확인…", true, None::<&str>)?,
         &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::services(app, None)?,
+        &PredefinedMenuItem::services(app, Some("서비스"))?,
         &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::hide(app, None)?,
-        &PredefinedMenuItem::hide_others(app, None)?,
-        &PredefinedMenuItem::show_all(app, None)?,
+        &PredefinedMenuItem::hide(app, Some("Emergence Workbench 가리기"))?,
+        &PredefinedMenuItem::hide_others(app, Some("기타 가리기"))?,
+        &PredefinedMenuItem::show_all(app, Some("모두 보기"))?,
         &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::quit(app, None)?,
+        &PredefinedMenuItem::quit(app, Some("Emergence Workbench 종료"))?,
     ])?;
     let edit = Submenu::with_items(app, "편집", true, &[
-        &PredefinedMenuItem::undo(app, None)?,
-        &PredefinedMenuItem::redo(app, None)?,
+        &PredefinedMenuItem::undo(app, Some("실행 취소"))?,
+        &PredefinedMenuItem::redo(app, Some("실행 복귀"))?,
         &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::cut(app, None)?,
-        &PredefinedMenuItem::copy(app, None)?,
-        &PredefinedMenuItem::paste(app, None)?,
-        &PredefinedMenuItem::select_all(app, None)?,
+        &PredefinedMenuItem::cut(app, Some("잘라내기"))?,
+        &PredefinedMenuItem::copy(app, Some("복사하기"))?,
+        &PredefinedMenuItem::paste(app, Some("붙여넣기"))?,
+        &PredefinedMenuItem::select_all(app, Some("전체 선택"))?,
     ])?;
     let view = Submenu::with_items(app, "보기", true, &[
         &MenuItem::with_id(app, "reload", "새로 고침", true, Some("CmdOrCtrl+R"))?,
         &MenuItem::with_id(app, "home", "처음 화면", true, Some("CmdOrCtrl+Shift+H"))?,
         &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::fullscreen(app, None)?,
+        &PredefinedMenuItem::fullscreen(app, Some("전체 화면"))?,
     ])?;
     let window = Submenu::with_items(app, "창", true, &[
-        &PredefinedMenuItem::minimize(app, None)?,
-        &PredefinedMenuItem::maximize(app, None)?,
+        &PredefinedMenuItem::minimize(app, Some("최소화"))?,
+        &PredefinedMenuItem::maximize(app, Some("확대/축소"))?,
         &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::close_window(app, None)?,
+        &PredefinedMenuItem::close_window(app, Some("윈도우 닫기"))?,
     ])?;
     Menu::with_items(app, &[&app_sub, &edit, &view, &window])
 }
