@@ -74,11 +74,31 @@ if [ $DOCK = 1 ]; then
   [ $WINDOW = tauri ] || for p in "$HOME/Applications/Chrome Apps.localized/Emergence Workbench.app" "$HOME/Applications/Chrome Apps/Emergence Workbench.app"; do
     [ -d "$p" ] && { target="$p"; break; }
   done
+  url="file://${target// /%20}/"
   dock="$(defaults read com.apple.dock persistent-apps 2>/dev/null || true)"
-  if print -r -- "$dock" | grep -qF "Emergence%20Workbench.app"; then
+  if print -r -- "$dock" | grep -qF "$url"; then
     SKIP+=("Dock (이미 있음)")
+  elif [ $WINDOW = tauri ] && print -r -- "$dock" | grep -qF "Emergence%20Workbench.app"; then
+    # 예전 크롬 창(앱으로 설치)을 가리키는 Dock 항목을 Tauri 창으로 돌린다 (맥북 10/30: 그대로 두면 Dock이 크롬 창을 연다)
+    tmp="$(mktemp -t dock)"
+    defaults export com.apple.dock "$tmp"
+    PB=/usr/libexec/PlistBuddy i=0
+    # ${i}로 감싼다: zsh에서 $i:t는 :t 수식어로 읽힌다
+    while "$PB" -c "Print :persistent-apps:${i}" "$tmp" >/dev/null 2>&1; do
+      tile=":persistent-apps:${i}:tile-data"
+      u="$("$PB" -c "Print ${tile}:file-data:_CFURLString" "$tmp" 2>/dev/null || true)"
+      if [[ "$u" == *Emergence%20Workbench.app* ]]; then
+        "$PB" -c "Set ${tile}:file-data:_CFURLString $url" "$tmp"
+        # 크롬 창을 가리키는 책갈피 · 번들 ID도 지운다(남으면 Dock이 그것으로 크롬 창을 연다). Dock이 새 앱 것으로 다시 채운다
+        "$PB" -c "Delete ${tile}:book" "$tmp" 2>/dev/null || true
+        "$PB" -c "Delete ${tile}:bundle-identifier" "$tmp" 2>/dev/null || true
+      fi
+      i=$((i + 1))
+    done
+    defaults import com.apple.dock "$tmp" && rm -f "$tmp"
+    killall Dock 2>/dev/null || true
+    DONE+=("Dock (크롬 창 → Tauri 창)")
   else
-    url="file://${target// /%20}/"
     defaults write com.apple.dock persistent-apps -array-add "<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>$url</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>"
     killall Dock 2>/dev/null || true
     DONE+=("Dock")
