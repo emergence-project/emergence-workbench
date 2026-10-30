@@ -15,7 +15,7 @@ export const ko: AboutSection = {
     { text: <><b>화면</b> — 테마, 글자 크기, 촘촘함, 강조 색(상태 색과 겹치지 않는 것만), 하이라이트 처음 색.</> },
     { text: <><b>라이브러리 관리</b> — 라이브러리 폴더(경로 · Git 상태), 지식(개념노트 수 · Obsidian Study 원본), 논문(PDF 폴더 추가 · 제거, iCloud · Google Drive · 이 맥 표시), 그림(Git의 그림 수, 사진 폴더 연결은 자리만).</> },
     { text: <><b>LaTeX</b> — 세 부분입니다. <b>편집기</b>: 글꼴 · 크기 · 줄 간격과 미리보기. <b>명령어</b>: 개념노트와 노트 컴파일이 함께 쓰는 {c('concepts/macros.tex')}(한 연구 전용은 그 저장소 {c('workbench/macros.tex')}가 앞섬). <b>서식</b>: 서식 여럿을 모아 두고 골라 씁니다: 기본 문서(article), PRB·PRL(revtex), 발표(beamer). 서식마다 이름·종류·문서 종류 줄·패키지를 고치고, 복사해 새로 만들기·삭제·내보내기 기본 정하기를 합니다.</> },
-    { text: <><b>앱으로 열기</b> — 바탕화면의 "연구 작업대" 아이콘으로 엽니다. Dock에 따로 띄우려면 앱을 연 크롬 창에서 ⋮ › 전송, 저장, 공유 › "페이지를 앱으로 설치"를 누른 뒤 Dock에 유지합니다.</> },
+    { text: <><b>앱으로 열기</b> — 바탕화면의 "Emergence Workbench" 아이콘으로 엽니다. 맥에 Rust가 있으면 설치가 이 앱을 크롬 대신 자기 창(Tauri)으로 만듭니다. 창만 닫히고 서버는 계속 돌며, 논문 · GitHub 같은 바깥 링크는 기본 브라우저로 엽니다(10/30). Rust가 없으면 크롬의 전용 창으로 엽니다. Dock에 따로 띄우려면 앱을 연 크롬 창에서 ⋮ › 전송, 저장, 공유 › "페이지를 앱으로 설치"를 누른 뒤 Dock에 유지합니다.</> },
   ],
 }
 
@@ -31,6 +31,6 @@ export const en: AboutSection = {
     { text: <><b>Display</b>: theme, text size, density, accent color (only ones that do not clash with status colors), default highlight color.</> },
     { text: <><b>Library</b>: library folder (path, Git status), Knowledge (concept note count, Obsidian Study source), Papers (add or remove PDF folders, marked iCloud · Google Drive · this Mac), Figures (figure count in Git; linking a photo folder is only a placeholder).</> },
     { text: <><b>LaTeX</b>: three parts. <b>Editor</b>: font, size, line spacing and a preview. <b>Macros</b>: {c('concepts/macros.tex')}, shared by concept notes and note compiling (a project's own {c('workbench/macros.tex')} takes precedence). <b>Templates</b>: keep several templates and choose one: basic document (article), PRB and PRL (revtex), talk (beamer). For each template you edit the name, kind, document class line and packages, and you can copy it into a new one, delete it, or make it the export default.</> },
-    { text: <><b>Open as an app</b>: open it with the "연구 작업대" (workbench) icon on the desktop. To keep it in the Dock on its own, in the Chrome window running the app choose ⋮ › Cast, save, and share › "Install page as app", then keep it in the Dock.</> },
+    { text: <><b>Open as an app</b>: open it with the "Emergence Workbench" icon on the desktop. When the Mac has Rust, the installer makes this app a window of its own (Tauri) instead of Chrome. Closing it closes only the window while the server keeps running, and outside links such as papers or GitHub open in the default browser (10/30). Without Rust it opens in a dedicated Chrome window. To keep it in the Dock on its own, in the Chrome window running the app choose ⋮ › Cast, save, and share › "Install page as app", then keep it in the Dock.</> },
   ],
 }

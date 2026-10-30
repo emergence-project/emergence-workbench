@@ -5,19 +5,20 @@
 #   1. 준비물: Node 22 · pnpm (Homebrew가 있으면 없는 것을 깐다)
 #   2. 의존성 (pnpm install)
 #   3. 백그라운드 서비스 (scripts/service.sh install: 로그인하면 켜지고 자동 업데이트를 받는다)
-#   4. 앱 아이콘 (scripts/make-app.sh: ~/Applications · Spotlight · Launchpad · 바탕화면)
+#   4. 앱 (Rust가 있으면 scripts/make-desktop.sh의 Tauri 창, 없거나 --no-desktop이면 scripts/make-app.sh의 실행기. ~/Applications · Spotlight · Launchpad · 바탕화면)
 #   5. Dock에 고정 (--no-dock으로 건너뜀)
 #   6. 에이전트 등록: Claude Code · Codex 설정에 이 앱의 MCP 입구 (--no-agents로 건너뜀, docs/agent-mcp.md)
 # 연구 파일과 ~/.config/research-workspace 설정은 건드리지 않는다. 빼기: pnpm service:uninstall, 앱은 휴지통으로.
 set -e
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$HOME/Applications/Emergence Workbench.app"
-DOCK=1 AGENTS=1
+DOCK=1 AGENTS=1 DESKTOP=1
 for a in "$@"; do
   case "$a" in
     --no-dock) DOCK=0 ;;
     --no-agents) AGENTS=0 ;;
-    *) echo "사용법: install.sh [--no-dock] [--no-agents]"; exit 1 ;;
+    --no-desktop) DESKTOP=0 ;;
+    *) echo "사용법: install.sh [--no-dock] [--no-agents] [--no-desktop]"; exit 1 ;;
   esac
 done
 [ "$(uname)" = Darwin ] || { echo "맥에서만 설치합니다. 다른 컴퓨터에서는 pnpm start로 켭니다."; exit 1; }
@@ -53,16 +54,24 @@ else
   zsh "$REPO/scripts/service.sh" install; DONE+=("서비스 등록")
 fi
 
-# 4. 앱 아이콘
-step "4. 앱 아이콘"
-zsh "$REPO/scripts/make-app.sh"
-DONE+=("앱 아이콘 (~/Applications · 바탕화면)")
+# 4. 앱: Rust가 있으면 Tauri 창, 아니면 크롬 전용 창을 여는 실행기
+step "4. 앱"
+WINDOW=launcher
+if [ $DESKTOP = 1 ] && [ -x "$HOME/.cargo/bin/cargo" -o -n "$(command -v cargo)" ]; then
+  if zsh "$REPO/scripts/make-desktop.sh"; then WINDOW=tauri; DONE+=("앱 (Tauri 창, ~/Applications · 바탕화면)")
+  else WARN+=("Tauri 창을 만들지 못해 실행기를 씀 (zsh scripts/make-desktop.sh로 다시)"); fi
+fi
+if [ $WINDOW = launcher ]; then
+  zsh "$REPO/scripts/make-app.sh"
+  DONE+=("앱 아이콘 (~/Applications · 바탕화면)")
+  [ $DESKTOP = 1 ] && SKIP+=("Tauri 창 (Rust가 없음: https://rustup.rs)")
+fi
 
-# 5. Dock: 크롬에서 "앱으로 설치"한 것이 있으면 그것을(실행하면 그 아이콘이 뜬다), 없으면 위 앱을
+# 5. Dock: Tauri 창이면 그 앱, 아니면 크롬에서 "앱으로 설치"한 것이 있으면 그것을(실행하면 그 아이콘이 뜬다), 없으면 위 앱을
 step "5. Dock"
 if [ $DOCK = 1 ]; then
   target="$APP"
-  for p in "$HOME/Applications/Chrome Apps.localized/Emergence Workbench.app" "$HOME/Applications/Chrome Apps/Emergence Workbench.app"; do
+  [ $WINDOW = tauri ] || for p in "$HOME/Applications/Chrome Apps.localized/Emergence Workbench.app" "$HOME/Applications/Chrome Apps/Emergence Workbench.app"; do
     [ -d "$p" ] && { target="$p"; break; }
   done
   dock="$(defaults read com.apple.dock persistent-apps 2>/dev/null || true)"
