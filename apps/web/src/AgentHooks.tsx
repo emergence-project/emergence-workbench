@@ -42,9 +42,9 @@ export function AgentHooks({ onSaved }: { onSaved(message: string): void }) {
           <div>
             <div className="set-name">{AGENT[a]}</div>
             <div className="set-desc">{a === 'codex'
-              ? t('터미널의 Codex가 차례를 마칠 때마다 앱에 알립니다(~/.codex/config.toml의 notify 한 줄).', 'Codex in a terminal tells the app whenever it finishes a turn (one notify line in ~/.codex/config.toml).')
+              ? t('터미널의 Codex가 차례를 마칠 때마다 앱에 알립니다(~/.codex/config.toml의 notify 한 줄). 원래 notify가 있으면 그것도 그대로 부르고, 끄면 되돌립니다.', 'Codex in a terminal tells the app whenever it finishes a turn (one notify line in ~/.codex/config.toml). An existing notify is still called, and restored when you turn this off.')
               : t('터미널의 Claude Code가 지시를 받을 때 · 허락이나 입력을 기다릴 때 · 차례를 마칠 때 앱에 알립니다(~/.claude/settings.json의 훅). 앱 MCP를 부르지 않는 세션도 보입니다.', 'Claude Code in a terminal tells the app when it gets an instruction, waits for permission or input, and finishes a turn (hooks in ~/.claude/settings.json). Sessions that never call the app MCP show too.')}</div>
-            {busy && <div className="muted">{t('다른 notify가 있어 넣지 않았습니다. Codex는 notify를 하나만 받습니다.', 'Another notify is set, so nothing was added. Codex takes only one notify.')}</div>}
+            {busy && <div className="muted">{t('notify 줄을 읽지 못해 넣지 않았습니다. 한 줄의 ["…"] 모양이면 원래 notify와 함께 넣습니다.', 'Could not read the notify line, so nothing was added. A one-line ["…"] notify is kept and called along with this.')}</div>}
           </div>
           <div className="segmented small" role="radiogroup" data-ui="고르기">
             <button role="radio" aria-checked={on} className={on ? 'on' : ''} disabled={!v || busy} onClick={() => void set(a, true)}>{t('켬', 'On')}</button>
