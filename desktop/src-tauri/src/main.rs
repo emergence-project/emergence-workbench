@@ -1,10 +1,11 @@
 // Emergence Workbench 창 (Tauri, 10/30 결정 "데스크톱 앱은 Tauri").
 // 창만 맡는다: 서버는 그대로 로그인 때 켜지는 서비스(scripts/service.sh)이고, 창을 닫아도 에이전트 · 동기화는 계속 돈다.
 // 창은 먼저 loading/index.html을 띄워 서버가 답할 때까지 기다린 뒤 서버 화면(127.0.0.1:5174)으로 넘어간다.
-// 서버 밖 주소(논문 링크, GitHub 등)는 창 안에서 열지 않고 기본 브라우저로 보낸다.
+// 서버 밖 주소(논문 링크, GitHub 등)는 창 안에서도, 새 창으로도 열지 않고 기본 브라우저로 보낸다.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process::Command;
+use tauri::webview::NewWindowResponse;
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use url::Url;
 
@@ -60,6 +61,14 @@ fn main() {
                     }
                     open_outside(url);
                     false
+                })
+                // 새 창으로 여는 링크(target=_blank, window.open): 서버 쪽 파일(PDF 등)은 앱의 새 창, 바깥 주소는 기본 브라우저
+                .on_new_window(|url, _features| {
+                    if stays_inside(&url) {
+                        return NewWindowResponse::Allow;
+                    }
+                    open_outside(&url);
+                    NewWindowResponse::Deny
                 })
                 .build()?;
             Ok(())
