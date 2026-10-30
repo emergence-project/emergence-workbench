@@ -135,18 +135,17 @@ export function FeedbackPage() {
     <main className="stage full" data-ui="피드백">
       <section className="pane">
         <div className="pane-head bar3 fbp-toolbar" data-ui="머리줄">
-          <div className="segmented small fbp-filters" role="radiogroup" aria-label={t('필터', 'Filter')} data-ui="거르기">
-            {FILTERS.map((f) => (
-              <button key={f} role="radio" aria-checked={filter === f} className={filter === f ? 'on' : ''} title={f === '전체' ? undefined : FILTER_TITLES[f]} onClick={() => { picked.current = true; setFilter(f) }}>
-                {label(f)} {entries && <span className={f === '확인 필요' ? 'rail-count' : 'muted'}>{entries.filter((e) => matches(f, e)).length}</span>}
-              </button>
-            ))}
-          </div>
-          <div className="fbp-groupby" data-ui="묶기">
-            <div className="segmented small" role="radiogroup" aria-label={t('보기', 'View')}>
-              {GROUPS.map((g) => <button key={g} role="radio" aria-checked={group === g} className={group === g ? 'on' : ''} onClick={() => setGroup(g)}>{label(g)}</button>)}
-            </div>
-          </div>
+          {/* 선택지가 넷 이상이면 고르기 상자 (10/30 결정 "피드백 툴바 한 줄") */}
+          <label className="fbp-pick fbp-filters" data-ui="거르기">{t('상태', 'Status')}
+            <select className="mini-select" value={filter} title={filter === '전체' ? undefined : FILTER_TITLES[filter]} onChange={(e) => { picked.current = true; setFilter(FILTERS.find((f) => f === e.target.value) ?? '전체') }}>
+              {FILTERS.map((f) => <option key={f} value={f}>{label(f)}{entries ? ` ${entries.filter((e) => matches(f, e)).length}` : ''}</option>)}
+            </select>
+          </label>
+          <label className="fbp-pick fbp-groupby" data-ui="묶기">{t('보기', 'View')}
+            <select className="mini-select" value={group} onChange={(e) => setGroup(GROUPS.find((g) => g === e.target.value) ?? '시각')}>
+              {GROUPS.map((g) => <option key={g} value={g}>{label(g)}</option>)}
+            </select>
+          </label>
           <div className="fbp-tools">
             <IssueButton list={shown} />
             <PublishButton />
@@ -182,7 +181,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
   const [open, setOpen] = useState<string | null>(null)
   const rows = [...list].sort((a, b) => { const d = `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`) || a.n - b.n; return newest ? -d : d })
   return (
-    <table className="fbp-table" data-ui="피드백 표">
+    <div className="fbp-table-box"><table className="fbp-table" data-ui="피드백 표">
       <thead>
         <tr>
           <th><button className="fb-link" title={t('순서 바꾸기', 'Reverse order')} onClick={() => setNewest((v) => !v)}>{t('시각', 'Time')} {newest ? '↓' : '↑'}</button></th>
@@ -211,7 +210,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
           ]
         })}
       </tbody>
-    </table>
+    </table></div>
   )
 }
 

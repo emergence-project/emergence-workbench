@@ -97,9 +97,9 @@ export const DEFAULT_SCREENS = [
   // 바뀐 곳에서 묻기 (10/14): 첫 바뀐 곳에 질문과 답을 넣고(agent-edits.mjs) 대화를 연 모습
   ['review-talk', '#/r/{rid}/edits', '고침 대화', '묻기 버튼'],
   // 확인 필요: 반려한 것을 다시 처리한 항목을 펼쳐 주고받은 기록과 승인·반려를 찍는다 (fixtures/sandbox-feedback)
-  ['feedback', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '피드백 줄']],
+  ['feedback', '#/feedback', '주고받은 기록', ['피드백 줄']],
   // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습
-  ['feedback-gallery', '#/feedback', '주고받은 기록', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '[data-ui="피드백 줄"][data-ui-item^="2026-10-04 09:30"]', '[data-ui="전후 그림"] button']],
+  ['feedback-gallery', '#/feedback', '주고받은 기록', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 09:30"]', '[data-ui="전후 그림"] button']],
   // 에이전트 대화 (10/21): 예제 실행기(agentSample.ts)가 계획 승인을 묻는 대화(계획 먼저)를 찍기 전에 만든다 (shots.mjs, {chat}). 오른쪽 사이드바 자리의 패널은 상단바 반짝이
   ['agent', '#/agent/{chat}', '계획 카드'],
   // 노트를 고치고 끝난 대화와 바뀐 곳 패널 (#232)
@@ -111,7 +111,7 @@ export const DEFAULT_SCREENS = [
   ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)']],
   ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
   // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
-  ['feedback-agent', '#/feedback', '에이전트 진행', ['[data-ui="거르기"] button:text-matches("^(확인 필요|Needs review)")', '[data-ui="피드백 줄"][data-ui-item^="2026-10-04 10:15"]']],
+  ['feedback-agent', '#/feedback', '에이전트 진행', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 10:15"]']],
   ['about', '#/about', '소개'],
   // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
   ['about-tags', '#/about/symbols/tags', '대화 태그'],

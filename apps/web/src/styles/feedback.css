@@ -32,13 +32,13 @@ body.feedback-on .toast { bottom: 76px; }
 
 /* 피드백 모아 보기 */
 .fbp-toolbar { height: auto; min-height: calc(var(--input-h) + var(--sp-4)); padding-block: var(--sp-2); white-space: nowrap; }
-.fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; }
-.fbp-toolbar .segmented button { flex: none; white-space: nowrap; }
+.fbp-pick { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.fbp-pick .mini-select { max-width: none; }
+.fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; font-size: var(--fs-xs); }
 .fbp-tools { display: flex; justify-self: end; justify-content: flex-end; align-items: center; gap: var(--sp-2); min-width: 0; }
 .fbp-filters { justify-self: start; justify-content: flex-start; flex-wrap: nowrap; }
 @media (max-width: 900px) {
-  .fbp-toolbar { display: flex; flex-wrap: wrap; }
-  .fbp-toolbar .segmented { flex-wrap: wrap; }
+  .fbp-toolbar { display: flex; flex-wrap: wrap; column-gap: var(--sp-4); }
   .fbp-tools { margin-left: auto; }
 }
 .fbp-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
@@ -66,6 +66,15 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-table th:nth-child(n+2):nth-child(-n+5), .fbp-table td:nth-child(n+2):nth-child(-n+5) { text-align: center; }
 .fbp-table th:nth-child(7), .fbp-table th:nth-child(8) { width: 88px; } .fbp-table th:nth-child(9), .fbp-table th:nth-child(10) { width: 80px; white-space: nowrap; }
 .fbp-table td:nth-child(n+7) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 좁은 폭: 피드백 열이 한 글자씩 끊기거나 사라지지 않게, 덜 중요한 열부터 숨긴다 (줄을 펼치면 다 보인다).
+   display: none 대신 폭 0으로 접는다: 펼친 줄(colspan 10)이 빈 열에 폭을 나눠 주지 않게 */
+.fbp-table-box { container-type: inline-size; }
+.fbp-table th { white-space: nowrap; }
+@container (max-width: 900px) { .fbp-table :is(th, td):nth-child(9) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+@container (max-width: 800px) { .fbp-table :is(th, td):nth-child(7) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+@container (max-width: 680px) { .fbp-table :is(th, td):is(:nth-child(2), :nth-child(5)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+@container (max-width: 540px) { .fbp-table :is(th, td):is(:nth-child(8), :nth-child(10)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+@container (max-width: 380px) { .fbp-table :is(th, td):nth-child(3) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
 .fbp-table td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: baseline; }
 .fbp-row { cursor: pointer; }
 .fbp-row:hover, .fbp-row.on { background: var(--bg-hover); }
@@ -123,6 +132,13 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbp-summary-text .memo-text p { margin: 0; }
 .fbp-summary-old { display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr) max-content; gap: 2px var(--sp-2); align-items: baseline; padding: var(--sp-1) 0; border-top: 1px solid var(--line); font-size: var(--fs-xs); }
 .fbp-summary-old > .muted { grid-column: 1 / -1; }
+/* 좁은 표 안: 이름과 시각을 한 줄에, 글은 그 아래 온 폭으로 (값 칸이 낱말마다 끊겼다) */
+@container (max-width: 540px) {
+  .fbp-summary, .fbp-summary-old { grid-template-columns: minmax(0, 1fr) max-content; grid-auto-flow: row dense; }
+  .fbp-summary-row > b { grid-column: 1; }
+  .fbp-summary-row > .fbp-summary-text { grid-column: 1 / -1; }
+  .fbp-summary-row > :last-child:not(.fbp-summary-text) { grid-column: 2; }
+}
 .fbp-summary .fbp-earlier[open] > summary { margin-bottom: 0; }
 .fbp-say-head .sp { flex: 1; }
 .fbp-say-when { white-space: nowrap; }
