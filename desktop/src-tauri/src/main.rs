@@ -74,7 +74,8 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &PredefinedMenuItem::hide_others(app, Some("기타 가리기"))?,
         &PredefinedMenuItem::show_all(app, Some("모두 보기"))?,
         &PredefinedMenuItem::separator(app)?,
-        &PredefinedMenuItem::quit(app, Some("Emergence Workbench 종료"))?,
+        // 맥 표준 종료(NSApp terminate)는 ExitRequested 없이 끝나 보던 화면을 기억할 틈이 없다. 그래서 직접 만든다
+        &MenuItem::with_id(app, "quit", "Emergence Workbench 종료", true, Some("CmdOrCtrl+Q"))?,
     ])?;
     let edit = Submenu::with_items(app, "편집", true, &[
         &PredefinedMenuItem::undo(app, Some("실행 취소"))?,
@@ -140,6 +141,13 @@ fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .menu(app_menu)
         .on_menu_event(|app, event| {
+            if event.id().as_ref() == "quit" {
+                if let Some(w) = app.get_webview_window("main") {
+                    remember_page(&w);
+                }
+                app.exit(0);
+                return;
+            }
             if let (Some(window), Some(script)) = (app.get_webview_window("main"), menu_script(event.id().as_ref())) {
                 let _ = window.eval(script);
             }
@@ -178,9 +186,9 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("Emergence Workbench 창을 열지 못했습니다")
-        // ⌘Q로 끝낼 때는 창 닫기 이벤트가 오지 않으므로 여기서도 기억한다
+        // 창 닫기 이벤트 없이 끝날 때(Dock의 종료, 로그아웃)도 창이 남아 있으면 기억한다
         .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { .. } = event {
+            if let tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit = event {
                 if let Some(w) = app.get_webview_window("main") {
                     remember_page(&w);
                 }
