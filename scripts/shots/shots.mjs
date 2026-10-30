@@ -2,11 +2,12 @@
 //   찍은 그림: shots/<화면>.png (저장소에 넣지 않는다). 하나라도 오류가 나면 실패로 끝난다.
 //   실제 연구 저장소·~/.config는 쓰지 않는다 (RW_SANDBOX=1).
 //   브라우저: CHROMIUM_PATH, 없으면 playwright-core가 아는 chromium (CI는 실행기에 깔린 Chrome).
+//   SHOTS_BROWSER=webkit이면 WebKit(Safari 엔진)으로 찍는다: 데스크톱 앱 엔진 확인용 (npx playwright install webkit 먼저).
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium } from 'playwright-core'
+import { chromium, webkit } from 'playwright-core'
 import { parseShotOptions, screenScheme, SHOTS_HELP } from './options.mjs'
 import { selectScreens } from './screens.mjs'
 import { clearAgentEdits, seedAgentEdits, seedEditTalk } from './agent-edits.mjs'
@@ -60,7 +61,7 @@ try {
   if (!rid) throw new Error('예제 연구가 등록되지 않았습니다')
 
   fs.mkdirSync(out, { recursive: true })
-  const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
+  const browser = process.env.SHOTS_BROWSER === 'webkit' ? await webkit.launch() : await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
   const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
   // Start in the capture language, so the first screen does not load in the browser language and reload (i18n.ts)
   await page.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
