@@ -124,3 +124,14 @@
 .pdf-shell.toc-open > .pdf-back { left: calc(min(240px, 40%) + var(--sp-3)); }
 .pdf-back:hover { background: var(--bg-hover); }
 @container (max-width: 400px) { .pdf-tools [data-ui="목차 단추"] { display: none; } .pdf-find input { width: 110px; } }
+
+/* 읽기 정리 (10/30): 고른 곳마다 하이라이트 · 메모 · 질문 한 묶음, 쓰는 칸은 메모와 질문 두 칸 */
+.rd-group { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 6px var(--sp-2) var(--sp-2); background: var(--bg); display: flex; flex-direction: column; gap: var(--sp-1); }
+.rd-group.on { border-color: var(--line-strong); }
+.rd-head { display: flex; align-items: center; gap: var(--sp-1); }
+.rd-head .sp { flex: 1; }
+.rd-quote { border-left-width: 3px; border-radius: 2px; max-height: 6em; }
+.rd-group .cmt { border: 0; border-left: 2px solid var(--line-strong); border-radius: 0; padding: 2px var(--sp-2); }
+.rd-group .cmt.comment { border-left-color: var(--line-strong); }
+.rd-only { font-size: var(--fs-xs); padding-left: var(--sp-2); }
+.cmt-field-label { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }

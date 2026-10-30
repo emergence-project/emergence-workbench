@@ -22,6 +22,8 @@ import { kindLabel, stateLabel } from './recordLabels'
 import { qk, queryClient } from './queries'
 import { useQueryClient } from '@tanstack/react-query'
 import { useUnpublished } from './RecordsPublish'
+import { readingGroups, readingMarkdown } from './reading'
+import { ReadingCard } from './ReadingCard'
 import { recordWrites, useRecordActions, type RecordWrites } from './useRecordActions'
 
 
@@ -201,17 +203,17 @@ export function CommentablePdf({ rid, target, url, highlight, onPick, remember }
     id: c.id, page: c.page!, rects: c.rects, kind: c.kind === '질문' ? 'question' : 'comment', color: c.color, on: slot.active === c.id,
     title: `${kindLabel(c.kind)} · ${shown(c.where)}${c.state ? ` · ${stateLabel(c.state)}` : ''}\n${c.body || c.quote || ''}`.slice(0, 300),
   }))
-  const revealed = slot.reveal && byId.get(slot.reveal.id)
+  const revealed = slot.reveal && (byId.get(slot.reveal.id) ?? slot.file?.highlights.find((h) => h.id === slot.reveal!.id))
   const reveal = revealed?.page ? { page: revealed.page, y: revealed.rects[0]?.[1] ?? 0, nonce: slot.reveal!.nonce } : null
   const library = rid === LIBRARY
-  const show = (draft: RecordDraft = {}) => {
-    openRecordComposer(rid, target, draft)
+  const show = (draft: RecordDraft = {}, question = false) => {
+    openRecordComposer(rid, target, draft, question ? { text: '', kind: '질문' } : undefined)
     if (library) window.dispatchEvent(new Event(OPEN_CONTEXT))
   }
-  const open = (page: number, sel: PdfSelection | null) => show({
+  const open = (page: number, sel: PdfSelection | null, question = false) => show({
     page: sel?.page ?? (library ? undefined : page),
     ...(sel && { rects: sel.rects, pageHeight: sel.pageHeight, quote: sel.text, color }),
-  })
+  }, question)
   const paint = usePaint(rid, target, owner, (h) => show({
     page: h.page, rects: h.rects, pageHeight: h.pageHeight, quote: h.quote, color: h.color,
   }))
@@ -237,6 +239,7 @@ export function CommentablePdf({ rid, target, url, highlight, onPick, remember }
         <PaintDots color={color} disabled={paint.busy} onChange={(c) => { void paint.add(sel, c); clear() }} />
         <span className="record-separator" />
         <button onClick={() => { open(sel.page, sel); clear() }}><span className="ico">{Icon.comment}</span> {t('코멘트', 'Comment')}</button>
+        <button data-ui="고른 글 질문" title={t('고른 글에 대해 에이전트에게 묻습니다 (메모도 함께 쓸 수 있습니다)', 'Ask the agent about the selected text (you can add a note too)')} onClick={() => { open(sel.page, sel, true); clear() }}>? {t('질문', 'Question')}</button>
       </>} />
   )
 }
@@ -329,48 +332,65 @@ const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n)}…` : t
 
 export function Composer({ rid, target, draft, onClose, onSaved }: { rid: string; target: CommentTarget; draft: Draft; onClose(): void; onSaved(id: string): void }) {
   const [text, setText] = useState('')
+  /** 고른 글이 있으면 메모와 질문을 한 칸에서 함께 쓴다 (10/30 "고른 곳에 질문과 메모를 같이"). 둘은 같은 자리를 가리키는 기록 둘로 저장한다 */
+  const [ask, setAsk] = useState('')
   const [kind, setKind] = useState<CommentKind>(draft.kind)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const area = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => { area.current?.focus() }, [draft])
+  const askArea = useRef<HTMLTextAreaElement>(null)
+  const quote = draft.sel?.text ?? draft.quote
+  useEffect(() => { (quote && draft.kind === '질문' ? askArea : area).current?.focus() }, [draft, quote])
   useEffect(() => { setKind(draft.kind) }, [draft])
+  const empty = !text.trim() && !ask.trim() && !quote
   const save = async () => {
-    if (busy || (!text.trim() && !draft.sel && !draft.quote)) return
+    if (busy || empty) return
     setBusy(true)
     try {
-      const id = await backend(rid).add(target.target, {
-        kind, title: target.title, source: target.source, page: draft.page,
-        rects: draft.sel?.rects, pageHeight: draft.sel?.pageHeight, quote: draft.sel?.text ?? draft.quote, text,
+      const at = {
+        title: target.title, source: target.source, page: draft.page,
+        rects: draft.sel?.rects, pageHeight: draft.sel?.pageHeight, quote,
         color: draft.color, line: draft.line, prefix: draft.prefix, suffix: draft.suffix,
-      })
+      }
+      const parts: [CommentKind, string][] = []
+      if (!quote) parts.push([kind, text])
+      else { if (text.trim() || !ask.trim()) parts.push(['메모', text]); if (ask.trim()) parts.push(['질문', ask]) }
+      let last = ''
+      for (const [k, body] of parts) last = await backend(rid).add(target.target, { kind: k, ...at, text: body })
       await load(rid, target.target)
       bumpPending()
-      onSaved(id)
+      onSaved(last)
       onClose()
       // 질문은 답이 붙는 맥락 칸을 연다. 맥의 Claude가 언제 답할지는 설정 › 에이전트 › 질문 · 지시 처리를 따른다 (서버가 받음, 10/28 피드백 22:19)
-      if (kind === '질문') window.dispatchEvent(new Event(OPEN_CONTEXT))
+      if (parts.some(([k]) => k === '질문')) window.dispatchEvent(new Event(OPEN_CONTEXT))
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
+  const keys = (set: (v: string) => void) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() }
+    else if (e.key === 'Escape') onClose()
+    else onListKey(e, set)
+  }
   return (
-    <div className={`pdf-pop composer ${kind === '질문' ? 'question' : 'comment'}`} data-ui="코멘트 쓰기">
-      <div className="pdf-pop-head"><div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>
+    <div className={`pdf-pop composer ${kind === '질문' && !quote ? 'question' : 'comment'}`} data-ui="코멘트 쓰기">
+      <div className="pdf-pop-head">{quote ? <b>{t('메모 · 질문', 'Note · question')}</b> : <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>
         {(['메모', '질문'] as const).map((k) => <button key={k} type="button" className={kind === k || (kind === '코멘트' && k === '메모') ? 'on' : ''} aria-pressed={kind === k || (kind === '코멘트' && k === '메모')} onClick={() => setKind(k)}>{kindLabel(k)}</button>)}
-      </div> <span className="muted">{draft.page ? t(`· ${draft.page}쪽`, `· p. ${draft.page}`) : rid === LIBRARY ? t('· 논문 전체', '· Whole paper') : `· ${target.title}`}</span></div>
-      {(draft.sel?.text ?? draft.quote) && <blockquote className="cmt-quote" style={draft.color ? { borderColor: `var(--paint-${draft.color})` } : undefined}>{clip(draft.sel?.text ?? draft.quote!, 400)}</blockquote>}
-      <textarea ref={area} rows={3} value={text} placeholder={kind === '질문' ? t('무엇이 궁금한가요? 검산·정리·반례 찾기 같은 부탁도 됩니다 (⌘↵ 저장)', 'What do you want to know? You can also ask for checks, summaries, or counterexamples (⌘↵ to save)') : t('코멘트 (⌘↵ 저장)', 'Comment (⌘↵ to save)')}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() }
-          else if (e.key === 'Escape') onClose()
-          else onListKey(e, setText)
-        }} />
+      </div>} <span className="muted">{draft.page ? t(`· ${draft.page}쪽`, `· p. ${draft.page}`) : rid === LIBRARY ? t('· 논문 전체', '· Whole paper') : `· ${target.title}`}</span></div>
+      {quote && <blockquote className="cmt-quote" style={draft.color ? { borderColor: `var(--paint-${draft.color})` } : undefined}>{clip(quote, 400)}</blockquote>}
+      {quote && <span className="cmt-field-label">{kindLabel('메모')}</span>}
+      <textarea ref={area} rows={quote ? 2 : 3} value={text} aria-label={quote ? kindLabel('메모') : undefined}
+        placeholder={quote ? t('읽으며 남길 메모', 'A note on this passage') : kind === '질문' ? t('무엇이 궁금한가요? 검산·정리·반례 찾기 같은 부탁도 됩니다 (⌘↵ 저장)', 'What do you want to know? You can also ask for checks, summaries, or counterexamples (⌘↵ to save)') : t('코멘트 (⌘↵ 저장)', 'Comment (⌘↵ to save)')}
+        onChange={(e) => setText(e.target.value)} onKeyDown={keys(setText)} />
+      {quote && <>
+        <span className="cmt-field-label">{kindLabel('질문')}</span>
+        <textarea ref={askArea} rows={2} value={ask} aria-label={kindLabel('질문')} placeholder={t('에이전트에게 물을 것 (검산·정리·반례 찾기도 됩니다)', 'What to ask the agent (checks, summaries, counterexamples too)')}
+          onChange={(e) => setAsk(e.target.value)} onKeyDown={keys(setAsk)} />
+      </>}
       {err && <div className="banner danger">{err}</div>}
       <div className="cmt-actions">
-        <span className="muted mono">{backend(rid).where(target.target)}</span>
+        <span className="muted mono">{quote ? t('하나만 써도 됩니다 · ⌘↵', 'Either one is enough · ⌘↵') : backend(rid).where(target.target)}</span>
         <span className="sp" />
         <button className="btn ghost" onClick={onClose}>{t('취소', 'Cancel')}</button>
-        <button className="btn primary" disabled={busy || (!text.trim() && !draft.sel && !draft.quote)} onClick={() => void save()}>{busy ? t('저장 중…', 'Saving…') : t('저장', 'Save')}</button>
+        <button className="btn primary" disabled={busy || empty} onClick={() => void save()}>{busy ? t('저장 중…', 'Saving…') : t('저장', 'Save')}</button>
       </div>
     </div>
   )
@@ -378,7 +398,8 @@ export function Composer({ rid, target, draft, onClose, onSaved }: { rid: string
 
 // ---------- 목록 (맥락 칸·PDF 위 목록) ----------
 
-export function CommentList({ rid, target }: { rid: string; target: string }) {
+/** 기록 목록. 고른 곳마다 하이라이트 · 메모 · 질문을 한 묶음으로, 쪽 순서 (reading.ts). onAdd: 묶음에 메모 · 질문 더하기 */
+export function CommentList({ rid, target, onAdd }: { rid: string; target: string; onAdd?(draft: Draft): void }) {
   const key = keyOf(rid, target)
   const slot = useSlot(rid, target)
   const [err, setErr] = useState<string | null>(null)
@@ -396,23 +417,28 @@ export function CommentList({ rid, target }: { rid: string; target: string }) {
   }
   const api = backend(rid)
   if (!slot.file) return <p className="empty cmt-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>
-  if (!items.length) return <p className="empty cmt-empty" title={t('글을 끌어 고르거나 PDF 툴바의 코멘트로 기록을 남깁니다.', 'Select text or use Comment in the PDF toolbar to add a record.')}>{t('없음', 'None')}</p>
+  const item = (c: CommentEntry, inGroup: boolean) => (
+    <CommentItem key={c.id} c={c} on={slot.active === c.id} ref_={slot.active === c.id ? activeEl : undefined} noQuote={inGroup}
+      asking={asking.has(askKey(rid, target, c.id))} onAsk={() => void askClaude(rid, target, c.id)}
+      onGo={() => revealComment(rid, target, c.id)}
+      onState={(s) => void act((h) => api.setState(target, c.id, s, h))}
+      onDelete={() => void askConfirm({ title: t('이 코멘트를 지울까요?', 'Delete this comment?'), hint: t('달린 답도 함께 지워집니다.', 'Its answers are deleted too.'), ok: t('삭제', 'Delete') }).then((y) => { if (y) void act((h) => api.remove(target, c.id, h)) })} />
+  )
+  const groups = readingGroups(slot.file)
+  if (!groups.length) return <p className="empty cmt-empty" title={t('글을 끌어 고르거나 PDF 툴바의 코멘트로 기록을 남깁니다.', 'Select text or use Comment in the PDF toolbar to add a record.')}>{t('없음', 'None')}</p>
   return (
     <div className="cmt-list">
       {(err ?? askErr) && <div className="banner">{err ?? askErr}</div>}
-      {items.map((c) => (
-        <CommentItem key={c.id} c={c} on={slot.active === c.id} ref_={slot.active === c.id ? activeEl : undefined}
-          asking={asking.has(askKey(rid, target, c.id))} onAsk={() => void askClaude(rid, target, c.id)}
-          onGo={() => revealComment(rid, target, c.id)}
-          onState={(s) => void act((h) => api.setState(target, c.id, s, h))}
-          onDelete={() => void askConfirm({ title: t('이 코멘트를 지울까요?', 'Delete this comment?'), hint: t('달린 답도 함께 지워집니다.', 'Its answers are deleted too.'), ok: t('삭제', 'Delete') }).then((y) => { if (y) void act((h) => api.remove(target, c.id, h)) })} />
+      {groups.map((g) => !g.quote ? g.items.map((c) => item(c, false)) : (
+        <ReadingCard key={g.key} g={g} on={g.items.some((c) => c.id === slot.active)} onGo={() => revealComment(rid, target, g.items[0]?.id ?? g.highlightId!)}
+          onAdd={onAdd && (() => onAdd({ kind: '메모', page: g.page, sel: { page: g.page!, rects: g.rects ?? [], text: g.quote! }, color: g.color }))}>{g.items.map((c) => item(c, true))}</ReadingCard>
       ))}
     </div>
   )
 }
 
-function CommentItem({ c, on, ref_, asking, onAsk, onGo, onState, onDelete }: {
-  c: CommentEntry; on: boolean; ref_?: React.Ref<HTMLDivElement>; asking: boolean; onAsk(): void; onGo(): void; onState(s: '대기' | '끝냄'): void; onDelete(): void
+function CommentItem({ c, on, ref_, noQuote, asking, onAsk, onGo, onState, onDelete }: {
+  c: CommentEntry; on: boolean; ref_?: React.Ref<HTMLDivElement>; noQuote?: boolean; asking: boolean; onAsk(): void; onGo(): void; onState(s: '대기' | '끝냄'): void; onDelete(): void
 }) {
   return (
     <div className={`cmt ${c.kind === '질문' ? 'question' : 'comment'}${on ? ' on' : ''}${c.state === '끝냄' ? ' done' : ''}`} ref={ref_} data-ui="코멘트" data-ui-item={c.id}>
@@ -431,7 +457,7 @@ function CommentItem({ c, on, ref_, asking, onAsk, onGo, onState, onDelete }: {
           {c.answers.length === 0 && <button className="icon-btn hover-actions" title={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} onClick={onDelete}>{Icon.trash}</button>}
         </div>
       </div>
-      {c.quote && <blockquote className="cmt-quote" onClick={onGo}>{c.quote}</blockquote>}
+      {c.quote && !noQuote && <blockquote className="cmt-quote" onClick={onGo}>{c.quote}</blockquote>}
       {c.body && <div className="cmt-body">{c.body}</div>}
       {c.answers.map((a, i) => (
         <div key={i} className="cmt-answer">
@@ -452,11 +478,12 @@ export function CommentsPanel({ rid, target }: { rid: string; target: CommentTar
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
+  const slot = useSlot(rid, target.target)
   const request = useRecordComposerRequest()
   useEffect(() => {
     if (!request || request.rid !== rid || request.target.target !== target.target) return
     const a = request.draft
-    setDraft({ kind: '메모', ...a, sel: a.page && a.rects ? { page: a.page, rects: a.rects, text: a.quote ?? '', pageHeight: a.pageHeight } : null })
+    setDraft({ kind: request.fill?.kind === '질문' ? '질문' : '메모', ...a, sel: a.page && a.rects ? { page: a.page, rects: a.rects, text: a.quote ?? '', pageHeight: a.pageHeight } : null })
     clearRecordComposerRequest(request.nonce)
   }, [request, rid, target.target])
   const publish = async () => {
@@ -470,8 +497,10 @@ export function CommentsPanel({ rid, target }: { rid: string; target: CommentTar
   return (
     <section className="ctx-comments" data-ui="맥락 칸 코멘트">
       <div className="pane-head" data-ui="머리줄">
-        <span className="crumb"><b>{t('코멘트·질문', 'Comments and questions')}</b>{rid !== LIBRARY && <> · {target.title}</>}</span>
+        <span className="crumb"><b>{rid === LIBRARY ? t('정리', 'Notes') : t('코멘트·질문', 'Comments and questions')}</b>{rid !== LIBRARY && <> · {target.title}</>}</span>
         <span className="sp" />
+        <button className="icon-btn sm" data-ui="정리 복사" aria-label={t('정리를 Markdown으로 복사', 'Copy notes as Markdown')} data-tip={t('Markdown으로 복사', 'Copy as Markdown')} disabled={!slot.file}
+          onClick={() => { if (slot.file) void navigator.clipboard.writeText(readingMarkdown(target.title, readingGroups(slot.file))).then(() => flash(t('정리를 복사했습니다', 'Copied the notes')), (e: Error) => flash(e.message)) }}>{Icon.copy}</button>
         <button className={`btn sm${draft ? ' on' : ''}`} data-ui="질문 쓰기 단추" title={t('이 노트·PDF 전체에 대해 Claude에게 질문하거나 부탁합니다 (검산, 정리, 반례 찾기 …)', 'Ask Claude a question or a favor about this whole note or PDF (checks, summaries, counterexamples …)')} aria-pressed={!!draft}
           onClick={() => setDraft(draft ? null : { kind: '질문', sel: null })}>? {t('질문', 'Question')}</button>
         {!!unpublished?.length && (
@@ -482,7 +511,7 @@ export function CommentsPanel({ rid, target }: { rid: string; target: CommentTar
       {msg && <div className="banner">{msg}<span className="sp" /><button className="btn ghost sm" onClick={() => setMsg(null)}>{t('닫기', 'Close')}</button></div>}
       {draft && <div className="cmt-inline"><Composer rid={rid} target={target} draft={draft} onClose={() => setDraft(null)}
         onSaved={(id) => patch(keyOf(rid, target.target), { active: id })} /></div>}
-      <CommentList rid={rid} target={target.target} />
+      <CommentList rid={rid} target={target.target} onAdd={setDraft} />
     </section>
   )
 }
