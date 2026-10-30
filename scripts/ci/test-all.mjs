@@ -20,6 +20,7 @@ const steps = [
   ['소개와 업데이트', 'node', ['scripts/ci/check-about.mjs']],
   ['React hooks 규칙', 'pnpm', ['--filter', '@rw/web', 'run', 'lint']],
   ['파일 이름 대소문자', 'node', ['scripts/ci/check-case.mjs']],
+  ['구조 래칫', 'node', ['scripts/ci/check-ratchet.mjs']],
 ]
 const failed = []
 const skipped = []

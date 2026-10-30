@@ -52,6 +52,7 @@ PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)�
 - 스타일: `tokens.css`(색·간격·글자 크기)와 `styles/<화면>.css`. `main.tsx`의 import 순서가 우선순위다. 새 화면은 자기 파일을 만들어 맨 아래에 import 한 줄을 더하고, 남의 화면 파일은 고치지 않는다. 여러 화면이 같이 쓰는 부품은 `styles/parts/`(디자인 문서 3절).
 - 화면 글은 `t('한국어', 'English')`로 쓴다(`apps/web/src/i18n.ts`, 서버는 `apps/server/src/i18n.ts`). 저장 값은 한국어 그대로, 보여 줄 때만 `shown()`. 영어 예제는 `pnpm dev:en`·`pnpm shots --lang en`(`fixtures/en/`가 같은 경로의 한국어 예제를 덮는다). 연구 파일에 쓰는 글(일지 머리, STATUS.md, 코멘트 파일)은 읽는 코드가 한국어로 찾으므로 아직 한국어다.
 - `data-ui` 값은 피드백 모드의 부위 이름이다. 바꾸면 이전 피드백 기록과 어긋나니 그대로 둔다. 영어 화면에서는 `apps/web/src/uiNames.en.json`의 이름으로 보여 준다(`uiShown()`). 새 `data-ui`를 더하면 그 표에도 영어 이름을 더한다(`uiNames.test.ts`가 빠진 것을 잡는다).
+- 구조 래칫(`scripts/ci/check-ratchet.mjs`, `pnpm test`): 소스 파일 줄 수(600줄 넘는 파일)와 파일마다 타입 단언(`as T`, `@ts-ignore`) 수는 `scripts/ci/ratchet.json` 기준을 넘지 못한다. 줄였으면 `node scripts/ci/check-ratchet.mjs --update`로 기준을 낮추고, 올려야 하면 json을 고치고 커밋 메시지에 이유를 쓴다.
 - 구조를 옮기는 변경(화면이 바뀌면 안 되는 것)은 바꾸기 전후 `pnpm shots` 그림이 바이트 단위로 같은지 `cmp`로 확인한다.
 
 ## 공개 이슈와 바깥 기여 (2026-10-08 결정)
