@@ -201,6 +201,7 @@
     "packages/core/src/people.ts": 1,
     "packages/core/src/sync-settings.ts": 3,
     "packages/core/src/synctex.ts": 1,
-    "packages/core/src/ui-settings.ts": 4
+    "packages/core/src/ui-settings.ts": 4,
+    "apps/server/src/agentItems.ts": 3
   }
 }
