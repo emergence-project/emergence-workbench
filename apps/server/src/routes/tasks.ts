@@ -2,7 +2,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/tasks'
 import { parseBody, replies } from '../contract.js'
-import { answerTask, createTask, linkTaskFlow, scanTasks, nextTask, readTask, reportTask, RULES_DOC } from '../tasks.js'
+import { answerTask, checkpointTask, createTask, linkTaskFlow, scanTasks, nextTask, readTask, reportTask, RULES_DOC } from '../tasks.js'
 import { judgeTaskIntoFlow } from '../taskFlow.js'
 import type { RouteContext } from './context.js'
 
@@ -29,6 +29,9 @@ export function registerTasks(app: FastifyInstance, ctx: RouteContext): void {
   /** 에이전트의 보고: 종결 조건 제안(proposed) 또는 결과(result). MCP report_task가 부른다 (10/21) */
   app.post<{ Params: P }>('/api/researches/:rid/tasks/:id/report', replies(C.TaskOne), async (req): Promise<C.TaskOne> =>
     ({ task: reportTask(wbOf(req.params.rid), req.params.id, parseBody(C.ReportBody, req.body)) }))
+  /** 지금 상태 한 줄 (10/30): MCP checkpoint_task가 부른다 */
+  app.post<{ Params: P }>('/api/researches/:rid/tasks/:id/checkpoint', replies(C.TaskOne), async (req): Promise<C.TaskOne> =>
+    ({ task: checkpointTask(wbOf(req.params.rid), req.params.id, parseBody(C.CheckpointBody, req.body)) }))
   /** 다음 지시: 맡기기 · 빼기 · 되살리기 */
   app.post<{ Params: P }>('/api/researches/:rid/tasks/:id/next', replies(C.TaskNextDone), async (req): Promise<C.TaskNextDone> =>
     nextTask(wbOf(req.params.rid), req.params.id, parseBody(C.NextBody, req.body)))

@@ -35,10 +35,10 @@ describe('MCP 입구 (읽기)', () => {
     expect(agentOf(undefined)).toBe('mcp')
   })
 
-  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task, 일지 add_journal, 변경사항 기준을 옮기는 changes_since뿐이다', async () => {
+  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task · checkpoint_task, 일지 add_journal, 변경사항 기준을 옮기는 changes_since뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'changes_since', 'edit_concept', 'edit_note', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'finish_work', 'add_task', 'report_task', 'add_journal', 'changes_since'].includes(t.name))
+    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'changes_since', 'checkpoint_task', 'edit_concept', 'edit_note', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'finish_work', 'add_task', 'report_task', 'checkpoint_task', 'add_journal', 'changes_since'].includes(t.name))
   })
 
   it('changes_since는 Claude 계정 id를 붙여 받고, 화면 이름으로 한 줄씩 돌려준다', async () => {
@@ -414,6 +414,12 @@ describe('MCP 입구 (읽기)', () => {
     expect(textOf(notWorking)).toContain('409')
     const t0 = await read()
     expect((await app.inject({ method: 'POST', url: `${R}/tasks/${id}/judge`, payload: { verdict: 'approve', baseHash: t0.hash } })).statusCode).toBe(200)
+    // 일하는 도중 지금 상태 한 줄 (10/30): 덮어쓰고, STATUS에 보이고, 결과를 보고하면 지운다
+    expect(textOf(await c.callTool({ name: 'checkpoint_task', arguments: { project: rid, id, baseHash: (await read()).hash, text: '식 2 전개 끝남,\n  다음 식 3' } }))).toContain('Checkpoint saved')
+    expect(textOf(await c.callTool({ name: 'checkpoint_task', arguments: { project: rid, id, baseHash: (await read()).hash, text: '식 3 전개 중 · 부호 확인' } }))).toContain('Checkpoint saved')
+    expect(await read()).toMatchObject({ checkpoint: '식 3 전개 중 · 부호 확인', checkpointAt: expect.stringMatching(/^\d{4}-\d\d-\d\d \d\d:\d\d$/) })
+    expect(textOf(await c.callTool({ name: 'checkpoint_task', arguments: { project: rid, id, baseHash: 'old', text: 'x' } }))).toContain('409')
+    expect(textOf(await c.callTool({ name: 'project_status', arguments: { project: rid, section: '맡긴 일' } }))).toContain('지금: 식 3 전개 중 · 부호 확인')
     expect(textOf(await c.callTool({ name: 'report_task', arguments: {
       project: rid, id, baseHash: (await read()).hash, kind: 'result', conclusion: '식 3은 식 2와 같다: 부호, 계수 모두.', endCheck: 'pass',
       summary: '두 식이 같다.', evidence: '전개해 비교했다.', ask: ['노트에 반영할까요?', { q: '어디에?', options: ['결론 절', '부록'] }],
@@ -422,6 +428,8 @@ describe('MCP 입구 (읽기)', () => {
     const t1 = await read()
     expect(t1).toMatchObject({ state: 'result', conclusion: '식 3은 식 2와 같다: 부호, 계수 모두.', asks: [{ q: '노트에 반영할까요?', options: [] }, { q: '어디에?', options: ['결론 절', '부록'] }], issues: [{ text: 'L=48: 아직', impact: '결론과 따로' }] })
     expect(t1.body).toMatch(/## 요약과 결론\n\n두 식이 같다\.\n\n## 근거\n\n전개해 비교했다\.\n/)
+    expect(t1).not.toHaveProperty('checkpoint')
+    expect(textOf(await c.callTool({ name: 'checkpoint_task', arguments: { project: rid, id, baseHash: t1.hash, text: '더' } }))).toContain('409')
     expect((await app.inject({ method: 'GET', url: `${R}/tasks` })).json().diagnostics).toEqual([])
   })
 

@@ -33,7 +33,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 
 흐름 출력(`flow_search` · `flow_read` · `flow_add` · `flow_update` · `finish_work`)에는 `shown`이 실린다: 화면이 쓰는 말로 적은 점(예: `명제 (닫는 점) · 끝남 · 해결 · 판단 전`)이라 에이전트가 사용자에게 그대로 옮길 수 있다. MCP는 화면과 이름 · 규칙 · 차례의 경계를 같게 두고, 도구는 화면이 아니라 일 단위로 나눈다(10/27).
 
-## 도구 (edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · add_task · report_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
+## 도구 (edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
 
 연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status` → `changes_since`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
 
@@ -52,6 +52,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `list_tasks` · `read_task` | 맡긴 일 목록과 하나의 모든 칸 | `GET …/:rid/tasks`, `…/tasks/:id` |
 | `add_task` | 할 일 · 인계 · 새 일 제안을 작업 파일로 만든다 `{ title, task, endCondition?, topic?, agent?, references?, avoid? }`. `workbench/tasks/*.md`를 직접 쓰지 않는다 | `POST …/:rid/tasks` |
 | `report_task` | 진행(`working`) 중인 맡긴 일의 보고를 `read_task`의 hash와 함께 쓴다. `kind: proposal`과 `endCondition`(과 `reason`) → `proposed`. `kind: result`와 `conclusion` · `endCheck` · `summary` · `evidence`, 고르면 `ask` · `issues` · `next` · `outputs` · `checkMachine` → `result`. YAML 머리말(쉼표 · 콜론에 깨지지 않게)과 본문 두 절은 앱이 쓰고, 절에 이미 글이 있으면 지우지 않고 시각 `###` 머리 아래 덧붙인다. `done`은 쓰지 않는다 | `POST …/:rid/tasks/:id/report` |
+| `checkpoint_task` | 진행 · 멈춤인 맡긴 일의 지금 상태 한 줄(`checkpoint`, `checkpoint-at`)을 `read_task`의 hash와 함께 덮어쓴다: 방금 한 일, 자리, 다음 할 일. 고비마다(가설 확인 · 반증, 막힘, 다음 단계) 부른다. 작업 탭 줄 · 카드와 STATUS 맡긴 일 절에 보이고, 결과를 보고하면 지워진다 (2026-10-30) | `POST …/:rid/tasks/:id/checkpoint` |
 | `add_journal` | 오늘 일지에 메모 한 줄 `{ text, target? }`(한 일과 고친 파일). `workbench/log/<날짜>.md`를 직접 쓰지 않는다 | `POST …/:rid/journal` |
 | `search_library` | 개념노트 · 논문 찾기 (이름 · 다른 이름 · 저자 · 연도 · arXiv 번호). 개념노트는 본문으로도 찾고, 맞은 줄마다 `hits`(본문 줄 번호 · 그 줄의 절 제목 · 줄 글)를 붙인다. 노트 전체 대신 그 절만 보면 된다 | `GET /api/search/catalog`, `GET /api/concepts/search` |
 | `read_concept` | 개념노트 머리말 · 본문 · hash와 확인 상태(ok · changed · none) | `GET /api/concepts/:id` |

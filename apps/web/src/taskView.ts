@@ -104,9 +104,11 @@ export function taskLine(t: Task): string {
     case 'proposed': return tr('종결 조건 승인 대기', 'Awaiting criteria approval')
     case 'result': return t.endCheck === 'pass' ? tr('종결 조건 통과', 'Criteria met') : t.endCheck === 'fail' ? tr('종결 조건 미달', 'Criteria not met') : tr('결과 도착', 'Result in')
     case 'working':
-      if (last?.verdict === 'send-back') return `${tr('수정', 'Revise')}: ${last.note ?? ''}`
+      if (last?.verdict === 'send-back' && !(t.checkpointAt && last.at && t.checkpointAt > last.at)) return `${tr('수정', 'Revise')}: ${last.note ?? ''}`
+      // 지금 상태 한 줄 (10/30): 에이전트가 고비마다 덮어쓴다
+      if (t.checkpoint) return `${tr('지금', 'Now')}: ${t.checkpoint}`
       return t.endCondition ? `${tr('종결', 'Done when')}: ${t.endCondition}` : tr('종결 조건 제안을 기다림', 'Waiting for proposed criteria')
-    case 'paused': return t.issues[0] ? `${tr('남은 문제', 'Open issue')}: ${t.issues[0].text}` : tr('멈춤', 'Blocked')
+    case 'paused': return t.checkpoint ? `${tr('지금', 'Now')}: ${t.checkpoint}` : t.issues[0] ? `${tr('남은 문제', 'Open issue')}: ${t.issues[0].text}` : tr('멈춤', 'Blocked')
     case 'done': return `${tr('해결', 'Solved')}${last?.seconds ? ` · ${tr(`판단 ${Math.max(1, Math.round(last.seconds / 60))}분`, `decided in ${Math.max(1, Math.round(last.seconds / 60))} min`)}` : ''}`
     case 'stopped': return `${tr('폐기', 'Dropped')}${last?.note ? ` · ${last.note}` : ''}`
   }

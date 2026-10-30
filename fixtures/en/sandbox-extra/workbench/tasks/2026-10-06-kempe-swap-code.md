@@ -8,6 +8,8 @@ task: Collect the Kempe swap calculations scattered across scripts/ into one fun
 end-condition: Same colorings as the three old scripts, pytest passes
 references: [scripts/]
 avoid: Do not change the format of the result files
+checkpoint: merged the three scripts into kempe.py, same colorings · next add pytest
+checkpoint-at: 2026-10-06 16:05
 ---
 ## 요약과 결론
 

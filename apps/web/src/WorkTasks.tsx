@@ -134,6 +134,7 @@ export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEdi
         <dl className="tk-kv">
           <dt>{t('결론', 'Conclusion')}</dt><dd className="tk-concl">{cardConclusion(tk) || <span className="tk-none">{t('아직 없음', 'None yet')}</span>}</dd>
           <dt>{t('작업 내용', 'Task')}</dt><dd>{tk.task}</dd>
+          {tk.checkpoint && (tk.state === 'working' || tk.state === 'paused') && <><dt>{t('지금', 'Now')}</dt><dd>{tk.checkpoint}{tk.checkpointAt && <span className="tk-none"> · {tk.checkpointAt.slice(5)}</span>}</dd></>}
         </dl>
         <div className="tk-2col">
           <div><div className="tk-h turn">{t('사용자 확인 요청', 'Asks for you')}</div><Items list={cardAsks(tk).map((a) => a.q)} /></div>
