@@ -18,6 +18,7 @@ import { openRecordComposer } from './RecordContext'
 import { useRecords } from './projectQueries'
 import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
+import { AgentChip, AgentChoices, agentOf, effortsOf, fitEffort, isClaude, modelName, useModels } from './AgentPick'
 
 /**
  * 에이전트 대화 (10/21 "프로젝트 관리 먼저", 같은 날 "에이전트 창 구조 다시" · "코덱스와 Claude 앱 더 참고"):
@@ -101,37 +102,14 @@ const TRUST_HINT: Record<Trust, string> = {
 export const trustOf = (c: { write: string; mode: ChatMode }): Trust => (c.write === 'read' ? 'read' : c.mode)
 const settingsOf = (v: Trust): ChatSettings => (v === 'read' ? { write: 'read' } : { write: 'notes', mode: v })
 /** ⇧⇥: 다음 맡기는 정도 */
-export const nextTrust = (v: Trust): Trust => TRUSTS[(TRUSTS.indexOf(v) + 1) % TRUSTS.length]!
+export const nextTrust = (v: Trust, claude = true): Trust => { const n = TRUSTS[(TRUSTS.indexOf(v) + 1) % TRUSTS.length]!; return n === 'plan' && !claude ? nextTrust(n) : n }
 const EFFORT_NAME: Record<ChatEffort, string> = { low: t('생각 얕게', 'Think less'), medium: t('생각 보통', 'Think normally'), high: t('생각 깊게', 'Think more'), xhigh: t('생각 더 깊게', 'Think much more'), max: t('생각 가장 깊게', 'Think hardest') }
 /** 입력란 아래 줄의 짧은 이름 (좁은 패널에서도 한 줄) */
 const EFFORT_SHORT: Record<ChatEffort, string> = { low: t('얕게', 'Less'), medium: t('보통', 'Normal'), high: t('깊게', 'More'), xhigh: t('더 깊게', 'Much more'), max: t('가장 깊게', 'Hardest') }
-const BASIC_EFFORTS: ChatEffort[] = ['low', 'medium', 'high']
-/** 맥의 Claude Code에게 모델을 묻지 못했을 때 (별칭 넷) */
-const FALLBACK_MODELS: ModelChoice[] = [
-  { value: 'default', name: t('기본 모델', 'Default model'), desc: '', efforts: BASIC_EFFORTS },
-  { value: 'opus', name: 'Opus', desc: '', efforts: BASIC_EFFORTS },
-  { value: 'sonnet', name: 'Sonnet', desc: '', efforts: BASIC_EFFORTS },
-  { value: 'haiku', name: 'Haiku', desc: '', efforts: BASIC_EFFORTS },
-]
-/** 고를 수 있는 모델: 맥의 Claude Code가 아는 것 (버전까지, 예: Opus 5.5 · Opus 5) */
-function useModels(): ModelChoice[] {
-  const got = useQuery({ queryKey: qk.agentModels, queryFn: agentChatsApi.models, staleTime: 30 * 60_000 }).data
-  return got?.length ? got : FALLBACK_MODELS
-}
-/** 모델 이름: 기본은 실제로 도는 모델을 붙여 "기본 (Opus 5.5)", 목록에 없는 id는 그대로 */
-export function modelName(value: ChatModel, list: ModelChoice[]): string {
-  const m = list.find((x) => x.value === value)
-  if (value !== 'default') return m?.name ?? value
-  const real = m?.resolved && list.find((x) => x.value !== 'default' && x.resolved === m.resolved)?.name
-  return real ? t(`기본 (${real})`, `Default (${real})`) : t('기본 모델', 'Default model')
-}
-/** 모델을 바꿀 때: 새 모델이 지금 생각 깊이를 받지 않으면 보통(없으면 첫째)으로 */
-export const fitEffort = (now: ChatEffort, efforts: ChatEffort[]): { effort?: ChatEffort } => (!efforts.length || efforts.includes(now) ? {} : { effort: efforts.includes('medium') ? 'medium' : efforts[0]! })
-/** 그 모델이 받는 생각 깊이 (목록에 없는 모델은 기본 셋, 받지 않으면 빈 목록) */
-export const effortsOf = (value: ChatModel, list: ModelChoice[]): ChatEffort[] => { const m = list.find((x) => x.value === value); return m ? m.efforts ?? [] : BASIC_EFFORTS }
+export { effortsOf, fitEffort, modelName } from './AgentPick'
 
 /** custom = 권한 표의 토글을 하나씩 바꿔 이름이 「직접 정함」 */
-interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; custom?: boolean }
+interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; custom?: boolean; agent: string }
 
 // ---------- / 명령 ----------
 
@@ -670,7 +648,7 @@ function PopButton({ label, ui, tip, children, wide, down, icon }: { label: Reac
  * 아래 줄 ＋ · 맡기는 정도 ▾ · 모델 · 생각 ▾ · 보내기(도는 중이고 글이 없으면 멈추기). ⇧⇥로 맡기는 정도를 바꾼다.
  * 대화 중에 바꾼 설정은 다음 차례부터 (onSettings)
  */
-function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus }: {
+function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed }: {
   rid: string
   auto?: Attach
   settings: Settings
@@ -683,6 +661,8 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
   /** 바깥에서 글 칸을 채울 때 (기다리는 지시 고치기). n이 바뀌면 채운다 */
   fill?: Fill
   autoFocus?: boolean
+  /** 이미 시작한 대화: 에이전트를 바꾸지 못한다 */
+  agentFixed?: boolean
 }) {
   const [text, setText] = useState('')
   const [caret, setCaret] = useState(0)
@@ -789,7 +769,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); picks[hi]?.run(); return }
     }
     if (menu && e.key === 'Escape') { e.preventDefault(); setClosed(menu.start); return }
-    if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust) }); return }
+    if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust, isClaude(settings.agent)) }); return }
     if (e.key === 'Escape' && onStop && !text) { e.preventDefault(); onStop(); return }
     sendKey.onKeyDown(e)
   }
@@ -804,7 +784,7 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
   }
   const stopping = !!onStop && !text.trim()
   const shownFail = fail ?? outerFail
-  const models = useModels()
+  const models = useModels(settings.agent)
   const efforts = effortsOf(settings.model, models)
 
   return (
@@ -844,15 +824,16 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
         </PopButton>
         <input ref={file} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={(e) => { void addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
         <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{settings.custom ? CUSTOM_NAME : TRUST_NAME[settings.trust]} ▾</>}>
-          {(close) => TRUSTS.map((v) => (
+          {(close) => TRUSTS.filter((v) => v !== 'plan' || isClaude(settings.agent)).map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
               <span className="ac-pop-check" aria-hidden>{settings.trust === v ? Icon.check : null}</span>
               <span className="ac-pop-what"><span>{TRUST_NAME[v]}</span><span className="muted">{(rid === APP_RID ? APP_HINT : TRUST_HINT)[v]}</span></span>
             </button>
           ))}
         </PopButton>
-        <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<>{modelName(settings.model, models)}{efforts.length > 0 && ` · ${EFFORT_SHORT[settings.effort]}`} ▾</>}>
+        <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{modelName(settings.model, models)}{efforts.length > 0 && ` · ${EFFORT_SHORT[settings.effort]}`} ▾</>}>
           {(close) => <>
+            <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings({ agent: a, model: 'default', effort: 'medium', ...(a !== 'claude-code' && settings.trust === 'plan' && { trust: 'ask' }) }) }} />
             <div className="ac-pop-h">{t('모델', 'Model')}</div>
             {models.map((m) => <button key={m.value} role="menuitemradio" aria-checked={settings.model === m.value} className={settings.model === m.value ? 'on' : ''} onClick={() => { close(); onSettings({ model: m.value, ...fitEffort(settings.effort, effortsOf(m.value, models)) }) }}><span className="ac-pop-check" aria-hidden>{settings.model === m.value ? Icon.check : null}</span>{modelName(m.value, models)}</button>)}
             {efforts.length > 0 && <div className="ac-pop-h">{t('생각', 'Thinking')}</div>}
@@ -1023,7 +1004,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
   const live = isLive(chat.state)
-  const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
+  const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, agent: chat.agent, ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
   const change = (s: Partial<Settings>) => {
     setOver((o) => ({ ...o, ...s }))
     setFail(null)
@@ -1089,7 +1070,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
         {behind && <button className="btn sm ac-latest" data-ui="최신으로" onClick={toEnd}>{Icon.down}{t('최신으로', 'Latest')}</button>}
         {showTodos && <TodoBar todos={chat.todos} />}
         <QueuedBar chat={chat} onEdit={(f) => setFill({ ...f, n: Date.now() })} onError={setFail} />
-        <Composer rid={chat.rid} auto={auto} settings={settings} onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
+        <Composer rid={chat.rid} auto={auto} settings={settings} agentFixed onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
           placeholder={placeholder} fail={fail} fill={fill} />
         <div className="muted ac-keys">{t('⇧⇥ 권한 · ⌘↵ 보내기', '⇧⇥ permissions · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
       </div>
@@ -1100,7 +1081,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
 // ---------- 새 대화 ----------
 
 const SETTINGS_KEY = 'rw-agent-settings'
-const defaultSettings = (): Settings => ({ trust: 'edit', model: 'default', effort: 'medium', ...store.get<Partial<Settings>>(SETTINGS_KEY, {}) })
+const defaultSettings = (): Settings => ({ trust: 'edit', model: 'default', effort: 'medium', agent: 'claude-code', ...store.get<Partial<Settings>>(SETTINGS_KEY, {}) })
 
 /** 새 대화: 프로젝트(rid가 없을 때) · 범위(지금 보는 곳에서) · 입력란 하나 */
 export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: { file: string; title: string }; onCreated(c: Chat): void }) {
@@ -1127,7 +1108,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()
-    const c = await agentChatsApi.create({ rid, ...m, scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort })
+    const c = await agentChatsApi.create({ rid, ...m, scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
     void client.invalidateQueries({ queryKey: qk.agentChats })
     onCreated(c)
     return true
@@ -1264,7 +1245,7 @@ function ChatInfo({ chat }: { chat: Chat }) {
       {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('컨텍스트 창', 'Context window')}><i style={{ width: `${share * 100}%` }} /></div>}
       {context && share >= COMPACT_HINT && <span className="muted ac-hint">{t('컨텍스트 창이 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
       <dl className="ac-info-list">
-        <dt>{t('모델', 'Model')}</dt><dd>{modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</dd>
+        <dt>{t('모델', 'Model')}</dt><dd><AgentChip agent={chat.agent} /> {modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</dd>
         <dt>{t('범위', 'Scope')}</dt><dd>{scopeName(chat.scope, topics)}</dd>
         <dt>{t('사용 토큰', 'Tokens used')}</dt><dd>{tokens > 0 ? `${tokensName(tokens)} (${t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)})` : t('아직 없음', 'None yet')}{cost > 0 && <span className="muted" title={costName(cost)}> · {t(`API 가격 약 $${cost.toFixed(2)}`, `about $${cost.toFixed(2)} at API prices`)}</span>}</dd>
         {secs > 0 && <><dt>{t('일한 시간', 'Time worked')}</dt><dd>{secondsName(secs)}</dd></>}

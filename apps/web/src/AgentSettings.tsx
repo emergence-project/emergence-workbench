@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { agentChatsApi, api, setupApi, type SetupView } from './api'
 import { notifyOn, notifyPermission, setNotifyOn } from './AgentChats'
 import { AgentHooks } from './AgentHooks'
+import { useAgentKinds } from './AgentPick'
 import { href } from './router'
 import { t } from './i18n'
 import { qk } from './queries'
@@ -41,6 +42,7 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
   }
   return (<>
     <AgentConnections onSaved={onSaved} />
+    <ChatAgentRows onSaved={onSaved} />
     <AgentHooks onSaved={onSaved} />
     <h3 className="set-h3">{t('맥에서 하는 일', 'On this Mac')}</h3>
     {!s ? <p className="muted">{err ?? t('설정을 읽는 중…', 'Reading settings…')}</p> :
@@ -186,4 +188,27 @@ function McpRow({ a, onSaved }: { a: SetupView['agents'][number]; onSaved(messag
         : <>{t('아직 등록 안 됨. 터미널에 한 줄: ', 'Not registered yet. One line in the terminal: ')}<code className="setup-cmd">{a.command}</code></>}
     </Row>
   )
+}
+
+/**
+ * 앱 대화를 맡는 에이전트 (10/30 "Codex · Gemini 연결"): 대화를 시작할 때 모델 메뉴에서 고른다.
+ * Claude는 Agent SDK, Codex · Gemini는 이 맥에 깐 CLI를 ACP로 띄워 그 로그인을 그대로 쓴다. 없으면 깔 명령
+ */
+function ChatAgentRows({ onSaved }: { onSaved(message: string): void }) {
+  const kinds = useAgentKinds()
+  return (<>
+    <h3 className="set-h3">{t('대화를 맡는 에이전트', 'Agents for conversations')}</h3>
+    <div className="setup set-rows" data-ui="대화 에이전트 묶음">
+      {kinds ? kinds.map((a) => (
+        <Row key={a.id} ok={a.installed && a.login !== false} optional={a.id !== 'claude-code'} name={a.name} sub={a.version} ui="대화 에이전트"
+          action={!a.installed && a.install && <CopyButton text={a.install} onSaved={onSaved} />}>
+          {!a.installed
+            ? <>{t('이 맥에 없습니다. 깔고(', 'Not on this Mac. Install it (')}<code className="setup-cmd">{a.install}</code>{t(`) 터미널에서 ${a.id === 'codex' ? 'codex' : 'gemini'}를 한 번 열어 로그인하면 모델 메뉴에서 고를 수 있습니다.`, `), open ${a.id === 'codex' ? 'codex' : 'gemini'} once in the terminal to sign in, then pick it in the model menu.`)}</>
+            : a.login === false ? t(`깔려 있지만 로그인한 흔적이 없습니다. 터미널에서 ${a.id === 'codex' ? 'codex' : 'gemini'}를 한 번 열어 로그인하세요.`, `Installed, but no sign-in found. Open ${a.id === 'codex' ? 'codex' : 'gemini'} once in the terminal to sign in.`)
+              : a.id === 'claude-code' ? t('기본 에이전트. 계획 모드 · 되돌리기 · 탐색 하위 에이전트까지 됩니다.', 'The default agent, with plan mode, rewind and the explore subagent.')
+                : t('모델 메뉴의 에이전트 줄에서 고릅니다. 허락 카드 · 범위 · 수정 검토는 Claude와 같고, 계획 모드 · 되돌리기는 없습니다.', 'Pick it in the agent row of the model menu. Permission cards, scope and edit review work as with Claude; plan mode and rewind are not available.')}
+        </Row>
+      )) : <p className="muted setup-row">{t('읽는 중…', 'Reading…')}</p>}
+    </div>
+  </>)
 }
