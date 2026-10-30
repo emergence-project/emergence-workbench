@@ -4,6 +4,7 @@ import { judgeTurns } from './flow/JudgeQueue'
 import { type ManuscriptInfo, type NoteRow, type ResearchApi, type Topic } from './api'
 import { Icon } from './icons'
 import { openPart } from './Manuscript'
+import { isOwnWriting } from './Materials'
 import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
 import { partNumber } from './OverviewPage'
 import { FileTree } from './FileTree'
@@ -59,7 +60,7 @@ export function ResearchNav({ rid, rapi, route, materials, askCount = 0, manuscr
     const d = materialList.data
     if (!d || !paperList.isFetched) return null
     const lib = new Set(paperList.data?.library ? paperList.data.papers.map((x) => x.key) : [])
-    return d.bib.filter((e) => e.file && !lib.has(e.key)).length + d.files.filter((f) => !f.bibKey).length
+    return d.bib.filter((e) => e.file && !lib.has(e.key)).length + d.files.filter((f) => !f.bibKey && !isOwnWriting(f.name)).length
   })()
 
   // 고침 검토 (10/14): 이 프로젝트에서 검토할 노트 수 + 확인된 노트 고치기 요청 수

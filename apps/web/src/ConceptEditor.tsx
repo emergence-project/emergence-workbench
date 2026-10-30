@@ -1,5 +1,5 @@
 import { startCompletion } from '@codemirror/autocomplete'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentLess, indentMore } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { Compartment, EditorState, Prec } from '@codemirror/state'
 import { Decoration, EditorView, highlightActiveLine, keymap, placeholder } from '@codemirror/view'
@@ -92,6 +92,8 @@ export function ConceptEditor({ initial, options, onSave, onCancel, commands, la
             { key: 'Mod-k', preventDefault: true, run: startCompletion },
             { key: 'Escape', run: (view) => { cb.current.onCancel(keepLineBreaks(view.state.doc.toString(), cb.current.initial) !== cb.current.initial); return true } },
             { key: 'Tab', run: indentListItem, shift: outdentListItem },
+            // 목록 밖에서도 고른 글이 있으면 VSCode처럼 고른 줄을 두 칸씩 들여쓰고 내어 쓴다. 고른 글이 없으면 Tab은 다음 칸으로 (10/29 09:19)
+            { key: 'Tab', run: (v) => !v.state.selection.main.empty && indentMore(v), shift: (v) => !v.state.selection.main.empty && indentLess(v) },
             ...defaultKeymap,
             ...historyKeymap,
           ]),

@@ -5,6 +5,7 @@
 
 /* 사이드바 자료 */
 .materials { border-radius: var(--r-md); }
+.mat-grp { padding: var(--sp-2) var(--sp-2) 2px; color: var(--text-3); font-size: var(--fs-xs); }
 .materials.drop { outline: 2px dashed var(--primary); outline-offset: 2px; background: var(--bg-hover); }
 .nav.mat { cursor: pointer; }
 .mat-row { display: flex; align-items: center; min-width: 0; }

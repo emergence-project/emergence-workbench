@@ -23,6 +23,12 @@ import { t } from './i18n'
  */
 const NO_MATERIALS = { bib: [] as BibEntry[], files: [] as MaterialFile[] }
 
+/**
+ * 참고 자료 = 이 연구 밖에서 온 것(논문, 원자료 PDF · 데이터 · 발표자료). 자료 폴더 안의 Markdown · 텍스트는 우리가 쓴 글이라
+ * 참고 자료에 넣지 않는다 (10/29 09:59 "노트 파일이 참고자료에 있으면 이상"). 파일 탭에서는 그대로 보인다.
+ */
+export const isOwnWriting = (name: string) => /\.(md|markdown|txt)$/i.test(name)
+
 export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChanged }: {
   rid: string; rapi: ResearchApi; route: Route; onSaved(msg: string): void; library: LibraryInfo | null; onLibraryChanged(): void
 }) {
@@ -49,7 +55,7 @@ export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChan
     void client.invalidateQueries({ queryKey: qk.materials(rid) })
   }
 
-  const others = (data?.files ?? []).filter((f) => !f.bibKey)
+  const others = (data?.files ?? []).filter((f) => !f.bibKey && !isOwnWriting(f.name))
   // 실제로 가진 PDF·파일만 (bib에만 있는 논문은 인용한 노트 화면에서, 10/3 피드백)
   const inLibrary = new Set(papers?.library ? papers.papers.map((p) => p.key) : [])
   const owned = (data?.bib ?? []).filter((e) => e.file && !inLibrary.has(e.key))
@@ -58,6 +64,8 @@ export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChan
     <div className={`materials${over ? ' drop' : ''}`} data-ui="자료"
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setOver(true) } }}
       onDragLeave={() => setOver(false)} onDrop={(e) => void drop(e)}>
+      {/* 두 묶음: 논문(라이브러리 · 가진 논문 PDF)과 원자료(바깥에서 받은 파일), 10/29 시안 2절 */}
+      {(papers?.library || owned.length > 0) && others.length > 0 && <div className="mat-grp">{t('논문', 'Papers')}</div>}
       {papers?.library && (
         <button className="nav mat" data-ui="논문 라이브러리로" title={t('논문 라이브러리에서 이 프로젝트에 표시된 논문', 'Papers marked for this project in the paper library')} onClick={() => go({ page: 'shelf', filter: `project:${rid}` })}>
           <span className="mat-ico ico" aria-hidden>{Icon.papers}</span>
@@ -81,6 +89,7 @@ export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChan
           )}
         </div>
       ))}
+      {others.length > 0 && (papers?.library || owned.length > 0) && <div className="mat-grp">{t('원자료', 'Source files')}</div>}
       {others.map((f) => (
         <button key={f.name} className={`nav mat${on(f.name) ? ' on' : ''}`} data-ui="자료 파일" data-ui-item={f.name} title={`${f.name} · ${(f.size / 1024 / 1024).toFixed(1)}MB${f.kind === 'slides' ? `\n${t('누르면 맥 앱(Keynote·PowerPoint)으로 엽니다', 'Click to open in the Mac app (Keynote, PowerPoint)')}` : ''}`}
           onClick={() => openFile(f)}>
