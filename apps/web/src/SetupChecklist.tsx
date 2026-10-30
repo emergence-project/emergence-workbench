@@ -14,7 +14,8 @@ import type { UiSettings } from '@rw/core'
 
 /**
  * 시작 준비 (10/20 15:35 피드백 "공개한 앱을 누가 받아도 바로 쓸 수 있게", 10/21 시안대로):
- * 설정 › 계정을 꼭 할 것(GitHub 로그인 · 커밋 이름 · 내 이름과 소속 · 첫 프로젝트)과 선택(개인 저장소 · 에이전트 · TeX · 구글) 목록으로 보인다.
+ * 설정 › 계정을 꼭 할 것(커밋 이름 · 내 이름과 소속 · 첫 프로젝트)과 선택(GitHub · 개인 저장소 · 에이전트 · TeX · 구글) 목록으로 보인다.
+ * GitHub 로그인은 10/30 "누구나 쓰는 공개 앱"부터 선택: 「새로 만들기」로 GitHub 없이 시작할 수 있다.
  * 점 색은 상태 색 그대로: 청록 됨, 주황 할 차례, 회색 고리 선택(안 해도 됨). 홈은 꼭 할 것이 남았을 때만 카드 하나.
  * 앱은 로그인 정보를 갖지 않는다: GitHub는 gh 로그인에 맡기고, 안 됐을 때 할 명령만 보인다.
  */
@@ -27,7 +28,6 @@ export function useSetup() {
   const gitOk = !!(s?.git.name && s.git.email)
   const meOk = !!(me?.name && me.affiliations.length)
   const must = [
-    { key: 'github', ok: !!github.data?.ok, label: t('GitHub 로그인', 'GitHub sign-in') },
     { key: 'git', ok: gitOk, label: t('커밋에 적힐 이름', 'Name on commits') },
     { key: 'me', ok: meOk, label: t('내 이름·소속', 'Your name and affiliation') },
     { key: 'project', ok: (s?.projects ?? 0) > 0, label: t('첫 프로젝트', 'First project') },
@@ -74,13 +74,12 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <div className="setup-ready" data-ui="시작 준비 요약">
         <span className="set-name">{t('시작 준비', 'Getting started')} <b className={left.length ? 'setup-left' : 'setup-all'}>{done} / {must.length}</b></span>
         <span className="setup-desc">{left.length
-          ? t(`꼭 할 것 넷 중 ${['하나가', '둘이', '셋이', '넷이'][left.length - 1]} 남았습니다. 선택 항목은 쓰고 싶을 때만.`, `${left.length} of 4 required steps left. Optional items only if you want them.`)
+          ? t(`꼭 할 것 ${['하나', '둘', '셋'][must.length - 1]} 중 ${['하나가', '둘이', '셋이'][left.length - 1]} 남았습니다. 선택 항목은 쓰고 싶을 때만.`, `${left.length} of ${must.length} required steps left. Optional items only if you want them.`)
           : t('꼭 할 것을 모두 마쳤습니다. 선택 항목은 쓰고 싶을 때만.', 'All required steps are done. Optional items only if you want them.')}</span>
       </div>
 
       <h3 className="set-h3">{t('꼭 할 것', 'Required')}</h3>
       <div className="set-rows">
-        <GitHubRow list={github.data} error={github.error?.message} onCheck={() => void github.refetch()} checking={github.isFetching} />
         <Row ok={!!(s?.git.name && s.git.email)} name={t('커밋에 적힐 이름·이메일', 'Name and email on commits')} ui="커밋 이름"
           action={<>
             {fromGoogle && <button className="btn" data-ui="구글 계정으로 채우기" onClick={() => void setupApi.setGit(fromGoogle).then((v) => { put(v); onSaved(t('구글 계정의 이름 · 이메일로 채웠습니다', 'Filled in from your Google account')) }).catch((e: Error) => onSaved(e.message))}>{t('구글 계정으로 채우기', 'Fill from Google')}</button>}
@@ -96,7 +95,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
         </Row>
         <Row ok={(s?.projects ?? 0) > 0} name={t('첫 프로젝트', 'First project')} ui="첫 프로젝트">
           {s && s.projects > 0 ? t(`${s.projects}개 등록됨. `, `${plural(s.projects, 'project', 'projects')} registered. `) : t('아직 없음. ', 'None yet. ')}
-          {s?.elsewhere.length ? t('아래 "다른 컴퓨터의 프로젝트"에서 받거나, ', 'Download one from "Projects on your other computers" below, or ') : ''}{t('홈의 "＋ 프로젝트 등록"으로 GitHub 저장소나 이 컴퓨터 폴더를 더합니다.', 'Add a GitHub repository or a folder on this computer with "＋ Register project" on Home.')}
+          {s?.elsewhere.length ? t('아래 "다른 컴퓨터의 프로젝트"에서 받거나, ', 'Download one from "Projects on your other computers" below, or ') : ''}{t('홈의 "＋ 프로젝트 등록"에서 새로 만들거나 GitHub 저장소 · 이 컴퓨터 폴더를 더합니다.', 'Start a new one, or add a GitHub repository or a folder on this computer, with "＋ Register project" on Home.')}
         </Row>
       </div>
 
@@ -104,6 +103,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
 
       <h3 className="set-h3">{t('선택', 'Optional')}</h3>
       <div className="set-rows">
+        <GitHubRow list={github.data} error={github.error?.message} onCheck={() => void github.refetch()} checking={github.isFetching} />
         <InstallRow install={s?.install} onSaved={onSaved} />
         <Row ok={!!s?.personal.remote} optional name={t('개인 저장소', 'Personal repository')} sub={t('피드백·백업을 올릴 곳', 'where feedback and backups go')} ui="개인 저장소"
           action={<Edit label={t('수정', 'Edit')} onClick={() => setEditing('personal')} />}>
@@ -170,12 +170,12 @@ function GitHubRow({ list, error, onCheck, checking }: { list?: GitHubRepoList; 
   const owner = list?.ok ? mostCommon(list.repos.map((r) => r.owner)) : ''
   const via = list?.ok ? ({ gh: t('gh 로그인', 'gh login'), git: t('키체인의 git 로그인', 'git login in the keychain'), sample: t('예제 목록', 'Sample list') })[list.source] : ''
   return (
-    <Row ok={!!list?.ok} name={t('GitHub 로그인', 'GitHub sign-in')} ui="GitHub 계정"
+    <Row ok={!!list?.ok} optional name={t('GitHub 로그인', 'GitHub sign-in')} ui="GitHub 계정"
       action={<button className="btn" disabled={checking} onClick={onCheck}>{t('다시 확인', 'Check again')}</button>}>
       {list?.ok ? <>{t('연결됨', 'Connected')}{owner && <>: <b>{owner}</b></>} · {via} · {t(`저장소 ${list.repos.length}개. `, `${plural(list.repos.length, 'repository', 'repositories')}. `)}</>
         : list ? (lang === 'ko' ? <>{list.reason} 터미널에서 <code>gh auth login</code>을 하면 연결됩니다. </> : <>{list.reason} Run <code>gh auth login</code> in the terminal to connect. </>)
           : error ? `${error} ` : t('확인하는 중… ', 'Checking… ')}
-      {t('연구 저장소를 받고 올리는 데 씁니다. 앱은 로그인 정보를 저장하지 않습니다.', 'Used to pull and push research repositories. The app does not store login details.')}
+      {t('GitHub 저장소를 받아 오거나 다른 컴퓨터와 맞출 때만 필요합니다. 「새로 만들기」로 시작한 프로젝트는 없어도 됩니다. 앱은 로그인 정보를 저장하지 않습니다.', 'Needed only to bring in GitHub repositories or to keep several computers in step. Projects started with "Start new" work without it. The app does not store login details.')}
     </Row>
   )
 }
