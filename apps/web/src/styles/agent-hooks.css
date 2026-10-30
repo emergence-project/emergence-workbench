@@ -1,0 +1,5 @@
+/* 설정 › 에이전트 › 상태 알리기의 밖 세션 줄 (10/30) */
+.hook-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding-block: var(--sp-1); }
+.hook-row .g-name { font-size: var(--fs-sm); }
+.hook-who { min-width: 0; overflow-wrap: anywhere; }
+.hook-note { flex-basis: 100%; padding-left: var(--sp-4); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

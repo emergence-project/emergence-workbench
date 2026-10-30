@@ -66,6 +66,8 @@ export const qk = {
   agentChatList: (rid?: string) => ['agent-chats', 'list', rid ?? '*'] as const,
   agentChat: (id: string) => ['agent-chats', 'one', id] as const,
   agentWork: ['agent-work'] as const,
+  /** 밖에서 도는 에이전트의 상태 (훅, 10/30) */
+  agentHooks: ['agent-hooks'] as const,
   /** 고를 수 있는 모델 (맥의 Claude Code에게 묻는다. 대화 알림으로 다시 받지 않게 agent-chats 밖에 둔다) */
   agentModels: ['agent-models'] as const,
   agentExtras: ['agent-extras'] as const,
@@ -104,6 +106,7 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   // 그 대화 하나와 목록만 다시 받는다 (열린 대화를 모두 다시 받지 않게)
   // 쓰는 중인 글은 열린 대화에 바로 붙인다 (App.tsx). 다시 받을 것이 없다
   if (e.type === 'agent-draft') return []
+  if (e.type === 'agent-hooks') return [qk.agentHooks]
   if (e.type === 'agent-chat') {
     const keys: QueryKey[] = [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
     return e.research === APP_RID ? [...keys, qk.feedback] : keys
@@ -116,7 +119,7 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
 /** 모든 사람 페이지 (qk.person(id)의 앞부분) */
 const PERSON_PAGES: QueryKey = [...qk.network, 'person']
 
-function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' }>): QueryKey[] {
+function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' | 'agent-hooks' }>): QueryKey[] {
   const rid = e.research
   switch (e.type) {
     // research.yaml(제목 · 주제 · 원고 선언 …)이 바뀌면 그 프로젝트의 모든 자료와 프로젝트 목록

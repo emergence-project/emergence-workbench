@@ -25,7 +25,8 @@ export function measure(source) {
   for (const raw of lines) {
     const line = stripStrings(raw)
     casts += (line.match(/@ts-(?:ignore|expect-error)/g) ?? []).length
-    const code = line.replace(/\/\/.*$/, '')
+    // import * as C · export { a as b }는 단언이 아니다
+    const code = line.replace(/\/\/.*$/, '').replace(/\*\s+as\s+[\w$]+/g, '').replace(/^\s*(import|export)\b.*\{[^}]*\}.*$/, '')
     if (/^\s*(\*|\/\*)/.test(code)) continue
     casts += (code.match(/\bas\s+(?!const\b)(?:[A-Z_$][\w$.]*|unknown|any|string|number|boolean|never|\{|\(|\[|typeof\b|keyof\b)/g) ?? []).length
   }

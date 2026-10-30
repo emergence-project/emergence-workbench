@@ -53,6 +53,7 @@ import { registerFlow } from './routes/flow.js'
 import { registerChanges } from './routes/changes.js'
 import { registerAgentEdits } from './routes/agentEdits.js'
 import { registerAgentChats } from './routes/agentChats.js'
+import { registerAgentHooks } from './routes/agentHooks.js'
 import type { AgentRunner } from './agentChats.js'
 import { appWorktrees, type AppWork } from './appWorktree.js'
 import { registerCommonRules } from './routes/commonRules.js'
@@ -63,6 +64,8 @@ import type { RepoIO } from './githubRepos.js'
 export interface AppOptions {
   /** 앱 설정 폴더 (기본 ~/.config/research-workspace) */
   configDir: string
+  /** 에이전트 설정을 찾는 집 폴더 (상태 알리기 훅, 기본 os.homedir(). 테스트는 임시 폴더) */
+  agentHome?: string
   /** 파일 감시를 켤지 (테스트에서는 끔) */
   watch?: boolean
   /** 개발용 예제 모드(.sandbox/)인지. 화면이 실사용과 구분해 보여 준다 */
@@ -168,7 +171,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const broadcast = (e: WorkbenchEvent) => {
     // 라이브러리 알림은 바뀐 갈래의 캐시만 비운다 (아래 watchLibraryNow). 프로젝트 알림은 그 프로젝트와 프로젝트를 읽는 목록만 (10/15)
     // 에이전트 대화 알림은 파일이 바뀐 것이 아니라 캐시를 그대로 둔다
-    if (e.type === 'agent-chat' || e.type === 'agent-draft') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
+    if (e.type === 'agent-chat' || e.type === 'agent-draft' || e.type === 'agent-hooks') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
     const data = JSON.stringify(e)
     for (const s of sockets) if (s.readyState === 1) s.send(data)
   }
@@ -340,6 +343,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerChanges(app, ctx)
   registerAgentEdits(app, ctx)
   registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined))
+  registerAgentHooks(app, ctx)
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))
 
   return app

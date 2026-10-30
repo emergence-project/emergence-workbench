@@ -938,5 +938,10 @@
   "파일 줄 메뉴": "File row menu",
   "파일 줄 메뉴 항목": "File row menu items",
   "workbench 올리기 안내": "Workbench upload notice",
-  "커밋하고 올리기": "Commit and upload"
+  "커밋하고 올리기": "Commit and upload",
+  "상태 알리기": "Status reports",
+  "Claude Code 상태 알리기": "Claude Code status reports",
+  "Codex 상태 알리기": "Codex status reports",
+  "밖에서 도는 에이전트": "Agents running outside the app",
+  "밖 세션": "Outside session"
 }
