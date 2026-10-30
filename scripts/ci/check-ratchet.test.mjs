@@ -11,9 +11,11 @@ test('타입 단언은 as T와 @ts-ignore를 세고, as const · 글 · 주석�
     '// value as Foo',
     '// @ts-ignore',
     'const c = y // @ts-expect-error',
+    "import * as C from '@rw/core/contract/tasks'",
+    "export { a as B } from './a.js'",
     '',
   ].join('\n')
-  assert.deepEqual(measure(src), { lines: 7, casts: 4 })
+  assert.deepEqual(measure(src), { lines: 9, casts: 4 })
 })
 
 test('소스만 본다 (테스트 · d.ts 빼고)', () => {

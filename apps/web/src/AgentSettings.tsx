@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { agentChatsApi, api, setupApi, type SetupView } from './api'
 import { notifyOn, notifyPermission, setNotifyOn } from './AgentChats'
+import { AgentHooks } from './AgentHooks'
 import { href } from './router'
 import { t } from './i18n'
 import { qk } from './queries'
@@ -40,6 +41,7 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
   }
   return (<>
     <AgentConnections onSaved={onSaved} />
+    <AgentHooks onSaved={onSaved} />
     <h3 className="set-h3">{t('맥에서 하는 일', 'On this Mac')}</h3>
     {!s ? <p className="muted">{err ?? t('설정을 읽는 중…', 'Reading settings…')}</p> :
     <div className="set-rows" data-ui="에이전트">
