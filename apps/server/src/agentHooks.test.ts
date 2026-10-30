@@ -1,4 +1,5 @@
 // 밖에서 도는 에이전트의 상태 (10/30): 훅 넣기 · 빼기, 받은 알림
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -36,7 +37,7 @@ describe('훅 넣기 · 빼기', () => {
     expect(fs.readFileSync(file, 'utf8')).toBe('{ not json')
   })
 
-  it('Codex: notify 한 줄을 맨 위에 넣고 빼며, 다른 notify가 있으면 손대지 않는다', () => {
+  it('Codex: notify 한 줄을 맨 위에 넣고 빼며, 다른 notify가 있으면 함께 부르고 끄면 되돌린다', () => {
     const file = path.join(home, '.codex', 'config.toml')
     fs.mkdirSync(path.dirname(file), { recursive: true })
     fs.writeFileSync(file, 'model = "gpt-5"\n\n[mcp_servers.x]\ncommand = "node"\n')
@@ -46,9 +47,31 @@ describe('훅 넣기 · 빼기', () => {
     expect(codexInstalled(home)).toBe(true)
     expect(setCodexNotify('/cfg', false, home)).toBe(false)
     expect(fs.readFileSync(file, 'utf8')).toBe('model = "gpt-5"\n\n[mcp_servers.x]\ncommand = "node"\n')
-    fs.writeFileSync(file, 'notify = ["terminal-notifier"]\n')
+
+    const theirs = 'model = "gpt-5"\nnotify = ["terminal-notifier", "-title", "Codex"]\n\n[x]\na = 1\n'
+    fs.writeFileSync(file, theirs)
+    expect(codexInstalled(home)).toBe(false)
+    expect(setCodexNotify('/cfg', true, home)).toBe(true)
+    expect(fs.readFileSync(file, 'utf8')).toBe(`notify = ["sh", "/cfg/agent-hooks/${HOOK_MARK}.sh", "codex", "--", "terminal-notifier", "-title", "Codex"]\nmodel = "gpt-5"\n\n[x]\na = 1\n`)
+    expect(setCodexNotify('/cfg', true, home)).toBe(true) // 두 번 켜도 원래 것은 한 번만
+    expect(fs.readFileSync(file, 'utf8').match(/terminal-notifier/g)).toHaveLength(1)
+    expect(setCodexNotify('/cfg', false, home)).toBe(false)
+    expect(fs.readFileSync(file, 'utf8')).toBe('notify = ["terminal-notifier", "-title", "Codex"]\nmodel = "gpt-5"\n\n[x]\na = 1\n')
+
+    fs.writeFileSync(file, "notify = ['terminal-notifier']\n") // 읽지 못하는 모양은 손대지 않는다
+    expect(codexInstalled(home)).toBe('busy')
     expect(setCodexNotify('/cfg', true, home)).toBe('busy')
-    expect(fs.readFileSync(file, 'utf8')).toBe('notify = ["terminal-notifier"]\n')
+    expect(fs.readFileSync(file, 'utf8')).toBe("notify = ['terminal-notifier']\n")
+  })
+
+  it('스크립트: 앱에 알린 뒤 원래 notify를 같은 인자로 부른다 (앱이 꺼져 있어도)', () => {
+    const cfg = path.join(home, 'cfg-chain')
+    writeHookFiles(cfg, 'http://127.0.0.1:9')
+    fs.rmSync(path.join(cfg, 'agent-hooks', 'endpoint.env'))
+    const out = path.join(home, 'chain-out')
+    const r = spawnSync('sh', [path.join(cfg, 'agent-hooks', `${HOOK_MARK}.sh`), 'codex', '--', 'sh', '-c', 'printf %s "$1" > "$0"', out, '{"type":"agent-turn-complete"}'])
+    expect(r.status).toBe(0)
+    expect(fs.readFileSync(out, 'utf8')).toBe('{"type":"agent-turn-complete"}')
   })
 
   it('스크립트는 부를 때마다 주소 파일을 읽고, 실행할 수 있다', () => {
@@ -56,7 +79,7 @@ describe('훅 넣기 · 빼기', () => {
     writeHookFiles(cfg, 'http://127.0.0.1:5174')
     const script = path.join(cfg, 'agent-hooks', `${HOOK_MARK}.sh`)
     expect(fs.statSync(script).mode & 0o111).toBeTruthy()
-    expect(fs.readFileSync(script, 'utf8')).toContain('. "$(dirname "$0")/endpoint.env"')
+    expect(fs.readFileSync(script, 'utf8')).toContain('env="$(dirname "$0")/endpoint.env"')
     expect(fs.readFileSync(path.join(cfg, 'agent-hooks', 'endpoint.env'), 'utf8')).toBe('RW_URL=http://127.0.0.1:5174\n')
   })
 })
