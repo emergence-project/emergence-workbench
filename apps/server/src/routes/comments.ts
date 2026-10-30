@@ -118,22 +118,24 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
       if (q && isAgentKind(q.kind) && q.state === '대기' && !q.by && !asking.has(`${rid}/${target}/${id}`)) await answerWithClaude(rid, target, id)
     })
   }
-  /** 한 기록 파일의 대기 중인 질문 · 지시를 모두 차례에 넣는다 (바로일 때만) */
+  /** 질문 · 지시마다 따로 고른 때 (10/29 "질문 따로 지시 따로") */
+  const modeOf = (kind: string) => (kind === '질문' ? registry.agents.questions : registry.agents.instructions)
+  /** 한 기록 파일의 대기 중인 질문 · 지시 가운데 그 종류가 「바로」인 것을 차례에 넣는다 */
   function instantFor(rid: string, target: string): void {
-    if (registry.agents.instructions !== 'instant') return
-    for (const c of readComments(recordsRoot(rid), target).comments) if (isAgentKind(c.kind) && c.state === '대기' && !c.by) enqueue(rid, target, c.id)
+    for (const c of readComments(recordsRoot(rid), target).comments) if (isAgentKind(c.kind) && c.state === '대기' && !c.by && modeOf(c.kind) === 'instant') enqueue(rid, target, c.id)
   }
   let lastDaily: string | null = null
   repeat(app, { first: 60_000, every: 60_000, run: async () => {
     const s = registry.agents
-    if (s.instructions !== 'daily') return
+    const kinds = (['질문', '지시'] as const).filter((k) => modeOf(k) === 'daily')
+    if (!kinds.length) return
     const day = dailyDue(s.at, new Date(), lastDaily)
     if (!day) return
     lastDaily = day
     // 멈춤 · 완료 프로젝트는 하루 한 번 모아 돌리지 않는다 (사용자가 그 프로젝트에 바로 쓴 지시는 instantFor가 받는다)
     // 지식 라이브러리의 지시도 함께 모은다 (10/18)
     for (const rid of [...registry.list().filter((x) => x.state === 'active').map((x) => x.id), ...(registry.libraryPath ? [LIBRARY_RID] : [])]) {
-      try { for (const p of [...pendingQuestions(recordsRoot(rid), '질문'), ...pendingQuestions(recordsRoot(rid), '지시')]) enqueue(rid, p.target, p.id) } catch { /* 저장소가 없거나 읽지 못하면 그 연구는 건너뛴다 */ }
+      try { for (const p of kinds.flatMap((k) => pendingQuestions(recordsRoot(rid), k))) enqueue(rid, p.target, p.id) } catch { /* 저장소가 없거나 읽지 못하면 그 연구는 건너뛴다 */ }
     }
   } })
   ;(app as unknown as { instructionQueue?: ClaudeQueue }).instructionQueue = queue

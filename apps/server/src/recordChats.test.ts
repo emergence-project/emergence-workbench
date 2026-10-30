@@ -44,7 +44,7 @@ describe('기록의 질문 · 지시와 에이전트 대화', () => {
   beforeAll(async () => {
     a = buildApp({ configDir: path.join(tmp, 'config-record-chats'), agentRunner: runner })
     rid = (await a.inject({ method: 'POST', url: '/api/researches', payload: { path: makeRepo('record-chats') } })).json().id as string
-    await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'instant' } })
+    await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'instant', questions: 'instant' } })
     R = `/api/researches/${rid}/comments/project`
   })
   afterAll(async () => { await a.close() })

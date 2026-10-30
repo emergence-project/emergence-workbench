@@ -1,6 +1,7 @@
 /**
  * 에이전트 설정 (설정 › 에이전트). 앱 설정 파일(config.yaml)의 `agents:`에 저장한다.
  * instructions: 기록의 지시를 누가 언제 하는지 (10/16 사용자 결정 "설정에서 조절할 수 있게 하자").
+ * questions: 기록의 질문을 누가 언제 하는지 (10/28 23:07 피드백 "질문 따로 지시 따로"). 값은 instructions와 같은 셋이고, 저장된 값이 없으면 instructions를 이어받는다.
  *   manual  = 맥의 Claude가 하지 않는다. 에이전트 세션이 MCP list_records로 집어 간다 (10/15까지의 동작)
  *   instant = 지시를 남기면 맥의 Claude가 바로 한다
  *   daily   = 하루 한 번 at 시각에 대기 중인 지시를 모아 한다
@@ -26,19 +27,25 @@ export const FEEDBACK_MINUTES = [10, 20, 30, 60] as const
 
 export interface AgentSettings {
   instructions: InstructionMode
+  questions: InstructionMode
   at: string
   feedback: FeedbackPick
   merge: FeedbackMerge
   minutes: number
 }
 
-export const DEFAULT_AGENT_SETTINGS: AgentSettings = { instructions: 'manual', at: '09:00', feedback: 'manual', merge: 'green', minutes: 30 }
+export const DEFAULT_AGENT_SETTINGS: AgentSettings = { instructions: 'manual', questions: 'manual', at: '09:00', feedback: 'manual', merge: 'green', minutes: 30 }
 
 /** 저장된 값이나 요청 값을 믿지 않고, 고를 수 있는 값만 남긴다 */
-export function normalizeAgentSettings(raw: unknown, base: AgentSettings = DEFAULT_AGENT_SETTINGS): AgentSettings {
+export function normalizeAgentSettings(raw: unknown, current?: AgentSettings): AgentSettings {
+  const base = current ?? DEFAULT_AGENT_SETTINGS
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const mode = (v: unknown): v is InstructionMode => (INSTRUCTION_MODES as readonly unknown[]).includes(v)
+  const instructions = mode(src.instructions) ? src.instructions : base.instructions
   return {
-    instructions: (INSTRUCTION_MODES as readonly unknown[]).includes(src.instructions) ? src.instructions as InstructionMode : base.instructions,
+    instructions,
+    // 10/29 전 설정 파일에는 questions가 없다: 읽을 때(current 없음)는 instructions를 이어받고, 바꿀 때는 지금 값을 둔다
+    questions: mode(src.questions) ? src.questions : current ? current.questions : instructions,
     at: INSTRUCTION_HOURS.includes(src.at as string) ? src.at as string : base.at,
     feedback: (FEEDBACK_PICKS as readonly unknown[]).includes(src.feedback) ? src.feedback as FeedbackPick : base.feedback,
     merge: (FEEDBACK_MERGES as readonly unknown[]).includes(src.merge) ? src.merge as FeedbackMerge : base.merge,

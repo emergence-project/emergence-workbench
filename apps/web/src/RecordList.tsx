@@ -166,8 +166,9 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {turn && <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>}
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
-          {/* 질문 · 지시를 누가 언제 하는지는 설정 › 에이전트 › 질문 · 지시 처리(직접 부탁이면 에이전트 세션이 MCP로 집어 감). 질문은 여기서 바로 물을 수도 있다 */}
-          {kind === '질문' && !c.by && !live && <button className="icon-btn sm" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
+          {/* 질문 · 지시를 누가 언제 하는지는 설정 › 에이전트 › 질문 처리 · 지시 처리(직접 부탁이면 에이전트 세션이 MCP로 집어 감).
+              아직 대화가 없으면 설정과 상관없이 여기서 지금 보낸다 (10/28 23:51 피드백). 대화가 있으면 「답하기」로 이어 쓴다 */}
+          {!c.by && !chat && c.state !== '끝냄' && <button className="icon-btn sm" data-ui="에이전트에게 보내기" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('에이전트에게 보내기', 'Send to agent')} aria-label={t('에이전트에게 보내기', 'Send to agent')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
           <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
         </>}
         <button className="icon-btn sm" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
@@ -284,7 +285,7 @@ function TodoTalk({ records, busy, actions, onSend, onCancel }: { records: Comme
       {records.flatMap((r) => [
         <SayCard key={r.id} me ui="사용자 글" name={t('사용자', 'User')} tag={kindLabel(recordKind(r))} when={recordWhen(r.id).label}
           end={<span className="record-actions" data-ui="고치기·지우기">
-            {r.kind === '질문' && r.state !== '끝냄' && <button className="icon-btn sm" data-tip={actions.asking(r) ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')} aria-label={t('Claude에게 묻기', 'Ask Claude')} disabled={busy || actions.asking(r)} onClick={() => actions.onAsk(r)}>{Icon.spark}</button>}
+            {r.state !== '끝냄' && <button className="icon-btn sm" data-ui="에이전트에게 보내기" data-tip={actions.asking(r) ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('에이전트에게 보내기', 'Send to agent')} aria-label={t('에이전트에게 보내기', 'Send to agent')} disabled={busy || actions.asking(r)} onClick={() => actions.onAsk(r)}>{Icon.spark}</button>}
             <button className="icon-btn sm" data-tip={r.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={r.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void actions.onState(r, r.state === '끝냄' ? '대기' : '끝냄')}>{r.state === '끝냄' ? Icon.reopen : Icon.check}</button>
             {r.answers.length === 0 && <button className="icon-btn sm tip-end" data-tip={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={busy} onClick={() => void actions.onDelete(r)}>{Icon.trash}</button>}
           </span>}><MemoText text={r.body} /></SayCard>,
