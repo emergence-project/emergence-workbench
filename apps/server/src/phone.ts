@@ -39,20 +39,25 @@ export const servesApp = (serve: ServeStatus, host: string, port: number): boole
   return proxy.replace(/\/$/, '') === `http://127.0.0.1:${port}`
 }
 
+/** JSON.parse는 any를 돌려주므로 받는 쪽 타입으로 둔다 (tailscale이 내놓는 모양) */
+const parseJson = <T>(text: string): T => JSON.parse(text)
+/** execFile 오류의 stdout · stderr · message */
+const textOf = (e: unknown, key: string): string => (e && typeof e === 'object' ? String(Reflect.get(e, key) ?? '') : '')
+
 export function tailscalePhone(bin = process.env.RW_TAILSCALE_BIN ?? CANDIDATES.find((p) => existsSync(p))): Phone {
   const run = async (args: string[], timeout = 10_000) => (await exec(bin!, args, { timeout, maxBuffer: 4 * 1024 * 1024 })).stdout
 
   const status = async (port: number): Promise<PhoneStatus> => {
     if (!bin) return { installed: false, running: false, on: false, host: null, login: null, url: null }
     let st: TsStatus
-    try { st = JSON.parse(await run(['status', '--json'])) as TsStatus } catch {
+    try { st = parseJson<TsStatus>(await run(['status', '--json'])) } catch {
       return { installed: true, running: false, on: false, host: null, login: null, url: null }
     }
     const host = st.Self?.DNSName?.replace(/\.$/, '').toLowerCase() || null
     const login = st.Self?.UserID !== undefined ? st.User?.[String(st.Self.UserID)]?.LoginName ?? null : null
     if (st.BackendState !== 'Running' || !host) return { installed: true, running: false, on: false, host, login, url: null }
     let serve: ServeStatus = {}
-    try { serve = JSON.parse((await run(['serve', 'status', '--json'])) || '{}') as ServeStatus } catch { /* 아직 serve를 쓴 적 없음 */ }
+    try { serve = parseJson<ServeStatus>((await run(['serve', 'status', '--json'])) || '{}') } catch { /* 아직 serve를 쓴 적 없음 */ }
     const on = servesApp(serve, host, port)
     return { installed: true, running: true, on, host, login, url: on ? `https://${host}` : null }
   }
@@ -66,11 +71,10 @@ export function tailscalePhone(bin = process.env.RW_TAILSCALE_BIN ?? CANDIDATES.
         // 처음이면 tailnet에서 HTTPS를 허락하라는 주소를 내놓고 기다린다. 기다리지 않고 그 주소를 화면에 넘긴다
         await run(['serve', '--bg', `http://127.0.0.1:${port}`], 20_000)
       } catch (e) {
-        const err = e as { stdout?: string; stderr?: string; message: string }
-        const out = `${err.stdout ?? ''}\n${err.stderr ?? ''}`
+        const out = `${textOf(e, 'stdout')}\n${textOf(e, 'stderr')}`
         const after = await status(port)
         if (after.on) return after
-        return { ...after, enableUrl: enableUrlOf(out), error: out.trim().split('\n').filter(Boolean).slice(-2).join(' ') || err.message }
+        return { ...after, enableUrl: enableUrlOf(out), error: out.trim().split('\n').filter(Boolean).slice(-2).join(' ') || textOf(e, 'message') }
       }
       return status(port)
     },
