@@ -4,7 +4,7 @@ import type { AboutSection } from '../types'
 // 소개 › agents › 에이전트가 이어받기. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '에이전트가 이어받기', prs: [322],
+  title: '에이전트가 이어받기', prs: [322, 324],
   items: [
     { text: <>앱이 각 프로젝트의 {c('workbench/STATUS.md')}에 요약(정본 위치, 작업 목록, 원고와 마지막 컴파일, 최근 7일)을 씁니다. 에이전트는 이것을 먼저 읽습니다. 정본은 아닙니다.</> },
     { text: <>맡긴 일의 규칙은 {c('docs/agent-delegated-work.md')} 하나이고, 각 {c('STATUS.md')} 맨 위 한 줄이 그것을 가리킵니다. 결과를 만든 에이전트는 자기 결과를 승인하지 않습니다.</> },
