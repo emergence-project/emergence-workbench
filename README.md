@@ -64,6 +64,10 @@ Agents working on this repository start from [AGENTS.md](AGENTS.md) and [CLAUDE.
 
 Questions go to Discussions, bugs and requests to Issues, and code changes to a pull request from a fork: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Privacy and security
+
+The app runs on your computer, collects no usage data, and sends nothing to its maintainers. What leaves your computer, and when, is listed in [PRIVACY.md](PRIVACY.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE).
@@ -89,5 +93,7 @@ Emergence Workbench(연구 작업대)는 여러 연구를 함께 진행하는 �
 **맥에서 실사용:** 앱 폴더에서 `zsh scripts/install.sh`를 한 번 실행하면 앱 아이콘(응용 프로그램 · Spotlight · 바탕화면 · Dock), 백그라운드 서비스(http://127.0.0.1:5174), Claude Code · Codex 등록까지 마칩니다. 다시 실행해도 되고(된 것은 건너뜀), 손으로 고친 뒤에는 `pnpm service:restart`를 실행합니다. 자세한 설정은 [docs/mac-setup.ko.md](docs/mac-setup.ko.md)에 있습니다. 설정은 `~/.config/research-workspace/config.yaml`에 있습니다. 피드백·설정 백업 같은 개인 기록은 설정 › 계정에서 정한(그 파일의 `personalRepo:`) 비공개 개인 저장소에 올라갑니다. 같은 화면이 시작 준비(GitHub 로그인, 커밋 이름·이메일, 내 이름·소속, 첫 프로젝트, 에이전트 연결 명령)에서 남은 것을 보여 줍니다. 정하지 않으면 이 컴퓨터에만 남고 아무것도 올리지 않습니다.
 
 화면은 영어와 한국어를 지원합니다. 브라우저 언어를 따르고, 설정 › 화면 › 언어에서 바꿀 수 있습니다.
+
+개인정보: 앱은 내 컴퓨터에서 돌고 사용 기록을 모으지 않습니다. 밖으로 나가는 것은 [PRIVACY.md](PRIVACY.md#한국어)에, 취약점 알리기는 [SECURITY.md](SECURITY.md#한국어)에 있습니다.
 
 라이선스: [MIT](LICENSE).
