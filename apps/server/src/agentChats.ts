@@ -117,7 +117,8 @@ import { APP_CHECKS, APP_SUBMIT, clip, describeStep, EXPLORE_AGENT, FEEDBACK_ANS
 // ---------- 안내 (대화를 열 때 한 번, 짧게) ----------
 
 /** 앱 고치기 대화의 안내 */
-export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean }): string {
+export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean; agent?: string }): string {
+  const claude = !o.agent || o.agent === 'claude-code'
   const lines = [
     `You are fixing the Emergence Workbench app itself, from inside the app. The current folder is a separate git worktree of the app repository on branch ${o.branch}, made from origin/main. The running app and the user's own checkout are elsewhere.`,
     // 규칙은 그 대화에 필요한 것만 (차례마다 다시 읽는 앞 내용을 줄이려고, 10/22): 개인 규칙 · 피드백 규칙은 피드백을 맡은 대화만
@@ -126,9 +127,9 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
       : 'Read CLAUDE.md once at the start (not again). The maintainer\'s personal rules and docs/feedback/ are for feedback conversations; you do not need them here.',
     o.write === 'read'
       ? 'This conversation is read-only: do not change files. Tell the user what you would change.'
-      : 'Edit files directly inside this folder with Edit / Write (the user sees each change; files changed by commands only show up from git diff at the end of your turn) and run commands here (Bash). Start with `pnpm install --frozen-lockfile --prefer-offline` if node_modules is missing. Read large files in parts (offset / limit or Grep) instead of whole.',
-    `To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`,
-    'This conversation stays open between turns: a long command can run in the background (run_in_background) and you continue when it finishes, even after your turn ends. Never sleep to wait.',
+      : 'Edit files directly inside this folder (the user sees each change; files changed by commands show up from git diff at the end of your turn) and run commands here. Start with `pnpm install --frozen-lockfile --prefer-offline` if node_modules is missing. Read large files in parts instead of whole.',
+    ...(claude ? [`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`,
+      'This conversation stays open between turns: a long command can run in the background (run_in_background) and you continue when it finishes, even after your turn ends. Never sleep to wait.'] : []),
     'Check your own work before submitting: `pnpm type-check`, `pnpm test` (or the one test file you touched, e.g. `pnpm --filter @rw/server exec vitest run src/<file>.test.ts`), and for screen changes `pnpm shots` and look at the pictures in shots/ yourself (SHOTS_PORT is already set for this conversation). Fix what fails before submitting.',
     `Do not push, open or merge PRs yourself and do not touch the running app service: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes this conversation's own branch and opens or updates its pull request (other open PRs do not block it). GitHub CI then runs again. Call ${APP_CHECKS} with wait (minutes) to wait for the result; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
     'Update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
@@ -138,24 +139,25 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     `This conversation handles one app feedback item (the first message). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Its picture (the screen at the moment the user left it) is attached to the first message, and its spot is the data-ui name: find it with \`grep -rn 'data-ui="<spot>"' apps/web/src\`.`,
     `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures.`,
   )
-  if (o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
-  lines.push('Use TodoWrite for work with three or more steps. Write to the user in Korean, briefly: result first.')
+  if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
+  lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps. Write to the user in Korean, briefly: result first.`)
   return lines.join('\n')
 }
 
-export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[] }): string {
+export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[]; agent?: string }): string {
+  const claude = !o.agent || o.agent === 'claude-code'
   const scope = o.scope.kind === 'project' ? 'the whole project' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
   const lines = [
     `You are working inside Emergence Workbench on the project "${o.title}" (project id ${o.rid}). The current folder is its repository.`,
     `Scope: ${scope}. Read outside the scope only when the work needs it. You cannot change anything outside the scope: say what should change, where and why, and stop there.`,
     o.write === 'read'
       ? 'This conversation is read-only: do not change notes, records or files. Commands that change files are blocked; reading and running commands follow the user\'s permission switches (the app may ask).'
-      : 'Change notes only with the workbench MCP tool edit_note (read_note first, pass its hash as baseHash); the user reviews each changed paragraph. Records: add_record / answer_record. The Write / Edit tools are disabled; prefer edit_note over shell edits so the user can review them. Commands follow the user\'s permission switches: deleting and anything outside the project folders (git push, installs, downloads) always asks.',
+      : 'Change notes only with the workbench MCP tool edit_note (read_note first, pass its hash as baseHash); the user reviews each changed paragraph. Records: add_record / answer_record. Editing files directly is blocked; prefer edit_note over shell edits so the user can review them. Commands follow the user\'s permission switches: deleting and anything outside the project folders (git push, installs, downloads) always asks.',
     `Start with the workbench MCP tools: rules (project ${o.rid}) and project_status; keep reads short and read more only when needed.`,
   ]
-  if (o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
-  lines.push('Use TodoWrite for work with three or more steps: the user sees the list live. ')
-  lines.push(`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`)
+  if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
+  lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps: the user sees the list live. `)
+  if (claude) lines.push(`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`)
   const busy = o.others.filter((c) => c.claims.length)
   if (busy.length) lines.push(`Other conversations are changing these files now; do not change them: ${busy.map((c) => `${c.title}: ${c.claims.join(', ')}`).join('; ')}.`)
   lines.push('Write to the user in Korean, briefly: result first. Write math as $…$ inside a sentence and $$…$$ on its own lines; the conversation renders them.')
@@ -179,50 +181,8 @@ export function promptOf(text: string, attach?: Attach[]): string {
   return `${text}\n\nAttached by the user (read these first, nothing else unless needed):\n${lines.join('\n')}`
 }
 
-/** 노트 고침 입력에서 보일 것 (앞뒤 글은 줄여서) */
-export function editOf(input: Record<string, unknown>): { parts: { old: string; new: string }[]; added: number; removed: number; reason?: string } {
-  const edits = Array.isArray(input.edits) ? (input.edits as { old?: unknown; new?: unknown; reason?: unknown }[]) : []
-  const lines = (s: string) => (s ? s.split('\n').length : 0)
-  let added = 0
-  let removed = 0
-  const parts = edits.slice(0, 6).map((e) => ({ old: clip(str(e.old), 400), new: clip(str(e.new), 400) }))
-  for (const e of edits) { added += lines(str(e.new)); removed += lines(str(e.old)) }
-  const reason = str(input.summary) || str(edits[0]?.reason)
-  return { parts, added, removed, ...(reason && { reason: clip(reason, 300) }) }
-}
-
-/** 파일 고침(Edit · MultiEdit · Write) 입력에서 보일 것 (앱 고치기 대화) */
-export function fileEditOf(tool: string, input: Record<string, unknown>): { parts: { old: string; new: string }[]; added: number; removed: number } {
-  const lines = (s: string) => (s ? s.split('\n').length : 0)
-  const pairs = tool === 'MultiEdit' && Array.isArray(input.edits)
-    ? (input.edits as { old_string?: unknown; new_string?: unknown }[]).map((e) => ({ old: str(e.old_string), new: str(e.new_string) }))
-    : tool === 'Write' ? [{ old: '', new: str(input.content) }]
-      : [{ old: str(input.old_string), new: str(input.new_string) }]
-  let added = 0
-  let removed = 0
-  for (const e of pairs) { added += lines(e.new); removed += lines(e.old) }
-  return { parts: pairs.slice(0, 6).map((e) => ({ old: clip(e.old, 400), new: clip(e.new, 400) })), added, removed }
-}
-
-/** git diff 한 파일을 고친 곳들로 (덩어리마다 뺀 줄 · 더한 줄, 보이려고 줄인다) */
-export function partsOfPatch(patch: string, max = 8): { old: string; new: string }[] {
-  const parts: { old: string[]; new: string[] }[] = []
-  let cur: { old: string[]; new: string[] } | undefined
-  for (const line of patch.split('\n')) {
-    if (line.startsWith('@@')) { cur = { old: [], new: [] }; parts.push(cur); continue }
-    if (!cur || line.startsWith('---') || line.startsWith('+++')) continue
-    if (line.startsWith('-')) cur.old.push(line.slice(1))
-    else if (line.startsWith('+')) cur.new.push(line.slice(1))
-  }
-  return parts.filter((x) => x.old.length || x.new.length).slice(0, max).map((x) => ({ old: clip(x.old.join('\n'), 1200), new: clip(x.new.join('\n'), 1200) }))
-}
-
-const TODO_STATE: Record<string, Todo['state']> = { pending: 'pending', in_progress: 'in_progress', completed: 'completed' }
-/** TodoWrite 입력의 할 일 목록 */
-export function todosOf(input: Record<string, unknown>): Todo[] {
-  const list = Array.isArray(input.todos) ? (input.todos as { content?: unknown; activeForm?: unknown; status?: unknown }[]) : []
-  return list.slice(0, 30).map((x) => ({ text: clip(str(x.content), 200), state: TODO_STATE[str(x.status)] ?? 'pending' }))
-}
+export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
+import { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
 
 // ---------- 대화들 ----------
 
@@ -329,7 +289,9 @@ const RESTART_RESUMES = 2
 
 export interface AgentChatsDeps {
   dir: string
+  /** Claude 대화의 실행기, others = Codex · Gemini (ACP, 없으면 runner가 모두 맡는다: 시험) */
   runner: AgentRunner
+  others?: Partial<Record<'codex' | 'gemini', AgentRunner>>
   /** 동시에 도는 대화 수 */
   limit: number
   /** 프로젝트의 저장소와 이름 */
@@ -406,10 +368,13 @@ export class AgentChats {
 
   get limit(): number { return this.deps.limit }
 
-  /** 고를 수 있는 모델 (실행기가 모르거나 못 물으면 빈 목록) */
-  async models(): Promise<ModelChoice[]> {
-    try { return (await this.deps.runner.models?.()) ?? [] } catch { return [] }
+  /** 고를 수 있는 모델 (실행기가 모르거나 못 물으면 빈 목록). agent = codex · gemini */
+  async models(agent?: 'codex' | 'gemini'): Promise<ModelChoice[]> {
+    try { return (await (agent ? this.deps.others?.[agent] : this.deps.runner)?.models?.()) ?? [] } catch { return [] }
   }
+
+  /** 그 대화의 실행기 */
+  private runnerFor(c: Stored): AgentRunner { return (c.agent === 'codex' || c.agent === 'gemini' ? this.deps.others?.[c.agent] : undefined) ?? this.deps.runner }
 
   /** 이 맥에서 앱 고치기 대화를 열 수 있는지 */
   get app(): boolean { return !!this.deps.app }
@@ -442,11 +407,12 @@ export class AgentChats {
       id: `${at.slice(0, 10)}-${crypto.randomBytes(4).toString('hex')}`,
       rid: b.rid,
       title: (b.title || b.text.split('\n')[0]!).trim().slice(0, 60),
-      agent: 'claude-code',
+      agent: b.agent ?? 'claude-code',
       scope,
       write: b.write ?? 'notes',
       state: 'idle',
-      mode: b.mode ?? 'edit',
+      // 계획 모드는 Claude만 (계획 카드 = ExitPlanMode). Codex · Gemini는 묻고 하기로
+      mode: b.mode === 'plan' && b.agent && b.agent !== 'claude-code' ? 'ask' : b.mode ?? 'edit',
       model: b.model ?? 'default',
       effort: b.effort ?? 'medium',
       claims: [],
@@ -524,7 +490,7 @@ export class AgentChats {
   settings(id: string, s: ChatSettings): Chat {
     const c = this.must(id)
     if (s.write) c.write = s.write
-    if (s.mode) c.mode = s.mode
+    if (s.mode) c.mode = s.mode === 'plan' && c.agent !== 'claude-code' ? 'ask' : s.mode
     // 토글: 같이 보내면 그 값, 권한 이름만 바꾸면 그 이름의 기본값으로. 기본값과 같으면 두지 않는다
     if (s.auto) c.auto = s.auto
     else if (s.write || s.mode) delete c.auto
@@ -1082,8 +1048,9 @@ export class AgentChats {
       const edited = (tool: string, input: Record<string, unknown>) => {
         if (app && (FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
           const file = posix(path.relative(p.repo, path.resolve(p.repo, pathOf(input))))
-          touched.add(file)
-          this.push(c, { kind: 'edit', at: now(), file, ...fileEditOf(tool, input) })
+          const e = fileEditOf(tool, input)
+          // 앞뒤 글을 모르는 고침(Codex의 패치 등)은 차례 끝의 git diff로 보인다
+          if (e.added || e.removed) { touched.add(file); this.push(c, { kind: 'edit', at: now(), file, ...e }) }
           return
         }
         if (tool !== `${MCP}edit_note`) return
@@ -1150,8 +1117,8 @@ export class AgentChats {
         cwd: p.repo,
         extraDirs: app ? [] : this.deps.extraDirs(),
         brief: app
-          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback })
-          : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })) }),
+          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback, agent: c.agent })
+          : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })), agent: c.agent }),
         write: c.write,
         ...(app && { appChat: c.id, env: appEnv(c.id) }),
         canUseTool,
@@ -1160,7 +1127,7 @@ export class AgentChats {
         ...(c.sessionId && c.resumeAt && { resumeAt: c.resumeAt }),
         control: (x) => { session.interrupt = x.interrupt },
       }
-      for await (const e of this.deps.runner(input)) {
+      for await (const e of this.runnerFor(c)(input)) {
         session.last = Date.now()
         if (e.type === 'session') { c.sessionId = e.id; delete c.resumeAt; this.write(c); continue }
         if (e.type === 'mark') { c.lastMark = e.uuid; continue }

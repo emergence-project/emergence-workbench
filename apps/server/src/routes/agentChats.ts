@@ -6,6 +6,9 @@ import { AgentChats, MCP_NAME, type AgentRunner } from '../agentChats.js'
 import { chatExtras } from '../agentExtras.js'
 import type { AppWork } from '../appWorktree.js'
 import { claudeAgentRunner } from '../agentRunner.js'
+import { acpAgentRunner } from '../agentAcp.js'
+import { ACP_AGENTS, agentsHere, isAcp } from '../agentKinds.js'
+import { registerChatMcp } from '../agentMcpHttp.js'
 import { parseBody, replies } from '../contract.js'
 import { createMcpServer } from '../mcp.js'
 import { commitChecker } from '../commitsInApp.js'
@@ -46,9 +49,13 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
       claim: (key: string, since: number) => claimFeedback(deps, key, since),
     }
   })() : undefined
+  const mcpFor = (appChat?: string) => createMcpServer({ baseUrl: 'http://workbench.local', fetch: injectFetch(app), appChat })
+  // Codex · Gemini (10/30, ACP): 대화마다 앱 MCP를 HTTP 입구로 연다 (agentMcpHttp.ts)
+  const chatMcp = registerChatMcp(app, mcpFor)
   const chats = new AgentChats({
     dir: path.join(registry.configDir, 'agent-chats'),
-    runner: runner ?? claudeAgentRunner((appChat) => createMcpServer({ baseUrl: 'http://workbench.local', fetch: injectFetch(app), appChat })),
+    runner: runner ?? claudeAgentRunner(mcpFor),
+    ...(!runner && { others: { codex: acpAgentRunner(ACP_AGENTS.codex, chatMcp), gemini: acpAgentRunner(ACP_AGENTS.gemini, chatMcp) } }),
     limit: CHAT_LIMIT,
     project: (rid) => ({ repo: repoPath(rid), title: registry.list().find((r) => r.id === rid)?.title ?? rid }),
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
@@ -77,7 +84,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   /** 고를 수 있는 모델 (맥의 Claude Code에게 물어 30분 기억, 못 띄우면 빈 목록) */
   app.get('/api/agent-chats/extras', replies(C.ChatExtras), async (): Promise<C.ChatExtras> => chatExtras(MCP_NAME))
-  app.get('/api/agent-chats/models', replies(C.ChatModels), async (): Promise<C.ChatModels> => ({ models: await chats.models() }))
+  app.get<{ Querystring: { agent?: string } }>('/api/agent-chats/models', replies(C.ChatModels), async (req): Promise<C.ChatModels> => ({ models: await chats.models(isAcp(req.query.agent) ? req.query.agent : undefined) }))
+  /** 대화를 맡길 수 있는 에이전트 (Claude · Codex · Gemini): 깔렸는지 · 로그인했는지 · 깔 명령 */
+  app.get('/api/agent-chats/agents', replies(C.ChatAgents), async (): Promise<C.ChatAgents> => ({ agents: agentsHere() }))
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 

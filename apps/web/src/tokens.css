@@ -22,9 +22,10 @@
   --s-blocked: #b45309;
   --s-stopped: #4b5563;
   --s-solved: #0f766e; /* 흰 글자·흰 바탕 위 글자 5.47:1 (10/17) */
-  /* 에이전트 색 둘 (10/27 변경사항 표): 상태가 아니라 누가 봤는지. 그 칸에만 쓴다. 바탕 위 글자 5.83 · 6.43:1 */
+  /* 에이전트 색 셋 (10/27 변경사항 표, 10/30 Gemini 더함): 상태가 아니라 누구인지. 그 칸과 대화의 에이전트 표에만. 바탕 위 글자 5.83 · 6.43 · 6.59:1 */
   --ag-cc: #8a4b14; --ag-cc-bg: #f7ece2;
   --ag-cx: #155e63; --ag-cx-bg: #e2f1f1;
+  --ag-gm: #3b4a9e; --ag-gm-bg: #e7eaf8;
   --code-bg: #fbfbfa;
   --code-cmd: #7c3aed;
   --code-math: #0e7490;
@@ -110,7 +111,7 @@
     --focus: #4a4322; --focus-line: #a8923a;
     --danger: #f28b8b; --danger-bg: #4a2b2a;
     --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
-    --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40;
+    --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40; --ag-gm: #aab6f2; --ag-gm-bg: #262d4d;
     --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
     --math-zone: rgba(255,255,255,.07); --math-dollar: #7aa2f7; --math-paren: #c9a9ff; --math-display: #f08a4b; --math-bracket: #f472b6;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
@@ -137,7 +138,7 @@
     --focus: #4a4322; --focus-line: #a8923a;
     --danger: #f28b8b; --danger-bg: #4a2b2a;
     --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
-    --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40;
+    --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40; --ag-gm: #aab6f2; --ag-gm-bg: #262d4d;
     --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
     --math-zone: rgba(255,255,255,.07); --math-dollar: #7aa2f7; --math-paren: #c9a9ff; --math-display: #f08a4b; --math-bracket: #f472b6;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);

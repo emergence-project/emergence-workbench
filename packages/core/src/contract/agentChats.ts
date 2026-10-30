@@ -35,8 +35,13 @@ export const CHAT_MODES = ['ask', 'plan', 'edit'] as const
 export const CHAT_KINDS = ['read', 'edit', 'delete', 'run', 'web', 'outside'] as const
 /** 「자동 허용」 토글이 있는 일. 편집은 모드(edit = 켬)가 정하고, 삭제 · 외부는 늘 묻는다 */
 export const ChatAuto = z.object({ read: z.boolean().optional(), run: z.boolean().optional(), web: z.boolean().optional() }).strict()
-/** 모델: default = 맥의 Claude Code 기본값. 별칭(opus · sonnet …) 말고도 맥의 Claude Code가 아는 모델 id(claude-opus-5 등)를 쓴다 (GET /agent-chats/models) */
-export const ChatModel = z.string().regex(/^[a-z][a-z0-9.\-[\]]{0,79}$/)
+/** 모델: default = 그 에이전트의 기본값. 별칭(opus · sonnet …) 말고도 맥의 에이전트가 아는 모델 id(claude-opus-5, gpt-5-codex/high 등)를 쓴다 (GET /agent-chats/models) */
+export const ChatModel = z.string().regex(/^[a-z][a-z0-9._:/\-[\]]{0,79}$/i)
+/**
+ * 대화를 맡는 에이전트 (10/30 사용자 결정 "둘 다, 공통 규약(ACP)으로"): claude-code = Agent SDK, codex · gemini = Agent Client Protocol.
+ * 대화마다 하나로 정하고 바꾸지 않는다 (세션이 에이전트마다 따로라서)
+ */
+export const AGENT_KINDS = ['claude-code', 'codex', 'gemini'] as const
 /** 생각 깊이 (xhigh · max는 그것을 받는 모델만) */
 export const CHAT_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 /** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 */
@@ -167,6 +172,13 @@ export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), a
 export const ModelChoice = z.object({ value: ChatModel, name: z.string(), desc: z.string(), resolved: z.string().optional(), efforts: z.array(z.enum(CHAT_EFFORTS)).optional() }).strict()
 export const ChatModels = z.object({ models: z.array(ModelChoice) }).strict()
 /**
+ * GET /agent-chats/agents: 이 맥에서 대화를 맡길 수 있는 에이전트. installed = 실행 파일을 찾음(version), login = 로그인한 흔적이 있음(모르면 없음),
+ * install = 깔 때 쓸 명령 (없을 때 화면이 보인다)
+ */
+export const ChatAgents = z.object({
+  agents: z.array(z.object({ id: z.enum(AGENT_KINDS), name: z.string(), installed: z.boolean(), version: z.string().optional(), login: z.boolean().optional(), install: z.string().optional() }).strict()),
+}).strict()
+/**
  * GET /agent-chats/extras: 맥의 Claude Code에 있는 스킬(~/.claude/skills)과 커넥터(~/.claude.json의 MCP 서버). / 메뉴 · @ 메뉴에 보인다.
  * 커넥터는 이름과 방식만 (명령 · 주소 · 키는 보내지 않는다)
  */
@@ -196,6 +208,7 @@ const message = {
 export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional(), auto: ChatAuto.optional() }).strict()
 export const NewChatBody = z.object({
   rid: z.string().min(1),
+  agent: z.enum(AGENT_KINDS).optional(),
   ...message,
   title: z.string().trim().max(120).optional(),
   scope: ChatScope.optional(),
@@ -276,6 +289,8 @@ export type ChatMode = (typeof CHAT_MODES)[number]
 export type ChatModel = z.infer<typeof ChatModel>
 export type ModelChoice = z.infer<typeof ModelChoice>
 export type ChatModels = z.infer<typeof ChatModels>
+export type ChatAgents = z.infer<typeof ChatAgents>
+export type AgentKind = (typeof AGENT_KINDS)[number]
 export type ChatExtras = z.infer<typeof ChatExtras>
 export type Unqueued = z.infer<typeof Unqueued>
 export type Rewound = z.infer<typeof Rewound>
