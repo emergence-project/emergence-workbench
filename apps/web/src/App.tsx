@@ -55,6 +55,7 @@ import { batchInvalidation, invalidationKeys, qk } from './queries'
 import { recordWrites } from './useRecordActions'
 import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
+import { usePhone, usePhoneCloses, useStoredFlag } from './phoneLayout'
 import { applyUi, cachedUi } from './ui'
 import { FLASH_EVENT, type FlashAction, type FlashMessage } from './flash'
 import { usePublishFailureFlash } from './RecordsPublish'
@@ -129,11 +130,10 @@ export function App() {
     window.addEventListener(AGENT_OPEN, agent)
     return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(AGENT_OPEN, agent) }
   }, [setLayout])
-  const [sideOpen, setSideOpen] = useState<boolean>(() => store.get('rw-side', true))
-  useEffect(() => store.set('rw-side', sideOpen), [sideOpen])
+  const [sideOpen, setSideOpen] = useStoredFlag('rw-side', true)
   // 프로젝트 밖 화면의 오른쪽 사이드바 (라이브러리 정보 등, globalPages.tsx의 right). 프로젝트의 것(layout.ctx)과 따로 기억한다
-  const [globalRight, setGlobalRight] = useState<boolean>(() => store.get('rw-global-right', true))
-  useEffect(() => store.set('rw-global-right', globalRight), [globalRight])
+  const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true)
+  usePhoneCloses(usePhone(), JSON.stringify(route), () => { setSideOpen(false); setGlobalRight(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
   const onGlobalPage = useRef(false)
   onGlobalPage.current = route.page === 'home' || !!globalPageOf(route.page)
   const [quickMemo, setQuickMemo] = useState(false)
@@ -287,7 +287,7 @@ export function App() {
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [dialog, quickMemo, feedback, search, rid, setLayout])
+  }, [dialog, quickMemo, feedback, search, rid, setLayout, setSideOpen, setGlobalRight])
 
   // 레일의 프로젝트 버튼도 끌어서 순서를 바꾼다 (10/7 18:07). 홈 목록·카드와 같은 순서(설정)에 저장한다
   const [railDrag, setRailDrag] = useState<{ from: string | null; over: string | null }>({ from: null, over: null })

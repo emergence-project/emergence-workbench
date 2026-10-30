@@ -9,7 +9,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, webkit } from 'playwright-core'
 import { parseShotOptions, screenScheme, SHOTS_HELP } from './options.mjs'
-import { selectScreens } from './screens.mjs'
+import { PHONE_SCREENS, selectScreens } from './screens.mjs'
 import { clearAgentEdits, seedAgentEdits, seedEditTalk } from './agent-edits.mjs'
 import { seedChanges } from './changes.mjs'
 
@@ -273,6 +273,22 @@ try {
     if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
     console.log(`찍음 ${name}`)
   }
+  // 폰 (10/30, styles/phone.css): 폭 390의 따로 연 창에서 찍는다. 폰은 사이드바를 닫아 기억하므로 위 화면들과 저장소를 나누지 않는다
+  if (options.sample !== 'subjects') {
+    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: 'light' })
+    await phone.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
+    phone.on('pageerror', (e) => problems.push(`${current}: ${e.message}`))
+    phone.on('console', (m) => { if (m.type() === 'error' && !expected(m)) problems.push(`${current}: console ${m.text()} ${m.location().url ?? ''}`) })
+    for (const [name, hash, ui] of PHONE_SCREENS) {
+      current = name
+      await phone.goto(base + hash.replace('{rid}', encodeURIComponent(rid)))
+      await phone.waitForLoadState('networkidle')
+      await phone.locator(`[data-ui="${ui}"]`).filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${ui} 없음`))
+      if (await phone.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) problems.push(`${name}: 화면이 옆으로 넘친다`)
+      await phone.screenshot({ path: path.join(out, `${name}.png`) })
+      console.log(`찍음 ${name}`)
+    }
+  }
   await browser.close()
 } finally {
   server.kill()
@@ -282,4 +298,4 @@ if (problems.length) {
   console.error(`\n화면 오류 ${problems.length}건:\n${problems.map((p) => `  - ${p}`).join('\n')}`)
   process.exit(1)
 }
-console.log(`\n화면 ${SCREENS.length}개를 찍었습니다: ${path.relative(root, out)}/`)
+console.log(`\n화면 ${SCREENS.length + (options.sample === 'subjects' ? 0 : PHONE_SCREENS.length)}개를 찍었습니다: ${path.relative(root, out)}/`)

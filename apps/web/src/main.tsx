@@ -74,6 +74,7 @@ import './styles/changes.css'
 import './styles/flow-pairs.css'
 import './styles/inline-edits.css'
 import './styles/agent-hooks.css'
+import './styles/phone.css'
 
 applyUi(cachedUi())
 
