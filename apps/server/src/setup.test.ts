@@ -148,6 +148,31 @@ describe('시작 준비', () => {
     expect((await a.inject({ method: 'GET', url: '/api/researches' })).json().researches).toHaveLength(2)
     await a.close()
   })
+  it('이미 받아 둔 사본이 뒤처져 workbench/가 없으면 먼저 앞으로 받는다 (10/30)', async () => {
+    const root = path.join(tmp, 'fetch-behind')
+    const upstream = path.join(root, 'upstream')
+    fs.mkdirSync(upstream, { recursive: true })
+    const run = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, stdio: 'pipe' })
+    run(upstream, 'init', '-q', '-b', 'main')
+    run(upstream, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'first')
+    run(root, 'clone', '-q', upstream, 'behind')
+    fs.cpSync(path.join(fixture, 'workbench'), path.join(upstream, 'workbench'), { recursive: true, filter: (src) => !src.includes('.build') })
+    run(upstream, 'add', '-A')
+    run(upstream, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'workbench')
+    const behind = path.join(root, 'behind')
+    // 주소는 GitHub 모양으로 두고, 실제로는 옆 폴더에서 받게 한다
+    run(behind, 'remote', 'set-url', 'origin', 'https://github.com/me/behind.git')
+    run(behind, 'config', `url.${upstream}.insteadOf`, 'https://github.com/me/behind.git')
+    const a = buildApp({ configDir: path.join(root, 'config') })
+    const parent = path.join(root, 'proj')
+    fs.cpSync(fixture, parent, { recursive: true, filter: (src) => !src.includes('.build') })
+    fs.mkdirSync(path.join(parent, '.git'))
+    expect((await a.inject({ method: 'POST', url: '/api/researches', payload: { path: parent } })).statusCode).toBe(200)
+    expect(fs.existsSync(path.join(behind, 'workbench'))).toBe(false)
+    expect((await a.inject({ method: 'POST', url: '/api/setup/fetch', payload: { remote: 'https://github.com/me/behind.git', folder: 'behind' } })).statusCode).toBe(200)
+    expect(fs.existsSync(path.join(behind, 'workbench/research.yaml'))).toBe(true)
+    await a.close()
+  })
   it('개인 저장소를 gh로 비공개로 만들어 바로 정한다, 이름이 이상하면 거절', async () => {
     const calls: string[][] = []
     const io = { run: async (cmd: string, args: string[]) => { calls.push([cmd, ...args]); return 'https://github.com/me/workbench-private\n' }, getJson: async () => [], exists: () => false }
