@@ -32,13 +32,13 @@ body.feedback-on .toast { bottom: 76px; }
 
 /* 피드백 모아 보기 */
 .fbp-toolbar { height: auto; min-height: calc(var(--input-h) + var(--sp-4)); padding-block: var(--sp-2); white-space: nowrap; }
-.fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; }
-.fbp-toolbar .segmented button { flex: none; white-space: nowrap; }
+.fbp-pick { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.fbp-pick .mini-select { max-width: none; }
+.fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; font-size: var(--fs-xs); }
 .fbp-tools { display: flex; justify-self: end; justify-content: flex-end; align-items: center; gap: var(--sp-2); min-width: 0; }
 .fbp-filters { justify-self: start; justify-content: flex-start; flex-wrap: nowrap; }
 @media (max-width: 900px) {
-  .fbp-toolbar { display: flex; flex-wrap: wrap; }
-  .fbp-toolbar .segmented { flex-wrap: wrap; }
+  .fbp-toolbar { display: flex; flex-wrap: wrap; column-gap: var(--sp-4); }
   .fbp-tools { margin-left: auto; }
 }
 .fbp-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
