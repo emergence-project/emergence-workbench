@@ -1,0 +1,42 @@
+/* 폰 (10/30 사용자 결정 "Tailscale, 읽기와 답·메모", 시안 https://claude.ai/artifact/5p4up2yhVrgocqXM61D1h3).
+   폭 600px 아래에서만 바뀐다. 레일 → 아래 탭 바(옆으로 밀어 넘김), 사이드바 · 오른쪽 사이드바 → 본문을 덮는 한 장,
+   작업 화면은 패널 하나(나뉘어 있으면 고른 패널만). 처음과 화면을 옮길 때 덮는 장은 닫힌다(phoneLayout.ts). */
+@media (max-width: 600px) {
+  .body, .body.no-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; position: relative; }
+  .body > :not(.rail, .side) { grid-row: 1; grid-column: 1; }
+
+  /* 아래 탭 바 */
+  .rail { grid-row: 2; grid-column: 1; flex-direction: row; justify-content: flex-start; gap: var(--sp-2); overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+    border-right: 0; border-top: 1px solid var(--line); padding: var(--sp-1) var(--sp-3) calc(var(--sp-1) + env(safe-area-inset-bottom, 0px)); }
+  .rail-btn { flex: none; width: 40px; height: 40px; }
+  .rail-hr { width: 0; height: 24px; border-top: 0; border-left: 1px solid var(--line-strong); margin: 0 var(--sp-1); }
+  .rail-projects { flex-direction: row; align-self: stretch; align-items: center; overflow: visible; padding: 0 var(--sp-1); }
+  .rail { padding-top: var(--sp-2); }
+  .rail .sp { display: none; }
+  .rail [data-tip]:hover::after, .rail [data-tip]:hover::before { display: none; }
+
+  /* 사이드바: 본문 위에 덮는 한 장 */
+  .side { grid-row: 1; grid-column: 1; z-index: var(--z-overlay); border-right: 0; box-shadow: var(--shadow); }
+  .side-resize { display: none; }
+
+  /* 작업 화면: 패널 하나. 오른쪽 사이드바는 덮는 한 장 */
+  .ws { display: flex; position: relative; }
+  .ws-pane { flex: 1; }
+  .ws-pane:has(~ .ws-pane.focused), .ws-pane.focused ~ .ws-pane { display: none; }
+  .ws-divider { display: none; }
+  .ws-ctx { position: absolute; inset: 0; z-index: var(--z-overlay); }
+
+  /* 상단바: 위치 표시가 버튼을 밀어내지 않게 */
+  .titlebar { gap: var(--sp-1); }
+  .tb-left { padding-left: var(--sp-2); }
+  .tb-right { padding-right: var(--sp-2); }
+  .sandbox-bar { font-size: var(--fs-2xs); }
+
+  /* 표: 한 줄에서 잘리던 글을 접어 끝까지 읽게 (피드백 표) */
+  .fbp-table td, .fbp-table td * { white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
+}
+
+/* 손가락으로 누르는 화면: 누른 뒤 툴팁이 남아 화면을 가리지 않게 */
+@media (hover: none) {
+  [data-tip]:hover::after { content: none; }
+}

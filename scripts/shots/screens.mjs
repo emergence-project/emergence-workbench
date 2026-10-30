@@ -171,6 +171,15 @@ export const DEFAULT_SCREENS = [
   ['info-changes', '#/r/{rid}/changes', '변경사항 표'],
 ]
 
+// 폰 폭(390)에서 찍는 화면 (10/30, styles/phone.css): 아래 탭 바 · 패널 하나 · 접힌 표. 옆으로 넘치면 실패
+/** @type {[string, string, string][]} */
+export const PHONE_SCREENS = [
+  ['phone-home', '#/', '프로젝트 버튼'],
+  ['phone-project', '#/r/{rid}', '작업 화면'],
+  ['phone-note', '#/r/{rid}/j/four-colors', '작업 화면'],
+  ['phone-feedback', '#/feedback', '피드백 표'],
+]
+
 // --sample subjects: a separate .sandbox-shots/subjects-library fixture, preserving the default L2b shots.
 /** @type {Screen[]} */
 export const SUBJECT_SCREENS = [
