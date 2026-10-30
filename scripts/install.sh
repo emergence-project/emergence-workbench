@@ -74,11 +74,25 @@ if [ $DOCK = 1 ]; then
   [ $WINDOW = tauri ] || for p in "$HOME/Applications/Chrome Apps.localized/Emergence Workbench.app" "$HOME/Applications/Chrome Apps/Emergence Workbench.app"; do
     [ -d "$p" ] && { target="$p"; break; }
   done
+  url="file://${target// /%20}/"
   dock="$(defaults read com.apple.dock persistent-apps 2>/dev/null || true)"
-  if print -r -- "$dock" | grep -qF "Emergence%20Workbench.app"; then
+  if print -r -- "$dock" | grep -qF "$url"; then
     SKIP+=("Dock (이미 있음)")
+  elif [ $WINDOW = tauri ] && print -r -- "$dock" | grep -qF "Emergence%20Workbench.app"; then
+    # 예전 크롬 창(앱으로 설치)을 가리키는 Dock 항목을 Tauri 창으로 돌린다 (맥북 10/30: 그대로 두면 Dock이 크롬 창을 연다)
+    tmp="$(mktemp -t dock)"
+    defaults export com.apple.dock "$tmp"
+    PB=/usr/libexec/PlistBuddy i=0
+    while "$PB" -c "Print :persistent-apps:$i" "$tmp" >/dev/null 2>&1; do
+      key=":persistent-apps:$i:tile-data:file-data:_CFURLString"
+      u="$("$PB" -c "Print $key" "$tmp" 2>/dev/null || true)"
+      [[ "$u" == *Emergence%20Workbench.app* ]] && "$PB" -c "Set $key $url" "$tmp"
+      i=$((i + 1))
+    done
+    defaults import com.apple.dock "$tmp" && rm -f "$tmp"
+    killall Dock 2>/dev/null || true
+    DONE+=("Dock (크롬 창 → Tauri 창)")
   else
-    url="file://${target// /%20}/"
     defaults write com.apple.dock persistent-apps -array-add "<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>$url</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>"
     killall Dock 2>/dev/null || true
     DONE+=("Dock")
