@@ -4,6 +4,7 @@
  *   스크립트는 부를 때마다 주소 파일을 다시 읽어, 앱이 다른 포트로 다시 켜져도 오래 돈 세션이 계속 닿는다.
  * - 켜면 Claude Code 사용자 설정(~/.claude/settings.json)의 hooks와 Codex 설정(~/.codex/config.toml)의 notify에 그 스크립트를 넣는다.
  *   앱이 넣은 줄은 스크립트 이름(HOOK_MARK)으로 알아보고, 끄면 그 줄만 뺀다. 다른 훅 · 설정은 그대로 둔다.
+ *   Codex에 다른 notify가 있으면 그것을 앱 줄 안으로 옮겨 함께 부르고, 끄면 되돌린다.
  * - 앱은 세션마다 마지막 상태만 메모리에 둔다(12시간). 앱 안 대화는 사용자 설정을 읽지 않으므로(agentRunner settingSources: []) 여기에 오지 않는다.
  */
 import fs from 'node:fs'
@@ -23,12 +24,21 @@ export const hookScript = (configDir: string) => path.join(hookDir(configDir), `
 
 const SCRIPT = `#!/bin/sh
 # ${HOOK_MARK}: 에이전트 상태를 Emergence Workbench 앱에 알린다. 앱이 쓴 파일이다 (설정 › 에이전트 › 상태 알리기에서 끈다).
-# Claude Code는 훅 내용을 표준 입력으로, Codex notify는 마지막 인자로 준다. 앱이 꺼져 있으면 아무것도 하지 않는다.
+# Claude Code는 훅 내용을 표준 입력으로, Codex notify는 마지막 인자로 준다. 앱이 꺼져 있으면 보내지 않는다.
+# Codex에 원래 notify가 있었으면 "--" 뒤에 그 명령이 오고, 알린 뒤 같은 인자로 그것을 부른다.
 agent="$1"
-body="$2"
+shift
+body=""
+for a in "$@"; do body="$a"; done
 [ -z "$body" ] && body=$(cat)
-. "$(dirname "$0")/endpoint.env" 2>/dev/null || exit 0
-curl -s -m 2 -o /dev/null -X POST -H 'content-type: application/json' -H "x-rw-hook-agent: $agent" --data-binary "$body" "$RW_URL/api/agent-hooks" >/dev/null 2>&1
+env="$(dirname "$0")/endpoint.env"
+if [ -f "$env" ] && . "$env"; then
+  curl -s -m 2 -o /dev/null -X POST -H 'content-type: application/json' -H "x-rw-hook-agent: $agent" --data-binary "$body" "$RW_URL/api/agent-hooks" >/dev/null 2>&1
+fi
+if [ "$1" = "--" ]; then
+  shift
+  exec "$@"
+fi
 exit 0
 `
 
@@ -95,29 +105,50 @@ const codexConfig = (home: string) => path.join(home, '.codex', 'config.toml')
 /** 표 머리([..]) 앞의 맨 위 notify 줄 */
 const NOTIFY = /^\s*notify\s*=.*$/m
 
+/** notify 줄의 명령 배열. 한 줄의 큰따옴표 글 배열만 읽고, 그 밖의 모양은 null */
+export function notifyArgs(line: string): string[] | null {
+  const m = line.match(/^\s*notify\s*=\s*(\[.*\])\s*(#.*)?$/)
+  if (!m?.[1]) return null
+  try {
+    const v: unknown = JSON.parse(m[1])
+    return Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string') ? v : null
+  } catch { return null }
+}
+
+/** 앱의 줄이면 true, 없으면 false, 읽지 못하는 다른 notify면 'busy' (원래 것과 함께 넣을 수 없다) */
 export function codexInstalled(home = os.homedir()): boolean | 'busy' {
   const file = codexConfig(home)
   if (!fs.existsSync(file)) return false
-  const text = fs.readFileSync(file, 'utf8')
-  const line = text.match(NOTIFY)?.[0]
-  return !line ? false : line.includes(HOOK_MARK) ? true : 'busy'
+  const line = fs.readFileSync(file, 'utf8').match(NOTIFY)?.[0]
+  if (!line) return false
+  if (line.includes(HOOK_MARK)) return true
+  return notifyArgs(line) ? false : 'busy'
 }
 
-/** 켜기 · 끄기. 다른 notify가 이미 있으면 바꾸지 않고 'busy' (Codex는 notify를 하나만 받는다) */
+/**
+ * 켜기 · 끄기. Codex는 notify를 하나만 받으므로, 다른 notify가 있으면 그 명령을 앱 줄의 "--" 뒤에 옮겨 스크립트가 알린 뒤 부르게 하고,
+ * 끄면 원래 줄로 되돌린다. 읽지 못하는 모양(여러 줄 배열 등)이면 바꾸지 않고 'busy'.
+ */
 export function setCodexNotify(configDir: string, on: boolean, home = os.homedir()): boolean | 'busy' {
   const file = codexConfig(home)
   const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
-  const now = codexInstalled(home)
-  if (now === 'busy') return 'busy'
-  const without = text.split('\n').filter((l) => !(NOTIFY.test(l) && l.includes(HOOK_MARK))).join('\n')
+  const line = text.match(NOTIFY)?.[0]
+  const mine = !!line?.includes(HOOK_MARK)
+  if (line && !mine && !notifyArgs(line)) return 'busy'
+  // 원래 notify: 앱 줄이면 "--" 뒤, 아니면 그 줄 그대로
+  const args = line ? notifyArgs(line) : null
+  const original = mine ? (args && args.indexOf('--') >= 0 ? args.slice(args.indexOf('--') + 1) : []) : (args ?? [])
+  const restore = original.length ? `notify = ${JSON.stringify(original).replaceAll('","', '", "')}` : null
+  const rest = line ? text.replace(NOTIFY, '\0').split('\n').filter((l) => l !== '\0').join('\n') : text
   if (!on) {
-    if (now) writeAtomic(file, without)
+    if (mine) writeAtomic(file, restore ? text.replace(NOTIFY, restore) : rest)
     return false
   }
   // 맨 위 키여야 한다: 첫 표 머리보다 앞, 파일 맨 앞에 둔다
-  const line = `notify = ["sh", ${JSON.stringify(hookScript(configDir))}, "codex"]`
+  const ourArgs = ['sh', hookScript(configDir), 'codex', ...(original.length ? ['--', ...original] : [])]
+  const ourLine = `notify = ${JSON.stringify(ourArgs).replaceAll('","', '", "')}`
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  writeAtomic(file, `${line}\n${without}`)
+  writeAtomic(file, `${ourLine}\n${rest}`)
   return true
 }
 
