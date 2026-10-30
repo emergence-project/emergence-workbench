@@ -27,6 +27,8 @@ import type { Task, TaskAnswer, TaskAsk, TaskIssue, TaskJudgment, TaskNext, Task
  *   end-condition: L=16·24·32에서 η·helicity로 판정, 시작 배치 3개 일치   # 비면 에이전트가 proposal부터
  *   references: [workbench/notes/v-phase/note.md]
  *   avoid: 연구노트 본문은 고치지 않는다
+ *   checkpoint: L=24 끝남, η 0.23 · 다음 L=32   # 지금 상태 한 줄 (10/30): 에이전트가 고비마다 덮어쓴다. 결과를 보고하면 지운다
+ *   checkpoint-at: 2026-10-06 10:20
  *   # ↓ 에이전트가 결과와 함께 채운다
  *   result-at: 2026-10-06 12:59
  *   conclusion: J_Γ/J_PD가 0.01을 넘으면 V 상의 대수 구간이 닫힌다.
@@ -150,6 +152,8 @@ function taskFromInspection(id: string, file: string, content: string, mtime: nu
     ...optional('avoid', text(fm.avoid)),
     ...optional('resultAt', text(fm['result-at'])),
     ...optional('conclusion', text(fm.conclusion)),
+    ...optional('checkpoint', text(fm.checkpoint)),
+    ...optional('checkpointAt', text(fm['checkpoint-at'])),
     ...(ec === 'pass' || ec === 'fail' || ec === 'unknown' ? { endCheck: ec } : {}),
     asks: list(fm.ask).map(parseAsk).filter(nonNull),
     issues: list(fm.issues).map(parseIssue).filter(nonNull),
@@ -471,10 +475,28 @@ export function reportTask(wb: Workbench, id: string, body: Report, now = new Da
   if (outputs.length) doc.set('outputs', doc.createNode(outputs, { flow: true }))
   if (body.checkMachine?.trim()) doc.setIn(['check', 'machine'], one(body.checkMachine))
   doc.set('state', 'result')
+  // 일하는 도중의 한 줄은 결과가 대신한다
+  doc.delete('checkpoint')
+  doc.delete('checkpoint-at')
   const front = doc.toString({ lineWidth: 0 }).replace(/\n$/, '').split('\n').join(eol)
   const filled = fillSection(fillSection(text.split(eol).join('\n'), '요약과 결론', body.summary, at), '근거', body.evidence, at)
   writeAtomic(p, `---${eol}${front}${eol}---${eol}${filled.split('\n').join(eol)}`)
   return readTask(wb, t.id)
+}
+
+/**
+ * 지금 상태 한 줄 (10/30, 오르카의 worktree 체크포인트): 에이전트가 일하는 도중 고비마다(가설 확인 · 반증, 막힘, 단계 전환) 덮어쓴다.
+ * 끝 보고(report_task)와 일지 대신 작업 탭 줄 · 카드와 STATUS에 보인다. 진행 · 멈춤인 일에만. 한 줄로 줄인다
+ */
+export function checkpointTask(wb: Workbench, id: string, body: C.CheckpointBody, now = new Date()): Task {
+  const t = readTask(wb, id)
+  checkHash(t, body.baseHash)
+  if (t.state !== 'working' && t.state !== 'paused') throw new WorkbenchError(409, tl(`진행 · 멈춤인 일에만 지금 상태를 적을 수 있음 (지금: ${t.state})`, `Only tasks in progress or blocked take a checkpoint (now: ${t.state})`))
+  const line = body.text.replace(/\s+/g, ' ').trim()
+  return editFront(wb, t, (doc) => {
+    doc.set('checkpoint', line)
+    doc.set('checkpoint-at', stamp(now))
+  })
 }
 
 /** 규칙 문서: 이 앱 저장소의 docs/agent-delegated-work.md (STATUS.md 맨 위 한 줄이 가리킨다). 집 폴더는 ~로 줄인다 */
@@ -498,6 +520,7 @@ export function statusSection(wb: Workbench): string[] {
     out.push(`- \`${t.file}\` · ${label[t.state]}${t.priority ? ` · 우선 ${t.priority}` : ''} · ${t.title}${t.agent ? ` · ${t.agent}` : ''}${todo ? ` — ${todo}` : ''}`)
     const answered = t.answers.length ? t.answers.map((a) => `${a.n}번 ${a.answer}${a.note ? ` (${a.note})` : ''}`).join(', ') : ''
     if (answered) out.push(`  - 사용자 답: ${answered}`)
+    if (t.checkpoint && (t.state === 'working' || t.state === 'paused')) out.push(`  - 지금: ${t.checkpoint}${t.checkpointAt ? ` (${t.checkpointAt})` : ''}`)
   }
   out.push('')
   return out

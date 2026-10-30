@@ -33,7 +33,7 @@ Inside the app folder, `pnpm mcp` also starts it (it speaks MCP over stdio, so y
 
 Flow outputs (`flow_search`, `flow_read`, `flow_add`, `flow_update`, `finish_work`) carry `shown`: the dot in the words the screen uses (for example `명제 (닫는 점) · 끝남 · 해결 · 판단 전`), so an agent can quote it to the user as is. MCP keeps the screen's names, rules and turn boundary, but its tools are cut by job, not by screen (10/27).
 
-## Tools (read-only except edit_note, edit_concept, answer_record, add_record, flow_add, flow_update, flow_review, finish_work, add_task, report_task, add_journal and changes_since, which only moves its own baseline)
+## Tools (read-only except edit_note, edit_concept, answer_record, add_record, flow_add, flow_update, flow_review, finish_work, add_task, report_task, checkpoint_task, add_journal and changes_since, which only moves its own baseline)
 
 When it connects, the server tells the agent which tools to use in which order for each kind of job (`INSTRUCTIONS` in `apps/server/src/mcp.ts`): start with `rules`, then `overview`, then `project_status`, then `changes_since`. If you add or rename a tool, update that order too; `mcp.test.ts` checks that every tool name there exists.
 
@@ -52,6 +52,7 @@ When it connects, the server tells the agent which tools to use in which order f
 | `list_tasks` · `read_task` | Delegated tasks, and every field of one | `GET …/:rid/tasks`, `…/tasks/:id` |
 | `add_task` | Create a task file `{ title, task, endCondition?, topic?, flow?, agent?, references?, avoid? }` (`flow`: the flow dot it works on) for a to-do, handoff or proposal of new work, instead of writing `workbench/tasks/*.md` | `POST …/:rid/tasks` |
 | `report_task` | Write the report of a task in progress (`working`) with the hash from `read_task`. `kind: proposal` with `endCondition` (and `reason`) → `proposed`. `kind: result` with `conclusion`, `endCheck`, `summary`, `evidence` and optionally `ask`, `issues`, `next`, `outputs`, `checkMachine` → `result`. The app writes the YAML front matter (so commas and colons cannot break it) and the two body sections; text already in a section is kept and the new text goes under a dated `###` heading. Never `done` | `POST …/:rid/tasks/:id/report` |
+| `checkpoint_task` | Overwrite the one-line current state (`checkpoint`, `checkpoint-at`) of a task in progress or blocked with the hash from `read_task`: what just happened, where, the next step. Call it at milestones (hypothesis confirmed or refuted, blocker, next step). The task row, its card and the STATUS task section show it; a result report removes it (2026-10-30) | `POST …/:rid/tasks/:id/checkpoint` |
 | `add_journal` | Append a memo line to today's journal `{ text, target? }` (what you did and the files you touched), instead of writing `workbench/log/<date>.md` | `POST …/:rid/journal` |
 | `search_library` | Find concept notes and papers (name, alias, author, year, arXiv id). Concept notes are also found by their text, with `hits` for each matching line (body line number, the heading it falls under, the line), so you can read just that section | `GET /api/search/catalog`, `GET /api/concepts/search` |
 | `read_concept` | A concept note's front matter, body, hash and check state (ok, changed, none) | `GET /api/concepts/:id` |

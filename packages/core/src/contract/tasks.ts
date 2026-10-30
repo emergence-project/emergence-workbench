@@ -36,6 +36,9 @@ export const Task = z.object({
   avoid: z.string().optional(),
   resultAt: z.string().optional(),
   conclusion: z.string().optional(),
+  /** 지금 상태 한 줄 (10/30, 오르카의 체크포인트): 에이전트가 일하는 도중 고비마다 덮어쓴다. 결과를 보고하면 지운다 */
+  checkpoint: z.string().optional(),
+  checkpointAt: z.string().optional(),
   endCheck: z.enum(['pass', 'fail', 'unknown']).optional(),
   asks: z.array(TaskAsk),
   issues: z.array(TaskIssue),
@@ -122,6 +125,9 @@ export const ReportBody = z.discriminatedUnion('kind', [
   }),
 ])
 
+/** POST checkpoint: 지금 상태 한 줄 (MCP checkpoint_task). 첫 줄 = 방금 한 일 · 자리 · 다음 */
+export const CheckpointBody = z.object({ text: z.string().trim().min(1).max(300), baseHash }).strict()
+
 export type TaskState = (typeof TASK_STATES)[number]
 export type Verdict = (typeof VERDICTS)[number]
 export type TaskAsk = z.infer<typeof TaskAsk>
@@ -142,3 +148,4 @@ export type JudgeBody = z.input<typeof JudgeBody>
 export type AnswerBody = z.input<typeof AnswerBody>
 export type NextBody = z.input<typeof NextBody>
 export type LinkFlowBody = z.input<typeof LinkFlowBody>
+export type CheckpointBody = z.input<typeof CheckpointBody>

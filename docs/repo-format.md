@@ -386,7 +386,7 @@ workbench/notes/
 |---|---|
 | `title`, `task` | 필수, 비지 않은 글자 |
 | `state` | 필수: `working` · `proposed` · `result` · `done` · `paused` · `stopped` |
-| `topic`, `flow`, `agent`, `created`, `end-condition`, `avoid`, `result-at`, `conclusion` | 글자 또는 비움. **숫자는 안 된다**(`topic: 123` 오류, 따옴표로 감쌈) |
+| `topic`, `flow`, `agent`, `created`, `end-condition`, `avoid`, `result-at`, `conclusion`, `checkpoint`, `checkpoint-at` | 글자 또는 비움. **숫자는 안 된다**(`topic: 123` 오류, 따옴표로 감쌈) |
 | `priority` | `1` 먼저 · `2` 보통 · `3` 나중 (2026-10-13~). 없으면 보통. 그 밖의 값은 오류. `STATUS.md` 맡긴 일 절이 이 순서로 보인다 |
 | `end-check` | `pass` · `fail` · `unknown` |
 | `references`, `outputs` | 글자 목록 |

@@ -44,7 +44,7 @@ export function inspectTask(file: string, content: string): TaskInspection {
   }
   for (const key of ['title', 'task']) if (!text(data[key])) issue(key, t(`${key}: 비어 있지 않은 글이 필요합니다.`, `${key}: non-empty text is required.`))
   if (!oneOf(data.state, TASK_STATES)) issue('state', t(`state: ${valueLabel(data.state)} — ${TASK_STATES.join(' · ')} 중 하나로 적으세요.`, `state: ${valueLabel(data.state)}. Use one of ${TASK_STATES.join(' · ')}.`))
-  for (const key of ['topic', 'flow', 'agent', 'created', 'end-condition', 'avoid', 'result-at', 'conclusion']) {
+  for (const key of ['topic', 'flow', 'agent', 'created', 'end-condition', 'avoid', 'result-at', 'conclusion', 'checkpoint', 'checkpoint-at']) {
     if (!optionalText(data, key)) issue(key, t(`${key}: 글로 적어야 합니다.`, `${key}: must be text.`))
   }
   if (data.priority !== undefined && data.priority !== null && ![1, 2, 3].includes(data.priority as number)) issue('priority', t(`priority: ${valueLabel(data.priority)} — 1(먼저) · 2(보통) · 3(나중) 중 하나로 적으세요.`, `priority: ${valueLabel(data.priority)}. Use 1 (first) · 2 (normal) · 3 (later).`))
