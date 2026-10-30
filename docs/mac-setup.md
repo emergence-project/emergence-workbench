@@ -7,7 +7,7 @@ You need Node 22 and pnpm. TeX Live (latexmk, xelatex, synctex) is only needed f
 **Install (once per computer).** In the app folder run
 
 ```sh
-zsh scripts/install.sh   # or pnpm mac:install; --no-dock and --no-agents skip those steps
+zsh scripts/install.sh   # or pnpm mac:install; --no-dock, --no-agents and --no-desktop skip those steps
 ```
 
 It does everything a working Mac needs, in order: Node 22 and pnpm (installed with Homebrew if missing), `pnpm install`, the background service below, the app icon (`~/Applications/Emergence Workbench.app`, found by Spotlight and Launchpad, with a Desktop shortcut), a Dock icon, and the MCP entry point in Claude Code and Codex (`scripts/register-agents.sh`, user scope, nothing added to research repositories). Running it again skips what is done and rewrites paths if the app folder moved. At the end it opens the app; Settings › Accounts › Getting started shows what is left (GitHub sign-in, commit name, first project) and has the same command when something is missing.
@@ -28,6 +28,8 @@ pnpm service:uninstall  # remove the service (research files and settings stay)
 The update button in Settings does the same as `service:restart`: it fast-forwards to the new version on GitHub, rebuilds and restarts the service. It stops if the app folder has local commits.
 
 Automatic updates (2026-10-09): when running as the service, the app pulls new versions every 10 minutes and builds them into `apps/web/dist-next` (the served `dist` stays as is). It restarts only while idle: an open window has had no input for 5 minutes and nothing left to save, or no window is open and no write request came for 5 minutes. Running requests (compile, paper download, questions) postpone it. "New version · Restart" in the top bar restarts right away. When the server starts on the new commit it swaps `dist-next` in as `dist`. Local code edits on the Mac stop the pull.
+
+**Tauri window (10/30).** When Rust (`cargo`, https://rustup.rs) is installed, the installer runs `zsh scripts/make-desktop.sh` (= `pnpm desktop:build`) to make the same app as a window of its own instead of Chrome (code in `desktop/`; on the Mac it uses the Safari engine). It is only the window: the server stays the service below, so agents and sync keep running when the window is closed. The window shows "Opening…" until the server answers and sends addresses outside the server (papers, GitHub links) to the default browser. The first build takes a few minutes. Without Rust, or with `--no-desktop`, it makes the launcher below.
 
 **Opening it.** The installer runs `zsh scripts/make-app.sh`, which makes the launcher `~/Applications/Emergence Workbench.app` with a shortcut on the Desktop (icon source: `scripts/app-icon.svg`) and replaces the launcher of the old name (`연구 작업대.app`), pointing Desktop shortcuts to the new one. It opens the app in a window without an address bar.
 

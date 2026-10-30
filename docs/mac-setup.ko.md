@@ -7,7 +7,7 @@ Node 22와 pnpm이 필요하다. TeX Live(latexmk·xelatex·synctex)는 컴파�
 **설치 (컴퓨터마다 한 번).** 앱 폴더에서
 
 ```sh
-zsh scripts/install.sh   # 또는 pnpm mac:install. --no-dock · --no-agents로 그 단계를 건너뛴다
+zsh scripts/install.sh   # 또는 pnpm mac:install. --no-dock · --no-agents · --no-desktop으로 그 단계를 건너뛴다
 ```
 
 실사용 맥에 필요한 것을 차례로 모두 한다: Node 22 · pnpm(없으면 Homebrew로 깐다), `pnpm install`, 아래 백그라운드 서비스, 앱 아이콘(`~/Applications/Emergence Workbench.app`, Spotlight · Launchpad가 찾고 바탕화면에 바로가기), Dock 아이콘, Claude Code · Codex에 MCP 입구 등록(`scripts/register-agents.sh`, 사용자 범위, 연구 저장소에는 아무 파일도 더하지 않음). 다시 실행하면 된 것은 건너뛰고, 앱 폴더를 옮겼으면 경로를 고친다. 끝나면 앱을 연다. 남은 준비(GitHub 로그인 · 커밋 이름 · 첫 프로젝트)는 설정 › 계정 › 시작 준비에 있고, 빠진 것이 있으면 거기에도 같은 명령이 보인다.
@@ -28,6 +28,8 @@ pnpm service:uninstall  # 서비스 지우기 (연구 파일·설정은 그대�
 설정 화면의 "앱 업데이트"도 `service:restart`와 같은 일을 한다: GitHub의 새 버전을 받아 빌드하고 서비스를 다시 시작한다.
 
 자동 업데이트 (2026-10-09): 서비스로 돌 때 10분마다 새 버전을 받아 `apps/web/dist-next`에 빌드해 둔다(지금 화면 `dist`는 그대로). 다시 시작은 쉴 때만 한다: 열린 화면이 입력 없이 5분이고 저장할 것이 없을 때, 또는 열린 화면이 없고 5분 동안 쓰기 요청이 없을 때. 처리 중인 요청(컴파일 · 논문 받기 · 질문)이 있으면 미룬다. 상단바의 "새 버전 · 다시 시작"을 누르면 바로 다시 시작한다. 서버가 새 커밋으로 켜지면 `dist-next`를 `dist`로 바꿔 단다. 맥에서 앱 코드를 고쳐 두었으면 받지 않는다.
+
+**Tauri 창 (10/30):** Rust(`cargo`, https://rustup.rs)가 있으면 설치가 `zsh scripts/make-desktop.sh`(= `pnpm desktop:build`)로 같은 이름의 앱을 크롬 대신 자기 창으로 만든다(코드 `desktop/`, 맥은 Safari 엔진). 창만 맡고 서버는 아래 서비스 그대로라 창을 닫아도 에이전트 · 동기화는 돈다. 창은 서버가 답할 때까지 "여는 중…"을 보이고, 서버 밖 주소(논문 · GitHub 링크)는 기본 브라우저로 연다. 처음 빌드는 몇 분 걸린다. Rust가 없거나 `--no-desktop`이면 아래 실행기를 만든다.
 
 여는 법: 바탕화면의 **Emergence Workbench** 아이콘(또는 `~/Applications/Emergence Workbench.app`, Spotlight에서 찾기). 주소창 없는 전용 창으로 열린다. 설치가 `zsh scripts/make-app.sh`로 만들고(원본 그림 `scripts/app-icon.svg`), 예전 이름의 실행기(`연구 작업대.app`)는 지우며 그것을 가리키던 바탕화면 바로가기는 새 앱을 가리키게 한다.
 

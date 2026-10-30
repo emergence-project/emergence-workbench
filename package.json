@@ -28,6 +28,7 @@
     "start": "pnpm build && zsh scripts/serve.sh",
     "build": "pnpm --filter @rw/web build",
     "mac:install": "zsh scripts/install.sh",
+    "desktop:build": "zsh scripts/make-desktop.sh",
     "agents:register": "zsh scripts/register-agents.sh",
     "service:install": "zsh scripts/service.sh install",
     "service:restart": "zsh scripts/service.sh restart",

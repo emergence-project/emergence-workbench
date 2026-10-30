@@ -4,7 +4,7 @@ import type { AboutSection } from '../types'
 // 소개 › settings › 부분. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '부분', prs: [68, 81, 147, 162, 184, 185, 219, 223, 226, 231, 236, 238, 239, 241, 242, 244, 274, 315],
+  title: '부분', prs: [68, 81, 147, 162, 184, 185, 219, 223, 226, 231, 236, 238, 239, 241, 242, 244, 274, 315, 328],
   items: [
     { text: <><b>앱 기본정보</b> — 이름, 지금 버전(번호·날짜·커밋), GitHub 정본, 앱 폴더와 설정 파일. 그 아래 <b>업데이트</b>는 main에 합친 것을 받고, 맨 아래 업데이트 이력(PR · 버전 · 내용 · 일시)이 있습니다. 버전 번호는 1.11 꼴로, main에 변경이 하나 합쳐질 때마다 뒤 번호가 하나 오릅니다. 맥의 서비스는 10분마다 자동으로 받아 빌드해 두고, 쉴 때(입력 없이 5분, 저장할 것과 처리 중인 컴파일 · 질문이 없을 때) 다시 시작합니다. 받을 때 이번에 반영된 피드백을 함께 보여 줍니다.</> },
     { text: <><b>계정</b> — 앱을 처음 받은 사람이 이 화면 하나로 쓸 준비를 마치는 <b>시작 준비</b> 목록입니다. 맨 위에 "시작 준비 n / 4"가 있고, 줄마다 점 색이 상태입니다(청록 됨 · 주황 할 차례 · 회색 고리 선택). <b>꼭 할 것</b> 넷: GitHub 로그인(이 컴퓨터의 gh 로그인을 그대로 쓰고, 안 됐으면 할 명령 {c('gh auth login')}을 보임), 커밋에 적힐 이름·이메일(연필로 git 전체 설정에 적음. 비어 있고 구글에 연결했으면 "구글 계정으로 채우기" 한 번. 비어 있으면 앱이 연구 저장소에 올리지 못함), 내 이름·소속(원고 저자 · 코멘트 작성자 · 네트워킹 내 페이지가 함께 씀), 첫 프로젝트. 다른 컴퓨터에서 쓰던 프로젝트가 이 컴퓨터에 없으면 그 아래 <b>다른 컴퓨터의 프로젝트</b> 절에 모두 보이고, 프로젝트마다 받기와 "모두 받기"가 있습니다(각 컴퓨터가 백업 때 개인 저장소에 프로젝트 이름 · GitHub 주소를 올리고, 앱 설정은 컴퓨터마다 따로 둡니다). <b>선택</b>: 이 컴퓨터에 설치(앱 아이콘 · Dock · 백그라운드 서비스가 있는지. 누락이 있으면 설치 명령 {c('zsh scripts/install.sh')}와 "명령 복사"를 보임. 같은 명령이 Claude Code · Codex 등록도 하고 된 것은 건너뜀), 개인 저장소(피드백 · 설정 백업을 올릴 비공개 저장소. 연필을 누르면 내 비공개 저장소 목록에서 고르거나 이름 하나로 새 비공개 저장소를 만들고, 주소를 적어도 됨. 공개 저장소는 받지 않고, 앱을 다시 시작하면 받아 둠. 설정 폴더에 이미 받아 둔 사본이 있으면 그것을 쓰고, 그 전에 이 컴퓨터에만 남긴 피드백도 그리로 옮김), 공용 라이브러리(지식 · 논문 · 그림 화면이 쓰는 폴더. 다른 컴퓨터가 쓰는 라이브러리를 이 컴퓨터에 받아 두었으면 "연결" 한 번, 아니면 연필로 경로), 에이전트 연결(몇 개 연결됐는지 n / 3만. 자세한 것은 에이전트 탭), TeX(PDF 컴파일의 latexmk), 구글(처음 한 번 만드는 클라이언트는 단계마다 Google Cloud의 그 쪽으로 가는 링크가 있고, 받은 JSON 파일을 고르면 끝. 연결할 때 구글 계정의 이름 · 이메일 · 사진으로 내 이름과 네트워킹 내 페이지의 빈 칸을 채우고(적어 둔 값은 그대로, 채운 것은 구글 줄에 한 줄로), 캘린더 일정 읽기, 화면 설정과 프로젝트 목록을 구글 드라이브의 앱 전용 공간에 보관. 연구 파일 내용은 구글에 보내지 않습니다). 앱은 로그인 정보를 저장하지 않습니다.</> },
@@ -15,7 +15,7 @@ export const ko: AboutSection = {
     { text: <><b>화면</b> — 테마, 글자 크기, 촘촘함, 강조 색(상태 색과 겹치지 않는 것만), 하이라이트 처음 색.</> },
     { text: <><b>라이브러리 관리</b> — 라이브러리 폴더(경로 · Git 상태), 지식(개념노트 수 · Obsidian Study 원본), 논문(PDF 폴더 추가 · 제거, iCloud · Google Drive · 이 맥 표시), 그림(Git의 그림 수, 사진 폴더 연결은 자리만).</> },
     { text: <><b>LaTeX</b> — 세 부분입니다. <b>편집기</b>: 글꼴 · 크기 · 줄 간격과 미리보기. <b>명령어</b>: 개념노트와 노트 컴파일이 함께 쓰는 {c('concepts/macros.tex')}(한 연구 전용은 그 저장소 {c('workbench/macros.tex')}가 앞섬). <b>서식</b>: 서식 여럿을 모아 두고 골라 씁니다: 기본 문서(article), PRB·PRL(revtex), 발표(beamer). 서식마다 이름·종류·문서 종류 줄·패키지를 고치고, 복사해 새로 만들기·삭제·내보내기 기본 정하기를 합니다.</> },
-    { text: <><b>앱으로 열기</b> — 바탕화면의 "연구 작업대" 아이콘으로 엽니다. Dock에 따로 띄우려면 앱을 연 크롬 창에서 ⋮ › 전송, 저장, 공유 › "페이지를 앱으로 설치"를 누른 뒤 Dock에 유지합니다.</> },
+    { text: <><b>앱으로 열기</b> — 바탕화면의 "Emergence Workbench" 아이콘으로 엽니다. 맥에 Rust가 있으면 설치가 이 앱을 크롬 대신 자기 창(Tauri)으로 만듭니다. 창만 닫히고 서버는 계속 돌며, 논문 · GitHub 같은 바깥 링크는 기본 브라우저로 엽니다(10/30). Rust가 없으면 크롬의 전용 창으로 엽니다. Dock에 따로 띄우려면 앱을 연 크롬 창에서 ⋮ › 전송, 저장, 공유 › "페이지를 앱으로 설치"를 누른 뒤 Dock에 유지합니다.</> },
   ],
 }
 
@@ -31,6 +31,6 @@ export const en: AboutSection = {
     { text: <><b>Display</b>: theme, text size, density, accent color (only ones that do not clash with status colors), default highlight color.</> },
     { text: <><b>Library</b>: library folder (path, Git status), Knowledge (concept note count, Obsidian Study source), Papers (add or remove PDF folders, marked iCloud · Google Drive · this Mac), Figures (figure count in Git; linking a photo folder is only a placeholder).</> },
     { text: <><b>LaTeX</b>: three parts. <b>Editor</b>: font, size, line spacing and a preview. <b>Macros</b>: {c('concepts/macros.tex')}, shared by concept notes and note compiling (a project's own {c('workbench/macros.tex')} takes precedence). <b>Templates</b>: keep several templates and choose one: basic document (article), PRB and PRL (revtex), talk (beamer). For each template you edit the name, kind, document class line and packages, and you can copy it into a new one, delete it, or make it the export default.</> },
-    { text: <><b>Open as an app</b>: open it with the "연구 작업대" (workbench) icon on the desktop. To keep it in the Dock on its own, in the Chrome window running the app choose ⋮ › Cast, save, and share › "Install page as app", then keep it in the Dock.</> },
+    { text: <><b>Open as an app</b>: open it with the "Emergence Workbench" icon on the desktop. When the Mac has Rust, the installer makes this app a window of its own (Tauri) instead of Chrome. Closing it closes only the window while the server keeps running, and outside links such as papers or GitHub open in the default browser (10/30). Without Rust it opens in a dedicated Chrome window. To keep it in the Dock on its own, in the Chrome window running the app choose ⋮ › Cast, save, and share › "Install page as app", then keep it in the Dock.</> },
   ],
 }
