@@ -102,6 +102,7 @@ try {
     if (name === 'figure-zoom') await page.goto('about:blank')
     // 앱 고치기 대화는 찍기 직전에 만들어, 앞 화면에서 받아 둔 대화 목록이 남지 않게 새로 연다
     if (name === 'agent-app') await page.goto('about:blank')
+    if (name === 'settings-phone') await fetch(`${base}api/phone/on`, { method: 'POST' })
     if (hash.includes('{chat}') && !chat) {
       // 허락을 기다리는 대화 하나 (예제 실행기가 "계산"을 보면 명령을 묻는다)
       const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Rerun the check computation in the Kempe note' : '켐페 노트의 확인 계산을 다시 돌려 줘', scope: { kind: 'project' }, mode: 'plan' }) })

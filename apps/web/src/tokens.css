@@ -34,6 +34,7 @@
   --math-dollar: #1d5fd6; --math-paren: #7c3aed; --math-display: #b45309; --math-bracket: #be185d;
   --paper: #ffffff;
   --record-menu-ink: #0d0d0d; /* 검은 고른 글 메뉴와 흰 하이라이트 메뉴는 두 테마에서 같은 대비 */
+  --qr-ink: #0d0d0d; --qr-bg: #ffffff; /* 폰에서 보기 QR (10/30): 카메라가 읽게 두 테마에서 검은 점 · 흰 바탕 */
   --banner-bg: #ffe08a; --banner-stripe: #ffd55c; --banner-text: #3d2c00;
   --mark-bg: #fff1a8;
   --on-color: #ffffff;
@@ -116,6 +117,7 @@
     --banner-bg: #5a4810; --banner-stripe: #665218; --banner-text: #ffe8a8;
     --mark-bg: #685a1c;
     --record-menu-ink: #0d0d0d;
+    --qr-ink: #0d0d0d; --qr-bg: #ffffff;
     --scrim: rgba(0,0,0,.45);
     --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
     --hl-bg: rgba(255,213,64,.25);
@@ -142,6 +144,7 @@
     --banner-bg: #5a4810; --banner-stripe: #665218; --banner-text: #ffe8a8;
     --mark-bg: #685a1c;
     --record-menu-ink: #0d0d0d;
+    --qr-ink: #0d0d0d; --qr-bg: #ffffff;
     --scrim: rgba(0,0,0,.45);
     --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
     --hl-bg: rgba(255,213,64,.25);

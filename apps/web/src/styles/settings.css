@@ -59,3 +59,9 @@
 .setup-pick-desc { font-size: var(--fs-xs); }
 .setup-create { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); }
 .setup-create input { flex: 1; min-width: 0; }
+
+/* 설정 › 폰에서 보기 (10/30): 주소와 복사, 오른쪽에 QR. QR은 두 테마에서 흰 바탕 · 검은 점 */
+.phone-open { align-items: flex-start; }
+.phone-url { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.phone-url code { word-break: break-all; }
+.phone-qr { flex: none; width: 128px; height: 128px; background: var(--qr-bg); fill: var(--qr-ink); border-radius: var(--r-md); }

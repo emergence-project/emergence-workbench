@@ -126,6 +126,8 @@ export const DEFAULT_SCREENS = [
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],
+  // 폰에서 보기 (10/30): 예제 모드의 가짜 Tailscale을 켜 둔 화면(주소 · QR)
+  ['settings-phone', '#/settings/phone', '폰 주소'],
   // 설정 › 공통 규칙 (10/18): 절마다 읽기, 연필로 연 원문 입력란
   ['settings-rules', '#/settings/rules', '공통 규칙 묶음'],
   ['settings-rules-edit', '#/settings/rules', '공통 규칙 원문', '[data-ui="공통 규칙 고치기"]'],

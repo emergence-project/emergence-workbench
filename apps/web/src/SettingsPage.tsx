@@ -5,6 +5,7 @@ import { AppUpdate } from './AppUpdate'
 import { AgentSettings } from './AgentSettings'
 import { SyncSettings } from './SyncSettings'
 import { BackupSettings } from './BackupSettings'
+import { PhoneSettings } from './PhoneSettings'
 import { CommonRulesSettings, ruleSectionId, useCommonRules } from './CommonRulesSettings'
 import { SetupAccounts } from './SetupChecklist'
 import { LibrarySettings, LIBRARY_SECTIONS } from './LibrarySettings'
@@ -40,6 +41,7 @@ export const SETTINGS_PARTS = [
   { key: 'backup', label: t('백업', 'Backup') },
   { key: 'sync', label: t('동기화', 'Sync') },
   { key: 'agents', label: t('에이전트', 'Agents') },
+  { key: 'phone', label: t('폰에서 보기', 'On your phone') },
   // 아래 줄은 규칙 파일의 절 제목 (RuleSubs)
   { key: 'rules', label: t('공통 규칙', 'Common rules') },
   { key: 'library', label: t('라이브러리 관리', 'Library'), subs: LIBRARY_SECTIONS },
@@ -161,6 +163,11 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
             {show('agents') && <section data-ui="에이전트 묶음">
               <div className="sec-head"><h2>{t('에이전트', 'Agents')}</h2></div>
               <AgentSettings onSaved={onSaved} />
+            </section>}
+
+            {show('phone') && <section data-ui="폰에서 보기 묶음">
+              <div className="sec-head"><h2>{t('폰에서 보기', 'On your phone')}</h2></div>
+              <PhoneSettings />
             </section>}
 
             {show('rules') && <CommonRulesSettings onSaved={onSaved} />}
