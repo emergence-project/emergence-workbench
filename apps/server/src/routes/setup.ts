@@ -132,6 +132,8 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     const dest = path.join(parent, folder)
     if (fs.existsSync(dest)) {
       if (!sameRepo(await remoteOf(dest), repo.url)) throw new WorkbenchError(409, t(`${dest}에 다른 폴더가 있습니다. 홈의 "＋ 프로젝트 등록"으로 다른 곳에 받으세요.`, `${dest} holds a different folder. Use "＋ Register project" on Home to download it elsewhere.`))
+      // 예전에 받아 둔 사본이 뒤처져 workbench/가 아직 없을 수 있다 (10/30 맥미니 Faraday disk: 첫 커밋 둘에 멈춤). 고친 것이 없을 때만 앞으로 받는다
+      if (!fs.existsSync(path.join(dest, 'workbench'))) await git(dest, ['pull', '--ff-only'], { timeout: GIT_TIMEOUT.remote }).catch(() => undefined)
     } else await cloneInto(repo.url, parent, folder)
     // 연구 저장소가 workbench/를 올리지 않는 프로젝트는 개인 저장소 백업(<id>/workbench/)에서 가져온다 (10/22 맥미니 Faraday disk).
     // 빈 workbench/를 새로 만들면 첫 맞추기에서 다른 컴퓨터의 것을 덮을 수 있어 만들지 않는다
@@ -139,7 +141,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))
       const id = dir ? otherMachineProjects(dir).find((o) => sameRepo(o.remote, repo.url))?.id : undefined
       const saved = dir && id ? path.join(dir, id, 'workbench') : null
-      if (!saved || !fs.existsSync(saved)) throw new WorkbenchError(409, t(`${dest}에 받았지만 workbench/가 저장소에도 개인 저장소 백업에도 없습니다. 원래 컴퓨터에서 설정 › 백업의 "지금 맞추기"를 한 번 한 뒤 다시 등록하세요.`, `Downloaded to ${dest}, but workbench/ is neither in the repository nor in the personal repository backup. On the original computer, press "Sync now" in Settings › Backup once, then register again.`))
+      if (!saved || !fs.existsSync(saved)) throw new WorkbenchError(409, t(`${dest}에 받았지만 workbench/가 저장소에도 개인 저장소 백업에도 없습니다. 이 폴더에 고친 것이 있으면 GitHub의 것을 받지 못합니다. 아니면 원래 컴퓨터에서 설정 › 백업의 "지금 맞추기"를 한 번 한 뒤 다시 등록하세요.`, `Downloaded to ${dest}, but workbench/ is neither in the repository nor in the personal repository backup. Local changes in this folder keep it from getting GitHub's version. Otherwise, on the original computer, press "Sync now" in Settings › Backup once, then register again.`))
       fs.cpSync(saved, path.join(dest, 'workbench'), { recursive: true })
     }
     const id = registry.register(dest, { tags: body.tags }).id
