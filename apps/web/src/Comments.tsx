@@ -178,7 +178,7 @@ export async function askClaude(rid: string, target: string, id: string): Promis
   if (asking.has(k)) return
   asking.add(k); askErrors.delete(k); bumpAsk()
   try { patch(keyOf(rid, target), { file: await backend(rid).answer(target, id) }); bumpPending() } catch (e) {
-    askErrors.set(k, t(`Claude에게 묻지 못했습니다 — ${(e as Error).message}`, `Could not ask Claude: ${(e as Error).message}`))
+    askErrors.set(k, t(`에이전트에게 보내지 못했습니다 — ${(e as Error).message}`, `Could not send to the agent: ${(e as Error).message}`))
   } finally { asking.delete(k); bumpAsk() }
 }
 

@@ -27,7 +27,7 @@ const MODE: Record<InstructionMode, () => string> = {
 }
 
 /**
- * 설정 › 에이전트 (10/16 사용자 결정 "설정에서 조절할 수 있게 하자"): 기록에 남긴 질문 · 지시를 이 맥의 Claude가 언제 하는지(질문은 10/27 피드백).
+ * 설정 › 에이전트 (10/16 사용자 결정 "설정에서 조절할 수 있게 하자"): 기록에 남긴 질문 · 지시를 이 맥의 Claude가 언제 하는지(질문은 10/27 피드백, 10/29부터 따로 고름).
  * 맥의 Claude는 한 번에 하나씩 하고, 노트 고침은 수정 검토로 간다(「노트에 적용」은 10/28에 없앰).
  */
 export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
@@ -43,11 +43,23 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
     <h3 className="set-h3">{t('맥에서 하는 일', 'On this Mac')}</h3>
     {!s ? <p className="muted">{err ?? t('설정을 읽는 중…', 'Reading settings…')}</p> :
     <div className="set-rows" data-ui="에이전트">
+      {/* 질문과 지시를 따로 고른다 (10/28 23:07 피드백, 시안 9oUgyZaGXY74exRk9vUi17 3절) */}
+      <div className="set-row" data-ui="질문 처리">
+        <div>
+          <div className="set-name">{t('질문 처리', 'Questions')}</div>
+          <div className="set-desc">{t('기록에 남긴 질문에 이 맥의 Claude가 언제 답할지 고릅니다. 질문은 파일을 읽기만 합니다. 바로면 남기거나 이어 쓰는 즉시 답하고, 직접 부탁이면 다음에 일하는 에이전트가 집어 갑니다. 어느 쪽이든 기록의 반짝이(에이전트에게 보내기)로 지금 보낼 수 있습니다.', 'Choose when Claude on this Mac answers questions left in records. Questions only read files. With "Right away", it answers as soon as you leave or continue one; with "When asked", the next agent session picks them up. Either way you can send one now with the sparkle (Send to agent) on the record.')}</div>
+          {err && <div className="error-text">{err}</div>}
+        </div>
+        <div className="segmented small" role="radiogroup" data-ui="고르기">
+          {INSTRUCTION_MODES.map((m) => (
+            <button key={m} role="radio" aria-checked={s.questions === m} className={s.questions === m ? 'on' : ''} onClick={() => save({ questions: m })}>{MODE[m]()}</button>
+          ))}
+        </div>
+      </div>
       <div className="set-row" data-ui="지시 처리">
         <div>
-          <div className="set-name">{t('질문 · 지시 처리', 'Questions and instructions')}</div>
-          <div className="set-desc">{t('기록에 남긴 질문 · 지시에 이 맥의 Claude가 언제 답할지 고릅니다. 바로면 남기거나 이어 쓰는 즉시 답합니다. 직접 부탁이면 맥은 하지 않고, 다음에 일하는 에이전트가 집어 갑니다(질문은 "Claude에게 묻기"로 바로 물을 수도 있습니다). 한 번에 하나씩 하고, 노트를 고치면 수정 검토에서 승인합니다. 하나마다 Claude 사용량이 듭니다.', 'Choose when Claude on this Mac answers questions and instructions left in records. With "Right away", it answers as soon as you leave or continue one. With "When asked", the Mac does nothing and the next agent session picks them up (you can still ask a question now with "Ask Claude"). One runs at a time, and note changes wait for your approval in Edit review. Each one uses Claude usage.')}</div>
-          {err && <div className="error-text">{err}</div>}
+          <div className="set-name">{t('지시 처리', 'Instructions')}</div>
+          <div className="set-desc">{t('기록에 남긴 지시를 이 맥의 Claude가 언제 할지 고릅니다. 노트를 고치면 수정 검토에서 승인합니다. 한 번에 하나씩 하고, 하나마다 Claude 사용량이 듭니다.', 'Choose when Claude on this Mac carries out instructions left in records. Note changes wait for your approval in Edit review. One runs at a time, and each one uses Claude usage.')}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {INSTRUCTION_MODES.map((m) => (
@@ -55,10 +67,10 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
           ))}
         </div>
       </div>
-      {s.instructions === 'daily' && <div className="set-row" data-ui="지시 처리 시각">
+      {(s.instructions === 'daily' || s.questions === 'daily') && <div className="set-row" data-ui="지시 처리 시각">
         <div>
           <div className="set-name">{t('시각', 'Time')}</div>
-          <div className="set-desc">{t('이 시각에 모든 프로젝트의 대기 중인 지시를 모아 합니다. 그때 맥과 앱이 켜져 있어야 합니다.', 'At this time, waiting instructions from every project are carried out. The Mac and the app must be running then.')}</div>
+          <div className="set-desc">{t('하루 한 번으로 고른 질문 · 지시를 이 시각에 모든 프로젝트에서 모아 합니다. 그때 맥과 앱이 켜져 있어야 합니다.', 'At this time, the questions and instructions set to once a day are collected from every project and carried out. The Mac and the app must be running then.')}</div>
         </div>
         <select className="rs-select set-select" value={s.at} aria-label={t('시각', 'Time')} onChange={(e) => save({ at: e.target.value })}>
           {INSTRUCTION_HOURS.map((h) => <option key={h} value={h}>{h}</option>)}

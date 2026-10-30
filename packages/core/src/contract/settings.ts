@@ -33,6 +33,8 @@ export const SettingsBody = z.object({ ui: z.custom<Partial<UiSettingsType>>((v)
 /** GET · PUT /settings/agents (설정 › 에이전트) */
 export const AgentSettings = z.object({
   instructions: z.enum(INSTRUCTION_MODES),
+  /** 질문을 언제 하나 (10/29, 지시와 따로) */
+  questions: z.enum(INSTRUCTION_MODES),
   at: z.custom<string>((v) => INSTRUCTION_HOURS.includes(v as string), { message: 'Expected HH:00' }),
   /** 앱 피드백 맡기기 (2단계 다): 언제 맡기나 · 언제 합치나 · 한 차례 한도(분) */
   feedback: z.enum(FEEDBACK_PICKS),
