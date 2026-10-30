@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { git as gitAt } from './git.js'
 import { t } from './i18n.js'
 import { syncCommands, syncChanges } from './gitSyncState.js'
@@ -79,6 +80,8 @@ export async function repoInfo(root: string, opts: { fetch?: boolean } = {}): Pr
   const f = lastFetch.get(root)
   // 기본 브랜치가 아닌 브랜치를 따라가면 그 이름 (「main으로 돌리기」, 10/28)
   const main = upstream && upRemote ? await defaultBranchOf(root, upRemote) : null
+  // workbench/가 이 폴더에만 있고 git에 한 번도 들어가지 않았는지 (10/30 "워크벤치 폴더를 만들자": Faraday disk는 맥북에만 있어 다른 컴퓨터에서 안 보였다)
+  const workbenchUnpublished = fs.existsSync(path.join(root, 'workbench', 'research.yaml')) && !(await opt(git(root, 'ls-files', '--', 'workbench/research.yaml')))
   return {
     state: 'ok', branch: head, remote, upstream,
     ...(main && upstream !== `${upRemote}/${main}` && { defaultBranch: main }),
@@ -88,6 +91,7 @@ export async function repoInfo(root: string, opts: { fetch?: boolean } = {}): Pr
     ahead, behind,
     fetchedAt: f && !f.error ? f.at : null,
     ...(f?.error && { fetchError: fetchProblem(f.error), fetchDetail: f.error }),
+    ...(workbenchUnpublished && { workbenchUnpublished: true }),
   }
 }
 

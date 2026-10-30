@@ -64,3 +64,9 @@ button.info-row:hover { background: var(--bg-hover); }
 .repo-sync.busy svg { animation: repo-spin 1s linear infinite; }
 @keyframes repo-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .repo-sync.busy svg { animation: none; } }
+/* workbench/가 git에 없을 때의 안내 (10/30): 동기화 줄 모양에 사용자 차례 점 · 주 버튼 */
+.wb-upload { flex-wrap: nowrap; align-items: flex-start; }
+.wb-upload .turn-dot { margin-top: 5px; }
+.wb-upload-text { flex: 1; min-width: 0; }
+.wb-upload .btn { flex: none; }
+@media (max-width: 720px) { .wb-upload { flex-wrap: wrap; } }
