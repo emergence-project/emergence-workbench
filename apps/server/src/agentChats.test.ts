@@ -597,6 +597,30 @@ describe('앱이 다시 켜지면', () => {
     expect(c.claims).toEqual([])
     expect(c.items[0]).toMatchObject({ kind: 'ask', answer: 'deny', expired: true })
     expect(c.items.at(-1)!.kind).toBe('error')
+    expect(chats.resumeRestarted()).toBe(0) // 세션이 없으면 이어 갈 것이 없다
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('세션이 있던 대화는 같은 세션으로 저절로 이어 가고, 두 번 이어 간 대화와 보관한 대화는 멈춤 그대로', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-restart-'))
+    const at = new Date().toISOString()
+    const chat = (id: string, more: object) => fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({ id, rid: 'p', title: id, agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', state: 'running', created: at, updated: at, items: [{ kind: 'user', at, text: '계산' }], sessionId: `old-${id}`, ...more }))
+    chat('go', {})
+    chat('twice', { restarts: 2 })
+    chat('kept', { archived: true })
+    const chats = new AgentChats({ dir, runner: fake, limit: 3, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    expect(chats.get('go').items.at(-1)).toMatchObject({ kind: 'error', text: '앱이 다시 켜져 멈췄습니다. 같은 대화로 저절로 이어 갑니다' })
+    expect(chats.get('twice').items.at(-1)).toMatchObject({ kind: 'error', text: '앱이 다시 켜져 멈췄습니다. 이어서 지시하면 다시 시작합니다' })
+    const before = seen.length
+    expect(chats.resumeRestarted()).toBe(1)
+    await vi.waitFor(() => expect(chats.get('go').state).toBe('idle'))
+    expect(seen.slice(before)).toHaveLength(1)
+    expect(seen.at(-1)).toMatchObject({ prompt: expect.stringContaining('앱이 다시 켜졌습니다'), sessionId: 'old-go' })
+    // 차례가 잘 끝나면 횟수를 지운다
+    expect(JSON.parse(fs.readFileSync(path.join(dir, 'go.json'), 'utf8')).restarts).toBeUndefined()
+    expect(chats.get('twice').state).toBe('stopped')
+    expect(chats.resumeRestarted()).toBe(0) // 한 번만
+    chats.stopAll()
     fs.rmSync(dir, { recursive: true, force: true })
   })
 })
