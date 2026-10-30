@@ -1,11 +1,11 @@
 {
   "lines": {
-    "apps/server/src/agentChats.ts": 1379,
+    "apps/server/src/agentChats.ts": 1346,
     "apps/server/src/comments.ts": 676,
     "apps/server/src/feedback.ts": 652,
     "apps/server/src/flow.ts": 651,
     "apps/server/src/mcp.ts": 675,
-    "apps/web/src/AgentChats.tsx": 1751,
+    "apps/web/src/AgentChats.tsx": 1732,
     "apps/web/src/App.tsx": 639,
     "apps/web/src/FeedbackPage.tsx": 714,
     "apps/web/src/PapersPage.tsx": 703,
@@ -13,7 +13,7 @@
   },
   "casts": {
     "apps/server/src/agentChanges.ts": 8,
-    "apps/server/src/agentChats.ts": 5,
+    "apps/server/src/agentChats.ts": 2,
     "apps/server/src/agentCheck.ts": 4,
     "apps/server/src/agentEdits.ts": 3,
     "apps/server/src/agentExtras.ts": 4,

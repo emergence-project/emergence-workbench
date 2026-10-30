@@ -69,7 +69,9 @@ export const qk = {
   /** 밖에서 도는 에이전트의 상태 (훅, 10/30) */
   agentHooks: ['agent-hooks'] as const,
   /** 고를 수 있는 모델 (맥의 Claude Code에게 묻는다. 대화 알림으로 다시 받지 않게 agent-chats 밖에 둔다) */
-  agentModels: ['agent-models'] as const,
+  agentModels: (agent = 'claude-code') => ['agent-models', agent] as const,
+  /** 대화를 맡길 수 있는 에이전트 (Claude · Codex · Gemini, 10/30) */
+  agentKinds: ['agent-kinds'] as const,
   agentExtras: ['agent-extras'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
