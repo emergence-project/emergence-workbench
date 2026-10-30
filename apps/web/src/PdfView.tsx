@@ -6,7 +6,7 @@ import { loadPdfjs } from './pdfjs'
 import { RecordMenu } from './RecordMenus'
 import { t } from './i18n'
 import { findInPage, readLinks, readOutline, type FindHit, type OutlineItem, type PdfLink, type TextPiece } from './pdfNav'
-import { PdfFind, PdfToc } from './PdfNav'
+import { PdfFind, PdfToc } from './PdfNavPanels'
 import { store } from './store'
 
 /** 끌어서 고른 글: 쪽, 줄마다 사각형 [x, y, w, h] (PDF 포인트, 쪽 왼쪽 위 원점), 글자 */
