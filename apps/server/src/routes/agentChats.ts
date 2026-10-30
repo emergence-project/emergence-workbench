@@ -68,6 +68,10 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
   if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
   app.addHook('onClose', async () => chats.stopAll())
+  // 앱이 다시 켜질 때 돌던 대화를 이어 간다 (서버가 다 뜬 뒤 잠깐 기다렸다가)
+  const resumeTimer = setTimeout(() => chats.resumeRestarted(), 5_000)
+  resumeTimer.unref()
+  app.addHook('onClose', async () => clearTimeout(resumeTimer))
 
   app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
 
