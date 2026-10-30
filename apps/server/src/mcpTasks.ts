@@ -2,6 +2,8 @@
 // mcp.ts에서 떼어 냄 (10/30, 구조 래칫). 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import * as C from '@rw/core/contract/tasks'
+import { WORK_KINDS } from '@rw/core/contract/flow'
 import { pick, type Text } from './mcp.js'
 
 type Reply = { ok: true; body: unknown } | { ok: false; error: Text }
@@ -21,6 +23,8 @@ export function registerTaskTools(server: McpServer, o: {
   /** POST 하나 */
   write: (url: string, payload: unknown) => Promise<Reply>
   ro: Hints
+  /** 부르는 에이전트 이름 (작업 점의 by) */
+  by: () => string
   writeOnce: Hints
 }): void {
   const { project, call, write, ro, writeOnce } = o
@@ -50,17 +54,19 @@ export function registerTaskTools(server: McpServer, o: {
       task: z.string().trim().min(1).describe('What to do'),
       endCondition: z.string().optional().describe('Against what and by which criterion it is finished'),
       topic: z.string().optional().describe('Topic id'),
-      flow: z.string().optional().describe('The flow dot this task works on (usually a question), so flow_search finds its result'),
+      flow: z.string().optional().describe('The flow dot this task works on: a question (the work dot is opened under it) or an unfinished work dot (continued, no new dot). With a topic or a flow dot the task becomes a work dot in the flow (10/30)'),
       agent: z.string().optional().describe('claude-code or codex (default claude-code)'),
       references: z.array(z.string()).optional().describe('Notes, papers or folders to read first'),
       avoid: z.string().optional().describe('What not to do'),
+      kind: z.enum(WORK_KINDS).optional().describe('Kind of the work dot this task becomes: calc (numerical), analytic, proof or literature. Default calc'),
     },
     annotations: writeOnce,
   }, async ({ project: rid, ...body }) => {
-    const r = await write(`/api/researches/${enc(rid)}/tasks`, body)
+    const r = await write(`/api/researches/${enc(rid)}/tasks`, { ...body, by: o.by() })
     if (!r.ok) return r.error
-    const t = taskOf(r.body)
-    return text(`Added task ${t.id} (${t.file}, ${t.state}). Hash: ${t.hash}.`)
+    const { task: t, dot, hits } = C.TaskCreated.parse(r.body)
+    const flow = dot ? ` Work dot ${dot} in the flow (closed when the user approves the result).${hits?.length ? ` Earlier dots that match: ${hits.join(', ')} — read them (flow_read) before repeating work.` : ''}` : ''
+    return text(`Added task ${t.id} (${t.file}, ${t.state}). Hash: ${t.hash}.${flow}`)
   })
 
   server.registerTool('report_task', {

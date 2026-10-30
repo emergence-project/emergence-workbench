@@ -187,7 +187,7 @@ describe('계약 (@rw/core/contract/tasks)', () => {
     C.TaskOne.parse((await post(t.id, 'answer', { n: '1', answer: '예', note: '바로' })).json())
     const next = C.TaskNextDone.parse((await post(t.id, 'next', { i: 1, action: 'start' })).json())
     expect(next.started).toBeDefined()
-    C.TaskOne.parse((await post(t.id, 'judge', { verdict: 'approve', seconds: 30 })).json())
+    C.TaskJudged.parse((await post(t.id, 'judge', { verdict: 'approve', seconds: 30 })).json())
     C.TaskOne.parse((await app.inject({ method: 'GET', url: `${R}/tasks/${t.id}` })).json())
     fs.writeFileSync(path.join(dir(), 'bad name.md'), '---\ntitle: x\n---\n')
     const scan = C.TaskScan.parse((await app.inject({ method: 'GET', url: `${R}/tasks` })).json())

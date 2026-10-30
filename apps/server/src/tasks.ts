@@ -345,9 +345,9 @@ export function judgeTask(wb: Workbench, id: string, body: Judge, now = new Date
  * 흐름 점과 잇기 · 풀기 (10/27 결정 "맡긴 일과 흐름 점 잇기" (c)): 사용자가 짝 제안에서 "잇기"를 누를 때만 flow 한 줄을 쓴다.
  * 줄은 topic(없으면 title) 바로 뒤에 둔다. 흐름 점 파일은 고치지 않는다
  */
-export function linkTaskFlow(wb: Workbench, id: string, body: { flow: string | null; baseHash: string }): Task {
+export function linkTaskFlow(wb: Workbench, id: string, body: { flow: string | null; baseHash: string }, opts: { skipHash?: boolean } = {}): Task {
   const t = readTask(wb, id)
-  checkHash(t, body.baseHash)
+  if (!opts.skipHash) checkHash(t, body.baseHash)
   const flow = body.flow?.trim() || null
   if (flow && !/^[a-z0-9][a-z0-9-]*$/.test(flow)) throw new WorkbenchError(400, tl(`흐름 점 id가 아님: ${flow}`, `Not a flow dot id: ${flow}`))
   if (flow && !fs.existsSync(path.join(wb.root, 'flow', `${flow}.yaml`))) throw new WorkbenchError(400, tl(`흐름 점 ${flow}이 없습니다`, `No flow dot ${flow}`))
@@ -382,7 +382,7 @@ export function answerTask(wb: Workbench, id: string, body: Answer, now = new Da
  * - start: 새 작업 파일로 맡긴다(edit가 있으면 고친 칸으로). 이 보고서가 참고 자료로 붙고, 제안 줄에 started: <새 id>
  * - drop: 목록에서 뺀다(dropped: true), restore: 되살린다
  */
-export function nextTask(wb: Workbench, id: string, body: Next, now = new Date()): { task: Task; started?: Task } {
+export function nextTask(wb: Workbench, id: string, body: Next, now = new Date(), make: (input: NewTask) => Task = (input) => createTask(wb, input, now)): { task: Task; started?: Task } {
   const t = readTask(wb, id)
   checkHash(t, body.baseHash)
   const i = body.i
@@ -402,7 +402,7 @@ export function nextTask(wb: Workbench, id: string, body: Next, now = new Date()
   }
   if (item.started) throw new WorkbenchError(409, tl('이미 맡긴 제안', 'This proposal is already delegated'))
   const edit = body.edit ?? {}
-  const started = createTask(wb, {
+  const started = make({
     title: edit.title ?? item.task,
     topic: edit.topic ?? t.topic,
     agent: edit.agent ?? (t.agent || undefined),
@@ -410,7 +410,8 @@ export function nextTask(wb: Workbench, id: string, body: Next, now = new Date()
     endCondition: edit.endCondition ?? item.endCondition,
     references: edit.references ?? [t.file],
     avoid: edit.avoid ?? t.avoid,
-  }, now)
+    ...(edit.kind && { kind: edit.kind }), ...(edit.by && { by: edit.by }),
+  })
   const task = editFront(wb, t, (doc) => { setItem(doc, 'dropped', undefined); setItem(doc, 'started', started.id) })
   return { task, started }
 }

@@ -5,7 +5,7 @@
 import { z } from 'zod'
 
 import { FLOW_EDGES, FLOW_EVIDENCE, FLOW_GAPS, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_RESULTS, FLOW_VERDICTS } from '../flow-kinds.js'
-export { CARD_FIELDS, CARD_LOCKED, CARD_VERDICTS, FINDING_VERDICTS, FLOW_VERDICTS, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_GAPS, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_REQUIRED, FLOW_RESULTS } from '../flow-kinds.js'
+export { CARD_FIELDS, CARD_LOCKED, CARD_VERDICTS, FINDING_VERDICTS, FLOW_VERDICTS, FLOW_EDGES, FLOW_EVIDENCE, FLOW_FIELDS, FLOW_GAPS, FLOW_KINDS, FLOW_PRIORITY, FLOW_PROGRESS, FLOW_REQUIRED, FLOW_RESULTS, WORK_KINDS } from '../flow-kinds.js'
 
 const FlowFrom = z.object({ id: z.string(), type: z.enum(FLOW_EDGES) }).strict()
 const FlowCheck = z.object({
@@ -140,6 +140,8 @@ export const FlowNode = z.object({
   priority: z.enum(FLOW_PRIORITY).optional(),
   /** 앱이 계산한 빈틈 */
   gaps: z.array(FlowGap),
+  /** 옛 점 (10/30): 앱 · MCP를 거치지 않고 만들어져 만든 이(by)도 시작 기록도 없는 점. 판단 전으로 보이고 빈틈은 세지 않는다 */
+  legacy: z.boolean().optional(),
   /** 기록 출처 (일지·노트·커밋) */
   sources: z.array(z.string()),
   /** 에이전트가 짐작한 것 (사람이 확인하지 않음) */

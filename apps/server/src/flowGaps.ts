@@ -136,6 +136,8 @@ export function markStale(repo: string, n: FlowNode): void {
 }
 
 const ACTS = new Set<FlowNode['kind']>(['calc', 'analytic', 'proof'])
+/** 옛 점: 만든 이(by)도 시작 기록도 없다 (앱은 10/21부터 by를 적는다) */
+export const isLegacy = (n: Pick<FlowNode, 'by' | 'start'>) => !n.by && !n.start
 const isSolved = (n: FlowNode) => n.progress === 'done' && (n.result ?? 'solved') === 'solved'
 /** 누가 확인한 근거가 하나라도 있는 발견 (정리 포함) */
 const checkedFinding = (n: FlowNode) => n.theorem || n.evidence.some((e) => confirmed(e, 'agent') || confirmed(e, 'human'))
@@ -145,6 +147,9 @@ export function computeGaps(repo: string, nodes: FlowNode[]): void {
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const hasNext = new Set(nodes.flatMap((n) => n.from.map((f) => f.id)))
   for (const n of nodes) {
+    // 옛 점 (10/30 결정 "흐름 차트 동결"): 10/14–10/21에 에이전트가 일지에서 한 번에 뽑은 점은 만든 이도 시작 기록도 없다.
+    // 판단 전(옛 결과)으로만 보이고 빈틈은 세지 않는다. 빈틈 수가 새 일의 빈틈만 가리키게
+    if (isLegacy(n)) { n.legacy = true; n.gaps = []; continue }
     const gaps: FlowGap[] = []
     const add = (code: FlowGap['code'], ko: string, en: string) => gaps.push({ code, text: tl(ko, en) })
     if (isSolved(n) && n.kind !== 'question' && !n.evidence.length && !(n.kind === 'finding' && n.from.some((f) => f.type === 'support'))) add('no-evidence', '해결인데 근거가 없다', 'solved without evidence')

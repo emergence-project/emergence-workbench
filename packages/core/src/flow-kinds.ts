@@ -2,6 +2,8 @@
 /** 진술: 질문 · 발견 (정리는 따로 고르지 않는다: 사람이 승인한 증명이 근거에 있는 발견). 행위: 수치 계산 · 이론 계산 · 증명 · 문헌 */
 export const FLOW_KINDS = ['question', 'finding', 'calc', 'analytic', 'proof', 'literature'] as const
 export const FLOW_PROGRESS = ['open', 'active', 'paused', 'done'] as const
+/** 작업 점(행위)의 종류: 맡긴 일이 만드는 점은 이 가운데 하나다 (10/30) */
+export const WORK_KINDS = ['calc', 'analytic', 'proof', 'literature'] as const
 export const FLOW_RESULTS = ['solved', 'refuted', 'dropped'] as const
 /** 선 종류: 발단 · 근거 · 반박 · 사용 */
 export const FLOW_EDGES = ['origin', 'support', 'refute', 'use'] as const

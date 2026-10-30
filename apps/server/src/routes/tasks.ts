@@ -2,8 +2,8 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/tasks'
 import { parseBody, replies } from '../contract.js'
-import { answerTask, checkpointTask, createTask, linkTaskFlow, scanTasks, nextTask, readTask, reportTask, RULES_DOC } from '../tasks.js'
-import { judgeTaskIntoFlow } from '../taskFlow.js'
+import { answerTask, checkpointTask, linkTaskFlow, scanTasks, readTask, reportTask, RULES_DOC } from '../tasks.js'
+import { createTaskWithDot, judgeTaskIntoFlow, nextTaskWithDot } from '../taskFlow.js'
 import type { RouteContext } from './context.js'
 
 export function registerTasks(app: FastifyInstance, ctx: RouteContext): void {
@@ -12,9 +12,11 @@ export function registerTasks(app: FastifyInstance, ctx: RouteContext): void {
   /** 맡긴 일 전부 (최근에 맡긴 것부터). 보고서 본문(body)도 함께. rules = 규칙 문서 경로 (에이전트에게 줄 말에 넣는다) */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/tasks', replies(C.TaskScan), async (req): Promise<C.TaskScan> => ({ ...scanTasks(wbOf(req.params.rid)), rules: RULES_DOC }))
   app.get<{ Params: P }>('/api/researches/:rid/tasks/:id', replies(C.TaskOne), async (req): Promise<C.TaskOne> => ({ task: readTask(wbOf(req.params.rid), req.params.id) }))
-  /** 맡기기 → workbench/tasks/<날짜>-<이름>.md */
-  app.post<{ Params: { rid: string } }>('/api/researches/:rid/tasks', replies(C.TaskCreated), async (req): Promise<C.TaskCreated> =>
-    ({ task: createTask(wbOf(req.params.rid), parseBody(C.NewTaskBody, req.body)), rules: RULES_DOC }))
+  /** 맡기기 → workbench/tasks/<날짜>-<이름>.md. 주제나 흐름 점이 있으면 작업 점도 함께 (10/30, taskFlow.ts) */
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/tasks', replies(C.TaskCreated), async (req): Promise<C.TaskCreated> => {
+    const { task, dot, hits } = createTaskWithDot(wbOf(req.params.rid), parseBody(C.NewTaskBody, req.body))
+    return { task, rules: RULES_DOC, ...(dot && { dot: dot.id, hits }) }
+  })
   /** 판단 (승인 · 수정 요청 · 멈춤 · 폐기). 결과를 승인하면 이은 흐름 점에 반영한다 (10/27, taskFlow.ts) */
   app.post<{ Params: P }>('/api/researches/:rid/tasks/:id/judge', replies(C.TaskJudged), async (req): Promise<C.TaskJudged> => {
     const { task, closed, added } = judgeTaskIntoFlow(wbOf(req.params.rid), req.params.id, parseBody(C.JudgeBody, req.body))
@@ -34,5 +36,5 @@ export function registerTasks(app: FastifyInstance, ctx: RouteContext): void {
     ({ task: checkpointTask(wbOf(req.params.rid), req.params.id, parseBody(C.CheckpointBody, req.body)) }))
   /** 다음 지시: 맡기기 · 빼기 · 되살리기 */
   app.post<{ Params: P }>('/api/researches/:rid/tasks/:id/next', replies(C.TaskNextDone), async (req): Promise<C.TaskNextDone> =>
-    nextTask(wbOf(req.params.rid), req.params.id, parseBody(C.NextBody, req.body)))
+    nextTaskWithDot(wbOf(req.params.rid), req.params.id, parseBody(C.NextBody, req.body)))
 }
