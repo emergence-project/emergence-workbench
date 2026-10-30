@@ -62,8 +62,9 @@ Markdown 파일 첫 줄의 `---`부터 다음 `---`까지를 YAML 머리말로 �
 ```
 
 - **주제 폴더 배치 (2026-10-13 결정 "연구 저장소 폴더").** `workbench/topics/`가 있는 프로젝트는 주제 폴더를 쓴다: 주제 정보는 `topics/<주제>/topic.yaml`(§2.2), 연구노트는 주인 주제의 폴더 안(§4.4). 없으면 예전 배치(주제는 `research.yaml`, 노트는 `notes/`)로 읽는다. 한 프로젝트 안에서 두 모양이 섞여 있어도 읽는다(옮기는 중인 저장소).
-- 처음 만들 때(`Workbench.scaffold`) 없는 것만 쓴다: `research.yaml`(`title`·`question`·`started`), `preamble.tex`, `.gitignore`(`.build/`), `figures/.gitkeep`, `log/.gitkeep`.
-- `STATUS.md`를 git에서 빼는 것은 각 연구 저장소의 `.gitignore`가 한다. 앱은 넣어 주지 않는다.
+- 처음 만들 때(`Workbench.scaffold`) 없는 것만 쓴다: `research.yaml`(`title`·`question`·`started`), `preamble.tex`, `.gitignore`(`.build/`, `STATUS.md`), `figures/.gitkeep`, `log/.gitkeep`.
+- `STATUS.md`는 새로 만든 `workbench/.gitignore`가 git에서 뺀다. 그 전에 만든 저장소는 각 연구 저장소의 `.gitignore`가 뺀다.
+- `workbench/`가 git에 한 번도 들어가지 않았으면(`research.yaml`이 추적되지 않음) 앱이 첫 화면과 현황에 알리고, 「커밋하고 올리기」(`POST /api/researches/:rid/repo/workbench`)가 `.gitignore`에 `.build/` · `STATUS.md`를 채운 뒤 `workbench/` 안만 커밋해 올린다(10/30).
 - 저장소 밖에 두는 것: 에이전트 고침 기록, 개념 색인, 그림 캐시, 앱 설정(§11).
 
 ### 1.1 저장소 맨 위 폴더 (2026-10-13~)

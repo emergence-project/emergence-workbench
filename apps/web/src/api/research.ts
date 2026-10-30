@@ -6,6 +6,7 @@ import type {
   MaterialList, MaterialUploaded, NoteMetaBody, Ok, RepoFile, RepoTree, PartDoc, PdfBoxes, ProfileBody, ProjectInfo, ProjectIssues, RepoReply, ResearchList, ResearchListItem, ResearchOrder,
   ResearchSummary, RestoredNote, Saved, StatementDoc, SyncReply, SyncUpdated, TopicList, TrashedNote, TrashList,
 } from '@rw/core/contract/research'
+import type { RecordsPublished } from '@rw/core/contract/feedback'
 import { choiceParams, type ExportChoice } from './noteExport'
 import { ConflictError, enc, json, req, send } from './http'
 
@@ -65,6 +66,8 @@ export function researchApi(rid: string) {
     syncNow: () => req(`${base}/sync/now`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
     /** 「main으로 돌리기」 */
     toMain: () => req(`${base}/sync/main`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
+    /** 「커밋하고 올리기」: git에 없는 workbench/를 커밋해 올린다 (10/30) */
+    publishWorkbench: () => req(`${base}/repo/workbench`, { method: 'POST' }).then((r) => json<RecordsPublished>(r)),
     journal: (days = 30) => req(`${base}/journal?days=${days}`).then((r) => json<JournalList>(r)),
     readStatement: (sid: string) => req(`${base}/statements/${enc(sid)}`).then((r) => json<StatementDoc>(r)),
     saveStatement: async (sid: string, content: string, baseHash: string): Promise<string> => {

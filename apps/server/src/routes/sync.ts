@@ -1,13 +1,21 @@
 // 연구 저장소와 GitHub (홈 카드의 최신 여부, 프로젝트 정보의 저장소 칸)
 import type { FastifyInstance } from 'fastify'
+import fs from 'node:fs'
+import path from 'node:path'
 import * as C from '@rw/core/contract/research'
+import * as F from '@rw/core/contract/feedback'
 import { replies } from '../contract.js'
 import { writeStatusFor } from '../agentStatus.js'
-import { autoPull, fastForward, repoInfo, repoSync, switchToDefault, SyncError, syncNow } from '../gitsync.js'
+import { autoPull, fastForward, offDefaultBranch, repoInfo, repoSync, switchToDefault, SyncError, syncNow } from '../gitsync.js'
 import { WorkbenchError } from '../workbench.js'
+import { PathSyncError, publishPaths } from '../pathsync.js'
+import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
 import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
+
+/** workbench/를 올릴 때 빼는 것: 컴파일 폴더와 앱이 저절로 쓰는 요약 (Workbench.scaffold와 같은 줄) */
+const WORKBENCH_IGNORE = ['.build/', 'STATUS.md']
 
 export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
   const { repoPath, registry, opts } = ctx
@@ -41,6 +49,29 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
       } finally { await refreshStatus(req.params.rid) }
     })
   }
+
+  /**
+   * 「커밋하고 올리기」 (10/30 "워크벤치 폴더를 만들자"): git에 한 번도 들어가지 않은 workbench/를 커밋해 GitHub에 올린다.
+   * workbench/ 밖은 커밋하지 않고(pathsync.ts), 앱이 저절로 쓰는 STATUS.md와 컴파일 폴더는 .gitignore로 뺀다
+   */
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/repo/workbench', replies(F.RecordsPublished), async (req): Promise<F.RecordsPublished> => {
+    if (opts.sandbox) throw new WorkbenchError(404, t('개발용 예제 모드에서는 GitHub에 올리지 않습니다', 'Sample mode does not push to GitHub'))
+    const root = repoPath(req.params.rid)
+    const ignore = path.join(root, 'workbench', '.gitignore')
+    const have = fs.existsSync(ignore) ? fs.readFileSync(ignore, 'utf8') : ''
+    const missing = WORKBENCH_IGNORE.filter((l) => !have.split('\n').some((x) => x.trim() === l))
+    if (missing.length) fs.writeFileSync(ignore, `${have}${have && !have.endsWith('\n') ? '\n' : ''}${missing.join('\n')}\n`)
+    try {
+      const off = await offDefaultBranch(root)
+      if (off) throw new PathSyncError(off)
+      return await publishPaths(root, ['workbench'], { message: 'Add workbench folder from the research workspace app', adopt: true, merge: true })
+    } catch (e) {
+      if (e instanceof PathSyncError) throw new WorkbenchError(409, e.message)
+      throw e
+    } finally {
+      ctx.broadcast({ type: 'research', research: req.params.rid })
+    }
+  })
 
   // 저절로 받기 (실사용만, 10/14): 정한 간격마다 연구 저장소를 하나씩 확인해 안전할 때만 받는다.
   // 받은 파일은 파일 감시가 화면에 알린다. 처음 받은 사본(workbench/가 막 생김)은 연구 목록도 다시 읽게 알린다

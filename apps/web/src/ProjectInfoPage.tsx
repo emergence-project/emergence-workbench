@@ -152,6 +152,7 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
   return (
     <InfoShell ui="현황 쪽">
       <SubHead title={t('현황', 'Status')} desc={t('에이전트가 STATUS.md와 MCP로 읽는 것과 같은 내용을 칸으로 나눴습니다.', 'The same content agents read in STATUS.md and over MCP, split into sections.')} />
+      <WorkbenchUpload rapi={rapi} />
       <SyncLine rid={rid} rapi={rapi} />
 
       <section className="info-sec" data-ui="내 차례">
@@ -277,6 +278,39 @@ export function useRepoState(rapi: ResearchApi, version: number): RepoState {
     call().catch((e: Error) => setUpdateError(e.message)).then(reread).finally(() => setChecking(false))
   }
   return { repo, checking, updateError, sync: () => run(() => rapi.syncNow()), toMain: () => run(() => rapi.toMain()) }
+}
+
+/**
+ * workbench/가 git에 없을 때의 안내 (10/30 "워크벤치 폴더를 만들자 · 등록되면 폴더 개설을 권장하는 안내"):
+ * 이 컴퓨터에만 있어 다른 컴퓨터 · 클라우드의 에이전트가 노트와 흐름을 보지 못한다. 「커밋하고 올리기」는 workbench/ 안만 커밋해 올린다.
+ * 등록 직후 여는 첫 화면과 현황 맨 위에 둔다
+ */
+export function WorkbenchUpload({ rapi }: { rapi: ResearchApi }) {
+  const client = useQueryClient()
+  const repo = useRepoInfo(rapi).data
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (!repo || repo.state !== 'ok' || !repo.workbenchUnpublished) return null
+  const upload = () => {
+    setBusy(true); setError(null)
+    rapi.publishWorkbench()
+      .catch((e: Error) => setError(e.message))
+      .then(() => client.invalidateQueries({ queryKey: qk.repo(rapi.rid) }))
+      .finally(() => setBusy(false))
+  }
+  return (
+    <section className="info-sync wb-upload" data-ui="workbench 올리기 안내">
+      <span className="turn-dot" aria-hidden />
+      <span className="wb-upload-text">
+        <b><code>workbench/</code>{t(' 폴더가 아직 GitHub에 없습니다.', ' is not on GitHub yet.')}</b>{' '}
+        <span className="muted">{repo.remote
+          ? t('이 컴퓨터에만 있어 다른 컴퓨터와 클라우드의 에이전트가 노트 · 흐름 · 기록을 보지 못합니다. 올리면 workbench/ 안의 파일만 커밋합니다.', 'It exists only on this computer, so other computers and cloud agents cannot see the notes, flow or records. Uploading commits only the files inside workbench/.')
+          : t('이 저장소에 GitHub 주소(원격)가 없어 올릴 수 없습니다. 터미널에서 git remote add로 연결한 뒤 올려 주세요.', 'This repository has no GitHub address (remote), so it cannot be uploaded. Link one with git remote add in a terminal first.')}</span>
+      </span>
+      {repo.remote && <button className="btn primary" data-ui="커밋하고 올리기" disabled={busy} onClick={upload}>{busy ? t('올리는 중…', 'Uploading…') : t('커밋하고 올리기', 'Commit and upload')}</button>}
+      {error && <span className="repo-err info-sync-err">! {error}</span>}
+    </section>
+  )
 }
 
 /** 동기화하기 아이콘 버튼 (10/28 안 C: 현황 한 곳에만). 도는 화살표 둘, 도는 동안 돈다 */

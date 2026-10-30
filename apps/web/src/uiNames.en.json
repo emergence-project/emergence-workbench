@@ -936,5 +936,7 @@
   "기록 안 바뀐 곳": "Change in the record",
   "사이드바 폭 조절": "Sidebar width",
   "파일 줄 메뉴": "File row menu",
-  "파일 줄 메뉴 항목": "File row menu items"
+  "파일 줄 메뉴 항목": "File row menu items",
+  "workbench 올리기 안내": "Workbench upload notice",
+  "커밋하고 올리기": "Commit and upload"
 }

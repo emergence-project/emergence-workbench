@@ -31,6 +31,7 @@ import { routeOfNote } from './RightSidebar'
 import { createNoteAsk, NoteTrash } from './Topics'
 import { gridColumns, notesInPeriod, PERIODS, RECENT_SORTS, SORTS, sortRecent, sortTopics, type NotePeriod, type NoteSort, type RecentSort } from './topicNotes'
 import { t } from './i18n'
+import { WorkbenchUpload } from './ProjectInfoPage'
 
 interface Props {
   rid: string
@@ -248,6 +249,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
       <section className="pane" data-ui="본문">
         <div className="scroll">
           <div className="page-body landing">
+            <WorkbenchUpload rapi={rapi} />
             {/* 머리 두 칸: 왼쪽 제목·설명·성격, 오른쪽 작업 패널(머리 높이에 고정). 주제 카드는 그 아래 전체 폭 (10/15 09:55 피드백, 시안 A) */}
             <div className="landing-cols">
               <div className="main-notes landing-head" data-ui="연구 내용">

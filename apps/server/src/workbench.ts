@@ -288,7 +288,7 @@ export class Workbench {
       started: localDate(info.now),
     }))
     writeIfMissing(path.join(root, 'preamble.tex'), info.preamble ? composePreamble(info.preamble) : DEFAULT_PREAMBLE)
-    writeIfMissing(path.join(root, '.gitignore'), '.build/\n')
+    writeIfMissing(path.join(root, '.gitignore'), '.build/\nSTATUS.md\n')
     writeIfMissing(path.join(root, 'figures', '.gitkeep'), '')
     writeIfMissing(path.join(root, 'log', '.gitkeep'), '')
   }

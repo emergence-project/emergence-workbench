@@ -35,6 +35,8 @@ export const RepoInfo = z.object({
   fetchDetail: z.string().optional(),
   /** 따라가는 브랜치가 원격의 기본 브랜치가 아니면 그 기본 브랜치 이름 (「main으로 돌리기」) */
   defaultBranch: z.string().optional(),
+  /** workbench/가 있지만 git에 한 번도 커밋되지 않았다 (다른 컴퓨터에서 보이지 않는다). 「커밋하고 올리기」 */
+  workbenchUnpublished: z.boolean().optional(),
 }).strict()
 
 /** 주제 카드 바탕색: 기본(프로젝트 색) 말고 정해 둔 다섯 색 */
