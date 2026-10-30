@@ -7,7 +7,7 @@
     "apps/server/src/mcp.ts": 675,
     "apps/web/src/AgentChats.tsx": 1751,
     "apps/web/src/App.tsx": 639,
-    "apps/web/src/FeedbackPage.tsx": 715,
+    "apps/web/src/FeedbackPage.tsx": 714,
     "apps/web/src/PapersPage.tsx": 703,
     "apps/web/src/Workspace.tsx": 645
   },
@@ -160,7 +160,7 @@
     "apps/web/src/OverviewPage.tsx": 4,
     "apps/web/src/PapersPage.tsx": 5,
     "apps/web/src/PdfFolderSettings.tsx": 1,
-    "apps/web/src/PdfView.tsx": 11,
+    "apps/web/src/PdfView.tsx": 9,
     "apps/web/src/polyfills.ts": 5,
     "apps/web/src/ProjectEditDialog.tsx": 4,
     "apps/web/src/railDrag.ts": 1,

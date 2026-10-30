@@ -99,3 +99,28 @@
 .pdf-note.on { background: var(--focus); }
 .pdf-note-card { position: absolute; z-index: 4; width: 260px; max-width: 80%; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm); box-shadow: var(--shadow); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); color: var(--text); display: flex; flex-direction: column; gap: var(--sp-1); white-space: pre-wrap; }
 .pdf-note-card b { font-size: var(--fs-xs); color: var(--text-2); font-weight: var(--fw-medium); }
+
+/* PDF 안에서 이동 (10/30): 목차 칸 · 찾기 칸 · 찾은 곳 · 링크 · 돌아가기 */
+.pdf-tool.on { background: var(--bg-sunken); color: var(--text); }
+.pdf-shell.toc-open > .pdf-area { margin-left: min(240px, 40%); }
+.pdf-toc { position: absolute; left: 0; top: 0; bottom: 0; z-index: 5; padding-top: 48px; width: min(240px, 40%); display: flex; flex-direction: column; background: var(--bg-side); border-right: 1px solid var(--line); }
+.pdf-toc-head { display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-2) var(--sp-2) var(--sp-1) var(--sp-3); }
+.pdf-toc-head .sp { flex: 1; }
+.pdf-toc-list { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-1) var(--sp-3); }
+.pdf-toc-row { display: flex; align-items: baseline; gap: var(--sp-2); width: 100%; text-align: left; padding: 3px var(--sp-2); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--text-2); }
+.pdf-toc-row:hover { background: var(--bg-hover); color: var(--text); }
+.pdf-toc-row.on { background: var(--bg-hover); color: var(--text); font-weight: var(--fw-medium); }
+.pdf-toc-row .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-toc-row .meta { flex: none; font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pdf-find { position: absolute; top: 52px; right: var(--sp-3); z-index: 7; display: flex; align-items: center; gap: 2px; padding: 3px 3px 3px var(--sp-2); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); }
+.pdf-find input { width: 160px; height: 26px; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-2); background: var(--bg); color: var(--text); font-size: var(--fs-sm); }
+.pdf-find input:focus { outline: none; border-color: var(--line-strong); }
+.pdf-find-count { min-width: 48px; text-align: center; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.pdf-find-hit { position: absolute; z-index: 1; background: var(--hl-bg); border-radius: 2px; pointer-events: none; }
+.pdf-find-hit.on { outline: 2px solid var(--focus-line); }
+.pdf-link { position: absolute; z-index: 3; border-radius: 2px; cursor: pointer; }
+.pdf-link:hover { background: color-mix(in srgb, var(--text-3) 14%, transparent); }
+.pdf-back { position: absolute; left: var(--sp-3); bottom: var(--sp-3); z-index: 6; height: 28px; padding: 0 var(--sp-3); border-radius: var(--r-pill); background: var(--bg); border: 1px solid var(--line-strong); box-shadow: var(--shadow); font-size: var(--fs-sm); color: var(--text); }
+.pdf-shell.toc-open > .pdf-back { left: calc(min(240px, 40%) + var(--sp-3)); }
+.pdf-back:hover { background: var(--bg-hover); }
+@container (max-width: 400px) { .pdf-tools [data-ui="목차 단추"] { display: none; } .pdf-find input { width: 110px; } }

@@ -187,8 +187,8 @@ export async function askClaude(rid: string, target: string, id: string): Promis
 interface Draft { kind: CommentKind; page?: number; sel: PdfSelection | null; quote?: string; color?: PaintColor; line?: number; prefix?: string; suffix?: string }
 
 /** 코멘트를 달 수 있는 PDF. PdfTab·원고 PDF·자료 보기가 PdfView 대신 쓴다 */
-export function CommentablePdf({ rid, target, url, highlight, onPick }: {
-  rid: string; target: CommentTarget; url: string | null; highlight: PdfBox[]; onPick(page: number, x: number, y: number, text: string): void
+export function CommentablePdf({ rid, target, url, highlight, onPick, remember }: {
+  rid: string; target: CommentTarget; url: string | null; highlight: PdfBox[]; onPick(page: number, x: number, y: number, text: string): void; remember?: string
 }) {
   const key = keyOf(rid, target.target)
   const slot = useSlot(rid, target.target)
@@ -217,7 +217,7 @@ export function CommentablePdf({ rid, target, url, highlight, onPick }: {
   }))
   const pending = comments.filter((c) => c.kind === '질문' && c.state === '대기').length
   return (
-    <PdfView rootRef={owner} url={url} highlight={highlight} onPick={onPick} marks={marks} reveal={reveal}
+    <PdfView rootRef={owner} url={url} highlight={highlight} onPick={onPick} marks={marks} reveal={reveal} remember={remember}
       onMark={(id) => { patch(key, { active: id }); openRecordsSidebar(rid) }}
       paints={paint.paints} paintMenu={paint.menu}
       onSelectionDefault={(sel, clear) => { void paint.add(sel, color); clear() }}

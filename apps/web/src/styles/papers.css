@@ -131,3 +131,6 @@
 .pl-open .pl-rs .ctx-comments { flex: 1; max-height: none; border-bottom: 0; }
 .pl-open .cmt-head { flex-wrap: wrap; }
 .pl-open .cmt-head .cmt-kind, .pl-open .cmt-head .cmt-state { white-space: nowrap; }
+/* 카드 정렬: 넷이라 고르기 상자 (10/30 규칙 "넷 이상은 고르기 상자") */
+.pl-pick { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.pl-pick .mini-select { max-width: none; }

@@ -166,6 +166,7 @@ const columnWidth = (id: ColId, layout: Layout) => {
 }
 
 type Sort = { col: ColId; dir: 1 | -1 }
+const CARD_SORTS: [ColId, string, 1 | -1][] = [['added', t('최근 더한 순', 'Recently added'), -1], ['opened', t('최근 열어 본 순', 'Recently opened'), -1], ['year', t('연도', 'Year'), -1], ['title', t('제목', 'Title'), 1]]
 const SORT_KEY = 'rw-papers-sort'
 const VIEW_KEY = 'rw-papers-view'
 type View = 'list' | 'cards'
@@ -259,11 +260,10 @@ export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; op
           </div>
           <div className="lib-head-right">
             {view === 'cards' && (
-              <div className="segmented small" role="radiogroup" aria-label={t('정렬', 'Sort')} data-ui="카드 정렬">
-                {([['added', t('최근 더한 순', 'Recently added'), -1], ['opened', t('최근 열어 본 순', 'Recently opened'), -1], ['year', t('연도', 'Year'), -1], ['title', t('제목', 'Title'), 1]] as const).map(([col, label, dir]) => (
-                  <button key={col} className={sort.col === col ? 'on' : ''} role="radio" aria-checked={sort.col === col} onClick={() => setSort({ col, dir })}>{label}</button>
-                ))}
-              </div>
+              <label className="pl-pick" data-ui="카드 정렬">{t('정렬', 'Sort')}<select className="mini-select" value={sort.col} onChange={(e) => { const s = CARD_SORTS.find(([col]) => col === e.target.value); if (s) setSort({ col: s[0], dir: s[2] }) }}>
+                  {CARD_SORTS.some(([col]) => col === sort.col) ? null : <option value={sort.col}>{colOf(sort.col)?.label}</option>}
+                  {CARD_SORTS.map(([col, label]) => <option key={col} value={col}>{label}</option>)}
+                </select></label>
             )}
             {view === 'list' && <ColumnMenu layout={layout} hidden={hidden} onChange={setLayout} />}
           </div>
@@ -685,7 +685,7 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
           <span className="sp" />
           <span className="muted">{paper.pdf.where === 'cloud' ? t('클라우드 (여는 동안 받아 옵니다)', 'Cloud (downloads while opening)') : t('이 맥에 있음', 'On this Mac')}</span>
         </div>
-        <CommentablePdf rid={LIBRARY} target={target} url={paper.pdf.where === 'none' ? null : papersApi.pdfUrl(paper.key)} highlight={NO_BOXES} onPick={() => undefined} />
+        <CommentablePdf rid={LIBRARY} target={target} url={paper.pdf.where === 'none' ? null : papersApi.pdfUrl(paper.key)} highlight={NO_BOXES} onPick={() => undefined} remember={paper.key} />
       </section>
       <aside className="pane pl-rs" data-ui="논문 열기 오른쪽" aria-label={t('논문 정보와 코멘트', 'Paper info and comments')}>
         <div className="rs-head">

@@ -5,6 +5,9 @@ import { Icon } from './icons'
 import { loadPdfjs } from './pdfjs'
 import { RecordMenu } from './RecordMenus'
 import { t } from './i18n'
+import { findInPage, readLinks, readOutline, type FindHit, type OutlineItem, type PdfLink, type TextPiece } from './pdfNav'
+import { PdfFind, PdfToc } from './PdfNav'
+import { store } from './store'
 
 /** 끌어서 고른 글: 쪽, 줄마다 사각형 [x, y, w, h] (PDF 포인트, 쪽 왼쪽 위 원점), 글자 */
 export interface PdfSelection { page: number; rects: number[][]; text: string; /** 그 쪽의 높이 (PDF 포인트) */ pageHeight?: number }
@@ -36,14 +39,19 @@ interface Props {
   paintMenu?(paint: PdfPaint, close: () => void): ReactNode
   /** 이 쪽의 이 높이(PDF 포인트)로 스크롤. nonce가 바뀔 때마다 */
   reveal?: { page: number; y: number; nonce: number } | null
+  /** 다시 열면 읽던 쪽과 배율로 (논문은 bib 키). 이 브라우저가 기억한다 */
+  remember?: string
 }
 
 interface RenderedPage { page: number; widthPt: number; heightPt: number }
-/** 쪽 위의 글자 조각. 좌표는 PDF 포인트, 왼쪽 위 원점, y는 기준선 */
-interface TextPiece { str: string; x: number; y: number; w: number; h: number }
 
 const NO_TEXT: TextPiece[] = []
 const ZOOMS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]
+const TOC_KEY = 'rw-pdf-toc'
+const PLACE_KEY = 'rw-pdf-place'
+type Place = { page: number; zoom: number }
+/** 주석 중 앱이 읽는 칸 (쪽지 · 하이라이트 · 링크) */
+interface Annotation { subtype?: string; rect?: number[]; contentsObj?: { str?: string }; titleObj?: { str?: string }; dest?: unknown; url?: string; unsafeUrl?: string }
 
 /** 누른 곳의 글자. 너무 짧은 조각(기호 하나)이면 같은 줄의 가까운 긴 조각을 쓴다. */
 function textAt(pieces: TextPiece[], x: number, y: number): string {
@@ -122,7 +130,7 @@ const TextLayer = memo(function TextLayer({ pieces, scale }: { pieces: TextPiece
  * PDF를 폭에 맞춰 그린다. 가운데 위에 도구 막대(코멘트·질문·확대·쪽).
  * SyncTeX 좌표는 PDF 포인트(1/72인치)·왼쪽 위 원점이므로, 화면 좌표 = 포인트 × scale.
  */
-export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, tools, selectionMenu, onSelectionDefault, overlay, reveal, paints, paintMenu }: Props) {
+export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, tools, selectionMenu, onSelectionDefault, overlay, reveal, paints, paintMenu, remember }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [pages, setPages] = useState<RenderedPage[]>([])
@@ -140,6 +148,13 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   const [sel, setSel] = useState<PdfSelection | null>(null)
   const [paintOpen, setPaintOpen] = useState<string | null>(null)
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null)
+  // PDF 안에서 이동: 목차 · 링크 · 찾기 · 돌아가기
+  const [outline, setOutline] = useState<OutlineItem[]>([])
+  const [tocOpen, setTocOpenState] = useState(() => store.get<boolean>(TOC_KEY, false))
+  const setTocOpen = (v: boolean) => { setTocOpenState(v); store.set(TOC_KEY, v) }
+  const [links, setLinks] = useState<Map<number, PdfLink[]>>(new Map())
+  const [find, setFind] = useState<{ q: string; i: number } | null>(null)
+  const [back, setBack] = useState<{ page: number; top: number }[]>([])
 
   useEffect(() => {
     const el = wrap.current
@@ -175,6 +190,10 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         setSel(null)
         setPaintOpen(null)
         setError(null)
+        setLinks(new Map())
+        setBack([])
+        setOutline([])
+        readOutline(d, info.map((p) => p.heightPt)).then((o) => { if (!cancelled) setOutline(o) }, () => undefined)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       }
@@ -206,12 +225,14 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
     return () => io.disconnect()
   }, [pages])
 
-  // 가까이 온 쪽의 글자 조각 (고르기·누른 곳 찾기용)
+  // 가까이 온 쪽의 글자 조각 (고르기·누른 곳 찾기용)과 주석. 찾기를 열면 모든 쪽
   const textLoading = useRef(new Set<number>())
   useEffect(() => { textLoading.current.clear() }, [doc])
+  const searching = !!find?.q.trim()
   useEffect(() => {
     if (!doc) return
-    for (const n of near) {
+    const heights = pages.map((p) => p.heightPt)
+    for (const n of searching ? pages.map((p) => p.page) : near) {
       const info = pages.find((p) => p.page === n)
       if (!info || texts.has(n) || textLoading.current.has(n)) continue
       textLoading.current.add(n)
@@ -223,19 +244,22 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
             : []))
           setTexts((prev) => new Map(prev).set(n, pieces))
           // 쪽지(Text) · 하이라이트(Highlight) 주석: 글이 있는 것만
-          const annots = (await (await doc.getPage(n)).getAnnotations()) as { subtype?: string; rect?: number[]; contentsObj?: { str?: string }; titleObj?: { str?: string } }[]
+          const annots: Annotation[] = await (await doc.getPage(n)).getAnnotations()
           const found = annots.flatMap((a): PdfNote[] => {
             const text = (a.contentsObj?.str ?? '').replace(/\r\n?/g, '\n').trim()
             if ((a.subtype !== 'Text' && a.subtype !== 'Highlight') || !text || !a.rect) return []
-            const [x1, y1, x2, y2] = a.rect as [number, number, number, number]
+            const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = a.rect
             const [title, ...rest] = text.split('\n')
             return [{ kind: a.subtype === 'Text' ? 'note' : 'mark', x: x1, y: info.heightPt - y2, w: x2 - x1, h: y2 - y1, title: title ?? a.titleObj?.str ?? '', text: rest.join('\n').trim() }]
           })
           if (found.length) setNotes((prev) => new Map(prev).set(n, found))
+          // 링크: 인용 · 식 · 그림 번호(PDF 안 자리)와 바깥 주소
+          const pageLinks = await readLinks(doc, annots, info.heightPt, heights)
+          if (pageLinks.length) setLinks((prev) => new Map(prev).set(n, pageLinks))
         } catch { /* 문서가 바뀌어 닫힘 */ }
       })()
     }
-  }, [doc, near, pages, texts])
+  }, [doc, near, pages, texts, searching])
 
   // 캔버스 그리기. 선명하게 기기 픽셀 비율만큼 크게 그린다. 배율이 바뀌면 다시 그린다.
   // 같은 캔버스에 두 번 동시에 그릴 수 없으므로, 앞 그리기가 취소되어 끝난 뒤에 시작한다
@@ -281,6 +305,80 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
     container.scrollTo({ top: pageEl.offsetTop + y * scale - (mid ? container.clientHeight / 3 : 56), behavior: 'smooth' })
   }
 
+  // 링크 · 목차로 옮기기 전 자리를 쌓아 두고 "돌아가기"로 되돌린다
+  const jumpTo = (page: number, y: number | null) => {
+    const c = wrap.current
+    if (c) setBack((b) => [...b.slice(-19), { page: current, top: c.scrollTop }])
+    setCurrent(page)
+    scrollToPage(page, y === null ? 0 : Math.max(0, y - 12))
+  }
+  const goBack = () => {
+    const last = back.at(-1)
+    if (!last) return
+    setBack(back.slice(0, -1))
+    wrap.current?.scrollTo({ top: last.top, behavior: 'smooth' })
+  }
+
+  // 찾기: 글자를 다 읽은 쪽부터 찾은 곳이 늘어난다. 새 찾기 글은 지금 쪽부터
+  const hits: FindHit[] = useMemo(() => {
+    if (!find?.q.trim()) return []
+    // 글자 층과 같은 글꼴로 재어 찾은 곳의 가로 자리를 맞춘다
+    measureCtx ??= document.createElement('canvas').getContext('2d')
+    if (measureCtx) measureCtx.font = '100px sans-serif'
+    const measure = (str: string) => measureCtx?.measureText(str).width ?? 0
+    return pages.flatMap((p) => findInPage(texts.get(p.page) ?? NO_TEXT, find.q, p.page, measure))
+  }, [find?.q, texts, pages])
+  const findLoading = searching && pages.some((p) => !texts.has(p.page))
+  const showHit = (i: number) => { const h = hits[i]; if (h) scrollToPage(h.page, h.rects[0]![1]!, true) }
+  useEffect(() => {
+    if (!find || find.i >= 0 || !hits.length) return
+    const i = Math.max(0, hits.findIndex((h) => h.page >= current))
+    setFind({ q: find.q, i })
+    showHit(i)
+  }, [hits, find]) // eslint-disable-line react-hooks/exhaustive-deps
+  const stepFind = (dir: 1 | -1) => {
+    if (!find || !hits.length) return
+    const i = ((find.i < 0 ? 0 : find.i + dir) + hits.length) % hits.length
+    setFind({ q: find.q, i })
+    showHit(i)
+  }
+  // ⌘F: 마우스가 PDF 위에 있거나 PDF 안에 초점이 있을 때만 (브라우저 찾기 대신)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const shell = wrap.current?.parentElement
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'f' || !shell || !pages.length) return
+      if (!shell.matches(':hover') && !shell.contains(document.activeElement)) return
+      e.preventDefault()
+      setFind((f) => f ? { ...f } : { q: '', i: -1 })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pages.length])
+
+  // 읽던 자리: 처음 그릴 때 한 번 되돌리고, 그 뒤로 쪽 · 배율이 바뀌면 적어 둔다
+  const restored = useRef('')
+  useEffect(() => {
+    const id = `${remember}|${url}`
+    if (!remember || !pages.length || !width || restored.current === id) return
+    restored.current = id
+    const place = store.get<Record<string, Place>>(PLACE_KEY, {})[remember]
+    if (!place || place.page > pages.length) return
+    if (ZOOMS.includes(place.zoom)) setZoom(place.zoom)
+    if (place.page <= 1) return
+    setCurrent(place.page)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = pageEls.current.get(place.page)
+      if (el && wrap.current) wrap.current.scrollTop = el.offsetTop - 56
+    }))
+  }, [remember, url, pages.length, width])
+  useEffect(() => {
+    if (!remember || restored.current !== `${remember}|${url}`) return
+    const all = store.get<Record<string, Place>>(PLACE_KEY, {})
+    delete all[remember]
+    const keep = Object.entries(all).slice(-199)
+    store.set(PLACE_KEY, Object.fromEntries([...keep, [remember, { page: current, zoom }]]))
+  }, [current, zoom]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // 표시할 영역이 생기면 그 쪽의 해당 위치로 스크롤
   useEffect(() => {
     const box = highlight[0]
@@ -290,13 +388,13 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
     if (reveal && pages.length) scrollToPage(reveal.page, reveal.y, true)
   }, [reveal?.nonce, pages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 배율을 바꿔도 보던 쪽에 머문다
+  // 배율이나 칸 폭(목차 칸 · 창 크기)이 바뀌어도 보던 쪽에 머문다
   const keepPage = useRef(1)
   useEffect(() => { keepPage.current = current }, [current])
   useEffect(() => {
     const el = pageEls.current.get(keepPage.current)
     if (el && wrap.current && keepPage.current > 1) wrap.current.scrollTop = el.offsetTop - 56
-  }, [zoom])
+  }, [scale])
 
   const onScroll = () => {
     setSel(null)
@@ -341,8 +439,13 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   const goPage = (n: number) => { const p = Math.max(1, Math.min(pages.length, n)); setCurrent(p); scrollToPage(p) }
 
   return (
-    <div className="pdf-shell" ref={rootRef}>
+    <div className={`pdf-shell${tocOpen && outline.length ? ' toc-open' : ''}`} ref={rootRef}>
       <div className="pdf-tools" data-ui="PDF 도구 막대" onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault() }}>
+        <button className={`pdf-tool${tocOpen && outline.length ? ' on' : ''}`} data-ui="목차 단추" aria-label={t('목차', 'Contents')} aria-pressed={tocOpen && !!outline.length} disabled={!outline.length}
+          title={outline.length ? t('목차', 'Contents') : t('이 PDF에는 목차가 없습니다', 'This PDF has no contents')} onClick={() => setTocOpen(!tocOpen)}><span className="ico">{Icon.list}</span></button>
+        <button className={`pdf-tool${find ? ' on' : ''}`} data-ui="찾기 단추" aria-label={t('PDF에서 찾기', 'Find in PDF')} aria-pressed={!!find} disabled={!pages.length}
+          title={t('PDF에서 찾기 (⌘F)', 'Find in PDF (⌘F)')} onClick={() => setFind(find ? null : { q: '', i: -1 })}><span className="ico">{Icon.search}</span></button>
+        <span className="pdf-tools-sep" />
         {tools?.({ page: current, sel, clearSel })}
         {tools && <span className="pdf-tools-sep" />}
         <button className="pdf-tool" data-ui="축소" title={t('축소', 'Zoom out')} aria-label={t('축소', 'Zoom out')} disabled={zoom <= ZOOMS[0]!} onClick={() => zoomStep(-1)}>−</button>
@@ -359,6 +462,10 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         <button className="pdf-tool" data-ui="다음 쪽" title={t('다음 쪽', 'Next page')} aria-label={t('다음 쪽', 'Next page')} disabled={current >= pages.length} onClick={() => goPage(current + 1)}>›</button>
       </div>
       {overlay}
+      {tocOpen && outline.length > 0 && <PdfToc items={outline} current={current} onGo={(it) => jumpTo(it.page, it.y)} onClose={() => setTocOpen(false)} />}
+      {find && <PdfFind query={find.q} onQuery={(q) => setFind({ q, i: -1 })} count={hits.length} index={find.i} loading={findLoading} onStep={stepFind} onClose={() => setFind(null)} />}
+      {back.length > 0 && <button className="pdf-back" data-ui="돌아가기" title={t('링크 · 목차로 옮기기 전 자리로', 'Back to where you were before the link or contents jump')} onClick={goBack}>
+        ← {t(`돌아가기 · ${back.at(-1)!.page}쪽`, `Back · p. ${back.at(-1)!.page}`)}</button>}
       <div className="pdf-area" data-ui="PDF" ref={wrap} onScroll={onScroll}
         onMouseUp={() => { window.setTimeout(readSelection, 0) }}
         onKeyUp={(e) => { if (e.key === 'Shift' || e.key.startsWith('Arrow')) readSelection() }}
@@ -373,7 +480,7 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
             style={{ width: p.widthPt * scale, height: p.heightPt * scale }}
             onClick={(e) => {
               if (!window.getSelection()?.isCollapsed) return // 글을 고르는 중
-              if ((e.target as HTMLElement).closest('.pdf-pin, .pdf-selmenu, .record-menu, .pdf-note, .pdf-note-card')) return
+              if ((e.target as HTMLElement).closest('.pdf-pin, .pdf-selmenu, .record-menu, .pdf-note, .pdf-note-card, .pdf-link')) return
               const rect = e.currentTarget.getBoundingClientRect()
               const x = (e.clientX - rect.left) / scale
               const y = (e.clientY - rect.top) / scale
@@ -400,6 +507,14 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
               </div>
             ))}
             {near.has(p.page) && <TextLayer pieces={texts.get(p.page) ?? NO_TEXT} scale={scale} />}
+            {find && hits.map((h, i) => h.page === p.page && h.rects.map((r, k) => (
+              <div key={`${i}-${k}`} className={`pdf-find-hit${i === find.i ? ' on' : ''}`} style={{ left: r[0]! * scale, top: r[1]! * scale, width: r[2]! * scale, height: r[3]! * scale }} />
+            )))}
+            {near.has(p.page) && links.get(p.page)?.map((l, i) => (
+              <a key={i} className="pdf-link" data-ui="PDF 링크" href={l.url ?? '#'} target={l.url ? '_blank' : undefined} rel={l.url ? 'noreferrer' : undefined}
+                title={l.url ?? t(`${l.to!.page}쪽으로`, `Go to p. ${l.to!.page}`)} style={{ left: l.rect[0]! * scale, top: l.rect[1]! * scale, width: l.rect[2]! * scale, height: l.rect[3]! * scale }}
+                onClick={(e) => { if (l.to) { e.preventDefault(); jumpTo(l.to.page, l.to.y) } }} />
+            ))}
             {near.has(p.page) && notes.has(p.page) && <NoteLayer notes={notes.get(p.page) ?? NO_NOTES} scale={scale} open={noteOpen?.page === p.page ? noteOpen.i : null} onOpen={(i) => setNoteOpen(i === null ? null : { page: p.page, i })} />}
             {highlight.filter((b) => b.page === p.page).map((b, i) => (
               <div

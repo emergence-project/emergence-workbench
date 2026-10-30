@@ -943,5 +943,10 @@
   "Claude Code 상태 알리기": "Claude Code status reports",
   "Codex 상태 알리기": "Codex status reports",
   "밖에서 도는 에이전트": "Agents running outside the app",
-  "밖 세션": "Outside session"
+  "밖 세션": "Outside session",
+  "목차 단추": "Contents button",
+  "찾기 단추": "Find button",
+  "찾기 칸": "Find box",
+  "돌아가기": "Back",
+  "PDF 링크": "PDF link"
 }
