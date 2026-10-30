@@ -50,7 +50,7 @@ export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' 
       { mark: g.icons.spark, name: '에이전트에게 보내기', meaning: '아직 대화가 없는 질문 · 지시를 설정과 상관없이 지금 이 맥의 Claude에게 보냄. 반짝이는 Claude가 하는 행동에만 씁니다', where: '기록 줄 오른쪽 위' },
       { mark: g.icons.search, name: '검색', meaning: '앱 전체에서 이름으로 찾기 (/ 키)', where: '상단바 오른쪽' },
       { mark: g.icons.approve, name: '승인', meaning: '결과가 맞음', where: '기록 › 내 차례 판단' },
-      { mark: g.icons.sendBack, name: '수정', meaning: '맞지 않아 다시 하도록 돌려보냄 (지우지 않음)', where: '기록 › 내 차례 판단' },
+      { mark: g.icons.sendBack, name: '반려', meaning: '맞지 않아 다시 하도록 돌려보냄 (지우지 않음)', where: '기록 › 내 차례 판단' },
       { mark: <><span className="star-ico on">{g.icons.star}</span> <span className="star-ico">{g.icons.star}</span></>, name: '즐겨찾기', meaning: '먼저 보이게 하기 (찬 별) / 풀기 (빈 별)', where: '카드, 주제, 사람' },
     ],
   },

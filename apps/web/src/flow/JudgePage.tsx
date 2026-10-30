@@ -12,7 +12,7 @@ import { CARD_FIELD, CARD_GROUPS, FIELD, KIND, MarkIcon, judgeName, markOf, turn
 
 type Verdict = 'approve' | 'send-back' | 'reject' | 'start' | 'end'
 export const VERDICT_NAME: Record<Verdict, () => string> = {
-  approve: () => tr('승인', 'Approve'), 'send-back': () => tr('수정', 'Revise'), reject: () => tr('기각', 'Reject'),
+  approve: () => tr('승인', 'Approve'), 'send-back': () => tr('반려', 'Revise'), reject: () => tr('기각', 'Reject'),
   start: () => tr('시작', 'Start'), end: () => tr('종료', 'End'),
 }
 
@@ -119,7 +119,7 @@ export function JudgePage({ rid, id, notes, onSaved }: { rid: string; id: string
             <FieldThreads th={th} field="" numberOf={numberOf} />
             {tc.all > 0 && <p className="muted">{tr('답을 기다리는 질문이 있어도 판단할 수 있습니다. 판단하면 열린 질문은 "판단 뒤 닫음"으로 남습니다.', 'You can judge with questions still open; they are closed as "closed after judgment".')}</p>}
             <textarea className="jd-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={tr('판단 메모', 'Judgment note')}
-              placeholder={n.kind === 'finding' ? tr('이유 (수정 · 기각은 꼭 적습니다)', 'Reason (required to revise or reject)') : tr('이유 (수정 · 종료는 꼭 적습니다)', 'Reason (required to revise or end)')} />
+              placeholder={n.kind === 'finding' ? tr('이유 (반려 · 기각은 꼭 적습니다)', 'Reason (required to revise or reject)') : tr('이유 (반려 · 종료는 꼭 적습니다)', 'Reason (required to revise or end)')} />
             <div className="jd-btns">{verdicts.map((v) => {
               const why = blocked(v)
               return <button key={v} className={`btn${v === 'approve' || v === 'start' ? ' primary' : ''}`} data-ui={`판단 ${VERDICT_NAME[v]()}`} disabled={busy || !!why} title={why ?? undefined} onClick={() => void judge(v)}>{VERDICT_NAME[v]()}</button>

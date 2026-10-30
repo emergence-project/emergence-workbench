@@ -69,7 +69,7 @@ export function PersonEditDialog({ person, people, onDone, onSaved, location }: 
 
   const sub = affiliations[0] || d.note.trim()
   return (
-    <CardEditDialog title={t('사람 수정', 'Edit person')} location={location ?? `${t('네트워킹', 'Networking')} › ${person.name}`} pc="var(--text-3)" ui="사람 수정 창" className="person-dialog"
+    <CardEditDialog title={t('사람 수정', 'Edit person')} location={location ?? `${t('네트워킹', 'Networking')} › ${person.name}`} pc="var(--text-3)" ui="사람 고치기 창" className="person-dialog"
       canSave={!busy && authorsLoaded && !!name} onClose={() => { if (!busy) onDone() }} onSave={() => void submit()}
       preview={
         <span className="net-card pe-card" data-ui="사람 카드 미리보기">

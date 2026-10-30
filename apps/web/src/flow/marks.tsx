@@ -78,7 +78,7 @@ export const DOT: Record<ReturnType<typeof stateOf>, BlockStatus> = { open: 'in-
 export const judgedOf = (n: FlowNode): boolean | undefined => n.kind === 'finding' ? n.verdict === 'approve' : undefined
 /** 판단 이름: 명제는 판단, 카드(맡긴 질문)는 카드 상태. 둘 다 아니면 undefined */
 export function judgeName(n: FlowNode): string | undefined {
-  if (n.kind === 'finding') return n.verdict === 'approve' ? tr('승인됨', 'Approved') : n.verdict === 'send-back' ? tr('수정 요청', 'Sent back') : n.verdict === 'reject' ? tr('기각', 'Rejected') : tr('판단 전', 'Not judged')
+  if (n.kind === 'finding') return n.verdict === 'approve' ? tr('승인됨', 'Approved') : n.verdict === 'send-back' ? tr('반려됨', 'Sent back') : n.verdict === 'reject' ? tr('기각', 'Rejected') : tr('판단 전', 'Not judged')
   switch (n.cardState) {
     case 'waiting': return tr('카드 · 사전 연구 판단 대기', 'Card · prior work awaiting judgment')
     case 'ready': return tr('카드 · 시작 전', 'Card · not started')

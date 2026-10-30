@@ -72,7 +72,7 @@ const WORDS = [
 /** @type {[RegExp, string][]} */
 const OLD_TERMS = [
   [/보조 노트/, '노트'], [/왼쪽 띠/, '레일'], [/제목줄/, '상단바'], [/거르기/, '필터'], [/형광펜/, '하이라이트'],
-  [/이름표/, '태그(툴팁이면 툴팁)'], [/입력칸/, '입력란'], [/도구 줄|도구 막대|머리줄/, '툴바'], [/탭 줄/, '탭 바'], [/작업 칸|지금 칸|다른 칸|옆 칸/, '패널'], [/오른쪽 칸|맥락 칸/, '오른쪽 사이드바'], [/반려/, '수정'], [/다 고침/, '편집 완료'],
+  [/이름표/, '태그(툴팁이면 툴팁)'], [/입력칸/, '입력란'], [/도구 줄|도구 막대|머리줄/, '툴바'], [/탭 줄/, '탭 바'], [/작업 칸|지금 칸|다른 칸|옆 칸/, '패널'], [/오른쪽 칸|맥락 칸/, '오른쪽 사이드바'], [/다 고침/, '편집 완료'],
 ]
 /** @type {[RegExp, string][]} */
 const GLYPHS = [
@@ -98,8 +98,8 @@ for (const f of tsx) {
     if (line.includes('디자인 예외:') || /^\s*(\/\/|\*|\/\*)/.test(line)) return
     const code = line.replace(/\{\/\*.*?\*\/\}/g, '')
     const where = `${f.slice(root.length)}:${i + 1}`
-    // data-ui 값(피드백 부위 이름)은 예전 이름 그대로 둔다
-    const said = code.replace(/data-ui(?:-[a-z]+)?=(?:"[^"]*"|\{[^}]*\})/g, '')
+    // data-ui 값(피드백 부위 이름, 부품에는 ui=로 넘긴다)은 예전 이름 그대로 둔다
+    const said = code.replace(/\b(?:data-)?ui(?:-[a-z]+)?=(?:"[^"]*"|\{[^}]*\})/g, '')
     if (/<button|title=|aria-label=/.test(said)) for (const [re, use] of WORDS) if (re.test(said)) problems.push(`${where}  버튼 말은 "${use}"로\n    ${line.trim().slice(0, 140)}`)
     for (const [re, why] of GLYPHS) if (re.test(code)) problems.push(`${where}  ${why}\n    ${line.trim().slice(0, 140)}`)
   })

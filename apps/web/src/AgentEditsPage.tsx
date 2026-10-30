@@ -417,7 +417,7 @@ function Talk({ h, talks, busy, onAct, onAsk }: { h: EditHunk; talks: CommentEnt
       <ComposeBox value={text} onChange={setText} placeholder={t('질문이나 고칠 점', 'Question or what to change')}
         waiting={talkTurn(talks) === 'agent' ? t('에이전트의 답을 기다립니다', 'Waiting for the agent to answer') : undefined}>
         <button className="btn" disabled={busy || sending || !typed} onClick={() => send('질문')}>{t('질문', 'Ask')}</button>
-        <button className="btn" disabled={busy || sending || !typed} onClick={() => send('수정')}>{t('수정', 'Revise')}</button>
+        <button className="btn" disabled={busy || sending || !typed} onClick={() => send('수정')}>{t('반려', 'Revise')}</button>
         <button className="btn primary" disabled={busy || sending || typed} onClick={() => void onAct(h, 'accept')}>{t('승인', 'Approve')}</button>
       </ComposeBox>
     </div>

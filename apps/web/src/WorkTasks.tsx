@@ -70,7 +70,7 @@ export async function sendJudgment(rid: string, tk: Task, verdict: Verdict, extr
 export function JudgeButtons({ onApprove, onSendBack, approveTip = t('승인', 'Approve') }: { onApprove(): void; onSendBack(): void; approveTip?: string }) {
   return <>
     <button className="icon-btn" data-ui="승인" data-tip={approveTip} aria-label={approveTip} onClick={onApprove}>{Icon.approve}</button>
-    <button className="icon-btn" data-ui="수정 요청" data-tip={t('수정', 'Revise')} aria-label={t('수정', 'Revise')} onClick={onSendBack}>{Icon.sendBack}</button>
+    <button className="icon-btn" data-ui="수정 요청" data-tip={t('반려', 'Revise')} aria-label={t('반려', 'Revise')} onClick={onSendBack}>{Icon.sendBack}</button>
   </>
 }
 
@@ -96,7 +96,7 @@ export function SendBackRow({ onSend, onCancel }: { onSend(note: string): void; 
     <form className="tk-return" data-ui="수정 요청 입력란" onSubmit={(e) => { e.preventDefault(); if (note.trim()) onSend(note.trim()) }}>
       <input autoFocus value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}
         placeholder={t('무엇을 고칠지 한 줄 (그만둘 일이면 "하지 마")', 'What to change, in one line ("don\'t do it" to stop the task)')} aria-label={t('수정할 내용', 'What to revise')} />
-      <button className="btn" type="submit" disabled={!note.trim()}>{t('수정', 'Revise')}</button>
+      <button className="btn" type="submit" disabled={!note.trim()}>{t('반려', 'Revise')}</button>
       <button className="icon-btn" type="button" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={onCancel}>{Icon.x}</button>
     </form>
   )

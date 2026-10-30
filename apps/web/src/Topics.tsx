@@ -62,7 +62,7 @@ export function trashNoteWithUndo(rapi: ResearchApi, ms: ManuscriptInfo, onChang
 /** 원고(논문) 하나 = 카드 하나 (10/4 16:10 반려 "아직 수정 필요": 장 목록을 늘어놓지 않는다. 장은 원고를 열면 목차에) */
 export function PaperCards({ rid, manuscripts, onCopy, onRemove, onAdd }: { rid: string; manuscripts: ManuscriptInfo[]; onCopy?(key: string): void; onRemove?(ms: ManuscriptInfo): void; onAdd?(): void }) {
   return <div className="note-cards" data-ui="메인 노트 장 목록">
-    {onAdd && <NewCard shape="note" label={tr('원고 추가', 'Add manuscript')} ui="메인 노트 추가 버튼" onClick={onAdd} />}
+    {onAdd && <NewCard shape="note" label={tr('원고 추가', 'Add manuscript')} ui="메인 노트 더하기 버튼" onClick={onAdd} />}
     {manuscripts.map((ms) => <PaperCard key={ms.key} rid={rid} ms={ms} onCopy={onCopy} onRemove={onRemove} />)}
   </div>
 }

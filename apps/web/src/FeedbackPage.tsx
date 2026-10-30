@@ -38,7 +38,7 @@ export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
 type Filter = FeedbackBucket | '전체'
 const FILTERS: Filter[] = ['확인 필요', '대기', '완료', '전체']
 const FILTER_TITLES: Record<FeedbackBucket, string> = {
-  '확인 필요': t('진행 · 중단하거나 승인 · 수정할 것: 에이전트가 물은 것과 처리한 것', 'To proceed, stop, approve or revise: what the agent asked and what it handled'),
+  '확인 필요': t('진행 · 중단하거나 승인 · 반려할 것: 에이전트가 물은 것과 처리한 것', 'To proceed, stop, approve or revise: what the agent asked and what it handled'),
   '대기': t('에이전트가 처리할 것: 새 피드백, 수정 · 진행한 것, 질문, 묻지 않은 보류', 'For the agent to handle: new feedback, revisions and go-aheads, questions, holds without a question'),
   '완료': t('승인했거나 확인 기간(7일)이 지난 반영·답변', 'Approved, or applied and answered items past the 7-day review period'),
 }
@@ -436,7 +436,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
   if (s.kind === '대기') return <li className="fbp-say-wait muted">{t('관리자가 다시 처리하기를 기다립니다', 'Waiting for the maintainer to rework it')}</li>
   const me = s.who === '나'
   const name = me ? (user ? `${t('사용자', 'User')} (${user})` : t('사용자', 'User')) : ('by' in s && s.by ? `${t('관리자', 'Maintainer')} (${s.by})` : t('관리자', 'Maintainer'))
-  const what = s.kind === '반려' ? t(`${n}번째 수정`, `Revision ${n}`)
+  const what = s.kind === '반려' ? t(`${n}번째 반려`, `Revision ${n}`)
     : s.kind === '승인' || s.kind === '진행' || s.kind === '중단' || s.kind === '코멘트' ? verdictName(s.kind)
         : s.kind === '답' ? t('답만 함', 'Answered only')
           : 'commit' in s && s.commit ? t('앱에 반영됨', 'Applied to the app') : t('답만 함', 'Answered only')
@@ -456,7 +456,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
   }))
   return (
     <SayCard me={me} ui={me ? '사용자 글' : '관리자 글'} name={name} tag={what}
-      afterTag={undo && <button className="fb-link" title={t('마지막 답(승인 · 수정 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
+      afterTag={undo && <button className="fb-link" title={t('마지막 답(승인 · 반려 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
       when={at && <>{whenOf(at)}{edited && ` · ${t('고침', 'edited')} ${edited.slice(11, 16)}`}</>}
       end={me && at && s.kind !== '승인' && !locked && !editing && <button className="icon-btn sm fbp-say-edit" data-tip={t('수정', 'Edit')} aria-label={t(`수정: ${whenOf(at)} 글`, `Edit: message at ${whenOf(at)}`)} onClick={() => { setDraft(s.note ?? ''); setEditing(true) }}>{Icon.pencil}</button>}>
       {editing
