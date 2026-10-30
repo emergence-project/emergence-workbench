@@ -62,7 +62,7 @@ export function trashNoteWithUndo(rapi: ResearchApi, ms: ManuscriptInfo, onChang
 /** 원고(논문) 하나 = 카드 하나 (10/4 16:10 반려 "아직 수정 필요": 장 목록을 늘어놓지 않는다. 장은 원고를 열면 목차에) */
 export function PaperCards({ rid, manuscripts, onCopy, onRemove, onAdd }: { rid: string; manuscripts: ManuscriptInfo[]; onCopy?(key: string): void; onRemove?(ms: ManuscriptInfo): void; onAdd?(): void }) {
   return <div className="note-cards" data-ui="메인 노트 장 목록">
-    {onAdd && <NewCard shape="note" label={tr('원고 더하기', 'Add manuscript')} ui="메인 노트 더하기 버튼" onClick={onAdd} />}
+    {onAdd && <NewCard shape="note" label={tr('원고 추가', 'Add manuscript')} ui="메인 노트 더하기 버튼" onClick={onAdd} />}
     {manuscripts.map((ms) => <PaperCard key={ms.key} rid={rid} ms={ms} onCopy={onCopy} onRemove={onRemove} />)}
   </div>
 }
@@ -81,7 +81,7 @@ function PaperCard({ rid, ms, onCopy, onRemove }: { rid: string; ms: ManuscriptI
         {onCopy && <button className="icon-btn" data-ui="복사해 연구노트 만들기" data-tip={tr('복사해 노트 만들기', 'Copy into a note')} aria-label={tr('복사해 노트 만들기', 'Copy into a note')} onClick={() => onCopy(ms.key)}>{Icon.plus}</button>}
         <ExportLink rid={rid} ms={ms} small />
         {/* 10/4 18:05: 원고 파일은 지우지 않고 목록(research.yaml)에서만 뺀다 */}
-        {onRemove && <button className="icon-btn" data-ui="원고 빼기" title={tr('목록에서 빼기 — 원고 파일은 그대로 남습니다', 'Remove from the list. The manuscript files stay')} aria-label={tr('목록에서 빼기', 'Remove from the list')} onClick={() => onRemove(ms)}>×</button>}
+        {onRemove && <button className="icon-btn" data-ui="원고 빼기" title={tr('목록에서 제거 — 원고 파일은 그대로 남습니다', 'Remove from the list. The manuscript files stay')} aria-label={tr('목록에서 제거', 'Remove from the list')} onClick={() => onRemove(ms)}>×</button>}
       </span>
     </div>
   )
@@ -154,7 +154,7 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, project, pc, ver
     .then(() => { onChanged(); onSaved(n.star ? tr(`"${n.title}"를 즐겨찾기에서 뺐습니다`, `Removed "${n.title}" from favorites`) : tr(`"${n.title}"를 즐겨찾기에 넣었습니다`, `Added "${n.title}" to favorites`)) }).catch(fail)
   const removeTopic = async () => {
     if (!t) return
-    if (!await askConfirm({ title: tr(`주제 "${t.title}"를 지울까요?`, `Delete topic "${t.title}"?`), hint: tr(`노트 ${mine.length}개는 그대로 남고, 다른 주제가 없는 노트는 "${LOOSE_NOTES_LABEL}"로 갑니다. 원고의 장과 파일은 그대로입니다.`, `The ${plural(mine.length, 'note')} stay. Notes with no other topic go to "${LOOSE_NOTES_LABEL}". Manuscript chapters and files stay.`), ok: tr('지우기', 'Delete') })) return
+    if (!await askConfirm({ title: tr(`주제 "${t.title}"를 지울까요?`, `Delete topic "${t.title}"?`), hint: tr(`노트 ${mine.length}개는 그대로 남고, 다른 주제가 없는 노트는 "${LOOSE_NOTES_LABEL}"로 갑니다. 원고의 장과 파일은 그대로입니다.`, `The ${plural(mine.length, 'note')} stay. Notes with no other topic go to "${LOOSE_NOTES_LABEL}". Manuscript chapters and files stay.`), ok: tr('삭제', 'Delete') })) return
     api.deleteTopic(t.id, data?.hash).then(() => { onChanged(); onSaved(tr(`주제 "${t.title}"를 지웠습니다`, `Deleted topic "${t.title}"`)); go({ page: 'overview', rid }) }).catch(fail)
   }
   const createNote = () => void createNoteAsk(rapi, rid, loose ? null : { id: tid, title: t!.title }, onChanged, onSaved, fail)
@@ -167,10 +167,10 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, project, pc, ver
       <div className="ts-title">
         <h1 className="h-title" title={loose ? tr('주제가 없는 노트 · 오른쪽 사이드바에서 주제를 고릅니다', 'Notes without a topic · Pick a topic in the right sidebar') : undefined}>{loose ? LOOSE_NOTES_LABEL : t!.title}</h1>
         {t && <>
-          <button className={`icon-btn ts-star${t.star ? ' starred' : ''}`} data-ui="중요 표시" aria-pressed={t.star} title={t.star ? tr('즐겨찾기 빼기', 'Remove from favorites') : tr('즐겨찾기 (주제 목록 앞에 둡니다)', 'Favorite (puts it first in the topic list)')} aria-label={t.star ? tr('즐겨찾기 빼기', 'Remove from favorites') : tr('즐겨찾기', 'Favorite')} onClick={() => void starTopic()}><StarIcon on={t.star} /></button>
+          <button className={`icon-btn ts-star${t.star ? ' starred' : ''}`} data-ui="중요 표시" aria-pressed={t.star} title={t.star ? tr('즐겨찾기 제거', 'Remove from favorites') : tr('즐겨찾기 (주제 목록 앞에 둡니다)', 'Favorite (puts it first in the topic list)')} aria-label={t.star ? tr('즐겨찾기 제거', 'Remove from favorites') : tr('즐겨찾기', 'Favorite')} onClick={() => void starTopic()}><StarIcon on={t.star} /></button>
           <span className="ts-actions" data-ui="주제 머리 행동">
-            <button className="icon-btn" data-ui="주제 고치기" title={tr('고치기 — 이름 · 설명 · 카드 미리보기', 'Edit name, description, card preview')} aria-label={tr('주제 고치기', 'Edit topic')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
-            <button className="icon-btn" data-ui="카드 지우기" title={tr('주제 지우기 — 노트와 파일은 그대로', 'Delete topic. Notes and files stay')} aria-label={tr('주제 지우기', 'Delete topic')} onClick={() => void removeTopic()}>{Icon.trash}</button>
+            <button className="icon-btn" data-ui="주제 고치기" title={tr('수정 — 이름 · 설명 · 카드 미리보기', 'Edit name, description, card preview')} aria-label={tr('주제 수정', 'Edit topic')} onClick={() => setEditing(true)}>{Icon.pencil}</button>
+            <button className="icon-btn" data-ui="카드 지우기" title={tr('주제 삭제 — 노트와 파일은 그대로', 'Delete topic. Notes and files stay')} aria-label={tr('주제 삭제', 'Delete topic')} onClick={() => void removeTopic()}>{Icon.trash}</button>
           </span>
         </>}
       </div>
@@ -274,7 +274,7 @@ export function NoteTrash({ rapi, onChanged, onSaved }: { rapi: ResearchApi; onC
       </button>
       {open && <ul>{list.map((t) => (
         <li key={t.id}><span>{t.name}</span><span className="muted">{tr(`${day(t.until)}까지 보관`, `Kept until ${day(t.until)}`)}</span>
-          <button className="a" data-ui="노트 되살리기" onClick={() => restore(t)}>{tr('되살리기', 'Restore')}</button></li>
+          <button className="a" data-ui="노트 되살리기" onClick={() => restore(t)}>{tr('복원', 'Restore')}</button></li>
       ))}</ul>}
     </section>
   )

@@ -170,7 +170,7 @@ export function AppUpdate() {
   else if (!status) line = t('상태를 알 수 없습니다', 'Status unknown')
   else if (status.fetchError) line = t(`GitHub를 확인하지 못했습니다: ${status.fetchError}`, `Could not check GitHub: ${status.fetchError}`)
   else if (status.behind > 0) line = t(`새 버전이 있습니다 (커밋 ${status.behind}개)`, `A new version is available (${plural(status.behind, 'commit')})`)
-  else if (pending && status.prepared) line = t('새 버전을 받아 두었습니다. 쉬는 동안 저절로 다시 시작합니다', 'The new version is ready. It restarts on its own while you are idle')
+  else if (pending && status.prepared) line = t('새 버전을 받아 두었습니다. 쉬는 동안 자동으로 다시 시작합니다', 'The new version is ready. It restarts on its own while you are idle')
   else if (pending) line = t('받은 새 버전이 아직 반영되지 않았습니다', 'The pulled version is not applied yet')
   else line = t('최신입니다', 'Up to date')
 

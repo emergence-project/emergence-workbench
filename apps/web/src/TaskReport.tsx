@@ -111,11 +111,11 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
                     <span className="n">{i}</span>
                     <div className="b"><div>{n.task}</div>{n.endCondition && <div className="c">{tr('종결 조건', 'Completion criteria')} · {n.endCondition}</div>}</div>
                     {n.started ? <button className="a" onClick={() => go({ page: 'task', rid, task: n.started! })}>{tr('맡김', 'Delegated')} · {titleOf(n.started)}</button>
-                      : n.dropped ? <button className="a" onClick={() => void next(i, 'restore')}>{tr('되살리기', 'Restore')}</button>
+                      : n.dropped ? <button className="a" onClick={() => void next(i, 'restore')}>{tr('복원', 'Restore')}</button>
                       : <span className="tk-next-act">
                         <button className="icon-btn" data-tip={tr('승인: 이대로 맡기기', 'Approve: delegate as is')} aria-label={tr('승인: 이대로 맡기기', 'Approve: delegate as is')} onClick={() => void next(i, 'start')}>{Icon.approve}</button>
-                        <button className="icon-btn" data-tip={tr('고치기', 'Edit')} aria-label={tr('고쳐서 맡기기', 'Edit and delegate')} onClick={() => setDialog({ mode: 'next', from: t, nextIndex: i, title: n.task.slice(0, 80), task: n.task, endCondition: n.endCondition, topic: t.topic, agent: t.agent, avoid: t.avoid, references: [t.file] })}>{Icon.pencil}</button>
-                        <button className="icon-btn" data-tip={tr('빼기', 'Remove')} aria-label={tr('빼기', 'Remove')} onClick={() => void next(i, 'drop')}>{Icon.x}</button>
+                        <button className="icon-btn" data-tip={tr('수정', 'Edit')} aria-label={tr('고쳐서 맡기기', 'Edit and delegate')} onClick={() => setDialog({ mode: 'next', from: t, nextIndex: i, title: n.task.slice(0, 80), task: n.task, endCondition: n.endCondition, topic: t.topic, agent: t.agent, avoid: t.avoid, references: [t.file] })}>{Icon.pencil}</button>
+                        <button className="icon-btn" data-tip={tr('제거', 'Remove')} aria-label={tr('제거', 'Remove')} onClick={() => void next(i, 'drop')}>{Icon.x}</button>
                       </span>}
                   </div>
                 )
@@ -136,7 +136,7 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
             </dl>
           </details>
           {t.judged.length > 0 && <details className="tk-fold"><summary>{tr('판단 기록', 'Decisions')} {t.judged.length}</summary>
-            <ul className="tk-judged">{t.judged.map((j, k) => <li key={k}><span className="muted">{j.at}</span> {({ approve: tr('승인', 'Approved'), 'send-back': tr('수정', 'Revise'), pause: tr('멈춤', 'Blocked'), discard: tr('폐기', 'Dropped') })[j.verdict]}{j.note ? ` · ${j.note}` : ''}</li>)}</ul>
+            <ul className="tk-judged">{t.judged.map((j, k) => <li key={k}><span className="muted">{j.at}</span> {({ approve: tr('승인', 'Approved'), 'send-back': tr('반려', 'Revise'), pause: tr('멈춤', 'Blocked'), discard: tr('폐기', 'Dropped') })[j.verdict]}{j.note ? ` · ${j.note}` : ''}</li>)}</ul>
           </details>}
         </div>
       </section>
@@ -183,7 +183,7 @@ function Asks({ rid, t, onSaved, reload }: { rid: string; t: Task; onSaved(m: st
             <span className="q">{a.q}</span>
             {real ? <span className="segmented small" role="group" aria-label={tr(`${n}번 답`, `Answer ${n}`)}>
               {askOptions(a).map((o) => <button key={o} className={got?.answer === o ? 'on' : ''} aria-pressed={got?.answer === o} onClick={() => void send(n, o)}>{askOptionLabel(o)}</button>)}
-            </span> : <span className="muted tk-ask-hint">{tr('위의 승인 · 수정으로 답합니다', 'Answer with Approve or Revise above')}</span>}
+            </span> : <span className="muted tk-ask-hint">{tr('위의 승인 · 반려로 답합니다', 'Answer with Approve or Revise above')}</span>}
             {real && <input className="tk-ask-note" value={notes[key]?.text ?? ''} placeholder={tr('덧붙일 말 (선택)', 'Note (optional)')} aria-label={tr(`${n}번에 덧붙일 말`, `Note for ${n}`)}
               onChange={(e) => { const text = e.target.value; setNotes((drafts) => editAnswerNote(drafts, key, text, got?.note)) }} onBlur={() => { if (got && (notes[key]?.text ?? '') !== (got.note ?? '')) void send(n, got.answer) }} />}
           </div>

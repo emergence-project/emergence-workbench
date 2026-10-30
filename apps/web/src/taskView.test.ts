@@ -26,10 +26,10 @@ describe('맡긴 일 화면 말', () => {
 
   it('목록 줄은 지금 무엇을 기다리는지 쓴다', () => {
     expect(taskLine(task({ endCondition: '1e-8 이내' }))).toBe('종결: 1e-8 이내')
-    expect(taskLine(task({ judged: [{ at: '', verdict: 'send-back', note: 'L=48도' }] }))).toBe('수정: L=48도')
+    expect(taskLine(task({ judged: [{ at: '', verdict: 'send-back', note: 'L=48도' }] }))).toBe('반려: L=48도')
     // 지금 상태 한 줄 (10/30): 종결 조건 대신 보이고, 그 뒤에 온 수정 요청이 먼저다
     expect(taskLine(task({ endCondition: '1e-8 이내', checkpoint: 'L=24 끝남' }))).toBe('지금: L=24 끝남')
-    expect(taskLine(task({ checkpoint: 'L=24 끝남', checkpointAt: '2026-10-06 10:00', judged: [{ at: '2026-10-06 11:00', verdict: 'send-back', note: 'L=48도' }] }))).toBe('수정: L=48도')
+    expect(taskLine(task({ checkpoint: 'L=24 끝남', checkpointAt: '2026-10-06 10:00', judged: [{ at: '2026-10-06 11:00', verdict: 'send-back', note: 'L=48도' }] }))).toBe('반려: L=48도')
     expect(taskLine(task({ checkpoint: 'L=48 시작', checkpointAt: '2026-10-06 12:00', judged: [{ at: '2026-10-06 11:00', verdict: 'send-back', note: 'L=48도' }] }))).toBe('지금: L=48 시작')
     expect(taskLine(task({ state: 'result', endCheck: 'pass' }))).toBe(t('종결 조건 통과', 'Criteria met'))
     expect(taskLine(task({ state: 'done', judged: [{ at: '', verdict: 'approve', seconds: 240 }] }))).toBe(t('해결 · 판단 4분', 'Solved · decided in 4 min'))

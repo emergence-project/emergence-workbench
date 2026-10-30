@@ -62,7 +62,7 @@ export function ChangesPage({ rid }: { rid: string }) {
 
   return (
     <InfoShell ui="변경사항 쪽">
-      <SubHead title={t('변경사항', 'Changes')} desc={t('내가 마지막으로 본 뒤 이 프로젝트에서 바뀐 것입니다. 에이전트는 MCP changes_since로 같은 목록을 받습니다.', 'What changed in this project since you last looked. Agents get the same list with MCP changes_since.')} />
+      <SubHead title={t('변경사항', 'Changes')} desc={t('내가 마지막으로 본 뒤 이 프로젝트의 변경사항입니다. 에이전트는 MCP changes_since로 같은 목록을 받습니다.', 'What changed in this project since you last looked. Agents get the same list with MCP changes_since.')} />
       <section className="info-sec" data-ui="변경사항 표">
         <p className="chg-bar muted">
           {data ? <>
@@ -99,7 +99,7 @@ export function ChangesPage({ rid }: { rid: string }) {
               </tbody>
             </table>
           </div>
-        ) : <p className="muted">{t('바뀐 것이 없습니다', 'Nothing changed')}</p>)}
+        ) : <p className="muted">{t('변경사항이 없습니다', 'Nothing changed')}</p>)}
       </section>
     </InfoShell>
   )

@@ -178,8 +178,8 @@ function MemoItem({ e, rid, noteOf, onToggle, onEdit, onDelete, hideTodoKind }: 
           {draft !== null && editable && onEdit
             ? <span className="mi-actions"><button className="a" onClick={save}>{t('저장', 'Save')}</button><button className="a" onClick={() => setDraft(null)}>{t('취소', 'Cancel')}</button></span>
             : ((editable && onEdit) || (deletable && onDelete)) && <span className="mi-actions icons" data-ui="고치기·지우기">
-                {editable && onEdit && <button className="icon-btn" data-tip={t('고치기', 'Edit')} aria-label={`${t('고치기', 'Edit')}: ${short(e.text)}`} onClick={() => setDraft(e.text)}>{Icon.pencil}</button>}
-                {deletable && onDelete && <button className="icon-btn" data-tip={t('지우기', 'Delete')} aria-label={`${t('지우기', 'Delete')}: ${short(e.text)}`} onClick={() => void askConfirm(journalDeletePrompt(e)).then((y) => { if (y) onDelete(e) })}>{Icon.trash}</button>}
+                {editable && onEdit && <button className="icon-btn" data-tip={t('수정', 'Edit')} aria-label={`${t('수정', 'Edit')}: ${short(e.text)}`} onClick={() => setDraft(e.text)}>{Icon.pencil}</button>}
+                {deletable && onDelete && <button className="icon-btn" data-tip={t('삭제', 'Delete')} aria-label={`${t('삭제', 'Delete')}: ${short(e.text)}`} onClick={() => void askConfirm(journalDeletePrompt(e)).then((y) => { if (y) onDelete(e) })}>{Icon.trash}</button>}
               </span>}
         </div>
       </div>

@@ -173,8 +173,8 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
   // 에이전트 고침 (10/8): 검토할 노트와 확인된 노트 고치기 요청. 작업 패널에 한 줄씩, 누르면 고침 검토 화면
   const editList = useAgentEdits(rid).data
   const edits = editList ? [
-    ...editList.attempts.map((a) => ({ key: a.key, title: a.title, sub: a.summary ? t(`고치기 요청 · ${a.summary}`, `Edit request: ${a.summary}`) : t('고치기 요청 · 그 대화에서 허락하면 고칩니다', 'Edit request: the agent edits once you agree in that conversation'), attempt: true })),
-    ...editList.reviews.map((r) => ({ key: r.key, title: r.title, sub: t(`바뀐 곳 ${r.changes}`, `${r.changes} changed`), attempt: false })),
+    ...editList.attempts.map((a) => ({ key: a.key, title: a.title, sub: a.summary ? t(`수정 요청 · ${a.summary}`, `Edit request: ${a.summary}`) : t('수정 요청 · 그 대화에서 허락하면 고칩니다', 'Edit request: the agent edits once you agree in that conversation'), attempt: true })),
+    ...editList.reviews.map((r) => ({ key: r.key, title: r.title, sub: t(`변경사항 ${r.changes}`, `${r.changes} changed`), attempt: false })),
   ] : []
   // 할 일 끝내기 (10/19): 기록 파일의 지금 hash를 받아 끝냄으로. 기록 탭에서 다시 열 수 있어 확인은 묻지 않는다
   const [finishing, setFinishing] = useState<string | null>(null)
@@ -203,7 +203,7 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
       )),
     },
     {
-      key: 'edits', title: t('에이전트 고침', 'Agent edits'), short: t('고침', 'Edits'), count: edits.length, turn: t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Approve, revert or edit each change'), ui: '에이전트 고침', onMore: () => go({ page: 'edits', rid }),
+      key: 'edits', title: t('에이전트 고침', 'Agent edits'), short: t('고침', 'Edits'), count: edits.length, turn: t('변경사항마다 승인 · 되돌리기 · 수정', 'Approve, revert or edit each change'), ui: '에이전트 고침', onMore: () => go({ page: 'edits', rid }),
       rows: edits.map((e) => (tag?: string) => (
         <NowRow tag={tag} key={`${e.attempt ? 'a' : 'r'}-${e.key}`} ui="에이전트 고침 줄" item={e.title}
           title={e.title} full={`${e.title}\n${e.sub}`} sub={e.sub}
@@ -255,11 +255,11 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
               <div className="main-notes landing-head" data-ui="연구 내용">
                 <div className="landing-title">
                   <h1 className="h-title to-info" data-ui="연구 제목" role="link" tabIndex={0} title={t('프로젝트 정보 보기', 'View project info')} onClick={openInfo} onKeyDown={onInfoKey}>{research.title}</h1>
-                  {listed && <div className="ov-actions" data-ui="프로젝트 머리 행동"><button className="icon-btn ov-edit" data-ui="프로젝트 고치기" data-tip={t('고치기', 'Edit')} aria-label={t('프로젝트 고치기', 'Edit project')} onClick={() => setEditing(true)}>{Icon.pencil}</button></div>}
+                  {listed && <div className="ov-actions" data-ui="프로젝트 머리 행동"><button className="icon-btn ov-edit" data-ui="프로젝트 고치기" data-tip={t('수정', 'Edit')} aria-label={t('프로젝트 수정', 'Edit project')} onClick={() => setEditing(true)}>{Icon.pencil}</button></div>}
                 </div>
 
                 <div className="landing-desc to-info" data-ui="연구 목표" role="link" tabIndex={0} title={t('프로젝트 정보 보기', 'View project info')} onClick={openInfo} onKeyDown={onInfoKey}>
-                  {research.question ? <p>{research.question}</p> : <p className="muted">{t('설명이 없습니다 · 연필로 더하기', 'No description · add one with the pencil')}</p>}
+                  {research.question ? <p>{research.question}</p> : <p className="muted">{t('설명이 없습니다 · 연필로 추가', 'No description · add one with the pencil')}</p>}
                 </div>
 
                 {listed && (

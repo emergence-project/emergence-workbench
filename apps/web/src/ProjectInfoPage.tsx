@@ -75,10 +75,10 @@ export function ProjectInfoPage({ rid, rapi, summary, notes, manuscripts, projec
       <header className="info-head">
         <div className="info-title" data-ui="제목 칸">
           <h1 className="h-title" data-ui="연구 제목">{research.title}</h1>
-          {listed && <button className="icon-btn" data-ui="프로젝트 정보 고치기" data-tip={t('고치기', 'Edit')} aria-label={t('프로젝트 고치기', 'Edit project')} onClick={() => setEditing(true)}>{Icon.pencil}</button>}
+          {listed && <button className="icon-btn" data-ui="프로젝트 정보 고치기" data-tip={t('수정', 'Edit')} aria-label={t('프로젝트 수정', 'Edit project')} onClick={() => setEditing(true)}>{Icon.pencil}</button>}
         </div>
         <div data-ui="설명 칸">
-          {research.question ? <p className="info-desc">{research.question}</p> : <p className="info-desc muted">{t('설명이 없습니다 · 연필로 더하기', 'No description · Add one with the pencil')}</p>}
+          {research.question ? <p className="info-desc">{research.question}</p> : <p className="info-desc muted">{t('설명이 없습니다 · 연필로 추가', 'No description · Add one with the pencil')}</p>}
         </div>
       </header>
 

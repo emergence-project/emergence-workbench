@@ -313,7 +313,7 @@ function usePaint(rid: string, target: CommentTarget, owner: { current: HTMLElem
       }} />
       <span className="record-separator" />
       <button onClick={() => { close(); onComment(h) }}><span className="ico">{Icon.comment}</span> {t('코멘트 달기', 'Add comment')}</button>
-      <button aria-label={t('지우기', 'Delete')} title={t('지우기', 'Delete')} disabled={busy || !file} onClick={() => {
+      <button aria-label={t('삭제', 'Delete')} title={t('삭제', 'Delete')} disabled={busy || !file} onClick={() => {
         close()
         active.current = true
         if (file) void mutate(() => backend(rid).remove(target.target, h.id, file.hash)).then((removed) => {
@@ -405,7 +405,7 @@ export function CommentList({ rid, target }: { rid: string; target: string }) {
           asking={asking.has(askKey(rid, target, c.id))} onAsk={() => void askClaude(rid, target, c.id)}
           onGo={() => revealComment(rid, target, c.id)}
           onState={(s) => void act((h) => api.setState(target, c.id, s, h))}
-          onDelete={() => void askConfirm({ title: t('이 코멘트를 지울까요?', 'Delete this comment?'), hint: t('달린 답도 함께 지워집니다.', 'Its answers are deleted too.'), ok: t('지우기', 'Delete') }).then((y) => { if (y) void act((h) => api.remove(target, c.id, h)) })} />
+          onDelete={() => void askConfirm({ title: t('이 코멘트를 지울까요?', 'Delete this comment?'), hint: t('달린 답도 함께 지워집니다.', 'Its answers are deleted too.'), ok: t('삭제', 'Delete') }).then((y) => { if (y) void act((h) => api.remove(target, c.id, h)) })} />
       ))}
     </div>
   )
@@ -428,7 +428,7 @@ function CommentItem({ c, on, ref_, asking, onAsk, onGo, onState, onDelete }: {
           )}
           {c.kind === '질문' && c.state !== '끝냄' && <button className="btn ghost sm" title={t('이 질문을 끝냄으로', 'Mark this question done')} onClick={() => onState('끝냄')}>{t('끝냄', 'Done')}</button>}
           {c.kind === '질문' && c.state === '끝냄' && <button className="btn ghost sm" title={t('다시 에이전트 대기로', 'Set back to waiting for agent')} onClick={() => onState('대기')}>{t('다시 열기', 'Reopen')}</button>}
-          {c.answers.length === 0 && <button className="icon-btn hover-actions" title={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} onClick={onDelete}>{Icon.trash}</button>}
+          {c.answers.length === 0 && <button className="icon-btn hover-actions" title={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} onClick={onDelete}>{Icon.trash}</button>}
         </div>
       </div>
       {c.quote && <blockquote className="cmt-quote" onClick={onGo}>{c.quote}</blockquote>}
@@ -561,7 +561,7 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
         <PaintDots color={selected.color} action="바꾸기" disabled={busy} onChange={(paint) => { if (paint !== selected.color && slot.file) void write(async (w) => { await w.update(target.target, selected.id, { color: paint, baseHash: slot.file!.hash }) }) }} />
         <span className="record-menu-sep" />
         <button disabled={busy} onClick={() => { openRecordComposer(rid, target, { quote: selected.quote, line: selected.line, prefix: selected.prefix, suffix: selected.suffix, color: selected.color }); setActive(null) }}><span className="ico">{Icon.comment}</span> {t('코멘트 달기', 'Add comment')}</button>
-        <button disabled={busy} aria-label={t('지우기', 'Delete')} title={t('지우기', 'Delete')} onClick={remove}><span className="ico">{Icon.trash}</span></button>
+        <button disabled={busy} aria-label={t('삭제', 'Delete')} title={t('삭제', 'Delete')} onClick={remove}><span className="ico">{Icon.trash}</span></button>
       </RecordMenu>}
     </div></RecordContext.Provider>
   )

@@ -17,7 +17,7 @@ describe('일지 항목 행동', () => {
     expect(prompt.hint).toContain('되돌릴 수 없습니다')
     expect(prompt.hint).toContain('원래 할 일의 완료 표시')
     expect(prompt.hint).toContain('다른 일지 항목과 연결된 노트는 그대로 남습니다')
-    expect(prompt.ok).toBe(t('지우기', 'Delete'))
+    expect(prompt.ok).toBe(t('삭제', 'Delete'))
   })
 
   it('메모와 할 일의 지우기 확인도 보존되는 대상을 적는다', () => {

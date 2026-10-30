@@ -71,14 +71,14 @@ export function CommonRulesSettings({ onSaved }: { onSaved(message: string): voi
   const [s, name] = view?.status ? STATE[view.status] ?? ['in-progress', view.status] : [null, '']
   const head = view?.exists && <>
     {s && <span className="cr-state"><StatusDot s={s} label name={name} /></span>}
-    <span className="count">{t(`· 규칙 ${view.count}`, `· ${view.count} rules`)}{view.updated && <>{t(` · 고친 날 ${view.updated}`, ` · edited ${view.updated}`)}</>}</span>
+    <span className="count">{t(`· 규칙 ${view.count}`, `· ${view.count} rules`)}{view.updated && <>{t(` · 수정일 ${view.updated}`, ` · edited ${view.updated}`)}</>}</span>
   </>
 
   return (
     <section data-ui="공통 규칙 묶음" className="cr">
       <div className="sec-head">
         <h2>{t('공통 규칙', 'Common rules')}</h2>{head}<span className="sp" />
-        {view && draft === null && view.exists && <button className="icon-btn" data-ui="공통 규칙 고치기" title={t('고치기 — 규칙 파일의 원문을 고칩니다', 'Edit the rules file')} aria-label={t('고치기', 'Edit')} onClick={() => open(view, view.body)}>{Icon.pencil}</button>}
+        {view && draft === null && view.exists && <button className="icon-btn" data-ui="공통 규칙 고치기" title={t('수정 — 규칙 파일의 원문을 고칩니다', 'Edit the rules file')} aria-label={t('수정', 'Edit')} onClick={() => open(view, view.body)}>{Icon.pencil}</button>}
         {draft !== null && <>
           <button className="btn" onClick={() => setDraft(null)}>{t('취소', 'Cancel')}</button>
           <button className="btn primary" disabled={saving || stale || !draft.trim() || draft === view?.body} onClick={() => void save()}>{t('저장', 'Save')}</button>

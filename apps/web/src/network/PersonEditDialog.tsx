@@ -69,7 +69,7 @@ export function PersonEditDialog({ person, people, onDone, onSaved, location }: 
 
   const sub = affiliations[0] || d.note.trim()
   return (
-    <CardEditDialog title={t('사람 고치기', 'Edit person')} location={location ?? `${t('네트워킹', 'Networking')} › ${person.name}`} pc="var(--text-3)" ui="사람 고치기 창" className="person-dialog"
+    <CardEditDialog title={t('사람 수정', 'Edit person')} location={location ?? `${t('네트워킹', 'Networking')} › ${person.name}`} pc="var(--text-3)" ui="사람 고치기 창" className="person-dialog"
       canSave={!busy && authorsLoaded && !!name} onClose={() => { if (!busy) onDone() }} onSave={() => void submit()}
       preview={
         <span className="net-card pe-card" data-ui="사람 카드 미리보기">
@@ -102,7 +102,7 @@ export function PersonEditDialog({ person, people, onDone, onSaved, location }: 
           <label className="td-f"><span className="td-lab"><span>{t('한 줄 메모', 'One-line memo')}</span></span><input className="td-in" value={d.note} onChange={(e) => set({ note: e.target.value })} /></label>
           <S2Pick name={name} value={d.s2} onChange={(s2) => set({ s2 })} />
           {person.photo && <div className="td-f"><span className="td-lab"><span>{t('사진', 'Photo')}</span></span>
-            <label className="check"><input type="checkbox" checked={d.dropPhoto} onChange={(e) => set({ dropPhoto: e.target.checked })} />{t('사진 빼기 (머리글자로)', 'Remove photo (show initials)')}</label></div>}
+            <label className="check"><input type="checkbox" checked={d.dropPhoto} onChange={(e) => set({ dropPhoto: e.target.checked })} />{t('사진 제거 (머리글자로)', 'Remove photo (show initials)')}</label></div>}
           {person.author && <p className="td-help">{t('노트를 내보낼 때 이름·이메일·소속이 \\author·\\email·\\affiliation 줄로 들어갑니다.', 'When exporting notes, name, email and affiliation become \\author, \\email and \\affiliation lines.')}</p>}
           {message && <p className="td-err">{message}</p>}
         </fieldset>

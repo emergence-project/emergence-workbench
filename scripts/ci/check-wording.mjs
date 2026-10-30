@@ -1,6 +1,6 @@
 // 화면 문구 검사 (docs/design-system.md 5절 "풀어 쓴 말", 10/30): 화면 글에 풀어 쓴 말이 늘지 않게 한다.
 // 용어집은 scripts/ci/wording.json. 말마다 지금 남은 수(max)보다 많아지면 실패하고, 줄었으면 max를 낮추라고 알린다.
-// 보는 글: 화면 코드(.ts · .tsx)의 한국어 글자(문자열 · 템플릿 · JSX 글). 소개 본문(about/)과 data-ui 값, 주석, 테스트는 보지 않는다.
+// 보는 글: 화면 코드(.ts · .tsx)의 한국어 글자(문자열 · 템플릿 · JSX 글). 소개 본문(about/)과 data-ui 값(부품에 넘기는 ui 포함), 주석, 테스트는 보지 않는다.
 import { readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -27,7 +27,8 @@ function screenTexts() {
       if (/[가-힣]/.test(text)) out.push({ where: `${f.slice(root.length)}:${tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1}`, text })
     }
     const visit = (node) => {
-      if (ts.isJsxAttribute(node) && /^data-ui/.test(node.name.getText(tree))) return
+      if (ts.isJsxAttribute(node) && /^(data-ui|ui$)/.test(node.name.getText(tree))) return
+      if (ts.isPropertyAssignment(node) && node.name.getText(tree) === 'ui') return
       if (ts.isImportDeclaration(node)) return
       if (ts.isJsxText(node) || ts.isStringLiteralLike(node)) add(node, node.text)
       else if (ts.isTemplateExpression(node)) [node.head, ...node.templateSpans.map((s) => s.literal)].forEach((part) => add(node, part.text))

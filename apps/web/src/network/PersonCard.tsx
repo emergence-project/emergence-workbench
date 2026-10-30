@@ -31,9 +31,9 @@ export function PersonCard({ p, people, isMe, sub, badge, onRemove }: { p: Perso
         </span>
       </button>
       {onRemove
-        ? <span className="hover-actions net-card-actions"><button className="icon-btn sm" data-ui="저자에서 빼기" title={t('빼기 — 노트 저자에서만 빠지고, 네트워킹의 사람은 그대로 남습니다', 'Remove from note authors only. The person stays in Networking')} aria-label={t('노트 저자에서 빼기', 'Remove from note authors')} onClick={onRemove}>{Icon.x}</button></span>
+        ? <span className="hover-actions net-card-actions"><button className="icon-btn sm" data-ui="저자에서 빼기" title={t('제거 — 노트 저자에서만 빠지고, 네트워킹의 사람은 그대로 남습니다', 'Remove from note authors only. The person stays in Networking')} aria-label={t('노트 저자에서 제거', 'Remove from note authors')} onClick={onRemove}>{Icon.x}</button></span>
         : !isMe && (
-          <button className={`net-star${p.star ? ' on' : ''}`} data-ui="즐겨찾기" aria-pressed={p.star} title={p.star ? t('즐겨찾기 빼기', 'Remove from favorites') : t('즐겨찾기 (맨 앞에 둡니다)', 'Favorite (keeps it first)')} onClick={() => void toggleStar()}>
+          <button className={`net-star${p.star ? ' on' : ''}`} data-ui="즐겨찾기" aria-pressed={p.star} title={p.star ? t('즐겨찾기 제거', 'Remove from favorites') : t('즐겨찾기 (맨 앞에 둡니다)', 'Favorite (keeps it first)')} onClick={() => void toggleStar()}>
             <StarIcon on={p.star} />
           </button>
         )}

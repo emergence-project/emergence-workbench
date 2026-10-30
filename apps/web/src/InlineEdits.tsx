@@ -53,7 +53,7 @@ function InlineReview({ k, title, rid }: { k: string; title: string; rid: string
       {/* 머리: 노트 이름 · 바뀐 곳 수, 오른쪽 넓게 보기 (자세히 볼 때만 수정 검토 화면으로, 10/28 사용자 답) */}
       <div className="ie-title">
         <span className="ie-name" title={title}>{title}</span>
-        <span className="muted">{t(`바뀐 곳 ${rv.hunks.length}`, `${rv.hunks.length} changed`)}</span>
+        <span className="muted">{t(`변경사항 ${rv.hunks.length}`, `${rv.hunks.length} changed`)}</span>
         <span className="sp" />
         <button className="icon-btn sm" data-ui="넓게 보기" data-tip={t('수정 검토에서 넓게 보기', 'Open wide in edit review')} aria-label={t('넓게 보기', 'Open wide')} onClick={() => go({ page: 'edits', rid, key: k })}>{Icon.openNote}</button>
       </div>
@@ -83,8 +83,8 @@ function InlineHunk({ h, busy, render, onAct }: { h: EditHunk; busy: boolean; re
         <span className="ie-sec muted" title={h.section}>{h.section?.split(' › ').pop() ?? t('제목 앞', 'Before the first heading')}</span>
         <span className="sp" />
         {editing === null && <>
-          <button className="icon-btn sm" disabled={busy} data-ui="고치기 버튼" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} onClick={() => setEditing(h.current)}>{Icon.pencil}</button>
-          <button className="icon-btn sm" disabled={busy} data-ui="되돌리기 버튼" data-tip={t('되돌리기', 'Revert')} aria-label={t('되돌리기: 이 부분만 고치기 전 글로', 'Revert: put back the text from before the edit, for this part only')} onClick={() => void onAct(h, 'revert')}>{Icon.revert}</button>
+          <button className="icon-btn sm" disabled={busy} data-ui="고치기 버튼" data-tip={t('수정', 'Edit')} aria-label={t('수정', 'Edit')} onClick={() => setEditing(h.current)}>{Icon.pencil}</button>
+          <button className="icon-btn sm" disabled={busy} data-ui="되돌리기 버튼" data-tip={t('되돌리기', 'Revert')} aria-label={t('되돌리기: 이 부분만 수정 전 글로', 'Revert: put back the text from before the edit, for this part only')} onClick={() => void onAct(h, 'revert')}>{Icon.revert}</button>
           <button className="icon-btn sm" disabled={busy} data-ui="승인 버튼" data-tip={t('승인', 'Approve')} aria-label={t('승인: 이 고침을 받아들입니다 (파일은 그대로)', 'Approve: accept this edit (the file stays as it is)')} onClick={() => void onAct(h, 'accept')}>{Icon.approve}</button>
         </>}
       </div>

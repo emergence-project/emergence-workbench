@@ -144,7 +144,7 @@ function WholeMap({ topics, byKey }: { topics: KnowledgeTopic[]; byKey: Map<stri
               return (
                 <g key={t.key} className={`kn-nd ${t.status}${sel === t.key ? ' sel' : ''}${near && !near.has(t.key) ? ' dim' : ''}`} transform={`translate(${p.x},${p.y})`}
                   onClick={(e) => { e.stopPropagation(); if (sel === t.key) go({ page: 'library', view: 'map', topic: t.key }); else setSel(t.key) }}>
-                  <title>{`${t.title} — ${STATUS_NAME[t.status]}${t.uses.length ? tl(` · 쓰는 곳 ${t.uses.length}`, ` · used in ${t.uses.length}`) : ''}\n${sel === t.key ? tl('한 번 더 누르면 초점 보기', 'Click again to focus') : tl('누르면 이웃을 봅니다', 'Click to see neighbors')}`}</title>
+                  <title>{`${t.title} — ${STATUS_NAME[t.status]}${t.uses.length ? tl(` · 사용처 ${t.uses.length}`, ` · used in ${t.uses.length}`) : ''}\n${sel === t.key ? tl('한 번 더 누르면 초점 보기', 'Click again to focus') : tl('누르면 이웃을 봅니다', 'Click to see neighbors')}`}</title>
                   <rect width={NODE_W} height={NODE_H} />
                   <text x={10} y={18}>{clip(t.title)}</text>
                   {t.uses.length > 0 && <svg className="kn-used" x={NODE_W - 15} y={3} width={12} height={12} viewBox="0 0 24 24" aria-hidden="true">{(Icon.research as React.ReactElement<{ children?: React.ReactNode }>).props.children}</svg>}

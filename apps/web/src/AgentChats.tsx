@@ -94,7 +94,7 @@ const APP_HINT: Record<Trust, string> = {
 
 const TRUST_HINT: Record<Trust, string> = {
   read: t('읽고 답만 합니다. 명령은 묻고 돌립니다', 'Reads and answers only. Commands ask first'),
-  ask: t('노트 고치기와 명령을 하나씩 묻습니다', 'Asks before each note edit and command'),
+  ask: t('노트 수정과 명령을 하나씩 묻습니다', 'Asks before each note edit and command'),
   plan: t('먼저 계획을 보이고, 승인할 때 이어 갈 방법을 고릅니다', 'Shows a plan first; you choose how to continue when you approve it'),
   edit: t('범위 안 노트를 바로 고칩니다. 명령 · 웹 · 범위 밖은 묻거나 막습니다', 'Edits notes in scope right away. Commands, web and out-of-scope work ask or are blocked'),
 }
@@ -190,7 +190,7 @@ const useProjects = () => useQuery({ queryKey: qk.researches, queryFn: () => api
 
 function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): string {
   if (s.kind === 'project') return t('프로젝트 전체', 'Whole project')
-  if (s.kind === 'app') return t('앱 고치기', 'Fix the app')
+  if (s.kind === 'app') return t('앱 수정', 'Fix the app')
   if (s.kind === 'topic') return `${t('주제', 'Topic')} · ${topics?.find((x) => x.id === s.target)?.title ?? s.target}`
   return `${t('노트', 'Note')} · ${s.target?.split('/').slice(-2, -1)[0] ?? s.target}`
 }
@@ -263,7 +263,7 @@ function useChatActions(id: string) {
     try { client.setQueryData(qk.agentChat(id), await agentChatsApi.rename(id, title)); void client.invalidateQueries({ queryKey: qk.agentChats }) } catch (e) { flash((e as Error).message) }
   }
   const remove = async (): Promise<boolean> => {
-    if (!await askConfirm({ title: t('이 대화를 지울까요?', 'Delete this conversation?'), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토는 그대로 남습니다.', 'Only the conversation is deleted. Notes, records and edit review stay.'), ok: t('지우기', 'Delete') })) return false
+    if (!await askConfirm({ title: t('이 대화를 지울까요?', 'Delete this conversation?'), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토는 그대로 남습니다.', 'Only the conversation is deleted. Notes, records and edit review stay.'), ok: t('삭제', 'Delete') })) return false
     try { await agentChatsApi.remove(id); void client.invalidateQueries({ queryKey: qk.agentChats }); flash(t('대화를 지웠습니다', 'Conversation deleted')); return true } catch (e) { flash((e as Error).message); return false }
   }
   return { rename, remove }
@@ -279,7 +279,7 @@ function useBulkChats() {
   }
   const archive = (ids: string[], v: boolean) => run(ids, (id) => agentChatsApi.archive(id, v), v ? t(`${ids.length}개를 보관함에 넣었습니다`, `Archived ${ids.length}`) : t(`${ids.length}개를 보관함에서 꺼냈습니다`, `Unarchived ${ids.length}`))
   const remove = async (ids: string[]): Promise<boolean> => {
-    if (!await askConfirm({ title: t(`보관한 대화 ${ids.length}개를 지울까요?`, `Delete ${ids.length} archived conversations?`), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토, 바꾼 파일과 PR은 그대로 남습니다.', 'Only the conversations are deleted. Notes, records, edit review, changed files and PRs stay.'), ok: t('지우기', 'Delete') })) return false
+    if (!await askConfirm({ title: t(`보관한 대화 ${ids.length}개를 지울까요?`, `Delete ${ids.length} archived conversations?`), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토, 바꾼 파일과 PR은 그대로 남습니다.', 'Only the conversations are deleted. Notes, records, edit review, changed files and PRs stay.'), ok: t('삭제', 'Delete') })) return false
     await run(ids, (id) => agentChatsApi.remove(id), t(`${ids.length}개를 지웠습니다`, `Deleted ${ids.length}`))
     return true
   }
@@ -527,7 +527,7 @@ function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, {
       <span className="ac-edit-what">{it.via === 'command' ? t('명령으로 고침', 'Changed by a command') : chat.rid === APP_RID ? t('파일 고침', 'Edited file') : t('노트 고침', 'Edited')}</span>
       <span className="mono ac-file" title={it.file}>{it.file}</span>
       <Delta added={it.added} removed={it.removed} />
-      {onChanges && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={onChanges}>{t('바뀐 곳 보기', 'View changes')}</button>}
+      {onChanges && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={onChanges}>{t('변경사항 보기', 'View changes')}</button>}
       {inline && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t('고친 곳 접기', 'Hide changes') : t('고친 곳 검토 ›', 'Review changes ›')}</button>}
       {it.reason && <span className="muted ac-hint ac-edit-why">{it.reason}</span>}
       {inline && open && <div className="ac-edit-inline"><InlineEdits rid={chat.rid} files={[it.file]} /></div>}
@@ -811,9 +811,9 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
     <div className="ac-composer" data-ui="에이전트 입력란" onDrop={onDrop} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}>
       {(all.length > 0 || images.length > 0) && (
         <div className="ac-chips">
-          {auto && !autoOff && <span className="tag ac-chip" title={auto.ref}>{ATTACH_NAME[auto.kind]} · {auto.label}<button className="ac-chip-x" aria-label={t('빼기', 'Remove')} onClick={() => setAutoOff(true)}>{Icon.x}</button></span>}
-          {attach.map((a, i) => <span key={i} className="tag ac-chip" title={a.text ?? a.ref}>{ATTACH_NAME[a.kind]} · {a.label}<button className="ac-chip-x" aria-label={t('빼기', 'Remove')} onClick={() => setAttach((xs) => xs.filter((_, j) => j !== i))}>{Icon.x}</button></span>)}
-          {images.map((im, i) => <span key={`i${i}`} className="tag ac-chip" title={im.name}>{t('그림', 'Image')} · {im.name}<button className="ac-chip-x" aria-label={t('빼기', 'Remove')} onClick={() => setImages((xs) => xs.filter((_, j) => j !== i))}>{Icon.x}</button></span>)}
+          {auto && !autoOff && <span className="tag ac-chip" title={auto.ref}>{ATTACH_NAME[auto.kind]} · {auto.label}<button className="ac-chip-x" aria-label={t('제거', 'Remove')} onClick={() => setAutoOff(true)}>{Icon.x}</button></span>}
+          {attach.map((a, i) => <span key={i} className="tag ac-chip" title={a.text ?? a.ref}>{ATTACH_NAME[a.kind]} · {a.label}<button className="ac-chip-x" aria-label={t('제거', 'Remove')} onClick={() => setAttach((xs) => xs.filter((_, j) => j !== i))}>{Icon.x}</button></span>)}
+          {images.map((im, i) => <span key={`i${i}`} className="tag ac-chip" title={im.name}>{t('그림', 'Image')} · {im.name}<button className="ac-chip-x" aria-label={t('제거', 'Remove')} onClick={() => setImages((xs) => xs.filter((_, j) => j !== i))}>{Icon.x}</button></span>)}
         </div>
       )}
       <div className="ac-input">
@@ -929,9 +929,9 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
       </div>
       <ChatStateMark state={chat.state} label={!compact} name={sname} />
       {!!chat.changed.length && !compact && (
-        <button className={`btn sm ac-changes-btn${pane ? ' on' : ''}`} data-ui="바뀐 곳 버튼" aria-pressed={onPane ? !!pane : undefined} data-tip={onPane ? t('바뀐 곳 · 작업 패널 여닫기', 'Show or hide changes and work') : t('에이전트 화면에서 바뀐 곳 보기', 'View changes in the agent page')}
+        <button className={`btn sm ac-changes-btn${pane ? ' on' : ''}`} data-ui="바뀐 곳 버튼" aria-pressed={onPane ? !!pane : undefined} data-tip={onPane ? t('변경사항 · 작업 패널 여닫기', 'Show or hide changes and work') : t('에이전트 화면에서 변경사항 보기', 'View changes in the agent page')}
           onClick={() => (onPane ? onPane() : go({ page: 'agent', id: chat.id }))}>
-          <Delta added={added} removed={removed} />{t('바뀐 곳', 'Changes')}
+          <Delta added={added} removed={removed} />{t('변경사항', 'Changes')}
         </button>
       )}
       {onPane && !chat.changed.length && <button className={`btn sm${pane ? ' on' : ''}`} data-ui="작업 버튼" aria-pressed={!!pane} onClick={onPane}>{t('작업', 'Work')}</button>}
@@ -953,7 +953,7 @@ function HeadMore({ live, archived, onRename, onArchive, onRemove, onRecord }: {
           <button role="menuitem" data-ui="대화 제목 바꾸기" onClick={() => { setOpen(false); onRename() }}>{t('제목 바꾸기', 'Rename')}</button>
           {onRecord && <button role="menuitem" data-ui="기록으로 남기기" onClick={() => { setOpen(false); onRecord() }}>{t('기록으로 남기기', 'Keep as a record')}</button>}
           <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 꺼내기', 'Unarchive') : t('보관함에 넣기', 'Archive')}</button>
-          <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live || !archived} title={!archived ? t('보관함에 넣은 대화만 지웁니다', 'Only archived conversations can be deleted') : undefined} onClick={() => { setOpen(false); onRemove() }}>{t('지우기', 'Delete')}</button>
+          <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live || !archived} title={!archived ? t('보관함에 넣은 대화만 지웁니다', 'Only archived conversations can be deleted') : undefined} onClick={() => { setOpen(false); onRemove() }}>{t('삭제', 'Delete')}</button>
         </div>
       )}
     </span>
@@ -974,8 +974,8 @@ function QueuedBar({ chat, onEdit, onError }: { chat: Chat; onEdit(f: Omit<Fill,
         <div key={q.at + i} className="ac-bar-line ac-queued">
           <span className="muted ac-queued-h">{t('다음에 보냄', 'Sends next')}</span>
           <span className="ac-bar-text" title={q.text}>{q.text}</span>
-          <button className="icon-btn sm" data-ui="기다리는 지시 고치기" data-tip={t('입력란에서 고치기', 'Edit in the input')} aria-label={t('고치기', 'Edit')} onClick={async () => { const r = await unqueue(i); if (r) onEdit({ text: q.text, attach: q.attach, images: r.images }) }}>{Icon.pencil}</button>
-          <button className="icon-btn sm" data-ui="기다리는 지시 빼기" data-tip={t('빼기', 'Remove')} aria-label={t('빼기', 'Remove')} onClick={() => void unqueue(i)}>{Icon.x}</button>
+          <button className="icon-btn sm" data-ui="기다리는 지시 고치기" data-tip={t('입력란에서 수정', 'Edit in the input')} aria-label={t('수정', 'Edit')} onClick={async () => { const r = await unqueue(i); if (r) onEdit({ text: q.text, attach: q.attach, images: r.images }) }}>{Icon.pencil}</button>
+          <button className="icon-btn sm" data-ui="기다리는 지시 빼기" data-tip={t('제거', 'Remove')} aria-label={t('제거', 'Remove')} onClick={() => void unqueue(i)}>{Icon.x}</button>
         </div>
       ))}
     </div>
@@ -1143,7 +1143,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
         {!fixed && (
           <select className="rs-select" data-ui="대화 프로젝트 고르기" aria-label={t('프로젝트', 'Project')} value={rid} onChange={(e) => { setPick(e.target.value); store.set('rw-agent-project', e.target.value); setTopic('') }}>
             {(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            {appOk && <option value={APP_RID}>{t('워크벤치 전체: 앱 고치기', 'Whole workbench: fix the app')}</option>}
+            {appOk && <option value={APP_RID}>{t('워크벤치 전체: 앱 수정', 'Whole workbench: fix the app')}</option>}
           </select>
         )}
         {!app && <span className="rs-label">{t('범위', 'Scope')}</span>}
@@ -1174,7 +1174,7 @@ type Edit = Extract<ChatItem, { kind: 'edit' }>
 /** 바뀐 곳에 단 코멘트를 에이전트에게 보낼 지시로 */
 export function commentMessage(notes: { file: string; old: string; new: string; text: string }[]): ChatMessageBody {
   return {
-    text: [t('바뀐 곳에 코멘트를 달았습니다. 하나씩 반영해 주세요.', 'I commented on the changes. Please address each one.'), ...notes.map((n, i) => `${i + 1}. ${n.file}: ${n.text}`)].join('\n'),
+    text: [t('변경사항에 코멘트를 달았습니다. 하나씩 반영해 주세요.', 'I commented on the changes. Please address each one.'), ...notes.map((n, i) => `${i + 1}. ${n.file}: ${n.text}`)].join('\n'),
     attach: notes.map((n) => ({ kind: 'selection' as const, ref: n.file, label: (n.new || n.old).slice(0, 40), text: [n.old && `- ${n.old}`, n.new && `+ ${n.new}`].filter(Boolean).join('\n').slice(0, 4000) })),
   }
 }
@@ -1259,14 +1259,14 @@ function ChatInfo({ chat }: { chat: Chat }) {
   return (
     <section className="ac-info" data-ui="이 대화 정보">
       <h3>{t('이 대화', 'This conversation')}</h3>
-      <div className="ac-work-row"><span>{t('맥락 창', 'Context window')}</span>
+      <div className="ac-work-row"><span>{t('컨텍스트 창', 'Context window')}</span>
         <span className="muted">{context ? `${tokensName(context.used)} / ${tokensName(context.window)} · ${Math.round(share * 100)}%` : t('첫 차례가 끝나면 보입니다', 'Shown after the first turn')}</span></div>
-      {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('맥락 창', 'Context window')}><i style={{ width: `${share * 100}%` }} /></div>}
-      {context && share >= COMPACT_HINT && <span className="muted ac-hint">{t('맥락 창이 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
+      {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('컨텍스트 창', 'Context window')}><i style={{ width: `${share * 100}%` }} /></div>}
+      {context && share >= COMPACT_HINT && <span className="muted ac-hint">{t('컨텍스트 창이 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
       <dl className="ac-info-list">
         <dt>{t('모델', 'Model')}</dt><dd>{modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</dd>
         <dt>{t('범위', 'Scope')}</dt><dd>{scopeName(chat.scope, topics)}</dd>
-        <dt>{t('쓴 토큰', 'Tokens used')}</dt><dd>{tokens > 0 ? `${tokensName(tokens)} (${t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)})` : t('아직 없음', 'None yet')}{cost > 0 && <span className="muted" title={costName(cost)}> · {t(`API 가격 약 $${cost.toFixed(2)}`, `about $${cost.toFixed(2)} at API prices`)}</span>}</dd>
+        <dt>{t('사용 토큰', 'Tokens used')}</dt><dd>{tokens > 0 ? `${tokensName(tokens)} (${t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)})` : t('아직 없음', 'None yet')}{cost > 0 && <span className="muted" title={costName(cost)}> · {t(`API 가격 약 $${cost.toFixed(2)}`, `about $${cost.toFixed(2)} at API prices`)}</span>}</dd>
         {secs > 0 && <><dt>{t('일한 시간', 'Time worked')}</dt><dd>{secondsName(secs)}</dd></>}
         <dt>{t('시작', 'Started')}</dt><dd>{when(chat.created)} <span className="muted">· {t('마지막', 'last')} {when(chat.updated)}</span></dd>
         {chat.branch && <><dt>{t('작업 폴더', 'Work folder')}</dt><dd className="mono ac-file" title={chat.branch}>{chat.branch}</dd></>}
@@ -1281,8 +1281,8 @@ type PermRow = { ui: string; name: string; what: string; turn?: keyof ChatAutoVa
 /** 권한 표 (10/28 사용자 결정 "권한을 명령 대신 하는 일로", 시안 4절): 앱이 명령을 하는 일로 나누고, 켠 것은 묻지 않는다 */
 const PERM_ROWS: PermRow[] = [
   { ui: '읽기', name: t('읽기', 'Read'), what: t('ls · cat · grep · git log (프로젝트와 등록한 폴더 안)', 'ls · cat · grep · git log (inside the project and registered folders)'), turn: 'read' },
-  { ui: '편집', name: t('편집', 'Edit'), what: t('범위 안 노트 고치기 · sed -i · mv', 'Edit notes in scope · sed -i · mv'), turn: 'edit' },
-  { ui: '삭제', name: t('삭제', 'Delete'), what: t('rm · 파일 지우기 · 고친 것 버리기', 'rm · deleting files · discarding changes'), asks: true },
+  { ui: '편집', name: t('편집', 'Edit'), what: t('범위 안 노트 수정 · sed -i · mv', 'Edit notes in scope · sed -i · mv'), turn: 'edit' },
+  { ui: '지우기', name: t('삭제', 'Delete'), what: t('rm · 파일 삭제 · 고친 것 버리기', 'rm · deleting files · discarding changes'), asks: true },
   { ui: '실행', name: t('실행', 'Run'), what: t('python · julia · pnpm test …', 'python · julia · pnpm test …'), turn: 'run' },
   { ui: '웹 보기', name: t('웹 보기', 'Web'), what: t('웹 검색 · 페이지 읽기', 'Web search · reading pages'), turn: 'web' },
   { ui: '외부', name: t('외부', 'Outside'), what: t('폴더 밖 · git push · 설치 · 내려받기', 'Outside the folders · git push · installs · downloads'), asks: true },
@@ -1343,13 +1343,13 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   return (
     <aside className="ac-work" data-ui="작업 상태">
       <ChatInfo chat={chat} />
-      {hasEdits && <><h3>{t('바뀐 곳', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
+      {hasEdits && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
-        <h3>{t('잡은 파일', 'Claimed files')}</h3>
+        <h3>{t('사용 중인 파일', 'Claimed files')}</h3>
         {chat.claims.map((f) => <div key={f} className="ac-work-row"><span className="mono ac-file" title={f}>{f}</span><span className="tag">{t('이 대화', 'This')}</span></div>)}
         {others.flatMap((o) => o.claims.map((f) => <div key={`${o.id}${f}`} className="ac-work-row"><span className="mono ac-file muted" title={f}>{f}</span><button className="a ac-other" title={o.title} onClick={() => go({ page: 'agent', id: o.id })}>{o.title}</button></div>))}
         {!chat.claims.length && !others.length && <span className="muted ac-hint">{t('지금 고치는 파일이 없습니다', 'No file is being changed now')}</span>}
-        <span className="muted ac-hint">{t('다른 대화가 잡은 파일은 읽기만 합니다', 'Files claimed by another conversation are read only')}</span>
+        <span className="muted ac-hint">{t('다른 대화가 사용 중인 파일은 읽기만 합니다', 'Files claimed by another conversation are read only')}</span>
       </section>
       {/* 권한은 이름 한 줄만, 토글은 「상세 보기」로 펼쳐서 (10/28 21:19 수정 요청) */}
       <section data-ui="이 대화의 허락">
@@ -1363,7 +1363,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
         {permOpen && chat.always.map((a) => (
           <div key={a} className="ac-work-row">
             <span className="ac-file" title={a}>{a}</span><span className="muted">{t('늘', 'Always')}</span>
-            <button className="icon-btn sm" aria-label={t('늘 허락 빼기', 'Stop always allowing')} data-tip={t('다시 묻게 합니다', 'Ask again next time')} onClick={() => void forget(a)}>{Icon.x}</button>
+            <button className="icon-btn sm" aria-label={t('늘 허락 제거', 'Stop always allowing')} data-tip={t('다시 묻게 합니다', 'Ask again next time')} onClick={() => void forget(a)}>{Icon.x}</button>
           </div>
         ))}
       </section>
@@ -1487,17 +1487,17 @@ export function AgentSide({ id }: { id?: string }) {
           {filter === 'archived'
             ? <>
               <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, false).then(stopPicking)}>{t('꺼내기', 'Unarchive')}</button>
-              <button className="btn sm danger" data-ui="대화 지우기" disabled={!picked.length || bulk.busy} onClick={() => void bulk.remove(picked).then((ok) => { if (ok) { if (id && picked.includes(id)) go({ page: 'agent' }); stopPicking() } })}>{t('지우기', 'Delete')}</button>
+              <button className="btn sm danger" data-ui="대화 지우기" disabled={!picked.length || bulk.busy} onClick={() => void bulk.remove(picked).then((ok) => { if (ok) { if (id && picked.includes(id)) go({ page: 'agent' }); stopPicking() } })}>{t('삭제', 'Delete')}</button>
             </>
             : <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, true).then(stopPicking)}>{t('보관', 'Archive')}</button>}
           <button className="btn sm" onClick={stopPicking}>{t('끝', 'Done')}</button>
         </div>
-        : <button className="a ac-pick-start" data-ui="대화 여러 개 고르기" onClick={() => setPicking(true)}>{filter === 'archived' ? t('골라서 꺼내기 · 지우기', 'Pick to unarchive or delete') : t('골라서 보관', 'Pick to archive')}</button>)}
+        : <button className="a ac-pick-start" data-ui="대화 여러 개 고르기" onClick={() => setPicking(true)}>{filter === 'archived' ? t('골라서 꺼내기 · 삭제', 'Pick to unarchive or delete') : t('선택 보관', 'Pick to archive')}</button>)}
       {list && !!list.length && filter !== 'all' && !by.size && <div className="empty">{filter === 'mine' ? t('답할 대화가 없습니다', 'Nothing waits for you') : filter === 'live' ? t('일하는 대화가 없습니다', 'No conversation is working') : t('보관한 대화가 없습니다', 'Nothing archived')}</div>}
       {showApp && (
         <>
           <div className="ac-side-h">{t('워크벤치 전체', 'Whole workbench')}</div>
-          {group(APP_RID, t('앱 고치기 · 피드백', 'App fixes · feedback'), t('앱 자체를 고치는 대화입니다. 피드백을 맡기면 여기에 생깁니다', 'Conversations that fix the app itself. Feedback you hand off shows up here'))}
+          {group(APP_RID, t('앱 수정 · 피드백', 'App fixes · feedback'), t('앱 자체를 고치는 대화입니다. 피드백을 맡기면 여기에 생깁니다', 'Conversations that fix the app itself. Feedback you hand off shows up here'))}
         </>
       )}
       {!!rids.length && <div className="ac-side-h">{t('프로젝트', 'Projects')}</div>}

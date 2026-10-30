@@ -55,7 +55,7 @@ export type AttentionMark = 'check' | 'update' | 'both' | null
 /** "확인 필요"의 내역 (왼쪽 띠의 수와 첫 화면 점의 툴팁): 판단할 맡긴 일(결과 · 종결 조건 제안, 10/7) + 에이전트 고침 + 에이전트가 물은 기록 */
 export function issueTip(tasks: number, edits = 0, records = 0): string {
   const parts = [tasks > 0 && t(`판단할 맡긴 일 ${tasks}개`, `${plural(tasks, 'delegated task')} to decide`), edits > 0 && t(`에이전트 고침 ${edits}개`, `${plural(edits, 'agent edit')} to review`), records > 0 && t(`에이전트가 물은 기록 ${records}개`, `${plural(records, 'agent question')} to answer`)].filter(Boolean)
-  return parts.join(' · ') || t('확인할 것 없음', 'Nothing to review')
+  return parts.join(' · ') || t('확인 항목 없음', 'Nothing to review')
 }
 export function attentionOf(issues: number, behind: number): AttentionMark {
   if (issues > 0 && behind > 0) return 'both'

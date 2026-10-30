@@ -34,7 +34,7 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
     const ok = await askConfirm({
       title: tr(`점 "${n.short}"을 지울까요?`, `Delete the dot "${n.short}"?`),
       hint: tr(`점 파일(${n.file})과 이 점의 기록을 workbench/flow/.trash/로 옮깁니다${out ? `. 이 점에서 이어진 선 ${out}개도 빠집니다` : ''}. 근거로 단 노트·논문은 그대로 남습니다.`, `Moves the dot file (${n.file}) and this dot's records to workbench/flow/.trash/${out ? `, and removes the ${out} line(s) leading from it` : ''}. Notes and papers used as evidence stay.`),
-      ok: tr('지우기', 'Delete'),
+      ok: tr('삭제', 'Delete'),
     })
     if (!ok) return
     try { await flowApi(rid).remove(n.id, n.hash); flash(tr(`점 "${n.short}"을 지웠습니다`, `Deleted the dot "${n.short}"`)); onDeleted() } catch (e) { fail(e) }
@@ -84,14 +84,14 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
     <li key={m.id}>
       <span className="fl-ety">{EDGE[f.type]!()}</span>
       <button className="a fl-pill" onClick={() => openLink(m)} title={m.title}><MarkIcon n={m} size={16} /><span>{m.short}</span></button>
-      <button className="icon-btn sm fl-unlink" data-ui="흐름 연결 빼기" disabled={linkBusy} title={tr('이 선 빼기', 'Remove this line')} aria-label={tr(`선 빼기: ${m.short}`, `Remove line: ${m.short}`)} onClick={() => void unlink(side, m)}>{Icon.x}</button>
+      <button className="icon-btn sm fl-unlink" data-ui="흐름 연결 빼기" disabled={linkBusy} title={tr('이 선 제거', 'Remove this line')} aria-label={tr(`선 제거: ${m.short}`, `Remove line: ${m.short}`)} onClick={() => void unlink(side, m)}>{Icon.x}</button>
     </li>
   )
   const adder = (side: 'prev' | 'next') => {
     const xs = choices(side)
     // 이어 보이는 선 줄과 같은 자리에서 시작하게 선 종류 칸만큼 비운다 (10/28 22:21 "이후 점 잇기에 정렬을 맞춰줘")
     // 이을 점이 없어도 줄은 남기고 그 까닭을 보인다. 맨 아래는 새 점 만들기 (10/28 22:20 · 22:21 · 21:58, 시안 7절; 10/29 이름 "만들기")
-    return <div className="fl-linkadd-row"><span className="fl-ety" aria-hidden /><select className="fl-in fl-linkadd" data-ui="흐름 연결 더하기" disabled={linkBusy} value="" aria-label={side === 'prev' ? tr('이전 점 더하기', 'Add an earlier dot') : tr('이후 점 더하기', 'Add a later dot')}
+    return <div className="fl-linkadd-row"><span className="fl-ety" aria-hidden /><select className="fl-in fl-linkadd" data-ui="흐름 연결 더하기" disabled={linkBusy} value="" aria-label={side === 'prev' ? tr('이전 점 추가', 'Add an earlier dot') : tr('이후 점 추가', 'Add a later dot')}
       onChange={(e) => { const v = e.target.value; if (v === NEW) { if (side === 'next') onAdd(); else onAddBefore() } else if (v) void addLink(side, v) }}>
       <option value="">{side === 'prev' ? tr('＋ 이전 점 잇기…', '＋ Link an earlier dot…') : tr('＋ 이후 점 잇기…', '＋ Link a later dot…')}</option>
       {xs.length ? xs.map((m) => <option key={m.id} value={m.id}>{m.short}</option>) : <option disabled>{tr('이을 점 없음 (모두 이었거나 이으면 고리가 생김)', 'No dot to link (all linked, or it would make a loop)')}</option>}
@@ -105,8 +105,8 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
         <span className="fl-tools">
           {manual && <button className="btn" title={tr('손으로 옮긴 자리를 풀고 자동 자리로', 'Release the manual position')} onClick={onUnplace}>{tr('자동 자리로', 'Auto position')}</button>}
           <NextDotButtons onAdd={onAdd} onPickFrom={onPickFrom} />
-          <button className="icon-btn" data-ui="흐름 점 고치기" title={tr('고치기', 'Edit')} aria-label={tr('점 고치기', 'Edit dot')} onClick={onEdit}>{Icon.pencil}</button>
-          <button className="icon-btn" data-ui="흐름 점 지우기" title={tr('지우기', 'Delete')} aria-label={tr('점 지우기', 'Delete dot')} onClick={() => void remove()}>{Icon.trash}</button>
+          <button className="icon-btn" data-ui="흐름 점 고치기" title={tr('수정', 'Edit')} aria-label={tr('점 수정', 'Edit dot')} onClick={onEdit}>{Icon.pencil}</button>
+          <button className="icon-btn" data-ui="흐름 점 지우기" title={tr('삭제', 'Delete')} aria-label={tr('점 삭제', 'Delete dot')} onClick={() => void remove()}>{Icon.trash}</button>
         </span>
       </div>
       {/* 짧은 제목(위 큰 글)과 제목은 따로 저장한다: 제목에 이름을 달아 구분 (10/20 15:22 피드백) */}
@@ -128,7 +128,7 @@ export function FlowCard({ reveal, rid, n, all, byId, notes, manual, row, onPick
               onChange={(e) => setRowText(e.target.value)} onBlur={saveRow}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveRow() } else if (e.key === 'Escape') setRowText(null) }} />
             : <>{row.name || <span className="muted">{tr('이름 없음', 'No name')}</span>}
-              <button className="icon-btn sm" title={tr('줄 이름 고치기', 'Rename row')} aria-label={tr('줄 이름 고치기', 'Rename row')} onClick={() => setRowText(row.name)}>{Icon.pencil}</button></>}
+              <button className="icon-btn sm" title={tr('줄 이름 수정', 'Rename row')} aria-label={tr('줄 이름 수정', 'Rename row')} onClick={() => setRowText(row.name)}>{Icon.pencil}</button></>}
         </span>}
       </div>
       {n.gaps.length > 0 && <ul className="fl-gaps" data-ui="흐름 빈틈">
@@ -227,7 +227,7 @@ function NextDotButtons({ onAdd, onPickFrom }: { onAdd(): void; onPickFrom(): vo
   const box = useRef<HTMLSpanElement>(null)
   useDismiss(!!open, box, () => setOpen(false))
   return <span className="fl-next" ref={box}>
-    <button className="icon-btn" data-ui="흐름 다음 점" title={tr('이 점에서 이어지는 점 더하기', 'Add a dot following this one')} aria-label={tr('다음 점 더하기', 'Add next dot')} onClick={onAdd}>{Icon.plus}</button>
+    <button className="icon-btn" data-ui="흐름 다음 점" title={tr('이 점에서 이어지는 점 추가', 'Add a dot following this one')} aria-label={tr('다음 점 추가', 'Add next dot')} onClick={onAdd}>{Icon.plus}</button>
     <button className={`icon-btn fl-next-more${open ? ' on' : ''}`} data-ui="흐름 다음 점 메뉴" title={tr('다른 방법으로 잇기', 'Other ways to link')} aria-label={tr('다른 방법으로 잇기', 'Other ways to link')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>▾</button>
     {open && <div className="menu fl-next-pop" role="menu">
       <button role="menuitem" onClick={() => { setOpen(false); onAdd() }}>{tr('이 점에서 잇기', 'Follow this dot')}</button>

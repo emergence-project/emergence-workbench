@@ -27,10 +27,10 @@ export function PdfFolderSettings({ onSaved, onReady }: { onSaved(m: string): vo
           <div key={f.path} className="set-row pl-folder" data-ui="PDF 폴더 줄" data-ui-item={f.path}>
             <span className="mono" title={f.path}>{f.path.split('/').filter(Boolean).pop() || f.path}</span>
             <span className="muted">{CLOUD_LABEL[f.cloud]}</span>
-            {i === 0 && <span className="tag">{t('받는 곳', 'Downloads here')}</span>}
+            {i === 0 && <span className="tag">{t('저장 위치', 'Downloads here')}</span>}
             {!f.exists && <span className="muted">{t('(이 맥에 없음)', '(not on this Mac)')}</span>}
             <span className="sp" />
-            <button className="icon-btn" aria-label={t('빼기', 'Remove')} data-tip={t('빼기', 'Remove')} disabled={busy} onClick={() => void save(list.filter((x) => x.path !== f.path).map((x) => x.path), t('PDF 폴더를 뺐습니다 (폴더와 PDF는 그대로 있습니다)', 'Removed the PDF folder (the folder and its PDFs stay as they are)'))}>{Icon.x}</button>
+            <button className="icon-btn" aria-label={t('제거', 'Remove')} data-tip={t('제거', 'Remove')} disabled={busy} onClick={() => void save(list.filter((x) => x.path !== f.path).map((x) => x.path), t('PDF 폴더를 뺐습니다 (폴더와 PDF는 그대로 있습니다)', 'Removed the PDF folder (the folder and its PDFs stay as they are)'))}>{Icon.x}</button>
           </div>
         ))}
       </div>}
@@ -39,7 +39,7 @@ export function PdfFolderSettings({ onSaved, onReady }: { onSaved(m: string): vo
       <div className="pl-folder-add">
         <input value={text} disabled={!folders || busy} placeholder="/Users/…/Library/Mobile Documents/com~apple~CloudDocs/Papers" aria-label={t('더할 폴더 경로', 'Folder path to add')} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && folders && !busy && text.trim()) void save([...list.map((x) => x.path), text.trim()], t('PDF 폴더를 더했습니다', 'Added the PDF folder')).then((ok) => ok && setText('')) }} />
-        <button className="btn" disabled={!folders || busy || !text.trim()} onClick={() => void save([...list.map((x) => x.path), text.trim()], t('PDF 폴더를 더했습니다', 'Added the PDF folder')).then((ok) => ok && setText(''))}>＋ {t('더하기', 'Add')}</button>
+        <button className="btn" disabled={!folders || busy || !text.trim()} onClick={() => void save([...list.map((x) => x.path), text.trim()], t('PDF 폴더를 더했습니다', 'Added the PDF folder')).then((ok) => ok && setText(''))}>＋ {t('추가', 'Add')}</button>
       </div>
       {err && <div className="banner danger">{err}</div>}
     </div>

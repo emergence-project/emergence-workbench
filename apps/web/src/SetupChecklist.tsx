@@ -84,13 +84,13 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
         <Row ok={!!(s?.git.name && s.git.email)} name={t('커밋에 적힐 이름·이메일', 'Name and email on commits')} ui="커밋 이름"
           action={<>
             {fromGoogle && <button className="btn" data-ui="구글 계정으로 채우기" onClick={() => void setupApi.setGit(fromGoogle).then((v) => { put(v); onSaved(t('구글 계정의 이름 · 이메일로 채웠습니다', 'Filled in from your Google account')) }).catch((e: Error) => onSaved(e.message))}>{t('구글 계정으로 채우기', 'Fill from Google')}</button>}
-            <Edit label={t('고치기', 'Edit')} onClick={() => setEditing('git')} />
+            <Edit label={t('수정', 'Edit')} onClick={() => setEditing('git')} />
           </>}>
           {s?.git.name && s.git.email ? <><b>{s.git.name}</b> &lt;{s.git.email}&gt;. </> : <>{t('설정 안 됨. ', 'Not set. ')}</>}
           {t('앱이 기록·노트를 연구 저장소에 올릴 때 이 이름으로 적힙니다. 비어 있으면 git이 커밋을 거절해 올리기가 멈춥니다.', 'Records and notes the app pushes to research repositories are signed with this name. If empty, git refuses to commit and pushing stops.')}
         </Row>
         <Row ok={!!(me?.name && me.affiliations.length)} name={t('내 이름·소속', 'Your name and affiliation')} ui="내 이름 소속"
-          action={people && <Edit label={t('고치기', 'Edit')} onClick={() => setEditing('me')} />}>
+          action={people && <Edit label={t('수정', 'Edit')} onClick={() => setEditing('me')} />}>
           {me?.name ? <><b>{me.name}</b>{me.affiliations.length ? ` · ${me.affiliations[0]}` : t(' · 소속 없음', ' · no affiliation')}. </> : t('비어 있음. ', 'Empty. ')}
           {t('원고 저자, 코멘트 작성자, ', 'Used as manuscript author, comment author, and on ')}<button className="a" onClick={() => go({ page: 'network' })}>{t('네트워킹', 'Networking')}</button>{t(' 내 페이지가 함께 씁니다.', ' (your page).')}
         </Row>
@@ -106,7 +106,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <div className="set-rows">
         <InstallRow install={s?.install} onSaved={onSaved} />
         <Row ok={!!s?.personal.remote} optional name={t('개인 저장소', 'Personal repository')} sub={t('피드백·백업을 올릴 곳', 'where feedback and backups go')} ui="개인 저장소"
-          action={<Edit label={t('고치기', 'Edit')} onClick={() => setEditing('personal')} />}>
+          action={<Edit label={t('수정', 'Edit')} onClick={() => setEditing('personal')} />}>
           {s?.personal.remote
             ? <><code>{s.personal.remote}</code>{s.personal.active ? '. ' : t('. 앱을 다시 시작하면 받아 둡니다. ', '. It is cloned the next time the app restarts. ')}{t('피드백과 설정 백업을 이 비공개 저장소에 올립니다.', 'Feedback and settings backups are pushed to this private repository.')}</>
             : t('없음: 피드백과 설정 백업이 이 컴퓨터에만 남습니다. 비공개 저장소 주소를 넣으면 앱이 비공개인지 확인하고 받아 둡니다.', 'None: feedback and settings backups stay on this computer only. Enter a private repository address; the app checks that it is private and clones it.')}
@@ -114,7 +114,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
         <Row ok={!!s?.library.path} optional name={t('공용 라이브러리', 'Shared library')} sub={t('개념노트 · 논문 · 그림', 'concept notes, papers, figures')} ui="공용 라이브러리"
           action={s?.library.suggest
             ? <button className="btn" onClick={() => void setupApi.setLibrary({ path: s.library.suggest! }).then((v) => { put(v); onSaved(t('공용 라이브러리를 연결했습니다', 'Shared library connected')) }).catch((e: Error) => onSaved(e.message))}>{t('연결', 'Connect')}</button>
-            : <Edit label={t('고치기', 'Edit')} onClick={() => setEditing('library')} />}>
+            : <Edit label={t('수정', 'Edit')} onClick={() => setEditing('library')} />}>
           {s?.library.path ? <><code>{s.library.path}</code>. </>
             : s?.library.suggest ? <>{t('다른 컴퓨터가 쓰는 라이브러리를 이 컴퓨터에서 찾았습니다: ', 'Found the library your other computer uses on this computer: ')}<code>{s.library.suggest}</code>. </>
             : t('없음. ', 'None. ')}
@@ -128,7 +128,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
         <Row ok={!!s?.tex} optional name="TeX" sub={t('PDF 컴파일', 'PDF compile')} ui="TeX"
           action={<button className="btn" disabled={setup.isFetching} onClick={() => void setup.refetch()}>{t('다시 확인', 'Check again')}</button>}>
           {s?.tex ? t('latexmk 있음. ', 'latexmk found. ') : t('latexmk 없음. ', 'latexmk not found. ')}
-          {t('원고·노트를 PDF로 만들 때만 필요합니다. MacTeX를 깔면 저절로 찾습니다.', 'Needed only to make PDFs of manuscripts and notes. Install MacTeX and the app finds it.')}
+          {t('원고·노트를 PDF로 만들 때만 필요합니다. MacTeX를 깔면 자동으로 찾습니다.', 'Needed only to make PDFs of manuscripts and notes. Install MacTeX and the app finds it.')}
         </Row>
       </div>
       <h3 className="set-h3">{t('구글 (선택)', 'Google (optional)')}</h3>
@@ -154,7 +154,7 @@ function InstallRow({ install, onSaved }: { install?: SetupView['install']; onSa
     <Row ok={!!install && !missing.length} optional name={t('이 컴퓨터에 설치', 'Installed on this computer')} sub={t('앱 아이콘 · Dock · 서비스', 'app icon, Dock, service')} ui="이 컴퓨터에 설치"
       action={install && missing.length > 0 && <CopyButton text={install.command} onSaved={onSaved} />}>
       {!install ? t('확인하는 중… ', 'Checking… ')
-        : missing.length ? <>{t(`빠진 것: ${missing.map((p) => p.name).join(' · ')}. `, `Missing: ${missing.map((p) => p.name).join(', ')}. `)}{t('터미널에서 ', 'Run ')}<code>{install.command}</code>{t('을 한 번 실행하면 마저 합니다. ', ' once in the terminal to finish. ')}</>
+        : missing.length ? <>{t(`누락: ${missing.map((p) => p.name).join(' · ')}. `, `Missing: ${missing.map((p) => p.name).join(', ')}. `)}{t('터미널에서 ', 'Run ')}<code>{install.command}</code>{t('을 한 번 실행하면 마저 합니다. ', ' once in the terminal to finish. ')}</>
           : t('앱 아이콘(응용 프로그램 · Spotlight · 바탕화면), Dock, 백그라운드 서비스가 있습니다. ', 'App icon (Applications, Spotlight, Desktop), Dock and background service are in place. ')}
       {t('설치 명령은 이 컴퓨터에 깔린 Claude Code · Codex에 이 앱을 등록하는 일도 하고, 이미 된 것은 건너뜁니다.', 'The installer also registers this app with Claude Code and Codex where they are installed, and skips what is already done.')}
     </Row>
@@ -231,7 +231,7 @@ function PersonalDialog({ init, repos, onClose, onDone }: { init: string; repos:
   const save = (value: string) => call(() => setupApi.setPersonal({ remote: value }))
   return (
     <Dialog title={t('개인 저장소', 'Personal repository')} onClose={onClose} footer={<>
-      {init && <button className="btn" disabled={busy} onClick={() => void save('')}>{t('빼기', 'Remove')}</button>}
+      {init && <button className="btn" disabled={busy} onClick={() => void save('')}>{t('제거', 'Remove')}</button>}
       <span className="sp" />
       <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
       <button className="btn primary" disabled={busy || !remote.trim()} onClick={() => void save(remote)}>{t('저장', 'Save')}</button>

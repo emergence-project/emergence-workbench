@@ -46,7 +46,7 @@ export function Authors({ onSaved }: { onSaved(m: string): void }) {
   return (
     <>
       <header>
-        <p className="h-sub" data-ui="부제">{t('함께 연구하는 사람들입니다. 사람을 고르면 소속·연구 분야·저자 정보와 노트 참고 문헌에 있는 그 사람의 논문이 보입니다.', 'People you work with. Pick someone to see their affiliation, field, author info and their papers in your note references.')}</p>
+        <p className="h-sub" data-ui="부제">{t('공동 연구자들입니다. 사람을 고르면 소속·연구 분야·저자 정보와 노트 참고 문헌에 있는 그 사람의 논문이 보입니다.', 'People you work with. Pick someone to see their affiliation, field, author info and their papers in your note references.')}</p>
       </header>
       {/* 나는 사람들 칸 위에 따로 (10/4 16:52). 노트 저자는 내 페이지 안에서만 (10/4 20:49 "내 프로필 내부로 옮기자") */}
       {me && (

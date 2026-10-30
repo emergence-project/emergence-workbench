@@ -81,7 +81,7 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
       onDelete={async () => {
         // Capture the read hash before the confirmation: an appended answer must cause a conflict.
         const baseHash = file.hash
-        if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 답이 달린 기록은 지울 수 없습니다.', 'This cannot be undone. The source text and other records stay. Records with answers cannot be deleted.'), ok: t('지우기', 'Delete') })) {
+        if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 답이 달린 기록은 지울 수 없습니다.', 'This cannot be undone. The source text and other records stay. Records with answers cannot be deleted.'), ok: t('삭제', 'Delete') })) {
           await act((w) => w.remove(file.target, c.id, baseHash))
         }
       }} rid={rid} file={file} work={work} showSource={showSource} place={placeOf?.(c)}
@@ -93,7 +93,7 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
         onState: (r, state) => act((w) => w.setState(file.target, r.id, state, file.hash)),
         onDelete: async (r) => {
           const baseHash = file.hash
-          if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 할 일과 다른 기록은 남습니다.', 'This cannot be undone. The to-do and other records stay.'), ok: t('지우기', 'Delete') })) {
+          if (await askConfirm({ title: t('이 기록을 지울까요?', 'Delete this record?'), hint: t('되돌릴 수 없습니다. 할 일과 다른 기록은 남습니다.', 'This cannot be undone. The to-do and other records stay.'), ok: t('삭제', 'Delete') })) {
             await act((w) => w.remove(file.target, r.id, baseHash))
           }
         },
@@ -162,7 +162,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
           : <span className="record-marker" aria-hidden>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
       {/* 쓴 이 (10/21): by = 에이전트, src app = 앱이 저절로, 둘 다 없는 새 기록 = 앱 밖에서 직접 쓴 것(오류) */}
-      <span className={`record-by${c.noAuthor ? ' no-author' : ''}`} title={c.by ? t('쓴 에이전트', 'Written by an agent') : c.noAuthor ? t('앱이나 MCP를 거치지 않고 파일에 직접 쓴 기록입니다', 'Written straight into the file, not through the app or MCP') : c.src === 'app' ? t('앱이 저절로 남긴 기록', 'Left by the app') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ? <Author by={c.by} /> : c.noAuthor ? t('작성자 없음', 'No author') : c.src === 'app' ? t('앱', 'App') : t('사용자', 'User')}</span>
+      <span className={`record-by${c.noAuthor ? ' no-author' : ''}`} title={c.by ? t('쓴 에이전트', 'Written by an agent') : c.noAuthor ? t('앱이나 MCP를 거치지 않고 파일에 직접 쓴 기록입니다', 'Written straight into the file, not through the app or MCP') : c.src === 'app' ? t('앱이 자동으로 남긴 기록', 'Left by the app') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ? <Author by={c.by} /> : c.noAuthor ? t('작성자 없음', 'No author') : c.src === 'app' ? t('앱', 'App') : t('사용자', 'User')}</span>
       {turn && <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>}
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {(kind === '질문' || kind === '지시') && <>
@@ -171,8 +171,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           {!c.by && !chat && c.state !== '끝냄' && <button className="icon-btn sm" data-ui="에이전트에게 보내기" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('에이전트에게 보내기', 'Send to agent')} aria-label={t('에이전트에게 보내기', 'Send to agent')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
           <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
         </>}
-        <button className="icon-btn sm" data-tip={t('고치기', 'Edit')} aria-label={t('고치기', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
-        <button className="icon-btn sm tip-end" data-tip={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={busy} onClick={() => void onDelete()}>{Icon.trash}</button>
+        <button className="icon-btn sm" data-tip={t('수정', 'Edit')} aria-label={t('수정', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
+        <button className="icon-btn sm tip-end" data-tip={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} disabled={busy} onClick={() => void onDelete()}>{Icon.trash}</button>
       </div>
     </div>
     <div className="record-content">
@@ -181,7 +181,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {c.quote && <blockquote className="record-quote" style={c.color ? { borderColor: `var(--paint-${c.color})` } : undefined}>{c.quote}</blockquote>}
       {edit ? <div className="record-edit">
         {conflict && <div className="record-conflict" role="alert"><p>{t('다른 곳에서 글을 고쳤습니다. 새 글을 확인한 뒤 적던 글로 저장할 수 있습니다.', 'The text was edited elsewhere. Review the new text, then you can save yours.')}</p><MemoText text={c.body} /><button className="btn sm" disabled={busy} onClick={() => setEdit({ ...edit, original: c.body, hash })}>{t('새 글 확인함', 'Reviewed new text')}</button></div>}
-        <textarea autoFocus aria-label={t('기록 고치기', 'Edit record')} rows={3} value={edit.text} disabled={busy} onChange={(e) => setEdit({ ...edit, text: e.target.value })}
+        <textarea autoFocus aria-label={t('기록 수정', 'Edit record')} rows={3} value={edit.text} disabled={busy} onChange={(e) => setEdit({ ...edit, text: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null); else onListKey(e, (text) => setEdit({ ...edit, text })) }} />
         <div className="record-edit-actions">
           {kindEditable && <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')} data-ui="기록 종류 바꾸기">{EDIT_KINDS.map((k) => <button key={k} type="button" className={editKind === k ? 'on' : ''} aria-pressed={editKind === k} disabled={busy} onClick={() => setEditKind(k)}>{kindLabel(k)}</button>)}</div>}
@@ -287,7 +287,7 @@ function TodoTalk({ records, busy, actions, onSend, onCancel }: { records: Comme
           end={<span className="record-actions" data-ui="고치기·지우기">
             {r.state !== '끝냄' && <button className="icon-btn sm" data-ui="에이전트에게 보내기" data-tip={actions.asking(r) ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('에이전트에게 보내기', 'Send to agent')} aria-label={t('에이전트에게 보내기', 'Send to agent')} disabled={busy || actions.asking(r)} onClick={() => actions.onAsk(r)}>{Icon.spark}</button>}
             <button className="icon-btn sm" data-tip={r.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={r.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void actions.onState(r, r.state === '끝냄' ? '대기' : '끝냄')}>{r.state === '끝냄' ? Icon.reopen : Icon.check}</button>
-            {r.answers.length === 0 && <button className="icon-btn sm tip-end" data-tip={t('지우기', 'Delete')} aria-label={t('지우기', 'Delete')} disabled={busy} onClick={() => void actions.onDelete(r)}>{Icon.trash}</button>}
+            {r.answers.length === 0 && <button className="icon-btn sm tip-end" data-tip={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} disabled={busy} onClick={() => void actions.onDelete(r)}>{Icon.trash}</button>}
           </span>}><MemoText text={r.body} /></SayCard>,
         ...r.answers.map((a, i) => a.by === '앱' ? <li key={`${r.id}-${i}`} className="fbp-say-wait muted">{a.body}</li>
           : <SayCard key={`${r.id}-${i}`} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : <Author by={a.by} />} when={a.at}>

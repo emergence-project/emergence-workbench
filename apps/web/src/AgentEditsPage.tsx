@@ -59,13 +59,13 @@ export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?:
         <div className="pane-head" data-ui="툴바">
           <span className="crumb"><b>{rid ? t('수정 검토', 'Edit review') : t('개념노트 수정 검토', 'Review concept note edits')}</b></span>
           <span className="sp" />
-          <span className="muted">{t('바뀐 곳마다 승인 · 되돌리기 · 고치기', 'For each change: approve, revert or edit')}</span>
+          <span className="muted">{t('변경사항마다 승인 · 되돌리기 · 수정', 'For each change: approve, revert or edit')}</span>
         </div>
         <div className="scroll ae-page">
           {error && <div className="banner danger">{error}</div>}
           {list && list.attempts.length > 0 && (
             <section className="ae-sec" data-ui="쓰기 요청">
-              <h2 className="ae-h">{t('확인된 노트 고치기 요청', 'Requests to edit reviewed notes')} <span className="rail-count">{list.attempts.length}</span></h2>
+              <h2 className="ae-h">{t('확인된 노트 수정 요청', 'Requests to edit reviewed notes')} <span className="rail-count">{list.attempts.length}</span></h2>
               <p className="muted ae-hint">{t('사용자가 확인한 노트라 에이전트가 쓰지 않았습니다. 그 대화에서 허락하면 에이전트가 다시 씁니다.', 'The agent did not write because you reviewed this note. If you agree in that conversation, the agent writes again.')}</p>
               <ul className="ae-rows">
                 {list.attempts.map((a) => (
@@ -75,7 +75,7 @@ export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?:
                     <span className="ae-where">{whereOf(a.target)}</span>
                     {a.summary && <span className="ae-sum" title={a.summary}>{a.summary}</span>}
                     <span className="ae-when">{a.agent ? `${agentName(a.agent)} · ${when(a.at)}` : when(a.at)}</span>
-                    <button className="icon-btn" data-tip={t('목록에서 빼기', 'Remove from list')} aria-label={t(`목록에서 빼기 — ${a.title}`, `Remove from list: ${a.title}`)} onClick={() => void dismiss(a)}>{Icon.x}</button>
+                    <button className="icon-btn" data-tip={t('목록에서 제거', 'Remove from list')} aria-label={t(`목록에서 제거 — ${a.title}`, `Remove from list: ${a.title}`)} onClick={() => void dismiss(a)}>{Icon.x}</button>
                   </li>
                 ))}
               </ul>
@@ -90,7 +90,7 @@ export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?:
                 <div className="ae-notes-wrap">
                   <table className="ae-notes-table" data-ui="검토할 노트 표">
                     <thead><tr>
-                      <th>{t('노트', 'Note')}</th><th className="ae-col-topic">{t('주제', 'Topic')}</th><th>{t('에이전트', 'Agent')}</th><th className="ae-col-when">{t('고친 때', 'Edited')}</th><th className="num">{t('바뀐 곳', 'Changes')}</th>
+                      <th>{t('노트', 'Note')}</th><th className="ae-col-topic">{t('주제', 'Topic')}</th><th>{t('에이전트', 'Agent')}</th><th className="ae-col-when">{t('고친 때', 'Edited')}</th><th className="num">{t('변경사항', 'Changes')}</th>
                     </tr></thead>
                     <tbody>
                       {list.reviews.map((r) => (
@@ -222,7 +222,7 @@ function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; ra
     <div className="ae-review">
       {/* 아래 표의 머리: 이 자리가 무엇인지 · 바뀐 곳 수 · 보기 | 원문. 노트 이름은 위 표의 고른 줄에 있어 되풀이하지 않는다 (10/20 피드백) */}
       <div className="ae-review-head" data-ui="바뀐 곳 머리">
-        <b>{t('이 노트에서 바뀐 곳', 'Changes in this note')}</b>
+        <b>{t('이 노트에서 변경사항', 'Changes in this note')}</b>
         <span className="muted">{t(`${rv.hunks.length}곳 · 절 ${groups.length} · ${when(rv.since)}부터`, `${rv.hunks.length} changed · ${groups.length} sections · since ${when(rv.since)}`)}</span>
         <span className="sp" />
         {view}
@@ -233,7 +233,7 @@ function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; ra
         <span className="ae-notes-h">{t('에이전트가 적은 고친 까닭', 'Why the agent made these edits')}</span>
         <ul>{notes.map((n) => <li key={n}>{n}</li>)}</ul>
       </div>}
-      <div className="ae-table" role="table" aria-label={t('바뀐 곳', 'Changes')} data-ui="고침 비교" data-ui-item={rv.title}>
+      <div className="ae-table" role="table" aria-label={t('변경사항', 'Changes')} data-ui="고침 비교" data-ui-item={rv.title}>
         <div className="ae-head" role="row">
           <span />
           <span role="columnheader">{t('전', 'Before')}</span>
@@ -303,7 +303,7 @@ function HunkRow({ h, onGoto, picked, expanded, busy, render, raw, talks, talkin
       <div className={`ae-hunk${picked ? ' picked' : ''}`} role="row" tabIndex={0} data-ui="바뀐 곳" onClick={pick} onKeyDown={pick}>
         {(() => {
           // 단추는 줄 맨 앞 칸(전 왼쪽)에 줄마다 늘 둔다. 펼칠 문단이 없으면(제목 · 다른 바뀐 곳에 붙음 · 노트 끝) 흐리게 두고 이유를 툴팁에 (시안 그대로)
-          const tip = !hasContext ? t('앞뒤에 펼칠 문단이 없습니다 (제목이나 다른 바뀐 곳에 붙어 있음)', 'No unchanged paragraph around (next to a heading or another change)')
+          const tip = !hasContext ? t('앞뒤에 펼칠 문단이 없습니다 (제목이나 다른 변경사항에 붙어 있음)', 'No unchanged paragraph around (next to a heading or another change)')
             : expanded ? t('접기', 'Collapse') : t('앞뒤 문단 펼치기', 'Show the paragraphs around')
           return <div className="ae-tg" role="cell"><button type="button" className="ae-expand tip-start" data-ui="펼치기 버튼" aria-expanded={expanded} aria-disabled={!hasContext}
             data-tip={tip} aria-label={tip} onClick={hasContext ? onToggle : undefined}>{expanded ? Icon.collapse : Icon.expand}</button></div>
@@ -367,8 +367,8 @@ function MoreMenu({ busy, onEdit, onRevert }: { busy: boolean; onEdit(): void; o
       <button className={`icon-btn${open ? ' on' : ''}`} disabled={busy} data-ui="더 보기 메뉴" data-tip={t('더 보기', 'More')} aria-label={t('더 보기', 'More')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{Icon.more}</button>
       {open && (
         <div className="menu ae-menu" role="menu" data-ui="더 보기 항목">
-          <button role="menuitem" data-ui="고치기 버튼" onClick={() => { setOpen(false); onEdit() }}><span className="ico">{Icon.pencil}</span>{t('고치기', 'Edit')}</button>
-          <button role="menuitem" data-ui="되돌리기 버튼" title={t('이 부분만 고치기 전 글로', 'Put back the text from before the edit, for this part only')} onClick={() => { setOpen(false); onRevert() }}><span className="ico">{Icon.revert}</span>{t('되돌리기', 'Revert')}</button>
+          <button role="menuitem" data-ui="고치기 버튼" onClick={() => { setOpen(false); onEdit() }}><span className="ico">{Icon.pencil}</span>{t('수정', 'Edit')}</button>
+          <button role="menuitem" data-ui="되돌리기 버튼" title={t('이 부분만 수정 전 글로', 'Put back the text from before the edit, for this part only')} onClick={() => { setOpen(false); onRevert() }}><span className="ico">{Icon.revert}</span>{t('되돌리기', 'Revert')}</button>
         </div>
       )}
     </span>
@@ -417,7 +417,7 @@ function Talk({ h, talks, busy, onAct, onAsk }: { h: EditHunk; talks: CommentEnt
       <ComposeBox value={text} onChange={setText} placeholder={t('질문이나 고칠 점', 'Question or what to change')}
         waiting={talkTurn(talks) === 'agent' ? t('에이전트의 답을 기다립니다', 'Waiting for the agent to answer') : undefined}>
         <button className="btn" disabled={busy || sending || !typed} onClick={() => send('질문')}>{t('질문', 'Ask')}</button>
-        <button className="btn" disabled={busy || sending || !typed} onClick={() => send('수정')}>{t('수정', 'Revise')}</button>
+        <button className="btn" disabled={busy || sending || !typed} onClick={() => send('수정')}>{t('반려', 'Revise')}</button>
         <button className="btn primary" disabled={busy || sending || typed} onClick={() => void onAct(h, 'accept')}>{t('승인', 'Approve')}</button>
       </ComposeBox>
     </div>

@@ -80,7 +80,7 @@ export const DEFAULT_SCREENS = [
   // 노트 화면 (10/5 시안): 오른쪽 사이드바 정보를 연 모습
   ['note-info', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '맥락 칸 켜고 끄기'],
   // 오른쪽 사이드바 정보에서 설명을 고치는 모습 (10/5 피드백 "문서 정보 수정의 디자인")
-  ['note-info-edit', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '[aria-label="고치기 — 설명"], [aria-label="Edit description"]'],
+  ['note-info-edit', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '[aria-label="수정 — 설명"], [aria-label="Edit description"]'],
   // 고치는 중의 노트 머리: 제목이 이름 칸이 된다 (10/5 피드백 "제목 영역 편집")
   ['note-title-edit', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 이름', '고치기'],
   // 지식 첫 화면 (라이브러리 L1, 10/6): 최근 노트 · 점검 · 통계 · 라이브러리 정보, "개념노트 만들기" 메뉴. 지도는 지식 안의 페이지(사이드바 "지도" 줄)

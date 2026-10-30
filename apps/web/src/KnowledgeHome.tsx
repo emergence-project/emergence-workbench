@@ -62,7 +62,7 @@ export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { 
                   <span className="kh-stat-name">{r.name}</span><span className="rail-count">{edits[r.key]}</span>
                 </button>
               ))}
-              {brief && check.length + editRows.length === 0 && <p className="empty kh-empty">{t('지금 확인할 것이 없습니다.', 'Nothing to review right now.')}</p>}
+              {brief && check.length + editRows.length === 0 && <p className="empty kh-empty">{t('지금 확인 항목이 없습니다.', 'Nothing to review right now.')}</p>}
               {brief && check.map((c) => {
                 const v = c.of(brief)
                 return (
@@ -103,8 +103,8 @@ const CHECK: BriefRow[] = [
 ]
 /** 점검의 에이전트 고침 줄 (10/8): 고침 검토 화면(#/review?scope=library)을 연다 */
 const EDIT_ROWS: { key: 'reviews' | 'attempts'; label: string; name: string; tip: string }[] = [
-  { key: 'reviews', label: '고침 검토', name: t('수정 검토', 'Edits to review'), tip: t('에이전트가 고친 개념노트. 바뀐 곳마다 승인 · 되돌리기 · 고치기', 'Concept notes an agent edited. Approve, revert or edit each change') },
-  { key: 'attempts', label: '고치기 요청', name: t('고치기 요청', 'Edit requests'), tip: t('확인한 개념노트를 에이전트가 고치려 함. 그 대화에서 허락하면 에이전트가 고칩니다', 'An agent wants to edit a reviewed concept note. It edits once you agree in that conversation') },
+  { key: 'reviews', label: '고침 검토', name: t('수정 검토', 'Edits to review'), tip: t('에이전트가 고친 개념노트. 변경사항마다 승인 · 되돌리기 · 수정', 'Concept notes an agent edited. Approve, revert or edit each change') },
+  { key: 'attempts', label: '고치기 요청', name: t('수정 요청', 'Edit requests'), tip: t('확인한 개념노트를 에이전트가 고치려 함. 그 대화에서 허락하면 에이전트가 고칩니다', 'An agent wants to edit a reviewed concept note. It edits once you agree in that conversation') },
 ]
 /** 통계 (이상 종류, 에이전트가 공유 라이브러리 README 규칙대로 채운다) */
 const STATS: BriefRow[] = [

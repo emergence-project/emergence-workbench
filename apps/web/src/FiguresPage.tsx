@@ -279,7 +279,7 @@ export function AddFigure({ look, scope, scopeLabel, onSaved, onAdded, compact =
   return (
     <div className={`fg-add add-card ${look}${compact && look === 'card' ? ' lh-add' : ''}${hover ? ' hover' : ''}`} data-ui="그림 더하기" {...drop}>
       <button className="fg-add-btn" disabled={busy} onClick={() => input.current?.click()}>
-        <span>＋ {t('그림 더하기', 'Add figure')}</span>
+        <span>＋ {t('그림 추가', 'Add figure')}</span>
         <span className="muted">{busy ? t('올리는 중…', 'Uploading…') : t(`tikz · svg · png · pdf 끌어다 놓기 · ${scopeLabel}에 둠`, `Drop tikz · svg · png · pdf · goes to ${scopeLabel}`)}</span>
       </button>
       <input ref={input} type="file" hidden multiple accept=".tikz,.tex,.svg,.png,.jpg,.jpeg,.pdf" onChange={(e) => { void add([...(e.target.files ?? [])]); e.target.value = '' }} />
@@ -311,7 +311,7 @@ function FigureSide({ fig, data, onClose, onSaved }: { fig: FigureRow; data: Fig
       <div className="rs-scroll rs-pad fg-rs-body">
         {!editing ? (
           <div className="fg-rs-about">
-            <div className="hover-actions"><button className="icon-btn" aria-label={t('이름과 설명 고치기', 'Edit name and description')} data-tip={t('고치기', 'Edit')} onClick={() => setEditing(true)}>{Icon.pencil}</button></div>
+            <div className="hover-actions"><button className="icon-btn" aria-label={t('이름과 설명 수정', 'Edit name and description')} data-tip={t('수정', 'Edit')} onClick={() => setEditing(true)}>{Icon.pencil}</button></div>
             <h3 className="fg-rs-title">{fig.name}</h3>
             <p className="fg-rs-sub"><span className="fg-kind mono">{fig.kind}</span>{scopeTitle(data, fig.scope)}</p>
             {fig.description ? <p className="fg-rs-desc">{fig.description}</p> : <p className="muted">{t('설명 없음', 'No description')}</p>}
@@ -344,7 +344,7 @@ function FigureSide({ fig, data, onClose, onSaved }: { fig: FigureRow; data: Fig
           {fig.uses.length ? <ul className="fg-uses">{fig.uses.map((u) => <li key={`${u.rid ?? ''}/${u.file}`}>{usageRow(u)}</li>)}</ul> : <p className="muted">{lang === 'ko' ? <>아직 어느 노트도 ![[{fig.name}]]로 쓰지 않습니다.</> : <>No note uses ![[{fig.name}]] yet.</>}</p>}
         </div>
         <div className="fg-rs-row">
-          <button className="btn" onClick={() => run(() => figuresApi.open(fig.id))}>{t('원본 고치기', 'Edit source')}</button>
+          <button className="btn" onClick={() => run(() => figuresApi.open(fig.id))}>{t('원본 수정', 'Edit source')}</button>
           <button className="a" onClick={() => run(() => figuresApi.open(fig.id, true))}>{t('Finder에서 보기', 'Show in Finder')}</button>
         </div>
         <div className="rs-field fg-rs-path"><div className="muted mono" title={fig.path}>{fig.path.split('/').filter(Boolean).pop() || fig.path}</div></div>

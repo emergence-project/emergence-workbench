@@ -75,7 +75,7 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
   )
 
   return (<>
-    <CardEditDialog title={t('주제 고치기', 'Edit topic')} location={`${project} › ${topic.title}`} pc={pc} ui="주제 고치기 창"
+    <CardEditDialog title={t('주제 수정', 'Edit topic')} location={`${project} › ${topic.title}`} pc={pc} ui="주제 고치기 창"
       canSave={canSave} onClose={onClose} onSave={() => void save()} preview={
         <TopicCardView ui="주제 카드 미리보기" pc={pc} data={{
           title: title.trim(), description, star: topic.star, kinds: topic.kinds, byStatus: topic.byStatus, updated: topic.updated,

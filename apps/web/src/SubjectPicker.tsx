@@ -72,7 +72,7 @@ export function SubjectPicker({ tree, value, onChange, disabled = false }: { tre
     <div className="subject-chips">
       {valid.map((id, i) => <span className="tag subject-chip" key={id} title={id}>
         {i === 0 && <span className="subject-primary">{t('주 분류', 'Main subject')}</span>}<span className="subject-name">{tree.items.find((s) => s.id === id)?.name}</span>
-        <button disabled={busy || disabled} data-tip={t('빼기', 'Remove')} aria-label={t(`분류 빼기 — ${tree.items.find((s) => s.id === id)?.name}`, `Remove subject: ${tree.items.find((s) => s.id === id)?.name}`)} onClick={() => void save(valid.filter((v) => v !== id))}>×</button>
+        <button disabled={busy || disabled} data-tip={t('제거', 'Remove')} aria-label={t(`분류 제거 — ${tree.items.find((s) => s.id === id)?.name}`, `Remove subject: ${tree.items.find((s) => s.id === id)?.name}`)} onClick={() => void save(valid.filter((v) => v !== id))}>×</button>
       </span>)}
       {!valid.length && <span className="muted">{t('분류 없음', 'No subject')}</span>}
       <button ref={anchor} className="btn sm" disabled={busy || disabled || valid.length >= 3} aria-haspopup="dialog" aria-expanded={open} data-ui="분류 더하기">{t('＋ 분류', '＋ Subject')}</button>

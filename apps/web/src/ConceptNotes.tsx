@@ -275,7 +275,7 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
     } catch (e) { onSaved((e as Error).message); void reload(); return null } finally { setBusy(false) }
   }
   const lock = async (on: boolean) => {
-    if (await setLocked(on)) onSaved(on ? t('고치기를 잠갔습니다', 'Editing locked') : t('잠금을 풀었습니다', 'Unlocked'))
+    if (await setLocked(on)) onSaved(on ? t('수정을 잠갔습니다', 'Editing locked') : t('잠금을 풀었습니다', 'Unlocked'))
   }
   const review = async (choice: ReviewChoice) => {
     if (!note) return
@@ -535,7 +535,7 @@ function ConceptUses({ id, info, rid, project, onChanged, onSaved }: {
   const linkedHere = !!rid && !!uses?.some((u) => u.rid === rid && u.linked)
   return (
     <section data-ui="쓰는 곳">
-      <h2 className="cn-links-h">{t('쓰는 곳과 인용', 'Used in and citations')}</h2>
+      <h2 className="cn-links-h">{t('사용처와 인용', 'Used in and citations')}</h2>
       {uses?.length === 0 && <p className="muted">{t('아직 쓰는 프로젝트가 없습니다', 'No project uses this yet')}</p>}
       {uses?.map((u) => {
         const have = u.cites.filter((c) => c.projectKey)

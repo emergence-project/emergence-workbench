@@ -15,7 +15,7 @@ const ROWS: { kind: SyncKind; ui: string; name: () => string; desc: () => string
   {
     kind: 'pull', ui: '받기 주기',
     name: () => t('연구 저장소 · 라이브러리 받기', 'Pull research repositories and the library'),
-    desc: () => t('자동이면 GitHub에서 바뀐 것을 고른 간격마다 받습니다. 클라우드 에이전트의 답이 앱에 뜨는 간격입니다. 수동이면 프로젝트 정보 › 저장소의 "받기"로만 받습니다.',
+    desc: () => t('자동이면 GitHub에서 변경사항을 고른 간격마다 받습니다. 클라우드 에이전트의 답이 앱에 뜨는 간격입니다. 수동이면 프로젝트 정보 › 저장소의 "받기"로만 받습니다.',
       'With Auto, changes on GitHub are pulled at the chosen interval; this is how soon cloud agent answers show up. With Manual, pull only with "Pull" in Project info › Repository.'),
     warn: (c) => (c.mode === 'manual' ? t('맥과 GitHub가 갈라지면 받을 때 합쳐야 할 수 있습니다.', 'If the Mac and GitHub diverge, you may need to merge when pulling.') : null),
   },

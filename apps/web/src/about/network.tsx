@@ -7,10 +7,10 @@ import type { AboutPart } from './types'
 
 export const ko: AboutPart = {
   id: 'network', title: '네트워킹',
-  sub: '레일의 사람 아이콘. 함께 연구하는 사람들과 내 저자 정보를 한곳에서 봅니다.',
+  sub: '레일의 사람 아이콘. 공동 연구자들과 내 저자 정보를 한곳에서 봅니다.',
   open: [{ label: '네트워킹 열기', to: { page: 'network' } }],
   sections: [people.ko, personPage.ko, authorDetails.ko],
-  left: ['함께 연구하는 사람들의 arXiv 새 논문 모아 보기는 나중입니다.'],
+  left: ['공동 연구자들의 arXiv 새 논문 모아 보기는 나중입니다.'],
 }
 
 export const en: AboutPart = {

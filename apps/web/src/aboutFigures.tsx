@@ -77,10 +77,10 @@ export function StatesTable() {
       <tbody>
         <tr><td><b>{t('노트', 'Notes')}</b></td><td>{d('in-progress', IP)} {d('blocked', BL)} {d('stopped', DR)} {d('solved', SO)}</td><td className="muted">{t('노트 툴바 왼쪽의 상태. 멈춤·폐기는 다시 열 조건을 적음', 'Status at the left of the note toolbar. Blocked and Dropped get a reopen condition')}</td></tr>
         <tr><td><b>{t('맡긴 일', 'Delegated tasks')}</b></td><td>{d('in-progress', IP)} {d('blocked', t('판단 대기', 'Awaiting decision'))} {d('blocked', BL)} {d('stopped', DR)} {d('solved', SO)}</td><td className="muted">{t('기록 › 내 차례의 판단(승인 · 수정 · ⋯ 멈춤 · 폐기)', 'To decide in Records › Your turn (Approve · Revise · ⋯ Blocked · Dropped)')}</td></tr>
-        <tr><td><b>{t('프로젝트', 'Projects')}</b></td><td>{d('in-progress', IP)} {d('blocked', BL)} {d('solved', t('완료', 'Done'))}</td><td className="muted">{t('프로젝트 고치기 창', 'Edit project dialog')}</td></tr>
+        <tr><td><b>{t('프로젝트', 'Projects')}</b></td><td>{d('in-progress', IP)} {d('blocked', BL)} {d('solved', t('완료', 'Done'))}</td><td className="muted">{t('프로젝트 수정 창', 'Edit project dialog')}</td></tr>
         <tr><td><b>{t('진술', 'Statements')}</b></td><td><span className="about-state"><ProofMark p="solved" /> {t('증명 작업의 상태', 'status of the proof work')}</span> <span className="about-state"><ProofMark p="none" /> {t('증명 작업 없음', 'no proof work')}</span> <span className="about-state"><ProofMark p="given" /> {t('공리·정의', 'axiom or definition')}</span></td><td className="muted">{t('증명하는 노트의 상태를 따라감', 'Follows the status of the note that proves it')}</td></tr>
         <tr><td><b>{t('개념노트', 'Concept notes')}</b></td><td><span className="about-state"><i className="mark-ico" aria-hidden>{Icon.check}</i> {t('확인함', 'Reviewed')}</span> <span className="about-state"><i className="mark-ico" aria-hidden>{Icon.unchecked}</i> {t('확인 전', 'Not reviewed')}</span> <span className="about-state muted">{t('미완성 · 잠김', 'Incomplete · Locked')}</span></td><td className="muted">{t('개념노트 툴바의 확인 (미완성은 앱이 붙임)', 'Review in the concept note toolbar (Incomplete is set by the app)')}</td></tr>
-        <tr><td><b>{t('피드백', 'Feedback')}</b></td><td><span className="about-state">{turn} {t('확인 필요', 'Needs review')}</span> <span className="about-state muted">{t('대기 · 수정(반영 · 거절 · 확인 필요) · 질문(답변) · 제안(동의 · 나중에 · 거절)', 'Waiting · Fix (Applied · Declined · Needs review) · Question (Answered) · Suggestion (Agreed · Later · Declined)')}</span> <span className="about-state">{t('질문 · 수정 · 승인', 'Ask · Revise · Approve')} / {t('질문 · 중단 · 진행', 'Ask · Stop · Proceed')}</span></td><td className="muted">{t('피드백 화면 항목 아래 입력란의 버튼', 'Buttons under an item on the Feedback screen')}</td></tr>
+        <tr><td><b>{t('피드백', 'Feedback')}</b></td><td><span className="about-state">{turn} {t('확인 필요', 'Needs review')}</span> <span className="about-state muted">{t('대기 · 수정(반영 · 거절 · 확인 필요) · 질문(답변) · 제안(동의 · 나중에 · 거절)', 'Waiting · Fix (Applied · Declined · Needs review) · Question (Answered) · Suggestion (Agreed · Later · Declined)')}</span> <span className="about-state">{t('질문 · 반려 · 승인', 'Ask · Revise · Approve')} / {t('질문 · 중단 · 진행', 'Ask · Stop · Proceed')}</span></td><td className="muted">{t('피드백 화면 항목 아래 입력란의 버튼', 'Buttons under an item on the Feedback screen')}</td></tr>
       </tbody>
     </table>
   )
@@ -104,15 +104,15 @@ export function NoteToolbarFigure() {
       <div className="tb-bar">
         <span className="tb-l"><StatusDot s="in-progress" label /></span>
         <span className="tb-m" />
-        <span className="tb-r"><span className="muted">{t('저장됨 · 3분 전', 'Saved · 3 min ago')}</span><i title={t('코멘트', 'Comment')}>{Icon.comment}</i><i title={t('고치기', 'Edit')}>{Icon.pencil}</i><i title={t('컴파일', 'Compile')}>{Icon.play}</i><i title={t('더 보기', 'More')}>{Icon.more}</i></span>
+        <span className="tb-r"><span className="muted">{t('저장됨 · 3분 전', 'Saved · 3 min ago')}</span><i title={t('코멘트', 'Comment')}>{Icon.comment}</i><i title={t('수정', 'Edit')}>{Icon.pencil}</i><i title={t('컴파일', 'Compile')}>{Icon.play}</i><i title={t('더 보기', 'More')}>{Icon.more}</i></span>
       </div>
-      <figcaption className="muted">{t('읽을 때. 말풍선은 오른쪽 사이드바 기록, ▶는 PDF를 오른쪽 패널에, ⋯은 PDF 보기 · 서식 · 내보내기 · 지우기', 'While reading. The speech bubble opens Records in the right sidebar, ▶ opens the PDF in the right pane, ⋯ has View PDF · Template · Export · Delete')}</figcaption>
+      <figcaption className="muted">{t('읽을 때. 말풍선은 오른쪽 사이드바 기록, ▶는 PDF를 오른쪽 패널에, ⋯은 PDF 보기 · 서식 · 내보내기 · 삭제', 'While reading. The speech bubble opens Records in the right sidebar, ▶ opens the PDF in the right pane, ⋯ has View PDF · Template · Export · Delete')}</figcaption>
       <div className="tb-bar">
         <span className="tb-l"><span className="tb-input">{t('제목 입력란', 'Title input')}</span><StatusDot s="in-progress" /></span>
         <span className="tb-m"><span className="segmented small"><button tabIndex={-1}>{t('원문', 'Source')}</button><button tabIndex={-1}>{t('원문 | 미리보기', 'Source | Preview')}</button><button tabIndex={-1} className="on">{t('바로 보기', 'Live preview')}</button></span></span>
         <span className="tb-r"><span className="muted">{t('저장됨', 'Saved')}</span><span className="btn primary sm">{t('편집 완료', 'Done')}</span></span>
       </div>
-      <figcaption className="muted">{t('연필을 누른 뒤. 고친 것은 저절로 저장되고 "편집 완료"(Esc)로 마칩니다', 'After pressing the pencil. Edits save on their own; finish with "Done" (Esc)')}</figcaption>
+      <figcaption className="muted">{t('연필을 누른 뒤. 고친 것은 자동으로 저장되고 "편집 완료"(Esc)로 마칩니다', 'After pressing the pencil. Edits save on their own; finish with "Done" (Esc)')}</figcaption>
     </figure>
   )
 }
@@ -138,7 +138,7 @@ export function TaskFlowFigure() {
       ]} />
       <div className="about-verdicts">
         <span>{Icon.approve}<b>{t('승인', 'Approve')}</b><span className="muted">→ <StatusDot s="solved" label /></span></span>
-        <span>{Icon.sendBack}<b>{t('수정', 'Revise')}</b><span className="muted">{t('고칠 것 한 줄', 'one line on what to fix')} → <StatusDot s="in-progress" label /></span></span>
+        <span>{Icon.sendBack}<b>{t('반려', 'Revise')}</b><span className="muted">{t('고칠 것 한 줄', 'one line on what to fix')} → <StatusDot s="in-progress" label /></span></span>
         <span>{Icon.more}<b>{t('멈춤으로 두기 · 폐기', 'Leave as blocked · Drop')}</b><span className="muted">→ <StatusDot s="blocked" label /> · <StatusDot s="stopped" label /></span></span>
       </div>
       <figcaption className="muted">{t('주황 단계가 사용자 차례입니다. 승인은 사용자만 하고, 판단에 쓴 시간은 일지에 남습니다. 규칙:', 'Orange steps are your turn. Only you approve, and the time spent deciding is kept in the journal. Rules:')} {c('docs/agent-delegated-work.md')}</figcaption>
@@ -154,7 +154,7 @@ export function FeedbackFlowFigure() {
         { title: <>{Icon.feedback} {t('남기기', 'Leave')}</>, sub: t('피드백 모드에서 부위를 누름. 화면 그림이 함께 남고 30초 뒤 GitHub에', 'Click a part in feedback mode. A screen picture is saved with it and goes to GitHub after 30 seconds') },
         { title: t('처리', 'Handle'), sub: <>{t('Claude가 고치고', 'Claude fixes it and writes in')} {c('feedback/status.yaml')}{t('에 이해한 요구 · 원인 · 처리를 적음', ' the understood request · cause · handling')}</> },
         { title: t('반영', 'Ship'), sub: t('검사(CI)를 통과하면 합침. 맥에서 업데이트를 누르면 앱에 들어옴', 'Merged once checks (CI) pass. Pressing Update on the Mac brings it into the app') },
-        { title: <>{turn} {t('확인', 'Review')}</>, sub: t('결과는 승인 · 수정, 물음은 진행 · 중단', 'Approve or revise results; proceed or stop on questions'), turn: true },
+        { title: <>{turn} {t('확인', 'Review')}</>, sub: t('결과는 승인 · 반려, 물음은 진행 · 중단', 'Approve or revise results; proceed or stop on questions'), turn: true },
         { title: t('소개로', 'Into About'), sub: t('승인된 내용은 이 소개의 설명이 되고 원문은 지움', 'Approved content becomes a description on this page and the original is deleted') },
       ]} />
     </figure>
@@ -165,7 +165,7 @@ export function FeedbackFlowFigure() {
 export function HomeMarksTable() {
   return (
     <table className="about-sym-table">
-      <thead><tr><th>{t('기호', 'Symbol')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('쓰는 곳', 'Where')}</th></tr></thead>
+      <thead><tr><th>{t('기호', 'Symbol')}</th><th>{t('이름', 'Name')}</th><th>{t('뜻', 'Meaning')}</th><th>{t('사용처', 'Where')}</th></tr></thead>
       <tbody>
         <tr><td className="about-sym"><span className="turn-dot" /></td><td>{t('확인 필요', 'Needs review')}</td><td>{t('확인이 필요한 노트나 판단할 맡긴 일이 있음 (레일의 수와 같음)', 'There are notes to review or delegated tasks to decide (same as the rail count)')}</td><td className="muted">{t('프로젝트 줄 · 카드', 'Project rows · cards')}</td></tr>
         <tr><td className="about-sym">{Icon.sync}</td><td>{t('업데이트 필요', 'Update available')}</td><td>{t('GitHub에 받을 새 커밋이 있음. 눌러 받기 (빨리 감기만)', 'GitHub has new commits to pull. Click to pull (fast-forward only)')}</td><td className="muted">{t('프로젝트 줄 · 카드', 'Project rows · cards')}</td></tr>
@@ -233,7 +233,7 @@ export function FileTreeFigure() {
       </div>
       <div className="about-tree"><b>{t('앱과 설정', 'App and settings')}</b>
         <ul>
-          {r('research-workspace/feedback/', t('날짜.md(원문) · status.yaml(처리) · reviews.yaml(승인 · 수정 · 진행 · 중단) · pictures/', '<date>.md (original) · status.yaml (handling) · reviews.yaml (approve, request changes) · pictures/'))}
+          {r('research-workspace/feedback/', t('날짜.md(원문) · status.yaml(처리) · reviews.yaml(승인 · 반려 · 진행 · 중단) · pictures/', '<date>.md (original) · status.yaml (handling) · reviews.yaml (approve, request changes) · pictures/'))}
           {r('~/.config/research-workspace/config.yaml', t('등록한 프로젝트 · 화면 설정 · LaTeX 서식 · 사람들 · 논문 PDF 폴더', 'Registered projects · display settings · LaTeX templates · people · paper PDF folders'))}
           {r('~/.config/research-workspace/google.yaml', t('구글 연결', 'Google connection'))}
         </ul>
@@ -259,12 +259,12 @@ export function FeedbackTagsTable() {
 /** 피드백 유형과 답 (10/21 "답이 명확하고 제한되게"): 답의 첫 줄은 이 표의 말 하나 */
 export function FeedbackAnswersTable() {
   const rows: [kind: string, first: string, state: string, means: string, next: string][] = [
-    [t('수정', 'Fix'), t('수정 완료 (#PR)', 'Fixed (#PR)'), t('반영', 'Applied'), t('고쳤습니다. 이미 그렇게 되어 있던 것도 그림을 붙여 이 말로 답합니다', 'It is fixed. Something that already worked this way is answered the same way, with a picture'), t('질문 · 수정 · 승인', 'Ask · Revise · Approve')],
-    [t('수정', 'Fix'), t('확인 필요', 'Needs your call'), t('확인 필요', 'Asked'), t('고치기 전에 묻습니다(내용이 사라지거나, 과거 결정과 부딪히거나, 둘 이상으로 읽힐 때)', 'Asks before fixing (content would be lost, it clashes with a past decision, or it reads two ways)'), t('질문 · 중단 · 진행', 'Ask · Stop · Proceed')],
-    [t('질문', 'Question'), t('답변: 있음 / 없음 / 일부', 'Answer: yes / no / partly'), t('답변', 'Answered'), t('코드를 고치지 않고 답만 합니다. 버그를 찾으면 "수정으로 바꿀까요?"를 묻습니다', 'Answers without changing code. A bug found on the way is asked about: "turn this into a fix?"'), t('질문 · 수정 · 승인', 'Ask · Revise · Approve')],
+    [t('수정', 'Fix'), t('수정 완료 (#PR)', 'Fixed (#PR)'), t('반영', 'Applied'), t('고쳤습니다. 이미 그렇게 되어 있던 것도 그림을 붙여 이 말로 답합니다', 'It is fixed. Something that already worked this way is answered the same way, with a picture'), t('질문 · 반려 · 승인', 'Ask · Revise · Approve')],
+    [t('수정', 'Fix'), t('확인 필요', 'Needs your call'), t('확인 필요', 'Asked'), t('수정 전에 묻습니다(내용이 사라지거나, 과거 결정과 부딪히거나, 둘 이상으로 읽힐 때)', 'Asks before fixing (content would be lost, it clashes with a past decision, or it reads two ways)'), t('질문 · 중단 · 진행', 'Ask · Stop · Proceed')],
+    [t('질문', 'Question'), t('답변: 있음 / 없음 / 일부', 'Answer: yes / no / partly'), t('답변', 'Answered'), t('코드를 고치지 않고 답만 합니다. 버그를 찾으면 "수정으로 바꿀까요?"를 묻습니다', 'Answers without changing code. A bug found on the way is asked about: "turn this into a fix?"'), t('질문 · 반려 · 승인', 'Ask · Revise · Approve')],
     [t('제안', 'Suggestion'), t('의견에 동의 (작음 · 중간 · 큼)', 'Agreed (small · medium · large)'), t('동의', 'Agreed'), t('하자는 뜻입니다. 진행을 누르기 전에는 만들지 않습니다', 'Worth doing. Nothing is built until you press Proceed'), t('질문 · 중단 · 진행', 'Ask · Stop · Proceed')],
-    [t('제안', 'Suggestion'), t('나중에', 'Later'), t('나중에', 'Later'), t('좋지만 지금은 아닙니다. 언제 다시 볼지 적습니다', 'Good, but not now; says when to look again'), t('질문 · 수정 · 승인', 'Ask · Revise · Approve')],
-    [t('모두', 'Any'), t('거절', 'Declined'), t('거절', 'Declined'), t('하지 않습니다. 이유를 적습니다', 'Will not do it; gives the reason'), t('질문 · 수정 · 승인', 'Ask · Revise · Approve')],
+    [t('제안', 'Suggestion'), t('나중에', 'Later'), t('나중에', 'Later'), t('좋지만 지금은 아닙니다. 언제 다시 볼지 적습니다', 'Good, but not now; says when to look again'), t('질문 · 반려 · 승인', 'Ask · Revise · Approve')],
+    [t('모두', 'Any'), t('거절', 'Declined'), t('거절', 'Declined'), t('하지 않습니다. 이유를 적습니다', 'Will not do it; gives the reason'), t('질문 · 반려 · 승인', 'Ask · Revise · Approve')],
   ]
   return (
     <table className="about-sym-table">

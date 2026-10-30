@@ -18,7 +18,7 @@ export function FlowSymbolTable() {
   ]
   // 판단 (10/23 "판단 설계", 10/26 "흐름 점 표식"): 명제는 사람이 승인해야 채워지고, 판단할 차례는 주황으로 채움
   const judged: { mark: ReactNode; name: string; meaning: string }[] = [
-    { mark: mark('finding', 'solved', false, true), name: tr('판단 전', 'Not judged'), meaning: tr('사람이 아직 승인 · 기각하지 않은 명제 (주황). 수정 요청도 주황', 'A proposition not yet approved or rejected (orange). Sent back stays orange too') },
+    { mark: mark('finding', 'solved', false, true), name: tr('판단 전', 'Not judged'), meaning: tr('사람이 아직 승인 · 기각하지 않은 명제 (주황). 반려된 명제도 주황', 'A proposition not yet approved or rejected (orange). Sent back stays orange too') },
     { mark: mark('finding', 'dropped', false), name: tr('기각', 'Rejected'), meaning: tr('사실로 받지 않은 명제 (속 빈 회색)', 'A proposition not accepted as fact (hollow gray)') },
     { mark: mark('finding', 'solved', true), name: tr('승인됨', 'Approved'), meaning: tr('사람이 승인한 명제 (속이 참). 내용이 바뀌면 판단이 풀린다', 'A proposition a person approved (filled). Changing its content clears the judgment') },
     { mark: mark('question', 'active', undefined, true), name: tr('내 차례', 'Your turn'), meaning: tr('시작을 기다리는 카드도 주황, 판단 대기열의 점에는 주황 고리', 'Cards awaiting a start are orange too; dots in the judgment queue get an orange ring') },

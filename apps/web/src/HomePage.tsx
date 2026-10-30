@@ -271,7 +271,7 @@ export function ProjectCard(p: ProjectCardProps) {
         {p.error && <span className="error-text">{p.error}</span>}
         <span className="pcard-foot">
           {!p.preview && p.changes?.count
-            ? <span className="kc-time" data-ui="변경사항 수" title={t('내가 마지막으로 본 뒤 바뀐 것 (프로젝트 정보 › 변경사항)', 'Changed since you last looked (Project info › Changes)')}><b>{t(`변경사항 ${p.changes.count}`, `Changes ${p.changes.count}`)}</b>{p.changes.last && ` · ${cardTime(Date.parse(p.changes.last))}`}</span>
+            ? <span className="kc-time" data-ui="변경사항 수" title={t('내가 마지막으로 본 뒤 변경사항 (프로젝트 정보 › 변경사항)', 'Changed since you last looked (Project info › Changes)')}><b>{t(`변경사항 ${p.changes.count}`, `Changes ${p.changes.count}`)}</b>{p.changes.last && ` · ${cardTime(Date.parse(p.changes.last))}`}</span>
             : <span className="kc-time">{p.last ? t(`최근 ${cardTime(p.last)}`, `Last ${cardTime(p.last)}`) : ''}</span>}
           {r.state !== 'active' && <span className="kc-state"><ProjectStateDot state={r.state} /></span>}
           <span className="pcard-mark"><Attention mark={p.mark ?? null} issues={p.issues ?? 0} tasks={p.tasks ?? 0} edits={p.edits ?? 0} records={p.records ?? 0} sync={p.sync ?? null} onUpdate={p.preview ? undefined : p.onUpdate} /></span>
@@ -290,7 +290,7 @@ function Attention({ mark, issues, tasks = 0, edits = 0, records = 0, sync, onUp
     : sync?.conflictCount ? t(` · 이 컴퓨터의 변경과 겹치는 파일: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` 외 ${sync.conflictCount - sync.conflicts.length}개` : ''} (터미널에서 합치기)`, ` · Files overlapping with changes on this computer: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` and ${sync.conflictCount - sync.conflicts.length} more` : ''} (merge in a terminal)`)
       : sync?.canUpdate && onUpdate ? t(' (누르면 받습니다)', ' (click to pull)') : ''
   const updateTip = sync?.defaultBranch
-    ? t(`업데이트 필요 — 이 폴더가 ${sync.defaultBranch}가 아닌 ${sync.branch} 브랜치에 있어 저절로 받기와 기록 올리기를 멈췄습니다 (터미널에서 git switch ${sync.defaultBranch})`, `Needs update: this folder is on the ${sync.branch} branch, not ${sync.defaultBranch}, so automatic pulls and record pushes are paused (run git switch ${sync.defaultBranch} in a terminal)`)
+    ? t(`업데이트 필요 — 이 폴더가 ${sync.defaultBranch}가 아닌 ${sync.branch} 브랜치에 있어 자동으로 받기와 기록 올리기를 멈췄습니다 (터미널에서 git switch ${sync.defaultBranch})`, `Needs update: this folder is on the ${sync.branch} branch, not ${sync.defaultBranch}, so automatic pulls and record pushes are paused (run git switch ${sync.defaultBranch} in a terminal)`)
     : sync ? t(`업데이트 필요 — GitHub에 새 커밋 ${sync.behind}개${updateReason}`, `Needs update: ${plural(sync.behind, 'new commit')} on GitHub${updateReason}`) : ''
   if (mark === 'check') return <span className="am-dot" role="img" aria-label={checkTip} title={checkTip} />
   const tip = mark === 'both' ? `${checkTip}\n${updateTip}` : updateTip
@@ -304,7 +304,7 @@ function Attention({ mark, issues, tasks = 0, edits = 0, records = 0, sync, onUp
 function Legend({ view }: { view: View }) {
   return (
     <p className="hp-legend" aria-label={t('상태 기호와 순서 바꾸기', 'Status marks and reordering')}>
-      <span data-ui="프로젝트 순서 안내">{view === 'card' ? t('색 칸을 끌어 순서 바꾸기', 'Drag the color band to reorder') : t('머리 글자 네모를 끌어 순서 바꾸기', 'Drag the initials square to reorder')}</span>
+      <span data-ui="프로젝트 순서 안내">{view === 'card' ? t('색 칸을 끌어 순서 바꾸기', 'Drag the color band to reorder') : t('이니셜 아이콘을 끌어 순서 바꾸기', 'Drag the initials square to reorder')}</span>
       <span><span className="am-dot" aria-hidden />{t('확인 필요', 'Needs review')}</span>
       <span><span className="am-sync" aria-hidden>{Icon.sync}</span>{t('업데이트 필요', 'Needs update')}</span>
       <span><span className="am-sync" aria-hidden>{Icon.sync}<span className="turn-dot am-badge" /></span>{t('둘 다', 'Both')}</span>

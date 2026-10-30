@@ -39,13 +39,13 @@ export function FieldTags({ tags, used, tagClassName = 'tag', onChange }: { tags
       {tags.map((tag) => (
         <span key={tag} className={`${tagClassName} tag-x`} title={fields && !known.has(tag.toLowerCase()) ? t('개념노트 분류 목록에 없는 태그입니다', 'This tag is not in the concept note subject list') : undefined}>
           {tag}{fields && !known.has(tag.toLowerCase()) && <span className="muted">{t(' · 목록에 없음', ' · not in list')}</span>}
-          <button className="icon-btn" aria-label={t(`${tag} 빼기`, `Remove ${tag}`)} title={t('빼기', 'Remove')} onClick={() => onChange(tags.filter((x) => x !== tag), t(`분야 "${tag}"을 뺐습니다`, `Removed field "${tag}"`))}>×</button>
+          <button className="icon-btn" aria-label={t(`${tag} 제거`, `Remove ${tag}`)} title={t('제거', 'Remove')} onClick={() => onChange(tags.filter((x) => x !== tag), t(`분야 "${tag}"을 뺐습니다`, `Removed field "${tag}"`))}>×</button>
         </span>
       ))}
       {!tags.length && <span className="muted">{t('없음', 'None')}</span>}
       {fields && fields.length > 0 && (
         <div className="net-pick" ref={box}>
-          <button ref={trigger} className="a" aria-expanded={open} onClick={() => { setOpen(!open); setQ(''); setAt(0) }}>{t('＋ 분야 더하기', '＋ Add field')}</button>
+          <button ref={trigger} className="a" aria-expanded={open} onClick={() => { setOpen(!open); setQ(''); setAt(0) }}>{t('＋ 분야 추가', '＋ Add field')}</button>
           {open && (
             <div className="menu net-pick-menu" role="listbox">
               <input

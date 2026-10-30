@@ -127,8 +127,8 @@ export function TagLine({ tags, className = '' }: { tags: { key: string; label: 
 export function CardStar({ on, onToggle, name }: { on: boolean; onToggle?(): void; name: string }) {
   if (!onToggle) return on ? <span className="kc-star on" aria-label={t('즐겨찾기', 'Favorite')}><StarIcon on /></span> : null
   return (
-    <button type="button" className={`kc-star${on ? ' on' : ''}`} data-ui="중요 표시" aria-pressed={on} aria-label={`${on ? t('즐겨찾기 빼기', 'Unfavorite') : t('즐겨찾기', 'Favorite')}: ${name}`}
-      title={on ? t('즐겨찾기 빼기', 'Unfavorite') : t('즐겨찾기 (어느 정렬에서도 앞에 둡니다)', 'Favorite (kept first in any sort)')}
+    <button type="button" className={`kc-star${on ? ' on' : ''}`} data-ui="중요 표시" aria-pressed={on} aria-label={`${on ? t('즐겨찾기 제거', 'Unfavorite') : t('즐겨찾기', 'Favorite')}: ${name}`}
+      title={on ? t('즐겨찾기 제거', 'Unfavorite') : t('즐겨찾기 (어느 정렬에서도 앞에 둡니다)', 'Favorite (kept first in any sort)')}
       onClick={(e: MouseEvent) => { e.stopPropagation(); onToggle() }}
       onKeyDown={(e) => e.stopPropagation()}><StarIcon on={on} /></button>
   )
