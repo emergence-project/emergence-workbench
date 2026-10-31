@@ -979,5 +979,8 @@
   "폰 대화 목록": "Phone chat list",
   "폰 새 대화": "Phone new chat",
   "폰 메모 버튼": "Phone memo button",
-  "폰 메모 시트": "Phone memo sheet"
+  "폰 메모 시트": "Phone memo sheet",
+  "저장소": "Repositories",
+  "모든 저장소": "All repositories",
+  "저장소에서 동기화": "Sync from Repositories link"
 }

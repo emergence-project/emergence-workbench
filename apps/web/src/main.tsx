@@ -77,6 +77,7 @@ import './styles/inline-edits.css'
 import './styles/agent-hooks.css'
 import './styles/agent-pick.css'
 import './styles/phone.css'
+import './styles/repos.css'
 
 applyUi(cachedUi())
 phoneStart()

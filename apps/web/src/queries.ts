@@ -35,7 +35,7 @@ export const qk = {
   repoFiles: (rid: string) => ['project', rid, 'file'] as const,
   /** 프로젝트 정보 › 파일의 목록 (repoFiles 아래라 노트 · sources가 바뀌면 함께 다시 받는다) */
   repoTree: (rid: string) => ['project', rid, 'file', ''] as const,
-  /** 저장소 상태(브랜치 · GitHub와 같은지 · 커밋 안 한 변경): 현황의 동기화 줄과 사이드바 저장소 줄이 함께 읽는다 */
+  /** 저장소 상태(브랜치 · GitHub와 같은지 · 커밋 안 한 변경): 현황의 동기화 줄과 레일 「저장소」 화면이 함께 읽는다 */
   repo: (rid: string) => ['project', rid, 'repo'] as const,
   /** 맡긴 일 (workbench/tasks/*.md) */
   tasks: (rid: string) => ['project', rid, 'tasks'] as const,

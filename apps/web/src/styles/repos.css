@@ -1,0 +1,11 @@
+/* 모든 저장소 (레일 폴더 아이콘, 10/29 시안 3절 안 B): 프로젝트마다 한 줄 */
+.page-body.repos-page { max-width: 960px; gap: var(--sp-5); container-type: inline-size; }
+.repos-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.repos-table th { text-align: left; font-weight: var(--fw-medium); font-size: var(--fs-xs); color: var(--text-3); padding: var(--sp-1) var(--sp-3); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.repos-table td { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); color: var(--text-2); white-space: nowrap; vertical-align: middle; }
+.repos-table td.repos-name { width: 100%; max-width: 0; white-space: normal; }
+.repos-table td.repos-name .a { color: var(--text); font-weight: var(--fw-medium); text-align: left; }
+.repos-table td.repos-name .repo-err { font-size: var(--fs-xs); }
+.repos-table td.repos-sync { width: 1%; text-align: right; }
+.repos-table .turn-dot { vertical-align: middle; }
+@container (max-width: 560px) { .repos-table .repos-col-when { display: none; } }

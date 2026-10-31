@@ -49,6 +49,8 @@ export const DEFAULT_SCREENS = [
   ['flow-bundles', '#/r/{rid}/flow', '흐름 묶음', '[data-ui="흐름 접기"] button:text-matches("^(접기|Fold)")'],
   ['flow-bundle', '#/r/{rid}/flow', '흐름 묶음 창', '[data-ui="흐름 묶음"] .fl-node[data-id="five-colors"]'],
   ['info-status', '#/r/{rid}/status', '최근 기록'],
+  // 모든 저장소 (10/31, 레일의 에이전트 아래 폴더 아이콘): 프로젝트마다 GitHub와 같은지 · 동기화하기
+  ['repos', '#/repos', '저장소 줄'],
   // 규칙 쪽 (옛 AGENTS.md 쪽): 저장소의 AGENTS.md, STATUS.md의 규칙 절, workbench/decisions/
   ['info-agents', '#/r/{rid}/agents', '결정'],
   // 저장소 쪽 (10/28: 저장소와 파일을 합침, 나무는 왼쪽 사이드바 목차 탭). info-repo는 「자세히」를 펼친 모습
