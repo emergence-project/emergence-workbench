@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { detex, findPdf, FolderListing, lastNames, pdfWhere, useCloudDownloader } from './papers.js'
+import { conceptTags, detex, findPdf, FolderListing, lastNames, pdfWhere, useCloudDownloader } from './papers.js'
 import { app, repo, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -157,5 +157,18 @@ describe('findPdf folder listing', () => {
     for (const key of ['k1', 'k2', 'k3', 'k4']) expect(findPdf(key, undefined, dirs, [], listing)).toBe(findPdf(key, undefined, dirs, []))
     expect(findPdf('k2', undefined, dirs, [], listing)).toBe(path.join(b, 'k2.pdf'))
     expect(findPdf('k4', undefined, dirs, [], listing)).toBeUndefined()
+  })
+})
+
+describe('태그 열 (10/31 시안 1절)', () => {
+  it('논문을 출처(sources:)나 본문 [@키]로 적은 개념노트가 그 논문의 태그다', () => {
+    const lib = fs.mkdtempSync(path.join(tmp, 'lib-'))
+    fs.mkdirSync(path.join(lib, 'concepts'))
+    fs.writeFileSync(path.join(lib, 'concepts', 'kempe.md'), '---\ntitle: Kempe chain\nsources: [doeStructure2004]\n---\n\nSee [@readerGraph2010].\n')
+    fs.writeFileSync(path.join(lib, 'concepts', 'five.md'), '---\ntitle: Five color theorem\n---\n\nBy [@doeStructure2004; @other].\n')
+    const tags = conceptTags(lib)
+    expect(tags.get('doeStructure2004')?.map((x) => x.title).sort()).toEqual(['Five color theorem', 'Kempe chain'])
+    expect(tags.get('readerGraph2010')).toEqual([{ id: 'kempe', title: 'Kempe chain' }])
+    expect(tags.has('exampleDischarging2022')).toBe(false)
   })
 })

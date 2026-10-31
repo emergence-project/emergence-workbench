@@ -40,6 +40,8 @@ export const PaperRow = z.object({
   opened: z.number().optional(),
   /** 문헌노트가 있으면 그 id */
   note: z.string().optional(),
+  /** 태그: 이 논문을 출처로 적은 개념노트 (머리말 sources: · 본문 [@키], 10/31 시안 1절) */
+  tags: z.array(z.object({ id: z.string(), title: z.string() }).strict()).optional(),
 }).strict()
 /** GET /papers/bib?keys=…: 고른 키의 references.bib 항목 (연구노트의 인용 찾기, 없는 키는 빠진다) */
 export const LibraryBib = z.object({ items: z.array(BibEntry) }).strict()
@@ -53,7 +55,7 @@ export const PaperBrief = z.object({
   recent: z.array(PaperRow),
   projects: z.array(PaperProject),
   check: z.object({ noFolder: z.boolean(), answered: z.number() }).strict(),
-  stats: z.object({ noPdf: z.number(), arxiv: z.number(), unlinked: z.number(), papers: z.number(), books: z.number(), unclassified: z.number().optional() }).strict(),
+  stats: z.object({ noPdf: z.number(), arxiv: z.number(), unlinked: z.number(), papers: z.number(), books: z.number(), unclassified: z.number().optional(), comments: z.number().optional(), waiting: z.number().optional() }).strict(),
   folders: z.array(z.object({ path: z.string(), cloud: z.enum(CLOUD_KINDS) }).strict()),
 }).strict()
 export const PaperFolder = z.object({ path: z.string(), exists: z.boolean(), cloud: z.enum(CLOUD_KINDS) }).strict()

@@ -113,6 +113,8 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
     { key: 'nopdf', label: 'PDF 없음', text: t('PDF 없음', 'No PDF'), tip: t('PDF 폴더에 <bib 키>.pdf가 없는 논문', 'Papers with no <bib key>.pdf in the PDF folder'), count: b.stats.noPdf, to: list('nopdf') },
     { key: 'arxiv', label: 'arXiv로 받을 수 있음', text: t('arXiv로 받을 수 있음', 'Available on arXiv'), tip: t('PDF는 없지만 arXiv 번호가 있는 논문', 'Papers with no PDF but with an arXiv number'), count: b.stats.arxiv, to: list('arxiv') },
     { key: 'none', label: '프로젝트에 안 묶임', text: t('프로젝트에 안 묶임', 'Not linked to a project'), tip: t('어느 프로젝트에도 표시되지 않은 논문', 'Papers not marked for any project'), count: b.stats.unlinked, to: list('none') },
+    { key: 'comments', label: '코멘트 있음', text: t('코멘트 있음', 'With comments'), tip: t('코멘트가 하나라도 있는 논문', 'Papers with at least one comment'), count: b.stats.comments ?? 0, to: list('comments') },
+    { key: 'waiting', label: '답 기다리는 질문', text: t('답 기다리는 질문', 'Questions awaiting answers'), tip: t('Claude의 답을 기다리는 질문이 있는 논문', 'Papers with a question waiting for Claude'), count: b.stats.waiting ?? 0, to: list('waiting') },
     { key: 'paper', label: '논문', text: t('논문', 'Papers'), tip: t('책이 아닌 항목', 'Entries that are not books'), count: b.stats.papers, to: list('paper') },
     { key: 'book', label: '책', text: t('책', 'Books'), tip: t('bib 종류가 book · inbook · incollection · booklet인 항목', 'Entries of bib type book · inbook · incollection · booklet'), count: b.stats.books, to: list('book') },
   ]

@@ -21,10 +21,11 @@
 .pl-empty { padding: var(--sp-4); }
 .pl-scroll > .banner { margin: var(--sp-3) var(--sp-4) 0; }
 
-/* 왼쪽 사이드바 */
-.pl-side .cn-search { margin-bottom: var(--sp-2); }
+/* 왼쪽 사이드바: 모든 줄을 같은 높이 · 글자로, 분류 · 프로젝트 사이의 가는 선은 뺀다 (10/31 시안 1절) */
+.pl-side .nav, .pl-side .side-grp > summary { min-height: 32px; padding-block: var(--sp-1); font-size: var(--fs-sm); }
+.pl-side .side-grp { border-top: 0; }
+.pl-side-projects { margin-top: var(--sp-2); }
 .pl-side .nav .meta { font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
-.pl-side-head { margin: var(--sp-3) var(--sp-2) var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); }
 
 /* 표: 모든 칸은 한 줄, 넘치면 … */
 .pl-table { font-size: var(--fs-sm); padding-bottom: var(--sp-4); }
@@ -50,10 +51,15 @@
 .pl-resize::after { content: ""; position: absolute; left: 3px; top: 25%; height: 50%; width: 1px; background: var(--line); }
 .pl-resize:hover::after { background: var(--line-strong); top: 0; height: 100%; }
 
-/* 열 고르기 */
-.pl-colmenu { position: relative; }
-.pl-colmenu > .btn, .pl .lib-head .segmented { height: var(--input-h); }
-.pl-colmenu-pop { right: 0; top: calc(100% + 4px); min-width: 190px; }
+/* 찾기 (본문 맨 위 가운데)와 머리줄 왼쪽의 보기 상자 (10/31 시안 1절) */
+.pl-find { display: flex; justify-content: center; padding: var(--sp-3) var(--sp-4) var(--sp-1); }
+.pl-find .cn-search { max-width: 520px; }
+.pl-head-left { display: flex; align-items: center; gap: var(--sp-2); }
+.pl-head-left .crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rs-select.pl-show { width: auto; flex: none; height: var(--input-h); font-size: var(--fs-xs); }
+.pl .lib-head .segmented { height: var(--input-h); }
+
+/* 열 고르기 (지식 표 KnowledgeList.tsx가 쓴다) */
 .pl-colitem { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); font-size: var(--fs-sm); cursor: grab; }
 .pl-colitem:hover { background: var(--bg-hover); }
 .pl-colitem.dragging { opacity: .45; }

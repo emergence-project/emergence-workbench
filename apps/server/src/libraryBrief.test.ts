@@ -29,7 +29,7 @@ describe('논문 첫 화면 (GET /api/papers/brief)', () => {
     expect(b.total).toBe(3)
     expect(b.recent.map((p: { key: string }) => p.key)).toEqual(['new2024', 'book2010'])
     expect(b.check).toEqual({ noFolder: true, answered: 1 })
-    expect(b.stats).toEqual({ noPdf: 3, arxiv: 1, unlinked: 2, papers: 2, books: 1 })
+    expect(b.stats).toEqual({ noPdf: 3, arxiv: 1, unlinked: 2, papers: 2, books: 1, comments: 1, waiting: 0 })
 
     const pdfs = path.join(tmp, 'brief-pdfs')
     fs.mkdirSync(pdfs, { recursive: true })
