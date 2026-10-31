@@ -72,4 +72,21 @@ describe('흐름 묶음', () => {
     const l = bundleFlow([node('q', 'question', '1'), node('a', 'calc', '2', [['q', 'origin']]), node('b', 'calc', '3', [['q', 'origin']]), node('f', 'finding', '4', [['a', 'support'], ['b', 'support']])])
     expect(layoutBundle(l.bundles[0]!)).toEqual([{ id: 'q', c: 0, r: 0 }, { id: 'a', c: 1, r: 0 }, { id: 'b', c: 1, r: 1 }, { id: 'f', c: 2, r: 0 }])
   })
+
+  it('묶음 안의 자리: 날짜가 뒤섞여도 여는 점이 처음, 닫는 점이 끝 (10/31 피드백)', () => {
+    // 작업의 날짜가 질문보다 이르고(한꺼번에 만든 점), 명제 뒤에 작업이 더 있어도 명제가 마지막 열에 홀로 온다
+    const l = bundleFlow([
+      node('q', 'question', '5'),
+      node('a', 'calc', '1', [['q', 'origin']]),
+      node('b', 'calc', '2', [['a', 'origin']]),
+      node('f', 'finding', '3', [['a', 'support']]),
+      node('c', 'calc', '4', [['f', 'use']]),
+    ])
+    const at = new Map(layoutBundle(l.bundles.find((x) => x.id === 'q')!).map((p) => [p.id, p]))
+    expect(at.get('q')).toEqual({ id: 'q', c: 0, r: 0 })
+    expect(at.get('a')!.c).toBe(1)
+    expect(at.get('b')!.c).toBe(2)
+    expect(at.get('c')!.c).toBe(3)
+    expect(at.get('f')).toEqual({ id: 'f', c: 4, r: 0 })
+  })
 })
