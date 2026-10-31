@@ -1,8 +1,8 @@
 import type { PaperAdded as AddResult, ArxivCandidate, ArxivCandidates } from '@rw/core/contract/papers'
 import fs from 'node:fs'
 import path from 'node:path'
-import { writeAtomic } from './fsutil.js'
-import { LIBRARY_BIB, isSafeKey, libraryBibEntries } from './papers.js'
+import { isInside, writeAtomic } from './fsutil.js'
+import { LIBRARY_BIB, findPdf, isSafeKey, libraryBibEntries, readPapersYaml, setPaperPdf } from './papers.js'
 import type { Registry } from './registry.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
@@ -240,6 +240,27 @@ export async function addPaperPdf(registry: Registry, name: unknown, bytes: unkn
   }
   writeAtomic(target, bytes)
   return { key, existed, pdf: target }
+}
+
+/** PDF 폴더에 있지만 라이브러리에 없는 PDF를 더한다 (찾기의 Google Drive 묶음, 10/31 시안 1절).
+ *  파일은 옮기거나 베끼지 않고, papers.yaml pdf:에 그 자리(PDF 폴더 기준)를 적는다 */
+export async function addPaperFile(registry: Registry, raw: unknown): Promise<AddResult> {
+  const file = typeof raw === 'string' ? path.resolve(raw) : ''
+  const folder = registry.pdfFolders.find((f) => isInside(f, file))
+  if (!folder || !file.toLowerCase().endsWith('.pdf') || !fs.existsSync(file)) throw new WorkbenchError(400, t('PDF 폴더 안의 PDF만 더할 수 있습니다', 'Only PDFs inside a PDF folder can be added'))
+  const id = idInPdf(path.basename(file), readHead(file))
+  if (!id) throw new WorkbenchError(422, t('PDF에서 arXiv 번호나 DOI를 찾지 못했습니다. 목록의 「＋ 논문 추가」에 번호와 함께 끌어다 놓아 주세요', 'Could not find an arXiv number or DOI in the PDF. Drop it on "＋ Add paper" in the list together with the number'))
+  const lib = libOf(registry)
+  const { key, existed } = await ensureEntry(lib, id)
+  // 이미 <키>.pdf가 있으면 그것을 쓰고 pdf:는 적지 않는다
+  if (!findPdf(key, readPapersYaml(lib)[key], registry.pdfFolders, [])) setPaperPdf(lib, key, posixRel(folder, file))
+  return { key, existed, pdf: file }
+}
+const posixRel = (from: string, to: string) => path.relative(from, to).split(path.sep).join('/')
+/** PDF 첫 부분만 읽는다 (번호는 앞쪽에 있다) */
+export function readHead(file: string, n = 400_000): Buffer {
+  const fd = fs.openSync(file, 'r')
+  try { const buf = Buffer.alloc(n); const got = fs.readSync(fd, buf, 0, n, 0); return buf.subarray(0, got) } finally { fs.closeSync(fd) }
 }
 
 // ---------- arXiv 찾기 (10/11 12:46): DOI로 더한 논문에 arXiv 판이 있으면 번호를 찾아 사용자가 고른 것만 bib에 적는다 ----------

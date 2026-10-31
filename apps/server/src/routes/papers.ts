@@ -8,7 +8,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { askPrompt, claudeRunner } from '../ask.js'
 import { addPaperNote, appendPaperAnswer, deletePaperNote, readPaperComments, updatePaperNote } from '../paperComments.js'
-import { addPaper, addPaperPdf, findArxiv, setEprint } from '../paperAdd.js'
+import { addPaper, addPaperFile, addPaperPdf, findArxiv, setEprint } from '../paperAdd.js'
+import { searchPapers } from '../paperSearch.js'
 import { cloudOf, libraryBibEntries, markOpened, paperPdfFile, setPaperProjects, detex } from '../papers.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -41,6 +42,10 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
   app.put<{ Params: { key: string } }>('/api/papers/:key/projects', replies(C.PaperProjects), async (req): Promise<C.PaperProjects> => ({ projects: setPaperProjects(registry, req.params.key, parseBody(C.SetPaperProjectsBody, req.body).projects) }))
   /** 더하기: arXiv 번호나 DOI (references.bib 끝에 덧붙이고, arXiv면 PDF도 받는다) */
   app.post('/api/papers', replies(C.PaperAdded), async (req): Promise<C.PaperAdded> => addPaper(registry, parseBody(C.AddPaperBody, req.body).id))
+  /** 찾기의 바깥 결과: PDF 폴더에만 있는 PDF와 인터넷(arXiv · Semantic Scholar · Crossref) */
+  app.get<{ Querystring: { q?: string } }>('/api/papers/search', replies(C.PaperSearch), async (req): Promise<C.PaperSearch> => searchPapers(registry, (req.query.q ?? '').slice(0, 200)))
+  /** PDF 폴더에 있는 PDF를 라이브러리에 더한다 (파일은 옮기지 않고 papers.yaml pdf:로 잇는다) */
+  app.post('/api/papers/file', replies(C.PaperAdded), async (req): Promise<C.PaperAdded> => addPaperFile(registry, parseBody(C.AddPaperFileBody, req.body).file))
   /** arXiv 번호가 없는 논문의 arXiv 판 후보 (제목 · 첫 저자로 찾고 DOI가 같은 것을 앞에) */
   app.get<{ Params: { key: string } }>('/api/papers/:key/arxiv', replies(C.ArxivCandidates), async (req): Promise<C.ArxivCandidates> => findArxiv(registry, req.params.key))
   /** 고른 arXiv 번호를 bib 항목에 적는다 */

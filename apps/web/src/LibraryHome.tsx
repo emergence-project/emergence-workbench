@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { figuresApi, LIBRARY_SCOPE, papersApi, type FigureBrief, type LibraryInfo, type PaperBrief } from './api'
+import { figuresApi, LIBRARY_SCOPE, papersApi, type FigureBrief, type LibraryInfo, type PaperBrief, type PaperRow } from './api'
 import { FIGURES_CHANGED } from './figureEmbed'
 import { AddFigure, FigureCard, scopeTitle, showFigure, showRecentFigures } from './FiguresPage'
 import { LibraryStorage, StoreLine } from './LibraryStorage'
+import { PaperFind } from './PaperFind'
 import { AddPaper, PAPERS_CHANGED, PaperCard, showPaper, showRecentPapers } from './PapersPage'
 import { go, type Route } from './router'
 import { plural, t } from './i18n'
@@ -39,8 +40,8 @@ function useOneRow(): [React.RefObject<HTMLDivElement | null>, number] {
 /** 점검 · 통계 한 줄 */
 interface StatRow { key: string; label: string; text: string; tip: string; count: number; to: Route }
 
-function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, check, stats, statsNote, error, notice, rightOpen, side }: {
-  ui: string; kind: 'pl' | 'fg'; recentTitle: string; recentText: string; recentTip: string; onRecent(): void
+function Home({ ui, kind, find, recentTitle, recentText, recentTip, onRecent, cards, check, stats, statsNote, error, notice, rightOpen, side }: {
+  ui: string; find?: ReactNode; kind: 'pl' | 'fg'; recentTitle: string; recentText: string; recentTip: string; onRecent(): void
   cards(cols: number): ReactNode
   check: StatRow[] | null; stats: StatRow[] | null; statsNote?: string
   error: string | null; notice?: string | null; rightOpen: boolean; side: ReactNode
@@ -53,6 +54,7 @@ function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, c
         <div className="scroll kh-main">
           {error && <div className="banner danger">{t('첫 화면 숫자를 읽지 못했습니다', 'Could not read the counts for this page')}: {error}</div>}
           {notice && <div className="banner">{notice}</div>}
+          {find}
           <section className="kh-sec lh-wide" data-ui={recentTitle}>
             <h2 className="kh-h"><button className="a lh-h-link" title={recentTip} onClick={onRecent}>{recentText}</button></h2>
             <div ref={row} className={`lh-cards ${kind}`}>{cards(cols)}</div>
@@ -103,6 +105,11 @@ const folderName = (p: string) => p.split('/').filter(Boolean).pop() ?? p
 export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | null; rightOpen: boolean; onSaved(m: string): void }) {
   const [b, error] = useBrief<PaperBrief>(loadPapers, PAPERS_CHANGED, info)
   const title = (id: string) => b?.projects.find((p) => p.id === id)?.title ?? id
+  // 찾기 (10/31 시안 1절): 라이브러리 묶음은 글을 처음 쓸 때 목록을 한 번 받아 거른다
+  const [q, setQ] = useState('')
+  const [all, setAll] = useState<PaperRow[] | null>(null)
+  useEffect(() => { if (q.trim() && !all) void papersApi.list().then((l) => setAll(l.papers)).catch(() => setAll([])) }, [q, all])
+  useEffect(() => { const reset = () => setAll(null); window.addEventListener(PAPERS_CHANGED, reset); return () => window.removeEventListener(PAPERS_CHANGED, reset) }, [])
   const list = (filter: string): Route => ({ page: 'shelf', filter })
   const check: StatRow[] | null = b && [
     { key: 'folder', label: 'PDF 폴더 정하기', text: t('PDF 폴더 정하기', 'Choose a PDF folder'), tip: t('PDF를 찾고 받아 둘 iCloud · Google Drive 폴더가 아직 없습니다', 'There is no iCloud or Google Drive folder yet for finding and saving PDFs'), count: b.check.noFolder ? 1 : 0, to: { page: 'settings', part: 'library-papers' } },
@@ -123,7 +130,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
     return f.length ? f.map((x) => <StoreLine key={x.path} title={x.path}>{t('PDF 폴더', 'PDF folder')} {folderName(x.path)}</StoreLine>) : <StoreLine idle>{t('PDF 폴더 연결 안 함', 'No PDF folder connected')} <button className="a" onClick={() => go({ page: 'settings', part: 'library-papers' })}>{t('연결하기', 'Connect')}</button></StoreLine>
   }
   return (
-    <Home ui="논문 첫 화면" kind="pl" recentTitle="최근 더한 논문" recentText={t('최근 더한 논문', 'Recently added papers')} recentTip={t('목록에서 더한 순서(최근 것부터)로 보기', 'View the list in order added (newest first)')} onRecent={showRecentPapers}
+    <Home ui="논문 첫 화면" kind="pl" find={<div className="lh-find"><PaperFind value={q} onChange={setQ} papers={all ?? []} projects={b?.projects ?? []} onSaved={onSaved} /></div>} recentTitle="최근 더한 논문" recentText={t('최근 더한 논문', 'Recently added papers')} recentTip={t('목록에서 더한 순서(최근 것부터)로 보기', 'View the list in order added (newest first)')} onRecent={showRecentPapers}
       error={error} notice={b && !b.library ? t('공유 라이브러리가 설정되지 않았습니다. 설정 › 라이브러리 관리에서 저장 위치를 확인해 주세요.', 'The shared library is not set up. Check its location in Settings › Library.') : null}
       check={check} stats={stats} statsNote={b ? t(`${b.total}편`, `${b.total}`) : undefined} rightOpen={rightOpen}
       cards={(cols) => <>

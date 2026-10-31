@@ -1,0 +1,16 @@
+/* 논문 찾기 칸과 결과 묶음 (PaperFind.tsx, 10/31 시안 1절): 첫 화면 · 목록 맨 위 가운데 */
+.pf { position: relative; width: 100%; max-width: 520px; }
+.pf-pop { position: absolute; z-index: var(--z-menu); top: calc(100% + var(--sp-1)); left: 0; right: 0; max-height: min(70vh, 560px); overflow-y: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-1) 0; }
+.pf-group + .pf-group { border-top: 1px solid var(--line); }
+.pf-h { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-2) var(--sp-3) var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }
+.pf-n { font-weight: var(--fw-normal); }
+.pf-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-2); width: 100%; padding: var(--sp-1) var(--sp-3); text-align: left; font-size: var(--fs-sm); }
+button.pf-row:hover { background: var(--bg-hover); }
+.pf-title { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-meta { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
+.pf-out .btn { grid-column: 2; grid-row: 1 / span 2; }
+.pf-more { display: block; padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); }
+.pf-wait, .pf-none { margin: 0; padding: var(--sp-1) var(--sp-3) var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
+.pf-err { margin: var(--sp-1) var(--sp-2); }
+/* 첫 화면: 찾기 아래로 최근 더한 논문과 틈을 둔다 (시안 1절 "찾기 아래 간격") */
+.lh-find { display: flex; justify-content: center; }

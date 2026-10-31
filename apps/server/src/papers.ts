@@ -269,7 +269,21 @@ export function setPaperProjects(registry: Registry, key: string, projects: unkn
   const ids = new Set(registry.list().map((r) => r.id))
   const unknown = (projects as string[]).filter((p) => !ids.has(p))
   if (unknown.length) throw new WorkbenchError(400, t(`없는 프로젝트: ${unknown.join(', ')}`, `Unknown projects: ${unknown.join(', ')}`))
-  // 이 논문의 projects:만 그 자리에서 고친다. 다른 논문·다른 칸(사람·에이전트가 적은 것)과 주석은 그대로 둔다
+  const next = [...new Set(projects as string[])]
+  editPaperEntry(lib, key, (doc) => {
+    if (next.length) doc.setIn([key, 'projects'], doc.createNode(next, { flow: true }))
+    else if (doc.hasIn([key, 'projects'])) doc.deleteIn([key, 'projects'])
+  })
+  return next
+}
+
+/** 논문의 PDF 위치(papers.yaml pdf:, PDF 폴더 기준 또는 절대 경로)를 적는다. 찾기에서 PDF 폴더의 파일을 그 자리 그대로 더할 때 */
+export function setPaperPdf(lib: string, key: string, pdf: string): void {
+  editPaperEntry(lib, key, (doc) => { doc.setIn([key, 'pdf'], pdf) })
+}
+
+/** papers.yaml의 한 논문 항목만 그 자리에서 고친다. 다른 논문·다른 칸(사람·에이전트가 적은 것)과 주석은 그대로 둔다 */
+function editPaperEntry(lib: string, key: string, edit: (doc: YAML.Document) => void): void {
   const file = path.join(lib, PAPERS_FILE)
   const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
   const doc = text.trim() ? YAML.parseDocument(text) : YAML.parseDocument(PAPERS_HEAD)
@@ -281,14 +295,11 @@ export function setPaperProjects(registry: Registry, key: string, projects: unkn
   // '키:'처럼 값이 빈 항목은 없는 것으로 본다
   if (YAML.isScalar(entry) && entry.value == null) doc.delete(key)
   else if (entry != null && !YAML.isMap(entry)) throw new WorkbenchError(422, t(`papers.yaml의 ${key} 항목이 {projects, pdf} 꼴이 아니어서 고치지 않았습니다`, `The ${key} entry in papers.yaml is not in the form {projects, pdf}, so nothing was changed`))
-  const next = [...new Set(projects as string[])]
-  if (next.length) doc.setIn([key, 'projects'], doc.createNode(next, { flow: true }))
-  else if (doc.hasIn([key, 'projects'])) doc.deleteIn([key, 'projects'])
+  edit(doc)
   const left = doc.get(key, true)
   if (YAML.isMap(left) && !left.items.length) doc.delete(key)
   const out = doc.toString({ flowCollectionPadding: false, lineWidth: 0 })
   if (out !== text) writeAtomic(file, out)
-  return next
 }
 
 /** iCloud가 받지 않은 파일(.<이름>.icloud)을 받기 시작한다 (맥의 brctl). 기다리지 않는다 */

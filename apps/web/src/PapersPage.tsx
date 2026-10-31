@@ -1,3 +1,4 @@
+import { PaperFind } from './PaperFind'
 import { SubjectPicker, useSubjects, LibrarySubjectSide } from './SubjectPicker'
 import { subjectsApi, matchesSubject } from './api/subjects'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type ReactNode } from 'react'
@@ -268,9 +269,7 @@ export function PapersPage({ filter: routeFilter, open, onSaved }: { filter?: Pa
     <main className={`stage full pl${paper ? ' with-side' : ''}`} data-ui="논문">
       <section className="pane">
         {/* 찾기는 본문 맨 위 가운데 (10/31 시안 1절, 사이드바의 찾기를 옮김) */}
-        <div className="pl-find" data-ui="논문 찾기">
-          <input className="cn-search" type="search" value={q} placeholder={t('찾기 — 제목 · 저자 · 저널 · arXiv', 'Search title, author, journal, arXiv')} aria-label={t('논문 찾기', 'Search papers')} onChange={(e) => setQuery(e.target.value)} />
-        </div>
+        <div className="pl-find"><PaperFind value={q} onChange={setQuery} projects={data?.projects ?? []} onSaved={onSaved} /></div>
         {/* 세 구역: 왼쪽 무엇(거르기 · 수 · 보기) · 가운데 표 · 카드 · 오른쪽 카드 정렬 (디자인 시스템 6절) */}
         <div className="pane-head bar3 lib-head" data-ui="머리줄">
           <span className="lib-head-left pl-head-left">
