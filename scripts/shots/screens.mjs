@@ -177,6 +177,10 @@ export const PHONE_SCREENS = [
   // 폰으로 #/를 열면 내 차례로 간다 (10/31). 넷째 칸이 있으면 그것을 눌러 연 뒤 찍는다
   ['phone-turns', '#/', '내 차례'],
   ['phone-sheet', '#/turns', '답 시트', '[data-ui="내 차례 카드"] .ph-card-main'],
+  ['phone-projects', '#/projects', '폰 프로젝트 카드'],
+  ['phone-topics', '#/projects/{rid}', '폰 주제'],
+  ['phone-topic-notes', '#/projects/{rid}/t/kempe', '폰 노트'],
+  ['phone-tasks', '#/projects/{rid}/tasks', '폰 프로젝트 보기'],
   ['phone-project', '#/r/{rid}', '작업 화면'],
   ['phone-note', '#/r/{rid}/j/four-colors', '작업 화면'],
   ['phone-feedback', '#/feedback', '피드백 표'],

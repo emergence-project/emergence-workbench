@@ -22,7 +22,7 @@ function Tabs({ route, version }: { route: Route; version: number }) {
   const on = tabOf(route)
   const tabs: { key: TabKey; label: string; icon: ReactNode; to: Route; n?: number }[] = [
     { key: 'turns', label: t('차례', 'Turn'), icon: Icon.flag, to: { page: 'turns' }, n: items.length },
-    { key: 'projects', label: t('프로젝트', 'Projects'), icon: Icon.research, to: { page: 'home' } },
+    { key: 'projects', label: t('프로젝트', 'Projects'), icon: Icon.research, to: { page: 'projects' } },
     { key: 'agent', label: t('대화', 'Chats'), icon: Icon.spark, to: { page: 'agent' } },
     { key: 'settings', label: t('설정', 'Settings'), icon: Icon.settings, to: { page: 'settings' } },
   ]
