@@ -12,5 +12,5 @@ button.pf-row:hover { background: var(--bg-hover); }
 .pf-more { display: block; padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); }
 .pf-wait, .pf-none { margin: 0; padding: var(--sp-1) var(--sp-3) var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
 .pf-err { margin: var(--sp-1) var(--sp-2); }
-/* 첫 화면: 찾기 아래로 최근 더한 논문과 틈을 둔다 (시안 1절 "찾기 아래 간격") */
+/* 첫 화면: 찾기 칸을 가운데에 (자리는 library-home.css .lh-pmain) */
 .lh-find { display: flex; justify-content: center; }

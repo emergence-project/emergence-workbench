@@ -19,3 +19,12 @@
 .lib-head-mid { justify-self: center; }
 .lib-head-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); min-width: 0; }
 .lib-head-right .segmented { flex: none; }
+
+/* 논문 첫 화면 (10/31 시안 1절): 찾기는 위에서 1/3, 최근 확인한 논문 · 추천 논문은 아래 좌우. 남는 높이를 1 : 2로 나눈다 */
+.lh-pmain .lh-gap { flex: 1 1 0; min-height: 0; }
+.lh-pmain .lh-gap.two { flex-grow: 2; }
+.lh-row { grid-template-columns: minmax(0, 1fr) auto; }
+.lh-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lh-row .kh-subject { font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lh-source { margin: var(--sp-2) 0 0; }
+.lh-find .pf { max-width: 640px; }

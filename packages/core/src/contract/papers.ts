@@ -53,6 +53,8 @@ export const PaperBrief = z.object({
   library: z.boolean(),
   total: z.number(),
   recent: z.array(PaperRow),
+  /** 최근 확인한 논문 (10/31 시안 1절): 답이 온 질문이 있는 것을 먼저, 그다음 이 맥에서 연 순 */
+  opened: z.array(PaperRow),
   projects: z.array(PaperProject),
   check: z.object({ noFolder: z.boolean(), answered: z.number() }).strict(),
   stats: z.object({ noPdf: z.number(), arxiv: z.number(), unlinked: z.number(), papers: z.number(), books: z.number(), unclassified: z.number().optional(), comments: z.number().optional(), waiting: z.number().optional() }).strict(),
@@ -92,6 +94,10 @@ export const AddPaperFileBody = z.object({ file: z.string() })
 /** 찾기의 바깥 결과 (10/31 시안 1절): PDF 폴더에서 라이브러리에 없는 PDF, 인터넷(arXiv · Semantic Scholar · Crossref). id = 더할 때 보낼 arXiv 번호나 DOI */
 export const PaperDriveHit = z.object({ file: z.string(), name: z.string(), folder: z.string(), cloud: z.enum(CLOUD_KINDS), id: z.string().optional() }).strict()
 export const PaperWebHit = z.object({ source: z.enum(['arxiv', 's2', 'crossref']), id: z.string(), title: z.string(), authors: z.array(z.string()), year: z.string().optional(), venue: z.string().optional() }).strict()
+/** 추천 논문 하나 (Semantic Scholar 추천의 최근 논문, 라이브러리에 없는 것). id = 더할 때 보낼 arXiv 번호나 DOI */
+export const PaperPick = z.object({ id: z.string(), title: z.string(), authors: z.array(z.string()), year: z.string().optional(), venue: z.string().optional(), date: z.string().optional() }).strict()
+/** GET /papers/recommend. seeds = 기준으로 쓴 라이브러리 논문 수, offline = 받지 못함 */
+export const PaperRecommend = z.object({ picks: z.array(PaperPick), seeds: z.number(), offline: z.boolean() }).strict()
 /** GET /papers/search?q=. offline = 인터넷 찾기가 모두 실패 */
 export const PaperSearch = z.object({ drive: z.array(PaperDriveHit), web: z.array(PaperWebHit), offline: z.boolean() }).strict()
 export const SetPdfFoldersBody = z.object({ folders: z.array(z.string()) })
@@ -115,6 +121,8 @@ export type PaperProject = z.infer<typeof PaperProject>
 export type PaperList = z.infer<typeof PaperList>
 export type LibraryBib = z.infer<typeof LibraryBib>
 export type PaperBrief = z.infer<typeof PaperBrief>
+export type PaperPick = z.infer<typeof PaperPick>
+export type PaperRecommend = z.infer<typeof PaperRecommend>
 export type PaperFolder = z.infer<typeof PaperFolder>
 export type PaperFolders = z.infer<typeof PaperFolders>
 export type PaperAdded = z.infer<typeof PaperAdded>

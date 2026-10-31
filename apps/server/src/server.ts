@@ -9,6 +9,7 @@ import { buildApp } from './app.js'
 import { sampleAgentRunner } from './agentSample.js'
 import { sampleAppWork } from './appWorktree.js'
 import { tikzCachePath } from './figures.js'
+import { usePaperFetcher } from './paperAdd.js'
 import { Google, mockGoogleFetch } from './google.js'
 import { macSteps, promoteNextBuild } from './appupdate.js'
 import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
@@ -135,6 +136,11 @@ if (process.env.RW_SANDBOX === '1') {
     fs.writeFileSync(path.join(library, 'papers.yaml'), 'exampleDischarging2022:\n  projects: [sample-research]\ndoeStructurePlanar2004:\n  projects: [sample-research]\n')
   }
   if (!registry.pdfFoldersSet.length) registry.setPdfFolders([paperPdfs])
+  // 논문 첫 화면 예제: 최근 확인한 논문(이 맥에서 연 때)과 추천 논문(바깥에 묻지 않고 정해 둔 답)
+  const openedFile = path.join(configDir, 'papers-opened.json')
+  if (!fs.existsSync(openedFile)) cpSample(path.join(repoRoot, 'fixtures/sandbox-papers/opened.json'), openedFile)
+  const sampleRecommend = fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/recommend.json'), 'utf8')
+  usePaperFetcher((url, init) => (url.includes('/recommendations/') ? Promise.resolve(new Response(sampleRecommend)) : fetch(url, { ...init, signal: AbortSignal.timeout(30_000) })))
   // 그림 화면 예제: 공용 그림 셋(tikz 하나)과 예제 연구 전용 그림 둘 (fixtures/sandbox-figures).
   // tikz는 맥의 TeX로 SVG를 만드는데, 예제 모드는 TeX가 없어도 보이게 미리 그린 SVG를 캐시에 둔다
   const libFigures = path.join(library, 'figures')

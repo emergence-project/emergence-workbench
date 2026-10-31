@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { figuresApi, LIBRARY_SCOPE, papersApi, type FigureBrief, type LibraryInfo, type PaperBrief, type PaperRow } from './api'
+import { figuresApi, LIBRARY_SCOPE, papersApi, type FigureBrief, type LibraryInfo, type PaperBrief, type PaperPick, type PaperRecommend, type PaperRow } from './api'
 import { FIGURES_CHANGED } from './figureEmbed'
 import { AddFigure, FigureCard, scopeTitle, showFigure, showRecentFigures } from './FiguresPage'
 import { LibraryStorage, StoreLine } from './LibraryStorage'
 import { PaperFind } from './PaperFind'
-import { AddPaper, PAPERS_CHANGED, PaperCard, showPaper, showRecentPapers } from './PapersPage'
+import { PAPERS_CHANGED, showPaper } from './PapersPage'
+import { relativeTime } from './format'
 import { go, type Route } from './router'
 import { plural, t } from './i18n'
 
 /**
- * 논문 · 그림 첫 화면 (라이브러리 L2, 설계 결정 2026-10-06 "라이브러리 첫 화면").
+ * 그림 첫 화면 (라이브러리 L2, 설계 결정 2026-10-06 "라이브러리 첫 화면"). 논문 첫 화면은 10/31 시안대로 따로(PapersHome).
  * 지식 첫 화면(KnowledgeHome.tsx)과 같은 틀(.kh-*): 머리줄 없이 ① 최근 더한 것(카드 한 줄, 맨 앞은 점선 더하기 카드)
  * ② 왼쪽 점검(사용자 차례, 주황 수, 0인 줄은 숨김) · 오른쪽 통계(0이면 흐리게). 점검 · 통계 줄은 목록을 그 거르기로 연다.
  * 오른쪽 사이드바는 라이브러리 정보(LibraryStorage). 숫자는 서버가 한 번에 센다(GET /api/papers/brief · /api/figures/brief).
@@ -40,8 +41,8 @@ function useOneRow(): [React.RefObject<HTMLDivElement | null>, number] {
 /** 점검 · 통계 한 줄 */
 interface StatRow { key: string; label: string; text: string; tip: string; count: number; to: Route }
 
-function Home({ ui, kind, find, recentTitle, recentText, recentTip, onRecent, cards, check, stats, statsNote, error, notice, rightOpen, side }: {
-  ui: string; find?: ReactNode; kind: 'pl' | 'fg'; recentTitle: string; recentText: string; recentTip: string; onRecent(): void
+function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, check, stats, statsNote, error, notice, rightOpen, side }: {
+  ui: string; kind: 'pl' | 'fg'; recentTitle: string; recentText: string; recentTip: string; onRecent(): void
   cards(cols: number): ReactNode
   check: StatRow[] | null; stats: StatRow[] | null; statsNote?: string
   error: string | null; notice?: string | null; rightOpen: boolean; side: ReactNode
@@ -54,7 +55,6 @@ function Home({ ui, kind, find, recentTitle, recentText, recentTip, onRecent, ca
         <div className="scroll kh-main">
           {error && <div className="banner danger">{t('첫 화면 숫자를 읽지 못했습니다', 'Could not read the counts for this page')}: {error}</div>}
           {notice && <div className="banner">{notice}</div>}
-          {find}
           <section className="kh-sec lh-wide" data-ui={recentTitle}>
             <h2 className="kh-h"><button className="a lh-h-link" title={recentTip} onClick={onRecent}>{recentText}</button></h2>
             <div ref={row} className={`lh-cards ${kind}`}>{cards(cols)}</div>
@@ -101,43 +101,81 @@ function useBrief<T>(load: () => Promise<T>, event: string, info: unknown): [T |
 
 const loadPapers = () => papersApi.brief(RECENT)
 const folderName = (p: string) => p.split('/').filter(Boolean).pop() ?? p
+const SHOW = 6
+const short = (authors: string[]) => (authors.length > 2 ? `${authors.slice(0, 2).join(', ')}${t(' 외', ' et al.')}` : authors.join(', '))
+const pickWhen = (p: PaperPick) => (p.date ? `${Number(p.date.slice(5, 7))}/${Number(p.date.slice(8, 10))}` : p.year)
 
+/**
+ * 논문 첫 화면 (10/31 시안 1절 확정): 위에서 1/3에 찾기, 아래 왼쪽 최근 확인한 논문 · 오른쪽 추천 논문.
+ * 점검 · 통계 줄은 두지 않는다: 답이 온 질문은 최근 확인한 논문 맨 앞(주황 수), 정리할 것(PDF 없음 · 분류 없음 …)은 목록의 보기 상자.
+ */
 export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | null; rightOpen: boolean; onSaved(m: string): void }) {
   const [b, error] = useBrief<PaperBrief>(loadPapers, PAPERS_CHANGED, info)
-  const title = (id: string) => b?.projects.find((p) => p.id === id)?.title ?? id
   // 찾기 (10/31 시안 1절): 라이브러리 묶음은 글을 처음 쓸 때 목록을 한 번 받아 거른다
   const [q, setQ] = useState('')
   const [all, setAll] = useState<PaperRow[] | null>(null)
   useEffect(() => { if (q.trim() && !all) void papersApi.list().then((l) => setAll(l.papers)).catch(() => setAll([])) }, [q, all])
   useEffect(() => { const reset = () => setAll(null); window.addEventListener(PAPERS_CHANGED, reset); return () => window.removeEventListener(PAPERS_CHANGED, reset) }, [])
-  const list = (filter: string): Route => ({ page: 'shelf', filter })
-  const check: StatRow[] | null = b && [
-    { key: 'folder', label: 'PDF 폴더 정하기', text: t('PDF 폴더 정하기', 'Choose a PDF folder'), tip: t('PDF를 찾고 받아 둘 iCloud · Google Drive 폴더가 아직 없습니다', 'There is no iCloud or Google Drive folder yet for finding and saving PDFs'), count: b.check.noFolder ? 1 : 0, to: { page: 'settings', part: 'library-papers' } },
-    { key: 'answered', label: '답이 온 질문', text: t('답이 온 질문', 'Answered questions'), tip: t('Claude가 답한 논문 질문 가운데 아직 끝내지 않은 것', 'Paper questions Claude answered that are not marked done yet'), count: b.check.answered, to: list('answered') },
-  ]
-  const stats: StatRow[] | null = b && [
-    ...(b.stats.unclassified !== undefined ? [{ key: 'unclassified', label: '분류 없음', text: t('분류 없음', 'No subject'), tip: t('분류 나무의 ID가 없는 자료', 'Items without an ID from the subject tree'), count: b.stats.unclassified, to: list('unclassified') }] : []),
-    { key: 'nopdf', label: 'PDF 없음', text: t('PDF 없음', 'No PDF'), tip: t('PDF 폴더에 <bib 키>.pdf가 없는 논문', 'Papers with no <bib key>.pdf in the PDF folder'), count: b.stats.noPdf, to: list('nopdf') },
-    { key: 'arxiv', label: 'arXiv로 받을 수 있음', text: t('arXiv로 받을 수 있음', 'Available on arXiv'), tip: t('PDF는 없지만 arXiv 번호가 있는 논문', 'Papers with no PDF but with an arXiv number'), count: b.stats.arxiv, to: list('arxiv') },
-    { key: 'none', label: '프로젝트에 안 묶임', text: t('프로젝트에 안 묶임', 'Not linked to a project'), tip: t('어느 프로젝트에도 표시되지 않은 논문', 'Papers not marked for any project'), count: b.stats.unlinked, to: list('none') },
-    { key: 'comments', label: '코멘트 있음', text: t('코멘트 있음', 'With comments'), tip: t('코멘트가 하나라도 있는 논문', 'Papers with at least one comment'), count: b.stats.comments ?? 0, to: list('comments') },
-    { key: 'waiting', label: '답 기다리는 질문', text: t('답 기다리는 질문', 'Questions awaiting answers'), tip: t('Claude의 답을 기다리는 질문이 있는 논문', 'Papers with a question waiting for Claude'), count: b.stats.waiting ?? 0, to: list('waiting') },
-    { key: 'paper', label: '논문', text: t('논문', 'Papers'), tip: t('책이 아닌 항목', 'Entries that are not books'), count: b.stats.papers, to: list('paper') },
-    { key: 'book', label: '책', text: t('책', 'Books'), tip: t('bib 종류가 book · inbook · incollection · booklet인 항목', 'Entries of bib type book · inbook · incollection · booklet'), count: b.stats.books, to: list('book') },
-  ]
+  const [rec, recError] = useBrief<PaperRecommend>(papersApi.recommend, PAPERS_CHANGED, info)
+  const [busy, setBusy] = useState<string | null>(null)
+  const add = async (id: string) => {
+    setBusy(id)
+    try {
+      const r = await papersApi.add(id)
+      window.dispatchEvent(new Event(PAPERS_CHANGED))
+      onSaved(r.existed ? t(`이미 있는 논문입니다: ${r.key}`, `Paper already exists: ${r.key}`) : t(`더했습니다: ${r.key}`, `Added: ${r.key}`))
+    } catch (e) { onSaved(e instanceof Error ? e.message : String(e)) } finally { setBusy(null) }
+  }
   const clouds = (kind: 'icloud' | 'drive') => {
     const f = (b?.folders ?? []).filter((x) => x.cloud === kind)
     return f.length ? f.map((x) => <StoreLine key={x.path} title={x.path}>{t('PDF 폴더', 'PDF folder')} {folderName(x.path)}</StoreLine>) : <StoreLine idle>{t('PDF 폴더 연결 안 함', 'No PDF folder connected')} <button className="a" onClick={() => go({ page: 'settings', part: 'library-papers' })}>{t('연결하기', 'Connect')}</button></StoreLine>
   }
+  const opened = b?.opened.slice(0, SHOW) ?? []
+  const answered = opened.some((p) => p.answered > 0)
   return (
-    <Home ui="논문 첫 화면" kind="pl" find={<div className="lh-find"><PaperFind value={q} onChange={setQ} papers={all ?? []} projects={b?.projects ?? []} onSaved={onSaved} /></div>} recentTitle="최근 더한 논문" recentText={t('최근 더한 논문', 'Recently added papers')} recentTip={t('목록에서 더한 순서(최근 것부터)로 보기', 'View the list in order added (newest first)')} onRecent={showRecentPapers}
-      error={error} notice={b && !b.library ? t('공유 라이브러리가 설정되지 않았습니다. 설정 › 라이브러리 관리에서 저장 위치를 확인해 주세요.', 'The shared library is not set up. Check its location in Settings › Library.') : null}
-      check={check} stats={stats} statsNote={b ? t(`${b.total}편`, `${b.total}`) : undefined} rightOpen={rightOpen}
-      cards={(cols) => <>
-        <AddPaper look="card" compact onSaved={onSaved} onAdded={() => undefined} />
-        {b?.recent.slice(0, cols - 1).map((p) => <PaperCard key={p.key} compact paper={p} projectTitle={title} onClick={() => showPaper(p.key)} />)}
-      </>}
-      side={<LibraryStorage info={info} section="papers" git={b ? t(`논문 ${b.total}편`, plural(b.total, 'paper')) : undefined} icloud={clouds('icloud')} drive={clouds('drive')} />} />
+    <main className="kn-page kh-page" data-ui="논문 첫 화면">
+      <div className={`kh-layout${rightOpen ? '' : ' no-right'}`}>
+        <div className="scroll kh-main lh-pmain">
+          {error && <div className="banner danger">{t('첫 화면 숫자를 읽지 못했습니다', 'Could not read the counts for this page')}: {error}</div>}
+          {b && !b.library && <div className="banner">{t('공유 라이브러리가 설정되지 않았습니다. 설정 › 라이브러리 관리에서 저장 위치를 확인해 주세요.', 'The shared library is not set up. Check its location in Settings › Library.')}</div>}
+          <div className="lh-gap" aria-hidden />
+          <div className="lh-find"><PaperFind value={q} onChange={setQ} papers={all ?? []} projects={b?.projects ?? []} onSaved={onSaved} /></div>
+          <div className="lh-gap two" aria-hidden />
+          <div className="kh-cols">
+            <section className="kh-sec" data-ui="최근 확인한 논문">
+              <h2 className="kh-h">{answered && <span className="turn-dot kh-dot" aria-hidden />}<button className="a lh-h-link" title={t('목록에서 모두 보기', 'See all in the list')} onClick={() => go({ page: 'shelf', list: true })}>{t('최근 확인한 논문', 'Recently checked papers')}</button></h2>
+              {b && opened.length === 0 && <p className="empty kh-empty">{t('아직 연 논문이 없습니다. 논문을 열면 여기에 열어 본 순서로 보입니다.', 'No papers opened yet. Papers you open show here, latest first.')}</p>}
+              <div className="kh-rows">
+                {opened.map((p) => (
+                  <button key={p.key} className="kh-row lh-row" data-ui="최근 확인한 논문 줄" onClick={() => showPaper(p.key)}>
+                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{short(p.authors)}{p.year ? ` · ${p.year}` : ''}</span></span>
+                    {p.answered > 0
+                      ? <span className="kh-when kh-turn">{t(`답이 온 질문 ${p.answered}`, `${p.answered} answered`)}</span>
+                      : <span className="kh-when">{p.opened ? relativeTime(p.opened) : ''}</span>}
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section className="kh-sec" data-ui="추천 논문">
+              <h2 className="kh-h">{t('추천 논문', 'Recommended papers')}{rec && rec.seeds > 0 && <span className="kh-h-n">{t(`내 논문 ${rec.seeds}편과 가까운 새 논문`, `New papers close to ${rec.seeds} of your papers`)}</span>}</h2>
+              {(recError || rec?.offline) && <p className="empty kh-empty">{t('인터넷에 연결되지 않아 추천을 받지 못했습니다.', 'Not connected to the internet, so no recommendations.')}</p>}
+              {rec && !rec.offline && rec.seeds === 0 && <p className="empty kh-empty">{t('arXiv 번호나 DOI가 있는 논문을 더하면 추천이 보입니다.', 'Add a paper with an arXiv number or DOI to see recommendations.')}</p>}
+              {rec && !rec.offline && rec.seeds > 0 && rec.picks.length === 0 && <p className="empty kh-empty">{t('지금 추천할 새 논문이 없습니다.', 'No new papers to recommend now.')}</p>}
+              <div className="kh-rows">
+                {rec?.picks.map((p) => (
+                  <div key={p.id} className="kh-row lh-row" data-ui="추천 논문 줄">
+                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{[short(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></span>
+                    <button className="btn small" disabled={busy !== null} onClick={() => void add(p.id)}>{busy === p.id ? t('추가 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
+                  </div>
+                ))}
+              </div>
+              {rec && rec.picks.length > 0 && <p className="kh-hint lh-source">{t('Semantic Scholar 추천', 'From Semantic Scholar')}</p>}
+            </section>
+          </div>
+        </div>
+        {rightOpen && <aside className="kh-side" data-ui="라이브러리 정보"><LibraryStorage info={info} section="papers" git={b ? t(`논문 ${b.total}편`, plural(b.total, 'paper')) : undefined} icloud={clouds('icloud')} drive={clouds('drive')} /></aside>}
+      </div>
+    </main>
   )
 }
 
