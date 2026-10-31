@@ -13,6 +13,7 @@ import { KnowledgeMapPage, LibraryPage } from './Library'
 import { FiguresHome, PapersHome } from './LibraryHome'
 import { isListRoute, type Route } from './router'
 import { PapersPage, PapersSide } from './PapersPage'
+import { ReposPage, ReposRailCount } from './ReposPage'
 import { FiguresPage, FiguresSide, figureListFilter } from './FiguresPage'
 import { NetworkPage, NetworkRailCount, NetworkSide } from './NetworkPage'
 import { SettingsPage, SettingsSide } from './SettingsPage'
@@ -102,6 +103,10 @@ export const GLOBAL_PAGES: {
     side: (p) => <AgentSide id={p.route.page === 'agent' ? p.route.id : undefined} />,
     render: (p) => <AgentScreen id={p.route.page === 'agent' ? p.route.id : undefined} onSaved={p.onSaved} />,
     badge: () => <AgentRailCount /> },
+  // 모든 저장소 (10/29 10:00 제안 진행, 10/30 16:59 "에이전트 아래 저장소도"): 프로젝트 사이드바의 저장소 줄 대신 레일의 폴더 아이콘 한 곳
+  { page: 'repos', label: '저장소', name: t('저장소', 'Repositories'), aria: t('모든 저장소', 'All repositories'), tip: t('저장소 — 프로젝트마다 GitHub와 같은지 · 동기화하기', 'Repositories: whether each project matches GitHub, and sync'), icon: Icon.repo, rail: 'home',
+    render: () => <ReposPage />,
+    badge: () => <ReposRailCount /> },
   // 폰의 첫 화면 내 차례 (10/31 사용자 결정 "안 A · 내 차례 먼저"): 띠 버튼 없이 폰 아래 탭(phone/PhoneTabs.tsx)에서 연다
   { page: 'turns', label: '내 차례', name: t('내 차례', 'Your turn'), aria: t('내 차례', 'Your turn'), tip: t('내 차례 — 모든 프로젝트에서 나를 기다리는 것', 'Your turn: what is waiting for you in every project'), icon: Icon.flag, rail: 'none',
     render: (p) => <PhoneTurns version={p.version} onSaved={p.onSaved} /> },
