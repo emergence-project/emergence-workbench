@@ -48,6 +48,8 @@ export type Route =
   /** 에이전트 대화 (10/21). id가 없으면 새 대화 */
   | { page: 'agent'; id?: string }
   | { page: 'turns' }
+  /** 폰의 프로젝트 탭 (10/31): 목록 · 프로젝트 안(주제 · 기록 · 맡긴 일) · 주제의 노트 */
+  | { page: 'projects'; /** rid가 아닌 이름: 'rid' 있는 화면은 프로젝트 작업 화면으로 본다 (App.tsx) */ project?: string; view?: 'records' | 'tasks'; tid?: string }
   /** 에이전트 고침 검토 (10/8). scope는 목록을 그 프로젝트(또는 library)만 */
   | { page: 'review'; key?: string; scope?: string }
   /** 거르기(filter)나 list가 있으면 목록, 없으면 첫 화면 (10/6 라이브러리 L2) */
@@ -124,6 +126,12 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'network') return parts[1] ? { page: 'network', person: parts[1] } : { page: 'network' }
   if (parts[0] === 'feedback') return { page: 'feedback' }
   if (parts[0] === 'turns') return { page: 'turns' }
+  if (parts[0] === 'projects') {
+    if (!parts[1]) return { page: 'projects' }
+    if (parts[2] === 't' && parts[3]) return { page: 'projects', project: parts[1], tid: parts[3] }
+    if (parts[2] === 'records' || parts[2] === 'tasks') return { page: 'projects', project: parts[1], view: parts[2] }
+    return { page: 'projects', project: parts[1] }
+  }
   if (parts[0] === 'agent') return parts[1] ? { page: 'agent', id: parts[1] } : { page: 'agent' }
   if (parts[0] === 'review') {
     const params = new URLSearchParams(query)
@@ -170,6 +178,7 @@ export function href(r: Route): string {
     case 'network': return `#/network${r.person ? `/${e(r.person)}` : ''}`
     case 'feedback': return '#/feedback'
     case 'turns': return '#/turns'
+    case 'projects': return `#/projects${r.project ? `/${e(r.project)}${r.tid ? `/t/${e(r.tid)}` : r.view ? `/${r.view}` : ''}` : ''}`
     case 'agent': return `#/agent${r.id ? `/${e(r.id)}` : ''}`
     case 'review': {
       const p = new URLSearchParams()

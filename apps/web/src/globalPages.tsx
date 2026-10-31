@@ -16,6 +16,7 @@ import { PapersPage, PapersSide } from './PapersPage'
 import { FiguresPage, FiguresSide, figureListFilter } from './FiguresPage'
 import { NetworkPage, NetworkRailCount, NetworkSide } from './NetworkPage'
 import { SettingsPage, SettingsSide } from './SettingsPage'
+import { PhoneProjects } from './phone/PhoneProjects'
 import { PhoneTurns } from './phone/PhoneTurns'
 
 export { PhoneTabs } from './phone/PhoneTabs'
@@ -103,6 +104,9 @@ export const GLOBAL_PAGES: {
   // 폰의 첫 화면 내 차례 (10/31 사용자 결정 "안 A · 내 차례 먼저"): 띠 버튼 없이 폰 아래 탭(phone/PhoneTabs.tsx)에서 연다
   { page: 'turns', label: '내 차례', name: t('내 차례', 'Your turn'), aria: t('내 차례', 'Your turn'), tip: t('내 차례 — 모든 프로젝트에서 나를 기다리는 것', 'Your turn: what is waiting for you in every project'), icon: Icon.flag, rail: 'none',
     render: (p) => <PhoneTurns version={p.version} onSaved={p.onSaved} /> },
+  // 폰의 프로젝트 탭 (10/31 2단계 "프로젝트와 노트 읽기"): 띠 버튼 없이 폰 아래 탭에서 연다
+  { page: 'projects', label: '프로젝트', name: t('프로젝트', 'Projects'), aria: t('프로젝트', 'Projects'), tip: t('프로젝트 — 주제 · 기록 · 맡긴 일', 'Projects: topics, records and tasks'), icon: Icon.research, rail: 'none',
+    render: (p) => p.route.page === 'projects' ? <PhoneProjects rid={p.route.project} view={p.route.view} tid={p.route.tid} version={p.version} onSaved={p.onSaved} /> : null },
   { page: 'feedback', label: '피드백', name: t('피드백', 'Feedback'), aria: t('피드백 모아 보기', 'All feedback'), tip: t('피드백 모아 보기 — 반영 여부', 'All feedback and whether it was applied'), icon: Icon.feedback, rail: 'bottom', render: () => <FeedbackPage />,
     badge: () => <FeedbackRailCount /> },
   // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)
