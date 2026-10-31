@@ -57,7 +57,8 @@ const feedbackTitle = (e: FeedbackItem) => (e.status?.clean || e.text).split('\n
 const feedbackHead = (e: FeedbackItem) => (e.status?.note ?? '').split('\n')[0]!.trim()
 
 function Chip({ rid, name }: { rid: string; name: string }) {
-  return <span className="ph-chip" style={{ ['--pc' as string]: projectColor(rid) }}>{name}</span>
+  const style: Record<string, string> = { '--pc': projectColor(rid) }
+  return <span className="ph-chip" style={style}>{name}</span>
 }
 
 function TurnCard({ x, onOpen, act }: { x: TurnItem; onOpen(): void; act(p: Promise<unknown>): void }) {
