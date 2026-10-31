@@ -36,10 +36,12 @@
 /* 손가락으로 누르는 화면: 누른 뒤 툴팁이 남아 화면을 가리지 않게 */
 @media (hover: none) {
   [data-tip]:hover::after { content: none; }
+  /* 대화 글의 복사 버튼은 마우스를 올릴 때만 뜨는데, 손가락으로 누르면 남아 글을 가린다. 폰은 길게 눌러 고른다 */
+  .ac-text > .ac-copy, .ac-me > .ac-copy { display: none; }
 }
 
 /* 폰 아래 탭 넷: 차례 · 프로젝트 · 대화 · 설정 (PhoneTabs는 폰 폭에서만 그린다) */
-.ph-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); background: var(--bg-side);
+.ph-tabs { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); background: var(--bg-side);
   padding: var(--sp-1) var(--sp-1) calc(var(--sp-1) + env(safe-area-inset-bottom, 0px)); }
 .ph-tab { display: grid; justify-items: center; gap: 2px; padding: var(--sp-1) 0; border: 0; background: none; color: var(--text-3); font-size: var(--fs-2xs); font-weight: var(--fw-medium); }
 .ph-tab.on { color: var(--text); font-weight: var(--fw-strong); }
@@ -113,3 +115,21 @@
 .ph-tasks .tk-title { white-space: normal; overflow-wrap: anywhere; font-size: var(--fs-md); }
 .ph-tasks .tk-row .tk-meta { grid-column: 2; grid-row: 2; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); white-space: normal; }
 .ph-tasks .tk-row .g { margin-top: var(--sp-1); }
+
+/* 대화 탭 (phone/PhoneChats.tsx, 10/31 3단계): 첫 화면이 대화 목록, 새 대화는 시트. 목록의 「＋ 새 대화」 줄은 머리의 버튼과 겹쳐 숨긴다 */
+.ph-head .sp { flex: 1; }
+.ph-chats .ac-list { padding: 0; background: none; border: 0; }
+.ph-chats [data-ui="새 대화 줄"] { display: none; }
+.ph-chats .ac-line { padding: var(--sp-2) var(--sp-1); }
+@media (max-width: 600px) {
+  /* 폰에는 자판 줄임키가 없다 */
+  .ac-keys { display: none; }
+}
+
+/* ＋ 메모 (phone/PhoneMemo.tsx): 아래 탭 바 바로 위 오른쪽에 떠 있는 버튼(탭 바 안에 둔다), 누르면 시트 */
+.ph-fab { position: absolute; right: var(--sp-4); bottom: calc(100% + var(--sp-4)); z-index: var(--z-quick); display: inline-flex; align-items: center; gap: var(--sp-1);
+  height: var(--input-h-lg); padding: 0 var(--sp-4); border: 0; border-radius: var(--r-pill); background: var(--primary); color: var(--on-primary); font-size: var(--fs-sm); font-weight: var(--fw-strong); box-shadow: var(--shadow); }
+.ph-fab svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+.ph-memo-project { height: var(--input-h-lg); font-size: var(--fs-md); }
+.ph-memo-text { font-size: var(--fs-md); }
+.ph-memo-save { align-self: stretch; justify-content: center; height: var(--input-h-lg); }

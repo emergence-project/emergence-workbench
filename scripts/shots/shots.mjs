@@ -281,7 +281,7 @@ try {
     phone.on('console', (m) => { if (m.type() === 'error' && !expected(m)) problems.push(`${current}: console ${m.text()} ${m.location().url ?? ''}`) })
     for (const [name, hash, ui, click] of PHONE_SCREENS) {
       current = name
-      await phone.goto(base + hash.replace('{rid}', encodeURIComponent(rid)))
+      await phone.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{done}', encodeURIComponent(done)))
       await phone.waitForLoadState('networkidle')
       if (click) await phone.locator(click).filter({ visible: true }).first().click({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${click} 없음`))
       await phone.locator(`[data-ui="${ui}"]`).filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${ui} 없음`))
