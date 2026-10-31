@@ -14,9 +14,10 @@ import { localDate } from '@rw/core'
 
 /**
  * 논문 라이브러리 (10/6 L2: 첫 화면은 LibraryHome.tsx, 이 파일은 "목록").
- * - 목록(표) | 카드. 보기 단추는 머리줄 가운데(디자인 시스템 6절 세 구역). 표의 모든 칸은 한 줄, 머리를 누르면 정렬(한 번 더 누르면 거꾸로), 머리를 끌면 순서, 경계를 끌면 폭.
- *   "열 고르기"에서 켜고 끄고 순서를 바꾼다. 폭 · 순서 · 켠 열 · 보기는 이 브라우저가 기억한다.
- * - 왼쪽 사이드바: 맨 위 "논문 라이브러리"(첫 화면) · "목록 n", 찾기와 거르기(논문 · 책 · 코멘트 있는 논문 · 답 기다리는 질문 · 프로젝트에 안 묶임 · 프로젝트별).
+ * - 목록(표) | 카드. 보기 단추는 머리줄 가운데(디자인 시스템 6절 세 구역). 표의 모든 칸은 한 줄, 머리를 누르면 정렬(한 번 더 누르면 거꾸로), 경계를 끌면 폭.
+ *   열은 정해 둔다: 제목 · 저자 · 연도 · 분류 · 태그 · 프로젝트 · PDF (10/31 시안 1절, 열 고르기 뺌). 분류 머리는 누를 때마다 맨 앞에 올 분류를 돌린다.
+ * - 찾기는 본문 맨 위 가운데. 머리줄 왼쪽 「보기」 상자: 모두 · 프로젝트에 안 묶임 · 코멘트 있음 · 답 기다리는 질문 (사이드바에서 고른 것 안에서 거름).
+ * - 왼쪽 사이드바: 맨 위 "논문 라이브러리"(첫 화면) · "전체 문헌 n"과 그 아래 들인 논문 · 책, 분류, 접어 둔 프로젝트.
  *   첫 화면 통계 · 점검에서 오는 거르기(PDF 없음 · arXiv로 받을 수 있음 · 답이 온 질문)는 사이드바에 줄을 두지 않고 머리줄에 이름을 보인다.
  * - 오른쪽 사이드바: 고른 논문의 정보. 닫힌 채로 시작하고 논문을 고르면 열린다.
  * - 더하기: 표 맨 위 점선 줄(카드 보기는 맨 앞 점선 카드, 새로 더한 것이 가장 최근이라는 뜻)에 arXiv 번호 · DOI를 적거나 PDF를 끌어다 놓는다.
@@ -26,7 +27,7 @@ import { localDate } from '@rw/core'
 export const PAPERS_CHANGED = 'rw-papers-changed'
 const CHANGED = PAPERS_CHANGED
 const announce = () => window.dispatchEvent(new Event(CHANGED))
-/** 사이드바의 찾기 글을 본문이 함께 쓴다 */
+/** 찾기 글 (목록 맨 위 칸): 목록을 다시 열어도 남는다 */
 const QUERY = 'rw-papers-query'
 let query = ''
 const setQuery = (q: string) => { query = q; window.dispatchEvent(new Event(QUERY)) }
@@ -61,14 +62,18 @@ export const PAPER_FILTERS: { id: PaperFilter; label: string; ko: string; side: 
   { id: 'unclassified', label: t('분류 없음', 'No subject'), ko: '분류 없음', side: false, test: (p) => !p.subjects?.length },
   { id: 'paper', label: t('논문', 'Papers'), ko: '논문', side: true, test: (p) => p.kind === 'paper' },
   { id: 'book', label: t('책', 'Books'), ko: '책', side: true, test: (p) => p.kind === 'book' },
-  { id: 'comments', label: t('코멘트 있는 논문', 'With comments'), ko: '코멘트 있는 논문', side: true, test: (p) => p.comments > 0 },
-  { id: 'waiting', label: t('답 기다리는 질문', 'Questions awaiting answers'), ko: '답 기다리는 질문', side: true, test: (p) => p.waiting > 0 },
-  { id: 'none', label: t('프로젝트에 안 묶임', 'Not in a project'), ko: '프로젝트에 안 묶임', side: true, test: (p) => p.projects.length === 0 },
+  { id: 'comments', label: t('코멘트 있음', 'With comments'), ko: '코멘트 있는 논문', side: false, test: (p) => p.comments > 0 },
+  { id: 'waiting', label: t('답 기다리는 질문', 'Questions awaiting answers'), ko: '답 기다리는 질문', side: false, test: (p) => p.waiting > 0 },
+  { id: 'none', label: t('프로젝트에 안 묶임', 'Not in a project'), ko: '프로젝트에 안 묶임', side: false, test: (p) => p.projects.length === 0 },
   { id: 'nopdf', label: t('PDF 없음', 'No PDF'), ko: 'PDF 없음', side: false, test: (p) => p.pdf.where === 'none' },
   { id: 'arxiv', label: t('arXiv로 받을 수 있음', 'Available on arXiv'), ko: 'arXiv로 받을 수 있음', side: false, test: (p) => p.pdf.where === 'none' && !!p.eprint },
   { id: 'answered', label: t('답이 온 질문', 'Answered questions'), ko: '답이 온 질문', side: false, test: (p) => p.answered > 0 },
 ]
 const FILTERS = PAPER_FILTERS
+/** 목록 머리줄 「보기」 상자의 거르기 (사이드바에서 고른 것 안에서 한 번 더 거른다, 10/31 시안 1절) */
+const SHOWS = ['none', 'comments', 'waiting'] as const
+type Show = (typeof SHOWS)[number] | 'all'
+const isShow = (f: string | undefined): f is (typeof SHOWS)[number] => SHOWS.some((x) => x === f)
 const filterTest = (f: PaperFilter | undefined): ((p: PaperRow) => boolean) => {
   if (f?.startsWith('subject:')) return (p) => matchesSubject(p.subjects, f.slice(8))
   if (f?.startsWith('project:')) { const id = f.slice(8); return (p) => p.projects.includes(id) }
@@ -85,37 +90,43 @@ export function matchPaper(p: PaperRow, q: string): boolean {
 
 export function PapersSide({ filter, list }: { filter?: PaperFilter; list: boolean }) {
   const [data] = usePapers()
-  const q = useQuery()
   const papers = data?.papers ?? []
-  const nav = (id: PaperFilter, label: ReactNode, n: number, title?: string, ui?: string) => (
-    <button key={id} className={`nav${filter === id ? ' on' : ''}`} data-ui="논문 거르기" data-ui-item={ui ?? (typeof label === 'string' ? label : id)} title={title}
+  const nav = (id: PaperFilter, label: ReactNode, n: number, title?: string, ui?: string, cls = '') => (
+    <button key={id} className={`nav${cls}${filter === id ? ' on' : ''}`} data-ui="논문 거르기" data-ui-item={ui ?? (typeof label === 'string' ? label : id)} title={title}
       onClick={() => go({ page: 'shelf', filter: id })}>
       <span className="label">{label}</span><span className="meta">{n}</span>
     </button>
   )
+  const all = list && (!filter || isShow(filter))
+  const inProject = !!filter?.startsWith('project:')
   return (
     <div className="set-side pl-side" data-ui="논문 목록 거르기">
       <div className="side-quick" data-ui="빠른 이동">
         <button className={`nav side-row${!list ? ' on' : ''}`} aria-current={!list ? 'page' : undefined} data-ui="논문 라이브러리 줄" title={t('최근 더한 논문 · 점검 · 통계', 'Recently added papers · checks · stats')} onClick={() => go({ page: 'shelf' })}>
           <span className="q-ico" aria-hidden>{Icon.papers}</span><span className="label">{t('논문 라이브러리', 'Paper library')}</span></button>
-        <button className={`nav side-row${list && !filter ? ' on' : ''}`} aria-current={list && !filter ? 'page' : undefined} data-ui="목록 줄" title={t('모든 논문 (표 · 카드)', 'All papers (table · cards)')} onClick={() => go({ page: 'shelf', list: true })}>
-          <span className="q-ico" aria-hidden>{Icon.list}</span><span className="label">{t('목록', 'List')}</span>{data && <span className="meta">{papers.length}</span>}</button>
+        <button className={`nav side-row${all ? ' on' : ''}`} aria-current={all ? 'page' : undefined} data-ui="목록 줄" title={t('논문과 책 모두 (표 · 카드)', 'All papers and books (table · cards)')} onClick={() => go({ page: 'shelf', list: true })}>
+          <span className="q-ico" aria-hidden>{Icon.list}</span><span className="label">{t('전체 문헌', 'All literature')}</span>{data && <span className="meta">{papers.length}</span>}</button>
+        {/* 논문 · 책은 전체 문헌의 하위: 프로젝트 목차의 현황 · 변경사항처럼 들이고 왼쪽 선 (10/31 시안 1절) */}
+        <div className="tree-notes side-sub">
+          {FILTERS.filter((f) => f.side).map((f) => nav(f.id, f.label, papers.filter(f.test).length, undefined, f.ko, ' tree-note'))}
+        </div>
       </div>
-      <input className="cn-search" value={q} placeholder={t('찾기 — 제목·저자·저널', 'Search title, author, journal')} aria-label={t('논문 찾기', 'Search papers')}
-        onChange={(e) => { setQuery(e.target.value); if (!list) go({ page: 'shelf', list: true }) }} />
-      {FILTERS.filter((f) => f.side).map((f) => nav(f.id, f.label, papers.filter(f.test).length, undefined, f.ko))}
       <LibrarySubjectSide kind="papers" filter={filter} />
-      {data && data.projects.length > 0 && <div className="pl-side-head">{t('프로젝트', 'Projects')}</div>}
-      {data?.projects.map((p) => nav(`project:${p.id}`, p.title, papers.filter((x) => x.projects.includes(p.id)).length, p.id))}
+      {data && data.projects.length > 0 && (
+        <details className="side-grp pl-side-projects" data-ui="논문 프로젝트" open={inProject || undefined}>
+          <summary><span className="chev" aria-hidden>›</span><span className="label">{t('프로젝트', 'Projects')}</span><span className="n">{data.projects.length}</span></summary>
+          <div className="side-grp-body">{data.projects.map((p) => nav(`project:${p.id}`, p.title, papers.filter((x) => x.projects.includes(p.id)).length, p.id))}</div>
+        </details>
+      )}
     </div>
   )
 }
 
 // ---------- 열 ----------
 
-type ColId = 'title' | 'authors' | 'year' | 'venue' | 'arxiv' | 'projects' | 'pdf' | 'comments' | 'opened' | 'added' | 'kind' | 'key'
+type ColId = 'title' | 'authors' | 'year' | 'subjects' | 'tags' | 'venue' | 'arxiv' | 'projects' | 'pdf' | 'comments' | 'opened' | 'added' | 'kind' | 'key'
 interface Col { id: ColId; label: string; value(p: PaperRow, ctx: Ctx): string; sort(p: PaperRow, ctx: Ctx): string | number; cell?(p: PaperRow, ctx: Ctx): ReactNode; num?: boolean }
-interface Ctx { projectTitle(id: string): string }
+interface Ctx { projectTitle(id: string): string; subjectName(id: string): string }
 
 const WHERE_LABEL = { local: t('이 맥', 'This Mac'), cloud: t('클라우드', 'Cloud'), none: t('없음', 'None') } as const
 const CARD_WHERE = { local: '', cloud: t('클라우드', 'Cloud'), none: t('PDF 없음', 'No PDF') } as const
@@ -129,6 +140,8 @@ const COLS: Col[] = [
   { id: 'title', label: t('제목', 'Title'), value: (p) => p.title, sort: (p) => p.title.toLowerCase() },
   { id: 'authors', label: t('저자', 'Authors'), value: (p) => p.authors.join(', '), cell: (p) => authorLine(p.authors), sort: (p) => (p.authors[0] ?? '').toLowerCase() },
   { id: 'year', label: t('연도', 'Year'), value: (p) => p.year ?? '', sort: (p) => Number(p.year) || 0, num: true },
+  { id: 'subjects', label: t('분류', 'Subject'), value: (p, c) => (p.subjects ?? []).map(c.subjectName).join(', '), sort: (p, c) => (p.subjects ?? []).map(c.subjectName).join(', ').toLowerCase() },
+  { id: 'tags', label: t('태그', 'Tags'), value: (p) => (p.tags ?? []).map((x) => x.title).join(', '), sort: (p) => (p.tags?.[0]?.title ?? '').toLowerCase() },
   { id: 'venue', label: t('저널·출판사', 'Journal/publisher'), value: (p) => p.venue ?? '', sort: (p) => (p.venue ?? '').toLowerCase() },
   { id: 'arxiv', label: 'arXiv', value: (p) => p.eprint ?? '', sort: (p) => p.eprint ?? '' },
   { id: 'projects', label: t('프로젝트', 'Projects'), value: (p, c) => p.projects.map(c.projectTitle).join(', '), sort: (p, c) => p.projects.map(c.projectTitle).join(', ').toLowerCase() },
@@ -142,30 +155,28 @@ const COLS: Col[] = [
   { id: 'key', label: t('bib 키', 'bib key'), value: (p) => p.key, sort: (p) => p.key.toLowerCase() },
 ]
 const colOf = (id: string) => COLS.find((c) => c.id === id)
-const DEFAULT_ORDER: ColId[] = ['title', 'authors', 'year', 'venue', 'arxiv', 'projects', 'pdf', 'comments', 'opened', 'added', 'kind', 'key']
-const DEFAULT_HIDDEN: ColId[] = ['opened', 'added', 'kind', 'key']
-const COMPACT_HIDDEN: ColId[] = ['venue', 'arxiv']
+/** 표의 열은 정해 둔다 (10/31 시안 1절). 좁으면 태그 → 분류 → 프로젝트 순으로 숨긴다. 나머지 열은 정렬에만 쓴다(카드 정렬 · 최근 더한 순) */
+const TABLE: ColId[] = ['title', 'authors', 'year', 'subjects', 'tags', 'projects', 'pdf']
+const COMPACT: ColId[][] = [['tags'], ['subjects'], ['projects']]
 
-interface Layout { order: ColId[]; hidden: ColId[]; shown: ColId[]; width: Partial<Record<ColId, number>> }
+/** 사용자가 끌어 정한 열 폭만 기억한다 */
+type Widths = Partial<Record<ColId, number>>
 const LAYOUT_KEY = 'rw-papers-columns'
-/** 저장된 배치를 믿지 않고 아는 열만 남긴다 (새 열은 끝에, 꺼 둔 채로) */
-export function readLayout(raw: unknown): Layout {
-  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Layout>
-  const known = (xs: unknown): ColId[] => (Array.isArray(xs) ? xs.filter((x): x is ColId => typeof x === 'string' && !!colOf(x)) : [])
-  const order = [...new Set(known(r.order))]
-  const added = DEFAULT_ORDER.filter((c) => !order.includes(c))
-  const hidden = Array.isArray(r.order) ? [...known(r.hidden), ...added.filter((c) => DEFAULT_HIDDEN.includes(c))] : DEFAULT_HIDDEN
-  const width: Layout['width'] = {}
-  if (r.width && typeof r.width === 'object') for (const [k, v] of Object.entries(r.width)) if (colOf(k) && typeof v === 'number' && v >= 40 && v <= 1200) width[k as ColId] = v
-  return { order: [...order, ...added], hidden: hidden.filter((c) => c !== 'title'), shown: known(r.shown).filter((c) => COMPACT_HIDDEN.includes(c)), width }
+/** 저장된 폭을 믿지 않고 아는 열의 알맞은 값만 남긴다 (예전 배치 { width }도 읽는다) */
+export function readWidths(raw: unknown): Widths {
+  const r = raw && typeof raw === 'object' ? (raw as { width?: unknown }).width : undefined
+  const width: Widths = {}
+  if (r && typeof r === 'object') for (const [k, v] of Object.entries(r)) { const c = colOf(k); if (c && typeof v === 'number' && v >= 40 && v <= 1200) width[c.id] = v }
+  return width
 }
 
-const columnWidth = (id: ColId, layout: Layout) => {
-  const width = `var(--pl-w-${id}, ${layout.width[id] == null ? `var(--pl-col-${id})` : `${layout.width[id]}px`})`
+const columnWidth = (id: ColId, widths: Widths) => {
+  const width = `var(--pl-w-${id}, ${widths[id] == null ? `var(--pl-col-${id})` : `${widths[id]}px`})`
   return id === 'title' ? `max(var(--pl-col-title), ${width})` : width
 }
 
-type Sort = { col: ColId; dir: 1 | -1 }
+/** lead: 분류 열로 정렬할 때 맨 앞에 올 분류 (머리를 누를 때마다 다음 분류로) */
+type Sort = { col: ColId; dir: 1 | -1; lead?: string }
 const CARD_SORTS: [ColId, string, 1 | -1][] = [['added', t('최근 더한 순', 'Recently added'), -1], ['opened', t('최근 열어 본 순', 'Recently opened'), -1], ['year', t('연도', 'Year'), -1], ['title', t('제목', 'Title'), 1]]
 const SORT_KEY = 'rw-papers-sort'
 const VIEW_KEY = 'rw-papers-view'
@@ -177,14 +188,14 @@ export function showPaper(key: string) { pendingPick = key; go({ page: 'shelf', 
 /** 첫 화면 "최근 더한 논문" 제목: 목록을 더한 순서(최근 것부터)로. 표에서는 그 열을 보이게 한다 */
 export function showRecentPapers() {
   store.set(SORT_KEY, { col: 'added', dir: -1 })
-  const layout = readLayout(store.get(LAYOUT_KEY, null))
-  if (layout.hidden.includes('added')) store.set(LAYOUT_KEY, { ...layout, hidden: layout.hidden.filter((c) => c !== 'added') })
   go({ page: 'shelf', list: true })
 }
 
 export function sortPapers(papers: PaperRow[], sort: Sort, ctx: Ctx): PaperRow[] {
   const col = colOf(sort.col) ?? COLS[0]!
+  const lead = sort.col === 'subjects' && sort.lead ? sort.lead : null
   return [...papers].sort((a, b) => {
+    if (lead) { const la = matchesSubject(a.subjects, lead), lb = matchesSubject(b.subjects, lead); if (la !== lb) return la ? -1 : 1 }
     const x = col.sort(a, ctx), y = col.sort(b, ctx)
     // 빈 값은 방향과 관계없이 맨 아래로
     const ex = x === '' || x === 0, ey = y === '' || y === 0
@@ -196,48 +207,51 @@ export function sortPapers(papers: PaperRow[], sort: Sort, ctx: Ctx): PaperRow[]
 
 // ---------- 화면 ----------
 
-export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; open?: string; onSaved(m: string): void }) {
+export function PapersPage({ filter: routeFilter, open, onSaved }: { filter?: PaperFilter; open?: string; onSaved(m: string): void }) {
   const { tree } = useSubjects()
   const [data, error] = usePapers()
   const q = useQuery()
   const [view, setViewState] = useState<View>(() => (store.get<string>(VIEW_KEY, 'list') === 'cards' ? 'cards' : 'list'))
   const setView = (v: View) => { setViewState(v); store.set(VIEW_KEY, v) }
-  const [layout, setLayoutState] = useState<Layout>(() => readLayout(store.get(LAYOUT_KEY, null)))
-  const setLayout = (l: Layout) => { setLayoutState(l); store.set(LAYOUT_KEY, l) }
+  const [widths, setWidthsState] = useState<Widths>(() => readWidths(store.get(LAYOUT_KEY, null)))
+  const setWidths = (w: Widths) => { setWidthsState(w); store.set(LAYOUT_KEY, { width: w }) }
   const [sort, setSortState] = useState<Sort>(() => { const s = store.get<Sort | null>(SORT_KEY, null); return s && colOf(s.col) && (s.dir === 1 || s.dir === -1) ? s : { col: 'year', dir: -1 } })
   const setSort = (s: Sort) => { setSortState(s); store.set(SORT_KEY, s) }
+  // 첫 화면 통계에서 온 안 묶임 · 코멘트 · 질문은 「보기」 상자의 값으로 연다 (사이드바는 전체 문헌)
+  const filter = isShow(routeFilter) ? undefined : routeFilter
+  const [show, setShowState] = useState<Show>(isShow(routeFilter) ? routeFilter : 'all')
+  useEffect(() => { if (isShow(routeFilter)) setShowState(routeFilter) }, [routeFilter])
+  const setShow = (v: Show) => { setShowState(v); if (isShow(routeFilter)) go({ page: 'shelf', list: true }) }
   const [picked, setPicked] = useState<string | null>(() => { const k = pendingPick; pendingPick = null; return k })
   const scroll = useRef<HTMLDivElement>(null)
-  const [measured, setMeasured] = useState<{ available: number; widths: Partial<Record<ColId, number>> } | null>(null)
-  const hidden = measured ? tableHiddenColumns(layout, measured.available, (id) => measured.widths[id] ?? 0, [COMPACT_HIDDEN])
-    : [...layout.hidden, ...COMPACT_HIDDEN.filter((id) => !layout.shown.includes(id))]
+  const [available, setAvailable] = useState<number | null>(null)
+  const subjects = !!tree?.enabled
+  const order = TABLE.filter((c) => subjects || c !== 'subjects')
+  const hidden = available === null ? [] : tableHiddenColumns({ order, hidden: [], shown: [] }, available, (id) => widths[id] ?? (scroll.current ? parseFloat(getComputedStyle(scroll.current).getPropertyValue(`--pl-col-${id}`)) : 0), COMPACT)
 
   const ctx: Ctx = useMemo(() => {
     const titles = new Map((data?.projects ?? []).map((p) => [p.id, p.title]))
-    return { projectTitle: (id) => titles.get(id) ?? id }
-  }, [data])
-  const rows = useMemo(() => sortPapers((data?.papers ?? []).filter(filterTest(filter)).filter((p) => matchPaper(p, q)), sort, ctx), [data, filter, q, sort, ctx])
+    const names = new Map((tree?.items ?? []).map((x) => [x.id, x.name]))
+    return { projectTitle: (id) => titles.get(id) ?? id, subjectName: (id) => names.get(id) ?? id }
+  }, [data, tree])
+  const showTest = show === 'all' ? () => true : filterTest(show)
+  const rows = useMemo(() => sortPapers((data?.papers ?? []).filter(filterTest(filter)).filter(showTest).filter((p) => matchPaper(p, q)), sort, ctx),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showTest는 show로 정해진다
+    [data, filter, show, q, sort, ctx])
+  /** 분류 머리를 누를 때 차례로 맨 앞에 올 분류: 맨 위 분류 가운데 이 라이브러리에 논문이 있는 것, 많은 것부터 */
+  const leads = (tree?.items ?? []).filter((x) => x.parent === null && x.papers > 0).sort((a, b) => b.papers - a.papers).map((x) => x.id)
   const paper = data?.papers.find((p) => p.key === picked)
   const opened = open ? data?.papers.find((p) => p.key === open) : undefined
   useEffect(() => {
     const el = scroll.current
     if (!el) return
-    const measure = () => {
-      const css = getComputedStyle(el)
-      const widths: Partial<Record<ColId, number>> = {}
-      for (const id of layout.order) {
-        const base = parseFloat(css.getPropertyValue(`--pl-col-${id}`))
-        const width = layout.width[id] ?? base
-        widths[id] = id === 'title' ? Math.max(base, width) : width
-      }
-      if (el.clientWidth) setMeasured({ available: el.clientWidth, widths })
-    }
+    const measure = () => { if (el.clientWidth) setAvailable(el.clientWidth) }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 정보 창이 열렸는지만 본다
-  }, [layout, view, !!opened])
+  }, [view, !!opened])
   // 정보 창이 열리면 카드 열 수가 줄어 고른 논문이 화면 밖으로 밀린다: 창이 열린 뒤 고른 것을 보이게 한다
   useEffect(() => {
     if (!picked) return
@@ -246,14 +260,26 @@ export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; op
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 정보 창이 열렸는지만 본다
   }, [picked, !!paper])
   if (open && opened) return <PaperOpen paper={opened} data={data!} ctx={ctx} onSaved={onSaved} />
-  const filterLabel = filter?.startsWith('subject:') ? (tree?.items.find((s) => s.id === filter.slice(8))?.name ?? t('분류 없음', 'No subject')) : filter?.startsWith('project:') ? ctx.projectTitle(filter.slice(8)) : FILTERS.find((f) => f.id === filter)?.label
+  const filterLabel = filter?.startsWith('subject:') ? ctx.subjectName(filter.slice(8)) : filter?.startsWith('project:') ? ctx.projectTitle(filter.slice(8)) : FILTERS.find((f) => f.id === filter)?.label
+  // 표에 없는 열로 정렬하면(첫 화면 "최근 더한 논문") 무엇으로 정렬했는지 머리줄에 적는다
+  const sortNote = view === 'list' && !order.includes(sort.col) ? colOf(sort.col)?.label : undefined
 
   return (
     <main className={`stage full pl${paper ? ' with-side' : ''}`} data-ui="논문">
       <section className="pane">
-        {/* 세 구역: 왼쪽 무엇(거르기 · 수) · 가운데 보기 · 오른쪽 정렬 · 열 고르기 (디자인 시스템 6절) */}
+        {/* 찾기는 본문 맨 위 가운데 (10/31 시안 1절, 사이드바의 찾기를 옮김) */}
+        <div className="pl-find" data-ui="논문 찾기">
+          <input className="cn-search" type="search" value={q} placeholder={t('찾기 — 제목 · 저자 · 저널 · arXiv', 'Search title, author, journal, arXiv')} aria-label={t('논문 찾기', 'Search papers')} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+        {/* 세 구역: 왼쪽 무엇(거르기 · 수 · 보기) · 가운데 표 · 카드 · 오른쪽 카드 정렬 (디자인 시스템 6절) */}
         <div className="pane-head bar3 lib-head" data-ui="머리줄">
-          <span className="crumb lib-head-left">{filterLabel ?? t('모든 논문', 'All papers')} · {t(`${rows.length}편`, `${rows.length}`)}{q ? t(` (찾기 "${q}")`, ` (search "${q}")`) : ''}</span>
+          <span className="lib-head-left pl-head-left">
+            <span className="crumb">{filterLabel ?? t('전체 문헌', 'All literature')} · {t(`${rows.length}편`, `${rows.length}`)}{sortNote ? ` · ${sortNote} ${sort.dir === 1 ? '↑' : '↓'}` : ''}</span>
+            <select className="rs-select pl-show" data-ui="논문 보기" aria-label={t('보기', 'Show')} value={show} onChange={(e) => setShow(e.target.value === 'all' ? 'all' : SHOWS.find((x) => x === e.target.value) ?? 'all')}>
+              <option value="all">{t('보기: 모두', 'Show: all')}</option>
+              {SHOWS.map((id) => { const f = FILTERS.find((x) => x.id === id)!; return <option key={id} value={id}>{f.label} {(data?.papers ?? []).filter(filterTest(filter)).filter(f.test).length}</option> })}
+            </select>
+          </span>
           <div className="segmented small lib-head-mid" role="radiogroup" aria-label={t('보기', 'View')} data-ui="보기 전환">
             <button className={view === 'list' ? 'on' : ''} role="radio" aria-checked={view === 'list'} onClick={() => setView('list')}>{t('표', 'Table')}</button>
             <button className={view === 'cards' ? 'on' : ''} role="radio" aria-checked={view === 'cards'} onClick={() => setView('cards')}>{t('카드', 'Cards')}</button>
@@ -265,7 +291,6 @@ export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; op
                   {CARD_SORTS.map(([col, label]) => <option key={col} value={col}>{label}</option>)}
                 </select></label>
             )}
-            {view === 'list' && <ColumnMenu layout={layout} hidden={hidden} onChange={setLayout} />}
           </div>
         </div>
         <div className="scroll pl-scroll" ref={scroll}>
@@ -276,7 +301,7 @@ export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; op
           )}
           {!data && !error && <p className="empty pl-empty">{t('불러오는 중…', 'Loading…')}</p>}
           {data?.library && (view === 'list'
-            ? <PaperTable rows={rows} layout={layout} hidden={hidden} onLayout={setLayout} sort={sort} onSort={setSort} ctx={ctx} picked={picked} onPick={setPicked} onSaved={onSaved} />
+            ? <PaperTable rows={rows} cols={order.filter((c) => !hidden.includes(c)).map((c) => colOf(c)!)} widths={widths} onWidths={setWidths} sort={sort} onSort={setSort} leads={leads} ctx={ctx} picked={picked} onPick={setPicked} onSaved={onSaved} />
             : <PaperCards rows={rows} ctx={ctx} picked={picked} onPick={setPicked} onSaved={onSaved} />)}
         </div>
       </section>
@@ -288,23 +313,14 @@ export function PapersPage({ filter, open, onSaved }: { filter?: PaperFilter; op
 /** 논문 하나 열기: 가운데 PDF, 오른쪽에 정보 | 코멘트 (3단계) */
 const openPdf = (p: PaperRow) => { if (p.pdf.where !== 'none') go({ page: 'shelf', open: p.key }) }
 
-function PaperTable({ rows, layout, hidden, onLayout, sort, onSort, ctx, picked, onPick, onSaved }: {
-  rows: PaperRow[]; layout: Layout; hidden: ColId[]; onLayout(l: Layout): void; sort: Sort; onSort(s: Sort): void; ctx: Ctx
+function PaperTable({ rows, cols, widths, onWidths, sort, onSort, leads, ctx, picked, onPick, onSaved }: {
+  rows: PaperRow[]; cols: Col[]; widths: Widths; onWidths(w: Widths): void; sort: Sort; onSort(s: Sort): void; leads: string[]; ctx: Ctx
   picked: string | null; onPick(k: string | null): void; onSaved(m: string): void
 }) {
-  const cols = layout.order.filter((c) => !hidden.includes(c)).map((c) => colOf(c)!)
   const table = useRef<HTMLDivElement>(null)
   const cellStyle = (c: Col): CSSProperties => c.id === 'title'
-    ? { flex: `var(--pl-title-grow, ${layout.width.title == null ? 1 : 0}) 0 ${columnWidth(c.id, layout)}` }
-    : { width: columnWidth(c.id, layout) }
-  const [dragging, setDragging] = useState<ColId | null>(null)
-  const [over, setOver] = useState<ColId | null>(null)
-  const drop = (target: ColId) => {
-    if (!dragging || dragging === target) return
-    const order = layout.order.filter((c) => c !== dragging)
-    order.splice(order.indexOf(target), 0, dragging)
-    onLayout({ ...layout, order })
-  }
+    ? { flex: `var(--pl-title-grow, ${widths.title == null ? 1 : 0}) 0 ${columnWidth(c.id, widths)}` }
+    : { width: columnWidth(c.id, widths) }
   const startResize = (c: Col, e: React.PointerEvent) => {
     e.preventDefault(); e.stopPropagation()
     const el = table.current!
@@ -320,25 +336,28 @@ function PaperTable({ rows, layout, hidden, onLayout, sort, onSort, ctx, picked,
       window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up)
       el.style.removeProperty(`--pl-w-${c.id}`)
       el.style.removeProperty('--pl-title-grow')
-      onLayout({ ...layout, width: { ...layout.width, [c.id]: Math.round(w) } })
+      onWidths({ ...widths, [c.id]: Math.round(w) })
     }
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
   }
-  const total = `calc(${cols.map((c) => columnWidth(c.id, layout)).join(' + ')})`
+  /** 머리 누르기: 같은 열이면 거꾸로. 분류는 누를 때마다 맨 앞에 올 분류를 다음으로 돌린다(마지막 다음은 처음) */
+  const next = (c: Col): Sort => {
+    if (c.id === 'subjects' && leads.length) {
+      const i = sort.col === 'subjects' && sort.lead ? leads.indexOf(sort.lead) : -1
+      return { col: 'subjects', dir: 1, lead: leads[(i + 1) % leads.length] }
+    }
+    return sort.col === c.id ? { col: c.id, dir: sort.dir === 1 ? -1 : 1 } : { col: c.id, dir: c.num ? -1 : 1 }
+  }
+  const label = (c: Col) => (c.id === 'subjects' && sort.col === 'subjects' && sort.lead ? t(`${c.label} · ${ctx.subjectName(sort.lead)} 먼저`, `${c.label} · ${ctx.subjectName(sort.lead)} first`) : c.label)
+  const total = `calc(${cols.map((c) => columnWidth(c.id, widths)).join(' + ')})`
   return (
     <div className="pl-table" ref={table} role="table" aria-label={t('논문 목록', 'Paper list')} style={{ minWidth: total }}>
       <div className="pl-tr pl-th" role="row" data-ui="표 머리">
         {cols.map((c) => (
-          <div key={c.id} role="columnheader" className={`pl-cell${c.num ? ' num' : ''}${over === c.id && dragging && dragging !== c.id ? ' drop' : ''}${dragging === c.id ? ' dragging' : ''}`}
-            style={cellStyle(c)} draggable
-            aria-sort={sort.col === c.id ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}
-            onDragStart={(e: ReactDragEvent) => { setDragging(c.id); e.dataTransfer.effectAllowed = 'move' }}
-            onDragOver={(e) => { if (dragging) { e.preventDefault(); setOver(c.id) } }}
-            onDragLeave={() => setOver((o) => (o === c.id ? null : o))}
-            onDrop={(e) => { e.preventDefault(); drop(c.id); setDragging(null); setOver(null) }}
-            onDragEnd={() => { setDragging(null); setOver(null) }}>
-            <button className="pl-sort" title={t(`${c.label}로 정렬 (한 번 더 누르면 거꾸로)`, `Sort by ${c.label} (click again to reverse)`)} onClick={() => onSort(sort.col === c.id ? { col: c.id, dir: sort.dir === 1 ? -1 : 1 } : { col: c.id, dir: c.num ? -1 : 1 })}>
-              <span className="pl-label">{c.label}</span>{sort.col === c.id && <span className="pl-dir" aria-hidden>{sort.dir === 1 ? '↑' : '↓'}</span>}
+          <div key={c.id} role="columnheader" className={`pl-cell${c.num ? ' num' : ''}`} style={cellStyle(c)}
+            aria-sort={sort.col === c.id ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+            <button className="pl-sort" title={c.id === 'subjects' ? t('누를 때마다 맨 앞에 올 분류를 바꿉니다', 'Each click brings the next subject to the top') : t(`${c.label}로 정렬 (한 번 더 누르면 거꾸로)`, `Sort by ${c.label} (click again to reverse)`)} onClick={() => onSort(next(c))}>
+              <span className="pl-label">{label(c)}</span>{sort.col === c.id && c.id !== 'subjects' && <span className="pl-dir" aria-hidden>{sort.dir === 1 ? '↑' : '↓'}</span>}
             </button>
             <span className="pl-resize" role="separator" aria-label={t(`${c.label} 폭`, `${c.label} width`)} onPointerDown={(e) => startResize(c, e)} onClick={(e) => e.stopPropagation()} />
           </div>
@@ -356,50 +375,6 @@ function PaperTable({ rows, layout, hidden, onLayout, sort, onSort, ctx, picked,
           })}
         </div>
       ))}
-    </div>
-  )
-}
-
-/** 열 켜고 끄기와 순서 (끌어서). 제목은 끌 수 없다 */
-function ColumnMenu({ layout, hidden, onChange }: { layout: Layout; hidden: ColId[]; onChange(l: Layout): void }) {
-  const [open, setOpen] = useState(false)
-  const [drag, setDrag] = useState<ColId | null>(null)
-  const box = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const off = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', off)
-    return () => document.removeEventListener('mousedown', off)
-  }, [open])
-  const toggle = (c: ColId) => onChange({ ...layout,
-    hidden: hidden.includes(c) ? layout.hidden.filter((x) => x !== c) : [...layout.hidden, c],
-    shown: hidden.includes(c) && COMPACT_HIDDEN.includes(c) ? [...layout.shown, c] : layout.shown.filter((x) => x !== c),
-  })
-  const moveTo = (target: ColId) => {
-    if (!drag || drag === target) return
-    const order = layout.order.filter((c) => c !== drag)
-    order.splice(order.indexOf(target), 0, drag)
-    onChange({ ...layout, order })
-  }
-  return (
-    <div className="pl-colmenu" ref={box}>
-      <button className={`btn sm${open ? ' on' : ''}`} aria-expanded={open} data-ui="열 고르기" onClick={() => setOpen((v) => !v)}>{t('열 고르기', 'Columns')}</button>
-      {open && (
-        <div className="menu pl-colmenu-pop" role="menu" aria-label={t('보일 열', 'Visible columns')}>
-          {layout.order.map((id) => {
-            const c = colOf(id)!
-            return (
-              <label key={id} className={`pl-colitem${drag === id ? ' dragging' : ''}`} draggable onDragStart={() => setDrag(id)} onDragEnd={() => setDrag(null)}
-                onDragOver={(e) => { e.preventDefault(); moveTo(id) }}>
-                <span className="pl-grip" aria-hidden>⋮⋮</span>
-                <input type="checkbox" checked={!hidden.includes(id)} disabled={id === 'title'} onChange={() => toggle(id)} />
-                <span>{c.label}</span>
-              </label>
-            )
-          })}
-          <button className="a pl-colreset" onClick={() => onChange(readLayout(null))}>{t('기본값으로 되돌리기', 'Reset to defaults')}</button>
-        </div>
-      )}
     </div>
   )
 }

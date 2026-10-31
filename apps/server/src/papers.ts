@@ -11,6 +11,7 @@ import type { Registry } from './registry.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 import { frontMatter } from '@rw/core'
+import { inlineCites, listConceptMd } from './conceptNotes.js'
 
 /**
  * 논문 라이브러리 (형식: docs/repo-format.md §10).
@@ -194,6 +195,7 @@ export function listPapers(registry: Registry): PaperList {
   const notes = new Set(fs.existsSync(notesDir) ? fs.readdirSync(notesDir) : [])
   const known = new Set(projects.map((p) => p.id))
   const listing = new FolderListing()
+  const tags = conceptTags(lib)
   const papers = libraryBibEntries(lib).map((e, added): PaperRow => {
     const m = meta[e.key]
     const autoProjects = projects.filter((p) => p.keys.has(e.key)).map((p) => p.id)
@@ -213,9 +215,19 @@ export function listPapers(registry: Registry): PaperList {
       answered: cf.filter((c) => c.kind === '질문' && c.state === '답함').length, added,
       ...(opened[e.key] && { opened: opened[e.key] }),
       ...(note && { note: e.key }),
+      ...(tags.has(e.key) && { tags: tags.get(e.key) }),
     }
   })
   return { library: lib, folders, projects: projects.map(({ id, title }) => ({ id, title })), papers }
+}
+
+/** bib 키 → 그 논문을 출처로 적은 개념노트 (머리말 sources: · 본문 [@키]). 목록의 태그 열 (10/31 시안 1절) */
+export function conceptTags(lib: string): Map<string, { id: string; title: string }[]> {
+  const out = new Map<string, { id: string; title: string }[]>()
+  for (const c of listConceptMd(lib)) {
+    for (const k of new Set([...c.meta.sources, ...inlineCites(c.body)])) out.set(k, [...(out.get(k) ?? []), { id: c.id, title: c.meta.title }])
+  }
+  return out
 }
 
 // ---------- 논문 첫 화면 (라이브러리 L2, requirements §8.1 "라이브러리 첫 화면") ----------
@@ -242,6 +254,7 @@ export function paperBrief(list: ReturnType<typeof listPapers>, recent = 8): Pap
       ...(readSubjects(list.library ?? undefined).enabled && { unclassified: count((x) => !x.subjects?.length) }),
       noPdf: count((x) => x.pdf.where === 'none'), arxiv: count((x) => x.pdf.where === 'none' && !!x.eprint),
       unlinked: count((x) => x.projects.length === 0), papers: count((x) => x.kind === 'paper'), books: count((x) => x.kind === 'book'),
+      comments: count((x) => x.comments > 0), waiting: count((x) => x.waiting > 0),
     },
     folders: list.folders.map((f) => ({ path: f, cloud: cloudOf(f) })),
   }

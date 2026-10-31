@@ -73,6 +73,7 @@
   --z-card-picker: var(--z-overlay-top);
   /* 논문 표: 제목은 최소 폭이며 남는 폭을 채운다. 크기는 라이트·다크가 함께 쓴다. */
   --pl-col-title: 200px; --pl-col-authors: 170px; --pl-col-year: 64px;
+  --pl-col-subjects: 150px; --pl-col-tags: 170px;
   --pl-col-venue: 190px; --pl-col-arxiv: 100px; --pl-col-projects: 150px;
   --pl-col-pdf: 80px; --pl-col-comments: 100px; --pl-col-opened: 100px;
   --pl-col-kind: 64px; --pl-col-key: 150px;
