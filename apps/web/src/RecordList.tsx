@@ -184,7 +184,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         <textarea autoFocus aria-label={t('기록 수정', 'Edit record')} rows={3} value={edit.text} disabled={busy} onChange={(e) => setEdit({ ...edit, text: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null); else onListKey(e, (text) => setEdit({ ...edit, text })) }} />
         <div className="record-edit-actions">
-          {kindEditable && <select className="rs-select records-kind" aria-label={t('기록 종류', 'Record kind')} data-ui="기록 종류 바꾸기" value={editKind} disabled={busy} onChange={(e) => setEditKind(EDIT_KINDS.find((k) => k === e.target.value) ?? editKind)}>{EDIT_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}</select>}
+          {kindEditable && <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')} data-ui="기록 종류 바꾸기">{EDIT_KINDS.map((k) => <button key={k} type="button" className={editKind === k ? 'on' : ''} aria-pressed={editKind === k} disabled={busy} onClick={() => setEditKind(k)}>{kindLabel(k)}</button>)}</div>}
           <span className="sp" />
           <button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
