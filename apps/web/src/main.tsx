@@ -78,6 +78,7 @@ import './styles/agent-hooks.css'
 import './styles/agent-pick.css'
 import './styles/phone.css'
 import './styles/repos.css'
+import './styles/paper-find.css'
 
 applyUi(cachedUi())
 phoneStart()

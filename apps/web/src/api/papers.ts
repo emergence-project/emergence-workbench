@@ -1,9 +1,9 @@
 // ---------- 논문 라이브러리 (서버 routes/papers.ts) ----------
 import type { CommentState, HighlightColor } from '@rw/core/contract/comments'
-import type { ArxivCandidates, EprintSet, LibraryBib, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects } from '@rw/core/contract/papers'
+import type { ArxivCandidates, EprintSet, LibraryBib, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects, PaperSearch } from '@rw/core/contract/papers'
 import { enc, json, req, send } from './http'
 
-export type { ArxivCandidate, PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile } from '@rw/core/contract/papers'
+export type { ArxivCandidate, PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile, PaperSearch } from '@rw/core/contract/papers'
 export type PaintColor = HighlightColor
 export type NewPaperNote = NewPaperNoteBody
 
@@ -15,6 +15,10 @@ export const papersApi = {
   bib: (keys: string[]) => req(`/api/papers/bib?keys=${enc(keys.join(','))}`).then((r) => json<LibraryBib>(r)),
   pdfUrl: (key: string) => `/api/papers/${enc(key)}/pdf`,
   add: (id: string) => req('/api/papers', send('POST', { id })).then((r) => json<PaperAdded>(r)),
+  /** 찾기의 바깥 결과: PDF 폴더에만 있는 PDF와 인터넷 */
+  search: (q: string) => req(`/api/papers/search?q=${enc(q)}`).then((r) => json<PaperSearch>(r)),
+  /** PDF 폴더의 PDF를 라이브러리에 더한다 (파일은 그대로) */
+  addFile: (file: string) => req('/api/papers/file', send('POST', { file })).then((r) => json<PaperAdded>(r)),
   findArxiv: (key: string) => req(`/api/papers/${enc(key)}/arxiv`).then((r) => json<ArxivCandidates>(r)),
   setEprint: (key: string, eprint: string) => req(`/api/papers/${enc(key)}/eprint`, send('PUT', { eprint })).then((r) => json<EprintSet>(r)),
   upload: (file: File, id?: string) => req(`/api/papers/upload?name=${enc(file.name)}${id ? `&id=${enc(id)}` : ''}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: file }).then((r) => json<PaperAdded>(r)),

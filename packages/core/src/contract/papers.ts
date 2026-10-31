@@ -87,6 +87,13 @@ export const SetPaperProjectsBody = z.object({ projects: z.array(z.string()) })
 export const AddPaperBody = z.object({ id: z.string() })
 /** 고른 arXiv 번호 */
 export const SetEprintBody = z.object({ eprint: z.string() })
+/** POST /papers/file: PDF 폴더에 있지만 라이브러리에 없는 PDF를 그 자리 그대로 더한다 (찾기의 Google Drive 묶음) */
+export const AddPaperFileBody = z.object({ file: z.string() })
+/** 찾기의 바깥 결과 (10/31 시안 1절): PDF 폴더에서 라이브러리에 없는 PDF, 인터넷(arXiv · Semantic Scholar · Crossref). id = 더할 때 보낼 arXiv 번호나 DOI */
+export const PaperDriveHit = z.object({ file: z.string(), name: z.string(), folder: z.string(), cloud: z.enum(CLOUD_KINDS), id: z.string().optional() }).strict()
+export const PaperWebHit = z.object({ source: z.enum(['arxiv', 's2', 'crossref']), id: z.string(), title: z.string(), authors: z.array(z.string()), year: z.string().optional(), venue: z.string().optional() }).strict()
+/** GET /papers/search?q=. offline = 인터넷 찾기가 모두 실패 */
+export const PaperSearch = z.object({ drive: z.array(PaperDriveHit), web: z.array(PaperWebHit), offline: z.boolean() }).strict()
 export const SetPdfFoldersBody = z.object({ folders: z.array(z.string()) })
 /** 종류가 없으면 코멘트. 화면은 노트 기록과 같은 종류 이름을 보내므로 종류는 글로 받고 서버가 거른다 */
 export const NewPaperNoteBody = z.object({
@@ -120,6 +127,9 @@ export type PaperCommentFile = z.infer<typeof PaperCommentFile>
 export type PaperNoteAdded = z.infer<typeof PaperNoteAdded>
 export type SetPaperProjectsBody = z.input<typeof SetPaperProjectsBody>
 export type AddPaperBody = z.input<typeof AddPaperBody>
+export type PaperDriveHit = z.infer<typeof PaperDriveHit>
+export type PaperWebHit = z.infer<typeof PaperWebHit>
+export type PaperSearch = z.infer<typeof PaperSearch>
 export type SetPdfFoldersBody = z.input<typeof SetPdfFoldersBody>
 export type NewPaperNoteBody = z.input<typeof NewPaperNoteBody>
 export type PaperNoteChangeBody = z.input<typeof PaperNoteChangeBody>
