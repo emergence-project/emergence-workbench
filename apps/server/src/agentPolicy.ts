@@ -95,7 +95,7 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
     const name = tool.slice(MCP.length)
     const project = str(input.project)
     const file = str(input.file)
-    const outside = (project && project !== ctx.rid) || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
+    const outside = (project && project !== ctx.rid && ctx.scope.kind !== 'all') || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
     const what = [project && project !== ctx.rid ? project : '', file || str(input.id) || str(input.target) || str(input.query) || str(input.section) || str(input.title) || str(input.state)].filter(Boolean).join(' · ')
     return { tool: name, summary: clip(what), ...(outside && { outside }) }
   }
@@ -206,6 +206,12 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     }
     const project = str(input.project)
     if (name === 'edit_concept' || (project && project !== ctx.rid)) {
+      // 전체 범위: 이 대화의 프로젝트 밖을 고칠 때마다 묻는다 (고친 것은 여전히 수정 검토를 거친다)
+      if (ctx.scope.kind === 'all') {
+        const where = name === 'edit_concept' ? t('개념노트', 'Concept note') : project
+        const what = describeStep(ctx, tool, input).summary
+        return { kind: 'ask', summary: t(`다른 곳 고치기 · ${where} · ${what}`, `Change elsewhere · ${where} · ${what}`), key: `${name}:${project}:${what}`, label: t(`${where} 고치기`, `Change ${where}`), once: true }
+      }
       return {
         kind: 'deny',
         reason: t('이 대화의 범위 밖이라 고치지 않습니다', 'Outside this conversation\'s scope'),

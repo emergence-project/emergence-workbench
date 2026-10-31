@@ -85,6 +85,14 @@ describe('허락 규칙', () => {
     expect(taken).toMatchObject({ kind: 'deny' })
     expect(taken.kind === 'deny' && taken.reason).toContain('다른 일')
   })
+  it('전체 범위: 다른 프로젝트 · 개념노트 고치기는 막지 않고 한 번씩 묻는다 (10/31)', () => {
+    const all = { kind: 'all' as const }
+    expect(judge(ctx({ scope: all }), `${W}edit_concept`, { id: 'gauge' })).toMatchObject({ kind: 'ask', once: true })
+    expect(judge(ctx({ scope: all }), `${W}edit_note`, { project: 'other', file: 'workbench/notes/x/note.md' })).toMatchObject({ kind: 'ask', once: true })
+    expect(judge(ctx({ scope: all }), `${W}edit_note`, { project: 'proj', file: 'workbench/notes/x/note.md' }).kind).toBe('allow')
+    expect(judge(ctx({ scope: all, write: 'read' }), `${W}edit_concept`, {}).kind).toBe('deny')
+    expect(describeStep(ctx({ scope: all }), `${W}read_note`, { project: 'other', file: 'a.md' }).outside).toBeUndefined()
+  })
   it('명령은 하는 일로 나눠 토글대로: 읽기 · 편집은 맡기는 정도, 실행은 프로그램마다, 삭제 · 외부는 늘 한 번씩', () => {
     expect(judge(ctx(), 'Bash', { command: 'python run.py' })).toMatchObject({ kind: 'ask', key: 'run:python', does: 'run', summary: 'python run.py' })
     expect(judge(ctx({ always: (k) => k === 'run:python' }), 'Bash', { command: 'python other.py' }).kind).toBe('allow')

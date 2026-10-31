@@ -146,10 +146,10 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
 
 export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[]; agent?: string }): string {
   const claude = !o.agent || o.agent === 'claude-code'
-  const scope = o.scope.kind === 'project' ? 'the whole project' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
+  const scope = o.scope.kind === 'project' ? 'the whole project' : o.scope.kind === 'all' ? 'every registered project and the knowledge library (this conversation belongs to this project)' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
   const lines = [
     `You are working inside Emergence Workbench on the project "${o.title}" (project id ${o.rid}). The current folder is its repository.`,
-    `Scope: ${scope}. Read outside the scope only when the work needs it. You cannot change anything outside the scope: say what should change, where and why, and stop there.`,
+    `Scope: ${scope}. ${o.scope.kind === 'all' ? 'Read any project when the work needs it. Changing another project or a concept note asks the user each time; change only what the work needs there.' : 'Read outside the scope only when the work needs it. You cannot change anything outside the scope: say what should change, where and why, and stop there.'}`,
     o.write === 'read'
       ? 'This conversation is read-only: do not change notes, records or files. Commands that change files are blocked; reading and running commands follow the user\'s permission switches (the app may ask).'
       : 'Change notes only with the workbench MCP tool edit_note (read_note first, pass its hash as baseHash); the user reviews each changed paragraph. Records: add_record / answer_record. Editing files directly is blocked; prefer edit_note over shell edits so the user can review them. Commands follow the user\'s permission switches: deleting and anything outside the project folders (git push, installs, downloads) always asks.',
@@ -400,7 +400,7 @@ export class AgentChats {
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
     if (!app) this.deps.project(b.rid) // 등록하지 않은 프로젝트면 404
     const scope: ChatScope = app ? { kind: 'app' } : b.scope ?? { kind: 'project' }
-    if (scope.kind !== 'project' && scope.kind !== 'app' && !scope.target) throw new WorkbenchError(400, t('주제 · 노트 범위에는 대상이 필요합니다', 'A topic or note scope needs a target'))
+    if ((scope.kind === 'topic' || scope.kind === 'note') && !scope.target) throw new WorkbenchError(400, t('주제 · 노트 범위에는 대상이 필요합니다', 'A topic or note scope needs a target'))
     if (scope.target && (scope.target.includes('..') || path.isAbsolute(scope.target))) throw new WorkbenchError(400, t('범위 대상이 맞지 않음', 'Invalid scope target'))
     const at = now()
     const c: Stored = {

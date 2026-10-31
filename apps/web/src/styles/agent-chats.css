@@ -118,6 +118,9 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-menu-none { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); }
 .ac-compose-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .ac-compose-row .sp { flex: 1; }
+/* 권한 이름은 다 보이고 ?가 바로 옆에 붙는다. 좁으면 모델 단추가 줄어든다 (10/31 시안 6절) */
+.ac-pop:has(> [data-ui="맡기는 정도"]), .ac-help { flex: none; }
+.ac-help { color: var(--text-3); }
 .ac-pop { position: relative; display: inline-flex; min-width: 0; }
 .ac-pop-btn { display: inline-flex; align-items: center; gap: var(--sp-1); height: 26px; min-width: 0; padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--text-2); font: inherit; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .ac-pop-btn:hover, .ac-pop-btn.on { background: var(--bg-hover); color: var(--text); }
@@ -297,6 +300,11 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-pickbar .sp { flex: 1; }
 .ac-pick { flex: none; width: 13px; height: 13px; border: 1.4px solid var(--line-strong); border-radius: 3px; box-sizing: border-box; }
 .ac-pick.on { background: var(--text-2); border-color: var(--text-2); }
+/* 묶음 칸 (10/31 시안 3절): 일부만 골랐으면 가운데 가로줄 */
+.ac-pick.half { position: relative; }
+.ac-pick.half::after { content: ''; position: absolute; left: 2px; right: 2px; top: 50%; height: 1.4px; margin-top: -0.7px; background: var(--text-2); }
+.ac-group-pick { flex: none; display: inline-flex; align-items: center; padding: var(--sp-1); border: 0; background: none; cursor: pointer; }
+.ac-group-pick:disabled { cursor: default; opacity: 0.4; }
 .ac-line.picked { background: var(--bg-hover); }
 .ac-pickbar .btn.danger { color: var(--danger); }
 /* 대화 묶음 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 2절): 기록의 질문 · 지시 | 직접 연 대화. 기록 대화가 없으면 머리를 두지 않는다 */
