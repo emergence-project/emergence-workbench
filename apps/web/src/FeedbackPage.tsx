@@ -495,7 +495,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
  * - 결정을 묻는 답(확인 필요 · 동의 · 물음이 붙은 보류 · 답변): 질문 · 중단 · 진행. 진행 · 중단은 글이 없어도 되고, 글이 있으면 함께 적힌다.
  * 질문(자료 값 코멘트)은 처리를 그대로 두고 묻는다(관리자가 답만 한다). 수정(반려) · 진행은 다시 처리하게 돌려보낸다. 중단은 그대로 끝낸다.
  */
-function Compose({ e }: { e: FeedbackItem }) {
+export function Compose({ e }: { e: FeedbackItem }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

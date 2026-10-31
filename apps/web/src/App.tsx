@@ -9,7 +9,7 @@ import { AskTextHost } from './askText'
 import { partOf } from './aboutContent'
 import { ConceptNoteView, ConceptSidePanel } from './ConceptNotes'
 import { ConceptRecordsPanel } from './ConceptRecords'
-import { GLOBAL_PAGES, globalPageOf } from './globalPages'
+import { GLOBAL_PAGES, globalPageOf, PhoneTabs } from './globalPages'
 import { RegisterDialog } from './RegisterDialog'
 import { initials, projectColor, setProjectColors } from './format'
 import { Icon } from './icons'
@@ -470,8 +470,7 @@ export function App() {
       <div className={`body${showSide ? '' : ' no-side'}`} style={{ '--side-w': `${sideW}px` } as React.CSSProperties}>
         <nav className="rail" aria-label={t('공간', 'Spaces')} data-ui="왼쪽 띠">
           <button className={`rail-btn tip-right${route.page === 'home' ? ' on' : ''}`} aria-current={route.page === 'home' ? 'page' : undefined} data-ui="홈" data-tip={t('홈 — 모든 프로젝트', 'Home: all projects')} aria-label={t('홈', 'Home')} onClick={() => go({ page: 'home' })}>{Icon.home}</button>
-          {GLOBAL_PAGES.filter((g) => g.rail === 'home').map(railPage)}
-          <span className="rail-hr" />
+          {GLOBAL_PAGES.filter((g) => g.rail === 'home').map(railPage)}<span className="rail-hr" />
           <div ref={railBox} className="rail-projects" data-ui="프로젝트 버튼들" {...railDropProps}>
             {railShown.map((id) => researches!.find((x) => x.id === id)!).map((r) => (
               <button key={r.id} data-rid={r.id} className={`rail-proj${r.id === rid ? ' on' : ''}${r.available ? '' : ' off'}${railDrag.from === r.id && railDrag.over ? ' lifted' : ''}`} aria-current={r.id === rid ? 'true' : undefined} style={{ ['--pc' as string]: projectColor(r.id) }}
@@ -487,6 +486,7 @@ export function App() {
           <AppUpdateRail />
           {GLOBAL_PAGES.filter((g) => g.rail === 'bottom').map(railPage)}
         </nav>
+        <PhoneTabs route={route} version={version} />
 
         {showSide && <aside className="side" data-ui="사이드바">
           <div className="side-resize" data-ui="사이드바 폭 조절" role="separator" aria-orientation="vertical" title={t('끌어 폭 바꾸기 · 두 번 누르면 처음 폭', 'Drag to resize · double-click to reset')}

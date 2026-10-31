@@ -16,6 +16,9 @@ import { PapersPage, PapersSide } from './PapersPage'
 import { FiguresPage, FiguresSide, figureListFilter } from './FiguresPage'
 import { NetworkPage, NetworkRailCount, NetworkSide } from './NetworkPage'
 import { SettingsPage, SettingsSide } from './SettingsPage'
+import { PhoneTurns } from './phone/PhoneTurns'
+
+export { PhoneTabs } from './phone/PhoneTabs'
 
 /** 프로젝트에 속하지 않는 화면이 App에서 받는 것 */
 export interface GlobalPageProps {
@@ -97,6 +100,9 @@ export const GLOBAL_PAGES: {
     side: (p) => <AgentSide id={p.route.page === 'agent' ? p.route.id : undefined} />,
     render: (p) => <AgentPage id={p.route.page === 'agent' ? p.route.id : undefined} onSaved={p.onSaved} />,
     badge: () => <AgentRailCount /> },
+  // 폰의 첫 화면 내 차례 (10/31 사용자 결정 "안 A · 내 차례 먼저"): 띠 버튼 없이 폰 아래 탭(phone/PhoneTabs.tsx)에서 연다
+  { page: 'turns', label: '내 차례', name: t('내 차례', 'Your turn'), aria: t('내 차례', 'Your turn'), tip: t('내 차례 — 모든 프로젝트에서 나를 기다리는 것', 'Your turn: what is waiting for you in every project'), icon: Icon.flag, rail: 'none',
+    render: (p) => <PhoneTurns version={p.version} onSaved={p.onSaved} /> },
   { page: 'feedback', label: '피드백', name: t('피드백', 'Feedback'), aria: t('피드백 모아 보기', 'All feedback'), tip: t('피드백 모아 보기 — 반영 여부', 'All feedback and whether it was applied'), icon: Icon.feedback, rail: 'bottom', render: () => <FeedbackPage />,
     badge: () => <FeedbackRailCount /> },
   // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)

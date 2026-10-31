@@ -171,10 +171,12 @@ export const DEFAULT_SCREENS = [
   ['info-changes', '#/r/{rid}/changes', '변경사항 표'],
 ]
 
-// 폰 폭(390)에서 찍는 화면 (10/30, styles/phone.css): 아래 탭 바 · 패널 하나 · 접힌 표. 옆으로 넘치면 실패
-/** @type {[string, string, string][]} */
+// 폰 폭(390)에서 찍는 화면 (10/30, styles/phone.css): 아래 탭 넷 · 패널 하나 · 접힌 표. 옆으로 넘치면 실패
+/** @type {[string, string, string, string?][]} */
 export const PHONE_SCREENS = [
-  ['phone-home', '#/', '프로젝트 버튼'],
+  // 폰으로 #/를 열면 내 차례로 간다 (10/31). 넷째 칸이 있으면 그것을 눌러 연 뒤 찍는다
+  ['phone-turns', '#/', '내 차례'],
+  ['phone-sheet', '#/turns', '답 시트', '[data-ui="내 차례 카드"] .ph-card-main'],
   ['phone-project', '#/r/{rid}', '작업 화면'],
   ['phone-note', '#/r/{rid}/j/four-colors', '작업 화면'],
   ['phone-feedback', '#/feedback', '피드백 표'],
