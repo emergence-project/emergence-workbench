@@ -9,7 +9,7 @@ import { t } from './i18n'
 import { Icon } from './icons'
 import { MemoText } from './memo'
 import { qk } from './queries'
-import { go } from './router'
+import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { useDismiss } from './useDismiss'
@@ -18,6 +18,7 @@ import { openRecordComposer } from './RecordContext'
 import { useRecords } from './projectQueries'
 import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
+import { GroupPick } from './AgentGroupPick'
 import { AgentChip, AgentChoices, agentOf, effortsOf, fitEffort, isClaude, modelName, useModels } from './AgentPick'
 
 /**
@@ -168,6 +169,7 @@ const useProjects = () => useQuery({ queryKey: qk.researches, queryFn: () => api
 
 function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): string {
   if (s.kind === 'project') return t('프로젝트 전체', 'Whole project')
+  if (s.kind === 'all') return t('전체', 'Everything')
   if (s.kind === 'app') return t('앱 수정', 'Fix the app')
   if (s.kind === 'topic') return `${t('주제', 'Topic')} · ${topics?.find((x) => x.id === s.target)?.title ?? s.target}`
   return `${t('노트', 'Note')} · ${s.target?.split('/').slice(-2, -1)[0] ?? s.target}`
@@ -831,6 +833,9 @@ function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placehold
             </button>
           ))}
         </PopButton>
+        {/* 권한 설명은 늘 보이는 줄 대신 ? 툴팁 (10/31 시안 6절). 누르면 소개의 그 절 */}
+        <a className="icon-btn sm ac-help" href={href({ page: 'about', part: 'agents', anchor: 'conversations' })} data-ui="권한 설명" aria-label={t('권한 설명', 'About permissions')}
+          data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
         <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{modelName(settings.model, models)}{efforts.length > 0 && ` · ${EFFORT_SHORT[settings.effort]}`} ▾</>}>
           {(close) => <>
             <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings({ agent: a, model: 'default', effort: 'medium', ...(a !== 'claude-code' && settings.trust === 'plan' && { trust: 'ask' }) }) }} />
@@ -1098,12 +1103,10 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   }, [])
   const rid = fixed ?? (projects?.some((p) => p.id === pick) || (appOk && pick === APP_RID) ? pick : projects?.[0]?.id ?? '')
   const app = rid === APP_RID
-  const topics = useQuery({ queryKey: qk.topics(rid), queryFn: () => api.research(rid).topics(), enabled: !!rid && !app }).data
-  const [kind, setKind] = useState<ChatScope['kind']>(note ? 'note' : 'project')
-  const [topic, setTopic] = useState('')
+  // 범위는 프로젝트 · 전체 둘 (10/31 사용자 결정: 주제는 너무 좁다). 옛 주제 · 노트 대화는 그대로 읽는다
+  const [kind, setKind] = useState<'project' | 'all'>('project')
   const [settings, setSettings] = useState<Settings>(defaultSettings)
-  const topicId = topic || topics?.[0]?.id || ''
-  const scope: ChatScope = app ? { kind: 'app' } : kind === 'note' && note ? { kind, target: note.file } : kind === 'topic' && topicId ? { kind, target: topicId } : { kind: 'project' }
+  const scope: ChatScope = app ? { kind: 'app' } : { kind }
   const change = (s: Partial<Settings>) => { const v = { ...settings, ...s }; setSettings(v); store.set(SETTINGS_KEY, v) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
@@ -1117,12 +1120,15 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   if (!fixed && projects && !projects.length && !appOk) return (
     <div className="ac-new" data-ui="새 대화"><p className="muted">{t('대화는 프로젝트 하나에서 엽니다. 등록한 프로젝트가 아직 없습니다: 레일의 ＋로 프로젝트를 등록하세요.', 'A conversation opens in one project, and no project is registered yet. Register one with ＋ on the rail.')}</p></div>
   )
-  const kinds: [ChatScope['kind'], string][] = [['project', t('프로젝트', 'Project')], ['topic', t('주제', 'Topic')], ...(note ? [['note', t('이 노트', 'This note')] as [ChatScope['kind'], string]] : [])]
+  const kinds: ['project' | 'all', string, string][] = [
+    ['project', t('프로젝트', 'Project'), t('이 프로젝트만 고칩니다. 다른 프로젝트는 읽기만 합니다', 'Changes only this project; reads the others')],
+    ['all', t('전체', 'Everything'), t('모든 프로젝트를 읽고, 다른 프로젝트 · 개념노트를 고칠 때마다 묻습니다', 'Reads every project; asks each time before changing another project or a concept note')],
+  ]
   return (
     <div className="ac-new" data-ui="새 대화">
       <div className="ac-new-row">
         {!fixed && (
-          <select className="rs-select" data-ui="대화 프로젝트 고르기" aria-label={t('프로젝트', 'Project')} value={rid} onChange={(e) => { setPick(e.target.value); store.set('rw-agent-project', e.target.value); setTopic('') }}>
+          <select className="rs-select" data-ui="대화 프로젝트 고르기" aria-label={t('프로젝트', 'Project')} value={rid} onChange={(e) => { setPick(e.target.value); store.set('rw-agent-project', e.target.value) }}>
             {(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
             {appOk && <option value={APP_RID}>{t('워크벤치 전체: 앱 수정', 'Whole workbench: fix the app')}</option>}
           </select>
@@ -1130,20 +1136,13 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
         {!app && <span className="rs-label">{t('범위', 'Scope')}</span>}
         {!app && (
           <div className="segmented small" role="radiogroup" aria-label={t('범위', 'Scope')} data-ui="대화 범위">
-            {kinds.map(([k, label]) => <button key={k} role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} disabled={k === 'topic' && !topics?.length} onClick={() => setKind(k)}>{label}</button>)}
+            {kinds.map(([k, label, tip]) => <button key={k} role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} data-tip={tip} onClick={() => setKind(k)}>{label}</button>)}
           </div>
-        )}
-        {!app && kind === 'topic' && !!topics?.length && (
-          <select className="rs-select" data-ui="대화 주제 고르기" aria-label={t('주제', 'Topic')} value={topicId} onChange={(e) => setTopic(e.target.value)}>
-            {topics.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
-          </select>
         )}
       </div>
       {rid && <Composer key={rid} rid={rid} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
-      <span className="muted ac-hint">{app
-        ? t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')
-        : `${TRUST_HINT[settings.trust]}. ${t('범위 밖은 읽기만 합니다', 'Outside the scope it only reads')}`}</span>
+      {app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
     </div>
   )
 }
@@ -1438,6 +1437,7 @@ export function AgentSide({ id }: { id?: string }) {
     return (
       <div key={rid} className={`ac-group${app ? ' app' : ''}`} data-ui={app ? '워크벤치 대화' : '프로젝트 대화'} data-ui-item={app ? undefined : name}>
         <div className={`ac-group-h${open ? ' open' : ''}`}>
+          {picking && <GroupPick name={name} ids={chats.filter((c) => !pickOf(c)?.disabled).map((c) => c.id)} picked={picked} onPick={setPicked} />}
           <button className="ac-group-name" aria-expanded={open} onClick={() => toggle(rid)} title={name}>
             <span className="tree-chev" aria-hidden><span>›</span></span>
             <span className="label">{name}</span>
@@ -1471,7 +1471,7 @@ export function AgentSide({ id }: { id?: string }) {
               <button className="btn sm danger" data-ui="대화 지우기" disabled={!picked.length || bulk.busy} onClick={() => void bulk.remove(picked).then((ok) => { if (ok) { if (id && picked.includes(id)) go({ page: 'agent' }); stopPicking() } })}>{t('삭제', 'Delete')}</button>
             </>
             : <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, true).then(stopPicking)}>{t('보관', 'Archive')}</button>}
-          <button className="btn sm" onClick={stopPicking}>{t('끝', 'Done')}</button>
+          <button className="btn sm" onClick={stopPicking}>{t('취소', 'Cancel')}</button>
         </div>
         : <button className="a ac-pick-start" data-ui="대화 여러 개 고르기" onClick={() => setPicking(true)}>{filter === 'archived' ? t('골라서 꺼내기 · 삭제', 'Pick to unarchive or delete') : t('선택 보관', 'Pick to archive')}</button>)}
       {list && !!list.length && filter !== 'all' && !by.size && <div className="empty">{filter === 'mine' ? t('답할 대화가 없습니다', 'Nothing waits for you') : filter === 'live' ? t('일하는 대화가 없습니다', 'No conversation is working') : t('보관한 대화가 없습니다', 'Nothing archived')}</div>}

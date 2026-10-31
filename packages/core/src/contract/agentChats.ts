@@ -13,7 +13,8 @@ export const CHAT_WRITE = ['read', 'notes'] as const
  * app = 앱 자체 고치기 (2단계, 10/21 "앱 안 대화 + CI가 시험"): 앱 저장소의 따로 둔 작업 폴더에서 파일만 고치고,
  * 커밋 · PR · CI 결과는 앱이 한다(에이전트는 명령을 돌리지 않는다). rid는 APP_RID
  */
-export const CHAT_SCOPES = ['project', 'topic', 'note', 'app'] as const
+// 'all' = 모든 프로젝트를 읽고, 다른 프로젝트 · 개념노트를 고칠 때는 한 번씩 묻는다 (10/31). topic · note는 옛 대화용
+export const CHAT_SCOPES = ['project', 'all', 'topic', 'note', 'app'] as const
 /** 앱 고치기 대화의 rid (연구 프로젝트 id와 겹치지 않는다) */
 export const APP_RID = '_app'
 /**
