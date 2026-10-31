@@ -1,6 +1,6 @@
 import type { UiSettings } from '@rw/core'
 import type { ReactNode } from 'react'
-import { AgentPage, AgentRailCount, AgentSide } from './AgentChats'
+import { AgentRailCount, AgentSide } from './AgentChats'
 import { AboutPage, aboutRailRoute, AboutRailCount, AboutSidebar } from './AboutPage'
 import type { LibraryInfo } from './api'
 import { AgentEditsPage, Lazy } from './lazyPages'
@@ -16,6 +16,7 @@ import { PapersPage, PapersSide } from './PapersPage'
 import { FiguresPage, FiguresSide, figureListFilter } from './FiguresPage'
 import { NetworkPage, NetworkRailCount, NetworkSide } from './NetworkPage'
 import { SettingsPage, SettingsSide } from './SettingsPage'
+import { AgentScreen } from './phone/PhoneChats'
 import { PhoneProjects } from './phone/PhoneProjects'
 import { PhoneTurns } from './phone/PhoneTurns'
 
@@ -99,7 +100,7 @@ export const GLOBAL_PAGES: {
   // 띠에서는 홈 바로 아래 (10/21 피드백 "중요한 거니까 위로" · 사용자 "홈 아래는 어때?")
   { page: 'agent', label: '에이전트', name: t('에이전트', 'Agents'), aria: t('에이전트 대화', 'Agent conversations'), tip: t('에이전트 — 프로젝트마다 맡긴 대화', 'Agents: conversations you handed work to, per project'), icon: Icon.spark, rail: 'home',
     side: (p) => <AgentSide id={p.route.page === 'agent' ? p.route.id : undefined} />,
-    render: (p) => <AgentPage id={p.route.page === 'agent' ? p.route.id : undefined} onSaved={p.onSaved} />,
+    render: (p) => <AgentScreen id={p.route.page === 'agent' ? p.route.id : undefined} onSaved={p.onSaved} />,
     badge: () => <AgentRailCount /> },
   // 폰의 첫 화면 내 차례 (10/31 사용자 결정 "안 A · 내 차례 먼저"): 띠 버튼 없이 폰 아래 탭(phone/PhoneTabs.tsx)에서 연다
   { page: 'turns', label: '내 차례', name: t('내 차례', 'Your turn'), aria: t('내 차례', 'Your turn'), tip: t('내 차례 — 모든 프로젝트에서 나를 기다리는 것', 'Your turn: what is waiting for you in every project'), icon: Icon.flag, rail: 'none',

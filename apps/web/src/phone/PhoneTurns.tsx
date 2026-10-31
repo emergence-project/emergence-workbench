@@ -3,7 +3,6 @@ import { api, type FeedbackItem } from '../api'
 import { Compose } from '../FeedbackPage'
 import { projectColor } from '../format'
 import { t } from '../i18n'
-import { Icon } from '../icons'
 import { kindLabel } from '../recordLabels'
 import { RecordList } from '../RecordList'
 import { recordKind, recordRoute } from '../recordsPanelHelpers'
@@ -12,6 +11,7 @@ import { go } from '../router'
 import { agentName, taskLine } from '../taskView'
 import { recordLine } from '../workRecords'
 import { TaskCard } from '../WorkTasks'
+import { Sheet } from './Sheet'
 import { TURN_GROUPS, useTurns, type TurnItem } from './turns'
 
 /**
@@ -39,7 +39,7 @@ export function PhoneTurns({ version, onSaved }: { version: number; onSaved(m: s
         )
       })}
       {!items.length && <p className="empty ph-empty">{loading ? t('불러오는 중…', 'Loading…') : t('지금 내 차례인 것이 없습니다. 피드백의 답, 에이전트의 질문, 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing is waiting for you. Feedback answers, agent questions and delegated task results show up here.')}</p>}
-      {sheet && <Sheet x={sheet} onClose={() => setOpen(null)} onSaved={onSaved} />}
+      {sheet && <TurnSheet x={sheet} onClose={() => setOpen(null)} onSaved={onSaved} />}
     </main>
   )
 }
@@ -100,7 +100,7 @@ function TurnCard({ x, onOpen, act }: { x: TurnItem; onOpen(): void; act(p: Prom
 }
 
 /** 아래에서 올라오는 시트. 바깥(어두운 곳)이나 ×를 누르면 닫힌다. 답해서 내 차례에서 빠지면 저절로 닫힌다 */
-function Sheet({ x, onClose, onSaved }: { x: TurnItem; onClose(): void; onSaved(m: string): void }) {
+function TurnSheet({ x, onClose, onSaved }: { x: TurnItem; onClose(): void; onSaved(m: string): void }) {
   let head: ReactNode, inner: ReactNode
   if (x.kind === 'feedback') {
     const e = x.item
@@ -132,13 +132,5 @@ function Sheet({ x, onClose, onSaved }: { x: TurnItem; onClose(): void; onSaved(
         onEditProposal={() => go({ page: 'records', rid: x.rid })} />
     </>
   } else return null
-  return (
-    <div className="ph-sheet-wrap" data-ui="답 시트">
-      <div className="ph-scrim" onClick={onClose} />
-      <div className="ph-sheet" role="dialog" aria-modal="true" aria-label={typeof head === 'string' ? head : undefined}>
-        <div className="ph-sheet-head"><b>{head}</b><button className="icon-btn" aria-label={t('닫기', 'Close')} onClick={onClose}>{Icon.x}</button></div>
-        <div className="ph-sheet-body">{inner}</div>
-      </div>
-    </div>
-  )
+  return <Sheet head={head} onClose={onClose}>{inner}</Sheet>
 }
