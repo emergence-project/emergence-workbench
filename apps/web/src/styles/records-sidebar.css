@@ -3,7 +3,9 @@
 .records-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
 /* 종류는 폭에 꽉 찬 선택 칸, 그 아래 줄 왼쪽 상태(진행 중 | 완료) · 오른쪽 "모두 보기" (10/18 결정) */
 .records-filters { flex: none; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
-.records-subbar { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.records-subbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+/* 기록 종류 고르기 상자: 폭은 글자만큼 (넷 넘는 고르기는 상자로, 10/30 결정) */
+.rs-select.records-kind { width: auto; flex: none; height: auto; padding: 2px 20px 2px var(--sp-2); font-size: var(--fs-xs); }
 .records-subbar .records-all { margin-left: auto; font-size: var(--fs-xs); white-space: nowrap; }
 .records-subbar .segmented button { white-space: nowrap; }
 .records-subbar .segmented .n { color: var(--text-3); font-weight: var(--fw-normal); font-variant-numeric: tabular-nums; }
@@ -101,12 +103,6 @@ body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] *
 .record-row .cmt-answer + .cmt-answer { margin-top: var(--sp-2); }
 .record-reply { margin-top: var(--sp-2); }
 .record-reply textarea { min-height: calc(var(--input-h) * 1.5); }
-/* 기록 종류 그림 (10/16): 적기 칸 종류 고르기의 글자 앞 */
-.record-kind-ico { display: inline-flex; vertical-align: -2px; margin-right: 3px; }
-.record-kind-ico svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-/* 좁은 사이드바(약 340px 아래)에서는 적기 칸 종류 버튼의 아이콘을 숨기고 글자만 (10/29 09:16 피드백 안 2): 아이콘이 글자 위로 겹치지 않게 */
-.record-composer { container-type: inline-size; }
-@container (max-width: 316px) { .record-composer .segmented .record-kind-ico { display: none; } }
 /* 할 일 아래 대화 (10/19 "할 일에 에이전트에게"): 기록 대화와 같은 말풍선, 아래 입력란 */
 .todo-talk { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 /* 대화 맨 아래 이어 쓰기 (10/19 11:31) */

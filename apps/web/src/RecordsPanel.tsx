@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useCmdEnter } from './cmdEnter'
 import { commentsApi, ConflictError, type CommentEntry, type CommentFile, type NoteHighlight, type RecordFile } from './api'
 import { bumpPending, keyOf, load, patch, revealComment, usePendingTick, useSlot, type CommentTarget } from './Comments'
@@ -27,8 +27,6 @@ const STATUSES: StatusFilter[] = ['진행 중', '완료']
 const statusName = (s: StatusFilter) => s === '완료' ? t('완료', 'Done') : t('진행 중', 'In progress')
 const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문 · 지시로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, questions, and instructions')
 /** 기록 종류의 그림 (10/16 아이콘 검토): 적기 칸의 종류 고르기에 글자 앞에 붙인다(필터는 좁은 폭에서 두 줄이 되지 않게 글자만). 기록 줄 맨 앞과 같은 그림 */
-const KIND_ICON: Record<string, ReactNode> = { 메모: Icon.memo, '할 일': Icon.todo, 질문: Icon.ask, 지시: Icon.send }
-const kindChoice = (k: string) => <>{KIND_ICON[k] && <span className="record-kind-ico" aria-hidden>{KIND_ICON[k]}</span>}{kindLabel(k)}</>
 // Keep a pending target disabled even when its sidebar unmounts and opens again.
 const classifying = new Set<string>()
 const NO_FILES: RecordFile[] = []
@@ -105,11 +103,11 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf, gro
   }
   return <section className="records-panel" data-ui="적기">
     <div className="records-filters">
-      {/* 종류는 하나만 고르는 선택 칸, 폭에 꽉 참 (10/18 결정) */}
-      <div className="segmented small full" role="group" aria-label={t('기록 필터', 'Record filter')}>
-        {FILTERS.map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => setFilter(f)}>{kindLabel(f)}</button>)}
-      </div>
       <div className="records-subbar">
+        {/* 종류는 넷 넘게라 늘 펼치지 않고 고르기 상자로 (10/30 17:14 수정, 10/31 시안 8절) */}
+        <select className="rs-select records-kind" aria-label={t('기록 필터', 'Record filter')} value={filter} onChange={(e) => setFilter(FILTERS.find((f) => f === e.target.value) ?? filter)}>
+          {FILTERS.map((f) => <option key={f} value={f}>{kindLabel(f)}</option>)}
+        </select>
         <div className="segmented small" role="group" aria-label={t('기록 상태', 'Record status')} data-ui="기록 상태">
           {STATUSES.map((s) => <button key={s} className={status === s ? 'on' : ''} aria-pressed={status === s} onClick={() => setStatus(s)}>{statusName(s)} <span className="n">{filterByStatus(kindShown, s).length}</span></button>)}
         </div>
@@ -194,7 +192,6 @@ function RecordComposer({ rid, target, needsDot = false }: { rid: string; target
   const sends = draft.kind === '질문' || draft.kind === '지시'
   const where = target.target === 'project' ? t('이 프로젝트', 'This project') : target.title
   return <div className="record-composer" data-ui="적기 칸">
-    <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>{RECORD_KINDS.map((k) => <button key={k} className={draft.kind === k ? 'on' : ''} aria-pressed={draft.kind === k} disabled={busy} onClick={() => setDraft({ ...draft, kind: k })}>{kindChoice(k)}</button>)}</div>
     {pointing && <RecordPointer onPick={pick} onCancel={cancelPointing} />}
     {a.part && <div className="record-attached"><span title={a.part}>{t('가리킨 곳', 'Pointed at')} · {uiShown(a.part)}{a.partText && ` “${a.partText}”`}</span><button className="icon-btn sm" aria-label={t('가리킨 곳 제거', 'Remove pointed part')} title={t('제거', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: { ...a, part: undefined, partText: undefined } })}>×</button></div>}
     {a.quote && <>
@@ -208,6 +205,11 @@ function RecordComposer({ rid, target, needsDot = false }: { rid: string; target
       {/* 아랫줄 왼쪽: 가리키기와 남길 곳 (10/15 사용자 코멘트), 오른쪽: 저장 */}
       <button className={`icon-btn${pointing ? ' on' : ''}`} data-ui="가리키기" data-tip={t('가리키기: 이 기록이 화면 어디에 대한 것인지 고릅니다', 'Point: choose the part of the screen this record is about')} aria-label={t('가리키기', 'Point')} aria-pressed={pointing} disabled={busy} onClick={() => setPointing((v) => !v)}>{Icon.point}</button>
       <span className="record-where" data-ui="남길 곳" title={needsDot ? undefined : target.source}>{t('남길 곳', 'Saved to')} <b>{needsDot ? t('흐름 점을 고르세요', 'pick a flow dot') : where}</b></span>
-      <span className="sp" /><button className="btn primary sm tip-end" data-tip={sends ? t('보내기 (⌘↵)', 'Send (⌘↵)') : t('저장 (⌘↵)', 'Save (⌘↵)')} disabled={busy || !draft.text.trim()} onClick={() => void save()}>{state.pending !== null ? (sends ? t('보내는 중…', 'Sending…') : t('저장 중…', 'Saving…')) : sends ? t('보내기', 'Send') : t('저장', 'Save')}</button></div>
+      <span className="sp" />
+      {/* 종류는 보내기 바로 옆 고르기 상자: 적고 나서 손이 가는 자리 (10/31 시안 8절 코멘트) */}
+      <select className="rs-select records-kind" aria-label={t('기록 종류', 'Record kind')} value={draft.kind} disabled={busy} onChange={(e) => setDraft({ ...draft, kind: RECORD_KINDS.find((k) => k === e.target.value) ?? draft.kind })}>
+        {RECORD_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
+      </select>
+      <button className="btn primary sm tip-end" data-tip={sends ? t('보내기 (⌘↵)', 'Send (⌘↵)') : t('저장 (⌘↵)', 'Save (⌘↵)')} disabled={busy || !draft.text.trim()} onClick={() => void save()}>{state.pending !== null ? (sends ? t('보내는 중…', 'Sending…') : t('저장 중…', 'Saving…')) : sends ? t('보내기', 'Send') : t('저장', 'Save')}</button></div>
   </div>
 }
