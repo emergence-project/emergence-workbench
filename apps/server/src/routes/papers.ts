@@ -1,6 +1,7 @@
 // 논문 라이브러리 (왼쪽 띠 "논문")
 import { matchesSubject } from '../subjects.js'
 import { paperBrief } from '../papers.js'
+import { recommendPapers } from '../paperRecommend.js'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/papers'
 import { parseBody, replies } from '../contract.js'
@@ -44,6 +45,8 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
   app.post('/api/papers', replies(C.PaperAdded), async (req): Promise<C.PaperAdded> => addPaper(registry, parseBody(C.AddPaperBody, req.body).id))
   /** 찾기의 바깥 결과: PDF 폴더에만 있는 PDF와 인터넷(arXiv · Semantic Scholar · Crossref) */
   app.get<{ Querystring: { q?: string } }>('/api/papers/search', replies(C.PaperSearch), async (req): Promise<C.PaperSearch> => searchPapers(registry, (req.query.q ?? '').slice(0, 200)))
+  /** 추천 논문: 최근 연 · 더한 논문을 기준으로 Semantic Scholar가 고른 최근 논문 (라이브러리에 있는 것은 뺀다) */
+  app.get('/api/papers/recommend', replies(C.PaperRecommend), async (): Promise<C.PaperRecommend> => recommendPapers(ctx.libraryReads.papers().papers))
   /** PDF 폴더에 있는 PDF를 라이브러리에 더한다 (파일은 옮기지 않고 papers.yaml pdf:로 잇는다) */
   app.post('/api/papers/file', replies(C.PaperAdded), async (req): Promise<C.PaperAdded> => addPaperFile(registry, parseBody(C.AddPaperFileBody, req.body).file))
   /** arXiv 번호가 없는 논문의 arXiv 판 후보 (제목 · 첫 저자로 찾고 DOI가 같은 것을 앞에) */

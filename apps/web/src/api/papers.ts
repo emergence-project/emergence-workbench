@@ -1,9 +1,9 @@
 // ---------- 논문 라이브러리 (서버 routes/papers.ts) ----------
 import type { CommentState, HighlightColor } from '@rw/core/contract/comments'
-import type { ArxivCandidates, EprintSet, LibraryBib, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects, PaperSearch } from '@rw/core/contract/papers'
+import type { ArxivCandidates, EprintSet, LibraryBib, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects, PaperRecommend, PaperSearch } from '@rw/core/contract/papers'
 import { enc, json, req, send } from './http'
 
-export type { ArxivCandidate, PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile, PaperSearch } from '@rw/core/contract/papers'
+export type { ArxivCandidate, PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile, PaperSearch, PaperPick, PaperRecommend } from '@rw/core/contract/papers'
 export type PaintColor = HighlightColor
 export type NewPaperNote = NewPaperNoteBody
 
@@ -16,6 +16,7 @@ export const papersApi = {
   pdfUrl: (key: string) => `/api/papers/${enc(key)}/pdf`,
   add: (id: string) => req('/api/papers', send('POST', { id })).then((r) => json<PaperAdded>(r)),
   /** 찾기의 바깥 결과: PDF 폴더에만 있는 PDF와 인터넷 */
+  recommend: () => req('/api/papers/recommend').then((r) => json<PaperRecommend>(r)),
   search: (q: string) => req(`/api/papers/search?q=${enc(q)}`).then((r) => json<PaperSearch>(r)),
   /** PDF 폴더의 PDF를 라이브러리에 더한다 (파일은 그대로) */
   addFile: (file: string) => req('/api/papers/file', send('POST', { file })).then((r) => json<PaperAdded>(r)),

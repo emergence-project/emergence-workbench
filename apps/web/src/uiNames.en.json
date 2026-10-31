@@ -989,5 +989,9 @@
   "저장소": "Repositories",
   "모든 저장소": "All repositories",
   "저장소에서 동기화": "Sync from Repositories link",
-  "찾기 결과": "Search results"
+  "찾기 결과": "Search results",
+  "최근 확인한 논문": "Recently checked papers",
+  "최근 확인한 논문 줄": "Recently checked paper row",
+  "추천 논문": "Recommended papers",
+  "추천 논문 줄": "Recommended paper row"
 }

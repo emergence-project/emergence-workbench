@@ -38,6 +38,8 @@ export function usePaperFetcher(f: Fetcher): void { fetcher = f }
 const AGENT = { 'user-agent': 'Emergence Workbench paper library (https://github.com/emergence-project/emergence-workbench)' }
 /** 바깥 논문 정보 받기 (사람 페이지의 새 논문도 같은 길, 테스트는 usePaperFetcher로 바꾼다) */
 export const paperFetch = (url: string): Promise<Response> => fetcher(url, { headers: AGENT })
+/** JSON을 보내는 바깥 요청 (Semantic Scholar 추천) */
+export const paperPost = (url: string, body: unknown): Promise<Response> => fetcher(url, { method: 'POST', headers: { ...AGENT, 'content-type': 'application/json' }, body: JSON.stringify(body) })
 
 /** 붙여 넣은 글에서 arXiv 번호나 DOI를 읽는다 (주소째 붙여 넣어도 된다) */
 export function parsePaperId(raw: string): PaperId | null {

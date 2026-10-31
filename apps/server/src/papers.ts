@@ -248,6 +248,7 @@ export function paperBrief(list: ReturnType<typeof listPapers>, recent = 8): Pap
     library: !!list.library,
     total: p.length,
     recent: [...p].sort((a, b) => b.added - a.added).slice(0, recent),
+    opened: [...p].filter((x) => x.answered > 0 || x.opened).sort((a, b) => Number(b.answered > 0) - Number(a.answered > 0) || (b.opened ?? 0) - (a.opened ?? 0)).slice(0, recent),
     projects: list.projects,
     check: { noFolder: !!list.library && list.folders.length === 0, answered: p.reduce((n, x) => n + x.answered, 0) },
     stats: {
