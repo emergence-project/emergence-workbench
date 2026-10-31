@@ -319,7 +319,6 @@ function HunkRow({ h, onGoto, picked, expanded, busy, render, raw, talks, talkin
               : h.current ? <HunkText key={`${k}:${h.current}`} text={h.current} render={render} /> : <p className="ae-none">{t('지운 문단', 'Removed paragraph')}</p>}
             {editing === null && onlySpacing(h.base, h.current) && <p className="ae-none">{t('띄어쓰기 · 줄바꿈만 바뀜', 'Only spacing or line breaks changed')}</p>}
           </div>
-          {editing === null && h.reason && <p className="ae-reason" data-ui="고친 이유">{t('이유', 'Why')} · {h.reason.by ? `${agentName(h.reason.by)} · ` : ''}{h.reason.reason}</p>}
         </div>
         <div className="ae-cell ae-acts" role="cell">
           {editing !== null ? <>
@@ -334,6 +333,8 @@ function HunkRow({ h, onGoto, picked, expanded, busy, render, raw, talks, talkin
             <button className="icon-btn" disabled={busy} data-ui="승인 버튼" data-tip={t('승인', 'Approve')} aria-label={t('승인: 이 고침을 받아들입니다 (파일은 그대로)', 'Approve: accept this edit (the file stays as it is)')} onClick={() => void onAct(h, 'accept')}>{Icon.approve}</button>
           </>}
         </div>
+        {/* 이유는 「후」 글이 아니라 이 바뀐 곳 전체에 대한 것이라 전 · 후 · 검토를 가로지르는 줄로 (10/30 17:01, 시안 5절) */}
+        {editing === null && h.reason && <p className="ae-reason" role="cell" data-ui="고친 이유">{t('이유', 'Why')} · {h.reason.by ? `${agentName(h.reason.by)} · ` : ''}{h.reason.reason}</p>}
       </div>
       {talks && talking && <Talk h={h} talks={talks} busy={busy} onAct={onAct} onAsk={onAsk} />}
       {expanded && h.next && <div className="ae-ctx" role="row"><div><HunkText text={h.next} render={render} /></div></div>}
