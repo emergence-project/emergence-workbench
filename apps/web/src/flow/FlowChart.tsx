@@ -14,6 +14,8 @@ import { FlowCard } from './FlowCard'
 import { defaultEdge, newDraftNode, FlowEditor } from './FlowEditor'
 
 const ZS = [0.5, 0.67, 0.8, 1, 1.25, 1.5]
+/** 알약의 가장 좁은 폭(px): 이름이 켜져 있으면 칸이 이보다 좁아지지 않는다 */
+const PILL_MIN = 96
 const CW0 = 160, RH0 = 76, TOP = 30, LEFT = 30
 /** 줄 이름 칸의 폭 (10/20 사용자: 줄 이름은 주제와 따로, 차트 왼쪽에 붙어 있다) */
 const GUT = 112
@@ -105,15 +107,18 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
     return () => ro.disconnect()
   }, [hasDots])
 
-  const fitCW = Math.max(32, Math.min(CW0, (boxW - LEFT - 8) / Math.max(1, lay.cols)))
-  const CW = zoom.fit ? fitCW : CW0 * zoom.x
-  const RH = RH0 * zoom.y
-  const compact = CW < 64 || RH < 48
   /**
-   * 알약 (10/26 "흐름 점 표식" 안 B): 이름을 켜면 점이 왼쪽 기호 · 오른쪽 이름의 알약이 된다. 끄거나 좁으면 기호만.
-   * 고른 점 · 계보 · 내 차례 테두리도 알약에 두른다
+   * 알약 (10/26 "흐름 점 표식" 안 B): 이름을 켜면 점이 왼쪽 기호 · 오른쪽 이름의 알약이 된다. 끄면 기호만.
+   * 이름이 켜져 있으면 칸을 알약이 들어가는 폭 · 높이 아래로 줄이지 않는다(가로 좁히기 · 전체 보기로 좁아져도 점으로 바뀌지 않고 차트가 가로로 스크롤된다,
+   * 10/31 사용자 "앱에서 점이야"). 고른 점 · 계보 · 내 차례 테두리도 알약에 두른다
    */
-  const PW = Math.min(CW - 28, 132), PH = 28
+  const PH = 28
+  const minCW = names ? PILL_MIN + 28 : 32, minRH = names ? PH + 12 : 0
+  const fitCW = Math.max(minCW, Math.min(CW0, (boxW - LEFT - 8) / Math.max(1, lay.cols)))
+  const CW = zoom.fit ? fitCW : Math.max(minCW, CW0 * zoom.x)
+  const RH = Math.max(minRH, RH0 * zoom.y)
+  const compact = !names && (CW < 64 || RH < 48)
+  const PW = Math.min(CW - 28, 132)
   const X = (c: number) => LEFT + CW * c + CW / 2
   const Y = (r: number) => TOP + RH * r + RH / 2 - 6
   const cellAt = (e: React.PointerEvent): Cell | null => {
@@ -221,7 +226,9 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
 
   const step = (axis: 'x' | 'y', d: number) => {
     const i = ZS.indexOf(zoom[axis])
-    const z = ZS[Math.max(0, Math.min(ZS.length - 1, (i < 0 ? 3 : i) + d))]!
+    let z = ZS[Math.max(0, Math.min(ZS.length - 1, (i < 0 ? 3 : i) + d))]!
+    // 이름이 켜져 있으면 알약이 들어가지 않는 단계로는 내려가지 않는다 (단계만 내려가고 화면은 그대로인 헛걸음을 막는다)
+    if (names) z = Math.max(z, ZS.find((v) => (axis === 'x' ? CW0 * v >= minCW : RH0 * v >= minRH)) ?? z)
     setZoom({ ...zoom, [axis]: z, fit: axis === 'x' ? false : zoom.fit })
   }
 
@@ -284,10 +291,10 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
         {gapCount > 0 && <button className={`btn${gapOn ? ' on' : ''}`} data-ui="흐름 빈틈 보기" aria-pressed={gapOn} title={tr('빈틈(근거 · 결과 · 이유 · 다음 할 일 · 단계 확인이 빠진 곳)이 있는 점을 굵게', 'Highlight dots with gaps (missing evidence, result, reason, next step or step checks)')} onClick={() => setGapOn(!gapOn)}>{tr(`빈틈 ${gapCount}`, `Gaps ${gapCount}`)}</button>}
         {lay.placed.length > 0 && <span className="fl-zoom" data-ui="흐름 확대">
           <span className="fl-zl" title={tr('가로', 'Width')} aria-label={tr('가로', 'Width')}>↔</span>
-          <button className="icon-btn" title={tr('가로 좁히기', 'Narrower')} aria-label={tr('가로 좁히기', 'Narrower')} onClick={() => step('x', -1)}>−</button>
+          <button className="icon-btn" disabled={names && CW0 * zoom.x <= minCW && !zoom.fit} title={tr('가로 좁히기', 'Narrower')} aria-label={tr('가로 좁히기', 'Narrower')} onClick={() => step('x', -1)}>−</button>
           <button className="icon-btn" title={tr('가로 넓히기', 'Wider')} aria-label={tr('가로 넓히기', 'Wider')} onClick={() => step('x', 1)}>＋</button>
           <span className="fl-zl" title={tr('세로', 'Height')} aria-label={tr('세로', 'Height')}>↕</span>
-          <button className="icon-btn" title={tr('세로 좁히기', 'Shorter')} aria-label={tr('세로 좁히기', 'Shorter')} onClick={() => step('y', -1)}>−</button>
+          <button className="icon-btn" disabled={names && RH0 * zoom.y <= minRH} title={tr('세로 좁히기', 'Shorter')} aria-label={tr('세로 좁히기', 'Shorter')} onClick={() => step('y', -1)}>−</button>
           <button className="icon-btn" title={tr('세로 넓히기', 'Taller')} aria-label={tr('세로 넓히기', 'Taller')} onClick={() => step('y', 1)}>＋</button>
           <button className={`btn${names ? ' on' : ''}`} data-ui="흐름 이름 보기" aria-pressed={names} title={tr('점 이름 켜기·끄기 (꺼도 고른 점과 그 앞뒤 점은 보임)', 'Show or hide dot names (the selected dot and its lineage still show)')} onClick={() => setNames(!names)}>{tr('이름', 'Names')}</button>
           <button className={`btn${zoom.fit ? ' on' : ''}`} aria-pressed={zoom.fit} title={tr('가로를 상자 폭에 맞추기', 'Fit the width to the box')} onClick={() => setZoom({ ...zoom, fit: !zoom.fit })}>{tr('전체 보기', 'Fit')}</button>
@@ -333,7 +340,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
             const x = X(c), y = Y(r), on = n.id === sel && !picking, lg = inLin(n.id) && !on && !picked
             const hot = (!!focus && n.topics.includes(focus)) || (gapOn && n.gaps.length > 0)
             const start = !n.from.length
-            const pill = names && !compact
+            const pill = names
             // 주제 하이라이트 · 누르는 자리: 이름 알약이면 알약에 맞추고, 아니면 기호와 아래 이름을 함께 감싼다 (10/29 09:57: 알약 아래로 어긋난 상자)
             const box = pill ? { x: x - PW / 2 - 5, y: y - PH / 2 - 5, width: PW + 10, height: PH + 10, rx: PH / 2 + 5 }
               : { x: x - CW / 2 + 4, y: y - 18, width: CW - 8, height: compact ? 34 : 52, rx: 6 }
