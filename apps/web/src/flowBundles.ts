@@ -127,11 +127,37 @@ export function bundleFlow(all: FlowNode[], topicOrder: string[] = []): BundleLa
   return { bundles, of, lines, cols: Math.max(1, ...bundles.map((b) => b.col + 1)), topics }
 }
 
-/** 묶음 안의 점 자리 (묶음 창의 작은 흐름): 열은 묶음 안의 가장 긴 앞 경로, 같은 열은 아래로 */
+/**
+ * 묶음 안의 점 자리 (묶음 창의 작은 흐름): 여는 점(질문, 없으면 첫 점)이 첫 열에 홀로, 닫는 점(대표 명제)이 마지막 열에 홀로,
+ * 그 사이는 묶음 안의 가장 긴 앞 경로(고리는 무시). 같은 열은 앞선 점의 줄 순서로 아래로 쌓는다. 점의 날짜 순서와 상관없다.
+ */
 export function layoutBundle(b: Bundle): { id: string; c: number; r: number }[] {
-  const ids = new Set(b.nodes.map((n) => n.id))
-  const c = new Map<string, number>()
-  for (const n of b.nodes) c.set(n.id, Math.max(-1, ...n.from.filter((f) => ids.has(f.id) && c.has(f.id)).map((f) => c.get(f.id)!)) + 1)
-  const used = new Map<number, number>()
-  return b.nodes.map((n) => { const col = c.get(n.id)!, r = used.get(col) ?? 0; used.set(col, r + 1); return { id: n.id, c: col, r } })
+  const byId = new Map(b.nodes.map((n) => [n.id, n]))
+  const col = new Map<string, number>()
+  const state = new Map<string, 1 | 2>()
+  const parents = (n: FlowNode) => n.from.filter((f) => byId.has(f.id) && f.id !== n.id)
+  const colOf = (id: string): number => {
+    if (state.get(id) === 2) return col.get(id)!
+    if (state.get(id) === 1) return -1
+    state.set(id, 1)
+    const c = Math.max(-1, ...parents(byId.get(id)!).map((f) => colOf(f.id))) + 1
+    state.set(id, 2); col.set(id, c)
+    return c
+  }
+  for (const n of b.nodes) colOf(n.id)
+  const head = byId.has(b.id) ? b.id : b.nodes[0]!.id
+  const rest = b.nodes.filter((n) => n.id !== head && n.id !== b.answer?.id)
+  // 여는 점만 첫 열에: 앞선 점이 묶음 밖에 있어 0열에 온 점은 한 열씩 민다
+  if (rest.some((n) => col.get(n.id) === 0)) for (const n of rest) col.set(n.id, col.get(n.id)! + 1)
+  col.set(head, 0)
+  if (b.answer && b.answer.id !== head) col.set(b.answer.id, Math.max(0, ...rest.map((n) => col.get(n.id)!)) + 1)
+  // 줄: 열 순서대로, 같은 열은 앞선 점의 줄(없으면 날짜 순)로
+  const row = new Map<string, number>()
+  const cols = [...new Set(col.values())].sort((x, y) => x - y)
+  for (const c of cols) {
+    const here = b.nodes.filter((n) => col.get(n.id) === c)
+    const key = (n: FlowNode) => Math.min(Infinity, ...parents(n).map((f) => row.get(f.id) ?? Infinity))
+    here.sort((x, y) => key(x) - key(y) || b.nodes.indexOf(x) - b.nodes.indexOf(y)).forEach((n, i) => row.set(n.id, i))
+  }
+  return b.nodes.map((n) => ({ id: n.id, c: col.get(n.id)!, r: row.get(n.id)! }))
 }

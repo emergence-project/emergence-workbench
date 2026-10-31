@@ -10,6 +10,13 @@ import type { TopicRef } from './data'
 import { KIND, markOf, markState, markTurn, stateOf, MarkSvg, judgedOf, turnOf } from './marks'
 
 const CW = 170, RH = 96, TOP = 14, LEFT = 128
+/** 칸 폭에 맞게 이름을 자른다(전체 이름은 툴팁). 한글 한 자를 1, 로마자 · 숫자를 0.55로 세어 n자 분량까지 */
+export const clip = (s: string, n: number) => {
+  const w = (ch: string) => /[\u1100-\uffff]/.test(ch) ? 1 : 0.55
+  let sum = 0
+  for (let i = 0; i < s.length; i++) { sum += w(s[i]!); if (sum > n) return `${s.slice(0, Math.max(1, i - 1))}…` }
+  return s
+}
 
 /** 묶음의 겉모양: 답이 나온 묶음은 대표 명제, 아니면 질문(질문 없이 시작했으면 첫 점) */
 const faceOf = (b: Bundle): FlowNode => b.answer ?? b.question ?? b.nodes[0]!
@@ -75,7 +82,7 @@ export function FlowBundles({ rid, all, topics, focus, foldSwitch, onOpenDot }: 
                 {sel === b.id && <circle className="fl-ring sel" cx={x} cy={y} r={19} />}
                 {turnCount(b) > 0 && sel !== b.id && <circle className="fl-turn" cx={x} cy={y} r={19} />}
                 <MarkSvg m={m} x={x} y={y} state={markState(face)} judged={b.answer ? b.judged : undefined} turn={markTurn(face)} />
-                <text className="fl-name" x={x} y={y + 32} textAnchor="middle">{nameOf(b)}</text>
+                <text className="fl-name" x={x} y={y + 32} textAnchor="middle">{clip(nameOf(b), 14)}</text>
                 {tally && <text className="fl-tally" x={x} y={y + 47} textAnchor="middle">{tally}</text>}
               </g>
             })}
@@ -94,7 +101,7 @@ function BundleWindow({ rid, b, onClose, onOpenDot }: { rid: string; b: Bundle; 
     return () => window.removeEventListener('keydown', esc)
   }, [onClose])
   const pos = layoutBundle(b)
-  const cw = 112, rh = 76
+  const cw = 150, rh = 76
   const at = new Map(pos.map((p) => [p.id, p]))
   const X = (c: number) => 20 + cw * c + cw / 2, Y = (r: number) => 26 + rh * r
   const W = 40 + cw * Math.max(1, ...pos.map((p) => p.c + 1)), H = 30 + rh * Math.max(1, ...pos.map((p) => p.r + 1))
@@ -111,9 +118,10 @@ function BundleWindow({ rid, b, onClose, onOpenDot }: { rid: string; b: Bundle; 
           {(b.question?.title ?? face.title) !== nameOf(b) && <p className="muted fl-bwin-q">{b.question?.title ?? face.title}</p>}
           <div className="fl-bwin-chart">
             <svg className="fl-svg" width={W} height={H} role="img" aria-label={tr('묶음의 점', 'Dots in the bundle')}>
-              {b.nodes.flatMap((n) => n.from.filter((f) => at.has(f.id)).map((f) => {
+              {b.nodes.flatMap((n) => n.from.filter((f) => at.has(f.id)).map((f, k) => {
                 const p = at.get(f.id)!, q = at.get(n.id)!
-                const x1 = X(p.c) + 16, y1 = Y(p.r), x2 = X(q.c) - 16, y2 = Y(q.r), xb = X(q.c) - cw / 2 + 10
+                // 같은 점으로 오는 선이 여럿이면 꺾는 자리를 6px씩 비킨다
+                const x1 = X(p.c) + 16, y1 = Y(p.r), x2 = X(q.c) - 16, y2 = Y(q.r), xb = X(q.c) - cw / 2 + 10 + 6 * k
                 return <path key={`${f.id}>${n.id}`} className={`fl-e${f.type === 'use' ? ' use' : ''}`} d={y1 === y2 ? `M${x1} ${y1}H${x2}` : roundedPath([[x1, y1], [xb, y1], [xb, y2], [x2, y2]], 10)} />
               }))}
               {b.nodes.map((n) => {
@@ -124,7 +132,7 @@ function BundleWindow({ rid, b, onClose, onOpenDot }: { rid: string; b: Bundle; 
                   <rect className="fl-hit" x={x - cw / 2 + 4} y={y - 18} width={cw - 8} height={48} rx={6} />
                   {turnOf(n) && <circle className="fl-turn" cx={x} cy={y} r={19} />}
                   <MarkSvg m={markOf(n)} x={x} y={y} state={markState(n)} judged={judgedOf(n)} turn={markTurn(n)} />
-                  <text className="fl-name" x={x} y={y + 30} textAnchor="middle">{n.short}</text>
+                  <text className="fl-name" x={x} y={y + 30} textAnchor="middle">{clip(n.short, 11)}</text>
                 </g>
               })}
             </svg>
