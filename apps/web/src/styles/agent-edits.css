@@ -74,7 +74,7 @@ img.ae-del, canvas.ae-del { background: none; outline: 3px solid var(--paint-pin
 
 /* 바뀐 곳에서 묻기 (10/14 시안): 검토 칸은 묻기 · ⋯ · 승인, 고치기 · 되돌리기는 ⋯ 메뉴. 이유 한 줄은 후 칸 아래에 옅게.
    누르면 줄 아래에 대화(피드백과 같은 부품 Conversation.tsx)가 표 폭 그대로 열린다 */
-.ae-reason { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: 1.45; }
+.ae-reason { grid-column: 2 / -1; margin: 0; padding: var(--sp-1) var(--sp-3); border-top: 1px dashed var(--line); border-left: 1px solid var(--line); color: var(--text-3); font-size: var(--fs-xs); line-height: 1.45; }
 .ae-talk-btn { position: relative; }
 .ae-talk-n { position: absolute; top: -2px; right: -3px; }
 /* 에이전트 차례는 회색 알약, 사용자 차례는 .rail-count 주황 알약 */
