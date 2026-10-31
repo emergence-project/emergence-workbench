@@ -251,14 +251,15 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 
 /* 대화 목록의 묶음 (10/22): 워크벤치 전체 · 프로젝트마다. 이름을 누르면 접고, ＋는 그 묶음에서 새 대화 */
 .ac-group-h { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
-.ac-group-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 0; border: 0; background: none; color: var(--text); font-size: var(--fs-sm); font-weight: var(--fw-medium); text-align: left; cursor: pointer; }
+.ac-group-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 0; border: 0; background: none; color: var(--text); font-size: var(--fs-sm); font-weight: var(--fw-strong); text-align: left; cursor: pointer; }
 .ac-group-name .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-group-name .n { color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-normal); }
 .ac-group-name .tree-chev { width: auto; height: auto; }
 .ac-group-h.open .tree-chev span { transform: rotate(90deg); }
 .ac-group-h .icon-btn { color: var(--text-3); }
 .ac-group-empty { font-size: var(--fs-xs); padding: 0 var(--sp-2) var(--sp-2); }
-.ac-group + .ac-group { margin-top: var(--sp-1); }
+/* 프로젝트 묶음은 굵은 이름과 묶음 사이 여백만으로 가른다 (10/31 시안 2절: 띠 · 선 · 색 없이) */
+.ac-group + .ac-group { margin-top: var(--sp-2); }
 
 /* 제목 바꾸기 (10/28 피드백 21:19): 머리 제목 자리와 목록 줄 이름 자리가 입력란이 된다. 목록 줄의 연필 · 휴지통은 마우스를 올릴 때 */
 .ac-title-input { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: var(--fs-md); font-weight: var(--fw-strong); color: var(--text); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 var(--sp-1); }
