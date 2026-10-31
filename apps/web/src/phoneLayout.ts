@@ -8,6 +8,11 @@ import { store } from './store'
  */
 export const PHONE_QUERY = '(max-width: 600px)'
 
+/** 폰으로 처음 열면 내 차례부터 (10/31 "안 A · 내 차례 먼저"). 주소가 비었을 때만: 링크로 연 화면은 그대로. 앱이 주소를 읽기 전에 부른다 */
+export function phoneStart(): void {
+  if (matches() && (!location.hash || location.hash === '#' || location.hash === '#/')) history.replaceState(history.state, '', '#/turns')
+}
+
 const matches = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(PHONE_QUERY).matches
 
 export function usePhone(): boolean {

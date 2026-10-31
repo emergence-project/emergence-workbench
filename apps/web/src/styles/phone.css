@@ -1,19 +1,13 @@
 /* 폰 (10/30 사용자 결정 "Tailscale, 읽기와 답·메모", 시안 https://claude.ai/artifact/5p4up2yhVrgocqXM61D1h3).
-   폭 600px 아래에서만 바뀐다. 레일 → 아래 탭 바(옆으로 밀어 넘김), 사이드바 · 오른쪽 사이드바 → 본문을 덮는 한 장,
+   폭 600px 아래에서만 바뀐다. 레일 → 아래 탭 넷(10/31 폰 시안 https://claude.ai/artifact/M7D5NatDAN9agDCJTmPpop), 사이드바 · 오른쪽 사이드바 → 본문을 덮는 한 장,
    작업 화면은 패널 하나(나뉘어 있으면 고른 패널만). 처음과 화면을 옮길 때 덮는 장은 닫힌다(phoneLayout.ts). */
 @media (max-width: 600px) {
   .body, .body.no-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; position: relative; }
-  .body > :not(.rail, .side) { grid-row: 1; grid-column: 1; }
+  .body > :not(.rail, .side, .ph-tabs) { grid-row: 1; grid-column: 1; }
 
-  /* 아래 탭 바 */
-  .rail { grid-row: 2; grid-column: 1; flex-direction: row; justify-content: flex-start; gap: var(--sp-2); overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
-    border-right: 0; border-top: 1px solid var(--line); padding: var(--sp-1) var(--sp-3) calc(var(--sp-1) + env(safe-area-inset-bottom, 0px)); }
-  .rail-btn { flex: none; width: 40px; height: 40px; }
-  .rail-hr { width: 0; height: 24px; border-top: 0; border-left: 1px solid var(--line-strong); margin: 0 var(--sp-1); }
-  .rail-projects { flex-direction: row; align-self: stretch; align-items: center; overflow: visible; padding: 0 var(--sp-1); }
-  .rail { padding-top: var(--sp-2); }
-  .rail .sp { display: none; }
-  .rail [data-tip]:hover::after, .rail [data-tip]:hover::before { display: none; }
+  /* 레일 대신 아래 탭 넷 (phone/PhoneTabs.tsx, 10/31 "안 A · 내 차례 먼저") */
+  .rail { display: none; }
+  .ph-tabs { grid-row: 2; grid-column: 1; }
 
   /* 사이드바: 본문 위에 덮는 한 장 */
   .side { grid-row: 1; grid-column: 1; z-index: var(--z-overlay); border-right: 0; box-shadow: var(--shadow); }
@@ -40,3 +34,50 @@
 @media (hover: none) {
   [data-tip]:hover::after { content: none; }
 }
+
+/* 폰 아래 탭 넷: 차례 · 프로젝트 · 대화 · 설정 (PhoneTabs는 폰 폭에서만 그린다) */
+.ph-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); background: var(--bg-side);
+  padding: var(--sp-1) var(--sp-1) calc(var(--sp-1) + env(safe-area-inset-bottom, 0px)); }
+.ph-tab { display: grid; justify-items: center; gap: 2px; padding: var(--sp-1) 0; border: 0; background: none; color: var(--text-3); font-size: var(--fs-2xs); font-weight: var(--fw-medium); }
+.ph-tab.on { color: var(--text); font-weight: var(--fw-strong); }
+.ph-tab-icon { position: relative; display: grid; place-items: center; width: 24px; height: 24px; }
+.ph-tab-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ph-n { position: absolute; top: calc(-1 * var(--sp-1)); left: 15px; min-width: 16px; height: 16px; padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--s-blocked); color: var(--on-color);
+  font-size: var(--fs-2xs); font-weight: var(--fw-strong); line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* 내 차례 (phone/PhoneTurns.tsx): 종류마다 묶은 카드, 카드를 누르면 아래에서 올라오는 시트 */
+.ph-turns { overflow-y: auto; padding: var(--sp-3) var(--sp-3) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+.ph-head { display: flex; align-items: baseline; gap: var(--sp-2); }
+.ph-head h1 { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-title); }
+.ph-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ph-group h2 { margin: 0; display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }
+.ph-card { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card-bg); overflow: hidden; }
+.ph-card-main { display: grid; gap: var(--sp-1); width: 100%; padding: var(--sp-3); border: 0; background: none; text-align: left; color: var(--text); }
+.ph-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); min-width: 0; }
+.ph-title { font-size: var(--fs-md); font-weight: var(--fw-strong); line-height: 1.4; overflow-wrap: anywhere; }
+.ph-body { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.45; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ph-chip { padding: 0 var(--sp-2); border-radius: var(--r-xs); background: var(--bg-sunken); color: var(--text-2); font-size: var(--fs-2xs); font-weight: var(--fw-medium);
+  box-shadow: inset 3px 0 0 var(--pc, var(--line-strong)); }
+.ph-agent { font-weight: var(--fw-medium); color: var(--text-2); }
+.ph-btns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-3); }
+.ph-btns .btn { height: var(--input-h-lg); justify-content: center; }
+.ph-empty { padding: var(--sp-5) var(--sp-2); }
+
+.ph-sheet-wrap { position: fixed; inset: 0; z-index: var(--z-overlay); }
+.ph-scrim { position: absolute; inset: 0; background: var(--scrim); }
+.ph-sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 88%; display: flex; flex-direction: column; background: var(--bg);
+  border-radius: var(--r-lg) var(--r-lg) 0 0; box-shadow: var(--shadow); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.ph-sheet-head { display: flex; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-3) var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--line); }
+.ph-sheet-head b { flex: 1; min-width: 0; font-size: var(--fs-lg); font-weight: var(--fw-title); line-height: 1.35; overflow-wrap: anywhere; }
+.ph-sheet-body { overflow-y: auto; padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
+.ph-note { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-sm); line-height: 1.55; color: var(--text); }
+.ph-ask { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--bg-sunken); font-size: var(--fs-sm); }
+.ph-pics { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.ph-pics figure { margin: 0; display: grid; gap: var(--sp-1); }
+.ph-pics img { width: 100%; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.ph-pics figcaption { font-size: var(--fs-xs); color: var(--text-3); }
+.ph-more { align-self: flex-start; }
+/* 시트 안의 맡긴 일 카드: 이름은 시트 머리에 있으니 접힌 줄은 숨기고 카드 테두리 없이 */
+.ph-sheet-body .tk { border: 0; background: none; box-shadow: none; }
+.ph-sheet-body .tk-row { display: none; }
+.ph-sheet-body .tk-open { padding: 0; }

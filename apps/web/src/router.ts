@@ -21,6 +21,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/network/<사람>       사람 한 명의 페이지 (노트 참고 문헌에 있는 그 사람의 논문)
  *   #/feedback            피드백 모아 보기
  *   #/agent[/<대화>]       에이전트 대화 (모든 프로젝트, 10/21)
+ *   #/turns               내 차례 (폰의 첫 화면, 10/31: 모든 프로젝트의 피드백 답 · 에이전트 질문 · 맡긴 일 결과 · 수정 검토)
  *   #/review[?key=]       개념노트의 에이전트 고침 검토 (key = concept:<id>, 그 노트를 연 채). scope=<연구>는 그 프로젝트의 고침 검토 탭으로 간다
  *   #/papers              논문 라이브러리 첫 화면 (최근 더한 논문 · 점검 · 통계)
  *   #/papers/list         논문 목록 (표 · 카드)
@@ -46,6 +47,7 @@ export type Route =
   | { page: 'feedback' }
   /** 에이전트 대화 (10/21). id가 없으면 새 대화 */
   | { page: 'agent'; id?: string }
+  | { page: 'turns' }
   /** 에이전트 고침 검토 (10/8). scope는 목록을 그 프로젝트(또는 library)만 */
   | { page: 'review'; key?: string; scope?: string }
   /** 거르기(filter)나 list가 있으면 목록, 없으면 첫 화면 (10/6 라이브러리 L2) */
@@ -121,6 +123,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'latex') return { page: 'settings', part: 'latex' }
   if (parts[0] === 'network') return parts[1] ? { page: 'network', person: parts[1] } : { page: 'network' }
   if (parts[0] === 'feedback') return { page: 'feedback' }
+  if (parts[0] === 'turns') return { page: 'turns' }
   if (parts[0] === 'agent') return parts[1] ? { page: 'agent', id: parts[1] } : { page: 'agent' }
   if (parts[0] === 'review') {
     const params = new URLSearchParams(query)
@@ -166,6 +169,7 @@ export function href(r: Route): string {
     case 'settings': return `#/settings${r.part ? `/${e(r.part)}${r.pr ? `/${r.pr}` : ''}` : ''}`
     case 'network': return `#/network${r.person ? `/${e(r.person)}` : ''}`
     case 'feedback': return '#/feedback'
+    case 'turns': return '#/turns'
     case 'agent': return `#/agent${r.id ? `/${e(r.id)}` : ''}`
     case 'review': {
       const p = new URLSearchParams()

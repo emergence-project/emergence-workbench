@@ -279,10 +279,11 @@ try {
     await phone.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
     phone.on('pageerror', (e) => problems.push(`${current}: ${e.message}`))
     phone.on('console', (m) => { if (m.type() === 'error' && !expected(m)) problems.push(`${current}: console ${m.text()} ${m.location().url ?? ''}`) })
-    for (const [name, hash, ui] of PHONE_SCREENS) {
+    for (const [name, hash, ui, click] of PHONE_SCREENS) {
       current = name
       await phone.goto(base + hash.replace('{rid}', encodeURIComponent(rid)))
       await phone.waitForLoadState('networkidle')
+      if (click) await phone.locator(click).filter({ visible: true }).first().click({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${click} 없음`))
       await phone.locator(`[data-ui="${ui}"]`).filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${ui} 없음`))
       if (await phone.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) problems.push(`${name}: 화면이 옆으로 넘친다`)
       await phone.screenshot({ path: path.join(out, `${name}.png`) })
