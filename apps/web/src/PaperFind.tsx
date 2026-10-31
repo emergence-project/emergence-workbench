@@ -42,7 +42,7 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
 
   useEffect(() => {
     if (!open) return
-    const away = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
+    const away = (e: MouseEvent) => { if (!(e.target instanceof Node) || !box.current?.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', away)
     return () => document.removeEventListener('mousedown', away)
   }, [open])
@@ -54,7 +54,7 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
       window.dispatchEvent(new Event(PAPERS_CHANGED))
       onSaved(r.existed ? t(`이미 있는 논문입니다: ${r.key}`, `Paper already exists: ${r.key}`) : t(`더했습니다: ${r.key}`, `Added: ${r.key}`))
       setOpen(false); onChange(''); showPaper(r.key)
-    } catch (e) { setErr((e as Error).message) } finally { setBusy(null) }
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)) } finally { setBusy(null) }
   }
 
   const lib = papers ? papers.filter((p) => matchPaper(p, q)) : []

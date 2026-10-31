@@ -63,7 +63,7 @@ interface S2Paper { title?: string; year?: number; venue?: string; authors?: { n
 async function fromS2(q: string): Promise<PaperWebHit[]> {
   const res = await paperFetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(q)}&limit=${WEB_EACH}&fields=title,authors,year,venue,externalIds`)
   if (!res.ok) throw new Error(`Semantic Scholar ${res.status}`)
-  const body = await res.json() as { data?: S2Paper[] }
+  const body: { data?: S2Paper[] } = await res.json()
   return (body.data ?? []).flatMap((p) => {
     const id = p.externalIds?.ArXiv ?? p.externalIds?.DOI
     if (!id || !p.title) return []
@@ -76,7 +76,7 @@ interface CrossrefItem { DOI?: string; title?: string[]; author?: { family?: str
 async function fromCrossref(q: string): Promise<PaperWebHit[]> {
   const res = await paperFetch(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(q)}&rows=${WEB_EACH}&select=DOI,title,author,issued,container-title`)
   if (!res.ok) throw new Error(`Crossref ${res.status}`)
-  const body = await res.json() as { message?: { items?: CrossrefItem[] } }
+  const body: { message?: { items?: CrossrefItem[] } } = await res.json()
   return (body.message?.items ?? []).flatMap((x) => {
     const title = x.title?.[0]
     if (!x.DOI || !title) return []
