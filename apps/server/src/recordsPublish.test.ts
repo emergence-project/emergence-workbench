@@ -87,6 +87,25 @@ describe('기록 올리기: GitHub 위에 올린 뒤 이 컴퓨터의 브랜치�
   })
 })
 
+describe('기록 올리기: 파일이 없는 기록 폴더 (11/2 점검)', () => {
+  const BOTH = ['workbench/comments', 'workbench/log']
+  it('일지 폴더가 비어 있어도 바뀐 코멘트를 올린다', async () => {
+    const { remote, mac } = setup('empty-log')
+    fs.mkdirSync(path.join(mac, 'workbench/log')) // git은 빈 폴더를 모른다
+    write(mac, 'workbench/comments/b.md', '# b\n')
+    expect(await publishPaths(mac, BOTH, RECORD_OPTS)).toMatchObject({ pushed: true, files: ['workbench/comments/b.md'] })
+    expect(g(remote, 'show', 'main:workbench/comments/b.md')).toBe('# b')
+  })
+
+  it('코멘트 폴더가 없어도 새 일지를 올린다', async () => {
+    const { remote, mac } = setup('no-comments')
+    g(mac, 'rm', '-rq', 'workbench/comments'); g(mac, 'commit', '-qm', 'drop comments'); g(mac, 'push', '-q')
+    write(mac, 'workbench/log/2026-11-02.md', '# 11/2\n')
+    expect(await publishPaths(mac, BOTH, RECORD_OPTS)).toMatchObject({ pushed: true, files: ['workbench/log/2026-11-02.md'] })
+    expect(g(remote, 'show', 'main:workbench/log/2026-11-02.md')).toBe('# 11/2')
+  })
+})
+
 describe('기록 올리기: GitHub에서도 바뀐 기록 파일 합치기 (merge)', () => {
   it('클라우드의 답과 이 컴퓨터의 새 기록이 깨끗이 합쳐지면 합쳐 올리고 HEAD를 옮긴다', async () => {
     const { remote, mac, cloud } = setup('merge')
