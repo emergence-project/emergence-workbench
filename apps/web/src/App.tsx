@@ -124,7 +124,7 @@ export function App() {
   useEffect(() => {
     const open = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
     const ask = () => { setRightMode('records'); open() }
-    // 노트의 고른 글 메뉴 「에이전트에게」 (AgentChats.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 탭(아래 자리면 아래 패널)을 연다
+    // 노트의 고른 글 메뉴 「에이전트에게」 (ChatComposer.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 탭(아래 자리면 아래 패널)을 연다
     const agent = () => { setRightMode('agent'); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') open(); else setAgentPanel(true) }
     window.addEventListener(OPEN_CONTEXT, ask)
     window.addEventListener(OPEN_RIGHT, open)

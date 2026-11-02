@@ -1,14 +1,13 @@
 {
   "lines": {
-    "apps/server/src/agentChats.ts": 1346,
+    "apps/server/src/agentChats.ts": 1201,
     "apps/server/src/comments.ts": 676,
     "apps/server/src/feedback.ts": 652,
     "apps/server/src/flow.ts": 651,
     "apps/server/src/mcp.ts": 675,
-    "apps/web/src/AgentChats.tsx": 1732,
+    "apps/web/src/AgentChats.tsx": 1365,
     "apps/web/src/App.tsx": 639,
     "apps/web/src/FeedbackPage.tsx": 696,
-    "apps/web/src/PapersPage.tsx": 677,
     "apps/web/src/Workspace.tsx": 645
   },
   "casts": {
@@ -89,7 +88,7 @@
     "apps/web/src/about/project/work-and-records.tsx": 1,
     "apps/web/src/AboutPage.tsx": 3,
     "apps/web/src/AddNotesDialog.tsx": 1,
-    "apps/web/src/AgentChats.tsx": 18,
+    "apps/web/src/AgentChats.tsx": 16,
     "apps/web/src/AgentEditsPage.tsx": 8,
     "apps/web/src/api/comments.ts": 2,
     "apps/web/src/api/http.ts": 3,
@@ -101,6 +100,7 @@
     "apps/web/src/CardEditDialog.tsx": 2,
     "apps/web/src/CardImagePicker.tsx": 3,
     "apps/web/src/cardParts.tsx": 2,
+    "apps/web/src/ChatComposer.tsx": 2,
     "apps/web/src/Comments.tsx": 5,
     "apps/web/src/CommonRulesSettings.tsx": 1,
     "apps/web/src/ConceptEditor.tsx": 1,
@@ -159,7 +159,8 @@
     "apps/web/src/NoteToolbar.tsx": 1,
     "apps/web/src/ObsidianMarkdown.tsx": 1,
     "apps/web/src/OverviewPage.tsx": 4,
-    "apps/web/src/PapersPage.tsx": 3,
+    "apps/web/src/PapersPage.tsx": 2,
+    "apps/web/src/PaperTable.tsx": 1,
     "apps/web/src/PdfFolderSettings.tsx": 1,
     "apps/web/src/PdfView.tsx": 9,
     "apps/web/src/polyfills.ts": 5,
