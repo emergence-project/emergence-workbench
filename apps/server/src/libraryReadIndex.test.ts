@@ -121,6 +121,18 @@ describe('library L4 incremental reads', () => {
     expect((await get('/api/papers/brief')).check.answered).toBe(0)
   })
 
+  it('refreshes the tag column when a concept note cites a paper (10/31 tags)', async () => {
+    write('references.bib', '@article{paper,title={Paper}}\n@book{book,title={Book}}\n')
+    const tags = async (key: string) => ((await get('/api/papers')).papers as { key: string; tags?: { title: string }[] }[]).find((p) => p.key === key)?.tags?.map((x) => x.title)
+    expect(await tags('book')).toBeUndefined()
+    const kempe = write('concepts/kempe.md', '---\ntitle: Kempe chain\n---\n\nSee [@book].\n')
+    refresh()
+    expect(await tags('book')).toEqual(['Kempe chain'])
+    fs.appendFileSync(kempe, 'Also [@paper].\n')
+    refresh()
+    expect(await tags('paper')).toEqual(['Kempe chain'])
+  })
+
   it('refreshes direct project references and alias resolution without rereading unchanged project notes', async () => {
     note('alpha', 'Alpha'); note('beta', 'Beta')
     const file = path.join(repo, 'workbench/notes/direct/note.md')

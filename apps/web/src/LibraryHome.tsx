@@ -3,7 +3,7 @@ import { figuresApi, LIBRARY_SCOPE, papersApi, type FigureBrief, type LibraryInf
 import { FIGURES_CHANGED } from './figureEmbed'
 import { AddFigure, FigureCard, scopeTitle, showFigure, showRecentFigures } from './FiguresPage'
 import { LibraryStorage, StoreLine } from './LibraryStorage'
-import { PaperFind } from './PaperFind'
+import { PaperFind, shortAuthors } from './PaperFind'
 import { PAPERS_CHANGED, showPaper } from './PapersPage'
 import { relativeTime } from './format'
 import { go, type Route } from './router'
@@ -41,11 +41,11 @@ function useOneRow(): [React.RefObject<HTMLDivElement | null>, number] {
 /** 점검 · 통계 한 줄 */
 interface StatRow { key: string; label: string; text: string; tip: string; count: number; to: Route }
 
-function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, check, stats, statsNote, error, notice, rightOpen, side }: {
+function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, check, stats, statsNote, error, rightOpen, side }: {
   ui: string; kind: 'pl' | 'fg'; recentTitle: string; recentText: string; recentTip: string; onRecent(): void
   cards(cols: number): ReactNode
   check: StatRow[] | null; stats: StatRow[] | null; statsNote?: string
-  error: string | null; notice?: string | null; rightOpen: boolean; side: ReactNode
+  error: string | null; rightOpen: boolean; side: ReactNode
 }) {
   const [row, cols] = useOneRow()
   const turn = (check ?? []).filter((c) => c.count > 0)
@@ -54,7 +54,6 @@ function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, c
       <div className={`kh-layout${rightOpen ? '' : ' no-right'}`}>
         <div className="scroll kh-main">
           {error && <div className="banner danger">{t('첫 화면 숫자를 읽지 못했습니다', 'Could not read the counts for this page')}: {error}</div>}
-          {notice && <div className="banner">{notice}</div>}
           <section className="kh-sec lh-wide" data-ui={recentTitle}>
             <h2 className="kh-h"><button className="a lh-h-link" title={recentTip} onClick={onRecent}>{recentText}</button></h2>
             <div ref={row} className={`lh-cards ${kind}`}>{cards(cols)}</div>
@@ -102,7 +101,6 @@ function useBrief<T>(load: () => Promise<T>, event: string, info: unknown): [T |
 const loadPapers = () => papersApi.brief(RECENT)
 const folderName = (p: string) => p.split('/').filter(Boolean).pop() ?? p
 const SHOW = 6
-const short = (authors: string[]) => (authors.length > 2 ? `${authors.slice(0, 2).join(', ')}${t(' 외', ' et al.')}` : authors.join(', '))
 const pickWhen = (p: PaperPick) => (p.date ? `${Number(p.date.slice(5, 7))}/${Number(p.date.slice(8, 10))}` : p.year)
 
 /**
@@ -144,11 +142,12 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
           <div className="kh-cols">
             <section className="kh-sec" data-ui="최근 확인한 논문">
               <h2 className="kh-h">{answered && <span className="turn-dot kh-dot" aria-hidden />}<button className="a lh-h-link" title={t('목록에서 모두 보기', 'See all in the list')} onClick={() => go({ page: 'shelf', list: true })}>{t('최근 확인한 논문', 'Recently checked papers')}</button></h2>
+              {!b && !error && <p className="empty kh-empty">{t('불러오는 중…', 'Loading…')}</p>}
               {b && opened.length === 0 && <p className="empty kh-empty">{t('아직 연 논문이 없습니다. 논문을 열면 여기에 열어 본 순서로 보입니다.', 'No papers opened yet. Papers you open show here, latest first.')}</p>}
               <div className="kh-rows">
                 {opened.map((p) => (
                   <button key={p.key} className="kh-row lh-row" data-ui="최근 확인한 논문 줄" onClick={() => showPaper(p.key)}>
-                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{short(p.authors)}{p.year ? ` · ${p.year}` : ''}</span></span>
+                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{shortAuthors(p.authors)}{p.year ? ` · ${p.year}` : ''}</span></span>
                     {p.answered > 0
                       ? <span className="kh-when kh-turn">{t(`답이 온 질문 ${p.answered}`, `${p.answered} answered`)}</span>
                       : <span className="kh-when">{p.opened ? relativeTime(p.opened) : ''}</span>}
@@ -158,13 +157,18 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
             </section>
             <section className="kh-sec" data-ui="추천 논문">
               <h2 className="kh-h">{t('추천 논문', 'Recommended papers')}{rec && rec.seeds > 0 && <span className="kh-h-n">{t(`내 논문 ${rec.seeds}편과 가까운 새 논문`, `New papers close to ${rec.seeds} of your papers`)}</span>}</h2>
-              {(recError || rec?.offline) && <p className="empty kh-empty">{t('인터넷에 연결되지 않아 추천을 받지 못했습니다.', 'Not connected to the internet, so no recommendations.')}</p>}
+              {!rec && !recError && <p className="empty kh-empty">{t('추천을 받는 중…', 'Getting recommendations…')}</p>}
+              {recError && <p className="empty kh-empty">{t(`추천을 읽지 못했습니다: ${recError}`, `Could not read recommendations: ${recError}`)}</p>}
+              {/* 받지 못한 까닭을 가른다: 연결 없음 | Semantic Scholar가 오류로 답함(429 = 요청이 많음). 서버는 받지 못한 뒤 5분 동안 다시 묻지 않는다 */}
+              {rec?.offline && !recError && <p className="empty kh-empty">{rec.status
+                ? t(`Semantic Scholar가 답하지 않아 추천을 받지 못했습니다 (HTTP ${rec.status}). 몇 분 뒤에 이 화면을 다시 열면 다시 묻습니다.`, `Semantic Scholar did not answer, so no recommendations (HTTP ${rec.status}). Open this page again in a few minutes to retry.`)
+                : t('인터넷에 연결되지 않아 추천을 받지 못했습니다.', 'Not connected to the internet, so no recommendations.')}</p>}
               {rec && !rec.offline && rec.seeds === 0 && <p className="empty kh-empty">{t('arXiv 번호나 DOI가 있는 논문을 더하면 추천이 보입니다.', 'Add a paper with an arXiv number or DOI to see recommendations.')}</p>}
               {rec && !rec.offline && rec.seeds > 0 && rec.picks.length === 0 && <p className="empty kh-empty">{t('지금 추천할 새 논문이 없습니다.', 'No new papers to recommend now.')}</p>}
               <div className="kh-rows">
                 {rec?.picks.map((p) => (
                   <div key={p.id} className="kh-row lh-row" data-ui="추천 논문 줄">
-                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{[short(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></span>
+                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{[shortAuthors(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></span>
                     <button className="btn small" disabled={busy !== null} onClick={() => void add(p.id)}>{busy === p.id ? t('추가 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
                   </div>
                 ))}

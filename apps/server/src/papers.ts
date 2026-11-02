@@ -255,7 +255,6 @@ export function paperBrief(list: ReturnType<typeof listPapers>, recent = 8): Pap
       ...(readSubjects(list.library ?? undefined).enabled && { unclassified: count((x) => !x.subjects?.length) }),
       noPdf: count((x) => x.pdf.where === 'none'), arxiv: count((x) => x.pdf.where === 'none' && !!x.eprint),
       unlinked: count((x) => x.projects.length === 0), papers: count((x) => x.kind === 'paper'), books: count((x) => x.kind === 'book'),
-      comments: count((x) => x.comments > 0), waiting: count((x) => x.waiting > 0),
     },
     folders: list.folders.map((f) => ({ path: f, cloud: cloudOf(f) })),
   }

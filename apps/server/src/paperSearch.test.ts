@@ -44,6 +44,22 @@ describe('논문 찾기 (GET /api/papers/search)', () => {
     expect(r.web.map((w: { source: string; id: string }) => `${w.source}:${w.id}`)).toEqual(['arxiv:0000.00001', 's2:10.0000/other'])
   })
 
+  it('arXiv 번호 · DOI 어느 쪽이 겹쳐도 같은 논문: 라이브러리의 저널 판, 다른 곳에서 온 같은 논문은 한 번만', async () => {
+    const { lib } = setup('twin')
+    fs.appendFileSync(path.join(lib, 'references.bib'), '@article{twin2021,\n  title = {Twin},\n  year = {2021},\n  doi = {10.0000/twin},\n}\n')
+    usePaperFetcher(async (url) => {
+      if (url.includes('export.arxiv.org')) return new Response('<feed><entry><id>http://arxiv.org/abs/0000.00020v1</id><title>Twin</title><arxiv:doi>10.0000/twin</arxiv:doi></entry></feed>')
+      if (url.includes('semanticscholar')) return new Response(JSON.stringify({ data: [
+        { title: 'Twin', authors: [], externalIds: { ArXiv: '0000.00020', DOI: '10.0000/TWIN' } },
+        { title: 'New', authors: [], externalIds: { ArXiv: '0000.00021', DOI: '10.0000/new' } },
+      ] }))
+      if (url.includes('crossref')) return new Response(JSON.stringify({ message: { items: [{ DOI: '10.0000/NEW', title: ['New'] }, { DOI: '10.0000/twin', title: ['Twin'] }] } }))
+      return new Response('', { status: 404 })
+    })
+    const r = (await app.inject({ method: 'GET', url: '/api/papers/search?q=twin new' })).json()
+    expect(r.web.map((w: { source: string; id: string }) => `${w.source}:${w.id}`)).toEqual(['s2:0000.00021'])
+  })
+
   it('모두 실패하면 offline', async () => {
     setup('off')
     usePaperFetcher(async () => { throw new Error('no network') })

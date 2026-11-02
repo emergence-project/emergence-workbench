@@ -109,7 +109,8 @@ export class LibraryReadIndex {
   papers() {
     const r = this.registry
     return this.papersCache.get(() => `${r.libraryPath}:${registryStamp(r, projectRefsStamp)}:${treeStamp([
-      ...(r.libraryPath ? ['subjects.yaml', 'references.bib', 'papers.yaml', 'papers', 'comments'].map((f) => path.join(r.libraryPath!, f)) : []),
+      // concepts: 태그 열(그 논문을 출처로 적은 개념노트, papers.ts conceptTags)
+      ...(r.libraryPath ? ['subjects.yaml', 'references.bib', 'papers.yaml', 'papers', 'comments', 'concepts'].map((f) => path.join(r.libraryPath!, f)) : []),
       ...(r.libraryPath ? Object.values(readPapersYaml(r.libraryPath)).flatMap((m) => m.pdf && path.isAbsolute(m.pdf) ? [m.pdf, path.join(path.dirname(m.pdf), `.${path.basename(m.pdf)}.icloud`)] : []) : []),
       ...r.pdfFolders, path.join(r.configDir, 'papers-opened.json'),
     ])}:${JSON.stringify(r.pdfFolders)}`, () => listPapers(r))

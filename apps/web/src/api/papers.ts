@@ -15,8 +15,9 @@ export const papersApi = {
   bib: (keys: string[]) => req(`/api/papers/bib?keys=${enc(keys.join(','))}`).then((r) => json<LibraryBib>(r)),
   pdfUrl: (key: string) => `/api/papers/${enc(key)}/pdf`,
   add: (id: string) => req('/api/papers', send('POST', { id })).then((r) => json<PaperAdded>(r)),
-  /** 찾기의 바깥 결과: PDF 폴더에만 있는 PDF와 인터넷 */
+  /** 추천 논문: 최근 연 · 더한 논문과 가까운 새 논문 (Semantic Scholar) */
   recommend: () => req('/api/papers/recommend').then((r) => json<PaperRecommend>(r)),
+  /** 찾기의 바깥 결과: PDF 폴더에만 있는 PDF와 인터넷 */
   search: (q: string) => req(`/api/papers/search?q=${enc(q)}`).then((r) => json<PaperSearch>(r)),
   /** PDF 폴더의 PDF를 라이브러리에 더한다 (파일은 그대로) */
   addFile: (file: string) => req('/api/papers/file', send('POST', { file })).then((r) => json<PaperAdded>(r)),
