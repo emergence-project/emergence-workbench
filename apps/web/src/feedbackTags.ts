@@ -1,4 +1,5 @@
-import { t } from './i18n'
+import type { FeedbackState } from './api'
+import { shown, t } from './i18n'
 
 /**
  * 피드백 대화 머리 태그의 이름과 뜻 (10/11 12:38: 태그의 종류와 설명을 각주로).
@@ -19,3 +20,19 @@ export const TAG_NOTES: Record<string, { name: string; note: string; who: TagWho
   '중단': { who: 'user', name: REPLY['중단']!, note: t('하지 않기로 했습니다.', 'You decided not to do it.') },
   '코멘트': { who: 'user', name: REPLY['코멘트']!, note: t('다시 처리하지 않고 답만 받으려고 남긴 질문입니다.', 'A question left to get an answer only, without reworking.') },
 }
+
+/** 필터 · 묶기 · 상태의 화면 이름 (값은 한국어 그대로 저장한다). 피드백 화면 · 맥 알림이 쓴다 */
+const LABEL: Record<string, string> = {
+  '확인 필요': t('확인 필요', 'Needs review'), '대기': t('대기', 'Waiting'), '완료': t('완료', 'Done'), '전체': t('전체', 'All'),
+  '시각': t('시각', 'Time'), '화면': t('화면', 'Screen'), '테마': t('테마', 'Theme'), '종류': t('종류', 'Kind'),
+  '반영': t('반영', 'Applied'), '답변': t('답변', 'Answered'), '보류': t('보류', 'On hold'), '승인': t('승인', 'Approved'),
+  '거절': t('거절', 'Declined'), '동의': t('동의', 'Agreed'), '나중에': t('나중에', 'Later'),
+  '처리': t('처리', 'Handled'), '다시 처리': t('다시 처리', 'Reworked'), '나': t('나', 'Me'),
+}
+export const feedbackLabel = (v: string) => LABEL[v] ?? shown(v)
+/** 태그는 두 글자로 (10/9): 상태 · 요소 · 유형 태그에 세 글자 넘는 이름을 쓰지 않는다. 필터 이름은 그대로. 피드백 화면 · 폰 내 차례 카드가 쓴다 */
+const TAG: Record<string, string> = {
+  '확인 필요': t('질의', 'Asked'), '나중에': t('추후', 'Later'), '디자인': t('모양', 'Design'), '미분류': t('미정', 'None'),
+}
+export const feedbackStateName = (s: FeedbackState | '대기') => TAG[s] ?? feedbackLabel(s)
+export const feedbackKindName = (k: string) => TAG[k] ?? shown(k)

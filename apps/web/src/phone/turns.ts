@@ -19,15 +19,12 @@ export type TurnItem =
 
 export const TURN_GROUPS = ['feedback', 'record', 'task', 'edits'] as const satisfies TurnItem['kind'][]
 
-/** 피드백 화면과 같은 키라 요청 하나를 나눠 쓴다 (FeedbackPage FEEDBACK_ALL) */
-const FEEDBACK_ALL = [...qk.feedback, 'all'] as const
-
-export function useTurns(version: number): { items: TurnItem[]; loading: boolean; projects: ResearchListItem[] } {
+export function useTurns(): { items: TurnItem[]; loading: boolean; projects: ResearchListItem[] } {
   const list = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() })
   const projects = (list.data?.researches ?? []).filter((r) => r.available && r.state === 'active')
-  const feedback = useQuery({ queryKey: FEEDBACK_ALL, queryFn: () => api.feedbackAll() })
-  // 수정 검토 수는 파일 알림을 따로 받지 않으므로 App의 version(알림마다 바뀜)에 묶는다
-  const issues = useQuery({ queryKey: ['research-issues', version], queryFn: () => api.researchIssues(), enabled: projects.length > 0 })
+  const feedback = useQuery({ queryKey: qk.feedbackAll, queryFn: () => api.feedbackAll() })
+  // 수정 검토 수: 레일 · 홈과 같은 자료 (useProjectIssues)
+  const issues = useQuery({ queryKey: qk.researchIssues, queryFn: () => api.researchIssues(), enabled: projects.length > 0 })
   const records = useQueries({ queries: projects.map((r) => ({ queryKey: qk.records(r.id), queryFn: () => commentsApi(r.id).records() })) })
   const tasks = useQueries({ queries: projects.map((r) => ({ queryKey: qk.tasks(r.id), queryFn: () => tasksApi(r.id).scan() })) })
 

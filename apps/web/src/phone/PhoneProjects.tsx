@@ -25,13 +25,13 @@ export type ProjectsView = 'topics' | 'records' | 'tasks'
 /** 주제 없는 노트를 모은 자리의 id */
 export const NO_TOPIC = '-'
 
-export function PhoneProjects({ rid, view = 'topics', tid, version, onSaved }: { rid?: string; view?: ProjectsView; tid?: string; version: number; onSaved(m: string): void }) {
+export function PhoneProjects({ rid, view = 'topics', tid, onSaved }: { rid?: string; view?: ProjectsView; tid?: string; onSaved(m: string): void }) {
   const list = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() })
   const projects = list.data?.researches ?? []
   const project = rid ? projects.find((r) => r.id === rid) : undefined
   return (
     <main className="stage full ph-turns ph-projects" data-ui="폰 프로젝트">
-      {!rid ? <ProjectList projects={projects} loading={list.isPending} version={version} />
+      {!rid ? <ProjectList projects={projects} loading={list.isPending} />
         : !project ? <p className="empty ph-empty">{list.isPending ? t('불러오는 중…', 'Loading…') : t('이 프로젝트를 찾지 못했습니다.', 'Project not found.')}</p>
         : tid !== undefined ? <TopicNotes project={project} tid={tid} />
         : <ProjectPage project={project} view={view} onSaved={onSaved} />}
@@ -54,8 +54,8 @@ function StatusCounts({ notes }: { notes: NoteRow[] }) {
   })}</span>
 }
 
-function ProjectList({ projects, loading, version }: { projects: ResearchListItem[]; loading: boolean; version: number }) {
-  const { items } = useTurns(version)
+function ProjectList({ projects, loading }: { projects: ResearchListItem[]; loading: boolean }) {
+  const { items } = useTurns()
   const shown = projects.filter((r) => r.available)
   const active = shown.filter((r) => r.state === 'active')
   const others = shown.filter((r) => r.state !== 'active')

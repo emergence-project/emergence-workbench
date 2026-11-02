@@ -14,15 +14,12 @@ import { feedbackSummary, feedbackWhen, issuesDraftUrl } from './feedbackFormat'
 import { Dialog } from './dialogs'
 import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
-import { REPLY, TAG_NOTES } from './feedbackTags'
+import { feedbackKindName as kindName, feedbackLabel as label, feedbackStateName as stateName, REPLY, TAG_NOTES } from './feedbackTags'
 import { href } from './router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
 import { agentChatsApi, type ChatRow } from './api/agentChats'
 import { ChatStateMark, isLive, stateName as chatStateName } from './AgentChats'
-
-/** 피드백 자료의 키 (qk.feedback 아래: 피드백을 남기거나 고치면 한꺼번에 다시 받는다) */
-const FEEDBACK_ALL = [...qk.feedback, 'all'] as const
 const FEEDBACK_STATE = [...qk.feedback, 'state'] as const
 const FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
 
@@ -42,21 +39,6 @@ const FILTER_TITLES: Record<FeedbackBucket, string> = {
   '대기': t('에이전트가 처리할 것: 새 피드백, 수정 · 진행한 것, 질문, 묻지 않은 보류', 'For the agent to handle: new feedback, revisions and go-aheads, questions, holds without a question'),
   '완료': t('승인했거나 확인 기간(7일)이 지난 반영·답변', 'Approved, or applied and answered items past the 7-day review period'),
 }
-/** 필터 · 묶기 · 상태의 화면 이름 (값은 한국어 그대로 저장한다) */
-const LABEL: Record<string, string> = {
-  '확인 필요': t('확인 필요', 'Needs review'), '대기': t('대기', 'Waiting'), '완료': t('완료', 'Done'), '전체': t('전체', 'All'),
-  '시각': t('시각', 'Time'), '화면': t('화면', 'Screen'), '테마': t('테마', 'Theme'), '종류': t('종류', 'Kind'),
-  '반영': t('반영', 'Applied'), '답변': t('답변', 'Answered'), '보류': t('보류', 'On hold'), '승인': t('승인', 'Approved'),
-  '거절': t('거절', 'Declined'), '동의': t('동의', 'Agreed'), '나중에': t('나중에', 'Later'),
-  '처리': t('처리', 'Handled'), '다시 처리': t('다시 처리', 'Reworked'), '나': t('나', 'Me'),
-}
-const label = (v: string) => LABEL[v] ?? shown(v)
-/** 태그는 두 글자로 (10/9): 상태 · 요소 · 유형 태그에 세 글자 넘는 이름을 쓰지 않는다. 필터 이름은 그대로 */
-const TAG: Record<string, string> = {
-  '확인 필요': t('질의', 'Asked'), '나중에': t('추후', 'Later'), '디자인': t('모양', 'Design'), '미분류': t('미정', 'None'),
-}
-const stateName = (s: FeedbackState | '대기') => TAG[s] ?? label(s)
-const kindName = (k: string) => TAG[k] ?? shown(k)
 /** 표의 답 칸: 에이전트가 적은 상태. 사용자의 승인 · 수정 요청은 확인 칸에 따로 (10/9) */
 const answerOf = (e: FeedbackItem): FeedbackState | '대기' => { const st = stateOf(e); return st === '승인' && (e.review?.verdict === '승인' || e.review?.verdict === '중단') ? e.status?.state ?? '대기' : st }
 /** 항목 머리의 상태: 사용자가 중단해 끝난 것은 "중단" */
@@ -104,7 +86,7 @@ const readGroup = (): GroupBy => { try { const raw = localStorage.getItem(GROUP_
 export function FeedbackPage() {
   const client = useQueryClient()
   // 피드백은 프로젝트 파일이 아니라 프로젝트 알림과 상관없다: 화면을 열 때와 피드백을 남기거나 고칠 때(FEEDBACK_EVENT) 다시 읽는다
-  const all = useQuery({ queryKey: FEEDBACK_ALL, queryFn: () => api.feedbackAll(), refetchOnMount: 'always' })
+  const all = useQuery({ queryKey: qk.feedbackAll, queryFn: () => api.feedbackAll(), refetchOnMount: 'always' })
   const entries = all.data?.entries ?? null
   const error = all.error?.message ?? null
   const statusError = all.data?.statusError ?? null
@@ -536,7 +518,7 @@ export function FeedbackRailCount() {
   // 피드백은 프로젝트 파일이 아니라 프로젝트 알림과 상관없다: 피드백을 남기거나 고칠 때(FEEDBACK_EVENT)와 10분마다만 다시 센다 (화면 캐시)
   const client = useQueryClient()
   // 피드백 화면과 같은 키라 요청 하나를 나눠 쓴다. 받지 못하면 수를 보이지 않는다
-  const all = useQuery({ queryKey: FEEDBACK_ALL, queryFn: () => api.feedbackAll() })
+  const all = useQuery({ queryKey: qk.feedbackAll, queryFn: () => api.feedbackAll() })
   const n = all.data ? railCount(all.data.entries) : null
   /** 이 맥에서 남겼지만 아직 GitHub에 등록하지 않은 피드백 수 (10/15 피드백: 등록할 것도 띠에 보이게). 올리지 않는 모드면 0 */
   const state = useQuery({ queryKey: FEEDBACK_STATE, queryFn: () => api.feedbackState() })

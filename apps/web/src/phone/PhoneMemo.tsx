@@ -30,10 +30,17 @@ export function PhoneMemo({ route }: { route: Route }) {
   </>
 }
 
+/** 고를 수 있는 프로젝트: 끝난 것은 빼되, 지금 보는 프로젝트는 끝났어도 둔다 */
+export const memoProjects = <R extends { id: string; available: boolean; state: string }>(list: R[], start?: string): R[] =>
+  list.filter((r) => r.available && (r.state !== 'done' || r.id === start))
+/** 고른 프로젝트가 목록에 없으면(없는 폴더 등) 첫 프로젝트 */
+export const memoProject = (projects: { id: string }[], picked?: string): string | undefined =>
+  (projects.some((r) => r.id === picked) ? picked : projects[0]?.id)
+
 function MemoSheet({ start, onClose }: { start?: string; onClose(): void }) {
-  const projects = (useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches ?? []).filter((r) => r.available && r.state !== 'done')
+  const projects = memoProjects(useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches ?? [], start)
   const [picked, setPicked] = useState(start)
-  const rid = picked ?? projects[0]?.id
+  const rid = memoProject(projects, picked)
   const project = projects.find((r) => r.id === rid)
   const [kind, setKind] = useState<Kind>('메모')
   const [text, setText] = useState('')

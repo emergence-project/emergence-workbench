@@ -75,6 +75,10 @@ export const qk = {
   agentExtras: ['agent-extras'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
+  /** 피드백 전부: 피드백 화면 · 레일의 수 · 맥 알림 · 폰 내 차례가 요청 하나를 나눠 쓴다 */
+  feedbackAll: ['feedback', 'all'] as const,
+  /** 프로젝트마다 확인할 것의 수(판단할 맡긴 일 · 에이전트 고침 · 물은 기록): 레일 · 홈 · 폰 내 차례 */
+  researchIssues: ['research-issues'] as const,
   /** 연구 공통 규칙 (설정 › 공통 규칙, 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   commonRules: ['common-rules'] as const,
   /** 네트워킹 (사람 목록 · 등록 추천 · 사람 페이지). 사람 목록을 저장하면 이 키 전체를 다시 받는다 (network/people.tsx announce) */
@@ -123,20 +127,21 @@ const PERSON_PAGES: QueryKey = [...qk.network, 'person']
 
 function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' | 'agent-hooks' }>): QueryKey[] {
   const rid = e.research
+  // 확인할 것의 수(researchIssues)는 맡긴 일 · 노트(에이전트 고침) · 기록과, 고침을 받거나 되돌릴 때의 research 알림에서 바뀐다
   switch (e.type) {
     // research.yaml(제목 · 주제 · 원고 선언 …)이 바뀌면 그 프로젝트의 모든 자료와 프로젝트 목록
-    case 'research': return [qk.project(rid), qk.researches, qk.agentEdits(rid)]
+    case 'research': return [qk.project(rid), qk.researches, qk.agentEdits(rid), qk.researchIssues]
     // 노트 파일: 노트 목록 · 주제 카드 수 · 원고(노트도 원고일 수 있다) · 라이브러리의 "쓰는 곳" · 고침 검토
-    case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library, qk.agentEdits(rid), qk.records(rid), qk.repoFiles(rid)]
+    case 'note': return [qk.notes(rid), qk.topics(rid), qk.manuscripts(rid), qk.library, qk.agentEdits(rid), qk.records(rid), qk.repoFiles(rid), qk.researchIssues]
     case 'statement': return [qk.summary(rid)]
     // 기록: 요약의 할 일과 기록 모음, 안 올린 기록 (일지도 올리는 기록이다)
     // 사람 페이지의 "나오는 곳"이 기록에서 이름을 찾는다
-    case 'comments': return [qk.summary(rid), qk.records(rid), qk.recordsUnpublished(rid), PERSON_PAGES]
+    case 'comments': return [qk.summary(rid), qk.records(rid), qk.recordsUnpublished(rid), PERSON_PAGES, qk.researchIssues]
     case 'journal': return [['project', rid, 'journal'], qk.recordsUnpublished(rid)]
     // research.yaml sources의 파일(원고 · 그림 · 참고 자료 · 작업 목록 · 검토 문서)
     // 프로젝트 bib는 네트워킹의 등록 추천과 사람 페이지(참고 문헌의 논문 · 나오는 곳)가 읽는다
     case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid), qk.repoFiles(rid), qk.peopleSuggestions, PERSON_PAGES]
-    case 'tasks': return [qk.tasks(rid)]
+    case 'tasks': return [qk.tasks(rid), qk.researchIssues]
     case 'flow': return [qk.flow(rid)]
     case 'records-publish': return [qk.recordsPublish(rid)]
     case 'preamble': return []

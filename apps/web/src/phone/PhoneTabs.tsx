@@ -10,16 +10,16 @@ import { useTurns } from './turns'
  * 폰의 아래 탭 넷 (10/31 사용자 결정 "안 A · 내 차례 먼저"): 차례 · 프로젝트 · 대화 · 설정.
  * 폰에서는 레일 대신 이것을 둔다(styles/phone.css가 레일을 숨긴다). 오른쪽 아래 ＋ 메모 버튼도 여기서 그린다. 맥 폭에서는 아무것도 그리지 않는다.
  */
-export function PhoneTabs({ route, version }: { route: Route; version: number }) {
-  return usePhone() ? <Tabs route={route} version={version} /> : null
+export function PhoneTabs({ route }: { route: Route }) {
+  return usePhone() ? <Tabs route={route} /> : null
 }
 
 type TabKey = 'turns' | 'projects' | 'agent' | 'settings'
 
 const tabOf = (r: Route): TabKey => (r.page === 'turns' ? 'turns' : r.page === 'agent' ? 'agent' : r.page === 'settings' ? 'settings' : 'projects')
 
-function Tabs({ route, version }: { route: Route; version: number }) {
-  const { items } = useTurns(version)
+function Tabs({ route }: { route: Route }) {
+  const { items } = useTurns()
   const on = tabOf(route)
   const tabs: { key: TabKey; label: string; icon: ReactNode; to: Route; n?: number }[] = [
     { key: 'turns', label: t('차례', 'Turn'), icon: Icon.flag, to: { page: 'turns' }, n: items.length },
