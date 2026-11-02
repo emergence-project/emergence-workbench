@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, fitMenu, menuAt, modelName, nextTrust, sideQuestion, stepsSummary, trustOf } from './AgentChats'
+import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, modelName, stepsSummary } from './AgentChats'
+import { fitMenu, menuAt, nextTrust, sideQuestion, trustOf } from './ChatComposer'
 
 describe('에이전트 입력란', () => {
   it('곁 질문은 /곁 · /btw 뒤의 글, 빈 질문 · 다른 명령은 아니다', () => {
