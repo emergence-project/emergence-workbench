@@ -14,7 +14,8 @@ import { useSubjects } from './SubjectPicker'
 const EACH = 5
 const WAIT = 450
 const SOURCE: Record<PaperSearch['web'][number]['source'], string> = { arxiv: 'arXiv', s2: 'Semantic Scholar', crossref: 'Crossref' }
-const short = (authors: string[]) => (authors.length > 2 ? `${authors.slice(0, 2).join(', ')}${t(' 외', ' et al.')}` : authors.join(', '))
+/** 저자 둘까지, 그 뒤는 "외" (논문 첫 화면도 쓴다) */
+export const shortAuthors = (authors: string[]) => (authors.length > 2 ? `${authors.slice(0, 2).join(', ')}${t(' 외', ' et al.')}` : authors.join(', '))
 const has = (name: string, q: string) => q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => name.toLowerCase().includes(w))
 
 export function PaperFind({ value, onChange, papers, projects, onSaved }: {
@@ -74,7 +75,7 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
             <Group title={t('라이브러리', 'Library')} n={lib.length}>
               {lib.slice(0, EACH).map((p) => (
                 <button key={p.key} className="pf-row" onClick={() => pick(() => showPaper(p.key))}>
-                  <span className="pf-title">{p.title}</span><span className="pf-meta">{short(p.authors)}{p.year ? ` · ${p.year}` : ''}</span>
+                  <span className="pf-title">{p.title}</span><span className="pf-meta">{shortAuthors(p.authors)}{p.year ? ` · ${p.year}` : ''}</span>
                 </button>
               ))}
               {lib.length > EACH && <button className="a pf-more" onClick={() => pick(() => go({ page: 'shelf', list: true }))}>{t(`목록에서 ${lib.length}편 모두 보기`, `See all ${lib.length} in the list`)}</button>}
@@ -102,7 +103,7 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
             <Group title={t('인터넷', 'Internet')}>
               {now.web.map((w) => (
                 <div key={`${w.source}:${w.id}`} className="pf-row pf-out">
-                  <span className="pf-title">{w.title}</span><span className="pf-meta">{short(w.authors)}{w.year ? ` · ${w.year}` : ''} · {SOURCE[w.source]}</span>
+                  <span className="pf-title">{w.title}</span><span className="pf-meta">{shortAuthors(w.authors)}{w.year ? ` · ${w.year}` : ''} · {SOURCE[w.source]}</span>
                   <button className="btn small" disabled={busy !== null} onClick={() => void add(w.id, () => papersApi.add(w.id))}>{busy === w.id ? t('더하는 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
                 </div>
               ))}

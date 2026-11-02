@@ -24,12 +24,16 @@ describe('논문 첫 화면 (GET /api/papers/brief)', () => {
     app.registry.setLibrary(lib)
     // 예제 연구 bib에 있는 키는 그 프로젝트에 묶인다
     fs.writeFileSync(path.join(repo, 'refs.bib'), '@article{book2010, title={B}, year={2010}}\n')
+    // 이 맥에서 연 때 (최근 확인한 논문)
+    fs.writeFileSync(path.join(app.registry.configDir, 'papers-opened.json'), JSON.stringify({ old2001: 2000, book2010: 3000 }))
 
     const b = (await app.inject({ method: 'GET', url: '/api/papers/brief?recent=2' })).json()
     expect(b.total).toBe(3)
     expect(b.recent.map((p: { key: string }) => p.key)).toEqual(['new2024', 'book2010'])
     expect(b.check).toEqual({ noFolder: true, answered: 1 })
-    expect(b.stats).toEqual({ noPdf: 3, arxiv: 1, unlinked: 2, papers: 2, books: 1, comments: 1, waiting: 0 })
+    expect(b.stats).toEqual({ noPdf: 3, arxiv: 1, unlinked: 2, papers: 2, books: 1 })
+    // 최근 확인한 논문: 답이 온 질문이 있는 것 먼저(열지 않았어도), 그다음 연 순
+    expect(b.opened.map((p: { key: string }) => p.key)).toEqual(['new2024', 'book2010'])
 
     const pdfs = path.join(tmp, 'brief-pdfs')
     fs.mkdirSync(pdfs, { recursive: true })

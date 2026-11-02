@@ -2,13 +2,14 @@ import type { PaperDriveHit, PaperSearch, PaperWebHit } from '@rw/core/contract/
 import fs from 'node:fs'
 import path from 'node:path'
 import { idInPdf, paperFetch, parseArxivFeed, readHead } from './paperAdd.js'
+import { idKeys, libraryKeys, s2Hit, type S2Paper } from './paperIds.js'
 import { cloudOf, detex, libraryBibEntries, readPapersYaml } from './papers.js'
 import type { Registry } from './registry.js'
 
 /**
  * 논문 찾기의 바깥 결과 (10/31 시안 1절). 라이브러리 안 결과는 화면이 목록에서 바로 거른다.
  * - PDF 폴더(Google Drive · iCloud)에 있지만 라이브러리에 없는 PDF: 파일 이름이 찾는 낱말을 모두 품은 것, 첫 부분에서 arXiv 번호 · DOI를 읽는다
- * - 인터넷: arXiv · Semantic Scholar · Crossref를 함께 묻고, 라이브러리에 이미 있거나 서로 겹치는 것은 뺀다
+ * - 인터넷: arXiv · Semantic Scholar · Crossref를 함께 묻고, 라이브러리에 이미 있거나 서로 겹치는 것은 뺀다 (arXiv 번호 · DOI 어느 쪽이 겹쳐도, paperIds.ts)
  */
 
 const DRIVE_MAX = 5
@@ -17,8 +18,8 @@ const WEB_TIMEOUT = 8_000
 
 const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
 const wordsOf = (q: string) => norm(q).split(/[^a-z0-9가-힣.]+/).filter((w) => w.length > 1)
-/** 비교용 열쇠: arXiv 번호는 판 번호를 떼고, DOI는 소문자로 */
-const idKey = (id: string) => (/^10\./.test(id) ? `doi:${id.toLowerCase()}` : `arxiv:${id.replace(/v\d+$/, '')}`)
+/** 인터넷 결과 하나와 겹침을 볼 열쇠 (화면에는 hit만 간다) */
+type Found = { hit: PaperWebHit; keys: string[] }
 
 /** PDF 폴더에서 라이브러리에 없는 PDF (이미 <키>.pdf이거나 papers.yaml pdf:로 이어진 파일은 뺀다) */
 export function driveHits(registry: Registry, q: string): PaperDriveHit[] {
@@ -52,28 +53,25 @@ async function within<T>(work: Promise<T>): Promise<T> {
   try { return await Promise.race([work, new Promise<never>((_, no) => { timer = setTimeout(() => no(new Error('timeout')), WEB_TIMEOUT) })]) } finally { clearTimeout(timer) }
 }
 
-async function fromArxiv(q: string): Promise<PaperWebHit[]> {
+async function fromArxiv(q: string): Promise<Found[]> {
   const query = wordsOf(q).map((w) => `all:${w}`).join(' AND ')
   const res = await paperFetch(`https://export.arxiv.org/api/query?search_query=${encodeURIComponent(query)}&max_results=${WEB_EACH}`)
   if (!res.ok) throw new Error(`arXiv ${res.status}`)
-  return parseArxivFeed(await res.text()).map((c) => ({ source: 'arxiv' as const, id: c.eprint, title: c.title, authors: c.authors, ...(c.year && { year: c.year }) }))
+  return parseArxivFeed(await res.text()).map((c) => ({ hit: { source: 'arxiv', id: c.eprint, title: c.title, authors: c.authors, ...(c.year && { year: c.year }) }, keys: idKeys(c.eprint, c.doi) }))
 }
 
-interface S2Paper { title?: string; year?: number; venue?: string; authors?: { name?: string }[]; externalIds?: { ArXiv?: string; DOI?: string } }
-async function fromS2(q: string): Promise<PaperWebHit[]> {
+async function fromS2(q: string): Promise<Found[]> {
   const res = await paperFetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(q)}&limit=${WEB_EACH}&fields=title,authors,year,venue,externalIds`)
   if (!res.ok) throw new Error(`Semantic Scholar ${res.status}`)
   const body: { data?: S2Paper[] } = await res.json()
   return (body.data ?? []).flatMap((p) => {
-    const id = p.externalIds?.ArXiv ?? p.externalIds?.DOI
-    if (!id || !p.title) return []
-    return [{ source: 's2' as const, id, title: p.title, authors: (p.authors ?? []).map((a) => (a.name ?? '').split(/\s+/).pop() ?? '').filter(Boolean),
-      ...(p.year && { year: String(p.year) }), ...(p.venue && { venue: p.venue }) }]
+    const h = s2Hit(p)
+    return h ? [{ hit: { source: 's2', id: h.id, title: h.title, authors: h.authors, ...(h.year && { year: h.year }), ...(h.venue && { venue: h.venue }) }, keys: h.keys }] : []
   })
 }
 
 interface CrossrefItem { DOI?: string; title?: string[]; author?: { family?: string; name?: string }[]; issued?: { 'date-parts'?: number[][] }; 'container-title'?: string[] }
-async function fromCrossref(q: string): Promise<PaperWebHit[]> {
+async function fromCrossref(q: string): Promise<Found[]> {
   const res = await paperFetch(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(q)}&rows=${WEB_EACH}&select=DOI,title,author,issued,container-title`)
   if (!res.ok) throw new Error(`Crossref ${res.status}`)
   const body: { message?: { items?: CrossrefItem[] } } = await res.json()
@@ -82,24 +80,22 @@ async function fromCrossref(q: string): Promise<PaperWebHit[]> {
     if (!x.DOI || !title) return []
     const year = x.issued?.['date-parts']?.[0]?.[0]
     const venue = x['container-title']?.[0]
-    return [{ source: 'crossref' as const, id: x.DOI, title: detex(title), authors: (x.author ?? []).map((a) => a.family ?? a.name ?? '').filter(Boolean),
-      ...(year && { year: String(year) }), ...(venue && { venue }) }]
+    return [{ hit: { source: 'crossref', id: x.DOI, title: detex(title), authors: (x.author ?? []).map((a) => a.family ?? a.name ?? '').filter(Boolean),
+      ...(year && { year: String(year) }), ...(venue && { venue }) }, keys: idKeys(x.DOI) }]
   })
 }
 
 /** 인터넷 결과: 셋을 함께 묻고, 라이브러리에 있는 것과 겹치는 것을 뺀다. 모두 실패하면 offline */
 export async function webHits(registry: Registry, q: string): Promise<{ web: PaperWebHit[]; offline: boolean }> {
   if (!wordsOf(q).length) return { web: [], offline: false }
-  const have = new Set(libraryBibEntries(registry.libraryPath ?? undefined).flatMap((e) => [e.eprint && idKey(e.eprint), e.doi && idKey(e.doi)].filter((x): x is string => !!x)))
   const got = await Promise.allSettled([fromArxiv, fromS2, fromCrossref].map((f) => within(f(q))))
-  const seen = new Set(have)
+  const seen = libraryKeys(libraryBibEntries(registry.libraryPath ?? undefined))
   const web: PaperWebHit[] = []
   for (const r of got) {
     if (r.status !== 'fulfilled') continue
-    for (const hit of r.value) {
-      const k = idKey(hit.id)
-      if (seen.has(k)) continue
-      seen.add(k)
+    for (const { hit, keys } of r.value) {
+      if (keys.some((k) => seen.has(k))) continue
+      for (const k of keys) seen.add(k)
       web.push(hit)
     }
   }

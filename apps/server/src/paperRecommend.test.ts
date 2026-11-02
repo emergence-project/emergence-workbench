@@ -2,8 +2,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import type { PaperRow } from '@rw/core/contract/papers'
 import { usePaperFetcher } from './paperAdd.js'
-import { forgetRecommendations } from './paperRecommend.js'
+import { forgetRecommendations, recommendPapers } from './paperRecommend.js'
 import { app, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -40,5 +41,33 @@ describe('추천 논문 (GET /api/papers/recommend)', () => {
     setup('off')
     usePaperFetcher(async () => { throw new Error('no network') })
     expect((await app.inject({ method: 'GET', url: '/api/papers/recommend' })).json()).toEqual({ picks: [], seeds: 1, offline: true })
+  })
+})
+
+const row = (key: string, ids: { eprint?: string; doi?: string }, added: number, opened?: number): PaperRow => ({
+  key, subjects: [], subjectsHash: '', type: 'article', kind: 'paper', title: key, authors: [], projects: [], autoProjects: [],
+  pdf: { where: 'none' }, comments: 0, waiting: 0, answered: 0, added, ...ids, ...(opened && { opened }),
+})
+const recs = (...ids: { ArXiv?: string; DOI?: string }[]) => new Response(JSON.stringify({ recommendedPapers: ids.map((externalIds, i) => ({ title: `P${i}`, year: 2026, authors: [], externalIds })) }))
+
+describe('추천 논문: 같은 논문 · 다시 묻기', () => {
+  it('arXiv 판과 저널 판은 한 논문: 라이브러리에 DOI만 있어도 그 논문의 arXiv 판은 추천하지 않는다', async () => {
+    usePaperFetcher(async () => recs({ ArXiv: '0000.00010', DOI: '10.0000/HAVE' }, { ArXiv: '0000.00011' }))
+    expect((await recommendPapers([row('twin', { doi: '10.0000/have' }, 0)])).picks.map((p) => p.id)).toEqual(['0000.00011'])
+  })
+
+  it('기준의 순서만 바뀌면 다시 묻지 않고, 받지 못한 것은 몇 분 동안 기억한다', async () => {
+    let calls = 0
+    usePaperFetcher(async () => { calls++; return new Response('', { status: 429 }) })
+    const a = row('a', { eprint: '0000.00001' }, 0, 2), b = row('b', { eprint: '0000.00002' }, 1, 1)
+    const swapped = [{ ...a, opened: 1 }, { ...b, opened: 2 }]
+    const t0 = 1_000_000
+    expect(await recommendPapers([a, b], t0)).toEqual({ picks: [], seeds: 2, offline: true, status: 429 })
+    expect(await recommendPapers(swapped, t0 + 60_000)).toEqual({ picks: [], seeds: 2, offline: true, status: 429 })
+    expect(calls).toBe(1)
+    usePaperFetcher(async () => { calls++; return recs({ ArXiv: '0000.00003' }) })
+    expect((await recommendPapers([a, b], t0 + 5 * 60_000 + 1)).picks.map((p) => p.id)).toEqual(['0000.00003'])
+    expect((await recommendPapers(swapped, t0 + 3_600_000)).picks.map((p) => p.id)).toEqual(['0000.00003'])
+    expect(calls).toBe(2)
   })
 })

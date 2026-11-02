@@ -218,7 +218,7 @@ export function PapersPage({ filter: routeFilter, open, onSaved }: { filter?: Pa
   const setWidths = (w: Widths) => { setWidthsState(w); store.set(LAYOUT_KEY, { width: w }) }
   const [sort, setSortState] = useState<Sort>(() => { const s = store.get<Sort | null>(SORT_KEY, null); return s && colOf(s.col) && (s.dir === 1 || s.dir === -1) ? s : { col: 'year', dir: -1 } })
   const setSort = (s: Sort) => { setSortState(s); store.set(SORT_KEY, s) }
-  // 첫 화면 통계에서 온 안 묶임 · 코멘트 · 질문은 「보기」 상자의 값으로 연다 (사이드바는 전체 문헌)
+  // 주소로 온 안 묶임 · 코멘트 · 질문 거르기(#/papers/none 등)는 「보기」 상자의 값으로 연다 (사이드바는 전체 문헌)
   const filter = isShow(routeFilter) ? undefined : routeFilter
   const [show, setShowState] = useState<Show>(isShow(routeFilter) ? routeFilter : 'all')
   useEffect(() => { if (isShow(routeFilter)) setShowState(routeFilter) }, [routeFilter])
@@ -274,10 +274,10 @@ export function PapersPage({ filter: routeFilter, open, onSaved }: { filter?: Pa
         <div className="pane-head bar3 lib-head" data-ui="머리줄">
           <span className="lib-head-left pl-head-left">
             <span className="crumb">{filterLabel ?? t('전체 문헌', 'All literature')} · {t(`${rows.length}편`, `${rows.length}`)}{sortNote ? ` · ${sortNote} ${sort.dir === 1 ? '↑' : '↓'}` : ''}</span>
-            <select className="rs-select pl-show" data-ui="논문 보기" aria-label={t('보기', 'Show')} value={show} onChange={(e) => setShow(e.target.value === 'all' ? 'all' : SHOWS.find((x) => x === e.target.value) ?? 'all')}>
-              <option value="all">{t('보기: 모두', 'Show: all')}</option>
+            <label className="pl-pick" data-ui="논문 보기">{t('보기', 'Show')}<select className="mini-select" value={show} onChange={(e) => setShow(e.target.value === 'all' ? 'all' : SHOWS.find((x) => x === e.target.value) ?? 'all')}>
+              <option value="all">{t('모두', 'All')}</option>
               {SHOWS.map((id) => { const f = FILTERS.find((x) => x.id === id)!; return <option key={id} value={id}>{f.label} {(data?.papers ?? []).filter(filterTest(filter)).filter(f.test).length}</option> })}
-            </select>
+            </select></label>
           </span>
           <div className="segmented small lib-head-mid" role="radiogroup" aria-label={t('보기', 'View')} data-ui="보기 전환">
             <button className={view === 'list' ? 'on' : ''} role="radio" aria-checked={view === 'list'} onClick={() => setView('list')}>{t('표', 'Table')}</button>

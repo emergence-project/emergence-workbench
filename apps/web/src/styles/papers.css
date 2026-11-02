@@ -56,7 +56,6 @@
 .pl-find .cn-search { max-width: 520px; }
 .pl-head-left { display: flex; align-items: center; gap: var(--sp-2); }
 .pl-head-left .crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.rs-select.pl-show { width: auto; flex: none; height: var(--input-h); font-size: var(--fs-xs); }
 .pl .lib-head .segmented { height: var(--input-h); }
 
 /* 열 고르기 (지식 표 KnowledgeList.tsx가 쓴다) */
