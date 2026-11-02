@@ -28,9 +28,8 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
   const researchRecords = async (rid: string) => {
     const wbDir = path.join(repoPath(rid), 'workbench')
     const { top, rel } = await locate(wbDir)
-    // git add는 없는 경로를 거절한다: 일지 폴더가 아직 없는 저장소는 comments만 (comments는 예전처럼 늘 넣는다)
-    const present = RESEARCH_RECORDS.filter((p) => p === 'comments' || fs.existsSync(path.join(wbDir, p)))
-    return { top, paths: present.map((p) => (rel ? `${rel}/${p}` : p)) }
+    // 아직 없는 폴더도 넣는다: publishPaths가 바뀐 것이 있는 경로만 커밋한다
+    return { top, paths: RESEARCH_RECORDS.map((p) => (rel ? `${rel}/${p}` : p)) }
   }
   /**
    * 기록 올리기. GitHub에서도 바뀐 기록 파일은 세 갈래로 합쳐 보고(merge), GitHub 위에 따로 올린 뒤에는

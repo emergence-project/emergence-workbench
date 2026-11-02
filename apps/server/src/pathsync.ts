@@ -160,11 +160,14 @@ async function publishPathsNow(root: string, paths: string[], opts: PathPublishO
   checkPaths(paths)
   const { remote, ref } = await upstreamOf(root)
 
-  // 1. 정한 경로만 커밋 (스테이징된 다른 변경은 그대로 둔다)
+  // 1. 정한 경로만 커밋 (스테이징된 다른 변경은 그대로 둔다).
+  // 바뀐 것이 있는 경로만 넘긴다: git add · commit은 파일을 하나도 가리키지 않는 경로(빈 폴더, 없는 폴더)를 거절한다 (11/2 점검: 빈 log/로 기록 올리기 실패)
   let commit: string | null = null
-  if (await git(root, ['status', '--porcelain', '--', ...paths])) {
-    await git(root, ['add', '--', ...paths])
-    await git(root, ['commit', '--only', '-m', opts.message, '--', ...paths])
+  const changed: string[] = []
+  for (const p of paths) if (await git(root, ['status', '--porcelain', '--', p])) changed.push(p)
+  if (changed.length) {
+    await git(root, ['add', '--', ...changed])
+    await git(root, ['commit', '--only', '-m', opts.message, '--', ...changed])
     commit = await git(root, ['rev-parse', '--short', 'HEAD'])
   }
 
