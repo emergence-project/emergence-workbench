@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FlowEdge, FlowNode } from './api'
-import { bundleFlow, layoutBundle } from './flowBundles'
+import { bundleCellWidth, bundleEdgePath, bundleFlow, bundleNameChars, layoutBundle } from './flowBundles'
 
 const node = (id: string, kind: FlowNode['kind'], date: string, from: [string, FlowEdge][] = [], extra: Partial<FlowNode> = {}): FlowNode => ({
   id, file: `workbench/flow/${id}.yaml`, hash: 'h', kind, progress: 'done', short: id, title: id, topics: ['t'], date,
@@ -88,5 +88,25 @@ describe('흐름 묶음', () => {
     expect(at.get('b')!.c).toBe(2)
     expect(at.get('c')!.c).toBe(3)
     expect(at.get('f')).toEqual({ id: 'f', c: 4, r: 0 })
+  })
+
+  it('묶음 창: 칸 폭은 창에 맞춰 150px에서 112px까지 줄고, 이름 분량도 칸에 맞춘다 (11/2)', () => {
+    expect(bundleCellWidth(3, 828)).toBe(150)
+    expect(bundleCellWidth(6, 828)).toBe(131)
+    expect(bundleCellWidth(10, 828)).toBe(112)
+    expect(bundleCellWidth(6, 0)).toBe(150)
+    expect([bundleNameChars(150), bundleNameChars(112)]).toEqual([11, 8])
+  })
+
+  it('묶음 창의 선: 앞으로 가는 선은 그대로, 거꾸로 가는 선은 점을 꿰뚫지 않고 위로 돈다 (11/2)', () => {
+    const g = { X: (c: number) => 20 + 150 * c + 75, Y: (r: number) => 34 + 76 * r, cw: 150 }
+    expect(bundleEdgePath({ c: 0, r: 0 }, { c: 1, r: 0 }, 0, g)).toBe(`M${g.X(0) + 16} ${g.Y(0)}H${g.X(1) - 16}`)
+    // 위 테스트의 f(4열) → c(3열): 예전에는 두 점을 지나는 직선이었다
+    const back = bundleEdgePath({ c: 4, r: 0 }, { c: 3, r: 0 }, 0, g)
+    expect(back.startsWith(`M${g.X(4)} ${g.Y(0) - 16}`)).toBe(true)
+    expect(back.endsWith(`${g.X(3)} ${g.Y(0) - 16}`)).toBe(true)
+    const ys = [...back.matchAll(/[MLQ ]-?[\d.]+ (-?[\d.]+)/g)].map((m) => Number(m[1]))
+    expect(ys.length).toBeGreaterThan(3)
+    expect(Math.max(...ys)).toBeLessThanOrEqual(g.Y(0) - 16)
   })
 })

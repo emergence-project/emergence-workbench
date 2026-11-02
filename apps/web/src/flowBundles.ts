@@ -6,6 +6,7 @@
  * - 선: 점끼리의 선을 묶음끼리 하나로 합치고, 다른 길로 이미 이어진 선은 뺀다. 버린 묶음에서는 선이 나가지 않는다(버림은 끝).
  */
 import type { FlowNode } from './api'
+import { roundedPath } from './flowRoute'
 
 export type Bundle = {
   id: string
@@ -160,4 +161,34 @@ export function layoutBundle(b: Bundle): { id: string; c: number; r: number }[] 
     here.sort((x, y) => key(x) - key(y) || b.nodes.indexOf(x) - b.nodes.indexOf(y)).forEach((n, i) => row.set(n.id, i))
   }
   return b.nodes.map((n) => ({ id: n.id, c: col.get(n.id)!, r: row.get(n.id)! }))
+}
+
+// ---------- 묶음 창의 그림 (flow/FlowBundles.tsx BundleWindow) ----------
+
+/** 묶음 창의 칸 폭: 창 안 폭(boxW)에 모든 열이 들어가게 150px에서 112px까지 줄이고, 그래도 넘치면 112px로 두고 가로로 넘긴다 (11/2: 넓힌 칸 때문에 닫는 점이 창 밖으로 잘렸다) */
+export const bundleCellWidth = (cols: number, boxW: number): number =>
+  boxW > 0 ? Math.max(112, Math.min(150, Math.floor((boxW - 40) / Math.max(1, cols)))) : 150
+
+/** 칸 폭에 들어가는 이름 분량 (한글 자 수, clip에 넘긴다): 150px에 11자, 112px에 8자 */
+export const bundleNameChars = (cw: number): number => Math.floor((cw - 6) / 13)
+
+type BundlePos = { c: number; r: number }
+/** 거꾸로 가는 선: 받는 점이 같은 열이거나 왼쪽 (닫는 점은 마지막 열에 홀로 두므로, 그 명제를 쓰는 작업은 왼쪽에 온다) */
+export const isBackward = (p: BundlePos, q: BundlePos): boolean => q.c <= p.c
+
+/**
+ * 묶음 창의 선 하나(SVG 길). 앞으로 가는 선은 받는 점 앞에서 꺾는다(같은 점으로 오는 k번째 선은 6px씩 비킨다).
+ * 거꾸로 가는 선은 점과 이름을 꿰뚫지 않게: 왼쪽 열로 가면 두 점 위로 돌고, 같은 열이면 칸 왼쪽으로 돈다
+ */
+export function bundleEdgePath(p: BundlePos, q: BundlePos, k: number, g: { X(c: number): number; Y(r: number): number; cw: number }): string {
+  if (q.c < p.c) {
+    const top = g.Y(Math.min(p.r, q.r)) - 24
+    return roundedPath([[g.X(p.c), g.Y(p.r) - 16], [g.X(p.c), top], [g.X(q.c), top], [g.X(q.c), g.Y(q.r) - 16]], 8)
+  }
+  if (q.c === p.c) {
+    const side = g.X(p.c) - g.cw / 2 + 6
+    return roundedPath([[g.X(p.c) - 16, g.Y(p.r)], [side, g.Y(p.r)], [side, g.Y(q.r)], [g.X(q.c) - 16, g.Y(q.r)]], 8)
+  }
+  const x1 = g.X(p.c) + 16, y1 = g.Y(p.r), x2 = g.X(q.c) - 16, y2 = g.Y(q.r), xb = g.X(q.c) - g.cw / 2 + 10 + 6 * k
+  return y1 === y2 ? `M${x1} ${y1}H${x2}` : roundedPath([[x1, y1], [xb, y1], [xb, y2], [x2, y2]], 10)
 }
