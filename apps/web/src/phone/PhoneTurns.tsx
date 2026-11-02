@@ -6,7 +6,7 @@ import { t } from '../i18n'
 import { kindLabel } from '../recordLabels'
 import { RecordList } from '../RecordList'
 import { recordKind, recordRoute } from '../recordsPanelHelpers'
-import { REPLY } from '../feedbackTags'
+import { feedbackKindName, REPLY } from '../feedbackTags'
 import { go } from '../router'
 import { agentName, taskLine } from '../taskView'
 import { recordLine } from '../workRecords'
@@ -19,12 +19,17 @@ import { TURN_GROUPS, useTurns, type TurnItem } from './turns'
  * 모든 프로젝트에서 나를 기다리는 것을 종류마다 묶어 카드로. 결과를 알린 피드백은 카드의 승인 · 진행 · 중단을 바로 누르고,
  * 글이 필요한 답(질문 · 반려)과 기록 · 맡긴 일은 카드를 눌러 아래에서 올라오는 시트에서 한다. 시트 안은 맥 화면과 같은 부품이다.
  */
-export function PhoneTurns({ version, onSaved }: { version: number; onSaved(m: string): void }) {
-  const { items, loading } = useTurns(version)
+export function PhoneTurns({ onSaved }: { onSaved(m: string): void }) {
+  const { items, loading } = useTurns()
   const [open, setOpen] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // 카드에서 바로 보낸 답: 끝날 때까지 그 카드의 단추를 꺼서 두 번 보내지 않게 (맥 피드백 화면의 busy와 같다)
+  const [busy, setBusy] = useState<string | null>(null)
   const sheet = open ? items.find((x) => x.key === open) : undefined
-  const act = (p: Promise<unknown>) => { setError(null); p.catch((e: Error) => setError(e.message)) }
+  const act = (key: string, send: () => Promise<unknown>) => {
+    setError(null); setBusy(key)
+    send().catch((e: Error) => setError(e.message)).finally(() => setBusy(null))
+  }
   return (
     <main className="stage full ph-turns" data-ui="내 차례">
       <div className="ph-head"><h1>{t('내 차례', 'Your turn')}</h1>{items.length > 0 && <span className="muted">{t(`${items.length}개`, `${items.length}`)}</span>}</div>
@@ -34,7 +39,7 @@ export function PhoneTurns({ version, onSaved }: { version: number; onSaved(m: s
         return list.length > 0 && (
           <section key={g} className="ph-group" data-ui="내 차례 묶음" data-ui-item={g}>
             <h2><span className="turn-dot" aria-hidden />{GROUP_NAME[g]()} · {list.length}</h2>
-            {list.map((x) => <TurnCard key={x.key} x={x} onOpen={() => setOpen(x.key)} act={act} />)}
+            {list.map((x) => <TurnCard key={x.key} x={x} onOpen={() => setOpen(x.key)} busy={busy === x.key} act={(send) => act(x.key, send)} />)}
           </section>
         )
       })}
@@ -61,17 +66,17 @@ function Chip({ rid, name }: { rid: string; name: string }) {
   return <span className="ph-chip" style={style}>{name}</span>
 }
 
-function TurnCard({ x, onOpen, act }: { x: TurnItem; onOpen(): void; act(p: Promise<unknown>): void }) {
+function TurnCard({ x, onOpen, busy, act }: { x: TurnItem; onOpen(): void; busy: boolean; act(send: () => Promise<unknown>): void }) {
   let meta: ReactNode, title: string, body: string | undefined, buttons: ReactNode = null
   if (x.kind === 'feedback') {
     const e = x.item
-    meta = <><span className="ph-chip">{t('피드백', 'Feedback')}</span>{e.kind && <span>{e.kind}</span>}<span>{e.date.slice(5).replace('-', '/')}</span></>
+    meta = <><span className="ph-chip">{t('피드백', 'Feedback')}</span>{e.kind && <span>{feedbackKindName(e.kind)}</span>}<span>{e.date.slice(5).replace('-', '/')}</span></>
     title = feedbackTitle(e)
     body = e.status?.ask ?? feedbackHead(e)
     // 글이 필요한 답(질문 · 반려)은 시트에서. 글 없이 끝나는 답만 카드에서 바로
     buttons = x.turn === 'answer'
-      ? <><button className="btn" onClick={onOpen}>{REPLY['코멘트']}</button><button className="btn" onClick={() => act(api.reviewFeedback(e.key, '중단'))}>{REPLY['중단']}</button><button className="btn primary" onClick={() => act(api.reviewFeedback(e.key, '진행'))}>{REPLY['진행']}</button></>
-      : <><button className="btn" onClick={onOpen}>{REPLY['코멘트']}</button><button className="btn" onClick={onOpen}>{REPLY['반려']}</button><button className="btn primary" onClick={() => act(api.reviewFeedback(e.key, '승인'))}>{REPLY['승인']}</button></>
+      ? <><button className="btn" disabled={busy} onClick={onOpen}>{REPLY['코멘트']}</button><button className="btn" disabled={busy} onClick={() => act(() => api.reviewFeedback(e.key, '중단'))}>{REPLY['중단']}</button><button className="btn primary" disabled={busy} onClick={() => act(() => api.reviewFeedback(e.key, '진행'))}>{REPLY['진행']}</button></>
+      : <><button className="btn" disabled={busy} onClick={onOpen}>{REPLY['코멘트']}</button><button className="btn" disabled={busy} onClick={onOpen}>{REPLY['반려']}</button><button className="btn primary" disabled={busy} onClick={() => act(() => api.reviewFeedback(e.key, '승인'))}>{REPLY['승인']}</button></>
   } else if (x.kind === 'record') {
     const { entry } = x.rec
     meta = <><Chip rid={x.rid} name={x.project} />{entry.by && <span className="ph-agent">{agentName(entry.by)}</span>}<span>{kindLabel(recordKind(entry))}</span></>
@@ -107,7 +112,7 @@ function TurnSheet({ x, onClose, onSaved }: { x: TurnItem; onClose(): void; onSa
     const pictures = (e.status?.pictures ?? []).slice(0, 2)
     head = feedbackTitle(e)
     inner = <>
-      <div className="ph-meta">{t('피드백', 'Feedback')}{e.kind && ` · ${e.kind}`} · {e.date} {e.time}</div>
+      <div className="ph-meta">{t('피드백', 'Feedback')}{e.kind && ` · ${feedbackKindName(e.kind)}`} · {e.date} {e.time}</div>
       {e.status?.note && <div className="ph-note">{e.status.note}</div>}
       {e.status?.ask && <div className="ph-ask">{e.status.ask}</div>}
       {pictures.length > 0 && <div className="ph-pics">{pictures.map((p, k) => (

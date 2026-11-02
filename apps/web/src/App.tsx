@@ -235,7 +235,6 @@ export function App() {
       if (record) commentsChanged(LIBRARY_RID, record[1]!)
       bumpHome(); return
     }
-    issues.onEvent(e)
     if (e.type === 'comments') commentsChanged(e.research, e.target)
     if (e.research === rid) changedSoon()
     if (e.type === 'research') void loadResearches()
@@ -487,7 +486,7 @@ export function App() {
           <AppUpdateRail />
           {GLOBAL_PAGES.filter((g) => g.rail === 'bottom').map(railPage)}
         </nav>
-        <PhoneTabs route={route} version={version} />
+        <PhoneTabs route={route} />
 
         {showSide && <aside className="side" data-ui="사이드바">
           <div className="side-resize" data-ui="사이드바 폭 조절" role="separator" aria-orientation="vertical" title={t('끌어 폭 바꾸기 · 두 번 누르면 처음 폭', 'Drag to resize · double-click to reset')}
