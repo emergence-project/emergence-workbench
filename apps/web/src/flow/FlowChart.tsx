@@ -14,6 +14,8 @@ import { FlowCard } from './FlowCard'
 import { defaultEdge, newDraftNode, FlowEditor } from './FlowEditor'
 
 const ZS = [0.5, 0.67, 0.8, 1, 1.25, 1.5]
+/** − 단추를 켤 수 있는가: 지금(z)보다 낮은 단계 가운데 칸(base × 단계)이 가장 좁은 칸(min) 이상인 것이 있을 때. 없으면 눌러도 그대로라 흐리게 둔다 (11/2) */
+export const canNarrow = (z: number, base: number, min: number): boolean => ZS.some((v) => v < z && base * v >= min)
 /** 알약의 가장 좁은 폭(px): 이름이 켜져 있으면 칸이 이보다 좁아지지 않는다 */
 const PILL_MIN = 96
 const CW0 = 160, RH0 = 76, TOP = 30, LEFT = 30
@@ -291,10 +293,10 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
         {gapCount > 0 && <button className={`btn${gapOn ? ' on' : ''}`} data-ui="흐름 빈틈 보기" aria-pressed={gapOn} title={tr('빈틈(근거 · 결과 · 이유 · 다음 할 일 · 단계 확인이 빠진 곳)이 있는 점을 굵게', 'Highlight dots with gaps (missing evidence, result, reason, next step or step checks)')} onClick={() => setGapOn(!gapOn)}>{tr(`빈틈 ${gapCount}`, `Gaps ${gapCount}`)}</button>}
         {lay.placed.length > 0 && <span className="fl-zoom" data-ui="흐름 확대">
           <span className="fl-zl" title={tr('가로', 'Width')} aria-label={tr('가로', 'Width')}>↔</span>
-          <button className="icon-btn" disabled={names && CW0 * zoom.x <= minCW && !zoom.fit} title={tr('가로 좁히기', 'Narrower')} aria-label={tr('가로 좁히기', 'Narrower')} onClick={() => step('x', -1)}>−</button>
+          <button className="icon-btn" disabled={!zoom.fit && !canNarrow(zoom.x, CW0, minCW)} title={tr('가로 좁히기', 'Narrower')} aria-label={tr('가로 좁히기', 'Narrower')} onClick={() => step('x', -1)}>−</button>
           <button className="icon-btn" title={tr('가로 넓히기', 'Wider')} aria-label={tr('가로 넓히기', 'Wider')} onClick={() => step('x', 1)}>＋</button>
           <span className="fl-zl" title={tr('세로', 'Height')} aria-label={tr('세로', 'Height')}>↕</span>
-          <button className="icon-btn" disabled={names && RH0 * zoom.y <= minRH} title={tr('세로 좁히기', 'Shorter')} aria-label={tr('세로 좁히기', 'Shorter')} onClick={() => step('y', -1)}>−</button>
+          <button className="icon-btn" disabled={!canNarrow(zoom.y, RH0, minRH)} title={tr('세로 좁히기', 'Shorter')} aria-label={tr('세로 좁히기', 'Shorter')} onClick={() => step('y', -1)}>−</button>
           <button className="icon-btn" title={tr('세로 넓히기', 'Taller')} aria-label={tr('세로 넓히기', 'Taller')} onClick={() => step('y', 1)}>＋</button>
           <button className={`btn${names ? ' on' : ''}`} data-ui="흐름 이름 보기" aria-pressed={names} title={tr('점 이름 켜기·끄기 (꺼도 고른 점과 그 앞뒤 점은 보임)', 'Show or hide dot names (the selected dot and its lineage still show)')} onClick={() => setNames(!names)}>{tr('이름', 'Names')}</button>
           <button className={`btn${zoom.fit ? ' on' : ''}`} aria-pressed={zoom.fit} title={tr('가로를 상자 폭에 맞추기', 'Fit the width to the box')} onClick={() => setZoom({ ...zoom, fit: !zoom.fit })}>{tr('전체 보기', 'Fit')}</button>

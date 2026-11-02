@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { go } from '../router'
 import type { FlowNode } from '../api'
-import { bundleFlow, layoutBundle, type Bundle } from '../flowBundles'
+import { bundleCellWidth, bundleEdgePath, bundleFlow, bundleNameChars, isBackward, layoutBundle, type Bundle } from '../flowBundles'
 import { roundedPath } from '../flowRoute'
 import { t as tr } from '../i18n'
 import { Icon } from '../icons'
@@ -101,10 +101,26 @@ function BundleWindow({ rid, b, onClose, onOpenDot }: { rid: string; b: Bundle; 
     return () => window.removeEventListener('keydown', esc)
   }, [onClose])
   const pos = layoutBundle(b)
-  const cw = 150, rh = 76
   const at = new Map(pos.map((p) => [p.id, p]))
-  const X = (c: number) => 20 + cw * c + cw / 2, Y = (r: number) => 26 + rh * r
-  const W = 40 + cw * Math.max(1, ...pos.map((p) => p.c + 1)), H = 30 + rh * Math.max(1, ...pos.map((p) => p.r + 1))
+  // 칸 폭은 창 안 폭에 맞춘다: 열이 많아도 닫는 점까지 한눈에 (넘치면 가로로 넘긴다)
+  const box = useRef<HTMLDivElement>(null)
+  const [boxW, setBoxW] = useState(0)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () => setBoxW(el.clientWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const cols = Math.max(1, ...pos.map((p) => p.c + 1)), rh = 76
+  const cw = bundleCellWidth(cols, boxW)
+  const edges = b.nodes.flatMap((n) => n.from.filter((f) => at.has(f.id)).map((f, k) => ({ f, n, k, p: at.get(f.id)!, q: at.get(n.id)! })))
+  // 거꾸로 가는 선이 위로 돌 자리
+  const top = edges.some((e) => isBackward(e.p, e.q)) ? 34 : 26
+  const X = (c: number) => 20 + cw * c + cw / 2, Y = (r: number) => top + rh * r
+  const W = 40 + cw * cols, H = top + 4 + rh * Math.max(1, ...pos.map((p) => p.r + 1))
   const turns = b.nodes.filter(turnOf)
   const face = faceOf(b)
   return createPortal(
@@ -116,14 +132,9 @@ function BundleWindow({ rid, b, onClose, onOpenDot }: { rid: string; b: Bundle; 
         </div>
         <div className="dialog-body">
           {(b.question?.title ?? face.title) !== nameOf(b) && <p className="muted fl-bwin-q">{b.question?.title ?? face.title}</p>}
-          <div className="fl-bwin-chart">
+          <div className="fl-bwin-chart" ref={box}>
             <svg className="fl-svg" width={W} height={H} role="img" aria-label={tr('묶음의 점', 'Dots in the bundle')}>
-              {b.nodes.flatMap((n) => n.from.filter((f) => at.has(f.id)).map((f, k) => {
-                const p = at.get(f.id)!, q = at.get(n.id)!
-                // 같은 점으로 오는 선이 여럿이면 꺾는 자리를 6px씩 비킨다
-                const x1 = X(p.c) + 16, y1 = Y(p.r), x2 = X(q.c) - 16, y2 = Y(q.r), xb = X(q.c) - cw / 2 + 10 + 6 * k
-                return <path key={`${f.id}>${n.id}`} className={`fl-e${f.type === 'use' ? ' use' : ''}`} d={y1 === y2 ? `M${x1} ${y1}H${x2}` : roundedPath([[x1, y1], [xb, y1], [xb, y2], [x2, y2]], 10)} />
-              }))}
+              {edges.map(({ f, n, k, p, q }) => <path key={`${f.id}>${n.id}`} className={`fl-e${f.type === 'use' ? ' use' : ''}`} d={bundleEdgePath(p, q, k, { X, Y, cw })} />)}
               {b.nodes.map((n) => {
                 const p = at.get(n.id)!, x = X(p.c), y = Y(p.r)
                 return <g key={n.id} className="fl-node" data-id={n.id} tabIndex={0} role="button" aria-label={`${KIND[markOf(n)].name()} · ${n.short}`}
@@ -132,7 +143,7 @@ function BundleWindow({ rid, b, onClose, onOpenDot }: { rid: string; b: Bundle; 
                   <rect className="fl-hit" x={x - cw / 2 + 4} y={y - 18} width={cw - 8} height={48} rx={6} />
                   {turnOf(n) && <circle className="fl-turn" cx={x} cy={y} r={19} />}
                   <MarkSvg m={markOf(n)} x={x} y={y} state={markState(n)} judged={judgedOf(n)} turn={markTurn(n)} />
-                  <text className="fl-name" x={x} y={y + 30} textAnchor="middle">{clip(n.short, 11)}</text>
+                  <text className="fl-name" x={x} y={y + 30} textAnchor="middle">{clip(n.short, bundleNameChars(cw))}</text>
                 </g>
               })}
             </svg>
