@@ -156,12 +156,17 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
   const back = () => { setIns(null); setError(null); if (way === 'github') { setPicked(null); setPath('') } }
 
   const canRegister = !!ins && ins.errors.length === 0 && (ins.hasWorkbench || create)
+  // 입력란의 Enter도 단추와 같은 조건으로: 만드는 · 받는 중에 다시 보내지 않는다
+  const canMake = !making && !!title.trim() && !!parent.trim()
+  const canClone = !cloning && !!cloneSource && !!parent.trim()
+  /** 한글 조합을 끝내는 Enter는 보내지 않는다 (조합 중 Enter가 두 번 들어오는 브라우저가 있다) */
+  const enter = (e: React.KeyboardEvent, ok: boolean, run: () => void) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && ok) run() }
   const primary = ins
     ? <button className="btn primary" disabled={!canRegister} onClick={() => void register()}>{t('등록', 'Add')}</button>
     : way === 'new'
-      ? <button className="btn primary" disabled={making || !title.trim() || !parent.trim()} onClick={() => void make()}>{making ? t('만드는 중…', 'Creating…') : t('만들기', 'Create')}</button>
+      ? <button className="btn primary" disabled={!canMake} onClick={() => void make()}>{making ? t('만드는 중…', 'Creating…') : t('만들기', 'Create')}</button>
       : way === 'github'
-      ? <button className="btn primary" disabled={cloning || !cloneSource || !parent.trim()} onClick={() => void clone()}>{cloning ? t('받는 중…', 'Cloning…') : t('받아 오기', 'Clone')}</button>
+      ? <button className="btn primary" disabled={!canClone} onClick={() => void clone()}>{cloning ? t('받는 중…', 'Cloning…') : t('받아 오기', 'Clone')}</button>
       : <button className="btn primary" disabled={!path.trim()} onClick={() => void inspect(path.trim())}>{t('확인', 'Check')}</button>
 
   return (
@@ -185,7 +190,7 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
         {way === 'new' ? <>
           <label className="field" data-ui="새 프로젝트 제목"><span>{t('프로젝트 제목', 'Project title')}</span>
             <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('예: 그래프 색칠 문제', 'For example: Graph coloring')}
-              onKeyDown={(e) => { if (e.key === 'Enter' && title.trim() && parent.trim()) void make() }} />
+              onKeyDown={(e) => enter(e, canMake, () => void make())} />
           </label>
           <label className="field"><span>{t('연구 목표 한 문장 (선택)', 'Project goal in one sentence (optional)')}</span><input value={question} onChange={(e) => setQuestion(e.target.value)} /></label>
           <div className="field" data-ui="태그 고르기"><span>{t('성격과 분야 — 홈에서 성격으로 거릅니다', 'Kind and fields: Home filters by kind')}</span>
@@ -213,7 +218,7 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
           <label className="field" data-ui="GitHub 주소"><span>{repos?.ok ? t('목록에 없으면 GitHub 주소 붙여 넣기', 'Not in the list? Paste the GitHub address') : t('GitHub 주소', 'GitHub address')}</span>
             <input className="mono" value={url} placeholder={t('https://github.com/이름/저장소', 'https://github.com/name/repo')} autoFocus={!!repos && !repos.ok}
               onChange={(e) => { setUrl(e.target.value); setPicked(null) }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && url.trim()) void clone() }} />
+              onKeyDown={(e) => enter(e, canClone, () => void clone())} />
           </label>
           {cloneSource && <>
             <label className="field" data-ui="받을 폴더"><span>{t('받을 폴더 — 이 안에 저장소 이름의 폴더가 생깁니다', 'Clone into: a folder named after the repository is created inside')}</span>
@@ -225,7 +230,7 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
           <label className="field"><span>{t('연구 저장소 폴더 (절대 경로)', 'Project repository folder (absolute path)')}</span>
             <span className="reg-pathrow"><input autoFocus className="mono" value={path} placeholder="/Users/…/GitHub/my-research"
               onChange={(e) => setPath(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && path.trim()) void inspect(path.trim()) }} />
+              onKeyDown={(e) => enter(e, !!path.trim(), () => void inspect(path.trim()))} />
               {finderBtn(path, (p) => { setPath(p); void inspect(p) })}</span>
           </label>
           <p className="muted reg-hint">{t('Finder에서 고르면 바로 확인합니다. 저장소는 옮기지 않고 경로만 이 컴퓨터의 설정에 기록합니다.', "Choosing in Finder checks the folder right away. The repository is not moved; only its path is saved in this computer's settings.")}</p>
