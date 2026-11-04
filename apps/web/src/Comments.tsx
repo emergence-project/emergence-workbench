@@ -45,6 +45,8 @@ export const paperTarget = (name: string): CommentTarget => ({ target: `paper-${
 /** 주제와 흐름 점에 붙는 기록 (10/15 09:51 피드백: 기록이 무엇에 대한 것인지 남게) */
 export const topicTarget = (tid: string, title: string): CommentTarget => ({ target: `topic-${slug(tid)}`, title: `주제 ${title}`, source: tid })
 export const flowTarget = (id: string, title: string): CommentTarget => ({ target: `flow-${slug(id)}`, title: `흐름 점 ${title}`, source: id })
+/** 맡긴 일 보고서에 붙는 기록 (10/29 19:47: 보고서에서도 글을 골라 코멘트 · 질문) */
+export const taskTarget = (id: string, title: string): CommentTarget => ({ target: `task-${slug(id)}`, title: `맡긴 일 ${title}`, source: id })
 export const manuscriptTarget = (name?: string, ms?: string): CommentTarget => ({ target: ms ? `manuscript-${slug(ms)}` : 'manuscript', title: `원고 PDF${name ? ` ${name}` : ''}` })
 /** Markdown 연구·계산 노트 (같은 폴더 이름이어도 기록 대상은 나눈다). 주제 폴더 안 노트는 notes/의 노트와 같은 대상 (주제를 바꿔 옮겨도 코멘트가 따라간다) */
 const NOTE_FILE = /^workbench\/(notes|calc)\/([^/]+)\/note\.md$/
@@ -61,6 +63,7 @@ export function targetOfTab(t: Tab | undefined, titleOf: (t: Tab) => string): Co
   if (t.k === 'part') return noteTarget(t.file, titleOf(t))
   if (t.k === 'statement') return { target: `statement-${slug(t.sid)}`, title: `진술 ${titleOf(t)}`, source: t.sid }
   if (t.k === 'topic') return topicTarget(t.tid, titleOf(t))
+  if (t.k === 'task') return taskTarget(t.task, titleOf(t))
   return null
 }
 

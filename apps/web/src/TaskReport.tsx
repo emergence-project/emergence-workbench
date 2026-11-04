@@ -11,6 +11,7 @@ import { agentName, askOptionLabel, askOptions, cardAsks, cardConclusion, splitR
 import { agentAction, copyAgentPrompt, JudgeButtons, sendJudgment, SendBackRow, TaskDialog, TaskMoreMenu, useTasks, type TaskDraft } from './WorkTasks'
 import { t as tr } from './i18n'
 import { TaskFlowField } from './flow/FlowPairs'
+import { NoteAsk, taskTarget } from './Comments'
 
 const END_CHECK = { pass: tr('✓ 통과', '✓ Met'), fail: tr('! 미달', '! Not met'), unknown: tr('확인 못 함', 'Not checked') }
 
@@ -60,6 +61,8 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
           ]} />}
         </div>
         <div className="tk-rep" ref={scroller}>
+          {/* 고른 글 메뉴 (10/29 19:47): 노트와 같은 하이라이트 · 코멘트. 기록은 이 맡긴 일에 남는다 */}
+          <NoteAsk rid={rid} target={taskTarget(t.id, t.title)} source={t.body}>
           {sendBack && <SendBackRow onCancel={() => setSendBack(false)} onSend={(note) => { setSendBack(false); void judge('send-back', note) }} />}
           <h1 className="tk-rep-title">{t.title}</h1>
           <dl className="tk-props" aria-label={tr('기본 정보', 'Details')}>
@@ -138,6 +141,7 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
           {t.judged.length > 0 && <details className="tk-fold"><summary>{tr('판단 기록', 'Decisions')} {t.judged.length}</summary>
             <ul className="tk-judged">{t.judged.map((j, k) => <li key={k}><span className="muted">{j.at}</span> {({ approve: tr('승인', 'Approved'), 'send-back': tr('반려', 'Revise'), pause: tr('멈춤', 'Blocked'), discard: tr('폐기', 'Dropped') })[j.verdict]}{j.note ? ` · ${j.note}` : ''}</li>)}</ul>
           </details>}
+          </NoteAsk>
         </div>
       </section>
       {dialog && <TaskDialog rid={rid} topics={topics} draft={dialog} onClose={() => setDialog(null)} onSaved={onSaved} reload={reload} />}
