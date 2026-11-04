@@ -12,6 +12,7 @@ import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
 import { syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
+import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
 
 /** 피드백 폴더 파일(날짜 파일 · status.yaml · reviews.yaml)의 이름 · 크기 · 고친 시각. 받기 전후가 다르면 새 기록이 들어온 것 */
 export function feedbackFingerprint(dir: string | undefined): string {
@@ -97,6 +98,15 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     // 예제 모드는 예제 계정 (githubRepos.ts의 예제 저장소 주인과 같다)
     const user = opts.sandbox ? 'example-user' : opts.feedbackDir ? await (account ??= feedbackAccount(opts.feedbackDir)) : null
     return { enabled: !!opts.feedbackDir, entries, user, statusError: opts.feedbackDir ? feedbackStatusError(opts.feedbackDir) : null }
+  })
+  /** 클라우드 피드백 처리 켜기 · 끄기 (11/4): cloud.yaml에 적고 피드백처럼 올린다 */
+  app.get('/api/feedback/cloud', replies(C.FeedbackCloud), async (): Promise<C.FeedbackCloud> => opts.feedbackDir ? readFeedbackCloud(opts.feedbackDir) : { enabled: false, at: null })
+  app.put('/api/feedback/cloud', replies(C.FeedbackCloud), async (req): Promise<C.FeedbackCloud> => {
+    if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
+    const b = parseBody(C.FeedbackCloudBody, req.body)
+    const r = writeFeedbackCloud(opts.feedbackDir, b.enabled)
+    scheduleAutoPublish()
+    return r
   })
   /** 피드백의 그림 (feedback/pictures/ 안의 파일만): 남길 때의 화면, 처리 전후 그림 */
   app.get<{ Querystring: { path?: string } }>('/api/feedback/picture', async (req, reply) => {

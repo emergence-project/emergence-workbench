@@ -14,6 +14,7 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { readFeedbackCloud } from './feedbackCloud.js'
 import { APP_RID } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, FileDiff, Snap } from './appWorktree.js'
@@ -699,10 +700,9 @@ export class AgentChats {
         this.touch(c)
       } catch { /* gh · git 오류는 다음 차례에 다시 본다 */ }
     }
-    if (s.feedback !== 'instant' || this.running() + this.queue.length >= this.deps.limit) return
-    const chats = [...this.chats.values()]
+    if (s.feedback !== 'instant' || readFeedbackCloud(fb.dir).enabled || this.running() + this.queue.length >= this.deps.limit) return // 클라우드가 맡는 동안(cloud.yaml)은 쉰다 (11/4)
     const next = [...items.values()]
-      .filter((e) => agentTurns(e).length && !chats.some((c) => c.feedback === e.key && new Date(c.created).getTime() >= lastTouched(e)))
+      .filter((e) => agentTurns(e).length && ![...this.chats.values()].some((c) => c.feedback === e.key && new Date(c.created).getTime() >= lastTouched(e)))
       .filter((e) => !fb.claims?.taken(e.key, lastTouched(e)))
       .sort((a, b) => lastTouched(a) - lastTouched(b))[0]
     if (!next) return

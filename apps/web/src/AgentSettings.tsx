@@ -1,6 +1,6 @@
 import { FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES, type FeedbackMerge, type FeedbackPick, type InstructionMode } from '@rw/core'
 import type { AgentSettings as Settings } from '@rw/core/contract/settings'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { agentChatsApi, api, setupApi, type SetupView } from './api'
 import { notifyOn, notifyPermission, setNotifyOn } from './AgentChats'
@@ -131,7 +131,11 @@ function AgentNotify() {
  */
 function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>): void }) {
   const list = useQuery({ queryKey: qk.agentChatList(), queryFn: () => agentChatsApi.list() })
+  const cloud = useQuery({ queryKey: qk.feedbackCloud, queryFn: () => api.feedbackCloud() })
+  const queryClient = useQueryClient()
+  const setCloud = useMutation({ mutationFn: (on: boolean) => api.setFeedbackCloud(on), onSuccess: (r) => queryClient.setQueryData(qk.feedbackCloud, r) })
   if (!list.data?.app) return null
+  const cloudOn = cloud.data?.enabled === true
   return (<>
     <h3 className="set-h3">{t('앱 피드백', 'App feedback')}</h3>
     <div className="set-rows" data-ui="앱 피드백">
@@ -142,6 +146,15 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {FEEDBACK_PICKS.map((m) => <button key={m} role="radio" aria-checked={s.feedback === m} className={s.feedback === m ? 'on' : ''} onClick={() => save({ feedback: m })}>{PICK[m]()}</button>)}
+        </div>
+      </div>
+      <div className="set-row" data-ui="클라우드 피드백 처리">
+        <div>
+          <div className="set-name">{t('클라우드에서 처리', 'Handle in the cloud')}</div>
+          <div className="set-desc">{t('켜면 claude.ai의 정기 작업이 한 시간마다 에이전트 차례인 피드백을 답하고 고쳐 PR을 합칩니다(맥이 꺼져 있어도). 켜 둔 동안 이 맥의 「바로」 맡기기는 쉽니다. 두 맥이 같은 값을 씁니다.', 'When on, a scheduled task on claude.ai answers and fixes feedback that is the agent\'s turn every hour and merges the PR, even with the Macs off. While it is on, "Right away" on this Mac pauses. Both Macs share this value.')}</div>
+        </div>
+        <div className="segmented small" role="radiogroup" data-ui="고르기">
+          {[false, true].map((on) => <button key={String(on)} role="radio" aria-checked={cloudOn === on} className={cloudOn === on ? 'on' : ''} disabled={!cloud.data || setCloud.isPending} onClick={() => setCloud.mutate(on)}>{on ? t('켜기', 'On') : t('끄기', 'Off')}</button>)}
         </div>
       </div>
       <div className="set-row" data-ui="피드백 합치기">

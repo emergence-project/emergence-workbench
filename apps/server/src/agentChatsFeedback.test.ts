@@ -9,6 +9,7 @@ import { buildApp } from './app.js'
 import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from '@rw/core'
 import { sampleAppWork, type AppWork } from './appWorktree.js'
 import { listAllFeedback, writeFeedbackAnswer } from './feedback.js'
+import { writeFeedbackCloud } from './feedbackCloud.js'
 
 const FIX = path.resolve(import.meta.dirname, '../../../fixtures/sandbox-feedback')
 const REWORK = '2026-10-04 10:15 사이드바 › 목차'
@@ -245,6 +246,16 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     inApp = true
     await chats.tickFeedback()
     expect(chats.list().find((c) => c.id === id)!.shipped).toBe(true)
+  })
+
+  it('클라우드 처리를 켜 두면(cloud.yaml) 바로 맡기기도 맡지 않는다 (11/4)', async () => {
+    settings = { ...settings, feedback: 'instant' }
+    writeFeedbackCloud(fb, true)
+    const before = chats.list().length
+    await chats.tickFeedback()
+    expect(chats.list().length).toBe(before)
+    writeFeedbackCloud(fb, false)
+    settings = { ...settings, feedback: 'manual' }
   })
 
   it('바로 맡기기는 쉬는 동안 에이전트 차례 하나를 맡고, 맡은 뒤 바뀐 것이 없으면 다시 맡지 않는다', async () => {

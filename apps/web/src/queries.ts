@@ -75,6 +75,8 @@ export const qk = {
   agentExtras: ['agent-extras'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
+  /** 클라우드 피드백 처리 스위치: 피드백 알림에 같이 다시 받는다 (['feedback', …]) */
+  feedbackCloud: ['feedback', 'cloud'] as const,
   /** 피드백 전부: 피드백 화면 · 레일의 수 · 맥 알림 · 폰 내 차례가 요청 하나를 나눠 쓴다 */
   feedbackAll: ['feedback', 'all'] as const,
   /** 프로젝트마다 확인할 것의 수(판단할 맡긴 일 · 에이전트 고침 · 물은 기록): 레일 · 홈 · 폰 내 차례 */
