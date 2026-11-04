@@ -7,6 +7,7 @@ import { roundedPath } from '../flowRoute'
 import { t as tr } from '../i18n'
 import { Icon } from '../icons'
 import type { TopicRef } from './data'
+import { FlowEmpty } from './FlowEmpty'
 import { KIND, markOf, markState, markTurn, stateOf, MarkSvg, judgedOf, turnOf } from './marks'
 
 const CW = 170, RH = 96, TOP = 14, LEFT = 128
@@ -60,7 +61,7 @@ export function FlowBundles({ rid, all, topics, focus, foldSwitch, onOpenDot }: 
         {foldSwitch}
         <span className="fl-sum">{tr(`묶음 ${lay.bundles.length}`, `${lay.bundles.length} bundles`)}{waiting > 0 && <span className="fl-turn-name"> · {tr(`판단 대기 ${waiting}`, `${waiting} to judge`)}</span>}</span>
       </div>
-      {lay.bundles.length === 0 ? <p className="fl-hint muted">{tr('흐름의 점이 없습니다. 펼치기에서 ＋ 시작점으로 첫 걸음을 더합니다.', 'No dots yet. Choose Open and add the first step with ＋ Start.')}</p>
+      {lay.bundles.length === 0 ? <FlowEmpty topics={topics} hint={tr('흐름의 점이 없습니다. 펼치기에서 ＋ 시작점으로 첫 걸음을 더합니다.', 'No dots yet. Choose Open and add the first step with ＋ Start.')} />
         : <div className="fl-box fl-bundles" data-ui="흐름 묶음" onClick={(e) => { if (!(e.target as Element).closest('.fl-node')) setSel(null) }}>
           <svg className="fl-svg" width={W} height={H} role="img" aria-label={tr('접은 흐름', 'Folded flow')}>
             {lay.topics.map((t, i) => <g key={String(t.id)}>

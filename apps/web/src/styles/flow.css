@@ -10,6 +10,11 @@
 
 .fl-box { overflow: auto; border: 1px solid var(--line); border-radius: var(--r-md) var(--r-md) 0 0; background: var(--bg); cursor: grab; touch-action: none; }
 .fl-box:active { cursor: grabbing; }
+/* 점이 없을 때도 같은 상자 (10/30 16:48): 주제마다 한 줄, 안내는 상자 안 */
+.fl-box.fl-empty { cursor: default; position: relative; border-radius: var(--r-md); min-height: 240px; }
+.fl-empty-row { height: 56px; display: flex; align-items: center; padding: 0 var(--sp-3); border-bottom: 1px solid var(--line); }
+.fl-empty-topic { width: 116px; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-empty-hint { position: absolute; left: 140px; right: var(--sp-3); top: 50%; transform: translateY(-50%); margin: 0; font-size: var(--fs-sm); text-align: center; }
 .fl-svg { display: block; user-select: none; }
 .fl-size { height: 10px; margin-top: calc(-1 * var(--sp-2)); border: 1px solid var(--line); border-top: none; border-radius: 0 0 var(--r-md) var(--r-md); background: var(--bg-sunken); cursor: ns-resize; position: relative; }
 .fl-size::after { content: ''; position: absolute; left: 50%; top: 3px; width: 28px; height: 2px; margin-left: -14px; border-radius: var(--r-pill); background: var(--line-strong); }
