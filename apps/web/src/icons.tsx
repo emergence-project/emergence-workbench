@@ -20,6 +20,7 @@ export const Icon = {
   projectInfo: <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 11v5.5M12 7.6v.1" /></svg>,
   /** 수정 검토: ± 문서 (바뀐 곳 검토, GitHub diff와 같은 그림). 돋보기는 검색만 */
   review: <svg viewBox="0 0 24 24"><path d="M14.5 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V7.5z" /><path d="M9 10.5h6M12 7.5v6M9 17h6" /></svg>,
+  eye: <svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z" /><circle cx="12" cy="12" r="2.8" /></svg>,
   info: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5M12 7.6v.1" /></svg>,
   trash: <svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13" /><path d="M10.5 11v5M13.5 11v5" /></svg>,
   // 순서 바꾸기·빼기·더하기 (내보내기 표, 10/4 18:58 "화살표 굵기를 키워줘")
