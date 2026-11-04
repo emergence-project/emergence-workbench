@@ -52,7 +52,7 @@ export class LibraryReadIndex {
     if (!lib) return ''
     const files = ['concepts', 'papers'].flatMap((dir) => {
       const abs = path.join(lib, dir)
-      return fs.existsSync(abs) ? fs.readdirSync(abs).filter((f) => f.endsWith('.tex')).map((f) => path.join(abs, f)) : []
+      return fs.existsSync(abs) ? fs.readdirSync(abs).filter((f) => f.endsWith('.tex') || (dir === 'papers' && f.endsWith('.md'))).map((f) => path.join(abs, f)) : []
     })
     return treeStamp([...files, path.join(lib, 'preamble')])
   }

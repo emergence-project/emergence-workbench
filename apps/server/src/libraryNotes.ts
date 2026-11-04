@@ -5,14 +5,16 @@ import path from 'node:path'
 import { parseBlock, parseList, stripFrontMatter } from '@rw/core'
 import { hashOf, localDate, writeAtomic, isInside } from './fsutil.js'
 import { WorkbenchError, assertRealInside, type SaveResult } from './workbench.js'
-import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd } from './conceptNotes.js'
+import { conceptMdExists, createConceptMd, EMPTY_NOTE, listConceptMd, splitFrontmatter } from './conceptNotes.js'
+import YAML from 'yaml'
 import { t } from './i18n.js'
 
 /**
  * 공유 라이브러리의 노트.
  * - 개념노트 concepts/<id>.tex — 교과서 수준, 프로젝트와 무관. 정의 → 핵심 성질·정리 → 유도 스케치 → 예 → 출처.
  *   status: draft(에이전트·사용자가 씀) → reviewed(사용자 물리·수학 검토)
- * - 문헌노트 papers/<인용 키>.tex — 논문 하나의 요약·핵심 주장·방법·질문. 여러 프로젝트가 함께 본다
+ * - 문헌노트 papers/<인용 키>.md — 논문 하나의 요약·핵심 주장·방법·질문. 여러 프로젝트가 함께 본다.
+ *   11/5 피드백(10/31 23:39 진행)부터 새 문헌노트는 Markdown(YAML 머리말). 옛 papers/<키>.tex도 그대로 읽고, 같은 키의 .md가 있으면 .md를 쓴다
  * 머리말 형식은 블록과 같다. 프로젝트의 작업노트는 머리말 concepts: [id, …]로 개념노트에 기댄다.
  */
 // 응답 모양은 API 계약(@rw/core/contract/library)에 있다
@@ -37,6 +39,16 @@ const texNote = fileCache((content, file, st) => {
     empty: isEmptyNote(content), study: x.study, authors: x.authors, year: x.year, eprint: x.eprint, mtime: st.mtimeMs, hash: hashOf(content) }
 })
 
+/** Markdown 문헌노트 (papers/<키>.md): 머리말 title · status · authors · year · eprint */
+const mdPaper = fileCache((content, file, st) => {
+  const { fm, body } = splitFrontmatter(content)
+  const str = (v: unknown) => (typeof v === 'string' || typeof v === 'number' ? String(v) : undefined)
+  const id = path.basename(file, '.md')
+  const rest = body.split('\n').filter((l) => !/^\s*#/.test(l)).join(' ').replace(/\s+/g, ' ').trim()
+  return { id, title: str(fm.title) ?? id, status: str(fm.status) ?? 'draft', empty: rest.length < 40,
+    authors: str(fm.authors), year: str(fm.year), eprint: str(fm.eprint), mtime: st.mtimeMs, hash: hashOf(content), format: 'md' as const }
+})
+
 export function listLibraryNotes(lib: string | undefined, indexed?: LibraryNote[]): LibraryNote[] {
   if (!lib) return []
   const md: LibraryNote[] = indexed ?? listConceptMd(lib).map((n) => ({
@@ -49,10 +61,14 @@ export function listLibraryNotes(lib: string | undefined, indexed?: LibraryNote[
     const dir = path.join(lib, DIR[kind])
     if (!fs.existsSync(dir)) return []
     // concepts/macros.tex는 기호 모음이지 노트가 아니다
-    return fs.readdirSync(dir).filter((f) => f.endsWith('.tex') && !(kind === 'concept' && f === 'macros.tex')).sort().map((f) => {
+    const names = fs.readdirSync(dir)
+    const paperMd = kind === 'paper' ? names.filter((f) => f.endsWith('.md')).sort().map((f) => ({ kind, ...mdPaper(path.join(dir, f)) })).filter((n) => ID.test(n.id)) : []
+    const paperMdIds = new Set(paperMd.map((n) => n.id))
+    const tex = names.filter((f) => f.endsWith('.tex') && !(kind === 'concept' && f === 'macros.tex')).sort().map((f) => {
       const file = path.join(dir, f)
       return { kind, ...texNote(file) }
-    }).filter((n) => !(kind === 'concept' && mdIds.has(n.id)))
+    }).filter((n) => !(kind === 'concept' && mdIds.has(n.id)) && !(kind === 'paper' && paperMdIds.has(n.id)))
+    return [...paperMd, ...tex]
   })].sort((a, b) => (a.kind === b.kind ? a.id.localeCompare(b.id) : a.kind === 'concept' ? -1 : 1))
 }
 
@@ -60,6 +76,12 @@ export function libraryNoteFile(lib: string | undefined, kind: string, id: strin
   if (!lib) throw new WorkbenchError(404, t('공유 라이브러리가 설정되지 않았음', 'No shared library is set'))
   if (kind !== 'concept' && kind !== 'paper') throw new WorkbenchError(400, t(`종류는 concept·paper: ${kind}`, `Kind must be concept or paper: ${kind}`))
   if (!ID.test(id)) throw new WorkbenchError(400, t(`id가 올바르지 않음: ${id}`, `Invalid id: ${id}`))
+  // 문헌노트: .md가 있으면 .md, 옛 .tex만 있으면 .tex, 둘 다 없으면 새로 만들 .md
+  if (kind === 'paper') {
+    const md = path.join(lib, DIR.paper, `${id}.md`)
+    const tex = path.join(lib, DIR.paper, `${id}.tex`)
+    return fs.existsSync(md) || !fs.existsSync(tex) ? md : tex
+  }
   return path.join(lib, DIR[kind], `${id}.tex`)
 }
 
@@ -112,19 +134,15 @@ export function createConcept(lib: string | undefined, input: { title: string; s
   return { id }
 }
 
-/** 새 문헌노트 — bib 항목에서. 인용 키가 id */
+/** 새 문헌노트 — bib 항목에서. 인용 키가 id. Markdown(papers/<키>.md)으로 만들고, 같은 키의 .md · .tex가 있으면 그대로 둔다 */
+export const PAPER_TEMPLATE = ['## 요약', '', '## 핵심 주장', '', '## 방법', '', '## 질문·열린 문제', ''].join('\n')
 export function createPaper(lib: string | undefined, e: { key: string; title?: string; author?: string; year?: string; eprint?: string }): { id: string; created: boolean } {
   const file = libraryNoteFile(lib, 'paper', e.key)
   if (fs.existsSync(file)) return { id: e.key, created: false }
-  const lines = [
-    '% ---', `% id: ${e.key}`, `% title: ${(e.title ?? e.key).replace(/\s+/g, ' ')}`, '% status: draft',
-    ...(e.author ? [`% authors: ${e.author.replace(/\s+/g, ' ')}`] : []), ...(e.year ? [`% year: ${e.year}`] : []), ...(e.eprint ? [`% eprint: ${e.eprint}`] : []),
-    `% created: ${localDate()}`, '% ---',
-    `\\section{${tex(e.title ?? e.key)}}`, '',
-    '\\subsection*{요약}', '', '\\subsection*{핵심 주장}', '', '\\subsection*{방법}', '', '\\subsection*{질문·열린 문제}', '',
-  ]
+  const title = (e.title ?? e.key).replace(/[{}]/g, '').replace(/\s+/g, ' ').trim()
+  const fields = { title, status: 'draft', ...(e.author && { authors: e.author.replace(/\s+/g, ' ') }), ...(e.year && { year: e.year }), ...(e.eprint && { eprint: e.eprint }), created: localDate() }
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  writeAtomic(file, lines.join('\n'))
+  writeAtomic(file, `---\n${YAML.stringify(fields).trimEnd()}\n---\n# ${title}\n\n${PAPER_TEMPLATE}`)
   return { id: e.key, created: true }
 }
 

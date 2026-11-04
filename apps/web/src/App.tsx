@@ -28,7 +28,7 @@ import { DocTab, MaterialsNav } from './Materials'
 import { RepoFileTab } from './RepoFileTab'
 import { commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
 import { figuresMaybeChanged } from './figureEmbed'
-import { LibraryNoteEditor } from './Library'
+import { LibraryNote } from './Library'
 import { QuickMemo } from './memo'
 import { OPEN_RIGHT, setRightMode, useRightMode } from './noteScreen'
 import { RecordsPanel } from './RecordsPanel'
@@ -399,7 +399,7 @@ export function App() {
         // Markdown 개념노트는 읽기 화면 (2026-10-04 재설계), LaTeX 노트는 예전 편집기.
         // 프로젝트 안에서는 메모·연결이 늘 앱의 맥락 칸에 있다: 맥락 칸을 끄면 숨는다 (10/4 19:17 "끄면 하단으로 가" — 노트 안 칸으로 바뀌어 좁은 칸에서 아래로 내려갔다)
         if (t.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md') return <ConceptNoteView key={`md/${t.id}`} id={t.id} info={library} rid={rid} project={summary.research.title} side="external" tocOwner={context?.focused ? tabKey(t) : null} onChanged={libraryChanged} onSaved={flash} />
-        return <LibraryNoteEditor key={`${t.k}/${t.id}`} kind={t.k} id={t.id} info={library} rid={rid} project={summary.research.title} onChanged={libraryChanged} onSaved={flash} />
+        return <LibraryNote key={`${t.k}/${t.id}`} kind={t.k} id={t.id} info={library} rid={rid} project={summary.research.title} onChanged={libraryChanged} onSaved={flash} />
       case 'mspdf': return <ManuscriptPdfTab key={msKeyOfTab(t)} rid={rid} info={manuscripts.find((m) => m.key === msKeyOfTab(t)) ?? null} rapi={rapi} onSaved={flash} version={version}
         active={context?.active ?? false} pairedEditor={hasVisibleManuscriptEditor(context?.visibleTabs ?? [], msKeyOfTab(t), (file) => msOfFile(file)?.key)} />
       // 옛 작업 탭(todo)은 기록 화면으로 합쳤다 (10/21): 남은 탭도 기록을 연다

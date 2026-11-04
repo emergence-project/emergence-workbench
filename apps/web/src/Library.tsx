@@ -7,6 +7,7 @@ import { Editor, type EditorHandle } from './Editor'
 import { KnowledgeMap, STATUS_NAME } from './KnowledgeMap'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
 import { PdfView } from './PdfView'
+import { PaperNoteMd } from './PaperNoteMd'
 import { go } from './router'
 import { Icon } from './icons'
 import { useAutosave } from './autosave'
@@ -16,6 +17,12 @@ const COMPILE_AFTER_MS = 1500
 export const KIND_NAME: Record<LibraryKind, string> = { concept: t('개념노트', 'Concept note'), paper: t('문헌노트', 'Literature note') }
 /** 피드백 모드 부위 이름 (언어와 상관없이 한국어) */
 const KIND_UI: Record<LibraryKind, string> = { concept: '개념노트', paper: '문헌노트' }
+
+/** 라이브러리 노트 탭: Markdown 문헌노트(papers/<키>.md, 11/5)는 읽기 화면, 그 밖(LaTeX)은 편집기 */
+export function LibraryNote(props: Parameters<typeof LibraryNoteEditor>[0]) {
+  const md = props.kind === 'paper' && props.info?.notes.find((n) => n.kind === 'paper' && n.id === props.id)?.format === 'md'
+  return md ? <PaperNoteMd id={props.id} info={props.info} onChanged={props.onChanged} onSaved={props.onSaved} /> : <LibraryNoteEditor {...props} />
+}
 
 /**
  * 공유 라이브러리 노트 하나 (개념노트·문헌노트): 머리 정보(상태·쓰는 곳·Study 출처) + LaTeX 원문.

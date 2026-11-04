@@ -1,4 +1,5 @@
 import { displayName } from '@rw/core'
+import { PdfElsewhere } from './PdfElsewhere'
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, type BibEntry, type LibraryInfo, type MaterialFile, type ResearchApi } from './api'
@@ -206,7 +207,9 @@ export function CitedPapers({ rid, rapi, text, file, library, onSaved, onLibrary
         {shared && <button className="a" onClick={() => go({ page: 'shelf', open: k })}>{t('라이브러리에서 열기', 'Open in the library')}</button>}
         {!shared && e?.file && <button className="a" onClick={() => go({ page: 'doc', rid, name: e.file! })}>{t('PDF 보기', 'View PDF')}</button>}
         {!shared && e && !e.file && e.eprint && <button className="a" disabled={busy === k} onClick={() => fetchPaper(e)}>{busy === k ? t('받는 중', 'Downloading') : t('PDF 받기', 'Download PDF')}</button>}
+        {/* PDF가 없으면 찾아갈 곳 (10/31 23:40 진행): DOI가 있으면 출판사 페이지, 없으면 Google Scholar 검색 */}
         {!shared && e && !e.file && !e.eprint && <span className="muted">{t('PDF 없음', 'No PDF')}</span>}
+        {!shared && e && !e.file && !e.eprint && <PdfElsewhere doi={e.doi} title={e.title ?? k} />}
         {e && library?.path && (
           <button className="a" onClick={() => api.createPaper(rid, k).then((r) => { if (r.created) { onLibraryChanged?.(); onSaved(t('문헌노트를 만들었습니다', 'Created the literature note')) } go({ page: 'paper', rid, id: r.id }) }).catch((err: Error) => onSaved(err.message))}>
             {hasNote ? t('문헌노트', 'Literature note') : t('문헌노트 만들기', 'Create literature note')}</button>

@@ -1,4 +1,5 @@
 import { PaperFind } from './PaperFind'
+import { PdfElsewhere } from './PdfElsewhere'
 import { SubjectPicker, useSubjects, LibrarySubjectSide } from './SubjectPicker'
 import { subjectsApi, matchesSubject } from './api/subjects'
 import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from 'react'
@@ -461,6 +462,7 @@ function PaperInfo({ paper, projects, ctx, opened, onSaved }: { paper: PaperRow;
         <div className="pl-rs-links">
           {paper.eprint && <a className="a" href={`https://arxiv.org/abs/${paper.eprint}`} target="_blank" rel="noreferrer">arXiv {paper.eprint}</a>}
           {paper.doi && <a className="a" href={`https://doi.org/${paper.doi}`} target="_blank" rel="noreferrer">DOI</a>}
+          {!paper.eprint && !paper.doi && paper.pdf.where === 'none' && <PdfElsewhere title={paper.title} />}
           {!paper.eprint && paper.kind === 'paper' && !finding && <button className="a" title={t('제목과 첫 저자로 arXiv 판을 찾습니다. 고른 번호만 references.bib에 적습니다', 'Search arXiv by title and first author. Only the number you choose is written to references.bib')} onClick={() => setFinding(true)}>{t('arXiv 찾기', 'Find on arXiv')}</button>}
         </div>
         {finding && !paper.eprint && <FindArxiv key={paper.key} paper={paper} onClose={() => setFinding(false)} onSaved={onSaved} />}
