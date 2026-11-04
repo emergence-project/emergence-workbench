@@ -81,3 +81,9 @@ describe('알림 모으기', () => {
     expect(spy).toHaveBeenCalledTimes(4)
   })
 })
+
+describe('피드백 받기 알림 (11/4)', () => {
+  it('개인 저장소에서 새 처리 기록을 받으면 피드백 자료를 모두 다시 받는다', () => {
+    expect(invalidationKeys({ type: 'feedback', research: null })).toEqual([qk.feedback])
+  })
+})

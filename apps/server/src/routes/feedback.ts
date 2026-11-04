@@ -13,6 +13,15 @@ import { t } from '../i18n.js'
 import { syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
 
+/** 피드백 폴더 파일(날짜 파일 · status.yaml · reviews.yaml)의 이름 · 크기 · 고친 시각. 받기 전후가 다르면 새 기록이 들어온 것 */
+export function feedbackFingerprint(dir: string | undefined): string {
+  if (!dir) return ''
+  try {
+    return fs.readdirSync(dir).filter((f) => /\.(md|yaml)$/.test(f)).sort()
+      .map((f) => { const s = fs.statSync(path.join(dir, f)); return `${f}:${s.size}:${s.mtimeMs}` }).join('|')
+  } catch { return '' }
+}
+
 export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void {
   const { opts } = ctx
 
@@ -48,8 +57,11 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   const syncSoon = () => {
     if (!opts.feedbackSync || syncing || Date.now() - lastSync < 60_000) return
     lastSync = Date.now()
+    const before = feedbackFingerprint(opts.feedbackDir)
     syncing = publishing.catch(() => undefined).then(() => opts.feedbackSync!()).then((r) => {
       if (!r.ok) app.log.warn(`개인 저장소 받기 실패: ${r.error}`)
+      // 받은 기록을 화면에 알린다. 알리지 않으면 화면 캐시가 앱을 다시 시작할 때까지 옛 기록을 보였다 (11/4)
+      else if (feedbackFingerprint(opts.feedbackDir) !== before) ctx.broadcast({ type: 'feedback', research: null })
     }).finally(() => { syncing = null })
   }
   if (opts.feedbackSync) repeat(app, { first: 5 * 60_000, every: 5 * 60_000, run: async () => syncSoon() })

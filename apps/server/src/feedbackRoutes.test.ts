@@ -446,3 +446,26 @@ describe('영어 화면에서도 피드백 파일은 한국어 형식 그대로'
     }
   })
 })
+
+describe('개인 저장소에서 받은 피드백 기록 (11/4)', () => {
+  it('받기로 처리 기록이 바뀌면 화면에 feedback 알림을 보낸다 (앱을 다시 시작하지 않아도 갱신)', async () => {
+    const dir = path.join(tmp, 'feedback-sync')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'status.yaml'), '{}\n')
+    let pulls = 0
+    const feedbackSync = async () => {
+      pulls++
+      fs.writeFileSync(path.join(dir, 'status.yaml'), 'x:\n  state: 반영\n')
+      return { ok: true }
+    }
+    const fb = buildApp({ configDir: path.join(tmp, 'config-fb-sync'), feedbackDir: dir, feedbackSync })
+    await fb.ready()
+    const ws = await fb.injectWS('/api/events', { headers: { host: '127.0.0.1:5174' } })
+    const got = new Promise<string>((resolve) => ws.on('message', (d: Buffer) => resolve(d.toString())))
+    expect((await fb.inject({ method: 'GET', url: '/api/feedback/all' })).statusCode).toBe(200)
+    expect(JSON.parse(await got)).toEqual({ type: 'feedback', research: null })
+    expect(pulls).toBe(1)
+    ws.terminate()
+    await fb.close()
+  })
+})
