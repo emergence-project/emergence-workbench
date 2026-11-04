@@ -10,6 +10,7 @@ import { t as tr } from '../i18n'
 import { KIND, EDGE, markOf, markState, markTurn, roleOf, stateOf, stateName, MarkSvg, judgedOf, judgeName, turnOf } from './marks'
 import { Icon } from '../icons'
 import type { TopicRef } from './data'
+import { FlowEmpty } from './FlowEmpty'
 import { FlowCard } from './FlowCard'
 import { defaultEdge, newDraftNode, FlowEditor } from './FlowEditor'
 
@@ -304,7 +305,7 @@ export function FlowChart({ rid, focus, all, cells, lay, rowNames, warn, notes, 
         <button className="btn" data-ui="흐름 점 더하기" title={tr('앞선 점 없이 새로 시작하는 점을 더합니다. 이어지는 점은 점을 누르고 자세히의 ＋로', 'Add a dot that starts fresh. For a following dot, select a dot and use ＋ in its details')}
           onClick={() => startDraft([])}>＋ {tr('시작점', 'Start')}</button>
       </div>
-      {lay.placed.length === 0 && (draftEditor || <p className="fl-hint muted">{tr('흐름의 점이 없습니다. ＋ 시작점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots yet. Add the first step (a question, calculation, proof…) with ＋ Start.')}</p>)}
+      {lay.placed.length === 0 && (draftEditor || <FlowEmpty topics={topics} hint={tr('흐름의 점이 없습니다. ＋ 시작점으로 첫 걸음(질문·계산·증명…)을 더합니다.', 'No dots yet. Add the first step (a question, calculation, proof…) with ＋ Start.')} />)}
       {lay.placed.length > 0 && <><div className="fl-wrap">
       {outside && <div className="fl-rowclip" style={{ width: GUT, height }}>{heads}</div>}
       {outside && rowEdit !== null && rowEdit < lay.rows && <RowEditor key={rowEdit} top={Y(rowEdit) - scrollTop + headH / 2 + 4} name={rowNames[String(rowEdit - lay.mid)] ?? ''}
