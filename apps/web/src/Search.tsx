@@ -7,6 +7,7 @@ import { go, type Route } from './router'
 import { rank } from './searchMatch'
 import { resultsForQuery, type QueryResults } from './queryResults'
 import { t } from './i18n'
+import { aboutIndex, definitionsFirst } from './aboutSearch'
 
 /** 결과 한 줄 */
 interface Hit { key: string; title: string; kind: string; where?: string; icon: ReactNode; to: Route }
@@ -18,16 +19,16 @@ const KIND_ICON: Record<SearchItem['kind'], ReactNode> = {
   project: Icon.research, card: Icon.card, note: Icon.block, part: Icon.block, statement: Icon.statement, paper: Icon.paper, concept: Icon.concept, person: Icon.network,
 }
 /** 묶음 순서 */
-const GROUPS = ['화면', '프로젝트', '주제', '노트', '개념노트', '문헌노트', '사람'] as const
+const GROUPS = ['화면', '프로젝트', '주제', '노트', '개념노트', '문헌노트', '사람', '소개'] as const
 type Group = (typeof GROUPS)[number]
 /** 묶음의 화면 이름 (Group은 내부 키) */
 const GROUP_NAME: Record<Group, string> = {
-  화면: t('화면', 'Screens'), 프로젝트: t('프로젝트', 'Projects'), 주제: t('주제', 'Topics'), 노트: t('노트', 'Notes'), 개념노트: t('개념노트', 'Concept notes'), 문헌노트: t('문헌노트', 'Literature notes'), 사람: t('사람', 'People'),
+  화면: t('화면', 'Screens'), 프로젝트: t('프로젝트', 'Projects'), 주제: t('주제', 'Topics'), 노트: t('노트', 'Notes'), 개념노트: t('개념노트', 'Concept notes'), 문헌노트: t('문헌노트', 'Literature notes'), 사람: t('사람', 'People'), 소개: t('소개', 'About'),
 }
 const SCREEN = t('화면', 'Screen')
 /** 묶음과 같은 종류면 줄에 종류를 적지 않는다 */
 const GROUP_KIND: Record<Group, string> = {
-  화면: SCREEN, 프로젝트: KIND_LABEL.project, 주제: KIND_LABEL.card, 노트: KIND_LABEL.note, 개념노트: KIND_LABEL.concept, 문헌노트: KIND_LABEL.paper, 사람: KIND_LABEL.person,
+  화면: SCREEN, 프로젝트: KIND_LABEL.project, 주제: KIND_LABEL.card, 노트: KIND_LABEL.note, 개념노트: KIND_LABEL.concept, 문헌노트: KIND_LABEL.paper, 사람: KIND_LABEL.person, 소개: t('소개', 'About'),
 }
 const GROUP_OF: Record<SearchItem['kind'], Group> = {
   project: '프로젝트', card: '주제', note: '노트', part: '노트', statement: '노트', concept: '개념노트', paper: '문헌노트', person: '사람',
@@ -96,6 +97,11 @@ export function SearchOverlay({ rid, onClose }: { rid: string | null; onClose():
     }
     add('화면', rank(pages, term, (p) => [p.title, p.where], 4))
     for (const group of GROUPS.slice(1)) {
+      if (group === '소개') {
+        // 소개 글 (10/30 16:51): 글이 찾는 말로 시작하는 줄(용어 정의)이 앞에
+        add(group, definitionsFirst(rank(aboutIndex(), term, (a) => [a.text], 200), term).slice(0, 5).map((a): Hit => ({ key: a.key, title: a.text.length > 90 ? `${a.text.slice(0, 90)}…` : a.text, kind: t('소개', 'About'), where: a.where, icon: Icon.info, to: a.to })))
+        continue
+      }
       const of = items.filter((x) => GROUP_OF[x.kind] === group)
       const hits = rank(of, term, text, group === '노트' ? 8 : 5).map(toHit).filter((h): h is Hit => !!h)
       if (group === '개념노트') {
@@ -126,7 +132,7 @@ export function SearchOverlay({ rid, onClose }: { rid: string | null; onClose():
       <div className="dialog sr-box" role="dialog" aria-label={t('검색', 'Search')} data-ui="검색 창">
         <label className="sr-input">
           {Icon.search}
-          <input autoFocus value={q} placeholder={t('모든 프로젝트의 주제·노트·개념노트·문헌노트·사람·화면 찾기', 'Search topics, notes, concept notes, literature notes, people and screens in all projects')} aria-label={t('찾을 말', 'Search term')}
+          <input autoFocus value={q} placeholder={t('모든 프로젝트의 주제·노트·개념노트·문헌노트·사람·화면과 소개 찾기', 'Search topics, notes, concept notes, literature notes, people, screens and About in all projects')} aria-label={t('찾을 말', 'Search term')}
             role="combobox" aria-expanded aria-controls="sr-list" aria-activedescendant={flat[sel] ? `sr-${sel}` : undefined}
             onChange={(e) => { setQ(e.target.value); setActive(0) }} onKeyDown={key} />
         </label>
