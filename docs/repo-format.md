@@ -440,7 +440,8 @@ workbench/notes/
 | `concepts/<id>.tex` | 옛 LaTeX 개념노트 (블록 머리 형식). 같은 id의 `.md`가 있으면 숨김 |
 | `concepts/macros.tex` | 공용 매크로 |
 | `concepts/attachments/` | 개념노트 그림 |
-| `papers/<키>.tex` | 문헌노트 (블록 머리 형식) |
+| `papers/<키>.md` | 문헌노트 (11/5~). YAML 머리말 `title` · `status`(draft · reviewed) · `authors` · `year` · `eprint` · `created`, 본문은 `# 제목`과 절 `## 요약` · `## 핵심 주장` · `## 방법` · `## 질문·열린 문제` |
+| `papers/<키>.tex` | 옛 LaTeX 문헌노트 (블록 머리 형식). 같은 키의 `.md`가 있으면 `.md`를 쓴다 |
 | `references.bib` | 참고문헌. 앱은 끝에 덧붙이고, 사용자가 고른 arXiv 번호만 그 항목에 적는다(10.4) |
 | `papers.yaml` | bib 키 → `{projects?, pdf?, subjects?}` |
 | `comments/<키>/c-*.md` | 논문 코멘트 (§10.3) |

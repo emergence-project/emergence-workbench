@@ -328,6 +328,19 @@ describe('라이브러리 노트 (개념·문헌)와 Study', () => {
     // 문헌노트: 프로젝트 bib에서
     expect((await a.inject({ method: 'POST', url: '/api/library/papers', payload: { rid: id, key: 'st20' } })).json()).toEqual({ id: 'st20', created: true })
     expect((await a.inject({ method: 'POST', url: '/api/library/papers', payload: { rid: id, key: 'st20' } })).json()).toEqual({ id: 'st20', created: false })
+    // 새 문헌노트는 Markdown (11/5): YAML 머리말 + 절 틀. 읽고 쓰는 길은 .md를 고르고, 옛 .tex만 있는 키는 .tex를 읽는다
+    const md = fs.readFileSync(path.join(lib, 'papers/st20.md'), 'utf8')
+    expect(md).toMatch(/^---\ntitle: .+\nstatus: draft\n/)
+    expect(md).toContain('\n---\n# ')
+    expect(md).toContain('## 핵심 주장')
+    expect(fs.existsSync(path.join(lib, 'papers/st20.tex'))).toBe(false)
+    const read = (await a.inject({ method: 'GET', url: '/api/library/notes/paper/st20' })).json()
+    expect(read.content).toBe(md)
+    const saved = await a.inject({ method: 'PUT', url: '/api/library/notes/paper/st20', payload: { content: md.replace('status: draft', 'status: reviewed'), baseHash: read.hash } })
+    expect(saved.statusCode).toBe(200)
+    fs.writeFileSync(path.join(lib, 'papers/old21.tex'), '% ---\n% id: old21\n% title: Old\n% ---\n')
+    expect((await a.inject({ method: 'GET', url: '/api/library/notes/paper/old21' })).json().content).toContain('% title: Old')
+    fs.writeFileSync(path.join(lib, 'papers/st20.tex'), '% ---\n% id: st20\n% title: Tex twin\n% ---\n')
 
     // 작업노트가 개념에 기댄다 (머리말 concepts) → 쓰는 곳
     const R2 = `/api/researches/${id}`
@@ -335,7 +348,8 @@ describe('라이브러리 노트 (개념·문헌)와 Study', () => {
 
     const L = (await a.inject({ method: 'GET', url: '/api/library' })).json()
     expect(L.notes.map((n: { kind: string; id: string; status: string; empty: boolean }) => `${n.kind}:${n.id}:${n.status}:${n.empty}`).sort())
-      .toEqual(['concept:kempe-recoloring-2:draft:true', 'concept:kempe-recoloring:draft:true', 'paper:st20:draft:true'])
+      .toEqual(['concept:kempe-recoloring-2:draft:true', 'concept:kempe-recoloring:draft:true', 'paper:old21:draft:true', 'paper:st20:reviewed:true'])
+    expect(L.notes.find((n: { kind: string; id: string }) => n.kind === 'paper' && n.id === 'st20')).toMatchObject({ format: 'md' })
     expect(L.usedBy['concept:kempe-recoloring']).toEqual([expect.objectContaining({ rid: id, file: 'workbench/notes/kempe-chains/main.tex' })])
     expect(L.usedBy['paper:st20']).toEqual([expect.objectContaining({ rid: id })])
 
