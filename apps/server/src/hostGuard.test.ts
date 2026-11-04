@@ -36,7 +36,7 @@ describe('요청 출처', () => {
 
   it('API 파일 응답: SVG·HTML은 스크립트를 막고, 모두 nosniff', () => {
     expect(fileResponseHeaders('image/svg+xml')).toEqual({ 'x-content-type-options': 'nosniff', 'content-security-policy': "script-src 'none'" })
-    expect(fileResponseHeaders('text/html; charset=utf-8')['content-security-policy']).toBe("script-src 'none'")
+    expect(fileResponseHeaders('text/html; charset=utf-8')['content-security-policy']).toBe('sandbox allow-scripts allow-popups')
     expect(fileResponseHeaders('application/pdf')).toEqual({ 'x-content-type-options': 'nosniff' })
     expect(fileResponseHeaders(undefined)).toEqual({ 'x-content-type-options': 'nosniff' })
   })

@@ -195,6 +195,7 @@ button.a { text-align: inherit; }
 .ws-doc { flex: 1; min-width: 0; min-height: 0; display: flex; }
 .ws-doc > .pane { flex: 1; }
 .ws-doc.pdf-tab { flex-direction: column; }
+.ws-doc.pdf-tab .doc-html { flex: 1; width: 100%; min-height: 0; border: 0; }
 .ws-divider { cursor: col-resize; position: relative; background: transparent; }
 .ws-divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 1px; background: var(--line); }
 .ws-divider:hover::after, body.resizing .ws-divider::after { left: 1px; width: 3px; background: var(--line-strong); }

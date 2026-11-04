@@ -162,6 +162,7 @@ describe('프로젝트 정본과 STATUS.md', () => {
     w('docs/papers/1402.6069v4.pdf', '%PDF-1.4')
     w('docs/papers/plot.py', 'print(1)')
     w('docs/papers/reading.md', '# 읽을 것')
+    w('docs/papers/slides.html', '<!doctype html><script>1</script>')
     const research = (extra: string) => w('workbench/research.yaml', `title: Model\nquestion: A·B 상\n${extra}`)
     research(['sources:', '  canon:', '    - docs/model — 모형 원고', '    - ../outside — 무시', '  tasks: docs/TASK-QUEUE.md', '  bib: [docs/model/references.bib]',
       '  materials: [docs/papers, /etc]', '  reviews: [docs/theory]', ''].join('\n'))
@@ -184,10 +185,15 @@ describe('프로젝트 정본과 STATUS.md', () => {
     const mats = (await a.inject({ method: 'GET', url: `${P}/materials` })).json()
     expect(mats.bib).toEqual([expect.objectContaining({ key: 'k1', source: 'docs/model/references.bib' })])
     // 코드 파일(.py)은 참고 자료에 두지 않는다 (10/28 피드백 20:56)
-    expect(mats.files.map((f: { name: string }) => f.name).sort()).toEqual(['docs/papers/1402.6069v4.pdf', 'docs/papers/reading.md'])
+    expect(mats.files.map((f: { name: string }) => f.name).sort()).toEqual(['docs/papers/1402.6069v4.pdf', 'docs/papers/reading.md', 'docs/papers/slides.html'])
     expect(mats.files).toContainEqual(expect.objectContaining({ name: 'docs/papers/1402.6069v4.pdf', kind: 'pdf' }))
     expect((await a.inject({ method: 'GET', url: `${P}/materials/${encodeURIComponent('docs/papers/1402.6069v4.pdf')}` })).statusCode).toBe(200)
     expect((await a.inject({ method: 'GET', url: `${P}/materials/${encodeURIComponent('docs/model/references.bib')}` })).statusCode).toBe(400)
+    // HTML 발표자료: 앱 안에서 열되, 스크립트는 출처 없는 sandbox에서만 돈다
+    const html = await a.inject({ method: 'GET', url: `${P}/materials/${encodeURIComponent('docs/papers/slides.html')}` })
+    expect(html.statusCode).toBe(200)
+    expect(html.headers['content-type']).toContain('text/html')
+    expect(html.headers['content-security-policy']).toBe('sandbox allow-scripts allow-popups')
 
     // STATUS.md: 미리보기는 늘 되고, 쓰기는 agent-status일 때만
     const md = (await a.inject({ method: 'GET', url: `${P}/agent-status` })).json().markdown as string
