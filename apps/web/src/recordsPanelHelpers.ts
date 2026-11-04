@@ -46,6 +46,7 @@ export function recordRoute(rid: string, file: Pick<RecordFile, 'target' | 'sour
   if (file.target.startsWith('paper-')) return file.source ? { page: 'doc', rid, name: file.source } : null
   if (file.target.startsWith('topic-')) return { page: 'topic', rid, tid: file.source ?? file.target.slice(6) }
   if (file.target.startsWith('flow-')) return { page: 'flow', rid }
+  if (file.target.startsWith('task-')) return { page: 'task', rid, task: file.source ?? file.target.slice(5) }
   const part = firstPartOf(file.target)
   return part ? { page: 'part', rid, file: part } : null
 }

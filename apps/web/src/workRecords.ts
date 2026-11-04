@@ -151,7 +151,7 @@ export function placeKind(target: string): PlaceKind {
   if (target.startsWith('topic-')) return 'topic'
   if (target.startsWith('note-') || target.startsWith('calc-')) return 'note'
   if (target.startsWith('flow-')) return 'flow'
-  if (target.startsWith('statement-') || target.startsWith('paper-')) return 'other'
+  if (target.startsWith('statement-') || target.startsWith('paper-') || target.startsWith('task-')) return 'other'
   // manuscript, manuscript-<원고>, 원고의 장(장 id)
   return 'manuscript'
 }
