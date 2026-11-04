@@ -59,6 +59,7 @@ class LabelWidget extends WidgetType {
 
 const hide = Decoration.replace({})
 const listIndent = Decoration.mark({ class: 'cm-list-indent' })
+const quoteLine = Decoration.line({ class: 'cm-quote' })
 const bullets = ['•', '◦', '▪'].map((label) => Decoration.replace({ widget: new LabelWidget(label, 'cm-bullet') }))
 
 function build(state: EditorState): DecorationSet {
@@ -130,6 +131,20 @@ function build(state: EditorState): DecorationSet {
       }
       const h = /^ATXHeading(\d)$/.exec(n.name)
       if (h) { out.push(Decoration.line({ class: `cm-h cm-h${h[1]}` }).range(lineOf(n.from).from)); return }
+      // 11/4 17:06 피드백: > 인용 줄은 읽기 화면처럼 왼쪽 선으로 (커서가 있는 줄만 > 를 보인다)
+      if (n.name === 'Blockquote') {
+        for (let p = lineOf(n.from).from; ; p = lineOf(p).to + 1) {
+          out.push(quoteLine.range(p))
+          if (lineOf(p).to >= Math.min(n.to, doc.length - 1)) break
+        }
+        return
+      }
+      if (n.name === 'QuoteMark') {
+        if (lineTouched(n.from)) return
+        const to = doc.sliceString(n.to, n.to + 1) === ' ' ? n.to + 1 : n.to
+        out.push(hide.range(n.from, to))
+        return
+      }
       if (inMath(n.from)) return math.some((m) => n.from >= m.from && n.to <= m.to) ? false : undefined
       switch (n.name) {
         case 'HeaderMark': {

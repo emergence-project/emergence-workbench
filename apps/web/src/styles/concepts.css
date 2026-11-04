@@ -82,6 +82,8 @@
 .cn-edit .cm-bullet { color: var(--text-2); font-size: 1.4em; line-height: 0; vertical-align: -0.05em; }
 /* 하위 항목: 빈칸 두 개가 글머리표 하나 폭 남짓으로 보이게 (10/8 11:55) */
 .cn-edit-live .cm-list-indent { letter-spacing: .55em; }
+/* > 인용: 읽기 화면(.ob-md blockquote)과 같은 왼쪽 선 (11/4 17:06) */
+.cn-edit-live .cm-quote { border-left: 3px solid var(--line-strong); padding-left: var(--sp-3); color: var(--text-2); }
 .cn-edit .cm-icode { font-family: var(--editor-font); font-size: .9em; background: var(--bg-sunken); border-radius: var(--r-xs); }
 .cn-edit .cm-emphasis { font-style: italic; }
 .cn-edit .cm-strong { font-weight: var(--fw-strong); }
