@@ -13,8 +13,11 @@ const file = (dir: string) => path.join(dir, 'cloud.yaml')
 
 export function readFeedbackCloud(dir: string): FeedbackCloud {
   try {
-    const doc = YAML.parse(fs.readFileSync(file(dir), 'utf8')) as { enabled?: unknown; at?: unknown } | null
-    return { enabled: doc?.enabled === true, at: typeof doc?.at === 'string' ? doc.at : null }
+    const doc: unknown = YAML.parse(fs.readFileSync(file(dir), 'utf8'))
+    if (!doc || typeof doc !== 'object') return { enabled: false, at: null }
+    const enabled = 'enabled' in doc && doc.enabled === true
+    const at = 'at' in doc && typeof doc.at === 'string' ? doc.at : null
+    return { enabled, at }
   } catch { return { enabled: false, at: null } }
 }
 
