@@ -140,3 +140,19 @@ End`
     expect(d.some((x) => x.widget?.html)).toBe(false)
   })
 })
+
+describe('Markdown quote preview (11/4 17:06)', () => {
+  it('draws every quote line with a side line and hides > away from the cursor', () => {
+    const doc = '> First line\n> second\n\nAfter'
+    const ds = previewDecorations(doc)
+    expect(ds.filter((d) => d.cls === 'cm-quote').map((d) => d.from)).toEqual([0, 13])
+    expect(ds.filter((d) => d.from === 0 && d.to === 2 && !d.cls).length).toBe(1)
+    expect(ds.filter((d) => d.from === 13 && d.to === 15 && !d.cls).length).toBe(1)
+  })
+
+  it('keeps > on the line with the cursor', () => {
+    const ds = previewDecorations('> First\n> second', false, 3)
+    expect(ds.some((d) => d.from === 0 && d.to === 2 && !d.cls)).toBe(false)
+    expect(ds.some((d) => d.from === 8 && d.to === 10 && !d.cls)).toBe(true)
+  })
+})
