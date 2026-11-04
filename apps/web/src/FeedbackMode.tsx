@@ -105,6 +105,33 @@ const STYLE_PROPS = [
   '-webkit-text-fill-color', '-webkit-background-clip', 'mask-image', '-webkit-mask-image', 'backdrop-filter'
 ]
 
+/**
+ * 고르기 상자는 그림에 옮기면 맥(WebKit)에서 글자 없이 빈 칸으로 찍혔다 (10/30 · 11/4 그림의 대화 프로젝트 · 피드백 상태 상자).
+ * 화면에서는 이름이 보이는데 그림에서만 비어, 사용자 화면이 깨진 것처럼 읽혔다. 찍는 동안만 상자를 같은 모양의 글자 칸으로 바꿔 두고 되돌린다
+ */
+function swapSelects(): () => void {
+  const swapped: [HTMLSelectElement, HTMLSpanElement, string | null][] = []
+  for (const sel of document.querySelectorAll('select')) {
+    if (sel.multiple || sel.closest('[data-feedback-ui]') || !onScreen(sel)) continue
+    const r = sel.getBoundingClientRect()
+    if (!r.width || !r.height) continue
+    const cs = getComputedStyle(sel)
+    const span = document.createElement('span')
+    for (const k of STYLE_PROPS) span.style.setProperty(k, cs.getPropertyValue(k))
+    span.style.setProperty('display', cs.display.startsWith('inline') ? 'inline-flex' : 'flex')
+    span.style.setProperty('align-items', 'center')
+    span.style.setProperty('overflow', 'hidden')
+    span.style.setProperty('white-space', 'nowrap')
+    span.style.setProperty('width', `${r.width}px`)
+    span.style.setProperty('height', `${r.height}px`)
+    span.textContent = sel.selectedOptions[0]?.textContent ?? ''
+    swapped.push([sel, span, sel.getAttribute('style')])
+    sel.after(span)
+    sel.style.setProperty('display', 'none')
+  }
+  return () => { for (const [sel, span, style] of swapped) { span.remove(); if (style === null) sel.removeAttribute('style'); else sel.setAttribute('style', style) } }
+}
+
 const loadCapture = () => import('html-to-image')
 /** 글꼴을 그림에 넣는 CSS(수백 KB)는 모드를 켠 동안 한 번만 만든다 */
 let fontCss: Promise<string> | null = null
@@ -115,7 +142,9 @@ async function captureScreen(): Promise<string | null> {
     const { toJpeg, getFontEmbedCSS } = await loadCapture()
     fontCss ??= getFontEmbedCSS(document.body).catch((e) => { fontCss = null; throw e })
     const fontEmbedCSS = await fontCss
-    restore = inlineSvgPaint()
+    const paint = inlineSvgPaint()
+    const selects = swapSelects()
+    restore = () => { selects(); paint() }
     return await toJpeg(document.body, {
       quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight, fontEmbedCSS, includeStyleProperties: STYLE_PROPS,
       // 그림 주소는 ?path=…로만 다르다(/api/feedback/picture 등). 빼면 html-to-image가 물음표 뒤를 버린 주소로 캐시해 다른 그림을 다시 쓴다 (10/13 09:59 그림)
