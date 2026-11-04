@@ -51,5 +51,5 @@ const EN: [string, string][] = [
 
 const items = (rows: [string, string][]) => rows.map(([name, meaning]) => ({ text: <><b>{name}</b>: {meaning}</> }))
 
-export const ko: AboutSection = { title: '화면 요소 이름', id: 'names', items: items(KO) }
+export const ko: AboutSection = { title: '화면 요소 이름', id: 'names', prs: [367], items: items(KO) }
 export const en: AboutSection = { title: 'Names of screen parts', id: 'names', items: items(EN) }
