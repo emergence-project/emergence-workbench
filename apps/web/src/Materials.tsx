@@ -29,6 +29,9 @@ const NO_MATERIALS = { bib: [] as BibEntry[], files: [] as MaterialFile[] }
  */
 export const isOwnWriting = (name: string) => /\.(md|markdown|txt)$/i.test(name)
 
+/** HTML 문서(발표 슬라이드 · 강의 자료)는 작업 화면에서 연다. 서버가 출처 없는 sandbox로 보내 앱 API에 닿지 못한다 (hostGuard.ts) */
+const isHtml = (name: string) => /\.html?$/i.test(name)
+
 export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChanged }: {
   rid: string; rapi: ResearchApi; route: Route; onSaved(msg: string): void; library: LibraryInfo | null; onLibraryChanged(): void
 }) {
@@ -42,7 +45,7 @@ export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChan
   const openDoc = (name: string) => go({ page: 'doc', rid, name })
   const on = (name: string) => route.page === 'doc' && route.name === name
   const openFile = (f: MaterialFile) => {
-    if (f.kind === 'pdf' || f.kind === 'image') return openDoc(f.name)
+    if (f.kind === 'pdf' || f.kind === 'image' || isHtml(f.name)) return openDoc(f.name)
     rapi.openMaterial(f.name).then(() => onSaved(t(`맥 앱으로 열었습니다 — ${f.name}`, `Opened in the Mac app: ${f.name}`))).catch((err: Error) => onSaved(err.message))
   }
   const drop = async (e: React.DragEvent) => {
@@ -113,7 +116,7 @@ export function shortAuthors(author?: string): string {
 
 const NO_BOXES: never[] = []
 
-/** 자료 탭: materials/의 PDF나 그림 */
+/** 자료 탭: materials/의 PDF · 그림 · HTML */
 export function DocTab({ rid, name, rapi }: { rid: string; name: string; rapi: ResearchApi }) {
   const url = rapi.materialUrl(name)
   const isPdf = /\.pdf$/i.test(name)
@@ -126,6 +129,8 @@ export function DocTab({ rid, name, rapi }: { rid: string; name: string; rapi: R
       </div>
       {isPdf
         ? <CommentablePdf rid={rid} target={paperTarget(name)} url={url} highlight={NO_BOXES} onPick={() => undefined} />
+        : isHtml(name)
+        ? <iframe className="doc-html" title={name} src={url} sandbox="allow-scripts allow-popups" />
         : <div className="scroll" style={{ display: 'grid', placeItems: 'center', padding: 'var(--sp-4)' }}><img src={url} alt={name} style={{ maxWidth: '100%' }} /></div>}
     </div>
   )

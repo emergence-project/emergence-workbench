@@ -132,6 +132,7 @@ export function materialPath(wbRoot: string, name: string, sources: ProjectSourc
 
 export const contentTypeOf = (name: string): string => ({
   '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
+  '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
 } as Record<string, string>)[path.extname(name).toLowerCase()] ?? 'application/octet-stream'
 
 /** bib 키를 파일 이름으로 써도 되는지: 경로 구분자·`..`·앞의 점이 없는 것만 */

@@ -33,11 +33,14 @@ export const extraHosts = (env = process.env.RW_ALLOWED_HOSTS): string[] =>
   (env ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
 
 /**
- * API가 내보내는 파일 응답에 붙이는 머리. 모두 nosniff, 스크립트를 품을 수 있는 종류(SVG·HTML·XML)는 스크립트를 막는다.
+ * API가 내보내는 파일 응답에 붙이는 머리. 모두 nosniff, 스크립트를 품을 수 있는 종류(SVG·XML)는 스크립트를 막고, HTML은 출처 없는 sandbox로 연다.
  * 받은(clone) 저장소의 SVG를 새 탭에서 열면 앱 주소에서 돌아 API를 모두 쓸 수 있기 때문이다. PDF·그림·JSON은 그대로 둔다.
  */
 export function fileResponseHeaders(contentType: unknown): Record<string, string> {
   const type = String(contentType ?? '').toLowerCase()
-  const scriptable = /svg|html|xml/.test(type)
+  // HTML(발표자료 · 강의 슬라이드)은 스크립트가 돌아야 넘기기 · 크기 맞춤이 되므로, 스크립트는 두고 출처를 없앤다(sandbox).
+  // 출처가 없는 페이지의 요청은 Origin이 null이라 allowedRequest가 막고, 앱의 저장소 · 쿠키도 읽지 못한다
+  if (/html/.test(type)) return { 'x-content-type-options': 'nosniff', 'content-security-policy': 'sandbox allow-scripts allow-popups' }
+  const scriptable = /svg|xml/.test(type)
   return { 'x-content-type-options': 'nosniff', ...(scriptable && { 'content-security-policy': "script-src 'none'" }) }
 }
