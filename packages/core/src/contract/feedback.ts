@@ -121,6 +121,9 @@ export const FeedbackToday = z.object({
   lastAutoPublish: z.object({ at: z.number(), error: z.string().nullable() }).strict().nullable(),
   entries: z.array(FeedbackEntry),
 }).strict()
+/** GET·PUT /feedback/cloud: 클라우드 정기 작업이 피드백을 처리할지 (피드백 폴더 cloud.yaml, 11/4) */
+export const FeedbackCloud = z.object({ enabled: z.boolean(), at: z.string().nullable() }).strict()
+export const FeedbackCloudBody = z.object({ enabled: z.boolean() })
 /** GET /feedback/all. user: 피드백을 남기는 GitHub 계정 (모르면 null), statusError: status.yaml을 읽지 못한 이유 */
 export const FeedbackAll = z.object({ enabled: z.boolean(), entries: z.array(FeedbackItem), user: z.string().nullable(), statusError: z.string().nullable() }).strict()
 /** POST /feedback */
@@ -175,6 +178,8 @@ export type FeedbackPickableKind = (typeof FEEDBACK_PICKABLE_KINDS)[number]
 export type FeedbackState = (typeof FEEDBACK_STATES)[number]
 export type FeedbackVerdict = (typeof FEEDBACK_VERDICTS)[number]
 export type FeedbackEntry = z.infer<typeof FeedbackEntry>
+export type FeedbackCloud = z.infer<typeof FeedbackCloud>
+export type FeedbackCloudBody = z.infer<typeof FeedbackCloudBody>
 export type FeedbackRevision = z.infer<typeof FeedbackRevision>
 export type FeedbackReply = z.infer<typeof FeedbackReply>
 export type FeedbackStatus = z.infer<typeof FeedbackStatus>

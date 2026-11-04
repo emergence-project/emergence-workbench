@@ -43,6 +43,19 @@ describe('앱 피드백', () => {
     await fb.close()
   })
 
+  it('클라우드 처리 스위치는 cloud.yaml에 적고, 없으면 꺼짐으로 읽는다 (11/4)', async () => {
+    const dir = path.join(tmp, 'feedback-cloud')
+    const fb = buildApp({ configDir: path.join(tmp, 'config-fb-cloud'), feedbackDir: dir })
+    expect((await fb.inject({ method: 'GET', url: '/api/feedback/cloud' })).json()).toEqual({ enabled: false, at: null })
+    const on = await fb.inject({ method: 'PUT', url: '/api/feedback/cloud', payload: { enabled: true } })
+    expect(on.statusCode).toBe(200)
+    expect(on.json().enabled).toBe(true)
+    expect(fs.readFileSync(path.join(dir, 'cloud.yaml'), 'utf8')).toMatch(/^enabled: true$/m)
+    expect((await fb.inject({ method: 'GET', url: '/api/feedback/cloud' })).json().enabled).toBe(true)
+    expect((await fb.inject({ method: 'PUT', url: '/api/feedback/cloud', payload: { enabled: 'yes' } })).statusCode).toBe(400)
+    await fb.close()
+  })
+
   it('화면 그림을 함께 보내면 pictures/에 파일로 두고 항목에는 경로만 적는다', async () => {
     const dir = path.join(tmp, 'feedback-pic')
     const fb = buildApp({ configDir: path.join(tmp, 'config-fb-pic'), feedbackDir: dir })
