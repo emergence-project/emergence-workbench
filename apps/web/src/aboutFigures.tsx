@@ -110,9 +110,9 @@ export function NoteToolbarFigure() {
       <div className="tb-bar">
         <span className="tb-l"><span className="tb-input">{t('제목 입력란', 'Title input')}</span><StatusDot s="in-progress" /></span>
         <span className="tb-m"><span className="segmented small"><button tabIndex={-1}>{t('원문', 'Source')}</button><button tabIndex={-1}>{t('원문 | 미리보기', 'Source | Preview')}</button><button tabIndex={-1} className="on">{t('바로 보기', 'Live preview')}</button></span></span>
-        <span className="tb-r"><span className="muted">{t('저장됨', 'Saved')}</span><span className="btn primary sm">{t('편집 완료', 'Done')}</span></span>
+        <span className="tb-r"><span className="muted">{t('저장됨', 'Saved')}</span><i title={t('코멘트', 'Comment')}>{Icon.comment}</i><i title={t('보기로', 'View')}>{Icon.eye}</i><i title={t('컴파일', 'Compile')}>{Icon.play}</i><i title={t('더 보기', 'More')}>{Icon.more}</i></span>
       </div>
-      <figcaption className="muted">{t('연필을 누른 뒤. 고친 것은 자동으로 저장되고 "편집 완료"(Esc)로 마칩니다', 'After pressing the pencil. Edits save on their own; finish with "Done" (Esc)')}</figcaption>
+      <figcaption className="muted">{t('연필을 누른 뒤. 연필 자리에 눈이 오고 다른 버튼은 그대로입니다. 고친 것은 자동으로 저장되고 눈(Esc)으로 마칩니다', 'After pressing the pencil. The eye takes the pencil\'s place and the other buttons stay. Edits save on their own; finish with the eye (Esc)')}</figcaption>
     </figure>
   )
 }
