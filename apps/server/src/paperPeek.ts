@@ -11,6 +11,9 @@ import { t } from './i18n.js'
 
 const tidy = (s: string) => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()
 
+const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v)) : {})
+const str = (v: unknown) => (typeof v === 'string' ? v : '')
+
 function idOf(raw: unknown) {
   const id = typeof raw === 'string' ? parsePaperId(raw) : null
   if (!id) throw new WorkbenchError(400, t('arXiv 번호나 DOI가 아닙니다', 'Not an arXiv number or DOI'))
@@ -35,12 +38,13 @@ export async function peekPaper(raw: unknown): Promise<PaperPeek> {
     }
     const res = await paperFetch(`https://api.crossref.org/works/${encodeURIComponent(id.doi)}`)
     if (!res.ok) return { doi: id.doi, authors: [], offline: res.status !== 404 }
-    const m = ((await res.json()) as { message?: Record<string, unknown> }).message ?? {}
+    const body: unknown = await res.json()
+    const m: Record<string, unknown> = rec(rec(body).message)
     const title = Array.isArray(m.title) && typeof m.title[0] === 'string' ? tidy(m.title[0]) : undefined
-    const people = (Array.isArray(m.author) ? m.author : []) as { family?: string; given?: string; name?: string }[]
+    const people = (Array.isArray(m.author) ? m.author : []).map(rec)
     const abstract = typeof m.abstract === 'string' ? tidy(m.abstract.replace(/<jats:title>[\s\S]*?<\/jats:title>/g, '')) : undefined
     return {
-      doi: id.doi, authors: people.map((a) => [a.given, a.family].filter(Boolean).join(' ') || a.name || '').filter(Boolean), offline: false,
+      doi: id.doi, authors: people.map((a) => [str(a.given), str(a.family)].filter(Boolean).join(' ') || str(a.name)).filter(Boolean), offline: false,
       ...(title && { title }), ...(abstract && { abstract }),
     }
   } catch {
