@@ -14,3 +14,6 @@ button.pf-row:hover { background: var(--bg-hover); }
 .pf-err { margin: var(--sp-1) var(--sp-2); }
 /* 첫 화면: 찾기 칸을 가운데에 (자리는 library-home.css .lh-pmain) */
 .lh-find { display: flex; justify-content: center; }
+/* 인터넷 결과 줄: 누르면 넣기 전에 읽기 (11/5) */
+.pf-open { grid-column: 1; grid-row: 1 / span 2; display: flex; flex-direction: column; min-width: 0; text-align: left; border-radius: var(--r-sm); }
+.pf-open:hover .pf-title { text-decoration: underline; }

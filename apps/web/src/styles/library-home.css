@@ -28,3 +28,6 @@
 .lh-row .kh-subject { font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lh-source { margin: var(--sp-2) 0 0; }
 .lh-find .pf { max-width: 640px; }
+/* 추천 논문 줄: 누르면 넣기 전에 읽기 (11/5) */
+.lh-row-open { text-align: left; border-radius: var(--r-sm); }
+.lh-row-open:hover .kh-title { text-decoration: underline; }

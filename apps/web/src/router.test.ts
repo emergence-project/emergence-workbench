@@ -17,6 +17,8 @@ const ROUTES: Route[] = [
   { page: 'shelf' },
   { page: 'shelf', filter: 'project:alpha' },
   { page: 'shelf', open: 'exampleDischarging2022' },
+  { page: 'shelf', read: '2511.01234' },
+  { page: 'shelf', read: '10.1103/PhysRevB.111.075167' },
   { page: 'shelf', list: true },
   { page: 'figures' },
   { page: 'figures', list: true },

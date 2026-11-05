@@ -98,6 +98,10 @@ export const PaperWebHit = z.object({ source: z.enum(['arxiv', 's2', 'crossref']
 export const PaperPick = z.object({ id: z.string(), title: z.string(), authors: z.array(z.string()), year: z.string().optional(), venue: z.string().optional(), date: z.string().optional() }).strict()
 /** GET /papers/recommend. seeds = 기준으로 쓴 라이브러리 논문 수, offline = 받지 못함, status = 바깥(Semantic Scholar)이 오류로 답했으면 그 HTTP 상태(429 = 요청이 많음) */
 export const PaperRecommend = z.object({ picks: z.array(PaperPick), seeds: z.number(), offline: z.boolean(), status: z.number().optional() }).strict()
+/** GET /papers/peek?id= (11/5): 라이브러리에 넣기 전에 읽어 볼 논문. arxiv면 /papers/peek/pdf?id=로 PDF, offline = 바깥에서 받지 못함 */
+export const PaperPeek = z.object({ arxiv: z.string().optional(), doi: z.string().optional(), title: z.string().optional(), authors: z.array(z.string()), abstract: z.string().optional(), offline: z.boolean() }).strict()
+/** POST /papers/:key/opened (11/5): 정보 칸이나 프로젝트 참고 자료에서 본 논문도 최근 확인한 논문에 */
+export const PaperOpened = z.object({ ok: z.literal(true) }).strict()
 /** GET /papers/search?q=. offline = 인터넷 찾기가 모두 실패 */
 export const PaperSearch = z.object({ drive: z.array(PaperDriveHit), web: z.array(PaperWebHit), offline: z.boolean() }).strict()
 export const SetPdfFoldersBody = z.object({ folders: z.array(z.string()) })
@@ -123,6 +127,8 @@ export type LibraryBib = z.infer<typeof LibraryBib>
 export type PaperBrief = z.infer<typeof PaperBrief>
 export type PaperPick = z.infer<typeof PaperPick>
 export type PaperRecommend = z.infer<typeof PaperRecommend>
+export type PaperPeek = z.infer<typeof PaperPeek>
+export type PaperOpened = z.infer<typeof PaperOpened>
 export type PaperFolder = z.infer<typeof PaperFolder>
 export type PaperFolders = z.infer<typeof PaperFolders>
 export type PaperAdded = z.infer<typeof PaperAdded>

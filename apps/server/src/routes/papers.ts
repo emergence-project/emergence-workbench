@@ -11,6 +11,7 @@ import { askPrompt, claudeRunner } from '../ask.js'
 import { addPaperNote, appendPaperAnswer, deletePaperNote, readPaperComments, updatePaperNote } from '../paperComments.js'
 import { addPaper, addPaperFile, addPaperPdf, findArxiv, setEprint } from '../paperAdd.js'
 import { searchPapers } from '../paperSearch.js'
+import { peekPaper, peekPdf } from '../paperPeek.js'
 import { cloudOf, libraryBibEntries, markOpened, paperPdfFile, setPaperProjects, detex } from '../papers.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -55,6 +56,15 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
   app.put<{ Params: { key: string } }>('/api/papers/:key/eprint', replies(C.EprintSet), async (req): Promise<C.EprintSet> => setEprint(registry, req.params.key, parseBody(C.SetEprintBody, req.body).eprint))
   /** 끌어다 놓은 PDF (application/octet-stream, ?name=파일 이름, ?id=번호를 따로 적었을 때) */
   app.put<{ Querystring: { name?: string; id?: string }; Body: Buffer }>('/api/papers/upload', { bodyLimit: 200 * 1024 * 1024, ...replies(C.PaperAdded) }, async (req): Promise<C.PaperAdded> => addPaperPdf(registry, req.query.name, req.body, req.query.id))
+  /** 넣기 전에 읽어 보기 (11/5): 정보와 arXiv PDF. 라이브러리에는 아무것도 쓰지 않는다 */
+  app.get<{ Querystring: { id?: string } }>('/api/papers/peek', replies(C.PaperPeek), async (req): Promise<C.PaperPeek> => peekPaper(req.query.id))
+  app.get<{ Querystring: { id?: string } }>('/api/papers/peek/pdf', async (req, reply) => reply.type('application/pdf').header('cache-control', 'private, max-age=3600').send(await peekPdf(req.query.id)))
+  /** 정보 칸 · 프로젝트 참고 자료에서 본 논문도 최근 확인한 논문에 (11/5) */
+  app.post<{ Params: { key: string } }>('/api/papers/:key/opened', replies(C.PaperOpened), async (req): Promise<C.PaperOpened> => {
+    if (!libraryBibEntries(libOf()).some((e) => e.key === req.params.key)) throw new WorkbenchError(404, t(`references.bib에 없는 키: ${req.params.key}`, `Key not in references.bib: ${req.params.key}`))
+    markOpened(registry.configDir, req.params.key); ctx.libraryReads.invalidatePapers()
+    return { ok: true }
+  })
   /** PDF. 클라우드에만 있으면 읽는 동안 맥이 받아 온다 */
   app.get<{ Params: { key: string }; Querystring: { peek?: string } }>('/api/papers/:key/pdf', async (req, reply) => {
     const file = paperPdfFile(registry, req.params.key)

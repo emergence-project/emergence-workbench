@@ -27,6 +27,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/papers/list         논문 목록 (표 · 카드)
  *   #/papers/<거르기>       논문 목록을 거른 채 (comments · waiting · none · project:<연구> …)
  *   #/papers/open/<키>     논문 하나 열기 (PDF + 코멘트)
+ *   #/papers/read/<번호>   라이브러리에 넣기 전에 읽기 (arXiv 번호나 DOI, 11/5)
  *   #/figures             그림 라이브러리 첫 화면 (최근 더한 그림 · 점검 · 통계)
  *   #/figures/list        그림 목록 (카드 · 표)
  *   #/figures/<거르기>      그림 목록을 거른 채 (library · unused · project:<연구> …)
@@ -54,7 +55,7 @@ export type Route =
   /** 에이전트 고침 검토 (10/8). scope는 목록을 그 프로젝트(또는 library)만 */
   | { page: 'review'; key?: string; scope?: string }
   /** 거르기(filter)나 list가 있으면 목록, 없으면 첫 화면 (10/6 라이브러리 L2) */
-  | { page: 'shelf'; filter?: string; open?: string; list?: true }
+  | { page: 'shelf'; filter?: string; open?: string; list?: true; read?: string }
   | { page: 'figures'; filter?: string; list?: true; open?: string }
   /** view: 'map'은 지도 주소를 만드는 옛 꼴 (지도 화면이 그대로 쓴다). 읽으면 kmap이 된다 */
   | { page: 'library'; topic?: string; view?: 'map'; list?: true; subjectPrefix?: string; issue?: ConceptIssue; check?: ConceptCheck; showEmpty?: boolean }
@@ -147,6 +148,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'figures') return parts[1] === 'open' && parts[2] ? { page: 'figures', open: parts[2] } : parts[1] === 'list' ? { page: 'figures', list: true } : parts[1] ? { page: 'figures', filter: parts[1] } : { page: 'figures' }
   if (parts[0] === 'papers') {
     if (parts[1] === 'open' && parts[2]) return { page: 'shelf', open: parts[2] }
+    if (parts[1] === 'read' && parts[2]) return { page: 'shelf', read: parts.slice(2).join('/') }
     return parts[1] === 'list' ? { page: 'shelf', list: true } : parts[1] ? { page: 'shelf', filter: parts[1] } : { page: 'shelf' }
   }
   if (parts[0] === 'library') {
@@ -190,7 +192,7 @@ export function href(r: Route): string {
       return `#/review${p.size ? `?${p}` : ''}`
     }
     case 'figures': return r.open ? `#/figures/open/${e(r.open)}` : `#/figures${r.filter ? `/${e(r.filter)}` : r.list ? '/list' : ''}`
-    case 'shelf': return r.open ? `#/papers/open/${e(r.open)}` : `#/papers${r.filter ? `/${e(r.filter)}` : r.list ? '/list' : ''}`
+    case 'shelf': return r.read ? `#/papers/read/${e(r.read)}` : r.open ? `#/papers/open/${e(r.open)}` : `#/papers${r.filter ? `/${e(r.filter)}` : r.list ? '/list' : ''}`
     case 'library': {
       if (r.list && !r.topic && !r.view) {
         const p = new URLSearchParams()

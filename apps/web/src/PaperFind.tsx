@@ -4,11 +4,13 @@ import { t } from './i18n'
 import { PAPERS_CHANGED, matchPaper, showPaper } from './PapersPage'
 import { go } from './router'
 import { useSubjects } from './SubjectPicker'
+import { readPaper } from './PaperRead'
 
 /**
  * 논문 찾기 칸 (10/31 시안 1절): 첫 화면과 목록 맨 위 가운데. 글을 쓰면 아래에 묶음별 결과가 뜬다.
  * ① 라이브러리(첫 화면만: 목록에서는 표가 바로 걸러진다) ② 분류 · 프로젝트 ③ PDF 폴더(Google Drive 등)에만 있는 PDF ④ 인터넷(arXiv · Semantic Scholar · Crossref)
  * ③ · ④의 「＋ 추가」는 라이브러리에 더하고 그 논문을 연다. PDF 폴더의 파일은 옮기지 않는다
+ * ④는 줄을 누르면 넣지 않고 먼저 읽는다 (PaperRead, 11/5)
  */
 
 const EACH = 5
@@ -103,7 +105,7 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
             <Group title={t('인터넷', 'Internet')}>
               {now.web.map((w) => (
                 <div key={`${w.source}:${w.id}`} className="pf-row pf-out">
-                  <span className="pf-title">{w.title}</span><span className="pf-meta">{shortAuthors(w.authors)}{w.year ? ` · ${w.year}` : ''} · {SOURCE[w.source]}</span>
+                  <button className="pf-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => pick(() => readPaper(w))}><span className="pf-title">{w.title}</span><span className="pf-meta">{shortAuthors(w.authors)}{w.year ? ` · ${w.year}` : ''} · {SOURCE[w.source]}</span></button>
                   <button className="btn small" disabled={busy !== null} onClick={() => void add(w.id, () => papersApi.add(w.id))}>{busy === w.id ? t('더하는 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
                 </div>
               ))}
