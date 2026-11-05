@@ -161,6 +161,12 @@ export function PapersPage({ filter: routeFilter, open, onSaved }: { filter?: Pa
   useEffect(() => { if (isShow(routeFilter)) setShowState(routeFilter) }, [routeFilter])
   const setShow = (v: Show) => { setShowState(v); if (isShow(routeFilter)) go({ page: 'shelf', list: true }) }
   const [picked, setPicked] = useState<string | null>(() => { const k = pendingPick; pendingPick = null; return k })
+  // 정보 칸으로 본 논문도 최근 확인한 논문에 (11/5 질문 「진행」): 줄을 훑어 지나갈 때는 세지 않게 2초 머문 것만
+  useEffect(() => {
+    if (!picked) return
+    const timer = setTimeout(() => { void papersApi.markOpened(picked).catch(() => undefined) }, SEEN_AFTER)
+    return () => clearTimeout(timer)
+  }, [picked])
   const scroll = useRef<HTMLDivElement>(null)
   const [available, setAvailable] = useState<number | null>(null)
   const subjects = !!tree?.enabled
@@ -544,4 +550,5 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
   )
 }
 const NO_BOXES: never[] = []
+const SEEN_AFTER = 2000
 const SIDE_KEY = 'rw-paper-side'

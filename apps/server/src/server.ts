@@ -140,7 +140,20 @@ if (process.env.RW_SANDBOX === '1') {
   const openedFile = path.join(configDir, 'papers-opened.json')
   if (!fs.existsSync(openedFile)) cpSample(path.join(repoRoot, 'fixtures/sandbox-papers/opened.json'), openedFile)
   const sampleRecommend = fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/recommend.json'), 'utf8')
-  usePaperFetcher((url, init) => (url.includes('/recommendations/') ? Promise.resolve(new Response(sampleRecommend)) : fetch(url, { ...init, signal: AbortSignal.timeout(30_000) })))
+  // 넣기 전에 읽기 (11/5): 추천 논문의 arXiv 정보 · PDF와 Crossref 초록도 정해 둔 답으로
+  const samplePeek: Record<string, { title: string; authors: string[]; abstract: string }> = JSON.parse(fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/peek.json'), 'utf8'))
+  const samplePdf = path.join(repoRoot, 'fixtures/sandbox-papers/pdf/doeStructurePlanar2004.pdf')
+  usePaperFetcher((url, init) => {
+    if (url.includes('/recommendations/')) return Promise.resolve(new Response(sampleRecommend))
+    const ax = /export\.arxiv\.org\/api\/query\?id_list=([^&]+)/.exec(url)?.[1]
+    const pdf = /arxiv\.org\/pdf\/(.+)$/.exec(url)?.[1]
+    const doi = /api\.crossref\.org\/works\/(10\.[^?]+)$/.exec(url)?.[1]
+    const p = samplePeek[decodeURIComponent(ax ?? pdf ?? doi ?? '')]
+    if (p && ax) return Promise.resolve(new Response(`<feed><entry><id>http://arxiv.org/abs/${decodeURIComponent(ax)}v1</id><published>2026-10-27T00:00:00Z</published><title>${p.title}</title><summary>${p.abstract}</summary>${p.authors.map((a) => `<author><name>${a}</name></author>`).join('')}</entry></feed>`))
+    if (p && pdf) return Promise.resolve(new Response(fs.readFileSync(samplePdf)))
+    if (p && doi) return Promise.resolve(new Response(JSON.stringify({ message: { type: 'journal-article', title: [p.title], author: p.authors.map((a) => ({ given: a.split(' ')[0], family: a.split(' ').slice(1).join(' ') })), abstract: `<jats:p>${p.abstract}</jats:p>`, issued: { 'date-parts': [[2026]] } } })))
+    return fetch(url, { ...init, signal: AbortSignal.timeout(30_000) })
+  })
   // 그림 화면 예제: 공용 그림 셋(tikz 하나)과 예제 연구 전용 그림 둘 (fixtures/sandbox-figures).
   // tikz는 맥의 TeX로 SVG를 만드는데, 예제 모드는 TeX가 없어도 보이게 미리 그린 SVG를 캐시에 둔다
   const libFigures = path.join(library, 'figures')

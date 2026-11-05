@@ -1,0 +1,6 @@
+{
+  "0000.10001": { "title": "Discharging Without Tears: A Short Survey", "authors": ["Ada Example", "Bo Sample"], "abstract": "We survey the discharging method for planar graphs: how charges are assigned, how rules move them, and how reducible configurations close the argument. Each step is shown on a small example." },
+  "0000.10002": { "title": "List Colouring of Planar Graphs with Few Short Cycles", "authors": ["Di Writer", "Ed Reader", "Fay Author"], "abstract": "We show that planar graphs without short cycles of two given lengths are 4-choosable, using a new family of reducible configurations." },
+  "10.0000/example.2026.022": { "title": "Kempe Chains on Planar Triangulations Revisited", "authors": ["Cy Person"], "abstract": "Kempe chain arguments are revisited for planar triangulations. We give a short proof of a classical lemma and point out where the original argument needs a second chain." },
+  "10.0000/example.2026.015": { "title": "Reducible Configurations by Computer: A Practical Guide", "authors": ["Gus Example"], "abstract": "A practical guide to checking reducible configurations by computer, with timings on a laptop." }
+}

@@ -5,6 +5,7 @@ import { AddFigure, FigureCard, scopeTitle, showFigure, showRecentFigures } from
 import { LibraryStorage, StoreLine } from './LibraryStorage'
 import { PaperFind, shortAuthors } from './PaperFind'
 import { PAPERS_CHANGED, showPaper } from './PapersPage'
+import { readPaper } from './PaperRead'
 import { relativeTime } from './format'
 import { go, type Route } from './router'
 import { plural, t } from './i18n'
@@ -168,7 +169,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
               <div className="kh-rows">
                 {rec?.picks.map((p) => (
                   <div key={p.id} className="kh-row lh-row" data-ui="추천 논문 줄">
-                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{[shortAuthors(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></span>
+                    <button className="lh-row-text lh-row-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => readPaper(p)}><span className="kh-title">{p.title}</span><span className="kh-subject">{[shortAuthors(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></button>
                     <button className="btn small" disabled={busy !== null} onClick={() => void add(p.id)}>{busy === p.id ? t('추가 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
                   </div>
                 ))}

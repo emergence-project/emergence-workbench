@@ -1,9 +1,9 @@
 // ---------- 논문 라이브러리 (서버 routes/papers.ts) ----------
 import type { CommentState, HighlightColor } from '@rw/core/contract/comments'
-import type { ArxivCandidates, EprintSet, LibraryBib, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperProjects, PaperRecommend, PaperSearch } from '@rw/core/contract/papers'
+import type { ArxivCandidates, EprintSet, LibraryBib, NewPaperNoteBody, PaperAdded, PaperBrief, PaperCommentFile, PaperFolders, PaperList, PaperNoteAdded, PaperOpened, PaperPeek, PaperProjects, PaperRecommend, PaperSearch } from '@rw/core/contract/papers'
 import { enc, json, req, send } from './http'
 
-export type { ArxivCandidate, PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile, PaperSearch, PaperPick, PaperRecommend } from '@rw/core/contract/papers'
+export type { ArxivCandidate, PdfWhere, PaperRow, PaperProject, PaperList, PaperBrief, PaperFolder, PaperAdded, PaperHighlight, PaperCommentFile, PaperSearch, PaperPick, PaperRecommend, PaperPeek } from '@rw/core/contract/papers'
 export type PaintColor = HighlightColor
 export type NewPaperNote = NewPaperNoteBody
 
@@ -14,6 +14,11 @@ export const papersApi = {
   /** 고른 키의 references.bib 항목 (없는 키는 빠진다) */
   bib: (keys: string[]) => req(`/api/papers/bib?keys=${enc(keys.join(','))}`).then((r) => json<LibraryBib>(r)),
   pdfUrl: (key: string) => `/api/papers/${enc(key)}/pdf`,
+  /** 정보 칸 · 참고 자료에서 본 논문도 최근 확인한 논문에 (11/5) */
+  markOpened: (key: string) => req(`/api/papers/${enc(key)}/opened`, send('POST', {})).then((r) => json<PaperOpened>(r)),
+  /** 넣기 전에 읽어 보기 (11/5): 정보와 arXiv PDF 주소 */
+  peek: (id: string) => req(`/api/papers/peek?id=${enc(id)}`).then((r) => json<PaperPeek>(r)),
+  peekPdfUrl: (id: string) => `/api/papers/peek/pdf?id=${enc(id)}`,
   add: (id: string) => req('/api/papers', send('POST', { id })).then((r) => json<PaperAdded>(r)),
   /** 추천 논문: 최근 연 · 더한 논문과 가까운 새 논문 (Semantic Scholar) */
   recommend: () => req('/api/papers/recommend').then((r) => json<PaperRecommend>(r)),

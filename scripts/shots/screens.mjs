@@ -147,6 +147,8 @@ export const DEFAULT_SCREENS = [
   ['settings-papers', '#/settings/library', 'PDF 폴더 줄'],
   // 논문 하나 열기 (3단계): 하이라이트 두 색, 고른 글에 단 질문, 오른쪽 코멘트 칸. 칠한 곳을 누른 메뉴(색 · 지우기)
   ['paper-open', '#/papers/open/doeStructurePlanar2004', '코멘트'],
+  ['paper-read', '#/papers/read/0000.10001', 'PDF'],
+  ['paper-read-doi', '#/papers/read/10.0000%2Fexample.2026.022', '넣기 전 논문'],
   ['paper-open-paint', '#/papers/open/doeStructurePlanar2004', '칠한 곳 메뉴', '![data-ui="PDF"] .pdf-paint'],
   // 그림 라이브러리 (4단계; 10/6 L2 첫 화면): 첫 화면, 목록의 카드(공용 · 프로젝트 전용, tikz 하나), 카드를 고른 모습(오른쪽 칸), 표
   ['figures', '#/figures', '통계 줄'],

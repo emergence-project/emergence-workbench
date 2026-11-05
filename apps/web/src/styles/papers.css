@@ -139,3 +139,11 @@
 /* 카드 정렬: 넷이라 고르기 상자 (10/30 규칙 "넷 이상은 고르기 상자") */
 .pl-pick { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
 .pl-pick .mini-select { max-width: none; }
+
+/* 넣기 전 논문 (11/5): 오른쪽 정보 칸(제목 · 저자 · 초록), DOI 논문은 가운데에 출판사 링크 */
+.pr-info { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+.pr-info p { margin: 0; }
+.pr-title { margin: 0; font-size: var(--fs-md); font-weight: var(--fw-title); line-height: 1.4; }
+.pr-abstract { line-height: 1.7; font-size: var(--fs-sm); }
+.pr-hint { font-size: var(--fs-xs); }
+.pr-none { display: grid; place-items: center; padding: var(--sp-6); }
