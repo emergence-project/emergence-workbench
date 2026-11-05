@@ -22,7 +22,7 @@ export function ReposPage() {
           <div className="page-body repos-page">
             <div className="info-head">
               <h1>{t('저장소', 'Repositories')}</h1>
-              <p className="muted">{t('프로젝트마다 GitHub와 같은지 봅니다. 동기화하기는 새 커밋을 받고 이 컴퓨터에만 있는 커밋을 올립니다.', 'Whether each project matches GitHub. Sync pulls new commits and pushes commits that exist only on this computer.')}</p>
+              <p className="muted">{t('프로젝트마다 GitHub와 같은지 봅니다. 동기화하기는 새 커밋을 받고 이 컴퓨터에만 있는 커밋을 올립니다. 양쪽에 다 새 커밋이 있으면 합치기가 뜹니다.', 'Whether each project matches GitHub. Sync pulls new commits and pushes commits that exist only on this computer. When both sides have new commits, Merge appears.')}</p>
             </div>
             {!projects ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
               : !projects.length ? <p className="empty">{t('등록한 프로젝트가 없습니다', 'No registered projects')}</p>
@@ -59,7 +59,7 @@ function RepoRow({ rid, title }: { rid: string; title: string }) {
         {updateError && <div className="repo-err">! {updateError}</div>}
         {ok && repo.fetchError && <div className="repo-err" title={repo.fetchDetail}>! {repo.fetchError}</div>}</td>
       <td>{ok && repo.branch ? <code>{repo.branch}</code> : <span className="muted">—</span>}</td>
-      <td title={ba && ba.behind && ba.ahead ? t('양쪽에 새 커밋이 있어 터미널의 git pull로 합쳐 주세요', 'Both sides have new commits; merge with git pull in a terminal') : ba ? t(`GitHub에 새 커밋 ${ba.behind} · 올리지 않은 커밋 ${ba.ahead}`, `${ba.behind} new on GitHub · ${ba.ahead} unpushed`) : undefined}>{compare}</td>
+      <td title={ba && ba.behind && ba.ahead ? t('양쪽에 새 커밋이 있어 「합치기」로 합칩니다', 'Both sides have new commits; use "Merge"') : ba ? t(`GitHub에 새 커밋 ${ba.behind} · 올리지 않은 커밋 ${ba.ahead}`, `${ba.behind} new on GitHub · ${ba.ahead} unpushed`) : undefined}>{compare}</td>
       <td>{changes > 0 ? t(`${changes}개`, plural(changes, 'change')) : <span className="muted">{t('없음', 'None')}</span>}</td>
       <td className="repos-col-when muted">{ok && repo.fetchedAt ? relativeTime(repo.fetchedAt) : '—'}</td>
       <td className="repos-sync">{ok && repo.remote ? <SyncButton state={state} /> : null}</td>

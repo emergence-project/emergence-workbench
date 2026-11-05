@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { git as gitAt } from './git.js'
 import { t } from './i18n.js'
-import { syncCommands, syncChanges } from './gitSyncState.js'
+import { syncCommands, syncChanges, workingChanges } from './gitSyncState.js'
 import type { RepoSync, RepoInfo } from '@rw/core/contract/research'
 export type { RepoSync, RepoInfo }
 
@@ -234,7 +234,7 @@ export async function syncNow(root: string): Promise<RepoSync> {
   const s = await repoSync(root, { fetch: true, force: true })
   if (!s) throw new SyncError(t('GitHub 브랜치를 추적하는 git 저장소가 아닙니다', 'Not a git repository that tracks a GitHub branch'))
   if (s.fetchError) throw new SyncError(t(`GitHub를 확인하지 못했습니다: ${fetchProblem(s.fetchError)}`, `Could not check GitHub: ${fetchProblem(s.fetchError)}`))
-  if (s.ahead > 0 && s.behind > 0) throw new SyncError(t(`이 컴퓨터에 커밋 ${s.ahead}개, GitHub에 새 커밋 ${s.behind}개가 따로 있어 합쳐야 합니다. 앱은 합치지 않습니다. 터미널에서 git pull로 합쳐 주세요`, `This computer has ${s.ahead} commit(s) and GitHub has ${s.behind} new commit(s); they need merging, which the app does not do. Merge with git pull in a terminal`))
+  if (s.ahead > 0 && s.behind > 0) throw new SyncError(t(`이 컴퓨터에 커밋 ${s.ahead}개, GitHub에 새 커밋 ${s.behind}개가 따로 있어 합쳐야 합니다. 「합치기」를 눌러 주세요`, `This computer has ${s.ahead} commit(s) and GitHub has ${s.behind} new commit(s); they need merging. Press "Merge"`))
   if (s.behind > 0) return fastForward(root)
   if (s.ahead > 0) {
     const [remote, ...rest] = s.upstream.split('/')
@@ -245,6 +245,52 @@ export async function syncNow(root: string): Promise<RepoSync> {
     return (await repoSync(root))!
   }
   return s
+}
+
+/** 합치기 전 HEAD를 남겨 두는 곳. 잘못 합쳤으면 터미널에서 git reset --hard refs/workbench/before-merge로 되돌린다 */
+export const BEFORE_MERGE_REF = 'refs/workbench/before-merge'
+
+const listFiles = (raw: string) => raw.split('\0').filter(Boolean)
+const fileList = (files: string[]) => {
+  const shown = files.slice(0, 5).join(', ')
+  const more = files.length - Math.min(5, files.length)
+  return { ko: `${shown}${more ? ` 외 ${more}개` : ''}`, en: `${shown}${more ? ` and ${more} more` : ''}` }
+}
+
+/**
+ * 저장소 줄의 「합치기」 (11/5 00:25 질문 · 진행): 이 컴퓨터와 GitHub 양쪽에 새 커밋이 있을 때.
+ * 두 쪽이 서로 다른 파일만 고쳤으면 이 컴퓨터의 커밋을 GitHub 커밋 뒤로 옮기고(rebase) 올린다.
+ * 같은 파일을 고쳤거나, 커밋 안 한 변경이 GitHub가 고친 파일에 있으면 아무것도 바꾸지 않고 그 파일을 알린다.
+ * 커밋 안 한 다른 변경은 잠시 치웠다가 그대로 돌려놓는다(--autostash). 합치기 전 HEAD는 BEFORE_MERGE_REF에 남긴다
+ */
+export async function mergeDiverged(root: string): Promise<RepoSync> {
+  const s = await repoSync(root, { fetch: true, force: true })
+  if (!s) throw new SyncError(t('GitHub 브랜치를 추적하는 git 저장소가 아닙니다', 'Not a git repository that tracks a GitHub branch'))
+  if (s.fetchError) throw new SyncError(t(`GitHub를 확인하지 못했습니다: ${fetchProblem(s.fetchError)}`, `Could not check GitHub: ${fetchProblem(s.fetchError)}`))
+  if (!(s.ahead > 0 && s.behind > 0)) return syncNow(root)
+  const base = (await git(root, 'merge-base', 'HEAD', '@{upstream}')).trim()
+  const changed = async (to: string) => new Set(listFiles(await git(root, 'diff', '--name-only', '--no-renames', '-z', base, to)))
+  const [mine, theirs] = await Promise.all([changed('HEAD'), changed('@{upstream}')])
+  const both = [...mine].filter((p) => theirs.has(p)).sort()
+  if (both.length) {
+    const f = fileList(both)
+    throw new SyncError(t(`이 컴퓨터와 GitHub가 같은 파일을 고쳐 합치지 않았습니다: ${f.ko}. 어느 쪽을 남길지 정해야 하니 터미널에서 git pull --rebase로 합쳐 주세요`, `Not merged because this computer and GitHub changed the same files: ${f.en}. Choosing which version to keep needs git pull --rebase in a terminal`))
+  }
+  const [status, untracked] = await Promise.all([git(root, ...syncCommands.status), git(root, ...syncCommands.untracked)])
+  const local = new Set([...workingChanges(status).paths, ...listFiles(untracked)])
+  const touched = [...theirs].filter((p) => local.has(p)).sort()
+  if (touched.length) {
+    const f = fileList(touched)
+    throw new SyncError(t(`커밋 안 한 변경이 GitHub가 고친 파일에 있어 합치지 않았습니다: ${f.ko}. 먼저 커밋해 주세요`, `Not merged because uncommitted changes touch files GitHub changed: ${f.en}. Commit them first`))
+  }
+  await git(root, 'update-ref', BEFORE_MERGE_REF, 'HEAD')
+  try {
+    await gitAt(root, ['-c', 'rebase.autoStash=true', 'rebase', '--quiet', '--autostash', '@{upstream}'], { env: { GIT_EDITOR: 'true' } })
+  } catch (e) {
+    await git(root, 'rebase', '--abort').catch(() => '')
+    throw new SyncError(t(`합치지 못해 그대로 두었습니다: ${firstLine(e)}`, `Could not merge, so nothing was changed: ${firstLine(e)}`))
+  }
+  return syncNow(root)
 }
 
 /**

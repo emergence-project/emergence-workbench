@@ -5,7 +5,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { RepoSync } from '@rw/core/contract/research'
 import { buildApp } from './app.js'
-import { autoPull, fastForward, repoInfo, repoSync, switchToDefault, syncNow } from './gitsync.js'
+import { autoPull, BEFORE_MERGE_REF, fastForward, mergeDiverged, repoInfo, repoSync, switchToDefault, syncNow } from './gitsync.js'
 import { localSyncState } from './gitSyncState.js'
 import { withLang } from './i18n.js'
 import { gitTest as g, syncRepo } from './gitSyncTestkit.js'
@@ -237,6 +237,35 @@ describe('sync button', () => {
     const before = snapshot(mine)
     await expect(syncNow(mine)).rejects.toThrow('합쳐야 합니다')
     expect(snapshot(mine)).toEqual(before)
+  })
+
+  it('merges diverged commits only when the two sides changed different files', async () => {
+    const { mine, remote, incoming } = syncRepo(tmp, 'sync-merge', { 'a.md': 'a\n', 'b.md': 'b\n', 'c.md': 'c\n' })
+    fs.writeFileSync(path.join(mine, 'b.md'), 'mine\n')
+    g(mine, 'commit', '-qam', 'Local b')
+    incoming({ 'a.md': 'remote a\n' })
+    // same file on both sides: nothing changes
+    fs.writeFileSync(path.join(mine, 'a.md'), 'local a\n')
+    g(mine, 'commit', '-qam', 'Local a')
+    let before = snapshot(mine)
+    await expect(mergeDiverged(mine)).rejects.toThrow('같은 파일을 고쳐')
+    expect(snapshot(mine)).toEqual(before)
+    g(mine, 'reset', '-q', '--hard', 'HEAD~1')
+    // uncommitted change in a file GitHub changed: nothing changes
+    fs.writeFileSync(path.join(mine, 'a.md'), 'dirty a\n')
+    before = snapshot(mine)
+    await expect(mergeDiverged(mine)).rejects.toThrow('커밋 안 한 변경')
+    expect(snapshot(mine)).toEqual(before)
+    g(mine, 'checkout', '--', 'a.md')
+    // different files, with an unrelated uncommitted change kept
+    fs.writeFileSync(path.join(mine, 'c.md'), 'dirty c\n')
+    const old = g(mine, 'rev-parse', 'HEAD')
+    expect(await mergeDiverged(mine)).toMatchObject({ ahead: 0, behind: 0, dirty: 1 })
+    expect(fs.readFileSync(path.join(mine, 'a.md'), 'utf8')).toBe('remote a\n')
+    expect(fs.readFileSync(path.join(mine, 'b.md'), 'utf8')).toBe('mine\n')
+    expect(fs.readFileSync(path.join(mine, 'c.md'), 'utf8')).toBe('dirty c\n')
+    expect(execFileSync('git', ['-C', remote, 'rev-parse', 'main'], { encoding: 'utf8' }).trim()).toBe(g(mine, 'rev-parse', 'HEAD'))
+    expect(g(mine, 'rev-parse', BEFORE_MERGE_REF)).toBe(old)
   })
 
   it('switches back to main only when nothing would be lost', async () => {
