@@ -259,7 +259,7 @@ export function AgentsPage({ rid, rapi, version }: { rid: string; rapi: Research
  * 저장소의 지금 상태와 「동기화하기」 · 「main 브랜치로 돌리기」. 화면 캐시(qk.repo)에 두어 현황의 동기화 줄,
  * 저장소 쪽, 레일 「저장소」 화면이 같은 값을 본다. .git 안의 변화는 파일 알림이 없어 1분마다, 그리고 version이 오를 때 다시 읽는다
  */
-export interface RepoState { repo: RepoInfo | null | undefined; checking: boolean; updateError: string | null; sync(): void; toMain(): void }
+export interface RepoState { repo: RepoInfo | null | undefined; checking: boolean; updateError: string | null; sync(): void; merge(): void; toMain(): void }
 export function useRepoInfo(rapi: ResearchApi) {
   return useQuery({ queryKey: qk.repo(rapi.rid), queryFn: () => rapi.repo().catch(() => null), refetchInterval: 60_000 })
 }
@@ -277,7 +277,7 @@ export function useRepoState(rapi: ResearchApi, version: number): RepoState {
     setChecking(true); setUpdateError(null)
     call().catch((e: Error) => setUpdateError(e.message)).then(reread).finally(() => setChecking(false))
   }
-  return { repo, checking, updateError, sync: () => run(() => rapi.syncNow()), toMain: () => run(() => rapi.toMain()) }
+  return { repo, checking, updateError, sync: () => run(() => rapi.syncNow()), merge: () => run(() => rapi.syncMerge()), toMain: () => run(() => rapi.toMain()) }
 }
 
 /**
@@ -314,7 +314,11 @@ export function WorkbenchUpload({ rapi }: { rapi: ResearchApi }) {
 
 /** 동기화하기 아이콘 버튼 (10/29 10:00 진행: 레일 「저장소」 한 곳에만, 예전 10/28 안 C는 현황). 도는 화살표 둘, 도는 동안 돈다 */
 const SYNC_TIP = () => t('동기화하기: GitHub를 확인하고, 새 커밋은 받고 이 컴퓨터에만 있는 커밋은 올립니다. 커밋 안 한 변경은 그대로 두고, 합쳐야 하면 멈춥니다', 'Sync: check GitHub, pull new commits and push commits only on this computer. Uncommitted changes stay as they are; stops if a merge is needed')
+const MERGE_TIP = () => t('합치기: 이 컴퓨터와 GitHub가 서로 다른 파일만 고쳤으면 이 컴퓨터의 커밋을 GitHub 커밋 뒤로 옮겨 올립니다. 같은 파일을 고쳤으면 아무것도 바꾸지 않고 그 파일을 알립니다', 'Merge: if this computer and GitHub changed different files, move this computer\'s commits after the GitHub commits and push. If they changed the same files, nothing changes and those files are listed')
 export function SyncButton({ state }: { state: RepoState }) {
+  const ba = repoBehindAhead(state.repo)
+  // 양쪽에 새 커밋이 있으면 동기화하기 대신 「합치기」 (11/5): 서로 다른 파일만 고쳤을 때 합쳐 올리고, 겹치면 멈추고 그 파일을 알린다
+  if (ba && ba.ahead > 0 && ba.behind > 0) return <button className="btn sm repo-merge" disabled={state.checking} title={MERGE_TIP()} data-ui="합치기" onClick={state.merge}>{state.checking ? t('합치는 중…', 'Merging…') : t('합치기', 'Merge')}</button>
   return <button className={`icon-btn repo-sync${state.checking ? ' busy' : ''}`} disabled={state.checking} aria-label={state.checking ? t('동기화하는 중', 'Syncing') : t('동기화하기', 'Sync')} title={SYNC_TIP()} data-ui="동기화하기" onClick={state.sync}>{Icon.sync}</button>
 }
 
@@ -335,7 +339,7 @@ function SyncLine({ rapi }: { rid: string; rapi: ResearchApi }) {
   const compare = !ba ? <span className="muted">{t('GitHub 브랜치를 따라가지 않음', 'Not tracking a GitHub branch')}</span>
     : !ba.ahead && !ba.behind ? <span><span className="repo-ok">✓</span> {t('GitHub와 같음', 'Same as GitHub')}</span>
       : <span>{(ba.ahead || ba.behind) && <span className="turn-dot" aria-hidden />} {[ba.behind ? t(`GitHub에 새 커밋 ${ba.behind}`, `${plural(ba.behind, 'new commit')} on GitHub`) : '', ba.ahead ? t(`올리지 않은 커밋 ${ba.ahead}`, plural(ba.ahead, 'unpushed commit')) : ''].filter(Boolean).join(' · ')}
-        {!!ba.behind && !!ba.ahead && <span className="muted">{t(' — 양쪽에 새 커밋이 있어 터미널의 git pull로 합쳐 주세요', '. Both sides have new commits; merge with git pull in a terminal')}</span>}</span>
+        {!!ba.behind && !!ba.ahead && <span className="muted">{t(' — 양쪽에 새 커밋이 있어 저장소 화면의 「합치기」로 합칩니다', '. Both sides have new commits; use "Merge" on the Repositories screen')}</span>}</span>
   return (
     <section className="info-sync" data-ui="동기화 줄" id="sync">
       {compare}
@@ -445,7 +449,7 @@ function RepoCompare({ repo, updateError }: { repo: RepoInfo; updateError: strin
   if (repo.upstream == null || repo.ahead == null || repo.behind == null) line = <span className="muted">{repo.branch ? t(`${repo.branch} 브랜치가 GitHub 브랜치를 따라가지 않아 비교할 수 없습니다`, `Cannot compare: branch ${repo.branch} does not track a GitHub branch`) : t('브랜치가 아니라 비교할 수 없습니다', 'Cannot compare: not on a branch')}</span>
   else if (!repo.ahead && !repo.behind) line = <span><span className="repo-ok">✓</span> {t('GitHub와 같습니다', 'Same as GitHub')}</span>
   else line = <span>{[repo.behind ? t(`GitHub에 새 커밋 ${repo.behind}개`, `${plural(repo.behind, 'new commit')} on GitHub`) : '', repo.ahead ? t(`올리지 않은 커밋 ${repo.ahead}개`, plural(repo.ahead, 'unpushed commit')) : ''].filter(Boolean).join(' · ')}
-    {!!repo.behind && !!repo.ahead && <span className="muted">{t(' — 양쪽에 새 커밋이 있어 합쳐야 합니다. 앱은 합치지 않으니 터미널의 git pull로 합쳐 주세요', '. Both sides have new commits and need merging; the app does not merge, so use git pull in a terminal')}</span>}</span>
+    {!!repo.behind && !!repo.ahead && <span className="muted">{t(' — 양쪽에 새 커밋이 있어 저장소 화면의 「합치기」로 합칩니다', '. Both sides have new commits; use "Merge" on the Repositories screen')}</span>}</span>
   return (
     <div className="repo-compare">
       <div className="repo-line">{line}</div>

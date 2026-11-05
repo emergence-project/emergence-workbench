@@ -6,7 +6,7 @@ import * as C from '@rw/core/contract/research'
 import * as F from '@rw/core/contract/feedback'
 import { replies } from '../contract.js'
 import { writeStatusFor } from '../agentStatus.js'
-import { autoPull, fastForward, offDefaultBranch, repoInfo, repoSync, switchToDefault, SyncError, syncNow } from '../gitsync.js'
+import { autoPull, fastForward, mergeDiverged, offDefaultBranch, repoInfo, repoSync, switchToDefault, SyncError, syncNow } from '../gitsync.js'
 import { WorkbenchError } from '../workbench.js'
 import { PathSyncError, publishPaths } from '../pathsync.js'
 import { t } from '../i18n.js'
@@ -40,8 +40,8 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
     } finally { await refreshStatus(req.params.rid) }
   })
 
-  // 프로젝트 정보 › 저장소의 「동기화」(받기 또는 올리기)와 「main으로 돌리기」 (10/28)
-  for (const [name, run] of [['now', syncNow], ['main', switchToDefault]] as const) {
+  // 프로젝트 정보 › 저장소의 「동기화」(받기 또는 올리기)와 「main으로 돌리기」 (10/28), 양쪽에 새 커밋이 있을 때 「합치기」 (11/5)
+  for (const [name, run] of [['now', syncNow], ['main', switchToDefault], ['merge', mergeDiverged]] as const) {
     app.post<{ Params: { rid: string } }>(`/api/researches/:rid/sync/${name}`, replies(C.SyncUpdated), async (req): Promise<C.SyncUpdated> => {
       try { return { sync: await run(repoPath(req.params.rid)) } } catch (e) {
         if (e instanceof SyncError) throw new WorkbenchError(409, e.message)

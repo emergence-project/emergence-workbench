@@ -68,6 +68,7 @@ export function researchApi(rid: string) {
     update: () => req(`${base}/sync/update`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
     /** 「동기화하기」: 받기 또는 올리기 (10/28) */
     syncNow: () => req(`${base}/sync/now`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
+    syncMerge: () => req(`${base}/sync/merge`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
     /** 「main으로 돌리기」 */
     toMain: () => req(`${base}/sync/main`, { method: 'POST' }).then((r) => json<SyncUpdated>(r)).then((r) => r.sync),
     /** 「커밋하고 올리기」: git에 없는 workbench/를 커밋해 올린다 (10/30) */
