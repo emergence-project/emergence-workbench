@@ -120,20 +120,20 @@ export function App() {
   useEffect(() => { if (rightMode === 'agent' && agentPlace === 'bottom' && layout.ctx) setAgentPanel(true) }, [rightMode, agentPlace, layout.ctx])
   const [recordOpenRequest, setRecordOpenRequest] = useState<WorkspaceOpenRequest | null>(null)
   const workspaceDragging = useWorkspaceDragging()
-  // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT)
+  // 프로젝트 밖 화면의 오른쪽 사이드바 (라이브러리 정보 등, globalPages.tsx의 right). 프로젝트의 것(layout.ctx)과 따로 기억한다
+  const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true), globalRightHere = useRef(false) // 아래 globalRightAble
+  // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT). 지식 화면 등은 그 화면의 것 (11/5 19:50)
   useEffect(() => {
-    const open = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true }))
+    const openCtx = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true })), open = () => { if (globalRightHere.current) setGlobalRight(true); else openCtx() }
     const ask = () => { setRightMode('records'); open() }
     // 노트의 고른 글 메뉴 「에이전트에게」 (ChatComposer.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 탭(아래 자리면 아래 패널)을 연다
-    const agent = () => { setRightMode('agent'); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') open(); else setAgentPanel(true) }
+    const agent = () => { setRightMode('agent'); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') openCtx(); else setAgentPanel(true) }
     window.addEventListener(OPEN_CONTEXT, ask)
     window.addEventListener(OPEN_RIGHT, open)
     window.addEventListener(AGENT_OPEN, agent)
     return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(AGENT_OPEN, agent) }
-  }, [setLayout])
+  }, [setLayout, setGlobalRight])
   const [sideOpen, setSideOpen] = useStoredFlag('rw-side', true)
-  // 프로젝트 밖 화면의 오른쪽 사이드바 (라이브러리 정보 등, globalPages.tsx의 right). 프로젝트의 것(layout.ctx)과 따로 기억한다
-  const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true)
   usePhoneCloses(usePhone(), JSON.stringify(route), () => { setSideOpen(false); setGlobalRight(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
   const onGlobalPage = useRef(false)
   onGlobalPage.current = route.page === 'home' || !!globalPageOf(route.page)
@@ -255,7 +255,7 @@ export function App() {
   }, [flash])
   /** 사이드바를 쓰는 전역 화면 (지식: 개념노트 목록) */
   const globalSide = globalPageOf(route.page)?.side
-  const globalRightAble = !!globalPageOf(route.page)?.right?.(route)
+  const globalRightAble = globalRightHere.current = !!globalPageOf(route.page)?.right?.(route)
   const showSide = (!globalPage && !!rid && sideOpen) || (!!globalSide && sideOpen)
   // 왼쪽 사이드바 폭: 오른쪽 경계를 끌어 바꾸고, 두 번 누르면 처음 폭 (10/29 09:15 피드백: 오른쪽처럼 폭 조절)
   const [sideW, setSideW] = useState(() => { try { const v = Number(localStorage.getItem('rw-side-width')); return v >= SIDE_MIN && v <= SIDE_MAX ? v : SIDE_W } catch { return SIDE_W } })
