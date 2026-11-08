@@ -50,8 +50,8 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
-      const el = document.activeElement as HTMLElement | null
-      if (el && (/^(TEXTAREA|INPUT|SELECT)$/.test(el.tagName) || el.isContentEditable)) return
+      const el = document.activeElement
+      if (el instanceof HTMLElement && (/^(TEXTAREA|INPUT|SELECT)$/.test(el.tagName) || el.isContentEditable)) return
       if (document.querySelector('[role="dialog"]') || !input.current?.offsetParent) return
       e.preventDefault(); e.stopPropagation()
       input.current.focus()
