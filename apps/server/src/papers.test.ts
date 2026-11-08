@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { conceptTags, detex, findPdf, FolderListing, lastNames, pdfWhere, useCloudDownloader } from './papers.js'
+import { conceptTags, detex, findPdf, FolderListing, lastNames, pdfWhere, useCloudDownloader, useCloudProbe } from './papers.js'
 import { app, repo, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -144,6 +144,40 @@ describe('iCloud에만 있는 PDF (10/5 검토)', () => {
   })
 })
 
+
+describe('내용이 아직 없는 클라우드 PDF (11/8 피드백: 500)', () => {
+  const dataless = (file: string) => { fs.writeFileSync(file, ''); fs.truncateSync(file, 4096) }
+  it('받아 오지 못하면 까닭을 503으로 알리고, 열었다고 적지 않는다', async () => {
+    const { lib, pdfs } = setup()
+    fs.rmSync(path.join(lib, 'papers.yaml'), { force: true })
+    app.registry.setPdfFolders([pdfs])
+    for (const f of fs.readdirSync(pdfs)) fs.rmSync(path.join(pdfs, f))
+    const file = path.join(pdfs, 'readerGraph2010.pdf')
+    dataless(file)
+    if (pdfWhere(file) !== 'cloud') return // 성긴 파일을 못 만드는 파일 시스템
+    fs.rmSync(path.join(app.registry.configDir, 'papers-opened.json'), { force: true })
+    const asked: string[] = []
+    useCloudDownloader((f) => asked.push(f))
+    useCloudProbe(async () => { throw Object.assign(new Error('Resource deadlock avoided'), { code: 'EDEADLK' }) })
+    const r = await app.inject({ method: 'GET', url: '/api/papers/readerGraph2010/pdf' })
+    expect(r.statusCode).toBe(503)
+    expect(r.json().error).toContain('EDEADLK')
+    expect(asked).toEqual([file])
+    const after = (await app.inject({ method: 'GET', url: '/api/papers' })).json()
+    expect(after.papers.find((p: { key: string }) => p.key === 'readerGraph2010').opened).toBeUndefined()
+  })
+  it('받아 오면 그대로 연다', async () => {
+    const { pdfs } = setup()
+    app.registry.setPdfFolders([pdfs])
+    const file = path.join(pdfs, 'readerGraph2010.pdf')
+    dataless(file)
+    if (pdfWhere(file) !== 'cloud') return
+    useCloudDownloader(() => undefined)
+    useCloudProbe(async () => undefined)
+    const r = await app.inject({ method: 'GET', url: '/api/papers/readerGraph2010/pdf' })
+    expect(r.statusCode).toBe(200)
+  })
+})
 
 describe('findPdf folder listing', () => {
   it('finds the same files with and without the listing', () => {

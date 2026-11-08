@@ -130,6 +130,19 @@ const TextLayer = memo(function TextLayer({ pieces, scale }: { pieces: TextPiece
  * PDF를 폭에 맞춰 그린다. 가운데 위에 도구 막대(코멘트·질문·확대·쪽).
  * SyncTeX 좌표는 PDF 포인트(1/72인치)·왼쪽 위 원점이므로, 화면 좌표 = 포인트 × scale.
  */
+/** pdf.js는 서버 오류를 "Unexpected server response (500)"로만 알린다. 서버가 JSON으로 적은 까닭이 있으면 그것을 보인다 (11/8 피드백) */
+async function serverReason(url: string, e: unknown): Promise<string> {
+  const plain = e instanceof Error ? e.message : String(e)
+  if (!(e instanceof Error && 'status' in e && typeof e.status === 'number' && e.status >= 400)) return plain
+  try {
+    const r = await fetch(url, { cache: 'no-store' })
+    if (r.ok) return plain
+    const body: unknown = await r.json()
+    if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string' && body.error) return body.error
+  } catch { /* 까닭을 못 읽으면 pdf.js의 말 */ }
+  return plain
+}
+
 export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, tools, selectionMenu, onSelectionDefault, overlay, reveal, paints, paintMenu, remember }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
@@ -195,7 +208,8 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         setOutline([])
         readOutline(d, info.map((p) => p.heightPt)).then((o) => { if (!cancelled) setOutline(o) }, () => undefined)
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+        const msg = await serverReason(url, e)
+        if (!cancelled) setError(msg)
       }
     })()
     return () => { cancelled = true; void task?.destroy() }

@@ -12,7 +12,7 @@ import { addPaperNote, appendPaperAnswer, deletePaperNote, readPaperComments, up
 import { addPaper, addPaperFile, addPaperPdf, findArxiv, setEprint } from '../paperAdd.js'
 import { searchPapers } from '../paperSearch.js'
 import { peekPaper, peekPdf } from '../paperPeek.js'
-import { cloudOf, libraryBibEntries, markOpened, paperPdfFile, setPaperProjects, detex } from '../papers.js'
+import { cloudOf, libraryBibEntries, markOpened, paperPdfFile, readyPaperPdf, setPaperProjects, detex } from '../papers.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
@@ -65,9 +65,9 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
     markOpened(registry.configDir, req.params.key); ctx.libraryReads.invalidatePapers()
     return { ok: true }
   })
-  /** PDF. 클라우드에만 있으면 읽는 동안 맥이 받아 온다 */
+  /** PDF. 클라우드에만 있으면 먼저 맥이 받아 오고, 못 받으면 까닭을 503으로 알린다 */
   app.get<{ Params: { key: string }; Querystring: { peek?: string } }>('/api/papers/:key/pdf', async (req, reply) => {
-    const file = paperPdfFile(registry, req.params.key)
+    const file = await readyPaperPdf(registry, req.params.key)
     // 카드 표지(첫 쪽)를 그릴 때는 연 것으로 치지 않는다
     if (req.query.peek !== '1') { markOpened(registry.configDir, req.params.key); ctx.libraryReads.invalidatePapers() }
     return reply.type('application/pdf').header('cache-control', 'no-store').send(fs.createReadStream(file))
