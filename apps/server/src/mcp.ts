@@ -16,6 +16,7 @@ import { KEY_HEADER, serverTarget } from './appKey.js'
 import { KIND_NAME, shownName } from './flowNames.js'
 import * as C from '@rw/core/contract/flow'
 import type { Changes } from '@rw/core/contract/changes'
+import { changesText } from './mcpChanges.js'
 
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const RULES_FILE = path.join(APP_ROOT, 'docs/agent-delegated-work.md')
@@ -126,23 +127,6 @@ export function claudeAccount(env: NodeJS.ProcessEnv = process.env, home = os.ho
   } catch { return undefined }
 }
 
-const KIND_LABEL: Record<Changes['items'][number]['kind'], string> = { note: '노트', flow: '흐름 점', task: '맡긴 일', record: '기록', file: '파일' }
-const ACTION_LABEL: Record<Changes['items'][number]['action'], string> = { created: '새로 만듦', edited: '고침', moved: '옮김', deleted: '지움' }
-const localTime = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}` }
-
-/** changes_since의 답: 머리 한 줄과 바뀐 것 한 줄씩 (화면 프로젝트 정보 › 변경사항과 같은 목록) */
-export function changesText(c: Changes, limit = 40): string {
-  const head = `변경사항 ${c.items.length} · since ${localTime(c.since)} · this Mac: ${c.machine} (uncommitted edits on another Mac are not visible until committed and pulled)`
-  if (!c.items.length) return `${head}
-Nothing changed.`
-  const lines = c.items.slice(0, limit).map((i) => {
-    const when = i.first.slice(0, 10) !== i.last.slice(0, 10) ? `${localTime(i.first)} – ${localTime(i.last)}` : localTime(i.last)
-    const name = i.kind === 'file' ? i.id : i.name === i.id ? i.id : `${i.name} (${i.id})`
-    return `- ${KIND_LABEL[i.kind]} ${name} · ${ACTION_LABEL[i.action]} · ${i.authors.join(', ')} · ${when}${i.uncommitted ? ' · 커밋 안 됨' : ''}`
-  })
-  return [head, ...lines, ...(c.items.length > limit ? [`… ${c.items.length - limit} more (pass since to narrow)`] : [])].join('\n')
-}
-
 /** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_checks · feedback_answer를 더한다) */
 export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; account?: string } = {}): McpServer {
   const target = opts.baseUrl ? { url: opts.baseUrl, key: opts.key } : serverTarget()
@@ -153,7 +137,9 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
   const account = opts.account !== undefined ? opts.account || undefined : claudeAccount()
   const f: Fetch = (url, init) => {
     const agent = agentOf(server.server.getClientVersion()?.name)
-    return f0(url, { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), 'x-rw-agent': agent, ...(target.key && { [KEY_HEADER]: target.key }), ...(agent === 'claude-code' && account && { 'x-rw-account': account }) } })
+    // 설치판은 켤 때마다 포트 · 열쇠가 바뀐다: Claude 앱처럼 오래 떠 있는 입구도 부를 때마다 server.json을 다시 읽어 지금 서버로 (appKey.ts)
+    const now = opts.baseUrl ? target : serverTarget()
+    return f0(String(url).replace(base, now.url.replace(/\/$/, '')), { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), 'x-rw-agent': agent, ...(now.key && { [KEY_HEADER]: now.key }), ...(agent === 'claude-code' && account && { 'x-rw-account': account }) } })
   }
   const call = async (url: string, shape: (body: never) => unknown = (b) => b): Promise<Text> => {
     const r = await get(base, f, url)
@@ -614,6 +600,13 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     inputSchema: { project, file: z.string().describe('Repository-relative note path from list_notes'), baseHash: z.string().describe('hash from read_note'), edits, approved, summary },
     annotations: w,
   }, async ({ project: rid, file, ...a }) => write({ kind: 'note', rid, file }, a))
+
+  // 노트 만들기 (11/8 "친구도 에이전트에게 노트 제작을"): 빈 Markdown 노트를 만들고, 내용은 edit_note로 채워 수정 검토를 거친다
+  server.registerTool('new_note', {
+    title: 'Create note', annotations: w,
+    description: 'Create an empty Markdown note (KaTeX math) in a project. Then read_note its path and fill it with edit_note: the user reviews the content. kind calc is a calculation note.',
+    inputSchema: { project, name: z.string().trim().min(1).max(120).describe('Note title the user sees'), kind: z.enum(['note', 'calc']).default('note') },
+  }, async ({ project: rid, name, kind }) => { const r = await post(base, f, `/api/researches/${enc(rid)}/notes`, { kind, name }); return r.ok ? text(`Created: ${JSON.stringify(r.body)}`) : r.error })
 
   server.registerTool('edit_concept', {
     title: 'Edit concept note',

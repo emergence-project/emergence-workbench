@@ -4,8 +4,9 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { acpAgentRunner, callsOf, commandOf, modelsOf, optionFor } from './agentAcp.js'
 import { Inbox, type RunEvent, type RunInput, type ToolDecision, type Turn } from './agentChats.js'
-import { ACP_AGENTS, acpBin, isAcp } from './agentKinds.js'
+import { ACP_AGENTS, acpBin, acpCommand, agentsHere, isAcp } from './agentKinds.js'
 import { gateCall } from './agentMcpHttp.js'
+import { codexBin } from './codexCli.js'
 
 describe('ACP 도구 → 앱의 도구 이름', () => {
   it('명령 · 고치기 · 지우기 · 읽기 · 웹 · 앱 MCP', () => {
@@ -60,7 +61,7 @@ const ask = (params) => new Promise((ok) => { const id = seq++; waiting.set(id, 
 require('readline').createInterface({ input: process.stdin }).on('line', async (line) => {
   const m = JSON.parse(line)
   if (!m.method) { const w = waiting.get(m.id); waiting.delete(m.id); return w && w(m.result) }
-  log({ method: m.method, params: m.params })
+  log({ method: m.method, params: m.params, ...(m.method === 'initialize' && { codexPath: process.env.CODEX_PATH ?? null, node: process.argv[0] }) })
   const reply = (result) => send({ id: m.id, result })
   if (m.method === 'initialize') return reply({ protocolVersion: 1, agentCapabilities: { loadSession: true, promptCapabilities: { image: true }, mcpCapabilities: { http: true } } })
   if (m.method === 'session/new') return reply({ sessionId: 's-new', modes: { currentModeId: 'auto', availableModes: [{ id: 'read-only' }, { id: 'auto' }] }, models: { currentModelId: 'm1', availableModels: [{ modelId: 'm1', name: 'M one' }] } })
@@ -127,6 +128,51 @@ describe('ACP 실행기 (가짜 에이전트)', () => {
     expect(log.find((m) => m.method === 'session/set_mode')!.params).toEqual({ sessionId: 's-new', modeId: 'read-only' })
     expect(JSON.stringify(log.find((m) => m.method === 'session/prompt')!.params.prompt)).toContain('BRIEF')
     expect(closed).toBe(true)
+  })
+
+  it('설치 파일로 깐 앱: 앱에 든 Codex 연결부를 앱의 node로 띄우고, 앱이 받은 codex를 CODEX_PATH로 (앱 고치기 모드는 옛 이름 auto로)', async () => {
+    const saved = { bin: process.env.RW_CODEX_ACP_BIN, js: process.env.RW_CODEX_ACP_JS, codex: process.env.RW_CODEX_BIN }
+    const js = path.join(dir, 'vendor-index.js')
+    fs.writeFileSync(js, FAKE)
+    const codex = path.join(dir, 'codex-own')
+    fs.writeFileSync(codex, '#!/bin/sh\nexit 0\n', { mode: 0o755 })
+    delete process.env.RW_CODEX_ACP_BIN
+    process.env.RW_CODEX_ACP_JS = js
+    process.env.RW_CODEX_BIN = codex
+    try {
+      expect(acpCommand(ACP_AGENTS.codex, dir)).toEqual({ file: process.execPath, args: [js], shell: false, env: { CODEX_PATH: codex }, bundled: true })
+      // 설정 폴더를 모르면(옛 부르는 곳) 앱에 든 연결부를 보지 않는다
+      expect(acpCommand(ACP_AGENTS.codex)?.bundled).toBeUndefined()
+      fs.rmSync(logFile, { force: true })
+      const run = acpAgentRunner(ACP_AGENTS.codex, () => undefined, dir)
+      const ev = await collect(run(input({ appChat: 'x', write: 'notes' })))
+      expect(ev.at(-1)).toMatchObject({ type: 'result', ok: true })
+      const log = logged()
+      expect(log.find((m) => m.method === 'initialize')).toMatchObject({ codexPath: codex, node: process.execPath })
+      expect(log.find((m) => m.method === 'session/set_mode')!.params).toEqual({ sessionId: 's-new', modeId: 'auto' })
+      const codexRow = agentsHere(dir, dir).find((a) => a.id === 'codex')!
+      expect(codexRow).toMatchObject({ installed: true, bundled: true })
+      expect(codexRow.install).toBeUndefined()
+      // codex를 아직 받지 않았으면 깔리지 않은 것 (깔 명령 대신 「ChatGPT로 연결」). 이 컴퓨터 PATH 밖(Homebrew 등)에 codex가 있으면 그것을 쓴다
+      delete process.env.RW_CODEX_BIN
+      const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'acp-cfg-'))
+      const before = { path: process.env.PATH, home: process.env.CODEX_HOME }
+      process.env.PATH = ''
+      process.env.CODEX_HOME = empty
+      try {
+        const machine = codexBin(empty)
+        expect(acpCommand(ACP_AGENTS.codex, empty)?.env?.CODEX_PATH).toBe(machine)
+        const row = agentsHere(empty, empty).find((a) => a.id === 'codex')!
+        expect(row).toMatchObject({ installed: !!machine, bundled: true })
+        expect(row.install).toBeUndefined()
+      } finally {
+        process.env.PATH = before.path
+        if (before.home === undefined) delete process.env.CODEX_HOME; else process.env.CODEX_HOME = before.home
+        fs.rmSync(empty, { recursive: true, force: true })
+      }
+    } finally {
+      for (const [k, v] of [['RW_CODEX_ACP_BIN', saved.bin], ['RW_CODEX_ACP_JS', saved.js], ['RW_CODEX_BIN', saved.codex]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v }
+    }
   })
 
   it('허락 요청은 앱의 판단으로, 거절하면 거절 선택지를 고른다', async () => {

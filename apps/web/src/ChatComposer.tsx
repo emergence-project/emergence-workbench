@@ -7,7 +7,7 @@ import { Icon } from './icons'
 import { qk } from './queries'
 import { href } from './router'
 import { useDismiss } from './useDismiss'
-import { AgentChip, AgentChoices, effortsOf, fitEffort, isClaude, modelName, useModels } from './AgentPick'
+import { AgentChip, AgentChoices, agentSwitch, effortsOf, fitEffort, isClaude, modelName, useModels } from './AgentPick'
 
 /**
  * 에이전트 입력란 (AgentChats.tsx의 대화 · 새 대화 · 패널이 함께 쓴다): / 명령 · @ 붙이기 · 그림,
@@ -370,7 +370,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
           data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
         <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{modelName(settings.model, models)}{efforts.length > 0 && ` · ${EFFORT_SHORT[settings.effort]}`} ▾</>}>
           {(close) => <>
-            <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings({ agent: a, model: 'default', effort: 'medium', ...(a !== 'claude-code' && settings.trust === 'plan' && { trust: 'ask' }) }) }} />
+            <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings(agentSwitch(a, settings.trust)) }} />
             <div className="ac-pop-h">{t('모델', 'Model')}</div>
             {models.map((m) => <button key={m.value} role="menuitemradio" aria-checked={settings.model === m.value} className={settings.model === m.value ? 'on' : ''} onClick={() => { close(); onSettings({ model: m.value, ...fitEffort(settings.effort, effortsOf(m.value, models)) }) }}><span className="ac-pop-check" aria-hidden>{settings.model === m.value ? Icon.check : null}</span>{modelName(m.value, models)}</button>)}
             {efforts.length > 0 && <div className="ac-pop-h">{t('생각', 'Thinking')}</div>}

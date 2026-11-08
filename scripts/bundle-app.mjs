@@ -8,6 +8,8 @@
 //   app/templates · app/docs/*.md     서버가 읽는 서식과 에이전트에게 알려 주는 형식 문서
 //   node/bin/node                     Node 22 (nodejs.org에서 받아 SHA-256을 맞춘다. --node면 그 파일). 윈도우는 node/node.exe
 //   git/                              윈도우만: MinGit(앱에 넣으라고 Git for Windows가 내는 작은 git). git이 없는 윈도우에서도 프로젝트를 만들고 올리게 한다
+//   app/vendor/codex-acp/             Codex 연결부(@agentclientprotocol/codex-acp, Apache-2.0, 의존성까지 묶인 한 파일 2MB). 앱 대화의 Codex를
+//                                     앱에 든 node로 띄우고, 앱이 받은 codex 실행 파일(codexCli.ts)을 CODEX_PATH로 넘긴다 (agentKinds.ts)
 // 서버는 자기 파일 위치에서 세 단계 위를 앱 폴더로 본다(server.ts의 repoRoot). 그래서 저장소와 같은 모양으로 둔다.
 // Claude Code 실행 파일(플랫폼마다 200MB 남짓)은 넣지 않는다: 에이전트는 이 컴퓨터에 깐 claude를 쓴다(agentRunner.ts).
 import { execFileSync } from 'node:child_process'
@@ -22,6 +24,12 @@ export const NODE_VERSION = '22.22.0'
 export const MINGIT = {
   url: 'https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/MinGit-2.56.0.4-64-bit.zip',
   sha256: 'e3bf78351fe777fba47ddee5950082f8a98bb0f02604fdc7ba3ee2cb68ffa877',
+}
+// Codex 연결부: 올릴 때는 https://registry.npmjs.org/@agentclientprotocol/codex-acp/<번호> 의 dist.integrity를 옮겨 적는다
+export const CODEX_ACP = {
+  version: '2.5.0',
+  url: 'https://registry.npmjs.org/@agentclientprotocol/codex-acp/-/codex-acp-2.5.0.tgz',
+  integrity: 'sha512-7e/4OhJwpvSTqsjiokoVYRV7O1XGem1CAsQgO1opmGYbRD5LvmydwDlJrldzQYO5TcPWueGzQ2Jdvyvp6l3qDw==',
 }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'desktop/standalone')
@@ -73,6 +81,25 @@ try { commit = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD']).toString()
 const ref = process.env.GITHUB_REF ?? ''
 const version = opt('--version') ?? (ref.startsWith('refs/tags/v') ? ref.slice('refs/tags/v'.length) : undefined)
 fs.writeFileSync(path.join(app, 'build.json'), JSON.stringify({ commit, builtAt: new Date().toISOString(), ...(version && { version }) }, null, 2) + '\n')
+
+// 3-1. Codex 연결부 (npm 저장소의 묶음 파일, SHA-512를 맞춘다)
+{
+  step(`Codex 연결부 ${CODEX_ACP.version} 받기`)
+  const res = await fetch(CODEX_ACP.url)
+  if (!res.ok) throw new Error(`Codex 연결부를 받지 못했습니다 (${res.status})`)
+  const buf = Buffer.from(await res.arrayBuffer())
+  const got = `sha512-${createHash('sha512').update(buf).digest('base64')}`
+  if (got !== CODEX_ACP.integrity) throw new Error(`Codex 연결부의 SHA-512가 다릅니다: ${got} ≠ ${CODEX_ACP.integrity}`)
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-codex-acp-'))
+  fs.writeFileSync(path.join(tmp, 'a.tgz'), buf)
+  execFileSync(windowsTar(), ['-xzf', 'a.tgz'], { cwd: tmp })
+  const dest = path.join(app, 'vendor/codex-acp')
+  fs.mkdirSync(dest, { recursive: true })
+  // package.json도 둔다: index.js가 ES 모듈("type": "module")이고 버전이 거기 있다
+  fs.copyFileSync(path.join(tmp, 'package/dist/index.js'), path.join(dest, 'index.js'))
+  for (const f of ['LICENSE', 'package.json']) fs.copyFileSync(path.join(tmp, 'package', f), path.join(dest, f))
+  fs.rmSync(tmp, { recursive: true, force: true })
+}
 
 // 4. Node (tauri의 묶은 서버 자리와 같게: desktop/src-tauri/src/main.rs의 bundled_paths)
 const nodeBin = path.join(out, win ? 'node/node.exe' : 'node/bin/node')

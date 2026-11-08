@@ -3,7 +3,7 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from './app.js'
-import { appendAnswer, askPrompt, claudeClassifierRunner, claudeEnv, claudeExecutable, claudeRunner, pathDirs, withPath, type AskRunner } from './ask.js'
+import { appendAnswer, askPrompt, claudeClassifierRunner, claudeEnv, claudeExecutable, claudeInstalled, claudeRunner, pathDirs, withPath, type AskRunner } from './ask.js'
 import { addComment, readComments } from './comments.js'
 import { app, makeRepo, R, tmp, useSampleApp } from './testkit.js'
 
@@ -105,6 +105,13 @@ describe('에이전트 대화가 띄울 Claude Code', () => {
     vi.stubEnv('RW_CLAUDE_BIN', '')
     vi.stubEnv('PATH', `/nowhere:${dir}`)
     expect(claudeExecutable(noPackage)).toBe(path.join(dir, 'claude'))
+    vi.unstubAllEnvs()
+  })
+  it('쓸 수 있나: SDK에 든 것이나 PATH의 claude가 있으면 (설치 파일로 깐 앱은 깔아야 한다)', () => {
+    vi.stubEnv('RW_CLAUDE_BIN', '')
+    expect(claudeInstalled(() => '/x/package.json')).toBe(true)
+    vi.stubEnv('PATH', path.join(tmp, 'claude-bin'))
+    expect(claudeInstalled(noPackage)).toBe(true)
     vi.unstubAllEnvs()
   })
   it('RW_CLAUDE_BIN이 먼저다', () => {

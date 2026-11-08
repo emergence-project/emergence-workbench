@@ -61,6 +61,12 @@ export function claudeExecutable(resolve: (id: string) => string = createRequire
   return pathDirs(claudeEnv()).map((d) => path.join(d, name)).find((p) => { try { fs.accessSync(p, fs.constants.X_OK); return fs.statSync(p).isFile() } catch { return false } })
 }
 
+/** Claude Code를 쓸 수 있나: 저장소에서 돌면 Agent SDK에 든 것, 묶은 앱이면 이 컴퓨터에 깐 claude */
+export function claudeInstalled(resolve: (id: string) => string = createRequire(import.meta.url).resolve): boolean {
+  if (process.env.RW_CLAUDE_BIN) return true
+  try { resolve(`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/package.json`); return true } catch { return !!claudeExecutable(resolve) }
+}
+
 /**
  * cwd는 받은(clone) 저장소일 수 있다. -p는 폴더를 믿을지 묻지 않으므로, 그 저장소의 .claude/settings.json(훅: 셸 명령)과
  * .mcp.json(MCP 서버)을 읽지 않게 사용자 설정만 쓰고 MCP 설정은 모두 건너뛴다.

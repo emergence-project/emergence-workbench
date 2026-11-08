@@ -8,6 +8,9 @@ import * as C from '@rw/core/contract/setup'
 import { parseBody, replies } from '../contract.js'
 import { agentRegistered, agentSeen } from '../agentSeen.js'
 import { appPath, mcpCommand } from '../agentPaths.js'
+import { claudeExecutable } from '../ask.js'
+import { codexBin } from '../codexCli.js'
+import { claudeDesktopConfigs, desktopRegistered, registerCli, registerDesktop } from '../mcpRegister.js'
 import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { adoptOtherProfiles } from '../profileSync.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
@@ -16,7 +19,7 @@ import { getFallbackIdentity, git, gitRun, GIT_TIMEOUT, setFallbackIdentity } fr
 import { remoteOf, sameRepo } from './google.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
 import { WorkbenchError } from '../workbench.js'
-import { t } from '../i18n.js'
+import { HERE, t } from '../i18n.js'
 import type { RouteContext } from './context.js'
 
 /** PATH에서 실행 파일을 찾는다 (컴파일이 같은 PATH로 latexmk를 부른다: latex.ts) */
@@ -71,16 +74,21 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
   const gitIdentity = async () => (opts.sandbox ? sampleGit : { name: await gitGlobal('user.name'), email: await gitGlobal('user.email') })
 
   // 예제 모드는 이 컴퓨터의 에이전트 설정을 보지 않는다 (그림이 컴퓨터마다 달라지지 않게)
+  /** 등록할 명령의 실행 파일: Claude Code는 PATH의 claude, Codex는 앱이 받은 것 → PATH → 맥 ChatGPT 앱 안 (codexCli.ts) */
+  const cliBin = (key: 'claude-code' | 'codex'): string | undefined => key === 'codex' ? codexBin(opts.configDir) : claudeExecutable(() => { throw new Error('PATH') }) ?? (agentInstalled('claude') ? 'claude' : undefined)
   const agentRows = (): C.SetupView['agents'] => {
     const registered = opts.sandbox ? [] : agentRegistered()
     const seen = agentSeen(opts.configDir)
     const mcp = mcpCommand()
-    const codex = opts.sandbox ? 'path' : agentInstalled('codex')
-    const codexCmd = codex && codex !== 'path' ? `"${codex}"` : 'codex'
+    const codex = opts.sandbox ? 'codex' : cliBin('codex')
+    const codexCmd = codex && codex !== 'codex' && /[\\/]/.test(codex) ? `"${codex}"` : 'codex'
+    const desktop = opts.sandbox ? [] : claudeDesktopConfigs()
     return [
-      { key: 'claude-code', name: 'Claude Code', command: `claude mcp add --scope user emergence-workbench -- ${mcp}` },
-      { key: 'codex', name: 'Codex', command: `${codexCmd} mcp add emergence-workbench -- ${mcp}` },
-    ].map((a) => ({ ...a, key: a.key as 'claude-code' | 'codex', installed: opts.sandbox || !!(a.key === 'codex' ? codex : agentInstalled('claude')), registered: registered.includes(a.name), at: seen[a.key] ?? null }))
+      // Claude 데스크톱 앱 (11/8 "MCP 연결은 기본 기능"): 터미널 없이 설정 파일에 한 칸. 부른 때는 Claude Code와 이름이 같아(claude-ai → claude-code) 따로 적지 않는다
+      { key: 'claude-desktop' as const, name: t('Claude 앱', 'Claude app'), command: mcp, installed: opts.sandbox || !!desktop.length, registered: desktop.some(desktopRegistered), at: null },
+      { key: 'claude-code' as const, name: 'Claude Code', command: `claude mcp add --scope user emergence-workbench -- ${mcp}`, installed: opts.sandbox || !!cliBin('claude-code'), registered: registered.includes('Claude Code'), at: seen['claude-code'] ?? null },
+      { key: 'codex' as const, name: 'Codex', command: `${codexCmd} mcp add emergence-workbench -- ${mcp}`, installed: opts.sandbox || !!codex, registered: registered.includes('Codex'), at: seen.codex ?? null },
+    ]
   }
 
   // 예제 모드: 다른 컴퓨터에 하나 더 있는 것처럼 (시작 준비 · 홈의 "다른 컴퓨터의 프로젝트" 그림)
@@ -126,6 +134,24 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
   }
 
   app.get('/api/setup', replies(C.SetupView), async (): Promise<C.SetupView> => view())
+
+  /** 바깥 에이전트에 이 앱의 MCP 입구를 등록한다 (설정 › 에이전트 › 연결의 「연결」). 예제 모드는 이 컴퓨터를 고치지 않는다 */
+  app.post<{ Params: { key: string } }>('/api/setup/agents/:key/register', replies(C.SetupView), async (req): Promise<C.SetupView> => {
+    const parsed = C.McpAgentKey.safeParse(req.params.key)
+    if (!parsed.success) throw new WorkbenchError(404, t('그런 에이전트가 없습니다', 'No such agent'))
+    const key = parsed.data
+    if (opts.sandbox) throw new WorkbenchError(400, t('예제 모드에서는 이 컴퓨터의 에이전트 설정을 고치지 않습니다', 'Sample mode does not change agent settings on this computer'))
+    if (key === 'claude-desktop') {
+      const files = claudeDesktopConfigs()
+      if (!files.length) throw new WorkbenchError(409, t('Claude 앱을 찾지 못했습니다. Claude 앱을 깔고 한 번 켠 뒤 다시 눌러 주세요', 'The Claude app was not found. Install it, open it once, then try again'))
+      for (const f of files) registerDesktop(f)
+    } else {
+      const bin = cliBin(key)
+      if (!bin) throw new WorkbenchError(409, t(`${HERE.ko}에 ${key === 'codex' ? 'Codex' : 'Claude Code'}가 없습니다`, `${key === 'codex' ? 'Codex' : 'Claude Code'} is not on ${HERE.en}`))
+      await registerCli(key, bin)
+    }
+    return view()
+  })
 
   /** 다른 컴퓨터의 프로젝트를 받아 등록한다. 받을 곳에 같은 저장소가 이미 있으면 받지 않고 등록만 */
   app.post('/api/setup/fetch', replies(C.SetupView), async (req): Promise<C.SetupView> => {

@@ -5,6 +5,9 @@
  */
 import { z } from 'zod'
 
+/** 이 앱을 MCP로 부르는 바깥 에이전트 (POST /setup/agents/:key/register로 버튼 하나에 등록) */
+export const McpAgentKey = z.enum(['claude-desktop', 'claude-code', 'codex'])
+
 export const SetupView = z.object({
   /** 커밋에 적힐 이름 · 이메일 (git config --global). 비어 있으면 앱이 연구 저장소에 올리지 못한다 */
   git: z.object({ name: z.string(), email: z.string() }).strict(),
@@ -15,11 +18,11 @@ export const SetupView = z.object({
   /** 개인 저장소 주소 (없으면 null). active: 이번에 앱을 시작할 때 받아 둔 주소와 같으면 true (아니면 다시 시작해야 쓴다) */
   personal: z.object({ remote: z.string().nullable(), active: z.boolean() }).strict(),
   /**
-   * 이 앱을 MCP로 부르는 에이전트마다 (Claude Code · Codex, 10/21 "에이전트 연결을 구분해서"):
+   * 이 앱을 MCP로 부르는 에이전트마다 (Claude 앱 · Claude Code · Codex, 10/21 "에이전트 연결을 구분해서", 11/8 Claude 앱과 「연결」 버튼):
    * installed = 그 에이전트의 명령(claude · codex)이 이 컴퓨터에 깔려 있는지, registered = 그 에이전트 설정에 이 앱의 MCP 입구가 있는지, at = 마지막으로 앱을 부른 때(없으면 null), command = 등록 명령.
    * 등록과 부름은 다르다: 등록하기 전에 열린 세션은 부르지 못한다
    */
-  agents: z.array(z.object({ key: z.enum(['claude-code', 'codex']), name: z.string(), installed: z.boolean(), registered: z.boolean(), at: z.string().nullable(), command: z.string() }).strict()),
+  agents: z.array(z.object({ key: McpAgentKey, name: z.string(), installed: z.boolean(), registered: z.boolean(), at: z.string().nullable(), command: z.string() }).strict()),
   /**
    * 이 컴퓨터에 설치 (10/21 "다른 컴퓨터에서도 아이콘부터 에이전트 등록까지 설치 과정에서"): scripts/install.sh가 하는 일 중 앱이 볼 수 있는 것.
    * app = ~/Applications의 앱 아이콘(Spotlight · Launchpad · 바탕화면), dock = Dock에 고정, service = 백그라운드 서비스 등록. command = 설치 명령 (빠진 것을 마저 한다)
@@ -61,3 +64,4 @@ export type SetupPersonalBody = z.input<typeof SetupPersonalBody>
 export type SetupFetchBody = z.input<typeof SetupFetchBody>
 export type SetupPersonalCreateBody = z.input<typeof SetupPersonalCreateBody>
 export type SetupLibraryBody = z.input<typeof SetupLibraryBody>
+export type McpAgentKey = z.infer<typeof McpAgentKey>

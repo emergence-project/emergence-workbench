@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, modelName, stepsSummary } from './AgentChats'
 import { fitMenu, menuAt, nextTrust, sideQuestion, trustOf } from './ChatComposer'
+import { readyAgent } from './AgentPick'
 
 describe('에이전트 입력란', () => {
   it('곁 질문은 /곁 · /btw 뒤의 글, 빈 질문 · 다른 명령은 아니다', () => {
@@ -86,5 +87,19 @@ describe('에이전트 입력란', () => {
     expect(blocks.map((b) => b.kind)).toEqual(['steps', 'one', 'steps'])
     expect(blocks[0]).toMatchObject({ until: later })
     expect(stepsSummary(items, later)).toBe('12초 동안 일함 · 읽기 2번 · 도구 1번 · 하위 에이전트 1 · 범위 밖 1')
+  })
+})
+
+describe('새 대화의 에이전트', () => {
+  const k = (id: 'claude-code' | 'codex' | 'gemini', installed: boolean, login?: boolean) => ({ id, installed, ...(login !== undefined && { login }) })
+  it('고른 것이 없으면 깔리고 로그인한 첫째로, 고른 것이 있거나 목록을 모르면 그대로', () => {
+    // 설치 파일로 깐 앱: Claude는 없고 Codex만 ChatGPT로 로그인
+    expect(readyAgent('claude-code', [k('claude-code', false), k('codex', true, true), k('gemini', false, false)])).toBe('codex')
+    // 로그인을 모르면 깔린 첫째
+    expect(readyAgent('claude-code', [k('claude-code', false), k('codex', true, false), k('gemini', true)])).toBe('gemini')
+    expect(readyAgent('claude-code', [k('claude-code', false), k('codex', true, false)])).toBe('codex')
+    expect(readyAgent('codex', [k('claude-code', true), k('codex', true, false)])).toBeUndefined()
+    expect(readyAgent('claude-code', undefined)).toBeUndefined()
+    expect(readyAgent('claude-code', [k('claude-code', false), k('codex', false)])).toBeUndefined()
   })
 })
