@@ -9,8 +9,8 @@ import { writeAtomic } from './fsutil.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 
-/** 관리자가 띄운 중계 서버 주소. 비어 있으면 바로 보내기를 쓰지 않는다 (RW_FEEDBACK_RELAY로 바꿀 수 있다) */
-export const FEEDBACK_RELAY_URL = ''
+/** 관리자가 띄운 중계 서버 주소 (relay/README.md). 비우면 바로 보내기를 쓰지 않는다 (RW_FEEDBACK_RELAY로 바꿀 수 있다) */
+export const FEEDBACK_RELAY_URL = 'https://workbench-feedback.sungmin-park-0226.workers.dev'
 
 interface Sent { days: Record<string, string>; pictures: string[]; at?: number; error?: string | null }
 
