@@ -756,12 +756,10 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   if (!fixed && projects && !projects.length && !appOk) return (
     <div className="ac-new" data-ui="새 대화"><p className="muted">{t('대화는 프로젝트 하나에서 엽니다. 등록한 프로젝트가 아직 없습니다: 레일의 ＋로 프로젝트를 등록하세요.', 'A conversation opens in one project, and no project is registered yet. Register one with ＋ on the rail.')}</p></div>
   )
-  // 프로젝트 · 범위는 입력란 아래 줄의 알약 버튼 하나 (11/8 14:16 제안, 시안 1-2절)
-  // 프로젝트가 정해진 좁은 패널은 예전처럼 입력란 위에 범위만
+  // 프로젝트 · 범위는 입력란 아래 줄의 알약 버튼 하나 (11/8 14:16 제안, 시안 1-2절). 프로젝트가 정해진 좁은 패널은 예전처럼 입력란 위에 범위만
   const lead = !fixed && <ProjectPick rid={rid} projects={projects ?? []} appOk={appOk} scope={kind} onPick={(r) => { setPick(r); store.set('rw-agent-project', r) }} onScope={setKind} />
   return (
-    <div className="ac-new" data-ui="새 대화">
-      {fixed && !app && <ScopeRow scope={kind} onScope={setKind} />}
+    <div className="ac-new" data-ui="새 대화">{fixed && !app && <ScopeRow scope={kind} onScope={setKind} />}
       {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
       {app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
