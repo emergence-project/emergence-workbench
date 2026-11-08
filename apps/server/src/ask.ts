@@ -12,6 +12,7 @@ import { hashOf, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
 import type { RuleFile } from './agentRules.js'
+import { apiRunner, readAiKey } from './aiKey.js'
 
 /**
  * PDF를 읽으며 남긴 질문에 맥의 Claude Code(`claude -p`)가 답한다 (2026-10-01 결정: 논문 Q&A는 맥의 claude -p).
@@ -21,7 +22,8 @@ import type { RuleFile } from './agentRules.js'
  */
 
 /** 질문 하나를 Claude에게 넘기고 답 글을 받는다. 테스트에서는 가짜로 바꾼다 */
-export type AskRunner = (job: { cwd: string; prompt: string }) => Promise<string>
+/** file: 질문이 가리키는 파일의 절대 경로. claude 명령은 Read로 스스로 읽고, API 키로 답할 때(aiKey.ts)는 요청에 붙인다 */
+export type AskRunner = (job: { cwd: string; prompt: string; file?: string }) => Promise<string>
 
 const ASK_TIMEOUT_MS = 6 * 60_000
 const READ_ONLY_TOOLS = 'Read,Glob,Grep'
@@ -78,6 +80,15 @@ function runnerWith(args: string[]): AskRunner {
 // --tools limits which tools exist at all (the prompt carries untrusted PDF and note text);
 // --allowedTools only approves them automatically, so user or project allow rules could otherwise add Edit or Bash.
 export const claudeRunner = runnerWith(['--tools', READ_ONLY_TOOLS, '--allowedTools', READ_ONLY_TOOLS])
+
+/** 질문에 답할 것: 설정 › 에이전트에 API 키가 있으면 그 AI(aiKey.ts), 없으면 이 컴퓨터의 claude 명령 */
+/** 답 머리에 적을 이름: API 키의 AI(claude · gemini), 없으면 claude */
+export const answeredBy = (configDir: string): string => readAiKey(configDir)?.provider ?? 'claude'
+
+export function questionRunner(configDir: string): AskRunner {
+  const k = readAiKey(configDir)
+  return k ? apiRunner(k) : claudeRunner
+}
 export const claudeClassifierRunner = runnerWith(['--model', 'haiku', '--tools', ''])
 
 export interface AskContext {

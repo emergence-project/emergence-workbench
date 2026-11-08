@@ -1,11 +1,15 @@
 // ---------- 화면 설정 (서버 routes/settings.ts) ----------
-import type { AgentSettings, AgentSettingsBody, CommonRulesSaved, CommonRulesView, SettingsBody, SettingsView, SyncSettingsBody, SyncSettingsView } from '@rw/core/contract/settings'
+import type { AgentSettings, AgentSettingsBody, AiKeyBody, AiKeyView, CommonRulesSaved, CommonRulesView, SettingsBody, SettingsView, SyncSettingsBody, SyncSettingsView } from '@rw/core/contract/settings'
 import { json, req, send } from './http'
 
 export type { CommonRulesView } from '@rw/core/contract/settings'
 
 export const settingsCalls = {
   settings: () => req('/api/settings').then((r) => json<SettingsView>(r)).then((r) => r.ui),
+  /** 설정 › 에이전트 › AI 키 (11/8): 키는 보내기만 하고 받을 때는 끝 네 자만 */
+  aiKey: () => req('/api/settings/ai-key').then((r) => json<AiKeyView>(r)).then((r) => r.key),
+  saveAiKey: (body: AiKeyBody) => req('/api/settings/ai-key', send('PUT', body)).then((r) => json<AiKeyView>(r)).then((r) => r.key),
+  removeAiKey: () => req('/api/settings/ai-key', { method: 'DELETE' }).then((r) => json<AiKeyView>(r)).then((r) => r.key),
   agentSettings: () => req('/api/settings/agents').then((r) => json<AgentSettings>(r)),
   saveAgentSettings: (patch: AgentSettingsBody) => req('/api/settings/agents', send('PUT', patch)).then((r) => json<AgentSettings>(r)),
   /** 설정 › 동기화 (10/19) */

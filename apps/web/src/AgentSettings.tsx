@@ -11,6 +11,8 @@ import { href } from './router'
 import { t } from './i18n'
 import { qk } from './queries'
 import { CopyButton, Row, when } from './SetupChecklist'
+import { Icon } from './icons'
+import type { AiKeyBody } from '@rw/core/contract/settings'
 
 const PICK: Record<FeedbackPick, () => string> = {
   off: () => t('끔', 'Off'),
@@ -182,7 +184,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
 /**
  * 연결 (10/21 사용자 "Codex 연결이랑 Claude 연결이랑 Claude API 연결까지 구분해서"): 에이전트마다 한 줄.
  * Claude Code · Codex는 이 앱을 MCP로 부른다: 등록됐는지와 마지막으로 부른 때, 등록 안 됐으면 명령 한 줄.
- * Claude API는 앱이 직접 Claude를 부르는 것으로 아직 없다(자리만). 계정 › 시작 준비에는 몇 개 연결됐는지만 보인다.
+ * AI 키(11/8): 앱이 직접 Claude나 Gemini를 불러 질문에 답한다(claude 명령이 없는 컴퓨터). 계정 › 시작 준비에는 몇 개 연결됐는지만 보인다.
  */
 function AgentConnections({ onSaved }: { onSaved(message: string): void }) {
   const setup = useQuery({ queryKey: qk.setup, queryFn: setupApi.get, refetchOnMount: 'always' })
@@ -191,9 +193,7 @@ function AgentConnections({ onSaved }: { onSaved(message: string): void }) {
     <div className="setup set-rows" data-ui="에이전트 연결 묶음">
       {setup.data ? setup.data.agents.map((a) => <McpRow key={a.key} a={a} onSaved={onSaved} />)
         : <p className="muted setup-row">{setup.error?.message ?? t('읽는 중…', 'Reading…')}</p>}
-      <Row ok={false} optional name="Claude API" sub={t('앱이 직접 부름 · 나중에', 'the app calls Claude itself · later')} ui="Claude API 연결">
-        {t('아직 없음. 앱이 스스로 Claude에게 묻는 기능(예: 지시 처리)을 만들 때 API 키를 넣는 자리입니다. 키는 이 맥의 키체인에만 둡니다.', 'Not yet. This is where the API key goes once the app asks Claude by itself (for example to carry out instructions). The key will stay in this Mac\'s keychain only.')}
-      </Row>
+      <AiKeyRow onSaved={onSaved} />
     </div>
   </>)
 }
@@ -235,5 +235,67 @@ function ChatAgentRows({ onSaved }: { onSaved(message: string): void }) {
         </Row>
       )) : <p className="muted setup-row">{t('읽는 중…', 'Reading…')}</p>}
     </div>
+  </>)
+}
+
+const AI_ORDER: AiKeyBody['provider'][] = ['gemini', 'claude']
+const AI_NAME: Record<AiKeyBody['provider'], string> = { claude: 'Claude', gemini: 'Gemini' }
+const AI_KEY_PAGE: Record<AiKeyBody['provider'], string> = { claude: 'https://console.anthropic.com/settings/keys', gemini: 'https://aistudio.google.com/apikey' }
+
+/**
+ * AI 키 (11/8 "인공지능 에이전트가 없는 친구도 논문을 읽으며 질문", 사용자 "둘 다 고를 수 있게"): Claude(Anthropic) 키나 Gemini 키를 넣으면
+ * 논문 · 노트 기록의 질문에 이 앱이 그 AI를 직접 불러 답한다. 키는 이 컴퓨터의 설정 폴더에만 두고 화면에는 끝 네 자만 보인다.
+ */
+function AiKeyRow({ onSaved }: { onSaved(message: string): void }) {
+  const client = useQueryClient()
+  const key = useQuery({ queryKey: qk.aiKey, queryFn: api.aiKey })
+  const [form, setForm] = useState(false)
+  const [provider, setProvider] = useState<AiKeyBody['provider']>('gemini')
+  const [value, setValue] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const put = (k: Awaited<ReturnType<typeof api.aiKey>>) => client.setQueryData(qk.aiKey, k)
+  const save = useMutation({
+    mutationFn: () => api.saveAiKey({ provider, key: value.trim() }),
+    onSuccess: (k) => { put(k); setForm(false); setValue(''); setErr(null); onSaved(t('AI 키를 저장했습니다', 'Saved the AI key')) },
+    onError: (e: Error) => setErr(e.message),
+  })
+  const remove = useMutation({
+    mutationFn: api.removeAiKey,
+    onSuccess: (k) => { put(k); onSaved(t('AI 키를 지웠습니다', 'Removed the AI key')) },
+    onError: (e: Error) => setErr(e.message),
+  })
+  const k = key.data
+  const edit = t('키 바꾸기', 'Change key')
+  const del = t('키 지우기', 'Remove key')
+  return (<>
+    <Row ok={!!k} optional name={t('AI 키', 'AI key')} sub={k ? `${AI_NAME[k.provider]} · ${k.model}` : 'Claude · Gemini'} ui="Claude API 연결"
+      action={k ? <>
+        <button className="icon-btn" data-tip={edit} aria-label={edit} onClick={() => { setProvider(k.provider); setForm(true) }}>{Icon.pencil}</button>
+        <button className="icon-btn" data-tip={del} aria-label={del} onClick={() => remove.mutate()}>{Icon.trash}</button>
+      </> : !form && <button className="btn" onClick={() => setForm(true)}>{t('＋ 키 넣기', '＋ Add key')}</button>}>
+      {k ? t(`넣음 (끝 네 자 ${k.hint}). 논문 · 노트에 남긴 질문에 이 앱이 ${AI_NAME[k.provider]}에게 직접 묻습니다. 질문마다 그 계정의 사용량이 듭니다.`, `Added (ends in ${k.hint}). The app asks ${AI_NAME[k.provider]} directly for questions left on papers and notes. Each question uses that account's usage.`)
+        : t('Claude Code가 없어도, Claude(Anthropic) 키나 Gemini 키를 넣으면 논문 · 노트에 남긴 질문에 이 앱이 그 AI에게 직접 묻습니다. 키는 이 컴퓨터에만 둡니다.', 'Even without Claude Code, add a Claude (Anthropic) or Gemini key and the app asks that AI directly for questions left on papers and notes. The key stays on this computer.')}
+      {err && <div className="error-text">{err}</div>}
+    </Row>
+    {form && (
+      <div className="set-row" data-ui="AI 키 넣기">
+        <div className="g-fields">
+          <div className="segmented small" role="radiogroup" data-ui="고르기">
+            {AI_ORDER.map((p) => (
+              <button key={p} role="radio" aria-checked={provider === p} className={provider === p ? 'on' : ''} onClick={() => setProvider(p)}>{AI_NAME[p]}</button>
+            ))}
+          </div>
+          <span className="set-desc">{provider === 'gemini'
+            ? t('구글 계정으로 Google AI Studio에 들어가 「API 키 만들기」로 받습니다. 무료로 쓸 수 있는 양이 있습니다. ', 'Sign in to Google AI Studio with a Google account and use "Create API key". There is a free allowance. ')
+            : t('Anthropic 콘솔에서 크레딧을 넣고 API 키를 만듭니다. Claude 구독(Pro · Max)과는 따로 냅니다. ', 'Add credits in the Anthropic Console and create an API key. It is billed separately from a Claude subscription (Pro · Max). ')}
+            <a className="a" href={AI_KEY_PAGE[provider]} target="_blank" rel="noreferrer">{t('키 만드는 곳', 'Get a key')}</a></span>
+          <input className="input" type="password" placeholder={provider === 'gemini' ? 'AIza…' : 'sk-ant-…'} value={value} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
+          <div className="g-actions">
+            <button className="btn primary" disabled={save.isPending || value.trim().length < 8} onClick={() => save.mutate()}>{t('저장', 'Save')}</button>
+            <button className="btn" onClick={() => { setForm(false); setValue(''); setErr(null) }}>{t('취소', 'Cancel')}</button>
+          </div>
+        </div>
+      </div>
+    )}
   </>)
 }

@@ -163,14 +163,35 @@ export async function fetchArxiv(wbRoot: string, key: string, fetchImpl: typeof 
 }
 
 /** 맥 앱으로 열기 (발표자료 등 브라우저가 못 그리는 파일). 맥이 아니면 거절 */
-/** Finder에서 그 파일을 고른 채로 폴더를 연다 (맥) */
+/** Finder(윈도우는 파일 탐색기)에서 그 파일을 고른 채로 폴더를 연다 */
 export function revealInFinder(file: string): Promise<void> {
+  // 탐색기는 잘 열어도 1을 돌려주므로 오류를 보지 않는다
+  if (process.platform === 'win32') return new Promise((resolve) => execFile('explorer.exe', [`/select,${path.resolve(file)}`], () => resolve()))
   if (process.platform !== 'darwin') return Promise.reject(new WorkbenchError(501, t('맥에서만 Finder로 볼 수 있습니다', 'Showing in Finder works only on a Mac')))
   return new Promise((resolve, reject) => execFile('open', ['-R', file], (e) => (e ? reject(new WorkbenchError(500, e.message)) : resolve())))
 }
 
+/** 윈도우의 폴더 고르기 창 (PowerShell · .NET FolderBrowserDialog). 글과 시작 폴더는 환경 변수로 넘긴다 */
+function chooseFolderWindows(prompt: string, start?: string): Promise<string | null> {
+  const script = [
+    'Add-Type -AssemblyName System.Windows.Forms',
+    '$d = New-Object System.Windows.Forms.FolderBrowserDialog',
+    '$d.Description = $env:RW_PICK_PROMPT',
+    '$d.ShowNewFolderButton = $true',
+    'if ($env:RW_PICK_START) { $d.SelectedPath = $env:RW_PICK_START }',
+    '$top = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }',
+    'if ($d.ShowDialog($top) -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::OutputEncoding = [Text.Encoding]::UTF8; Write-Output $d.SelectedPath }',
+  ].join('; ')
+  const env = { ...process.env, RW_PICK_PROMPT: prompt, RW_PICK_START: start && fs.existsSync(start) ? start : '' }
+  return new Promise((resolve, reject) => execFile('powershell.exe', ['-NoProfile', '-STA', '-Command', script], { env, timeout: 10 * 60_000, windowsHide: true }, (e, out, err) => {
+    if (e) return reject(new WorkbenchError(500, String(err || e.message).trim()))
+    resolve(out.trim() || null)
+  }))
+}
+
 /** 맥의 Finder 폴더 고르기 창을 띄우고 고른 폴더의 경로를 돌려준다. 취소하면 null (맥) */
 export function chooseFolder(prompt: string, start?: string): Promise<string | null> {
+  if (process.platform === 'win32') return chooseFolderWindows(prompt, start)
   if (process.platform !== 'darwin') return Promise.reject(new WorkbenchError(501, t('맥에서만 Finder로 고를 수 있습니다. 경로를 적어 주세요.', 'Choosing in Finder works only on a Mac. Type the path.')))
   // 글은 스크립트에 끼워 넣지 않고 인자로 넘긴다
   const script = ['on run argv', 'set p to item 1 of argv', 'if (count of argv) > 1 then', 'return POSIX path of (choose folder with prompt p default location (POSIX file (item 2 of argv)))', 'end if', 'return POSIX path of (choose folder with prompt p)', 'end run']
@@ -191,6 +212,8 @@ export function openWithSystem(file: string): Promise<void> {
   let real = file
   try { real = fs.realpathSync(file) } catch { /* 없는 파일은 아래 open이 알린다 */ }
   if (!OPENABLE.test(file) || !OPENABLE.test(real)) return Promise.reject(new WorkbenchError(415, t(`이 종류의 파일은 앱에서 열지 않습니다: ${path.basename(file)}`, `The app does not open this kind of file: ${path.basename(file)}`)))
+  // 윈도우: 탐색기에 넘기면 연결된 앱으로 연다 (잘 열어도 1을 돌려주므로 오류를 보지 않는다)
+  if (process.platform === 'win32') return new Promise((resolve) => execFile('explorer.exe', [path.resolve(real)], () => resolve()))
   if (process.platform !== 'darwin') return Promise.reject(new WorkbenchError(501, t('맥에서만 열 수 있습니다', 'Opening works only on a Mac')))
   return new Promise((resolve, reject) => execFile('open', [file], (e) => (e ? reject(new WorkbenchError(500, e.message)) : resolve())))
 }

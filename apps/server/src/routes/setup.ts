@@ -12,7 +12,7 @@ import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { adoptOtherProfiles } from '../profileSync.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
 import { realIO } from '../githubRepos.js'
-import { git, gitRun, GIT_TIMEOUT } from '../git.js'
+import { getFallbackIdentity, git, gitRun, GIT_TIMEOUT, setFallbackIdentity } from '../git.js'
 import { remoteOf, sameRepo } from './google.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
 import { WorkbenchError } from '../workbench.js'
@@ -20,17 +20,22 @@ import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
 
 /** PATH에서 실행 파일을 찾는다 (컴파일이 같은 PATH로 latexmk를 부른다: latex.ts) */
-export function onPath(cmd: string, envPath = process.env.PATH ?? ''): boolean {
-  return envPath.split(path.delimiter).filter(Boolean).some((dir) => {
-    try { fs.accessSync(path.join(dir, cmd), fs.constants.X_OK); return true } catch { return false }
-  })
+/** 예제 모드는 이 컴퓨터를 보지 않고 다 된 것으로 */
+const SAMPLE_INSTALL = { app: true, dock: true, service: true }
+
+export function onPath(cmd: string, envPath = process.env.PATH ?? process.env.Path ?? '', platform: NodeJS.Platform = process.platform): boolean {
+  // 윈도우의 명령은 latexmk.exe · claude.cmd처럼 확장자가 붙는다
+  const names = platform === 'win32' ? ['.exe', '.cmd', '.bat', ''].map((x) => cmd + x) : [cmd]
+  return envPath.split(platform === 'win32' ? ';' : path.delimiter).filter(Boolean).some((dir) => names.some((n) => {
+    try { fs.accessSync(path.join(dir, n), fs.constants.X_OK); return true } catch { return false }
+  }))
 }
 
 /**
  * scripts/install.sh가 한 일 중 앱이 볼 수 있는 것. 바탕화면은 보지 않는다(서비스가 ~/Desktop을 읽으면 macOS가 권한을 묻는다).
  * Dock은 defaults로 읽는다(맥이 아니면 없음).
  */
-export function installState(home = os.homedir(), dockList?: string): Omit<C.SetupView['install'], 'command'> {
+export function installState(home = os.homedir(), dockList?: string): Omit<NonNullable<C.SetupView['install']>, 'command'> {
   let dock = dockList
   if (dock === undefined) {
     try { dock = execFileSync('defaults', ['read', 'com.apple.dock', 'persistent-apps'], { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] }) } catch { dock = '' }
@@ -107,11 +112,12 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     }
     return {
       git: await gitIdentity(),
+      ...(!opts.sandbox && getFallbackIdentity() && { gitAuto: getFallbackIdentity()! }),
       projects: registry.list().length,
       personal: { remote, active },
       agents: agentRows(),
       // 예제 모드는 이 컴퓨터를 보지 않는다 (그림이 컴퓨터마다 달라지지 않게): 다 된 것으로
-      install: { ...(opts.sandbox ? { app: true, dock: true, service: true } : installState()), command: `zsh ${appPath('scripts/install.sh')}` },
+      install: opts.bundled ? null : { ...(opts.sandbox ? SAMPLE_INSTALL : installState()), command: `zsh ${appPath('scripts/install.sh')}` },
       elsewhere: await elsewhere(cloneDir),
       library: { path: registry.libraryPath ?? null, suggest: librarySuggest(cloneDir) },
       cloneDir,
@@ -167,6 +173,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     else {
       await gitRun(['config', '--global', 'user.name', name], { timeout: GIT_TIMEOUT.read })
       await gitRun(['config', '--global', 'user.email', email], { timeout: GIT_TIMEOUT.read })
+      setFallbackIdentity(null)
     }
     return view()
   })

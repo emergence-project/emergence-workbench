@@ -1,7 +1,7 @@
 import { UI_OPTIONS, DEFAULT_UI, type UiSettings } from '@rw/core'
 import type { ReactNode } from 'react'
 import { AppInfo } from './AppInfo'
-import { AppUpdate } from './AppUpdate'
+import { AppUpdate, useBundledApp } from './AppUpdate'
 import { AgentSettings } from './AgentSettings'
 import { SyncSettings } from './SyncSettings'
 import { BackupSettings } from './BackupSettings'
@@ -90,6 +90,7 @@ function RuleSubs({ label }: { label: string }) {
 
 export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettings; onChange(patch: Partial<UiSettings>): void; part?: string; pr?: number; onSaved(message: string): void }) {
   const cur = partOf(part)
+  const bundledApp = useBundledApp()
   const show = (key: string) => cur === key
   function choice<K extends keyof UiSettings>(key: K, render?: (v: UiSettings[K]) => ReactNode) {
     return (
@@ -141,7 +142,7 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
               <AppInfo pr={pr} update={<>
                 <div className="sec-head"><h2>{t('업데이트', 'Update')}</h2></div>
                 <AppUpdate />
-                <p className="set-desc" title={t('이 맥에서 남긴 피드백은 함께 커밋해 올립니다. 앱 코드를 고쳐 두었다면 받지 않고 이유를 보여 줍니다. 연구 저장소는 바꾸지 않습니다.', 'Feedback left on this computer is committed and pushed with it. If the app code has local changes, the update is skipped and the reason is shown. Research repositories are not changed.')}>{t('새 버전을 받아 앱을 다시 시작합니다.', 'Downloads the new version and restarts the app.')}</p>
+                {!bundledApp && <p className="set-desc" title={t('이 맥에서 남긴 피드백은 함께 커밋해 올립니다. 앱 코드를 고쳐 두었다면 받지 않고 이유를 보여 줍니다. 연구 저장소는 바꾸지 않습니다.', 'Feedback left on this computer is committed and pushed with it. If the app code has local changes, the update is skipped and the reason is shown. Research repositories are not changed.')}>{t('새 버전을 받아 앱을 다시 시작합니다.', 'Downloads the new version and restarts the app.')}</p>}
               </>} />
             </section>}
 

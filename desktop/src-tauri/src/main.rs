@@ -6,6 +6,7 @@
 // 창은 먼저 loading/index.html을 띄워 서버가 답할 때까지 기다린 뒤 서버 화면(127.0.0.1:5174)으로 넘어간다.
 // 서버 밖 주소(논문 링크, GitHub 등)는 창 안에서도, 새 창으로도 열지 않고 기본 브라우저로 보낸다.
 // 창 크기 · 자리는 window-state가, 마지막에 보던 화면은 last-url 파일이 기억한다. 메뉴는 맥 표준 메뉴에 설정 · 업데이트 · 새로 고침을 더한 것.
+// 윈도우: 서비스가 없어 늘 묶은 서버를 쓴다(node/node.exe, 콘솔 창 없이). 메뉴는 파일 · 보기 둘(편집 단축키는 창이 스스로 처리한다).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::net::{SocketAddr, TcpStream};
@@ -13,7 +14,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
+#[cfg(target_os = "macos")]
+use tauri::menu::AboutMetadata;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry};
 use url::Url;
@@ -65,7 +68,24 @@ fn remember_page(window: &WebviewWindow) {
     }
 }
 
+/// 윈도우 메뉴: 파일(설정 · 업데이트 · 종료)과 보기(새로 고침 · 처음 화면). 맥의 서비스 · 가리기 · 실행 취소 같은 항목은 윈도우에서 돌지 않아 넣지 않는다
+#[cfg(not(target_os = "macos"))]
+fn app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
+    let file = Submenu::with_items(app, "파일", true, &[
+        &MenuItem::with_id(app, "settings", "설정…", true, Some("CmdOrCtrl+,"))?,
+        &MenuItem::with_id(app, "update", "업데이트 확인…", true, None::<&str>)?,
+        &PredefinedMenuItem::separator(app)?,
+        &MenuItem::with_id(app, "quit", "끝내기", true, Some("CmdOrCtrl+Q"))?,
+    ])?;
+    let view = Submenu::with_items(app, "보기", true, &[
+        &MenuItem::with_id(app, "reload", "새로 고침", true, Some("CmdOrCtrl+R"))?,
+        &MenuItem::with_id(app, "home", "처음 화면", true, Some("CmdOrCtrl+Shift+H"))?,
+    ])?;
+    Menu::with_items(app, &[&file, &view])
+}
+
 /// 맥 표준 메뉴(앱 · 편집 · 보기 · 창, 이름은 맥 한국어 메뉴와 같게)에 앱의 설정 · 업데이트 · 새로 고침 · 처음 화면을 더한다
+#[cfg(target_os = "macos")]
 fn app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let about = AboutMetadata { name: Some("Emergence Workbench".into()), ..Default::default() };
     let app_sub = Submenu::with_items(app, "Emergence Workbench", true, &[
@@ -148,16 +168,23 @@ fn server_answers() -> bool {
     TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
 }
 
+/// 묶은 Node의 자리 (scripts/bundle-app.mjs와 같게)
+#[cfg(target_os = "windows")]
+const BUNDLED_NODE: &str = "node/node.exe";
+#[cfg(not(target_os = "windows"))]
+const BUNDLED_NODE: &str = "node/bin/node";
+
 /// 앱 안에 묶은 Node와 서버 (resources/standalone, scripts/bundle-app.mjs). 없으면 None
 fn bundled_paths(resources: &Path) -> Option<(PathBuf, PathBuf)> {
     let root = resources.join("standalone");
-    let node = root.join("node/bin/node");
+    let node = root.join(BUNDLED_NODE);
     let entry = root.join("app/apps/server/dist/server.mjs");
     (node.is_file() && entry.is_file()).then_some((node, entry))
 }
 
 /// 묶은 서버가 쓸 PATH: 서비스(serve.sh)처럼 TeX · Homebrew · 사용자 도구(claude 등)를 찾게 한다
-fn bundled_path_env() -> String {
+#[cfg(not(target_os = "windows"))]
+fn bundled_path_env(_standalone: &Path) -> String {
     let home = std::env::var("HOME").unwrap_or_default();
     let mut dirs = vec![
         format!("{home}/.local/bin"),
@@ -176,9 +203,39 @@ fn bundled_path_env() -> String {
     dirs.join(":")
 }
 
+/// 윈도우: 지금 PATH 앞에 Git for Windows와 사용자 도구(claude 등) 자리를 더한다(창에서 켠 앱은 설치 직후 새 PATH를 못 받을 수 있다).
+/// 맨 뒤에는 앱에 묶은 git(MinGit)을 둔다: 깐 git이 있으면 그것을, 없으면 묶은 것을 쓴다
+#[cfg(target_os = "windows")]
+fn bundled_path_env(standalone: &Path) -> String {
+    let home = std::env::var("USERPROFILE").unwrap_or_default();
+    let programs = std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".into());
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    let mut dirs = vec![
+        format!(r"{home}\.local\bin"),
+        format!(r"{programs}\Git\cmd"),
+        format!(r"{local}\Programs\Git\cmd"),
+        format!(r"{local}\Programs\MiKTeX\miktex\bin\x64"),
+    ];
+    if let Ok(p) = std::env::var("PATH") {
+        dirs.extend(p.split(';').filter(|d| !d.is_empty()).map(String::from));
+    }
+    dirs.push(standalone.join(r"git\cmd").to_string_lossy().into_owned());
+    dirs.dedup();
+    dirs.join(";")
+}
+
+/// 윈도우의 긴 경로 머리(\\?\)를 뗀다: PATH 항목과 Node가 읽는 스크립트 경로는 보통 경로여야 한다
+fn plain_path(p: PathBuf) -> PathBuf {
+    match p.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
+        Some(rest) if !rest.starts_with("UNC") => PathBuf::from(rest),
+        _ => p,
+    }
+}
+
 /// 묶은 서버를 켠다. 출력은 앱 기록 폴더의 server.log에
 fn start_bundled(app: &AppHandle) -> Option<Child> {
-    let (node, entry) = bundled_paths(&app.path().resource_dir().ok()?)?;
+    let resources = plain_path(app.path().resource_dir().ok()?);
+    let (node, entry) = bundled_paths(&resources)?;
     let log = app.path().app_log_dir().ok().and_then(|d| {
         std::fs::create_dir_all(&d).ok()?;
         std::fs::File::create(d.join("server.log")).ok()
@@ -187,11 +244,17 @@ fn start_bundled(app: &AppHandle) -> Option<Child> {
         Some((f, g)) => (Stdio::from(f), Stdio::from(g)),
         None => (Stdio::null(), Stdio::null()),
     };
-    Command::new(node)
-        .arg(entry)
+    let mut cmd = Command::new(node);
+    // 윈도우: 묶은 Node가 검은 콘솔 창을 띄우지 않게 한다(CREATE_NO_WINDOW). 서버가 부르는 git도 이 숨은 콘솔을 물려받는다
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+    cmd.arg(entry)
         .env("RW_STATIC", "1")
         .env("RW_PORT", SERVER_PORT.to_string())
-        .env("PATH", bundled_path_env())
+        .env("PATH", bundled_path_env(&resources.join("standalone")))
         .stdin(Stdio::null())
         .stdout(out)
         .stderr(err)
@@ -303,20 +366,36 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("rw-bundled-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         assert!(bundled_paths(&dir).is_none());
-        std::fs::create_dir_all(dir.join("standalone/node/bin")).unwrap();
-        std::fs::write(dir.join("standalone/node/bin/node"), "").unwrap();
+        let node = dir.join("standalone").join(BUNDLED_NODE);
+        std::fs::create_dir_all(node.parent().unwrap()).unwrap();
+        std::fs::write(&node, "").unwrap();
         assert!(bundled_paths(&dir).is_none());
         std::fs::create_dir_all(dir.join("standalone/app/apps/server/dist")).unwrap();
         std::fs::write(dir.join("standalone/app/apps/server/dist/server.mjs"), "").unwrap();
         let (node, entry) = bundled_paths(&dir).unwrap();
-        assert!(node.ends_with("standalone/node/bin/node") && entry.ends_with("server.mjs"));
+        assert!(node.ends_with(Path::new("standalone").join(BUNDLED_NODE)) && entry.ends_with("server.mjs"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
+    #[cfg(not(target_os = "windows"))]
     fn bundled_path_finds_tex_and_user_tools() {
-        let p = bundled_path_env();
+        let p = bundled_path_env(Path::new("/x/standalone"));
         assert!(p.contains("/Library/TeX/texbin") && p.contains("/opt/homebrew/bin") && p.contains("/.local/bin"));
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn bundled_path_finds_git_and_user_tools() {
+        let p = bundled_path_env(Path::new(r"C:\x\standalone"));
+        assert!(p.contains(r"\Git\cmd") && p.contains(r"\.local\bin") && p.ends_with(r"C:\x\standalone\git\cmd"));
+    }
+
+    #[test]
+    fn plain_path_drops_long_path_prefix() {
+        assert_eq!(plain_path(PathBuf::from(r"\\?\C:\a\b")), PathBuf::from(r"C:\a\b"));
+        assert_eq!(plain_path(PathBuf::from(r"\\?\UNC\srv\x")), PathBuf::from(r"\\?\UNC\srv\x"));
+        assert_eq!(plain_path(PathBuf::from("/Applications/x")), PathBuf::from("/Applications/x"));
     }
 
     #[test]

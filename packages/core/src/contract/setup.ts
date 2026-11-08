@@ -8,6 +8,8 @@ import { z } from 'zod'
 export const SetupView = z.object({
   /** 커밋에 적힐 이름 · 이메일 (git config --global). 비어 있으면 앱이 연구 저장소에 올리지 못한다 */
   git: z.object({ name: z.string(), email: z.string() }).strict(),
+  /** git 설정이 비어 있어 앱이 대신 적는 이름 · 이메일 (내려받은 앱, git.ts setFallbackIdentity). 있으면 커밋 이름은 할 일이 아니다 */
+  gitAuto: z.object({ name: z.string(), email: z.string() }).strict().optional(),
   /** 등록한 프로젝트 수 */
   projects: z.number(),
   /** 개인 저장소 주소 (없으면 null). active: 이번에 앱을 시작할 때 받아 둔 주소와 같으면 true (아니면 다시 시작해야 쓴다) */
@@ -27,7 +29,8 @@ export const SetupView = z.object({
    * path = 지금 정한 폴더, suggest = 정하지 않았을 때 다른 컴퓨터가 쓰는 라이브러리와 이름이 같은, 이 컴퓨터에 받아 둔 폴더
    */
   library: z.object({ path: z.string().nullable(), suggest: z.string().nullable() }).strict(),
-  install: z.object({ app: z.boolean(), dock: z.boolean(), service: z.boolean(), command: z.string() }).strict(),
+  /** scripts/install.sh가 한 일. 설치 파일로 깐 앱이면 null (설치 명령이 없다) */
+  install: z.object({ app: z.boolean(), dock: z.boolean(), service: z.boolean(), command: z.string() }).strict().nullable(),
   /**
    * 다른 컴퓨터의 프로젝트 중 이 컴퓨터에 없는 것 (10/21 "새 컴퓨터에 원래 프로젝트가 나와야, 최소한 받을지 물어야"):
    * 개인 저장소의 _settings/<컴퓨터>/projects.yaml(백업이 올림)에서 읽는다. local = 같은 이름의 폴더가 받을 곳에 이미 있으면 그 경로(받지 않고 등록만)
