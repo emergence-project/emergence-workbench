@@ -67,14 +67,15 @@ export function Compose({ e }: { e: FeedbackItem }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [picked, setPicked] = useState<Opinion>('코멘트')
+  const [picked, setPicked] = useState<Opinion | null>(null)
   const choices: Opinion[] = !answerable(e) ? ['코멘트'] : asksUser(e) ? ['코멘트', '진행', '중단', '논의'] : ['코멘트', '반려', '진행', '논의']
-  const choice = choices.includes(picked) ? picked : '코멘트'
+  // 결정을 묻는 답은 「진행」이 골라진 채로 시작해 그대로 보내면 된다 (11/8 20:41 시안 코멘트). 나머지는 질문
+  const choice = picked && choices.includes(picked) ? picked : choices.includes('진행') && asksUser(e) ? '진행' : '코멘트'
   const canSend = !NEEDS_TEXT.includes(choice) || !!text.trim()
   const send = () => {
     setBusy(true)
     ;(choice === '코멘트' ? api.commentFeedback(e.key, text) : api.reviewFeedback(e.key, choice, text))
-      .then(() => { setText(''); setPicked('코멘트'); setError(null) }, (err: Error) => setError(err.message)).finally(() => setBusy(false))
+      .then(() => { setText(''); setPicked(null); setError(null) }, (err: Error) => setError(err.message)).finally(() => setBusy(false))
   }
   // 관리자 차례(처리 전 · 코멘트에 답하기 전 · 다시 처리하기 전)에는 입력란을 두지 않는다 (10/10 13:02)
   const hint = NEEDS_TEXT.includes(choice) ? `${REPLY_MEANING[choice]}: ${t('적어 주세요', 'write it here')}` : `${REPLY_MEANING[choice]} · ${t('덧붙일 말 (없어도 됨)', 'anything to add (optional)')}`
