@@ -998,5 +998,9 @@
   "최근 확인한 논문 줄": "Recently checked paper row",
   "추천 논문": "Recommended papers",
   "추천 논문 줄": "Recommended paper row",
-  "AI 키 넣기": "Add AI key"
+  "AI 키 넣기": "Add AI key",
+  "피드백 가져오기": "Import feedback",
+  "피드백 파일로 보내기": "Send feedback as file",
+  "피드백 파일 결과": "Feedback file result",
+  "관리자에게 보내기": "Send to maintainer"
 }

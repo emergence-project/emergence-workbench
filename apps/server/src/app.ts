@@ -82,6 +82,8 @@ export interface AppOptions {
   feedbackPublish?: boolean
   /** 피드백을 남기거나 고친 뒤 이만큼(ms) 조용하면 저절로 GitHub에 올린다 (feedbackPublish일 때만). 없으면 버튼으로만 올린다 */
   feedbackAutoPublishMs?: number
+  /** 개인 저장소 없이 쓰는 앱이 피드백을 바로 보내는 관리자의 중계 서버 주소 (feedbackRelay.ts). 남긴 뒤 feedbackAutoPublishMs 지나면 저절로 보낸다 */
+  feedbackRelay?: string
   /** 피드백 폴더가 든 개인 저장소 사본에 GitHub의 새 내용(처리 기록 등)을 받는다 (실사용만, personalRepo.ts) */
   feedbackSync?: () => Promise<{ ok: boolean; error?: string }>
   /** 개인 저장소 사본 폴더 (실사용, 개인 저장소를 정했을 때만). 설정 › 공통 규칙을 저장하면 받고 그 파일만 올린다 */
