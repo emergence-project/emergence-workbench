@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { req, type AppStatus } from './api'
+import type { NewRelease } from '@rw/core/contract/app'
 import { anyPending } from './autosave'
 import { go } from './router'
 import { plural, t } from './i18n'
@@ -15,6 +16,8 @@ interface State {
   enabled: boolean | null; status: AppStatus | null; phase: Phase; message: string | null; error: string | null
   /** 내려받은 앱(설치 파일로 깐 것): 스스로 업데이트하지 않고 새 설치 파일을 받는다 */
   bundled: boolean
+  /** 설치 파일로 깐 앱이 받을 새 판 (GitHub 릴리스) */
+  release: NewRelease | null
   /** 마지막 업데이트가 실패한 이유. 확인(check)이 지우지 않고, 다음 업데이트를 누를 때까지 남는다 */
   failed: string | null
 }
@@ -35,20 +38,20 @@ const UPDATE_WAIT_MS = 22 * 60_000
 export const IDLE_RESTART_MS = 5 * 60_000
 const IDLE_CHECK_MS = 30_000
 
-let state: State = { enabled: null, status: null, phase: 'idle', message: null, error: null, failed: null, bundled: false }
+let state: State = { enabled: null, status: null, phase: 'idle', message: null, error: null, failed: null, bundled: false, release: null }
 const listeners = new Set<() => void>()
 const set = (patch: Partial<State>) => { state = { ...state, ...patch }; listeners.forEach((l) => l()) }
 let lastCheck = 0
 
 export async function checkAppUpdate(): Promise<void> {
-  if (state.phase !== 'idle' || state.enabled === false) return
+  if (state.phase !== 'idle' || state.enabled === false && !state.bundled) return
   lastCheck = Date.now()
   set({ phase: 'checking', error: null })
   try {
     const b = await (await req('/api/app/status?fetch=1')).json()
     // 다른 창(또는 쉴 때)이 앱을 다시 시작했으면 새 코드로 화면을 다시 읽는다
     if (state.status && b.status && b.status.running !== state.status.running && !anyPending()) { location.reload(); return }
-    set({ enabled: !!b.enabled, status: b.status ?? null, bundled: !!b.bundled })
+    set({ enabled: !!b.enabled, status: b.status ?? null, bundled: !!b.bundled, release: b.release ?? null })
   } catch (e) { set({ error: (e as Error).message }) } finally { set({ phase: 'idle' }) }
 }
 
@@ -139,7 +142,18 @@ export function AppUpdateRail() {
     }
   }, [])
 
-  if (!s.enabled) return null
+  if (!s.enabled) {
+    // 설치 파일로 깐 앱 (11/8): 같은 자리 · 같은 아이콘, 누르면 이 OS의 설치 파일을 받는다
+    if (!s.bundled || !s.release) return null
+    const label = t(`새 버전 v${s.release.version}`, `New version v${s.release.version}`)
+    return (
+      <a className="rail-btn rail-update tip-right ready" data-ui="새 버전 버튼" href={s.release.download ?? s.release.url} target="_blank" rel="noreferrer" aria-label={label}
+        data-tip={t(`${label}: 눌러서 설치 파일을 받고 실행하면 바뀝니다 (설정과 프로젝트는 그대로)`, `${label}: click to download the installer and run it (settings and projects stay)`)}>
+        {Icon.update}
+        <span className="rail-update-dot" aria-hidden />
+      </a>
+    )
+  }
   const busy = s.phase === 'updating' || s.phase === 'restarting'
   if (!busy && !hasNew(s.status)) return null
 
@@ -163,10 +177,11 @@ export function AppUpdateRail() {
   )
 }
 export function AppUpdate() {
-  const { enabled, status, phase, message, error, failed, bundled } = useAppUpdateState()
+  const { enabled, status, phase, message, error, failed, bundled, release } = useAppUpdateState()
   useEffect(() => { void checkAppUpdate() }, [])
 
-  if (enabled === false && bundled) return <p className="set-desc" data-ui="앱 업데이트 안내">{t('설치 파일로 깐 앱은 스스로 업데이트하지 않습니다. 새 버전은 ', 'An app installed from an installer does not update itself. Download the new version from ')}<a className="a" href={RELEASES} target="_blank" rel="noreferrer">{t('릴리스 쪽', 'the releases page')}</a>{t('에서 설치 파일을 받아 다시 설치합니다(설정과 프로젝트는 그대로).', ' and install it again (settings and projects stay).')}</p>
+  if (enabled === false && bundled && release) return <p className="set-desc" data-ui="앱 업데이트 안내"><b>{t(`새 버전 v${release.version}이 있습니다. `, `Version v${release.version} is available. `)}</b><a className="a" href={release.download ?? release.url} target="_blank" rel="noreferrer">{t('설치 파일 받기', 'Download the installer')}</a>{t(' → 받은 파일을 실행하면 바뀝니다(설정과 프로젝트는 그대로).', ' → run it to update (settings and projects stay).')}</p>
+  if (enabled === false && bundled) return <p className="set-desc" data-ui="앱 업데이트 안내">{t('새 버전이 나오면 레일에 알림이 뜹니다. ', 'A notice appears in the left rail when a new version is out. ')}{t('설치 파일로 깐 앱은 스스로 업데이트하지 않습니다. 새 버전은 ', 'An app installed from an installer does not update itself. Download the new version from ')}<a className="a" href={RELEASES} target="_blank" rel="noreferrer">{t('릴리스 쪽', 'the releases page')}</a>{t('에서 설치 파일을 받아 다시 설치합니다(설정과 프로젝트는 그대로).', ' and install it again (settings and projects stay).')}</p>
   if (enabled === false) return <p className="set-desc" data-ui="앱 업데이트 안내">{t('개발용 예제 모드에서는 앱 업데이트를 쓰지 않습니다.', 'App updates are off in sample mode for development.')}</p>
   const pending = status && status.behind === 0 && status.head !== status.running
   const busy = phase !== 'idle'
