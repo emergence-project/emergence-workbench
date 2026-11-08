@@ -26,5 +26,5 @@ The first window is an empty workbench. Use **+ Register project** › **Start n
 GitHub Actions builds the installer on a Windows machine (`.github/workflows/desktop.yml`).
 
 - Try it: Actions › Desktop (Windows) › Run workflow. Artifacts `windows-installer` (the installer) and `windows-shots` (screens taken on Windows).
-- Release: push a tag starting with `v` (e.g. `git tag v0.2.0 && git push origin v0.2.0`); the same job runs and attaches the installer to that tag's release.
+- Release: on the Actions page open **Desktop (Windows) › Run workflow**, turn on the release switch and run it (leave the version empty for the next patch number). The run builds the installer, creates the tag and release on that commit and attaches the installer. Agents in the cloud cannot push tags but can start this run. Pushing a tag starting with `v` yourself does the same.
 - Signing: not signed yet. Removing the "protected your PC" prompt needs a code-signing certificate (e.g. Microsoft Trusted Signing, about $10 a month). Update this section when signing is added.
