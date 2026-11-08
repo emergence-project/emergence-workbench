@@ -183,11 +183,8 @@ const CHECK_EVERY_MS = 20_000
 export const TASKS_MS = 60 * 60_000
 const keyOf = (c: Pick<Stored, 'mode' | 'model' | 'effort' | 'write'>) => `${c.mode}|${c.model}|${c.effort}|${c.write}`
 
-/** 피드백 하나에서 사용자 쪽 마지막 일(남김 · 답 · 코멘트 · 고친 글)의 시각 (이 컴퓨터 시간대). 저절로 맡기기가 같은 일을 두 번 맡지 않게 */
-export function lastTouched(e: FeedbackListItem): number {
-  const at = [`${e.date}T${e.time}`, e.review?.at, e.review?.edited, ...(e.comments ?? []).flatMap((c) => [c.at, c.edited])]
-  return Math.max(...at.filter((x): x is string => !!x).map((x) => new Date(x).getTime()).filter((n) => !Number.isNaN(n)))
-}
+import { lastTouched } from './feedbackClaims.js'
+export { lastTouched }
 
 /** 카드에 받은 답 (거절의 할 말, 계획 승인 뒤 맡기는 정도) */
 type Answer = { answer: AskAnswer; note?: string; mode?: ChatMode }
