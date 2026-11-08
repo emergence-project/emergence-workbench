@@ -1,5 +1,5 @@
 // ---------- 화면 설정 (서버 routes/settings.ts) ----------
-import type { AgentSettings, AgentSettingsBody, AiKeyBody, AiKeyView, CommonRulesSaved, CommonRulesView, SettingsBody, SettingsView, SyncSettingsBody, SyncSettingsView } from '@rw/core/contract/settings'
+import type { AgentSettings, AgentSettingsBody, AiKeyBody, AiKeyView, CodexStatus, CommonRulesSaved, CommonRulesView, SettingsBody, SettingsView, SyncSettingsBody, SyncSettingsView } from '@rw/core/contract/settings'
 import { json, req, send } from './http'
 
 export type { CommonRulesView } from '@rw/core/contract/settings'
@@ -10,6 +10,9 @@ export const settingsCalls = {
   aiKey: () => req('/api/settings/ai-key').then((r) => json<AiKeyView>(r)).then((r) => r.key),
   saveAiKey: (body: AiKeyBody) => req('/api/settings/ai-key', send('PUT', body)).then((r) => json<AiKeyView>(r)).then((r) => r.key),
   removeAiKey: () => req('/api/settings/ai-key', { method: 'DELETE' }).then((r) => json<AiKeyView>(r)).then((r) => r.key),
+  codexStatus: () => req('/api/settings/codex').then((r) => json<CodexStatus>(r)),
+  installCodex: () => req('/api/settings/codex/install', { method: 'POST' }).then((r) => json<CodexStatus>(r)),
+  loginCodex: () => req('/api/settings/codex/login', { method: 'POST' }).then((r) => json<CodexStatus>(r)),
   agentSettings: () => req('/api/settings/agents').then((r) => json<AgentSettings>(r)),
   saveAgentSettings: (patch: AgentSettingsBody) => req('/api/settings/agents', send('PUT', patch)).then((r) => json<AgentSettings>(r)),
   /** 설정 › 동기화 (10/19) */

@@ -97,10 +97,24 @@ export type CommonRulesSaved = z.infer<typeof CommonRulesSaved>
  * GET · PUT · DELETE /settings/ai-key: 앱이 직접 묻는 AI의 키 (설정 › 에이전트, 서버 aiKey.ts).
  * 키는 받기만 하고 돌려주지 않는다: 어느 AI인지, 쓰는 모델, 끝 네 자만.
  */
-export const AI_PROVIDERS = ['claude', 'gemini'] as const
+export const AI_PROVIDERS = ['claude', 'gemini', 'chatgpt'] as const
 export const AiKeyView = z.object({
   key: z.object({ provider: z.enum(AI_PROVIDERS), model: z.string(), hint: z.string() }).strict().nullable(),
 }).strict()
-export const AiKeyBody = z.object({ provider: z.enum(AI_PROVIDERS), key: z.string().trim().min(8).max(400) }).strict()
+/** chatgpt는 키 없이 (Codex에 ChatGPT로 로그인한 뒤) */
+export const AiKeyBody = z.union([
+  z.object({ provider: z.enum(['claude', 'gemini']), key: z.string().trim().min(8).max(400) }).strict(),
+  z.object({ provider: z.literal('chatgpt') }).strict(),
+])
+/**
+ * GET /settings/codex · POST /settings/codex/install · POST /settings/codex/login: ChatGPT로 답하게 하는 Codex (서버 codexCli.ts).
+ * 받기 · 로그인은 오래 걸려 바로 돌려주고, 화면이 busy가 빌 때까지 GET으로 본다.
+ */
+export const CodexStatus = z.object({
+  installed: z.boolean(), version: z.string().nullable(), login: z.boolean(),
+  busy: z.object({ step: z.enum(['install', 'login']), received: z.number(), total: z.number() }).strict().nullable(),
+  error: z.string().nullable(),
+}).strict()
+export type CodexStatus = z.infer<typeof CodexStatus>
 export type AiKeyView = z.infer<typeof AiKeyView>
 export type AiKeyBody = z.infer<typeof AiKeyBody>

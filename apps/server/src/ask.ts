@@ -87,7 +87,7 @@ export const answeredBy = (configDir: string): string => readAiKey(configDir)?.p
 
 export function questionRunner(configDir: string): AskRunner {
   const k = readAiKey(configDir)
-  return k ? apiRunner(k) : claudeRunner
+  return k ? apiRunner(k, fetch, configDir) : claudeRunner
 }
 export const claudeClassifierRunner = runnerWith(['--model', 'haiku', '--tools', ''])
 
