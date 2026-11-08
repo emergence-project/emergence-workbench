@@ -3,7 +3,7 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from './app.js'
-import { appendAnswer, askPrompt, claudeClassifierRunner, claudeExecutable, claudeRunner, type AskRunner } from './ask.js'
+import { appendAnswer, askPrompt, claudeClassifierRunner, claudeEnv, claudeExecutable, claudeRunner, pathDirs, withPath, type AskRunner } from './ask.js'
 import { addComment, readComments } from './comments.js'
 import { app, makeRepo, R, tmp, useSampleApp } from './testkit.js'
 
@@ -111,6 +111,13 @@ describe('에이전트 대화가 띄울 Claude Code', () => {
     vi.stubEnv('RW_CLAUDE_BIN', '/opt/claude')
     expect(claudeExecutable(noPackage)).toBe('/opt/claude')
     vi.unstubAllEnvs()
+  })
+  it('PATH는 이 OS의 구분자로 나누고 잇는다 · 대소문자만 다른 Path는 하나로 (윈도우)', () => {
+    expect(pathDirs({ PATH: ['/a', '', '/b'].join(path.delimiter) })).toEqual(['/a', '/b'])
+    expect(pathDirs({ Path: ['/c', '/d'].join(path.delimiter) })).toEqual(['/c', '/d'])
+    const env = withPath({ Path: '/old', HOME: '/h' }, ['/a', '/b', '/a'])
+    expect(env).toEqual({ HOME: '/h', PATH: ['/a', '/b'].join(path.delimiter) })
+    expect(pathDirs(claudeEnv('win32')).some((d) => d.endsWith(path.join('.local', 'bin')))).toBe(true)
   })
 })
 

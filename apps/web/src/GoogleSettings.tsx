@@ -2,7 +2,7 @@ import type { UiSettings } from '@rw/core'
 import { useEffect, useState } from 'react'
 import { api, googleApi, req, type GoogleStatus, type GoogleSync, type SyncedResearch } from './api'
 import { parseGoogleClient } from './googleClient'
-import { t, plural, locale } from './i18n'
+import { t, plural, locale, HERE } from './i18n'
 
 /**
  * 설정 화면의 "구글 계정" 묶음.
@@ -140,7 +140,7 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
             <li><a href="https://console.cloud.google.com/flows/enableapi?apiid=calendar-json.googleapis.com,drive.googleapis.com" target="_blank" rel="noreferrer">{t('캘린더 · 드라이브 API 켜기', 'Enable the Calendar and Drive APIs')}</a>{t(' (두 API를 한 번에 켭니다).', ' (both at once).')}</li>
             <li><a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noreferrer">{t('동의 화면 정하기', 'Set up the consent screen')}</a>{t(': 사용자 유형 ', ': user type ')}<b>{t('외부', 'External')}</b>{t(', 앱 이름, 그리고 대상 › 테스트 사용자에 내 구글 주소.', ', an app name, and your Google address under Audience › Test users.')}</li>
             <li><a href="https://console.cloud.google.com/auth/clients/create" target="_blank" rel="noreferrer">{t('클라이언트 만들기', 'Create a client')}</a>{t(': 애플리케이션 유형 ', ': application type ')}<b>{t('데스크톱 앱', 'Desktop app')}</b>{t(' → 만든 뒤 ', ' → after creating, ')}<b>{t('JSON 다운로드', 'Download JSON')}</b>.</li>
-            <li>{t('받은 파일을 위의 "받은 JSON 파일 고르기"로 고르면 끝입니다. 이 맥의 ~/.config/research-workspace/google.yaml에만 저장됩니다.', 'Choose that file with "Choose the downloaded JSON file" above and you are done. It is saved only in ~/.config/research-workspace/google.yaml on this Mac.')}</li>
+            <li>{t(`받은 파일을 위의 "받은 JSON 파일 고르기"로 고르면 끝입니다. ${HERE.ko}의 ~/.config/research-workspace/google.yaml에만 저장됩니다.`, `Choose that file with "Choose the downloaded JSON file" above and you are done. It is saved only in ~/.config/research-workspace/google.yaml on ${HERE.en}.`)}</li>
           </ol>
         </details>
       )}

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { changesApi, type ChangeItem, type Changes } from './api'
 import { qk } from './queries'
 import { go, type Route } from './router'
-import { t } from './i18n'
+import { t, HERE } from './i18n'
 import { InfoShell, SubHead } from './ProjectInfoPage'
 
 const KIND: Record<ChangeItem['kind'], string> = {
@@ -67,7 +67,7 @@ export function ChangesPage({ rid }: { rid: string }) {
         <p className="chg-bar muted">
           {data ? <>
             <span>{t(`내가 본 ${changeTime(data.since)} 뒤로 ${data.items.length}개`, `${data.items.length} since you looked at ${changeTime(data.since)}`)}</span>
-            <span title={t('커밋하지 않은 것은 이 맥 것만 보입니다', 'Only this Mac\'s uncommitted edits are shown')}>{t(`이 맥: ${data.machine}`, `This Mac: ${data.machine}`)}</span>
+            <span title={t(`커밋하지 않은 것은 ${HERE.ko} 것만 보입니다`, `Only ${HERE.en}'s uncommitted edits are shown`)}>{t(`${HERE.ko}: ${data.machine}`, `${HERE.En}: ${data.machine}`)}</span>
             <span>{t('✓ 봄 ○ 아직', '✓ seen ○ not yet')}</span>
           </> : q.error ? <span className="error-text">{t(`읽지 못했습니다 — ${(q.error as Error).message}`, `Could not read: ${(q.error as Error).message}`)}</span> : t('읽는 중…', 'Loading…')}
         </p>
@@ -87,7 +87,7 @@ export function ChangesPage({ rid }: { rid: string }) {
                       <td className="chg-what">
                         {to ? <button className="a chg-name" title={i.files.join('\n')} onClick={() => go(to)}>{name}</button> : <span className="chg-name" title={i.files.join('\n')}>{name}</span>}
                         <span className="chg-kind"> · {KIND[i.kind]} · {ACTION[i.action]}</span>
-                        {i.uncommitted && <span className="tag chg-uncommitted" title={t('이 맥에서 아직 커밋하지 않았습니다', 'Not committed on this Mac yet')}>{t('커밋 안 됨', 'Not committed')}</span>}
+                        {i.uncommitted && <span className="tag chg-uncommitted" title={t(`${HERE.ko}에서 아직 커밋하지 않았습니다`, `Not committed on ${HERE.en} yet`)}>{t('커밋 안 됨', 'Not committed')}</span>}
                       </td>
                       <td className="chg-who">{i.authors.join(', ')}</td>
                       <td className="chg-who r">{changeWhen(i)}</td>

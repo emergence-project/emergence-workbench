@@ -27,6 +27,10 @@ export const t = (ko: string, en: string): string => (lang === 'ko' ? ko : en)
 
 /** 윈도우에서 연 화면인지 (내려받은 윈도우 앱). 맥의 Finder 말을 파일 탐색기 말로 바꿀 때만 쓴다 */
 export const onWindows = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent)
+/** "이 맥" (윈도우: 이 컴퓨터). 내려받은 윈도우 앱의 화면에 "맥"이 보이지 않게 문장 안에 넣는다 (11/8 점검) */
+export const HERE = onWindows
+  ? { ko: '이 컴퓨터', en: 'this computer', En: 'This computer', onKo: '이 컴퓨터에서', onEn: 'On this computer' }
+  : { ko: '이 맥', en: 'this Mac', En: 'This Mac', onKo: '맥에서', onEn: 'On Mac' }
 /** "Finder에서 보기" (윈도우: 탐색기에서 보기) */
 export const revealLabel = (): string => (onWindows ? t('탐색기에서 보기', 'Show in File Explorer') : t('Finder에서 보기', 'Show in Finder'))
 /** "Finder에서 고르기" (윈도우: 폴더 고르기) */

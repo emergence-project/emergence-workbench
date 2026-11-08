@@ -190,7 +190,7 @@ export function FiguresHome({ info, rightOpen, onSaved }: { info: LibraryInfo | 
   const [b, error] = useBrief<FigureBrief>(loadFigures, FIGURES_CHANGED, info)
   const list = (filter: string): Route => ({ page: 'figures', filter })
   const check: StatRow[] | null = b && [
-    { key: 'broken', label: '그림으로 못 바꾼 tikz', text: t('그림으로 못 바꾼 tikz', 'tikz that failed to render'), tip: t('맥의 TeX로 그림(SVG)을 만들지 못한 tikz 원본. 원본을 고치면 다시 만듭니다', "tikz sources that the Mac's TeX could not turn into an SVG. Fixing the source renders it again"), count: b.check.broken, to: list('broken') },
+    { key: 'broken', label: '그림으로 못 바꾼 tikz', text: t('그림으로 못 바꾼 tikz', 'tikz that failed to render'), tip: t('TeX로 그림(SVG)을 만들지 못한 tikz 원본. 원본을 고치면 다시 만듭니다', 'tikz sources that TeX could not turn into an SVG. Fixing the source renders it again'), count: b.check.broken, to: list('broken') },
   ]
   const stats: StatRow[] | null = b && [
     { key: 'tikz', label: 'tikz', text: t('tikz', 'tikz'), tip: t('tikz 원본(.tikz · .tex)', 'tikz sources (.tikz · .tex)'), count: b.stats.tikz, to: list('tikz') },

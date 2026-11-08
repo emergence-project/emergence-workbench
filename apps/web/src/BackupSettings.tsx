@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { backupApi, type BackupStatus } from './api'
-import { locale, t } from './i18n'
+import { locale, t, HERE } from './i18n'
 
 /**
  * 설정 화면의 "백업" 묶음 (10/4 사용자 결정): 연구 저장소에 올라가지 않는 workbench/와 앱 설정을
@@ -22,7 +22,7 @@ export function BackupSettings() {
           <div>{last ? last.message : t('아직 이번 실행에서 백업하지 않았습니다', 'No backup yet since the app started')}</div>
           <div className="set-desc" style={{ maxWidth: 'none' }}>
             {last && `${new Date(last.at).toLocaleString(locale())}${last.commit ? ` · ${last.commit}` : ''} · `}
-            {t(`연구 저장소에 올라가지 않는 workbench/와 앱 설정(구글 열쇠 빼고)은 ${st.remote}가 정본입니다. 한 시간마다 맞춥니다: 이 맥에서 고친 것은 올리고, GitHub에서 고친 것은 받습니다. 양쪽에서 다르게 고친 파일은 이 맥 것을 두고 GitHub 것을 옆에 \`이름.github-날짜\`로 받아 둡니다.`,
+            {t(`연구 저장소에 올라가지 않는 workbench/와 앱 설정(구글 열쇠 빼고)은 ${st.remote}가 정본입니다. 한 시간마다 맞춥니다: ${HERE.ko}에서 고친 것은 올리고, GitHub에서 고친 것은 받습니다. 양쪽에서 다르게 고친 파일은 ${HERE.ko} 것을 두고 GitHub 것을 옆에 \`이름.github-날짜\`로 받아 둡니다.`,
               `${st.remote} is the source of truth for workbench/ folders that are not pushed to the research repositories and for app settings (except Google keys). It syncs every hour: changes made on this Mac are pushed and changes made on GitHub are pulled. When a file was changed differently on both sides, the Mac copy is kept and the GitHub copy is saved next to it as \`name.github-date\`.`)}
             {last && last.conflicts.length > 0 && <div>{t('양쪽에서 고친 파일: ', 'Changed on both sides: ')}{last.conflicts.join(', ')}</div>}
           </div>

@@ -324,9 +324,12 @@ export const DEFAULT_PREAMBLE = `% 이 연구의 공통 서식과 매크로. 모
 \\usepackage{amsmath,amssymb}
 \\usepackage{graphicx}
 \\usepackage{kotex}
-% macOS 기본 한글 글꼴. 다른 글꼴을 쓰려면 이름을 바꾼다.
-\\setmainhangulfont{AppleMyungjo}
-\\setsanshangulfont{Apple SD Gothic Neo}
+% 한글 글꼴: 그 컴퓨터에 있는 것을 macOS → 윈도우 → 리눅스(Noto CJK) 차례로 쓴다. 다른 글꼴을 쓰려면 이름을 바꾼다.
+\\ifdefined\\setmainhangulfont
+  \\IfFontExistsTF{AppleMyungjo}{\\setmainhangulfont{AppleMyungjo}\\setsanshangulfont{Apple SD Gothic Neo}}{%
+  \\IfFontExistsTF{Batang}{\\setmainhangulfont{Batang}\\setsanshangulfont{Malgun Gothic}}{%
+  \\setmainhangulfont{Noto Serif CJK KR}\\setsanshangulfont{Noto Sans CJK KR}}}
+\\fi
 `
 
 export class WorkbenchError extends Error {

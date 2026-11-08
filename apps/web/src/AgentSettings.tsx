@@ -8,7 +8,7 @@ import { feedbackNotifyOn, setFeedbackNotifyOn } from './feedbackNotify'
 import { AgentHooks } from './AgentHooks'
 import { useAgentKinds } from './AgentPick'
 import { href } from './router'
-import { t } from './i18n'
+import { t, HERE } from './i18n'
 import { qk } from './queries'
 import { CopyButton, Row, when } from './SetupChecklist'
 import { AiKeyRow } from './AiKeySettings'
@@ -46,14 +46,14 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
     <AgentConnections onSaved={onSaved} />
     <ChatAgentRows onSaved={onSaved} />
     <AgentHooks onSaved={onSaved} />
-    <h3 className="set-h3">{t('맥에서 하는 일', 'On this Mac')}</h3>
+    <h3 className="set-h3">{t(`${HERE.onKo} 하는 일`, `On ${HERE.en}`)}</h3>
     {!s ? <p className="muted">{err ?? t('설정을 읽는 중…', 'Reading settings…')}</p> :
     <div className="set-rows" data-ui="에이전트">
       {/* 질문과 지시를 따로 고른다 (10/28 23:07 피드백, 시안 9oUgyZaGXY74exRk9vUi17 3절) */}
       <div className="set-row" data-ui="질문 처리">
         <div>
           <div className="set-name">{t('질문 처리', 'Questions')}</div>
-          <div className="set-desc">{t('기록에 남긴 질문에 이 맥의 Claude가 언제 답할지 고릅니다. 질문은 파일을 읽기만 합니다. 바로면 남기거나 이어 쓰는 즉시 답하고, 직접 부탁이면 다음에 일하는 에이전트가 집어 갑니다. 어느 쪽이든 기록의 반짝이(에이전트에게 보내기)로 지금 보낼 수 있습니다.', 'Choose when Claude on this Mac answers questions left in records. Questions only read files. With "Right away", it answers as soon as you leave or continue one; with "When asked", the next agent session picks them up. Either way you can send one now with the sparkle (Send to agent) on the record.')}</div>
+          <div className="set-desc">{t(`기록에 남긴 질문에 ${HERE.ko}의 Claude가 언제 답할지 고릅니다. 질문은 파일을 읽기만 합니다. 바로면 남기거나 이어 쓰는 즉시 답하고, 직접 부탁이면 다음에 일하는 에이전트가 집어 갑니다. 어느 쪽이든 기록의 반짝이(에이전트에게 보내기)로 지금 보낼 수 있습니다.`, `Choose when Claude on ${HERE.en} answers questions left in records. Questions only read files. With "Right away", it answers as soon as you leave or continue one; with "When asked", the next agent session picks them up. Either way you can send one now with the sparkle (Send to agent) on the record.`)}</div>
           {err && <div className="error-text">{err}</div>}
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
@@ -65,7 +65,7 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
       <div className="set-row" data-ui="지시 처리">
         <div>
           <div className="set-name">{t('지시 처리', 'Instructions')}</div>
-          <div className="set-desc">{t('기록에 남긴 지시를 이 맥의 Claude가 언제 할지 고릅니다. 노트를 고치면 수정 검토에서 승인합니다. 한 번에 하나씩 하고, 하나마다 Claude 사용량이 듭니다.', 'Choose when Claude on this Mac carries out instructions left in records. Note changes wait for your approval in Edit review. One runs at a time, and each one uses Claude usage.')}</div>
+          <div className="set-desc">{t(`기록에 남긴 지시를 ${HERE.ko}의 Claude가 언제 할지 고릅니다. 노트를 고치면 수정 검토에서 승인합니다. 한 번에 하나씩 하고, 하나마다 Claude 사용량이 듭니다.`, `Choose when Claude on ${HERE.en} carries out instructions left in records. Note changes wait for your approval in Edit review. One runs at a time, and each one uses Claude usage.`)}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {INSTRUCTION_MODES.map((m) => (
@@ -227,7 +227,7 @@ function ChatAgentRows({ onSaved }: { onSaved(message: string): void }) {
         <Row key={a.id} ok={a.installed && a.login !== false} optional={a.id !== 'claude-code'} name={a.name} sub={a.version} ui="대화 에이전트"
           action={!a.installed && a.install && <CopyButton text={a.install} onSaved={onSaved} />}>
           {!a.installed
-            ? <>{t('이 맥에 없습니다. 깔고(', 'Not on this Mac. Install it (')}<code className="setup-cmd">{a.install}</code>{t(`) 터미널에서 ${a.id === 'codex' ? 'codex' : 'gemini'}를 한 번 열어 로그인하면 모델 메뉴에서 고를 수 있습니다.`, `), open ${a.id === 'codex' ? 'codex' : 'gemini'} once in the terminal to sign in, then pick it in the model menu.`)}</>
+            ? <>{t(`${HERE.ko}에 없습니다. 깔고(`, `Not on ${HERE.en}. Install it (`)}<code className="setup-cmd">{a.install}</code>{t(`) 터미널에서 ${a.id === 'codex' ? 'codex' : 'gemini'}를 한 번 열어 로그인하면 모델 메뉴에서 고를 수 있습니다.`, `), open ${a.id === 'codex' ? 'codex' : 'gemini'} once in the terminal to sign in, then pick it in the model menu.`)}</>
             : a.login === false ? t(`깔려 있지만 로그인한 흔적이 없습니다. 터미널에서 ${a.id === 'codex' ? 'codex' : 'gemini'}를 한 번 열어 로그인하세요.`, `Installed, but no sign-in found. Open ${a.id === 'codex' ? 'codex' : 'gemini'} once in the terminal to sign in.`)
               : a.id === 'claude-code' ? t('기본 에이전트. 계획 모드 · 되돌리기 · 탐색 하위 에이전트까지 됩니다.', 'The default agent, with plan mode, rewind and the explore subagent.')
                 : t('모델 메뉴의 에이전트 줄에서 고릅니다. 허락 카드 · 범위 · 수정 검토는 Claude와 같고, 계획 모드 · 되돌리기는 없습니다.', 'Pick it in the agent row of the model menu. Permission cards, scope and edit review work as with Claude; plan mode and rewind are not available.')}

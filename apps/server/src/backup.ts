@@ -7,7 +7,7 @@ import YAML from 'yaml'
 import type { BackupResult } from '@rw/core/contract/backup'
 import { writeAtomic } from './fsutil'
 import { git as gitAt, gitBuffer, gitRun, GIT_TIMEOUT } from './git.js'
-import { t } from './i18n.js'
+import { HERE, t } from './i18n.js'
 import type { ProjectProfile } from './registry.js'
 
 /**
@@ -262,7 +262,7 @@ export async function backupWorkbenches(opts: {
       await assertPrivateRemote(opts.dir)
       await git(opts.dir, ['push', '--quiet', 'origin', 'HEAD:refs/heads/main'])
     } catch (e) {
-      return { at, projects, commit, pushed: false, ...extra, message: t(`이 맥에는 커밋했지만 GitHub에 올리지 못했습니다 — ${firstLine(e)}`, `Committed on this Mac but could not push to GitHub: ${firstLine(e)}`), error: firstLine(e) }
+      return { at, projects, commit, pushed: false, ...extra, message: t(`${HERE.ko}에는 커밋했지만 GitHub에 올리지 못했습니다 — ${firstLine(e)}`, `Committed on ${HERE.en} but could not push to GitHub: ${firstLine(e)}`), error: firstLine(e) }
     }
     await git(opts.dir, ['update-ref', SYNCED, 'HEAD'])
     return { at, projects, commit, pushed: true, ...extra, message: t(`맞췄습니다: ${[...projects, ...(paths.includes(path.dirname(SETTINGS)) ? ['앱 설정'] : [])].join(', ')}${what ? ` (${what})` : ''}`, `Synced: ${[...projects, ...(paths.includes(path.dirname(SETTINGS)) ? ['app settings'] : [])].join(', ')}${what ? ` (${what})` : ''}`) }

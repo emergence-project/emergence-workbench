@@ -11,7 +11,7 @@ import { go } from './router'
 import { store } from './store'
 import { tableHiddenColumns } from './tableColumns'
 import { authorLine, colOf, COMPACT, openPdf, PaperTable, readWidths, sortPapers, TABLE, type ColId, type Ctx, type Sort, type Widths } from './PaperTable'
-import { t } from './i18n'
+import { t, HERE } from './i18n'
 import { loadPdfjs } from './pdfjs'
 
 /**
@@ -533,7 +533,7 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
         <div className="pane-head" data-ui="머리줄">
           <span className="crumb"><button className="a" onClick={() => go({ page: 'shelf' })}>{t('논문', 'Papers')}</button> › <b title={paper.title}>{paper.title}</b></span>
           <span className="sp" />
-          <span className="muted">{paper.pdf.where === 'cloud' ? t('클라우드 (여는 동안 받아 옵니다)', 'Cloud (downloads while opening)') : t('이 맥에 있음', 'On this Mac')}</span>
+          <span className="muted">{paper.pdf.where === 'cloud' ? t('클라우드 (여는 동안 받아 옵니다)', 'Cloud (downloads while opening)') : t(`${HERE.ko}에 있음`, `On ${HERE.en}`)}</span>
         </div>
         <CommentablePdf rid={LIBRARY} target={target} url={paper.pdf.where === 'none' ? null : papersApi.pdfUrl(paper.key)} highlight={NO_BOXES} onPick={() => undefined} remember={paper.key} />
       </section>

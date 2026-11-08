@@ -32,3 +32,8 @@ export function withLang<T>(lang: Lang | undefined, run: () => T): T {
 
 /** Pick the text for the current language. */
 export const t = (ko: string, en: string): string => (currentLang() === 'ko' ? ko : en)
+
+/** "이 맥" (맥이 아니면 이 컴퓨터): 내려받은 윈도우 앱이 보내는 글에 "맥"이 보이지 않게 (11/8 점검) */
+export const HERE = process.platform === 'darwin'
+  ? { ko: '이 맥', en: 'this Mac', En: 'This Mac' }
+  : { ko: '이 컴퓨터', en: 'this computer', En: 'This computer' }

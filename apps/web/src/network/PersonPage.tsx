@@ -5,7 +5,7 @@ import { askConfirm } from '../askText'
 import { FieldTags as FieldPicker } from '../FieldTags'
 import { Icon } from '../icons'
 import { go } from '../router'
-import { plural, t } from '../i18n'
+import { plural, t, HERE } from '../i18n'
 import { qk } from '../queries'
 import { NewPapersSection } from './NewPapers'
 import { NoteAuthors } from './NoteAuthors'
@@ -130,7 +130,7 @@ function PhotoPicker({ person, onSaved }: { person: PersonView; onSaved(m: strin
     } catch (e) { onSaved(t(`사진을 넣지 못했습니다 — ${(e as Error).message}`, `Couldn't set the photo: ${(e as Error).message}`)) }
   }
   return (
-    <label className="net-photo" data-ui="사진 바꾸기" title={t('사진 바꾸기 — 이 맥의 사진 파일을 고릅니다', 'Change photo: pick an image file on this Mac')}>
+    <label className="net-photo" data-ui="사진 바꾸기" title={t(`사진 바꾸기 — ${HERE.ko}의 사진 파일을 고릅니다`, `Change photo: pick an image file on ${HERE.en}`)}>
       <Avatar name={person.name} xl person={person} />
       <span className="net-photo-cam">{t('사진 바꾸기', 'Change photo')}</span>
       <input type="file" accept="image/*" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = '' }} />

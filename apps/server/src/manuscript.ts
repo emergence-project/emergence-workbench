@@ -468,7 +468,7 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
     const code = await new Promise<number>((resolve) => {
       // 원고 폴더에서 돌려 \input·그림 경로가 원래대로 풀리게 하고, bibtex가 원고 폴더의 .bib를 찾게 한다.
       // 빌드 폴더를 앞에 두어 감싸는 main의 \input{setting}이 빌드 폴더의 setting.tex를 찾는다
-      const child = spawn('latexmk', args, { cwd: dir, env: { ...process.env, max_print_line: '10000', BIBINPUTS: `${dir}:`, TEXINPUTS: target === path.basename(main) ? `${dir}:` : `${out}:${dir}:` }, stdio: 'ignore' })
+      const child = spawn('latexmk', args, { cwd: dir, env: { ...process.env, max_print_line: '10000', BIBINPUTS: `${dir}${path.delimiter}`, TEXINPUTS: target === path.basename(main) ? `${dir}${path.delimiter}` : `${out}${path.delimiter}${dir}${path.delimiter}` }, stdio: 'ignore' })
       const timer = setTimeout(() => child.kill('SIGKILL'), COMPILE_TIMEOUT_MS)
       child.on('close', (c) => { clearTimeout(timer); resolve(c ?? -1) })
       child.on('error', () => { clearTimeout(timer); resolve(-1) })
