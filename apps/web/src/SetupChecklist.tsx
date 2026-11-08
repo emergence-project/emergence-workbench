@@ -206,7 +206,7 @@ function GitHubRow({ list, error, onCheck, checking, onSaved }: { list?: GitHubR
         ? <span data-ui="GitHub 로그인 코드">
           {t('이 코드를 ', 'Enter this code on ')}<a className="a" href={pending.uri} target="_blank" rel="noreferrer">{t('GitHub 로그인 쪽', 'the GitHub sign-in page')}</a>{t('에 넣고 승인하세요: ', ' and approve: ')}
           <code className="setup-code">{pending.userCode}</code>
-          {t('. 승인하면 이 줄이 저절로 바뀝니다. ', '. This row updates by itself once you approve. ')}
+          {t('. 승인하면 이 줄이 자동으로 바뀝니다. ', '. This row updates by itself once you approve. ')}
         </span>
         : ok ? <>{t('연결됨', 'Connected')}{owner && <>: <b>{owner}</b></>} · {via}{list?.ok ? <> · {t(`저장소 ${list.repos.length}개. `, `${plural(list.repos.length, 'repository', 'repositories')}. `)}</> : '. '}</>
           : a?.error ? `${a.error}. `
