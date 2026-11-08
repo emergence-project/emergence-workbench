@@ -12,12 +12,11 @@ import { z } from 'zod'
 import { FEEDBACK_MISSES, LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { recordRows } from './recordRows.js'
 import { registerTaskTools } from './mcpTasks.js'
+import { KEY_HEADER, serverTarget } from './appKey.js'
 import { KIND_NAME, shownName } from './flowNames.js'
 import * as C from '@rw/core/contract/flow'
 import type { Changes } from '@rw/core/contract/changes'
 
-// 기본은 맥의 실사용 서버(scripts/serve.sh, 5174). 예제 모드(pnpm dev, 8130)는 RW_URL로 준다.
-export const DEFAULT_URL = process.env.RW_URL ?? `http://127.0.0.1:${process.env.RW_PORT ?? 5174}`
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const RULES_FILE = path.join(APP_ROOT, 'docs/agent-delegated-work.md')
 
@@ -145,15 +144,16 @@ Nothing changed.`
 }
 
 /** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_checks · feedback_answer를 더한다) */
-export function createMcpServer(opts: { baseUrl?: string; fetch?: Fetch; appChat?: string; account?: string } = {}): McpServer {
-  const base = (opts.baseUrl ?? DEFAULT_URL).replace(/\/$/, '')
+export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; account?: string } = {}): McpServer {
+  const target = opts.baseUrl ? { url: opts.baseUrl, key: opts.key } : serverTarget()
+  const base = target.url.replace(/\/$/, '')
   const f0 = opts.fetch ?? fetch
   // 앱이 에이전트 연결을 알아보게 (설정 › 계정 › 시작 준비, agentSeen.ts)
   // Claude 계정 id도 붙인다: 변경사항의 기준이 계정마다 (한 맥에 계정이 둘이어도 섞이지 않게, 10/27)
   const account = opts.account !== undefined ? opts.account || undefined : claudeAccount()
   const f: Fetch = (url, init) => {
     const agent = agentOf(server.server.getClientVersion()?.name)
-    return f0(url, { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), 'x-rw-agent': agent, ...(agent === 'claude-code' && account && { 'x-rw-account': account }) } })
+    return f0(url, { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), 'x-rw-agent': agent, ...(target.key && { [KEY_HEADER]: target.key }), ...(agent === 'claude-code' && account && { 'x-rw-account': account }) } })
   }
   const call = async (url: string, shape: (body: never) => unknown = (b) => b): Promise<Text> => {
     const r = await get(base, f, url)

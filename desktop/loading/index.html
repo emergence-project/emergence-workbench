@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Emergence Workbench</title>
-<!-- 창이 처음 띄우는 쪽: 서버(127.0.0.1:5174)가 답할 때까지 기다렸다가 넘어간다. 색은 앱 tokens.css의 바탕 · 글자 색과 같게 둔다 -->
+<!-- 창이 처음 띄우는 쪽: 서버가 답할 때까지 기다렸다가 넘어간다. 서버 주소 · 열쇠는 창이 넣어 준다(main.rs resume_script). 색은 앱 tokens.css의 바탕 · 글자 색과 같게 둔다 -->
 <style>
   :root { color-scheme: light dark; --bg: #ffffff; --text-3: #6a6a66; }
   @media (prefers-color-scheme: dark) { :root { --bg: #2b2b2a; --text-3: #a8a8a3; } }
@@ -16,20 +16,24 @@
 <p id="wait">여는 중…</p>
 <p id="late">서버가 답하지 않습니다.<br><span id="late-how">터미널에서 <code>pnpm service:restart</code>를 한 뒤 창을 다시 여세요.</span></p>
 <script>
-  const SERVER = 'http://127.0.0.1:5174/'
-  // 지난번에 보던 화면 (창이 닫힐 때 앱이 기억해 둔 서버 주소, main.rs resume_script)
-  const resume = typeof window.__rwResume === 'string' && window.__rwResume.startsWith(SERVER) ? window.__rwResume : SERVER
+  // 서버 주소: 설치 파일로 깐 앱은 켤 때마다 포트가 바뀐다. 없으면 맥 서비스(5174)
+  const SERVER = typeof window.__rwServer === 'string' ? window.__rwServer : 'http://127.0.0.1:5174/'
+  // 묶은 서버의 열쇠: /__open에 한 번 건네면 서버가 쿠키를 주고 화면으로 넘긴다 (apps/server/src/appKey.ts)
+  const KEY = typeof window.__rwKey === 'string' ? window.__rwKey : null
+  // 지난번에 보던 화면의 경로 (창이 닫힐 때 앱이 기억해 둔 것)
+  const page = typeof window.__rwResume === 'string' && window.__rwResume.startsWith('/') && !window.__rwResume.startsWith('//') ? window.__rwResume : '/'
+  const target = KEY ? `${SERVER}__open?k=${KEY}&to=${encodeURIComponent(page)}` : SERVER + page.slice(1)
   const started = Date.now()
   async function tryOpen() {
     try {
       await fetch(SERVER, { mode: 'no-cors', cache: 'no-store' })
-      location.replace(resume)
+      location.replace(target)
       return
     } catch { /* 아직 켜지는 중 */ }
     if (Date.now() - started > 20000) {
       document.getElementById('wait').style.display = 'none'
       // 앱이 서버를 품은 경우(main.rs start_bundled): 서비스 명령 대신 앱을 다시 열게
-      if (window.__rwStandalone === true) document.getElementById('late-how').textContent = '앱을 끝냈다가(⌘Q) 다시 여세요.'
+      if (window.__rwStandalone === true) document.getElementById('late-how').textContent = '앱을 끝냈다가 다시 여세요.'
       document.getElementById('late').style.display = 'block'
     }
     setTimeout(tryOpen, 400)

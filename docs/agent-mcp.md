@@ -8,6 +8,7 @@ Agents such as Claude Code and Codex read Emergence Workbench projects, notes, r
 
 - The app server must be running on the Mac (the installed service, default `http://127.0.0.1:5174`). If it is off, every tool answers "Cannot reach the Emergence Workbench app server" and does nothing.
 - To use a server at another address, set `RW_URL`. For sample mode (`pnpm dev`): `RW_URL=http://127.0.0.1:8130`.
+- The installed app (downloaded installer) picks a new port and a one-time key every time it opens, and its server refuses requests without the key. The MCP entry finds both in `server.json` in the app's settings folder, so agents registered outside the app need no change. Agents the app starts itself get them as `RW_PORT` and `RW_KEY`.
 
 ## Register it
 
