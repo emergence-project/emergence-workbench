@@ -14,8 +14,8 @@ import os from 'node:os'
 import readline from 'node:readline'
 import type { ModelChoice } from '@rw/core/contract/agentChats'
 import { Inbox, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type ToolDecision, type Turn } from './agentChats.js'
-import { acpBin, acpEnv, type AcpSpec } from './agentKinds.js'
-import { t } from './i18n.js'
+import { acpBin, acpEnv, spawnTarget, type AcpSpec } from './agentKinds.js'
+import { HERE, t } from './i18n.js'
 
 type Json = Record<string, unknown>
 const isRec = (v: unknown): v is Json => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -150,8 +150,9 @@ export type ChatMcp = (o: { appChat?: string; gate: RunInput['canUseTool'] }) =>
 
 function launch(spec: AcpSpec, cwd: string, env?: Record<string, string>): ChildProcess {
   const bin = acpBin(spec)
-  if (!bin) throw new Error(t(`이 맥에서 ${spec.name}를 찾지 못했습니다. 깔고 한 번 로그인해 주세요: ${spec.install}`, `${spec.name} was not found on this Mac. Install it and sign in once: ${spec.install}`))
-  return spawn(bin, spec.args, { cwd, env: acpEnv(env), stdio: ['pipe', 'pipe', 'pipe'] })
+  if (!bin) throw new Error(t(`${HERE.ko}에서 ${spec.name}를 찾지 못했습니다. 깔고 한 번 로그인해 주세요: ${spec.install}`, `${spec.name} was not found on ${HERE.en}. Install it and sign in once: ${spec.install}`))
+  const how = spawnTarget(bin)
+  return spawn(how.file, spec.args, { cwd, env: acpEnv(env), stdio: ['pipe', 'pipe', 'pipe'], shell: how.shell, windowsHide: true })
 }
 
 const INIT = { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: 'emergence-workbench', version: '1' } }

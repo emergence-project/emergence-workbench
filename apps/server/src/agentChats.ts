@@ -20,7 +20,7 @@ import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, Feedba
 import type { AppWork, FileDiff, Snap } from './appWorktree.js'
 import { agentTurnReasons, agentTurns, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
 import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
-import { t } from './i18n.js'
+import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 
 // ---------- 에이전트 실행기 (실제는 agentRunner.ts의 Claude Agent SDK, 테스트는 가짜) ----------
@@ -305,7 +305,7 @@ export class AgentChats {
 
   create(b: NewChatBody, link: { feedback?: string; record?: { target: string; id: string } } = {}, prompt?: string): Chat {
     const app = b.rid === APP_RID
-    if (app && !this.deps.app) throw new WorkbenchError(404, t('이 맥에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다', 'No app repository on this Mac, so app conversations are not available'))
+    if (app && !this.deps.app) throw new WorkbenchError(404, t(`${HERE.ko}에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다`, `No app repository on ${HERE.en}, so app conversations are not available`))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
     if (!app) this.deps.project(b.rid) // 등록하지 않은 프로젝트면 404
     const scope: ChatScope = app ? { kind: 'app' } : b.scope ?? { kind: 'project' }
@@ -595,7 +595,7 @@ export class AgentChats {
    */
   handOff(key: string): Chat {
     const fb = this.deps.feedback
-    if (!this.deps.app || !fb) throw new WorkbenchError(404, t('이 맥에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)', 'Feedback cannot be handed to an agent on this Mac (needs the app repository and a feedback folder)'))
+    if (!this.deps.app || !fb) throw new WorkbenchError(404, t(`${HERE.ko}에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)`, `Feedback cannot be handed to an agent on ${HERE.en} (needs the app repository and a feedback folder)`))
     if (this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
     const busy = [...this.chats.values()].find((c) => c.feedback === key && LIVE.has(c.state))
     if (busy) throw new WorkbenchError(409, t(`이 피드백을 맡은 대화(「${busy.title}」)가 일하는 중입니다`, `A conversation ("${busy.title}") is already working on this feedback`))
@@ -816,7 +816,7 @@ export class AgentChats {
   side(id: string, q: string): Chat {
     const c = this.must(id)
     const ask = this.deps.runner.side
-    if (!ask) throw new WorkbenchError(404, t('이 맥에서는 곁 질문을 쓸 수 없습니다', 'Side questions are not available on this Mac'))
+    if (!ask) throw new WorkbenchError(404, t(`${HERE.ko}에서는 곁 질문을 쓸 수 없습니다`, `Side questions are not available on ${HERE.en}`))
     const it: Extract<ChatItem, { kind: 'side' }> = { kind: 'side', at: now(), q: clip(q, 4000) }
     this.push(c, it)
     const cwd = c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
@@ -831,7 +831,7 @@ export class AgentChats {
   async recordDraft(id: string, place: string): Promise<{ text: string }> {
     const c = this.must(id)
     const ask = this.deps.runner.side
-    if (!ask) throw new WorkbenchError(404, t('이 맥에서는 기록 초안을 쓸 수 없습니다', 'Record drafts are not available on this Mac'))
+    if (!ask) throw new WorkbenchError(404, t(`${HERE.ko}에서는 기록 초안을 쓸 수 없습니다`, `Record drafts are not available on ${HERE.en}`))
     if (!c.items.some((it) => it.kind === 'text' && !it.sub)) throw new WorkbenchError(400, t('아직 에이전트의 답이 없어 남길 것이 없습니다', 'Nothing to keep yet: the agent has not answered'))
     const cwd = c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
     const text = (await ask({ prompt: recordDraftPrompt(c, place), cwd })).trim()

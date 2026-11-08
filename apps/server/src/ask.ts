@@ -29,11 +29,24 @@ const ASK_TIMEOUT_MS = 6 * 60_000
 const READ_ONLY_TOOLS = 'Read,Glob,Grep'
 const MAX_RULE_BYTES = 32 * 1024
 
-/** 서비스(launchd)로 돌 때는 PATH가 짧아 claude를 못 찾으므로 흔한 설치 위치를 더한다 */
-export function claudeEnv(): NodeJS.ProcessEnv {
+/** PATH의 폴더들. 윈도우는 이름이 Path이고 구분자가 ; 다 (11/8 점검: : 로 이어 붙여 윈도우에서 아무것도 못 찾았다) */
+export const pathDirs = (env: NodeJS.ProcessEnv = process.env): string[] => (env.PATH ?? env.Path ?? '').split(path.delimiter).filter(Boolean)
+
+/** env의 PATH를 이 폴더들로 바꾼다. 대소문자만 다른 Path는 지워 둘이 함께 넘어가지 않게 한다 */
+export function withPath(env: NodeJS.ProcessEnv, dirs: string[]): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = {}
+  for (const [k, v] of Object.entries(env)) if (k.toLowerCase() !== 'path') out[k] = v
+  out.PATH = [...new Set(dirs.filter(Boolean))].join(path.delimiter)
+  return out
+}
+
+/** 서비스(launchd)나 창에서 켠 앱은 PATH가 짧아 claude를 못 찾으므로 흔한 설치 위치를 더한다 (윈도우: 설치 프로그램의 .local\bin, npm 전역) */
+export function claudeEnv(platform: NodeJS.Platform = process.platform): NodeJS.ProcessEnv {
   const home = os.homedir()
-  const extra = [path.join(home, '.local/bin'), path.join(home, '.claude/local'), '/opt/homebrew/bin', '/usr/local/bin']
-  return { ...process.env, PATH: [process.env.PATH ?? '', ...extra].filter(Boolean).join(':') }
+  const extra = platform === 'win32'
+    ? [path.join(home, '.local', 'bin'), ...(process.env.APPDATA ? [path.join(process.env.APPDATA, 'npm')] : [])]
+    : [path.join(home, '.local/bin'), path.join(home, '.claude/local'), '/opt/homebrew/bin', '/usr/local/bin']
+  return withPath(process.env, [...pathDirs(), ...extra])
 }
 
 /**
@@ -43,8 +56,9 @@ export function claudeEnv(): NodeJS.ProcessEnv {
 export function claudeExecutable(resolve: (id: string) => string = createRequire(import.meta.url).resolve): string | undefined {
   if (process.env.RW_CLAUDE_BIN) return process.env.RW_CLAUDE_BIN
   try { resolve(`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/package.json`); return undefined } catch { /* 묶은 앱 */ }
-  const dirs = (claudeEnv().PATH ?? '').split(':').filter(Boolean)
-  return dirs.map((d) => path.join(d, 'claude')).find((p) => { try { fs.accessSync(p, fs.constants.X_OK); return true } catch { return false } })
+  // 윈도우는 claude.exe만 (npm이 까는 claude.cmd는 Agent SDK가 띄우지 못한다)
+  const name = process.platform === 'win32' ? 'claude.exe' : 'claude'
+  return pathDirs(claudeEnv()).map((d) => path.join(d, name)).find((p) => { try { fs.accessSync(p, fs.constants.X_OK); return fs.statSync(p).isFile() } catch { return false } })
 }
 
 /**

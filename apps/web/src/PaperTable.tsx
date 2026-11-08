@@ -2,7 +2,7 @@ import { useRef, type CSSProperties, type ReactNode } from 'react'
 import { localDate } from '@rw/core'
 import type { PaperRow } from './api'
 import { matchesSubject } from './api/subjects'
-import { t } from './i18n'
+import { t, HERE } from './i18n'
 import { go } from './router'
 
 /**
@@ -14,7 +14,7 @@ export type ColId = 'title' | 'authors' | 'year' | 'subjects' | 'tags' | 'venue'
 export interface Col { id: ColId; label: string; value(p: PaperRow, ctx: Ctx): string; sort(p: PaperRow, ctx: Ctx): string | number; cell?(p: PaperRow, ctx: Ctx): ReactNode; num?: boolean }
 export interface Ctx { projectTitle(id: string): string; subjectName(id: string): string }
 
-const WHERE_LABEL = { local: t('이 맥', 'This Mac'), cloud: t('클라우드', 'Cloud'), none: t('없음', 'None') } as const
+const WHERE_LABEL = { local: t(HERE.ko, HERE.En), cloud: t('클라우드', 'Cloud'), none: t('없음', 'None') } as const
 const fmtDate = (ms?: number) => {
   if (!ms) return ''
   return localDate(new Date(ms))

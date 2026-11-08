@@ -177,7 +177,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
     const seen = { host: req.headers.host, origin: req.headers.origin, site: req.headers['sec-fetch-site'] as string | undefined, mode: req.headers['sec-fetch-mode'] as string | undefined }
     if (viaPhone === true && allowedRequest(seen, phoneSeen.host ? [phoneSeen.host] : [])) return
     if (viaPhone === false || !allowedRequest(seen, hosts)) {
-      return reply.status(403).send({ error: t('이 맥의 작업대 화면에서 온 요청만 받습니다', 'Only requests from the workbench screen on this computer are accepted') })
+      return reply.status(403).send({ error: t('이 컴퓨터의 작업대 화면에서 온 요청만 받습니다', 'Only requests from the workbench screen on this computer are accepted') })
     }
   })
 

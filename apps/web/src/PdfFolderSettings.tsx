@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { papersApi, type PaperFolder } from './api'
 import { Icon } from './icons'
 import { PAPERS_CHANGED } from './PapersPage'
-import { t } from './i18n'
+import { t, HERE } from './i18n'
 
-const CLOUD_LABEL = { icloud: 'iCloud', drive: 'Google Drive', local: t('이 맥', 'This Mac') } as const
+const CLOUD_LABEL = { icloud: 'iCloud', drive: 'Google Drive', local: t(HERE.ko, HERE.En) } as const
 
 /** 설정 › 라이브러리 관리 › 논문. 더한 논문의 PDF는 첫 폴더에 받는다. */
 export function PdfFolderSettings({ onSaved, onReady }: { onSaved(m: string): void; onReady?(): void }) {
@@ -28,7 +28,7 @@ export function PdfFolderSettings({ onSaved, onReady }: { onSaved(m: string): vo
             <span className="mono" title={f.path}>{f.path.split('/').filter(Boolean).pop() || f.path}</span>
             <span className="muted">{CLOUD_LABEL[f.cloud]}</span>
             {i === 0 && <span className="tag">{t('저장 위치', 'Downloads here')}</span>}
-            {!f.exists && <span className="muted">{t('(이 맥에 없음)', '(not on this Mac)')}</span>}
+            {!f.exists && <span className="muted">{t(`(${HERE.ko}에 없음)`, `(not on ${HERE.en})`)}</span>}
             <span className="sp" />
             <button className="icon-btn" aria-label={t('제거', 'Remove')} data-tip={t('제거', 'Remove')} disabled={busy} onClick={() => void save(list.filter((x) => x.path !== f.path).map((x) => x.path), t('PDF 폴더를 뺐습니다 (폴더와 PDF는 그대로 있습니다)', 'Removed the PDF folder (the folder and its PDFs stay as they are)'))}>{Icon.x}</button>
           </div>

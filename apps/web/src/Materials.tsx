@@ -12,7 +12,7 @@ import { Icon } from './icons'
 import { CITE_EVENT, citeKeys } from './citeKeys'
 import { LIBRARY_SOURCE, loadCitedBib } from './citedBib'
 import { store } from './store'
-import { t } from './i18n'
+import { t, HERE } from './i18n'
 
 /**
  * 사이드바의 "논문·파일": 실제로 가진 PDF·파일(workbench/materials/)만.
@@ -99,7 +99,7 @@ export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChan
           onClick={() => openFile(f)}>
           <span className="mat-ico ico" aria-hidden>{f.kind === 'slides' ? Icon.slides : f.kind === 'image' ? Icon.image : Icon.pdf}</span>
           <span className="label">{f.name}</span>
-          {f.kind === 'slides' && <span className="meta">{t('맥에서', 'On Mac')}</span>}
+          {f.kind === 'slides' && <span className="meta">{t(HERE.onKo, HERE.onEn)}</span>}
         </button>
       ))}
     </div>

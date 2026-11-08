@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { AgentKind, ChatAgents } from '@rw/core/contract/agentChats'
-import { claudeEnv, claudeExecutable } from './ask.js'
+import { claudeEnv, claudeExecutable, pathDirs, withPath } from './ask.js'
 
 export interface AcpSpec {
   id: Exclude<AgentKind, 'claude-code'>
@@ -52,8 +52,10 @@ export const isAcp = (a: string | undefined): a is AcpSpec['id'] => a === 'codex
 
 /** 실행 파일을 찾을 폴더: claudeEnv의 PATH와 흔한 npm 전역 폴더 */
 function binDirs(home = os.homedir()): string[] {
-  const extra = ['.npm-global/bin', '.local/share/pnpm', 'Library/pnpm', '.volta/bin', '.bun/bin'].map((d) => path.join(home, d))
-  return [...new Set([...(claudeEnv().PATH ?? '').split(':').filter(Boolean), ...extra])]
+  const extra = process.platform === 'win32'
+    ? [...(process.env.APPDATA ? [path.join(process.env.APPDATA, 'npm')] : []), ...(process.env.LOCALAPPDATA ? [path.join(process.env.LOCALAPPDATA, 'pnpm')] : [])]
+    : ['.npm-global/bin', '.local/share/pnpm', 'Library/pnpm', '.volta/bin', '.bun/bin'].map((d) => path.join(home, d))
+  return [...new Set([...pathDirs(claudeEnv()), ...extra])]
 }
 
 const executable = (p: string) => { try { fs.accessSync(p, fs.constants.X_OK); return fs.statSync(p).isFile() } catch { return false } }
@@ -62,16 +64,23 @@ const executable = (p: string) => { try { fs.accessSync(p, fs.constants.X_OK); r
 export function acpBin(spec: AcpSpec): string | undefined {
   const own = process.env[spec.envBin]
   if (own) return executable(own) ? own : undefined
-  return binDirs().map((d) => path.join(d, spec.bin)).find(executable)
+  const names = process.platform === 'win32' ? [`${spec.bin}.exe`, `${spec.bin}.cmd`] : [spec.bin]
+  return binDirs().flatMap((d) => names.map((n) => path.join(d, n))).find(executable)
+}
+
+/** 띄우는 방법: 윈도우의 npm 실행 파일(.cmd)은 셸을 거쳐야 뜬다. 인자는 정해 둔 것(--acp 등)뿐이고 경로는 따옴표로 감싼다 */
+export function spawnTarget(bin: string): { file: string; shell: boolean } {
+  return /\.cmd$/i.test(bin) ? { file: `"${bin}"`, shell: true } : { file: bin, shell: false }
 }
 
 /** 에이전트 프로세스의 환경: PATH에 npm 전역 폴더까지 (codex-acp · gemini가 node를 찾게) */
 export function acpEnv(extra?: Record<string, string>): NodeJS.ProcessEnv {
-  return { ...claudeEnv(), PATH: binDirs().join(':'), ...extra }
+  return { ...withPath(claudeEnv(), binDirs()), ...extra }
 }
 
 function versionOf(bin: string): string | undefined {
-  const r = spawnSync(bin, ['--version'], { env: acpEnv(), encoding: 'utf8', timeout: 5_000 })
+  const how = spawnTarget(bin)
+  const r = spawnSync(how.file, ['--version'], { env: acpEnv(), encoding: 'utf8', timeout: 5_000, shell: how.shell, windowsHide: true })
   const line = r.status === 0 ? (r.stdout || '').trim().split('\n')[0] : undefined
   return line ? line.slice(0, 60) : undefined
 }

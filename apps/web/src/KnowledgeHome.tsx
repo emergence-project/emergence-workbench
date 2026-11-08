@@ -9,7 +9,7 @@ import { dayOf, mergeRecent, shortSubject } from './knowledgeRecent'
 import { LibraryStorage, StoreLine } from './LibraryStorage'
 import { go } from './router'
 import { showKnowledgeList } from './knowledgeListState'
-import { t } from './i18n'
+import { t, HERE } from './i18n'
 
 /**
  * 지식 첫 화면 (라이브러리 L1, 설계 결정 2026-10-06 "라이브러리 첫 화면" · "지식 점검 기준").
@@ -158,7 +158,7 @@ export function MakeConcept({ onChanged, onSaved, onDrafted }: { onChanged(): vo
     try {
       const { item } = await learnApi.add({ term: word, ...(note.trim() && { note: note.trim() }) })
       setOpen(null); setTerm(''); setNote('')
-      onSaved(t(`맥의 Claude가 "${item.term}" 초안을 씁니다. 다 쓰면 점검 "초안 검토"에 올라옵니다`, `Claude on your Mac is drafting "${item.term}". When done, it appears under Check › Drafts to review`))
+      onSaved(t(`${HERE.ko}의 Claude가 "${item.term}" 초안을 씁니다. 다 쓰면 점검 "초안 검토"에 올라옵니다`, `Claude on ${HERE.en} is drafting "${item.term}". When done, it appears under Check › Drafts to review`))
       // 초안은 몇 분 걸린다: 기다리는 동안 화면을 떠나도 된다
       learnApi.draft(item.id).then((r) => {
         onChanged(); onDrafted()

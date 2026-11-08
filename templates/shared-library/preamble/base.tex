@@ -7,8 +7,13 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{graphicx}
 \usepackage{kotex}
-% XeLaTeX·LuaLaTeX에서만 글꼴을 고른다 (macOS 기본 글꼴)
+% XeLaTeX·LuaLaTeX에서만 글꼴을 고른다. 그 컴퓨터에 있는 한글 글꼴을 macOS → 윈도우 → 리눅스(Noto CJK) 차례로 쓴다
 \ifdefined\setmainhangulfont
-  \setmainhangulfont{AppleMyungjo}
-  \setsanshangulfont{Apple SD Gothic Neo}
+  \IfFontExistsTF{AppleMyungjo}{%
+    \setmainhangulfont{AppleMyungjo}\setsanshangulfont{Apple SD Gothic Neo}%
+  }{\IfFontExistsTF{Batang}{%
+    \setmainhangulfont{Batang}\setsanshangulfont{Malgun Gothic}%
+  }{%
+    \setmainhangulfont{Noto Serif CJK KR}\setsanshangulfont{Noto Sans CJK KR}%
+  }}
 \fi
