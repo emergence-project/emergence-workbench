@@ -69,7 +69,7 @@ try {
   check(home.ok && (await home.text()).includes('<div id="root"'), '첫 화면(HTML)이 열림')
 
   const setup = await (await get('/api/setup')).json()
-  check(setup.library?.path && fs.realpathSync(setup.library.path) === fs.realpathSync(path.join(starter, 'library')), `처음 켜면 라이브러리를 문서 폴더에 만듦 (${setup.library?.path})`)
+  check(setup.library?.path && fs.realpathSync.native(setup.library.path) === fs.realpathSync.native(path.join(starter, 'library')), `처음 켜면 라이브러리를 문서 폴더에 만듦 (${setup.library?.path})`)
   check(fs.existsSync(path.join(starter, 'papers')), 'PDF 폴더도 만듦')
   check(!!setup.gitAuto?.name && !setup.git?.name, `git 이름이 없으면 앱이 대신 채움 (${setup.gitAuto?.name} <${setup.gitAuto?.email}>)`)
 
@@ -78,7 +78,7 @@ try {
   check(made.ok && typeof item?.id === 'string', `「새로 만들기」가 프로젝트를 만듦 (${made.status}${made.ok ? '' : ' ' + await made.text()})`)
   if (item) {
     const dir = item.path
-    check(fs.realpathSync(path.dirname(dir)) === fs.realpathSync(starter), `새 프로젝트의 기본 자리가 문서 폴더 (${dir})`)
+    check(fs.realpathSync.native(path.dirname(dir)) === fs.realpathSync.native(starter), `새 프로젝트의 기본 자리가 문서 폴더 (${dir})`)
     check(fs.existsSync(path.join(dir, '.git')), `git 저장소로 시작함${win ? ' (묶은 MinGit)' : ''}`)
     check(fs.existsSync(path.join(dir, 'workbench/research.yaml')), 'workbench/research.yaml이 생김')
     const list = await (await get('/api/researches')).json()
