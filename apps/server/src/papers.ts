@@ -323,3 +323,39 @@ export function paperPdfFile(registry: Registry, key: string): string {
   }
   return file
 }
+
+/** 파일의 첫 바이트를 읽어 본다. 클라우드에만 있는(내용이 아직 없는) 파일은 이때 맥이 받아 온다 */
+let probe = async (file: string): Promise<void> => {
+  const fh = await fs.promises.open(file, 'r')
+  try { await fh.read(Buffer.alloc(1), 0, 1, 0) } finally { await fh.close() }
+}
+/** 테스트가 첫 바이트 읽기 대신 쓴다 */
+export function useCloudProbe(f: (file: string) => Promise<void>): void { probe = f }
+
+/** 클라우드 파일을 받아 오기를 기다리는 시간. 넘으면 503 (받기는 계속된다) */
+const CLOUD_WAIT_MS = 60_000
+
+/**
+ * 열 PDF 파일을 읽을 수 있게 한다 (11/8 피드백: 클라우드에만 있는 파일이 500).
+ * 맥의 iCloud · Google Drive는 받지 않은 파일도 이름과 크기가 보이고 내용만 없다(pdfWhere 'cloud').
+ * 바로 흘려보내면 읽기 오류가 500으로만 보이므로, 먼저 받아 오고 못 받으면 까닭을 503으로 알린다.
+ */
+export async function readyPaperPdf(registry: Registry, key: string): Promise<string> {
+  const file = paperPdfFile(registry, key)
+  if (pdfWhere(file) !== 'cloud') return file
+  downloader(file)
+  const name = path.basename(file)
+  const where = cloudOf(path.dirname(file)) === 'drive' ? 'Google Drive' : 'iCloud'
+  let timer: NodeJS.Timeout | undefined
+  const late = new Promise<'late'>((resolve) => { timer = setTimeout(() => resolve('late'), CLOUD_WAIT_MS) })
+  try {
+    const r = await Promise.race([probe(file).then(() => 'ok' as const), late])
+    if (r === 'late') throw new WorkbenchError(503, t(`${name}를 ${where}에서 아직 받는 중입니다. 잠시 뒤 다시 열어 주세요`, `${name} is still downloading from ${where}. Open it again in a moment`))
+    return file
+  } catch (e) {
+    if (e instanceof WorkbenchError) throw e
+    const code = e instanceof Error ? ('code' in e && typeof e.code === 'string' ? e.code : e.message) : String(e)
+    if (code === 'EPERM' || code === 'EACCES') throw new WorkbenchError(503, t(`${name}는 ${where}에만 있는데, 앱이 그 폴더의 파일을 받아 올 권한이 없습니다 (${code}). Finder에서 그 파일을 한 번 열거나 「지금 다운로드」한 뒤 다시 열어 주세요`, `${name} is only in ${where}, and the app has no permission to download files there (${code}). Open the file once in Finder or choose "Download Now", then open it again`))
+    throw new WorkbenchError(503, t(`${name}를 ${where}에서 받지 못했습니다 (${code}). Finder에서 그 파일을 한 번 열거나 「지금 다운로드」한 뒤 다시 열어 주세요`, `Could not download ${name} from ${where} (${code}). Open the file once in Finder or choose "Download Now", then open it again`))
+  } finally { clearTimeout(timer) }
+}
