@@ -83,7 +83,7 @@ const version = opt('--version') ?? (ref.startsWith('refs/tags/v') ? ref.slice('
 fs.writeFileSync(path.join(app, 'build.json'), JSON.stringify({ commit, builtAt: new Date().toISOString(), ...(version && { version }) }, null, 2) + '\n')
 
 /**
- * 받기: GitHub 릴리스 · npm · nodejs.org가 잠깐 5xx를 줄 때가 있어(11/8 504로 윈도우 빌드가 두 번 멈춤) 네 번까지 2 · 4 · 8초 쉬고 다시 받는다.
+ * 받기: GitHub 릴리스 · npm · nodejs.org가 5xx를 줄 때가 있어(11/8 GitHub 릴리스 504가 한 시간 넘게 이어짐) 여섯 번까지 2 · 4 · 8 · 16 · 32초 쉬고 다시 받는다.
  * 4xx는 주소가 틀린 것이라 바로 멈춘다
  */
 async function download(url, what) {
@@ -98,7 +98,7 @@ async function download(url, what) {
       status = String(e?.cause?.code ?? e?.message ?? e)
     }
     const retry = typeof status !== 'number' || status >= 500 || status === 429
-    if (!retry || i === 3) throw new Error(`${what}을(를) 받지 못했습니다 (${status})`)
+    if (!retry || i === 5) throw new Error(`${what}을(를) 받지 못했습니다 (${status})`)
     console.log(`  ${what}: ${status}, ${2 ** (i + 1)}초 뒤 다시`)
     await new Promise((r) => setTimeout(r, 2000 * 2 ** i))
   }
