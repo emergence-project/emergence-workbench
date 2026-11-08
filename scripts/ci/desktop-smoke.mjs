@@ -78,7 +78,7 @@ try {
   check(made.ok && typeof item?.id === 'string', `「새로 만들기」가 프로젝트를 만듦 (${made.status}${made.ok ? '' : ' ' + await made.text()})`)
   if (item) {
     const dir = item.path
-    check(path.dirname(dir) === starter, `새 프로젝트의 기본 자리가 문서 폴더 (${dir})`)
+    check(fs.realpathSync(path.dirname(dir)) === fs.realpathSync(starter), `새 프로젝트의 기본 자리가 문서 폴더 (${dir})`)
     check(fs.existsSync(path.join(dir, '.git')), `git 저장소로 시작함${win ? ' (묶은 MinGit)' : ''}`)
     check(fs.existsSync(path.join(dir, 'workbench/research.yaml')), 'workbench/research.yaml이 생김')
     const list = await (await get('/api/researches')).json()

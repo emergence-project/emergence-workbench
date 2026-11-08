@@ -35,7 +35,15 @@ describe('처음 켠 내려받은 앱', () => {
   })
   it('공백이 든 경로에는 만들지 않는다 (LaTeX가 읽지 못함)', () => {
     const home = path.join(tmp(), 'John Smith'); fs.mkdirSync(home)
-    expect(prepareStarter(new Registry(path.join(home, 'config')), template, home)).toBeNull()
+    expect(prepareStarter(new Registry(path.join(home, 'config')), template, home, 'darwin')).toBeNull()
+  })
+  it('윈도우에서 사용자 이름에 공백이 있으면 드라이브 바로 아래에 만든다', () => {
+    const home = path.join(tmp(), 'John Smith'); fs.mkdirSync(path.join(home, 'Documents'), { recursive: true })
+    const drive = tmp()
+    const reg = new Registry(path.join(home, 'config'))
+    expect(starterFolder(home, 'win32', drive)).toBe(path.join(drive, 'EmergenceWorkbench'))
+    expect(prepareStarter(reg, template, home, 'win32', drive)).toBe(path.join(drive, 'EmergenceWorkbench', 'library'))
+    expect(reg.pdfFolders).toEqual([path.join(drive, 'EmergenceWorkbench', 'papers')])
   })
 })
 
