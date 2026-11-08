@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { api, type FeedbackItem } from '../api'
-import { Compose } from '../FeedbackPage'
+import { ApproveButton, Compose } from '../FeedbackAnswer'
 import { projectColor } from '../format'
 import { t } from '../i18n'
 import { kindLabel } from '../recordLabels'
@@ -118,6 +118,7 @@ function TurnSheet({ x, onClose, onSaved }: { x: TurnItem; onClose(): void; onSa
       {pictures.length > 0 && <div className="ph-pics">{pictures.map((p, k) => (
         <figure key={p}><img src={`/api/feedback/picture?path=${encodeURIComponent(p)}`} alt={k === 0 ? t('전', 'Before') : t('후', 'After')} /><figcaption>{k === 0 ? t('전', 'Before') : t('후', 'After')}</figcaption></figure>
       ))}</div>}
+      <ApproveButton e={e} />
       <Compose e={e} />
       <button className="a ph-more" onClick={() => go({ page: 'feedback' })}>{t('피드백 화면에서 전체 대화 보기', 'See the whole thread on the feedback screen')}</button>
     </>
