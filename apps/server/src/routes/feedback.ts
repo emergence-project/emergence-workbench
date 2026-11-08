@@ -13,6 +13,10 @@ import { t } from '../i18n.js'
 import { syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
 import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
+import { exportFeedback, importFeedback } from '../feedbackBundle.js'
+import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
+import { revealInFinder } from '../materials.js'
+import os from 'node:os'
 
 /** 피드백 폴더 파일(날짜 파일 · status.yaml · reviews.yaml)의 이름 · 크기 · 고친 시각. 받기 전후가 다르면 새 기록이 들어온 것 */
 export function feedbackFingerprint(dir: string | undefined): string {
@@ -36,7 +40,23 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   // 피드백을 남기면 잠시 뒤 저절로 올린다. 여러 개를 이어 남기면 마지막 것 뒤에 한 번만 올린다
   let autoTimer: NodeJS.Timeout | null = null
   let lastAuto: { at: number; error: string | null } | null = null
+  // 중계 서버로 바로 보내기 (11/8): 개인 저장소 없이 쓰는 앱. 한 번에 하나씩
+  const sender = () => ctx.registry.authors[0]?.name || os.userInfo().username
+  let relaying: Promise<unknown> = Promise.resolve()
+  const relayOnce = () => {
+    const run = relaying.catch(() => undefined).then(() => sendToRelay(opts.feedbackDir!, ctx.registry.configDir, sender(), opts.feedbackRelay!))
+    relaying = run
+    return run
+  }
+  let relayTimer: NodeJS.Timeout | null = null
+  const scheduleRelay = () => {
+    const delay = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs)
+    if (!opts.feedbackDir || !opts.feedbackRelay || delay === null) return
+    if (relayTimer) clearTimeout(relayTimer)
+    relayTimer = setTimeout(() => { relayTimer = null; relayOnce().catch((e) => app.log.warn({ err: e }, '피드백 바로 보내기 실패')) }, delay)
+  }
   const scheduleAutoPublish = () => {
+    scheduleRelay()
     // 설정 › 동기화의 올리기 칸 (10/19): 수동이면 저절로 올리지 않는다
     const delay = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs)
     if (!opts.feedbackDir || !opts.feedbackPublish || delay === null) return
@@ -66,7 +86,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     }).finally(() => { syncing = null })
   }
   if (opts.feedbackSync) repeat(app, { first: 5 * 60_000, every: 5 * 60_000, run: async () => syncSoon() })
-  app.addHook('onClose', async () => { if (autoTimer) clearTimeout(autoTimer) })
+  app.addHook('onClose', async () => { if (autoTimer) clearTimeout(autoTimer); if (relayTimer) clearTimeout(relayTimer) })
 
   app.get('/api/feedback/unpublished', replies(C.UnpublishedFiles), async (): Promise<C.UnpublishedFiles> => (opts.feedbackDir && opts.feedbackPublish ? unpublishedFeedback(opts.feedbackDir) : { files: [], count: 0 }))
 
@@ -80,6 +100,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
     delay: (() => { const d = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
     lastAutoPublish: lastAuto,
+    relay: opts.feedbackDir && opts.feedbackRelay ? relayStatus(opts.feedbackDir, ctx.registry.configDir) : null,
     entries: opts.feedbackDir ? listFeedback(opts.feedbackDir) : [],
   }))
 
@@ -105,6 +126,29 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
     const b = parseBody(C.FeedbackCloudBody, req.body)
     const r = writeFeedbackCloud(opts.feedbackDir, b.enabled)
+    scheduleAutoPublish()
+    return r
+  })
+  /**
+   * 피드백 파일로 보내기 (11/8): GitHub 없이 쓰는 사람이 남긴 피드백을 한 파일로 묶어 내려받기 폴더에 두고 탐색기 · Finder에서 보여 준다.
+   * 보낸 사람 이름은 설정 › 계정의 첫 저자, 없으면 이 컴퓨터의 사용자 이름
+   */
+  app.post('/api/feedback/export', replies(C.FeedbackExported), async (): Promise<C.FeedbackExported> => {
+    if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
+    const r = exportFeedback(opts.feedbackDir, sender(), undefined, undefined, senderId(ctx.registry.configDir))
+    if (!opts.sandbox && !process.env.VITEST) void revealInFinder(r.file)
+    return r
+  })
+  /** 관리자에게 바로 보내기 (11/8): 버튼. 남기면 저절로도 보낸다(scheduleRelay) */
+  app.post('/api/feedback/relay', replies(C.FeedbackRelayed), async (): Promise<C.FeedbackRelayed> => {
+    if (!opts.feedbackDir || !opts.feedbackRelay) throw new WorkbenchError(404, t('바로 보내기를 쓰지 않는 앱입니다', 'This app does not send feedback directly'))
+    return await relayOnce()
+  })
+  /** 받은 피드백 파일 가져오기 (11/8): feedback/from/<보낸 사람>/에 두고, 개인 저장소면 내 피드백처럼 올린다 */
+  app.post('/api/feedback/import', { bodyLimit: 100 * 1024 * 1024, ...replies(C.FeedbackImported) }, async (req): Promise<C.FeedbackImported> => {
+    if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
+    const r = importFeedback(opts.feedbackDir, parseBody(C.FeedbackBundleBody, req.body))
+    ctx.broadcast({ type: 'feedback', research: null })
     scheduleAutoPublish()
     return r
   })

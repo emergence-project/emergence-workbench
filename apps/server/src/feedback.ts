@@ -4,6 +4,7 @@ import path from 'node:path'
 import YAML from 'yaml'
 import { localDate, localTime, writeAtomic } from './fsutil.js'
 import { feedbackMergeFor } from './feedbackMerge.js'
+import { importedDayFiles } from './feedbackBundle.js'
 import { currentBranch, locate, pendingPaths, PathSyncError, publishPaths, upstreamText } from './pathsync.js'
 import { t } from './i18n.js'
 import { git, GIT_TIMEOUT } from './git.js'
@@ -373,7 +374,6 @@ export function readFeedbackStatus(dir: string): Map<string, FeedbackStatus> {
   return out
 }
 
-
 /**
  * 모든 날짜의 피드백과 처리 기록. 최근 것부터. n은 같은 날 같은 키(분·부위) 중 몇 번째인지 (고치기·지우기에 씀).
  * 처리 기록에 merged_into가 있고 그 대표 항목이 있으면, 목록에서 빼고 대표 항목의 merged에 붙인다.
@@ -384,9 +384,9 @@ export function listAllFeedback(dir: string): FeedbackListItem[] {
   const reviews = readFeedbackReviews(dir)
   const comments = readFeedbackComments(dir)
   const dated = (d: string) => fs.existsSync(d) ? fs.readdirSync(d).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f)) : []
-  const files = [
+  const files: { file: string; date: string; source?: string }[] = [
     ...dated(dir).map((f) => ({ file: path.join(dir, f), date: f.slice(0, 10), source: undefined })),
-    ...dated(path.join(dir, PREVIEW_DIR)).map((f) => ({ file: path.join(dir, PREVIEW_DIR, f), date: f.slice(0, 10), source: '미리보기' as const })),
+    ...dated(path.join(dir, PREVIEW_DIR)).map((f) => ({ file: path.join(dir, PREVIEW_DIR, f), date: f.slice(0, 10), source: '미리보기' })), ...importedDayFiles(dir),
   ]
   const all = files.flatMap(({ file, date, source }) => {
     // 같은 분에 같은 부위로 남긴 코멘트가 또 있으면 뒤의 것부터 " #2", " #3"

@@ -1,6 +1,6 @@
 // ---------- 피드백 (feedback/날짜.md · status.yaml · reviews.yaml, 서버 feedback.ts) ----------
 import { enc, json, req, send } from './http'
-import type { EditFeedbackBody, FeedbackPickableKind, FeedbackAdded, FeedbackAll, FeedbackCloud, FeedbackToday, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
+import type { EditFeedbackBody, FeedbackPickableKind, FeedbackAdded, FeedbackAll, FeedbackCloud, FeedbackExported, FeedbackImported, FeedbackRelayed, FeedbackToday, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
 
 /** 피드백 하나와 처리 기록 (feedback/status.yaml). 기록이 없으면 처리 대기 */
 export type { FeedbackKind, FeedbackPickableKind, FeedbackState, FeedbackVerdict, FeedbackVerdictEntry, FeedbackComment, FeedbackReply, FeedbackRevision, FeedbackReview, FeedbackItem } from '@rw/core/contract/feedback'
@@ -32,6 +32,12 @@ export const feedbackCalls = {
   /** 클라우드 정기 작업이 피드백을 처리할지 (11/4) */
   feedbackCloud: () => req('/api/feedback/cloud').then((r) => json<FeedbackCloud>(r)),
   setFeedbackCloud: (enabled: boolean) => req('/api/feedback/cloud', send('PUT', { enabled })).then((r) => json<FeedbackCloud>(r)),
+  /** 남긴 피드백을 파일 하나로 (내려받기 폴더, 11/8) */
+  exportFeedback: () => req('/api/feedback/export', { method: 'POST' }).then((r) => json<FeedbackExported>(r)),
+  /** 관리자 중계 서버로 바로 보내기 (11/8) */
+  relayFeedback: () => req('/api/feedback/relay', { method: 'POST' }).then((r) => json<FeedbackRelayed>(r)),
+  /** 받은 피드백 파일 가져오기: 파일 내용(JSON) 그대로 보낸다 */
+  importFeedback: (bundle: unknown) => req('/api/feedback/import', send('POST', bundle)).then((r) => json<FeedbackImported>(r)).then((r) => { feedbackChanged(); return r }),
 }
 
 // ---------- 기록 올리기 (피드백·코멘트를 GitHub에) ----------

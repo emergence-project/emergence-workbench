@@ -14,6 +14,7 @@ import { Google, mockGoogleFetch } from './google.js'
 import { macSteps, promoteNextBuild } from './appupdate.js'
 import { ensurePersonalClone, personalRemote, pullPersonal } from './personalRepo.js'
 import { adoptLocalFeedback } from './feedback.js'
+import { FEEDBACK_RELAY_URL } from './feedbackRelay.js'
 import { DEFAULT_AUTHORS } from '@rw/core'
 import { COMMON_RULES_FILE } from './agentRules.js'
 import { Registry } from './registry.js'
@@ -242,7 +243,7 @@ if (bundled && process.env.RW_SANDBOX !== '1') {
     if (lib) console.log(`처음 켬: 라이브러리와 PDF 폴더를 만들었습니다 (${path.dirname(lib)})`)
   } catch (e) { console.warn(`처음 켤 때 라이브러리를 만들지 못했습니다: ${(e as Error).message}`) }
 }
-const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), ...(bundled && { bundled: { commit: bundled.commit ?? '', builtAt: bundled.builtAt ?? '' } }), backup, port })
+const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackRelay: process.env.RW_SANDBOX === '1' || personal || process.env.RW_FEEDBACK_DIR ? undefined : (process.env.RW_FEEDBACK_RELAY ?? FEEDBACK_RELAY_URL) || undefined, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), ...(bundled && { bundled: { commit: bundled.commit ?? '', builtAt: bundled.builtAt ?? '' } }), backup, port })
 
 // RW_STATIC=1 (실사용 서비스): 빌드한 화면을 이 서버가 함께 내보낸다
 if (process.env.RW_STATIC === '1') {

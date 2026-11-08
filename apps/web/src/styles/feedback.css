@@ -176,3 +176,4 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbi-row .mono { flex: none; }
 .fbi-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fbi-cut { font-size: var(--fs-sm); }
+.fbp-file-note { font-size: var(--fs-sm); max-width: 360px; overflow-wrap: anywhere; }

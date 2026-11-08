@@ -16,8 +16,8 @@ export const FEEDBACK_STATES = ['반영', '거절', '확인 필요', '답변', '
 export const FEEDBACK_VERDICTS = ['승인', '반려', '진행', '중단'] as const
 
 const kind = z.enum(FEEDBACK_KINDS)
-/** 어디서 남겼는지. 없으면 맥 앱의 피드백 모드, '미리보기'는 채팅의 앱 미리보기 댓글 */
-const source = z.literal('미리보기')
+/** 어디서 남겼는지. 없으면 이 앱의 피드백 모드, '미리보기'는 채팅의 앱 미리보기 댓글, 그 밖은 피드백 파일을 보낸 사람 이름 (11/8, 서버 feedbackBundle.ts) */
+const source = z.string()
 
 // ---------- 응답 ----------
 
@@ -119,11 +119,21 @@ export const FeedbackToday = z.object({
   /** 저절로 등록하면 남기고 나서 기다리는 초 (설정 › 동기화). 수동이면 null */
   delay: z.number().nullable().optional(),
   lastAutoPublish: z.object({ at: z.number(), error: z.string().nullable() }).strict().nullable(),
+  /** 관리자 중계 서버로 바로 보내는 앱이면 보낼 항목 수와 마지막 보낸 때(ms) · 실패 문장 (11/8, 서버 feedbackRelay.ts). 아니면 null */
+  relay: z.object({ pending: z.number(), at: z.number().nullable(), error: z.string().nullable() }).strict().nullable().optional(),
   entries: z.array(FeedbackEntry),
 }).strict()
 /** GET·PUT /feedback/cloud: 클라우드 정기 작업이 피드백을 처리할지 (피드백 폴더 cloud.yaml, 11/4) */
 export const FeedbackCloud = z.object({ enabled: z.boolean(), at: z.string().nullable() }).strict()
 export const FeedbackCloudBody = z.object({ enabled: z.boolean() })
+/** POST /feedback/export: 피드백을 묶은 파일(내려받기 폴더)과 담은 항목 수 */
+export const FeedbackExported = z.object({ file: z.string(), count: z.number() }).strict()
+/** POST /feedback/relay: 보낸 항목 수와 알림 문장 */
+export const FeedbackRelayed = z.object({ count: z.number(), message: z.string() }).strict()
+/** POST /feedback/import 몸: 보내기로 만든 파일 그대로 (날짜 → 날짜 파일 글, 그림 이름 → base64) */
+export const FeedbackBundleBody = z.object({ format: z.string(), version: z.number().optional(), from: z.string().max(200), id: z.string().max(40).optional(), exportedAt: z.string().optional(), days: z.record(z.string(), z.string()), pictures: z.record(z.string(), z.string()).optional() })
+/** POST /feedback/import: 보낸 사람(폴더 이름)과 가져온 항목 · 날짜 파일 · 그림 수 */
+export const FeedbackImported = z.object({ from: z.string(), count: z.number(), days: z.number(), pictures: z.number() }).strict()
 /** GET /feedback/all. user: 피드백을 남기는 GitHub 계정 (모르면 null), statusError: status.yaml을 읽지 못한 이유 */
 export const FeedbackAll = z.object({ enabled: z.boolean(), entries: z.array(FeedbackItem), user: z.string().nullable(), statusError: z.string().nullable() }).strict()
 /** POST /feedback */
@@ -180,6 +190,10 @@ export type FeedbackVerdict = (typeof FEEDBACK_VERDICTS)[number]
 export type FeedbackEntry = z.infer<typeof FeedbackEntry>
 export type FeedbackCloud = z.infer<typeof FeedbackCloud>
 export type FeedbackCloudBody = z.infer<typeof FeedbackCloudBody>
+export type FeedbackExported = z.infer<typeof FeedbackExported>
+export type FeedbackBundleBody = z.infer<typeof FeedbackBundleBody>
+export type FeedbackImported = z.infer<typeof FeedbackImported>
+export type FeedbackRelayed = z.infer<typeof FeedbackRelayed>
 export type FeedbackRevision = z.infer<typeof FeedbackRevision>
 export type FeedbackReply = z.infer<typeof FeedbackReply>
 export type FeedbackStatus = z.infer<typeof FeedbackStatus>
