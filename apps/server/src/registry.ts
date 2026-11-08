@@ -148,6 +148,9 @@ export class Registry {
     return isLatexSafePath(real) ? real : undefined
   }
 
+  /** 설정에 적힌 라이브러리 경로 그대로 (없어진 폴더도). 처음 켠 때인지 볼 때 (starter.ts) */
+  get librarySet(): string | undefined { return this.config.library }
+
   setLibrary(p: string): void {
     if (!path.isAbsolute(p) || !fs.existsSync(p) || !fs.statSync(p).isDirectory()) throw new WorkbenchError(400, tl('라이브러리 폴더가 없습니다.', 'The library folder does not exist.'))
     if (!isLatexSafePath(fs.realpathSync(p))) throw new WorkbenchError(400, tl('라이브러리 경로에 공백이나 특수문자가 있어 쓸 수 없습니다.', 'The library path has spaces or special characters, so it cannot be used.'))

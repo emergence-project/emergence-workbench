@@ -39,8 +39,10 @@ export const AppStatus = z.object({
 }).strict()
 
 /** GET /app/status. 앱 저장소가 없는 모드(예제·개발)면 enabled: false */
+/** 내려받은 앱(scripts/bundle-app.mjs의 build.json): 묶은 커밋과 만든 때. 스스로 업데이트하지 않는다 */
+export const BundledBuild = z.object({ commit: z.string(), builtAt: z.string() }).strict()
 export const AppStatusReply = z.union([
-  z.object({ enabled: z.literal(false) }).strict(),
+  z.object({ enabled: z.literal(false), bundled: BundledBuild.optional() }).strict(),
   z.object({ enabled: z.literal(true), status: AppStatus }).strict(),
 ])
 
@@ -68,7 +70,7 @@ export const AppInfo = z.object({
 
 /** GET /app/info (?pr=번호면 그 PR까지 이력을 늘린다) */
 export const AppInfoReply = z.union([
-  z.object({ enabled: z.literal(false) }).strict(),
+  z.object({ enabled: z.literal(false), bundled: BundledBuild.optional() }).strict(),
   z.object({ enabled: z.literal(true), info: AppInfo }).strict(),
 ])
 
@@ -81,6 +83,7 @@ export type ApiIndex = z.infer<typeof ApiIndex>
 export type ResolvedFeedback = z.infer<typeof ResolvedFeedback>
 export type AppStatus = z.infer<typeof AppStatus>
 export type AppStatusReply = z.infer<typeof AppStatusReply>
+export type BundledBuild = z.infer<typeof BundledBuild>
 export type AppHistoryItem = z.infer<typeof AppHistoryItem>
 export type AppInfo = z.infer<typeof AppInfo>
 export type AppInfoReply = z.infer<typeof AppInfoReply>

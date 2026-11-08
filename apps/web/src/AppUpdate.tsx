@@ -13,11 +13,15 @@ const stateText = (s: string) => STATE_TEXT[s] ?? s
 type Phase = 'idle' | 'checking' | 'updating' | 'restarting'
 interface State {
   enabled: boolean | null; status: AppStatus | null; phase: Phase; message: string | null; error: string | null
+  /** 내려받은 앱(설치 파일로 깐 것): 스스로 업데이트하지 않고 새 설치 파일을 받는다 */
+  bundled: boolean
   /** 마지막 업데이트가 실패한 이유. 확인(check)이 지우지 않고, 다음 업데이트를 누를 때까지 남는다 */
   failed: string | null
 }
 
 const short = (c: string) => c.slice(0, 7)
+/** 내려받는 앱의 설치 파일이 있는 곳 (docs/install-windows.md) */
+export const RELEASES = 'https://github.com/emergence-project/emergence-workbench/releases/latest'
 
 /*
  * 앱 업데이트 상태는 설정 화면과 레일의 받기 버튼이 함께 쓴다. 한 곳에서만 GitHub를 확인하고 한 번만 업데이트한다.
@@ -31,7 +35,7 @@ const UPDATE_WAIT_MS = 22 * 60_000
 export const IDLE_RESTART_MS = 5 * 60_000
 const IDLE_CHECK_MS = 30_000
 
-let state: State = { enabled: null, status: null, phase: 'idle', message: null, error: null, failed: null }
+let state: State = { enabled: null, status: null, phase: 'idle', message: null, error: null, failed: null, bundled: false }
 const listeners = new Set<() => void>()
 const set = (patch: Partial<State>) => { state = { ...state, ...patch }; listeners.forEach((l) => l()) }
 let lastCheck = 0
@@ -44,7 +48,7 @@ export async function checkAppUpdate(): Promise<void> {
     const b = await (await req('/api/app/status?fetch=1')).json()
     // 다른 창(또는 쉴 때)이 앱을 다시 시작했으면 새 코드로 화면을 다시 읽는다
     if (state.status && b.status && b.status.running !== state.status.running && !anyPending()) { location.reload(); return }
-    set({ enabled: !!b.enabled, status: b.status ?? null })
+    set({ enabled: !!b.enabled, status: b.status ?? null, bundled: !!b.bundled })
   } catch (e) { set({ error: (e as Error).message }) } finally { set({ phase: 'idle' }) }
 }
 
@@ -92,6 +96,9 @@ export async function runAppUpdate(): Promise<void> {
     await fail(abort.signal.aborted ? t(`${UPDATE_WAIT_MS / 60_000}분이 지나도 업데이트가 끝나지 않았습니다. 터미널에서 pnpm service:logs로 확인해 주세요`, `The update did not finish within ${UPDATE_WAIT_MS / 60_000} minutes. Check pnpm service:logs in a terminal`) : (e as Error).message)
   } finally { clearTimeout(timer) }
 }
+
+/** 설치 파일로 깐 앱인지 (스스로 업데이트하지 않음) */
+export function useBundledApp(): boolean { return useAppUpdateState().bundled }
 
 function useAppUpdateState(): State {
   return useSyncExternalStore((l) => { listeners.add(l); return () => { listeners.delete(l) } }, () => state)
@@ -156,9 +163,10 @@ export function AppUpdateRail() {
   )
 }
 export function AppUpdate() {
-  const { enabled, status, phase, message, error, failed } = useAppUpdateState()
+  const { enabled, status, phase, message, error, failed, bundled } = useAppUpdateState()
   useEffect(() => { void checkAppUpdate() }, [])
 
+  if (enabled === false && bundled) return <p className="set-desc" data-ui="앱 업데이트 안내">{t('설치 파일로 깐 앱은 스스로 업데이트하지 않습니다. 새 버전은 ', 'An app installed from an installer does not update itself. Download the new version from ')}<a className="a" href={RELEASES} target="_blank" rel="noreferrer">{t('릴리스 쪽', 'the releases page')}</a>{t('에서 설치 파일을 받아 다시 설치합니다(설정과 프로젝트는 그대로).', ' and install it again (settings and projects stay).')}</p>
   if (enabled === false) return <p className="set-desc" data-ui="앱 업데이트 안내">{t('개발용 예제 모드에서는 앱 업데이트를 쓰지 않습니다.', 'App updates are off in sample mode for development.')}</p>
   const pending = status && status.behind === 0 && status.head !== status.running
   const busy = phase !== 'idle'

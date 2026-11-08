@@ -9,7 +9,7 @@ import { routeOfNote } from './RightSidebar'
 import { go } from './router'
 import { figureListFilter, rememberFigureList, showFigure } from './figureView'
 import { store } from './store'
-import { lang, plural, t } from './i18n'
+import { lang, plural, revealLabel, t } from './i18n'
 
 /**
  * 그림 라이브러리 (10/4 19:10 피드백 "반복해서 쓰는 그림을 공용 자산으로").
@@ -345,7 +345,7 @@ function FigureSide({ fig, data, onClose, onSaved }: { fig: FigureRow; data: Fig
         </div>
         <div className="fg-rs-row">
           <button className="btn" onClick={() => run(() => figuresApi.open(fig.id))}>{t('원본 수정', 'Edit source')}</button>
-          <button className="a" onClick={() => run(() => figuresApi.open(fig.id, true))}>{t('Finder에서 보기', 'Show in Finder')}</button>
+          <button className="a" onClick={() => run(() => figuresApi.open(fig.id, true))}>{revealLabel()}</button>
         </div>
         <div className="rs-field fg-rs-path"><div className="muted mono" title={fig.path}>{fig.path.split('/').filter(Boolean).pop() || fig.path}</div></div>
       </div>

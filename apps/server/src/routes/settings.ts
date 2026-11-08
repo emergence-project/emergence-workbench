@@ -49,11 +49,11 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
 
 
   app.get<{ Querystring: { fetch?: string } }>('/api/app/status', replies(A.AppStatusReply), async (req): Promise<A.AppStatusReply> => {
-    if (!opts.appRepo) return { enabled: false }
+    if (!opts.appRepo) return { enabled: false, ...(opts.bundled && { bundled: opts.bundled }) }
     return { enabled: true, status: await appStatus(opts.appRepo.root, opts.appRepo.running, { fetch: req.query.fetch === '1' }) }
   })
   app.get<{ Querystring: { pr?: string } }>('/api/app/info', replies(A.AppInfoReply), async (req): Promise<A.AppInfoReply> => {
-    if (!opts.appRepo) return { enabled: false }
+    if (!opts.appRepo) return { enabled: false, ...(opts.bundled && { bundled: opts.bundled }) }
     const pr = Number(req.query.pr)
     return { enabled: true, info: await appInfo(opts.appRepo.root, opts.appRepo.running, 20, Number.isInteger(pr) && pr > 0 ? pr : undefined) }
   })

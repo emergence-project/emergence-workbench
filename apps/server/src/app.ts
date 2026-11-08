@@ -74,6 +74,8 @@ export interface AppOptions {
   sandbox?: boolean
   /** 앱 피드백을 쌓을 폴더 (실사용은 개인 저장소 사본의 feedback/). 없으면 피드백 기능을 끈다 */
   feedbackDir?: string
+  /** 내려받은 앱이면 묶은 커밋 · 만든 때 (build.json). 설정 › 앱 기본정보가 버전으로 보인다 */
+  bundled?: { commit: string; builtAt: string }
   /** 지금 돌고 있는 앱의 커밋 (짧은 형태). 피드백에 함께 적는다 */
   appVersion?: string
   /** 피드백 폴더를 앱에서 커밋·푸시할 수 있게 할지 (실사용만. 예제 모드의 .sandbox/는 git 제외) */

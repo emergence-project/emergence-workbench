@@ -25,7 +25,8 @@ export function useSetup() {
   const people = usePeople()
   const me = useMe(people.data)
   const s = setup.data
-  const gitOk = !!(s?.git.name && s.git.email)
+  // 내려받은 앱은 git 설정이 비어 있어도 앱이 대신 적으므로(gitAuto) 할 일로 세지 않는다
+  const gitOk = !!(s?.git.name && s.git.email) || !!s?.gitAuto
   const meOk = !!(me?.name && me.affiliations.length)
   const must = [
     { key: 'git', ok: gitOk, label: t('커밋에 적힐 이름', 'Name on commits') },
@@ -80,13 +81,15 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
 
       <h3 className="set-h3">{t('꼭 할 것', 'Required')}</h3>
       <div className="set-rows">
-        <Row ok={!!(s?.git.name && s.git.email)} name={t('커밋에 적힐 이름·이메일', 'Name and email on commits')} ui="커밋 이름"
+        <Row ok={!!(s?.git.name && s.git.email) || !!s?.gitAuto} name={t('커밋에 적힐 이름·이메일', 'Name and email on commits')} ui="커밋 이름"
           action={<>
             {fromGoogle && <button className="btn" data-ui="구글 계정으로 채우기" onClick={() => void setupApi.setGit(fromGoogle).then((v) => { put(v); onSaved(t('구글 계정의 이름 · 이메일로 채웠습니다', 'Filled in from your Google account')) }).catch((e: Error) => onSaved(e.message))}>{t('구글 계정으로 채우기', 'Fill from Google')}</button>}
             <Edit label={t('수정', 'Edit')} onClick={() => setEditing('git')} />
           </>}>
-          {s?.git.name && s.git.email ? <><b>{s.git.name}</b> &lt;{s.git.email}&gt;. </> : <>{t('설정 안 됨. ', 'Not set. ')}</>}
-          {t('앱이 기록·노트를 연구 저장소에 올릴 때 이 이름으로 적힙니다. 비어 있으면 git이 커밋을 거절해 올리기가 멈춥니다.', 'Records and notes the app pushes to research repositories are signed with this name. If empty, git refuses to commit and pushing stops.')}
+          {s?.git.name && s.git.email ? <><b>{s.git.name}</b> &lt;{s.git.email}&gt;. </> : s?.gitAuto ? <><b>{s.gitAuto.name}</b> &lt;{s.gitAuto.email}&gt; {t('(이 컴퓨터의 사용자 이름). ', "(this computer's user name). ")}</> : <>{t('설정 안 됨. ', 'Not set. ')}</>}
+          {s?.gitAuto && !(s.git.name && s.git.email)
+            ? t('노트와 기록의 변경 내역에 이 이름이 적힙니다. GitHub에 올려 다른 사람과 나눌 때만 바꾸면 됩니다.', 'This name is written in the change history of notes and records. Change it only when you share on GitHub.')
+            : t('앱이 기록·노트를 연구 저장소에 올릴 때 이 이름으로 적힙니다. 비어 있으면 git이 커밋을 거절해 올리기가 멈춥니다.', 'Records and notes the app pushes to research repositories are signed with this name. If empty, git refuses to commit and pushing stops.')}
         </Row>
         <Row ok={!!(me?.name && me.affiliations.length)} name={t('내 이름·소속', 'Your name and affiliation')} ui="내 이름 소속"
           action={people && <Edit label={t('수정', 'Edit')} onClick={() => setEditing('me')} />}>
@@ -104,7 +107,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <h3 className="set-h3">{t('선택', 'Optional')}</h3>
       <div className="set-rows">
         <GitHubRow list={github.data} error={github.error?.message} onCheck={() => void github.refetch()} checking={github.isFetching} />
-        <InstallRow install={s?.install} onSaved={onSaved} />
+        {s?.install !== null && <InstallRow install={s?.install} onSaved={onSaved} />}
         <Row ok={!!s?.personal.remote} optional name={t('개인 저장소', 'Personal repository')} sub={t('피드백·백업을 올릴 곳', 'where feedback and backups go')} ui="개인 저장소"
           action={<Edit label={t('수정', 'Edit')} onClick={() => setEditing('personal')} />}>
           {s?.personal.remote

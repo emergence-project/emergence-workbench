@@ -45,9 +45,9 @@ export function writeIfMissing(file: string, content: string): boolean {
 /** 현지 날짜·시각 (packages/core/src/time.ts 하나를 쓴다. 서버 파일들은 예전처럼 여기서 가져온다) */
 export { localDate, localTime } from '@rw/core'
 
-/** LaTeX \input에서 깨지는 문자(공백 등)가 경로에 있는지 */
-export function isLatexSafePath(p: string): boolean {
-  return !/[\s{}%\\#~$^&]/.test(p)
+/** LaTeX \input에서 깨지는 문자(공백 등)가 경로에 있는지. 윈도우의 \는 경로 구분자라(TeX에는 /로 넘긴다) 문제로 보지 않는다 */
+export function isLatexSafePath(p: string, platform: NodeJS.Platform = process.platform): boolean {
+  return !/[\s{}%\\#~$^&]/.test(platform === 'win32' ? p.replace(/\\/g, '/') : p)
 }
 
 /** 백업 동기화가 양쪽에서 고친 파일의 GitHub 쪽을 남긴 사본: `이름.github-YYYYMMDD.확장자` (backup.ts) */

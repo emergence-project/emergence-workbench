@@ -2,7 +2,7 @@
 # 하는 일: 서버 · 화면 · Node를 묶고(scripts/bundle-app.mjs) → 그 서버가 윈도우에서 도는지 보고 화면을 찍고(scripts/ci/desktop-smoke.mjs)
 #          → Tauri 창을 NSIS 설치 파일로 만든다. 설치 파일과 그림은 산출물 windows-installer · windows-shots로 남는다.
 # 언제 도나:
-# - 묶기 · 창 · 이 파일을 바꾼 PR (Actions 화면에서 손으로도 돌릴 수 있다)
+# - 묶기 · 창 · 서버 · 이 파일을 바꾼 PR (서버가 윈도우에서 도는지 PR마다 본다) (Actions 화면에서 손으로도 돌릴 수 있다)
 # - v로 시작하는 태그를 올리면 같은 일을 한 뒤 그 태그의 GitHub 릴리스에 설치 파일을 붙인다 (내려받기 쪽: 릴리스의 Assets)
 # 서명하지 않은 설치 파일이라 처음 실행할 때 윈도우가 "PC 보호" 창을 띄운다(추가 정보 › 실행). 서명은 docs/install-windows.md.
 # 바깥 액션은 ci.yml처럼 커밋 SHA로 고정한다.
@@ -12,6 +12,8 @@ on:
   pull_request:
     paths:
       - 'desktop/**'
+      - 'apps/server/**'
+      - 'packages/**'
       - 'scripts/bundle-app.mjs'
       - 'scripts/ci/desktop-smoke.mjs'
       - '.github/workflows/desktop.yml'
@@ -41,7 +43,7 @@ jobs:
       - name: 서버 · 화면 · Node 묶기
         run: node scripts/bundle-app.mjs --platform win32 --arch x64
       - name: 묶은 서버가 윈도우에서 도는지 보기
-        run: node scripts/ci/desktop-smoke.mjs --shots desktop-shots --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
+        run: node scripts/ci/desktop-smoke.mjs --print --shots desktop-shots --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
       - name: 설치 파일 만들기
         shell: bash
         working-directory: desktop/src-tauri
