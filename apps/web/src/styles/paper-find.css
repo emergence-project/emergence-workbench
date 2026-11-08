@@ -1,5 +1,14 @@
 /* 논문 찾기 칸과 결과 묶음 (PaperFind.tsx, 10/31 시안 1절): 첫 화면 · 목록 맨 위 가운데 */
-.pf { position: relative; width: 100%; max-width: 520px; }
+.pf { position: relative; width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: var(--sp-2); }
+/* 찾기 칸 (11/8 시안 N7ik 1절): 움푹한 바탕 · 돋보기 · 「/」. 초점이면 테두리만 진하게 */
+.pf-box { display: flex; align-items: center; gap: var(--sp-2); height: var(--input-h-xl); padding: 0 var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg-sunken); color: var(--text-3); cursor: text; }
+.pf-box:focus-within { border-color: var(--text-3); background: var(--bg); }
+.pf-icon { display: flex; flex: none; }
+.pf-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.pf-box input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: none; padding: 0; font: inherit; font-size: var(--fs-md); color: var(--text); }
+.pf-box input::-webkit-search-cancel-button { cursor: pointer; filter: grayscale(1); }
+.pf-kbd { flex: none; opacity: 1; font-size: var(--fs-xs); line-height: 1.4; border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 var(--sp-1); font-family: inherit; color: var(--text-3); }
+.pf-scopes { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .pf-pop { position: absolute; z-index: var(--z-menu); top: calc(100% + var(--sp-1)); left: 0; right: 0; max-height: min(70vh, 560px); overflow-y: auto; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: var(--sp-1) 0; }
 .pf-group + .pf-group { border-top: 1px solid var(--line); }
 .pf-h { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-2) var(--sp-3) var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }

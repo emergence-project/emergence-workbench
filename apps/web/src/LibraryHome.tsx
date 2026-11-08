@@ -139,7 +139,6 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
           {b && !b.library && <div className="banner">{t('공유 라이브러리가 설정되지 않았습니다. 설정 › 라이브러리 관리에서 저장 위치를 확인해 주세요.', 'The shared library is not set up. Check its location in Settings › Library.')}</div>}
           <div className="lh-gap" aria-hidden />
           <div className="lh-find"><PaperFind value={q} onChange={setQ} papers={all ?? []} projects={b?.projects ?? []} onSaved={onSaved} /></div>
-          <div className="lh-gap two" aria-hidden />
           <div className="kh-cols">
             <section className="kh-sec" data-ui="최근 확인한 논문">
               <h2 className="kh-h">{answered && <span className="turn-dot kh-dot" aria-hidden />}<button className="a lh-h-link" title={t('목록에서 모두 보기', 'See all in the list')} onClick={() => go({ page: 'shelf', list: true })}>{t('최근 확인한 논문', 'Recently checked papers')}</button></h2>
@@ -177,6 +176,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
               {rec && rec.picks.length > 0 && <p className="kh-hint lh-source">{t('Semantic Scholar 추천', 'From Semantic Scholar')}</p>}
             </section>
           </div>
+          <div className="lh-gap two" aria-hidden />
         </div>
         {rightOpen && <aside className="kh-side" data-ui="라이브러리 정보"><LibraryStorage info={info} section="papers" git={b ? t(`논문 ${b.total}편`, plural(b.total, 'paper')) : undefined} icloud={clouds('icloud')} drive={clouds('drive')} /></aside>}
       </div>
