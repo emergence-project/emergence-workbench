@@ -69,7 +69,10 @@ for (const f of fs.readdirSync(path.join(root, 'docs'))) if (f.endsWith('.md')) 
 // 어느 커밋으로 만들었는지 (설정 › 업데이트에 보인다: 서버가 git 대신 이 파일을 읽는다)
 let commit = ''
 try { commit = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD']).toString().trim() } catch { /* 저장소가 아닌 곳에서 묶음 */ }
-fs.writeFileSync(path.join(app, 'build.json'), JSON.stringify({ commit, builtAt: new Date().toISOString() }, null, 2) + '\n')
+// 판 번호: 태그(v0.2.2)로 만들면 그 번호. 설치한 앱이 GitHub 릴리스와 비교해 새 버전을 알린다 (releaseCheck.ts)
+const ref = process.env.GITHUB_REF ?? ''
+const version = opt('--version') ?? (ref.startsWith('refs/tags/v') ? ref.slice('refs/tags/v'.length) : undefined)
+fs.writeFileSync(path.join(app, 'build.json'), JSON.stringify({ commit, builtAt: new Date().toISOString(), ...(version && { version }) }, null, 2) + '\n')
 
 // 4. Node (tauri의 묶은 서버 자리와 같게: desktop/src-tauri/src/main.rs의 bundled_paths)
 const nodeBin = path.join(out, win ? 'node/node.exe' : 'node/bin/node')

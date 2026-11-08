@@ -40,9 +40,11 @@ export const AppStatus = z.object({
 
 /** GET /app/status. 앱 저장소가 없는 모드(예제·개발)면 enabled: false */
 /** 내려받은 앱(scripts/bundle-app.mjs의 build.json): 묶은 커밋과 만든 때. 스스로 업데이트하지 않는다 */
-export const BundledBuild = z.object({ commit: z.string(), builtAt: z.string() }).strict()
+export const BundledBuild = z.object({ commit: z.string(), builtAt: z.string(), version: z.string().optional() }).strict()
+/** 설치 파일로 깐 앱이 받을 새 판 (GitHub 릴리스, 서버 releaseCheck.ts). download는 이 OS의 설치 파일 */
+export const NewRelease = z.object({ version: z.string(), url: z.string(), download: z.string().nullable() }).strict()
 export const AppStatusReply = z.union([
-  z.object({ enabled: z.literal(false), bundled: BundledBuild.optional() }).strict(),
+  z.object({ enabled: z.literal(false), bundled: BundledBuild.optional(), release: NewRelease.nullable().optional() }).strict(),
   z.object({ enabled: z.literal(true), status: AppStatus }).strict(),
 ])
 
@@ -84,6 +86,7 @@ export type ResolvedFeedback = z.infer<typeof ResolvedFeedback>
 export type AppStatus = z.infer<typeof AppStatus>
 export type AppStatusReply = z.infer<typeof AppStatusReply>
 export type BundledBuild = z.infer<typeof BundledBuild>
+export type NewRelease = z.infer<typeof NewRelease>
 export type AppHistoryItem = z.infer<typeof AppHistoryItem>
 export type AppInfo = z.infer<typeof AppInfo>
 export type AppInfoReply = z.infer<typeof AppInfoReply>
