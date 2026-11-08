@@ -18,6 +18,7 @@ import { useRecords } from './projectQueries'
 import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
 import { GroupPick } from './AgentGroupPick'
+import { ProjectPick, RecentChats, ScopeRow } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, fitEffort, isClaude, modelName, useModels } from './AgentPick'
 import { APP_HINT, ATTACH_NAME, Composer, CUSTOM_NAME, EFFORT_NAME, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
@@ -755,27 +756,13 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   if (!fixed && projects && !projects.length && !appOk) return (
     <div className="ac-new" data-ui="새 대화"><p className="muted">{t('대화는 프로젝트 하나에서 엽니다. 등록한 프로젝트가 아직 없습니다: 레일의 ＋로 프로젝트를 등록하세요.', 'A conversation opens in one project, and no project is registered yet. Register one with ＋ on the rail.')}</p></div>
   )
-  const kinds: ['project' | 'all', string, string][] = [
-    ['project', t('프로젝트', 'Project'), t('이 프로젝트만 고칩니다. 다른 프로젝트는 읽기만 합니다', 'Changes only this project; reads the others')],
-    ['all', t('전체', 'Everything'), t('모든 프로젝트를 읽고, 다른 프로젝트 · 개념노트를 고칠 때마다 묻습니다', 'Reads every project; asks each time before changing another project or a concept note')],
-  ]
+  // 프로젝트 · 범위는 입력란 아래 줄의 알약 버튼 하나 (11/8 14:16 제안, 시안 1-2절)
+  // 프로젝트가 정해진 좁은 패널은 예전처럼 입력란 위에 범위만
+  const lead = !fixed && <ProjectPick rid={rid} projects={projects ?? []} appOk={appOk} scope={kind} onPick={(r) => { setPick(r); store.set('rw-agent-project', r) }} onScope={setKind} />
   return (
     <div className="ac-new" data-ui="새 대화">
-      <div className="ac-new-row">
-        {!fixed && (
-          <select className="rs-select" data-ui="대화 프로젝트 고르기" aria-label={t('프로젝트', 'Project')} value={rid} onChange={(e) => { setPick(e.target.value); store.set('rw-agent-project', e.target.value) }}>
-            {(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            {appOk && <option value={APP_RID}>{t('워크벤치 전체: 앱 수정', 'Whole workbench: fix the app')}</option>}
-          </select>
-        )}
-        {!app && <span className="rs-label">{t('범위', 'Scope')}</span>}
-        {!app && (
-          <div className="segmented small" role="radiogroup" aria-label={t('범위', 'Scope')} data-ui="대화 범위">
-            {kinds.map(([k, label, tip]) => <button key={k} role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} data-tip={tip} onClick={() => setKind(k)}>{label}</button>)}
-          </div>
-        )}
-      </div>
-      {rid && <Composer key={rid} rid={rid} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
+      {fixed && !app && <ScopeRow scope={kind} onScope={setKind} />}
+      {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
       {app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
     </div>
@@ -994,7 +981,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
 
 const PANE_KEY = 'rw-agent-pane'
 
-export function AgentPage({ id, onSaved }: { id?: string; onSaved(m: string): void }) {
+export function AgentPage({ id, onSaved, side }: { id?: string; onSaved(m: string): void; side?: { open: boolean; onOpen(): void } }) {
   const [pane, setPaneState] = useState(() => store.get<boolean>(PANE_KEY, true))
   const setPane = (v: boolean) => { setPaneState(v); store.set(PANE_KEY, v) }
   return (
@@ -1008,6 +995,7 @@ export function AgentPage({ id, onSaved }: { id?: string; onSaved(m: string): vo
           : <div className="scroll"><div className="page-body ac-start">
             <h1 className="ac-h">{t('새 대화', 'New conversation')}</h1>
             <NewChat onCreated={(c) => go({ page: 'agent', id: c.id })} />
+            {side && !side.open && <RecentChats onAll={side.onOpen} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => go({ page: 'agent', id: c.id })} />} />}
           </div></div>}
       </section>
     </main>

@@ -108,6 +108,10 @@ export const DEFAULT_SCREENS = [
   ['agent-changes', '#/agent/{done}', '바뀐 곳'],
   // 앱 고치기 대화 (2단계 10/21): 작업 폴더에서 파일 하나를 고치고 PR을 연 대화 (shots.mjs, {appchat})
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
+  // 새 대화의 프로젝트 고르기 (11/8 14:16 제안): 입력란 아래 알약 버튼의 메뉴(찾기 · 프로젝트 한 목록 · 범위)
+  ['agent-new', '#/agent', '대화 프로젝트 고르기 항목', ['대화 프로젝트 고르기']],
+  // 사이드바를 닫은 에이전트 화면 (같은 제안 안 A): 새 대화 아래 최근 대화 (shots.mjs가 찍기 전에 닫고 뒤에 되돌린다)
+  ['agent-recent', '#/agent', '최근 대화'],
   ['agent-panel', '#/r/{rid}', '에이전트 패널', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)'],
   // 에이전트 고르기 (10/30 Codex · Gemini): 새 대화의 모델 메뉴 맨 위 에이전트 줄 (예제 맥에는 Codex · Gemini가 없어 「설치 안 됨」)
   ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '모델 고르기']],

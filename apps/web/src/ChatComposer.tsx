@@ -152,7 +152,7 @@ function visibleBox(el: Element): Box {
 }
 
 /** 입력란 아래 줄의 작은 메뉴 버튼 (＋ · 맡기는 정도 · 모델과 생각). 메뉴는 패널 · 창 끝에서 잘리지 않게 뒤집거나 민다 (fitMenu) */
-export function PopButton({ label, ui, tip, children, wide, down, icon }: { label: ReactNode; ui: string; tip: string; children(close: () => void): ReactNode; wide?: boolean; down?: boolean; icon?: boolean }) {
+export function PopButton({ label, ui, tip, children, wide, down, icon, pill }: { label: ReactNode; ui: string; tip: string; children(close: () => void): ReactNode; wide?: boolean; down?: boolean; icon?: boolean; pill?: boolean }) {
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState<ReturnType<typeof fitMenu> | null>(null)
   const box = useRef<HTMLSpanElement>(null)
@@ -167,7 +167,7 @@ export function PopButton({ label, ui, tip, children, wide, down, icon }: { labe
   const d = place ? place.down : down
   return (
     <span className="ac-pop" ref={box}>
-      <button className={`${icon ? 'icon-btn sm' : 'ac-pop-btn'}${open ? ' on' : ''}`} data-ui={ui} data-tip={open ? undefined : tip} aria-label={icon ? tip : undefined} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>{label}</button>
+      <button className={`${icon ? 'icon-btn sm' : 'ac-pop-btn'}${pill ? ' pill' : ''}${open ? ' on' : ''}`} data-ui={ui} data-tip={open ? undefined : tip} aria-label={icon ? tip : undefined} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>{label}</button>
       {open && <div ref={pop} className={`menu ac-pop-menu${wide ? ' wide' : ''}${d ? ' down' : ''}`} role="menu" data-ui={`${ui} 항목`}
         style={place ? { left: place.x, right: 'auto', ...(place.max !== undefined && { maxHeight: place.max, overflowY: 'auto' }) } : { visibility: 'hidden' }}>{children(() => setOpen(false))}</div>}
     </span>
@@ -179,8 +179,10 @@ export function PopButton({ label, ui, tip, children, wide, down, icon }: { labe
  * 아래 줄 ＋ · 맡기는 정도 ▾ · 모델 · 생각 ▾ · 보내기(도는 중이고 글이 없으면 멈추기). ⇧⇥로 맡기는 정도를 바꾼다.
  * 대화 중에 바꾼 설정은 다음 차례부터 (onSettings)
  */
-export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed }: {
+export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead }: {
   rid: string
+  /** 아래 줄 ＋ 다음에 둘 것 (새 대화의 프로젝트 고르기) */
+  lead?: ReactNode
   auto?: Attach
   settings: Settings
   onSettings(s: Partial<Settings>): void
@@ -353,6 +355,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
             <button role="menuitem" onClick={() => { close(); file.current?.click() }}>{t('그림 고르기', 'Choose images')}<span className="muted ac-key">{t('붙여넣기도', 'or paste')}</span></button>
           </>}
         </PopButton>
+        {lead}
         <input ref={file} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={(e) => { void addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
         <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{settings.custom ? CUSTOM_NAME : TRUST_NAME[settings.trust]} ▾</>}>
           {(close) => TRUSTS.filter((v) => v !== 'plan' || isClaude(settings.agent)).map((v) => (
