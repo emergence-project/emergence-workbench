@@ -97,6 +97,8 @@ export const qk = {
   googleStatus: ['google-status'] as const,
   /** 시작 준비 (설정 › 계정, 홈 카드) */
   setup: ['setup'] as const,
+  /** 설정 › 에이전트 › AI 키 (AgentSettings.tsx) */
+  aiKey: ['settings', 'ai-key'] as const,
   /** GitHub 로그인으로 읽은 저장소 목록 (설정 › 계정, 홈의 시작 준비, 프로젝트 등록) */
   githubRepos: ['github-repos'] as const,
 }

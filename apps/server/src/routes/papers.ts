@@ -7,7 +7,7 @@ import * as C from '@rw/core/contract/papers'
 import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import path from 'node:path'
-import { askPrompt, claudeRunner } from '../ask.js'
+import { answeredBy, askPrompt, questionRunner } from '../ask.js'
 import { addPaperNote, appendPaperAnswer, deletePaperNote, readPaperComments, updatePaperNote } from '../paperComments.js'
 import { addPaper, addPaperFile, addPaperPdf, findArxiv, setEprint } from '../paperAdd.js'
 import { searchPapers } from '../paperSearch.js'
@@ -103,8 +103,8 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
     asking.add(`${key}/${id}`)
     try {
       const pdf = paperPdfFile(registry, key)
-      const answer = await (opts.ask ?? claudeRunner)({ cwd: path.dirname(pdf), prompt: askPrompt(f, id, { repo: path.dirname(pdf), file: path.basename(pdf) }) })
-      appendPaperAnswer(libOf(), key, id, 'claude', answer)
+      const answer = await (opts.ask ?? questionRunner(registry.configDir))({ cwd: path.dirname(pdf), file: pdf, prompt: askPrompt(f, id, { repo: path.dirname(pdf), file: path.basename(pdf) }) })
+      appendPaperAnswer(libOf(), key, id, opts.ask ? 'claude' : answeredBy(registry.configDir), answer)
       return read(key)
     } finally { asking.delete(`${key}/${id}`) }
   })

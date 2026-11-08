@@ -92,3 +92,15 @@ export const CommonRulesSaved = z.object({
 export type CommonRulesView = z.infer<typeof CommonRulesView>
 export type CommonRulesBody = z.infer<typeof CommonRulesBody>
 export type CommonRulesSaved = z.infer<typeof CommonRulesSaved>
+
+/**
+ * GET · PUT · DELETE /settings/ai-key: 앱이 직접 묻는 AI의 키 (설정 › 에이전트, 서버 aiKey.ts).
+ * 키는 받기만 하고 돌려주지 않는다: 어느 AI인지, 쓰는 모델, 끝 네 자만.
+ */
+export const AI_PROVIDERS = ['claude', 'gemini'] as const
+export const AiKeyView = z.object({
+  key: z.object({ provider: z.enum(AI_PROVIDERS), model: z.string(), hint: z.string() }).strict().nullable(),
+}).strict()
+export const AiKeyBody = z.object({ provider: z.enum(AI_PROVIDERS), key: z.string().trim().min(8).max(400) }).strict()
+export type AiKeyView = z.infer<typeof AiKeyView>
+export type AiKeyBody = z.infer<typeof AiKeyBody>

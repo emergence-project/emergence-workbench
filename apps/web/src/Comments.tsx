@@ -7,6 +7,7 @@ import { MemoText } from './memo'
 import type { Tab } from './Workspace'
 import { onListKey } from './listInput'
 import { Icon } from './icons'
+import { AskButton } from './AskButton'
 import type { LearnFrom } from './api'
 import { askConfirm } from './askText'
 import { RecordContext, openRecordComposer, setRecordSelectionDraft, clearRecordComposerRequest, useRecordComposerRequest, type RecordDraft, type RecordSelection } from './RecordContext'
@@ -452,7 +453,7 @@ function CommentItem({ c, on, ref_, noQuote, asking, onAsk, onGo, onState, onDel
         </div>
         <div className="cmt-head-actions">
           {c.kind === '질문' && c.state === '대기' && (
-            <button className="btn ghost sm cmt-ask" disabled={asking} title={t('이 컴퓨터의 Claude가 PDF를 읽고 답을 아래에 덧붙입니다 (몇 분 걸릴 수 있음)', 'Claude on this computer reads the PDF and adds an answer below (may take a few minutes)')} onClick={onAsk}>{asking ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('Claude에게 묻기', 'Ask Claude')}</button>
+            <AskButton asking={asking} onAsk={onAsk} />
           )}
           {c.kind === '질문' && c.state !== '끝냄' && <button className="btn ghost sm" title={t('이 질문을 끝냄으로', 'Mark this question done')} onClick={() => onState('끝냄')}>{t('끝냄', 'Done')}</button>}
           {c.kind === '질문' && c.state === '끝냄' && <button className="btn ghost sm" title={t('다시 에이전트 대기로', 'Set back to waiting for agent')} onClick={() => onState('대기')}>{t('다시 열기', 'Reopen')}</button>}

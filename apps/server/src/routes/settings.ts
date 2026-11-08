@@ -6,6 +6,7 @@ import { parseBody, replies } from '../contract.js'
 import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
+import { aiKeyView, readAiKey, writeAiKey } from '../aiKey.js'
 import { t } from '../i18n.js'
 import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
 import { errorLog, repeat } from '../scheduler.js'
@@ -44,6 +45,13 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     return syncView()
   })
 
+  // 앱이 직접 묻는 AI의 키 (11/8): 이 컴퓨터의 설정 폴더에만 두고 화면에는 끝 네 자만
+  app.get('/api/settings/ai-key', replies(C.AiKeyView), async (): Promise<C.AiKeyView> => ({ key: aiKeyView(readAiKey(registry.configDir)) }))
+  app.put('/api/settings/ai-key', replies(C.AiKeyView), async (req): Promise<C.AiKeyView> => {
+    writeAiKey(registry.configDir, parseBody(C.AiKeyBody, req.body))
+    return { key: aiKeyView(readAiKey(registry.configDir)) }
+  })
+  app.delete('/api/settings/ai-key', replies(C.AiKeyView), async (): Promise<C.AiKeyView> => { writeAiKey(registry.configDir, null); return { key: null } })
   app.get('/api/settings/agents', replies(C.AgentSettings), async (): Promise<C.AgentSettings> => registry.agents)
   app.put('/api/settings/agents', replies(C.AgentSettings), async (req): Promise<C.AgentSettings> => registry.setAgents(parseBody(C.AgentSettingsBody, req.body)))
 

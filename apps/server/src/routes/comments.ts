@@ -1,7 +1,8 @@
 // 노트 본문·PDF 기록
 import type { FastifyInstance } from 'fastify'
 import path from 'node:path'
-import { agentAnswer, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, claudeRunner, recordChatPrompt, replyToRecord } from '../ask.js'
+import { readAiKey } from '../aiKey.js'
+import { agentAnswer, answeredBy, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, questionRunner, recordChatPrompt, replyToRecord } from '../ask.js'
 import { repeat } from '../scheduler.js'
 import * as C from '@rw/core/contract/comments'
 import { LIBRARY_RID } from '@rw/core'
@@ -71,7 +72,8 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     // 프로젝트의 기록은 그 기록의 에이전트 대화로 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 기록에는 결과만, 대화는 에이전트 탭에. 기다리지 않는다.
     // 지식 라이브러리와 시험(opts.ask)은 예전처럼 claude -p 한 번
     const chats = ctx.agentChats
-    if (chats && !opts.ask && rid !== LIBRARY_RID) {
+    // API 키를 넣었으면(설정 › 에이전트, aiKey.ts) 대화 대신 그 AI가 한 번에 답한다: claude 명령이 없는 컴퓨터
+    if (chats && !opts.ask && rid !== LIBRARY_RID && !readAiKey(ctx.registry.configDir)) {
       const repo = repoPath(rid)
       const source = commentSourceFile(root, f)
       const last = q.answers.at(-1)
@@ -98,8 +100,8 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
         const source = commentSourceFile(root, f)
         if (source) file = path.relative(repo, source)
       }
-      const answer = await (opts.ask ?? claudeRunner)({ cwd: repo, prompt: askPrompt(f, id, { repo, file, rules: projectRules(repo) }) })
-      return appendAnswer(root, target, id, 'claude', answer)
+      const answer = await (opts.ask ?? questionRunner(ctx.registry.configDir))({ cwd: repo, ...(file && { file: path.join(repo, file) }), prompt: askPrompt(f, id, { repo, file, rules: projectRules(repo) }) })
+      return appendAnswer(root, target, id, opts.ask ? 'claude' : answeredBy(ctx.registry.configDir), answer)
     } finally {
       asking.delete(key)
     }

@@ -115,7 +115,7 @@ async function takeShots(rid, key) {
   const errors = []
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
   page.on('pageerror', (e) => errors.push(e.message))
-  const screens = [['home', '/'], ...(rid ? [['project', `/#/r/${rid}`]] : []), ['papers', '/#/papers/list'], ...(key ? [['paper', `/#/papers/open/${key}`]] : []), ['settings', '/#/settings'], ['accounts', '/#/settings/google']]
+  const screens = [['home', '/'], ...(rid ? [['project', `/#/r/${rid}`]] : []), ['papers', '/#/papers/list'], ...(key ? [['paper', `/#/papers/open/${key}`]] : []), ['settings', '/#/settings'], ['agents', '/#/settings/agents'], ['accounts', '/#/settings/google']]
   for (const [name, url] of screens) {
     await page.goto(base + url, { waitUntil: 'networkidle' })
     await page.waitForTimeout(800)
