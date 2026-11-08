@@ -11,7 +11,7 @@ Claude Code · Codex 같은 에이전트가 Emergence Workbench의 프로젝트 
 
 ## 등록
 
-맥 설치(`zsh scripts/install.sh`, [mac-setup.ko.md](mac-setup.ko.md))가 아래 둘을 저절로 등록한다. 따로 하려면 `pnpm agents:register`(`scripts/register-agents.sh`: 이미 있으면 건너뛰고, 앱 폴더를 옮겼으면 다시 등록). 손으로 할 때는 앱 저장소 폴더 경로를 `<앱 폴더>`에 넣는다. 연구 저장소에는 아무 파일도 더하지 않는다(사용자 범위 등록).
+앱의 설정 › 에이전트 › 연결에 에이전트마다 **연결** 버튼이 있다(11/8): Claude 앱(데스크톱)은 `claude_desktop_config.json`(맥 `~/Library/Application Support/Claude`, 윈도우 `%APPDATA%\Claude` 또는 스토어판의 `LocalCache\Roaming\Claude`)에 `emergence-workbench` 한 칸을 더하고(다른 칸은 그대로, 읽지 못하는 파일은 고치지 않음), Claude Code · Codex는 그 명령의 `mcp add`를 부른다(`POST /api/setup/agents/:key/register`, `mcpRegister.ts`). 입구는 앱의 node와 `scripts/mcp.mjs`라 Node가 없는 컴퓨터에서도 된다. 맥 설치(`zsh scripts/install.sh`, [mac-setup.ko.md](mac-setup.ko.md))가 Claude Code · Codex를 저절로 등록한다. 따로 하려면 `pnpm agents:register`(`scripts/register-agents.sh`: 이미 있으면 건너뛰고, 앱 폴더를 옮겼으면 다시 등록). 손으로 할 때는 앱 저장소 폴더 경로를 `<앱 폴더>`에 넣는다. 연구 저장소에는 아무 파일도 더하지 않는다(사용자 범위 등록).
 
 **Claude Code**
 
@@ -33,7 +33,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 
 흐름 출력(`flow_search` · `flow_read` · `flow_add` · `flow_update` · `finish_work`)에는 `shown`이 실린다: 화면이 쓰는 말로 적은 점(예: `명제 (닫는 점) · 끝남 · 해결 · 판단 전`)이라 에이전트가 사용자에게 그대로 옮길 수 있다. MCP는 화면과 이름 · 규칙 · 차례의 경계를 같게 두고, 도구는 화면이 아니라 일 단위로 나눈다(10/27).
 
-## 도구 (edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
+## 도구 (new_note · edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
 
 연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status` → `changes_since`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
 
@@ -56,6 +56,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `add_journal` | 오늘 일지에 메모 한 줄 `{ text, target? }`(한 일과 고친 파일). `workbench/log/<날짜>.md`를 직접 쓰지 않는다 | `POST …/:rid/journal` |
 | `search_library` | 개념노트 · 논문 찾기 (이름 · 다른 이름 · 저자 · 연도 · arXiv 번호). 개념노트는 본문으로도 찾고, 맞은 줄마다 `hits`(본문 줄 번호 · 그 줄의 절 제목 · 줄 글)를 붙인다. 노트 전체 대신 그 절만 보면 된다 | `GET /api/search/catalog`, `GET /api/concepts/search` |
 | `read_concept` | 개념노트 머리말 · 본문 · hash와 확인 상태(ok · changed · none) | `GET /api/concepts/:id` |
+| `new_note` | 빈 Markdown 노트 `{ project, name, kind: note \| calc }`를 만들고 경로를 돌려준다(11/8: 에이전트도 노트를 만들게). 내용은 `edit_note`로 채워 수정 검토에 올린다. 다른 쓰기처럼 읽기만 하는 대화에서는 거절 | `POST /api/researches/:rid/notes` |
 | `edit_note` | 프로젝트 노트(원고 제외)를 글 바꾸기 `{ old, new, reason }`로 고친다. `reason`은 꼭 적는다: 왜 바꿨는지 한 줄로, 바뀐 문단 아래에 보인다. `read_note`의 hash를 보낸다. 바로 쓰고 사용자가 문단마다 검토한다. 상태가 해결인 노트는 첫 시도를 428로 거절하고 사용자에게 알린다. 대화에서 허락을 받은 뒤 `approved: true`로 다시 보낸다 | `POST /api/agent-edits/write` |
 | `edit_concept` | 개념노트 본문에 같은 일(머리말은 그대로). `checked: ok`인 노트도 같은 허락이 필요하고, 잠긴 노트는 고치지 않는다 | `POST /api/agent-edits/write` |
 | `flow_search` | 프로젝트 흐름에서 낱말이 맞는 지난 점(제목 · 설명 칸 · 실행 매개변수 · 이유)을 잘 맞는 것부터 한 줄씩: 상태 · 매개변수 · 결과 · 반증·폐기한 이유. 계산·증명을 시작하기 전에 본다 | `GET …/:rid/flow/search?q=` |

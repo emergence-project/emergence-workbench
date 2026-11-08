@@ -11,6 +11,9 @@ export function homeShort(abs: string): string {
 
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 
+/** 앱 안 파일의 절대 경로 */
+export const appFile = (relative: string): string => path.join(APP_ROOT, relative)
+
 /** 앱 기준 경로 (홈 아래이면 ~로 줄인다) */
 export const appPath = (relative = ''): string => homeShort(path.join(APP_ROOT, relative))
 

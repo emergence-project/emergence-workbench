@@ -28,7 +28,7 @@ export function agentSeen(configDir: string): Record<string, string> {
 
 /** 우리 MCP 입구로 보이는 등록: 이름이 emergence-workbench이거나 명령에 scripts/mcp.mjs가 있는 것 */
 const ours = (name: string, entry: unknown): boolean =>
-  name === 'emergence-workbench' || /scripts[\\/]mcp\.mjs/.test(JSON.stringify(entry ?? ''))
+  name === 'emergence-workbench' || /scripts[\\/]+mcp\.mjs/.test(JSON.stringify(entry ?? ''))
 
 /**
  * 이 앱의 MCP 입구를 등록한 에이전트 (10/21 사용자: "앱은 연결된 적 없다는데 터미널은 이미 있다고 한다").
@@ -44,7 +44,7 @@ export function agentRegistered(home = os.homedir()): string[] {
   } catch { /* 없거나 읽지 못하면 등록 안 된 것으로 */ }
   try {
     const toml = fs.readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8')
-    if (/^\s*\[mcp_servers\.("?)emergence-workbench\1\]/m.test(toml) || /scripts[\\/]mcp\.mjs/.test(toml)) out.push('Codex')
+    if (/^\s*\[mcp_servers\.("?)emergence-workbench\1\]/m.test(toml) || /scripts[\\/]+mcp\.mjs/.test(toml)) out.push('Codex')
   } catch { /* 위와 같음 */ }
   return out
 }

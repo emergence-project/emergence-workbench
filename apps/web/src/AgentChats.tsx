@@ -19,7 +19,7 @@ import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
 import { GroupPick } from './AgentGroupPick'
 import { ProjectPick, RecentChats, ScopeRow } from './AgentProjectPick'
-import { AgentChip, agentOf, effortsOf, fitEffort, isClaude, modelName, useModels } from './AgentPick'
+import { AgentChip, agentOf, effortsOf, fitEffort, isClaude, modelName, useChatSettings, useModels } from './AgentPick'
 import { APP_HINT, ATTACH_NAME, Composer, CUSTOM_NAME, EFFORT_NAME, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
@@ -721,8 +721,6 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
 
 // ---------- 새 대화 ----------
 
-const SETTINGS_KEY = 'rw-agent-settings'
-const defaultSettings = (): Settings => ({ trust: 'edit', model: 'default', effort: 'medium', agent: 'claude-code', ...store.get<Partial<Settings>>(SETTINGS_KEY, {}) })
 
 /** 새 대화: 프로젝트(rid가 없을 때) · 범위(지금 보는 곳에서) · 입력란 하나 */
 export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: { file: string; title: string }; onCreated(c: Chat): void }) {
@@ -741,9 +739,8 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const app = rid === APP_RID
   // 범위는 프로젝트 · 전체 둘 (10/31 사용자 결정: 주제는 너무 좁다). 옛 주제 · 노트 대화는 그대로 읽는다
   const [kind, setKind] = useState<'project' | 'all'>('project')
-  const [settings, setSettings] = useState<Settings>(defaultSettings)
+  const [settings, change] = useChatSettings()
   const scope: ChatScope = app ? { kind: 'app' } : { kind }
-  const change = (s: Partial<Settings>) => { const v = { ...settings, ...s }; setSettings(v); store.set(SETTINGS_KEY, v) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()

@@ -174,10 +174,10 @@ export const ModelChoice = z.object({ value: ChatModel, name: z.string(), desc: 
 export const ChatModels = z.object({ models: z.array(ModelChoice) }).strict()
 /**
  * GET /agent-chats/agents: 이 맥에서 대화를 맡길 수 있는 에이전트. installed = 실행 파일을 찾음(version), login = 로그인한 흔적이 있음(모르면 없음),
- * install = 깔 때 쓸 명령 (없을 때 화면이 보인다)
+ * install = 깔 때 쓸 명령 (없을 때 화면이 보인다), bundled = 앱에 든 연결부를 쓴다 (설치 파일로 깐 앱의 Codex: 깔 명령 대신 「ChatGPT로 연결」)
  */
 export const ChatAgents = z.object({
-  agents: z.array(z.object({ id: z.enum(AGENT_KINDS), name: z.string(), installed: z.boolean(), version: z.string().optional(), login: z.boolean().optional(), install: z.string().optional() }).strict()),
+  agents: z.array(z.object({ id: z.enum(AGENT_KINDS), name: z.string(), installed: z.boolean(), version: z.string().optional(), login: z.boolean().optional(), install: z.string().optional(), bundled: z.boolean().optional() }).strict()),
 }).strict()
 /**
  * GET /agent-chats/extras: 맥의 Claude Code에 있는 스킬(~/.claude/skills)과 커넥터(~/.claude.json의 MCP 서버). / 메뉴 · @ 메뉴에 보인다.

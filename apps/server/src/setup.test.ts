@@ -36,9 +36,9 @@ describe('시작 준비', () => {
   it('처음에는 커밋 이름 · 개인 저장소 · 에이전트가 비어 있다', async () => {
     const v = (await app.inject({ method: 'GET', url: '/api/setup' })).json()
     expect(v).toMatchObject({ git: { name: '', email: '' }, projects: 0, personal: { remote: null, active: false } })
-    expect(v.agents.map((a: { key: string; registered: boolean; at: string | null }) => [a.key, a.registered, a.at])).toEqual([['claude-code', false, null], ['codex', false, null]])
-    expect(v.agents[0].command).toMatch(/^claude mcp add --scope user emergence-workbench -- node .*scripts\/mcp\.mjs$/)
-    expect(v.agents[1].command).toMatch(/^codex mcp add emergence-workbench -- node .*scripts\/mcp\.mjs$/)
+    expect(v.agents.map((a: { key: string; registered: boolean; at: string | null }) => [a.key, a.registered, a.at])).toEqual([['claude-desktop', false, null], ['claude-code', false, null], ['codex', false, null]])
+    expect(v.agents[1].command).toMatch(/^claude mcp add --scope user emergence-workbench -- node .*scripts\/mcp\.mjs$/)
+    expect(v.agents[2].command).toMatch(/^codex mcp add emergence-workbench -- node .*scripts\/mcp\.mjs$/)
   })
   it('커밋 이름 · 이메일을 git 전역 설정에 쓴다', async () => {
     const bad = await app.inject({ method: 'PUT', url: '/api/setup/git', payload: { name: 'Kim', email: 'no-at' } })
@@ -62,7 +62,31 @@ describe('시작 준비', () => {
     await app.inject({ method: 'GET', url: '/api/researches', headers: { 'x-rw-agent': 'codex' } })
     await app.inject({ method: 'GET', url: '/api/researches', headers: { 'x-rw-agent': 'claude-code' } })
     const v = (await app.inject({ method: 'GET', url: '/api/setup' })).json()
-    expect(v.agents.every((a: { at: string | null }) => typeof a.at === 'string')).toBe(true)
+    // Claude 앱은 Claude Code와 같은 이름(claude-ai → claude-code)으로 불러 부른 때를 따로 적지 않는다
+    expect(v.agents.filter((a: { key: string }) => a.key !== 'claude-desktop').every((a: { at: string | null }) => typeof a.at === 'string')).toBe(true)
+  })
+  it.skipIf(process.platform === 'win32')('「연결」: Claude 앱 설정 파일에 이 앱의 입구를 적는다 (앱을 켠 적 없으면 알린다)', async () => {
+    const env = { home: process.env.HOME, xdg: process.env.XDG_CONFIG_HOME }
+    const home = path.join(tmp, 'home')
+    process.env.HOME = home
+    process.env.XDG_CONFIG_HOME = path.join(home, '.config')
+    try {
+      expect((await app.inject({ method: 'POST', url: '/api/setup/agents/nobody/register' })).statusCode).toBe(404)
+      const none = await app.inject({ method: 'POST', url: '/api/setup/agents/claude-desktop/register' })
+      expect(none.statusCode).toBe(409)
+      const dir = process.platform === 'darwin' ? path.join(home, 'Library', 'Application Support', 'Claude') : path.join(home, '.config', 'Claude')
+      fs.mkdirSync(dir, { recursive: true })
+      const before = (await app.inject({ method: 'GET', url: '/api/setup' })).json()
+      expect(before.agents[0]).toMatchObject({ key: 'claude-desktop', installed: true, registered: false })
+      const r = await app.inject({ method: 'POST', url: '/api/setup/agents/claude-desktop/register' })
+      expect(r.statusCode).toBe(200)
+      expect(r.json().agents[0]).toMatchObject({ key: 'claude-desktop', registered: true })
+      const written = JSON.parse(fs.readFileSync(path.join(dir, 'claude_desktop_config.json'), 'utf8'))
+      expect(written.mcpServers['emergence-workbench'].command).toBe(process.execPath)
+      expect(written.mcpServers['emergence-workbench'].args[0]).toMatch(/scripts[\\/]mcp\.mjs$/)
+    } finally {
+      for (const [k, v] of [['HOME', env.home], ['XDG_CONFIG_HOME', env.xdg]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v }
+    }
   })
   it('옛 agent-seen.json(마지막 하나만)도 읽는다', () => {
     const dir = path.join(tmp, 'seen-old')

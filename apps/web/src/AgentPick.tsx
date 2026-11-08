@@ -1,10 +1,13 @@
 // 에이전트 대화의 에이전트 · 모델 고르기 (AgentChats.tsx에서 나눔, 10/30 "Codex · Gemini 연결", 시안 https://claude.ai/artifact/3NBbEmtfj3LYnw4J2ypr4u)
 // 대화를 시작할 때 Claude · Codex · Gemini 중 하나를 고르고, 시작한 대화는 그 에이전트로 고정한다 (세션이 에이전트마다 따로라서)
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { agentChatsApi, type AgentKind, type ChatEffort, type ChatModel, type ModelChoice } from './api'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { qk } from './queries'
+import { store } from './store'
+import type { Settings } from './ChatComposer'
 
 export const AGENT_KINDS: AgentKind[] = ['claude-code', 'codex', 'gemini']
 export const AGENT_NAME: Record<AgentKind, string> = { 'claude-code': 'Claude', codex: 'Codex', gemini: 'Gemini' }
@@ -40,6 +43,15 @@ export function useModels(agent?: string): ModelChoice[] {
 export function useAgentKinds() {
   return useQuery({ queryKey: qk.agentKinds, queryFn: agentChatsApi.agents, staleTime: 5 * 60_000 }).data
 }
+/**
+ * 고른 에이전트를 바꿔야 하면 바꿀 에이전트: 고른 것이 이 컴퓨터에 없을 때만, 깔리고 로그인한 첫째(로그인을 모르면 깔린 첫째).
+ * 목록을 아직 못 받았거나 바꿀 것이 없으면 undefined
+ */
+export function readyAgent(now: string, kinds: { id: AgentKind; installed: boolean; login?: boolean }[] | undefined): AgentKind | undefined {
+  if (!kinds || kinds.find((k) => k.id === agentOf(now))?.installed !== false) return undefined
+  const pick = kinds.find((k) => k.installed && k.login !== false) ?? kinds.find((k) => k.installed)
+  return pick && pick.id !== agentOf(now) ? pick.id : undefined
+}
 /** 모델 이름: 기본은 실제로 도는 모델을 붙여 "기본 (Opus 5.5)", 목록에 없는 id는 그대로 */
 export function modelName(value: ChatModel, list: ModelChoice[]): string {
   const m = list.find((x) => x.value === value)
@@ -74,4 +86,20 @@ export function AgentChoices({ agent, fixed, onPick }: { agent: string; fixed?: 
     })}
     {fixed && <div className="muted ac-pop-note">{t('다른 에이전트는 새 대화에서', 'Pick another agent in a new conversation')}</div>}
   </>
+}
+
+/** 에이전트를 바꿀 때 함께 바꾸는 것: 모델 · 생각 깊이는 기본으로, 계획 모드는 Claude만 되니 묻기로 */
+export const agentSwitch = (a: AgentKind, trust: Settings['trust']): Partial<Settings> => ({ agent: a, model: 'default', effort: 'medium', ...(a !== 'claude-code' && trust === 'plan' && { trust: 'ask' as const }) })
+
+const SETTINGS_KEY = 'rw-agent-settings'
+/**
+ * 새 대화의 설정 (권한 · 모델 · 생각 깊이 · 에이전트). 고른 값은 이 브라우저에 기억한다.
+ * 고른 에이전트가 이 컴퓨터에 없으면 깔리고 로그인한 첫째로 (11/8: 설치 파일로 깐 앱에는 Claude가 없고 Codex만 있을 수 있다)
+ */
+export function useChatSettings(): [Settings, (s: Partial<Settings>) => void] {
+  const [settings, setSettings] = useState<Settings>(() => ({ trust: 'edit', model: 'default', effort: 'medium', agent: 'claude-code', ...store.get<Partial<Settings>>(SETTINGS_KEY, {}) }))
+  const ready = readyAgent(settings.agent, useAgentKinds())
+  useEffect(() => { if (ready) setSettings((v) => ({ ...v, ...agentSwitch(ready, v.trust) })) }, [ready])
+  const change = (s: Partial<Settings>) => { const v = { ...settings, ...s }; setSettings(v); store.set(SETTINGS_KEY, v) }
+  return [settings, change]
 }

@@ -56,7 +56,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   const chats = new AgentChats({
     dir: path.join(registry.configDir, 'agent-chats'),
     runner: runner ?? claudeAgentRunner(mcpFor),
-    ...(!runner && { others: { codex: acpAgentRunner(ACP_AGENTS.codex, chatMcp), gemini: acpAgentRunner(ACP_AGENTS.gemini, chatMcp) } }),
+    ...(!runner && { others: { codex: acpAgentRunner(ACP_AGENTS.codex, chatMcp, registry.configDir), gemini: acpAgentRunner(ACP_AGENTS.gemini, chatMcp, registry.configDir) } }),
     limit: CHAT_LIMIT,
     project: (rid) => ({ repo: repoPath(rid), title: rid === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : registry.list().find((r) => r.id === rid)?.title ?? rid }),
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
@@ -87,7 +87,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.get('/api/agent-chats/extras', replies(C.ChatExtras), async (): Promise<C.ChatExtras> => chatExtras(MCP_NAME))
   app.get<{ Querystring: { agent?: string } }>('/api/agent-chats/models', replies(C.ChatModels), async (req): Promise<C.ChatModels> => ({ models: await chats.models(isAcp(req.query.agent) ? req.query.agent : undefined) }))
   /** 대화를 맡길 수 있는 에이전트 (Claude · Codex · Gemini): 깔렸는지 · 로그인했는지 · 깔 명령 */
-  app.get('/api/agent-chats/agents', replies(C.ChatAgents), async (): Promise<C.ChatAgents> => ({ agents: agentsHere() }))
+  app.get('/api/agent-chats/agents', replies(C.ChatAgents), async (): Promise<C.ChatAgents> => ({ agents: agentsHere(undefined, registry.configDir) }))
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 

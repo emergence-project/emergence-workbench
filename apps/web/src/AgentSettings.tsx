@@ -197,19 +197,32 @@ function AgentConnections({ onSaved }: { onSaved(message: string): void }) {
   </>)
 }
 
-/** 등록과 부름은 다르다 (10/21): 등록했으면 명령 대신 "등록됨", 부른 때는 MCP 도구가 앱을 부를 때 적힌다 */
+const MCP_UI: Record<SetupView['agents'][number]['key'], string> = { 'claude-desktop': 'Claude 앱 연결', 'claude-code': 'Claude Code 연결', codex: 'Codex 연결' }
+
+/**
+ * 등록과 부름은 다르다 (10/21): 등록했으면 "등록됨", 부른 때는 MCP 도구가 앱을 부를 때 적힌다.
+ * 등록은 「연결」 하나로 (11/8 "MCP 연결은 기본 기능"): 앱이 Claude 앱 설정 파일에 적거나 `mcp add`를 대신 부른다. 터미널 명령은 아래 접은 줄에
+ */
 function McpRow({ a, onSaved }: { a: SetupView['agents'][number]; onSaved(message: string): void }) {
-  // 명령이 없으면 등록 명령도 실패한다 (10/21 맥미니): 먼저 까는 명령을 보이고, 깐 뒤 설치 명령을 다시 돌리면 등록까지 한다
+  const client = useQueryClient()
+  const connect = useMutation({
+    mutationFn: () => setupApi.registerAgent(a.key),
+    onSuccess: (v) => { client.setQueryData(qk.setup, v); onSaved(a.key === 'claude-desktop' ? t('Claude 앱에 연결했습니다. Claude 앱을 껐다 켜면 이 앱의 도구가 보입니다', 'Connected to the Claude app. Quit and reopen it to see this app\'s tools') : t(`${a.name}에 연결했습니다`, `Connected to ${a.name}`)) },
+  })
+  const desktop = a.key === 'claude-desktop'
+  // 명령이 없으면 등록도 실패한다 (10/21 맥미니): 먼저 깔 것을 보인다
   const absent = !a.installed && !a.registered && !a.at
-  const install = a.key === 'codex' ? 'npm install -g @openai/codex' : 'npm install -g @anthropic-ai/claude-code'
+  const install = desktop ? '' : a.key === 'codex' ? 'npm install -g @openai/codex' : 'npm install -g @anthropic-ai/claude-code'
   return (
-    <Row ok={a.registered || !!a.at} optional name={a.name} sub="MCP" ui={a.key === 'codex' ? 'Codex 연결' : 'Claude Code 연결'}
-      action={!a.registered && <CopyButton text={absent ? install : a.command} onSaved={onSaved} />}>
+    <Row ok={a.registered || !!a.at} optional name={a.name} sub="MCP" ui={MCP_UI[a.key]}
+      action={!a.registered && a.installed && <button className="btn" disabled={connect.isPending} onClick={() => connect.mutate()}>{connect.isPending ? t('연결하는 중…', 'Connecting…') : t('연결', 'Connect')}</button>}>
       {a.registered ? t('등록됨. ', 'Registered. ') : null}
+      {connect.error && <span className="error-text">{connect.error.message} </span>}
       {a.at ? t(`${when(a.at)}에 불렀습니다.`, `Last called ${when(a.at)}.`)
-        : a.registered ? t('아직 부른 적 없음: 등록하기 전에 열어 둔 세션은 다시 열어야 앱 도구를 씁니다.', 'Not called yet: sessions opened before registering need to be reopened to use the app tools.')
-        : absent ? <>{t(`이 컴퓨터에 ${a.name}가 없습니다. 쓰려면 먼저 깔고(`, `${a.name} is not installed on this computer. To use it, install it first (`)}<code className="setup-cmd">{install}</code>{t(') 설치 명령을 다시 실행하면 등록까지 합니다.', '), then run the installer again to register it.')}</>
-        : <>{t('아직 등록 안 됨. 터미널에 한 줄: ', 'Not registered yet. One line in the terminal: ')}<code className="setup-cmd">{a.command}</code></>}
+        : a.registered ? (desktop ? t('Claude 앱을 껐다 켜면 대화에서 이 앱의 노트 · 기록 도구를 씁니다.', 'Quit and reopen the Claude app to use this app\'s note and record tools in its conversations.') : t('아직 부른 적 없음: 등록하기 전에 열어 둔 세션은 다시 열어야 앱 도구를 씁니다.', 'Not called yet: sessions opened before registering need to be reopened to use the app tools.'))
+        : desktop ? (a.installed ? t('「연결」을 누르면 Claude 앱 설정에 이 앱을 더합니다. Claude 앱 대화에서 노트를 읽고 고치게 됩니다.', 'Connect adds this app to the Claude app settings, so its conversations can read and edit your notes.') : t(`${HERE.ko}에서 Claude 앱을 찾지 못했습니다. Claude 앱을 깔고 한 번 켜면 여기서 연결합니다.`, `The Claude app was not found on ${HERE.en}. Install it and open it once, then connect here.`))
+        : absent ? <>{t(`${HERE.ko}에 ${a.name}가 없습니다. 쓰려면 먼저 깔아 주세요: `, `${a.name} is not on ${HERE.en}. Install it first: `)}<code className="setup-cmd">{install}</code> <CopyButton text={install} onSaved={onSaved} /></>
+        : <>{t('「연결」을 누르거나 터미널에 한 줄: ', 'Press Connect, or one line in the terminal: ')}<code className="setup-cmd">{a.command}</code></>}
     </Row>
   )
 }
@@ -224,11 +237,15 @@ function ChatAgentRows({ onSaved }: { onSaved(message: string): void }) {
     <h3 className="set-h3">{t('대화를 맡는 에이전트', 'Agents for conversations')}</h3>
     <div className="setup set-rows" data-ui="대화 에이전트 묶음">
       {kinds ? kinds.map((a) => (
-        <Row key={a.id} ok={a.installed && a.login !== false} optional={a.id !== 'claude-code'} name={a.name} sub={a.version} ui="대화 에이전트"
+        <Row key={a.id} ok={a.installed && a.login !== false} optional={a.id !== 'claude-code' || !a.installed} name={a.name} sub={a.version} ui="대화 에이전트"
           action={!a.installed && a.install && <CopyButton text={a.install} onSaved={onSaved} />}>
-          {!a.installed
+          {a.bundled && (!a.installed || a.login === false)
+            ? t('위 「질문에 답할 AI」에서 ChatGPT로 연결하면 대화에서도 Codex가 그 계정으로 노트를 읽고 씁니다.', 'Connect ChatGPT under AI for questions above, and Codex reads and writes notes in conversations with that account.')
+            : !a.installed && a.id === 'claude-code'
+            ? t(`${HERE.ko}에 Claude Code가 없습니다. 깔면 여기서 고를 수 있고, 없어도 Codex에게 노트를 맡길 수 있습니다.`, `Claude Code is not on ${HERE.en}. Install it to pick it here; without it, Codex can still work on notes.`)
+            : !a.installed
             ? <>{t(`${HERE.ko}에 없습니다. 깔고(`, `Not on ${HERE.en}. Install it (`)}<code className="setup-cmd">{a.install}</code>{t(`) 터미널에서 ${a.id === 'codex' ? 'codex' : 'gemini'}를 한 번 열어 로그인하면 모델 메뉴에서 고를 수 있습니다.`, `), open ${a.id === 'codex' ? 'codex' : 'gemini'} once in the terminal to sign in, then pick it in the model menu.`)}</>
-            : a.login === false ? t(`깔려 있지만 로그인한 흔적이 없습니다. 터미널에서 ${a.id === 'codex' ? 'codex' : 'gemini'}를 한 번 열어 로그인하세요.`, `Installed, but no sign-in found. Open ${a.id === 'codex' ? 'codex' : 'gemini'} once in the terminal to sign in.`)
+              : a.login === false ? t(`깔려 있지만 로그인한 흔적이 없습니다. 터미널에서 ${a.id === 'codex' ? 'codex' : 'gemini'}를 한 번 열어 로그인하세요.`, `Installed, but no sign-in found. Open ${a.id === 'codex' ? 'codex' : 'gemini'} once in the terminal to sign in.`)
               : a.id === 'claude-code' ? t('기본 에이전트. 계획 모드 · 되돌리기 · 탐색 하위 에이전트까지 됩니다.', 'The default agent, with plan mode, rewind and the explore subagent.')
                 : t('모델 메뉴의 에이전트 줄에서 고릅니다. 허락 카드 · 범위 · 수정 검토는 Claude와 같고, 계획 모드 · 되돌리기는 없습니다.', 'Pick it in the agent row of the model menu. Permission cards, scope and edit review work as with Claude; plan mode and rewind are not available.')}
         </Row>

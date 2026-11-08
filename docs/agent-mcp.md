@@ -12,7 +12,7 @@ Agents such as Claude Code and Codex read Emergence Workbench projects, notes, r
 
 ## Register it
 
-The Mac installer (`zsh scripts/install.sh`, [mac-setup.md](mac-setup.md)) registers both of these for you. To do only this step, run `pnpm agents:register` (`scripts/register-agents.sh`: skips what is registered, re-registers when the app folder moved). By hand, put the path of the app folder in `<app folder>`. Nothing is added to your research repositories (user-scope registration).
+In the app, Settings › Agents › Connections has a **Connect** button per agent (11/8): for the Claude app (desktop) it adds one `emergence-workbench` entry to `claude_desktop_config.json` (macOS `~/Library/Application Support/Claude`, Windows `%APPDATA%\Claude` or the Store app's `LocalCache\Roaming\Claude`; other entries are kept, an unreadable file is left alone), and for Claude Code and Codex it runs their `mcp add` (`POST /api/setup/agents/:key/register`, `mcpRegister.ts`). The entry is the app's own node and `scripts/mcp.mjs`, so a computer without Node works too. The Mac installer (`zsh scripts/install.sh`, [mac-setup.md](mac-setup.md)) registers Claude Code and Codex for you. To do only this step, run `pnpm agents:register` (`scripts/register-agents.sh`: skips what is registered, re-registers when the app folder moved). By hand, put the path of the app folder in `<app folder>`. Nothing is added to your research repositories (user-scope registration).
 
 **Claude Code**
 
@@ -34,7 +34,7 @@ Inside the app folder, `pnpm mcp` also starts it (it speaks MCP over stdio, so y
 
 Flow outputs (`flow_search`, `flow_read`, `flow_add`, `flow_update`, `finish_work`) carry `shown`: the dot in the words the screen uses (for example `명제 (닫는 점) · 끝남 · 해결 · 판단 전`), so an agent can quote it to the user as is. MCP keeps the screen's names, rules and turn boundary, but its tools are cut by job, not by screen (10/27).
 
-## Tools (read-only except edit_note, edit_concept, answer_record, add_record, flow_add, flow_update, flow_review, finish_work, add_task, report_task, checkpoint_task, add_journal and changes_since, which only moves its own baseline)
+## Tools (read-only except new_note, edit_note, edit_concept, answer_record, add_record, flow_add, flow_update, flow_review, finish_work, add_task, report_task, checkpoint_task, add_journal and changes_since, which only moves its own baseline)
 
 When it connects, the server tells the agent which tools to use in which order for each kind of job (`INSTRUCTIONS` in `apps/server/src/mcp.ts`): start with `rules`, then `overview`, then `project_status`, then `changes_since`. If you add or rename a tool, update that order too; `mcp.test.ts` checks that every tool name there exists.
 
@@ -57,6 +57,7 @@ When it connects, the server tells the agent which tools to use in which order f
 | `add_journal` | Append a memo line to today's journal `{ text, target? }` (what you did and the files you touched), instead of writing `workbench/log/<date>.md` | `POST …/:rid/journal` |
 | `search_library` | Find concept notes and papers (name, alias, author, year, arXiv id). Concept notes are also found by their text, with `hits` for each matching line (body line number, the heading it falls under, the line), so you can read just that section | `GET /api/search/catalog`, `GET /api/concepts/search` |
 | `read_concept` | A concept note's front matter, body, hash and check state (ok, changed, none) | `GET /api/concepts/:id` |
+| `new_note` | Create an empty Markdown note `{ project, name, kind: note \| calc }` and return its path (11/8: so an agent can also make notes). Fill it with `edit_note`, so the content goes to edit review. Refused in read-only conversations like the other writes | `POST /api/researches/:rid/notes` |
 | `edit_note` | Change a project note (not a manuscript) by exact text replacement `{ old, new, reason }` with the hash from `read_note`. `reason` is required: one line on why, shown under the changed paragraph. The optional `summary` is one line on why the whole batch was made, shown above the review as "Why the agent made these edits": write it in the user's language without session-internal numbering, and leave it out when the reasons already say it (10/21). Written at once and shown to the user for review paragraph by paragraph. A note with status solved is refused on the first try (428) and the user is notified; ask in the conversation, then send again with `approved: true` | `POST /api/agent-edits/write` |
 | `edit_concept` | The same for a concept note's body (front matter stays). A note with `checked: ok` needs permission the same way; locked notes are never changed | `POST /api/agent-edits/write` |
 | `flow_search` | Earlier dots of the project flow matching the words (title, fields, run parameters, reasons), best first, one short row each: state, parameters, result, and why a dot was refuted or dropped. Delegated tasks linked to a dot are searched too and listed under it (`tasks`: state, conclusion, outputs), so a result that so far lives only in a task report is found (10/26). Use it before starting a calculation or proof | `GET …/:rid/flow/search?q=` |
@@ -94,11 +95,11 @@ The app can also start Claude Code on the Mac itself (Claude Agent SDK, `apps/se
 
 ### Codex and Gemini in app conversations (2026-10-30)
 
-A conversation can be handed to Codex or Gemini instead of Claude (`agent` in `POST /api/agent-chats`, fixed for the conversation). The app starts the CLI installed on the Mac over the Agent Client Protocol (ACP, JSON-RPC on stdio; `apps/server/src/agentAcp.ts`): `gemini --acp`, and `codex-acp` (`@zed-industries/codex-acp`) for Codex. Both keep their own sign-in. `GET /api/agent-chats/agents` says which are installed and signed in, `GET /api/agent-chats/models?agent=codex|gemini` lists their models (from `session/new`, kept 30 minutes).
+A conversation can be handed to Codex or Gemini instead of Claude (`agent` in `POST /api/agent-chats`, fixed for the conversation). The app starts the CLI installed on the computer over the Agent Client Protocol (ACP, JSON-RPC on stdio; `apps/server/src/agentAcp.ts`): `gemini --acp`, and `codex-acp` (`@agentclientprotocol/codex-acp`; the older `@zed-industries/codex-acp` works too) for Codex. The app built by `scripts/bundle-app.mjs` carries the connector (`vendor/codex-acp`, Apache-2.0) and runs it with its own node, passing the codex the app downloaded for "Connect ChatGPT" as `CODEX_PATH` (11/8: a friend's Windows computer has no Node or npm). Both keep their own sign-in. `GET /api/agent-chats/agents` says which are installed and signed in, `GET /api/agent-chats/models?agent=codex|gemini` lists their models (from `session/new`, kept 30 minutes).
 
 - The agent's permission requests (`session/request_permission`) are mapped to the Claude tool names (`Bash`, `Edit`, `Write`, `Read`, `WebFetch` …) and go through the same decision as Claude conversations.
 - The same MCP tools are attached as an HTTP server that exists only while the conversation runs (`POST /api/agent-mcp/<random key>`, `agentMcpHttp.ts`). Every `tools/call` goes through the conversation's decision first, so read-only, scope, held files and edit review hold even when the agent does not ask.
-- Codex runs research conversations in its `read-only` mode (writes and network ask) and app conversations in `auto` (writes inside the work folder). Gemini keeps its default mode (edits, commands and web ask).
+- Codex runs research conversations in its `read-only` mode (writes and network ask; notes change through the app tools) and app conversations in `workspace-write` (`auto` in the older connector: writes inside the work folder). Gemini keeps its default mode (edits, commands and web ask).
 - Claude only: plan mode (Codex and Gemini conversations use "ask before edits"), rewind, the explore subagent and background commands. Resuming uses `session/load` when the agent supports it.
 
 ## Status hooks (2026-10-30)

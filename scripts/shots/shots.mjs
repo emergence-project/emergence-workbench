@@ -211,6 +211,8 @@ try {
     }
     const uiSel = ui && (ui.startsWith('[') ? ui : `[data-ui="${ui}"]`)
     if (uiSel) await page.locator(uiSel).filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${uiSel} 없음`))
+    // 대화 화면: 왼쪽 목록은 대화보다 늦게 와서, 연 대화의 줄이 빠진 채 찍히곤 했다 (11/8)
+    if (hash.startsWith('#/agent/')) await page.locator('[data-ui="대화 줄"].on').filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: 왼쪽 목록에 연 대화 줄 없음`))
     // 대화는 줄 아래에 열려 첫 화면 밖이라, 그 바뀐 곳부터 보이게 내린다
     if (name === 'review-talk') await page.locator('[data-ui="바뀐 곳"]').filter({ has: page.locator('[data-ui="고친 이유"]') }).first().evaluate((el) => el.scrollIntoView({ block: 'start' })).catch(() => problems.push(`${name}: 대화까지 내리지 못함`))
     if (name === 'project') {

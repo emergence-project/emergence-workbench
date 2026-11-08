@@ -37,7 +37,7 @@ export function useSetup() {
   return { setup, github, people: people.data, me, must, done: must.filter((m) => m.ok).length, loaded }
 }
 
-/** 설정 › 에이전트의 연결 줄 수: Claude Code · Codex · Claude API (AgentSettings.tsx) */
+/** 설정 › 에이전트의 MCP 연결 줄 수: Claude 앱 · Claude Code · Codex (AgentSettings.tsx, 11/8 Claude 앱을 더함) */
 export const AGENT_ROWS = 3
 
 const Dot = ({ ok, optional }: { ok: boolean; optional?: boolean }) =>

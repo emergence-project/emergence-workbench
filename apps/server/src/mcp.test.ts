@@ -35,10 +35,23 @@ describe('MCP 입구 (읽기)', () => {
     expect(agentOf(undefined)).toBe('mcp')
   })
 
-  it('쓰기 도구는 edit_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task · checkpoint_task, 일지 add_journal, 변경사항 기준을 옮기는 changes_since뿐이다', async () => {
+  it('new_note는 프로젝트에 빈 노트를 만들고 그 경로를 돌려준다 (친구도 에이전트에게 노트 만들기를 맡긴다, 11/8)', async () => {
+    const f = (async (input: string | URL, init?: RequestInit) => {
+      const u = new URL(String(input))
+      const res = await app.inject({ method: init?.method === 'POST' ? 'POST' : 'GET', url: u.pathname + u.search, ...(init?.body !== undefined && { payload: String(init.body), headers: { 'content-type': 'application/json' } }) })
+      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+    const out = textOf(await (await connect(f)).callTool({ name: 'new_note', arguments: { project: 'sample-research', name: '친구의 첫 노트' } }))
+    expect(out).toMatch(/^Created: /)
+    const made: { path: string; kind: string } = JSON.parse(out.slice('Created: '.length))
+    expect(made.kind).toBe('note')
+    expect(fs.existsSync(path.join(repo, made.path))).toBe(true)
+  })
+
+  it('쓰기 도구는 edit_note · new_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task · checkpoint_task, 일지 add_journal, 변경사항 기준을 옮기는 changes_since뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'changes_since', 'checkpoint_task', 'edit_concept', 'edit_note', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'finish_work', 'add_task', 'report_task', 'checkpoint_task', 'add_journal', 'changes_since'].includes(t.name))
+    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'changes_since', 'checkpoint_task', 'edit_concept', 'edit_note', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'new_note', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'new_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'finish_work', 'add_task', 'report_task', 'checkpoint_task', 'add_journal', 'changes_since'].includes(t.name))
   })
 
   it('changes_since는 Claude 계정 id를 붙여 받고, 화면 이름으로 한 줄씩 돌려준다', async () => {

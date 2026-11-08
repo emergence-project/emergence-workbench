@@ -14,7 +14,7 @@ import os from 'node:os'
 import readline from 'node:readline'
 import type { ModelChoice } from '@rw/core/contract/agentChats'
 import { Inbox, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type ToolDecision, type Turn } from './agentChats.js'
-import { acpBin, acpEnv, spawnTarget, type AcpSpec } from './agentKinds.js'
+import { acpCommand, acpEnv, type AcpSpec } from './agentKinds.js'
 import { HERE, t } from './i18n.js'
 
 type Json = Record<string, unknown>
@@ -148,11 +148,13 @@ function blocksOf(text: string, x: Turn, images: boolean): Json[] {
 /** 대화마다 여는 앱 MCP 입구 (HTTP). 앱 서버가 듣는 중이 아니면(시험) 없음 */
 export type ChatMcp = (o: { appChat?: string; gate: RunInput['canUseTool'] }) => { url: string; close(): void } | undefined
 
-function launch(spec: AcpSpec, cwd: string, env?: Record<string, string>): ChildProcess {
-  const bin = acpBin(spec)
-  if (!bin) throw new Error(t(`${HERE.ko}에서 ${spec.name}를 찾지 못했습니다. 깔고 한 번 로그인해 주세요: ${spec.install}`, `${spec.name} was not found on ${HERE.en}. Install it and sign in once: ${spec.install}`))
-  const how = spawnTarget(bin)
-  return spawn(how.file, spec.args, { cwd, env: acpEnv(env), stdio: ['pipe', 'pipe', 'pipe'], shell: how.shell, windowsHide: true })
+function launch(spec: AcpSpec, cwd: string, env?: Record<string, string>, configDir?: string): ChildProcess {
+  const cmd = acpCommand(spec, configDir)
+  if (!cmd) {
+    if (spec.id === 'codex' && configDir) throw new Error(t(`${HERE.ko}에 Codex가 아직 없습니다. 설정 › 에이전트의 「질문에 답할 AI」에서 ChatGPT로 연결해 주세요`, `Codex is not on ${HERE.en} yet. Connect ChatGPT under Settings › Agents › AI for questions`))
+    throw new Error(t(`${HERE.ko}에서 ${spec.name}를 찾지 못했습니다. 깔고 한 번 로그인해 주세요: ${spec.install}`, `${spec.name} was not found on ${HERE.en}. Install it and sign in once: ${spec.install}`))
+  }
+  return spawn(cmd.file, cmd.args, { cwd, env: acpEnv({ ...cmd.env, ...env }), stdio: ['pipe', 'pipe', 'pipe'], shell: cmd.shell, windowsHide: true })
 }
 
 const INIT = { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: 'emergence-workbench', version: '1' } }
@@ -167,13 +169,13 @@ export function modelsOf(r: unknown): ModelChoice[] {
 }
 
 /** 고를 수 있는 모델: 에이전트를 띄워 세션 하나를 열어 보고 닫는다 (지시를 보내지 않으니 토큰을 쓰지 않는다). 30분 기억 */
-function modelLister(spec: AcpSpec): () => Promise<ModelChoice[]> {
+function modelLister(spec: AcpSpec, configDir?: string): () => Promise<ModelChoice[]> {
   let got: { at: number; list: Promise<ModelChoice[]> } | undefined
   return () => {
     if (got && Date.now() - got.at < 30 * 60_000) return got.list
     const cwd = os.homedir()
     const p = (async () => {
-      const proc = launch(spec, cwd)
+      const proc = launch(spec, cwd, undefined, configDir)
       const timer = setTimeout(() => proc.kill(), 20_000)
       try {
         const conn = new AcpConnection(proc, () => undefined, async () => { throw new Error('not supported') })
@@ -187,10 +189,11 @@ function modelLister(spec: AcpSpec): () => Promise<ModelChoice[]> {
   }
 }
 
-export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp): AgentRunner {
+/** configDir: 설치 파일로 깐 앱의 Codex가 앱이 받은 codex를 찾는 곳 (agentKinds.ts의 acpCommand) */
+export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp, configDir?: string): AgentRunner {
   return Object.assign(async function* run(input: RunInput): AsyncIterable<RunEvent> {
     const out = new Inbox<RunEvent>()
-    const proc = launch(spec, input.cwd, input.env)
+    const proc = launch(spec, input.cwd, input.env, configDir)
     const kill = () => { if (proc.exitCode === null) proc.kill() }
     input.signal.addEventListener('abort', kill, { once: true })
     const server = mcp({ ...(input.appChat && { appChat: input.appChat }), gate: input.canUseTool })
@@ -256,9 +259,9 @@ export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp): AgentRunner {
         if (!sessionId) throw new Error(t('에이전트가 세션을 열지 못했습니다', 'The agent did not open a session'))
       }
       out.push({ type: 'session', id: sessionId })
-      const want = spec.modeFor({ app: !!input.appChat, write: input.write })
       const modes = list(rec(rec(opened).modes).availableModes).map((m) => str(rec(m).id))
-      if (want && modes.includes(want)) await conn.request('session/set_mode', { sessionId, modeId: want }).catch(() => undefined)
+      const want = spec.modeFor({ app: !!input.appChat, write: input.write }).find((m) => modes.includes(m))
+      if (want) await conn.request('session/set_mode', { sessionId, modeId: want }).catch(() => undefined)
       if (input.model !== 'default') await conn.request('session/set_model', { sessionId, modelId: input.model }).catch(() => undefined)
       let stopping = false
       input.control?.({ interrupt: async () => { stopping = true; conn.notify('session/cancel', { sessionId }); return true } })
@@ -288,5 +291,5 @@ export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp): AgentRunner {
       server?.close()
       kill()
     }
-  }, { models: modelLister(spec) })
+  }, { models: modelLister(spec, configDir) })
 }
