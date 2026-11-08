@@ -44,6 +44,8 @@ jobs:
         run: node scripts/bundle-app.mjs --platform win32 --arch x64
       - name: 묶은 서버가 윈도우에서 도는지 보기
         run: node scripts/ci/desktop-smoke.mjs --print --shots desktop-shots --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
+      - name: 계정 동기화 · 열쇠 보관이 윈도우에서 되는지 보기
+        run: pnpm --filter @rw/server exec vitest run src/accountSync.test.ts src/secretStore.test.ts src/githubAccount.test.ts
       - name: 설치 파일 만들기
         shell: bash
         working-directory: desktop/src-tauri

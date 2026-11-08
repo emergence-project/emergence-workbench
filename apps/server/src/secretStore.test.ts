@@ -65,6 +65,14 @@ describe('secretStore', () => {
     expect(await secretStore(dir, 'win32', run).get('github-token')).toBeNull()
   })
 
+  // 윈도우 CI(desktop.yml)에서만: 진짜 PowerShell · DPAPI로 봉인하고 새 서버가 연다
+  it.runIf(process.platform === 'win32')('seals and opens with the real DPAPI on Windows', async () => {
+    await secretStore(dir, 'win32').set('github-token', 'gho_real_dpapi')
+    const file = path.join(dir, 'secrets', 'github-token.dpapi')
+    expect(fs.readFileSync(file, 'utf8')).not.toContain('gho_real_dpapi')
+    expect(await secretStore(dir, 'win32').get('github-token')).toBe('gho_real_dpapi')
+  }, 60_000)
+
   it('refuses to save what DPAPI did not seal', async () => {
     const { run } = recorder(() => 'Exception: something went wrong')
     await expect(secretStore(dir, 'win32', run).set('github-token', 'x')).rejects.toThrow('DPAPI')

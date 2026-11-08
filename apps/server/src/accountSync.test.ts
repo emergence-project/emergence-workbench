@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AccountSync, adopt, BIG_FILE, excludeBig, HOME_REPO, LIBRARY_REPO, PAPERS_REPO, repoNameOf } from './accountSync.js'
 import { backupWorkbenches } from './backup.js'
@@ -25,7 +26,7 @@ beforeAll(() => {
   tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'rw-acctsync-')))
   gh = path.join(tmp, 'github')
   const cfg = path.join(tmp, 'gitconfig')
-  fs.writeFileSync(cfg, `[user]\n\tname = Friend\n\temail = friend@example.com\n[init]\n\tdefaultBranch = main\n[url "file://${gh}/"]\n\tinsteadOf = https://github.com/\n[protocol "file"]\n\tallow = always\n`)
+  fs.writeFileSync(cfg, `[user]\n\tname = Friend\n\temail = friend@example.com\n[init]\n\tdefaultBranch = main\n[url "${pathToFileURL(gh).href}/"]\n\tinsteadOf = https://github.com/\n[protocol "file"]\n\tallow = always\n`)
   process.env.GIT_CONFIG_GLOBAL = cfg
   process.env.GIT_CONFIG_NOSYSTEM = '1'
 })
