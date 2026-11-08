@@ -17,7 +17,7 @@ const END_CHECK = { pass: tr('✓ 통과', '✓ Met'), fail: tr('! 미달', '! N
 
 /**
  * 맡긴 일의 보고서 (시안 v31): 작업 파일 자체를 읽는 화면.
- * 머리 표(프로젝트 · 주제 · 상태 · 시각 · 에이전트 · 종결 조건 · 검증 · 파일), 1 요약과 결론(사용자 확인 요청에 답하기),
+ * 머리 표(프로젝트 · 주제 · 맡긴 일(11/8: 무엇을 맡겼는지 접지 않고) · 상태 · 시각 · 에이전트 · 종결 조건 · 검증 · 파일), 1 요약과 결론(사용자 확인 요청에 답하기),
  * 2 근거, 3 남은 문제, 4 다음 지시(승인 · 고치기 · 빼기, 직접 적기). 접힌 절: 검증 상세, 맡길 때 적은 것.
  * 판단에 쓴 시간은 이 화면을 연 때부터 잰다(보이지 않음).
  */
@@ -68,6 +68,7 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
           <dl className="tk-props" aria-label={tr('기본 정보', 'Details')}>
             <dt>{tr('프로젝트', 'Project')}</dt><dd>{project}</dd>
             {topic && <><dt>{tr('주제', 'Topic')}</dt><dd><button className="a" onClick={() => go({ page: 'topic', rid, tid: t.topic! })}>{topic}</button></dd></>}
+            {t.task && <><dt>{tr('맡긴 일', 'Task')}</dt><dd>{t.task}</dd></>}
             <dt>{tr('상태', 'Status')}</dt><dd><StatusDot s={TASK_DOT[t.state]} name={TASK_STATE_LABEL[t.state]} /> {TASK_STATE_LABEL[t.state]}</dd>
             <TaskFlowField rid={rid} task={t} onSaved={onSaved} reload={reload} />
             <dt>{tr('맡긴 날', 'Delegated on')}</dt><dd>{t.created}</dd>
@@ -132,7 +133,6 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
           </details>
           <details className="tk-fold"><summary>{tr('맡길 때 적은 것', 'What was written when delegating')}</summary>
             <dl className="tk-kv2">
-              <dt>{tr('작업 내용', 'Task')}</dt><dd>{t.task}</dd>
               <dt>{tr('종결 조건', 'Completion criteria')}</dt><dd>{t.endCondition ?? tr('에이전트가 먼저 제안', 'The agent proposes first')}</dd>
               {t.references.length > 0 && <><dt>{tr('참고 자료', 'References')}</dt><dd>{t.references.map((r) => <div key={r} className="mono">{fromTask.some((f) => r.endsWith(`${f}.md`)) ? <button className="a" onClick={() => go({ page: 'task', rid, task: /tasks\/(.+)\.md$/.exec(r)![1]! })}>{titleOf(/tasks\/(.+)\.md$/.exec(r)![1]!)}</button> : r}</div>)}</dd></>}
               {t.avoid && <><dt>{tr('하지 말 것', 'Avoid')}</dt><dd>{t.avoid}</dd></>}

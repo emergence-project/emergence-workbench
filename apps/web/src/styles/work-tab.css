@@ -109,7 +109,7 @@
 /* 보고서 */
 .tk-rep-head .tk-state { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-weight: var(--fw-medium); white-space: nowrap; }
 .tk-rep-head .g { margin: 0; }
-.tk-rep { position: relative; flex: 1; overflow: auto; padding: var(--sp-3) var(--sp-5) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-2); max-width: 880px; }
+.tk-rep { position: relative; flex: 1; overflow: auto; padding: var(--sp-3) var(--sp-5) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-2); max-width: 880px; width: 100%; box-sizing: border-box; margin-inline: auto; }
 .tk-rep-title { font-size: var(--fs-xl); font-weight: var(--fw-title); margin: var(--sp-2) 0 0; line-height: 1.35; text-wrap: balance; }
 .tk-props { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px var(--sp-4); margin: var(--sp-1) 0 var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-sm); }
 .tk-props dt { color: var(--text-3); }
@@ -122,7 +122,13 @@
 .tk-sec h2 { font-size: var(--fs-md); font-weight: var(--fw-title); margin: 0; }
 .tk-sec > p { margin: 0; }
 .tk-rep-concl { font-size: var(--fs-lg); font-weight: var(--fw-title); line-height: 1.4; }
-.tk-plain { color: var(--text-2); max-width: 66ch; }
+.tk-plain { color: var(--text-2); }
+/* 보고서 본문 (11/8 15:15 피드백): 글은 읽기 좋은 폭으로, 표는 보고서 폭을 다 쓰고 머리 · 짧은 칸이 한 글자씩 끊기지 않게 */
+.tk-sec .ob-md { overflow-x: auto; }
+.tk-sec .ob-md > :is(p, blockquote, ul, ol, h1, h2, h3, h4) { max-width: 66ch; }
+.tk-sec .ob-md table { width: 100%; margin-inline: 0; }
+.tk-sec .ob-md th { white-space: nowrap; }
+.tk-sec .ob-md td { word-break: keep-all; overflow-wrap: break-word; vertical-align: top; }
 .tk-prop { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .tk-prop ol, .tk-prop p { margin: 0; }
 .tk-prop ol { padding-left: 18px; }
