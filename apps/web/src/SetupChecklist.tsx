@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { accountApi, githubRepos, googleApi, setupApi, type AccountView, type GitHubRepoItem, type GitHubRepoList, type PersonView, type SetupView } from './api'
+import { accountApi, githubRepos, googleApi, setupApi, type AccountSyncView, type AccountView, type GitHubRepoItem, type GitHubRepoList, type PersonView, type SetupView } from './api'
 import { Dialog } from './dialogs'
 import { ElsewhereHomeCard, ElsewhereSection } from './ElsewhereProjects'
 import { GoogleSettings } from './GoogleSettings'
@@ -61,6 +61,7 @@ const Edit = ({ label, onClick }: { label: string; onClick(): void }) =>
 
 export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: string): void; onUiRestored(ui: UiSettings): void }) {
   const { setup, github, people, me, must, done } = useSetup()
+  const sync = useQuery({ queryKey: qk.account, queryFn: accountApi.get }).data?.sync ?? null
   const client = useQueryClient()
   const [editing, setEditing] = useState<'git' | 'me' | 'personal' | 'library' | null>(null)
   const s = setup.data
@@ -107,13 +108,15 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <h3 className="set-h3">{t('선택', 'Optional')}</h3>
       <div className="set-rows">
         <GitHubRow list={github.data} error={github.error?.message} onCheck={() => void github.refetch()} checking={github.isFetching} onSaved={onSaved} />
+        {sync && <AccountSyncRow sync={sync} onSaved={onSaved} />}
         {s?.install !== null && <InstallRow install={s?.install} onSaved={onSaved} />}
-        <Row ok={!!s?.personal.remote} optional name={t('개인 저장소', 'Personal repository')} sub={t('피드백·백업을 올릴 곳', 'where feedback and backups go')} ui="개인 저장소"
+        {/* 설치판은 계정 저장소가 개인 저장소를 대신한다 (계정 동기화 줄). 피드백은 관리자에게 간다 */}
+        {!sync && <Row ok={!!s?.personal.remote} optional name={t('개인 저장소', 'Personal repository')} sub={t('피드백·백업을 올릴 곳', 'where feedback and backups go')} ui="개인 저장소"
           action={<Edit label={t('수정', 'Edit')} onClick={() => setEditing('personal')} />}>
           {s?.personal.remote
             ? <><code>{s.personal.remote}</code>{s.personal.active ? '. ' : t('. 앱을 다시 시작하면 받아 둡니다. ', '. It is cloned the next time the app restarts. ')}{t('피드백과 설정 백업을 이 비공개 저장소에 올립니다.', 'Feedback and settings backups are pushed to this private repository.')}</>
             : t('없음: 피드백과 설정 백업이 이 컴퓨터에만 남습니다. 비공개 저장소 주소를 넣으면 앱이 비공개인지 확인하고 받아 둡니다.', 'None: feedback and settings backups stay on this computer only. Enter a private repository address; the app checks that it is private and clones it.')}
-        </Row>
+        </Row>}
         <Row ok={!!s?.library.path} optional name={t('공용 라이브러리', 'Shared library')} sub={t('개념노트 · 논문 · 그림', 'concept notes, papers, figures')} ui="공용 라이브러리"
           action={s?.library.suggest
             ? <button className="btn" onClick={() => void setupApi.setLibrary({ path: s.library.suggest! }).then((v) => { put(v); onSaved(t('공용 라이브러리를 연결했습니다', 'Shared library connected')) }).catch((e: Error) => onSaved(e.message))}>{t('연결', 'Connect')}</button>
@@ -210,6 +213,33 @@ function GitHubRow({ list, error, onCheck, checking, onSaved }: { list?: GitHubR
             : list ? <>{list.reason} {t('「GitHub로 로그인」을 누르면 코드가 나옵니다. ', 'Press "Sign in with GitHub" to get a code. ')}</>
               : error ? `${error} ` : t('확인하는 중… ', 'Checking… ')}
       {t('GitHub 저장소를 받아 오거나 다른 컴퓨터와 맞출 때만 필요합니다. 「새로 만들기」로 시작한 프로젝트는 없어도 됩니다. 앱에서 로그인하면 열쇠는 이 컴퓨터의 보안 저장소(맥 키체인, 윈도우는 사용자 계정으로 잠근 파일)에만 둡니다.', 'Needed only to bring in GitHub repositories or to keep several computers in step. Projects started with "Start new" work without it. When you sign in in the app, the key stays only in this computer\'s secure store (the Mac keychain; on Windows, a file locked to your user account).')}
+    </Row>
+  )
+}
+
+/**
+ * 계정 동기화 (설치판, 11/8 "로그인하는 계정이 같으면 어디서든지 동일한 상태"): 로그인하면 프로젝트 · 공용 라이브러리 · 논문 PDF를
+ * 계정의 비공개 저장소에 올리고, 같은 계정의 다른 컴퓨터는 그것을 받는다(서버 accountSync.ts). 2분마다 저절로 한다
+ */
+function AccountSyncRow({ sync, onSaved }: { sync: AccountSyncView; onSaved(m: string): void }) {
+  const client = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const run = () => {
+    setBusy(true)
+    void accountApi.sync().then((v) => { client.setQueryData(qk.account, v); onSaved(v.sync?.error ? v.sync.error : t('계정과 동기화했습니다', 'Synced with your account')) }, (e: Error) => onSaved(e.message)).finally(() => setBusy(false))
+  }
+  const repo = (url: string) => url.replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '')
+  return (
+    <Row ok={sync.on && !!sync.at && !sync.error} optional name={t('계정 동기화', 'Account sync')} sub={t('프로젝트 · 라이브러리 · 논문', 'projects, library, papers')} ui="계정 동기화"
+      action={sync.on && <button className="btn" disabled={busy || sync.running} data-ui="계정 동기화하기" onClick={run}>{t('동기화하기', 'Sync')}</button>}>
+      {!sync.on ? t('GitHub로 로그인하면 시작합니다. ', 'Starts when you sign in with GitHub. ')
+        : sync.running ? t('동기화하는 중… ', 'Syncing… ')
+          : sync.at ? <>{t('마지막 동기화: ', 'Last sync: ')}{when(sync.at)}{sync.note ? ` · ${sync.note}` : ''}. </>
+            : t('곧 시작합니다. ', 'Starting soon. ')}
+      {sync.error && <span className="error-text">{sync.error}. </span>}
+      {sync.skipped.length > 0 && t(`95MB가 넘어 이 컴퓨터에만 둔 파일: ${sync.skipped.join(', ')}. `, `Over 95 MB, kept on this computer only: ${sync.skipped.join(', ')}. `)}
+      {t('내 GitHub 계정의 비공개 저장소(프로젝트마다 하나, 라이브러리 · 논문 · 설정에 하나씩)에 2분마다 올리고, 같은 계정으로 로그인한 다른 컴퓨터가 받습니다.', 'Every 2 minutes, pushes to private repositories in your GitHub account (one per project, plus one each for the library, papers and settings); other computers signed in to the same account download them.')}
+      {sync.home && <> {t('설정: ', 'Settings: ')}<code>{repo(sync.home)}</code>.</>}
     </Row>
   )
 }

@@ -516,6 +516,7 @@ checked:
 | `agent-edits/edits-*.json` | 에이전트 고침 기록. 깨지면 `.broken-<시각>`으로 옮기고 새로 시작 |
 | `papers-opened.json` | 논문을 연 시각 |
 | `personal/`, `backup/` | 개인 저장소·백업 사본 |
+| `account-sync.json` | 설치판 계정 동기화(`accountSync.ts`)가 다른 컴퓨터의 프로젝트를 모두 받은 계정 (`restored: [로그인]`). 계정마다 한 번만 받으므로, 뒤에 프로젝트를 빼도 다시 받지 않는다 |
 
 ## 12. 고치기 API의 충돌 검사 요약
 

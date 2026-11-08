@@ -119,7 +119,8 @@ export interface AppOptions {
   /** 구글 계정 연결 (기본: 설정 폴더의 google.yaml로 진짜 구글. 예제 모드·테스트는 가짜 구글) */
   google?: Google
   /** 맥에만 있는 workbench/의 백업 (실사용만): 앱이 쓰는 백업 저장소 사본 폴더, GitHub 주소, 저절로 올리는 간격(ms) */
-  backup?: { dir: string; remote: string; intervalMs?: number; settings?: string }
+  /** remote가 비어 있으면 설정의 개인 저장소를 맞출 때마다 읽는다 (설치판: 로그인한 뒤에 정한다) */
+  backup?: { dir: string; remote: string | null; intervalMs?: number; settings?: string }
   /** 폰에서 보기 (기본: 이 맥의 Tailscale. 예제 모드는 가짜, 테스트에서 바꿈) */
   phone?: Phone
   /** 이 서버가 받는 포트 (시작할 때 폰에서 보기 상태를 읽는 데 쓴다) */
@@ -346,7 +347,6 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerResearches(app, ctx)
   registerSettings(app, ctx)
   registerSetup(app, ctx)
-  registerAccount(app, account)
   registerCommonRules(app, ctx)
   registerFeedback(app, ctx)
   registerRecordsPublish(app, ctx)
@@ -363,7 +363,8 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerJournal(app, ctx)
   registerComments(app, ctx)
   registerTopics(app, ctx)
-  registerBackup(app, ctx)
+  // 계정으로 맞추기(설치판)는 백업(계정 저장소와 맞추기)을 부른다
+  registerAccount(app, ctx, registerBackup(app, ctx))
   const seePhone = (st: { on: boolean; host: string | null; login: string | null }) => { phoneSeen = st.on ? { host: st.host, login: st.login } : { host: null, login: null } }
   registerPhone(app, phone, seePhone)
   // serve 설정은 tailscaled가 기억하므로, 시작할 때 한 번 읽어 폰에서 오는 요청을 받을 준비를 한다

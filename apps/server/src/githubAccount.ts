@@ -65,11 +65,11 @@ export class GithubAccount {
     this.apply(saved, token)
     // 열쇠가 아직 맞는지는 뒤에서 확인한다 (네트워크가 없어도 앱은 바로 켜지게)
     void this.fetchUser(token).then((u) => { if (u) this.save(u, token) }, (e: unknown) => {
-      if (e instanceof Unauthorized) void this.logout().then(() => { this.error = t('GitHub 로그인이 풀렸습니다. 다시 로그인해 주세요', 'GitHub sign-in expired. Sign in again'); this.changed() })
+      if (e instanceof Unauthorized) void this.logout().then(() => { this.error = t('GitHub 로그인이 풀렸습니다. 다시 로그인해 주세요', 'GitHub sign-in expired. Sign in again'); this.notify() })
     })
   }
 
-  view(): AccountView {
+  view(): Omit<AccountView, 'sync'> {
     return {
       github: this.user ? { login: this.user.login, name: this.user.name, avatar: this.user.avatar, email: noreplyEmail(this.user) } : null,
       pending: this.pending ? { userCode: this.pending.userCode, uri: this.pending.uri, expiresAt: new Date(this.pending.expiresAt).toISOString() } : null,
@@ -83,7 +83,7 @@ export class GithubAccount {
   token(): Promise<string | null> { return this.user ? this.secrets.get(TOKEN_KEY) : Promise.resolve(null) }
 
   /** 기기 코드 받기: 화면에 코드와 주소를 보이고, 뒤에서 사용자가 승인할 때까지 기다린다 */
-  async start(): Promise<AccountView> {
+  async start(): Promise<Omit<AccountView, 'sync'>> {
     if (this.pending && this.pending.expiresAt > Date.now()) return this.view()
     const res = await this.f('https://github.com/login/device/code', {
       method: 'POST', headers: { ...UA, 'content-type': 'application/x-www-form-urlencoded' },
@@ -102,13 +102,13 @@ export class GithubAccount {
     }
     const mine = this.pending
     this.loop = this.poll(mine).catch((e: unknown) => {
-      if (this.pending === mine) { this.pending = null; this.error = e instanceof Error ? e.message : String(e); this.changed() }
+      if (this.pending === mine) { this.pending = null; this.error = e instanceof Error ? e.message : String(e); this.notify() }
     })
     return this.view()
   }
 
   /** 기다리기를 그만둔다 (창을 닫음) */
-  cancel(): AccountView { this.pending = null; return this.view() }
+  cancel(): Omit<AccountView, 'sync'> { this.pending = null; return this.view() }
 
   /** 시험이 기다리기가 끝날 때까지 기다린다 */
   settled(): Promise<void> { return this.loop ?? Promise.resolve() }
@@ -133,7 +133,7 @@ export class GithubAccount {
         await this.secrets.set(TOKEN_KEY, token)
         this.save(user, token)
         this.pending = null
-        this.changed()
+        this.notify()
         return
       }
       const err = str(body.error)
@@ -166,15 +166,15 @@ export class GithubAccount {
   }
 
   /**
-   * 로그인한 계정에 비공개 저장소를 만든다 (README 하나로 시작). 돌려주는 것은 https 주소.
+   * 로그인한 계정에 비공개 저장소를 만든다 (init이면 README 하나로 시작, 아니면 빈 저장소: 이 컴퓨터의 폴더를 처음 올릴 때). 돌려주는 것은 https 주소.
    * 같은 이름이 이미 있으면 409로 알린다 (덮어쓰지 않는다)
    */
-  async createPrivateRepo(name: string, description: string): Promise<string> {
+  async createPrivateRepo(name: string, description: string, init = true): Promise<string> {
     const token = await this.token()
     if (!token) throw new WorkbenchError(400, t('먼저 설정 › 계정에서 GitHub로 로그인해 주세요', 'Sign in with GitHub in Settings › Accounts first'))
     const res = await this.f('https://api.github.com/user/repos', {
       method: 'POST', headers: { ...UA, accept: 'application/vnd.github+json', authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name, private: true, auto_init: true, description }), signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify({ name, private: true, auto_init: init, description }), signal: AbortSignal.timeout(30_000),
     })
     const body: unknown = await res.json().catch(() => null)
     if (res.status === 422) throw new WorkbenchError(409, t(`GitHub에 이미 ${name} 저장소가 있습니다. 다른 이름을 적거나 목록에서 고르세요`, `A repository named ${name} already exists on GitHub. Use another name or pick it from the list`))
@@ -182,7 +182,28 @@ export class GithubAccount {
     return str(body.html_url)
   }
 
-  async logout(): Promise<AccountView> {
+  /** 로그인한 계정의 저장소 주소 (없으면 null). 새 컴퓨터가 다른 컴퓨터에서 만든 계정 저장소를 찾을 때 */
+  async repoUrl(name: string): Promise<string | null> {
+    const token = await this.token()
+    if (!token || !this.user) return null
+    const res = await this.f(`https://api.github.com/repos/${encodeURIComponent(this.user.login)}/${encodeURIComponent(name)}`, {
+      headers: { ...UA, accept: 'application/vnd.github+json', authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000),
+    })
+    if (res.status === 404) return null
+    const body: unknown = await res.json().catch(() => null)
+    if (!res.ok || !isRec(body) || !str(body.html_url)) throw new Error(t(`GitHub에서 ${name} 저장소를 확인하지 못했습니다 (${res.status})`, `Could not check the ${name} repository on GitHub (${res.status})`))
+    return str(body.html_url)
+  }
+
+  /** 로그인 · 로그아웃할 때 더 알릴 곳 (계정 맞추기, accountSync.ts) */
+  onChange(fn: () => void): void { this.listeners.push(fn) }
+  private listeners: Array<() => void> = []
+  private notify(): void {
+    this.changed()
+    for (const fn of this.listeners) { try { fn() } catch { /* 다른 알림은 그대로 */ } }
+  }
+
+  async logout(): Promise<Omit<AccountView, 'sync'>> {
     this.pending = null
     this.user = null
     this.error = ''

@@ -162,7 +162,7 @@ describe('/api/account', () => {
     const account = new GithubAccount(path.join(dir, 'config'), memorySecretStore(), f, () => undefined, instant().sleep)
     const app = buildApp({ configDir: path.join(dir, 'config'), account })
     try {
-      expect((await app.inject({ method: 'GET', url: '/api/account' })).json()).toEqual({ github: null, pending: null })
+      expect((await app.inject({ method: 'GET', url: '/api/account' })).json()).toEqual({ github: null, pending: null, sync: null })
       const started = await app.inject({ method: 'POST', url: '/api/account/login' })
       expect(started.statusCode).toBe(200)
       expect(started.json().pending.userCode).toBe('ABCD-1234')
@@ -172,7 +172,7 @@ describe('/api/account', () => {
       expect(made.statusCode).toBe(200)
       expect(made.json().personal.remote).toBe('https://github.com/friend/workbench-home')
       const out = await app.inject({ method: 'POST', url: '/api/account/logout' })
-      expect(out.json()).toEqual({ github: null, pending: null })
+      expect(out.json()).toEqual({ github: null, pending: null, sync: null })
     } finally {
       await app.close()
     }

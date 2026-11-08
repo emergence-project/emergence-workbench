@@ -115,8 +115,10 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     const cloneDir = defaultCloneDir(registry.list().map((r) => r.path))
     const remote = opts.sandbox ? registry.personalRepo ?? null : await personalRemote(opts.configDir)
     let active = false
-    if (remote && opts.personalDir) {
-      try { active = (await git(opts.personalDir, ['remote', 'get-url', 'origin'], { timeout: GIT_TIMEOUT.read })) === remote } catch { /* 사본이 없으면 아직 받지 않은 것 */ }
+    // 설치판은 개인 저장소 사본 대신 백업 사본이 맞춘다 (계정으로 맞추기, server.ts)
+    const copy = opts.personalDir ?? (opts.bundled ? opts.backup?.dir : undefined)
+    if (remote && copy) {
+      try { active = (await git(copy, ['remote', 'get-url', 'origin'], { timeout: GIT_TIMEOUT.read })) === remote } catch { /* 사본이 없으면 아직 받지 않은 것 */ }
     }
     return {
       git: await gitIdentity(),
