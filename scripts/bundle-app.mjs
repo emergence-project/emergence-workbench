@@ -88,11 +88,18 @@ fs.writeFileSync(path.join(app, 'build.json'), JSON.stringify({ commit, builtAt:
  */
 async function download(url, what) {
   for (let i = 0; ; i++) {
-    const res = await fetch(url).catch((e) => ({ ok: false, status: e.cause?.code ?? e.message }))
-    if (res.ok) return Buffer.from(await res.arrayBuffer())
-    const retry = typeof res.status !== 'number' || res.status >= 500 || res.status === 429
-    if (!retry || i === 3) throw new Error(`${what}을(를) 받지 못했습니다 (${res.status})`)
-    console.log(`  ${what}: ${res.status}, ${2 ** (i + 1)}초 뒤 다시`)
+    /** @type {number | string} */
+    let status
+    try {
+      const res = await fetch(url)
+      if (res.ok) return Buffer.from(await res.arrayBuffer())
+      status = res.status
+    } catch (e) {
+      status = String(e?.cause?.code ?? e?.message ?? e)
+    }
+    const retry = typeof status !== 'number' || status >= 500 || status === 429
+    if (!retry || i === 3) throw new Error(`${what}을(를) 받지 못했습니다 (${status})`)
+    console.log(`  ${what}: ${status}, ${2 ** (i + 1)}초 뒤 다시`)
     await new Promise((r) => setTimeout(r, 2000 * 2 ** i))
   }
 }
