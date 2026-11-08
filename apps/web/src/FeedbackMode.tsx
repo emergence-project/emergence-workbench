@@ -72,8 +72,9 @@ function inlineSvgPaint(): () => void {
  */
 function onScreen(el: Element): boolean {
   const r = el.getBoundingClientRect()
-  // 크기가 없으면: 숨긴 탭(display: none)은 통째로 빼고, display: contents처럼 자식이 보일 수 있는 것은 남긴다
-  if (!r.width && !r.height) return el.checkVisibility?.() ?? true
+  // 크기가 없으면: 숨긴 탭(display: none)은 통째로 빼고, display: contents처럼 자식이 보일 수 있는 것은 남긴다.
+  // checkVisibility()는 상자가 없는 display: contents에도 false라 따로 본다 (11/8 20:31 그림: 지금 처리 카드의 줄이 빠져 빈 칸으로 찍혔다)
+  if (!r.width && !r.height) return getComputedStyle(el).display === 'contents' || (el.checkVisibility?.() ?? true)
   // 위아래로 조금 넉넉히: 반쯤 보이는 줄의 수식 첨자처럼 부모 상자 밖으로 나온 조각을 남긴다
   const m = 120
   return r.bottom >= -m && r.top <= innerHeight + m && r.right >= 0 && r.left <= innerWidth
