@@ -23,7 +23,8 @@ let gh: string
 const saved = { global: process.env.GIT_CONFIG_GLOBAL, nosys: process.env.GIT_CONFIG_NOSYSTEM }
 
 beforeAll(() => {
-  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'rw-acctsync-')))
+  // 윈도우의 짧은 이름(RUNNER~1)은 앱처럼 긴 이름으로 (starter.ts)
+  tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'rw-acctsync-')))
   gh = path.join(tmp, 'github')
   const cfg = path.join(tmp, 'gitconfig')
   fs.writeFileSync(cfg, `[user]\n\tname = Friend\n\temail = friend@example.com\n[init]\n\tdefaultBranch = main\n[url "${pathToFileURL(gh).href}/"]\n\tinsteadOf = https://github.com/\n[protocol "file"]\n\tallow = always\n`)
@@ -78,7 +79,7 @@ async function computer(name: string, login = 'friend') {
   fs.mkdirSync(path.join(home, 'Documents'), { recursive: true })
   const configDir = path.join(home, 'config')
   const registry = new Registry(configDir)
-  prepareStarter(registry, TEMPLATE, home, 'linux')
+  prepareStarter(registry, TEMPLATE, home, process.platform)
   const account = new GithubAccount(configDir, memorySecretStore(), fakeGitHub(login), () => undefined, async () => undefined)
   await account.start()
   await account.settled()

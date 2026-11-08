@@ -44,7 +44,8 @@ function instant() {
   return { waits, sleep: async (ms: number) => { waits.push(ms) } }
 }
 
-const header = () => gitRun(['config', '--get', 'http.https://github.com/.extraheader']).then((s) => s.trim(), () => null)
+// 저장소 밖(임시 폴더)에서 묻는다: CI의 checkout은 자기 저장소 설정에 같은 이름의 머리글을 적어 둔다
+const header = () => gitRun(['-C', dir, 'config', '--get', 'http.https://github.com/.extraheader']).then((s) => s.trim(), () => null)
 
 describe('GithubAccount', () => {
   it('signs in with the device code, keeps the key only in the secret store and hands it to git', async () => {
