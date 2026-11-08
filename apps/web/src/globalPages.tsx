@@ -35,6 +35,9 @@ export interface GlobalPageProps {
   onSaved(message: string): void
   /** 오른쪽 사이드바가 열렸는지 (right가 있는 화면만, 제목줄 단추 · ⌥⌘\로 여닫음) */
   rightOpen: boolean
+  /** 왼쪽 사이드바가 보이는지와 여는 것 (에이전트 새 대화가 닫혀 있을 때 최근 대화를 보인다) */
+  sideOpen: boolean
+  onSide(): void
 }
 
 /**
@@ -104,7 +107,7 @@ export const GLOBAL_PAGES: {
   // 띠에서는 홈 바로 아래 (10/21 피드백 "중요한 거니까 위로" · 사용자 "홈 아래는 어때?")
   { page: 'agent', label: '에이전트', name: t('에이전트', 'Agents'), aria: t('에이전트 대화', 'Agent conversations'), tip: t('에이전트 — 프로젝트마다 맡긴 대화', 'Agents: conversations you handed work to, per project'), icon: Icon.spark, rail: 'home',
     side: (p) => <AgentSide id={p.route.page === 'agent' ? p.route.id : undefined} />,
-    render: (p) => <AgentScreen id={p.route.page === 'agent' ? p.route.id : undefined} onSaved={p.onSaved} />,
+    render: (p) => <AgentScreen id={p.route.page === 'agent' ? p.route.id : undefined} onSaved={p.onSaved} side={{ open: p.sideOpen, onOpen: p.onSide }} />,
     badge: () => <AgentRailCount /> },
   // 모든 저장소 (10/29 10:00 제안 진행, 10/30 16:59 "에이전트 아래 저장소도"): 프로젝트 사이드바의 저장소 줄 대신 레일의 폴더 아이콘 한 곳
   { page: 'repos', label: '저장소', name: t('저장소', 'Repositories'), aria: t('모든 저장소', 'All repositories'), tip: t('저장소 — 프로젝트마다 GitHub와 같은지 · 동기화하기', 'Repositories: whether each project matches GitHub, and sync'), icon: Icon.repo, rail: 'home',

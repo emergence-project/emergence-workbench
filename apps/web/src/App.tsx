@@ -56,7 +56,7 @@ import { batchInvalidation, invalidationKeys, qk } from './queries'
 import { recordWrites } from './useRecordActions'
 import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
-import { usePhone, usePhoneCloses, useStoredFlag } from './phoneLayout'
+import { usePhone, usePhoneCloses, useLeftSide, useStoredFlag } from './phoneLayout'
 import { applyUi, cachedUi } from './ui'
 import { FLASH_EVENT, type FlashAction, type FlashMessage } from './flash'
 import { usePublishFailureFlash } from './RecordsPublish'
@@ -133,8 +133,8 @@ export function App() {
     window.addEventListener(AGENT_OPEN, agent)
     return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(AGENT_OPEN, agent) }
   }, [setLayout, setGlobalRight])
-  const [sideOpen, setSideOpen] = useStoredFlag('rw-side', true)
-  usePhoneCloses(usePhone(), JSON.stringify(route), () => { setSideOpen(false); setGlobalRight(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
+  const [sideOpen, setSideOpen, closeSides] = useLeftSide(route.page === 'agent')
+  usePhoneCloses(usePhone(), JSON.stringify(route), () => { closeSides(); setGlobalRight(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
   const onGlobalPage = useRef(false)
   onGlobalPage.current = route.page === 'home' || !!globalPageOf(route.page)
   const [quickMemo, setQuickMemo] = useState(false)
@@ -452,7 +452,7 @@ export function App() {
     setAgentPanel(false)
     if (rightMode === 'agent') setRightMode('info')
   }
-  const agentPanelOf = (key: string, recordTarget?: { target: string; title: string; source?: string }) => rid ? <AgentPanel key={key} rid={rid} note={agentNote} onSaved={flash} place={agentPlace} onPlace={setAgentPlace} onBeside={openChatBeside} recordTarget={recordTarget} /> : null
+  const agentPanelOf = (key: string, recordTarget?: { target: string; title: string; source?: string }, r = rid) => r ? <AgentPanel key={key} rid={r} note={agentNote} onSaved={flash} place={agentPlace} onPlace={setAgentPlace} onBeside={openChatBeside} recordTarget={recordTarget} /> : null
 
   return (
     <div className={`shell${sandbox ? ' sandbox' : ''}`}>
@@ -492,7 +492,7 @@ export function App() {
           <div className="side-resize" data-ui="사이드바 폭 조절" role="separator" aria-orientation="vertical" title={t('끌어 폭 바꾸기 · 두 번 누르면 처음 폭', 'Drag to resize · double-click to reset')}
             onPointerDown={dragSide} onDoubleClick={() => saveSideW(SIDE_W)} />
           {globalSide ? (
-            <div className="side-scroll">{globalSide({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight })}</div>
+            <div className="side-scroll">{globalSide({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight, sideOpen: showSide, onSide: () => setSideOpen(true) })}</div>
           ) : current && <>
             {/* 프로젝트 이름은 제목줄에만 둔다 (10/3 피드백: 중복 없애기) */}
             <div className="side-scroll project-side-scroll">
@@ -503,7 +503,7 @@ export function App() {
         </aside>}
 
         {globalPageOf(route.page) ? (
-          globalPageOf(route.page)!.render({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight })
+          globalPageOf(route.page)!.render({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight, sideOpen: showSide, onSide: () => setSideOpen(true) })
         ) : route.page === 'home' ? (
           researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} askRecords={issues.records} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
         ) : !rid || !summary || !rapi ? (
@@ -547,7 +547,7 @@ export function App() {
                   : <NoInfo />
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
               // 에이전트 탭 (10/22 안 A): 자리가 아래면 그 패널을 가리킨다
-              const agent = agentPlace === 'right' ? agentPanelOf(rid, cmd ? undefined : ct ?? { target: 'project', title: summary.research.title }) : <AgentBelow open={agentPanel} onOpen={setAgentPanel} onHere={() => setAgentPlace('right')} />
+              const agent = agentPlace === 'right' ? (cmd ? agentPanelOf(LIBRARY_RID, undefined, LIBRARY_RID) : agentPanelOf(rid, ct ?? { target: 'project', title: summary.research.title })) : <AgentBelow open={agentPanel} onOpen={setAgentPanel} onHere={() => setAgentPlace('right')} />
               return <RightSidebar info={info} agent={agent}
                 records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${flowRecords ? 'flow' : ct?.target ?? 'project'}`} rid={rid}
                   target={ct ?? { target: 'project', title: summary.research.title }} group={flowRecords ? 'flow-' : undefined}

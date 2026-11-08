@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import type { ChatMode, ChatScope, ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, runProgram, type ChatAutoValues, type ChatKind } from '@rw/core'
+import { autoOf, commandKind, LIBRARY_RID, runProgram, type ChatAutoValues, type ChatKind } from '@rw/core'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 
@@ -205,7 +205,8 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
       }
     }
     const project = str(input.project)
-    if (name === 'edit_concept' || (project && project !== ctx.rid)) {
+    // 지식 라이브러리의 대화(개념노트 기록에서 연 대화)는 개념노트가 제 범위다
+    if ((name === 'edit_concept' && ctx.rid !== LIBRARY_RID) || (project && project !== ctx.rid)) {
       // 전체 범위: 이 대화의 프로젝트 밖을 고칠 때마다 묻는다 (고친 것은 여전히 수정 검토를 거친다)
       if (ctx.scope.kind === 'all') {
         const where = name === 'edit_concept' ? t('개념노트', 'Concept note') : project

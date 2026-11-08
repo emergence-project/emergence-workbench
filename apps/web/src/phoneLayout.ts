@@ -40,3 +40,13 @@ export function useStoredFlag(key: string, fallback: boolean): [boolean, Dispatc
   useEffect(() => store.set(key, v), [key, v])
   return [v, setV]
 }
+
+/**
+ * 왼쪽 사이드바 켜짐. 에이전트 화면은 따로 기억한다: 노트를 넓게 보려고 닫아도 대화 목록은 열려 있게 (11/8 14:16 제안 안 B).
+ * 셋째 값은 둘 다 닫기 (폰에서 다른 화면으로 갈 때)
+ */
+export function useLeftSide(agentPage: boolean): [boolean, Dispatch<SetStateAction<boolean>>, () => void] {
+  const [all, setAll] = useStoredFlag('rw-side', true)
+  const [agent, setAgent] = useStoredFlag('rw-side-agent', true)
+  return agentPage ? [agent, setAgent, () => { setAll(false); setAgent(false) }] : [all, setAll, () => { setAll(false); setAgent(false) }]
+}

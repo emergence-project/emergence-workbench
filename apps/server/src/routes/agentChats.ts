@@ -2,6 +2,7 @@
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/agentChats'
+import { LIBRARY_RID } from '@rw/core'
 import { AgentChats, MCP_NAME, type AgentRunner } from '../agentChats.js'
 import { chatExtras } from '../agentExtras.js'
 import type { AppWork } from '../appWorktree.js'
@@ -57,7 +58,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     runner: runner ?? claudeAgentRunner(mcpFor),
     ...(!runner && { others: { codex: acpAgentRunner(ACP_AGENTS.codex, chatMcp), gemini: acpAgentRunner(ACP_AGENTS.gemini, chatMcp) } }),
     limit: CHAT_LIMIT,
-    project: (rid) => ({ repo: repoPath(rid), title: registry.list().find((r) => r.id === rid)?.title ?? rid }),
+    project: (rid) => ({ repo: repoPath(rid), title: rid === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : registry.list().find((r) => r.id === rid)?.title ?? rid }),
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
