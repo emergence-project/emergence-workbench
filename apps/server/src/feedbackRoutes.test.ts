@@ -318,7 +318,7 @@ describe('승인·반려', () => {
     expect((await put({ key, verdict: '반려', note: '좋아' })).json().review).toMatchObject({ verdict: '반려', note: '좋아' })
     await fb.close()
   })
-  it('묻는 답(확인 필요 · 동의 · 물음이 붙은 답변)은 진행 · 중단으로 답하고, 결과 답에는 진행 · 중단을 막는다 (10/9)', async () => {
+  it('묻는 답(확인 필요 · 동의 · 물음이 붙은 답변)은 진행 · 중단 · 논의로 답하고, 결과 답에는 중단을 막고 진행 · 논의를 받는다 (10/9, 11/8)', async () => {
     const dir = path.join(tmp, 'feedback-review-asks')
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path.join(dir, '2026-10-04.md'), '## 13:54 · 수정 · 홈\n\n지워\n\n## 14:00 · 질문 · 홈\n\n왜?\n\n## 14:10 · 질문 · 홈\n\n어디?\n')
@@ -333,7 +333,10 @@ describe('승인·반려', () => {
     expect((await put({ key: '2026-10-04 13:54 홈', verdict: '진행', note: '휴지통으로' })).json().review).toMatchObject({ verdict: '진행', note: '휴지통으로' })
     expect((await put({ key: '2026-10-04 14:00 홈', verdict: '승인' })).statusCode).toBe(400)
     expect((await put({ key: '2026-10-04 14:00 홈', verdict: '중단' })).json().review).toMatchObject({ verdict: '중단' })
-    expect((await put({ key: '2026-10-04 14:10 홈', verdict: '진행' })).statusCode).toBe(400)
+    expect((await put({ key: '2026-10-04 14:10 홈', verdict: '중단' })).statusCode).toBe(400)
+    expect((await put({ key: '2026-10-04 14:10 홈', verdict: '논의' })).statusCode).toBe(400)
+    expect((await put({ key: '2026-10-04 14:10 홈', verdict: '논의', note: '시안 먼저' })).json().review).toMatchObject({ verdict: '논의', note: '시안 먼저' })
+    expect((await put({ key: '2026-10-04 14:10 홈', verdict: '진행', note: '다른 화면도' })).json().review).toMatchObject({ verdict: '진행' })
     expect((await put({ key: '2026-10-04 14:10 홈', verdict: '승인' })).statusCode).toBe(200)
     await fb.close()
   })

@@ -177,3 +177,6 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbi-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fbi-cut { font-size: var(--fs-sm); }
 .fbp-file-note { font-size: var(--fs-sm); max-width: 360px; overflow-wrap: anywhere; }
+/* 답 고르기 칸 (11/8 안 C): 옆 「보내기」 버튼과 같은 높이 · 모서리 · 글자 */
+.fbp-reply-pick { height: var(--input-h); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding-left: var(--sp-3); padding-right: var(--sp-6); background-color: var(--bg); color: var(--text); font-size: var(--fs-sm); min-width: 0; max-width: 100%; }
+.fbp-reply-pick:focus-visible { outline: none; border-color: var(--text-3); }

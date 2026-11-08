@@ -11,7 +11,8 @@ describe('agentTurnReasons (pnpm agent:feedback)', () => {
   it('에이전트 차례인 항목에만 이유를 붙인다', () => {
     expect(agentTurnReasons(entry('새'), NOW)).toEqual(['새 항목 · 수정'])
     expect(agentTurnReasons(entry('반려', { status: { state: '반영' }, review: { verdict: '반려', at: '2026-10-06T14:00' } }), NOW)).toEqual(['수정 요청 (2026-10-06T14:00) — 다시 처리 (에이전트 규칙 4) · revised에 miss와 lesson'])
-    expect(agentTurnReasons(entry('진행', { status: { state: '동의' }, review: { verdict: '진행', at: '2026-10-06T14:00' } }), NOW)).toEqual(['진행 (2026-10-06T14:00) — 물은 대로 처리 (에이전트 규칙 4)'])
+    expect(agentTurnReasons(entry('진행', { status: { state: '동의' }, review: { verdict: '진행', at: '2026-10-06T14:00' } }), NOW)).toEqual(['진행 (2026-10-06T14:00) — 물은 대로, 적은 글이 있으면 그대로 처리 (에이전트 규칙 4)'])
+    expect(agentTurnReasons(entry('논의', { status: { state: '반영' }, review: { verdict: '논의', at: '2026-10-06T14:00', note: '시안 먼저' } }), NOW)).toEqual(['논의 (2026-10-06T14:00) — 고치지 말고 시안 · 물음으로 답 (에이전트 규칙 4)'])
     expect(agentTurnReasons(entry('고친 반려', { status: { state: '반영', rework: '2026-10-06T14:00', handled_at: '2026-10-06T15:00' }, review: { verdict: '반려', at: '2026-10-06T14:00', edited: '2026-10-06T16:00' } }), NOW))
       .toEqual(['처리 뒤에 고친 반려 글 (2026-10-06T16:00) — 다시 읽고 처리'])
     expect(agentTurnReasons(entry('코멘트', { status: { state: '반영' }, review: { verdict: '승인', at: '2026-10-06T14:00' }, comments: [{ at: '2026-10-06T15:00', note: '왜?' }] }), NOW)).toEqual(['답 없는 코멘트 1개 (에이전트 규칙 5: 답만 한다)'])

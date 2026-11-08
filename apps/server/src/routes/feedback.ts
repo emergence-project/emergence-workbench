@@ -202,10 +202,11 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const item = listAllFeedback(opts.feedbackDir).find((e) => e.key === b.key)
     if (!item) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     if (b.verdict !== null && !item.status) throw new WorkbenchError(400, t('아직 처리하지 않은 항목입니다', 'This item has not been handled yet'))
-    // 결정을 묻는 답에는 진행 · 중단으로, 결과를 알린 답에는 승인 · 반려로 답한다 (10/9). 예전 보류에 단 반려는 그대로 받는다
+    // 결정을 묻는 답에는 진행 · 중단 · 논의로, 결과를 알린 답에는 승인 · 진행 · 반려 · 논의로 답한다 (10/9, 11/8 안 C). 예전 보류에 단 반려는 그대로 받는다
     const asks = feedbackAsks(item.status)
     if (b.verdict === '승인' && (asks || item.status?.state === '보류')) throw new WorkbenchError(400, t('묻는 답은 승인하지 않고 진행이나 중단으로 답합니다', 'An answer that asks you is not approved: answer it with Proceed or Stop'))
-    if ((b.verdict === '진행' || b.verdict === '중단') && !asks) throw new WorkbenchError(400, t('진행 · 중단은 에이전트가 물은 답에만 씁니다', 'Proceed and Stop are only for answers where the agent asks you'))
+    if (b.verdict === '중단' && !asks) throw new WorkbenchError(400, t('중단은 에이전트가 물은 답에만 씁니다', 'Stop is only for answers where the agent asks you'))
+    if (b.verdict === '논의' && !b.note?.trim()) throw new WorkbenchError(400, t('논의는 무엇을 이야기할지 글을 적어 보냅니다', 'Write what to discuss before sending Discuss'))
     const review = setFeedbackReview(opts.feedbackDir, b.key, b.verdict, b.note)
     scheduleAutoPublish()
     return { review }

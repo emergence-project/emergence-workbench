@@ -6,8 +6,8 @@ import type { FeedbackItem, FeedbackState, FeedbackVerdict } from './contract/fe
  * 타입 말고는 아무것도 가져오지 않으므로 새 앱은 이 파일만 옮겨 써도 된다.
  */
 
-/** 다시 처리하게 하는 답: 수정(자료 값 반려)과 진행(10/9) */
-export const sendsBack = (v: FeedbackVerdict | string) => v === '반려' || v === '진행'
+/** 다시 처리하게 하는 답: 수정(자료 값 반려) · 진행(10/9) · 논의(11/8, 고치지 않고 시안 · 물음으로 답한다) */
+export const sendsBack = (v: FeedbackVerdict | string) => v === '반려' || v === '진행' || v === '논의'
 
 /** 다시 처리해서 사용자가 새 답을 승인·반려할 차례: 최신이 반려(진행)이고 에이전트가 그것을 다시 처리했다 (status.yaml rework = 그 답의 시각) */
 export const reworked = (e: Pick<FeedbackItem, 'status' | 'review'>) =>
@@ -24,7 +24,7 @@ export const unansweredComments = (e: Pick<FeedbackItem, 'comments' | 'status'>)
   (e.comments ?? []).filter((c) => !(e.status?.replies ?? []).some((r) => r.to === c.at && (!c.edited || r.at >= c.edited)))
 /**
  * 사용자의 결정을 묻는 답 (10/9): 수정의 확인 필요, 제안의 동의, 물음(ask)이 붙은 보류 · 답변.
- * 이 답에는 진행 · 중단으로, 결과를 알린 답(반영 · 답변 · 거절 · 나중에)에는 승인 · 수정으로 답한다.
+ * 이 답에는 진행 · 중단 · 논의로, 결과를 알린 답(반영 · 답변 · 거절 · 나중에)에는 승인 · 진행 · 반려 · 논의로 답한다.
  */
 export const asksUser = (e: Pick<FeedbackItem, 'status'>) => {
   const st = e.status
@@ -69,16 +69,16 @@ export function railCount(entries: FeedbackItem[], now = Date.now()) {
 
 /**
  * 에이전트 차례의 까닭 (규약 6절 · 에이전트 규칙 docs/feedback/agent.md). 앱마다 같은 이름을 쓴다.
- * comment 답 없는 코멘트 · rework 수정 요청 · proceed 진행 · edited 처리 뒤 고친 수정 요청 · new 새 항목 · hold 물음 없는 보류
+ * comment 답 없는 코멘트 · rework 수정 요청 · proceed 진행 · discuss 논의 · edited 처리 뒤 고친 수정 요청 · new 새 항목 · hold 물음 없는 보류
  */
-export type AgentTurn = 'comment' | 'rework' | 'proceed' | 'edited' | 'new' | 'hold'
+export type AgentTurn = 'comment' | 'rework' | 'proceed' | 'discuss' | 'edited' | 'new' | 'hold'
 
 /** 에이전트 차례(대기)인 항목의 까닭. 차례가 아니면 빈 목록 */
 export function agentTurns(e: FeedbackItem, now = Date.now()): AgentTurn[] {
   if (feedbackBucket(e, now) !== '대기') return []
   const out: AgentTurn[] = []
   if (unansweredComments(e).length) out.push('comment')
-  if (reopened(e)) out.push(e.status?.rework === e.review!.at ? 'edited' : e.review!.verdict === '진행' ? 'proceed' : 'rework')
+  if (reopened(e)) out.push(e.status?.rework === e.review!.at ? 'edited' : e.review!.verdict === '진행' ? 'proceed' : e.review!.verdict === '논의' ? 'discuss' : 'rework')
   else if (!e.status) out.push('new')
   else if (e.status.state === '보류' && !e.status.ask) out.push('hold')
   return out
@@ -96,7 +96,8 @@ export function agentTurnReasons(e: FeedbackItem, now = Date.now()): string[] {
     switch (c) {
       case 'comment': return `답 없는 코멘트 ${unansweredComments(e).length}개 (에이전트 규칙 5: 답만 한다)`
       case 'edited': return `처리 뒤에 고친 ${e.review!.verdict} 글 (${e.review!.edited}) — 다시 읽고 처리`
-      case 'proceed': return `진행 (${e.review!.at}) — 물은 대로 처리 (에이전트 규칙 4)`
+      case 'proceed': return `진행 (${e.review!.at}) — 물은 대로, 적은 글이 있으면 그대로 처리 (에이전트 규칙 4)`
+      case 'discuss': return `논의 (${e.review!.at}) — 고치지 말고 시안 · 물음으로 답 (에이전트 규칙 4)`
       case 'rework': return `수정 요청 (${e.review!.at}) — 다시 처리 (에이전트 규칙 4) · revised에 miss와 lesson`
       case 'new': return `새 항목${e.kind ? ` · ${e.kind}` : ''}`
       case 'hold': return '보류 (물음 없음)'
