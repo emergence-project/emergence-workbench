@@ -4,10 +4,16 @@ import { shown, t } from './i18n'
 /**
  * 피드백 대화 머리 태그의 이름과 뜻 (10/11 12:38: 태그의 종류와 설명을 각주로).
  * 피드백 화면의 태그 설명 줄과 앱 소개 › 피드백이 반영되는 길의 태그 표(10/14 13:32 제안)가 같은 목록을 쓴다.
- * 재답변 이름 (10/9 사용자 결정, 1안 두 글자): 처음 고르는 유형과 같은 말을 쓴다. 자료 값은 코멘트 · 반려 · 승인 · 중단 · 진행
+ * 재답변 이름 (10/9 사용자 결정, 1안 두 글자): 처음 고르는 유형과 같은 말을 쓴다. 자료 값은 코멘트 · 반려 · 승인 · 중단 · 진행 · 논의(11/8)
  */
 export const REPLY: Record<string, string> = {
-  '코멘트': t('질문', 'Ask'), '반려': t('반려', 'Revise'), '승인': t('승인', 'Approve'), '진행': t('진행', 'Proceed'), '중단': t('중단', 'Stop'),
+  '코멘트': t('질문', 'Ask'), '반려': t('반려', 'Revise'), '승인': t('승인', 'Approve'), '진행': t('진행', 'Proceed'), '중단': t('중단', 'Stop'), '논의': t('논의', 'Discuss'),
+}
+
+/** 답 고르기 칸의 뜻 (11/8 안 C: 고르기 칸에는 「이름 · 뜻」 한 모양) */
+export const REPLY_MEANING: Record<string, string> = {
+  '승인': t('그대로 끝내기', 'accept as is'), '진행': t('이어서 더 하기', 'go on with more'), '반려': t('다시 고치기', 'fix it again'),
+  '논의': t('고치기 전에 시안 보기', 'show a mockup before changing'), '코멘트': t('궁금한 것 묻기', 'ask a question'), '중단': t('여기서 멈추기', 'stop here'),
 }
 
 export type TagWho = 'agent' | 'user'
@@ -16,7 +22,8 @@ export const TAG_NOTES: Record<string, { name: string; note: string; who: TagWho
   '답만 함': { who: 'agent', name: t('답만 함', 'Answered only'), note: t('앱은 고치지 않고 답만 했습니다. 질문, 거절, 나중에, 동의가 여기에 해당합니다.', 'The app was not changed; only an answer was given (questions, declines, later, agreed).') },
   '반려': { who: 'user', name: t('N번째 반려', 'Revision N'), note: t('처리 결과가 맞지 않아 반려를 눌러 다시 처리해 달라고 한 요청입니다.', 'You pressed Revise because the result was not right and asked for it to be reworked.') },
   '승인': { who: 'user', name: REPLY['승인']!, note: t('처리 결과를 받아들였습니다.', 'You accepted the result.') },
-  '진행': { who: 'user', name: REPLY['진행']!, note: t('관리자가 묻거나 제안한 대로 진행하게 했습니다.', 'You told the maintainer to go ahead as asked or proposed.') },
+  '진행': { who: 'user', name: REPLY['진행']!, note: t('관리자가 묻거나 제안한 대로, 적은 글이 있으면 그 말대로 더 하게 했습니다. 반려로 세지 않습니다.', 'You told the maintainer to go ahead as asked or proposed, or to do more as you wrote. Not counted as a revision.') },
+  '논의': { who: 'user', name: REPLY['논의']!, note: t('고치기 전에 시안이나 물음으로 먼저 이야기하자고 했습니다. 관리자는 고치지 않고 시안을 만들어 묻습니다.', 'You asked to talk it over first. The maintainer does not change anything yet and replies with a mockup and a question.') },
   '중단': { who: 'user', name: REPLY['중단']!, note: t('하지 않기로 했습니다.', 'You decided not to do it.') },
   '코멘트': { who: 'user', name: REPLY['코멘트']!, note: t('다시 처리하지 않고 답만 받으려고 남긴 질문입니다.', 'A question left to get an answer only, without reworking.') },
 }

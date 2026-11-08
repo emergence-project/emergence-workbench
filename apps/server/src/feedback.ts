@@ -183,7 +183,7 @@ export const feedbackAsks = (st: FeedbackStatus | undefined): boolean => asksUse
  * feedback/reviews.yaml에 맥 앱만 쓴다 (status.yaml은 Claude만 쓰니 서로 부딪히지 않는다). 키는 status.yaml과 같다.
  *
  *   "2026-10-04 13:52 사이드바 › 프로젝트 목차 › 목차":
- *     verdict: 승인      # 승인 | 반려 | 진행 | 중단
+ *     verdict: 승인      # 승인 | 반려 | 진행 | 중단 | 논의
  *     at: 2026-10-04T14:50:00+09:00
  *     note: 반려 이유 (있으면)
  *     history:          # 그 전의 승인·반려, 오래된 것부터 (10/4 18:11 "반려한 지적을 댓글처럼"). 위의 셋이 늘 최신
@@ -195,8 +195,8 @@ export const feedbackAsks = (st: FeedbackStatus | undefined): boolean => asksUse
  * 글을 고치면 그 글에 edited: <고친 시각>이 붙는다(승인·반려·코멘트 모두).
  * 반려한 항목은 Claude가 다시 처리하고 status.yaml에 rework: <그 at>을 적을 때까지 대기로 보인다.
  *
- * 결정을 묻는 답(10/9, feedbackAsks)에는 승인 · 반려 대신 진행 · 중단으로 답한다.
- * 진행은 반려처럼 Claude가 다시 처리(rework)할 때까지 대기, 중단은 그대로 끝(승인처럼 완료).
+ * 결정을 묻는 답(10/9, feedbackAsks)에는 승인 · 반려 대신 진행 · 중단. 중단은 그대로 끝(승인처럼 완료). 진행(결과 답에도, 11/8) · 논의(11/8, 고치지 않고 시안 · 물음으로)는
+ * 반려처럼 Claude가 다시 처리(rework)할 때까지 대기.
  */
 export const REVIEW_FILE = 'reviews.yaml'
 

@@ -103,9 +103,10 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-entry:not(:has(.fbp-edit-icons, .fbp-foldback)) .fbp-head { padding-right: 0; }
 /* 주고받은 기록: 처리 → 반려 → 다시 처리 → 승인 (10/4 18:11 "반려한 지적을 댓글처럼") */
 .fbp-thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.fbp-say { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); color: var(--text-2); }
-.fbp-say { margin-right: var(--sp-6); }
-.fbp-say.me { margin-left: var(--sp-6); margin-right: 0; }
+.fbp-say { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--bg); color: var(--text-2); }
+/* 메신저 말풍선 (11/8 16:44 코멘트, 시안 N7ik 3절): 관리자는 왼쪽 움푹한 바탕, 사용자는 오른쪽 테두리 */
+.fbp-say { margin-right: var(--sp-6); background: var(--bg-hover); border-color: var(--line); border-bottom-left-radius: var(--r-sm); }
+.fbp-say.me { margin-left: var(--sp-6); margin-right: 0; background: var(--bg); border-color: var(--line-strong); border-bottom-left-radius: var(--r-lg); border-bottom-right-radius: var(--r-sm); }
 .fbp-say-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-xs); }
 .fbp-say-head b { color: var(--text); font-weight: var(--fw-strong); }
 /* 10/8 11:28 대화 형식: 앞의 주고받음은 접고, 다시 처리마다 고친 칸을 보인다 */
@@ -177,3 +178,9 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbi-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fbi-cut { font-size: var(--fs-sm); }
 .fbp-file-note { font-size: var(--fs-sm); max-width: 360px; overflow-wrap: anywhere; }
+/* 지금 처리 카드와 의견 종류 (11/8 시안 N7ik 3절) */
+.fbp-summary { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); padding: var(--sp-2) var(--sp-3); }
+.fbp-now-head, .fbp-summary > .fbp-pictures, .fbp-now-version, .fbp-now-act { grid-column: 1 / -1; }
+.fbp-now-act { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
+.fbp-thread-cap { font-size: var(--fs-xs); }
+.fbp-opinion { align-self: flex-start; }

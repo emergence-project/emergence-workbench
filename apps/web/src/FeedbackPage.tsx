@@ -4,9 +4,9 @@ import { api, FEEDBACK_EVENT, records, type FeedbackItem, type FeedbackPickableK
 import { uiShown } from './uiNames'
 import { Icon } from './icons'
 import { MemoText } from './memo'
-import { PictureGallery, type GalleryPicture } from './PictureGallery'
 import { onListKey } from './listInput'
-import { ComposeBox, SayCard } from './Conversation'
+import { SayCard } from './Conversation'
+import { ApproveButton, Compose, HandlingPictures } from './FeedbackAnswer'
 import { askConfirm } from './askText'
 import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
@@ -24,6 +24,7 @@ const FEEDBACK_STATE = [...qk.feedback, 'state'] as const
 const FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
+export { Compose } from './FeedbackAnswer'
 
 /**
  * 피드백 모아 보기: feedback/의 모든 날짜 파일과 처리 기록(feedback/status.yaml).
@@ -341,7 +342,8 @@ const whenOf = (at: string) => at.replace('T', ' ').slice(5, 16)
 const FIELD_NAME = { understood: t('이해한 요구', 'Understood request'), cause: t('원인', 'Cause'), note: t('처리', 'Handling') }
 
 /**
- * 처리 요약 (10/8 시안): 이해한 요구 · 원인 · 처리를 한곳에, 오른쪽에 그 글이 마지막으로 바뀐 시각.
+ * 지금 처리 (10/8 시안 · 11/8 처리와 대화 나누기, 시안 N7ik 3절): 이해한 요구 · 원인 · 처리, 전후 그림, 반영 버전을 한 카드에.
+ * 결과를 알린 답이면 카드에 「승인」 하나. 승인이 아닌 의견은 대화 아래 입력란에서 고른다.
  * 다시 처리하기 전의 글은 "고친 이력 n번"에 접어 둔다 (status.yaml revised).
  */
 function Summary({ e }: { e: FeedbackItem }) {
@@ -351,11 +353,14 @@ function Summary({ e }: { e: FeedbackItem }) {
   if (!rows.length && !revised.length) return null
   return (
     <div className="fbp-summary" data-ui="처리 요약">
+      <div className="fbp-now-head"><span className="tag">{t('지금 처리', 'Current handling')}{st.handled_at ? ` · ${whenOf(st.handled_at)}` : ''}</span></div>
       {rows.map((r) => (
         <div key={r.field} className="fbp-summary-row">
           <b>{FIELD_NAME[r.field]}</b><span className="fbp-summary-text"><MemoText text={r.text} /></span><span className="muted">{r.at ? whenOf(r.at) : ''}</span>
         </div>
       ))}
+      <HandlingPictures e={e} />
+      {st.commit && <span className="muted fbp-say-version fbp-now-version">{st.version ?? st.commit}<InApp e={e} /></span>}
       {revised.length > 0 && (
         <details className="fbp-earlier" data-ui="고친 이력">
           <summary>{t(`고친 이력 ${revised.length}번`, plural(revised.length, 'earlier version'))}</summary>
@@ -367,6 +372,7 @@ function Summary({ e }: { e: FeedbackItem }) {
           ))}
         </details>
       )}
+      <ApproveButton e={e} />
     </div>
   )
 }
@@ -386,8 +392,9 @@ function Conversation({ e }: { e: FeedbackItem }) {
   const notes = [...new Set(steps.map(tagKey))].filter((k): k is string => !!k && k in TAG_NOTES)
   let rejects = 0
   const numbered = steps.map((s) => (s.who === '나' && s.kind === '반려' ? ++rejects : 0))
-  const say = (s: ThreadStep, i: number) => <Say key={i} e={e} s={s} n={numbered[i]!} latestHandling={i === lastHandling} locked={i < locked} undo={i === lastMine && i === steps.length - 1 && (s.kind === '승인' || s.kind === '반려' || s.kind === '진행' || s.kind === '중단')} />
-  return (
+  const say = (s: ThreadStep, i: number) => <Say key={i} e={e} s={s} n={numbered[i]!} latestHandling={i === lastHandling} locked={i < locked} undo={i === lastMine && i === steps.length - 1 && (s.kind === '승인' || s.kind === '반려' || s.kind === '진행' || s.kind === '중단' || s.kind === '논의')} />
+  const finished = stateOf(e) === '승인'
+  const body = (
     <div className="fbp-thread-box" data-ui="주고받은 기록">
       {folded > 0 && (
         <details className="fbp-earlier" data-ui="이전 주고받음">
@@ -406,20 +413,23 @@ function Conversation({ e }: { e: FeedbackItem }) {
       )}
     </div>
   )
+  // 끝난 항목은 지금 처리 카드만 펴고 대화는 접는다 (11/8 시안 N7ik 3절)
+  return finished
+    ? <details className="fbp-earlier fbp-thread-fold" data-ui="이전 주고받음"><summary>{t(`주고받은 대화 ${steps.length}개`, plural(steps.length, 'message'))}</summary>{body}</details>
+    : <>{e.status && <div className="fbp-thread-cap muted">{t('주고받은 대화', 'Conversation')}</div>}{body}</>
 }
 
 /** 대화 한 칸. 사용자 글은 관리자가 답하기 전까지 오른쪽 위 연필로 고친다 (고친 시각이 "고침 HH:MM"으로 붙는다) */
 function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: ThreadStep; n: number; latestHandling: boolean; locked: boolean; undo: boolean }) {
   const user = useContext(Account)
   const [editing, setEditing] = useState(false)
-  const [big, setBig] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   if (s.kind === '대기') return <li className="fbp-say-wait muted">{t('관리자가 다시 처리하기를 기다립니다', 'Waiting for the maintainer to rework it')}</li>
   const me = s.who === '나'
   const name = me ? (user ? `${t('사용자', 'User')} (${user})` : t('사용자', 'User')) : ('by' in s && s.by ? `${t('관리자', 'Maintainer')} (${s.by})` : t('관리자', 'Maintainer'))
   const what = s.kind === '반려' ? t(`${n}번째 반려`, `Revision ${n}`)
-    : s.kind === '승인' || s.kind === '진행' || s.kind === '중단' || s.kind === '코멘트' ? verdictName(s.kind)
+    : s.kind === '승인' || s.kind === '진행' || s.kind === '중단' || s.kind === '논의' || s.kind === '코멘트' ? verdictName(s.kind)
         : s.kind === '답' ? t('답만 함', 'Answered only')
           : 'commit' in s && s.commit ? t('앱에 반영됨', 'Applied to the app') : t('답만 함', 'Answered only')
   const at = 'at' in s ? s.at : undefined
@@ -429,13 +439,8 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
     api.editFeedbackNote(e.key, at, draft).then(() => { setEditing(false); setError(null) }).catch((err: Error) => setError(err.message))
   }
   const handling = s.kind === '처리' || s.kind === '다시 처리'
-  const pictures = handling && latestHandling ? e.status?.pictures ?? [] : []
-  // 전후 그림: 누르면 크게 띄워 ← →로 넘겨 본다 (10/13 진행)
-  const gallery: GalleryPicture[] = pictures.slice(0, 2).map((p, k) => ({
-    src: `/api/feedback/picture?path=${encodeURIComponent(p)}`,
-    label: k ? t('후', 'After') : t('전', 'Before'),
-    alt: k ? t('고친 뒤 화면', 'Screen after the fix') : t('수정 전 화면', 'Screen before the fix'),
-  }))
+  // 마지막 처리는 첫 줄만 적고 위 「지금 처리」 카드를 가리킨다 (11/8: 같은 글을 두 번 보이지 않게)
+  const pointer = handling && latestHandling && !!e.status && summaryRows(e.status).length > 0
   return (
     <SayCard me={me} ui={me ? '사용자 글' : '관리자 글'} name={name} tag={what}
       afterTag={undo && <button className="fb-link" title={t('마지막 답(승인 · 반려 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
@@ -452,65 +457,12 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
             </span>
           </div>
         )
-        : s.note && <MemoText text={s.note} />}
-      {pictures.length > 0 && (
-        <div className="fbp-pictures" data-ui="전후 그림">
-          {gallery.map((g, k) => (
-            <figure key={g.src}>
-              <button type="button" className="fbp-picture" data-tip={t('크게 보기', 'View larger')} aria-label={`${t('크게 보기', 'View larger')}: ${g.alt}`} onClick={() => setBig(k)}><img src={g.src} alt={g.alt} /></button>
-              <figcaption className="muted">{g.label}</figcaption>
-            </figure>
-          ))}
-          {big !== null && <PictureGallery pictures={gallery} start={big} onClose={() => setBig(null)} />}
-        </div>
-      )}
-      {handling && 'commit' in s && s.commit && (latestHandling
-        ? <span className="muted fbp-say-version">{e.status?.version ?? s.commit}<InApp e={e} /></span>
-        : <span className="mono muted fbp-say-version">{s.commit}</span>)}
+        : pointer
+          ? <span>{(s.note ?? '').split('\n')[0]} <span className="muted">→ {t('내용은 위 「지금 처리」', 'see Current handling above')}</span></span>
+          : s.note && <MemoText text={s.note} />}
+      {handling && !pointer && 'commit' in s && s.commit && <span className="mono muted fbp-say-version">{s.commit}</span>}
       {error && <span className="error-text">{error}</span>}
     </SayCard>
-  )
-}
-
-/**
- * 아래 입력란 (10/8 시안, 10/9 재답변 정리): 버튼은 늘 셋이고 답의 종류에 따라 이름이 바뀐다.
- * - 결과를 알린 답(반영 · 답변 · 거절 · 나중에): 질문 · 수정 · 승인. 비었으면 승인만, 글을 쓰면 질문 · 수정이 켜진다.
- * - 결정을 묻는 답(확인 필요 · 동의 · 물음이 붙은 보류 · 답변): 질문 · 중단 · 진행. 진행 · 중단은 글이 없어도 되고, 글이 있으면 함께 적힌다.
- * 질문(자료 값 코멘트)은 처리를 그대로 두고 묻는다(관리자가 답만 한다). 수정(반려) · 진행은 다시 처리하게 돌려보낸다. 중단은 그대로 끝낸다.
- */
-export function Compose({ e }: { e: FeedbackItem }) {
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const st = stateOf(e)
-  const typed = !!text.trim()
-  const asks = asksUser(e)
-  // 결정을 기다리는 동안에만 진행 · 중단 (승인 · 중단으로 끝났거나 다시 처리를 기다리면 끔)
-  const canDecide = asks && st !== '대기' && st !== '승인'
-  const canApprove = !asks && !typed && (st === '반영' || st === '답변' || st === '거절' || st === '나중에')
-  // 다시 처리를 기다리는 동안에는 또 돌려보내지 않는다 (질문이나 글 고치기는 된다)
-  const canReject = !asks && typed && !!e.status && st !== '대기'
-  const run = (p: Promise<unknown>) => {
-    setBusy(true)
-    p.then(() => { setText(''); setError(null) }).catch((err: Error) => setError(err.message)).finally(() => setBusy(false))
-  }
-  // 관리자 차례(처리 전 · 코멘트에 답하기 전 · 다시 처리하기 전)에는 입력란을 두지 않는다 (10/10 13:02).
-  // 덧붙일 말은 원문이나 마지막 글을 연필로 고친다
-  const hint = asks ? t('덧붙일 말 (진행 · 중단에 함께 적힘)', 'Anything to add (saved with Proceed or Stop)') : t('질문이나 고칠 점', 'Question or what to change')
-  return (
-    <ComposeBox value={text} onChange={setText} placeholder={hint} error={error}
-      waiting={feedbackBucket(e) === '대기' ? t('관리자의 답을 기다립니다', 'Waiting for the maintainer to answer') : undefined}>
-        <button className="btn" disabled={busy || !typed} onClick={() => run(api.commentFeedback(e.key, text))}>{REPLY['코멘트']}</button>
-        {asks
-          ? <>
-            <button className="btn" disabled={busy || !canDecide} onClick={() => run(api.reviewFeedback(e.key, '중단', text))}>{REPLY['중단']}</button>
-            <button className="btn primary" disabled={busy || !canDecide} onClick={() => run(api.reviewFeedback(e.key, '진행', text))}>{REPLY['진행']}</button>
-          </>
-          : <>
-            <button className="btn" disabled={busy || !canReject} onClick={() => run(api.reviewFeedback(e.key, '반려', text))}>{REPLY['반려']}</button>
-            <button className="btn primary" disabled={busy || !canApprove} onClick={() => run(api.reviewFeedback(e.key, '승인'))}>{REPLY['승인']}</button>
-          </>}
-    </ComposeBox>
   )
 }
 

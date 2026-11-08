@@ -12,8 +12,8 @@ export { FEEDBACK_MISSES, type FeedbackMiss } from '../feedback-lessons.js'
 export const FEEDBACK_KINDS = ['디자인', '버그', '기능', '수정', '질문', '제안', '미분류'] as const
 /** 처리 기록의 상태 (status.yaml state) */
 export const FEEDBACK_STATES = ['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류', '승인'] as const
-/** 결과를 알린 답에는 승인 · 반려, 결정을 묻는 답에는 진행 · 중단 (10/9) */
-export const FEEDBACK_VERDICTS = ['승인', '반려', '진행', '중단'] as const
+/** 결과를 알린 답에는 승인 · 진행 · 반려, 결정을 묻는 답에는 진행 · 중단 (10/9). 논의는 두 답 모두 (11/8 안 C) */
+export const FEEDBACK_VERDICTS = ['승인', '반려', '진행', '중단', '논의'] as const
 
 const kind = z.enum(FEEDBACK_KINDS)
 /** 어디서 남겼는지. 없으면 이 앱의 피드백 모드, '미리보기'는 채팅의 앱 미리보기 댓글, 그 밖은 피드백 파일을 보낸 사람 이름 (11/8, 서버 feedbackBundle.ts) */
@@ -177,7 +177,7 @@ export const NewFeedbackBody = z.object({
 /** 사용자가 등록할 때 고르는 유형 (10/9). 고치기에서 kind를 보내면 머리줄의 유형이 바뀐다 (10/11) */
 export const FEEDBACK_PICKABLE_KINDS = ['수정', '질문', '제안'] as const
 export const EditFeedbackBody = z.object({ date: z.string(), time: z.string(), target: z.string(), n: z.number().optional(), text: z.string().nullable(), kind: z.enum(FEEDBACK_PICKABLE_KINDS).optional() })
-/** 승인·반려·진행·중단 (verdict: null이면 마지막 것을 취소) */
+/** 승인·반려·진행·중단·논의 (verdict: null이면 마지막 것을 취소) */
 export const FeedbackReviewBody = z.object({ key: z.string(), verdict: z.enum(FEEDBACK_VERDICTS).nullable(), note: z.string().optional() })
 export const FeedbackCommentBody = z.object({ key: z.string(), note: z.string() })
 /** 내가 쓴 글(수정 요청 · 승인 · 코멘트) 고치기: at으로 찾는다 */
