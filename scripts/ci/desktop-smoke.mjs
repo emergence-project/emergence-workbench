@@ -33,6 +33,7 @@ fs.mkdirSync(projects, { recursive: true })
 let log = ''
 // 윈도우: git이 없는 컴퓨터처럼 PATH에 시스템 폴더와 묶은 git(MinGit)만 둔다 (앱이 PATH 맨 뒤에 묶은 git을 두는 것과 같은 결과)
 const sys = process.env.SystemRoot ?? 'C:\\Windows'
+/** @type {NodeJS.ProcessEnv} */
 const env = { ...process.env, RW_STATIC: '1', RW_PORT: String(PORT), RW_CONFIG_DIR: configDir }
 if (win) {
   for (const k of Object.keys(env)) if (k.toLowerCase() === 'path') delete env[k]
@@ -91,6 +92,7 @@ console.log('\n묶은 서버가 이 OS에서 돕니다.')
 
 /** 크롬으로 주요 화면을 찍는다. 콘솔 오류 · 페이지 오류가 있으면 실패 */
 async function takeShots(rid) {
+  if (!shots) return
   const { chromium } = await import('playwright-core')
   fs.mkdirSync(shots, { recursive: true })
   const browser = await chromium.launch({ executablePath: chrome, args: ['--lang=ko-KR'] })
