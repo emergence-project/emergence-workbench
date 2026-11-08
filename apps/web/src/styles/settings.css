@@ -65,3 +65,5 @@
 .phone-url { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .phone-url code { word-break: break-all; }
 .phone-qr { flex: none; width: 128px; height: 128px; background: var(--qr-bg); fill: var(--qr-ink); border-radius: var(--r-md); }
+/* GitHub 로그인 코드 (설정 › 계정, 11/8): 옮겨 적기 쉽게 크게 */
+.setup-code { font-size: var(--fs-md); font-weight: var(--fw-strong); letter-spacing: .08em; }

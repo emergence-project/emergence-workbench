@@ -3,6 +3,7 @@ import type { FSWatcher } from 'chokidar'
 import type { AgentChats } from '../agentChats.js'
 import type { AppOptions } from '../app.js'
 import type { ConceptIndex } from '../conceptIndex.js'
+import type { GithubAccount } from '../githubAccount.js'
 import type { Registry } from '../registry.js'
 import type { WorkbenchEvent } from '../watcher.js'
 import type { Workbench } from '../workbench.js'
@@ -28,6 +29,8 @@ export interface RouteContext {
   conceptIndex: () => ConceptIndex | null
   /** 앱이 피드백 처리 기록을 대신 적은 뒤 (routes/feedback.ts가 저절로 올리기를 건다) */
   feedbackWritten?: () => void
+  /** 앱 안의 GitHub 로그인 (githubAccount.ts). 저장소 목록 · 개인 저장소 만들기가 그 열쇠를 쓴다 */
+  account: GithubAccount
   /** 에이전트 대화 (registerAgentChats가 채운다). 기록의 질문 · 지시가 그 기록의 대화로 간다 */
   agentChats?: AgentChats
 }

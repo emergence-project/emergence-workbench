@@ -256,6 +256,11 @@ try {
       await page.locator('[data-ui="한 일 달력"]').first().scrollIntoViewIfNeeded({ timeout: 10_000 })
         .catch(() => problems.push(`${name}: 한 일 달력까지 스크롤하지 못함`))
     }
+    // GitHub 로그인 줄은 설정 › 계정의 선택 절이라 첫 화면 아래에 있다 (11/8)
+    if (name === 'settings-github-login') {
+      await page.locator('[data-ui="GitHub 계정"]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
+        .catch(() => problems.push(`${name}: GitHub 로그인 줄까지 내리지 못함`))
+    }
     if (name === 'latex') {
       const card = page.locator('[data-ui="서식 카드"]').first()
       await card.scrollIntoViewIfNeeded({ timeout: 10_000 })

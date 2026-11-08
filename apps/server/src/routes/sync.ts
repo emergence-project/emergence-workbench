@@ -8,14 +8,13 @@ import { replies } from '../contract.js'
 import { writeStatusFor } from '../agentStatus.js'
 import { autoPull, fastForward, mergeDiverged, offDefaultBranch, repoInfo, repoSync, switchToDefault, SyncError, syncNow } from '../gitsync.js'
 import { WorkbenchError } from '../workbench.js'
-import { PathSyncError, publishPaths } from '../pathsync.js'
+import { ensureWorkbenchIgnore, PathSyncError, publishPaths } from '../pathsync.js'
 import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
 import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
 
 /** workbench/를 올릴 때 빼는 것: 컴파일 폴더와 앱이 저절로 쓰는 요약 (Workbench.scaffold와 같은 줄) */
-const WORKBENCH_IGNORE = ['.build/', 'STATUS.md']
 
 export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
   const { repoPath, registry, opts } = ctx
@@ -57,10 +56,7 @@ export function registerSync(app: FastifyInstance, ctx: RouteContext): void {
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/repo/workbench', replies(F.RecordsPublished), async (req): Promise<F.RecordsPublished> => {
     if (opts.sandbox) throw new WorkbenchError(404, t('개발용 예제 모드에서는 GitHub에 올리지 않습니다', 'Sample mode does not push to GitHub'))
     const root = repoPath(req.params.rid)
-    const ignore = path.join(root, 'workbench', '.gitignore')
-    const have = fs.existsSync(ignore) ? fs.readFileSync(ignore, 'utf8') : ''
-    const missing = WORKBENCH_IGNORE.filter((l) => !have.split('\n').some((x) => x.trim() === l))
-    if (missing.length) fs.writeFileSync(ignore, `${have}${have && !have.endsWith('\n') ? '\n' : ''}${missing.join('\n')}\n`)
+    ensureWorkbenchIgnore(root)
     try {
       const off = await offDefaultBranch(root)
       if (off) throw new PathSyncError(off)

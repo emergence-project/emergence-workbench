@@ -21,7 +21,11 @@ export const BackupResult = z.object({
 }).strict()
 
 /** GET /backup */
-export const BackupStatus = z.object({ enabled: z.boolean(), remote: z.string().nullable(), running: z.boolean(), last: BackupResult.nullable() }).strict()
+export const BackupStatus = z.object({
+  enabled: z.boolean(), remote: z.string().nullable(), running: z.boolean(), last: BackupResult.nullable(),
+  /** 저절로 맞추는 간격(분). 저절로 하지 않으면 null (맥 60, 설치판 10) */
+  minutes: z.number().nullable(),
+}).strict()
 
 export type BackupResult = z.infer<typeof BackupResult>
 export type BackupStatus = z.infer<typeof BackupStatus>

@@ -45,6 +45,20 @@ export interface PathPublishOptions {
   merge?: boolean
   /** merge: 파일마다 줄 단위(git merge-file) 대신 쓸 합치기 (없으면 줄 단위. 앱 피드백은 항목 단위, feedbackMerge.ts) */
   mergeText?: (file: string) => ((base: string, ours: string, theirs: string) => string | null) | undefined
+  /** GitHub와 주고받는(fetch · push) 시간 한도. 큰 파일(논문 PDF)을 올릴 때 (기본 GIT_TIMEOUT.remote) */
+  timeout?: number
+}
+
+/** 앱이 저절로 쓰고 다시 만드는 것: workbench/를 올릴 때 .gitignore로 뺀다 (STATUS.md, 컴파일 폴더) */
+export const WORKBENCH_IGNORE = ['.build/', 'STATUS.md']
+
+/** workbench/.gitignore에 WORKBENCH_IGNORE가 모두 있게 한다 (없는 줄만 더한다) */
+export function ensureWorkbenchIgnore(root: string): void {
+  const ignore = path.join(root, 'workbench', '.gitignore')
+  if (!fs.existsSync(path.dirname(ignore))) return
+  const have = fs.existsSync(ignore) ? fs.readFileSync(ignore, 'utf8') : ''
+  const missing = WORKBENCH_IGNORE.filter((l) => !have.split('\n').some((x) => x.trim() === l))
+  if (missing.length) fs.writeFileSync(ignore, `${have}${have && !have.endsWith('\n') ? '\n' : ''}${missing.join('\n')}\n`)
 }
 
 export class PathSyncError extends Error {
@@ -171,7 +185,8 @@ async function publishPathsNow(root: string, paths: string[], opts: PathPublishO
     commit = await git(root, ['rev-parse', '--short', 'HEAD'])
   }
 
-  try { await git(root, ['fetch', '--quiet', remote]) } catch (e) {
+  const far = { timeout: opts.timeout }
+  try { await gitAt(root, ['fetch', '--quiet', remote], far) } catch (e) {
     throw new PathSyncError(t(`GitHub를 확인하지 못했습니다. ${commit ? '커밋은 이 컴퓨터에 남아 있습니다' : ''}: ${firstLine(e)}`, `Could not check GitHub. ${commit ? 'The commit stays on this computer' : ''}: ${firstLine(e)}`), commit)
   }
   const up = await git(root, ['rev-parse', '@{upstream}'])
@@ -183,7 +198,7 @@ async function publishPathsNow(root: string, paths: string[], opts: PathPublishO
   if (!files.length) return { commit, pushed: false, files, message: t('올릴 것이 없습니다. 이미 GitHub에 있습니다', 'Nothing to push. It is already on GitHub') }
 
   const push = async (rev: string) => {
-    try { await git(root, ['push', '--quiet', remote, `${rev}:refs/heads/${ref.replace(/^refs\/heads\//, '')}`]) } catch (e) {
+    try { await gitAt(root, ['push', '--quiet', remote, `${rev}:refs/heads/${ref.replace(/^refs\/heads\//, '')}`], far) } catch (e) {
       throw new PathSyncError(t(`GitHub에 올리지 못했습니다. ${commit ? '커밋은 이 컴퓨터에 남아 있습니다. ' : ''}잠시 뒤 다시 눌러 주세요: ${firstLine(e)}`, `Could not push to GitHub. ${commit ? 'The commit stays on this computer. ' : ''}Try again in a moment: ${firstLine(e)}`), commit)
     }
     await git(root, ['fetch', '--quiet', remote]).catch(() => undefined)

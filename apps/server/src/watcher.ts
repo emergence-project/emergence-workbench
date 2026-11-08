@@ -38,6 +38,8 @@ export type WorkbenchEvent =
   | { type: 'agent-hooks'; research: null }
   /** 개인 저장소에서 피드백 처리 기록(status.yaml 등)을 새로 받음 (routes/feedback.ts). 앱을 다시 시작하지 않아도 피드백 화면이 다시 읽는다 (11/4) */
   | { type: 'feedback'; research: null }
+  /** 앱 안의 GitHub 로그인이 끝나거나 풀림 (githubAccount.ts). 파일 변경이 아니다 */
+  | { type: 'account'; research: null }
   /** 에이전트가 쓰는 중인 글 (다 쓰기 전, 0.3초마다). 대화를 다시 받지 않고 열린 대화에 그대로 보인다 */
   | { type: 'agent-draft'; research: string; id: string; text: string }
   /** 노트 파일(workbench/notes/…, workbench/calc/…, workbench/topics/<주제>/<노트>/…). file은 저장소 기준 경로(원고 화면의 file과 같다) */

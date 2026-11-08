@@ -31,7 +31,7 @@ function research(name: string, trackWorkbench: boolean): string {
 describe('workbench 백업', () => {
   it('백업을 쓰지 않는 모드에서는 꺼짐으로 알리고, 돌리면 404', async () => {
     const app = buildApp({ configDir: path.join(tmp, 'config-off') })
-    expect((await app.inject({ url: '/api/backup' })).json()).toEqual({ enabled: false, remote: null, running: false, last: null })
+    expect((await app.inject({ url: '/api/backup' })).json()).toEqual({ enabled: false, remote: null, running: false, last: null, minutes: null })
     expect((await app.inject({ method: 'POST', url: '/api/backup' })).statusCode).toBe(404)
     await app.close()
   })

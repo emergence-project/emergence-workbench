@@ -63,6 +63,9 @@ import { registerPhone } from './routes/phone.js'
 import { Google } from './google.js'
 import type { RepoIO } from './githubRepos.js'
 import { registerKeyGate } from './appKey.js'
+import { GithubAccount, sampleGithubFetch } from './githubAccount.js'
+import { memorySecretStore, secretStore } from './secretStore.js'
+import { registerAccount } from './routes/account.js'
 
 export interface AppOptions {
   /** 앱 설정 폴더 (기본 ~/.config/research-workspace) */
@@ -116,13 +119,16 @@ export interface AppOptions {
   /** 구글 계정 연결 (기본: 설정 폴더의 google.yaml로 진짜 구글. 예제 모드·테스트는 가짜 구글) */
   google?: Google
   /** 맥에만 있는 workbench/의 백업 (실사용만): 앱이 쓰는 백업 저장소 사본 폴더, GitHub 주소, 저절로 올리는 간격(ms) */
-  backup?: { dir: string; remote: string; intervalMs?: number; settings?: string }
+  /** remote가 비어 있으면 설정의 개인 저장소를 맞출 때마다 읽는다 (설치판: 로그인한 뒤에 정한다) */
+  backup?: { dir: string; remote: string | null; intervalMs?: number; settings?: string }
   /** 폰에서 보기 (기본: 이 맥의 Tailscale. 예제 모드는 가짜, 테스트에서 바꿈) */
   phone?: Phone
   /** 이 서버가 받는 포트 (시작할 때 폰에서 보기 상태를 읽는 데 쓴다) */
   port?: number
   /** 설치 파일로 깐 앱의 서버 열쇠 (appKey.ts). 있으면 열쇠를 가진 요청만 받는다 */
   key?: string
+  /** 앱 안의 GitHub 로그인 (기본: 이 OS의 보안 저장소와 진짜 GitHub. 예제 모드는 가짜 GitHub, 테스트에서 바꿈) */
+  account?: GithubAccount
 }
 
 /**
@@ -196,7 +202,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const broadcast = (e: WorkbenchEvent) => {
     // 라이브러리 알림은 바뀐 갈래의 캐시만 비운다 (아래 watchLibraryNow). 프로젝트 알림은 그 프로젝트와 프로젝트를 읽는 목록만 (10/15)
     // 에이전트 대화 알림은 파일이 바뀐 것이 아니라 캐시를 그대로 둔다
-    if (e.type === 'agent-chat' || e.type === 'agent-draft' || e.type === 'agent-hooks' || e.type === 'feedback') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
+    if (e.type === 'agent-chat' || e.type === 'agent-draft' || e.type === 'agent-hooks' || e.type === 'feedback' || e.type === 'account') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
     const data = JSON.stringify(e)
     for (const s of sockets) if (s.readyState === 1) s.send(data)
   }
@@ -333,7 +339,10 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
       '/api/concepts/:id/links', '/api/researches/:rid/notes/links'].includes(req.routeOptions.url ?? '')) await conceptIndex()?.ready()
   })
   const clients = () => [...sockets].filter((s) => s.readyState === 1).length
-  const ctx: RouteContext = { registry, opts, broadcast, clients, wbOf, ensureWatch, watchers, repoPath, recordsRoot, conceptIndex, libraryReads }
+  // 앱 안의 GitHub 로그인 (githubAccount.ts): 저장한 계정이 있으면 켤 때 git에 건다
+  const account = opts.account ?? new GithubAccount(opts.configDir, opts.sandbox ? memorySecretStore() : secretStore(opts.configDir), opts.sandbox ? sampleGithubFetch() : fetch, () => broadcast({ type: 'account', research: null }))
+  if (!opts.account && !opts.sandbox) void account.load().catch((e: unknown) => console.warn(`GitHub 로그인을 읽지 못했습니다: ${e instanceof Error ? e.message : String(e)}`))
+  const ctx: RouteContext = { registry, opts, broadcast, clients, wbOf, ensureWatch, watchers, repoPath, recordsRoot, conceptIndex, libraryReads, account }
   registerApiIndex(app, ctx) // 맨 앞: 뒤에 등록되는 경로를 모아 GET /api로 보여 준다
   registerResearches(app, ctx)
   registerSettings(app, ctx)
@@ -354,7 +363,8 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerJournal(app, ctx)
   registerComments(app, ctx)
   registerTopics(app, ctx)
-  registerBackup(app, ctx)
+  // 계정으로 맞추기(설치판)는 백업(계정 저장소와 맞추기)을 부른다
+  registerAccount(app, ctx, registerBackup(app, ctx))
   const seePhone = (st: { on: boolean; host: string | null; login: string | null }) => { phoneSeen = st.on ? { host: st.host, login: st.login } : { host: null, login: null } }
   registerPhone(app, phone, seePhone)
   // serve 설정은 tailscaled가 기억하므로, 시작할 때 한 번 읽어 폰에서 오는 요청을 받을 준비를 한다

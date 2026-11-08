@@ -5,6 +5,7 @@ import { relativeTime } from './format'
 import { ProjectProfileFields } from './ProjectProfileFields'
 import type { ProjectKind, ResearchListItem } from './api'
 import { locale, pickFolderLabel, t } from './i18n'
+import { go } from './router'
 
 type Way = 'new' | 'github' | 'folder'
 
@@ -214,7 +215,7 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
                 : shown.map((r) => <RepoRow key={r.url} r={r} picked={picked?.url === r.url} onPick={() => pick(r)} />)}
             </div>
           </>}
-          {repos && !repos.ok && <p className="muted reg-hint" data-ui="목록 안내">{repos.reason} {t('맥 터미널에서', 'Run')} <code>gh auth login</code>{t('을 하면 내 저장소 목록이 보입니다. 지금은 아래에 주소를 붙여 넣으세요.', ' in a Mac terminal to see your repositories. For now, paste the address below.')}</p>}
+          {repos && !repos.ok && <p className="muted reg-hint" data-ui="목록 안내">{repos.reason} <button className="a" onClick={() => go({ page: 'settings', part: 'accounts' })}>{t('설정 › 계정', 'Settings › Accounts')}</button>{t('에서 「GitHub로 로그인」을 하면 내 저장소 목록이 보입니다. 지금은 아래에 주소를 붙여 넣으세요.', ': "Sign in with GitHub" shows your repositories here. For now, paste the address below.')}</p>}
           <label className="field" data-ui="GitHub 주소"><span>{repos?.ok ? t('목록에 없으면 GitHub 주소 붙여 넣기', 'Not in the list? Paste the GitHub address') : t('GitHub 주소', 'GitHub address')}</span>
             <input className="mono" value={url} placeholder={t('https://github.com/이름/저장소', 'https://github.com/name/repo')} autoFocus={!!repos && !repos.ok}
               onChange={(e) => { setUrl(e.target.value); setPicked(null) }}

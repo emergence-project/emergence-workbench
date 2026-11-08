@@ -34,6 +34,8 @@ export type WorkbenchEvent =
   | { type: 'agent-hooks'; research: null }
   /** 개인 저장소에서 피드백 처리 기록을 새로 받음 (11/4) */
   | { type: 'feedback'; research: null }
+  /** 앱 안의 GitHub 로그인이 끝나거나 풀림 (11/8) */
+  | { type: 'account'; research: null }
   /** 에이전트가 쓰는 중인 글 (다 쓰기 전, 0.3초마다). 대화를 다시 받지 않고 열린 대화에 그대로 보인다 */
   | { type: 'agent-draft'; research: string; id: string; text: string }
   | { type: 'note'; research: string; file: string; hash: string | null }

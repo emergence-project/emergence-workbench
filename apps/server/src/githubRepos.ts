@@ -7,6 +7,7 @@ import { t } from './i18n.js'
 
 /**
  * 등록 창의 "GitHub에서" 목록: 이 컴퓨터가 이미 로그인한 GitHub 계정의 저장소.
+ * 0) 앱 안에서 GitHub로 로그인했으면(githubAccount.ts) 그 열쇠로 GitHub API
  * 1) gh CLI가 깔려 있고 로그인되어 있으면 `gh repo list`
  * 2) 아니면 맥의 git이 쓰는 로그인(`git credential fill`, 키체인)으로 GitHub API
  * 토큰은 이 함수 안에서만 쓰고 저장하거나 돌려주지 않는다.
@@ -14,7 +15,7 @@ import { t } from './i18n.js'
 export type { GitHubRepoItem as RepoItem } from '@rw/core/contract/register'
 
 export type RepoList =
-  | { ok: true; source: 'gh' | 'git' | 'sample'; repos: RepoItem[] }
+  | { ok: true; source: 'gh' | 'git' | 'account' | 'sample'; repos: RepoItem[] }
   | { ok: false; reason: string }
 
 /** 밖과 닿는 부분. 테스트는 이것을 바꿔 끼운다 */
@@ -82,7 +83,10 @@ export const SAMPLE_REPOS: Omit<RepoItem, 'registeredId' | 'localPath'>[] = [
   { owner: 'example-user', name: 'old-course-notes', url: 'https://github.com/example-user/old-course-notes', private: false, description: '', updatedAt: '2025-12-01T08:00:00Z' },
 ]
 
-async function fetchRepos(io: RepoIO): Promise<{ source: 'gh' | 'git'; repos: Omit<RepoItem, 'registeredId' | 'localPath'>[] } | { reason: string }> {
+async function fetchRepos(io: RepoIO, appToken: string | null): Promise<{ source: 'gh' | 'git' | 'account'; repos: Omit<RepoItem, 'registeredId' | 'localPath'>[] } | { reason: string }> {
+  if (appToken) {
+    try { return { source: 'account', repos: await apiRepos(io, appToken) } } catch { /* 열쇠가 풀렸으면 다음 방법 */ }
+  }
   try {
     const out = await io.run('gh', ['repo', 'list', '--json', 'name,owner,isPrivate,description,updatedAt,url', '--limit', '200'])
     return { source: 'gh', repos: fromGh(JSON.parse(out)) }
@@ -93,19 +97,22 @@ async function fetchRepos(io: RepoIO): Promise<{ source: 'gh' | 'git'; repos: Om
   } catch { /* 로그인 기록 없음 */ }
   if (!token) return { reason: t('이 컴퓨터에서 GitHub 로그인을 찾지 못했습니다.', 'Could not find a GitHub sign-in on this computer.') }
   try {
-    const repos: Omit<RepoItem, 'registeredId' | 'localPath'>[] = []
-    for (let page = 1; page <= 3; page++) {
-      const rows = await io.getJson(`https://api.github.com/user/repos?per_page=100&sort=updated&page=${page}`, token)
-      const got = fromApi(rows)
-      repos.push(...got)
-      if (!Array.isArray(rows) || rows.length < 100) break
-    }
-    return { source: 'git', repos }
+    return { source: 'git', repos: await apiRepos(io, token) }
   } catch (e) {
     return { reason: t(`GitHub에서 저장소 목록을 받지 못했습니다 (${(e as Error).message.replace(/[A-Za-z0-9_]{30,}/g, '…')}).`, `Could not get the repository list from GitHub (${(e as Error).message.replace(/[A-Za-z0-9_]{30,}/g, '…')}).`) }
   } finally {
     token = null
   }
+}
+
+async function apiRepos(io: RepoIO, token: string): Promise<Omit<RepoItem, 'registeredId' | 'localPath'>[]> {
+  const repos: Omit<RepoItem, 'registeredId' | 'localPath'>[] = []
+  for (let page = 1; page <= 3; page++) {
+    const rows = await io.getJson(`https://api.github.com/user/repos?per_page=100&sort=updated&page=${page}`, token)
+    repos.push(...fromApi(rows))
+    if (!Array.isArray(rows) || rows.length < 100) break
+  }
+  return repos
 }
 
 /** 등록한 연구의 GitHub 주소(origin). 없으면 null */
@@ -140,8 +147,8 @@ export async function markRepos(io: RepoIO, repos: Omit<RepoItem, 'registeredId'
   return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
-export async function listGitHubRepos(io: RepoIO, registered: Array<{ id: string; path: string }>, cloneDir: string, sample = false): Promise<RepoList> {
-  const got = sample ? { source: 'sample' as const, repos: SAMPLE_REPOS } : await fetchRepos(io)
+export async function listGitHubRepos(io: RepoIO, registered: Array<{ id: string; path: string }>, cloneDir: string, sample = false, appToken: string | null = null): Promise<RepoList> {
+  const got = sample ? { source: 'sample' as const, repos: SAMPLE_REPOS } : await fetchRepos(io, appToken)
   if ('reason' in got) return { ok: false, reason: got.reason }
   return { ok: true, source: got.source, repos: await markRepos(io, got.repos, registered, cloneDir) }
 }

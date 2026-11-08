@@ -188,8 +188,13 @@ if (process.env.RW_SANDBOX === '1') {
   fs.writeFileSync(stampFile, `${stamp}\n`)
 }
 
-// 개인 저장소 (personalRepo.ts): 실사용만. 앱 설정·workbench 백업·피드백을 둔다
-const personal = process.env.RW_SANDBOX !== '1' ? await personalRemote(configDir) : null
+// 내려받은 앱(scripts/bundle-app.mjs)은 git 저장소가 아니다: 묶은 커밋을 build.json에서 읽고, 스스로 받아 오지 않는다(appRepo 없음).
+// git을 부르지 않는 것은 git이 없는 맥에서 명령어 도구 설치 창이 뜨지 않게 하려는 것이기도 하다.
+const bundled: { commit?: string; builtAt?: string; version?: string } | null = (() => { try { return JSON.parse(fs.readFileSync(path.join(repoRoot, 'build.json'), 'utf8')) } catch { return null } })()
+// 개인 저장소 (personalRepo.ts): 저장소에서 돌리는 실사용 앱만. 앱 설정·workbench 백업·피드백을 둔다.
+// 설치판은 개인 저장소 사본을 받지 않는다: 피드백은 늘 관리자에게 바로 보내고(feedbackRelay.ts, 개인 저장소에 쌓으면 관리자가 못 본다),
+// 앱 설정 · 프로젝트 목록은 로그인한 계정의 계정 저장소와 백업이 맞춘다(accountSync.ts, 11/8)
+const personal = process.env.RW_SANDBOX !== '1' && !bundled ? await personalRemote(configDir) : null
 const personalDir = path.join(configDir, 'personal')
 if (personal) {
   try { await ensurePersonalClone(personalDir, personal); await pullPersonal(personalDir) } catch (e) { console.warn(`개인 저장소(${personal})를 받지 못했습니다: ${(e as Error).message.split('\n')[0]}`) }
@@ -215,9 +220,6 @@ if (process.env.RW_SANDBOX === '1' && !fs.existsSync(feedbackDir)) cpSample(path
 const sandboxRules = path.join(configDir, COMMON_RULES_FILE)
 if (process.env.RW_SANDBOX === '1' && !process.env.RW_COMMON_RULES && !fs.existsSync(sandboxRules)) { fs.mkdirSync(path.dirname(sandboxRules), { recursive: true }); cpSample(path.join(repoRoot, 'fixtures/sandbox-rules/research.md'), sandboxRules) }
 // 앱 업데이트(설정 화면): 실사용만. 지금 돌고 있는 코드의 커밋을 시작할 때 기억한다
-// 내려받은 앱(scripts/bundle-app.mjs)은 git 저장소가 아니다: 묶은 커밋을 build.json에서 읽고, 스스로 받아 오지 않는다(appRepo 없음).
-// git을 부르지 않는 것은 git이 없는 맥에서 명령어 도구 설치 창이 뜨지 않게 하려는 것이기도 하다.
-const bundled: { commit?: string; builtAt?: string; version?: string } | null = (() => { try { return JSON.parse(fs.readFileSync(path.join(repoRoot, 'build.json'), 'utf8')) } catch { return null } })()
 const running = bundled ? null : (() => { try { return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD']).toString().trim() } catch { return null } })()
 const appRepo = process.env.RW_SANDBOX !== '1' && running ? { root: repoRoot, running, steps: macSteps() } : undefined
 // 구글 연결: 예제 모드는 가짜 구글(이번 주 일정 몇 개)에 미리 연결해 둔다. 실사용은 설정 화면에서 연결
@@ -226,9 +228,11 @@ if (process.env.RW_SANDBOX === '1') {
   google = new Google(configDir, mockGoogleFetch(), true)
   if (!google.status().connected) await google.finish('mock', new URL(google.authUrl('http://127.0.0.1/api/google/callback', '/')).searchParams.get('state')!)
 }
-// 맥에만 있는 workbench/ 백업: 실사용만. 개인 저장소에 올린다
-const backupRemote = appRepo || bundled ? personal : null
-const backup = backupRemote ? { dir: path.join(configDir, 'backup'), remote: backupRemote, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
+// 맥에만 있는 workbench/ 백업: 실사용만. 개인 저장소에 올린다.
+// 설치판은 개인 저장소(계정 저장소)를 로그인한 뒤에 정하므로 주소를 비워 두고 맞출 때마다 설정에서 읽는다. 다른 컴퓨터가 새 프로젝트를 곧 보게 10분마다
+const backup = bundled && process.env.RW_SANDBOX !== '1'
+  ? { dir: path.join(configDir, 'backup'), remote: null, intervalMs: 10 * 60_000, settings: path.join(configDir, 'config.yaml') }
+  : appRepo && personal ? { dir: path.join(configDir, 'backup'), remote: personal, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
 // 내려받은 앱: git 전체 설정에 이름 · 이메일이 없으면 이 컴퓨터의 사용자 이름으로 커밋한다 (git.ts setFallbackIdentity, 설정 › 계정에서 바꿈)
 if (bundled && process.env.RW_SANDBOX !== '1') {
   const global = (key: string) => { try { return execFileSync('git', ['config', '--global', key], { windowsHide: true }).toString().trim() } catch { return '' } }

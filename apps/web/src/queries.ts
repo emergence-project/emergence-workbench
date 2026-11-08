@@ -72,6 +72,7 @@ export const qk = {
   agentModels: (agent = 'claude-code') => ['agent-models', agent] as const,
   /** 대화를 맡길 수 있는 에이전트 (Claude · Codex · Gemini, 10/30) */
   agentKinds: ['agent-kinds'] as const,
+  account: ['account'] as const,
   agentExtras: ['agent-extras'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   feedback: ['feedback'] as const,
@@ -120,6 +121,7 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   if (e.type === 'agent-hooks') return [qk.agentHooks]
   // 개인 저장소에서 새 처리 기록을 받으면 피드백 화면 · 레일의 수 (11/4: 앱을 다시 시작해야 보였다)
   if (e.type === 'feedback') return [qk.feedback]
+  if (e.type === 'account') return [qk.account, qk.setup, qk.githubRepos]
   if (e.type === 'agent-chat') {
     const keys: QueryKey[] = [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
     return e.research === APP_RID ? [...keys, qk.feedback] : keys
@@ -132,7 +134,7 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
 /** 모든 사람 페이지 (qk.person(id)의 앞부분) */
 const PERSON_PAGES: QueryKey = [...qk.network, 'person']
 
-function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' | 'agent-hooks' | 'feedback' }>): QueryKey[] {
+function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' | 'agent-hooks' | 'feedback' | 'account' }>): QueryKey[] {
   const rid = e.research
   // 확인할 것의 수(researchIssues)는 맡긴 일 · 노트(에이전트 고침) · 기록과, 고침을 받거나 되돌릴 때의 research 알림에서 바뀐다
   switch (e.type) {

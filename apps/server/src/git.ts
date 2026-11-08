@@ -40,10 +40,22 @@ const identityEnv = (): Record<string, string> => fallbackIdentity
   ? { GIT_AUTHOR_NAME: fallbackIdentity.name, GIT_AUTHOR_EMAIL: fallbackIdentity.email, GIT_COMMITTER_NAME: fallbackIdentity.name, GIT_COMMITTER_EMAIL: fallbackIdentity.email }
   : {}
 
+/**
+ * 앱 안에서 GitHub로 로그인했으면 그 열쇠 (githubAccount.ts, 11/8). github.com과 주고받는 git이 이것으로 붙는다.
+ * git 설정 파일에 적지 않고 이 서버가 부르는 git에만 환경 변수(GIT_CONFIG_*)로 머리글을 준다: 맥 키체인 · gh 로그인은 그대로
+ */
+let githubHeader: string | null = null
+export function setGithubToken(token: string | null): void {
+  githubHeader = token ? `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}` : null
+}
+const authEnv = (): Record<string, string> => githubHeader
+  ? { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'http.https://github.com/.extraheader', GIT_CONFIG_VALUE_0: githubHeader }
+  : {}
+
 const run = (args: string[], o: GitOptions) => ({
   timeout: o.timeout ?? GIT_TIMEOUT.remote,
   maxBuffer: o.maxBuffer ?? 64 * MB,
-  env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...identityEnv(), ...o.env },
+  env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...identityEnv(), ...authEnv(), ...o.env },
   args,
 })
 
