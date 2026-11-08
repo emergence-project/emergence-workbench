@@ -170,7 +170,9 @@ export function recordChatPrompt(f: Omit<CommentFile, 'highlights'>, id: string,
     '',
     t('지침:', 'Instructions:'),
     t('- 앱이 이 대화의 마지막 글을 그 기록의 답으로 옮깁니다. 마지막 글은 결론부터 몇 줄로 쓰고(근거는 쪽·식·절, 파일:줄), 풀어 쓴 설명은 그 앞의 글에 둡니다. answer_record로 이 기록에 따로 답하지 않습니다.', '- The app copies the last message of this conversation into the record as the answer. Write it conclusion first, in a few lines (grounds as page, equation, section or file:line); keep longer explanations in earlier messages. Do not answer this record yourself with answer_record.'),
-    q.kind === '지시'
+    q.kind === '지시' && f.target.startsWith('concept-')
+      ? t('- 개념노트를 고치는 일이면 rules(part: "concepts")를 한 번 읽고 read_concept → edit_concept로 고칩니다(연구자가 수정 검토에서 문단마다 봅니다).', '- To change the concept note, read rules (part: "concepts") once, then read_concept → edit_concept (the researcher reviews each paragraph in change review).')
+      : q.kind === '지시'
       ? t('- 노트를 고치는 일이면 edit_note로 고칩니다(연구자가 수정 검토에서 문단마다 봅니다). 끝낼 조건과 보고가 필요한 큰 일이면 시작하지 말고 맡긴 일로 옮기자고 적습니다.', '- To change a note, use edit_note (the researcher reviews each paragraph in change review). If it is a large job that needs an end condition and a report, do not start it; suggest making it a delegated task.')
       : t('- 질문에는 답만 합니다. 파일과 노트는 고치지 않습니다.', '- Answer only; do not change files or notes.'),
     t('- 모르면 모른다고 하고, 논문 · 노트에 없는 추론은 추론이라고 밝힙니다.', '- If you do not know, say so; mark reasoning that is not in the paper or note as your own inference.'),

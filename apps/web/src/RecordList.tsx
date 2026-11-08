@@ -65,7 +65,7 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
     return ok
   }
   // 기록마다 에이전트 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 일하는 중 줄 · 「대화 보기」. 대화는 이 맥의 앱 설정 폴더에 있다
-  const chats = useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid), enabled: rid !== LIBRARY_RID }).data?.chats
+  const chats = useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) }).data?.chats
   const chatOf = (id: string) => chats?.find((x) => x.record?.target === file.target && x.record.id === id)
   const askError = (suppliedItems ?? file.comments).map((c) => askErrors.get(askKey(rid, file.target, c.id))).find(Boolean)
   return <>

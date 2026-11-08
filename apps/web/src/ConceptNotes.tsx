@@ -13,6 +13,8 @@ import { onOutside } from './autosave'
 import { useNoteEdit } from './noteEdit'
 import { NoteScreen } from './NoteScreenFrame'
 import { RightSidebar } from './RightSidebar'
+import { AgentPanel } from './AgentChats'
+import { LIBRARY_RID } from '@rw/core'
 import { openRight, setRightSlot, useRightMode } from './noteScreen'
 import { showKnowledgeList } from './knowledgeListState'
 import { subjectTree, type SubjNode } from './knowledgeSubjects'
@@ -370,7 +372,7 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
           <ConceptSourcesList srcs={srcs} />
         </div>}
         {side === 'inline' && rightOpen && <aside className="cn-side-col"><RightSidebar info={<div className="rs-pad"><ConceptSidePanel id={id} info={info} rid={rid} project={project} doc={doc} onChanged={onChanged} onSaved={onSaved} /></div>}
-          records={<ConceptRecordsPanel id={id} title={m.title} />} /></aside>}
+          records={<ConceptRecordsPanel id={id} title={m.title} />} agent={<AgentPanel rid={LIBRARY_RID} onSaved={onSaved} />} /></aside>}
         </div>
       </div>
     </NoteScreen>

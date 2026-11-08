@@ -69,11 +69,11 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     const f = readComments(root, target)
     const q = f.comments.find((c) => c.id === id)
     if (!q || !isAgentKind(q.kind)) throw new WorkbenchError(404, t(`질문이나 지시가 없음: ${id}`, `No such question or instruction: ${id}`))
-    // 프로젝트의 기록은 그 기록의 에이전트 대화로 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 기록에는 결과만, 대화는 에이전트 탭에. 기다리지 않는다.
-    // 지식 라이브러리와 시험(opts.ask)은 예전처럼 claude -p 한 번
+    // 기록은 그 기록의 에이전트 대화로 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 기록에는 결과만, 대화는 에이전트 탭에. 기다리지 않는다.
+    // 지식 라이브러리(개념노트)의 기록도 대화로 (11/8 14:17 제안 진행). 시험(opts.ask)은 예전처럼 claude -p 한 번
     const chats = ctx.agentChats
     // API 키를 넣었으면(설정 › 에이전트, aiKey.ts) 대화 대신 그 AI가 한 번에 답한다: claude 명령이 없는 컴퓨터
-    if (chats && !opts.ask && rid !== LIBRARY_RID && !readAiKey(ctx.registry.configDir)) {
+    if (chats && !opts.ask && (rid !== LIBRARY_RID || ctx.registry.libraryPath) && !readAiKey(ctx.registry.configDir)) {
       const repo = repoPath(rid)
       const source = commentSourceFile(root, f)
       const last = q.answers.at(-1)

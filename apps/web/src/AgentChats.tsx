@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { autoCustom, autoOf, type ChatAutoValues } from '@rw/core'
+import { autoCustom, autoOf, LIBRARY_RID, type ChatAutoValues } from '@rw/core'
 import { agentChatsApi, api, APP_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type Todo } from './api'
 import { askConfirm } from './askText'
 import { relativeTime } from './format'
@@ -97,7 +97,7 @@ function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): stri
 }
 
 /** 대화 목록 · 머리에 보일 프로젝트 이름 (앱 고치기 대화는 「앱」) */
-const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : projects?.find((p) => p.id === rid)?.title ?? rid)
+const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projects?.find((p) => p.id === rid)?.title ?? rid)
 
 /** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화 */
 const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error'
@@ -542,7 +542,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           <span>·</span><span>{relativeTime(Date.parse(chat.updated))}</span>
           {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
         </div> : <div className="ac-meta">
-          {chat.rid === APP_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
+          {chat.rid === APP_RID || chat.rid === LIBRARY_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
           {context && <><span>·</span><span data-ui="대화 맥락" title={[t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('맥락', 'Context')} {tokensName(context.used)}</span></>}
@@ -1033,7 +1033,7 @@ export function AgentSide({ id }: { id?: string }) {
     return m
   }, [list, filter])
   // 묶음 차례: 워크벤치, 등록한 프로젝트 (대화가 있는데 등록에서 빠진 프로젝트도 끝에)
-  const rids = [...(projects ?? []).map((p) => p.id), ...[...by.keys()].filter((r) => r !== APP_RID && !projects?.some((p) => p.id === r))]
+  const rids = [...(projects ?? []).map((p) => p.id), ...[...by.keys()].filter((r) => r !== APP_RID && r !== LIBRARY_RID && !projects?.some((p) => p.id === r))]
   const showApp = !!listed?.app || by.has(APP_RID)
   const archived = count('archived')
   // 여러 개 고르기 (10/28 피드백 21:19 코멘트, 시안 4절): 목록에서는 보관만, 보관함에서는 꺼내기 · 지우기
@@ -1062,7 +1062,7 @@ export function AgentSide({ id }: { id?: string }) {
             <span className="label">{name}</span>
             {!!chats.length && <span className="n">{chats.length}</span>}
           </button>
-          {filter !== 'archived' && (rid === APP_RID ? listed?.app : true) && (
+          {filter !== 'archived' && (rid === APP_RID ? listed?.app : rid !== LIBRARY_RID) && (
             <button className="icon-btn sm" data-ui="이 묶음에서 새 대화" data-tip={t('여기서 새 대화', 'New conversation here')} aria-label={t(`${name}에서 새 대화`, `New conversation in ${name}`)} onClick={() => newChatIn(rid)}>{Icon.plus}</button>
           )}
         </div>
@@ -1101,7 +1101,7 @@ export function AgentSide({ id }: { id?: string }) {
         </>
       )}
       {!!rids.length && <div className="ac-side-h">{t('프로젝트', 'Projects')}</div>}
-      {rids.map((rid) => group(rid, projectName(rid, projects)))}
+      {rids.map((rid) => group(rid, projectName(rid, projects)))}{by.has(LIBRARY_RID) && <><div className="ac-side-h">{t('지식', 'Knowledge')}</div>{group(LIBRARY_RID, t('개념노트 기록', 'Concept-note records'))}</>}
       {filter !== 'archived' && archived > 0 && <button className="a ac-archive-link" data-ui="보관함 열기" onClick={() => { stopPicking(); setFilter('archived') }}>{t(`보관함 ${archived} ›`, `Archive ${archived} ›`)}</button>}
     </div>
   )
@@ -1245,7 +1245,7 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
     <div className={`rs ac-panel${place === 'bottom' ? ' bottom' : ''}`} data-ui="에이전트 패널">
       <div className="rs-head ac-panel-head">
         <span className="ac-panel-name" aria-hidden>{Icon.spark}</span>
-        <span className="ac-panel-title">{t('이 프로젝트의 대화', 'Conversations in this project')}</span>
+        <span className="ac-panel-title">{rid === LIBRARY_RID ? t('지식의 대화', 'Knowledge conversations') : t('이 프로젝트의 대화', 'Conversations in this project')}</span>
         <span className="sp" />
         {placeMenu}
       </div>
