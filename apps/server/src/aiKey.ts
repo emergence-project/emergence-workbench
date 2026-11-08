@@ -1,19 +1,22 @@
 // 앱이 직접 AI에게 묻기 (11/8 "인공지능 에이전트가 없는 친구도 논문을 읽으며 질문"): 설정 › 에이전트에서 Claude(Anthropic) 키나 Gemini 키를 넣으면
 // 기록 · 논문의 질문에 claude 명령 대신 그 API가 답한다. 파일을 읽는 도구가 없으므로 질문이 가리키는 파일(PDF · 노트)을 요청에 붙인다.
+// ChatGPT(11/8 사용자 "친구가 chatgpt를 유료로 쓴다")는 키 대신 Codex CLI에 ChatGPT 계정으로 로그인해 그 요금제로 답한다(codexCli.ts).
 // 키는 이 컴퓨터의 앱 설정 폴더 ai-key.json에만 둔다(config.yaml과 따로: 설정 사본을 올려도 키는 나가지 않는다). 화면에는 끝 네 자만 보인다.
 import Anthropic from '@anthropic-ai/sdk'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { AskRunner } from './ask.js'
 import { writeAtomic } from './fsutil.js'
+import { codexAsk } from './codexCli.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 
-export type AiProvider = 'claude' | 'gemini'
+export type AiProvider = 'claude' | 'gemini' | 'chatgpt'
+/** chatgpt는 키가 없다 (key: '') */
 export interface AiKey { provider: AiProvider; key: string }
 
 /** 고르지 않으면 쓰는 모델. Gemini는 늘 최신 Flash를 가리키는 이름(무료 키로도 됨) */
-export const AI_MODELS: Record<AiProvider, string> = { claude: 'claude-opus-5-5', gemini: 'gemini-flash-latest' }
+export const AI_MODELS: Record<AiProvider, string> = { claude: 'claude-opus-5-5', gemini: 'gemini-flash-latest', chatgpt: 'Codex' }
 /** 요청 하나에 붙일 수 있는 파일 크기 (Claude 32MB, Gemini 바로 붙이기 20MB: base64로 1/3 커진다) */
 const MAX_ATTACH_BYTES = 14 * 1024 * 1024
 const TIMEOUT_MS = 6 * 60_000
@@ -23,15 +26,16 @@ const keyFile = (configDir: string) => path.join(configDir, 'ai-key.json')
 export function readAiKey(configDir: string): AiKey | null {
   try {
     const v: unknown = JSON.parse(fs.readFileSync(keyFile(configDir), 'utf8'))
+    if (v && typeof v === 'object' && 'provider' in v && v.provider === 'chatgpt') return { provider: 'chatgpt', key: '' }
     if (v && typeof v === 'object' && 'provider' in v && 'key' in v && (v.provider === 'claude' || v.provider === 'gemini') && typeof v.key === 'string' && v.key) return { provider: v.provider, key: v.key }
   } catch { /* 없음 */ }
   return null
 }
 
-export function writeAiKey(configDir: string, k: AiKey | null): void {
+export function writeAiKey(configDir: string, k: { provider: AiProvider; key?: string } | null): void {
   if (!k) { fs.rmSync(keyFile(configDir), { force: true }); return }
   fs.mkdirSync(configDir, { recursive: true })
-  writeAtomic(keyFile(configDir), JSON.stringify({ provider: k.provider, key: k.key.trim() }) + '\n')
+  writeAtomic(keyFile(configDir), JSON.stringify(k.provider === 'chatgpt' ? { provider: k.provider } : { provider: k.provider, key: (k.key ?? '').trim() }) + '\n')
   try { fs.chmodSync(keyFile(configDir), 0o600) } catch { /* 윈도우 */ }
 }
 
@@ -94,7 +98,8 @@ async function geminiAsk(key: string, file: Attached | null, prompt: string, fet
 }
 
 /** API 키로 답하는 AskRunner. job.file(절대 경로)이 있으면 요청에 붙인다 */
-export function apiRunner(k: AiKey, fetchFn: typeof fetch = fetch): AskRunner {
+export function apiRunner(k: AiKey, fetchFn: typeof fetch = fetch, configDir = ''): AskRunner {
+  if (k.provider === 'chatgpt') return ({ cwd, prompt, file }) => codexAsk(configDir, cwd, prompt, file)
   return async ({ prompt, file }) => {
     const f = attach(file)
     return k.provider === 'claude' ? claudeAsk(k.key, f, prompt) : geminiAsk(k.key, f, prompt, fetchFn)

@@ -94,6 +94,19 @@ try {
   const paper = sent.ok ? await sent.json() : undefined
   check(sent.ok && !!paper?.key, `PDF를 올리면 논문으로 들어감 (${sent.status}${sent.ok ? ' ' + paper.key : ' ' + await sent.text()})`)
 
+  // ChatGPT로 답하기 (11/8): 앱이 이 OS용 Codex를 npm 저장소에서 받아 풀고 실행할 수 있어야 한다 (로그인은 사람이 해야 해서 시험하지 않는다)
+  if (process.env.SMOKE_CODEX !== '0') {
+    const started = await fetch(base + '/api/settings/codex/install', { method: 'POST', headers: { origin: base } })
+    check(started.ok, `Codex 받기 시작 (${started.status})`)
+    let codex = await started.json().catch(() => ({}))
+    const until = Date.now() + 10 * 60_000
+    while (codex.busy && Date.now() < until) {
+      await new Promise((r) => setTimeout(r, 3000))
+      codex = await (await get('/api/settings/codex')).json()
+    }
+    check(codex.installed && !!codex.version && !codex.error, `Codex를 받아 실행함 (${codex.version ?? codex.error ?? JSON.stringify(codex)})`)
+  }
+
   if (shots) await takeShots(item?.id, paper?.key)
 } catch (e) {
   fails.push(String(e?.message ?? e))
