@@ -212,11 +212,14 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     const name = parseBody(C.SetupPersonalCreateBody, req.body).name.trim()
     if (!/^[A-Za-z0-9._-]{1,100}$/.test(name) || name === '.' || name === '..') throw new WorkbenchError(400, t('저장소 이름은 영문 · 숫자 · . _ - 로만 적습니다', 'Use only letters, digits, . _ - in the repository name'))
     let url: string
+    const description = 'Emergence Workbench personal repository (feedback, settings backup)'
     if (opts.sandbox) url = `https://github.com/example-user/${name}`
+    // 앱 안에서 로그인했으면 그 열쇠로 (gh가 없는 윈도우 · 내려받은 앱, 11/8)
+    else if (ctx.account.account) url = await ctx.account.createPrivateRepo(name, description)
     else {
       const io = opts.repoIO ?? realIO
       try {
-        url = (await io.run('gh', ['repo', 'create', name, '--private', '--add-readme', '--description', 'Emergence Workbench personal repository (feedback, settings backup)'])).trim().split('\n').pop()!.trim()
+        url = (await io.run('gh', ['repo', 'create', name, '--private', '--add-readme', '--description', description])).trim().split('\n').pop()!.trim()
       } catch (e) {
         const msg = String((e as { stderr?: string }).stderr || (e as Error).message).trim().split('\n').pop()
         throw new WorkbenchError(502, t(`GitHub에 만들지 못했습니다: ${msg}`, `Could not create it on GitHub: ${msg}`))

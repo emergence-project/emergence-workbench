@@ -55,7 +55,12 @@ jobs:
           npx -y @tauri-apps/cli@2.12.4 icon ../../scripts/app-icon.svg
           # 창 코드 시험 (포트 · 열쇠 · 바깥으로 여는 주소): 아이콘을 만든 뒤라야 빌드된다
           cargo test
-          npx -y @tauri-apps/cli@2.12.4 build --bundles nsis --config tauri.standalone.conf.json --config "{\"version\":\"$version\"}"
+          # tauri가 NSIS를 GitHub 릴리스에서 받다가 504로 멈출 때가 있어(11/8) 세 번까지 다시 (컴파일은 남아 있어 금방)
+          for i in 1 2 3; do
+            npx -y @tauri-apps/cli@2.12.4 build --bundles nsis --config tauri.standalone.conf.json --config "{\"version\":\"$version\"}" && break
+            [ "$i" = 3 ] && exit 1
+            echo "설치 파일 만들기 다시 ($i)"; sleep $((i * 20))
+          done
           ls -la target/release/bundle/nsis
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { githubRepos, googleApi, setupApi, type GitHubRepoItem, type GitHubRepoList, type PersonView, type SetupView } from './api'
+import { accountApi, githubRepos, googleApi, setupApi, type AccountView, type GitHubRepoItem, type GitHubRepoList, type PersonView, type SetupView } from './api'
 import { Dialog } from './dialogs'
 import { ElsewhereHomeCard, ElsewhereSection } from './ElsewhereProjects'
 import { GoogleSettings } from './GoogleSettings'
@@ -17,7 +17,7 @@ import type { UiSettings } from '@rw/core'
  * 설정 › 계정을 꼭 할 것(커밋 이름 · 내 이름과 소속 · 첫 프로젝트)과 선택(GitHub · 개인 저장소 · 에이전트 · TeX · 구글) 목록으로 보인다.
  * GitHub 로그인은 10/30 "누구나 쓰는 공개 앱"부터 선택: 「새로 만들기」로 GitHub 없이 시작할 수 있다.
  * 점 색은 상태 색 그대로: 청록 됨, 주황 할 차례, 회색 고리 선택(안 해도 됨). 홈은 꼭 할 것이 남았을 때만 카드 하나.
- * 앱은 로그인 정보를 갖지 않는다: GitHub는 gh 로그인에 맡기고, 안 됐을 때 할 명령만 보인다.
+ * GitHub는 앱 안에서 로그인한다(기기 코드, 11/8). 이 컴퓨터의 gh · 키체인 로그인이 있으면 그것도 쓴다.
  */
 export function useSetup() {
   const setup = useQuery({ queryKey: qk.setup, queryFn: setupApi.get, refetchOnMount: 'always' })
@@ -106,7 +106,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
 
       <h3 className="set-h3">{t('선택', 'Optional')}</h3>
       <div className="set-rows">
-        <GitHubRow list={github.data} error={github.error?.message} onCheck={() => void github.refetch()} checking={github.isFetching} />
+        <GitHubRow list={github.data} error={github.error?.message} onCheck={() => void github.refetch()} checking={github.isFetching} onSaved={onSaved} />
         {s?.install !== null && <InstallRow install={s?.install} onSaved={onSaved} />}
         <Row ok={!!s?.personal.remote} optional name={t('개인 저장소', 'Personal repository')} sub={t('피드백·백업을 올릴 곳', 'where feedback and backups go')} ui="개인 저장소"
           action={<Edit label={t('수정', 'Edit')} onClick={() => setEditing('personal')} />}>
@@ -169,16 +169,47 @@ const blankAuthor: PersonView = { id: '', name: '', aliases: [], author: true, a
 
 export const when = (iso: string) => new Date(iso).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-function GitHubRow({ list, error, onCheck, checking }: { list?: GitHubRepoList; error?: string; onCheck(): void; checking: boolean }) {
-  const owner = list?.ok ? mostCommon(list.repos.map((r) => r.owner)) : ''
-  const via = list?.ok ? ({ gh: t('gh 로그인', 'gh login'), git: t('키체인의 git 로그인', 'git login in the keychain'), sample: t('예제 목록', 'Sample list') })[list.source] : ''
+/**
+ * GitHub 로그인 (11/8 "GitHub를 모르는 친구"): 터미널 없이 「GitHub로 로그인」 → 코드를 GitHub 쪽에 넣고 승인하면 끝.
+ * 열쇠는 이 컴퓨터의 보안 저장소에만 둔다(서버 githubAccount.ts). gh · 키체인 로그인이 이미 있으면 그것도 그대로 쓴다
+ */
+function GitHubRow({ list, error, onCheck, checking, onSaved }: { list?: GitHubRepoList; error?: string; onCheck(): void; checking: boolean; onSaved(m: string): void }) {
+  const client = useQueryClient()
+  const account = useQuery({ queryKey: qk.account, queryFn: accountApi.get })
+  const [busy, setBusy] = useState(false)
+  const a = account.data
+  const act = (call: () => Promise<AccountView>, done?: string) => {
+    setBusy(true)
+    void call().then((v) => { client.setQueryData(qk.account, v); if (done) onSaved(done) }, (e: Error) => onSaved(e.message)).finally(() => setBusy(false))
+  }
+  const owner = a?.github?.login ?? (list?.ok ? mostCommon(list.repos.map((r) => r.owner)) : '')
+  const via = a?.github ? t('앱에서 로그인', 'signed in in the app') : list?.ok ? ({ gh: t('gh 로그인', 'gh login'), git: t('키체인의 git 로그인', 'git login in the keychain'), account: t('앱에서 로그인', 'signed in in the app'), sample: t('예제 목록', 'Sample list') })[list.source] : ''
+  const ok = !!a?.github || !!list?.ok
+  const pending = a?.pending
   return (
-    <Row ok={!!list?.ok} optional name={t('GitHub 로그인', 'GitHub sign-in')} ui="GitHub 계정"
-      action={<button className="btn" disabled={checking} onClick={onCheck}>{t('다시 확인', 'Check again')}</button>}>
-      {list?.ok ? <>{t('연결됨', 'Connected')}{owner && <>: <b>{owner}</b></>} · {via} · {t(`저장소 ${list.repos.length}개. `, `${plural(list.repos.length, 'repository', 'repositories')}. `)}</>
-        : list ? (lang === 'ko' ? <>{list.reason} 터미널에서 <code>gh auth login</code>을 하면 연결됩니다. </> : <>{list.reason} Run <code>gh auth login</code> in the terminal to connect. </>)
-          : error ? `${error} ` : t('확인하는 중… ', 'Checking… ')}
-      {t('GitHub 저장소를 받아 오거나 다른 컴퓨터와 맞출 때만 필요합니다. 「새로 만들기」로 시작한 프로젝트는 없어도 됩니다. 앱은 로그인 정보를 저장하지 않습니다.', 'Needed only to bring in GitHub repositories or to keep several computers in step. Projects started with "Start new" work without it. The app does not store login details.')}
+    <Row ok={ok} optional name={t('GitHub 로그인', 'GitHub sign-in')} ui="GitHub 계정"
+      action={pending
+        ? <>
+          <button className="btn" onClick={() => navigator.clipboard.writeText(pending.userCode).then(() => onSaved(t('코드를 복사했습니다', 'Code copied')), () => onSaved(pending.userCode))}>{t('코드 복사', 'Copy code')}</button>
+          <button className="btn" disabled={busy} onClick={() => act(accountApi.cancel)}>{t('취소', 'Cancel')}</button>
+        </>
+        : a?.github
+          ? <button className="btn" disabled={busy} data-ui="GitHub 로그아웃" onClick={() => act(accountApi.logout, t('GitHub에서 로그아웃했습니다', 'Signed out of GitHub'))}>{t('로그아웃', 'Sign out')}</button>
+          : <>
+            {list?.ok && <button className="btn" disabled={checking} onClick={onCheck}>{t('다시 확인', 'Check again')}</button>}
+            <button className={list?.ok ? 'btn' : 'btn primary'} disabled={busy || !a} data-ui="GitHub로 로그인" onClick={() => act(accountApi.login)}>{t('GitHub로 로그인', 'Sign in with GitHub')}</button>
+          </>}>
+      {pending
+        ? <span data-ui="GitHub 로그인 코드">
+          {t('이 코드를 ', 'Enter this code on ')}<a className="a" href={pending.uri} target="_blank" rel="noreferrer">{t('GitHub 로그인 쪽', 'the GitHub sign-in page')}</a>{t('에 넣고 승인하세요: ', ' and approve: ')}
+          <code className="setup-code">{pending.userCode}</code>
+          {t('. 승인하면 이 줄이 저절로 바뀝니다. ', '. This row updates by itself once you approve. ')}
+        </span>
+        : ok ? <>{t('연결됨', 'Connected')}{owner && <>: <b>{owner}</b></>} · {via}{list?.ok ? <> · {t(`저장소 ${list.repos.length}개. `, `${plural(list.repos.length, 'repository', 'repositories')}. `)}</> : '. '}</>
+          : a?.error ? `${a.error}. `
+            : list ? <>{list.reason} {t('「GitHub로 로그인」을 누르면 코드가 나옵니다. ', 'Press "Sign in with GitHub" to get a code. ')}</>
+              : error ? `${error} ` : t('확인하는 중… ', 'Checking… ')}
+      {t('GitHub 저장소를 받아 오거나 다른 컴퓨터와 맞출 때만 필요합니다. 「새로 만들기」로 시작한 프로젝트는 없어도 됩니다. 앱에서 로그인하면 열쇠는 이 컴퓨터의 보안 저장소(맥 키체인, 윈도우는 사용자 계정으로 잠근 파일)에만 둡니다.', 'Needed only to bring in GitHub repositories or to keep several computers in step. Projects started with "Start new" work without it. When you sign in in the app, the key stays only in this computer\'s secure store (the Mac keychain; on Windows, a file locked to your user account).')}
     </Row>
   )
 }

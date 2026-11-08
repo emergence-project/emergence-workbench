@@ -82,12 +82,25 @@ const ref = process.env.GITHUB_REF ?? ''
 const version = opt('--version') ?? (ref.startsWith('refs/tags/v') ? ref.slice('refs/tags/v'.length) : undefined)
 fs.writeFileSync(path.join(app, 'build.json'), JSON.stringify({ commit, builtAt: new Date().toISOString(), ...(version && { version }) }, null, 2) + '\n')
 
+/**
+ * 받기: GitHub 릴리스 · npm · nodejs.org가 잠깐 5xx를 줄 때가 있어(11/8 504로 윈도우 빌드가 두 번 멈춤) 네 번까지 2 · 4 · 8초 쉬고 다시 받는다.
+ * 4xx는 주소가 틀린 것이라 바로 멈춘다
+ */
+async function download(url, what) {
+  for (let i = 0; ; i++) {
+    const res = await fetch(url).catch((e) => ({ ok: false, status: e.cause?.code ?? e.message }))
+    if (res.ok) return Buffer.from(await res.arrayBuffer())
+    const retry = typeof res.status !== 'number' || res.status >= 500 || res.status === 429
+    if (!retry || i === 3) throw new Error(`${what}을(를) 받지 못했습니다 (${res.status})`)
+    console.log(`  ${what}: ${res.status}, ${2 ** (i + 1)}초 뒤 다시`)
+    await new Promise((r) => setTimeout(r, 2000 * 2 ** i))
+  }
+}
+
 // 3-1. Codex 연결부 (npm 저장소의 묶음 파일, SHA-512를 맞춘다)
 {
   step(`Codex 연결부 ${CODEX_ACP.version} 받기`)
-  const res = await fetch(CODEX_ACP.url)
-  if (!res.ok) throw new Error(`Codex 연결부를 받지 못했습니다 (${res.status})`)
-  const buf = Buffer.from(await res.arrayBuffer())
+  const buf = await download(CODEX_ACP.url, 'Codex 연결부')
   const got = `sha512-${createHash('sha512').update(buf).digest('base64')}`
   if (got !== CODEX_ACP.integrity) throw new Error(`Codex 연결부의 SHA-512가 다릅니다: ${got} ≠ ${CODEX_ACP.integrity}`)
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-codex-acp-'))
@@ -112,12 +125,10 @@ if (localNode) {
   const file = `${name}.${win ? 'zip' : 'tar.gz'}`
   step(`Node ${NODE_VERSION} 받기 (${file})`)
   const base = `https://nodejs.org/dist/v${NODE_VERSION}`
-  const sums = await (await fetch(`${base}/SHASUMS256.txt`)).text()
+  const sums = (await download(`${base}/SHASUMS256.txt`, 'Node 체크섬')).toString('utf8')
   const want = sums.split('\n').find((l) => l.endsWith(`  ${file}`))?.split(/\s+/)[0]
   if (!want) throw new Error(`SHASUMS256.txt에 ${file}이 없습니다`)
-  const res = await fetch(`${base}/${file}`)
-  if (!res.ok) throw new Error(`Node를 받지 못했습니다 (${res.status})`)
-  const buf = Buffer.from(await res.arrayBuffer())
+  const buf = await download(`${base}/${file}`, 'Node')
   const got = createHash('sha256').update(buf).digest('hex')
   if (got !== want) throw new Error(`Node 파일의 SHA-256이 다릅니다: ${got} ≠ ${want}`)
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-node-'))
@@ -133,9 +144,7 @@ if (!win) fs.chmodSync(nodeBin, 0o755)
 if (win) {
   if (arch !== 'x64') throw new Error('윈도우 묶음은 x64만 만듭니다 (MinGit 64-bit)')
   step('MinGit 받기')
-  const res = await fetch(MINGIT.url)
-  if (!res.ok) throw new Error(`MinGit을 받지 못했습니다 (${res.status})`)
-  const buf = Buffer.from(await res.arrayBuffer())
+  const buf = await download(MINGIT.url, 'MinGit')
   const got = createHash('sha256').update(buf).digest('hex')
   if (got !== MINGIT.sha256) throw new Error(`MinGit 파일의 SHA-256이 다릅니다: ${got} ≠ ${MINGIT.sha256}`)
   const gitDir = path.join(out, 'git')

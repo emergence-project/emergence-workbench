@@ -131,6 +131,8 @@ export const DEFAULT_SCREENS = [
   ['settings', '#/settings', '설정'],
   // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)
   ['settings-accounts', '#/settings/google', '시작 준비 요약'],
+  // 앱 안 GitHub 로그인 (11/8): 「GitHub로 로그인」을 누르면 코드와 GitHub 쪽 링크가 보인다 (예제 모드는 가짜 GitHub)
+  ['settings-github-login', '#/settings/google', 'GitHub 로그인 코드', 'GitHub로 로그인'],
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],

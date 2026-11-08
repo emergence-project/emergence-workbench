@@ -88,6 +88,23 @@ describe('listGitHubRepos', () => {
     expect(JSON.stringify(got)).not.toContain(TOKEN)
   })
 
+  it('uses the in-app GitHub sign-in before gh and the keychain', async () => {
+    const { io, calls, tokens } = fakeIO({ gh: [ghRow('me', 'from-gh', '2026-01-01')], pages: [[apiRow('friend', 'notes', '2026-03-01')]] })
+    const got = await listGitHubRepos(io, [], '/clone', false, 'app-token')
+    expect(got.ok && got.source).toBe('account')
+    expect(got.ok && got.repos.map((r) => r.name)).toEqual(['notes'])
+    expect(tokens).toEqual(['app-token'])
+    expect(calls).toEqual([])
+    expect(JSON.stringify(got)).not.toContain('app-token')
+  })
+
+  it('falls back to gh when the in-app key no longer works', async () => {
+    const { io } = fakeIO({ gh: [ghRow('me', 'from-gh', '2026-01-01')] })
+    io.getJson = async () => { throw new Error('401') }
+    const got = await listGitHubRepos(io, [], '/clone', false, 'revoked')
+    expect(got.ok && got.source).toBe('gh')
+  })
+
   it('gives a plain reason when no login is found', async () => {
     const got = await listGitHubRepos(fakeIO({}).io, [], '/clone')
     expect(got).toEqual({ ok: false, reason: expect.stringContaining('로그인') })

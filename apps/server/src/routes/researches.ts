@@ -66,7 +66,7 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
   app.get('/api/researches/github-repos', replies(GitHubRepoList), async (): Promise<GitHubRepoList> => {
     const list = registry.list()
     const parent = defaultCloneDir(list.map((r) => r.path))
-    return { ...(await listGitHubRepos(io, list, parent, !!opts.sandbox)), parent }
+    return { ...(await listGitHubRepos(io, list, parent, !!opts.sandbox, await ctx.account.token())), parent }
   })
 
   /** GitHub 주소로 등록할 때: 주소를 읽고 받을 곳의 기본값을 알려 준다 */

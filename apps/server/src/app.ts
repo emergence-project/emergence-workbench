@@ -63,6 +63,9 @@ import { registerPhone } from './routes/phone.js'
 import { Google } from './google.js'
 import type { RepoIO } from './githubRepos.js'
 import { registerKeyGate } from './appKey.js'
+import { GithubAccount, sampleGithubFetch } from './githubAccount.js'
+import { memorySecretStore, secretStore } from './secretStore.js'
+import { registerAccount } from './routes/account.js'
 
 export interface AppOptions {
   /** 앱 설정 폴더 (기본 ~/.config/research-workspace) */
@@ -123,6 +126,8 @@ export interface AppOptions {
   port?: number
   /** 설치 파일로 깐 앱의 서버 열쇠 (appKey.ts). 있으면 열쇠를 가진 요청만 받는다 */
   key?: string
+  /** 앱 안의 GitHub 로그인 (기본: 이 OS의 보안 저장소와 진짜 GitHub. 예제 모드는 가짜 GitHub, 테스트에서 바꿈) */
+  account?: GithubAccount
 }
 
 /**
@@ -196,7 +201,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const broadcast = (e: WorkbenchEvent) => {
     // 라이브러리 알림은 바뀐 갈래의 캐시만 비운다 (아래 watchLibraryNow). 프로젝트 알림은 그 프로젝트와 프로젝트를 읽는 목록만 (10/15)
     // 에이전트 대화 알림은 파일이 바뀐 것이 아니라 캐시를 그대로 둔다
-    if (e.type === 'agent-chat' || e.type === 'agent-draft' || e.type === 'agent-hooks' || e.type === 'feedback') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
+    if (e.type === 'agent-chat' || e.type === 'agent-draft' || e.type === 'agent-hooks' || e.type === 'feedback' || e.type === 'account') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
     const data = JSON.stringify(e)
     for (const s of sockets) if (s.readyState === 1) s.send(data)
   }
@@ -333,11 +338,15 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
       '/api/concepts/:id/links', '/api/researches/:rid/notes/links'].includes(req.routeOptions.url ?? '')) await conceptIndex()?.ready()
   })
   const clients = () => [...sockets].filter((s) => s.readyState === 1).length
-  const ctx: RouteContext = { registry, opts, broadcast, clients, wbOf, ensureWatch, watchers, repoPath, recordsRoot, conceptIndex, libraryReads }
+  // 앱 안의 GitHub 로그인 (githubAccount.ts): 저장한 계정이 있으면 켤 때 git에 건다
+  const account = opts.account ?? new GithubAccount(opts.configDir, opts.sandbox ? memorySecretStore() : secretStore(opts.configDir), opts.sandbox ? sampleGithubFetch() : fetch, () => broadcast({ type: 'account', research: null }))
+  if (!opts.account && !opts.sandbox) void account.load().catch((e: unknown) => console.warn(`GitHub 로그인을 읽지 못했습니다: ${e instanceof Error ? e.message : String(e)}`))
+  const ctx: RouteContext = { registry, opts, broadcast, clients, wbOf, ensureWatch, watchers, repoPath, recordsRoot, conceptIndex, libraryReads, account }
   registerApiIndex(app, ctx) // 맨 앞: 뒤에 등록되는 경로를 모아 GET /api로 보여 준다
   registerResearches(app, ctx)
   registerSettings(app, ctx)
   registerSetup(app, ctx)
+  registerAccount(app, account)
   registerCommonRules(app, ctx)
   registerFeedback(app, ctx)
   registerRecordsPublish(app, ctx)

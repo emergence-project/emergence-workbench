@@ -20,7 +20,7 @@ export const GitHubRepoItem = z.object({
 
 /** GET /researches/github-repos. parent: 받을 폴더의 기본값. 로그인을 못 찾으면 ok: false와 이유 */
 export const GitHubRepoList = z.union([
-  z.object({ parent: z.string(), ok: z.literal(true), source: z.enum(['gh', 'git', 'sample']), repos: z.array(GitHubRepoItem) }).strict(),
+  z.object({ parent: z.string(), ok: z.literal(true), source: z.enum(['gh', 'git', 'account', 'sample']), repos: z.array(GitHubRepoItem) }).strict(),
   z.object({ parent: z.string(), ok: z.literal(false), reason: z.string() }).strict(),
 ])
 

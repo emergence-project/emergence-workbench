@@ -1008,5 +1008,8 @@
   "피드백 파일 결과": "Feedback file result",
   "관리자에게 보내기": "Send to maintainer",
   "처리 승인": "Approve handling",
-  "의견 종류": "Kind of reply"
+  "의견 종류": "Kind of reply",
+  "GitHub로 로그인": "Sign in with GitHub",
+  "GitHub 로그아웃": "Sign out of GitHub",
+  "GitHub 로그인 코드": "GitHub sign-in code"
 }
