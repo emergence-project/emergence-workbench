@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
 import { writeAtomic } from './fsutil.js'
+import type { FeedbackListItem } from './feedback.js'
 
 /**
  * 피드백 맡기기를 한 컴퓨터만 (10/22 "두 맥 동기화와 충돌 대비"): 앱 고치기 대화는 컴퓨터마다 따로라,
@@ -13,6 +14,12 @@ import { writeAtomic } from './fsutil.js'
  *
  * 맡은 뒤에 사용자가 다시 답하면(반려 · 코멘트 등) 새 차례이므로, at이 그 항목의 마지막 손댄 때보다 앞선 적음은 보지 않는다.
  */
+/** 피드백 하나에서 사용자 쪽 마지막 일(남김 · 답 · 코멘트 · 고친 글)의 시각 (이 컴퓨터 시간대). 맡은 일을 두 번 맡지 않게 */
+export function lastTouched(e: Pick<FeedbackListItem, 'date' | 'time' | 'review' | 'comments'>): number {
+  const at = [`${e.date}T${e.time}`, e.review?.at, e.review?.edited, ...(e.comments ?? []).flatMap((c) => [c.at, c.edited])]
+  return Math.max(...at.filter((x): x is string => !!x).map((x) => new Date(x).getTime()).filter((n) => !Number.isNaN(n)))
+}
+
 export const HANDOFF_FILE = 'handoff.yaml'
 
 export interface Claim { machine: string; at: string }

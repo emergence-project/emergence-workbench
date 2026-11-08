@@ -6,9 +6,11 @@
 //   2. 처음 켠 앱이 문서 폴더에 라이브러리 · PDF 폴더를 만들고, git 이름을 대신 채우는지 (starter.ts, git.ts)
 //   3. 「새로 만들기」로 프로젝트를 만들면 폴더 · git 저장소 · workbench/가 생기고 목록에 오르는지
 //   4. PDF를 끌어다 놓듯 올리면 논문이 라이브러리에 들어가는지
-//   5. (--shots) 크롬으로 첫 화면 · 프로젝트 · 논문 · 설정을 찍고 콘솔 오류가 없는지. --print면 그림을 기록에 base64 JPEG로도 남긴다(CI 기록에서 보려고)
+//   5. 창처럼 열쇠를 넘겨 켠 서버가 열쇠 없는 요청을 받지 않는지 (appKey.ts, 공용 PC에서 남의 앱이 열리지 않게)
+//   6. (--shots) 크롬으로 첫 화면 · 프로젝트 · 논문 · 설정을 찍고 콘솔 오류가 없는지. --print면 그림을 기록에 base64 JPEG로도 남긴다(CI 기록에서 보려고)
 // 하나라도 어긋나면 실패한다. 서버 기록은 끝에 보인다.
 import { spawn } from 'node:child_process'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -23,7 +25,9 @@ const args = process.argv.slice(2)
 const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined }
 const shots = opt('--shots')
 const chrome = opt('--chrome')
-const PORT = 5174
+// 창(main.rs)처럼 5174가 아닌 포트와 새 열쇠로 켠다
+const PORT = 51874
+const KEY = crypto.randomBytes(24).toString('hex')
 const base = `http://127.0.0.1:${PORT}`
 
 for (const f of [node, entry]) if (!fs.existsSync(f)) { console.error(`없음: ${f} (scripts/bundle-app.mjs를 먼저 돌리세요)`); process.exit(1) }
@@ -37,7 +41,7 @@ let log = ''
 // 윈도우: git이 없는 컴퓨터처럼 PATH에 시스템 폴더와 묶은 git(MinGit)만 둔다 (앱이 PATH 맨 뒤에 묶은 git을 두는 것과 같은 결과)
 const sys = process.env.SystemRoot ?? 'C:\\Windows'
 /** @type {NodeJS.ProcessEnv} */
-const env = { ...process.env, RW_STATIC: '1', RW_PORT: String(PORT), HOME: home, USERPROFILE: home, GIT_CONFIG_GLOBAL: path.join(home, '.gitconfig') }
+const env = { ...process.env, RW_STATIC: '1', RW_PORT: String(PORT), RW_KEY: KEY, HOME: home, USERPROFILE: home, GIT_CONFIG_GLOBAL: path.join(home, '.gitconfig') }
 delete env.RW_CONFIG_DIR
 if (win) {
   for (const k of Object.keys(env)) if (k.toLowerCase() === 'path') delete env[k]
@@ -52,8 +56,8 @@ server.stderr.on('data', (d) => { log += d })
 
 const fails = []
 const check = (ok, what) => { console.log(`${ok ? '✓' : '✗'} ${what}`); if (!ok) fails.push(what) }
-const headers = { origin: base, 'content-type': 'application/json' }
-const get = (url) => fetch(base + url, { headers: { origin: base } })
+const headers = { origin: base, 'content-type': 'application/json', 'x-rw-key': KEY }
+const get = (url) => fetch(base + url, { headers: { origin: base, 'x-rw-key': KEY } })
 
 try {
   // 서버가 답할 때까지 (처음 켤 때 윈도우 디펜더 검사로 느릴 수 있다)
@@ -64,6 +68,13 @@ try {
   }
   check(up, '서버가 켜져 /api에 답함')
   if (!up) throw new Error('서버가 답하지 않습니다')
+
+  const locked = await fetch(base + '/api', { headers: { origin: base } })
+  check(locked.status === 401, `열쇠 없는 요청은 받지 않음 (${locked.status})`)
+  const opened = await fetch(`${base}/__open?k=${KEY}&to=${encodeURIComponent('/#/settings')}`, { redirect: 'manual' })
+  const cookie = String(opened.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
+  check(opened.status === 303 && cookie === `rw_k_${PORT}=${KEY}`, `창은 /__open으로 열쇠를 건네고 쿠키를 받음 (${opened.status})`)
+  check((await fetch(base + '/api', { headers: { origin: base, cookie } })).ok, '그 쿠키로 화면 · API가 열림')
 
   const home = await get('/')
   check(home.ok && (await home.text()).includes('<div id="root"'), '첫 화면(HTML)이 열림')
@@ -90,13 +101,13 @@ try {
   }
 
   const pdf = fs.readFileSync(path.join(root, 'fixtures/sandbox-papers/pdf/readerGraph2010.pdf'))
-  const sent = await fetch(base + '/api/papers/upload?name=readerGraph2010.pdf&id=1706.03762', { method: 'PUT', headers: { origin: base, 'content-type': 'application/octet-stream' }, body: pdf })
+  const sent = await fetch(base + '/api/papers/upload?name=readerGraph2010.pdf&id=1706.03762', { method: 'PUT', headers: { origin: base, 'content-type': 'application/octet-stream', 'x-rw-key': KEY }, body: pdf })
   const paper = sent.ok ? await sent.json() : undefined
   check(sent.ok && !!paper?.key, `PDF를 올리면 논문으로 들어감 (${sent.status}${sent.ok ? ' ' + paper.key : ' ' + await sent.text()})`)
 
   // ChatGPT로 답하기 (11/8): 앱이 이 OS용 Codex를 npm 저장소에서 받아 풀고 실행할 수 있어야 한다 (로그인은 사람이 해야 해서 시험하지 않는다)
   if (process.env.SMOKE_CODEX !== '0') {
-    const started = await fetch(base + '/api/settings/codex/install', { method: 'POST', headers: { origin: base } })
+    const started = await fetch(base + '/api/settings/codex/install', { method: 'POST', headers: { origin: base, 'x-rw-key': KEY } })
     check(started.ok, `Codex 받기 시작 (${started.status})`)
     let codex = await started.json().catch(() => ({}))
     const until = Date.now() + 10 * 60_000
@@ -128,6 +139,8 @@ async function takeShots(rid, key) {
   const errors = []
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
   page.on('pageerror', (e) => errors.push(e.message))
+  // 창처럼 처음 한 번 열쇠를 건네 쿠키를 받는다
+  await page.goto(`${base}/__open?k=${KEY}&to=%2F`, { waitUntil: 'networkidle' })
   const screens = [['home', '/'], ...(rid ? [['project', `/#/r/${rid}`]] : []), ['papers', '/#/papers/list'], ...(key ? [['paper', `/#/papers/open/${key}`]] : []), ['settings', '/#/settings'], ['agents', '/#/settings/agents'], ['accounts', '/#/settings/google']]
   for (const [name, url] of screens) {
     await page.goto(base + url, { waitUntil: 'networkidle' })

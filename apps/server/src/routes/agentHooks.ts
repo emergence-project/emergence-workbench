@@ -26,7 +26,7 @@ export function registerAgentHooks(app: FastifyInstance, ctx: RouteContext): voi
   // 스크립트와 서버 주소: 뜰 때마다 (포트가 바뀌어도 오래 돈 세션이 닿게)
   app.addHook('onListen', async () => {
     const a = app.server.address()
-    if (a && typeof a === 'object') writeHookFiles(opts.configDir, `http://127.0.0.1:${a.port}`)
+    if (a && typeof a === 'object') writeHookFiles(opts.configDir, `http://127.0.0.1:${a.port}`, opts.key)
   })
 
   /** 훅이 부른다 (본문은 에이전트가 준 그대로). 모르는 알림도 200: 에이전트를 막지 않는다 */

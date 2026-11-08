@@ -8,6 +8,7 @@ import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { aiKeyView, readAiKey, writeAiKey } from '../aiKey.js'
 import { codexStatus, installCodex, loginCodex } from '../codexCli.js'
+import { releaseChecker } from '../releaseCheck.js'
 import { t } from '../i18n.js'
 import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
 import { errorLog, repeat } from '../scheduler.js'
@@ -74,8 +75,10 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   app.put('/api/settings/agents', replies(C.AgentSettings), async (req): Promise<C.AgentSettings> => registry.setAgents(parseBody(C.AgentSettingsBody, req.body)))
 
 
+  // 설치 파일로 깐 앱: GitHub 릴리스에 새 판이 있으면 알린다 (releaseCheck.ts, 몇 시간에 한 번)
+  const newRelease = opts.bundled && !opts.sandbox ? releaseChecker(opts.bundled, opts.releaseFetch) : null
   app.get<{ Querystring: { fetch?: string } }>('/api/app/status', replies(A.AppStatusReply), async (req): Promise<A.AppStatusReply> => {
-    if (!opts.appRepo) return { enabled: false, ...(opts.bundled && { bundled: opts.bundled }) }
+    if (!opts.appRepo) return { enabled: false, ...(opts.bundled && { bundled: opts.bundled, release: newRelease ? await newRelease(req.query.fetch === '1') : null }) }
     return { enabled: true, status: await appStatus(opts.appRepo.root, opts.appRepo.running, { fetch: req.query.fetch === '1' }) }
   })
   app.get<{ Querystring: { pr?: string } }>('/api/app/info', replies(A.AppInfoReply), async (req): Promise<A.AppInfoReply> => {

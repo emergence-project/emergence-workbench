@@ -21,6 +21,7 @@ import { Registry } from './registry.js'
 import { prepareStarter } from './starter.js'
 import { setFallbackIdentity } from './git.js'
 import { serveStatic } from './static.js'
+import { writeServerInfo } from './appKey.js'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const port = Number(process.env.RW_PORT ?? 8130)
@@ -216,7 +217,7 @@ if (process.env.RW_SANDBOX === '1' && !process.env.RW_COMMON_RULES && !fs.exists
 // 앱 업데이트(설정 화면): 실사용만. 지금 돌고 있는 코드의 커밋을 시작할 때 기억한다
 // 내려받은 앱(scripts/bundle-app.mjs)은 git 저장소가 아니다: 묶은 커밋을 build.json에서 읽고, 스스로 받아 오지 않는다(appRepo 없음).
 // git을 부르지 않는 것은 git이 없는 맥에서 명령어 도구 설치 창이 뜨지 않게 하려는 것이기도 하다.
-const bundled: { commit?: string; builtAt?: string } | null = (() => { try { return JSON.parse(fs.readFileSync(path.join(repoRoot, 'build.json'), 'utf8')) } catch { return null } })()
+const bundled: { commit?: string; builtAt?: string; version?: string } | null = (() => { try { return JSON.parse(fs.readFileSync(path.join(repoRoot, 'build.json'), 'utf8')) } catch { return null } })()
 const running = bundled ? null : (() => { try { return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD']).toString().trim() } catch { return null } })()
 const appRepo = process.env.RW_SANDBOX !== '1' && running ? { root: repoRoot, running, steps: macSteps() } : undefined
 // 구글 연결: 예제 모드는 가짜 구글(이번 주 일정 몇 개)에 미리 연결해 둔다. 실사용은 설정 화면에서 연결
@@ -243,7 +244,9 @@ if (bundled && process.env.RW_SANDBOX !== '1') {
     if (lib) console.log(`처음 켬: 라이브러리와 PDF 폴더를 만들었습니다 (${path.dirname(lib)})`)
   } catch (e) { console.warn(`처음 켤 때 라이브러리를 만들지 못했습니다: ${(e as Error).message}`) }
 }
-const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackRelay: process.env.RW_SANDBOX === '1' || personal || process.env.RW_FEEDBACK_DIR ? undefined : (process.env.RW_FEEDBACK_RELAY ?? FEEDBACK_RELAY_URL) || undefined, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), ...(bundled && { bundled: { commit: bundled.commit ?? '', builtAt: bundled.builtAt ?? '' } }), backup, port })
+// 설치 파일로 깐 앱: 창이 켤 때마다 만든 열쇠(appKey.ts). 예제 모드는 쓰지 않는다
+const serverKey = process.env.RW_SANDBOX !== '1' && process.env.RW_KEY ? process.env.RW_KEY : undefined
+const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackRelay: process.env.RW_SANDBOX === '1' || personal || process.env.RW_FEEDBACK_DIR ? undefined : (process.env.RW_FEEDBACK_RELAY ?? FEEDBACK_RELAY_URL) || undefined, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), ...(bundled && { bundled: { commit: bundled.commit ?? '', builtAt: bundled.builtAt ?? '', ...(bundled.version && { version: bundled.version }) } }), backup, port, ...(serverKey && { key: serverKey }) })
 
 // RW_STATIC=1 (실사용 서비스): 빌드한 화면을 이 서버가 함께 내보낸다
 if (process.env.RW_STATIC === '1') {
@@ -258,4 +261,8 @@ if (process.env.RW_STATIC === '1') {
 
 // 이 컴퓨터 안에서만 접속을 받는다.
 await app.listen({ host: '127.0.0.1', port })
+// 앱 밖에서 등록한 에이전트의 MCP 입구가 이번 포트와 열쇠를 찾게 한다 (mcp.ts serverTarget)
+if (serverKey) {
+  try { writeServerInfo(configDir, { url: `http://127.0.0.1:${port}`, key: serverKey, pid: process.pid }) } catch (e) { console.warn(`server.json을 쓰지 못했습니다: ${(e as Error).message}`) }
+}
 console.log(`research-workspace server: http://127.0.0.1:${port}  config=${configDir}`)

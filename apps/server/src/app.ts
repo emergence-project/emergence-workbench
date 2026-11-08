@@ -62,6 +62,7 @@ import { phoneRequestOk, samplePhone, tailscalePhone, type Phone } from './phone
 import { registerPhone } from './routes/phone.js'
 import { Google } from './google.js'
 import type { RepoIO } from './githubRepos.js'
+import { registerKeyGate } from './appKey.js'
 
 export interface AppOptions {
   /** 앱 설정 폴더 (기본 ~/.config/research-workspace) */
@@ -75,7 +76,9 @@ export interface AppOptions {
   /** 앱 피드백을 쌓을 폴더 (실사용은 개인 저장소 사본의 feedback/). 없으면 피드백 기능을 끈다 */
   feedbackDir?: string
   /** 내려받은 앱이면 묶은 커밋 · 만든 때 (build.json). 설정 › 앱 기본정보가 버전으로 보인다 */
-  bundled?: { commit: string; builtAt: string }
+  bundled?: { commit: string; builtAt: string; version?: string }
+  /** 설치 파일로 깐 앱이 GitHub 릴리스를 볼 때 쓰는 fetch (테스트에서 바꿈) */
+  releaseFetch?: typeof fetch
   /** 지금 돌고 있는 앱의 커밋 (짧은 형태). 피드백에 함께 적는다 */
   appVersion?: string
   /** 피드백 폴더를 앱에서 커밋·푸시할 수 있게 할지 (실사용만. 예제 모드의 .sandbox/는 git 제외) */
@@ -118,6 +121,8 @@ export interface AppOptions {
   phone?: Phone
   /** 이 서버가 받는 포트 (시작할 때 폰에서 보기 상태를 읽는 데 쓴다) */
   port?: number
+  /** 설치 파일로 깐 앱의 서버 열쇠 (appKey.ts). 있으면 열쇠를 가진 요청만 받는다 */
+  key?: string
 }
 
 /**
@@ -155,6 +160,9 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   setDefaultLang(() => registry.ui?.language)
   setCoreLang(currentLang)
   app.addHook('onRequest', (req, _reply, done) => withLang(asLang(req.headers['x-rw-lang']), done))
+  // 설치 파일로 깐 앱: 창이 넘긴 열쇠가 없는 요청은 받지 않는다 (appKey.ts). 창은 /__open으로 한 번 들어와 쿠키를 받는다
+  if (opts.key) registerKeyGate(app, opts.key, opts.port ?? 0)
+
   // 에이전트 연결 확인 (설정 › 계정 › 시작 준비): MCP 입구가 붙이는 머리
   app.addHook('onRequest', (req, _reply, done) => { const a = req.headers['x-rw-agent']; if (typeof a === 'string' && a) noteAgentCall(opts.configDir, a); done() })
 

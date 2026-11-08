@@ -2,17 +2,18 @@
 // 서버는 둘 중 하나다.
 // - 저장소에서 설치한 맥(scripts/install.sh): 로그인 때 켜지는 서비스(scripts/service.sh). 창을 닫아도 에이전트 · 동기화는 계속 돈다.
 // - 내려받은 앱(make-desktop.sh --standalone): 앱 안에 묶은 Node와 서버(scripts/bundle-app.mjs)를 창이 켜고, 앱을 끝내면 함께 끈다.
-//   서비스가 있거나 서버가 이미 답하면 묶은 서버를 켜지 않는다.
-// 창은 먼저 loading/index.html을 띄워 서버가 답할 때까지 기다린 뒤 서버 화면(127.0.0.1:5174)으로 넘어간다.
+//   켤 때마다 빈 포트와 열쇠를 새로 만들어 서버에 넘기고(RW_PORT · RW_KEY), 서버는 열쇠 없는 요청을 받지 않는다(apps/server/src/appKey.ts).
+//   그래서 같은 컴퓨터의 다른 사용자 계정이 켜 둔 앱이나 이 포트를 먼저 잡은 프로그램을 내 창이 열지 않는다(11/8 점검).
+// 창은 먼저 loading/index.html을 띄워 서버가 답할 때까지 기다린 뒤 서버 화면으로 넘어간다(묶은 서버면 /__open으로 열쇠를 건네고).
 // 서버 밖 주소(논문 링크, GitHub 등)는 창 안에서도, 새 창으로도 열지 않고 기본 브라우저로 보낸다.
 // 창 크기 · 자리는 window-state가, 마지막에 보던 화면은 last-url 파일이 기억한다. 메뉴는 맥 표준 메뉴에 설정 · 업데이트 · 새로 고침을 더한 것.
 // 윈도우: 서비스가 없어 늘 묶은 서버를 쓴다(node/node.exe, 콘솔 창 없이). 메뉴는 파일 · 보기 둘(편집 단축키는 창이 스스로 처리한다).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::net::{SocketAddr, TcpStream};
+use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
@@ -21,46 +22,104 @@ use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry};
 use url::Url;
 
-/// 서버 주소. scripts/open-app.sh · service.sh와 같다
-const SERVER_PORT: u16 = 5174;
+/// 맥 서비스의 서버 주소. scripts/open-app.sh · service.sh와 같다. 설치 파일로 깐 앱은 켤 때마다 빈 포트를 고른다
+const SERVICE_PORT: u16 = 5174;
+/// 창이 열쇠를 건네는 서버 경로 (appKey.ts OPEN_PATH)
+const OPEN_PATH: &str = "/__open";
 
-/// 창 안에서 열어도 되는 주소: 로딩 쪽(앱 안 파일)과 이 컴퓨터의 서버
-fn stays_inside(url: &Url) -> bool {
+/// 이번에 창이 쓰는 서버: 포트와, 묶은 서버면 그 열쇠
+struct Server {
+    port: u16,
+    key: Option<String>,
+}
+static SERVER: OnceLock<Server> = OnceLock::new();
+
+fn server_port() -> u16 {
+    SERVER.get().map(|s| s.port).unwrap_or(SERVICE_PORT)
+}
+
+fn server_url(port: u16) -> String {
+    format!("http://127.0.0.1:{port}/")
+}
+
+/// 이 컴퓨터의 빈 포트 하나
+fn free_port() -> Option<u16> {
+    TcpListener::bind(("127.0.0.1", 0)).ok()?.local_addr().ok().map(|a| a.port())
+}
+
+/// 한 번 쓰는 열쇠: OS 난수 24바이트를 16진수로
+fn new_key() -> Option<String> {
+    let mut b = [0u8; 24];
+    getrandom::fill(&mut b).ok()?;
+    Some(b.iter().map(|x| format!("{x:02x}")).collect())
+}
+
+/// 창 안에서 열어도 되는 주소: 로딩 쪽(앱 안 파일)과 이번에 쓰는 서버
+fn stays_inside(url: &Url, port: u16) -> bool {
     match url.scheme() {
         "tauri" | "asset" | "about" | "data" | "blob" => true,
         "http" | "https" => {
             let local = matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "tauri.localhost"));
-            local && (url.port_or_known_default() == Some(SERVER_PORT) || url.host_str() == Some("tauri.localhost"))
+            local && (url.port_or_known_default() == Some(port) || url.host_str() == Some("tauri.localhost"))
         }
         _ => false,
     }
 }
 
-/// 다음에 열 때 이어 볼 화면: 서버 화면이면 그 주소, 아니면 없음
-fn resume_target(url: &Url) -> Option<String> {
+/// 서버 안의 경로 (#까지). 포트는 켤 때마다 바뀌므로 기억하지 않는다
+fn page_of(url: &Url) -> String {
+    let mut s = url.path().to_string();
+    if let Some(q) = url.query() {
+        s.push('?');
+        s.push_str(q);
+    }
+    if let Some(f) = url.fragment() {
+        s.push('#');
+        s.push_str(f);
+    }
+    s
+}
+
+/// 다음에 열 때 이어 볼 화면: 이번 서버의 화면이면 그 경로, 아니면 없음
+fn resume_target(url: &Url, port: u16) -> Option<String> {
     let server = matches!(url.scheme(), "http" | "https")
         && matches!(url.host_str(), Some("127.0.0.1" | "localhost"))
-        && url.port_or_known_default() == Some(SERVER_PORT);
-    server.then(|| url.to_string())
+        && url.port_or_known_default() == Some(port);
+    (server && url.path() != OPEN_PATH).then(|| page_of(url))
+}
+
+/// 적어 둔 화면을 읽는다: 경로(/…), 또는 예전 판이 적은 전체 주소(http://127.0.0.1:5174/#/…)의 경로
+fn stored_resume(text: &str) -> Option<String> {
+    let t = text.trim();
+    if t.starts_with('/') && !t.starts_with("//") {
+        return Some(t.to_string());
+    }
+    let u = Url::parse(t).ok()?;
+    let local = matches!(u.scheme(), "http" | "https") && matches!(u.host_str(), Some("127.0.0.1" | "localhost"));
+    (local && u.path() != OPEN_PATH).then(|| page_of(&u))
 }
 
 fn last_url_file(app: &AppHandle) -> Option<PathBuf> {
     app.path().app_config_dir().ok().map(|d| d.join("last-url"))
 }
 
-/// 여는 중 쪽이 읽는 값: 지난번에 보던 서버 화면(JSON 글), 없으면 null
-fn resume_script(app: &AppHandle) -> String {
+/// 여는 중 쪽이 읽는 값: 서버 주소, 열쇠(묶은 서버만), 지난번에 보던 서버 화면의 경로. 없으면 null
+fn resume_script(app: &AppHandle, port: u16, key: Option<&str>) -> String {
     let last = last_url_file(app)
         .and_then(|f| std::fs::read_to_string(f).ok())
-        .and_then(|s| Url::parse(s.trim()).ok())
-        .and_then(|u| resume_target(&u));
-    let value = last.map(|u| format!("{u:?}")).unwrap_or_else(|| "null".into());
-    format!("window.__rwResume = {value};")
+        .and_then(|s| stored_resume(&s));
+    let js = |v: Option<&str>| v.map(|u| format!("{u:?}")).unwrap_or_else(|| "null".into());
+    format!(
+        "window.__rwServer = {:?}; window.__rwKey = {}; window.__rwResume = {};",
+        server_url(port),
+        js(key),
+        js(last.as_deref())
+    )
 }
 
 fn remember_page(window: &WebviewWindow) {
     let (Ok(url), Some(file)) = (window.url(), last_url_file(window.app_handle())) else { return };
-    if let Some(target) = resume_target(&url) {
+    if let Some(target) = resume_target(&url, server_port()) {
         if let Some(dir) = file.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
@@ -128,8 +187,8 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 }
 
 /// 메뉴 항목이 창 안 화면에 하는 일 (서버 화면의 주소 #만 바꾼다)
-fn menu_script(id: &str) -> Option<String> {
-    let server = format!("http://127.0.0.1:{SERVER_PORT}/");
+fn menu_script(id: &str, port: u16) -> Option<String> {
+    let server = server_url(port);
     Some(match id {
         "settings" => format!("location.href = {:?}", format!("{server}#/settings")),
         "update" => format!("location.href = {:?}", format!("{server}#/settings/sync")),
@@ -139,12 +198,21 @@ fn menu_script(id: &str) -> Option<String> {
     })
 }
 
+/// 바깥으로 보낼 수 있는 주소: 웹 주소와 메일 주소만. file: 같은 것은 이 컴퓨터의 실행 파일을 열 수 있어 보내지 않는다
+fn may_open_outside(url: &Url) -> bool {
+    matches!(url.scheme(), "http" | "https" | "mailto")
+}
+
 /// 기본 브라우저(메일 주소면 메일 앱)로 연다
 fn open_outside(url: &Url) {
+    if !may_open_outside(url) {
+        return;
+    }
     #[cfg(target_os = "macos")]
     let _ = Command::new("open").arg(url.as_str()).spawn();
+    // 윈도우: cmd /C start는 주소 속 &를 명령 구분자로 읽어 그 뒤를 명령으로 돌린다(11/8 점검). rundll32는 주소를 그대로 ShellExecute에 넘긴다
     #[cfg(target_os = "windows")]
-    let _ = Command::new("cmd").args(["/C", "start", "", url.as_str()]).spawn();
+    let _ = Command::new("rundll32").args(["url.dll,FileProtocolHandler", url.as_str()]).spawn();
     #[cfg(all(unix, not(target_os = "macos")))]
     let _ = Command::new("xdg-open").arg(url.as_str()).spawn();
 }
@@ -163,8 +231,9 @@ fn service_installed() -> bool {
     false
 }
 
+/// 맥 서비스가 답하는지 (서비스가 없는 개발용 창이 저장소에서 켠 서버를 쓸 때)
 fn server_answers() -> bool {
-    let addr = SocketAddr::from(([127, 0, 0, 1], SERVER_PORT));
+    let addr = SocketAddr::from(([127, 0, 0, 1], SERVICE_PORT));
     TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
 }
 
@@ -232,8 +301,8 @@ fn plain_path(p: PathBuf) -> PathBuf {
     }
 }
 
-/// 묶은 서버를 켠다. 출력은 앱 기록 폴더의 server.log에
-fn start_bundled(app: &AppHandle) -> Option<Child> {
+/// 묶은 서버를 켠다(이 포트, 이 열쇠). 출력은 앱 기록 폴더의 server.log에
+fn start_bundled(app: &AppHandle, port: u16, key: &str) -> Option<Child> {
     let resources = plain_path(app.path().resource_dir().ok()?);
     let (node, entry) = bundled_paths(&resources)?;
     let log = app.path().app_log_dir().ok().and_then(|d| {
@@ -253,7 +322,8 @@ fn start_bundled(app: &AppHandle) -> Option<Child> {
     }
     cmd.arg(entry)
         .env("RW_STATIC", "1")
-        .env("RW_PORT", SERVER_PORT.to_string())
+        .env("RW_PORT", port.to_string())
+        .env("RW_KEY", key)
         .env("PATH", bundled_path_env(&resources.join("standalone")))
         .stdin(Stdio::null())
         .stdout(out)
@@ -297,7 +367,7 @@ fn main() {
                 app.exit(0);
                 return;
             }
-            if let (Some(window), Some(script)) = (app.get_webview_window("main"), menu_script(event.id().as_ref())) {
+            if let (Some(window), Some(script)) = (app.get_webview_window("main"), menu_script(event.id().as_ref(), server_port())) {
                 let _ = window.eval(script);
             }
         })
@@ -309,23 +379,35 @@ fn main() {
             }
         })
         .setup(|app| {
-            let bundled = if service_installed() {
+            // 맥 서비스가 있으면 그것(5174, 열쇠 없음). 아니면 앱에 묶은 서버를 새 포트 · 새 열쇠로 켠다.
+            // 예전에는 5174에 무엇이든 답하면 그것을 썼다: 공용 PC에서 다른 사용자 계정이 켜 둔 앱이 내 창에 열렸다(11/8 점검)
+            let fresh = if service_installed() {
                 wake_server();
                 None
-            } else if server_answers() {
-                None
             } else {
-                start_bundled(app.handle())
+                free_port().zip(new_key()).and_then(|(port, key)| start_bundled(app.handle(), port, &key).map(|child| (port, key, child)))
+            };
+            let (server, bundled) = match fresh {
+                Some((port, key, child)) => (Server { port, key: Some(key) }, Some(child)),
+                // 묶은 서버가 없는 개발용 창: 저장소에서 켠 서버(5174)를 쓴다
+                None => {
+                    if !service_installed() && !server_answers() {
+                        eprintln!("서버가 없습니다: 묶은 서버도, 5174에서 답하는 서버도 없습니다");
+                    }
+                    (Server { port: SERVICE_PORT, key: None }, None)
+                }
             };
             let standalone = bundled.is_some();
+            let script = resume_script(app.handle(), server.port, server.key.as_deref());
+            let _ = SERVER.set(server);
             app.manage(BundledServer(Mutex::new(bundled)));
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .initialization_script(format!("{} window.__rwStandalone = {standalone};", resume_script(app.handle())))
+                .initialization_script(format!("{script} window.__rwStandalone = {standalone};"))
                 .title("Emergence Workbench")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(900.0, 600.0)
                 .on_navigation(|url| {
-                    if stays_inside(url) {
+                    if stays_inside(url, server_port()) {
                         return true;
                     }
                     open_outside(url);
@@ -333,7 +415,7 @@ fn main() {
                 })
                 // 새 창으로 여는 링크(target=_blank, window.open): 서버 쪽 파일(PDF 등)은 앱의 새 창, 바깥 주소는 기본 브라우저
                 .on_new_window(|url, _features| {
-                    if stays_inside(&url) {
+                    if stays_inside(&url, server_port()) {
                         return NewWindowResponse::Allow;
                     }
                     open_outside(&url);
@@ -400,29 +482,60 @@ mod tests {
 
     #[test]
     fn server_and_loading_stay_inside() {
-        for u in ["http://127.0.0.1:5174/#/r/x", "http://localhost:5174/", "tauri://localhost/index.html", "http://tauri.localhost/index.html", "about:blank"] {
-            assert!(stays_inside(&Url::parse(u).unwrap()), "{u}");
+        for u in ["http://127.0.0.1:51234/#/r/x", "http://localhost:51234/", "tauri://localhost/index.html", "http://tauri.localhost/index.html", "about:blank"] {
+            assert!(stays_inside(&Url::parse(u).unwrap(), 51234), "{u}");
         }
+        // 다른 포트의 서버(다른 사용자의 앱, 예전 5174)는 창 안에서 열지 않는다
+        assert!(!stays_inside(&Url::parse("http://127.0.0.1:5174/").unwrap(), 51234));
     }
 
     #[test]
     fn resume_only_server_pages() {
-        assert_eq!(resume_target(&Url::parse("http://127.0.0.1:5174/#/r/x/flow").unwrap()).as_deref(), Some("http://127.0.0.1:5174/#/r/x/flow"));
-        assert_eq!(resume_target(&Url::parse("tauri://localhost/index.html").unwrap()), None);
-        assert_eq!(resume_target(&Url::parse("https://arxiv.org/").unwrap()), None);
+        let at = |u: &str| resume_target(&Url::parse(u).unwrap(), 51234);
+        assert_eq!(at("http://127.0.0.1:51234/#/r/x/flow").as_deref(), Some("/#/r/x/flow"));
+        assert_eq!(at("http://127.0.0.1:51234/__open?k=secret&to=%2F").as_deref(), None);
+        assert_eq!(at("http://127.0.0.1:5174/#/r/x").as_deref(), None);
+        assert_eq!(at("tauri://localhost/index.html"), None);
+        assert_eq!(at("https://arxiv.org/").as_deref(), None);
+    }
+
+    #[test]
+    fn stored_resume_reads_paths_and_old_addresses() {
+        assert_eq!(stored_resume("/#/r/x\n").as_deref(), Some("/#/r/x"));
+        assert_eq!(stored_resume("http://127.0.0.1:5174/#/r/x/flow").as_deref(), Some("/#/r/x/flow"));
+        assert_eq!(stored_resume("//evil.example/").as_deref(), None);
+        assert_eq!(stored_resume("https://evil.example/#/r/x").as_deref(), None);
+        assert_eq!(stored_resume("http://127.0.0.1:5174/__open?k=x").as_deref(), None);
+    }
+
+    #[test]
+    fn keys_and_ports_are_fresh() {
+        let (a, b) = (new_key().unwrap(), new_key().unwrap());
+        assert!(a.len() == 48 && a.chars().all(|c| c.is_ascii_hexdigit()) && a != b);
+        assert!(free_port().is_some_and(|p| p != 0));
     }
 
     #[test]
     fn menu_items_change_only_the_page_address() {
-        assert_eq!(menu_script("update").as_deref(), Some("location.href = \"http://127.0.0.1:5174/#/settings/sync\""));
-        assert_eq!(menu_script("reload").as_deref(), Some("location.reload()"));
-        assert_eq!(menu_script("quit"), None);
+        assert_eq!(menu_script("update", 51234).as_deref(), Some("location.href = \"http://127.0.0.1:51234/#/settings/sync\""));
+        assert_eq!(menu_script("reload", 51234).as_deref(), Some("location.reload()"));
+        assert_eq!(menu_script("quit", 51234), None);
     }
 
     #[test]
     fn other_addresses_go_outside() {
         for u in ["https://arxiv.org/abs/1", "https://github.com/x", "http://127.0.0.1:5173/", "mailto:a@b.c", "file:///etc/passwd"] {
-            assert!(!stays_inside(&Url::parse(u).unwrap()), "{u}");
+            assert!(!stays_inside(&Url::parse(u).unwrap(), 51234), "{u}");
+        }
+    }
+
+    #[test]
+    fn only_web_and_mail_addresses_open_outside() {
+        for u in ["https://arxiv.org/abs/1?a=1&calc", "http://x.example/", "mailto:a@b.c"] {
+            assert!(may_open_outside(&Url::parse(u).unwrap()), "{u}");
+        }
+        for u in ["file:///C:/Windows/System32/calc.exe", "ms-settings:", "javascript:alert(1)", "smb://host/share"] {
+            assert!(!may_open_outside(&Url::parse(u).unwrap()), "{u}");
         }
     }
 }
