@@ -56,7 +56,7 @@ import { batchInvalidation, invalidationKeys, qk } from './queries'
 import { recordWrites } from './useRecordActions'
 import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
-import { usePhone, usePhoneCloses, useStoredFlag } from './phoneLayout'
+import { usePhone, usePhoneCloses, useLeftSide, useStoredFlag } from './phoneLayout'
 import { applyUi, cachedUi } from './ui'
 import { FLASH_EVENT, type FlashAction, type FlashMessage } from './flash'
 import { usePublishFailureFlash } from './RecordsPublish'
@@ -133,8 +133,8 @@ export function App() {
     window.addEventListener(AGENT_OPEN, agent)
     return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(AGENT_OPEN, agent) }
   }, [setLayout, setGlobalRight])
-  const [sideOpen, setSideOpen] = useStoredFlag('rw-side', true)
-  usePhoneCloses(usePhone(), JSON.stringify(route), () => { setSideOpen(false); setGlobalRight(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
+  const [sideOpen, setSideOpen, closeSides] = useLeftSide(route.page === 'agent')
+  usePhoneCloses(usePhone(), JSON.stringify(route), () => { closeSides(); setGlobalRight(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
   const onGlobalPage = useRef(false)
   onGlobalPage.current = route.page === 'home' || !!globalPageOf(route.page)
   const [quickMemo, setQuickMemo] = useState(false)
@@ -492,7 +492,7 @@ export function App() {
           <div className="side-resize" data-ui="사이드바 폭 조절" role="separator" aria-orientation="vertical" title={t('끌어 폭 바꾸기 · 두 번 누르면 처음 폭', 'Drag to resize · double-click to reset')}
             onPointerDown={dragSide} onDoubleClick={() => saveSideW(SIDE_W)} />
           {globalSide ? (
-            <div className="side-scroll">{globalSide({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight })}</div>
+            <div className="side-scroll">{globalSide({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight, sideOpen: showSide, onSide: () => setSideOpen(true) })}</div>
           ) : current && <>
             {/* 프로젝트 이름은 제목줄에만 둔다 (10/3 피드백: 중복 없애기) */}
             <div className="side-scroll project-side-scroll">
@@ -503,7 +503,7 @@ export function App() {
         </aside>}
 
         {globalPageOf(route.page) ? (
-          globalPageOf(route.page)!.render({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight })
+          globalPageOf(route.page)!.render({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight, sideOpen: showSide, onSide: () => setSideOpen(true) })
         ) : route.page === 'home' ? (
           researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} askRecords={issues.records} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
         ) : !rid || !summary || !rapi ? (

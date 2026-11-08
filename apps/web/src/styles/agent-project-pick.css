@@ -1,0 +1,17 @@
+/* 새 대화의 프로젝트 고르기(알약 버튼 · 메뉴)와 최근 대화 (11/8 14:16 제안, AgentProjectPick.tsx) */
+.ac-pop-btn.pill { border: 1px solid var(--line-strong); border-radius: var(--r-pill); max-width: 260px; color: var(--text); }
+.ac-pop-btn.pill .ac-pick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ac-pick-search { margin: var(--sp-1) var(--sp-1) var(--sp-1); width: calc(100% - 2 * var(--sp-1)); box-sizing: border-box; height: 28px; padding: 0 var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-xs); }
+.ac-pick-search:focus { outline: none; border-color: var(--link); }
+.ac-pick-sep { border-top: 1px solid var(--line); margin-top: var(--sp-1); padding-top: var(--sp-2); }
+.ac-recent { display: grid; gap: var(--sp-1); margin-top: var(--sp-5); }
+.ac-recent-h { font-size: var(--fs-xs); color: var(--text-3); font-weight: var(--fw-strong); }
+.ac-recent-list { padding: 0; background: none; }
+.ac-recent-row { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ac-recent-row > .ac-line-wrap, .ac-recent-row > .ac-line { flex: 1; min-width: 0; }
+.ac-recent-proj { flex: none; max-width: 40%; font-size: var(--fs-2xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-recent-all { justify-self: start; font-size: var(--fs-xs); }
+.ac-new-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ac-new-row .segmented button { white-space: nowrap; }
+.ac-pop-btn.pill { flex: 0 1 auto; }
+.ac-pop-btn.pill .ac-pick-name { min-width: 3em; }

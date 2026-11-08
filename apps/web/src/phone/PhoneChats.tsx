@@ -10,8 +10,8 @@ import { Sheet } from './Sheet'
  * 줄을 누르면 맥과 같은 대화 화면(말풍선 · 카드 · 입력란)이 열린다. 새 대화는 아래에서 올라오는 시트에서 쓴다.
  * 맥 폭에서는 예전 그대로(사이드바 목록 + 본문 새 대화).
  */
-export function AgentScreen({ id, onSaved }: { id?: string; onSaved(m: string): void }) {
-  return usePhone() && !id ? <PhoneChats /> : <AgentPage id={id} onSaved={onSaved} />
+export function AgentScreen({ id, onSaved, side }: { id?: string; onSaved(m: string): void; side?: { open: boolean; onOpen(): void } }) {
+  return usePhone() && !id ? <PhoneChats /> : <AgentPage id={id} onSaved={onSaved} side={side} />
 }
 
 function PhoneChats() {

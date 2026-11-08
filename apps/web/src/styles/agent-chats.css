@@ -142,9 +142,6 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-stop-sq { width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
 
 .ac-new { display: flex; flex-direction: column; gap: var(--sp-2); }
-.ac-new-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
-.ac-new-row .rs-select { width: auto; max-width: 100%; }
-.ac-new-row .segmented button { white-space: nowrap; }
 .ac-h { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-strong); }
 
 /* 세부 패널 (에이전트 화면 오른쪽, 바뀐 곳 · 작업 버튼으로 여닫는다) */
