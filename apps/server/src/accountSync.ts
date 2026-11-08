@@ -126,6 +126,7 @@ export class AccountSync {
     const notes: string[] = []
     const errors: string[] = []
     if (!login) return { notes, errors }
+    const skipped: string[] = []
     const step = async (what: string, fn: () => Promise<void>) => { try { await fn() } catch (e) { errors.push(`${what}: ${firstLine(e)}`) } }
     const owned = (remote: string | null) => ownerOf(remote) === login
 
@@ -143,9 +144,9 @@ export class AccountSync {
 
     // 2. 라이브러리 · 논문 폴더
     const lib = registry.libraryPath
-    if (lib) await step(t('라이브러리', 'Library'), () => this.folder(lib, LIBRARY_REPO, owned, notes, this.d.libraryTemplate))
+    if (lib) await step(t('라이브러리', 'Library'), async () => { skipped.push(...(await this.folder(lib, LIBRARY_REPO, owned, notes, this.d.libraryTemplate)).map((f) => `${t('라이브러리', 'Library')}/${f}`)) })
     const papers = registry.pdfFolders[0]
-    if (papers) await step(t('논문 PDF', 'Paper PDFs'), () => this.folder(papers, PAPERS_REPO, owned, notes))
+    if (papers) await step(t('논문 PDF', 'Paper PDFs'), async () => { skipped.push(...await this.folder(papers, PAPERS_REPO, owned, notes)) })
 
     // 3. 프로젝트
     let uploaded = 0
@@ -155,11 +156,14 @@ export class AccountSync {
         const remote = await this.d.remoteOf(r.path)
         if (!remote) {
           if (!fs.existsSync(path.join(r.path, 'workbench'))) return
+          if (!fs.existsSync(path.join(r.path, '.git'))) await git(r.path, ['init', '--quiet', '-b', 'main'])
+          skipped.push(...excludeBig(r.path, 'workbench').map((f) => `${r.title}/${f}`))
           const url = await this.createUnique(repoNameOf(path.basename(r.path)), `Emergence Workbench project: ${r.title}`)
           await attach(r.path, url, ['workbench'])
           notes.push(t(`계정에 올림: ${r.title}`, `Put on the account: ${r.title}`))
           uploaded++
         } else if (owned(remote)) {
+          skipped.push(...excludeBig(r.path, 'workbench').map((f) => `${r.title}/${f}`))
           await publish(r.path, ['workbench'])
         }
       })
@@ -183,6 +187,7 @@ export class AccountSync {
       this.pulledAt = Date.now()
       await step(t('논문 PDF 받기', 'Paper PDF download'), async () => { if (owned(await this.d.remoteOf(papers))) await autoPull(papers) })
     }
+    this.skipped = skipped
     return { notes, errors }
   }
 
@@ -196,31 +201,32 @@ export class AccountSync {
     throw new Error(t(`GitHub에 ${name}과 같은 이름이 너무 많습니다`, `Too many repositories named like ${name} on GitHub`))
   }
 
-  /** 라이브러리 · 논문 폴더: 처음이면 올리거나(새 계정) GitHub 것을 받고(새 컴퓨터), 그다음은 바뀔 때마다 올린다 */
-  private async folder(dir: string, repo: string, owned: (r: string | null) => boolean, notes: string[], template?: string): Promise<void> {
-    if (!fs.existsSync(dir)) return
+  /** 라이브러리 · 논문 폴더: 처음이면 올리거나(새 계정) GitHub 것을 받고(새 컴퓨터), 그다음은 바뀔 때마다 올린다. 너무 커서 뺀 파일 */
+  private async folder(dir: string, repo: string, owned: (r: string | null) => boolean, notes: string[], template?: string): Promise<string[]> {
+    if (!fs.existsSync(dir)) return []
     const remote = await this.d.remoteOf(dir)
     if (remote) {
-      if (!owned(remote)) return
-      this.skipped = repo === PAPERS_REPO ? excludeBig(dir) : this.skipped
+      if (!owned(remote)) return []
+      const big = excludeBig(dir)
       await publish(dir, await entries(dir), FAR)
-      return
+      return big
     }
     // 다른 저장소 안에 있는 폴더는 건드리지 않는다 (그 안에 저장소를 또 만들지 않게)
     const top = await git(dir, ['rev-parse', '--show-toplevel']).catch(() => '')
-    if (top && fs.realpathSync.native(top) !== fs.realpathSync.native(dir)) return
+    if (top && fs.realpathSync.native(top) !== fs.realpathSync.native(dir)) return []
     const found = await this.d.account.repoUrl(repo)
     // 큰 파일을 빼는 목록(.git/info/exclude)이 git add보다 먼저 있어야 한다
     if (!fs.existsSync(path.join(dir, '.git'))) await git(dir, ['init', '--quiet', '-b', 'main'])
-    if (repo === PAPERS_REPO) this.skipped = excludeBig(dir)
+    const big = excludeBig(dir)
     if (found && await adopt(dir, found, template)) {
-      notes.push(t(`${repo}을(를) GitHub에서 받았습니다`, `Downloaded ${repo} from GitHub`))
+      notes.push(t(`GitHub에서 받음: ${repo}`, `Downloaded from GitHub: ${repo}`))
       await publish(dir, await entries(dir), FAR)
-      return
+      return big
     }
     const url = found ?? await this.d.account.createPrivateRepo(repo, 'Emergence Workbench', false)
     await attach(dir, url, null)
-    notes.push(t(`${repo}을(를) 계정에 올렸습니다`, `Put ${repo} on the account`))
+    notes.push(t(`계정에 올림: ${repo}`, `Put on the account: ${repo}`))
+    return big
   }
 
   /** 다른 컴퓨터들이 올린 목록에서 이 계정의 저장소이고 이 컴퓨터에 없는 프로젝트를 받아 등록한다. 받은 것의 이름 */
@@ -310,8 +316,8 @@ export async function adopt(dir: string, url: string, template?: string, now = n
   return true
 }
 
-/** 95MB가 넘는 파일을 .git/info/exclude에 적어 올리지 않는다. 그런 파일 (폴더 기준 경로) */
-export function excludeBig(dir: string): string[] {
+/** 95MB가 넘는 파일을 .git/info/exclude에 적어 올리지 않는다(GitHub는 100MB가 넘는 파일을 받지 않아 올리기 전체가 막힌다). under가 있으면 그 아래만 본다. 그런 파일 (폴더 기준 경로) */
+export function excludeBig(dir: string, under = ''): string[] {
   const big: string[] = []
   const walk = (rel: string) => {
     for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
@@ -321,7 +327,7 @@ export function excludeBig(dir: string): string[] {
       else if (e.isFile() && fs.statSync(path.join(dir, r)).size > BIG_FILE) big.push(r)
     }
   }
-  walk('')
+  if (fs.existsSync(path.join(dir, under))) walk(under)
   const file = path.join(dir, '.git', 'info', 'exclude')
   if (fs.existsSync(path.join(dir, '.git'))) {
     const have = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
