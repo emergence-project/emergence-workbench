@@ -4,16 +4,17 @@
  * - codex · gemini: 이 맥에 깐 CLI를 Agent Client Protocol(ACP, Zed가 만든 에디터 · 에이전트 공통 규약)로 띄운다 (agentAcp.ts).
  *   Gemini CLI는 `gemini --acp`로 직접, Codex는 공개 연결부 codex-acp(@agentclientprotocol/codex-acp)로. 둘 다 그 컴퓨터의 로그인을 그대로 쓴다.
  * 실행 파일은 PATH(claudeEnv)와 npm 전역 폴더에서 찾고, RW_CODEX_ACP_BIN · RW_GEMINI_BIN이 먼저다 (시험은 가짜 에이전트를 넣는다).
- * 설치 파일로 깐 앱(11/8 "친구도 에이전트에게 노트 제작 · 수정을 맡겨야"): 앱에 든 Codex 연결부(vendor/codex-acp, scripts/bundle-app.mjs)를
- * 앱에 든 node로 띄우고, 앱이 받은 codex(설정 › 에이전트의 「ChatGPT로 연결」, codexCli.ts)를 CODEX_PATH로 넘긴다. Node · npm이 없어도 된다.
+ * Codex는 앱의 연결부(설치 파일로 깐 앱은 앱 안 vendor/codex-acp, 저장소에서 도는 앱은 설정 폴더에 받은 것, codexAcp.ts)를
+ * 앱의 node로 띄우고, 앱이 쓰는 codex(설정 › 에이전트의 「ChatGPT로 연결」, codexCli.ts)를 CODEX_PATH로 넘긴다.
+ * 그래서 어느 앱이든 「ChatGPT로 연결」 하나로 묻기와 대화가 같은 codex · 같은 로그인을 쓴다 (11/8 "장점만 취하자"). npm은 필요 없다.
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { AgentKind, ChatAgents } from '@rw/core/contract/agentChats'
-import { appFile } from './agentPaths.js'
 import { claudeEnv, claudeExecutable, claudeInstalled, pathDirs, withPath } from './ask.js'
+import { codexAcpJs } from './codexAcp.js'
 import { codexBin, codexLoggedIn } from './codexCli.js'
 
 export interface AcpSpec {
@@ -78,22 +79,16 @@ export function spawnTarget(bin: string): { file: string; shell: boolean } {
   return /\.cmd$/i.test(bin) ? { file: `"${bin}"`, shell: true } : { file: bin, shell: false }
 }
 
-/** 앱에 든 Codex 연결부 (scripts/bundle-app.mjs). RW_CODEX_ACP_JS가 먼저 (시험) */
-const bundledAcpJs = (): string | undefined => {
-  const p = process.env.RW_CODEX_ACP_JS ?? appFile('vendor/codex-acp/index.js')
-  return fs.existsSync(p) ? p : undefined
-}
-
 /** 에이전트를 띄우는 명령: 실행 파일 · 인자 · 셸 여부 · 더할 환경 */
 export interface AcpCommand { file: string; args: string[]; shell: boolean; env?: Record<string, string>; bundled?: true }
 
 /**
- * 그 에이전트를 띄우는 명령 (없으면 undefined). 차례: 환경 변수(시험) → 앱에 든 Codex 연결부 + 앱이 받은 codex → PATH의 실행 파일.
- * 앱에 든 연결부는 있는데 codex가 아직 없으면 undefined (설정 › 에이전트에서 「ChatGPT로 연결」을 누르면 생긴다)
+ * 그 에이전트를 띄우는 명령 (없으면 undefined). 차례: 환경 변수(시험) → 앱의 Codex 연결부 + 앱이 쓰는 codex → PATH의 실행 파일.
+ * 연결부는 있는데 codex가 아직 없으면 undefined (설정 › 에이전트에서 「ChatGPT로 연결」을 누르면 생긴다)
  */
 export function acpCommand(spec: AcpSpec, configDir?: string): AcpCommand | undefined {
   if (!process.env[spec.envBin] && spec.id === 'codex' && configDir) {
-    const js = bundledAcpJs()
+    const js = codexAcpJs(configDir)
     const codex = js && codexBin(configDir)
     if (js && codex) return { file: process.execPath, args: [js], shell: false, env: { CODEX_PATH: codex }, bundled: true }
   }
@@ -115,19 +110,20 @@ function versionOf(cmd: { file: string; args?: string[]; shell: boolean }): stri
 /**
  * 설정 › 에이전트와 모델 메뉴: 이 컴퓨터에서 맡길 수 있는 에이전트 (버전은 5초 안에 답할 때만).
  * Claude는 Agent SDK에 든 것(저장소에서 돌 때)이나 이 컴퓨터에 깐 claude가 있을 때만 installed (설치 파일로 깐 앱에는 없을 수 있다).
- * bundled = 앱에 든 Codex 연결부를 쓴다: 깔 명령 대신 「ChatGPT로 연결」이 그 자리다
+ * bundled = Codex를 앱이 맡는다(설정 폴더를 알 때): 깔 명령 대신 「ChatGPT로 연결」이 그 자리이고, 로그인은 묻기와 같은 codex로 본다
  */
 export function agentsHere(home = os.homedir(), configDir?: string): ChatAgents['agents'] {
   const claude = claudeExecutable()
   const out: ChatAgents['agents'] = [{ id: 'claude-code', name: AGENT_NAME['claude-code'], installed: claudeInstalled(), ...(claude && { version: versionOf(spawnTarget(claude)) }) }]
   for (const spec of Object.values(ACP_AGENTS)) {
     const cmd = acpCommand(spec, configDir)
-    const own = spec.id === 'codex' && !process.env[spec.envBin] && !!configDir && !!bundledAcpJs()
+    const own = spec.id === 'codex' && !process.env[spec.envBin] && !!configDir
     const login = own
       ? codexLoggedIn(configDir ? codexBin(configDir) : undefined)
       : spec.loginFiles.some((f) => fs.existsSync(path.join(home, f))) || spec.loginEnv.some((k) => !!process.env[k])
     const version = cmd ? versionOf(cmd.bundled ? cmd : { ...cmd, args: [] }) : undefined
-    out.push({ id: spec.id, name: spec.name, installed: !!cmd, ...(version && { version }), login, ...(own ? { bundled: true } : !cmd && { install: spec.install }) })
+    // 앱이 맡는 Codex는 codex만 있으면 깔린 것: 연결부는 대화를 열 때 받는다 (codexAcp.ts의 ensureCodexAcp)
+    out.push({ id: spec.id, name: spec.name, installed: !!cmd || (own && !!configDir && !!codexBin(configDir)), ...(version && { version }), login, ...(own ? { bundled: true } : !cmd && { install: spec.install }) })
   }
   return out
 }

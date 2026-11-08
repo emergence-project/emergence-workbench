@@ -7,6 +7,7 @@ import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { aiKeyView, readAiKey, writeAiKey } from '../aiKey.js'
+import { installCodexAcp } from '../codexAcp.js'
 import { codexStatus, installCodex, loginCodex } from '../codexCli.js'
 import { releaseChecker } from '../releaseCheck.js'
 import { t } from '../i18n.js'
@@ -62,7 +63,8 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   // ChatGPT로 답하기 (11/8): 앱이 Codex를 받아 두고 ChatGPT 계정으로 로그인한다. 둘 다 오래 걸려 시작만 하고 GET으로 본다
   app.get('/api/settings/codex', replies(C.CodexStatus), async (): Promise<C.CodexStatus> => codexStatus(registry.configDir))
   app.post('/api/settings/codex/install', replies(C.CodexStatus), async (): Promise<C.CodexStatus> => {
-    const started = installCodex(registry.configDir)
+    // 받은 뒤 대화용 Codex 연결부도 받는다 (codexAcp.ts): 묻기와 대화가 같은 codex를 쓴다. 연결부가 안 받아져도 묻기는 된다
+    const started = installCodex(registry.configDir).then(() => installCodexAcp(registry.configDir).catch(() => undefined))
     started.catch(() => { /* 오류는 상태의 error로 보인다 */ })
     return codexStatus(registry.configDir)
   })

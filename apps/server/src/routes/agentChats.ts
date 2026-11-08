@@ -9,6 +9,7 @@ import type { AppWork } from '../appWorktree.js'
 import { claudeAgentRunner } from '../agentRunner.js'
 import { acpAgentRunner } from '../agentAcp.js'
 import { ACP_AGENTS, agentsHere, isAcp } from '../agentKinds.js'
+import { ensureCodexAcp } from '../codexAcp.js'
 import { registerChatMcp } from '../agentMcpHttp.js'
 import { parseBody, replies } from '../contract.js'
 import { createMcpServer } from '../mcp.js'
@@ -87,7 +88,11 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.get('/api/agent-chats/extras', replies(C.ChatExtras), async (): Promise<C.ChatExtras> => chatExtras(MCP_NAME))
   app.get<{ Querystring: { agent?: string } }>('/api/agent-chats/models', replies(C.ChatModels), async (req): Promise<C.ChatModels> => ({ models: await chats.models(isAcp(req.query.agent) ? req.query.agent : undefined) }))
   /** 대화를 맡길 수 있는 에이전트 (Claude · Codex · Gemini): 깔렸는지 · 로그인했는지 · 깔 명령 */
-  app.get('/api/agent-chats/agents', replies(C.ChatAgents), async (): Promise<C.ChatAgents> => ({ agents: agentsHere(undefined, registry.configDir) }))
+  app.get('/api/agent-chats/agents', replies(C.ChatAgents), async (): Promise<C.ChatAgents> => {
+    // codex는 있는데 연결부가 없으면 뒤에서 받는다 (다음에 읽을 때 Codex가 깔린 것으로 보인다)
+    if (!process.env.VITEST) void ensureCodexAcp(registry.configDir)
+    return { agents: agentsHere(undefined, registry.configDir) }
+  })
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 
