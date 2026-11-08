@@ -53,7 +53,6 @@
 
 /* 찾기 (본문 맨 위 가운데)와 머리줄 왼쪽의 보기 상자 (10/31 시안 1절) */
 .pl-find { display: flex; justify-content: center; padding: var(--sp-3) var(--sp-4) var(--sp-1); }
-.pl-find .cn-search { max-width: 520px; }
 .pl-head-left { display: flex; align-items: center; gap: var(--sp-2); }
 .pl-head-left .crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pl .lib-head .segmented { height: var(--input-h); }

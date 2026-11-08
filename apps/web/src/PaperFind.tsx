@@ -5,13 +5,18 @@ import { PAPERS_CHANGED, matchPaper, showPaper } from './PapersPage'
 import { go } from './router'
 import { useSubjects } from './SubjectPicker'
 import { readPaper } from './PaperRead'
+import { Icon } from './icons'
 
 /**
  * 논문 찾기 칸 (10/31 시안 1절): 첫 화면과 목록 맨 위 가운데. 글을 쓰면 아래에 묶음별 결과가 뜬다.
  * ① 라이브러리(첫 화면만: 목록에서는 표가 바로 걸러진다) ② 분류 · 프로젝트 ③ PDF 폴더(Google Drive 등)에만 있는 PDF ④ 인터넷(arXiv · Semantic Scholar · Crossref)
  * ③ · ④의 「＋ 추가」는 라이브러리에 더하고 그 논문을 연다. PDF 폴더의 파일은 옮기지 않는다
  * ④는 줄을 누르면 넣지 않고 먼저 읽는다 (PaperRead, 11/5)
+ * 칸 모양 (11/8 16:03 제안 진행, 시안 N7ik 1절): 높이 42px · 움푹한 바탕 · 돋보기 · 바로 가는 키 「/」, 찾는 곳은 칸 아래 칩(모두 · 라이브러리 · Google Drive · 인터넷)
  */
+
+type Scope = 'all' | 'library' | 'drive' | 'web'
+const SCOPES: [Scope, string][] = [['all', t('모두', 'All')], ['library', t('라이브러리', 'Library')], ['drive', 'Google Drive'], ['web', t('인터넷', 'Internet')]]
 
 const EACH = 5
 const WAIT = 450
@@ -32,16 +37,35 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
   const [found, setFound] = useState<{ q: string; r: PaperSearch } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState('')
+  const [scope, setScope] = useState<Scope>('all')
   const box = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
   const q = value.trim()
   const ready = q.length >= 2
+  /** 라이브러리 · 분류 · 프로젝트는 화면에서, Google Drive · 인터넷은 서버에서 찾는다 */
+  const local = scope === 'all' || scope === 'library'
+  const outside = scope !== 'library'
+
+  // 바로 가는 키 「/」: 이 칸이 있는 화면에서는 앱 전체 검색 대신 이 칸으로 간다 (글을 쓰는 중이거나 창이 떠 있으면 그대로 둔다)
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = document.activeElement
+      if (el instanceof HTMLElement && (/^(TEXTAREA|INPUT|SELECT)$/.test(el.tagName) || el.isContentEditable)) return
+      if (document.querySelector('[role="dialog"]') || !input.current?.offsetParent) return
+      e.preventDefault(); e.stopPropagation()
+      input.current.focus()
+    }
+    window.addEventListener('keydown', on, true)
+    return () => window.removeEventListener('keydown', on, true)
+  }, [])
 
   useEffect(() => {
-    if (!ready) { setFound(null); return }
+    if (!ready || !outside) { setFound(null); return }
     let live = true
     const timer = setTimeout(() => { papersApi.search(q).then((r) => { if (live) setFound({ q, r }) }).catch(() => { if (live) setFound({ q, r: { drive: [], web: [], offline: true } }) }) }, WAIT)
     return () => { live = false; clearTimeout(timer) }
-  }, [q, ready])
+  }, [q, ready, outside])
 
   useEffect(() => {
     if (!open) return
@@ -60,20 +84,29 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)) } finally { setBusy(null) }
   }
 
-  const lib = papers ? papers.filter((p) => matchPaper(p, q)) : []
-  const subjects = tree?.enabled ? tree.items.filter((s) => has(s.name, q)).slice(0, EACH) : []
-  const projs = projects.filter((p) => has(p.title, q)).slice(0, EACH)
+  const lib = papers && local ? papers.filter((p) => matchPaper(p, q)) : []
+  const subjects = tree?.enabled && local ? tree.items.filter((s) => has(s.name, q)).slice(0, EACH) : []
+  const projs = local ? projects.filter((p) => has(p.title, q)).slice(0, EACH) : []
   const now = found?.q === q ? found.r : null
+  const drive = scope === 'all' || scope === 'drive' ? now?.drive ?? [] : []
+  const web = scope === 'all' || scope === 'web' ? now?.web ?? [] : []
   const pick = (to: () => void) => { setOpen(false); to() }
 
   return (
     <div className="pf" ref={box} data-ui="논문 찾기">
-      <input className="cn-search" type="search" value={value} placeholder={t('찾기 — 라이브러리 · Google Drive · 인터넷', 'Search library · Google Drive · internet')} aria-label={t('논문 찾기', 'Search papers')}
-        onChange={(e) => { onChange(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)} onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }} />
+      <label className="pf-box">
+        <span className="pf-icon" aria-hidden>{Icon.search}</span>
+        <input ref={input} type="search" value={value} placeholder={t('논문 제목 · 저자 · arXiv 번호', 'Title · author · arXiv number')} aria-label={t('논문 찾기', 'Search papers')}
+          onChange={(e) => { onChange(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)} onKeyDown={(e) => { if (e.key === 'Escape') { setOpen(false); input.current?.blur() } }} />
+        {!value && <kbd className="kbd pf-kbd" title={t('「/」를 누르면 이 칸으로 옵니다', 'Press / to jump here')}>/</kbd>}
+      </label>
+      <div className="pf-scopes" role="radiogroup" aria-label={t('찾는 곳', 'Where to search')} data-ui="찾는 곳">
+        {SCOPES.map(([k, name]) => <button key={k} type="button" role="radio" aria-checked={scope === k} className={`memo-chip${scope === k ? ' on' : ''}`} onClick={() => { setScope(k); if (ready) setOpen(true); input.current?.focus() }}>{name}</button>)}
+      </div>
       {open && ready && (
         <div className="pf-pop" data-ui="찾기 결과">
           {err && <div className="banner danger pf-err">{err}</div>}
-          {papers && (
+          {papers && local && (
             <Group title={t('라이브러리', 'Library')} n={lib.length}>
               {lib.slice(0, EACH).map((p) => (
                 <button key={p.key} className="pf-row" onClick={() => pick(() => showPaper(p.key))}>
@@ -89,10 +122,10 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
               {projs.map((p) => <button key={p.id} className="pf-row" onClick={() => pick(() => go({ page: 'shelf', filter: `project:${p.id}` }))}><span className="pf-title">{p.title}</span><span className="pf-meta">{t('프로젝트', 'Project')}</span></button>)}
             </Group>
           )}
-          {!now && <p className="pf-wait">{t('PDF 폴더와 인터넷에서 찾는 중…', 'Searching PDF folders and the internet…')}</p>}
-          {now && now.drive.length > 0 && (
+          {outside && !now && <p className="pf-wait">{t('PDF 폴더와 인터넷에서 찾는 중…', 'Searching PDF folders and the internet…')}</p>}
+          {drive.length > 0 && (
             <Group title={t('Google Drive · PDF 폴더', 'Google Drive · PDF folders')}>
-              {now.drive.map((d) => (
+              {drive.map((d) => (
                 <div key={d.file} className="pf-row pf-out">
                   <span className="pf-title">{d.name}</span><span className="pf-meta">{d.folder}{d.id ? ` · ${d.id}` : ''}</span>
                   <button className="btn small" disabled={!d.id || busy !== null} data-tip={d.id ? undefined : t('PDF에서 arXiv 번호나 DOI를 찾지 못했습니다. 목록의 「＋ 논문 추가」에 끌어다 놓아 주세요', 'No arXiv number or DOI found in the PDF. Drop it on "＋ Add paper" in the list')}
@@ -101,9 +134,9 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
               ))}
             </Group>
           )}
-          {now && now.web.length > 0 && (
+          {web.length > 0 && (
             <Group title={t('인터넷', 'Internet')}>
-              {now.web.map((w) => (
+              {web.map((w) => (
                 <div key={`${w.source}:${w.id}`} className="pf-row pf-out">
                   <button className="pf-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => pick(() => readPaper(w))}><span className="pf-title">{w.title}</span><span className="pf-meta">{shortAuthors(w.authors)}{w.year ? ` · ${w.year}` : ''} · {SOURCE[w.source]}</span></button>
                   <button className="btn small" disabled={busy !== null} onClick={() => void add(w.id, () => papersApi.add(w.id))}>{busy === w.id ? t('더하는 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
@@ -111,8 +144,8 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
               ))}
             </Group>
           )}
-          {now?.offline && <p className="pf-wait">{t('인터넷에 연결되지 않아 바깥 결과는 보지 못했습니다.', 'Not connected to the internet, so outside results are missing.')}</p>}
-          {now && !now.offline && !lib.length && !subjects.length && !projs.length && !now.drive.length && !now.web.length && <p className="pf-wait">{t('찾은 것이 없습니다.', 'Nothing found.')}</p>}
+          {outside && now?.offline && <p className="pf-wait">{t('인터넷에 연결되지 않아 바깥 결과는 보지 못했습니다.', 'Not connected to the internet, so outside results are missing.')}</p>}
+          {(outside ? now && !now.offline : !!papers) && !lib.length && !subjects.length && !projs.length && !drive.length && !web.length && <p className="pf-wait">{t('찾은 것이 없습니다.', 'Nothing found.')}</p>}
         </div>
       )}
     </div>
