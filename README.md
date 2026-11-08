@@ -38,6 +38,10 @@ pnpm dev        # the same with the Korean sample
 
 Sample mode (`RW_SANDBOX=1`) copies a sample research project and a sample library into `.sandbox/` (`.sandbox-en/` for the English sample) and never touches your real config or repositories.
 
+## Windows
+
+Download the installer from the [latest release](https://github.com/emergence-project/emergence-workbench/releases/latest) (Assets › `…_x64-setup.exe`). It carries everything it needs; steps and the "Windows protected your PC" prompt are in [docs/install-windows.md](docs/install-windows.md).
+
 ## Use it for real (macOS)
 
 ```sh
@@ -89,6 +93,8 @@ Emergence Workbench(연구 작업대)는 여러 연구를 함께 진행하는 �
 **다른 점:** 모든 기록은 내 git 저장소의 평범한 파일(Markdown·LaTeX·YAML)이고, 에이전트는 화면과 같은 API를 쓰는 MCP 입구([docs/agent-mcp.ko.md](docs/agent-mcp.ko.md))로 들어와 hash를 확인하고 씁니다. 고치지 않은 원고는 저장해도 바이트가 그대로이고(`pnpm safety:check`로 확인), 에이전트의 보고는 내가 작업 탭에서 승인합니다.
 
 **예제로 써 보기:** `pnpm install` 뒤 `pnpm dev`(영어 예제는 `pnpm dev:en`)를 실행하고 http://localhost:5173 을 엽니다. 예제 연구와 예제 라이브러리를 `.sandbox/`에 복사해 쓰므로 실제 설정과 저장소는 건드리지 않습니다.
+
+**윈도우:** [최신 릴리스](https://github.com/emergence-project/emergence-workbench/releases/latest)의 Assets에서 `…_x64-setup.exe`를 받아 설치합니다. 필요한 것을 모두 품고 있습니다. 순서와 "PC 보호" 창은 [docs/install-windows.ko.md](docs/install-windows.ko.md)에 있습니다.
 
 **맥에서 실사용:** 앱 폴더에서 `zsh scripts/install.sh`를 한 번 실행하면 앱 아이콘(응용 프로그램 · Spotlight · 바탕화면 · Dock), 백그라운드 서비스(http://127.0.0.1:5174), Claude Code · Codex 등록까지 마칩니다. 다시 실행해도 되고(된 것은 건너뜀), 손으로 고친 뒤에는 `pnpm service:restart`를 실행합니다. 자세한 설정은 [docs/mac-setup.ko.md](docs/mac-setup.ko.md)에 있습니다. 설정은 `~/.config/research-workspace/config.yaml`에 있습니다. 피드백·설정 백업 같은 개인 기록은 설정 › 계정에서 정한(그 파일의 `personalRepo:`) 비공개 개인 저장소에 올라갑니다. 같은 화면이 시작 준비(GitHub 로그인, 커밋 이름·이메일, 내 이름·소속, 첫 프로젝트, 에이전트 연결 명령)에서 남은 것을 보여 줍니다. 정하지 않으면 이 컴퓨터에만 남고 아무것도 올리지 않습니다.
 

@@ -28,10 +28,22 @@ export interface GitOptions {
   input?: string
 }
 
+/**
+ * git 전체 설정에 이름 · 이메일이 없을 때 커밋에 대신 적을 것 (내려받은 앱, 11/8 "GitHub를 모르는 친구").
+ * 비어 있으면 git이 커밋을 거절해 기록 · 노트를 저장소에 남기지 못하므로, 사용자가 설정 › 계정에서 적기 전까지 이것을 쓴다.
+ * git 설정 파일은 고치지 않고 이 서버가 부르는 git에만 환경 변수로 준다
+ */
+let fallbackIdentity: { name: string; email: string } | null = null
+export function setFallbackIdentity(id: { name: string; email: string } | null): void { fallbackIdentity = id }
+export function getFallbackIdentity(): { name: string; email: string } | null { return fallbackIdentity }
+const identityEnv = (): Record<string, string> => fallbackIdentity
+  ? { GIT_AUTHOR_NAME: fallbackIdentity.name, GIT_AUTHOR_EMAIL: fallbackIdentity.email, GIT_COMMITTER_NAME: fallbackIdentity.name, GIT_COMMITTER_EMAIL: fallbackIdentity.email }
+  : {}
+
 const run = (args: string[], o: GitOptions) => ({
   timeout: o.timeout ?? GIT_TIMEOUT.remote,
   maxBuffer: o.maxBuffer ?? 64 * MB,
-  env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...o.env },
+  env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...identityEnv(), ...o.env },
   args,
 })
 

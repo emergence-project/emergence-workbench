@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { starterFolder } from './starter.js'
 import { gitRun, GIT_TIMEOUT } from './git.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
@@ -26,7 +27,11 @@ export function defaultCloneDir(registered: string[]): string {
   const counts = new Map<string, number>()
   for (const p of parents) counts.set(p, (counts.get(p) ?? 0) + 1)
   const best = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0]
-  return best ?? path.join(os.homedir(), 'GitHub')
+  if (best) return best
+  // GitHub 폴더가 없고 내려받은 앱의 기본 폴더가 있으면 그곳 (starter.ts, GitHub를 모르는 사람에게 GitHub 폴더를 권하지 않는다)
+  const github = path.join(os.homedir(), 'GitHub')
+  const starter = starterFolder()
+  return !fs.existsSync(github) && fs.existsSync(starter) ? starter : github
 }
 
 /** source를 parent/name 으로 받는다. 이미 있으면 덮어쓰지 않고 거절한다 */

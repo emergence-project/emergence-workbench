@@ -17,6 +17,8 @@ import { adoptLocalFeedback } from './feedback.js'
 import { DEFAULT_AUTHORS } from '@rw/core'
 import { COMMON_RULES_FILE } from './agentRules.js'
 import { Registry } from './registry.js'
+import { prepareStarter } from './starter.js'
+import { setFallbackIdentity } from './git.js'
 import { serveStatic } from './static.js'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
@@ -213,7 +215,7 @@ if (process.env.RW_SANDBOX === '1' && !process.env.RW_COMMON_RULES && !fs.exists
 // 앱 업데이트(설정 화면): 실사용만. 지금 돌고 있는 코드의 커밋을 시작할 때 기억한다
 // 내려받은 앱(scripts/bundle-app.mjs)은 git 저장소가 아니다: 묶은 커밋을 build.json에서 읽고, 스스로 받아 오지 않는다(appRepo 없음).
 // git을 부르지 않는 것은 git이 없는 맥에서 명령어 도구 설치 창이 뜨지 않게 하려는 것이기도 하다.
-const bundled: { commit?: string } | null = (() => { try { return JSON.parse(fs.readFileSync(path.join(repoRoot, 'build.json'), 'utf8')) } catch { return null } })()
+const bundled: { commit?: string; builtAt?: string } | null = (() => { try { return JSON.parse(fs.readFileSync(path.join(repoRoot, 'build.json'), 'utf8')) } catch { return null } })()
 const running = bundled ? null : (() => { try { return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD']).toString().trim() } catch { return null } })()
 const appRepo = process.env.RW_SANDBOX !== '1' && running ? { root: repoRoot, running, steps: macSteps() } : undefined
 // 구글 연결: 예제 모드는 가짜 구글(이번 주 일정 몇 개)에 미리 연결해 둔다. 실사용은 설정 화면에서 연결
@@ -225,7 +227,22 @@ if (process.env.RW_SANDBOX === '1') {
 // 맥에만 있는 workbench/ 백업: 실사용만. 개인 저장소에 올린다
 const backupRemote = appRepo || bundled ? personal : null
 const backup = backupRemote ? { dir: path.join(configDir, 'backup'), remote: backupRemote, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
-const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), backup, port })
+// 내려받은 앱: git 전체 설정에 이름 · 이메일이 없으면 이 컴퓨터의 사용자 이름으로 커밋한다 (git.ts setFallbackIdentity, 설정 › 계정에서 바꿈)
+if (bundled && process.env.RW_SANDBOX !== '1') {
+  const global = (key: string) => { try { return execFileSync('git', ['config', '--global', key], { windowsHide: true }).toString().trim() } catch { return '' } }
+  if (!global('user.name') || !global('user.email')) {
+    const user = (() => { try { return os.userInfo().username } catch { return '' } })() || 'workbench'
+    setFallbackIdentity({ name: global('user.name') || user, email: global('user.email') || `${user.replace(/[^\w.-]/g, '') || 'workbench'}@localhost` })
+  }
+}
+// 내려받은 앱을 처음 켰으면 라이브러리 · PDF 폴더를 문서 폴더에 만든다 (starter.ts). 저장소에서 돌리는 앱은 건드리지 않는다
+if (bundled && process.env.RW_SANDBOX !== '1') {
+  try {
+    const lib = prepareStarter(new Registry(configDir), path.join(repoRoot, 'templates/shared-library'))
+    if (lib) console.log(`처음 켬: 라이브러리와 PDF 폴더를 만들었습니다 (${path.dirname(lib)})`)
+  } catch (e) { console.warn(`처음 켤 때 라이브러리를 만들지 못했습니다: ${(e as Error).message}`) }
+}
+const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), ...(bundled && { bundled: { commit: bundled.commit ?? '', builtAt: bundled.builtAt ?? '' } }), backup, port })
 
 // RW_STATIC=1 (실사용 서비스): 빌드한 화면을 이 서버가 함께 내보낸다
 if (process.env.RW_STATIC === '1') {

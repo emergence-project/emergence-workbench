@@ -4,7 +4,7 @@ import { Dialog, PreamblePicker, type Inspection, type LibraryPreamble } from '.
 import { relativeTime } from './format'
 import { ProjectProfileFields } from './ProjectProfileFields'
 import type { ProjectKind, ResearchListItem } from './api'
-import { locale, t } from './i18n'
+import { locale, pickFolderLabel, t } from './i18n'
 
 type Way = 'new' | 'github' | 'folder'
 
@@ -152,7 +152,7 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
     setPicking(true); setError(null)
     try { const r = await pickFolder(start.trim() || undefined); if (r.path) then(r.path) } catch (e) { setError((e as Error).message) } finally { setPicking(false) }
   }
-  const finderBtn = (start: string, then: (p: string) => void) => <button type="button" className="btn" data-ui="Finder에서 고르기" disabled={picking} onClick={() => void finder(start, then)}>{picking ? t('고르는 중…', 'Choosing…') : t('Finder에서 고르기', 'Choose in Finder')}</button>
+  const finderBtn = (start: string, then: (p: string) => void) => <button type="button" className="btn" data-ui="Finder에서 고르기" disabled={picking} onClick={() => void finder(start, then)}>{picking ? t('고르는 중…', 'Choosing…') : pickFolderLabel()}</button>
   const back = () => { setIns(null); setError(null); if (way === 'github') { setPicked(null); setPath('') } }
 
   const canRegister = !!ins && ins.errors.length === 0 && (ins.hasWorkbench || create)
@@ -233,7 +233,7 @@ export function RegisterDialog({ sandbox, all, onClose, onRegistered }: { sandbo
               onKeyDown={(e) => enter(e, !!path.trim(), () => void inspect(path.trim()))} />
               {finderBtn(path, (p) => { setPath(p); void inspect(p) })}</span>
           </label>
-          <p className="muted reg-hint">{t('Finder에서 고르면 바로 확인합니다. 저장소는 옮기지 않고 경로만 이 컴퓨터의 설정에 기록합니다.', "Choosing in Finder checks the folder right away. The repository is not moved; only its path is saved in this computer's settings.")}</p>
+          <p className="muted reg-hint">{t(`폴더를 고르면 바로 확인합니다. 저장소는 옮기지 않고 경로만 이 컴퓨터의 설정에 기록합니다.`, "Choosing a folder checks it right away. The repository is not moved; only its path is saved in this computer's settings.")}</p>
         </>}
       </>}
       {ins && ins.errors.length > 0 && <div className="notes err"><ul>{ins.errors.map((e) => <li key={e}>{e}</li>)}</ul></div>}

@@ -25,6 +25,13 @@ setCoreLang(() => lang)
 /** Pick the text for the current language. */
 export const t = (ko: string, en: string): string => (lang === 'ko' ? ko : en)
 
+/** 윈도우에서 연 화면인지 (내려받은 윈도우 앱). 맥의 Finder 말을 파일 탐색기 말로 바꿀 때만 쓴다 */
+export const onWindows = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent)
+/** "Finder에서 보기" (윈도우: 탐색기에서 보기) */
+export const revealLabel = (): string => (onWindows ? t('탐색기에서 보기', 'Show in File Explorer') : t('Finder에서 보기', 'Show in Finder'))
+/** "Finder에서 고르기" (윈도우: 폴더 고르기) */
+export const pickFolderLabel = (): string => (onWindows ? t('폴더 고르기', 'Choose folder') : t('Finder에서 고르기', 'Choose in Finder'))
+
 /** English plural helper: `plural(n, 'note')` → "1 note" / "3 notes". */
 export const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`
 
