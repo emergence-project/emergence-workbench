@@ -50,7 +50,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
       claim: (key: string, since: number) => claimFeedback(deps, key, since),
     }
   })() : undefined
-  const mcpFor = (appChat?: string) => createMcpServer({ baseUrl: 'http://workbench.local', fetch: injectFetch(app), appChat })
+  const mcpFor = (appChat?: string) => createMcpServer({ baseUrl: 'http://workbench.local', key: ctx.opts.key, fetch: injectFetch(app), appChat })
   // Codex · Gemini (10/30, ACP): 대화마다 앱 MCP를 HTTP 입구로 연다 (agentMcpHttp.ts)
   const chatMcp = registerChatMcp(app, mcpFor)
   const chats = new AgentChats({

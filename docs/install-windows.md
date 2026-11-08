@@ -12,7 +12,7 @@ The first window is an empty workbench. Use **+ Register project** › **Start n
 
 ## Good to know
 
-- **What runs:** opening the window starts the app's own server at `http://127.0.0.1:5174`; closing the window stops it. Nothing outside this computer can reach that address. What the app sends out is listed in [PRIVACY.md](../PRIVACY.md).
+- **What runs:** opening the window starts the app's own server on `127.0.0.1` with a new port and a one-time key each time; closing the window stops it. Nothing outside this computer can reach that address, and other user accounts or programs on the same computer cannot use it without the key (so a shared lab PC does not show one person's notes in another person's window). What the app sends out is listed in [PRIVACY.md](../PRIVACY.md).
 - **Settings and logs:** `C:\Users\<name>\.config\research-workspace\`. Server log: `%LOCALAPPDATA%\io.github.emergence-project.workbench\logs\server.log`.
 - **git:** the app carries a small git (MinGit). If Git for Windows is installed, that one is used.
 - **Agents:** the in-app agent uses Claude Code (`claude`) installed on this computer. Without it only the agent features are off.

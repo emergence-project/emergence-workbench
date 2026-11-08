@@ -33,7 +33,7 @@ for a in "$@"; do body="$a"; done
 [ -z "$body" ] && body=$(cat)
 env="$(dirname "$0")/endpoint.env"
 if [ -f "$env" ] && . "$env"; then
-  curl -s -m 2 -o /dev/null -X POST -H 'content-type: application/json' -H "x-rw-hook-agent: $agent" --data-binary "$body" "$RW_URL/api/agent-hooks" >/dev/null 2>&1
+  curl -s -m 2 -o /dev/null -X POST -H 'content-type: application/json' -H "x-rw-hook-agent: $agent" -H "x-rw-key: \${RW_KEY:-}" --data-binary "$body" "$RW_URL/api/agent-hooks" >/dev/null 2>&1
 fi
 if [ "$1" = "--" ]; then
   shift
@@ -43,11 +43,12 @@ exit 0
 `
 
 /** 알림 스크립트와 서버 주소 파일을 쓴다 (서버가 뜰 때마다) */
-export function writeHookFiles(configDir: string, url: string): void {
+export function writeHookFiles(configDir: string, url: string, key?: string): void {
   fs.mkdirSync(hookDir(configDir), { recursive: true })
   const script = hookScript(configDir)
   if (!fs.existsSync(script) || fs.readFileSync(script, 'utf8') !== SCRIPT) fs.writeFileSync(script, SCRIPT, { mode: 0o755 })
-  writeAtomic(path.join(hookDir(configDir), 'endpoint.env'), `RW_URL=${url}\n`)
+  // 설치 파일로 깐 앱은 서버 열쇠도 적는다 (appKey.ts). 이 사용자만 읽게
+  writeAtomic(path.join(hookDir(configDir), 'endpoint.env'), `RW_URL=${url}\n${key ? `RW_KEY=${key}\n` : ''}`, { mode: 0o600 })
 }
 
 // ---------- Claude Code: ~/.claude/settings.json ----------

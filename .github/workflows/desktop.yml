@@ -53,6 +53,8 @@ jobs:
           case "$GITHUB_REF" in refs/tags/v*) version="${GITHUB_REF#refs/tags/v}" ;; esac
           echo "버전 $version"
           npx -y @tauri-apps/cli@2.12.4 icon ../../scripts/app-icon.svg
+          # 창 코드 시험 (포트 · 열쇠 · 바깥으로 여는 주소): 아이콘을 만든 뒤라야 빌드된다
+          cargo test
           npx -y @tauri-apps/cli@2.12.4 build --bundles nsis --config tauri.standalone.conf.json --config "{\"version\":\"$version\"}"
           ls -la target/release/bundle/nsis
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
