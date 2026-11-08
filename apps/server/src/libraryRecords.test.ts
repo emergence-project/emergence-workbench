@@ -1,8 +1,9 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { LIBRARY_RID } from '@rw/core'
+import type { AgentRunner } from './agentChats.js'
 import { buildApp } from './app.js'
 import { applyMemoMigration, planMemoMigration } from './conceptMemoMigrate.js'
 import { readComments } from './comments.js'
@@ -62,5 +63,43 @@ describe('지식 라이브러리 기록', () => {
     expect(fs.existsSync(path.join(lib, 'workbench', 'log'))).toBe(false)
     expect(fs.existsSync(path.join(lib, 'workbench', '.trash', 'concept-memos', 'planar-graph.memo.md'))).toBe(true)
     expect(planMemoMigration(lib)).toEqual([])
+  })
+})
+
+// 개념노트의 질문 · 지시도 그 기록의 에이전트 대화로 (11/8 14:17 제안 진행): 대화는 _library 묶음, 지시는 개념노트를 고칠 수 있다
+describe('지식 라이브러리 기록의 에이전트 대화', () => {
+  let tmp: string
+  let app: ReturnType<typeof buildApp>
+  const seen: { write: string; prompt: string; allowed: boolean }[] = []
+  const runner: AgentRunner = async function* (input) {
+    const d = await input.canUseTool('mcp__workbench__edit_concept', { id: 'planar-graph', old: 'a', new: 'b' })
+    seen.push({ write: input.write, prompt: input.prompt, allowed: d.allow })
+    yield { type: 'text', text: '결론: 평면 그래프입니다.' }
+    yield { type: 'result', ok: true }
+  }
+  beforeAll(async () => {
+    tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-libchats-'))
+    const lib = path.join(tmp, 'library')
+    fs.mkdirSync(path.join(lib, 'concepts'), { recursive: true })
+    fs.writeFileSync(path.join(lib, 'concepts', 'planar-graph.md'), '---\ntitle: Planar graph\n---\n\nA graph is planar when it can be drawn without crossings.\n')
+    fs.mkdirSync(path.join(tmp, 'config'), { recursive: true })
+    fs.writeFileSync(path.join(tmp, 'config', 'config.yaml'), `library: ${lib}\nresearches: []\n`)
+    app = buildApp({ configDir: path.join(tmp, 'config'), agentRunner: runner })
+    await app.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'instant', questions: 'instant' } })
+  })
+  afterAll(async () => {
+    await app.close()
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('지시는 _library 대화를 열어 개념노트를 고칠 수 있고, 마지막 글을 기록의 답으로 적는다', async () => {
+    const url = `/api/researches/${LIBRARY_RID}/comments/concept-planar-graph`
+    const id = (await app.inject({ method: 'POST', url, payload: { kind: '지시', title: '개념노트 Planar graph', source: 'concepts/planar-graph.md', text: '정의를 다듬어 줘' } })).json().entry.id as string
+    await vi.waitFor(async () => expect((await app.inject({ method: 'GET', url })).json().comments.find((c: { id: string }) => c.id === id).answers).toHaveLength(1))
+    const chats = (await app.inject({ method: 'GET', url: `/api/agent-chats?rid=${LIBRARY_RID}` })).json().chats
+    expect(chats).toHaveLength(1)
+    expect(chats[0]).toMatchObject({ rid: LIBRARY_RID, write: 'notes', record: { target: 'concept-planar-graph', id } })
+    expect(seen[0]).toMatchObject({ write: 'notes', allowed: true })
+    expect(seen[0]!.prompt).toContain('edit_concept')
   })
 })
