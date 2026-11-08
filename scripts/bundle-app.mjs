@@ -25,12 +25,9 @@ export const MINGIT = {
   url: 'https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/MinGit-2.56.0.4-64-bit.zip',
   sha256: 'e3bf78351fe777fba47ddee5950082f8a98bb0f02604fdc7ba3ee2cb68ffa877',
 }
-// Codex 연결부: 올릴 때는 https://registry.npmjs.org/@agentclientprotocol/codex-acp/<번호> 의 dist.integrity를 옮겨 적는다
-export const CODEX_ACP = {
-  version: '2.5.0',
-  url: 'https://registry.npmjs.org/@agentclientprotocol/codex-acp/-/codex-acp-2.5.0.tgz',
-  integrity: 'sha512-7e/4OhJwpvSTqsjiokoVYRV7O1XGem1CAsQgO1opmGYbRD5LvmydwDlJrldzQYO5TcPWueGzQ2Jdvyvp6l3qDw==',
-}
+// Codex 연결부: 판과 SHA-512는 서버가 저장소에서 돌 때 받는 것과 같은 apps/server/src/codexAcp.json 하나 (codexAcp.ts).
+// 올릴 때는 https://registry.npmjs.org/@agentclientprotocol/codex-acp/<번호> 의 dist.integrity를 그 파일에 옮겨 적는다
+export const CODEX_ACP = JSON.parse(fs.readFileSync(new URL('../apps/server/src/codexAcp.json', import.meta.url), 'utf8'))
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'desktop/standalone')
 

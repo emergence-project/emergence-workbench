@@ -15,6 +15,8 @@ import readline from 'node:readline'
 import type { ModelChoice } from '@rw/core/contract/agentChats'
 import { Inbox, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type ToolDecision, type Turn } from './agentChats.js'
 import { acpCommand, acpEnv, type AcpSpec } from './agentKinds.js'
+import { ensureCodexAcp } from './codexAcp.js'
+import { codexBin } from './codexCli.js'
 import { HERE, t } from './i18n.js'
 
 type Json = Record<string, unknown>
@@ -151,10 +153,16 @@ export type ChatMcp = (o: { appChat?: string; gate: RunInput['canUseTool'] }) =>
 function launch(spec: AcpSpec, cwd: string, env?: Record<string, string>, configDir?: string): ChildProcess {
   const cmd = acpCommand(spec, configDir)
   if (!cmd) {
+    if (spec.id === 'codex' && configDir && codexBin(configDir)) throw new Error(t('Codex 연결부를 받지 못했습니다. 인터넷 연결을 확인하고 다시 보내 주세요', 'Could not download the Codex connector. Check the internet connection and send again'))
     if (spec.id === 'codex' && configDir) throw new Error(t(`${HERE.ko}에 Codex가 아직 없습니다. 설정 › 에이전트의 「질문에 답할 AI」에서 ChatGPT로 연결해 주세요`, `Codex is not on ${HERE.en} yet. Connect ChatGPT under Settings › Agents › AI for questions`))
     throw new Error(t(`${HERE.ko}에서 ${spec.name}를 찾지 못했습니다. 깔고 한 번 로그인해 주세요: ${spec.install}`, `${spec.name} was not found on ${HERE.en}. Install it and sign in once: ${spec.install}`))
   }
   return spawn(cmd.file, cmd.args, { cwd, env: acpEnv({ ...cmd.env, ...env }), stdio: ['pipe', 'pipe', 'pipe'], shell: cmd.shell, windowsHide: true })
+}
+
+/** Codex: codex는 있는데 연결부를 아직 받지 않았으면 받고 띄운다 (codexAcp.ts, 시험의 가짜 에이전트는 건너뜀) */
+async function ready(spec: AcpSpec, configDir?: string): Promise<void> {
+  if (spec.id === 'codex' && configDir && !process.env[spec.envBin]) await ensureCodexAcp(configDir)
 }
 
 const INIT = { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: 'emergence-workbench', version: '1' } }
@@ -175,6 +183,7 @@ function modelLister(spec: AcpSpec, configDir?: string): () => Promise<ModelChoi
     if (got && Date.now() - got.at < 30 * 60_000) return got.list
     const cwd = os.homedir()
     const p = (async () => {
+      await ready(spec, configDir)
       const proc = launch(spec, cwd, undefined, configDir)
       const timer = setTimeout(() => proc.kill(), 20_000)
       try {
@@ -193,6 +202,7 @@ function modelLister(spec: AcpSpec, configDir?: string): () => Promise<ModelChoi
 export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp, configDir?: string): AgentRunner {
   return Object.assign(async function* run(input: RunInput): AsyncIterable<RunEvent> {
     const out = new Inbox<RunEvent>()
+    await ready(spec, configDir)
     const proc = launch(spec, input.cwd, input.env, configDir)
     const kill = () => { if (proc.exitCode === null) proc.kill() }
     input.signal.addEventListener('abort', kill, { once: true })
