@@ -185,7 +185,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
               <td className="fbp-cell-state"><span className={`fbp-state st-${st}`}>{stateName(answerOf(e))}</span></td>
               <td className="fbp-cell" title={e.review?.note}>{e.review ? verdictName(e.review.verdict) : ''}</td>
               <td className="fbp-cell-text" title={e.status?.understood ?? text}>{text}{e.merged && <span className="muted"> +{e.merged.length}</span>}</td>
-              <td className="fbp-cell" title={e.route}>{e.status?.area ?? <span className="muted">{uiShown(e.target).split(' › ')[0] || (e.source ? shown(e.source) : '—')}</span>}</td>
+              <td className="fbp-cell" title={e.route}>{e.status?.area ?? <span className="muted">{uiShown(e.target).split(' › ')[0] || (e.source ? shown(e.sender ?? e.source) : '—')}</span>}</td>
               <td className="fbp-cell" title={uiShown(e.target)}>{uiShown(e.target).split(' › ').pop()}</td>
               <td className="mono fbp-cell">{e.version ?? '—'}</td>
               <td className="mono fbp-cell">{e.status?.version ?? e.status?.commit ?? ''}<InApp e={e} /></td>
@@ -259,7 +259,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
       <div className="fbp-head">
         <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
         <span className="tag">{kindName(kindOf(e))}</span>
-        {e.source && <span className="tag" title={e.source === '미리보기' ? t('채팅의 앱 미리보기에 남긴 댓글', 'Comment left in the app preview in chat') : t('피드백 파일로 받은 다른 사람의 피드백', 'Feedback from someone else, imported from a feedback file')}>{shown(e.source)}</span>}
+        {e.source && <span className="tag" title={e.source === '미리보기' ? t('채팅의 앱 미리보기에 남긴 댓글', 'Comment left in the app preview in chat') : `${t('피드백 파일로 받은 다른 사람의 피드백', 'Feedback from someone else, imported from a feedback file')}${e.sender ? ` · ${t('보낼 때 이름', 'Name when sent')}: ${e.source}` : ''}`}>{shown(e.sender ?? e.source)}</span>}
         {e.status?.theme && <span className="fbp-theme">#{e.status.theme}</span>}
         <span className="muted">{showDate ? feedbackWhen(e.date, e.time) : e.time}</span>
         {/* 위치 글자 자체를 눌러 화면을 열고 그 부위를 칠한다 (10/6 11:09). */}

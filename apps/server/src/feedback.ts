@@ -384,15 +384,15 @@ export function listAllFeedback(dir: string): FeedbackListItem[] {
   const reviews = readFeedbackReviews(dir)
   const comments = readFeedbackComments(dir)
   const dated = (d: string) => fs.existsSync(d) ? fs.readdirSync(d).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f)) : []
-  const files: { file: string; date: string; source?: string }[] = [
+  const files: { file: string; date: string; source?: string; sender?: string }[] = [
     ...dated(dir).map((f) => ({ file: path.join(dir, f), date: f.slice(0, 10), source: undefined })),
     ...dated(path.join(dir, PREVIEW_DIR)).map((f) => ({ file: path.join(dir, PREVIEW_DIR, f), date: f.slice(0, 10), source: '미리보기' })), ...importedDayFiles(dir),
   ]
-  const all = files.flatMap(({ file, date, source }) => {
+  const all = files.flatMap(({ file, date, source, sender }) => {
     // 같은 분에 같은 부위로 남긴 코멘트가 또 있으면 뒤의 것부터 " #2", " #3"
     const seen = new Map<string, number>()
     return parseFeedback(fs.readFileSync(file, 'utf8'), date).map((p) => {
-      const e: FeedbackEntry = source ? { ...p, source } : p
+      const e: FeedbackEntry = source ? { ...p, source, ...(sender && sender !== source && { sender }) } : p
       const base = feedbackKey(e)
       const n = (seen.get(base) ?? 0) + 1
       seen.set(base, n)

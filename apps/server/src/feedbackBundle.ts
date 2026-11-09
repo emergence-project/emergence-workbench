@@ -114,11 +114,31 @@ export function importFeedback(dir: string, raw: unknown): { from: string; count
   return { from: folder, count, days: Object.keys(b.days).length, pictures }
 }
 
-/** 가져온 사람들의 날짜 파일: 피드백 목록이 함께 읽는다 (source = 보낸 사람) */
-export function importedDayFiles(dir: string): { file: string; date: string; source: string }[] {
+/**
+ * 보이는 이름 (11/9 20:44 · 시안 8절 "이름은 보낸 사람이 정하게"): 폴더는 <이름>-<앱 번호 여섯 자>라서 보낸 사람이 이름을 바꾸면 새 폴더가 생기고
+ * 옛 날짜는 옛 이름 폴더에 남는다. 같은 앱 번호의 폴더 가운데 가장 최근 날짜를 가진 폴더의 이름을 그 번호의 모든 피드백에 보인다.
+ * 폴더 이름(source)은 처리 기록의 열쇠라 그대로 둔다.
+ */
+export function senderNames(folders: { name: string; latest: string }[]): Map<string, string> {
+  const split = (name: string) => { const m = /^(.*)-([a-z0-9]{6})$/.exec(name); return m ? { base: m[1]!, id: m[2]! } : { base: name, id: '' } }
+  const newest = new Map<string, { latest: string; base: string }>()
+  for (const f of folders) {
+    const { base, id } = split(f.name)
+    if (!id) continue
+    const cur = newest.get(id)
+    if (!cur || f.latest > cur.latest) newest.set(id, { latest: f.latest, base })
+  }
+  return new Map(folders.map((f) => { const { base, id } = split(f.name); return [f.name, id ? newest.get(id)!.base : base] }))
+}
+
+/** 가져온 사람들의 날짜 파일: 피드백 목록이 함께 읽는다 (source = 보낸 사람 폴더, sender = 보이는 이름) */
+export function importedDayFiles(dir: string): { file: string; date: string; source: string; sender: string }[] {
   const root = path.join(dir, FROM_DIR)
   if (!fs.existsSync(root)) return []
-  return fs.readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory()).flatMap((d) =>
-    fs.readdirSync(path.join(root, d.name)).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f))
-      .map((f) => ({ file: path.join(root, d.name, f), date: f.slice(0, 10), source: d.name })))
+  const folders = fs.readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => {
+    const days = fs.readdirSync(path.join(root, d.name)).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort()
+    return { name: d.name, days, latest: days.at(-1)?.slice(0, 10) ?? '' }
+  })
+  const names = senderNames(folders)
+  return folders.flatMap((d) => d.days.map((f) => ({ file: path.join(root, d.name, f), date: f.slice(0, 10), source: d.name, sender: names.get(d.name) ?? d.name })))
 }
