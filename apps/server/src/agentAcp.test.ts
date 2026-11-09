@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { acpAgentRunner, callsOf, commandOf, modelsOf, optionFor } from './agentAcp.js'
+import { acpAgentRunner, callsOf, commandOf, endsTurn, modelsOf, optionFor } from './agentAcp.js'
 import { Inbox, type RunEvent, type RunInput, type ToolDecision, type Turn } from './agentChats.js'
 import { ACP_AGENTS, acpBin, acpCommand, agentsHere, isAcp } from './agentKinds.js'
 import { gateCall } from './agentMcpHttp.js'
@@ -31,11 +31,18 @@ describe('ACP 도구 → 앱의 도구 이름', () => {
     expect(optionFor(options, true)).toEqual({ outcome: { outcome: 'selected', optionId: 'a1' } })
     expect(optionFor(options, false)).toEqual({ outcome: { outcome: 'selected', optionId: 'r1' } })
     expect(optionFor([], false)).toEqual({ outcome: { outcome: 'cancelled' } })
+    // Codex: 거절이 둘(계속 decline · 차례 취소 cancel)이면 계속하는 쪽, cancel뿐이면 그것 (차례가 끝난다)
+    const codex = [{ optionId: 'allow_once', kind: 'allow_once' }, { optionId: 'cancel', kind: 'reject_once' }, { optionId: 'decline', kind: 'reject_once' }]
+    expect(optionFor(codex, false)).toEqual({ outcome: { outcome: 'selected', optionId: 'decline' } })
+    expect(endsTurn(optionFor(codex, false))).toBe(false)
+    expect(endsTurn(optionFor([{ optionId: 'allow_once', kind: 'allow_once' }, { optionId: 'cancel', kind: 'reject_once' }], false))).toBe(true)
   })
   it('모델 목록: 기본을 앞에, 지금 모델을 기본의 실제 모델로', () => {
     expect(modelsOf({ models: { currentModelId: 'gpt-5-codex/high', availableModels: [{ modelId: 'gpt-5-codex/high', name: 'GPT-5 Codex (high)' }, { modelId: 'bad id!', name: 'x' }] } }))
       .toEqual([{ value: 'default', name: '기본 모델', desc: '', resolved: 'gpt-5-codex/high' }, { value: 'gpt-5-codex/high', name: 'GPT-5 Codex (high)', desc: '', resolved: 'gpt-5-codex/high' }])
     expect(modelsOf({})).toEqual([])
+    // Codex 연결부가 줄인 이름은 GPT를 되살린다
+    expect(modelsOf({ models: { currentModelId: 'gpt-6-astra/ultra', availableModels: [{ modelId: 'gpt-6-astra/ultra', name: '6 Astra (ultra)' }] } })[1]!.name).toBe('GPT-6 Astra (ultra)')
     expect(isAcp('codex') && isAcp('gemini') && !isAcp('claude-code')).toBe(true)
   })
   it('앱 MCP 입구: 도구 부르기마다 대화의 판단을 거치고, 막히면 도구 오류로 답한다', async () => {
@@ -70,6 +77,11 @@ require('readline').createInterface({ input: process.stdin }).on('line', async (
   if (m.method !== 'session/prompt') return reply({})
   const sid = m.params.sessionId
   const text = m.params.prompt[0].text
+  if (text.includes('did not run')) { update(sid, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'went on: ' + text.split('\n')[0] } }); return reply({ stopReason: 'end_turn' }) }
+  if (text.includes('PUSH')) {
+    const r = await ask({ sessionId: sid, toolCall: { toolCallId: 't3', kind: 'execute', title: 'git push', rawInput: { command: ['bash', '-lc', 'git push'] } }, options: [{ optionId: 'allow_once', kind: 'allow_once' }, { optionId: 'cancel', kind: 'reject_once' }] })
+    return reply({ stopReason: r.outcome.optionId === 'cancel' ? 'cancelled' : 'end_turn' })
+  }
   if (text.includes('EDIT')) {
     const r = await ask({ sessionId: sid, toolCall: { toolCallId: 't1', kind: 'edit', title: 'Edit', locations: [{ path: '/r/a.md' }] }, options: [{ optionId: 'yes', kind: 'allow_once' }, { optionId: 'no', kind: 'reject_once' }] })
     update(sid, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'picked ' + r.outcome.optionId } })
@@ -183,6 +195,16 @@ describe('ACP 실행기 (가짜 에이전트)', () => {
     expect(deny).toContainEqual({ type: 'text', text: 'picked no' })
     const allow = await collect(run(input({ prompt: 'EDIT' })))
     expect(allow).toContainEqual({ type: 'text', text: 'picked yes' })
+  })
+
+  it('막은 명령에 에이전트가 차례 취소만 주면, 까닭을 알리고 그 명령 없이 이어 간다 (11/9 피드백 "! cancelled")', async () => {
+    const run = acpAgentRunner(ACP_AGENTS.codex, () => undefined)
+    const ev = await collect(run(input({ prompt: 'PUSH', canUseTool: async () => ({ allow: false, message: 'Pushing is done by the app.' }) })))
+    expect(ev).toContainEqual({ type: 'text', text: 'went on: The app did not run that command: Pushing is done by the app.' })
+    expect(ev.at(-1)).toMatchObject({ type: 'result', ok: true })
+    // 허락하면 그 명령으로 그대로 끝난다
+    const okRun = await collect(run(input({ prompt: 'PUSH' })))
+    expect(okRun.at(-1)).toMatchObject({ type: 'result', ok: true })
   })
 
   it('이어 하기: 같은 세션을 다시 열고(앞 기록 알림은 버림) 안내를 다시 붙이지 않으며, inbox의 지시를 이어 받는다', async () => {
