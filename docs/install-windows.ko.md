@@ -4,7 +4,7 @@
 
 ## 설치
 
-1. [릴리스 쪽](https://github.com/emergence-project/emergence-workbench/releases/latest)의 **Assets**에서 `Emergence Workbench_<번호>_x64-setup.exe`를 받습니다.
+1. [`EmergenceWorkbench_x64-setup.exe`](https://github.com/emergence-project/emergence-workbench/releases/latest/download/EmergenceWorkbench_x64-setup.exe)를 받습니다(늘 최신 릴리스, v0.3.1부터). [릴리스 쪽](https://github.com/emergence-project/emergence-workbench/releases/latest)에서는 **Assets**의 `.exe`이고, **Source code** 두 개는 받지 않아도 됩니다.
 2. 받은 파일을 엽니다. 서명하지 않은 설치 파일이라 윈도우가 **"Windows의 PC 보호"** 창을 띄웁니다. **추가 정보**를 누른 뒤 **실행**을 누릅니다.
 3. 설치는 내 계정에만 하므로 관리자 권한을 묻지 않습니다. 끝나면 시작 메뉴와 바탕화면에 **Emergence Workbench**가 생깁니다.
 

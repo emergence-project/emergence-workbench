@@ -43,7 +43,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     outputs:
       tag: ${{ steps.ver.outputs.tag }}
     steps:
@@ -99,11 +99,11 @@ jobs:
           npx -y @tauri-apps/cli@2.12.4 icon ../../scripts/app-icon.svg
           # 창 코드 시험 (포트 · 열쇠 · 바깥으로 여는 주소): 아이콘을 만든 뒤라야 빌드된다
           cargo test
-          # tauri가 NSIS를 GitHub 릴리스에서 받다가 504로 멈출 때가 있어(11/8) 세 번까지 다시 (컴파일은 남아 있어 금방)
-          for i in 1 2 3; do
+          # tauri가 NSIS를 GitHub 릴리스에서 받다가 504로 멈출 때가 있어(11/8 · 11/9) 여섯 번까지 다시, 기다림은 1 · 2 · 3 · 4 · 5분 (컴파일은 남아 있어 금방)
+          for i in 1 2 3 4 5 6; do
             npx -y @tauri-apps/cli@2.12.4 build --bundles nsis --config tauri.standalone.conf.json --config "{\"version\":\"$version\"}" && break
-            [ "$i" = 3 ] && exit 1
-            echo "설치 파일 만들기 다시 ($i)"; sleep $((i * 20))
+            [ "$i" = 6 ] && exit 1
+            echo "설치 파일 만들기 다시 ($i)"; sleep $((i * 60))
           done
           ls -la target/release/bundle/nsis
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -136,7 +136,10 @@ jobs:
           TAG: ${{ needs.windows.outputs.tag }}
           SHA: ${{ github.sha }}
         run: |
+          # 이름에 번호를 넣지 않아 releases/latest/download/EmergenceWorkbench_x64-setup.exe가 늘 최신 설치 파일을 가리킨다
+          # (친구 안내서의 「설치 파일 받기」 버튼, 11/9 "밑에 소스코드 두 개도 받는 거임?"). 앱의 새 버전 알림은 x64-setup.exe로 끝나는 파일을 찾는다
+          mv out/*.exe out/EmergenceWorkbench_x64-setup.exe
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$SHA" --title "Emergence Workbench $TAG" --generate-notes \
-                 --notes "윈도우 설치 파일: 아래 Assets의 .exe를 받아 실행하세요. 안내: docs/install-windows.md"
-          gh release upload "$TAG" out/*.exe -R "$GITHUB_REPOSITORY" --clobber
+                 --notes "윈도우 설치 파일: 아래 Assets의 EmergenceWorkbench_x64-setup.exe 하나만 받아 실행하세요. Source code 두 개는 코드 묶음이라 받지 않아도 됩니다. 안내: docs/install-windows.md"
+          gh release upload "$TAG" out/EmergenceWorkbench_x64-setup.exe -R "$GITHUB_REPOSITORY" --clobber
