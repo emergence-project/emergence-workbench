@@ -1,5 +1,5 @@
 import type { CloudKind, PaperBrief, PaperList, PaperRow, PdfWhere } from '@rw/core/contract/papers'
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
@@ -332,6 +332,24 @@ let probe = async (file: string): Promise<void> => {
 /** 테스트가 첫 바이트 읽기 대신 쓴다 */
 export function useCloudProbe(f: (file: string) => Promise<void>): void { probe = f }
 
+/**
+ * 맥이 앱 서버의 클라우드 파일 받기를 막을 때(EDEADLK, 오류 -11) 맥의 File Provider 도구로 받는다 (11/9 피드백).
+ * 다 받거나 시간이 넘으면 끝난다. 맥이 아니면 아무것도 하지 않는다
+ */
+let materialize = (file: string, ms: number): Promise<void> => new Promise((resolve, reject) => {
+  if (process.platform !== 'darwin') { resolve(); return }
+  execFile('/usr/bin/fileproviderctl', ['materialize', file], { timeout: ms }, (err) => (err ? reject(err) : resolve()))
+})
+/** 테스트가 fileproviderctl 대신 쓴다 */
+export function useCloudMaterialize(f: (file: string, ms: number) => Promise<void>): void { materialize = f }
+
+/** 맥이 받기를 막았다는 오류: EDEADLK (libuv가 모르는 이름이면 errno -11) */
+function blocked(e: unknown): boolean {
+  if (!(e instanceof Error)) return false
+  if ('code' in e && e.code === 'EDEADLK') return true
+  return 'errno' in e && e.errno === -11
+}
+
 /** 클라우드 파일을 받아 오기를 기다리는 시간. 넘으면 503 (받기는 계속된다) */
 const CLOUD_WAIT_MS = 60_000
 
@@ -349,12 +367,18 @@ export async function readyPaperPdf(registry: Registry, key: string): Promise<st
   let timer: NodeJS.Timeout | undefined
   const late = new Promise<'late'>((resolve) => { timer = setTimeout(() => resolve('late'), CLOUD_WAIT_MS) })
   try {
-    const r = await Promise.race([probe(file).then(() => 'ok' as const), late])
+    const r = await Promise.race([probe(file).catch(async (e: unknown) => {
+      if (!blocked(e)) throw e
+      // 서버가 직접 받지 못하게 막혀 있으면 맥의 도구로 받고 다시 읽어 본다
+      await materialize(file, CLOUD_WAIT_MS).catch(() => undefined)
+      await probe(file)
+    }).then(() => 'ok' as const), late])
     if (r === 'late') throw new WorkbenchError(503, t(`${name}를 ${where}에서 아직 받는 중입니다. 잠시 뒤 다시 열어 주세요`, `${name} is still downloading from ${where}. Open it again in a moment`))
     return file
   } catch (e) {
     if (e instanceof WorkbenchError) throw e
     const code = e instanceof Error ? ('code' in e && typeof e.code === 'string' ? e.code : e.message) : String(e)
+    if (blocked(e)) throw new WorkbenchError(503, t(`맥이 이 앱에서 ${where} 파일을 받지 못하게 막아, 맥의 받기 도구로도 ${name}를 받지 못했습니다 (EDEADLK). Finder에서 그 파일을 한 번 열거나 「지금 다운로드」한 뒤 「다시 시도」를 눌러 주세요`, `macOS stops this app from downloading ${where} files, and its download tool could not get ${name} either (EDEADLK). Open the file once in Finder or choose "Download Now", then press "Open again"`))
     if (code === 'EPERM' || code === 'EACCES') throw new WorkbenchError(503, t(`${name}는 ${where}에만 있는데, 앱이 그 폴더의 파일을 받아 올 권한이 없습니다 (${code}). Finder에서 그 파일을 한 번 열거나 「지금 다운로드」한 뒤 다시 열어 주세요`, `${name} is only in ${where}, and the app has no permission to download files there (${code}). Open the file once in Finder or choose "Download Now", then open it again`))
     throw new WorkbenchError(503, t(`${name}를 ${where}에서 받지 못했습니다 (${code}). Finder에서 그 파일을 한 번 열거나 「지금 다운로드」한 뒤 다시 열어 주세요`, `Could not download ${name} from ${where} (${code}). Open the file once in Finder or choose "Download Now", then open it again`))
   } finally { clearTimeout(timer) }

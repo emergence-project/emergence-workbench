@@ -153,6 +153,8 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   const [noteOpen, setNoteOpen] = useState<{ page: number; i: number } | null>(null)
   const [zoom, setZoom] = useState(1)
   const [error, setError] = useState<string | null>(null)
+  // 「다시 시도」: 같은 주소를 다시 받는다 (11/9 피드백: 클라우드에서 받는 동안 실패한 PDF)
+  const [attempt, setAttempt] = useState(0)
   const canvases = useRef(new Map<number, HTMLCanvasElement>())
   const pageEls = useRef(new Map<number, HTMLDivElement>())
   const [width, setWidth] = useState(0)
@@ -213,7 +215,7 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
       }
     })()
     return () => { cancelled = true; void task?.destroy() }
-  }, [url])
+  }, [url, attempt])
 
   const fit = pages.length && width ? Math.min(1.6, (width - 48) / Math.max(...pages.map((p) => p.widthPt))) : 1
   const scale = fit * zoom
@@ -484,7 +486,7 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         onMouseUp={() => { window.setTimeout(readSelection, 0) }}
         onKeyUp={(e) => { if (e.key === 'Shift' || e.key.startsWith('Arrow')) readSelection() }}
         onMouseDown={(e) => { if (!(e.target as HTMLElement).closest('.record-menu, .pdf-selmenu')) { setSel(null); setPaintOpen(null) } }}>
-        {error && <p className="empty center pdf-empty">{t('PDF를 열지 못했습니다', 'Could not open the PDF')}: {error}</p>}
+        {error && <p className="empty center pdf-empty">{t('PDF를 열지 못했습니다', 'Could not open the PDF')}: {error} <button className="btn sm" onClick={() => { setError(null); setAttempt((n) => n + 1) }}>{t('다시 시도', 'Try again')}</button></p>}
         {pages.map((p) => (
           <div
             key={p.page}
