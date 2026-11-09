@@ -159,6 +159,16 @@ export function loginCodex(configDir: string): Promise<void> {
   })
 }
 
+/** 「다른 계정으로」 (11/9): `codex logout`으로 지금 계정을 풀고 다시 로그인한다 */
+export function switchCodex(configDir: string): Promise<void> {
+  const bin = codexBin(configDir)
+  if (!bin) return Promise.reject(new WorkbenchError(409, t('Codex를 먼저 받아 주세요', 'Install Codex first')))
+  if (busy) return Promise.reject(new WorkbenchError(409, t('Codex를 받거나 로그인하는 중입니다', 'Codex is already being installed or signed in')))
+  spawnSync(bin, ['logout'], { timeout: 10_000, windowsHide: true, stdio: 'ignore' })
+  loginSeen = null
+  return loginCodex(configDir)
+}
+
 /** PDF는 글을 뽑아 질문에 붙인다 (친구 컴퓨터에는 PDF를 읽을 도구가 없다). 글은 앞 40만 자까지 */
 export async function fileText(file: string): Promise<string> {
   const MAX = 400_000
@@ -187,7 +197,7 @@ export async function codexAsk(configDir: string, cwd: string, prompt: string, f
       let err = ''
       p.stdout.resume()
       p.stderr.on('data', (d: Buffer) => { err = (err + d.toString()).slice(-4000) })
-      const timer = setTimeout(() => { p.kill(); reject(new WorkbenchError(504, t(`ChatGPT가 ${TIMEOUT_MS / 60_000}분 안에 답하지 못했습니다`, `ChatGPT did not answer within ${TIMEOUT_MS / 60_000} minutes`))) }, TIMEOUT_MS)
+      const timer = setTimeout(() => { p.kill(); reject(new WorkbenchError(504, t(`Codex가 ${TIMEOUT_MS / 60_000}분 안에 답하지 못했습니다`, `Codex did not answer within ${TIMEOUT_MS / 60_000} minutes`))) }, TIMEOUT_MS)
       p.on('error', (e) => { clearTimeout(timer); reject(new WorkbenchError(500, t(`codex를 실행하지 못했습니다: ${e.message}`, `Could not run codex: ${e.message}`))) })
       p.on('close', (code) => {
         clearTimeout(timer)
@@ -195,7 +205,7 @@ export async function codexAsk(configDir: string, cwd: string, prompt: string, f
         if (code === 0 && answer) return resolve(answer)
         if (/401|unauthori[sz]ed|log ?in/i.test(err)) return reject(new WorkbenchError(401, t('ChatGPT 로그인이 풀렸습니다. 설정 › 에이전트 › AI 키에서 다시 연결해 주세요', 'The ChatGPT sign-in expired. Connect again in Settings › Agents › AI key')))
         if (/usage limit|rate limit|429/i.test(err)) return reject(new WorkbenchError(429, t('ChatGPT 요금제의 사용 한도에 걸렸습니다. 나중에 다시 해 주세요', 'The ChatGPT plan usage limit was hit. Try again later')))
-        reject(new WorkbenchError(502, t(`ChatGPT가 답하지 못했습니다${err.trim() ? `: ${err.trim().slice(-300)}` : ` (종료 코드 ${code})`}`, `ChatGPT could not answer${err.trim() ? `: ${err.trim().slice(-300)}` : ` (exit code ${code})`}`)))
+        reject(new WorkbenchError(502, t(`Codex가 답하지 못했습니다${err.trim() ? `: ${err.trim().slice(-300)}` : ` (종료 코드 ${code})`}`, `Codex could not answer${err.trim() ? `: ${err.trim().slice(-300)}` : ` (exit code ${code})`}`)))
       })
       p.stdin.end(full)
     })

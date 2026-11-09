@@ -90,4 +90,5 @@ const SAMPLE_MODELS: ModelChoice[] = [
 export const sampleAgentRunner: AgentRunner = Object.assign(sampleRun, {
   models: async () => SAMPLE_MODELS,
   side: async () => t('예제 모드라 정해진 답입니다. 맥의 앱에서는 작은 모델이 이 대화의 요약만 보고 답합니다.', 'Sample mode gives a fixed answer. In the app on the Mac, a small model answers from a summary of this conversation.'),
+  review: async () => t('고칠 것: 예제 모드라 정해진 검토입니다. 맥의 앱에서는 Codex가 고친 곳을 읽고 씁니다. (예제)\n볼 것: 「Claude에게 넘기기」를 누르면 이 글이 입력란에 들어갑니다.', 'Fix: Sample mode gives a fixed review. In the app on the Mac, Codex reads the changes and writes it. (sample)\nCheck: Press Pass to Claude to put this text in the input.'),
 })

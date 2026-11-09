@@ -134,6 +134,13 @@ try {
           if (c.items.some((x) => x.kind === 'side' && (x.answer || x.error))) break
           await new Promise((r) => setTimeout(r, 100))
         }
+        // Codex 검토 카드 하나 (11/9 "Claude가 쓰고 Codex가 검토"): 예제 실행기의 정해진 검토
+        await fetch(`${base}api/agent-chats/${done}/review`, { method: 'POST' })
+        for (let i = 0; i < 40; i++) {
+          const c = (await (await fetch(`${base}api/agent-chats/${done}`)).json()).chat
+          if (c.items.some((x) => x.kind === 'review' && (x.text || x.error))) break
+          await new Promise((r) => setTimeout(r, 100))
+        }
       }
     }
     if (hash.includes('{appchat}') && !appchat) {

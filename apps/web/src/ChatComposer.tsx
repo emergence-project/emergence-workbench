@@ -48,8 +48,8 @@ const EFFORT_SHORT: Record<ChatEffort, string> = { low: t('얕게', 'Less'), med
 /** 하나씩 바꿔 권한 이름의 기본값과 다를 때의 이름 */
 export const CUSTOM_NAME = t('직접 정함', 'Custom')
 
-/** custom = 권한 표의 토글을 하나씩 바꿔 이름이 「직접 정함」 */
-export interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; custom?: boolean; agent: string }
+/** custom = 권한 표의 토글을 하나씩 바꿔 이름이 「직접 정함」, auto = 새 대화에 걸 자동 허용 (설정 › 에이전트에서 바꾼 때만, 11/9) */
+export interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; custom?: boolean; agent: string; auto?: { read: boolean; run: boolean; web: boolean } }
 
 // ---------- / 명령 ----------
 

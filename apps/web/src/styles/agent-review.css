@@ -1,0 +1,23 @@
+/* Codex 검토 카드 (11/9 "Claude가 쓰고 Codex가 검토", 시안 1절): Codex 색 테두리로 Claude의 답과 갈린다 */
+.ac-review { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--ag-cx); border-radius: var(--r-md); display: flex; flex-direction: column; gap: var(--sp-1); }
+.ac-review-top { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ac-review-name { font-weight: var(--fw-strong); margin-left: -4px; }
+.ac-review-time { margin-left: auto; }
+.ac-review-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.ac-review-list li.none, .ac-review-list li.other { list-style: none; margin-left: -20px; }
+.ac-review-lv { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); margin-right: var(--sp-1); }
+.ac-review-lv.fix { color: var(--text); }
+.ac-review-act { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: 2px; }
+
+/* 설정 › 에이전트: 에이전트마다 한 줄 → 자세히 (AgentPrefs.tsx, 11/9) */
+.ap-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; padding: var(--sp-3) var(--sp-4); background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ap-row + .ap-row, .ap-list .ap-row + .set-row { border-top: 1px solid var(--line); }
+.ap-row:hover { background: var(--bg-hover); }
+.ap-row .ag-logo, .ap-head .ag-logo { width: 18px; height: 18px; flex: none; }
+.ap-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ap-sub { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-sum { font-size: var(--fs-sm); white-space: nowrap; }
+.ap-go { display: inline-flex; color: var(--text-3); }
+.ap-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.ap-autos { display: flex; gap: var(--sp-3); flex: none; }
+.ap-hint { font-size: var(--fs-sm); flex: none; }

@@ -1016,5 +1016,17 @@
   "GitHub 로그아웃": "Sign out of GitHub",
   "GitHub 로그인 코드": "GitHub sign-in code",
   "계정 동기화": "Account sync",
-  "계정 동기화하기": "Sync account"
+  "계정 동기화하기": "Sync account",
+  "자동 검토": "Automatic review",
+  "에이전트 자세히": "Agent details",
+  "에이전트 목록으로": "Back to agents",
+  "에이전트 계정": "Agent account",
+  "다른 계정으로": "Switch account",
+  "새 대화의 시작 권한": "Starting permission for new chats",
+  "자동 허용": "Allow without asking",
+  "하는 일": "Role",
+  "Codex 검토": "Codex review",
+  "검토 카드": "Review card",
+  "Claude에게 넘기기": "Pass to Claude",
+  "다시 검토": "Review again"
 }

@@ -13,6 +13,8 @@ export const settingsCalls = {
   codexStatus: () => req('/api/settings/codex').then((r) => json<CodexStatus>(r)),
   installCodex: () => req('/api/settings/codex/install', { method: 'POST' }).then((r) => json<CodexStatus>(r)),
   loginCodex: () => req('/api/settings/codex/login', { method: 'POST' }).then((r) => json<CodexStatus>(r)),
+  /** 「다른 계정으로」: 로그아웃한 뒤 브라우저에서 다시 로그인 (11/9) */
+  switchCodex: () => req('/api/settings/codex/switch', { method: 'POST' }).then((r) => json<CodexStatus>(r)),
   agentSettings: () => req('/api/settings/agents').then((r) => json<AgentSettings>(r)),
   saveAgentSettings: (patch: AgentSettingsBody) => req('/api/settings/agents', send('PUT', patch)).then((r) => json<AgentSettings>(r)),
   /** 설정 › 동기화 (10/19) */

@@ -1,10 +1,11 @@
 // 에이전트 대화의 에이전트 · 모델 고르기 (AgentChats.tsx에서 나눔, 10/30 "Codex · Gemini 연결", 시안 https://claude.ai/artifact/3NBbEmtfj3LYnw4J2ypr4u)
 // 대화를 시작할 때 Claude · Codex · Gemini 중 하나를 고르고, 시작한 대화는 그 에이전트로 고정한다 (세션이 에이전트마다 따로라서)
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { agentChatsApi, type AgentKind, type ChatEffort, type ChatModel, type ModelChoice } from './api'
+import { useEffect, useRef, useState } from 'react'
+import { agentChatsApi, api, type AgentKind, type ChatEffort, type ChatModel, type ModelChoice } from './api'
 import { t } from './i18n'
 import { Icon } from './icons'
+import { AgentLogo } from './agentLogos'
 import { qk } from './queries'
 import { store } from './store'
 import type { Settings } from './ChatComposer'
@@ -17,10 +18,10 @@ export const agentOf = (v: string | undefined): AgentKind => (v === 'codex' || v
 /** Claude만 되는 것 (계획 모드 · 되돌리기 · 탐색 하위 에이전트 · 맥락 막대) */
 export const isClaude = (v: string | undefined) => agentOf(v) === 'claude-code'
 
-/** 에이전트 이름 표 (에이전트 색, 디자인 문서 2절) */
+/** 에이전트 이름 표: 로고와 이름 (11/9 사용자 "에이전트별 아이콘으로", 디자인 문서 2절) */
 export function AgentChip({ agent }: { agent: string }) {
   const a = agentOf(agent)
-  return <span className={`ag-chip ${AGENT_CLASS[a]}`}>{AGENT_NAME[a]}</span>
+  return <span className={`ag-chip logo ${AGENT_CLASS[a]}`}><AgentLogo agent={a} />{AGENT_NAME[a]}</span>
 }
 
 const BASIC_EFFORTS: ChatEffort[] = ['low', 'medium', 'high']
@@ -39,6 +40,10 @@ export function useModels(agent?: string): ModelChoice[] {
   const got = useQuery({ queryKey: qk.agentModels(a), queryFn: () => agentChatsApi.models(a), staleTime: 30 * 60_000 }).data
   return got?.length ? got : a === 'claude-code' ? FALLBACK_MODELS : FALLBACK_OTHER
 }
+/** 설정 › 에이전트 (에이전트마다 시작 권한 · 자동 허용 · 하는 일, 저절로 검토, 11/9) */
+export function useAgentPrefs() {
+  return useQuery({ queryKey: qk.agentSettings, queryFn: api.agentSettings, staleTime: 5 * 60_000 }).data
+}
 /** 이 맥에서 대화를 맡길 수 있는 에이전트 */
 export function useAgentKinds() {
   return useQuery({ queryKey: qk.agentKinds, queryFn: agentChatsApi.agents, staleTime: 5 * 60_000 }).data
@@ -47,9 +52,11 @@ export function useAgentKinds() {
  * 고른 에이전트를 바꿔야 하면 바꿀 에이전트: 고른 것이 이 컴퓨터에 없을 때만, 깔리고 로그인한 첫째(로그인을 모르면 깔린 첫째).
  * 목록을 아직 못 받았거나 바꿀 것이 없으면 undefined
  */
-export function readyAgent(now: string, kinds: { id: AgentKind; installed: boolean; login?: boolean }[] | undefined): AgentKind | undefined {
-  if (!kinds || kinds.find((k) => k.id === agentOf(now))?.installed !== false) return undefined
-  const pick = kinds.find((k) => k.installed && k.login !== false) ?? kinds.find((k) => k.installed)
+export function readyAgent(now: string, kinds: { id: AgentKind; installed: boolean; login?: boolean }[] | undefined, reviewOnly: (a: AgentKind) => boolean = () => false): AgentKind | undefined {
+  if (!kinds) return undefined
+  const usable = kinds.filter((k) => !reviewOnly(k.id))
+  if (usable.find((k) => k.id === agentOf(now))?.installed !== false && !reviewOnly(agentOf(now))) return undefined
+  const pick = usable.find((k) => k.installed && k.login !== false) ?? usable.find((k) => k.installed)
   return pick && pick.id !== agentOf(now) ? pick.id : undefined
 }
 /** 모델 이름: 기본은 실제로 도는 모델을 붙여 "기본 (Opus 5.5)", 목록에 없는 id는 그대로 */
@@ -70,6 +77,7 @@ export const effortsOf = (value: ChatModel, list: ModelChoice[]): ChatEffort[] =
  */
 export function AgentChoices({ agent, fixed, onPick }: { agent: string; fixed?: boolean; onPick(a: AgentKind): void }) {
   const kinds = useAgentKinds()
+  const per = useAgentPrefs()?.per
   const now = agentOf(agent)
   const shown = fixed ? [now] : AGENT_KINDS
   return <>
@@ -77,10 +85,12 @@ export function AgentChoices({ agent, fixed, onPick }: { agent: string; fixed?: 
     {shown.map((a) => {
       const k = kinds?.find((x) => x.id === a)
       const missing = !!k && !k.installed
+      // 설정 › 에이전트에서 하는 일을 「검토」로 둔 에이전트는 새 대화를 맡지 않는다 (11/9)
+      const review = !fixed && per?.[a]?.role === 'review'
       return (
-        <button key={a} role="menuitemradio" aria-checked={now === a} className={now === a ? 'on' : ''} disabled={missing || (fixed && now !== a)} data-ui="에이전트 고르기" onClick={() => onPick(a)}>
+        <button key={a} role="menuitemradio" aria-checked={now === a} className={now === a ? 'on' : ''} disabled={missing || review || (fixed && now !== a)} data-ui="에이전트 고르기" onClick={() => onPick(a)}>
           <span className="ac-pop-check" aria-hidden>{now === a ? Icon.check : null}</span><AgentChip agent={a} />
-          {missing && <span className="muted ac-key">{t('설치 안 됨', 'Not installed')}</span>}
+          {missing ? <span className="muted ac-key">{t('설치 안 됨', 'Not installed')}</span> : review && <span className="muted ac-key">{t('검토만', 'Review only')}</span>}
         </button>
       )
     })}
@@ -98,8 +108,15 @@ const SETTINGS_KEY = 'rw-agent-settings'
  */
 export function useChatSettings(): [Settings, (s: Partial<Settings>) => void] {
   const [settings, setSettings] = useState<Settings>(() => ({ trust: 'edit', model: 'default', effort: 'medium', agent: 'claude-code', ...store.get<Partial<Settings>>(SETTINGS_KEY, {}) }))
-  const ready = readyAgent(settings.agent, useAgentKinds())
-  useEffect(() => { if (ready) setSettings((v) => ({ ...v, ...agentSwitch(ready, v.trust) })) }, [ready])
-  const change = (s: Partial<Settings>) => { const v = { ...settings, ...s }; setSettings(v); store.set(SETTINGS_KEY, v) }
-  return [settings, change]
+  const per = useAgentPrefs()?.per
+  const ready = readyAgent(settings.agent, useAgentKinds(), (a) => per?.[a]?.role === 'review')
+  // 새 대화의 권한은 그 에이전트의 시작 권한으로 시작한다 (설정 › 에이전트, 11/9). 입력란에서 바꾼 것은 이 새 대화에만
+  const seeded = useRef(false)
+  useEffect(() => { if (per && !seeded.current) { seeded.current = true; setSettings((v) => ({ ...v, trust: per[agentOf(v.agent)]?.trust ?? v.trust })) } }, [per])
+  const perNow = useRef(per)
+  perNow.current = per
+  useEffect(() => { const p = ready && perNow.current?.[ready]; if (ready) setSettings((v) => ({ ...v, ...agentSwitch(ready, v.trust), ...(p && { trust: p.trust }) })) }, [ready])
+  const change = (s: Partial<Settings>) => { const v = { ...settings, ...s, ...(s.agent && s.agent !== settings.agent && per?.[agentOf(s.agent)] && { trust: per[agentOf(s.agent)]!.trust }) }; setSettings(v); store.set(SETTINGS_KEY, v) }
+  const pref = per?.[agentOf(settings.agent)]
+  return [{ ...settings, ...(pref?.auto && settings.trust === pref.trust && { auto: pref.auto }) }, change]
 }

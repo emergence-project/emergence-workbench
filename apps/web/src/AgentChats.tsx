@@ -20,6 +20,7 @@ import { InlineEdits } from './InlineEdits'
 import { GroupPick } from './AgentGroupPick'
 import { ProjectPick, RecentChats, ScopeRow } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, fitEffort, isClaude, modelName, useChatSettings, useModels } from './AgentPick'
+import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { APP_HINT, ATTACH_NAME, Composer, CUSTOM_NAME, EFFORT_NAME, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
@@ -127,7 +128,7 @@ function ChatLine({ c, on, onOpen, actions = false, pick }: { c: ChatRow; on: bo
       <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot"><ChatStateMark state={c.state} name={stateName(c)} /></span>
         <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
-        {stateName(c)}
+        {!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{stateName(c)}
         {(c.added > 0 || c.removed > 0) && <> · <Delta added={c.added} removed={c.removed} /></>}
         {` · ${relativeTime(Date.parse(c.updated))}`}
       </span>
@@ -446,7 +447,7 @@ function AttachChips({ attach, images }: { attach?: Attach[]; images?: number })
   )
 }
 
-function ItemView({ chat, it, onError, onChanges, onRewind }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void }) {
+function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
     case 'user': return (
@@ -481,6 +482,7 @@ function ItemView({ chat, it, onError, onChanges, onRewind }: { chat: Chat; it: 
         {it.answer ? <MemoText text={it.answer} /> : it.error ? <span className="error-text">! {it.error}</span> : <span className="muted">{t('답하는 중…', 'Answering…')}</span>}
       </li>
     )
+    case 'review': return <ReviewCard chat={chat} it={it} onPass={onPass} onError={onError} />
     case 'compact': return (
       <li className="ac-note muted" data-ui="앞 내용 요약" title={when}>
         {it.auto ? t('앞 내용을 요약해 이어 갑니다', 'Summarized earlier messages to keep going') : t('앞 내용을 요약했습니다', 'Summarized earlier messages')}
@@ -524,8 +526,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
       onSaved(v ? t('보관함에 넣었습니다', 'Archived') : t('보관함에서 꺼냈습니다', 'Unarchived'))
     } catch (e) { onError((e as Error).message) }
   }
-  const added = chat.items.reduce((s, i) => s + (i.kind === 'edit' ? i.added : 0), 0)
-  const removed = chat.items.reduce((s, i) => s + (i.kind === 'edit' ? i.removed : 0), 0)
+  const [added, removed] = chat.items.reduce(([a, r], i) => (i.kind === 'edit' ? [a + i.added, r + i.removed] : [a, r]), [0, 0])
   // 맥락 크기는 늘 보이게 (세부는 작업 패널의 사용량). 12만이 넘으면 앞 내용을 요약한다
   const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
   const context = [...results].reverse().find((r) => r.context)?.context
@@ -557,7 +558,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
         </button>
       )}
       {onPane && !chat.changed.length && <button className={`btn sm${pane ? ' on' : ''}`} data-ui="작업 버튼" aria-pressed={!!pane} onClick={onPane}>{t('작업', 'Work')}</button>}
-      {tools}
+      <ReviewButton chat={chat} onError={onError} />{tools}
       <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} onRecord={onRecord} />
     </div>
   )
@@ -626,10 +627,9 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   // 고른 설정은 서버 답을 기다리지 않고 바로 보이고(over), 고친 순서대로 하나씩 보낸다 (⇧⇥를 빨리 눌러도 하나도 잃지 않게)
   const [over, setOver] = useState<Partial<Settings>>({})
   const saving = useRef({ chain: Promise.resolve(), n: 0 })
-  useEffect(() => setOver({}), [id])
   // 대화는 마지막 400줄만 두어 줄 수가 그대로일 수 있다: 바뀐 시각으로 본다
   const changed = chat?.updated
-  useEffect(() => { atEnd.current = true; setBehind(false) }, [id])
+  useEffect(() => { setOver({}); atEnd.current = true; setBehind(false) }, [id])
   useEffect(() => {
     const el = listRef.current
     if (!el) return
@@ -664,7 +664,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
     askNotify()
     // 곁 질문: 에이전트에게 보내지 않고 작은 모델이 따로 답한다
     const side = sideQuestion(m.text)
-    client.setQueryData(qk.agentChat(id), await (side ? agentChatsApi.side(id, side) : agentChatsApi.send(id, m)))
+    client.setQueryData(qk.agentChat(id), await (isReviewCommand(m.text) ? agentChatsApi.review(id) : side ? agentChatsApi.side(id, side) : agentChatsApi.send(id, m)))
     return true
   }
   const stop = async () => { try { client.setQueryData(qk.agentChat(id), await agentChatsApi.stop(id)) } catch (e) { setFail((e as Error).message) } }
@@ -701,7 +701,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
-        {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} />)}
+        {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('일하는 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
@@ -744,7 +744,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()
-    const c = await agentChatsApi.create({ rid, ...m, scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
+    const c = await agentChatsApi.create({ rid, ...m, scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(settings.auto && { auto: settings.auto }), ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
     void client.invalidateQueries({ queryKey: qk.agentChats })
     onCreated(c)
     return true
