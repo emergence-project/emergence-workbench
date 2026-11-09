@@ -36,7 +36,7 @@
 | M4 사용자 답 | 답 단추 · 코멘트 · 내 글 고치기 · 되돌리기를 적는다 | 사용자 답 | 같은 파일 `setFeedbackReview` 등 |
 | M5 차례 | 항목마다 누구 차례인지 정한다. 순수 함수 | 셋 → 차례 | `packages/core/src/feedback-buckets.ts` |
 | M6 모아 보기 | 차례로 거른 표, 제자리 펼침(요약 · 대화 · 입력), 레일 수 | 셋 + 차례 → 화면 | `apps/web/src/FeedbackPage.tsx`, `feedbackThread.ts` |
-| M7 에이전트 도구 | 에이전트 차례 목록과 그 까닭, 최근 교훈. 읽기 전용 | 셋 + 차례 → 글 | `scripts/agent-feedback.mjs`, `packages/core/src/feedback-lessons.ts` |
+| M7 에이전트 도구 | 에이전트 차례 목록과 그 까닭, 최근 교훈. 차례인 항목을 `handoff.yaml`에 맡고 올림(`--peek`은 보기만) | 셋 + 차례 → 글 | `scripts/agent-feedback.mjs`, `packages/core/src/feedback-lessons.ts` |
 | M8 올리기 | 원문 · 사용자 답을 저장소에 올린다 | 원문 · 답 → git | `apps/server/src/feedback.ts` 끝부분 |
 | M9 마무리 | 같은 지적 합치기, 반영 버전, 전후 그림, 그 자리로 가기, 승인된 것 정리 | 처리 기록 | `feedbackJump.ts`, 서버 `listAllFeedback` |
 
