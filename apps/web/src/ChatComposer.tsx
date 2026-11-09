@@ -7,7 +7,7 @@ import { Icon } from './icons'
 import { qk } from './queries'
 import { href } from './router'
 import { useDismiss } from './useDismiss'
-import { AgentChip, AgentChoices, agentSwitch, effortsOf, fitEffort, isClaude, modelName, useModels } from './AgentPick'
+import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
 
 /**
  * 에이전트 입력란 (AgentChats.tsx의 대화 · 새 대화 · 패널이 함께 쓴다): / 명령 · @ 붙이기 · 그림,
@@ -44,7 +44,8 @@ export const settingsOf = (v: Trust): ChatSettings => (v === 'read' ? { write: '
 export const nextTrust = (v: Trust, claude = true): Trust => { const n = TRUSTS[(TRUSTS.indexOf(v) + 1) % TRUSTS.length]!; return n === 'plan' && !claude ? nextTrust(n) : n }
 export const EFFORT_NAME: Record<ChatEffort, string> = { low: t('생각 얕게', 'Think less'), medium: t('생각 보통', 'Think normally'), high: t('생각 깊게', 'Think more'), xhigh: t('생각 더 깊게', 'Think much more'), max: t('생각 가장 깊게', 'Think hardest') }
 /** 입력란 아래 줄의 짧은 이름 (좁은 패널에서도 한 줄) */
-const EFFORT_SHORT: Record<ChatEffort, string> = { low: t('얕게', 'Less'), medium: t('보통', 'Normal'), high: t('깊게', 'More'), xhigh: t('더 깊게', 'Much more'), max: t('가장 깊게', 'Hardest') }
+/** Codex 모델 id 뒤의 깊이 이름 (모르는 깊이는 그대로) */
+export const effortLabel = (suffix: string) => Object.entries(EFFORT_NAME).find(([k]) => k === suffix)?.[1] ?? (suffix ? t(`생각 ${suffix}`, `Think ${suffix}`) : t('생각 기본', 'Default thinking'))
 /** 하나씩 바꿔 권한 이름의 기본값과 다를 때의 이름 */
 export const CUSTOM_NAME = t('직접 정함', 'Custom')
 
@@ -319,6 +320,13 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   const shownFail = fail ?? outerFail
   const models = useModels(settings.agent)
   const efforts = effortsOf(settings.model, models)
+  const fam = familyOf(settings.model, models)
+  // 생각 깊이 고르기: Claude는 effort 칸, Codex는 모델 id 뒤의 깊이(gpt-…/high). 기본 모델이면 실제로 도는 모델의 깊이를 고르면 그 모델로 바뀐다
+  const variants = (fam.family?.variants.length ? fam.family : fam.real)?.variants ?? []
+  const thinking: { key: string; name: string; on: boolean; pick: Partial<Settings> }[] = variants.length > 1
+    ? variants.map((v) => ({ key: v.value, name: effortLabel(v.suffix), on: settings.model !== 'default' && v.value === settings.model, pick: { model: v.value } }))
+    : efforts.map((m) => ({ key: m, name: EFFORT_NAME[m], on: settings.effort === m, pick: { effort: m } }))
+  const thinkingNow = variants.length > 1 ? (settings.model === 'default' ? t(`${effortLabel(fam.suffix)} (기본)`, `${effortLabel(fam.suffix)} (default)`) : effortLabel(fam.suffix)) : EFFORT_NAME[settings.effort]
 
   return (
     <div className="ac-composer" data-ui="에이전트 입력란" onDrop={onDrop} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}>
@@ -368,15 +376,23 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         {/* 권한 설명은 늘 보이는 줄 대신 ? 툴팁 (10/31 시안 6절). 누르면 소개의 그 절 */}
         <a className="icon-btn sm ac-help" href={href({ page: 'about', part: 'agents', anchor: 'conversations' })} data-ui="권한 설명" aria-label={t('권한 설명', 'About permissions')}
           data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
-        <PopButton ui="모델 고르기" tip={t('모델 · 생각 깊이', 'Model · thinking')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{modelName(settings.model, models)}{efforts.length > 0 && ` · ${EFFORT_SHORT[settings.effort]}`} ▾</>}>
+        {/* 모델과 생각 깊이는 따로 (11/9 11:07): 왼쪽에서 모델을 고르고, 그 모델이 받는 깊이를 오른쪽에서 */}
+        <PopButton ui="모델 고르기" tip={t('에이전트 · 모델', 'Agent · model')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{familyName(settings.model, models)} ▾</>}>
           {(close) => <>
             <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings(agentSwitch(a, settings.trust)) }} />
             <div className="ac-pop-h">{t('모델', 'Model')}</div>
-            {models.map((m) => <button key={m.value} role="menuitemradio" aria-checked={settings.model === m.value} className={settings.model === m.value ? 'on' : ''} onClick={() => { close(); onSettings({ model: m.value, ...fitEffort(settings.effort, effortsOf(m.value, models)) }) }}><span className="ac-pop-check" aria-hidden>{settings.model === m.value ? Icon.check : null}</span>{modelName(m.value, models)}</button>)}
-            {efforts.length > 0 && <div className="ac-pop-h">{t('생각', 'Thinking')}</div>}
-            {efforts.map((m) => <button key={m} role="menuitemradio" aria-checked={settings.effort === m} className={settings.effort === m ? 'on' : ''} onClick={() => { close(); onSettings({ effort: m }) }}><span className="ac-pop-check" aria-hidden>{settings.effort === m ? Icon.check : null}</span>{EFFORT_NAME[m]}</button>)}
+            {modelFamilies(models).map((f) => {
+              const on = (fam.family?.base ?? '') === f.base
+              const value = pickFamily(f, fam.suffix)
+              return <button key={f.base} role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => { close(); onSettings({ model: value, ...fitEffort(settings.effort, effortsOf(value, models)) }) }}><span className="ac-pop-check" aria-hidden>{on ? Icon.check : null}</span>{f.base === 'default' ? modelName('default', models).replace(/ \(.*\)$/, '') : f.name}</button>
+            })}
           </>}
         </PopButton>
+        {thinking.length > 0 && (
+          <PopButton ui="생각 고르기" tip={t('생각 깊이', 'Thinking')} label={<>{thinkingNow} ▾</>}>
+            {(close) => thinking.map((o) => <button key={o.key} role="menuitemradio" aria-checked={o.on} className={o.on ? 'on' : ''} onClick={() => { close(); onSettings(o.pick) }}><span className="ac-pop-check" aria-hidden>{o.on ? Icon.check : null}</span>{o.name}</button>)}
+          </PopButton>
+        )}
         <span className="sp" />
         {stopping
           ? <button className="ac-send stop" data-ui="대화 멈추기" data-tip={t('멈추기 (Esc)', 'Stop (Esc)')} aria-label={t('멈추기', 'Stop')} onClick={onStop}><span className="ac-stop-sq" aria-hidden /></button>

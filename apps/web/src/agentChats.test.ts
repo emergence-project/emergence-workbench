@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, modelName, stepsSummary } from './AgentChats'
 import { fitMenu, menuAt, nextTrust, sideQuestion, trustOf } from './ChatComposer'
-import { readyAgent } from './AgentPick'
+import { familyName, familyOf, modelFamilies, pickFamily, readyAgent } from './AgentPick'
 
 describe('에이전트 입력란', () => {
   it('곁 질문은 /곁 · /btw 뒤의 글, 빈 질문 · 다른 명령은 아니다', () => {
@@ -101,5 +101,35 @@ describe('새 대화의 에이전트', () => {
     expect(readyAgent('codex', [k('claude-code', true), k('codex', true, false)])).toBeUndefined()
     expect(readyAgent('claude-code', undefined)).toBeUndefined()
     expect(readyAgent('claude-code', [k('claude-code', false), k('codex', false)])).toBeUndefined()
+  })
+})
+
+describe('모델과 생각 깊이 나누기 (11/9 11:07)', () => {
+  const codex = [
+    { value: 'default', name: '기본 모델', desc: '', resolved: 'gpt-6-astra/ultra' },
+    { value: 'gpt-6-astra/medium', name: 'GPT-6 Astra (medium)', desc: '' },
+    { value: 'gpt-6-astra/ultra', name: 'GPT-6 Astra (ultra)', desc: '', resolved: 'gpt-6-astra/ultra' },
+    { value: 'gpt-5-codex/high', name: 'GPT-5 Codex (high)', desc: '' },
+  ]
+  it('Codex의 모델/깊이 id를 모델로 묶고 깊이를 그 아래에', () => {
+    const f = modelFamilies(codex)
+    expect(f.map((x) => x.name)).toEqual(['기본 모델', 'GPT-6 Astra', 'GPT-5 Codex'])
+    expect(f[1]!.variants.map((v) => v.suffix)).toEqual(['medium', 'ultra'])
+  })
+  it('기본은 실제로 도는 모델 이름과 깊이', () => {
+    expect(familyName('default', codex)).toMatch(/GPT-6 Astra/)
+    expect(familyName('default', codex)).not.toMatch(/ultra/)
+    expect(familyOf('default', codex).suffix).toBe('ultra')
+  })
+  it('모델을 바꾸면 지금 깊이를 지키고, 없으면 medium · 첫째', () => {
+    const [, astra, gpt5] = modelFamilies(codex)
+    expect(pickFamily(astra!, 'ultra')).toBe('gpt-6-astra/ultra')
+    expect(pickFamily(astra!, 'low')).toBe('gpt-6-astra/medium')
+    expect(pickFamily(gpt5!, 'ultra')).toBe('gpt-5-codex/high')
+  })
+  it('Claude 모델은 깊이 묶음이 없다', () => {
+    const f = modelFamilies([{ value: 'opus', name: 'Opus 5.5', desc: '' }])
+    expect(f[0]!.variants).toEqual([])
+    expect(pickFamily(f[0]!, 'high')).toBe('opus')
   })
 })
