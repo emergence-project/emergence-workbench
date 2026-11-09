@@ -27,7 +27,11 @@ describe('피드백 맡음', () => {
     expect(claimedElsewhere(dir, 'a', 'mac', 0)).toBe('nightly')
     expect(claimedElsewhere(dir, 'a', 'nightly', 0)).toBeNull()
     expect(claimedElsewhere(dir, 'c', 'mac', 0)).toBeNull() // 오래되어 풀림
-    expect(releaseClaims(dir, null, 'nightly')).toBe(2)
+    writeClaim(dir, 'd', 'mac') // 적을 때 풀린 줄(c)은 지우고, 풀리는 때를 함께 적는다
+    expect(Object.keys(readClaims(dir)).sort()).toEqual(['a', 'b', 'd'])
+    expect(Date.parse(readClaims(dir).d!.until!) - Date.parse(readClaims(dir).d!.at)).toBe(CLAIM_TTL_MS)
+    releaseClaims(dir, ['d'])
+    expect(releaseClaims(dir, null, 'nightly')).toBe(1)
     expect(Object.keys(readClaims(dir))).toEqual(['b'])
     expect(releaseClaims(dir, ['b'])).toBe(1)
     expect(readClaims(dir)).toEqual({})

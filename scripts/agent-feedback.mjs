@@ -102,7 +102,7 @@ if (odd.length) console.log(`⚠ status.yaml에서 state를 알아보지 못한 
 const userTurn = all.filter((e) => feedbackBucket(e, now) === '확인 필요').length
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 console.log(`# 에이전트 차례 ${mine.length} · 사용자 차례 ${userTurn} · 전체 ${all.length}${elsewhere.length ? ` · 다른 곳이 맡음 ${elsewhere.length}` : ''}${peek ? ' (보기만)' : ''}\n`)
-for (const { e } of elsewhere) { const c = takenBy(e); console.log(`- 다른 곳이 맡음 (처리하지 않음): \`${e.key}\` · ${c.machine} · ${c.at}`) }
+for (const { e } of elsewhere) { const c = takenBy(e); console.log(`- 다른 곳이 맡음 (처리하지 않음): \`${e.key}\` · ${c.machine} · ${c.at}부터 · ${new Date(Date.parse(c.at) + CLAIM_TTL_MS).toISOString()}에 풀림`) }
 if (elsewhere.length) console.log('')
 if (claimNote) console.log(claimNote)
 if (mine.length) console.log('> 처리 규칙: docs/feedback/agent.md (까닭 → 절: 새 항목 3 · 수정 요청 · 진행 · 고친 글 4 · 코멘트 5)\n')

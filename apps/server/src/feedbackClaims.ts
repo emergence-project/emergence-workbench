@@ -10,7 +10,9 @@ import type { FeedbackListItem } from './feedback.js'
  * 이 컴퓨터를 적어 올리고, 올린 뒤에도 이 컴퓨터가 남아 있을 때만 맡는다. 두 컴퓨터가 함께 적으면 합칠 때
  * 먼저 적은 쪽이 남는다(feedbackMerge.ts). GitHub에 올리기는 한 번에 한 쪽만 되므로 둘 다 맡는 일이 없다.
  *
- *   <피드백 키>: { machine: <컴퓨터 이름>, at: <ISO 시각, 시간대 포함> }
+ *   <피드백 키>: { machine: <컴퓨터 이름>, at: <ISO 시각, 시간대 포함>, until: <풀리는 시각> }
+ *
+ * until은 읽는 쪽(에이전트 · 사람)이 계산 없이 보라고 적는다. 적을 때 풀린 줄은 지워 파일에는 살아 있는 맡음만 남는다.
  *
  * 맡은 뒤에 사용자가 다시 답하면(반려 · 코멘트 등) 새 차례이므로, at이 그 항목의 마지막 손댄 때보다 앞선 적음은 보지 않는다.
  * 맡은 쪽이 끝내지 못하고 사라져도 항목이 묶이지 않게 맡음은 CLAIM_TTL_MS 뒤 풀린다(11/9 사용자 "맡은 스레드를 잃어버리면").
@@ -26,7 +28,7 @@ export const HANDOFF_FILE = 'handoff.yaml'
 /** 맡음이 저절로 풀리기까지 (한 번 처리는 보통 한 시간 안, PR CI를 기다려도 세 시간이면 넉넉하다) */
 export const CLAIM_TTL_MS = 3 * 60 * 60 * 1000
 
-export interface Claim { machine: string; at: string }
+export interface Claim { machine: string; at: string; until?: string }
 
 /** 이번 차례(since 뒤)에 적었고 아직 풀리지 않은 맡음인가 */
 export function isLiveClaim(c: unknown, since: number, now = Date.now()): c is Claim {
@@ -66,7 +68,8 @@ export function releaseClaims(dir: string, keys: string[] | null, machine?: stri
 export function writeClaim(dir: string, key: string, machine: string, now = new Date()): void {
   const file = path.join(dir, HANDOFF_FILE)
   const doc = fs.existsSync(file) ? YAML.parseDocument(fs.readFileSync(file, 'utf8')) : new YAML.Document({})
-  doc.set(key, { machine, at: now.toISOString() })
+  for (const [k, c] of Object.entries(readClaims(dir))) if (!isLiveClaim(c, 0, now.getTime())) doc.delete(k)
+  doc.set(key, { machine, at: now.toISOString(), until: new Date(now.getTime() + CLAIM_TTL_MS).toISOString() })
   writeAtomic(file, doc.toString({ lineWidth: 0 }))
 }
 
