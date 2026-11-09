@@ -100,8 +100,8 @@ export const DEFAULT_SCREENS = [
   ['review-talk', '#/r/{rid}/edits', '고침 대화', '묻기 버튼'],
   // 확인 필요: 반려한 것을 다시 처리한 항목을 펼쳐 주고받은 기록과 승인·반려를 찍는다 (fixtures/sandbox-feedback)
   ['feedback', '#/feedback', '주고받은 기록', ['피드백 줄']],
-  // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습
-  ['feedback-gallery', '#/feedback', '주고받은 기록', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 09:30"]', '[data-ui="전후 그림"] button']],
+  // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습. 승인을 기다리는 항목이라 대화는 접혀 있다 (11/9)
+  ['feedback-gallery', '#/feedback', '전후 그림', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 09:30"]', '[data-ui="전후 그림"] button']],
   // 에이전트 대화 (10/21): 예제 실행기(agentSample.ts)가 계획 승인을 묻는 대화(계획 먼저)를 찍기 전에 만든다 (shots.mjs, {chat}). 오른쪽 사이드바 자리의 패널은 상단바 반짝이
   ['agent', '#/agent/{chat}', '계획 카드'],
   // 노트를 고치고 끝난 대화와 바뀐 곳 패널 (#232)
