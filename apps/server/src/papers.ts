@@ -333,14 +333,24 @@ let probe = async (file: string): Promise<void> => {
 export function useCloudProbe(f: (file: string) => Promise<void>): void { probe = f }
 
 /**
- * 맥이 앱 서버의 클라우드 파일 받기를 막을 때(EDEADLK, 오류 -11) 맥의 File Provider 도구로 받는다 (11/9 피드백).
- * 다 받거나 시간이 넘으면 끝난다. 맥이 아니면 아무것도 하지 않는다
+ * 맥은 launchd로 띄운 프로세스(앱 서버)에서 받지 않은 클라우드 파일을 읽으면 내려받지 않고 EDEADLK(-11)를 낸다:
+ * 프로세스의 "dataless 파일 받기" 정책(iopolicy VFS_MATERIALIZE_DATALESS_FILES)이 기본으로 꺼져 있다.
+ * Node는 그 정책을 바꿀 수 없어, 정책을 켠 작은 자식(맥 기본 osascript의 JavaScript)이 파일을 한 번 읽어 받게 한다 (11/9 맥에서 확인).
  */
+const MATERIALIZE_JXA = `ObjC.import('Foundation')
+function run(argv) {
+  ObjC.bindFunction('setiopolicy_np', ['int', ['int', 'int', 'int']])
+  // IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES(3), IOPOL_SCOPE_PROCESS(0), IOPOL_MATERIALIZE_DATALESS_FILES_ON(2)
+  if ($.setiopolicy_np(3, 0, 2) !== 0) throw new Error('setiopolicy_np failed')
+  const data = $.NSData.dataWithContentsOfFile(argv[0])
+  if (data.isNil()) throw new Error('read failed')
+  return String(data.length)
+}`
 let materialize = (file: string, ms: number): Promise<void> => new Promise((resolve, reject) => {
   if (process.platform !== 'darwin') { resolve(); return }
-  execFile('/usr/bin/fileproviderctl', ['materialize', file], { timeout: ms }, (err) => (err ? reject(err) : resolve()))
+  execFile('/usr/bin/osascript', ['-l', 'JavaScript', '-e', MATERIALIZE_JXA, file], { timeout: ms }, (err, _out, stderr) => (err ? reject(new Error(String(stderr).trim() || err.message)) : resolve()))
 })
-/** 테스트가 fileproviderctl 대신 쓴다 */
+/** 테스트가 osascript 대신 쓴다 */
 export function useCloudMaterialize(f: (file: string, ms: number) => Promise<void>): void { materialize = f }
 
 /** 맥이 받기를 막았다는 오류: EDEADLK (libuv가 모르는 이름이면 errno -11) */
