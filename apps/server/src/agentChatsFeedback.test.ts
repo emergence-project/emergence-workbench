@@ -258,6 +258,12 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     settings = { ...settings, feedback: 'manual' }
   })
 
+  it('cloud.yaml에 이 컴퓨터의 시간대를 적어 클라우드의 pnpm agent:feedback이 맞춘다 (11/9)', () => {
+    writeFeedbackCloud(fb, true, new Date('2026-11-09T01:00:00Z'), 'Asia/Seoul')
+    expect(fs.readFileSync(path.join(fb, 'cloud.yaml'), 'utf8')).toContain('timezone: Asia/Seoul\n')
+    writeFeedbackCloud(fb, false)
+  })
+
   it('바로 맡기기는 쉬는 동안 에이전트 차례 하나를 맡고, 맡은 뒤 바뀐 것이 없으면 다시 맡지 않는다', async () => {
     settings = { ...settings, feedback: 'instant' }
     const before = chats.list().length
