@@ -59,7 +59,7 @@ import { store } from './store'
 import { usePhone, usePhoneCloses, useLeftSide, useStoredFlag } from './phoneLayout'
 import { applyUi, cachedUi } from './ui'
 import { FLASH_EVENT, type FlashAction, type FlashMessage } from './flash'
-import { useProjectMenu, useProjectRemove } from './projectRemove'
+import { useProjectRemove } from './projectRemove'
 import { usePublishFailureFlash } from './RecordsPublish'
 import { hasVisibleManuscriptEditor, isSection, manuscriptPdfTab, retargetNoteTabs, showBeside, tabKey, toggleSplit, useLayout, useWorkspaceDragging, workspaceVisibility, Workspace, type Tab, type TabRenderContext, type WorkspaceOpenRequest } from './Workspace'
 import { t } from './i18n'
@@ -163,7 +163,7 @@ export function App() {
   useEffect(() => { if (researchList.data) { setResearches(researchList.data.researches); setSandbox(researchList.data.sandbox) } }, [researchList.data])
   useEffect(() => { if (researchList.error) setError(researchList.error.message) }, [researchList.error])
   const loadResearches = useCallback(() => api.researches().then((r) => { researchClient.setQueryData(qk.researches, r); setResearches(r.researches); setSandbox(r.sandbox); return r.researches }), [researchClient])
-  useProjectRemove(loadResearches, route); const projectMenu = useProjectMenu() // 목록에서 제거: 레일 · 홈의 오른쪽 클릭 (projectRemove.tsx)
+  useProjectRemove(loadResearches, route) // 목록에서 제거: 프로젝트 정보 아래 칸 (projectRemove.tsx)
   // 따로 받는 화면은 첫 화면이 뜬 뒤 한가할 때 미리 받아 둔다 (lazyPages.tsx)
   useEffect(() => { prefetchLazyPages() }, [])
 
@@ -474,12 +474,12 @@ export function App() {
           <div ref={railBox} className="rail-projects" data-ui="프로젝트 버튼들" {...railDropProps}>
             {railShown.map((id) => researches!.find((x) => x.id === id)!).map((r) => (
               <button key={r.id} data-rid={r.id} className={`rail-proj${r.id === rid ? ' on' : ''}${r.available ? '' : ' off'}${railDrag.from === r.id && railDrag.over ? ' lifted' : ''}`} aria-current={r.id === rid ? 'true' : undefined} style={{ ['--pc' as string]: projectColor(r.id) }}
-                {...railDragProps(r.id)} onContextMenu={projectMenu.onMenu(r)}
+                {...railDragProps(r.id)}
                 data-ui="프로젝트 버튼" data-ui-item={r.title} data-tip={`${r.title}  ${PROJECT_KIND_LABEL[r.kind]}${r.fields.length ? ` ${r.fields.map((t) => `#${t}`).join(' ')}` : ''}`} aria-label={r.title}
                 onClick={() => go({ page: 'overview', rid: r.id })}>{initials(r.title)}<ProjectRailCount n={issues.counts[r.id]} tasks={issues.tasks[r.id]} edits={issues.edits[r.id]} records={issues.records[r.id]} /></button>
             ))}
             <button className="rail-proj add" data-ui="프로젝트 등록" data-tip={t('프로젝트 등록', 'Register project')} aria-label={t('프로젝트 등록', 'Register project')} onClick={() => setDialog('register')}>＋</button>
-          </div>{projectMenu.menu}
+          </div>
           <span className="rail-hr" />
           {GLOBAL_PAGES.filter((g) => g.rail === 'top').map(railPage)}
           <span className="sp" />

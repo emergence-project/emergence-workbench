@@ -18,6 +18,7 @@ import { StarIcon } from './marks'
 import { judgeOrder, taskLine, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL } from './taskView'
 import { reviewStatusLabel } from './reviewStatus'
 import { LOOSE_NOTES_LABEL, LOOSE_TOPIC_ID } from './noteKinds'
+import { ProjectRemoveSection } from './projectRemove'
 
 function PathName({ path }: { path: string }) {
   const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
@@ -109,6 +110,7 @@ export function ProjectInfoPage({ rid, rapi, summary, notes, manuscripts, projec
           <dt>{t('진술', 'Statements')}</dt><dd>{statements.length || <span className="muted">{t('없음', 'None')}</span>}</dd>
         </dl>
       </section>
+      {listed && <ProjectRemoveSection id={rid} title={research.title || listed.title} />}
       {editing && listed && <ProjectEditDialog rapi={rapi} summary={summary} listed={listed} all={all} pc={projectColor(rid)}
         onProfile={onProfile} onChanged={onChanged} onSaved={onSaved} onDone={() => setEditing(false)} />}
     </InfoShell>

@@ -3,3 +3,6 @@
 /* 작은 아이콘 버튼 (10/17): 항목 오른쪽 위 고치기 · 지우기, 좁은 칸의 넘기기 · 빼기. 기본 .icon-btn은 28px (base.css) */
 .icon-btn.sm { width: var(--input-h-sm); height: var(--input-h-sm); }
 .icon-btn.sm svg { width: 14px; height: 14px; }
+/* 지우기 · 제거 버튼 (11/9): 빨간 글자와 테두리. 되돌리기 어려운 일에만 (디자인 문서 2절 위험 색) */
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.btn.danger:hover:not(:disabled) { background: var(--danger-bg); }

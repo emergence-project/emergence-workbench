@@ -70,3 +70,6 @@ button.info-row:hover { background: var(--bg-hover); }
 .wb-upload-text { flex: 1; min-width: 0; }
 .wb-upload .btn { flex: none; }
 @media (max-width: 720px) { .wb-upload { flex-wrap: wrap; } }
+/* 프로젝트 정보 아래 「목록에서 제거」 칸 (11/9): 설명 왼쪽, 버튼 오른쪽 */
+.info-remove { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); font-size: var(--fs-sm); }
+.info-remove p { margin: 0; color: var(--text-2); }

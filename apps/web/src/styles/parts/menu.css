@@ -3,8 +3,3 @@
 .menu button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 6px 10px; border-radius: var(--r-sm); text-align: left; font-size: var(--fs-sm); }
 .menu button:hover { background: var(--bg-hover); }
 .menu button.on { font-weight: var(--fw-strong); }
-/* 오른쪽 클릭 메뉴: 누른 자리에 뜬다 (화면이 left · top을 준다). 지우기 · 제거 항목은 빨강 */
-.menu.at-pointer { position: fixed; }
-.menu button.danger { color: var(--danger); }
-/* 오른쪽 클릭 메뉴가 떠 있는 동안 그 아래 버튼의 툴팁은 감춘다 (메뉴를 가리지 않게) */
-body:has(.menu.at-pointer) [data-tip]:hover::after { display: none; }
