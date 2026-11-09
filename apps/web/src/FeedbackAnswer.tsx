@@ -33,7 +33,7 @@ export function ApproveButton({ e, onOpinion }: { e: FeedbackItem; onOpinion?():
   return (
     <div className="fbp-now-act">
       {error && <span className="error-text">{error}</span>}
-      {onOpinion && <button className="btn" data-ui="의견 남기기" title={t('승인하기 전에 질문 · 반려 · 진행 · 논의를 적습니다', 'Ask, send back, go ahead or discuss before approving')} onClick={onOpinion}>{t('의견 남기기', 'Leave a reply')}</button>}
+      {onOpinion && <button className="btn" data-ui="의견 남기기" title={t('승인하기 전에 진행 · 질문 · 논의 · 반려를 적습니다', 'Go ahead, ask, discuss or send back before approving')} onClick={onOpinion}>{t('의견 남기기', 'Leave a reply')}</button>}
       <button className="btn primary" data-ui="처리 승인" disabled={busy} title={t('이 처리를 그대로 끝냅니다', 'Accept this handling as is')} onClick={send}>{t('승인', 'Approve')}</button>
     </div>
   )
@@ -63,8 +63,9 @@ export function HandlingPictures({ e }: { e: FeedbackItem }) {
 
 /**
  * 아래 입력란 (10/8 시안 · 11/8 시안 N7ik 3절): 승인이 아닌 의견은 여기서 종류를 고르고 글을 적어 「보내기」. 의견은 주고받은 대화에 남는다.
- * - 결과를 알린 답(반영 · 답변 · 거절 · 나중에): 질문 · 반려 · 진행 · 논의. 승인은 위 지금 처리 카드에.
- * - 결정을 묻는 답(확인 필요 · 동의 · 물음이 붙은 보류 · 답변): 질문 · 진행 · 중단 · 논의.
+ * - 결과를 알린 답(반영 · 답변 · 거절 · 나중에): 진행 · 질문 · 논의 · 반려. 승인은 위 지금 처리 카드에.
+ * - 결정을 묻는 답(확인 필요 · 동의 · 물음이 붙은 보류 · 답변): 진행 · 질문 · 논의 · 중단.
+ * 순서는 받아들이는 쪽에서 거부하는 쪽으로 (11/9 09:22 코멘트).
  * - 끝났거나 관리자 차례가 아니면 질문만.
  * 질문(자료 값 코멘트) · 반려 · 논의는 글이 있어야 보낸다. 진행 · 중단은 글 없이도 보내고, 글이 있으면 함께 적힌다.
  * 질문은 처리를 그대로 두고 묻는다(관리자가 답만 한다). 반려 · 진행 · 논의는 다시 처리하게 돌려보낸다(논의는 고치지 않고 시안 · 물음으로). 중단은 그대로 끝낸다.
@@ -76,7 +77,7 @@ export function Compose({ e, focus }: { e: FeedbackItem; focus?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [picked, setPicked] = useState<Opinion | null>(null)
-  const choices: Opinion[] = !answerable(e) ? ['코멘트'] : asksUser(e) ? ['코멘트', '진행', '중단', '논의'] : ['코멘트', '반려', '진행', '논의']
+  const choices: Opinion[] = !answerable(e) ? ['코멘트'] : asksUser(e) ? ['진행', '코멘트', '논의', '중단'] : ['진행', '코멘트', '논의', '반려']
   // 결정을 묻는 답은 「진행」이 골라진 채로 시작해 그대로 보내면 된다 (11/8 20:41 시안 코멘트). 나머지는 질문
   const choice = picked && choices.includes(picked) ? picked : choices.includes('진행') && asksUser(e) ? '진행' : '코멘트'
   const canSend = !NEEDS_TEXT.includes(choice) || !!text.trim()

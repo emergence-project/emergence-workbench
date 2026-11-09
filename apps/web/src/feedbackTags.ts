@@ -10,10 +10,13 @@ export const REPLY: Record<string, string> = {
   '코멘트': t('질문', 'Ask'), '반려': t('반려', 'Revise'), '승인': t('승인', 'Approve'), '진행': t('진행', 'Proceed'), '중단': t('중단', 'Stop'), '논의': t('논의', 'Discuss'),
 }
 
-/** 답 고르기 칸의 뜻 (11/8 안 C: 고르기 칸에는 「이름 · 뜻」 한 모양) */
+/**
+ * 답 고르기 칸의 뜻 (11/8 안 C: 고르기 칸에는 「이름 · 뜻」 한 모양).
+ * 질문과 논의를 가르는 기준 (11/9 09:22 코멘트): 앱을 바꾸려는 마음이 없으면 질문(답만), 바꿀지 아직 모르면 논의(시안 · 물음), 바꾸기로 정했으면 진행.
+ */
 export const REPLY_MEANING: Record<string, string> = {
   '승인': t('그대로 끝내기', 'accept as is'), '진행': t('이어서 더 하기', 'go on with more'), '반려': t('다시 고치기', 'fix it again'),
-  '논의': t('고치기 전에 시안 보기', 'show a mockup before changing'), '코멘트': t('궁금한 것 묻기', 'ask a question'), '중단': t('여기서 멈추기', 'stop here'),
+  '논의': t('바꿀지 시안 보고 정하기', 'decide after seeing a mockup'), '코멘트': t('궁금한 것만 묻기 (바꾸지 않음)', 'just ask (no change)'), '중단': t('여기서 멈추기', 'stop here'),
 }
 
 export type TagWho = 'agent' | 'user'
