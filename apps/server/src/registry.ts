@@ -527,13 +527,27 @@ export class Registry {
     }
   }
 
-  /** 목록에서만 뺀다. 저장소의 파일은 지우지 않는다. */
+  /** 목록에서만 뺀다. 저장소의 파일은 지우지 않는다. 뺀 줄은 앱을 닫을 때까지 기억해 restore로 그 자리에 되돌린다 */
   unregister(id: string): void {
-    const before = this.config.researches.length
+    const at = this.config.researches.findIndex((r) => r.id === id)
+    if (at < 0) throw new WorkbenchError(404, tl(`등록되지 않은 연구: ${id}`, `Project not registered: ${id}`))
+    this.removed.set(id, { entry: this.config.researches[at]!, at })
     this.config.researches = this.config.researches.filter((r) => r.id !== id)
-    if (this.config.researches.length === before) throw new WorkbenchError(404, tl(`등록되지 않은 연구: ${id}`, `Project not registered: ${id}`))
     this.workbenches.delete(id)
     this.save()
+  }
+
+  private readonly removed = new Map<string, { entry: RegisteredResearch; at: number }>()
+
+  /** 방금 목록에서 뺀 프로젝트를 설정(성격 · 분야 · 색 · 순서)째 되돌린다 (홈 · 레일의 「되돌리기」) */
+  restore(id: string): ResearchListItem {
+    const got = this.removed.get(id)
+    if (!got) throw new WorkbenchError(404, tl('되돌릴 프로젝트가 없습니다. 「프로젝트 등록」으로 그 폴더를 다시 등록하세요', 'Nothing to restore. Register the folder again with Register project'))
+    if (this.ids().includes(id) || this.config.researches.some((r) => r.path === got.entry.path)) throw new WorkbenchError(409, tl('이미 목록에 있습니다', 'Already in the list'))
+    this.removed.delete(id)
+    this.config.researches.splice(Math.min(got.at, this.config.researches.length), 0, got.entry)
+    this.save()
+    return this.list().find((r) => r.id === id)!
   }
 }
 

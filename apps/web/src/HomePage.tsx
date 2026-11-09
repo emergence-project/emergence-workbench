@@ -11,6 +11,7 @@ import { attentionOf, filterProjects, issueTip, KIND_FILTERS, kindFilterLabel, l
 import { ProjectStateDot } from './ProjectProfileFields'
 import { qk } from './queries'
 import { go } from './router'
+import { useProjectMenu } from './projectRemove'
 import { WeekCalendar } from './WeekCalendar'
 import { t, plural, locale } from './i18n'
 
@@ -107,6 +108,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
     api.research(rid).update().then((s) => { client.setQueryData(qk.sync(rid), s); onSaved(t('GitHub의 새 커밋을 받았습니다', 'Pulled new commits from GitHub')) })
       .catch((e: Error) => onSaved(t(`받지 못했습니다 — ${e.message}`, `Could not pull: ${e.message}`)))
   }
+  const projectMenu = useProjectMenu()
   const rowOf = (r: ResearchListItem): ProjectRowData => {
     const l = loaded[r.id]
     const sync = syncs[r.id]
@@ -125,7 +127,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
       sync: sync ?? null,
       changes: changes[r.id] ?? null,
       onUpdate: () => update(r.id),
-      drag: dragProps(r.id), dropTarget: dropProps(r.id),
+      drag: dragProps(r.id), dropTarget: { ...dropProps(r.id), onContextMenu: projectMenu.onMenu(r) },
       dragging: dragging === r.id, over: over === r.id && dragging !== r.id,
     }
   }
@@ -181,6 +183,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
               )}
               {all.length > 0 && <Legend view={view} />}
             </section>
+            {projectMenu.menu}
             {shown.length > 0 && <WeekCalendar byDay={byDay} deadlines={dues} onCopied={onSaved} />}
           </div>
         </div>
@@ -208,7 +211,8 @@ interface ProjectRowData {
   changes?: ChangesCount | null
   onUpdate(): void
   drag: { draggable: boolean; onDragStart(e: DragEvent): void; onDragEnd(): void }
-  dropTarget: { onDragOver(e: DragEvent): void; onDrop(e: DragEvent): void }
+  /** 끌어 놓기와 오른쪽 클릭 메뉴(목록에서 제거) */
+  dropTarget: { onDragOver(e: DragEvent): void; onDrop(e: DragEvent): void; onContextMenu(e: React.MouseEvent): void }
   dragging: boolean
   over: boolean
 }

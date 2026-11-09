@@ -50,6 +50,9 @@ export const researchListCalls = {
 
   /** 성격 · 분야 · 진행 상태 중 보낸 것만 바꾼다 */
   setProfile: (rid: string, patch: Omit<ProfileBody, 'tags'>) => req(`/api/researches/${enc(rid)}`, send('PATCH', patch)).then((r) => json<ResearchListItem>(r)),
+  /** 목록에서 제거 (폴더는 그대로) · 방금 제거한 것 되돌리기 */
+  removeProject: (rid: string) => req(`/api/researches/${enc(rid)}`, { method: 'DELETE' }).then((r) => json<Ok>(r)),
+  restoreProject: (rid: string) => req(`/api/researches/${enc(rid)}/restore`, { method: 'POST' }).then((r) => json<ResearchListItem>(r)),
   /** 프로젝트 순서 (홈 카드 끌기) */
   setOrder: (ids: string[]) => req('/api/researches/order', send('PUT', { ids })).then((r) => json<ResearchOrder>(r)),
   /** 프로젝트 카드 그림 주소 (research.yaml의 image:가 있을 때만) */

@@ -137,6 +137,13 @@ export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: 
     return { ok: true as const }
   })
 
+  /** 방금 목록에서 뺀 프로젝트를 되돌린다 (뺀 뒤 뜨는 「되돌리기」) */
+  app.post<{ Params: { rid: string } }>('/api/researches/:rid/restore', replies(C.ResearchListItem), async (req): Promise<C.ResearchListItem> => {
+    const item = registry.restore(req.params.rid)
+    ensureWatch(item.id)
+    return item
+  })
+
   /** 연구 개괄에 필요한 것 전부: 연구 정보, 진술, 할 일 */
   app.get<{ Params: { rid: string } }>('/api/researches/:rid', replies(C.ResearchSummary), async (req): Promise<C.ResearchSummary> => {
     const wb = wbOf(req.params.rid)
