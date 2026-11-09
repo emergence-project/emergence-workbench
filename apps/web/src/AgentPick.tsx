@@ -66,6 +66,47 @@ export function modelName(value: ChatModel, list: ModelChoice[]): string {
   const real = m?.resolved && list.find((x) => x.value !== 'default' && x.resolved === m.resolved)?.name
   return real ? t(`기본 (${real})`, `Default (${real})`) : t('기본 모델', 'Default model')
 }
+/**
+ * 모델과 생각 깊이 나누기 (11/9 11:07 피드백 "모델과 노력을 구분하고, 모델을 고른 뒤 노력을"):
+ * Codex 연결부는 모델마다 생각 깊이를 붙인 id(gpt-6-astra/ultra, 이름 "GPT-6 Astra (ultra)")를 따로 보낸다. 앞부분을 모델로, 뒤를 그 모델의 깊이로 묶는다.
+ * Claude처럼 깊이를 따로 받는 모델은 variants가 없다.
+ */
+export type ModelFamily = { base: string; name: string; variants: { suffix: string; value: ChatModel }[] }
+const baseOf = (v: string) => { const i = v.lastIndexOf('/'); return i > 0 ? { base: v.slice(0, i), suffix: v.slice(i + 1) } : { base: v, suffix: '' } }
+const bareName = (name: string, suffix: string) => { const tail = ` (${suffix})`; return suffix && name.toLowerCase().endsWith(tail.toLowerCase()) ? name.slice(0, -tail.length) : name }
+export function modelFamilies(list: ModelChoice[]): ModelFamily[] {
+  const out: ModelFamily[] = []
+  for (const m of list) {
+    const { base, suffix } = m.value === 'default' ? { base: 'default', suffix: '' } : baseOf(m.value)
+    const f = out.find((x) => x.base === base)
+    if (f) { if (suffix) f.variants.push({ suffix, value: m.value }); continue }
+    out.push({ base, name: bareName(m.name, suffix), variants: suffix ? [{ suffix, value: m.value }] : [] })
+  }
+  return out
+}
+/** 지금 모델의 묶음과 그 깊이. 기본 모델은 실제로 도는 모델(resolved)의 묶음 */
+export function familyOf(value: ChatModel, list: ModelChoice[]): { family?: ModelFamily; suffix: string; real?: ModelFamily } {
+  const fams = modelFamilies(list)
+  if (value === 'default') {
+    const resolved = list.find((x) => x.value === 'default')?.resolved
+    const r = resolved ? baseOf(resolved) : undefined
+    return { family: fams.find((f) => f.base === 'default'), suffix: r?.suffix ?? '', real: r && fams.find((f) => f.base === r.base) }
+  }
+  const { base, suffix } = baseOf(value)
+  return { family: fams.find((f) => f.base === base), suffix }
+}
+/** 묶음을 고를 때: 지금 깊이가 그 묶음에 있으면 그대로, 없으면 medium, 그것도 없으면 첫째 */
+export function pickFamily(f: ModelFamily, suffix: string): ChatModel {
+  if (!f.variants.length) return f.base
+  return (f.variants.find((v) => v.suffix === suffix) ?? f.variants.find((v) => v.suffix === 'medium') ?? f.variants[0]!).value
+}
+/** 모델 이름 (깊이 없이): 기본은 "기본 (GPT-6 Astra)" */
+export function familyName(value: ChatModel, list: ModelChoice[]): string {
+  const { family, real } = familyOf(value, list)
+  if (value === 'default') return real ? t(`기본 (${real.name})`, `Default (${real.name})`) : modelName(value, list)
+  return family?.name ?? modelName(value, list)
+}
+
 /** 모델을 바꿀 때: 새 모델이 지금 생각 깊이를 받지 않으면 보통(없으면 첫째)으로 */
 export const fitEffort = (now: ChatEffort, efforts: ChatEffort[]): { effort?: ChatEffort } => (!efforts.length || efforts.includes(now) ? {} : { effort: efforts.includes('medium') ? 'medium' : efforts[0]! })
 /** 그 모델이 받는 생각 깊이 (목록에 없는 모델은 기본 셋, 받지 않으면 빈 목록) */

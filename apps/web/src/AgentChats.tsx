@@ -19,9 +19,9 @@ import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
 import { GroupPick } from './AgentGroupPick'
 import { ProjectPick, RecentChats, ScopeRow } from './AgentProjectPick'
-import { AgentChip, agentOf, effortsOf, fitEffort, isClaude, modelName, useChatSettings, useModels } from './AgentPick'
+import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
-import { APP_HINT, ATTACH_NAME, Composer, CUSTOM_NAME, EFFORT_NAME, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
+import { APP_HINT, ATTACH_NAME, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
  * 에이전트 대화 (10/21 "프로젝트 관리 먼저", 같은 날 "에이전트 창 구조 다시" · "코덱스와 Claude 앱 더 참고"):
@@ -861,7 +861,7 @@ function ChatInfo({ chat }: { chat: Chat }) {
       {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('컨텍스트 창', 'Context window')}><i style={{ width: `${share * 100}%` }} /></div>}
       {context && share >= COMPACT_HINT && isClaude(chat.agent) && <span className="muted ac-hint">{t('컨텍스트 창이 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
       <dl className="ac-info-list">
-        <dt>{t('모델', 'Model')}</dt><dd><AgentChip agent={chat.agent} /> {modelName(chat.model, models)}{isClaude(chat.agent) && effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</dd>
+        <dt>{t('모델', 'Model')}</dt><dd><AgentChip agent={chat.agent} /> {familyName(chat.model, models)}{isClaude(chat.agent) ? effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}` : familyOf(chat.model, models).suffix && ` · ${effortLabel(familyOf(chat.model, models).suffix)}`}</dd>
         <dt>{t('범위', 'Scope')}</dt><dd>{scopeName(chat.scope, topics)}</dd>
         <dt>{t('사용 토큰', 'Tokens used')}</dt><dd>{tokens > 0 ? `${tokensName(tokens)} (${t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)})` : t('아직 없음', 'None yet')}{cost > 0 && <span className="muted" title={costName(cost)}> · {t(`API 가격 약 $${cost.toFixed(2)}`, `about $${cost.toFixed(2)} at API prices`)}</span>}</dd>
         {secs > 0 && <><dt>{t('일한 시간', 'Time worked')}</dt><dd>{secondsName(secs)}</dd></>}
