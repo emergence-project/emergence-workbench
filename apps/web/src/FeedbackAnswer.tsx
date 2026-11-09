@@ -5,6 +5,7 @@ import { ComposeBox } from './Conversation'
 import { asksUser, feedbackBucket, stateOf } from './feedbackBuckets'
 import { t } from './i18n'
 import { REPLY, REPLY_MEANING } from './feedbackTags'
+import { Icon } from './icons'
 
 // 피드백 항목에 답하는 부품 (11/8 처리와 대화 나누기, 시안 N7ik 3절): 지금 처리 카드의 승인 · 전후 그림, 대화 아래 입력란. 피드백 화면과 폰 내 차례가 함께 쓴다
 
@@ -89,5 +90,23 @@ export function Compose({ e }: { e: FeedbackItem }) {
       )}>
         <button className="btn primary" disabled={busy || !canSend} title={canSend ? undefined : t('글을 적어야 보낼 수 있습니다', 'Write something to send this')} onClick={send}>{t('보내기', 'Send')}</button>
     </ComposeBox>
+  )
+}
+
+/**
+ * 에이전트가 맡아 처리 중인 항목 (11/9 사용자 "맡은 스레드를 잃어버리면 맡음만 남을 수 있어"): 누가 언제 맡았고 언제 저절로 풀리는지,
+ * 그리고 기다리지 않고 바로 푸는 ×. 풀면 다음 처리(정기 작업 · 대화 · 바로 맡기기)가 다시 맡을 수 있다
+ */
+export function ClaimLine({ e }: { e: FeedbackItem }) {
+  const [error, setError] = useState('')
+  if (!e.claim) return null
+  const hm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+  const release = () => void api.releaseFeedbackClaim(e.key).catch((err: Error) => setError(err.message))
+  return (
+    <div className="fbp-agent fbp-claim" data-ui="맡음">
+      <span className="muted">{t(`${e.claim.machine}가 ${hm(e.claim.at)}에 맡아 처리 중 · ${hm(e.claim.until)}에 자동으로 풀림`, `${e.claim.machine} took this at ${hm(e.claim.at)} · released automatically at ${hm(e.claim.until)}`)}</span>
+      <button type="button" className="icon-btn sm" data-ui="맡음 풀기" data-tip={t('맡음 풀기: 다른 곳이 다시 맡을 수 있게 합니다', 'Release: let another agent take it')} aria-label={t('맡음 풀기', 'Release')} onClick={release}>{Icon.x}</button>
+      {error && <span className="error-text fbp-agent-error" role="alert">{error}</span>}
+    </div>
   )
 }

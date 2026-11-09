@@ -13,6 +13,7 @@ import { t } from '../i18n.js'
 import { syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
 import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
+import { CLAIM_TTL_MS, isLiveClaim, lastTouched, readClaims, releaseClaims } from '../feedbackClaims.js'
 import { exportFeedback, importFeedback } from '../feedbackBundle.js'
 import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
 import { revealInFinder } from '../materials.js'
@@ -116,9 +117,24 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
         if (v !== undefined) e.inApp = v
       }))
     }
+    // 에이전트가 맡아 처리 중인 것 (11/9: 맡은 쪽이 사라져도 보이고 풀 수 있게)
+    if (opts.feedbackDir) {
+      const claims = readClaims(opts.feedbackDir)
+      for (const e of entries) {
+        const c = claims[e.key]
+        if (isLiveClaim(c, lastTouched(e))) e.claim = { machine: c.machine, at: c.at, until: new Date(Date.parse(c.at) + CLAIM_TTL_MS).toISOString() }
+      }
+    }
     // 예제 모드는 예제 계정 (githubRepos.ts의 예제 저장소 주인과 같다)
     const user = opts.sandbox ? 'example-user' : opts.feedbackDir ? await (account ??= feedbackAccount(opts.feedbackDir)) : null
     return { enabled: !!opts.feedbackDir, entries, user, statusError: opts.feedbackDir ? feedbackStatusError(opts.feedbackDir) : null }
+  })
+  /** 맡음 풀기 (11/9): 맡은 에이전트가 끝내지 못하고 사라졌을 때 기다리지 않고 다른 곳이 맡게 */
+  app.delete('/api/feedback/claim', replies(C.FeedbackOk), async (req): Promise<C.FeedbackOk> => {
+    if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
+    const b = parseBody(C.FeedbackClaimBody, req.body)
+    if (releaseClaims(opts.feedbackDir, [b.key])) scheduleAutoPublish()
+    return { ok: true }
   })
   /** 클라우드 피드백 처리 켜기 · 끄기 (11/4): cloud.yaml에 적고 피드백처럼 올린다 */
   app.get('/api/feedback/cloud', replies(C.FeedbackCloud), async (): Promise<C.FeedbackCloud> => opts.feedbackDir ? readFeedbackCloud(opts.feedbackDir) : { enabled: false, at: null })

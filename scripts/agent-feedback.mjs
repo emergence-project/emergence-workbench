@@ -6,6 +6,7 @@
 // 올리기가 밀리면(다른 곳이 먼저 올림) 되돌리고 다시 받아 처음부터. 다른 이름이 이번 차례에 맡은 항목은 "다른 곳이 맡음"으로 빼서 보인다
 // (앱의 바로 맡기기와 같은 파일 · 같은 판단, feedbackClaims.ts). 보기만 하려면 --peek(아무것도 쓰거나 올리지 않음).
 // 이름은 --me, 없으면 FEEDBACK_AGENT, 없으면 agent-<컴퓨터 이름>. 시간대는 TZ, 없고 UTC면 cloud.yaml의 timezone(앱이 적는다).
+// 맡음은 세 시간 뒤 저절로 풀리고(맡은 쪽이 사라져도 묶이지 않게, 11/9), 같은 이름으로 다시 돌리면 늘어난다. 처리하지 않고 끝낼 때는 --release.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -18,9 +19,10 @@ const bool = (name) => { const i = argv.indexOf(name); return i >= 0 && !!argv.s
 const me = flag('--me') || process.env.FEEDBACK_AGENT || `agent-${os.hostname()}`
 bool('--claim') // 11/8 이름: 이제 기본이라 받기만 한다
 const peek = bool('--peek')
+const release = bool('--release')
 const arg = argv[0]
 if (!arg) {
-  console.error('사용법: pnpm agent:feedback <피드백 폴더 또는 개인 저장소 폴더> [--me <이름>] [--peek]   (예: pnpm agent:feedback ~/.config/research-workspace/personal)\n  차례인 항목을 handoff.yaml에 이 이름으로 맡고 올린다. --me <이름>: 맡는 이름(기본 FEEDBACK_AGENT 또는 agent-<컴퓨터 이름>). --peek: 보기만')
+  console.error('사용법: pnpm agent:feedback <피드백 폴더 또는 개인 저장소 폴더> [--me <이름>] [--peek | --release]   (예: pnpm agent:feedback ~/.config/research-workspace/personal)\n  차례인 항목을 handoff.yaml에 이 이름으로 맡고 올린다. --me <이름>: 맡는 이름(기본 FEEDBACK_AGENT 또는 agent-<컴퓨터 이름>). --peek: 보기만. --release: 이 이름의 맡음을 모두 풀고 올린다(처리하지 않고 끝낼 때)')
   process.exit(1)
 }
 // 개인 저장소 맨 위나 그 안의 feedback 폴더 둘 다 받는다. pnpm은 저장소 맨 위에서 돌리므로 상대 경로는 부른 곳 기준
@@ -38,7 +40,7 @@ const opts = { parentURL: import.meta.url, tsconfig: false }
 const { listAllFeedback, feedbackStatusError, feedbackStatusWarnings } = await tsImport('../apps/server/src/feedback.ts', opts)
 const { agentTurnReasons, feedbackBucket } = await tsImport('../packages/core/src/feedback-buckets.ts', opts)
 const { feedbackLessons, feedbackLessonsText } = await tsImport('../packages/core/src/feedback-lessons.ts', opts)
-const { readClaims, writeClaim, lastTouched, HANDOFF_FILE } = await tsImport('../apps/server/src/feedbackClaims.ts', opts)
+const { readClaims, writeClaim, lastTouched, isLiveClaim, releaseClaims, CLAIM_TTL_MS, HANDOFF_FILE } = await tsImport('../apps/server/src/feedbackClaims.ts', opts)
 
 if (new Date().getTimezoneOffset() === 0 && !process.env.TZ) console.log('⚠ 시간대가 UTC입니다. 처리 기록은 앱이 도는 컴퓨터의 시간대라, 그 시간대로 돌리세요 (예: TZ=<그 시간대> pnpm agent:feedback …). 앱에서 클라우드 처리를 한 번 껐다 켜면 cloud.yaml에 시간대가 적힙니다\n')
 
@@ -56,11 +58,17 @@ const compute = () => {
   const claims = readClaims(dir)
   const takenBy = (e) => {
     const c = claims[e.key]
-    if (!c || typeof c.machine !== 'string' || c.machine === me) return null
-    const at = Date.parse(String(c.at))
-    return Number.isFinite(at) && at >= lastTouched(e) ? c : null
+    return isLiveClaim(c, lastTouched(e), now) && c.machine !== me ? c : null
   }
   return { all, takenBy, mine: turn.filter((x) => !takenBy(x.e)), elsewhere: turn.filter((x) => takenBy(x.e)) }
+}
+
+if (release) {
+  if (inGit) tryGit('pull', '--rebase', '--autostash', '-q')
+  const n = releaseClaims(dir, null, me)
+  const pushed = n > 0 && inGit && tryGit('add', '--', handoff) && tryGit('commit', '-q', '-m', `피드백 맡음 풀기: ${me} ${n}개`, '--', handoff) && tryGit('push', '-q')
+  console.log(n ? `${me} 이름의 맡음 ${n}개를 풀었습니다${inGit ? (pushed ? '(올림)' : ' ⚠ 올리지 못함') : ''}.` : `${me} 이름의 맡음이 없습니다.`)
+  process.exit(0)
 }
 
 let r = compute()
@@ -78,7 +86,7 @@ if (!peek) {
       if (!r.mine.length) { done = true; break }
       for (const { e } of r.mine) writeClaim(dir, e.key, me)
       if (!tryGit('add', '--', handoff) || !tryGit('commit', '-q', '-m', `피드백 맡음: ${me} ${r.mine.length}개`, '--', handoff)) { claimNote = '⚠ handoff.yaml을 커밋하지 못해 맡지 못했습니다.\n'; tryGit('checkout', '--', handoff); break }
-      if (tryGit('push', '-q')) { done = true; claimNote = `> ${me} 이름으로 ${r.mine.length}개를 맡고 올렸습니다(handoff.yaml). 처리 기록을 쓰기 직전에 한 번 더 돌려 차례를 보세요.\n`; break }
+      if (tryGit('push', '-q')) { done = true; claimNote = `> ${me} 이름으로 ${r.mine.length}개를 맡고 올렸습니다(handoff.yaml). 처리 기록을 쓰기 직전에 한 번 더 돌려 차례를 보세요(맡음이 늘어남). 맡음은 ${CLAIM_TTL_MS / 3600000}시간 뒤 저절로 풀리고, 처리하지 않고 끝낼 때는 --release.\n`; break }
       tryGit('reset', '-q', 'HEAD~1'); tryGit('checkout', '--', handoff)
     }
     if (!done && !claimNote) claimNote = '⚠ 올리기가 세 번 밀려 맡지 못했습니다. 잠시 뒤 다시 돌리세요.\n'
