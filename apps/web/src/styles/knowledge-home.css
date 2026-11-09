@@ -58,3 +58,6 @@
 .kh-store-sub { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kh-manage { display: inline-flex; align-items: center; gap: var(--sp-2); align-self: flex-start; margin-top: var(--sp-2); font-size: var(--fs-sm); }
 @media (max-width: 900px) { .kh-layout { grid-template-columns: minmax(0, 1fr); } .kh-side { border-left: 0; border-top: 1px solid var(--line); } }
+
+/* 찾기 칸 (11/9, 시안 N7ik 2절): 논문 첫 화면과 같은 .pf-box, 가운데에. 찾기 칸과 최근 노트 사이는 한 칸 */
+.kh-find { display: flex; justify-content: center; }

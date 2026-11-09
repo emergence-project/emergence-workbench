@@ -6,6 +6,7 @@ import { askText } from './askText'
 import { conceptCounts, pushRecent, readOpened, useKnowledge } from './ConceptNotes'
 import { Icon } from './icons'
 import { dayOf, mergeRecent, shortSubject } from './knowledgeRecent'
+import { KnowledgeFind } from './KnowledgeFind'
 import { LibraryStorage, StoreLine } from './LibraryStorage'
 import { go } from './router'
 import { showKnowledgeList } from './knowledgeListState'
@@ -13,7 +14,7 @@ import { t, HERE } from './i18n'
 
 /**
  * 지식 첫 화면 (라이브러리 L1, 설계 결정 2026-10-06 "라이브러리 첫 화면" · "지식 점검 기준").
- * 머리줄 없이 ① 최근 노트(연 것 · 고친 것을 한 목록, 맨 위 줄 "＋ 개념노트 만들기") ② 왼쪽 점검(사용자 차례, 주황 수) · 오른쪽 통계(이상 종류).
+ * 맨 위 찾기 칸(11/9, 논문 첫 화면과 같은 칸), 그 아래 ① 최근 노트(연 것 · 고친 것을 한 목록, 맨 위 줄 "＋ 개념노트 만들기") ② 왼쪽 점검(사용자 차례, 주황 수) · 오른쪽 통계(이상 종류).
  * 오른쪽 칸은 라이브러리 정보(저장 위치 · 라이브러리 관리). 숫자는 서버 색인(GET /api/concepts/brief)에서 온다.
  */
 export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { info: LibraryInfo; rightOpen?: boolean; onChanged(): void; onSaved(msg: string): void }) {
@@ -40,6 +41,7 @@ export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { 
       <div className={`kh-layout${rightOpen ? '' : ' no-right'}`}>
         <div className="scroll kh-main">
           {error && <div className="banner danger">{t(`첫 화면 숫자를 읽지 못했습니다: ${error}`, `Couldn't read the counts for this page: ${error}`)}</div>}
+          <div className="kh-find"><KnowledgeFind /></div>
           <section className="kh-sec" data-ui="최근 노트">
             <h2 className="kh-h"><button className="a lh-h-link" onClick={() => showKnowledgeList({}, true)}>{t('최근 노트', 'Recent notes')}</button></h2>
             <div className="kh-rows">
