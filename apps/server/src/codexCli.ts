@@ -207,6 +207,8 @@ export async function codexAsk(configDir: string, cwd: string, prompt: string, f
         if (/usage limit|rate limit|429/i.test(err)) return reject(new WorkbenchError(429, t('ChatGPT 요금제의 사용 한도에 걸렸습니다. 나중에 다시 해 주세요', 'The ChatGPT plan usage limit was hit. Try again later')))
         reject(new WorkbenchError(502, t(`Codex가 답하지 못했습니다${err.trim() ? `: ${err.trim().slice(-300)}` : ` (종료 코드 ${code})`}`, `Codex could not answer${err.trim() ? `: ${err.trim().slice(-300)}` : ` (exit code ${code})`}`)))
       })
+      // codex가 입력을 다 읽기 전에 끝나면 쓰기가 EPIPE로 실패한다. 결과는 close에서 판단하므로 여기서는 삼킨다 (CI #406에서 잡힌 처리 안 된 오류)
+      p.stdin.on('error', () => {})
       p.stdin.end(full)
     })
   } finally {

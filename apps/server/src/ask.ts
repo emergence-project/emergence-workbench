@@ -93,6 +93,7 @@ function runnerWith(args: string[]): AskRunner {
       if (code === 0 && out.trim()) resolve(out.trim())
       else reject(new WorkbenchError(502, t(`Claude가 답하지 못했습니다${err.trim() ? `: ${err.trim().slice(0, 300)}` : ` (종료 코드 ${code})`}`, `Claude could not answer${err.trim() ? `: ${err.trim().slice(0, 300)}` : ` (exit code ${code})`}`)))
     })
+    p.stdin.on('error', () => {}) // 입력을 다 읽기 전에 끝나면 EPIPE: 결과는 close에서 판단한다 (codexCli.ts와 같음)
     p.stdin.end(prompt)
   })
 }
