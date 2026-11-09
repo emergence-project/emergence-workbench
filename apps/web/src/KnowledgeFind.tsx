@@ -9,7 +9,7 @@ import { shortSubject } from './knowledgeRecent'
 
 /**
  * 지식 첫 화면 찾기 칸 (11/8 16:04 질문 진행 11/9, 시안 N7ik 2절): 논문 찾기 칸(PaperFind)과 같은 모양(.pf-box, 42px · 움푹한 바탕 · 돋보기 · 「/」).
- * 글을 쓰면 아래에 ① 개념노트(이름 · 다른 이름이 맞는 것, 이름이 같으면 먼저) ② 본문에 나온 곳(낱말이 모두 든 줄)을 묶어 보인다. 엔터는 첫 노트를 연다.
+ * 글을 쓰면 아래에 ① 개념노트(이름 · 다른 이름이 맞는 것, 이름이 같으면 먼저) ② 본문(낱말이 모두 든 줄)을 묶어 보인다. 엔터는 첫 노트를 연다.
  */
 const EACH = 5
 const WAIT = 250
@@ -85,7 +85,7 @@ export function KnowledgeFind() {
                 </button>
               ))}
             </Group>
-            <Group title={t('본문에 나온 곳', 'In the text')} n={body.length}>
+            <Group title={t('본문', 'In the text')} n={body.length}>
               {body.map((b) => (
                 <button key={b.id} className="pf-row" onClick={() => openNote(b.id)}>
                   <span className="pf-title">{b.title}{b.hits[0]?.heading ? ` › ${b.hits[0].heading}` : ''}</span>
