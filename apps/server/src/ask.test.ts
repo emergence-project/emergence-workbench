@@ -78,7 +78,7 @@ describe('Claude 실행 옵션', () => {
     { runner: claudeClassifierRunner, args: ['--model', 'haiku', '--tools', ''] },
   ])('가짜 프로세스로 도구와 모델 옵션을 확인한다: $args', async ({ runner, args }) => {
     const child = Object.assign(new EventEmitter(), {
-      stdout: new EventEmitter(), stderr: new EventEmitter(), stdin: { end: vi.fn() }, kill: vi.fn(),
+      stdout: new EventEmitter(), stderr: new EventEmitter(), stdin: { end: vi.fn(), on: vi.fn() }, kill: vi.fn(),
     })
     spawnMock.mockClear().mockReturnValueOnce(child)
     const result = runner({ cwd: '/test/research', prompt: '분류할 기록' })

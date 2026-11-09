@@ -6,7 +6,7 @@ import { Icon } from './icons'
 import { MemoText } from './memo'
 import { onListKey } from './listInput'
 import { SayCard } from './Conversation'
-import { ApproveButton, ClaimLine, Compose, HandlingPictures } from './FeedbackAnswer'
+import { ApproveButton, ClaimLine, Compose, HandlingPictures, resultToApprove } from './FeedbackAnswer'
 import { askConfirm } from './askText'
 import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
@@ -252,6 +252,8 @@ function Short({ e, showDate }: { e: FeedbackItem; showDate: boolean }) {
 
 function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; onFold?(): void }) {
   const st = stateOf(e)
+  const [talk, setTalk] = useState<'closed' | 'open' | 'focus'>('closed')
+  const showTalk = !(resultToApprove(e) || st === '승인') || talk !== 'closed' // 승인 기다림 · 끝남은 대화를 접는다. 「의견 남기기」가 펴고 입력란으로 (11/9 N7ik 3절)
   return (
     <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`}>
       <div className="fbp-head">
@@ -273,8 +275,8 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
       {e.status?.clean ? <CleanText e={e} /> : e.source ? <div className="fbp-text"><MemoText text={e.text} /></div> : <FeedbackText e={e} locked={!!e.status} />}
       <AgentLine e={e} part="line" /><ClaimLine e={e} />
       {needsAnswer(e) && <div className="fbp-ask" data-ui="물음"><b>{t('Claude가 묻는 것', 'Claude asks')}</b> {e.status!.ask}</div>}
-      {e.status && <Summary e={e} />}
-      {(e.status || e.comments) && <Conversation e={e} />}
+      {e.status && <Summary e={e} onOpinion={resultToApprove(e) && talk === 'closed' ? () => setTalk('focus') : undefined} />}
+      {(e.status || e.comments) && <Conversation e={e} shut={!showTalk} onOpen={(o) => setTalk(o ? 'open' : 'closed')} />}
       {e.merged && (
         <details className="fbp-merged" data-ui="합친 코멘트">
           <summary>{t(`같은 지적 ${e.merged.length}건을 이 항목으로 합침`, `Merged ${plural(e.merged.length, 'duplicate')} into this item`)} · {e.merged.map((m) => `${m.date.slice(5)} ${m.time}`).join(', ')}</summary>
@@ -286,7 +288,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
           ))}
         </details>
       )}
-      <Compose e={e} />
+      {showTalk && <Compose e={e} focus={talk === 'focus'} />}
     </article>
   )
 }
@@ -343,10 +345,9 @@ const FIELD_NAME = { understood: t('이해한 요구', 'Understood request'), ca
 
 /**
  * 지금 처리 (10/8 시안 · 11/8 처리와 대화 나누기, 시안 N7ik 3절): 이해한 요구 · 원인 · 처리, 전후 그림, 반영 버전을 한 카드에.
- * 결과를 알린 답이면 카드에 「승인」 하나. 승인이 아닌 의견은 대화 아래 입력란에서 고른다.
- * 다시 처리하기 전의 글은 "고친 이력 n번"에 접어 둔다 (status.yaml revised).
+ * 결과를 알린 답이면 카드에 「승인」 · 「의견 남기기」(대화 아래 입력란으로). 다시 처리하기 전의 글은 "고친 이력 n번"에 접는다 (revised).
  */
-function Summary({ e }: { e: FeedbackItem }) {
+function Summary({ e, onOpinion }: { e: FeedbackItem; onOpinion?(): void }) {
   const st = e.status!
   const rows = summaryRows(st)
   const revised = st.revised ?? []
@@ -372,7 +373,7 @@ function Summary({ e }: { e: FeedbackItem }) {
           ))}
         </details>
       )}
-      <ApproveButton e={e} />
+      <ApproveButton e={e} onOpinion={onOpinion} />
     </div>
   )
 }
@@ -381,7 +382,7 @@ function Summary({ e }: { e: FeedbackItem }) {
  * 대화 (10/8 시안, 10/4 18:11 "반려한 지적을 댓글처럼"): 관리자의 처리와 답 · 사용자의 승인 · 수정 요청 · 코멘트를 시각순으로.
  * 마지막 주고받음만 펼치고 앞의 것은 접는다 (10/8 11:28).
  */
-function Conversation({ e }: { e: FeedbackItem }) {
+function Conversation({ e, shut, onOpen }: { e: FeedbackItem; shut: boolean; onOpen(open: boolean): void }) {
   const steps = feedbackConversation(e)
   if (!steps.length) return null
   const { earlier, latest, folded } = splitThread(steps)
@@ -393,7 +394,6 @@ function Conversation({ e }: { e: FeedbackItem }) {
   let rejects = 0
   const numbered = steps.map((s) => (s.who === '나' && s.kind === '반려' ? ++rejects : 0))
   const say = (s: ThreadStep, i: number) => <Say key={i} e={e} s={s} n={numbered[i]!} latestHandling={i === lastHandling} locked={i < locked} undo={i === lastMine && i === steps.length - 1 && (s.kind === '승인' || s.kind === '반려' || s.kind === '진행' || s.kind === '중단' || s.kind === '논의')} />
-  const finished = stateOf(e) === '승인'
   const body = (
     <div className="fbp-thread-box" data-ui="주고받은 기록">
       {folded > 0 && (
@@ -413,9 +413,9 @@ function Conversation({ e }: { e: FeedbackItem }) {
       )}
     </div>
   )
-  // 끝난 항목은 지금 처리 카드만 펴고 대화는 접는다 (11/8 시안 N7ik 3절)
-  return finished
-    ? <details className="fbp-earlier fbp-thread-fold" data-ui="이전 주고받음"><summary>{t(`주고받은 대화 ${steps.length}개`, plural(steps.length, 'message'))}</summary>{body}</details>
+  // 끝난 항목 · 승인을 기다리는 결과 답은 카드만 펴고 대화는 접는다 (11/8 · 11/9 시안 N7ik 3절)
+  return resultToApprove(e) || stateOf(e) === '승인'
+    ? <details className="fbp-earlier fbp-thread-fold" data-ui="이전 주고받음" open={!shut} onToggle={(ev) => { if (ev.currentTarget.open === shut) onOpen(ev.currentTarget.open) }}><summary>{t(`주고받은 대화 ${steps.length}개`, plural(steps.length, 'message'))}</summary>{body}</details>
     : <>{e.status && <div className="fbp-thread-cap muted">{t('주고받은 대화', 'Conversation')}</div>}{body}</>
 }
 

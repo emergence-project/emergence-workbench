@@ -9,14 +9,20 @@ import { Icon } from './icons'
 
 // 피드백 항목에 답하는 부품 (11/8 처리와 대화 나누기, 시안 N7ik 3절): 지금 처리 카드의 승인 · 전후 그림, 대화 아래 입력란. 피드백 화면과 폰 내 차례가 함께 쓴다
 
+/** 사용자가 아직 손대지 않은 결과 답(묻는 답 · 끝난 것 빼고): 대화를 접고 카드의 「승인」 · 「의견 남기기」만 보인다 (11/9 시안 N7ik 3절) */
+export const resultToApprove = (e: FeedbackItem) => answerable(e) && !asksUser(e)
+
 /** 결과를 알린 답이나 묻는 답에 사용자가 답할 수 있는 때 (승인 · 중단으로 끝났거나 관리자 차례면 아니다) */
 export const answerable = (e: FeedbackItem) => {
   const st = stateOf(e)
   return !!e.status && st !== '대기' && st !== '승인' && (asksUser(e) || st === '반영' || st === '답변' || st === '거절' || st === '나중에')
 }
 
-/** 지금 처리 카드의 「승인」: 결과를 알린 답에만. 승인이 아닌 의견은 아래 입력란에서 */
-export function ApproveButton({ e }: { e: FeedbackItem }) {
+/**
+ * 지금 처리 카드의 「승인」: 결과를 알린 답에만. 승인이 아닌 의견은 아래 입력란에서.
+ * onOpinion이 있으면 옆에 「의견 남기기」(11/9 시안 N7ik 3절 승인): 접어 둔 대화를 펼치고 입력란으로 간다
+ */
+export function ApproveButton({ e, onOpinion }: { e: FeedbackItem; onOpinion?(): void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   if (asksUser(e) || !answerable(e)) return null
@@ -27,6 +33,7 @@ export function ApproveButton({ e }: { e: FeedbackItem }) {
   return (
     <div className="fbp-now-act">
       {error && <span className="error-text">{error}</span>}
+      {onOpinion && <button className="btn" data-ui="의견 남기기" title={t('승인하기 전에 질문 · 반려 · 진행 · 논의를 적습니다', 'Ask, send back, go ahead or discuss before approving')} onClick={onOpinion}>{t('의견 남기기', 'Leave a reply')}</button>}
       <button className="btn primary" data-ui="처리 승인" disabled={busy} title={t('이 처리를 그대로 끝냅니다', 'Accept this handling as is')} onClick={send}>{t('승인', 'Approve')}</button>
     </div>
   )
@@ -64,7 +71,7 @@ export function HandlingPictures({ e }: { e: FeedbackItem }) {
  */
 type Opinion = '코멘트' | '반려' | '진행' | '중단' | '논의'
 const NEEDS_TEXT: Opinion[] = ['반려', '논의', '코멘트']
-export function Compose({ e }: { e: FeedbackItem }) {
+export function Compose({ e, focus }: { e: FeedbackItem; focus?: boolean }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -81,7 +88,7 @@ export function Compose({ e }: { e: FeedbackItem }) {
   // 관리자 차례(처리 전 · 코멘트에 답하기 전 · 다시 처리하기 전)에는 입력란을 두지 않는다 (10/10 13:02)
   const hint = NEEDS_TEXT.includes(choice) ? `${REPLY_MEANING[choice]}: ${t('적어 주세요', 'write it here')}` : `${REPLY_MEANING[choice]} · ${t('덧붙일 말 (없어도 됨)', 'anything to add (optional)')}`
   return (
-    <ComposeBox value={text} onChange={setText} placeholder={hint} error={error}
+    <ComposeBox value={text} onChange={setText} placeholder={hint} error={error} focus={focus}
       waiting={feedbackBucket(e) === '대기' ? t('관리자의 답을 기다립니다', 'Waiting for the maintainer to answer') : undefined}
       lead={choices.length > 1 && (
         <div className="segmented fbp-opinion" role="radiogroup" data-ui="의견 종류" aria-label={t('의견 종류', 'Kind of reply')}>
