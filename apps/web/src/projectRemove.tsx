@@ -8,12 +8,13 @@ import { go, type Route } from './router'
 import { useDismiss } from './useDismiss'
 import { t } from './i18n'
 
-const REMOVE_EVENT = 'rw:project-remove'
 interface Removed { id: string; title: string }
+/** App의 useProjectRemove가 건 처리 (하나뿐) */
+let handle: ((r: Removed) => void) | null = null
 
 /** 어디서든 부른다. App의 useProjectRemove가 받아 목록을 다시 읽는다 */
 export function removeProject(r: Removed): void {
-  window.dispatchEvent(new CustomEvent<Removed>(REMOVE_EVENT, { detail: r }))
+  handle?.(r)
 }
 
 /** App에 한 번: 제거 · 되돌리기 뒤 프로젝트 목록을 다시 읽고, 지금 연 프로젝트였으면 홈으로 간다 */
@@ -21,8 +22,7 @@ export function useProjectRemove(reload: () => Promise<unknown>, route: Route): 
   const open = useRef<string | undefined>(undefined)
   open.current = 'rid' in route ? route.rid : undefined
   useEffect(() => {
-    const run = (event: Event) => {
-      const { id, title } = (event as CustomEvent<Removed>).detail
+    const run = ({ id, title }: Removed) => {
       api.removeProject(id).then(async () => {
         if (open.current === id) go({ page: 'home' })
         await reload()
@@ -32,8 +32,8 @@ export function useProjectRemove(reload: () => Promise<unknown>, route: Route): 
         })
       }, (e: Error) => flash(e.message))
     }
-    window.addEventListener(REMOVE_EVENT, run)
-    return () => window.removeEventListener(REMOVE_EVENT, run)
+    handle = run
+    return () => { if (handle === run) handle = null }
   }, [reload])
 }
 
