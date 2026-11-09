@@ -119,6 +119,24 @@ describe('연구 등록', () => {
     expect((await app.inject({ method: 'DELETE', url: `/api/researches/${id}` })).statusCode).toBe(200)
     expect(fs.existsSync(path.join(third, 'workbench/notes/kempe-chains/main.tex'))).toBe(true)
   })
+
+  it('목록에서 뺀 프로젝트는 설정과 순서째 되돌린다', async () => {
+    const dir = path.join(tmp, 'config-restore')
+    fs.mkdirSync(dir)
+    const b = makeRepo('restore-b')
+    fs.writeFileSync(path.join(dir, 'config.yaml'), `researches:\n  - id: a\n    path: ${repo}\n  - id: b\n    path: ${b}\n    kind: work\n    fields: [물리]\n    color: violet\n  - id: c\n    path: ${repo}\n`)
+    const one = buildApp({ configDir: dir })
+    const ids = async () => (await one.inject({ method: 'GET', url: '/api/researches' })).json().researches.map((r: { id: string }) => r.id)
+    expect((await one.inject({ method: 'POST', url: '/api/researches/b/restore' })).statusCode).toBe(404)
+    expect((await one.inject({ method: 'DELETE', url: '/api/researches/b' })).statusCode).toBe(200)
+    expect(await ids()).toEqual(['a', 'c'])
+    const back = await one.inject({ method: 'POST', url: '/api/researches/b/restore' })
+    expect(back.statusCode).toBe(200)
+    expect(back.json()).toMatchObject({ id: 'b', kind: 'work', fields: ['물리'], color: 'violet' })
+    expect(await ids()).toEqual(['a', 'b', 'c'])
+    expect((await one.inject({ method: 'POST', url: '/api/researches/b/restore' })).statusCode).toBe(404)
+    await one.close()
+  })
 })
 
 describe('노트 저장', () => {
