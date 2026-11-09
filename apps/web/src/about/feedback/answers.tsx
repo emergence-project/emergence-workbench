@@ -4,7 +4,7 @@ import type { AboutSection } from '../types'
 // 소개 › feedback › 유형과 답. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '유형과 답', id: 'answers', prs: [214, 284],
+  title: '유형과 답', id: 'answers', prs: [214, 284, 412],
   figure: <FeedbackAnswersTable />,
   items: [
     { text: <>피드백을 남길 때 고른 유형(<b>수정</b> · <b>질문</b> · <b>제안</b>)대로 처리합니다. 에이전트는 유형을 바꾸지 않습니다.</> },
