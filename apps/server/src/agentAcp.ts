@@ -135,10 +135,15 @@ export function callsOf(tc: Json): AcpCall[] {
 /** 허락 카드의 답을 에이전트가 준 선택지 하나로 */
 export function optionFor(options: unknown, allow: boolean): Json {
   const opts = list(options).map(rec)
+  // 거절은 "그것만 빼고 계속"을 먼저: Codex는 거절이 둘(decline 계속 · cancel 차례 취소)이고 둘 다 reject_once다 (11/9 피드백)
   const want = allow ? ['allow_once', 'allow_always'] : ['reject_once', 'reject_always']
-  const o = want.map((k) => opts.find((x) => x.kind === k)).find(Boolean)
+  const pool = opts.filter((x) => want.includes(str(x.kind)))
+  const o = allow ? want.map((k) => pool.find((x) => x.kind === k)).find(Boolean)
+    : pool.find((x) => x.optionId === 'decline') ?? pool.find((x) => x.optionId !== 'cancel') ?? pool[0]
   return o ? { outcome: { outcome: 'selected', optionId: o.optionId } } : { outcome: { outcome: 'cancelled' } }
 }
+/** 거절로 고른 것이 차례를 끝내는 것인가 (계속할 거절이 없을 때) */
+export const endsTurn = (picked: Json): boolean => { const o = rec(picked.outcome); return o.outcome === 'cancelled' || o.optionId === 'cancel' }
 
 /** 지시 하나를 ACP 내용 조각으로 */
 function blocksOf(text: string, x: Turn, images: boolean): Json[] {
@@ -171,7 +176,9 @@ const INIT = { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: fal
 export function modelsOf(r: unknown): ModelChoice[] {
   const m = rec(rec(r).models)
   const cur = str(m.currentModelId)
-  const got = list(m.availableModels).map(rec).map((x) => ({ value: str(x.modelId), name: str(x.name) || str(x.modelId), desc: str(x.description) }))
+  // Codex 연결부는 gpt-6-astra를 "6 Astra"로 줄여 보낸다: 앞의 GPT를 되살린다 (11/9 피드백 "6 Astra (ultra)")
+  const named = (id: string, name: string) => (name && /^gpt-/i.test(id) && !/gpt/i.test(name) ? `GPT-${name}` : name || id)
+  const got = list(m.availableModels).map(rec).map((x) => ({ value: str(x.modelId), name: named(str(x.modelId), str(x.name)), desc: str(x.description) }))
     .filter((x) => /^[a-z][a-z0-9._:/\-[\]]{0,79}$/i.test(x.value) && x.value !== 'default')
   return got.length ? [{ value: 'default', name: t('기본 모델', 'Default model'), desc: '', ...(cur && { resolved: cur }) }, ...got.map((x) => ({ ...x, ...(x.value === cur && { resolved: cur }) }))] : []
 }
@@ -235,6 +242,8 @@ export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp, configDir?: string):
         out.push({ type: 'tool', tool: 'TodoWrite', input: { todos: list(u.entries).map(rec).map((e) => ({ content: str(e.content), status: str(e.status) })) } })
       } else if (kind === 'usage_update' && typeof u.used === 'number' && typeof u.size === 'number') context = { used: u.used, window: u.size }
     }
+    /** 앱이 막은 까닭: 에이전트가 계속할 거절을 주지 않아 차례가 취소되면 이 까닭을 알리고 이어 간다 */
+    let blocked: string | undefined
     const permission = async (params: Json): Promise<Json> => {
       const calls = callsOf(rec(params.toolCall))
       let ok: ToolDecision = { allow: true }
@@ -243,7 +252,9 @@ export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp, configDir?: string):
         ok = await input.canUseTool(c.tool, c.input)
         if (!ok.allow) break
       }
-      return optionFor(params.options, ok.allow)
+      const picked = optionFor(params.options, ok.allow)
+      if (!ok.allow && endsTurn(picked)) blocked = ok.message
+      return picked
     }
     const onRequest = async (method: string, params: Json): Promise<unknown> => {
       if (method === 'session/request_permission') return permission(params)
@@ -281,7 +292,15 @@ export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp, configDir?: string):
         stopping = false
         context = undefined
         const prompt = first && fresh ? `${input.brief}\n\n---\n\n${x.prompt}` : x.prompt
-        const r = rec(await conn.request('session/prompt', { sessionId, prompt: blocksOf(prompt, x, images) }))
+        blocked = undefined
+        let r = rec(await conn.request('session/prompt', { sessionId, prompt: blocksOf(prompt, x, images) }))
+        // 앱이 명령 하나를 막았는데 에이전트가 차례를 통째로 취소했으면, 까닭을 알리고 그 명령 없이 이어 가게 한다 (두 번까지)
+        for (let again = 0; again < 2 && !stopping && blocked !== undefined && str(r.stopReason) === 'cancelled'; again++) {
+          const why = blocked
+          blocked = undefined
+          flush()
+          r = rec(await conn.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: `The app did not run that command: ${why}\nContinue the task without it.` }] }))
+        }
         flush()
         const reason = str(r.stopReason)
         const usage = rec(r.usage)

@@ -545,7 +545,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           {chat.rid === APP_RID || chat.rid === LIBRARY_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
-          {context && <><span>·</span><span data-ui="대화 맥락" title={[t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('맥락', 'Context')} {tokensName(context.used)}</span></>}
+          {context && <><span>·</span><span data-ui="대화 맥락" title={[isClaude(chat.agent) ? t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized') : t('지금 에이전트가 들고 있는 앞 내용의 크기 (에이전트가 알려 준 값)', 'How much earlier conversation the agent holds (as the agent reports it)'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('맥락', 'Context')} {tokensName(context.used)}</span></>}
           {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
         </div>}
       </div>
@@ -844,7 +844,7 @@ const COMPACT_HINT = 0.8
  * 맥락 창 막대 · 모델 · 범위 · 쓴 토큰과 가격 · 일한 시간 · 시작과 마지막 · 작업 폴더(앱 고치기). 차례가 끝나기 전에도 보인다
  */
 function ChatInfo({ chat }: { chat: Chat }) {
-  const models = useModels()
+  const models = useModels(chat.agent)
   const topics = useQuery({ queryKey: qk.topics(chat.rid), queryFn: () => api.research(chat.rid).topics(), enabled: chat.scope.kind === 'topic' }).data
   const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
   const cost = results.reduce((s, r) => s + (r.cost ?? 0), 0)
@@ -859,9 +859,9 @@ function ChatInfo({ chat }: { chat: Chat }) {
       <div className="ac-work-row"><span>{t('컨텍스트 창', 'Context window')}</span>
         <span className="muted">{context ? `${tokensName(context.used)} / ${tokensName(context.window)} · ${Math.round(share * 100)}%` : t('첫 차례가 끝나면 보입니다', 'Shown after the first turn')}</span></div>
       {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('컨텍스트 창', 'Context window')}><i style={{ width: `${share * 100}%` }} /></div>}
-      {context && share >= COMPACT_HINT && <span className="muted ac-hint">{t('컨텍스트 창이 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
+      {context && share >= COMPACT_HINT && isClaude(chat.agent) && <span className="muted ac-hint">{t('컨텍스트 창이 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
       <dl className="ac-info-list">
-        <dt>{t('모델', 'Model')}</dt><dd><AgentChip agent={chat.agent} /> {modelName(chat.model, models)}{effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</dd>
+        <dt>{t('모델', 'Model')}</dt><dd><AgentChip agent={chat.agent} /> {modelName(chat.model, models)}{isClaude(chat.agent) && effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}`}</dd>
         <dt>{t('범위', 'Scope')}</dt><dd>{scopeName(chat.scope, topics)}</dd>
         <dt>{t('사용 토큰', 'Tokens used')}</dt><dd>{tokens > 0 ? `${tokensName(tokens)} (${t(`차례 ${results.length}번`, `${results.length} turn${results.length > 1 ? 's' : ''}`)})` : t('아직 없음', 'None yet')}{cost > 0 && <span className="muted" title={costName(cost)}> · {t(`API 가격 약 $${cost.toFixed(2)}`, `about $${cost.toFixed(2)} at API prices`)}</span>}</dd>
         {secs > 0 && <><dt>{t('일한 시간', 'Time worked')}</dt><dd>{secondsName(secs)}</dd></>}
