@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import { FEEDBACK_MISSES } from '../feedback-lessons.js'
+import { RepoInfo } from './research.js'
 
 export { FEEDBACK_MISSES, type FeedbackMiss } from '../feedback-lessons.js'
 
@@ -129,6 +130,11 @@ export const FeedbackToday = z.object({
   entries: z.array(FeedbackEntry),
 }).strict()
 /** GET·PUT /feedback/cloud: 클라우드 정기 작업이 피드백을 처리할지 (피드백 폴더 cloud.yaml, 11/4) */
+/**
+ * GET /feedback/personal · POST /feedback/personal/sync (11/9, 11/8 20:45 질문 진행): 개인 저장소(피드백 · 공통 규칙) 사본이 GitHub와 같은지와 마지막 받기.
+ * 저장소 화면의 「앱」 묶음이 보인다. 개인 저장소가 없는 앱(설치 파일)은 repo가 null
+ */
+export const PersonalRepo = z.object({ repo: RepoInfo.nullable(), lastPull: z.object({ at: z.number(), error: z.string().nullable() }).strict().nullable() }).strict()
 export const FeedbackCloud = z.object({ enabled: z.boolean(), at: z.string().nullable() }).strict()
 export const FeedbackCloudBody = z.object({ enabled: z.boolean() })
 /** POST /feedback/export: 피드백을 묶은 파일(내려받기 폴더)과 담은 항목 수 */
@@ -193,6 +199,7 @@ export type FeedbackPickableKind = (typeof FEEDBACK_PICKABLE_KINDS)[number]
 export type FeedbackState = (typeof FEEDBACK_STATES)[number]
 export type FeedbackVerdict = (typeof FEEDBACK_VERDICTS)[number]
 export type FeedbackEntry = z.infer<typeof FeedbackEntry>
+export type PersonalRepo = z.infer<typeof PersonalRepo>
 export type FeedbackCloud = z.infer<typeof FeedbackCloud>
 export type FeedbackCloudBody = z.infer<typeof FeedbackCloudBody>
 export type FeedbackExported = z.infer<typeof FeedbackExported>

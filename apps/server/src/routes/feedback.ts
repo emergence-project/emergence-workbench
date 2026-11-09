@@ -17,6 +17,7 @@ import { CLAIM_TTL_MS, isLiveClaim, lastTouched, readClaims, releaseClaims } fro
 import { exportFeedback, importFeedback } from '../feedbackBundle.js'
 import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
 import { revealInFinder } from '../materials.js'
+import { repoInfo } from '../gitsync.js'
 import os from 'node:os'
 
 /** 피드백 폴더 파일(날짜 파일 · status.yaml · reviews.yaml)의 이름 · 크기 · 고친 시각. 받기 전후가 다르면 새 기록이 들어온 것 */
@@ -78,17 +79,32 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   // 개인 저장소 사본에 GitHub의 새 처리 기록을 받는다: 피드백 화면을 열 때(1분에 한 번까지)와 5분마다
   let lastSync = 0
   let syncing: Promise<unknown> | null = null
-  const syncSoon = () => {
-    if (!opts.feedbackSync || syncing || Date.now() - lastSync < 60_000) return
+  // 마지막 받기와 그 오류 (11/9): 저장소 화면 「앱」 묶음의 개인 저장소 줄이 보인다. 받지 못하면 화면에 아무 표시가 없었다 (11/8 20:45)
+  let lastPull: { at: number; error: string | null } | null = null
+  const syncSoon = (force = false) => {
+    if (!opts.feedbackSync || (!force && (syncing || Date.now() - lastSync < 60_000))) return syncing
     lastSync = Date.now()
     const before = feedbackFingerprint(opts.feedbackDir)
-    syncing = publishing.catch(() => undefined).then(() => opts.feedbackSync!()).then((r) => {
+    syncing = (syncing ?? Promise.resolve()).catch(() => undefined).then(() => publishing.catch(() => undefined)).then(() => opts.feedbackSync!()).then((r) => {
+      lastPull = { at: Date.now(), error: r.ok ? null : r.error ?? t('알 수 없는 오류', 'Unknown error') }
       if (!r.ok) app.log.warn(`개인 저장소 받기 실패: ${r.error}`)
       // 받은 기록을 화면에 알린다. 알리지 않으면 화면 캐시가 앱을 다시 시작할 때까지 옛 기록을 보였다 (11/4)
       else if (feedbackFingerprint(opts.feedbackDir) !== before) ctx.broadcast({ type: 'feedback', research: null })
     }).finally(() => { syncing = null })
   }
-  if (opts.feedbackSync) repeat(app, { first: 5 * 60_000, every: 5 * 60_000, run: async () => syncSoon() })
+  if (opts.feedbackSync) repeat(app, { first: 5 * 60_000, every: 5 * 60_000, run: async () => { syncSoon() } })
+
+  const personalNow = async (): Promise<C.PersonalRepo> => ({ repo: opts.personalDir ? await repoInfo(opts.personalDir).catch(() => null) : null, lastPull })
+  app.get('/api/feedback/personal', replies(C.PersonalRepo), async (): Promise<C.PersonalRepo> => personalNow())
+  /** 저장소 화면의 동기화하기: 남은 피드백을 올리고 바로 받는다 (1분 기다림 없이) */
+  app.post('/api/feedback/personal/sync', replies(C.PersonalRepo), async (): Promise<C.PersonalRepo> => {
+    if (!opts.personalDir) throw new WorkbenchError(404, t('개인 저장소가 없습니다', 'There is no personal repository'))
+    let pushError: string | null = null
+    if (opts.feedbackDir && opts.feedbackPublish) await publishOnce().catch((e: Error) => { pushError = e.message })
+    await syncSoon(true)
+    if (pushError && lastPull && !lastPull.error) lastPull = { ...lastPull, error: pushError }
+    return personalNow()
+  })
   app.addHook('onClose', async () => { if (autoTimer) clearTimeout(autoTimer); if (relayTimer) clearTimeout(relayTimer) })
 
   app.get('/api/feedback/unpublished', replies(C.UnpublishedFiles), async (): Promise<C.UnpublishedFiles> => (opts.feedbackDir && opts.feedbackPublish ? unpublishedFeedback(opts.feedbackDir) : { files: [], count: 0 }))

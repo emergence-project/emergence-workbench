@@ -9,3 +9,6 @@
 .repos-table td.repos-sync { width: 1%; text-align: right; }
 .repos-table .turn-dot { vertical-align: middle; }
 @container (max-width: 560px) { .repos-table .repos-col-when { display: none; } }
+/* 「앱」 묶음 (11/9, 시안 N7ik 4절): 표 아래 묶음 머리 한 줄, 그 아래 개인 저장소 줄 */
+.repos-table tr.repos-group-h td { padding-top: var(--sp-4); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }
+.repos-table td.repos-name > span { color: var(--text); font-weight: var(--fw-medium); }
