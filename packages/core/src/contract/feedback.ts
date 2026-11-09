@@ -41,6 +41,8 @@ export const FeedbackEntry = z.object({
   /** 화면 그림 경로 (feedback/ 기준) */
   picture: z.string().optional(),
   source: source.optional(),
+  /** 보낸 사람이 지금 쓰는 이름 (같은 앱 번호의 가장 최근 폴더 이름). source와 같으면 비운다 */
+  sender: z.string().optional(),
 }).strict()
 
 /** 다시 처리하기 전의 처리 (status.yaml revised) */

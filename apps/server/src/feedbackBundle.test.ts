@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { appendFeedback, listAllFeedback } from './feedback.js'
-import { exportFeedback, importFeedback, senderFolder } from './feedbackBundle.js'
+import { exportFeedback, importFeedback, importedDayFiles, senderFolder, senderNames } from './feedbackBundle.js'
 
 const tmp: string[] = []
 const mk = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'fbb-')); tmp.push(d); return d }
@@ -68,5 +68,29 @@ describe('feedback file bundle', () => {
       expect((await admin.inject({ method: 'POST', url: '/api/feedback/import', payload: { format: 'x', from: 'a', days: {} } })).statusCode).toBe(400)
       await friend.close(); await admin.close()
     } finally { process.env.HOME = oldHome }
+  })
+})
+
+describe('보이는 이름 (11/9 20:44)', () => {
+  it('같은 앱 번호는 가장 최근 폴더의 이름을 쓴다', () => {
+    const names = senderNames([
+      { name: 'USER-1c5aef', latest: '2026-11-09' },
+      { name: '민수-1c5aef', latest: '2026-11-12' },
+      { name: '영희-abc123', latest: '2026-11-01' },
+      { name: '옛사람', latest: '2026-10-01' },
+    ])
+    expect(names.get('USER-1c5aef')).toBe('민수')
+    expect(names.get('민수-1c5aef')).toBe('민수')
+    expect(names.get('영희-abc123')).toBe('영희')
+    expect(names.get('옛사람')).toBe('옛사람')
+  })
+  it('가져온 날짜 파일에 보이는 이름이 붙는다', () => {
+    const dir = mk()
+    for (const [f, d] of [['USER-1c5aef', '2026-11-09'], ['민수-1c5aef', '2026-11-12']]) {
+      fs.mkdirSync(path.join(dir, 'from', f!), { recursive: true })
+      fs.writeFileSync(path.join(dir, 'from', f!, `${d}.md`), '## 10:00 · 질문 · 홈\n\n안녕\n')
+    }
+    const got = importedDayFiles(dir).map((x) => [x.source, x.sender]).sort()
+    expect(got).toEqual([['USER-1c5aef', '민수'], ['민수-1c5aef', '민수']])
   })
 })
