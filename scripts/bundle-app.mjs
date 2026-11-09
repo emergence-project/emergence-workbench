@@ -80,9 +80,10 @@ const version = opt('--version') ?? (ref.startsWith('refs/tags/v') ? ref.slice('
 fs.writeFileSync(path.join(app, 'build.json'), JSON.stringify({ commit, builtAt: new Date().toISOString(), ...(version && { version }) }, null, 2) + '\n')
 
 /**
- * 받기: GitHub 릴리스 · npm · nodejs.org가 5xx를 줄 때가 있어(11/8 GitHub 릴리스 504가 한 시간 넘게 이어짐) 여섯 번까지 2 · 4 · 8 · 16 · 32초 쉬고 다시 받는다.
- * 4xx는 주소가 틀린 것이라 바로 멈춘다
+ * 받기: GitHub 릴리스 · npm · nodejs.org가 5xx를 줄 때가 있어(11/8 GitHub 릴리스 504가 한 시간 넘게, 11/9에도 몇 분씩 이어짐)
+ * 여덟 번까지 5초 · 15초 · 30초 · 1분 · 2분 · 3분 · 5분 쉬고 다시 받는다(모두 약 12분). 4xx는 주소가 틀린 것이라 바로 멈춘다
  */
+const WAITS = [5, 15, 30, 60, 120, 180, 300]
 async function download(url, what) {
   for (let i = 0; ; i++) {
     /** @type {number | string} */
@@ -95,9 +96,9 @@ async function download(url, what) {
       status = String(e?.cause?.code ?? e?.message ?? e)
     }
     const retry = typeof status !== 'number' || status >= 500 || status === 429
-    if (!retry || i === 5) throw new Error(`${what}을(를) 받지 못했습니다 (${status})`)
-    console.log(`  ${what}: ${status}, ${2 ** (i + 1)}초 뒤 다시`)
-    await new Promise((r) => setTimeout(r, 2000 * 2 ** i))
+    if (!retry || i === WAITS.length) throw new Error(`${what}을(를) 받지 못했습니다 (${status})`)
+    console.log(`  ${what}: ${status}, ${WAITS[i]}초 뒤 다시`)
+    await new Promise((r) => setTimeout(r, WAITS[i] * 1000))
   }
 }
 

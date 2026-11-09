@@ -43,7 +43,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     outputs:
       tag: ${{ steps.ver.outputs.tag }}
     steps:
