@@ -23,9 +23,9 @@ export type TagWho = 'agent' | 'user'
 export const TAG_NOTES: Record<string, { name: string; note: string; who: TagWho }> = {
   '앱에 반영됨': { who: 'agent', name: t('앱에 반영됨', 'Applied to the app'), note: t('관리자가 앱을 고쳤고 그 변경이 합쳐졌습니다. 어느 변경인지는 처리 기록의 커밋에 있습니다.', 'The maintainer changed the app and the change was merged. The commit in the handling record says which.') },
   '답만 함': { who: 'agent', name: t('답만 함', 'Answered only'), note: t('앱은 고치지 않고 답만 했습니다. 질문, 거절, 나중에, 동의가 여기에 해당합니다.', 'The app was not changed; only an answer was given (questions, declines, later, agreed).') },
-  '반려': { who: 'user', name: t('N번째 반려', 'Revision N'), note: t('처리 결과가 맞지 않아 반려를 눌러 다시 처리해 달라고 한 요청입니다.', 'You pressed Revise because the result was not right and asked for it to be reworked.') },
-  '승인': { who: 'user', name: REPLY['승인']!, note: t('처리 결과를 받아들였습니다.', 'You accepted the result.') },
-  '진행': { who: 'user', name: REPLY['진행']!, note: t('관리자가 묻거나 제안한 대로, 적은 글이 있으면 그 말대로 더 하게 했습니다. 반려로 세지 않습니다.', 'You told the maintainer to go ahead as asked or proposed, or to do more as you wrote. Not counted as a revision.') },
+  '반려': { who: 'user', name: t('N번째 반려', 'Revision N'), note: t('처리 결과가 틀려서 다시 하라고 돌려보냈습니다. 반려 횟수로 셉니다.', 'You sent it back because the result was wrong. Counted as a revision.') },
+  '승인': { who: 'user', name: REPLY['승인']!, note: t('처리 결과를 받아들여 그대로 끝냈습니다. 에이전트가 더 할 일은 없습니다.', 'You accepted the result and closed the item. The agent has nothing more to do.') },
+  '진행': { who: 'user', name: REPLY['진행']!, note: t('일을 시켰습니다: 물은 답이면 물은 대로 만들고, 결과 답이면 결과는 맞으니 이 방향으로 더 합니다. 적은 글(주의점 · 범위)은 그대로 따릅니다. 반려로 세지 않습니다.', 'You gave the agent work: build it as asked, or, on a result, go further in this direction. Text you added (cautions, scope) is followed as written. Not counted as a revision.') },
   '논의': { who: 'user', name: REPLY['논의']!, note: t('고치기 전에 시안이나 물음으로 먼저 이야기하자고 했습니다. 관리자는 고치지 않고 시안을 만들어 묻습니다.', 'You asked to talk it over first. The maintainer does not change anything yet and replies with a mockup and a question.') },
   '중단': { who: 'user', name: REPLY['중단']!, note: t('하지 않기로 했습니다.', 'You decided not to do it.') },
   '코멘트': { who: 'user', name: REPLY['코멘트']!, note: t('다시 처리하지 않고 답만 받으려고 남긴 질문입니다.', 'A question left to get an answer only, without reworking.') },
