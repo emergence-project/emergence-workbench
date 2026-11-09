@@ -484,4 +484,22 @@ describe('개인 저장소에서 받은 피드백 기록 (11/4)', () => {
     ws.terminate()
     await fb.close()
   })
+  it('받지 못하면 그 까닭을 저장소 화면에 알리고, 동기화하기로 바로 다시 받는다 (11/8 20:45)', async () => {
+    const dir = path.join(tmp, 'feedback-sync-fail')
+    fs.mkdirSync(dir, { recursive: true })
+    let fail = true
+    let pulls = 0
+    const feedbackSync = async () => { pulls++; return fail ? { ok: false, error: 'fatal: could not read Username' } : { ok: true } }
+    const fb = buildApp({ configDir: path.join(tmp, 'config-fb-sync-fail'), feedbackDir: dir, feedbackSync, personalDir: dir })
+    await fb.ready()
+    expect((await fb.inject({ method: 'GET', url: '/api/feedback/all' })).statusCode).toBe(200)
+    await new Promise((r) => setTimeout(r, 20))
+    const seen = (await fb.inject({ method: 'GET', url: '/api/feedback/personal' })).json()
+    expect(seen.lastPull.error).toBe('fatal: could not read Username')
+    fail = false
+    const synced = (await fb.inject({ method: 'POST', url: '/api/feedback/personal/sync' })).json()
+    expect(synced.lastPull.error).toBeNull()
+    expect(pulls).toBe(2)
+    await fb.close()
+  })
 })

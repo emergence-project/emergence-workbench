@@ -1,6 +1,6 @@
 // ---------- 피드백 (feedback/날짜.md · status.yaml · reviews.yaml, 서버 feedback.ts) ----------
 import { enc, json, req, send } from './http'
-import type { EditFeedbackBody, FeedbackClaimBody, FeedbackPickableKind, FeedbackAdded, FeedbackAll, FeedbackCloud, FeedbackExported, FeedbackImported, FeedbackRelayed, FeedbackToday, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
+import type { EditFeedbackBody, FeedbackClaimBody, FeedbackPickableKind, FeedbackAdded, FeedbackAll, FeedbackCloud, FeedbackExported, FeedbackImported, FeedbackRelayed, FeedbackToday, FeedbackCommentBody, FeedbackCommented, FeedbackNoteBody, FeedbackOk, FeedbackPublished, FeedbackReviewBody, FeedbackReviewed, FeedbackVerdict, NewFeedbackBody, PersonalRepo, RecordsPublished, UnpublishedFiles } from '@rw/core/contract/feedback'
 
 /** 피드백 하나와 처리 기록 (feedback/status.yaml). 기록이 없으면 처리 대기 */
 export type { FeedbackKind, FeedbackPickableKind, FeedbackState, FeedbackVerdict, FeedbackVerdictEntry, FeedbackComment, FeedbackReply, FeedbackRevision, FeedbackReview, FeedbackItem } from '@rw/core/contract/feedback'
@@ -32,6 +32,9 @@ export const feedbackCalls = {
   /** 에이전트의 맡음 풀기 (11/9) */
   releaseFeedbackClaim: (key: string) =>
     req('/api/feedback/claim', send('DELETE', { key } satisfies FeedbackClaimBody)).then((r) => json<FeedbackOk>(r)).then((r) => { feedbackChanged(); return r }),
+  /** 개인 저장소(피드백 · 공통 규칙)가 GitHub와 같은지와 마지막 받기 (11/9, 저장소 화면 「앱」 묶음) */
+  personalRepo: () => req('/api/feedback/personal').then((r) => json<PersonalRepo>(r)),
+  syncPersonalRepo: () => req('/api/feedback/personal/sync', { method: 'POST' }).then((r) => json<PersonalRepo>(r)).then((r) => { feedbackChanged(); return r }),
   /** 클라우드 정기 작업이 피드백을 처리할지 (11/4) */
   feedbackCloud: () => req('/api/feedback/cloud').then((r) => json<FeedbackCloud>(r)),
   setFeedbackCloud: (enabled: boolean) => req('/api/feedback/cloud', send('PUT', { enabled })).then((r) => json<FeedbackCloud>(r)),

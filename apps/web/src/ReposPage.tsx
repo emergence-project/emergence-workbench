@@ -1,10 +1,12 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { api } from './api'
 import { relativeTime } from './format'
 import { plural, t } from './i18n'
 import { repoBehindAhead, SyncButton, useRepoState } from './ProjectInfoPage'
 import { qk } from './queries'
 import { go } from './router'
+import { Icon } from './icons'
 
 /**
  * 모든 저장소 (10/29 10:00 제안 진행 · 10/30 16:59 "에이전트 아래 저장소도 두자", 시안 3절 안 B):
@@ -32,6 +34,7 @@ export function ReposPage() {
                     <th>{t('커밋 안 한 변경', 'Uncommitted')}</th><th className="repos-col-when">{t('확인', 'Checked')}</th><th aria-label={t('동기화하기', 'Sync')} />
                   </tr></thead>
                   <tbody>{projects.map((p) => <RepoRow key={p.id} rid={p.id} title={p.title} />)}</tbody>
+                  <PersonalRows />
                 </table>}
           </div>
         </div>
@@ -73,4 +76,45 @@ export function ReposRailCount() {
   const repos = useQueries({ queries: projects.map((p) => ({ queryKey: qk.repo(p.id), queryFn: () => api.research(p.id).repo().catch(() => null), refetchInterval: 60_000 })) })
   const n = repos.filter((r) => { const ba = repoBehindAhead(r.data); return !!ba && (ba.behind > 0 || ba.ahead > 0) }).length
   return n ? <span className="rail-count" title={t(`GitHub와 다른 프로젝트 ${n}개`, `${n} project(s) differ from GitHub`)}>{n}</span> : null
+}
+
+/**
+ * 표 아래 「앱」 묶음 (11/8 20:45 질문 진행, 시안 N7ik 4절): 개인 저장소(피드백 · 공통 규칙) 줄.
+ * 피드백 처리 기록은 이 저장소에서 받는다. 받지 못하면 주황 점과 까닭을 보이고, 동기화하기로 남은 피드백을 올리고 바로 받는다.
+ * 개인 저장소가 없는 앱(설치 파일)에는 묶음이 없다
+ */
+function PersonalRows() {
+  const client = useQueryClient()
+  const got = useQuery({ queryKey: qk.personalRepo, queryFn: api.personalRepo, refetchInterval: 60_000 }).data
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (!got?.repo) return null
+  const { repo, lastPull } = got
+  const ok = repo.state === 'ok'
+  const ba = repoBehindAhead(repo)
+  const changes = ok ? (repo.dirty ?? 0) + (repo.untracked ?? 0) : 0
+  const failed = error ?? lastPull?.error ?? null
+  const compare = failed ? <span><span className="turn-dot" aria-hidden /> {t('받지 못함', "Couldn't pull")}</span>
+    : !ok || !ba ? <span className="muted">—</span>
+      : !ba.ahead && !ba.behind ? <span><span className="repo-ok">✓</span> {t('같음', 'Same')}</span>
+        : <span><span className="turn-dot" aria-hidden /> {ba.behind > 0 && `↓${ba.behind}`}{ba.behind > 0 && ba.ahead > 0 && ' '}{ba.ahead > 0 && `↑${ba.ahead}`}</span>
+  const sync = () => {
+    setBusy(true); setError(null)
+    api.syncPersonalRepo().then((r) => client.setQueryData(qk.personalRepo, r), (e: Error) => setError(e.message)).finally(() => setBusy(false))
+  }
+  return (
+    <tbody className="repos-group">
+      <tr className="repos-group-h"><td colSpan={6}>{t('앱', 'App')}</td></tr>
+      <tr data-ui="저장소 줄" data-ui-item="개인 저장소">
+        <td className="repos-name"><span title={t('피드백과 처리 기록 · 공통 규칙이 든 비공개 저장소. 피드백 화면은 여기서 받은 기록을 보입니다', 'The private repository with feedback, handling records and common rules. The feedback screen shows what is pulled here')}>{t('개인 저장소 · 피드백 · 공통 규칙', 'Personal repository · feedback · common rules')}</span>
+          {failed && <div className="repo-err">! {t(`받지 못했습니다: ${failed}`, `Couldn't pull: ${failed}`)}</div>}</td>
+        <td>{ok && repo.branch ? <code>{repo.branch}</code> : <span className="muted">—</span>}</td>
+        <td title={failed ? t('그래서 피드백 화면의 처리 기록이 늦게 보일 수 있습니다', 'So handling records on the feedback screen can show up late') : undefined}>{compare}</td>
+        <td>{changes > 0 ? t(`${changes}개`, plural(changes, 'change')) : <span className="muted">{t('없음', 'None')}</span>}</td>
+        <td className="repos-col-when muted">{lastPull ? relativeTime(lastPull.at) : '—'}</td>
+        <td className="repos-sync"><button className={`icon-btn repo-sync${busy ? ' busy' : ''}`} disabled={busy} aria-label={busy ? t('동기화하는 중', 'Syncing') : t('동기화하기', 'Sync')}
+          title={t('남은 피드백을 올리고 GitHub의 새 처리 기록을 받습니다', 'Push remaining feedback and pull new handling records from GitHub')} data-ui="동기화하기" onClick={sync}>{Icon.sync}</button></td>
+      </tr>
+    </tbody>
+  )
 }
