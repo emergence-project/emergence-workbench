@@ -10,6 +10,7 @@ import { claudeAgentRunner } from '../agentRunner.js'
 import { acpAgentRunner } from '../agentAcp.js'
 import { ACP_AGENTS, agentsHere, isAcp } from '../agentKinds.js'
 import { ensureCodexAcp } from '../codexAcp.js'
+import { codexAsk } from '../codexCli.js'
 import { registerChatMcp } from '../agentMcpHttp.js'
 import { parseBody, replies } from '../contract.js'
 import { createMcpServer } from '../mcp.js'
@@ -67,6 +68,8 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     ...(appWork && { app: appWork }),
     ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
     settings: () => registry.agents,
+    // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것
+    ...(runner ? runner.review && { review: runner.review } : { review: (o: { prompt: string; cwd: string }) => codexAsk(registry.configDir, o.cwd, o.prompt) }),
     ...(ctx.opts.appRepo && { inApp: commitChecker(ctx.opts.appRepo.root, ctx.opts.appRepo.running) }),
     recordAnswer: (rid, rec, text, edits) => {
       const changed = edits.length ? [t('고친 곳 (아래 「고친 곳 검토」에서 승인):', 'Changed (approve under "Review changes" below):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''
@@ -91,7 +94,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.get('/api/agent-chats/agents', replies(C.ChatAgents), async (): Promise<C.ChatAgents> => {
     // codex는 있는데 연결부가 없으면 뒤에서 받는다 (다음에 읽을 때 Codex가 깔린 것으로 보인다)
     if (!process.env.VITEST) void ensureCodexAcp(registry.configDir)
-    return { agents: agentsHere(undefined, registry.configDir) }
+    const agents = agentsHere(undefined, registry.configDir)
+    // 예제 모드 · 시험(실행기를 넣은 앱)은 이 컴퓨터의 실제 계정을 보이지 않는다: 그림 · CI 산출물에 남지 않게 예제 계정으로
+    return { agents: runner ? agents.map(({ email: _e, plan: _p, ...a }) => (a.id === 'claude-code' && a.installed ? { ...a, email: 'name@example.com', plan: 'Max' } : a)) : agents }
   })
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
@@ -100,6 +105,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   /** 곁 질문: 하던 일을 멈추지 않고 작은 모델이 이 대화의 요약만 보고 답한다 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/side', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.side(req.params.id, parseBody(C.SideBody, req.body).text) }))
+
+  /** Codex 검토 (11/9): 읽기만 하는 Codex가 고친 곳을 보고 카드를 붙인다 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/review', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.review(req.params.id) }))
 
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.send(req.params.id, parseBody(C.ChatMessageBody, req.body)) }))
 

@@ -108,6 +108,8 @@ export const DEFAULT_SCREENS = [
   ['agent-changes', '#/agent/{done}', '바뀐 곳'],
   // 앱 고치기 대화 (2단계 10/21): 작업 폴더에서 파일 하나를 고치고 PR을 연 대화 (shots.mjs, {appchat})
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
+  // Codex 검토 카드 (11/9): 끝난 대화에 붙은 검토 (shots.mjs가 검토를 부른다)
+  ['agent-review', '#/agent/{done}', '검토 카드'],
   // 새 대화의 프로젝트 고르기 (11/8 14:16 제안): 입력란 아래 알약 버튼의 메뉴(찾기 · 프로젝트 한 목록 · 범위)
   ['agent-new', '#/agent', '대화 프로젝트 고르기 항목', ['대화 프로젝트 고르기']],
   // 사이드바를 닫은 에이전트 화면 (같은 제안 안 A): 새 대화 아래 최근 대화 (shots.mjs가 찍기 전에 닫고 뒤에 되돌린다)
@@ -136,6 +138,8 @@ export const DEFAULT_SCREENS = [
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],
+  // 설정 › 에이전트 › 에이전트 자세히 (11/9): Codex 줄을 눌러 들어간 모양 (계정 · 시작 권한 · 자동 허용 · 하는 일)
+  ['settings-agent-detail', '#/settings/agents', '에이전트 자세히', ['[data-ui="대화 에이전트"]:nth-of-type(2)']],
   // 폰에서 보기 (10/30): 예제 모드의 가짜 Tailscale을 켜 둔 화면(주소 · QR)
   ['settings-phone', '#/settings/phone', '폰 주소'],
   // 설정 › 공통 규칙 (10/18): 절마다 읽기, 연필로 연 원문 입력란

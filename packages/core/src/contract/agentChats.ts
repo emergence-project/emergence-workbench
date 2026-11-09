@@ -107,6 +107,11 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * answer가 없고 error도 없으면 답을 기다리는 중
    */
   z.object({ kind: z.literal('side'), at: z.string(), q: z.string(), answer: z.string().optional(), error: z.string().optional() }).strict(),
+  /**
+   * 다른 에이전트의 검토 (11/9 "Claude가 쓰고 Codex가 검토"): 읽기만 하는 Codex가 고친 곳 · 요청 · 마지막 답을 읽고 남긴 글.
+   * edits = 본 고친 곳 수, text가 없고 error도 없으면 검토하는 중. auto = 저절로 검토. 넘기기 전에는 대화 에이전트의 맥락에 들지 않는다
+   */
+  z.object({ kind: z.literal('review'), at: z.string(), by: z.enum(AGENT_KINDS), edits: z.number(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional(), auto: z.boolean().optional() }).strict(),
 ])
 
 export const ChatRow = z.object({
@@ -174,10 +179,11 @@ export const ModelChoice = z.object({ value: ChatModel, name: z.string(), desc: 
 export const ChatModels = z.object({ models: z.array(ModelChoice) }).strict()
 /**
  * GET /agent-chats/agents: 이 맥에서 대화를 맡길 수 있는 에이전트. installed = 실행 파일을 찾음(version), login = 로그인한 흔적이 있음(모르면 없음),
- * install = 깔 때 쓸 명령 (없을 때 화면이 보인다), bundled = 앱에 든 연결부를 쓴다 (설치 파일로 깐 앱의 Codex: 깔 명령 대신 「ChatGPT로 연결」)
+ * install = 깔 때 쓸 명령 (없을 때 화면이 보인다), bundled = 앱에 든 연결부를 쓴다 (설치 파일로 깐 앱의 Codex: 깔 명령 대신 「ChatGPT로 연결」),
+ * email · plan = 로그인한 계정과 요금제 (그 에이전트가 적어 둔 로그인 정보에서, 모르면 없음. 11/9)
  */
 export const ChatAgents = z.object({
-  agents: z.array(z.object({ id: z.enum(AGENT_KINDS), name: z.string(), installed: z.boolean(), version: z.string().optional(), login: z.boolean().optional(), install: z.string().optional(), bundled: z.boolean().optional() }).strict()),
+  agents: z.array(z.object({ id: z.enum(AGENT_KINDS), name: z.string(), installed: z.boolean(), version: z.string().optional(), login: z.boolean().optional(), install: z.string().optional(), bundled: z.boolean().optional(), email: z.string().optional(), plan: z.string().optional() }).strict()),
 }).strict()
 /**
  * GET /agent-chats/extras: 맥의 Claude Code에 있는 스킬(~/.claude/skills)과 커넥터(~/.claude.json의 MCP 서버). / 메뉴 · @ 메뉴에 보인다.

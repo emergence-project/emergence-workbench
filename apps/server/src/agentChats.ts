@@ -81,41 +81,19 @@ export type RunEvent =
 /** 지시 하나 (글과 붙인 그림) */
 export type Turn = { prompt: string; images?: ImageIn[] }
 
-/** 차례 사이에 지시를 넘기는 줄. close하면 남은 것을 다 읽은 뒤 끝난다 */
-export class Inbox<T> implements AsyncIterable<T> {
-  private items: T[] = []
-  private wake?: () => void
-  closed = false
-  push(x: T): boolean {
-    if (this.closed) return false
-    this.items.push(x)
-    this.ping()
-    return true
-  }
-  close(): void { this.closed = true; this.ping() }
-  /** 읽지 않고 남은 것을 꺼낸다 */
-  drain(): T[] { return this.items.splice(0) }
-  private ping(): void { const w = this.wake; this.wake = undefined; w?.() }
-  async *[Symbol.asyncIterator](): AsyncIterator<T> {
-    for (;;) {
-      const x = this.items.shift()
-      if (x !== undefined) { yield x; continue }
-      if (this.closed) return
-      await new Promise<void>((r) => { this.wake = r })
-    }
-  }
-}
+export { Inbox } from './agentInbox.js'
+import { Inbox } from './agentInbox.js'
 
 /**
  * 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음),
  * side = 곁 질문 하나에 작은 모델이 도구 없이 답한다 (prompt에 대화 요약과 질문이 다 들어 있다)
  */
-export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: { prompt: string; cwd: string }) => Promise<string> }
+export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: { prompt: string; cwd: string }) => Promise<string>; review?: (o: { prompt: string; cwd: string }) => Promise<string> }
 
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, type PolicyCtx } from './agentPolicy.js'
 export * from './agentPrompts.js'
-import { appBriefFor, briefFor, feedbackPrompt, pictureImage, promptOf, recordDraftPrompt, sidePrompt } from './agentPrompts.js'
+import { appBriefFor, briefFor, feedbackPrompt, pictureImage, promptOf, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
 
 export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
 import { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
@@ -226,6 +204,8 @@ export interface AgentChatsDeps {
   inApp?: (sha: string) => Promise<boolean | undefined>
   /** 기록 대화의 차례가 잘 끝나면 마지막 답 글과 이번 차례에 고친 곳을 그 기록에 적는다 (routes/comments.ts) */
   recordAnswer?: (rid: string, record: { target: string; id: string }, text: string, edits: { file: string; added: number; removed: number }[]) => void
+  /** 다른 에이전트의 검토 (11/9): 읽기만 하는 Codex에게 묻는다 (codexCli.ts의 codexAsk). 없으면 검토를 쓸 수 없다 */
+  review?: (o: { prompt: string; cwd: string }) => Promise<string>
 }
 
 export class AgentChats {
@@ -246,16 +226,12 @@ export class AgentChats {
       if (!f.endsWith('.json')) continue
       try {
         const c = JSON.parse(fs.readFileSync(path.join(deps.dir, f), 'utf8')) as Stored
-        c.mode ??= 'edit'
-        c.model ??= 'default'
-        c.effort ??= 'medium'
-        c.changed ??= []
-        c.todos ??= []
+        c.mode ??= 'edit'; c.model ??= 'default'; c.effort ??= 'medium'; c.changed ??= []; c.todos ??= []
         delete c.live
         delete c.tasks
         delete c.compacting
         delete c.draft
-        for (const it of c.items) if (it.kind === 'side' && it.answer === undefined && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
+        for (const it of c.items) if ((it.kind === 'side' && it.answer === undefined || it.kind === 'review' && it.text === undefined) && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
         if (LIVE.has(c.state)) {
           // 앱이 다시 켜지면 돌던 차례는 이어지지 않는다
           c.state = 'stopped'
@@ -819,8 +795,7 @@ export class AgentChats {
     if (!ask) throw new WorkbenchError(404, t(`${HERE.ko}에서는 곁 질문을 쓸 수 없습니다`, `Side questions are not available on ${HERE.en}`))
     const it: Extract<ChatItem, { kind: 'side' }> = { kind: 'side', at: now(), q: clip(q, 4000) }
     this.push(c, it)
-    const cwd = c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
-    void ask({ prompt: sidePrompt(c, q), cwd })
+    void ask({ prompt: sidePrompt(c, q), cwd: this.cwdOf(c) })
       .then((a) => { it.answer = clip(a.trim() || t('(답이 비었습니다)', '(empty answer)'), MAX_TEXT) })
       .catch((e: Error) => { it.error = clip(e.message, 500) })
       .finally(() => this.touch(c))
@@ -833,10 +808,30 @@ export class AgentChats {
     const ask = this.deps.runner.side
     if (!ask) throw new WorkbenchError(404, t(`${HERE.ko}에서는 기록 초안을 쓸 수 없습니다`, `Record drafts are not available on ${HERE.en}`))
     if (!c.items.some((it) => it.kind === 'text' && !it.sub)) throw new WorkbenchError(400, t('아직 에이전트의 답이 없어 남길 것이 없습니다', 'Nothing to keep yet: the agent has not answered'))
-    const cwd = c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
-    const text = (await ask({ prompt: recordDraftPrompt(c, place), cwd })).trim()
+    const text = (await ask({ prompt: recordDraftPrompt(c, place), cwd: this.cwdOf(c) })).trim()
     if (!text) throw new WorkbenchError(502, t('초안이 비었습니다. 다시 눌러 주세요', 'The draft came back empty. Try again'))
     return { text: clip(text, 4000) }
+  }
+
+  /** 다른 에이전트의 검토 (11/9 "Claude가 쓰고 Codex가 검토"): 읽기만 하는 Codex의 답을 카드로 붙인다. 넘기기 전에는 대화의 맥락에 들지 않는다 */
+  review(id: string, auto = false): Chat {
+    const c = this.must(id)
+    const ask = this.deps.review
+    if (!ask) throw new WorkbenchError(404, t(`${HERE.ko}에서는 Codex 검토를 쓸 수 없습니다`, `Codex review is not available on ${HERE.en}`))
+    if (c.items.some((it) => it.kind === 'review' && it.text === undefined && !it.error)) throw new WorkbenchError(409, t('이미 검토하는 중입니다', 'A review is already running'))
+    const { prompt, edits } = reviewPrompt(c)
+    const it: Extract<ChatItem, { kind: 'review' }> = { kind: 'review', at: now(), by: 'codex', edits, ...(auto && { auto }) }
+    this.push(c, it)
+    const t0 = Date.now()
+    void ask({ prompt, cwd: this.cwdOf(c) })
+      .then((a) => { it.text = clip(a.trim() || t('(검토가 비었습니다)', '(empty review)'), MAX_TEXT) })
+      .catch((e: Error) => { it.error = clip(e.message, 500) })
+      .finally(() => { it.seconds = Math.round((Date.now() - t0) / 1000); this.touch(c) })
+    return wireOf(c)
+  }
+
+  private cwdOf(c: Stored): string {
+    return c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
   }
 
   private touch(c: Stored): void {
@@ -1127,6 +1122,8 @@ export class AgentChats {
       c.recordTurn = false
       if (state === 'idle') this.writeRecordAnswer(c)
     }
+    // 저절로 검토 (설정 › 에이전트): Claude가 이번 차례에 파일을 고쳤으면
+    if (state === 'idle' && c.agent === 'claude-code' && this.deps.review && this.deps.settings?.().review === 'edits' && c.items.slice(c.items.map((x) => x.kind).lastIndexOf('user')).some((x) => x.kind === 'edit')) try { this.review(c.id, true) } catch { /* 검토 중이면 건너뜀 */ }
     this.touch(c)
     if ((c.pending ?? []).length) { this.close(s); return }
     this.idleLater(c, s)

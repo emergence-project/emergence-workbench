@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { changesApi, type ChangeItem, type Changes } from './api'
+import { AgentChip } from './AgentPick'
 import { qk } from './queries'
 import { go, type Route } from './router'
 import { t, HERE } from './i18n'
@@ -76,7 +77,7 @@ export function ChangesPage({ rid }: { rid: string }) {
             <table className="chg-table">
               <thead><tr>
                 <th>{t('변경사항', 'Change')}</th><th>{t('작성자', 'Author')}</th><th className="r">{t('작성일시', 'When')}</th>
-                <th className="chg-ag" title="Claude Code">Claude</th><th className="chg-ag">Codex</th>
+                <th className="chg-ag" title="Claude Code"><AgentChip agent="claude-code" /></th><th className="chg-ag"><AgentChip agent="codex" /></th>
               </tr></thead>
               <tbody>
                 {data.items.map((i) => {

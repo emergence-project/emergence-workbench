@@ -26,6 +26,8 @@
   --ag-cc: #8a4b14; --ag-cc-bg: #f7ece2;
   --ag-cx: #155e63; --ag-cx-bg: #e2f1f1;
   --ag-gm: #3b4a9e; --ag-gm-bg: #e7eaf8;
+  /* 에이전트 로고 색 (11/9): Claude 로고의 주황, Gemini 로고의 파랑. OpenAI 로고는 글자 색 */
+  --ag-cc-logo: #d97757; --ag-gm-logo: #3186ff;
   --code-bg: #fbfbfa;
   --code-cmd: #7c3aed;
   --code-math: #0e7490;
@@ -112,7 +114,7 @@
     --focus: #4a4322; --focus-line: #a8923a;
     --danger: #f28b8b; --danger-bg: #4a2b2a;
     --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
-    --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40; --ag-gm: #aab6f2; --ag-gm-bg: #262d4d;
+    --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40; --ag-gm: #aab6f2; --ag-gm-bg: #262d4d; --ag-cc-logo: #e08a6b; --ag-gm-logo: #6aa5ff;
     --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
     --math-zone: rgba(255,255,255,.07); --math-dollar: #7aa2f7; --math-paren: #c9a9ff; --math-display: #f08a4b; --math-bracket: #f472b6;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
@@ -139,7 +141,7 @@
     --focus: #4a4322; --focus-line: #a8923a;
     --danger: #f28b8b; --danger-bg: #4a2b2a;
     --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf;
-    --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40; --ag-gm: #aab6f2; --ag-gm-bg: #262d4d;
+    --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40; --ag-gm: #aab6f2; --ag-gm-bg: #262d4d; --ag-cc-logo: #e08a6b; --ag-gm-logo: #6aa5ff;
     --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
     --math-zone: rgba(255,255,255,.07); --math-dollar: #7aa2f7; --math-paren: #c9a9ff; --math-display: #f08a4b; --math-bracket: #f472b6;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);

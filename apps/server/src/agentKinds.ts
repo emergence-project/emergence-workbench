@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { AgentKind, ChatAgents } from '@rw/core/contract/agentChats'
 import { claudeEnv, claudeExecutable, claudeInstalled, pathDirs, withPath } from './ask.js'
+import { claudeAccount, codexAccount } from './agentAccounts.js'
 import { codexAcpJs } from './codexAcp.js'
 import { codexBin, codexLoggedIn } from './codexCli.js'
 
@@ -114,7 +115,7 @@ function versionOf(cmd: { file: string; args?: string[]; shell: boolean }): stri
  */
 export function agentsHere(home = os.homedir(), configDir?: string): ChatAgents['agents'] {
   const claude = claudeExecutable()
-  const out: ChatAgents['agents'] = [{ id: 'claude-code', name: AGENT_NAME['claude-code'], installed: claudeInstalled(), ...(claude && { version: versionOf(spawnTarget(claude)) }) }]
+  const out: ChatAgents['agents'] = [{ id: 'claude-code', name: AGENT_NAME['claude-code'], installed: claudeInstalled(), ...(claude && { version: versionOf(spawnTarget(claude)) }), ...claudeAccount(home) }]
   for (const spec of Object.values(ACP_AGENTS)) {
     const cmd = acpCommand(spec, configDir)
     const own = spec.id === 'codex' && !process.env[spec.envBin] && !!configDir
@@ -123,7 +124,7 @@ export function agentsHere(home = os.homedir(), configDir?: string): ChatAgents[
       : spec.loginFiles.some((f) => fs.existsSync(path.join(home, f))) || spec.loginEnv.some((k) => !!process.env[k])
     const version = cmd ? versionOf(cmd.bundled ? cmd : { ...cmd, args: [] }) : undefined
     // 앱이 맡는 Codex는 codex만 있으면 깔린 것: 연결부는 대화를 열 때 받는다 (codexAcp.ts의 ensureCodexAcp)
-    out.push({ id: spec.id, name: spec.name, installed: !!cmd || (own && !!configDir && !!codexBin(configDir)), ...(version && { version }), login, ...(own ? { bundled: true } : !cmd && { install: spec.install }) })
+    out.push({ id: spec.id, name: spec.name, installed: !!cmd || (own && !!configDir && !!codexBin(configDir)), ...(version && { version }), login, ...(own ? { bundled: true } : !cmd && { install: spec.install }), ...(spec.id === 'codex' && login && codexAccount(home)) })
   }
   return out
 }

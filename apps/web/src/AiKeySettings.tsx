@@ -9,7 +9,7 @@ import { Row } from './SetupChecklist'
 
 type Provider = AiKeyBody['provider']
 const AI_ORDER: Provider[] = ['chatgpt', 'gemini', 'claude']
-export const AI_NAME: Record<Provider, string> = { claude: 'Claude', gemini: 'Gemini', chatgpt: 'ChatGPT' }
+export const AI_NAME: Record<Provider, string> = { claude: 'Claude', gemini: 'Gemini', chatgpt: 'Codex' }
 const AI_KEY_PAGE: Record<Exclude<Provider, 'chatgpt'>, string> = { claude: 'https://console.anthropic.com/settings/keys', gemini: 'https://aistudio.google.com/apikey' }
 
 /**
@@ -28,7 +28,7 @@ export function AiKeyRow({ onSaved }: { onSaved(message: string): void }) {
   const close = () => { setForm(false); setValue(''); setErr(null) }
   const save = useMutation({
     mutationFn: (body: AiKeyBody) => api.saveAiKey(body),
-    onSuccess: (k) => { put(k); close(); onSaved(k?.provider === 'chatgpt' ? t('ChatGPT로 답하게 했습니다', 'Questions now go to ChatGPT') : t('AI 키를 저장했습니다', 'Saved the AI key')) },
+    onSuccess: (k) => { put(k); close(); onSaved(k?.provider === 'chatgpt' ? t('Codex로 답하게 했습니다', 'Questions now go to Codex') : t('AI 키를 저장했습니다', 'Saved the AI key')) },
     onError: (e: Error) => setErr(e.message),
   })
   const remove = useMutation({
@@ -40,13 +40,13 @@ export function AiKeyRow({ onSaved }: { onSaved(message: string): void }) {
   const edit = t('바꾸기', 'Change')
   const del = t('지우기', 'Remove')
   return (<>
-    <Row ok={!!k} optional name={t('질문에 답할 AI', 'AI for questions')} sub={k ? (k.provider === 'chatgpt' ? 'ChatGPT · Codex' : `${AI_NAME[k.provider]} · ${k.model}`) : 'ChatGPT · Gemini · Claude'} ui="Claude API 연결"
+    <Row ok={!!k} optional name={t('질문에 답할 AI', 'AI for questions')} sub={k ? (k.provider === 'chatgpt' ? t('Codex · ChatGPT 계정', 'Codex · ChatGPT account') : `${AI_NAME[k.provider]} · ${k.model}`) : 'Codex · Gemini · Claude'} ui="Claude API 연결"
       action={k ? <>
         <button className="icon-btn" data-tip={edit} aria-label={edit} onClick={() => { setProvider(k.provider); setForm(true) }}>{Icon.pencil}</button>
         <button className="icon-btn" data-tip={del} aria-label={del} onClick={() => remove.mutate()}>{Icon.trash}</button>
       </> : !form && <button className="btn" onClick={() => setForm(true)}>{t('＋ 고르기', '＋ Choose')}</button>}>
       {k ? (k.provider === 'chatgpt'
-        ? t('ChatGPT 계정으로 연결됨. 논문 · 노트에 남긴 질문에 ChatGPT가 답하고, 그 요금제의 사용량이 듭니다.', 'Connected with a ChatGPT account. ChatGPT answers questions left on papers and notes, using that plan\'s usage.')
+        ? t('ChatGPT 계정으로 연결됨. 논문 · 노트에 남긴 질문에 Codex가 답하고, 그 요금제의 사용량이 듭니다.', 'Connected with a ChatGPT account. Codex answers questions left on papers and notes, using that plan\'s usage.')
         : t(`넣음 (끝 네 자 ${k.hint}). 논문 · 노트에 남긴 질문에 이 앱이 ${AI_NAME[k.provider]}에게 직접 묻습니다. 질문마다 그 계정의 사용량이 듭니다.`, `Added (ends in ${k.hint}). The app asks ${AI_NAME[k.provider]} directly for questions left on papers and notes. Each question uses that account's usage.`))
         : t('Claude Code가 없어도, ChatGPT 유료 계정이나 Gemini · Claude 키가 있으면 논문 · 노트에 남긴 질문에 이 앱이 그 AI에게 직접 묻습니다.', 'Even without Claude Code, with a paid ChatGPT account or a Gemini or Claude key, the app asks that AI directly for questions left on papers and notes.')}
       {err && <div className="error-text">{err}</div>}
@@ -129,7 +129,7 @@ function ChatGptConnect({ onDone, onCancel, saving }: { onDone(): void; onCancel
     {(s?.error || start.error) && <div className="error-text">{s?.error ?? start.error?.message}</div>}
     <div className="g-actions">
       <button className="btn primary" disabled={going || saving || !!s?.busy} onClick={() => { tried.current = {}; if (ready) onDone(); else setGoing(true) }}>
-        {going || s?.busy ? t('연결하는 중…', 'Connecting…') : ready ? t('ChatGPT로 답하게 하기', 'Use ChatGPT') : t('ChatGPT로 연결', 'Connect ChatGPT')}
+        {going || s?.busy ? t('연결하는 중…', 'Connecting…') : ready ? t('Codex로 답하게 하기', 'Use Codex') : t('ChatGPT로 연결', 'Connect ChatGPT')}
       </button>
       <button className="btn" onClick={onCancel}>{t('취소', 'Cancel')}</button>
     </div>

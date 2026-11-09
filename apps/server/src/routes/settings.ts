@@ -8,7 +8,7 @@ import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { aiKeyView, readAiKey, writeAiKey } from '../aiKey.js'
 import { installCodexAcp } from '../codexAcp.js'
-import { codexStatus, installCodex, loginCodex } from '../codexCli.js'
+import { codexStatus, installCodex, loginCodex, switchCodex } from '../codexCli.js'
 import { releaseChecker } from '../releaseCheck.js'
 import { t } from '../i18n.js'
 import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
@@ -70,6 +70,11 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   })
   app.post('/api/settings/codex/login', replies(C.CodexStatus), async (): Promise<C.CodexStatus> => {
     const started = loginCodex(registry.configDir)
+    started.catch(() => { /* 오류는 상태의 error로 보인다 */ })
+    return codexStatus(registry.configDir)
+  })
+  app.post('/api/settings/codex/switch', replies(C.CodexStatus), async (): Promise<C.CodexStatus> => {
+    const started = switchCodex(registry.configDir)
     started.catch(() => { /* 오류는 상태의 error로 보인다 */ })
     return codexStatus(registry.configDir)
   })

@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Attach, Chat, ChatMode, ChatScope, ChatWrite, ImageIn } from '@rw/core/contract/agentChats'
+import type { Attach, Chat, ChatItem, ChatMode, ChatScope, ChatWrite, ImageIn } from '@rw/core/contract/agentChats'
 import { APP_CHECKS, APP_SUBMIT, clip, EXPLORE_AGENT, FEEDBACK_ANSWER, PLAN_TOOL, scopeDir } from './agentPolicy.js'
 import type { FeedbackListItem } from './feedback.js'
 import { t } from './i18n.js'
@@ -119,6 +119,44 @@ export function sidePrompt(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' |
     '',
     `Side question: ${q}`,
   ].join('\n')
+}
+
+/**
+ * Codex 검토에 줄 글 (11/9 "Claude가 쓰고 Codex가 검토", 시안 3절): 사용자의 첫 요청과 마지막 요청, 지난 검토 뒤 고친 곳, 에이전트의 마지막 답.
+ * 대화 전체는 넘기지 않는다. 검토하는 쪽은 읽기 전용이고, 필요하면 파일을 직접 읽는다. 답은 한 줄에 하나: "고칠 것: … (위치)" · "볼 것: …" 또는 "고칠 것 없음"
+ */
+export function reviewPrompt(c: Pick<Chat, 'title' | 'items'>): { prompt: string; edits: number } {
+  const last = c.items.map((it) => it.kind).lastIndexOf('review')
+  const users = c.items.filter((it): it is Extract<ChatItem, { kind: 'user' }> => it.kind === 'user')
+  const since = c.items.slice(last + 1).filter((it): it is Extract<ChatItem, { kind: 'edit' }> => it.kind === 'edit')
+  const edits = since.length ? since : last >= 0 ? [] : c.items.filter((it): it is Extract<ChatItem, { kind: 'edit' }> => it.kind === 'edit')
+  const answer = [...c.items].reverse().find((it): it is Extract<ChatItem, { kind: 'text' }> => it.kind === 'text' && !it.sub)?.text ?? ''
+  const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s)
+  const lines = [
+    'You are reviewing work another coding agent (Claude) did in Emergence Workbench, a research workspace. You only read: do not edit files or run commands that change anything.',
+    'Check the changes below against the request. Open the files to read more context when you need it. Look for real errors: wrong math or physics, wrong signs or indices, contradictions with the rest of the note, broken code, missed parts of the request. Do not rewrite style.',
+    'Answer in the language of the request, plain text, one finding per line, at most eight lines, no preamble:',
+    '  고칠 것: <what is wrong and why> (<file:line or section>)   — for errors that should be fixed',
+    '  볼 것: <what to double-check> (<file:line or section>)       — for doubts that need a human or a source',
+    'If nothing needs fixing, answer exactly one line: 고칠 것 없음',
+    '',
+    `Conversation: ${c.title}`,
+    `First request: ${cut(users[0]?.text ?? '', 1500)}`,
+    ...(users.length > 1 ? [`Latest request: ${cut(users[users.length - 1]!.text, 1500)}`] : []),
+    '',
+    edits.length ? 'Changes (old → new excerpts):' : 'No file changes since the last review; review the latest answer.',
+  ]
+  let room = 12_000
+  for (const e of edits) {
+    for (const part of e.parts) {
+      const block = `--- ${e.file}\n- ${part.old}\n+ ${part.new}`
+      if (block.length > room) break
+      lines.push(block)
+      room -= block.length
+    }
+  }
+  lines.push('', `Claude's latest answer: ${cut(answer, 3000)}`)
+  return { prompt: lines.join('\n'), edits: edits.length }
 }
 
 /**

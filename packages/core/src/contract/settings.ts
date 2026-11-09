@@ -4,7 +4,7 @@
  */
 import { z } from 'zod'
 import { UI_OPTIONS, type UiSettings as UiSettingsType } from '../ui-settings.js'
-import { FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES } from '../agent-settings.js'
+import { AGENT_PREF_KINDS, AGENT_ROLES, AGENT_TRUSTS, FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES, REVIEW_MODES, type AgentPrefKind, type AgentRole, type AgentTrust } from '../agent-settings.js'
 import { SYNC_MODES } from '../sync-settings.js'
 
 type Key = keyof typeof UI_OPTIONS
@@ -31,6 +31,7 @@ export const SettingsView = z.object({ ui: UiSettings }).strict()
 export const SettingsBody = z.object({ ui: z.custom<Partial<UiSettingsType>>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' }) })
 
 /** GET · PUT /settings/agents (설정 › 에이전트) */
+const AgentPref = z.object({ trust: z.enum(AGENT_TRUSTS), auto: z.object({ read: z.boolean(), run: z.boolean(), web: z.boolean() }).strict().optional(), role: z.enum(AGENT_ROLES) }).strict()
 export const AgentSettings = z.object({
   instructions: z.enum(INSTRUCTION_MODES),
   /** 질문을 언제 하나 (10/29, 지시와 따로) */
@@ -40,9 +41,15 @@ export const AgentSettings = z.object({
   feedback: z.enum(FEEDBACK_PICKS),
   merge: z.enum(FEEDBACK_MERGES),
   minutes: z.custom<number>((v) => (FEEDBACK_MINUTES as readonly unknown[]).includes(v), { message: 'Expected 10, 20, 30 or 60' }),
+  /** 에이전트마다 새 대화의 시작 권한 · 자동 허용 · 하는 일 (11/9) */
+  per: z.record(z.enum(AGENT_PREF_KINDS), AgentPref),
+  /** 저절로 검토 (11/9) */
+  review: z.enum(REVIEW_MODES),
 }).strict()
 /** 바꿀 것만 보낸다. 고를 수 없는 값은 서버(normalizeAgentSettings)가 무시한다 */
-export const AgentSettingsBody = z.custom<Partial<z.infer<typeof AgentSettings>>>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' })
+/** per는 바꾼 에이전트 · 칸만, auto: null은 권한 이름의 기본값으로 (normalizePrefs) */
+type AgentPrefPatch = { trust?: AgentTrust; auto?: { read: boolean; run: boolean; web: boolean } | null; role?: AgentRole }
+export const AgentSettingsBody = z.custom<Partial<Omit<z.infer<typeof AgentSettings>, 'per'>> & { per?: Partial<Record<AgentPrefKind, AgentPrefPatch>> }>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' })
 
 /** GET · PUT /settings/sync (설정 › 동기화, 10/19). 지금 쓰는 값(저장 안 한 칸은 앱을 켤 때 정한 값)과, 이 앱에서 그 일을 하는지 */
 const SyncChoice = z.object({ mode: z.enum(SYNC_MODES), every: z.number().int().positive() }).strict()
