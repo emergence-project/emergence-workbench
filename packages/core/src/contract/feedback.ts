@@ -124,7 +124,8 @@ export const FeedbackToday = z.object({
   delay: z.number().nullable().optional(),
   lastAutoPublish: z.object({ at: z.number(), error: z.string().nullable() }).strict().nullable(),
   /** 관리자 중계 서버로 바로 보내는 앱이면 보낼 항목 수와 마지막 보낸 때(ms) · 실패 문장 (11/8, 서버 feedbackRelay.ts). 아니면 null */
-  relay: z.object({ pending: z.number(), at: z.number().nullable(), error: z.string().nullable() }).strict().nullable().optional(),
+  /** 중계 서버로 보내기: from은 보내는 이름, named는 그것이 내 이름이나 GitHub 계정에서 왔는지(아니면 컴퓨터 사용자 이름) */
+  relay: z.object({ pending: z.number(), at: z.number().nullable(), error: z.string().nullable(), from: z.string(), named: z.boolean() }).strict().nullable().optional(),
   entries: z.array(FeedbackEntry),
 }).strict()
 /** GET·PUT /feedback/cloud: 클라우드 정기 작업이 피드백을 처리할지 (피드백 폴더 cloud.yaml, 11/4) */

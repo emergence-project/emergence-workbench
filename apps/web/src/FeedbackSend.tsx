@@ -5,6 +5,7 @@ import { api, type FeedbackItem } from './api'
 import { Dialog } from './dialogs'
 import { feedbackSummary, feedbackWhen, issuesDraftUrl } from './feedbackFormat'
 import { feedbackKindName as kindName } from './feedbackTags'
+import { go } from './router'
 import { t } from './i18n'
 import { qk } from './queries'
 import { uiShown } from './uiNames'
@@ -86,6 +87,8 @@ export function FeedbackFileButtons() {
   })
   return <>
     {note && <span className={`fbp-file-note ${note.error ? 'error-text' : 'muted'}`} data-ui="피드백 파일 결과">{note.text}</span>}
+    {/* 내 이름도 GitHub 로그인도 없으면 컴퓨터 사용자 이름(윈도우는 흔히 USER)으로 가니, 이름을 넣으라고 알린다 (11/9) */}
+    {state.data.relay && !state.data.relay.named && <span className="fbp-file-note muted" data-ui="보내는 이름">{t(`보내는 이름: ${state.data.relay.from}`, `Sending as: ${state.data.relay.from}`)} · <button className="a" onClick={() => go({ page: 'settings', part: 'google' })}>{t('설정 › 계정에서 내 이름 넣기', 'Add your name in Settings › Accounts')}</button></span>}
     {state.data.relay && <button className={`btn${state.data.relay.pending ? ' primary' : ''}`} data-ui="관리자에게 보내기" disabled={busy || !state.data.relay.pending}
       title={state.data.relay.pending ? t('남긴 피드백은 잠시 뒤 자동으로 관리자에게 갑니다. 지금 바로 보내려면 누르세요', 'Feedback goes to the maintainer automatically shortly after you leave it. Click to send now') : t('남긴 피드백을 모두 관리자에게 보냈습니다', 'All your feedback has been sent to the maintainer')}
       onClick={() => void run(async () => { const r = await api.relayFeedback(); void client.invalidateQueries({ queryKey: qk.feedback }); return r.message })}>

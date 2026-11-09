@@ -42,7 +42,9 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   let autoTimer: NodeJS.Timeout | null = null
   let lastAuto: { at: number; error: string | null } | null = null
   // 중계 서버로 바로 보내기 (11/8): 개인 저장소 없이 쓰는 앱. 한 번에 하나씩
-  const sender = () => ctx.registry.authors[0]?.name || os.userInfo().username
+  // 보내는 이름: 설정 › 계정의 내 이름, 없으면 로그인한 GitHub 계정의 이름이나 아이디, 그것도 없으면 이 컴퓨터 사용자 이름(윈도우는 흔히 USER) (11/9)
+  const named = () => ctx.registry.authors[0]?.name || ctx.account.account?.name || ctx.account.account?.login || ''
+  const sender = () => named() || os.userInfo().username
   let relaying: Promise<unknown> = Promise.resolve()
   const relayOnce = () => {
     const run = relaying.catch(() => undefined).then(() => sendToRelay(opts.feedbackDir!, ctx.registry.configDir, sender(), opts.feedbackRelay!))
@@ -101,7 +103,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
     delay: (() => { const d = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
     lastAutoPublish: lastAuto,
-    relay: opts.feedbackDir && opts.feedbackRelay ? relayStatus(opts.feedbackDir, ctx.registry.configDir) : null,
+    relay: opts.feedbackDir && opts.feedbackRelay ? relayStatus(opts.feedbackDir, ctx.registry.configDir, { from: sender(), named: !!named() }) : null,
     entries: opts.feedbackDir ? listFeedback(opts.feedbackDir) : [],
   }))
 
