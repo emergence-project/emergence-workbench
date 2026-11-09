@@ -155,6 +155,8 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   const [error, setError] = useState<string | null>(null)
   // 「다시 시도」: 같은 주소를 다시 받는다 (11/9 피드백: 클라우드에서 받는 동안 실패한 PDF)
   const [attempt, setAttempt] = useState(0)
+  const [retrying, setRetrying] = useState(false)
+  useEffect(() => { setAttempt(0); setRetrying(false) }, [url])
   const canvases = useRef(new Map<number, HTMLCanvasElement>())
   const pageEls = useRef(new Map<number, HTMLDivElement>())
   const [width, setWidth] = useState(0)
@@ -205,13 +207,14 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         setSel(null)
         setPaintOpen(null)
         setError(null)
+        setRetrying(false)
         setLinks(new Map())
         setBack([])
         setOutline([])
         readOutline(d, info.map((p) => p.heightPt)).then((o) => { if (!cancelled) setOutline(o) }, () => undefined)
       } catch (e) {
         const msg = await serverReason(url, e)
-        if (!cancelled) setError(msg)
+        if (!cancelled) { setError(msg); setRetrying(false) }
       }
     })()
     return () => { cancelled = true; void task?.destroy() }
@@ -486,7 +489,8 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         onMouseUp={() => { window.setTimeout(readSelection, 0) }}
         onKeyUp={(e) => { if (e.key === 'Shift' || e.key.startsWith('Arrow')) readSelection() }}
         onMouseDown={(e) => { if (!(e.target as HTMLElement).closest('.record-menu, .pdf-selmenu')) { setSel(null); setPaintOpen(null) } }}>
-        {error && <p className="empty center pdf-empty">{t('PDF를 열지 못했습니다', 'Could not open the PDF')}: {error} <button className="btn sm" onClick={() => { setError(null); setAttempt((n) => n + 1) }}>{t('다시 시도', 'Try again')}</button></p>}
+        {retrying && <p className="empty center pdf-empty">{t('PDF를 다시 받는 중…', 'Downloading the PDF again…')}</p>}
+        {error && !retrying && <p className="empty center pdf-empty">{t('PDF를 열지 못했습니다', 'Could not open the PDF')}: {error}{attempt > 0 && t(` (다시 시도 ${attempt}번 모두 같은 오류)`, ` (tried again ${attempt}×, same error)`)} <button className="btn sm" onClick={() => { setRetrying(true); setAttempt((n) => n + 1) }}>{t('다시 시도', 'Try again')}</button></p>}
         {pages.map((p) => (
           <div
             key={p.page}
