@@ -136,7 +136,10 @@ jobs:
           TAG: ${{ needs.windows.outputs.tag }}
           SHA: ${{ github.sha }}
         run: |
+          # 이름에 번호를 넣지 않아 releases/latest/download/EmergenceWorkbench_x64-setup.exe가 늘 최신 설치 파일을 가리킨다
+          # (친구 안내서의 「설치 파일 받기」 버튼, 11/9 "밑에 소스코드 두 개도 받는 거임?"). 앱의 새 버전 알림은 x64-setup.exe로 끝나는 파일을 찾는다
+          mv out/*.exe out/EmergenceWorkbench_x64-setup.exe
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$SHA" --title "Emergence Workbench $TAG" --generate-notes \
-                 --notes "윈도우 설치 파일: 아래 Assets의 .exe를 받아 실행하세요. 안내: docs/install-windows.md"
-          gh release upload "$TAG" out/*.exe -R "$GITHUB_REPOSITORY" --clobber
+                 --notes "윈도우 설치 파일: 아래 Assets의 EmergenceWorkbench_x64-setup.exe 하나만 받아 실행하세요. Source code 두 개는 코드 묶음이라 받지 않아도 됩니다. 안내: docs/install-windows.md"
+          gh release upload "$TAG" out/EmergenceWorkbench_x64-setup.exe -R "$GITHUB_REPOSITORY" --clobber

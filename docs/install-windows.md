@@ -4,7 +4,7 @@ There is an installer for Windows 10 and 11 (64-bit). It carries the server, the
 
 ## Install
 
-1. On the [releases page](https://github.com/emergence-project/emergence-workbench/releases/latest), download `Emergence Workbench_<version>_x64-setup.exe` from **Assets**.
+1. Download [`EmergenceWorkbench_x64-setup.exe`](https://github.com/emergence-project/emergence-workbench/releases/latest/download/EmergenceWorkbench_x64-setup.exe) (the latest release; from v0.3.1). On the [releases page](https://github.com/emergence-project/emergence-workbench/releases/latest) it is the `.exe` under **Assets**; the two **Source code** files are not needed.
 2. Open it. The installer is not signed, so Windows shows **"Windows protected your PC"**. Click **More info**, then **Run anyway**.
 3. It installs for your account only and does not ask for administrator rights. **Emergence Workbench** then appears in the Start menu and on the desktop.
 
