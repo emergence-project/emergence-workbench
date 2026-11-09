@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { conceptTags, detex, findPdf, FolderListing, lastNames, pdfWhere, useCloudDownloader, useCloudProbe } from './papers.js'
+import { conceptTags, detex, findPdf, FolderListing, lastNames, pdfWhere, useCloudDownloader, useCloudMaterialize, useCloudProbe } from './papers.js'
 import { app, repo, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -165,6 +165,24 @@ describe('내용이 아직 없는 클라우드 PDF (11/8 피드백: 500)', () =>
     expect(asked).toEqual([file])
     const after = (await app.inject({ method: 'GET', url: '/api/papers' })).json()
     expect(after.papers.find((p: { key: string }) => p.key === 'readerGraph2010').opened).toBeUndefined()
+  })
+  it('맥이 받기를 막으면(-11) 맥의 받기 도구로 받고 다시 읽는다 (11/9)', async () => {
+    const { pdfs } = setup()
+    app.registry.setPdfFolders([pdfs])
+    const file = path.join(pdfs, 'readerGraph2010.pdf')
+    dataless(file)
+    if (pdfWhere(file) !== 'cloud') return
+    useCloudDownloader(() => undefined)
+    let got = false
+    useCloudMaterialize(async () => { got = true })
+    useCloudProbe(async () => { if (!got) throw Object.assign(new Error('Unknown system error -11'), { errno: -11, code: 'Unknown system error -11' }) })
+    expect((await app.inject({ method: 'GET', url: '/api/papers/readerGraph2010/pdf' })).statusCode).toBe(200)
+    // 도구로도 못 받으면 까닭을 적는다
+    got = false
+    useCloudMaterialize(async () => { throw new Error('no tool') })
+    const r = await app.inject({ method: 'GET', url: '/api/papers/readerGraph2010/pdf' })
+    expect(r.statusCode).toBe(503)
+    expect(r.json().error).toContain('EDEADLK')
   })
   it('받아 오면 그대로 연다', async () => {
     const { pdfs } = setup()
