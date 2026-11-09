@@ -96,9 +96,10 @@ async function download(url, what) {
       status = String(e?.cause?.code ?? e?.message ?? e)
     }
     const retry = typeof status !== 'number' || status >= 500 || status === 429
-    if (!retry || i === WAITS.length) throw new Error(`${what}을(를) 받지 못했습니다 (${status})`)
-    console.log(`  ${what}: ${status}, ${WAITS[i]}초 뒤 다시`)
-    await new Promise((r) => setTimeout(r, WAITS[i] * 1000))
+    const wait = WAITS[i]
+    if (!retry || wait === undefined) throw new Error(`${what}을(를) 받지 못했습니다 (${status})`)
+    console.log(`  ${what}: ${status}, ${wait}초 뒤 다시`)
+    await new Promise((r) => setTimeout(r, wait * 1000))
   }
 }
 
