@@ -6,7 +6,7 @@ import { Icon } from './icons'
 import { MemoText } from './memo'
 import { onListKey } from './listInput'
 import { SayCard } from './Conversation'
-import { ApproveButton, Compose, HandlingPictures } from './FeedbackAnswer'
+import { ApproveButton, ClaimLine, Compose, HandlingPictures } from './FeedbackAnswer'
 import { askConfirm } from './askText'
 import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
@@ -271,7 +271,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
         {onFold && <button className="icon-btn fbp-foldback" data-ui="접기" data-tip={t('접기', 'Collapse')} aria-label={t('접기', 'Collapse')} onClick={onFold}>{Icon.fold}</button>}
       </div>
       {e.status?.clean ? <CleanText e={e} /> : e.source ? <div className="fbp-text"><MemoText text={e.text} /></div> : <FeedbackText e={e} locked={!!e.status} />}
-      <AgentLine e={e} part="line" />
+      <AgentLine e={e} part="line" /><ClaimLine e={e} />
       {needsAnswer(e) && <div className="fbp-ask" data-ui="물음"><b>{t('Claude가 묻는 것', 'Claude asks')}</b> {e.status!.ask}</div>}
       {e.status && <Summary e={e} />}
       {(e.status || e.comments) && <Conversation e={e} />}

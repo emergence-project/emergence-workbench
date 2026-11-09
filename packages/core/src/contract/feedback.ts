@@ -107,7 +107,11 @@ export const FeedbackItem = FeedbackEntry.extend({
   merged: z.array(MergedFeedback).optional(),
   /** 반영 커밋이 지금 돌고 있는 앱에 들어 있는가 (실사용만, 모르면 없음) */
   inApp: z.boolean().optional(),
+  /** 에이전트가 맡아 처리 중 (feedback/handoff.yaml, 11/8). until이 지나면 저절로 풀린다 */
+  claim: z.object({ machine: z.string(), at: z.string(), until: z.string() }).strict().optional(),
 }).strict()
+/** DELETE /feedback/claim: 그 항목의 맡음 풀기 */
+export const FeedbackClaimBody = z.object({ key: z.string().min(1) })
 
 /** GET /feedback: 오늘 남긴 피드백과 피드백 모드 설정. issues = 공개 저장소의 새 이슈 주소 */
 export const FeedbackToday = z.object({
@@ -202,6 +206,7 @@ export type FeedbackReview = z.infer<typeof FeedbackReview>
 export type FeedbackComment = z.infer<typeof FeedbackComment>
 export type MergedFeedback = z.infer<typeof MergedFeedback>
 export type FeedbackItem = z.infer<typeof FeedbackItem>
+export type FeedbackClaimBody = z.infer<typeof FeedbackClaimBody>
 export type FeedbackToday = z.infer<typeof FeedbackToday>
 export type FeedbackAll = z.infer<typeof FeedbackAll>
 export type FeedbackAdded = z.infer<typeof FeedbackAdded>
