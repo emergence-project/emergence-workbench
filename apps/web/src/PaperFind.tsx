@@ -152,7 +152,7 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
   )
 }
 
-function Group({ title, n, children }: { title: string; n?: number; children: React.ReactNode }) {
+export function Group({ title, n, children }: { title: string; n?: number; children: React.ReactNode }) {
   return (
     <section className="pf-group">
       <h3 className="pf-h">{title}{n !== undefined && <span className="pf-n">{n}</span>}</h3>

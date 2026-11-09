@@ -1,5 +1,5 @@
 // ---------- 개념노트 (Markdown, shared-library/concepts/*.md, 서버 conceptNotes.ts) ----------
-import type { ConceptBib, ConceptBrief, ConceptLinks, ConceptList, ConceptMacros, ConceptMd, ConceptMemo, ConceptMemoBody, ConceptResolved, ConceptRows, ConceptSources, ConceptSubjects, ConceptUsage, ConceptBodyBody, ConceptFlagBody, ConceptReviewBody, ConceptCheck, ConceptIssue, ConceptSort } from '@rw/core/contract/concepts'
+import type { ConceptBib, ConceptBrief, ConceptSearch, ConceptLinks, ConceptList, ConceptMacros, ConceptMd, ConceptMemo, ConceptMemoBody, ConceptResolved, ConceptRows, ConceptSources, ConceptSubjects, ConceptUsage, ConceptBodyBody, ConceptFlagBody, ConceptReviewBody, ConceptCheck, ConceptIssue, ConceptSort } from '@rw/core/contract/concepts'
 import { enc, json, req, send } from './http'
 import type { RepoInfo } from './research'
 
@@ -32,6 +32,8 @@ export const conceptsApi = {
   brief: (recent = 8) => req(`/api/concepts/brief?recent=${recent}`).then((r) => json<ConceptBrief>(r)),
   /** 라이브러리 폴더의 Git 상태 (받아오기·올리기는 하지 않는다) */
   libraryRepo: () => req('/api/library/repo').then((r) => json<{ repo: RepoInfo | null }>(r)).then((r) => r.repo),
+  /** 본문에서 찾기 (지식 첫 화면 찾기 칸): 낱말이 모두 든 노트와 그 줄 */
+  search: (q: string, limit = 5) => req(`/api/concepts/search?q=${enc(q)}&limit=${limit}`).then((r) => json<ConceptSearch>(r)).then((r) => r.items),
   links: (id: string) => req(`/api/concepts/${enc(id)}/links`).then((r) => json<ConceptLinks>(r)),
 }
 
