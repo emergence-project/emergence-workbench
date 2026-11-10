@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedbackConversation, feedbackThread, lockedBefore, reworked, splitThread, summaryRows } from './feedbackThread'
+import { feedbackConversation, feedbackThread, lockedBefore, reworked, splitThread, summaryAt, summaryRows } from './feedbackThread'
 
 const status = { state: '반영' as const, note: '처리한 글', commit: 'abc1234' }
 
@@ -110,6 +110,18 @@ describe('summaryRows', () => {
       { field: 'note', text: '진하게', at: '2026-10-04T11:20' },
     ])
     expect(summaryRows({ state: '답변', note: '답' })).toEqual([{ field: 'note', text: '답' }])
+  })
+
+  it('처리 뒤에 단 마지막 답은 「최근 답」 줄로, 카드 시각도 그 답으로 (11/10 09:31)', () => {
+    const st = {
+      state: '답변' as const, note: '처리', handled_at: '2026-11-08T16:55',
+      replies: [{ at: '2026-11-10T00:12', to: 'b', note: '나중 답' }, { at: '2026-11-08T16:50', to: 'a', note: '처리 전 답' }],
+    }
+    expect(summaryRows(st).at(-1)).toEqual({ field: 'reply', text: '나중 답', at: '2026-11-10T00:12' })
+    expect(summaryAt(st)).toBe('2026-11-10T00:12')
+    const before = { ...st, replies: [st.replies[1]!] }
+    expect(summaryRows(before).map((r) => r.field)).toEqual(['note'])
+    expect(summaryAt(before)).toBe('2026-11-08T16:55')
   })
 })
 
