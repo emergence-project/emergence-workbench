@@ -36,6 +36,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/library/list         지식 목록 (분류·이상·점검 거르기는 query에)
  *   #/library/t/<주제>     지식 — 그 주제를 고른 채
  *   #/library/map[/<주제>] 지식 지도 (지식 사이드바의 "지도" 줄, 주제가 있으면 그 초점 보기)
+ *   #/library/study[/<id>]  공부: 책 · 강의 하나의 장과 개념노트 (11/10, 지식 사이드바의 「공부」 줄)
  *   #/library/learn        옛 "공부할 것" 주소 → 지식 첫 화면 (10/6: 만들기 메뉴와 점검 "초안 검토"로 합침)
  *   #/r/<연구>/c/<id>      개념노트 (라이브러리)를 이 프로젝트의 작업 화면에서
  *   #/r/<연구>/p/<id>      문헌노트 (라이브러리)를 이 프로젝트의 작업 화면에서
@@ -61,6 +62,7 @@ export type Route =
   | { page: 'library'; topic?: string; view?: 'map'; list?: true; subjectPrefix?: string; issue?: ConceptIssue; check?: ConceptCheck; showEmpty?: boolean }
   /** 지식 지도 (10/6: 지식 화면의 보기에서 왼쪽 띠의 페이지로, 주소는 그대로) */
   | { page: 'kmap'; topic?: string }
+  | { page: 'study'; book?: string }
   | { page: 'concept'; rid: string; id: string }
   | { page: 'paper'; rid: string; id: string }
   | { page: 'overview'; rid: string; anchor?: string }
@@ -153,6 +155,7 @@ export function parseRoute(hash: string): Route {
   }
   if (parts[0] === 'library') {
     if (parts[1] === 'map') return { page: 'kmap', ...(parts[2] && { topic: parts[2] }) }
+    if (parts[1] === 'study') return { page: 'study', ...(parts[2] && { book: parts[2] }) }
     if (parts[1] === 'list') {
       const params = new URLSearchParams(query)
       const issue = params.get('issue') as ConceptIssue | null
@@ -205,6 +208,7 @@ export function href(r: Route): string {
       return r.view === 'map' ? href({ page: 'kmap', ...(r.topic && { topic: r.topic }) }) : `#/library${r.topic ? `/t/${e(r.topic)}` : ''}`
     }
     case 'kmap': return `#/library/map${r.topic ? `/${e(r.topic)}` : ''}`
+    case 'study': return `#/library/study${r.book ? `/${e(r.book)}` : ''}`
     case 'concept': return `#/r/${e(r.rid)}/c/${e(r.id)}`
     case 'paper': return `#/r/${e(r.rid)}/p/${e(r.id)}`
     case 'overview': return `#/r/${e(r.rid)}${r.anchor ? `?at=${e(r.anchor)}` : ''}`

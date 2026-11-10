@@ -6,6 +6,7 @@ import type { LibraryInfo } from './api'
 import { AgentEditsPage, Lazy } from './lazyPages'
 import { KnowledgeList } from './KnowledgeList'
 import { ConceptSide } from './ConceptNotes'
+import { StudyPage } from './Study'
 import { FeedbackPage, FeedbackRailCount } from './FeedbackPage'
 import { t } from './i18n'
 import { Icon } from './icons'
@@ -81,6 +82,12 @@ export const GLOBAL_PAGES: {
     page: 'kmap', label: '지도', name: t('지도', 'Map'), aria: t('지식 지도', 'Knowledge map'), tip: t('지도 — 개념노트 사이의 링크', 'Map: links between concept notes'), icon: Icon.tree, rail: 'none', under: 'library',
     side: (p) => <ConceptSide info={p.library} route={p.route} />,
     render: (p) => <KnowledgeMapPage info={p.library} topic={p.route.page === 'kmap' ? p.route.topic : undefined} />,
+  },
+  // 공부: 책 · 강의 (11/10 사용자 결정 "공부는 지식 라이브러리에", 안 A). 지식 사이드바의 「공부」 묶음에서 연다
+  {
+    page: 'study', label: '공부', name: t('공부', 'Study'), aria: t('공부', 'Study'), tip: t('공부 — 책 · 강의의 장과 개념노트', 'Study: chapters of books and lectures, and their concept notes'), icon: Icon.library, rail: 'none', under: 'library',
+    side: (p) => <ConceptSide info={p.library} route={p.route} />,
+    render: (p) => <StudyPage book={p.route.page === 'study' ? p.route.book : undefined} onSaved={p.onSaved} />,
   },
   // 논문 라이브러리 (10/5). 10/6 L2: 첫 화면(PapersHome)과 목록(PapersPage)
   { page: 'shelf', label: '논문', name: t('논문', 'Papers'), aria: t('논문', 'Papers'), tip: t('논문 — 라이브러리의 논문과 책, PDF', 'Papers: papers, books and PDFs in the library'), icon: Icon.papers, rail: 'top',

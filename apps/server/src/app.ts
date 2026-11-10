@@ -28,6 +28,7 @@ import { registerSync } from './routes/sync.js'
 import { registerLibrary } from './routes/library.js'
 import { registerKnowledge } from './routes/knowledge.js'
 import { registerSubjects } from './routes/subjects.js'
+import { registerStudy } from './routes/study.js'
 import { registerConcepts } from './routes/concepts.js'
 import { registerStatements } from './routes/statements.js'
 import { registerProject } from './routes/project.js'
@@ -357,6 +358,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerKnowledge(app, ctx)
   registerConcepts(app, ctx)
   registerSubjects(app, ctx)
+  registerStudy(app, ctx)
   registerStatements(app, ctx)
   registerProject(app, ctx)
   registerManuscript(app, ctx)

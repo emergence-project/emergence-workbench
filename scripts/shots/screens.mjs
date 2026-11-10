@@ -93,6 +93,9 @@ export const DEFAULT_SCREENS = [
   ['knowledge-make', '#/library', '개념노트 만들기 메뉴', '개념노트 만들기'],
   ['knowledge-note', '#/library/t/planargraph', '개념노트'],
   ['knowledge-edit', '#/library/t/planargraph', '개념노트 편집기', '고치기'],
+  // 공부 (11/10, 안 A): 지식 사이드바의 「공부」 아래 책 · 강의 하나, 그 고치기 창
+  ['study', '#/library/study/graph-theory', '장 표'],
+  ['study-edit', '#/library/study/graph-theory', '책 · 강의 창', '책 · 강의 고치기'],
   // 에이전트 고침 검토 (10/8): 예제 연구노트에 고침을 넣고 찍은 뒤 되돌린다 (agent-edits.mjs)
   // 마지막 바뀐 곳을 눌러 앞뒤 문단을 펼친 모습 (나머지 줄은 접힌 그대로)
   ['review', '#/r/{rid}/edits', '바뀐 곳', '[data-ui="바뀐 곳"]:last-child'],
