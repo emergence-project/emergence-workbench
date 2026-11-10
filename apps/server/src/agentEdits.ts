@@ -8,7 +8,7 @@ import type { DecideBody, EditAttempt, EditTarget } from '@rw/core/contract/agen
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { readConceptMd, writeConceptBody } from './conceptNotes.js'
+import { noteFile, readConceptMd, writeConceptBody } from './conceptNotes.js'
 import { hashOf, localDate, localTime, writeAtomic } from './fsutil.js'
 import { t } from './i18n.js'
 import { listNotes } from './noteList.js'
@@ -323,6 +323,11 @@ const noteAbs = (wb: Workbench, file: string) => path.join(wb.repo, file)
 function readNoteFile(wb: Workbench, file: string): { content: string; hash: string } {
   const content = fs.readFileSync(noteAbs(wb, file), 'utf8')
   return { content, hash: hashOf(content) }
+}
+
+/** 고칠 파일의 절대 경로 (에이전트 저장 커밋) */
+export function targetFile(io: TargetIo, t0: EditTarget): string {
+  return t0.kind === 'concept' ? noteFile(io.lib, t0.id) : noteAbs(io.wbOf(t0.rid), noteRow(io, t0).file)
 }
 
 function noteRow(io: TargetIo, t0: Extract<EditTarget, { kind: 'note' }>) {

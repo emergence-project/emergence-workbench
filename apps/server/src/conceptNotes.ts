@@ -102,7 +102,8 @@ export function hasSource(meta: Pick<ConceptMeta, 'sources'>, body: string): boo
   return meta.sources.length > 0 || inlineCites(body).length > 0
 }
 
-function noteFile(lib: string | undefined, id: string): string {
+/** 개념노트 파일 경로 (에이전트 저장 커밋, agentCommit.ts) */
+export function noteFile(lib: string | undefined, id: string): string {
   if (!lib) throw new WorkbenchError(404, t('공유 라이브러리가 설정되지 않았음', 'No shared library is set'))
   if (!ID.test(id)) throw new WorkbenchError(400, t(`id가 올바르지 않음: ${id}`, `Invalid id: ${id}`))
   return path.join(lib, CONCEPTS_DIR, `${id}.md`)

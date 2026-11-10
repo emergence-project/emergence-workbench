@@ -47,6 +47,8 @@ export interface PathPublishOptions {
   mergeText?: (file: string) => ((base: string, ours: string, theirs: string) => string | null) | undefined
   /** GitHub와 주고받는(fetch · push) 시간 한도. 큰 파일(논문 PDF)을 올릴 때 (기본 GIT_TIMEOUT.remote) */
   timeout?: number
+  /** 커밋의 작성자 (없으면 이 저장소의 git 사용자). 에이전트 저장을 에이전트 이름으로 (agentCommit.ts) */
+  author?: { name: string; email: string }
 }
 
 /** 앱이 저절로 쓰고 다시 만드는 것: workbench/를 올릴 때 .gitignore로 뺀다 (STATUS.md, 컴파일 폴더) */
@@ -177,11 +179,12 @@ async function publishPathsNow(root: string, paths: string[], opts: PathPublishO
   // 1. 정한 경로만 커밋 (스테이징된 다른 변경은 그대로 둔다).
   // 바뀐 것이 있는 경로만 넘긴다: git add · commit은 파일을 하나도 가리키지 않는 경로(빈 폴더, 없는 폴더)를 거절한다 (11/2 점검: 빈 log/로 기록 올리기 실패)
   let commit: string | null = null
+  const who: Record<string, string> = opts.author ? { GIT_AUTHOR_NAME: opts.author.name, GIT_AUTHOR_EMAIL: opts.author.email } : {}
   const changed: string[] = []
   for (const p of paths) if (await git(root, ['status', '--porcelain', '--', p])) changed.push(p)
   if (changed.length) {
     await git(root, ['add', '--', ...changed])
-    await git(root, ['commit', '--only', '-m', opts.message, '--', ...changed])
+    await git(root, ['commit', '--only', '-m', opts.message, '--', ...changed], who)
     commit = await git(root, ['rev-parse', '--short', 'HEAD'])
   }
 
@@ -234,7 +237,7 @@ async function publishPathsNow(root: string, paths: string[], opts: PathPublishO
       if (out.size === conflicts.length) {
         for (const [f, text] of out) fs.writeFileSync(path.join(root, f), text)
         await git(root, ['add', '--', ...out.keys()])
-        await git(root, ['commit', '--only', '-m', `${opts.message} (merged with GitHub)`, '--', ...out.keys()])
+        await git(root, ['commit', '--only', '-m', `${opts.message} (merged with GitHub)`, '--', ...out.keys()], who)
         commit = await git(root, ['rev-parse', '--short', 'HEAD'])
         merged.push(...out.keys())
         conflicts.length = 0
@@ -263,7 +266,7 @@ async function publishPathsNow(root: string, paths: string[], opts: PathPublishO
       }
     }
     const tree = await git(root, ['write-tree'], idx)
-    onTop = await git(root, ['commit-tree', tree, '-p', up, '-m', opts.message])
+    onTop = await git(root, ['commit-tree', tree, '-p', up, '-m', opts.message], who)
     await push(onTop)
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
