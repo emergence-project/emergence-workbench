@@ -102,7 +102,7 @@ function AgentDetail({ k, pref, onBack, save, onSaved, onError }: { k: Kind; pre
             {!k.installed && k.bundled ? t('설정 › 에이전트 위 「질문에 답할 AI」에서 「ChatGPT로 연결」을 누르면 Codex를 받고 ChatGPT 계정으로 로그인합니다.', 'Press Connect ChatGPT under AI for questions above to get Codex and sign in with a ChatGPT account.')
               : !k.installed ? <>{t(`${HERE.ko}에 없습니다. 깔고 터미널에서 ${cli}를 한 번 열어 로그인하세요: `, `Not on ${HERE.en}. Install it and open ${cli} once in the terminal to sign in: `)}<code className="setup-cmd">{k.install}</code></>
               : k.login === false ? (k.bundled ? t('설정 › 에이전트 위 「질문에 답할 AI」에서 ChatGPT로 연결하면 Codex가 그 계정으로 일합니다.', 'Connect ChatGPT under AI for questions above, and Codex works with that account.') : t(`로그인한 흔적이 없습니다. 터미널에서 ${cli}를 한 번 열어 로그인하세요.`, `No sign-in found. Open ${cli} once in the terminal to sign in.`))
-              : account(k) || t('로그인됨 (계정 이름을 읽지 못함)', 'Signed in (account name not found)')}
+              : <span className="ag-name"><AgentLogo agent={k.id} />{k.id === 'codex' && 'ChatGPT · '}{account(k) || t('로그인됨 (계정 이름을 읽지 못함)', 'Signed in (account name not found)')}</span>}
           </div>
         </div>
         {!k.installed && k.install ? <CopyButton text={k.install} onSaved={onSaved} />

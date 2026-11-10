@@ -1,7 +1,8 @@
 import type { AiKeyBody, CodexStatus } from '@rw/core/contract/settings'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { api } from './api'
+import { api, type AgentKind } from './api'
+import { AgentLogo } from './agentLogos'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { qk } from './queries'
@@ -10,6 +11,9 @@ import { Row } from './SetupChecklist'
 type Provider = AiKeyBody['provider']
 const AI_ORDER: Provider[] = ['chatgpt', 'gemini', 'claude']
 export const AI_NAME: Record<Provider, string> = { claude: 'Claude', gemini: 'Gemini', chatgpt: 'Codex' }
+/** 고른 AI의 회사 로고 (11/9 17:15 진행: OpenAI가 나오는 곳에는 로고를 함께) */
+const AI_LOGO: Record<Provider, AgentKind> = { chatgpt: 'codex', gemini: 'gemini', claude: 'claude-code' }
+const AiName = ({ p }: { p: Provider }) => <span className="ag-name"><AgentLogo agent={AI_LOGO[p]} />{AI_NAME[p]}</span>
 const AI_KEY_PAGE: Record<Exclude<Provider, 'chatgpt'>, string> = { claude: 'https://console.anthropic.com/settings/keys', gemini: 'https://aistudio.google.com/apikey' }
 
 /**
@@ -40,7 +44,7 @@ export function AiKeyRow({ onSaved }: { onSaved(message: string): void }) {
   const edit = t('바꾸기', 'Change')
   const del = t('지우기', 'Remove')
   return (<>
-    <Row ok={!!k} optional name={t('질문에 답할 AI', 'AI for questions')} sub={k ? (k.provider === 'chatgpt' ? t('Codex · ChatGPT 계정', 'Codex · ChatGPT account') : `${AI_NAME[k.provider]} · ${k.model}`) : 'Codex · Gemini · Claude'} ui="Claude API 연결"
+    <Row ok={!!k} optional name={t('질문에 답할 AI', 'AI for questions')} sub={k ? <span className="ag-name"><AgentLogo agent={AI_LOGO[k.provider]} />{k.provider === 'chatgpt' ? t('Codex · ChatGPT 계정', 'Codex · ChatGPT account') : `${AI_NAME[k.provider]} · ${k.model}`}</span> : <>{AI_ORDER.map((p, i) => <span key={p}>{i > 0 && ' · '}<AiName p={p} /></span>)}</>} ui="Claude API 연결"
       action={k ? <>
         <button className="icon-btn" data-tip={edit} aria-label={edit} onClick={() => { setProvider(k.provider); setForm(true) }}>{Icon.pencil}</button>
         <button className="icon-btn" data-tip={del} aria-label={del} onClick={() => remove.mutate()}>{Icon.trash}</button>
@@ -56,7 +60,7 @@ export function AiKeyRow({ onSaved }: { onSaved(message: string): void }) {
         <div className="g-fields">
           <div className="segmented small" role="radiogroup" data-ui="고르기">
             {AI_ORDER.map((p) => (
-              <button key={p} role="radio" aria-checked={provider === p} className={provider === p ? 'on' : ''} onClick={() => { setProvider(p); setErr(null) }}>{AI_NAME[p]}</button>
+              <button key={p} role="radio" aria-checked={provider === p} className={provider === p ? 'on' : ''} onClick={() => { setProvider(p); setErr(null) }}><AiName p={p} /></button>
             ))}
           </div>
           {provider === 'chatgpt'
@@ -129,7 +133,7 @@ function ChatGptConnect({ onDone, onCancel, saving }: { onDone(): void; onCancel
     {(s?.error || start.error) && <div className="error-text">{s?.error ?? start.error?.message}</div>}
     <div className="g-actions">
       <button className="btn primary" disabled={going || saving || !!s?.busy} onClick={() => { tried.current = {}; if (ready) onDone(); else setGoing(true) }}>
-        {going || s?.busy ? t('연결하는 중…', 'Connecting…') : ready ? t('Codex로 답하게 하기', 'Use Codex') : t('ChatGPT로 연결', 'Connect ChatGPT')}
+        <AgentLogo agent="codex" />{going || s?.busy ? t('연결하는 중…', 'Connecting…') : ready ? t('Codex로 답하게 하기', 'Use Codex') : t('ChatGPT로 연결', 'Connect ChatGPT')}
       </button>
       <button className="btn" onClick={onCancel}>{t('취소', 'Cancel')}</button>
     </div>
