@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { req, type AppInfo as Info, type BundledBuild } from './api'
 import { aboutChangesOf } from './aboutContent'
 import { t } from './i18n'
@@ -15,6 +15,8 @@ export function AppInfo({ update, pr: focus }: { update?: ReactNode; pr?: number
   const row = useRef<HTMLTableRowElement>(null)
   const [info, setInfo] = useState<Info | null | undefined>(undefined)
   const [bundled, setBundled] = useState<BundledBuild | null>(null)
+  /** 펼친 줄 (커밋) */
+  const [open, setOpen] = useState<Set<string>>(new Set())
   useEffect(() => {
     req(`/api/app/info${focus ? `?pr=${focus}` : ''}`).then((r) => r.json()).then((b) => { setInfo(b.enabled ? b.info : null); setBundled(b.bundled ?? null) }).catch(() => setInfo(null))
   }, [focus])
@@ -35,18 +37,38 @@ export function AppInfo({ update, pr: focus }: { update?: ReactNode; pr?: number
       {info && info.history.length > 0 && (
         <>
           <h3 className="app-info-h">{t('업데이트 이력', 'Update history')}</h3>
+          {/* 줄마다 한 줄 높이, 넘치면 "…". 줄을 누르면 그 아래에 전문 (11/9 09:15 진행) */}
           <table className="app-history" data-ui="버전 이력">
+            <colgroup><col className="app-history-pr" /><col className="app-history-ver" /><col /><col className="app-history-about" /><col className="app-history-time" /></colgroup>
             <thead><tr><th>PR</th><th>{t('버전', 'Version')}</th><th>{t('내용', 'Change')}</th><th>{t('소개', 'About')}</th><th>{t('일시', 'Date')}</th></tr></thead>
             <tbody>
-              {info.history.map((h) => (
-                <tr key={h.commit} ref={h.pr && h.pr === focus ? row : undefined} className={h.pr && h.pr === focus ? 'on' : undefined}>
-                  <td className="muted">{h.pr ? pr(h.pr) : <code>{h.commit}</code>}</td>
-                  <td className="app-history-num">{h.version}</td>
-                  <td>{h.title}</td>
-                  <td className="app-history-about"><AboutCell pr={h.pr} same={h.aboutSame} /></td>
-                  <td className="muted app-history-num">{h.time}</td>
-                </tr>
-              ))}
+              {info.history.map((h) => {
+                const on = !!h.pr && h.pr === focus
+                const shown = open.has(h.commit) || on
+                const toggle = () => setOpen((o) => { const n = new Set(o); if (n.has(h.commit)) n.delete(h.commit); else n.add(h.commit); return n })
+                return (
+                  <Fragment key={h.commit}>
+                    <tr ref={on ? row : undefined} className={`app-history-row${on ? ' on' : ''}${shown ? ' open' : ''}`} tabIndex={0} aria-expanded={shown}
+                      title={shown ? undefined : t('눌러 자세히 보기', 'Click for details')}
+                      onClick={(e) => { if (!(e.target instanceof Element && e.target.closest('a'))) toggle() }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}>
+                      <td className="muted">{h.pr ? pr(h.pr) : <code>{h.commit}</code>}</td>
+                      <td className="app-history-num">{h.version}</td>
+                      <td>{h.title}</td>
+                      <td><AboutCell pr={h.pr} same={h.aboutSame} /></td>
+                      <td className="muted app-history-num">{h.time}</td>
+                    </tr>
+                    {shown && (
+                      <tr className="app-history-more" data-ui="업데이트 자세히">
+                        <td colSpan={5}>
+                          <div>{h.title}</div>
+                          <div className="muted">{t('소개', 'About')}: <AboutCell pr={h.pr} same={h.aboutSame} /></div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </>

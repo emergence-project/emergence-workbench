@@ -1,11 +1,20 @@
 /* 설정 › 앱 기본정보 */
 .app-info { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-5); }
 .app-info-h { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); margin: var(--sp-2) 0 0; }
-.app-history { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.app-history { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); table-layout: fixed; }
 .app-history th { text-align: left; font-weight: var(--fw-strong); color: var(--text-2); padding: 6px var(--sp-3) 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .app-history td { padding: 6px var(--sp-3) 6px 0; border-bottom: 1px solid var(--line); vertical-align: baseline; }
+/* 한 줄 높이: 넘치는 글은 "…", 누르면 아래 줄에 전문 (11/9 09:15 진행) */
+.app-history-row td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-history-row { cursor: pointer; }
+.app-history-row:hover td { background: var(--bg-hover); }
+.app-history-row.open td { border-bottom: 0; }
+.app-history-more td { padding: 0 var(--sp-3) var(--sp-2) 0; white-space: normal; display: table-cell; }
+.app-history-more td > div + div { margin-top: var(--sp-1); }
+.app-history-pr, .app-history-ver { width: calc(5ch + var(--sp-4)); }
+.app-history-time { width: calc(16ch + var(--sp-4)); }
 .app-history tr:last-child td { border-bottom: 0; }
 .app-history td:first-child, .app-history-num { white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* 소개 절의 "업데이트 #n"에서 온 줄: 방금 옮겨 간 곳 (노랑) */
 .app-history tr.on td { background: var(--focus); }
-.app-history-about { max-width: 220px; }
+.app-history-about { width: 30%; }
