@@ -7,7 +7,7 @@ import { RecordMenu } from './RecordMenus'
 import { t } from './i18n'
 import { findInPage, readLinks, readOutline, type FindHit, type OutlineItem, type PdfLink, type TextPiece } from './pdfNav'
 import { PdfFind, PdfToc } from './PdfNavPanels'
-import { publishToc, useSideShown } from './noteScreen'
+import { publishToc, showSideToc, useSideShown } from './noteScreen'
 import { store } from './store'
 
 /** 끌어서 고른 글: 쪽, 줄마다 사각형 [x, y, w, h] (PDF 포인트, 쪽 왼쪽 위 원점), 글자 */
@@ -478,8 +478,10 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   return (
     <div className={`pdf-shell${tocShown ? ' toc-open' : ''}`} ref={rootRef}>
       <div className="pdf-tools" data-ui="PDF 도구 막대" onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault() }}>
-        {!inSide && <button className={`pdf-tool${tocShown ? ' on' : ''}`} data-ui="목차 단추" aria-label={t('목차', 'Contents')} aria-pressed={tocShown} disabled={!outline.length}
-          title={outline.length ? t('목차', 'Contents') : t('이 PDF에는 목차가 없습니다', 'This PDF has no contents')} onClick={() => setTocOpen(!tocOpen)}><span className="ico">{Icon.list}</span></button>}
+        {/* 사이드바가 보이면 목차 단추는 왼쪽 사이드바를 「목차」 탭으로 (시안 11절) */}
+        <button className={`pdf-tool${tocShown ? ' on' : ''}`} data-ui="목차 단추" aria-label={t('목차', 'Contents')} aria-pressed={inSide ? undefined : tocShown} disabled={!outline.length}
+          title={!outline.length ? t('이 PDF에는 목차가 없습니다', 'This PDF has no contents') : inSide ? t('왼쪽 사이드바에 목차', 'Contents in the left sidebar') : t('목차', 'Contents')}
+          onClick={() => (inSide ? showSideToc() : setTocOpen(!tocOpen))}><span className="ico">{Icon.list}</span></button>
         <button className={`pdf-tool${find ? ' on' : ''}`} data-ui="찾기 단추" aria-label={t('PDF에서 찾기', 'Find in PDF')} aria-pressed={!!find} disabled={!pages.length}
           title={t('PDF에서 찾기 (⌘F)', 'Find in PDF (⌘F)')} onClick={() => setFind(find ? null : { q: '', i: -1 })}><span className="ico">{Icon.search}</span></button>
         <span className="pdf-tools-sep" />

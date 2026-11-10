@@ -57,6 +57,9 @@ export function publishToc(next: NoteToc | null, owner: string) {
   toc.set(next)
 }
 export const useNoteToc = () => useSyncExternalStore(toc.subscribe, toc.get)
+/** 왼쪽 사이드바를 「목차」 탭으로 (논문 PDF 툴바의 목차 단추, 11/9 22:50 시안 11절). SideTabs가 듣는다 */
+export const SHOW_SIDE_TOC = 'rw:show-side-toc'
+export const showSideToc = () => window.dispatchEvent(new Event(SHOW_SIDE_TOC))
 /** 지금 알린 목차 (화면 밖에서 한 번 읽기: 수정 검토의 "노트에서 이 자리로") */
 export const noteToc = () => toc.get()
 
