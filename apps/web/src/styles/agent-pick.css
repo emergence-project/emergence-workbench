@@ -8,4 +8,6 @@
 .ag-logo { width: 14px; height: 14px; flex: none; fill: currentColor; }
 .ag-logo.cc { fill: var(--ag-cc-logo); }
 .ag-logo.gm { fill: var(--ag-gm-logo); }
+/* 이름 앞 로고 (11/9 17:15 진행): 설정의 고르기 · 버튼 · 계정 줄. 줄 높이에 맞춰 가운데 */
+.ag-name { display: inline-flex; align-items: center; gap: var(--sp-1); vertical-align: middle; }
 .ac-pop-note { padding: 2px 10px var(--sp-1); font-size: var(--fs-2xs); }

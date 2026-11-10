@@ -43,7 +43,7 @@ export const AGENT_ROWS = 3
 const Dot = ({ ok, optional }: { ok: boolean; optional?: boolean }) =>
   <span className={`g ${ok ? 'solved' : optional ? 'stopped' : 'blocked'}`} role="img" aria-label={ok ? t('됨', 'Done') : optional ? t('선택', 'Optional') : t('할 차례', 'To do')} title={ok ? t('됨', 'Done') : optional ? t('선택: 쓰고 싶을 때만', 'Optional: only if you want it') : t('할 차례', 'To do')} />
 
-export function Row({ ok, optional, name, sub, children, action, ui }: { ok: boolean; optional?: boolean; name: string; sub?: string; children: ReactNode; action?: ReactNode; ui: string }) {
+export function Row({ ok, optional, name, sub, children, action, ui }: { ok: boolean; optional?: boolean; name: string; sub?: ReactNode; children: ReactNode; action?: ReactNode; ui: string }) {
   return (
     <div className="setup-row" data-ui={ui}>
       <Dot ok={ok} optional={optional && !ok} />
