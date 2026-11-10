@@ -116,7 +116,7 @@ if (process.env.RW_SANDBOX === '1') {
   if (!registry.libraryPath) registry.setLibrary(library)
   // 지식 화면 예제: Study vault · Topic Review · 개념노트·문헌노트 몇 개, 개념노트 기록 workbench/comments (fixtures/knowledge)
   const knowledge = path.join(repoRoot, 'fixtures/knowledge')
-  for (const kind of ['concepts', 'papers', 'workbench']) {
+  for (const kind of ['concepts', 'papers', 'workbench', 'study']) {
     const dir = path.join(library, kind)
     if (!fs.existsSync(dir)) cpSample(path.join(knowledge, 'library', kind), dir, { recursive: true })
   }

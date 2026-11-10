@@ -5,6 +5,7 @@ import { api, conceptsApi, knowledgeApi, topicKey, type ConceptMd, type ConceptR
 import { useConceptMacros } from './conceptMacros'
 import { useFigureUrl } from './figureEmbed'
 import { ConceptEditor } from './ConceptEditor'
+import { useStudyBooks } from './Study'
 import { Icon } from './icons'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
 import { go, type Route } from './router'
@@ -119,6 +120,7 @@ function SubjectGroup({ node, depth, reveal }: { node: SubjNode; depth: number; 
  */
 export function ConceptSide({ info, route }: { info: LibraryInfo | null; route: Route }) {
   const { data } = useKnowledge(info)
+  const study = useStudyBooks()
   const [subjects, setSubjects] = useState<SubjectCount[] | null>(null)
   const [noteCount, setNoteCount] = useState(0)
   const [classifiedTotal, setClassifiedTotal] = useState(0)
@@ -165,6 +167,14 @@ export function ConceptSide({ info, route }: { info: LibraryInfo | null; route: 
           <span className="q-ico" aria-hidden>{Icon.list}</span><span className="label">{t('목록', 'List')}</span><span className="n">{noteCount}</span></button>
         <button className={`nav side-row${onMap && !sel ? ' on' : ''}`} aria-current={onMap && !sel ? 'page' : undefined} data-ui="지도 줄" title={t('개념노트 사이의 링크', 'Links between concept notes')} onClick={() => go({ page: 'kmap' })}>
           <span className="q-ico" aria-hidden>{Icon.tree}</span><span className="label">{t('지도', 'Map')}</span></button>
+        {study.enabled && <>
+          <button className={`nav side-row${route.page === 'study' && !route.book ? ' on' : ''}`} aria-current={route.page === 'study' && !route.book ? 'page' : undefined} data-ui="공부 줄" title={t('책 · 강의의 장과 개념노트', 'Chapters of books and lectures, and their concept notes')} onClick={() => go({ page: 'study' })}>
+            <span className="q-ico" aria-hidden>{Icon.layers}</span><span className="label">{t('공부', 'Study')}</span>{!!study.books?.length && <span className="n">{study.books.length}</span>}</button>
+          {study.books?.map((b) => (
+            <button key={b.id} className={`nav side-row cn-book${route.page === 'study' && route.book === b.id ? ' on' : ''}`} aria-current={route.page === 'study' && route.book === b.id ? 'page' : undefined} data-ui="공부 책 줄" data-ui-item={b.title} title={b.title} onClick={() => go({ page: 'study', book: b.id })}>
+              <span className="label">{b.title}</span><span className="n">{b.done}/{b.chapters}</span></button>
+          ))}
+        </>}
       </div>
       {error && <div className="empty space-empty">{t('목록을 읽지 못했습니다', 'Could not read the list')}: {error}</div>}
       {!subjects && !error && <div className="cn-loading">{t('목록을 모으는 중…', 'Gathering the list…')}</div>}

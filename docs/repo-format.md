@@ -447,6 +447,7 @@ workbench/notes/
 | `comments/<키>/c-*.md` | 논문 코멘트 (§10.3) |
 | `figures/`, `figures/figures.yaml` | 공용 그림 (§8) |
 | `subjects.yaml` | 분류 나무 (§10.2) |
+| `study/<id>.yaml` | 공부: 책 · 강의 하나 (§10.6, 11/10~) |
 | `to-learn.yaml` | 공부할 것 (`items: [{id, term, at, note?, from?, concept?}]`). 앱은 YAML 문서로 읽어 고친 항목만 바꾼다. 주석, 다른 키, 앱이 못 읽는 항목(id 없는 것 등)은 남는다 |
 | `preamble/*.tex` | 컴파일 머리. 이름 `^[a-z0-9-]+\.tex$`, 머리 `% place: first|last` |
 
@@ -496,6 +497,26 @@ checked:
 - 화면(10/18 3b): 개념노트 오른쪽 사이드바 "기록"은 프로젝트 기록과 같은 패널이다. 앱은 `concepts/<id>.memo.md`를 더 읽지도 쓰지도 않는다. Study에서 개념노트를 만들면 원문은 이 파일의 할 일 한 장(옮기기)과 메모 한 장(원문)이 된다.
 - 라이브러리 기록 모음(`GET …/_library/records`)에는 빈 `project` 묶음이 없다(라이브러리에는 프로젝트가 없다).
 - 논문 코멘트(§10.3, 기록 하나가 파일 하나)는 아직 따로다.
+
+### 10.6 공부 (`study/<id>.yaml`, 2026-11-10 "공부는 지식 라이브러리에")
+
+책 · 강의 하나가 파일 하나다. 정리한 내용은 개념노트(§10.1)에 쌓고, 이 파일은 차례와 진도, 그 장에서 정리한 개념노트 id만 가진다. 지식 화면 왼쪽 사이드바 「공부」에서 보고 고친다.
+
+```yaml
+title: Graph Theory
+kind: 강의            # 책 · 강의 (없거나 모르면 책)
+source: doeStructurePlanar2004   # references.bib 키, 없어도 됨
+chapters:
+  - title: Graphs and planar embeddings
+    state: 끝         # 아직(적지 않음) · 읽는 중 · 끝
+    concepts: [planar-graph, graph-coloring]
+  - Euler's formula   # 글자 하나면 제목만 있는 장
+```
+
+- id(파일 이름): `^[a-z0-9][a-z0-9-]{0,80}$`. 앱은 제목에서 만들고(영문이 없으면 `book`), 겹치면 `-2` …를 붙인다.
+- 앱이 저장할 때는 파일 전체를 다시 쓴다(주석은 사라진다). 기본값(`state: 아직`, 빈 `concepts`)은 적지 않는다.
+- 고칠 때는 읽을 때 받은 hash를 `baseHash`로 보낸다. 그새 바뀌었으면 409.
+- 없는 개념노트 id는 지우지 않고 화면에 흐리게 보인다.
 
 ### 10.4 `references.bib`에 덧붙일 때
 

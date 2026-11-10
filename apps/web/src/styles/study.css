@@ -1,0 +1,43 @@
+/* 공부: 책 · 강의 (Study.tsx, 11/10). 지식 첫 화면과 같은 폭 · 줄 모양. 진도 막대는 진행 색, 확인함은 해결 색 */
+.st-page { flex: 1; display: flex; min-height: 0; }
+.st-main { flex: 1; width: 100%; max-width: var(--lib-page-width); min-width: 0; box-sizing: border-box; margin: 0 auto; padding: var(--sp-5) var(--sp-6) calc(var(--sp-6) + var(--sp-2)); }
+.st-sec { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.st-h { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-strong); color: var(--text); }
+.st-h .sp { flex: 1; }
+.st-book-h { font-size: var(--fs-xl); }
+.st-hint { margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
+.st-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); color: var(--text-3); }
+.st-bar { display: inline-block; width: 72px; height: 5px; border-radius: var(--r-pill); background: var(--bg-hover); overflow: hidden; flex: none; }
+.st-bar i { display: block; height: 100%; background: var(--s-progress); }
+
+.st-rows { display: flex; flex-direction: column; }
+.st-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: var(--sp-3); width: 100%; min-height: 30px; padding: var(--sp-2); border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; font-size: var(--fs-sm); color: var(--text); }
+.st-row:hover { background: var(--bg-hover); }
+.st-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-kind, .st-n { white-space: nowrap; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.st-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.st-table th { text-align: left; font-weight: var(--fw-medium); color: var(--text-3); padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line-strong); }
+.st-table td { padding: var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: top; }
+.st-ch { width: 40%; }
+.st-no { display: inline-block; min-width: 2ch; margin-right: var(--sp-2); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.st-notes { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.st-tag { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+.st-tag.missing { cursor: default; color: var(--text-3); text-decoration: line-through; }
+.st-ok svg { width: 11px; height: 11px; stroke: var(--s-solved); fill: none; stroke-width: 2.2; }
+.st-state { width: 1%; white-space: nowrap; color: var(--text-2); }
+.st-todo td { color: var(--text-3); }
+.st-none { color: var(--text-3); }
+
+.st-form { display: flex; flex-direction: column; gap: var(--sp-3); }
+.st-form-row { display: flex; gap: var(--sp-3); align-items: flex-end; flex-wrap: wrap; }
+.st-src { flex: 1; min-width: 200px; }
+.st-edit-rows { display: flex; flex-direction: column; gap: var(--sp-1); max-height: 50vh; overflow: auto; }
+.st-edit-row { display: grid; grid-template-columns: auto minmax(0, 1.3fr) auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); }
+.st-edit-row input { min-width: 0; }
+.st-add { align-self: flex-start; }
+.st-err { flex: 1; color: var(--danger); font-size: var(--fs-sm); }
+
+/* 지식 사이드바의 책 줄: 「공부」 줄 아래 한 단 들여 */
+[data-ui="빠른 이동"] .side-row.cn-book { padding-left: calc(var(--sp-3) + 18px); }
+[data-ui="빠른 이동"] .side-row.cn-book .label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
