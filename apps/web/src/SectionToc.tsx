@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { t } from './i18n'
-import { sideMounted, useNoteToc, useRepoOpen } from './noteScreen'
+import { SHOW_SIDE_TOC, sideMounted, useNoteToc, useRepoOpen } from './noteScreen'
 import { store } from './store'
 
 /* 프로젝트 사이드바와 지식 사이드바가 함께 쓰는 맨 위 탭 "이동 | (파일) | 목차" (10/18 결정 "사이드바 탭과 수", 10/29 세 탭) */
@@ -34,6 +34,11 @@ export function SideTabs({ label, turn = 0, turnTip, show, files, children }: {
   const wanted = repo ? repoPick ?? 'files' : want
   const tab: SideTab = wanted === 'files' && !files ? 'nav' : wanted === 'toc' && !hasToc ? 'nav' : wanted
   const pick = (to: SideTab) => (repo ? setRepoPick(to) : setWant(to))
+  useEffect(() => {
+    const on = () => (repo ? setRepoPick('toc') : setWant('toc'))
+    window.addEventListener(SHOW_SIDE_TOC, on)
+    return () => window.removeEventListener(SHOW_SIDE_TOC, on)
+  }, [repo])
   return (
     <>
       <div className="side-tabbar" data-ui="왼쪽 사이드바 갈래">
