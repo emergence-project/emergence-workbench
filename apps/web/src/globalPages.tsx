@@ -84,7 +84,7 @@ export const GLOBAL_PAGES: {
   },
   // 논문 라이브러리 (10/5). 10/6 L2: 첫 화면(PapersHome)과 목록(PapersPage)
   { page: 'shelf', label: '논문', name: t('논문', 'Papers'), aria: t('논문', 'Papers'), tip: t('논문 — 라이브러리의 논문과 책, PDF', 'Papers: papers, books and PDFs in the library'), icon: Icon.papers, rail: 'top',
-    side: (p) => <PapersSide filter={p.route.page === 'shelf' ? p.route.filter : undefined} list={isListRoute(p.route) || (p.route.page === 'shelf' && (!!p.route.open || !!p.route.read))} />,
+    side: (p) => <PapersSide filter={p.route.page === 'shelf' ? p.route.filter : undefined} list={isListRoute(p.route) || (p.route.page === 'shelf' && (!!p.route.open || !!p.route.read))} open={p.route.page === 'shelf' && !!p.route.open} />,
     right: (r) => r.page === 'shelf' && !r.open && !r.read && !isListRoute(r),
     render: (p) => (p.route.page === 'shelf' && p.route.read
       ? <PaperRead id={p.route.read} onSaved={p.onSaved} />

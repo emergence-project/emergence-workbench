@@ -7,6 +7,7 @@ import { RecordMenu } from './RecordMenus'
 import { t } from './i18n'
 import { findInPage, readLinks, readOutline, type FindHit, type OutlineItem, type PdfLink, type TextPiece } from './pdfNav'
 import { PdfFind, PdfToc } from './PdfNavPanels'
+import { publishToc, useSideShown } from './noteScreen'
 import { store } from './store'
 
 /** 끌어서 고른 글: 쪽, 줄마다 사각형 [x, y, w, h] (PDF 포인트, 쪽 왼쪽 위 원점), 글자 */
@@ -41,6 +42,8 @@ interface Props {
   reveal?: { page: number; y: number; nonce: number } | null
   /** 다시 열면 읽던 쪽과 배율로 (논문은 bib 키). 이 브라우저가 기억한다 */
   remember?: string
+  /** PDF 목차를 왼쪽 사이드바 「목차」 탭에 알릴 때 그 이름 (논문 열기, 11/9 22:50 진행). 사이드바가 보이면 도구 막대의 목차 단추 · 칸은 뺀다 */
+  sideToc?: string
 }
 
 interface RenderedPage { page: number; widthPt: number; heightPt: number }
@@ -143,7 +146,7 @@ async function serverReason(url: string, e: unknown): Promise<string> {
   return plain
 }
 
-export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, tools, selectionMenu, onSelectionDefault, overlay, reveal, paints, paintMenu, remember }: Props) {
+export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, tools, selectionMenu, onSelectionDefault, overlay, reveal, paints, paintMenu, remember, sideToc }: Props) {
   const wrap = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [pages, setPages] = useState<RenderedPage[]>([])
@@ -330,7 +333,22 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
     if (c) setBack((b) => [...b.slice(-19), { page: current, top: c.scrollTop }])
     setCurrent(page)
     scrollToPage(page, y === null ? 0 : Math.max(0, y - 12))
-  }
+  }  // 왼쪽 사이드바 「목차」: 노트와 같은 자리 (11/9 22:50 진행 "디자인은 일관되게"). 사이드바를 접으면 PDF 안 목차 칸으로
+  const sideShown = useSideShown()
+  const inSide = !!sideToc && sideShown
+  const tocJump = useRef(jumpTo)
+  tocJump.current = jumpTo
+  const outlineNow = useRef(outline)
+  outlineNow.current = outline
+  const sideJump = useMemo(() => (i: number) => { const it = outlineNow.current[i]; if (it) tocJump.current(it.page, it.y) }, [])
+  const tocHere = outline.reduce((at, it, i) => (it.page <= current ? i : at), -1)
+  useEffect(() => {
+    if (!sideToc) return
+    publishToc(inSide && outline.length ? { owner: sideToc, sections: outline.map((o) => ({ title: o.title, level: o.depth ? 3 : 2 })), current: tocHere, jump: sideJump } : null, sideToc)
+  }, [sideToc, inSide, outline, tocHere, sideJump])
+  useEffect(() => () => { if (sideToc) publishToc(null, sideToc) }, [sideToc])
+  const tocShown = tocOpen && outline.length > 0 && !inSide
+
   const goBack = () => {
     const last = back.at(-1)
     if (!last) return
@@ -458,10 +476,10 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
   const goPage = (n: number) => { const p = Math.max(1, Math.min(pages.length, n)); setCurrent(p); scrollToPage(p) }
 
   return (
-    <div className={`pdf-shell${tocOpen && outline.length ? ' toc-open' : ''}`} ref={rootRef}>
+    <div className={`pdf-shell${tocShown ? ' toc-open' : ''}`} ref={rootRef}>
       <div className="pdf-tools" data-ui="PDF 도구 막대" onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault() }}>
-        <button className={`pdf-tool${tocOpen && outline.length ? ' on' : ''}`} data-ui="목차 단추" aria-label={t('목차', 'Contents')} aria-pressed={tocOpen && !!outline.length} disabled={!outline.length}
-          title={outline.length ? t('목차', 'Contents') : t('이 PDF에는 목차가 없습니다', 'This PDF has no contents')} onClick={() => setTocOpen(!tocOpen)}><span className="ico">{Icon.list}</span></button>
+        {!inSide && <button className={`pdf-tool${tocShown ? ' on' : ''}`} data-ui="목차 단추" aria-label={t('목차', 'Contents')} aria-pressed={tocShown} disabled={!outline.length}
+          title={outline.length ? t('목차', 'Contents') : t('이 PDF에는 목차가 없습니다', 'This PDF has no contents')} onClick={() => setTocOpen(!tocOpen)}><span className="ico">{Icon.list}</span></button>}
         <button className={`pdf-tool${find ? ' on' : ''}`} data-ui="찾기 단추" aria-label={t('PDF에서 찾기', 'Find in PDF')} aria-pressed={!!find} disabled={!pages.length}
           title={t('PDF에서 찾기 (⌘F)', 'Find in PDF (⌘F)')} onClick={() => setFind(find ? null : { q: '', i: -1 })}><span className="ico">{Icon.search}</span></button>
         <span className="pdf-tools-sep" />
@@ -481,7 +499,7 @@ export function PdfView({ rootRef, url, highlight, onPick, marks = [], onMark, t
         <button className="pdf-tool" data-ui="다음 쪽" title={t('다음 쪽', 'Next page')} aria-label={t('다음 쪽', 'Next page')} disabled={current >= pages.length} onClick={() => goPage(current + 1)}>›</button>
       </div>
       {overlay}
-      {tocOpen && outline.length > 0 && <PdfToc items={outline} current={current} onGo={(it) => jumpTo(it.page, it.y)} onClose={() => setTocOpen(false)} />}
+      {tocShown && <PdfToc items={outline} current={current} onGo={(it) => jumpTo(it.page, it.y)} onClose={() => setTocOpen(false)} />}
       {find && <PdfFind query={find.q} onQuery={(q) => setFind({ q, i: -1 })} count={hits.length} index={find.i} loading={findLoading} onStep={stepFind} onClose={() => setFind(null)} />}
       {back.length > 0 && <button className="pdf-back" data-ui="돌아가기" title={t('링크 · 목차로 옮기기 전 자리로', 'Back to where you were before the link or contents jump')} onClick={goBack}>
         ← {t(`돌아가기 · ${back.at(-1)!.page}쪽`, `Back · p. ${back.at(-1)!.page}`)}</button>}
