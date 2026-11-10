@@ -115,11 +115,28 @@ export function feedbackConversation(e: Pick<FeedbackItem, 'status' | 'review' |
   return [...all.map((x) => x.s), ...waiting]
 }
 
-/** 요약 칸의 세 줄 (이해한 요구 · 원인 · 처리)과 각 글이 마지막으로 바뀐 처리의 시각 (handled_at이 없으면 시각 없음) */
-export interface SummaryRow { field: 'understood' | 'cause' | 'note'; text: string; at?: string }
+/**
+ * 요약 칸의 줄 (이해한 요구 · 원인 · 처리)과 각 글이 마지막으로 바뀐 처리의 시각 (handled_at이 없으면 시각 없음).
+ * 처리 뒤에 관리자가 코멘트에 답했으면 그 마지막 답을 「최근 답」 줄로 더한다 (11/10 09:31 수정: 요약은 대화의 마지막 시점 기준)
+ */
+export interface SummaryRow { field: 'understood' | 'cause' | 'note' | 'reply'; text: string; at?: string }
 export function summaryRows(st: NonNullable<FeedbackItem['status']>): SummaryRow[] {
   const hs = handlingsOf(st)
   const cur = hs.at(-1)!
+  const reply = latestReply(st)
+  return [...rowsOf(hs, cur), ...(reply ? [{ field: 'reply' as const, text: reply.note, at: reply.at }] : [])]
+}
+
+/** 지금 처리보다 뒤에 단 관리자의 마지막 답 (없으면 undefined) */
+export function latestReply(st: NonNullable<FeedbackItem['status']>): { at: string; note: string } | undefined {
+  const last = [...(st.replies ?? [])].sort((a, b) => a.at.localeCompare(b.at)).at(-1)
+  return last && last.at > (st.handled_at ?? '') ? last : undefined
+}
+
+/** 지금 처리 카드의 시각: 처리와 그 뒤 답 가운데 늦은 것 */
+export const summaryAt = (st: NonNullable<FeedbackItem['status']>): string | undefined => latestReply(st)?.at ?? st.handled_at
+
+function rowsOf(hs: Handling[], cur: Handling): SummaryRow[] {
   return (['understood', 'cause', 'note'] as const).flatMap((f) => {
     const text = cur[f]
     if (!text) return []

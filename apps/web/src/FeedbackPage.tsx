@@ -8,7 +8,7 @@ import { onListKey } from './listInput'
 import { SayCard } from './Conversation'
 import { ApproveButton, ClaimLine, Compose, HandlingPictures, resultToApprove } from './FeedbackAnswer'
 import { askConfirm } from './askText'
-import { feedbackConversation, lockedBefore, splitThread, summaryRows, type ThreadStep } from './feedbackThread'
+import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
 import { FeedbackFileButtons, IssueButton } from './FeedbackSend'
@@ -341,7 +341,7 @@ function AgentLine({ e, part }: { e: FeedbackItem; part: 'button' | 'line' }) {
 
 /** "10-04 14:00" (reviews.yaml의 at: 2026-10-04T14:00) */
 const whenOf = (at: string) => at.replace('T', ' ').slice(5, 16)
-const FIELD_NAME = { understood: t('이해한 요구', 'Understood request'), cause: t('원인', 'Cause'), note: t('처리', 'Handling') }
+const FIELD_NAME = { understood: t('이해한 요구', 'Understood request'), cause: t('원인', 'Cause'), note: t('처리', 'Handling'), reply: t('최근 답', 'Latest reply') }
 
 /**
  * 지금 처리 (10/8 시안 · 11/8 처리와 대화 나누기, 시안 N7ik 3절): 이해한 요구 · 원인 · 처리, 전후 그림, 반영 버전을 한 카드에.
@@ -354,7 +354,7 @@ function Summary({ e, onOpinion }: { e: FeedbackItem; onOpinion?(): void }) {
   if (!rows.length && !revised.length) return null
   return (
     <div className="fbp-summary" data-ui="처리 요약">
-      <div className="fbp-now-head"><span className="tag">{t('지금 처리', 'Current handling')}{st.handled_at ? ` · ${whenOf(st.handled_at)}` : ''}</span></div>
+      <div className="fbp-now-head"><span className="tag">{t('지금 처리', 'Current handling')}{summaryAt(st) ? ` · ${whenOf(summaryAt(st)!)}` : ''}</span></div>
       {rows.map((r) => (
         <div key={r.field} className="fbp-summary-row">
           <b>{FIELD_NAME[r.field]}</b><span className="fbp-summary-text"><MemoText text={r.text} /></span><span className="muted">{r.at ? whenOf(r.at) : ''}</span>
@@ -439,8 +439,8 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
     api.editFeedbackNote(e.key, at, draft).then(() => { setEditing(false); setError(null) }).catch((err: Error) => setError(err.message))
   }
   const handling = s.kind === '처리' || s.kind === '다시 처리'
-  // 마지막 처리는 첫 줄만 적고 위 「지금 처리」 카드를 가리킨다 (11/8: 같은 글을 두 번 보이지 않게)
-  const pointer = handling && latestHandling && !!e.status && summaryRows(e.status).length > 0
+  // 마지막 처리 · 처리 뒤 마지막 답은 첫 줄만 적고 위 「지금 처리」 카드를 가리킨다 (11/8: 같은 글을 두 번 보이지 않게, 11/10 「최근 답」)
+  const pointer = !!e.status && ((handling && latestHandling && summaryRows(e.status).length > 0) || (s.kind === '답' && latestReply(e.status)?.at === s.at))
   return (
     <SayCard me={me} ui={me ? '사용자 글' : '관리자 글'} name={name} tag={what}
       afterTag={undo && <button className="fb-link" title={t('마지막 답(승인 · 반려 · 진행 · 중단)을 되돌립니다', 'Undo the last answer (approve, revise, proceed or stop)')} onClick={() => void api.reviewFeedback(e.key, null).catch((err: Error) => setError(err.message))}>{t('되돌리기', 'Undo')}</button>}
