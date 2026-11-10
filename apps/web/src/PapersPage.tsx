@@ -12,6 +12,7 @@ import { store } from './store'
 import { tableHiddenColumns } from './tableColumns'
 import { authorLine, colOf, COMPACT, openPdf, PaperTable, readWidths, sortPapers, TABLE, type ColId, type Ctx, type Sort, type Widths } from './PaperTable'
 import { t, HERE } from './i18n'
+import { SideTabs } from './SectionToc'
 import { loadPdfjs } from './pdfjs'
 
 /**
@@ -90,7 +91,8 @@ export function matchPaper(p: PaperRow, q: string): boolean {
   return words.every((w) => hay.includes(w))
 }
 
-export function PapersSide({ filter, list }: { filter?: PaperFilter; list: boolean }) {
+/** 논문을 열면(open) 맨 위 「라이브러리 | 목차」 탭: PDF 목차는 노트처럼 왼쪽 사이드바에 (11/9 22:50 진행) */
+export function PapersSide({ filter, list, open = false }: { filter?: PaperFilter; list: boolean; open?: boolean }) {
   const [data] = usePapers()
   const papers = data?.papers ?? []
   const nav = (id: PaperFilter, label: ReactNode, n: number, title?: string, ui?: string, cls = '') => (
@@ -102,25 +104,27 @@ export function PapersSide({ filter, list }: { filter?: PaperFilter; list: boole
   const all = list && (!filter || isShow(filter))
   const inProject = !!filter?.startsWith('project:')
   return (
-    <div className="set-side pl-side" data-ui="논문 목록 거르기">
-      <div className="side-quick" data-ui="빠른 이동">
-        <button className={`nav side-row${!list ? ' on' : ''}`} aria-current={!list ? 'page' : undefined} data-ui="논문 라이브러리 줄" title={t('최근 더한 논문 · 점검 · 통계', 'Recently added papers · checks · stats')} onClick={() => go({ page: 'shelf' })}>
-          <span className="q-ico" aria-hidden>{Icon.papers}</span><span className="label">{t('논문 라이브러리', 'Paper library')}</span></button>
-        <button className={`nav side-row${all ? ' on' : ''}`} aria-current={all ? 'page' : undefined} data-ui="목록 줄" title={t('논문과 책 모두 (표 · 카드)', 'All papers and books (table · cards)')} onClick={() => go({ page: 'shelf', list: true })}>
-          <span className="q-ico" aria-hidden>{Icon.list}</span><span className="label">{t('전체 문헌', 'All literature')}</span>{data && <span className="meta">{papers.length}</span>}</button>
-        {/* 논문 · 책은 전체 문헌의 하위: 프로젝트 목차의 현황 · 변경사항처럼 들이고 왼쪽 선 (10/31 시안 1절) */}
-        <div className="tree-notes side-sub">
-          {FILTERS.filter((f) => f.side).map((f) => nav(f.id, f.label, papers.filter(f.test).length, undefined, f.ko, ' tree-note'))}
+    <SideTabs label={t('라이브러리', 'Library')} show={open}>
+      <div className="set-side pl-side" data-ui="논문 목록 거르기">
+        <div className="side-quick" data-ui="빠른 이동">
+          <button className={`nav side-row${!list ? ' on' : ''}`} aria-current={!list ? 'page' : undefined} data-ui="논문 라이브러리 줄" title={t('최근 더한 논문 · 점검 · 통계', 'Recently added papers · checks · stats')} onClick={() => go({ page: 'shelf' })}>
+            <span className="q-ico" aria-hidden>{Icon.papers}</span><span className="label">{t('논문 라이브러리', 'Paper library')}</span></button>
+          <button className={`nav side-row${all ? ' on' : ''}`} aria-current={all ? 'page' : undefined} data-ui="목록 줄" title={t('논문과 책 모두 (표 · 카드)', 'All papers and books (table · cards)')} onClick={() => go({ page: 'shelf', list: true })}>
+            <span className="q-ico" aria-hidden>{Icon.list}</span><span className="label">{t('전체 문헌', 'All literature')}</span>{data && <span className="meta">{papers.length}</span>}</button>
+          {/* 논문 · 책은 전체 문헌의 하위: 프로젝트 목차의 현황 · 변경사항처럼 들이고 왼쪽 선 (10/31 시안 1절) */}
+          <div className="tree-notes side-sub">
+            {FILTERS.filter((f) => f.side).map((f) => nav(f.id, f.label, papers.filter(f.test).length, undefined, f.ko, ' tree-note'))}
+          </div>
         </div>
+        <LibrarySubjectSide kind="papers" filter={filter} />
+        {data && data.projects.length > 0 && (
+          <details className="side-grp pl-side-projects" data-ui="논문 프로젝트" open={inProject || undefined}>
+            <summary><span className="chev" aria-hidden>›</span><span className="label">{t('프로젝트', 'Projects')}</span><span className="n">{data.projects.length}</span></summary>
+            <div className="side-grp-body">{data.projects.map((p) => nav(`project:${p.id}`, p.title, papers.filter((x) => x.projects.includes(p.id)).length, p.id))}</div>
+          </details>
+        )}
       </div>
-      <LibrarySubjectSide kind="papers" filter={filter} />
-      {data && data.projects.length > 0 && (
-        <details className="side-grp pl-side-projects" data-ui="논문 프로젝트" open={inProject || undefined}>
-          <summary><span className="chev" aria-hidden>›</span><span className="label">{t('프로젝트', 'Projects')}</span><span className="n">{data.projects.length}</span></summary>
-          <div className="side-grp-body">{data.projects.map((p) => nav(`project:${p.id}`, p.title, papers.filter((x) => x.projects.includes(p.id)).length, p.id))}</div>
-        </details>
-      )}
-    </div>
+    </SideTabs>
   )
 }
 
@@ -535,7 +539,7 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
           <span className="sp" />
           <span className="muted">{paper.pdf.where === 'cloud' ? t('클라우드 (여는 동안 받아 옵니다)', 'Cloud (downloads while opening)') : t(`${HERE.ko}에 있음`, `On ${HERE.en}`)}</span>
         </div>
-        <CommentablePdf rid={LIBRARY} target={target} url={paper.pdf.where === 'none' ? null : papersApi.pdfUrl(paper.key)} highlight={NO_BOXES} onPick={() => undefined} remember={paper.key} />
+        <CommentablePdf rid={LIBRARY} target={target} url={paper.pdf.where === 'none' ? null : papersApi.pdfUrl(paper.key)} highlight={NO_BOXES} onPick={() => undefined} remember={paper.key} sideToc={`paper:${paper.key}`} />
       </section>
       <aside className="pane pl-rs" data-ui="논문 열기 오른쪽" aria-label={t('논문 정보와 코멘트', 'Paper info and comments')}>
         <div className="rs-head">
