@@ -53,7 +53,7 @@ export function PaperRead({ id, onSaved }: { id: string; onSaved(m: string): voi
           <button className="btn primary small" disabled={busy} onClick={() => void add()}>{busy ? t('추가 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
         </div>
         {arxiv
-          ? <PdfView url={papersApi.peekPdfUrl(arxiv)} highlight={NO_BOXES} onPick={() => undefined} />
+          ? <PdfView url={papersApi.peekPdfUrl(arxiv)} highlight={NO_BOXES} onPick={() => undefined} sideToc={`read:${arxiv}`} />
           : <div className="scroll pr-none"><p className="empty">{t('arXiv 논문이 아니어서 넣기 전에는 PDF를 받지 않습니다.', 'Not an arXiv paper, so no PDF before adding.')} <PdfElsewhere doi={peek?.doi ?? id} title={title} /></p></div>}
       </section>
       <aside className="pane pl-rs" data-ui="넣기 전 논문 정보" aria-label={t('논문 정보', 'Paper info')}>
