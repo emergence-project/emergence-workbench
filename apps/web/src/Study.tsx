@@ -140,7 +140,7 @@ function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): vo
           chapters: rows.map((r) => ({ title: r.title, state: r.state, concepts: r.concepts.split(/[,\s]+/).filter(Boolean) })) })
         onDone(book.id, t('저장했습니다', 'Saved'))
       }
-    } catch (e) { setError((e as Error).message); setBusy(false) }
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false) }
   }
   return (
     <Dialog title={book ? t('책 · 강의 수정', 'Edit book or lecture') : t('책 · 강의 추가', 'Add a book or lecture')} ui="책 · 강의" wide onClose={onClose} footer={<>
