@@ -5,7 +5,8 @@ import type { ErrorReply } from '@rw/core/contract/error'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
 import { parseNoteFixes } from '@rw/core'
-import { agentWrite, AgentEditStore, decide, listEdits, readTarget, reviewOf, targetKey, type EditTarget, type Hunk, type TargetIo } from '../agentEdits.js'
+import { agentWrite, AgentEditStore, decide, listEdits, readTarget, reviewOf, targetFile, targetKey, type EditTarget, type Hunk, type TargetIo } from '../agentEdits.js'
+import { cleanBeforeAgent, commitAgentWrite } from '../agentCommit.js'
 import { appendAnswer, askPrompt, claudeRunner } from '../ask.js'
 import { addComment, commentSourceFile, readComments } from '../comments.js'
 import { projectRules } from '../agentRules.js'
@@ -27,6 +28,19 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
   const discussing = new Set<string>()
   const io = (): TargetIo => ({ lib: registry.libraryPath, wbOf })
   const store = () => new AgentEditStore(AgentEditStore.fileFor(registry.configDir, registry.libraryPath))
+  const targetFileOrNull = (tg: EditTarget): string => { try { return targetFile(io(), tg) } catch { return '' } }
+  /**
+   * 에이전트 쓰기. 쓰기 전에 그 파일이 깨끗하면(사람의 커밋 안 한 고침이 없으면) 쓴 뒤 그 파일만 에이전트 이름으로 커밋해 올린다
+   * (11/8 15:16 진행 ①, agentCommit.ts). 올리지 못해도 쓰기는 그대로이고, 다음에 사람이 올릴 때 함께 올라간다
+   */
+  const writeAsAgent = async (w: Parameters<typeof agentWrite>[2]) => {
+    const clean = opts.agentCommits === false ? null : await cleanBeforeAgent(targetFileOrNull(w.target))
+    const r = agentWrite(io(), store(), w)
+    if (r.ok && clean && r.hash !== w.baseHash) {
+      void commitAgentWrite(clean, w.agent, w.summary).catch((e: unknown) => app.log.warn(e, '에이전트 저장 커밋 실패'))
+    }
+    return r
+  }
   /** 화면이 다시 읽게: 노트 쪽은 그 프로젝트의 research 알림, 개념노트는 library 알림 */
   const notify = async (tg: EditTarget): Promise<void> => {
     broadcast(tg.kind === 'note' ? { type: 'research', research: tg.rid } : { type: 'library', research: null, part: 'concepts', file: `concepts/${tg.id}.md` })
@@ -108,7 +122,7 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
     if (!fixes.length) { appendAnswer(root, rec.target, id, '앱', '답에 고침(before/after)이 없어 노트를 고치지 않았습니다.'); return }
     try {
       const st = readTarget(io(), target)
-      agentWrite(io(), store(), { target, baseHash: st.hash, edits: fixes.map((x) => ({ old: x.before, new: x.after, reason: text })), approved: true, agent: 'claude', summary: t(`수정 요청: ${text}`, `Revision request: ${text}`).slice(0, 200) })
+      await writeAsAgent({ target, baseHash: st.hash, edits: fixes.map((x) => ({ old: x.before, new: x.after, reason: text })), approved: true, agent: 'claude', summary: t(`수정 요청: ${text}`, `Revision request: ${text}`).slice(0, 200) })
     } catch (e) {
       appendAnswer(root, rec.target, id, '앱', `고침을 노트에 쓰지 못했습니다: ${(e as Error).message}`)
     }
@@ -118,7 +132,7 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
   app.post('/api/agent-edits/write', replies(C.AgentWritten), async (req, reply): Promise<C.AgentWritten> => {
     const b = parseBody(C.WriteBody, req.body)
     const target = parseTarget(b.target)
-    const r = agentWrite(io(), store(), { ...b, target, approved: b.approved === true })
+    const r = await writeAsAgent({ ...b, target, approved: b.approved === true })
     await notify(target)
     if (!r.ok) return reply.status(r.status).send({ error: r.error, key: targetKey(target) } satisfies ErrorReply)
     return { ...r, key: targetKey(target) }

@@ -112,6 +112,8 @@ export interface AppOptions {
   agentApp?: AppWork
   /** PDF 질문에 답할 Claude (기본: 맥의 `claude -p`, 테스트에서 바꿈) */
   ask?: AskRunner
+  /** false면 에이전트 저장을 에이전트 이름으로 커밋해 올리지 않는다 (agentCommit.ts, 테스트) */
+  agentCommits?: boolean
   /** 분류 전 기록을 나눌 작은 모델 (테스트에서는 가짜 실행기로 바꿈) */
   classify?: AskRunner
   /** 등록 창의 GitHub 저장소 목록이 쓰는 gh·로그인·GitHub API (테스트에서 바꿈) */
