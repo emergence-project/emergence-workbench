@@ -115,19 +115,20 @@ function BookView({ id, onSaved }: { id: string; onSaved(msg: string): void }) {
   )
 }
 
-interface Draft { title: string; state: StudyState; concepts: string }
+interface Draft { title: string; state: StudyState; concepts: string[] }
 
 /** 책 · 강의 더하기와 고치기: 여러 칸이라 고치기 창 하나 (디자인 문서 6절) */
 function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): void; onDone(id: string, msg: string): void }) {
   const [title, setTitle] = useState(book?.title ?? '')
   const [kind, setKind] = useState<StudyKind>(book?.kind ?? '책')
   const [source, setSource] = useState(book?.source ?? '')
-  const [rows, setRows] = useState<Draft[]>(book?.chapters.map((c) => ({ title: c.title, state: c.state, concepts: c.concepts.map((n) => n.id).join(', ') })) ?? [])
+  const [rows, setRows] = useState<Draft[]>(book?.chapters.map((c) => ({ title: c.title, state: c.state, concepts: c.concepts.map((n) => n.id) })) ?? [])
   const [lines, setLines] = useState('')
   const [ids, setIds] = useState<{ id: string; title: string }[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => { if (book) conceptsApi.list({ showEmpty: true, limit: 2000 }).then((r) => setIds(r.items.map((x) => ({ id: x.id, title: x.title })))).catch(() => {}) }, [book])
+  const titleOf = (id: string) => ids.find((c) => c.id === id)?.title ?? book?.chapters.flatMap((c) => c.concepts).find((c) => c.id === id)?.title ?? id
   const set = (i: number, patch: Partial<Draft>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const save = async () => {
     setBusy(true); setError(null)
@@ -137,7 +138,7 @@ function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): vo
         onDone(made.id, t('책 · 강의를 더했습니다', 'Added the book or lecture'))
       } else {
         await studyApi.save(book.id, { title, kind, ...(source.trim() && { source: source.trim() }), baseHash: book.hash,
-          chapters: rows.map((r) => ({ title: r.title, state: r.state, concepts: r.concepts.split(/[,\s]+/).filter(Boolean) })) })
+          chapters: rows.map((r) => ({ title: r.title, state: r.state, concepts: r.concepts })) })
         onDone(book.id, t('저장했습니다', 'Saved'))
       }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false) }
@@ -156,18 +157,26 @@ function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): vo
           <label className="field st-src"><span>{t('출처 키 (references.bib, 없어도 됨)', 'Source key (references.bib, optional)')}</span><input value={source} onChange={(e) => setSource(e.target.value)} placeholder="auerbach1994" /></label>
         </div>
         {!book && <label className="field"><span>{t('장 (한 줄에 하나)', 'Chapters (one per line)')}</span><textarea rows={8} value={lines} onChange={(e) => setLines(e.target.value)} /></label>}
-        {book && <div className="field"><span>{t('장', 'Chapters')}</span>
-          <datalist id="st-concepts">{ids.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</datalist>
+        {book && <div className="st-chapters"><div className="st-chapters-h"><span>{t('장', 'Chapters')}</span><button className="btn st-add" onClick={() => setRows((rs) => [...rs, { title: '', state: '아직', concepts: [] }])}>＋ {t('장', 'Chapter')}</button></div>
           <div className="st-edit-rows">{rows.map((r, i) => (
             <div key={i} className="st-edit-row" data-ui="장 고치기 줄">
               <span className="st-no">{i + 1}</span>
-              <input aria-label={t('장 제목', 'Chapter title')} value={r.title} onChange={(e) => set(i, { title: e.target.value })} />
-              <div className="segmented" role="group" aria-label={t('상태', 'State')}>{STUDY_STATES.map((s) => <button key={s} className={r.state === s ? 'on' : ''} aria-pressed={r.state === s} onClick={() => set(i, { state: s })}>{stateName(s)}</button>)}</div>
-              <input list="st-concepts" aria-label={t('개념노트 id (쉼표로)', 'Concept note IDs (comma separated)')} placeholder={t('개념노트 id, 쉼표로', 'Concept note IDs, comma separated')} value={r.concepts} onChange={(e) => set(i, { concepts: e.target.value })} />
-              <button className="icon-btn" data-tip={t('장 제거', 'Remove chapter')} aria-label={t('장 제거', 'Remove chapter')} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>{Icon.x}</button>
+              <input className="st-edit-title" autoFocus={!r.title && i === rows.length - 1} aria-label={t('장 제목', 'Chapter title')} placeholder={t('장 제목', 'Chapter title')} value={r.title} onChange={(e) => set(i, { title: e.target.value })} />
+              <div className="segmented small" role="group" aria-label={t('상태', 'State')}>{STUDY_STATES.map((s) => <button key={s} className={r.state === s ? 'on' : ''} aria-pressed={r.state === s} onClick={() => set(i, { state: s })}>{stateName(s)}</button>)}</div>
+              <button className="icon-btn sm" data-tip={t('장 제거', 'Remove chapter')} aria-label={t('장 제거', 'Remove chapter')} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>{Icon.x}</button>
+              <div className="st-edit-notes">
+                {r.concepts.map((id) => (
+                  <span key={id} className="tag st-chip">{titleOf(id)}
+                    <button className="x" title={t('제거', 'Remove')} aria-label={t(`제거: ${titleOf(id)}`, `Remove: ${titleOf(id)}`)} onClick={() => set(i, { concepts: r.concepts.filter((x) => x !== id) })}>×</button>
+                  </span>
+                ))}
+                <select className="rs-select st-pick" value="" aria-label={t('개념노트 추가', 'Add concept note')} onChange={(e) => e.target.value && set(i, { concepts: [...r.concepts, e.target.value] })}>
+                  <option value="">{t('＋ 개념노트…', '＋ Concept note…')}</option>
+                  {ids.filter((c) => !r.concepts.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                </select>
+              </div>
             </div>
           ))}</div>
-          <button className="btn st-add" onClick={() => setRows((rs) => [...rs, { title: '', state: '아직', concepts: '' }])}>＋ {t('장', 'Chapter')}</button>
         </div>}
       </div>
     </Dialog>

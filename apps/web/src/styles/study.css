@@ -32,10 +32,21 @@
 .st-form { display: flex; flex-direction: column; gap: var(--sp-3); }
 .st-form-row { display: flex; gap: var(--sp-3); align-items: flex-end; flex-wrap: wrap; }
 .st-src { flex: 1; min-width: 200px; }
-.st-edit-rows { display: flex; flex-direction: column; gap: var(--sp-1); max-height: 50vh; overflow: auto; }
-.st-edit-row { display: grid; grid-template-columns: auto minmax(0, 1.3fr) auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); }
-.st-edit-row input { min-width: 0; }
-.st-add { align-self: flex-start; }
+.st-chapters { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); }
+.st-chapters-h { display: flex; align-items: center; justify-content: space-between; color: var(--text-2); }
+.st-edit-rows { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.st-edit-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-1) var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
+.st-edit-row .st-no { margin: 0; }
+.st-edit-title { min-width: 0; height: var(--input-h); padding: 0 var(--sp-1); font-weight: var(--fw-medium); border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; font: inherit; font-size: var(--fs-sm); color: var(--text); }
+.st-edit-title:hover { border-bottom-color: var(--line); }
+.st-edit-title:focus { outline: none; border-bottom-color: var(--line-strong); }
+.st-edit-notes { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); padding-left: var(--sp-1); }
+.tag.st-chip { display: inline-flex; align-items: center; gap: 2px; height: 22px; box-sizing: border-box; margin: 0; font-size: var(--fs-xs); }
+.tag.st-chip .x { width: 16px; height: 16px; line-height: 1; border-radius: var(--r-xs); color: var(--text-3); }
+.tag.st-chip .x:hover { background: var(--bg-hover); color: var(--text); }
+.rs-select.st-pick { display: inline-block; width: auto; max-width: 200px; height: 24px; padding: 0 var(--sp-1); border-color: transparent; color: var(--text-2); font-size: var(--fs-xs); }
+.rs-select.st-pick:hover { border-color: var(--line); }
+
 .st-err { flex: 1; color: var(--danger); font-size: var(--fs-sm); }
 
 /* 지식 사이드바의 책 줄: 「공부」 줄 아래 한 단 들여 */
