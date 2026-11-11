@@ -65,7 +65,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `flow_update` | 점을 고친다. 필수 칸이 비면 끝냄(`done`) · 멈춤을 거절하고 빈 칸 이름을 알린다(`docs/repo-format.md` §14 "해결 문턱"). 질문 문장 · 발단 선 · 갈래 폐기는 사용자가 정하므로 거절한다. 발견이 아닌 열린 점을 시작하면(`active` · `paused` · `done`으로) `flow_add`와 같은 시작 기록 문을 먼저 지난다(`prior` + `adds` 또는 `novel`, 그리고 `criterion`). 이미 시작한 점에는 이 칸들을 거절한다 | `PATCH …/:rid/flow/:id`(`gate: true`). 열린 점 시작은 먼저 `POST …/:rid/flow/start`(`dot`) |
 | `finish_work` | 작업 점(계산 · 증명 · 문헌)을 한 번에 끝낸다: 결과 노트를 근거(노트 · 절)로 달고, 다다른 명제마다 그 아래 명제 점(`support` 선, 같은 주제)을 진술 · 조건 · 절 근거와 함께 끝난 채로 더해 사용자 판단을 기다리게 한다. 해결 문턱은 작업 점과 명제마다 걸리고, 실패한 명제는 알리고 나머지는 남긴다. 질문 · 명제를 고칠 때는 `flow_update` | `PATCH …/:rid/flow/:id`(`gate: true`), 명제마다 `POST …/:rid/flow`와 `PATCH …/:rid/flow/:id` |
 | `flow_review` | 근거 하나(`ev`)나 증명 단계 하나(`step`)의 에이전트 검토를 `role: agent`로, 확인한 내용의 hash와 함께 남긴다 | `POST …/:rid/flow/:id/review` |
-| `problems` | 프로젝트의 문제(`workbench/problems/`, `docs/repo-format.md` §16): id · 질문 · 상태(진행 = 사용자가 시작해 에이전트가 일할 수 있음, 쓰는 중, 제안, 종료) · 시도 수/한도 · 다음 후보 · 멈춘 이유 | `GET …/:rid/problems` |
+| `problems` | 프로젝트의 문제(`workbench/problems/`, `docs/repo-format.md` §16): id · 질문 · 상태(진행 = 사용자가 시작해 에이전트가 일할 수 있음, 쓰는 중, 제안, 종료) · 시도 수/한도 · 다음 후보 · 멈춘 이유. 앱 서버가 없는 곳(클라우드)에서는 아래 문제 도구 열 개를 `pnpm agent:problem <폴더> …`가 같은 규칙으로 대신한다(§16 "서버 없이 쓰기") | `GET …/:rid/problems` |
 | `problem_brief` | 문제 하나를 이어받는 데 필요한 것만 2KB 안에: 질문, 사용자의 메시지와 독자, 채점, 폐기한 시도의 교훈, 판정 대기, 다음 후보, 한도. 먼저 이것을 읽는다 | `GET …/:rid/problems/:id/brief` |
 | `problem_read` | 문제의 모든 칸과 시도 나무 전체(한 일 · 결과 · 파일 · 판정 · 방향 보고와 결정). `attempt`를 주면 그 시도만 | `GET …/:rid/problems/:id` |
 | `problem_propose` | 일하다 떠오른 질문을 출처와 함께 제안으로 올린다 `{ question, source }`. 사용자가 받아 메시지를 쓰고 시작해야 문제가 된다. 메시지 · 독자 · 가치 의견은 적지 않는다 | `POST …/:rid/problems` |

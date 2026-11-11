@@ -166,7 +166,7 @@ describe('바뀐 것 검사', () => {
     write('workbench/notes/m/note.md', '# M 고침\n')
     write('workbench/notes/loose/note.md', '# L 고침\n')
     write('workbench/flow/mine.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 이 주제\ntopics: [t]\nevidence:\n  - { kind: calc, file: workbench/notes/m/note.md, text: 표 }\n')
-    expect(check()!.diagnostics.map((x) => x.message)).toEqual([expect.stringContaining('노트 1개를 바꿨는데 바뀐 흐름 점 가운데 그 노트를 근거로 가리키거나 같은 주제인 것이 없습니다 (notes/loose)')])
+    expect(check()!.diagnostics.map((x) => x.message)).toEqual([expect.stringContaining('노트 1개를 바꿨는데 바뀐 시도 · 흐름 점 가운데 그 노트를 가리키거나 같은 주제인 것이 없습니다 (notes/loose)')])
     write('workbench/flow/other.yaml', 'format: 1\nkind: calc\nprogress: active\ntitle: 주제 없음\n')
     expect(check()!.diagnostics).toEqual([])
   })

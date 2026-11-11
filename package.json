@@ -19,6 +19,7 @@
     "agent:answer": "node scripts/agent-answer.mjs",
     "agent:start": "node scripts/agent-start.mjs",
     "agent:integrate": "node scripts/agent-integrate.mjs",
+    "agent:problem": "node scripts/agent-problem.mjs",
     "library:memos": "node scripts/library-memos.mjs",
     "agent:check-tasks": "node scripts/agent-check-tasks.mjs",
     "mcp": "node scripts/mcp.mjs",

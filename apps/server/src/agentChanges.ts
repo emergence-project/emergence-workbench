@@ -11,6 +11,7 @@ import { JUDGE_CAP } from '@rw/core'
 import { cardBlock, parseFlowNode, scanFlow } from './flow.js'
 import { flowGate, judgmentHash, judgmentQueue, markJudgments, undefinedTerms } from './flowGaps.js'
 import { integrationProblem } from './flowStart.js'
+import { PROBLEM_CHECKS, problemChecker } from './problemChanges.js'
 
 /**
  * 바뀐 것 검사 (`pnpm agent:check`, docs/repo-format.md §15). 공통 규칙 가운데 기계가 판정할 수 있는 것을
@@ -35,6 +36,7 @@ export const CHANGE_CHECKS = {
   'confirmed-edit': 'warning',
   'outside-workbench': 'warning',
   'move-delete': 'warning',
+  ...PROBLEM_CHECKS,
 } as const satisfies Record<string, CheckLevel>
 export type ChangeCheckId = keyof typeof CHANGE_CHECKS
 export type CheckLevels = Partial<Record<ChangeCheckId, CheckLevel>>
@@ -167,6 +169,7 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
     return flowNow
   }
   const newFindings: string[] = []
+  const problems = problemChecker(repo, add)
 
   for (const c of changes) {
     const before = c.status === 'A' ? undefined : oldText(c.from ?? c.file)
@@ -186,6 +189,8 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
     }
     if (c.status === 'D') removed.push(c.file)
     if (c.status === 'R') moved.push(`${c.from} → ${c.file}`)
+    // 문제와 시도 나무 (11/11): 사용자만 하는 것 · 판정 · 일하는 규칙은 problemChanges.ts
+    if (problems.file(c, old, before, after)) continue
     if (!c.file.startsWith('workbench/')) {
       outside.set(top(c.file), (outside.get(top(c.file)) ?? 0) + 1)
       if (c.status === 'A' && other.has(top(c.file))) add('nonstandard-new-file', c.file, `표준 밖 폴더 ${top(c.file)}/에 새 파일을 만들었습니다. 할 일·인계·제안은 workbench/tasks/, 결정은 workbench/decisions/, 규칙은 workbench/rules/에 둡니다.`,
@@ -263,13 +268,16 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
 
   // 점이 그 노트를 근거 · 실행으로 가리키거나 주제가 겹치면 이 일의 점으로 본다 (10/23: 무관한 점만 고쳐도 통과하던 것을 막는다).
   // 주제가 없는 노트는 주제가 없는 점과도 짝짓는다
-  const covered = (key: string, w: { topics: string[] }) => dots.some((d) => d.files.some((f) => f === key || f.startsWith(`${key}/`))
+  // 11/11: 새 일은 문제 아래의 시도로 하므로, 바뀐 시도가 파일(files)로 가리키는 노트도 이 일의 것으로 본다
+  problems.finish()
+  const inNote = (f: string, key: string) => f === key || f.startsWith(`${key}/`)
+  const covered = (key: string, w: { topics: string[] }) => problems.files.some((f) => inNote(f, key)) || dots.some((d) => d.files.some((f) => inNote(f, key))
     || (w.topics.length ? w.topics.some((x) => d.topics.includes(x)) : !d.topics.length))
   const skipped = [...work].filter(([key, w]) => !covered(key, w))
   if (skipped.length) {
     const names = skipped.map(([key]) => key.replace(/^workbench\//, '')).slice(0, 3).join(', ') + (skipped.length > 3 ? ' …' : '')
-    if (!flowChanged) add('flow-skipped', skipped[0]![1].file, `노트 ${skipped.length}개를 바꿨는데 흐름 점은 그대로입니다 (${names}). 이 일이 질문 · 계산 · 증명 하나라면 점을 만들거나(pnpm agent:start · flow_add) 결과를 적으세요(flow_update).`, `${skipped.length} note(s) changed but no flow dot did (${names}). If this work is a question, calculation or proof, add a dot (pnpm agent:start · flow_add) or record its result (flow_update).`)
-    else add('flow-skipped', skipped[0]![1].file, `노트 ${skipped.length}개를 바꿨는데 바뀐 흐름 점 가운데 그 노트를 근거로 가리키거나 같은 주제인 것이 없습니다 (${names}). 이 일의 점을 만들거나 고치세요.`, `${skipped.length} note(s) changed but no changed flow dot points to them or shares their topic (${names}). Add or update the dot for this work.`)
+    if (!flowChanged) add('flow-skipped', skipped[0]![1].file, `노트 ${skipped.length}개를 바꿨는데 이 일을 가리키는 시도도 흐름 점도 없습니다 (${names}). 문제의 시도로 한 일이면 보고의 파일에 그 노트를 적고(attempt_report · pnpm agent:problem … report --file), 아니면 흐름 점을 만들거나(pnpm agent:start · flow_add) 결과를 적으세요(flow_update).`, `${skipped.length} note(s) changed but neither an attempt nor a flow dot points to this work (${names}). If it was an attempt on a problem, list the note in its report files (attempt_report · pnpm agent:problem … report --file); otherwise add a dot (pnpm agent:start · flow_add) or record its result (flow_update).`)
+    else add('flow-skipped', skipped[0]![1].file, `노트 ${skipped.length}개를 바꿨는데 바뀐 시도 · 흐름 점 가운데 그 노트를 가리키거나 같은 주제인 것이 없습니다 (${names}). 이 일의 시도 보고에 노트를 적거나 점을 만들거나 고치세요.`, `${skipped.length} note(s) changed but no changed attempt or flow dot points to them or shares their topic (${names}). List the note in the attempt report, or add or update the dot for this work.`)
   }
 
   if (newFindings.length) {
