@@ -312,7 +312,7 @@ function Tree({ p, busy, locked, onAdd, onOrder, onVerdict }: {
 function Steps({ a }: { a: Attempt }) {
   const judged = a.state === 'holds' || a.state === 'dropped'
   const worked = !!a.worker
-  const by = (name: string, at?: string) => <><Author by={who(name)} />{at ? ` · ${when(at)}` : ''}</>
+  const by = (name: string, at?: string) => <><Author by={who(name)} />{at && <span className="pb-step-at">{when(at)}</span>}</>
   const step = (name: string, dot: string, body: ReactNode, tip?: string) => (
     <li className={`pb-step${body ? '' : ' todo'}`} title={tip}><span className={`g ${dot}`} aria-hidden /><span className="pb-step-name">{name}</span>{body && <span className="pb-step-by">{body}</span>}</li>
   )
@@ -321,7 +321,7 @@ function Steps({ a }: { a: Attempt }) {
       {step(t('제안', 'Proposed'), 'pb-done', by(a.by, a.created))}
       {step(t('작업', 'Work'), a.state === 'active' ? ATTEMPT_DOT.active : worked ? 'pb-done' : 'none', worked && by(a.worker!, a.started))}
       {step(t('판정', 'Verdict'), judged || a.state === 'reported' ? ATTEMPT_DOT[a.state] : 'none',
-        judged && a.verdict ? <>{ATTEMPT_NAME[a.state]} · {by(a.verdict.by, a.verdict.at)}</> : a.state === 'reported' && t('대기', 'Waiting'),
+        judged && a.verdict ? <><span>{ATTEMPT_NAME[a.state]}</span>{by(a.verdict.by, a.verdict.at)}</> : a.state === 'reported' && t('대기', 'Waiting'),
         t('작업하지 않은 쪽이 판정합니다', 'Someone other than the worker gives the verdict'))}
     </ol>
   )

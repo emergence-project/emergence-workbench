@@ -76,7 +76,8 @@
 .pb-step { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--sp-1); align-items: center; align-content: start; }
 .pb-step-name { display: flex; align-items: center; gap: var(--sp-2); color: var(--text-3); }
 .pb-step:not(:last-child) .pb-step-name::after { content: ""; flex: 1; border-top: 1px solid var(--line-strong); }
-.pb-step-by { grid-column: 2; overflow-wrap: anywhere; }
+.pb-step-by { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2); min-width: 0; }
+.pb-step-at { color: var(--text-3); white-space: nowrap; }
 .pb-step.todo .pb-step-name { color: var(--line-strong); }
 .g.pb-done { color: var(--text-3); }
 .pb-result { font-weight: var(--fw-medium); }
