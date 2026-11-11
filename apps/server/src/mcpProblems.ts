@@ -4,7 +4,7 @@
 // (흐름을 시작하고 종료하는 것, 메시지 · 독자 · 한도 · 순서는 사용자만. 판정은 일한 쪽이 아닌 쪽만).
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { ATTEMPT_VERDICTS } from '@rw/core'
+import { ATTEMPT_VERDICTS, TEST_RESULTS } from '@rw/core'
 import * as C from '@rw/core/contract/problems'
 import type { Text } from './mcp.js'
 
@@ -159,27 +159,31 @@ export function registerProblemTools(server: McpServer, o: {
 
   server.registerTool('attempt_report', {
     title: 'Report an attempt',
-    description: 'Report the attempt you started: what you did and the result, as facts (numbers, sizes, parameters, where it failed), with the files that hold the raw data, code and note. The attempt then waits for a verdict from another agent or the user; you do not decide whether it holds. If you think it failed, add the one-line lesson and, when there is one, the condition under which it would be worth reopening.',
+    description: 'Report the attempt you started: what you did and the result, as facts (numbers, sizes, parameters, where it failed), with the files that hold the raw data, code and note. The attempt then waits for a verdict from another agent or the user; you do not decide whether it holds. Give the command that produced the result (command) and, when there is one, a command the judging side can rerun (test). If you think it failed, add the one-line lesson and, when there is one, the condition under which it would be worth reopening.',
     inputSchema: {
       project, problem, attempt,
       did: z.string().trim().min(1).describe('What was done'),
       result: z.string().trim().min(1).describe('The result as facts'),
       files: z.array(z.string()).optional().describe('Repository paths: raw data, code, note section'),
+      command: z.string().optional().describe('The command that produced the result, runnable from the repository root (the app records the current commit with it)'),
+      commit: z.string().optional().describe('Commit of the code that produced the result, when it is not the current HEAD'),
+      test: z.string().optional().describe('A command the judging side reruns to check the result (a test or a script that exits non-zero on failure)'),
       lesson: z.string().optional().describe('If it failed: what the next attempt should not repeat, one line'),
       reopen: z.string().optional().describe('Condition under which this path is worth reopening'),
     },
     annotations: writeOnce,
-  }, async ({ project: rid, problem: id, attempt: aid, ...body }) =>
-    done(await write(`${R(rid, id)}/attempts/${enc(aid.toLowerCase())}/report`, body), () => `Reported ${aid.toUpperCase()}. It waits for a verdict from another agent or the user.`))
+  }, async ({ project: rid, problem: id, attempt: aid, command, commit, ...body }) =>
+    done(await write(`${R(rid, id)}/attempts/${enc(aid.toLowerCase())}/report`, { ...body, ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }) }), () => `Reported ${aid.toUpperCase()}. It waits for a verdict from another agent or the user.`))
 
   server.registerTool('attempt_verdict', {
     title: 'Give a verdict on an attempt',
-    description: 'Judge an attempt someone else worked on, from its raw data and files (problem_read), not from its summary. holds: you reproduced it and checked it outside the condition it was fitted on (another size, other parameters, an independent implementation or a limit); say what in check. dropped: it does not hold; give the one-line lesson. Refused for an attempt you worked on yourself.',
+    description: 'Judge an attempt someone else worked on, from its raw data and files (problem_read), not from its summary. holds: you reproduced it and checked it outside the condition it was fitted on (another size, other parameters, an independent implementation or a limit); say what in check. dropped: it does not hold; give the one-line lesson. When the attempt has a test command, rerun it and pass the outcome in tested. The app records the hashes of the files at a holds verdict and marks the attempt when they change later. Refused for an attempt you worked on yourself.',
     inputSchema: {
       project, problem, attempt,
       result: z.enum(ATTEMPT_VERDICTS),
       note: z.string().trim().min(1).describe('What you reran or read, and what you found'),
       check: z.string().optional().describe('For holds: the check outside the fitted condition and its outcome'),
+      tested: z.enum(TEST_RESULTS).optional().describe('When the attempt has a test command (problem_read: test): the outcome of rerunning it yourself. holds needs pass'),
       lesson: z.string().optional().describe('For dropped: the lesson, one line (kept from the report when left out)'),
       reopen: z.string().optional(),
     },

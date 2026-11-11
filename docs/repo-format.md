@@ -612,7 +612,7 @@ workbench/
 | `outside-workbench` | `workbench/` 밖 변경 (맨 위 폴더마다 한 줄) | 경고 |
 | `move-delete` | 지우거나 옮긴 파일 (한 줄로 묶음) | 경고 |
 | `problem-human` | 흐름(§16)에서 사용자만 하는 것: 있는 흐름의 질문 · 메시지(예이면 · 아니오이면) · 독자 · 한도 · 후보 순서 · 상태 · 시작 · 종료를 바꿈, 방향 보고에 결정(`decision`)을 씀, 새 흐름을 제안(`proposed`)이 아닌 상태로 만들거나 메시지 · 독자를 채움, 흐름을 지우거나 옮김, 판정에 `by: user`를 씀 | 오류 |
-| `problem-verdict` | 시도의 판정 규칙: 일한 쪽(`worker`)이 자기 시도를 판정, 판정 기록 없이 성립 · 폐기, 보고(`did` · `result`) 없는 시도를 판정, 성립에 `verdict.check` 없음, 해 본 시도의 폐기에 `lesson` 없음 | 오류 |
+| `problem-verdict` | 시도의 판정 규칙: 일한 쪽(`worker`)이 자기 시도를 판정, 판정 기록 없이 성립 · 폐기, 보고(`did` · `result`) 없는 시도를 판정, 성립에 `verdict.check` 없음, 검사 명령(`test`)이 있는 시도의 성립에 `verdict.tested: pass` 없음, 해 본 시도의 폐기에 `lesson` 없음 | 오류 |
 | `problem-work` | 일하는 규칙: 사용자가 시작하지 않은 흐름 · 종료한 흐름 · 흐름 파일이 없는 폴더에 시도를 씀, 시작한 시도 수가 한도를 넘음, 방향 보고가 결정을 기다리는 동안 시작, 시작한 시도에 `worker` 없음, 보고에 `did` · `result` 없음, 출처 없는 제안, 낸 방향 보고를 고치거나 지움 · 결정 전에 하나 더 냄. 폐기가 이어진 정체와 후보 순서는 앱 · MCP · `pnpm agent:problem`만 막는다 | 오류 |
 
 - **PR 관문** (10/23): 연구 저장소 PR마다 Actions로 이 검사를 돌려 오류가 있으면 PR이 실패한다. 연구 저장소에는 `.github/workflows/agent-check.yml` 하나에 `uses: emergence-project/emergence-workbench/.github/workflows/research-check.yml@main`만 두고(그 파일 머리에 전문), 기준은 PR의 base 브랜치다. 관문은 공통 규칙 파일이 없어 기본 세기로 돈다. 에이전트의 브랜치를 검사하는 것이므로, 사용자가 앱에서 한 판단은 그 브랜치가 아니라 main에 올린다.
@@ -690,9 +690,19 @@ worker: claude-code      # 시작한 이 (시작할 때 적는다)
 started: 2026-11-11T16:02
 did: 평면 그림에서 2–4 사슬의 변이 닫힌 곡선과 만나는 자리를 따졌다.     # 한 일
 result: 곡선 위 꼭짓점의 색은 1 · 3뿐이라 만나지 못한다.                  # 결과 (사실)
-files: [workbench/topics/coloring/kempe-chains/note.md]                   # 원자료 · 코드 · 노트
+files: [workbench/topics/coloring/kempe-chains/note.md]                   # 원자료 · 코드 · 노트 (저장소 기준 경로, 폴더도 됨)
+run:                                                                     # 실행 (선택): 결과를 낸 명령과 그때의 커밋
+  command: python code/kempe_chains.py --graph icosahedron
+  commit: 3f2a1b9c0d4e                                                   # 비우면 보고할 때의 HEAD를 앱이 적는다
+test: python code/kempe_chains.py --self-test                            # 검사 (선택): 판정하는 쪽이 다시 돌리는 명령
 reported: 2026-11-11T17:10
-verdict: { at: 2026-11-11T18:00, by: codex, note: 다시 따라가 봤다, check: 꼭짓점 8개인 다른 그림에서도 같다 }   # check는 성립일 때
+verdict:
+  at: 2026-11-11T18:00
+  by: codex
+  note: 다시 따라가 봤다
+  check: 꼭짓점 8개인 다른 그림에서도 같다                               # 성립일 때
+  tested: pass                                                           # 검사 명령을 다시 돌린 결과 (pass · fail)
+  files: { workbench/topics/coloring/kempe-chains/note.md: 5c1d0e9a77b2 }  # 성립일 때 앱이 적는 파일 지문
 lesson: …                # 폐기일 때: 다음 시도가 되풀이하지 않을 것 한 줄
 reopen: …                # 고르기: 다시 열 조건
 needs: all               # 고르기: 아래 시도가 모두 성립해야 한다
@@ -712,10 +722,12 @@ needs: all               # 고르기: 아래 시도가 모두 성립해야 한�
 | 판정 | 됨 | 자기가 일한 시도는 거절 |
 | 방향 보고 | 됨 | 됨 |
 
+- **실행과 검사** (11/11 "옛 흐름 없애기" 나, `problemFiles.ts`): 보고의 `run.command`는 결과를 낸 명령(저장소 맨 위에서 돌릴 수 있게), `run.commit`은 그때의 코드다. 명령이나 파일이 있는 보고에서 커밋을 비우면 앱이 저장소의 HEAD 앞 12자를 적는다(git을 부르지 않고 `.git`을 읽는다. 저장소 맨 위에 `.git`이 없으면 적지 않는다). `test`는 판정하는 쪽이 다시 돌리는 검사 명령이고, 그 결과를 판정의 `tested`에 적는다. 검사 명령이 있는 시도는 에이전트가 `tested: pass` 없이 성립을 주지 못하고, `fail`이면 누구도 성립을 주지 못한다. 사용자는 돌리지 않고도 판정할 수 있다(화면에 "다시 돌리지 않음"). 앱은 명령을 돌리지 않는다.
+- **판정 후 변경:** 성립으로 판정할 때 앱이 `files`의 경로마다 지문을 `verdict.files`에 적는다(파일은 내용 sha256의 앞 12자, 폴더는 그 안 파일 지문을 모은 값, 없는 경로는 `-`. 숨김 폴더 · `node_modules` · `__pycache__`는 빼고, 파일이 300개를 넘는 폴더는 적지 않는다). 읽을 때 지금 지문과 다르면 응답의 `changed`에 그 경로가 실리고(파일에는 쓰지 않는다), 화면의 "판정 후 변경" 표시와 이어받기 요약의 "판정 뒤에 파일이 바뀐 성립"으로 보인다. 판정을 되돌리지는 않는다: 다시 확인할지는 사람과 다음 에이전트가 정한다.
 - **시도의 길:** `candidate` → (시작) `active` → (보고) `reported` → (판정) `holds` · `dropped`. 사용자는 해 보지 않은 후보나 진행 중인 시도도 폐기할 수 있다(후보는 교훈 없이도). 위 시도가 후보이거나 폐기면 그 아래는 시작하지 못한다.
 - **다음 후보**(`next`)는 나무에 보이는 순서(위에서 아래, 가지를 먼저 끝까지)에서 시작할 수 있는 첫 후보다. 형제는 `order`의 순서, 그다음 만든 시각 순이다.
 - **멈춤**(`stop`, 앞의 것이 먼저): `decision` 방향 보고가 결정을 기다림 · `limit` 시작한 시도 수(`worker`가 있는 시도)가 한도 이상 · `stuck` 마지막 결정 뒤의 판정 가운데 최근 셋이 모두 폐기 · `exhausted` 시작할 후보도 진행 · 판정 대기도 없음. 멈춤이면 시작을 거절한다. 결정이 계속 · 좁히기면 한도를 올린다(준 값, 없으면 쓴 수와 한도 가운데 큰 쪽 + 3).
-- **이어받기 요약** (`GET …/problems/:id/brief`, `problemBrief.ts`): 질문 · 메시지 · 독자 · 채점 · 교훈 · 판정 대기 · 다음 후보 · 한도를 2KB 안에 싣는다. 넘치면 후보, 성립, 진행 순으로 줄을 줄인다. STATUS(§9)의 "흐름" 절은 진행 중인 흐름을 한 줄씩 싣는다.
+- **이어받기 요약** (`GET …/problems/:id/brief`, `problemBrief.ts`): 질문 · 메시지 · 독자 · 채점 · 교훈 · 판정 뒤에 파일이 바뀐 성립 · 판정 대기(검사 명령과 함께) · 다음 후보 · 한도를 2KB 안에 싣는다. 넘치면 후보, 성립, 진행 순으로 줄을 줄인다. STATUS(§9)의 "흐름" 절은 진행 중인 흐름을 한 줄씩 싣는다.
 - **앱에서 고치기:** `GET · POST …/problems`, `GET · PATCH · DELETE …/problems/:id`, `POST …/problems/:id/open · close · attempts · report · decide`, `POST …/problems/:id/attempts/:aid/start · report · verdict`. 흐름 파일을 고치는 요청(`PATCH` · `open` · `close` · `DELETE`)은 읽을 때 받은 `hash`를 `baseHash`로 보낸다. 시도는 상태로 막으므로(이미 시작한 후보는 다시 시작하지 못한다) hash가 없다.
-- **서버 없이 쓰기** (`pnpm agent:problem <저장소> …`, `scripts/agent-problem.mjs`): 앱 · MCP가 닿지 않는 곳(클라우드)에서 에이전트가 같은 함수로 읽고 쓴다. 명령은 MCP 도구와 한 쌍이다: 없음(목록) `problems` · `brief` · `read` · `propose` · `prepare` · `add` · `start` · `report` · `verdict` · `direction`. 언제나 에이전트 이름으로 쓰고(`--by`, 기본 `claude`), 사용자만 하는 일(시작 · 종료 · 메시지 · 독자 · 한도 · 순서 · 결정)은 명령이 없다. 쓴 뒤 그 저장소에 커밋해 올린다.
+- **서버 없이 쓰기** (`pnpm agent:problem <저장소> …`, `scripts/agent-problem.mjs`): 앱 · MCP가 닿지 않는 곳(클라우드)에서 에이전트가 같은 함수로 읽고 쓴다. 명령은 MCP 도구와 한 쌍이다: 없음(목록) `problems` · `brief` · `read` · `propose` · `prepare` · `add` · `start` · `report`(`--command` · `--commit` · `--test`) · `verdict`(`--tested pass|fail`) · `direction`. 언제나 에이전트 이름으로 쓰고(`--by`, 기본 `claude`), 사용자만 하는 일(시작 · 종료 · 메시지 · 독자 · 한도 · 순서 · 결정)은 명령이 없다. 쓴 뒤 그 저장소에 커밋해 올린다.
 - **파일을 직접 고쳤을 때:** 위 규칙을 어긴 변경은 `pnpm agent:check`가 잡는다(§15의 `problem-human` · `problem-verdict` · `problem-work`). 읽지 못한 흐름 · 시도 파일은 형식 검사의 오류다.

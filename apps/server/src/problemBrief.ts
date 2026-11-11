@@ -47,7 +47,8 @@ export function briefOf(p: Problem): string {
     : p.stop ? [`멈춤: ${STOP[p.stop]}`] : next.length ? next : ['다음 후보가 없다.']
   return fit(head, [
     { title: '교훈 (폐기한 시도. 같은 길을 다시 가지 않는다):', lines: p.lessons.map((l) => `- ${l.label} ${one(l.lesson, 110)}${l.reopen ? ` (다시 열 조건: ${one(l.reopen, 60)})` : ''}`) },
-    { title: '판정 대기 (일한 쪽이 아닌 쪽이 attempt_verdict):', lines: by('reported').map((a) => line(a, a.worker ? ` · 일한 쪽 ${a.worker}` : '')) },
+    { title: '판정 뒤에 파일이 바뀐 성립 (다시 확인한다):', lines: p.attempts.filter((a) => a.changed?.length).map((a) => line(a, `: ${one(a.changed!.join(', '), 90)}`)) },
+    { title: '판정 대기 (일한 쪽이 아닌 쪽이 attempt_verdict):', lines: by('reported').map((a) => line(a, `${a.worker ? ` · 일한 쪽 ${a.worker}` : ''}${a.test ? ` · 검사 \`${one(a.test, 70)}\`` : ''}`)) },
     { title: '진행:', lines: by('active').map((a) => line(a, a.worker ? ` · ${a.worker}` : '')) },
     { title: '성립:', lines: by('holds').map((a) => line(a, a.result ? `: ${one(a.result, 80)}` : '')) },
     { title: '후보 (순서대로):', lines: by('candidate').map((a) => line(a)) },

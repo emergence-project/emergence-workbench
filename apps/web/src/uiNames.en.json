@@ -995,5 +995,7 @@
   "흐름 창": "Flow dialog",
   "시도 판정 창": "Attempt verdict dialog",
   "흐름 종료 창": "Close flow dialog",
-  "차례 흐름 결정 줄": "Flow decision row in Your turn"
+  "차례 흐름 결정 줄": "Flow decision row in Your turn",
+  "판정 후 변경": "Changed after verdict",
+  "검사 결과": "Test result"
 }

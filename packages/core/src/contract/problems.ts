@@ -3,9 +3,9 @@
  * 파일 형식은 docs/repo-format.md §16, 여기는 앱 서버와 화면 사이의 모양이다. (11/11 결정 "흐름을 시도 나무로 · 메시지 관문")
  */
 import { z } from 'zod'
-import { ATTEMPT_STATES, ATTEMPT_VERDICTS, DIRECTION_VERDICTS, PROBLEM_STATES, PROBLEM_STOPS, REPORT_WHYS } from '../problems.js'
+import { ATTEMPT_STATES, ATTEMPT_VERDICTS, DIRECTION_VERDICTS, PROBLEM_STATES, PROBLEM_STOPS, REPORT_WHYS, TEST_RESULTS } from '../problems.js'
 
-export { ATTEMPT_STATES, ATTEMPT_VERDICTS, DIRECTION_VERDICTS, PROBLEM_STATES, PROBLEM_STOPS, REPORT_WHYS }
+export { ATTEMPT_STATES, ATTEMPT_VERDICTS, DIRECTION_VERDICTS, PROBLEM_STATES, PROBLEM_STOPS, REPORT_WHYS, TEST_RESULTS }
 export const ProblemState = z.enum(PROBLEM_STATES)
 export const AttemptState = z.enum(ATTEMPT_STATES)
 export const ProblemStop = z.enum(PROBLEM_STOPS)
@@ -23,6 +23,8 @@ export const DirectionReport = z.object({
   neither: z.string().optional(),
   decision: z.object({ at: z.string(), verdict: z.enum(DIRECTION_VERDICTS), note: z.string().optional(), limit: z.number().optional() }).strict().optional(),
 }).strict()
+
+export const AttemptRun = z.object({ command: z.string().optional(), commit: z.string().optional() }).strict()
 
 /** 시도 하나 (나무의 마디). label은 화면에 보이는 이름(A · C1), depth는 흐름 바로 아래가 0 */
 export const Attempt = z.object({
@@ -42,8 +44,15 @@ export const Attempt = z.object({
   did: z.string().optional(),
   result: z.string().optional(),
   files: z.array(z.string()),
+  /** 실행: 결과를 낸 명령과 보고할 때의 커밋 (커밋은 비우면 앱이 적는다) */
+  run: AttemptRun.optional(),
+  /** 검사: 판정하는 쪽이 다시 돌리는 명령 */
+  test: z.string().optional(),
   reported: z.string().optional(),
-  verdict: z.object({ at: z.string(), by: z.string(), note: z.string().optional(), check: z.string().optional() }).strict().optional(),
+  /** tested = 검사 명령을 다시 돌린 결과. files = 판정할 때 파일마다의 해시 (앱이 적는다) */
+  verdict: z.object({ at: z.string(), by: z.string(), note: z.string().optional(), check: z.string().optional(), tested: z.enum(TEST_RESULTS).optional(), files: z.record(z.string(), z.string()).optional() }).strict().optional(),
+  /** 판정 뒤에 바뀐 파일 (지금 해시가 판정 때와 다르다). 읽을 때 앱이 계산한다 */
+  changed: z.array(z.string()).optional(),
   lesson: z.string().optional(),
   reopen: z.string().optional(),
   /** all = 이 아래 가지를 모두 해야 끝난다(분해). 없으면 이 가운데 하나(탐색) */
@@ -126,8 +135,10 @@ export const ProblemOpenBody = z.object({ baseHash: hash }).strict()
 export const ProblemCloseBody = z.object({ baseHash: hash, reason: line }).strict()
 /** POST …/problems/:id/attempts: 후보를 늘어놓는다 */
 export const NewAttemptsBody = z.object({ attempts: z.array(z.object({ method: line, parent: z.string().optional(), needs: z.literal('all').optional() }).strict()).min(1).max(12) }).strict()
-export const AttemptReportBody = z.object({ did: line, result: line, files: z.array(z.string()).optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
-export const AttemptVerdictBody = z.object({ result: z.enum(ATTEMPT_VERDICTS), note: line, check: z.string().optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
+/** run: 결과를 낸 명령(과 커밋), test: 판정하는 쪽이 다시 돌릴 검사 명령 */
+export const AttemptReportBody = z.object({ did: line, result: line, files: z.array(z.string()).optional(), run: AttemptRun.optional(), test: z.string().optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
+/** tested: 시도에 검사 명령이 있으면 다시 돌린 결과 (에이전트의 성립에는 pass가 있어야 한다) */
+export const AttemptVerdictBody = z.object({ result: z.enum(ATTEMPT_VERDICTS), note: line, check: z.string().optional(), tested: z.enum(TEST_RESULTS).optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
 export const DirectionReportBody = z.object({ for_yes: z.string().optional(), for_no: z.string().optional(), neither: z.string().optional() }).strict()
 export const DirectionDecisionBody = z.object({ baseHash: hash, verdict: z.enum(DIRECTION_VERDICTS), note: z.string().optional(), limit: z.number().int().min(1).max(99).optional() }).strict()
 

@@ -16,8 +16,8 @@ const usage = [
   '        pnpm agent:problem <폴더> prepare <흐름> [--literature "<키>: <사실 한 줄>"]… [--first-test "…"] [--grading "…"]',
   '        pnpm agent:problem <폴더> add <흐름> "<방법>"… [--under <시도>] [--needs-all]   (후보 늘어놓기)',
   '        pnpm agent:problem <폴더> start <흐름> [시도]                           (시도가 없으면 다음 후보)',
-  '        pnpm agent:problem <폴더> report <흐름> <시도> --did "…" --result "…" [--file <경로>]… [--lesson "…"] [--reopen "…"]',
-  '        pnpm agent:problem <폴더> verdict <흐름> <시도> holds|dropped --note "…" [--check "…"] [--lesson "…"] [--reopen "…"]',
+  '        pnpm agent:problem <폴더> report <흐름> <시도> --did "…" --result "…" [--file <경로>]… [--command "<결과를 낸 명령>"] [--commit <커밋>] [--test "<검사 명령>"] [--lesson "…"] [--reopen "…"]',
+  '        pnpm agent:problem <폴더> verdict <흐름> <시도> holds|dropped --note "…" [--check "…"] [--tested pass|fail] [--lesson "…"] [--reopen "…"]   (검사 명령이 있으면 다시 돌리고 --tested)',
   '        pnpm agent:problem <폴더> direction <흐름> [--for-yes "…"] [--for-no "…"] [--neither "…"]   (방향 보고: 사실만)',
   '  공통: --by <에이전트 이름, 기본 claude>',
 ].join('\n')
@@ -33,7 +33,8 @@ function args() {
         literature: { type: 'string', multiple: true }, 'first-test': { type: 'string' }, grading: { type: 'string' },
         under: { type: 'string' }, 'needs-all': { type: 'boolean' },
         did: { type: 'string' }, result: { type: 'string' }, file: { type: 'string', multiple: true }, lesson: { type: 'string' }, reopen: { type: 'string' },
-        note: { type: 'string' }, check: { type: 'string' },
+        command: { type: 'string' }, commit: { type: 'string' }, test: { type: 'string' },
+        note: { type: 'string' }, check: { type: 'string' }, tested: { type: 'string' },
         'for-yes': { type: 'string' }, 'for-no': { type: 'string' }, neither: { type: 'string' },
       },
     })
@@ -118,15 +119,17 @@ try {
     const [id, aid] = rest
     const p = P.reportAttempt(wb, need(id, '흐름 id'), aidOf(need(aid, '시도 id')), {
       did: need(v.did, '--did (한 일)'), result: need(v.result, '--result (결과, 사실로)'),
-      ...(v.file?.length && { files: v.file }), ...(v.lesson && { lesson: v.lesson }), ...(v.reopen && { reopen: v.reopen }),
+      ...(v.file?.length && { files: v.file }), ...((v.command || v.commit) && { run: { ...(v.command && { command: v.command }), ...(v.commit && { commit: v.commit }) } }), ...(v.test && { test: v.test }),
+      ...(v.lesson && { lesson: v.lesson }), ...(v.reopen && { reopen: v.reopen }),
     }, by)
     console.log(`보고했습니다: ${aidOf(aid).toUpperCase()}. 성립 · 폐기는 일한 쪽이 아닌 쪽이 정합니다. ${now(p)}`)
   } else if (cmd === 'verdict') {
     const [id, aid, result] = rest
     if (result !== 'holds' && result !== 'dropped') fail(`판정은 holds(성립) 또는 dropped(폐기)입니다.\n${usage}`)
+    if (v.tested && v.tested !== 'pass' && v.tested !== 'fail') fail(`--tested는 pass(통과) 또는 fail(실패)입니다.\n${usage}`)
     const p = P.verdictAttempt(wb, need(id, '흐름 id'), aidOf(need(aid, '시도 id')), {
       result, note: need(v.note, '--note (무엇을 다시 돌리거나 읽었고 무엇이 나왔나)'),
-      ...(v.check && { check: v.check }), ...(v.lesson && { lesson: v.lesson }), ...(v.reopen && { reopen: v.reopen }),
+      ...(v.check && { check: v.check }), ...(v.tested && { tested: v.tested }), ...(v.lesson && { lesson: v.lesson }), ...(v.reopen && { reopen: v.reopen }),
     }, by)
     console.log(`판정했습니다: ${aidOf(aid).toUpperCase()} ${ASTATE[result]}. ${now(p)}`)
   } else if (cmd === 'direction') {

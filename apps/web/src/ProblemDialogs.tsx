@@ -59,6 +59,7 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
 }) {
   const [note, setNote] = useState('')
   const [check, setCheck] = useState('')
+  const [tested, setTested] = useState<'pass' | 'fail' | ''>('')
   const [lesson, setLesson] = useState(attempt.lesson ?? '')
   const [reopen, setReopen] = useState(attempt.reopen ?? '')
   const [busy, setBusy] = useState(false)
@@ -66,11 +67,11 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
   const holds = result === 'holds'
   // 해 보지 않은 후보를 닫을 때는 교훈이 없어도 된다
   const untried = attempt.state === 'candidate'
-  const ready = !!note.trim() && (holds ? !!check.trim() : untried || !!lesson.trim())
+  const ready = !!note.trim() && (holds ? !!check.trim() && tested !== 'fail' : untried || !!lesson.trim())
   const save = async () => {
     setBusy(true); setError(null)
     try {
-      onDone(await problemsApi(rid).verdict(problem.id, attempt.id, { result, note: note.trim(), ...(holds && { check: check.trim() }), ...(!holds && lesson.trim() && { lesson: lesson.trim() }), ...(!holds && reopen.trim() && { reopen: reopen.trim() }) }))
+      onDone(await problemsApi(rid).verdict(problem.id, attempt.id, { result, note: note.trim(), ...(holds && { check: check.trim() }), ...(tested && { tested }), ...(!holds && lesson.trim() && { lesson: lesson.trim() }), ...(!holds && reopen.trim() && { reopen: reopen.trim() }) }))
     } catch (e) { setError(errorOf(e)); setBusy(false) }
   }
   const title = holds ? t(`${attempt.label} 성립`, `${attempt.label} holds`) : t(`${attempt.label} 폐기`, `Drop ${attempt.label}`)
@@ -83,6 +84,13 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
       <p className="pb-form-hint">{attempt.method}</p>
       <label className="field"><span>{untried ? t('이유', 'Reason') : t('무엇을 다시 돌리거나 읽었고 무엇이 나왔나', 'What you reran or read, and what came out')}</span>
         <textarea rows={3} autoFocus value={note} onChange={(e) => setNote(e.target.value)} /></label>
+      {attempt.test && !untried && <div className="field" data-ui="검사 결과"><span>{t('검사 명령을 다시 돌린 결과', 'Result of rerunning the test command')}</span>
+        <code className="pb-test-cmd">{attempt.test}</code>
+        <div className="segmented" role="group" aria-label={t('검사 결과', 'Test result')}>
+          {([['', t('돌리지 않음', 'Not rerun')], ['pass', t('통과', 'Passed')], ['fail', t('실패', 'Failed')]] as const).map(([k, name]) =>
+            <button key={k} type="button" className={tested === k ? 'on' : ''} aria-pressed={tested === k} onClick={() => setTested(k)}>{name}</button>)}
+        </div>
+        {holds && tested === 'fail' && <span className="error-text">{t('검사가 실패했으면 성립이 아닙니다', 'A failed test is not a holds verdict')}</span>}</div>}
       {holds && <label className="field"><span>{t('맞춘 조건 밖의 확인 (다른 크기 · 다른 매개변수 · 독립 구현 · 극한)', 'Check outside the fitted condition (another size, other parameters, an independent implementation, a limit)')}</span>
         <textarea rows={2} value={check} onChange={(e) => setCheck(e.target.value)} /></label>}
       {!holds && <>

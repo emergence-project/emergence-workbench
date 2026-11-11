@@ -85,6 +85,7 @@ export function problemChecker(repo: string, add: Add) {
     if (a.worker && a.verdict.by === a.worker) add('problem-verdict', file, `일한 쪽(${a.worker})이 자기 시도를 판정했습니다. 판정은 다른 에이전트나 사용자가 원자료로 합니다. 판정 대기(state: reported)로 되돌리세요.`, `The worker (${a.worker}) judged its own attempt. Another agent or the user judges from the raw data. Set it back to reported.`)
     if (a.worker && (!a.did || !a.result)) add('problem-verdict', file, '보고(did · result)가 없는 시도를 판정했습니다.', 'An attempt without a report (did, result) was judged.')
     if (a.state === 'holds' && !a.verdict.check) add('problem-verdict', file, '성립인데 맞춘 조건 밖의 확인(verdict.check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한)이 없습니다.', 'Holds without a check outside the fitted condition (verdict.check: another size, other parameters, an independent implementation or a limit).')
+    if (a.state === 'holds' && a.test && a.verdict.by !== USER && a.verdict.tested !== 'pass') add('problem-verdict', file, `검사 명령이 있는 시도를 다시 돌린 결과(verdict.tested: pass) 없이 성립으로 했습니다: ${a.test}`, `Holds on an attempt with a test command, without the rerun result (verdict.tested: pass): ${a.test}`)
     if (a.state === 'dropped' && a.worker && !a.lesson) add('problem-verdict', file, '폐기인데 교훈 한 줄(lesson)이 없습니다.', 'Dropped without a one-line lesson (lesson).')
   }
 

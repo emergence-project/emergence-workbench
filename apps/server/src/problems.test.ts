@@ -1,8 +1,10 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
 import { BRIEF_MAX } from '@rw/core'
+import { fingerprint, headCommit } from './problemFiles.js'
 import { nextAttemptId, parseAttempt, parseProblem, problemSlug } from './problems.js'
 import { R, app, repo, useSampleApp } from './testkit.js'
 
@@ -112,6 +114,49 @@ describe('problems and the attempt tree (workbench/problems/)', () => {
     const row = (await ok('GET', P)).problems.find((x: { id: string }) => x.id === id)
     expect(row).toMatchObject({ state: 'open', used: 2, waiting: false })
     expect(YAML.parse(fs.readFileSync(file(id, 'a.yaml'), 'utf8'))).toMatchObject({ format: 1, state: 'dropped', worker: 'claude-code', verdict: { by: 'codex' }, lesson: 'CTM does not converge for the gapless case.' })
+  })
+
+  it('keeps the run and test of a report, asks agents for the rerun result, and marks files changed after a holds verdict', async () => {
+    const { id } = await opened('Is the gap closed at the M point?')
+    const A = (p: { attempts: { id: string }[] }) => p.attempts.find((x) => x.id === 'a') as Record<string, unknown>
+    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'LSWT on a 24x24 mesh' }] }, CLAUDE)
+    await ok('POST', `${P}/${id}/attempts/a/start`, undefined, CLAUDE)
+    fs.mkdirSync(path.join(repo, 'code', 'data'), { recursive: true })
+    fs.writeFileSync(path.join(repo, 'code', 'gap.py'), 'print(0.0)\n')
+    fs.writeFileSync(path.join(repo, 'code', 'data', 'bands.csv'), 'k,e\n0,0\n')
+    const { problem: reported } = await ok('POST', `${P}/${id}/attempts/a/report`, { did: 'Ran the script.', result: 'Gap 0.0 at M.', files: ['code/gap.py', 'code/data', 'code/missing.dat'], run: { command: 'python code/gap.py', commit: 'abc1234' }, test: 'pytest code/test_gap.py' }, CLAUDE)
+    expect(A(reported)).toMatchObject({ run: { command: 'python code/gap.py', commit: 'abc1234' }, test: 'pytest code/test_gap.py' })
+    expect((await ok('GET', `${P}/${id}/brief`)).markdown).toContain('검사 `pytest code/test_gap.py`')
+    // 검사 명령이 있으면 에이전트의 성립에는 다시 돌린 결과(통과)가 있어야 하고, 실패면 누구도 성립을 주지 못한다
+    const bare = await call('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Read the code.', check: 'A 36x36 mesh' }, CODEX)
+    expect(bare.statusCode).toBe(400)
+    expect(bare.json().error).toContain('pytest code/test_gap.py')
+    expect((await call('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Reran.', check: 'A 36x36 mesh', tested: 'fail' })).statusCode).toBe(400)
+    const { problem: held } = await ok('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Reran the test.', check: 'A 36x36 mesh: 0.0', tested: 'pass' }, CODEX)
+    expect(A(held).verdict).toMatchObject({ tested: 'pass', files: { 'code/gap.py': expect.stringMatching(/^[0-9a-f]{12}$/), 'code/data': expect.stringMatching(/^[0-9a-f]{12}$/), 'code/missing.dat': '-' } })
+    expect(A(held).changed).toBeUndefined()
+    expect(YAML.parse(fs.readFileSync(file(id, 'a.yaml'), 'utf8'))).toMatchObject({ run: { command: 'python code/gap.py', commit: 'abc1234' }, test: 'pytest code/test_gap.py', verdict: { tested: 'pass' } })
+    // 판정 뒤에 파일이 바뀌면(폴더 안 파일 포함) 읽을 때 알린다
+    fs.writeFileSync(path.join(repo, 'code', 'gap.py'), 'print(0.125)\n')
+    fs.writeFileSync(path.join(repo, 'code', 'data', 'bands.csv'), 'k,e\n0,0\n1,0.5\n')
+    expect(A((await ok('GET', `${P}/${id}`)).problem).changed).toEqual(['code/gap.py', 'code/data'])
+    expect((await ok('GET', `${P}/${id}/brief`)).markdown).toContain('판정 뒤에 파일이 바뀐 성립')
+  })
+
+  it('reads the commit at report time from .git without calling git', () => {
+    const top = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-head-'))
+    expect(headCommit(top)).toBeUndefined()
+    fs.mkdirSync(path.join(top, '.git', 'refs', 'heads'), { recursive: true })
+    fs.writeFileSync(path.join(top, '.git', 'HEAD'), 'ref: refs/heads/main\n')
+    fs.writeFileSync(path.join(top, '.git', 'refs', 'heads', 'main'), `${'a1b2c3d4e5f6'.repeat(4).slice(0, 40)}\n`)
+    expect(headCommit(top)).toBe('a1b2c3d4e5f6')
+    fs.rmSync(path.join(top, '.git', 'refs', 'heads', 'main'))
+    fs.writeFileSync(path.join(top, '.git', 'packed-refs'), `# pack-refs with: peeled fully-peeled sorted\n${'0f'.repeat(20)} refs/heads/main\n`)
+    expect(headCommit(top)).toBe('0f0f0f0f0f0f')
+    fs.writeFileSync(path.join(top, '.git', 'HEAD'), `${'9'.repeat(40)}\n`)
+    expect(headCommit(top)).toBe('9'.repeat(12))
+    expect(fingerprint(top, '../outside.txt')).toBe('-')
+    fs.rmSync(top, { recursive: true, force: true })
   })
 
   it('stops at the limit until the user decides on a direction report', async () => {
