@@ -79,13 +79,14 @@ describe('problems and the attempt tree (workbench/problems/)', () => {
     await ok('POST', `${P}/${id}/attempts/b/start`, undefined, CLAUDE)
     // 다른 에이전트는 남의 시도를 보고하지 못한다
     expect((await call('POST', `${P}/${id}/attempts/b/report`, { did: 'x', result: 'y' }, CODEX)).statusCode).toBe(403)
-    const { problem: reported } = await ok('POST', `${P}/${id}/attempts/b/report`, { did: 'Built C on L = 16, 24.', result: 'Corner term 0.118 at both sizes.', files: ['workbench/notes/corner/note.md'] }, CLAUDE)
-    expect(reported.attempts.find((a: { id: string }) => a.id === 'b')).toMatchObject({ state: 'reported', worker: 'claude-code', files: ['workbench/notes/corner/note.md'] })
+    const { problem: reported } = await ok('POST', `${P}/${id}/attempts/b/report`, { did: 'Built C on L = 16, 24.', result: 'Corner term 0.118 at both sizes.', statement: 'The corner term does not depend on the size.', condition: 'Free fermions, L = 16 and 24', side: 'for_yes', files: ['workbench/notes/corner/note.md'] }, CLAUDE)
+    expect(reported.attempts.find((a: { id: string }) => a.id === 'b')).toMatchObject({ state: 'reported', worker: 'claude-code', statement: 'The corner term does not depend on the size.', side: 'for_yes', files: ['workbench/notes/corner/note.md'] })
     // 작업한 쪽은 판정하지 못하고, 성립에는 교차 검증이 있어야 한다
     expect((await call('POST', `${P}/${id}/attempts/b/verdict`, { result: 'holds', note: 'ok', check: 'L = 32' }, CLAUDE)).statusCode).toBe(403)
     expect((await call('POST', `${P}/${id}/attempts/b/verdict`, { result: 'holds', note: 'reran' }, CODEX)).statusCode).toBe(400)
     const { problem: held } = await ok('POST', `${P}/${id}/attempts/b/verdict`, { result: 'holds', note: 'Reran from the raw data.', check: 'L = 32 and an anisotropic cell: 0.118, 0.119' }, CODEX)
-    expect(held.attempts.find((a: { id: string }) => a.id === 'b')).toMatchObject({ state: 'holds', verdict: { by: 'codex', check: 'L = 32 and an anisotropic cell: 0.118, 0.119' } })
+    expect(held.attempts.find((a: { id: string }) => a.id === 'b')).toMatchObject({ state: 'holds', verdict: { by: 'codex', check: 'L = 32 and an anisotropic cell: 0.118, 0.119', claim: expect.stringMatching(/^[0-9a-f]{12}$/) } })
+    expect(held.basis).toEqual({ yes: ['b'], no: [] })
     expect((await call('POST', `${P}/${id}/attempts/b/verdict`, { result: 'dropped', note: 'again', lesson: 'x' }, CODEX)).statusCode).toBe(409)
 
     // 성립한 가지 아래로 이어 간다: b1. 폐기에는 폐기 사유가 있어야 하고 폐기 사유는 문제 머리에 모인다
@@ -109,6 +110,7 @@ describe('problems and the attempt tree (workbench/problems/)', () => {
     expect(brief).toContain('CTM does not converge')
     expect(brief).toContain('다시 열 조건: A gapped variant')
     expect(brief).toContain('다음: B1')
+    expect(brief).toContain('- B [예 근거] The corner term does not depend on the size. (조건: Free fermions, L = 16 and 24)')
     expect(Buffer.byteLength(brief, 'utf8')).toBeLessThanOrEqual(BRIEF_MAX)
     // 목록과 STATUS에도 실린다
     const row = (await ok('GET', P)).problems.find((x: { id: string }) => x.id === id)
@@ -124,7 +126,7 @@ describe('problems and the attempt tree (workbench/problems/)', () => {
     fs.mkdirSync(path.join(repo, 'code', 'data'), { recursive: true })
     fs.writeFileSync(path.join(repo, 'code', 'gap.py'), 'print(0.0)\n')
     fs.writeFileSync(path.join(repo, 'code', 'data', 'bands.csv'), 'k,e\n0,0\n')
-    const { problem: reported } = await ok('POST', `${P}/${id}/attempts/a/report`, { did: 'Ran the script.', result: 'Gap 0.0 at M.', files: ['code/gap.py', 'code/data', 'code/missing.dat'], run: { command: 'python code/gap.py', commit: 'abc1234' }, test: 'pytest code/test_gap.py' }, CLAUDE)
+    const { problem: reported } = await ok('POST', `${P}/${id}/attempts/a/report`, { did: 'Ran the script.', result: 'Gap 0.0 at M.', statement: 'The gap is closed at M.', side: 'for_yes', files: ['code/gap.py', 'code/data', 'code/missing.dat'], run: { command: 'python code/gap.py', commit: 'abc1234' }, test: 'pytest code/test_gap.py' }, CLAUDE)
     expect(A(reported)).toMatchObject({ run: { command: 'python code/gap.py', commit: 'abc1234' }, test: 'pytest code/test_gap.py' })
     expect((await ok('GET', `${P}/${id}/brief`)).markdown).toContain('검사 `pytest code/test_gap.py`')
     // 검사 명령이 있으면 에이전트의 성립에는 다시 돌린 결과(통과)가 있어야 하고, 실패면 누구도 성립을 주지 못한다
@@ -140,7 +142,101 @@ describe('problems and the attempt tree (workbench/problems/)', () => {
     fs.writeFileSync(path.join(repo, 'code', 'gap.py'), 'print(0.125)\n')
     fs.writeFileSync(path.join(repo, 'code', 'data', 'bands.csv'), 'k,e\n0,0\n1,0.5\n')
     expect(A((await ok('GET', `${P}/${id}`)).problem).changed).toEqual(['code/gap.py', 'code/data'])
-    expect((await ok('GET', `${P}/${id}/brief`)).markdown).toContain('판정 뒤에 파일이 바뀐 성립')
+    expect((await ok('GET', `${P}/${id}/brief`)).markdown).toContain('판정 뒤에 파일이나 주장이 바뀐 성립')
+    // 판정 뒤에 진술을 고치면(파일을 직접) 그것도 알린다
+    const a = file(id, 'a.yaml')
+    fs.writeFileSync(a, fs.readFileSync(a, 'utf8').replace('The gap is closed at M.', 'The gap is closed everywhere.'))
+    expect(A((await ok('GET', `${P}/${id}`)).problem).restated).toBe(true)
+  })
+
+  it('judges a statement, not a method: no statement cannot hold, and the refusal is logged as an exception', async () => {
+    const { id } = await opened('Is the claim needed for a holds verdict?')
+    const X = `${R}/problem-exceptions`
+    const mine = async () => (await ok('GET', X)).exceptions.filter((e: { problem?: string }) => e.problem === id)
+    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'Count by hand' }] }, CLAUDE)
+    await ok('POST', `${P}/${id}/attempts/a/start`, undefined, CLAUDE)
+    // 진술에는 쪽이, 쪽 · 조건에는 진술이 있어야 한다
+    expect((await call('POST', `${P}/${id}/attempts/a/report`, { did: 'x', result: 'y', statement: 'It is three.' }, CLAUDE)).statusCode).toBe(400)
+    expect((await call('POST', `${P}/${id}/attempts/a/report`, { did: 'x', result: 'y', side: 'for_yes' }, CLAUDE)).statusCode).toBe(400)
+    await ok('POST', `${P}/${id}/attempts/a/report`, { did: 'Counted.', result: 'Three.' }, CLAUDE)
+    const bare = await call('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Counted again.', check: 'Another graph' }, CODEX)
+    expect(bare.statusCode).toBe(409)
+    expect(bare.json().error).toContain('진술이 없는 시도')
+    // 같은 날 같은 자리의 같은 거절은 한 줄만
+    await call('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Again.', check: 'Another graph' }, CODEX)
+    expect(await mine()).toMatchObject([{ kind: 'refused', rule: 'no-claim', by: 'codex', attempt: 'a' }])
+    expect((await call('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Mine.', check: 'x' }, CLAUDE)).statusCode).toBe(403)
+    expect((await mine()).map((e: { rule: string }) => e.rule).sort()).toEqual(['no-claim', 'self-verdict'])
+    // 에이전트와 사용자가 적는 한 줄. 거절은 앱만 적는다
+    const { exception: e } = await ok('POST', X, { kind: 'no-claim', what: 'The result is a table of twelve numbers with no single sentence.', instead: 'Reported without a statement.', problem: id, attempt: 'A' }, CLAUDE)
+    expect(e).toMatchObject({ kind: 'no-claim', by: 'claude-code', problem: id, attempt: 'a', instead: 'Reported without a statement.' })
+    expect(YAML.parse(fs.readFileSync(file('_exceptions', `${e.id}.yaml`), 'utf8'))).toMatchObject({ format: 1, kind: 'no-claim', problem: id })
+    expect((await call('POST', X, { kind: 'refused', what: 'x' }, CLAUDE)).statusCode).toBe(400)
+    expect((await call('POST', X, { kind: 'other', what: 'x', problem: 'no-such-flow' })).statusCode).toBe(400)
+    expect((await ok('POST', X, { kind: 'needs-user', what: 'I wanted to accept a claim before closing.' })).exception.by).toBe('user')
+    // 예외 폴더는 흐름으로 읽히지 않는다
+    expect((await ok('GET', P)).problems.some((p: { id: string }) => p.id.startsWith('_'))).toBe(false)
+  })
+
+  it('closes with an answer only after the user approves every claim the answer rests on', async () => {
+    const { id, hash } = await opened('Does the answer rest on approved claims?')
+    const A = (p: { attempts: { id: string }[] }, aid: string) => p.attempts.find((x) => x.id === aid) as Record<string, unknown>
+    const work = async (aid: string, side: string, statement: string) => {
+      await ok('POST', `${P}/${id}/attempts/${aid}/start`, undefined, CLAUDE)
+      await ok('POST', `${P}/${id}/attempts/${aid}/report`, { did: 'Did it.', result: 'Numbers.', statement, side }, CLAUDE)
+      return (await ok('POST', `${P}/${id}/attempts/${aid}/verdict`, { result: 'holds', note: 'Reran.', check: 'Another size' }, CODEX)).problem
+    }
+    // 답을 받치는 성립한 주장이 없으면 답과 함께 닫지 못한다 (거절은 예외 기록에)
+    const none = await call('POST', `${P}/${id}/close`, { baseHash: hash, answer: 'yes', reviews: [] })
+    expect(none.statusCode).toBe(409)
+    expect((await ok('GET', `${R}/problem-exceptions`)).exceptions.find((e: { problem?: string }) => e.problem === id)).toMatchObject({ kind: 'refused', rule: 'no-basis', by: 'user' })
+    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'First' }, { method: 'Second' }] }, CLAUDE)
+    await work('a', 'neither', 'The lattice is bipartite.')
+    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'Deeper', parent: 'a' }] }, CLAUDE)
+    await work('a1', 'for_yes', 'The gap is zero at L = 24.')
+    const p = await work('b', 'for_no', 'The gap is finite on the torus.')
+    // 답이 기대는 것: 그 쪽을 받치는 성립한 시도와 그 위의 성립한 시도
+    expect(p.basis).toEqual({ yes: ['a', 'a1'], no: ['b'] })
+    expect((await call('POST', `${P}/${id}/close`, { baseHash: p.hash, answer: 'yes' }, CLAUDE)).statusCode).toBe(403)
+    const partial = await call('POST', `${P}/${id}/close`, { baseHash: p.hash, answer: 'yes', reviews: [{ id: 'a', verdict: 'approve' }] })
+    expect(partial.statusCode).toBe(400)
+    expect(partial.json().error).toContain('A1')
+    expect((await call('POST', `${P}/${id}/close`, { baseHash: p.hash, answer: 'yes', reviews: [{ id: 'a', verdict: 'approve' }, { id: 'a1', verdict: 'return' }] })).statusCode).toBe(400)
+    // 수정이 있으면 닫지 않고 돌려보낸다. 승인은 남는다
+    const { problem: back } = await ok('POST', `${P}/${id}/close`, { baseHash: p.hash, answer: 'yes', reviews: [{ id: 'a', verdict: 'approve' }, { id: 'a1', verdict: 'return', note: 'Say which boundary condition.' }] })
+    expect(back.state).toBe('open')
+    expect(A(back, 'a')).toMatchObject({ state: 'holds', accepted: { by: 'user' } })
+    expect(A(back, 'a1')).toMatchObject({ state: 'active', statement: 'The gap is zero at L = 24.', returned: { by: 'user', note: 'Say which boundary condition.' } })
+    expect(A(back, 'a1').verdict).toBeUndefined()
+    expect(back.basis.yes).toEqual([])
+    expect((await ok('GET', `${P}/${id}/brief`)).markdown).toContain('사용자가 돌려보낸 시도')
+    await ok('POST', `${P}/${id}/attempts/a1/report`, { did: 'Reran with open boundaries.', result: 'Numbers.', statement: 'The gap is zero at L = 24 with open boundaries.', side: 'for_yes' }, CLAUDE)
+    const { problem: again } = await ok('POST', `${P}/${id}/attempts/a1/verdict`, { result: 'holds', note: 'Reran.', check: 'L = 36' }, CODEX)
+    // 답 없이 닫으려면 사유가 있어야 한다
+    expect((await call('POST', `${P}/${id}/close`, { baseHash: again.hash })).statusCode).toBe(400)
+    const { problem: closed } = await ok('POST', `${P}/${id}/close`, { baseHash: again.hash, answer: 'yes', reviews: [{ id: 'A', verdict: 'approve' }, { id: 'a1', verdict: 'approve' }] })
+    expect(closed).toMatchObject({ state: 'closed', answer: 'yes', closed: { answer: 'yes', basis: ['a', 'a1'] } })
+    expect(A(closed, 'a1')).toMatchObject({ accepted: { by: 'user' } })
+    expect(A(closed, 'b').accepted).toBeUndefined()
+    expect((await ok('GET', P)).problems.find((x: { id: string }) => x.id === id)).toMatchObject({ state: 'closed', answer: 'yes' })
+    expect(YAML.parse(fs.readFileSync(file(id, 'problem.yaml'), 'utf8')).closed).toMatchObject({ answer: 'yes', basis: ['a', 'a1'] })
+    expect((await ok('GET', `${P}/${id}/brief`)).markdown).toContain('종료 · 답 예')
+  })
+
+  it('rejects a claim when closing (it is dropped), and closing with a pending direction report records the decision', async () => {
+    const { id } = await opened('Does a reject drop the claim?')
+    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'Only' }] }, CLAUDE)
+    await ok('POST', `${P}/${id}/attempts/a/start`, undefined, CLAUDE)
+    await ok('POST', `${P}/${id}/attempts/a/report`, { did: 'Did it.', result: 'Numbers.', statement: 'No gap.', side: 'for_no' }, CLAUDE)
+    const { problem: p } = await ok('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Reran.', check: 'Another size' }, CODEX)
+    const { problem: rejected } = await ok('POST', `${P}/${id}/close`, { baseHash: p.hash, answer: 'no', reviews: [{ id: 'a', verdict: 'reject', note: 'The fit window is too narrow.' }] })
+    expect(rejected.state).toBe('open')
+    expect(rejected.attempts[0]).toMatchObject({ state: 'dropped', lesson: 'The fit window is too narrow.', verdict: { by: 'user' } })
+    const { problem: asked } = await ok('POST', `${P}/${id}/report`, { neither: 'The only claim was rejected.' }, CLAUDE)
+    const { problem: closed } = await ok('POST', `${P}/${id}/close`, { baseHash: asked.hash, reason: 'Nothing left to try.' })
+    expect(closed).toMatchObject({ state: 'closed', waiting: false, closed: { reason: 'Nothing left to try.' } })
+    expect(closed.answer).toBeUndefined()
+    expect(closed.reports[0].decision).toMatchObject({ verdict: 'close', note: 'Nothing left to try.' })
   })
 
   it('reads the commit at report time from .git without calling git', () => {
@@ -218,6 +314,10 @@ describe('problems and the attempt tree (workbench/problems/)', () => {
     expect(parseProblem(': : :')).toBeNull()
     expect(parseAttempt('a', 'method: M\nstate: reported\nworker: codex\nfiles: [x.md]\n')).toMatchObject({ id: 'a', state: 'reported', by: 'user', worker: 'codex', files: ['x.md'] })
     expect(parseAttempt('a', 'state: holds\n')).toBeNull()
+    // 조건과 쪽은 진술에 딸린 칸이고, 답은 참 · 거짓으로 바뀌어 적힌 것도 읽는다
+    expect(parseAttempt('a', 'method: M\ncondition: C\nside: for_no\n')).not.toHaveProperty('side')
+    expect(parseAttempt('a', 'method: M\nstatement: S\nside: sideways\naccepted: {at: 2026-11-11T10:00, by: user}\n')).toMatchObject({ statement: 'S', accepted: { by: 'user' } })
+    expect(parseProblem('question: Q\nstate: closed\nclosed: {at: 2026-11-11T10:00, answer: true, basis: [a, b1]}\n')?.closed).toEqual({ at: '2026-11-11T10:00', answer: 'yes', basis: ['a', 'b1'] })
     expect(nextAttemptId(undefined, new Set(['a', 'b']))).toBe('c')
     expect(nextAttemptId('c', new Set(['c', 'c1']))).toBe('c2')
     expect(nextAttemptId('c1', new Set())).toBe('c1a')

@@ -3,128 +3,20 @@
 // 시도의 성립 · 폐기는 작업한 쪽이 아닌 쪽이 판정하고, 폐기 사유는 흐름 머리에 모인다. 한도나 정체에서는 방향 보고를 내고 사용자가 계속 · 좁히기 · 종료를 정한다.
 import fs from 'node:fs'
 import path from 'node:path'
-import YAML from 'yaml'
-import { ATTEMPT_STATES, DIRECTION_VERDICTS, PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STATES, PROBLEM_STREAK, REPORT_WHYS, TEST_RESULTS, localDate, stamp } from '@rw/core'
-import type { Attempt, AttemptReportBody, AttemptState, AttemptVerdictBody, DirectionDecisionBody, DirectionReport, DirectionReportBody, Literature, NewAttemptsBody, NewProblemBody, Problem, ProblemList, ProblemPatchBody, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
+import { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STREAK, localDate, stamp } from '@rw/core'
+import type { Attempt, AttemptReportBody, AttemptState, AttemptVerdictBody, DirectionDecisionBody, DirectionReport, DirectionReportBody, NewAttemptsBody, NewProblemBody, Problem, ProblemCloseBody, ProblemList, ProblemPatchBody, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { changedSince, fingerprints, headCommit } from './problemFiles.js'
+import { logRefusal } from './problemExceptions.js'
+import { USER, basisOf, claimHash, dumpAttempt, dumpProblem, parseAttempt, parseProblem, type RawAttempt, type RawProblem } from './problemFormat.js'
 import { t } from './i18n.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 
+export { PROBLEM_FORMAT, USER, parseAttempt, parseProblem, type RawAttempt, type RawProblem } from './problemFormat.js'
 export const PROBLEMS_DIR = 'problems'
 export const PROBLEM_FILE = 'problem.yaml'
-export const PROBLEM_FORMAT = 1
-/** 화면에서 한 일의 이름 (에이전트는 MCP가 붙이는 x-rw-agent의 이름) */
-export const USER = 'user'
 const ID = /^[a-z0-9][a-z0-9-]{0,60}$/
 const ATTEMPT_ID = /^[a-z][a-z0-9]{0,11}$/
-
-// ---------- 읽기 ----------
-
-export interface RawProblem {
-  question: string; state: ProblemState; by: string; created?: string; source?: string
-  if_yes?: string; if_no?: string; reader?: string; literature: Literature[]; first_test?: string; grading?: string
-  limit: number; opened?: string; closed?: { at: string; reason?: string }; order: string[]; needs?: 'all'; reports: DirectionReport[]
-  /** 앱이 모르는 칸: 그대로 다시 쓴다 (다른 컴퓨터의 새 판이 쓴 칸을 잃지 않게) */
-  extra: Record<string, unknown>
-}
-export interface RawAttempt {
-  id: string; method: string; parent?: string; state: AttemptState; by: string; created?: string
-  worker?: string; started?: string; did?: string; result?: string; files: string[]; run?: { command?: string; commit?: string }; test?: string; reported?: string
-  verdict?: { at: string; by: string; note?: string; check?: string; tested?: 'pass' | 'fail'; files?: Record<string, string> }; lesson?: string; reopen?: string; needs?: 'all'
-  extra: Record<string, unknown>
-}
-
-const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date) ? Object.fromEntries(Object.entries(v)) : {})
-const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
-const str = (v: unknown): string | undefined => (typeof v === 'string' ? v.trim() || undefined : typeof v === 'number' ? String(v) : v instanceof Date ? v.toISOString().slice(0, 16) : undefined)
-const oneOf = <T extends string>(list: readonly T[], v: unknown): T | undefined => list.find((x) => x === v)
-const some = <T>(xs: (T | undefined)[]): T[] => xs.filter((x): x is T => x !== undefined)
-const rest = (o: Record<string, unknown>, known: readonly string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => !known.includes(k)))
-
-const PROBLEM_KEYS = ['format', 'question', 'state', 'by', 'created', 'source', 'if_yes', 'if_no', 'reader', 'literature', 'first_test', 'grading', 'limit', 'opened', 'closed', 'order', 'needs', 'reports']
-const ATTEMPT_KEYS = ['format', 'method', 'parent', 'state', 'by', 'created', 'worker', 'started', 'did', 'result', 'files', 'run', 'test', 'reported', 'verdict', 'lesson', 'reopen', 'needs']
-
-function literatureOf(v: unknown): Literature | undefined {
-  const r = rec(v)
-  const ref = str(r.ref), fact = str(r.fact)
-  return ref && fact ? { ref, fact, ...(str(r.by) && { by: str(r.by) }), ...(str(r.at) && { at: str(r.at) }) } : undefined
-}
-function reportOf(v: unknown): DirectionReport | undefined {
-  const r = rec(v)
-  const at = str(r.at), by = str(r.by)
-  if (!at || !by) return undefined
-  const d = rec(r.decision)
-  const verdict = oneOf(DIRECTION_VERDICTS, d.verdict), dat = str(d.at)
-  return {
-    at, by, why: oneOf(REPORT_WHYS, r.why) ?? 'asked',
-    ...(str(r.for_yes) && { for_yes: str(r.for_yes) }), ...(str(r.for_no) && { for_no: str(r.for_no) }), ...(str(r.neither) && { neither: str(r.neither) }),
-    ...(verdict && dat && { decision: { at: dat, verdict, ...(str(d.note) && { note: str(d.note) }), ...(typeof d.limit === 'number' && { limit: d.limit }) } }),
-  }
-}
-
-/** 사람이 고친 파일도 읽는다: 모르는 값은 기본값으로. 읽지 못하면 null */
-export function parseProblem(text: string): RawProblem | null {
-  let data: unknown
-  try { data = YAML.parse(text) } catch { return null }
-  const o = rec(data)
-  const question = str(o.question)
-  if (!question) return null
-  const closed = rec(o.closed)
-  const limit = typeof o.limit === 'number' && o.limit >= 1 ? Math.floor(o.limit) : PROBLEM_LIMIT
-  return {
-    question, state: oneOf(PROBLEM_STATES, o.state) ?? 'draft', by: str(o.by) ?? USER,
-    ...(str(o.created) && { created: str(o.created) }), ...(str(o.source) && { source: str(o.source) }),
-    ...(str(o.if_yes) && { if_yes: str(o.if_yes) }), ...(str(o.if_no) && { if_no: str(o.if_no) }), ...(str(o.reader) && { reader: str(o.reader) }),
-    literature: some(arr(o.literature).map(literatureOf)),
-    ...(str(o.first_test) && { first_test: str(o.first_test) }), ...(str(o.grading) && { grading: str(o.grading) }),
-    limit, ...(str(o.opened) && { opened: str(o.opened) }),
-    ...(str(closed.at) && { closed: { at: str(closed.at)!, ...(str(closed.reason) && { reason: str(closed.reason) }) } }),
-    order: some(arr(o.order).map(str)), ...(o.needs === 'all' && { needs: 'all' as const }),
-    reports: some(arr(o.reports).map(reportOf)), extra: rest(o, PROBLEM_KEYS),
-  }
-}
-
-export function parseAttempt(id: string, text: string): RawAttempt | null {
-  let data: unknown
-  try { data = YAML.parse(text) } catch { return null }
-  const o = rec(data)
-  const method = str(o.method)
-  if (!method) return null
-  const v = rec(o.verdict)
-  const vat = str(v.at), vby = str(v.by)
-  const run = rec(o.run), command = str(run.command), commit = str(run.commit)
-  const tested = oneOf(TEST_RESULTS, v.tested)
-  const marks = Object.fromEntries(Object.entries(rec(v.files)).flatMap(([f, h]) => { const s = str(h); return s ? [[f, s]] : [] }))
-  return {
-    id, method, ...(str(o.parent) && { parent: str(o.parent) }), state: oneOf(ATTEMPT_STATES, o.state) ?? 'candidate', by: str(o.by) ?? USER,
-    ...(str(o.created) && { created: str(o.created) }), ...(str(o.worker) && { worker: str(o.worker) }), ...(str(o.started) && { started: str(o.started) }),
-    ...(str(o.did) && { did: str(o.did) }), ...(str(o.result) && { result: str(o.result) }), files: some(arr(o.files).map(str)),
-    ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }), ...(str(o.test) && { test: str(o.test) }),
-    ...(str(o.reported) && { reported: str(o.reported) }),
-    ...(vat && vby && { verdict: { at: vat, by: vby, ...(str(v.note) && { note: str(v.note) }), ...(str(v.check) && { check: str(v.check) }), ...(tested && { tested }), ...(Object.keys(marks).length && { files: marks }) } }),
-    ...(str(o.lesson) && { lesson: str(o.lesson) }), ...(str(o.reopen) && { reopen: str(o.reopen) }), ...(o.needs === 'all' && { needs: 'all' as const }),
-    extra: rest(o, ATTEMPT_KEYS),
-  }
-}
-
-// ---------- 쓰기 ----------
-
-const dump = (v: Record<string, unknown>) => YAML.stringify(v, { lineWidth: 0 })
-/** 기본값(빈 목록 · 기본 한도)은 적지 않는다. 사람이 읽기 쉽게 칸 순서를 지킨다 */
-export const dumpProblem = (p: RawProblem) => dump({
-  format: PROBLEM_FORMAT, question: p.question, state: p.state, by: p.by, ...(p.created && { created: p.created }), ...(p.source && { source: p.source }),
-  ...(p.if_yes && { if_yes: p.if_yes }), ...(p.if_no && { if_no: p.if_no }), ...(p.reader && { reader: p.reader }),
-  ...(p.literature.length && { literature: p.literature }), ...(p.first_test && { first_test: p.first_test }), ...(p.grading && { grading: p.grading }),
-  ...(p.limit !== PROBLEM_LIMIT && { limit: p.limit }), ...(p.opened && { opened: p.opened }), ...(p.closed && { closed: p.closed }),
-  ...(p.order.length && { order: p.order }), ...(p.needs && { needs: p.needs }), ...(p.reports.length && { reports: p.reports }), ...p.extra,
-})
-export const dumpAttempt = (a: RawAttempt) => dump({
-  format: PROBLEM_FORMAT, method: a.method, ...(a.parent && { parent: a.parent }), state: a.state, by: a.by, ...(a.created && { created: a.created }),
-  ...(a.worker && { worker: a.worker }), ...(a.started && { started: a.started }), ...(a.did && { did: a.did }), ...(a.result && { result: a.result }),
-  ...(a.files.length && { files: a.files }), ...(a.run && { run: a.run }), ...(a.test && { test: a.test }), ...(a.reported && { reported: a.reported }), ...(a.verdict && { verdict: a.verdict }),
-  ...(a.lesson && { lesson: a.lesson }), ...(a.reopen && { reopen: a.reopen }), ...(a.needs && { needs: a.needs }), ...a.extra,
-})
 
 // ---------- 폴더 하나 ----------
 
@@ -212,6 +104,7 @@ function row(l: Loaded): ProblemRow {
     limit: l.raw.limit, used: usedOf(list),
     counts: { candidate: count('candidate'), active: count('active'), reported: count('reported'), holds: count('holds'), dropped: count('dropped') },
     ...(next && { next: { id: next.id, label: labelOf(next.id), method: next.method } }), ...(stop && { stop }), waiting: stop === 'decision',
+    ...(l.raw.closed?.answer && { answer: l.raw.closed.answer }),
   }
 }
 
@@ -219,15 +112,19 @@ function view(l: Loaded, repo: string): Problem {
   const list = l.attempts.map((x) => x.raw)
   const text = new Map(l.attempts.map((x) => [x.raw.id, x.text]))
   const r = row(l)
-  const attempts: Attempt[] = tree(l.raw, list).map(({ a, depth }) => {
+  const ordered = tree(l.raw, list)
+  const inTree = ordered.map((x) => x.a)
+  const attempts: Attempt[] = ordered.map(({ a, depth }) => {
     const { extra: _extra, ...known } = a
     // 판정 뒤에 바뀐 파일: 성립한 시도만 본다 (폐기한 시도의 파일은 더 따지지 않는다)
     const changed = a.state === 'holds' && a.verdict?.files ? changedSince(repo, a.verdict.files) : []
-    return { ...known, label: labelOf(a.id), hash: hashOf(text.get(a.id) ?? ''), depth, next: r.next?.id === a.id, ...(changed.length && { changed }) }
+    // 판정 뒤에 바뀐 주장: 성립 판정 때 적어 둔 지문과 지금 진술 · 조건이 다르다
+    const restated = a.state === 'holds' && !!a.verdict?.claim && a.verdict.claim !== claimHash(a)
+    return { ...known, label: labelOf(a.id), hash: hashOf(text.get(a.id) ?? ''), depth, next: r.next?.id === a.id, ...(changed.length && { changed }), ...(restated && { restated }) }
   })
   const { extra: _extra, question: _q, state: _s, by: _b, created: _c, source: _src, limit: _l, ...more } = l.raw
   return {
-    ...r, hash: hashOf(l.text), ...more, attempts,
+    ...r, hash: hashOf(l.text), ...more, attempts, basis: { yes: basisOf(inTree, 'yes'), no: basisOf(inTree, 'no') },
     lessons: attempts.filter((a) => a.state === 'dropped' && a.lesson).map((a) => ({ id: a.id, label: a.label, lesson: a.lesson!, ...(a.reopen && { reopen: a.reopen }) })),
   }
 }
@@ -263,8 +160,14 @@ export const readProblem = (wb: Workbench, id: string): Problem => view(load(wb,
 // ---------- 누가 무엇을 하나 ----------
 
 const isUser = (actor: string) => actor === USER
-function userOnly(actor: string, ko: string, en: string): void {
-  if (!isUser(actor)) throw new WorkbenchError(403, t(`${ko}은(는) 사용자가 앱에서 합니다. 필요하면 기록(add_record)으로 제안하세요.`, `${en} is done by the user in the app. Propose it with a record (add_record) if needed.`))
+type Where = { problem?: string; attempt?: string }
+/** 규칙으로 막는다: 막은 일을 예외 기록에 남기고(2주 뒤 규칙을 다시 볼 자료) 오류를 던진다. 값이 빠졌거나 그새 바뀐 것 같은 보통 오류에는 쓰지 않는다 */
+function refuse(wb: Workbench, actor: string, where: Where, rule: string, status: number, ko: string, en: string): never {
+  logRefusal(wb, actor, where, rule, ko)
+  throw new WorkbenchError(status, t(ko, en))
+}
+function userOnly(wb: Workbench, actor: string, problem: string | undefined, ko: string, en: string): void {
+  if (!isUser(actor)) refuse(wb, actor, { problem }, 'user-only', 403, `${ko}은(는) 사용자가 앱에서 합니다. 필요하면 기록(add_record)으로 제안하세요.`, `${en} is done by the user in the app. Propose it with a record (add_record) if needed.`)
 }
 function fresh(l: Loaded, baseHash: string): void {
   const now = hashOf(l.text)
@@ -286,7 +189,7 @@ export function problemSlug(question: string, taken: Set<string>): string {
 export function createProblem(wb: Workbench, input: NewProblemBody, actor: string): Problem {
   const agent = !isUser(actor)
   if (agent && !input.source?.trim()) throw new WorkbenchError(400, t('제안에는 출처(source: 논문 · 노트 절 · 시도)가 있어야 합니다', 'A proposal needs a source (paper, note section or attempt)'))
-  if (agent && (input.if_yes || input.if_no || input.reader)) throw new WorkbenchError(403, t('메시지와 독자는 사용자가 씁니다. 질문과 출처만 제안하세요', 'The message and the reader are written by the user. Propose only the question and its source'))
+  if (agent && (input.if_yes || input.if_no || input.reader)) refuse(wb, actor, {}, 'user-only', 403, '메시지와 독자는 사용자가 씁니다. 질문과 출처만 제안하세요', 'The message and the reader are written by the user. Propose only the question and its source')
   const d = root(wb)
   const taken = new Set(fs.existsSync(d) ? fs.readdirSync(d) : [])
   const id = problemSlug(input.question, taken)
@@ -307,7 +210,7 @@ export function patchProblem(wb: Workbench, id: string, body: ProblemPatchBody, 
   fresh(l, body.baseHash)
   const set = body.set
   const touched = Object.entries(set).filter(([, v]) => v !== undefined).map(([k]) => k)
-  if (!isUser(actor) && touched.some((k) => !AGENT_FIELDS.includes(k))) userOnly(actor, '질문 · 메시지 · 독자 · 한도 · 순서', 'The question, message, reader, limit and order')
+  if (!isUser(actor) && touched.some((k) => !AGENT_FIELDS.includes(k))) userOnly(wb, actor, id, '질문 · 메시지 · 독자 · 한도 · 순서', 'The question, message, reader, limit and order')
   if (l.raw.state === 'closed') throw new WorkbenchError(409, t('종료한 흐름은 고치지 않습니다', 'A closed flow is not edited'))
   const p: RawProblem = { ...l.raw }
   if (set.question !== undefined) p.question = set.question
@@ -332,7 +235,7 @@ export function patchProblem(wb: Workbench, id: string, body: ProblemPatchBody, 
 
 /** 시작: 사용자만. 메시지(예 · 아니오)와 독자가 있어야 한다 (메시지 관문) */
 export function openProblem(wb: Workbench, id: string, baseHash: string, actor: string): Problem {
-  userOnly(actor, '흐름 시작', 'Opening a flow')
+  userOnly(wb, actor, id, '흐름 시작', 'Opening a flow')
   const l = load(wb, id)
   fresh(l, baseHash)
   if (l.raw.state === 'open') return view(l, wb.repo)
@@ -343,18 +246,54 @@ export function openProblem(wb: Workbench, id: string, baseHash: string, actor: 
   return readProblem(wb, id)
 }
 
-export function closeProblem(wb: Workbench, id: string, body: { baseHash: string; reason: string }, actor: string): Problem {
-  userOnly(actor, '흐름 종료', 'Closing a flow')
+/**
+ * 종료: 사용자만. 답 없이 닫으면 사유가 있어야 한다.
+ * 답(예 · 아니오)과 함께 닫으면 그 답이 기대는 주장(basis)마다 승인 · 수정 · 기각을 받는다: 승인은 그 시도에 남고, 수정은 진행으로 돌려보내고, 기각은 폐기한다.
+ * 모두 승인일 때만 닫힌다. 결정을 기다리는 방향 보고가 있으면 그 결정(종료)으로 함께 적는다
+ */
+export function closeProblem(wb: Workbench, id: string, body: ProblemCloseBody, actor: string): Problem {
+  userOnly(wb, actor, id, '흐름 종료', 'Closing a flow')
   const l = load(wb, id)
   fresh(l, body.baseHash)
   if (l.raw.state !== 'open') throw new WorkbenchError(409, t('진행 중인 흐름만 종료합니다', 'Only an open flow is closed'))
-  saveProblem(l, { ...l.raw, state: 'closed', closed: { at: now(), reason: body.reason } })
-  return readProblem(wb, id)
+  const at = now(), reason = clean(body.reason)
+  const shut = (closed: NonNullable<RawProblem['closed']>) => {
+    const r = pending(l.raw)
+    const reports = r ? [...l.raw.reports.slice(0, -1), { ...r, decision: { at, verdict: 'close' as const, ...(reason && { note: reason }) } }] : l.raw.reports
+    saveProblem(l, { ...l.raw, state: 'closed', closed, reports })
+    return readProblem(wb, id)
+  }
+  if (!body.answer) {
+    if (!reason) throw new WorkbenchError(400, t('답 없이 종료하려면 종료 사유를 적어 주세요', 'To close without an answer, write the reason'))
+    return shut({ at, reason })
+  }
+  const list = tree(l.raw, l.attempts.map((x) => x.raw)).map((x) => x.a)
+  const ids = basisOf(list, body.answer)
+  if (!ids.length) refuse(wb, actor, { problem: id }, 'no-basis', 409, '이 답을 받치는 성립한 주장이 없습니다. 답 없이 종료하거나 시도를 더 합니다', 'No held claim supports this answer. Close without an answer, or run more attempts')
+  const reviews = new Map((body.reviews ?? []).map((r) => [r.id.toLowerCase(), r]))
+  const missing = ids.filter((x) => !reviews.has(x))
+  if (missing.length) throw new WorkbenchError(400, t(`답이 기대는 주장마다 승인 · 수정 · 기각을 골라 주세요: ${missing.map(labelOf).join(', ')}`, `Choose approve, send back or reject for each claim the answer rests on: ${missing.map(labelOf).join(', ')}`))
+  const noNote = ids.filter((x) => reviews.get(x)!.verdict !== 'approve' && !clean(reviews.get(x)!.note))
+  if (noNote.length) throw new WorkbenchError(400, t(`수정 · 기각에는 이유를 적어 주세요: ${noNote.map(labelOf).join(', ')}`, `Send back and reject need a reason: ${noNote.map(labelOf).join(', ')}`))
+  for (const aid of ids) {
+    const a = attemptOf(l, aid), r = reviews.get(aid)!, note = clean(r.note) ?? ''
+    if (r.verdict === 'approve') saveAttempt(l, { ...a, accepted: { at, by: actor } })
+    else if (r.verdict === 'return') {
+      // 수정: 판정을 걷고 진행으로. 보고한 글은 남아 작업한 쪽이 고쳐 다시 보고한다
+      const { verdict: _v, accepted: _a, reported: _r, ...base } = a
+      saveAttempt(l, { ...base, state: 'active', returned: { at, by: actor, note } })
+    } else {
+      const { accepted: _a, ...base } = a
+      saveAttempt(l, { ...base, state: 'dropped', verdict: { at, by: actor, note }, lesson: a.lesson ?? note })
+    }
+  }
+  if (ids.some((x) => reviews.get(x)!.verdict !== 'approve')) return readProblem(wb, id)
+  return shut({ at, answer: body.answer, ...(reason && { reason }), basis: ids })
 }
 
 /** 시작하지 않은 흐름(제안 · 쓰는 중)을 지운다: problems/.trash/로 옮긴다 */
 export function removeProblem(wb: Workbench, id: string, baseHash: string, actor: string): void {
-  userOnly(actor, '흐름 삭제', 'Removing a flow')
+  userOnly(wb, actor, id, '흐름 삭제', 'Removing a flow')
   const l = load(wb, id)
   fresh(l, baseHash)
   if (l.raw.state === 'open' || l.raw.state === 'closed') throw new WorkbenchError(409, t('시작한 흐름은 지우지 않고 종료합니다', 'A started flow is closed, not removed'))
@@ -365,8 +304,8 @@ export function removeProblem(wb: Workbench, id: string, baseHash: string, actor
 
 // ---------- 시도 ----------
 
-function needOpen(l: Loaded): void {
-  if (l.raw.state !== 'open') throw new WorkbenchError(409, t('사용자가 시작한 흐름에서만 일합니다. 이 흐름은 아직 시작 전이거나 종료했습니다', 'Work only on a flow the user has opened. This one is not open'))
+function needOpen(wb: Workbench, actor: string, l: Loaded): void {
+  if (l.raw.state !== 'open') refuse(wb, actor, { problem: l.id }, 'not-open', 409, '사용자가 시작한 흐름에서만 일합니다. 이 흐름은 아직 시작 전이거나 종료했습니다', 'Work only on a flow the user has opened. This one is not open')
 }
 function attemptOf(l: Loaded, aid: string): RawAttempt {
   const a = l.attempts.find((x) => x.raw.id === aid)?.raw
@@ -391,7 +330,7 @@ export function nextAttemptId(parent: string | undefined, taken: Set<string>): s
 /** 후보를 늘어놓는다 (사용자도 에이전트도). 상태는 후보 */
 export function addAttempts(wb: Workbench, id: string, body: NewAttemptsBody, actor: string): Problem {
   const l = load(wb, id)
-  needOpen(l)
+  needOpen(wb, actor, l)
   const taken = new Set(l.attempts.map((x) => x.raw.id))
   for (const item of body.attempts) {
     if (item.parent && !taken.has(item.parent)) throw new WorkbenchError(400, t(`없는 시도 아래에는 둘 수 없습니다: ${item.parent}`, `No such parent attempt: ${item.parent}`))
@@ -413,7 +352,7 @@ const STOP_TEXT: Record<ProblemStop, [string, string]> = {
 /** 후보를 진행으로. 작업한 쪽을 적는다 (판정은 이 이름이 아닌 쪽만) */
 export function startAttempt(wb: Workbench, id: string, aid: string, actor: string): Problem {
   const l = load(wb, id)
-  needOpen(l)
+  needOpen(wb, actor, l)
   const list = l.attempts.map((x) => x.raw)
   const a = attemptOf(l, aid)
   if (a.state !== 'candidate') throw new WorkbenchError(409, t('후보만 시작합니다', 'Only a candidate is started'))
@@ -423,7 +362,7 @@ export function startAttempt(wb: Workbench, id: string, aid: string, actor: stri
   if (!ok.includes(a)) throw new WorkbenchError(409, t('이 후보의 위 가지가 아직 후보이거나 폐기됐습니다', 'A branch above this candidate is still a candidate or was dropped'))
   // 사용자가 순서를 정했으면 에이전트는 그 순서의 다음 후보부터
   const next = nextOf(l.raw, list)
-  if (!isUser(actor) && l.raw.order.length && next && next.id !== aid) throw new WorkbenchError(409, t(`사용자가 정한 순서의 다음 후보는 ${labelOf(next.id)}입니다: ${next.method}`, `The next candidate in the user's order is ${labelOf(next.id)}: ${next.method}`))
+  if (!isUser(actor) && l.raw.order.length && next && next.id !== aid) refuse(wb, actor, { problem: id, attempt: aid }, 'order', 409, `사용자가 정한 순서의 다음 후보는 ${labelOf(next.id)}입니다: ${next.method}`, `The next candidate in the user's order is ${labelOf(next.id)}: ${next.method}`)
   saveAttempt(l, { ...a, state: 'active', worker: actor, started: now() })
   return readProblem(wb, id)
 }
@@ -431,15 +370,20 @@ export function startAttempt(wb: Workbench, id: string, aid: string, actor: stri
 /** 작업한 쪽의 보고: 진행 → 판정 대기. 성립 · 폐기는 여기서 정해지지 않는다 */
 export function reportAttempt(wb: Workbench, id: string, aid: string, body: AttemptReportBody, actor: string): Problem {
   const l = load(wb, id)
-  needOpen(l)
+  needOpen(wb, actor, l)
   const a = attemptOf(l, aid)
   if (a.state !== 'active') throw new WorkbenchError(409, t('진행 중인 시도만 보고합니다 (먼저 시작하세요)', 'Only a working attempt is reported (start it first)'))
-  if (!isUser(actor) && a.worker && a.worker !== actor) throw new WorkbenchError(403, t(`이 시도는 ${a.worker}가 맡았습니다`, `This attempt belongs to ${a.worker}`))
+  if (!isUser(actor) && a.worker && a.worker !== actor) refuse(wb, actor, { problem: id, attempt: aid }, 'not-yours', 403, `이 시도는 ${a.worker}가 맡았습니다`, `This attempt belongs to ${a.worker}`)
+  // 주장: 진술 한 문장과 그것이 질문의 어느 쪽을 받치는지. 실패한 길처럼 내놓을 주장이 없으면 비워 두고 폐기 사유를 적는다
+  const statement = clean(body.statement), condition = clean(body.condition)
+  if (statement && !body.side) throw new WorkbenchError(400, t('주장에는 질문의 어느 쪽을 받치는지 적어 주세요 (side: for_yes 예 · for_no 아니오 · neither 어느 쪽도 아님)', 'A claim needs the side of the question it supports (side: for_yes, for_no or neither)'))
+  if (!statement && (condition || body.side)) throw new WorkbenchError(400, t('조건과 쪽은 진술(statement)과 함께 적습니다', 'A condition and a side come with a statement'))
   // 실행: 명령을 적었거나 파일이 있으면 보고할 때의 커밋을 함께 남긴다 (직접 준 커밋이 앞선다)
   const files = body.files?.map((f) => f.trim()).filter(Boolean) ?? a.files
   const command = clean(body.run?.command), commit = clean(body.run?.commit) ?? (command || files.length ? headCommit(wb.repo) : undefined)
-  const { run: _run, test: _test, ...base } = a
+  const { run: _run, test: _test, statement: _s, condition: _c, side: _side, ...base } = a
   saveAttempt(l, { ...base, state: 'reported', did: body.did, result: body.result, files, reported: now(),
+    ...(statement && { statement, ...(condition && { condition }), ...(body.side && { side: body.side }) }),
     ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }), ...(clean(body.test) && { test: clean(body.test) }),
     ...(clean(body.lesson) && { lesson: clean(body.lesson) }), ...(clean(body.reopen) && { reopen: clean(body.reopen) }) })
   return readProblem(wb, id)
@@ -448,7 +392,7 @@ export function reportAttempt(wb: Workbench, id: string, aid: string, body: Atte
 /** 판정: 작업한 쪽이 아닌 쪽이 원자료로. 성립은 교차 검증이, 폐기는 폐기 사유가 있어야 한다 */
 export function verdictAttempt(wb: Workbench, id: string, aid: string, body: AttemptVerdictBody, actor: string): Problem {
   const l = load(wb, id)
-  needOpen(l)
+  needOpen(wb, actor, l)
   const a = attemptOf(l, aid)
   if (a.state === 'holds' || a.state === 'dropped') throw new WorkbenchError(409, t('이미 판정한 시도입니다', 'This attempt already has a verdict'))
   const untried = a.state === 'candidate'
@@ -456,17 +400,20 @@ export function verdictAttempt(wb: Workbench, id: string, aid: string, body: Att
     // 해 보지 않은 후보 · 진행 중인 시도를 닫는 것은 사용자만 (폐기)
     if (!isUser(actor) || body.result !== 'dropped') throw new WorkbenchError(409, t('보고가 있는 시도(판정 대기)만 판정합니다', 'Only a reported attempt (awaiting verdict) gets a verdict'))
   }
-  if (a.worker && a.worker === actor) throw new WorkbenchError(403, t('작업한 쪽은 판정하지 않습니다. 다른 에이전트나 사용자가 원자료로 판정합니다', 'The one who did the work does not give the verdict. Another agent or the user judges from the raw data'))
+  const here = { problem: id, attempt: aid }
+  if (a.worker && a.worker === actor) refuse(wb, actor, here, 'self-verdict', 403, '작업한 쪽은 판정하지 않습니다. 다른 에이전트나 사용자가 원자료로 판정합니다', 'The one who did the work does not give the verdict. Another agent or the user judges from the raw data')
+  // 성립 = 이 시도의 진술이 이 시도의 근거에서 따라 나온다. 진술이 없으면 성립이라고 할 것이 없다
+  if (body.result === 'holds' && !a.statement) refuse(wb, actor, here, 'no-claim', 409, '진술이 없는 시도는 성립으로 판정하지 못합니다. 작업한 쪽이 판단할 수 있는 한 문장(statement)을 적어 다시 보고하거나, 폐기합니다', 'An attempt without a statement cannot hold. The worker reports again with one judgeable sentence (statement), or it is dropped')
   const check = clean(body.check), lesson = clean(body.lesson) ?? a.lesson, reopen = clean(body.reopen) ?? a.reopen
   if (body.result === 'holds' && !check) throw new WorkbenchError(400, t('성립에는 교차 검증(check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한 가운데 무엇을 했나)이 있어야 합니다', 'A holds verdict needs a check outside the fitted condition (check: another size, other parameters, an independent implementation or a limit)'))
   // 검사 명령이 있는 시도: 다시 돌려 실패했으면 성립이 아니고, 에이전트는 돌린 결과(통과)가 있어야 성립을 준다. 사용자는 돌리지 않고도 정할 수 있다
   if (body.result === 'holds' && body.tested === 'fail') throw new WorkbenchError(400, t('검사가 실패했으면 성립이 아닙니다. 폐기하거나, 고친 뒤 다시 보고받습니다', 'A failed test is not a holds verdict. Drop it, or have it reported again after a fix'))
-  if (body.result === 'holds' && a.test && !isUser(actor) && body.tested !== 'pass') throw new WorkbenchError(400, t(`이 시도에는 검사 명령이 있습니다. 다시 돌려 보고 결과를 적습니다 (tested: pass): ${a.test}`, `This attempt has a test command. Rerun it and record the result (tested: pass): ${a.test}`))
+  if (body.result === 'holds' && a.test && !isUser(actor) && body.tested !== 'pass') refuse(wb, actor, here, 'test-not-run', 400, `이 시도에는 검사 명령이 있습니다. 다시 돌려 보고 결과를 적습니다 (tested: pass): ${a.test}`, `This attempt has a test command. Rerun it and record the result (tested: pass): ${a.test}`)
   if (body.result === 'dropped' && !untried && !lesson) throw new WorkbenchError(400, t('폐기에는 폐기 사유 한 줄(lesson)이 있어야 합니다', 'A dropped verdict needs a one-line lesson (lesson)'))
-  const { lesson: _l, reopen: _r, ...base } = a
+  const { lesson: _l, reopen: _r, returned: _ret, ...base } = a
   // 성립이면 그때의 파일 지문을 남긴다: 뒤에 파일이 바뀌면 화면과 이어받기 요약이 알린다
   const marks = body.result === 'holds' ? fingerprints(wb.repo, a.files) : {}
-  saveAttempt(l, { ...base, state: body.result, verdict: { at: now(), by: actor, note: body.note, ...(check && { check }), ...(body.tested && { tested: body.tested }), ...(Object.keys(marks).length && { files: marks }) },
+  saveAttempt(l, { ...base, state: body.result, verdict: { at: now(), by: actor, note: body.note, ...(check && { check }), ...(body.tested && { tested: body.tested }), ...(Object.keys(marks).length && { files: marks }), ...(body.result === 'holds' && { claim: claimHash(a) }) },
     ...(body.result === 'dropped' && lesson && { lesson }), ...(body.result === 'dropped' && reopen && { reopen }) })
   return readProblem(wb, id)
 }
@@ -476,7 +423,7 @@ export function verdictAttempt(wb: Workbench, id: string, aid: string, body: Att
 /** 사실만: 지금까지의 결과가 메시지의 예 · 아니오 문장을 지지하는가, 어느 쪽과도 무관한가 */
 export function directionReport(wb: Workbench, id: string, body: DirectionReportBody, actor: string): Problem {
   const l = load(wb, id)
-  needOpen(l)
+  needOpen(wb, actor, l)
   if (pending(l.raw)) throw new WorkbenchError(409, t('이미 결정을 기다리는 방향 보고가 있습니다', 'A direction report is already waiting for a decision'))
   const for_yes = clean(body.for_yes), for_no = clean(body.for_no), neither = clean(body.neither)
   if (!for_yes && !for_no && !neither) throw new WorkbenchError(400, t('예를 지지하는 사실, 아니오를 지지하는 사실, 어느 쪽과도 무관한 것 가운데 하나는 적어 주세요', 'Write at least one of: facts for yes, facts for no, facts for neither'))
@@ -488,7 +435,7 @@ export function directionReport(wb: Workbench, id: string, body: DirectionReport
 
 /** 계속 · 좁히기는 한도를 올리고, 종료는 흐름을 닫는다. 사용자만 */
 export function decideDirection(wb: Workbench, id: string, body: DirectionDecisionBody, actor: string): Problem {
-  userOnly(actor, '계속 · 좁히기 · 종료의 결정', 'Deciding to continue, narrow or close')
+  userOnly(wb, actor, id, '계속 · 좁히기 · 종료의 결정', 'Deciding to continue, narrow or close')
   const l = load(wb, id)
   fresh(l, body.baseHash)
   const r = pending(l.raw)

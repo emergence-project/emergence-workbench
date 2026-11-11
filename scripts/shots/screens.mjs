@@ -162,12 +162,16 @@ export const DEFAULT_SCREENS = [
   ['info-changes', '#/r/{rid}/changes', '변경사항 표'],
   // 흐름과 시도 (11/11): 목록(진행 · 쓰는 중 · 접힌 제안), 흐름 하나(흐름 열기 · 폐기 사유 · 시도, 성립한 시도와 판정 대기 시도를 펼친 모습), 방향 보고와 결정, 흐름 수정 창. 문제 파일은 fixtures/sandbox-extra/workbench/problems
   ['problems', '#/r/{rid}/problems', '흐름 줄'],
+  // 예외 기록 (11/11 "해 보면서 판단"): 목록 아래 접힌 줄을 펼친 모습. 앱이 거절하며 적은 줄과 에이전트가 적은 줄. 파일은 fixtures/sandbox-extra/workbench/problems/_exceptions
+  ['problems-exceptions', '#/r/{rid}/problems', '예외 줄', '[data-ui="예외 기록"] > summary'],
   // 성립한 시도 B를 펼친 모습: 단계 띠(제안 · 작업 · 판정)와 판정 내용(근거 · 교차 검증), 판정 후 변경
   ['problem-judged', '#/r/{rid}/problems/kempe-degree-five', '시도 목록', '[data-ui="시도"][data-ui-item^="B "] .pb-node-main'],
   ['problem', '#/r/{rid}/problems/kempe-degree-five', '시도 목록', '[data-ui="시도"][data-ui-item^="B1"] .pb-node-main'],
   // 판정 창 (11/11 실행 · 검사): 검사 명령이 있는 시도의 성립 판정, 다시 돌린 결과 고르기. 앞 화면에서 펼친 B1이 그대로 남아 있어 성립만 누른다
   ['problem-verdict', '#/r/{rid}/problems/kempe-degree-five', '검사 결과', '성립'],
   ['problem-decision', '#/r/{rid}/problems/greedy-five-colors', '방향 보고'],
+  // 종료 창 (11/11): 답을 고르면 그 답이 기대는 성립한 주장이 줄마다 나오고, 줄마다 승인 · 수정 · 기각
+  ['problem-close', '#/r/{rid}/problems/kempe-degree-five', '근거 주장', ['흐름 종료', '[data-ui="흐름의 답 고르기"] button:text-matches("^(예|Yes)$")']],
   ['problem-edit', '#/r/{rid}/problems/torus-seven-colors', '흐름 창', '흐름 수정'],
 ]
 

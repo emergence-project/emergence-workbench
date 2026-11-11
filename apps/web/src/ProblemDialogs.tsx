@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { problemsApi, PROBLEM_LIMIT, type Attempt, type ProblemDoc } from './api'
+import { problemsApi, PROBLEM_LIMIT, type Attempt, type BasisReview, type FlowAnswer, type ProblemDoc } from './api'
 import { Dialog } from './dialogs'
 import { t } from './i18n'
+import { ANSWER_NAME, SideTag } from './problemNames'
 
 /**
- * 흐름 화면의 창 셋 (Problems.tsx): 흐름 추가 · 수정, 시도의 판정, 흐름 종료.
+ * 흐름 화면의 창 셋 (Problems.tsx): 흐름 추가 · 수정, 시도의 판정, 흐름 종료(답과 그 답이 기대는 주장의 승인).
  * 메시지(답이 예 · 아니오일 때의 한 문장)와 독자는 사용자가 쓴다 (11/11 결정 "메시지 관문").
  */
 
@@ -56,7 +57,8 @@ export function ProblemDialog({ rid, problem, onClose, onDone }: { rid: string; 
 }
 
 /**
- * 시도의 판정: 작업하지 않은 쪽이 한다. 성립은 근거와 교차 검증이, 폐기는 근거와 폐기 사유가 있어야 한다.
+ * 시도의 판정: 작업하지 않은 쪽이 한다. 묻는 것은 하나, 이 시도의 진술이 이 시도의 근거에서 따라 나오는가다.
+ * 성립은 근거와 교차 검증이, 폐기는 근거와 폐기 사유가 있어야 한다.
  * 칸 이름은 짧게, 무엇을 적는지는 입력란 안의 흐린 글로 (11/11 피드백 "설명이 길다").
  */
 export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }: {
@@ -88,7 +90,9 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
       <button className="btn primary" disabled={busy || !ready} onClick={() => void save()}>{holds ? t('성립', 'Holds') : t('폐기', 'Drop')}</button>
     </>}>
       <div className="pb-judged" data-ui="판정할 시도">
-        <p className="pb-judged-head"><b>{attempt.label}</b>{attempt.method}</p>
+        <p className="pb-judged-head"><b>{attempt.label}</b>{attempt.statement ?? attempt.method}<SideTag side={attempt.side} /></p>
+        {attempt.condition && <p className="pb-judged-result">{t(`조건: ${attempt.condition}`, `Condition: ${attempt.condition}`)}</p>}
+        {attempt.statement && <p className="pb-judged-result">{attempt.method}</p>}
         {attempt.result && <p className="pb-judged-result">{attempt.result}</p>}
       </div>
       {!untried && <label className="field pb-field"><span>{t('근거', 'Basis')}</span>
@@ -113,22 +117,67 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
   )
 }
 
-/** 방향 보고 없이 흐름을 종료할 때: 이유 한 줄 */
-export function CloseDialog({ rid, problem, onClose, onDone }: { rid: string; problem: ProblemDoc; onClose(): void; onDone(p: ProblemDoc): void }) {
-  const [reason, setReason] = useState('')
+type Review = BasisReview['verdict']
+const REVIEWS: [Review, string][] = [['approve', t('승인', 'Approve')], ['return', t('수정', 'Send back')], ['reject', t('기각', 'Reject')]]
+
+/**
+ * 흐름 종료: 답(예 · 아니오 · 답 없음)을 고른다. 답이 있으면 그 답이 기대는 주장(그 쪽을 받치는 성립한 시도와 그 위의 성립한 시도)을 앱이 모아 보이고,
+ * 사용자가 하나씩 승인 · 수정 · 기각한다. 모두 승인이면 닫히고, 수정 · 기각이 있으면 닫지 않고 그 시도를 돌려보낸다. 답 없이는 사유 한 줄.
+ */
+export function CloseDialog({ rid, problem, note, onClose, onDone }: { rid: string; problem: ProblemDoc; note?: string; onClose(): void; onDone(p: ProblemDoc): void }) {
+  const [answer, setAnswer] = useState<FlowAnswer | ''>('')
+  const [reviews, setReviews] = useState<Record<string, { verdict: Review; note: string }>>({})
+  const [reason, setReason] = useState(note ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const ids = answer ? problem.basis[answer] : []
+  const basis = problem.attempts.filter((a) => ids.includes(a.id))
+  const against = answer ? problem.attempts.filter((a) => problem.basis[answer === 'yes' ? 'no' : 'yes'].includes(a.id) && !ids.includes(a.id)) : []
+  const of = (id: string) => reviews[id] ?? { verdict: 'approve' as const, note: '' }
+  const put = (id: string, next: Partial<{ verdict: Review; note: string }>) => setReviews((r) => ({ ...r, [id]: { ...of(id), ...next } }))
+  const allApproved = basis.every((a) => of(a.id).verdict === 'approve')
+  const ready = answer ? basis.length > 0 && basis.every((a) => of(a.id).verdict === 'approve' || !!of(a.id).note.trim()) : !!reason.trim()
   const save = async () => {
     setBusy(true); setError(null)
-    try { onDone(await problemsApi(rid).close(problem.id, problem.hash, reason.trim())) } catch (e) { setError(errorOf(e)); setBusy(false) }
+    try {
+      onDone(await problemsApi(rid).close(problem.id, {
+        baseHash: problem.hash, ...(reason.trim() && { reason: reason.trim() }),
+        ...(answer && { answer, reviews: basis.map((a) => ({ id: a.id, verdict: of(a.id).verdict, ...(of(a.id).note.trim() && { note: of(a.id).note.trim() }) })) }),
+      }))
+    } catch (e) { setError(errorOf(e)); setBusy(false) }
   }
   return (
-    <Dialog title={t('흐름 종료', 'Close flow')} onClose={onClose} footer={<>
+    <Dialog title={t('흐름 종료', 'Close flow')} wide onClose={onClose} footer={<>
       {error && <span className="error-text pb-err">{error}</span>}
       <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
-      <button className="btn primary" disabled={busy || !reason.trim()} onClick={() => void save()}>{t('종료', 'Close')}</button>
+      <button className="btn primary" disabled={busy || !ready} onClick={() => void save()}>{answer && !allApproved ? t('저장', 'Save') : t('종료', 'Close')}</button>
     </>}>
-      <label className="field pb-field"><span>{t('종료 사유', 'Reason for closing')}</span><textarea rows={3} autoFocus placeholder={t('사유와 시도는 그대로 남습니다', 'The reason and the attempts are kept')} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+      <div className="field pb-field" data-ui="흐름의 답 고르기"><span>{t('답', 'Answer')}</span>
+        <div className="segmented small" role="group" aria-label={t('답', 'Answer')}>
+          {([['yes', ANSWER_NAME.yes], ['no', ANSWER_NAME.no], ['', t('답 없음', 'No answer')]] as const).map(([k, name]) =>
+            <button key={k} type="button" className={answer === k ? 'on' : ''} aria-pressed={answer === k} onClick={() => setAnswer(k)}>{name}</button>)}
+        </div>
+        {answer && <p className="pb-close-msg">{answer === 'yes' ? problem.if_yes : problem.if_no}</p>}</div>
+      {answer && <div className="field pb-field" data-ui="답의 근거"><span>{t('근거', 'Basis')} <em>{t('이 답이 기대는 성립한 주장', 'Held claims this answer rests on')}</em></span>
+        {basis.length === 0 && <p className="error-text">{t('이 답을 받치는 성립한 주장이 없습니다. 답 없이 종료하거나 시도를 더 합니다.', 'No held claim supports this answer. Close without an answer, or run more attempts.')}</p>}
+        <ul className="pb-basis">{basis.map((a) => {
+          const r = of(a.id)
+          return (
+            <li key={a.id} data-ui="근거 주장" data-ui-item={a.label}>
+              <p className="pb-basis-claim"><b>{a.label}</b><span>{a.statement}<SideTag side={a.side} />{a.condition && <small>{t(`조건: ${a.condition}`, `Condition: ${a.condition}`)}</small>}</span></p>
+              <div className="pb-basis-act">
+                <div className="segmented small" role="group" aria-label={t(`${a.label} 판단`, `Decision on ${a.label}`)}>
+                  {REVIEWS.map(([k, name]) => <button key={k} type="button" className={r.verdict === k ? 'on' : ''} aria-pressed={r.verdict === k} onClick={() => put(a.id, { verdict: k })}>{name}</button>)}
+                </div>
+                {r.verdict !== 'approve' && <input aria-label={t('이유', 'Reason')} placeholder={r.verdict === 'return' ? t('고칠 것', 'What to fix') : t('기각 사유', 'Why rejected')} value={r.note} onChange={(e) => put(a.id, { note: e.target.value })} />}
+              </div>
+            </li>
+          )
+        })}</ul>
+        {against.length > 0 && <p className="pb-against">{t('반대쪽 성립', 'Held for the other answer')}: {against.map((a) => `${a.label} ${a.statement ?? a.method}`).join(' · ')}</p>}
+        {basis.length > 0 && !allApproved && <p className="pb-close-note">{t('수정 · 기각이 있으면 종료하지 않고 그 주장을 돌려보냅니다.', 'With a send-back or a reject, the flow stays open and those claims are returned.')}</p>}</div>}
+      <label className="field pb-field"><span>{t('사유', 'Reason')} {answer && <em>{t('선택', 'Optional')}</em>}</span>
+        <textarea rows={2} autoFocus placeholder={t('사유와 시도는 그대로 남습니다', 'The reason and the attempts are kept')} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
     </Dialog>
   )
 }

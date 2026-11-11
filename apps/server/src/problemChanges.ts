@@ -78,12 +78,16 @@ export function problemChecker(repo: string, add: Add) {
     if (startedNow) started.set(pid, [...(started.get(pid) ?? []), file])
     if (a.state !== 'candidate' && a.state !== 'dropped' && !a.worker) add('problem-work', file, '시작한 시도에 작업한 쪽(worker)가 없습니다. 판정은 이 이름이 아닌 쪽이 합니다.', 'A started attempt has no worker. The verdict comes from someone other than that name.')
     if (a.state === 'reported' && (reportedNow || a.state !== b?.state) && (!a.did || !a.result)) add('problem-work', file, '보고에 한 일(did)이나 결과(result)가 빠졌습니다.', 'The report lacks what was done (did) or the result (result).')
+    if (a.statement && !a.side && (reportedNow || a.statement !== b?.statement || a.side !== b?.side)) add('problem-work', file, '주장(statement)에 질문의 어느 쪽을 받치는지(side: for_yes · for_no · neither)가 없습니다.', 'The claim (statement) lacks the side of the question it supports (side: for_yes, for_no or neither).')
+    // 사용자의 승인 · 돌려보냄은 흐름을 닫을 때 앱이 적는다
+    if (!same(a.accepted, b?.accepted) || !same(a.returned, b?.returned)) add('problem-human', file, '사용자의 승인(accepted)이나 돌려보냄(returned)을 썼습니다. 사용자가 흐름을 닫을 때 앱에서 합니다.', 'An acceptance (accepted) or a send-back (returned) by the user was written. The user does this in the app when closing the flow.')
     // 판정 규칙
     if (!judgedNow && !closedNow) return
     if (!a.verdict) { add('problem-verdict', file, '판정 기록(verdict: at · by · note) 없이 성립 · 폐기로 바꿨습니다.', 'The attempt was set to holds or dropped without a verdict record (verdict: at, by, note).'); return }
     if (a.verdict.by === USER) add('problem-human', file, '사용자의 판정(verdict.by: user)을 썼습니다. 사용자는 앱에서 판정합니다. 에이전트의 판정에는 자기 이름을 적습니다.', 'A verdict by the user (verdict.by: user) was written. The user judges in the app. An agent signs its verdict with its own name.')
     if (a.worker && a.verdict.by === a.worker) add('problem-verdict', file, `작업한 쪽(${a.worker})이 자기 시도를 판정했습니다. 판정은 다른 에이전트나 사용자가 원자료로 합니다. 판정 대기(state: reported)로 되돌리세요.`, `The worker (${a.worker}) judged its own attempt. Another agent or the user judges from the raw data. Set it back to reported.`)
     if (a.worker && (!a.did || !a.result)) add('problem-verdict', file, '보고(did · result)가 없는 시도를 판정했습니다.', 'An attempt without a report (did, result) was judged.')
+    if (a.state === 'holds' && !a.statement) add('problem-verdict', file, '진술(statement)이 없는 시도를 성립으로 했습니다. 성립은 진술이 근거에서 따라 나온다는 판정입니다.', 'Holds on an attempt without a statement. Holds means the statement follows from the grounds.')
     if (a.state === 'holds' && !a.verdict.check) add('problem-verdict', file, '성립인데 교차 검증(verdict.check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한)이 없습니다.', 'Holds without a check outside the fitted condition (verdict.check: another size, other parameters, an independent implementation or a limit).')
     if (a.state === 'holds' && a.test && a.verdict.by !== USER && a.verdict.tested !== 'pass') add('problem-verdict', file, `검사 명령이 있는 시도를 다시 돌린 결과(verdict.tested: pass) 없이 성립으로 했습니다: ${a.test}`, `Holds on an attempt with a test command, without the rerun result (verdict.tested: pass): ${a.test}`)
     if (a.state === 'dropped' && a.worker && !a.lesson) add('problem-verdict', file, '폐기인데 폐기 사유 한 줄(lesson)이 없습니다.', 'Dropped without a one-line lesson (lesson).')

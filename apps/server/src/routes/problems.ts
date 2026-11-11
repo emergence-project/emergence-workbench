@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import * as C from '@rw/core/contract/problems'
 import { parseBody, replies } from '../contract.js'
 import { problemBrief } from '../problemBrief.js'
+import { addException, listExceptions } from '../problemExceptions.js'
 import { USER, addAttempts, closeProblem, createProblem, decideDirection, directionReport, openProblem, patchProblem, readProblem, removeProblem, reportAttempt, scanProblems, startAttempt, verdictAttempt } from '../problems.js'
 import type { RouteContext } from './context.js'
 
@@ -33,6 +34,7 @@ export function registerProblems(app: FastifyInstance, ctx: RouteContext): void 
   /** 메시지 관문: 메시지(예 · 아니오)와 독자가 있어야 시작된다. 사용자만 */
   app.post<P>(`${R}/:id/open`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: openProblem(wbOf(req.params.rid), req.params.id, parseBody(C.ProblemOpenBody, req.body).baseHash, actorOf(req)) }))
+  /** 종료: 답 없이는 사유와, 답과 함께면 그 답이 기대는 주장마다의 승인 · 수정 · 기각과 (모두 승인일 때만 닫힌다) */
   app.post<P>(`${R}/:id/close`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: closeProblem(wbOf(req.params.rid), req.params.id, parseBody(C.ProblemCloseBody, req.body), actorOf(req)) }))
   /** 시도 후보 늘어놓기 */
@@ -50,4 +52,9 @@ export function registerProblems(app: FastifyInstance, ctx: RouteContext): void 
     ({ problem: directionReport(wbOf(req.params.rid), req.params.id, parseBody(C.DirectionReportBody, req.body), actorOf(req)) }))
   app.post<P>(`${R}/:id/decide`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: decideDirection(wbOf(req.params.rid), req.params.id, parseBody(C.DirectionDecisionBody, req.body), actorOf(req)) }))
+  /** 예외 기록: 규칙대로 되지 않은 일 (앱이 거절한 것은 앱이 적는다). 흐름 id와 겹치지 않게 problems 밖 경로 */
+  const X = '/api/researches/:rid/problem-exceptions'
+  app.get<{ Params: { rid: string } }>(X, replies(C.FlowExceptionList), async (req): Promise<C.FlowExceptionList> => ({ exceptions: listExceptions(wbOf(req.params.rid)) }))
+  app.post<{ Params: { rid: string } }>(X, replies(C.FlowExceptionOne), async (req): Promise<C.FlowExceptionOne> =>
+    ({ exception: addException(wbOf(req.params.rid), parseBody(C.NewExceptionBody, req.body), actorOf(req)) }))
 }

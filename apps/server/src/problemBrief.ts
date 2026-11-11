@@ -17,6 +17,9 @@ const STATE = { proposed: '제안', draft: '쓰는 중', open: '진행', closed:
 const one = (s: string, max: number) => { const t = s.replace(/\s+/g, ' ').trim(); return t.length > max ? `${t.slice(0, max - 1)}…` : t }
 const bytes = (lines: string[]) => Buffer.byteLength(lines.join('\n'), 'utf8')
 const line = (a: Attempt, more = '') => `- ${a.label} ${one(a.method, 90)}${more}`
+const SIDE = { for_yes: '예 근거', for_no: '아니오 근거', neither: '무관' } as const
+/** 보고한 시도는 주장으로 읽는다: 진술과 그것이 받치는 쪽. 진술이 없으면 방법과 결과 */
+const claim = (a: Attempt, more = '') => (a.statement ? `- ${a.label} [${SIDE[a.side ?? 'neither']}] ${one(a.statement, 110)}${a.condition ? ` (조건: ${one(a.condition, 50)})` : ''}${more}` : line(a, `${a.result ? `: ${one(a.result, 80)}` : ''}${more}`))
 
 /** 줄 묶음들을 중요한 순서로 받아, 한도를 넘으면 뒤 묶음의 줄부터 줄인다 */
 function fit(head: string[], groups: { title: string; lines: string[] }[], tail: string[]): string {
@@ -43,14 +46,16 @@ export function briefOf(p: Problem): string {
     `- 시도 ${p.used} / 한도 ${p.limit}${p.needs === 'all' ? ' · 시도가 모두 성립해야 한다 (분해)' : ''}`, '',
   ]
   const next = p.next ? [`다음: ${p.next.label} ${one(p.next.method, 90)} (attempt_start)`] : []
-  const tail = p.state !== 'open' ? [p.state === 'closed' ? `종료${p.closed?.reason ? `: ${one(p.closed.reason, 120)}` : ''}` : '사용자가 시작하기 전이다. 시도를 만들거나 시작하지 않는다.']
+  const answer = p.closed?.answer ? ` · 답 ${p.closed.answer === 'yes' ? '예' : '아니오'}` : ''
+  const tail = p.state !== 'open' ? [p.state === 'closed' ? `종료${answer}${p.closed?.reason ? `: ${one(p.closed.reason, 120)}` : ''}` : '사용자가 시작하기 전이다. 시도를 만들거나 시작하지 않는다.']
     : p.stop ? [`멈춤: ${STOP[p.stop]}`] : next.length ? next : ['다음 후보가 없다.']
   return fit(head, [
     { title: '폐기 사유 (같은 길을 다시 가지 않는다):', lines: p.lessons.map((l) => `- ${l.label} ${one(l.lesson, 110)}${l.reopen ? ` (다시 열 조건: ${one(l.reopen, 60)})` : ''}`) },
-    { title: '판정 뒤에 파일이 바뀐 성립 (다시 확인한다):', lines: p.attempts.filter((a) => a.changed?.length).map((a) => line(a, `: ${one(a.changed!.join(', '), 90)}`)) },
-    { title: '판정 대기 (작업한 쪽이 아닌 쪽이 attempt_verdict):', lines: by('reported').map((a) => line(a, `${a.worker ? ` · 작업한 쪽 ${a.worker}` : ''}${a.test ? ` · 검사 \`${one(a.test, 70)}\`` : ''}`)) },
-    { title: '진행:', lines: by('active').map((a) => line(a, a.worker ? ` · ${a.worker}` : '')) },
-    { title: '성립:', lines: by('holds').map((a) => line(a, a.result ? `: ${one(a.result, 80)}` : '')) },
+    { title: '사용자가 돌려보낸 시도 (작업한 쪽이 고쳐 다시 보고한다):', lines: by('active').filter((a) => a.returned).map((a) => line(a, `: ${one(a.returned!.note, 90)}`)) },
+    { title: '판정 뒤에 파일이나 주장이 바뀐 성립 (다시 확인한다):', lines: p.attempts.filter((a) => a.changed?.length || a.restated).map((a) => line(a, `: ${one([...(a.restated ? ['주장'] : []), ...(a.changed ?? [])].join(', '), 90)}`)) },
+    { title: '판정 대기 (작업한 쪽이 아닌 쪽이 attempt_verdict: 진술이 근거에서 따라 나오는가):', lines: by('reported').map((a) => claim(a, `${a.worker ? ` · 작업한 쪽 ${a.worker}` : ''}${a.test ? ` · 검사 \`${one(a.test, 70)}\`` : ''}`)) },
+    { title: '진행:', lines: by('active').filter((a) => !a.returned).map((a) => line(a, a.worker ? ` · ${a.worker}` : '')) },
+    { title: '성립 (판정을 통과한 주장. 사실로 받아들이는 승인은 사용자가 흐름을 닫을 때 한다):', lines: by('holds').map((a) => claim(a, a.accepted ? ' · 승인' : '')) },
     { title: '후보 (순서대로):', lines: by('candidate').map((a) => line(a)) },
   ], tail)
 }
@@ -73,6 +78,6 @@ export function problemStatusSection(wb: Workbench): string[] {
     out.push(`- \`${p.id}\` ${one(p.question, 70)} · 시도 ${p.used}/${p.limit} · 성립 ${c.holds} · 폐기 ${c.dropped}${c.reported ? ` · 판정 대기 ${c.reported}` : ''} · ${now}`)
   }
   if (open.length > STATUS_SHOWN) out.push(`- 그 밖 ${open.length - STATUS_SHOWN}개 (MCP \`problems\`)`)
-  out.push('', '> 사용자가 시작한 흐름에서만 일한다: `problem_brief`로 이어받고 `attempt_add` · `attempt_start` · `attempt_report`. 성립 · 폐기는 작업한 쪽이 아닌 쪽이 정한다(`attempt_verdict`). 멈춤이면 `direction_report`를 내고 선다. 새 흐름은 제안만 한다(`problem_propose`). MCP가 없는 곳(클라우드)에서는 `pnpm agent:problem <폴더> …`가 같은 일을 한다.', '')
+  out.push('', '> 사용자가 시작한 흐름에서만 일한다: `problem_brief`로 이어받고 `attempt_add` · `attempt_start` · `attempt_report`(주장: 판단할 수 있는 한 문장 `statement`와 받치는 쪽 `side`). 성립 · 폐기는 작업한 쪽이 아닌 쪽이 정한다(`attempt_verdict`: 진술이 근거에서 따라 나오는가). 멈춤이면 `direction_report`를 내고 선다. 새 흐름은 제안만 한다(`problem_propose`). 규칙대로 되지 않은 일(한 문장으로 적지 못함 · 판정하지 못함 · 사용자의 결정이 필요함 · 규칙을 돌아서 함)은 `problem_exception`으로 한 줄 남긴다. MCP가 없는 곳(클라우드)에서는 `pnpm agent:problem <폴더> …`가 같은 일을 한다.', '')
   return out
 }

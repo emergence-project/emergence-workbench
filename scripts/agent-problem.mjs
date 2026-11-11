@@ -1,5 +1,5 @@
 // pnpm agent:problem <연구 저장소 폴더> [명령 …] — 흐름과 시도 나무를 서버 없이 읽고 쓴다 (docs/repo-format.md §16).
-// MCP의 problems · problem_brief · problem_read · problem_propose · problem_prepare · attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report와
+// MCP의 problems · problem_brief · problem_read · problem_propose · problem_prepare · attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · problem_exceptions와
 // 같은 함수(apps/server/src/problems.ts)를 부르므로 규칙이 같다: 사용자가 시작한 흐름에서만 일하고, 자기 시도는 판정하지 못하며, 한도 · 정체에서는 시작을 거절한다.
 // 이 명령은 언제나 에이전트 이름으로 쓴다(--by, 기본 claude). 흐름 시작 · 종료 · 메시지 · 독자 · 한도 · 결정은 사용자가 앱에서 한다.
 // 앱·서버 없이 돈다(클라우드 에이전트용). 쓴 뒤에는 그 저장소에 커밋해 올린다(맥의 앱이 받아 화면에 보인다).
@@ -16,9 +16,11 @@ const usage = [
   '        pnpm agent:problem <폴더> prepare <흐름> [--literature "<키>: <사실 한 줄>"]… [--first-test "…"] [--grading "…"]',
   '        pnpm agent:problem <폴더> add <흐름> "<방법>"… [--under <시도>] [--needs-all]   (후보 늘어놓기)',
   '        pnpm agent:problem <폴더> start <흐름> [시도]                           (시도가 없으면 다음 후보)',
-  '        pnpm agent:problem <폴더> report <흐름> <시도> --did "…" --result "…" [--file <경로>]… [--command "<결과를 낸 명령>"] [--commit <커밋>] [--test "<검사 명령>"] [--lesson "…"] [--reopen "…"]',
+  '        pnpm agent:problem <폴더> report <흐름> <시도> --did "…" --result "…" [--statement "<판단할 수 있는 한 문장>" --side for_yes|for_no|neither [--condition "…"]] [--file <경로>]… [--command "<결과를 낸 명령>"] [--commit <커밋>] [--test "<검사 명령>"] [--lesson "…"] [--reopen "…"]',
   '        pnpm agent:problem <폴더> verdict <흐름> <시도> holds|dropped --note "…" [--check "…"] [--tested pass|fail] [--lesson "…"] [--reopen "…"]   (검사 명령이 있으면 다시 돌리고 --tested)',
   '        pnpm agent:problem <폴더> direction <흐름> [--for-yes "…"] [--for-no "…"] [--neither "…"]   (방향 보고: 사실만)',
+  '        pnpm agent:problem <폴더> exception "<무슨 일이 있었나>" --kind no-claim|no-verdict|needs-user|workaround|other [--instead "<대처>"] [--flow <흐름>] [--attempt <시도>]   (규칙대로 되지 않은 일 한 줄)',
+  '        pnpm agent:problem <폴더> exceptions [흐름]                             (예외 기록 보기)',
   '  공통: --by <에이전트 이름, 기본 claude>',
 ].join('\n')
 /** @type {(m: string) => never} */
@@ -32,6 +34,8 @@ function args() {
         by: { type: 'string', default: 'claude' }, source: { type: 'string' },
         literature: { type: 'string', multiple: true }, 'first-test': { type: 'string' }, grading: { type: 'string' },
         under: { type: 'string' }, 'needs-all': { type: 'boolean' },
+        statement: { type: 'string' }, condition: { type: 'string' }, side: { type: 'string' },
+        kind: { type: 'string' }, instead: { type: 'string' }, flow: { type: 'string' }, attempt: { type: 'string' },
         did: { type: 'string' }, result: { type: 'string' }, file: { type: 'string', multiple: true }, lesson: { type: 'string' }, reopen: { type: 'string' },
         command: { type: 'string' }, commit: { type: 'string' }, test: { type: 'string' },
         note: { type: 'string' }, check: { type: 'string' }, tested: { type: 'string' },
@@ -54,6 +58,7 @@ const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
 const { Workbench } = await tsImport('../apps/server/src/workbench.ts', opts)
 const P = await tsImport('../apps/server/src/problems.ts', opts)
+const X = await tsImport('../apps/server/src/problemExceptions.ts', opts)
 const { briefOf } = await tsImport('../apps/server/src/problemBrief.ts', opts)
 const wb = new Workbench(root)
 
@@ -71,6 +76,8 @@ const now = (p) => [
   ...(p.attempts.some((a) => a.state === 'reported') ? [`판정 대기: ${p.attempts.filter((a) => a.state === 'reported').map((a) => a.label).join(', ')}.`] : []),
   p.stop ? `멈춤: ${STOP[p.stop]}` : p.next ? `다음: ${p.next.label} ${p.next.method}` : '',
 ].filter(Boolean).join(' ')
+const SIDES = ['for_yes', 'for_no', 'neither']
+const KINDS = { refused: '거절', 'no-claim': '진술 불가', 'no-verdict': '판정 불가', 'needs-user': '결정 필요', workaround: '우회', other: '기타' }
 const need = (x, what) => x ?? fail(`${what}이(가) 빠졌습니다.\n${usage}`)
 const aidOf = (s) => String(s).toLowerCase()
 
@@ -119,6 +126,7 @@ try {
     const [id, aid] = rest
     const p = P.reportAttempt(wb, need(id, '흐름 id'), aidOf(need(aid, '시도 id')), {
       did: need(v.did, '--did (한 일)'), result: need(v.result, '--result (결과, 사실로)'),
+      ...(v.statement && { statement: v.statement }), ...(v.condition && { condition: v.condition }), ...(v.side && { side: SIDES.includes(v.side) ? v.side : fail(`--side는 for_yes(예) · for_no(아니오) · neither(어느 쪽도 아님)입니다.\n${usage}`) }),
       ...(v.file?.length && { files: v.file }), ...((v.command || v.commit) && { run: { ...(v.command && { command: v.command }), ...(v.commit && { commit: v.commit }) } }), ...(v.test && { test: v.test }),
       ...(v.lesson && { lesson: v.lesson }), ...(v.reopen && { reopen: v.reopen }),
     }, by)
@@ -137,6 +145,15 @@ try {
       ...(v['for-yes'] && { for_yes: v['for-yes'] }), ...(v['for-no'] && { for_no: v['for-no'] }), ...(v.neither && { neither: v.neither }),
     }, by)
     console.log(`방향 보고를 냈습니다. 사용자가 계속 · 좁히기 · 종료를 정할 때까지 이 흐름에서 새 시도를 시작하지 않습니다. ${now(p)}`)
+  } else if (cmd === 'exception') {
+    const kind = need(v.kind, '--kind')
+    if (kind === 'refused' || !(kind in KINDS)) fail(`--kind는 no-claim(진술 불가) · no-verdict(판정 불가) · needs-user(결정 필요) · workaround(우회) · other(기타)입니다.\n${usage}`)
+    const e = X.addException(wb, { kind, what: need(rest[0], '무슨 일이 있었나'), ...(v.instead && { instead: v.instead }), ...(v.flow && { problem: v.flow }), ...(v.attempt && { attempt: v.attempt }) }, by)
+    console.log(`예외를 적었습니다: workbench/problems/_exceptions/${e.id}.yaml (${KINDS[e.kind]}). 사용자가 흐름 화면에서 봅니다.`)
+  } else if (cmd === 'exceptions') {
+    const list = X.listExceptions(wb).filter((e) => !rest[0] || e.problem === rest[0])
+    if (!list.length) console.log('예외 기록이 없습니다.')
+    for (const e of list) console.log(`${e.at} · ${KINDS[e.kind]} · ${e.by}${e.problem ? ` · ${e.problem}${e.attempt ? ` ${e.attempt.toUpperCase()}` : ''}` : ''} — ${e.what}${e.instead ? ` (대처: ${e.instead})` : ''}`)
   } else fail(`모르는 명령: ${cmd}\n${usage}`)
 } catch (e) {
   fail(e.message)

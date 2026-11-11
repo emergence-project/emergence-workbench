@@ -32,8 +32,10 @@ test('서버 없이 흐름을 읽고, 다음 후보를 시작해 보고하고, �
     assert.match(start.stdout, /시작했습니다: B2 .*\(claude\).*시도 4\/6/)
     const file = path.join(tmp, 'workbench/problems/kempe-degree-five/b2.yaml')
     assert.match(fs.readFileSync(file, 'utf8'), /state: active\n[\s\S]*worker: claude\n/)
-    assert.equal(run(tmp, 'report', 'kempe-degree-five', 'B2', '--did', '적었다', '--result', '같은 틀로 된다', '--file', 'workbench/notes/kempe-recoloring/note.md', '--command', 'python code/cases.py', '--commit', 'abc1234', '--test', 'python code/cases.py --self-test').status, 0)
+    assert.equal(run(tmp, 'report', 'kempe-degree-five', 'B2', '--did', '적었다', '--result', '같은 틀로 된다', '--statement', '차수 4 이하 꼭짓점은 사슬 하나로 색이 빈다', '--side', 'for_yes', '--condition', '평면 그래프', '--file', 'workbench/notes/kempe-recoloring/note.md', '--command', 'python code/cases.py', '--commit', 'abc1234', '--test', 'python code/cases.py --self-test').status, 0)
     assert.match(fs.readFileSync(file, 'utf8'), /run:\n  command: python code\/cases\.py\n  commit: abc1234\ntest: python code\/cases\.py --self-test\n/)
+    assert.match(fs.readFileSync(file, 'utf8'), /statement: 차수 4 이하 꼭짓점은 사슬 하나로 색이 빈다\ncondition: 평면 그래프\nside: for_yes\n/)
+    assert.equal(run(tmp, 'report', 'kempe-degree-five', 'B2', '--did', '적었다', '--result', '된다', '--statement', '된다').status, 1)
 
     const self = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--check', '다른 그림')
     assert.equal(self.status, 1)
@@ -48,6 +50,16 @@ test('서버 없이 흐름을 읽고, 다음 후보를 시작해 보고하고, �
     const ok = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--check', '다른 그림', '--tested', 'pass', '--by', 'codex')
     assert.equal(ok.status, 0, ok.stderr)
     assert.match(fs.readFileSync(file, 'utf8'), /state: holds\n[\s\S]*by: codex\n[\s\S]*tested: pass\n  files:\n    workbench\/notes\/kempe-recoloring\/note\.md: /)
+
+    // 예외 기록: 앱이 규칙으로 거절한 것(자기 판정 · 검사 미실행)은 자동으로, 에이전트는 한 줄을 더한다
+    const added = run(tmp, 'exception', '세 규칙의 수를 한 문장으로 묶지 못했다', '--kind', 'no-claim', '--instead', '가장 약한 문장만 적었다', '--flow', 'kempe-degree-five', '--attempt', 'b2')
+    assert.equal(added.status, 0, added.stderr)
+    assert.equal(run(tmp, 'exception', '종류 없음').status, 1)
+    const log = run(tmp, 'exceptions', 'kempe-degree-five')
+    assert.equal(log.status, 0, log.stderr)
+    assert.match(log.stdout, /진술 불가[\s\S]*세 규칙의 수를 한 문장으로 묶지 못했다/)
+    assert.match(log.stdout, /거절[\s\S]*작업한 쪽은 판정하지 않습니다/)
+    assert.match(log.stdout, /거절[\s\S]*검사 명령이 있습니다/)
   } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 })
 

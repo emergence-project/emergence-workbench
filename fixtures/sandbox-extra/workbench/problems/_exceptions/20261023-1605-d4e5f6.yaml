@@ -1,0 +1,8 @@
+format: 1
+at: 2026-10-23T16:05
+by: claude-code
+kind: no-claim
+problem: greedy-five-colors
+attempt: b
+what: 규칙 셋의 결과(여섯 번째 색이 필요한 예 233 · 41 · 58개)를 한 문장으로 묶으면 규칙마다 다른 수가 빠진다.
+instead: 세 규칙에 모두 맞는 가장 약한 문장만 진술로 적고, 수는 결과에 두었다.
