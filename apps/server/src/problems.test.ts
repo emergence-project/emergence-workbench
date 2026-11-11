@@ -81,14 +81,14 @@ describe('problems and the attempt tree (workbench/problems/)', () => {
     expect((await call('POST', `${P}/${id}/attempts/b/report`, { did: 'x', result: 'y' }, CODEX)).statusCode).toBe(403)
     const { problem: reported } = await ok('POST', `${P}/${id}/attempts/b/report`, { did: 'Built C on L = 16, 24.', result: 'Corner term 0.118 at both sizes.', files: ['workbench/notes/corner/note.md'] }, CLAUDE)
     expect(reported.attempts.find((a: { id: string }) => a.id === 'b')).toMatchObject({ state: 'reported', worker: 'claude-code', files: ['workbench/notes/corner/note.md'] })
-    // 일한 쪽은 판정하지 못하고, 성립에는 조건 밖의 확인이 있어야 한다
+    // 작업한 쪽은 판정하지 못하고, 성립에는 교차 검증이 있어야 한다
     expect((await call('POST', `${P}/${id}/attempts/b/verdict`, { result: 'holds', note: 'ok', check: 'L = 32' }, CLAUDE)).statusCode).toBe(403)
     expect((await call('POST', `${P}/${id}/attempts/b/verdict`, { result: 'holds', note: 'reran' }, CODEX)).statusCode).toBe(400)
     const { problem: held } = await ok('POST', `${P}/${id}/attempts/b/verdict`, { result: 'holds', note: 'Reran from the raw data.', check: 'L = 32 and an anisotropic cell: 0.118, 0.119' }, CODEX)
     expect(held.attempts.find((a: { id: string }) => a.id === 'b')).toMatchObject({ state: 'holds', verdict: { by: 'codex', check: 'L = 32 and an anisotropic cell: 0.118, 0.119' } })
     expect((await call('POST', `${P}/${id}/attempts/b/verdict`, { result: 'dropped', note: 'again', lesson: 'x' }, CODEX)).statusCode).toBe(409)
 
-    // 성립한 가지 아래로 이어 간다: b1. 폐기에는 교훈이 있어야 하고 교훈은 문제 머리에 모인다
+    // 성립한 가지 아래로 이어 간다: b1. 폐기에는 폐기 사유가 있어야 하고 폐기 사유는 문제 머리에 모인다
     const { problem: deeper } = await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'Same on the honeycomb lattice', parent: 'b' }] }, CLAUDE)
     expect(deeper.attempts.map((a: { id: string; depth: number }) => [a.id, a.depth])).toEqual([['b', 0], ['b1', 1], ['a', 0], ['c', 0]])
     // 다음은 나무에서 위에서 아래로 처음 만나는 후보다 (성립한 가지 아래가 먼저). 사용자가 순서를 바꾸면 그대로 따른다

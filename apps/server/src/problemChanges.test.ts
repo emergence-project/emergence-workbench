@@ -106,17 +106,17 @@ describe('바뀐 것 검사: 문제와 시도 나무', () => {
     expect(said()).toContain('결정은 사용자가 앱에서 합니다')
   })
 
-  it('자기 시도 판정, 확인 없는 성립, 교훈 없는 폐기, 판정 기록 없는 성립은 오류', () => {
+  it('자기 시도 판정, 확인 없는 성립, 폐기 사유 없는 폐기, 판정 기록 없는 성립은 오류', () => {
     startAttempt(wb, 'chain', 'a', 'claude')
     reportAttempt(wb, 'chain', 'a', { did: '셌다', result: '셋' }, 'claude')
     commit()
     edit(`${P}/a.yaml`, 'state: reported', 'state: holds\nverdict:\n  at: 2026-11-11T10:00\n  by: claude\n  note: 맞다')
     expect(found()).toEqual([['error', 'problem-verdict', `${P}/a.yaml`], ['error', 'problem-verdict', `${P}/a.yaml`]])
-    expect(said()).toMatch(/일한 쪽\(claude\)이 자기 시도를 판정[\s\S]*맞춘 조건 밖의 확인/)
+    expect(said()).toMatch(/작업한 쪽\(claude\)이 자기 시도를 판정[\s\S]*교차 검증/)
     edit(`${P}/a.yaml`, 'state: holds', 'state: dropped')
     edit(`${P}/a.yaml`, 'by: claude\n  note', 'by: codex\n  note')
     expect(found()).toEqual([['error', 'problem-verdict', `${P}/a.yaml`]])
-    expect(said()).toContain('교훈 한 줄')
+    expect(said()).toContain('폐기 사유 한 줄')
     g('checkout', '-q', '--', '.')
     edit(`${P}/a.yaml`, 'state: reported', 'state: holds')
     expect(said()).toContain('판정 기록(verdict: at · by · note) 없이')

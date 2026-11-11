@@ -42,7 +42,7 @@ export function registerProblems(app: FastifyInstance, ctx: RouteContext): void 
     ({ problem: startAttempt(wbOf(req.params.rid), req.params.id, req.params.aid, actorOf(req)) }))
   app.post<A>(`${R}/:id/attempts/:aid/report`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: reportAttempt(wbOf(req.params.rid), req.params.id, req.params.aid, parseBody(C.AttemptReportBody, req.body), actorOf(req)) }))
-  /** 판정: 일한 쪽이 아닌 쪽만 */
+  /** 판정: 작업한 쪽이 아닌 쪽만 */
   app.post<A>(`${R}/:id/attempts/:aid/verdict`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: verdictAttempt(wbOf(req.params.rid), req.params.id, req.params.aid, parseBody(C.AttemptVerdictBody, req.body), actorOf(req)) }))
   /** 방향 보고 (사실만)와 사용자의 결정 (계속 · 좁히기 · 종료) */

@@ -122,7 +122,7 @@ try {
       ...(v.file?.length && { files: v.file }), ...((v.command || v.commit) && { run: { ...(v.command && { command: v.command }), ...(v.commit && { commit: v.commit }) } }), ...(v.test && { test: v.test }),
       ...(v.lesson && { lesson: v.lesson }), ...(v.reopen && { reopen: v.reopen }),
     }, by)
-    console.log(`보고했습니다: ${aidOf(aid).toUpperCase()}. 성립 · 폐기는 일한 쪽이 아닌 쪽이 정합니다. ${now(p)}`)
+    console.log(`보고했습니다: ${aidOf(aid).toUpperCase()}. 성립 · 폐기는 작업한 쪽이 아닌 쪽이 정합니다. ${now(p)}`)
   } else if (cmd === 'verdict') {
     const [id, aid, result] = rest
     if (result !== 'holds' && result !== 'dropped') fail(`판정은 holds(성립) 또는 dropped(폐기)입니다.\n${usage}`)
