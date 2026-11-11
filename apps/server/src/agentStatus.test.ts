@@ -155,7 +155,7 @@ describe('에이전트 맥락 요약', () => {
     const guides = status.split('\n').filter((line) => line.startsWith('> '))
     expect(guides[0]).toMatch(/^> 연구 작업대 앱이 자동으로 쓰는 요약이다/)
     expect(guides[1]).toContain('이 파일 대신 `project_status`')
-    for (const tool of ['edit_note', 'edit_concept', 'add_record', 'flow_add', 'add_task', 'report_task', 'add_journal']) expect(guides[1]).toContain(`\`${tool}\``)
+    for (const tool of ['edit_note', 'edit_concept', 'add_record', 'attempt_start', 'add_task', 'report_task', 'add_journal']) expect(guides[1]).toContain(`\`${tool}\``)
     expect(guides[3]).toContain('`report_task`')
     expect(guides[4]).toContain('docs/repo-format.md')
     expect(guides[4]).toContain('agent:check')
