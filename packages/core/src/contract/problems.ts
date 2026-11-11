@@ -35,10 +35,10 @@ export const Attempt = z.object({
   parent: z.string().optional(),
   depth: z.number(),
   state: AttemptState,
-  /** 후보로 올린 이 */
+  /** 후보를 제안한 쪽 */
   by: z.string(),
   created: z.string().optional(),
-  /** 일한 이 (시작할 때 적힌다). 판정은 이 이름이 아닌 쪽만 한다 */
+  /** 작업한 쪽 (시작할 때 적힌다). 판정은 이 이름이 아닌 쪽만 한다 */
   worker: z.string().optional(),
   started: z.string().optional(),
   did: z.string().optional(),
@@ -102,7 +102,7 @@ export const Problem = ProblemRow.extend({
   reports: z.array(DirectionReport),
   /** 나무 순서(부모 다음에 자식, 형제는 순서대로) */
   attempts: z.array(Attempt),
-  /** 폐기한 시도의 교훈 (뿌리에 모인다) */
+  /** 폐기한 시도의 폐기 사유 (뿌리에 모인다) */
   lessons: z.array(z.object({ id: z.string(), label: z.string(), lesson: z.string(), reopen: z.string().optional() }).strict()),
 }).strict()
 export const ProblemOne = z.object({ problem: Problem }).strict()

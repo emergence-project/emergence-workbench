@@ -25,7 +25,7 @@ test('서버 없이 흐름을 읽고, 다음 후보를 시작해 보고하고, �
     assert.equal(list.status, 0, list.stderr)
     assert.match(list.stdout, /kempe-degree-five · 진행 — .* · 시도 3\/6 · .* · 다음 B2/)
     assert.match(list.stdout, /greedy-five-colors · 진행 — .* · 멈춤\(decision\)/)
-    assert.match(run(tmp, 'brief', 'kempe-degree-five').stdout, /교훈[\s\S]*다음: B2/)
+    assert.match(run(tmp, 'brief', 'kempe-degree-five').stdout, /폐기 사유[\s\S]*다음: B2/)
 
     const start = run(tmp, 'start', 'kempe-degree-five')
     assert.equal(start.status, 0, start.stderr)
@@ -37,10 +37,10 @@ test('서버 없이 흐름을 읽고, 다음 후보를 시작해 보고하고, �
 
     const self = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--check', '다른 그림')
     assert.equal(self.status, 1)
-    assert.match(self.stderr, /판정은 일한 쪽이 하지 않습니다/)
+    assert.match(self.stderr, /작업한 쪽은 판정하지 않습니다/)
     const bare = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--by', 'codex')
     assert.equal(bare.status, 1)
-    assert.match(bare.stderr, /맞춘 조건 밖의 확인/)
+    assert.match(bare.stderr, /교차 검증/)
     // 검사 명령이 있는 시도: 다시 돌린 결과(--tested pass)가 있어야 성립이고, 성립이면 파일 지문이 남는다
     const untested = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--check', '다른 그림', '--by', 'codex')
     assert.equal(untested.status, 1)

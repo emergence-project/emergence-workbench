@@ -1,6 +1,6 @@
 // 흐름과 시도 나무 (workbench/problems/<id>/problem.yaml + <시도>.yaml). 형식은 docs/repo-format.md §16
 // 11/11 결정 "흐름을 시도 나무로 · 메시지 관문": 흐름은 사용자가 메시지를 쓰고 시작해야 열리고, 에이전트는 그 아래에 시도 후보를 늘어놓고 하나씩 해 본다.
-// 시도의 성립 · 폐기는 일한 쪽이 아닌 쪽이 판정하고, 폐기의 교훈은 흐름 머리에 모인다. 한도나 정체에서는 방향 보고를 내고 사용자가 계속 · 좁히기 · 종료를 정한다.
+// 시도의 성립 · 폐기는 작업한 쪽이 아닌 쪽이 판정하고, 폐기 사유는 흐름 머리에 모인다. 한도나 정체에서는 방향 보고를 내고 사용자가 계속 · 좁히기 · 종료를 정한다.
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
@@ -410,7 +410,7 @@ const STOP_TEXT: Record<ProblemStop, [string, string]> = {
   exhausted: ['남은 후보가 없습니다. 후보를 더 늘어놓거나 방향 보고를 내세요', 'No candidates are left. List more candidates or file a direction report'],
 }
 
-/** 후보를 진행으로. 일한 이를 적는다 (판정은 이 이름이 아닌 쪽만) */
+/** 후보를 진행으로. 작업한 쪽을 적는다 (판정은 이 이름이 아닌 쪽만) */
 export function startAttempt(wb: Workbench, id: string, aid: string, actor: string): Problem {
   const l = load(wb, id)
   needOpen(l)
@@ -428,7 +428,7 @@ export function startAttempt(wb: Workbench, id: string, aid: string, actor: stri
   return readProblem(wb, id)
 }
 
-/** 일한 쪽의 보고: 진행 → 판정 대기. 성립 · 폐기는 여기서 정해지지 않는다 */
+/** 작업한 쪽의 보고: 진행 → 판정 대기. 성립 · 폐기는 여기서 정해지지 않는다 */
 export function reportAttempt(wb: Workbench, id: string, aid: string, body: AttemptReportBody, actor: string): Problem {
   const l = load(wb, id)
   needOpen(l)
@@ -445,7 +445,7 @@ export function reportAttempt(wb: Workbench, id: string, aid: string, body: Atte
   return readProblem(wb, id)
 }
 
-/** 판정: 일한 쪽이 아닌 쪽이 원자료로. 성립은 맞춘 조건 밖의 확인이, 폐기는 교훈이 있어야 한다 */
+/** 판정: 작업한 쪽이 아닌 쪽이 원자료로. 성립은 교차 검증이, 폐기는 폐기 사유가 있어야 한다 */
 export function verdictAttempt(wb: Workbench, id: string, aid: string, body: AttemptVerdictBody, actor: string): Problem {
   const l = load(wb, id)
   needOpen(l)
@@ -456,13 +456,13 @@ export function verdictAttempt(wb: Workbench, id: string, aid: string, body: Att
     // 해 보지 않은 후보 · 진행 중인 시도를 닫는 것은 사용자만 (폐기)
     if (!isUser(actor) || body.result !== 'dropped') throw new WorkbenchError(409, t('보고가 있는 시도(판정 대기)만 판정합니다', 'Only a reported attempt (awaiting verdict) gets a verdict'))
   }
-  if (a.worker && a.worker === actor) throw new WorkbenchError(403, t('판정은 일한 쪽이 하지 않습니다. 다른 에이전트나 사용자가 원자료로 판정합니다', 'The one who did the work does not give the verdict. Another agent or the user judges from the raw data'))
+  if (a.worker && a.worker === actor) throw new WorkbenchError(403, t('작업한 쪽은 판정하지 않습니다. 다른 에이전트나 사용자가 원자료로 판정합니다', 'The one who did the work does not give the verdict. Another agent or the user judges from the raw data'))
   const check = clean(body.check), lesson = clean(body.lesson) ?? a.lesson, reopen = clean(body.reopen) ?? a.reopen
-  if (body.result === 'holds' && !check) throw new WorkbenchError(400, t('성립에는 맞춘 조건 밖의 확인(check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한 가운데 무엇을 했나)이 있어야 합니다', 'A holds verdict needs a check outside the fitted condition (check: another size, other parameters, an independent implementation or a limit)'))
+  if (body.result === 'holds' && !check) throw new WorkbenchError(400, t('성립에는 교차 검증(check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한 가운데 무엇을 했나)이 있어야 합니다', 'A holds verdict needs a check outside the fitted condition (check: another size, other parameters, an independent implementation or a limit)'))
   // 검사 명령이 있는 시도: 다시 돌려 실패했으면 성립이 아니고, 에이전트는 돌린 결과(통과)가 있어야 성립을 준다. 사용자는 돌리지 않고도 정할 수 있다
   if (body.result === 'holds' && body.tested === 'fail') throw new WorkbenchError(400, t('검사가 실패했으면 성립이 아닙니다. 폐기하거나, 고친 뒤 다시 보고받습니다', 'A failed test is not a holds verdict. Drop it, or have it reported again after a fix'))
   if (body.result === 'holds' && a.test && !isUser(actor) && body.tested !== 'pass') throw new WorkbenchError(400, t(`이 시도에는 검사 명령이 있습니다. 다시 돌려 보고 결과를 적습니다 (tested: pass): ${a.test}`, `This attempt has a test command. Rerun it and record the result (tested: pass): ${a.test}`))
-  if (body.result === 'dropped' && !untried && !lesson) throw new WorkbenchError(400, t('폐기에는 교훈 한 줄(lesson)이 있어야 합니다', 'A dropped verdict needs a one-line lesson (lesson)'))
+  if (body.result === 'dropped' && !untried && !lesson) throw new WorkbenchError(400, t('폐기에는 폐기 사유 한 줄(lesson)이 있어야 합니다', 'A dropped verdict needs a one-line lesson (lesson)'))
   const { lesson: _l, reopen: _r, ...base } = a
   // 성립이면 그때의 파일 지문을 남긴다: 뒤에 파일이 바뀌면 화면과 이어받기 요약이 알린다
   const marks = body.result === 'holds' ? fingerprints(wb.repo, a.files) : {}

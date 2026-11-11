@@ -251,7 +251,7 @@ function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): vo
         <div className="st-form-row">
           <div className="field"><span>{t('종류', 'Kind')}</span>
             <div className="segmented" role="group">{STUDY_KINDS.map((k) => <button key={k} className={kind === k ? 'on' : ''} aria-pressed={kind === k} onClick={() => setKind(k)}>{kindName(k)}</button>)}</div></div>
-          <label className="field st-src"><span>{t('출처 키 (references.bib, 없어도 됨)', 'Source key (references.bib, optional)')}</span><input value={source} onChange={(e) => setSource(e.target.value)} placeholder="auerbach1994" /></label>
+          <label className="field st-src"><span>{t('출처 키 (references.bib, 선택)', 'Source key (references.bib, optional)')}</span><input value={source} onChange={(e) => setSource(e.target.value)} placeholder="auerbach1994" /></label>
         </div>
         {!book && <label className="field"><span>{t(`${u === '회' ? '회차' : '장'} (한 줄에 하나)`, 'Chapters (one per line)')}</span><textarea rows={8} value={chapterLines} onChange={(e) => setChapterLines(e.target.value)} /></label>}
         {book && <div className="st-chapters"><div className="st-chapters-h"><span>{u === '회' ? t('회차', 'Sessions') : t('장', 'Chapters')}</span><button className="btn st-add" onClick={() => setRows((rs) => [...rs, { title: '', state: '아직', goals: [], read: [], concepts: [], todo: [], open: true }])}>＋ {u === '회' ? t('회차', 'Session') : t('장', 'Chapter')}</button></div>

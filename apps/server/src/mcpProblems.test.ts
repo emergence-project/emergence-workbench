@@ -52,7 +52,7 @@ describe('MCP: 흐름과 시도 나무', () => {
     expect(textOf(await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'LSWT on 24x24' }, { method: 'Symmetry argument' }, { method: 'ED on 12 sites' }] }))).toMatch(/^Added A, B, C\. Attempts 0\/2\. Next: A \(a\) LSWT on 24x24\.$/)
     expect(textOf(await tool(claude, 'attempt_start', { problem: id }))).toContain('Started A: LSWT on 24x24.')
     expect(textOf(await tool(claude, 'attempt_report', { problem: id, attempt: 'A', did: 'Ran solve_lswt at D = 0.1.', result: 'Lowest band 3e-9 at Gamma on 24, 36, 48.', files: ['code/dm.py'] }))).toContain('Awaiting verdict: A (by claude-code).')
-    // 일한 쪽은 판정하지 못한다
+    // 작업한 쪽은 판정하지 못한다
     const self = await tool(claude, 'attempt_verdict', { problem: id, attempt: 'a', result: 'holds', note: 'looks right', check: 'L = 60' })
     expect(self.isError).toBe(true)
     expect(textOf(self)).toContain('403')

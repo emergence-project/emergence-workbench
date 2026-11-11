@@ -1,7 +1,7 @@
 // 에이전트용 입구(mcp.ts)의 흐름 · 시도 나무 도구: problems · problem_brief · problem_read · problem_propose · problem_prepare ·
 // attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report (11/11 결정 "흐름을 시도 나무로 · 메시지 관문").
 // 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다. 누가 불렀는지는 mcp.ts가 붙이는 x-rw-agent로 서버가 가린다
-// (흐름을 시작하고 종료하는 것, 메시지 · 독자 · 한도 · 순서는 사용자만. 판정은 일한 쪽이 아닌 쪽만).
+// (흐름을 시작하고 종료하는 것, 메시지 · 독자 · 한도 · 순서는 사용자만. 판정은 작업한 쪽이 아닌 쪽만).
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { ATTEMPT_VERDICTS, TEST_RESULTS } from '@rw/core'

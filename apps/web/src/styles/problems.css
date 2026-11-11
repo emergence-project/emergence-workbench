@@ -1,10 +1,9 @@
-/* 문제와 시도 나무 (Problems.tsx, 11/11 시안 J2uZ 4절). 색은 상태 점에만: 진행 파랑 · 판정 대기 주황 · 성립 청록 · 폐기 회색 고리 */
+/* 흐름과 시도 (Problems.tsx, 11/11 시안 J2uZ 4절). 색은 상태 점에만: 진행 파랑 · 판정 대기 주황 · 성립 청록 · 폐기 회색 고리 */
 .page-body.pb-page { max-width: 860px; gap: var(--sp-4); }
 .pb-head { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--input-h); }
 .pb-head .sp, .pb-h3 .sp { flex: 1; }
 .pb-h { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-title); }
 .pb-back { font-size: var(--fs-sm); color: var(--text-2); }
-.pb-hint { margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
 .pb-title { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-title); line-height: 1.35; overflow-wrap: anywhere; }
 .pb-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); color: var(--text-3); }
 .pb-gate, .pb-stop { margin: 0; font-size: var(--fs-sm); color: var(--text-2); }
@@ -12,14 +11,16 @@
 .pb-h3 { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-md); font-weight: var(--fw-strong); }
 .pb-h3 .muted { font-size: var(--fs-xs); font-weight: var(--fw-normal); }
 
-/* 목록: 한 줄에 문제 하나 */
+/* 목록: 한 줄에 흐름 하나. 오른쪽 수는 상태 점과 수, 끝에 시도 수 / 한도 */
 .pb-rows { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
 .pb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 2px var(--sp-3); width: 100%; padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--line); border-radius: 0; text-align: left; font-size: var(--fs-sm); color: var(--text); }
 .pb-row:first-child { border-top: 0; }
 .pb-row:hover { background: var(--bg-hover); }
 .pb-q { min-width: 0; font-weight: var(--fw-medium); overflow-wrap: anywhere; }
 .pb-row .rail-count { grid-column: 2; align-self: center; }
-.pb-nums { grid-column: 3; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pb-nums { grid-column: 3; display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pb-count { display: inline-flex; align-items: center; gap: 2px; }
+.pb-used { color: var(--text-3); }
 .pb-now { grid-column: 1 / -1; min-width: 0; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-fold > summary { font-size: var(--fs-sm); color: var(--text-2); padding: var(--sp-1) 0; }
 .pb-fold[open] > summary { margin-bottom: var(--sp-2); }
@@ -35,8 +36,11 @@
 .pb-lit li { display: flex; align-items: baseline; gap: var(--sp-2); }
 .pb-lit .icon-btn { margin-left: auto; align-self: center; flex: none; }
 .pb-ref { flex: none; font-family: var(--editor-font); font-size: var(--fs-xs); color: var(--text-2); }
-.pb-lessons { margin: 0; padding-left: var(--sp-4); font-size: var(--fs-sm); display: flex; flex-direction: column; gap: 2px; }
-.pb-lessons b { font-weight: var(--fw-strong); margin-right: var(--sp-1); }
+/* 폐기 사유: 폐기 점 · 이름 · 사유, 다시 열 조건은 다시 열기 그림 뒤에 옅게 */
+.pb-lessons { margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); display: flex; flex-direction: column; gap: var(--sp-1); }
+.pb-lessons li { display: grid; grid-template-columns: auto 2.2em minmax(0, 1fr); align-items: baseline; gap: var(--sp-2); overflow-wrap: anywhere; }
+.pb-lessons b { font-weight: var(--fw-strong); }
+.pb-reopen { display: inline-flex; align-items: baseline; gap: var(--sp-1); margin-left: var(--sp-3); color: var(--text-3); }
 
 /* 방향 보고: 사용자 차례 (주황 점 하나) */
 .pb-decision { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line-strong); border-radius: var(--r-lg); }
@@ -49,7 +53,7 @@
 .pb-past { padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
 .pb-past-d { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); color: var(--text-2); }
 
-/* 시도 나무: 한 줄에 시도 하나, 깊이만큼 들여 쓴다. 누르면 그 아래에 전부가 펼쳐진다 */
+/* 시도: 한 줄에 시도 하나, 깊이만큼 들여 쓴다. 누르면 그 아래에 전부가 펼쳐진다 */
 .pb-tree { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .pb-node { border-bottom: 1px solid var(--line); }
 .pb-node-row { display: flex; align-items: center; gap: var(--sp-1); }
@@ -66,10 +70,23 @@
 .pb-files { display: flex; flex-direction: column; gap: 2px; }
 .pb-files code { font-size: var(--fs-xs); }
 .pb-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
+.pb-acts .sp { flex: 1; }
+/* 단계 띠: 제안 › 작업 › 판정을 같은 폭 세 칸으로. 이름 아래에 누가 · 언제. 지난 단계 회색 점, 지금 단계 상태 색 점, 남은 단계 옅은 점. 단계 사이는 가는 선 */
+.pb-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-1) var(--sp-2); margin: 0; padding: 0; list-style: none; font-size: var(--fs-xs); color: var(--text-2); }
+.pb-step { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--sp-1); align-items: center; align-content: start; }
+.pb-step-name { display: flex; align-items: center; gap: var(--sp-2); color: var(--text-3); }
+.pb-step:not(:last-child) .pb-step-name::after { content: ""; flex: 1; border-top: 1px solid var(--line-strong); }
+.pb-step-by { grid-column: 2; overflow-wrap: anywhere; }
+.pb-step.todo .pb-step-name { color: var(--line-strong); }
+.g.pb-done { color: var(--text-3); }
+.pb-result { font-weight: var(--fw-medium); }
+.pb-tested { display: inline-flex; align-items: center; gap: 2px; color: var(--text-2); font-size: var(--fs-xs); }
+.pb-files .error-text, .pb-files .muted { font-size: var(--fs-xs); }
+/* 판정 내용: 보고와 가는 선으로 나눈다 */
+.pb-verdict { padding-top: var(--sp-2); border-top: 1px solid var(--line); }
 .pb-add { display: flex; align-items: center; gap: var(--sp-2); }
 .pb-add input { flex: 1; min-width: 0; height: var(--input-h); padding: 0 var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); font-size: var(--fs-sm); color: var(--text); }
 
-.pb-form-hint { margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
 .pb-err { margin-right: auto; }
 .pb-limit input { width: 6em; }
 @media (max-width: 760px) {
@@ -80,5 +97,14 @@
 }
 /* 판정 후 변경 (11/11): 성립으로 판정한 뒤 파일이 바뀐 시도. 사용자가 볼 것이라 주황 점 */
 .pb-stale { display: inline-flex; align-items: center; gap: var(--sp-1); margin: 0 0 0 var(--sp-2); white-space: nowrap; }
-.pb-stale-file { margin-left: var(--sp-2); font-size: var(--fs-xs); color: var(--s-blocked); }
-.pb-test-cmd { display: block; margin-bottom: var(--sp-2); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.pb-stale-file { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: var(--sp-2); font-size: var(--fs-xs); color: var(--text-2); }
+.pb-test { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.pb-test-cmd { min-width: 0; font-size: var(--fs-xs); overflow-wrap: anywhere; }
+/* 판정 창 (11/11 정돈): 판정할 시도를 옅은 상자로, 칸 이름은 짧게, 선택 칸은 이름 옆 옅은 글 */
+.pb-judged { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--bg-sunken); font-size: var(--fs-sm); }
+.pb-judged p { margin: 0; overflow-wrap: anywhere; }
+.pb-judged-head b { margin-right: var(--sp-2); font-weight: var(--fw-strong); }
+.pb-judged-result { color: var(--text-2); }
+.pb-group { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: var(--sp-2) var(--sp-3) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); min-width: 0; }
+.pb-group legend { padding: 0 var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); }
+.pb-field > span em, .pb-group legend em { margin-left: var(--sp-1); font-style: normal; font-size: var(--fs-xs); color: var(--text-3); }

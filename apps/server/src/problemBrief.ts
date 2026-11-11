@@ -1,5 +1,5 @@
 // 흐름의 이어받기 요약(MCP problem_brief)과 STATUS의 "흐름" 절.
-// 이어받기는 다음 세션이 그 흐름을 이어 가는 데 필요한 것만 싣는다: 질문 · 메시지 · 교훈 · 다음 · 한도. 2KB를 넘지 않는다 (BRIEF_MAX).
+// 이어받기는 다음 세션이 그 흐름을 이어 가는 데 필요한 것만 싣는다: 질문 · 메시지 · 폐기 사유 · 다음 · 한도. 2KB를 넘지 않는다 (BRIEF_MAX).
 // STATUS와 이어받기는 연구 파일 쪽 글이라 한국어로 쓴다.
 import { BRIEF_MAX } from '@rw/core'
 import type { Attempt, Problem, ProblemStop } from '@rw/core/contract/problems'
@@ -46,9 +46,9 @@ export function briefOf(p: Problem): string {
   const tail = p.state !== 'open' ? [p.state === 'closed' ? `종료${p.closed?.reason ? `: ${one(p.closed.reason, 120)}` : ''}` : '사용자가 시작하기 전이다. 시도를 만들거나 시작하지 않는다.']
     : p.stop ? [`멈춤: ${STOP[p.stop]}`] : next.length ? next : ['다음 후보가 없다.']
   return fit(head, [
-    { title: '교훈 (폐기한 시도. 같은 길을 다시 가지 않는다):', lines: p.lessons.map((l) => `- ${l.label} ${one(l.lesson, 110)}${l.reopen ? ` (다시 열 조건: ${one(l.reopen, 60)})` : ''}`) },
+    { title: '폐기 사유 (같은 길을 다시 가지 않는다):', lines: p.lessons.map((l) => `- ${l.label} ${one(l.lesson, 110)}${l.reopen ? ` (다시 열 조건: ${one(l.reopen, 60)})` : ''}`) },
     { title: '판정 뒤에 파일이 바뀐 성립 (다시 확인한다):', lines: p.attempts.filter((a) => a.changed?.length).map((a) => line(a, `: ${one(a.changed!.join(', '), 90)}`)) },
-    { title: '판정 대기 (일한 쪽이 아닌 쪽이 attempt_verdict):', lines: by('reported').map((a) => line(a, `${a.worker ? ` · 일한 쪽 ${a.worker}` : ''}${a.test ? ` · 검사 \`${one(a.test, 70)}\`` : ''}`)) },
+    { title: '판정 대기 (작업한 쪽이 아닌 쪽이 attempt_verdict):', lines: by('reported').map((a) => line(a, `${a.worker ? ` · 작업한 쪽 ${a.worker}` : ''}${a.test ? ` · 검사 \`${one(a.test, 70)}\`` : ''}`)) },
     { title: '진행:', lines: by('active').map((a) => line(a, a.worker ? ` · ${a.worker}` : '')) },
     { title: '성립:', lines: by('holds').map((a) => line(a, a.result ? `: ${one(a.result, 80)}` : '')) },
     { title: '후보 (순서대로):', lines: by('candidate').map((a) => line(a)) },
@@ -73,6 +73,6 @@ export function problemStatusSection(wb: Workbench): string[] {
     out.push(`- \`${p.id}\` ${one(p.question, 70)} · 시도 ${p.used}/${p.limit} · 성립 ${c.holds} · 폐기 ${c.dropped}${c.reported ? ` · 판정 대기 ${c.reported}` : ''} · ${now}`)
   }
   if (open.length > STATUS_SHOWN) out.push(`- 그 밖 ${open.length - STATUS_SHOWN}개 (MCP \`problems\`)`)
-  out.push('', '> 사용자가 시작한 흐름에서만 일한다: `problem_brief`로 이어받고 `attempt_add` · `attempt_start` · `attempt_report`. 성립 · 폐기는 일한 쪽이 아닌 쪽이 정한다(`attempt_verdict`). 멈춤이면 `direction_report`를 내고 선다. 새 흐름은 제안만 한다(`problem_propose`). MCP가 없는 곳(클라우드)에서는 `pnpm agent:problem <폴더> …`가 같은 일을 한다.', '')
+  out.push('', '> 사용자가 시작한 흐름에서만 일한다: `problem_brief`로 이어받고 `attempt_add` · `attempt_start` · `attempt_report`. 성립 · 폐기는 작업한 쪽이 아닌 쪽이 정한다(`attempt_verdict`). 멈춤이면 `direction_report`를 내고 선다. 새 흐름은 제안만 한다(`problem_propose`). MCP가 없는 곳(클라우드)에서는 `pnpm agent:problem <폴더> …`가 같은 일을 한다.', '')
   return out
 }
