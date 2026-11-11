@@ -52,20 +52,35 @@
 .st-edit-rows { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .st-edit-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-1) var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
 .st-edit-row .st-no { margin: 0; }
-.st-fold svg { width: 12px; height: 12px; }
 .st-edit-title { min-width: 0; height: var(--input-h); padding: 0 var(--sp-1); font-weight: var(--fw-medium); border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; font: inherit; font-size: var(--fs-sm); color: var(--text); }
 .st-edit-title:hover { border-bottom-color: var(--line); }
 .st-edit-title:focus { outline: none; border-bottom-color: var(--line-strong); }
-.st-edit-notes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); padding-left: var(--sp-1); }
-.st-edit-sum { grid-column: 3 / -1; padding-left: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
-.st-edit-plan { grid-column: 3 / -1; display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: start; gap: var(--sp-2) var(--sp-3); padding: var(--sp-1) 0 var(--sp-2) var(--sp-1); }
-.st-edit-plan > .st-cap { padding-top: var(--sp-1); }
-.st-edit-plan textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: var(--fs-sm); }
-.st-edit-reads { display: flex; flex-direction: column; gap: var(--sp-1); }
-.st-edit-read { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); }
-.st-edit-read input { min-width: 0; height: var(--input-h); font-size: var(--fs-sm); }
-.st-read-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-input.st-new-note { width: 200px; height: 24px; font-size: var(--fs-xs); }
+.st-fold svg { transform: rotate(90deg); transition: transform .12s; }
+.st-edit-row.open .st-fold svg { transform: rotate(180deg); }
+.st-edit-sum { grid-column: 3 / -1; justify-self: start; padding: 0 var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); text-align: left; }
+.st-edit-sum:hover { color: var(--text-2); }
+/* 펼친 장: 학습 목표(넓게) · 읽을 것 | 개념노트 · 할 일(넓게). 칸 이름은 위에, 입력란은 밑줄만 */
+.st-edit-plan { grid-column: 3 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3) var(--sp-5); padding: var(--sp-2) var(--sp-1) var(--sp-3); }
+.st-part { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.st-part-wide { grid-column: 1 / -1; }
+.st-part h4.st-cap { margin: 0; font-weight: var(--fw-medium); }
+.st-lines { display: flex; flex-direction: column; }
+.st-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-1); min-height: 28px; }
+.st-read-line { grid-template-columns: minmax(0, 1fr) 96px auto; }
+.st-line .icon-btn { opacity: 0; }
+.st-line:hover .icon-btn, .st-line:focus-within .icon-btn { opacity: 1; }
+input.st-plain { min-width: 0; height: 26px; padding: 0 var(--sp-1); border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; font: inherit; font-size: var(--fs-sm); color: var(--text); }
+input.st-plain:hover { border-bottom-color: var(--line); }
+input.st-plain:focus { outline: none; border-bottom-color: var(--line-strong); }
+input.st-plain::placeholder { color: var(--text-3); }
+.st-read-name { min-width: 0; padding: 0 var(--sp-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+input.st-at-in { color: var(--text-2); }
+.st-more { align-self: flex-start; height: 24px; padding: 0 var(--sp-1); border-radius: var(--r-xs); font-size: var(--fs-xs); color: var(--text-3); }
+.st-more:hover { background: var(--bg-hover); color: var(--text-2); }
+.st-adds { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.st-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.st-chips:empty { display: none; }
+input.st-new-note { width: 160px; font-size: var(--fs-xs); }
 .tag.st-chip { display: inline-flex; align-items: center; gap: 2px; height: 22px; box-sizing: border-box; margin: 0; font-size: var(--fs-xs); }
 .tag.st-chip .x { width: 16px; height: 16px; line-height: 1; border-radius: var(--r-xs); color: var(--text-3); }
 .tag.st-chip .x:hover { background: var(--bg-hover); color: var(--text); }
@@ -77,3 +92,6 @@ input.st-new-note { width: 200px; height: 24px; font-size: var(--fs-xs); }
 /* 지식 사이드바의 책 줄: 「공부」 줄 아래 한 단 들여 */
 [data-ui="빠른 이동"] .side-row.cn-book { padding-left: calc(var(--sp-3) + 18px); }
 [data-ui="빠른 이동"] .side-row.cn-book .label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 고치기 창의 「＋ 문헌…」 · 「＋ 있는 노트…」: 「＋ 주소」와 같은 글 버튼 모양 (화살표 없이) */
+.st-adds .rs-select.st-pick { appearance: none; -webkit-appearance: none; field-sizing: content; width: auto; max-width: 160px; height: 24px; padding: 0 var(--sp-1); border: 0; border-radius: var(--r-xs); background: transparent; background-image: none; color: var(--text-3); font-size: var(--fs-xs); cursor: pointer; }
+.st-adds .rs-select.st-pick:hover { background: var(--bg-hover); color: var(--text-2); }
