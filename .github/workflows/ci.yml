@@ -46,21 +46,18 @@ jobs:
       # 우분투 저장소가 멀쩡해도 설치까지 가지 못했다. 이제 멈춘 출처는 10초 × 2번에 넘어가고, 받기의 끝 줄을 남겨 어느 출처였는지 보인다.
       # 그 끝 줄로 보니 멈춘 것은 실행기의 Azure 우분투 미러였다 (미러 목록 /etc/apt/apt-mirrors.txt의 첫 줄). 한 번 실패하면 그 줄을 빼고
       # 목록의 다음 저장소(공식 archive.ubuntu.com)로 받는다. 다른 줄이 없으면 그대로 둔다.
-      # 공식 저장소도 실행기에서만 멈췄다 (바깥에서는 열린다). 첫 실패 뒤에는 IPv4로만 받고, IPv4 · IPv6로 한 번씩 열어 본 결과를 남긴다.
+      # 11/11의 원인은 실행기에서 ubuntu.com 이름 풀이(DNS)가 시간 초과였던 것이다 (packages.microsoft.com은 됐다. 우리 쪽에서 고칠 것이 없다).
+      # 다음에 바로 알 수 있게, 첫 실패 뒤에 공식 저장소를 한 번 열어 본 결과(이름 풀이 · 연결 · 응답 가운데 어디서 멈췄나)를 남긴다.
       - timeout-minutes: 6
         run: |
           sudo rm -f /var/lib/man-db/auto-update
           apt_opts='-o Acquire::Retries=1 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10'
-          v4=''
           for i in 1 2 3; do
-            sudo timeout 45 apt-get $apt_opts $v4 update 2>&1 | tail -n 12 || true
-            sudo timeout 60 apt-get $apt_opts $v4 install -y -qq --no-install-recommends zsh fonts-nanum && exit 0
+            sudo timeout 45 apt-get $apt_opts update 2>&1 | tail -n 12 || true
+            sudo timeout 60 apt-get $apt_opts install -y -qq --no-install-recommends zsh fonts-nanum && exit 0
             echo "apt 시도 $i 실패, 다시 한다"
             if grep -v azure /etc/apt/apt-mirrors.txt 2>/dev/null | grep -q .; then sudo sed -i '/azure/d' /etc/apt/apt-mirrors.txt; fi
-            if [ -z "$v4" ]; then
-              for v in 4 6; do curl -sS -$v -m 5 -o /dev/null -w "archive.ubuntu.com IPv$v: %{http_code} %{time_total}s\n" https://archive.ubuntu.com/ubuntu/dists/ || true; done
-              v4='-o Acquire::ForceIPv4=true'
-            fi
+            if [ "$i" = 1 ]; then curl -sS -m 5 -o /dev/null -w "archive.ubuntu.com: %{http_code} %{time_total}s\n" https://archive.ubuntu.com/ubuntu/dists/ || true; fi
           done
           exit 1
       - run: pnpm install --frozen-lockfile
