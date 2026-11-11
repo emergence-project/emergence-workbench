@@ -65,8 +65,8 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `problem_prepare` | 사용자가 판단하는 데 쓸 사실을 더한다: 문헌 대조 `literature`(논문마다 사실 한 줄), 첫 시험 `first_test`, 채점 `grading` | `PATCH …/:rid/problems/:id` |
 | `attempt_add` | 진행 흐름(또는 성립한 시도) 아래에 후보 방법을 한 줄씩 늘어놓는다. 일하기 전에 먼저 늘어놓고, 순서는 사용자가 바꿀 수 있다 | `POST …/:rid/problems/:id/attempts` |
 | `attempt_start` | 후보 하나를 자기 이름으로 시작한다. `attempt`가 없으면 다음 후보. 한도 · 폐기 셋 · 결정 대기에서는 거절하므로 `direction_report`를 낸다 | `POST …/attempts/:aid/start` |
-| `attempt_report` | 시작한 시도의 한 일과 결과를 사실로(숫자 · 크기 · 매개변수 · 실패한 자리), 원자료 · 코드 · 노트 파일과 함께 보고한다. 성립 여부는 정하지 않는다 | `POST …/attempts/:aid/report` |
-| `attempt_verdict` | 다른 쪽이 일한 시도를 원자료로 판정한다. 성립은 맞춘 조건 밖의 확인 `check`, 폐기는 교훈 `lesson`. 자기가 일한 시도는 거절 | `POST …/attempts/:aid/verdict` |
+| `attempt_report` | 시작한 시도의 한 일과 결과를 사실로(숫자 · 크기 · 매개변수 · 실패한 자리), 원자료 · 코드 · 노트 파일과 함께 보고한다. 결과를 낸 명령 `command`(커밋은 앱이 적는다)와, 있으면 판정하는 쪽이 다시 돌릴 검사 명령 `test`도 적는다. 성립 여부는 정하지 않는다 | `POST …/attempts/:aid/report` |
+| `attempt_verdict` | 다른 쪽이 일한 시도를 원자료로 판정한다. 성립은 맞춘 조건 밖의 확인 `check`, 폐기는 교훈 `lesson`. 검사 명령이 있으면 다시 돌린 결과 `tested`(성립에는 `pass`). 성립이면 앱이 파일 지문을 남겨 뒤에 바뀌면 알린다. 자기가 일한 시도는 거절 | `POST …/attempts/:aid/verdict` |
 | `direction_report` | 멈췄거나 결과가 질문에서 벗어날 때, 사용자의 메시지에 맞춰 사실만 나눠 적고 선다(`for_yes` · `for_no` · `neither`). 계속할지는 권하지 않는다 | `POST …/:rid/problems/:id/report` |
 | `answer_record` | 질문 · 지시 기록 아래에 답을 쓴다 `{ target, id, answer }`. 지시는 먼저 그 일을 하고(노트는 `edit_note`) 답한다. 답 머리에 에이전트 이름이 붙고 기록은 답함이 된다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target/:id/answers` |
 | `add_record` | 사용자에게 남기는 기록 `{ file 또는 target, kind: 질문 \| 메모, text, quote?, line? }`. `by`에 에이전트 이름이 적힌다. 질문은 사용자에게 확인 · 결정을 부탁하는 것(예: 에이전트가 쓴 노트의 한 곳, `quote`로 그 자리에 붙인다)으로, 사용자가 앱에서 답할 때까지 사용자 차례다(앱에서 주황, 홈 "확인 필요"에 셈). 사용자가 답하면 `### 답 · 사용자`가 붙고 답함이 된다. 답은 `read_records`로 읽는다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target` |

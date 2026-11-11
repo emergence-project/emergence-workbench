@@ -78,3 +78,7 @@
   .pb-gate-list, .pb-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .pb-gate-list dd, .pb-facts dd { margin-bottom: var(--sp-2); }
 }
+/* 판정 후 변경 (11/11): 성립으로 판정한 뒤 파일이 바뀐 시도. 사용자가 볼 것이라 주황 점 */
+.pb-stale { display: inline-flex; align-items: center; gap: var(--sp-1); margin: 0 0 0 var(--sp-2); white-space: nowrap; }
+.pb-stale-file { margin-left: var(--sp-2); font-size: var(--fs-xs); color: var(--s-blocked); }
+.pb-test-cmd { display: block; margin-bottom: var(--sp-2); font-size: var(--fs-xs); overflow-wrap: anywhere; }

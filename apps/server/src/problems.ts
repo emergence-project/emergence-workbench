@@ -4,9 +4,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { ATTEMPT_STATES, DIRECTION_VERDICTS, PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STATES, PROBLEM_STREAK, REPORT_WHYS, localDate, stamp } from '@rw/core'
+import { ATTEMPT_STATES, DIRECTION_VERDICTS, PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STATES, PROBLEM_STREAK, REPORT_WHYS, TEST_RESULTS, localDate, stamp } from '@rw/core'
 import type { Attempt, AttemptReportBody, AttemptState, AttemptVerdictBody, DirectionDecisionBody, DirectionReport, DirectionReportBody, Literature, NewAttemptsBody, NewProblemBody, Problem, ProblemList, ProblemPatchBody, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
 import { hashOf, writeAtomic } from './fsutil.js'
+import { changedSince, fingerprints, headCommit } from './problemFiles.js'
 import { t } from './i18n.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 
@@ -29,8 +30,8 @@ export interface RawProblem {
 }
 export interface RawAttempt {
   id: string; method: string; parent?: string; state: AttemptState; by: string; created?: string
-  worker?: string; started?: string; did?: string; result?: string; files: string[]; reported?: string
-  verdict?: { at: string; by: string; note?: string; check?: string }; lesson?: string; reopen?: string; needs?: 'all'
+  worker?: string; started?: string; did?: string; result?: string; files: string[]; run?: { command?: string; commit?: string }; test?: string; reported?: string
+  verdict?: { at: string; by: string; note?: string; check?: string; tested?: 'pass' | 'fail'; files?: Record<string, string> }; lesson?: string; reopen?: string; needs?: 'all'
   extra: Record<string, unknown>
 }
 
@@ -42,7 +43,7 @@ const some = <T>(xs: (T | undefined)[]): T[] => xs.filter((x): x is T => x !== u
 const rest = (o: Record<string, unknown>, known: readonly string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => !known.includes(k)))
 
 const PROBLEM_KEYS = ['format', 'question', 'state', 'by', 'created', 'source', 'if_yes', 'if_no', 'reader', 'literature', 'first_test', 'grading', 'limit', 'opened', 'closed', 'order', 'needs', 'reports']
-const ATTEMPT_KEYS = ['format', 'method', 'parent', 'state', 'by', 'created', 'worker', 'started', 'did', 'result', 'files', 'reported', 'verdict', 'lesson', 'reopen', 'needs']
+const ATTEMPT_KEYS = ['format', 'method', 'parent', 'state', 'by', 'created', 'worker', 'started', 'did', 'result', 'files', 'run', 'test', 'reported', 'verdict', 'lesson', 'reopen', 'needs']
 
 function literatureOf(v: unknown): Literature | undefined {
   const r = rec(v)
@@ -92,12 +93,16 @@ export function parseAttempt(id: string, text: string): RawAttempt | null {
   if (!method) return null
   const v = rec(o.verdict)
   const vat = str(v.at), vby = str(v.by)
+  const run = rec(o.run), command = str(run.command), commit = str(run.commit)
+  const tested = oneOf(TEST_RESULTS, v.tested)
+  const marks = Object.fromEntries(Object.entries(rec(v.files)).flatMap(([f, h]) => { const s = str(h); return s ? [[f, s]] : [] }))
   return {
     id, method, ...(str(o.parent) && { parent: str(o.parent) }), state: oneOf(ATTEMPT_STATES, o.state) ?? 'candidate', by: str(o.by) ?? USER,
     ...(str(o.created) && { created: str(o.created) }), ...(str(o.worker) && { worker: str(o.worker) }), ...(str(o.started) && { started: str(o.started) }),
     ...(str(o.did) && { did: str(o.did) }), ...(str(o.result) && { result: str(o.result) }), files: some(arr(o.files).map(str)),
+    ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }), ...(str(o.test) && { test: str(o.test) }),
     ...(str(o.reported) && { reported: str(o.reported) }),
-    ...(vat && vby && { verdict: { at: vat, by: vby, ...(str(v.note) && { note: str(v.note) }), ...(str(v.check) && { check: str(v.check) }) } }),
+    ...(vat && vby && { verdict: { at: vat, by: vby, ...(str(v.note) && { note: str(v.note) }), ...(str(v.check) && { check: str(v.check) }), ...(tested && { tested }), ...(Object.keys(marks).length && { files: marks }) } }),
     ...(str(o.lesson) && { lesson: str(o.lesson) }), ...(str(o.reopen) && { reopen: str(o.reopen) }), ...(o.needs === 'all' && { needs: 'all' as const }),
     extra: rest(o, ATTEMPT_KEYS),
   }
@@ -117,7 +122,7 @@ export const dumpProblem = (p: RawProblem) => dump({
 export const dumpAttempt = (a: RawAttempt) => dump({
   format: PROBLEM_FORMAT, method: a.method, ...(a.parent && { parent: a.parent }), state: a.state, by: a.by, ...(a.created && { created: a.created }),
   ...(a.worker && { worker: a.worker }), ...(a.started && { started: a.started }), ...(a.did && { did: a.did }), ...(a.result && { result: a.result }),
-  ...(a.files.length && { files: a.files }), ...(a.reported && { reported: a.reported }), ...(a.verdict && { verdict: a.verdict }),
+  ...(a.files.length && { files: a.files }), ...(a.run && { run: a.run }), ...(a.test && { test: a.test }), ...(a.reported && { reported: a.reported }), ...(a.verdict && { verdict: a.verdict }),
   ...(a.lesson && { lesson: a.lesson }), ...(a.reopen && { reopen: a.reopen }), ...(a.needs && { needs: a.needs }), ...a.extra,
 })
 
@@ -210,13 +215,15 @@ function row(l: Loaded): ProblemRow {
   }
 }
 
-function view(l: Loaded): Problem {
+function view(l: Loaded, repo: string): Problem {
   const list = l.attempts.map((x) => x.raw)
   const text = new Map(l.attempts.map((x) => [x.raw.id, x.text]))
   const r = row(l)
   const attempts: Attempt[] = tree(l.raw, list).map(({ a, depth }) => {
     const { extra: _extra, ...known } = a
-    return { ...known, label: labelOf(a.id), hash: hashOf(text.get(a.id) ?? ''), depth, next: r.next?.id === a.id }
+    // 판정 뒤에 바뀐 파일: 성립한 시도만 본다 (폐기한 시도의 파일은 더 따지지 않는다)
+    const changed = a.state === 'holds' && a.verdict?.files ? changedSince(repo, a.verdict.files) : []
+    return { ...known, label: labelOf(a.id), hash: hashOf(text.get(a.id) ?? ''), depth, next: r.next?.id === a.id, ...(changed.length && { changed }) }
   })
   const { extra: _extra, question: _q, state: _s, by: _b, created: _c, source: _src, limit: _l, ...more } = l.raw
   return {
@@ -251,7 +258,7 @@ export function scanProblems(wb: Workbench): ProblemList {
   return { problems, diagnostics }
 }
 
-export const readProblem = (wb: Workbench, id: string): Problem => view(load(wb, id))
+export const readProblem = (wb: Workbench, id: string): Problem => view(load(wb, id), wb.repo)
 
 // ---------- 누가 무엇을 하나 ----------
 
@@ -328,7 +335,7 @@ export function openProblem(wb: Workbench, id: string, baseHash: string, actor: 
   userOnly(actor, '흐름 시작', 'Opening a flow')
   const l = load(wb, id)
   fresh(l, baseHash)
-  if (l.raw.state === 'open') return view(l)
+  if (l.raw.state === 'open') return view(l, wb.repo)
   if (l.raw.state === 'closed') throw new WorkbenchError(409, t('종료한 흐름입니다', 'This flow is closed'))
   const missing = [!l.raw.if_yes && t('답이 예일 때의 한 문장', 'the sentence if the answer is yes'), !l.raw.if_no && t('답이 아니오일 때의 한 문장', 'the sentence if the answer is no'), !l.raw.reader && t('독자', 'the reader')].filter((x): x is string => !!x)
   if (missing.length) throw new WorkbenchError(400, t(`시작하려면 다음을 적어 주세요: ${missing.join(' · ')}`, `To start, write: ${missing.join(', ')}`))
@@ -428,7 +435,12 @@ export function reportAttempt(wb: Workbench, id: string, aid: string, body: Atte
   const a = attemptOf(l, aid)
   if (a.state !== 'active') throw new WorkbenchError(409, t('진행 중인 시도만 보고합니다 (먼저 시작하세요)', 'Only a working attempt is reported (start it first)'))
   if (!isUser(actor) && a.worker && a.worker !== actor) throw new WorkbenchError(403, t(`이 시도는 ${a.worker}가 맡았습니다`, `This attempt belongs to ${a.worker}`))
-  saveAttempt(l, { ...a, state: 'reported', did: body.did, result: body.result, files: body.files?.map((f) => f.trim()).filter(Boolean) ?? a.files, reported: now(),
+  // 실행: 명령을 적었거나 파일이 있으면 보고할 때의 커밋을 함께 남긴다 (직접 준 커밋이 앞선다)
+  const files = body.files?.map((f) => f.trim()).filter(Boolean) ?? a.files
+  const command = clean(body.run?.command), commit = clean(body.run?.commit) ?? (command || files.length ? headCommit(wb.repo) : undefined)
+  const { run: _run, test: _test, ...base } = a
+  saveAttempt(l, { ...base, state: 'reported', did: body.did, result: body.result, files, reported: now(),
+    ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }), ...(clean(body.test) && { test: clean(body.test) }),
     ...(clean(body.lesson) && { lesson: clean(body.lesson) }), ...(clean(body.reopen) && { reopen: clean(body.reopen) }) })
   return readProblem(wb, id)
 }
@@ -447,9 +459,14 @@ export function verdictAttempt(wb: Workbench, id: string, aid: string, body: Att
   if (a.worker && a.worker === actor) throw new WorkbenchError(403, t('판정은 일한 쪽이 하지 않습니다. 다른 에이전트나 사용자가 원자료로 판정합니다', 'The one who did the work does not give the verdict. Another agent or the user judges from the raw data'))
   const check = clean(body.check), lesson = clean(body.lesson) ?? a.lesson, reopen = clean(body.reopen) ?? a.reopen
   if (body.result === 'holds' && !check) throw new WorkbenchError(400, t('성립에는 맞춘 조건 밖의 확인(check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한 가운데 무엇을 했나)이 있어야 합니다', 'A holds verdict needs a check outside the fitted condition (check: another size, other parameters, an independent implementation or a limit)'))
+  // 검사 명령이 있는 시도: 다시 돌려 실패했으면 성립이 아니고, 에이전트는 돌린 결과(통과)가 있어야 성립을 준다. 사용자는 돌리지 않고도 정할 수 있다
+  if (body.result === 'holds' && body.tested === 'fail') throw new WorkbenchError(400, t('검사가 실패했으면 성립이 아닙니다. 폐기하거나, 고친 뒤 다시 보고받습니다', 'A failed test is not a holds verdict. Drop it, or have it reported again after a fix'))
+  if (body.result === 'holds' && a.test && !isUser(actor) && body.tested !== 'pass') throw new WorkbenchError(400, t(`이 시도에는 검사 명령이 있습니다. 다시 돌려 보고 결과를 적습니다 (tested: pass): ${a.test}`, `This attempt has a test command. Rerun it and record the result (tested: pass): ${a.test}`))
   if (body.result === 'dropped' && !untried && !lesson) throw new WorkbenchError(400, t('폐기에는 교훈 한 줄(lesson)이 있어야 합니다', 'A dropped verdict needs a one-line lesson (lesson)'))
   const { lesson: _l, reopen: _r, ...base } = a
-  saveAttempt(l, { ...base, state: body.result, verdict: { at: now(), by: actor, note: body.note, ...(check && { check }) },
+  // 성립이면 그때의 파일 지문을 남긴다: 뒤에 파일이 바뀌면 화면과 이어받기 요약이 알린다
+  const marks = body.result === 'holds' ? fingerprints(wb.repo, a.files) : {}
+  saveAttempt(l, { ...base, state: body.result, verdict: { at: now(), by: actor, note: body.note, ...(check && { check }), ...(body.tested && { tested: body.tested }), ...(Object.keys(marks).length && { files: marks }) },
     ...(body.result === 'dropped' && lesson && { lesson }), ...(body.result === 'dropped' && reopen && { reopen }) })
   return readProblem(wb, id)
 }

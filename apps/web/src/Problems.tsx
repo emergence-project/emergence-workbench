@@ -274,6 +274,7 @@ function Tree({ p, busy, locked, onAdd, onOrder, onVerdict }: {
                   <span className="pb-label">{a.label}</span>
                   <span className="pb-method">{a.method}{a.needs === 'all' && <span className="tag pb-all" title={t('이 아래 시도가 모두 성립해야 한다 (분해)', 'Every attempt below must hold (a decomposition)')}>{t('분해', 'All')}</span>}</span>
                   {a.next && !p.stop && <span className="tag pb-next" title={t('지금 할 후보', 'The candidate to do now')}>{t('다음', 'Next')}</span>}
+                  {a.changed && <span className="tag pb-stale" data-ui="판정 후 변경" title={t(`성립으로 판정한 뒤 파일이 바뀌었습니다: ${a.changed.join(', ')}`, `Files changed after the holds verdict: ${a.changed.join(', ')}`)}><span className="turn-dot" aria-hidden />{t('판정 후 변경', 'Changed after verdict')}</span>}
                 </button>
                 {a.state === 'candidate' && !locked && <span className="pb-move">
                   <button className="icon-btn sm" data-tip={t('위로', 'Move up')} aria-label={t(`${a.label} 위로`, `Move ${a.label} up`)} disabled={busy || i === 0} onClick={() => move(a, -1)}>{Icon.up}</button>
@@ -306,7 +307,9 @@ function Detail({ a, locked, busy, onVerdict, onAddUnder }: { a: Attempt; locked
         {row(t('일한 이', 'Worked by'), a.worker && `${who(a.worker)}${a.started ? ` · ${when(a.started)}` : ''}`)}
         {row(t('한 일', 'Done'), a.did)}
         {row(t('결과', 'Result'), a.result)}
-        {row(t('파일', 'Files'), a.files.length > 0 && <span className="pb-files">{a.files.map((f) => <code key={f}>{f}</code>)}</span>)}
+        {row(t('파일', 'Files'), a.files.length > 0 && <span className="pb-files">{a.files.map((f) => <span key={f}><code>{f}</code>{a.changed?.includes(f) && <span className="pb-stale-file">{t('판정 후 변경', 'changed after verdict')}</span>}</span>)}</span>)}
+        {row(t('실행', 'Run'), a.run && <span className="pb-files">{a.run.command && <code>{a.run.command}</code>}{a.run.commit && <span className="muted">{t(`커밋 ${a.run.commit}`, `commit ${a.run.commit}`)}</span>}</span>)}
+        {row(t('검사', 'Test'), a.test && <span className="pb-files"><code>{a.test}</code>{a.verdict && <span className="muted">{a.verdict.tested === 'pass' ? t('다시 돌림: 통과', 'Rerun: passed') : a.verdict.tested === 'fail' ? t('다시 돌림: 실패', 'Rerun: failed') : t('다시 돌리지 않음', 'Not rerun')}</span>}</span>)}
         {row(t('판정', 'Verdict'), a.verdict && `${ATTEMPT_NAME[a.state]} · ${who(a.verdict.by)} · ${when(a.verdict.at)}${a.verdict.note ? ` · ${a.verdict.note}` : ''}`)}
         {row(t('조건 밖 확인', 'Outside check'), a.verdict?.check)}
         {row(t('교훈', 'Lesson'), a.lesson)}

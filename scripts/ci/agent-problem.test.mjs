@@ -32,7 +32,8 @@ test('서버 없이 흐름을 읽고, 다음 후보를 시작해 보고하고, �
     assert.match(start.stdout, /시작했습니다: B2 .*\(claude\).*시도 4\/6/)
     const file = path.join(tmp, 'workbench/problems/kempe-degree-five/b2.yaml')
     assert.match(fs.readFileSync(file, 'utf8'), /state: active\n[\s\S]*worker: claude\n/)
-    assert.equal(run(tmp, 'report', 'kempe-degree-five', 'B2', '--did', '적었다', '--result', '같은 틀로 된다', '--file', 'workbench/notes/kempe-recoloring/note.md').status, 0)
+    assert.equal(run(tmp, 'report', 'kempe-degree-five', 'B2', '--did', '적었다', '--result', '같은 틀로 된다', '--file', 'workbench/notes/kempe-recoloring/note.md', '--command', 'python code/cases.py', '--commit', 'abc1234', '--test', 'python code/cases.py --self-test').status, 0)
+    assert.match(fs.readFileSync(file, 'utf8'), /run:\n  command: python code\/cases\.py\n  commit: abc1234\ntest: python code\/cases\.py --self-test\n/)
 
     const self = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--check', '다른 그림')
     assert.equal(self.status, 1)
@@ -40,9 +41,13 @@ test('서버 없이 흐름을 읽고, 다음 후보를 시작해 보고하고, �
     const bare = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--by', 'codex')
     assert.equal(bare.status, 1)
     assert.match(bare.stderr, /맞춘 조건 밖의 확인/)
-    const ok = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--check', '다른 그림', '--by', 'codex')
+    // 검사 명령이 있는 시도: 다시 돌린 결과(--tested pass)가 있어야 성립이고, 성립이면 파일 지문이 남는다
+    const untested = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--check', '다른 그림', '--by', 'codex')
+    assert.equal(untested.status, 1)
+    assert.match(untested.stderr, /검사 명령이 있습니다/)
+    const ok = run(tmp, 'verdict', 'kempe-degree-five', 'b2', 'holds', '--note', '다시 읽었다', '--check', '다른 그림', '--tested', 'pass', '--by', 'codex')
     assert.equal(ok.status, 0, ok.stderr)
-    assert.match(fs.readFileSync(file, 'utf8'), /state: holds\n[\s\S]*by: codex\n/)
+    assert.match(fs.readFileSync(file, 'utf8'), /state: holds\n[\s\S]*by: codex\n[\s\S]*tested: pass\n  files:\n    workbench\/notes\/kempe-recoloring\/note\.md: /)
   } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 })
 
