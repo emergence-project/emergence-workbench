@@ -26,7 +26,7 @@ import { provesOf, shortLabel } from './notes'
 import { StatementTab } from './StatementTab'
 import { DocTab, MaterialsNav } from './Materials'
 import { RepoFileTab } from './RepoFileTab'
-import { commentsChanged, flowTarget, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
+import { commentsChanged, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './Comments'
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNote } from './Library'
 import { QuickMemo } from './memo'
@@ -42,11 +42,7 @@ import { FilesPage } from './FilesPage'
 import { ProjectRailCount, useProjectIssues } from './projectIssues'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
-import { FlowPage } from './FlowView'
 import { ProblemsPage } from './Problems'
-import { JudgePage } from './flow/JudgePage'
-import { flowTitles } from './flow/data'
-import { useFlowSelection } from './flowSelection'
 import { moveId, PROJECT_KIND_LABEL, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
 import { setFeedbackNote } from './feedbackNote'
@@ -74,7 +70,6 @@ export function App() {
   // 맥 알림 (창을 보고 있지 않을 때): 에이전트가 답을 마치거나 내 차례가 될 때, 피드백이 새로 확인 필요가 될 때
   useAgentNotify(); useFeedbackNotify()
   const rid = 'rid' in route ? route.rid : null
-  const flowSel = useFlowSelection(rid ?? '')
   /** 연구 하나에 속하지 않는 화면: 홈과 globalPages.tsx의 화면. 연구 사이드바가 필요 없다 */
   const globalPage = route.page === 'home' || !!globalPageOf(route.page)
   const [researches, setResearches] = useState<ResearchListItem[] | null>(null)
@@ -317,7 +312,6 @@ export function App() {
       : route.page === 'file' ? [{ label: t('파일', 'File') }, { label: route.path }]
         : route.page === 'concept' || route.page === 'paper' ? [{ label: route.page === 'concept' ? t('개념노트', 'Concept note') : t('문헌노트', 'Literature note') }, { label: library?.notes.find((n) => n.kind === route.page && n.id === route.id)?.title ?? route.id }]
         : route.page === 'task' ? [{ label: t('기록', 'Records'), to: { page: 'records', rid } as Route }, { label: taskTitles.get(route.task) ?? route.task }]
-        : route.page === 'judge' ? [{ label: t('기록', 'Records'), to: { page: 'records', rid } as Route }, { label: `${t('판단', 'Judge')} · ${flowTitles.get(route.id) ?? route.id}` }]
         : route.page === 'topic' ? [{ label: route.tid === LOOSE_TOPIC_ID ? LOOSE_NOTES_LABEL : topics.find((x) => x.id === route.tid)?.title ?? route.tid }]
         : route.page === 'part' ? (() => {
           const ms = msOfFile(route.file)
@@ -407,8 +401,7 @@ export function App() {
       case 'todo': case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} version={version} />
       case 'log': return <WorkPage key="log" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} notes={notes} /></Lazy>
-      case 'problems': return <ProblemsPage key={rid} rid={rid} id={route.page === 'problems' ? route.id : undefined} onSaved={flash} />
-      case 'flow': return <FlowPage key={rid} rid={rid} topic={route.page === 'flow' ? route.topic : undefined} notes={notes} topics={topics.map((x) => ({ id: x.id, title: x.title }))} />
+      case 'problems': return <ProblemsPage key={rid} rid={rid} id={route.page === 'problems' ? route.id : undefined} kind={current?.kind} onSaved={flash} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
       case 'chat': {
         // 대화 탭에는 다른 패널에서 보는 노트가 붙는다
@@ -417,7 +410,6 @@ export function App() {
         return <ChatTab key={t.chat} id={t.chat} auto={n && { kind: 'note', ref: n.file, label: n.title }} onSaved={flash} />
       }
       case 'task': return <Lazy><TaskReport key={`${rid}/${t.task}`} rid={rid} id={t.task} version={version} project={current?.title ?? summary.research.title} topics={topics} onSaved={flash} tocOwner={context?.focused ? tabKey(t) : null} /></Lazy>
-      case 'judge': return <JudgePage key={`${rid}/${t.id}`} rid={rid} id={t.id} notes={notes} onSaved={flash} />
       case 'topic': return <TopicPage key={t.tid} rid={rid} rapi={rapi} tid={t.tid} notes={notes} manuscripts={manuscripts} project={current?.title ?? summary.research.title} pc={projectColor(rid)}
         version={version} onChanged={() => { changed(); notesChanged() }} onSaved={flash} />
       case 'notes': case 'concepts': case 'papers': return <NotesPage key={t.k} show={t.k} rid={rid} rapi={rapi} summary={summary} notes={notes} manuscripts={manuscripts} library={library} onChanged={changed} onLibraryChanged={libraryChanged} onSaved={flash} />
@@ -478,7 +470,7 @@ export function App() {
               <button key={r.id} data-rid={r.id} className={`rail-proj${r.id === rid ? ' on' : ''}${r.available ? '' : ' off'}${railDrag.from === r.id && railDrag.over ? ' lifted' : ''}`} aria-current={r.id === rid ? 'true' : undefined} style={{ ['--pc' as string]: projectColor(r.id) }}
                 {...railDragProps(r.id)}
                 data-ui="프로젝트 버튼" data-ui-item={r.title} data-tip={`${r.title}  ${PROJECT_KIND_LABEL[r.kind]}${r.fields.length ? ` ${r.fields.map((t) => `#${t}`).join(' ')}` : ''}`} aria-label={r.title}
-                onClick={() => go({ page: 'overview', rid: r.id })}>{initials(r.title)}<ProjectRailCount n={issues.counts[r.id]} tasks={issues.tasks[r.id]} edits={issues.edits[r.id]} records={issues.records[r.id]} /></button>
+                onClick={() => go({ page: 'overview', rid: r.id })}>{initials(r.title)}<ProjectRailCount n={issues.counts[r.id]} tasks={issues.tasks[r.id]} edits={issues.edits[r.id]} records={issues.records[r.id]} problems={issues.problems[r.id]} /></button>
             ))}
             <button className="rail-proj add" data-ui="프로젝트 등록" data-tip={t('프로젝트 등록', 'Register project')} aria-label={t('프로젝트 등록', 'Register project')} onClick={() => setDialog('register')}>＋</button>
           </div>
@@ -498,7 +490,7 @@ export function App() {
           ) : current && <>
             {/* 프로젝트 이름은 제목줄에만 둔다 (10/3 피드백: 중복 없애기) */}
             <div className="side-scroll project-side-scroll">
-              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} route={route} askCount={issues.records[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
+              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} route={route} kind={current.kind} askCount={issues.records[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
                 materials={rapi && <MaterialsNav rid={current.id} rapi={rapi} route={route} onSaved={flash} library={library} onLibraryChanged={libraryChanged} />} /> : <div className="empty space-empty">{current.problem ?? t('불러오는 중…', 'Loading…')}</div>}
             </div>
           </>}
@@ -507,7 +499,7 @@ export function App() {
         {globalPageOf(route.page) ? (
           globalPageOf(route.page)!.render({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight, sideOpen: showSide, onSide: () => setSideOpen(true) })
         ) : route.page === 'home' ? (
-          researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} askRecords={issues.records} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
+          researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} askRecords={issues.records} flowTurns={issues.problems} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
         ) : !rid || !summary || !rapi ? (
           <main className="stage full">
             <section className="pane">
@@ -537,9 +529,6 @@ export function App() {
               const tabName = (x: Tab) => tabTitle(x, summary, manuscripts, library, topics)
               // LaTeX 노트·원고의 코멘트는 그 원고 PDF에 남긴 것
               const ct = targetOfTab(t, tabName) ?? (t?.k === 'part' && msOfFile(t.file) ? manuscriptTarget(msOfFile(t.file)!.name, msOfFile(t.file)!.key || undefined) : null)
-                ?? (route.page === 'flow' && flowSel ? flowTarget(flowSel.id, flowSel.title) : null)
-              // 흐름 화면: 흐름 점의 기록을 모두 한 목록에 (10/20 사용자: 점을 누를 때마다 나뉘어 보기 어렵다). 적기는 고른 점에
-              const flowRecords = route.page === 'flow'
               const row = t?.k === 'part' ? notes.find((n) => n.file === t.file) : undefined
               // 개념노트 탭이면 그 노트의 메모·연결 (2026-10-04 15:18 피드백: 오른쪽 사이드바에서)
               const cmd = t?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === t.id)?.format === 'md' ? t.id : undefined
@@ -551,8 +540,8 @@ export function App() {
               // 에이전트 탭 (10/22 안 A): 자리가 아래면 그 패널을 가리킨다
               const agent = agentPlace === 'right' ? (cmd ? agentPanelOf(LIBRARY_RID, undefined, LIBRARY_RID) : agentPanelOf(rid, ct ?? { target: 'project', title: summary.research.title })) : <AgentBelow open={agentPanel} onOpen={setAgentPanel} onHere={() => setAgentPlace('right')} />
               return <RightSidebar info={info} agent={agent}
-                records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${flowRecords ? 'flow' : ct?.target ?? 'project'}`} rid={rid}
-                  target={ct ?? { target: 'project', title: summary.research.title }} group={flowRecords ? 'flow-' : undefined}
+                records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${ct?.target ?? 'project'}`} rid={rid}
+                  target={ct ?? { target: 'project', title: summary.research.title }}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
           {agentPanel && agentPlace === 'bottom' && <AgentDock>{agentPanelOf(`${rid}-dock`)}</AgentDock>}</div>
@@ -597,7 +586,7 @@ export function App() {
 }
 
 const PAGE_LABEL: Partial<Record<Route['page'], string>> = {
-  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: t('규칙', 'Rules'), status: t('현황', 'Status'), changes: t('변경사항', 'Changes'), repo: t('저장소', 'Repository'), files: t('파일', 'Files'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('수정 검토', 'Edit review'), flow: t('흐름', 'Flow'), problems: t('문제', 'Problems'),
+  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: t('규칙', 'Rules'), status: t('현황', 'Status'), changes: t('변경사항', 'Changes'), repo: t('저장소', 'Repository'), files: t('파일', 'Files'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('수정 검토', 'Edit review'), problems: t('흐름', 'Flow'),
   ...Object.fromEntries(GLOBAL_PAGES.map((g) => [g.page, g.name])),
 }
 
@@ -626,13 +615,11 @@ function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: Manusc
     case 'concepts': return L('개념노트', 'Concept notes')
     case 'papers': return L('문헌노트', 'Literature notes')
     case 'edits': return L('수정 검토', 'Edit review')
-    case 'flow': return L('흐름', 'Flow')
-    case 'problems': return L('문제', 'Problems')
+    case 'problems': return L('흐름', 'Flow')
     case 'statement': { const x = summary?.statements.find((y) => y.id === tab.sid); return x ? shortLabel(x) : tab.sid }
     case 'doc': return tab.name
     case 'file': return tab.path.split('/').pop()!
     case 'task': return taskTitles.get(tab.task) ?? tab.task
-    case 'judge': return `${L('판단', 'Judge')} · ${flowTitles.get(tab.id) ?? tab.id}`
     case 'chat': return chatTitles.get(tab.chat) ?? L('대화', 'Conversation')
     case 'topic': return tab.tid === LOOSE_TOPIC_ID ? (ko ? LOOSE_NOTES_UI : LOOSE_NOTES_LABEL) : topics.find((x) => x.id === tab.tid)?.title ?? tab.tid
     case 'part': return manuscripts.flatMap((m) => m.parts).find((p) => p.file === tab.file && !p.line)?.title ?? manuscripts.find((m) => m.main === tab.file)?.name ?? tab.file.split('/').pop()!

@@ -94,6 +94,8 @@ export const ProjectIssues = z.object({
   edits: z.record(z.string(), z.number()),
   /** 에이전트가 사용자에게 물은 기록 중 답을 기다리는 것 (10/15) */
   records: z.record(z.string(), z.number()),
+  /** 결정을 기다리는 흐름(workbench/problems/)의 방향 보고 (11/11) */
+  problems: z.record(z.string(), z.number()),
 }).strict()
 
 // ---------- 프로젝트 요약 (GET /researches/:rid) ----------
@@ -145,13 +147,13 @@ export const ResearchInfo = z.object({
 }).strict()
 /** 끝내지 않은 할 일 하나: 기록 파일(comments/<대상>.md)의 할 일 기록 */
 export const OpenTodo = z.object({
-  /** 기록 대상 (project · note-<폴더> · topic-<id> · flow-<id> …) */
+  /** 기록 대상 (project · note-<폴더> · topic-<id> …) */
   target: z.string(),
   /** 기록 id (c-YYYYMMDD-HHMM) */
   id: z.string(),
   /** 기록 파일 머리의 이름 (연구노트 …, 주제 …) */
   where: z.string(),
-  /** 기록 파일의 원래 대상 (노트 경로 · 주제 id · 흐름 점 id). 화면이 그곳으로 이동할 때 쓴다 */
+  /** 기록 파일의 원래 대상 (노트 경로 · 주제 id). 화면이 그곳으로 이동할 때 쓴다 */
   source: z.string().optional(),
   /** 본문 첫 줄 (없으면 인용) */
   text: z.string(),

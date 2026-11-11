@@ -23,7 +23,7 @@ Then should the discharging note move to the four-color topic?
 <!-- rw: {"by":"claude-code"} -->
 - 상태: 대기
 
-I rewrote the description of the "Five-color theorem" flow dot. Please check whether the kempe-chains note may go into its grounds table.
+I rewrote the description of the five-color theorem note. Please check whether the kempe-chains note may go into its grounds table.
 
 ## c-20260930-0910 · 할 일 · 전체
 - 상태: 대기

@@ -13,7 +13,7 @@ const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-rules-'))
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }))
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args]).toString().trim()
 
-const RULES = '---\ntitle: 연구 공통 규칙\nstatus: in-review\ncreated: 2026-10-13\nupdated: 2026-10-14\nchecks:\n  flow-new-dot: error\n---\n\n# 연구 공통 규칙\n\n머리 글.\n\n## 시작할 때\n\n1. 먼저 읽는다.\n2. 받는다.\n\n## 말\n\n3. 한국어로 쓴다.\n'
+const RULES = '---\ntitle: 연구 공통 규칙\nstatus: in-review\ncreated: 2026-10-13\nupdated: 2026-10-14\nchecks:\n  attempt-skipped: error\n---\n\n# 연구 공통 규칙\n\n머리 글.\n\n## 시작할 때\n\n1. 먼저 읽는다.\n2. 받는다.\n\n## 말\n\n3. 한국어로 쓴다.\n'
 
 describe('공통 규칙 파일', () => {
   it('머리말을 떼고 상태 · 규칙 수 · 절을 읽는다', () => {
@@ -25,7 +25,7 @@ describe('공통 규칙 파일', () => {
     const out = writeCommonRules(RULES, '# 연구 공통 규칙\n\n## 말\n\n1. 짧게 쓴다.\n', '2026-10-18')
     const r = readCommonRules(out)
     expect(r).toMatchObject({ status: 'accepted', updated: '2026-10-18', count: 1 })
-    expect(out).toContain('checks:\n  flow-new-dot: error')
+    expect(out).toContain('checks:\n  attempt-skipped: error')
     expect(out).toContain('created: 2026-10-13')
     expect(out).toContain('reviewed-at: 2026-10-18')
   })

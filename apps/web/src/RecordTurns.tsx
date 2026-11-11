@@ -51,3 +51,17 @@ export function EditReviewRow({ rid, count }: { rid: string; count: number }) {
     </article>
   )
 }
+
+/** 내 차례의 흐름 결정 (11/11): 방향 보고가 결정을 기다리는 흐름마다 한 줄. 누르면 그 흐름에서 사실을 읽고 계속 · 좁히기 · 종료를 정한다 */
+export function FlowDecisionRow({ rid, id, question }: { rid: string; id: string; question: string }) {
+  return (
+    <article className="tk" data-ui="차례 흐름 결정 줄" data-ui-item={id}>
+      <button className="tk-row" onClick={() => go({ page: 'problems', rid, id })}>
+        <StatusDot s="blocked" name={t('내 차례', 'Your turn')} />
+        <span className="tk-title"><span className="tk-kind">{t('흐름 결정', 'Flow decision')}</span>{question}</span>
+        <span className="tk-meta"><span>{t('흐름에서 정하기 ›', 'Decide in the flow ›')}</span></span>
+        <span />
+      </button>
+    </article>
+  )
+}

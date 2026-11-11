@@ -67,7 +67,7 @@ describe('맡긴 일 화면 말', () => {
 
   it('기록 화면 내 차례: 판단 카드 줄 키를 다시 카드 id로 푼다 (기록 줄 키는 카드가 아님)', () => {
     expect(openTaskId(taskRowKey('2026-10-15-renyi-noninteger'))).toBe('2026-10-15-renyi-noninteger')
-    expect(openTaskId('flow-renyi-finding/c-20261015-2243')).toBeNull()
+    expect(openTaskId('topic-renyi/c-20261015-2243')).toBeNull()
     expect(openTaskId(null)).toBeNull()
   })
 })

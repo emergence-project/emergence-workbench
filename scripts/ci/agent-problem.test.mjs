@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const run = (...args) => spawnSync('node', ['scripts/agent-problem.mjs', ...args], { cwd: root, encoding: 'utf8' })
 
-/** 예제의 문제 넷(진행 둘 · 쓰는 중 · 제안)을 임시 폴더에 */
+/** 예제의 흐름 넷(진행 둘 · 쓰는 중 · 제안)을 임시 폴더에 */
 function sample() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-agent-problem-'))
   fs.mkdirSync(path.join(tmp, 'workbench'))
@@ -18,7 +18,7 @@ function sample() {
   return tmp
 }
 
-test('서버 없이 문제를 읽고, 다음 후보를 시작해 보고하고, 다른 에이전트가 판정한다', () => {
+test('서버 없이 흐름을 읽고, 다음 후보를 시작해 보고하고, 다른 에이전트가 판정한다', () => {
   const tmp = sample()
   try {
     const list = run(tmp)
@@ -46,7 +46,7 @@ test('서버 없이 문제를 읽고, 다음 후보를 시작해 보고하고, �
   } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 })
 
-test('사용자의 일은 하지 못한다: 시작 전 문제 · 결정을 기다리는 문제에서는 거절하고, 새 문제는 출처가 있는 제안만', () => {
+test('사용자의 일은 하지 못한다: 시작 전 흐름 · 결정을 기다리는 흐름에서는 거절하고, 새 흐름은 출처가 있는 제안만', () => {
   const tmp = sample()
   try {
     const waiting = run(tmp, 'start', 'greedy-five-colors')
@@ -54,7 +54,7 @@ test('사용자의 일은 하지 못한다: 시작 전 문제 · 결정을 기�
     assert.match(waiting.stderr, /사용자의 결정을 기다립니다/)
     const draft = run(tmp, 'add', 'torus-seven-colors', '해 본다')
     assert.equal(draft.status, 1)
-    assert.match(draft.stderr, /사용자가 시작한 문제에서만 일합니다/)
+    assert.match(draft.stderr, /사용자가 시작한 흐름에서만 일합니다/)
     assert.equal(run(tmp, 'prepare', 'torus-seven-colors', '--literature', 'heawood1890: 토러스의 상한을 보였다', '--first-test', 'K7을 넣어 본다').status, 0)
     assert.match(fs.readFileSync(path.join(tmp, 'workbench/problems/torus-seven-colors/problem.yaml'), 'utf8'), /state: draft\n[\s\S]*ref: heawood1890\n[\s\S]*by: claude\n[\s\S]*first_test: K7을 넣어 본다/)
 

@@ -60,7 +60,7 @@ describe('할 일 기록', () => {
     expect(fs.readdirSync(path.join(root(), 'log'))).toEqual([])
   })
 
-  it('주제 · 흐름 점의 할 일도 기록 대상 그대로 목록에 오고, 끝내면 일지는 프로젝트 대상과 기록 주소를 쓴다', async () => {
+  it('주제의 할 일도 기록 대상 그대로 목록에 오고, 끝내면 일지는 프로젝트 대상과 기록 주소를 쓴다', async () => {
     const { entry, hash } = todo('주제 할 일', 'topic-coloring')
     expect(openTodos(root())).toEqual([expect.objectContaining({ target: 'topic-coloring', id: entry.id })])
     await app.inject({ method: 'PATCH', url: recordUrl(entry.id, 'topic-coloring'), payload: { state: '끝냄', baseHash: hash } })

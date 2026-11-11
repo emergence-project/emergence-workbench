@@ -58,14 +58,14 @@ describe('바뀐 것 검사: 문제와 시도 나무', () => {
     expect(found()).toEqual([])
   })
 
-  it('시도가 가리키지 않은 노트를 바꾸면 흐름 경고가 그대로 뜬다', () => {
+  it('진행 중인 문제가 있는데 시도가 가리키지 않은 노트를 바꾸면 경고', () => {
     write('workbench/notes/count/note.yaml', 'title: 세기\n')
     write('workbench/notes/count/note.md', '# 세기\n')
     commit()
     startAttempt(wb, 'chain', 'a', 'claude')
     write('workbench/notes/count/note.md', '# 세기\n\n셋.\n')
-    expect(found()).toEqual([['warning', 'flow-skipped', 'workbench/notes/count/note.md']])
-    expect(said()).toContain('시도도 흐름 점도 없습니다')
+    expect(found()).toEqual([['warning', 'attempt-skipped', 'workbench/notes/count/note.md']])
+    expect(said()).toContain('가리키는 시도가 없습니다')
   })
 
   it('사용자만 정하는 칸(질문 · 메시지 · 독자 · 한도 · 상태)을 바꾸면 오류', () => {

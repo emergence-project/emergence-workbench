@@ -1,7 +1,7 @@
 // changes_since 도구의 답 (mcp.ts에서 나눔): 화면 프로젝트 정보 › 변경사항과 같은 목록을 에이전트가 읽을 글로
 import type { Changes } from '@rw/core/contract/changes'
 
-const KIND_LABEL: Record<Changes['items'][number]['kind'], string> = { note: '노트', flow: '흐름 점', task: '맡긴 일', record: '기록', file: '파일' }
+const KIND_LABEL: Record<Changes['items'][number]['kind'], string> = { note: '노트', problem: '흐름', task: '맡긴 일', record: '기록', file: '파일' }
 const ACTION_LABEL: Record<Changes['items'][number]['action'], string> = { created: '새로 만듦', edited: '고침', moved: '옮김', deleted: '지움' }
 const localTime = (iso: string) => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}` }
 

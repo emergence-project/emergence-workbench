@@ -10,14 +10,10 @@ import { recordWrites } from './useRecordActions'
 import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
-import { openFlowDot } from './FlowView'
-import { useFlow } from './flow/data'
-import { JudgeQueue, judgeTurns } from './flow/JudgeQueue'
-import { FlowPairs } from './flow/FlowPairs'
-import { threadCounts } from './flow/threadModel'
+import { useProblems } from './Problems'
 import { needsJudgment, openTaskId, taskRowKey } from './taskView'
 import { agentTurnRecords, isRecordFilter, openTodoRecords, parseWorkFilter, clearTodoFocus, peekTodoFocus, RECORD_VIEWS, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, RECORD_PLACE_EVENT, peekRecordPlace, clearRecordPlace, hasRecordPlace, userTurnRecords, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, recordPlaces, PLACE_KINDS, PLACE_KIND_LABEL, type FlatRecord, type RecordPlace, type WorkRecordGroup, type RecordFilter, type RecordView, type WorkFilter } from './workRecords'
-import { EditReviewRow, TurnRecordRow } from './RecordTurns'
+import { EditReviewRow, FlowDecisionRow, TurnRecordRow } from './RecordTurns'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
 import { useAgentEdits, useJournal, useProjectInfo, useRecords } from './projectQueries'
 import { JudgeList, TaskDialog, TaskList, TaskWeek, useTasks, type TaskDraft } from './WorkTasks'
@@ -85,9 +81,9 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   }, [])
   const { tasks, diagnostics, loaded: tasksLoaded, error: tasksError, reload: reloadTasks } = useTasks(rid)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
-  const flow = useFlow(rid).scan
-  const flowTurns = flow ? judgeTurns(flow.nodes) : { queued: [], ready: [] }
-  const judgeCount = tasks.filter(needsJudgment).length + flowTurns.queued.length + flowTurns.ready.length
+  // 흐름의 결정 대기 (11/11): 방향 보고가 계속 · 좁히기 · 종료를 기다리는 흐름. 사이드바 흐름 줄의 수와 같다
+  const flowTurns = useProblems(rid).data?.problems.filter((p) => p.waiting) ?? []
+  const judgeCount = tasks.filter(needsJudgment).length + flowTurns.length
   const recordsQuery = useRecords(rid)
   const files = recordsQuery.data?.files ?? NO_FILES
   useEffect(() => {
@@ -118,8 +114,7 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   const openRecord = (file: RecordFile, entry: CommentEntry) => {
     if (!(entry.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
-      if (file.target.startsWith('flow-') && file.source) openFlowDot(rid, { id: file.source })
-      else if (route) go(route)
+      if (route) go(route)
     }
     if (!entry.lost) revealComment(rid, file.target, entry.id)
   }
@@ -173,15 +168,14 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
           {view === 'mine' && <>
             <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />
             <div className="tk-list" data-ui="내 차례 목록">
-              {flow && <FlowPairs rid={rid} nodes={flow.nodes} tasks={tasks} onSaved={onSaved} reload={reloadTasks} />}
-              {flow && <JudgeQueue rid={rid} nodes={flow.nodes} threads={threadCounts(files)} />}
-              <JudgeList rid={rid} tasks={tasks} nodes={flow?.nodes} heading loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks} emptyText={null} openId={openTaskId(openRow)} onToggle={(id) => toggleRow(taskRowKey(id))}
+              {flowTurns.map((p) => <FlowDecisionRow key={p.id} rid={rid} id={p.id} question={p.question} />)}
+              <JudgeList rid={rid} tasks={tasks} heading loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks} emptyText={null} openId={openTaskId(openRow)} onToggle={(id) => toggleRow(taskRowKey(id))}
                 onEditProposal={(x) => setDialog({ mode: 'proposal', from: x, endCondition: x.proposal?.endCondition.length === 1 ? x.proposal.endCondition[0] : (x.proposal?.endCondition ?? []).map((c, i) => `${i + 1}) ${c}`).join('\n') })} />
               {askRecords.map((item) => recordRow(item, true))}
               {reviews.length > 0 && <Reviews list={reviews} />}
               {editCount > 0 && <EditReviewRow rid={rid} count={editCount} />}
               {todoRecords.map((item) => recordRow(item, false))}
-              {!mineCount && <p className="empty tk-empty">{loading ? t('불러오는 중…', 'Loading…') : t('지금 내 차례인 것이 없습니다. 맡긴 일의 결과, 에이전트의 질문, 할 일이 생기면 여기에 보입니다.', 'Nothing is waiting for you. Results of delegated tasks, agent questions and to-dos show up here.')}</p>}
+              {!mineCount && <p className="empty tk-empty">{loading ? t('불러오는 중…', 'Loading…') : t('지금 내 차례인 것이 없습니다. 맡긴 일의 결과, 흐름의 방향 보고, 에이전트의 질문, 할 일이 생기면 여기에 보입니다.', 'Nothing is waiting for you. Results of delegated tasks, direction reports of flows, agent questions and to-dos show up here.')}</p>}
             </div>
           </>}
           {view === 'agent' && <div className="tk-list" data-ui="에이전트 차례 목록">
@@ -235,7 +229,7 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
 }
 
 /**
- * 기록이 달린 곳 목록 (10/22 12:09 안 C, 10/28 코멘트 "관련된 페이지 또는 노트로 구분"): 기록이 있는 곳만, 갈래(프로젝트 · 주제 · 노트 · 원고 · 흐름 점 · 그 밖)로 묶고
+ * 기록이 달린 곳 목록 (10/22 12:09 안 C, 10/28 코멘트 "관련된 페이지 또는 노트로 구분"): 기록이 있는 곳만, 갈래(프로젝트 · 주제 · 노트 · 원고 · 그 밖)로 묶고
  * 최근에 기록이 생긴 곳이 위로. 수는 지금 종류 필터의 기록 수, 주황 점은 내 차례. 위 찾기 칸으로 이름을 찾는다. 좁은 폭에서는 고르기 메뉴 하나
  */
 function PlaceList({ places, picked, total, onPick }: { places: RecordPlace[]; picked: string | null; total: number; onPick(target: string | null): void }) {
@@ -244,7 +238,7 @@ function PlaceList({ places, picked, total, onPick }: { places: RecordPlace[]; p
   const shown = q ? places.filter((p) => p.title.toLowerCase().includes(q)) : places
   const row = (p: RecordPlace) => (
     <button key={p.target} className={`rp-row${picked === p.target ? ' on' : ''}`} aria-current={picked === p.target ? 'true' : undefined} title={p.title} onClick={() => onPick(p.target)}>
-      {p.turn > 0 ? <span className="turn-dot" role="img" aria-label={t(`내 차례 ${p.turn}`, `${p.turn} for you`)} title={t(`내 차례 ${p.turn}`, `${p.turn} for you`)} /> : <span className="rp-dot" aria-hidden />}<span className="label">{p.kind === 'flow' ? p.title.replace(/^흐름 점\s+/, '') : p.title}</span><span className="n">{p.count}</span>
+      {p.turn > 0 ? <span className="turn-dot" role="img" aria-label={t(`내 차례 ${p.turn}`, `${p.turn} for you`)} title={t(`내 차례 ${p.turn}`, `${p.turn} for you`)} /> : <span className="rp-dot" aria-hidden />}<span className="label">{p.title}</span><span className="n">{p.count}</span>
     </button>
   )
   return (
@@ -273,13 +267,12 @@ function PlaceList({ places, picked, total, onPick }: { places: RecordPlace[]; p
 function PlaceHead({ rid, group, firstPartOf }: { rid: string; group: WorkRecordGroup | undefined; firstPartOf(target: string): string | undefined }) {
   if (!group) return null
   const file = group.items.find((x) => x.kind === 'record')
-  const route = file?.kind === 'record' ? (file.file.target.startsWith('flow-') ? null : recordRoute(rid, file.file, firstPartOf)) : null
-  const flowId = file?.kind === 'record' && file.file.target.startsWith('flow-') ? file.file.source : undefined
+  const route = file?.kind === 'record' ? recordRoute(rid, file.file, firstPartOf) : null
   return (
     <div className="rp-head" data-ui="고른 곳 머리">
       <b>{group.title}</b><span className="muted">{t(`기록 ${group.items.length}`, `${group.items.length} record(s)`)}</span>
       <span className="sp" />
-      {(route || flowId) && <button className="btn sm" onClick={() => (flowId ? openFlowDot(rid, { id: flowId }) : go(route!))}>{t('열기', 'Open')}</button>}
+      {route && <button className="btn sm" onClick={() => go(route)}>{t('열기', 'Open')}</button>}
     </div>
   )
 }

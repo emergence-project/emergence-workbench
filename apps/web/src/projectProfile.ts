@@ -5,6 +5,8 @@ import { t, plural } from './i18n'
 
 export const PROJECT_KIND_LABEL: Record<ProjectKind, string> = { research: t('연구', 'Research'), work: t('업무', 'Work') }
 export const PROJECT_KINDS: ProjectKind[] = ['research', 'work']
+/** 흐름의 긴 이름 (11/11 사용자): 짧은 이름은 어디서나 "흐름"이고, 화면 제목 · 툴팁처럼 풀어 쓰는 곳만 프로젝트 성격을 따른다 */
+export const flowName = (kind: ProjectKind = 'research') => (kind === 'work' ? t('업무 흐름', 'Workflow') : t('연구 흐름', 'Research flow'))
 export const PROJECT_STATE_LABEL: Record<ProjectState, string> = { active: t('진행', 'In progress'), paused: t('멈춤', 'Paused'), done: t('완료', 'Done') }
 export const PROJECT_STATES: ProjectState[] = ['active', 'paused', 'done']
 /** 진행 상태의 색 점: 노트 상태와 같은 색(진행 파랑 · 멈춤 주황 · 완료 청록) */
@@ -52,9 +54,9 @@ export function lastWorkMs(entries: Pick<JournalEntry, 'date' | 'time'>[], noteT
 
 /** 상태 기호 (홈): 확인 필요(빨간 점) · 업데이트 필요(돌아가는 화살표) · 둘 다(화살표 오른쪽 위 빨간 점) */
 export type AttentionMark = 'check' | 'update' | 'both' | null
-/** "확인 필요"의 내역 (왼쪽 띠의 수와 첫 화면 점의 툴팁): 판단할 맡긴 일(결과 · 종결 조건 제안, 10/7) + 에이전트 고침 + 에이전트가 물은 기록 */
-export function issueTip(tasks: number, edits = 0, records = 0): string {
-  const parts = [tasks > 0 && t(`판단할 맡긴 일 ${tasks}개`, `${plural(tasks, 'delegated task')} to decide`), edits > 0 && t(`에이전트 고침 ${edits}개`, `${plural(edits, 'agent edit')} to review`), records > 0 && t(`에이전트가 물은 기록 ${records}개`, `${plural(records, 'agent question')} to answer`)].filter(Boolean)
+/** "확인 필요"의 내역 (왼쪽 띠의 수와 첫 화면 점의 툴팁): 판단할 맡긴 일(결과 · 종결 조건 제안, 10/7) + 에이전트 고침 + 에이전트가 물은 기록 + 결정을 기다리는 흐름 */
+export function issueTip(tasks: number, edits = 0, records = 0, problems = 0): string {
+  const parts = [tasks > 0 && t(`판단할 맡긴 일 ${tasks}개`, `${plural(tasks, 'delegated task')} to decide`), edits > 0 && t(`에이전트 고침 ${edits}개`, `${plural(edits, 'agent edit')} to review`), records > 0 && t(`에이전트가 물은 기록 ${records}개`, `${plural(records, 'agent question')} to answer`), problems > 0 && t(`결정할 흐름 ${problems}개`, `${plural(problems, 'flow')} to decide`)].filter(Boolean)
   return parts.join(' · ') || t('확인 항목 없음', 'Nothing to review')
 }
 export function attentionOf(issues: number, behind: number): AttentionMark {

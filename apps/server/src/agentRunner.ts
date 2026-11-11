@@ -135,7 +135,7 @@ async function sideAnswer(o: { prompt: string; cwd: string }): Promise<string> {
 /** 탐색을 맡는 하위 에이전트의 모델 (작고 빠른 것) */
 export const EXPLORE_MODEL = 'haiku'
 /** 읽기만 하는 앱 MCP 도구 (하위 에이전트도 같은 허락 규칙을 거친다) */
-const READ_MCP = ['rules', 'list_projects', 'overview', 'project_status', 'list_notes', 'list_edit_reviews', 'read_note', 'read_records', 'list_records', 'flow_search', 'flow_read', 'list_tasks', 'read_task', 'search_library', 'read_concept']
+const READ_MCP = ['rules', 'list_projects', 'overview', 'project_status', 'list_notes', 'list_edit_reviews', 'read_note', 'read_records', 'list_records', 'problems', 'problem_read', 'problem_brief', 'list_tasks', 'read_task', 'search_library', 'read_concept']
 const exploreAgent = {
   description: 'Fast read-only explorer on a small model. Use it to search across many files or read several large files; it returns only the findings (paths, line numbers, short quotes), so the main conversation stays short.',
   tools: ['Read', 'Glob', 'Grep', ...READ_MCP.map((t) => `mcp__${MCP_NAME}__${t}`)],

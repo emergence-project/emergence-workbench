@@ -6,13 +6,11 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/r/<연구>            프로젝트 정보 (목표·저장소·태그)
  *   #/r/<연구>/todo       할 일
  *   #/r/<연구>/problems[/<문제>] 문제 목록 · 문제 하나와 시도 나무 (11/11)
- *   #/r/<연구>/flow[?topic=] 연구 흐름 (프로젝트 전체, topic = 굵게 볼 주제, 10/14)
  *   #/r/<연구>/edits[?key=] 고침 검토 (그 프로젝트의 에이전트 고침만, 10/14 사용자 결정)
  *   #/r/<연구>/map        지도 (예전 /tree도 여기로)
  *   #/r/<연구>/s/<진술>    진술 노트 (저장소의 statements/)
  *   #/r/<연구>/log        기록
  *   #/r/<연구>/k/<작업>    맡긴 일의 보고서 (workbench/tasks/<작업>.md)
- *   #/r/<연구>/j/<점>      판단 화면 (흐름의 명제 · 카드, 10/23)
  *   #/r/<연구>/m/<파일>    자료 (materials/의 PDF·그림)
  *   #/r/<연구>/f/<경로>    저장소 파일 읽기 (기록 글 속 경로를 눌러 연다. 옮긴 · 지운 파일도, 10/19)
  *   #/r/<연구>/w/<파일>    원고의 장·부록 (research.yaml sources.manuscript)
@@ -71,7 +69,6 @@ export type Route =
   | { page: 'todo'; rid: string }
   | { page: 'records'; rid: string }
   | { page: 'edits'; rid: string; key?: string }
-  | { page: 'flow'; rid: string; topic?: string }
   | { page: 'problems'; rid: string; id?: string }
   | { page: 'info'; rid: string }
   | { page: 'agents'; rid: string }
@@ -89,7 +86,6 @@ export type Route =
   | { page: 'part'; rid: string; file: string }
   | { page: 'topic'; rid: string; tid: string }
   | { page: 'task'; rid: string; task: string }
-  | { page: 'judge'; rid: string; id: string }
 
 /** 잘못된 %(예: `100%`)가 든 조각은 그대로 둔다. decodeURIComponent가 던지면 React 밖에서 터져 빈 화면이 된다 */
 const decodeSafe = (s: string) => { try { return decodeURIComponent(s) } catch { return s } }
@@ -104,7 +100,8 @@ export function parseRoute(hash: string): Route {
     if (parts[2] === 'todo') return { page: 'records', rid: parts[1] }
     if (parts[2] === 'records') return { page: 'records', rid: parts[1] }
     if (parts[2] === 'problems') return { page: 'problems', rid: parts[1], ...(parts[3] && { id: parts[3] }) }
-    if (parts[2] === 'flow') { const topic = new URLSearchParams(query).get('topic'); return { page: 'flow', rid: parts[1], ...(topic && { topic }) } }
+    // 옛 점 차트의 주소 (11/11 없앰): 같은 이름을 이어받은 흐름 화면으로
+    if (parts[2] === 'flow') return { page: 'problems', rid: parts[1] }
     if (parts[2] === 'edits') { const key = new URLSearchParams(query).get('key'); return { page: 'edits', rid: parts[1], ...(key && { key }) } }
     if (parts[2] === 'info') return { page: 'info', rid: parts[1] }
     if (parts[2] === 'agents') return { page: 'agents', rid: parts[1] }
@@ -122,7 +119,6 @@ export function parseRoute(hash: string): Route {
     if (parts[2] === 'w' && parts[3]) return { page: 'part', rid: parts[1], file: parts[3] }
     if (parts[2] === 't' && parts[3]) return { page: 'topic', rid: parts[1], tid: parts[3] }
     if (parts[2] === 'k' && parts[3]) return { page: 'task', rid: parts[1], task: parts[3] }
-    if (parts[2] === 'j' && parts[3]) return { page: 'judge', rid: parts[1], id: parts[3] }
     if (parts[2] === 'c' && parts[3]) return { page: 'concept', rid: parts[1], id: parts[3] }
     if (parts[2] === 'p' && parts[3]) return { page: 'paper', rid: parts[1], id: parts[3] }
     return { page: 'overview', rid: parts[1], anchor }
@@ -218,7 +214,6 @@ export function href(r: Route): string {
     case 'map': return `#/r/${e(r.rid)}/map`
     case 'todo': return `#/r/${e(r.rid)}/todo`
     case 'records': return `#/r/${e(r.rid)}/records`
-    case 'flow': return `#/r/${e(r.rid)}/flow${r.topic ? `?topic=${e(r.topic)}` : ''}`
     case 'problems': return `#/r/${e(r.rid)}/problems${r.id ? `/${e(r.id)}` : ''}`
     case 'edits': return `#/r/${e(r.rid)}/edits${r.key ? `?key=${e(r.key)}` : ''}`
     case 'info': return `#/r/${e(r.rid)}/info`
@@ -237,7 +232,6 @@ export function href(r: Route): string {
     case 'part': return `#/r/${e(r.rid)}/w/${e(r.file)}`
     case 'topic': return `#/r/${e(r.rid)}/t/${e(r.tid)}`
     case 'task': return `#/r/${e(r.rid)}/k/${e(r.task)}`
-    case 'judge': return `#/r/${e(r.rid)}/j/${e(r.id)}`
   }
 }
 

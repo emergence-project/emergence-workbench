@@ -4,13 +4,13 @@ import { Dialog } from './dialogs'
 import { t } from './i18n'
 
 /**
- * 문제 화면의 창 셋 (Problems.tsx): 문제 추가 · 수정, 시도의 판정, 문제 종료.
+ * 흐름 화면의 창 셋 (Problems.tsx): 흐름 추가 · 수정, 시도의 판정, 흐름 종료.
  * 메시지(답이 예 · 아니오일 때의 한 문장)와 독자는 사용자가 쓴다 (11/11 결정 "메시지 관문").
  */
 
 const errorOf = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
-/** 문제 추가(problem 없음) 또는 수정. 추가하면 "쓰는 중"으로 생기고, 메시지와 독자를 채워야 시작할 수 있다 */
+/** 흐름 추가(problem 없음) 또는 수정. 추가하면 "쓰는 중"으로 생기고, 메시지와 독자를 채워야 시작할 수 있다 */
 export function ProblemDialog({ rid, problem, onClose, onDone }: { rid: string; problem?: ProblemDoc; onClose(): void; onDone(p: ProblemDoc): void }) {
   const [question, setQuestion] = useState(problem?.question ?? '')
   const [ifYes, setIfYes] = useState(problem?.if_yes ?? '')
@@ -33,14 +33,14 @@ export function ProblemDialog({ rid, problem, onClose, onDone }: { rid: string; 
     } catch (e) { setError(errorOf(e)); setBusy(false) }
   }
   return (
-    <Dialog title={problem ? t('문제 수정', 'Edit problem') : t('문제 추가', 'Add a problem')} ui="문제" wide onClose={onClose} footer={<>
+    <Dialog title={problem ? t('흐름 수정', 'Edit flow') : t('흐름 추가', 'Add a flow')} ui="흐름" wide onClose={onClose} footer={<>
       {error && <span className="error-text pb-err">{error}</span>}
       <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
       <button className="btn primary" disabled={busy || !question.trim() || !limitOk} onClick={() => void save()}>{problem ? t('저장', 'Save') : t('추가', 'Add')}</button>
     </>}>
       <label className="field"><span>{t('질문 (예 · 아니오로 답할 수 있는 한 문장)', 'Question (one sentence with a yes or no answer)')}</span>
         <textarea rows={2} autoFocus value={question} onChange={(e) => setQuestion(e.target.value)} /></label>
-      <p className="pb-form-hint">{t('메시지: 답이 예일 때와 아니오일 때 논문에 쓸 한 문장씩. 둘 중 하나라도 쓸 수 없으면 아직 문제가 아닙니다.', 'Message: the one sentence you would write in the paper if the answer is yes, and if it is no. If you cannot write either one, it is not a problem yet.')}</p>
+      <p className="pb-form-hint">{t('메시지: 답이 예일 때와 아니오일 때 논문에 쓸 한 문장씩. 둘 중 하나라도 쓸 수 없으면 아직 흐름을 열 때가 아닙니다.', 'Message: the one sentence you would write in the paper if the answer is yes, and if it is no. If you cannot write either one, it is too early to open a flow.')}</p>
       <label className="field"><span>{t('예이면', 'If yes')}</span><textarea rows={2} value={ifYes} onChange={(e) => setIfYes(e.target.value)} /></label>
       <label className="field"><span>{t('아니오이면', 'If no')}</span><textarea rows={2} value={ifNo} onChange={(e) => setIfNo(e.target.value)} /></label>
       <label className="field"><span>{t('독자 (누가 왜 궁금해하나)', 'Reader (who wants to know, and why)')}</span><input value={reader} onChange={(e) => setReader(e.target.value)} /></label>
@@ -94,7 +94,7 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
   )
 }
 
-/** 방향 보고 없이 문제를 종료할 때: 이유 한 줄 */
+/** 방향 보고 없이 흐름을 종료할 때: 이유 한 줄 */
 export function CloseDialog({ rid, problem, onClose, onDone }: { rid: string; problem: ProblemDoc; onClose(): void; onDone(p: ProblemDoc): void }) {
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -104,12 +104,12 @@ export function CloseDialog({ rid, problem, onClose, onDone }: { rid: string; pr
     try { onDone(await problemsApi(rid).close(problem.id, problem.hash, reason.trim())) } catch (e) { setError(errorOf(e)); setBusy(false) }
   }
   return (
-    <Dialog title={t('문제 종료', 'Close problem')} onClose={onClose} footer={<>
+    <Dialog title={t('흐름 종료', 'Close flow')} onClose={onClose} footer={<>
       {error && <span className="error-text pb-err">{error}</span>}
       <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
       <button className="btn primary" disabled={busy || !reason.trim()} onClick={() => void save()}>{t('종료', 'Close')}</button>
     </>}>
-      <p className="pb-form-hint">{t('종료한 문제는 이유와 시도 나무가 그대로 남습니다. 종료는 정상 결과입니다.', 'A closed problem keeps its reason and its attempt tree. Closing is a normal outcome.')}</p>
+      <p className="pb-form-hint">{t('종료한 흐름은 이유와 시도 나무가 그대로 남습니다. 종료는 정상 결과입니다.', 'A closed flow keeps its reason and its attempt tree. Closing is a normal outcome.')}</p>
       <label className="field"><span>{t('이유', 'Reason')}</span><textarea rows={3} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} /></label>
     </Dialog>
   )

@@ -284,7 +284,7 @@ export function useRepoState(rapi: ResearchApi, version: number): RepoState {
 
 /**
  * workbench/가 git에 없을 때의 안내 (10/30 "워크벤치 폴더를 만들자 · 등록되면 폴더 개설을 권장하는 안내"):
- * 이 컴퓨터에만 있어 다른 컴퓨터 · 클라우드의 에이전트가 노트와 흐름을 보지 못한다. 「커밋하고 올리기」는 workbench/ 안만 커밋해 올린다.
+ * 이 컴퓨터에만 있어 다른 컴퓨터 · 클라우드의 에이전트가 노트와 기록을 보지 못한다. 「커밋하고 올리기」는 workbench/ 안만 커밋해 올린다.
  * 등록 직후 여는 첫 화면과 현황 맨 위에 둔다
  */
 export function WorkbenchUpload({ rapi }: { rapi: ResearchApi }) {

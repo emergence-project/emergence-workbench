@@ -149,7 +149,7 @@
 .tb-bar .segmented button { cursor: default; }
 .tb-bar .btn { pointer-events: none; }
 
-/* 흐름 그림: 화살표로 잇는 단계. 주황 테두리가 사용자 차례 */
+/* 단계 그림: 화살표로 잇는 단계. 주황 테두리가 사용자 차례 */
 .about-flow { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-4); font-size: var(--fs-sm); }
 .about-flow li { position: relative; border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); display: flex; flex-direction: column; gap: 2px; background: var(--bg); }
 .about-flow li b { display: flex; align-items: center; gap: var(--sp-1); }
@@ -179,7 +179,5 @@
 .about-tags td:first-child, .about-tags td:nth-child(2) { white-space: nowrap; }
 /* 절 제목 옆 "업데이트 #n" (10/15 소개와 업데이트 1대1): 마지막으로 고친 업데이트로 가는 링크 */
 .about .about-pr { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; margin-right: var(--sp-2); }
-/* 기호 표 안의 묶음 머리 줄 (흐름: 종류 · 상태 · 선) */
+/* 기호 표 안의 묶음 머리 줄 */
 .about-sym-table .about-sym-group td { color: var(--text-2); font-size: var(--fs-sm); padding-top: var(--sp-3); }
-/* 흐름 기호 표: 차트의 점 그림을 그 크기·색 그대로 (위의 선 아이콘 규칙을 풀어 준다) */
-.about-sym-table td.about-sym svg.fl-icon { width: auto; height: auto; stroke: none; fill: none; stroke-width: 0; }

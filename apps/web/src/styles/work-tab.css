@@ -173,3 +173,6 @@
 .work-all-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .work-log { margin-top: var(--sp-4); }
 .work-log > summary { cursor: pointer; }
+/* 내 차례의 묶음 머리 ("맡긴 일 결과 n")와 그 옆 작은 설명 */
+.jq-h { display: flex; align-items: baseline; gap: var(--sp-2); }
+.jq-tip { font-size: var(--fs-xs); font-weight: var(--fw-normal); }

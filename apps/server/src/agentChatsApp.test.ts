@@ -46,7 +46,7 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx({ write: 'read' }), `${W}app_checks`, {}).kind).toBe('allow')
   })
   it('연구 프로젝트는 읽기만 한다 (노트 · 기록 · 맡긴 일 · 일지 · 흐름 고치기를 막는다)', () => {
-    for (const tool of ['edit_note', 'add_record', 'add_task', 'report_task', 'add_journal', 'flow_add']) expect(judge(ctx(), `${W}${tool}`, { project: 'p' }).kind).toBe('deny')
+    for (const tool of ['edit_note', 'add_record', 'add_task', 'report_task', 'add_journal', 'attempt_add']) expect(judge(ctx(), `${W}${tool}`, { project: 'p' }).kind).toBe('deny')
     expect(judge(ctx(), `${W}read_note`, { project: 'p' }).kind).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: `${repo}/CLAUDE.md` }).kind).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: '/etc/hosts' }).kind).toBe('ask')

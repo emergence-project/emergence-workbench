@@ -227,7 +227,8 @@ describe('edit review routes (10/14: one project per screen)', () => {
   })
   it('sends old project review links to the project screen', () => {
     expect(parseRoute('#/review?scope=alpha')).toEqual({ page: 'edits', rid: 'alpha' })
-    for (const r of [{ page: 'flow', rid: 'alpha' }, { page: 'flow', rid: 'alpha', topic: 'coloring' }] as Route[]) expect(parseRoute(href(r))).toEqual(r)
+    // 옛 점 차트의 주소는 같은 이름을 이어받은 흐름 화면으로 (11/11)
+    expect(parseRoute('#/r/alpha/flow?topic=coloring')).toEqual({ page: 'problems', rid: 'alpha' })
     expect(parseRoute('#/review?key=note%3Aalpha%3Aa.md')).toEqual({ page: 'edits', rid: 'alpha', key: 'note:alpha:a.md' })
     expect(parseRoute('#/review?scope=library&key=concept%3Ax')).toEqual({ page: 'review', scope: 'library', key: 'concept:x' })
   })

@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { NoteFlow } from './FlowView'
 import { ConflictError, notesApi, type NoteCategory, type NoteHeadPatch, type NoteLinks, type NoteRow, type ProjectKind, type Statement, type Topic, LIMITS } from './api'
 import { descriptionLines, MathText } from './cardParts'
 import { useConceptMacros } from './conceptMacros'
@@ -180,9 +179,6 @@ export function NoteInfo({ rid, row, topics, proves = [], projectKind, version, 
         <MoreList items={proves} empty={t('없음', 'None')}
           render={(s) => <button type="button" className="a" onClick={() => go({ page: 'statement', rid, sid: s.id })}>{shortLabel(s)}</button>} />
       </Section>}
-      <Section label={t('흐름', 'Flow')} hint={t('이 노트를 근거로 단 흐름의 점. 누르면 흐름 화면에서 엽니다', 'Flow dots that use this note as evidence. Click to open in the flow')} ui="노트 흐름">
-        <NoteFlow rid={rid} row={row} onSaved={onSaved} />
-      </Section>
       <div className="rs-path mono" data-ui="파일 경로" title={row.file}>{row.file.split('/').filter(Boolean).pop() ?? row.file}</div>
     </div>
   )
