@@ -1,0 +1,30 @@
+import { c } from '../code'
+import type { AboutSection } from '../types'
+
+// 소개 › project › 문제. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
+
+export const ko: AboutSection = {
+  title: '문제', id: 'problems', prs: [424],
+  items: [
+    { text: <>왼쪽 사이드바 "문제". 새 연구 일을 하는 자리입니다(11/11). <b>문제</b>는 예 · 아니오로 답할 수 있는 질문 하나이고, 그 아래에 푸는 방법인 <b>시도</b>가 나무로 달립니다. 문제 하나가 폴더 하나({c('workbench/problems/<문제>/')}), 시도 하나가 파일 하나입니다. 흐름 차트는 그대로 두고, 새 일은 여기서 합니다.</> },
+    { text: <>목록은 <b>진행 · 쓰는 중</b>과 접힌 <b>제안 · 종료</b>입니다. 줄에는 질문, 시도 수와 한도, 성립 · 폐기 수, 다음 후보가 보입니다. 결정을 기다리는 문제는 줄과 사이드바 "문제" 옆에 주황 수가 붙습니다. "＋ 문제"로 질문을 적으면 쓰는 중으로 생깁니다. 제안은 에이전트가 일하다 올린 질문이며 출처가 함께 보입니다.</> },
+    { text: <><b>문제 열기</b>: 문제는 <b>메시지</b>(답이 예일 때와 아니오일 때 논문에 쓸 한 문장씩)와 <b>독자</b>를 사용자가 써야 시작됩니다. 셋이 차면 "시작"이 켜집니다. 둘 중 한 문장이라도 쓸 수 없으면 아직 문제가 아닙니다. 에이전트는 메시지와 독자를 쓰지 않고, 사용자가 판단할 사실만 더합니다: <b>문헌 대조</b>(같은 일 · 가까운 일을 한 논문마다 사실 한 줄), <b>첫 시험</b>(가장 싸게 방향이 틀렸음을 보일 시험), <b>채점</b>(무엇으로 맞음을 가리나. 비우면 탐색). 칸마다 누가 쓰는지(사용자 · 에이전트)가 작게 적혀 있습니다.</> },
+    { text: <><b>시도 나무</b>: 일하기 전에 후보를 먼저 늘어놓습니다("＋ 후보", 에이전트도 늘어놓음). 이름은 자리입니다: 문제 아래 A · B · C, B 아래 B1 · B2. 상태는 색 점과 이름으로 <b>후보 · 진행 · 판정 대기 · 성립 · 폐기</b>입니다. 후보 줄의 ↑ ↓로 순서를 바꾸고, 에이전트는 "다음"이 붙은 후보부터 시작합니다. 줄을 누르면 한 일 · 결과 · 파일 · 판정이 열리고, 폐기하지 않은 시도 아래에는 "＋ 아래에 후보"로 더 내려갑니다.</> },
+    { text: <><b>판정</b>은 일한 쪽이 아닌 쪽이 합니다. 에이전트는 자기가 한 시도를 판정하지 못하고, 다른 에이전트나 사용자가 원자료를 보고 정합니다. <b>성립</b>에는 맞춘 조건 밖의 확인(다른 크기 · 다른 매개변수 · 독립 구현 · 극한)을, <b>폐기</b>에는 교훈 한 줄을 적습니다. 교훈은 나무 위 "교훈"에 모여 다음 시도가 같은 길을 되풀이하지 않게 하고, 다시 열 조건이 있으면 함께 보입니다.</> },
+    { text: <><b>한도와 방향 보고</b>: 시작한 시도가 한도(처음 6)에 닿거나 폐기가 셋 이어지면 에이전트는 새 시도를 시작하지 못하고 <b>방향 보고</b>를 냅니다. 보고는 사실만, 사용자의 메시지에 맞춰 나눠 적습니다: "예"를 받치는 결과 · "아니오"를 받치는 결과 · 어느 쪽도 아닌 결과. 계속할지는 권하지 않습니다. 사용자가 <b>계속 · 좁히기 · 종료</b>를 고르고(계속 · 좁히기는 새 한도와 함께), 종료한 문제는 이유와 나무가 그대로 남습니다. 종료는 정상 결과입니다.</> },
+    { text: <>에이전트는 문제 하나를 <b>이어받기 요약</b>(질문 · 메시지 · 교훈 · 다음 후보 · 한도, 2KB 이하)으로 읽고 시작합니다. 그래서 새 대화도 지난 시도를 다시 읽지 않고 이어 갑니다. 형식은 {c('docs/repo-format.md')} 16절, 에이전트 도구는 {c('docs/agent-mcp.ko.md')}에 있습니다.</> },
+  ],
+}
+
+export const en: AboutSection = {
+  title: 'Problems', id: 'problems',
+  items: [
+    { text: <>"Problems" in the left sidebar. This is where new research work happens (11/11). A <b>problem</b> is one question with a yes or no answer, and the <b>attempts</b> to solve it hang under it as a tree. One problem is one folder ({c('workbench/problems/<problem>/')}) and one attempt is one file. The flow chart stays as it is; new work goes here.</> },
+    { text: <>The list shows <b>Open · Draft</b> and, folded, <b>Proposed · Closed</b>. A row shows the question, attempts used and the limit, how many hold or were dropped, and the next candidate. A problem waiting for your decision gets an orange count on its row and next to "Problems" in the sidebar. "＋ Problem" writes a question as a draft. Proposals are questions agents raised while working, shown with their source.</> },
+    { text: <><b>Opening a problem</b>: a problem starts only when you write its <b>message</b> (the one sentence for the paper if the answer is yes, and if it is no) and its <b>reader</b>. "Start" turns on once all three are there. If you cannot write either sentence, it is not a problem yet. Agents do not write the message or the reader; they only add facts for you to judge with: <b>literature</b> (one factual line per paper that did the same or close), <b>first test</b> (the cheapest check that would show the direction is wrong) and <b>grading</b> (how a result is judged right; empty means exploratory). Each field says in small text who writes it (user or agent).</> },
+    { text: <><b>Attempt tree</b>: candidates are listed before any work ("＋ Candidate"; agents list them too). The name is the place: A · B · C under the problem, B1 · B2 under B. States are a colored dot and a name: <b>Candidate · Working · Awaiting verdict · Holds · Dropped</b>. Reorder candidates with ↑ ↓ on their rows; agents start from the one marked "Next". Click a row to see what was done, the result, files and the verdict, and go deeper under any attempt that was not dropped with "＋ Candidate below".</> },
+    { text: <>The <b>verdict</b> comes from the side that did not do the work. An agent cannot judge its own attempt; another agent or you decide from the raw data. <b>Holds</b> needs a check outside the fitted condition (another size, other parameters, an independent implementation, a limit) and <b>Dropped</b> needs a one-line lesson. Lessons gather under "Lessons" above the tree so the next attempt does not repeat the same path, with the condition to reopen when there is one.</> },
+    { text: <><b>Limit and direction report</b>: when started attempts reach the limit (6 at first) or three in a row are dropped, agents cannot start another attempt and file a <b>direction report</b>. It holds facts only, sorted by your message: results that support "yes", results that support "no", and results that bear on neither. It does not recommend whether to continue. You choose <b>Continue · Narrow · Close</b> (continue and narrow come with a new limit), and a closed problem keeps its reason and its tree. Closing is a normal outcome.</> },
+    { text: <>An agent picks up one problem from its <b>brief</b> (question, message, lessons, next candidate and limit, under 2KB), so a new conversation continues without rereading past attempts. The format is in {c('docs/repo-format.md')} §16 and the agent tools in {c('docs/agent-mcp.md')}.</> },
+  ],
+}

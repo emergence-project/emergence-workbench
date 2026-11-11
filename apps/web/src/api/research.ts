@@ -26,6 +26,7 @@ export type WorkbenchEvent =
   | { type: 'tasks'; research: string; id: string }
   /** 연구 흐름의 점 파일(workbench/flow/*.yaml)이 바뀜 */
   | { type: 'flow'; research: string }
+  | { type: 'problems'; research: string }
   /** 기록 저절로 올리기의 결과가 바뀜 (실패가 생기거나 풀림). 파일 변경이 아니다 */
   | { type: 'records-publish'; research: string }
   /** 에이전트 대화가 바뀜 (서버 routes/agentChats.ts). 파일 변경이 아니다 */

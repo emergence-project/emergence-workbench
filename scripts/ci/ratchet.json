@@ -4,11 +4,11 @@
     "apps/server/src/comments.ts": 676,
     "apps/server/src/feedback.ts": 652,
     "apps/server/src/flow.ts": 651,
-    "apps/server/src/mcp.ts": 668,
+    "apps/server/src/mcp.ts": 671,
     "apps/web/src/AgentChats.tsx": 1348,
-    "apps/web/src/App.tsx": 639,
+    "apps/web/src/App.tsx": 642,
     "apps/web/src/FeedbackPage.tsx": 605,
-    "apps/web/src/Workspace.tsx": 645
+    "apps/web/src/Workspace.tsx": 646
   },
   "casts": {
     "apps/server/src/agentChanges.ts": 8,

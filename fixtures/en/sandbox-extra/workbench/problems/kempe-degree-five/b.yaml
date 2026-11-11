@@ -1,0 +1,17 @@
+format: 1
+method: If the 1–3 chain is connected, swap the 2–4 chain
+state: holds
+by: claude-code
+created: 2026-10-20T10:41
+worker: claude-code
+started: 2026-10-20T13:30
+did: Drew the closed curve made by the 1–3 chain joining v1 and v3 and by v, and showed v2 is inside and v4 outside.
+result: A 2–4 chain cannot cross the closed curve, so v2 and v4 are not connected. Swapping the 2–4 chain at v2 frees colour 2.
+files:
+  - workbench/notes/kempe-recoloring/note.md
+reported: 2026-10-20T15:10
+verdict:
+  at: 2026-10-21T09:40
+  by: codex
+  note: Followed the argument in the note step by step. Found no missing case.
+  check: Checked again by hand on the icosahedron graph and on a graph with two adjacent degree-5 vertices.

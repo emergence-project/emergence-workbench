@@ -91,7 +91,7 @@ export class AcpConnection {
 // ---------- ACP 도구 → 앱의 도구 이름 ----------
 
 /** 앱 MCP 도구 (HTTP 입구가 따로 판단하므로 에이전트가 물어도 그대로 허락한다) */
-const WORKBENCH_TOOLS = new Set(['add_journal', 'add_record', 'add_task', 'answer_record', 'app_checks', 'app_submit', 'changes_since', 'checkpoint_task', 'edit_concept', 'edit_note', 'feedback_answer', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
+const WORKBENCH_TOOLS = new Set(['add_journal', 'add_record', 'add_task', 'answer_record', 'app_checks', 'app_submit', 'attempt_add', 'attempt_report', 'attempt_start', 'attempt_verdict', 'changes_since', 'checkpoint_task', 'direction_report', 'edit_concept', 'edit_note', 'feedback_answer', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'problem_brief', 'problem_prepare', 'problem_propose', 'problem_read', 'problems', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
 
 /** 도구 부르기 하나: 앱 MCP면 mcp, 판단 없이 둘 것(생각 · 모드 바꾸기)이면 free */
 export type AcpCall = { tool: string; input: Json; mcp?: boolean; free?: boolean }

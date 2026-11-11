@@ -1,0 +1,16 @@
+format: 1
+question: Does greedy colouring that removes low-degree vertices first stay within five colours on planar graphs?
+state: open
+by: user
+created: 2026-10-22
+if_yes: The five-colour theorem follows from greedy colouring without the chain argument.
+if_no: Greedy colouring guarantees only six colours; five needs the chain argument.
+reader: Someone implementing colouring as an algorithm
+limit: 2
+opened: 2026-10-22T09:00
+reports:
+  - at: 2026-10-23T16:20
+    by: claude-code
+    why: limit
+    for_no: Both A and B found cases that need a sixth colour. There are colourings where the neighbours of the last degree-5 vertex use all five colours.
+    neither: Up to 12 vertices, 3% of the orders needed a sixth colour.

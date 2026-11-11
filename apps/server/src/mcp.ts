@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { FEEDBACK_MISSES, LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { recordRows } from './recordRows.js'
 import { registerTaskTools } from './mcpTasks.js'
+import { PROBLEM_INSTRUCTIONS, registerProblemTools } from './mcpProblems.js'
 import { KEY_HEADER, serverTarget } from './appKey.js'
 import { KIND_NAME, shownName } from './flowNames.js'
 import * as C from '@rw/core/contract/flow'
@@ -46,6 +47,7 @@ export const INSTRUCTIONS = [
   'Delegated tasks: rules with part: "tasks" (once) → list_tasks → read_task → report_task with kind proposal when end-condition is empty (then stop), or kind result when the work is done. While working, checkpoint_task at milestones (one line: what happened, where, next). A to-do, handoff or proposal of new work: add_task.',
   'When you finish a piece of work: add_journal with one or two sentences on what you did and the files you touched.',
   'Research flow (one dot = one piece of work: a question, a calculation, a proof, a finding): before you start a calculation or proof, flow_search for earlier attempts (refuted and dropped ones carry their reason), then flow_add the dot as active with its criterion and the closest earlier dot (prior, adds) or why it is new (novel). When a work dot ends, finish_work with its result notes and the propositions it reached (one call), or flow_update with the result, evidence pointing to a note section, run (code · commit · params) for calculations, steps for proofs, reason for refuted/dropped/paused, and next. Finishing is refused while required fields are empty. Review a piece of evidence or a step with flow_review.',
+  PROBLEM_INSTRUCTIONS,
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
   'The user\'s turn (notes to review, task results to judge, agent edits) is for the user; never act on it for them.',
 ].join('\n')
@@ -521,6 +523,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
 
   const writeOnce = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const
   registerTaskTools(server, { project, call, write: (url, payload) => post(base, f, url, payload), ro, writeOnce, by: () => agentOf(server.server.getClientVersion()?.name) })
+  registerProblemTools(server, { project, read: (url) => get(base, f, url), write: (url, payload, method) => post(base, f, url, payload, method), ro, writeOnce })
 
   server.registerTool('add_journal', {
     title: 'Add a line to today\'s journal',

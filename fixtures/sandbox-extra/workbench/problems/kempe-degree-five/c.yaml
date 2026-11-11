@@ -1,0 +1,5 @@
+format: 1
+method: 차수 5 꼭짓점의 이웃 가운데 이어지지 않은 둘을 합쳐 축약한다
+state: candidate
+by: claude-code
+created: 2026-10-20T10:41

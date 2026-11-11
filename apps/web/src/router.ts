@@ -5,6 +5,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  * 주소 뒤쪽(#)으로 화면을 기억한다. 제목줄의 뒤로/앞으로 버튼은 브라우저 기록을 그대로 쓴다.
  *   #/r/<연구>            프로젝트 정보 (목표·저장소·태그)
  *   #/r/<연구>/todo       할 일
+ *   #/r/<연구>/problems[/<문제>] 문제 목록 · 문제 하나와 시도 나무 (11/11)
  *   #/r/<연구>/flow[?topic=] 연구 흐름 (프로젝트 전체, topic = 굵게 볼 주제, 10/14)
  *   #/r/<연구>/edits[?key=] 고침 검토 (그 프로젝트의 에이전트 고침만, 10/14 사용자 결정)
  *   #/r/<연구>/map        지도 (예전 /tree도 여기로)
@@ -71,6 +72,7 @@ export type Route =
   | { page: 'records'; rid: string }
   | { page: 'edits'; rid: string; key?: string }
   | { page: 'flow'; rid: string; topic?: string }
+  | { page: 'problems'; rid: string; id?: string }
   | { page: 'info'; rid: string }
   | { page: 'agents'; rid: string }
   | { page: 'status'; rid: string }
@@ -101,6 +103,7 @@ export function parseRoute(hash: string): Route {
     // 옛 작업 탭 주소는 기록 화면으로 (10/21 작업 탭을 기록 안으로 합침)
     if (parts[2] === 'todo') return { page: 'records', rid: parts[1] }
     if (parts[2] === 'records') return { page: 'records', rid: parts[1] }
+    if (parts[2] === 'problems') return { page: 'problems', rid: parts[1], ...(parts[3] && { id: parts[3] }) }
     if (parts[2] === 'flow') { const topic = new URLSearchParams(query).get('topic'); return { page: 'flow', rid: parts[1], ...(topic && { topic }) } }
     if (parts[2] === 'edits') { const key = new URLSearchParams(query).get('key'); return { page: 'edits', rid: parts[1], ...(key && { key }) } }
     if (parts[2] === 'info') return { page: 'info', rid: parts[1] }
@@ -216,6 +219,7 @@ export function href(r: Route): string {
     case 'todo': return `#/r/${e(r.rid)}/todo`
     case 'records': return `#/r/${e(r.rid)}/records`
     case 'flow': return `#/r/${e(r.rid)}/flow${r.topic ? `?topic=${e(r.topic)}` : ''}`
+    case 'problems': return `#/r/${e(r.rid)}/problems${r.id ? `/${e(r.id)}` : ''}`
     case 'edits': return `#/r/${e(r.rid)}/edits${r.key ? `?key=${e(r.key)}` : ''}`
     case 'info': return `#/r/${e(r.rid)}/info`
     case 'agents': return `#/r/${e(r.rid)}/agents`

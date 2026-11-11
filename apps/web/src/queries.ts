@@ -52,6 +52,9 @@ export const qk = {
   agentEdits: (scope: string) => ['agent-edits', scope] as const,
   /** 흐름 점 · 자리 · 줄 (workbench/flow/) */
   flow: (rid: string) => ['project', rid, 'flow'] as const,
+  /** 문제와 시도 나무 (workbench/problems/). 문제 하나는 그 아래 키 */
+  problems: (rid: string) => ['project', rid, 'problems'] as const,
+  problem: (rid: string, id: string) => ['project', rid, 'problems', id] as const,
   /** 프로젝트와 모든 노트의 기록 (workbench/comments/). 인용 위치를 노트에서 다시 찾으므로 노트가 바뀌어도 다시 받는다 */
   records: (rid: string) => ['project', rid, 'records'] as const,
   /** 기록 올리기의 마지막 결과 (기록 탭 맨 위 줄 · 실패 알림). 서버가 실패가 생기거나 풀릴 때 records-publish로 알린다 */
@@ -156,6 +159,7 @@ function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat'
     case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid), qk.repoFiles(rid), qk.peopleSuggestions, PERSON_PAGES]
     case 'tasks': return [qk.tasks(rid), qk.researchIssues]
     case 'flow': return [qk.flow(rid)]
+    case 'problems': return [qk.problems(rid)]
     case 'records-publish': return [qk.recordsPublish(rid)]
     case 'preamble': return []
   }

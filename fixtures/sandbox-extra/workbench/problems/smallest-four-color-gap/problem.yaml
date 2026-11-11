@@ -1,0 +1,6 @@
+format: 1
+question: 네 색에서 켐페의 사슬 논증이 깨지는 가장 작은 그래프는 무엇인가?
+state: proposed
+by: claude-code
+created: 2026-10-21
+source: 문제 kempe-degree-five의 시도 A, heawood1890

@@ -1,0 +1,6 @@
+format: 1
+question: What is the smallest graph on which Kempe's chain argument fails for four colours?
+state: proposed
+by: claude-code
+created: 2026-10-21
+source: Attempt A of problem kempe-degree-five, heawood1890
