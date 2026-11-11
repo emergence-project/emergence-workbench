@@ -703,7 +703,7 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 | `approval` | 노트를 해결로(`note.yaml` `state: done`), 맡긴 일을 `done`으로, `judged`·`answers`를 씀, 흐름에 `role: human` 확인 기록이나 판단 기록(`judgments`, 10/23)을 씀 | 오류 |
 | `flow-human` | 흐름 점의 질문 문장(`fields.question`)·발단 선(`origin`)을 바꿈, `result: dropped`로 갈래를 폐기 | 오류 |
 | `flow-form` | 흐름 점을 끝남 · 멈춤으로 바꿨는데 해결 문턱(§14)의 칸이 빔 | 오류 |
-| `flow-skipped` | 노트를 바꿨는데 이번에 바뀐 흐름 점 가운데 그 노트를 근거 · 실행 파일로 가리키거나 주제가 겹치는 것이 없음 (10/20: 점은 일을 시작할 때 만든다. 10/23: 무관한 점만 고쳐도 통과하던 것을 막음). 노트의 주제는 주제 폴더 · `note.yaml` `topics:`, 주제가 없는 노트는 주제가 없는 점과 짝짓는다 | 경고 |
+| `flow-skipped` | 노트를 바꿨는데 이번에 바뀐 흐름 점 가운데 그 노트를 근거 · 실행 파일로 가리키거나 주제가 겹치는 것이 없음 (10/20: 점은 일을 시작할 때 만든다. 10/23: 무관한 점만 고쳐도 통과하던 것을 막음). 11/11부터 이번에 바뀐 시도(§16)가 `files`로 그 노트를 가리켜도 된다(새 일은 문제 아래의 시도로 한다). 노트의 주제는 주제 폴더 · `note.yaml` `topics:`, 주제가 없는 노트는 주제가 없는 점과 짝짓는다 | 경고 |
 | `flow-start` | 에이전트가 만든 새 점(`by`가 `user`가 아님)에 시작 기록(§14)이 없음. 발견(`finding`)은 일이 아니라 결론이고 열림(`open`)은 아직 시작하지 않아 보지 않는다 | 경고 |
 | `flow-integration` | 이번에 해결 · 반증으로 끝난 점에 반영 기록(§14)이 없음, 또는 반영 기록의 문서 · 절이 없거나 점 id를 가리키지 않음 | 경고 |
 | `queue-cap` | 에이전트가 새 명제(발견)를 냈는데 판단 대기열(§14)이 상한 3을 넘음 | 오류 |
@@ -715,6 +715,9 @@ guesses: [ … ]           # 에이전트가 짐작한 것 (사람이 확인하�
 | `confirmed-edit` | 해결 노트, `status: accepted` 결정·규칙을 고침 | 경고 |
 | `outside-workbench` | `workbench/` 밖 변경 (맨 위 폴더마다 한 줄) | 경고 |
 | `move-delete` | 지우거나 옮긴 파일 (한 줄로 묶음) | 경고 |
+| `problem-human` | 문제(§16)에서 사용자만 하는 것: 있는 문제의 질문 · 메시지(예이면 · 아니오이면) · 독자 · 한도 · 후보 순서 · 상태 · 시작 · 종료를 바꿈, 방향 보고에 결정(`decision`)을 씀, 새 문제를 제안(`proposed`)이 아닌 상태로 만들거나 메시지 · 독자를 채움, 문제를 지우거나 옮김, 판정에 `by: user`를 씀 | 오류 |
+| `problem-verdict` | 시도의 판정 규칙: 일한 쪽(`worker`)이 자기 시도를 판정, 판정 기록 없이 성립 · 폐기, 보고(`did` · `result`) 없는 시도를 판정, 성립에 `verdict.check` 없음, 해 본 시도의 폐기에 `lesson` 없음 | 오류 |
+| `problem-work` | 일하는 규칙: 사용자가 시작하지 않은 문제 · 종료한 문제 · 문제 파일이 없는 폴더에 시도를 씀, 시작한 시도 수가 한도를 넘음, 방향 보고가 결정을 기다리는 동안 시작, 시작한 시도에 `worker` 없음, 보고에 `did` · `result` 없음, 출처 없는 제안, 낸 방향 보고를 고치거나 지움 · 결정 전에 하나 더 냄. 폐기가 이어진 정체와 후보 순서는 앱 · MCP · `pnpm agent:problem`만 막는다 | 오류 |
 
 - **PR 관문** (10/23): 연구 저장소 PR마다 Actions로 이 검사를 돌려 오류가 있으면 PR이 실패한다. 연구 저장소에는 `.github/workflows/agent-check.yml` 하나에 `uses: emergence-project/emergence-workbench/.github/workflows/research-check.yml@main`만 두고(그 파일 머리에 전문), 기준은 PR의 base 브랜치다. 관문은 공통 규칙 파일이 없어 기본 세기로 돈다. 에이전트의 브랜치를 검사하는 것이므로, 사용자가 앱에서 한 판단은 그 브랜치가 아니라 main에 올린다.
 - **세기 바꾸기:** 공통 규칙 파일(§9, 설정 폴더의 `personal/rules/research.md` 또는 `RW_COMMON_RULES`) 머리말의 `checks:`가 이름마다 `error` · `warning` · `off`를 정한다. 모르는 이름과 값은 넘어간다.
@@ -753,28 +756,28 @@ format: 1
 question: 켐페 사슬 바꾸기만으로 차수 5 꼭짓점을 다섯 색 안에서 칠할 수 있는가?
 state: open              # proposed 제안 · draft 쓰는 중 · open 진행 · closed 종료
 by: user                 # 만든 이: user 또는 에이전트 이름
-created: 2026-11-11 15:20
+created: 2026-11-11      # 문제는 날짜, 그 밖의 시각은 2026-11-11T15:20 꼴
 source: heawood1890 3절   # 제안일 때: 어디서 나온 질문인가
 if_yes: 평면 그래프의 5색 정리는 켐페 사슬 바꾸기 한 가지로 증명된다.     # 사용자만
 if_no: 차수 5 꼭짓점에는 사슬 바꾸기 말고 다른 축약이 필요하다.           # 사용자만
 reader: 그래프 색칠 증명을 처음 따라가는 대학원생                         # 사용자만
 literature:              # 문헌 대조: 같은 일 · 가까운 일을 한 논문마다 사실 한 줄
-  - { ref: heawood1890, fact: 켐페의 4색 증명의 틈을 지적하고 같은 사슬 논증으로 다섯 색을 보였다., by: claude-code, at: 2026-11-11 15:31 }
+  - { ref: heawood1890, fact: 켐페의 4색 증명의 틈을 지적하고 같은 사슬 논증으로 다섯 색을 보였다., by: claude-code, at: 2026-11-11T15:31 }
 first_test: 이웃 다섯이 모두 다른 색인 가장 작은 예에서 손으로 확인한다.     # 가장 싸게 방향이 틀렸음을 보일 시험
 grading: 차수 5 이하 꼭짓점이 있는 모든 경우를 다룬다.                      # 채점 기준. 없으면 탐색(결과는 사실로만)
 limit: 6                 # 해 볼 시도 수. 없으면 6
-opened: 2026-11-11 15:40
+opened: 2026-11-11T15:40
 order: [a, b, c]         # 사용자가 정한 후보 순서 (없으면 만든 순서)
 needs: all               # 고르기: 바로 아래 시도가 모두 성립해야 한다(분해). 없으면 시도들은 대안이다
 reports:                 # 방향 보고와 사용자의 결정
-  - at: 2026-11-12 10:05
+  - at: 2026-11-12T10:05
     by: claude-code
     why: limit           # limit 한도 · stuck 폐기가 이어짐 · exhausted 후보 없음 · asked 결과가 질문에서 벗어남
-    for_yes: [B: 2–4 사슬을 바꾸면 색 2가 빈다.]     # "예"의 문장을 받치는 결과
-    for_no: []                                        # "아니오"의 문장을 받치는 결과
-    neither: [A: 사슬 하나로는 부족하다.]             # 어느 쪽도 아닌 결과
-    decision: { at: 2026-11-12 11:00, verdict: continue, note: 차수 4 이하를 마저 적는다, limit: 9 }   # continue · narrow · close
-closed: { at: 2026-11-13 09:00, reason: … }   # 종료일 때
+    for_yes: "B: 2–4 사슬을 바꾸면 색 2가 빈다."       # "예"의 문장을 받치는 결과 (글 한 덩어리. 없으면 칸을 뺀다)
+    for_no: …                                         # "아니오"의 문장을 받치는 결과
+    neither: "A: 사슬 하나로는 부족하다."              # 어느 쪽도 아닌 결과
+    decision: { at: 2026-11-12T11:00, verdict: continue, note: 차수 4 이하를 마저 적는다, limit: 9 }   # continue · narrow · close
+closed: { at: 2026-11-13T09:00, reason: … }   # 종료일 때
 ```
 
 ```yaml
@@ -784,14 +787,14 @@ method: 두 사슬이 교차하지 못함을 조르당 곡선 정리로 적는�
 parent: b                # 문제 바로 아래면 없다
 state: reported          # candidate 후보 · active 진행 · reported 판정 대기 · holds 성립 · dropped 폐기
 by: claude-code          # 후보를 적은 이
-created: 2026-11-11 16:00
+created: 2026-11-11T16:00
 worker: claude-code      # 시작한 이 (시작할 때 적는다)
-started: 2026-11-11 16:02
+started: 2026-11-11T16:02
 did: 평면 그림에서 2–4 사슬의 변이 닫힌 곡선과 만나는 자리를 따졌다.     # 한 일
 result: 곡선 위 꼭짓점의 색은 1 · 3뿐이라 만나지 못한다.                  # 결과 (사실)
 files: [workbench/topics/coloring/kempe-chains/note.md]                   # 원자료 · 코드 · 노트
-reported: 2026-11-11 17:10
-verdict: { at: 2026-11-11 18:00, by: codex, note: 다시 따라가 봤다, check: 꼭짓점 8개인 다른 그림에서도 같다 }   # check는 성립일 때
+reported: 2026-11-11T17:10
+verdict: { at: 2026-11-11T18:00, by: codex, note: 다시 따라가 봤다, check: 꼭짓점 8개인 다른 그림에서도 같다 }   # check는 성립일 때
 lesson: …                # 폐기일 때: 다음 시도가 되풀이하지 않을 것 한 줄
 reopen: …                # 고르기: 다시 열 조건
 needs: all               # 고르기: 아래 시도가 모두 성립해야 한다
@@ -816,3 +819,5 @@ needs: all               # 고르기: 아래 시도가 모두 성립해야 한�
 - **멈춤**(`stop`, 앞의 것이 먼저): `decision` 방향 보고가 결정을 기다림 · `limit` 시작한 시도 수(`worker`가 있는 시도)가 한도 이상 · `stuck` 마지막 결정 뒤의 판정 가운데 최근 셋이 모두 폐기 · `exhausted` 시작할 후보도 진행 · 판정 대기도 없음. 멈춤이면 시작을 거절한다. 결정이 계속 · 좁히기면 한도를 올린다(준 값, 없으면 쓴 수와 한도 가운데 큰 쪽 + 3).
 - **이어받기 요약** (`GET …/problems/:id/brief`, `problemBrief.ts`): 질문 · 메시지 · 독자 · 채점 · 교훈 · 판정 대기 · 다음 후보 · 한도를 2KB 안에 싣는다. 넘치면 후보, 성립, 진행 순으로 줄을 줄인다. STATUS(§9)의 "문제" 절은 진행 중인 문제를 한 줄씩 싣는다.
 - **앱에서 고치기:** `GET · POST …/problems`, `GET · PATCH · DELETE …/problems/:id`, `POST …/problems/:id/open · close · attempts · report · decide`, `POST …/problems/:id/attempts/:aid/start · report · verdict`. 문제 파일을 고치는 요청(`PATCH` · `open` · `close` · `DELETE`)은 읽을 때 받은 `hash`를 `baseHash`로 보낸다. 시도는 상태로 막으므로(이미 시작한 후보는 다시 시작하지 못한다) hash가 없다.
+- **서버 없이 쓰기** (`pnpm agent:problem <저장소> …`, `scripts/agent-problem.mjs`): 앱 · MCP가 닿지 않는 곳(클라우드)에서 에이전트가 같은 함수로 읽고 쓴다. 명령은 MCP 도구와 한 쌍이다: 없음(목록) `problems` · `brief` · `read` · `propose` · `prepare` · `add` · `start` · `report` · `verdict` · `direction`. 언제나 에이전트 이름으로 쓰고(`--by`, 기본 `claude`), 사용자만 하는 일(시작 · 종료 · 메시지 · 독자 · 한도 · 순서 · 결정)은 명령이 없다. 쓴 뒤 그 저장소에 커밋해 올린다.
+- **파일을 직접 고쳤을 때:** 위 규칙을 어긴 변경은 `pnpm agent:check`가 잡는다(§15의 `problem-human` · `problem-verdict` · `problem-work`). 읽지 못한 문제 · 시도 파일은 형식 검사의 오류다.

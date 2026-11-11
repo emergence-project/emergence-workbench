@@ -72,6 +72,6 @@ export function problemStatusSection(wb: Workbench): string[] {
     out.push(`- \`${p.id}\` ${one(p.question, 70)} · 시도 ${p.used}/${p.limit} · 성립 ${c.holds} · 폐기 ${c.dropped}${c.reported ? ` · 판정 대기 ${c.reported}` : ''} · ${now}`)
   }
   if (open.length > STATUS_SHOWN) out.push(`- 그 밖 ${open.length - STATUS_SHOWN}개 (MCP \`problems\`)`)
-  out.push('', '> 사용자가 시작한 문제에서만 일한다: `problem_brief`로 이어받고 `attempt_add` · `attempt_start` · `attempt_report`. 성립 · 폐기는 일한 쪽이 아닌 쪽이 정한다(`attempt_verdict`). 멈춤이면 `direction_report`를 내고 선다. 새 문제는 제안만 한다(`problem_propose`).', '')
+  out.push('', '> 사용자가 시작한 문제에서만 일한다: `problem_brief`로 이어받고 `attempt_add` · `attempt_start` · `attempt_report`. 성립 · 폐기는 일한 쪽이 아닌 쪽이 정한다(`attempt_verdict`). 멈춤이면 `direction_report`를 내고 선다. 새 문제는 제안만 한다(`problem_propose`). MCP가 없는 곳(클라우드)에서는 `pnpm agent:problem <폴더> …`가 같은 일을 한다.', '')
   return out
 }

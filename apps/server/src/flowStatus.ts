@@ -95,7 +95,7 @@ export function flowStatusSections(wb: Workbench): string[] {
   const out = [...flowNow(wb, nodes, newest),
     '## 흐름 요약 — 원본 `workbench/flow/` · 점 주소 `flow-<id>` (기록 대상과 같다)', '',
     `점 ${nodes.length} · ${counts(nodes)}`, '',
-    '> 점 하나 = 일 하나. 여는 점(질문) ◇ · 작업(계산 · 증명 · 문헌) ○ · 닫는 점(명제) □. 일을 시작할 때 점을 진행으로 만들고(MCP `flow_add`, 계산 전에 `flow_search`로 지난 시도 확인), 끝날 때 결과 · 절까지 가리킨 근거 · 이유 · 다음 할 일을 적는다(`flow_update`). 필수 칸이 비면 끝냄이 거절된다. 질문 문장 · 발단 선 · 갈래 폐기 · 승인은 사람이 정한다. 에이전트의 검토는 `flow_review`(role: agent).',
+    '> 옛 기록이다(점 하나 = 일 하나. 여는 점(질문) ◇ · 작업(계산 · 증명 · 문헌) ○ · 닫는 점(명제) □). 11/11부터 새 연구 일은 점으로 더하지 않고 사용자가 시작한 문제 아래의 시도로 한다(절 "문제", MCP `problem_brief`). 흐름은 지난 일을 찾을 때 읽는다(`flow_search` · `flow_read`). 점은 사용자가 직접 시킬 때만 고친다(`flow_update`. 필수 칸이 비면 끝냄이 거절된다). 질문 문장 · 발단 선 · 갈래 폐기 · 승인은 사람이 정한다.',
     '> 모든 점: 절 "흐름 지도". 점 하나의 전부: `workbench/flow/<id>.yaml`.', '',
     `### 최근 점 ${recent.length} (새것부터. 열린 점 = 미해결 · 진행 · 멈춤은 핵심 칸까지)`, '',
   ]
