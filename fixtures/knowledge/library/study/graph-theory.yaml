@@ -3,11 +3,41 @@ kind: 강의
 chapters:
   - title: Graphs and planar embeddings
     state: 끝
-    concepts: [planar-graph, graph-coloring]
+    goals:
+      - 평면 그래프와 그 임베딩을 정의한다
+    read:
+      - key: doeStructurePlanar2004
+        at: §1–2
+        done: true
+    concepts:
+      - id: planar-graph
+        done: true
+      - id: graph-coloring
+        done: true
   - title: Euler's formula
     state: 끝
   - title: Kempe chains and the five color theorem
     state: 읽는 중
-    concepts: [discharging-method]
+    goals:
+      - Kempe 사슬로 다섯 색 정리를 증명한다
+      - 네 색에서 같은 논증이 왜 막히는지 말한다
+    read:
+      - key: doeStructurePlanar2004
+        at: §3
+        done: true
+      - text: Lecture notes, week 3
+        url: https://example.org/graph-theory/week3
+    concepts:
+      - id: discharging-method
+        done: true
+      - kempe-chain
+      - four-color-theorem
+    do:
+      - text: 다섯 색 정리의 증명을 그림 없이 다시 쓰기
+        done: true
+      - 바퀴 그래프 W5에서 Kempe 사슬 바꾸기를 손으로 해 보기
   - title: Discharging
+    read:
+      - key: ipsumListColoringPlanar2015
+    concepts: [discharging-method]
   - title: List coloring
