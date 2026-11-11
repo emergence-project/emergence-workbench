@@ -16,7 +16,7 @@ import { agentName } from './taskView'
  */
 
 const STATE_NAME: Record<ProblemState, string> = { proposed: t('제안', 'Proposed'), draft: t('쓰는 중', 'Draft'), open: t('진행', 'Open'), closed: t('종료', 'Closed') }
-const ATTEMPT_NAME: Record<AttemptState, string> = { candidate: t('후보', 'Candidate'), active: t('진행', 'Working'), reported: t('판정 대기', 'Awaiting verdict'), holds: t('성립', 'Holds'), dropped: t('폐기', 'Dropped') }
+const ATTEMPT_NAME: Record<AttemptState, string> = { candidate: t('후보', 'Candidate'), active: t('진행', 'Working'), reported: t('판정 대기', 'To judge'), holds: t('성립', 'Holds'), dropped: t('폐기', 'Dropped') }
 /** 색 점: 진행 파랑 · 판정 대기 주황 · 성립 청록 · 폐기 회색 고리 · 후보 옅은 점 (디자인 문서 2절 "색은 상태에만") */
 const ATTEMPT_DOT: Record<AttemptState, string> = { candidate: 'none', active: 'in-progress', reported: 'blocked', holds: 'solved', dropped: 'stopped' }
 const STOP_TEXT: Record<ProblemStop, string> = {
