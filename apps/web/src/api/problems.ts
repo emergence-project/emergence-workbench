@@ -1,7 +1,7 @@
 // ---------- 문제와 시도 나무 (11/11): workbench/problems/<id>/, 서버 problems.ts. 형식은 docs/repo-format.md §16 ----------
 import { enc, json, req, send } from './http'
-import type { AttemptReportBody, AttemptVerdictBody, DirectionDecisionBody, NewAttemptsBody, NewProblemBody, ProblemList, ProblemOne, ProblemPatchBody, ProblemRemoved } from '@rw/core/contract/problems'
-export type { Attempt, AttemptState, DirectionReport, Problem as ProblemDoc, ProblemList, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
+import type { AttemptReportBody, AttemptVerdictBody, DirectionDecisionBody, FlowExceptionList, FlowExceptionOne, NewAttemptsBody, NewExceptionBody, NewProblemBody, ProblemCloseBody, ProblemList, ProblemOne, ProblemPatchBody, ProblemRemoved } from '@rw/core/contract/problems'
+export type { Attempt, AttemptState, BasisReview, ClaimSide, DirectionReport, FlowAnswer, FlowException, NewExceptionBody, Problem as ProblemDoc, ProblemList, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
 export { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP } from '@rw/core'
 
 export const problemsApi = (rid: string) => {
@@ -14,7 +14,8 @@ export const problemsApi = (rid: string) => {
     patch: (id: string, baseHash: string, set: ProblemPatchBody['set']) => req(`${base}/${enc(id)}`, send('PATCH', { baseHash, set })).then(one),
     /** 시작: 메시지(예 · 아니오)와 독자가 있어야 한다 */
     open: (id: string, baseHash: string) => req(`${base}/${enc(id)}/open`, send('POST', { baseHash })).then(one),
-    close: (id: string, baseHash: string, reason: string) => req(`${base}/${enc(id)}/close`, send('POST', { baseHash, reason })).then(one),
+    /** 종료: 답 없이는 사유와, 답과 함께면 그 답이 기대는 주장마다의 승인 · 수정 · 기각과 (모두 승인일 때만 닫힌다) */
+    close: (id: string, body: ProblemCloseBody) => req(`${base}/${enc(id)}/close`, send('POST', body)).then(one),
     remove: (id: string, baseHash: string) => req(`${base}/${enc(id)}?baseHash=${enc(baseHash)}`, { method: 'DELETE' }).then((r) => json<ProblemRemoved>(r)),
     addAttempts: (id: string, attempts: NewAttemptsBody['attempts']) => req(`${base}/${enc(id)}/attempts`, send('POST', { attempts })).then(one),
     start: (id: string, aid: string) => req(`${base}/${enc(id)}/attempts/${enc(aid)}/start`, send('POST', {})).then(one),
@@ -23,5 +24,8 @@ export const problemsApi = (rid: string) => {
     /** 방향 보고에 대한 결정: 계속 · 좁히기 · 접기 */
     decide: (id: string, baseHash: string, verdict: DirectionDecisionBody['verdict'], note?: string, limit?: number) =>
       req(`${base}/${enc(id)}/decide`, send('POST', { baseHash, verdict, ...(note?.trim() && { note: note.trim() }), ...(limit !== undefined && { limit }) })).then(one),
+    /** 예외 기록: 규칙대로 되지 않은 일 (새것부터) */
+    exceptions: () => req(`/api/researches/${enc(rid)}/problem-exceptions`).then((r) => json<FlowExceptionList>(r)).then((x) => x.exceptions),
+    addException: (body: NewExceptionBody) => req(`/api/researches/${enc(rid)}/problem-exceptions`, send('POST', body)).then((r) => json<FlowExceptionOne>(r)).then((x) => x.exception),
   }
 }

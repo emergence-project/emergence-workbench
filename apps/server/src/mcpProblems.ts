@@ -1,10 +1,10 @@
 // 에이전트용 입구(mcp.ts)의 흐름 · 시도 나무 도구: problems · problem_brief · problem_read · problem_propose · problem_prepare ·
-// attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report (11/11 결정 "흐름을 시도 나무로 · 메시지 관문").
+// attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · problem_exceptions (11/11 결정 "흐름을 시도 나무로 · 메시지 관문").
 // 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다. 누가 불렀는지는 mcp.ts가 붙이는 x-rw-agent로 서버가 가린다
 // (흐름을 시작하고 종료하는 것, 메시지 · 독자 · 한도 · 순서는 사용자만. 판정은 작업한 쪽이 아닌 쪽만).
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { ATTEMPT_VERDICTS, TEST_RESULTS } from '@rw/core'
+import { ATTEMPT_VERDICTS, CLAIM_SIDES, EXCEPTION_KINDS, TEST_RESULTS } from '@rw/core'
 import * as C from '@rw/core/contract/problems'
 import type { Text } from './mcp.js'
 
@@ -12,7 +12,7 @@ type Reply = { ok: true; body: unknown } | { ok: false; error: Text }
 type Hints = { readonly readOnlyHint: boolean; readonly openWorldHint: false; readonly destructiveHint?: false; readonly idempotentHint?: false }
 
 /** 연결할 때 에이전트에게 주는 순서 (mcp.ts INSTRUCTIONS의 한 줄) */
-export const PROBLEM_INSTRUCTIONS = 'Flows and the attempt tree (the app screen 흐름 · Flow; the folder workbench/problems/ and these tools keep the older word problem). New work on a question happens here: the problems tool lists the flows. Work only under a flow the user has opened, and when none is open do not start such work on your own (work the user asks for directly, in the conversation, a task or an instruction record, needs no flow): problem_brief (question, the user\'s message, lessons of dropped attempts, the next candidate, the limit) → attempt_add to list candidate methods → attempt_start the next candidate → do the work → attempt_report (what you did, the result as facts, files). You never judge your own attempt: another agent or the user gives attempt_verdict from the raw data (holds needs a check outside the fitted condition, dropped needs a one-line lesson). At the limit, after three dropped in a row, or with no candidates left, starting is refused: file direction_report (facts for the yes sentence, for the no sentence, for neither) and stop; the user decides to continue, narrow or close. A new flow is only proposed (problem_propose, with its source); the user writes the message and opens it. Before it opens you may add literature comparison, a first test and a grading rule (problem_prepare). Do not rate whether a flow is worth doing.'
+export const PROBLEM_INSTRUCTIONS = 'Flows and the attempt tree (the app screen 흐름 · Flow; the folder workbench/problems/ and these tools keep the older word problem). New work on a question happens here: the problems tool lists the flows. Work only under a flow the user has opened, and when none is open do not start such work on your own (work the user asks for directly, in the conversation, a task or an instruction record, needs no flow): problem_brief (question, the user\'s message, lessons of dropped attempts, the next candidate, the limit) → attempt_add to list candidate methods → attempt_start the next candidate → do the work → attempt_report (what you did, the result as facts, files, and the claim: one sentence that can be judged true or false, the condition it holds under, and which side of the question it supports). You never judge your own attempt: another agent or the user gives attempt_verdict from the raw data. A verdict answers one thing: does this attempt\'s statement follow from this attempt\'s grounds (holds needs a statement and a check outside the fitted condition, dropped needs a one-line lesson). Accepting a held claim as a fact, and answering the question, is the user\'s: it happens when the user closes the flow, on the claims the answer rests on. When the rules do not fit (you cannot write the result as one judgeable sentence, you cannot judge, a decision is needed that is not the user\'s turn, you had to go around a rule), leave one line with problem_exception instead of bending the rule quietly; the user reviews these lines when evaluating the rules. At the limit, after three dropped in a row, or with no candidates left, starting is refused: file direction_report (facts for the yes sentence, for the no sentence, for neither) and stop; the user decides to continue, narrow or close. A new flow is only proposed (problem_propose, with its source); the user writes the message and opens it. Before it opens you may add literature comparison, a first test and a grading rule (problem_prepare). Do not rate whether a flow is worth doing.'
 
 const text = (s: string): Text => ({ content: [{ type: 'text', text: s }] })
 const json = (v: unknown): Text => text(JSON.stringify(v, null, 1))
@@ -159,11 +159,14 @@ export function registerProblemTools(server: McpServer, o: {
 
   server.registerTool('attempt_report', {
     title: 'Report an attempt',
-    description: 'Report the attempt you started: what you did and the result, as facts (numbers, sizes, parameters, where it failed), with the files that hold the raw data, code and note. The attempt then waits for a verdict from another agent or the user; you do not decide whether it holds. Give the command that produced the result (command) and, when there is one, a command the judging side can rerun (test). If you think it failed, add the one-line lesson and, when there is one, the condition under which it would be worth reopening.',
+    description: 'Report the attempt you started: what you did and the result, as facts (numbers, sizes, parameters, where it failed), with the files that hold the raw data, code and note, and the claim (statement, condition, side) those grounds support. The attempt then waits for a verdict from another agent or the user; you do not decide whether it holds. Give the command that produced the result (command) and, when there is one, a command the judging side can rerun (test). If you think it failed, add the one-line lesson and, when there is one, the condition under which it would be worth reopening.',
     inputSchema: {
       project, problem, attempt,
       did: z.string().trim().min(1).describe('What was done'),
       result: z.string().trim().min(1).describe('The result as facts'),
+      statement: z.string().optional().describe('The claim this attempt puts forward: one sentence that can be judged true or false from the grounds you give (not a topic, not a plan). Needed for a holds verdict. Leave it out only when the attempt failed and has nothing to claim (then give lesson); if there is a result but you cannot put it in one sentence, leave it out and record problem_exception kind no-claim'),
+      condition: z.string().optional().describe('The condition the statement holds under: sizes, parameter range, model'),
+      side: z.enum(CLAIM_SIDES).optional().describe('Which sentence of the user\'s message the statement supports: for_yes, for_no, or neither. Required with statement'),
       files: z.array(z.string()).optional().describe('Repository paths: raw data, code, note section'),
       command: z.string().optional().describe('The command that produced the result, runnable from the repository root (the app records the current commit with it)'),
       commit: z.string().optional().describe('Commit of the code that produced the result, when it is not the current HEAD'),
@@ -177,7 +180,7 @@ export function registerProblemTools(server: McpServer, o: {
 
   server.registerTool('attempt_verdict', {
     title: 'Give a verdict on an attempt',
-    description: 'Judge an attempt someone else worked on, from its raw data and files (problem_read), not from its summary. holds: you reproduced it and checked it outside the condition it was fitted on (another size, other parameters, an independent implementation or a limit); say what in check. dropped: it does not hold; give the one-line lesson. When the attempt has a test command, rerun it and pass the outcome in tested. The app records the hashes of the files at a holds verdict and marks the attempt when they change later. Refused for an attempt you worked on yourself.',
+    description: 'Judge an attempt someone else worked on, from its raw data and files (problem_read), not from its summary. The question is only whether its statement follows from its own grounds, within its condition: not whether the claim matters, and not whether the flow is answered (the user decides those when closing the flow). holds: you reproduced it and checked it outside the condition it was fitted on (another size, other parameters, an independent implementation or a limit), and the statement says no more than the grounds show; say what in check. An attempt without a statement cannot hold. dropped: it does not hold; give the one-line lesson. If you cannot judge (raw data missing, cannot rerun), give no verdict and record problem_exception kind no-verdict. When the attempt has a test command, rerun it and pass the outcome in tested. The app records the hashes of the files at a holds verdict and marks the attempt when they change later. Refused for an attempt you worked on yourself.',
     inputSchema: {
       project, problem, attempt,
       result: z.enum(ATTEMPT_VERDICTS),
@@ -197,4 +200,34 @@ export function registerProblemTools(server: McpServer, o: {
     inputSchema: { project, problem, for_yes: z.string().optional(), for_no: z.string().optional(), neither: z.string().optional() },
     annotations: writeOnce,
   }, async ({ project: rid, problem: id, ...body }) => done(await write(`${R(rid, id)}/report`, body), () => 'Direction report filed.'))
+
+  const X = (rid: string) => `/api/researches/${enc(rid)}/problem-exceptions`
+  server.registerTool('problem_exception', {
+    title: 'Record an exception to the flow rules',
+    description: 'One line when the flow rules did not fit what happened, so the user can evaluate the rules later (the app records its own refusals by itself). kind: no-claim = there is a result but it cannot be written as one judgeable sentence; no-verdict = you could not judge an attempt (data missing, cannot rerun, statement too vague); needs-user = a decision was needed at a point that is not the user\'s turn; workaround = you went around a rule to keep working; other. what = what happened, as facts; instead = what you did instead. Do not use it for ordinary progress or for opinions on the topic.',
+    inputSchema: {
+      project,
+      kind: z.enum(EXCEPTION_KINDS).exclude(['refused']),
+      what: z.string().trim().min(1).describe('What happened, one or two factual sentences'),
+      instead: z.string().optional().describe('What you did instead'),
+      problem: problem.optional(),
+      attempt: attempt.optional(),
+    },
+    annotations: writeOnce,
+  }, async ({ project: rid, ...body }) => {
+    const r = await write(X(rid), body)
+    return r.ok ? text(`Recorded exception ${C.FlowExceptionOne.parse(r.body).exception.id}. The user sees it on the flow screen.`) : r.error
+  })
+
+  server.registerTool('problem_exceptions', {
+    title: 'List exceptions to the flow rules',
+    description: 'The exception lines of a project, newest first: what the app refused under a rule (kind refused, with the rule) and what agents or the user recorded. With problem, only that flow.',
+    inputSchema: { project, problem: problem.optional() },
+    annotations: ro,
+  }, async ({ project: rid, problem: id }) => {
+    const r = await read(X(rid))
+    if (!r.ok) return r.error
+    const all = C.FlowExceptionList.parse(r.body).exceptions
+    return json({ exceptions: id ? all.filter((e) => e.problem === id) : all })
+  })
 }

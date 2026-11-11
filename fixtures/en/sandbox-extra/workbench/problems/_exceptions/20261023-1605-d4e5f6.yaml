@@ -1,0 +1,8 @@
+format: 1
+at: 2026-10-23T16:05
+by: claude-code
+kind: no-claim
+problem: greedy-five-colors
+attempt: b
+what: Putting the three rules' results (233, 41 and 58 cases needing a sixth colour) in one sentence drops the per-rule counts.
+instead: Wrote only the weakest sentence true under all three rules as the statement, and kept the counts in the result.

@@ -5,6 +5,9 @@ by: claude-code
 created: 2026-10-20T10:41
 worker: claude-code
 started: 2026-10-20T13:30
+statement: 이웃 다섯 색이 모두 다른 차수 5 꼭짓점에서, v1과 v3이 1–3 사슬로 이어져 있으면 v2 쪽 2–4 사슬을 바꿔 색 하나를 비울 수 있다.
+condition: 평면 그래프, 다섯 색
+side: for_yes
 did: v1–v3을 잇는 1–3 사슬과 v가 만드는 닫힌 곡선을 그리고, v2가 그 안에 v4가 밖에 있음을 보였다.
 result: 2–4 사슬은 닫힌 곡선을 건너지 못하므로 v2와 v4는 이어지지 않는다. v2 쪽 2–4 사슬을 바꾸면 색 2가 빈다.
 files:

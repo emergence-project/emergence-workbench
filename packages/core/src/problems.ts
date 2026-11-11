@@ -18,6 +18,17 @@ export const PROBLEM_STOPS = ['decision', 'limit', 'stuck', 'exhausted'] as cons
 export const REPORT_WHYS = ['limit', 'stuck', 'exhausted', 'asked'] as const
 /** 방향 보고에 대한 사용자의 결정: 계속 · 좁히기 · 접기 */
 export const DIRECTION_VERDICTS = ['continue', 'narrow', 'close'] as const
+/** 주장이 질문의 어느 쪽을 받치나 (보고할 때 작업한 쪽이 적는다): 예의 문장 · 아니오의 문장 · 어느 쪽도 아님. 방향 보고의 칸 이름과 같다 */
+export const CLAIM_SIDES = ['for_yes', 'for_no', 'neither'] as const
+/** 사용자가 흐름을 닫으며 정하는 답 */
+export const FLOW_ANSWERS = ['yes', 'no'] as const
+/** 닫을 때 답이 기대는 주장마다 사용자가 고르는 것: 승인 · 수정(돌려보냄) · 기각(폐기) */
+export const BASIS_REVIEWS = ['approve', 'return', 'reject'] as const
+/**
+ * 예외 기록의 종류 (11/11 "해 보면서 판단": 2주 뒤 평가에 쓴다). refused 앱이 규칙으로 거절함(앱이 적는다) ·
+ * no-claim 판단할 수 있는 한 문장으로 적지 못함 · no-verdict 판정하지 못함 · needs-user 사용자 차례가 아닌데 결정이 필요함 · workaround 규칙을 돌아서 함 · other
+ */
+export const EXCEPTION_KINDS = ['refused', 'no-claim', 'no-verdict', 'needs-user', 'workaround', 'other'] as const
 /** 시작한 시도 수의 기본 한도와, 사용자가 "계속"할 때 더하는 기본 수 */
 export const PROBLEM_LIMIT = 6
 export const PROBLEM_LIMIT_STEP = 3

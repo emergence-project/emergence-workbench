@@ -32,7 +32,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 도구 이름과 설명은 영어다(앱 화면 언어와 상관없이 에이전트가 읽는다).
 
 
-## 도구 (new_note · edit_note · edit_concept · answer_record · add_record · problem_propose · problem_prepare · attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
+## 도구 (new_note · edit_note · edit_concept · answer_record · add_record · problem_propose · problem_prepare · attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
 
 연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status` → `changes_since`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
 
@@ -58,16 +58,18 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `new_note` | 빈 Markdown 노트 `{ project, name, kind: note \| calc }`를 만들고 경로를 돌려준다(11/8: 에이전트도 노트를 만들게). 내용은 `edit_note`로 채워 수정 검토에 올린다. 다른 쓰기처럼 읽기만 하는 대화에서는 거절 | `POST /api/researches/:rid/notes` |
 | `edit_note` | 프로젝트 노트(원고 제외)를 글 바꾸기 `{ old, new, reason }`로 고친다. `reason`은 꼭 적는다: 왜 바꿨는지 한 줄로, 바뀐 문단 아래에 보인다. `read_note`의 hash를 보낸다. 바로 쓰고 사용자가 문단마다 검토한다. 상태가 해결인 노트는 첫 시도를 428로 거절하고 사용자에게 알린다. 대화에서 허락을 받은 뒤 `approved: true`로 다시 보낸다 | `POST /api/agent-edits/write` |
 | `edit_concept` | 개념노트 본문에 같은 일(머리말은 그대로). `checked: ok`인 노트도 같은 허락이 필요하고, 잠긴 노트는 고치지 않는다 | `POST /api/agent-edits/write` |
-| `problems` | 프로젝트의 흐름(`workbench/problems/`, `docs/repo-format.md` §16): id · 질문 · 상태(진행 = 사용자가 시작해 에이전트가 일할 수 있음, 쓰는 중, 제안, 종료) · 시도 수/한도 · 다음 후보 · 멈춘 이유. 앱 서버가 없는 곳(클라우드)에서는 아래 흐름 도구 열 개를 `pnpm agent:problem <폴더> …`가 같은 규칙으로 대신한다(§16 "서버 없이 쓰기") | `GET …/:rid/problems` |
+| `problems` | 프로젝트의 흐름(`workbench/problems/`, `docs/repo-format.md` §16): id · 질문 · 상태(진행 = 사용자가 시작해 에이전트가 일할 수 있음, 쓰는 중, 제안, 종료) · 시도 수/한도 · 다음 후보 · 멈춘 이유. 앱 서버가 없는 곳(클라우드)에서는 아래 흐름 도구 열두 개를 `pnpm agent:problem <폴더> …`가 같은 규칙으로 대신한다(§16 "서버 없이 쓰기") | `GET …/:rid/problems` |
 | `problem_brief` | 흐름 하나를 이어받는 데 필요한 것만 2KB 안에: 질문, 사용자의 메시지와 독자, 채점, 폐기 사유, 판정 대기, 다음 후보, 한도. 먼저 이것을 읽는다 | `GET …/:rid/problems/:id/brief` |
 | `problem_read` | 흐름의 모든 칸과 시도 전체(작업 내용 · 결과 · 파일 · 판정 · 방향 보고와 결정). `attempt`를 주면 그 시도만 | `GET …/:rid/problems/:id` |
 | `problem_propose` | 일하다 떠오른 질문을 출처와 함께 제안으로 올린다 `{ question, source }`. 사용자가 받아 메시지를 쓰고 시작해야 흐름이 된다. 메시지 · 독자 · 가치 의견은 적지 않는다 | `POST …/:rid/problems` |
 | `problem_prepare` | 사용자가 판단하는 데 쓸 사실을 더한다: 문헌 대조 `literature`(논문마다 사실 한 줄), 첫 시험 `first_test`, 채점 `grading` | `PATCH …/:rid/problems/:id` |
 | `attempt_add` | 진행 흐름(또는 성립한 시도) 아래에 후보 방법을 한 줄씩 늘어놓는다. 일하기 전에 먼저 늘어놓고, 순서는 사용자가 바꿀 수 있다 | `POST …/:rid/problems/:id/attempts` |
 | `attempt_start` | 후보 하나를 자기 이름으로 시작한다. `attempt`가 없으면 다음 후보. 한도 · 폐기 셋 · 결정 대기에서는 거절하므로 `direction_report`를 낸다 | `POST …/attempts/:aid/start` |
-| `attempt_report` | 시작한 시도의 한 일과 결과를 사실로(숫자 · 크기 · 매개변수 · 실패한 자리), 원자료 · 코드 · 노트 파일과 함께 보고한다. 결과를 낸 명령 `command`(커밋은 앱이 적는다)와, 있으면 판정하는 쪽이 다시 돌릴 검사 명령 `test`도 적는다. 성립 여부는 정하지 않는다 | `POST …/attempts/:aid/report` |
-| `attempt_verdict` | 다른 쪽이 작업한 시도를 원자료로 판정한다. 근거 `note`, 성립은 교차 검증 `check`, 폐기는 폐기 사유 `lesson`. 검사 명령이 있으면 다시 돌린 결과 `tested`(성립에는 `pass`). 성립이면 앱이 파일 지문을 남겨 뒤에 바뀌면 알린다. 자기가 작업한 시도는 거절 | `POST …/attempts/:aid/verdict` |
+| `attempt_report` | 시작한 시도의 한 일과 결과를 사실로(숫자 · 크기 · 매개변수 · 실패한 자리), 원자료 · 코드 · 노트 파일과 함께 보고한다. 이 시도가 내는 주장도 적는다: 진술 `statement`(맞는지 틀리는지 가릴 수 있는 한 문장), 조건 `condition`(성립하는 범위, 선택), 쪽 `side`(`for_yes` · `for_no` · `neither`: 질문의 어느 답을 받치나). 진술이 없는 시도는 성립이 되지 못한다. 결과를 낸 명령 `command`(커밋은 앱이 적는다)와, 있으면 판정하는 쪽이 다시 돌릴 검사 명령 `test`도 적는다. 성립 여부는 정하지 않는다 | `POST …/attempts/:aid/report` |
+| `attempt_verdict` | 다른 쪽이 작업한 시도를 원자료로 판정한다. 판정이 답하는 것은 하나다: 이 시도의 진술이 이 시도의 근거(결과 · 파일 · 검사)에서 따라 나오는가. 흐름의 질문에 답하지 않고, 진술을 사실로 받아들이는 승인은 사용자가 흐름을 닫을 때 한다. 근거 `note`, 성립은 교차 검증 `check`, 폐기는 폐기 사유 `lesson`. 검사 명령이 있으면 다시 돌린 결과 `tested`(성립에는 `pass`). 성립이면 앱이 파일 지문을 남겨 뒤에 바뀌면 알린다. 자기가 작업한 시도는 거절 | `POST …/attempts/:aid/verdict` |
 | `direction_report` | 멈췄거나 결과가 질문에서 벗어날 때, 사용자의 메시지에 맞춰 사실만 나눠 적고 선다(`for_yes` · `for_no` · `neither`). 계속할지는 권하지 않는다 | `POST …/:rid/problems/:id/report` |
+| `problem_exception` | 흐름의 규칙대로 되지 않은 일을 한 줄 적는다 `{ kind, what, instead?, problem?, attempt? }`: `no-claim` 진술 불가(결과를 판단할 수 있는 한 문장으로 적지 못함) · `no-verdict` 판정 불가(원자료 없음 · 다시 돌리지 못함 · 진술이 모호함) · `needs-user` 결정 필요(사용자 차례가 아닌 곳에서 결정이 필요함) · `workaround` 우회 · `other` 기타. 사실만 적는다. 앱이 규칙으로 거절한 요청은 앱이 적는다. 사용자가 흐름 화면에서 보고 이 구조를 평가하는 데 쓴다 | `POST …/:rid/problem-exceptions` |
+| `problem_exceptions` | 프로젝트의 예외 기록을 새 것부터 읽는다(`problem`을 주면 그 흐름만) | `GET …/:rid/problem-exceptions` |
 | `answer_record` | 질문 · 지시 기록 아래에 답을 쓴다 `{ target, id, answer }`. 지시는 먼저 그 일을 하고(노트는 `edit_note`) 답한다. 답 머리에 에이전트 이름이 붙고 기록은 답함이 된다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target/:id/answers` |
 | `add_record` | 사용자에게 남기는 기록 `{ file 또는 target, kind: 질문 \| 메모, text, quote?, line? }`. `by`에 에이전트 이름이 적힌다. 질문은 사용자에게 확인 · 결정을 부탁하는 것(예: 에이전트가 쓴 노트의 한 곳, `quote`로 그 자리에 붙인다)으로, 사용자가 앱에서 답할 때까지 사용자 차례다(앱에서 주황, 홈 "확인 필요"에 셈). 사용자가 답하면 `### 답 · 사용자`가 붙고 답함이 된다. 답은 `read_records`로 읽는다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target` |
 | `app_submit` | 앱 고치기 대화(앱 안에서 앱 자체를 고치는 에이전트, 10/21) 안에서만. 그 대화의 작업 폴더(따로 둔 git worktree)에서 바뀐 것을 모두 커밋해 `claude/app-…` 브랜치를 올리고 PR `{ title, body }`을 연다(이미 있으면 더한다). 대화마다 자기 브랜치라 다른 PR이 열려 있어도 올린다. 그 대화의 에이전트는 작업 폴더에서 검사(형식 검사 · 시험 · 화면 그림)를 스스로 돌리지만, 올리기 · PR · 합치기와 앱 서비스는 하지 않는다. GitHub CI가 한 번 더 돌린다 | `POST /api/agent-chats/:id/app/submit` |

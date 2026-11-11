@@ -109,3 +109,41 @@
 .pb-group { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: var(--sp-2) var(--sp-3) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); min-width: 0; }
 .pb-group legend { padding: 0 var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); }
 .pb-field > span em, .pb-group legend em { margin-left: var(--sp-1); font-style: normal; font-size: var(--fs-xs); color: var(--text-3); }
+/* 주장 (11/11 "점 = 판단할 수 있는 주장과 근거"): 보고한 시도는 진술로 읽는다. 진술 뒤 태그는 질문의 어느 쪽 근거인지. 펼치면 주장을 근거 위에 가는 선으로 나눠 둔다 */
+.pb-side, .pb-accepted { margin: 0 0 0 var(--sp-2); white-space: nowrap; }
+.pb-accepted { display: inline-flex; align-items: center; gap: 2px; }
+.pb-claim { padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line); }
+.pb-steps.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pb-returned { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-2); margin: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.pb-returned span:last-child { color: var(--text); overflow-wrap: anywhere; }
+.pb-judged-head .pb-side { margin-left: var(--sp-2); }
+/* 닫은 흐름의 답: 제목 아래 한 줄. 답과, 사용자가 써 둔 그 답의 문장 */
+.pb-answer { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); margin: 0; font-size: var(--fs-md); overflow-wrap: anywhere; }
+.pb-answer b { font-weight: var(--fw-strong); white-space: nowrap; }
+/* 종료 창: 답을 고르면 그 답이 기대는 주장이 줄마다 나오고, 줄마다 승인 · 수정 · 기각 */
+.pb-close-msg, .pb-close-note, .pb-against { margin: 0; font-size: var(--fs-sm); color: var(--text-2); overflow-wrap: anywhere; }
+.pb-close-note, .pb-against { font-size: var(--fs-xs); color: var(--text-3); }
+.pb-basis { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: var(--r-md); }
+.pb-basis:empty { display: none; }
+.pb-basis li { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--line); }
+.pb-basis li:first-child { border-top: 0; }
+.pb-basis-claim { display: grid; grid-template-columns: 2.2em minmax(0, 1fr); gap: var(--sp-2); margin: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.pb-basis-claim b { font-weight: var(--fw-strong); }
+.pb-basis-claim small { display: block; font-size: var(--fs-xs); color: var(--text-3); }
+.pb-basis-act { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding-left: calc(2.2em + var(--sp-2)); }
+.pb-basis-act input { flex: 1; min-width: 160px; height: var(--input-h); padding: 0 var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); font-size: var(--fs-sm); color: var(--text); }
+/* 예외 기록: 접힌 한 줄. 펼치면 종류 태그 · 내용 · 누가 언제 어디서 */
+.pb-exc-list { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0 0 var(--sp-2); padding: 0; list-style: none; font-size: var(--fs-sm); }
+.pb-exc-list li { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); align-items: baseline; gap: 2px var(--sp-2); }
+.pb-exc-list .tag { justify-self: start; margin: 0; white-space: nowrap; }
+.pb-exc-what { min-width: 0; overflow-wrap: anywhere; }
+.pb-exc-instead { display: block; color: var(--text-2); }
+.pb-exc-meta { grid-column: 2; min-width: 0; font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; }
+.pb-exc-meta .a { font-size: inherit; color: inherit; text-align: left; }
+.pb-exc-add { display: flex; }
+@media (max-width: 760px) {
+  .pb-steps.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pb-basis-act { padding-left: 0; }
+  .pb-exc-list li { grid-template-columns: minmax(0, 1fr); }
+  .pb-exc-meta { grid-column: 1; }
+}

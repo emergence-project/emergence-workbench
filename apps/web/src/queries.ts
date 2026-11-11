@@ -53,6 +53,8 @@ export const qk = {
   /** 문제와 시도 나무 (workbench/problems/). 문제 하나는 그 아래 키 */
   problems: (rid: string) => ['project', rid, 'problems'] as const,
   problem: (rid: string, id: string) => ['project', rid, 'problems', id] as const,
+  /** 예외 기록 (workbench/problems/_exceptions/). 흐름 키 아래라 흐름 파일 알림에 함께 다시 읽는다 (밑줄로 시작해 흐름 id와 겹치지 않는다) */
+  problemExceptions: (rid: string) => ['project', rid, 'problems', '_exceptions'] as const,
   /** 프로젝트와 모든 노트의 기록 (workbench/comments/). 인용 위치를 노트에서 다시 찾으므로 노트가 바뀌어도 다시 받는다 */
   records: (rid: string) => ['project', rid, 'records'] as const,
   /** 기록 올리기의 마지막 결과 (기록 탭 맨 위 줄 · 실패 알림). 서버가 실패가 생기거나 풀릴 때 records-publish로 알린다 */

@@ -108,7 +108,7 @@ describe('바뀐 것 검사: 문제와 시도 나무', () => {
 
   it('자기 시도 판정, 확인 없는 성립, 폐기 사유 없는 폐기, 판정 기록 없는 성립은 오류', () => {
     startAttempt(wb, 'chain', 'a', 'claude')
-    reportAttempt(wb, 'chain', 'a', { did: '셌다', result: '셋' }, 'claude')
+    reportAttempt(wb, 'chain', 'a', { did: '셌다', result: '셋', statement: '사슬은 셋이다', side: 'for_yes' }, 'claude')
     commit()
     edit(`${P}/a.yaml`, 'state: reported', 'state: holds\nverdict:\n  at: 2026-11-11T10:00\n  by: claude\n  note: 맞다')
     expect(found()).toEqual([['error', 'problem-verdict', `${P}/a.yaml`], ['error', 'problem-verdict', `${P}/a.yaml`]])
@@ -123,6 +123,16 @@ describe('바뀐 것 검사: 문제와 시도 나무', () => {
     g('checkout', '-q', '--', '.')
     edit(`${P}/a.yaml`, 'state: reported', 'state: holds\nverdict:\n  at: 2026-11-11T10:00\n  by: user\n  note: 맞다\n  check: 다른 크기')
     expect(found()).toEqual([['error', 'problem-human', `${P}/a.yaml`]])
+    // 진술 없는 성립, 쪽 없는 진술, 에이전트가 쓴 사용자 승인
+    g('checkout', '-q', '--', '.')
+    edit(`${P}/a.yaml`, 'statement: 사슬은 셋이다\nside: for_yes\n', '')
+    edit(`${P}/a.yaml`, 'state: reported', 'state: holds\nverdict:\n  at: 2026-11-11T10:00\n  by: codex\n  note: 맞다\n  check: 다른 크기')
+    expect(found()).toEqual([['error', 'problem-verdict', `${P}/a.yaml`]])
+    expect(said()).toContain('진술(statement)이 없는 시도를 성립으로')
+    g('checkout', '-q', '--', '.')
+    edit(`${P}/a.yaml`, 'side: for_yes\n', 'accepted:\n  at: 2026-11-11T10:00\n  by: user\n')
+    expect(found()).toEqual([['error', 'problem-work', `${P}/a.yaml`], ['error', 'problem-human', `${P}/a.yaml`]])
+    expect(said()).toMatch(/side: for_yes · for_no · neither[\s\S]*사용자의 승인\(accepted\)/)
   })
 
   it('시작하지 않은 문제의 시도, 한도를 넘긴 시작, 결정을 기다리는 동안의 시작은 오류', () => {

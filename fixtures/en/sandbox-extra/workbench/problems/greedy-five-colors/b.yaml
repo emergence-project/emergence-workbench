@@ -5,6 +5,9 @@ by: claude-code
 created: 2026-10-22T09:10
 worker: claude-code
 started: 2026-10-23T10:00
+statement: Changing the tie-breaking rule still leaves cases that need a sixth colour.
+condition: Three rules (by index, by neighbour colours, 100 random orders), up to 12 vertices
+side: for_no
 did: Reran with three rules (by index, by neighbour colours, 100 random orders).
 result: Under every rule some cases still needed a sixth colour (41 at the fewest).
 reported: 2026-10-23T16:00

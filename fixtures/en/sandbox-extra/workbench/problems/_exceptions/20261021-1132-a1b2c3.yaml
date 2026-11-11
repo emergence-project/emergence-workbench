@@ -1,0 +1,8 @@
+format: 1
+at: 2026-10-21T11:32
+by: claude-code
+kind: refused
+rule: self-verdict
+problem: kempe-degree-five
+attempt: b1
+what: The one who did the work does not give the verdict. Another agent or the user judges from the raw data

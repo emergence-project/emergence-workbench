@@ -51,7 +51,7 @@ describe('MCP: 흐름과 시도 나무', () => {
 
     expect(textOf(await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'LSWT on 24x24' }, { method: 'Symmetry argument' }, { method: 'ED on 12 sites' }] }))).toMatch(/^Added A, B, C\. Attempts 0\/2\. Next: A \(a\) LSWT on 24x24\.$/)
     expect(textOf(await tool(claude, 'attempt_start', { problem: id }))).toContain('Started A: LSWT on 24x24.')
-    expect(textOf(await tool(claude, 'attempt_report', { problem: id, attempt: 'A', did: 'Ran solve_lswt at D = 0.1.', result: 'Lowest band 3e-9 at Gamma on 24, 36, 48.', files: ['code/dm.py'] }))).toContain('Awaiting verdict: A (by claude-code).')
+    expect(textOf(await tool(claude, 'attempt_report', { problem: id, attempt: 'A', did: 'Ran solve_lswt at D = 0.1.', result: 'Lowest band 3e-9 at Gamma on 24, 36, 48.', statement: 'The lowest band stays at zero at Gamma with the DM term.', condition: 'D = 0.1, meshes 24 to 48', side: 'for_yes', files: ['code/dm.py'] }))).toContain('Awaiting verdict: A (by claude-code).')
     // 작업한 쪽은 판정하지 못한다
     const self = await tool(claude, 'attempt_verdict', { problem: id, attempt: 'a', result: 'holds', note: 'looks right', check: 'L = 60' })
     expect(self.isError).toBe(true)
@@ -69,7 +69,13 @@ describe('MCP: 흐름과 시도 나무', () => {
     expect(brief).toContain('예이면: The DM term leaves a Goldstone mode.')
     expect(brief).toContain('멈춤')
     expect(Buffer.byteLength(brief, 'utf8')).toBeLessThanOrEqual(BRIEF_MAX)
-    expect(JSON.parse(textOf(await tool(codex, 'problem_read', { problem: id, attempt: 'a' })))).toMatchObject({ state: 'holds', worker: 'claude-code', verdict: { by: 'codex' } })
+    expect(brief).toContain('[예 근거] The lowest band stays at zero at Gamma with the DM term.')
+    expect(JSON.parse(textOf(await tool(codex, 'problem_read', { problem: id, attempt: 'a' })))).toMatchObject({ state: 'holds', worker: 'claude-code', side: 'for_yes', verdict: { by: 'codex' } })
+    // 예외 기록: 앱이 거절한 것(시작 전 흐름에 후보, 자기 시도 판정)은 이미 적혀 있고, 에이전트가 한 줄을 더한다
+    expect(textOf(await tool(claude, 'problem_exception', { kind: 'needs-user', what: 'The limit stopped the run before the cheapest check.', instead: 'Filed the direction report.', problem: id }))).toContain('Recorded exception')
+    const listed2 = JSON.parse(textOf(await tool(codex, 'problem_exceptions', { problem: id }))).exceptions
+    expect(listed2.map((e: { kind: string; rule?: string }) => e.rule ?? e.kind).sort()).toEqual(['needs-user', 'not-open', 'self-verdict'])
+    expect(listed2.find((e: { rule?: string }) => e.rule === 'self-verdict')).toMatchObject({ kind: 'refused', by: 'claude-code', attempt: 'a' })
     // 상태 요약에도 실린다
     const status = textOf(await tool(claude, 'project_status', {}))
     expect(status).toContain('## 흐름')
