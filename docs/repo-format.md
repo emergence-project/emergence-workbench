@@ -498,25 +498,41 @@ checked:
 - 라이브러리 기록 모음(`GET …/_library/records`)에는 빈 `project` 묶음이 없다(라이브러리에는 프로젝트가 없다).
 - 논문 코멘트(§10.3, 기록 하나가 파일 하나)는 아직 따로다.
 
-### 10.6 공부 (`study/<id>.yaml`, 2026-11-10 "공부는 지식 라이브러리에")
+### 10.6 공부 (`study/<id>.yaml`, 2026-11-10 "공부는 지식 라이브러리에", 11/11 "회차별 계획")
 
-책 · 강의 하나가 파일 하나다. 정리한 내용은 개념노트(§10.1)에 쌓고, 이 파일은 차례와 진도, 그 장에서 정리한 개념노트 id만 가진다. 지식 화면 왼쪽 사이드바 「공부」에서 보고 고친다.
+책 · 강의 하나가 파일 하나다. 정리한 내용은 개념노트(§10.1)에 쌓고, 이 파일은 장(강의는 회차)마다 계획과 진도만 가진다. 지식 화면 왼쪽 사이드바 「공부」에서 보고 고친다.
 
 ```yaml
 title: Graph Theory
 kind: 강의            # 책 · 강의 (없거나 모르면 책)
 source: doeStructurePlanar2004   # references.bib 키, 없어도 됨
 chapters:
-  - title: Graphs and planar embeddings
-    state: 끝         # 아직(적지 않음) · 읽는 중 · 끝
-    concepts: [planar-graph, graph-coloring]
+  - title: Kempe chains and the five color theorem
+    state: 읽는 중     # 아직(적지 않음) · 읽는 중 · 끝
+    goals:            # 학습 목표: 체크하지 않는다
+      - Kempe 사슬로 다섯 색 정리를 증명한다
+    read:             # 읽을 것: 문헌 키 + 쪽 · 절, 또는 글 + 주소
+      - key: doeStructurePlanar2004
+        at: §3
+        done: true    # 체크한 것만 적는다
+      - text: Lecture notes, week 3
+        url: https://example.org/week3
+    concepts:         # 개념노트 id. 아직 없는 노트도 미리 적는다
+      - kempe-chain
+      - id: planar-graph
+        done: true
+    do:               # 할 일
+      - 바퀴 그래프 W5에서 Kempe 사슬 바꾸기를 손으로 해 보기
+      - text: 다섯 색 정리의 증명을 다시 쓰기
+        done: true
   - Euler's formula   # 글자 하나면 제목만 있는 장
 ```
 
 - id(파일 이름): `^[a-z0-9][a-z0-9-]{0,80}$`. 앱은 제목에서 만들고(영문이 없으면 `book`), 겹치면 `-2` …를 붙인다.
-- 앱이 저장할 때는 파일 전체를 다시 쓴다(주석은 사라진다). 기본값(`state: 아직`, 빈 `concepts`)은 적지 않는다.
-- 고칠 때는 읽을 때 받은 hash를 `baseHash`로 보낸다. 그새 바뀌었으면 409.
-- 없는 개념노트 id는 지우지 않고 화면에 흐리게 보인다.
+- 체크리스트 셋(`read` · `concepts` · `do`)의 항목은 체크하지 않았으면 글자 하나(`read`는 글자 하나가 bib 키 모양이면 키, 아니면 글), 체크했으면 `done: true`가 붙은 묶음이다. `read`의 `key`는 `references.bib` 키(§10.4 모양)이고, 공부의 교재 · 논문도 bib에 등록한다(11/11).
+- 앱이 저장할 때는 파일 전체를 다시 쓴다(주석은 사라진다). 기본값(`state: 아직`, 빈 목록, `done: false`)은 적지 않는다.
+- 고치기 창에서 고칠 때는 읽을 때 받은 hash를 `baseHash`로 보낸다. 그새 바뀌었으면 409. 화면의 체크 하나(`POST /api/library/study/<id>/check`)는 파일을 새로 읽어 그 칸만 바꾸고, 그 줄이 그새 바뀌었으면 409.
+- 없는 개념노트 id는 지우지 않고 「만들 노트」(점선)로 보인다. 누르면 id의 하이픈을 띄어 쓴 제목으로 만들어 같은 id가 된다.
 
 ### 10.4 `references.bib`에 덧붙일 때
 

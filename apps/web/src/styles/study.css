@@ -16,17 +16,32 @@
 .st-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-kind, .st-n { white-space: nowrap; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
-.st-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-.st-table th { text-align: left; font-weight: var(--fw-medium); color: var(--text-3); padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line-strong); }
-.st-table td { padding: var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: top; }
-.st-ch { width: 40%; }
 .st-no { display: inline-block; min-width: 2ch; margin-right: var(--sp-2); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .st-notes { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .st-tag { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
-.st-tag.missing { cursor: default; color: var(--text-3); text-decoration: line-through; }
+.st-tag.plan, .tag.st-chip.plan { border: 1px dashed var(--line-strong); background: transparent; color: var(--text-3); font-weight: var(--fw-normal); }
 .st-ok svg { width: 11px; height: 11px; stroke: var(--s-solved); fill: none; stroke-width: 2.2; }
-.st-state { width: 1%; white-space: nowrap; color: var(--text-2); }
-.st-todo td { color: var(--text-3); }
+.st-state { white-space: nowrap; color: var(--text-2); }
+/* 장(회차) 하나: 제목 줄, 학습 목표, 체크리스트 셋 (11/11 시안 N7ik 5절) */
+.st-sessions { display: flex; flex-direction: column; border-top: 1px solid var(--line-strong); }
+.st-ses { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.st-ses-h { display: flex; align-items: baseline; gap: var(--sp-2); }
+.st-ses-h .sp { flex: 1; }
+.st-ses-h .st-no { margin: 0; }
+.st-ses-t { min-width: 0; font-weight: var(--fw-medium); color: var(--text); }
+.st-todo .st-ses-t { color: var(--text-2); }
+.st-cap { display: block; font-size: var(--fs-xs); color: var(--text-3); }
+.st-goals, .st-lists { padding-left: calc(2ch + var(--sp-2)); }
+.st-goals ul { margin: 2px 0 0; padding-left: var(--sp-4); color: var(--text-2); }
+.st-lists { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.3fr); gap: var(--sp-3); }
+.st-list { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.st-check { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.st-check input { flex: none; margin: 3px 0 0; }
+.st-check > span { min-width: 0; overflow-wrap: anywhere; }
+.st-check.on > span, .st-check.on > .st-tag { color: var(--text-3); }
+.st-check .st-tag { margin: 0; }
+.st-at { margin-left: var(--sp-1); color: var(--text-3); }
+@media (max-width: 760px) { .st-lists { grid-template-columns: minmax(0, 1fr); } }
 .st-none { color: var(--text-3); }
 
 .st-form { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -35,12 +50,22 @@
 .st-chapters { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); }
 .st-chapters-h { display: flex; align-items: center; justify-content: space-between; color: var(--text-2); }
 .st-edit-rows { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
-.st-edit-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-1) var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
+.st-edit-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-1) var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
 .st-edit-row .st-no { margin: 0; }
+.st-fold svg { width: 12px; height: 12px; }
 .st-edit-title { min-width: 0; height: var(--input-h); padding: 0 var(--sp-1); font-weight: var(--fw-medium); border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; font: inherit; font-size: var(--fs-sm); color: var(--text); }
 .st-edit-title:hover { border-bottom-color: var(--line); }
 .st-edit-title:focus { outline: none; border-bottom-color: var(--line-strong); }
-.st-edit-notes { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); padding-left: var(--sp-1); }
+.st-edit-notes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); padding-left: var(--sp-1); }
+.st-edit-sum { grid-column: 3 / -1; padding-left: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
+.st-edit-plan { grid-column: 3 / -1; display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: start; gap: var(--sp-2) var(--sp-3); padding: var(--sp-1) 0 var(--sp-2) var(--sp-1); }
+.st-edit-plan > .st-cap { padding-top: var(--sp-1); }
+.st-edit-plan textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: var(--fs-sm); }
+.st-edit-reads { display: flex; flex-direction: column; gap: var(--sp-1); }
+.st-edit-read { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); }
+.st-edit-read input { min-width: 0; height: var(--input-h); font-size: var(--fs-sm); }
+.st-read-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+input.st-new-note { width: 200px; height: 24px; font-size: var(--fs-xs); }
 .tag.st-chip { display: inline-flex; align-items: center; gap: 2px; height: 22px; box-sizing: border-box; margin: 0; font-size: var(--fs-xs); }
 .tag.st-chip .x { width: 16px; height: 16px; line-height: 1; border-radius: var(--r-xs); color: var(--text-3); }
 .tag.st-chip .x:hover { background: var(--bg-hover); color: var(--text); }
