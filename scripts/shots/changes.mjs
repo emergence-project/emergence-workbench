@@ -22,9 +22,9 @@ export function seedChanges(repo, configDir, rid) {
   commit('Kempe 노트 사례', 'Ada E. Example', ago(24 * 3))
   touch('workbench/notes/kempe-chains/main.tex', '\n% 사례 정리\n')
   commit('Kempe 노트 정리', 'Ada E. Example', ago(24 * 2))
-  // 어제: Codex가 맡긴 일 결과와 흐름 점
+  // 어제: Codex가 맡긴 일 결과와 흐름의 시도
   touch('workbench/tasks/2026-10-07-five-color-check.md', '\n')
-  touch('workbench/flow/degree-bound.yaml', '\n')
+  touch('workbench/problems/kempe-degree-five/a.yaml', '\n')
   commit('다섯 색 확인 결과', 'codex', ago(26))
   // 오늘: 기록 · 노트 하나 새로 (커밋), 이 맥에서 커밋 안 한 노트 고침
   touch('workbench/comments/project.md', '\n')

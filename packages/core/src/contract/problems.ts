@@ -1,5 +1,5 @@
 /**
- * 문제와 시도 나무 API의 계약 (workbench/problems/<id>/, 서버 routes/problems.ts · 화면 api/problems.ts).
+ * 흐름과 시도 나무 API의 계약 (workbench/problems/<id>/, 서버 routes/problems.ts · 화면 api/problems.ts).
  * 파일 형식은 docs/repo-format.md §16, 여기는 앱 서버와 화면 사이의 모양이다. (11/11 결정 "흐름을 시도 나무로 · 메시지 관문")
  */
 import { z } from 'zod'
@@ -24,7 +24,7 @@ export const DirectionReport = z.object({
   decision: z.object({ at: z.string(), verdict: z.enum(DIRECTION_VERDICTS), note: z.string().optional(), limit: z.number().optional() }).strict().optional(),
 }).strict()
 
-/** 시도 하나 (나무의 마디). label은 화면에 보이는 이름(A · C1), depth는 문제 바로 아래가 0 */
+/** 시도 하나 (나무의 마디). label은 화면에 보이는 이름(A · C1), depth는 흐름 바로 아래가 0 */
 export const Attempt = z.object({
   id: z.string(),
   label: z.string(),
@@ -54,7 +54,7 @@ export const Attempt = z.object({
 
 const Counts = z.object({ candidate: z.number(), active: z.number(), reported: z.number(), holds: z.number(), dropped: z.number() }).strict()
 
-/** 목록의 문제 하나 */
+/** 목록의 흐름 하나 */
 export const ProblemRow = z.object({
   id: z.string(),
   question: z.string(),
@@ -77,7 +77,7 @@ export const ProblemList = z.object({
   diagnostics: z.array(z.object({ file: z.string(), message: z.string() }).strict()),
 }).strict()
 
-/** GET …/problems/:id: 문제와 그 나무 */
+/** GET …/problems/:id: 흐름과 그 나무 */
 export const Problem = ProblemRow.extend({
   hash: z.string(),
   if_yes: z.string().optional(),

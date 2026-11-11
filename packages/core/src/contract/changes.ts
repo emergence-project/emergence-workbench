@@ -4,12 +4,12 @@
  */
 import { z } from 'zod'
 
-export const CHANGE_KINDS = ['note', 'flow', 'task', 'record', 'file'] as const
+export const CHANGE_KINDS = ['note', 'problem', 'task', 'record', 'file'] as const
 export const CHANGE_ACTIONS = ['created', 'edited', 'moved', 'deleted'] as const
 
 export const ChangeItem = z.object({
   kind: z.enum(CHANGE_KINDS),
-  /** 노트 폴더 이름 · 점 id · 맡긴 일 id · 기록 파일(comments/ 아래, 끝 없이) · 다른 파일은 저장소 기준 경로 */
+  /** 노트 폴더 이름 · 문제 id(시도 파일도 그 문제로 모은다) · 맡긴 일 id · 기록 파일(comments/ 아래, 끝 없이) · 다른 파일은 저장소 기준 경로 */
   id: z.string(),
   name: z.string(),
   action: z.enum(CHANGE_ACTIONS),

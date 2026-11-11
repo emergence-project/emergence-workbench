@@ -28,15 +28,15 @@ const rid = R.split('/').pop()!
 const P = `${R}/problems`
 const user = async (method: 'POST' | 'PATCH', url: string, payload: object) => { const r = await app.inject({ method, url, payload }); expect(r.statusCode, r.body).toBe(200); return r.json().problem }
 
-describe('MCP: 문제와 시도 나무', () => {
-  it('에이전트는 제안만 하고, 사용자가 연 문제에서 후보 → 시작 → 보고, 판정은 다른 에이전트가 한다', async () => {
+describe('MCP: 흐름과 시도 나무', () => {
+  it('에이전트는 제안만 하고, 사용자가 연 흐름에서 후보 → 시작 → 보고, 판정은 다른 에이전트가 한다', async () => {
     const claude = await connect('claude-code')
     const codex = await connect('codex-mcp-client')
     const tool = (c: Client, name: string, args: object) => c.callTool({ name, arguments: { project: rid, ...args } })
 
     // 제안: 사용자가 메시지를 쓰고 시작하기 전에는 일하지 못한다
     const proposed = textOf(await tool(claude, 'problem_propose', { question: 'Is the magnon gap closed by the DM term?', source: 'workbench/notes/x/note.md §2' }))
-    expect(proposed).toContain('Proposed problem is-the-magnon-gap-closed-by-the-dm-term')
+    expect(proposed).toContain('Proposed flow is-the-magnon-gap-closed-by-the-dm-term')
     const id = 'is-the-magnon-gap-closed-by-the-dm-term'
     const early = await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'LSWT on 24x24' }] })
     expect(early.isError).toBe(true)
@@ -72,7 +72,7 @@ describe('MCP: 문제와 시도 나무', () => {
     expect(JSON.parse(textOf(await tool(codex, 'problem_read', { problem: id, attempt: 'a' })))).toMatchObject({ state: 'holds', worker: 'claude-code', verdict: { by: 'codex' } })
     // 상태 요약에도 실린다
     const status = textOf(await tool(claude, 'project_status', {}))
-    expect(status).toContain('## 문제')
+    expect(status).toContain('## 흐름')
     expect(status).toContain(`\`${id}\``)
   })
 })

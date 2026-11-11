@@ -158,7 +158,7 @@ export function askPrompt(f: Omit<CommentFile, 'highlights'>, id: string, ctx: A
     '',
     t('지침:', 'Instructions:'),
     ...(q.kind === '지시'
-      ? [t('- 지시는 해 달라는 일입니다. 할 수 있는 만큼 하고, 한 일과 결과를 첫 줄부터 적습니다. 파일을 직접 고칠 수는 없으니, 노트를 고치는 일이면 아래 고침 블록으로 적고, 노트 밖(흐름 · 코드 · 다른 파일)을 고쳐야 하면 무엇을 어떻게 바꿀지 적습니다. 끝낼 조건과 보고가 필요한 큰 일이면 하지 말고 맡긴 일로 옮기자고 적습니다.', '- An instruction is work to do. Do as much as you can and write what you did and the result from the first line. You cannot edit files directly: to change a note, write fix blocks as below; for changes outside the note (flow, code, other files), write what to change and how. If it is a large job that needs an end condition and a report, do not start it; suggest making it a delegated task.')]
+      ? [t('- 지시는 해 달라는 일입니다. 할 수 있는 만큼 하고, 한 일과 결과를 첫 줄부터 적습니다. 파일을 직접 고칠 수는 없으니, 노트를 고치는 일이면 아래 고침 블록으로 적고, 노트 밖(코드 · 다른 파일)을 고쳐야 하면 무엇을 어떻게 바꿀지 적습니다. 끝낼 조건과 보고가 필요한 큰 일이면 하지 말고 맡긴 일로 옮기자고 적습니다.', '- An instruction is work to do. Do as much as you can and write what you did and the result from the first line. You cannot edit files directly: to change a note, write fix blocks as below; for changes outside the note (code, other files), write what to change and how. If it is a large job that needs an end condition and a report, do not start it; suggest making it a delegated task.')]
       : []),
     t('- 그 파일을 Read로 읽고(가리킨 쪽·고른 글 근처부터) 근거를 찾아 한국어로 답합니다. 기호와 용어는 그 파일을 따릅니다.', '- Read that file with Read (starting near the page or selected text), find the grounds and answer in English. Follow the file\'s notation and terms.'),
     t('- 검산을 부탁하면 식을 한 줄씩 따라가며 맞는지 보고, 틀리면 어디서 왜 틀렸는지와 고친 식을 적습니다.', '- When asked to check a calculation, follow the equations line by line; if something is wrong, say where and why, and give the corrected equation.'),
@@ -271,19 +271,4 @@ export function applyAnswerFixes(root: string, target: string, id: string, answe
   if (hashOf(fs.readFileSync(source, 'utf8')) !== hashOf(text)) throw new WorkbenchError(409, t('그사이 노트가 바뀌었습니다. 다시 눌러 주세요', 'The note changed in the meantime. Try again'))
   writeAtomic(source, result.text)
   return appendAnswer(root, target, id, '앱', `${fixes.length === 1 ? '고침을' : `고침 ${fixes.length}곳을`} 노트에 적용했습니다.`, now, '끝냄')
-}
-
-const CLOSING: Record<string, string> = { approve: '승인', reject: '기각', end: '종료' }
-/**
- * 판단 뒤 닫기 (10/23 "판단 설계"): 명제를 승인 · 기각하거나 카드를 종료하면, 그 점에 사용자가 남긴 열린 질문 · 지시(대기 · 답함)를
- * 앱의 답 "판단 뒤 닫음"과 함께 끝냄으로 둔다. 대화는 그대로 남는다. 닫은 수를 돌려준다
- */
-export function closeAfterJudgment(root: string, id: string, verdict: string, now = new Date()): number {
-  const label = CLOSING[verdict]
-  if (!label) return 0
-  const target = `flow-${commentTargetSlug(id)}`
-  if (!fs.existsSync(commentsFile(root, target))) return 0
-  const open = readComments(root, target).comments.filter((c) => isAgentKind(c.kind) && !c.by && (c.state === '대기' || c.state === '답함'))
-  for (const c of open) appendAnswer(root, target, c.id, '앱', `판단 뒤 닫음 (${label})`, now, '끝냄')
-  return open.length
 }

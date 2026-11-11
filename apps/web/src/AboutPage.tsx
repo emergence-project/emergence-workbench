@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { api } from './api'
 import { ABOUT_PARTS, type AboutItem, type AboutPart, COLOR_ROWS, partOf, sectionAnchor, SYMBOL_GROUPS, unsureItems } from './aboutContent'
-import { FlowSymbolTable } from './FlowView'
 import { FileTreeFigure } from './aboutFigures'
 import { askText } from './askText'
 import { lang, t } from './i18n'
@@ -317,8 +316,7 @@ function Sections({ part, at }: { part: AboutPart; at: number }) {
 }
 
 /**
- * 기호와 의미 쪽의 표 (10/15 피드백 "기호와 의미 절"): 절 id마다 하나. 색 표(10/4, COLOR_ROWS)와 기호 표(10/4 17:57, SYMBOL_GROUPS)는 about/symbolTables.tsx,
- * 흐름 표는 흐름 화면과 같은 그림을 쓰려고 flow/FlowSymbolTable.tsx에 있다
+ * 기호와 의미 쪽의 표 (10/15 피드백 "기호와 의미 절"): 절 id마다 하나. 색 표(10/4, COLOR_ROWS)와 기호 표(10/4 17:57, SYMBOL_GROUPS)는 about/symbolTables.tsx
  */
 function SymbolTable({ id }: { id: string }) {
   if (id === 'colors') return (
@@ -334,7 +332,6 @@ function SymbolTable({ id }: { id: string }) {
       </tbody>
     </table>
   )
-  if (id === 'flow') return <FlowSymbolTable />
   const groups = SYMBOL_GROUPS({ icons: Icon })
   const rows = id === 'actions' ? groups[0]!.rows : id === 'marks' ? groups[1]!.rows : id === 'screens' ? screenIcons() : null
   if (!rows) return null
@@ -362,7 +359,7 @@ const screenIcons = () => [
   { mark: Icon.task, name: t('작업', 'Work'), meaning: t('판단 · 맡긴 일 · 할 일 · 메모 · 질문', 'Decisions · delegated tasks · to-dos · memos · questions'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.comment, name: t('기록', 'Records'), meaning: t('프로젝트의 메모 · 할 일 · 질문 · 지시', 'The project\'s memos, to-dos, questions and instructions'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.review, name: t('수정 검토', 'Edit review'), meaning: t('에이전트가 고친 노트를 변경사항마다 검토', 'Review each change agents made to notes'), where: t('왼쪽 사이드바', 'Left sidebar') },
-  { mark: Icon.flow, name: t('흐름', 'Flow'), meaning: t('연구를 생각의 걸음과 선으로 본 차트', 'The research as steps of thinking and lines'), where: t('왼쪽 사이드바', 'Left sidebar') },
+  { mark: Icon.branch, name: t('흐름', 'Flow'), meaning: t('메시지를 쓰고 시작한 질문과 그 아래에서 해 본 방법(시도)의 나무', 'Questions started with a message, and the tree of methods (attempts) tried under them'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.manuscript, name: t('원고', 'Manuscript'), meaning: t('원고 화면과 원고 목록', 'Manuscript screen and list'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: Icon.clip, name: t('참고 자료', 'References'), meaning: t('프로젝트에 둔 자료 파일', 'Material files in the project'), where: t('왼쪽 사이드바', 'Left sidebar') },
   { mark: <>{Icon.back}{Icon.forward}</>, name: t('뒤로 · 앞으로', 'Back · Forward'), meaning: t('지나온 화면 사이를 오감', 'Move between screens you visited'), where: t('상단바 왼쪽', 'Left of the top bar') },

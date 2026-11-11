@@ -17,37 +17,18 @@ export const DEFAULT_SCREENS = [
   ['project-edit', '#/r/{rid}', '프로젝트 고치기 칸', '프로젝트 고치기'],
   // 주제 화면 (10/5 시안 3단계): 노트 카드 격자, 주제 고치기 창, 주제 없는 노트("노트들")
   ['topic', '#/r/{rid}/t/coloring', '노트 카드 목록'],
-  // 연구 흐름 (10/14, 프로젝트 하나에 한 흐름): 주제 필터로 한 주제를 굵게, 점을 눌러 아래에 자세히 (점 파일은 fixtures/sandbox-extra/workbench/flow)
-  ['flow', '#/r/{rid}/flow?topic=coloring', '흐름 점 자세히', '[data-ui="흐름 차트"] .fl-node[data-id="five-color-theorem"]'],
   ['topic-edit', '#/r/{rid}/t/coloring', '주제 고치기 창', '주제 고치기'],
   ['loose-notes', '#/r/{rid}/t/__loose', '노트 카드 목록'],
-  // 흐름 점 고치기 창 (2단계). 고른 점은 기억되므로 자세히의 연필을 바로 누른다. 같은 주소의 창이 남지 않게 다른 주제 화면 뒤에 둔다
-  ['flow-edit', '#/r/{rid}/flow', '흐름 점 고치기 창', '흐름 점 고치기'],
-  // 설명 칸의 그림 ▾ (10/16): 컴퓨터에서 · 그림 라이브러리에서 고르기
-  ['flow-edit-figure', '#/r/{rid}/flow', '흐름 그림 메뉴', ['[data-ui="흐름 차트"] .fl-node[data-id="kempe-swap"]', '흐름 점 고치기', '흐름 그림 넣기']],
   ['notes', '#/r/{rid}/notes', '원고 목록'],
-  // 새 점 (10/16 승인 "이어서 · 지정 · 새로 시작"): 창 없이 차트의 점선 점 + 자세히 자리의 새 점 칸. 같은 주소면 앞 화면의 칸이 남으므로 다른 탭 화면 뒤에 하나씩 둔다
-  ['flow-new', '#/r/{rid}/flow', '흐름 새 점 창', ['[data-ui="흐름 차트"] .fl-node[data-id="kempe-swap"]', '흐름 다음 점']],
   // 기록 › 내 차례 (10/21 작업 탭을 기록 안으로, 옛 주소 todo): 브리핑 · 한 주 달력 · 판단 · 물은 기록 · 할 일 한 줄씩. 맡긴 일은 fixtures/sandbox-extra/workbench/tasks
   ['todo', '#/r/{rid}/todo', '내 차례 목록'],
-  ['flow-pick', '#/r/{rid}/flow', '흐름 앞선 점 고르기', ['[data-ui="흐름 차트"] .fl-node[data-id="kempe-swap"]', '흐름 다음 점 메뉴', '[role="menuitem"]:text-matches("^(앞선 점|Choose several)")', '[data-ui="흐름 차트"] .fl-node[data-id="five-color-theorem"]']],
   // 기록 › 모두 (10/21): 종류 고르기(처음은 메모) · 대상별 목록 · 입력란 · 접힌 작업 일지
   ['records', '#/r/{rid}/records', '작업 기록 목록', '[data-ui="기록 차례"] button:text-matches("^(모두|All)")'],
   ['records-agent', '#/r/{rid}/records', '에이전트 차례 목록', '[data-ui="기록 차례"] button:text-matches("^(에이전트 차례|Agents)")'],
-  ['flow-start', '#/r/{rid}/flow', '흐름 새 점 창', '흐름 점 더하기'],
   // 기록 › 모두 › 질문 (10/15): 답을 대화로, 이어 쓰기, 에이전트가 물은 질문(주황, 사용자 차례). 기록은 fixtures/sandbox-extra/workbench/comments
   ['records-questions', '#/r/{rid}/records', '기록 화면', ['[data-ui="기록 차례"] button:text-matches("^(모두|All)")', '[data-ui="기록 거르기"] button:text-matches("^(질문|Question)")']],
-  // 점 고치기 안 A (10/20): 계획 · 실행 · 끝맺음 묶음, 채운 수, 빈 칸의 회색 안내
-  ['flow-edit-calc', '#/r/{rid}/flow', '흐름 실행 고치기', ['[data-ui="흐름 차트"] .fl-node[data-id="greedy-check"]', '흐름 점 고치기']],
-  // 점 고치기 › 카드 (10/23 "판단 설계" 2절): 용어 · 사전 연구 · 완료 조건 · 범위 · 산출과 검사 줄
-  ['flow-edit-card', '#/r/{rid}/flow', '흐름 카드 고치기', ['[data-ui="흐름 차트"] .fl-node[data-id="four-colors"]', '흐름 점 고치기']],
   // 프로젝트 정보의 네 쪽 (10/16): 개요 · 현황 · 규칙 · 저장소
   ['info', '#/r/{rid}/info', '노트 정보'],
-  // 증명 단계와 빈틈 (10/20): 단계마다 쓰는 것과 확인, 확인 안 된 단계는 점선 번호. 새 점 칸이 남지 않게 다른 화면 뒤에
-  ['flow-steps', '#/r/{rid}/flow', '흐름 단계', '[data-ui="흐름 차트"] .fl-node[data-id="degree-bound"]'],
-  // 접은 흐름 (10/23 "판단 설계"): 묶음 하나가 점 하나, 누르면 그 묶음의 창. 접기는 기억되므로 흐름 화면 맨 뒤에 둔다
-  ['flow-bundles', '#/r/{rid}/flow', '흐름 묶음', '[data-ui="흐름 접기"] button:text-matches("^(접기|Fold)")'],
-  ['flow-bundle', '#/r/{rid}/flow', '흐름 묶음 창', '[data-ui="흐름 묶음"] .fl-node[data-id="five-colors"]'],
   ['info-status', '#/r/{rid}/status', '최근 기록'],
   // 모든 저장소 (10/31, 레일의 에이전트 아래 폴더 아이콘): 프로젝트마다 GitHub와 같은지 · 동기화하기
   ['repos', '#/repos', '저장소 줄'],
@@ -63,12 +44,6 @@ export const DEFAULT_SCREENS = [
   ['task-list', '#/r/{rid}/records', '맡긴 일 목록', ['[data-ui="기록 차례"] button:text-matches("^(모두|All)")', '[data-ui="기록 거르기"] button:text-matches("^(맡긴 일|Delegated)")']],
   ['task-day', '#/r/{rid}/records', '하루 자세히', ['[data-ui="기록 차례"] button:text-matches("^(내 차례|Your turn)")', '[data-ui="하루"].is-today']],
   ['task-report', '#/r/{rid}/k/2026-10-05-list-coloring-bound', '다음 지시'],
-  ['judge-queue', '#/r/{rid}/records', '판단 대기열', '[data-ui="기록 차례"] button:text-matches("^(내 차례|Your turn)")'],
-  // 맡긴 일 ↔ 흐름 점 짝 제안 (10/27): 내 차례 맨 위 띠를 펼친 것
-  ['flow-pairs', '#/r/{rid}/records', '흐름 짝 제안', ['[data-ui="기록 차례"] button:text-matches("^(내 차례|Your turn)")', '[data-ui="흐름 짝 제안"] button:text-matches("^(하나씩 보기|Review one by one)")']],
-  ['judge', '#/r/{rid}/j/five-color-theorem', '판단 화면 판단'],
-  ['judge-card', '#/r/{rid}/j/four-colors', '판단 화면 사전 연구'],
-  ['judge-ask', '#/r/{rid}/j/five-color-theorem', '판단 화면 질문', '[data-ui="판단 화면 묻기"]'],
   ['tex-note', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-chains%2Fmain.tex', EDITOR_TEXT],
   ['chapter', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', EDITOR_TEXT],
   ['chapter-cited', '#/r/{rid}/w/docs%2Fnote%2Fchapters%2F02-five-color.tex', '인용한 논문', '인용한 논문'],
@@ -128,8 +103,7 @@ export const DEFAULT_SCREENS = [
   ['about', '#/about', '소개'],
   // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
   ['about-tags', '#/about/symbols/tags', '대화 태그'],
-  // 기호와 의미 쪽 (10/15): 흐름 기호 표, 프로젝트 화면 쪽의 흐름 절 (절 제목 옆 "업데이트 #n")
-  ['about-symbols', '#/about/symbols/flow', '흐름'],
+  // 소개 › 프로젝트 화면 쪽의 흐름 절 (절 제목 옆 "업데이트 #n")
   ['about-flow', '#/about/project/flow', '흐름'],
   // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
@@ -186,11 +160,11 @@ export const DEFAULT_SCREENS = [
   // 홈 카드의 "변경사항 N"(내가 변경사항 쪽을 열기 전)과 그 쪽. 카드 보기는 home-cards가 기억해 두었다
   ['home-changes', '#/', '변경사항 수'],
   ['info-changes', '#/r/{rid}/changes', '변경사항 표'],
-  // 문제와 시도 나무 (11/11): 목록(진행 · 쓰는 중 · 접힌 제안), 문제 하나(문제 열기 · 교훈 · 나무, 판정 대기 시도를 펼친 모습), 방향 보고와 결정, 문제 수정 창. 문제 파일은 fixtures/sandbox-extra/workbench/problems
-  ['problems', '#/r/{rid}/problems', '문제 줄'],
+  // 흐름과 시도 나무 (11/11): 목록(진행 · 쓰는 중 · 접힌 제안), 흐름 하나(흐름 열기 · 교훈 · 나무, 판정 대기 시도를 펼친 모습), 방향 보고와 결정, 흐름 수정 창. 문제 파일은 fixtures/sandbox-extra/workbench/problems
+  ['problems', '#/r/{rid}/problems', '흐름 줄'],
   ['problem', '#/r/{rid}/problems/kempe-degree-five', '시도 나무', '[data-ui="시도"][data-ui-item^="B1"] .pb-node-main'],
   ['problem-decision', '#/r/{rid}/problems/greedy-five-colors', '방향 보고'],
-  ['problem-edit', '#/r/{rid}/problems/torus-seven-colors', '문제 창', '문제 수정'],
+  ['problem-edit', '#/r/{rid}/problems/torus-seven-colors', '흐름 창', '흐름 수정'],
 ]
 
 // 폰 폭(390)에서 찍는 화면 (10/30, styles/phone.css): 아래 탭 넷 · 패널 하나 · 접힌 표. 옆으로 넘치면 실패

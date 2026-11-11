@@ -213,7 +213,7 @@ export function checkWorkbench(wb: Workbench): WorkbenchCheck {
   for (const entry of blocks) issue('error', rel(path.join(wb.root, 'blocks', entry.name)), 1, '블록 노트는 2026-10-27부터 앱이 읽지 않습니다. 같은 이름의 노트 폴더(topics/<주제>/<id>/)로 옮기고 머리를 note.yaml에 적으세요.', 'Block notes are no longer read since 2026-10-27. Move this into a note folder of the same name (topics/<topic>/<id>/) with its header in note.yaml.')
   for (const entry of entries(path.join(wb.root, 'tasks'))) if (entry.name.endsWith('.md') && entry.isFile()) read(path.join(wb.root, 'tasks', entry.name))
   diagnostics.push(...scanTasks(wb).diagnostics.map(({ file, line, message }) => ({ level: 'error' as const, file, line, message })))
-  // 문제와 시도 (§16): 읽지 못한 파일은 화면 · 이어받기 요약에서 빠지므로 오류
+  // 흐름과 시도 (§16): 읽지 못한 파일은 화면 · 이어받기 요약에서 빠지므로 오류
   diagnostics.push(...scanProblems(wb).diagnostics.map(({ file, message }) => ({ level: 'error' as const, file, line: 1, message })))
   // 기록의 쓴 이 (10/21): 앱 · MCP는 늘 by나 src를 적으므로, 둘 다 없는 새 기록은 파일에 직접 쓴 것이다
   for (const entry of entries(path.join(wb.root, COMMENTS_DIR))) {

@@ -3,7 +3,7 @@ import { PictureGallery, type GalleryPicture } from './PictureGallery'
 import { showFigure } from './figureView'
 
 /**
- * 노트 본문 · 흐름 점 설명의 그림을 누르면 크게 (10/15 B′): 그 본문의 그림을 차례대로 겹창에 모아 ← →로 넘긴다.
+ * 노트 본문의 그림을 누르면 크게 (10/15 B′): 그 본문의 그림을 차례대로 겹창에 모아 ← →로 넘긴다.
  * 라이브러리 그림(data-fig-id)이면 겹창 머리에 "그림 화면에서 열기".
  */
 const MEDIA = 'figure.md-fig img, figure.md-fig canvas, img.ob-fig, canvas.ob-fig'

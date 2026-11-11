@@ -9,7 +9,7 @@ export interface GalleryPicture { src: string; label: string; alt: string; pdf?:
 /**
  * 그림 크게 보기 (10/13 피드백 "갤러리처럼 넘겨 보기"): 누른 그림 하나를 화면 위에 크게 띄우고,
  * 양옆 화살표 · ← → 키로 넘기고, Esc · × · 바깥 누르기로 닫는다. 위에 "전 1/2"처럼 지금 그림을 적는다.
- * 노트·흐름 점의 그림도 같은 창으로 띄운다(10/15 B′): 라이브러리 그림이면 머리에 "그림 화면에서 열기".
+ * 노트의 그림도 같은 창으로 띄운다(10/15 B′): 라이브러리 그림이면 머리에 "그림 화면에서 열기".
  */
 export function PictureGallery({ pictures, start, onClose, onOpenFigure }: { pictures: GalleryPicture[]; start: number; onClose(): void; onOpenFigure?(id: string): void }) {
   const [at, setAt] = useState(start)

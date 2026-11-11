@@ -25,7 +25,7 @@ export function chooseRecordFilter(f: RecordFilter | '전체') {
   window.dispatchEvent(new CustomEvent(WORK_FILTER_EVENT, { detail: f }))
 }
 
-/** 오른쪽 사이드바의 「기록 탭에서 보기」(10/28 22:25 수정 요청): 기록 › 모두를 그 노트 · 흐름 점이 골라진 채로 연다. null = 전체 */
+/** 오른쪽 사이드바의 「기록 탭에서 보기」(10/28 22:25 수정 요청): 기록 › 모두를 그 노트가 골라진 채로 연다. null = 전체 */
 export const RECORD_PLACE_EVENT = 'rw-records-place'
 let pendingPlace: string | null | undefined
 export function chooseRecordPlace(target: string | null) {
@@ -139,18 +139,17 @@ export const openTodoRecords = (files: RecordFile[]): FlatRecord[] =>
 /** 접힌 줄에 보일 한 줄: 글의 첫 줄, 글이 없으면 인용 */
 export const recordLine = (entry: Pick<CommentEntry, 'body' | 'quote'>) => (entry.body.trim() || entry.quote?.trim() || '').split('\n')[0]!.trim()
 
-/** 기록이 달린 곳의 갈래 (10/22 12:09 안 C, 10/28: 노트만이 아니라 프로젝트 · 주제 · 원고 · 흐름 점에도 달린다) */
-export const PLACE_KINDS = ['project', 'topic', 'note', 'manuscript', 'flow', 'other'] as const
+/** 기록이 달린 곳의 갈래 (10/22 12:09 안 C, 10/28: 노트만이 아니라 프로젝트 · 주제 · 원고에도 달린다) */
+export const PLACE_KINDS = ['project', 'topic', 'note', 'manuscript', 'other'] as const
 export type PlaceKind = typeof PLACE_KINDS[number]
 export const PLACE_KIND_LABEL: Record<PlaceKind, string> = {
   project: t('프로젝트', 'Project'), topic: t('주제', 'Topics'), note: t('노트', 'Notes'),
-  manuscript: t('원고', 'Manuscript'), flow: t('흐름 점', 'Flow dots'), other: t('그 밖', 'Other'),
+  manuscript: t('원고', 'Manuscript'), other: t('그 밖', 'Other'),
 }
 export function placeKind(target: string): PlaceKind {
   if (target === 'project') return 'project'
   if (target.startsWith('topic-')) return 'topic'
   if (target.startsWith('note-') || target.startsWith('calc-')) return 'note'
-  if (target.startsWith('flow-')) return 'flow'
   if (target.startsWith('statement-') || target.startsWith('paper-') || target.startsWith('task-')) return 'other'
   // manuscript, manuscript-<원고>, 원고의 장(장 id)
   return 'manuscript'
@@ -159,7 +158,7 @@ export function placeKind(target: string): PlaceKind {
 export interface RecordPlace { target: string; title: string; kind: PlaceKind; count: number; turn: number; latest: string }
 
 /**
- * 기록 › 모두의 왼쪽 목록: 기록이 있는 곳만, 갈래 차례(프로젝트 · 주제 · 노트 · 원고 · 흐름 점 · 그 밖)로 묶고
+ * 기록 › 모두의 왼쪽 목록: 기록이 있는 곳만, 갈래 차례(프로젝트 · 주제 · 노트 · 원고 · 그 밖)로 묶고
  * 갈래 안에서는 최근에 기록이 생긴 곳이 위로. turn = 그곳의 내 차례(에이전트가 물은 질문 · 지시가 대기) 수
  */
 export function recordPlaces(groups: WorkRecordGroup[]): RecordPlace[] {

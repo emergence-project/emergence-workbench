@@ -66,7 +66,7 @@ export const Icon = {
   figures: <svg viewBox="0 0 24 24"><circle cx="8.5" cy="8.5" r="4" /><path d="M15.5 11l5 8.5h-10z" /><path d="M3.5 19.5h6" /></svg>,
   image: <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="M5 17l4.5-4.5 3.5 3.5 2.5-2.5L19 17" /></svg>,
   slides: <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="11" rx="1.5" /><path d="M12 16v3.5M8.5 19.5h7" /></svg>,
-  /** 진술: ⊢ (수학의 주장 기호, 10/16). T는 흐름의 정리 점만 */
+  /** 진술: ⊢ (수학의 주장 기호, 10/16) */
   statement: <svg viewBox="0 0 24 24"><path d="M7 4.5v15M7 12h11" /></svg>,
   // 피드백 처리 확인 (10/4 19:06 "승인/반려 아이콘으로"): 승인 = 체크, 반려(10/7부터 화면 이름 "수정 요청") = 되돌려 보내는 꺾인 화살표 (× ·휴지통과 겹치지 않게). 10/7부터 둘 다 동그라미로 감싼다
   /** 업데이트 필요 (홈의 표시 기호: GitHub에 받을 새 커밋이 있음) */
@@ -79,8 +79,6 @@ export const Icon = {
   /** 설명 보기: 동그라미 안 ? (10/14). 동그라미 없는 ?는 Claude에게 묻기 */
   help: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.6a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4v.6" /><path d="M12 16.4v.1" /></svg>,
   approve: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M8.2 12.2l2.6 2.6 5-5.2" /></svg>,
-  /** 흐름: 세 점과 그 사이를 잇는 선 (연구 흐름, 10/14) */
-  flow: <svg viewBox="0 0 24 24"><circle cx="5.5" cy="6.5" r="2.5" /><rect x="15" y="4" width="5" height="5" rx="1.2" /><rect x="15" y="15" width="5" height="5" rx="1.2" /><path d="M8 6.5h7M8 6.5c3.5 0 3.5 11 7 11" /></svg>,
   /** 피드백 수정 요청 (10/7 "동그라미에 되돌림"): 동그라미 안 되돌림 화살표 */
   sendBack: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M10.3 11.2L8 13.5l2.3 2.3" /><path d="M8 13.5h5.2a2.6 2.6 0 0 0 0-5.2H12" /></svg>,
   /** 되돌리기 (고침 검토, 10/13 시안): 왼쪽으로 굽은 화살표. 동그라미가 없어 수정(sendBack)과 구별된다 */

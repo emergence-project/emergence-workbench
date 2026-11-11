@@ -26,7 +26,6 @@ import { LOOSE_NOTES_LABEL, LOOSE_TOPIC_ID } from './noteKinds'
 import { NewCard, NoteCardView } from './NoteCardView'
 import { TopicCardView } from './TopicCardView'
 import { TopicEditDialog } from './TopicEditDialog'
-import { FlowLine } from './flow/FlowLine'
 import { routeOfNote } from './RightSidebar'
 import { createNoteAsk, NoteTrash } from './Topics'
 import { gridColumns, notesInPeriod, PERIODS, RECENT_SORTS, SORTS, sortRecent, sortTopics, type NotePeriod, type NoteSort, type RecentSort } from './topicNotes'
@@ -271,8 +270,6 @@ export function OverviewPage({ rid, rapi, summary, notes, project: projectName, 
                   </dl>
                 )}
 
-                {/* 흐름은 지도 대신 한 줄로 (10/26 "프로젝트의 중심은 주제", 시안 HomeAfter) */}
-                <FlowLine rid={rid} />
               </div>
 
               <NowPanel groups={nowGroups} fitKey={fitKey} onAll={() => go({ page: 'records', rid })} error={error} />

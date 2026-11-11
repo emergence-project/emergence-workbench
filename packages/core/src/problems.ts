@@ -1,6 +1,6 @@
 /**
- * 문제와 시도 나무의 이름표 (11/11 결정 "흐름을 시도 나무로 · 메시지 관문", workbench/problems/<id>/). 화면이 zod 없이 쓰게 계약 밖에 둔다.
- * 문제: proposed 제안(에이전트가 올림) · draft 쓰는 중 · open 진행(사용자가 시작함) · closed 접음.
+ * 흐름과 시도 나무의 이름표 (11/11 결정 "흐름을 시도 나무로 · 메시지 관문", workbench/problems/<id>/). 화면이 zod 없이 쓰게 계약 밖에 둔다.
+ * 흐름: proposed 제안(에이전트가 올림) · draft 쓰는 중 · open 진행(사용자가 시작함) · closed 접음.
  * 시도: candidate 후보 · active 진행 · reported 판정 대기(일한 쪽의 보고만 있음) · holds 성립 · dropped 폐기.
  */
 export const PROBLEM_STATES = ['proposed', 'draft', 'open', 'closed'] as const

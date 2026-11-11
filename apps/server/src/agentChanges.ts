@@ -7,10 +7,6 @@ import type { WorkbenchDiagnostic } from './agentCheck.js'
 import { t } from './i18n.js'
 import { folderMap, usesStandardLayout } from './projectFolders.js'
 import type { Workbench } from './workbench.js'
-import { JUDGE_CAP } from '@rw/core'
-import { cardBlock, parseFlowNode, scanFlow } from './flow.js'
-import { flowGate, judgmentHash, judgmentQueue, markJudgments, undefinedTerms } from './flowGaps.js'
-import { integrationProblem } from './flowStart.js'
 import { PROBLEM_CHECKS, problemChecker } from './problemChanges.js'
 
 /**
@@ -22,16 +18,7 @@ export const CHANGE_CHECKS = {
   'frozen-folder': 'error',
   locked: 'error',
   approval: 'error',
-  'flow-human': 'error',
-  'flow-form': 'error',
-  'flow-skipped': 'warning',
-  'flow-start': 'warning',
-  'flow-integration': 'warning',
-  'flow-new-dot': 'off',
-  'queue-cap': 'error',
-  'card-not-started': 'error',
-  'card-locked': 'error',
-  'card-terms': 'warning',
+  'attempt-skipped': 'warning',
   'nonstandard-new-file': 'warning',
   'confirmed-edit': 'warning',
   'outside-workbench': 'warning',
@@ -117,25 +104,8 @@ const headOf = (text: string | undefined) => {
 const list = (v: unknown): unknown[] => Array.isArray(v) ? v : []
 const NOTE_DIR = /^(workbench\/(?:notes|calc)\/[^/]+|workbench\/topics\/[^/]+\/[^/]+)\/[^/]/
 const TASK = /^workbench\/tasks\/[^/]+\.md$/
-const FLOW = /^workbench\/flow\/[^/]+\.yaml$/
 const DOC = /^workbench\/(?:decisions|rules)\/[^/]+\.md$/
 const noteDone = (y: Record<string, unknown> | undefined) => y?.state === 'done' || y?.done === true
-
-/** 흐름 점에서 사람이 정하는 것: 질문 문장, 발단 선, 갈래 폐기, 사람 확인 기록 */
-function flowHuman(y: Record<string, unknown> | undefined) {
-  const fields = y?.fields && typeof y.fields === 'object' ? y.fields as Record<string, unknown> : {}
-  const origins = list(y?.from).flatMap((e) => {
-    const r = e && typeof e === 'object' ? e as Record<string, unknown> : {}
-    const type = typeof r.type === 'string' ? r.type : y?.kind === 'question' ? 'origin' : 'support'
-    return type === 'origin' && typeof r.id === 'string' ? [r.id] : []
-  }).sort()
-  const human = list(y?.evidence).flatMap((e) => list(e && typeof e === 'object' ? (e as Record<string, unknown>).checks : undefined))
-    .filter((c) => c && typeof c === 'object' && (c as Record<string, unknown>).role === 'human')
-    .map((c) => JSON.stringify(c))
-  // 판단 기록 (10/23): 사람만 쓴다
-  human.push(...list(y?.judgments).map((j) => `judgment:${JSON.stringify(j)}`))
-  return { question: y?.kind === 'question' ? String(fields.question ?? '') : '', origins: origins.join(','), dropped: y?.result === 'dropped', human }
-}
 
 /** 기준 이후 바뀐 파일을 공통 규칙에 비춰 본다. git 기록이 없으면 null */
 export function checkChanges(wb: Workbench, opts: { base?: string; levels?: CheckLevels } = {}): ChangeReport | null {
@@ -157,18 +127,8 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
   const removed: string[] = []
   const moved: string[] = []
   const confirmedNotes = new Set<string>()
-  let flowChanged = false
-  /** 바뀐 노트 (폴더)와 그 주제 */
-  const work = new Map<string, { file: string; topics: string[] }>()
-  /** 바뀐 흐름 점의 주제와 가리킨 파일 (근거 · 실행) */
-  const dots: { topics: string[]; files: string[] }[] = []
-  /** 지금 흐름 전체 (판단 대기열 · 카드 상태용, 처음 쓸 때 읽는다) */
-  let flowNow: { nodes: ReturnType<typeof scanFlow>['nodes']; byId: Map<string, ReturnType<typeof scanFlow>['nodes'][number]> } | undefined
-  const flow = () => {
-    if (!flowNow) { const nodes = scanFlow(wb).nodes; flowNow = { nodes, byId: new Map(nodes.map((n) => [n.id, n])) } }
-    return flowNow
-  }
-  const newFindings: string[] = []
+  /** 바뀐 노트 (폴더) */
+  const work = new Map<string, string>()
   const problems = problemChecker(repo, add)
 
   for (const c of changes) {
@@ -189,7 +149,7 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
     }
     if (c.status === 'D') removed.push(c.file)
     if (c.status === 'R') moved.push(`${c.from} → ${c.file}`)
-    // 문제와 시도 나무 (11/11): 사용자만 하는 것 · 판정 · 일하는 규칙은 problemChanges.ts
+    // 흐름과 시도 나무 (11/11): 사용자만 하는 것 · 판정 · 일하는 규칙은 problemChanges.ts
     if (problems.file(c, old, before, after)) continue
     if (!c.file.startsWith('workbench/')) {
       outside.set(top(c.file), (outside.get(top(c.file)) ?? 0) + 1)
@@ -212,78 +172,24 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
       if (a?.state === 'done' && b?.state !== 'done') add('approval', c.file, '맡긴 일을 done으로 바꿨습니다. 승인은 사용자가 앱에서 합니다. 결과를 냈으면 state: result로 둡니다.', 'The task was set to done. The user approves in the app; leave a finished result as state: result.')
       if (list(a?.judged).length > list(b?.judged).length || list(a?.answers).length > list(b?.answers).length) add('approval', c.file, '판단·답 기록(judged · answers)을 썼습니다. 이 칸은 앱이 사용자의 선택으로만 씁니다.', 'Judgement or answer records (judged · answers) were written. Only the app writes them from the user\'s choices.')
     }
-    if (dir) {
-      const key = dir
-      if (!work.has(key)) {
-        // 노트의 주제: 주제 폴더(topics/<주제>/<노트>/)와 note.yaml의 topics:
-        const head = yamlOf(newText(`${dir}/note.yaml`))
-        const folder = /^workbench\/topics\/([^/]+)\//.exec(key)?.[1]
-        const topics = [...(folder ? [folder] : []), ...list(head?.topics).filter((x): x is string => typeof x === 'string')]
-        work.set(key, { file: c.file, topics })
-      }
-    }
-    if (FLOW.test(c.file) && path.basename(c.file) !== 'layout.yaml') {
-      flowChanged = true
-      if (c.status === 'A') add('flow-new-dot', c.file, '흐름에 새 점을 더했습니다.', 'A new dot was added to the flow.')
-      // 해결 문턱 (10/20): 끝남 · 멈춤으로 넘어간 점은 앱과 같은 필수 칸을 갖춰야 한다
-      const id = path.basename(c.file, '.yaml')
-      const an = parseFlowNode(id, c.file, after, []), bn = before === undefined ? undefined : parseFlowNode(id, c.file, before, []) ?? undefined
-      if (an) dots.push({ topics: an.topics, files: [...an.evidence.map((e) => e.file), an.run?.code, an.run?.output].filter((x): x is string => !!x) })
-      const miss = an ? flowGate(an, bn) : []
-      if (miss.length) add('flow-form', c.file, `점을 끝남 · 멈춤으로 바꿨는데 채울 칸이 비었습니다: ${miss.join(' · ')}. 채우거나 진행으로 되돌리세요.`, `The dot was finished or paused with empty required fields: ${miss.join(' · ')}. Fill them or set it back to active.`)
-      // 시작 기록 (10/23): 에이전트가 새로 연 일(질문 · 계산 · 증명 …)은 선행 찾기와 판정 기준을 적고 시작한다. 발견은 일이 아니라 결론이고, 열림(open)은 아직 시작하지 않아 뺀다
-      if (an && c.status === 'A' && an.kind !== 'finding' && an.progress !== 'open' && an.by && an.by !== 'user' && !an.start) add('flow-start', c.file, `시작 기록이 없는 새 점입니다. pnpm agent:start <저장소> --dot ${id} …로 가장 가까운 점(또는 왜 새로운지)과 판정 기준을 적으세요.`, `A new dot without a start record. Record the closest dot (or why it is new) and a criterion with pnpm agent:start <repo> --dot ${id} ….`)
-      // 반영 검사 (10/23): 이번에 끝난 점(해결 · 반증)은 이해 문서에 반영했거나 반영하지 않은 이유가 있어야 한다. 폐기는 이유(reason)가 그 몫이다
-      if (an && an.progress === 'done' && an.result !== 'dropped' && bn?.progress !== 'done') {
-        if (!an.integration) add('flow-integration', c.file, `끝난 점의 반영 기록이 없습니다. 결과를 이해 문서에 반영하고 pnpm agent:integrate <저장소> ${id} --into <문서>로, 반영하지 않으면 --skip "<이유>"로 적으세요.`, `The finished dot has no integration record. Reflect the result in the understanding document and run pnpm agent:integrate <repo> ${id} --into <doc>, or --skip "<reason>".`)
-      }
-      if (an?.integration?.into) {
-        const problem = integrationProblem(repo, id, an.integration.into, an.integration.section)
-        if (problem) add('flow-integration', c.file, `반영 기록이 맞지 않습니다: ${problem}`, `The integration record no longer holds: ${problem}`)
-      }
-      // 판단 설계 (10/23): 에이전트의 새 명제는 대기열 상한 안에서, 새 일은 시작한 카드 아래에서만
-      const agentMade = c.status === 'A' && !!an?.by && an.by !== 'user'
-      if (an && agentMade && an.kind === 'finding') newFindings.push(c.file)
-      if (an && agentMade && an.kind !== 'question') {
-        const block = an.from.map((f) => flow().byId.get(f.id)).filter((x) => !!x).map((x) => cardBlock(x, flow().byId)).find(Boolean)
-        if (block) add('card-not-started', c.file, `${block}. 시작한 카드 아래에서만 일을 엽니다. 점을 지우거나 카드가 시작될 때까지 기다리세요.`, `${block}. Open work only under a started card. Remove the dot or wait until the card starts.`)
-      }
-      if (an?.card && bn?.card && markJudgments(bn) === 'start' && judgmentHash(an) !== judgmentHash(bn)) {
-        add('card-locked', c.file, '시작한 카드의 질문 · 완료 조건을 바꿨습니다. 잠긴 칸이라 되돌리고, 바꿀 것은 제안으로 남기세요(사용자가 수정으로 돌려보내면 고칩니다).', 'The question or done criteria of a started card changed. They are locked: revert, and leave the change as a proposal (fix it after the user sends the card back).')
-      }
-      const terms = an ? undefinedTerms(an) : []
-      if (terms.length) add('card-terms', c.file, `카드에 정의도 출처도 없는 용어가 있습니다: ${terms.join(', ')}. 정의(def)나 출처(ref)를 적으세요.`, `The card has terms with neither a definition nor a source: ${terms.join(', ')}. Add def or ref.`)
-      const a = flowHuman(yamlOf(after)); const b = flowHuman(yamlOf(before))
-      if (a.human.some((h) => !b.human.includes(h))) add('approval', c.file, '사람 승인 기록(role: human)이나 판단 기록(judgments)을 썼습니다. 판단은 사람이 앱에서 합니다. 에이전트의 검토는 role: agent로 적습니다.', 'A human approval record (role: human) or a judgment (judgments) was written. People judge in the app. Record agent reviews with role: agent.')
-      if (c.status !== 'A') {
-        if (a.question !== b.question) add('flow-human', c.file, '질문 문장을 바꿨습니다. 사람이 정하는 칸이라 되돌리고 제안으로 남기세요.', 'The question wording was changed. A person decides it; revert and leave a proposal.')
-        if (a.origins !== b.origins) add('flow-human', c.file, '발단 선(origin)을 바꿨습니다. 사람이 정하는 선이라 되돌리고 제안으로 남기세요.', 'An origin link was changed. A person decides it; revert and leave a proposal.')
-      }
-      if (a.dropped && !b.dropped) add('flow-human', c.file, '갈래를 폐기(result: dropped)했습니다. 폐기는 사람이 정하므로 되돌리고 제안으로 남기세요.', 'The branch was dropped (result: dropped). A person decides that; revert and leave a proposal.')
-    }
+    if (dir && !work.has(dir)) work.set(dir, c.file)
     if (DOC.test(c.file) && c.status !== 'A' && headOf(before)?.status === 'accepted') {
       add('confirmed-edit', c.file, '사용자가 확정한(accepted) 결정·규칙을 고쳤습니다. 허락받았는지 답에 적으세요.', 'An accepted decision or rule was changed. Say in your reply whether you had permission.')
     }
   }
 
-  // 점이 그 노트를 근거 · 실행으로 가리키거나 주제가 겹치면 이 일의 점으로 본다 (10/23: 무관한 점만 고쳐도 통과하던 것을 막는다).
-  // 주제가 없는 노트는 주제가 없는 점과도 짝짓는다
-  // 11/11: 새 일은 문제 아래의 시도로 하므로, 바뀐 시도가 파일(files)로 가리키는 노트도 이 일의 것으로 본다
   problems.finish()
-  const inNote = (f: string, key: string) => f === key || f.startsWith(`${key}/`)
-  const covered = (key: string, w: { topics: string[] }) => problems.files.some((f) => inNote(f, key)) || dots.some((d) => d.files.some((f) => inNote(f, key))
-    || (w.topics.length ? w.topics.some((x) => d.topics.includes(x)) : !d.topics.length))
-  const skipped = [...work].filter(([key, w]) => !covered(key, w))
-  if (skipped.length) {
-    const names = skipped.map(([key]) => key.replace(/^workbench\//, '')).slice(0, 3).join(', ') + (skipped.length > 3 ? ' …' : '')
-    if (!flowChanged) add('flow-skipped', skipped[0]![1].file, `노트 ${skipped.length}개를 바꿨는데 이 일을 가리키는 시도도 흐름 점도 없습니다 (${names}). 문제의 시도로 한 일이면 보고의 파일에 그 노트를 적고(attempt_report · pnpm agent:problem … report --file), 아니면 흐름 점을 만들거나(pnpm agent:start · flow_add) 결과를 적으세요(flow_update).`, `${skipped.length} note(s) changed but neither an attempt nor a flow dot points to this work (${names}). If it was an attempt on a problem, list the note in its report files (attempt_report · pnpm agent:problem … report --file); otherwise add a dot (pnpm agent:start · flow_add) or record its result (flow_update).`)
-    else add('flow-skipped', skipped[0]![1].file, `노트 ${skipped.length}개를 바꿨는데 바뀐 시도 · 흐름 점 가운데 그 노트를 가리키거나 같은 주제인 것이 없습니다 (${names}). 이 일의 시도 보고에 노트를 적거나 점을 만들거나 고치세요.`, `${skipped.length} note(s) changed but no changed attempt or flow dot points to them or shares their topic (${names}). List the note in the attempt report, or add or update the dot for this work.`)
-  }
-
-  if (newFindings.length) {
-    const queued = judgmentQueue(flow().nodes).length
-    if (queued > JUDGE_CAP) add('queue-cap', newFindings[0]!, `판단 대기 명제가 ${queued}개로 상한 ${JUDGE_CAP}을 넘습니다 (새 명제 ${newFindings.length}개). 사용자가 판단할 때까지 새 명제를 내지 말고, 넘친 점은 지우거나 한 명제로 합치세요.`,
-      `The judgment queue holds ${queued} findings, over the cap of ${JUDGE_CAP} (${newFindings.length} new). Add no findings until the user judges; remove the extra dots or merge them into one finding.`)
+  // 진행 중인 흐름이 있는데 바뀐 노트를 가리키는 시도가 없다 (11/11: 새 일은 흐름 아래의 시도로 하고, 결과 노트는 시도 보고의 파일에 적는다).
+  // 사용자가 직접 시킨 일로 고친 노트도 걸리므로 경고다
+  const pointed = work.size ? problems.pointed() : null
+  if (pointed) {
+    const inNote = (f: string, key: string) => f === key || f.startsWith(`${key}/`)
+    const skipped = [...work].filter(([key]) => !pointed.some((f) => inNote(f, key)))
+    if (skipped.length) {
+      const names = skipped.map(([key]) => key.replace(/^workbench\//, '')).slice(0, 3).join(', ') + (skipped.length > 3 ? ' …' : '')
+      add('attempt-skipped', skipped[0]![1], `진행 중인 흐름이 있는데, 바꾼 노트 ${skipped.length}개를 가리키는 시도가 없습니다 (${names}). 흐름의 시도로 한 일이면 보고의 파일에 그 노트를 적으세요(attempt_report · pnpm agent:problem … report --file). 사용자가 직접 시킨 일이면 그대로 둡니다.`,
+        `A flow is open, but no attempt points to the ${skipped.length} changed note(s) (${names}). If this was work on an attempt, list the note in the report's files (attempt_report · pnpm agent:problem … report --file). Leave it if the user asked for the edit directly.`)
+    }
   }
 
   for (const [folder, n] of [...outside].sort()) {

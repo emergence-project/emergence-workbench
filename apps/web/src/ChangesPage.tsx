@@ -8,7 +8,7 @@ import { t, HERE } from './i18n'
 import { InfoShell, SubHead } from './ProjectInfoPage'
 
 const KIND: Record<ChangeItem['kind'], string> = {
-  note: t('노트', 'Note'), flow: t('흐름 점', 'Flow dot'), task: t('맡긴 일', 'Task'), record: t('기록', 'Records'), file: t('파일', 'File'),
+  note: t('노트', 'Note'), problem: t('흐름', 'Flow'), task: t('맡긴 일', 'Task'), record: t('기록', 'Records'), file: t('파일', 'File'),
 }
 const ACTION: Record<ChangeItem['action'], string> = {
   created: t('새로 만듦', 'created'), edited: t('고침', 'edited'), moved: t('옮김', 'moved'), deleted: t('지움', 'deleted'),
@@ -31,7 +31,7 @@ export function changeRoute(rid: string, i: ChangeItem): Route | null {
     case 'note': {
       return i.main ? { page: 'part', rid, file: i.main } : null
     }
-    case 'flow': return { page: 'flow', rid }
+    case 'problem': return { page: 'problems', rid, id: i.id }
     case 'task': return { page: 'task', rid, task: i.id }
     case 'record': return { page: 'records', rid }
     case 'file': return { page: 'file', rid, path: i.id }

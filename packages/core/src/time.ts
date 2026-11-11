@@ -16,7 +16,7 @@ export function localTime(d = new Date()): string {
 /**
  * 시각 도장. 갈래마다 저장된 모양:
  * - `space` `YYYY-MM-DD HH:MM`: 맡긴 일(tasks), 배운 말(learn)의 at
- * - `t` `YYYY-MM-DDTHH:MM`: 흐름 점의 판정, 피드백 답·코멘트
+ * - `t` `YYYY-MM-DDTHH:MM`: 시도의 판정, 피드백 답·코멘트
  * - `compact` `YYYYMMDD-HHMM`: 기록 id(`c-…`)·배운 말 id(`l-…`)의 몸
  */
 export type StampKind = 'space' | 't' | 'compact'

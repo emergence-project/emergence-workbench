@@ -20,10 +20,10 @@ beforeAll(() => {
   fs.rmSync(path.join(repo, '.git'), { recursive: true, force: true })
   gitIn(['init', '-q'])
   commit('처음', 'Old', at(30 * DAY))
-  // 이틀 전: 노트 하나 고침, 흐름 점 하나 새로
+  // 이틀 전: 노트 하나 고침, 흐름 하나 새로
   fs.appendFileSync(path.join(repo, 'workbench/notes/kempe-chains/main.tex'), '\n% 고침\n')
-  fs.mkdirSync(path.join(repo, 'workbench/flow'), { recursive: true })
-  fs.writeFileSync(path.join(repo, 'workbench/flow/q1.yaml'), 'format: 1\nkind: question\nprogress: open\ntitle: 첫 질문\n')
+  fs.mkdirSync(path.join(repo, 'workbench/problems/q1'), { recursive: true })
+  fs.writeFileSync(path.join(repo, 'workbench/problems/q1/problem.yaml'), 'format: 1\nquestion: 첫 질문\nstate: draft\nby: user\n')
   commit('노트와 점', 'Kim', at(2 * DAY))
   // 커밋 안 됨: 맡긴 일 하나
   fs.mkdirSync(path.join(repo, 'workbench/tasks'), { recursive: true })
@@ -36,8 +36,11 @@ describe('변경사항', () => {
     expect(classify('workbench/topics/t/topic.yaml', 'workbench')).toEqual({ kind: 'file', id: 'workbench/topics/t/topic.yaml' })
     expect(classify('workbench/notes/n2/code/a.py', 'workbench')).toEqual({ kind: 'note', id: 'n2' })
     expect(classify('workbench/blocks/b.tex', 'workbench')).toEqual({ kind: 'file', id: 'workbench/blocks/b.tex' })
-    expect(classify('workbench/flow/q.yaml', 'workbench')).toEqual({ kind: 'flow', id: 'q' })
-    expect(classify('workbench/flow/layout.yaml', 'workbench')).toEqual({ kind: 'file', id: 'workbench/flow/layout.yaml' })
+    expect(classify('workbench/problems/q/problem.yaml', 'workbench')).toEqual({ kind: 'problem', id: 'q' })
+    expect(classify('workbench/problems/q/a1.yaml', 'workbench')).toEqual({ kind: 'problem', id: 'q' })
+    expect(classify('workbench/problems/.trash/q/problem.yaml', 'workbench')).toEqual({ kind: 'file', id: 'workbench/problems/.trash/q/problem.yaml' })
+    // 옛 점 파일(11/11 없앰)은 그냥 파일이다
+    expect(classify('workbench/flow/q.yaml', 'workbench')).toEqual({ kind: 'file', id: 'workbench/flow/q.yaml' })
     expect(classify('workbench/tasks/x.md', 'workbench')).toEqual({ kind: 'task', id: 'x' })
     expect(classify('workbench/comments/note-b.md', 'workbench')).toEqual({ kind: 'record', id: 'note-b' })
     expect(classify('src/main.py', 'workbench')).toEqual({ kind: 'file', id: 'src/main.py' })
@@ -50,12 +53,12 @@ describe('변경사항', () => {
     const rows = body.items.map((i: { kind: string; id: string; name: string; action: string; authors: string[]; uncommitted: boolean }) => [i.kind, i.id, i.name, i.action, i.authors.length, i.uncommitted])
     expect(rows).toEqual(expect.arrayContaining([
       ['task', '2026-10-27-check', '확인하기', 'created', 1, true],
-      ['flow', 'q1', '첫 질문', 'created', 1, false],
+      ['problem', 'q1', '첫 질문', 'created', 1, false],
       ['note', 'kempe-chains', 'Kempe 사슬 이용', 'edited', 1, false],
     ]))
     expect(body.items).toHaveLength(3)
     expect(body.items[0].kind).toBe('task')
-    expect(body.items.find((i: { kind: string }) => i.kind === 'flow').authors).toEqual(['Kim'])
+    expect(body.items.find((i: { kind: string }) => i.kind === 'problem').authors).toEqual(['Kim'])
     expect(body.agents).toEqual({ claude: null, codex: null })
     // 홈 카드의 수
     expect((await app.inject({ method: 'GET', url: `${R}/changes/count` })).json().count).toBe(3)

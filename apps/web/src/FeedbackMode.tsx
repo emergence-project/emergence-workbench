@@ -50,7 +50,7 @@ export function snippetOf(el: Element): string {
  */
 /**
  * html-to-image는 <svg>를 통째로 복사하고 그 안의 요소에는 계산된 스타일을 옮기지 않는다. 그림 안에는 페이지 CSS가 없어
- * 클래스로 칠한 SVG(흐름 차트 등)가 검은 덩어리로 찍혔다 (10/15 09:49 그림). 찍는 동안만 SVG 안 요소에 계산된 칠을 적어 두고 되돌린다
+ * 클래스로 칠한 SVG(차트 등)가 검은 덩어리로 찍혔다 (10/15 09:49 그림). 찍는 동안만 SVG 안 요소에 계산된 칠을 적어 두고 되돌린다
  */
 const SVG_PAINT = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'opacity', 'paint-order', 'font-size', 'font-weight', 'font-family', 'display', 'visibility'] as const
 function inlineSvgPaint(): () => void {
@@ -59,7 +59,7 @@ function inlineSvgPaint(): () => void {
     if (svg.parentElement?.closest('svg') || !onScreen(svg) || svg.closest('[data-feedback-ui]')) continue
     for (const el of svg.querySelectorAll('*')) if (el instanceof SVGElement) saved.push([el, el.getAttribute('style')])
   }
-  // 먼저 모두 읽고 나서 쓴다. 읽고 쓰기를 번갈아 하면 요소마다 스타일을 다시 계산해 흐름 차트에서 십여 초 멈췄다
+  // 먼저 모두 읽고 나서 쓴다. 읽고 쓰기를 번갈아 하면 요소마다 스타일을 다시 계산해 큰 차트에서 십여 초 멈췄다
   const paints = saved.map(([el]) => { const cs = getComputedStyle(el); return SVG_PAINT.map((k) => cs.getPropertyValue(k)) })
   saved.forEach(([el], i) => SVG_PAINT.forEach((k, j) => el.style.setProperty(k, paints[i]?.[j] ?? '')))
   return () => { for (const [el, style] of saved) { if (style === null) el.removeAttribute('style'); else el.setAttribute('style', style) } }

@@ -1,6 +1,6 @@
-// 문제와 시도 나무 (workbench/problems/<id>/problem.yaml + <시도>.yaml). 형식은 docs/repo-format.md §16
-// 11/11 결정 "흐름을 시도 나무로 · 메시지 관문": 문제는 사용자가 메시지를 쓰고 시작해야 열리고, 에이전트는 그 아래에 시도 후보를 늘어놓고 하나씩 해 본다.
-// 시도의 성립 · 폐기는 일한 쪽이 아닌 쪽이 판정하고, 폐기의 교훈은 문제 머리에 모인다. 한도나 정체에서는 방향 보고를 내고 사용자가 계속 · 좁히기 · 종료를 정한다.
+// 흐름과 시도 나무 (workbench/problems/<id>/problem.yaml + <시도>.yaml). 형식은 docs/repo-format.md §16
+// 11/11 결정 "흐름을 시도 나무로 · 메시지 관문": 흐름은 사용자가 메시지를 쓰고 시작해야 열리고, 에이전트는 그 아래에 시도 후보를 늘어놓고 하나씩 해 본다.
+// 시도의 성립 · 폐기는 일한 쪽이 아닌 쪽이 판정하고, 폐기의 교훈은 흐름 머리에 모인다. 한도나 정체에서는 방향 보고를 내고 사용자가 계속 · 좁히기 · 종료를 정한다.
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
@@ -127,10 +127,10 @@ interface Loaded { id: string; dir: string; text: string; raw: RawProblem; attem
 
 const root = (wb: Workbench) => path.join(wb.root, PROBLEMS_DIR)
 function dirOf(wb: Workbench, id: string): string {
-  if (!ID.test(id)) throw new WorkbenchError(400, t('문제 id는 영문 소문자 · 숫자 · 하이픈입니다', 'Problem IDs use lowercase letters, digits and hyphens'))
+  if (!ID.test(id)) throw new WorkbenchError(400, t('흐름 id는 영문 소문자 · 숫자 · 하이픈입니다', 'Flow IDs use lowercase letters, digits and hyphens'))
   return path.join(root(wb), id)
 }
-const none = () => new WorkbenchError(404, t('없는 문제입니다', 'No such problem'))
+const none = () => new WorkbenchError(404, t('없는 흐름입니다', 'No such flow'))
 
 function load(wb: Workbench, id: string): Loaded {
   const dir = dirOf(wb, id)
@@ -138,7 +138,7 @@ function load(wb: Workbench, id: string): Loaded {
   if (!fs.existsSync(file)) throw none()
   const text = fs.readFileSync(file, 'utf8')
   const raw = parseProblem(text)
-  if (!raw) throw new WorkbenchError(422, t(`문제 파일을 읽지 못했습니다: ${PROBLEMS_DIR}/${id}/${PROBLEM_FILE}`, `Cannot read the problem file: ${PROBLEMS_DIR}/${id}/${PROBLEM_FILE}`))
+  if (!raw) throw new WorkbenchError(422, t(`흐름 파일을 읽지 못했습니다: ${PROBLEMS_DIR}/${id}/${PROBLEM_FILE}`, `Cannot read the flow file: ${PROBLEMS_DIR}/${id}/${PROBLEM_FILE}`))
   const attempts: Loaded['attempts'] = []
   const bad: string[] = []
   for (const f of fs.readdirSync(dir).sort()) {
@@ -157,7 +157,7 @@ const labelOf = (id: string) => id.charAt(0).toUpperCase() + id.slice(1)
 const rank = (order: string[], a: RawAttempt) => { const i = order.indexOf(a.id); return i === -1 ? Number.MAX_SAFE_INTEGER : i }
 const bySeq = (order: string[]) => (a: RawAttempt, b: RawAttempt) => rank(order, a) - rank(order, b) || (a.created ?? '').localeCompare(b.created ?? '') || a.id.localeCompare(b.id)
 
-/** 부모 다음에 자식, 형제는 순서대로. 없는 부모를 가리키면 문제 바로 아래로 읽는다 */
+/** 부모 다음에 자식, 형제는 순서대로. 없는 부모를 가리키면 흐름 바로 아래로 읽는다 */
 function tree(p: RawProblem, list: RawAttempt[]): { a: RawAttempt; depth: number }[] {
   const ids = new Set(list.map((a) => a.id))
   const kids = (parent: string | undefined) => list.filter((a) => (a.parent && ids.has(a.parent) && a.parent !== a.id ? a.parent : undefined) === parent).sort(bySeq(p.order))
@@ -261,7 +261,7 @@ function userOnly(actor: string, ko: string, en: string): void {
 }
 function fresh(l: Loaded, baseHash: string): void {
   const now = hashOf(l.text)
-  if (now !== baseHash) throw new ConflictError(t('그새 문제 파일이 바뀌었습니다. 다시 읽고 고쳐 주세요', 'The problem file changed meanwhile. Read it again and retry'), now)
+  if (now !== baseHash) throw new ConflictError(t('그새 흐름 파일이 바뀌었습니다. 다시 읽고 고쳐 주세요', 'The flow file changed meanwhile. Read it again and retry'), now)
 }
 const saveProblem = (l: Loaded, p: RawProblem) => writeAtomic(path.join(l.dir, PROBLEM_FILE), dumpProblem(p))
 const saveAttempt = (l: Loaded, a: RawAttempt) => writeAtomic(path.join(l.dir, `${a.id}.yaml`), dumpAttempt(a))
@@ -301,12 +301,12 @@ export function patchProblem(wb: Workbench, id: string, body: ProblemPatchBody, 
   const set = body.set
   const touched = Object.entries(set).filter(([, v]) => v !== undefined).map(([k]) => k)
   if (!isUser(actor) && touched.some((k) => !AGENT_FIELDS.includes(k))) userOnly(actor, '질문 · 메시지 · 독자 · 한도 · 순서', 'The question, message, reader, limit and order')
-  if (l.raw.state === 'closed') throw new WorkbenchError(409, t('종료한 문제는 고치지 않습니다', 'A closed problem is not edited'))
+  if (l.raw.state === 'closed') throw new WorkbenchError(409, t('종료한 흐름은 고치지 않습니다', 'A closed flow is not edited'))
   const p: RawProblem = { ...l.raw }
   if (set.question !== undefined) p.question = set.question
   const put = (k: 'if_yes' | 'if_no' | 'reader' | 'first_test' | 'grading') => { if (set[k] !== undefined) { const v = clean(set[k]); if (v) p[k] = v; else delete p[k] } }
   put('if_yes'); put('if_no'); put('reader'); put('first_test'); put('grading')
-  if (p.state === 'open' && (!p.if_yes || !p.if_no || !p.reader)) throw new WorkbenchError(400, t('시작한 문제의 메시지(예 · 아니오)와 독자는 비울 수 없습니다', 'An open problem keeps its message (yes and no) and its reader'))
+  if (p.state === 'open' && (!p.if_yes || !p.if_no || !p.reader)) throw new WorkbenchError(400, t('시작한 흐름의 메시지(예 · 아니오)와 독자는 비울 수 없습니다', 'An open flow keeps its message (yes and no) and its reader'))
   if (set.literature) {
     const old = new Map(l.raw.literature.map((x) => [`${x.ref}\n${x.fact}`, x]))
     p.literature = set.literature.map((x) => old.get(`${x.ref}\n${x.fact}`) ?? { ...x, by: actor, at: now() })
@@ -325,11 +325,11 @@ export function patchProblem(wb: Workbench, id: string, body: ProblemPatchBody, 
 
 /** 시작: 사용자만. 메시지(예 · 아니오)와 독자가 있어야 한다 (메시지 관문) */
 export function openProblem(wb: Workbench, id: string, baseHash: string, actor: string): Problem {
-  userOnly(actor, '문제 시작', 'Opening a problem')
+  userOnly(actor, '흐름 시작', 'Opening a flow')
   const l = load(wb, id)
   fresh(l, baseHash)
   if (l.raw.state === 'open') return view(l)
-  if (l.raw.state === 'closed') throw new WorkbenchError(409, t('종료한 문제입니다', 'This problem is closed'))
+  if (l.raw.state === 'closed') throw new WorkbenchError(409, t('종료한 흐름입니다', 'This flow is closed'))
   const missing = [!l.raw.if_yes && t('답이 예일 때의 한 문장', 'the sentence if the answer is yes'), !l.raw.if_no && t('답이 아니오일 때의 한 문장', 'the sentence if the answer is no'), !l.raw.reader && t('독자', 'the reader')].filter((x): x is string => !!x)
   if (missing.length) throw new WorkbenchError(400, t(`시작하려면 다음을 적어 주세요: ${missing.join(' · ')}`, `To start, write: ${missing.join(', ')}`))
   saveProblem(l, { ...l.raw, state: 'open', opened: now() })
@@ -337,20 +337,20 @@ export function openProblem(wb: Workbench, id: string, baseHash: string, actor: 
 }
 
 export function closeProblem(wb: Workbench, id: string, body: { baseHash: string; reason: string }, actor: string): Problem {
-  userOnly(actor, '문제 종료', 'Closing a problem')
+  userOnly(actor, '흐름 종료', 'Closing a flow')
   const l = load(wb, id)
   fresh(l, body.baseHash)
-  if (l.raw.state !== 'open') throw new WorkbenchError(409, t('진행 중인 문제만 종료합니다', 'Only an open problem is closed'))
+  if (l.raw.state !== 'open') throw new WorkbenchError(409, t('진행 중인 흐름만 종료합니다', 'Only an open flow is closed'))
   saveProblem(l, { ...l.raw, state: 'closed', closed: { at: now(), reason: body.reason } })
   return readProblem(wb, id)
 }
 
-/** 시작하지 않은 문제(제안 · 쓰는 중)를 지운다: problems/.trash/로 옮긴다 */
+/** 시작하지 않은 흐름(제안 · 쓰는 중)을 지운다: problems/.trash/로 옮긴다 */
 export function removeProblem(wb: Workbench, id: string, baseHash: string, actor: string): void {
-  userOnly(actor, '문제 삭제', 'Removing a problem')
+  userOnly(actor, '흐름 삭제', 'Removing a flow')
   const l = load(wb, id)
   fresh(l, baseHash)
-  if (l.raw.state === 'open' || l.raw.state === 'closed') throw new WorkbenchError(409, t('시작한 문제는 지우지 않고 종료합니다', 'A started problem is closed, not removed'))
+  if (l.raw.state === 'open' || l.raw.state === 'closed') throw new WorkbenchError(409, t('시작한 흐름은 지우지 않고 종료합니다', 'A started flow is closed, not removed'))
   const trash = path.join(root(wb), '.trash')
   fs.mkdirSync(trash, { recursive: true })
   fs.renameSync(l.dir, path.join(trash, `${id}-${stamp('compact')}`))
@@ -359,7 +359,7 @@ export function removeProblem(wb: Workbench, id: string, baseHash: string, actor
 // ---------- 시도 ----------
 
 function needOpen(l: Loaded): void {
-  if (l.raw.state !== 'open') throw new WorkbenchError(409, t('사용자가 시작한 문제에서만 일합니다. 이 문제는 아직 시작 전이거나 종료했습니다', 'Work only on a problem the user has opened. This one is not open'))
+  if (l.raw.state !== 'open') throw new WorkbenchError(409, t('사용자가 시작한 흐름에서만 일합니다. 이 흐름은 아직 시작 전이거나 종료했습니다', 'Work only on a flow the user has opened. This one is not open'))
 }
 function attemptOf(l: Loaded, aid: string): RawAttempt {
   const a = l.attempts.find((x) => x.raw.id === aid)?.raw
@@ -469,7 +469,7 @@ export function directionReport(wb: Workbench, id: string, body: DirectionReport
   return readProblem(wb, id)
 }
 
-/** 계속 · 좁히기는 한도를 올리고, 종료는 문제를 닫는다. 사용자만 */
+/** 계속 · 좁히기는 한도를 올리고, 종료는 흐름을 닫는다. 사용자만 */
 export function decideDirection(wb: Workbench, id: string, body: DirectionDecisionBody, actor: string): Problem {
   userOnly(actor, '계속 · 좁히기 · 종료의 결정', 'Deciding to continue, narrow or close')
   const l = load(wb, id)

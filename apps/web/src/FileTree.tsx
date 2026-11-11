@@ -12,7 +12,7 @@ import { useDismiss } from './useDismiss'
 
 /**
  * 저장소의 파일 나무 (왼쪽 사이드바 「파일」 탭, 10/28 시안 6절). 나무는 이 한 곳에만 두고, 누르면 저장소 쪽이 그 파일을 탭으로 연다.
- * 폴더 옆 회색 말은 앱에서 그것이 무엇인지(주제 · 노트 · 흐름 점 · 기록 · 규칙 · 참고문헌 …), 주황 점은 커밋 안 한 변경.
+ * 폴더 옆 회색 말은 앱에서 그것이 무엇인지(주제 · 노트 · 흐름 · 기록 · 규칙 · 참고문헌 …), 주황 점은 커밋 안 한 변경.
  * 지금 연 파일(저장소 쪽의 탭, 또는 지금 연 노트 · 파일 탭)이 골라져 있고 그 위 폴더는 펼쳐진다. 펼친 폴더는 프로젝트마다 기억한다.
  */
 
@@ -50,7 +50,7 @@ export function meaningOf(rid: string, path: string, dir: Dir | null, sources: P
     if (a === 'notes' && seg.length === 2) return { label: t(`노트${n(subdirs)}`, `Notes${n(subdirs)}`) }
     if (a === 'notes' && b && seg.length === 3 && dir) return { label: t('노트', 'Note') }
     if (seg.length === 2 && dir) {
-      if (a === 'flow') return { label: t(`흐름 점${n(kids)}`, `Flow dots${n(kids)}`), to: { page: 'flow', rid } }
+      if (a === 'problems') return { label: t(`흐름${n(kids)}`, `Flows${n(kids)}`), to: { page: 'problems', rid } }
       if (a === 'comments') return { label: t(`기록${n(kids)}`, `Records${n(kids)}`), to: { page: 'records', rid } }
       if (a === 'tasks') return { label: t(`맡긴 일${n(kids)}`, `Delegated tasks${n(kids)}`), to: { page: 'records', rid } }
       if (a === 'log') return { label: t(`일지${n(kids)}`, `Journal${n(kids)}`), to: { page: 'records', rid } }

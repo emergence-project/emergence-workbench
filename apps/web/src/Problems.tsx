@@ -1,16 +1,17 @@
 import { useCallback, useState, type CSSProperties, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type AttemptState, type DirectionReport, type ProblemDoc, type ProblemRow, type ProblemState, type ProblemStop } from './api'
+import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type AttemptState, type DirectionReport, type ProblemDoc, type ProblemRow, type ProjectKind, type ProblemState, type ProblemStop } from './api'
 import { Icon } from './icons'
 import { t } from './i18n'
 import { CloseDialog, ProblemDialog, VerdictDialog } from './ProblemDialogs'
+import { flowName } from './projectProfile'
 import { qk } from './queries'
 import { go } from './router'
 import { agentName } from './taskView'
 
 /**
- * 문제와 시도 나무 (11/11 사용자 결정 "흐름을 시도 나무로 · 메시지 관문", 시안 J2uZ 4절).
- * 문제는 사용자가 메시지(답이 예 · 아니오일 때의 한 문장)와 독자를 쓰고 시작해야 열린다. 에이전트는 그 아래에 시도 후보를 늘어놓고 하나씩 해 보며,
+ * 흐름과 시도 나무 (11/11 사용자 결정 "흐름을 시도 나무로 · 메시지 관문", 시안 J2uZ 4절).
+ * 흐름은 사용자가 메시지(답이 예 · 아니오일 때의 한 문장)와 독자를 쓰고 시작해야 열린다. 에이전트는 그 아래에 시도 후보를 늘어놓고 하나씩 해 보며,
  * 성립 · 폐기는 일한 쪽이 아닌 쪽이 정한다. 한도나 정체에서는 방향 보고가 오고 사용자가 계속 · 좁히기 · 종료를 정한다.
  * 파일은 workbench/problems/<id>/ (docs/repo-format.md §16). 에이전트는 MCP 도구(problem_brief · attempt_* · direction_report)로 같은 것을 쓴다.
  */
@@ -30,23 +31,23 @@ const who = (name: string) => (name === 'user' ? t('나', 'me') : agentName(name
 const when = (s: string | undefined) => (s ? s.slice(5, 16).replace('-', '/').replace('T', ' ') : '')
 const errorOf = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
-/** 문제 목록 (화면 캐시 qk.problems: 문제 파일 알림이 오면, 화면이 쓰면 다시 읽는다). 사이드바의 수도 이것을 쓴다 */
+/** 흐름 목록 (화면 캐시 qk.problems: 흐름 파일 알림이 오면, 화면이 쓰면 다시 읽는다). 사이드바의 수도 이것을 쓴다 */
 export function useProblems(rid: string) {
   return useQuery({ queryKey: qk.problems(rid), queryFn: () => problemsApi(rid).list() })
 }
-/** 사용자 차례: 방향 보고가 결정을 기다리는 문제 수 */
+/** 사용자 차례: 방향 보고가 결정을 기다리는 흐름 수 */
 export const problemTurns = (rows: ProblemRow[] | undefined) => rows?.filter((p) => p.waiting).length ?? 0
 
 function AttemptDot({ s, label }: { s: AttemptState; label?: boolean }) {
   return <><span className={`g ${ATTEMPT_DOT[s]}`} role="img" aria-label={ATTEMPT_NAME[s]} title={ATTEMPT_NAME[s]} />{label && <span className="g-name">{ATTEMPT_NAME[s]}</span>}</>
 }
 
-export function ProblemsPage({ rid, id, onSaved }: { rid: string; id?: string; onSaved(msg: string): void }) {
+export function ProblemsPage({ rid, id, kind, onSaved }: { rid: string; id?: string; kind?: ProjectKind; onSaved(msg: string): void }) {
   return (
-    <div className="ws-doc" data-ui="문제 쪽">
+    <div className="ws-doc" data-ui="흐름 쪽">
       <section className="pane" data-ui="본문">
         <div className="scroll">
-          <div className="page-body pb-page">{id ? <ProblemView key={id} rid={rid} id={id} onSaved={onSaved} /> : <ProblemList rid={rid} />}</div>
+          <div className="page-body pb-page">{id ? <ProblemView key={id} rid={rid} id={id} onSaved={onSaved} /> : <ProblemList rid={rid} kind={kind} />}</div>
         </div>
       </section>
     </div>
@@ -60,7 +61,7 @@ function Row({ rid, p }: { rid: string; p: ProblemRow }) {
   const now = p.state !== 'open' ? (p.source ? t(`출처: ${p.source}`, `Source: ${p.source}`) : '')
     : p.stop ? STOP_TEXT[p.stop] : p.next ? t(`다음 ${p.next.label} ${p.next.method}`, `Next ${p.next.label} ${p.next.method}`) : ''
   return (
-    <button className="pb-row" data-ui="문제 줄" data-ui-item={p.question} onClick={() => go({ page: 'problems', rid, id: p.id })}>
+    <button className="pb-row" data-ui="흐름 줄" data-ui-item={p.question} onClick={() => go({ page: 'problems', rid, id: p.id })}>
       <span className="pb-q">{p.question}</span>
       {p.waiting && <span className="rail-count" title={STOP_TEXT.decision}>1</span>}
       {p.state === 'open' && <span className="pb-nums">{t(`시도 ${p.used}/${p.limit} · 성립 ${c.holds} · 폐기 ${c.dropped}`, `Attempts ${p.used}/${p.limit} · holds ${c.holds} · dropped ${c.dropped}`)}{c.reported ? t(` · 판정 대기 ${c.reported}`, ` · awaiting verdict ${c.reported}`) : ''}</span>}
@@ -76,7 +77,7 @@ function Group({ ui, title, hint, rows, rid, folded }: { ui: string; title: stri
   return <section className="pb-sec" data-ui={ui}><h3 className="pb-h3">{title} <span className="muted">{rows.length}</span></h3>{list}</section>
 }
 
-function ProblemList({ rid }: { rid: string }) {
+function ProblemList({ rid, kind }: { rid: string; kind?: ProjectKind }) {
   const q = useProblems(rid)
   const client = useQueryClient()
   const [adding, setAdding] = useState(false)
@@ -84,22 +85,22 @@ function ProblemList({ rid }: { rid: string }) {
   const of = (s: ProblemState) => rows.filter((p) => p.state === s)
   return <>
     <header className="pb-head">
-      <h2 className="pb-h">{t('문제', 'Problems')}</h2><span className="sp" />
-      <button className="btn" data-ui="문제 추가" onClick={() => setAdding(true)}>＋ {t('문제', 'Problem')}</button>
+      <h2 className="pb-h">{flowName(kind)}</h2><span className="sp" />
+      <button className="btn" data-ui="흐름 추가" onClick={() => setAdding(true)}>＋ {t('흐름', 'Flow')}</button>
     </header>
-    <p className="pb-hint">{t('문제는 메시지(답이 예 · 아니오일 때의 한 문장)와 독자를 쓰고 시작합니다. 에이전트는 시작한 문제 아래에서만 시도를 늘어놓고 해 봅니다.', 'A problem starts once you write its message (the one sentence if the answer is yes, and if it is no) and its reader. Agents list and try attempts only under a started problem.')}</p>
+    <p className="pb-hint">{t('흐름은 메시지(답이 예 · 아니오일 때의 한 문장)와 독자를 쓰고 시작합니다. 에이전트는 시작한 흐름 아래에서만 시도를 늘어놓고 해 봅니다.', 'A flow starts once you write its message (the one sentence if the answer is yes, and if it is no) and its reader. Agents list and try attempts only under a started flow.')}</p>
     {q.error && <div className="banner danger">{t(`읽지 못했습니다: ${errorOf(q.error)}`, `Could not read: ${errorOf(q.error)}`)}</div>}
-    {q.data?.diagnostics.map((d) => <div key={d.file} className="banner" data-ui="문제 파일 오류">{d.file}: {d.message}</div>)}
-    {q.data && rows.length === 0 && <p className="empty">{t('아직 문제가 없습니다. 「문제」로 질문 하나를 적습니다.', 'No problems yet. Write a question with "Problem".')}</p>}
-    <Group ui="진행 문제" title={t('진행', 'Open')} rows={of('open')} rid={rid} />
-    <Group ui="쓰는 중 문제" title={t('쓰는 중', 'Draft')} rows={of('draft')} rid={rid} />
-    <Group ui="제안 문제" title={t('제안', 'Proposed')} hint={t('에이전트가 일하다 올린 질문. 메시지를 쓰고 시작하면 문제가 됩니다', 'Questions agents raised while working. One becomes a problem when you write its message and start it')} rows={of('proposed')} rid={rid} folded />
-    <Group ui="종료 문제" title={t('종료', 'Closed')} rows={of('closed')} rid={rid} folded />
+    {q.data?.diagnostics.map((d) => <div key={d.file} className="banner" data-ui="흐름 파일 오류">{d.file}: {d.message}</div>)}
+    {q.data && rows.length === 0 && <p className="empty">{t('아직 흐름이 없습니다. 「＋ 흐름」으로 질문 하나를 적습니다.', 'No flows yet. Write a question with "＋ Flow".')}</p>}
+    <Group ui="진행 흐름" title={t('진행', 'Open')} rows={of('open')} rid={rid} />
+    <Group ui="쓰는 중 흐름" title={t('쓰는 중', 'Draft')} rows={of('draft')} rid={rid} />
+    <Group ui="제안 흐름" title={t('제안', 'Proposed')} hint={t('에이전트가 일하다 올린 질문. 메시지를 쓰고 시작하면 흐름이 됩니다', 'Questions agents raised while working. One becomes a flow when you write its message and start it')} rows={of('proposed')} rid={rid} folded />
+    <Group ui="종료 흐름" title={t('종료', 'Closed')} rows={of('closed')} rid={rid} folded />
     {adding && <ProblemDialog rid={rid} onClose={() => setAdding(false)} onDone={(p) => { setAdding(false); void client.invalidateQueries({ queryKey: qk.problems(rid) }); go({ page: 'problems', rid, id: p.id }) }} />}
   </>
 }
 
-// ---------- 문제 하나 ----------
+// ---------- 흐름 하나 ----------
 
 type Open = { k: 'edit' } | { k: 'close' } | { k: 'verdict'; attempt: Attempt; result: 'holds' | 'dropped' }
 
@@ -124,17 +125,17 @@ function ProblemView({ rid, id, onSaved }: { rid: string; id: string; onSaved(ms
   const report = p.reports.at(-1)
   const pending = p.stop === 'decision' && report ? report : null
   return <>
-    <header className="pb-head" data-ui="문제 머리">
-      <button className="a pb-back" onClick={() => go({ page: 'problems', rid })}>{t('문제', 'Problems')}</button>
+    <header className="pb-head" data-ui="흐름 머리">
+      <button className="a pb-back" onClick={() => go({ page: 'problems', rid })}>{t('흐름', 'Flows')}</button>
       <span className="sp" />
-      <button className="icon-btn" data-ui="문제 수정" data-tip={t('수정', 'Edit')} aria-label={t('수정', 'Edit')} disabled={p.state === 'closed'} onClick={() => setOpen({ k: 'edit' })}>{Icon.pencil}</button>
-      {!started && <button className="icon-btn" data-ui="문제 삭제" data-tip={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} disabled={busy}
+      <button className="icon-btn" data-ui="흐름 수정" data-tip={t('수정', 'Edit')} aria-label={t('수정', 'Edit')} disabled={p.state === 'closed'} onClick={() => setOpen({ k: 'edit' })}>{Icon.pencil}</button>
+      {!started && <button className="icon-btn" data-ui="흐름 삭제" data-tip={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} disabled={busy}
         onClick={() => void run(async () => { await api.remove(p.id, p.hash); go({ page: 'problems', rid }) }, t('삭제했습니다 (problems/.trash/에 남습니다)', 'Deleted (kept in problems/.trash/)'))}>{Icon.trash}</button>}
-      {p.state === 'open' && !pending && <button className="btn" data-ui="문제 종료" onClick={() => setOpen({ k: 'close' })}>{t('종료', 'Close')}</button>}
-      {!started && <button className="btn primary" data-ui="문제 시작" disabled={busy || !ready} title={ready ? t('시작하면 에이전트가 이 문제 아래에서 시도를 늘어놓고 해 봅니다', 'Once started, agents list and try attempts under this problem') : t('메시지(예 · 아니오)와 독자를 쓰면 시작할 수 있습니다', 'Write the message (yes and no) and the reader to start')}
+      {p.state === 'open' && !pending && <button className="btn" data-ui="흐름 종료" onClick={() => setOpen({ k: 'close' })}>{t('종료', 'Close')}</button>}
+      {!started && <button className="btn primary" data-ui="흐름 시작" disabled={busy || !ready} title={ready ? t('시작하면 에이전트가 이 흐름 아래에서 시도를 늘어놓고 해 봅니다', 'Once started, agents list and try attempts under this flow') : t('메시지(예 · 아니오)와 독자를 쓰면 시작할 수 있습니다', 'Write the message (yes and no) and the reader to start')}
         onClick={() => void run(() => api.open(p.id, p.hash), t('시작했습니다', 'Started'))}>{t('시작', 'Start')}</button>}
     </header>
-    <h2 className="pb-title" data-ui="문제 질문">{p.question}</h2>
+    <h2 className="pb-title" data-ui="흐름 질문">{p.question}</h2>
     <div className="pb-meta">
       <span>{STATE_NAME[p.state]}</span>
       {started && <span>{t(`시도 ${p.used} / 한도 ${p.limit}`, `Attempts ${p.used} / limit ${p.limit}`)}</span>}
@@ -174,13 +175,13 @@ function ProblemView({ rid, id, onSaved }: { rid: string; id: string; onSaved(ms
 
 const VERDICT_NAME = { continue: t('계속', 'Continue'), narrow: t('좁히기', 'Narrow'), close: t('종료', 'Close') }
 
-/** 문제 열기: 사용자의 두 줄(메시지 · 독자)과 에이전트의 세 줄(문헌 대조 · 첫 시험 · 채점) */
+/** 흐름 열기: 사용자의 두 줄(메시지 · 독자)과 에이전트의 세 줄(문헌 대조 · 첫 시험 · 채점) */
 function Gate({ p, busy, onDropLiterature }: { p: ProblemDoc; busy: boolean; onDropLiterature(i: number): void }) {
   const none = <span className="muted">{t('아직 없음', 'Not written yet')}</span>
   const line = (k: string, by: string, v: ReactNode) => <><dt>{k}<small>{by}</small></dt><dd>{v}</dd></>
   const me = t('사용자', 'You'), agent = t('에이전트', 'Agent')
   return (
-    <section className="pb-sec" data-ui="문제 열기">
+    <section className="pb-sec" data-ui="흐름 열기">
       <dl className="pb-gate-list">
         {line(t('예이면', 'If yes'), me, p.if_yes ?? none)}
         {line(t('아니오이면', 'If no'), me, p.if_no ?? none)}
@@ -224,7 +225,7 @@ function Decision({ p, report, busy, onDecide }: { p: ProblemDoc; report: Direct
         <label className="pb-newlimit">{t('새 한도', 'New limit')} <input type="number" min={p.used + 1} max={99} value={limit} onChange={(e) => setLimit(e.target.value)} /></label>
         <button className="btn" data-ui="계속" disabled={busy || !ok} title={t('한도를 올리고 같은 질문으로 계속합니다', 'Raise the limit and continue with the same question')} onClick={() => onDecide('continue', note, n)}>{VERDICT_NAME.continue}</button>
         <button className="btn" data-ui="좁히기" disabled={busy || !ok} title={t('한도를 올리고 질문 · 메시지를 좁혀 수정합니다', 'Raise the limit and narrow the question or message')} onClick={() => onDecide('narrow', note, n)}>{VERDICT_NAME.narrow}</button>
-        <button className="btn" data-ui="종료" disabled={busy} title={t('이유와 나무를 남기고 문제를 종료합니다', 'Close the problem, keeping the reason and the tree')} onClick={() => onDecide('close', note)}>{VERDICT_NAME.close}</button>
+        <button className="btn" data-ui="종료" disabled={busy} title={t('이유와 나무를 남기고 흐름을 종료합니다', 'Close the flow, keeping the reason and the tree')} onClick={() => onDecide('close', note)}>{VERDICT_NAME.close}</button>
       </div>
     </section>
   )

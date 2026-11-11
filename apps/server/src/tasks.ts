@@ -141,7 +141,6 @@ function taskFromInspection(id: string, file: string, content: string, mtime: nu
   return {
     id, file, title,
     ...optional('topic', text(fm.topic)),
-    ...optional('flow', text(fm.flow)),
     ...(fm.priority === 1 || fm.priority === 2 || fm.priority === 3 ? { priority: fm.priority } : {}),
     agent: text(fm.agent) ?? '',
     created: text(fm.created) ?? '',
@@ -251,13 +250,10 @@ export function createTask(wb: Workbench, input: NewTask, now = new Date()): Tas
   const agent = one(input.agent) ?? 'claude-code'
   const topic = one(input.topic)
   if (topic && !/^[a-z0-9][a-z0-9-]*$/.test(topic)) throw new WorkbenchError(400, tl(`주제 id가 아님: ${topic}`, `Not a topic id: ${topic}`))
-  const flow = one(input.flow)
-  if (flow && !/^[a-z0-9][a-z0-9-]*$/.test(flow)) throw new WorkbenchError(400, tl(`흐름 점 id가 아님: ${flow}`, `Not a flow dot id: ${flow}`))
   const references = (input.references ?? []).map((r) => r.trim()).filter(Boolean)
   const fm: Record<string, unknown> = {
     title,
     ...(topic ? { topic } : {}),
-    ...(flow ? { flow } : {}),
     agent,
     created: stamp(now),
     state: 'working',
@@ -341,26 +337,6 @@ export function judgeTask(wb: Workbench, id: string, body: Judge, now = new Date
   return after
 }
 
-/**
- * 흐름 점과 잇기 · 풀기 (10/27 결정 "맡긴 일과 흐름 점 잇기" (c)): 사용자가 짝 제안에서 "잇기"를 누를 때만 flow 한 줄을 쓴다.
- * 줄은 topic(없으면 title) 바로 뒤에 둔다. 흐름 점 파일은 고치지 않는다
- */
-export function linkTaskFlow(wb: Workbench, id: string, body: { flow: string | null; baseHash: string }, opts: { skipHash?: boolean } = {}): Task {
-  const t = readTask(wb, id)
-  if (!opts.skipHash) checkHash(t, body.baseHash)
-  const flow = body.flow?.trim() || null
-  if (flow && !/^[a-z0-9][a-z0-9-]*$/.test(flow)) throw new WorkbenchError(400, tl(`흐름 점 id가 아님: ${flow}`, `Not a flow dot id: ${flow}`))
-  if (flow && !fs.existsSync(path.join(wb.root, 'flow', `${flow}.yaml`))) throw new WorkbenchError(400, tl(`흐름 점 ${flow}이 없습니다`, `No flow dot ${flow}`))
-  return editFront(wb, t, (doc) => {
-    if (!flow) { doc.delete('flow'); return }
-    if (doc.has('flow')) { doc.set('flow', flow); return }
-    const map = doc.contents
-    if (!YAML.isMap(map)) { doc.set('flow', flow); return }
-    const at = map.items.findIndex((p) => YAML.isScalar(p.key) && p.key.value === (doc.has('topic') ? 'topic' : 'title'))
-    map.items.splice(at + 1, 0, doc.createPair('flow', flow))
-  })
-}
-
 /** 사용자 확인 요청에 답하기: n번(1부터) 요청에 고른 답과 덧붙일 말. 같은 번호에 다시 답하면 새 답이 앞의 답을 대신한다 */
 export function answerTask(wb: Workbench, id: string, body: Answer, now = new Date()): Task {
   const t = readTask(wb, id)
@@ -410,7 +386,6 @@ export function nextTask(wb: Workbench, id: string, body: Next, now = new Date()
     endCondition: edit.endCondition ?? item.endCondition,
     references: edit.references ?? [t.file],
     avoid: edit.avoid ?? t.avoid,
-    ...(edit.kind && { kind: edit.kind }), ...(edit.by && { by: edit.by }),
   })
   const task = editFront(wb, t, (doc) => { setItem(doc, 'dropped', undefined); setItem(doc, 'started', started.id) })
   return { task, started }

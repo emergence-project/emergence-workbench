@@ -20,12 +20,11 @@ describe('파일 알림 → 다시 받을 자료', () => {
     expect(['note', 'journal', 'comments'].flatMap((type) => invalidationKeys({ type, research: 'p', id: 'x', file: 'f', hash: null, date: 'd', target: 't' } as never))).not.toContainEqual(qk.feedback)
     // 맡긴 일 파일은 맡긴 일 · 확인할 것의 수 · 현황만
     expect(invalidationKeys({ type: 'tasks', research: 'p', id: 'x' })).toEqual([qk.tasks('p'), qk.researchIssues, qk.status('p'), qk.changes('p')])
-    // 확인할 것의 수(레일 · 홈 · 폰 내 차례)는 일지 · 흐름처럼 세는 데 들지 않는 알림에는 다시 받지 않는다
-    for (const type of ['journal', 'flow', 'sources', 'statement']) expect(invalidationKeys({ type, research: 'p', date: 'd' } as never)).not.toContainEqual(qk.researchIssues)
+    // 확인할 것의 수(레일 · 홈 · 폰 내 차례)는 일지처럼 세는 데 들지 않는 알림에는 다시 받지 않는다
+    for (const type of ['journal', 'sources', 'statement']) expect(invalidationKeys({ type, research: 'p', date: 'd' } as never)).not.toContainEqual(qk.researchIssues)
     // 피드백 전부는 피드백 키 아래라 피드백을 남기거나 고치면 함께 다시 받는다
     expect(qk.feedbackAll.slice(0, 1)).toEqual([...qk.feedback])
     // 현황(STATUS.md와 같은 글)은 그 프로젝트의 어느 파일에서나 뽑으므로 모든 알림에 든다. research는 프로젝트 키 전체라 따로 넣지 않는다
-    expect(invalidationKeys({ type: 'flow', research: 'p' })).toEqual([qk.flow('p'), qk.status('p'), qk.changes('p')])
     expect(invalidationKeys({ type: 'preamble', research: 'p' })).toEqual([qk.status('p'), qk.changes('p')])
     // 기록 올리기 결과가 바뀌면(실패가 생기거나 풀림) 그 결과와 안 올린 기록 (기록 탭 맨 위 줄 · 실패 알림 · 맥락 칸 올리기)
     expect(invalidationKeys({ type: 'records-publish', research: 'p' })).toEqual([qk.recordsPublish('p'), qk.status('p'), qk.changes('p')])
@@ -47,7 +46,7 @@ describe('파일 알림 → 다시 받을 자료', () => {
     for (const keys of [sources, comments]) expect(keys).not.toContainEqual(qk.people)
     expect(comments).not.toContainEqual(qk.peopleSuggestions)
     // 노트 · 블록 · 일지 알림은 네트워킹 자료를 건드리지 않는다
-    for (const type of ['note', 'journal', 'tasks', 'flow'] as const) {
+    for (const type of ['note', 'journal', 'tasks', 'problems'] as const) {
       const keys = invalidationKeys({ type, research: 'p', id: 'x', file: 'f', hash: null, date: 'd' } as never)
       expect(keys.some((k) => k[0] === 'network')).toBe(false)
     }

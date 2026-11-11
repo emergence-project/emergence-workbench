@@ -1,7 +1,7 @@
 // 에이전트용 입구 (MCP, 읽기 단계 A): Claude Code · Codex가 앱의 서버 API를 거쳐 프로젝트를 읽는다.
 // 파일을 직접 읽거나 쓰지 않고 맥에서 도는 앱 서버(127.0.0.1)만 부른다. 그래서 화면과 같은 규칙과 hash를 쓴다.
 // 강점 강화 계획(2026-10-08)의 A단계. 쓰기 도구는 노트 · 개념노트 고치기(edit_note · edit_concept, 10/8 에이전트 고침 검토), 질문에 답하기(answer_record, 10/15), 사용자에게 묻는 기록 남기기(add_record, 10/15),
-// 흐름(flow_*, 10/20), 맡긴 일 만들기 · 보고(add_task · report_task)와 일지(add_journal, 10/21: 에이전트가 workbench 파일을 직접 고치지 않게). 등록은 docs/agent-mcp.md
+// 맡긴 일 만들기 · 보고(add_task · report_task)와 일지(add_journal, 10/21: 에이전트가 workbench 파일을 직접 고치지 않게). 등록은 docs/agent-mcp.md
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -14,8 +14,6 @@ import { recordRows } from './recordRows.js'
 import { registerTaskTools } from './mcpTasks.js'
 import { PROBLEM_INSTRUCTIONS, registerProblemTools } from './mcpProblems.js'
 import { KEY_HEADER, serverTarget } from './appKey.js'
-import { KIND_NAME, shownName } from './flowNames.js'
-import * as C from '@rw/core/contract/flow'
 import type { Changes } from '@rw/core/contract/changes'
 import { changesText } from './mcpChanges.js'
 
@@ -24,7 +22,7 @@ const RULES_FILE = path.join(APP_ROOT, 'docs/agent-delegated-work.md')
 
 /** 모든 도구가 지키는 것. rules 도구가 맡긴 일 규칙과 함께 돌려준다 (도구 이름·설명은 영어, 2026-10-08) */
 export const SAFETY = [
-  '- Work on workbench files through these tools, not by reading or editing the files: project_status instead of workbench/STATUS.md (a fraction of its size), edit_note / edit_concept for notes and concept notes (the user reviews each changed paragraph in the app), add_record / answer_record for records, flow_* for the research flow, add_task / report_task for tasks, add_journal for the journal. What no tool covers goes through the app server API (GET /api gives the main routes and GET /api?all=1 every route; send the hash you read as baseHash, and read again after a 409). Edit repository files directly only for what neither covers (code, data, decisions, rules) or when the app server is unreachable: follow docs/repo-format.md and run pnpm --dir <app folder> agent:check <repository> afterwards.',
+  '- Work on workbench files through these tools, not by reading or editing the files: project_status instead of workbench/STATUS.md (a fraction of its size), edit_note / edit_concept for notes and concept notes (the user reviews each changed paragraph in the app), add_record / answer_record for records, problem_* / attempt_* for problems and attempts, add_task / report_task for tasks, add_journal for the journal. What no tool covers goes through the app server API (GET /api gives the main routes and GET /api?all=1 every route; send the hash you read as baseHash, and read again after a 409). Edit repository files directly only for what neither covers (code, data, decisions, rules) or when the app server is unreachable: follow docs/repo-format.md and run pnpm --dir <app folder> agent:check <repository> afterwards.',
   '- A note or concept note the user has reviewed (concept note checked: ok, note status solved) needs the user\'s permission in the conversation. The first attempt is refused and shown to the user; ask, and only after they agree send again with approved: true.',
   '- Edit manuscripts (LaTeX manuscripts) only when the user asks. Never edit concept notes with locked: true. Do not change bytes outside the part you edit.',
   '- The files in each repository are the source of truth. workbench/STATUS.md is a summary the app writes; do not edit it.',
@@ -39,14 +37,13 @@ export const SAFETY = [
 export const INSTRUCTIONS = [
   'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server.',
   'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on (a short summary; fetch one section by name when needed) → changes_since for what changed since you last looked (other sessions, the other Mac, the user).',
-  'Use these tools instead of reading or writing files under workbench/: they keep the app\'s format, show your work to the user (records, flow, task tab, edit reviews) and return short outputs. Edit files directly only for what no tool covers.',
+  'Use these tools instead of reading or writing files under workbench/: they keep the app\'s format, show your work to the user (records, problems, task tab, edit reviews) and return short outputs. Edit files directly only for what no tool covers.',
   'Outputs are short on purpose: read a longer rule (rules part) or STATUS section (project_status section) only when the work needs it.',
   'Answer the user\'s questions: list_records with unanswered: true → read_note for the context → answer_record (result first, a few lines).',
   'Ask the user to check something (for example a part of a note you wrote): add_record with kind 질문 and the quoted text; when the user has answered, list_records with replied: true shows it → act on it → answer_record closes it.',
   'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: rules with part: "concepts" (once) → search_library → read_concept → edit_concept.',
   'Delegated tasks: rules with part: "tasks" (once) → list_tasks → read_task → report_task with kind proposal when end-condition is empty (then stop), or kind result when the work is done. While working, checkpoint_task at milestones (one line: what happened, where, next). A to-do, handoff or proposal of new work: add_task.',
   'When you finish a piece of work: add_journal with one or two sentences on what you did and the files you touched.',
-  'Research flow (the older record: one dot = one piece of work). New research work is not added as dots since 2026-11-11; it goes under a problem (next paragraph). Read the flow to find earlier work: flow_search (refuted and dropped dots carry their reason) and flow_read. Change dots only when the user asks for it in this conversation or a task: flow_add with its criterion and the closest earlier dot (prior, adds) or why it is new (novel); finish_work or flow_update to finish one (finishing is refused while required fields are empty); flow_review for a piece of evidence or a step.',
   PROBLEM_INSTRUCTIONS,
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
   'The user\'s turn (notes to review, task results to judge, agent edits) is for the user; never act on it for them.',
@@ -59,8 +56,6 @@ const text = (s: string): Text => ({ content: [{ type: 'text', text: s }] })
 const fail = (s: string): Text => ({ content: [{ type: 'text', text: s }], isError: true })
 const json = (v: unknown): Text => text(JSON.stringify(v, null, 1))
 const enc = encodeURIComponent
-/** 찾기 줄의 상태 → 화면 이름 (flowNames.stateLabel과 같은 말) */
-const SEARCH_STATE: Record<string, string> = { open: '미해결', active: '진행', paused: '멈춤', solved: '끝남 · 해결', refuted: '끝남 · 반증', dropped: '끝남 · 폐기', theorem: '끝남 · 해결' }
 
 /** 앱 서버의 GET 하나. 서버가 꺼져 있거나 오류면 에이전트가 읽을 한 줄 오류로 */
 async function get(base: string, f: Fetch, url: string): Promise<{ ok: true; body: unknown } | { ok: false; error: Text }> {
@@ -226,7 +221,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
 
   server.registerTool('changes_since', {
     title: 'Changes since',
-    description: 'What changed in a project since you last called this tool (per agent, and per Claude account): new commits (also from the other Mac, once pulled), edits on this Mac not committed yet, and which notes, flow dots, delegated tasks, records and other files they touched, one line each with author and time. Calling it moves your baseline to now. Pass since (ISO time) to look from an earlier point instead; the first call looks back 7 days.',
+    description: 'What changed in a project since you last called this tool (per agent, and per Claude account): new commits (also from the other Mac, once pulled), edits on this Mac not committed yet, and which notes, problems and attempts, delegated tasks, records and other files they touched, one line each with author and time. Calling it moves your baseline to now. Pass since (ISO time) to look from an earlier point instead; the first call looks back 7 days.',
     inputSchema: { project, since: z.string().optional().describe('ISO time, e.g. 2026-10-26T09:00') },
     // 기준 시각만 옮긴다 (프로젝트 파일은 쓰지 않음)
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -269,19 +264,19 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
 
   server.registerTool('read_records', {
     title: 'Read records',
-    description: 'Records left on a note or the project (memos, to-dos, questions with answers, highlights) and their hash. target: project, note-<folder>, calc-<folder>, topic-<id>, flow-<id> or manuscript. part/partText = the screen part the user pointed at.',
-    inputSchema: { project: recordsProject, target: z.string().describe('project | note-<folder> | calc-<folder> | topic-<id> | flow-<id> | manuscript') },
+    description: 'Records left on a note or the project (memos, to-dos, questions with answers, highlights) and their hash. target: project, note-<folder>, calc-<folder>, topic-<id> or manuscript. part/partText = the screen part the user pointed at.',
+    inputSchema: { project: recordsProject, target: z.string().describe('project | note-<folder> | calc-<folder> | topic-<id> | manuscript') },
     annotations: ro,
   }, async ({ project: rid, target }) => call(`/api/researches/${enc(rid)}/comments/${enc(target)}`))
 
   server.registerTool('list_records', {
     title: 'List records',
-    description: 'All records of a project in one list (the project and every note, topic and flow dot; highlights excluded), filtered by kind, state or target. Kinds: 메모 (memo, nobody acts), 할 일 (to-do, the user does it), 질문 (question, an agent answers), 지시 (instruction, an agent does it and then answers). Each row is short: target, id, kind, by (the agent that wrote it; absent = the user), state, where, quote, part, todo (for a question or instruction the user asked about a to-do: that to-do\'s id and text), body (first 300 characters), answerCount and lastAnswer (by 사용자 = the user). Pass full: true, or read one target with read_records, for whole bodies and every answer. unanswered: true = the user\'s questions and instructions waiting for an agent. replied: true = questions an agent asked with add_record that the user has answered: read the answer, act on it, then close the record with answer_record. unsorted: true = records the user left as 자동 and has not sorted yet (memos until sorted; if one reads as a request, ask the user in the conversation instead of acting).',
+    description: 'All records of a project in one list (the project and every note and topic; highlights excluded), filtered by kind, state or target. Kinds: 메모 (memo, nobody acts), 할 일 (to-do, the user does it), 질문 (question, an agent answers), 지시 (instruction, an agent does it and then answers). Each row is short: target, id, kind, by (the agent that wrote it; absent = the user), state, where, quote, part, todo (for a question or instruction the user asked about a to-do: that to-do\'s id and text), body (first 300 characters), answerCount and lastAnswer (by 사용자 = the user). Pass full: true, or read one target with read_records, for whole bodies and every answer. unanswered: true = the user\'s questions and instructions waiting for an agent. replied: true = questions an agent asked with add_record that the user has answered: read the answer, act on it, then close the record with answer_record. unsorted: true = records the user left as 자동 and has not sorted yet (memos until sorted; if one reads as a request, ask the user in the conversation instead of acting).',
     inputSchema: {
       project: recordsProject,
       kind: z.enum(['메모', '할 일', '질문', '지시']).optional().describe('메모 (memo) | 할 일 (to-do) | 질문 (question) | 지시 (instruction)'),
       state: z.enum(['대기', '답함', '끝냄']).optional().describe('대기 (waiting) | 답함 (answered) | 끝냄 (closed)'),
-      target: z.string().optional().describe('Only this target, or a prefix ending in - (note-, topic-, flow- …)'),
+      target: z.string().optional().describe('Only this target, or a prefix ending in - (note-, topic- …)'),
       unanswered: z.boolean().optional().describe('Only the user\'s questions and instructions still waiting for an agent (kind 질문 or 지시, state 대기, no by)'),
       replied: z.boolean().optional().describe('Only agent questions the user has answered (by set, state 답함, last answer by 사용자): yours to act on and close'),
       unsorted: z.boolean().optional().describe('Only records the user has not sorted into a kind yet'),
@@ -292,10 +287,10 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
 
   server.registerTool('answer_record', {
     title: 'Answer a question or instruction record',
-    description: 'Write your answer under a question (질문) or instruction (지시) record (from list_records or read_records). The answer is appended with your agent name and the record becomes answered (답함); the user reads it in the app. Lead with the result in the first line and keep it to a few lines; cite files as path:line. On a flow dot (target flow-<id>) the row may carry field (the dot field the user pointed at, e.g. statement) and changed (that field changed since they asked): start with 답: 있음 / 없음 / 일부, or 고침 when you changed the dot, then the grounds (note section, file:line, figure); a changed dot needs the user\'s judgment again. On a question you asked yourself (by set) that the user answered (list_records replied: true), act on the answer, then answer_record saying what you did: that closes the record (끝냄). For a question, answer only what was asked. For an instruction, do the small job first (change notes with edit_note so the user reviews them), then answer saying what you did and where; if it needs an end condition and a report, do not start it and answer suggesting a delegated task instead. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
+    description: 'Write your answer under a question (질문) or instruction (지시) record (from list_records or read_records). The answer is appended with your agent name and the record becomes answered (답함); the user reads it in the app. Lead with the result in the first line and keep it to a few lines; cite files as path:line. On a question you asked yourself (by set) that the user answered (list_records replied: true), act on the answer, then answer_record saying what you did: that closes the record (끝냄). For a question, answer only what was asked. For an instruction, do the small job first (change notes with edit_note so the user reviews them), then answer saying what you did and where; if it needs an end condition and a report, do not start it and answer suggesting a delegated task instead. For a question with edit: 수정 (the user asked to revise a changed paragraph), revise the paragraph with edit_note first, then answer saying what you changed.',
     inputSchema: {
       project: recordsProject,
-      target: z.string().describe('The record\'s target (project, note-<folder>, topic-<id>, flow-<id> …)'),
+      target: z.string().describe('The record\'s target (project, note-<folder>, topic-<id> …)'),
       id: z.string().describe('The question or instruction record id'),
       answer: z.string().trim().min(1).describe('Your answer (Markdown)'),
     },
@@ -314,15 +309,14 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     inputSchema: {
       project: recordsProject,
       file: z.string().optional().describe('Note file from list_notes (workbench/notes/<name>/note.md, workbench/topics/<topic>/<name>/note.md)'),
-      target: z.string().optional().describe(`Instead of file: project | topic-<id> | flow-<id>; with project ${LIBRARY_RID}: concept-<concept id>`),
+      target: z.string().optional().describe(`Instead of file: project | topic-<id>; with project ${LIBRARY_RID}: concept-<concept id>`),
       kind: z.enum(['질문', '메모']).describe('질문 (question for the user) | 메모 (memo)'),
       text: z.string().trim().min(1).describe('What you ask or note (Markdown)'),
       quote: z.string().optional().describe('Text copied exactly from the note to anchor the record'),
       line: z.number().int().positive().optional().describe('Line of the quote in the note file (1-based), to pick the right place when the quote occurs more than once'),
-      field: z.string().optional().describe('With target flow-<id>: the dot field the record is about (statement, condition, criterion, result …); quote must then be copied from that field'),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, async ({ project: rid, file, target, kind, text: body, quote, line, field }) => {
+  }, async ({ project: rid, file, target, kind, text: body, quote, line }) => {
     let to = target
     let title = target ?? ''
     let source: string | undefined
@@ -342,187 +336,16 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
       title = `개념노트 ${id}`
       source = `concepts/${id}.md`
     }
-    if (!to) return fail('Pass file (a note from list_notes) or target (project, topic-<id>, flow-<id>, or concept-<id> with project _library).')
+    if (!to) return fail('Pass file (a note from list_notes) or target (project, topic-<id>, or concept-<id> with project _library).')
     if (!file && /^(note|calc)-/.test(to)) return fail('For a note, pass file (from list_notes) instead of target.')
-    const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(to)}`, { kind, title, ...(source && { source }), text: body, ...(quote && { quote }), ...(line && { line }), ...(field && { field }), by: recordAuthor(server.server.getClientVersion()?.name) })
+    const r = await post(base, f, `/api/researches/${enc(rid)}/comments/${enc(to)}`, { kind, title, ...(source && { source }), text: body, ...(quote && { quote }), ...(line && { line }), by: recordAuthor(server.server.getClientVersion()?.name) })
     if (!r.ok) return r.error
     const b = r.body as { entry: { id: string }; hash: string }
     return text(`Added ${kind} ${b.entry.id} on ${to}.${kind === '질문' ? ' It is now the user\'s turn; read their answer later with read_records.' : ''} Records file hash: ${b.hash}.`)
   })
 
-  // ---------- 연구 흐름 (10/20 사용자 결정: 점은 일을 시작할 때 진행으로, 끝날 때 결과로) ----------
-  const flowSet = {
-    title: z.string().optional().describe('One sentence: the claim, question or task'),
-    topics: z.array(z.string()).optional().describe('Topic ids'),
-    from: z.array(z.object({ id: z.string(), type: z.enum(C.FLOW_EDGES) })).optional().describe('Earlier dots: origin (where the question came from), support, refute, use'),
-    fields: z.record(z.string(), z.string()).optional().describe('Description fields by kind. question: question, motivation, guess, criterion. finding: statement, condition. calc: goal, criterion, setup, result, interpretation. analytic: goal, setup, assumptions, result. proof: goal, assumptions, method, result. literature: reading, gain, use. $…$ math allowed'),
-    run: z.object({ code: z.string().optional(), commit: z.string().optional(), params: z.record(z.string(), z.string()).optional(), output: z.string().optional() }).optional().describe('Calculations: code path, commit, parameters (name → value), output file'),
-    steps: z.array(z.object({ text: z.string(), uses: z.string().optional() })).optional().describe('Proofs and analytic derivations: each step and what it uses (axiom, earlier step, dot, paper). Replaces the whole list; checks stay with the same position'),
-    evidence: z.array(z.object({ kind: z.enum(C.FLOW_EVIDENCE), text: z.string(), title: z.string().optional(), file: z.string().optional(), section: z.string().optional(), ref: z.string().optional() })).optional()
-      .describe('Evidence: file (repository path) with section (a heading in that note), or ref (library paper key). Replaces the whole list; checks stay with the same file or ref'),
-    reason: z.string().optional().describe('Why it was refuted, dropped or paused'),
-    next: z.string().optional().describe('What to do next'),
-    priority: z.enum(C.FLOW_PRIORITY).optional(),
-  }
-  /** 시작 기록 문 (POST …/flow/start). 못 지나면 걸린 지난 점을 오류에 붙여 다음 부름에 prior를 고르게 한다 */
-  const startGate = async (rid: string, body: C.FlowStartBody, q: string): Promise<{ ok: true; reply: C.FlowStartReply } | { ok: false; error: Text }> => {
-    const made = await post(base, f, `/api/researches/${enc(rid)}/flow/start`, body)
-    if (made.ok) return { ok: true, reply: made.body as C.FlowStartReply }
-    const found = q.trim().length >= 2 ? await get(base, f, `/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`) : undefined
-    const rows = (found?.ok ? (found.body as C.FlowSearchReply).rows : []).filter((r) => r.id !== body.dot)
-    return { ok: false, error: rows.length ? fail(`${made.error.content[0]!.text}\nEarlier dots that matched:\n${rows.map((r) => `- ${r.id} · ${r.kind} · ${r.state} — ${r.title}${r.result ? ` (result: ${r.result})` : ''}${r.reason ? ` (reason: ${r.reason})` : ''}`).join('\n')}`) : made.error }
-  }
-  /** 시작 기록 문의 칸 (flow_add · flow_update) */
-  const startArgs = {
-    criterion: z.string().optional().describe('What result solves or refutes it (stored in fields.criterion for questions and calculations)'),
-    prior: z.array(z.string()).optional().describe('The closest earlier dot ids (from flow_search or the refusal)'), adds: z.string().optional().describe('What this adds to the closest dots'),
-    novel: z.string().optional().describe('Why this is new when no earlier dot is close'), stop: z.string().optional().describe('When to stop'),
-    query: z.string().optional().describe('Words for the earlier-dot search (default: short, title and fields)'),
-  }
-  const flowShort = (n: C.FlowNode) => ({ id: n.id, hash: n.hash, kind: n.kind, shown: shownName(n), progress: n.progress, ...(n.result && { result: n.result }), short: n.short, ...(n.gaps.length && { gaps: n.gaps.map((g) => g.text) }) })
-
-  server.registerTool('flow_search', {
-    title: 'Search the research flow',
-    description: 'Earlier dots of the project flow that match the words (title, fields, run parameters, reasons), best first: state, parameters, result and the reason a dot was refuted or dropped. Delegated tasks linked to a dot are searched too and shown under it with their state, conclusion and outputs. Use it before starting a calculation or proof so you do not repeat one.',
-    inputSchema: { project, q: z.string().min(2).describe('Words, e.g. the model, method or parameter values') },
-    annotations: ro,
-  }, async ({ project: rid, q }) => call(`/api/researches/${enc(rid)}/flow/search?q=${enc(q)}`, (b: C.FlowSearchReply) => ({
-    rows: b.rows.map((r) => ({ ...r, shown: `${r.state === 'theorem' ? '정리' : KIND_NAME[r.kind].name} (${KIND_NAME[r.kind].role}) · ${SEARCH_STATE[r.state] ?? r.state}` })),
-  })))
-
-  server.registerTool('flow_read', {
-    title: 'Read a flow dot',
-    description: 'One dot of the project flow with every field, its evidence and step checks, and the gaps the app found.',
-    inputSchema: { project, id: z.string() },
-    annotations: ro,
-  }, async ({ project: rid, id }) => call(`/api/researches/${enc(rid)}/flow/${enc(id)}`, (b: C.FlowOne) => ({ shown: shownName(b.node), ...b.node })))
-
-  server.registerTool('flow_add', {
-    title: 'Add a flow dot',
-    description: 'Add a dot when you start a piece of work (a question, calculation, proof, literature reading or finding). Work other than a finding opens only through the start gate (same as pnpm agent:start): it searches earlier dots first and needs prior (the closest earlier dot ids) with adds (what this adds), or novel (why it is new), and a criterion (what result solves or refutes it). When refused, the error lists the earlier dots that matched; read them with flow_read and call again. progress open (a question for later) skips the gate. Refused while 3 of your findings wait for the user\'s judgment (when kind is finding), and for work that follows a card the user has not started. Returns the dot id, hash, gaps and the earlier dots that matched.',
-    inputSchema: { project, kind: z.enum(C.FLOW_KINDS), short: z.string().min(1).max(60).describe('Short name shown on the chart'), progress: z.enum(['open', 'active']).optional(),
-      task: z.string().optional().describe('The delegated task (workbench/tasks id) this work belongs to, if any'), ...startArgs, ...flowSet },
-    annotations: { readOnlyHint: false, openWorldHint: false },
-  }, async ({ project: rid, kind, short, progress, title, topics, from, task, criterion, prior, adds, novel, stop, query, fields, ...rest }) => {
-    const by = agentOf(server.server.getClientVersion()?.name)
-    let n: C.FlowNode, hits: C.FlowSearchReply['rows'] = []
-    // 점을 만든 뒤 PATCH로 채울 칸. 시작 기록 문은 설명 칸을 스스로 쓰므로 그 밖의 것만
-    let set: Record<string, unknown> = rest
-    if (kind === 'finding' || progress === 'open') {
-      // 발견은 일이 아니라 결론이고, 열린 질문은 아직 시작하지 않았다: 시작 기록 없이 (docs/repo-format.md §14)
-      const made = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind, short, progress: progress ?? 'active', by, ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }) })
-      if (!made.ok) return made.error
-      n = (made.body as C.FlowOne).node
-      if (fields || criterion) set = { ...rest, fields: { ...fields, ...(criterion && { criterion }) } }
-    } else {
-      const body: C.FlowStartBody = { kind, short, by, ...(title && { title }), ...(topics && { topics }), ...(from && { from }), ...(task && { task }), ...(fields && { fields }),
-        ...(criterion && { criterion }), ...(prior?.length && { prior }), ...(adds && { adds }), ...(novel && { novel }), ...(stop && { stop }), ...(query && { query }) }
-      const made = await startGate(rid, body, query || [short, title, fields?.question, fields?.goal, fields?.statement].filter(Boolean).join(' '))
-      if (!made.ok) return made.error
-      ;({ node: n, hits } = made.reply)
-    }
-    const matched = hits.length ? { matched: hits.map((h) => h.id) } : {}
-    if (!Object.values(set).some((v) => v !== undefined)) return json({ ...flowShort(n), ...matched })
-    const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(n.id)}`, { baseHash: n.hash, gate: true, set }, 'PATCH')
-    return r.ok ? json({ ...flowShort((r.body as C.FlowOne).node), ...matched }) : fail(`The dot ${n.id} was created, but its fields were not saved: ${r.error.content[0]!.text}`)
-  })
-
-  server.registerTool('flow_update', {
-    title: 'Update a flow dot',
-    description: 'Change a dot: when the work ends, set progress done with result (solved, refuted) and fill the result, evidence (with section), run or steps, reason and next. Finishing or pausing is refused while required fields are empty; the error names them. People decide the question wording, origin links and dropping a branch: those are refused here. Pass the hash from flow_read or flow_add. Starting an open dot (progress active, paused or done) that is not a finding goes through the same start gate as flow_add: give prior with adds, or novel, and a criterion.',
-    inputSchema: {
-      project, id: z.string(), baseHash: z.string(),
-      progress: z.enum(C.FLOW_PROGRESS).optional(), result: z.enum(['solved', 'refuted']).optional(), short: z.string().min(1).max(60).optional(), end: z.boolean().optional().describe('Flow ends here: no dot follows on this branch'),
-      ...startArgs, ...flowSet,
-    },
-    annotations: { readOnlyHint: false, openWorldHint: false },
-  }, async ({ project: rid, id, baseHash, criterion, prior, adds, novel, stop, query, ...set }) => {
-    const cur = await get(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`)
-    if (!cur.ok) return cur.error
-    const n = (cur.body as C.FlowOne).node
-    const origins = (xs: { id: string; type: string }[]) => xs.filter((x) => x.type === 'origin').map((x) => x.id).sort().join(',')
-    if (n.kind === 'question' && set.fields?.question !== undefined && n.fields.question && set.fields.question !== n.fields.question) return fail('The question wording is decided by the user. Leave it as is and propose a change with add_record (kind 질문, target flow-' + id + ').')
-    if (set.from && origins(set.from) !== origins(n.from)) return fail('Origin links are decided by the user. Keep them and propose a change with add_record (target flow-' + id + ').')
-    // 열린 점을 시작하면 (10/24) 시작 기록 문을 먼저 지난다. 발견은 일이 아니라 결론이라 뺀다
-    if (n.progress === 'open' && n.kind !== 'finding' && !n.start && set.progress && set.progress !== 'open') {
-      if (n.hash !== baseHash) return fail(`The dot ${id} changed since you read it. Read it again with flow_read and retry with the new hash.`)
-      const { fields: given, ...others } = set
-      const body: C.FlowStartBody = { dot: id, by: agentOf(server.server.getClientVersion()?.name), ...(given && { fields: given }),
-        ...(criterion && { criterion }), ...(prior?.length && { prior }), ...(adds && { adds }), ...(novel && { novel }), ...(stop && { stop }), ...(query && { query }) }
-      const made = await startGate(rid, body, query || [n.short, n.title, n.fields.question, n.fields.goal, n.fields.statement].filter(Boolean).join(' '))
-      if (!made.ok) return made.error
-      const { node: started, hits } = made.reply
-      const matched = hits.length ? { matched: hits.map((h) => h.id) } : {}
-      // 시작 기록 문이 진행으로 열었으니, 그 밖의 칸 (진행 말고 다른 상태 포함)만 이어서 고친다
-      const rest = { ...others, ...(set.progress === 'active' && { progress: undefined }) }
-      if (!Object.values(rest).some((v) => v !== undefined)) return json({ ...flowShort(started), ...matched })
-      const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`, { baseHash: started.hash, gate: true, set: rest }, 'PATCH')
-      return r.ok ? json({ ...flowShort((r.body as C.FlowOne).node), ...matched }) : fail(`The dot ${id} was started, but the other fields were not saved: ${r.error.content[0]!.text}`)
-    }
-    if (prior || adds || novel || stop || query) return fail(`prior, adds, novel, stop and query belong to the start record, written only when an open dot starts. Dot ${id} is ${n.progress}${n.start ? ' and already has one' : ''}; leave them out.`)
-    if (criterion && !C.FLOW_FIELDS[n.kind].includes('criterion')) return fail(`A ${n.kind} dot has no criterion field; its criterion lives in the start record. Leave criterion out.`)
-    const fields = (set.fields || criterion) && { ...n.fields, ...set.fields, ...(criterion && { criterion }) }
-    const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`, { baseHash, gate: true, set: { ...set, ...(fields && { fields }) } }, 'PATCH')
-    return r.ok ? json(flowShort((r.body as C.FlowOne).node)) : r.error
-  })
-
-  server.registerTool('flow_review', {
-    title: 'Review flow evidence or a step',
-    description: 'Record your review of one piece of evidence (ev, 0-based) or one proof step (step, 0-based) of a dot, as role agent. Read the note section or check the step first; say what you checked in note. The record keeps a hash of what you checked, so it lapses when that text changes. Only the user approves (in the app).',
-    inputSchema: { project, id: z.string(), baseHash: z.string(), ev: z.number().int().min(0).optional(), step: z.number().int().min(0).optional(), note: z.string().optional(), revoked: z.boolean().optional() },
-    annotations: { readOnlyHint: false, openWorldHint: false },
-  }, async ({ project: rid, id, ...body }) => {
-    if ((body.ev === undefined) === (body.step === undefined)) return fail('Pass exactly one of ev or step.')
-    const r = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}/review`, { ...body, by: recordAuthor(server.server.getClientVersion()?.name) })
-    return r.ok ? json(flowShort((r.body as C.FlowOne).node)) : r.error
-  })
-
-  /**
-   * 작업 끝내기 (10/27 "MCP는 일 단위로"): 결과 노트를 edit_note로 쓴 뒤 한 번에 — 작업 점을 끝내고(결과 노트를 근거로),
-   * 거기서 나온 명제(닫는 점)를 결과 노트의 절을 근거로 더한다. 문턱은 각 점의 PATCH(gate)가 본다
-   */
-  server.registerTool('finish_work', {
-    title: 'Finish a piece of work',
-    description: 'One call when a calculation, proof or literature reading is done. Write the result notes first with edit_note (a "실행" section for a numerical calculation, a "단계" section for a proof, one heading per result). Then this ends the work dot (done, solved or refuted) with those notes as its evidence and adds each proposition (closing dot) that came out of it, pointing to the result-note section that shows it. The finishing gate checks every dot. Propositions join the user\'s judgment queue; when it is full they are refused and the work dot stays finished.',
-    inputSchema: {
-      project, id: z.string().describe('The work dot (calc, analytic, proof or literature)'), baseHash: z.string(),
-      result: z.enum(['solved', 'refuted']).optional().describe('solved (default) or refuted'),
-      notes: z.array(z.object({ file: z.string(), section: z.string().optional(), text: z.string().optional() })).min(1).describe('Result notes: repository path, optional section, what it shows'),
-      fields: z.record(z.string(), z.string()).optional().describe('Fields to set, e.g. result, interpretation'),
-      run: flowSet.run, steps: flowSet.steps, reason: flowSet.reason, next: flowSet.next,
-      claims: z.array(z.object({
-        short: z.string().min(1).max(60), title: z.string().optional(), statement: z.string(), condition: z.string(),
-        evidence: z.array(z.object({ file: z.string(), section: z.string().min(1), text: z.string().optional() })).min(1).describe('Result-note sections that show it'),
-      })).optional().describe('Propositions that came out of the work'),
-    },
-    annotations: { readOnlyHint: false, openWorldHint: false },
-  }, async ({ project: rid, id, baseHash, result, notes, fields, run, steps, reason, next, claims }) => {
-    const cur = await get(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`)
-    if (!cur.ok) return cur.error
-    const n = (cur.body as C.FlowOne).node
-    if (!['calc', 'analytic', 'proof', 'literature'].includes(n.kind)) return fail(`finish_work ends a work dot (calculation, proof or literature); ${id} is ${shownName(n)}. Use flow_update for questions and propositions.`)
-    const evKind = (n.kind === 'literature' ? 'other' : n.kind) as C.FlowEvidence['kind']
-    const same = (e: { file?: string; section?: string }) => notes.some((x) => x.file === e.file && (x.section ?? '') === (e.section ?? ''))
-    const kept = n.evidence.filter((e) => !same(e)).map((e) => ({ kind: e.kind, text: e.text, ...(e.title && { title: e.title }), ...(e.file && { file: e.file }), ...(e.section && { section: e.section }), ...(e.ref && { ref: e.ref }) }))
-    const evidence = [...kept, ...notes.map((x) => ({ kind: evKind, file: x.file, text: x.text ?? '', ...(x.section && { section: x.section }) }))]
-    const set = { progress: 'done', result: result ?? 'solved', evidence, ...(fields && { fields: { ...n.fields, ...fields } }), ...(run && { run }), ...(steps && { steps }), ...(reason && { reason }), ...(next && { next }) }
-    const done = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(id)}`, { baseHash, gate: true, set }, 'PATCH')
-    if (!done.ok) return done.error
-    const by = agentOf(server.server.getClientVersion()?.name)
-    const made: unknown[] = []
-    for (const c of claims ?? []) {
-      const add = await post(base, f, `/api/researches/${enc(rid)}/flow`, { kind: 'finding', short: c.short, progress: 'active', by, ...(c.title && { title: c.title }), topics: n.topics, from: [{ id, type: 'support' }], ...(n.task && { task: n.task }) })
-      if (!add.ok) { made.push({ short: c.short, error: add.error.content[0]!.text }); continue }
-      const m = (add.body as C.FlowOne).node
-      const fill = await post(base, f, `/api/researches/${enc(rid)}/flow/${enc(m.id)}`, { baseHash: m.hash, gate: true, set: { progress: 'done', result: 'solved', fields: { statement: c.statement, condition: c.condition },
-        evidence: c.evidence.map((e) => ({ kind: evKind, file: e.file, section: e.section, text: e.text ?? '' })) } }, 'PATCH')
-      made.push(fill.ok ? flowShort((fill.body as C.FlowOne).node) : { ...flowShort(m), error: `created but not finished: ${fill.error.content[0]!.text}` })
-    }
-    return json({ work: flowShort((done.body as C.FlowOne).node), ...(made.length && { claims: made }) })
-  })
-
   const writeOnce = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const
-  registerTaskTools(server, { project, call, write: (url, payload) => post(base, f, url, payload), ro, writeOnce, by: () => agentOf(server.server.getClientVersion()?.name) })
+  registerTaskTools(server, { project, call, write: (url, payload) => post(base, f, url, payload), ro, writeOnce })
   registerProblemTools(server, { project, read: (url) => get(base, f, url), write: (url, payload, method) => post(base, f, url, payload, method), ro, writeOnce })
 
   server.registerTool('add_journal', {

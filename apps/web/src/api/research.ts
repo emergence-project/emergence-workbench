@@ -24,8 +24,6 @@ export type WorkbenchEvent =
   | { type: 'statement'; research: string; id: string; hash: string | null }
   | { type: 'comments'; research: string; target: string }
   | { type: 'tasks'; research: string; id: string }
-  /** 연구 흐름의 점 파일(workbench/flow/*.yaml)이 바뀜 */
-  | { type: 'flow'; research: string }
   | { type: 'problems'; research: string }
   /** 기록 저절로 올리기의 결과가 바뀜 (실패가 생기거나 풀림). 파일 변경이 아니다 */
   | { type: 'records-publish'; research: string }

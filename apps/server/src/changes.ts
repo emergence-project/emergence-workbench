@@ -8,7 +8,7 @@ import { git, GIT_TIMEOUT } from './git.js'
 import type { Workbench } from './workbench.js'
 
 /**
- * 변경사항 (10/27 사용자 결정 "변경사항"): 기준 시각 뒤 이 프로젝트에서 바뀐 것을 화면의 이름(노트 · 흐름 점 · 맡긴 일 · 기록 · 다른 파일)으로 모은다.
+ * 변경사항 (10/27 사용자 결정 "변경사항"): 기준 시각 뒤 이 프로젝트에서 바뀐 것을 화면의 이름(노트 · 문제 · 맡긴 일 · 기록 · 다른 파일)으로 모은다.
  * - 커밋: HEAD와 받아 둔 upstream의 기준 뒤 커밋 (다른 맥에서 올린 것도 받은 뒤에는 보인다)
  * - 이 맥에서 아직 커밋하지 않은 것: 파일 시각이 기준 뒤인 것 ("커밋 안 됨"). 다른 맥의 커밋 안 된 것은 볼 수 없다
  * 기준 시각은 보는 이마다 설정 폴더의 changes-seen.json에 둔다: 나(화면을 연 때), 에이전트(MCP changes_since를 부른 때, 계정마다)
@@ -106,13 +106,14 @@ export function classify(file: string, wbRel: string): { kind: ChangeKind; id: s
   const [top, a, b] = p
   if (top === 'topics' && a && b && p.length >= 4) return { kind: 'note', id: b }
   if ((top === 'notes' || top === 'calc') && a && p.length >= 3) return { kind: 'note', id: a }
-  if (top === 'flow' && a && p.length === 2 && /\.ya?ml$/.test(a) && !/^layout\.ya?ml$/.test(a)) return { kind: 'flow', id: a.replace(/\.ya?ml$/, '') }
+  // 흐름 폴더의 흐름 파일과 시도 파일은 그 흐름 하나로 모은다 (휴지통은 다른 파일로)
+  if (top === 'problems' && a && b && p.length === 3 && !a.startsWith('.') && /\.ya?ml$/.test(b)) return { kind: 'problem', id: a }
   if (top === 'tasks' && a && p.length === 2 && a.endsWith('.md')) return { kind: 'task', id: a.slice(0, -3) }
   if (top === 'comments' && a) return { kind: 'record', id: p.slice(1).join('/').replace(/\.(md|ya?ml)$/, '') }
   return { kind: 'file', id: file }
 }
 
-/** 화면에 보일 이름: 노트 이름 · 흐름 점 제목 · 맡긴 일 제목. 못 읽으면 id */
+/** 화면에 보일 이름: 노트 이름 · 흐름의 질문 · 맡긴 일 제목. 못 읽으면 id */
 function namer(wb: Workbench): { name: (kind: ChangeKind, id: string) => string; main: (id: string) => string | undefined } {
   let notes: Map<string, { name: string; main: string }> | undefined
   const noteNames = () => {
@@ -124,9 +125,9 @@ function namer(wb: Workbench): { name: (kind: ChangeKind, id: string) => string;
   const read = (rel: string) => { try { return fs.readFileSync(path.join(wb.root, rel), 'utf8') } catch { return null } }
   const name = (kind: ChangeKind, id: string): string => {
     if (kind === 'note') return noteNames().get(id)?.name ?? id
-    if (kind === 'flow') {
-      const text = read(`flow/${id}.yaml`)
-      try { const y = text ? YAML.parse(text) as { title?: unknown; short?: unknown } : null; if (typeof y?.title === 'string') return y.title } catch { /* id */ }
+    if (kind === 'problem') {
+      const text = read(`problems/${id}/problem.yaml`)
+      try { const y = text ? YAML.parse(text) as { question?: unknown } : null; if (typeof y?.question === 'string') return y.question } catch { /* id */ }
       return id
     }
     if (kind === 'task') {

@@ -58,7 +58,6 @@
   --landing-work-min-width: 260px;
   --landing-work-width: 300px;
   --landing-work-min-height: 184px;
-  --fl-label-w: 9em; /* 흐름 판단 화면 · 점 고치기 창의 라벨 열 폭 (10/30) */
   /* 프로젝트 고치기 창: 홈 카드와 입력 칸을 나란히 놓을 폭 */
   --project-dialog-width: 760px;
   --project-preview-width: 280px;

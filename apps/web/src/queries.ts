@@ -50,8 +50,6 @@ export const qk = {
   noteTrash: (rid: string) => ['project', rid, 'notes', 'trash'] as const,
   /** 에이전트 고침 검토 목록. scope = 프로젝트 id 또는 library */
   agentEdits: (scope: string) => ['agent-edits', scope] as const,
-  /** 흐름 점 · 자리 · 줄 (workbench/flow/) */
-  flow: (rid: string) => ['project', rid, 'flow'] as const,
   /** 문제와 시도 나무 (workbench/problems/). 문제 하나는 그 아래 키 */
   problems: (rid: string) => ['project', rid, 'problems'] as const,
   problem: (rid: string, id: string) => ['project', rid, 'problems', id] as const,
@@ -158,8 +156,7 @@ function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat'
     // 프로젝트 bib는 네트워킹의 등록 추천과 사람 페이지(참고 문헌의 논문 · 나오는 곳)가 읽는다
     case 'sources': return [qk.manuscripts(rid), qk.materials(rid), qk.info(rid), qk.repoFiles(rid), qk.peopleSuggestions, PERSON_PAGES]
     case 'tasks': return [qk.tasks(rid), qk.researchIssues]
-    case 'flow': return [qk.flow(rid)]
-    case 'problems': return [qk.problems(rid)]
+    case 'problems': return [qk.problems(rid), qk.researchIssues]
     case 'records-publish': return [qk.recordsPublish(rid)]
     case 'preamble': return []
   }

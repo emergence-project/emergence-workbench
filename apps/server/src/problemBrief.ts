@@ -1,6 +1,6 @@
-// 문제의 이어받기 요약(MCP problem_brief)과 STATUS의 "문제" 절.
-// 이어받기는 다음 세션이 그 문제를 이어 가는 데 필요한 것만 싣는다: 질문 · 메시지 · 교훈 · 다음 · 한도. 2KB를 넘지 않는다 (BRIEF_MAX).
-// STATUS와 이어받기는 연구 파일 쪽 글이라 한국어로 쓴다 (flowStatus.ts와 같다).
+// 흐름의 이어받기 요약(MCP problem_brief)과 STATUS의 "흐름" 절.
+// 이어받기는 다음 세션이 그 흐름을 이어 가는 데 필요한 것만 싣는다: 질문 · 메시지 · 교훈 · 다음 · 한도. 2KB를 넘지 않는다 (BRIEF_MAX).
+// STATUS와 이어받기는 연구 파일 쪽 글이라 한국어로 쓴다.
 import { BRIEF_MAX } from '@rw/core'
 import type { Attempt, Problem, ProblemStop } from '@rw/core/contract/problems'
 import { listProblemIds, readProblem } from './problems.js'
@@ -35,7 +35,7 @@ function fit(head: string[], groups: { title: string; lines: string[] }[], tail:
 export function briefOf(p: Problem): string {
   const by = (s: Attempt['state']) => p.attempts.filter((a) => a.state === s)
   const head = [
-    `# 문제 \`${p.id}\` (${STATE[p.state]}): ${one(p.question, 160)}`, '',
+    `# 흐름 \`${p.id}\` (${STATE[p.state]}): ${one(p.question, 160)}`, '',
     ...(p.if_yes ? [`- 예이면: ${one(p.if_yes, 140)}`] : []), ...(p.if_no ? [`- 아니오이면: ${one(p.if_no, 140)}`] : []),
     ...(p.reader ? [`- 독자: ${one(p.reader, 60)}`] : []),
     `- 채점: ${p.grading ? one(p.grading, 120) : '없음 (탐색: 결과는 사실로만 적는다)'}`,
@@ -57,14 +57,14 @@ export function briefOf(p: Problem): string {
 export const problemBrief = (wb: Workbench, id: string): string => briefOf(readProblem(wb, id))
 
 const STATUS_SHOWN = 5
-/** STATUS의 "문제" 절: 진행 중인 문제 한 줄씩과 지금 할 것. 문제가 없으면 빈 배열 */
+/** STATUS의 "흐름" 절: 진행 중인 흐름 한 줄씩과 지금 할 것. 흐름이 없으면 빈 배열 */
 export function problemStatusSection(wb: Workbench): string[] {
   const all: Problem[] = []
   for (const id of listProblemIds(wb)) { try { all.push(readProblem(wb, id)) } catch { /* 읽지 못한 파일은 화면의 진단에 뜬다 */ } }
   const open = all.filter((p) => p.state === 'open')
   const proposed = all.filter((p) => p.state === 'proposed').length, draft = all.filter((p) => p.state === 'draft').length
   if (!all.length) return []
-  const out = ['## 문제 — 원본 `workbench/problems/` · 시도 나무', '',
+  const out = ['## 흐름 — 원본 `workbench/problems/` · 시도 나무', '',
     [`진행 ${open.length}`, draft && `쓰는 중 ${draft}`, proposed && `제안 ${proposed}`].filter(Boolean).join(' · '), '']
   for (const p of open.slice(0, STATUS_SHOWN)) {
     const c = p.counts
@@ -72,6 +72,6 @@ export function problemStatusSection(wb: Workbench): string[] {
     out.push(`- \`${p.id}\` ${one(p.question, 70)} · 시도 ${p.used}/${p.limit} · 성립 ${c.holds} · 폐기 ${c.dropped}${c.reported ? ` · 판정 대기 ${c.reported}` : ''} · ${now}`)
   }
   if (open.length > STATUS_SHOWN) out.push(`- 그 밖 ${open.length - STATUS_SHOWN}개 (MCP \`problems\`)`)
-  out.push('', '> 사용자가 시작한 문제에서만 일한다: `problem_brief`로 이어받고 `attempt_add` · `attempt_start` · `attempt_report`. 성립 · 폐기는 일한 쪽이 아닌 쪽이 정한다(`attempt_verdict`). 멈춤이면 `direction_report`를 내고 선다. 새 문제는 제안만 한다(`problem_propose`). MCP가 없는 곳(클라우드)에서는 `pnpm agent:problem <폴더> …`가 같은 일을 한다.', '')
+  out.push('', '> 사용자가 시작한 흐름에서만 일한다: `problem_brief`로 이어받고 `attempt_add` · `attempt_start` · `attempt_report`. 성립 · 폐기는 일한 쪽이 아닌 쪽이 정한다(`attempt_verdict`). 멈춤이면 `direction_report`를 내고 선다. 새 흐름은 제안만 한다(`problem_propose`). MCP가 없는 곳(클라우드)에서는 `pnpm agent:problem <폴더> …`가 같은 일을 한다.', '')
   return out
 }

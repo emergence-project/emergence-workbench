@@ -1,5 +1,5 @@
 // YAML 파일 읽기·쓰기 (10/18 한 곳으로 모음). 주석·순서를 지키며 고치는 곳(parseDocument·글 편집:
-// researchYaml.ts editResearchYaml, mainNote.ts, flow.ts, feedback.ts status.yaml …)은 여기를 쓰지 않는다.
+// researchYaml.ts editResearchYaml, mainNote.ts, feedback.ts status.yaml …)은 여기를 쓰지 않는다.
 import fs from 'node:fs'
 import YAML from 'yaml'
 import { writeAtomic } from './fsutil.js'

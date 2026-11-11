@@ -1,4 +1,4 @@
-// 바뀐 것 검사 가운데 문제와 시도 나무 (docs/repo-format.md §15 · §16). 앱 · MCP · `pnpm agent:problem`은 이 규칙을 쓸 때 막는다.
+// 바뀐 것 검사 가운데 흐름과 시도 나무 (docs/repo-format.md §15 · §16). 앱 · MCP · `pnpm agent:problem`은 이 규칙을 쓸 때 막는다.
 // 여기서는 파일을 직접 고친 변경에서 같은 규칙을 찾는다: 사용자만 하는 것, 판정 규칙, 일하는 규칙.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -20,27 +20,27 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stri
 const pendingOf = (p: RawProblem) => { const r = p.reports.at(-1); return r && !r.decision ? r : undefined }
 
 /**
- * 바뀐 파일을 하나씩 받아 문제 규칙에 비춰 본다. `file()`은 문제 폴더의 파일이면 true.
- * 다 받은 뒤 `finish()`가 문제마다 한도를 본다. `files`는 바뀐 시도가 가리킨 파일(노트가 어느 일인지 짝지을 때 쓴다).
+ * 바뀐 파일을 하나씩 받아 흐름 규칙에 비춰 본다. `file()`은 흐름 폴더의 파일이면 true.
+ * 다 받은 뒤 `finish()`가 흐름마다 한도를 본다. `files`는 바뀐 시도가 가리킨 파일(노트가 어느 일인지 짝지을 때 쓴다).
  */
 export function problemChecker(repo: string, add: Add) {
   const files: string[] = []
-  /** 이번에 시작한 시도 (문제 → 시도 파일) */
+  /** 이번에 시작한 시도 (흐름 → 시도 파일) */
   const started = new Map<string, string[]>()
   const read = (file: string) => { try { return fs.readFileSync(path.join(repo, file), 'utf8') } catch { return undefined } }
   const problemNow = (pid: string) => { const text = read(`workbench/${PROBLEMS_DIR}/${pid}/${PROBLEM_FILE}`); return text === undefined ? null : parseProblem(text) }
 
   function problemFile(file: string, before: string | undefined, after: string | undefined, gone: boolean): void {
     if (gone) {
-      add('problem-human', file, '문제를 지우거나 옮겼습니다. 문제 삭제 · 종료는 사용자가 앱에서 합니다.', 'A problem was removed or moved. The user removes or closes problems in the app.')
+      add('problem-human', file, '흐름을 지우거나 옮겼습니다. 흐름 삭제 · 종료는 사용자가 앱에서 합니다.', 'A flow was removed or moved. The user removes or closes flows in the app.')
       return
     }
     const a = after === undefined ? null : parseProblem(after)
     if (!a) return
     const b = before === undefined ? null : parseProblem(before)
     if (!b) {
-      if (a.state !== 'proposed') add('problem-human', file, `새 문제의 상태가 ${STATE_KO[a.state]}(${a.state})입니다. 에이전트는 질문과 출처만 제안합니다(state: proposed). 쓰기 시작 · 시작 · 종료는 사용자가 앱에서 합니다.`, `The new problem is ${a.state}. Agents only propose a question with its source (state: proposed). The user drafts, opens and closes problems in the app.`)
-      if (a.if_yes || a.if_no || a.reader) add('problem-human', file, '새 문제에 메시지(예이면 · 아니오이면)나 독자를 썼습니다. 이 칸은 사용자가 씁니다. 지우세요.', 'The new problem has a message (if yes · if no) or a reader. The user writes these fields. Remove them.')
+      if (a.state !== 'proposed') add('problem-human', file, `새 흐름의 상태가 ${STATE_KO[a.state]}(${a.state})입니다. 에이전트는 질문과 출처만 제안합니다(state: proposed). 쓰기 시작 · 시작 · 종료는 사용자가 앱에서 합니다.`, `The new flow is ${a.state}. Agents only propose a question with its source (state: proposed). The user drafts, opens and closes flows in the app.`)
+      if (a.if_yes || a.if_no || a.reader) add('problem-human', file, '새 흐름에 메시지(예이면 · 아니오이면)나 독자를 썼습니다. 이 칸은 사용자가 씁니다. 지우세요.', 'The new flow has a message (if yes · if no) or a reader. The user writes these fields. Remove them.')
       if (a.state === 'proposed' && !a.source) add('problem-work', file, '제안에 출처(source: 논문 · 노트 절 · 시도)가 없습니다.', 'The proposal has no source (source: a paper, note section or attempt).')
       return
     }
@@ -50,7 +50,7 @@ export function problemChecker(repo: string, add: Add) {
     const bare = (r: RawProblem['reports'][number] | undefined) => { if (!r) return undefined; const { decision: _d, ...facts } = r; return facts }
     if (b.reports.some((r, i) => !same(bare(r), bare(a.reports[i])))) add('problem-work', file, '이미 낸 방향 보고를 고치거나 지웠습니다. 보고는 덧붙이기만 합니다.', 'An earlier direction report was changed or removed. Reports are only appended.')
     if (a.reports.length > b.reports.length) {
-      if (a.state !== 'open') add('problem-work', file, '시작하지 않았거나 종료한 문제에 방향 보고를 냈습니다.', 'A direction report was filed on a problem that is not open.')
+      if (a.state !== 'open') add('problem-work', file, '시작하지 않았거나 종료한 흐름에 방향 보고를 냈습니다.', 'A direction report was filed on a flow that is not open.')
       if (a.reports.slice(0, -1).some((r) => !r.decision)) add('problem-work', file, '결정을 기다리는 방향 보고가 있는데 보고를 더 냈습니다. 한 번에 하나만 냅니다.', 'Another direction report was filed while one awaits a decision. File one at a time.')
     }
   }
@@ -65,13 +65,13 @@ export function problemChecker(repo: string, add: Add) {
     const reportedNow = !!a.reported && a.reported !== b?.reported
     const judgedNow = !!a.verdict && !same(a.verdict, b?.verdict)
     const closedNow = (a.state === 'holds' || a.state === 'dropped') && a.state !== b?.state
-    // 일하는 규칙: 사용자가 시작한 문제에서만, 결정을 기다리는 동안에는 시작하지 않는다
-    if (!p) add('problem-work', file, '문제 파일(problem.yaml)이 없는 폴더에 시도를 썼습니다.', 'An attempt was written in a folder without a problem file (problem.yaml).')
+    // 일하는 규칙: 사용자가 시작한 흐름에서만, 결정을 기다리는 동안에는 시작하지 않는다
+    if (!p) add('problem-work', file, '흐름 파일(problem.yaml)이 없는 폴더에 시도를 썼습니다.', 'An attempt was written in a folder without a flow file (problem.yaml).')
     else if (p.state === 'proposed' || p.state === 'draft') {
-      if (!b || startedNow || reportedNow || judgedNow) add('problem-work', file, '사용자가 시작하지 않은 문제에 시도를 썼습니다. 사용자가 메시지를 쓰고 시작한 문제에서만 일합니다.', 'An attempt was written under a problem the user has not opened. Work only on a problem the user opened with its message.')
+      if (!b || startedNow || reportedNow || judgedNow) add('problem-work', file, '사용자가 시작하지 않은 흐름에 시도를 썼습니다. 사용자가 메시지를 쓰고 시작한 흐름에서만 일합니다.', 'An attempt was written under a flow the user has not opened. Work only on a flow the user opened with its message.')
     } else {
       const at = [!b && a.created, startedNow && a.started, reportedNow && a.reported, judgedNow && a.verdict?.at].filter((x): x is string => !!x).sort().at(-1)
-      if (p.state === 'closed' && at && p.closed && at > p.closed.at) add('problem-work', file, '종료한 문제에서 일했습니다. 종료한 문제는 그대로 둡니다.', 'Work was done on a closed problem. A closed problem stays as it is.')
+      if (p.state === 'closed' && at && p.closed && at > p.closed.at) add('problem-work', file, '종료한 흐름에서 일했습니다. 종료한 흐름은 그대로 둡니다.', 'Work was done on a closed flow. A closed flow stays as it is.')
       const waiting = pendingOf(p)
       if (p.state === 'open' && startedNow && waiting && (!a.started || a.started > waiting.at)) add('problem-work', file, '방향 보고가 사용자의 결정을 기다리는 동안 시도를 시작했습니다. 결정이 날 때까지 시작하지 않습니다.', 'An attempt was started while a direction report awaits the user\'s decision. Start nothing until the decision.')
     }
@@ -90,6 +90,22 @@ export function problemChecker(repo: string, add: Add) {
 
   return {
     files,
+    /** 진행 중인 흐름의 시도가 가리키는 파일 전부 (이번에 바뀌지 않은 시도도). 진행 중인 흐름이 없으면 null */
+    pointed(): string[] | null {
+      const root = path.join(repo, 'workbench', PROBLEMS_DIR)
+      let ids: string[] = []
+      try { ids = fs.readdirSync(root).filter((x) => !x.startsWith('.')) } catch { return null }
+      const open = ids.filter((pid) => problemNow(pid)?.state === 'open')
+      if (!open.length) return null
+      const out = [...files]
+      for (const pid of open) {
+        for (const f of fs.readdirSync(path.join(root, pid))) {
+          if (!f.endsWith('.yaml') || f === PROBLEM_FILE || f.startsWith('.')) continue
+          out.push(...(parseAttempt(f.slice(0, -5), fs.readFileSync(path.join(root, pid, f), 'utf8'))?.files ?? []))
+        }
+      }
+      return out
+    },
     /** `old`는 옮기기 전 경로 (옮기지 않았으면 같은 경로) */
     file(c: { file: string; status: 'A' | 'M' | 'D' | 'R' }, old: string, before: string | undefined, after: string | undefined): boolean {
       const was = IN_PROBLEM.exec(old), is = IN_PROBLEM.exec(c.file)

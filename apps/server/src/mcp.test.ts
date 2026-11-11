@@ -48,10 +48,10 @@ describe('MCP 입구 (읽기)', () => {
     expect(fs.existsSync(path.join(repo, made.path))).toBe(true)
   })
 
-  it('쓰기 도구는 edit_note · new_note · edit_concept · answer_record · add_record, 흐름의 flow_add · flow_update · flow_review, 맡긴 일 add_task · report_task · checkpoint_task, 일지 add_journal, 문제 · 시도 나무의 problem_propose · problem_prepare · attempt_* · direction_report, 변경사항 기준을 옮기는 changes_since뿐이다', async () => {
+  it('쓰기 도구는 edit_note · new_note · edit_concept · answer_record · add_record, 맡긴 일 add_task · report_task · checkpoint_task, 일지 add_journal, 흐름 · 시도 나무의 problem_propose · problem_prepare · attempt_* · direction_report, 변경사항 기준을 옮기는 changes_since뿐이다', async () => {
     const { tools } = await (await connect()).listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'attempt_add', 'attempt_report', 'attempt_start', 'attempt_verdict', 'changes_since', 'checkpoint_task', 'direction_report', 'edit_concept', 'edit_note', 'finish_work', 'flow_add', 'flow_read', 'flow_review', 'flow_search', 'flow_update', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'new_note', 'overview', 'problem_brief', 'problem_prepare', 'problem_propose', 'problem_read', 'problems', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
-    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'new_note', 'edit_concept', 'answer_record', 'add_record', 'flow_add', 'flow_update', 'flow_review', 'finish_work', 'add_task', 'report_task', 'checkpoint_task', 'add_journal', 'changes_since', 'problem_propose', 'problem_prepare', 'attempt_add', 'attempt_start', 'attempt_report', 'attempt_verdict', 'direction_report'].includes(t.name))
+    expect(tools.map((t) => t.name).sort()).toEqual(['add_journal', 'add_record', 'add_task', 'answer_record', 'attempt_add', 'attempt_report', 'attempt_start', 'attempt_verdict', 'changes_since', 'checkpoint_task', 'direction_report', 'edit_concept', 'edit_note', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'new_note', 'overview', 'problem_brief', 'problem_prepare', 'problem_propose', 'problem_read', 'problems', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
+    for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(!['edit_note', 'new_note', 'edit_concept', 'answer_record', 'add_record', 'add_task', 'report_task', 'checkpoint_task', 'add_journal', 'changes_since', 'problem_propose', 'problem_prepare', 'attempt_add', 'attempt_start', 'attempt_report', 'attempt_verdict', 'direction_report'].includes(t.name))
   })
 
   it('changes_since는 Claude 계정 id를 붙여 받고, 화면 이름으로 한 줄씩 돌려준다', async () => {
@@ -120,7 +120,7 @@ describe('MCP 입구 (읽기)', () => {
   })
 
   it('list_records는 프로젝트의 모든 기록을 종류 · 상태 · 대상으로 거른다', async () => {
-    await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '질문', title: '프로젝트', text: '답을 기다리는 질문', part: '흐름 화면 › 흐름 차트', partText: '점 A' } })
+    await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '질문', title: '프로젝트', text: '답을 기다리는 질문', part: '흐름 화면 › 시도 나무', partText: '시도 A' } })
     await app.inject({ method: 'POST', url: `${R}/comments/project`, payload: { kind: '메모', title: '프로젝트', text: '그냥 메모' } })
     await app.inject({ method: 'POST', url: `${R}/comments/topic-kempe`, payload: { kind: '메모', title: '주제 Kempe', text: '주제 메모' } })
     const c = await connect()
@@ -128,7 +128,7 @@ describe('MCP 입구 (읽기)', () => {
     const all = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid } }))).records as { target: string; kind: string; body: string }[]
     expect(all.map((r) => r.body)).toEqual(expect.arrayContaining(['답을 기다리는 질문', '그냥 메모', '주제 메모']))
     const waiting = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid, unanswered: true } }))).records
-    expect(waiting).toEqual([expect.objectContaining({ target: 'project', kind: '질문', state: '대기', part: '흐름 화면 › 흐름 차트', partText: '점 A', body: '답을 기다리는 질문' })])
+    expect(waiting).toEqual([expect.objectContaining({ target: 'project', kind: '질문', state: '대기', part: '흐름 화면 › 시도 나무', partText: '시도 A', body: '답을 기다리는 질문' })])
     const topics = JSON.parse(textOf(await c.callTool({ name: 'list_records', arguments: { project: rid, target: 'topic-' } }))).records
     expect(topics.map((r: { body: string }) => r.body)).toEqual(['주제 메모'])
   })
@@ -139,9 +139,9 @@ describe('MCP 입구 (읽기)', () => {
       sent.push({ url: String(input), body: JSON.parse(String(init?.body)) })
       return new Response(JSON.stringify({ hash: 'h3' }), { status: 200 })
     }) as typeof fetch
-    const r = await (await connect(fake)).callTool({ name: 'answer_record', arguments: { project: 'p1', target: 'flow-a b', id: 'c-1', answer: '식 (3) 때문입니다.' } })
+    const r = await (await connect(fake)).callTool({ name: 'answer_record', arguments: { project: 'p1', target: 'topic-a b', id: 'c-1', answer: '식 (3) 때문입니다.' } })
     expect(textOf(r)).toContain('h3')
-    expect(sent).toEqual([{ url: 'http://127.0.0.1:1/api/researches/p1/comments/flow-a%20b/c-1/answers', body: { by: 'test', body: '식 (3) 때문입니다.' } }])
+    expect(sent).toEqual([{ url: 'http://127.0.0.1:1/api/researches/p1/comments/topic-a%20b/c-1/answers', body: { by: 'test', body: '식 (3) 때문입니다.' } }])
   })
 
   it('기록의 쓴 이(by)는 영어 소문자 · 숫자 · - 20자까지로 줄인다', () => {
@@ -179,103 +179,6 @@ describe('MCP 입구 (읽기)', () => {
     expect(issues.records[rid]).toBeGreaterThanOrEqual(1)
     expect((await c.callTool({ name: 'add_record', arguments: { project: rid, target: 'note-x', kind: '메모', text: 'x' } })).isError).toBe(true)
     expect((await c.callTool({ name: 'add_record', arguments: { project: rid, kind: '메모', text: 'x' } })).isError).toBe(true)
-  })
-
-  it('흐름 도구: 일을 시작할 때 점을 만들고, 끝낼 때 문턱이 빈 칸을 알리며, 질문 문장은 바꾸지 못한다', async () => {
-    const full = (async (input: string | URL, init?: RequestInit) => {
-      const u = new URL(String(input))
-      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST' | 'PATCH', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
-      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
-    }) as typeof fetch
-    const c = await connect(full)
-    const rid = R.split('/').pop()!
-    const q = JSON.parse(textOf(await c.callTool({ name: 'flow_add', arguments: { project: rid, kind: 'question', short: 'MCP question', progress: 'open', fields: { question: '되나?', motivation: '궁금' } } })))
-    expect(q).toMatchObject({ id: 'mcp-question', progress: 'open', gaps: ['판정 기준이 없다 (무엇이 나오면 해결 · 반증인가)'] })
-    const changed = await c.callTool({ name: 'flow_update', arguments: { project: rid, id: q.id, baseHash: q.hash, fields: { question: '어떻게?' } } })
-    expect(changed.isError).toBe(true)
-    expect(textOf(changed)).toContain('decided by the user')
-    const early = await c.callTool({ name: 'flow_update', arguments: { project: rid, id: q.id, baseHash: q.hash, progress: 'done' } })
-    expect(early.isError).toBe(true)
-    expect(textOf(early)).toContain('판정 기준')
-    const done = JSON.parse(textOf(await c.callTool({ name: 'flow_update', arguments: { project: rid, id: q.id, baseHash: q.hash, progress: 'done', fields: { criterion: '예 / 아니오' }, novel: '처음 묻는 것', next: '증명' } })))
-    expect(done).toMatchObject({ progress: 'done', result: 'solved' })
-    const rows = JSON.parse(textOf(await c.callTool({ name: 'flow_search', arguments: { project: rid, q: 'MCP question' } }))).rows as { id: string }[]
-    expect(rows[0]!.id).toBe('mcp-question')
-    expect(JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: q.id } }))).fields).toEqual({ question: '되나?', motivation: '궁금', criterion: '예 / 아니오' })
-  })
-
-  it('finish_work: 작업 점을 결과 노트와 함께 끝내고 명제를 절 근거로 더한다. 출력에 화면 이름(shown)', async () => {
-    const full = (async (input: string | URL, init?: RequestInit) => {
-      const u = new URL(String(input))
-      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST' | 'PATCH', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
-      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
-    }) as typeof fetch
-    const c = await connect(full)
-    const rid = R.split('/').pop()!
-    const note = 'workbench/notes/fw-result/note.md'
-    fs.mkdirSync(path.join(repo, 'workbench', 'notes', 'fw-result'), { recursive: true })
-    fs.writeFileSync(path.join(repo, note), '## 실행\n\nrun.py\n\n## 결과\n\n### H1: 성립\n\n표.\n')
-    const w = JSON.parse(textOf(await c.callTool({ name: 'flow_add', arguments: { project: rid, kind: 'calc', short: 'FW calc', fields: { goal: '끝내기 시험' }, criterion: '잔차 < 1e-4', novel: '처음' } })))
-    expect(w.shown).toBe('수치 계산 (작업) · 진행')
-    const notQuestion = await c.callTool({ name: 'finish_work', arguments: { project: rid, id: 'mcp-x', baseHash: 'h', notes: [{ file: note }] } })
-    expect(notQuestion.isError).toBe(true)
-    const out = JSON.parse(textOf(await c.callTool({ name: 'finish_work', arguments: { project: rid, id: w.id, baseHash: w.hash,
-      notes: [{ file: note, section: '결과', text: '결과 표' }], fields: { setup: 'r = 10', result: '성립' }, run: { code: 'run.py' },
-      claims: [{ short: 'FW holds', statement: 'H1이 성립한다', condition: '이 모형', evidence: [{ file: note, section: 'H1: 성립' }] }] } })))
-    expect(out.work).toMatchObject({ id: w.id, progress: 'done', result: 'solved', shown: '수치 계산 (작업) · 끝남 · 성공' })
-    expect(out.claims[0]).toMatchObject({ id: 'fw-holds', progress: 'done', shown: '명제 (닫는 점) · 끝남 · 해결 · 판단 전' })
-    const claim = JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: 'fw-holds' } })))
-    expect(claim.from).toEqual([{ id: w.id, type: 'support' }])
-    expect(claim.evidence[0]).toMatchObject({ kind: 'calc', file: note, section: 'H1: 성립' })
-    const work = JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: w.id } })))
-    expect(work.evidence.map((e: { section?: string }) => e.section)).toEqual(['결과'])
-    const rows = JSON.parse(textOf(await c.callTool({ name: 'flow_search', arguments: { project: rid, q: 'FW holds' } }))).rows as { id: string; shown: string }[]
-    expect(rows.find((r) => r.id === 'fw-holds')!.shown).toBe('명제 (닫는 점) · 끝남 · 해결')
-  })
-
-  it('flow_add는 발견이 아닌 일을 시작 기록 문으로 연다: 가장 가까운 점 또는 왜 새로운지와 판정 기준이 없으면 걸린 점을 보이고 거절한다', async () => {
-    const full = (async (input: string | URL, init?: RequestInit) => {
-      const u = new URL(String(input))
-      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST' | 'PATCH', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
-      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
-    }) as typeof fetch
-    const c = await connect(full)
-    const rid = R.split('/').pop()!
-    const first = JSON.parse(textOf(await c.callTool({ name: 'flow_add', arguments: { project: rid, kind: 'calc', short: 'Gate calc', fields: { goal: '문 시험 계산' }, criterion: '값이 0.01 아래', novel: '처음 보는 계산' } })))
-    expect(first).toMatchObject({ id: 'gate-calc', progress: 'active' })
-    const read = JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: first.id } })))
-    expect(read.fields.criterion).toBe('값이 0.01 아래')
-    expect(read.start).toMatchObject({ by: 'test', novel: '처음 보는 계산' })
-    const refused = await c.callTool({ name: 'flow_add', arguments: { project: rid, kind: 'calc', short: 'Gate calc again', fields: { goal: '문 시험 계산 다시' } } })
-    expect(refused.isError).toBe(true)
-    expect(textOf(refused)).toContain('판정 기준')
-    expect(textOf(refused)).toContain('- gate-calc')
-    const again = JSON.parse(textOf(await c.callTool({ name: 'flow_add', arguments: { project: rid, kind: 'calc', short: 'Gate calc again', fields: { goal: '문 시험 계산 다시' }, criterion: '같은 값', prior: ['gate-calc'], adds: '격자를 키움', next: '비교' } })))
-    expect(again).toMatchObject({ id: 'gate-calc-again', progress: 'active', matched: expect.arrayContaining(['gate-calc']) })
-    expect(JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: again.id } }))).start).toMatchObject({ prior: ['gate-calc'], adds: '격자를 키움' })
-  })
-
-  it('flow_update로 열린 점을 시작하면 같은 시작 기록 문을 지나고, 시작한 점에는 시작 기록 칸을 받지 않는다', async () => {
-    const full = (async (input: string | URL, init?: RequestInit) => {
-      const u = new URL(String(input))
-      const res = await app.inject({ method: (init?.method ?? 'GET') as 'GET' | 'POST' | 'PATCH', url: u.pathname + u.search, ...(init?.body && { payload: JSON.parse(String(init.body)) }) })
-      return new Response(res.body, { status: res.statusCode, headers: { 'content-type': 'application/json' } })
-    }) as typeof fetch
-    const c = await connect(full)
-    const rid = R.split('/').pop()!
-    const o = JSON.parse(textOf(await c.callTool({ name: 'flow_add', arguments: { project: rid, kind: 'question', short: 'Later question', progress: 'open', fields: { question: '나중에 볼까?' } } })))
-    expect(o).toMatchObject({ id: 'later-question', progress: 'open' })
-    const refused = await c.callTool({ name: 'flow_update', arguments: { project: rid, id: o.id, baseHash: o.hash, progress: 'active' } })
-    expect(refused.isError).toBe(true)
-    expect(textOf(refused)).toContain('판정 기준')
-    const stale = await c.callTool({ name: 'flow_update', arguments: { project: rid, id: o.id, baseHash: 'old', progress: 'active', criterion: '예 / 아니오', novel: '처음' } })
-    expect(textOf(stale)).toContain('changed since you read it')
-    const started = JSON.parse(textOf(await c.callTool({ name: 'flow_update', arguments: { project: rid, id: o.id, baseHash: o.hash, progress: 'active', criterion: '예 / 아니오', novel: '처음 묻는 것', next: '계산' } })))
-    expect(started).toMatchObject({ id: o.id, progress: 'active' })
-    const read = JSON.parse(textOf(await c.callTool({ name: 'flow_read', arguments: { project: rid, id: o.id } })))
-    expect(read).toMatchObject({ next: '계산', fields: { question: '나중에 볼까?', criterion: '예 / 아니오' }, start: { by: 'test', novel: '처음 묻는 것' } })
-    const twice = await c.callTool({ name: 'flow_update', arguments: { project: rid, id: o.id, baseHash: started.hash, novel: '또' } })
-    expect(textOf(twice)).toContain('belong to the start record')
   })
 
   it('edit_note는 앱 서버의 에이전트 쓰기로 보내고, 확인된 노트 거절을 그대로 전한다', async () => {

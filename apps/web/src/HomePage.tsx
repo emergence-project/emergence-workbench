@@ -30,7 +30,7 @@ const read = <T extends string>(key: string, ok: readonly T[], fallback: T): T =
 }
 const remember = (key: string, v: string) => { try { localStorage.setItem(key, v) } catch { /* 기억 못 해도 된다 */ } }
 
-export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits = {}, askRecords = {}, onReordered, onRegister, onSaved }: {
+export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits = {}, askRecords = {}, flowTurns = {}, onReordered, onRegister, onSaved }: {
   researches: ResearchListItem[]
   /** 프로젝트마다 확인이 필요한 보조 노트 수 (왼쪽 띠의 수) */
   issues: Record<string, number>
@@ -40,6 +40,8 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
   agentEdits?: Record<string, number>
   /** issues 가운데 에이전트가 물은 기록의 수 (툴팁 내역, 10/15) */
   askRecords?: Record<string, number>
+  /** issues 가운데 결정을 기다리는 흐름의 수 (툴팁 내역, 11/11) */
+  flowTurns?: Record<string, number>
   onReordered(list: ResearchListItem[]): void
   onRegister(): void
   onSaved(msg: string): void
@@ -122,6 +124,7 @@ export function HomePage({ researches: all, issues, judgeTasks = {}, agentEdits 
       tasks: judgeTasks[r.id] ?? 0,
       edits: agentEdits[r.id] ?? 0,
       records: askRecords[r.id] ?? 0,
+      problems: flowTurns[r.id] ?? 0,
       sync: sync ?? null,
       changes: changes[r.id] ?? null,
       onUpdate: () => update(r.id),
@@ -203,6 +206,7 @@ interface ProjectRowData {
   edits?: number
   /** issues 가운데 에이전트가 물은 기록 */
   records?: number
+  problems?: number
   sync: RepoSync | null
   /** 내가 변경사항 쪽을 마지막으로 연 뒤 바뀐 것 */
   changes?: ChangesCount | null
@@ -248,7 +252,7 @@ function ProjectRow(p: ProjectRowData) {
  */
 type ProjectCardProps = (ProjectRowData & { preview?: false }) | (
   Pick<ProjectRowData, 'r' | 'question' | 'image' | 'last' | 'error'>
-  & Partial<Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'records' | 'sync'>>
+  & Partial<Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'records' | 'problems' | 'sync'>>
   & { preview: true; pc?: string }
 )
 
@@ -274,7 +278,7 @@ export function ProjectCard(p: ProjectCardProps) {
             ? <span className="kc-time" data-ui="변경사항 수" title={t('내가 마지막으로 본 뒤 변경사항 (프로젝트 정보 › 변경사항)', 'Changed since you last looked (Project info › Changes)')}><b>{t(`변경사항 ${p.changes.count}`, `Changes ${p.changes.count}`)}</b>{p.changes.last && ` · ${cardTime(Date.parse(p.changes.last))}`}</span>
             : <span className="kc-time">{p.last ? t(`최근 ${cardTime(p.last)}`, `Last ${cardTime(p.last)}`) : ''}</span>}
           {r.state !== 'active' && <span className="kc-state"><ProjectStateDot state={r.state} /></span>}
-          <span className="pcard-mark"><Attention mark={p.mark ?? null} issues={p.issues ?? 0} tasks={p.tasks ?? 0} edits={p.edits ?? 0} records={p.records ?? 0} sync={p.sync ?? null} onUpdate={p.preview ? undefined : p.onUpdate} /></span>
+          <span className="pcard-mark"><Attention mark={p.mark ?? null} issues={p.issues ?? 0} tasks={p.tasks ?? 0} edits={p.edits ?? 0} records={p.records ?? 0} problems={p.problems ?? 0} sync={p.sync ?? null} onUpdate={p.preview ? undefined : p.onUpdate} /></span>
         </span>
       </span>
     </div>
@@ -282,9 +286,9 @@ export function ProjectCard(p: ProjectCardProps) {
 }
 
 /** 상태 기호 하나. 업데이트 필요이고 앱에서 받을 수 있으면(빨리 감기만) 누르면 받는다 */
-function Attention({ mark, issues, tasks = 0, edits = 0, records = 0, sync, onUpdate }: Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'records' | 'sync'> & { onUpdate?(): void }) {
+function Attention({ mark, issues, tasks = 0, edits = 0, records = 0, problems = 0, sync, onUpdate }: Pick<ProjectRowData, 'mark' | 'issues' | 'tasks' | 'edits' | 'records' | 'problems' | 'sync'> & { onUpdate?(): void }) {
   if (!mark) return null
-  const tip0 = issueTip(tasks, edits, records)
+  const tip0 = issueTip(tasks, edits, records, problems)
   const checkTip = t(`확인 필요 — ${tip0}`, `Needs review: ${tip0}`)
   const updateReason = sync?.ahead ? t(' · 이 컴퓨터에 커밋이나 변경이 있어 터미널에서 git pull', ' · this computer has commits or changes, so run git pull in a terminal')
     : sync?.conflictCount ? t(` · 이 컴퓨터의 변경과 겹치는 파일: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` 외 ${sync.conflictCount - sync.conflicts.length}개` : ''} (터미널에서 합치기)`, ` · Files overlapping with changes on this computer: ${sync.conflicts.join(', ')}${sync.conflictCount > sync.conflicts.length ? ` and ${sync.conflictCount - sync.conflicts.length} more` : ''} (merge in a terminal)`)

@@ -1,4 +1,4 @@
-// 문제와 시도 나무 (workbench/problems/). 요청·응답 모양은 @rw/core/contract/problems
+// 흐름과 시도 나무 (workbench/problems/). 요청·응답 모양은 @rw/core/contract/problems
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import * as C from '@rw/core/contract/problems'
 import { parseBody, replies } from '../contract.js'
@@ -25,7 +25,7 @@ export function registerProblems(app: FastifyInstance, ctx: RouteContext): void 
   /** 질문 · 메시지 · 독자 · 한도 · 순서는 사용자만, 문헌 대조 · 첫 시험 · 채점은 에이전트도 */
   app.patch<P>(`${R}/:id`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: patchProblem(wbOf(req.params.rid), req.params.id, parseBody(C.ProblemPatchBody, req.body), actorOf(req)) }))
-  /** 시작하지 않은 문제 지우기 (problems/.trash/로) */
+  /** 시작하지 않은 흐름 지우기 (problems/.trash/로) */
   app.delete<P & { Querystring: { baseHash?: string } }>(`${R}/:id`, replies(C.ProblemRemoved), async (req): Promise<C.ProblemRemoved> => {
     removeProblem(wbOf(req.params.rid), req.params.id, String(req.query.baseHash ?? ''), actorOf(req))
     return { ok: true }
