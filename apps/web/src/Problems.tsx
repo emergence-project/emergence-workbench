@@ -312,7 +312,7 @@ function Tree({ p, busy, locked, onAdd, onOrder, onVerdict }: {
 function Steps({ a }: { a: Attempt }) {
   const judged = a.state === 'holds' || a.state === 'dropped'
   const worked = !!a.worker
-  const by = (name: string, at?: string) => <><Author by={who(name)} />{at && <span className="pb-step-at">{when(at)}</span>}</>
+  const by = (name: string, at?: string) => <><span><Author by={who(name)} /></span>{at && <span className="pb-step-at">{when(at)}</span>}</>
   const step = (name: string, dot: string, body: ReactNode, tip?: string) => (
     <li className={`pb-step${body ? '' : ' todo'}`} title={tip}><span className={`g ${dot}`} aria-hidden /><span className="pb-step-name">{name}</span>{body && <span className="pb-step-by">{body}</span>}</li>
   )
