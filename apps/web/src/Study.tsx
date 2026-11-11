@@ -174,10 +174,28 @@ function Session({ no, c, busy, onCheck, onMake }: {
 }
 
 interface ReadDraft { key?: string; at?: string; text?: string; url?: string; done?: boolean; label?: string }
-interface Draft { title: string; state: StudyState; goals: string; read: ReadDraft[]; concepts: { id: string; done: boolean }[]; todo: string; doneTodo: Set<string>; open: boolean }
+interface Line { text: string; done: boolean }
+interface Draft { title: string; state: StudyState; goals: string[]; read: ReadDraft[]; concepts: { id: string; done: boolean }[]; todo: Line[]; open: boolean }
 
-const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean)
 const conceptId = (s: string) => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
+
+/** 한 줄에 하나인 목록(학습 목표 · 할 일): 줄마다 밑줄 입력란과 ×, 끝에 「＋」 한 줄. Enter는 다음 줄을 연다 */
+function Lines({ items, label, placeholder, onChange }: { items: string[]; label: string; placeholder: string; onChange(next: string[]): void }) {
+  const [focus, setFocus] = useState<number | null>(null)
+  return (
+    <div className="st-lines">
+      {items.map((v, k) => (
+        <div key={k} className="st-line">
+          <input className="st-plain" aria-label={label} placeholder={placeholder} value={v} autoFocus={focus === k}
+            onChange={(e) => onChange(items.map((x, j) => (j === k ? e.target.value : x)))}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); onChange([...items.slice(0, k + 1), '', ...items.slice(k + 1)]); setFocus(k + 1) } }} />
+          <button className="icon-btn sm" data-tip={t('제거', 'Remove')} aria-label={t('제거', 'Remove')} onClick={() => onChange(items.filter((_, j) => j !== k))}>{Icon.x}</button>
+        </div>
+      ))}
+      <button className="st-more" onClick={() => { onChange([...items, '']); setFocus(items.length) }}>＋ {label}</button>
+    </div>
+  )
+}
 
 /** 책 · 강의 더하기와 고치기: 여러 칸이라 고치기 창 하나 (디자인 문서 6절). 체크는 여기서 하지 않고 표에서 한다 */
 function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): void; onDone(id: string, msg: string): void }) {
@@ -185,10 +203,9 @@ function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): vo
   const [kind, setKind] = useState<StudyKind>(book?.kind ?? '책')
   const [source, setSource] = useState(book?.source ?? '')
   const [rows, setRows] = useState<Draft[]>(book?.chapters.map((c) => ({
-    title: c.title, state: c.state, goals: c.goals.join('\n'),
+    title: c.title, state: c.state, goals: c.goals,
     read: c.read.map((r) => ({ ...(r.key && { key: r.key, label: r.label }), ...(r.at && { at: r.at }), ...(r.text && { text: r.text }), ...(r.url && { url: r.url }), done: r.done })),
-    concepts: c.concepts.map((n) => ({ id: n.id, done: n.done })), todo: c.do.map((d) => d.text).join('\n'),
-    doneTodo: new Set(c.do.filter((d) => d.done).map((d) => d.text)), open: c.state === '읽는 중',
+    concepts: c.concepts.map((n) => ({ id: n.id, done: n.done })), todo: c.do.map((d) => ({ text: d.text, done: d.done })), open: c.state === '읽는 중',
   })) ?? [])
   const [chapterLines, setChapterLines] = useState('')
   const [ids, setIds] = useState<{ id: string; title: string }[]>([])
@@ -211,14 +228,18 @@ function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): vo
         onDone(made.id, t('책 · 강의를 더했습니다', 'Added the book or lecture'))
       } else {
         await studyApi.save(book.id, { title, kind, ...(source.trim() && { source: source.trim() }), baseHash: book.hash,
-          chapters: rows.map((r) => ({ title: r.title, state: r.state, goals: lines(r.goals),
+          chapters: rows.map((r) => ({ title: r.title, state: r.state, goals: r.goals.map((g) => g.trim()).filter(Boolean),
             read: r.read.filter((x) => x.key || x.text?.trim()).map(({ label: _l, ...x }) => ({ ...x, ...(x.at !== undefined && { at: x.at.trim() }), ...(x.text !== undefined && { text: x.text.trim() }), ...(x.url !== undefined && { url: x.url.trim() }) })),
-            concepts: r.concepts, do: lines(r.todo).map((text) => ({ text, done: r.doneTodo.has(text) })) })) })
+            concepts: r.concepts, do: r.todo.filter((d) => d.text.trim()).map((d) => ({ text: d.text.trim(), done: d.done })) })) })
         onDone(book.id, t('저장했습니다', 'Saved'))
       }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false) }
   }
   const u = unit(kind)
+  const count = (r: Draft) => [
+    [t('목표', 'goals'), r.goals.filter((g) => g.trim()).length], [t('읽을 것', 'reading'), r.read.length],
+    [t('개념노트', 'notes'), r.concepts.length], [t('할 일', 'to do'), r.todo.filter((d) => d.text.trim()).length],
+  ].filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(' · ')
   return (
     <Dialog title={book ? t('책 · 강의 수정', 'Edit book or lecture') : t('책 · 강의 추가', 'Add a book or lecture')} ui="책 · 강의" wide onClose={onClose} footer={<>
       {error && <span className="st-err">{error}</span>}
@@ -233,60 +254,71 @@ function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): vo
           <label className="field st-src"><span>{t('출처 키 (references.bib, 없어도 됨)', 'Source key (references.bib, optional)')}</span><input value={source} onChange={(e) => setSource(e.target.value)} placeholder="auerbach1994" /></label>
         </div>
         {!book && <label className="field"><span>{t(`${u === '회' ? '회차' : '장'} (한 줄에 하나)`, 'Chapters (one per line)')}</span><textarea rows={8} value={chapterLines} onChange={(e) => setChapterLines(e.target.value)} /></label>}
-        {book && <div className="st-chapters"><div className="st-chapters-h"><span>{u === '회' ? t('회차', 'Sessions') : t('장', 'Chapters')}</span><button className="btn st-add" onClick={() => setRows((rs) => [...rs, { title: '', state: '아직', goals: '', read: [], concepts: [], todo: '', doneTodo: new Set(), open: true }])}>＋ {u === '회' ? t('회차', 'Session') : t('장', 'Chapter')}</button></div>
+        {book && <div className="st-chapters"><div className="st-chapters-h"><span>{u === '회' ? t('회차', 'Sessions') : t('장', 'Chapters')}</span><button className="btn st-add" onClick={() => setRows((rs) => [...rs, { title: '', state: '아직', goals: [], read: [], concepts: [], todo: [], open: true }])}>＋ {u === '회' ? t('회차', 'Session') : t('장', 'Chapter')}</button></div>
           <div className="st-edit-rows">{rows.map((r, i) => (
-            <div key={i} className="st-edit-row" data-ui="장 고치기 줄">
-              <button className="icon-btn sm st-fold" aria-expanded={r.open} data-tip={r.open ? t('접기', 'Collapse') : t('펼치기', 'Expand')} aria-label={r.open ? t('접기', 'Collapse') : t('펼치기', 'Expand')} onClick={() => set(i, { open: !r.open })}>{r.open ? Icon.collapse : Icon.expand}</button>
+            <div key={i} className={`st-edit-row${r.open ? ' open' : ''}`} data-ui="장 고치기 줄">
+              <button className="icon-btn sm st-fold" aria-expanded={r.open} data-tip={r.open ? t('접기', 'Collapse') : t('펼치기', 'Expand')} aria-label={r.open ? t('접기', 'Collapse') : t('펼치기', 'Expand')} onClick={() => set(i, { open: !r.open })}>{Icon.fold}</button>
               <span className="st-no">{i + 1}</span>
               <input className="st-edit-title" autoFocus={!r.title && i === rows.length - 1} aria-label={t('장 제목', 'Chapter title')} placeholder={t('장 제목', 'Chapter title')} value={r.title} onChange={(e) => set(i, { title: e.target.value })} />
               <div className="segmented small" role="group" aria-label={t('상태', 'State')}>{STUDY_STATES.map((s) => <button key={s} className={r.state === s ? 'on' : ''} aria-pressed={r.state === s} onClick={() => set(i, { state: s })}>{stateName(s)}</button>)}</div>
               <button className="icon-btn sm" data-tip={t('장 제거', 'Remove chapter')} aria-label={t('장 제거', 'Remove chapter')} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>{Icon.x}</button>
-              {!r.open && (r.read.length + r.concepts.length + lines(r.todo).length > 0) && <div className="st-edit-sum">{t(`목표 ${lines(r.goals).length} · 읽을 것 ${r.read.length} · 개념노트 ${r.concepts.length} · 할 일 ${lines(r.todo).length}`, `Goals ${lines(r.goals).length} · reading ${r.read.length} · notes ${r.concepts.length} · to do ${lines(r.todo).length}`)}</div>}
+              {!r.open && count(r) && <button className="st-edit-sum" onClick={() => set(i, { open: true })}>{count(r)}</button>}
               {r.open && <div className="st-edit-plan">
-                <span className="st-cap">{t('학습 목표', 'Learning goals')}</span>
-                <textarea rows={Math.max(2, lines(r.goals).length + 1)} aria-label={t('학습 목표 (한 줄에 하나)', 'Learning goals (one per line)')} placeholder={t('한 줄에 하나: 이 회차를 마치면 할 수 있어야 하는 것', 'One per line: what you should be able to do after this')} value={r.goals} onChange={(e) => set(i, { goals: e.target.value })} />
-                <span className="st-cap">{t('읽을 것', 'Reading')}</span>
-                <div className="st-edit-reads">
-                  {r.read.map((x, k) => (
-                    <div key={k} className="st-edit-read">
-                      {x.key
-                        ? <span className="st-read-name" title={x.key}>{x.label ?? papers.find((p) => p.key === x.key)?.label ?? x.key}</span>
-                        : <input aria-label={t('이름', 'Name')} placeholder={t('이름 (영상 · 코드 등)', 'Name (video, code …)')} value={x.text ?? ''} onChange={(e) => setRead(i, k, { text: e.target.value })} />}
-                      {x.key
-                        ? <input className="st-at-in" aria-label={t('쪽 · 절', 'Pages or sections')} placeholder={t('쪽 · 절', 'pp. or §')} value={x.at ?? ''} onChange={(e) => setRead(i, k, { at: e.target.value })} />
-                        : <input aria-label={t('주소', 'URL')} placeholder="https://" value={x.url ?? ''} onChange={(e) => setRead(i, k, { url: e.target.value })} />}
-                      <button className="icon-btn sm" data-tip={t('제거', 'Remove')} aria-label={t('제거', 'Remove')} onClick={() => set(i, { read: r.read.filter((_, j) => j !== k) })}>{Icon.x}</button>
+                <section className="st-part st-part-wide">
+                  <h4 className="st-cap">{t('학습 목표', 'Learning goals')}</h4>
+                  <Lines items={r.goals} label={t('학습 목표', 'Goal')} placeholder={t('이 회차를 마치면 할 수 있어야 하는 것', 'What you should be able to do after this')} onChange={(goals) => set(i, { goals })} />
+                </section>
+                <section className="st-part">
+                  <h4 className="st-cap">{t('읽을 것', 'Reading')}</h4>
+                  <div className="st-lines">
+                    {r.read.map((x, k) => (
+                      <div key={k} className="st-line st-read-line">
+                        {x.key
+                          ? <span className="st-read-name" title={x.key}>{x.label ?? papers.find((p) => p.key === x.key)?.label.split(' — ')[0] ?? x.key}</span>
+                          : <input className="st-plain" aria-label={t('이름', 'Name')} placeholder={t('이름 (영상 · 코드 등)', 'Name (video, code …)')} value={x.text ?? ''} onChange={(e) => setRead(i, k, { text: e.target.value })} />}
+                        {x.key
+                          ? <input className="st-plain st-at-in" aria-label={t('쪽 · 절', 'Pages or sections')} placeholder={t('쪽 · 절', 'pp. or §')} value={x.at ?? ''} onChange={(e) => setRead(i, k, { at: e.target.value })} />
+                          : <input className="st-plain st-at-in" aria-label={t('주소', 'URL')} placeholder="https://" value={x.url ?? ''} onChange={(e) => setRead(i, k, { url: e.target.value })} />}
+                        <button className="icon-btn sm" data-tip={t('제거', 'Remove')} aria-label={t('제거', 'Remove')} onClick={() => set(i, { read: r.read.filter((_, j) => j !== k) })}>{Icon.x}</button>
+                      </div>
+                    ))}
+                    <div className="st-adds">
+                      <select className="rs-select st-pick" value="" aria-label={t('문헌 추가', 'Add a reference')} onChange={(e) => { const p = papers.find((x) => x.key === e.target.value); if (p) set(i, { read: [...r.read, { key: p.key, label: p.label.split(' — ')[0] }] }) }}>
+                        <option value="">{t('＋ 문헌…', '＋ Reference…')}</option>
+                        {papers.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+                      </select>
+                      <button className="st-more" onClick={() => set(i, { read: [...r.read, { text: '', url: '' }] })}>＋ {t('주소', 'URL')}</button>
                     </div>
-                  ))}
-                  <div className="st-edit-notes">
-                    <select className="rs-select st-pick" value="" aria-label={t('문헌 추가', 'Add a reference')} onChange={(e) => { const p = papers.find((x) => x.key === e.target.value); if (p) set(i, { read: [...r.read, { key: p.key, label: p.label.split(' — ')[0] }] }) }}>
-                      <option value="">{t('＋ 문헌…', '＋ Reference…')}</option>
-                      {papers.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-                    </select>
-                    <button className="btn sm" onClick={() => set(i, { read: [...r.read, { text: '', url: '' }] })}>＋ {t('주소', 'URL')}</button>
                   </div>
-                </div>
-                <span className="st-cap">{t('개념노트', 'Concept notes')}</span>
-                <div className="st-edit-notes">
-                  {r.concepts.map((n) => (
-                    <span key={n.id} className={`tag st-chip${ids.some((c) => c.id === n.id) ? '' : ' plan'}`}>{titleOf(n.id)}
-                      <button className="x" title={t('제거', 'Remove')} aria-label={t(`제거: ${titleOf(n.id)}`, `Remove: ${titleOf(n.id)}`)} onClick={() => set(i, { concepts: r.concepts.filter((x) => x.id !== n.id) })}>×</button>
-                    </span>
-                  ))}
-                  <select className="rs-select st-pick" value="" aria-label={t('개념노트 추가', 'Add concept note')} onChange={(e) => e.target.value && set(i, { concepts: [...r.concepts, { id: e.target.value, done: false }] })}>
-                    <option value="">{t('＋ 개념노트…', '＋ Concept note…')}</option>
-                    {ids.filter((c) => !r.concepts.some((x) => x.id === c.id)).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-                  </select>
-                  <input className="st-new-note" aria-label={t('만들 개념노트 이름', 'Name of a note to write')} placeholder={t('＋ 만들 노트 이름 (Enter)', '＋ Note to write (Enter)')}
-                    onKeyDown={(e) => {
-                      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
-                      const id = conceptId(e.currentTarget.value)
-                      if (id && !r.concepts.some((x) => x.id === id)) set(i, { concepts: [...r.concepts, { id, done: false }] })
-                      e.currentTarget.value = ''
-                    }} />
-                </div>
-                <span className="st-cap">{t('할 일', 'To do')}</span>
-                <textarea rows={Math.max(2, lines(r.todo).length + 1)} aria-label={t('할 일 (한 줄에 하나)', 'To do (one per line)')} placeholder={t('한 줄에 하나: 연습 · 코드', 'One per line: exercises, code')} value={r.todo} onChange={(e) => set(i, { todo: e.target.value })} />
+                </section>
+                <section className="st-part">
+                  <h4 className="st-cap">{t('개념노트', 'Concept notes')}</h4>
+                  <div className="st-chips">
+                    {r.concepts.map((n) => (
+                      <span key={n.id} className={`tag st-chip${ids.some((c) => c.id === n.id) ? '' : ' plan'}`}>{titleOf(n.id)}
+                        <button className="x" title={t('제거', 'Remove')} aria-label={t(`제거: ${titleOf(n.id)}`, `Remove: ${titleOf(n.id)}`)} onClick={() => set(i, { concepts: r.concepts.filter((x) => x.id !== n.id) })}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="st-adds">
+                    <select className="rs-select st-pick" value="" aria-label={t('개념노트 추가', 'Add concept note')} onChange={(e) => e.target.value && set(i, { concepts: [...r.concepts, { id: e.target.value, done: false }] })}>
+                      <option value="">{t('＋ 있는 노트…', '＋ Existing note…')}</option>
+                      {ids.filter((c) => !r.concepts.some((x) => x.id === c.id)).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
+                    <input className="st-plain st-new-note" aria-label={t('만들 개념노트 이름', 'Name of a note to write')} placeholder={t('＋ 만들 노트 (Enter)', '＋ Note to write (Enter)')}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+                        const id = conceptId(e.currentTarget.value)
+                        if (id && !r.concepts.some((x) => x.id === id)) set(i, { concepts: [...r.concepts, { id, done: false }] })
+                        e.currentTarget.value = ''
+                      }} />
+                  </div>
+                </section>
+                <section className="st-part st-part-wide">
+                  <h4 className="st-cap">{t('할 일', 'To do')}</h4>
+                  <Lines items={r.todo.map((d) => d.text)} label={t('할 일', 'To do')} placeholder={t('연습 · 코드', 'Exercise or code')}
+                    onChange={(texts) => set(i, { todo: texts.map((text, k) => ({ text, done: r.todo.find((d) => d.text === text)?.done ?? r.todo[k]?.done ?? false })) })} />
+                </section>
               </div>}
             </div>
           ))}</div>
