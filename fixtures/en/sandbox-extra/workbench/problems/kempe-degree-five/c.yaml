@@ -1,0 +1,5 @@
+format: 1
+method: Contract two non-adjacent neighbours of the degree-5 vertex
+state: candidate
+by: claude-code
+created: 2026-10-20T10:41

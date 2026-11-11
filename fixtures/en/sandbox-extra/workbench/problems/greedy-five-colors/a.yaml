@@ -1,0 +1,10 @@
+format: 1
+method: Run greedy colouring exhaustively on planar triangulations with up to 12 vertices
+state: reported
+by: claude-code
+created: 2026-10-22T09:10
+worker: claude-code
+started: 2026-10-22T09:15
+did: Coloured 7,595 triangulations in the order that removes the lowest degree first.
+result: 233 of them used a sixth colour.
+reported: 2026-10-22T14:00

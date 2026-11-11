@@ -3,6 +3,7 @@ import * as overview from './project/overview'
 import * as projectInfo from './project/project-info'
 import * as workAndRecords from './project/work-and-records'
 import * as edits from './project/edits'
+import * as problems from './project/problems'
 import * as flow from './project/flow'
 import type { AboutPart } from './types'
 
@@ -11,11 +12,11 @@ import type { AboutPart } from './types'
 export const ko: AboutPart = {
   id: 'project', title: '프로젝트 화면',
   sub: '프로젝트 하나를 열었을 때의 화면입니다. 무엇을 하는 연구이고, 어디까지 왔고, 다음에 무엇을 하는지를 한곳에서 봅니다.',
-  sections: [screenLayout.ko, overview.ko, projectInfo.ko, workAndRecords.ko, edits.ko, flow.ko],
+  sections: [screenLayout.ko, overview.ko, projectInfo.ko, workAndRecords.ko, edits.ko, problems.ko, flow.ko],
 }
 
 export const en: AboutPart = {
   id: 'project', title: 'Project screen',
   sub: 'The screen you see when you open one project. In one place you see what the research is about, how far it has come, and what comes next.',
-  sections: [screenLayout.en, overview.en, projectInfo.en, workAndRecords.en, edits.en, flow.en],
+  sections: [screenLayout.en, overview.en, projectInfo.en, workAndRecords.en, edits.en, problems.en, flow.en],
 }

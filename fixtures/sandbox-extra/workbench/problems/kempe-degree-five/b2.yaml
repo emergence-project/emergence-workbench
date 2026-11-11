@@ -1,0 +1,6 @@
+format: 1
+method: 차수 5 꼭짓점이 없는 경우(차수 4 이하)를 같은 틀로 적는다
+parent: b
+state: candidate
+by: claude-code
+created: 2026-10-21T10:02

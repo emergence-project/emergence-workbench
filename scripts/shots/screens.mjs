@@ -186,6 +186,11 @@ export const DEFAULT_SCREENS = [
   // 홈 카드의 "변경사항 N"(내가 변경사항 쪽을 열기 전)과 그 쪽. 카드 보기는 home-cards가 기억해 두었다
   ['home-changes', '#/', '변경사항 수'],
   ['info-changes', '#/r/{rid}/changes', '변경사항 표'],
+  // 문제와 시도 나무 (11/11): 목록(진행 · 쓰는 중 · 접힌 제안), 문제 하나(문제 열기 · 교훈 · 나무, 판정 대기 시도를 펼친 모습), 방향 보고와 결정, 문제 수정 창. 문제 파일은 fixtures/sandbox-extra/workbench/problems
+  ['problems', '#/r/{rid}/problems', '문제 줄'],
+  ['problem', '#/r/{rid}/problems/kempe-degree-five', '시도 나무', '[data-ui="시도"][data-ui-item^="B1"] .pb-node-main'],
+  ['problem-decision', '#/r/{rid}/problems/greedy-five-colors', '방향 보고'],
+  ['problem-edit', '#/r/{rid}/problems/torus-seven-colors', '문제 창', '문제 수정'],
 ]
 
 // 폰 폭(390)에서 찍는 화면 (10/30, styles/phone.css): 아래 탭 넷 · 패널 하나 · 접힌 표. 옆으로 넘치면 실패

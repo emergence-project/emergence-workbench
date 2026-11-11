@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useFlow } from './flow/data'
+import { problemTurns, useProblems } from './Problems'
 import { judgeTurns } from './flow/JudgeQueue'
 import { type ManuscriptInfo, type NoteRow, type ResearchApi, type Topic } from './api'
 import { Icon } from './icons'
@@ -67,6 +68,7 @@ export function ResearchNav({ rid, route, materials, askCount = 0, manuscripts, 
   const editCount = edits ? edits.reviews.length + edits.attempts.length : 0
   // 판단할 것 (10/23): 대기열의 명제와 시작을 기다리는 카드. 기록 › 내 차례 맨 위와 같은 수
   const flowScan = useFlow(rid).scan
+  const problemCount = problemTurns(useProblems(rid).data?.problems)
   const judgeCount = flowScan ? (({ queued, ready }) => queued.length + ready.length)(judgeTurns(flowScan.nodes)) : 0
 
   const known = new Set(topics.map((t) => t.id))
@@ -131,6 +133,8 @@ export function ResearchNav({ rid, route, materials, askCount = 0, manuscripts, 
               {askCount + judgeCount > 0 && <span className="rail-count" data-ui="물은 기록 수" title={t(`에이전트가 물은 기록 ${askCount}개 · 판단할 것 ${judgeCount}개`, `${askCount} agent question(s), ${judgeCount} to judge`)}>{askCount + judgeCount}</span>}</button>
           <button className={`nav side-row${route.page === 'edits' ? ' on' : ''}`} aria-current={route.page === 'edits' ? 'page' : undefined} data-ui="고침 검토 블록" title={t('에이전트가 고친 노트를 변경사항마다 검토', 'Review each change agents made to notes')} onClick={() => go({ page: 'edits', rid })}>
             <span className="q-ico" aria-hidden>{Icon.review}</span><span className="label">{t('수정 검토', 'Edit review')}</span>{editCount ? <span className="rail-count" title={t(`검토할 노트와 수정 요청 ${editCount}개`, `${editCount} note(s) to review and edit request(s)`)}>{editCount}</span> : null}</button>
+          <button className={`nav side-row${route.page === 'problems' ? ' on' : ''}`} aria-current={route.page === 'problems' ? 'page' : undefined} data-ui="문제 블록" title={t('문제와 시도 나무: 메시지를 쓰고 시작한 질문과 그 아래에서 해 본 방법들', 'Problems and attempt trees: questions you started with a message, and the methods tried under them')} onClick={() => go({ page: 'problems', rid })}>
+            <span className="q-ico" aria-hidden>{Icon.branch}</span><span className="label">{t('문제', 'Problems')}</span>{problemCount ? <span className="rail-count" title={t(`결정을 기다리는 방향 보고 ${problemCount}개`, `${problemCount} direction report(s) waiting for your decision`)}>{problemCount}</span> : null}</button>
           <button className={`nav side-row${route.page === 'flow' ? ' on' : ''}`} aria-current={route.page === 'flow' ? 'page' : undefined} data-ui="흐름 블록" title={t('연구 흐름: 생각의 걸음과 그 사이의 선', 'Research flow: steps of thinking and the lines between them')} onClick={() => go({ page: 'flow', rid })}>
             <span className="q-ico" aria-hidden>{Icon.flow}</span><span className="label">{t('흐름', 'Flow')}</span></button>
         </div>

@@ -1,0 +1,10 @@
+format: 1
+method: 꼭짓점 12개 이하 평면 삼각분할에서 탐욕 색칠을 전수로 돌린다
+state: reported
+by: claude-code
+created: 2026-10-22T09:10
+worker: claude-code
+started: 2026-10-22T09:15
+did: 삼각분할 7,595개에서 가장 작은 차수부터 지우는 순서로 색칠했다.
+result: 233개에서 여섯 번째 색을 썼다.
+reported: 2026-10-22T14:00

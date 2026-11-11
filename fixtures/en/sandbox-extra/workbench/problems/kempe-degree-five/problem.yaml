@@ -1,0 +1,24 @@
+format: 1
+question: Can Kempe chain swaps alone colour a degree-5 vertex within five colours?
+state: open
+by: user
+created: 2026-10-20
+if_yes: The five-colour theorem for planar graphs follows from Kempe chain swaps alone.
+if_no: A degree-5 vertex needs a reduction other than chain swaps.
+reader: A graduate student following a colouring proof for the first time
+literature:
+  - ref: heawood1890
+    fact: Pointed out the gap in Kempe's four-colour proof and proved five colours with the same chain argument.
+    by: claude-code
+    at: 2026-10-20T10:12
+  - ref: kempe1879
+    fact: First used chain swaps. The four-colour claim was wrong.
+    by: claude-code
+    at: 2026-10-20T10:12
+first_test: On the smallest case where five neighbours all differ (a vertex of the icosahedron graph), check by hand that a chain swap frees a colour.
+grading: Cover every case with a vertex of degree 5 or less, and show by the Jordan curve theorem that the two chains cannot cross in the plane.
+opened: 2026-10-20T10:30
+order:
+  - a
+  - b
+  - c

@@ -33,7 +33,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 
 흐름 출력(`flow_search` · `flow_read` · `flow_add` · `flow_update` · `finish_work`)에는 `shown`이 실린다: 화면이 쓰는 말로 적은 점(예: `명제 (닫는 점) · 끝남 · 해결 · 판단 전`)이라 에이전트가 사용자에게 그대로 옮길 수 있다. MCP는 화면과 이름 · 규칙 · 차례의 경계를 같게 두고, 도구는 화면이 아니라 일 단위로 나눈다(10/27).
 
-## 도구 (new_note · edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
+## 도구 (new_note · edit_note · edit_concept · answer_record · add_record · flow_add · flow_update · flow_review · finish_work · problem_propose · problem_prepare · attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
 
 연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status` → `changes_since`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
 
@@ -65,6 +65,16 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `flow_update` | 점을 고친다. 필수 칸이 비면 끝냄(`done`) · 멈춤을 거절하고 빈 칸 이름을 알린다(`docs/repo-format.md` §14 "해결 문턱"). 질문 문장 · 발단 선 · 갈래 폐기는 사용자가 정하므로 거절한다. 발견이 아닌 열린 점을 시작하면(`active` · `paused` · `done`으로) `flow_add`와 같은 시작 기록 문을 먼저 지난다(`prior` + `adds` 또는 `novel`, 그리고 `criterion`). 이미 시작한 점에는 이 칸들을 거절한다 | `PATCH …/:rid/flow/:id`(`gate: true`). 열린 점 시작은 먼저 `POST …/:rid/flow/start`(`dot`) |
 | `finish_work` | 작업 점(계산 · 증명 · 문헌)을 한 번에 끝낸다: 결과 노트를 근거(노트 · 절)로 달고, 다다른 명제마다 그 아래 명제 점(`support` 선, 같은 주제)을 진술 · 조건 · 절 근거와 함께 끝난 채로 더해 사용자 판단을 기다리게 한다. 해결 문턱은 작업 점과 명제마다 걸리고, 실패한 명제는 알리고 나머지는 남긴다. 질문 · 명제를 고칠 때는 `flow_update` | `PATCH …/:rid/flow/:id`(`gate: true`), 명제마다 `POST …/:rid/flow`와 `PATCH …/:rid/flow/:id` |
 | `flow_review` | 근거 하나(`ev`)나 증명 단계 하나(`step`)의 에이전트 검토를 `role: agent`로, 확인한 내용의 hash와 함께 남긴다 | `POST …/:rid/flow/:id/review` |
+| `problems` | 프로젝트의 문제(`workbench/problems/`, `docs/repo-format.md` §16): id · 질문 · 상태(진행 = 사용자가 시작해 에이전트가 일할 수 있음, 쓰는 중, 제안, 종료) · 시도 수/한도 · 다음 후보 · 멈춘 이유 | `GET …/:rid/problems` |
+| `problem_brief` | 문제 하나를 이어받는 데 필요한 것만 2KB 안에: 질문, 사용자의 메시지와 독자, 채점, 폐기한 시도의 교훈, 판정 대기, 다음 후보, 한도. 먼저 이것을 읽는다 | `GET …/:rid/problems/:id/brief` |
+| `problem_read` | 문제의 모든 칸과 시도 나무 전체(한 일 · 결과 · 파일 · 판정 · 방향 보고와 결정). `attempt`를 주면 그 시도만 | `GET …/:rid/problems/:id` |
+| `problem_propose` | 일하다 떠오른 질문을 출처와 함께 제안으로 올린다 `{ question, source }`. 사용자가 받아 메시지를 쓰고 시작해야 문제가 된다. 메시지 · 독자 · 가치 의견은 적지 않는다 | `POST …/:rid/problems` |
+| `problem_prepare` | 사용자가 판단하는 데 쓸 사실을 더한다: 문헌 대조 `literature`(논문마다 사실 한 줄), 첫 시험 `first_test`, 채점 `grading` | `PATCH …/:rid/problems/:id` |
+| `attempt_add` | 진행 문제(또는 성립한 시도) 아래에 후보 방법을 한 줄씩 늘어놓는다. 일하기 전에 먼저 늘어놓고, 순서는 사용자가 바꿀 수 있다 | `POST …/:rid/problems/:id/attempts` |
+| `attempt_start` | 후보 하나를 자기 이름으로 시작한다. `attempt`가 없으면 다음 후보. 한도 · 폐기 셋 · 결정 대기에서는 거절하므로 `direction_report`를 낸다 | `POST …/attempts/:aid/start` |
+| `attempt_report` | 시작한 시도의 한 일과 결과를 사실로(숫자 · 크기 · 매개변수 · 실패한 자리), 원자료 · 코드 · 노트 파일과 함께 보고한다. 성립 여부는 정하지 않는다 | `POST …/attempts/:aid/report` |
+| `attempt_verdict` | 다른 쪽이 일한 시도를 원자료로 판정한다. 성립은 맞춘 조건 밖의 확인 `check`, 폐기는 교훈 `lesson`. 자기가 일한 시도는 거절 | `POST …/attempts/:aid/verdict` |
+| `direction_report` | 멈췄거나 결과가 질문에서 벗어날 때, 사용자의 메시지에 맞춰 사실만 나눠 적고 선다(`for_yes` · `for_no` · `neither`). 계속할지는 권하지 않는다 | `POST …/:rid/problems/:id/report` |
 | `answer_record` | 질문 · 지시 기록 아래에 답을 쓴다 `{ target, id, answer }`. 지시는 먼저 그 일을 하고(노트는 `edit_note`) 답한다. 답 머리에 에이전트 이름이 붙고 기록은 답함이 된다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target/:id/answers` |
 | `add_record` | 사용자에게 남기는 기록 `{ file 또는 target, kind: 질문 \| 메모, text, quote?, line? }`. `by`에 에이전트 이름이 적힌다. 질문은 사용자에게 확인 · 결정을 부탁하는 것(예: 에이전트가 쓴 노트의 한 곳, `quote`로 그 자리에 붙인다)으로, 사용자가 앱에서 답할 때까지 사용자 차례다(앱에서 주황, 홈 "확인 필요"에 셈). 사용자가 답하면 `### 답 · 사용자`가 붙고 답함이 된다. 답은 `read_records`로 읽는다. 덧붙이기라 hash가 없다 | `POST …/:rid/comments/:target` |
 | `app_submit` | 앱 고치기 대화(앱 안에서 앱 자체를 고치는 에이전트, 10/21) 안에서만. 그 대화의 작업 폴더(따로 둔 git worktree)에서 바뀐 것을 모두 커밋해 `claude/app-…` 브랜치를 올리고 PR `{ title, body }`을 연다(이미 있으면 더한다). 대화마다 자기 브랜치라 다른 PR이 열려 있어도 올린다. 그 대화의 에이전트는 작업 폴더에서 검사(형식 검사 · 시험 · 화면 그림)를 스스로 돌리지만, 올리기 · PR · 합치기와 앱 서비스는 하지 않는다. GitHub CI가 한 번 더 돌린다 | `POST /api/agent-chats/:id/app/submit` |

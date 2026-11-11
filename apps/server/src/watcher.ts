@@ -18,6 +18,7 @@ type Target =
   | { type: 'comments'; target: string }
   | { type: 'tasks'; id: string }
   | { type: 'flow' }
+  | { type: 'problems' }
   | { type: 'note'; file: string }
   | { type: 'sources' }
 
@@ -30,6 +31,8 @@ export type WorkbenchEvent =
   | { type: 'tasks'; research: string; id: string }
   /** 연구 흐름의 점 파일(workbench/flow/*.yaml)이 바뀜 */
   | { type: 'flow'; research: string }
+  /** 문제와 시도 파일(workbench/problems/<id>/*.yaml)이 바뀜 */
+  | { type: 'problems'; research: string }
   /** 기록 저절로 올리기의 결과가 바뀜 (실패가 생기거나 풀림, routes/feedback.ts). 파일 변경이 아니다 */
   | { type: 'records-publish'; research: string }
   /** 에이전트 대화가 바뀜 (routes/agentChats.ts). 파일 변경이 아니다 */
@@ -61,6 +64,7 @@ export function classify(root: string, file: string): Target | null {
   if (rel.length === 2 && a === 'comments' && b!.endsWith('.md')) return { type: 'comments', target: b!.slice(0, -3) }
   if (rel.length === 2 && a === 'tasks' && b!.endsWith('.md')) return { type: 'tasks', id: b!.slice(0, -3) }
   if (rel.length === 2 && a === 'flow' && b!.endsWith('.yaml')) return { type: 'flow' }
+  if (rel.length === 3 && a === 'problems' && rel[2]!.endsWith('.yaml')) return { type: 'problems' }
   if (rel.length === 1 && a === 'research.yaml') return { type: 'research' }
   // 프로젝트 규칙·결정 (10/13): 검토 대기 수에 들어가므로 작업 탭이 다시 읽는다
   if (rel.length === 2 && (a === 'rules' || a === 'decisions') && b!.endsWith('.md')) return { type: 'sources' }

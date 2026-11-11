@@ -1,0 +1,6 @@
+format: 1
+method: Write the case without a degree-5 vertex (degree 4 or less) in the same frame
+parent: b
+state: candidate
+by: claude-code
+created: 2026-10-21T10:02

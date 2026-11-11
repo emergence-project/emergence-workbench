@@ -1,0 +1,80 @@
+/* 문제와 시도 나무 (Problems.tsx, 11/11 시안 J2uZ 4절). 색은 상태 점에만: 진행 파랑 · 판정 대기 주황 · 성립 청록 · 폐기 회색 고리 */
+.page-body.pb-page { max-width: 860px; gap: var(--sp-4); }
+.pb-head { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--input-h); }
+.pb-head .sp, .pb-h3 .sp { flex: 1; }
+.pb-h { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-title); }
+.pb-back { font-size: var(--fs-sm); color: var(--text-2); }
+.pb-hint { margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
+.pb-title { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-title); line-height: 1.35; overflow-wrap: anywhere; }
+.pb-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); color: var(--text-3); }
+.pb-gate, .pb-stop { margin: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.pb-sec { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.pb-h3 { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-md); font-weight: var(--fw-strong); }
+.pb-h3 .muted { font-size: var(--fs-xs); font-weight: var(--fw-normal); }
+
+/* 목록: 한 줄에 문제 하나 */
+.pb-rows { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.pb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 2px var(--sp-3); width: 100%; padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--line); border-radius: 0; text-align: left; font-size: var(--fs-sm); color: var(--text); }
+.pb-row:first-child { border-top: 0; }
+.pb-row:hover { background: var(--bg-hover); }
+.pb-q { min-width: 0; font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.pb-row .rail-count { grid-column: 2; align-self: center; }
+.pb-nums { grid-column: 3; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pb-now { grid-column: 1 / -1; min-width: 0; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-fold > summary { font-size: var(--fs-sm); color: var(--text-2); padding: var(--sp-1) 0; }
+.pb-fold[open] > summary { margin-bottom: var(--sp-2); }
+.pb-sum-hint { margin-left: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
+
+/* 문제 열기: 이름 | 내용 두 칸. 이름 아래 작은 글은 누가 쓰는 줄인지 */
+.pb-gate-list, .pb-facts { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: var(--sp-2) var(--sp-4); margin: 0; font-size: var(--fs-sm); }
+.pb-gate-list { padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.pb-gate-list dt, .pb-facts dt { color: var(--text-2); }
+.pb-gate-list dt small { display: block; font-size: var(--fs-2xs); color: var(--text-3); }
+.pb-gate-list dd, .pb-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.pb-lit { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; white-space: normal; }
+.pb-lit li { display: flex; align-items: baseline; gap: var(--sp-2); }
+.pb-lit .icon-btn { margin-left: auto; align-self: center; flex: none; }
+.pb-ref { flex: none; font-family: var(--editor-font); font-size: var(--fs-xs); color: var(--text-2); }
+.pb-lessons { margin: 0; padding-left: var(--sp-4); font-size: var(--fs-sm); display: flex; flex-direction: column; gap: 2px; }
+.pb-lessons b { font-weight: var(--fw-strong); margin-right: var(--sp-1); }
+
+/* 방향 보고: 사용자 차례 (주황 점 하나) */
+.pb-decision { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line-strong); border-radius: var(--r-lg); }
+.pb-msg { margin: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.pb-msg span { display: inline-block; min-width: 5.5em; color: var(--text-3); }
+.pb-decide { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.pb-note { flex: 1; min-width: 180px; height: var(--input-h); padding: 0 var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); font-size: var(--fs-sm); color: var(--text); }
+.pb-newlimit { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; }
+.pb-newlimit input { width: 4em; height: var(--input-h); padding: 0 var(--sp-1); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); font-size: var(--fs-sm); color: var(--text); }
+.pb-past { padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
+.pb-past-d { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); color: var(--text-2); }
+
+/* 시도 나무: 한 줄에 시도 하나, 깊이만큼 들여 쓴다. 누르면 그 아래에 전부가 펼쳐진다 */
+.pb-tree { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.pb-node { border-bottom: 1px solid var(--line); }
+.pb-node-row { display: flex; align-items: center; gap: var(--sp-1); }
+.pb-node-main { flex: 1; min-width: 0; display: grid; grid-template-columns: 5.5em 2.2em minmax(0, 1fr) auto; align-items: baseline; gap: var(--sp-2); padding: 6px var(--sp-1); border-radius: var(--r-sm); text-align: left; font-size: var(--fs-sm); color: var(--text); }
+.pb-node-main:hover, .pb-node.on .pb-node-main { background: var(--bg-hover); }
+.pb-state { white-space: nowrap; font-size: var(--fs-xs); color: var(--text-2); }
+.pb-label { font-weight: var(--fw-strong); font-variant-numeric: tabular-nums; }
+.pb-method { min-width: 0; overflow-wrap: anywhere; }
+.s-dropped .pb-method, .s-dropped .pb-label { color: var(--text-3); }
+.pb-next, .pb-all { margin: 0 0 0 var(--sp-2); }
+.pb-move { display: inline-flex; flex: none; }
+.pb-sub { padding: 0 var(--sp-1) 6px calc(5.5em + 2.2em + 2 * var(--sp-2) + var(--sp-1)); font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; }
+.pb-detail { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-1) var(--sp-1) var(--sp-3) calc(5.5em + var(--sp-2) + var(--sp-1)); }
+.pb-files { display: flex; flex-direction: column; gap: 2px; }
+.pb-files code { font-size: var(--fs-xs); }
+.pb-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
+.pb-add { display: flex; align-items: center; gap: var(--sp-2); }
+.pb-add input { flex: 1; min-width: 0; height: var(--input-h); padding: 0 var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); font-size: var(--fs-sm); color: var(--text); }
+
+.pb-form-hint { margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
+.pb-err { margin-right: auto; }
+.pb-limit input { width: 6em; }
+@media (max-width: 760px) {
+  .pb-node-main { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+  .pb-sub, .pb-detail { padding-left: var(--sp-4); }
+  .pb-gate-list, .pb-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .pb-gate-list dd, .pb-facts dd { margin-bottom: var(--sp-2); }
+}

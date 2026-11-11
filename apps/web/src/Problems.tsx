@@ -1,0 +1,325 @@
+import { useCallback, useState, type CSSProperties, type ReactNode } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type AttemptState, type DirectionReport, type ProblemDoc, type ProblemRow, type ProblemState, type ProblemStop } from './api'
+import { Icon } from './icons'
+import { t } from './i18n'
+import { CloseDialog, ProblemDialog, VerdictDialog } from './ProblemDialogs'
+import { qk } from './queries'
+import { go } from './router'
+import { agentName } from './taskView'
+
+/**
+ * 문제와 시도 나무 (11/11 사용자 결정 "흐름을 시도 나무로 · 메시지 관문", 시안 J2uZ 4절).
+ * 문제는 사용자가 메시지(답이 예 · 아니오일 때의 한 문장)와 독자를 쓰고 시작해야 열린다. 에이전트는 그 아래에 시도 후보를 늘어놓고 하나씩 해 보며,
+ * 성립 · 폐기는 일한 쪽이 아닌 쪽이 정한다. 한도나 정체에서는 방향 보고가 오고 사용자가 계속 · 좁히기 · 종료를 정한다.
+ * 파일은 workbench/problems/<id>/ (docs/repo-format.md §16). 에이전트는 MCP 도구(problem_brief · attempt_* · direction_report)로 같은 것을 쓴다.
+ */
+
+const STATE_NAME: Record<ProblemState, string> = { proposed: t('제안', 'Proposed'), draft: t('쓰는 중', 'Draft'), open: t('진행', 'Open'), closed: t('종료', 'Closed') }
+const ATTEMPT_NAME: Record<AttemptState, string> = { candidate: t('후보', 'Candidate'), active: t('진행', 'Working'), reported: t('판정 대기', 'To judge'), holds: t('성립', 'Holds'), dropped: t('폐기', 'Dropped') }
+/** 색 점: 진행 파랑 · 판정 대기 주황 · 성립 청록 · 폐기 회색 고리 · 후보 옅은 점 (디자인 문서 2절 "색은 상태에만") */
+const ATTEMPT_DOT: Record<AttemptState, string> = { candidate: 'none', active: 'in-progress', reported: 'blocked', holds: 'solved', dropped: 'stopped' }
+const STOP_TEXT: Record<ProblemStop, string> = {
+  decision: t('방향 보고가 결정을 기다립니다', 'A direction report is waiting for your decision'),
+  limit: t('한도에 닿았습니다. 에이전트가 다음 시도 대신 방향 보고를 냅니다', 'The limit is reached. The agent files a direction report instead of the next attempt'),
+  stuck: t('폐기가 이어졌습니다. 에이전트가 다음 시도 대신 방향 보고를 냅니다', 'Attempts kept being dropped. The agent files a direction report instead of the next attempt'),
+  exhausted: t('남은 후보가 없습니다', 'No candidates are left'),
+}
+const who = (name: string) => (name === 'user' ? t('나', 'me') : agentName(name))
+/** "2026-11-11T14:02" → "11/11 14:02" */
+const when = (s: string | undefined) => (s ? s.slice(5, 16).replace('-', '/').replace('T', ' ') : '')
+const errorOf = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
+/** 문제 목록 (화면 캐시 qk.problems: 문제 파일 알림이 오면, 화면이 쓰면 다시 읽는다). 사이드바의 수도 이것을 쓴다 */
+export function useProblems(rid: string) {
+  return useQuery({ queryKey: qk.problems(rid), queryFn: () => problemsApi(rid).list() })
+}
+/** 사용자 차례: 방향 보고가 결정을 기다리는 문제 수 */
+export const problemTurns = (rows: ProblemRow[] | undefined) => rows?.filter((p) => p.waiting).length ?? 0
+
+function AttemptDot({ s, label }: { s: AttemptState; label?: boolean }) {
+  return <><span className={`g ${ATTEMPT_DOT[s]}`} role="img" aria-label={ATTEMPT_NAME[s]} title={ATTEMPT_NAME[s]} />{label && <span className="g-name">{ATTEMPT_NAME[s]}</span>}</>
+}
+
+export function ProblemsPage({ rid, id, onSaved }: { rid: string; id?: string; onSaved(msg: string): void }) {
+  return (
+    <div className="ws-doc" data-ui="문제 쪽">
+      <section className="pane" data-ui="본문">
+        <div className="scroll">
+          <div className="page-body pb-page">{id ? <ProblemView key={id} rid={rid} id={id} onSaved={onSaved} /> : <ProblemList rid={rid} />}</div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+// ---------- 목록 ----------
+
+function Row({ rid, p }: { rid: string; p: ProblemRow }) {
+  const c = p.counts
+  const now = p.state !== 'open' ? (p.source ? t(`출처: ${p.source}`, `Source: ${p.source}`) : '')
+    : p.stop ? STOP_TEXT[p.stop] : p.next ? t(`다음 ${p.next.label} ${p.next.method}`, `Next ${p.next.label} ${p.next.method}`) : ''
+  return (
+    <button className="pb-row" data-ui="문제 줄" data-ui-item={p.question} onClick={() => go({ page: 'problems', rid, id: p.id })}>
+      <span className="pb-q">{p.question}</span>
+      {p.waiting && <span className="rail-count" title={STOP_TEXT.decision}>1</span>}
+      {p.state === 'open' && <span className="pb-nums">{t(`시도 ${p.used}/${p.limit} · 성립 ${c.holds} · 폐기 ${c.dropped}`, `Attempts ${p.used}/${p.limit} · holds ${c.holds} · dropped ${c.dropped}`)}{c.reported ? t(` · 판정 대기 ${c.reported}`, ` · awaiting verdict ${c.reported}`) : ''}</span>}
+      {now && <span className="pb-now">{now}</span>}
+    </button>
+  )
+}
+
+function Group({ ui, title, hint, rows, rid, folded }: { ui: string; title: string; hint?: string; rows: ProblemRow[]; rid: string; folded?: boolean }) {
+  if (!rows.length) return null
+  const list = <div className="pb-rows">{rows.map((p) => <Row key={p.id} rid={rid} p={p} />)}</div>
+  if (folded) return <details className="pb-fold" data-ui={ui}><summary>{title} {rows.length}{hint && <span className="pb-sum-hint">{hint}</span>}</summary>{list}</details>
+  return <section className="pb-sec" data-ui={ui}><h3 className="pb-h3">{title} <span className="muted">{rows.length}</span></h3>{list}</section>
+}
+
+function ProblemList({ rid }: { rid: string }) {
+  const q = useProblems(rid)
+  const client = useQueryClient()
+  const [adding, setAdding] = useState(false)
+  const rows = q.data?.problems ?? []
+  const of = (s: ProblemState) => rows.filter((p) => p.state === s)
+  return <>
+    <header className="pb-head">
+      <h2 className="pb-h">{t('문제', 'Problems')}</h2><span className="sp" />
+      <button className="btn" data-ui="문제 추가" onClick={() => setAdding(true)}>＋ {t('문제', 'Problem')}</button>
+    </header>
+    <p className="pb-hint">{t('문제는 메시지(답이 예 · 아니오일 때의 한 문장)와 독자를 쓰고 시작합니다. 에이전트는 시작한 문제 아래에서만 시도를 늘어놓고 해 봅니다.', 'A problem starts once you write its message (the one sentence if the answer is yes, and if it is no) and its reader. Agents list and try attempts only under a started problem.')}</p>
+    {q.error && <div className="banner danger">{t(`읽지 못했습니다: ${errorOf(q.error)}`, `Could not read: ${errorOf(q.error)}`)}</div>}
+    {q.data?.diagnostics.map((d) => <div key={d.file} className="banner" data-ui="문제 파일 오류">{d.file}: {d.message}</div>)}
+    {q.data && rows.length === 0 && <p className="empty">{t('아직 문제가 없습니다. 「문제」로 질문 하나를 적습니다.', 'No problems yet. Write a question with "Problem".')}</p>}
+    <Group ui="진행 문제" title={t('진행', 'Open')} rows={of('open')} rid={rid} />
+    <Group ui="쓰는 중 문제" title={t('쓰는 중', 'Draft')} rows={of('draft')} rid={rid} />
+    <Group ui="제안 문제" title={t('제안', 'Proposed')} hint={t('에이전트가 일하다 올린 질문. 메시지를 쓰고 시작하면 문제가 됩니다', 'Questions agents raised while working. One becomes a problem when you write its message and start it')} rows={of('proposed')} rid={rid} folded />
+    <Group ui="종료 문제" title={t('종료', 'Closed')} rows={of('closed')} rid={rid} folded />
+    {adding && <ProblemDialog rid={rid} onClose={() => setAdding(false)} onDone={(p) => { setAdding(false); void client.invalidateQueries({ queryKey: qk.problems(rid) }); go({ page: 'problems', rid, id: p.id }) }} />}
+  </>
+}
+
+// ---------- 문제 하나 ----------
+
+type Open = { k: 'edit' } | { k: 'close' } | { k: 'verdict'; attempt: Attempt; result: 'holds' | 'dropped' }
+
+function ProblemView({ rid, id, onSaved }: { rid: string; id: string; onSaved(msg: string): void }) {
+  const client = useQueryClient()
+  const q = useQuery({ queryKey: qk.problem(rid, id), queryFn: () => problemsApi(rid).get(id) })
+  const [open, setOpen] = useState<Open | null>(null)
+  const [busy, setBusy] = useState(false)
+  const api = problemsApi(rid)
+  const reload = useCallback(() => client.invalidateQueries({ queryKey: qk.problems(rid) }), [client, rid])
+  /** 쓰기 하나: 끝나면 다시 읽고, 실패하면 이유를 알린다 (그새 바뀐 것이면 다시 읽은 것이 보인다) */
+  const run = async (work: () => Promise<unknown>, done?: string) => {
+    setBusy(true)
+    try { await work(); if (done) onSaved(done) } catch (e) { onSaved(errorOf(e)) } finally { setBusy(false); void reload() }
+  }
+  const saved = (msg: string) => () => { setOpen(null); onSaved(msg); void reload() }
+  if (q.error) return <div className="banner danger">{t(`읽지 못했습니다: ${errorOf(q.error)}`, `Could not read: ${errorOf(q.error)}`)}</div>
+  const p = q.data
+  if (!p) return <p className="muted">{t('읽는 중…', 'Reading…')}</p>
+  const started = p.state === 'open' || p.state === 'closed'
+  const ready = !!p.if_yes && !!p.if_no && !!p.reader
+  const report = p.reports.at(-1)
+  const pending = p.stop === 'decision' && report ? report : null
+  return <>
+    <header className="pb-head" data-ui="문제 머리">
+      <button className="a pb-back" onClick={() => go({ page: 'problems', rid })}>{t('문제', 'Problems')}</button>
+      <span className="sp" />
+      <button className="icon-btn" data-ui="문제 수정" data-tip={t('수정', 'Edit')} aria-label={t('수정', 'Edit')} disabled={p.state === 'closed'} onClick={() => setOpen({ k: 'edit' })}>{Icon.pencil}</button>
+      {!started && <button className="icon-btn" data-ui="문제 삭제" data-tip={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} disabled={busy}
+        onClick={() => void run(async () => { await api.remove(p.id, p.hash); go({ page: 'problems', rid }) }, t('삭제했습니다 (problems/.trash/에 남습니다)', 'Deleted (kept in problems/.trash/)'))}>{Icon.trash}</button>}
+      {p.state === 'open' && !pending && <button className="btn" data-ui="문제 종료" onClick={() => setOpen({ k: 'close' })}>{t('종료', 'Close')}</button>}
+      {!started && <button className="btn primary" data-ui="문제 시작" disabled={busy || !ready} title={ready ? t('시작하면 에이전트가 이 문제 아래에서 시도를 늘어놓고 해 봅니다', 'Once started, agents list and try attempts under this problem') : t('메시지(예 · 아니오)와 독자를 쓰면 시작할 수 있습니다', 'Write the message (yes and no) and the reader to start')}
+        onClick={() => void run(() => api.open(p.id, p.hash), t('시작했습니다', 'Started'))}>{t('시작', 'Start')}</button>}
+    </header>
+    <h2 className="pb-title" data-ui="문제 질문">{p.question}</h2>
+    <div className="pb-meta">
+      <span>{STATE_NAME[p.state]}</span>
+      {started && <span>{t(`시도 ${p.used} / 한도 ${p.limit}`, `Attempts ${p.used} / limit ${p.limit}`)}</span>}
+      {p.needs === 'all' && <span title={t('시도가 모두 성립해야 끝나는 분해', 'A decomposition: every attempt must hold')}>{t('분해', 'Decomposition')}</span>}
+      {p.by !== 'user' && <span>{t(`${who(p.by)}의 제안`, `Proposed by ${who(p.by)}`)}</span>}
+      {p.source && <span>{t(`출처: ${p.source}`, `Source: ${p.source}`)}</span>}
+      {p.closed && <span>{t(`종료 ${when(p.closed.at)}`, `Closed ${when(p.closed.at)}`)}{p.closed.reason ? `: ${p.closed.reason}` : ''}</span>}
+    </div>
+    {!started && !ready && <p className="pb-gate" data-ui="메시지 관문"><span className="turn-dot" aria-hidden /> {t('메시지(예 · 아니오)와 독자를 쓰면 시작할 수 있습니다. 연필로 적습니다.', 'Write the message (yes and no) and the reader to start. Use the pencil.')}</p>}
+
+    {pending && <Decision p={p} report={pending} busy={busy}
+      onDecide={(verdict, note, limit) => void run(async () => { await api.decide(p.id, p.hash, verdict, note, limit); if (verdict === 'narrow') setOpen({ k: 'edit' }) }, verdict === 'close' ? t('종료했습니다', 'Closed') : t('한도를 올렸습니다', 'Limit raised'))} />}
+    {p.stop && p.stop !== 'decision' && <p className="pb-stop" data-ui="멈춤">{STOP_TEXT[p.stop]}</p>}
+
+    <Gate p={p} busy={busy} onDropLiterature={(i) => void run(() => api.patch(p.id, p.hash, { literature: p.literature.filter((_, j) => j !== i).map(({ ref, fact }) => ({ ref, fact })) }))} />
+
+    {p.lessons.length > 0 && <section className="pb-sec" data-ui="교훈">
+      <h3 className="pb-h3">{t('교훈', 'Lessons')} <span className="muted">{p.lessons.length}</span></h3>
+      <ul className="pb-lessons">{p.lessons.map((l) => <li key={l.id}><b>{l.label}</b> {l.lesson}{l.reopen && <span className="muted"> · {t(`다시 열 조건: ${l.reopen}`, `Reopen if: ${l.reopen}`)}</span>}</li>)}</ul>
+    </section>}
+
+    {started && <Tree p={p} busy={busy} locked={p.state === 'closed'}
+      onAdd={(method, parent) => void run(() => api.addAttempts(p.id, [{ method, ...(parent && { parent }) }]))}
+      onOrder={(order) => void run(() => api.patch(p.id, p.hash, { order }))}
+      onVerdict={(attempt, result) => setOpen({ k: 'verdict', attempt, result })} />}
+
+    {p.reports.some((r) => r.decision) && <details className="pb-fold" data-ui="지난 방향 보고">
+      <summary>{t('지난 방향 보고', 'Earlier direction reports')} {p.reports.filter((r) => r.decision).length}</summary>
+      {p.reports.filter((r) => r.decision).map((r) => <div key={r.at} className="pb-past"><ReportFacts r={r} /><p className="pb-past-d">{t(`결정 ${when(r.decision?.at)}: `, `Decision ${when(r.decision?.at)}: `)}<b>{VERDICT_NAME[r.decision?.verdict ?? 'continue']}</b>{r.decision?.limit ? t(` · 한도 ${r.decision.limit}`, ` · limit ${r.decision.limit}`) : ''}{r.decision?.note ? ` · ${r.decision.note}` : ''}</p></div>)}
+    </details>}
+
+    {open?.k === 'edit' && <ProblemDialog rid={rid} problem={p} onClose={() => setOpen(null)} onDone={saved(t('저장했습니다', 'Saved'))} />}
+    {open?.k === 'close' && <CloseDialog rid={rid} problem={p} onClose={() => setOpen(null)} onDone={saved(t('종료했습니다', 'Closed'))} />}
+    {open?.k === 'verdict' && <VerdictDialog rid={rid} problem={p} attempt={open.attempt} result={open.result} onClose={() => setOpen(null)} onDone={saved(t('판정을 적었습니다', 'Verdict saved'))} />}
+  </>
+}
+
+const VERDICT_NAME = { continue: t('계속', 'Continue'), narrow: t('좁히기', 'Narrow'), close: t('종료', 'Close') }
+
+/** 문제 열기: 사용자의 두 줄(메시지 · 독자)과 에이전트의 세 줄(문헌 대조 · 첫 시험 · 채점) */
+function Gate({ p, busy, onDropLiterature }: { p: ProblemDoc; busy: boolean; onDropLiterature(i: number): void }) {
+  const none = <span className="muted">{t('아직 없음', 'Not written yet')}</span>
+  const line = (k: string, by: string, v: ReactNode) => <><dt>{k}<small>{by}</small></dt><dd>{v}</dd></>
+  const me = t('사용자', 'You'), agent = t('에이전트', 'Agent')
+  return (
+    <section className="pb-sec" data-ui="문제 열기">
+      <dl className="pb-gate-list">
+        {line(t('예이면', 'If yes'), me, p.if_yes ?? none)}
+        {line(t('아니오이면', 'If no'), me, p.if_no ?? none)}
+        {line(t('독자', 'Reader'), me, p.reader ?? none)}
+        {line(t('문헌 대조', 'Literature'), agent, p.literature.length ? <ul className="pb-lit">{p.literature.map((l, i) => (
+          <li key={`${l.ref}/${i}`}><span className="pb-ref">{l.ref}</span> {l.fact}
+            {p.state !== 'closed' && <button className="icon-btn sm" data-tip={t('제거', 'Remove')} aria-label={t(`제거: ${l.ref}`, `Remove: ${l.ref}`)} disabled={busy} onClick={() => onDropLiterature(i)}>{Icon.x}</button>}</li>
+        ))}</ul> : none)}
+        {line(t('첫 시험', 'First test'), agent, p.first_test ?? none)}
+        {line(t('채점', 'Grading'), agent, p.grading ?? <span className="muted">{t('탐색 (채점 기준 없음: 결과는 사실로만 남습니다)', 'Exploratory (no grading rule: results stay as facts)')}</span>)}
+      </dl>
+    </section>
+  )
+}
+
+function ReportFacts({ r }: { r: DirectionReport }) {
+  return (
+    <dl className="pb-facts">
+      {r.for_yes && <><dt>{t('예를 지지', 'For yes')}</dt><dd>{r.for_yes}</dd></>}
+      {r.for_no && <><dt>{t('아니오를 지지', 'For no')}</dt><dd>{r.for_no}</dd></>}
+      {r.neither && <><dt>{t('어느 쪽과도 무관', 'For neither')}</dt><dd>{r.neither}</dd></>}
+    </dl>
+  )
+}
+
+const WHY: Record<DirectionReport['why'], string> = { limit: t('한도에 닿음', 'limit reached'), stuck: t('폐기가 이어짐', 'attempts kept being dropped'), exhausted: t('후보 없음', 'no candidates left'), asked: t('에이전트가 올림', 'filed by the agent') }
+
+/** 방향 보고와 결정: 계속 · 좁히기 · 종료 (사용자 차례) */
+function Decision({ p, report, busy, onDecide }: { p: ProblemDoc; report: DirectionReport; busy: boolean; onDecide(verdict: 'continue' | 'narrow' | 'close', note: string, limit?: number): void }) {
+  const [note, setNote] = useState('')
+  const [limit, setLimit] = useState(String(Math.max(p.limit, p.used) + PROBLEM_LIMIT_STEP))
+  const n = Number(limit)
+  const ok = Number.isInteger(n) && n > p.used && n <= 99
+  return (
+    <section className="pb-decision" data-ui="방향 보고">
+      <h3 className="pb-h3"><span className="turn-dot" aria-hidden /> {t('방향 보고', 'Direction report')} <span className="muted">{who(report.by)} · {when(report.at)} · {WHY[report.why]}</span></h3>
+      <p className="pb-msg"><span>{t('예이면', 'If yes')}</span> {p.if_yes}<br /><span>{t('아니오이면', 'If no')}</span> {p.if_no}</p>
+      <ReportFacts r={report} />
+      <div className="pb-decide">
+        <input className="pb-note" aria-label={t('결정에 붙일 말 (없어도 됨)', 'Note on the decision (optional)')} placeholder={t('결정에 붙일 말 (없어도 됨)', 'Note on the decision (optional)')} value={note} onChange={(e) => setNote(e.target.value)} />
+        <label className="pb-newlimit">{t('새 한도', 'New limit')} <input type="number" min={p.used + 1} max={99} value={limit} onChange={(e) => setLimit(e.target.value)} /></label>
+        <button className="btn" data-ui="계속" disabled={busy || !ok} title={t('한도를 올리고 같은 질문으로 계속합니다', 'Raise the limit and continue with the same question')} onClick={() => onDecide('continue', note, n)}>{VERDICT_NAME.continue}</button>
+        <button className="btn" data-ui="좁히기" disabled={busy || !ok} title={t('한도를 올리고 질문 · 메시지를 좁혀 수정합니다', 'Raise the limit and narrow the question or message')} onClick={() => onDecide('narrow', note, n)}>{VERDICT_NAME.narrow}</button>
+        <button className="btn" data-ui="종료" disabled={busy} title={t('이유와 나무를 남기고 문제를 종료합니다', 'Close the problem, keeping the reason and the tree')} onClick={() => onDecide('close', note)}>{VERDICT_NAME.close}</button>
+      </div>
+    </section>
+  )
+}
+
+// ---------- 시도 나무 ----------
+
+const depthStyle = (depth: number): CSSProperties => ({ paddingLeft: `calc(${depth} * var(--sp-5))` })
+
+function Tree({ p, busy, locked, onAdd, onOrder, onVerdict }: {
+  p: ProblemDoc; busy: boolean; locked: boolean
+  onAdd(method: string, parent?: string): void
+  onOrder(order: string[]): void
+  onVerdict(attempt: Attempt, result: 'holds' | 'dropped'): void
+}) {
+  const [shown, setShown] = useState<string | null>(null)
+  const [adding, setAdding] = useState<{ parent?: string } | null>(null)
+  const [method, setMethod] = useState('')
+  const ids = p.attempts.map((a) => a.id)
+  /** 형제 사이에서 한 칸 위 · 아래로: 보이는 순서 전체를 순서로 적는다 (보이는 순서 = 일하는 순서) */
+  const move = (a: Attempt, by: -1 | 1) => {
+    const sibs = p.attempts.filter((x) => x.parent === a.parent).map((x) => x.id)
+    const i = sibs.indexOf(a.id), j = i + by
+    if (j < 0 || j >= sibs.length) return
+    const swapped = sibs.map((x, k) => (k === i ? sibs[j]! : k === j ? a.id : x))
+    // 형제의 새 순서를 앞에, 나머지는 지금 보이는 순서대로
+    onOrder([...swapped, ...ids.filter((x) => !sibs.includes(x))])
+  }
+  const add = () => { const m = method.trim(); if (!m) return; onAdd(m, adding?.parent); setMethod(''); setAdding(null) }
+  const sibsOf = (a: Attempt) => p.attempts.filter((x) => x.parent === a.parent)
+  return (
+    <section className="pb-sec" data-ui="시도 나무">
+      <h3 className="pb-h3">{t('시도 나무', 'Attempt tree')} <span className="muted">{t(`${p.used} / ${p.limit}`, `${p.used} / ${p.limit}`)}</span><span className="sp" />
+        {!locked && <button className="btn sm" data-ui="후보 추가" onClick={() => { setAdding({}); setMethod('') }}>＋ {t('후보', 'Candidate')}</button>}</h3>
+      {p.attempts.length === 0 && <p className="empty">{t('아직 시도가 없습니다. 에이전트가 후보를 늘어놓거나 「후보」로 적습니다.', 'No attempts yet. An agent lists candidates, or add one with "Candidate".')}</p>}
+      <div className="pb-tree">
+        {p.attempts.map((a) => {
+          const sibs = sibsOf(a), i = sibs.indexOf(a)
+          const sub = a.state === 'dropped' ? a.lesson ?? a.verdict?.note : a.state === 'holds' ? a.result : a.state === 'reported' ? a.result : a.state === 'active' ? t(`${who(a.worker ?? a.by)} · ${when(a.started)} 시작`, `${who(a.worker ?? a.by)} · started ${when(a.started)}`) : undefined
+          const on = shown === a.id
+          return (
+            <div key={a.id} className={`pb-node s-${a.state}${on ? ' on' : ''}`} style={depthStyle(a.depth)} data-ui="시도" data-ui-item={`${a.label} ${a.method}`}>
+              <div className="pb-node-row">
+                <button className="pb-node-main" aria-expanded={on} onClick={() => setShown(on ? null : a.id)}>
+                  <span className="pb-state"><AttemptDot s={a.state} label /></span>
+                  <span className="pb-label">{a.label}</span>
+                  <span className="pb-method">{a.method}{a.needs === 'all' && <span className="tag pb-all" title={t('이 아래 시도가 모두 성립해야 한다 (분해)', 'Every attempt below must hold (a decomposition)')}>{t('분해', 'All')}</span>}</span>
+                  {a.next && !p.stop && <span className="tag pb-next" title={t('지금 할 후보', 'The candidate to do now')}>{t('다음', 'Next')}</span>}
+                </button>
+                {a.state === 'candidate' && !locked && <span className="pb-move">
+                  <button className="icon-btn sm" data-tip={t('위로', 'Move up')} aria-label={t(`${a.label} 위로`, `Move ${a.label} up`)} disabled={busy || i === 0} onClick={() => move(a, -1)}>{Icon.up}</button>
+                  <button className="icon-btn sm" data-tip={t('아래로', 'Move down')} aria-label={t(`${a.label} 아래로`, `Move ${a.label} down`)} disabled={busy || i === sibs.length - 1} onClick={() => move(a, 1)}>{Icon.down}</button>
+                </span>}
+              </div>
+              {sub && !on && <div className="pb-sub">{sub}</div>}
+              {on && <Detail a={a} locked={locked} busy={busy} onVerdict={onVerdict} onAddUnder={() => { setAdding({ parent: a.id }); setMethod('') }} />}
+            </div>
+          )
+        })}
+      </div>
+      {adding && <div className="pb-add" data-ui="후보 입력란">
+        <input autoFocus aria-label={t('해 볼 방법 한 줄', 'The method to try, one line')} placeholder={adding.parent ? t(`${adding.parent.toUpperCase()} 아래에 해 볼 방법 한 줄`, `A method to try under ${adding.parent.toUpperCase()}, one line`) : t('해 볼 방법 한 줄', 'The method to try, one line')}
+          value={method} onChange={(e) => setMethod(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(); if (e.key === 'Escape') setAdding(null) }} />
+        <button className="btn sm primary" disabled={busy || !method.trim()} onClick={add}>{t('추가', 'Add')}</button>
+        <button className="btn sm" onClick={() => setAdding(null)}>{t('취소', 'Cancel')}</button>
+      </div>}
+    </section>
+  )
+}
+
+/** 시도 하나의 전부: 한 일 · 결과 · 파일 · 판정. 판정 대기면 사용자도 판정할 수 있다 (일한 쪽이 아닌 쪽) */
+function Detail({ a, locked, busy, onVerdict, onAddUnder }: { a: Attempt; locked: boolean; busy: boolean; onVerdict(a: Attempt, r: 'holds' | 'dropped'): void; onAddUnder(): void }) {
+  const row = (k: string, v: ReactNode) => (v ? <><dt>{k}</dt><dd>{v}</dd></> : null)
+  return (
+    <div className="pb-detail">
+      <dl className="pb-facts">
+        {row(t('올린 이', 'Listed by'), `${who(a.by)}${a.created ? ` · ${when(a.created)}` : ''}`)}
+        {row(t('일한 이', 'Worked by'), a.worker && `${who(a.worker)}${a.started ? ` · ${when(a.started)}` : ''}`)}
+        {row(t('한 일', 'Done'), a.did)}
+        {row(t('결과', 'Result'), a.result)}
+        {row(t('파일', 'Files'), a.files.length > 0 && <span className="pb-files">{a.files.map((f) => <code key={f}>{f}</code>)}</span>)}
+        {row(t('판정', 'Verdict'), a.verdict && `${ATTEMPT_NAME[a.state]} · ${who(a.verdict.by)} · ${when(a.verdict.at)}${a.verdict.note ? ` · ${a.verdict.note}` : ''}`)}
+        {row(t('조건 밖 확인', 'Outside check'), a.verdict?.check)}
+        {row(t('교훈', 'Lesson'), a.lesson)}
+        {row(t('다시 열 조건', 'Reopen if'), a.reopen)}
+      </dl>
+      {!locked && <div className="pb-acts">
+        {a.state === 'reported' && <>
+          <span className="muted">{t('일한 쪽이 아닌 쪽이 원자료로 판정합니다', 'The side that did not do the work judges from the raw data')}</span>
+          <button className="btn sm" data-ui="성립" disabled={busy} onClick={() => onVerdict(a, 'holds')}>{t('성립', 'Holds')}</button>
+          <button className="btn sm" data-ui="폐기" disabled={busy} onClick={() => onVerdict(a, 'dropped')}>{t('폐기', 'Drop')}</button>
+        </>}
+        {a.state === 'candidate' && <button className="btn sm" data-ui="폐기" disabled={busy} title={t('해 보지 않고 이 후보를 닫습니다', 'Close this candidate without trying it')} onClick={() => onVerdict(a, 'dropped')}>{t('폐기', 'Drop')}</button>}
+        {a.state !== 'dropped' && <button className="btn sm" data-ui="아래에 후보 추가" disabled={busy} onClick={onAddUnder}>＋ {t('아래에 후보', 'Candidate below')}</button>}
+      </div>}
+    </div>
+  )
+}

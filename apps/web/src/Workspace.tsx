@@ -21,7 +21,7 @@ import { t } from './i18n'
  *   탭이 없는 빈 칸은 기본으로 숨긴다(직접 두 칸을 켜거나 탭을 끄는 동안에는 보인다). 맥락 칸(메모)은 처음에 접혀 있다.
  */
 export type Tab =
-  | { k: 'overview' } | { k: 'log' } | { k: 'map' } | { k: 'todo' } | { k: 'records' } | { k: 'info' } | { k: 'agents' } | { k: 'status' } | { k: 'changes' } | { k: 'repo' } | { k: 'files' } | { k: 'notes' } | { k: 'concepts' } | { k: 'papers' } | { k: 'edits' } | { k: 'flow' }
+  | { k: 'overview' } | { k: 'log' } | { k: 'map' } | { k: 'todo' } | { k: 'records' } | { k: 'info' } | { k: 'agents' } | { k: 'status' } | { k: 'changes' } | { k: 'repo' } | { k: 'files' } | { k: 'notes' } | { k: 'concepts' } | { k: 'papers' } | { k: 'edits' } | { k: 'flow' } | { k: 'problems' }
   | { k: 'doc'; name: string } | { k: 'file'; path: string } | { k: 'statement'; sid: string }
   | { k: 'part'; file: string } | { k: 'mspdf'; ms?: string } | { k: 'concept'; id: string } | { k: 'paper'; id: string } | { k: 'topic'; tid: string } | { k: 'task'; task: string }
   /** 판단 화면 (흐름의 명제 · 카드, 10/23) */
@@ -35,8 +35,8 @@ export const tabKey = (t: Tab) => ('path' in t ? `file:${t.path}` : 'chat' in t 
  * 갈래 화면(첫 화면 · 프로젝트 정보 · 할 일 · 지도 · 기록)은 탭이 아니다: 사이드바에서 고르면 칸에 고른 탭이 없을 때처럼
  * 그 칸에 보이고, 탭 줄에는 열어 둔 문서(장, 보조 노트, PDF …)만 남는다 (2026-10-03 피드백)
  */
-export type SectionPage = 'overview' | 'info' | 'agents' | 'status' | 'changes' | 'repo' | 'files' | 'todo' | 'records' | 'log' | 'map' | 'notes' | 'concepts' | 'papers' | 'edits' | 'flow'
-const SECTIONS: readonly string[] = ['overview', 'info', 'agents', 'status', 'changes', 'repo', 'files', 'todo', 'records', 'log', 'map', 'notes', 'concepts', 'papers', 'edits', 'flow'] satisfies SectionPage[]
+export type SectionPage = 'overview' | 'info' | 'agents' | 'status' | 'changes' | 'repo' | 'files' | 'todo' | 'records' | 'log' | 'map' | 'notes' | 'concepts' | 'papers' | 'edits' | 'flow' | 'problems'
+const SECTIONS: readonly string[] = ['overview', 'info', 'agents', 'status', 'changes', 'repo', 'files', 'todo', 'records', 'log', 'map', 'notes', 'concepts', 'papers', 'edits', 'flow', 'problems'] satisfies SectionPage[]
 export const isSection = (page: string): page is SectionPage => SECTIONS.includes(page)
 
 export function tabOfRoute(r: Route): Tab | null {
@@ -74,6 +74,7 @@ function routeOfTab(rid: string, t: Tab): Route | null {
     case 'papers': return { page: 'papers', rid }
     case 'edits': return { page: 'edits', rid }
     case 'flow': return { page: 'flow', rid }
+    case 'problems': return { page: 'problems', rid }
     case 'statement': return { page: 'statement', rid, sid: t.sid }
     case 'doc': return { page: 'doc', rid, name: t.name }
     case 'file': return { page: 'file', rid, path: t.path }
@@ -566,7 +567,7 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
   )
 }
 
-const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, changes: Icon.projectInfo, repo: Icon.repo, files: Icon.repo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, statement: Icon.statement, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task, judge: Icon.approve, chat: Icon.spark }
+const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, changes: Icon.projectInfo, repo: Icon.repo, files: Icon.repo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, flow: Icon.flow, problems: Icon.branch, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, statement: Icon.statement, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task, judge: Icon.approve, chat: Icon.spark }
 
 function Pane({ i, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
   i: 0 | 1; visible: boolean; pane: PaneState; focused: boolean; isFocus: boolean; titleOf(t: Tab): string; uiTitleOf(t: Tab): string; kindOf(t: Tab): string | null; renderTab(t: Tab, context: TabRenderContext): ReactNode; visibleTabs: Tab[]; home: ReactNode
