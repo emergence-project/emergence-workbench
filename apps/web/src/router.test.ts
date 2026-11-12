@@ -225,6 +225,16 @@ describe('edit review routes (10/14: one project per screen)', () => {
   it('round-trips the project edit review', () => {
     for (const r of [{ page: 'edits', rid: 'alpha' }, { page: 'edits', rid: 'alpha', key: 'note:alpha:workbench/notes/a/note.md' }] as Route[]) expect(parseRoute(href(r))).toEqual(r)
   })
+  it('round-trips the flow screen with its view and the opened attempt', () => {
+    const routes: Route[] = [
+      { page: 'problems', rid: 'alpha' }, { page: 'problems', rid: 'alpha', view: 'list' }, { page: 'problems', rid: 'alpha', id: 'kempe', view: 'chart' },
+      { page: 'problems', rid: 'alpha', id: 'kempe', at: 'b1' }, { page: 'problems', rid: 'alpha', id: 'kempe', view: 'list', at: 'b1' },
+    ]
+    for (const r of routes) expect(parseRoute(href(r))).toEqual(r)
+    expect(href({ page: 'problems', rid: 'alpha', id: 'kempe', view: 'list', at: 'b1' })).toBe('#/r/alpha/problems/kempe?view=list&at=b1')
+    // 모르는 보기와, 흐름 없이 온 at은 버린다
+    expect(parseRoute('#/r/alpha/problems?view=map&at=b1')).toEqual({ page: 'problems', rid: 'alpha' })
+  })
   it('sends old project review links to the project screen', () => {
     expect(parseRoute('#/review?scope=alpha')).toEqual({ page: 'edits', rid: 'alpha' })
     // 옛 점 차트의 주소는 같은 이름을 이어받은 흐름 화면으로 (11/11)

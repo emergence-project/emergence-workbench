@@ -401,7 +401,7 @@ export function App() {
       case 'todo': case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} version={version} />
       case 'log': return <WorkPage key="log" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} notes={notes} /></Lazy>
-      case 'problems': return <ProblemsPage key={rid} rid={rid} id={route.page === 'problems' ? route.id : undefined} kind={current?.kind} onSaved={flash} />
+      case 'problems': return <ProblemsPage key={rid} rid={rid} id={route.page === 'problems' ? route.id : undefined} view={route.page === 'problems' ? route.view : undefined} at={route.page === 'problems' ? route.at : undefined} kind={current?.kind} onSaved={flash} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
       case 'chat': {
         // 대화 탭에는 다른 패널에서 보는 노트가 붙는다
