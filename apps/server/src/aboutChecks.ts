@@ -22,6 +22,7 @@ export const ABOUT_CHECK_FILE = 'about.yaml'
 const file = (dir: string) => path.join(dir, ABOUT_CHECK_FILE)
 const HEAD = '# 소개 절을 확인한 기록 (소개 화면의 「맞아요」 · 연필로 고쳐 보냄). 키는 <쪽>/<절>\n'
 
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 const num = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : undefined
 const str = (v: unknown) => typeof v === 'string' && v ? v : v instanceof Date ? v.toISOString().slice(0, 16) : undefined
 
@@ -30,10 +31,9 @@ export function readAboutChecks(dir: string): { exists: boolean; sections: Recor
   let doc: unknown
   try { doc = YAML.parse(fs.readFileSync(file(dir), 'utf8')) } catch { return { exists: false, sections: {} } }
   const sections: Record<string, AboutCheck> = {}
-  if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
-    for (const [k, v] of Object.entries(doc as Record<string, unknown>)) {
-      if (!v || typeof v !== 'object') continue
-      const r = v as Record<string, unknown>
+  if (isRecord(doc)) {
+    for (const [k, r] of Object.entries(doc)) {
+      if (!isRecord(r)) continue
       const c: AboutCheck = {}
       const checked = num(r.checked); if (checked !== undefined) c.checked = checked
       const at = str(r.at); if (at) c.at = at
