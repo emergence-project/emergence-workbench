@@ -229,9 +229,11 @@ describe('edit review routes (10/14: one project per screen)', () => {
     const routes: Route[] = [
       { page: 'problems', rid: 'alpha' }, { page: 'problems', rid: 'alpha', view: 'list' }, { page: 'problems', rid: 'alpha', id: 'kempe', view: 'chart' },
       { page: 'problems', rid: 'alpha', id: 'kempe', at: 'b1' }, { page: 'problems', rid: 'alpha', id: 'kempe', view: 'list', at: 'b1' },
+      { page: 'problems', rid: 'alpha', id: 'kempe', attempt: 'b1' },
     ]
     for (const r of routes) expect(parseRoute(href(r))).toEqual(r)
     expect(href({ page: 'problems', rid: 'alpha', id: 'kempe', view: 'list', at: 'b1' })).toBe('#/r/alpha/problems/kempe?view=list&at=b1')
+    expect(href({ page: 'problems', rid: 'alpha', id: 'kempe', attempt: 'b1' })).toBe('#/r/alpha/problems/kempe/b1')
     // 모르는 보기와, 흐름 없이 온 at은 버린다
     expect(parseRoute('#/r/alpha/problems?view=map&at=b1')).toEqual({ page: 'problems', rid: 'alpha' })
   })

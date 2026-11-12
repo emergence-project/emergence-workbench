@@ -5,7 +5,8 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  * 주소 뒤쪽(#)으로 화면을 기억한다. 제목줄의 뒤로/앞으로 버튼은 브라우저 기록을 그대로 쓴다.
  *   #/r/<연구>            프로젝트 정보 (목표·저장소·태그)
  *   #/r/<연구>/todo       할 일
- *   #/r/<연구>/problems[/<문제>][?view=chart|list][&at=<시도>] 흐름 목록 · 흐름 하나와 시도 (11/11). view는 고른 보기(11/12 차트 · 목록), at은 펼쳐 둘 시도
+ *   #/r/<연구>/problems[/<문제>][?view=chart|list][&at=<시도>] 흐름 목록 · 흐름 하나와 시도 (11/11). view는 고른 보기(11/12 차트 · 목록), at은 골라 둘 시도
+ *   #/r/<연구>/problems/<문제>/<시도>              시도 화면 (11/12: 차트의 점은 미리보기, 전부는 이 화면)
  *   #/r/<연구>/edits[?key=] 고침 검토 (그 프로젝트의 에이전트 고침만, 10/14 사용자 결정)
  *   #/r/<연구>/map        지도 (예전 /tree도 여기로)
  *   #/r/<연구>/s/<진술>    진술 노트 (저장소의 statements/)
@@ -69,7 +70,7 @@ export type Route =
   | { page: 'todo'; rid: string }
   | { page: 'records'; rid: string }
   | { page: 'edits'; rid: string; key?: string }
-  | { page: 'problems'; rid: string; id?: string; view?: FlowView; at?: string }
+  | { page: 'problems'; rid: string; id?: string; view?: FlowView; at?: string; attempt?: string }
   | { page: 'info'; rid: string }
   | { page: 'agents'; rid: string }
   | { page: 'status'; rid: string }
@@ -104,6 +105,8 @@ export function parseRoute(hash: string): Route {
     if (parts[2] === 'records') return { page: 'records', rid: parts[1] }
     if (parts[2] === 'problems') {
       const q = new URLSearchParams(query), view = q.get('view'), at = q.get('at')
+      // 시도 화면은 보기 · 고른 점 없이 흐름과 시도만
+      if (parts[3] && parts[4]) return { page: 'problems', rid: parts[1], id: parts[3], attempt: parts[4] }
       return { page: 'problems', rid: parts[1], ...(parts[3] && { id: parts[3] }), ...((view === 'chart' || view === 'list') && { view }), ...(parts[3] && at && { at }) }
     }
     // 옛 점 차트의 주소 (11/11 없앰): 같은 이름을 이어받은 흐름 화면으로
@@ -221,6 +224,7 @@ export function href(r: Route): string {
     case 'todo': return `#/r/${e(r.rid)}/todo`
     case 'records': return `#/r/${e(r.rid)}/records`
     case 'problems': {
+      if (r.id && r.attempt) return `#/r/${e(r.rid)}/problems/${e(r.id)}/${e(r.attempt)}`
       const q = [r.view && `view=${r.view}`, r.id && r.at && `at=${e(r.at)}`].filter(Boolean).join('&')
       return `#/r/${e(r.rid)}/problems${r.id ? `/${e(r.id)}` : ''}${q ? `?${q}` : ''}`
     }

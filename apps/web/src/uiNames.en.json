@@ -294,7 +294,7 @@
   "소개 목록": "About list",
   "소문제 카드 화면": "Subproblem card screen",
   "속성 표": "Property table",
-  "수정 요청": "Revise",
+  "수정 요청": "Sent back",
   "수정 요청 입력란": "Revise input",
   "스타일 파일": "Style file",
   "승인": "Approve",
@@ -1007,7 +1007,6 @@
   "판정 후 변경": "Changed after verdict",
   "검사 결과": "Test result",
   "주장": "Claim",
-  "수정 요청": "Sent back",
   "흐름의 답": "Flow answer",
   "흐름의 답 고르기": "Choose the answer",
   "답의 근거": "Basis of the answer",
@@ -1015,5 +1014,10 @@
   "예외 기록": "Exceptions",
   "예외 줄": "Exception row",
   "예외 추가": "Add exception",
-  "예외 창": "Exception dialog"
+  "예외 창": "Exception dialog",
+  "점 미리보기": "Dot preview",
+  "시도 열기": "Open attempt",
+  "시도 머리": "Attempt header",
+  "시도 경로": "Attempt path",
+  "시도 이름": "Attempt name"
 }

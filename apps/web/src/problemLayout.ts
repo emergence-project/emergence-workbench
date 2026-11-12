@@ -41,6 +41,17 @@ export function layoutTree(attempts: readonly { id: string; parent?: string }[])
   return { at, cols, rows: Math.max(1, lane) }
 }
 
+/**
+ * 시도 화면의 경로 차트에 그릴 시도: 질문에서 이 시도까지의 길(위에서 아래로)과 바로 아래 시도들. 나무 순서(부모 다음에 자식)로 돌려준다.
+ * 부모가 목록에 없으면 거기서 길이 끝나고, 부모가 서로를 가리켜도 멈춘다
+ */
+export function nearOf<T extends { id: string; parent?: string }>(attempts: readonly T[], id: string): T[] {
+  const byId = new Map(attempts.map((x) => [x.id, x]))
+  const path: T[] = []
+  for (let x = byId.get(id); x && !path.includes(x); x = x.parent ? byId.get(x.parent) : undefined) path.unshift(x)
+  return [...path, ...attempts.filter((x) => x.parent === id && !path.includes(x))]
+}
+
 export function chartGeo(l: ChartLayout): ChartGeo {
   return {
     X: (c) => (c === 0 ? ROOT_W / 2 : ROOT_W + (c - 0.5) * CW),
