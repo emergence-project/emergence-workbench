@@ -163,7 +163,9 @@ export const DEFAULT_SCREENS = [
   // 흐름과 시도 (11/11): 목록(진행 · 쓰는 중 · 접힌 제안), 흐름 하나(흐름 열기 · 폐기 사유 · 시도, 성립한 시도와 판정 대기 시도를 펼친 모습), 방향 보고와 결정, 흐름 수정 창. 문제 파일은 fixtures/sandbox-extra/workbench/problems
   // 차트 보기 (11/12 "점 = 시도로 되살리기", 고르지 않았을 때의 보기): 줄마다 흐름 하나, 질문 ◇에서 시도 ○가 왼쪽에서 오른쪽으로 갈라진다. 흐름 하나에서는 점 B를 눌러 그 시도를 차트 아래에 편 모습
   ['problems-chart', '#/r/{rid}/problems', '흐름 차트'],
-  ['problem-chart', '#/r/{rid}/problems/kempe-degree-five', '시도 단계', '[data-ui="점"][data-ui-item^="B "]'],
+  ['problem-chart', '#/r/{rid}/problems/kempe-degree-five', '점 미리보기', '[data-ui="점"][data-ui-item^="B "]'],
+  // 시도 화면: 미리보기의 「열기」가 여는 화면. 경로 차트(질문 ─ B ─ B1)와 시도의 전부
+  ['problem-attempt', '#/r/{rid}/problems/kempe-degree-five/b1', '시도 단계'],
   // 아래는 목록 보기 (주소에 view=list)
   ['problems', '#/r/{rid}/problems?view=list', '흐름 줄'],
   // 예외 기록 (11/11 "해 보면서 판단"): 목록 아래 접힌 줄을 펼친 모습. 앱이 거절하며 적은 줄과 에이전트가 적은 줄. 파일은 fixtures/sandbox-extra/workbench/problems/_exceptions

@@ -195,3 +195,28 @@
 .pb-c-m.s-candidate .pb-c-b { stroke-dasharray: 3 2; }
 .pb-c-g { font-size: var(--fs-xs); font-weight: var(--fw-strong); fill: var(--gc); }
 .pb-c-g.long { font-size: var(--fs-2xs); }
+
+/* 점 미리보기와 시도 화면 (11/12 사용자 의견 "메인 창에서는 미리보기, 자세히 볼 때 세부 창으로", ProblemAttempt.tsx).
+   미리보기: 차트 아래 카드. 첫 줄은 목록의 시도 줄과 같은 칸에 「열기」, 아래는 두세 줄(길면 두 줄에서 줄인다) */
+.pb-peek { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); }
+.pb-peek-head { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-sm); }
+.pb-peek-head > * { flex: none; }
+.pb-peek-head .pb-method { flex: 1; font-weight: var(--fw-medium); }
+.pb-peek-head .btn, .pb-peek-head .pb-move { align-self: center; }
+.pb-peek-facts { font-size: var(--fs-xs); gap: var(--sp-1) var(--sp-4); }
+.pb-peek-facts dd { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+.pb-peek-none { margin: 0; font-size: var(--fs-xs); color: var(--text-3); }
+/* 시도 화면: 돌아가는 링크(질문, 넘치면 …), 경로 차트(질문에서 이 시도까지와 바로 아래 시도), 이름, 전부 */
+.pb-crumb { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; font-size: var(--fs-sm); color: var(--text-3); }
+.pb-crumb .pb-back { flex: none; }
+.pb-crumb .pb-crumb-q { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-attempt-title { display: flex; align-items: baseline; gap: var(--sp-3); }
+.pb-attempt-title .pb-label { flex: none; }
+.pb-page > .pb-tags { justify-content: flex-start; }
+.pb-attempt-title .tag { margin-left: var(--sp-2); vertical-align: middle; font-size: var(--fs-xs); font-weight: var(--fw-normal); }
+.pb-attempt .pb-detail { padding: 0; gap: var(--sp-3); }
+@media (max-width: 760px) {
+  .pb-peek-head { flex-wrap: wrap; }
+  .pb-peek-head .pb-method { order: 9; flex-basis: 100%; }
+  .pb-peek-head .pb-label { margin-right: auto; }
+}

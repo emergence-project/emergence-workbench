@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type AttemptState, type DirectionReport, type ProblemDoc, type ProblemRow, type ProjectKind, type ProblemState, type ProblemStop } from './api'
-import { Author } from './Author'
+import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type DirectionReport, type ProblemDoc, type ProblemRow, type ProjectKind, type ProblemState, type ProblemStop } from './api'
 import { Icon } from './icons'
 import { t } from './i18n'
+import { ATTEMPT_DOT, AttemptDot, AttemptName, AttemptTags, AttemptView, CandidateInput, claimedOf, Detail, errorOf, Peek, when, who } from './ProblemAttempt'
 import { CloseDialog, ProblemDialog, VerdictDialog } from './ProblemDialogs'
 import { FlowsChart, TreeChart } from './ProblemChart'
 import { Exceptions } from './ProblemExceptions'
-import { ANSWER_NAME, ATTEMPT_NAME, SideTag } from './problemNames'
+import { ANSWER_NAME, ATTEMPT_NAME } from './problemNames'
 import { flowName } from './projectProfile'
 import { qk } from './queries'
-import { CodeText, RepoPathContext } from './repoPaths'
-import { go, type FlowView } from './router'
-import { agentName } from './taskView'
+import { RepoPathContext } from './repoPaths'
+import { go, href, type FlowView } from './router'
 
 /**
  * 흐름과 시도 나무 (11/11 사용자 결정 "흐름을 시도 나무로 · 메시지 관문", 시안 J2uZ 4절).
@@ -25,19 +24,12 @@ import { agentName } from './taskView'
  */
 
 const STATE_NAME: Record<ProblemState, string> = { proposed: t('제안', 'Proposed'), draft: t('쓰는 중', 'Draft'), open: t('진행', 'Open'), closed: t('종료', 'Closed') }
-/** 색 점: 진행 파랑 · 판정 대기 주황 · 성립 청록 · 폐기 회색 고리 · 후보 옅은 점 (디자인 문서 2절 "색은 상태에만") */
-const ATTEMPT_DOT: Record<AttemptState, string> = { candidate: 'none', active: 'in-progress', reported: 'blocked', holds: 'solved', dropped: 'stopped' }
 const STOP_TEXT: Record<ProblemStop, string> = {
   decision: t('방향 보고: 결정 대기', 'Direction report: waiting for your decision'),
   limit: t('한도 도달: 다음은 방향 보고', 'Limit reached: a direction report comes next'),
   stuck: t('폐기 연속: 다음은 방향 보고', 'Dropped in a row: a direction report comes next'),
   exhausted: t('후보 없음', 'No candidates left'),
 }
-const who = (name: string) => (name === 'user' ? t('사용자', 'You') : agentName(name))
-/** "2026-11-11T14:02" → "11/11 14:02" */
-const when = (s: string | undefined) => (s ? s.slice(5, 16).replace('-', '/').replace('T', ' ') : '')
-const errorOf = (e: unknown) => (e instanceof Error ? e.message : String(e))
-
 /** 흐름 목록 (화면 캐시 qk.problems: 흐름 파일 알림이 오면, 화면이 쓰면 다시 읽는다). 사이드바의 수도 이것을 쓴다 */
 export function useProblems(rid: string) {
   return useQuery({ queryKey: qk.problems(rid), queryFn: () => problemsApi(rid).list() })
@@ -45,15 +37,11 @@ export function useProblems(rid: string) {
 /** 사용자 차례: 방향 보고가 결정을 기다리는 흐름 수 */
 export const problemTurns = (rows: ProblemRow[] | undefined) => rows?.filter((p) => p.waiting).length ?? 0
 
-function AttemptDot({ s, label }: { s: AttemptState; label?: boolean }) {
-  return <><span className={`g ${ATTEMPT_DOT[s]}`} role="img" aria-label={ATTEMPT_NAME[s]} title={ATTEMPT_NAME[s]} />{label && <span className="g-name">{ATTEMPT_NAME[s]}</span>}</>
-}
-
 /** 고른 보기는 이 브라우저에 남긴다. 주소에 보기가 있으면(보기를 고른 뒤, 찍는 화면) 그것이 앞선다 */
 const VIEW_KEY = 'rw-flow-view'
 const storedView = (): FlowView => { try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'chart' } catch { return 'chart' } }
 
-export function ProblemsPage({ rid, id, kind, view: asked, at, onSaved }: { rid: string; id?: string; kind?: ProjectKind; view?: FlowView; at?: string; onSaved(msg: string): void }) {
+export function ProblemsPage({ rid, id, kind, view: asked, at, attempt, onSaved }: { rid: string; id?: string; kind?: ProjectKind; view?: FlowView; at?: string; attempt?: string; onSaved(msg: string): void }) {
   const view = asked ?? storedView()
   const pick = (v: FlowView) => {
     try { localStorage.setItem(VIEW_KEY, v) } catch { /* 무시 */ }
@@ -69,7 +57,8 @@ export function ProblemsPage({ rid, id, kind, view: asked, at, onSaved }: { rid:
     <div className="ws-doc" data-ui="흐름 쪽">
       <section className="pane" data-ui="본문">
         <div className="scroll">
-          <div className="page-body pb-page">{id ? <ProblemView key={id} rid={rid} id={id} view={view} views={views} at={at} onSaved={onSaved} /> : <ProblemList rid={rid} kind={kind} view={view} views={views} />}</div>
+          <div className="page-body pb-page">{id && attempt ? <AttemptView key={`${id}/${attempt}`} rid={rid} id={id} attempt={attempt} onSaved={onSaved} />
+            : id ? <ProblemView key={id} rid={rid} id={id} view={view} views={views} at={at} onSaved={onSaved} /> : <ProblemList rid={rid} kind={kind} view={view} views={views} />}</div>
         </div>
       </section>
     </div>
@@ -175,7 +164,7 @@ function ProblemView({ rid, id, view, views, at, onSaved }: { rid: string; id: s
   const pending = p.stop === 'decision' && report ? report : null
   const chart = view === 'chart'
   // 차트 보기에서는 나무가 먼저 보이게 시도를 흐름 열기 위에 둔다. 목록 보기는 읽는 순서대로(열기 · 폐기 사유 · 시도)
-  const tree = started && <RepoPathContext.Provider value={{ rid }}><Tree p={p} busy={busy} locked={p.state === 'closed'} chart={chart} at={at}
+  const tree = started && <RepoPathContext.Provider value={{ rid }}><Tree p={p} rid={rid} busy={busy} locked={p.state === 'closed'} chart={chart} at={at}
     onAdd={(method, parent) => void run(() => api.addAttempts(p.id, [{ method, ...(parent && { parent }) }]))}
     onOrder={(order) => void run(() => api.patch(p.id, p.hash, { order }))}
     onVerdict={(attempt, result) => setOpen({ k: 'verdict', attempt, result })} /></RepoPathContext.Provider>
@@ -297,11 +286,11 @@ function Decision({ p, report, busy, onDecide }: { p: ProblemDoc; report: Direct
 
 const depthStyle = (depth: number): CSSProperties => ({ paddingLeft: `calc(${depth} * var(--sp-5))` })
 
-function Tree({ p, busy, locked, chart, at, onAdd, onOrder, onVerdict }: {
-  p: ProblemDoc; busy: boolean; locked: boolean
-  /** 차트 보기: 나무를 차트로 그리고 고른 점의 시도만 그 아래에 편다 */
+function Tree({ p, rid, busy, locked, chart, at, onAdd, onOrder, onVerdict }: {
+  p: ProblemDoc; rid: string; busy: boolean; locked: boolean
+  /** 차트 보기: 나무를 차트로 그리고 고른 점의 미리보기만 그 아래에 둔다. 전부는 시도 화면에서 본다 */
   chart: boolean
-  /** 처음부터 펼쳐 둘 시도 (여러 흐름의 차트에서 점을 눌러 왔을 때) */
+  /** 처음부터 골라 둘 시도 (여러 흐름의 차트에서 점을 눌러 왔을 때, 시도 화면에서 돌아왔을 때) */
   at?: string
   onAdd(method: string, parent?: string): void
   onOrder(order: string[]): void
@@ -309,14 +298,13 @@ function Tree({ p, busy, locked, chart, at, onAdd, onOrder, onVerdict }: {
 }) {
   const [shown, setShown] = useState<string | null>(at ?? null)
   const [adding, setAdding] = useState<{ parent?: string } | null>(null)
-  const [method, setMethod] = useState('')
-  const section = useRef<HTMLElement>(null), picked = useRef<HTMLDivElement>(null)
-  // 차트에서 점을 고르면 그 시도의 내용이 차트 아래에 열린다. 그 머리가 화면 아래로 벗어나 있으면 시도 절을 맨 위로 올려 차트와 내용이 함께 보이게 한다
+  const section = useRef<HTMLElement>(null), peek = useRef<HTMLDivElement>(null)
+  // 차트에서 점을 고르면 미리보기가 차트 아래에 뜬다. 화면 아래로 잘리면 시도 절을 맨 위로 올려 차트와 미리보기가 함께 보이게 한다
   useEffect(() => {
-    const el = chart && shown ? picked.current : null
+    const el = chart && shown ? peek.current : null
     if (!el) return
     const bottom = el.closest('.scroll')?.getBoundingClientRect().bottom ?? window.innerHeight
-    if (el.getBoundingClientRect().top > bottom - 96) section.current?.scrollIntoView({ block: 'start' })
+    if (el.getBoundingClientRect().bottom > bottom) section.current?.scrollIntoView({ block: 'start' })
   }, [chart, shown])
   const ids = p.attempts.map((a) => a.id)
   /** 형제 사이에서 한 칸 위 · 아래로: 보이는 순서 전체를 순서로 적는다 (보이는 순서 = 일하는 순서) */
@@ -328,117 +316,57 @@ function Tree({ p, busy, locked, chart, at, onAdd, onOrder, onVerdict }: {
     // 형제의 새 순서를 앞에, 나머지는 지금 보이는 순서대로
     onOrder([...swapped, ...ids.filter((x) => !sibs.includes(x))])
   }
-  const add = () => { const m = method.trim(); if (!m) return; onAdd(m, adding?.parent); setMethod(''); setAdding(null) }
-  const sibsOf = (a: Attempt) => p.attempts.filter((x) => x.parent === a.parent)
   const toggle = (a: Attempt) => setShown(shown === a.id ? null : a.id)
-  /** 시도 한 줄. 누르면 그 아래에 전부가 펼쳐진다. 목록에서는 깊이만큼 들여 쓴다 */
+  /** 후보의 순서 바꾸기 (형제 사이에서 위 · 아래) */
+  const moves = (a: Attempt) => {
+    if (a.state !== 'candidate' || locked) return null
+    const sibs = p.attempts.filter((x) => x.parent === a.parent), i = sibs.indexOf(a)
+    return (
+      <span className="pb-move">
+        <button className="icon-btn sm" data-tip={t('위로', 'Move up')} aria-label={t(`${a.label} 위로`, `Move ${a.label} up`)} disabled={busy || i === 0} onClick={() => move(a, -1)}>{Icon.up}</button>
+        <button className="icon-btn sm" data-tip={t('아래로', 'Move down')} aria-label={t(`${a.label} 아래로`, `Move ${a.label} down`)} disabled={busy || i === sibs.length - 1} onClick={() => move(a, 1)}>{Icon.down}</button>
+      </span>
+    )
+  }
+  /** 목록의 시도 한 줄. 누르면 그 아래에 전부가 펼쳐진다. 깊이만큼 들여 쓴다 */
   const node = (a: Attempt) => {
-    const sibs = sibsOf(a), i = sibs.indexOf(a)
     // 보고한 시도는 주장(진술)으로 읽고 방법을 아랫줄에. 진술이 없으면 예전처럼 방법과 결과
-    const claimed = !!a.statement && (a.state === 'holds' || a.state === 'reported')
-    const sub = a.state === 'dropped' ? a.lesson ?? a.verdict?.note : claimed ? a.method : a.state === 'holds' || a.state === 'reported' ? a.result
+    const sub = a.state === 'dropped' ? a.lesson ?? a.verdict?.note : claimedOf(a) ? a.method : a.state === 'holds' || a.state === 'reported' ? a.result
       : a.state === 'active' ? (a.returned ? t(`수정 요청: ${a.returned.note}`, `Sent back: ${a.returned.note}`) : `${who(a.worker ?? a.by)} · ${when(a.started)}`) : undefined
-    const stale = [...(a.restated ? [t('주장', 'the claim')] : []), ...(a.changed ?? [])]
-    const next = !!a.next && !p.stop
     const on = shown === a.id
     return (
-      <div key={a.id} className={`pb-node s-${a.state}${on ? ' on' : ''}`} style={chart ? undefined : depthStyle(a.depth)} data-ui="시도" data-ui-item={`${a.label} ${a.method}`}>
+      <div key={a.id} className={`pb-node s-${a.state}${on ? ' on' : ''}`} style={depthStyle(a.depth)} data-ui="시도" data-ui-item={`${a.label} ${a.method}`}>
         <div className="pb-node-row">
           <button className="pb-node-main" aria-expanded={on} onClick={() => toggle(a)}>
             <span className="pb-state"><AttemptDot s={a.state} label /></span>
             <span className="pb-label">{a.label}</span>
-            <span className="pb-method">{claimed ? a.statement : a.method}{claimed && <SideTag side={a.side} />}{a.needs === 'all' && <span className="tag pb-all" title={t('하위 시도가 모두 성립해야 성립', 'Holds only if every attempt below holds')}>{t('분해', 'All')}</span>}</span>
-            {(next || a.accepted || stale.length > 0) && <span className="pb-tags">
-              {next && <span className="tag pb-next" title={t('다음에 할 후보', 'The next candidate to try')}>{t('다음', 'Next')}</span>}
-              {a.accepted && <span className="tag pb-accepted" title={t(`사용자 승인 ${when(a.accepted.at)}`, `Accepted by you ${when(a.accepted.at)}`)}><span className="ico" aria-hidden>{Icon.check}</span>{t('승인', 'Accepted')}</span>}
-              {stale.length > 0 && <span className="tag pb-stale" data-ui="판정 후 변경" title={t(`성립으로 판정한 뒤 바뀌었습니다: ${stale.join(', ')}`, `Changed after the holds verdict: ${stale.join(', ')}`)}><span className="turn-dot" aria-hidden />{t('판정 후 변경', 'Changed after verdict')}</span>}
-            </span>}
+            <span className="pb-method"><AttemptName a={a} /></span>
+            <AttemptTags a={a} next={!!a.next && !p.stop} />
           </button>
-          {a.state === 'candidate' && !locked && <span className="pb-move">
-            <button className="icon-btn sm" data-tip={t('위로', 'Move up')} aria-label={t(`${a.label} 위로`, `Move ${a.label} up`)} disabled={busy || i === 0} onClick={() => move(a, -1)}>{Icon.up}</button>
-            <button className="icon-btn sm" data-tip={t('아래로', 'Move down')} aria-label={t(`${a.label} 아래로`, `Move ${a.label} down`)} disabled={busy || i === sibs.length - 1} onClick={() => move(a, 1)}>{Icon.down}</button>
-          </span>}
+          {moves(a)}
         </div>
         {sub && !on && <div className="pb-sub">{sub}</div>}
-        {on && <Detail a={a} locked={locked} busy={busy} onVerdict={onVerdict} onAddUnder={() => { setAdding({ parent: a.id }); setMethod('') }} />}
+        {on && <Detail a={a} locked={locked} busy={busy} onVerdict={onVerdict} onAddUnder={() => setAdding({ parent: a.id })} />}
       </div>
     )
   }
   const one = chart ? p.attempts.find((a) => a.id === shown) : undefined
+  /** 미리보기에서 시도 화면으로. 돌아오면 같은 점이 골라져 있게 지금 주소에 고른 점을 남긴다 */
+  const open = (a: Attempt) => {
+    try { history.replaceState(history.state, '', href({ page: 'problems', rid, id: p.id, at: a.id })) } catch { /* 무시 */ }
+    go({ page: 'problems', rid, id: p.id, attempt: a.id })
+  }
   return (
     <section className="pb-sec" data-ui="시도 목록" ref={section}>
       <h3 className="pb-h3">{t('시도', 'Attempts')} <span className="muted">{t(`${p.used} / 한도 ${p.limit}`, `${p.used} / limit ${p.limit}`)}</span><span className="sp" />
-        {!locked && <button className="btn sm" data-ui="후보 추가" onClick={() => { setAdding({}); setMethod('') }}>＋ {t('후보', 'Candidate')}</button>}</h3>
+        {!locked && <button className="btn sm" data-ui="후보 추가" onClick={() => setAdding({})}>＋ {t('후보', 'Candidate')}</button>}</h3>
       {p.attempts.length === 0 && <p className="empty">{t('시도가 없습니다. 「＋ 후보」로 추가합니다.', 'No attempts. Add one with "＋ Candidate".')}</p>}
       {chart ? p.attempts.length > 0 && <>
         <div className="pb-chart" data-ui="흐름 차트"><TreeChart flow={p} selected={shown} rootName={t('질문', 'Question')} onPick={toggle} /></div>
-        {one && <div className="pb-tree" ref={picked}>{node(one)}</div>}
+        {one ? <div ref={peek}><Peek a={one} next={!!one.next && !p.stop} onOpen={() => open(one)}>{moves(one)}</Peek></div>
+          : <p className="pb-peek-none">{t('점을 누르면 그 시도의 미리보기가 여기에 보입니다.', 'Pick a dot to preview that attempt here.')}</p>}
       </> : <div className="pb-tree">{p.attempts.map(node)}</div>}
-      {adding && <div className="pb-add" data-ui="후보 입력란">
-        <input autoFocus aria-label={t('방법 한 줄', 'Method, one line')} placeholder={adding.parent ? t(`${adding.parent.toUpperCase()}의 하위 후보: 방법 한 줄`, `Candidate under ${adding.parent.toUpperCase()}: method, one line`) : t('방법 한 줄', 'Method, one line')}
-          value={method} onChange={(e) => setMethod(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(); if (e.key === 'Escape') setAdding(null) }} />
-        <button className="btn sm primary" disabled={busy || !method.trim()} onClick={add}>{t('추가', 'Add')}</button>
-        <button className="btn sm" onClick={() => setAdding(null)}>{t('취소', 'Cancel')}</button>
-      </div>}
+      {adding && <CandidateInput key={adding.parent ?? ''} under={p.attempts.find((x) => x.id === adding.parent)?.label} busy={busy} onAdd={(m) => { onAdd(m, adding.parent); setAdding(null) }} onClose={() => setAdding(null)} />}
     </section>
-  )
-}
-
-/** 단계 띠: 제안 › 작업 › 판정, 성립한 시도는 승인까지. 단계마다 누가 · 언제. 지난 단계는 회색 점, 지금 단계는 상태 색 점, 남은 단계는 옅은 점 */
-function Steps({ a }: { a: Attempt }) {
-  const judged = a.state === 'holds' || a.state === 'dropped'
-  const worked = !!a.worker
-  const by = (name: string, at?: string) => <><span><Author by={who(name)} /></span>{at && <span className="pb-step-at">{when(at)}</span>}</>
-  const step = (name: string, dot: string, body: ReactNode, tip?: string) => (
-    <li className={`pb-step${body ? '' : ' todo'}`} title={tip}><span className={`g ${dot}`} aria-hidden /><span className="pb-step-name">{name}</span>{body && <span className="pb-step-by">{body}</span>}</li>
-  )
-  return (
-    <ol className={`pb-steps${a.state === 'holds' ? ' four' : ''}`} data-ui="시도 단계">
-      {step(t('제안', 'Proposed'), 'pb-done', by(a.by, a.created))}
-      {step(t('작업', 'Work'), a.state === 'active' ? ATTEMPT_DOT.active : worked ? 'pb-done' : 'none', worked && by(a.worker!, a.started))}
-      {step(t('판정', 'Verdict'), judged || a.state === 'reported' ? ATTEMPT_DOT[a.state] : 'none',
-        judged && a.verdict ? <><span>{ATTEMPT_NAME[a.state]}</span>{by(a.verdict.by, a.verdict.at)}</> : a.state === 'reported' && t('대기', 'Waiting'),
-        t('작업하지 않은 쪽이 판정합니다: 진술이 근거에서 따라 나오는가', 'Someone other than the worker gives the verdict: does the statement follow from the grounds'))}
-      {a.state === 'holds' && step(t('승인', 'Accepted'), a.accepted ? 'pb-done' : 'none', a.accepted && by(a.accepted.by, a.accepted.at),
-        t('사실로 받아들이는 승인은 사용자가 흐름을 답과 함께 종료할 때 합니다', 'You accept a claim as a fact when you close the flow with an answer'))}
-    </ol>
-  )
-}
-
-/** 시도 하나의 전부: 단계 띠, 주장(진술 · 조건), 보고(방법 · 결과 · 작업 내용 · 파일 · 실행 · 검사), 판정(근거 · 교차 검증 · 폐기 사유 · 다시 열 조건) */
-function Detail({ a, locked, busy, onVerdict, onAddUnder }: { a: Attempt; locked: boolean; busy: boolean; onVerdict(a: Attempt, r: 'holds' | 'dropped'): void; onAddUnder(): void }) {
-  const row = (k: string, v: ReactNode, cls?: string) => (v ? <><dt>{k}</dt><dd className={cls}>{v}</dd></> : null)
-  const tested = a.verdict?.tested
-  // 해 보지 않고 폐기한 후보는 사유 하나만 적는다 (근거와 같은 글)
-  const sameReason = !!a.lesson && a.lesson === a.verdict?.note
-  return (
-    <div className="pb-detail">
-      <Steps a={a} />
-      {a.returned && a.state !== 'holds' && a.state !== 'dropped' && <p className="pb-returned" data-ui="수정 요청"><span className="turn-dot" aria-hidden />{t(`수정 요청 ${when(a.returned.at)}`, `Sent back ${when(a.returned.at)}`)}<span>{a.returned.note}</span></p>}
-      {a.statement && <dl className="pb-facts pb-claim" data-ui="주장">
-        {row(t('진술', 'Statement'), <>{a.statement}<SideTag side={a.side} />{a.restated && <span className="pb-stale-file"><span className="turn-dot" aria-hidden />{t('판정 후 변경', 'changed after verdict')}</span>}</>, 'pb-result')}
-        {row(t('조건', 'Condition'), a.condition)}
-      </dl>}
-      <dl className="pb-facts">
-        {a.statement && row(t('방법', 'Method'), a.method)}
-        {row(t('결과', 'Result'), a.result, a.statement ? undefined : 'pb-result')}
-        {row(t('작업 내용', 'Work done'), a.did)}
-        {row(t('파일', 'Files'), a.files.length > 0 && <span className="pb-files">{a.files.map((f) => <span key={f}><CodeText text={f} />{a.changed?.includes(f) && <span className="pb-stale-file"><span className="turn-dot" aria-hidden />{t('판정 후 변경', 'changed after verdict')}</span>}</span>)}</span>)}
-        {row(t('실행', 'Run'), a.run && <span className="pb-files">{a.run.command && <code>{a.run.command}</code>}{a.run.commit && <span className="muted">{t(`커밋 ${a.run.commit}`, `commit ${a.run.commit}`)}</span>}</span>)}
-        {row(t('검사', 'Test'), a.test && <span className="pb-files"><code>{a.test}</code>{a.verdict && (tested === 'pass' ? <span className="pb-tested"><span className="ico" aria-hidden>{Icon.check}</span>{t('통과', 'Passed')}</span> : tested === 'fail' ? <span className="error-text">{t('실패', 'Failed')}</span> : <span className="muted">{t('미실행', 'Not run')}</span>)}</span>)}
-      </dl>
-      {(a.verdict?.note || a.verdict?.check || a.lesson || a.reopen) && <dl className="pb-facts pb-verdict" data-ui="판정 내용">
-        {!sameReason && row(a.state === 'dropped' && !a.lesson ? t('폐기 사유', 'Why dropped') : t('근거', 'Basis'), a.verdict?.note)}
-        {row(t('교차 검증', 'Cross-check'), a.verdict?.check)}
-        {row(t('폐기 사유', 'Why dropped'), a.lesson)}
-        {row(t('다시 열 조건', 'Reopen if'), a.reopen)}
-      </dl>}
-      {!locked && a.state !== 'dropped' && <div className="pb-acts">
-        {a.state === 'reported' && <button className="btn sm" data-ui="성립" disabled={busy || !a.statement} title={a.statement ? undefined : t('진술이 없는 시도는 성립으로 판정할 수 없습니다', 'An attempt without a statement cannot hold')} onClick={() => onVerdict(a, 'holds')}>{t('성립', 'Holds')}</button>}
-        {(a.state === 'reported' || a.state === 'candidate') && <button className="btn sm" data-ui="폐기" disabled={busy} title={a.state === 'candidate' ? t('해 보지 않고 폐기합니다', 'Drop without trying') : undefined} onClick={() => onVerdict(a, 'dropped')}>{t('폐기', 'Drop')}</button>}
-        <span className="sp" />
-        <button className="btn sm" data-ui="아래에 후보 추가" disabled={busy} onClick={onAddUnder}>＋ {t('하위 후보', 'Sub-candidate')}</button>
-      </div>}
-    </div>
   )
 }

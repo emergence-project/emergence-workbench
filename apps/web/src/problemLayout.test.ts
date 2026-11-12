@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { branchPoints, chartGeo, CW, layoutTree, RH, ROOT, ROOT_W, roundedPath, TOP, wrapName } from './problemLayout'
+import { branchPoints, chartGeo, CW, layoutTree, nearOf, RH, ROOT, ROOT_W, roundedPath, TOP, wrapName } from './problemLayout'
 
 const cells = (list: { id: string; parent?: string }[]) => Object.fromEntries([...layoutTree(list).at].map(([id, c]) => [id, `${c.c},${c.r}`]))
 
@@ -35,6 +35,26 @@ describe('layoutTree', () => {
     expect(cells([{ id: 'x', parent: 'gone' }])).toEqual({ x: '1,0' })
     const loop = layoutTree([{ id: 'p', parent: 'q' }, { id: 'q', parent: 'p' }])
     expect(loop.at.size).toBe(2)
+  })
+})
+
+describe('nearOf', () => {
+  const tree = [{ id: 'a' }, { id: 'b' }, { id: 'b1', parent: 'b' }, { id: 'b11', parent: 'b1' }, { id: 'b12', parent: 'b1' }, { id: 'b2', parent: 'b' }, { id: 'c' }]
+  const ids = (id: string, list = tree) => nearOf(list, id).map((x) => x.id)
+
+  it('질문에서 이 시도까지의 길과 바로 아래 시도만', () => {
+    expect(ids('b1')).toEqual(['b', 'b1', 'b11', 'b12'])
+    expect(ids('b')).toEqual(['b', 'b1', 'b2'])
+    expect(ids('c')).toEqual(['c'])
+  })
+
+  it('경로 차트는 한 줄로 이어지고 아래 시도에서만 갈라진다', () => {
+    expect(cells(nearOf(tree, 'b1'))).toEqual({ b: '1,0', b1: '2,0', b11: '3,0', b12: '3,1' })
+  })
+
+  it('없는 시도는 빈 목록, 부모가 서로를 가리켜도 멈춘다', () => {
+    expect(ids('gone')).toEqual([])
+    expect(ids('p', [{ id: 'p', parent: 'q' }, { id: 'q', parent: 'p' }])).toEqual(['q', 'p'])
   })
 })
 
