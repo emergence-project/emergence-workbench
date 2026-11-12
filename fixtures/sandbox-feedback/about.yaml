@@ -1,0 +1,156 @@
+# 예제 모드의 소개 절 확인 기록. 실사용 feedback/about.yaml과 상관없다
+principles/1:
+  checked: 427
+  at: 2026-10-20
+principles/2:
+  checked: 0
+  at: 2026-10-20
+principles/3:
+  checked: 0
+  at: 2026-10-20
+principles/4:
+  checked: 346
+  at: 2026-10-20
+home/1:
+  checked: 403
+  at: 2026-10-20
+home/2:
+  checked: 269
+  at: 2026-10-20
+home/3:
+  checked: 0
+  at: 2026-10-20
+project/1:
+  checked: 427
+  at: 2026-10-20
+project/2:
+  checked: 427
+  at: 2026-10-20
+project/3:
+  checked: 427
+  at: 2026-10-20
+project/4:
+  checked: 427
+  at: 2026-10-20
+project/edits:
+  checked: 351
+  at: 2026-10-20
+project/flow:
+  checked: 432
+  at: 2026-10-20
+notes/1:
+  checked: 427
+  at: 2026-10-20
+notes/2:
+  checked: 0
+  at: 2026-10-20
+notes/3:
+  checked: 285
+  at: 2026-10-20
+notes/4:
+  checked: 427
+  at: 2026-10-20
+notes/5:
+  checked: 277
+  at: 2026-10-20
+notes/6:
+  checked: 0
+  at: 2026-10-20
+notes/7:
+  checked: 373
+  at: 2026-10-20
+knowledge/1:
+  checked: 409
+  at: 2026-10-20
+knowledge/2:
+  checked: 81
+  at: 2026-10-20
+knowledge/3:
+  checked: 0
+  at: 2026-10-20
+knowledge/4:
+  checked: 426
+  at: 2026-10-20
+knowledge/5:
+  checked: 382
+  at: 2026-10-20
+knowledge/6:
+  checked: 0
+  at: 2026-10-20
+reading/1:
+  checked: 364
+  at: 2026-10-20
+reading/2:
+  checked: 422
+  at: 2026-10-20
+reading/3:
+  checked: 335
+  at: 2026-10-20
+network/1:
+  checked: 242
+  at: 2026-10-20
+network/2:
+  checked: 188
+  at: 2026-10-20
+network/3:
+  checked: 0
+  at: 2026-10-20
+settings/1:
+  checked: 417
+  at: 2026-10-20
+agents/1:
+  checked: 0
+  at: 2026-10-20
+agents/2:
+  checked: 0
+  at: 2026-10-20
+agents/3:
+  checked: 322
+  at: 2026-10-20
+agents/conversations:
+  checked: 402
+  at: 2026-11-09
+  sentPr: 410
+  sent: 2026-11-10T09:30
+feedback/1:
+  checked: 413
+  at: 2026-10-20
+feedback/2:
+  checked: 414
+  at: 2026-10-20
+feedback/answers:
+  checked: 412
+  at: 2026-10-20
+feedback/4:
+  checked: 398
+  at: 2026-10-20
+feedback/5:
+  checked: 433
+  at: 2026-10-20
+design/1:
+  checked: 323
+  at: 2026-10-20
+design/2:
+  checked: 323
+  at: 2026-10-20
+design/3:
+  checked: 0
+  at: 2026-10-20
+design/names:
+  checked: 367
+  at: 2026-10-20
+symbols/colors:
+  checked: 197
+  at: 2026-10-20
+symbols/actions:
+  checked: 323
+  at: 2026-10-20
+symbols/screens:
+  checked: 142
+  at: 2026-10-20
+symbols/marks:
+  checked: 175
+  at: 2026-10-20
+symbols/tags:
+  checked: 114
+  at: 2026-10-20

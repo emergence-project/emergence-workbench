@@ -5,10 +5,6 @@ import type { Route } from '../router'
 
 export interface AboutItem {
   text: ReactNode
-  /** 확인이 필요한 이해 */
-  unsure?: boolean
-  /** unsure일 때 쪽 맨 위 알림에 보일 질문 한 문장 */
-  ask?: string
 }
 
 export interface AboutSection {
@@ -20,6 +16,8 @@ export interface AboutSection {
   /** 목록 위에 놓는 그림·표 (10/8 "기호와 구조는 표와 그림으로도") */
   figure?: ReactNode
   items: AboutItem[]
+  /** 확인 전일 때 쪽 맨 위 「확인할 것」에 덧붙일 물음 한 문장 (11/11 안 C′: 확인은 절 단위, 문장마다의 「확인 필요」는 없앰) */
+  ask?: string
   /** 이 절을 고친 업데이트(PR 번호), 오래된 것부터. 한국어 쪽에만 적고 영어는 같은 자리의 것을 쓴다 (10/15 "소개와 업데이트 1대1") */
   prs?: number[]
 }
