@@ -2,14 +2,14 @@ import type { KeyboardEvent, ReactNode } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { problemsApi, type Attempt, type ProblemDoc, type ProblemRow } from './api'
 import { t } from './i18n'
-import { branchPoints, chartGeo, CW, layoutTree, RH, ROOT, roundedPath, wrapName } from './problemChart'
+import { branchPoints, chartGeo, CW, layoutTree, RH, ROOT, roundedPath, wrapName } from './problemLayout'
 import { ANSWER_NAME, ATTEMPT_NAME, SIDE_NAME } from './problemNames'
 import { qk } from './queries'
 
 /**
  * 흐름 차트 (11/12 사용자 결정 "점 = 시도로 되살리기"): 옛 흐름 차트의 모양(기호 아래 이름, 둥글게 꺾이는 선, 왼쪽에서 오른쪽으로 갈라지는 가지)에
  * 지금의 흐름을 그린다. 여는 점 ◇는 질문, 점 ○ 하나는 시도 하나(주장과 근거)이고 색은 시도의 상태다.
- * 목록 보기와 같은 자료를 그리기만 하고, 점을 누르면 그 시도의 내용을 연다. 배치는 problemChart.ts.
+ * 목록 보기와 같은 자료를 그리기만 하고, 점을 누르면 그 시도의 내용을 연다. 배치는 problemLayout.ts.
  */
 
 /** 이름 한 줄의 폭(한글 글자 수)과 줄 간격 */

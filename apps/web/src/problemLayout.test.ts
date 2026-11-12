@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { branchPoints, chartGeo, CW, layoutTree, RH, ROOT, ROOT_W, roundedPath, TOP, wrapName } from './problemChart'
+import { branchPoints, chartGeo, CW, layoutTree, RH, ROOT, ROOT_W, roundedPath, TOP, wrapName } from './problemLayout'
 
 const cells = (list: { id: string; parent?: string }[]) => Object.fromEntries([...layoutTree(list).at].map(([id, c]) => [id, `${c.c},${c.r}`]))
 
