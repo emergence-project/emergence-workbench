@@ -5,7 +5,7 @@ import { mergeJournalText } from '@rw/core'
  * 두 컴퓨터가 같은 피드백 파일을 따로 고쳤을 때의 세 갈래 합치기 (10/22 "두 맥 동기화와 충돌 대비").
  * 줄 단위 합치기(git merge-file · git merge)는 같은 날짜 파일 끝에 양쪽이 덧붙인 항목을 부딪힘으로 보고 멈춘다.
  * - 날짜 파일(YYYY-MM-DD.md): "## 시각 · 유형 · 부위" 항목 단위 (일지와 같은 규칙, mergeJournalText)
- * - reviews.yaml · status.yaml · handoff.yaml: 맨 위 키(피드백 항목) 단위, 같은 키를 양쪽이 고쳤으면 칸 단위.
+ * - reviews.yaml · status.yaml · handoff.yaml · about.yaml(소개 절 확인): 맨 위 키(피드백 항목) 단위, 같은 키를 양쪽이 고쳤으면 칸 단위.
  *   목록 칸(comments · replies · revised)은 양쪽이 더한 것을 모두 둔다. 같은 칸을 서로 다르게 고쳤으면 null(사람이 합친다).
  *   handoff.yaml은 같은 항목을 양쪽이 맡았으면 먼저 맡은 쪽(at이 이른 쪽)을 둔다.
  * 합칠 수 없는 파일이면 undefined (부르는 쪽이 git의 줄 단위 합치기를 쓴다)
@@ -16,7 +16,7 @@ export function feedbackMergeFor(file: string): TextMerge | undefined {
   const name = file.split('/').pop() ?? ''
   if (/^\d{4}-\d{2}-\d{2}\.md$/.test(name)) return mergeJournalText
   if (name === 'handoff.yaml') return (b, o, th) => mergeYamlMap(b, o, th, earlierClaim)
-  if (name === 'reviews.yaml' || name === 'status.yaml') return (b, o, th) => mergeYamlMap(b, o, th)
+  if (name === 'reviews.yaml' || name === 'status.yaml' || name === 'about.yaml') return (b, o, th) => mergeYamlMap(b, o, th)
   return undefined
 }
 

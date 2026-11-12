@@ -178,6 +178,19 @@
 .about-tags th:nth-child(2) { width: 6em; }
 .about-tags td:first-child, .about-tags td:nth-child(2) { white-space: nowrap; }
 /* 절 제목 옆 "업데이트 #n" (10/15 소개와 업데이트 1대1): 마지막으로 고친 업데이트로 가는 링크 */
-.about .about-pr { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; margin-right: var(--sp-2); }
 /* 기호 표 안의 묶음 머리 줄 */
 .about-sym-table .about-sym-group td { color: var(--text-2); font-size: var(--fs-sm); padding-top: var(--sp-3); }
+
+/* 절 확인 (11/11 안 C′): 툴바 오른쪽 시계로 이력 보기. 절 머리 오른쪽에 확인 전(주황) · 반영 대기(회색) · 이력 보기에서만 확인함 */
+.about-tools .crumb b { font-weight: var(--fw-medium); }
+.about .sec-head .about-unsure { margin: 0 var(--sp-2) 0 0; }
+.about-pending { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; background: var(--bg-sunken); color: var(--text-2); white-space: nowrap; }
+.about .sec-head .about-pending { margin-right: var(--sp-2); }
+.about-checked { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--s-solved); white-space: nowrap; margin-right: var(--sp-2); }
+.about-hist { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin: calc(-1 * var(--sp-1)) 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-3); }
+.about-hist .a { color: var(--text-2); }
+.about-hist .about-hist-after { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.about-hist-ok { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--s-solved); }
+.about-hist-arr { color: var(--text-3); }
+.about-legend b svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.9; vertical-align: -2px; }
+.about-hist-step { display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }

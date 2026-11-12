@@ -1019,5 +1019,10 @@
   "시도 열기": "Open attempt",
   "시도 머리": "Attempt header",
   "시도 경로": "Attempt path",
-  "시도 이름": "Attempt name"
+  "시도 이름": "Attempt name",
+  "확인 전": "Not reviewed",
+  "반영 대기": "Waiting to apply",
+  "확인함": "Reviewed",
+  "이력 보기": "Show history",
+  "절 이력": "Section history"
 }
