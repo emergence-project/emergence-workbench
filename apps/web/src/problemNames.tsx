@@ -1,7 +1,10 @@
-import type { ClaimSide, FlowAnswer, FlowException } from './api'
+import type { AttemptState, ClaimSide, FlowAnswer, FlowException } from './api'
 import { t } from './i18n'
 
-// 흐름 화면이 함께 쓰는 이름 (Problems.tsx · ProblemDialogs.tsx · ProblemExceptions.tsx)
+// 흐름 화면이 함께 쓰는 이름 (Problems.tsx · ProblemChart.tsx · ProblemDialogs.tsx · ProblemExceptions.tsx)
+
+/** 시도의 상태 */
+export const ATTEMPT_NAME: Record<AttemptState, string> = { candidate: t('후보', 'Candidate'), active: t('진행', 'Working'), reported: t('판정 대기', 'To judge'), holds: t('성립', 'Holds'), dropped: t('폐기', 'Dropped') }
 
 /** 흐름을 닫을 때의 답 */
 export const ANSWER_NAME: Record<FlowAnswer, string> = { yes: t('예', 'Yes'), no: t('아니오', 'No') }

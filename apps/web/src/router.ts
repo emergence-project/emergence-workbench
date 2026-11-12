@@ -5,7 +5,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  * 주소 뒤쪽(#)으로 화면을 기억한다. 제목줄의 뒤로/앞으로 버튼은 브라우저 기록을 그대로 쓴다.
  *   #/r/<연구>            프로젝트 정보 (목표·저장소·태그)
  *   #/r/<연구>/todo       할 일
- *   #/r/<연구>/problems[/<문제>] 문제 목록 · 문제 하나와 시도 나무 (11/11)
+ *   #/r/<연구>/problems[/<문제>][?view=chart|list][&at=<시도>] 흐름 목록 · 흐름 하나와 시도 (11/11). view는 고른 보기(11/12 차트 · 목록), at은 펼쳐 둘 시도
  *   #/r/<연구>/edits[?key=] 고침 검토 (그 프로젝트의 에이전트 고침만, 10/14 사용자 결정)
  *   #/r/<연구>/map        지도 (예전 /tree도 여기로)
  *   #/r/<연구>/s/<진술>    진술 노트 (저장소의 statements/)
@@ -69,7 +69,7 @@ export type Route =
   | { page: 'todo'; rid: string }
   | { page: 'records'; rid: string }
   | { page: 'edits'; rid: string; key?: string }
-  | { page: 'problems'; rid: string; id?: string }
+  | { page: 'problems'; rid: string; id?: string; view?: FlowView; at?: string }
   | { page: 'info'; rid: string }
   | { page: 'agents'; rid: string }
   | { page: 'status'; rid: string }
@@ -87,6 +87,9 @@ export type Route =
   | { page: 'topic'; rid: string; tid: string }
   | { page: 'task'; rid: string; task: string }
 
+/** 흐름 화면의 보기: 차트(질문에서 시도가 갈라지는 나무) · 목록 */
+export type FlowView = 'chart' | 'list'
+
 /** 잘못된 %(예: `100%`)가 든 조각은 그대로 둔다. decodeURIComponent가 던지면 React 밖에서 터져 빈 화면이 된다 */
 const decodeSafe = (s: string) => { try { return decodeURIComponent(s) } catch { return s } }
 
@@ -99,7 +102,10 @@ export function parseRoute(hash: string): Route {
     // 옛 작업 탭 주소는 기록 화면으로 (10/21 작업 탭을 기록 안으로 합침)
     if (parts[2] === 'todo') return { page: 'records', rid: parts[1] }
     if (parts[2] === 'records') return { page: 'records', rid: parts[1] }
-    if (parts[2] === 'problems') return { page: 'problems', rid: parts[1], ...(parts[3] && { id: parts[3] }) }
+    if (parts[2] === 'problems') {
+      const q = new URLSearchParams(query), view = q.get('view'), at = q.get('at')
+      return { page: 'problems', rid: parts[1], ...(parts[3] && { id: parts[3] }), ...((view === 'chart' || view === 'list') && { view }), ...(parts[3] && at && { at }) }
+    }
     // 옛 점 차트의 주소 (11/11 없앰): 같은 이름을 이어받은 흐름 화면으로
     if (parts[2] === 'flow') return { page: 'problems', rid: parts[1] }
     if (parts[2] === 'edits') { const key = new URLSearchParams(query).get('key'); return { page: 'edits', rid: parts[1], ...(key && { key }) } }
@@ -214,7 +220,10 @@ export function href(r: Route): string {
     case 'map': return `#/r/${e(r.rid)}/map`
     case 'todo': return `#/r/${e(r.rid)}/todo`
     case 'records': return `#/r/${e(r.rid)}/records`
-    case 'problems': return `#/r/${e(r.rid)}/problems${r.id ? `/${e(r.id)}` : ''}`
+    case 'problems': {
+      const q = [r.view && `view=${r.view}`, r.id && r.at && `at=${e(r.at)}`].filter(Boolean).join('&')
+      return `#/r/${e(r.rid)}/problems${r.id ? `/${e(r.id)}` : ''}${q ? `?${q}` : ''}`
+    }
     case 'edits': return `#/r/${e(r.rid)}/edits${r.key ? `?key=${e(r.key)}` : ''}`
     case 'info': return `#/r/${e(r.rid)}/info`
     case 'agents': return `#/r/${e(r.rid)}/agents`

@@ -2,6 +2,9 @@
 .page-body.pb-page { max-width: 860px; gap: var(--sp-4); }
 .pb-head { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--input-h); }
 .pb-head .sp, .pb-h3 .sp { flex: 1; }
+/* 머리는 세 구역(.bar3): 왼쪽 무엇 · 가운데 보기(차트 | 목록) · 오른쪽 행동 */
+.pb-head.bar3 { display: grid; }
+.pb-head-acts { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); min-width: 0; }
 .pb-h { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-title); }
 .pb-back { font-size: var(--fs-sm); color: var(--text-2); }
 .pb-title { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-title); line-height: 1.35; overflow-wrap: anywhere; }
@@ -63,7 +66,10 @@
 .pb-label { font-weight: var(--fw-strong); font-variant-numeric: tabular-nums; }
 .pb-method { min-width: 0; overflow-wrap: anywhere; }
 .s-dropped .pb-method, .s-dropped .pb-label { color: var(--text-3); }
-.pb-next, .pb-all { margin: 0 0 0 var(--sp-2); }
+.pb-all { margin: 0 0 0 var(--sp-2); }
+/* 줄 끝 태그(다음 · 승인 · 판정 후 변경)는 한 묶음: 둘이 함께 와도 아래 줄로 떨어지지 않는다 */
+.pb-tags { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--sp-1); }
+.pb-tags .tag { margin: 0; }
 .pb-move { display: inline-flex; flex: none; }
 .pb-sub { padding: 0 var(--sp-1) 6px calc(5.5em + 2.2em + 2 * var(--sp-2) + var(--sp-1)); font-size: var(--fs-xs); color: var(--text-3); overflow-wrap: anywhere; }
 .pb-detail { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-1) var(--sp-1) var(--sp-3) calc(5.5em + var(--sp-2) + var(--sp-1)); }
@@ -97,7 +103,7 @@
   .pb-gate-list dd, .pb-facts dd { margin-bottom: var(--sp-2); }
 }
 /* 판정 후 변경 (11/11): 성립으로 판정한 뒤 파일이 바뀐 시도. 사용자가 볼 것이라 주황 점 */
-.pb-stale { display: inline-flex; align-items: center; gap: var(--sp-1); margin: 0 0 0 var(--sp-2); white-space: nowrap; }
+.pb-stale { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
 .pb-stale-file { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: var(--sp-2); font-size: var(--fs-xs); color: var(--text-2); }
 .pb-test { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .pb-test-cmd { min-width: 0; font-size: var(--fs-xs); overflow-wrap: anywhere; }
@@ -110,7 +116,8 @@
 .pb-group legend { padding: 0 var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); }
 .pb-field > span em, .pb-group legend em { margin-left: var(--sp-1); font-style: normal; font-size: var(--fs-xs); color: var(--text-3); }
 /* 주장 (11/11 "점 = 판단할 수 있는 주장과 근거"): 보고한 시도는 진술로 읽는다. 진술 뒤 태그는 질문의 어느 쪽 근거인지. 펼치면 주장을 근거 위에 가는 선으로 나눠 둔다 */
-.pb-side, .pb-accepted { margin: 0 0 0 var(--sp-2); white-space: nowrap; }
+.pb-side { margin: 0 0 0 var(--sp-2); white-space: nowrap; }
+.pb-accepted { white-space: nowrap; }
 .pb-accepted { display: inline-flex; align-items: center; gap: 2px; }
 .pb-claim { padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line); }
 .pb-steps.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -147,3 +154,44 @@
   .pb-exc-list li { grid-template-columns: minmax(0, 1fr); }
   .pb-exc-meta { grid-column: 1; }
 }
+
+/* 차트 (11/12 "점 = 시도로 되살리기", ProblemChart.tsx): 옛 흐름 차트의 모양. 질문 ◇에서 시도 ○가 왼쪽에서 오른쪽으로 갈라지고, 기호 아래에 이름과 옅은 상태 한 줄.
+   색은 시도의 상태에만: 진행 파랑 · 판정 대기 주황 · 성립 청록은 채우고, 폐기는 회색 고리, 후보는 옅은 점선 고리 */
+.pb-chart { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); }
+.pb-chart-row { display: flex; align-items: flex-start; border-top: 1px dashed var(--line); }
+.pb-chart-row:first-child { border-top: 0; }
+/* 여러 흐름의 차트: 줄 이름(질문 · 수)은 왼쪽에 그대로 있고 나무만 옆으로 밀린다. 패널이 좁으면 이름을 나무 위로 올린다 */
+.pb-chart-q { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); width: 184px; padding: var(--sp-3); }
+.pb-chart-tree { flex: 1; min-width: 0; overflow-x: auto; }
+@container (max-width: 640px) {
+  .pb-chart-row { flex-direction: column; align-items: stretch; }
+  .pb-chart-q { width: auto; padding-bottom: 0; }
+}
+.pb-chart-name { min-width: 0; text-align: left; font-size: var(--fs-sm); font-weight: var(--fw-medium); line-height: 1.4; color: var(--text); overflow-wrap: anywhere; }
+.pb-chart-name:hover { text-decoration: underline; }
+.pb-chart-nums { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.pb-chart-q .pb-now { max-width: 100%; }
+.pb-c { display: block; flex: none; user-select: none; }
+.pb-c-e { fill: none; stroke: var(--line-strong); stroke-width: 1.6; }
+.pb-c-e.dim { stroke: var(--line); }
+.pb-c-node { cursor: pointer; outline: none; }
+.pb-c-hit { fill: transparent; stroke: none; }
+.pb-c-node:hover .pb-c-hit { fill: var(--bg-hover); fill-opacity: .5; }
+.pb-c-node:focus-visible .pb-c-hit { stroke: var(--focus-line); stroke-width: 2; }
+.pb-c-sel { fill: none; stroke: var(--primary); stroke-width: 2; }
+.pb-c-turn { fill: none; stroke: var(--s-blocked); stroke-width: 2; }
+.pb-c-name { font-size: var(--fs-xs); fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
+.pb-c-name.strong { font-weight: var(--fw-strong); }
+.pb-c-node.s-dropped .pb-c-name { fill: var(--text-3); }
+.pb-c-tally { font-size: var(--fs-2xs); fill: var(--text-3); paint-order: stroke; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
+/* 점 기호: --c 상태 색. 속이 찬 것은 글자가 바탕색, 속이 빈 것은 글자가 상태 색 */
+.pb-c-m { --c: var(--s-progress); --gc: var(--bg); }
+.pb-c-m.s-reported { --c: var(--s-blocked); }
+.pb-c-m.s-holds { --c: var(--s-solved); }
+.pb-c-m.s-dropped { --c: var(--s-stopped); --gc: var(--c); }
+.pb-c-m.s-candidate { --c: var(--text-3); --gc: var(--c); }
+.pb-c-m .pb-c-b { fill: var(--c); stroke: none; }
+.pb-c-m.s-dropped .pb-c-b, .pb-c-m.s-candidate .pb-c-b { fill: var(--bg); stroke: var(--c); stroke-width: 1.8; }
+.pb-c-m.s-candidate .pb-c-b { stroke-dasharray: 3 2; }
+.pb-c-g { font-size: var(--fs-xs); font-weight: var(--fw-strong); fill: var(--gc); }
+.pb-c-g.long { font-size: var(--fs-2xs); }
