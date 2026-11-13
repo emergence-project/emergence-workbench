@@ -3,13 +3,17 @@ import type { SyncSettingsView } from '@rw/core/contract/settings'
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import { lang, t } from './i18n'
+import { useAdmin } from './admin'
 
-const ROWS: { kind: SyncKind; ui: string; name: () => string; desc: () => string; warn(c: SyncChoice): string | null }[] = [
+const ROWS: { kind: SyncKind; ui: string; name: (admin: boolean) => string; desc: (admin: boolean) => string; warn(c: SyncChoice): string | null }[] = [
   {
     kind: 'publish', ui: '기록 올리기 주기',
-    name: () => t('기록 · 피드백 올리기', 'Push records and feedback'),
-    desc: () => t('자동이면 기록이나 피드백을 쓰고 고른 시간이 지나면 GitHub에 올립니다(그 사이 더 쓰면 다시 셉니다). 수동이면 "지금 올리기"로만 올립니다. 어느 쪽이든 기록 탭 맨 위의 "지금 올리기"로 바로 올릴 수 있습니다.',
-      'With Auto, records and feedback are pushed to GitHub after the chosen time (writing again restarts the count). With Manual, only "Push now" pushes. Either way, "Push now" at the top of the Records tab pushes right away.'),
+    name: (admin) => admin ? t('기록 · 피드백 올리기', 'Push records and feedback') : t('기록 올리기', 'Push records'),
+    desc: (admin) => admin
+      ? t('자동이면 기록이나 피드백을 쓰고 고른 시간이 지나면 GitHub에 올립니다(그 사이 더 쓰면 다시 셉니다). 수동이면 "지금 올리기"로만 올립니다. 어느 쪽이든 기록 탭 맨 위의 "지금 올리기"로 바로 올릴 수 있습니다.',
+        'With Auto, records and feedback are pushed to GitHub after the chosen time (writing again restarts the count). With Manual, only "Push now" pushes. Either way, "Push now" at the top of the Records tab pushes right away.')
+      : t('자동이면 기록을 쓰고 고른 시간이 지나면 GitHub에 올립니다(그 사이 더 쓰면 다시 셉니다). 수동이면 "지금 올리기"로만 올립니다. 피드백은 이와 상관없이 잠시 뒤 관리자에게 갑니다.',
+        'With Auto, records are pushed to GitHub after the chosen time (writing again restarts the count). With Manual, only "Push now" pushes. Feedback goes to the maintainer shortly after you leave it either way.'),
     warn: (c) => (c.mode === 'manual' || c.every > 300 ? t('클라우드 에이전트가 기록을 늦게 봅니다.', 'Cloud agents see your records later.') : null),
   },
   {
@@ -40,6 +44,7 @@ const UNITS: Record<SyncKind, { sec: number; label: () => string }[]> = {
  * 바꾸면 앱을 다시 켜지 않아도 바로 적용된다(서버 syncTiming.ts).
  */
 export function SyncSettings() {
+  const admin = useAdmin()
   const [s, setS] = useState<SyncSettingsView | null>(null)
   const [err, setErr] = useState<string | null>(null)
   useEffect(() => { api.syncSettings().then(setS).catch((e: Error) => setErr(e.message)) }, [])
@@ -54,14 +59,15 @@ export function SyncSettings() {
   return (
     <div className="set-rows" data-ui="동기화">
       {err && <div className="error-text">{err}</div>}
-      {ROWS.map((row) => {
+      {/* 앱 사본이 아닌 설치판에서는 앱 업데이트 줄을 감춘다(릴리스로 받는다). 관리자 앱은 예제 모드에서도 보인다 (admin.ts) */}
+      {ROWS.filter((row) => admin || row.kind !== 'update' || s.available.update).map((row) => {
         const c = s[row.kind]
         const on = s.available[row.kind]
         const warn = on ? row.warn(c) : null
         return <div key={row.kind} className="set-row" data-ui={row.ui}>
           <div>
-            <div className="set-name">{row.name()}</div>
-            <div className="set-desc">{row.desc()}</div>
+            <div className="set-name">{row.name(admin)}</div>
+            <div className="set-desc">{row.desc(admin)}</div>
             {!on && <div className="set-desc muted">{t('이 앱에서는 하지 않습니다(개발용 예제 모드이거나 앱 사본이 아님).', 'This app does not do this (sample mode, or not an app checkout).')}</div>}
             {warn && <div className="sync-warn">{warn}</div>}
           </div>

@@ -18,7 +18,7 @@ import { t } from '../i18n.js'
 
 export function registerResearches(app: FastifyInstance, ctx: RouteContext, io: RepoIO = ctx.opts.repoIO ?? realIO): void {
   const { registry, opts, wbOf, ensureWatch, watchers } = ctx
-  app.get('/api/researches', replies(C.ResearchList), async (): Promise<C.ResearchList> => ({ engine: registry.engine, sandbox: !!opts.sandbox, researches: registry.list() }))
+  app.get('/api/researches', replies(C.ResearchList), async (): Promise<C.ResearchList> => ({ engine: registry.engine, sandbox: !!opts.sandbox, admin: !opts.feedbackRelay, researches: registry.list() }))
 
   /**
    * 왼쪽 띠의 프로젝트 버튼에 붙는 수와 첫 화면의 "확인 필요" 점: 프로젝트마다 확인이 필요한 노트(첫 화면의 tree.issues와 같다, 10/4 18:16 피드백)
