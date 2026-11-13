@@ -176,8 +176,8 @@ export const DEFAULT_SCREENS = [
   // 판정 창 (11/11 실행 · 검사): 검사 명령이 있는 시도의 성립 판정, 다시 돌린 결과 고르기. 앞 화면에서 펼친 E가 그대로 남아 있어 성립만 누른다
   ['problem-verdict', '#/r/{rid}/problems/kempe-degree-five?view=list', '검사 결과', '성립'],
   ['problem-decision', '#/r/{rid}/problems/greedy-five-colors?view=list', '방향 보고'],
-  // 종료 창 (11/11): 답을 고르면 그 답이 기대는 성립한 주장이 줄마다 나오고, 줄마다 승인 · 수정 · 기각
-  ['problem-close', '#/r/{rid}/problems/greedy-five-colors?view=list', '근거 주장', ['흐름 종료', '[data-ui="흐름의 답 고르기"] button:text-matches("^(아니오|No)$")']],
+  // 종료 창 (11/11): 답을 고르면 그 답이 기대는 성립한 주장이 줄마다 나오고, 줄마다 승인 · 수정 · 기각. 결정을 기다리는 흐름이라 방향 보고의 「종료」로 연다
+  ['problem-close', '#/r/{rid}/problems/greedy-five-colors?view=list', '근거 주장', ['종료', '[data-ui="흐름의 답 고르기"] button:text-matches("^(아니오|No)$")']],
   ['problem-edit', '#/r/{rid}/problems/torus-seven-colors?view=list', '흐름 창', '흐름 수정'],
 ]
 
