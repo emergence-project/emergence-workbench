@@ -435,6 +435,8 @@ describe('승인·반려', () => {
     const pic = await fb.inject({ method: 'GET', url: '/api/feedback/picture?path=pictures/a.png' })
     expect(pic.statusCode).toBe(200)
     expect(pic.headers['content-type']).toBe('image/png')
+    fs.writeFileSync(path.join(dir, 'pictures', '2026-11-12-소개-전.png'), 'x')
+    expect((await fb.inject({ method: 'GET', url: `/api/feedback/picture?path=${encodeURIComponent('pictures/2026-11-12-소개-전.png')}` })).statusCode).toBe(200)
     for (const bad of ['pictures/b.png', '../status.yaml', 'pictures/../status.yaml', 'status.yaml']) {
       expect((await fb.inject({ method: 'GET', url: `/api/feedback/picture?path=${encodeURIComponent(bad)}` })).statusCode).toBe(404)
     }
