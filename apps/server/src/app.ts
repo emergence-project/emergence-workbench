@@ -387,7 +387,8 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerTasks(app, ctx)
   registerChanges(app, ctx)
   registerAgentEdits(app, ctx)
-  registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined))
+  // 앱 고치기 · 피드백 맡기기는 관리자 앱(피드백을 직접 받는 앱)에서만: 중계 서버로 보내는 앱은 앱 저장소가 있어도 끈다 (11/13)
+  registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo && !opts.feedbackRelay ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined))
   registerAgentHooks(app, ctx)
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))
 

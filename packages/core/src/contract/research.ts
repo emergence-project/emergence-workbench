@@ -84,7 +84,8 @@ export const ResearchListItem = z.object({
 }).strict()
 export const Engine = z.enum(['xelatex', 'lualatex', 'pdflatex'])
 /** GET /researches */
-export const ResearchList = z.object({ engine: Engine, sandbox: z.boolean(), researches: z.array(ResearchListItem) }).strict()
+/** admin: 피드백을 직접 받는 관리자 앱(중계 서버로 보내지 않는 앱, 11/13 "관리자가 아니면 비활성화") */
+export const ResearchList = z.object({ engine: Engine, sandbox: z.boolean(), admin: z.boolean(), researches: z.array(ResearchListItem) }).strict()
 /** PUT /researches/order */
 export const ResearchOrder = z.object({ researches: z.array(ResearchListItem) }).strict()
 /** 프로젝트마다 확인할 것의 수: counts = notes(확인이 필요한 노트) + tasks(판단할 맡긴 일) + edits(에이전트 고침 검토 · 고치기 요청) */

@@ -12,6 +12,7 @@ import { qk } from './queries'
 import { CopyButton, Row, when } from './SetupChecklist'
 import { AiKeyRow } from './AiKeySettings'
 import { AgentPrefs } from './AgentPrefs'
+import { useAdmin } from './admin'
 
 const PICK: Record<FeedbackPick, () => string> = {
   off: () => t('끔', 'Off'),
@@ -91,6 +92,7 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
 
 /** 대화 알림 (10/22): 이 브라우저에만 저장. 맥이 막았으면 어디서 풀지 알린다 */
 function AgentNotify() {
+  const admin = useAdmin()
   const [on, setOn] = useState(notifyOn)
   const [fb, setFb] = useState(feedbackNotifyOn)
   const [perm, setPerm] = useState(notifyPermission)
@@ -110,19 +112,19 @@ function AgentNotify() {
         <div>
           <div className="set-name">{t('대화 알림', 'Conversation alerts')}</div>
           <div className="set-desc">{t('앱 창을 보고 있지 않을 때, 에이전트가 답을 마치거나 허락 · 계획 승인을 기다리거나 오류로 멈추면 맥 알림을 띄웁니다. 알림을 누르면 그 대화가 열립니다.', 'When you are not looking at the app window, a Mac notification appears when an agent finishes its reply, waits for approval or a plan, or stops with an error. Click it to open the conversation.')}</div>
-          {(on || fb) && perm === 'denied' && <div className="error-text">{t('브라우저가 이 앱의 알림을 막았습니다. 주소 칸 왼쪽의 사이트 설정에서 알림을 허락하세요.', 'The browser blocks notifications for this app. Allow them in the site settings left of the address bar.')}</div>}
-          {(on || fb) && perm === 'none' && <div className="muted">{t('이 브라우저는 알림을 띄우지 못합니다.', 'This browser cannot show notifications.')}</div>}
+          {(on || admin && fb) && perm === 'denied' && <div className="error-text">{t('브라우저가 이 앱의 알림을 막았습니다. 주소 칸 왼쪽의 사이트 설정에서 알림을 허락하세요.', 'The browser blocks notifications for this app. Allow them in the site settings left of the address bar.')}</div>}
+          {(on || admin && fb) && perm === 'none' && <div className="muted">{t('이 브라우저는 알림을 띄우지 못합니다.', 'This browser cannot show notifications.')}</div>}
         </div>
         {toggle(on, pick)}
       </div>
-      {/* 10/31 시안 7절: 새로 확인 필요가 된 피드백 항목마다 한 번 */}
-      <div className="set-row" data-ui="피드백 알림">
+      {/* 10/31 시안 7절: 새로 확인 필요가 된 피드백 항목마다 한 번. 처리 답을 받는 관리자 앱에서만 (admin.ts) */}
+      {admin && <div className="set-row" data-ui="피드백 알림">
         <div>
           <div className="set-name">{t('피드백 알림', 'Feedback alerts')}</div>
           <div className="set-desc">{t('앱 창을 보고 있지 않을 때, 피드백 항목이 새로 「확인 필요」가 되면 항목마다 한 번 맥 알림을 띄웁니다. 알림을 누르면 피드백 화면이 열립니다.', 'When you are not looking at the app window, a Mac notification appears once for each feedback item that newly needs your review. Click it to open the Feedback page.')}</div>
         </div>
         {toggle(fb, pickFb)}
-      </div>
+      </div>}
     </div>
   </>)
 }

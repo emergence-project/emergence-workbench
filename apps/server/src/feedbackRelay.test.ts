@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { buildApp } from './app.js'
 import { appendFeedback } from './feedback.js'
 import { bundleFeedback, importFeedback } from './feedbackBundle.js'
 import { relayStatus, sendToRelay, senderId } from './feedbackRelay.js'
@@ -100,5 +101,18 @@ describe('feedback relay', () => {
     expect(tree).toEqual([{ path: 'feedback/from/친구-abc123/2026-11-08.md', mode: '100644', type: 'blob', sha: 'blob1' }])
     const coded = await w.default.fetch(new Request('https://relay.example/feedback', { method: 'POST', body: '{}' }), { ...env, INVITE_CODE: 'k' })
     expect(coded.status).toBe(403)
+  })
+
+  it('an app that sends feedback to the relay is not the admin app: no app-fix chats', async () => {
+    const steps = { install: async () => {}, build: async () => {}, restart: () => false, canRestart: () => false }
+    const appRepo = { root: mk(), running: 'abc', steps }
+    const friend = buildApp({ configDir: mk(), feedbackDir: mk(), feedbackRelay: 'https://relay.example', appRepo })
+    const admin = buildApp({ configDir: mk(), feedbackDir: mk(), appRepo })
+    try {
+      expect((await friend.inject({ url: '/api/researches' })).json()).toMatchObject({ admin: false })
+      expect((await friend.inject({ url: '/api/agent-chats' })).json()).toMatchObject({ app: false, handOff: false })
+      expect((await admin.inject({ url: '/api/researches' })).json()).toMatchObject({ admin: true })
+      expect((await admin.inject({ url: '/api/agent-chats' })).json()).toMatchObject({ app: true })
+    } finally { await friend.close(); await admin.close() }
   })
 })
