@@ -1,4 +1,4 @@
-// 연구 기록 올리기: 이 맥에서 남긴 사용자 기록(workbench/comments · log)만 올려 클라우드의 Claude가 읽게 한다. 정한 경로 밖은 올리지 않는다(pathsync.ts).
+// 연구 기록 올리기: 이 맥에서 남긴 사용자 기록(workbench/comments · log)과, 저절로 올릴 때는 흐름(workbench/problems)만 올려 클라우드의 Claude가 읽게 한다. 정한 경로 밖은 올리지 않는다(pathsync.ts).
 // 응답 계약은 피드백 갈래(@rw/core/contract/feedback)에 함께 있다
 import type { FastifyInstance } from 'fastify'
 import fs from 'node:fs'
@@ -25,17 +25,30 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
    * 일지(log/)도 넣는다: 일지 메모를 쓰거나 할 일을 기록으로 옮기면(todos.ts) log/가 바뀌는데, 올리지 않으면 "커밋하지 않은 변경"으로 남아 저절로 받기를 막는다
    */
   const RESEARCH_RECORDS = ['comments', 'log']
-  const researchRecords = async (rid: string) => {
+  /**
+   * 저절로 올릴 때 기록과 함께 올리는 것: 흐름(problems/: 질문 · 주장 · 시도 · 예외 기록).
+   * 사용자가 이 컴퓨터에서 쓴 질문 · 메시지 · 판정이 GitHub에 있어야 클라우드와 다른 컴퓨터의 에이전트가 그 흐름에서 일한다
+   * (11/13 점검: 화면에서 만든 흐름이 커밋되지 않은 채 이 컴퓨터에만 남았다). 기록 탭의 "안 올린 기록" 수에는 세지 않는다
+   */
+  const AUTO_ALSO = ['problems']
+  const autoOn = () => opts.recordsAutoPublishMs !== undefined && !opts.sandbox && syncDelayMs(ctx.registry, 'publish', opts.recordsAutoPublishMs) !== null
+  const researchRecords = async (rid: string, also = false) => {
     const wbDir = path.join(repoPath(rid), 'workbench')
     const { top, rel } = await locate(wbDir)
     // 아직 없는 폴더도 넣는다: publishPaths가 바뀐 것이 있는 경로만 커밋한다
-    return { top, paths: RESEARCH_RECORDS.map((p) => (rel ? `${rel}/${p}` : p)) }
+    return { top, paths: [...RESEARCH_RECORDS, ...(also ? AUTO_ALSO : [])].map((p) => (rel ? `${rel}/${p}` : p)) }
   }
   /**
    * 기록 올리기. GitHub에서도 바뀐 기록 파일은 세 갈래로 합쳐 보고(merge), GitHub 위에 따로 올린 뒤에는
    * 이 컴퓨터의 브랜치를 그 커밋으로 옮겨(adopt) 저절로 받기가 막히지 않게 한다 (pathsync.ts, 10/15)
    */
   const RECORDS_MESSAGE = 'Add comments from the research workspace app'
+  const FLOWS_MESSAGE = 'Update flows from the research workspace app'
+  /** 커밋 제목: 올릴 것이 흐름 파일뿐이면 흐름, 섞였으면 둘 다 */
+  const messageFor = (files: string[]) => {
+    const flows = files.filter((f) => /(^|\/)problems\//.test(f)).length
+    return !flows ? RECORDS_MESSAGE : flows === files.length ? FLOWS_MESSAGE : 'Add comments and flows from the research workspace app'
+  }
   // 마지막 결과는 앱 설정 폴더에 둔다: 앱을 다시 켜도 실패가 화면(기록 탭 맨 위 줄)에 남는다 (10/20 점검: LSWT 기록이 하루 넘게 안 올라간 채 표시가 사라졌다)
   const lastFile = path.join(ctx.registry.configDir, 'records-publish.json')
   const recordsLast = new Map<string, { at: number; error: string | null }>(Object.entries((() => {
@@ -54,7 +67,7 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
       // 연구 폴더가 main 같은 기본 브랜치가 아니면 올리지 않는다: 그 브랜치로 올라가 다른 컴퓨터에서 보이지 않는다 (10/22 맥미니 NBCP)
       const off = await offDefaultBranch(r.top)
       if (off) throw new PathSyncError(off)
-      const out = await publishPaths(r.top, r.paths, { message: RECORDS_MESSAGE, adopt: true, merge: true })
+      const out = await publishPaths(r.top, r.paths, { message: messageFor(await pendingPaths(r.top, r.paths).catch(() => [])), adopt: true, merge: true })
       done(null)
       return out
     } catch (e) {
@@ -69,7 +82,7 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
   const publishPending = async (rid: string) => {
     let r: { top: string; paths: string[] }
     try {
-      r = await researchRecords(rid)
+      r = await researchRecords(rid, true)
       if (!(await pendingPaths(r.top, r.paths)).length) {
         // 실패 뒤 다른 길(터미널 git push 등)로 올라갔으면 남은 실패 표시를 지운다
         const last = recordsLast.get(rid)
@@ -128,7 +141,8 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
   app.post<{ Params: { rid: string } }>('/api/researches/:rid/records/publish', replies(C.RecordsPublished), async (req): Promise<C.RecordsPublished> => {
     if (opts.sandbox) throw new WorkbenchError(404, t('개발용 예제 모드에서는 GitHub에 올리지 않습니다', 'Sample mode does not push to GitHub'))
     try {
-      const r = await researchRecords(req.params.rid)
+      // 저절로 올리기가 켜져 있으면 「지금 올리기」 · 「다시 올리기」도 같은 것(기록과 흐름)을 올린다. 수동이면 기록만
+      const r = await researchRecords(req.params.rid, autoOn())
       return await publishRecords(req.params.rid, r)
     } catch (e) {
       if (e instanceof PathSyncError) throw new WorkbenchError(409, e.message)

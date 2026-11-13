@@ -329,7 +329,7 @@ function Tree({ p, rid, busy, locked, chart, at, onAdd, onAddClaim, onOrder, onV
       <h3 className="pb-h3">{t('주장', 'Claims')} <span className="muted">{p.claims.length}</span><span className="muted">{t(`시도 ${p.used} / 한도 ${p.limit}`, `Attempts ${p.used} / limit ${p.limit}`)}</span><span className="sp" />
         {!locked && <button className="btn sm" data-ui="주장 추가" onClick={() => setAdding('claim')}>＋ {t('주장', 'Claim')}</button>}
         {!locked && <button className="btn sm" data-ui="후보 추가" onClick={() => setAdding('try')}>＋ {t('후보', 'Candidate')}</button>}</h3>
-      {empty && <p className="empty">{t('주장도 시도도 없습니다. 「＋ 후보」로 해 볼 방법을 추가합니다.', 'No claims or attempts. Add a method to try with "＋ Candidate".')}</p>}
+      {empty && <p className="empty">{t('주장도 시도도 없습니다. 「＋ 주장」으로 판단할 문장을 세우고 「＋ 후보」로 해 볼 방법을 추가합니다.', 'No claims or attempts. Set up a sentence to judge with "＋ Claim", then add a method to try with "＋ Candidate".')}</p>}
       {chart ? !empty && <>
         <div className="pb-chart" data-ui="흐름 차트"><TreeChart flow={p} selected={shown} rootName={t('질문', 'Question')} onRoot={() => toggle(ROOT_ID)} onPick={(c) => toggle(c.id)} /></div>
         {peeking ? <div ref={peek}><ClaimPeek p={p} claim={picked} onOpen={() => open(picked?.id ?? ROOT_ID)} /></div>

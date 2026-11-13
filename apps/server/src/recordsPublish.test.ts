@@ -187,6 +187,42 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
     } finally { await app.close() }
   })
 
+  it('화면에서 쓴 흐름(질문 · 주장)도 저절로 올리고, 클라우드가 올린 시도와 합친다. 안 올린 기록 수에는 세지 않는다', async () => {
+    const { remote, mac, cloud } = setup('flows')
+    const app = buildApp({ configDir: path.join(tmp, 'flows-config'), recordsAutoPublishMs: 30 })
+    const subject = () => { try { return g(remote, 'log', '--format=%s', '-n', '1', 'main') } catch { return '' } }
+    const show = (file: string) => { try { return g(remote, 'show', `main:${file}`) } catch { return '' } }
+    try {
+      const id = (await app.inject({ method: 'POST', url: '/api/researches', payload: { path: mac, createWorkbench: true } })).json().id
+      const R = `/api/researches/${id}/problems`
+      const made = await app.inject({ method: 'POST', url: R, payload: { question: 'Is the flow on GitHub?', if_yes: '예이면의 한 문장', if_no: '아니오이면의 한 문장', reader: '독자' } })
+      expect(made.statusCode).toBe(200)
+      const flow = made.json().problem as { id: string; hash: string }
+      const dir = `workbench/problems/${flow.id}`
+      // 흐름 파일은 기록 탭의 "안 올린 기록"에 세지 않는다
+      expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/unpublished` })).json().files.filter((f: string) => f.includes('problems/'))).toEqual([])
+      await until(() => show(`${dir}/problem.yaml`).includes('Is the flow on GitHub?'))
+      expect(subject()).toBe('Update flows from the research workspace app')
+      await until(() => ahead(mac) === 0)
+
+      // 클라우드의 에이전트가 받아 후보 하나를 올리는 사이, 이 컴퓨터에서는 흐름을 시작하고 주장을 세운다: 서로 다른 파일이라 합쳐 올린다
+      g(cloud, 'pull', '-q')
+      expect(read(cloud, `${dir}/problem.yaml`)).toContain('예이면의 한 문장')
+      write(cloud, `${dir}/a.yaml`, 'format: 1\nmethod: 클라우드에서 더한 후보\nstate: candidate\nby: codex\ncreated: 2026-11-13T10:00\n')
+      g(cloud, 'add', '.'); g(cloud, 'commit', '-qm', 'cloud attempt'); g(cloud, 'push', '-q')
+      expect((await app.inject({ method: 'POST', url: `${R}/${flow.id}/open`, payload: { baseHash: flow.hash } })).statusCode).toBe(200)
+      expect((await app.inject({ method: 'POST', url: `${R}/${flow.id}/claims`, payload: { statement: '맥에서 세운 주장', side: 'for_yes' } })).statusCode).toBe(200)
+      await until(() => show(`${dir}/1.yaml`).includes('맥에서 세운 주장'))
+      expect(show(`${dir}/a.yaml`)).toContain('클라우드에서 더한 후보')
+      expect(show(`${dir}/problem.yaml`)).toMatch(/opened:/)
+      // 이 컴퓨터의 브랜치도 올린 커밋으로 옮겨져 클라우드의 후보가 화면에 보인다
+      await until(() => ahead(mac) === 0 && fs.existsSync(path.join(mac, dir, 'a.yaml')))
+      const doc = (await app.inject({ method: 'GET', url: `${R}/${flow.id}` })).json().problem as { claims: { id: string }[]; attempts: { id: string }[] }
+      expect(doc.claims.map((c) => c.id)).toEqual(['1'])
+      expect(doc.attempts.map((a) => a.id)).toEqual(['a'])
+    } finally { await app.close() }
+  })
+
   it('앱 밖에서 쓴 기록도 10분마다 다시 보아 올린다 (첫 차례는 켜고 1분 뒤). 멈춘 프로젝트는 다시 보지 않는다', async () => {
     const { remote, mac } = setup('sweep')
     const paused = setup('sweep-paused')
@@ -219,6 +255,11 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
       // 저절로 올리기가 꺼져 있으면 올리기를 예약하지도 시도하지도 않는다: 기다리지 않고 상태로 본다
       expect((await app.inject({ method: 'GET', url: `/api/researches/${id}/records/publish` })).json()).toEqual({ autoPublish: false, delay: null, last: null })
       expect(g(remote, 'log', '--format=%s', '-n', '1', 'main')).toBe('init')
+      // 「지금 올리기」는 기록만 올린다: 흐름 파일은 저절로 올리기가 켜져 있을 때만 함께 올린다
+      expect((await app.inject({ method: 'POST', url: `/api/researches/${id}/problems`, payload: { question: 'Stays here?' } })).statusCode).toBe(200)
+      expect((await app.inject({ method: 'POST', url: `/api/researches/${id}/records/publish` })).statusCode).toBe(200)
+      expect(g(remote, 'log', '--format=%s', '-n', '1', 'main')).toBe('Add comments from the research workspace app')
+      expect(g(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n').filter((f) => f.includes('problems/'))).toEqual([])
     } finally { await app.close() }
   })
 })
