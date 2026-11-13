@@ -41,7 +41,8 @@ export const useRecordComposerRequest = () => useSyncExternalStore(
 )
 
 export interface RecordPoint { x: number; y: number }
-export interface RecordSelection extends RecordAnchor, RecordPoint {}
+/** 본문에서 고른 글. 그림 캡션이면 가리킨 곳(part · partText)에 그 그림이 함께 온다 */
+export interface RecordSelection extends RecordAnchor, RecordPoint { part?: string; partText?: string }
 export interface NoteRecordsContext {
   /** Entire source file, including front matter: server anchors use file line numbers. */
   source: string

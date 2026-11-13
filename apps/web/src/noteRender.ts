@@ -32,8 +32,8 @@ export function renderNoteFigure(f: NoteFigure, options: RenderOptions, asset?: 
   const media = !src || (compact && pdf) ? `<span class="md-fig-missing">${esc(f.file)}</span>`
     : pdf ? `<canvas class="md-fig-pdf" data-src="${esc(src)}" aria-label="${esc(f.file)}"></canvas>`
       : `<img src="${esc(src)}" alt="${esc(f.file)}">`
-  const cap = f.n || f.caption ? `<figcaption>${f.n ? `<b>${t('그림', 'Figure')} ${esc(f.n)}.</b> ` : ''}${noteInline(f.caption, options)}</figcaption>` : ''
-  return `<figure class="md-fig"${id ? ` data-fig-id="${esc(id)}"` : ''}>${media}${cap}</figure>`
+  const cap = f.n || f.caption ? `<figcaption>${f.n ? `<b class="md-figno">${t('그림', 'Figure')} ${esc(f.n)}.</b> ` : ''}${noteInline(f.caption, options)}</figcaption>` : ''
+  return `<figure class="md-fig" data-file="${esc(f.file)}"${id ? ` data-fig-id="${esc(id)}"` : ''}>${media}${cap}</figure>`
 }
 
 export function renderNoteFootnote(text: string, index: number, options: RenderOptions): string {
