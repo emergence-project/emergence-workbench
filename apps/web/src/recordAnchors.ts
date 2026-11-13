@@ -65,7 +65,16 @@ export function projectRecordSource(source: string, offset = 0): RecordProjectio
     }
     if (node.name === 'URL' && node.node.parent?.name === 'Link') hide(node.from, node.to)
     if (node.name === 'Escape') hide(node.from, node.from + 1)
-    if (node.name === 'Image' || node.name === 'HorizontalRule') { hide(node.from, node.to); return false }
+    // 그림은 캡션 글만 보인다(미리보기의 figcaption과 같게): ![ · ](파일) · \label{…}을 감춰 캡션을 고르면 그 그림 줄에 기록이 붙는다 (11/13)
+    if (node.name === 'Image') {
+      const marks = node.node.getChildren('LinkMark')
+      const open = marks[0], close = marks[1]
+      if (!open || !close || close.from < open.to) { hide(node.from, node.to); return false }
+      hide(node.from, open.to); hide(close.from, node.to)
+      for (const m of body.slice(open.to, close.from).matchAll(/\\label\{[^}]*\}/g)) hide(open.to + m.index, open.to + m.index + m[0].length)
+      return false
+    }
+    if (node.name === 'HorizontalRule') { hide(node.from, node.to); return false }
   } })
   for (const m of body.matchAll(/==([^=\n]+)==/g)) { hide(m.index, m.index + 2); hide(m.index + m[0].length - 2, m.index + m[0].length) }
   for (const m of body.matchAll(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g)) {

@@ -22,7 +22,7 @@ function visibleText(root: HTMLElement): { text: string; points: (TextPoint | nu
       return
     }
     if (!(node instanceof HTMLElement)) return
-    if (node.matches('.katex-mathml, .md-eqno, .md-secno, script, style, [hidden]')) return
+    if (node.matches('.katex-mathml, .md-eqno, .md-secno, .md-figno, script, style, [hidden]')) return
     // A formula reads as its TeX source between $ marks, as in the note source, so a selection
     // that starts or ends inside rendered math still maps to the source (10/7 12:12).
     const tex = node.matches('.katex') ? node.querySelector('.katex-mathml annotation')?.textContent : null
@@ -60,8 +60,14 @@ export function readRecordSelection(root: HTMLElement, selection: Selection, sou
   const anchor = raw && selectionAnchor(source, raw.from, raw.to)
   if (!anchor) return null
   const rect = range.getBoundingClientRect()
-  return { ...anchor, x: rect.left, y: rect.bottom }
+  // 캡션을 고르면 그 그림에 대한 기록: 가리킨 곳에 「그림」과 파일 이름을 함께 남긴다 (11/8 16:03 피드백, 11/13 진행)
+  const container = range.commonAncestorContainer
+  const figure = (container instanceof Element ? container : container.parentElement)?.closest<HTMLElement>('figure.md-fig[data-file]')
+  return { ...anchor, x: rect.left, y: rect.bottom, ...(figure && root.contains(figure) && { part: FIGURE_PART, partText: figure.dataset.file }) }
 }
+
+/** 그림 캡션에 단 기록의 가리킨 곳 이름 (data-ui 이름표의 「그림」) */
+export const FIGURE_PART = '그림'
 
 /** Add only DOM decorations, preserving the source text and every existing inline element. */
 export function paintRecordMarks(root: HTMLElement, source: string, contentOffset: number, highlights: PaintedRecord[]): () => void {

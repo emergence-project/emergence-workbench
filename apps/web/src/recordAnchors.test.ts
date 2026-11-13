@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { findRecordRange, matchRecordText, projectRecordSource, renderedRangeFromSource, selectionAnchor, sourceRangeFromRendered } from './recordAnchors'
 
 describe('record selection anchors', () => {
+  it('maps a selected figure caption to the caption inside the figure line (11/13)', () => {
+    const source = '앞 문단\n\n![이웃 $v_1$과 사슬. \\label{fig: parts}](parts.svg)\n\n뒤 문단'
+    expect(projectRecordSource(source).text).toBe('앞 문단 이웃 $v_1$과 사슬. 뒤 문단')
+    const rendered = '앞 문단 이웃 $v_1$과 사슬. 뒤 문단'
+    const from = rendered.indexOf('이웃')
+    const raw = sourceRangeFromRendered(source, rendered, { from, to: from + '이웃 $v_1$과 사슬.'.length })
+    expect(raw && source.slice(raw.from, raw.to)).toBe('이웃 $v_1$과 사슬.')
+  })
   it('keeps source bytes, full-file line numbers and 32 characters of context', () => {
     const source = `---\ntitle: 노트\n---\n${'앞'.repeat(40)}\n**선택한 글**\n${'뒤'.repeat(40)}`
     const from = source.indexOf('선택한')

@@ -536,7 +536,7 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
   const revealed = slot.reveal && slot.file?.comments.find((record) => record.id === slot.reveal!.id)
   const reveal = revealed && !revealed.lost && revealed.line ? { id: revealed.id, line: revealed.line, quote: revealed.quote, prefix: revealed.prefix, suffix: revealed.suffix, nonce: slot.reveal!.nonce } : undefined
   useEffect(() => {
-    setRecordSelectionDraft(rid, target.target, sel && { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color })
+    setRecordSelectionDraft(rid, target.target, sel && { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color, part: sel.part, partText: sel.partText })
     return () => setRecordSelectionDraft(rid, target.target, null)
   }, [rid, target.target, sel, color])
   const selected = highlights.find((h) => h.id === active?.id)
@@ -584,7 +584,7 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
           <PaintDots color={color} onChange={add} disabled={busy} />
           <span className="record-menu-sep" />
           {/* 메뉴는 코멘트 하나: 종류(메모 · 할 일 · 질문 · 지시)는 적기 칸에서 고르고, 질문 · 지시면 에이전트가 답한다 (10/30 17:06, 시안 4절 안 A) */}
-          <button disabled={busy} onClick={() => { openRecordComposer(rid, target, { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color }); done() }}><span className="ico">{Icon.comment}</span> {t('코멘트', 'Comment')}</button>
+          <button disabled={busy} onClick={() => { openRecordComposer(rid, target, { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color, part: sel.part, partText: sel.partText }); done() }}><span className="ico">{Icon.comment}</span> {t('코멘트', 'Comment')}</button>
         </RecordMenu>
       )}
       {active && selected && <RecordMenu anchor={active} highlight owner={box.current} onClose={() => setActive(null)}>
