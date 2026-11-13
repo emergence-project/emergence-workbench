@@ -1,0 +1,7 @@
+format: 1
+statement: 같은 차수를 고르는 규칙을 바꿔도 여섯 번째 색이 필요한 예가 남는다.
+condition: 규칙 셋(번호 순 · 이웃 색 수 · 무작위 100번), 꼭짓점 12개 이하
+side: for_no
+by: claude-code
+created: 2026-10-23T16:00
+from: b

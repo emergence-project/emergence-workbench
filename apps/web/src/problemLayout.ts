@@ -1,7 +1,7 @@
 /**
- * 흐름 차트의 배치 (11/12 사용자 결정 "점 = 시도로 되살리기"): 질문에서 시도가 왼쪽에서 오른쪽으로 갈라지는 나무.
- * 칸(c)은 깊이(질문 0, 그 바로 아래 시도 1 …), 줄(r)은 가지다. 맏이는 부모와 같은 줄을 이어 가고, 그 아래 형제는 새 줄로 갈라진다
- * (옛 흐름 차트의 "노선도" 모양: 곧게 가는 선과 둥글게 꺾여 내려가는 가지).
+ * 흐름 차트의 배치 (11/13 사용자 결정 "점 = 주장, 시도는 근거"): 질문에서 주장이 왼쪽에서 오른쪽으로 갈라지는 나무.
+ * 칸(c)은 깊이(질문 0, 그 바로 아래 주장 1, 그 주장의 근거 주장 2 …), 줄(r)은 가지다. 맏이는 위 주장과 같은 줄을 이어 가고, 그 아래 형제는 새 줄로 갈라진다
+ * (옛 흐름 차트의 "노선도" 모양: 곧게 가는 선과 둥글게 꺾여 내려가는 가지). 점의 위 점은 parent로 받는다 (주장의 under).
  */
 
 export type ChartCell = { c: number; r: number }
@@ -10,10 +10,10 @@ export type ChartGeo = { X(c: number): number; Y(r: number): number; width: numb
 
 /** 질문의 자리 (언제나 첫 칸 첫 줄) */
 export const ROOT: ChartCell = { c: 0, r: 0 }
-/** 칸 폭 · 질문 칸 폭 · 줄 높이 · 첫 줄의 점 가운데까지 · 마지막 줄 점 아래(이름 두 줄과 상태 한 줄) */
-export const CW = 148, ROOT_W = 76, RH = 92, TOP = 28, FOOT = 74
+/** 칸 폭 · 질문 칸 폭 · 줄 높이 · 첫 줄의 점 가운데까지(점 위에 시도의 작은 점이 놓인다) · 마지막 줄 점 아래(이름 두 줄과 상태 한 줄) */
+export const CW = 148, ROOT_W = 76, RH = 94, TOP = 31, FOOT = 74
 
-/** attempts는 나무 순서(부모 다음에 자식, 형제는 순서대로). 부모가 목록에 없는 시도는 질문 바로 아래로 본다 */
+/** 점들은 나무 순서(위 점 다음에 아래 점, 형제는 순서대로). 위 점이 목록에 없으면 질문 바로 아래로 본다 */
 export function layoutTree(attempts: readonly { id: string; parent?: string }[]): ChartLayout {
   const ids = new Set(attempts.map((a) => a.id))
   const kids = new Map<string, string[]>()
@@ -36,14 +36,14 @@ export function layoutTree(attempts: readonly { id: string; parent?: string }[])
     return cell.r
   }
   tops.forEach((id) => place(id, 1))
-  // 고리 안에만 있어 위에서 닿지 않은 시도
+  // 고리 안에만 있어 위에서 닿지 않은 점
   for (const a of attempts) if (!at.has(a.id)) place(a.id, 1)
   return { at, cols, rows: Math.max(1, lane) }
 }
 
 /**
- * 시도 화면의 경로 차트에 그릴 시도: 질문에서 이 시도까지의 길(위에서 아래로)과 바로 아래 시도들. 나무 순서(부모 다음에 자식)로 돌려준다.
- * 부모가 목록에 없으면 거기서 길이 끝나고, 부모가 서로를 가리켜도 멈춘다
+ * 주장 화면의 경로 차트에 그릴 점: 질문에서 이 주장까지의 길(위에서 아래로)과 바로 아래 근거 주장들. 나무 순서로 돌려준다.
+ * 위 점이 목록에 없으면 거기서 길이 끝나고, 서로를 가리켜도 멈춘다
  */
 export function nearOf<T extends { id: string; parent?: string }>(attempts: readonly T[], id: string): T[] {
   const byId = new Map(attempts.map((x) => [x.id, x]))
@@ -62,7 +62,7 @@ export function chartGeo(l: ChartLayout): ChartGeo {
 }
 
 /**
- * 부모 점에서 자식 점으로 가는 선의 꺾이는 점들. 같은 줄이면 곧게, 아니면 부모 줄로 가다가 자식 칸 바로 앞에서 내려가 자식 줄로 든다
+ * 위 점에서 아래 점으로 가는 선의 꺾이는 점들. 같은 줄이면 곧게, 아니면 부모 줄로 가다가 자식 칸 바로 앞에서 내려가 자식 줄로 든다
  * (형제의 선이 같은 세로 줄기를 함께 쓴다). roundedPath로 둥글린다
  */
 export function branchPoints(from: ChartCell, to: ChartCell, g: ChartGeo): [number, number][] {

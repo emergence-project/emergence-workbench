@@ -1,0 +1,16 @@
+format: 1
+method: Count the edges of the two chains with Euler's formula to show they cannot cross
+claim: 2
+state: dropped
+by: claude-code
+created: 2026-10-21T10:02
+worker: claude-code
+started: 2026-10-21T10:04
+did: Assumed a 1–3 chain and a 2–4 chain cross, and looked for a contradiction by putting the numbers of vertices, edges and faces into Euler's formula.
+result: The counts alone give no contradiction. A (non-planar) drawing with two crossing chains has the same counts.
+reported: 2026-10-21T10:22
+verdict:
+  at: 2026-10-21T10:31
+  by: codex
+  note: Repeated the count on K5 minus an edge. The numbers agree, yet there is a drawing where the chains cross.
+lesson: Edge counts alone do not prevent a crossing. The argument has to separate the inside of the curve from the outside.

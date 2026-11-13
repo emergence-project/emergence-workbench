@@ -121,13 +121,12 @@ export function registerProblemTools(server: McpServer, o: {
 
   server.registerTool('attempt_add', {
     title: 'List attempt candidates',
-    description: 'Add candidate methods under an open flow (or under an attempt, to go deeper along a branch that holds). List the candidates before working, one line each; the user may reorder them. Ids are given in order: a, b, c under the flow, c1, c2 under c. needs: "all" on a candidate means its own sub-attempts must all hold (a decomposition), otherwise sub-attempts are alternatives.',
+    description: 'Add candidate methods to an open flow. Each candidate aims at one claim (claim: its number, a dot on the chart) and becomes a ground of that claim once it is tried and judged; without claim it aims at the question itself, for when no claim has been stated yet. List the candidates before working, one line each; the user may reorder them. Ids are letters in order: a, b, c.',
     inputSchema: {
       project, problem,
       attempts: z.array(z.object({
         method: z.string().trim().min(1).describe('The method in one line: what will be tried'),
-        parent: z.string().optional().describe('Attempt id to put this under'),
-        needs: z.literal('all').optional(),
+        claim: z.string().optional().describe('Number of the claim this method aims at (problem_read: claims). Leave out to aim at the question'),
       })).min(1).max(12),
     },
     annotations: writeOnce,

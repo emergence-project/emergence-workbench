@@ -1,13 +1,11 @@
 format: 1
 method: 같은 차수일 때 고르는 규칙을 바꿔 본다 (이웃 색이 적은 쪽 먼저)
+claim: 2
 state: reported
 by: claude-code
 created: 2026-10-22T09:10
 worker: claude-code
 started: 2026-10-23T10:00
-statement: 같은 차수를 고르는 규칙을 바꿔도 여섯 번째 색이 필요한 예가 남는다.
-condition: 규칙 셋(번호 순 · 이웃 색 수 · 무작위 100번), 꼭짓점 12개 이하
-side: for_no
 did: 규칙 셋(번호 순 · 이웃 색 수 · 무작위 100번)으로 다시 돌렸다.
 result: 어느 규칙에서도 여섯 번째 색이 필요한 예가 남았다 (가장 적은 것이 41개).
 reported: 2026-10-23T16:00

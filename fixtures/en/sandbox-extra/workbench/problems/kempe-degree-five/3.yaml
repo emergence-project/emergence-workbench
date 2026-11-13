@@ -1,0 +1,6 @@
+format: 1
+statement: A vertex of degree 4 or less has neighbours using at most four colours, so it takes the remaining colour without any chain swap.
+condition: Five colours
+side: for_yes
+by: claude-code
+created: 2026-10-21T10:02

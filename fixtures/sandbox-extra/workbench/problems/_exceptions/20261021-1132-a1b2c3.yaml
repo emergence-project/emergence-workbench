@@ -1,8 +1,0 @@
-format: 1
-at: 2026-10-21T11:32
-by: claude-code
-kind: refused
-rule: self-verdict
-problem: kempe-degree-five
-attempt: b1
-what: 작업한 쪽은 판정하지 않습니다. 다른 에이전트나 사용자가 원자료로 판정합니다

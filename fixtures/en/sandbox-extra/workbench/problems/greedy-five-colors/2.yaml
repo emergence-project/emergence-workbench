@@ -1,0 +1,7 @@
+format: 1
+statement: Changing the tie-breaking rule still leaves cases that need a sixth colour.
+condition: Three rules (by index, by neighbour colours, 100 random orders), up to 12 vertices
+side: for_no
+by: claude-code
+created: 2026-10-23T16:00
+from: b

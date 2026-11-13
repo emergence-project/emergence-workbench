@@ -57,7 +57,7 @@ export function ProblemDialog({ rid, problem, onClose, onDone }: { rid: string; 
 }
 
 /**
- * 시도의 판정: 작업하지 않은 쪽이 한다. 묻는 것은 하나, 이 시도의 진술이 이 시도의 근거에서 따라 나오는가다.
+ * 시도의 판정: 작업하지 않은 쪽이 한다. 묻는 것은 하나, 이 시도가 겨눈 주장이 이 시도의 근거에서 따라 나오는가다 (아래 주장은 따로 판정받는다).
  * 성립은 근거와 교차 검증이, 폐기는 근거와 폐기 사유가 있어야 한다.
  * 칸 이름은 짧게, 무엇을 적는지는 입력란 안의 흐린 글로 (11/11 피드백 "설명이 길다").
  */
@@ -72,6 +72,7 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const holds = result === 'holds'
+  const claim = problem.claims.find((c) => c.id === attempt.claim)
   // 해 보지 않은 후보는 폐기 사유 하나만 적는다 (근거로도 같은 글이 남는다)
   const untried = attempt.state === 'candidate'
   const reason = untried ? lesson.trim() : note.trim()
@@ -90,9 +91,9 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
       <button className="btn primary" disabled={busy || !ready} onClick={() => void save()}>{holds ? t('성립', 'Holds') : t('폐기', 'Drop')}</button>
     </>}>
       <div className="pb-judged" data-ui="판정할 시도">
-        <p className="pb-judged-head"><b>{attempt.label}</b>{attempt.statement ?? attempt.method}<SideTag side={attempt.side} /></p>
-        {attempt.condition && <p className="pb-judged-result">{t(`조건: ${attempt.condition}`, `Condition: ${attempt.condition}`)}</p>}
-        {attempt.statement && <p className="pb-judged-result">{attempt.method}</p>}
+        {claim && <p className="pb-judged-head"><b>{claim.id}</b>{claim.statement}<SideTag side={claim.side} /></p>}
+        {claim?.condition && <p className="pb-judged-result">{t(`조건: ${claim.condition}`, `Condition: ${claim.condition}`)}</p>}
+        <p className={claim ? 'pb-judged-try' : 'pb-judged-head'}><b>{attempt.label}</b>{attempt.method}</p>
         {attempt.result && <p className="pb-judged-result">{attempt.result}</p>}
       </div>
       {!untried && <label className="field pb-field"><span>{t('근거', 'Basis')}</span>
@@ -121,8 +122,8 @@ type Review = BasisReview['verdict']
 const REVIEWS: [Review, string][] = [['approve', t('승인', 'Approve')], ['return', t('수정', 'Send back')], ['reject', t('기각', 'Reject')]]
 
 /**
- * 흐름 종료: 답(예 · 아니오 · 답 없음)을 고른다. 답이 있으면 그 답이 기대는 주장(그 쪽을 받치는 성립한 시도와 그 위의 성립한 시도)을 앱이 모아 보이고,
- * 사용자가 하나씩 승인 · 수정 · 기각한다. 모두 승인이면 닫히고, 수정 · 기각이 있으면 닫지 않고 그 시도를 돌려보낸다. 답 없이는 사유 한 줄.
+ * 흐름 종료: 답(예 · 아니오 · 답 없음)을 고른다. 답이 있으면 그 답이 기대는 주장(그 쪽을 받치는 성립한 주장과 그 아래 근거 주장)을 앱이 모아 보이고,
+ * 사용자가 하나씩 승인 · 수정 · 기각한다. 모두 승인이면 닫히고, 수정 · 기각이 있으면 닫지 않고 그 주장을 돌려보낸다. 답 없이는 사유 한 줄.
  */
 export function CloseDialog({ rid, problem, note, onClose, onDone }: { rid: string; problem: ProblemDoc; note?: string; onClose(): void; onDone(p: ProblemDoc): void }) {
   const [answer, setAnswer] = useState<FlowAnswer | ''>('')
@@ -131,8 +132,8 @@ export function CloseDialog({ rid, problem, note, onClose, onDone }: { rid: stri
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ids = answer ? problem.basis[answer] : []
-  const basis = problem.attempts.filter((a) => ids.includes(a.id))
-  const against = answer ? problem.attempts.filter((a) => problem.basis[answer === 'yes' ? 'no' : 'yes'].includes(a.id) && !ids.includes(a.id)) : []
+  const basis = problem.claims.filter((c) => ids.includes(c.id))
+  const against = answer ? problem.claims.filter((c) => problem.basis[answer === 'yes' ? 'no' : 'yes'].includes(c.id) && !ids.includes(c.id)) : []
   const of = (id: string) => reviews[id] ?? { verdict: 'approve' as const, note: '' }
   const put = (id: string, next: Partial<{ verdict: Review; note: string }>) => setReviews((r) => ({ ...r, [id]: { ...of(id), ...next } }))
   const allApproved = basis.every((a) => of(a.id).verdict === 'approve')
@@ -163,10 +164,10 @@ export function CloseDialog({ rid, problem, note, onClose, onDone }: { rid: stri
         <ul className="pb-basis">{basis.map((a) => {
           const r = of(a.id)
           return (
-            <li key={a.id} data-ui="근거 주장" data-ui-item={a.label}>
-              <p className="pb-basis-claim"><b>{a.label}</b><span>{a.statement}<SideTag side={a.side} />{a.condition && <small>{t(`조건: ${a.condition}`, `Condition: ${a.condition}`)}</small>}</span></p>
+            <li key={a.id} data-ui="근거 주장" data-ui-item={a.id} style={a.depth ? { paddingLeft: `calc(var(--sp-3) + ${Math.min(a.depth, 4)} * var(--sp-4))` } : undefined}>
+              <p className="pb-basis-claim"><b>{a.id}</b><span>{a.statement}<SideTag side={a.side} />{a.stale && <span className="pb-stale-file"><span className="turn-dot" aria-hidden />{t('판정 후 변경', 'changed after verdict')}</span>}{a.condition && <small>{t(`조건: ${a.condition}`, `Condition: ${a.condition}`)}</small>}</span></p>
               <div className="pb-basis-act">
-                <div className="segmented small" role="group" aria-label={t(`${a.label} 판단`, `Decision on ${a.label}`)}>
+                <div className="segmented small" role="group" aria-label={t(`${a.id} 판단`, `Decision on ${a.id}`)}>
                   {REVIEWS.map(([k, name]) => <button key={k} type="button" className={r.verdict === k ? 'on' : ''} aria-pressed={r.verdict === k} onClick={() => put(a.id, { verdict: k })}>{name}</button>)}
                 </div>
                 {r.verdict !== 'approve' && <input aria-label={t('이유', 'Reason')} placeholder={r.verdict === 'return' ? t('고칠 것', 'What to fix') : t('기각 사유', 'Why rejected')} value={r.note} onChange={(e) => put(a.id, { note: e.target.value })} />}
@@ -174,7 +175,7 @@ export function CloseDialog({ rid, problem, note, onClose, onDone }: { rid: stri
             </li>
           )
         })}</ul>
-        {against.length > 0 && <p className="pb-against">{t('반대쪽 성립', 'Held for the other answer')}: {against.map((a) => `${a.label} ${a.statement ?? a.method}`).join(' · ')}</p>}
+        {against.length > 0 && <p className="pb-against">{t('반대쪽 성립', 'Held for the other answer')}: {against.map((a) => `${a.id} ${a.statement}`).join(' · ')}</p>}
         {basis.length > 0 && !allApproved && <p className="pb-close-note">{t('수정 · 기각이 있으면 종료하지 않고 그 주장을 돌려보냅니다.', 'With a send-back or a reject, the flow stays open and those claims are returned.')}</p>}</div>}
       <label className="field pb-field"><span>{t('사유', 'Reason')} {answer && <em>{t('선택', 'Optional')}</em>}</span>
         <textarea rows={2} autoFocus placeholder={t('사유와 시도는 그대로 남습니다', 'The reason and the attempts are kept')} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
