@@ -28,8 +28,8 @@ const rid = R.split('/').pop()!
 const P = `${R}/problems`
 const user = async (method: 'POST' | 'PATCH', url: string, payload: object) => { const r = await app.inject({ method, url, payload }); expect(r.statusCode, r.body).toBe(200); return r.json().problem }
 
-describe('MCP: 흐름과 시도 나무', () => {
-  it('에이전트는 제안만 하고, 사용자가 연 흐름에서 후보 → 시작 → 보고, 판정은 다른 에이전트가 한다', async () => {
+describe('MCP: 흐름 (질문 › 주장 › 시도)', () => {
+  it('에이전트는 제안만 하고, 사용자가 연 흐름에서 주장 → 후보 → 시작 → 보고, 판정은 다른 에이전트가 한다', async () => {
     const claude = await connect('claude-code')
     const codex = await connect('codex-mcp-client')
     const tool = (c: Client, name: string, args: object) => c.callTool({ name, arguments: { project: rid, ...args } })
@@ -49,9 +49,13 @@ describe('MCP: 흐름과 시도 나무', () => {
     const p1 = await user('PATCH', `${P}/${id}`, { baseHash: p0.hash, set: { if_yes: 'The DM term leaves a Goldstone mode.', if_no: 'The DM term gaps the spectrum.', reader: 'LSWT users', limit: 2 } })
     await user('POST', `${P}/${id}/open`, { baseHash: p1.hash })
 
-    expect(textOf(await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'LSWT on 24x24' }, { method: 'Symmetry argument' }, { method: 'ED on 12 sites' }] }))).toMatch(/^Added A, B, C\. Attempts 0\/2\. Next: A \(a\) LSWT on 24x24\.$/)
+    // 주장을 먼저 세우고(점 하나), 그 주장을 겨눈 후보를 늘어놓는다. 질문 바로 아래의 주장에는 받치는 쪽이 있어야 한다
+    expect((await tool(claude, 'claim_add', { problem: id, statement: 'The lowest band stays at zero at Gamma with the DM term.' })).isError).toBe(true)
+    expect(textOf(await tool(claude, 'claim_add', { problem: id, statement: 'The lowest band stays at zero at Gamma with the DM term.', condition: 'D = 0.1, meshes 24 to 48', side: 'for_yes' }))).toMatch(/^Added claim 1\. /)
+    expect(textOf(await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'LSWT on 24x24', claim: '1' }, { method: 'Symmetry argument', claim: '1' }, { method: 'ED on 12 sites' }] }))).toMatch(/^Added A, B, C\. Attempts 0\/2\. Next: A \(a\) LSWT on 24x24\.$/)
     expect(textOf(await tool(claude, 'attempt_start', { problem: id }))).toContain('Started A: LSWT on 24x24.')
-    expect(textOf(await tool(claude, 'attempt_report', { problem: id, attempt: 'A', did: 'Ran solve_lswt at D = 0.1.', result: 'Lowest band 3e-9 at Gamma on 24, 36, 48.', statement: 'The lowest band stays at zero at Gamma with the DM term.', condition: 'D = 0.1, meshes 24 to 48', side: 'for_yes', files: ['code/dm.py'] }))).toContain('Awaiting verdict: A (by claude-code).')
+    // 진술 없이 보고하면 겨눈 주장을 그대로 받친다
+    expect(textOf(await tool(claude, 'attempt_report', { problem: id, attempt: 'A', did: 'Ran solve_lswt at D = 0.1.', result: 'Lowest band 3e-9 at Gamma on 24, 36, 48.', files: ['code/dm.py'] }))).toContain('Awaiting verdict: A (by claude-code).')
     // 작업한 쪽은 판정하지 못한다
     const self = await tool(claude, 'attempt_verdict', { problem: id, attempt: 'a', result: 'holds', note: 'looks right', check: 'L = 60' })
     expect(self.isError).toBe(true)
@@ -69,8 +73,11 @@ describe('MCP: 흐름과 시도 나무', () => {
     expect(brief).toContain('예이면: The DM term leaves a Goldstone mode.')
     expect(brief).toContain('멈춤')
     expect(Buffer.byteLength(brief, 'utf8')).toBeLessThanOrEqual(BRIEF_MAX)
-    expect(brief).toContain('[예 근거] The lowest band stays at zero at Gamma with the DM term.')
-    expect(JSON.parse(textOf(await tool(codex, 'problem_read', { problem: id, attempt: 'a' })))).toMatchObject({ state: 'holds', worker: 'claude-code', side: 'for_yes', verdict: { by: 'codex' } })
+    expect(brief).toContain('- 1 [성립 · 예 근거] The lowest band stays at zero at Gamma with the DM term. (조건: D = 0.1, meshes 24 to 48) ← A 성립, B 진행')
+    expect(JSON.parse(textOf(await tool(codex, 'problem_read', { problem: id, attempt: 'a' })))).toMatchObject({ state: 'holds', claim: '1', worker: 'claude-code', verdict: { by: 'codex' } })
+    // 주장 하나만 읽으면 그 주장과 근거(겨눈 시도, 아래 주장)가 온다
+    expect(JSON.parse(textOf(await tool(codex, 'problem_read', { problem: id, claim: '1' })))).toMatchObject({ claim: { id: '1', state: 'holds', side: 'for_yes' }, attempts: [{ id: 'a' }, { id: 'b' }], under: [] })
+    expect(textOf(await tool(codex, 'problem_read', { problem: id, claim: '7' }))).toContain('No claim 7')
     // 예외 기록: 앱이 거절한 것(시작 전 흐름에 후보, 자기 시도 판정)은 이미 적혀 있고, 에이전트가 한 줄을 더한다
     expect(textOf(await tool(claude, 'problem_exception', { kind: 'needs-user', what: 'The limit stopped the run before the cheapest check.', instead: 'Filed the direction report.', problem: id }))).toContain('Recorded exception')
     const listed2 = JSON.parse(textOf(await tool(codex, 'problem_exceptions', { problem: id }))).exceptions

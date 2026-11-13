@@ -1,5 +1,5 @@
-// pnpm agent:problem <연구 저장소 폴더> [명령 …] — 흐름과 시도 나무를 서버 없이 읽고 쓴다 (docs/repo-format.md §16).
-// MCP의 problems · problem_brief · problem_read · problem_propose · problem_prepare · attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · problem_exceptions와
+// pnpm agent:problem <연구 저장소 폴더> [명령 …] — 흐름(질문 › 주장 › 시도)을 서버 없이 읽고 쓴다 (docs/repo-format.md §16).
+// MCP의 problems · problem_brief · problem_read · problem_propose · problem_prepare · claim_add · attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · problem_exceptions와
 // 같은 함수(apps/server/src/problems.ts)를 부르므로 규칙이 같다: 사용자가 시작한 흐름에서만 일하고, 자기 시도는 판정하지 못하며, 한도 · 정체에서는 시작을 거절한다.
 // 이 명령은 언제나 에이전트 이름으로 쓴다(--by, 기본 claude). 흐름 시작 · 종료 · 메시지 · 독자 · 한도 · 결정은 사용자가 앱에서 한다.
 // 앱·서버 없이 돈다(클라우드 에이전트용). 쓴 뒤에는 그 저장소에 커밋해 올린다(맥의 앱이 받아 화면에 보인다).
@@ -11,12 +11,13 @@ import { tsxApi } from './ci/tsx-api.mjs'
 const usage = [
   '사용법: pnpm agent:problem <연구 저장소 폴더>                                   (흐름 목록)',
   '        pnpm agent:problem <폴더> brief <흐름>                                  (이어받기 요약, 먼저 읽는다)',
-  '        pnpm agent:problem <폴더> read <흐름> [시도]                            (모든 칸)',
+  '        pnpm agent:problem <폴더> read <흐름> [주장 번호 | 시도]                (모든 칸. 주장 번호면 그 주장과 근거)',
   '        pnpm agent:problem <폴더> propose "<질문>" --source "<출처>"            (제안만. 시작은 사용자가)',
   '        pnpm agent:problem <폴더> prepare <흐름> [--literature "<키>: <사실 한 줄>"]… [--first-test "…"] [--grading "…"]',
-  '        pnpm agent:problem <폴더> add <흐름> "<방법>"… [--under <시도>] [--needs-all]   (후보 늘어놓기)',
+  '        pnpm agent:problem <폴더> claim <흐름> "<판단할 수 있는 한 문장>" [--under <주장 번호>] [--side for_yes|for_no|neither] [--condition "…"]   (주장 먼저 세우기. 질문 바로 아래면 --side)',
+  '        pnpm agent:problem <폴더> add <흐름> "<방법>"… [--claim <주장 번호>]       (후보 늘어놓기. --claim이 없으면 질문을 겨눈다)',
   '        pnpm agent:problem <폴더> start <흐름> [시도]                           (시도가 없으면 다음 후보)',
-  '        pnpm agent:problem <폴더> report <흐름> <시도> --did "…" --result "…" [--statement "<판단할 수 있는 한 문장>" --side for_yes|for_no|neither [--condition "…"]] [--file <경로>]… [--command "<결과를 낸 명령>"] [--commit <커밋>] [--test "<검사 명령>"] [--lesson "…"] [--reopen "…"]',
+  '        pnpm agent:problem <폴더> report <흐름> <시도> --did "…" --result "…" [--statement "<겨눈 주장과 다른, 판단할 수 있는 한 문장>" [--side for_yes|for_no|neither] [--condition "…"]] [--file <경로>]… [--command "<결과를 낸 명령>"] [--commit <커밋>] [--test "<검사 명령>"] [--lesson "…"] [--reopen "…"]',
   '        pnpm agent:problem <폴더> verdict <흐름> <시도> holds|dropped --note "…" [--check "…"] [--tested pass|fail] [--lesson "…"] [--reopen "…"]   (검사 명령이 있으면 다시 돌리고 --tested)',
   '        pnpm agent:problem <폴더> direction <흐름> [--for-yes "…"] [--for-no "…"] [--neither "…"]   (방향 보고: 사실만)',
   '        pnpm agent:problem <폴더> exception "<무슨 일이 있었나>" --kind no-claim|no-verdict|needs-user|workaround|other [--instead "<대처>"] [--flow <흐름>] [--attempt <시도>]   (규칙대로 되지 않은 일 한 줄)',
@@ -33,7 +34,7 @@ function args() {
       options: {
         by: { type: 'string', default: 'claude' }, source: { type: 'string' },
         literature: { type: 'string', multiple: true }, 'first-test': { type: 'string' }, grading: { type: 'string' },
-        under: { type: 'string' }, 'needs-all': { type: 'boolean' },
+        under: { type: 'string' }, claim: { type: 'string' },
         statement: { type: 'string' }, condition: { type: 'string' }, side: { type: 'string' },
         kind: { type: 'string' }, instead: { type: 'string' }, flow: { type: 'string' }, attempt: { type: 'string' },
         did: { type: 'string' }, result: { type: 'string' }, file: { type: 'string', multiple: true }, lesson: { type: 'string' }, reopen: { type: 'string' },
@@ -97,7 +98,10 @@ try {
   } else if (cmd === 'read') {
     const p = P.readProblem(wb, need(rest[0], '흐름 id'))
     if (!rest[1]) console.log(JSON.stringify(p, null, 1))
-    else console.log(JSON.stringify(p.attempts.find((a) => a.id === aidOf(rest[1])) ?? fail(`시도 ${rest[1]}이(가) 없습니다. 있는 시도: ${p.attempts.map((a) => a.id).join(', ') || '없음'}`), null, 1))
+    else if (/^[0-9]+$/.test(rest[1])) {
+      const c = p.claims.find((x) => x.id === rest[1]) ?? fail(`주장 ${rest[1]}이(가) 없습니다. 있는 주장: ${p.claims.map((x) => x.id).join(', ') || '없음'}`)
+      console.log(JSON.stringify({ claim: c, attempts: p.attempts.filter((a) => a.claim === c.id), under: p.claims.filter((x) => x.under === c.id) }, null, 1))
+    } else console.log(JSON.stringify(p.attempts.find((a) => a.id === aidOf(rest[1])) ?? fail(`시도 ${rest[1]}이(가) 없습니다. 있는 시도: ${p.attempts.map((a) => a.id).join(', ') || '없음'}`), null, 1))
   } else if (cmd === 'propose') {
     const p = P.createProblem(wb, { question: need(rest[0], '질문'), source: need(v.source, '--source (어디서 나온 질문인가)') }, by)
     console.log(`제안했습니다: workbench/problems/${p.id}/problem.yaml. 사용자가 메시지를 쓰고 시작하기 전에는 이 흐름에서 일하지 않습니다.`)
@@ -109,12 +113,20 @@ try {
     if (!Object.keys(set).length) fail('바꿀 것이 없습니다: --literature · --first-test · --grading 가운데 하나를 줍니다.')
     const q = P.patchProblem(wb, p.id, { baseHash: p.hash, set }, by)
     console.log(`적었습니다 (${STATE[q.state]}): ${Object.keys(set).join(', ')}`)
+  } else if (cmd === 'claim') {
+    const [id, statement] = rest
+    const had = new Set(P.readProblem(wb, need(id, '흐름 id')).claims.map((c) => c.id))
+    const p = P.addClaim(wb, id, {
+      statement: need(statement, '주장(판단할 수 있는 한 문장)'), ...(v.condition && { condition: v.condition }), ...(v.under && { under: v.under }),
+      ...(v.side && { side: SIDES.includes(v.side) ? v.side : fail(`--side는 for_yes(예) · for_no(아니오) · neither(어느 쪽도 아님)입니다.\n${usage}`) }),
+    }, by)
+    console.log(`주장을 세웠습니다: ${p.claims.filter((c) => !had.has(c.id)).map((c) => `${c.id} ${c.statement}`).join(' · ')}\n해 볼 방법은 add --claim <번호>로 겁니다. ${now(p)}`)
   } else if (cmd === 'add') {
     const [id, ...methods] = rest
     if (!methods.length) fail(`후보의 방법을 한 줄씩 줍니다.\n${usage}`)
     const had = new Set(P.readProblem(wb, need(id, '흐름 id')).attempts.map((a) => a.id))
-    const p = P.addAttempts(wb, id, { attempts: methods.map((method) => ({ method, ...(v.under && { parent: aidOf(v.under) }), ...(v['needs-all'] && { needs: 'all' }) })) }, by)
-    console.log(`후보를 더했습니다: ${p.attempts.filter((a) => !had.has(a.id)).map((a) => `${a.label} ${a.method}`).join(' · ')}. ${now(p)}`)
+    const p = P.addAttempts(wb, id, { attempts: methods.map((method) => ({ method, ...(v.claim && { claim: v.claim }) })) }, by)
+    console.log(`후보를 더했습니다${v.claim ? ` (주장 ${v.claim})` : ''}: ${p.attempts.filter((a) => !had.has(a.id)).map((a) => `${a.label} ${a.method}`).join(' · ')}. ${now(p)}`)
   } else if (cmd === 'start') {
     const id = need(rest[0], '흐름 id')
     const cur = P.readProblem(wb, id)

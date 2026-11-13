@@ -160,24 +160,24 @@ export const DEFAULT_SCREENS = [
   // 홈 카드의 "변경사항 N"(내가 변경사항 쪽을 열기 전)과 그 쪽. 카드 보기는 home-cards가 기억해 두었다
   ['home-changes', '#/', '변경사항 수'],
   ['info-changes', '#/r/{rid}/changes', '변경사항 표'],
-  // 흐름과 시도 (11/11): 목록(진행 · 쓰는 중 · 접힌 제안), 흐름 하나(흐름 열기 · 폐기 사유 · 시도, 성립한 시도와 판정 대기 시도를 펼친 모습), 방향 보고와 결정, 흐름 수정 창. 문제 파일은 fixtures/sandbox-extra/workbench/problems
-  // 차트 보기 (11/12 "점 = 시도로 되살리기", 고르지 않았을 때의 보기): 줄마다 흐름 하나, 질문 ◇에서 시도 ○가 왼쪽에서 오른쪽으로 갈라진다. 흐름 하나에서는 점 B를 눌러 그 시도를 차트 아래에 편 모습
+  // 흐름: 질문 › 주장 › 시도 (11/11, 점의 뜻은 11/13): 목록(진행 · 쓰는 중 · 접힌 제안), 흐름 하나(흐름 열기 · 폐기 사유 · 주장과 그 아래 시도, 성립한 시도와 판정 대기 시도를 펼친 모습), 방향 보고와 결정, 흐름 수정 창. 흐름 파일은 fixtures/sandbox-extra/workbench/problems
+  // 차트 보기 (11/12, 11/13 "점 = 주장, 시도는 근거". 고르지 않았을 때의 보기): 줄마다 흐름 하나, 질문 ◇에서 주장 ○가 왼쪽에서 오른쪽으로 갈라지고 점 위 작은 점이 시도다. 흐름 하나에서는 점 2를 눌러 그 주장과 근거를 차트 아래에 편 모습
   ['problems-chart', '#/r/{rid}/problems', '흐름 차트'],
-  ['problem-chart', '#/r/{rid}/problems/kempe-degree-five', '점 미리보기', '[data-ui="점"][data-ui-item^="B "]'],
-  // 시도 화면: 미리보기의 「열기」가 여는 화면. 경로 차트(질문 ─ B ─ B1)와 시도의 전부
-  ['problem-attempt', '#/r/{rid}/problems/kempe-degree-five/b1', '시도 단계'],
+  ['problem-chart', '#/r/{rid}/problems/kempe-degree-five', '점 미리보기', '[data-ui="점"][data-ui-item^="2 "]'],
+  // 주장 화면: 미리보기의 「열기」가 여는 화면. 경로 차트(질문 ─ 1 ─ 2)와 주장의 근거(시도 D · E). 판정 대기 시도 E를 펼친 모습
+  ['problem-claim', '#/r/{rid}/problems/kempe-degree-five/e', '시도 단계'],
   // 아래는 목록 보기 (주소에 view=list)
   ['problems', '#/r/{rid}/problems?view=list', '흐름 줄'],
   // 예외 기록 (11/11 "해 보면서 판단"): 목록 아래 접힌 줄을 펼친 모습. 앱이 거절하며 적은 줄과 에이전트가 적은 줄. 파일은 fixtures/sandbox-extra/workbench/problems/_exceptions
   ['problems-exceptions', '#/r/{rid}/problems?view=list', '예외 줄', '[data-ui="예외 기록"] > summary'],
   // 성립한 시도 B를 펼친 모습: 단계 띠(제안 · 작업 · 판정)와 판정 내용(근거 · 교차 검증), 판정 후 변경
-  ['problem-judged', '#/r/{rid}/problems/kempe-degree-five?view=list', '시도 목록', '[data-ui="시도"][data-ui-item^="B "] .pb-node-main'],
-  ['problem', '#/r/{rid}/problems/kempe-degree-five?view=list', '시도 목록', '[data-ui="시도"][data-ui-item^="B1"] .pb-node-main'],
-  // 판정 창 (11/11 실행 · 검사): 검사 명령이 있는 시도의 성립 판정, 다시 돌린 결과 고르기. 앞 화면에서 펼친 B1이 그대로 남아 있어 성립만 누른다
+  ['problem-judged', '#/r/{rid}/problems/kempe-degree-five?view=list', '주장 목록', '[data-ui="시도"][data-ui-item^="B "] .pb-node-main'],
+  ['problem', '#/r/{rid}/problems/kempe-degree-five?view=list', '주장 목록', '[data-ui="시도"][data-ui-item^="E "] .pb-node-main'],
+  // 판정 창 (11/11 실행 · 검사): 검사 명령이 있는 시도의 성립 판정, 다시 돌린 결과 고르기. 앞 화면에서 펼친 E가 그대로 남아 있어 성립만 누른다
   ['problem-verdict', '#/r/{rid}/problems/kempe-degree-five?view=list', '검사 결과', '성립'],
   ['problem-decision', '#/r/{rid}/problems/greedy-five-colors?view=list', '방향 보고'],
   // 종료 창 (11/11): 답을 고르면 그 답이 기대는 성립한 주장이 줄마다 나오고, 줄마다 승인 · 수정 · 기각
-  ['problem-close', '#/r/{rid}/problems/kempe-degree-five?view=list', '근거 주장', ['흐름 종료', '[data-ui="흐름의 답 고르기"] button:text-matches("^(예|Yes)$")']],
+  ['problem-close', '#/r/{rid}/problems/greedy-five-colors?view=list', '근거 주장', ['흐름 종료', '[data-ui="흐름의 답 고르기"] button:text-matches("^(아니오|No)$")']],
   ['problem-edit', '#/r/{rid}/problems/torus-seven-colors?view=list', '흐름 창', '흐름 수정'],
 ]
 

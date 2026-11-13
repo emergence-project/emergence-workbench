@@ -142,6 +142,11 @@ export function scanProblems(wb: Workbench): ProblemList {
       const l = load(wb, id)
       problems.push(row(l))
       for (const f of l.bad) diagnostics.push({ file: `workbench/${PROBLEMS_DIR}/${id}/${f}`, message: t('주장 · 시도 파일을 읽지 못했습니다 (주장은 이름이 번호이고 statement가, 시도는 이름이 영문 소문자로 시작하고 method가 있어야 합니다)', 'Cannot read this claim or attempt file (a claim is named by a number and needs a statement; an attempt starts with a lowercase letter and needs a method)') })
+      // 없는 주장을 가리키는 파일: 읽기는 질문 바로 아래로 읽지만, 손으로 쓴 번호가 틀린 것이니 알린다
+      const known = new Set(l.claims.map((x) => x.raw.id))
+      const at = (name: string) => `workbench/${PROBLEMS_DIR}/${id}/${name}.yaml`
+      for (const { raw: a } of l.attempts) if (a.claim && !known.has(a.claim)) diagnostics.push({ file: at(a.id), message: t(`없는 주장을 겨눕니다 (claim: ${a.claim}). 질문을 겨눈 시도로 읽습니다`, `Aims at a claim that does not exist (claim: ${a.claim}). Read as aiming at the question`) })
+      for (const { raw: c } of l.claims) if (c.under && !known.has(c.under)) diagnostics.push({ file: at(c.id), message: t(`없는 주장 아래에 있습니다 (under: ${c.under}). 질문 바로 아래의 주장으로 읽습니다`, `Sits under a claim that does not exist (under: ${c.under}). Read as a claim right under the question`) })
     } catch (e) {
       diagnostics.push({ file: `workbench/${PROBLEMS_DIR}/${id}/${PROBLEM_FILE}`, message: e instanceof Error ? e.message : String(e) })
     }
@@ -383,7 +388,7 @@ export function startAttempt(wb: Workbench, id: string, aid: string, actor: stri
 /**
  * 작업한 쪽의 보고: 진행 → 판정 대기. 성립 · 폐기는 여기서 정해지지 않는다.
  * 진술(statement)을 적으면 주장이 생긴다: 겨눈 주장(없으면 질문) 아래에 새 주장을 만들고 이 시도는 그 근거가 된다. 겨눈 주장 그대로를 받치면 진술을 비운다.
- * 이 시도가 전에 내놓은 주장이 있으면 (돌려받아 다시 보고) 새로 만들지 않고 그 글을 고친다
+ * 이 시도가 전에 내놓은 주장이거나 사용자가 이 시도를 돌려보냈으면(수정 요청) 새로 만들지 않고 겨눈 주장의 글을 고친다
  */
 export function reportAttempt(wb: Workbench, id: string, aid: string, body: AttemptReportBody, actor: string): Problem {
   const l = load(wb, id)
@@ -396,13 +401,17 @@ export function reportAttempt(wb: Workbench, id: string, aid: string, body: Atte
   const statement = clean(body.statement), condition = clean(body.condition)
   if (!statement && (condition || body.side)) throw new WorkbenchError(400, t('조건과 쪽은 진술(statement)과 함께 적습니다', 'A condition and a side come with a statement'))
   let aim = target?.id
-  if (statement && !(target && sameText(target.statement, statement) && target.from !== a.id)) {
-    const mine = target?.from === a.id ? target : undefined
-    // 새 주장이 놓일 자리: 이 시도가 겨눈 주장 아래 (이 시도가 내놓았던 주장을 고칠 때는 그 주장의 자리 그대로)
+  // 겨눈 주장의 글을 이 시도가 고쳐도 되는가: 이 시도가 내놓은 주장이거나, 사용자가 수정 요청으로 돌려보냈다
+  const owns = !!target && (target.from === a.id || !!a.returned)
+  if (statement && !(target && sameText(target.statement, statement) && !owns)) {
+    const mine = owns ? target : undefined
+    // 새 주장이 놓일 자리: 이 시도가 겨눈 주장 아래 (겨눈 주장을 고칠 때는 그 주장의 자리 그대로)
     const under = mine ? mine.under : target?.id
-    if (!under && !body.side) throw new WorkbenchError(400, t('질문 바로 아래의 주장에는 질문의 어느 쪽을 받치는지 적어 주세요 (side: for_yes 예 · for_no 아니오 · neither 어느 쪽도 아님)', 'A claim right under the question needs the side it supports (side: for_yes, for_no or neither)'))
+    const side = body.side ?? mine?.side
+    if (!under && !side) throw new WorkbenchError(400, t('질문 바로 아래의 주장에는 질문의 어느 쪽을 받치는지 적어 주세요 (side: for_yes 예 · for_no 아니오 · neither 어느 쪽도 아님)', 'A claim right under the question needs the side it supports (side: for_yes, for_no or neither)'))
     const { condition: _c, side: _s, ...kept } = mine ?? { id: nextClaimId(l), statement, by: actor, created: now(), from: a.id, ...(under && { under }), extra: {} }
-    const next: RawClaim = { ...kept, statement, ...(condition && { condition }), ...(!under && body.side && { side: body.side }) }
+    const cond = condition ?? mine?.condition
+    const next: RawClaim = { ...kept, statement, ...(cond && { condition: cond }), ...(!under && side && { side }) }
     saveClaim(l, next)
     aim = next.id
   }

@@ -99,7 +99,7 @@ export function problemChecker(repo: string, add: Add) {
     if (!c) return
     const b = before === undefined ? null : parseClaim(id, before)
     if (!same(c.accepted, b?.accepted) || !same(c.rejected, b?.rejected)) add('problem-human', file, '사용자의 승인(accepted)이나 기각(rejected)을 썼습니다. 사용자가 흐름을 닫을 때 앱에서 합니다.', 'An acceptance (accepted) or a rejection (rejected) by the user was written. The user does this in the app when closing the flow.')
-    if (!c.under && !c.side && (!b || c.statement !== b.statement)) add('problem-work', file, '질문 바로 아래의 주장에 질문의 어느 쪽을 받치는지(side: for_yes · for_no · neither)가 없습니다.', 'A claim right under the question lacks the side it supports (side: for_yes, for_no or neither).')
+    if (!c.under && !c.side) add('problem-work', file, '질문 바로 아래의 주장에 질문의 어느 쪽을 받치는지(side: for_yes · for_no · neither)가 없습니다.', 'A claim right under the question lacks the side it supports (side: for_yes, for_no or neither).')
   }
 
   return {

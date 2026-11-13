@@ -21,7 +21,7 @@ export function registerProblems(app: FastifyInstance, ctx: RouteContext): void 
   app.post<{ Params: { rid: string } }>(R, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: createProblem(wbOf(req.params.rid), parseBody(C.NewProblemBody, req.body), actorOf(req)) }))
   app.get<P>(`${R}/:id`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> => ({ problem: readProblem(wbOf(req.params.rid), req.params.id) }))
-  /** 이어받기 요약 (MCP problem_brief, 2KB 이하) */
+  /** 이어받기 요약 (MCP problem_brief, 3KB 이하) */
   app.get<P>(`${R}/:id/brief`, replies(C.ProblemBrief), async (req): Promise<C.ProblemBrief> => ({ markdown: problemBrief(wbOf(req.params.rid), req.params.id) }))
   /** 질문 · 메시지 · 독자 · 한도 · 순서는 사용자만, 문헌 대조 · 첫 시험 · 채점은 에이전트도 */
   app.patch<P>(`${R}/:id`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
