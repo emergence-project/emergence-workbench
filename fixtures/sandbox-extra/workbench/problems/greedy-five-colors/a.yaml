@@ -1,13 +1,16 @@
 format: 1
 method: 꼭짓점 12개 이하 평면 삼각분할에서 탐욕 색칠을 전수로 돌린다
-state: reported
+claim: 1
+state: holds
 by: claude-code
 created: 2026-10-22T09:10
 worker: claude-code
 started: 2026-10-22T09:15
-statement: 가장 작은 차수부터 지우는 탐욕 색칠은 꼭짓점 12개 이하 평면 삼각분할 가운데 여섯 번째 색을 쓰는 예가 있다.
-condition: 꼭짓점 12개 이하, 같은 차수는 번호 순
-side: for_no
 did: 삼각분할 7,595개에서 가장 작은 차수부터 지우는 순서로 색칠했다.
 result: 233개에서 여섯 번째 색을 썼다.
 reported: 2026-10-22T14:00
+verdict:
+  at: 2026-10-23T10:30
+  by: codex
+  note: 같은 목록에서 탐욕 색칠을 다시 돌려 233개를 얻었다.
+  check: 지우는 순서를 따로 구현한 코드로 꼭짓점 10개 이하를 다시 세어 같은 수가 나왔다.

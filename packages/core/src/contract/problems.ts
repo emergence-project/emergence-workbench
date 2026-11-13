@@ -28,14 +28,49 @@ export const DirectionReport = z.object({
 
 export const AttemptRun = z.object({ command: z.string().optional(), commit: z.string().optional() }).strict()
 
-/** 시도 하나 (나무의 마디). label은 화면에 보이는 이름(A · C1), depth는 흐름 바로 아래가 0 */
+/**
+ * 주장 하나 (차트의 점, 11/13 결정 "점 = 주장, 시도는 근거"): 판단할 수 있는 한 문장과 그것이 성립하는 조건.
+ * 근거는 이 주장을 겨눈 시도(attempts)와 이 아래의 주장(under가 이 주장인 것)이다. 상태는 읽을 때 앱이 그 근거에서 계산한다:
+ * 성립 = 성립한 시도가 있고 아래 주장이 모두 성립, 판정 대기 = 보고한 시도가 판정을 기다림, 진행 = 시도 중이거나 아래 주장을 기다림(waiting),
+ * 폐기 = 시도가 모두 폐기됐거나 사용자가 기각, 후보 = 아직 해 본 것이 없음
+ */
+export const Claim = z.object({
+  /** 흐름 안의 번호 (1 · 2 …). 화면에 보이는 이름이기도 하다 */
+  id: z.string(),
+  hash: z.string(),
+  statement: z.string(),
+  condition: z.string().optional(),
+  /** 위 주장: 이 주장은 그 주장의 근거다. 없으면 질문 바로 아래 */
+  under: z.string().optional(),
+  /** 질문 바로 아래가 0 */
+  depth: z.number(),
+  /** 질문의 어느 쪽을 받치나 (질문 바로 아래의 주장만) */
+  side: ClaimSide.optional(),
+  by: z.string(),
+  created: z.string().optional(),
+  /** 이 주장을 내놓은 시도 (시도가 보고하며 생긴 주장) */
+  from: z.string().optional(),
+  state: AttemptState,
+  /** 시도는 성립했지만 아래 주장이 아직 성립하지 않았다 */
+  waiting: z.boolean().optional(),
+  /** 성립 판정 뒤에 진술 · 조건이나 파일이 바뀌었다 */
+  stale: z.boolean().optional(),
+  /** 사용자의 승인: 흐름을 답과 함께 닫을 때 그 답이 기대는 주장으로 받아들임 */
+  accepted: z.object({ at: z.string(), by: z.string() }).strict().optional(),
+  /** 사용자의 기각 */
+  rejected: z.object({ at: z.string(), by: z.string(), note: z.string() }).strict().optional(),
+  /** 이 주장을 겨눈 시도 (순서대로) */
+  attempts: z.array(z.string()),
+}).strict()
+
+/** 시도 하나: 주장(또는 질문)을 겨눈 방법 하나와 해 본 결과. 주장의 근거가 된다. label은 화면에 보이는 이름(A · B) */
 export const Attempt = z.object({
   id: z.string(),
   label: z.string(),
   hash: z.string(),
   method: z.string(),
-  parent: z.string().optional(),
-  depth: z.number(),
+  /** 겨눈 주장. 없으면 질문을 바로 겨눈다 (아직 내놓은 주장이 없다) */
+  claim: z.string().optional(),
   state: AttemptState,
   /** 후보를 제안한 쪽 */
   by: z.string(),
@@ -45,10 +80,6 @@ export const Attempt = z.object({
   started: z.string().optional(),
   did: z.string().optional(),
   result: z.string().optional(),
-  /** 주장 (11/11 "점 = 판단할 수 있는 주장과 근거"): 진술 한 문장, 그것이 성립하는 조건, 질문의 어느 쪽을 받치나. 보고할 때 작업한 쪽이 적는다 */
-  statement: z.string().optional(),
-  condition: z.string().optional(),
-  side: ClaimSide.optional(),
   files: z.array(z.string()),
   /** 실행: 결과를 낸 명령과 보고할 때의 커밋 (커밋은 비우면 앱이 적는다) */
   run: AttemptRun.optional(),
@@ -61,14 +92,10 @@ export const Attempt = z.object({
   changed: z.array(z.string()).optional(),
   /** 성립 판정 뒤에 주장(진술 · 조건)이 바뀜. 읽을 때 앱이 계산한다 */
   restated: z.boolean().optional(),
-  /** 사용자의 승인: 흐름을 답과 함께 닫을 때 그 답이 기대는 주장으로 받아들임 */
-  accepted: z.object({ at: z.string(), by: z.string() }).strict().optional(),
   /** 사용자가 닫으려다 돌려보냄(수정): 작업한 쪽이 고쳐 다시 보고한다 */
   returned: z.object({ at: z.string(), by: z.string(), note: z.string() }).strict().optional(),
   lesson: z.string().optional(),
   reopen: z.string().optional(),
-  /** all = 이 아래 가지를 모두 해야 끝난다(분해). 없으면 이 가운데 하나(탐색) */
-  needs: z.literal('all').optional(),
   /** 지금 할 후보 (순서의 첫 후보) */
   next: z.boolean(),
 }).strict()
@@ -100,7 +127,7 @@ export const ProblemList = z.object({
   diagnostics: z.array(z.object({ file: z.string(), message: z.string() }).strict()),
 }).strict()
 
-/** GET …/problems/:id: 흐름과 그 나무 */
+/** GET …/problems/:id: 흐름과 그 주장 · 시도 */
 export const Problem = ProblemRow.extend({
   hash: z.string(),
   if_yes: z.string().optional(),
@@ -110,14 +137,15 @@ export const Problem = ProblemRow.extend({
   first_test: z.string().optional(),
   grading: z.string().optional(),
   opened: z.string().optional(),
-  /** answer · basis: 답과 함께 닫았을 때의 답과, 사용자가 승인한 주장(시도 id) */
+  /** answer · basis: 답과 함께 닫았을 때의 답과, 사용자가 승인한 주장(주장 번호) */
   closed: z.object({ at: z.string(), reason: z.string().optional(), answer: FlowAnswer.optional(), basis: z.array(z.string()).optional() }).strict().optional(),
-  /** 지금 닫는다면 답마다 기대는 주장: 그 쪽을 받치는 성립한 시도와 그 위의 성립한 시도 (나무 순서). 읽을 때 앱이 계산한다 */
+  /** 지금 닫는다면 답마다 기대는 주장(번호): 그 쪽을 받치는 성립한 주장과 그 아래 근거 주장 (나무 순서). 읽을 때 앱이 계산한다 */
   basis: z.object({ yes: z.array(z.string()), no: z.array(z.string()) }).strict(),
   order: z.array(z.string()),
-  needs: z.literal('all').optional(),
   reports: z.array(DirectionReport),
-  /** 나무 순서(부모 다음에 자식, 형제는 순서대로) */
+  /** 나무 순서(위 주장 다음에 그 근거 주장, 형제는 번호 순) */
+  claims: z.array(Claim),
+  /** 일하는 순서 (사용자가 정한 순서, 그다음 만든 순서) */
   attempts: z.array(Attempt),
   /** 폐기한 시도의 폐기 사유 (뿌리에 모인다) */
   lessons: z.array(z.object({ id: z.string(), label: z.string(), lesson: z.string(), reopen: z.string().optional() }).strict()),
@@ -145,7 +173,6 @@ export const ProblemPatchBody = z.object({
     grading: z.string().optional(),
     limit: z.number().int().min(1).max(99).optional(),
     order: z.array(z.string()).optional(),
-    needs: z.enum(['all', 'any']).optional(),
   }).strict(),
 }).strict()
 export const ProblemOpenBody = z.object({ baseHash: hash }).strict()
@@ -155,10 +182,12 @@ export const ProblemOpenBody = z.object({ baseHash: hash }).strict()
  */
 export const BasisReview = z.object({ id: z.string(), verdict: z.enum(BASIS_REVIEWS), note: z.string().optional() }).strict()
 export const ProblemCloseBody = z.object({ baseHash: hash, reason: z.string().optional(), answer: FlowAnswer.optional(), reviews: z.array(BasisReview).optional() }).strict()
-/** POST …/problems/:id/attempts: 후보를 늘어놓는다 */
-export const NewAttemptsBody = z.object({ attempts: z.array(z.object({ method: line, parent: z.string().optional(), needs: z.literal('all').optional() }).strict()).min(1).max(12) }).strict()
+/** POST …/problems/:id/attempts: 후보를 늘어놓는다. claim = 겨눌 주장(없으면 질문) */
+export const NewAttemptsBody = z.object({ attempts: z.array(z.object({ method: line, claim: z.string().optional() }).strict()).min(1).max(12) }).strict()
+/** POST …/problems/:id/claims: 주장을 먼저 세운다. under = 위 주장(그 주장의 근거가 된다). 질문 바로 아래면 side가 있어야 한다 */
+export const NewClaimBody = z.object({ statement: line, condition: z.string().optional(), under: z.string().optional(), side: ClaimSide.optional() }).strict()
 /** run: 결과를 낸 명령(과 커밋), test: 판정하는 쪽이 다시 돌릴 검사 명령 */
-/** statement · condition · side: 이 시도가 내놓는 주장 (성립 판정을 받으려면 statement가 있어야 한다) */
+/** statement · condition · side: 이 시도가 내놓는 주장. 겨눈 주장 그대로를 받치면 비운다. 적으면 겨눈 주장(없으면 질문) 아래에 새 주장이 생기고 이 시도는 그 근거가 된다 (side는 질문 바로 아래일 때) */
 export const AttemptReportBody = z.object({ did: line, result: line, statement: z.string().optional(), condition: z.string().optional(), side: ClaimSide.optional(), files: z.array(z.string()).optional(), run: AttemptRun.optional(), test: z.string().optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
 /** tested: 시도에 검사 명령이 있으면 다시 돌린 결과 (에이전트의 성립에는 pass가 있어야 한다) */
 export const AttemptVerdictBody = z.object({ result: z.enum(ATTEMPT_VERDICTS), note: line, check: z.string().optional(), tested: z.enum(TEST_RESULTS).optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
@@ -196,6 +225,7 @@ export type AttemptState = z.infer<typeof AttemptState>
 export type ProblemStop = z.infer<typeof ProblemStop>
 export type Literature = z.infer<typeof Literature>
 export type DirectionReport = z.infer<typeof DirectionReport>
+export type Claim = z.infer<typeof Claim>
 export type Attempt = z.infer<typeof Attempt>
 export type ProblemRow = z.infer<typeof ProblemRow>
 export type ProblemList = z.infer<typeof ProblemList>
@@ -208,6 +238,7 @@ export type ProblemPatchBody = z.infer<typeof ProblemPatchBody>
 export type ProblemOpenBody = z.infer<typeof ProblemOpenBody>
 export type ProblemCloseBody = z.infer<typeof ProblemCloseBody>
 export type NewAttemptsBody = z.infer<typeof NewAttemptsBody>
+export type NewClaimBody = z.infer<typeof NewClaimBody>
 export type AttemptReportBody = z.infer<typeof AttemptReportBody>
 export type AttemptVerdictBody = z.infer<typeof AttemptVerdictBody>
 export type DirectionReportBody = z.infer<typeof DirectionReportBody>

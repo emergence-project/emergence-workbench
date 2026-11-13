@@ -220,3 +220,32 @@
   .pb-peek-head .pb-method { order: 9; flex-basis: 100%; }
   .pb-peek-head .pb-label { margin-right: auto; }
 }
+
+/* 점 = 주장, 시도는 근거 (11/13, ProblemClaim.tsx). 주장은 번호 고리(차트의 점과 같은 모양), 시도는 글자라 한눈에 갈린다.
+   목록에서 주장 줄은 조금 굵게, 그 주장을 겨눈 시도는 한 칸 들여 그 아래에 둔다 */
+.pb-num { display: inline-grid; place-items: center; flex: none; align-self: center; justify-self: start; width: 1.7em; height: 1.7em; border: 1.5px solid currentColor; border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: var(--fw-strong); font-variant-numeric: tabular-nums; line-height: 1; }
+.pb-claim-row .pb-method { font-weight: var(--fw-medium); }
+.s-dropped .pb-num { color: var(--text-3); }
+/* 차트의 점 위 작은 점: 그 주장을 겨눈 시도마다 하나, 색은 시도의 상태 */
+.pb-c-m .pb-c-pip { fill: var(--c); stroke: none; }
+.pb-c-m.s-dropped .pb-c-pip, .pb-c-m.s-candidate .pb-c-pip { fill: var(--bg); stroke: var(--c); stroke-width: 1.2; }
+/* 미리보기의 근거: 시도 한 줄씩(상태 점 · 글자 · 방법, 아래에 옅은 한 줄), 아래 주장 한 줄씩(상태 점 · 번호 · 진술) */
+.pb-peek-facts dd.pb-grounds-cell { display: block; overflow: visible; }
+.pb-grounds { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
+.pb-grounds li { display: grid; grid-template-columns: auto 1.6em minmax(0, 1fr); align-items: baseline; gap: var(--sp-1); }
+.pb-grounds b { font-weight: var(--fw-strong); }
+.pb-grounds li > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.pb-grounds small { display: block; font-size: inherit; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-grounds .tag { margin: 0 0 0 var(--sp-2); }
+.pb-grounds .s-dropped > span:last-child, .pb-grounds .s-dropped b { color: var(--text-3); }
+/* 주장 화면: 진술 아래 한 줄(상태 · 태그 · 누가 언제) */
+.pb-meta .pb-tags { justify-content: flex-start; }
+.pb-meta .pb-state { color: var(--text-2); }
+/* 판정 창: 주장 아래에 판정할 시도 */
+.pb-judged-try { padding-top: var(--sp-1); border-top: 1px solid var(--line); }
+.pb-judged-try b { margin-right: var(--sp-2); font-weight: var(--fw-strong); }
+.pb-add .segmented { flex: none; }
+@media (max-width: 760px) {
+  .pb-add { flex-wrap: wrap; }
+  .pb-add input { flex-basis: 100%; }
+}

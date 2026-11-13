@@ -1,0 +1,6 @@
+format: 1
+statement: 차수 4 이하 꼭짓점은 이웃이 많아야 네 색을 쓰므로, 사슬을 바꾸지 않고 남는 색으로 칠할 수 있다.
+condition: 다섯 색
+side: for_yes
+by: claude-code
+created: 2026-10-21T10:02

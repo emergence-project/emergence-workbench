@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { checkChanges } from './agentChanges.js'
 import { checkWorkbench } from './agentCheck.js'
 import { withLang } from './i18n.js'
-import { addAttempts, createProblem, directionReport, openProblem, patchProblem, readProblem, reportAttempt, startAttempt, verdictAttempt } from './problems.js'
+import { addAttempts, addClaim, createProblem, directionReport, openProblem, patchProblem, readProblem, reportAttempt, startAttempt, verdictAttempt } from './problems.js'
 import { Workbench } from './workbench.js'
 
 let dir: string
@@ -43,7 +43,7 @@ beforeEach(() => {
 })
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }))
 
-describe('바뀐 것 검사: 문제와 시도 나무', () => {
+describe('바뀐 것 검사: 흐름 (질문 · 주장 · 시도)', () => {
   it('명령 · MCP가 쓰는 길로 한 일은 걸리지 않고, 시도가 가리킨 노트는 그 일의 것으로 본다', () => {
     write('workbench/notes/count/note.yaml', 'title: 세기\n')
     write('workbench/notes/count/note.md', '# 세기\n')
@@ -51,6 +51,9 @@ describe('바뀐 것 검사: 문제와 시도 나무', () => {
     startAttempt(wb, 'chain', 'a', 'claude')
     reportAttempt(wb, 'chain', 'a', { did: '셌다', result: '셋', files: ['workbench/notes/count/note.md'] }, 'claude')
     verdictAttempt(wb, 'chain', 'a', { result: 'dropped', note: '다시 셌다', lesson: '세는 것으로는 부족하다' }, 'codex')
+    addClaim(wb, 'chain', { statement: '사슬은 셋이다', side: 'for_yes' }, 'claude')
+    addClaim(wb, 'chain', { statement: '사슬 둘은 만나지 않는다', under: '1' }, 'codex')
+    addAttempts(wb, 'chain', { attempts: [{ method: '그림으로 센다', claim: '2' }] }, 'claude')
     createProblem(wb, { question: 'Is five enough?', source: '시도 A' }, 'claude')
     patchProblem(wb, 'chain', { baseHash: hash(), set: { literature: [{ ref: 'kempe1879', fact: '사슬을 처음 썼다' }], first_test: '가장 작은 예' } }, 'claude')
     directionReport(wb, 'chain', { neither: '아직 없다' }, 'claude')
@@ -123,16 +126,26 @@ describe('바뀐 것 검사: 문제와 시도 나무', () => {
     g('checkout', '-q', '--', '.')
     edit(`${P}/a.yaml`, 'state: reported', 'state: holds\nverdict:\n  at: 2026-11-11T10:00\n  by: user\n  note: 맞다\n  check: 다른 크기')
     expect(found()).toEqual([['error', 'problem-human', `${P}/a.yaml`]])
-    // 진술 없는 성립, 쪽 없는 진술, 에이전트가 쓴 사용자 승인
+    // 겨눈 주장 없는 성립
     g('checkout', '-q', '--', '.')
-    edit(`${P}/a.yaml`, 'statement: 사슬은 셋이다\nside: for_yes\n', '')
+    edit(`${P}/a.yaml`, /claim: "?1"?\n/, '')
     edit(`${P}/a.yaml`, 'state: reported', 'state: holds\nverdict:\n  at: 2026-11-11T10:00\n  by: codex\n  note: 맞다\n  check: 다른 크기')
     expect(found()).toEqual([['error', 'problem-verdict', `${P}/a.yaml`]])
-    expect(said()).toContain('진술(statement)이 없는 시도를 성립으로')
+    expect(said()).toContain('겨눈 주장(claim)이 없는 시도를 성립으로')
+    // 주장 파일: 쪽 없는 질문 바로 아래의 주장, 에이전트가 쓴 사용자의 승인 · 기각
     g('checkout', '-q', '--', '.')
-    edit(`${P}/a.yaml`, 'side: for_yes\n', 'accepted:\n  at: 2026-11-11T10:00\n  by: user\n')
-    expect(found()).toEqual([['error', 'problem-work', `${P}/a.yaml`], ['error', 'problem-human', `${P}/a.yaml`]])
-    expect(said()).toMatch(/side: for_yes · for_no · neither[\s\S]*사용자의 승인\(accepted\)/)
+    edit(`${P}/1.yaml`, 'side: for_yes\n', 'accepted:\n  at: 2026-11-11T10:00\n  by: user\n')
+    expect(found().map(([, check, file]) => [check, file]).sort()).toEqual([['problem-human', `${P}/1.yaml`], ['problem-work', `${P}/1.yaml`]])
+    expect(said()).toMatch(/사용자의 승인\(accepted\)[\s\S]*side: for_yes · for_no · neither/)
+    g('checkout', '-q', '--', '.')
+    edit(`${P}/1.yaml`, 'side: for_yes\n', 'side: for_yes\nrejected:\n  at: 2026-11-11T10:00\n  by: user\n  note: 좁다\n')
+    expect(found()).toEqual([['error', 'problem-human', `${P}/1.yaml`]])
+    // 손으로 쓴 새 주장도 같은 규칙
+    g('checkout', '-q', '--', '.')
+    write(`${P}/2.yaml`, 'format: 1\nstatement: 사슬 둘은 만나지 않는다\nunder: 1\nby: claude\n')
+    expect(found()).toEqual([])
+    write(`${P}/3.yaml`, 'format: 1\nstatement: 다섯 색이면 된다\nby: claude\n')
+    expect(found()).toEqual([['error', 'problem-work', `${P}/3.yaml`]])
   })
 
   it('시작하지 않은 문제의 시도, 한도를 넘긴 시작, 결정을 기다리는 동안의 시작은 오류', () => {
@@ -158,10 +171,14 @@ describe('바뀐 것 검사: 문제와 시도 나무', () => {
     expect(withLang('ko', () => checkChanges(wb, { levels: { 'problem-human': 'warning' } }))!.diagnostics.map((d) => d.level)).toEqual(['warning'])
   })
 
-  it('읽지 못한 문제 · 시도 파일은 형식 검사의 오류', () => {
+  it('읽지 못한 흐름 · 주장 · 시도 파일과 없는 주장을 가리키는 파일은 형식 검사의 오류', () => {
     write(`${P}/Bad.yaml`, 'method: 이름이 틀렸다\n')
     write(`${P}/d.yaml`, 'state: candidate\n')
+    write(`${P}/7.yaml`, 'side: for_yes\n')
+    write(`${P}/8.yaml`, 'statement: 아래 주장\nunder: 5\n')
+    write(`${P}/e.yaml`, 'method: 없는 주장을 겨눈다\nclaim: 5\n')
     const d = withLang('ko', () => checkWorkbench(wb)).diagnostics.filter((x) => x.file.startsWith(P))
-    expect(d.map((x) => [x.level, x.file])).toEqual([['error', `${P}/Bad.yaml`], ['error', `${P}/d.yaml`]])
+    expect(d.map((x) => [x.level, x.file]).sort()).toEqual([['error', `${P}/7.yaml`], ['error', `${P}/8.yaml`], ['error', `${P}/Bad.yaml`], ['error', `${P}/d.yaml`], ['error', `${P}/e.yaml`]])
+    expect(d.map((x) => x.message).join('\n')).toMatch(/없는 주장을 겨눕니다 \(claim: 5\)[\s\S]*없는 주장 아래에 있습니다 \(under: 5\)/)
   })
 })

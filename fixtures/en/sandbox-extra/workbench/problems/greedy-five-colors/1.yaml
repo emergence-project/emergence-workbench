@@ -1,0 +1,7 @@
+format: 1
+statement: Greedy colouring that removes the lowest degree first uses a sixth colour on some planar triangulations with up to 12 vertices.
+condition: Up to 12 vertices, ties broken by index
+side: for_no
+by: claude-code
+created: 2026-10-22T14:00
+from: a

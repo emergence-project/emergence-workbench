@@ -1,0 +1,6 @@
+format: 1
+statement: 평면 그림에서 1–3 사슬과 v가 만드는 닫힌 곡선을 2–4 사슬은 건너지 못한다.
+condition: 평면에 그린 그래프 (조르당 곡선 정리)
+under: 1
+by: claude-code
+created: 2026-10-21T10:02

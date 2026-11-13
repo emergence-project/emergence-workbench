@@ -1,0 +1,7 @@
+format: 1
+statement: At a degree-5 vertex whose five neighbours all have different colours, if v1 and v3 are joined by a 1–3 chain, swapping the 2–4 chain at v2 frees a colour.
+condition: Planar graphs, five colours
+side: for_yes
+by: claude-code
+created: 2026-10-20T15:10
+from: b

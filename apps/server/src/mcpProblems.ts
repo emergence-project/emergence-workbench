@@ -1,5 +1,6 @@
-// 에이전트용 입구(mcp.ts)의 흐름 · 시도 나무 도구: problems · problem_brief · problem_read · problem_propose · problem_prepare ·
-// attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · problem_exceptions (11/11 결정 "흐름을 시도 나무로 · 메시지 관문").
+// 에이전트용 입구(mcp.ts)의 흐름 도구: problems · problem_brief · problem_read · problem_propose · problem_prepare · claim_add ·
+// attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · problem_exceptions
+// (11/11 결정 "흐름을 시도 나무로 · 메시지 관문", 11/13 결정 "점 = 주장, 시도는 근거").
 // 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다. 누가 불렀는지는 mcp.ts가 붙이는 x-rw-agent로 서버가 가린다
 // (흐름을 시작하고 종료하는 것, 메시지 · 독자 · 한도 · 순서는 사용자만. 판정은 작업한 쪽이 아닌 쪽만).
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -12,7 +13,7 @@ type Reply = { ok: true; body: unknown } | { ok: false; error: Text }
 type Hints = { readonly readOnlyHint: boolean; readonly openWorldHint: false; readonly destructiveHint?: false; readonly idempotentHint?: false }
 
 /** 연결할 때 에이전트에게 주는 순서 (mcp.ts INSTRUCTIONS의 한 줄) */
-export const PROBLEM_INSTRUCTIONS = 'Flows and the attempt tree (the app screen 흐름 · Flow; the folder workbench/problems/ and these tools keep the older word problem). New work on a question happens here: the problems tool lists the flows. Work only under a flow the user has opened, and when none is open do not start such work on your own (work the user asks for directly, in the conversation, a task or an instruction record, needs no flow): problem_brief (question, the user\'s message, lessons of dropped attempts, the next candidate, the limit) → attempt_add to list candidate methods → attempt_start the next candidate → do the work → attempt_report (what you did, the result as facts, files, and the claim: one sentence that can be judged true or false, the condition it holds under, and which side of the question it supports). You never judge your own attempt: another agent or the user gives attempt_verdict from the raw data. A verdict answers one thing: does this attempt\'s statement follow from this attempt\'s grounds (holds needs a statement and a check outside the fitted condition, dropped needs a one-line lesson). Accepting a held claim as a fact, and answering the question, is the user\'s: it happens when the user closes the flow, on the claims the answer rests on. When the rules do not fit (you cannot write the result as one judgeable sentence, you cannot judge, a decision is needed that is not the user\'s turn, you had to go around a rule), leave one line with problem_exception instead of bending the rule quietly; the user reviews these lines when evaluating the rules. At the limit, after three dropped in a row, or with no candidates left, starting is refused: file direction_report (facts for the yes sentence, for the no sentence, for neither) and stop; the user decides to continue, narrow or close. A new flow is only proposed (problem_propose, with its source); the user writes the message and opens it. Before it opens you may add literature comparison, a first test and a grading rule (problem_prepare). Do not rate whether a flow is worth doing.'
+export const PROBLEM_INSTRUCTIONS = 'Flows: a question, the claims under it, and the attempts that ground each claim (the app screen 흐름 · Flow; the folder workbench/problems/ and these tools keep the older word problem). A dot on the flow chart is one claim: a sentence that can be judged true or false. An attempt is one method tried for a claim and counts as a ground of that claim. New work on a question happens here: the problems tool lists the flows. Work only under a flow the user has opened, and when none is open do not start such work on your own (work the user asks for directly, in the conversation, a task or an instruction record, needs no flow): problem_brief (question, the user\'s message, the claims and their state, lessons of dropped attempts, the next candidate, the limit) → claim_add when you can already state what must be shown, and attempt_add to list candidate methods, each aimed at a claim → attempt_start the next candidate → do the work → attempt_report (what you did, the result as facts, files, and, when the result supports a sentence other than the claim it aimed at, that sentence as statement: it becomes a new claim under the aimed one). You never judge your own attempt: another agent or the user gives attempt_verdict from the raw data. A verdict answers one thing: does the claim this attempt aims at follow from this attempt\'s grounds (holds needs a claim and a check outside the fitted condition, dropped needs a one-line lesson). Nobody writes a claim\'s state: it is computed (a claim holds when one of its attempts holds and every claim under it that is not dropped holds). Accepting a held claim as a fact, and answering the question, is the user\'s: it happens when the user closes the flow, on the claims the answer rests on. When the rules do not fit (you cannot write the result as one judgeable sentence, you cannot judge, a decision is needed that is not the user\'s turn, you had to go around a rule), leave one line with problem_exception instead of bending the rule quietly; the user reviews these lines when evaluating the rules. At the limit, after three dropped in a row, or with no candidates left, starting is refused: file direction_report (facts for the yes sentence, for the no sentence, for neither) and stop; the user decides to continue, narrow or close. A new flow is only proposed (problem_propose, with its source); the user writes the message and opens it. Before it opens you may add literature comparison, a first test and a grading rule (problem_prepare). Do not rate whether a flow is worth doing.'
 
 const text = (s: string): Text => ({ content: [{ type: 'text', text: s }] })
 const json = (v: unknown): Text => text(JSON.stringify(v, null, 1))
@@ -44,7 +45,8 @@ export function registerProblemTools(server: McpServer, o: {
 }): void {
   const { project, read, write, ro, writeOnce } = o
   const problem = z.string().describe('Flow id (from the problems tool)')
-  const attempt = z.string().describe('Attempt id (a, b, c1 … from problem_brief or problem_read)')
+  const attempt = z.string().describe('Attempt id (a, b, c … from problem_brief or problem_read)')
+  const claim = z.string().describe('Claim number (1, 2, 3 … from problem_brief or problem_read)')
   const R = (rid: string, id?: string) => `/api/researches/${enc(rid)}/problems${id ? `/${enc(id)}` : ''}`
   const done = (r: Reply, say: (p: C.Problem) => string): Text => {
     if (!r.ok) return r.error
@@ -66,7 +68,7 @@ export function registerProblemTools(server: McpServer, o: {
 
   server.registerTool('problem_brief', {
     title: 'Take over a flow (short brief)',
-    description: 'What a new session needs to continue one flow, under 2KB: the question, the user\'s message (the sentence if the answer is yes, if it is no) and reader, the grading rule, lessons of dropped attempts (do not go down the same path), attempts awaiting a verdict, the next candidate and the limit. Read this first; use problem_read only when you need every field.',
+    description: 'What a new session needs to continue one flow, under 3KB: the question, the user\'s message (the sentence if the answer is yes, if it is no) and reader, the grading rule, the claims (number, computed state, which side or which claim each supports, the attempts that ground it), lessons of dropped attempts (do not go down the same path), attempts awaiting a verdict, the next candidate and the limit. Read this first; use problem_read only when you need every field.',
     inputSchema: { project, problem },
     annotations: ro,
   }, async ({ project: rid, problem: id }) => {
@@ -76,13 +78,17 @@ export function registerProblemTools(server: McpServer, o: {
 
   server.registerTool('problem_read', {
     title: 'Read a flow (all fields)',
-    description: 'Every field of one flow and its whole attempt tree: what each attempt did, its result, files, verdict (by whom, the check outside the fitted condition), lessons, direction reports and the user\'s decisions. With attempt, only that attempt.',
-    inputSchema: { project, problem, attempt: attempt.optional() },
+    description: 'Every field of one flow: its claims (statement, condition, the claim above or the side, computed state, attempts aimed at each) and its attempts (the claim aimed at, what was done, result, files, verdict with the check outside the fitted condition), lessons, direction reports and the user\'s decisions. With claim, only that claim and the attempts aimed at it. With attempt, only that attempt.',
+    inputSchema: { project, problem, claim: claim.optional(), attempt: attempt.optional() },
     annotations: ro,
-  }, async ({ project: rid, problem: id, attempt: aid }) => {
+  }, async ({ project: rid, problem: id, claim: cid, attempt: aid }) => {
     const r = await read(R(rid, id))
     if (!r.ok) return r.error
     const p = C.ProblemOne.parse(r.body).problem
+    if (cid) {
+      const c = p.claims.find((x) => x.id === cid.trim())
+      return c ? json({ claim: c, attempts: p.attempts.filter((a) => a.claim === c.id), under: p.claims.filter((x) => x.under === c.id) }) : text(`No claim ${cid} in flow ${id}. Claims: ${p.claims.map((x) => x.id).join(', ') || 'none'}.`)
+    }
     if (!aid) return json(p)
     const a = p.attempts.find((x) => x.id === aid.toLowerCase())
     return a ? json(a) : text(`No attempt ${aid} in flow ${id}. Attempts: ${p.attempts.map((x) => x.id).join(', ') || 'none'}.`)
@@ -119,15 +125,31 @@ export function registerProblemTools(server: McpServer, o: {
     return done(await write(R(rid, id), { baseHash: p.hash, set }, 'PATCH'), (q) => `Saved on flow ${q.id} (${q.state}): ${Object.keys(set).join(', ')}.`)
   })
 
+  server.registerTool('claim_add', {
+    title: 'State a claim',
+    description: 'Add a claim to an open flow before trying anything: one sentence that can be judged true or false (not a topic, not a plan), the condition it holds under, and where it sits. Directly under the question give side (which sentence of the user\'s message it supports). With under it becomes a ground of that claim: the claim above holds only when this one holds too, so add only what the claim above really needs. A new claim is a dotted candidate dot until an attempt aimed at it is tried. Claims are numbered in order: 1, 2, 3.',
+    inputSchema: {
+      project, problem,
+      statement: z.string().trim().min(1).describe('The claim: one sentence that can be judged true or false'),
+      condition: z.string().optional().describe('The condition the statement holds under: sizes, parameter range, model'),
+      under: claim.optional().describe('Number of the claim this one grounds. Leave out to put it directly under the question'),
+      side: z.enum(CLAIM_SIDES).optional().describe('Directly under the question: which sentence of the user\'s message it supports (for_yes, for_no, neither)'),
+    },
+    annotations: writeOnce,
+  }, async ({ project: rid, problem: id, ...body }) => {
+    const before = await read(R(rid, id))
+    const had = new Set(before.ok ? C.ProblemOne.parse(before.body).problem.claims.map((c) => c.id) : [])
+    return done(await write(`${R(rid, id)}/claims`, body), (p) => `Added claim ${p.claims.filter((c) => !had.has(c.id)).map((c) => c.id).join(', ')}. List methods for it with attempt_add (claim).`)
+  })
+
   server.registerTool('attempt_add', {
     title: 'List attempt candidates',
-    description: 'Add candidate methods under an open flow (or under an attempt, to go deeper along a branch that holds). List the candidates before working, one line each; the user may reorder them. Ids are given in order: a, b, c under the flow, c1, c2 under c. needs: "all" on a candidate means its own sub-attempts must all hold (a decomposition), otherwise sub-attempts are alternatives.',
+    description: 'Add candidate methods to an open flow. Each candidate aims at one claim (claim: its number, a dot on the chart) and becomes a ground of that claim once it is tried and judged; without claim it aims at the question itself, for when no claim has been stated yet. List the candidates before working, one line each; the user may reorder them. Ids are letters in order: a, b, c.',
     inputSchema: {
       project, problem,
       attempts: z.array(z.object({
         method: z.string().trim().min(1).describe('The method in one line: what will be tried'),
-        parent: z.string().optional().describe('Attempt id to put this under'),
-        needs: z.literal('all').optional(),
+        claim: claim.optional().describe('Number of the claim this method aims at. Leave out to aim at the question'),
       })).min(1).max(12),
     },
     annotations: writeOnce,
@@ -159,14 +181,14 @@ export function registerProblemTools(server: McpServer, o: {
 
   server.registerTool('attempt_report', {
     title: 'Report an attempt',
-    description: 'Report the attempt you started: what you did and the result, as facts (numbers, sizes, parameters, where it failed), with the files that hold the raw data, code and note, and the claim (statement, condition, side) those grounds support. The attempt then waits for a verdict from another agent or the user; you do not decide whether it holds. Give the command that produced the result (command) and, when there is one, a command the judging side can rerun (test). If you think it failed, add the one-line lesson and, when there is one, the condition under which it would be worth reopening.',
+    description: 'Report the attempt you started: what you did and the result, as facts (numbers, sizes, parameters, where it failed), with the files that hold the raw data, code and note. Without statement the attempt stands as a ground of the claim it aims at, as that claim is written. With statement (a sentence other than the aimed claim) a new claim is made under the aimed one, or directly under the question when the attempt aimed at the question (then give side), and the attempt becomes its ground. The attempt then waits for a verdict from another agent or the user; you do not decide whether it holds. Give the command that produced the result (command) and, when there is one, a command the judging side can rerun (test). If you think it failed, add the one-line lesson and, when there is one, the condition under which it would be worth reopening.',
     inputSchema: {
       project, problem, attempt,
       did: z.string().trim().min(1).describe('What was done'),
       result: z.string().trim().min(1).describe('The result as facts'),
-      statement: z.string().optional().describe('The claim this attempt puts forward: one sentence that can be judged true or false from the grounds you give (not a topic, not a plan). Needed for a holds verdict. Leave it out only when the attempt failed and has nothing to claim (then give lesson); if there is a result but you cannot put it in one sentence, leave it out and record problem_exception kind no-claim'),
+      statement: z.string().optional().describe('Only when the grounds support a sentence other than the claim this attempt aims at: that sentence, one that can be judged true or false from the grounds you give (not a topic, not a plan). It becomes a new claim. An attempt that aims at the question needs it for a holds verdict. Leave it out when the result supports the aimed claim as written, or when the attempt failed (then give lesson); if there is a result but you cannot put it in one sentence, leave it out and record problem_exception kind no-claim'),
       condition: z.string().optional().describe('The condition the statement holds under: sizes, parameter range, model'),
-      side: z.enum(CLAIM_SIDES).optional().describe('Which sentence of the user\'s message the statement supports: for_yes, for_no, or neither. Required with statement'),
+      side: z.enum(CLAIM_SIDES).optional().describe('Which sentence of the user\'s message the statement supports: for_yes, for_no, or neither. Required when the new claim sits directly under the question'),
       files: z.array(z.string()).optional().describe('Repository paths: raw data, code, note section'),
       command: z.string().optional().describe('The command that produced the result, runnable from the repository root (the app records the current commit with it)'),
       commit: z.string().optional().describe('Commit of the code that produced the result, when it is not the current HEAD'),
@@ -180,7 +202,7 @@ export function registerProblemTools(server: McpServer, o: {
 
   server.registerTool('attempt_verdict', {
     title: 'Give a verdict on an attempt',
-    description: 'Judge an attempt someone else worked on, from its raw data and files (problem_read), not from its summary. The question is only whether its statement follows from its own grounds, within its condition: not whether the claim matters, and not whether the flow is answered (the user decides those when closing the flow). holds: you reproduced it and checked it outside the condition it was fitted on (another size, other parameters, an independent implementation or a limit), and the statement says no more than the grounds show; say what in check. An attempt without a statement cannot hold. dropped: it does not hold; give the one-line lesson. If you cannot judge (raw data missing, cannot rerun), give no verdict and record problem_exception kind no-verdict. When the attempt has a test command, rerun it and pass the outcome in tested. The app records the hashes of the files at a holds verdict and marks the attempt when they change later. Refused for an attempt you worked on yourself.',
+    description: 'Judge an attempt someone else worked on, from its raw data and files (problem_read), not from its summary. The question is only whether the claim it aims at (problem_read with claim) follows from this attempt\'s grounds, within the claim\'s condition: not whether the claim matters, and not whether the flow is answered (the user decides those when closing the flow). holds: you reproduced it and checked it outside the condition it was fitted on (another size, other parameters, an independent implementation or a limit), and the claim says no more than the grounds show; say what in check. An attempt that aims at the question without a claim cannot hold. The claim\'s own state is then computed: it holds once every claim under it holds too. dropped: it does not hold; give the one-line lesson. If you cannot judge (raw data missing, cannot rerun), give no verdict and record problem_exception kind no-verdict. When the attempt has a test command, rerun it and pass the outcome in tested. The app records the hashes of the files at a holds verdict and marks the attempt when they change later. Refused for an attempt you worked on yourself.',
     inputSchema: {
       project, problem, attempt,
       result: z.enum(ATTEMPT_VERDICTS),

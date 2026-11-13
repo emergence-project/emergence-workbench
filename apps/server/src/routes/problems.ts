@@ -4,7 +4,7 @@ import * as C from '@rw/core/contract/problems'
 import { parseBody, replies } from '../contract.js'
 import { problemBrief } from '../problemBrief.js'
 import { addException, listExceptions } from '../problemExceptions.js'
-import { USER, addAttempts, closeProblem, createProblem, decideDirection, directionReport, openProblem, patchProblem, readProblem, removeProblem, reportAttempt, scanProblems, startAttempt, verdictAttempt } from '../problems.js'
+import { USER, addAttempts, addClaim, closeProblem, createProblem, decideDirection, directionReport, openProblem, patchProblem, readProblem, removeProblem, reportAttempt, scanProblems, startAttempt, verdictAttempt } from '../problems.js'
 import type { RouteContext } from './context.js'
 
 /** 누가 불렀나: MCP 입구가 붙이는 에이전트 이름(x-rw-agent), 없으면 화면의 사용자 */
@@ -21,7 +21,7 @@ export function registerProblems(app: FastifyInstance, ctx: RouteContext): void 
   app.post<{ Params: { rid: string } }>(R, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: createProblem(wbOf(req.params.rid), parseBody(C.NewProblemBody, req.body), actorOf(req)) }))
   app.get<P>(`${R}/:id`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> => ({ problem: readProblem(wbOf(req.params.rid), req.params.id) }))
-  /** 이어받기 요약 (MCP problem_brief, 2KB 이하) */
+  /** 이어받기 요약 (MCP problem_brief, 3KB 이하) */
   app.get<P>(`${R}/:id/brief`, replies(C.ProblemBrief), async (req): Promise<C.ProblemBrief> => ({ markdown: problemBrief(wbOf(req.params.rid), req.params.id) }))
   /** 질문 · 메시지 · 독자 · 한도 · 순서는 사용자만, 문헌 대조 · 첫 시험 · 채점은 에이전트도 */
   app.patch<P>(`${R}/:id`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
@@ -37,7 +37,10 @@ export function registerProblems(app: FastifyInstance, ctx: RouteContext): void 
   /** 종료: 답 없이는 사유와, 답과 함께면 그 답이 기대는 주장마다의 승인 · 수정 · 기각과 (모두 승인일 때만 닫힌다) */
   app.post<P>(`${R}/:id/close`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: closeProblem(wbOf(req.params.rid), req.params.id, parseBody(C.ProblemCloseBody, req.body), actorOf(req)) }))
-  /** 시도 후보 늘어놓기 */
+  /** 주장을 먼저 세우기 (판단할 수 있는 한 문장. 위 주장의 근거로, 또는 질문 바로 아래에) */
+  app.post<P>(`${R}/:id/claims`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
+    ({ problem: addClaim(wbOf(req.params.rid), req.params.id, parseBody(C.NewClaimBody, req.body), actorOf(req)) }))
+  /** 시도 후보 늘어놓기 (주장이나 질문을 겨눠) */
   app.post<P>(`${R}/:id/attempts`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: addAttempts(wbOf(req.params.rid), req.params.id, parseBody(C.NewAttemptsBody, req.body), actorOf(req)) }))
   app.post<A>(`${R}/:id/attempts/:aid/start`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>

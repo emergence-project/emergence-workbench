@@ -35,4 +35,4 @@ export const PROBLEM_LIMIT_STEP = 3
 /** 폐기가 이만큼 이어지면 멈추고 방향 보고를 낸다 */
 export const PROBLEM_STREAK = 3
 /** 이어받기 한 장의 상한 (바이트) */
-export const BRIEF_MAX = 2048
+export const BRIEF_MAX = 3072

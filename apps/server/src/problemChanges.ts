@@ -1,8 +1,8 @@
-// 바뀐 것 검사 가운데 흐름과 시도 나무 (docs/repo-format.md §15 · §16). 앱 · MCP · `pnpm agent:problem`은 이 규칙을 쓸 때 막는다.
+// 바뀐 것 검사 가운데 흐름 (질문 · 주장 · 시도) (docs/repo-format.md §15 · §16). 앱 · MCP · `pnpm agent:problem`은 이 규칙을 쓸 때 막는다.
 // 여기서는 파일을 직접 고친 변경에서 같은 규칙을 찾는다: 사용자만 하는 것, 판정 규칙, 일하는 규칙.
 import fs from 'node:fs'
 import path from 'node:path'
-import { PROBLEM_FILE, PROBLEMS_DIR, USER, parseAttempt, parseProblem, type RawProblem } from './problems.js'
+import { PROBLEM_FILE, PROBLEMS_DIR, USER, parseAttempt, parseClaim, parseProblem, type RawProblem } from './problems.js'
 
 export const PROBLEM_CHECKS = { 'problem-human': 'error', 'problem-verdict': 'error', 'problem-work': 'error' } as const
 export type ProblemCheckId = keyof typeof PROBLEM_CHECKS
@@ -12,7 +12,7 @@ const IN_PROBLEM = new RegExp(`^workbench/${PROBLEMS_DIR}/([a-z0-9][a-z0-9-]{0,6
 /** 사용자만 정하는 칸과 화면의 이름 */
 const HUMAN: [keyof RawProblem, string, string][] = [
   ['question', '질문', 'question'], ['if_yes', '예이면', 'if yes'], ['if_no', '아니오이면', 'if no'], ['reader', '독자', 'reader'],
-  ['limit', '한도', 'limit'], ['order', '후보 순서', 'candidate order'], ['needs', '모두 필요', 'needs all'],
+  ['limit', '한도', 'limit'], ['order', '후보 순서', 'candidate order'],
   ['state', '상태', 'state'], ['opened', '시작', 'opened'], ['closed', '종료', 'closed'],
 ]
 const STATE_KO: Record<RawProblem['state'], string> = { proposed: '제안', draft: '쓰는 중', open: '진행', closed: '종료' }
@@ -78,19 +78,28 @@ export function problemChecker(repo: string, add: Add) {
     if (startedNow) started.set(pid, [...(started.get(pid) ?? []), file])
     if (a.state !== 'candidate' && a.state !== 'dropped' && !a.worker) add('problem-work', file, '시작한 시도에 작업한 쪽(worker)가 없습니다. 판정은 이 이름이 아닌 쪽이 합니다.', 'A started attempt has no worker. The verdict comes from someone other than that name.')
     if (a.state === 'reported' && (reportedNow || a.state !== b?.state) && (!a.did || !a.result)) add('problem-work', file, '보고에 한 일(did)이나 결과(result)가 빠졌습니다.', 'The report lacks what was done (did) or the result (result).')
-    if (a.statement && !a.side && (reportedNow || a.statement !== b?.statement || a.side !== b?.side)) add('problem-work', file, '주장(statement)에 질문의 어느 쪽을 받치는지(side: for_yes · for_no · neither)가 없습니다.', 'The claim (statement) lacks the side of the question it supports (side: for_yes, for_no or neither).')
-    // 사용자의 승인 · 돌려보냄은 흐름을 닫을 때 앱이 적는다
-    if (!same(a.accepted, b?.accepted) || !same(a.returned, b?.returned)) add('problem-human', file, '사용자의 승인(accepted)이나 돌려보냄(returned)을 썼습니다. 사용자가 흐름을 닫을 때 앱에서 합니다.', 'An acceptance (accepted) or a send-back (returned) by the user was written. The user does this in the app when closing the flow.')
+    // 사용자의 돌려보냄은 흐름을 닫을 때 앱이 적는다
+    if (!same(a.returned, b?.returned)) add('problem-human', file, '사용자의 돌려보냄(returned)을 썼습니다. 사용자가 흐름을 닫을 때 앱에서 합니다.', 'A send-back (returned) by the user was written. The user does this in the app when closing the flow.')
     // 판정 규칙
     if (!judgedNow && !closedNow) return
     if (!a.verdict) { add('problem-verdict', file, '판정 기록(verdict: at · by · note) 없이 성립 · 폐기로 바꿨습니다.', 'The attempt was set to holds or dropped without a verdict record (verdict: at, by, note).'); return }
     if (a.verdict.by === USER) add('problem-human', file, '사용자의 판정(verdict.by: user)을 썼습니다. 사용자는 앱에서 판정합니다. 에이전트의 판정에는 자기 이름을 적습니다.', 'A verdict by the user (verdict.by: user) was written. The user judges in the app. An agent signs its verdict with its own name.')
     if (a.worker && a.verdict.by === a.worker) add('problem-verdict', file, `작업한 쪽(${a.worker})이 자기 시도를 판정했습니다. 판정은 다른 에이전트나 사용자가 원자료로 합니다. 판정 대기(state: reported)로 되돌리세요.`, `The worker (${a.worker}) judged its own attempt. Another agent or the user judges from the raw data. Set it back to reported.`)
     if (a.worker && (!a.did || !a.result)) add('problem-verdict', file, '보고(did · result)가 없는 시도를 판정했습니다.', 'An attempt without a report (did, result) was judged.')
-    if (a.state === 'holds' && !a.statement) add('problem-verdict', file, '진술(statement)이 없는 시도를 성립으로 했습니다. 성립은 진술이 근거에서 따라 나온다는 판정입니다.', 'Holds on an attempt without a statement. Holds means the statement follows from the grounds.')
+    if (a.state === 'holds' && !a.claim) add('problem-verdict', file, '겨눈 주장(claim)이 없는 시도를 성립으로 했습니다. 성립은 그 주장이 이 시도의 근거에서 따라 나온다는 판정입니다.', 'Holds on an attempt that aims at no claim. Holds means the claim follows from this attempt\'s grounds.')
     if (a.state === 'holds' && !a.verdict.check) add('problem-verdict', file, '성립인데 교차 검증(verdict.check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한)이 없습니다.', 'Holds without a check outside the fitted condition (verdict.check: another size, other parameters, an independent implementation or a limit).')
     if (a.state === 'holds' && a.test && a.verdict.by !== USER && a.verdict.tested !== 'pass') add('problem-verdict', file, `검사 명령이 있는 시도를 다시 돌린 결과(verdict.tested: pass) 없이 성립으로 했습니다: ${a.test}`, `Holds on an attempt with a test command, without the rerun result (verdict.tested: pass): ${a.test}`)
     if (a.state === 'dropped' && a.worker && !a.lesson) add('problem-verdict', file, '폐기인데 폐기 사유 한 줄(lesson)이 없습니다.', 'Dropped without a one-line lesson (lesson).')
+  }
+
+  /** 주장 파일 (<번호>.yaml): 승인 · 기각은 사용자가 흐름을 닫을 때 앱이 적는다. 질문 바로 아래의 주장에는 받치는 쪽이 있어야 한다 */
+  function claimFile(file: string, before: string | undefined, after: string | undefined): void {
+    const id = path.basename(file, '.yaml')
+    const c = after === undefined ? null : parseClaim(id, after)
+    if (!c) return
+    const b = before === undefined ? null : parseClaim(id, before)
+    if (!same(c.accepted, b?.accepted) || !same(c.rejected, b?.rejected)) add('problem-human', file, '사용자의 승인(accepted)이나 기각(rejected)을 썼습니다. 사용자가 흐름을 닫을 때 앱에서 합니다.', 'An acceptance (accepted) or a rejection (rejected) by the user was written. The user does this in the app when closing the flow.')
+    if (!c.under && !c.side) add('problem-work', file, '질문 바로 아래의 주장에 질문의 어느 쪽을 받치는지(side: for_yes · for_no · neither)가 없습니다.', 'A claim right under the question lacks the side it supports (side: for_yes, for_no or neither).')
   }
 
   return {
@@ -117,6 +126,7 @@ export function problemChecker(repo: string, add: Add) {
       if (was && was[2] === 'problem' && (c.status === 'D' || (c.status === 'R' && old !== c.file))) problemFile(old, before, undefined, true)
       if (!is || c.status === 'D') return !!was || !!is
       if (is[2] === 'problem') problemFile(c.file, c.status === 'R' ? undefined : before, after, false)
+      else if (/^[0-9]/.test(is[2]!)) claimFile(c.file, c.status === 'R' ? undefined : before, after)
       else attemptFile(is[1]!, c.file, c.status === 'R' ? undefined : before, after)
       return true
     },
