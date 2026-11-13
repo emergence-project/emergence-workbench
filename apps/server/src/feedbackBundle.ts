@@ -28,8 +28,10 @@ export interface FeedbackBundle {
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
-const PICTURE = /^[\w.-]+\.(png|jpe?g)$/
-const PICTURE_LINE = /^- 그림: pictures\/([\w.-]+\.(?:png|jpe?g))\s*$/gm
+/** 그림 파일 이름: 글자(한글 포함) · 숫자 · _ . - 만. 처리 전후 그림은 「…-전.png」처럼 한글 이름이 많다(11/13) */
+export const PICTURE_NAME = String.raw`[\p{L}\p{N}_.-]+\.(?:png|jpe?g)`
+const PICTURE = new RegExp(`^${PICTURE_NAME}$`, 'u')
+const PICTURE_LINE = new RegExp(String.raw`^- 그림: pictures\/(${PICTURE_NAME})\s*$`, 'gmu')
 const MAX_PICTURE_BYTES = 5 * 1024 * 1024
 
 /** 피드백 폴더의 날짜 파일과 그 안에 적힌 그림을 묶는다 */

@@ -14,7 +14,7 @@ import { syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
 import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
 import { CLAIM_TTL_MS, isLiveClaim, lastTouched, readClaims, releaseClaims } from '../feedbackClaims.js'
-import { exportFeedback, importFeedback } from '../feedbackBundle.js'
+import { exportFeedback, importFeedback, PICTURE_NAME } from '../feedbackBundle.js'
 import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
 import { revealInFinder } from '../materials.js'
 import { repoInfo } from '../gitsync.js'
@@ -189,7 +189,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   /** 피드백의 그림 (feedback/pictures/ 안의 파일만): 남길 때의 화면, 처리 전후 그림 */
   app.get<{ Querystring: { path?: string } }>('/api/feedback/picture', async (req, reply) => {
     const rel = req.query.path ?? ''
-    if (!opts.feedbackDir || !/^pictures\/[\w.-]+\.(png|jpe?g)$/.test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
+    if (!opts.feedbackDir || !new RegExp(`^pictures/${PICTURE_NAME}$`, 'u').test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
     const file = assertRealInside(path.join(opts.feedbackDir, 'pictures'), path.join(opts.feedbackDir, rel), t('그림이 없음', 'No picture'))
     return reply.type(rel.endsWith('.png') ? 'image/png' : 'image/jpeg').send(fs.readFileSync(file))
   })
