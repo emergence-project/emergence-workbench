@@ -10,10 +10,21 @@ const num = (id: string) => Number(id) || 0
 /** 위 주장: 없는 주장이나 자기를 가리키면 질문 바로 아래로 읽는다 */
 const upOf = (c: RawClaim, ids: Set<string>) => (c.under && c.under !== c.id && ids.has(c.under) ? c.under : undefined)
 
-/** 위 주장 다음에 그 근거 주장, 형제는 번호 순. 서로를 가리키는 고리는 맨 위로 */
-export function claimTree(claims: RawClaim[]): ClaimNode[] {
+/** 에이전트가 적고 사용자가 아직 확인하지 않은 옛 기록: 근거로 세지 않는다 (11/14 "옛 기록은 사용자만 확인") */
+export const unconfirmed = (a: RawAttempt) => a.origin === 'past' && a.state === 'reported'
+/** 시도의 날: 한 날, 없으면 시작한 날, 없으면 만든 날 (YYYY-MM-DD) */
+export const dayOf = (a: RawAttempt) => (a.when ?? a.started ?? a.created ?? '').slice(0, 10) || undefined
+/** 주장의 날: 겨눈 시도 가운데 가장 이른 날, 없으면 주장을 세운 날 */
+export function claimDay(c: RawClaim, claims: RawClaim[], attempts: RawAttempt[]): string | undefined {
+  const days = attemptsOf(c.id, claims, attempts).map(dayOf).filter((d): d is string => !!d).sort()
+  return days[0] ?? (c.created?.slice(0, 10) || undefined)
+}
+
+/** 위 주장 다음에 그 근거 주장, 형제는 날 순(같은 날이나 날이 없으면 번호 순). 서로를 가리키는 고리는 맨 위로 */
+export function claimTree(claims: RawClaim[], attempts: RawAttempt[] = []): ClaimNode[] {
   const ids = new Set(claims.map((c) => c.id))
-  const kids = (up: string | undefined) => claims.filter((c) => upOf(c, ids) === up).sort((a, b) => num(a.id) - num(b.id))
+  const day = new Map(claims.map((c) => [c.id, claimDay(c, claims, attempts) ?? '9999']))
+  const kids = (up: string | undefined) => claims.filter((c) => upOf(c, ids) === up).sort((a, b) => day.get(a.id)!.localeCompare(day.get(b.id)!) || num(a.id) - num(b.id))
   const out: ClaimNode[] = []
   const seen = new Set<string>()
   const walk = (up: string | undefined, depth: number) => { for (const c of kids(up)) { if (seen.has(c.id)) continue; seen.add(c.id); out.push({ c, depth }); walk(c.id, depth + 1) } }
@@ -42,7 +53,7 @@ export function claimStates(claims: RawClaim[], attempts: RawAttempt[]): Map<str
     const put = (state: AttemptState, waiting = false) => { const s = { state, waiting }; out.set(c.id, s); return s }
     if (c.rejected) return put('dropped')
     if (hops > 20) return put('candidate')
-    const own = attemptsOf(c.id, claims, attempts)
+    const own = attemptsOf(c.id, claims, attempts).filter((a) => !unconfirmed(a))
     const subs = claims.filter((x) => upOf(x, ids) === c.id).map((x) => of(x, hops + 1)).filter((s) => s.state !== 'dropped')
     const held = own.some((a) => a.state === 'holds')
     if (held && subs.every((s) => s.state === 'holds')) return put('holds')
@@ -71,7 +82,7 @@ const SIDE_OF: Record<FlowAnswer, ClaimSide> = { yes: 'for_yes', no: 'for_no' }
 export function basisOf(claims: RawClaim[], attempts: RawAttempt[], answer: FlowAnswer): string[] {
   const state = claimStates(claims, attempts)
   const out: string[] = []
-  for (const { c, depth } of claimTree(claims)) {
+  for (const { c, depth } of claimTree(claims, attempts)) {
     if (state.get(c.id)?.state !== 'holds') continue
     if (depth === 0 ? c.side === SIDE_OF[answer] : !!c.under && out.includes(c.under)) out.push(c.id)
   }

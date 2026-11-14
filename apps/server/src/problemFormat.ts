@@ -33,6 +33,8 @@ export interface RawAttempt {
   verdict?: { at: string; by: string; note?: string; check?: string; tested?: 'pass' | 'fail'; files?: Record<string, string>; claim?: string }; lesson?: string; reopen?: string
   /** 사용자가 돌려보냄 (수정) */
   returned?: { at: string; by: string; note: string }
+  /** 한 날 (YYYY-MM-DD) · past = 지난 일을 나중에 적음 */
+  when?: string; origin?: 'past'
   extra: Record<string, unknown>
 }
 
@@ -47,7 +49,7 @@ const answerOf = (v: unknown): FlowAnswer | undefined => (v === true ? 'yes' : v
 
 const PROBLEM_KEYS = ['format', 'question', 'state', 'by', 'created', 'source', 'if_yes', 'if_no', 'reader', 'literature', 'first_test', 'grading', 'limit', 'opened', 'closed', 'order', 'reports']
 const CLAIM_KEYS = ['format', 'statement', 'condition', 'under', 'side', 'by', 'created', 'from', 'accepted', 'rejected']
-const ATTEMPT_KEYS = ['format', 'method', 'claim', 'state', 'by', 'created', 'worker', 'started', 'did', 'result', 'files', 'run', 'test', 'reported', 'verdict', 'lesson', 'reopen', 'returned']
+const ATTEMPT_KEYS = ['format', 'method', 'claim', 'state', 'by', 'created', 'when', 'origin', 'worker', 'started', 'did', 'result', 'files', 'run', 'test', 'reported', 'verdict', 'lesson', 'reopen', 'returned']
 
 function literatureOf(v: unknown): Literature | undefined {
   const r = rec(v)
@@ -121,7 +123,8 @@ export function parseAttempt(id: string, text: string): RawAttempt | null {
   const ret = rec(o.returned)
   return {
     id, method, ...(str(o.claim) && { claim: str(o.claim) }), state: oneOf(ATTEMPT_STATES, o.state) ?? 'candidate', by: str(o.by) ?? USER,
-    ...(str(o.created) && { created: str(o.created) }), ...(str(o.worker) && { worker: str(o.worker) }), ...(str(o.started) && { started: str(o.started) }),
+    ...(str(o.created) && { created: str(o.created) }), ...(str(o.when) && { when: str(o.when)!.slice(0, 10) }), ...(o.origin === 'past' && { origin: 'past' as const }),
+    ...(str(o.worker) && { worker: str(o.worker) }), ...(str(o.started) && { started: str(o.started) }),
     ...(str(o.did) && { did: str(o.did) }), ...(str(o.result) && { result: str(o.result) }),
     files: some(arr(o.files).map(str)),
     ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }), ...(str(o.test) && { test: str(o.test) }),
@@ -149,7 +152,7 @@ export const dumpClaim = (c: RawClaim) => dump({
 })
 export const dumpAttempt = (a: RawAttempt) => dump({
   format: PROBLEM_FORMAT, method: a.method, ...(a.claim && { claim: a.claim }), state: a.state, by: a.by, ...(a.created && { created: a.created }),
-  ...(a.worker && { worker: a.worker }), ...(a.started && { started: a.started }),
+  ...(a.when && { when: a.when }), ...(a.origin && { origin: a.origin }), ...(a.worker && { worker: a.worker }), ...(a.started && { started: a.started }),
   ...(a.did && { did: a.did }), ...(a.result && { result: a.result }),
   ...(a.files.length && { files: a.files }), ...(a.run && { run: a.run }), ...(a.test && { test: a.test }), ...(a.reported && { reported: a.reported }), ...(a.verdict && { verdict: a.verdict }),
   ...(a.lesson && { lesson: a.lesson }), ...(a.reopen && { reopen: a.reopen }), ...(a.returned && { returned: a.returned }), ...a.extra,

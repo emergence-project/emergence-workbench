@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { problemsApi, PROBLEM_LIMIT, type Attempt, type BasisReview, type FlowAnswer, type ProblemDoc } from './api'
+import { problemsApi, PROBLEM_LIMIT, type Attempt, type BasisReview, type ClaimSide, type FlowAnswer, type ProblemDoc } from './api'
 import { Dialog } from './dialogs'
 import { t } from './i18n'
-import { ANSWER_NAME, SideTag } from './problemNames'
+import { ANSWER_NAME, objOf, SIDE_NAME, SideTag, TargetSelect } from './problemNames'
 
 /**
  * 흐름 화면의 창 셋 (Problems.tsx): 흐름 추가 · 수정, 시도의 판정, 흐름 종료(답과 그 답이 기대는 주장의 승인).
@@ -76,16 +76,18 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
   // 해 보지 않은 후보는 폐기 사유 하나만 적는다 (근거로도 같은 글이 남는다)
   const untried = attempt.state === 'candidate'
   const reason = untried ? lesson.trim() : note.trim()
-  const ready = !!reason && (holds ? !!check.trim() && tested !== 'fail' : !!lesson.trim())
+  // 지난 일의 확인(사용자만): 기록이 맞는지만 본다. 교차 검증은 묻지 않는다
+  const past = attempt.origin === 'past'
+  const ready = !!reason && (holds ? (past || !!check.trim()) && tested !== 'fail' : !!lesson.trim())
   const save = async () => {
     setBusy(true); setError(null)
     try {
-      onDone(await problemsApi(rid).verdict(problem.id, attempt.id, { result, note: reason, ...(holds && { check: check.trim() }), ...(tested && { tested }), ...(!holds && lesson.trim() && { lesson: lesson.trim() }), ...(!holds && reopen.trim() && { reopen: reopen.trim() }) }))
+      onDone(await problemsApi(rid).verdict(problem.id, attempt.id, { result, note: reason, ...(holds && check.trim() && { check: check.trim() }), ...(tested && { tested }), ...(!holds && lesson.trim() && { lesson: lesson.trim() }), ...(!holds && reopen.trim() && { reopen: reopen.trim() }) }))
     } catch (e) { setError(errorOf(e)); setBusy(false) }
   }
   const optional = <em>{t('선택', 'Optional')}</em>
   return (
-    <Dialog title={holds ? t('성립 판정', 'Verdict: holds') : t('폐기 판정', 'Verdict: drop')} ui="시도 판정" onClose={onClose} footer={<>
+    <Dialog title={past ? (holds ? t('지난 일 확인: 성립', 'Check past work: holds') : t('지난 일 확인: 폐기', 'Check past work: drop')) : holds ? t('성립 판정', 'Verdict: holds') : t('폐기 판정', 'Verdict: drop')} ui="시도 판정" onClose={onClose} footer={<>
       {error && <span className="error-text pb-err">{error}</span>}
       <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
       <button className="btn primary" disabled={busy || !ready} onClick={() => void save()}>{holds ? t('성립', 'Holds') : t('폐기', 'Drop')}</button>
@@ -97,7 +99,7 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
         {attempt.result && <p className="pb-judged-result">{attempt.result}</p>}
       </div>
       {!untried && <label className="field pb-field"><span>{t('근거', 'Basis')}</span>
-        <textarea rows={3} autoFocus placeholder={t('다시 돌리거나 읽은 것과 나온 값', 'What you reran or read, and what came out')} value={note} onChange={(e) => setNote(e.target.value)} /></label>}
+        <textarea rows={3} autoFocus placeholder={past ? t('무엇과 맞춰 봤나 (일지 · 노트 · 커밋)', 'What you checked it against (journal, note, commit)') : t('다시 돌리거나 읽은 것과 나온 값', 'What you reran or read, and what came out')} value={note} onChange={(e) => setNote(e.target.value)} /></label>}
       {attempt.test && !untried && <div className="field pb-field" data-ui="검사 결과"><span>{t('검사', 'Test')}</span>
         <div className="pb-test">
           <code className="pb-test-cmd">{attempt.test}</code>
@@ -107,7 +109,7 @@ export function VerdictDialog({ rid, problem, attempt, result, onClose, onDone }
           </div>
         </div>
         {holds && tested === 'fail' && <span className="error-text">{t('검사가 실패하면 성립으로 판정할 수 없습니다', 'A failed test cannot be judged as holds')}</span>}</div>}
-      {holds && <label className="field pb-field"><span>{t('교차 검증', 'Cross-check')}</span>
+      {holds && <label className="field pb-field"><span>{t('교차 검증', 'Cross-check')}{past && <> {optional}</>}</span>
         <textarea rows={2} placeholder={t('다른 크기 · 다른 매개변수 · 독립 구현 · 극한', 'Another size, other parameters, an independent implementation, a limit')} value={check} onChange={(e) => setCheck(e.target.value)} /></label>}
       {!holds && <>
         <label className="field pb-field"><span>{t('폐기 사유', 'Why dropped')}</span>
@@ -182,3 +184,59 @@ export function CloseDialog({ rid, problem, note, onClose, onDone }: { rid: stri
     </Dialog>
   )
 }
+
+/**
+ * 지난 일 적기 (「＋ 한 일」, 11/14 "추천대로 시작"): 흐름을 열기 전에 한 일을 그 한 날과 함께 근거로 둔다. 한도에 세지 않는다.
+ * 사용자가 적으니 고른 대로(성립 · 폐기) 곧바로 판정된 근거가 된다. 새 주장 한 문장을 적으면 겨눈 곳 아래에 주장이 생긴다
+ */
+export function RecordDialog({ rid, problem, under, onClose, onDone }: { rid: string; problem: ProblemDoc; under?: string; onClose(): void; onDone(p: ProblemDoc): void }) {
+  const [to, setTo] = useState(under ?? '')
+  const [method, setMethod] = useState('')
+  const [day, setDay] = useState('')
+  const [result, setResult] = useState('')
+  const [statement, setStatement] = useState('')
+  const [side, setSide] = useState<ClaimSide | ''>('')
+  const [outcome, setOutcome] = useState<'holds' | 'dropped'>('holds')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fresh = !!statement.trim()
+  // 성립에는 주장이 있어야 한다 (겨눈 주장이나 새 주장). 질문 바로 아래의 새 주장에는 쪽
+  const ready = !!method.trim() && !!result.trim() && (outcome === 'dropped' || !!to || fresh) && (!fresh || !!to || !!side)
+  const save = async () => {
+    setBusy(true); setError(null)
+    try {
+      onDone(await problemsApi(rid).record(problem.id, {
+        method: method.trim(), result: result.trim(), outcome, ...(to && { claim: to }), ...(day && { when: day }),
+        ...(fresh && { statement: statement.trim(), ...(!to && side && { side }) }),
+      }))
+    } catch (e) { setError(errorOf(e)); setBusy(false) }
+  }
+  return (
+    <Dialog title={t('한 일 추가', 'Add past work')} ui="한 일" wide onClose={onClose} footer={<>
+      {error && <span className="error-text pb-err">{error}</span>}
+      <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
+      <button className="btn primary" disabled={busy || !ready} onClick={() => void save()}>{t('추가', 'Add')}</button>
+    </>}>
+      <div className="field pb-field"><span>{t('겨눈 곳', 'Aimed at')}</span><TargetSelect claims={problem.claims} value={to} onChange={setTo} /></div>
+      <label className="field pb-field"><span>{t('한 일', 'What was done')}</span>
+        <input autoFocus placeholder={t('방법 한 줄', 'Method, one line')} value={method} onChange={(e) => setMethod(e.target.value)} /></label>
+      <label className="field pb-field pb-day"><span>{t('한 날', 'Done on')} <em>{t('선택', 'Optional')}</em></span>
+        <input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></label>
+      <label className="field pb-field"><span>{t('결과', 'Result')}</span>
+        <textarea rows={2} placeholder={t('사실로: 값 · 크기 · 어디서 막혔나', 'As facts: values, sizes, where it stopped')} value={result} onChange={(e) => setResult(e.target.value)} /></label>
+      <div className="field pb-field" data-ui="한 일 결과"><span>{t('판정', 'Verdict')}</span>
+        <div className="segmented small" role="group" aria-label={t('판정', 'Verdict')}>
+          {([['holds', t('성립', 'Holds')], ['dropped', t('폐기', 'Drop')]] as const).map(([k, name]) =>
+            <button key={k} type="button" className={outcome === k ? 'on' : ''} aria-pressed={outcome === k} onClick={() => setOutcome(k)}>{name}</button>)}
+        </div></div>
+      <label className="field pb-field"><span>{t('새 주장', 'New claim')} <em>{t('선택', 'Optional')}</em></span>
+        <input placeholder={to ? t(`주장 ${to}${objOf(to)} 받치는, 판단할 수 있는 한 문장`, `A judgeable sentence that supports claim ${to}`) : t('판단할 수 있는 한 문장', 'One judgeable sentence')} value={statement} onChange={(e) => setStatement(e.target.value)} /></label>
+      {fresh && !to && <div className="field pb-field"><span>{t('쪽', 'Side')}</span>
+        <div className="segmented small" role="group" aria-label={t('쪽', 'Side')}>
+          {SIDES.map((k) => <button key={k} type="button" className={side === k ? 'on' : ''} aria-pressed={side === k} onClick={() => setSide(k)}>{SIDE_NAME[k]}</button>)}
+        </div></div>}
+      {outcome === 'holds' && !to && !fresh && <p className="pb-close-note">{t('성립한 일에는 주장이 있어야 합니다. 겨눌 주장을 고르거나 새 주장을 적습니다.', 'Work that holds needs a claim. Pick one to aim at, or write a new one.')}</p>}
+    </Dialog>
+  )
+}
+const SIDES: ClaimSide[] = ['for_yes', 'for_no', 'neither']

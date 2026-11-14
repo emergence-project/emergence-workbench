@@ -12,15 +12,23 @@ import { agentName } from './taskView'
  * 줄을 누르면 그 아래에 전부(단계 · 보고 · 판정 · 행동)가 펼쳐진다. 주장을 보여 주는 부품과 주장 화면은 ProblemClaim.tsx.
  */
 
-/** 색 점: 진행 파랑 · 판정 대기 주황 · 성립 청록 · 폐기 회색 고리 · 후보 옅은 점 (디자인 문서 2절 "색은 상태에만") */
-export const ATTEMPT_DOT: Record<AttemptState, string> = { candidate: 'none', active: 'in-progress', reported: 'blocked', holds: 'solved', dropped: 'stopped' }
+/**
+ * 색 점: 진행 파랑 · 판정 대기 짙은 회색 · 성립 청록 · 폐기 회색 고리 · 후보 옅은 점 (디자인 문서 2절 "색은 상태에만").
+ * 주황은 사용자 차례에만 (11/14 "추천대로 시작"): 판정 대기는 다른 에이전트도 판정하므로 주황이 아니고, 사용자만 확인하는 지난 일 기록만 주황이다
+ */
+export const ATTEMPT_DOT: Record<AttemptState, string> = { candidate: 'none', active: 'in-progress', reported: 'pb-wait', holds: 'solved', dropped: 'stopped' }
+/** 사용자 차례인 시도의 이름: 에이전트가 적은 지난 일, 사용자의 확인을 기다린다 */
+export const TURN_NAME = t('확인 대기', 'Awaiting your check')
+/** "2026-10-12" → "10/12" (한 날 · 주장의 날) */
+export const dayShown = (d: string | undefined) => (d ? `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}` : '')
 export const who = (name: string) => (name === 'user' ? t('사용자', 'You') : agentName(name))
 /** "2026-11-11T14:02" → "11/11 14:02" */
 export const when = (s: string | undefined) => (s ? s.slice(5, 16).replace('-', '/').replace('T', ' ') : '')
 export const errorOf = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
-export function AttemptDot({ s, label }: { s: AttemptState; label?: boolean }) {
-  return <><span className={`g ${ATTEMPT_DOT[s]}`} role="img" aria-label={ATTEMPT_NAME[s]} title={ATTEMPT_NAME[s]} />{label && <span className="g-name">{ATTEMPT_NAME[s]}</span>}</>
+export function AttemptDot({ s, label, turn }: { s: AttemptState; label?: boolean; turn?: boolean }) {
+  const name = turn ? TURN_NAME : ATTEMPT_NAME[s]
+  return <><span className={`g ${turn ? 'blocked' : ATTEMPT_DOT[s]}`} role="img" aria-label={name} title={name} />{label && <span className="g-name">{name}</span>}</>
 }
 
 /** 줄 끝 태그: 다음 · 수정 요청 · 판정 후 변경. 없으면 아무것도 그리지 않는다 */
@@ -60,6 +68,15 @@ function Steps({ a }: { a: Attempt }) {
   const by = (name: string, at?: string) => <><span><Author by={who(name)} /></span>{at && <span className="pb-step-at">{when(at)}</span>}</>
   const step = (name: string, dot: string, body: ReactNode, tip?: string) => (
     <li className={`pb-step${body ? '' : ' todo'}`} title={tip}><span className={`g ${dot}`} aria-hidden /><span className="pb-step-name">{name}</span>{body && <span className="pb-step-by">{body}</span>}</li>
+  )
+  if (a.origin === 'past') return (
+    <ol className="pb-steps" data-ui="시도 단계">
+      {step(t('한 날', 'Done on'), 'pb-done', a.when ? <span>{a.when}</span> : <span className="muted">{t('모름', 'Unknown')}</span>)}
+      {step(t('기록', 'Recorded'), 'pb-done', by(a.by, a.created))}
+      {step(t('확인', 'Check'), a.turn ? 'blocked' : judged ? ATTEMPT_DOT[a.state] : 'none',
+        judged && a.verdict ? <><span>{ATTEMPT_NAME[a.state]}</span>{by(a.verdict.by, a.verdict.at)}</> : a.turn && t('사용자 차례', 'Your turn'),
+        t('지난 일의 기록은 사용자가 확인해야 근거가 됩니다', 'A record of past work becomes a ground once you confirm it'))}
+    </ol>
   )
   return (
     <ol className="pb-steps" data-ui="시도 단계">
@@ -105,7 +122,13 @@ export function Detail({ a, locked, busy, onVerdict }: { a: Attempt; locked: boo
 }
 
 /** 시도 한 줄의 옅은 아랫줄: 폐기 사유, 판정의 근거, 결과, 누가 하고 있나 */
-export const attemptNote = (a: Attempt): string | undefined => (a.state === 'dropped' ? a.lesson ?? a.verdict?.note : a.state === 'holds' ? a.result ?? a.verdict?.note : a.state === 'reported' ? a.result
+export const attemptNote = (a: Attempt): string | undefined => {
+  const note = noteOf(a)
+  // 지난 일은 한 날을 앞에 (확인 전이면 그것도)
+  if (a.origin !== 'past') return note
+  return [a.when && t(`한 날 ${dayShown(a.when)}`, `Done ${dayShown(a.when)}`), note].filter(Boolean).join(' · ') || undefined
+}
+const noteOf = (a: Attempt): string | undefined => (a.state === 'dropped' ? a.lesson ?? a.verdict?.note : a.state === 'holds' ? a.result ?? a.verdict?.note : a.state === 'reported' ? a.result
   : a.state === 'active' ? (a.returned ? t(`수정 요청: ${a.returned.note}`, `Sent back: ${a.returned.note}`) : `${who(a.worker ?? a.by)} · ${when(a.started)}`) : undefined)
 
 /** 근거 목록의 시도 한 줄 (목록 보기와 주장 화면이 함께 쓴다). 누르면 그 아래에 전부가 펼쳐진다 */
@@ -120,7 +143,7 @@ export function AttemptRow({ a, open, next, locked, busy, style, onToggle, onVer
     <div className={`pb-node pb-try s-${a.state}${open ? ' on' : ''}`} style={style} data-ui="시도" data-ui-item={`${a.label} ${a.method}`}>
       <div className="pb-node-row">
         <button className="pb-node-main" aria-expanded={open} onClick={onToggle}>
-          <span className="pb-state"><AttemptDot s={a.state} label /></span>
+          <span className="pb-state"><AttemptDot s={a.state} turn={a.turn} label /></span>
           <span className="pb-label">{a.label}</span>
           <span className="pb-method">{a.method}</span>
           <AttemptTags a={a} next={next} />

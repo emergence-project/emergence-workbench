@@ -64,7 +64,8 @@ export function briefOf(p: Problem): string {
     { title: '폐기 사유 (같은 길을 다시 가지 않는다):', lines: p.lessons.map((l) => `- ${l.label} ${one(l.lesson, 80)}${l.reopen ? ` (다시 열 조건: ${one(l.reopen, 40)})` : ''}`) },
     { title: '수정 요청 (작업한 쪽이 고쳐 다시 보고한다):', lines: by('active').filter((a) => a.returned).map((a) => line(a, `: ${one(a.returned!.note, 70)}`)) },
     { title: '판정 후 변경 (다시 확인한다):', lines: p.attempts.filter((a) => a.changed?.length || a.restated).map((a) => `- ${a.label}: ${one([...(a.restated ? ['주장'] : []), ...(a.changed ?? [])].join(', '), 80)}`) },
-    { title: '판정 대기 (작업하지 않은 쪽이 attempt_verdict):', lines: by('reported').map((a) => `- ${a.label}${aim(a)}${a.result ? `: ${one(a.result, 60)}` : ''}${a.worker ? ` · 작업 ${a.worker}` : ''}${a.test ? ` · 검사 \`${one(a.test, 60)}\`` : ''}`) },
+    { title: '확인 대기 지난 일 (사용자만 확인한다. 근거로 세지 않는다):', lines: by('reported').filter((a) => a.turn).map((a) => `- ${a.label}${aim(a)}${a.when ? ` · ${a.when}` : ''}: ${one(a.method, 60)}`) },
+    { title: '판정 대기 (작업하지 않은 쪽이 attempt_verdict):', lines: by('reported').filter((a) => !a.turn).map((a) => `- ${a.label}${aim(a)}${a.result ? `: ${one(a.result, 60)}` : ''}${a.worker ? ` · 작업 ${a.worker}` : ''}${a.test ? ` · 검사 \`${one(a.test, 60)}\`` : ''}`) },
     { title: '진행:', lines: by('active').filter((a) => !a.returned).map((a) => line(a, `${aim(a)}${a.worker ? ` · ${a.worker}` : ''}`)) },
     { title: '후보 (순서대로):', lines: by('candidate').map((a) => line(a, aim(a))) },
   ], tail)

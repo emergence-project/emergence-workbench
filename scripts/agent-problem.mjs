@@ -18,6 +18,7 @@ const usage = [
   '        pnpm agent:problem <폴더> add <흐름> "<방법>"… [--claim <주장 번호>]       (후보 늘어놓기. --claim이 없으면 질문을 겨눈다)',
   '        pnpm agent:problem <폴더> start <흐름> [시도]                           (시도가 없으면 다음 후보)',
   '        pnpm agent:problem <폴더> report <흐름> <시도> --did "…" --result "…" [--statement "<겨눈 주장과 다른, 판단할 수 있는 한 문장>" [--side for_yes|for_no|neither] [--condition "…"]] [--file <경로>]… [--command "<결과를 낸 명령>"] [--commit <커밋>] [--test "<검사 명령>"] [--lesson "…"] [--reopen "…"]',
+  '        pnpm agent:problem <폴더> record <흐름> "<한 일>" --result "…" [--when YYYY-MM-DD] [--claim <주장 번호>] [--statement "…" [--side …] [--condition "…"]] [--did "…"] [--file <경로>]…   (지난 일 적기. 사용자가 확인해야 근거가 된다)',
   '        pnpm agent:problem <폴더> verdict <흐름> <시도> holds|dropped --note "…" [--check "…"] [--tested pass|fail] [--lesson "…"] [--reopen "…"]   (검사 명령이 있으면 다시 돌리고 --tested)',
   '        pnpm agent:problem <폴더> direction <흐름> [--for-yes "…"] [--for-no "…"] [--neither "…"]   (방향 보고: 사실만)',
   '        pnpm agent:problem <폴더> exception "<무슨 일이 있었나>" --kind no-claim|no-verdict|needs-user|workaround|other [--instead "<대처>"] [--flow <흐름>] [--attempt <시도>]   (규칙대로 되지 않은 일 한 줄)',
@@ -38,7 +39,7 @@ function args() {
         statement: { type: 'string' }, condition: { type: 'string' }, side: { type: 'string' },
         kind: { type: 'string' }, instead: { type: 'string' }, flow: { type: 'string' }, attempt: { type: 'string' },
         did: { type: 'string' }, result: { type: 'string' }, file: { type: 'string', multiple: true }, lesson: { type: 'string' }, reopen: { type: 'string' },
-        command: { type: 'string' }, commit: { type: 'string' }, test: { type: 'string' },
+        command: { type: 'string' }, when: { type: 'string' }, commit: { type: 'string' }, test: { type: 'string' },
         note: { type: 'string' }, check: { type: 'string' }, tested: { type: 'string' },
         'for-yes': { type: 'string' }, 'for-no': { type: 'string' }, neither: { type: 'string' },
       },
@@ -143,6 +144,16 @@ try {
       ...(v.lesson && { lesson: v.lesson }), ...(v.reopen && { reopen: v.reopen }),
     }, by)
     console.log(`보고했습니다: ${aidOf(aid).toUpperCase()}. 성립 · 폐기는 작업한 쪽이 아닌 쪽이 정합니다. ${now(p)}`)
+  } else if (cmd === 'record') {
+    const [id, method] = rest
+    const p = P.recordAttempt(wb, need(id, '흐름 id'), {
+      method: need(method, '한 일 (방법 한 줄)'), result: need(v.result, '--result (결과, 사실로)'),
+      ...(v.when && { when: /^\d{4}-\d{2}-\d{2}$/.test(v.when) ? v.when : fail(`--when은 YYYY-MM-DD입니다.\n${usage}`) }), ...(v.claim && { claim: v.claim }), ...(v.did && { did: v.did }),
+      ...(v.statement && { statement: v.statement }), ...(v.condition && { condition: v.condition }), ...(v.side && { side: SIDES.includes(v.side) ? v.side : fail(`--side는 for_yes(예) · for_no(아니오) · neither(어느 쪽도 아님)입니다.\n${usage}`) }),
+      ...(v.file?.length && { files: v.file }),
+    }, by)
+    const a = p.attempts.at(-1)
+    console.log(`지난 일을 적었습니다: ${a ? `${a.label} ${a.method}` : ''}. 사용자가 확인하기 전에는 주장의 근거로 세지 않습니다. ${now(p)}`)
   } else if (cmd === 'verdict') {
     const [id, aid, result] = rest
     if (result !== 'holds' && result !== 'dropped') fail(`판정은 holds(성립) 또는 dropped(폐기)입니다.\n${usage}`)

@@ -3,9 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { problemsApi, type Attempt, type Claim, type ClaimSide, type ProblemDoc } from './api'
 import { Icon } from './icons'
 import { t } from './i18n'
-import { AttemptDot, AttemptRow, attemptNote, CandidateInput, errorOf, when, who } from './ProblemAttempt'
+import { AttemptDot, AttemptRow, attemptNote, CandidateInput, dayShown, errorOf, when, who } from './ProblemAttempt'
 import { claimTally, ROOT_ID, TreeChart } from './ProblemChart'
-import { VerdictDialog } from './ProblemDialogs'
+import { RecordDialog, VerdictDialog } from './ProblemDialogs'
 import { nearOf } from './problemLayout'
 import { ATTEMPT_NAME, objOf, SIDE_NAME, SideTag, TargetSelect } from './problemNames'
 import { qk } from './queries'
@@ -24,14 +24,15 @@ export function ClaimNum({ c }: { c: Claim }) {
   return <span className="pb-num" aria-label={t(`주장 ${c.id}`, `Claim ${c.id}`)}>{c.id}</span>
 }
 
-/** 줄 끝 태그: 근거 대기 · 승인 · 기각 · 판정 후 변경 */
+/** 줄 끝 태그: 근거 대기 · 승인 · 기각 · 확인 전 · 판정 후 변경 */
 export function ClaimTags({ c }: { c: Claim }) {
-  if (!c.waiting && !c.accepted && !c.rejected && !c.stale) return null
+  if (!c.waiting && !c.accepted && !c.rejected && !c.stale && !c.unconfirmed) return null
   return (
     <span className="pb-tags">
       {c.waiting && <span className="tag" title={t('시도는 성립했고, 아래 주장이 성립하면 이 주장도 성립합니다', 'An attempt holds; this claim holds once the claims below it hold')}>{t('근거 대기', 'Awaiting grounds')}</span>}
       {c.accepted && <span className="tag pb-accepted" title={t(`사용자 승인 ${when(c.accepted.at)}`, `Accepted by you ${when(c.accepted.at)}`)}><span className="ico" aria-hidden>{Icon.check}</span>{t('승인', 'Accepted')}</span>}
       {c.rejected && <span className="tag" title={c.rejected.note}>{t('기각', 'Rejected')}</span>}
+      {c.unconfirmed && <span className="tag pb-stale" data-ui="확인 전" title={t('에이전트가 적은 지난 일이 사용자의 확인을 기다립니다. 확인 전에는 근거로 세지 않습니다', 'A record of past work written by an agent waits for your check. It is not counted as a ground until then')}><span className="turn-dot" aria-hidden />{t('확인 전', 'Unchecked')}</span>}
       {c.stale && <span className="tag pb-stale" data-ui="판정 후 변경" title={t('성립으로 판정한 뒤 진술이나 파일이 바뀌었습니다', 'The statement or a file changed after the holds verdict')}><span className="turn-dot" aria-hidden />{t('판정 후 변경', 'Changed after verdict')}</span>}
     </span>
   )
@@ -106,7 +107,7 @@ export function ClaimPeek({ p, claim, onOpen, onGo }: { p: ProblemDoc; claim?: C
         <dt>{t('시도', 'Attempts')}</dt>
         <dd className="pb-grounds-cell">{tries.length ? <ul className="pb-grounds" data-ui="근거 시도">{tries.map((a) => {
           const note = attemptNote(a)
-          return <li key={a.id} className={`s-${a.state}`} title={ATTEMPT_NAME[a.state]}><button className="pb-ground-go" onClick={() => onGo(a.id)}><AttemptDot s={a.state} /><b>{a.label}</b><span>{a.method}{a.next && !p.stop && <span className="tag pb-next">{t('다음', 'Next')}</span>}{note && <small>{note}</small>}</span></button></li>
+          return <li key={a.id} className={`s-${a.state}`} title={ATTEMPT_NAME[a.state]}><button className="pb-ground-go" onClick={() => onGo(a.id)}><AttemptDot s={a.state} turn={a.turn} /><b>{a.label}</b><span>{a.method}{a.next && !p.stop && <span className="tag pb-next">{t('다음', 'Next')}</span>}{note && <small>{note}</small>}</span></button></li>
         })}</ul> : none}</dd>
         {(subs.length > 0 || claim) && <><dt>{t('주장', 'Claims')}</dt>
           <dd className="pb-grounds-cell">{subs.length ? <ul className="pb-grounds" data-ui="근거 주장">{subs.map((c) => (
@@ -144,6 +145,7 @@ export function ClaimView({ rid, id, at, onSaved }: { rid: string; id: string; a
   const q = useQuery({ queryKey: qk.problem(rid, id), queryFn: (): Promise<ProblemDoc> => problemsApi(rid).get(id) })
   const [shown, setShown] = useState<string | null>(/^[a-z]/.test(at) ? at : null)
   const [verdict, setVerdict] = useState<{ attempt: Attempt; result: 'holds' | 'dropped' } | null>(null)
+  const [recording, setRecording] = useState(false)
   const [adding, setAdding] = useState<'try' | 'claim' | null>(null)
   const [busy, setBusy] = useState(false)
   const reload = useCallback(() => client.invalidateQueries({ queryKey: qk.problems(rid) }), [client, rid])
@@ -171,7 +173,7 @@ export function ClaimView({ rid, id, at, onSaved }: { rid: string; id: string; a
   }
   const open = (c: Claim) => go({ page: 'problems', rid, id, attempt: c.id })
   const near = claim ? nearOf(p.claims.map((c) => ({ ...c, parent: c.under })), claim.id) : subs
-  const posed = claim && [who(claim.by), when(claim.created), claim.from && t(`시도 ${claim.from.toUpperCase()}의 보고에서`, `from the report of attempt ${claim.from.toUpperCase()}`)].filter(Boolean).join(' · ')
+  const posed = claim && [who(claim.by), when(claim.created), claim.when && claim.when !== claim.created?.slice(0, 10) && t(`근거의 날 ${dayShown(claim.when)}`, `Grounds from ${dayShown(claim.when)}`), claim.from && t(`시도 ${claim.from.toUpperCase()}의 보고에서`, `from the report of attempt ${claim.from.toUpperCase()}`)].filter(Boolean).join(' · ')
   return <>
     {crumb}
     <div className="pb-chart pb-near" data-ui="주장 경로">
@@ -191,7 +193,8 @@ export function ClaimView({ rid, id, at, onSaved }: { rid: string; id: string; a
       <section className="pb-sec" data-ui="근거">
         <h3 className="pb-h3">{t('근거', 'Grounds')} <span className="muted">{t(`시도 ${tries.length} · 주장 ${subs.length}`, `${tries.length} attempts · ${subs.length} claims`)}</span><span className="sp" />
           {!locked && <button className="btn sm" data-ui="주장 추가" onClick={() => setAdding('claim')}>＋ {t('주장', 'Claim')}</button>}
-          {!locked && <button className="btn sm" data-ui="후보 추가" onClick={() => setAdding('try')}>＋ {t('후보', 'Candidate')}</button>}</h3>
+          {!locked && <button className="btn sm" data-ui="후보 추가" onClick={() => setAdding('try')}>＋ {t('후보', 'Candidate')}</button>}
+          {!locked && <button className="btn sm" data-ui="한 일 추가" title={t('흐름 전에 한 일을 그 날과 함께 근거로 적습니다', 'Record work done before this flow, with its day')} onClick={() => setRecording(true)}>＋ {t('한 일', 'Past work')}</button>}</h3>
         {tries.length + subs.length === 0 && <p className="empty">{t('근거가 없습니다. 「＋ 후보」로 해 볼 방법을, 「＋ 주장」으로 이것을 받칠 주장을 추가합니다.', 'No grounds yet. Add a method to try with "＋ Candidate", or a supporting claim with "＋ Claim".')}</p>}
         {tries.length + subs.length > 0 && <div className="pb-tree">
           {tries.map((a) => <AttemptRow key={a.id} a={a} open={shown === a.id} next={!!a.next && !p.stop} locked={locked} busy={busy} onToggle={() => setShown(shown === a.id ? null : a.id)} onVerdict={(attempt, result) => setVerdict({ attempt, result })}>
@@ -203,6 +206,7 @@ export function ClaimView({ rid, id, at, onSaved }: { rid: string; id: string; a
         {adding === 'claim' && <ClaimInput under={claim?.id} busy={busy} onAdd={(statement, side, under) => void run(() => api.addClaim(p.id, { statement, ...(under ? { under } : { side }) }))} onClose={() => setAdding(null)} />}
       </section>
     </RepoPathContext.Provider>
+    {recording && <RecordDialog rid={rid} problem={p} under={claim?.id} onClose={() => setRecording(false)} onDone={() => { setRecording(false); onSaved(t('한 일을 적었습니다', 'Past work added')); void reload() }} />}
     {verdict && <VerdictDialog rid={rid} problem={p} attempt={verdict.attempt} result={verdict.result} onClose={() => setVerdict(null)} onDone={() => { setVerdict(null); onSaved(t('판정을 적었습니다', 'Verdict saved')); void reload() }} />}
   </>
 }
