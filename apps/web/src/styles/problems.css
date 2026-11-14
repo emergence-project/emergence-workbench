@@ -186,7 +186,9 @@
 .pb-c-tally { font-size: var(--fs-2xs); fill: var(--text-3); paint-order: stroke; stroke: var(--bg); stroke-width: 4; stroke-linejoin: round; }
 /* 점 기호: --c 상태 색. 속이 찬 것은 글자가 바탕색, 속이 빈 것은 글자가 상태 색 */
 .pb-c-m { --c: var(--s-progress); --gc: var(--bg); }
-.pb-c-m.s-reported { --c: var(--s-blocked); }
+.pb-c-m.s-reported { --c: var(--text-2); }
+/* 주황은 사용자 차례에만 (11/14): 사용자만 확인하는 지난 일 */
+.pb-c-m.turn { --c: var(--s-blocked); }
 .pb-c-m.s-holds { --c: var(--s-solved); }
 .pb-c-m.s-dropped { --c: var(--s-stopped); --gc: var(--c); }
 .pb-c-m.s-candidate { --c: var(--text-3); --gc: var(--c); }
@@ -229,6 +231,11 @@
 /* 차트의 점 위 작은 점: 그 주장을 겨눈 시도마다 하나, 색은 시도의 상태 */
 .pb-c-m .pb-c-pip { fill: var(--c); stroke: none; }
 .pb-c-m.s-dropped .pb-c-pip, .pb-c-m.s-candidate .pb-c-pip { fill: var(--bg); stroke: var(--c); stroke-width: 1.2; }
+/* 후보 고리: 아직 해 보지 않은 시도. 빈 고리에 글자 (11/14) */
+.pb-c-ring { fill: var(--bg); stroke: var(--text-3); stroke-width: 1.1; stroke-dasharray: 2 1.5; }
+.pb-c-ring-g { font-size: var(--fs-2xs); font-weight: var(--fw-strong); fill: var(--text-2); }
+/* 판정 대기 점: 짙은 회색 (주황은 사용자 차례에만) */
+.g.pb-wait { color: var(--text-2); }
 /* 미리보기의 근거: 시도 한 줄씩(상태 점 · 글자 · 방법, 아래에 옅은 한 줄), 아래 주장 한 줄씩(상태 점 · 번호 · 진술) */
 .pb-peek-facts dd.pb-grounds-cell { display: block; overflow: visible; }
 .pb-grounds { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }

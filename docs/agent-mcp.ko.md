@@ -32,7 +32,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 도구 이름과 설명은 영어다(앱 화면 언어와 상관없이 에이전트가 읽는다).
 
 
-## 도구 (new_note · edit_note · edit_concept · answer_record · add_record · problem_propose · problem_prepare · claim_add · attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
+## 도구 (new_note · edit_note · edit_concept · answer_record · add_record · problem_propose · problem_prepare · claim_add · attempt_add · attempt_record · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · add_task · report_task · checkpoint_task · add_journal, 자기 기준만 옮기는 changes_since 말고는 읽기 전용)
 
 연결할 때 서버가 일의 갈래마다 어떤 도구를 어떤 순서로 쓰는지 알려 준다(`apps/server/src/mcp.ts`의 `INSTRUCTIONS`): `rules` → `overview` → `project_status` → `changes_since`로 시작한다. 도구를 더하거나 이름을 바꾸면 그 순서도 고친다. `mcp.test.ts`가 거기 적은 이름이 모두 실제 도구인지 본다.
 
@@ -66,6 +66,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `claim_add` | 진행 흐름에 주장을 먼저 세운다 `{ statement, condition?, under?, side? }`: 판단할 수 있는 한 문장. `under`를 주면 그 주장의 근거가 되고, 질문 바로 아래면 쪽 `side`(`for_yes` · `for_no` · `neither`)가 있어야 한다. 주장의 상태는 적지 않는다(근거에서 계산된다) | `POST …/:rid/problems/:id/claims` |
 | `attempt_add` | 진행 흐름에 후보 방법을 한 줄씩 늘어놓는다. 항목의 `claim`에 겨눌 주장의 번호를 적고, 없으면 질문을 바로 겨눈다. 일하기 전에 먼저 늘어놓고, 순서는 사용자가 바꿀 수 있다 | `POST …/:rid/problems/:id/attempts` |
 | `attempt_start` | 후보 하나를 자기 이름으로 시작한다. `attempt`가 없으면 다음 후보. 한도 · 폐기 셋 · 결정 대기에서는 거절하므로 `direction_report`를 낸다 | `POST …/attempts/:aid/start` |
+| `attempt_record` | 흐름 전이나 흐름 밖에서 이미 한 일을 그 한 날(`when`)과 함께 적는다. 주장이나 질문을 겨누고, `statement`를 적으면 보고처럼 새 주장이 생긴다. 한도에 세지 않는다. 사용자의 확인을 기다리고, 확인 전에는 근거로 세지 않는다. 기록을 확인하는 것은 에이전트가 하지 못한다 | `POST …/attempts/record` |
 | `attempt_report` | 시작한 시도의 한 일과 결과를 사실로(숫자 · 크기 · 매개변수 · 실패한 자리), 원자료 · 코드 · 노트 파일과 함께 보고한다. 겨눈 주장을 그대로 받치면 진술을 적지 않는다. 해 보니 참인 것이 그와 다르면 진술 `statement`(맞는지 틀리는지 가릴 수 있는 한 문장)와 조건 `condition`(선택)을 적는다: 그 진술이 겨눈 주장 아래의 새 주장이 되고 이 시도가 그 근거가 된다. 질문을 바로 겨눈 시도면 새 주장은 질문 바로 아래에 생기고 쪽 `side`(`for_yes` · `for_no` · `neither`)가 있어야 한다. 주장 없이 질문을 겨눈 채로는 성립이 되지 못한다. 결과를 낸 명령 `command`(커밋은 앱이 적는다)와, 있으면 판정하는 쪽이 다시 돌릴 검사 명령 `test`도 적는다. 성립 여부는 정하지 않는다 | `POST …/attempts/:aid/report` |
 | `attempt_verdict` | 다른 쪽이 작업한 시도를 원자료로 판정한다. 판정이 답하는 것은 하나다: 이 시도가 겨눈 주장이 이 시도의 근거(결과 · 파일 · 검사)에서 따라 나오는가. 흐름의 질문에 답하지 않고, 주장을 사실로 받아들이는 승인은 사용자가 흐름을 닫을 때 한다. 근거 `note`, 성립은 교차 검증 `check`, 폐기는 폐기 사유 `lesson`. 검사 명령이 있으면 다시 돌린 결과 `tested`(성립에는 `pass`). 성립이면 앱이 파일 지문을 남겨 뒤에 바뀌면 알린다. 자기가 작업한 시도는 거절 | `POST …/attempts/:aid/verdict` |
 | `direction_report` | 멈췄거나 결과가 질문에서 벗어날 때, 사용자의 메시지에 맞춰 사실만 나눠 적고 선다(`for_yes` · `for_no` · `neither`). 계속할지는 권하지 않는다 | `POST …/:rid/problems/:id/report` |

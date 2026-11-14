@@ -326,6 +326,43 @@ describe('flows: question, claims and attempts (workbench/problems/)', () => {
     expect((await call('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'Four' }] }, CLAUDE)).statusCode).toBe(409)
   })
 
+  it('records past work with its day: the user\'s counts at once, an agent\'s waits for the user and is not a ground until then', async () => {
+    const { id } = await opened('Can past work be recorded with its day?')
+    const { problem: c } = await ok('POST', `${P}/${id}/claims`, { statement: 'The gap closes at M.', side: 'for_yes' })
+    // 에이전트가 적은 지난 일: 판정 대기 + 사용자 차례, 한도에 세지 않고, 주장의 상태에 들지 않는다
+    const { problem: a } = await ok('POST', `${P}/${id}/attempts/record`, { method: 'ED on 4x4', result: 'Gap 0.01 at M.', when: '2026-10-12', claim: '1' }, CLAUDE)
+    const rec = a.attempts.find((x: { id: string }) => x.id === 'a')
+    expect(rec).toMatchObject({ state: 'reported', origin: 'past', when: '2026-10-12', turn: true, worker: 'claude-code' })
+    expect(a).toMatchObject({ used: 0, confirm: 1 })
+    expect(a.claims[0]).toMatchObject({ id: '1', state: 'candidate', unconfirmed: true, when: '2026-10-12' })
+    expect((await ok('GET', P)).problems.find((x: { id: string }) => x.id === id).confirm).toBe(1)
+    expect(YAML.parse(fs.readFileSync(file(id, 'a.yaml'), 'utf8'))).toMatchObject({ origin: 'past', when: '2026-10-12', claim: '1' })
+    expect((await ok('GET', `${P}/${id}/brief`)).markdown).toContain('확인 대기 지난 일')
+    // 에이전트는 성립 · 폐기를 정하지도, 확인하지도 못한다 (다른 에이전트도)
+    expect((await call('POST', `${P}/${id}/attempts/record`, { method: 'x', result: 'y', outcome: 'holds' }, CLAUDE)).statusCode).toBe(403)
+    expect((await call('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Read it.', check: 'L=6' }, CODEX)).statusCode).toBe(403)
+    // 사용자의 확인: 교차 검증 없이 성립
+    const { problem: b } = await ok('POST', `${P}/${id}/attempts/a/verdict`, { result: 'holds', note: 'Matches the journal of 10/12.' })
+    expect(b.attempts.find((x: { id: string }) => x.id === 'a')).toMatchObject({ state: 'holds' })
+    expect(b.attempts.find((x: { id: string }) => x.id === 'a').turn).toBeUndefined()
+    expect(b.claims[0]).toMatchObject({ state: 'holds' })
+    expect(b.claims[0].unconfirmed).toBeUndefined()
+    expect(b.confirm).toBeUndefined()
+    // 사용자가 적은 지난 일: 곧바로 판정된 근거. 진술을 적으면 새 주장, 형제는 날 순
+    const { problem: u } = await ok('POST', `${P}/${id}/attempts/record`, { method: 'DMRG on 6-leg', result: 'No gap at K.', when: '2026-09-30', statement: 'The gap stays open at K.', side: 'for_no' })
+    const ua = u.attempts.find((x: { id: string }) => x.id === 'b')
+    expect(ua).toMatchObject({ state: 'holds', origin: 'past', claim: '2', verdict: { by: 'user' } })
+    expect(u.claims.map((x: { id: string }) => x.id)).toEqual(['2', '1'])
+    expect(u.claims[0]).toMatchObject({ statement: 'The gap stays open at K.', side: 'for_no', state: 'holds', when: '2026-09-30' })
+    expect(u.used).toBe(0)
+    // 주장 없는 성립은 안 되고, 폐기는 사유가 결과로 남는다
+    expect((await call('POST', `${P}/${id}/attempts/record`, { method: 'Guess', result: 'Nothing.' })).statusCode).toBe(400)
+    const { problem: d } = await ok('POST', `${P}/${id}/attempts/record`, { method: 'Guess', result: 'Did not converge.', outcome: 'dropped' })
+    expect(d.attempts.find((x: { id: string }) => x.id === 'c')).toMatchObject({ state: 'dropped', lesson: 'Did not converge.' })
+    expect(d.stop).toBeUndefined()
+    expect(c.claims).toHaveLength(1)
+  })
+
   it('reports three dropped verdicts in a row as stuck', async () => {
     const { id } = await opened('Does a run of failures stop the run?')
     await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'One' }, { method: 'Two' }, { method: 'Three' }, { method: 'Four' }] }, CLAUDE)

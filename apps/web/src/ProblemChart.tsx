@@ -4,6 +4,7 @@ import { problemsApi, type Attempt, type Claim, type ProblemDoc, type ProblemRow
 import { t } from './i18n'
 import { branchPoints, chartGeo, CW, layoutTree, RH, ROOT, roundedPath, wrapName } from './problemLayout'
 import { ANSWER_NAME, ATTEMPT_NAME, SIDE_NAME } from './problemNames'
+import { dayShown, TURN_NAME } from './ProblemAttempt'
 import { qk } from './queries'
 
 /**
@@ -13,18 +14,27 @@ import { qk } from './queries'
  * 목록 보기와 같은 자료를 그리기만 하고, 점을 누르면 그 주장의 미리보기를 연다. 배치는 problemLayout.ts.
  */
 
-/** 이름 한 줄의 폭(한글 글자 수)과 줄 간격, 점 위 작은 점(시도)의 높이 · 간격 */
-const NAME_W = 12, LINE = 14, NAME_Y = 31, PIP_Y = -24, PIP_GAP = 9, PIP_MAX = 8
+/** 이름 한 줄의 폭(한글 글자 수)과 줄 간격, 점 위 작은 점(시도)의 높이 · 간격, 후보 고리(글자가 든 빈 고리)의 반지름 */
+const NAME_W = 12, LINE = 14, NAME_Y = 31, PIP_Y = -23, PIP_MAX = 8, RING_R = 7
 
 /** 질문 점을 고른 것 (주장은 번호가 1부터다) */
 export const ROOT_ID = '0'
 
 type Flow = Pick<ProblemRow, 'state' | 'used' | 'limit' | 'stop' | 'answer'> & { claims: readonly Claim[]; attempts: readonly Attempt[] }
 
-/** 점 아래 옅은 한 줄: 상태 이름과, 질문 바로 아래면 어느 쪽 근거인지. 아래 주장을 기다리면 그것을 먼저 */
+/**
+ * 점 아래 옅은 한 줄: 상태 이름과, 질문 바로 아래면 어느 쪽 근거인지, 끝에 근거의 날 (11/14 "날짜 · 형제 시간순"). 아래 주장을 기다리면 그것을 먼저.
+ * 확인 전의 지난 일만 근거로 가진 주장은 "옛 기록 · 확인 전"
+ */
 export function claimTally(c: Claim): string {
+  const day = c.when ? ` · ${dayShown(c.when)}` : ''
+  return claimState(c) + day
+}
+function claimState(c: Claim): string {
   const state = c.rejected ? t('기각', 'Rejected') : c.state === 'holds' && c.accepted ? t('승인', 'Accepted') : ATTEMPT_NAME[c.state]
   const side = c.side ? SIDE_NAME[c.side] : ''
+  if (c.unconfirmed && c.state === 'candidate') return t('옛 기록 · 확인 전', 'Past record · unchecked')
+  if (c.unconfirmed) return `${state} · ${t('확인 전', 'Unchecked')}`
   if (c.state === 'holds' && c.stale) return `${state} · ${t('판정 후 변경', 'Changed after verdict')}`
   if (c.waiting) return side ? `${t('근거 대기', 'Awaiting grounds')} · ${side}` : `${state} · ${t('근거 대기', 'Awaiting grounds')}`
   return side ? `${state} · ${side}` : state
@@ -39,17 +49,31 @@ function Names({ x, y, lines, sub, strong }: { x: number; y: number; lines: stri
   </>
 }
 
-/** 점 위의 작은 점들: 시도마다 하나, 색은 시도의 상태. 많으면 앞의 것만 그리고 끝에 수를 적는다 */
+/**
+ * 점 위의 작은 점들: 시도마다 하나, 색은 시도의 상태. 해 본 시도는 작은 점, 아직 해 보지 않은 후보는 글자가 든 빈 고리다
+ * (11/14 "후보 고리": 앞으로 할 일이 어느 주장을 겨누는지 차트에서 보인다). 사용자가 확인할 지난 일은 주황. 많으면 앞의 것만 그리고 끝에 수를 적는다
+ */
 function Pips({ x, y, list }: { x: number; y: number; list: readonly Attempt[] }) {
   if (!list.length) return null
   const shown = list.slice(0, PIP_MAX), more = list.length - shown.length
-  const x0 = x - ((shown.length - 1) * PIP_GAP) / 2 - (more ? 6 : 0)
+  const half = (a: Attempt) => (a.state === 'candidate' ? RING_R : 3)
+  // 이웃 사이는 반지름 둘과 틈 3
+  const xs: number[] = []
+  shown.forEach((a, i) => xs.push(i ? xs[i - 1]! + half(shown[i - 1]!) + 3 + half(a) : 0))
+  const width = xs.at(-1)! + (more ? 12 : 0)
+  const x0 = x - width / 2
   return <g aria-hidden>
-    {shown.map((a, i) => <g key={a.id} className={`pb-c-m s-${a.state}`}><circle className="pb-c-pip" cx={x0 + i * PIP_GAP} cy={y + PIP_Y} r={3} /></g>)}
-    {more > 0 && <text className="pb-c-tally" x={x0 + shown.length * PIP_GAP - 2} y={y + PIP_Y + 3}>+{more}</text>}
+    {shown.map((a, i) => <g key={a.id} className={`pb-c-m s-${a.state}${a.turn ? ' turn' : ''}`}>
+      {a.state === 'candidate' ? <>
+        <circle className="pb-c-ring" cx={x0 + xs[i]!} cy={y + PIP_Y} r={RING_R} />
+        <text className="pb-c-ring-g" x={x0 + xs[i]!} y={y + PIP_Y} dy=".36em" textAnchor="middle">{a.label.slice(0, 1)}</text>
+      </> : <circle className="pb-c-pip" cx={x0 + xs[i]!} cy={y + PIP_Y} r={3} />}
+    </g>)}
+    {more > 0 && <text className="pb-c-tally" x={x0 + xs.at(-1)! + half(shown.at(-1)!) + 2} y={y + PIP_Y + 3}>+{more}</text>}
   </g>
 }
-const triesSaid = (list: readonly Attempt[]) => (list.length ? t(`시도 ${list.length}: ${list.map((a) => `${a.label} ${ATTEMPT_NAME[a.state]}`).join(', ')}`, `Attempts ${list.length}: ${list.map((a) => `${a.label} ${ATTEMPT_NAME[a.state]}`).join(', ')}`) : t('시도 없음', 'No attempts'))
+const tryName = (a: Attempt) => `${a.label} ${a.turn ? TURN_NAME : ATTEMPT_NAME[a.state]}`
+const triesSaid = (list: readonly Attempt[]) => (list.length ? t(`시도 ${list.length}: ${list.map(tryName).join(', ')}`, `Attempts ${list.length}: ${list.map(tryName).join(', ')}`) : t('시도 없음', 'No attempts'))
 
 /** 흐름 하나의 나무. rootName을 주면 질문 점 아래에 그 이름을 적는다(흐름 하나 화면: 질문 글은 위 제목에 있다) */
 export function TreeChart({ flow, selected, rootName, onPick, onRoot }: {
@@ -95,7 +119,8 @@ export function TreeChart({ flow, selected, rootName, onPick, onRoot }: {
         const sub = claimTally(c)
         const own = tries(c.id)
         const on = selected === c.id
-        const turn = c.state === 'holds' && !!c.stale
+        // 사용자 차례(주황 고리): 성립 뒤 바뀌었거나, 확인할 지난 일이 있다
+        const turn = (c.state === 'holds' && !!c.stale) || !!c.unconfirmed
         return (
           <g key={c.id} className={`pb-c-node s-${c.state}${on ? ' on' : ''}`} tabIndex={0} role="button" aria-pressed={on} aria-label={`${c.id} ${sub}: ${c.statement}. ${triesSaid(own)}`}
             data-ui="점" data-ui-item={`${c.id} ${c.statement}`} onClick={() => onPick(c)} onKeyDown={pressed(() => onPick(c))}>

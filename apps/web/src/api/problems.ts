@@ -1,6 +1,6 @@
 // ---------- 흐름: 질문 › 주장 › 시도 (11/11 · 11/13): workbench/problems/<id>/, 서버 problems.ts. 형식은 docs/repo-format.md §16 ----------
 import { enc, json, req, send } from './http'
-import type { AttemptReportBody, AttemptVerdictBody, DirectionDecisionBody, FlowExceptionList, FlowExceptionOne, NewAttemptsBody, NewClaimBody, NewExceptionBody, NewProblemBody, ProblemCloseBody, ProblemList, ProblemOne, ProblemPatchBody, ProblemRemoved } from '@rw/core/contract/problems'
+import type { AttemptReportBody, RecordAttemptBody, AttemptVerdictBody, DirectionDecisionBody, FlowExceptionList, FlowExceptionOne, NewAttemptsBody, NewClaimBody, NewExceptionBody, NewProblemBody, ProblemCloseBody, ProblemList, ProblemOne, ProblemPatchBody, ProblemRemoved } from '@rw/core/contract/problems'
 export type { Attempt, AttemptState, BasisReview, Claim, ClaimSide, DirectionReport, FlowAnswer, FlowException, NewExceptionBody, Problem as ProblemDoc, ProblemList, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
 export { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP } from '@rw/core'
 
@@ -21,6 +21,8 @@ export const problemsApi = (rid: string) => {
     addClaim: (id: string, body: NewClaimBody) => req(`${base}/${enc(id)}/claims`, send('POST', body)).then(one),
     /** 후보: 주장(claim)이나 질문을 겨눈 방법 한 줄 */
     addAttempts: (id: string, attempts: NewAttemptsBody['attempts']) => req(`${base}/${enc(id)}/attempts`, send('POST', { attempts })).then(one),
+    /** 지난 일 적기 (「＋ 한 일」): 사용자가 적으면 곧바로 판정된 근거 */
+    record: (id: string, body: RecordAttemptBody) => req(`${base}/${enc(id)}/attempts/record`, send('POST', body)).then(one),
     start: (id: string, aid: string) => req(`${base}/${enc(id)}/attempts/${enc(aid)}/start`, send('POST', {})).then(one),
     report: (id: string, aid: string, body: AttemptReportBody) => req(`${base}/${enc(id)}/attempts/${enc(aid)}/report`, send('POST', body)).then(one),
     verdict: (id: string, aid: string, body: AttemptVerdictBody) => req(`${base}/${enc(id)}/attempts/${enc(aid)}/verdict`, send('POST', body)).then(one),

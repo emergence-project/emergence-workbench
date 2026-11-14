@@ -1,5 +1,5 @@
 // 에이전트용 입구(mcp.ts)의 흐름 도구: problems · problem_brief · problem_read · problem_propose · problem_prepare · claim_add ·
-// attempt_add · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · problem_exceptions
+// attempt_add · attempt_record · attempt_start · attempt_report · attempt_verdict · direction_report · problem_exception · problem_exceptions
 // (11/11 결정 "흐름을 시도 나무로 · 메시지 관문", 11/13 결정 "점 = 주장, 시도는 근거").
 // 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다. 누가 불렀는지는 mcp.ts가 붙이는 x-rw-agent로 서버가 가린다
 // (흐름을 시작하고 종료하는 것, 메시지 · 독자 · 한도 · 순서는 사용자만. 판정은 작업한 쪽이 아닌 쪽만).
@@ -199,6 +199,25 @@ export function registerProblemTools(server: McpServer, o: {
     annotations: writeOnce,
   }, async ({ project: rid, problem: id, attempt: aid, command, commit, ...body }) =>
     done(await write(`${R(rid, id)}/attempts/${enc(aid.toLowerCase())}/report`, { ...body, ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }) }), () => `Reported ${aid.toUpperCase()}. It waits for a verdict from another agent or the user.`))
+
+  server.registerTool('attempt_record', {
+    title: 'Record past work',
+    description: 'Write down work that was already done before or outside this flow (from a note, the journal or a commit), with the day it was done (when). It does not count toward the limit. It aims at a claim (claim) or the question; with statement a new claim is made under the aimed one (give side when it sits directly under the question). What you record waits for the user: until the user confirms it (holds or dropped), it is not counted as a ground and the claim shows it as an unconfirmed past record. Record facts only, and point to the files (note section, data, commit) instead of copying them. You cannot confirm a record, yours or another agent\'s.',
+    inputSchema: {
+      project, problem,
+      method: z.string().trim().min(1).describe('What was done, one line'),
+      result: z.string().trim().min(1).describe('The result as facts'),
+      when: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('The day it was done, YYYY-MM-DD (from the journal, note or commit)'),
+      claim: z.string().optional().describe('The claim this work grounds (its number). Leave out to aim at the question'),
+      did: z.string().optional().describe('More on what was done'),
+      statement: z.string().optional().describe('A judgeable sentence other than the aimed claim, when the work supports one: it becomes a new claim'),
+      condition: z.string().optional(),
+      side: z.enum(CLAIM_SIDES).optional().describe('For a new claim directly under the question: for_yes, for_no or neither'),
+      files: z.array(z.string()).optional().describe('Repository paths: note section, data, code'),
+    },
+    annotations: writeOnce,
+  }, async ({ project: rid, problem: id, ...body }) =>
+    done(await write(`${R(rid, id)}/attempts/record`, body), (p) => `Recorded ${p.attempts.at(-1)?.label ?? ''}. It waits for the user to confirm it.`))
 
   server.registerTool('attempt_verdict', {
     title: 'Give a verdict on an attempt',

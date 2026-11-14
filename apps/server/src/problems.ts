@@ -5,11 +5,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STREAK, localDate, stamp } from '@rw/core'
-import type { Attempt, AttemptReportBody, AttemptState, AttemptVerdictBody, Claim, DirectionDecisionBody, DirectionReport, DirectionReportBody, NewAttemptsBody, NewClaimBody, NewProblemBody, Problem, ProblemCloseBody, ProblemList, ProblemPatchBody, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
+import type { Attempt, AttemptReportBody, RecordAttemptBody, AttemptState, AttemptVerdictBody, Claim, DirectionDecisionBody, DirectionReport, DirectionReportBody, NewAttemptsBody, NewClaimBody, NewProblemBody, Problem, ProblemCloseBody, ProblemList, ProblemPatchBody, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { changedSince, fingerprints, headCommit } from './problemFiles.js'
 import { logRefusal } from './problemExceptions.js'
-import { attemptsOf, basisOf, claimStates, claimTree, eligible, targetOf } from './problemClaims.js'
+import { attemptsOf, basisOf, claimDay, claimStates, claimTree, eligible, targetOf, unconfirmed } from './problemClaims.js'
 import { USER, claimHash, dumpAttempt, dumpClaim, dumpProblem, parseAttempt, parseClaim, parseProblem, type RawAttempt, type RawClaim, type RawProblem } from './problemFormat.js'
 import { t } from './i18n.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
@@ -66,7 +66,8 @@ const inSeq = (p: RawProblem, list: RawAttempt[]) => [...list].sort(bySeq(p.orde
 
 /** 다음 = 일하는 순서에서 처음 만나는, 지금 해도 되는 후보 */
 const nextOf = (p: RawProblem, claims: RawClaim[], list: RawAttempt[]): RawAttempt | undefined => { const ok = new Set(eligible(claims, list)); return inSeq(p, list).find((a) => ok.has(a)) }
-const usedOf = (list: RawAttempt[]) => list.filter((a) => a.worker).length
+/** 한도에 세는 시도: 시작한 것 (지난 일을 나중에 적은 것은 세지 않는다) */
+const usedOf = (list: RawAttempt[]) => list.filter((a) => a.worker && a.origin !== 'past').length
 const pending = (p: RawProblem): DirectionReport | undefined => { const r = p.reports.at(-1); return r && !r.decision ? r : undefined }
 
 export function stopOf(p: RawProblem, claims: RawClaim[], list: RawAttempt[]): ProblemStop | undefined {
@@ -75,9 +76,11 @@ export function stopOf(p: RawProblem, claims: RawClaim[], list: RawAttempt[]): P
   if (usedOf(list) >= p.limit) return 'limit'
   // 정체는 마지막 결정 뒤의 판정만 센다 (계속하기로 한 뒤 한 번 더 폐기됐다고 곧바로 다시 멈추지 않게)
   const lastDecision = p.reports.filter((r) => r.decision).at(-1)?.decision?.at ?? ''
-  const judged = list.filter((a) => a.verdict && a.verdict.at > lastDecision).sort((a, b) => a.verdict!.at.localeCompare(b.verdict!.at))
+  const judged = list.filter((a) => a.verdict && a.verdict.at > lastDecision && a.origin !== 'past').sort((a, b) => a.verdict!.at.localeCompare(b.verdict!.at))
   if (judged.length >= PROBLEM_STREAK && judged.slice(-PROBLEM_STREAK).every((a) => a.state === 'dropped')) return 'stuck'
-  if (list.length > 0 && !eligible(claims, list).length && !list.some((a) => a.state === 'active' || a.state === 'reported')) return 'exhausted'
+  // 후보 없음은 이 흐름에서 해 본 시도만 본다 (지난 일만 적힌 흐름은 아직 시작 전과 같다)
+  const live = list.filter((a) => a.origin !== 'past')
+  if (live.length > 0 && !eligible(claims, live).length && !live.some((a) => a.state === 'active' || a.state === 'reported')) return 'exhausted'
   return undefined
 }
 
@@ -86,12 +89,13 @@ function row(l: Loaded): ProblemRow {
   const count = (s: AttemptState) => list.filter((a) => a.state === s).length
   const next = l.raw.state === 'open' ? nextOf(l.raw, claims, list) : undefined
   const stop = stopOf(l.raw, claims, list)
+  const confirm = list.filter(unconfirmed).length
   return {
     id: l.id, question: l.raw.question, state: l.raw.state, by: l.raw.by, ...(l.raw.created && { created: l.raw.created }), ...(l.raw.source && { source: l.raw.source }),
     limit: l.raw.limit, used: usedOf(list),
     counts: { candidate: count('candidate'), active: count('active'), reported: count('reported'), holds: count('holds'), dropped: count('dropped') },
     ...(next && { next: { id: next.id, label: labelOf(next.id), method: next.method } }), ...(stop && { stop }), waiting: stop === 'decision',
-    ...(l.raw.closed?.answer && { answer: l.raw.closed.answer }),
+    ...(l.raw.closed?.answer && { answer: l.raw.closed.answer }), ...(confirm && { confirm }),
   }
 }
 
@@ -106,16 +110,18 @@ function view(l: Loaded, repo: string): Problem {
     const changed = a.state === 'holds' && a.verdict?.files ? changedSince(repo, a.verdict.files) : []
     // 판정 뒤에 바뀐 주장: 성립 판정 때 적어 둔 지문과 지금 그 주장의 진술 · 조건이 다르다
     const restated = a.state === 'holds' && !!a.verdict?.claim && !!target && a.verdict.claim !== claimHash(target)
-    return { ...known, ...(target && { claim: target.id }), label: labelOf(a.id), hash: hashOf(text.get(a.id) ?? ''), next: r.next?.id === a.id, ...(changed.length && { changed }), ...(restated && { restated }) }
+    return { ...known, ...(target && { claim: target.id }), label: labelOf(a.id), hash: hashOf(text.get(a.id) ?? ''), next: r.next?.id === a.id, ...(changed.length && { changed }), ...(restated && { restated }), ...(unconfirmed(a) && { turn: true }) }
   })
   const status = claimStates(rawClaims, list)
-  const claims: Claim[] = claimTree(rawClaims).map(({ c, depth }) => {
+  const claims: Claim[] = claimTree(rawClaims, list).map(({ c, depth }) => {
     const { extra: _extra, under: _under, ...known } = c
     const own = attempts.filter((a) => a.claim === c.id)
     const s = status.get(c.id) ?? { state: 'candidate' as const, waiting: false }
     const stale = own.some((a) => a.state === 'holds' && (a.restated || !!a.changed?.length))
     const up = c.under && rawClaims.some((x) => x.id === c.under) ? c.under : undefined
-    return { ...known, ...(up && { under: up }), hash: hashOf(text.get(c.id) ?? ''), depth, state: s.state, ...(s.waiting && { waiting: true }), ...(stale && { stale: true }), attempts: own.map((a) => a.id) }
+    const day = claimDay(c, rawClaims, list)
+    return { ...known, ...(up && { under: up }), hash: hashOf(text.get(c.id) ?? ''), depth, state: s.state, ...(s.waiting && { waiting: true }), ...(stale && { stale: true }), attempts: own.map((a) => a.id),
+      ...(day && { when: day }), ...(own.some((a) => a.turn) && { unconfirmed: true }) }
   })
   const { extra: _extra, question: _q, state: _s, by: _b, created: _c, source: _src, limit: _l, ...more } = l.raw
   return {
@@ -361,6 +367,41 @@ export function addAttempts(wb: Workbench, id: string, body: NewAttemptsBody, ac
   return readProblem(wb, id)
 }
 
+/**
+ * 지난 일 하나를 적는다 (「＋ 한 일」, 11/14 "추천대로 시작"): 흐름을 열기 전에 한 일도 그 한 날과 함께 근거로 둔다. 한도 · 정체에는 세지 않는다.
+ * 사용자가 적으면 그대로 판정된 근거다(outcome, 기본 성립). 에이전트가 적으면 판정 대기로 남고 사용자만 확인한다: 그때까지 주장의 상태에 들지 않는다.
+ * statement를 적으면 겨눈 주장(없으면 질문) 아래에 새 주장이 생기고 이 기록은 그 근거가 된다 (보고와 같다)
+ */
+export function recordAttempt(wb: Workbench, id: string, body: RecordAttemptBody, actor: string): Problem {
+  const l = load(wb, id)
+  needOpen(wb, actor, l)
+  const user = isUser(actor)
+  if (!user && body.outcome) refuse(wb, actor, { problem: id }, 'user-only', 403, '지난 일의 성립 · 폐기는 사용자가 확인할 때 정합니다. outcome 없이 적으세요', 'Whether past work holds is decided by the user on confirming. Write it without outcome')
+  const target = body.claim ? claimOf(l, body.claim) : undefined
+  const statement = clean(body.statement), condition = clean(body.condition)
+  if (!statement && (condition || body.side)) throw new WorkbenchError(400, t('조건과 쪽은 진술(statement)과 함께 적습니다', 'A condition and a side come with a statement'))
+  let aim = target?.id
+  if (statement && !(target && sameText(target.statement, statement))) {
+    if (!target && !body.side) throw new WorkbenchError(400, t('질문 바로 아래의 주장에는 질문의 어느 쪽을 받치는지 적어 주세요 (side: for_yes 예 · for_no 아니오 · neither 어느 쪽도 아님)', 'A claim right under the question needs the side it supports (side: for_yes, for_no or neither)'))
+    if (l.claims.some((x) => sameText(x.raw.statement, statement))) throw new WorkbenchError(409, t('같은 진술의 주장이 이미 있습니다. 그 주장을 겨눠 적으세요', 'A claim with the same statement already exists. Aim at that claim instead'))
+    aim = nextClaimId(l)
+    saveClaim(l, { id: aim, statement, ...(condition && { condition }), ...(target ? { under: target.id } : { side: body.side }), by: actor, created: now(), extra: {} })
+  }
+  const outcome = user ? body.outcome ?? 'holds' : undefined
+  if (outcome === 'holds' && !aim) throw new WorkbenchError(400, t('성립한 일에는 주장이 있어야 합니다. 겨눌 주장을 고르거나 주장 한 문장을 적으세요', 'Work that holds needs a claim. Pick a claim to aim at, or write one'))
+  const at = now(), aid = nextAttemptId(new Set(l.attempts.map((x) => x.raw.id)))
+  const lesson = clean(body.lesson) ?? (outcome === 'dropped' ? body.result : undefined)
+  const files = body.files?.map((f) => f.trim()).filter(Boolean) ?? []
+  const after = aim ? (l.claims.find((x) => x.raw.id === aim)?.raw ?? { statement: statement!, condition }) : undefined
+  saveAttempt(l, {
+    id: aid, method: body.method, ...(aim && { claim: aim }), state: outcome ?? 'reported', by: actor, created: at, ...(body.when && { when: body.when }), origin: 'past',
+    worker: actor, ...(clean(body.did) && { did: clean(body.did) }), result: body.result, files, reported: at,
+    ...(outcome && { verdict: { at, by: actor, note: '사용자가 직접 적은 지난 일', ...(outcome === 'holds' && after && { claim: claimHash(after) }) } }),
+    ...(lesson && { lesson }), extra: {},
+  })
+  return readProblem(wb, id)
+}
+
 const STOP_TEXT: Record<ProblemStop, [string, string]> = {
   decision: ['방향 보고가 사용자의 결정을 기다립니다. 결정이 날 때까지 새 시도를 시작하지 않습니다', 'A direction report is waiting for the user\'s decision. No new attempt starts until then'],
   limit: ['시도 한도에 닿았습니다. 다음 시도 대신 방향 보고를 내세요 (direction_report)', 'The attempt limit is reached. File a direction report instead of the next attempt (direction_report)'],
@@ -440,12 +481,15 @@ export function verdictAttempt(wb: Workbench, id: string, aid: string, body: Att
     if (!isUser(actor) || body.result !== 'dropped') throw new WorkbenchError(409, t('보고가 있는 시도(판정 대기)만 판정합니다', 'Only a reported attempt (awaiting verdict) gets a verdict'))
   }
   const here = { problem: id, attempt: aid }
+  // 지난 일을 에이전트가 적은 것: 무엇이 근거로 남을지는 사용자만 정한다 (11/14 "옛 기록은 사용자만 확인")
+  const past = a.origin === 'past'
+  if (past && !isUser(actor)) refuse(wb, actor, here, 'user-only', 403, '지난 일의 기록은 사용자가 확인합니다. 에이전트는 적기만 합니다', 'A record of past work is confirmed by the user. Agents only write it down')
   if (a.worker && a.worker === actor) refuse(wb, actor, here, 'self-verdict', 403, '작업한 쪽은 판정하지 않습니다. 다른 에이전트나 사용자가 원자료로 판정합니다', 'The one who did the work does not give the verdict. Another agent or the user judges from the raw data')
   // 성립 = 겨눈 주장이 이 시도의 근거에서 따라 나온다. 겨눈 주장이 없으면(질문을 바로 겨눴고 진술도 내놓지 않았다) 성립이라고 할 것이 없다
   const target = targetOf(a, claimsIn(l))
   if (body.result === 'holds' && !target) refuse(wb, actor, here, 'no-claim', 409, '주장이 없는 시도는 성립으로 판정하지 못합니다. 작업한 쪽이 판단할 수 있는 한 문장(statement)을 적어 다시 보고하거나, 폐기합니다', 'An attempt without a claim cannot hold. The worker reports again with one judgeable sentence (statement), or it is dropped')
   const check = clean(body.check), lesson = clean(body.lesson) ?? a.lesson, reopen = clean(body.reopen) ?? a.reopen
-  if (body.result === 'holds' && !check) throw new WorkbenchError(400, t('성립에는 교차 검증(check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한 가운데 무엇을 했나)이 있어야 합니다', 'A holds verdict needs a check outside the fitted condition (check: another size, other parameters, an independent implementation or a limit)'))
+  if (body.result === 'holds' && !check && !past) throw new WorkbenchError(400, t('성립에는 교차 검증(check: 다른 크기 · 다른 매개변수 · 독립 구현 · 극한 가운데 무엇을 했나)이 있어야 합니다', 'A holds verdict needs a check outside the fitted condition (check: another size, other parameters, an independent implementation or a limit)'))
   // 검사 명령이 있는 시도: 다시 돌려 실패했으면 성립이 아니고, 에이전트는 돌린 결과(통과)가 있어야 성립을 준다. 사용자는 돌리지 않고도 정할 수 있다
   if (body.result === 'holds' && body.tested === 'fail') throw new WorkbenchError(400, t('검사가 실패했으면 성립이 아닙니다. 폐기하거나, 고친 뒤 다시 보고받습니다', 'A failed test is not a holds verdict. Drop it, or have it reported again after a fix'))
   if (body.result === 'holds' && a.test && !isUser(actor) && body.tested !== 'pass') refuse(wb, actor, here, 'test-not-run', 400, `이 시도에는 검사 명령이 있습니다. 다시 돌려 보고 결과를 적습니다 (tested: pass): ${a.test}`, `This attempt has a test command. Rerun it and record the result (tested: pass): ${a.test}`)

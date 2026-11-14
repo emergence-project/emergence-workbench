@@ -5,7 +5,7 @@ import { Icon } from './icons'
 import { t } from './i18n'
 import { ATTEMPT_DOT, AttemptRow, CandidateInput, errorOf, when, who } from './ProblemAttempt'
 import { ClaimInput, ClaimPeek, ClaimRow, ClaimView, Moves } from './ProblemClaim'
-import { CloseDialog, ProblemDialog, VerdictDialog } from './ProblemDialogs'
+import { CloseDialog, ProblemDialog, RecordDialog, VerdictDialog } from './ProblemDialogs'
 import { FlowsChart, ROOT_ID, TreeChart } from './ProblemChart'
 import { Exceptions } from './ProblemExceptions'
 import { ANSWER_NAME, ATTEMPT_NAME } from './problemNames'
@@ -36,7 +36,10 @@ export function useProblems(rid: string) {
   return useQuery({ queryKey: qk.problems(rid), queryFn: () => problemsApi(rid).list() })
 }
 /** 사용자 차례: 방향 보고가 결정을 기다리는 흐름 수 */
-export const problemTurns = (rows: ProblemRow[] | undefined) => rows?.filter((p) => p.waiting).length ?? 0
+export const problemTurns = (rows: ProblemRow[] | undefined) => rows?.reduce((n, p) => n + turnsOf(p), 0) ?? 0
+/** 흐름 하나의 사용자 차례: 방향 보고의 결정과, 확인할 지난 일 */
+const turnsOf = (p: ProblemRow) => (p.waiting ? 1 : 0) + (p.confirm ?? 0)
+const turnsSaid = (p: ProblemRow) => [p.waiting && STOP_TEXT.decision, p.confirm && t(`확인할 지난 일 ${p.confirm}`, `${p.confirm} past records to check`)].filter(Boolean).join(' · ')
 
 /** 고른 보기는 이 브라우저에 남긴다. 주소에 보기가 있으면(보기를 고른 뒤, 찍는 화면) 그것이 앞선다 */
 const VIEW_KEY = 'rw-flow-view'
@@ -89,7 +92,7 @@ function Row({ rid, p }: { rid: string; p: ProblemRow }) {
   return (
     <button className="pb-row" data-ui="흐름 줄" data-ui-item={p.question} onClick={() => go({ page: 'problems', rid, id: p.id })}>
       <span className="pb-q">{p.question}</span>
-      {p.waiting && <span className="rail-count" title={STOP_TEXT.decision}>1</span>}
+      {turnsOf(p) > 0 && <span className="rail-count" title={turnsSaid(p)}>{turnsOf(p)}</span>}
       {p.state === 'open' && <Counts p={p} />}
       {now && <span className="pb-now">{now}</span>}
     </button>
@@ -101,7 +104,7 @@ function ChartLabel({ rid, p }: { rid: string; p: ProblemRow }) {
   const now = nowOf(p)
   return <>
     <button className="pb-chart-name" data-ui="흐름 줄" data-ui-item={p.question} onClick={() => go({ page: 'problems', rid, id: p.id })}>{p.question}</button>
-    {(p.waiting || p.state === 'open') && <span className="pb-chart-nums">{p.waiting && <span className="rail-count" title={STOP_TEXT.decision}>1</span>}{p.state === 'open' && <Counts p={p} />}</span>}
+    {(turnsOf(p) > 0 || p.state === 'open') && <span className="pb-chart-nums">{turnsOf(p) > 0 && <span className="rail-count" title={turnsSaid(p)}>{turnsOf(p)}</span>}{p.state === 'open' && <Counts p={p} />}</span>}
     {now && <span className="pb-now" title={now}>{now}</span>}
   </>
 }
@@ -141,7 +144,7 @@ function ProblemList({ rid, kind, view, views }: { rid: string; kind?: ProjectKi
 
 // ---------- 흐름 하나 ----------
 
-type Open = { k: 'edit' } | { k: 'close'; note?: string } | { k: 'verdict'; attempt: Attempt; result: 'holds' | 'dropped' }
+type Open = { k: 'edit' } | { k: 'close'; note?: string } | { k: 'verdict'; attempt: Attempt; result: 'holds' | 'dropped' } | { k: 'record'; under?: string }
 
 function ProblemView({ rid, id, view, views, at, onSaved }: { rid: string; id: string; view: FlowView; views: ReactNode; at?: string; onSaved(msg: string): void }) {
   const client = useQueryClient()
@@ -169,7 +172,7 @@ function ProblemView({ rid, id, view, views, at, onSaved }: { rid: string; id: s
     onAdd={(method, claim) => void run(() => api.addAttempts(p.id, [{ method, ...(claim && { claim }) }]))}
     onAddClaim={(statement, under, side) => void run(() => api.addClaim(p.id, { statement, ...(under ? { under } : { side }) }))}
     onOrder={(order) => void run(() => api.patch(p.id, p.hash, { order }))}
-    onVerdict={(attempt, result) => setOpen({ k: 'verdict', attempt, result })} /></RepoPathContext.Provider>
+    onVerdict={(attempt, result) => setOpen({ k: 'verdict', attempt, result })} onRecord={(under) => setOpen({ k: 'record', under })} /></RepoPathContext.Provider>
   return <>
     <header className="pb-head bar3" data-ui="흐름 머리">
       <span><button className="a pb-back" onClick={() => go({ page: 'problems', rid })}>{t('흐름', 'Flows')}</button></span>
@@ -221,6 +224,7 @@ function ProblemView({ rid, id, view, views, at, onSaved }: { rid: string; id: s
 
     {open?.k === 'close' && <CloseDialog rid={rid} problem={p} note={open.note} onClose={() => setOpen(null)}
       onDone={(q) => saved(q.state === 'closed' ? t('종료했습니다', 'Closed') : t('종료하지 않았습니다. 수정 · 기각한 주장을 돌려보냈습니다', 'Not closed. The claims you sent back or rejected were returned'))()} />}
+    {open?.k === 'record' && <RecordDialog rid={rid} problem={p} under={open.under} onClose={() => setOpen(null)} onDone={saved(t('한 일을 적었습니다', 'Past work added'))} />}
     {open?.k === 'verdict' && <VerdictDialog rid={rid} problem={p} attempt={open.attempt} result={open.result} onClose={() => setOpen(null)} onDone={saved(t('판정을 적었습니다', 'Verdict saved'))} />}
   </>
 }
@@ -287,7 +291,7 @@ function Decision({ p, report, busy, onDecide }: { p: ProblemDoc; report: Direct
 
 const depthStyle = (depth: number): CSSProperties => ({ paddingLeft: `calc(${depth} * var(--sp-5))` })
 
-function Tree({ p, rid, busy, locked, chart, at, onAdd, onAddClaim, onOrder, onVerdict }: {
+function Tree({ p, rid, busy, locked, chart, at, onAdd, onAddClaim, onOrder, onVerdict, onRecord }: {
   p: ProblemDoc; rid: string; busy: boolean; locked: boolean
   /** 차트 보기: 주장의 나무를 차트로 그리고 고른 점의 미리보기만 그 아래에 둔다. 전부는 주장 화면에서 본다 */
   chart: boolean
@@ -297,6 +301,8 @@ function Tree({ p, rid, busy, locked, chart, at, onAdd, onAddClaim, onOrder, onV
   onAddClaim(statement: string, under?: string, side?: ClaimSide): void
   onOrder(order: string[]): void
   onVerdict(attempt: Attempt, result: 'holds' | 'dropped'): void
+  /** 지난 일 적기 창을 연다 (고른 주장을 겨눈 곳으로) */
+  onRecord(under?: string): void
 }) {
   // 차트에서는 고른 점(주장 번호 · 0), 목록에서는 펼친 시도
   const [shown, setShown] = useState<string | null>(at ?? null)
@@ -328,7 +334,8 @@ function Tree({ p, rid, busy, locked, chart, at, onAdd, onAddClaim, onOrder, onV
     <section className="pb-sec" data-ui="주장 목록" ref={section}>
       <h3 className="pb-h3">{t('주장', 'Claims')} <span className="muted">{p.claims.length}</span><span className="muted">{t(`시도 ${p.used} / 한도 ${p.limit}`, `Attempts ${p.used} / limit ${p.limit}`)}</span><span className="sp" />
         {!locked && <button className="btn sm" data-ui="주장 추가" onClick={() => setAdding('claim')}>＋ {t('주장', 'Claim')}</button>}
-        {!locked && <button className="btn sm" data-ui="후보 추가" onClick={() => setAdding('try')}>＋ {t('후보', 'Candidate')}</button>}</h3>
+        {!locked && <button className="btn sm" data-ui="후보 추가" onClick={() => setAdding('try')}>＋ {t('후보', 'Candidate')}</button>}
+        {!locked && <button className="btn sm" data-ui="한 일 추가" title={t('흐름 전에 한 일을 그 날과 함께 근거로 적습니다', 'Record work done before this flow, with its day')} onClick={() => onRecord(picked?.id)}>＋ {t('한 일', 'Past work')}</button>}</h3>
       {empty && <p className="empty">{t('주장도 시도도 없습니다. 「＋ 주장」으로 판단할 문장을 세우고 「＋ 후보」로 해 볼 방법을 추가합니다.', 'No claims or attempts. Set up a sentence to judge with "＋ Claim", then add a method to try with "＋ Candidate".')}</p>}
       {chart ? !empty && <>
         <div className="pb-chart" data-ui="흐름 차트"><TreeChart flow={p} selected={shown} rootName={t('질문', 'Question')} onRoot={() => toggle(ROOT_ID)} onPick={(c) => toggle(c.id)} /></div>

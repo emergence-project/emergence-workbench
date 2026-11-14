@@ -61,6 +61,10 @@ export const Claim = z.object({
   rejected: z.object({ at: z.string(), by: z.string(), note: z.string() }).strict().optional(),
   /** 이 주장을 겨눈 시도 (순서대로) */
   attempts: z.array(z.string()),
+  /** 근거의 날짜 (YYYY-MM-DD): 이 주장을 겨눈 시도 가운데 가장 이른 한 날, 없으면 주장을 세운 날. 형제 주장은 이 순서로 놓인다. 읽을 때 앱이 계산한다 */
+  when: z.string().optional(),
+  /** 사용자가 확인하지 않은 옛 기록(에이전트가 적은 한 일)이 근거에 있다. 그 기록은 상태 계산에 들지 않는다 */
+  unconfirmed: z.boolean().optional(),
 }).strict()
 
 /** 시도 하나: 주장(또는 질문)을 겨눈 방법 하나와 해 본 결과. 주장의 근거가 된다. label은 화면에 보이는 이름(A · B) */
@@ -98,6 +102,12 @@ export const Attempt = z.object({
   reopen: z.string().optional(),
   /** 지금 할 후보 (순서의 첫 후보) */
   next: z.boolean(),
+  /** 한 날 (YYYY-MM-DD): 지난 일을 적을 때 그 일을 한 날 */
+  when: z.string().optional(),
+  /** past = 지난 일을 나중에 적은 것(「＋ 한 일」). 한도 · 정체에 세지 않고, 에이전트가 적은 것은 사용자가 확인해야 근거가 된다 */
+  origin: z.literal('past').optional(),
+  /** 사용자 차례: 다음 판정을 사용자만 한다 (에이전트가 적은 옛 기록의 확인). 읽을 때 앱이 계산한다 */
+  turn: z.boolean().optional(),
 }).strict()
 
 const Counts = z.object({ candidate: z.number(), active: z.number(), reported: z.number(), holds: z.number(), dropped: z.number() }).strict()
@@ -121,6 +131,8 @@ export const ProblemRow = z.object({
   waiting: z.boolean(),
   /** 답과 함께 닫은 흐름의 답 */
   answer: FlowAnswer.optional(),
+  /** 사용자 차례: 확인을 기다리는 옛 기록 수 */
+  confirm: z.number().optional(),
 }).strict()
 export const ProblemList = z.object({
   problems: z.array(ProblemRow),
@@ -191,6 +203,16 @@ export const NewClaimBody = z.object({ statement: line, condition: z.string().op
 export const AttemptReportBody = z.object({ did: line, result: line, statement: z.string().optional(), condition: z.string().optional(), side: ClaimSide.optional(), files: z.array(z.string()).optional(), run: AttemptRun.optional(), test: z.string().optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
 /** tested: 시도에 검사 명령이 있으면 다시 돌린 결과 (에이전트의 성립에는 pass가 있어야 한다) */
 export const AttemptVerdictBody = z.object({ result: z.enum(ATTEMPT_VERDICTS), note: line, check: z.string().optional(), tested: z.enum(TEST_RESULTS).optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
+const DAY = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'when: YYYY-MM-DD')
+/**
+ * POST …/problems/:id/attempts/record: 지난 일 하나를 적는다 (「＋ 한 일」). claim = 겨눈 주장(없으면 질문), statement를 적으면 그 아래 새 주장이 생긴다 (보고와 같다).
+ * 사용자가 적으면 outcome(기본 성립)으로 곧바로 판정된 근거가 되고, 에이전트가 적으면 판정 대기로 남아 사용자가 확인한다 (outcome은 사용자만)
+ */
+export const RecordAttemptBody = z.object({
+  method: line, claim: z.string().optional(), when: DAY.optional(), did: z.string().optional(), result: line,
+  statement: z.string().optional(), condition: z.string().optional(), side: ClaimSide.optional(), files: z.array(z.string()).optional(),
+  outcome: z.enum(ATTEMPT_VERDICTS).optional(), lesson: z.string().optional(),
+}).strict()
 export const DirectionReportBody = z.object({ for_yes: z.string().optional(), for_no: z.string().optional(), neither: z.string().optional() }).strict()
 export const DirectionDecisionBody = z.object({ baseHash: hash, verdict: z.enum(DIRECTION_VERDICTS), note: z.string().optional(), limit: z.number().int().min(1).max(99).optional() }).strict()
 
@@ -241,5 +263,6 @@ export type NewAttemptsBody = z.infer<typeof NewAttemptsBody>
 export type NewClaimBody = z.infer<typeof NewClaimBody>
 export type AttemptReportBody = z.infer<typeof AttemptReportBody>
 export type AttemptVerdictBody = z.infer<typeof AttemptVerdictBody>
+export type RecordAttemptBody = z.infer<typeof RecordAttemptBody>
 export type DirectionReportBody = z.infer<typeof DirectionReportBody>
 export type DirectionDecisionBody = z.infer<typeof DirectionDecisionBody>
