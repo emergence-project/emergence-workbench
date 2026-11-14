@@ -1,9 +1,9 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import type { Attempt, AttemptState } from './api'
+import type { Attempt, AttemptState, Claim } from './api'
 import { Author } from './Author'
 import { Icon } from './icons'
 import { t } from './i18n'
-import { ATTEMPT_NAME } from './problemNames'
+import { ATTEMPT_NAME, objOf, TargetSelect } from './problemNames'
 import { CodeText } from './repoPaths'
 import { agentName } from './taskView'
 
@@ -38,12 +38,14 @@ export function AttemptTags({ a, next }: { a: Attempt; next: boolean }) {
 }
 
 /** 후보 입력란: 방법 한 줄. under는 겨눌 주장의 번호(없으면 질문). Enter로 추가, Esc로 닫는다 */
-export function CandidateInput({ under, busy, onAdd, onClose }: { under?: string; busy: boolean; onAdd(method: string): void; onClose(): void }) {
+export function CandidateInput({ under, targets, busy, onAdd, onClose }: { under?: string; targets?: readonly Claim[]; busy: boolean; onAdd(method: string, under?: string): void; onClose(): void }) {
   const [method, setMethod] = useState('')
-  const add = () => { const m = method.trim(); if (m) onAdd(m) }
+  const [to, setTo] = useState(under ?? '')
+  const add = () => { const m = method.trim(); if (m) onAdd(m, to || undefined) }
   return (
     <div className="pb-add" data-ui="후보 입력란">
-      <input autoFocus aria-label={t('방법 한 줄', 'Method, one line')} placeholder={under ? t(`주장 ${under}을 겨눈 방법 한 줄`, `Method aimed at claim ${under}, one line`) : t('질문을 겨눈 방법 한 줄', 'Method aimed at the question, one line')}
+      {targets && <TargetSelect claims={targets} value={to} onChange={setTo} />}
+      <input autoFocus aria-label={t('방법 한 줄', 'Method, one line')} placeholder={to ? t(`주장 ${to}${objOf(to)} 겨눈 방법 한 줄`, `Method aimed at claim ${to}, one line`) : t('질문을 겨눈 방법 한 줄', 'Method aimed at the question, one line')}
         value={method} onChange={(e) => setMethod(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(); if (e.key === 'Escape') onClose() }} />
       <button className="btn sm primary" disabled={busy || !method.trim()} onClick={add}>{t('추가', 'Add')}</button>
       <button className="btn sm" onClick={onClose}>{t('취소', 'Cancel')}</button>

@@ -313,8 +313,8 @@ function Tree({ p, rid, busy, locked, chart, at, onAdd, onAddClaim, onOrder, onV
   const picked = chart ? p.claims.find((c) => c.id === shown) : undefined
   const peeking = chart && (!!picked || shown === ROOT_ID)
   /** 미리보기에서 주장 화면으로. 돌아오면 같은 점이 골라져 있게 지금 주소에 고른 점을 남긴다 */
-  const open = (cid: string) => {
-    try { history.replaceState(history.state, '', href({ page: 'problems', rid, id: p.id, at: cid })) } catch { /* 무시 */ }
+  const open = (cid: string, sel = cid) => {
+    try { history.replaceState(history.state, '', href({ page: 'problems', rid, id: p.id, at: sel })) } catch { /* 무시 */ }
     go({ page: 'problems', rid, id: p.id, attempt: cid })
   }
   const row = (a: Attempt, depth: number) => (
@@ -332,7 +332,7 @@ function Tree({ p, rid, busy, locked, chart, at, onAdd, onAddClaim, onOrder, onV
       {empty && <p className="empty">{t('주장도 시도도 없습니다. 「＋ 주장」으로 판단할 문장을 세우고 「＋ 후보」로 해 볼 방법을 추가합니다.', 'No claims or attempts. Set up a sentence to judge with "＋ Claim", then add a method to try with "＋ Candidate".')}</p>}
       {chart ? !empty && <>
         <div className="pb-chart" data-ui="흐름 차트"><TreeChart flow={p} selected={shown} rootName={t('질문', 'Question')} onRoot={() => toggle(ROOT_ID)} onPick={(c) => toggle(c.id)} /></div>
-        {peeking ? <div ref={peek}><ClaimPeek p={p} claim={picked} onOpen={() => open(picked?.id ?? ROOT_ID)} /></div>
+        {peeking ? <div ref={peek}><ClaimPeek p={p} claim={picked} onOpen={() => open(picked?.id ?? ROOT_ID)} onGo={(x) => open(x, picked?.id ?? ROOT_ID)} /></div>
           : <p className="pb-peek-none">{t('점을 누르면 그 주장과 근거가 여기에 보입니다.', 'Pick a dot to see that claim and its grounds here.')}</p>}
       </> : !empty && <div className="pb-tree">
         {tries(undefined).map((a) => row(a, 0))}
@@ -341,8 +341,8 @@ function Tree({ p, rid, busy, locked, chart, at, onAdd, onAddClaim, onOrder, onV
           {tries(c.id).map((a) => row(a, c.depth + 1))}
         </Fragment>)}
       </div>}
-      {adding === 'try' && <CandidateInput key={picked?.id ?? ''} under={picked?.id} busy={busy} onAdd={(m) => { onAdd(m, picked?.id); setAdding(null) }} onClose={() => setAdding(null)} />}
-      {adding === 'claim' && <ClaimInput key={picked?.id ?? ''} under={picked?.id} busy={busy} onAdd={(statement, side) => { onAddClaim(statement, picked?.id, side); setAdding(null) }} onClose={() => setAdding(null)} />}
+      {adding === 'try' && <CandidateInput key={picked?.id ?? ''} under={picked?.id} targets={p.claims} busy={busy} onAdd={(m, to) => { onAdd(m, to); setAdding(null) }} onClose={() => setAdding(null)} />}
+      {adding === 'claim' && <ClaimInput key={picked?.id ?? ''} under={picked?.id} targets={p.claims} busy={busy} onAdd={(statement, side, to) => { onAddClaim(statement, to, side); setAdding(null) }} onClose={() => setAdding(null)} />}
     </section>
   )
 }

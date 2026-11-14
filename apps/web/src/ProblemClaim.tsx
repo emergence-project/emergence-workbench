@@ -7,7 +7,7 @@ import { AttemptDot, AttemptRow, attemptNote, CandidateInput, errorOf, when, who
 import { claimTally, ROOT_ID, TreeChart } from './ProblemChart'
 import { VerdictDialog } from './ProblemDialogs'
 import { nearOf } from './problemLayout'
-import { ATTEMPT_NAME, SIDE_NAME, SideTag } from './problemNames'
+import { ATTEMPT_NAME, objOf, SIDE_NAME, SideTag, TargetSelect } from './problemNames'
 import { qk } from './queries'
 import { RepoPathContext } from './repoPaths'
 import { go } from './router'
@@ -55,16 +55,22 @@ export function ClaimRow({ c, style, onOpen }: { c: Claim; style?: CSSProperties
 }
 
 const SIDES: ClaimSide[] = ['for_yes', 'for_no', 'neither']
-/** 주장 입력란: 판단할 수 있는 한 문장. 질문 바로 아래(under 없음)면 어느 쪽 근거인지도 고른다. Enter로 추가, Esc로 닫는다 */
-export function ClaimInput({ under, busy, onAdd, onClose }: { under?: string; busy: boolean; onAdd(statement: string, side?: ClaimSide): void; onClose(): void }) {
+
+/**
+ * 주장 입력란: 판단할 수 있는 한 문장. 질문 바로 아래면 어느 쪽 근거인지도 고른다. Enter로 추가, Esc로 닫는다.
+ * targets를 주면 어디 아래에 둘지 입력란 안에서 고른다(처음 값은 under)
+ */
+export function ClaimInput({ under, targets, busy, onAdd, onClose }: { under?: string; targets?: readonly Claim[]; busy: boolean; onAdd(statement: string, side?: ClaimSide, under?: string): void; onClose(): void }) {
   const [statement, setStatement] = useState('')
   const [side, setSide] = useState<ClaimSide>('for_yes')
-  const add = () => { const s = statement.trim(); if (s) onAdd(s, under ? undefined : side) }
+  const [to, setTo] = useState(under ?? '')
+  const add = () => { const s = statement.trim(); if (s) onAdd(s, to ? undefined : side, to || undefined) }
   return (
     <div className="pb-add" data-ui="주장 입력란">
-      <input autoFocus aria-label={t('판단할 수 있는 한 문장', 'One sentence that can be judged')} placeholder={under ? t(`주장 ${under}을 받치는, 판단할 수 있는 한 문장`, `One judgeable sentence that supports claim ${under}`) : t('판단할 수 있는 한 문장', 'One sentence that can be judged')}
+      {targets && <TargetSelect claims={targets} value={to} onChange={setTo} />}
+      <input autoFocus aria-label={t('판단할 수 있는 한 문장', 'One sentence that can be judged')} placeholder={to ? t(`주장 ${to}${objOf(to)} 받치는, 판단할 수 있는 한 문장`, `One judgeable sentence that supports claim ${to}`) : t('판단할 수 있는 한 문장', 'One sentence that can be judged')}
         value={statement} onChange={(e) => setStatement(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(); if (e.key === 'Escape') onClose() }} />
-      {!under && <div className="segmented small" role="radiogroup" aria-label={t('질문의 어느 쪽 근거인가', 'Which answer it supports')}>
+      {!to && <div className="segmented small" role="radiogroup" aria-label={t('질문의 어느 쪽 근거인가', 'Which answer it supports')}>
         {SIDES.map((k) => <button key={k} type="button" role="radio" aria-checked={side === k} className={side === k ? 'on' : ''} onClick={() => setSide(k)}>{SIDE_NAME[k]}</button>)}
       </div>}
       <button className="btn sm primary" disabled={busy || !statement.trim()} onClick={add}>{t('추가', 'Add')}</button>
@@ -83,7 +89,8 @@ export const groundsOf = (p: ProblemDoc, claim: Claim | undefined) => ({
  * 미리보기: 차트에서 고른 점의 요점만. 첫 줄은 상태 · 번호 · 진술 · 태그와 「열기」, 그 아래에 조건과 근거(시도 한 줄씩, 아래 주장 한 줄씩).
  * 시도의 전부(작업 내용 · 파일 · 판정)는 주장 화면에 있다. claim이 없으면 질문 점이다
  */
-export function ClaimPeek({ p, claim, onOpen }: { p: ProblemDoc; claim?: Claim; onOpen(): void }) {
+/** onGo: 근거 한 줄을 누르면 그 시도(글자, 주장 화면에서 펼친다)나 그 주장(번호)으로 */
+export function ClaimPeek({ p, claim, onOpen, onGo }: { p: ProblemDoc; claim?: Claim; onOpen(): void; onGo(at: string): void }) {
   const { tries, subs } = groundsOf(p, claim)
   const none = <span className="muted">{t('없음', 'None')}</span>
   return (
@@ -99,11 +106,11 @@ export function ClaimPeek({ p, claim, onOpen }: { p: ProblemDoc; claim?: Claim; 
         <dt>{t('시도', 'Attempts')}</dt>
         <dd className="pb-grounds-cell">{tries.length ? <ul className="pb-grounds" data-ui="근거 시도">{tries.map((a) => {
           const note = attemptNote(a)
-          return <li key={a.id} className={`s-${a.state}`} title={ATTEMPT_NAME[a.state]}><AttemptDot s={a.state} /><b>{a.label}</b><span>{a.method}{a.next && !p.stop && <span className="tag pb-next">{t('다음', 'Next')}</span>}{note && <small>{note}</small>}</span></li>
+          return <li key={a.id} className={`s-${a.state}`} title={ATTEMPT_NAME[a.state]}><button className="pb-ground-go" onClick={() => onGo(a.id)}><AttemptDot s={a.state} /><b>{a.label}</b><span>{a.method}{a.next && !p.stop && <span className="tag pb-next">{t('다음', 'Next')}</span>}{note && <small>{note}</small>}</span></button></li>
         })}</ul> : none}</dd>
         {(subs.length > 0 || claim) && <><dt>{t('주장', 'Claims')}</dt>
           <dd className="pb-grounds-cell">{subs.length ? <ul className="pb-grounds" data-ui="근거 주장">{subs.map((c) => (
-            <li key={c.id} className={`s-${c.state}`}><AttemptDot s={c.state} /><b>{c.id}</b><span>{c.statement}<small>{claimTally(c)}</small></span></li>
+            <li key={c.id} className={`s-${c.state}`}><button className="pb-ground-go" onClick={() => onGo(c.id)}><AttemptDot s={c.state} /><b>{c.id}</b><span>{c.statement}<small>{claimTally(c)}</small></span></button></li>
           ))}</ul> : none}</dd></>}
       </dl>
     </div>
@@ -193,7 +200,7 @@ export function ClaimView({ rid, id, at, onSaved }: { rid: string; id: string; a
           {subs.map((c) => <ClaimRow key={c.id} c={c} onOpen={() => open(c)} />)}
         </div>}
         {adding === 'try' && <CandidateInput under={claim?.id} busy={busy} onAdd={(method) => void run(() => api.addAttempts(p.id, [{ method, ...(claim && { claim: claim.id }) }]))} onClose={() => setAdding(null)} />}
-        {adding === 'claim' && <ClaimInput under={claim?.id} busy={busy} onAdd={(statement, side) => void run(() => api.addClaim(p.id, { statement, ...(claim ? { under: claim.id } : { side }) }))} onClose={() => setAdding(null)} />}
+        {adding === 'claim' && <ClaimInput under={claim?.id} busy={busy} onAdd={(statement, side, under) => void run(() => api.addClaim(p.id, { statement, ...(under ? { under } : { side }) }))} onClose={() => setAdding(null)} />}
       </section>
     </RepoPathContext.Provider>
     {verdict && <VerdictDialog rid={rid} problem={p} attempt={verdict.attempt} result={verdict.result} onClose={() => setVerdict(null)} onDone={() => { setVerdict(null); onSaved(t('판정을 적었습니다', 'Verdict saved')); void reload() }} />}

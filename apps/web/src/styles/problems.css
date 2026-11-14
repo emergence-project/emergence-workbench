@@ -232,12 +232,13 @@
 /* 미리보기의 근거: 시도 한 줄씩(상태 점 · 글자 · 방법, 아래에 옅은 한 줄), 아래 주장 한 줄씩(상태 점 · 번호 · 진술) */
 .pb-peek-facts dd.pb-grounds-cell { display: block; overflow: visible; }
 .pb-grounds { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
-.pb-grounds li { display: grid; grid-template-columns: auto 1.6em minmax(0, 1fr); align-items: baseline; gap: var(--sp-1); }
+.pb-grounds li { display: block; }
+.pb-ground-go { display: grid; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; grid-template-columns: auto 1.6em minmax(0, 1fr); align-items: baseline; gap: var(--sp-1); }
 .pb-grounds b { font-weight: var(--fw-strong); }
-.pb-grounds li > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.pb-ground-go > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .pb-grounds small { display: block; font-size: inherit; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-grounds .tag { margin: 0 0 0 var(--sp-2); }
-.pb-grounds .s-dropped > span:last-child, .pb-grounds .s-dropped b { color: var(--text-3); }
+.pb-grounds .s-dropped .pb-ground-go > span:last-child, .pb-grounds .s-dropped b { color: var(--text-3); }
 /* 주장 화면: 진술 아래 한 줄(상태 · 태그 · 누가 언제) */
 .pb-meta .pb-tags { justify-content: flex-start; }
 .pb-meta .pb-state { color: var(--text-2); }
@@ -249,3 +250,7 @@
   .pb-add { flex-wrap: wrap; }
   .pb-add input { flex-basis: 100%; }
 }
+.pb-ground-go:hover > span:last-child { text-decoration: underline; text-decoration-color: var(--text-3); }
+.pb-ground-go:focus-visible { background: var(--bg-hover); outline: none; border-radius: var(--r-sm); }
+/* 입력란 안에서 겨눌 곳 고르기 (질문 · 주장) */
+.pb-target { max-width: 14em; flex: none; }
