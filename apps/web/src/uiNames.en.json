@@ -1043,5 +1043,9 @@
   "바라는 점": "Other wishes",
   "고치는 중": "Editing",
   "소개 이력": "About history",
-  "확인한 때": "Review day"
+  "확인한 때": "Review day",
+  "노트 이력": "Note history",
+  "이력 커밋": "History commit",
+  "이력 본문": "History text",
+  "고른 버전": "Chosen version"
 }

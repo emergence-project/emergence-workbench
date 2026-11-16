@@ -15,6 +15,7 @@ import { NoteAsk, type CommentTarget } from './Comments'
 import { askConfirm } from './askText'
 import { t } from './i18n'
 import { frontMatterEnd } from '@rw/core'
+import { NoteHistoryBody, pickedFor, useNoteHistory } from './NoteHistory'
 
 /**
  * 연구노트·보조 노트의 Markdown + KaTeX 본문 (10/4 결정: 개념노트와 같은 형식과 편집기).
@@ -109,6 +110,9 @@ export function MarkdownNoteBody({ rid, text, rapi, kind, editing, onSave, onCan
   const asset = useMemo(() => (file && kind === 'note' ? (name: string) => rapi.noteAssetUrl(file, name) : undefined), [file, kind, rapi])
   const scroller = useRef<HTMLDivElement>(null)
   useNoteSections(scroller, editing ? null : tocOwner ?? null, body)
+  // 이력 보기에서 커밋을 고르면 본문 대신 그 버전과 바뀐 곳 (11/16 시안 2절 ③′)
+  const history = useNoteHistory()
+  if (!editing && file && pickedFor(history, `${rid}/${file}`).length) return <NoteHistoryBody rid={rid} file={file} options={options} asset={asset} head={head} />
   if (editing) {
     const front = text.slice(0, frontMatterEnd(text))
     return (
