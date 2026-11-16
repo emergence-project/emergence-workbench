@@ -416,8 +416,10 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
   const write = async (target: unknown, a: { baseHash: string; edits: unknown; approved?: boolean; summary?: string }): Promise<Text> => {
     const r = await post(base, f, '/api/agent-edits/write', { target, baseHash: a.baseHash, edits: a.edits, approved: a.approved, summary: a.summary, agent: agentOf(server.server.getClientVersion()?.name) })
     if (!r.ok) return r.error
-    const b = r.body as { hash: string; changes: number }
-    return text(`Written. New hash: ${b.hash}. ${b.changes} changed paragraph(s) now await the user's review in the app (approve, revert or edit). Do not undo or redo the user's decisions.`)
+    const b = r.body as { hash: string; changes: number; suggested?: number }
+    // 사용자가 쓴 문단은 파일을 바꾸지 않고 제안으로 (11/16 시안 2절 ②)
+    const held = b.suggested ? ` ${b.suggested} edit(s) touched paragraphs the user wrote: those were NOT written to the file but kept as suggestions the user takes or discards in the app. Do not send them again or work around this.` : ''
+    return text(`Written. New hash: ${b.hash}. ${b.changes} changed paragraph(s) now await the user's review in the app (approve, revert or edit).${held} Do not undo or redo the user's decisions.`)
   }
 
   server.registerTool('edit_note', {

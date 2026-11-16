@@ -30,12 +30,19 @@ export const EditReview = z.object({
   /** 바뀐 곳에서 묻기(10/14)가 쓰는 노트 기록 대상 (comments/<대상>.md). 개념노트 · 기록을 붙이지 않는 노트는 없음 */
   record: z.object({ target: z.string(), title: z.string(), source: z.string().optional() }).strict().optional(),
 }).strict()
+/** 제안 (11/16 시안 2절 ②): 사람이 쓴 문단(before)을 에이전트가 바꾸려는 글(after, ''면 지움). 받기 전에는 파일이 그대로다 */
+export const EditSuggestion = z.object({ id: z.string(), key: z.string(), target: EditTarget, title: z.string(), before: z.string(), after: z.string(), section: z.string().optional(), reason: z.string().optional(), by: z.string().optional(), at: z.string() }).strict()
 /** GET /agent-edits */
-export const EditList = z.object({ reviews: z.array(EditReviewRow), attempts: z.array(EditAttempt) }).strict()
+export const EditList = z.object({ reviews: z.array(EditReviewRow), attempts: z.array(EditAttempt), suggestions: z.array(EditSuggestion) }).strict()
+/** GET /agent-edits/suggestions?scope= (프로젝트 id 또는 노트 key) */
+export const EditSuggestions = z.object({ suggestions: z.array(EditSuggestion) }).strict()
+/** POST /agent-edits/suggestions: 받았으면 새 hash */
+export const SuggestionDecided = z.object({ ok: z.literal(true), hash: z.string().optional() }).strict()
 /** GET · POST /agent-edits/review. 바뀐 곳이 없으면 null */
 export const EditReviewOne = z.object({ review: EditReview.nullable() }).strict()
 /** POST /agent-edits/write (확인된 노트를 허락 없이 쓰면 428) */
-export const AgentWritten = z.object({ ok: z.literal(true), hash: z.string(), changes: z.number(), key: z.string() }).strict()
+/** suggested = 내 문단이라 쓰지 않고 제안으로 둔 곳의 수 (11/16) */
+export const AgentWritten = z.object({ ok: z.literal(true), hash: z.string(), changes: z.number(), suggested: z.number().optional(), key: z.string() }).strict()
 /** POST /agent-edits/discuss: 묻기를 남긴 뒤의 검토와 그 노트의 기록 파일 (답은 나중에 덧붙는다) */
 export const EditDiscussed = z.object({ review: EditReview, file: CommentFile }).strict()
 /** DELETE /agent-edits/attempts */
@@ -50,6 +57,8 @@ export const DecideBody = z.object({ key: z.string(), hash: z.string(), hunk: z.
 /** 바뀐 곳에서 묻기 (10/14): 질문은 답만 받고, 수정은 에이전트가 그 문단을 다시 고치게 한다 */
 export const EDIT_ASKS = ['질문', '수정'] as const
 export const DiscussBody = z.object({ key: z.string(), hash: z.string(), hunk: z.string(), ask: z.enum(EDIT_ASKS), text: z.string() })
+/** 제안 받기(take: true) · 버리기(false) */
+export const SuggestionBody = z.object({ id: z.string(), take: z.boolean() })
 /** 에이전트 쓰기 (MCP edit_note · edit_concept). target 모양은 서버가 더 자세한 글로 검사한다 */
 export const WriteBody = z.object({
   target: z.unknown(),
@@ -70,6 +79,9 @@ export type EditList = z.infer<typeof EditList>
 export type EditReviewOne = z.infer<typeof EditReviewOne>
 export type AgentWritten = z.infer<typeof AgentWritten>
 export type EditOk = z.infer<typeof EditOk>
+export type EditSuggestion = z.infer<typeof EditSuggestion>
+export type EditSuggestions = z.infer<typeof EditSuggestions>
+export type SuggestionDecided = z.infer<typeof SuggestionDecided>
 export type EditDiscussed = z.infer<typeof EditDiscussed>
 export type EditAction = (typeof EDIT_ACTIONS)[number]
 export type DecideBody = z.input<typeof DecideBody>

@@ -1048,5 +1048,9 @@
   "이력 커밋": "History commit",
   "이력 본문": "History text",
   "고른 버전": "Chosen version",
-  "갈래 거르기": "Kind filter"
+  "갈래 거르기": "Kind filter",
+  "제안": "Suggestion",
+  "제안 버리기": "Discard suggestion",
+  "제안 받기": "Take suggestion",
+  "내 문단 제안": "Suggestions on your paragraphs"
 }

@@ -14,6 +14,7 @@ import { t } from './i18n.js'
 import { listNotes } from './noteList.js'
 import { ConflictError, WorkbenchError, type Workbench } from './workbench.js'
 import { canonicalNoteFile, frontMatterLines, noteRecordTarget, sameNoteFile } from '@rw/core'
+import { holdHumanEdits, type Suggestion } from './agentSuggest.js'
 
 // 응답 모양은 API 계약(@rw/core/contract/agentEdits)에 있다
 export type { EditTarget, EditAttempt } from '@rw/core/contract/agentEdits'
@@ -43,7 +44,8 @@ export interface PendingEdit {
 }
 
 
-interface StoreData { pending: PendingEdit[]; attempts: EditAttempt[] }
+/** suggestions: 내 문단에 대한 에이전트 고침 (11/16 시안 2절 ②, agentSuggest.ts) */
+interface StoreData { pending: PendingEdit[]; attempts: EditAttempt[]; suggestions?: Suggestion[] }
 
 /** 노트는 주제 폴더 사이를 옮겨도 같은 key (notes/<노트>/의 경로) */
 export const targetKey = (t: EditTarget): string => (t.kind === 'concept' ? `concept:${t.id}` : `note:${t.rid}:${canonicalNoteFile(t.file)}`)
@@ -61,7 +63,7 @@ export class AgentEditStore {
     try { raw = fs.readFileSync(this.file, 'utf8') } catch { return { pending: [], attempts: [] } }
     try {
       const v = JSON.parse(raw) as Partial<StoreData>
-      return { pending: Array.isArray(v.pending) ? v.pending : [], attempts: Array.isArray(v.attempts) ? v.attempts : [] }
+      return { pending: Array.isArray(v.pending) ? v.pending : [], attempts: Array.isArray(v.attempts) ? v.attempts : [], ...(Array.isArray(v.suggestions) && { suggestions: v.suggestions }) }
     } catch {
       // 깨진 기록을 빈 것으로 덮어쓰면 검토 기준판을 모두 잃는다(되돌리기 불가). 옆에 보관하고 새로 시작한다
       if (readOnly) return { pending: [], attempts: [] }
@@ -361,10 +363,12 @@ export interface WriteRequest {
   approved?: boolean
   agent?: string
   summary?: string
+  /** 사람이 마지막에 쓴 문단 (git blame, agentSuggest.ts). 주면 그 문단을 바꾸는 곳은 쓰지 않고 제안으로 둔다 */
+  mine?: Set<string> | null
 }
 
 export type WriteResult =
-  | { ok: true; hash: string; changes: number }
+  | { ok: true; hash: string; changes: number; suggested?: number }
   | { ok: false; status: 428; error: string }
 
 export function applyEdits(text: string, edits: WriteRequest['edits']): string {
@@ -387,7 +391,7 @@ export function agentWrite(io: TargetIo, store: AgentEditStore, req: WriteReques
   const st = readTarget(io, req.target)
   if (st.hash !== req.baseHash) throw new ConflictError(t('다른 곳에서 파일이 바뀌어 쓰지 않았음. 다시 읽어 주세요', 'Not written: the file was changed elsewhere. Read it again'), st.hash)
   if (!Array.isArray(req.edits) || !req.edits.length) throw new WorkbenchError(400, t('edits가 필요함', 'edits are required'))
-  const next = applyEdits(st.text, req.edits)
+  let next = applyEdits(st.text, req.edits)
   const now = new Date().toISOString()
   if (st.confirmed && !req.approved) {
     store.update((d) => {
@@ -398,7 +402,17 @@ export function agentWrite(io: TargetIo, store: AgentEditStore, req: WriteReques
       'The user has reviewed this note. Ask the user in the conversation whether you may change it, and only after they agree send again with approved: true. The app has shown this attempt to the user.') }
   }
   const before = syncPending(store, key, st.text)
-  if (next === st.text) return { ok: true, hash: st.hash, changes: before ? diffBlocks(splitBlocks(before.base), splitBlocks(st.text)).length : 0 }
+  const hold = req.mine?.size ? holdHumanEdits(st.text, next, req.mine) : null
+  if (hold?.held.length) {
+    next = hold.applied
+    const reasonOf = (after: string) => req.edits.find((e) => e.reason?.trim() && after && (after.includes(e.new.trim()) || e.new.includes(after)))?.reason?.replace(/\s+/g, ' ').trim().slice(0, 300)
+    store.update((d) => {
+      d.suggestions = [...(d.suggestions ?? []).filter((x) => !(x.key === key && hold.held.some((h) => h.before === x.before))),
+        ...hold.held.map((h, k) => { const reason = reasonOf(h.after); return { id: `${Date.now().toString(36)}-${k}`, key, target: req.target, title: st.title, before: h.before, after: h.after, ...(h.section && { section: h.section }), ...(reason && { reason }), ...(req.agent && { by: req.agent }), at: now } })]
+    })
+  }
+  const suggested = hold?.held.length ? { suggested: hold.held.length } : {}
+  if (next === st.text) return { ok: true, hash: st.hash, changes: before ? diffBlocks(splitBlocks(before.base), splitBlocks(st.text)).length : 0, ...suggested }
   const hash = writeTarget(io, req.target, next, st.hash)
   const reasons = req.edits.filter((e) => typeof e.reason === 'string' && e.reason.trim() && e.new.trim())
     .map((e) => ({ text: e.new.trim(), reason: e.reason!.replace(/\s+/g, ' ').trim().slice(0, 300), ...(req.agent && { by: req.agent }), at: now }))
@@ -417,7 +431,7 @@ export function agentWrite(io: TargetIo, store: AgentEditStore, req: WriteReques
   const p = d.pending.find((x) => x.key === key)!
   const changes = diffBlocks(splitBlocks(p.base), splitBlocks(next)).length
   if (!changes) store.update((d) => { d.pending = d.pending.filter((x) => x.key !== key) })
-  return { ok: true, hash, changes }
+  return { ok: true, hash, changes, ...suggested }
 }
 
 // ── 사용자가 그 뒤에 고친 것 ────────────────────────────────────────
@@ -554,7 +568,7 @@ export function decide(io: TargetIo, store: AgentEditStore, req: DecideRequest):
 }
 
 /** 목록: 검토를 기다리는 노트(바뀐 곳 수)와 확인된 노트 쓰기 시도. rid를 주면 그 프로젝트 노트만, 'library'면 개념노트만 */
-export function listEdits(io: TargetIo, store: AgentEditStore, scope?: string, readOnly = false): { reviews: (Omit<ReviewView, 'hunks' | 'hash' | 'notes'> & { changes: number })[]; attempts: EditAttempt[] } {
+export function listEdits(io: TargetIo, store: AgentEditStore, scope?: string, readOnly = false): { reviews: (Omit<ReviewView, 'hunks' | 'hash' | 'notes'> & { changes: number })[]; attempts: EditAttempt[]; suggestions: Suggestion[] } {
   const inScope = (t0: EditTarget) => !scope || (scope === 'library' ? t0.kind === 'concept' : t0.kind === 'note' && t0.rid === scope)
   const reviews: (Omit<ReviewView, 'hunks' | 'hash' | 'notes'> & { changes: number })[] = []
   for (const p of store.read(readOnly).pending.filter((x) => inScope(x.target))) {
@@ -569,5 +583,5 @@ export function listEdits(io: TargetIo, store: AgentEditStore, scope?: string, r
     } catch { continue }
     if (v) reviews.push({ key: v.key, target: v.target, title: v.title, since: v.since, updated: v.updated, agents: v.agents, changes: v.hunks.length })
   }
-  return { reviews: reviews.sort((a, b) => a.since.localeCompare(b.since)), attempts: store.read(readOnly).attempts.filter((a) => inScope(a.target)).sort((a, b) => a.at.localeCompare(b.at)) }
+  return { reviews: reviews.sort((a, b) => a.since.localeCompare(b.since)), attempts: store.read(readOnly).attempts.filter((a) => inScope(a.target)).sort((a, b) => a.at.localeCompare(b.at)), suggestions: (store.read(readOnly).suggestions ?? []).filter((x) => inScope(x.target)).sort((a, b) => a.at.localeCompare(b.at)) }
 }
