@@ -645,7 +645,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
   const live = isLive(chat.state)
-  const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, agent: chat.agent, ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
+  const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, agent: chat.agent, account: chat.account ?? 'default', ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
   const change = (s: Partial<Settings>) => {
     setOver((o) => ({ ...o, ...s }))
     setFail(null)
@@ -653,7 +653,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
     q.n++
     q.chain = q.chain.then(async () => {
       try {
-        client.setQueryData(qk.agentChat(id), await agentChatsApi.settings(id, { ...(s.trust && settingsOf(s.trust)), ...(s.model && { model: s.model }), ...(s.effort && { effort: s.effort }) }))
+        client.setQueryData(qk.agentChat(id), await agentChatsApi.settings(id, { ...(s.trust && settingsOf(s.trust)), ...(s.model && { model: s.model }), ...(s.effort && { effort: s.effort }), ...(s.account && { account: s.account }) }))
       } catch (e) { setFail((e as Error).message) }
       if (--q.n === 0) setOver({})
     })

@@ -153,6 +153,14 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
     if (!rel || rel === '.git' || rel.startsWith('.git/')) {
       return { kind: 'deny', reason: t(`작업 폴더 밖이라 고치지 않습니다: ${p}`, `Outside the work folder: ${p}`), message: `${p} is outside this conversation's work folder (${ctx.repo}). Change files only inside it.` }
     }
+    const other = ctx.claimedBy(rel)
+    if (other) {
+      return {
+        kind: 'deny',
+        reason: t(`다른 앱 고치기 대화(「${other}」)가 고친 파일이라 합칠 때 부딪힙니다: ${rel}`, `Another app conversation ("${other}") changed ${rel}; both would collide when merging`),
+        message: `Another app conversation ("${other}") has changed ${rel} and its pull request is not merged yet. Do not change this file now: finish without it, or tell the user that it has to wait until that pull request merges.`,
+      }
+    }
     if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`파일 고치기: ${rel}`, `Edit file: ${rel}`), key: `edit:${rel}`, label: t(`파일 고치기 · ${rel}`, `Edit file · ${rel}`), claim: rel }
     return { kind: 'allow', claim: rel }
   }

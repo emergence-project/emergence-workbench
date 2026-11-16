@@ -130,6 +130,8 @@ export const ChatRow = z.object({
   mode: z.enum(CHAT_MODES),
   model: ChatModel,
   effort: z.enum(CHAT_EFFORTS),
+  /** Claude 계정 (설정 › 에이전트의 더한 계정 id). 없으면 이 컴퓨터에 로그인한 기본 계정 (11/16 "계정 둘") */
+  account: z.string().optional(),
   /** 권한 토글을 하나씩 바꿨으면 그 값 (없으면 권한 이름의 기본값, 화면은 「직접 정함」) */
   auto: ChatAuto.optional(),
   /** 이 대화가 지금 고치는 중인 파일 (저장소 기준 경로). 다른 대화는 쓰지 못한다 */
@@ -220,7 +222,7 @@ const message = {
   images: z.array(ImageIn).max(4).optional(),
 }
 /** auto: 토글 값(권한 이름을 바꾸면 빠지고 그 이름의 기본값으로, 같이 보내면 그대로 둔다) */
-export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional(), auto: ChatAuto.optional() }).strict()
+export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional(), auto: ChatAuto.optional(), account: z.string().min(1).max(40).optional() }).strict()
 export const NewChatBody = z.object({
   rid: z.string().min(1),
   agent: z.enum(AGENT_KINDS).optional(),
@@ -352,6 +354,11 @@ export const CentralOpenBody = z.object({
 export const CentralSendBody = z.object({ id: z.string(), text: z.string().trim().min(1).max(20000) }).strict()
 export const CentralCloseBody = z.object({ id: z.string(), summary: z.string().trim().min(1).max(2000) }).strict()
 export const CentralKidOne = z.object({ kid: CentralKid }).strict()
+/** GET /agent-central/feedback: 에이전트 차례인 피드백 (pnpm agent:feedback --peek와 같은 계산). taken = 다른 컴퓨터 · 클라우드 루틴이 맡음, chat = 이미 맡은 이 앱의 대화 */
+export const CentralFeedback = z.object({
+  items: z.array(z.object({ key: z.string(), kind: z.string().optional(), target: z.string(), text: z.string(), reasons: z.array(z.string()), taken: z.boolean(), chat: z.string().optional() }).strict()),
+}).strict()
+export type CentralFeedback = z.infer<typeof CentralFeedback>
 export type CentralKid = z.infer<typeof CentralKid>
 export type CentralState = z.infer<typeof CentralState>
 export type CentralOpenBody = z.infer<typeof CentralOpenBody>

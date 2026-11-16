@@ -8,7 +8,8 @@
  * - 앱 고치기 대화는 동시에 APP_LIVE_MAX개까지 (시안 §9 ③). 피드백은 열기 전에 맡기(handoff.yaml)를 적어 올려
  *   클라우드 루틴 · 다른 맥과 같은 항목을 함께 처리하지 않는다 (11/8에 있었던 일).
  */
-import { APP_RID, CENTRAL_RID, type CentralKid, type CentralOpenBody, type Chat, type ChatItem, type ChatMessageBody } from '@rw/core/contract/agentChats'
+import { agentTurnReasons, agentTurns } from '@rw/core'
+import { APP_RID, CENTRAL_RID, type CentralFeedback, type CentralKid, type CentralOpenBody, type Chat, type ChatItem, type ChatMessageBody } from '@rw/core/contract/agentChats'
 import { AgentChats, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { t } from './i18n.js'
@@ -25,6 +26,7 @@ export const CENTRAL_BRIEF = [
   'You only read and orchestrate. You cannot edit files, run commands or write notes and records: the app blocks it.',
   '- Answer questions yourself by reading: workbench MCP tools (list_projects, project_status, overview, read_note, list_records, search_library, rules) and Read/Grep/Glob on the app repository (your working folder) and registered projects.',
   '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; merging and restarting stay with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
+  '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per item).',
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
   '- Each user message starts with a short status of your sub-conversations. Mention one only when the user must act (their turn, a failed check) or it finished.',
@@ -87,7 +89,7 @@ export class CentralChats extends AgentChats {
   talk(text: string): Chat {
     const c = this.central()
     if (c) return this.send(c.id, { text })
-    const digest = digestOf([])
+    const digest = `${digestOf([])}${this.feedbackLine()}`
     return this.create({ rid: CENTRAL_RID, text, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}\n\n${digest}\n\n${text}`)
   }
 
@@ -97,7 +99,7 @@ export class CentralChats extends AgentChats {
     if (c.rid === CENTRAL_RID && prompt === undefined) {
       // 앱이 다시 켜져 세션이 없으면 안내도 다시
       const brief = c.sessionId ? '' : `${CENTRAL_BRIEF}\n\n`
-      return super.send(id, m, `${brief}${digestOf(this.kidsOf(id))}\n\n${promptOf(m.text, m.attach)}`)
+      return super.send(id, m, `${brief}${digestOf(this.kidsOf(id))}${this.feedbackLine()}\n\n${promptOf(m.text, m.attach)}`)
     }
     return super.send(id, m, prompt)
   }
@@ -136,6 +138,25 @@ export class CentralChats extends AgentChats {
     // 맡길 일에 사용자의 말이 더 있으면 이어 보낸다 (피드백 안내는 handOff가 만든다)
     if (b.task.trim()) this.send(kid.id, { text: b.task })
     return kidOf(this.must(kid.id))
+  }
+
+  /** 상태 줄에 붙이는 피드백 수 (11/16 사용자 "피드백 처리는 항상 하위 대화가, 중앙은 쌓이면 사용자 요청에 따라 연다"). 맡을 것이 없으면 빈 글 */
+  private feedbackLine(): string {
+    let n = 0
+    try { n = this.feedbackTurns().items.filter((i) => !i.taken && !i.chat).length } catch { /* 피드백 폴더를 못 읽으면 줄 없이 */ }
+    return n ? `\n[Feedback waiting for the agent: ${n}. Open feedback sub-conversations only if the user asks]` : ''
+  }
+
+  /** 에이전트 차례인 피드백 (feedback_turns): 중앙이 「새 피드백 처리해 줘」에 어느 항목을 맡길지 고른다 */
+  feedbackTurns(): CentralFeedback {
+    const fb = this.deps.feedback
+    if (!fb) return { items: [] }
+    const items = listAllFeedback(fb.dir).filter((e) => agentTurns(e).length).map((e) => {
+      const since = lastTouched(e)
+      const chat = [...this.chats.values()].find((c) => c.feedback === e.key && new Date(c.created).getTime() >= since)
+      return { key: e.key, ...(e.kind && { kind: e.kind }), target: e.target, text: e.text.replace(/\s+/g, ' ').trim().slice(0, 300), reasons: agentTurnReasons(e), taken: !!fb.claims?.taken(e.key, since), ...(chat && { chat: chat.id }) }
+    })
+    return { items }
   }
 
   /** 중앙이 하위 대화에 이어 보낸다 (chat_send) */

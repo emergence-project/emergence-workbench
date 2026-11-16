@@ -2,7 +2,8 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import type { AgentRunner } from './agentChats.js'
 import { buildApp } from './app.js'
 import { aboutSameNote, appIssuesUrl, buildReason, nextBuildOf, numberVersions, parseSubject, promoteNextBuild, webRemote } from './appupdate.js'
 import { fixture, tmp, useSampleApp } from './testkit.js'
@@ -159,6 +160,29 @@ describe('앱 업데이트', () => {
     calls.length = 0
     expect((await restart()).json()).toEqual({ restarting: true })
     expect(calls).toEqual(['restart'])
+
+    // 에이전트 대화가 일하는 중이면 다시 시작하지 않고, 끝나면 저절로 (11/16 "중앙 에이전트" 2단계)
+    let release!: () => void
+    const hold = new Promise<void>((r) => { release = r })
+    const slow: AgentRunner = async function* () { yield { type: 'session', id: 's' }; await hold; yield { type: 'result', ok: true } }
+    const ub = buildApp({ configDir: path.join(tmp, 'config-auto-agents'), appRepo: { root: mac, running, steps }, agentRunner: slow })
+    const talk = await ub.inject({ method: 'POST', url: '/api/agent-central/messages', payload: { text: '일해 줘' } })
+    expect(talk.statusCode).toBe(200)
+    vi.useFakeTimers({ toFake: ['setInterval'] })
+    try {
+      calls.length = 0
+      const busy = await ub.inject({ method: 'POST', url: '/api/app/restart' })
+      expect(busy.statusCode).toBe(409)
+      expect(busy.json().error).toMatch(/에이전트 대화 1개|1 working agent/)
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(calls).toEqual([])
+      release()
+      const id = talk.json().chat.id
+      await vi.waitFor(async () => expect((await ub.inject({ method: 'GET', url: `/api/agent-chats/${id}` })).json().chat.state).toBe('idle'))
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(calls).toEqual(['restart'])
+    } finally { vi.useRealTimers() }
+    await ub.close()
 
     // 새 커밋으로 켜지면 미리 빌드한 화면을 dist로 바꿔 단다. 다른 커밋이면 그대로 둔다
     fs.mkdirSync(path.join(mac, 'apps/web/dist'), { recursive: true }); fs.writeFileSync(path.join(mac, 'apps/web/dist/index.html'), 'v1')

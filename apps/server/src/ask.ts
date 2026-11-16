@@ -41,7 +41,17 @@ export function withPath(env: NodeJS.ProcessEnv, dirs: string[]): NodeJS.Process
 }
 
 /** 서비스(launchd)나 창에서 켠 앱은 PATH가 짧아 claude를 못 찾으므로 흔한 설치 위치를 더한다 (윈도우: 설치 프로그램의 .local\bin, npm 전역) */
+/** 기본 계정의 폴더 (claudeAccounts.ts가 건다): 이 컴퓨터 계정이 아니면 CLAUDE_CONFIG_DIR로 넘긴다 */
+let baseDir: () => string | undefined = () => undefined
+export function setClaudeBaseDir(f: () => string | undefined): void { baseDir = f }
+
 export function claudeEnv(platform: NodeJS.Platform = process.platform): NodeJS.ProcessEnv {
+  const base = baseDir()
+  if (base) return { ...claudeEnvOf(platform), CLAUDE_CONFIG_DIR: base }
+  return claudeEnvOf(platform)
+}
+
+function claudeEnvOf(platform: NodeJS.Platform): NodeJS.ProcessEnv {
   const home = os.homedir()
   const extra = platform === 'win32'
     ? [path.join(home, '.local', 'bin'), ...(process.env.APPDATA ? [path.join(process.env.APPDATA, 'npm')] : [])]

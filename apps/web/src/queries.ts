@@ -79,6 +79,7 @@ export const qk = {
   agentKinds: ['agent-kinds'] as const,
   /** 설정 › 에이전트 (에이전트마다 시작 권한 · 하는 일, 저절로 검토) */
   agentSettings: ['agent-settings'] as const,
+  claudeAccounts: ['claude-accounts'] as const,
   account: ['account'] as const,
   agentExtras: ['agent-extras'] as const,
   /** 앱 피드백 (설정 폴더의 개인 저장소 사본. 프로젝트 알림과 상관없다) */

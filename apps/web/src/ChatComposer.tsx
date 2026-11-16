@@ -7,6 +7,7 @@ import { Icon } from './icons'
 import { qk } from './queries'
 import { href } from './router'
 import { useDismiss } from './useDismiss'
+import { accountLabel, useClaudeAccounts } from './ClaudeAccountsSettings'
 import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
 
 /**
@@ -50,7 +51,7 @@ export const effortLabel = (suffix: string) => Object.entries(EFFORT_NAME).find(
 export const CUSTOM_NAME = t('직접 정함', 'Custom')
 
 /** custom = 권한 표의 토글을 하나씩 바꿔 이름이 「직접 정함」, auto = 새 대화에 걸 자동 허용 (설정 › 에이전트에서 바꾼 때만, 11/9) */
-export interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; custom?: boolean; agent: string; auto?: { read: boolean; run: boolean; web: boolean } }
+export interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; custom?: boolean; agent: string; auto?: { read: boolean; run: boolean; web: boolean }; /** Claude 계정 (11/16, 열린 대화만) */ account?: string }
 
 // ---------- / 명령 ----------
 
@@ -319,6 +320,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   const stopping = !!onStop && !text.trim()
   const shownFail = fail ?? outerFail
   const models = useModels(settings.agent)
+  const accounts = useClaudeAccounts().data?.accounts.filter((a) => a.login) ?? []
   const efforts = effortsOf(settings.model, models)
   const fam = familyOf(settings.model, models)
   // 생각 깊이 고르기: Claude는 effort 칸, Codex는 모델 id 뒤의 깊이(gpt-…/high). 기본 모델이면 실제로 도는 모델의 깊이를 고르면 그 모델로 바뀐다
@@ -386,6 +388,11 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
               const value = pickFamily(f, fam.suffix)
               return <button key={f.base} role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => { close(); onSettings({ model: value, ...fitEffort(settings.effort, effortsOf(value, models)) }) }}><span className="ac-pop-check" aria-hidden>{on ? Icon.check : null}</span>{f.base === 'default' ? modelName('default', models).replace(/ \(.*\)$/, '') : f.name}</button>
             })}
+            {/* 계정 (11/16 "계정 전환을 쉽게"): 이 대화만 다른 Claude 계정으로. 다음 차례부터, 일하는 중에는 서버가 막는다 */}
+            {settings.account !== undefined && isClaude(settings.agent) && accounts.length > 1 && <>
+              <div className="ac-pop-h">{t('계정', 'Account')}</div>
+              {accounts.map((a) => <button key={a.id} role="menuitemradio" aria-checked={settings.account === a.id} className={settings.account === a.id ? 'on' : ''} onClick={() => { close(); if (settings.account !== a.id) onSettings({ account: a.id }) }}><span className="ac-pop-check" aria-hidden>{settings.account === a.id ? Icon.check : null}</span>{accountLabel(a)}</button>)}
+            </>}
           </>}
         </PopButton>
         {thinking.length > 0 && (

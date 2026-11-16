@@ -93,6 +93,8 @@ if (process.env.RW_SANDBOX === '1') {
     registry.setUi({ language: sampleEn ? 'en' : 'ko' })
     // 저자 예: 실사용은 처음에 저자가 없다(이름을 넣기 전에 예시 이름이 원고에 들어가지 않게, 10/21 맥미니)
     registry.setAuthors(DEFAULT_AUTHORS)
+    // Claude 계정 예 (11/16): 기본 계정에 더한 Pro 계정 하나, 중앙 · 피드백은 Pro로. 이 컴퓨터의 claude는 띄우지 않는다 (routes/claudeAccounts.ts가 예제 계정으로 보인다)
+    fs.writeFileSync(path.join(configDir, 'claude-accounts.json'), `${JSON.stringify({ accounts: [{ id: 'a5a3b1e', name: 'Pro' }], roles: { central: 'a5a3b1e', feedback: 'a5a3b1e' } }, null, 2)}\n`)
   }
   if (!registry.list().some((r) => r.path === fs.realpathSync(research))) {
     const { id } = registry.register(research)

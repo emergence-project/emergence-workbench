@@ -122,6 +122,8 @@ export const DEFAULT_SCREENS = [
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],
+  // Claude 계정 (11/16): 기본 · 더한 Pro 계정, 대화 종류마다 계정 (예제는 server.ts가 Pro 계정 하나를 넣는다)
+  ['settings-claude-accounts', '#/settings/agents', '계정 고르기'],
   // 설정 › 에이전트 › 에이전트 자세히 (11/9): Codex 줄을 눌러 들어간 모양 (계정 · 시작 권한 · 자동 허용 · 하는 일)
   ['settings-agent-detail', '#/settings/agents', '에이전트 자세히', ['[data-ui="대화 에이전트"]:nth-of-type(2)']],
   // 폰에서 보기 (10/30): 예제 모드의 가짜 Tailscale을 켜 둔 화면(주소 · QR)

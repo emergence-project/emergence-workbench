@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { APP_LIVE_MAX, CENTRAL_BRIEF, CentralChats, digestOf, lastReport } from './agentCentral.js'
 import { judge, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { sampleAppWork } from './appWorktree.js'
+import { ClaudeAccounts } from './claudeAccounts.js'
 
 const W = 'mcp__workbench__'
 const ctx = (o: Partial<PolicyCtx> = {}): PolicyCtx => ({ rid: '_central', write: 'read', mode: 'edit', planOk: false, scope: { kind: 'all' }, repo: '/w/app', readable: [], claimedBy: () => undefined, ...o })
@@ -122,5 +123,30 @@ describe('중앙과 하위 대화', () => {
     await expect(chats.openKid({ role: 'app', title: '하나 더', task: '고쳐' })).rejects.toThrow(/chat_send|이어 보내/)
     release()
     chats.stopAll()
+  })
+})
+
+describe('중앙의 계정과 피드백 수', () => {
+  const FIX = path.resolve(import.meta.dirname, '../../../fixtures/sandbox-feedback')
+  it('중앙은 고른 계정 폴더로 돌고, 상태 줄에 맡을 피드백 수를 붙이되 스스로 열지 않는다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-central-'))
+    const seen: RunInput[] = []
+    const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> { seen.push(input); yield { type: 'session', id: 's' }; yield { type: 'result', ok: true } }
+    const fb = path.join(dir, 'feedback')
+    fs.cpSync(FIX, fb, { recursive: true })
+    const accounts = new ClaudeAccounts(path.join(dir, 'config'), { cli: () => '/bin/true', home: path.join(dir, 'home') })
+    const pro = accounts.add('Pro').accounts[1]!.id
+    const chats = new CentralChats({ dir, runner: fake, limit: 4, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {}, accounts, feedback: { dir: fb } })
+    const waiting = chats.feedbackTurns().items.filter((i) => !i.taken && !i.chat).length
+    expect(waiting).toBeGreaterThan(0)
+    const c = chats.talk('안녕')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    expect(chats.get(c.id).account).toBe(pro)
+    expect(seen[0]!.env).toEqual({ CLAUDE_CONFIG_DIR: accounts.dirOf(pro) })
+    expect(seen[0]!.prompt).toContain(`[Feedback waiting for the agent: ${waiting}.`)
+    expect(seen[0]!.prompt).toContain('Feedback is always handled by feedback sub-conversations, never by you')
+    expect(chats.centralState().kids).toEqual([])
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
   })
 })

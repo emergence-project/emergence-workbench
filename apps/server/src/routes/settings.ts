@@ -98,9 +98,16 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     const repo = opts.appRepo
     if (!repo) throw new WorkbenchError(404, t('이 모드에서는 앱을 업데이트하지 않습니다', 'The app does not update in this mode'))
     if (updating) throw new WorkbenchError(409, t('이미 업데이트 중입니다', 'Already updating'))
-    const run = updateApp(repo.root, repo.running, repo.steps)
+    // 에이전트 대화가 일하는 중이면 받고 빌드까지만 하고, 다시 시작은 그 차례들이 끝난 뒤 (11/16 "중앙 에이전트" 2단계)
+    const busy = agentsWorking()
+    const run = updateApp(repo.root, repo.running, repo.steps, { restart: !busy })
     updating = run
-    try { return await run } catch (e) {
+    try {
+      const r = await run
+      if (!busy || r.status.head === r.status.running) return r
+      restartAfterAgents()
+      return { ...r, message: t(`새 버전을 받아 두었습니다. 일하는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `The new version is ready. It restarts once the ${busy} working agent conversation(s) finish`) }
+    } catch (e) {
       // 서비스 로그(pnpm service:logs)에 남겨 맥에서 이유를 찾을 수 있게 한다
       console.error(`app update failed: ${(e as Error).message}`)
       if (e instanceof UpdateError) throw new WorkbenchError(409, e.message)
@@ -135,11 +142,30 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     if (!repo) return { restarting: false, reason: t('이 모드에서는 앱을 업데이트하지 않습니다', 'The app does not update in this mode') }
     if (updating) return { restarting: false, reason: t('업데이트 중입니다', 'Updating') }
     if (inflight > 0) return { restarting: false, reason: t('처리 중인 일이 있습니다', 'Work is in progress') }
+    const busy = agentsWorking()
+    if (busy) return { restarting: false, reason: t(`일하는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `Restarts once the ${busy} working agent conversation(s) finish`) }
     const status = await appStatus(repo.root, repo.running)
     if (!status.prepared) return { restarting: false, reason: t('다시 시작할 새 버전이 없습니다', 'No new version to restart into') }
     return { restarting: repo.steps.restart() }
   }
+  /** 일하는 에이전트 대화 수 (차례가 도는 중인 것만. 사용자 답을 기다리는 대화는 다시 켜진 뒤 그대로 이어진다) */
+  function agentsWorking(): number { return ctx.agentChats?.work().chats.filter((c) => c.state === 'running').length ?? 0 }
+  /** 에이전트가 끝나기를 기다렸다가 다시 시작한다. 30분이 지나면 기다리지 않는다(다시 켜진 뒤 돌던 대화를 잇는다) */
+  let waiting: NodeJS.Timeout | null = null
+  function restartAfterAgents(): void {
+    if (waiting) return
+    const until = Date.now() + 30 * 60_000
+    waiting = setInterval(() => {
+      if (agentsWorking() && Date.now() < until) return
+      if (waiting) clearInterval(waiting)
+      waiting = null
+      if (opts.appRepo) opts.appRepo.steps.restart()
+    }, 10_000)
+    waiting.unref()
+  }
+  app.addHook('onClose', async () => { if (waiting) clearInterval(waiting) })
   app.post('/api/app/restart', replies(A.AppRestarted), async (): Promise<A.AppRestarted> => {
+    if (agentsWorking()) { restartAfterAgents(); throw new WorkbenchError(409, t(`일하는 에이전트 대화 ${agentsWorking()}개가 끝나면 저절로 다시 시작합니다`, `Restarts by itself once the ${agentsWorking()} working agent conversation(s) finish`)) }
     const r = await restartIfReady()
     if (!r.restarting) throw new WorkbenchError(409, r.reason ?? t('다시 시작하지 못했습니다', 'Could not restart'))
     return { restarting: true }
