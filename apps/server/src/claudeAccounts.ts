@@ -1,7 +1,8 @@
 /**
  * Claude 계정 여럿 (11/16 사용자 "pro 계정을 주로 답변용으로" · "로그인 정보를 담아두고 쉽게 로그인 · 계정 전환").
  *
- * - 기본 계정 = 이 컴퓨터의 Claude Code에 로그인한 계정 (터미널의 claude와 같다). 건드리지 않는다.
+ * - 「이 컴퓨터」 = 이 컴퓨터의 Claude Code에 로그인한 계정 (터미널의 claude와 같다). 건드리지 않는다.
+ * - 기본 계정(base, 11/16 사용자 "기본으로 설정하는 계정은 별도 설정"): 고르지 않은 대화 종류와 그 밖의 Claude 일(claudeEnv)이 쓴다. 처음엔 이 컴퓨터.
  * - 더한 계정은 설정 폴더의 claude-accounts/<id>/를 CLAUDE_CONFIG_DIR로 쓴다. Claude Code가 그 폴더(맥은 키체인, 폴더마다 따로)에
  *   로그인 정보를 두고 스스로 갱신하므로, 계정마다 한 번만 로그인한다. 앱은 비밀번호 · 토큰을 읽거나 저장하지 않는다.
  * - 로그인: `claude auth login`을 그 폴더로 띄운다. 브라우저가 열리고, 맥에서 저절로 끝나지 않으면 브라우저가 준 코드를 화면에 붙여 넣는다(그대로 넘긴다).
@@ -17,11 +18,11 @@ import path from 'node:path'
 import { createRequire } from 'node:module'
 import { ACCOUNT_ROLES, DEFAULT_ACCOUNT, type AccountRole, type ClaudeAccountRow, type ClaudeAccounts as State } from '@rw/core/contract/claudeAccounts'
 import { claudeAccount } from './agentAccounts.js'
-import { claudeEnv, claudeExecutable } from './ask.js'
+import { claudeEnv, claudeExecutable, setClaudeBaseDir } from './ask.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 
-interface Saved { accounts: { id: string; name: string }[]; roles: Partial<Record<AccountRole, string>> }
+interface Saved { accounts: { id: string; name: string }[]; roles: Partial<Record<AccountRole, string>>; base?: string }
 
 /** 로그인 명령에 쓸 claude: 이 컴퓨터에 깐 것, 없으면 Agent SDK에 든 것 */
 export function claudeCli(resolve: (id: string) => string = createRequire(import.meta.url).resolve): string | undefined {
@@ -61,7 +62,10 @@ export const loginUrl = (out: string) => out.match(/https:\/\/\S+oauth\S*/)?.[0]
 
 export class ClaudeAccounts {
   private signing = new Map<string, { proc: ChildProcess; url?: string; error?: string }>()
-  constructor(private configDir: string, private opts: { cli?: () => string | undefined; home?: string } = {}) {}
+  constructor(private configDir: string, private opts: { cli?: () => string | undefined; home?: string; global?: boolean } = {}) {
+    // 그 밖의 Claude 일(제목 짓기 · 묻기 등)도 기본 계정으로 (claudeEnv)
+    if (opts.global) setClaudeBaseDir(() => this.dirOf(this.read().base))
+  }
 
   private get file() { return path.join(this.configDir, 'claude-accounts.json') }
   private read(): Saved {
@@ -75,7 +79,7 @@ export class ClaudeAccounts {
     const r = o.roles && typeof o.roles === 'object' ? Object.fromEntries(Object.entries(o.roles)) : {}
     const roles: Saved['roles'] = {}
     for (const k of ACCOUNT_ROLES) if (typeof r[k] === 'string') roles[k] = r[k]
-    return { accounts, roles }
+    return { accounts, roles, ...(typeof o.base === 'string' && { base: o.base }) }
   }
   private save(v: Saved) {
     fs.mkdirSync(this.configDir, { recursive: true })
@@ -89,15 +93,23 @@ export class ClaudeAccounts {
     return path.join(this.configDir, 'claude-accounts', id)
   }
 
-  /** 에이전트 프로세스에 더할 환경 (기본 계정이면 없음) */
+  /** 에이전트 프로세스에 더할 환경. 이 컴퓨터 계정이면 기본 계정이 다른 계정이어도 이 컴퓨터 폴더로 못 박는다 */
   env(id: string | undefined): Record<string, string> {
     const dir = this.dirOf(id)
-    return dir ? { CLAUDE_CONFIG_DIR: dir } : {}
+    if (dir) return { CLAUDE_CONFIG_DIR: dir }
+    return this.base() ? { CLAUDE_CONFIG_DIR: defaultClaudeDir(this.opts.home) } : {}
   }
 
-  /** 그 대화 종류가 쓸 계정 id (기본이면 undefined). 고른 계정이 지워졌으면 기본 */
+  /** 기본 계정 (이 컴퓨터면 undefined). 고른 계정이 지워졌으면 이 컴퓨터 */
+  base(): string | undefined {
+    const id = this.read().base
+    return this.dirOf(id) ? id : undefined
+  }
+
+  /** 그 대화 종류가 쓸 계정 id (이 컴퓨터면 undefined). 고르지 않았으면 기본 계정, 고른 계정이 지워졌으면 이 컴퓨터 */
   forRole(role: AccountRole): string | undefined {
-    const id = this.read().roles[role]
+    const v = this.read()
+    const id = v.roles[role] ?? v.base
     return this.dirOf(id) ? id : undefined
   }
 
@@ -115,8 +127,9 @@ export class ClaudeAccounts {
       return { id, name, ...a, login: !!a.email, ...(s && { signing: { ...(s.url && { url: s.url }), ...(s.error && { error: s.error }) } }) }
     }
     return {
-      accounts: [row(DEFAULT_ACCOUNT, t('기본', 'Default'), undefined), ...v.accounts.map((a) => row(a.id, a.name, this.dirOf(a.id)))],
-      roles: Object.fromEntries(ACCOUNT_ROLES.map((r) => [r, this.dirOf(v.roles[r]) ? v.roles[r] : undefined]).filter(([, id]) => id)),
+      accounts: [row(DEFAULT_ACCOUNT, t('이 컴퓨터', 'This computer'), undefined), ...v.accounts.map((a) => row(a.id, a.name, this.dirOf(a.id)))],
+      base: this.base() ?? DEFAULT_ACCOUNT,
+      roles: Object.fromEntries(ACCOUNT_ROLES.map((r) => [r, this.forRole(r) ?? DEFAULT_ACCOUNT])),
       cli: !!this.cli(),
     }
   }
@@ -166,17 +179,19 @@ export class ClaudeAccounts {
     return this.state()
   }
 
-  /** 대화 종류의 계정을 고른다 */
-  setRole(role: AccountRole, id: string): State {
+  /** 대화 종류의 계정 · 기본 계정(base)을 고른다. 대화 종류는 고른 값을 그대로 적는다(이 컴퓨터도: 기본 계정을 따르지 않게) */
+  setRole(role: AccountRole | 'base', id: string): State {
     const v = this.read()
     if (id !== DEFAULT_ACCOUNT && !v.accounts.some((a) => a.id === id)) throw new WorkbenchError(404, t('없는 계정입니다', 'No such account'))
-    if (id === DEFAULT_ACCOUNT) delete v.roles[role]
-    else v.roles[role] = id
+    if (role === 'base') {
+      if (id === DEFAULT_ACCOUNT) delete v.base
+      else v.base = id
+    } else v.roles[role] = id
     this.save(v)
     return this.state()
   }
 
-  /** 계정을 뺀다: 로그아웃하고 그 폴더를 지운다. 그 계정을 쓰던 대화 종류는 기본으로 */
+  /** 계정을 뺀다: 로그아웃하고 그 폴더를 지운다. 그 계정을 쓰던 대화 종류는 기본 계정으로, 기본 계정이었으면 이 컴퓨터로 */
   remove(id: string): State {
     const dir = this.dirOf(id)
     if (!dir) throw new WorkbenchError(400, t('기본 계정은 빼지 않습니다', 'The default account cannot be removed'))
@@ -188,6 +203,7 @@ export class ClaudeAccounts {
     const v = this.read()
     v.accounts = v.accounts.filter((a) => a.id !== id)
     for (const r of ACCOUNT_ROLES) if (v.roles[r] === id) delete v.roles[r]
+    if (v.base === id) delete v.base
     this.save(v)
     return this.state()
   }

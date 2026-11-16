@@ -63,7 +63,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   // 중앙 대화의 작업 폴더 (11/16): 앱 저장소가 있으면 그것을 읽기로, 없으면 설정 폴더 안 빈 폴더
   const centralDir = () => { const d = ctx.opts.appRepo?.root ?? path.join(registry.configDir, 'central'); fs.mkdirSync(d, { recursive: true }); return d }
   // Claude 계정 여럿 (11/16): 대화 종류마다 계정 폴더. 예제 · 시험은 이 컴퓨터의 claude 대신 아무것도 하지 않는 명령을 띄운다
-  const accounts = new ClaudeAccounts(registry.configDir, runner ? { cli: () => (process.platform === 'win32' ? undefined : '/bin/true') } : {})
+  const accounts = new ClaudeAccounts(registry.configDir, runner ? { cli: () => (process.platform === 'win32' ? undefined : '/bin/true') } : { global: true })
   const chats = new CentralChats({
     dir: path.join(registry.configDir, 'agent-chats'),
     runner: runner ?? claudeAgentRunner(mcpFor),

@@ -10,6 +10,6 @@ export const claudeAccountsApi = {
   add: (name: string) => req('/api/claude-accounts', send('POST', { name })).then((r) => json<ClaudeAccounts>(r)),
   login: (id: string) => req(`/api/claude-accounts/${enc(id)}/login`, { method: 'POST' }).then((r) => json<ClaudeAccounts>(r)),
   code: (id: string, code: string) => req(`/api/claude-accounts/${enc(id)}/code`, send('POST', { code })).then((r) => json<ClaudeAccounts>(r)),
-  setRole: (role: AccountRole, id: string) => req('/api/claude-accounts/roles', send('POST', { role, id })).then((r) => json<ClaudeAccounts>(r)),
+  setRole: (role: AccountRole | 'base', id: string) => req('/api/claude-accounts/roles', send('POST', { role, id })).then((r) => json<ClaudeAccounts>(r)),
   remove: (id: string) => req(`/api/claude-accounts/${enc(id)}`, { method: 'DELETE' }).then((r) => json<ClaudeAccounts>(r)),
 }

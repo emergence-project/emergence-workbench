@@ -20,7 +20,8 @@ describe('Claude 계정', () => {
     const s = a.add('Pro')
     const id = s.accounts[1]!.id
     expect(id).toMatch(/^a[0-9a-f]{6}$/)
-    expect(s.roles).toEqual({ central: id, feedback: id })
+    expect(s.roles).toEqual({ central: id, feedback: id, app: 'default', project: 'default' })
+    expect(s.base).toBe('default')
     expect(a.env(id)).toEqual({ CLAUDE_CONFIG_DIR: path.join(tmp, 'config', 'claude-accounts', id) })
     expect(a.env('default')).toEqual({})
     expect(a.env('a000000')).toEqual({})
@@ -45,13 +46,25 @@ describe('Claude 계정', () => {
     expect(() => a.setRole('central', 'a123456')).toThrow()
   })
 
+  it('기본 계정: 고르지 않은 종류가 따르고, 이 컴퓨터를 고른 종류 · 대화는 이 컴퓨터 폴더로 못 박는다', () => {
+    const a = make()
+    const id = a.add('Pro').accounts[1]!.id
+    a.setRole('app', 'default')
+    const s = a.setRole('base', id)
+    expect(s.base).toBe(id)
+    expect(s.roles).toEqual({ central: id, feedback: id, app: 'default', project: id })
+    expect(a.env(undefined)).toEqual({ CLAUDE_CONFIG_DIR: path.join(tmp, 'home', '.claude') })
+    expect(a.remove(id).base).toBe('default')
+    expect(a.env(undefined)).toEqual({})
+  })
+
   it('계정을 빼면 폴더를 지우고 그 계정을 쓰던 종류는 기본으로', () => {
     const a = make()
     const id = a.add('Pro').accounts[1]!.id
     const dir = a.dirOf(id)!
     const s = a.remove(id)
     expect(s.accounts.map((x) => x.id)).toEqual(['default'])
-    expect(s.roles).toEqual({})
+    expect(s.roles).toEqual({ central: 'default', feedback: 'default', app: 'default', project: 'default' })
     expect(fs.existsSync(dir)).toBe(false)
     expect(() => a.remove('default')).toThrow()
   })

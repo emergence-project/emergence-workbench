@@ -20,7 +20,7 @@ const ROLE: Record<AccountRole, () => [string, string]> = {
   project: () => [t('프로젝트 대화', 'Project conversations'), t('프로젝트 · 지식 라이브러리의 대화', 'Conversations in projects and the knowledge library')],
 }
 
-/** 계정 이름 (기본은 「기본」, 요금제가 보이면 함께) */
+/** 계정 이름 (이 컴퓨터 계정은 「이 컴퓨터」, 요금제가 보이면 함께) */
 export const accountLabel = (a: ClaudeAccountRow) => a.plan ? `${a.name} · ${a.plan}` : a.name
 
 export function useClaudeAccounts() {
@@ -47,35 +47,39 @@ export function ClaudeAccountsSettings({ onSaved }: { onSaved(m: string): void }
       {err && <p className="error-text setup-row">{err}</p>}
     </div>
     {s && s.accounts.length > 1 && <div className="set-rows" data-ui="계정 고르기">
+      <RolePick s={s} name={t('기본 계정', 'Default account')} desc={t('아래에서 고르지 않은 대화와 그 밖의 일(제목 짓기 · 묻기 등)', 'Conversations not chosen below and other work (titles, questions)')} on={s.base} ui="기본 계정" pick={(id) => run.mutate(() => claudeAccountsApi.setRole('base', id))} />
       {ACCOUNT_ROLES.map((r) => {
         const [name, desc] = ROLE[r]()
-        const on = s.roles[r] ?? DEFAULT_ACCOUNT
-        const pick = (id: string) => run.mutate(() => claudeAccountsApi.setRole(r, id))
-        return (
-          <div className="set-row" key={r} data-ui="대화 종류 계정">
-            <div>
-              <div className="set-name">{name}</div>
-              <div className="set-desc">{desc}</div>
-            </div>
-            {s.accounts.length <= 3
-              ? <div className="segmented small" role="radiogroup" data-ui="고르기">
-                {s.accounts.map((a) => <button key={a.id} role="radio" aria-checked={on === a.id} className={on === a.id ? 'on' : ''} onClick={() => pick(a.id)}>{a.name}</button>)}
-              </div>
-              : <select className="rs-select set-select" value={on} aria-label={name} onChange={(e) => pick(e.target.value)}>
-                {s.accounts.map((a) => <option key={a.id} value={a.id}>{accountLabel(a)}</option>)}
-              </select>}
-          </div>
-        )
+        return <RolePick key={r} s={s} name={name} desc={desc} on={s.roles[r] ?? s.base} ui="대화 종류 계정" pick={(id) => run.mutate(() => claudeAccountsApi.setRole(r, id))} />
       })}
     </div>}
   </>)
+}
+
+/** 계정 고르기 한 줄: 3개까지 버튼, 넘으면 select (10/30 규칙) */
+function RolePick({ s, name, desc, on, ui, pick }: { s: ClaudeAccounts; name: string; desc: string; on: string; ui: string; pick(id: string): void }) {
+  return (
+    <div className="set-row" data-ui={ui}>
+      <div>
+        <div className="set-name">{name}</div>
+        <div className="set-desc">{desc}</div>
+      </div>
+      {s.accounts.length <= 3
+        ? <div className="segmented small" role="radiogroup" data-ui="고르기">
+          {s.accounts.map((a) => <button key={a.id} role="radio" aria-checked={on === a.id} className={on === a.id ? 'on' : ''} onClick={() => pick(a.id)}>{a.name}</button>)}
+        </div>
+        : <select className="rs-select set-select" value={on} aria-label={name} onChange={(e) => pick(e.target.value)}>
+          {s.accounts.map((a) => <option key={a.id} value={a.id}>{accountLabel(a)}</option>)}
+        </select>}
+    </div>
+  )
 }
 
 function AccountRow({ a, busy, onRun, onSaved }: { a: ClaudeAccountRow; busy: boolean; onRun(f: () => Promise<ClaudeAccounts>): void; onSaved(m: string): void }) {
   const [code, setCode] = useState('')
   const extra = a.id !== DEFAULT_ACCOUNT
   const remove = async () => {
-    if (!await askConfirm({ title: t(`「${a.name}」 계정을 제거할까요?`, `Remove the account "${a.name}"?`), hint: t('이 앱에서 그 계정을 로그아웃하고 로그인 폴더를 지웁니다. 대화와 기록은 그대로이고, 그 계정을 쓰던 대화 종류는 기본 계정으로 돕니다.', 'Signs that account out of this app and deletes its sign-in folder. Conversations and records stay; kinds of conversations that used it go back to the default account.'), ok: t('삭제', 'Delete') })) return
+    if (!await askConfirm({ title: t(`「${a.name}」 계정을 제거할까요?`, `Remove the account "${a.name}"?`), hint: t('이 앱에서 그 계정을 로그아웃하고 로그인 폴더를 지웁니다. 대화와 기록은 그대로이고, 그 계정을 쓰던 대화 종류는 기본 계정으로, 기본 계정이었으면 이 컴퓨터 계정으로 돕니다.', 'Signs that account out of this app and deletes its sign-in folder. Conversations and records stay; kinds of conversations that used it go back to the default account.'), ok: t('삭제', 'Delete') })) return
     onRun(() => claudeAccountsApi.remove(a.id))
     onSaved(t(`「${a.name}」 계정을 제거했습니다`, `Removed "${a.name}"`))
   }
@@ -86,7 +90,7 @@ function AccountRow({ a, busy, onRun, onSaved }: { a: ClaudeAccountRow; busy: bo
         <button className="icon-btn" data-tip={t('계정 제거', 'Remove account')} aria-label={t('계정 제거', 'Remove account')} onClick={() => void remove()}>{Icon.trash}</button>
       </span>}>
       {a.email ?? (extra ? t('로그인하지 않았습니다.', 'Not signed in.') : t('이 컴퓨터의 Claude Code에 로그인한 계정입니다. 터미널에서 claude를 열고 /login으로 로그인하세요.', 'The account signed in to Claude Code on this computer. Open claude in a terminal and sign in with /login.'))}
-      {!extra && a.email && <span className="muted">{t(' · 이 컴퓨터의 Claude Code 계정', ' · Claude Code on this computer')}</span>}
+      {!extra && a.email && <span className="muted">{t(' · 터미널의 claude와 같은 계정', ' · Same as claude in the terminal')}</span>}
       {a.signing && !a.signing.error && <span className="ac-acct-signing">
         {' '}{t('브라우저에서 로그인하는 중입니다.', 'Signing in in the browser.')}
         {a.signing.url && <> <a className="a" href={a.signing.url} target="_blank" rel="noreferrer">{t('브라우저가 열리지 않았으면 여기', 'If no browser opened, here')}</a></>}
