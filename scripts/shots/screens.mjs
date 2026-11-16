@@ -101,6 +101,8 @@ export const DEFAULT_SCREENS = [
   // 중앙 대화 (11/16 "중앙 에이전트"): 처음 말하는 화면, 그리고 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연 중앙 (shots.mjs, {central})
   ['agent-central-start', '#/agent/central', '중앙 시작'],
   ['agent-central', '#/agent/{central}', '하위 대화'],
+  // 어느 화면에서나 오른쪽 사이드바의 에이전트 (11/16): 소개 화면에서 사이드바를 열면 맨 위 「중앙」, 최근 대화, 중앙에게 말하는 입력란
+  ['agent-side', '#/about', '에이전트 사이드바', '맥락 칸 켜고 끄기'],
   // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
   ['feedback-agent', '#/feedback', '에이전트 진행', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 10:15"]']],
   ['about', '#/about', '소개'],

@@ -15,15 +15,15 @@ const useCentral = () => useQuery({ queryKey: qk.agentCentral, queryFn: () => ag
 const mine = (k: Pick<CentralKid, 'state'>) => k.state === 'waiting' || k.state === 'error'
 
 /** 대화 목록 맨 위의 「중앙」 줄: 하위 대화 수와 내 차례 수 */
-export function CentralLine({ row, on }: { row?: ChatRow; on: boolean }) {
+export function CentralLine({ row, on, onOpen }: { row?: ChatRow; on: boolean; onOpen?(id: string): void }) {
   const kids = (useCentral().data?.kids ?? []).filter((k) => !k.archived)
   const turn = kids.filter(mine).length
   return (
-    <button className={`nav ac-line ac-central${on ? ' on' : ''}`} data-ui="중앙 대화 줄" onClick={() => go({ page: 'agent', id: row?.id ?? CENTRAL_PAGE })}>
+    <button className={`nav ac-line ac-central${on ? ' on' : ''}`} data-ui="중앙 대화 줄" onClick={() => (onOpen ? row && onOpen(row.id) : go({ page: 'agent', id: row?.id ?? CENTRAL_PAGE }))}>
       <span className="ac-line-top"><span className="ac-line-dot">{row && <ChatStateMark state={row.state} name={stateName(row)} />}</span><span className="label">{t('중앙', 'Central')}</span></span>
       <span className="ac-line-meta">
         {row ? <>{t(`하위 대화 ${kids.length}`, `${kids.length} sub-conversation${kids.length === 1 ? '' : 's'}`)}{turn > 0 && <> · <span className="ac-central-turn">{t(`내 차례 ${turn}`, `${turn} for you`)}</span></>}</>
-          : t('질문 · 앱 고치기 · 프로젝트 작성을 한곳에서', 'Questions, app fixes and project writing in one place')}
+          : onOpen ? t('아래 입력란에 말하면 중앙이 열립니다', 'Type below to start the central conversation') : t('질문 · 앱 고치기 · 프로젝트 작성을 한곳에서', 'Questions, app fixes and project writing in one place')}
       </span>
     </button>
   )

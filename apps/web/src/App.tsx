@@ -5,6 +5,7 @@ import { api, subscribeEvents, type Chat, type LibraryInfo, type ManuscriptInfo,
 import { useFeedbackNotify } from './feedbackNotify'
 import { AGENT_OPEN, AgentBelow, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
+import { GlobalAgentPanel } from './AgentSide'
 import { FeedbackMode } from './FeedbackMode'
 import { AskTextHost } from './askText'
 import { partOf } from './aboutContent'
@@ -118,7 +119,7 @@ export function App() {
   const [recordOpenRequest, setRecordOpenRequest] = useState<WorkspaceOpenRequest | null>(null)
   const workspaceDragging = useWorkspaceDragging()
   // 프로젝트 밖 화면의 오른쪽 사이드바 (라이브러리 정보 등, globalPages.tsx의 right). 프로젝트의 것(layout.ctx)과 따로 기억한다
-  const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true), globalRightHere = useRef(false) // 아래 globalRightAble
+  const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true), globalRightHere = useRef(false), [agentSide, setAgentSide] = useStoredFlag('rw-agent-side', false), agentSideHere = useRef(false) // 아래 globalRightAble · agentSideAble
   // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT). 지식 화면 등은 그 화면의 것 (11/5 19:50)
   useEffect(() => {
     const openCtx = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true })), open = () => { if (globalRightHere.current) setGlobalRight(true); else openCtx() }
@@ -131,7 +132,7 @@ export function App() {
     return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(AGENT_OPEN, agent) }
   }, [setLayout, setGlobalRight])
   const [sideOpen, setSideOpen, closeSides] = useLeftSide(route.page === 'agent')
-  usePhoneCloses(usePhone(), JSON.stringify(route), () => { closeSides(); setGlobalRight(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
+  usePhoneCloses(usePhone(), JSON.stringify(route), () => { closeSides(); setGlobalRight(false); setAgentSide(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
   const onGlobalPage = useRef(false)
   onGlobalPage.current = route.page === 'home' || !!globalPageOf(route.page)
   const [quickMemo, setQuickMemo] = useState(false); const [feedback, setFeedback] = useState(false)
@@ -252,6 +253,8 @@ export function App() {
   /** 사이드바를 쓰는 전역 화면 (지식: 개념노트 목록) */
   const globalSide = globalPageOf(route.page)?.side
   const globalRightAble = globalRightHere.current = !!globalPageOf(route.page)?.right?.(route)
+  // 오른쪽 사이드바가 없는 전역 화면은 그 자리에서 에이전트와 대화한다 (11/16 "모든 페이지에서 오른쪽 사이드바로", AgentSide.tsx). 에이전트 화면은 빼고
+  const agentSideAble = agentSideHere.current = globalPage && !globalRightAble && route.page !== 'agent', agentSideShown = agentSideAble && agentSide
   const showSide = (!globalPage && !!rid && sideOpen) || (!!globalSide && sideOpen)
   // 왼쪽 사이드바 폭: 오른쪽 경계를 끌어 바꾸고, 두 번 누르면 처음 폭 (10/29 09:15 피드백: 오른쪽처럼 폭 조절)
   const [sideW, setSideW] = useState(() => { try { const v = Number(localStorage.getItem('rw-side-width')); return v >= SIDE_MIN && v <= SIDE_MAX ? v : SIDE_W } catch { return SIDE_W } })
@@ -273,7 +276,7 @@ export function App() {
       const el = document.activeElement as HTMLElement | null
       const typing = !!el && (/^(TEXTAREA|INPUT|SELECT)$/.test(el.tagName) || el.isContentEditable)
       // ⌘\ 왼쪽 사이드바, ⌥⌘\ 오른쪽 사이드바 (⌥를 누르면 e.key가 바뀌어 e.code로 본다)
-      if ((e.metaKey || e.ctrlKey) && e.code === 'Backslash' && e.altKey) { e.preventDefault(); if (onGlobalPage.current) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })); return }
+      if ((e.metaKey || e.ctrlKey) && e.code === 'Backslash' && e.altKey) { e.preventDefault(); if (agentSideHere.current) setAgentSide((v) => !v); else if (onGlobalPage.current) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })); return }
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); setSideOpen((v) => !v); return }
       if (typing || e.metaKey || e.ctrlKey || e.altKey || dialog || quickMemo || feedback || search) return
       // 전역 검색: "/" (⌘K는 개념노트 편집기의 명령 메뉴라 쓰지 않는다)
@@ -283,7 +286,7 @@ export function App() {
     }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
-  }, [dialog, quickMemo, feedback, search, rid, setLayout, setSideOpen, setGlobalRight])
+  }, [dialog, quickMemo, feedback, search, rid, setLayout, setSideOpen, setGlobalRight, setAgentSide])
 
   // 레일의 프로젝트 버튼도 끌어서 순서를 바꾼다 (10/7 18:07). 홈 목록·카드와 같은 순서(설정)에 저장한다
   const [railDrag, setRailDrag] = useState<{ from: string | null; over: string | null }>({ from: null, over: null })
@@ -456,12 +459,12 @@ export function App() {
         </div>
       )}
       <TopBar crumbs={crumbs} heading={!pageH1} leftToggle={(!!rid && !globalPage) || !!globalSide} sideOpen={sideOpen} onSide={() => setSideOpen((v) => !v)}
-        project={!!rid && !globalPage} split={workspaceVisibility(layout, route.page, workspaceDragging).shown.length === 2} onSplit={() => setLayout((l) => toggleSplit(l, route.page))} rightToggle={(!!rid && !globalPage) || globalRightAble}
-        rightOpen={globalPage ? globalRight : layout.ctx} onRight={() => { if (globalPage) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }}
+        project={!!rid && !globalPage} split={workspaceVisibility(layout, route.page, workspaceDragging).shown.length === 2} onSplit={() => setLayout((l) => toggleSplit(l, route.page))} rightToggle={(!!rid && !globalPage) || globalRightAble || agentSideAble}
+        rightOpen={globalPage ? (agentSideAble ? agentSide : globalRight) : layout.ctx} onRight={() => { if (agentSideAble) setAgentSide((v) => !v); else if (globalPage) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }}
         search={search} onSearch={() => setSearch(true)}
         feedback={feedback} onFeedback={() => setFeedback((v) => !v)} />
 
-      <div className={`body${showSide ? '' : ' no-side'}`} style={{ '--side-w': `${sideW}px` } as React.CSSProperties}>
+      <div className={`body${showSide ? '' : ' no-side'}${agentSideShown ? ' with-agent' : ''}`} style={{ '--side-w': `${sideW}px` } as React.CSSProperties}>
         <nav className="rail" aria-label={t('공간', 'Spaces')} data-ui="왼쪽 띠">
           <button className={`rail-btn tip-right${route.page === 'home' ? ' on' : ''}`} aria-current={route.page === 'home' ? 'page' : undefined} data-ui="홈" data-tip={t('홈 — 모든 프로젝트', 'Home: all projects')} aria-label={t('홈', 'Home')} onClick={() => go({ page: 'home' })}>{Icon.home}</button>
           {GLOBAL_PAGES.filter((g) => g.rail === 'home').map(railPage)}<span className="rail-hr" />
@@ -546,6 +549,7 @@ export function App() {
             })()} />
           {agentPanel && agentPlace === 'bottom' && <AgentDock>{agentPanelOf(`${rid}-dock`)}</AgentDock>}</div>
         )}
+        {agentSideShown && <aside className="agent-side" data-ui="에이전트 사이드바"><GlobalAgentPanel onSaved={flash} /></aside>}
       </div>
 
       {quickMemo && rapi && summary && (() => {
