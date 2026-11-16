@@ -1008,7 +1008,7 @@
   "한 일 추가": "Add past work",
   "한 일 결과": "Past work verdict",
   "한 일 창": "Past work dialog",
-  "확인 전": "Unchecked",
+  "확인 전": "Not reviewed",
   "검사 결과": "Test result",
   "주장": "Claim",
   "흐름의 답": "Flow answer",
@@ -1034,10 +1034,14 @@
   "주장 정보": "Claim details",
   "주장 추가": "Add claim",
   "주장 목록": "Claims",
-  "확인 전": "Not reviewed",
   "반영 대기": "Waiting to apply",
   "확인함": "Reviewed",
   "이력 보기": "Show history",
   "절 이력": "Section history",
-  "겨눌 곳": "Target"
+  "겨눌 곳": "Target",
+  "그림에 대한 말": "About the figure",
+  "바라는 점": "Other wishes",
+  "고치는 중": "Editing",
+  "소개 이력": "About history",
+  "확인한 때": "Review day"
 }

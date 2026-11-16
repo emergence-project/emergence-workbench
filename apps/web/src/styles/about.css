@@ -187,10 +187,29 @@
 .about-pending { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; background: var(--bg-sunken); color: var(--text-2); white-space: nowrap; }
 .about .sec-head .about-pending { margin-right: var(--sp-2); }
 .about-checked { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--s-solved); white-space: nowrap; margin-right: var(--sp-2); }
-.about-hist { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin: calc(-1 * var(--sp-1)) 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-3); }
-.about-hist .a { color: var(--text-2); }
-.about-hist .about-hist-after { color: var(--s-blocked); font-weight: var(--fw-strong); }
 .about-hist-ok { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--s-solved); }
-.about-hist-arr { color: var(--text-3); }
 .about-legend b svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.9; vertical-align: -2px; }
-.about-hist-step { display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }
+
+/* 이력 사이드바 (11/16 시안 1절 안 A, AboutHistorySide.tsx): 시계를 켜면 오른쪽에 업데이트 목록, 고른 업데이트가 고친 절에 테두리 */
+.stage.about-with-side { grid-template-columns: minmax(0, 1fr) 300px; }
+.about-rs { background: var(--bg-side); }
+.about-rs .rs-head .sp { flex: 1; }
+.about-rs-sub { margin: 0 0 var(--sp-2); font-size: var(--fs-xs); }
+.about-vers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.about-ver { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2); border-radius: var(--r-sm); border: 1px solid transparent; font-size: var(--fs-sm); cursor: pointer; }
+.about-ver:hover { background: var(--bg-hover); }
+.about-ver.on { background: var(--bg); border-color: var(--line-strong); }
+.about-ver.check { cursor: default; }
+.about-ver.check:hover { background: none; }
+.about-ver-head { display: flex; align-items: center; gap: var(--sp-2); }
+.about-ver-head .a { color: var(--text); }
+.about-ver-title { color: var(--text); }
+.about-ver-secs { color: var(--text-2); font-size: var(--fs-xs); }
+.about-ver-secs .a { color: var(--text-2); }
+.about section.about-picked { outline: 1.5px solid var(--line-strong); outline-offset: var(--sp-2); border-radius: var(--r-sm); }
+.about section.about-dim .about-sec-body { opacity: .5; }
+.about-dim-note { margin: calc(-1 * var(--sp-1)) 0 var(--sp-2); font-size: var(--fs-sm); }
+@media (max-width: 900px) {
+  .stage.about-with-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .stage.about-with-side > .about-rs { border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }
+}

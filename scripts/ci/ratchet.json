@@ -83,7 +83,7 @@
     "apps/web/src/about/knowledge/where-they-live.tsx": 1,
     "apps/web/src/about/principles/status-and-turns.tsx": 1,
     "apps/web/src/about/project/work-and-records.tsx": 1,
-    "apps/web/src/AboutPage.tsx": 3,
+    "apps/web/src/AboutPage.tsx": 2,
     "apps/web/src/AddNotesDialog.tsx": 1,
     "apps/web/src/AgentChats.tsx": 16,
     "apps/web/src/AgentEditsPage.tsx": 8,

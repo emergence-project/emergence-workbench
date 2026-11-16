@@ -3,5 +3,14 @@
 .about .sec-head .about-fix:hover { color: var(--text); }
 .about-fix-box { display: flex; flex-direction: column; gap: var(--sp-2); }
 .about-fix-box p { margin: 0; font-size: var(--fs-sm); }
-.about-fix-text { width: 100%; font: inherit; font-size: var(--fs-md); line-height: 1.6; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); resize: vertical; }
 .about-fix-tools { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+/* 제자리 고치기 (11/16 시안 1-2절 안 C, AboutFix.tsx): 고치는 절은 점선 테두리, 바뀐 단위는 회색 바탕 밑줄, 그림은 잠금 */
+.about section.about-editing .about-sec-body { outline: 1.5px dashed var(--line-strong); outline-offset: var(--sp-2); border-radius: var(--r-sm); }
+.about section.about-editing .about-sec-body:focus { outline-style: dashed; }
+.about .about-locked { opacity: .7; cursor: not-allowed; user-select: none; }
+.about .about-fix-changed { background: var(--bg-sunken); text-decoration: underline; text-decoration-color: var(--text-3); text-underline-offset: 3px; }
+.about-fix-box { margin-top: var(--sp-4); }
+.about-fix-line { width: 100%; font: inherit; font-size: var(--fs-sm); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); color: var(--text); }
+.about-fix-tools { align-items: center; }
+.about-fix-count { font-size: var(--fs-sm); }
+.about-fix-tools .sp { flex: 1; }
