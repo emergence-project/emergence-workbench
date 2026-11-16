@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, setAboutCheck } from './api'
+import { AboutFixBar, prepareFix, type FixUnit } from './AboutFix'
+import { AboutHistorySide } from './AboutHistorySide'
 import { ABOUT_PARTS, type AboutPart, type AboutSection, COLOR_ROWS, partOf, sectionAnchor, SYMBOL_GROUPS } from './aboutContent'
 import { checkKey, checkState, lastPr, prsSince, putAboutChecks, useAboutChecks, type AboutCheckState } from './aboutChecks'
 import type { AboutCheck, AboutChecks } from './api'
@@ -15,7 +17,8 @@ import { go, href, type Route } from './router'
  * 이 앱 소개: 앱의 왼쪽 사이드바에서 한 쪽을 고른다 (#/about/<쪽>).
  * 쪽마다 지금 앱이 어떤지를 화면의 짜임대로 절로 나눠 보여 준다 (내용은 aboutContent.tsx).
  * 확인은 절 단위다 (11/11 안 C′, aboutChecks.ts): 확인 전인 절은 쪽 맨 위 「이 쪽의 확인 항목」에 한 줄씩 모인다.
- * 툴바 오른쪽 시계로 이력 보기를 켜면 절 제목 밑에 그 절을 고친 업데이트와 확인한 때가 시간 순서로 한 줄 붙는다.
+ * 툴바 오른쪽 시계로 이력 보기를 켜면 오른쪽 사이드바에 이 쪽을 고친 업데이트가 최근 것부터 열리고(AboutHistorySide.tsx),
+ * 한 줄을 고르면 그 업데이트가 고친 절에 테두리를 두른다 (11/16 시안 1절 안 A).
  */
 export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) {
   const p = partOf(part)
@@ -28,13 +31,22 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
   const prev = pages[i - 1]
   const next = pages[i + 1]
   const [history, setHistory] = useState(historyOn)
+  const [picked, setPicked] = useState<number | null>(null)
+  useEffect(() => { setPicked(null) }, [p.id])
   const sec = at >= 0 ? p.sections![at] : undefined
+  const side = history && !!p.sections?.length
+  const showHistory = (v: boolean) => { setHistory(v); keepHistory(v); if (!v) setPicked(null) }
+  // 업데이트를 고르면, 지금 절을 고치지 않은 업데이트일 때 그것이 고친 첫 절로 간다
+  const pick = (n: number | null, first: number) => {
+    setPicked(n)
+    if (n !== null && !(sec?.prs ?? []).includes(n)) go({ page: 'about', part: p.id, ...(first > 0 && { anchor: sectionAnchor(p.sections![first]!, first) }) })
+  }
   return (
-    <main className="stage full" data-ui="소개">
+    <main className={`stage full${side ? ' about-with-side' : ''}`} data-ui="소개">
       <section className="pane">
         <div className="pane-head about-tools" data-ui="머리줄">
           <span className="crumb"><b>{sec ? sec.title : p.title}</b></span><span className="sp" />
-          <HistoryButton on={history} onChange={(v) => { setHistory(v); keepHistory(v) }} />
+          <HistoryButton on={history} onChange={showHistory} />
         </div>
         <div className="scroll" ref={scroll}>
           <PartTitle.Provider value={p.ui ?? p.title}>
@@ -45,7 +57,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
                 {at <= 0 && p.open && <p className="about-open">{p.open.map((o) => <button key={o.label} className="a" onClick={() => go(o.to)}>{o.label} ›</button>)}</p>}
               </header>
               <CheckNotice part={p} />
-              {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} history={history} />}
+              {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} history={history} picked={side ? picked : null} />}
               <footer className="about-pager" data-ui="소개 앞뒤">
                 {/* 앞뒤 넘기기: 본문과 띄운 두 칸 (10/15 15:03 제안) */}
                 {prev ? <a className="about-step" href={pageHref(prev)}><span className="k">‹ {t('이전', 'Previous')}</span><b>{pageLabel(prev, p)}</b></a> : <span />}
@@ -55,6 +67,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
           </PartTitle.Provider>
         </div>
       </section>
+      {side && <AboutHistorySide part={p} picked={picked} onPick={pick} onClose={() => showHistory(false)} />}
     </main>
   )
 }
@@ -183,7 +196,7 @@ function Intro() {
         <div className="about-legend">
           <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('내가 확인한 뒤 그 절을 고친 업데이트가 있는 절. 그 쪽 맨 위 「이 쪽의 확인 항목」에서 「맞아요」로 확인함이 되고, 왼쪽 목록에 "확인 N"으로 표시됩니다', 'A section that an update changed after you reviewed it. "That is right" in "To review on this page" at the top marks it reviewed, and the list on the left shows "Review N"')}</span>
           <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('연필로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited with the pencil and sent. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
-          <span><b>{Icon.history}</b> {t('툴바 오른쪽 시계로 이력 보기를 켜면, 절 제목 밑에 그 절을 고친 업데이트와 확인한 때가 시간 순서로 한 줄 붙습니다', 'Turn on history with the clock at the right of the toolbar, and one line under each section heading lists the updates that changed it and when you reviewed it, in time order')}</span>
+          <span><b>{Icon.history}</b> {t('툴바 오른쪽 시계로 이력 보기를 켜면, 오른쪽 사이드바에 이 쪽을 고친 업데이트가 최근 것부터 열립니다. 하나를 고르면 그 업데이트가 고친 절에 테두리가 둘립니다', 'Turn on history with the clock at the right of the toolbar, and the right sidebar lists the updates that changed this page, newest first. Choosing one draws a border around the sections it changed')}</span>
         </div>
       </Section>
 
@@ -306,7 +319,7 @@ export function HistoryButton({ on, onChange }: { on: boolean; onChange(v: boole
 }
 
 /** 다시 정리한 설명: 절마다 항목 목록, 그리고 남은 것 */
-function Sections({ part, at, history }: { part: AboutPart; at: number; history: boolean }) {
+function Sections({ part, at, history, picked }: { part: AboutPart; at: number; history: boolean; picked: number | null }) {
   const last = at === part.sections!.length - 1
   const checks = useAboutChecks()
   return (
@@ -317,7 +330,7 @@ function Sections({ part, at, history }: { part: AboutPart; at: number; history:
         const rec = checks.sections[key]
         const check: SectionCheckView = { key, rec, prs: sec.prs ?? [], dates: checks.prDates, enabled: checks.enabled, history, state: checks.enabled ? checkState(sec, rec, checks.exists) : 'checked' }
         return (
-        <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} check={check}>
+        <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} check={check} picked={picked}>
           {part.id !== 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
           <ul className="about-list">{sec.items.map((it, n) => <li key={n}>{it.text}</li>)}</ul>
           {/* 기호와 의미 쪽은 설명 한 줄 다음에 표 */}
@@ -497,92 +510,35 @@ interface SectionCheckView { key: string; rec?: AboutCheck; prs: number[]; dates
 /** 2026-11-03 → 11/3 */
 const shortDate = (d?: string) => { const m = d && /^\d{4}-(\d{2})-(\d{2})/.exec(d); return m ? `${Number(m[1])}/${Number(m[2])}` : '' }
 
-function Section({ name, ui, id, check, children }: { name: string; ui: string; id?: string; check?: SectionCheckView; children: ReactNode }) {
+function Section({ name, ui, id, check, picked, children }: { name: string; ui: string; id?: string; check?: SectionCheckView; picked?: number | null; children: ReactNode }) {
+  const part = useContext(PartTitle)
   const body = useRef<HTMLDivElement>(null)
-  const [draft, setDraft] = useState<{ before: string; text: string } | null>(null)
+  // 고치기 (시안 1-2절 안 C): 본문을 그 자리에서 고친다. 끝나면 round를 올려 본문을 새로 그린다(고친 글 · 잠금 표시를 지움)
+  const [fix, setFix] = useState<{ units: FixUnit[]; figures: number } | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [round, setRound] = useState(0)
+  useEffect(() => {
+    if (!editing || !body.current) return
+    setFix(prepareFix(body.current))
+    body.current.focus()
+  }, [editing])
+  const stop = () => { setEditing(false); setFix(null); setRound((r) => r + 1) }
   const checked = check?.rec?.checked !== undefined
+  // 이력 사이드바에서 고른 업데이트가 이 절을 고쳤는지
+  const mark = picked == null ? '' : check?.prs.includes(picked) ? ' about-picked' : ' about-dim'
   return (
-    <section data-ui={ui} id={id && `about-${id}`}>
+    <section data-ui={ui} id={id && `about-${id}`} className={`${editing ? 'about-editing' : ''}${mark}`}>
       <div className="sec-head">
         <h2>{name}</h2><span className="sp" />
+        {editing && <span className="about-pending" data-ui="고치는 중">{t('고치는 중', 'Editing')}</span>}
         {check?.state === 'unchecked' && <span className="about-unsure" data-ui="확인 전">{t('확인 전', 'Not reviewed')}</span>}
         {check?.state === 'pending' && <span className="about-pending" data-ui="반영 대기" title={t('고쳐 보낸 글을 아직 반영하지 않았습니다', 'The text you sent has not been applied yet')}>{t('반영 대기', 'Waiting to apply')}</span>}
         {check?.history && check.state === 'checked' && checked && <span className="about-checked" data-ui="확인함"><i className="mark-ico" aria-hidden>{Icon.check}</i>{t(`확인함 ${shortDate(check.rec!.at)}`, `Reviewed ${shortDate(check.rec!.at)}`)}{check.rec!.checked ? ` · #${check.rec!.checked}` : ''}</span>}
-        {!draft && <button className="icon-btn about-fix" data-ui="고치기" data-tip={t('수정', 'Edit')} aria-label={t(`수정 — ${name}`, `Edit: ${name}`)}
-          onClick={() => { const t = body.current?.innerText.trim() ?? ''; setDraft({ before: t, text: t }) }}>{Icon.pencil}</button>}
+        {!editing && <button className="icon-btn about-fix" data-ui="고치기" data-tip={t('수정', 'Edit')} aria-label={t(`수정 — ${name}`, `Edit: ${name}`)} onClick={() => setEditing(true)}>{Icon.pencil}</button>}
       </div>
-      {check?.history && <SectionHistory check={check} />}
-      {draft ? <AboutFix name={ui} check={check} draft={draft} onChange={(text) => setDraft({ ...draft, text })} onClose={() => setDraft(null)} /> : <div ref={body}>{children}</div>}
+      {mark === ' about-dim' && <p className="muted about-dim-note">{t(`고른 업데이트 #${picked}은 이 절을 고치지 않았습니다.`, `The selected update #${picked} did not change this section.`)}</p>}
+      <div key={round} ref={body} className="about-sec-body" contentEditable={editing || undefined} suppressContentEditableWarning spellCheck={false}>{children}</div>
+      {editing && fix && <AboutFixBar part={part} name={ui} root={body} units={fix.units} figures={fix.figures} check={check} onClose={stop} />}
     </section>
-  )
-}
-
-/**
- * 이력 보기의 한 줄 (11/11 안 C′ ②): 그 절을 고친 업데이트와 확인한 때를 시간 순서로, 왼쪽이 옛것.
- * 업데이트 번호는 설정 › 업데이트 이력의 그 줄로 간다(이력의 "소개" 칸이 여기를 가리킨다, 10/15 "소개와 업데이트 1대1")
- */
-function SectionHistory({ check }: { check: SectionCheckView }) {
-  const { prs, rec, dates } = check
-  const steps: ReactNode[] = []
-  const prLink = (n: number, after: boolean) => (
-    <a key={`pr${n}`} className={`a${after ? ' about-hist-after' : ''}`} data-ui="고친 업데이트" href={href({ page: 'settings', part: 'update', pr: n })}
-      title={t('이 업데이트를 설정 › 업데이트 이력에서 봅니다', 'See this update in Settings › Update history')}>{dates[n] ? `${shortDate(dates[n])} ` : ''}#{n}</a>
-  )
-  const checkStep = rec?.checked !== undefined && <span key="ok" className="about-hist-ok"><i className="mark-ico" aria-hidden>{Icon.check}</i>{t(`확인 ${shortDate(rec.at)}`, `Reviewed ${shortDate(rec.at)}`)}</span>
-  let placed = false
-  // 확인 전에 고친 업데이트가 많으면 처음과 마지막만 (확인 뒤 것은 모두)
-  const before = prs.filter((n) => checkStep && n <= rec!.checked!)
-  const hidden = before.length > 3 ? new Set(before.slice(1, -1)) : new Set<number>()
-  prs.forEach((n, j) => {
-    if (hidden.has(n)) {
-      if (n === before[1]) steps.push(<span key="more" title={before.slice(1, -1).map((x) => `#${x}`).join(' · ')}>{t(`… ${hidden.size}개`, `… ${hidden.size} more`)}</span>)
-      return
-    }
-    if (checkStep && !placed && n > rec!.checked!) { steps.push(checkStep); placed = true }
-    const after = check.state === 'unchecked' && checkStep !== false && n > rec!.checked!
-    steps.push(prLink(n, after))
-    if (after && j === prs.length - 1) steps.push(<b key="late" className="about-hist-after">{t('확인 뒤 고침', 'Changed after review')}</b>)
-  })
-  if (checkStep && !placed) steps.push(checkStep)
-  if (rec?.sent) steps.push(<span key="sent">{t(`${shortDate(rec.sent)} 내가 고쳐 보냄`, `${shortDate(rec.sent)} you sent an edit`)}{check.state === 'pending' && t(' · 반영 대기', ' · waiting to apply')}</span>)
-  return (
-    <div className="about-hist" data-ui="절 이력">
-      {steps.length ? steps.map((x, k) => k ? <span key={k} className="about-hist-step"><span className="about-hist-arr" aria-hidden>→</span>{x}</span> : <span key={k} className="about-hist-step">{x}</span>) : <span>{t('이 절을 고친 업데이트가 아직 없습니다', 'No update has changed this section yet')}</span>}
-    </div>
-  )
-}
-
-/**
- * 소개 글 고치기 (10/4 14:51 피드백 "표현이 부정확하거나 수정하고 싶은 경우, 사용자가 직접 수정할 수 있게").
- * 소개 글은 앱 코드(aboutContent.tsx)에 있어서 바로 저장하지 않고, 고친 글을 피드백으로 남긴다. 다음 피드백 처리 때 Claude가 코드에 반영한다.
- */
-function AboutFix({ name, check, draft, onChange, onClose }: { name: string; check?: SectionCheckView; draft: { before: string; text: string }; onChange(t: string): void; onClose(): void }) {
-  const part = useContext(PartTitle)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const changed = draft.text.trim() !== draft.before
-  const submit = async () => {
-    setBusy(true); setError('')
-    try {
-      await api.addFeedback({
-        kind: '미분류', target: `소개 › ${part} › ${name}`, route: location.hash.slice(1) || undefined, snippet: draft.before.slice(0, 120),
-        text: `소개 글을 이렇게 고쳐 줘.\n\n고친 글:\n${draft.text.trim()}\n\n원래 글:\n${draft.before}`,
-      })
-      // 고쳐 보낸 절은 반영될 때까지 「반영 대기」 (11/11 안 C′ ⑤)
-      if (check?.enabled) await setAboutCheck({ key: check.key, action: 'sent', pr: check.prs[check.prs.length - 1] ?? 0 }).then(putAboutChecks).catch(() => undefined)
-      onClose()
-      alert(t('고친 글을 피드백으로 남겼습니다. 다음 피드백 처리 때 소개에 반영합니다.', 'Your edited text was saved as feedback. It will be applied to this page at the next round of feedback handling.'))
-    } catch (e) { setError((e as Error).message); setBusy(false) }
-  }
-  return (
-    <div className="about-fix-box" data-ui="소개 고치기">
-      <p className="muted">{t('글을 고친 뒤 보내면 피드백으로 남고, 다음 피드백 처리 때 소개에 반영됩니다.', 'Edit the text and send it; it is saved as feedback and applied to this page at the next round of feedback handling.')}</p>
-      <textarea className="about-fix-text" value={draft.text} rows={Math.min(24, Math.max(6, draft.text.split('\n').length + 1))} onChange={(e) => onChange(e.target.value)} autoFocus />
-      {error && <p className="muted">{error}</p>}
-      <div className="about-fix-tools">
-        <button className="btn" onClick={onClose} disabled={busy}>{t('취소', 'Cancel')}</button>
-        <button className="btn primary" onClick={() => void submit()} disabled={busy || !changed}>{t('고친 글 보내기', 'Send edited text')}</button>
-      </div>
-    </div>
   )
 }

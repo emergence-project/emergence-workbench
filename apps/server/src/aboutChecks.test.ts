@@ -12,7 +12,7 @@ describe('소개 절 확인 기록 (about.yaml, 11/11 안 C′)', () => {
     const dir = path.join(tmp, 'feedback-about')
     const fb = buildApp({ configDir: path.join(tmp, 'config-fb-about'), feedbackDir: dir })
     const first = (await fb.inject({ method: 'GET', url: '/api/about/checks' })).json()
-    expect(first).toEqual({ enabled: true, exists: false, sections: {}, prDates: {} })
+    expect(first).toEqual({ enabled: true, exists: false, sections: {}, prDates: {}, prTitles: {} })
 
     const sent = await fb.inject({ method: 'PUT', url: '/api/about/checks', payload: { key: 'agents/delegated', action: 'sent', pr: 402 } })
     expect(sent.statusCode).toBe(200)

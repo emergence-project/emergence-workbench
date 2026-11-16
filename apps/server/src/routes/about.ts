@@ -2,21 +2,21 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/about'
 import { parseBody, replies } from '../contract.js'
-import { prDates, readAboutChecks, writeAboutCheck } from '../aboutChecks.js'
+import { prInfo, readAboutChecks, writeAboutCheck } from '../aboutChecks.js'
 import { WorkbenchError } from '../workbench.js'
 import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
 
 export function registerAbout(app: FastifyInstance, ctx: RouteContext): void {
   const { opts } = ctx
-  // PR 날짜는 앱이 도는 동안 바뀌지 않는다(새 버전은 다시 시작한 뒤): 한 번만 읽는다
-  let dates: Promise<Record<string, string>> | null = null
-  const datesOnce = () => (dates ??= opts.appRepo ? prDates(opts.appRepo.root, opts.appRepo.running) : Promise.resolve({}))
+  // PR 날짜 · 제목은 앱이 도는 동안 바뀌지 않는다(새 버전은 다시 시작한 뒤): 한 번만 읽는다
+  let info: ReturnType<typeof prInfo> | null = null
+  const infoOnce = () => (info ??= opts.appRepo ? prInfo(opts.appRepo.root, opts.appRepo.running) : Promise.resolve({ prDates: {}, prTitles: {} }))
 
   app.get('/api/about/checks', replies(C.AboutChecks), async (): Promise<C.AboutChecks> => {
     const dir = opts.feedbackDir
     const r = dir ? readAboutChecks(dir) : { exists: false, sections: {} }
-    return { enabled: !!dir, ...r, prDates: await datesOnce() }
+    return { enabled: !!dir, ...r, ...(await infoOnce()) }
   })
   app.put('/api/about/checks', replies(C.AboutChecks), async (req): Promise<C.AboutChecks> => {
     const dir = opts.feedbackDir
@@ -25,6 +25,6 @@ export function registerAbout(app: FastifyInstance, ctx: RouteContext): void {
     if (!/^[\w-]+\/[\w-]+$/.test(b.key)) throw new WorkbenchError(400, t(`절 이름이 맞지 않음: ${b.key}`, `Not a section name: ${b.key}`))
     writeAboutCheck(dir, b.key, b.action, b.pr)
     ctx.feedbackWritten?.()
-    return { enabled: true, ...readAboutChecks(dir), prDates: await datesOnce() }
+    return { enabled: true, ...readAboutChecks(dir), ...(await infoOnce()) }
   })
 }
