@@ -8,6 +8,9 @@ export function registerAgentCentral(app: FastifyInstance, chats: CentralChats):
   /** 중앙 대화 id와 하위 대화 (화면 · chat_list) */
   app.get('/api/agent-central', replies(C.CentralState), async (): Promise<C.CentralState> => chats.centralState())
 
+  /** 에이전트 차례인 피드백 (feedback_turns) */
+  app.get('/api/agent-central/feedback', replies(C.CentralFeedback), async (): Promise<C.CentralFeedback> => chats.feedbackTurns())
+
   /** 사용자가 중앙에게 말하기 (중앙이 없으면 연다) */
   app.post('/api/agent-central/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.talk(parseBody(C.CentralMessageBody, req.body).text) }))
 

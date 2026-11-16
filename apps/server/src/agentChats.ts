@@ -22,6 +22,7 @@ import { agentTurnReasons, agentTurns, autoCustom, autoOf, localDate, localTime,
 import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
+import { accountForNew, switchAccount, type ClaudeAccounts } from './claudeAccounts.js'
 
 // ---------- 에이전트 실행기 (실제는 agentRunner.ts의 Claude Agent SDK, 테스트는 가짜) ----------
 
@@ -159,7 +160,7 @@ const DRAFT_MS = 300
 /** app_checks가 기다리는 동안 CI를 다시 보는 간격 */
 const CHECK_EVERY_MS = 20_000
 export const TASKS_MS = 60 * 60_000
-const keyOf = (c: Pick<Stored, 'mode' | 'model' | 'effort' | 'write'>) => `${c.mode}|${c.model}|${c.effort}|${c.write}`
+const keyOf = (c: Pick<Stored, 'mode' | 'model' | 'effort' | 'write' | 'account'>) => `${c.mode}|${c.model}|${c.effort}|${c.write}|${c.account ?? ''}`
 
 import { lastTouched } from './feedbackClaims.js'
 export { lastTouched }
@@ -206,6 +207,7 @@ export interface AgentChatsDeps {
   recordAnswer?: (rid: string, record: { target: string; id: string }, text: string, edits: { file: string; added: number; removed: number }[]) => void
   /** 다른 에이전트의 검토 (11/9): 읽기만 하는 Codex에게 묻는다 (codexCli.ts의 codexAsk). 없으면 검토를 쓸 수 없다 */
   review?: (o: { prompt: string; cwd: string }) => Promise<string>
+  /** Claude 계정 여럿 (claudeAccounts.ts): 대화 종류마다 · 대화마다 계정 폴더 */ accounts?: ClaudeAccounts
 }
 
 export class AgentChats {
@@ -309,6 +311,7 @@ export class AgentChats {
       ...(link.feedback && { feedback: link.feedback }),
       ...(link.record && { record: { ...link.record } }), ...(link.parent && { parent: link.parent }),
     }
+    const account = accountForNew(this.deps.accounts, { rid: b.rid, agent: c.agent, feedback: link.feedback, account: b.account, app, central: b.rid === CENTRAL_RID }); if (account) c.account = account
     this.chats.set(c.id, c)
     this.start(c, b, prompt)
     return wireOf(c)
@@ -382,6 +385,7 @@ export class AgentChats {
     if (c.auto && !autoCustom(c)) delete c.auto
     if (s.model) c.model = s.model
     if (s.effort) c.effort = s.effort
+    if (s.account) switchAccount(c, s.account, this.deps.accounts)
     this.touch(c)
     return wireOf(c)
   }
@@ -894,8 +898,9 @@ export class AgentChats {
     }
   }
 
+  /** 앱 고치기 대화끼리는 일하는 중이거나 PR이 아직 합쳐지지 않은 다른 대화가 고친 파일도 (합칠 때 부딪힘, 11/16 "중앙 에이전트" 2단계) */
   private claimedBy(self: string, file: string): string | undefined {
-    for (const o of this.chats.values()) if (o.id !== self && LIVE.has(o.state) && o.rid === this.chats.get(self)?.rid && o.claims.includes(file)) return o.title
+    for (const o of this.chats.values()) if (o.id !== self && o.rid === this.chats.get(self)?.rid && (LIVE.has(o.state) && o.claims.includes(file) || o.rid === APP_RID && (LIVE.has(o.state) || !!o.pr) && !o.merged && !o.archived && o.changed.includes(file))) return o.title
     return undefined
   }
 
@@ -1023,7 +1028,7 @@ export class AgentChats {
           ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback, agent: c.agent })
           : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })), agent: c.agent }),
         write: c.write,
-        ...(app ? { appChat: c.id, env: appEnv(c.id) } : c.rid === CENTRAL_RID && { central: true }),
+        ...(app ? { appChat: c.id } : c.rid === CENTRAL_RID && { central: true }), env: { ...(app && appEnv(c.id)), ...this.deps.accounts?.env(c.account) },
         canUseTool,
         signal: abort.signal,
         inbox,
@@ -1188,7 +1193,7 @@ export const rowOf = (c: Stored): ChatRow => {
   }
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
-    mode: c.mode, model: c.model, effort: c.effort, ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
+    mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
     ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }

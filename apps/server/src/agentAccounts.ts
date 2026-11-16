@@ -16,10 +16,9 @@ const planName = (v: string | undefined): string | undefined => (v ? v.replace(/
 
 /**
  * Claude Code: ~/.claude.json의 oauthAccount.emailAddress, 요금제는 ~/.claude/.credentials.json의 subscriptionType
- * (맥은 키체인에 두어 파일이 없을 수 있다: 그때는 이메일만). CLAUDE_CONFIG_DIR이 있으면 거기서
+ * (맥은 키체인에 두어 파일이 없을 수 있다: 그때는 이메일만). CLAUDE_CONFIG_DIR이 있으면 거기서, dir을 주면 그 폴더(더한 계정, claudeAccounts.ts)에서
  */
-export function claudeAccount(home = os.homedir()): Account {
-  const dir = process.env.CLAUDE_CONFIG_DIR
+export function claudeAccount(home = os.homedir(), dir = process.env.CLAUDE_CONFIG_DIR): Account {
   const cfg = readJson(dir ? path.join(dir, '.claude.json') : path.join(home, '.claude.json'))
   const acct = obj(cfg.oauthAccount)
   const cred = obj(readJson(path.join(dir ?? path.join(home, '.claude'), '.credentials.json')).claudeAiOauth)

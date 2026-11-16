@@ -7,6 +7,8 @@ import fs from 'node:fs'
 import { MCP_NAME, type AgentRunner } from '../agentChats.js'
 import { CentralChats } from '../agentCentral.js'
 import { registerAgentCentral } from './agentCentral.js'
+import { registerClaudeAccounts } from './claudeAccounts.js'
+import { ClaudeAccounts } from '../claudeAccounts.js'
 import { chatExtras } from '../agentExtras.js'
 import type { AppWork } from '../appWorktree.js'
 import { claudeAgentRunner } from '../agentRunner.js'
@@ -60,6 +62,8 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   const chatMcp = registerChatMcp(app, mcpFor)
   // 중앙 대화의 작업 폴더 (11/16): 앱 저장소가 있으면 그것을 읽기로, 없으면 설정 폴더 안 빈 폴더
   const centralDir = () => { const d = ctx.opts.appRepo?.root ?? path.join(registry.configDir, 'central'); fs.mkdirSync(d, { recursive: true }); return d }
+  // Claude 계정 여럿 (11/16): 대화 종류마다 계정 폴더. 예제 · 시험은 이 컴퓨터의 claude 대신 아무것도 하지 않는 명령을 띄운다
+  const accounts = new ClaudeAccounts(registry.configDir, runner ? { cli: () => (process.platform === 'win32' ? undefined : '/bin/true') } : {})
   const chats = new CentralChats({
     dir: path.join(registry.configDir, 'agent-chats'),
     runner: runner ?? claudeAgentRunner(mcpFor),
@@ -73,6 +77,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     ...(appWork && { app: appWork }),
     ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
     settings: () => registry.agents,
+    accounts,
     // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것
     ...(runner ? runner.review && { review: runner.review } : { review: (o: { prompt: string; cwd: string }) => codexAsk(registry.configDir, o.cwd, o.prompt) }),
     ...(ctx.opts.appRepo && { inApp: commitChecker(ctx.opts.appRepo.root, ctx.opts.appRepo.running) }),
@@ -166,6 +171,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/feedback/answer', replies(C.FeedbackAnswered), async (req): Promise<C.FeedbackAnswered> => chats.feedbackAnswer(req.params.id, parseBody(C.FeedbackAnswerBody, req.body)))
 
   registerAgentCentral(app, chats)
+  registerClaudeAccounts(app, accounts, !!runner)
 
   /** 지금 도는 대화와 잡은 파일: 화면 · 앱 밖 에이전트가 같은 것을 보고 피한다 */
   app.get('/api/agent-work', replies(C.WorkState), async (): Promise<C.WorkState> => chats.work())
