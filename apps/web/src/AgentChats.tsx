@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { autoCustom, autoOf, LIBRARY_RID, type ChatAutoValues } from '@rw/core'
-import { agentChatsApi, api, APP_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type Todo } from './api'
+import { agentChatsApi, api, APP_RID, CENTRAL_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type Todo } from './api'
 import { askConfirm } from './askText'
 import { relativeTime } from './format'
 import { t } from './i18n'
@@ -21,6 +21,7 @@ import { GroupPick } from './AgentGroupPick'
 import { ProjectPick, RecentChats, ScopeRow } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
+import { CENTRAL_PAGE, CentralKids, CentralLine, CentralStart } from './CentralChat'
 import { APP_HINT, ATTACH_NAME, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
@@ -98,15 +99,14 @@ function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): stri
 }
 
 /** 대화 목록 · 머리에 보일 프로젝트 이름 (앱 고치기 대화는 「앱」) */
-const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projects?.find((p) => p.id === rid)?.title ?? rid)
+const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : rid === CENTRAL_RID ? t('중앙', 'Central') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projects?.find((p) => p.id === rid)?.title ?? rid)
 
 /** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화 */
 const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error'
 /** 대화의 묶음 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 2절): 기록의 질문 · 지시가 연 대화와 직접 연 대화를 섞지 않는다 */
 export const chatGroupName = (c: Pick<ChatRow, 'record'>) => c.record ? t('기록의 질문 · 지시', 'Record questions and instructions') : t('직접 연 대화', 'Conversations you opened')
 function ChatGroups({ chats, line }: { chats: ChatRow[]; line(c: ChatRow): ReactNode }) {
-  const records = chats.filter((c) => c.record)
-  const direct = chats.filter((c) => !c.record)
+  const [records, direct] = [chats.filter((c) => c.record), chats.filter((c) => !c.record)]
   // 기록 대화가 없으면 묶음 머리 없이 예전 목록 그대로
   if (!records.length) return <>{direct.map(line)}</>
   return <>
@@ -698,7 +698,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   return (
     <div className="ac-chat" data-ui="에이전트 대화">
       {head && <ChatHead chat={chat} pane={pane} onPane={onPane} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
-      {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
+      {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}{chat.rid === CENTRAL_RID && <CentralKids />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
         {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
@@ -720,7 +720,6 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
 }
 
 // ---------- 새 대화 ----------
-
 
 /** 새 대화: 프로젝트(rid가 없을 때) · 범위(지금 보는 곳에서) · 입력란 하나 */
 export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: { file: string; title: string }; onCreated(c: Chat): void }) {
@@ -982,7 +981,7 @@ export function AgentPage({ id, onSaved, side }: { id?: string; onSaved(m: strin
   return (
     <main className="stage full" data-ui="에이전트">
       <section className="pane">
-        {id
+        {id === CENTRAL_PAGE ? <CentralStart /> : id
           ? <div className="ac-page">
             <ChatView key={id} id={id} pane={pane} onPane={() => setPane(!pane)} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
             {pane && <WorkColumn id={id} onSaved={onSaved} />}
@@ -1030,7 +1029,7 @@ export function AgentSide({ id }: { id?: string }) {
     return m
   }, [list, filter])
   // 묶음 차례: 워크벤치, 등록한 프로젝트 (대화가 있는데 등록에서 빠진 프로젝트도 끝에)
-  const rids = [...(projects ?? []).map((p) => p.id), ...[...by.keys()].filter((r) => r !== APP_RID && r !== LIBRARY_RID && !projects?.some((p) => p.id === r))]
+  const rids = [...(projects ?? []).map((p) => p.id), ...[...by.keys()].filter((r) => r !== APP_RID && r !== LIBRARY_RID && r !== CENTRAL_RID && !projects?.some((p) => p.id === r))]
   const showApp = !!listed?.app || by.has(APP_RID)
   const archived = count('archived')
   // 여러 개 고르기 (10/28 피드백 21:19 코멘트, 시안 4절): 목록에서는 보관만, 보관함에서는 꺼내기 · 지우기
@@ -1071,6 +1070,7 @@ export function AgentSide({ id }: { id?: string }) {
   return (
     <div className="set-side ac-list" data-ui="대화 목록">
       <button className={`nav${!id ? ' on' : ''}`} data-ui="새 대화 줄" onClick={() => go({ page: 'agent' })}><span className="label">{t('＋ 새 대화', '＋ New conversation')}</span></button>
+      {(listed?.app || list?.some((c) => c.rid === CENTRAL_RID)) && <CentralLine row={list?.find((c) => c.rid === CENTRAL_RID && !c.archived)} on={id === CENTRAL_PAGE || list?.some((c) => c.id === id && c.rid === CENTRAL_RID) === true} />}
       {!!list?.length && filter !== 'archived' && (
         <div className="segmented small full ac-filter" role="radiogroup" aria-label={t('걸러 보기', 'Filter')} data-ui="대화 필터">
           {(['mine', 'live', 'all'] as const).map((f) => <button key={f} role="radio" aria-checked={filter === f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{FILTER_NAME[f]}{f !== 'all' && count(f) ? ` ${count(f)}` : ''}</button>)}

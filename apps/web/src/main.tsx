@@ -82,6 +82,7 @@ import './styles/study.css'
 import './styles/problems.css'
 import './styles/note-history.css'
 import './styles/note-suggestions.css'
+import './styles/central.css'
 
 applyUi(cachedUi())
 phoneStart()

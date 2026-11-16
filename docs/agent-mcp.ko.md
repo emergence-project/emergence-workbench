@@ -77,6 +77,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `app_submit` | 앱 고치기 대화(앱 안에서 앱 자체를 고치는 에이전트, 10/21) 안에서만. 그 대화의 작업 폴더(따로 둔 git worktree)에서 바뀐 것을 모두 커밋해 `claude/app-…` 브랜치를 올리고 PR `{ title, body }`을 연다(이미 있으면 더한다). 대화마다 자기 브랜치라 다른 PR이 열려 있어도 올린다. 그 대화의 에이전트는 작업 폴더에서 검사(형식 검사 · 시험 · 화면 그림)를 스스로 돌리지만, 올리기 · PR · 합치기와 앱 서비스는 하지 않는다. GitHub CI가 한 번 더 돌린다 | `POST /api/agent-chats/:id/app/submit` |
 | `app_checks` | 앱 고치기 대화 안에서만. 그 PR의 CI: 검사마다 상태, `done`, `ok`, 실패한 기록의 끝부분. `wait`(분, 10까지)를 주면 끝날 때까지 기다린다 | `GET /api/agent-chats/:id/app/checks` |
 | `feedback_answer` | 피드백을 맡은 앱 고치기 대화 안에서만(피드백 화면의 「에이전트에게 맡기기」). 처리 기록(`status.yaml`)을 앱이 적는다: 상태와 답, 또는 코멘트 답. 수정 요청을 다시 처리하면 그 전 처리를 `revised`로 옮긴다. `after` = 그 PR의 CI가 찍은 화면 그림 이름, 남길 때 그림과 함께 전/후로 둔다 | `POST /api/agent-chats/:id/feedback/answer` |
+| `chat_list` · `chat_open` · `chat_send` · `chat_close` | 중앙 대화 안에서만(11/16, 맥에 하나인 Opus 대화로 읽기와 나눠 맡기기만 한다). 하위 대화 목록(상태 · PR · 마지막 글 · 요약), 역할을 정해 열기(`app` = 자기 작업 폴더에서 앱 고치기, 동시에 둘까지 · `project` = 연구 프로젝트 하나에서 쓰기 · `feedback` = 피드백 하나, 다른 컴퓨터나 클라우드 루틴이 맡았으면 거절), 이어 보내기, 끝난 것을 요약과 함께 닫기(보관). 중앙 대화는 고치기 · 명령 · 기록 쓰기를 못 한다 | `GET /api/agent-central`, `POST /api/agent-central/open` · `/send` · `/close` |
 
 ## 지키는 것
 

@@ -125,7 +125,8 @@ export function claudeAccount(env: NodeJS.ProcessEnv = process.env, home = os.ho
 }
 
 /** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_checks · feedback_answer를 더한다) */
-export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; account?: string } = {}): McpServer {
+/** central = 중앙 대화 안에서 열 때 (chat_list · chat_open · chat_send · chat_close를 더한다, 11/16) */
+export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; central?: boolean; account?: string } = {}): McpServer {
   const target = opts.baseUrl ? { url: opts.baseUrl, key: opts.key } : serverTarget()
   const base = target.url.replace(/\/$/, '')
   const f0 = opts.fetch ?? fetch
@@ -485,6 +486,45 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
       const b = r.body as { state?: string; pictures?: string[]; replies: number }
       return text(`Recorded${b.state ? ` ${b.state}` : ''}${b.pictures ? ` with pictures ${b.pictures.join(', ')}` : ''}${b.replies ? `, ${b.replies} replies` : ''}. The feedback screen shows it now.`)
     })
+  }
+
+  // 중앙 대화에서만 (11/16 "중앙 에이전트"): 하위 대화 열기 · 이어 보내기 · 닫기 · 목록
+  if (opts.central) {
+    const kidLine = (k: { id: string; title: string; state: string; pr?: { number: number } }) => `${k.id} · "${k.title}" · ${k.state}${k.pr ? ` · PR #${k.pr.number}` : ''}`
+    const kidCall = async (url: string, body: unknown, verb: string): Promise<Text> => {
+      const r = await post(base, f, url, body)
+      return r.ok ? text(`${verb}: ${kidLine((r.body as { kid: { id: string; title: string; state: string; pr?: { number: number } } }).kid)}`) : r.error
+    }
+    server.registerTool('chat_list', {
+      title: 'Sub-conversations',
+      description: 'Your sub-conversations: id, project (_app = the app itself), title, state, wait (plan / ask = the user must answer), pull request, last agent text (report) and, for closed ones, the summary. Check it before opening a new one.',
+      inputSchema: {},
+      annotations: ro,
+    }, async () => call('/api/agent-central', (b: { kids: unknown[] }) => b.kids))
+    server.registerTool('chat_open', {
+      title: 'Open sub-conversation',
+      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; at most 2 work at once). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle one app feedback item (pass feedback = its key; refused if another computer or the cloud routine claimed it). task = the user\'s words verbatim plus the context needed. It starts working right away.',
+      inputSchema: {
+        role: z.enum(['app', 'project', 'feedback']),
+        title: z.string().max(60).describe('Short Korean title the user sees'),
+        task: z.string().describe('What to do: the user\'s own words verbatim, then needed context'),
+        project: z.string().optional().describe('Project id for role project (from list_projects)'),
+        feedback: z.string().optional().describe('Feedback key for role feedback'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    }, async (a) => kidCall('/api/agent-central/open', a, 'Opened'))
+    server.registerTool('chat_send', {
+      title: 'Send to sub-conversation',
+      description: 'Send a message to one of your sub-conversations (change direction, add what the user said, ask for a report). A working one reads it in its current turn.',
+      inputSchema: { id: z.string().describe('Sub-conversation id from chat_list'), text: z.string() },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    }, async (a) => kidCall('/api/agent-central/send', a, 'Sent'))
+    server.registerTool('chat_close', {
+      title: 'Close sub-conversation',
+      description: 'Close a sub-conversation whose work ended (pull request merged, edits reviewed, question answered): it is archived with your summary. Refused while it is still working.',
+      inputSchema: { id: z.string(), summary: z.string().max(2000).describe('Three lines: what was done, where the result is, what is left') },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    }, async (a) => kidCall('/api/agent-central/close', a, 'Closed'))
   }
 
   return server
