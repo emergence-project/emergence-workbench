@@ -36,6 +36,7 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-pick .mini-select { max-width: none; }
 .fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; font-size: var(--fs-xs); }
 .fbp-tools { display: flex; justify-self: end; justify-content: flex-end; align-items: center; gap: var(--sp-2); min-width: 0; }
+.fbp-picks { display: flex; align-items: center; gap: var(--sp-4); }
 .fbp-filters { justify-self: start; justify-content: flex-start; flex-wrap: nowrap; }
 @media (max-width: 900px) {
   .fbp-toolbar { display: flex; flex-wrap: wrap; column-gap: var(--sp-4); }
@@ -59,22 +60,23 @@ body.feedback-on .toast { bottom: 76px; }
 .page-body.fbp-wide { max-width: 1120px; }
 .fbp-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
 .fbp-table th { text-align: left; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line-strong); }
-.fbp-table th:nth-child(1) { width: calc(var(--fs-xs) * 7 + var(--sp-4)); } .fbp-table th:nth-child(2), .fbp-table th:nth-child(3) { width: calc(var(--fs-xs) * 2 + var(--sp-5)); } .fbp-table th:nth-child(4) { width: calc(var(--fs-xs) * 2 + var(--sp-6)); } .fbp-table th:nth-child(5) { width: calc(var(--fs-xs) * 5 + var(--sp-4)); }
+.fbp-table th:nth-child(1) { width: calc(var(--fs-xs) * 7 + var(--sp-4)); } .fbp-table th:nth-child(2), .fbp-table th:nth-child(3), .fbp-table th:nth-child(4) { width: calc(var(--fs-xs) * 2 + var(--sp-5)); } .fbp-table th:nth-child(5) { width: calc(var(--fs-xs) * 4 + var(--sp-4)); } .fbp-table th:nth-child(6) { width: calc(var(--fs-xs) * 5 + var(--sp-3)); } .fbp-table th:nth-child(7) { width: calc(var(--fs-xs) * 5 + var(--sp-4)); }
 /* 태그는 글자를 가운데에 (10/9) */
 .fbp-head .tag, .fbp-short .tag { min-width: calc(var(--fs-2xs) * 2 + 12px); text-align: center; box-sizing: border-box; margin-right: 0; }
-/* 짧은 칸(요소 · 유형 · 답 · 확인)은 가운데 맞춤 (10/9) */
-.fbp-table th:nth-child(n+2):nth-child(-n+5), .fbp-table td:nth-child(n+2):nth-child(-n+5) { text-align: center; }
-.fbp-table th:nth-child(7), .fbp-table th:nth-child(8) { width: 88px; } .fbp-table th:nth-child(9), .fbp-table th:nth-child(10) { width: 80px; white-space: nowrap; }
-.fbp-table td:nth-child(n+7) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 짧은 칸(요소 · 유형 · 갈래 · 상태 · 결론 · 확인)은 가운데 맞춤 (10/9) */
+.fbp-table th:nth-child(n+2):nth-child(-n+7), .fbp-table td:nth-child(n+2):nth-child(-n+7) { text-align: center; }
+.fbp-table th:nth-child(9), .fbp-table th:nth-child(10) { width: 88px; } .fbp-table th:nth-child(11), .fbp-table th:nth-child(12) { width: 80px; white-space: nowrap; }
+.fbp-table td:nth-child(n+9) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 좁은 폭: 피드백 열이 한 글자씩 끊기거나 사라지지 않게, 덜 중요한 열부터 숨긴다 (줄을 펼치면 다 보인다).
-   display: none 대신 폭 0으로 접는다: 펼친 줄(colspan 10)이 빈 열에 폭을 나눠 주지 않게 */
+   display: none 대신 폭 0으로 접는다: 펼친 줄(colspan 12)이 빈 열에 폭을 나눠 주지 않게 */
 .fbp-table-box { container-type: inline-size; }
 .fbp-table th { white-space: nowrap; }
-@container (max-width: 900px) { .fbp-table :is(th, td):nth-child(9) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
-@container (max-width: 800px) { .fbp-table :is(th, td):nth-child(7) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
-@container (max-width: 680px) { .fbp-table :is(th, td):is(:nth-child(2), :nth-child(5)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
-@container (max-width: 540px) { .fbp-table :is(th, td):is(:nth-child(8), :nth-child(10)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+@container (max-width: 900px) { .fbp-table :is(th, td):nth-child(11) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+@container (max-width: 800px) { .fbp-table :is(th, td):nth-child(9) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+@container (max-width: 680px) { .fbp-table :is(th, td):is(:nth-child(2), :nth-child(7)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+@container (max-width: 540px) { .fbp-table :is(th, td):is(:nth-child(6), :nth-child(10), :nth-child(12)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
 @container (max-width: 380px) { .fbp-table :is(th, td):nth-child(3) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+.fbp-state.turn { background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
 .fbp-table td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: baseline; }
 .fbp-row { cursor: pointer; }
 .fbp-row:hover, .fbp-row.on { background: var(--bg-hover); }
