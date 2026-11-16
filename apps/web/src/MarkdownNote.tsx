@@ -16,6 +16,7 @@ import { askConfirm } from './askText'
 import { t } from './i18n'
 import { frontMatterEnd } from '@rw/core'
 import { NoteHistoryBody, pickedFor, useNoteHistory } from './NoteHistory'
+import { NoteSuggestions } from './NoteSuggestions'
 
 /**
  * 연구노트·보조 노트의 Markdown + KaTeX 본문 (10/4 결정: 개념노트와 같은 형식과 편집기).
@@ -137,6 +138,7 @@ export function MarkdownNoteBody({ rid, text, rapi, kind, editing, onSave, onCan
       {head}
       <div className="page-body cn-body md-note-body">
         {body.trim() ? <NoteAsk rid={rid} target={target ?? null} source={text} contentOffset={start}><NoteMarkdown text={body} options={options} asset={asset} /></NoteAsk> : <p className="muted">{empty ?? t('아직 본문이 없습니다. 수정을 눌러 적습니다.', 'No text yet. Click Edit to write.')}</p>}
+        {file && <NoteSuggestions rid={rid} file={file} body={scroller} options={options} />}
         {footer}
       </div>
     </div>
