@@ -19,7 +19,7 @@ const KIND_OF: Partial<Record<FeedbackState, AnswerKind>> = { 반영: '구현', 
 export interface AnswerParts {
   kind: AnswerKind
   /** 상태 칸: 반영 · 답변 · 동의 · 확인 필요 · 나중에 · 거절 · 대기 · 끝남 */
-  state: string
+  state: FeedbackState | '대기' | '끝남'
   /** 결론 칸: PR 번호 · 있음/없음/일부 · 구현 크기(크기 중간). 없으면 '' */
   result: string
   /** 끝남이면 승인인지 중단인지 */
@@ -48,7 +48,7 @@ export function answerParts(e: FeedbackItem): AnswerParts {
 export const matchesKind = (f: KindFilter, e: FeedbackItem) => f === '전체' || answerParts(e).kind === f
 
 const KIND_NAME: Record<string, string> = { 구현: t('구현', 'Built'), 사실: t('사실', 'Fact'), 계획: t('계획', 'Plan'), '진행 상황': t('진행 상황', 'In progress'), 끝남: t('끝남', 'Done') }
-export const answerKindName = (k: string) => KIND_NAME[k] ?? stateName(k as FeedbackState | '대기')
+export const answerKindName = (k: AnswerKind | FeedbackState | '대기' | '끝남') => k === '구현' || k === '사실' || k === '계획' || k === '진행 상황' || k === '끝남' ? KIND_NAME[k]! : stateName(k)
 
 /** 표 머리의 세 칸 */
 export const AnswerHeads = () => <><th>{t('갈래', 'Kind')}</th><th>{t('상태', 'Status')}</th><th>{t('결론', 'Result')}</th></>
