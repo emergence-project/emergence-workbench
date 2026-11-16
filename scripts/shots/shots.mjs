@@ -102,6 +102,25 @@ try {
     // 앱 고치기 대화는 찍기 직전에 만들어, 앞 화면에서 받아 둔 대화 목록이 남지 않게 새로 연다
     if (name === 'agent-app') await page.goto('about:blank')
     if (name === 'settings-phone') await fetch(`${base}api/phone/on`, { method: 'POST' })
+    if (name === 'agent-archive') {
+      // 끝난 대화 하나를 보관하면 예제 실행기의 작은 모델이 결과 요약을 쓰고 원문을 압축한다 (11/16)
+      const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Run the Kempe check up to degree 5' : '켐페 확인 계산을 차수 5까지 돌려 줘', scope: { kind: 'project' }, mode: 'edit' }) })
+      const id = res.ok ? (await res.json()).chat.id : ''
+      if (!id) problems.push(`${name}: 예제 대화를 만들지 못함 (${res.status})`)
+      for (let i = 0; id && i < 80; i++) {
+        const c = (await (await fetch(`${base}api/agent-chats/${id}`)).json()).chat
+        const open = c.items.find((x) => x.kind === 'ask' && !x.answer)
+        if (open) await fetch(`${base}api/agent-chats/${id}/answer`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ask: open.id, answer: 'allow' }) })
+        else if (c.state === 'idle') break
+        await new Promise((r) => setTimeout(r, 100))
+      }
+      if (id) await fetch(`${base}api/agent-chats/${id}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: true }) })
+      for (let i = 0; id && i < 40; i++) {
+        const list = (await (await fetch(`${base}api/agent-chats`)).json()).chats
+        if (list.find((x) => x.id === id)?.summary) break
+        await new Promise((r) => setTimeout(r, 100))
+      }
+    }
     if (hash.includes('{chat}') && !chat) {
       // 허락을 기다리는 대화 하나 (예제 실행기가 "계산"을 보면 명령을 묻는다)
       const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Rerun the check computation in the Kempe note' : '켐페 노트의 확인 계산을 다시 돌려 줘', scope: { kind: 'project' }, mode: 'plan' }) })
@@ -281,6 +300,10 @@ try {
     if (name === 'settings-claude-accounts') {
       await page.locator('[data-ui="Claude 계정"]').first().evaluate((el) => el.scrollIntoView({ block: 'start' }))
         .catch(() => problems.push(`${name}: Claude 계정까지 내리지 못함`))
+    }
+    if (name === 'settings-central-memo') {
+      await page.locator('[data-ui="중앙 메모"]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
+        .catch(() => problems.push(`${name}: 중앙 메모까지 내리지 못함`))
     }
     // GitHub 로그인 줄은 설정 › 계정의 선택 절이라 첫 화면 아래에 있다 (11/8)
     if (name === 'settings-github-login') {

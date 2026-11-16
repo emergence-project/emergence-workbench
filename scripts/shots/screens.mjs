@@ -92,6 +92,8 @@ export const DEFAULT_SCREENS = [
   ['agent-new', '#/agent', '대화 프로젝트 고르기 항목', ['대화 프로젝트 고르기']],
   // 사이드바를 닫은 에이전트 화면 (같은 제안 안 A): 새 대화 아래 최근 대화 (shots.mjs가 찍기 전에 닫고 뒤에 되돌린다)
   ['agent-recent', '#/agent', '최근 대화'],
+  // 보관함 (11/16 정리 · 압축): 보관한 대화마다 작은 모델이 쓴 결과 요약 첫 줄 (shots.mjs가 대화 하나를 만들어 보관한다)
+  ['agent-archive', '#/agent', '결과 요약', '보관함 열기'],
   ['agent-panel', '#/r/{rid}', '에이전트 패널', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)'],
   // 에이전트 고르기 (10/30 Codex · Gemini): 새 대화의 모델 메뉴 맨 위 에이전트 줄 (예제 맥에는 Codex · Gemini가 없어 「설치 안 됨」)
   ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '모델 고르기']],
@@ -124,6 +126,8 @@ export const DEFAULT_SCREENS = [
   ['settings-agents', '#/settings/agents', '지시 처리'],
   // Claude 계정 (11/16): 기본 · 더한 Pro 계정, 대화 종류마다 계정 (예제는 server.ts가 Pro 계정 하나를 넣는다)
   ['settings-claude-accounts', '#/settings/agents', '계정 고르기'],
+  // 중앙 메모 (11/16): 사용자가 정한 오래 갈 사실, 중앙이 새 대화를 열 때 읽는다 (예제는 설정 폴더의 메모)
+  ['settings-central-memo', '#/settings/agents', '중앙 메모'],
   // 설정 › 에이전트 › 에이전트 자세히 (11/9): Codex 줄을 눌러 들어간 모양 (계정 · 시작 권한 · 자동 허용 · 하는 일)
   ['settings-agent-detail', '#/settings/agents', '에이전트 자세히', ['[data-ui="대화 에이전트"]:nth-of-type(2)']],
   // 폰에서 보기 (10/30): 예제 모드의 가짜 Tailscale을 켜 둔 화면(주소 · QR)

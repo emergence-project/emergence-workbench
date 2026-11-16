@@ -150,3 +150,69 @@ describe('중앙의 계정과 피드백 수', () => {
     fs.rmSync(dir, { recursive: true, force: true })
   })
 })
+
+describe('오래된 대화 정리와 중앙 메모', () => {
+  const dirs: string[] = []
+  const seen: RunInput[] = []
+  const asked: string[] = []
+  const fake: AgentRunner = Object.assign(async function* (input: RunInput): AsyncIterable<RunEvent> {
+    seen.push(input)
+    yield { type: 'session', id: `s${seen.length}` }
+    yield { type: 'text', text: '고쳤습니다' }
+    yield { type: 'result', ok: true }
+  } as (input: RunInput) => AsyncIterable<RunEvent>, { side: async (o: { prompt: string }) => { asked.push(o.prompt); return '그림 고침\nPR #9\n남은 일 없음' } })
+  const make = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-tidy-'))
+    dirs.push(dir)
+    const chats = new CentralChats({ dir: path.join(dir, 'chats'), runner: fake, limit: 4, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {} }, { file: path.join(dir, 'memo', 'central-memo.md'), where: 'local' })
+    return { chats, dir: path.join(dir, 'chats') }
+  }
+  afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); seen.length = 0; asked.length = 0 })
+
+  it('끝나고 7일 지난 대화를 보관하고, 작은 모델의 요약을 남긴 뒤 원문을 압축한다. 열면 다시 보인다', async () => {
+    const { chats, dir } = make()
+    const old = chats.create({ rid: 'p', text: '그림 고쳐 줘', title: '그림' })
+    const fresh = chats.create({ rid: 'p', text: '새 일', title: '새 일' })
+    await vi.waitFor(() => expect(chats.get(old.id).state).toBe('idle'))
+    await vi.waitFor(() => expect(chats.get(fresh.id).state).toBe('idle'))
+    const later = Date.now() + 8 * 86_400_000
+    // 정리 전에는 보관하지 않았다 (8일 뒤로 보고 정리하면 둘 다 보관)
+    const stored = JSON.parse(fs.readFileSync(path.join(dir, `${fresh.id}.json`), 'utf8'))
+    expect(stored.archived).toBeUndefined()
+    expect(await chats.tidy(later)).toBe(2)
+    const rows = chats.list('p')
+    expect(rows.every((r) => r.archived)).toBe(true)
+    expect(rows.find((r) => r.id === old.id)?.summary).toBe('그림 고침\nPR #9\n남은 일 없음')
+    expect(asked[0]).toContain('three short lines')
+    expect(fs.existsSync(path.join(dir, `${old.id}.items.json.gz`))).toBe(true)
+    expect(JSON.parse(fs.readFileSync(path.join(dir, `${old.id}.json`), 'utf8')).items).toEqual([])
+    // 열면 원문이 그대로, 꺼내면 다시 쓰인다
+    expect(chats.get(old.id).items[0]).toMatchObject({ kind: 'user', text: '그림 고쳐 줘' })
+    chats.archive(old.id, false)
+    expect(JSON.parse(fs.readFileSync(path.join(dir, `${old.id}.json`), 'utf8')).items.length).toBeGreaterThan(0)
+    // 지우면 압축 파일도
+    chats.archive(old.id, true)
+    chats.remove(old.id)
+    expect(fs.existsSync(path.join(dir, `${old.id}.items.json.gz`))).toBe(false)
+    // 7일이 안 됐거나 일하는 대화 · 중앙 대화는 두지 않는다
+    expect(await chats.tidy(Date.now())).toBe(0)
+  })
+
+  it('중앙 메모: 저장하면 새 중앙 대화와 메모가 바뀐 다음 말에 붙고, 그대로면 붙이지 않는다', async () => {
+    const { chats } = make()
+    expect(chats.memo()).toEqual({ text: '', where: 'local' })
+    expect(chats.setMemo('  앞으로 그림 캡션은 전/후  ').text).toBe('앞으로 그림 캡션은 전/후')
+    const c = chats.talk('안녕')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    expect(seen.at(-1)!.prompt).toContain('[Central memo]\n앞으로 그림 캡션은 전/후')
+    chats.send(c.id, { text: '다음' })
+    await vi.waitFor(() => expect(seen.length).toBe(2))
+    expect(seen.at(-1)!.prompt).not.toContain('Central memo')
+    chats.setMemo('앞으로 그림 캡션은 전/후\n피드백은 하위 대화가')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.send(c.id, { text: '또' })
+    await vi.waitFor(() => expect(seen.length).toBe(3))
+    expect(seen.at(-1)!.prompt).toContain('[Central memo (updated)]')
+    expect(() => chats.setMemo('가'.repeat(4001))).toThrow()
+  })
+})

@@ -8,9 +8,13 @@
  * - 앱 고치기 대화는 동시에 APP_LIVE_MAX개까지 (시안 §9 ③). 피드백은 열기 전에 맡기(handoff.yaml)를 적어 올려
  *   클라우드 루틴 · 다른 맥과 같은 항목을 함께 처리하지 않는다 (11/8에 있었던 일).
  */
+import fs from 'node:fs'
+import path from 'node:path'
 import { agentTurnReasons, agentTurns } from '@rw/core'
-import { APP_RID, CENTRAL_RID, type CentralFeedback, type CentralKid, type CentralOpenBody, type Chat, type ChatItem, type ChatMessageBody } from '@rw/core/contract/agentChats'
-import { AgentChats, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
+import { APP_RID, CENTRAL_RID, type CentralMemo, type CentralFeedback, type CentralKid, type CentralOpenBody, type Chat, type ChatItem, type ChatMessageBody } from '@rw/core/contract/agentChats'
+import { AgentChats, LIVE, lastTouched, promptOf, rowOf, type AgentChatsDeps, type Stored } from './agentChats.js'
+import { endSummaryPrompt } from './agentPrompts.js'
+import { due, pack, TIDY_SUMMARIES } from './agentTidy.js'
 import { listAllFeedback } from './feedback.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -30,6 +34,7 @@ export const CENTRAL_BRIEF = [
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
   '- Each user message starts with a short status of your sub-conversations. Mention one only when the user must act (their turn, a failed check) or it finished.',
+  '- The central memo (below, when there is one) holds lasting facts and rules the user set ("from now on X is Y"). When the user states such a rule or asks you to remember something, rewrite the memo with memo_write: send the whole memo back, short lines, newest rules kept, no task progress or summaries of work.',
   '- Close a sub-conversation with chat_close only when its work ended (pull request merged, edits reviewed, answer given), with a three-line summary: what was done, where the result is, what is left.',
   '- Reply in the user\'s language (usually Korean), short and plain. Do not judge research value or pick research topics for the user.',
 ].join('\n')
@@ -70,7 +75,16 @@ export function digestOf(kids: CentralKid[]): string {
   })].join('\n')
 }
 
+/** 중앙 메모 파일 (시안 §9 ⑤): 개인 저장소가 있으면 거기(두 맥이 함께 읽음), 없으면 이 컴퓨터 설정 폴더. publish = 쓴 뒤 올리기 */
+export interface CentralMemoDeps { file: string; where: 'personal' | 'local'; publish?: () => Promise<unknown> }
+/** 중앙 메모 길이 한도 (매 대화 처음에 읽는 글이라 짧게) */
+export const MEMO_MAX = 4000
+
 export class CentralChats extends AgentChats {
+  /** 중앙 세션에 마지막으로 넘긴 메모 (바뀌면 다음 말에 다시 붙인다) */
+  private memoSent = new Map<string, string>()
+  constructor(deps: AgentChatsDeps, private readonly memoDeps?: CentralMemoDeps) { super(deps) }
+
   /** 중앙 대화 (보관하지 않은 것 가운데 가장 최근) */
   private central(): Stored | undefined {
     return [...this.chats.values()].filter((c) => c.rid === CENTRAL_RID && !c.archived).sort((a, b) => b.updated.localeCompare(a.updated))[0]
@@ -90,7 +104,9 @@ export class CentralChats extends AgentChats {
     const c = this.central()
     if (c) return this.send(c.id, { text })
     const digest = `${digestOf([])}${this.feedbackLine()}`
-    return this.create({ rid: CENTRAL_RID, text, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}\n\n${digest}\n\n${text}`)
+    const made = this.create({ rid: CENTRAL_RID, text, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}${this.memoBlock()}\n\n${digest}\n\n${text}`)
+    this.memoSent.set(made.id, this.memo().text)
+    return made
   }
 
   /** 중앙 대화에 보내는 말에는 하위 대화 요약을 앞에 붙인다 (화면의 입력란에서 보내도) */
@@ -98,8 +114,12 @@ export class CentralChats extends AgentChats {
     const c = this.must(id)
     if (c.rid === CENTRAL_RID && prompt === undefined) {
       // 앱이 다시 켜져 세션이 없으면 안내도 다시
-      const brief = c.sessionId ? '' : `${CENTRAL_BRIEF}\n\n`
-      return super.send(id, m, `${brief}${digestOf(this.kidsOf(id))}${this.feedbackLine()}\n\n${promptOf(m.text, m.attach)}`)
+      const memo = this.memo().text
+      const brief = c.sessionId ? '' : CENTRAL_BRIEF
+      // 메모는 세션을 새로 열 때와 메모가 바뀐 뒤에만 붙인다 (토큰 아끼기)
+      const head = `${brief}${!brief && this.memoSent.get(id) === memo ? '' : this.memoBlock(!!brief)}`
+      this.memoSent.set(id, memo)
+      return super.send(id, m, `${head ? `${head}\n\n` : ''}${digestOf(this.kidsOf(id))}${this.feedbackLine()}\n\n${promptOf(m.text, m.attach)}`)
     }
     return super.send(id, m, prompt)
   }
@@ -174,6 +194,75 @@ export class CentralChats extends AgentChats {
     this.touch(k)
     this.archive(id, true)
     return kidOf(this.must(id))
+  }
+
+  /** 중앙 메모 (없으면 빈 글) */
+  memo(): CentralMemo {
+    const d = this.memoDeps
+    if (!d) return { text: '', where: 'local' }
+    try {
+      const st = fs.statSync(d.file)
+      return { text: fs.readFileSync(d.file, 'utf8').trim(), where: d.where, updated: st.mtime.toISOString() }
+    } catch { return { text: '', where: d.where } }
+  }
+
+  /** 중앙 메모를 통째로 바꾼다 (사용자가 설정 › 에이전트에서, 또는 중앙이 memo_write로). 개인 저장소면 저절로 올린다 */
+  setMemo(text: string): CentralMemo {
+    const d = this.memoDeps
+    if (!d) throw new WorkbenchError(404, t('여기서는 중앙 메모를 쓸 수 없습니다', 'The central memo is not available here'))
+    const body = text.trim()
+    if (body.length > MEMO_MAX) throw new WorkbenchError(400, t(`중앙 메모는 ${MEMO_MAX}자까지입니다`, `The central memo is limited to ${MEMO_MAX} characters`))
+    fs.mkdirSync(path.dirname(d.file), { recursive: true })
+    fs.writeFileSync(d.file, body ? `${body}\n` : '')
+    void d.publish?.().catch(() => undefined)
+    return this.memo()
+  }
+
+  /** 안내 뒤에 붙이는 메모 (없으면 빈 글). first = 안내 바로 뒤 (아니면 바뀐 메모) */
+  private memoBlock(first = true): string {
+    const m = this.memo().text
+    if (!m) return first ? '' : '[Central memo: now empty]'
+    return `${first ? '\n\n' : ''}[Central memo${first ? '' : ' (updated)'}]\n${m}`
+  }
+
+  /**
+   * 오래된 대화 정리 (agentTidy.ts, 시안 §6): 끝나고 7일 손대지 않은 대화를 보관하고,
+   * 보관한 대화마다 결과 요약(작은 모델)을 남긴 뒤 원문을 압축해 둔다. 한 번에 요약은 TIDY_SUMMARIES개까지. 압축한 대화 수
+   */
+  async tidy(now = Date.now()): Promise<number> {
+    for (const c of [...this.chats.values()]) if (due(c, now)) { c.archived = true; this.write(c); this.deps.notify(rowOf(c)) }
+    let n = 0
+    const budget = { summaries: TIDY_SUMMARIES }
+    for (const c of [...this.chats.values()]) if (await this.tidyOne(c, budget)) n++
+    return n
+  }
+
+  /** 보관함에 넣으면 바로 요약 · 압축한다 (사용자가 넣든, 중앙이 닫든, 저절로든) */
+  override archive(id: string, archived: boolean): Chat {
+    const out = super.archive(id, archived)
+    const c = this.chats.get(id)
+    if (archived && c) void this.tidyOne(c, { summaries: 1 }).catch(() => undefined)
+    return out
+  }
+
+  private tidying = new Set<string>()
+  /** 보관한 대화 하나: 요약이 없으면 쓰고(budget 안에서), 원문을 압축한다. 압축했으면 true */
+  private async tidyOne(c: Stored, budget: { summaries: number }): Promise<boolean> {
+    if (!c.archived || c.packed || !c.items.length || LIVE.has(c.state) || this.tidying.has(c.id)) return false
+    this.tidying.add(c.id)
+    try {
+      const ask = this.deps.runner.side
+      if (!c.summary && ask && budget.summaries > 0 && c.items.some((it) => it.kind === 'text' && !it.sub)) {
+        budget.summaries--
+        try { const s = (await ask({ prompt: endSummaryPrompt(c), cwd: this.deps.dir })).trim(); if (s) c.summary = s.slice(0, 2000) } catch { /* 요약 없이 압축만 */ }
+      }
+      // 요약을 기다리는 동안 꺼냈거나 지웠거나 다시 일하면 두지 않는다
+      if (!c.archived || LIVE.has(c.state) || this.chats.get(c.id) !== c) return false
+      const packed = pack(this.deps.dir, c)
+      this.write(c)
+      this.deps.notify(rowOf(c))
+      return packed
+    } finally { this.tidying.delete(c.id) }
   }
 
   private kidOfCentral(id: string): Stored {

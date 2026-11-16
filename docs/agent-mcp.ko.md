@@ -79,6 +79,7 @@ args = ["<앱 폴더>/scripts/mcp.mjs"]
 | `feedback_answer` | 피드백을 맡은 앱 고치기 대화 안에서만(피드백 화면의 「에이전트에게 맡기기」). 처리 기록(`status.yaml`)을 앱이 적는다: 상태와 답, 또는 코멘트 답. 수정 요청을 다시 처리하면 그 전 처리를 `revised`로 옮긴다. `after` = 그 PR의 CI가 찍은 화면 그림 이름, 남길 때 그림과 함께 전/후로 둔다 | `POST /api/agent-chats/:id/feedback/answer` |
 | `chat_list` · `chat_open` · `chat_send` · `chat_close` | 중앙 대화 안에서만(11/16, 맥에 하나인 Opus 대화로 읽기와 나눠 맡기기만 한다). 하위 대화 목록(상태 · PR · 마지막 글 · 요약), 역할을 정해 열기(`app` = 자기 작업 폴더에서 앱 고치기, 동시에 둘까지 · `project` = 연구 프로젝트 하나에서 쓰기 · `feedback` = 피드백 하나, 다른 컴퓨터나 클라우드 루틴이 맡았으면 거절), 이어 보내기, 끝난 것을 요약과 함께 닫기(보관). 중앙 대화는 고치기 · 명령 · 기록 쓰기를 못 한다 | `GET /api/agent-central`, `POST /api/agent-central/open` · `/send` · `/close` |
 | `feedback_turns` | 중앙 대화 안에서만(11/16). 에이전트 차례인 앱 피드백 항목(키 · 종류 · 화면 부위 · 글 · 이유, 다른 컴퓨터나 클라우드 정기 작업이 맡았으면 `taken`, 이미 맡은 대화가 있으면 `chat`). 피드백은 늘 피드백 하위 대화가 처리하고, 중앙은 사용자가 말할 때만 하위 대화를 연다 | `GET /api/agent-central/feedback` |
+| `memo_write` | 중앙 대화 안에서만(11/16). 중앙 메모(사용자가 정한 오래 갈 규칙, 4000자까지)를 통째로 바꿔 쓴다. 개인 저장소가 있으면 `agent/central-memo.md`, 없으면 앱 설정 폴더에 두고, 설정 › 에이전트 › 중앙 메모에 보인다 | `POST /api/agent-central/memo` |
 
 ## 지키는 것
 

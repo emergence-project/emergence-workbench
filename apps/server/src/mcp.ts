@@ -525,6 +525,15 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
       inputSchema: { id: z.string().describe('Sub-conversation id from chat_list'), text: z.string() },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => kidCall('/api/agent-central/send', a, 'Sent'))
+    server.registerTool('memo_write', {
+      title: 'Central memo',
+      description: 'Rewrite the central memo: lasting facts and rules the user set ("from now on X is Y"), read at the start of every central conversation and shown to the user in Settings › Agents. Send the whole memo (it replaces the old one): short lines, at most 4000 characters, no task progress.',
+      inputSchema: { text: z.string().max(4000).describe('The whole memo') },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    }, async (a) => {
+      const r = await post(base, f, '/api/agent-central/memo', a)
+      return r.ok ? text('Memo saved') : r.error
+    })
     server.registerTool('chat_close', {
       title: 'Close sub-conversation',
       description: 'Close a sub-conversation whose work ended (pull request merged, edits reviewed, question answered): it is archived with your summary. Refused while it is still working.',

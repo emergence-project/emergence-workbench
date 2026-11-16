@@ -152,7 +152,7 @@ export const ChatRow = z.object({
   feedback: z.string().optional(),
   /** 기록의 질문 · 지시가 연 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ: 기록에는 결과만, 대화는 에이전트 탭에) */
   record: z.object({ target: z.string(), id: z.string() }).strict().optional(),
-  /** 중앙 대화가 연 하위 대화면 중앙 대화 id, 중앙이 닫으며 남긴 결과 요약 (11/16) */
+  /** 중앙 대화가 연 하위 대화면 중앙 대화 id. summary = 결과 요약: 중앙이 닫으며 남기거나, 보관할 때 작은 모델이 쓴다 (11/16) */
   parent: z.string().optional(),
   summary: z.string().optional(),
   /** 일하는 중이면 이번 차례를 연 내 지시의 시각 (기록의 「Claude가 답을 쓰는 중 · 0:18」) */
@@ -359,7 +359,11 @@ export const CentralFeedback = z.object({
   items: z.array(z.object({ key: z.string(), kind: z.string().optional(), target: z.string(), text: z.string(), reasons: z.array(z.string()), taken: z.boolean(), chat: z.string().optional() }).strict()),
 }).strict()
 export type CentralFeedback = z.infer<typeof CentralFeedback>
+export type CentralMemo = z.infer<typeof CentralMemo>
 export type CentralKid = z.infer<typeof CentralKid>
 export type CentralState = z.infer<typeof CentralState>
 export type CentralOpenBody = z.infer<typeof CentralOpenBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
+/** GET · PUT /agent-central/memo: 중앙 메모 (11/16 시안 §6 · §9 ⑤): 사용자가 정한 오래 갈 사실. where = personal(개인 저장소, 두 맥이 함께) · local(이 컴퓨터만) */
+export const CentralMemo = z.object({ text: z.string(), where: z.enum(['personal', 'local']), updated: z.string().optional() }).strict()
+export const CentralMemoBody = z.object({ text: z.string().max(4000) }).strict()
