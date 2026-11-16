@@ -83,7 +83,7 @@ export function NoteHistorySide({ rid, file }: { rid: string; file: string }) {
           const on = picked.includes(c.hash)
           return (
             <li key={c.hash} className={`nh-row${on ? ' on' : ''}`} role="button" tabIndex={0} aria-pressed={on} data-ui="이력 커밋" data-ui-item={c.short}
-              title={t('누르면 이 커밋의 바뀐 곳을 본문에 겹칩니다. Shift를 누르고 하나 더 고르면 그 사이 전체', 'Click to overlay this commit on the text. Shift-click another to see everything between the two')}
+              title={t('누르면 이 커밋의 변경사항을 본문에 겹칩니다. Shift를 누르고 하나 더 고르면 그 사이 전체', 'Click to overlay this commit on the text. Shift-click another to see everything between the two')}
               onClick={(e) => choose(c.hash, e.shiftKey)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(c.hash, e.shiftKey) } }}>
               <span className="nh-line1"><b className="nh-when">{when(c.at)}</b><Who c={c} /></span>
               <span className="nh-line2">{c.subject || t('(메시지 없음)', '(no message)')} <span className="muted mono">· {c.short}</span></span>
@@ -91,7 +91,7 @@ export function NoteHistorySide({ rid, file }: { rid: string; file: string }) {
           )
         })}
       </ul>
-      <p className="muted small nh-tip">{t('커밋 하나를 고르면 그 커밋의 바뀐 곳을, Shift를 누르고 하나 더 고르면 두 커밋 사이 전체를 본문에 겹칩니다. 앱을 거치지 않고 파일을 고친 에이전트는 "나"로 보일 수 있습니다.', 'Choose one commit to overlay its changes on the text; Shift-click another to see everything between the two. Agents that changed the file outside the app may show as "Me".')}</p>
+      <p className="muted small nh-tip">{t('커밋 하나를 고르면 그 커밋의 변경사항을, Shift를 누르고 하나 더 고르면 두 커밋 사이 전체를 본문에 겹칩니다. 앱을 거치지 않고 파일을 고친 에이전트는 "나"로 보일 수 있습니다.', 'Choose one commit to overlay its changes on the text; Shift-click another to see everything between the two. Agents that changed the file outside the app may show as "Me".')}</p>
     </div>
   )
 }
