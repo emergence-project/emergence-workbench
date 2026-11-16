@@ -10,6 +10,13 @@ import { t } from './i18n.js'
 const sampleRun = async function* (input: Parameters<AgentRunner>[0]): AsyncIterable<RunEvent> {
   yield { type: 'session', id: `sample-${Date.now()}` }
   if (input.appChat) { yield* sampleApp(input); return }
+  // 중앙 대화 (11/16): 하위 대화를 살펴보고 나눠 맡겼다고 답한다 (하위 대화는 shots.mjs가 앱 API로 연다)
+  if (input.central) {
+    yield { type: 'tool', tool: 'mcp__workbench__chat_list', input: {} }
+    yield { type: 'text', text: t('두 가지로 나눠 맡겼어요. 앱 고치기는 작업 폴더에서 고친 뒤 PR을 올리고, 노트 다듬기는 수정 검토로 보냅니다. 내 차례가 되면 위 줄에 주황으로 보입니다.', 'I split this into two. The app fix works in its own folder and opens a pull request; the note edit goes to edit review. Anything that needs you shows in orange in the rows above.') }
+    yield { type: 'result', ok: true, cost: 0, seconds: 2 }
+    return
+  }
   yield { type: 'tool', tool: 'mcp__workbench__rules', input: {} }
   yield { type: 'tool', tool: 'mcp__workbench__project_status', input: {} }
   yield { type: 'tool', tool: 'Read', input: { file_path: `${input.cwd}/README.md` } }

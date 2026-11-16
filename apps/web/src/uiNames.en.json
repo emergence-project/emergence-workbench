@@ -1039,5 +1039,9 @@
   "확인함": "Reviewed",
   "이력 보기": "Show history",
   "절 이력": "Section history",
-  "겨눌 곳": "Target"
+  "겨눌 곳": "Target",
+  "중앙 대화 줄": "Central row",
+  "중앙 시작": "Central start",
+  "하위 대화": "Sub-conversations",
+  "하위 대화 줄": "Sub-conversation row"
 }

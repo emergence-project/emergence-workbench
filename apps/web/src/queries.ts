@@ -67,6 +67,8 @@ export const qk = {
   /** 대화 목록 (rid가 없으면 모든 프로젝트) · 대화 하나 */
   agentChatLists: ['agent-chats', 'list'] as const,
   agentChatList: (rid?: string) => ['agent-chats', 'list', rid ?? '*'] as const,
+  /** 중앙 대화와 하위 대화 (목록 키 아래라 대화가 바뀌면 함께 다시 받는다) */
+  agentCentral: ['agent-chats', 'list', 'central'] as const,
   agentChat: (id: string) => ['agent-chats', 'one', id] as const,
   agentWork: ['agent-work'] as const,
   /** 밖에서 도는 에이전트의 상태 (훅, 10/30) */

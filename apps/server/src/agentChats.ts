@@ -15,7 +15,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { readFeedbackCloud } from './feedbackCloud.js'
-import { APP_RID } from '@rw/core/contract/agentChats'
+import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, FileDiff, Snap } from './appWorktree.js'
 import { agentTurnReasons, agentTurns, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
@@ -43,8 +43,8 @@ export interface RunInput {
   /** 대화를 열 때 주는 짧은 안내 (범위 · 단계 · 다른 대화가 잡은 파일) */
   brief: string
   write: ChatWrite
-  /** 앱 고치기 대화: 그 대화 id (앱 MCP에 app_submit · app_checks를 붙이고, 파일 고치기 도구와 명령을 연다) */
-  appChat?: string
+  /** 앱 고치기 대화: 그 대화 id (앱 MCP에 app_submit · app_checks를 붙이고, 파일 고치기 도구와 명령을 연다). central = 중앙 대화 (chat_* 도구) */
+  appChat?: string; central?: boolean
   /** 에이전트 프로세스에 더할 환경 변수 (앱 고치기 대화: 화면 그림 포트 등) */
   env?: Record<string, string>
   /**
@@ -101,7 +101,7 @@ import { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
 // ---------- 대화들 ----------
 
 /** 파일에 두는 대화 (계약의 Chat에 세션 · 늘 허락한 것을 더함) */
-type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archived'> & {
+export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archived'> & {
   sessionId?: string
   /** 늘 허락한 것: 판정 열쇠와 보일 이름 */
   alwaysKeys?: { key: string; label: string }[]
@@ -170,7 +170,7 @@ type Answer = { answer: AskAnswer; note?: string; mode?: ChatMode }
 const MAX_ITEMS = 400
 const MAX_TEXT = 8000
 const now = () => new Date().toISOString()
-const LIVE = new Set(['running', 'waiting', 'queued'])
+export const LIVE = new Set(['running', 'waiting', 'queued'])
 /** 앱이 다시 켜질 때 같은 대화를 저절로 이어 가는 횟수 (차례가 잘 끝나기 전까지) */
 const RESTART_RESUMES = 2
 
@@ -209,7 +209,7 @@ export interface AgentChatsDeps {
 }
 
 export class AgentChats {
-  private readonly chats = new Map<string, Stored>()
+  protected readonly chats = new Map<string, Stored>()
   private readonly aborts = new Map<string, AbortController>()
   private readonly asks = new Map<string, (a: Answer) => void>()
   /** 줄 선 대화의 지시 (순서대로) */
@@ -220,7 +220,7 @@ export class AgentChats {
   /** 앱이 다시 켜질 때 돌고 있어 저절로 이어 갈 대화 (resumeRestarted) */
   private readonly restarted: string[] = []
 
-  constructor(private readonly deps: AgentChatsDeps) {
+  constructor(protected readonly deps: AgentChatsDeps) {
     fs.mkdirSync(deps.dir, { recursive: true })
     for (const f of fs.readdirSync(deps.dir)) {
       if (!f.endsWith('.json')) continue
@@ -279,7 +279,7 @@ export class AgentChats {
     return { chats: [...this.chats.values()].filter((c) => LIVE.has(c.state)).map((c) => ({ id: c.id, rid: c.rid, title: c.title, state: c.state, scope: c.scope, claims: c.claims })) }
   }
 
-  create(b: NewChatBody, link: { feedback?: string; record?: { target: string; id: string } } = {}, prompt?: string): Chat {
+  create(b: NewChatBody, link: { feedback?: string; record?: { target: string; id: string }; parent?: string } = {}, prompt?: string): Chat {
     const app = b.rid === APP_RID
     if (app && !this.deps.app) throw new WorkbenchError(404, t(`${HERE.ko}에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다`, `No app repository on ${HERE.en}, so app conversations are not available`))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
@@ -307,7 +307,7 @@ export class AgentChats {
       updated: at,
       items: [],
       ...(link.feedback && { feedback: link.feedback }),
-      ...(link.record && { record: { ...link.record } }),
+      ...(link.record && { record: { ...link.record } }), ...(link.parent && { parent: link.parent }),
     }
     this.chats.set(c.id, c)
     this.start(c, b, prompt)
@@ -345,7 +345,7 @@ export class AgentChats {
       this.push(c, userItem(m, true))
       return wireOf(c)
     }
-    this.start(c, m)
+    this.start(c, m, prompt)
     return wireOf(c)
   }
 
@@ -569,7 +569,7 @@ export class AgentChats {
    * 피드백 하나를 새 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」). 같은 항목은 한 대화만:
    * 그 피드백을 맡은 대화가 도는 중이면 거절한다. 에이전트 차례가 아닌 항목(사용자 차례 · 완료)도 거절한다.
    */
-  handOff(key: string): Chat {
+  handOff(key: string, parent?: string): Chat {
     const fb = this.deps.feedback
     if (!this.deps.app || !fb) throw new WorkbenchError(404, t(`${HERE.ko}에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)`, `Feedback cannot be handed to an agent on ${HERE.en} (needs the app repository and a feedback folder)`))
     if (this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
@@ -583,7 +583,7 @@ export class AgentChats {
     const title = `${t('피드백', 'Feedback')} · ${(e.status?.clean ?? e.text).replace(/\s+/g, ' ').trim()}`.slice(0, 60)
     const has = picture && fs.existsSync(picture) ? picture : undefined
     const images = has ? pictureImage(has) : undefined
-    return this.create({ rid: APP_RID, text: feedbackPrompt(e, reasons, has), title, mode: 'edit', ...(images && { images }) }, { feedback: key })
+    return this.create({ rid: APP_RID, text: feedbackPrompt(e, reasons, has), title, mode: 'edit', ...(images && { images }) }, { feedback: key, ...(parent && { parent }) })
   }
 
   /**
@@ -750,7 +750,7 @@ export class AgentChats {
     this.touch(c)
   }
 
-  private must(id: string): Stored {
+  protected must(id: string): Stored {
     const c = this.chats.get(id)
     if (!c) throw new WorkbenchError(404, t(`대화가 없음: ${id}`, `No such conversation: ${id}`))
     return c
@@ -834,7 +834,7 @@ export class AgentChats {
     return c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
   }
 
-  private touch(c: Stored): void {
+  protected touch(c: Stored): void {
     c.updated = now()
     this.write(c)
     this.deps.notify(rowOf(c))
@@ -1023,7 +1023,7 @@ export class AgentChats {
           ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback, agent: c.agent })
           : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })), agent: c.agent }),
         write: c.write,
-        ...(app && { appChat: c.id, env: appEnv(c.id) }),
+        ...(app ? { appChat: c.id, env: appEnv(c.id) } : c.rid === CENTRAL_RID && { central: true }),
         canUseTool,
         signal: abort.signal,
         inbox,
@@ -1176,7 +1176,7 @@ const userItem = (m: ChatMessageBody, queued?: boolean, point?: string): ChatIte
   ...(m.images?.length && { images: m.images.length }),
   ...(queued && { queued: true }),
 })
-const rowOf = (c: Stored): ChatRow => {
+export const rowOf = (c: Stored): ChatRow => {
   let added = 0
   let removed = 0
   let wait: ChatRow['wait']
@@ -1189,7 +1189,7 @@ const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.record && { record: { ...c.record } }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

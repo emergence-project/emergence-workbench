@@ -1,0 +1,15 @@
+/* 중앙 대화 (11/16 "중앙 에이전트", 시안 9x2Bud4dVQyYkS6RhdnbAG §2): 목록 맨 위 「중앙」 줄 · 첫 화면 · 하위 대화 줄 */
+.ac-central .label { font-weight: var(--fw-strong); }
+.ac-central-turn, .ac-kid-meta.turn { color: var(--s-blocked); }
+.ac-central-what { margin: 0; max-width: 60ch; }
+.ac-central-input { width: 100%; resize: vertical; font: inherit; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); color: var(--text); }
+.ac-central-send { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); }
+.ac-central-kids { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); max-height: 40%; overflow-y: auto; flex: none; }
+.ac-kid { display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; text-align: left; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--text); cursor: pointer; }
+.ac-kid:hover { background: var(--bg-hover); }
+.ac-kid-top { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ac-kid-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-kid-open { flex: none; font-size: var(--fs-xs); color: var(--text-3); }
+.ac-kid-meta { font-size: var(--fs-2xs); color: var(--text-3); padding-left: calc(10px + var(--sp-2)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-kid-report { font-size: var(--fs-xs); color: var(--text-2); padding-left: calc(10px + var(--sp-2)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.ac-kid-closed { align-self: flex-start; font-size: var(--fs-xs); }

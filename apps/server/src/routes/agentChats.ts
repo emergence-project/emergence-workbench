@@ -3,7 +3,10 @@ import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/agentChats'
 import { LIBRARY_RID } from '@rw/core'
-import { AgentChats, MCP_NAME, type AgentRunner } from '../agentChats.js'
+import fs from 'node:fs'
+import { MCP_NAME, type AgentRunner } from '../agentChats.js'
+import { CentralChats } from '../agentCentral.js'
+import { registerAgentCentral } from './agentCentral.js'
 import { chatExtras } from '../agentExtras.js'
 import type { AppWork } from '../appWorktree.js'
 import { claudeAgentRunner } from '../agentRunner.js'
@@ -40,7 +43,7 @@ function injectFetch(app: FastifyInstance): typeof fetch {
   }) as typeof fetch
 }
 
-export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): AgentChats {
+export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): CentralChats {
   const { registry, broadcast, repoPath } = ctx
   // 저절로 맡기기는 한 컴퓨터만: 개인 저장소에 맡은 컴퓨터를 적어 올린 뒤 맡는다 (feedbackClaims.ts, 10/22). 개인 저장소가 없으면 이 컴퓨터만 쓰는 것으로 본다
   const fbDir = ctx.opts.feedbackDir
@@ -52,15 +55,17 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
       claim: (key: string, since: number) => claimFeedback(deps, key, since),
     }
   })() : undefined
-  const mcpFor = (appChat?: string) => createMcpServer({ baseUrl: 'http://workbench.local', key: ctx.opts.key, fetch: injectFetch(app), appChat })
+  const mcpFor = (appChat?: string, central?: boolean) => createMcpServer({ baseUrl: 'http://workbench.local', key: ctx.opts.key, fetch: injectFetch(app), appChat, central })
   // Codex · Gemini (10/30, ACP): 대화마다 앱 MCP를 HTTP 입구로 연다 (agentMcpHttp.ts)
   const chatMcp = registerChatMcp(app, mcpFor)
-  const chats = new AgentChats({
+  // 중앙 대화의 작업 폴더 (11/16): 앱 저장소가 있으면 그것을 읽기로, 없으면 설정 폴더 안 빈 폴더
+  const centralDir = () => { const d = ctx.opts.appRepo?.root ?? path.join(registry.configDir, 'central'); fs.mkdirSync(d, { recursive: true }); return d }
+  const chats = new CentralChats({
     dir: path.join(registry.configDir, 'agent-chats'),
     runner: runner ?? claudeAgentRunner(mcpFor),
     ...(!runner && { others: { codex: acpAgentRunner(ACP_AGENTS.codex, chatMcp, registry.configDir), gemini: acpAgentRunner(ACP_AGENTS.gemini, chatMcp, registry.configDir) } }),
     limit: CHAT_LIMIT,
-    project: (rid) => ({ repo: repoPath(rid), title: rid === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : registry.list().find((r) => r.id === rid)?.title ?? rid }),
+    project: (rid) => rid === C.CENTRAL_RID ? { repo: centralDir(), title: t('중앙', 'Central') } : ({ repo: repoPath(rid), title: rid === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : registry.list().find((r) => r.id === rid)?.title ?? rid }),
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
@@ -159,6 +164,8 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     return { chat }
   })
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/feedback/answer', replies(C.FeedbackAnswered), async (req): Promise<C.FeedbackAnswered> => chats.feedbackAnswer(req.params.id, parseBody(C.FeedbackAnswerBody, req.body)))
+
+  registerAgentCentral(app, chats)
 
   /** 지금 도는 대화와 잡은 파일: 화면 · 앱 밖 에이전트가 같은 것을 보고 피한다 */
   app.get('/api/agent-work', replies(C.WorkState), async (): Promise<C.WorkState> => chats.work())

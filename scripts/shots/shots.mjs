@@ -73,6 +73,7 @@ try {
   let chat = ''
   let done = ''
   let appchat = ''
+  let central = ''
   for (const [name, hash, ui, click] of SCREENS) {
     current = name
     if (name === 'dark-topic') {
@@ -153,6 +154,21 @@ try {
       }
       if (appchat) await fetch(`${base}api/agent-chats/${appchat}/app/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: options.lang === 'en' ? 'Keep the note export menu inside the screen' : '노트 툴바 내보내기 메뉴가 화면 오른쪽에서 잘리지 않게', body: '## Before' }) })
     }
+    if (hash.includes('{central}') && !central) {
+      // 중앙 대화 (11/16): 중앙에게 말하고, 중앙 에이전트가 앱 MCP로 하듯 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연다
+      const json = { 'content-type': 'application/json', 'x-rw-lang': options.lang }
+      const en = options.lang === 'en'
+      const wait = async (id) => { for (let i = 0; id && i < 60; i++) { const c = (await (await fetch(`${base}api/agent-chats/${id}`)).json()).chat; if (c.state === 'idle' || c.state === 'waiting') return; await new Promise((r) => setTimeout(r, 100)) } }
+      const res = await fetch(`${base}api/agent-central/messages`, { method: 'POST', headers: json, body: JSON.stringify({ text: en ? 'Pictures do not show in feedback. Fix it, and tidy section 2 of the Kempe note too' : '피드백에서 그림이 안 보인대. 고쳐 주고, 켐페 노트 2절도 다듬어 줘' }) })
+      central = res.ok ? (await res.json()).chat.id : ''
+      if (!central) problems.push(`${name}: 중앙 대화를 만들지 못함 (${res.status})`)
+      await wait(central)
+      for (const kid of [{ role: 'app', title: en ? 'Pictures missing in feedback' : '피드백 그림 안 보임', task: en ? 'Pictures do not show in feedback. Fix it' : '피드백에서 그림이 안 보인대. 고쳐 줘' }, { role: 'project', project: rid, title: en ? 'Tidy section 2 of the Kempe note' : '켐페 노트 2절 다듬기', task: en ? 'Tidy section 2 of the Kempe note' : '켐페 노트 2절도 다듬어 줘' }]) {
+        const r = await fetch(`${base}api/agent-central/open`, { method: 'POST', headers: json, body: JSON.stringify(kid) })
+        if (!r.ok) problems.push(`${name}: 하위 대화를 열지 못함 (${r.status})`)
+        else await wait((await r.json()).kid.id)
+      }
+    }
     if (name === 'feedback-agent') {
       // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡기고, 앱 MCP가 하듯 PR 올리기와 처리 기록(feedback_answer)을 부른다
       await page.goto('about:blank')
@@ -190,7 +206,7 @@ try {
       await page.goto('about:blank')
     }
     if (name === 'agent-recent') { await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-side-agent', 'false')); await page.goto('about:blank') }
-    await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)))
+    await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)).replace('{central}', encodeURIComponent(central)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')
     if (name === 'paper-open' || name === 'paper-open-paint') {

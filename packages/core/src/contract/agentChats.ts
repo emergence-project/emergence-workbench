@@ -18,6 +18,11 @@ export const CHAT_SCOPES = ['project', 'all', 'topic', 'note', 'app'] as const
 /** 앱 고치기 대화의 rid (연구 프로젝트 id와 겹치지 않는다) */
 export const APP_RID = '_app'
 /**
+ * 중앙 대화의 rid (11/16 사용자 결정 "중앙 에이전트", 시안 https://claude.ai/artifact/9x2Bud4dVQyYkS6RhdnbAG): 맥에 하나.
+ * 읽기만 하고, 일은 하위 대화(앱 고치기 · 프로젝트 작성 · 피드백)를 열어 맡긴다 (agentCentral.ts)
+ */
+export const CENTRAL_RID = '_central'
+/**
  * running 도는 중 · waiting 허락을 기다림(사용자 차례) · queued 동시 실행 수가 차서 기다림 ·
  * idle 한 차례 끝남(이어서 지시할 수 있음) · stopped 멈춤 · error 실패
  */
@@ -145,6 +150,9 @@ export const ChatRow = z.object({
   feedback: z.string().optional(),
   /** 기록의 질문 · 지시가 연 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ: 기록에는 결과만, 대화는 에이전트 탭에) */
   record: z.object({ target: z.string(), id: z.string() }).strict().optional(),
+  /** 중앙 대화가 연 하위 대화면 중앙 대화 id, 중앙이 닫으며 남긴 결과 요약 (11/16) */
+  parent: z.string().optional(),
+  summary: z.string().optional(),
   /** 일하는 중이면 이번 차례를 연 내 지시의 시각 (기록의 「Claude가 답을 쓰는 중 · 0:18」) */
   since: z.string().optional(),
   /** 앱이 그 PR을 합친 커밋, 그리고 그 커밋이 지금 도는 앱에 들어왔는지 (상단바 "#n 반영됨") */
@@ -321,3 +329,30 @@ export type AppChecks = z.infer<typeof AppChecks>
 export type HandOffBody = z.infer<typeof HandOffBody>
 export type FeedbackAnswerBody = z.infer<typeof FeedbackAnswerBody>
 export type FeedbackAnswered = z.infer<typeof FeedbackAnswered>
+
+// ---------- 중앙 대화 (11/16 "중앙 에이전트") ----------
+
+/** 중앙이 여는 하위 대화의 역할: 앱 고치기 · 프로젝트 작성 · 피드백 처리 */
+export const CENTRAL_ROLES = ['app', 'project', 'feedback'] as const
+/** 중앙 대화 아래의 하위 대화 한 줄: report = 마지막 에이전트 글 (줄임) */
+export const CentralKid = z.object({
+  id: z.string(), rid: z.string(), title: z.string(), state: z.enum(CHAT_STATES), wait: z.enum(['plan', 'ask']).optional(),
+  pr: z.object({ number: z.number(), url: z.string() }).strict().optional(), merged: z.string().optional(),
+  feedback: z.string().optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), updated: z.string(),
+}).strict()
+/** GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화 */
+export const CentralState = z.object({ id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean() }).strict()
+/** POST /agent-central/messages: 중앙에게 말하기 (중앙이 없으면 연다) */
+export const CentralMessageBody = z.object({ text: z.string().trim().min(1).max(20000) }).strict()
+/** POST /agent-central/open: 중앙이 하위 대화를 연다. project = 프로젝트 작성, feedback = 피드백 키, task = 맡길 일 (사용자 원문을 그대로 붙인다) */
+export const CentralOpenBody = z.object({
+  role: z.enum(CENTRAL_ROLES), title: z.string().trim().min(1).max(60), task: z.string().trim().min(1).max(20000),
+  project: z.string().optional(), feedback: z.string().optional(),
+}).strict()
+export const CentralSendBody = z.object({ id: z.string(), text: z.string().trim().min(1).max(20000) }).strict()
+export const CentralCloseBody = z.object({ id: z.string(), summary: z.string().trim().min(1).max(2000) }).strict()
+export const CentralKidOne = z.object({ kid: CentralKid }).strict()
+export type CentralKid = z.infer<typeof CentralKid>
+export type CentralState = z.infer<typeof CentralState>
+export type CentralOpenBody = z.infer<typeof CentralOpenBody>
+export type CentralKidOne = z.infer<typeof CentralKidOne>

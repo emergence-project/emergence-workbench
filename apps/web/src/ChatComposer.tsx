@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { agentChatsApi, api, APP_RID, notesApi, type Attach, type AttachKind, type ChatEffort, type ChatMessageBody, type ChatMode, type ChatModel, type ChatSettings, type ImageIn } from './api'
+import { agentChatsApi, api, APP_RID, CENTRAL_RID, notesApi, type Attach, type AttachKind, type ChatEffort, type ChatMessageBody, type ChatMode, type ChatModel, type ChatSettings, type ImageIn } from './api'
 import { useCmdEnter } from './cmdEnter'
 import { t } from './i18n'
 import { Icon } from './icons'
@@ -223,7 +223,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
 
   const menu = (() => { const m = menuAt(text, caret); return m && m.start !== closed ? m : null })()
   // 앱 고치기 대화는 연구 프로젝트가 아니라 @로 붙일 노트 · 주제가 없다
-  const research = rid !== APP_RID
+  const research = rid !== APP_RID && rid !== CENTRAL_RID
   const notes = useQuery({ queryKey: qk.notes(rid), queryFn: () => notesApi(rid).list(), enabled: research && menu?.kind === '@' }).data
   const topics = useQuery({ queryKey: qk.topics(rid), queryFn: () => api.research(rid).topics(), enabled: research && menu?.kind === '@' }).data
   // 맥의 Claude Code 스킬 · 커넥터 (10/21 22:40): / 메뉴 · @ 메뉴에 함께 보인다
