@@ -301,6 +301,7 @@ try {
     }
     if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
     if (name === 'agent-recent') { await page.evaluate(() => localStorage.removeItem('rw-side-agent')); await page.goto('about:blank') }
+    if (name === 'knowledge-agent') await page.goto('about:blank')
     if (name === 'agent-side') { await page.evaluate(() => { localStorage.removeItem('rw-agent-side'); localStorage.removeItem('rw-agent-panel-all') }); await page.goto('about:blank') }
     console.log(`찍음 ${name}`)
   }

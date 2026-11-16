@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { InfoOrAgent } from './AgentSide'
 import { createPortal } from 'react-dom'
 import { api, conceptsApi, learnApi, type ConceptBrief, type ConceptRow, type ConceptCheck, type ConceptIssue, type IdCount, type LibraryInfo } from './api'
 import { useAgentEdits } from './projectQueries'
@@ -86,9 +87,9 @@ export function KnowledgeHome({ info, rightOpen = true, onChanged, onSaved }: { 
           </div>
         </div>
         {/* 오른쪽 사이드바: 제목줄 단추 · ⌥⌘\로 여닫는다 (시안 10/6) */}
-        {rightOpen && <aside className="kh-side" data-ui="라이브러리 정보">
+        {rightOpen && <InfoOrAgent ui="라이브러리 정보" onSaved={onSaved}>
           <KnowledgeStorage info={info} total={brief?.total} />
-        </aside>}
+        </InfoOrAgent>}
       </div>
     </main>
   )

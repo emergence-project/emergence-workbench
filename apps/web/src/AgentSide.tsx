@@ -1,13 +1,14 @@
 // 어느 화면에서나 오른쪽 사이드바로 에이전트와 대화 (11/16 사용자 "모든 페이지에서 오른쪽 사이드바를 통해서 메인 에이전트 또는 에이전트와 대화").
 // 프로젝트 밖 화면(홈 · 피드백 · 소개 · 설정 …)의 오른쪽 사이드바: 맨 위에 「중앙」, 그 아래 모든 프로젝트의 최근 대화, 아래 입력란은 중앙에게 말한다.
 // 대화를 누르면 이 사이드바 안에서 연다(페이지를 옮기지 않음). 프로젝트 화면은 원래의 오른쪽 사이드바 에이전트 탭을 쓰고, 그 목록 맨 위에도 「중앙」이 있다
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { agentChatsApi, CENTRAL_RID } from './api'
 import { ChatLine, PanelChat, rank, useChatList } from './AgentChats'
 import { CENTRAL_PAGE, CentralLine } from './CentralChat'
 import { t } from './i18n'
 import { Icon } from './icons'
+import { setRightMode, useRightMode } from './noteScreen'
 import { qk } from './queries'
 import { go } from './router'
 import { store } from './store'
@@ -49,6 +50,21 @@ export function GlobalAgentPanel({ onSaved }: { onSaved(m: string): void }) {
       </div>
       <div className="ac-compose ac-new-dock"><TalkToCentral onOpened={setOpen} /></div>
     </div>
+  )
+}
+
+/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 맨 위 「정보 | 에이전트」로 그 화면 정보와 에이전트를 오간다.
+ *  고른 갈래는 노트 화면의 오른쪽 사이드바 갈래와 같은 기억(noteScreen) */
+export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: string): void; children: ReactNode }) {
+  const agent = useRightMode() === 'agent'
+  return (
+    <aside className={`kh-side kh-side-tabs${agent ? ' kh-side-agent' : ''}`} data-ui={agent ? '에이전트 사이드바' : ui}>
+      <div className="segmented small full" role="tablist" aria-label={t('오른쪽 사이드바 갈래', 'Right sidebar view')} data-ui="오른쪽 사이드바 갈래">
+        <button role="tab" aria-selected={!agent} className={agent ? '' : 'on'} onClick={() => setRightMode('info')}>{t('정보', 'Info')}</button>
+        <button role="tab" aria-selected={agent} className={agent ? 'on' : ''} onClick={() => setRightMode('agent')}>{t('에이전트', 'Agent')}</button>
+      </div>
+      {agent ? <GlobalAgentPanel onSaved={onSaved} /> : children}
+    </aside>
   )
 }
 

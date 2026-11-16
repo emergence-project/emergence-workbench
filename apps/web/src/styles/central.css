@@ -22,3 +22,9 @@
 @media (max-width: 600px) {
   .agent-side { position: absolute; inset: 0; z-index: var(--z-overlay); border-left: 0; }
 }
+/* 지식 · 논문 · 그림 첫 화면: 자기 사이드바 맨 위 「정보 | 에이전트」. 에이전트일 때 칸을 넓히고 안쪽 여백 없이 */
+.kh-side-tabs { display: flex; flex-direction: column; gap: var(--sp-3); }
+.kh-side-agent { padding: var(--sp-3) 0 0; overflow: hidden; }
+.kh-side-agent > .segmented { margin: 0 var(--sp-4); width: auto; }
+.kh-side-agent > .ac-panel { flex: 1; min-height: 0; }
+.kh-layout:has(> .kh-side-agent) { grid-template-columns: minmax(0, 1fr) 340px; }
