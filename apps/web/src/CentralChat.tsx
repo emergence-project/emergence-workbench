@@ -44,7 +44,7 @@ export function CentralStart() {
       client.setQueryData(qk.agentChat(c.id), c)
       void client.invalidateQueries({ queryKey: qk.agentChatLists })
       go({ page: 'agent', id: c.id })
-    } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
+    } catch (e) { setFail(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
   return (
     <div className="scroll"><div className="page-body ac-start" data-ui="중앙 시작">
