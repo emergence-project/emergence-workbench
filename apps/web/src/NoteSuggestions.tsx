@@ -49,7 +49,7 @@ export function SuggestionCard({ s, rid, options, where }: { s: EditSuggestion; 
     try {
       await agentEditsApi.decideSuggestion(s.id, take)
       void client.invalidateQueries({ queryKey: qk.agentEdits(rid) })
-    } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
+    } catch (e) { setFail(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
   const kind = s.by ? KIND[s.by.toLowerCase()] : undefined
   return (
