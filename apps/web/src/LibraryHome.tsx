@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { InfoOrAgent } from './AgentSide'
 import { figuresApi, LIBRARY_SCOPE, papersApi, type FigureBrief, type LibraryInfo, type PaperBrief, type PaperPick, type PaperRecommend, type PaperRow } from './api'
 import { FIGURES_CHANGED } from './figureEmbed'
 import { AddFigure, FigureCard, scopeTitle, showFigure, showRecentFigures } from './FiguresPage'
@@ -42,11 +43,11 @@ function useOneRow(): [React.RefObject<HTMLDivElement | null>, number] {
 /** 점검 · 통계 한 줄 */
 interface StatRow { key: string; label: string; text: string; tip: string; count: number; to: Route }
 
-function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, check, stats, statsNote, error, rightOpen, side }: {
+function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, check, stats, statsNote, error, rightOpen, side, onSaved }: {
   ui: string; kind: 'pl' | 'fg'; recentTitle: string; recentText: string; recentTip: string; onRecent(): void
   cards(cols: number): ReactNode
   check: StatRow[] | null; stats: StatRow[] | null; statsNote?: string
-  error: string | null; rightOpen: boolean; side: ReactNode
+  error: string | null; rightOpen: boolean; side: ReactNode; onSaved(m: string): void
 }) {
   const [row, cols] = useOneRow()
   const turn = (check ?? []).filter((c) => c.count > 0)
@@ -80,7 +81,7 @@ function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, c
           </div>
         </div>
         {/* 오른쪽 사이드바: 제목줄 단추 · ⌥⌘\로 여닫는다 (지식과 같은 기억) */}
-        {rightOpen && <aside className="kh-side" data-ui="라이브러리 정보">{side}</aside>}
+        {rightOpen && <InfoOrAgent ui="라이브러리 정보" onSaved={onSaved}>{side}</InfoOrAgent>}
       </div>
     </main>
   )
@@ -178,7 +179,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
           </div>
           <div className="lh-gap two" aria-hidden />
         </div>
-        {rightOpen && <aside className="kh-side" data-ui="라이브러리 정보"><LibraryStorage info={info} section="papers" git={b ? t(`논문 ${b.total}편`, plural(b.total, 'paper')) : undefined} icloud={clouds('icloud')} drive={clouds('drive')} /></aside>}
+        {rightOpen && <InfoOrAgent ui="라이브러리 정보" onSaved={onSaved}><LibraryStorage info={info} section="papers" git={b ? t(`논문 ${b.total}편`, plural(b.total, 'paper')) : undefined} icloud={clouds('icloud')} drive={clouds('drive')} /></InfoOrAgent>}
       </div>
     </main>
   )
@@ -203,7 +204,7 @@ export function FiguresHome({ info, rightOpen, onSaved }: { info: LibraryInfo | 
   const idle = <StoreLine idle>{t('사진 · 스캔 폴더 연결 안 함', 'No photo or scan folder connected')} <button className="a" onClick={() => go({ page: 'settings', part: 'library-figures' })}>{t('연결하기', 'Connect')}</button></StoreLine>
   return (
     <Home ui="그림 첫 화면" kind="fg" recentTitle="최근 더한 그림" recentText={t('최근 더한 그림', 'Recently added figures')} recentTip={t('목록에서 최근 더한 순으로 보기', 'View the list newest first')} onRecent={showRecentFigures}
-      error={error} check={check} stats={stats} statsNote={b ? t(`${b.total}개`, `${b.total}`) : undefined} rightOpen={rightOpen}
+      error={error} check={check} stats={stats} statsNote={b ? t(`${b.total}개`, `${b.total}`) : undefined} rightOpen={rightOpen} onSaved={onSaved}
       cards={(cols) => <>
         <AddFigure look="card" compact scope={LIBRARY_SCOPE} scopeLabel={t('공용', 'Shared')} onSaved={onSaved} onAdded={() => undefined} />
         {b?.recent.slice(0, cols - 1).map((f) => <FigureCard key={f.id} compact fig={f} scope={scopeTitle(b, f.scope)} onClick={() => showFigure(f.id)} />)}

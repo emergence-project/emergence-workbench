@@ -301,6 +301,8 @@ try {
     }
     if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
     if (name === 'agent-recent') { await page.evaluate(() => localStorage.removeItem('rw-side-agent')); await page.goto('about:blank') }
+    if (name === 'knowledge-agent') await page.goto('about:blank')
+    if (name === 'agent-side') { await page.evaluate(() => { localStorage.removeItem('rw-agent-side'); localStorage.removeItem('rw-agent-panel-all') }); await page.goto('about:blank') }
     console.log(`찍음 ${name}`)
   }
   // 폰 (10/30, styles/phone.css): 폭 390의 따로 연 창에서 찍는다. 폰은 사이드바를 닫아 기억하므로 위 화면들과 저장소를 나누지 않는다

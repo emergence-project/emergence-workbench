@@ -84,7 +84,7 @@ export { AGENT_OPEN, sendToAgent } from './ChatComposer'
 
 // ---------- 목록 ----------
 
-const useChatList = (rid?: string) => useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) })
+export const useChatList = (rid?: string) => useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) })
 /** 탭 이름 (App.tsx tabTitle, 나란히 연 대화): 불러온 대화의 이름 */
 export const chatTitles = new Map<string, string>()
 const useChat = (id: string) => useQuery({ queryKey: qk.agentChat(id), queryFn: () => agentChatsApi.get(id).then((c) => { chatTitles.set(c.id, c.title); return c }) })
@@ -105,7 +105,7 @@ const projectName = (rid: string, projects?: { id: string; title: string }[]) =>
 const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error'
 /** 대화의 묶음 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 2절): 기록의 질문 · 지시가 연 대화와 직접 연 대화를 섞지 않는다 */
 export const chatGroupName = (c: Pick<ChatRow, 'record'>) => c.record ? t('기록의 질문 · 지시', 'Record questions and instructions') : t('직접 연 대화', 'Conversations you opened')
-function ChatGroups({ chats, line }: { chats: ChatRow[]; line(c: ChatRow): ReactNode }) {
+export function ChatGroups({ chats, line }: { chats: ChatRow[]; line(c: ChatRow): ReactNode }) {
   const [records, direct] = [chats.filter((c) => c.record), chats.filter((c) => !c.record)]
   // 기록 대화가 없으면 묶음 머리 없이 예전 목록 그대로
   if (!records.length) return <>{direct.map(line)}</>
@@ -116,10 +116,10 @@ function ChatGroups({ chats, line }: { chats: ChatRow[]; line(c: ChatRow): React
     {direct.map(line)}
   </>
 }
-const rank = (c: ChatRow) => (myTurn(c) ? 0 : isLive(c.state) ? 1 : 2)
+export const rank = (c: ChatRow) => (myTurn(c) ? 0 : isLive(c.state) ? 1 : 2)
 
 /** 목록 한 줄: 상태 점 · 이름, 아래 줄에 무엇을 기다리는지(상태) · +n −n · 시각 */
-function ChatLine({ c, on, onOpen, actions = false, pick }: { c: ChatRow; on: boolean; onOpen(): void; actions?: boolean; pick?: { on: boolean; disabled?: string; toggle(): void } }) {
+export function ChatLine({ c, on, onOpen, actions = false, pick }: { c: ChatRow; on: boolean; onOpen(): void; actions?: boolean; pick?: { on: boolean; disabled?: string; toggle(): void } }) {
   const [editing, setEditing] = useState(false)
   const { rename } = useChatActions(c.id)
   const line = (
@@ -1206,8 +1206,8 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
     window.addEventListener(AGENT_PANEL_OPEN, take)
     return () => window.removeEventListener(AGENT_PANEL_OPEN, take)
   }, [rid])
-  const list = useChatList(rid).data?.chats
-  const known = open && list?.some((c) => c.id === open)
+  const list = useChatList(rid).data?.chats, centralRow = useChatList().data?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived)
+  const known = open && (list?.some((c) => c.id === open) || open === centralRow?.id)
   const current = open && (known || !list) ? open : null
   const auto: Attach | undefined = note ? { kind: 'note', ref: note.file, label: note.title } : undefined
   const sorted = [...(list ?? [])].filter((c) => !c.archived || c.id === current).sort((a, b) => rank(a) - rank(b) || b.updated.localeCompare(a.updated))
@@ -1235,8 +1235,8 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
     </div>
   )
   const newChat = <NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} />
-  const chats = !!sorted.length && <div className="ac-panel-chats">
-    <div className="set-side"><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
+  const chats = <div className="ac-panel-chats">
+    <div className="set-side"><CentralLine row={centralRow} on={false} onOpen={centralRow ? setOpen : undefined} /><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
   </div>
   return (
     <div className={`rs ac-panel${place === 'bottom' ? ' bottom' : ''}`} data-ui="에이전트 패널">
@@ -1281,7 +1281,7 @@ function RecordBanner({ rid, record }: { rid: string; record: { target: string; 
 }
 
 /** 패널 안의 대화: 머리(‹ · 제목 · 묶음 · 상태 · ⋯)와 대화. 바뀐 곳은 에이전트 화면에서 */
-function PanelChat({ id, auto, onBack, onDeleted, onSaved, tools, recordTarget }: { id: string; auto?: Attach; onBack(): void; onDeleted(): void; onSaved(m: string): void; tools?: ReactNode; recordTarget?: { target: string; title: string; source?: string } }) {
+export function PanelChat({ id, auto, onBack, onDeleted, onSaved, tools, recordTarget }: { id: string; auto?: Attach; onBack(): void; onDeleted(): void; onSaved(m: string): void; tools?: ReactNode; recordTarget?: { target: string; title: string; source?: string } }) {
   const chat = useChat(id).data
   const [fail, setFail] = useState<string | null>(null)
   const [drafting, setDrafting] = useState(false)

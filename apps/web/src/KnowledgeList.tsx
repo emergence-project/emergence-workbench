@@ -1,4 +1,5 @@
 import { useSubjects, subjectsChanged } from './SubjectPicker'
+import { InfoOrAgent } from './AgentSide'
 import { subjectsApi, type SubjectTree } from './api/subjects'
 import { askText } from './askText'
 import { Icon } from './icons'
@@ -177,10 +178,10 @@ export function KnowledgeList({ info, filters, rightOpen, onChanged, onSaved }: 
             <span>·</span><button className="a" onClick={() => go({ page: 'figures', filter: `subject:${filters.subjectPrefix}` })}>{t('그림', 'Figures')} {(filters.subjectPrefix === '' ? tree.unclassified?.figures : tree.items.find((s) => s.id === filters.subjectPrefix)?.figures) ?? 0}</button>
           </div>}
         </section>
-        {rightOpen && <aside className="kh-side" data-ui={filters.subjectPrefix !== undefined ? '분류 정보' : '라이브러리 정보'}>
+        {rightOpen && <InfoOrAgent ui={filters.subjectPrefix !== undefined ? '분류 정보' : '라이브러리 정보'} onSaved={onSaved}>
           {filters.subjectPrefix !== undefined ? <SubjectInfo key={filters.subjectPrefix} node={node} path={filters.subjectPrefix} filters={filters} tree={tree} onSaved={onSaved} onChanged={onChanged} />
             : info && <KnowledgeStorage info={info} total={totalNotes} />}
-        </aside>}
+        </InfoOrAgent>}
       </div>
     </main>
   )
