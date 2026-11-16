@@ -80,6 +80,7 @@ import './styles/agent-project-pick.css'
 import './styles/agent-review.css'
 import './styles/study.css'
 import './styles/problems.css'
+import './styles/note-history.css'
 
 applyUi(cachedUi())
 phoneStart()

@@ -1,0 +1,24 @@
+/* 노트 이력 보기 (11/16 시안 N7ik 2절 ③′, NoteHistory.tsx): 오른쪽 사이드바의 커밋 목록, 본문 위 띠, 더한 글 밑줄 바탕 · 지운 글 줄 그음 */
+.nh-side { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); }
+.nh-side-head { display: flex; align-items: center; gap: var(--sp-2); }
+.nh-side-head .sp { flex: 1; }
+.nh-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.nh-row { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2); border: 1px solid transparent; border-radius: var(--r-sm); font-size: var(--fs-sm); cursor: pointer; user-select: none; }
+.nh-row:hover { background: var(--bg-hover); }
+.nh-row.on { background: var(--bg); border-color: var(--line-strong); }
+.nh-line1 { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.nh-when { font-variant-numeric: tabular-nums; }
+.nh-line2 { color: var(--text-2); overflow-wrap: anywhere; }
+.nh-who { display: inline-flex; gap: var(--sp-1); flex-wrap: wrap; }
+.nh-author { display: inline-flex; align-items: center; gap: 3px; color: var(--text-2); }
+.nh-author .ag-logo { width: 12px; height: 12px; }
+.nh-tip { margin: var(--sp-2) 0 0; }
+.nh-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); background: var(--bg-side); font-size: var(--fs-sm); }
+.nh-bar .sp { flex: 1; }
+.nh-bar-what { display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; min-width: 0; }
+.nh-ins { border-radius: var(--r-xs); text-decoration: underline; text-underline-offset: 3px; }
+.nh-ins.ag { background: color-mix(in srgb, var(--s-progress) 14%, transparent); text-decoration-color: var(--s-progress); }
+.nh-ins.me { background: var(--bg-sunken); text-decoration-color: var(--text-3); }
+.nh-del { color: var(--text-3); text-decoration: line-through; }
+.nh-del .katex, img.nh-ins, canvas.nh-ins { opacity: .8; }
+img.nh-ins, canvas.nh-ins { outline: 2px solid var(--line-strong); }

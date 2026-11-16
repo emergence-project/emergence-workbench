@@ -63,7 +63,7 @@ export const onlySpacing = (a: string, b: string) => a !== b && a.replace(/\s+/g
 const ATOM = '.katex, img, canvas, .ob-embed'
 
 /** 그린 글의 비교 단위: 글 노드는 낱말로, 수식 · 그림은 덩어리 하나로 */
-function atomsOf(root: Element): Atom[] {
+export function atomsOf(root: Element): Atom[] {
   const out: Atom[] = []
   const walk = (n: Node) => {
     if (n.nodeType === Node.TEXT_NODE) {

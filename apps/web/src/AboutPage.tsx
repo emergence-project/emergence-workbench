@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { api, setAboutCheck } from './api'
 import { AboutFixBar, prepareFix, type FixUnit } from './AboutFix'
 import { AboutHistorySide } from './AboutHistorySide'
+import { HistoryButton } from './NoteHistory'
 import { ABOUT_PARTS, type AboutPart, type AboutSection, COLOR_ROWS, partOf, sectionAnchor, SYMBOL_GROUPS } from './aboutContent'
 import { checkKey, checkState, lastPr, prsSince, putAboutChecks, useAboutChecks, type AboutCheckState } from './aboutChecks'
 import type { AboutCheck, AboutChecks } from './api'
@@ -309,14 +310,6 @@ export function AboutRailCount() {
 const HISTORY_KEY = 'rw.aboutHistory'
 function historyOn(): boolean { try { return localStorage.getItem(HISTORY_KEY) === '1' } catch { return false } }
 function keepHistory(on: boolean) { try { localStorage.setItem(HISTORY_KEY, on ? '1' : '0') } catch { /* 기억하지 못해도 지금 화면은 바뀐다 */ } }
-
-/** 이력 보기 단추: 툴바 오른쪽 시계 (노트의 이력 보기도 같은 단추를 쓴다) */
-export function HistoryButton({ on, onChange }: { on: boolean; onChange(v: boolean): void }) {
-  return (
-    <button className={`icon-btn${on ? ' on' : ''}`} data-ui="이력 보기" data-tip={on ? t('이력 끄기', 'Hide history') : t('이력 보기', 'Show history')} aria-pressed={on}
-      aria-label={t('이력 보기', 'Show history')} onClick={() => onChange(!on)}>{Icon.history}</button>
-  )
-}
 
 /** 다시 정리한 설명: 절마다 항목 목록, 그리고 남은 것 */
 function Sections({ part, at, history, picked }: { part: AboutPart; at: number; history: boolean; picked: number | null }) {

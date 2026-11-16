@@ -5,6 +5,7 @@ import { useConceptMacros } from './conceptMacros'
 import { Icon } from './icons'
 import { shortLabel } from './notes'
 import { LOOSE_NOTES_LABEL, NO_KIND_LABEL, NOTE_KIND_LABEL, noteKindChoices } from './noteKinds'
+import { NoteHistorySide, useNoteHistory } from './NoteHistory'
 import { headWriterOf, setRightMode, useRightMode, type RightMode } from './noteScreen'
 import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
@@ -94,8 +95,14 @@ function MoreList<T>({ items, render, empty }: { items: T[]; render(x: T): React
   </>
 }
 
-/** 정보 갈래: 상태와 다시 열 조건 · 성격 · 주제 · 설명 · 개념노트(본문에 쓴 것) · 이 노트를 인용한 노트 · 맨 아래 파일 경로 */
-export function NoteInfo({ rid, row, topics, proves = [], projectKind, version, onChanged, onSaved }: {
+/** 정보 갈래. 툴바의 시계(이력 보기)가 켜져 있으면 Markdown 노트는 그 파일을 고친 커밋 목록 (11/16 시안 2절 ③′) */
+export function NoteInfo(props: Parameters<typeof NoteInfoBody>[0]) {
+  const history = useNoteHistory()
+  return history.on && props.row.file.endsWith('.md') ? <NoteHistorySide key={props.row.file} rid={props.rid} file={props.row.file} /> : <NoteInfoBody {...props} />
+}
+
+/** 상태와 다시 열 조건 · 성격 · 주제 · 설명 · 개념노트(본문에 쓴 것) · 이 노트를 인용한 노트 · 맨 아래 파일 경로 */
+function NoteInfoBody({ rid, row, topics, proves = [], projectKind, version, onChanged, onSaved }: {
   rid: string; row: NoteRow; topics: Topic[]
   /** 이 노트를 증명으로 단 진술 (진술의 proofs) */
   proves?: Statement[]
