@@ -33,9 +33,9 @@ export function prepareFix(root: HTMLElement): { units: FixUnit[]; figures: numb
 
 /** 사용자가 찾을 수 있는 자리 이름: 표는 줄(첫 칸) · 칸(머리), 목록은 몇째 항목, 그 밖은 문단 첫 말 */
 function whereOf(el: HTMLElement, before: string): string {
-  const cell = el.closest('td, th') as HTMLTableCellElement | null
-  if (cell) {
-    const row = cell.parentElement as HTMLTableRowElement
+  const cell = el.closest('td, th')
+  const row = cell?.parentElement
+  if (cell instanceof HTMLTableCellElement && row instanceof HTMLTableRowElement) {
     if (row.parentElement?.tagName === 'THEAD') return t(`표 머리 「${clip(before)}」 칸`, `Table header "${clip(before)}"`)
     const head = norm(cell.closest('table')?.querySelector('thead tr')?.children[cell.cellIndex]?.textContent ?? '')
     const name = norm(row.cells[0]?.innerText ?? '')
@@ -67,8 +67,8 @@ export function collectFix(root: HTMLElement, units: FixUnit[]): FixChange[] {
   // 새 요소 안의 새 요소는 바깥 것 하나로
   const added = [...fresh].filter((el) => { for (let x = el.parentElement; x && x !== root; x = x.parentElement) if (fresh.has(x)) return false; return true })
   for (const el of added) {
-    const prev = el.previousElementSibling as HTMLElement | null
-    const near = prev && own.has(prev) ? units[Number(prev.dataset.fixUnit)]?.before ?? last : last
+    const prev = el.previousElementSibling
+    const near = prev instanceof HTMLElement && own.has(prev) ? units[Number(prev.dataset.fixUnit)]?.before ?? last : last
     out.push({ where: near ? t(`새 문단 (「${clip(near)}」 다음)`, `New paragraph (after "${clip(near)}")`) : t('새 문단', 'New paragraph'), before: '', after: norm(el.innerText) })
   }
   return out
@@ -117,7 +117,7 @@ export function AboutFixBar({ part, name, root, units, figures, check, onClose }
       if (check?.enabled) await setAboutCheck({ key: check.key, action: 'sent', pr: check.prs[check.prs.length - 1] ?? 0 }).then(putAboutChecks).catch(() => undefined)
       onClose()
       alert(t('고친 곳을 피드백으로 남겼습니다. 다음 피드백 처리 때 소개에 반영합니다.', 'Your edits were saved as feedback. They will be applied to this page at the next round of feedback handling.'))
-    } catch (e) { setError((e as Error).message); setBusy(false) }
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false) }
   }
   return (
     <div className="about-fix-box" data-ui="소개 고치기">
