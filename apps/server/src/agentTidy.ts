@@ -40,8 +40,8 @@ export function pack(dir: string, c: Tidyable): boolean {
 export function unpack(dir: string, c: Tidyable): void {
   if (!c.packed) return
   try {
-    const items = JSON.parse(zlib.gunzipSync(fs.readFileSync(packFile(dir, c.id))).toString('utf8')) as unknown
-    if (Array.isArray(items)) c.items = items as ChatItem[]
+    const items: unknown = JSON.parse(zlib.gunzipSync(fs.readFileSync(packFile(dir, c.id))).toString('utf8'))
+    if (Array.isArray(items)) c.items = items
   } catch { /* 압축 파일이 없거나 깨졌으면 빈 대화로 */ }
   delete c.packed
 }
