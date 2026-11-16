@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { agentAuthor, cleanBeforeAgent, commitAgentWrite } from './agentCommit.js'
+import { agentAuthor, cleanBeforeAgent, commitAgentWrite, commitTakenSuggestion } from './agentCommit.js'
 
 let tmp: string
 beforeAll(() => { tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-agentcommit-')) })
@@ -55,5 +55,13 @@ describe('에이전트 저장은 에이전트 이름으로 커밋 (11/8 15:16 �
     write(mac, 'workbench/topics/t/n/new.md', 'untracked\n')
     expect(await cleanBeforeAgent(path.join(mac, 'workbench/topics/t/n/new.md'))).toBeNull()
     expect(await cleanBeforeAgent('')).toBeNull()
+  })
+
+  it('받은 제안은 내 이름으로, 그 에이전트는 Co-Authored-By로 커밋한다 (11/16 ②)', async () => {
+    const { remote, mac } = setup('taken')
+    const at = await cleanBeforeAgent(path.join(mac, 'workbench/topics/t/n/note.md'))
+    write(mac, 'workbench/topics/t/n/note.md', '# Note\n\nMine, as Claude suggested.\n')
+    expect((await commitTakenSuggestion(at!, 'claude', 'Note'))?.pushed).toBe(true)
+    expect(g(remote, 'log', '-1', '--format=%an|%s|%b', 'main')).toBe('Researcher|제안 받기: Note|Co-Authored-By: Claude <claude@agents.emergence-workbench>')
   })
 })

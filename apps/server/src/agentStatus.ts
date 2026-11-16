@@ -87,7 +87,7 @@ const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…`
 
 /** 앱 설정의 고침 기록을 읽기만 한다. CLI는 등록 경로로 프로젝트 id를 찾는다. */
 export function readStatusEdits(wb: Workbench, configDir: string, rid?: string, lib?: string): EditList {
-  const empty = { reviews: [], attempts: [] }
+  const empty = { reviews: [], attempts: [], suggestions: [] }
   try {
     if (!rid) {
       const config = YAML.parse(fs.readFileSync(path.join(configDir, 'config.yaml'), 'utf8'))
@@ -219,14 +219,17 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   // ---------- 에이전트 수정 검토 대기 ----------
   const editReviews = edits?.reviews.filter((r) => r.target.kind === 'note') ?? []
   const editAttempts = edits?.attempts.filter((a) => a.target.kind === 'note') ?? []
-  if (editReviews.length || editAttempts.length) {
-    p(`## 에이전트 수정 검토 대기 ${editReviews.length + editAttempts.length}`, '',
+  const editSuggestions = edits?.suggestions?.filter((x) => x.target.kind === 'note') ?? []
+  if (editReviews.length || editAttempts.length || editSuggestions.length) {
+    p(`## 에이전트 수정 검토 대기 ${editReviews.length + editAttempts.length + editSuggestions.length}`, '',
       '> 사용자 차례: 앱의 검토 화면(#/review)에서 바뀐 문단마다 승인 · 되돌리기 · 직접 고치기. 검토 전에 같은 노트를 또 고칠 때는 사용자가 되돌린 문단을 다시 넣지 않는다.', '')
     for (const r of editReviews) if (r.target.kind === 'note') {
       const first = new Date(r.since)
       p(`- **${r.title}** — \`${r.target.file}\` · 바뀐 곳 ${r.changes} · 에이전트 ${r.agents.join(', ') || '—'} · 첫 고침 ${localDate(first)} ${first.toTimeString().slice(0, 5)}`)
     }
     for (const a of editAttempts) if (a.target.kind === 'note') p(`- 허락 대기: **${a.title}** — \`${a.target.file}\` · 에이전트 ${a.agent || '—'}`)
+    // 사용자가 쓴 문단은 파일을 바꾸지 않고 제안으로 남는다 (11/16): 같은 문단을 또 고치지 말고 받기 · 버리기를 기다린다
+    for (const x of editSuggestions) if (x.target.kind === 'note') p(`- 제안(사용자 문단, 파일은 그대로): **${x.title}** — \`${x.target.file}\`${x.section ? ` · ${x.section}` : ''} · 에이전트 ${x.by || '—'}`)
     p('')
   }
 

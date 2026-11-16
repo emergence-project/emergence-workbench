@@ -1,0 +1,14 @@
+/* 내 문단에 대한 에이전트 제안 (11/16 시안 N7ik 2절 ②, NoteSuggestions.tsx): 그 문단 바로 아래 카드, 겹쳐 칠하기는 이력 보기의 nh-ins · nh-del */
+.ns-host { margin: var(--sp-2) 0 var(--sp-4); }
+.ns-card { border: 1px solid var(--line); border-left: 3px solid var(--s-progress); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); background: var(--bg-side); font-size: var(--fs-sm); }
+.ae-sec .ns-card + .ns-card { margin-top: var(--sp-3); }
+.ns-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ns-head .sp { flex: 1; }
+.ns-head .ag-logo { width: 14px; height: 14px; }
+.ns-tag { font-size: var(--fs-xs); color: var(--text-3); }
+.ns-where { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ns-reason { margin: var(--sp-1) 0 0; color: var(--text-2); }
+.ns-text { margin-top: var(--sp-2); font-size: var(--fs-md); }
+.ns-text > :first-child { margin-top: 0; }
+.ns-text > :last-child { margin-bottom: 0; }
+.ns-none { margin: var(--sp-1) 0 0; }

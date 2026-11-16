@@ -25,6 +25,8 @@ export const AboutChecks = z.object({
   sections: z.record(z.string(), AboutCheck),
   /** PR 번호 → 합친 날 (이력 보기, 앱 저장소가 없으면 빈 표) */
   prDates: z.record(z.string(), z.string()),
+  /** PR 번호 → 업데이트 제목 (소개 이력 사이드바, 설정 › 업데이트 이력과 같은 말. 앱 저장소가 없으면 빈 표) */
+  prTitles: z.record(z.string(), z.string()),
 }).strict()
 
 export const AboutCheckBody = z.object({

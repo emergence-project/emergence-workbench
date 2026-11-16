@@ -28,7 +28,7 @@ export const prsSince = (sec: Pick<AboutSection, 'prs'>, rec: AboutCheck | undef
 /** 절의 기록 키 <쪽>/<절> */
 export const checkKey = (part: AboutPart, anchor: string) => `${part.id}/${anchor}`
 
-const EMPTY: AboutChecks = { enabled: false, exists: false, sections: {}, prDates: {} }
+const EMPTY: AboutChecks = { enabled: false, exists: false, sections: {}, prDates: {}, prTitles: {} }
 
 /** 기록 읽기 (사이드바 · 쪽 · 레일의 수가 한 요청을 나눠 쓴다) */
 export function useAboutChecks(): AboutChecks {

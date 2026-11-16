@@ -37,3 +37,14 @@ export async function commitAgentWrite(at: { top: string; rel: string }, agent: 
   const what = summary?.replace(/\s+/g, ' ').trim().slice(0, 72)
   return publishPaths(at.top, [at.rel], { message: `${author.name}: ${what || `edit ${path.basename(at.rel)}`}`, adopt: true, merge: true, author })
 }
+
+/**
+ * 받은 제안(11/16 시안 2절 ②)은 내 이름으로 커밋하고 그 에이전트를 Co-Authored-By로 함께 적는다.
+ * 내 이름만 남기면 에이전트 문장이 사람 문단으로 보여 다음 에이전트 고침이 제안으로 막힌다
+ */
+export async function commitTakenSuggestion(at: { top: string; rel: string }, agent: string | undefined, title: string): Promise<PathPublishResult | null> {
+  if (await offDefaultBranch(at.top)) return null
+  const co = agentAuthor(agent)
+  const what = title.replace(/\s+/g, ' ').trim().slice(0, 60)
+  return publishPaths(at.top, [at.rel], { message: `제안 받기: ${what || path.basename(at.rel)}\n\nCo-Authored-By: ${co.name} <${co.email}>`, adopt: true, merge: true })
+}

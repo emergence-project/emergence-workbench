@@ -19,6 +19,7 @@ import { agentName } from './taskView'
 import { chooseRecordFilter, chooseRecordPlace } from './workRecords'
 import { openChatInSidebar } from './agentPanelOpen'
 import { noteToc, openRight } from './noteScreen'
+import { SuggestionsSection } from './NoteSuggestions'
 
 /**
  * 에이전트 고침 검토 (10/8 사용자 결정, 첫 판): 에이전트가 고친 노트 · 개념노트를 고치기 전 글(기준판)과 문단 단위로 비교한다.
@@ -81,6 +82,7 @@ export function AgentEditsPage({ selected, rid, version, onSaved }: { selected?:
               </ul>
             </section>
           )}
+          {list && rid && <SuggestionsSection list={list.suggestions} rid={rid} />}
           {list && (
             <section className="ae-sec" data-ui="검토할 노트">
               <h2 className="ae-h">{t('검토할 노트', 'Notes to review')} {list.reviews.length > 0 && <span className="rail-count">{list.reviews.length}</span>}</h2>

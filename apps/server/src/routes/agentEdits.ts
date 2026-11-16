@@ -6,7 +6,8 @@ import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
 import { parseNoteFixes } from '@rw/core'
 import { agentWrite, AgentEditStore, decide, listEdits, readTarget, reviewOf, targetFile, targetKey, type EditTarget, type Hunk, type TargetIo } from '../agentEdits.js'
-import { cleanBeforeAgent, commitAgentWrite } from '../agentCommit.js'
+import { cleanBeforeAgent, commitAgentWrite, commitTakenSuggestion } from '../agentCommit.js'
+import { decideSuggestion, humanBlocks, listSuggestions } from '../agentSuggest.js'
 import { appendAnswer, askPrompt, claudeRunner } from '../ask.js'
 import { addComment, commentSourceFile, readComments } from '../comments.js'
 import { projectRules } from '../agentRules.js'
@@ -35,7 +36,9 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
    */
   const writeAsAgent = async (w: Parameters<typeof agentWrite>[2]) => {
     const clean = opts.agentCommits === false ? null : await cleanBeforeAgent(targetFileOrNull(w.target))
-    const r = agentWrite(io(), store(), w)
+    // 사람이 마지막에 쓴 문단은 제안으로 (11/16 시안 2절 ②, 노트만)
+    const mine = w.target.kind === 'note' ? await humanBlocks(targetFileOrNull(w.target)) : null
+    const r = agentWrite(io(), store(), { ...w, mine })
     if (r.ok && clean && r.hash !== w.baseHash) {
       void commitAgentWrite(clean, w.agent, w.summary).catch((e: unknown) => app.log.warn(e, '에이전트 저장 커밋 실패'))
     }
@@ -136,6 +139,21 @@ export function registerAgentEdits(app: FastifyInstance, ctx: RouteContext): voi
     await notify(target)
     if (!r.ok) return reply.status(r.status).send({ error: r.error, key: targetKey(target) } satisfies ErrorReply)
     return { ...r, key: targetKey(target) }
+  })
+
+  /** 제안 목록 (11/16 시안 2절 ②). scope = 프로젝트 id 또는 노트 key */
+  app.get<{ Querystring: { scope?: string } }>('/api/agent-edits/suggestions', replies(C.EditSuggestions), async (req): Promise<C.EditSuggestions> => ({ suggestions: listSuggestions(store(), req.query.scope || undefined) }))
+
+  /** 제안 받기 · 버리기. 받으면 파일에 쓰고, 쓰기 전에 깨끗했으면 내 이름 + 그 에이전트 Co-Authored-By로 커밋해 올린다 */
+  app.post('/api/agent-edits/suggestions', replies(C.SuggestionDecided), async (req): Promise<C.SuggestionDecided> => {
+    const b = parseBody(C.SuggestionBody, req.body)
+    const s = store()
+    const found = (s.read(true).suggestions ?? []).find((x) => x.id === b.id)
+    const clean = b.take && found && opts.agentCommits !== false ? await cleanBeforeAgent(targetFileOrNull(found.target)) : null
+    const r = decideSuggestion(io(), s, b.id, b.take)
+    if (r.hash && clean) void commitTakenSuggestion(clean, r.suggestion.by, r.suggestion.title).catch((e: unknown) => app.log.warn(e, '받은 제안 커밋 실패'))
+    await notify(r.suggestion.target)
+    return { ok: true, ...(r.hash && { hash: r.hash }) }
   })
 
   /** 확인된 노트 쓰기 시도를 지운다 (사용자가 보았음) */

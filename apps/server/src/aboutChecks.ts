@@ -67,14 +67,15 @@ export function writeAboutCheck(dir: string, key: string, action: 'check' | 'sen
   return readAboutChecks(dir).sections[key] ?? {}
 }
 
-/** 앱 저장소의 PR 번호 → 합친 날(YYYY-MM-DD). 이력 보기의 날짜에 쓴다. 저장소가 없으면 빈 표 */
-export async function prDates(root: string, running: string): Promise<Record<string, string>> {
+/** 앱 저장소의 PR 번호 → 합친 날(YYYY-MM-DD)과 제목. 이력 보기에 쓴다. 저장소가 없으면 빈 표 */
+export async function prInfo(root: string, running: string): Promise<{ prDates: Record<string, string>; prTitles: Record<string, string> }> {
   const log = await git(root, ['log', '--first-parent', '--date=format-local:%Y-%m-%d', '--format=%cd%x09%s', running]).catch(() => '')
-  const out: Record<string, string> = {}
+  const prDates: Record<string, string> = {}
+  const prTitles: Record<string, string> = {}
   for (const line of log.split('\n')) {
     const [date, ...rest] = line.split('\t')
-    const pr = parseSubject(rest.join('\t')).pr
-    if (date && pr && !out[pr]) out[pr] = date
+    const { pr, title } = parseSubject(rest.join('\t'))
+    if (date && pr && !prDates[pr]) { prDates[pr] = date; prTitles[pr] = title }
   }
-  return out
+  return { prDates, prTitles }
 }

@@ -12,6 +12,7 @@ import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
 import { FeedbackFileButtons, IssueButton } from './FeedbackSend'
+import { AnswerCells, AnswerHeads, answerKindName, KIND_FILTERS, matchesKind, type KindFilter } from './feedbackAnswerKind'
 import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
 import { feedbackKindName as kindName, feedbackLabel as label, feedbackStateName as stateName, REPLY, TAG_NOTES } from './feedbackTags'
@@ -40,8 +41,6 @@ const FILTER_TITLES: Record<FeedbackBucket, string> = {
   '대기': t('에이전트가 처리할 것: 새 피드백, 수정 · 진행한 것, 질문, 묻지 않은 보류', 'For the agent to handle: new feedback, revisions and go-aheads, questions, holds without a question'),
   '완료': t('승인했거나 확인 기간(7일)이 지난 반영·답변', 'Approved, or applied and answered items past the 7-day review period'),
 }
-/** 표의 답 칸: 에이전트가 적은 상태. 사용자의 승인 · 수정 요청은 확인 칸에 따로 (10/9) */
-const answerOf = (e: FeedbackItem): FeedbackState | '대기' => { const st = stateOf(e); return st === '승인' && (e.review?.verdict === '승인' || e.review?.verdict === '중단') ? e.status?.state ?? '대기' : st }
 /** 항목 머리의 상태: 사용자가 중단해 끝난 것은 "중단" */
 const headName = (e: FeedbackItem, st: FeedbackState | '대기') => (st === '승인' && e.review?.verdict === '중단' ? t('중단', 'Stopped') : stateName(st))
 /** 종류는 둘로 나눠 보인다 (10/9): 요소(디자인 · 버그 · 기능, 10/9 전 분류)와 유형(수정 · 질문 · 제안, 사용자가 고른 것) */
@@ -93,6 +92,7 @@ export function FeedbackPage() {
   const statusError = all.data?.statusError ?? null
   const user = all.data?.user ?? null
   const [filter, setFilter] = useState<Filter>('대기')
+  const [kind, setKind] = useState<KindFilter>('전체')
   const [group, setGroupState] = useState<GroupBy>(readGroup)
   const setGroup = (g: GroupBy) => { setGroupState(g); try { localStorage.setItem(GROUP_KEY, g) } catch { /* 무시 */ } }
   // 피드백 모드에서 새로 남기거나 고치면 바로 다시 읽는다
@@ -110,7 +110,7 @@ export function FeedbackPage() {
     if (entries.some((e) => matches('확인 필요', e))) setFilter('확인 필요')
   }, [entries])
 
-  const shown = useMemo(() => (entries ?? []).filter((e) => matches(filter, e)), [entries, filter])
+  const shown = useMemo(() => (entries ?? []).filter((e) => matches(filter, e) && matchesKind(kind, e)), [entries, filter, kind])
   const groups = useMemo(() => (group === '시각' ? [] : groupFeedback(shown, group)), [shown, group])
 
   return (
@@ -119,11 +119,11 @@ export function FeedbackPage() {
       <section className="pane">
         <div className="pane-head bar3 fbp-toolbar" data-ui="머리줄">
           {/* 선택지가 넷 이상이면 고르기 상자 (10/30 결정 "피드백 툴바 한 줄") */}
-          <label className="fbp-pick fbp-filters" data-ui="거르기">{t('상태', 'Status')}
+          <div className="fbp-picks fbp-filters"><label className="fbp-pick" data-ui="거르기">{t('상태', 'Status')}
             <select className="mini-select" value={filter} title={filter === '전체' ? undefined : FILTER_TITLES[filter]} onChange={(e) => { picked.current = true; setFilter(FILTERS.find((f) => f === e.target.value) ?? '전체') }}>
               {FILTERS.map((f) => <option key={f} value={f}>{label(f)}{entries ? ` ${entries.filter((e) => matches(f, e)).length}` : ''}</option>)}
             </select>
-          </label>
+          </label><label className="fbp-pick" data-ui="갈래 거르기">{t('갈래', 'Kind')}<select className="mini-select" value={kind} onChange={(e) => setKind(KIND_FILTERS.find((k) => k === e.target.value) ?? '전체')}>{KIND_FILTERS.map((k) => <option key={k} value={k}>{k === '전체' ? label(k) : answerKindName(k)}{entries ? ` ${entries.filter((e) => matches(filter, e) && matchesKind(k, e)).length}` : ''}</option>)}</select></label></div>
           <label className="fbp-pick fbp-groupby" data-ui="묶기">{t('보기', 'View')}
             <select className="mini-select" value={group} onChange={(e) => setGroup(GROUPS.find((g) => g === e.target.value) ?? '시각')}>
               {GROUPS.map((g) => <option key={g} value={g}>{label(g)}</option>)}
@@ -169,20 +169,19 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
       <thead>
         <tr>
           <th><button className="fb-link" title={t('순서 바꾸기', 'Reverse order')} onClick={() => setNewest((v) => !v)}>{t('시각', 'Time')} {newest ? '↓' : '↑'}</button></th>
-          <th>{t('요소', 'Element')}</th><th>{t('유형', 'Type')}</th><th>{t('답', 'Answer')}</th><th>{t('확인', 'Review')}</th><th>{t('피드백', 'Feedback')}</th><th>{t('화면', 'Screen')}</th><th>{t('부위', 'Part')}</th><th>{t('남긴 버전', 'Left in')}</th><th>{t('반영 버전', 'Fixed in')}</th>
+          <th>{t('요소', 'Element')}</th><th>{t('유형', 'Type')}</th><AnswerHeads /><th>{t('확인', 'Review')}</th><th>{t('피드백', 'Feedback')}</th><th>{t('화면', 'Screen')}</th><th>{t('부위', 'Part')}</th><th>{t('남긴 버전', 'Left in')}</th><th>{t('반영 버전', 'Fixed in')}</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((e) => {
           const k = keyOf(e)
-          const st = stateOf(e)
           const text = feedbackSummary(e.status?.clean ?? e.text)
           return [
             <tr key={k} className={`fbp-row${open === k ? ' on' : ''}`} data-ui="피드백 줄" data-ui-item={`${e.date} ${e.time} ${e.target}`} onClick={() => setOpen(open === k ? null : k)}>
               <td className="mono fbp-when"><button type="button" className="fbp-open" aria-expanded={open === k} aria-label={`${open === k ? t('접기', 'Collapse') : t('펼치기', 'Expand')}: ${e.date} ${e.time} ${text.slice(0, 40)}`}>{feedbackWhen(e.date, e.time)}</button></td>
               <td className="fbp-cell">{ELEMENTS.includes(kindOf(e)) ? kindName(kindOf(e)) : ''}</td>
               <td className="fbp-cell">{TYPES.includes(kindOf(e)) ? kindName(kindOf(e)) : ''}</td>
-              <td className="fbp-cell-state"><span className={`fbp-state st-${st}`}>{stateName(answerOf(e))}</span></td>
+              <AnswerCells e={e} />
               <td className="fbp-cell" title={e.review?.note}>{e.review ? verdictName(e.review.verdict) : ''}</td>
               <td className="fbp-cell-text" title={e.status?.understood ?? text}>{text}{e.merged && <span className="muted"> +{e.merged.length}</span>}</td>
               <td className="fbp-cell" title={e.route}>{e.status?.area ?? <span className="muted">{uiShown(e.target).split(' › ')[0] || (e.source ? shown(e.sender ?? e.source) : '—')}</span>}</td>
@@ -190,7 +189,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
               <td className="mono fbp-cell">{e.version ?? '—'}</td>
               <td className="mono fbp-cell">{e.status?.version ?? e.status?.commit ?? ''}<InApp e={e} /></td>
             </tr>,
-            open === k && <tr key={`${k}-open`} className="fbp-row-open"><td colSpan={10}><Entry e={e} showDate onFold={() => setOpen(null)} /></td></tr>,
+            open === k && <tr key={`${k}-open`} className="fbp-row-open"><td colSpan={12}><Entry e={e} showDate onFold={() => setOpen(null)} /></td></tr>,
           ]
         })}
       </tbody>

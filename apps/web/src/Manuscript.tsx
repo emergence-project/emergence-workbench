@@ -19,6 +19,7 @@ import { latexSections, sectionAtLine, useRightMode } from './noteScreen'
 import { TRASH_DAYS, trashNoteWithUndo } from './Topics'
 import { CompileSettings, ExportLink, groupOf, savedLatexChoice } from './NoteExport'
 import { MarkdownNoteBody } from './MarkdownNote'
+import { HistoryButton, setNoteHistory, useNoteHistory } from './NoteHistory'
 import { NOTE_KIND_LABEL } from './NewNote'
 import { useFileEvents } from './autosave'
 import { useNoteEdit } from './noteEdit'
@@ -199,6 +200,7 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
   const title = row?.title ?? info?.name ?? file
   const conflict = save === 'conflict'
   const mode = useRightMode()
+  const history = useNoteHistory()
   return (
     <NoteScreen ui="원고 장" className="md-note" notice={notice} onCloseNotice={() => setNotice(null)} tocOwner={tocOwner}
       toolbar={{
@@ -208,6 +210,8 @@ function MarkdownPartTab({ rid, file, info, rapi, onSaved, library, onLibraryCha
         view, onView: edit.setView,
         onEdit: startEdit, editDisabled: text === null || conflict, onDone: () => void finish(),
         onComment: () => openRecordComposer(rid, noteTarget(file, title) ?? manuscriptTarget(undefined, info?.key)), commentOn: mode === 'records',
+        // 이력 보기 (11/16 시안 2절 ③′): 시계를 켜면 오른쪽 사이드바가 이 노트의 커밋 목록
+        extra: !editing && <HistoryButton on={history.on} onChange={setNoteHistory} />,
         onCompile: () => void compile(), compiling: ms.compiling, compileDisabled: !info || text === null || conflict, compileTip: t(`컴파일 — ${title}`, `Compile: ${title}`), compileUi: '원고 컴파일',
         menu: partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, csOpen: () => setCs(true), exOpen: () => setEx(true), reload }),
         anchors: info && <>
