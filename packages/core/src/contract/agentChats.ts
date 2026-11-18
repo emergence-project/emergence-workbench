@@ -50,8 +50,8 @@ export const ChatModel = z.string().regex(/^[a-z][a-z0-9._:/\-[\]]{0,79}$/i)
 export const AGENT_KINDS = ['claude-code', 'codex', 'gemini'] as const
 /** 생각 깊이 (xhigh · max는 그것을 받는 모델만) */
 export const CHAT_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
-/** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 */
-export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record', 'connector'] as const
+/** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 · 커넥터 · 화면 요소 (ref는 화면 주소, text는 부위 이름과 글자) */
+export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record', 'connector', 'element'] as const
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
 export const TODO_STATES = ['pending', 'in_progress', 'completed'] as const
 
@@ -76,18 +76,18 @@ export const EditPart = z.object({ old: z.string(), new: z.string() }).strict()
 
 /** 대화의 한 줄 */
 export const ChatItem = z.discriminatedUnion('kind', [
-  /** queued = 일하는 중에 보내 다음 차례에 읽을 지시 */
-  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional(), point: z.string().optional() }).strict(),
+  /** queued = 일하는 중에 보내 다음 차례에 읽을 지시, auto = 사용자가 아니라 앱이 중앙 대화를 깨운 알림 (하위 대화가 끝남 · CI 실패 · PR 합쳐짐, 11/18) */
+  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional() }).strict(),
   z.object({ kind: z.literal('text'), at: z.string(), text: z.string(), sub: z.boolean().optional() }).strict(),
   /** 에이전트가 쓴 도구 한 번. outside = 범위 밖을 읽음, sub = 서브에이전트가 씀 */
   z.object({ kind: z.literal('step'), at: z.string(), tool: z.string(), summary: z.string(), outside: z.boolean().optional(), sub: z.boolean().optional() }).strict(),
   /**
    * 허락 카드. answer가 없으면 기다리는 중. plan이 있으면 계획 승인 카드(허락 = 이대로 하기).
    * note = 거절하며 에이전트에게 한 말(아니요, 이렇게 바꿔서…), mode = 계획을 승인하며 고른 맡기는 정도,
-   * expired = 답하기 전에 멈추거나 앱이 다시 켜져 닫힘(answer는 deny)
+   * expired = 답하기 전에 멈추거나 앱이 다시 켜져 닫힘(answer는 deny), by = central: 사용자 대신 중앙 대화가 답함 (크리티컬하지 않은 것만, 11/18)
    */
   // does = 명령이 하는 일, once = 「늘」 없이 한 번씩 (삭제 · 외부)
-  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional(), does: z.enum(CHAT_KINDS).optional(), once: z.boolean().optional() }).strict(),
+  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional(), does: z.enum(CHAT_KINDS).optional(), once: z.boolean().optional(), by: z.literal('central').optional() }).strict(),
   /** 할 일 목록 (한 차례에 하나, 바뀌면 그 자리에서 고친다) */
   z.object({ kind: z.literal('todos'), at: z.string(), todos: z.array(Todo) }).strict(),
   /**
@@ -336,9 +336,13 @@ export type FeedbackAnswered = z.infer<typeof FeedbackAnswered>
 
 /** 중앙이 여는 하위 대화의 역할: 앱 고치기 · 프로젝트 작성 · 피드백 처리 */
 export const CENTRAL_ROLES = ['app', 'project', 'feedback'] as const
-/** 중앙 대화 아래의 하위 대화 한 줄: report = 마지막 에이전트 글 (줄임) */
+/**
+ * 중앙 대화 아래의 하위 대화 한 줄: report = 마지막 에이전트 글 (줄임).
+ * ask = 기다리는 허락 · 계획 카드 (중앙이 chat_answer로 답한다). critical = 사용자에게 남길 까닭 (있으면 중앙은 답하지 못한다)
+ */
 export const CentralKid = z.object({
   id: z.string(), rid: z.string(), title: z.string(), state: z.enum(CHAT_STATES), wait: z.enum(['plan', 'ask']).optional(),
+  ask: z.object({ id: z.string(), critical: z.string().optional() }).strict().optional(),
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(), merged: z.string().optional(),
   feedback: z.string().optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), updated: z.string(),
 }).strict()
@@ -353,7 +357,11 @@ export const CentralOpenBody = z.object({
 }).strict()
 export const CentralSendBody = z.object({ id: z.string(), text: z.string().trim().min(1).max(20000) }).strict()
 export const CentralCloseBody = z.object({ id: z.string(), summary: z.string().trim().min(1).max(2000) }).strict()
+/** POST /agent-central/answer: 중앙이 하위 대화의 허락 · 계획 카드에 답한다 (크리티컬한 것은 409, 사용자에게 남긴다) */
+export const CentralAnswerBody = z.object({ id: z.string(), ask: z.string(), answer: z.enum(['allow', 'deny']), note: z.string().trim().max(2000).optional() }).strict()
 export const CentralKidOne = z.object({ kid: CentralKid }).strict()
+/** POST /agent-central/open: 연 하위 대화, 또는 앱 고치기 자리가 차서 기다리게 둔 순서 (held, 1부터. 자리가 나면 앱이 연다) */
+export const CentralOpened = z.object({ kid: CentralKid.optional(), held: z.number().optional() }).strict()
 /** GET /agent-central/feedback: 에이전트 차례인 피드백 (pnpm agent:feedback --peek와 같은 계산). taken = 다른 컴퓨터 · 클라우드 루틴이 맡음, chat = 이미 맡은 이 앱의 대화 */
 export const CentralFeedback = z.object({
   items: z.array(z.object({ key: z.string(), kind: z.string().optional(), target: z.string(), text: z.string(), reasons: z.array(z.string()), taken: z.boolean(), chat: z.string().optional() }).strict()),
@@ -363,3 +371,5 @@ export type CentralKid = z.infer<typeof CentralKid>
 export type CentralState = z.infer<typeof CentralState>
 export type CentralOpenBody = z.infer<typeof CentralOpenBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
+export type CentralOpened = z.infer<typeof CentralOpened>
+export type CentralAnswerBody = z.infer<typeof CentralAnswerBody>

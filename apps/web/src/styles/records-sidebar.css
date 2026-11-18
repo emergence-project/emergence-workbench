@@ -83,9 +83,6 @@ input.record-marker { accent-color: var(--text); }
 .record-part { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; font-size: var(--fs-xs); color: var(--text-3); }
 .record-part svg { width: 12px; height: 12px; flex: none; }
 .record-part span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-/* 가리키는 동안의 손가락 */
-body.record-pointing, body.record-pointing * { cursor: crosshair !important; }
-body.record-pointing [data-pointer-ui], body.record-pointing [data-pointer-ui] * { cursor: auto !important; }
 
 /* 쓴 이와 사용자 차례 (10/15): 에이전트가 물은 질문이 답을 기다리면 주황(사용자 차례) 테두리와 점 */
 .record-row-head .record-by { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); }

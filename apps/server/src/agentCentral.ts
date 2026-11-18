@@ -7,18 +7,42 @@
  * - 중앙은 하위 대화의 원문을 읽지 않는다: 사용자가 중앙에게 말할 때마다 하위 대화의 상태와 마지막 글 한 줄(digest)을 앞에 붙인다 (토큰 아끼기).
  * - 앱 고치기 대화는 동시에 APP_LIVE_MAX개까지 (시안 §9 ③). 피드백은 열기 전에 맡기(handoff.yaml)를 적어 올려
  *   클라우드 루틴 · 다른 맥과 같은 항목을 함께 처리하지 않는다 (11/8에 있었던 일).
+ * - 저절로 깨우기 (11/18): 하위 대화가 차례를 끝내거나 · 계획 승인 · 허락을 기다리거나 · CI가 실패하거나 · PR이 합쳐지면 앱이 중앙을 깨운다.
+ *   10초 모아 한 차례로, 중앙이 일하는 중이면 그 차례가 끝난 뒤에, 그 사이 사용자가 말하면 그 말 앞에 붙인다.
+ *   중앙은 일상 일(CI 고치기 · 닫기 · 크리티컬하지 않은 허락)은 스스로 하고, CRITICAL만 사용자에게 「지금 확인할 것」으로 남긴다.
+ *   앱이 다시 켜지면 아직 보내지 않은 깨우기는 사라진다 (CI · 합쳐짐은 1분마다 tickCentral이 다시 찾는다).
  */
 import { agentTurnReasons, agentTurns } from '@rw/core'
-import { APP_RID, CENTRAL_RID, type CentralFeedback, type CentralKid, type CentralOpenBody, type Chat, type ChatItem, type ChatMessageBody } from '@rw/core/contract/agentChats'
+import { APP_RID, CENTRAL_RID, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
 import { AgentChats, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 
-/** 동시에 일하는 앱 고치기 대화 수 (맥 메모리 · 합칠 때 부딪힘, 시안 §9 ③) */
+/** 동시에 일하는 앱 고치기 대화 수 (맥 메모리 · 합칠 때 부딪힘, 시안 §9 ③). 차면 새 일은 기다리게 두었다가(held) 자리가 나면 연다 */
 export const APP_LIVE_MAX = 2
 /** 중앙에게 넘기는 하위 대화 한 줄의 마지막 글 길이 */
 const REPORT_CHARS = 300
+/** 중앙을 저절로 깨울 때 넘기는 마지막 글 · CI 기록 길이 (11/18) */
+const REPORT_FULL = 4000
+const LOG_TAIL = 3000
+/** 사용자가 다시 말하기 전까지 중앙이 저절로 같은 하위 대화에 보낼 수 있는 횟수 (되풀이 막기) */
+export const AUTO_SEND_MAX = 2
+
+/**
+ * 크리티컬한 허락 (11/18 사용자 "허락이 크리티컬한 것이 아니면 자동이면 좋을 것 같아").
+ * 이것만 사용자에게 남기고, 나머지(일반 계획 승인 · 일상적인 확인)는 중앙이 사용자 말을 근거로 chat_answer로 답한다.
+ * 중앙의 답은 앱이 이 목록으로 다시 가린다 (criticalOf: 맞으면 409)
+ */
+export const CRITICAL = [
+  { key: 'merge', ko: 'PR 합치기', en: 'merging a pull request', re: /\bgh\s+pr\s+merge\b|\bgit\s+push\b.*\b(main|master)\b/i },
+  { key: 'restart', ko: '앱 다시 시작', en: 'restarting the app', re: /service:restart|launchctl|\brestart\b|다시 시작|재시작/i },
+  { key: 'delete', ko: '지우기 · 덮어쓰기', en: 'deleting or overwriting', re: /\brm\s|\brmdir\b|\bgit\s+(reset\s+--hard|clean|checkout\s+--|restore)\b|--force\b|\bpush\s+-f\b|overwrite|덮어|지우/i },
+  { key: 'outside', ko: '외부로 내보내기', en: 'sending something outside', re: /\b(curl|wget|scp|rsync|ssh)\b|\bnpm\s+publish\b|\bgh\s+(issue|release|gist|api|pr\s+(comment|review|close|edit))\b/i },
+  { key: 'notes', ko: '연구 노트 · 개념 노트 변경 확정', en: 'changing research or concept notes', re: /edit_note|new_note|edit_concept|edit_review/i },
+  { key: 'money', ko: '돈 · 계정', en: 'money or accounts', re: /billing|payment|subscri|password|credential|secret|api[ _-]?key|\btoken\b|\blogin\b|keychain|결제|구독|계정|비밀번호|토큰/i },
+] as const
+export type Critical = (typeof CRITICAL)[number]
 
 /** 중앙 대화를 처음 열 때 주는 안내 (영어: 에이전트가 읽는다). 사용자에게는 보이지 않는다 */
 export const CENTRAL_BRIEF = [
@@ -26,11 +50,20 @@ export const CENTRAL_BRIEF = [
   'You only read and orchestrate. You cannot edit files, run commands or write notes and records: the app blocks it.',
   '- Answer questions yourself by reading: workbench MCP tools (list_projects, project_status, overview, read_note, list_records, search_library, rules) and Read/Grep/Glob on the app repository (your working folder) and registered projects.',
   '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; merging and restarting stay with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
+  `- At most ${APP_LIVE_MAX} app sub-conversations work at once. If chat_open says the task is held, the app opens it by itself when a slot frees; do not open it again.`,
   '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per item).',
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
-  '- Each user message starts with a short status of your sub-conversations. Mention one only when the user must act (their turn, a failed check) or it finished.',
-  '- Close a sub-conversation with chat_close only when its work ended (pull request merged, edits reviewed, answer given), with a three-line summary: what was done, where the result is, what is left.',
+  '- Each message starts with a short status of your sub-conversations. Mention one only when the user must act or it finished.',
+  '- The app wakes you by itself (a message marked "Automatic wake-up", not written by the user) when a sub-conversation ends its turn, waits for plan approval or permission, its pull request check fails, or its pull request is merged. Do the routine work then without asking:',
+  '  - check failed: chat_send it "Find the cause and fix it" with what the log shows.',
+  '  - pull request merged: chat_close it with a three-line summary: what was done, where the result is, what is left.',
+  '  - it waits for plan approval or permission that is not critical: decide from what the user asked and answer with chat_answer (allow, or deny with a note on what to do instead). The app records that you answered.',
+  '  - it ended its turn with a question or promise: answer from the user\'s words with chat_send, or leave it to the user.',
+  `  - Send at most ${AUTO_SEND_MAX} automatic messages to the same sub-conversation before the user speaks again; after that the app refuses and you ask the user.`,
+  `- Critical, always left to the user (never chat_answer them, the app refuses): ${CRITICAL.map((c) => c.en).join('; ')}. A plan whose steps include one of these is also left to the user.`,
+  '- After an automatic wake-up, reply in a few short lines: what you did on your own. If the user must act, end with one line "지금 확인할 것: …" (what to check, where). Otherwise do not ask anything.',
+  '- Close a sub-conversation with chat_close only when its work ended (pull request merged, edits reviewed, answer given), with a three-line summary.',
   '- Reply in the user\'s language (usually Korean), short and plain. Do not judge research value or pick research topics for the user.',
 ].join('\n')
 
@@ -48,29 +81,65 @@ export function lastReport(items: ChatItem[], n = REPORT_CHARS): string | undefi
   return undefined
 }
 
+type Ask = Extract<ChatItem, { kind: 'ask' }>
+
+/** 아직 답하지 않은 허락 · 계획 카드 (마지막 것) */
+function openAsk(c: Stored): Ask | undefined {
+  let a: Ask | undefined
+  for (const it of c.items) if (it.kind === 'ask' && !it.answer) a = it
+  return a
+}
+
+/** 그 허락이 크리티컬하면 그 까닭 (CRITICAL 가운데 하나). 연구 프로젝트에서 고치기는 노트 변경이라 크리티컬 */
+export function criticalOf(a: Ask, kid: Pick<Stored, 'rid'>): Critical | undefined {
+  const of = (key: Critical['key']) => CRITICAL.find((x) => x.key === key)
+  if (a.does === 'delete') return of('delete')
+  if (a.does === 'outside') return of('outside')
+  if (kid.rid !== APP_RID && a.does === 'edit') return of('notes')
+  const s = `${a.tool} ${a.summary}`
+  return CRITICAL.find((x) => x.re.test(s))
+}
+
 /** 하위 대화 한 줄 */
 export function kidOf(c: Stored): CentralKid {
-  let wait: CentralKid['wait']
-  for (const it of c.items) if (it.kind === 'ask' && !it.answer) wait = it.plan !== undefined ? 'plan' : 'ask'
+  const a = openAsk(c)
+  const wait = a && (a.plan !== undefined ? 'plan' : 'ask')
+  const crit = a && criticalOf(a, c)
   const report = lastReport(c.items)
   return {
     id: c.id, rid: c.rid, title: c.title, state: c.state, ...(c.state === 'waiting' && wait && { wait }),
+    ...(c.state === 'waiting' && a && { ask: { id: a.id, ...(crit && { critical: crit.ko }) } }),
     ...(c.pr && { pr: { ...c.pr } }), ...(c.merged && { merged: c.merged }), ...(c.feedback && { feedback: c.feedback }),
     archived: !!c.archived, ...(c.summary && { summary: c.summary }), ...(report && { report }), updated: c.updated,
   }
 }
 
-/** 중앙에게 넘기는 하위 대화 요약 (보관한 것은 빼고) */
-export function digestOf(kids: CentralKid[]): string {
+/** 중앙에게 넘기는 하위 대화 요약 (보관한 것은 빼고). held = 자리를 기다리는 앱 고치기 수 */
+export function digestOf(kids: CentralKid[], held = 0): string {
   const open = kids.filter((k) => !k.archived)
-  if (!open.length) return '[Sub-conversations: none open]'
+  const wait = held ? `\n[Held app tasks waiting for a free slot: ${held}; the app opens them]` : ''
+  if (!open.length) return `[Sub-conversations: none open]${wait}`
   return ['[Sub-conversations]', ...open.map((k) => {
     const pr = k.pr ? ` · PR #${k.pr.number}${k.merged ? ' merged' : ''}` : ''
-    return `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}" · ${k.wait === 'plan' ? 'waiting for plan approval' : stateWord[k.state] ?? k.state}${pr}${k.report ? ` · last: ${k.report}` : ''}`
-  })].join('\n')
+    const w = k.wait ? `waiting for ${k.wait === 'plan' ? 'plan approval' : 'permission'}${k.ask ? ` (ask ${k.ask.id}${k.ask.critical ? ', critical: leave to the user' : ''})` : ''}` : stateWord[k.state] ?? k.state
+    return `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}" · ${w}${pr}${k.report ? ` · last: ${k.report}` : ''}`
+  })].join('\n') + wait
 }
 
+/** 깨울 까닭 하나 */
+type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged'; log?: string }
+type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number> }
+
 export class CentralChats extends AgentChats {
+  /** 하위 대화가 바뀐 뒤 중앙을 깨우기까지 모으는 시간 (시험은 줄인다) */
+  wakeMs = 10_000
+  // 부모 생성자가 touch를 부를 수 있어 필드 초기값 대신 처음 쓸 때 만든다
+  private wakeState?: WakeState
+
+  private w(): WakeState {
+    return (this.wakeState ??= { prev: new Map(), events: new Map(), seen: new Set(), auto: false, sends: new Map() })
+  }
+
   /** 중앙 대화 (보관하지 않은 것 가운데 가장 최근) */
   private central(): Stored | undefined {
     return [...this.chats.values()].filter((c) => c.rid === CENTRAL_RID && !c.archived).sort((a, b) => b.updated.localeCompare(a.updated))[0]
@@ -85,6 +154,10 @@ export class CentralChats extends AgentChats {
     return [...this.chats.values()].filter((k) => k.parent === parent).sort((a, b) => b.updated.localeCompare(a.updated)).map(kidOf)
   }
 
+  private digest(c: Stored): string {
+    return `${digestOf(this.kidsOf(c.id), c.held?.length)}${this.feedbackLine()}`
+  }
+
   /** 사용자가 중앙에게 말한다: 중앙이 없으면 연다 (Opus, 읽기만) */
   talk(text: string): Chat {
     const c = this.central()
@@ -93,23 +166,186 @@ export class CentralChats extends AgentChats {
     return this.create({ rid: CENTRAL_RID, text, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}\n\n${digest}\n\n${text}`)
   }
 
-  /** 중앙 대화에 보내는 말에는 하위 대화 요약을 앞에 붙인다 (화면의 입력란에서 보내도) */
+  /**
+   * 중앙 대화에 보내는 말에는 하위 대화 요약을 앞에 붙인다 (화면의 입력란에서 보내도).
+   * 사용자의 말이면 아직 보내지 않은 깨우기를 그 앞에 붙여 함께 보내고, 저절로 보낸 횟수를 처음부터 센다
+   */
   override send(id: string, m: ChatMessageBody, prompt?: string): Chat {
     const c = this.must(id)
     if (c.rid === CENTRAL_RID && prompt === undefined) {
+      const w = this.w()
+      const woke = this.wakeText()
+      if (!w.events.size && w.timer) { clearTimeout(w.timer); w.timer = undefined }
+      w.auto = false
+      w.sends.clear()
       // 앱이 다시 켜져 세션이 없으면 안내도 다시
       const brief = c.sessionId ? '' : `${CENTRAL_BRIEF}\n\n`
-      return super.send(id, m, `${brief}${digestOf(this.kidsOf(id))}${this.feedbackLine()}\n\n${promptOf(m.text, m.attach)}`)
+      return super.send(id, m, `${brief}${this.digest(c)}\n\n${woke ? `${woke.en}\n\n[The user writes:]\n` : ''}${promptOf(m.text, m.attach)}`)
     }
     return super.send(id, m, prompt)
   }
 
-  /** 중앙이 하위 대화를 연다 (chat_open) */
+  /** 상태가 바뀔 때마다: 중앙의 하위 대화가 끝나거나 기다리면 깨우기를 적고, 앱 고치기 자리가 나면 기다리던 일을 연다 */
+  protected override touch(c: Stored): void {
+    super.touch(c)
+    const w = this.w()
+    const was = w.prev.get(c.id)
+    w.prev.set(c.id, c.state)
+    if (was === undefined || was === c.state) return
+    const central = this.central()
+    if (!central) return
+    const ended = LIVE.has(was) && !LIVE.has(c.state)
+    if (c.id === central.id) {
+      if (ended && w.events.size) this.wakeLater()
+      return
+    }
+    if (c.rid === APP_RID && ended && central.held?.length) queueMicrotask(() => this.openHeld())
+    if (c.parent !== central.id || c.archived) return
+    const a = c.state === 'waiting' ? openAsk(c) : undefined
+    if (a) this.note(c.id, { kind: 'ask' }, `ask:${a.id}`)
+    else if (ended) this.note(c.id, { kind: 'end' }, `end:${c.id}:${c.items.length}`)
+  }
+
+  /** 깨울 까닭 하나를 적는다 (같은 것은 한 번만) */
+  private note(id: string, e: Wake, sig: string): void {
+    const w = this.w()
+    if (w.seen.has(sig)) return
+    w.seen.add(sig)
+    w.events.set(id, [...(w.events.get(id) ?? []).filter((x) => x.kind !== e.kind), e])
+    this.wakeLater()
+  }
+
+  private wakeLater(): void {
+    const w = this.w()
+    if (w.timer) clearTimeout(w.timer)
+    w.timer = setTimeout(() => { w.timer = undefined; this.flushWakes() }, this.wakeMs)
+    w.timer.unref?.()
+  }
+
+  /** 모아 둔 깨우기를 중앙에게 보낸다. 중앙이 일하는 중이면 그 차례가 끝난 뒤에 (touch가 다시 부른다). 보냈으면 true */
+  flushWakes(): boolean {
+    const c = this.central()
+    if (!c || LIVE.has(c.state)) return false
+    const woke = this.wakeText()
+    if (!woke) return false
+    const brief = c.sessionId ? '' : `${CENTRAL_BRIEF}\n\n`
+    super.send(c.id, { text: woke.ko }, `${brief}${this.digest(c)}\n\n${woke.en}`)
+    for (let i = c.items.length - 1; i >= 0; i--) {
+      const it = c.items[i]!
+      if (it.kind === 'user' && it.text === woke.ko) { it.auto = true; break }
+    }
+    this.touch(c)
+    this.w().auto = true
+    return true
+  }
+
+  /** 모아 둔 깨우기의 화면 글(한국어 한 줄)과 중앙에게 줄 글. 다시 일하는 하위 대화는 끝날 때 다시 알리려고 남긴다 */
+  private wakeText(): { ko: string; en: string } | undefined {
+    const w = this.w()
+    const ko: string[] = []
+    const en: string[] = []
+    for (const [id, evs] of w.events) {
+      const k = this.chats.get(id)
+      if (k && (k.state === 'running' || k.state === 'queued')) continue
+      w.events.delete(id)
+      if (!k || k.archived) continue
+      const head = `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}"${k.pr ? ` · PR #${k.pr.number}` : ''}`
+      const report = lastReport(k.items, REPORT_FULL)
+      const lines: string[] = []
+      for (const e of evs) {
+        if (e.kind === 'end') {
+          if (k.state === 'waiting') continue
+          ko.push(`「${k.title}」 ${k.state === 'error' ? '실패' : k.state === 'stopped' ? '멈춤' : '차례 끝남'}`)
+          lines.push(`ended its turn (${stateWord[k.state] ?? k.state})`)
+        } else if (e.kind === 'ask') {
+          const a = openAsk(k)
+          if (!a) continue
+          const crit = criticalOf(a, k)
+          const plan = a.plan !== undefined
+          ko.push(`「${k.title}」 ${plan ? '계획 승인' : '허락'} 기다림${crit ? ` (크리티컬: ${crit.ko})` : ''}`)
+          lines.push(`waits for ${plan ? 'plan approval' : 'permission'}: ask ${a.id} · ${a.tool} · ${a.summary}`)
+          if (plan) lines.push(`plan:\n${cut(a.plan ?? '', REPORT_FULL)}`)
+          lines.push(crit ? `critical (${crit.en}): leave it to the user, do not answer it` : 'not critical: answer it yourself with chat_answer, from what the user asked')
+        } else if (e.kind === 'ci') {
+          ko.push(`「${k.title}」 CI 실패`)
+          lines.push(`pull request check failed. Log tail:\n${tail(e.log ?? '', LOG_TAIL)}`)
+        } else {
+          ko.push(`「${k.title}」 ${k.pr ? `PR #${k.pr.number} ` : ''}합쳐짐`)
+          lines.push('its pull request was merged: close it with chat_close and a three-line summary')
+        }
+      }
+      if (!lines.length) continue
+      en.push(head, ...lines.map((l) => `  ${l}`), ...(report ? [`  last report: ${report}`] : []))
+    }
+    if (!ko.length) return undefined
+    return {
+      ko: `${t('자동 알림', 'Automatic')} · ${ko.join(' · ')}`,
+      en: ['[Automatic wake-up from the app, not written by the user. Sub-conversations changed:]', ...en,
+        '[Do the routine work yourself as the brief says (check failed: chat_send a fix; merged: chat_close; non-critical wait: chat_answer). Then reply in a few short lines; if the user must act, end with "지금 확인할 것: …"]'].join('\n'),
+    }
+  }
+
+  /** 1분마다: 중앙의 앱 하위 대화 PR이 합쳐졌는지 · CI가 실패했는지 보고 깨운다. 앱 고치기 자리가 났으면 기다리던 일을 연다 */
+  async tickCentral(): Promise<void> {
+    const app = this.deps.app
+    const c = this.central()
+    if (!app || !c) return
+    this.openHeld()
+    for (const k of [...this.chats.values()].filter((x) => x.parent === c.id && !x.archived && !LIVE.has(x.state))) {
+      try {
+        if (!k.merged && k.pr && k.worktree && k.branch && app.prMerged) {
+          const m = await app.prMerged(k.worktree, k.branch)
+          if (m) { k.merged = m.sha || 'merged'; this.touch(k) }
+        }
+        if (k.merged) { this.note(k.id, { kind: 'merged' }, `merged:${k.id}`); continue }
+        // 피드백 대화의 CI는 tickFeedback이 그 대화에 바로 다시 보낸다
+        if (k.feedback || !k.pr || !k.worktree || !k.branch) continue
+        const ck = await app.checks(k.worktree, k.branch)
+        if (!ck.done || ck.ok) continue
+        const sig = ck.checks.map((x) => `${x.name}:${x.state}:${x.link ?? ''}`).join('|')
+        if (sig === k.ciSeen) continue
+        k.ciSeen = sig
+        this.touch(k)
+        this.note(k.id, { kind: 'ci', ...(ck.log && { log: ck.log }) }, `ci:${k.id}:${sig}`)
+      } catch { /* gh · git 오류는 다음 차례에 다시 본다 */ }
+    }
+  }
+
+  private appLive(): Stored[] {
+    return [...this.chats.values()].filter((k) => k.rid === APP_RID && LIVE.has(k.state))
+  }
+
+  /** 앱 고치기 자리가 나면 기다리던 일을 차례로 열고, 연 것을 중앙 대화에 적는다 */
+  private openHeld(): void {
+    const c = this.central()
+    while (c?.held?.length && this.appLive().length < APP_LIVE_MAX) {
+      const b = c.held.shift()!
+      try {
+        const kid = this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'edit' }, { parent: c.id })
+        c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 앱 고치기 자리가 나서 기다리던 「${b.title}」을 열었습니다 (${kid.id})`, `Automatic: a slot freed, opened the held "${b.title}" (${kid.id})`) })
+      } catch { /* 열지 못하면 버리지 않고 다음 차례에 */ c.held.unshift(b); break }
+      this.touch(c)
+    }
+  }
+
+  /** 중앙이 하위 대화를 연다 (chat_open). 앱 고치기 자리가 차 있으면 기다리게 두고(held) 그 순서를 돌려준다 */
+  async openOrHold(b: CentralOpenBody): Promise<CentralOpened> {
+    const c = this.central()
+    if (c && b.role === 'app' && this.appLive().length >= APP_LIVE_MAX) {
+      c.held = [...(c.held ?? []), b]
+      c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 앱 고치기 대화가 이미 ${APP_LIVE_MAX}개 일하는 중이라 「${b.title}」을 기다리게 두었습니다 (${c.held.length}번째). 자리가 나면 엽니다`, `Automatic: ${APP_LIVE_MAX} app conversations are working, so "${b.title}" is held (#${c.held.length}). It opens when a slot frees`) })
+      this.touch(c)
+      return { held: c.held.length }
+    }
+    return { kid: await this.openKid(b) }
+  }
+
+  /** 하위 대화를 바로 연다. 앱 고치기 자리가 차 있으면 409 (기다리게 두기는 openOrHold) */
   async openKid(b: CentralOpenBody): Promise<CentralKid> {
     const c = this.central()
     if (!c) throw new WorkbenchError(409, t('중앙 대화가 없습니다', 'There is no central conversation'))
     if (b.role === 'app') {
-      const live = [...this.chats.values()].filter((k) => k.rid === APP_RID && LIVE.has(k.state))
+      const live = this.appLive()
       if (live.length >= APP_LIVE_MAX) {
         throw new WorkbenchError(409, t(
           `앱 고치기 대화가 이미 ${live.length}개 일하는 중입니다 (${live.map((k) => `「${k.title}」 ${k.id}`).join(', ')}). 끝나기를 기다리거나 그 대화에 이어 보내세요`,
@@ -159,11 +395,40 @@ export class CentralChats extends AgentChats {
     return { items }
   }
 
-  /** 중앙이 하위 대화에 이어 보낸다 (chat_send) */
+  /** 중앙이 하위 대화에 이어 보낸다 (chat_send). 저절로 깨어난 차례에는 사용자가 다시 말할 때까지 AUTO_SEND_MAX번까지 */
   sendKid(id: string, text: string): CentralKid {
     this.kidOfCentral(id)
+    const w = this.w()
+    if (w.auto) {
+      const n = (w.sends.get(id) ?? 0) + 1
+      if (n > AUTO_SEND_MAX) throw new WorkbenchError(409, t(`사용자 없이 이 하위 대화에 이미 ${AUTO_SEND_MAX}번 보냈습니다. 더 보내지 말고 「지금 확인할 것」으로 사용자에게 물어보세요`, `Already sent ${AUTO_SEND_MAX} automatic messages to this sub-conversation. Do not send more; ask the user with "지금 확인할 것"`))
+      w.sends.set(id, n)
+    }
     this.send(id, { text })
     return kidOf(this.must(id))
+  }
+
+  /**
+   * 중앙이 하위 대화의 허락 · 계획 카드에 답한다 (chat_answer, 11/18 사용자 "허락이 크리티컬한 것이 아니면 자동이면 좋을 것 같아").
+   * 크리티컬한 것(CRITICAL)은 409로 사용자에게 남긴다. 답한 카드에는 by = central이 붙어 화면에 「중앙이 자동으로」가 보인다
+   */
+  answerKid(b: CentralAnswerBody): CentralKid {
+    const k = this.kidOfCentral(b.id)
+    const a = k.items.find((x): x is Ask => x.kind === 'ask' && x.id === b.ask)
+    if (!a || a.answer) throw new WorkbenchError(409, t('이미 답했거나 없는 허락 요청입니다', 'This request was already answered or does not exist'))
+    const crit = criticalOf(a, k)
+    if (crit) throw new WorkbenchError(409, t(`크리티컬한 허락(${crit.ko})이라 사용자에게 남깁니다. 「지금 확인할 것」으로 알리세요`, `Critical (${crit.en}): leave it to the user and tell them with "지금 확인할 것"`))
+    const mode: ChatMode = 'edit'
+    this.answer(k.id, a.id, b.answer, { ...(b.answer === 'deny' && b.note && { note: b.note }), ...(b.answer === 'allow' && a.plan !== undefined && { mode }) })
+    a.by = 'central'
+    this.touch(k)
+    // 중앙 대화에도 무엇에 어떻게 답했는지 기록으로 남긴다
+    const c = this.must(k.parent!)
+    const what = a.plan !== undefined ? t('계획', 'plan') : a.summary.slice(0, 120)
+    const yes = b.answer === 'allow'
+    c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 「${k.title}」의 ${what} → ${yes ? '허락' : '거절'}`, `Automatic: ${yes ? 'allowed' : 'declined'} ${what} in "${k.title}"`) })
+    this.touch(c)
+    return kidOf(this.must(k.id))
   }
 
   /** 중앙이 하위 대화를 닫는다 (chat_close): 결과 요약을 남기고 보관한다. 일하는 중이면 닫지 않는다 */
@@ -173,6 +438,7 @@ export class CentralChats extends AgentChats {
     k.summary = summary.trim().slice(0, 2000)
     this.touch(k)
     this.archive(id, true)
+    this.w().events.delete(id)
     return kidOf(this.must(id))
   }
 
@@ -182,4 +448,19 @@ export class CentralChats extends AgentChats {
     if (!c || k.parent !== c.id) throw new WorkbenchError(400, t('중앙이 연 하위 대화가 아닙니다', 'Not a sub-conversation of the central conversation'))
     return k
   }
+
+  override stopAll(): void {
+    super.stopAll()
+    const w = this.w()
+    if (w.timer) clearTimeout(w.timer)
+    w.timer = undefined
+  }
+}
+
+function cut(s: string, n: number): string {
+  return s.length > n ? `${s.slice(0, n)}…` : s
+}
+
+function tail(s: string, n: number): string {
+  return s.length > n ? `…${s.slice(-n)}` : s
 }
