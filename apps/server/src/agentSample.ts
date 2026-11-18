@@ -47,7 +47,7 @@ const sampleRun = async function* (input: Parameters<AgentRunner>[0]): AsyncIter
       await input.canUseTool('mcp__workbench__edit_note', { file, edits })
       yield { type: 'tool', tool: 'TodoWrite', input: todos(4) }
     }
-    yield { type: 'text', text: d.allow ? t('계산이 끝났습니다. 6개 경우 모두 다섯 색으로 칠해집니다. Checks 절의 한 줄을 고쳤습니다.', 'Done: all 6 cases are 5-colorable. I updated one line in Checks.') : t('계산을 돌리지 않았습니다. 노트에 적힌 결과만 확인했습니다.', 'I did not run it; I only checked the result written in the note.') }
+    yield { type: 'text', text: d.allow ? t('계산이 끝났습니다. 6개 경우 모두 다섯 색으로 칠해집니다. Checks 절의 한 줄을 고쳤습니다.\n\n| 차수 | 경우 | 결과 |\n|---|--:|---|\n| 4 | 2 | 다섯 색 |\n| 5 | 4 | 다섯 색 |', 'Done: all 6 cases are 5-colorable. I updated one line in Checks.\n\n| Degree | Cases | Result |\n|---|--:|---|\n| 4 | 2 | 5 colors |\n| 5 | 4 | 5 colors |') : t('계산을 돌리지 않았습니다. 노트에 적힌 결과만 확인했습니다.', 'I did not run it; I only checked the result written in the note.') }
   } else {
     yield { type: 'text', text: t('예제 모드라 실제 에이전트 대신 정해진 답을 보입니다. 맥의 앱에서는 Claude Code가 이 프로젝트 저장소에서 일합니다.', 'Sample mode shows a fixed reply instead of a real agent. In the app on the Mac, Claude Code works in this project\'s repository.') }
   }

@@ -37,6 +37,14 @@ button.memo-chip:hover { border-color: var(--line-strong); color: var(--text); }
 /* 가운데 한 줄 수식 ($$…$$ · \[…\]): 넓으면 그 안에서 옆으로 넘긴다 */
 .memo-text .memo-math-block { display: block; overflow-x: auto; overflow-y: hidden; margin: var(--sp-1) 0; }
 .memo-text .memo-math-block .katex-display { margin: 0; }
+/* 표 (| 머리 | … 다음 |---|): 노트의 표처럼 가로선 셋(위 · 머리 아래 · 아래), 넓으면 그 안에서 옆으로 넘긴다 */
+.memo-text .memo-table-wrap { overflow-x: auto; margin: 6px 0; }
+.memo-text .memo-table-wrap:first-child { margin-top: 0; }
+.memo-text .memo-table-wrap:last-child { margin-bottom: 0; }
+.memo-table { border-collapse: collapse; font-size: var(--fs-sm); border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
+.memo-table th, .memo-table td { padding: var(--sp-1) var(--sp-2); text-align: left; vertical-align: top; overflow-wrap: normal; }
+.memo-table th { font-weight: var(--fw-strong); border-bottom: 1px solid var(--line-strong); }
+.memo-table tbody tr + tr td { border-top: 1px solid var(--line); }
 .memo-code { font: var(--fs-sm) "SF Mono", Menlo, monospace; background: var(--bg-sunken); border: 1px solid var(--line); border-radius: var(--r-xs); padding: 0 var(--sp-1); }
 .memo-item.is-done .mi-text { color: var(--text-3); text-decoration: line-through; }
 .mi-meta { font-size: var(--fs-xs); color: var(--text-3); margin-top: 2px; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
