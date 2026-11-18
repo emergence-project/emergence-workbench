@@ -191,6 +191,17 @@ describe('메모 마크다운', () => {
     ])
     expect(parseMemo('$-x$ 는 음수').map((b) => b.kind)).toEqual(['para'])
   })
+
+  it('``` 코드 블록은 줄을 그대로 두고 언어를 적는다 (닫지 않았으면 끝까지)', () => {
+    expect(parseMemo('설치:\n```bash\npnpm install --frozen-lockfile\n  ls -a\n```\n끝')).toEqual([
+      { kind: 'para', lines: [[{ kind: 'text', text: '설치:' }]] },
+      { kind: 'pre', lang: 'bash', text: 'pnpm install --frozen-lockfile\n  ls -a' },
+      { kind: 'para', lines: [[{ kind: 'text', text: '끝' }]] },
+    ])
+    expect(parseMemo('- 목록\n  ```\n  ls -a\n  ```')[1]).toEqual({ kind: 'pre', lang: '', text: 'ls -a' })
+    expect(parseMemo('````\n```\n$x$\n````')).toEqual([{ kind: 'pre', lang: '', text: '```\n$x$' }])
+    expect(parseMemo('```sh\necho 오는 중')).toEqual([{ kind: 'pre', lang: 'sh', text: 'echo 오는 중' }])
+  })
 })
 
 describe('Markdown 보조 노트 머리말', () => {

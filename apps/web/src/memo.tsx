@@ -2,6 +2,7 @@ import { JOURNAL_LABEL, parseMemo, RESEARCH_TARGET, type Inline, type JournalEnt
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { CodeBlock } from './CodeBlock'
 import { journalWhen } from './format'
 import { go } from './router'
 import { onListKey } from './listInput'
@@ -30,13 +31,14 @@ function InlineText({ parts }: { parts: Inline[] }) {
 /** 같은 이름의 줄 단추를 가려 부르게 이름 뒤에 붙이는 글 (도구·화면 읽기 프로그램용) */
 const short = (t: string) => { const x = t.replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x }
 
-/** 메모 본문: 목록(-, *, 1.)·굵게·코드·수식을 그린다 */
+/** 메모 본문: 목록(-, *, 1.)·굵게·코드·코드 블록·수식을 그린다 */
 export function MemoText({ text }: { text: string }) {
   const blocks = useMemo(() => parseMemo(text), [text])
   return (
     <div className="memo-text">
       {blocks.map((b, i) => b.kind === 'math'
         ? <div key={i} className="memo-math-block" dangerouslySetInnerHTML={{ __html: katex.renderToString(b.tex, { throwOnError: false, displayMode: true }) }} />
+        : b.kind === 'pre' ? <CodeBlock key={i} lang={b.lang} text={b.text} />
         : b.kind === 'para'
         ? <p key={i}>{b.lines.map((line, j) => <span key={j}>{j > 0 && <br />}<InlineText parts={line} /></span>)}</p>
         : (() => {
