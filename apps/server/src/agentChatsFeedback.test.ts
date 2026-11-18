@@ -4,8 +4,9 @@ import os from 'node:os'
 import path from 'node:path'
 import YAML from 'yaml'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { AgentChats, appBriefFor, feedbackPrompt, pictureImage, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
+import { appBriefFor, feedbackPrompt, pictureImage, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
+import { FeedbackChats } from './agentFeedbackTick.js'
 import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from '@rw/core'
 import { sampleAppWork, type AppWork } from './appWorktree.js'
 import { listAllFeedback, writeFeedbackAnswer } from './feedback.js'
@@ -157,12 +158,13 @@ describe('피드백 맡기기 API', () => {
 describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")', () => {
   let tmp: string
   let fb: string
-  let chats: AgentChats
+  let chats: FeedbackChats
   const prompts: string[] = []
   let ci: { done: boolean; ok: boolean; log?: string; link: string } = { done: false, ok: false, link: 'r1' }
   const merged: string[] = []
   let inApp: boolean | undefined
   let conflicted = false
+  let userMerged: string | undefined
   let settings: AgentSettings = { ...DEFAULT_AGENT_SETTINGS }
   const runner: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     prompts.push(input.prompt)
@@ -183,8 +185,9 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
       },
       async merge(_dir, branch) { merged.push(branch); return { number: 234, sha: 'abc1234def' } },
       async conflicted() { return conflicted },
+      async prMerged() { return userMerged ? { number: 77, sha: userMerged } : undefined },
     }
-    chats = new AgentChats({
+    chats = new FeedbackChats({
       dir: path.join(tmp, 'chats'), runner, limit: 2,
       project: () => ({ repo: tmp, title: 'x' }), readable: () => [], extraDirs: () => [], notify: () => {},
       app: work, feedback: { dir: fb }, settings: () => settings, inApp: async () => inApp,
@@ -246,6 +249,29 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     inApp = true
     await chats.tickFeedback()
     expect(chats.list().find((c) => c.id === id)!.shipped).toBe(true)
+    // 사용자가 그 답을 승인하지 않았으면 보관하지 않는다
+    expect(chats.list().find((c) => c.id === id)!.archived).toBeFalsy()
+  })
+
+  it('앱 고치기 대화는 사용자가 PR을 합치고 앱에 들어오면 저절로 보관하고, 꺼내면 다시 넣지 않는다', async () => {
+    const id = chats.create({ rid: '_app', text: '메뉴가 잘린다' }).id
+    await idle(id)
+    await chats.appSubmit(id, { title: '메뉴', body: '' })
+    inApp = false
+    await chats.tickFeedback()
+    expect(chats.get(id).archived).toBeFalsy()
+    userMerged = 'fff0001'
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ merged: 'fff0001', archived: false })
+    expect(merged).toHaveLength(1)
+    inApp = true
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ shipped: true, archived: true })
+    expect(chats.get(id).items.at(-1)).toMatchObject({ kind: 'text', text: expect.stringContaining('보관') })
+    chats.archive(id, false)
+    await chats.tickFeedback()
+    expect(chats.get(id).archived).toBe(false)
+    userMerged = undefined
   })
 
   it('클라우드 처리를 켜 두면(cloud.yaml) 바로 맡기기도 맡지 않는다 (11/4)', async () => {
