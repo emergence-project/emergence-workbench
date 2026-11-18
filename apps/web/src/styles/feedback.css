@@ -3,6 +3,9 @@
 body.feedback-on, body.feedback-on * { cursor: help !important; }
 body.feedback-on [data-feedback-ui], body.feedback-on [data-feedback-ui] * { cursor: auto !important; }
 body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] button * { cursor: pointer !important; }
+/* 한 번 고르는 고르기 (기록의 가리키기, 대화에 화면 요소 붙이기: elementPicker.tsx) */
+body.element-picking, body.element-picking * { cursor: crosshair !important; }
+body.element-picking [data-picker-ui], body.element-picking [data-picker-ui] * { cursor: auto !important; }
 .fb-box { position: fixed; z-index: var(--z-feedback); pointer-events: none; border: 2px solid var(--focus-line); border-radius: var(--r-sm); background: color-mix(in srgb, var(--focus) 35%, transparent); transition: all .06s; }
 .fb-label { position: fixed; z-index: calc(var(--z-feedback) + 1); pointer-events: none; max-width: min(560px, calc(100vw - 8px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-strong); padding: 3px var(--sp-2); border-radius: var(--r-sm); box-shadow: var(--shadow); }
 .fb-bar { position: fixed; z-index: calc(var(--z-feedback) + 2); left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: var(--sp-3); max-width: calc(100vw - 32px); background: var(--bg); color: var(--text-2); border: 1px solid var(--focus-line); border-radius: var(--r-md); box-shadow: var(--shadow); padding: 7px var(--sp-2) 7px 14px; font-size: var(--fs-sm); }
