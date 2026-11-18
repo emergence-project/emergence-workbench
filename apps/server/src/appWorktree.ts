@@ -11,6 +11,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { z } from 'zod'
 import { git, GIT_TIMEOUT } from './git.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -38,6 +39,8 @@ export interface AppWork {
   merge(dir: string, branch: string): Promise<{ number: number; sha: string }>
   /** 그 브랜치의 PR이 main과 부딪혀 합칠 수 없는지 (모르면 false) */
   conflicted?(dir: string, branch: string): Promise<boolean>
+  /** 그 브랜치의 PR을 누가(사용자 · 다른 대화) 이미 합쳤으면 그 번호와 합친 커밋 (중앙이 하위 대화를 닫으려고). 아니면 없음 */
+  prMerged?(dir: string, branch: string): Promise<{ number: number; sha: string } | undefined>
   /** 그 브랜치의 마지막 CI가 찍은 화면 그림 하나 (산출물 shots의 <name>.png). 없으면 null */
   shot(dir: string, branch: string, name: string): Promise<Buffer | null>
   /** 관리자 개인 규칙 파일 (맥 사본이 있으면 안내에 적는다) */
@@ -64,6 +67,8 @@ const tail = (s: string, n = 12000) => (s.length > n ? s.slice(-n) : s)
 
 const DONE = new Set(['SUCCESS', 'FAILURE', 'CANCELLED', 'SKIPPED', 'NEUTRAL', 'TIMED_OUT', 'ACTION_REQUIRED', 'STALE', 'ERROR'])
 const OK = new Set(['SUCCESS', 'SKIPPED', 'NEUTRAL'])
+/** gh pr list --state merged --json number,mergeCommit */
+const MergedPrs = z.array(z.object({ number: z.number(), mergeCommit: z.object({ oid: z.string() }).nullish() }))
 
 /** 실제: 앱 저장소(root)의 worktree를 base/<대화 id>에, PR은 gh로 */
 export function appWorktrees(root: string, base: string, rules?: string): AppWork {
@@ -143,6 +148,10 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       if (!pr) return false
       const v = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'mergeable'])) as { mergeable?: string }
       return v.mergeable === 'CONFLICTING'
+    },
+    async prMerged(dir, branch) {
+      const m = MergedPrs.parse(JSON.parse(await gh(dir, ['pr', 'list', '--state', 'merged', '--head', branch, '--json', 'number,mergeCommit'])))[0]
+      return m && { number: m.number, sha: m.mergeCommit?.oid ?? '' }
     },
     async shot(dir, branch, name) {
       if (!/^[\w-]+$/.test(name)) return null
