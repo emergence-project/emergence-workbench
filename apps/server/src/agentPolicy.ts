@@ -127,13 +127,16 @@ export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b
 /**
  * 중앙 대화 (11/16 "중앙 에이전트"): 읽기와 하위 대화 열기 · 보내기 · 닫기만. 고치기 · 명령 · 기록 쓰기는 막고,
  * 하위 대화(chat_open)에 맡기라고 돌려준다. 상태만 보는 명령(11/18, stateOnlyCommand)은 묻지 않고 돌리고,
- * 비밀이 든 곳을 보면 한 번 묻는다. 중앙이 띄운 보조 에이전트도 같은 판정을 거친다. 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로
+ * 비밀이 든 곳을 보면 한 번 묻는다. git · gh로 커밋 · 브랜치 · 푸시 · PR 만들기 · squash 합치기(11/19 "중앙은 깃 편집 권한")도
+ * 묻지 않는다. 강제 푸시 · reset --hard · branch -D 같은 되돌리기 어려운 것과, 실사용 앱 체크아웃(중앙의 작업 폴더)의
+ * 파일을 바꾸는 checkout · merge · pull · stash 등은 막힌다. 중앙이 띄운 보조 에이전트도 같은 판정을 거친다.
+ * 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로
  */
 function judgeCentral(tool: string, input: Record<string, unknown>): Verdict | undefined {
   const name = tool.startsWith(MCP) ? tool.slice(MCP.length) : ''
   if (tool === 'Bash') {
     const cmd = str(input.command)
-    const seen = stateOnlyCommand(cmd)
+    const seen = stateOnlyCommand(cmd, { gitWrites: true })
     if (seen === 'ok') return { kind: 'allow' }
     if (seen === 'sensitive') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`비밀이 든 곳 읽기 · ${clip(cmd, 80)}`, `Read secrets · ${clip(cmd, 80)}`), does: 'read', once: true }
   }
@@ -141,8 +144,8 @@ function judgeCentral(tool: string, input: Record<string, unknown>): Verdict | u
   if (!writes) return name ? { kind: 'allow' } : undefined
   return {
     kind: 'deny',
-    reason: t('중앙 대화는 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다 (상태만 보는 명령은 됩니다)', 'The central conversation does not edit or run commands; it hands work to a sub-conversation (commands that only look are fine)'),
-    message: `You are the central conversation: you only read and orchestrate. Commands that only look at state run directly (ls, cat, grep, find without -exec, which, ps, sysctl -n, vm_stat, top -l 1, git log/status/diff/show, gh pr view, gh run view --log, npm ls), joined with |, && or ;, without writing redirects (> file), env-variable prefixes or command-running programs (xargs, sh -c, awk, sed). To change or run anything else, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
+    reason: t('중앙 대화는 파일을 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다 (상태 보기와 git · gh 커밋 · 푸시 · PR · 합치기는 됩니다)', 'The central conversation does not edit files or run commands; it hands work to a sub-conversation (looking at state and git/gh commit, push, PR and merge are fine)'),
+    message: `You are the central conversation: you read and orchestrate. Commands that only look at state run directly (ls, cat, grep, find without -exec, which, ps, sysctl -n, vm_stat, top -l 1, git log/status/diff/show, gh pr view, gh run view --log, npm ls), joined with |, && or ;, without writing redirects (> file), heredocs, env-variable prefixes or command-running programs (xargs, sh -c, awk, sed). Git and gh changes also run directly: git add/commit -m/branch/push/fetch/tag, gh pr create/edit/comment/ready, gh pr merge --squash. Blocked: force pushes, deleting remote branches, git branch -D, reset, clean, and anything that changes files in your folder (checkout, switch, merge, rebase, pull, stash, restore), because your folder is the running app's checkout. To change or run anything else, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
   }
 }
 
