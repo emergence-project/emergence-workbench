@@ -30,7 +30,7 @@ function InlineText({ parts }: { parts: Inline[] }) {
 /** 같은 이름의 줄 단추를 가려 부르게 이름 뒤에 붙이는 글 (도구·화면 읽기 프로그램용) */
 const short = (t: string) => { const x = t.replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x }
 
-/** 메모 본문: 목록(-, *, 1.)·굵게·코드·수식을 그린다 */
+/** 메모 본문: 목록(-, *, 1.)·굵게·코드·수식·표를 그린다 */
 export function MemoText({ text }: { text: string }) {
   const blocks = useMemo(() => parseMemo(text), [text])
   return (
@@ -39,6 +39,11 @@ export function MemoText({ text }: { text: string }) {
         ? <div key={i} className="memo-math-block" dangerouslySetInnerHTML={{ __html: katex.renderToString(b.tex, { throwOnError: false, displayMode: true }) }} />
         : b.kind === 'para'
         ? <p key={i}>{b.lines.map((line, j) => <span key={j}>{j > 0 && <br />}<InlineText parts={line} /></span>)}</p>
+        : b.kind === 'table'
+        ? <div key={i} className="memo-table-wrap"><table className="memo-table">
+          <thead><tr>{b.head.map((cell, j) => <th key={j} style={{ textAlign: b.align[j] ?? undefined }}><InlineText parts={cell} /></th>)}</tr></thead>
+          <tbody>{b.rows.map((row, r) => <tr key={r}>{row.map((cell, j) => <td key={j} style={{ textAlign: b.align[j] ?? undefined }}><InlineText parts={cell} /></td>)}</tr>)}</tbody>
+        </table></div>
         : (() => {
           const Tag = b.ordered ? 'ol' : 'ul'
           return <Tag key={i}>{b.items.map((it, j) => <li key={j} style={{ marginLeft: `calc(var(--sp-4) * ${it.depth})`, listStyleType: b.ordered ? undefined : it.depth === 0 ? 'disc' : it.depth === 1 ? 'circle' : 'square' }}><InlineText parts={it.inline} /></li>)}</Tag>
