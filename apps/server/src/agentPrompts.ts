@@ -12,7 +12,7 @@ import { t } from './i18n.js'
 // ---------- 안내 (대화를 열 때 한 번, 짧게) ----------
 
 /** 앱 고치기 대화의 안내 */
-export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean; agent?: string }): string {
+export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean; agent?: string; parent?: boolean }): string {
   const claude = !o.agent || o.agent === 'claude-code'
   const lines = [
     `You are fixing the Emergence Workbench app itself, from inside the app. The current folder is a separate git worktree of the app repository on branch ${o.branch}, made from origin/main. The running app and the user's own checkout are elsewhere.`,
@@ -34,6 +34,8 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     `This conversation handles one app feedback item (the first message). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Its picture (the screen at the moment the user left it) is attached to the first message, and its spot is the data-ui name: find it with \`grep -rn 'data-ui="<spot>"' apps/web/src\`.`,
     `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures.`,
   )
+  // 중앙이 연 하위 대화 (11/18): 중앙이 끝남 · CI · 합쳐짐에 저절로 깨어 이어 받으므로, 「나중에 하겠다」로 끝내지 않는다
+  if (o.parent) lines.push(`The central conversation opened this one and is woken by the app when your turn ends. Do not end a turn promising to continue later: finish the work in this turn. Wait for CI with ${APP_CHECKS} wait. If you must wait for something outside this conversation, say what you wait for in one line and end the turn; the central conversation wakes you.`)
   if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
   lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps. Write to the user in Korean, briefly: result first.`)
   return lines.join('\n')
@@ -68,10 +70,12 @@ export function promptOf(text: string, attach?: Attach[]): string {
   if (CC_COMMAND.test(text.trim())) return text.trim()
   if (!attach?.length) return text
   const how: Record<Attach['kind'], string> = {
-    note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)', connector: 'connector (MCP server; its tools are mcp__<name>__*, use them for this)', terminal: 'terminal output (the user\'s own shell)',
+    note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)', connector: 'connector (MCP server; its tools are mcp__<name>__*, use them for this)',
+    element: 'app screen element (data-ui names, outermost first; the attached image shows it)', terminal: 'terminal output (the user\'s own shell)',
   }
-  const lines = attach.map((a) => a.kind === 'selection' || a.kind === 'terminal'
-    ? `- ${how[a.kind]} from ${a.ref}:\n${(a.text ?? '').split('\n').map((l) => `  > ${l}`).join('\n')}`
+  const quote = (s?: string) => (s ?? '').split('\n').map((l) => `  > ${l}`).join('\n')
+  const lines = attach.map((a) => a.kind === 'selection' || a.kind === 'terminal' ? `- ${how[a.kind]} from ${a.ref}:\n${quote(a.text)}`
+    : a.kind === 'element' ? `- ${how.element} on ${a.ref}:\n${quote(a.text ?? a.label)}`
     : `- ${how[a.kind]}: ${a.ref}${a.label && a.label !== a.ref ? ` (${a.label})` : ''}`)
   return `${text}\n\nAttached by the user (read these first, nothing else unless needed):\n${lines.join('\n')}`
 }

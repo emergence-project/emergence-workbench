@@ -7,6 +7,9 @@ import { Icon } from './icons'
 import { qk } from './queries'
 import { href } from './router'
 import { useDismiss } from './useDismiss'
+import { ElementPicker, type Picked } from './elementPicker'
+import { captureScreen, cropShot } from './screenCapture'
+import { uiShown } from './uiNames'
 import { accountLabel, useClaudeAccounts } from './ClaudeAccountsSettings'
 import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
 
@@ -74,7 +77,7 @@ export function sideQuestion(text: string): string | undefined {
   return m?.[2]!.trim() || undefined
 }
 
-export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector'), terminal: t('터미널', 'Terminal') }
+export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector'), element: t('화면 요소', 'Screen element'), terminal: t('터미널', 'Terminal') }
 
 // ---------- 노트에서 「에이전트에게」 (고른 글 메뉴) ----------
 
@@ -208,6 +211,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   const [busy, setBusy] = useState(false)
   const [hi, setHi] = useState(0)
   const [closed, setClosed] = useState<number | null>(null)
+  const [picking, setPicking] = useState(false)
   const box = useRef<HTMLTextAreaElement>(null)
   const file = useRef<HTMLInputElement>(null)
   useInbox(rid, (got) => { setAttach((a) => [...a, ...got]); box.current?.focus() })
@@ -230,6 +234,20 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   // 맥의 Claude Code 스킬 · 커넥터 (10/21 22:40): / 메뉴 · @ 메뉴에 함께 보인다
   const extras = useQuery({ queryKey: qk.agentExtras, queryFn: () => agentChatsApi.extras(), enabled: !!menu, staleTime: 60_000 }).data
   const tree = useQuery({ queryKey: qk.repoTree(rid), queryFn: () => api.research(rid).repoTree(), enabled: research && menu?.kind === '@' && (menu.query.length >= 2) }).data
+
+  // 화면 요소 붙이기 (11/18): 피드백 모드와 같은 고르기로 한 곳을 누르면 부위 이름 · 글자와 그 둘레 그림을 붙인다
+  const pickElement = async (p: Picked) => {
+    setPicking(false)
+    const text = p.snippet ? `${p.path}\n${p.snippet}` : p.path
+    setAttach((a) => [...a, { kind: 'element', ref: location.hash || '#/', label: uiShown(p.path).split(' › ').pop()!.slice(0, 200), text: text.slice(0, 4000) }])
+    box.current?.focus()
+    if (images.length >= 4) return
+    // 고르기 상자가 지워진 뒤 찍는다
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r)))
+    const shot = await captureScreen()
+    const im = shot && await cropShot(shot, p.rect)
+    if (im) setImages((xs) => [...xs, { ...im, name: t('화면 요소', 'Screen element') }].slice(0, 4))
+  }
 
   const focusAt = (at: number) => requestAnimationFrame(() => { box.current?.focus(); box.current?.setSelectionRange(at, at) })
   const replaceToken = (insert: string) => {
@@ -357,12 +375,15 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         )}
       </div>
       {shownFail && <span className="error-text ac-hint">{shownFail}</span>}
+      {picking && <ElementPicker title={t('화면 요소', 'Screen element')} hint={t('대화에 붙일 화면 한 곳을 누르세요 · Esc 취소', 'Click the part of the screen to attach · Esc to cancel')}
+        skip=".ac-composer" onPick={(p) => void pickElement(p)} onCancel={() => setPicking(false)} />}
       <div className="ac-compose-row">
         <PopButton ui="붙이기 버튼" tip={t('붙이기 · 명령 · 그림', 'Attach · commands · images')} label={<span className="ac-pop-ico">{Icon.plus}</span>}>
           {(close) => <>
             <button role="menuitem" onClick={() => { close(); startToken('@') }}>{t('노트 · 주제 · 파일 · 커넥터 붙이기', 'Attach a note, topic, file or connector')}<span className="muted mono ac-key">@</span></button>
             <button role="menuitem" onClick={() => { close(); startToken('/') }}>{t('명령 · 스킬', 'Commands and skills')}<span className="muted mono ac-key">/</span></button>
             <button role="menuitem" onClick={() => { close(); file.current?.click() }}>{t('그림 고르기', 'Choose images')}<span className="muted ac-key">{t('붙여넣기도', 'or paste')}</span></button>
+            <button role="menuitem" onClick={() => { close(); setPicking(true) }}>{t('화면 요소 고르기', 'Pick a screen element')}<span className="muted ac-key">{t('그림도', 'with image')}</span></button>
           </>}
         </PopButton>
         {lead}

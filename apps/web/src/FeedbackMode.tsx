@@ -3,6 +3,8 @@ import { feedbackNote } from './feedbackNote'
 import { useEffect, useRef, useState } from 'react'
 import { api, feedbackChanged, req, type FeedbackKind } from './api'
 import { uiShown } from './uiNames'
+import { captureScreen, loadCapture } from './screenCapture'
+import { PickHighlight, usePickElement } from './elementPicker'
 import { FeedbackText } from './FeedbackPage'
 import { go } from './router'
 import { onListKey } from './listInput'
@@ -14,153 +16,11 @@ import { newDraftId, readFeedbackDrafts, removeFeedbackDraft, saveFeedbackDraft,
 /**
  * 피드백 모드: 화면 부위(data-ui가 붙은 요소)에 마우스를 올리면 이름표가 뜨고,
  * 누르면 그 부위에 코멘트를 남긴다. 코멘트는 개인 저장소의 feedback/날짜.md에 쌓인다 (personalRepo.ts).
- * 부위 이름은 바깥 부위부터 이어 붙인다: data-ui="블록" > data-ui="속성 표" > data-ui="다른 시도"
- *   → "블록 › 속성 표 › 다른 시도"
+ * 부위 고르기는 elementPicker.tsx (기록의 가리키기, 대화에 화면 요소 붙이기와 같다)
  */
 interface Entry { date: string; time: string; kind: FeedbackKind; target: string; text: string; n: number; snippet?: string }
 
-const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
-
-/** 같은 종류가 여럿인 부위(카드, 블록 칩 등)는 data-ui-item으로 어느 것인지 덧붙인다: 카드 “Cor 3.9.1 거리 보존” */
-export function uiPath(el: Element | null): string {
-  const names: string[] = []
-  for (let cur = el; cur; cur = cur.parentElement) {
-    const n = cur.getAttribute('data-ui')
-    if (!n) continue
-    const item = cur.getAttribute('data-ui-item')
-    names.push(item ? `${n} “${clip(item, 24)}”` : n)
-  }
-  return names.reverse().join(' › ')
-}
-
-/** 가리킨 부위의 글자. 요소 사이 글자가 붙지 않게(<b>다음</b>Prop → 다음 Prop) 글자 조각마다 띄운다 */
-export function snippetOf(el: Element): string {
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return clip(el.value.trim(), 80)
-  const parts: string[] = []
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
-  for (let n = walker.nextNode(); n && parts.join(' ').length < 120; n = walker.nextNode()) parts.push(n.textContent ?? '')
-  return clip(parts.join(' ').replace(/\s+/g, ' ').trim(), 80)
-}
-
-/**
- * 코멘트를 남기는 순간의 화면 그림 (JPEG). 에이전트는 글만으로는 사용자 화면을 볼 수 없어서 함께 남긴다.
- * 피드백 모드 자체의 창은 빼고, PDF처럼 그림으로 옮길 수 없는 부분은 비어 보일 수 있다. 실패해도 코멘트는 그대로 저장한다.
- * 찍는 일(모든 요소의 스타일 복사)은 화면을 1–3초 멈춘다. 부위를 누를 때 찍으면 입력 창이 늦게 뜨고 쓰는 동안 멈춰서
- * ("피드백 모드에서 유독 렉", 10/16), 등록을 누를 때 찍는다. 그 사이 앱은 눌러도 반응하지 않아 뒤 화면은 그대로다
- */
-/**
- * html-to-image는 <svg>를 통째로 복사하고 그 안의 요소에는 계산된 스타일을 옮기지 않는다. 그림 안에는 페이지 CSS가 없어
- * 클래스로 칠한 SVG(차트 등)가 검은 덩어리로 찍혔다 (10/15 09:49 그림). 찍는 동안만 SVG 안 요소에 계산된 칠을 적어 두고 되돌린다
- */
-const SVG_PAINT = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'opacity', 'paint-order', 'font-size', 'font-weight', 'font-family', 'display', 'visibility'] as const
-function inlineSvgPaint(): () => void {
-  const saved: [SVGElement, string | null][] = []
-  for (const svg of document.querySelectorAll('svg')) {
-    if (svg.parentElement?.closest('svg') || !onScreen(svg) || svg.closest('[data-feedback-ui]')) continue
-    for (const el of svg.querySelectorAll('*')) if (el instanceof SVGElement) saved.push([el, el.getAttribute('style')])
-  }
-  // 먼저 모두 읽고 나서 쓴다. 읽고 쓰기를 번갈아 하면 요소마다 스타일을 다시 계산해 큰 차트에서 십여 초 멈췄다
-  const paints = saved.map(([el]) => { const cs = getComputedStyle(el); return SVG_PAINT.map((k) => cs.getPropertyValue(k)) })
-  saved.forEach(([el], i) => SVG_PAINT.forEach((k, j) => el.style.setProperty(k, paints[i]?.[j] ?? '')))
-  return () => { for (const [el, style] of saved) { if (style === null) el.removeAttribute('style'); else el.setAttribute('style', style) } }
-}
-
-/**
- * 찍는 시간은 복사하는 요소 수에 비례한다. 화면 밖까지 노트 전체를 복사하면 수식이 많은 노트(요소 수만 개)에서 등록이 수십 초
- * 멈췄다 (10/21 09:27). 화면에 보이는 요소만 복사한다. 열어 둔 다른 탭도 숨긴 채 남아 있어 함께 뺀다.
- * html-to-image는 스크롤 위치를 옮기지 않아, 위로 지나간 요소를 빼면 그림이 사용자가 보던 자리에 더 가깝다
- */
-function onScreen(el: Element): boolean {
-  const r = el.getBoundingClientRect()
-  // 크기가 없으면: 숨긴 탭(display: none)은 통째로 빼고, display: contents처럼 자식이 보일 수 있는 것은 남긴다.
-  // checkVisibility()는 상자가 없는 display: contents에도 false라 따로 본다 (11/8 20:31 그림: 지금 처리 카드의 줄이 빠져 빈 칸으로 찍혔다)
-  if (!r.width && !r.height) return getComputedStyle(el).display === 'contents' || (el.checkVisibility?.() ?? true)
-  // 위아래로 조금 넉넉히: 반쯤 보이는 줄의 수식 첨자처럼 부모 상자 밖으로 나온 조각을 남긴다
-  const m = 120
-  return r.bottom >= -m && r.top <= innerHeight + m && r.right >= 0 && r.left <= innerWidth
-}
-
-/**
- * 그림에 옮기는 스타일. 정하지 않으면 요소마다 계산된 스타일 500여 개를 모두 옮겨, 보이는 요소 4천 개에 6초가 걸렸다.
- * 모양을 바꾸는 것만 옮겨 1초 남짓으로 줄인다 (10/21 09:27)
- */
-const STYLE_PROPS = [
-  'display', 'position', 'top', 'right', 'bottom', 'left', 'inset', 'z-index', 'float', 'clear', 'box-sizing', 'width', 'height', 'min-width',
-  'min-height', 'max-width', 'max-height', 'aspect-ratio', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding-top',
-  'padding-right', 'padding-bottom', 'padding-left', 'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
-  'border-top-style', 'border-right-style', 'border-bottom-style', 'border-left-style', 'border-top-color', 'border-right-color',
-  'border-bottom-color', 'border-left-color', 'border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius',
-  'border-bottom-right-radius', 'border-collapse', 'border-spacing', 'table-layout', 'caption-side', 'empty-cells', 'outline-width', 'outline-style',
-  'outline-color', 'outline-offset', 'box-shadow', 'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'flex-basis', 'order', 'align-items',
-  'align-self', 'align-content', 'justify-content', 'justify-items', 'justify-self', 'row-gap', 'column-gap', 'grid-template-columns',
-  'grid-template-rows', 'grid-template-areas', 'grid-auto-flow', 'grid-auto-columns', 'grid-auto-rows', 'grid-column-start', 'grid-column-end',
-  'grid-row-start', 'grid-row-end', 'overflow-x', 'overflow-y', 'text-overflow', 'clip-path', 'transform', 'transform-origin', 'opacity',
-  'visibility', 'mix-blend-mode', 'filter', 'color', 'background-color', 'background-image', 'background-size', 'background-position',
-  'background-repeat', 'background-clip', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant', 'font-feature-settings',
-  'font-variant-numeric', 'line-height', 'letter-spacing', 'word-spacing', 'text-align', 'text-decoration-line', 'text-decoration-color',
-  'text-decoration-style', 'text-decoration-thickness', 'text-underline-offset', 'text-transform', 'text-indent', 'text-shadow', 'white-space',
-  'word-break', 'overflow-wrap', 'hyphens', 'vertical-align', 'direction', 'unicode-bidi', 'writing-mode', 'tab-size', 'list-style-type',
-  'list-style-position', 'list-style-image', 'content', 'quotes', 'counter-reset', 'counter-increment', 'object-fit', 'object-position', 'fill',
-  'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'paint-order', 'd',
-  '-webkit-line-clamp', '-webkit-box-orient', 'line-clamp', 'column-count', 'column-width', 'scrollbar-width', 'contain', 'isolation',
-  '-webkit-text-fill-color', '-webkit-background-clip', 'mask-image', '-webkit-mask-image', 'backdrop-filter'
-]
-
-/**
- * 고르기 상자는 그림에 옮기면 맥(WebKit)에서 글자 없이 빈 칸으로 찍혔다 (10/30 · 11/4 그림의 대화 프로젝트 · 피드백 상태 상자).
- * 화면에서는 이름이 보이는데 그림에서만 비어, 사용자 화면이 깨진 것처럼 읽혔다. 찍는 동안만 상자를 같은 모양의 글자 칸으로 바꿔 두고 되돌린다
- */
-function swapSelects(): () => void {
-  const swapped: [HTMLSelectElement, HTMLSpanElement, string | null][] = []
-  for (const sel of document.querySelectorAll('select')) {
-    if (sel.multiple || sel.closest('[data-feedback-ui]') || !onScreen(sel)) continue
-    const r = sel.getBoundingClientRect()
-    if (!r.width || !r.height) continue
-    const cs = getComputedStyle(sel)
-    const span = document.createElement('span')
-    for (const k of STYLE_PROPS) span.style.setProperty(k, cs.getPropertyValue(k))
-    span.style.setProperty('display', cs.display.startsWith('inline') ? 'inline-flex' : 'flex')
-    span.style.setProperty('align-items', 'center')
-    span.style.setProperty('overflow', 'hidden')
-    span.style.setProperty('white-space', 'nowrap')
-    span.style.setProperty('width', `${r.width}px`)
-    span.style.setProperty('height', `${r.height}px`)
-    span.textContent = sel.selectedOptions[0]?.textContent ?? ''
-    swapped.push([sel, span, sel.getAttribute('style')])
-    sel.after(span)
-    sel.style.setProperty('display', 'none')
-  }
-  return () => { for (const [sel, span, style] of swapped) { span.remove(); if (style === null) sel.removeAttribute('style'); else sel.setAttribute('style', style) } }
-}
-
-const loadCapture = () => import('html-to-image')
-/** 글꼴을 그림에 넣는 CSS(수백 KB)는 모드를 켠 동안 한 번만 만든다 */
-let fontCss: Promise<string> | null = null
-
-async function captureScreen(): Promise<string | null> {
-  let restore: (() => void) | null = null
-  try {
-    const { toJpeg, getFontEmbedCSS } = await loadCapture()
-    fontCss ??= getFontEmbedCSS(document.body).catch((e) => { fontCss = null; throw e })
-    const fontEmbedCSS = await fontCss
-    const paint = inlineSvgPaint()
-    const selects = swapSelects()
-    restore = () => { selects(); paint() }
-    return await toJpeg(document.body, {
-      quality: 0.8, pixelRatio: 1, width: innerWidth, height: innerHeight, fontEmbedCSS, includeStyleProperties: STYLE_PROPS,
-      // 그림 주소는 ?path=…로만 다르다(/api/feedback/picture 등). 빼면 html-to-image가 물음표 뒤를 버린 주소로 캐시해 다른 그림을 다시 쓴다 (10/13 09:59 그림)
-      includeQueryParams: true,
-      filter: (n) => !(n instanceof Element) || (!n.hasAttribute('data-feedback-ui') && onScreen(n)),
-    })
-  } catch { return null } finally { restore?.() }
-}
-
-function isOwnUi(t: EventTarget | null): boolean {
-  return t instanceof Element && !!t.closest('[data-feedback-ui]')
-}
-
 export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(message: string): void }) {
-  const [hover, setHover] = useState<{ rect: DOMRect; path: string } | null>(null)
   const [pending, setPending] = useState<{ path: string; snippet: string; x: number; y: number; route?: string } | null>(null)
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -176,7 +36,6 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
   const [showDrafts, setShowDrafts] = useState(false)
   /** 지금 창의 글이 어느 적던 글인지 (새 창이면 새 id) */
   const draftId = useRef(newDraftId())
-  const hoverEl = useRef<Element | null>(null)
   const pendingRef = useRef(pending)
   useEffect(() => {
     if (!pending || !text.trim()) return
@@ -194,59 +53,20 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     }).catch(() => setPublishable(false))
   }, [])
 
-  useEffect(() => {
-    const target = (e: Event) => (e.target instanceof Element ? e.target.closest('[data-ui]') : null)
-    const move = (e: MouseEvent) => {
-      if (pendingRef.current || isOwnUi(e.target)) return
-      const el = target(e)
-      // 같은 부위 안에서 움직이면 다시 그리지 않는다 (스크롤하면 refresh가 상자를 옮긴다)
-      if (el === hoverEl.current) return
-      hoverEl.current = el
-      setHover(el ? { rect: el.getBoundingClientRect(), path: uiPath(el) } : null)
-    }
-    // 앱 자체의 동작(버튼 누르기, 편집기 커서 이동 등)은 막고 코멘트 창만 연다
-    const block = (e: Event) => {
-      if (isOwnUi(e.target)) return
-      e.preventDefault()
-      e.stopPropagation()
-    }
-    const click = (e: MouseEvent) => {
-      if (isOwnUi(e.target)) return
-      block(e)
-      const el = target(e)
-      if (!el) return
-      setPending({ path: uiPath(el), snippet: snippetOf(el), x: e.clientX, y: e.clientY })
+  // 앱 자체의 동작(버튼 누르기, 편집기 커서 이동 등)은 막고 코멘트 창만 연다. 창을 연 동안 다른 부위를 누르면 그 부위로 다시 연다
+  const { hover, clear } = usePickElement({
+    skip: '[data-feedback-ui]', bodyClass: 'feedback-on', hold: () => !!pendingRef.current,
+    onPick: (p) => {
+      setPending({ path: p.path, snippet: p.snippet, x: p.x, y: p.y })
       draftId.current = newDraftId()
       setText(''); setKind(null); setError(null)
-    }
-    const refresh = () => { const el = hoverEl.current; if (el) setHover({ rect: el.getBoundingClientRect(), path: uiPath(el) }) }
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // 뒤에 열린 대화상자까지 닫히지 않게 여기서 멈춘다
-      e.preventDefault()
-      e.stopPropagation()
-      if (pendingRef.current) setPending(null)
-      else onClose()
-    }
-    window.addEventListener('mousemove', move, true)
-    for (const t of ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'dblclick'] as const) window.addEventListener(t, block, true)
-    window.addEventListener('click', click, true)
-    window.addEventListener('scroll', refresh, true)
-    window.addEventListener('keydown', key, true)
-    document.body.classList.add('feedback-on')
-    return () => {
-      window.removeEventListener('mousemove', move, true)
-      for (const t of ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'dblclick'] as const) window.removeEventListener(t, block, true)
-      window.removeEventListener('click', click, true)
-      window.removeEventListener('scroll', refresh, true)
-      window.removeEventListener('keydown', key, true)
-      document.body.classList.remove('feedback-on')
-    }
-  }, [onClose])
+    },
+    onEscape: () => { if (pendingRef.current) setPending(null); else onClose() },
+  })
 
   /** 부위 없이 적기: 화면 한 곳이 아니라 앱 전체 방향에 대한 의견 (10/12). 서버는 빈 부위를 "(부위 없음)"으로 적는다 */
   const openWithoutPart = (e: React.MouseEvent) => {
-    setHover(null); hoverEl.current = null
+    clear()
     // 단추 위에 연다 (아래 끝은 pop이 화면 안으로 당긴다)
     setPending({ path: '', snippet: '', x: e.currentTarget.getBoundingClientRect().left - 12, y: innerHeight })
     draftId.current = newDraftId()
@@ -258,7 +78,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     setShowDrafts(false)
     draftId.current = draft.id
     if ((location.hash || '#/') !== draft.route) location.hash = draft.route
-    setHover(null); hoverEl.current = null
+    clear()
     setPending({ path: draft.path, snippet: draft.snippet, x: left, y: innerHeight, route: draft.route })
     setText(draft.text); setKind(draft.kind); setError(null)
   }
@@ -328,12 +148,7 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
         <button className="btn primary sm" onClick={onClose}>{t('끝내기', 'Exit')} <kbd>Esc</kbd></button>
       </div>
 
-      {hover && !pending && (
-        <>
-          <div className="fb-box" style={{ left: hover.rect.left - 2, top: hover.rect.top - 2, width: hover.rect.width + 4, height: hover.rect.height + 4 }} />
-          <div className="fb-label" style={{ left: Math.max(4, hover.rect.left - 2), top: hover.rect.top > 28 ? hover.rect.top - 24 : hover.rect.bottom + 4 }}>{uiShown(hover.path)}</div>
-        </>
-      )}
+      {!pending && <PickHighlight hover={hover} />}
 
       {pending && pop && (
         <div className="fb-pop" data-feedback-ui style={{ ...pop, maxHeight: `calc(100dvh - ${pop.top}px - var(--sp-3))` }} role="dialog" aria-label={t('피드백 남기기', 'Leave feedback')}>

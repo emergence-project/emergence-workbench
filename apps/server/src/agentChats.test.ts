@@ -39,6 +39,9 @@ describe('모드', () => {
     const p = promptOf('봐 줘', [{ kind: 'note', ref: 'workbench/notes/a/note.md', label: 'A' }, { kind: 'selection', ref: 'workbench/notes/a/note.md', label: '고른 글', text: '첫 줄\n둘째 줄' }])
     expect(p).toContain('note (read_note): workbench/notes/a/note.md (A)')
     expect(p).toContain('  > 둘째 줄')
+    // 화면 요소: 화면 주소와 부위 이름 · 글자
+    const el = promptOf('고쳐 줘', [{ kind: 'element', ref: '#/agents', label: '보내기', text: '에이전트 입력란 › 지시 보내기\n보내기' }])
+    expect(el).toContain('app screen element (data-ui names, outermost first; the attached image shows it) on #/agents:\n  > 에이전트 입력란 › 지시 보내기\n  > 보내기')
     expect(editOf({ edits: [{ old: 'a\nb', new: 'c', reason: '고침' }] })).toEqual({ parts: [{ old: 'a\nb', new: 'c' }], added: 1, removed: 2, reason: '고침' })
     expect(todosOf({ todos: [{ content: '읽기', status: 'completed' }, { content: '계산', status: 'in_progress' }, { content: '?', status: 'odd' }] }))
       .toEqual([{ text: '읽기', state: 'completed' }, { text: '계산', state: 'in_progress' }, { text: '?', state: 'pending' }])

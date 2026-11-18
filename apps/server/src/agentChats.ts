@@ -16,7 +16,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { readFeedbackCloud } from './feedbackCloud.js'
 import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
-import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, FileDiff, Snap } from './appWorktree.js'
 import { agentTurnReasons, agentTurns, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
 import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
@@ -131,6 +131,8 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   /** 기록 대화: 마지막으로 넘긴 기록 글의 수 (같은 글을 두 번 넘기지 않게), 지금 차례가 기록에서 왔는지 (끝나면 답을 기록에 적는다) */
   recordSent?: number
   recordTurn?: boolean
+  /** 중앙 대화: 앱 고치기 자리(APP_LIVE_MAX)가 차서 기다리는 하위 대화. 자리가 나면 agentCentral.ts가 차례로 연다 */
+  held?: CentralOpenBody[]
 }
 
 /** 내 지시 하나 앞으로 되돌릴 때 쓰는 것. session이 없으면 처음부터 */
@@ -1025,7 +1027,7 @@ export class AgentChats {
         cwd: p.repo,
         extraDirs: app ? [] : this.deps.extraDirs(),
         brief: app
-          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback, agent: c.agent })
+          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback, agent: c.agent, parent: !!c.parent })
           : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })), agent: c.agent }),
         write: c.write,
         ...(app ? { appChat: c.id } : c.rid === CENTRAL_RID && { central: true }), env: { ...(app && appEnv(c.id)), ...this.deps.accounts?.env(c.account) },
