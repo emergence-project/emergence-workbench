@@ -32,6 +32,8 @@ export const RESEARCH_WRITES = new Set([...MCP_WRITES, 'add_task', 'report_task'
 /** 앱 고치기 대화만 쓰는 앱 MCP 도구: 커밋해 PR 열기 · CI 결과 */
 export const APP_SUBMIT = 'app_submit'
 export const APP_CHECKS = 'app_checks'
+/** 앱 고치기 대화가 자기 PR을 CI 통과 뒤 squash로 합친다 (11/19) */
+export const APP_MERGE = 'app_merge'
 /** 맡은 피드백의 처리 기록 (앱이 status.yaml에 적는다) */
 export const FEEDBACK_ANSWER = 'feedback_answer'
 
@@ -119,7 +121,7 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
 }
 
 /**
- * 앱 고치기 대화에서 에이전트가 직접 하지 않는 명령: 올리기 · PR · 합치기는 앱이(app_submit, 합치기 설정),
+ * 앱 고치기 대화에서 에이전트가 직접 하지 않는 명령: 올리기 · PR · 합치기는 앱이(app_submit · app_merge, 합치기 설정),
  * 실사용 앱 서비스는 사용자가 다룬다. 나머지(시험 · 형식 검사 · 화면 그림 · 커밋 · main 받기)는 작업 폴더에서 돌린다.
  */
 export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b|\bservice:|\blaunchctl\b|\bgit\s+worktree\b/
@@ -140,7 +142,7 @@ function judgeCentral(tool: string, input: Record<string, unknown>): Verdict | u
     if (seen === 'ok') return { kind: 'allow' }
     if (seen === 'sensitive') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`비밀이 든 곳 읽기 · ${clip(cmd, 80)}`, `Read secrets · ${clip(cmd, 80)}`), does: 'read', once: true }
   }
-  const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
+  const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === APP_MERGE || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
   if (!writes) return name ? { kind: 'allow' } : undefined
   return {
     kind: 'deny',
@@ -180,7 +182,7 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
       return {
         kind: 'deny',
         reason: t('올리기 · PR · 합치기와 앱 서비스는 앱이 맡습니다', 'Pushing, PRs, merging and the app service are left to the app'),
-        message: `The app does this, not you: call ${MCP}${APP_SUBMIT} to commit, push and open or update the pull request, and ${MCP}${APP_CHECKS} for CI. Do not touch the running app service or other worktrees.`,
+        message: `The app does this, not you: call ${MCP}${APP_SUBMIT} to commit, push and open or update the pull request, ${MCP}${APP_CHECKS} for CI, and ${MCP}${APP_MERGE} to squash-merge your own pull request once CI is green. Do not touch the running app service or other worktrees.`,
       }
     }
     if (ctx.write === 'read') return readOnly
@@ -195,6 +197,12 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
       if (ctx.write === 'read') return readOnly
       if (gated) return notYet
       if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`PR 올리기: ${clip(str(input.title), 120)}`, `Open PR: ${clip(str(input.title), 120)}`), key: APP_SUBMIT, label: t('PR 올리기', 'Open PR') }
+      return { kind: 'allow' }
+    }
+    if (name === APP_MERGE) {
+      if (ctx.write === 'read') return readOnly
+      if (gated) return notYet
+      if (ctx.mode === 'ask') return { kind: 'ask', summary: t('PR 합치기 (squash)', 'Merge PR (squash)'), key: APP_MERGE, label: t('PR 합치기', 'Merge PR') }
       return { kind: 'allow' }
     }
     if (!RESEARCH_WRITES.has(name)) return { kind: 'allow' }

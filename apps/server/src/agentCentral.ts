@@ -13,8 +13,9 @@
  *   앱이 다시 켜지면 아직 보내지 않은 깨우기는 사라진다 (CI · 합쳐짐은 1분마다 tickCentral이 다시 찾는다).
  */
 import { agentTurnReasons, agentTurns } from '@rw/core'
+import { z } from 'zod'
 import { APP_RID, CENTRAL_RID, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
-import { AgentChats, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
+import { AgentChats, APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -35,7 +36,8 @@ export const AUTO_SEND_MAX = 2
  * 중앙의 답은 앱이 이 목록으로 다시 가린다 (criticalOf: 맞으면 409)
  */
 export const CRITICAL = [
-  { key: 'merge', ko: 'PR 합치기', en: 'merging a pull request', re: /\bgh\s+pr\s+merge\b|\bgit\s+push\b.*\b(main|master)\b/i },
+  // squash 합치기는 중앙 · 하위 대화가 CI 통과 뒤 직접 한다 (11/19 "중앙은 깃 편집 권한"): squash가 아닌 합치기와 main에 바로 푸시만 남긴다
+  { key: 'merge', ko: 'squash가 아닌 PR 합치기 · main에 바로 푸시', en: 'merging a pull request other than by squash, or pushing straight to main', re: /\bgh\s+pr\s+merge\b(?!.*(--squash\b|\s-s\b))|\bgit\s+push\b.*\b(main|master)\b/i },
   { key: 'restart', ko: '앱 다시 시작', en: 'restarting the app', re: /service:restart|launchctl|\brestart\b|다시 시작|재시작/i },
   { key: 'delete', ko: '지우기 · 덮어쓰기', en: 'deleting or overwriting', re: /\brm\s|\brmdir\b|\bgit\s+(reset\s+--hard|clean|checkout\s+--|restore)\b|--force\b|\bpush\s+-f\b|overwrite|덮어|지우/i },
   { key: 'outside', ko: '외부로 내보내기', en: 'sending something outside', re: /\b(curl|wget|scp|rsync|ssh)\b|\bnpm\s+publish\b|\bgh\s+(issue|release|gist|api|pr\s+(comment|review|close|edit))\b/i },
@@ -44,12 +46,16 @@ export const CRITICAL = [
 ] as const
 export type Critical = (typeof CRITICAL)[number]
 
+/** 자기 PR을 squash로 합친 결과 (app_merge): sha = main에 생긴 커밋. 에이전트만 받으니 화면 계약(@rw/core)에 두지 않는다 */
+export const AppMerged = z.object({ number: z.number(), sha: z.string() }).strict()
+export type AppMerged = z.infer<typeof AppMerged>
+
 /** 중앙 대화를 처음 열 때 주는 안내 (영어: 에이전트가 읽는다). 사용자에게는 보이지 않는다 */
 export const CENTRAL_BRIEF = [
   'You are the central conversation of Emergence Workbench, the user\'s research workbench app. The user talks to you first.',
-  'You only read and orchestrate. You cannot edit files, run commands or write notes and records: the app blocks it.',
+  'You read and orchestrate. You cannot edit files or write notes and records, and you run only commands that look at state plus git/gh commands that commit, branch, push, open pull requests and squash-merge them: the app blocks the rest, including force pushes, git reset, branch -D and anything that changes files in your folder (checkout, switch, merge, rebase, pull, stash, restore), because your folder is the running app\'s checkout. Put commit messages in -m, not heredocs.',
   '- Answer questions yourself by reading: workbench MCP tools (list_projects, project_status, overview, read_note, list_records, search_library, rules) and Read/Grep/Glob on the app repository (your working folder) and registered projects.',
-  '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; merging and restarting stay with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
+  '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; it squash-merges its own pull request with app_merge once CI is green, or you squash-merge it; restarting stays with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
   `- At most ${APP_LIVE_MAX} app sub-conversations work at once. If chat_open says the task is held, the app opens it by itself when a slot frees; do not open it again.`,
   '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per item).',
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
@@ -440,6 +446,32 @@ export class CentralChats extends AgentChats {
     this.archive(id, true)
     this.w().events.delete(id)
     return kidOf(this.must(id))
+  }
+
+  /**
+   * 앱 고치기 대화: 자기 PR을 squash로 합친다 (에이전트의 app_merge, 11/19 "중앙은 깃 편집 권한").
+   * 마지막 커밋의 CI가 모두 통과했고 main과 부딪히지 않을 때만. 피드백 대화의 PR은 합치기 설정(tickFeedback)을 따른다.
+   * 하위 대화든 사용자가 연 대화든 같다. 허락 판정은 judge가 이미 했다
+   */
+  async appMerge(id: string): Promise<AppMerged> {
+    const c = this.must(id)
+    const w = this.deps.app
+    if (c.scope.kind !== 'app' || !w) throw new WorkbenchError(400, t('앱 고치기 대화가 아닙니다', 'Not an app conversation'))
+    if (!c.worktree || !c.branch) throw new WorkbenchError(409, t('작업 폴더를 아직 만들지 않았습니다', 'The work folder is not ready yet'))
+    if (c.feedback) throw new WorkbenchError(409, t('피드백 대화의 PR은 합치기 설정대로 앱이 합칩니다', 'Feedback pull requests are merged by the app per the merge setting'))
+    if (c.merged) throw new WorkbenchError(409, t('이 대화의 PR은 이미 합쳤습니다', 'This conversation\'s pull request is already merged'))
+    if (!c.pr) throw new WorkbenchError(409, t(`PR이 아직 없습니다. 먼저 ${APP_SUBMIT}로 올려 주세요`, `No pull request yet. Call ${APP_SUBMIT} first`))
+    const ck = await w.checks(c.worktree, c.branch)
+    if (!ck.done) throw new WorkbenchError(409, t(`CI가 아직 끝나지 않았습니다. ${APP_CHECKS}(wait)로 기다린 뒤 다시 부르세요`, `CI has not finished. Wait with ${APP_CHECKS} (wait) and call again`))
+    if (!ck.ok) throw new WorkbenchError(409, t(`CI가 실패해 합치지 않습니다. ${APP_CHECKS}로 기록을 읽고 고쳐 다시 올려 주세요`, `CI failed, so it was not merged. Read the log with ${APP_CHECKS}, fix and submit again`))
+    if (w.conflicted && (await w.conflicted(c.worktree, c.branch))) {
+      throw new WorkbenchError(409, t('PR이 main과 부딪혀 합치지 못했습니다. `git fetch origin main && git merge origin/main`으로 받아 풀고, 확인한 뒤 다시 올려 주세요.', 'The PR conflicts with main, so it was not merged. Run `git fetch origin main && git merge origin/main`, resolve, check and submit again.'))
+    }
+    const m = await w.merge(c.worktree, c.branch)
+    c.merged = m.sha || 'merged'
+    c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`PR #${m.number}을 합쳤습니다. 앱이 새 버전을 받아 쓰지 않는 틈에 다시 시작합니다.`, `Merged PR #${m.number}. The app picks up the new version and restarts when idle.`) })
+    this.touch(c)
+    return m
   }
 
   private kidOfCentral(id: string): Stored {
