@@ -3,7 +3,7 @@ import type { AboutSection } from '../types'
 // 소개 › agents › 터미널. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '터미널',
+  title: '터미널', prs: [453],
   id: 'terminal',
   items: [
     { text: <>오른쪽 사이드바 › 에이전트의 <b>터미널</b> 탭은 이 컴퓨터의 셸입니다(11/19). 보고 있는 프로젝트 폴더에서 열리고(프로젝트 밖 화면은 홈 폴더), 에이전트 화면에서는 상단바의 오른쪽 사이드바 버튼이 터미널만 엽니다. 사용자가 직접 치는 창이라 중앙 · 에이전트의 권한은 그대로입니다.</> },
