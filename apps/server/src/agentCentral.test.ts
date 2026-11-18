@@ -15,7 +15,7 @@ describe('중앙 대화의 허락 규칙', () => {
   it('읽기 · 하위 대화 도구는 허락하고, 고치기 · 명령 · 기록 쓰기 · 앱 올리기는 하위 대화에 맡기라고 막는다', () => {
     for (const tool of ['read_note', 'project_status', 'chat_open', 'chat_send', 'chat_list', 'chat_close']) expect(judge(ctx(), `${W}${tool}`, {}).kind, tool).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: '/w/app/CLAUDE.md' }).kind).toBe('allow')
-    for (const [tool, input] of [['Bash', { command: 'ls' }], ['Edit', { file_path: '/w/app/a.ts' }], [`${W}edit_note`, {}], [`${W}add_record`, {}], [`${W}add_journal`, {}], [`${W}app_submit`, {}], [`${W}feedback_answer`, {}]] as const) {
+    for (const [tool, input] of [['Bash', { command: 'npm i' }], ['Bash', { command: 'ls > a.txt' }], ['Edit', { file_path: '/w/app/a.ts' }], [`${W}edit_note`, {}], [`${W}add_record`, {}], [`${W}add_journal`, {}], [`${W}app_submit`, {}], [`${W}feedback_answer`, {}]] as const) {
       const v = judge(ctx(), tool, input)
       expect(v.kind, tool).toBe('deny')
       expect(v.kind === 'deny' && v.message).toContain('chat_open')
