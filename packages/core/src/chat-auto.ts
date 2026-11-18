@@ -45,7 +45,7 @@ const GIT_OUTSIDE = new Set(['push', 'clone', 'submodule', 'worktree'])
 const INSTALL = /^(install|i|add|remove|uninstall|update|upgrade|publish|link|global)$/
 
 /** 따옴표를 지키며 낱말로 나눈다 (작은 셸 흉내, 해석하지 못하면 거칠게) */
-function words(seg: string): string[] {
+export function words(seg: string): string[] {
   const out: string[] = []
   let cur = ''
   let q: string | null = null
@@ -61,7 +61,7 @@ function words(seg: string): string[] {
 }
 
 /** 명령 줄을 이음표(; && || |, 줄바꿈)로 나눈다. 따옴표 안은 나누지 않는다 */
-function segments(cmd: string): string[] {
+export function segments(cmd: string): string[] {
   const out: string[] = []
   let cur = ''
   let q: string | null = null
