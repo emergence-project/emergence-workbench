@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, LIBRARY_RID, runProgram, type ChatAutoValues, type ChatKind } from '@rw/core'
+import { autoOf, commandKind, LIBRARY_RID, runProgram, stateOnlyCommand, type ChatAutoValues, type ChatKind } from '@rw/core'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 
@@ -126,16 +126,23 @@ export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b
 
 /**
  * 중앙 대화 (11/16 "중앙 에이전트"): 읽기와 하위 대화 열기 · 보내기 · 닫기만. 고치기 · 명령 · 기록 쓰기는 막고,
- * 하위 대화(chat_open)에 맡기라고 돌려준다. 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로
+ * 하위 대화(chat_open)에 맡기라고 돌려준다. 상태만 보는 명령(11/18, stateOnlyCommand)은 묻지 않고 돌리고,
+ * 비밀이 든 곳을 보면 한 번 묻는다. 중앙이 띄운 보조 에이전트도 같은 판정을 거친다. 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로
  */
-function judgeCentral(tool: string): Verdict | undefined {
+function judgeCentral(tool: string, input: Record<string, unknown>): Verdict | undefined {
   const name = tool.startsWith(MCP) ? tool.slice(MCP.length) : ''
+  if (tool === 'Bash') {
+    const cmd = str(input.command)
+    const seen = stateOnlyCommand(cmd)
+    if (seen === 'ok') return { kind: 'allow' }
+    if (seen === 'sensitive') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`비밀이 든 곳 읽기 · ${clip(cmd, 80)}`, `Read secrets · ${clip(cmd, 80)}`), does: 'read', once: true }
+  }
   const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
   if (!writes) return name ? { kind: 'allow' } : undefined
   return {
     kind: 'deny',
-    reason: t('중앙 대화는 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다', 'The central conversation does not edit or run commands; it hands work to a sub-conversation'),
-    message: `You are the central conversation: you only read and orchestrate. To change or run anything, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
+    reason: t('중앙 대화는 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다 (상태만 보는 명령은 됩니다)', 'The central conversation does not edit or run commands; it hands work to a sub-conversation (commands that only look are fine)'),
+    message: `You are the central conversation: you only read and orchestrate. Commands that only look at state run directly (ls, cat, grep, find without -exec, which, ps, sysctl -n, vm_stat, top -l 1, git log/status/diff/show, gh pr view, gh run view --log, npm ls), joined with |, && or ;, without writing redirects (> file), env-variable prefixes or command-running programs (xargs, sh -c, awk, sed). To change or run anything else, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
   }
 }
 
@@ -207,7 +214,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     return { kind: 'ask', summary: t(`등록한 폴더 밖 읽기: ${abs}`, `Read outside registered folders: ${abs}`), key: `${tool}:${abs}`, label: t(`읽기 · ${abs}`, `Read · ${abs}`) }
   }
   if (ctx.scope.kind === 'app') return judgeApp(ctx, tool, input)
-  if (ctx.rid === CENTRAL_RID) { const v = judgeCentral(tool); if (v) return v }
+  if (ctx.rid === CENTRAL_RID) { const v = judgeCentral(tool, input); if (v) return v }
   if ((FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
     return {
       kind: 'deny',
