@@ -126,7 +126,8 @@ async function download(url, what) {
 // 3-2. 터미널 부품 (@lydell/node-pty): 이 판의 index.js가 플랫폼 부품(@lydell/node-pty-<플랫폼>-<arch>)을 require한다.
 // 플랫폼 부품은 만드는 기계와 칩이 다를 수 있어(--arch) npm에서 받고, pnpm-lock.yaml의 SHA-512를 맞춘다
 {
-  const lock = fs.readFileSync(path.join(root, 'pnpm-lock.yaml'), 'utf8')
+  // Windows에서는 git이 CRLF로 꺼낼 수 있다
+  const lock = fs.readFileSync(path.join(root, 'pnpm-lock.yaml'), 'utf8').replace(/\r\n/g, '\n')
   const version = lock.match(/^  '@lydell\/node-pty@([^']+)':$/m)?.[1]
   if (!version) throw new Error('pnpm-lock.yaml에 @lydell/node-pty가 없습니다')
   const name = `node-pty-${platform}-${arch}`
