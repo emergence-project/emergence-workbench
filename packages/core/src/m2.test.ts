@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  appendJournalEntry, parseBlock, parseInline, parseJournal, parseMemo, setTodoDone, editJournalEntry, updateBlockMeta,
+  appendJournalEntry, parseBlock, parseInline, parseJournal, parseMemo, setTodoDone, memoTableCells, editJournalEntry, updateBlockMeta,
   type BlockMeta, type MemoBlock, type MetaPatch,
 } from './index.js'
 
@@ -190,6 +190,24 @@ describe('메모 마크다운', () => {
       { kind: 'math', tex: 'a*b - c' }, { kind: 'text', text: ' 와 ' }, { kind: 'code', text: 'x**2' },
     ])
     expect(parseMemo('$-x$ 는 음수').map((b) => b.kind)).toEqual(['para'])
+  })
+
+  it('표: 머리 줄 다음 구분 줄이 있으면 표로 읽고, 정렬과 칸 속 수식 · 코드를 지킨다', () => {
+    const blocks = parseMemo('결과\n| 경우 | 값 | 비고 |\n|:--|--:|:-:|\n| $|x|$ | `a|b` | x \\| y |\n| 둘 | 2 |\n\n뒤 문단')
+    expect(blocks.map((b) => b.kind)).toEqual(['para', 'table', 'para'])
+    const table = blocks[1] as Extract<MemoBlock, { kind: 'table' }>
+    expect(table.align).toEqual(['left', 'right', 'center'])
+    expect(table.head).toEqual([[{ kind: 'text', text: '경우' }], [{ kind: 'text', text: '값' }], [{ kind: 'text', text: '비고' }]])
+    expect(table.rows[0]).toEqual([[{ kind: 'math', tex: '|x|' }], [{ kind: 'code', text: 'a|b' }], [{ kind: 'text', text: 'x | y' }]])
+    // 모자란 칸은 빈 칸으로 채운다
+    expect(table.rows[1]![2]).toEqual([])
+  })
+
+  it('표가 아닌 것: 구분 줄이 없거나 칸 수가 다르면 문단, 돈 표시는 칸을 나눈다', () => {
+    expect(parseMemo('a | b\nc | d').map((b) => b.kind)).toEqual(['para'])
+    expect(parseMemo('| a | b |\n|---|').map((b) => b.kind)).toEqual(['para'])
+    expect(memoTableCells('| $5 | $6 |')).toEqual(['$5', '$6'])
+    expect(memoTableCells('a | b')).toEqual(['a', 'b'])
   })
 })
 
