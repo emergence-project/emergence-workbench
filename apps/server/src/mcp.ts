@@ -490,6 +490,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
 
   // 중앙 대화에서만 (11/16 "중앙 에이전트"): 하위 대화 열기 · 이어 보내기 · 닫기 · 목록
   if (opts.central) {
+    const APP_HELD = 'app work slots are full, so the app holds it and opens it by itself when one frees. Do not open it again.'
     const kidLine = (k: { id: string; title: string; state: string; pr?: { number: number } }) => `${k.id} · "${k.title}" · ${k.state}${k.pr ? ` · PR #${k.pr.number}` : ''}`
     const kidCall = async (url: string, body: unknown, verb: string): Promise<Text> => {
       const r = await post(base, f, url, body)
@@ -509,7 +510,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async () => call('/api/agent-central/feedback', (b: { items: unknown[] }) => b.items))
     server.registerTool('chat_open', {
       title: 'Open sub-conversation',
-      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; at most 2 work at once). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle one app feedback item (pass feedback = its key; refused if another computer or the cloud routine claimed it). task = the user\'s words verbatim plus the context needed. It starts working right away.',
+      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; at most 2 work at once, more are held and opened by the app when a slot frees). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle one app feedback item (pass feedback = its key; refused if another computer or the cloud routine claimed it). task = the user\'s words verbatim plus the context needed. It starts working right away.',
       inputSchema: {
         role: z.enum(['app', 'project', 'feedback']),
         title: z.string().max(60).describe('Short Korean title the user sees'),
@@ -518,13 +519,29 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
         feedback: z.string().optional().describe('Feedback key for role feedback'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-    }, async (a) => kidCall('/api/agent-central/open', a, 'Opened'))
+    }, async (a) => {
+      const r = await post(base, f, '/api/agent-central/open', a)
+      if (!r.ok) return r.error
+      const b = z.object({ kid: z.object({ id: z.string(), title: z.string(), state: z.string(), pr: z.object({ number: z.number() }).optional() }).optional(), held: z.number().optional() }).parse(r.body)
+      return text(b.kid ? `Opened: ${kidLine(b.kid)}` : `Held (#${b.held ?? 0}): ${APP_HELD}`)
+    })
     server.registerTool('chat_send', {
       title: 'Send to sub-conversation',
       description: 'Send a message to one of your sub-conversations (change direction, add what the user said, ask for a report). A working one reads it in its current turn.',
       inputSchema: { id: z.string().describe('Sub-conversation id from chat_list'), text: z.string() },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => kidCall('/api/agent-central/send', a, 'Sent'))
+    server.registerTool('chat_answer', {
+      title: 'Answer for the user',
+      description: 'Answer a plan approval or permission request a sub-conversation waits on (chat_list shows ask id), from what the user asked. Only non-critical ones: the app refuses critical ones (merging, restarting the app, deleting or overwriting, sending outside, changing research or concept notes, money or accounts) — leave those to the user. The card shows that you answered.',
+      inputSchema: {
+        id: z.string().describe('Sub-conversation id'),
+        ask: z.string().describe('Ask id from chat_list'),
+        answer: z.enum(['allow', 'deny']),
+        note: z.string().optional().describe('For deny: what to do instead'),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    }, async (a) => kidCall('/api/agent-central/answer', a, 'Answered'))
     server.registerTool('chat_close', {
       title: 'Close sub-conversation',
       description: 'Close a sub-conversation whose work ended (pull request merged, edits reviewed, question answered): it is archived with your summary. Refused while it is still working.',
