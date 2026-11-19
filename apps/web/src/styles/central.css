@@ -5,10 +5,17 @@
 .ac-central-input { width: 100%; resize: vertical; font: inherit; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); color: var(--text); }
 .ac-central-send { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); }
 /* 작업 현황 (11/19 "뭐가 남아있고, 뭐가 정체되어 있는지", 시안 2026-11-19-central-checklist 안 A): 오른쪽 칸 맨 위, 줄 하나 = 맡긴 일 하나 */
-.ac-work .cb { gap: var(--sp-2); }
-.cb-head { display: flex; align-items: baseline; gap: var(--sp-2); }
+/* 세부 패널의 절 (SideSection.tsx, 참고 Claude Code 앱): 작은 회색 제목 + 절 사이 얇은 선, 접는 절은 「제목 ›」 */
+.side-sec { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.side-sec + .side-sec, .side-sec + .ac-info-fold { border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+.side-sec-h, .ac-info-fold summary { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
+.ac-work .side-sec-h h3, .cb-pop .side-sec-h h3 { margin: 0; font-size: var(--fs-xs); font-weight: normal; color: var(--text-3); }
+.side-sec-h .muted { font-size: var(--fs-2xs); }
+/* 접는 절은 base.css의 앞 ›(.chev가 있으면 빠짐) 대신 제목 뒤 › */
+.side-sec-chev { display: inline-block; }
+.side-sec[open] > summary .side-sec-chev { transform: rotate(90deg); }
+details.ac-info-fold > summary::before { display: none; }
 .cb-counts { margin-left: auto; font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
-.cb-head .cb-counts { margin-left: auto; }
 .ac-line-meta .cb-counts { margin-left: 0; }
 .cb-group { display: flex; flex-direction: column; }
 .cb-group-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; font-size: var(--fs-sm); }
@@ -36,16 +43,12 @@ button.cb-row:hover { background: var(--bg-hover); }
 .cb-mark.idle { background: var(--s-stopped); }
 .cb-more { align-self: flex-start; margin: 2px 0 0 calc(10px + var(--sp-2) + var(--sp-1)); font-size: var(--fs-xs); }
 .cb-rule { margin-top: var(--sp-1); }
-.ac-info-fold { border-top: 1px solid var(--line); padding-top: var(--sp-2); margin-top: auto; }
-.ac-info-fold summary { cursor: pointer; font-size: var(--fs-sm); font-weight: var(--fw-strong); }
-.ac-info-fold summary .muted { font-weight: normal; font-size: var(--fs-xs); }
+.ac-info-fold summary .muted { font-size: var(--fs-2xs); }
 .ac-info-fold .ac-info { margin-top: var(--sp-2); }
 .ac-info-fold .ac-info h3 { display: none; }
 /* 대화 머리의 「작업 현황」 팝오버: 오른쪽 칸이 열려 있으면 칸이 숨는 좁은 화면에서만 */
 .cb-pop-wrap { position: relative; flex: none; }
 .cb-pop { position: absolute; right: 0; top: calc(100% + var(--sp-1)); z-index: var(--z-menu); width: min(360px, 90vw); max-height: 70vh; overflow: auto; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); box-shadow: var(--shadow); display: flex; flex-direction: column; font-size: var(--fs-sm); }
-.cb-pop .cb { display: flex; flex-direction: column; }
-.cb-pop h3 { margin: 0; font-size: var(--fs-sm); }
 @media (min-width: 901px) { .cb-pop-wrap.narrow-only { display: none; } }
 /* 중앙을 저절로 깨운 알림: 옅은 한 줄 */
 .ac-auto { min-width: 0; }

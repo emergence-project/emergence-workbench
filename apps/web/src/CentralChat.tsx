@@ -7,6 +7,7 @@ import { ChatStateMark, stateName } from './AgentChats'
 import { boardCounts, boardRows, STALL_MIN, type BoardGroup, type BoardRow } from './centralBoard'
 import { t } from './i18n'
 import { screenLine } from './screenView'
+import { SideSection } from './SideSection'
 import { relativeTime } from './format'
 import { qk } from './queries'
 import { go } from './router'
@@ -135,12 +136,11 @@ export function CentralBoard({ onPick }: { onPick?(): void }) {
     )
   }
   return (
-    <section className="cb" data-ui="작업 현황">
-      <div className="cb-head"><h3>{t('작업 현황', 'Work status')}</h3><CountLine counts={counts} /></div>
+    <SideSection title={t('작업 현황', 'Work status')} ui="작업 현황" aside={<CountLine counts={counts} />}>
       {rows.length || moreFeedback ? (['turn', 'doing', 'ready', 'done'] as const).map(group)
         : <span className="muted ac-hint">{t('맡긴 일이 없습니다. 중앙에게 말하면 하위 대화를 열어 여기에 한 줄씩 보입니다', 'Nothing handed off. Ask Central and each sub-conversation shows here as a row')}</span>}
       <span className="muted ac-hint cb-rule">{t(`정체: 진행 중 ${STALL_MIN.run}분 · CI ${STALL_MIN.ci}분 · 합칠 준비 ${STALL_MIN.ready}분 동안 움직임 없음`, `Stalled: no move for ${STALL_MIN.run} min working, ${STALL_MIN.ci} min on checks, ${STALL_MIN.ready} min ready to merge`)}</span>
-    </section>
+    </SideSection>
   )
 }
 

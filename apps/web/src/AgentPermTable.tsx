@@ -30,7 +30,7 @@ export function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): v
         : { auto: { ...auto, [row.turn!]: on } }
       client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.settings(chat.id, body))
       if (['running', 'waiting', 'queued'].includes(chat.state) && row.turn === 'edit') onSaved(t('다음 차례부터 바뀝니다', 'Applies from the next turn'))
-    } catch (e) { onSaved((e as Error).message) } finally { setBusy(false) }
+    } catch (e) { onSaved(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
   return (
     <div className="ac-perm" role="table" aria-label={t('권한', 'Permissions')}>
