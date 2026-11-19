@@ -5,7 +5,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Attach, Chat, ChatItem, ChatMode, ChatScope, ChatWrite, ImageIn } from '@rw/core/contract/agentChats'
-import { APP_CHECKS, APP_SUBMIT, clip, EXPLORE_AGENT, FEEDBACK_ANSWER, PLAN_TOOL, scopeDir } from './agentPolicy.js'
+import { APP_CHECKS, APP_MERGE, APP_SUBMIT, clip, EXPLORE_AGENT, FEEDBACK_ANSWER, PLAN_TOOL, scopeDir } from './agentPolicy.js'
 import type { FeedbackListItem } from './feedback.js'
 import { t } from './i18n.js'
 
@@ -26,7 +26,8 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     ...(claude ? [`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`,
       'This conversation stays open between turns: a long command can run in the background (run_in_background) and you continue when it finishes, even after your turn ends. Never sleep to wait.'] : []),
     'Check your own work before submitting: `pnpm type-check`, `pnpm test` (or the one test file you touched, e.g. `pnpm --filter @rw/server exec vitest run src/<file>.test.ts`), and for screen changes `pnpm shots` and look at the pictures in shots/ yourself (SHOTS_PORT is already set for this conversation). Fix what fails before submitting.',
-    `Do not push, open or merge PRs yourself and do not touch the running app service: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes this conversation's own branch and opens or updates its pull request (other open PRs do not block it). GitHub CI then runs again. Call ${APP_CHECKS} with wait (minutes) to wait for the result; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
+    `Do not push, open or merge PRs with git or gh yourself and do not touch the running app service: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes this conversation's own branch and opens or updates its pull request (other open PRs do not block it). GitHub CI then runs again. Call ${APP_CHECKS} with wait (minutes) to wait for the result; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
+    ...(o.feedback ? [] : [`When every check is green, call ${APP_MERGE} to squash-merge your own pull request, unless the user asked to look at it before merging. The app refuses while CI is not green or the branch conflicts with main.`]),
     'Update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
     'Research projects are read-only here: do not change notes, records, tasks or problems.',
   ]
@@ -71,10 +72,10 @@ export function promptOf(text: string, attach?: Attach[]): string {
   if (!attach?.length) return text
   const how: Record<Attach['kind'], string> = {
     note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)', connector: 'connector (MCP server; its tools are mcp__<name>__*, use them for this)',
-    element: 'app screen element (data-ui names, outermost first; the attached image shows it)',
+    element: 'app screen element (data-ui names, outermost first; the attached image shows it)', terminal: 'terminal output (the user\'s own shell)',
   }
   const quote = (s?: string) => (s ?? '').split('\n').map((l) => `  > ${l}`).join('\n')
-  const lines = attach.map((a) => a.kind === 'selection' ? `- ${how.selection} from ${a.ref}:\n${quote(a.text)}`
+  const lines = attach.map((a) => a.kind === 'selection' || a.kind === 'terminal' ? `- ${how[a.kind]} from ${a.ref}:\n${quote(a.text)}`
     : a.kind === 'element' ? `- ${how.element} on ${a.ref}:\n${quote(a.text ?? a.label)}`
     : `- ${how[a.kind]}: ${a.ref}${a.label && a.label !== a.ref ? ` (${a.label})` : ''}`)
   return `${text}\n\nAttached by the user (read these first, nothing else unless needed):\n${lines.join('\n')}`

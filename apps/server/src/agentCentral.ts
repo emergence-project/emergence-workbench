@@ -15,8 +15,9 @@
 import { agentTurnReasons, agentTurns } from '@rw/core'
 import { z } from 'zod'
 import { APP_RID, CENTRAL_RID, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
-import { AgentChats, APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
+import { APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
+import { FeedbackChats } from './agentFeedbackTick.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 
@@ -136,7 +137,7 @@ export function digestOf(kids: CentralKid[], held = 0): string {
 type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged'; log?: string }
 type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number> }
 
-export class CentralChats extends AgentChats {
+export class CentralChats extends FeedbackChats {
   /** 하위 대화가 바뀐 뒤 중앙을 깨우기까지 모으는 시간 (시험은 줄인다) */
   wakeMs = 10_000
   // 부모 생성자가 touch를 부를 수 있어 필드 초기값 대신 처음 쓸 때 만든다

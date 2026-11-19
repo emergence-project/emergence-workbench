@@ -50,8 +50,8 @@ export const ChatModel = z.string().regex(/^[a-z][a-z0-9._:/\-[\]]{0,79}$/i)
 export const AGENT_KINDS = ['claude-code', 'codex', 'gemini'] as const
 /** 생각 깊이 (xhigh · max는 그것을 받는 모델만) */
 export const CHAT_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
-/** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 · 커넥터 · 화면 요소 (ref는 화면 주소, text는 부위 이름과 글자) */
-export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record', 'connector', 'element'] as const
+/** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 · 커넥터 · 화면 요소 (ref는 화면 주소, text는 부위 이름과 글자) · 터미널 출력 */
+export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record', 'connector', 'element', 'terminal'] as const
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
 export const TODO_STATES = ['pending', 'in_progress', 'completed'] as const
 

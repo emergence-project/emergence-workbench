@@ -1064,5 +1064,12 @@
   "제안": "Suggestion",
   "제안 버리기": "Discard suggestion",
   "제안 받기": "Take suggestion",
-  "내 문단 제안": "Suggestions on your paragraphs"
+  "내 문단 제안": "Suggestions on your paragraphs",
+  "터미널": "Terminal",
+  "터미널 출력 대화에 붙이기": "Attach terminal output to chat",
+  "터미널 다시 열기": "Restart terminal",
+  "터미널 사이드바": "Terminal sidebar",
+  "코드 블록": "Code block",
+  "코드 복사": "Copy code",
+  "터미널에서 실행": "Run in terminal"
 }

@@ -77,7 +77,7 @@ export function sideQuestion(text: string): string | undefined {
   return m?.[2]!.trim() || undefined
 }
 
-export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector'), element: t('화면 요소', 'Screen element') }
+export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector'), element: t('화면 요소', 'Screen element'), terminal: t('터미널', 'Terminal') }
 
 // ---------- 노트에서 「에이전트에게」 (고른 글 메뉴) ----------
 
