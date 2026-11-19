@@ -146,7 +146,9 @@ if (process.env.RW_SANDBOX === '1') {
   const openedFile = path.join(configDir, 'papers-opened.json')
   if (!fs.existsSync(openedFile)) cpSample(path.join(repoRoot, 'fixtures/sandbox-papers/opened.json'), openedFile)
   const sampleRecommend = fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/recommend.json'), 'utf8')
-  const sampleRecommendReversed = JSON.stringify({ recommendedPapers: [...(JSON.parse(sampleRecommend) as { recommendedPapers: unknown[] }).recommendedPapers].reverse() })
+  const sampleRecommendJson: unknown = JSON.parse(sampleRecommend)
+  const sampleRecommendList = sampleRecommendJson && typeof sampleRecommendJson === 'object' && 'recommendedPapers' in sampleRecommendJson && Array.isArray(sampleRecommendJson.recommendedPapers) ? sampleRecommendJson.recommendedPapers : []
+  const sampleRecommendReversed = JSON.stringify({ recommendedPapers: [...sampleRecommendList].reverse() })
   // 넣기 전에 읽기 (11/5): 추천 논문의 arXiv 정보 · PDF와 Crossref 초록도 정해 둔 답으로
   const samplePeek: Record<string, { title: string; authors: string[]; abstract: string }> = JSON.parse(fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/peek.json'), 'utf8'))
   const samplePdf = path.join(repoRoot, 'fixtures/sandbox-papers/pdf/doeStructurePlanar2004.pdf')

@@ -173,7 +173,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
               {rec?.interests && rec.interests.choices.length > 0 && (
                 <div className="lh-interests" data-ui="관심 분야" role="group" aria-label={t('관심 분야', 'Interests')}>
                   {rec.interests.choices.map((c) => (
-                    <button key={c.id} className={`memo-chip${chosen.includes(c.id) ? ' on' : ''}`} aria-pressed={chosen.includes(c.id)} title={chosen.includes(c.id) ? t('이 분야를 추천 기준에서 빼기', 'Stop basing recommendations on this subject') : t('이 분야의 내 논문을 추천 기준으로', 'Base recommendations on your papers in this subject')} onClick={() => void toggleInterest(c.id)}>{c.name}</button>
+                    <button key={c.id} className={`memo-chip${chosen.includes(c.id) ? ' on' : ''}`} aria-pressed={chosen.includes(c.id)} title={chosen.includes(c.id) ? t('이 분야를 추천 기준에서 제거', 'Stop basing recommendations on this subject') : t('이 분야의 내 논문을 추천 기준으로', 'Base recommendations on your papers in this subject')} onClick={() => void toggleInterest(c.id)}>{c.name}</button>
                   ))}
                 </div>
               )}

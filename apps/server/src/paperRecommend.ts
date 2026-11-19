@@ -51,7 +51,7 @@ export function seedsOf(papers: PaperRow[], interests: readonly string[] = []): 
 
 const interestsFile = (lib: string) => path.join(lib, 'recommend.yaml')
 /** recommend.yaml을 읽지 못하면 고르지 않은 것으로 본다 (추천 절이 깨지지 않게) */
-const cachedInterests = fileCache((raw): unknown[] => { try { const v = (YAML.parse(raw) as { interests?: unknown } | null)?.interests; return Array.isArray(v) ? v : [] } catch { return [] } })
+const cachedInterests = fileCache((raw): unknown[] => { try { const doc: unknown = YAML.parse(raw); const v = doc && typeof doc === 'object' && 'interests' in doc ? doc.interests : undefined; return Array.isArray(v) ? v : [] } catch { return [] } })
 /** 관심 분야: 분류 나무가 없으면 undefined. 나무에서 사라진 분류는 뺀다 */
 export function readInterests(lib: string | undefined): PaperInterests | undefined {
   const tree = readSubjects(lib)
