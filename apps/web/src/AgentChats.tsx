@@ -7,6 +7,7 @@ import { relativeTime } from './format'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { MemoText } from './memo'
+import { Mockups } from './Mockups'
 import { qk } from './queries'
 import { go, href } from './router'
 import { StatusDot } from './StatusDot'
@@ -452,14 +453,14 @@ function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Ch
     case 'user': return (
       <li className="ac-me" data-ui="내 지시" title={when}>
         <MemoText text={it.text} />
-        <AttachChips attach={it.attach} images={it.images} />
+        <AttachChips attach={it.attach} images={it.images} /><Mockups text={it.text} chat={chat.id} />
         <CopyButton text={it.text} />
         {it.point && onRewind && !isLive(chat.state) && (
           <button className="icon-btn sm ac-rewind" data-ui="여기로 되돌리기" data-tip={t('여기로 되돌리기', 'Rewind to here')} aria-label={t('여기로 되돌리기', 'Rewind to here')} onClick={() => onRewind(it.point!)}>{Icon.revert}</button>
         )}
       </li>
     )
-    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><CopyButton text={it.text} /></li>
+    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} /></li>
     case 'ask': return it.plan !== undefined ? <PlanCard chat={chat} it={it} onError={onError} /> : <AskCard chat={chat} it={it} onError={onError} />
     case 'todos': return null
     case 'edit': return <EditLine chat={chat} it={it} onChanges={onChanges} />

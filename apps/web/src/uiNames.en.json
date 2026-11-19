@@ -1072,5 +1072,7 @@
   "터미널 사이드바": "Terminal sidebar",
   "코드 블록": "Code block",
   "코드 복사": "Copy code",
-  "터미널에서 실행": "Run in terminal"
+  "터미널에서 실행": "Run in terminal",
+  "시안": "Mockup",
+  "시안 새 창": "Open mockup in new window"
 }
