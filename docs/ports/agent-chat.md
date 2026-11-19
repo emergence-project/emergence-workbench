@@ -41,6 +41,7 @@ code:
 대화마다 JSON 파일 하나(이 앱은 앱 설정 폴더의 `agent-chats/<id>.json`). 모양은 `contract/agentChats.ts`의 `Chat` · `ChatItem`이 정본이다.
 
 - 머리: `id` · `rid`(프로젝트) · `title` · `state`(`running` · `waiting` · `queued` · `idle` · `stopped` · `error`) · `mode`(`ask` · `plan` · `edit`) · `model` · `effort` · `created` · `updated`
+- 보관: `archived` · `summary`(보관할 때 작은 모델이 쓴 결과 요약 세 줄) · `packed`(압축해 둔 원문 줄 수. 원문은 같은 폴더의 `<id>.items.json.gz`이고, 그 대화를 열면 다시 푼다)
 - 서버만: `sessionId`(SDK 세션, 이어 가기) · `alwaysKeys`(이 대화에서 늘 허락한 것) · `pending`(일하는 중에 보낸 말) · `points`(되감기 자리)
 - `items`: 종류(`kind`)로 나뉜 항목 목록 — `user`(내 말) · `text`(에이전트 글) · `step`(도구 사용 한 줄) · `ask`(허락 카드, 답하면 `answer`) · `bypass`(중앙 대화가 허락으로 우회해 돌린 명령: 명령 · 한 번/늘 · 시각) · `edit`(고친 파일 +n −n) · `result`(차례 끝: 성공 · 비용 · 토큰) · `error`(사용자가 멈추지 않았는데 프로세스가 끝났으면 `crash: true`. 대화 기록에 남아 다시 켜도 비정상 종료 이력을 센다)
 
@@ -64,6 +65,7 @@ code:
 - 중앙 오른쪽 칸의 작업 현황(`centralBoard.ts` · `CentralChat.tsx`): 하위 대화 · 자리 기다림 · 피드백을 묶음과 정체 시간으로 한 줄씩. 세부 칸의 절 모양은 `SideSection.tsx`
 - 앱 MCP 도구(노트 · 기록 · 맡긴 일). 다른 앱은 자기 MCP를 `mcpFor` 자리에 붙인다
 - Codex · Gemini 대화(`agentAcp.ts`)와 Codex 검토
+- 오래된 대화 정리와 중앙 메모(`agentTidy.ts`): 끝나고 7일 손대지 않은 대화를 보관 · 요약 · 압축하고, 중앙이 읽는 오래 갈 규칙을 한 파일에 둔다. 옮길 때는 보관 · 압축만 가져가도 된다
 
 ## 점검
 
