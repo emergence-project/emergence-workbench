@@ -72,8 +72,8 @@ const COMMANDS: { cmd: string; label: string; text: string; send?: boolean }[] =
   { cmd: t('/요약', '/summary'), label: t('오늘 이 프로젝트에서 한 일', 'What happened in this project today'), text: t('오늘 이 프로젝트에서 한 일을 짧게 요약해 줘.', 'Summarize briefly what happened in this project today.') },
   // Claude Code 명령: 그대로 보낸다 (에이전트가 아니라 Claude Code가 처리)
   { cmd: t('/곁', '/btw'), label: t('하던 일을 멈추지 않고 짧게 묻기 (작은 모델이 대화 요약만 보고 답함)', 'Ask a quick side question without interrupting (a small model answers from a summary)'), text: t('/곁 ', '/btw ') },
-  { cmd: '/compact', label: t('앞 내용을 요약해 맥락 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact', send: true },
-  { cmd: '/context', label: t('맥락이 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context', send: true },
+  { cmd: '/compact', label: t('앞 내용을 요약해 컨텍스트 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact', send: true },
+  { cmd: '/context', label: t('컨텍스트가 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context', send: true },
 ]
 
 /** 곁 질문이면 묻는 글 (/곁 · /btw 뒤), 아니면 없음 */

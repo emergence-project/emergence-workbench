@@ -16,6 +16,8 @@ describe('중앙 대화의 명령', () => {
   })
   it('git · gh 커밋 · 푸시 · PR · squash 합치기는 묻지 않는다 (11/19)', () => {
     for (const c of ['git add -A && git commit -m x', 'git push -u origin fix', 'gh pr create --title t --body b', 'gh pr merge 3 --squash']) expect(bash(c).kind, c).toBe('allow')
+    // main에 바로 올리기와 PR 코멘트는 허락 카드로 (11/20)
+    for (const c of ['git push origin HEAD:main', 'git push origin main', 'git push', 'gh pr comment 3 --body ok']) expect(bash(c).kind, c).toBe('ask')
   })
   it('목록에 없는 명령은 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다 (11/20 우회)', () => {
     for (const c of ['memory_pressure | xargs echo', "awk '{print $1}' a", 'pkill -f "Chrome.*--headless"', 'npm i', 'git checkout main', 'rm -rf /tmp/shots-1']) {
