@@ -6,7 +6,7 @@ import { Icon } from './icons'
 import { MemoText } from './memo'
 import { onListKey } from './listInput'
 import { SayCard } from './Conversation'
-import { ApproveButton, ClaimLine, Compose, FeedbackMockups, HandlingPictures, resultToApprove } from './FeedbackAnswer'
+import { ApproveButton, BeforeAfter, ClaimLine, Compose, FeedbackMockups, HandlingPictures, resultToApprove } from './FeedbackAnswer'
 import { askConfirm } from './askText'
 import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, tagKey, type ThreadStep } from './feedbackThread'
 import { FeedbackFocus, FocusMissing, useFeedbackFocus, useFocusOpen, useIsFocus } from './feedbackFocus'
@@ -320,7 +320,7 @@ function Summary({ e, onOpinion }: { e: FeedbackItem; onOpinion?(): void }) {
           {[...revised].reverse().map((h) => (
             <div key={h.at} className="fbp-summary-old">
               <span className="muted">{whenOf(h.handled_at ?? h.at)}</span>
-              {(['understood', 'cause', 'note'] as const).map((f) => h[f] && <div key={f} className="fbp-summary-row"><b>{FIELD_NAME[f]}</b><span className="fbp-summary-text">{h[f]}</span><span /></div>)}
+              {(['understood', 'cause', 'note'] as const).map((f) => h[f] && <div key={f} className="fbp-summary-row"><b>{FIELD_NAME[f]}</b><span className="fbp-summary-text">{h[f]}</span><span /></div>)}<BeforeAfter pictures={h.pictures} />
             </div>
           ))}
         </details>
