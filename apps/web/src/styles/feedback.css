@@ -35,6 +35,9 @@ body.feedback-on .toast { bottom: 76px; }
 
 /* 피드백 모아 보기 */
 .fbp-toolbar { height: auto; min-height: calc(var(--input-h) + var(--sp-4)); padding-block: var(--sp-2); white-space: nowrap; }
+/* 오른쪽 행동이 길어도(자동 처리 · 보내기 · 가져오기 · 올리기 결과 · 등록) 가운데 「보기」를 덮지 않게: 양옆이 남는 폭에 들어가면 가운데는 그대로 가운데, 넘치면 그 칸이 늘고 가운데가 비켜난다. 올리기 결과 글은 좁은 폭에서 두 줄로 접고, 1100px 아래에서는 줄을 바꾼다 (11/20 02:36 피드백) */
+.fbp-toolbar.bar3 { grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); column-gap: var(--sp-4); }
+.fbp-pubnote { max-width: 15em; white-space: normal; font-size: var(--fs-xs); line-height: 1.3; margin-right: var(--sp-2); }
 .fbp-pick { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
 .fbp-pick .mini-select { max-width: none; }
 .fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; font-size: var(--fs-xs); }
@@ -42,7 +45,7 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-auto { margin-right: var(--sp-2); }
 .fbp-picks { display: flex; align-items: center; gap: var(--sp-4); }
 .fbp-filters { justify-self: start; justify-content: flex-start; flex-wrap: nowrap; }
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .fbp-toolbar { display: flex; flex-wrap: wrap; column-gap: var(--sp-4); }
   .fbp-tools { margin-left: auto; }
 }
