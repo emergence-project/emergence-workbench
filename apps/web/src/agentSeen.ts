@@ -1,0 +1,59 @@
+/*
+ * 확인하지 않은 대화 (11/16 피드백 「내가 확인하지 않은 대화를 알림을 뜨게해줘」).
+ * 끝난 대화를 열어 본 마지막 시각을 이 브라우저에 남기고, 그 뒤에 바뀐 끝난 대화를 「확인 안 함」으로 센다.
+ * 처음 쓰는 날(since) 전의 대화는 이미 본 것으로 친다.
+ */
+import { useEffect, useSyncExternalStore } from 'react'
+import type { ChatRow } from './api/agentChats'
+import { store } from './store'
+
+const KEY = 'rw-agent-seen'
+const MAX = 400
+export type Seen = { since: string; ids: Record<string, string> }
+
+/** 순수 판단: 보관하지 않은 끝난 대화가 마지막으로 본 뒤에 바뀌었는가 */
+export const isUnseenIn = (seen: Seen, c: Pick<ChatRow, 'id' | 'state' | 'archived' | 'updated'>) =>
+  !c.archived && c.state === 'idle' && c.updated > (seen.ids[c.id] ?? seen.since)
+
+/** 순수 기록: 이 대화를 updated 시각까지 봤다 (오래된 것부터 MAX개를 넘으면 버린다) */
+export function seenWith(seen: Seen, id: string, updated: string): Seen {
+  if ((seen.ids[id] ?? '') >= updated) return seen
+  const ids = Object.fromEntries([...Object.entries(seen.ids).filter(([k]) => k !== id), [id, updated] as const].slice(-MAX))
+  return { ...seen, ids }
+}
+
+let current: Seen | null = null
+const listeners = new Set<() => void>()
+const read = (): Seen => {
+  if (current) return current
+  const got = store.get<Seen | null>(KEY, null)
+  current = got && typeof got.since === 'string' ? got : { since: new Date().toISOString(), ids: {} }
+  if (!got) store.set(KEY, current)
+  return current
+}
+// 다른 창(탭)에서 본 것도 따라간다
+if (typeof window !== 'undefined') window.addEventListener('storage', (e) => { if (e.key === KEY) { current = null; listeners.forEach((f) => f()) } })
+
+export const isUnseen = (c: ChatRow) => isUnseenIn(read(), c)
+/** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화, 끝났는데 아직 열어 보지 않은 대화 */
+export const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error' || isUnseen(c)
+export function markSeen(id: string, updated: string) {
+  const next = seenWith(read(), id, updated)
+  if (next === current) return
+  current = next
+  store.set(KEY, next)
+  listeners.forEach((f) => f())
+}
+/** 본 기록이 바뀌면 다시 그린다 */
+export const useSeen = () => useSyncExternalStore((f) => { listeners.add(f); return () => listeners.delete(f) }, read)
+
+/** 대화 화면이 떠 있고 창을 보고 있을 때 본 것으로 남긴다 (창을 보지 않으면 다시 볼 때) */
+export function useMarkSeen(id: string, updated: string | undefined) {
+  useEffect(() => {
+    if (!updated) return
+    const mark = () => markSeen(id, updated)
+    if (document.hasFocus()) { mark(); return }
+    window.addEventListener('focus', mark, { once: true })
+    return () => window.removeEventListener('focus', mark)
+  }, [id, updated])
+}

@@ -65,6 +65,8 @@ try {
   const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
   // Start in the capture language, so the first screen does not load in the browser language and reload (i18n.ts)
   await page.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
+  // Sample conversations finished before the page opened: count them as not checked yet, so the agent screens show the unread dot and badge (agentSeen.ts)
+  await page.addInitScript(() => { try { if (!localStorage.getItem('rw-agent-seen')) localStorage.setItem('rw-agent-seen', JSON.stringify({ since: '2000-01-01T00:00:00.000Z', ids: {} })) } catch { /* ignore */ } })
   let current = ''
   page.on('pageerror', (e) => problems.push(`${current}: ${e.message}`))
   // 아직 컴파일하지 않은 노트의 PDF는 404가 정상이다 (TeX가 없는 곳에서는 늘 그렇다)
@@ -205,6 +207,7 @@ try {
       }, { rid, done, bottom: name === 'agent-dock' })
       await page.goto('about:blank')
     }
+    if (name === 'agent-unseen') { await page.goto(base); await page.evaluate(() => localStorage.removeItem('rw-agent-seen')); await page.goto('about:blank') }
     if (name === 'agent-recent') { await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-side-agent', 'false')); await page.goto('about:blank') }
     await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)).replace('{central}', encodeURIComponent(central)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
