@@ -25,15 +25,16 @@ const RECS = { recommendedPapers: [
 ] }
 
 describe('추천 논문 (GET /api/papers/recommend)', () => {
-  it('번호 있는 논문을 기준으로 묻고, 라이브러리에 있는 것을 빼고 새 것부터', async () => {
+  it('번호 있는 논문마다 따로 묻고, 라이브러리에 있는 것을 빼고 가까운 순서 그대로', async () => {
     setup('ok')
-    let sent: unknown
-    usePaperFetcher(async (url, init) => { if (url.includes('recommendations')) { sent = JSON.parse(String(init?.body)); return new Response(JSON.stringify(RECS)) } return new Response('', { status: 404 }) })
+    const asked: string[] = []
+    usePaperFetcher(async (url) => { if (url.includes('recommendations')) { asked.push(url); return new Response(JSON.stringify(RECS)) } return new Response('', { status: 404 }) })
     const r = (await app.inject({ method: 'GET', url: '/api/papers/recommend' })).json()
-    expect(sent).toEqual({ positivePaperIds: ['ArXiv:0000.00002'], negativePaperIds: [] })
+    expect(asked).toHaveLength(1)
+    expect(asked[0]).toContain('/papers/forpaper/ArXiv:0000.00002?from=recent')
     expect(r).toEqual({ seeds: 1, offline: false, picks: [
-      { id: '10.0000/new', title: 'New one', authors: ['Sample'], year: '2026', venue: 'PRB', date: '2026-10-20' },
       { id: '0000.00009', title: 'Old one', authors: ['Example'], year: '2024', date: '2024-01-01' },
+      { id: '10.0000/new', title: 'New one', authors: ['Sample'], year: '2026', venue: 'PRB', date: '2026-10-20' },
     ] })
   })
 
@@ -56,6 +57,15 @@ describe('추천 논문: 같은 논문 · 다시 묻기', () => {
     expect((await recommendPapers([row('twin', { doi: '10.0000/have' }, 0)])).picks.map((p) => p.id)).toEqual(['0000.00011'])
   })
 
+  it('기준마다 받은 것을 가까운 순서대로 번갈아 고르고, 겹치는 것은 한 번만 · 모르는 기준(404)은 건너뛴다', async () => {
+    usePaperFetcher(async (url) => url.includes('0000.00001') ? recs({ ArXiv: '0000.00011' }, { ArXiv: '0000.00012' }, { ArXiv: '0000.00013' })
+      : url.includes('0000.00002') ? recs({ ArXiv: '0000.00021' }, { ArXiv: '0000.00011' })
+      : new Response('', { status: 404 }))
+    const r = await recommendPapers([row('a', { eprint: '0000.00001' }, 0, 3), row('b', { eprint: '0000.00002' }, 0, 2), row('c', { eprint: '0000.00003' }, 0, 1)])
+    expect(r.picks.map((p) => p.id)).toEqual(['0000.00011', '0000.00021', '0000.00012', '0000.00013'])
+    expect(r.offline).toBe(false)
+  })
+
   it('기준의 순서만 바뀌면 다시 묻지 않고, 받지 못한 것은 몇 분 동안 기억한다', async () => {
     let calls = 0
     usePaperFetcher(async () => { calls++; return new Response('', { status: 429 }) })
@@ -64,10 +74,10 @@ describe('추천 논문: 같은 논문 · 다시 묻기', () => {
     const t0 = 1_000_000
     expect(await recommendPapers([a, b], t0)).toEqual({ picks: [], seeds: 2, offline: true, status: 429 })
     expect(await recommendPapers(swapped, t0 + 60_000)).toEqual({ picks: [], seeds: 2, offline: true, status: 429 })
-    expect(calls).toBe(1)
+    expect(calls).toBe(2)
     usePaperFetcher(async () => { calls++; return recs({ ArXiv: '0000.00003' }) })
     expect((await recommendPapers([a, b], t0 + 5 * 60_000 + 1)).picks.map((p) => p.id)).toEqual(['0000.00003'])
     expect((await recommendPapers(swapped, t0 + 3_600_000)).picks.map((p) => p.id)).toEqual(['0000.00003'])
-    expect(calls).toBe(2)
+    expect(calls).toBe(4)
   })
 })

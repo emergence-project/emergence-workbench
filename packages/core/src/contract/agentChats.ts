@@ -13,7 +13,8 @@ export const CHAT_WRITE = ['read', 'notes'] as const
  * app = 앱 자체 고치기 (2단계, 10/21 "앱 안 대화 + CI가 시험"): 앱 저장소의 따로 둔 작업 폴더에서 파일만 고치고,
  * 커밋 · PR · CI 결과는 앱이 한다(에이전트는 명령을 돌리지 않는다). rid는 APP_RID
  */
-// 'all' = 모든 프로젝트를 읽고, 다른 프로젝트 · 개념노트를 고칠 때는 한 번씩 묻는다 (10/31). topic · note는 옛 대화용
+// 'all' = 모든 프로젝트를 읽고, 다른 프로젝트 · 개념노트를 고칠 때는 한 번씩 묻는다 (10/31). 이제 중앙 대화와 옛 대화만 쓴다:
+// 새 대화는 project에 고른 프로젝트(also)를 더한다 (11/19 사용자 결정 "고른 프로젝트만 고치고 나머지는 읽기만"). topic · note는 옛 대화용
 export const CHAT_SCOPES = ['project', 'all', 'topic', 'note', 'app'] as const
 /** 앱 고치기 대화의 rid (연구 프로젝트 id와 겹치지 않는다) */
 export const APP_RID = '_app'
@@ -59,6 +60,8 @@ export const ChatScope = z.object({
   kind: z.enum(CHAT_SCOPES),
   /** topic이면 주제 id, note면 노트 파일(저장소 기준 경로) */
   target: z.string().optional(),
+  /** project일 때 함께 고칠 수 있는 다른 프로젝트 id (새 대화에서 여럿 고름). 그 밖의 프로젝트 · 개념노트는 읽기만 */
+  also: z.array(z.string().min(1).max(200)).max(20).optional(),
 }).strict()
 
 /** 지시에 붙인 것 하나. ref = 노트 파일 · 주제 id · 파일 경로 · 문헌 키 · 기록 id, text = 고른 글 */
@@ -365,6 +368,12 @@ export const CentralCloseBody = z.object({ id: z.string(), summary: z.string().t
 /** POST /agent-central/answer: 중앙이 하위 대화의 허락 · 계획 카드에 답한다 (크리티컬한 것은 409, 사용자에게 남긴다) */
 export const CentralAnswerBody = z.object({ id: z.string(), ask: z.string(), answer: z.enum(['allow', 'deny']), note: z.string().trim().max(2000).optional() }).strict()
 export const CentralKidOne = z.object({ kid: CentralKid }).strict()
+/**
+ * POST /agent-central/help: 대화가 중앙에게 중재를 청한다 (central_help, 11/19 사용자 "대화중에 다른 영역 · 앱 버그가 발생하면 중앙에 중재를 요청").
+ * 고칠 수 없는 다른 프로젝트 · 개념노트의 일이나 앱 버그. 중앙 대화가 없으면 409
+ */
+export const CentralHelpBody = z.object({ chat: z.string(), text: z.string().trim().min(1).max(4000) }).strict()
+export const CentralHelped = z.object({ central: z.string() }).strict()
 /** POST /agent-central/open: 연 하위 대화, 또는 앱 고치기 자리가 차서 기다리게 둔 순서 (held, 1부터. 자리가 나면 앱이 연다) */
 export const CentralOpened = z.object({ kid: CentralKid.optional(), held: z.number().optional() }).strict()
 /** GET /agent-central/feedback: 에이전트 차례인 피드백 (pnpm agent:feedback --peek와 같은 계산). taken = 다른 컴퓨터 · 클라우드 루틴이 맡음, chat = 이미 맡은 이 앱의 대화 */
@@ -376,6 +385,7 @@ export type CentralKid = z.infer<typeof CentralKid>
 export type CentralState = z.infer<typeof CentralState>
 export type CentralOpenBody = z.infer<typeof CentralOpenBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
+export type CentralHelped = z.infer<typeof CentralHelped>
 export type CentralOpened = z.infer<typeof CentralOpened>
 export type CentralAnswerBody = z.infer<typeof CentralAnswerBody>
 

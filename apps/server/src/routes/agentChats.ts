@@ -57,7 +57,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
       claim: (key: string, since: number) => claimFeedback(deps, key, since),
     }
   })() : undefined
-  const mcpFor = (appChat?: string, central?: boolean) => createMcpServer({ baseUrl: 'http://workbench.local', key: ctx.opts.key, fetch: injectFetch(app), appChat, central })
+  const mcpFor = (appChat?: string, central?: boolean, chat?: string) => createMcpServer({ baseUrl: 'http://workbench.local', key: ctx.opts.key, fetch: injectFetch(app), appChat, central, chat })
   // Codex · Gemini (10/30, ACP): 대화마다 앱 MCP를 HTTP 입구로 연다 (agentMcpHttp.ts)
   const chatMcp = registerChatMcp(app, mcpFor)
   // 중앙 대화의 작업 폴더 (11/16): 앱 저장소가 있으면 그것을 읽기로, 없으면 설정 폴더 안 빈 폴더
