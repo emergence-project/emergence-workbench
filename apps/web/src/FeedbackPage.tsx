@@ -1,4 +1,4 @@
-import { agentTurns, localDate, localTime, syncEveryLabel } from '@rw/core'
+import { syncEveryLabel } from '@rw/core'
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { api, FEEDBACK_EVENT, records, type FeedbackItem, type FeedbackPickableKind, type FeedbackState } from './api'
 import { uiShown } from './uiNames'
@@ -20,8 +20,7 @@ import { feedbackKindName as kindName, feedbackLabel as label, feedbackStateName
 import { href } from './router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
-import { agentChatsApi, type ChatRow } from './api/agentChats'
-import { ChatStateMark, isLive, stateName as chatStateName } from './AgentChats'
+import { AgentLine } from './FeedbackAgentLine'
 const FEEDBACK_STATE = [...qk.feedback, 'state'] as const, FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
@@ -274,6 +273,8 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
       {needsAnswer(e) && <div className="fbp-ask" data-ui="물음"><b>{t('Claude가 묻는 것', 'Claude asks')}</b> {e.status!.ask}</div>}
       {e.status && <Summary e={e} onOpinion={resultToApprove(e) && talk === 'closed' ? () => setTalk('focus') : undefined} />}
       {(e.status || e.comments) && <Conversation e={e} shut={!showTalk} onOpen={(o) => setTalk(o ? 'open' : 'closed')} />}
+      {/* 맡은 대화가 일하는 중이면 대화 맨 아래, 방금 남긴 글 바로 밑에 (11/20 논의) */}
+      <AgentLine e={e} part="replying" />
       {e.merged && (
         <details className="fbp-merged" data-ui="합친 코멘트">
           <summary>{t(`같은 지적 ${e.merged.length}건을 이 항목으로 합침`, `Merged ${plural(e.merged.length, 'duplicate')} into this item`)} · {e.merged.map((m) => `${m.date.slice(5)} ${m.time}`).join(', ')}</summary>
@@ -287,52 +288,6 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
       )}
       {showTalk && <Compose e={e} focus={talk === 'focus'} />}
     </article>
-  )
-}
-
-/**
- * 피드백을 맡은 에이전트 대화 (2단계 나, 10/21 "앱 안 대화", 10/22 "권한 넓히기"): 맡긴 시각 · 상태 · PR · 대화 보기 · 멈추기.
- * 맡은 대화가 없거나 끝난 뒤 다시 에이전트 차례가 되면 「에이전트에게 맡기기」. 앱 저장소가 있는 맥에서만 보인다.
- * 버튼은 항목 머리 줄 오른쪽(part "button"), 대화 줄은 대화가 있을 때만 본문 아래(part "line") (10/28 07:38).
- * 사용자가 그 뒤에 답했으면(승인 · 수정 · 진행 · 중단) 지난 대화 줄은 감춘다.
- */
-function AgentLine({ e, part }: { e: FeedbackItem; part: 'button' | 'line' }) {
-  const client = useQueryClient()
-  const list = useQuery({ queryKey: qk.agentChatList(), queryFn: () => agentChatsApi.list() })
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  if (!list.data?.app) return null
-  const chat: ChatRow | undefined = list.data.chats.find((c) => c.feedback === e.key || !!c.bundle?.includes(e.key))
-  const live = !!chat && isLive(chat.state)
-  const turn = agentTurns(e).length > 0
-  const answeredAfter = !!chat && !!e.review && new Date(e.review.at).getTime() > new Date(chat.updated).getTime()
-  const showChat = !!chat && (live || !answeredAfter)
-  const canHand = turn && !live && list.data.handOff
-  if (part === 'button' ? !canHand : !showChat) return null
-  const handOff = async () => {
-    setBusy(true); setError('')
-    try {
-      await agentChatsApi.handOff(e.key)
-      await client.invalidateQueries({ queryKey: qk.agentChats })
-    } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
-  }
-  const stop = () => void agentChatsApi.stop(chat!.id).then(() => client.invalidateQueries({ queryKey: qk.agentChats }), (err: Error) => setError(err.message))
-  if (part === 'button') return (
-    <>
-      {error && <span className="error-text fbp-agent-error" role="alert">{error}</span>}
-      {/* 고치기 · 지우기처럼 마우스를 올릴 때만 보이는 아이콘 (10/28 20:08 반려) */}
-      <button type="button" className="icon-btn fbp-hand hover-actions" data-ui="에이전트에게 맡기기" disabled={busy} aria-label={t('에이전트에게 맡기기', 'Hand to agent')} title={t('에이전트에게 맡기기: 이 피드백을 이 맥의 Claude에게 맡깁니다. 따로 둔 작업 폴더에서 고치고 시험한 뒤 PR을 엽니다', 'Hand to agent: Claude on this Mac fixes and tests it in a separate work folder, then opens a PR')} onClick={() => void handOff()}>{Icon.spark}</button>
-    </>
-  )
-  return (
-    <div className="fbp-agent" data-ui="에이전트 진행">
-      <ChatStateMark state={chat!.state} label name={chatStateName(chat!)} />
-      <span className="muted">{t('맡김', 'Handed off')} {localDate(new Date(chat!.created)).slice(5)} {localTime(new Date(chat!.created))}</span>
-      {chat!.pr && <a className="a" data-ui="대화 PR" href={chat!.pr.url} target="_blank" rel="noreferrer">PR #{chat!.pr.number}</a>}
-      <a className="a" data-ui="대화 보기" href={href({ page: 'agent', id: chat!.id })}>{t('대화 보기', 'Open conversation')}</a>
-      {live && <button type="button" className="fb-link" data-ui="대화 멈추기" onClick={stop}>{t('멈추기', 'Stop')}</button>}
-      {error && <span className="error-text fbp-agent-error">{error}</span>}
-    </div>
   )
 }
 

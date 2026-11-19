@@ -56,6 +56,7 @@ code:
 
 - 저절로 맡기기와 컴퓨터 사이 맡음 표시(`apps/server/src/agentFeedbackTick.ts`, `feedbackClaims.ts`) — 에이전트 대화([agent-chat.md](agent-chat.md))가 있어야 한다
 - 묶어 맡기기(`apps/server/src/feedbackGroups.ts`, 11/19): 같은 화면의 수정끼리, 질문 · 제안끼리 한 대화에(5개까지). 대화마다 작업 폴더 · 규칙 읽기 · PR · CI를 다시 하지 않으려고
+- 저절로 맡기기에서 코멘트 · 답을 저장하면 그 항목의 앞 대화에 이어 바로 답한다(11/20). 줄 밑 「답하는 중 · 대화 보기」는 `apps/web/src/FeedbackAgentLine.tsx`, 대화에서 사용자가 말한 판정(진행 · 승인 · 반려 · 중단 · 논의)은 `feedback_answer`의 `verdict`로 적는다(`apps/server/src/feedbackVerdict.ts`)
 - 중계 서버로 다른 사람의 피드백 받기(`relay/`, `feedbackRelay.ts`)
 - 소개 절 확인(`feedback/about.yaml`, `aboutChecks.ts`)
 

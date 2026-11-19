@@ -14,7 +14,7 @@
  */
 import { agentTurnReasons, agentTurns, userTurn } from '@rw/core'
 import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
-import { APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
+import { APP_CHECKS, APP_SUBMIT, LIVE, handedAt, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { bundlesOf, keysOf } from './feedbackGroups.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
@@ -418,7 +418,7 @@ export class CentralChats extends FeedbackChats {
     if (!fb) return { items: [] }
     const rows = listAllFeedback(fb.dir).filter((e) => agentTurns(e).length).map((e) => {
       const since = lastTouched(e)
-      const chat = [...this.chats.values()].find((c) => keysOf(c).includes(e.key) && new Date(c.created).getTime() >= since)
+      const chat = [...this.chats.values()].find((c) => keysOf(c).includes(e.key) && handedAt(c) >= since)
       return { e, row: { key: e.key, ...(e.kind && { kind: e.kind }), target: e.target, text: e.text.replace(/\s+/g, ' ').trim().slice(0, 300), reasons: agentTurnReasons(e), taken: !!fb.claims?.taken(e.key, since), ...(chat && { chat: chat.id }) } }
     })
     // 맡을 수 있는 것을 묶는다 (feedbackGroups.ts): 같은 group끼리 한 대화에

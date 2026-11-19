@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import { FEEDBACK_MISSES } from '../feedback-lessons.js'
+import { FEEDBACK_VERDICTS } from './feedback.js'
 
 /** 대화가 고칠 수 있는 단계. read = 읽기만(계산은 허락받고 돌림), notes = 노트 · 기록을 앱 MCP로 고침 */
 export const CHAT_WRITE = ['read', 'notes'] as const
@@ -156,6 +157,8 @@ export const ChatRow = z.object({
   /** 앱 고치기 대화가 맡은 피드백 (status.yaml · reviews.yaml의 키). 묶어 맡겼으면 첫 항목이고 bundle에 모두 (11/19) */
   feedback: z.string().optional(),
   bundle: z.array(z.string()).optional(),
+  /** 피드백 대화를 같은 항목에 다시 맡긴 시각 (코멘트마다 새 대화를 열지 않고 이어 쓴다, 11/20) */
+  handed: z.string().optional(),
   /** 기록의 질문 · 지시가 연 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ: 기록에는 결과만, 대화는 에이전트 탭에) */
   record: z.object({ target: z.string(), id: z.string() }).strict().optional(),
   /** 중앙 대화가 연 하위 대화면 중앙 대화 id, 중앙이 닫으며 남긴 결과 요약 (11/16) */
@@ -292,6 +295,7 @@ const ANSWER_STATES = ['반영', '거절', '확인 필요', '답변', '동의', 
  * 수정 요청 · 진행을 다시 처리하면 앱이 그 전 처리를 revised로 옮기고 rework를 적는다(miss · lesson은 그 revised에).
  * after = 고친 뒤 화면: 그 PR의 CI가 찍은 그림 이름(shots의 파일 이름, .png 없이). 앱이 받아 그림 폴더에 두고 pictures: [전, 후].
  * replies = 답 없는 코멘트에 단 답 (to = 그 코멘트의 at). state 없이 replies만 보내면 처리는 그대로 두고 답만 더한다.
+ * verdict = 사용자가 이 대화에서 말한 판정 (verdictNote = 그 말). 피드백 화면에서 고른 것처럼 reviews.yaml에 적고, state가 함께 오면 판정을 먼저 적는다 (11/20).
  * mockups = 이 대화 작업 폴더 mockups/의 시안 이름 (확장자 없이도). 앱이 그림과 같은 이름의 .html을 피드백 그림 폴더에 옮겨 적는다:
  * state가 있으면 새 처리에, 없으면 지금 처리에 붙는다. replies[].mockups는 그 답에.
  */
@@ -310,8 +314,10 @@ export const FeedbackAnswerBody = z.object({
   after: z.string().regex(/^[\w-]+$/).max(80).optional(),
   mockups: MockupNames.optional(),
   replies: z.array(z.object({ to: z.string().min(1), note: z.string().trim().min(1).max(4000), mockups: MockupNames.optional() }).strict()).max(20).optional(),
-}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length || !!b.mockups?.length, { message: 'state needs note; without state send replies or mockups' })
-export const FeedbackAnswered = z.object({ key: z.string(), state: z.string().optional(), pictures: z.array(z.string()).optional(), replies: z.number() }).strict()
+  verdict: z.enum(FEEDBACK_VERDICTS).optional(),
+  verdictNote: z.string().trim().max(4000).optional(),
+}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length || !!b.mockups?.length || !!b.verdict, { message: 'state needs note; without state send replies, mockups or verdict' })
+export const FeedbackAnswered = z.object({ key: z.string(), state: z.string().optional(), verdict: z.string().optional(), pictures: z.array(z.string()).optional(), replies: z.number() }).strict()
 
 export type ChatScope = z.infer<typeof ChatScope>
 export type ChatAuto = z.infer<typeof ChatAuto>

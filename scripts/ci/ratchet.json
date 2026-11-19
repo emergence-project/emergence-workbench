@@ -1,11 +1,10 @@
 {
   "lines": {
-    "apps/server/src/agentChats.ts": 1160,
+    "apps/server/src/agentChats.ts": 1109,
     "apps/server/src/comments.ts": 643,
     "apps/server/src/feedback.ts": 634,
     "apps/web/src/AgentChats.tsx": 1310,
     "apps/web/src/App.tsx": 633,
-    "apps/web/src/FeedbackPage.tsx": 602,
     "apps/web/src/Workspace.tsx": 641
   },
   "casts": {
@@ -108,7 +107,7 @@
     "apps/web/src/feedbackDraft.ts": 3,
     "apps/web/src/feedbackJump.ts": 1,
     "apps/web/src/FeedbackMode.tsx": 2,
-    "apps/web/src/FeedbackPage.tsx": 3,
+    "apps/web/src/FeedbackPage.tsx": 2,
     "apps/web/src/feedbackThread.ts": 1,
     "apps/web/src/FieldTags.tsx": 1,
     "apps/web/src/FigurePreview.tsx": 1,

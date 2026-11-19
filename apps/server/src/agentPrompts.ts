@@ -139,9 +139,33 @@ function feedbackLines(e: FeedbackListItem, reasons: string[], picture?: string)
   ]
   if (e.status) lines.push('', `${t('지금 처리 기록', 'Current record')}: ${e.status.state}${e.status.note ? ` — ${e.status.note}` : ''}`)
   if (e.review) lines.push(`${t('사용자 답', 'User answer')}: ${e.review.verdict} (${e.review.at})${e.review.note ? ` — ${e.review.note}` : ''}`)
+  return [...lines, ...unanswered(e)]
+}
+
+const unanswered = (e: FeedbackListItem): string[] => {
   const answered = new Set((e.status?.replies ?? []).map((r) => r.to))
-  for (const c of e.comments ?? []) if (!answered.has(c.at)) lines.push(`${t('답 없는 코멘트', 'Unanswered comment')} (at ${c.at}): ${c.note}`)
-  return lines
+  return (e.comments ?? []).filter((c) => !answered.has(c.at)).map((c) => `${t('답 없는 코멘트', 'Unanswered comment')} (at ${c.at}): ${c.note}`)
+}
+
+/**
+ * 같은 항목을 앞서 맡은 대화에 다시 맡길 때의 지시 (11/20): 항목은 이미 읽었으니 새로 온 것만.
+ * 앞 PR이 합쳐졌으면 그 가지는 main 뒤에 있으므로 고치기 전에 main에서 다시 시작하게 한다
+ */
+export function feedbackAgainPrompt(e: FeedbackListItem, reasons: string[], merged?: { pr?: number; branch?: string }): string {
+  const lines = [
+    t('이 대화가 맡은 피드백 항목에 새 글이 왔습니다. 피드백 처리 규칙대로 이어서 처리해 주세요.', 'There is something new on the feedback item this conversation handles. Continue handling it by the feedback rules.'),
+    '',
+    `- key: ${e.key}`,
+    ...reasons.map((r) => `- ${t('차례인 이유', 'Why now')}: ${r}`),
+  ]
+  if (e.status) lines.push(`- ${t('지금 처리 기록', 'Current record')}: ${e.status.state}${e.status.note ? ` — ${e.status.note}` : ''}`)
+  if (e.review) lines.push(`- ${t('사용자 답', 'User answer')}: ${e.review.verdict} (${e.review.at})${e.review.note ? ` — ${e.review.note}` : ''}`)
+  lines.push(...unanswered(e).map((l) => `- ${l}`))
+  if (merged) lines.push('', t(
+    `앞 PR${merged.pr ? ` #${merged.pr}` : ''}은 이미 main에 합쳐졌습니다. 코드를 다시 고치려면 먼저 \`git fetch origin main && git checkout -B ${merged.branch ?? '<this branch>'} origin/main\`으로 main에서 시작하세요. app_submit은 새 PR을 엽니다.`,
+    `The earlier PR${merged.pr ? ` #${merged.pr}` : ''} is already merged into main. Before changing code again, start from main with \`git fetch origin main && git checkout -B ${merged.branch ?? '<this branch>'} origin/main\`. app_submit then opens a new PR.`,
+  ))
+  return lines.join('\n')
 }
 
 /** 피드백 그림을 첫 지시에 붙일 그림으로 (너무 크면 붙이지 않고 경로만) */
