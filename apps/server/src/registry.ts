@@ -28,6 +28,8 @@ export interface AppConfig {
   pdfFolders?: string[]
   /** 개인 저장소 주소 (personalRepo.ts가 이 파일에서 바로 읽는다). 저장할 때 잃지 않도록 함께 둔다 */
   personalRepo?: string
+  /** 계정 › 커밋 이름: 앱이 하는 커밋에만 쓴다 (git.ts setAppIdentity, 11/19). 없으면 git 전체 설정 */
+  gitIdentity?: { name: string; email: string }
   researches: RegisteredResearch[]
   /** 설정 화면의 화면 설정 (테마, 글자 크기, 편집기 글꼴 등) */
   ui: UiSettings
@@ -173,6 +175,12 @@ export class Registry {
   setReviews(p: string): void {
     if (!path.isAbsolute(p) || !fs.existsSync(p)) throw new WorkbenchError(400, tl('Topic Review 폴더가 없습니다.', 'The Topic Review folder does not exist.'))
     this.config.reviews = p
+    this.save()
+  }
+
+  get gitIdentity(): { name: string; email: string } | undefined { return this.config.gitIdentity }
+  setGitIdentity(id: { name: string; email: string }): void {
+    this.config.gitIdentity = id
     this.save()
   }
 

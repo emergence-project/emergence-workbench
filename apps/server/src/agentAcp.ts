@@ -15,6 +15,7 @@ import readline from 'node:readline'
 import type { ModelChoice } from '@rw/core/contract/agentChats'
 import { Inbox, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type ToolDecision, type Turn } from './agentChats.js'
 import { acpCommand, acpEnv, type AcpSpec } from './agentKinds.js'
+import { gitIdentityEnv } from './git.js'
 import { ensureCodexAcp } from './codexAcp.js'
 import { codexBin } from './codexCli.js'
 import { HERE, t } from './i18n.js'
@@ -162,7 +163,7 @@ function launch(spec: AcpSpec, cwd: string, env?: Record<string, string>, config
     if (spec.id === 'codex' && configDir) throw new Error(t(`${HERE.ko}에 Codex가 아직 없습니다. 설정 › 에이전트의 「질문에 답할 AI」에서 ChatGPT로 연결해 주세요`, `Codex is not on ${HERE.en} yet. Connect ChatGPT under Settings › Agents › AI for questions`))
     throw new Error(t(`${HERE.ko}에서 ${spec.name}를 찾지 못했습니다. 깔고 한 번 로그인해 주세요: ${spec.install}`, `${spec.name} was not found on ${HERE.en}. Install it and sign in once: ${spec.install}`))
   }
-  return spawn(cmd.file, cmd.args, { cwd, env: acpEnv({ ...cmd.env, ...env }), stdio: ['pipe', 'pipe', 'pipe'], shell: cmd.shell, windowsHide: true })
+  return spawn(cmd.file, cmd.args, { cwd, env: acpEnv({ ...gitIdentityEnv(), ...cmd.env, ...env }), stdio: ['pipe', 'pipe', 'pipe'], shell: cmd.shell, windowsHide: true })
 }
 
 /** Codex: codex는 있는데 연결부를 아직 받지 않았으면 받고 띄운다 (codexAcp.ts, 시험의 가짜 에이전트는 건너뜀) */

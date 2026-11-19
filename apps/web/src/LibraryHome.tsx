@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { PaperTitle } from './PaperTitle'
 import { InfoOrAgent } from './AgentSide'
 import { figuresApi, LIBRARY_SCOPE, papersApi, type FigureBrief, type LibraryInfo, type PaperBrief, type PaperPick, type PaperRecommend, type PaperRow } from './api'
 import { FIGURES_CHANGED } from './figureEmbed'
@@ -159,7 +160,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
               <div className="kh-rows">
                 {opened.map((p) => (
                   <button key={p.key} className="kh-row lh-row" data-ui="최근 확인한 논문 줄" onClick={() => showPaper(p.key)}>
-                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{shortAuthors(p.authors)}{p.year ? ` · ${p.year}` : ''}</span></span>
+                    <span className="lh-row-text"><span className="kh-title"><PaperTitle title={p.title} /></span><span className="kh-subject">{shortAuthors(p.authors)}{p.year ? ` · ${p.year}` : ''}</span></span>
                     {p.answered > 0
                       ? <span className="kh-when kh-turn">{t(`답이 온 질문 ${p.answered}`, `${p.answered} answered`)}</span>
                       : <span className="kh-when">{p.opened ? relativeTime(p.opened) : ''}</span>}
@@ -190,7 +191,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
               <div className="kh-rows">
                 {rec?.picks.map((p) => (
                   <div key={p.id} className="kh-row lh-row" data-ui="추천 논문 줄">
-                    <button className="lh-row-text lh-row-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => readPaper(p)}><span className="kh-title">{p.title}</span><span className="kh-subject">{p.from && <span className="lh-row-from" title={t('이 분야의 내 논문과 가까운 논문', 'Close to your papers in this subject')}>{fieldName(p.from)}</span>}{[shortAuthors(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></button>
+                    <button className="lh-row-text lh-row-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => readPaper(p)}><span className="kh-title"><PaperTitle title={p.title} /></span><span className="kh-subject">{p.from && <span className="lh-row-from" title={t('이 분야의 내 논문과 가까운 논문', 'Close to your papers in this subject')}>{fieldName(p.from)}</span>}{[shortAuthors(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></button>
                     <button className="btn small" disabled={busy !== null} onClick={() => void add(p.id)}>{busy === p.id ? t('추가 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
                   </div>
                 ))}

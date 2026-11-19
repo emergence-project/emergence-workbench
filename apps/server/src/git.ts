@@ -36,6 +36,15 @@ export interface GitOptions {
 let fallbackIdentity: { name: string; email: string } | null = null
 export function setFallbackIdentity(id: { name: string; email: string } | null): void { fallbackIdentity = id }
 export function getFallbackIdentity(): { name: string; email: string } | null { return fallbackIdentity }
+/**
+ * 계정 › 커밋 이름 창에서 적은 이름 (11/19 피드백 22:11 「앱으로 하는 git 활동에만」): 앱 설정(config.yaml gitIdentity)에 두고
+ * 이 서버의 git과 앱 안 에이전트 대화에만 쓴다. git 전체 설정은 바꾸지 않는다. 적어 두면 GitHub 로그인이 덮지 않는다
+ */
+let appIdentity = false
+export function setAppIdentity(id: { name: string; email: string } | null): void { fallbackIdentity = id; appIdentity = !!id }
+export const hasAppIdentity = (): boolean => appIdentity
+/** 앱 안 에이전트 대화가 하는 커밋에도 같은 이름을 (agentRunner · agentAcp의 env) */
+export const gitIdentityEnv = (): Record<string, string> => identityEnv()
 const identityEnv = (): Record<string, string> => fallbackIdentity
   ? { GIT_AUTHOR_NAME: fallbackIdentity.name, GIT_AUTHOR_EMAIL: fallbackIdentity.email, GIT_COMMITTER_NAME: fallbackIdentity.name, GIT_COMMITTER_EMAIL: fallbackIdentity.email }
   : {}

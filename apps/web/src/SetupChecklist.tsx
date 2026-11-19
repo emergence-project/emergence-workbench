@@ -68,7 +68,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
   const put = (v: SetupView) => client.setQueryData(qk.setup, v)
   const left = must.filter((m) => !m.ok)
   const connected = s?.agents.filter((a) => a.registered || a.at).length ?? 0
-  // 커밋 이름이 비어 있고 구글 계정 이름 · 이메일을 알면 한 번에 채운다 (git 전체 설정이라 저절로 바꾸지 않는다)
+  // 커밋 이름이 비어 있고 구글 계정 이름 · 이메일을 알면 한 번에 채운다 (사용자가 적은 이름을 저절로 바꾸지 않는다)
   const google = useQuery({ queryKey: qk.googleStatus, queryFn: googleApi.status })
   const fromGoogle = google.data?.name && google.data.email && !(s?.git.name && s.git.email) ? { name: s?.git.name || google.data.name, email: s?.git.email || google.data.email } : null
   return (
@@ -285,7 +285,7 @@ function GitDialog({ init, me, onClose, onDone }: { init: SetupView['git']; me?:
     </>}>
       <label className="field"><span>{t('이름', 'Name')}</span><input value={name} autoFocus onChange={(e) => setName(e.target.value)} /></label>
       <label className="field"><span>{t('이메일', 'Email')}</span><input value={email} type="email" onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void save() }} /></label>
-      <p className="setup-desc">{t('이 컴퓨터의 git 전체 설정(git config --global)에 적습니다. 다른 git 작업에도 같은 이름이 쓰입니다.', 'Written to this computer\'s global git settings (git config --global), so other git work uses the same name.')}</p>
+      <p className="setup-desc">{t('이 앱이 하는 커밋(기록 · 피드백 올리기, 앱 안 에이전트 대화)에만 씁니다. 이 컴퓨터의 git 전체 설정은 바꾸지 않습니다.', 'Used only for commits this app makes (records, feedback, in-app agent conversations). Your computer\'s global git settings stay as they are.')}</p>
       {error && <p className="error-text">{error}</p>}
     </Dialog>
   )

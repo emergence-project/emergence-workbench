@@ -1,4 +1,5 @@
 import { useRef, type CSSProperties, type ReactNode } from 'react'
+import { PaperTitle, titleText } from './PaperTitle'
 import { localDate } from '@rw/core'
 import type { PaperRow } from './api'
 import { matchesSubject } from './api/subjects'
@@ -22,7 +23,7 @@ const fmtDate = (ms?: number) => {
 export const authorLine = (a: string[]) => (a.length > 3 ? t(`${a.slice(0, 3).join(', ')} 외 ${a.length - 3}`, `${a.slice(0, 3).join(', ')} +${a.length - 3}`) : a.join(', '))
 
 const COLS: Col[] = [
-  { id: 'title', label: t('제목', 'Title'), value: (p) => p.title, sort: (p) => p.title.toLowerCase() },
+  { id: 'title', label: t('제목', 'Title'), value: (p) => titleText(p.title), cell: (p) => <PaperTitle title={p.title} />, sort: (p) => titleText(p.title).toLowerCase() },
   { id: 'authors', label: t('저자', 'Authors'), value: (p) => p.authors.join(', '), cell: (p) => authorLine(p.authors), sort: (p) => (p.authors[0] ?? '').toLowerCase() },
   { id: 'year', label: t('연도', 'Year'), value: (p) => p.year ?? '', sort: (p) => Number(p.year) || 0, num: true },
   { id: 'subjects', label: t('분류', 'Subject'), value: (p, c) => (p.subjects ?? []).map(c.subjectName).join(', '), sort: (p, c) => (p.subjects ?? []).map(c.subjectName).join(', ').toLowerCase() },
