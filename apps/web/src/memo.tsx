@@ -47,8 +47,9 @@ export function MemoText({ text }: { text: string }) {
           <tbody>{b.rows.map((row, r) => <tr key={r}>{row.map((cell, j) => <td key={j} style={{ textAlign: b.align[j] ?? undefined }}><InlineText parts={cell} /></td>)}</tr>)}</tbody>
         </table></div>
         : (() => {
-          const Tag = b.ordered ? 'ol' : 'ul'
-          return <Tag key={i}>{b.items.map((it, j) => <li key={j} style={{ marginLeft: `calc(var(--sp-4) * ${it.depth})`, listStyleType: b.ordered ? undefined : it.depth === 0 ? 'disc' : it.depth === 1 ? 'circle' : 'square' }}><InlineText parts={it.inline} /></li>)}</Tag>
+          // 번호는 항목마다 value로 준다 (하위 항목이 섞여도, 첫 번호가 1이 아니어도 적은 차례대로)
+          const Tag = b.items.some((it) => it.ordered) ? 'ol' : 'ul'
+          return <Tag key={i}>{b.items.map((it, j) => <li key={j} value={it.num} style={{ marginLeft: `calc(var(--sp-4) * ${it.depth})`, listStyleType: it.ordered ? undefined : it.depth === 0 ? 'disc' : it.depth === 1 ? 'circle' : 'square' }}><InlineText parts={it.inline} /></li>)}</Tag>
         })())}
     </div>
   )
