@@ -66,24 +66,9 @@
 .about-nav-flag { margin-left: auto; flex: none; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 var(--sp-2); background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
 .about-legend { grid-template-columns: 1fr; }
 /* 쪽 맨 위 "확인해 주실 것" 알림 (막힘 색 = 사용자 차례, 피드백의 주황 수와 같은 뜻) */
-.about-ask { margin: 0 0 var(--sp-5); padding: var(--sp-3) var(--sp-4); border: 1px solid color-mix(in srgb, var(--s-blocked) 40%, transparent); border-radius: var(--r-md); background: color-mix(in srgb, var(--s-blocked) 7%, transparent); font-size: var(--fs-md); }
-.about-ask > b { color: var(--s-blocked); }
-.about-ask ul { margin: var(--sp-2) 0; padding-left: 1.2em; }
-.about-ask li { margin: var(--sp-1) 0; }
-.about-ask p { margin: 0; font-size: var(--fs-sm); }
 
 /* 확인할 것: 질문마다 맞아요·답하기 (10/4 17:55) */
-.about-ask-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-2) var(--sp-3); }
 /* 오른쪽 「이력」을 열어 가운데 칸이 좁으면 단추가 글 아래로 내려간다 (글이 한 글자씩 세로로 서지 않게, 11/19) */
-.about-ask-q { flex: 1 1 14em; min-width: 0; }
-.about-ask .about-ask-prs { margin: var(--sp-1) 0 0; padding-left: 0; list-style: none; font-size: var(--fs-sm); color: var(--text-2); }
-.about-ask .about-ask-prs li { margin: 2px 0; }
-.about-ask-pr { all: unset; cursor: pointer; border-radius: var(--r-xs); }
-.about-ask-pr:hover .a { text-decoration: underline; }
-.about-ask-pr:focus-visible { outline: 2px solid var(--focus-line); outline-offset: 2px; }
-.about-ask-tools { display: flex; gap: var(--sp-2); flex: none; }
-.about-ask-row.sent .about-ask-q { color: var(--text-3); }
-.about-ask-sent { flex: none; font-size: var(--fs-sm); }
 
 /* 기호와 뜻 표 (10/4 17:57) */
 .about-symbols { margin-bottom: var(--sp-4); }
@@ -197,26 +182,37 @@
 .about-hist-ok { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--s-solved); }
 .about-legend b svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.9; vertical-align: -2px; }
 
-/* 이력 사이드바 (11/16 시안 1절 안 A, AboutHistorySide.tsx): 시계를 켜면 오른쪽에 업데이트 목록, 고른 업데이트가 고친 절에 테두리 */
-.stage.about-with-side { grid-template-columns: minmax(0, 1fr) 300px; }
+/* 오른쪽 사이드바 (11/20 시안 2 · 3절, AboutHistorySide.tsx): 탭 「이력 · 고치기」. 이력은 (절, 업데이트) 표, 확인 전 줄은 옅은 주황 */
+.stage.about-with-side { grid-template-columns: minmax(0, 1fr) 340px; }
 .about-rs { background: var(--bg-side); }
-.about-rs .rs-head .sp { flex: 1; }
-.about-rs-sub { margin: 0 0 var(--sp-2); font-size: var(--fs-xs); }
-.about-vers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
-.about-ver { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2); border-radius: var(--r-sm); border: 1px solid transparent; font-size: var(--fs-sm); cursor: pointer; }
-.about-ver:hover { background: var(--bg-hover); }
-.about-ver.on { background: var(--bg); border-color: var(--line-strong); }
-.about-ver.check { cursor: default; }
-.about-ver.check:hover { background: none; }
-.about-ver-head { display: flex; align-items: center; gap: var(--sp-2); }
-.about-ver-head .a { color: var(--text); }
-.about-ver-title { color: var(--text); }
-.about-ver-secs { color: var(--text-2); font-size: var(--fs-xs); }
-.about-ver-secs .a { color: var(--text-2); }
-.about-ver-here { color: var(--text); }
-.about section.about-picked { outline: 1.5px solid var(--line-strong); outline-offset: var(--sp-2); border-radius: var(--r-sm); }
-.about section.about-dim .about-sec-body { opacity: .5; }
-.about-dim-note { margin: calc(-1 * var(--sp-1)) 0 var(--sp-2); font-size: var(--fs-sm); }
+.about-rs .rs-head { gap: var(--sp-2); }
+.about-hist { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); table-layout: fixed; }
+.about-hist th { text-align: left; font-weight: var(--fw-strong); font-size: var(--fs-xs); color: var(--text-3); padding: 0 var(--sp-1) var(--sp-1); border-bottom: 1px solid var(--line); }
+.about-hist th { white-space: nowrap; }
+.about-hist th:nth-child(1) { width: 24%; }
+.about-hist th:nth-child(2) { width: 21%; }
+.about-hist th:nth-child(4) { width: 58px; }
+.about-hist td { padding: var(--sp-1); vertical-align: top; border-bottom: 1px solid var(--line); }
+.about-hist-row { cursor: pointer; }
+.about-hist-row:hover { background: var(--bg-hover); }
+.about-hist-row.todo { background: color-mix(in srgb, var(--s-blocked) 8%, transparent); }
+.about-hist-row.on { background: var(--bg); box-shadow: inset 2px 0 0 var(--line-strong); }
+.about-hist-row:focus-visible { outline: 2px solid var(--focus-line); outline-offset: -2px; }
+.about-hist-sec { color: var(--text); overflow-wrap: anywhere; }
+.about-hist-pr { display: flex; flex-direction: column; }
+.about-hist-pr .a { color: var(--text); }
+.about-hist-pr .muted { font-size: var(--fs-xs); }
+.about-hist-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.about-hist-row.on .about-hist-what { white-space: normal; color: var(--text); }
+.about-hist-act { text-align: right; white-space: nowrap; cursor: default; }
+.about-hist-act .icon-btn { width: 24px; height: 24px; }
+.about-hist-ok { font-size: var(--fs-xs); }
+.about-hist-ask td, .about-hist-more td { border-top: 0; padding-top: 0; font-size: var(--fs-xs); color: var(--text-2); }
+.about-hist-ask td { color: var(--s-blocked); }
+.about-hist-more ul { margin: var(--sp-1) 0 0; padding-left: 1.1em; }
+.about-hist-more p { margin: var(--sp-1) 0 0; }
+/* 그 업데이트가 바꾼 문장 (CSS Custom Highlight, markChanges) */
+::highlight(about-change) { background-color: var(--hl-bg); }
 @media (max-width: 900px) {
   .stage.about-with-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .stage.about-with-side > .about-rs { border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }

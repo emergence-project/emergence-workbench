@@ -14,6 +14,8 @@ export const AboutCheck = z.object({
   sentPr: z.number().int().optional(),
   /** 고쳐 보낸 시각 */
   sent: z.string().optional(),
+  /** 업데이트 줄마다 확인한 날 (PR 번호 → YYYY-MM-DD, 11/20 시안 2절) */
+  ok: z.record(z.string(), z.string()).optional(),
 }).strict()
 
 export const AboutChecks = z.object({
@@ -31,11 +33,24 @@ export const AboutChecks = z.object({
 
 export const AboutCheckBody = z.object({
   key: z.string().min(1).max(200),
-  action: z.enum(['check', 'sent']),
-  /** 그때 그 절의 마지막 PR (없으면 0) */
+  action: z.enum(['check', 'ok', 'sent']),
+  /** check · sent: 그때 그 절의 마지막 PR (없으면 0). ok: 확인한 업데이트 */
   pr: z.number().int().min(0),
 })
 
+/** GET /api/about/changes?pr=N */
+export const AboutChangesQuery = z.object({ pr: z.coerce.number().int().positive() })
+
+/** 업데이트 하나가 소개 글에서 바꾼 것 (GET /api/about/changes?pr=N) */
+export const AboutChanges = z.object({
+  pr: z.number().int(),
+  /** 새로 생긴 문장 (한국어 · 영어 소스 둘 다. 화면이 지금 본문에서 찾는다) */
+  sentences: z.array(z.string()),
+  /** 커밋 본문의 요약 줄 */
+  summary: z.array(z.string()),
+}).strict()
+
+export type AboutChanges = z.infer<typeof AboutChanges>
 export type AboutCheck = z.infer<typeof AboutCheck>
 export type AboutChecks = z.infer<typeof AboutChecks>
 export type AboutCheckBody = z.infer<typeof AboutCheckBody>

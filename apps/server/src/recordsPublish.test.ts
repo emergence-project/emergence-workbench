@@ -182,7 +182,8 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
       const added = await app.inject({ method: 'POST', url: `/api/researches/${id}/journal`, payload: { kind: 'memo', text: '일지 메모' } })
       expect(added.statusCode).toBe(200)
       const date = added.json().entry.date as string
-      await until(() => { try { return g(remote, 'show', `main:workbench/log/${date}.md`).includes('일지 메모') } catch { return false } })
+      // 원격에 닿은 뒤 이 컴퓨터의 추적 브랜치가 갱신되기까지 잠깐 걸린다(CI에서 그 사이를 읽어 1이 나왔다)
+      await until(() => { try { return g(remote, 'show', `main:workbench/log/${date}.md`).includes('일지 메모') && ahead(mac) === 0 } catch { return false } })
       expect(ahead(mac)).toBe(0)
     } finally { await app.close() }
   })

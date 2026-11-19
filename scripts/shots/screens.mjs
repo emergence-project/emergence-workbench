@@ -120,8 +120,6 @@ export const DEFAULT_SCREENS = [
   // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
   ['feedback-agent', '#/feedback', '에이전트 진행', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 10:15"]']],
   ['about', '#/about', '소개'],
-  // 소개 수정 모드 (11/19 "모드전환식"): 툴바 연필로 켜고 화면 구조 절을 눌러 그 자리에서 고치는 중
-  ['about-fix', '#/about', '고치는 중', ['수정 모드', '[data-ui="화면 구조"] .about-sec-body']],
   // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
   ['about-tags', '#/about/symbols/tags', '대화 태그'],
   // 소개 › 프로젝트 화면 쪽의 흐름 절 (절 제목 옆 "업데이트 #n")
@@ -134,8 +132,10 @@ export const DEFAULT_SCREENS = [
   ['about-ports', '#/about/reference/ports', '다른 앱에 옮기기'],
   // 기능 소개 절 맨 아래의 이식 안내서 줄 (11/19): 에이전트 대화 절 → docs/ports/agent-chat.md
   ['about-port-link', '#/about/agents/conversations', '이식 안내서'],
-  // 확인 항목 알림의 업데이트 줄을 누르면 오른쪽 「이력」이 그 업데이트를 고른 채 열린다 (11/19). 이력 보기가 기억되므로 소개 화면 맨 끝
-  ['about-check-history', '#/about/principles', '소개 이력', '[data-ui="고친 업데이트 목록"] [data-ui="고친 업데이트"]'],
+  // 소개 오른쪽 사이드바 (11/20 시안 2 · 3절): 시계로 열고 이력 표의 첫 줄을 누르면 그 절로 가서 바꾼 문장에 하이라이트, 줄 아래 요약.
+  // 그다음 「수정」 탭에서 화면 구조 절의 첫 문단을 고른 모습. 사이드바와 탭이 기억되므로 소개 화면 맨 끝
+  ['about-check-history', '#/about/principles', '이력 표', ['이력 보기', '[data-ui="이력 표"] [data-ui="고친 업데이트"]']],
+  ['about-fix', '#/about', '소개 고치기', ['[data-ui="소개 사이드바 갈래"] button:text-matches("^(수정|Edit)")', '[data-ui="화면 구조"] .about-lead']],
   ['settings', '#/settings', '설정'],
   // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)
   ['settings-accounts', '#/account', '시작 준비 요약'],

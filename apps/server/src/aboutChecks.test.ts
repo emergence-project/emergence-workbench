@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { feedbackMergeFor } from './feedbackMerge.js'
+import { changedSentences, summaryLines } from './aboutChecks.js'
 import { tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -41,5 +42,27 @@ describe('소개 절 확인 기록 (about.yaml, 11/11 안 C′)', () => {
     const out = merge(base, `${base}a/y:\n  checked: 2\n`, `${base}b/z:\n  checked: 3\n`)
     expect(out).toContain('a/y:')
     expect(out).toContain('b/z:')
+  })
+
+  it('업데이트 줄마다 맞아요: ok에 PR과 날짜를 더하고 절 확인은 그대로 둔다 (11/20 시안 2절)', async () => {
+    const dir = path.join(tmp, 'feedback-about-ok')
+    const fb = buildApp({ configDir: path.join(tmp, 'config-fb-about-ok'), feedbackDir: dir })
+    await fb.inject({ method: 'PUT', url: '/api/about/checks', payload: { key: 'a/b', action: 'check', pr: 100 } })
+    const r = (await fb.inject({ method: 'PUT', url: '/api/about/checks', payload: { key: 'a/b', action: 'ok', pr: 300 } })).json()
+    expect(r.sections['a/b']).toEqual({ checked: 100, at: expect.any(String), ok: { 300: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) } })
+    expect((await fb.inject({ method: 'GET', url: '/api/about/changes?pr=x' })).statusCode).toBe(400)
+    await fb.close()
+  })
+
+  it('업데이트가 바꾼 소개 문장: 더한 줄의 문장 중 지운 줄에 없던 것, 요약은 서명을 뺀 앞 줄', () => {
+    const diff = [
+      '--- a/apps/web/src/about/x/y.tsx', '+++ b/apps/web/src/about/x/y.tsx',
+      "-    { text: <>확인은 절 하나씩 합니다. 맞아요를 누릅니다.</> },",
+      "+    { text: <>확인은 절 하나씩 합니다. 줄마다 <b>맞아요</b>를 누릅니다.</> },",
+      "-  title: 'This About page', prs: [1],",
+      "+  title: 'This About page', prs: [1, 2],",
+    ].join('\n')
+    expect(changedSentences(diff)).toEqual(['줄마다 맞아요 를 누릅니다.'])
+    expect(summaryLines('* 소개 이력 표\n\n* 고치기 탭\n\nCo-Authored-By: X <x@y>\nhttps://claude.ai/code/1')).toEqual(['소개 이력 표', '고치기 탭'])
   })
 })

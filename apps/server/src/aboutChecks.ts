@@ -9,6 +9,9 @@
  *     at: 2026-11-03
  *     sentPr: 402        # 고쳐 보낸 때 그 절의 마지막 PR. 이 뒤 그 절을 고친 PR이 들어오면 반영된 것
  *     sent: 2026-11-10T09:30
+ *     ok:                # 업데이트 줄마다 「맞아요」 (11/20 시안 2절): PR 번호 → 확인한 날. checked보다 큰 PR만 뜻이 있다
+ *       473: 2026-11-20
+ * 절은 그 절을 고친 PR이 모두 checked 아래이거나 ok에 있으면 확인함이다. 예전의 절 확인(checked)은 그때까지의 업데이트를 모두 확인한 것으로 읽는다.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -16,7 +19,7 @@ import YAML from 'yaml'
 import { git } from './git.js'
 import { parseSubject } from './appupdate.js'
 
-export interface AboutCheck { checked?: number; at?: string; sentPr?: number; sent?: string }
+export interface AboutCheck { checked?: number; at?: string; sentPr?: number; sent?: string; ok?: Record<string, string> }
 
 export const ABOUT_CHECK_FILE = 'about.yaml'
 const file = (dir: string) => path.join(dir, ABOUT_CHECK_FILE)
@@ -39,14 +42,19 @@ export function readAboutChecks(dir: string): { exists: boolean; sections: Recor
       const at = str(r.at); if (at) c.at = at
       const sentPr = num(r.sentPr); if (sentPr !== undefined) c.sentPr = sentPr
       const sent = str(r.sent); if (sent) c.sent = sent
+      if (isRecord(r.ok)) {
+        const ok: Record<string, string> = {}
+        for (const [n, d] of Object.entries(r.ok)) { const v = str(d); if (/^\d+$/.test(n) && v) ok[n] = v.slice(0, 10) }
+        if (Object.keys(ok).length) c.ok = ok
+      }
       sections[k] = c
     }
   }
   return { exists: true, sections }
 }
 
-/** 절 하나의 기록을 고친다. check: 확인함으로(고쳐 보낸 표시는 지움), sent: 고쳐 보냄. 다른 절과 다른 칸은 그대로 둔다 */
-export function writeAboutCheck(dir: string, key: string, action: 'check' | 'sent', pr: number, now = new Date()): AboutCheck {
+/** 절 하나의 기록을 고친다. check: 그 PR까지 모두 확인함으로(고쳐 보낸 표시는 지움), ok: 업데이트 하나만 확인함, sent: 고쳐 보냄. 다른 절과 다른 칸은 그대로 둔다 */
+export function writeAboutCheck(dir: string, key: string, action: 'check' | 'ok' | 'sent', pr: number, now = new Date()): AboutCheck {
   fs.mkdirSync(dir, { recursive: true })
   let text = ''
   try { text = fs.readFileSync(file(dir), 'utf8') } catch { text = HEAD }
@@ -59,6 +67,9 @@ export function writeAboutCheck(dir: string, key: string, action: 'check' | 'sen
     doc.setIn([key, 'at'], local.slice(0, 10))
     doc.deleteIn([key, 'sentPr'])
     doc.deleteIn([key, 'sent'])
+  } else if (action === 'ok') {
+    // 키를 글자로 적어 YAML이 순서대로 읽게 한다
+    doc.setIn([key, 'ok', String(pr)], local.slice(0, 10))
   } else {
     doc.setIn([key, 'sentPr'], pr)
     doc.setIn([key, 'sent'], local.slice(0, 16))
@@ -78,4 +89,50 @@ export async function prInfo(root: string, running: string): Promise<{ prDates: 
     if (date && pr && !prDates[pr]) { prDates[pr] = date; prTitles[pr] = title }
   }
   return { prDates, prTitles }
+}
+
+/**
+ * 업데이트 하나가 소개 글에서 바꾼 것 (11/20 시안 2절: 이력 표의 줄을 누르면 바꾼 문장에 하이라이트, 줄 아래에 요약).
+ * 그 PR의 커밋을 앱 저장소의 첫 부모 기록에서 찾아, 소개 글(apps/web/src/about/) 변경에서 새로 생긴 문장과 커밋 본문의 요약 줄을 돌려준다.
+ */
+export async function prChanges(root: string, running: string, pr: number): Promise<{ sentences: string[]; summary: string[] }> {
+  const log = await git(root, ['log', '--first-parent', '--format=%H%x09%s', running]).catch(() => '')
+  const hash = log.split('\n').map((l) => l.split('\t')).find(([, ...s]) => parseSubject(s.join('\t')).pr === pr)?.[0]
+  if (!hash) return { sentences: [], summary: [] }
+  const [diff, body] = await Promise.all([
+    git(root, ['diff', '-U0', `${hash}^`, hash, '--', 'apps/web/src/about']).catch(() => ''),
+    git(root, ['log', '-1', '--format=%b', hash]).catch(() => ''),
+  ])
+  return { sentences: changedSentences(diff), summary: summaryLines(body) }
+}
+
+/** 소개 소스 한 줄의 글: 태그와 코드를 빼고 글자만. 글이 아니면 빈 문자열 */
+function proseOf(line: string): string {
+  return line
+    .replace(/\bprs\s*:\s*\[[^\]]*\]/g, ' ')
+    .replace(/<[^<>]*>/g, ' ')
+    .replace(/\b(text|title|ui|ask|label|items|prs|figure)\s*:/g, ' ')
+    .replace(/[{}[\]`'"]|\bt\(|\),?|&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ').trim()
+}
+
+const sentencesOf = (text: string) => text.split(/(?<=[.!?。])\s+|(?<=다\.)/).map((x) => x.replace(/^[\s,;:]+|[\s,;:]+$/g, '')).filter((x) => x.length >= 8 && /[가-힣]|[a-z]{3,}\s+[a-z]{2,}/i.test(x))
+
+/** git diff에서 새로 생긴 문장: 더한 줄의 문장 중 지운 줄에 없던 것 */
+export function changedSentences(diff: string): string[] {
+  const added: string[] = []
+  const removed = new Set<string>()
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('+++') || line.startsWith('---')) continue
+    if (line.startsWith('+')) added.push(...sentencesOf(proseOf(line.slice(1))))
+    else if (line.startsWith('-')) for (const x of sentencesOf(proseOf(line.slice(1)))) removed.add(x)
+  }
+  return [...new Set(added.filter((x) => !removed.has(x)))].slice(0, 200)
+}
+
+/** 커밋 본문의 요약 줄: 서명 · 링크 · 빈 줄을 빼고 앞의 여섯 줄 */
+export function summaryLines(body: string): string[] {
+  return body.split('\n').map((l) => l.replace(/^\s*[*-]\s+/, '').trim())
+    .filter((l) => l && !/^(Co-Authored-By|Claude-Session|Signed-off-by):/i.test(l) && !/^https?:\/\//.test(l) && !/^🤖|^---+$/.test(l))
+    .slice(0, 6)
 }
