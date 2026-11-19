@@ -19,6 +19,7 @@ const steps = [
   ['화면 기준', 'node', ['scripts/ci/check-design.mjs']],
   ['화면 문구', 'node', ['scripts/ci/check-wording.mjs']],
   ['소개와 업데이트', 'node', ['scripts/ci/check-about.mjs']],
+  ['이식 안내서', 'node', ['scripts/ci/check-ports.mjs']],
   ['React hooks 규칙', 'pnpm', ['--filter', '@rw/web', 'run', 'lint']],
   ['파일 이름 대소문자', 'node', ['scripts/ci/check-case.mjs']],
   ['구조 래칫', 'node', ['scripts/ci/check-ratchet.mjs']],

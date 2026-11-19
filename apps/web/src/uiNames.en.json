@@ -1095,5 +1095,7 @@
   "코드 복사": "Copy code",
   "터미널에서 실행": "Run in terminal",
   "시안": "Mockup",
-  "시안 새 창": "Open mockup in new window"
+  "시안 새 창": "Open mockup in new window",
+  "이식 안내서": "Porting guide",
+  "다른 앱에 옮기기": "Porting to another app"
 }
