@@ -233,6 +233,7 @@ try {
       // 숨은 탭(열어 둔 다른 노트)에도 같은 부위가 있으니 보이는 것을 누른다
       await page.locator(sel).filter({ visible: true }).first().click({ timeout: 10_000, force }).catch(() => problems.push(`${name}: ${sel}를 누르지 못함`))
     }
+    if (name === 'note-select') await page.locator('.note-ask p').filter({ visible: true }).first().click({ clickCount: 3, timeout: 10_000 }).catch(() => problems.push(`${name}: 본문 글을 고르지 못함`))
     const uiSel = ui && (ui.startsWith('[') ? ui : `[data-ui="${ui}"]`)
     if (uiSel) await page.locator(uiSel).filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${uiSel} 없음`))
     // 대화 화면: 왼쪽 목록은 대화보다 늦게 와서, 연 대화의 줄이 빠진 채 찍히곤 했다 (11/8)
