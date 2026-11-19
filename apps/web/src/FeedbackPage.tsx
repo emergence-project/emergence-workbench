@@ -544,8 +544,8 @@ function PublishButton() {
 
   return (
     <>
-      {!note && auto.error && files.length > 0 && <span className="error-text" data-ui="올리기 결과" style={{ fontSize: 'var(--fs-sm)', marginRight: 'var(--sp-2)' }}>{t('자동으로 등록하지 못했습니다', 'Automatic registration failed')}: {auto.error}</span>}
-      {note && <span className={note.error ? 'error-text' : 'muted'} data-ui="올리기 결과" style={{ fontSize: 'var(--fs-sm)', marginRight: 'var(--sp-2)' }}>{note.text}</span>}
+      {!note && auto.error && files.length > 0 && <span className="error-text fbp-pubnote" data-ui="올리기 결과">{t('자동으로 등록하지 못했습니다', 'Automatic registration failed')}: {auto.error}</span>}
+      {note && <span className={`${note.error ? 'error-text' : 'muted'} fbp-pubnote`} data-ui="올리기 결과">{note.text}</span>}
       {publishable && (
         <button className={`btn${files.length > 0 ? ' primary' : ''}`} data-ui="GitHub에 올리기" disabled={busy || files.length === 0} style={{ marginRight: 'var(--sp-2)' }} onClick={() => void publish()}
           title={files.length > 0 ? `${auto.on ? t(`남긴 뒤 ${syncEveryLabel(delay ?? 30)} 지나면 자동으로 등록됩니다. 지금 바로 등록하려면 누르세요.\n`, `Feedback is registered automatically ${syncEveryLabel(delay ?? 30, false)} after you leave it. Click to register now.\n`) : ''}${t('아직 GitHub에 없는 피드백만 GitHub에 올려 등록합니다. 다른 파일은 올리지 않습니다', 'Pushes only feedback not yet on GitHub. No other files are pushed')}\n\n${files.join('\n')}` : t('남긴 피드백이 모두 GitHub에 등록되어 있습니다', 'All feedback is registered on GitHub')}>
