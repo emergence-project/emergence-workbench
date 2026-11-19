@@ -123,5 +123,7 @@ export const Icon = {
   /** 확인 전 (개념노트): 빈 동그라미. 확인함은 체크 `check` */
   unchecked: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" /></svg>,
   /** 보관함 (에이전트 대화 목록 맨 아래): 뚜껑 덮인 상자 */
+  /** 새 대화 (11/20 시안 1절, Claude 앱의 새 채팅처럼 네모 위 연필) */
+  compose: <svg viewBox="0 0 24 24"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" /><path d="M17.6 3.6a1.9 1.9 0 0 1 2.8 2.8L12.5 14.3l-3.5 1 1-3.5z" /></svg>,
   archive: <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="4" rx="1" /><path d="M5 8.5v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-10M10 12.5h4" /></svg>,
 }

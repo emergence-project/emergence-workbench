@@ -10,7 +10,7 @@ import { StatusDot } from './StatusDot'
 /** 상태 점: 일하는 중 파랑 · 사용자를 기다림 주황(사용자 차례) · 차례 끝남 청록 */
 const DOT: Record<HookSession['state'], BlockStatus> = { working: 'in-progress', waiting: 'blocked', done: 'solved' }
 const STATE: Record<HookSession['state'], () => string> = {
-  working: () => t('일하는 중', 'Working'),
+  working: () => t('작업 중', 'Working'),
   waiting: () => t('나를 기다림', 'Waiting for you'),
   done: () => t('차례 끝남', 'Turn done'),
 }

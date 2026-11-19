@@ -1,6 +1,7 @@
 import type { UiSettings } from '@rw/core'
 import type { ReactNode } from 'react'
-import { AgentRailCount, AgentSide } from './AgentChats'
+import { AgentRailCount } from './AgentChats'
+import { AgentSide } from './AgentChatList'
 import { AccountPage, AccountRailIcon } from './AccountPage'
 import { AboutPage, aboutRailRoute, AboutRailCount, AboutSidebar } from './AboutPage'
 import type { LibraryInfo } from './api'

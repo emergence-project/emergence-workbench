@@ -121,7 +121,7 @@
 /* 대화 탭 (phone/PhoneChats.tsx, 10/31 3단계): 첫 화면이 대화 목록, 새 대화는 시트. 목록의 「＋ 새 대화」 줄은 머리의 버튼과 겹쳐 숨긴다 */
 .ph-head .sp { flex: 1; }
 .ph-chats .ac-list { padding: 0; background: none; border: 0; }
-.ph-chats [data-ui="새 대화 줄"] { display: none; }
+.ph-chats [data-ui="새 대화 아이콘"] { display: none; }
 .ph-chats .ac-line { padding: var(--sp-2) var(--sp-1); }
 @media (max-width: 600px) {
   /* 폰에는 자판 줄임키가 없다 */

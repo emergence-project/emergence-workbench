@@ -43,7 +43,7 @@ function kidRow(k: Kid, now: number): BoardRow | undefined {
     return { ...base, stage: t('사용자 결정 기다림', 'Waits for your decision'), mark: 'user', group: 'turn', extras: [...extras, k.ask?.critical ? `${wait} · ${k.ask.critical}` : wait] }
   if (k.state === 'waiting') return { ...base, stage: t(`${wait} 기다림 (중앙이 답함)`, `Waits for ${wait} (Central answers)`), mark: 'user', group: 'doing', stalled: stall(STALL_MIN.ask), extras }
   if (k.state === 'error') return { ...base, stage: k.crashes ? t('비정상 종료', 'Crashed') : t('오류', 'Error'), mark: 'error', group: 'turn', extras: k.crashes && k.crashes > 1 ? [...extras, t(`${k.crashes}번째`, `${k.crashes} times`)] : extras }
-  if (k.state === 'running' || k.state === 'queued') return { ...base, stage: k.state === 'queued' ? t('줄 섬', 'Queued') : t('진행 중', 'Working'), mark: 'run', group: 'doing', stalled: stall(STALL_MIN.run), extras }
+  if (k.state === 'running' || k.state === 'queued') return { ...base, stage: k.state === 'queued' ? t('대기', 'Queued') : t('진행 중', 'Working'), mark: 'run', group: 'doing', stalled: stall(STALL_MIN.run), extras }
   if (k.ci === 'failed') return { ...base, stage: t('CI 실패', 'Check failed'), mark: 'error', group: 'doing', stalled: stall(STALL_MIN.ask), extras }
   if (k.ci === 'pending') return { ...base, stage: t('CI 기다림', 'Waiting for checks'), mark: 'ci', group: 'doing', stalled: stall(STALL_MIN.ci), extras }
   if (k.ci === 'passed') return { ...base, stage: t('CI 통과 · 합칠 준비', 'Checks passed · ready to merge'), mark: 'ready', group: 'ready', stalled: stall(STALL_MIN.ready), extras }
