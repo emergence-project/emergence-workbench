@@ -80,7 +80,7 @@ export async function repoInfo(root: string, opts: { fetch?: boolean } = {}): Pr
   const f = lastFetch.get(root)
   // 기본 브랜치가 아닌 브랜치를 따라가면 그 이름 (「main으로 돌리기」, 10/28)
   const main = upstream && upRemote ? await defaultBranchOf(root, upRemote) : null
-  // workbench/가 이 폴더에만 있고 git에 한 번도 들어가지 않았는지 (10/30 "워크벤치 폴더를 만들자": Faraday disk는 맥북에만 있어 다른 컴퓨터에서 안 보였다)
+  // workbench/가 이 폴더에만 있고 git에 한 번도 들어가지 않았는지 (10/30 "워크벤치 폴더를 만들자": 한 연구 프로젝트가 맥북에만 있어 다른 컴퓨터에서 안 보였다)
   const workbenchUnpublished = fs.existsSync(path.join(root, 'workbench', 'research.yaml')) && !(await opt(git(root, 'ls-files', '--', 'workbench/research.yaml')))
   return {
     state: 'ok', branch: head, remote, upstream,
@@ -135,7 +135,7 @@ export async function repoSync(root: string, opts: { fetch?: boolean; force?: bo
 /**
  * 원격의 기본 브랜치 이름 (origin/HEAD, 없으면 main · master 중 원격에 있는 것). 모르면 null.
  * 연구 폴더가 다른 브랜치(에이전트의 claude/… 등)에 있으면 저절로 받기 · 기록 올리기가 그 브랜치로 가서
- * 다른 컴퓨터에서 보이지 않는다 (10/22 맥미니 NBCP). 그때는 저절로 하지 않고 홈 카드에 알린다
+ * 다른 컴퓨터에서 보이지 않는다 (10/22 맥미니의 실제 저장소). 그때는 저절로 하지 않고 홈 카드에 알린다
  */
 export async function defaultBranchOf(root: string, remote: string): Promise<string | null> {
   const head = await git(root, 'symbolic-ref', '--quiet', '--short', `refs/remotes/${remote}/HEAD`).catch(() => '')

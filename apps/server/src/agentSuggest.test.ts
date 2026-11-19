@@ -13,7 +13,7 @@ const save = (text: string, who: [string, string], body?: string) => {
   const g = (...a: string[]) => execFileSync('git', ['-c', `user.name=${who[0]}`, '-c', `user.email=${who[1]}`, '-c', 'commit.gpgsign=false', ...a], { cwd: dir })
   g('add', '-A'); g('commit', '-qm', 'x', ...(body ? ['-m', body] : []))
 }
-const ME: [string, string] = ['박성민', 'me@example.com']
+const ME: [string, string] = ['홍길동', 'me@example.com']
 const CLAUDE: [string, string] = ['Claude', 'claude@agents.emergence-workbench']
 
 beforeEach(() => { dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-suggest-')); execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir }) })

@@ -76,6 +76,9 @@ try {
   check(opened.status === 303 && cookie === `rw_k_${PORT}=${KEY}`, `창은 /__open으로 열쇠를 건네고 쿠키를 받음 (${opened.status})`)
   check((await fetch(base + '/api', { headers: { origin: base, cookie } })).ok, '그 쿠키로 화면 · API가 열림')
 
+  const term = await (await get('/api/terminal')).json()
+  check(term.available === true, `터미널 부품(node-pty)을 읽음 (${term.reason ?? 'ok'})`)
+
   const home = await get('/')
   check(home.ok && (await home.text()).includes('<div id="root"'), '첫 화면(HTML)이 열림')
 
@@ -141,7 +144,7 @@ async function takeShots(rid, key) {
   page.on('pageerror', (e) => errors.push(e.message))
   // 창처럼 처음 한 번 열쇠를 건네 쿠키를 받는다
   await page.goto(`${base}/__open?k=${KEY}&to=%2F`, { waitUntil: 'networkidle' })
-  const screens = [['home', '/'], ...(rid ? [['project', `/#/r/${rid}`]] : []), ['papers', '/#/papers/list'], ...(key ? [['paper', `/#/papers/open/${key}`]] : []), ['settings', '/#/settings'], ['agents', '/#/settings/agents'], ['accounts', '/#/settings/google']]
+  const screens = [['home', '/'], ...(rid ? [['project', `/#/r/${rid}`]] : []), ['papers', '/#/papers/list'], ...(key ? [['paper', `/#/papers/open/${key}`]] : []), ['settings', '/#/settings'], ['agents', '/#/settings/agents'], ['accounts', '/#/account']]
   for (const [name, url] of screens) {
     await page.goto(base + url, { waitUntil: 'networkidle' })
     await page.waitForTimeout(800)

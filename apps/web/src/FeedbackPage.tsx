@@ -1,4 +1,4 @@
-import { agentTurns, localDate, localTime, syncEveryLabel } from '@rw/core'
+import { syncEveryLabel } from '@rw/core'
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { api, FEEDBACK_EVENT, records, type FeedbackItem, type FeedbackPickableKind, type FeedbackState } from './api'
 import { uiShown } from './uiNames'
@@ -6,12 +6,13 @@ import { Icon } from './icons'
 import { MemoText } from './memo'
 import { onListKey } from './listInput'
 import { SayCard } from './Conversation'
-import { ApproveButton, ClaimLine, Compose, HandlingPictures, resultToApprove } from './FeedbackAnswer'
+import { ApproveButton, BeforeAfter, ClaimLine, Compose, FeedbackMockups, HandlingPictures, resultToApprove } from './FeedbackAnswer'
 import { askConfirm } from './askText'
-import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, type ThreadStep } from './feedbackThread'
+import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, tagKey, type ThreadStep } from './feedbackThread'
+import { FeedbackFocus, FocusMissing, useFeedbackFocus, useFocusOpen, useIsFocus } from './feedbackFocus'
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
-import { FeedbackFileButtons, IssueButton } from './FeedbackSend'
+import { FeedbackFileButtons, InstantToggle, IssueButton } from './FeedbackSend'
 import { AnswerCells, AnswerHeads, answerKindName, KIND_FILTERS, matchesKind, type KindFilter } from './feedbackAnswerKind'
 import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
@@ -19,10 +20,8 @@ import { feedbackKindName as kindName, feedbackLabel as label, feedbackStateName
 import { href } from './router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
-import { agentChatsApi, type ChatRow } from './api/agentChats'
-import { ChatStateMark, isLive, stateName as chatStateName } from './AgentChats'
-const FEEDBACK_STATE = [...qk.feedback, 'state'] as const
-const FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
+import { AgentLine } from './FeedbackAgentLine'
+const FEEDBACK_STATE = [...qk.feedback, 'state'] as const, FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
 export { Compose } from './FeedbackAnswer'
@@ -47,11 +46,6 @@ const headName = (e: FeedbackItem, st: FeedbackState | '대기') => (st === '승
 const ELEMENTS = ['디자인', '버그', '기능']
 const TYPES = ['수정', '질문', '제안']
 const verdictName = (v: string) => REPLY[v] ?? label(v)
-const tagKey = (s: ThreadStep): string | null => {
-  if (s.kind === '대기') return null
-  if (s.who === 'Claude') return s.kind === '답' ? '답만 함' : 'commit' in s && s.commit ? '앱에 반영됨' : '답만 함'
-  return s.kind
-}
 /** 종류는 Claude가 처리하며 가린다 (status.yaml의 kind). 아직이면 날짜 파일의 종류(새 코멘트는 미분류) */
 const kindOf = (e: FeedbackItem): string => e.status?.kind ?? e.kind
 const matches = (f: Filter, e: FeedbackItem) => f === '전체' || feedbackBucket(e) === f
@@ -83,7 +77,7 @@ export function groupFeedback(entries: FeedbackItem[], g: GroupBy): [string, Fee
 
 const readGroup = (): GroupBy => { try { const raw = localStorage.getItem(GROUP_KEY); const v = (raw === '주제' ? '테마' : raw) as GroupBy | null; return v && GROUPS.includes(v) ? v : '시각' } catch { return '시각' } }
 
-export function FeedbackPage() {
+export function FeedbackPage({ focus }: { focus?: string } = {}) {
   const client = useQueryClient()
   // 피드백은 프로젝트 파일이 아니라 프로젝트 알림과 상관없다: 화면을 열 때와 피드백을 남기거나 고칠 때(FEEDBACK_EVENT) 다시 읽는다
   const all = useQuery({ queryKey: qk.feedbackAll, queryFn: () => api.feedbackAll(), refetchOnMount: 'always' })
@@ -109,12 +103,13 @@ export function FeedbackPage() {
     picked.current = true
     if (entries.some((e) => matches('확인 필요', e))) setFilter('확인 필요')
   }, [entries])
+  const missing = useFeedbackFocus(focus, entries, setFilter, setKind, picked)
 
   const shown = useMemo(() => (entries ?? []).filter((e) => matches(filter, e) && matchesKind(kind, e)), [entries, filter, kind])
   const groups = useMemo(() => (group === '시각' ? [] : groupFeedback(shown, group)), [shown, group])
 
   return (
-    <Account.Provider value={user}>
+    <Account.Provider value={user}><FeedbackFocus.Provider value={focus}>
     <main className="stage full" data-ui="피드백">
       <section className="pane">
         <div className="pane-head bar3 fbp-toolbar" data-ui="머리줄">
@@ -130,7 +125,7 @@ export function FeedbackPage() {
             </select>
           </label>
           <div className="fbp-tools">
-            <IssueButton list={shown} />
+            <InstantToggle /><IssueButton list={shown} />
             <FeedbackFileButtons />
             <PublishButton />
           </div>
@@ -138,6 +133,7 @@ export function FeedbackPage() {
         <div className="scroll">
           <div className={`page-body${group === '시각' ? ' fbp-wide' : ''}`}>
             {error && <p className="error-text">{error}</p>}
+            {missing && <FocusMissing focus={focus!} />}
             {statusError && <div className="banner danger" data-ui="처리 기록 오류">{t('feedback/status.yaml을 읽지 못해 처리 기록 없이 보여 줍니다 (모두 대기로 보임)', 'Could not read feedback/status.yaml, so items are shown without handling records (all appear as waiting)')}: {statusError}</div>}
             {!entries && !error && <p className="muted">{t('불러오는 중…', 'Loading…')}</p>}
             {entries && shown.length === 0 && <p className="muted">{filter === '대기' ? t('처리를 기다리는 피드백이 없습니다.', 'No feedback is waiting.') : t('없습니다.', 'None.')}</p>}
@@ -147,7 +143,7 @@ export function FeedbackPage() {
         </div>
       </section>
     </main>
-    </Account.Provider>
+    </FeedbackFocus.Provider></Account.Provider>
   )
 }
 
@@ -163,6 +159,7 @@ const keyOf = (e: FeedbackItem) => `${e.source ?? ''} ${e.date} ${e.time} ${e.ta
 function FeedbackTable({ list }: { list: FeedbackItem[] }) {
   const [newest, setNewest] = useState(true)
   const [open, setOpen] = useState<string | null>(null)
+  useFocusOpen(list, setOpen, keyOf)
   const rows = [...list].sort((a, b) => { const d = `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`) || a.n - b.n; return newest ? -d : d })
   return (
     <div className="fbp-table-box"><table className="fbp-table" data-ui="피드백 표">
@@ -177,7 +174,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
           const k = keyOf(e)
           const text = feedbackSummary(e.status?.clean ?? e.text)
           return [
-            <tr key={k} className={`fbp-row${open === k ? ' on' : ''}`} data-ui="피드백 줄" data-ui-item={`${e.date} ${e.time} ${e.target}`} onClick={() => setOpen(open === k ? null : k)}>
+            <tr key={k} className={`fbp-row${open === k ? ' on' : ''}`} data-ui="피드백 줄" data-ui-item={`${e.date} ${e.time} ${e.target}`} data-fb-key={e.key} onClick={() => setOpen(open === k ? null : k)}>
               <td className="mono fbp-when"><button type="button" className="fbp-open" aria-expanded={open === k} aria-label={`${open === k ? t('접기', 'Collapse') : t('펼치기', 'Expand')}: ${e.date} ${e.time} ${text.slice(0, 40)}`}>{feedbackWhen(e.date, e.time)}</button></td>
               <td className="fbp-cell">{ELEMENTS.includes(kindOf(e)) ? kindName(kindOf(e)) : ''}</td>
               <td className="fbp-cell">{TYPES.includes(kindOf(e)) ? kindName(kindOf(e)) : ''}</td>
@@ -209,7 +206,7 @@ function InApp({ e }: { e: FeedbackItem }) {
 const FOLD_AT = 3
 function Group({ name, list, showDate }: { name: string; list: FeedbackItem[]; showDate: boolean }) {
   const open = list.filter((e) => stateOf(e) === '대기')
-  const done = list.filter((e) => stateOf(e) !== '대기')
+  const done = list.filter((e) => stateOf(e) !== '대기'), focus = useContext(FeedbackFocus)
   const counts = (['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류', '승인'] as const).map((s) => [s, done.filter((e) => stateOf(e) === s).length] as const).filter(([, n]) => n > 0)
   return (
     <section data-ui="피드백 묶음" data-ui-item={name} className="fbp-group">
@@ -221,7 +218,7 @@ function Group({ name, list, showDate }: { name: string; list: FeedbackItem[]; s
         {open.map((e) => <Entry key={`${e.source ?? ''} ${e.date} ${e.time} ${e.target} ${e.n}`} e={e} showDate={showDate} />)}
         {done.length > 0 && (done.length > FOLD_AT && open.length > 0
           ? (
-            <details className="fbp-fold" data-ui="처리한 피드백 접기">
+            <details className="fbp-fold" data-ui="처리한 피드백 접기" open={done.some((x) => x.key === focus) || undefined}>
               <summary>{t(`처리한 것 ${done.length}건`, `Handled ${done.length}`)}</summary>
               {done.map((e) => <Short key={`${e.source ?? ''} ${e.date} ${e.time} ${e.target} ${e.n}`} e={e} showDate={showDate} />)}
             </details>
@@ -234,12 +231,12 @@ function Group({ name, list, showDate }: { name: string; list: FeedbackItem[]; s
 
 /** 처리한 피드백 한 줄: 상태 · 교정문(없으면 원문) · 눌러서 펼침 */
 function Short({ e, showDate }: { e: FeedbackItem; showDate: boolean }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(useIsFocus(e))
   if (open) return <Entry e={e} showDate={showDate} onFold={() => setOpen(false)} />
   const st = stateOf(e)
   const text = feedbackSummary(e.status?.clean ?? e.text)
   return (
-    <button className="fbp-short" data-ui="피드백 한 줄" data-ui-item={`${e.time} ${e.target}`} onClick={() => setOpen(true)} title={e.status?.understood ?? text}>
+    <button className="fbp-short" data-ui="피드백 한 줄" data-ui-item={`${e.time} ${e.target}`} data-fb-key={e.key} onClick={() => setOpen(true)} title={e.status?.understood ?? text}>
       <span className="tag">{kindName(kindOf(e))}</span>
       <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
       <span className="fbp-short-text">{text}</span>
@@ -251,10 +248,10 @@ function Short({ e, showDate }: { e: FeedbackItem; showDate: boolean }) {
 
 function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; onFold?(): void }) {
   const st = stateOf(e)
-  const [talk, setTalk] = useState<'closed' | 'open' | 'focus'>('closed')
+  const [talk, setTalk] = useState<'closed' | 'open' | 'focus'>(useIsFocus(e) ? 'open' : 'closed')
   const showTalk = !(resultToApprove(e) || st === '승인') || talk !== 'closed' // 승인 기다림 · 끝남은 대화를 접는다. 「의견 남기기」가 펴고 입력란으로 (11/9 N7ik 3절)
   return (
-    <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`}>
+    <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`} data-fb-key={e.key}>
       <div className="fbp-head">
         <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
         <span className="tag">{kindName(kindOf(e))}</span>
@@ -276,6 +273,8 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
       {needsAnswer(e) && <div className="fbp-ask" data-ui="물음"><b>{t('Claude가 묻는 것', 'Claude asks')}</b> {e.status!.ask}</div>}
       {e.status && <Summary e={e} onOpinion={resultToApprove(e) && talk === 'closed' ? () => setTalk('focus') : undefined} />}
       {(e.status || e.comments) && <Conversation e={e} shut={!showTalk} onOpen={(o) => setTalk(o ? 'open' : 'closed')} />}
+      {/* 맡은 대화가 일하는 중이면 대화 맨 아래, 방금 남긴 글 바로 밑에 (11/20 논의) */}
+      <AgentLine e={e} part="replying" />
       {e.merged && (
         <details className="fbp-merged" data-ui="합친 코멘트">
           <summary>{t(`같은 지적 ${e.merged.length}건을 이 항목으로 합침`, `Merged ${plural(e.merged.length, 'duplicate')} into this item`)} · {e.merged.map((m) => `${m.date.slice(5)} ${m.time}`).join(', ')}</summary>
@@ -289,52 +288,6 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
       )}
       {showTalk && <Compose e={e} focus={talk === 'focus'} />}
     </article>
-  )
-}
-
-/**
- * 피드백을 맡은 에이전트 대화 (2단계 나, 10/21 "앱 안 대화", 10/22 "권한 넓히기"): 맡긴 시각 · 상태 · PR · 대화 보기 · 멈추기.
- * 맡은 대화가 없거나 끝난 뒤 다시 에이전트 차례가 되면 「에이전트에게 맡기기」. 앱 저장소가 있는 맥에서만 보인다.
- * 버튼은 항목 머리 줄 오른쪽(part "button"), 대화 줄은 대화가 있을 때만 본문 아래(part "line") (10/28 07:38).
- * 사용자가 그 뒤에 답했으면(승인 · 수정 · 진행 · 중단) 지난 대화 줄은 감춘다.
- */
-function AgentLine({ e, part }: { e: FeedbackItem; part: 'button' | 'line' }) {
-  const client = useQueryClient()
-  const list = useQuery({ queryKey: qk.agentChatList(), queryFn: () => agentChatsApi.list() })
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  if (!list.data?.app) return null
-  const chat: ChatRow | undefined = list.data.chats.find((c) => c.feedback === e.key)
-  const live = !!chat && isLive(chat.state)
-  const turn = agentTurns(e).length > 0
-  const answeredAfter = !!chat && !!e.review && new Date(e.review.at).getTime() > new Date(chat.updated).getTime()
-  const showChat = !!chat && (live || !answeredAfter)
-  const canHand = turn && !live && list.data.handOff
-  if (part === 'button' ? !canHand : !showChat) return null
-  const handOff = async () => {
-    setBusy(true); setError('')
-    try {
-      await agentChatsApi.handOff(e.key)
-      await client.invalidateQueries({ queryKey: qk.agentChats })
-    } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
-  }
-  const stop = () => void agentChatsApi.stop(chat!.id).then(() => client.invalidateQueries({ queryKey: qk.agentChats }), (err: Error) => setError(err.message))
-  if (part === 'button') return (
-    <>
-      {error && <span className="error-text fbp-agent-error" role="alert">{error}</span>}
-      {/* 고치기 · 지우기처럼 마우스를 올릴 때만 보이는 아이콘 (10/28 20:08 반려) */}
-      <button type="button" className="icon-btn fbp-hand hover-actions" data-ui="에이전트에게 맡기기" disabled={busy} aria-label={t('에이전트에게 맡기기', 'Hand to agent')} title={t('에이전트에게 맡기기: 이 피드백을 이 맥의 Claude에게 맡깁니다. 따로 둔 작업 폴더에서 고치고 시험한 뒤 PR을 엽니다', 'Hand to agent: Claude on this Mac fixes and tests it in a separate work folder, then opens a PR')} onClick={() => void handOff()}>{Icon.spark}</button>
-    </>
-  )
-  return (
-    <div className="fbp-agent" data-ui="에이전트 진행">
-      <ChatStateMark state={chat!.state} label name={chatStateName(chat!)} />
-      <span className="muted">{t('맡김', 'Handed off')} {localDate(new Date(chat!.created)).slice(5)} {localTime(new Date(chat!.created))}</span>
-      {chat!.pr && <a className="a" data-ui="대화 PR" href={chat!.pr.url} target="_blank" rel="noreferrer">PR #{chat!.pr.number}</a>}
-      <a className="a" data-ui="대화 보기" href={href({ page: 'agent', id: chat!.id })}>{t('대화 보기', 'Open conversation')}</a>
-      {live && <button type="button" className="fb-link" data-ui="대화 멈추기" onClick={stop}>{t('멈추기', 'Stop')}</button>}
-      {error && <span className="error-text fbp-agent-error">{error}</span>}
-    </div>
   )
 }
 
@@ -367,7 +320,7 @@ function Summary({ e, onOpinion }: { e: FeedbackItem; onOpinion?(): void }) {
           {[...revised].reverse().map((h) => (
             <div key={h.at} className="fbp-summary-old">
               <span className="muted">{whenOf(h.handled_at ?? h.at)}</span>
-              {(['understood', 'cause', 'note'] as const).map((f) => h[f] && <div key={f} className="fbp-summary-row"><b>{FIELD_NAME[f]}</b><span className="fbp-summary-text">{h[f]}</span><span /></div>)}
+              {(['understood', 'cause', 'note'] as const).map((f) => h[f] && <div key={f} className="fbp-summary-row"><b>{FIELD_NAME[f]}</b><span className="fbp-summary-text">{h[f]}</span><span /></div>)}<BeforeAfter pictures={h.pictures} />
             </div>
           ))}
         </details>
@@ -460,7 +413,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
           ? <span>{(s.note ?? '').split('\n')[0]} <span className="muted">→ {t('내용은 위 「지금 처리」', 'see Current handling above')}</span></span>
           : s.note && <MemoText text={s.note} />}
       {handling && !pointer && 'commit' in s && s.commit && <span className="mono muted fbp-say-version">{s.commit}</span>}
-      {error && <span className="error-text">{error}</span>}
+      {!pointer && 'mockups' in s && <FeedbackMockups e={e} paths={s.mockups} />}{error && <span className="error-text">{error}</span>}
     </SayCard>
   )
 }

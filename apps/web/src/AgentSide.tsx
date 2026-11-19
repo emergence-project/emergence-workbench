@@ -1,17 +1,20 @@
 // 어느 화면에서나 오른쪽 사이드바로 에이전트와 대화 (11/16 사용자 "모든 페이지에서 오른쪽 사이드바를 통해서 메인 에이전트 또는 에이전트와 대화").
 // 프로젝트 밖 화면(홈 · 피드백 · 소개 · 설정 …)의 오른쪽 사이드바: 맨 위에 「중앙」, 그 아래 모든 프로젝트의 최근 대화, 아래 입력란은 중앙에게 말한다.
 // 대화를 누르면 이 사이드바 안에서 연다(페이지를 옮기지 않음). 프로젝트 화면은 원래의 오른쪽 사이드바 에이전트 탭을 쓰고, 그 목록 맨 위에도 「중앙」이 있다
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { agentChatsApi, CENTRAL_RID } from './api'
 import { ChatLine, PanelChat, rank, useChatList } from './AgentChats'
 import { CENTRAL_PAGE, CentralLine } from './CentralChat'
 import { t } from './i18n'
+import { screenLine } from './screenView'
 import { Icon } from './icons'
-import { setRightMode, useRightMode } from './noteScreen'
+import { setRightMode, useRightMode, type RightMode } from './noteScreen'
 import { qk } from './queries'
 import { go } from './router'
 import { store } from './store'
+import { TerminalPane, useTerminalAvailable } from './TerminalPane'
+export { useTerminalAvailable } from './TerminalPane'
 
 const KEY = 'rw-agent-panel-all'
 /** 사이드바 목록에 보일 최근 대화 수 (나머지는 에이전트 화면에서) */
@@ -53,19 +56,61 @@ export function GlobalAgentPanel({ onSaved }: { onSaved(m: string): void }) {
   )
 }
 
-/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 맨 위 「정보 | 에이전트」로 그 화면 정보와 에이전트를 오간다.
+/** 맨 위 갈래 단추 (정보 | 에이전트 | 터미널). 터미널은 이 컴퓨터에서 연 화면만 */
+function SideTabs({ modes, mode }: { modes: [RightMode, string][]; mode: RightMode }) {
+  return (
+    <div className="segmented small full" role="tablist" aria-label={t('오른쪽 사이드바 갈래', 'Right sidebar view')} data-ui="오른쪽 사이드바 갈래">
+      {modes.map(([m, label]) => <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} onClick={() => setRightMode(m)}>{label}</button>)}
+    </div>
+  )
+}
+
+/** 프로젝트 밖 화면의 터미널: rid의 폴더(중앙은 앱 저장소, 못 찾으면 홈)에서 연다. rid를 아직 모르면(대화 목록을 받는 중) 기다린다.
+ *  한 번 열면 다른 갈래 · 다른 대화로 가도 셸을 그대로 둔다 */
+function useSideTerminal(mode: RightMode, rid: string | null = CENTRAL_RID) {
+  const able = useTerminalAvailable()
+  const [opened, setOpened] = useState(false)
+  useEffect(() => { if (able && mode === 'terminal' && rid !== null) setOpened(true) }, [able, mode, rid])
+  const on = able && mode === 'terminal'
+  return { able, on, pane: able && opened && <div className="rs-col" hidden={!on}><TerminalPane rid={rid ?? undefined} /></div> }
+}
+
+/** 에이전트 화면에서 연 대화의 프로젝트 (중앙 · 대화를 고르지 않음은 중앙). 목록을 받는 중이면 null */
+function useChatRid(id: string | undefined): string | null {
+  const list = useChatList().data?.chats
+  if (!id || id === CENTRAL_PAGE) return CENTRAL_RID
+  if (!list) return null
+  return list.find((c) => c.id === id)?.rid ?? CENTRAL_RID
+}
+
+/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 맨 위 「정보 | 에이전트 | 터미널」로 그 화면 정보와 에이전트를 오간다.
  *  고른 갈래는 노트 화면의 오른쪽 사이드바 갈래와 같은 기억(noteScreen) */
 export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: string): void; children: ReactNode }) {
-  const agent = useRightMode() === 'agent'
+  const chosen = useRightMode()
+  const term = useSideTerminal(chosen)
+  const mode: RightMode = chosen === 'agent' || term.on ? chosen : 'info'
+  const side = mode !== 'info'
   return (
-    <aside className={`kh-side kh-side-tabs${agent ? ' kh-side-agent' : ''}`} data-ui={agent ? '에이전트 사이드바' : ui}>
-      <div className="segmented small full" role="tablist" aria-label={t('오른쪽 사이드바 갈래', 'Right sidebar view')} data-ui="오른쪽 사이드바 갈래">
-        <button role="tab" aria-selected={!agent} className={agent ? '' : 'on'} onClick={() => setRightMode('info')}>{t('정보', 'Info')}</button>
-        <button role="tab" aria-selected={agent} className={agent ? 'on' : ''} onClick={() => setRightMode('agent')}>{t('에이전트', 'Agent')}</button>
-      </div>
-      {agent ? <GlobalAgentPanel onSaved={onSaved} /> : children}
+    <aside className={`kh-side kh-side-tabs${side ? ' kh-side-agent' : ''}`} data-ui={mode === 'agent' ? '에이전트 사이드바' : mode === 'terminal' ? '터미널 사이드바' : ui}>
+      <SideTabs mode={mode} modes={term.able ? [['info', t('정보', 'Info')], ['agent', t('에이전트', 'Agent')], ['terminal', t('터미널', 'Terminal')]] : [['info', t('정보', 'Info')], ['agent', t('에이전트', 'Agent')]]} />
+      {mode === 'agent' ? <GlobalAgentPanel onSaved={onSaved} /> : mode === 'info' && children}
+      {term.pane}
     </aside>
   )
+}
+
+/** 프로젝트 밖 화면의 에이전트 사이드바 (App.tsx): 이 컴퓨터에서 연 화면이면 맨 위 「에이전트 | 터미널」.
+ *  에이전트 화면(terminalOnly: 새 대화 · 중앙)은 터미널만. 대화를 연 화면은 대화 머리 「>_」가 오른쪽 칸을 터미널로 바꾼다(AgentChats.tsx의 AgentPage). 터미널은 그 대화의 프로젝트 폴더, 그 밖은 중앙(앱 저장소)에서 연다 */
+export function AgentSideBody({ onSaved, terminalOnly, chatId }: { onSaved(m: string): void; terminalOnly?: boolean; chatId?: string }) {
+  const chosen = useRightMode()
+  const chatRid = useChatRid(terminalOnly ? chatId : undefined)
+  const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid)
+  if (terminalOnly) return term.pane
+  return <>
+    {term.able && <div className="rs-head side-tabbar"><SideTabs mode={term.on ? 'terminal' : 'agent'} modes={[['agent', t('에이전트', 'Agent')], ['terminal', t('터미널', 'Terminal')]]} /></div>}
+    {!term.on && <GlobalAgentPanel onSaved={onSaved} />}
+    {term.pane}
+  </>
 }
 
 /** 사이드바 아래 입력란: 중앙에게 말한다 (중앙이 없으면 연다). 보낸 뒤 그 대화를 사이드바에서 연다 */
@@ -79,7 +124,7 @@ function TalkToCentral({ onOpened }: { onOpened(id: string): void }) {
     setBusy(true)
     setFail(null)
     try {
-      const c = await agentChatsApi.talk(text.trim())
+      const c = await agentChatsApi.talk(text.trim(), screenLine())
       client.setQueryData(qk.agentChat(c.id), c)
       void client.invalidateQueries({ queryKey: qk.agentChatLists })
       setText('')

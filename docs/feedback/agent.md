@@ -50,6 +50,7 @@
 - 다시 처리할 때는 그 전의 understood · cause · note · commit · handled_at · by를 `revised:`에 `at: <그 답의 at>`과 함께 옮기고, 위 칸은 새 글로 바꾼 뒤 `rework: <그 답의 at>`을 적는다.
 - 반려를 다시 처리하면 그 `revised` 항목에 `miss`(답 불분명 · 덜 고침 · 잘못 읽음 · 새 요구 · 논의)와 `lesson`(다음엔 이렇게, 한 줄)을 적는다. 에이전트 도구가 다음 세션 첫머리에 최근 교훈을 보인다.
 - 처리한 뒤 사용자가 그 글을 고쳤으면(`edited` > `handled_at`) 다시 읽고 처리한다.
+- 사용자가 피드백 화면 대신 그 항목을 맡은 대화에서 진행 · 승인 · 반려 · 중단 · 논의를 말하면, 에이전트는 feedback_answer의 `verdict`(그 말은 `verdictNote`)로 적는다. 화면에서 고른 것과 같이 reviews.yaml에 남는다. 새 처리와 함께 보내면 앱이 판정을 먼저 적는다. 에이전트가 스스로 판정하지 않는다.
 
 ## 5. 코멘트에 답하기
 
@@ -64,6 +65,7 @@
 - 항목마다 `state`, `clean`, `understood`, `cause`, `note`, `commit`, `handled_at`, `by`. 사용자 답이 필요하면 `ask`(묻는 것 한 문장). 앱에 버전이 붙으면 `version`.
 - `handled_at` · `revised.at` · `replies.at`은 앱이 도는 컴퓨터의 시간대로, 시간대 표기 없이 적는다. 다른 시간대로 적으면 차례가 어긋난다.
 - 화면을 바꾼 처리는 고치기 전 화면 한 장과 고친 뒤 화면 한 장을 그림 폴더에 두고 `pictures: [전, 후]`. 전후를 한 장에 합치지 않는다.
+- 시안은 `mockups: [그림 · html 파일 경로]`(그림 폴더 안). 앱 대화에서는 작업 폴더 `mockups/`에 둔 시안 이름을 `feedback_answer`의 `mockups`(답에 붙이면 `replies[].mockups`)로 보내면 앱이 그림 폴더로 옮겨 적는다. 같은 이름의 그림과 html은 한 시안이다. 처리를 적은 뒤 `state` 없이 `mockups`만 보내면 지금 처리에 더한다. 피드백 화면은 작은 그림 · 크게 넘겨 보기 · html 새 창 · 「이 시안으로 진행」 · 「논의」로 보인다.
 - 같은 지적은 최신 항목을 대표로 두고 나머지에 `merged_into: <대표 키>`.
 
 ## 7. 정리와 규칙 만들기

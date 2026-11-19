@@ -1,25 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Icon } from './icons'
 import { FigureUrlPreview } from './FigurePreview'
 import { t } from './i18n'
 
-/** fit: 작은 그림(노트의 svg 등)도 창 폭에 맞춰 키운다. pdf: 첫 쪽을 그린다. figure: 그림 라이브러리의 그림이면 그 id ("그림 화면에서 열기"를 보인다) */
-export interface GalleryPicture { src: string; label: string; alt: string; pdf?: boolean; figure?: string; fit?: boolean }
+/**
+ * fit: 작은 그림(노트의 svg 등)도 창 폭에 맞춰 키운다. pdf: 첫 쪽을 그린다. figure: 그림 라이브러리의 그림이면 그 id ("그림 화면에서 열기"를 보인다).
+ * html: 같은 시안의 html 주소 (머리에 "html 새 창에서 열기 ↗")
+ */
+export interface GalleryPicture { src: string; label: string; alt: string; pdf?: boolean; figure?: string; fit?: boolean; html?: string }
 
 /**
  * 그림 크게 보기 (10/13 피드백 "갤러리처럼 넘겨 보기"): 누른 그림 하나를 화면 위에 크게 띄우고,
  * 양옆 화살표 · ← → 키로 넘기고, Esc · × · 바깥 누르기로 닫는다. 위에 "전 1/2"처럼 지금 그림을 적는다.
  * 노트의 그림도 같은 창으로 띄운다(10/15 B′): 라이브러리 그림이면 머리에 "그림 화면에서 열기".
  */
-export function PictureGallery({ pictures, start, onClose, onOpenFigure }: { pictures: GalleryPicture[]; start: number; onClose(): void; onOpenFigure?(id: string): void }) {
+/** foot: 지금 그림 아래에 둘 것 (피드백 시안의 「진행」 · 「논의」, FeedbackMockups.tsx) */
+export function PictureGallery({ pictures, start, onClose, onOpenFigure, foot }: { pictures: GalleryPicture[]; start: number; onClose(): void; onOpenFigure?(id: string): void; foot?(p: GalleryPicture): ReactNode }) {
   const [at, setAt] = useState(start)
   const n = pictures.length
   const step = (d: number) => setAt((k) => (k + d + n) % n)
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
+      // 아래 글칸(foot의 논의)에 적는 중이면 ← →는 글 안에서 움직인다
+      const paging = n > 1 && !(e.target instanceof HTMLElement && e.target.closest('textarea, input'))
       if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowLeft' && n > 1) step(-1)
-      else if (e.key === 'ArrowRight' && n > 1) step(1)
+      else if (e.key === 'ArrowLeft' && paging) step(-1)
+      else if (e.key === 'ArrowRight' && paging) step(1)
       else return
       e.preventDefault()
     }
@@ -33,6 +39,7 @@ export function PictureGallery({ pictures, start, onClose, onOpenFigure }: { pic
       <div className="gallery-box" role="dialog" aria-modal="true" aria-label={p.alt} data-ui="그림 크게 보기">
         <div className="gallery-head">
           <span className="gallery-label">{p.label}{n > 1 && <span className="muted"> {at + 1}/{n}</span>}</span>
+          {p.html && <a className="a gallery-open" data-ui="시안 새 창" href={p.html} target="_blank" rel="noopener noreferrer">{t('html 새 창에서 열기 ↗', 'Open html in new window ↗')}</a>}
           {p.figure && onOpenFigure && <button type="button" className="a gallery-open" data-ui="그림 화면에서 열기" onClick={() => onOpenFigure(p.figure!)}>{t('그림 화면에서 열기', 'Open in figure screen')}</button>}
           <button type="button" className="icon-btn" data-tip={t('닫기 (Esc)', 'Close (Esc)')} aria-label={t('닫기', 'Close')} onClick={onClose}>{Icon.x}</button>
         </div>
@@ -41,6 +48,7 @@ export function PictureGallery({ pictures, start, onClose, onOpenFigure }: { pic
           {p.pdf ? <FigureUrlPreview url={p.src} pdf name={p.alt} className="gallery-pdf" /> : <img src={p.src} alt={p.alt} className={p.fit ? 'gallery-fit' : undefined} />}
           {n > 1 && <button type="button" className="icon-btn gallery-nav next" data-tip={t('다음 (→)', 'Next (→)')} aria-label={t('다음 그림', 'Next picture')} onClick={() => step(1)}>{Icon.forward}</button>}
         </div>
+        {foot?.(p)}
       </div>
     </div>
   )

@@ -62,6 +62,8 @@ export const qk = {
   /** 안 올린 기록 파일 (git): 올리기 결과 키 아래에 두어 그 알림 때 함께. 기록 · 일지 파일이 바뀌면 이것만 */
   recordsUnpublished: (rid: string) => ['project', rid, 'records-publish', 'unpublished'] as const,
   papers: ['papers'] as const,
+  /** 이 화면에서 터미널을 쓸 수 있는지 (이 컴퓨터에서 연 화면만) */
+  terminal: ['terminal'] as const,
   /** 에이전트 대화 (앱 설정 폴더, 연구 저장소 밖). 지금 작업 상태(agentWork)는 모든 프로젝트 것 */
   agentChats: ['agent-chats'] as const,
   /** 대화 목록 (rid가 없으면 모든 프로젝트) · 대화 하나 */
@@ -70,6 +72,8 @@ export const qk = {
   /** 중앙 대화와 하위 대화 (목록 키 아래라 대화가 바뀌면 함께 다시 받는다) */
   agentCentral: ['agent-chats', 'list', 'central'] as const,
   agentChat: (id: string) => ['agent-chats', 'one', id] as const,
+  /** 대화 작업 폴더의 시안 파일 (11/19). agent-chats 아래라 대화 알림 때 함께 다시 받는다 */
+  agentMockups: (dir: string) => ['agent-chats', 'mockups', dir] as const,
   agentWork: ['agent-work'] as const,
   /** 밖에서 도는 에이전트의 상태 (훅, 10/30) */
   agentHooks: ['agent-hooks'] as const,
@@ -109,12 +113,12 @@ export const qk = {
   latexSetup: ['latex-setup'] as const,
   /** 구글 연결 상태 (네트워킹의 "나"를 이메일로 찾는다) */
   googleStatus: ['google-status'] as const,
-  /** 시작 준비 (설정 › 계정, 홈 카드) */
+  /** 시작 준비 (계정, 홈 카드) */
   setup: ['setup'] as const,
   /** 설정 › 에이전트 › AI 키 (AgentSettings.tsx) */
   aiKey: ['settings', 'ai-key'] as const,
   codex: ['settings', 'codex'] as const,
-  /** GitHub 로그인으로 읽은 저장소 목록 (설정 › 계정, 홈의 시작 준비, 프로젝트 등록) */
+  /** GitHub 로그인으로 읽은 저장소 목록 (계정, 홈의 시작 준비, 프로젝트 등록) */
   githubRepos: ['github-repos'] as const,
 }
 
@@ -135,6 +139,8 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   // 개인 저장소에서 새 처리 기록을 받으면 피드백 화면 · 레일의 수 (11/4: 앱을 다시 시작해야 보였다)
   if (e.type === 'feedback') return [qk.feedback]
   if (e.type === 'account') return [qk.account, qk.setup, qk.githubRepos]
+  // 앱 업데이트 상태는 AppUpdate.tsx가 따로 다시 확인한다 (App.tsx)
+  if (e.type === 'app') return []
   if (e.type === 'agent-chat') {
     const keys: QueryKey[] = [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
     return e.research === APP_RID ? [...keys, qk.feedback] : keys
@@ -147,7 +153,7 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
 /** 모든 사람 페이지 (qk.person(id)의 앞부분) */
 const PERSON_PAGES: QueryKey = [...qk.network, 'person']
 
-function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' | 'agent-hooks' | 'feedback' | 'account' }>): QueryKey[] {
+function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' | 'agent-hooks' | 'feedback' | 'account' | 'app' }>): QueryKey[] {
   const rid = e.research
   // 확인할 것의 수(researchIssues)는 맡긴 일 · 노트(에이전트 고침) · 기록과, 고침을 받거나 되돌릴 때의 research 알림에서 바뀐다
   switch (e.type) {

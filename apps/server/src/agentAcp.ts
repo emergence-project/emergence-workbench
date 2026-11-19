@@ -15,6 +15,7 @@ import readline from 'node:readline'
 import type { ModelChoice } from '@rw/core/contract/agentChats'
 import { Inbox, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type ToolDecision, type Turn } from './agentChats.js'
 import { acpCommand, acpEnv, type AcpSpec } from './agentKinds.js'
+import { gitIdentityEnv } from './git.js'
 import { ensureCodexAcp } from './codexAcp.js'
 import { codexBin } from './codexCli.js'
 import { HERE, t } from './i18n.js'
@@ -41,7 +42,8 @@ export class AcpConnection {
     readline.createInterface({ input: proc.stdout! }).on('line', (line) => this.line(line))
     proc.stderr?.on('data', (d: Buffer) => { this.err = (this.err + d.toString()).slice(-2000) })
     proc.on('error', (e) => this.end(e))
-    proc.on('exit', (code) => this.end(new Error(this.err.trim().split('\n').slice(-3).join('\n') || t(`에이전트가 끝났습니다 (코드 ${code})`, `The agent exited (code ${code})`))))
+    // 비정상 종료 알림(agentCrash.ts)에 코드와 stderr 마지막 줄을 함께 싣는다
+    proc.on('exit', (code, signal) => { const err = this.err.trim().split('\n').slice(-5).join('\n'); this.end(new Error(`${t(`에이전트가 끝났습니다 (${code ?? signal})`, `The agent exited (${code ?? signal})`)}${err ? `. stderr: ${err}` : ''}`)) })
   }
 
   private end(e: Error): void {
@@ -91,7 +93,7 @@ export class AcpConnection {
 // ---------- ACP 도구 → 앱의 도구 이름 ----------
 
 /** 앱 MCP 도구 (HTTP 입구가 따로 판단하므로 에이전트가 물어도 그대로 허락한다) */
-const WORKBENCH_TOOLS = new Set(['add_journal', 'add_record', 'add_task', 'answer_record', 'app_checks', 'app_submit', 'attempt_add', 'attempt_report', 'attempt_start', 'attempt_verdict', 'changes_since', 'checkpoint_task', 'direction_report', 'edit_concept', 'edit_note', 'feedback_answer', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'problem_brief', 'problem_prepare', 'problem_propose', 'problem_read', 'problems', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
+const WORKBENCH_TOOLS = new Set(['add_journal', 'add_record', 'add_task', 'answer_record', 'app_checks', 'app_merge', 'app_submit', 'attempt_add', 'attempt_report', 'attempt_start', 'attempt_verdict', 'changes_since', 'checkpoint_task', 'direction_report', 'edit_concept', 'edit_note', 'feedback_answer', 'list_edit_reviews', 'list_notes', 'list_projects', 'list_records', 'list_tasks', 'overview', 'problem_brief', 'problem_prepare', 'problem_propose', 'problem_read', 'problems', 'project_status', 'read_concept', 'read_note', 'read_records', 'read_task', 'report_task', 'rules', 'search_library'])
 
 /** 도구 부르기 하나: 앱 MCP면 mcp, 판단 없이 둘 것(생각 · 모드 바꾸기)이면 free */
 export type AcpCall = { tool: string; input: Json; mcp?: boolean; free?: boolean }
@@ -153,7 +155,7 @@ function blocksOf(text: string, x: Turn, images: boolean): Json[] {
 // ---------- 실행기 ----------
 
 /** 대화마다 여는 앱 MCP 입구 (HTTP). 앱 서버가 듣는 중이 아니면(시험) 없음 */
-export type ChatMcp = (o: { appChat?: string; gate: RunInput['canUseTool'] }) => { url: string; close(): void } | undefined
+export type ChatMcp = (o: { appChat?: string; chat?: string; gate: RunInput['canUseTool'] }) => { url: string; close(): void } | undefined
 
 function launch(spec: AcpSpec, cwd: string, env?: Record<string, string>, configDir?: string): ChildProcess {
   const cmd = acpCommand(spec, configDir)
@@ -162,7 +164,7 @@ function launch(spec: AcpSpec, cwd: string, env?: Record<string, string>, config
     if (spec.id === 'codex' && configDir) throw new Error(t(`${HERE.ko}에 Codex가 아직 없습니다. 설정 › 에이전트의 「질문에 답할 AI」에서 ChatGPT로 연결해 주세요`, `Codex is not on ${HERE.en} yet. Connect ChatGPT under Settings › Agents › AI for questions`))
     throw new Error(t(`${HERE.ko}에서 ${spec.name}를 찾지 못했습니다. 깔고 한 번 로그인해 주세요: ${spec.install}`, `${spec.name} was not found on ${HERE.en}. Install it and sign in once: ${spec.install}`))
   }
-  return spawn(cmd.file, cmd.args, { cwd, env: acpEnv({ ...cmd.env, ...env }), stdio: ['pipe', 'pipe', 'pipe'], shell: cmd.shell, windowsHide: true })
+  return spawn(cmd.file, cmd.args, { cwd, env: acpEnv({ ...gitIdentityEnv(), ...cmd.env, ...env }), stdio: ['pipe', 'pipe', 'pipe'], shell: cmd.shell, windowsHide: true })
 }
 
 /** Codex: codex는 있는데 연결부를 아직 받지 않았으면 받고 띄운다 (codexAcp.ts, 시험의 가짜 에이전트는 건너뜀) */
@@ -213,7 +215,7 @@ export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp, configDir?: string):
     const proc = launch(spec, input.cwd, input.env, configDir)
     const kill = () => { if (proc.exitCode === null) proc.kill() }
     input.signal.addEventListener('abort', kill, { once: true })
-    const server = mcp({ ...(input.appChat && { appChat: input.appChat }), gate: input.canUseTool })
+    const server = mcp({ ...(input.appChat && { appChat: input.appChat }), ...(input.chat && { chat: input.chat }), gate: input.canUseTool })
     let text = ''
     let thought = ''
     let loading = false

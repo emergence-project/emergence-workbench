@@ -1,4 +1,4 @@
-// 피드백 화면 툴바의 보내기 버튼들: GitHub 이슈로 보내기, 피드백 파일로 보내기 · 가져오기 (FeedbackPage.tsx에서 나눔)
+// 피드백 화면 툴바의 버튼들: 바로 맡기기 켜기 · 끄기, GitHub 이슈로 보내기, 피드백 파일로 보내기 · 가져오기 (FeedbackPage.tsx에서 나눔)
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type FeedbackItem } from './api'
@@ -9,6 +9,7 @@ import { go } from './router'
 import { t } from './i18n'
 import { qk } from './queries'
 import { uiShown } from './uiNames'
+import { agentChatsApi } from './api/agentChats'
 
 /** 띠의 수 · 등록 버튼과 같은 키 (FeedbackPage.tsx) */
 const FEEDBACK_STATE = [...qk.feedback, 'state'] as const
@@ -88,7 +89,7 @@ export function FeedbackFileButtons() {
   return <>
     {note && <span className={`fbp-file-note ${note.error ? 'error-text' : 'muted'}`} data-ui="피드백 파일 결과">{note.text}</span>}
     {/* 내 이름도 GitHub 로그인도 없으면 컴퓨터 사용자 이름(윈도우는 흔히 USER)으로 가니, 이름을 넣으라고 알린다 (11/9) */}
-    {state.data.relay && !state.data.relay.named && <span className="fbp-file-note muted" data-ui="보내는 이름">{t(`보내는 이름: ${state.data.relay.from}`, `Sending as: ${state.data.relay.from}`)} · <button className="a" onClick={() => go({ page: 'settings', part: 'google' })}>{t('설정 › 계정에서 내 이름 넣기', 'Add your name in Settings › Accounts')}</button></span>}
+    {state.data.relay && !state.data.relay.named && <span className="fbp-file-note muted" data-ui="보내는 이름">{t(`보내는 이름: ${state.data.relay.from}`, `Sending as: ${state.data.relay.from}`)} · <button className="a" onClick={() => go({ page: 'account' })}>{t('계정에서 내 이름 넣기', 'Add your name in Account')}</button></span>}
     {state.data.relay && <button className={`btn${state.data.relay.pending ? ' primary' : ''}`} data-ui="관리자에게 보내기" disabled={busy || !state.data.relay.pending}
       title={state.data.relay.pending ? t('남긴 피드백은 잠시 뒤 자동으로 관리자에게 갑니다. 지금 바로 보내려면 누르세요', 'Feedback goes to the maintainer automatically shortly after you leave it. Click to send now') : t('남긴 피드백을 모두 관리자에게 보냈습니다', 'All your feedback has been sent to the maintainer')}
       onClick={() => void run(async () => { const r = await api.relayFeedback(); void client.invalidateQueries({ queryKey: qk.feedback }); return r.message })}>
@@ -102,4 +103,42 @@ export function FeedbackFileButtons() {
       </>
       : (!state.data.relay || state.data.relay.error) && <button className="btn" data-ui="피드백 파일로 보내기" disabled={busy} title={t('남긴 피드백과 그림을 파일 하나로 만들어 내려받기 폴더에 둡니다. 그 파일을 관리자에게 보내면 관리자의 피드백 화면에 보입니다', 'Saves your feedback and pictures as one file in Downloads. Send it to the maintainer and it appears on their feedback screen')} onClick={() => void send()}>{busy ? t('만드는 중…', 'Saving…') : t('피드백 파일로 보내기', 'Send as file')}</button>}
   </>
+}
+
+/**
+ * 바로 맡기기 켜기 · 끄기 (11/19 제안 "바로 답변하는 모드를 on/off로"): 설정 › 에이전트 › 앱 피드백 「맡기기」와 같은 값.
+ * 켜기 = 바로, 끄기 = 누를 때 (설정에서 끔이면 끄기에 불이 들어오고, 끄기를 눌러도 끔을 그대로 둔다). 앱 저장소가 있는 맥에서만 보인다.
+ * 클라우드에서 처리하는 동안은 바로 맡기기가 쉬므로 흐리게 두고 까닭을 띄운다.
+ */
+export function InstantToggle() {
+  const client = useQueryClient()
+  const list = useQuery({ queryKey: qk.agentChatList(), queryFn: () => agentChatsApi.list() })
+  const settings = useQuery({ queryKey: qk.agentSettings, queryFn: api.agentSettings, staleTime: 5 * 60_000 })
+  const cloud = useQuery({ queryKey: qk.feedbackCloud, queryFn: () => api.feedbackCloud() })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (!list.data?.app || !settings.data) return null
+  const pick = settings.data.feedback
+  const on = pick === 'instant'
+  const cloudOn = cloud.data?.enabled === true
+  const set = (next: boolean) => {
+    if (next === on) return
+    setBusy(true); setError(null)
+    api.saveAgentSettings({ feedback: next ? 'instant' : 'manual' })
+      .then((v) => client.setQueryData(qk.agentSettings, v))
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false))
+  }
+  const title = cloudOn
+    ? t('클라우드에서 처리하는 동안은 바로 맡기기가 쉽니다 (설정 › 에이전트 › 앱 피드백)', 'Right-away hand-off pauses while the cloud handles feedback (Settings › Agents › App feedback)')
+    : t('켜면 에이전트 차례인 피드백이 생길 때 앱이 바로 대화에 맡깁니다. 끄면 「에이전트에게 맡기기」를 누를 때만 맡깁니다. 설정 › 에이전트 › 앱 피드백의 「맡기기」와 같은 값입니다', 'When on, the app hands feedback that is the agent\'s turn to a conversation as soon as it comes. When off, only Hand to agent does. Same value as Hand off in Settings › Agents › App feedback')
+  return (
+    <span className={`fbp-pick fbp-instant${cloudOn ? ' paused' : ''}`} data-ui="바로 맡기기" title={error ?? title}>
+      {t('바로 맡기기', 'Right-away hand-off')}
+      <span className="segmented small" role="radiogroup" aria-label={t('바로 맡기기', 'Right-away hand-off')}>
+        {[false, true].map((v) => <button key={String(v)} role="radio" aria-checked={on === v} className={on === v ? 'on' : ''} disabled={busy} onClick={() => set(v)}>{v ? t('켜기', 'On') : t('끄기', 'Off')}</button>)}
+      </span>
+      {error && <span className="error-text">{error}</span>}
+    </span>
+  )
 }

@@ -16,7 +16,7 @@ const turn = <span className="rail-count about-turn" aria-label={t('사용자 �
 /** 프로젝트 › 주제 › 노트, 그리고 프로젝트 밖의 라이브러리 */
 export function DocMapFigure() {
   return (
-    <figure className="about-fig about-docmap" aria-label={t('글의 짜임: 프로젝트 안에 주제와 노트, 원고, 참고 자료. 프로젝트 밖 라이브러리에 개념노트, 논문, 그림', 'How writing is organized: topics and notes, manuscripts and reference materials inside a project; concept notes, papers and figures in the library outside projects')}>
+    <figure className="about-fig about-docmap" aria-label={t('글의 짜임: 프로젝트 안에 주제와 노트, 흐름, 원고, 맡긴 일, 참고 자료. 프로젝트 밖 라이브러리에 개념노트, 논문, 그림', 'How writing is organized: topics and notes, flows, manuscripts, delegated tasks and reference materials inside a project; concept notes, papers and figures in the library outside projects')}>
       <div className="dm-box dm-project">
         <b>{t('프로젝트', 'Project')}</b><span className="muted">{t('연구 하나 = 저장소 하나', 'one research project = one repository')}</span>
         <div className="dm-row">
@@ -30,6 +30,7 @@ export function DocMapFigure() {
             <span className="muted dm-foot">{t('주제가 없는 노트는 "노트들"에', 'Notes without a topic go in "Loose notes"')}</span>
           </div>
           <div className="dm-col">
+            <div className="dm-box dm-small"><b>{t('흐름', 'Flows')}</b><span className="muted">{t('질문 › 주장 › 시도', 'question › claims › attempts')}</span></div>
             <div className="dm-box dm-small"><b>{t('원고', 'Manuscript')}</b><span className="muted">{t('결과를 모은 개인 초고 (LaTeX)', 'personal draft gathering results (LaTeX)')}</span></div>
             <div className="dm-box dm-small"><b>{t('맡긴 일', 'Delegated tasks')}</b><span className="muted">{t('에이전트에게 맡긴 일과 보고서', 'tasks handed to agents, and their reports')}</span></div>
             <div className="dm-box dm-small"><b>{t('참고 자료', 'Reference materials')}</b><span className="muted">{t('가진 PDF·파일', 'PDFs and files you have')}</span></div>
@@ -55,6 +56,7 @@ export const DOC_KINDS: { name: string; what: string; format: string; where: Rea
   { name: t('노트', 'Note'), what: t('주제 안에서 완결된 최소 단위: 증명·유도·계산·열린 질문', 'Smallest self-contained unit in a topic: proof, derivation, calculation, open question'), format: 'Markdown + KaTeX', where: <>{c(t('workbench/topics/<주제>/', 'workbench/topics/<topic>/'))} · {c('notes/')} · {c('calc/')}</> },
   { name: t('개념노트', 'Concept note'), what: t('여러 연구가 다시 쓰는 정의·성질. 개념 하나에 노트 하나', 'Definitions and properties reused across projects. One note per concept'), format: 'Markdown + KaTeX', where: <>shared-library {c('concepts/')}</> },
   { name: t('문헌노트', 'Literature note'), what: t('논문 한 편의 정리', 'Summary of one paper'), format: 'LaTeX', where: <>shared-library {c('papers/')}</> },
+  { name: t('흐름', 'Flow'), what: t('예 · 아니오 질문 하나와 그 아래 주장, 주장마다 근거인 시도', 'One yes-or-no question, the claims under it, and the attempts that ground each claim'), format: 'YAML + Markdown', where: c(t('workbench/problems/<흐름>/', 'workbench/problems/<flow>/')) },
   { name: t('맡긴 일', 'Delegated task'), what: t('에이전트에게 맡긴 일 하나. 그 파일이 보고서', 'One task handed to an agent. The file is the report'), format: t('Markdown + YAML 머리말', 'Markdown + YAML front matter'), where: c('workbench/tasks/') },
 ]
 

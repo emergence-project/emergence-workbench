@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  appendJournalEntry, parseBlock, parseInline, parseJournal, parseMemo, setTodoDone, editJournalEntry, updateBlockMeta,
+  appendJournalEntry, parseBlock, parseInline, parseJournal, parseMemo, setTodoDone, memoTableCells, editJournalEntry, updateBlockMeta,
   type BlockMeta, type MemoBlock, type MetaPatch,
 } from './index.js'
 
@@ -185,11 +185,60 @@ describe('메모 마크다운', () => {
     expect((blocks[2] as Extract<MemoBlock, { kind: 'list' }>).ordered).toBe(true)
   })
 
+  it('번호 목록은 하위 항목 · 빈 줄 · 들여쓴 이어진 줄을 건너 이어지고, 번호는 첫 항목부터 하나씩', () => {
+    const blocks = parseMemo('1. 하나\n   - 하위\n   이어서\n\n1. 둘\n   1. 안쪽\n   1. 안쪽 둘\n1. 셋\n\n문단\n\n4. 넷')
+    expect(blocks.map((b) => b.kind)).toEqual(['list', 'para', 'list'])
+    const list = blocks[0] as Extract<MemoBlock, { kind: 'list' }>
+    expect(list.items.map((i) => [i.depth, i.ordered, i.num])).toEqual([[0, true, 1], [1, false, undefined], [0, true, 2], [1, true, 1], [1, true, 2], [0, true, 3]])
+    expect(list.items[1]!.inline).toEqual([{ kind: 'text', text: '하위' }, { kind: 'text', text: ' ' }, { kind: 'text', text: '이어서' }])
+    expect((blocks[2] as Extract<MemoBlock, { kind: 'list' }>).items[0]!.num).toBe(4)
+  })
+
   it('수식 안의 *나 -는 목록·굵게로 읽지 않는다', () => {
     expect(parseInline('$a*b - c$ 와 `x**2`')).toEqual([
       { kind: 'math', tex: 'a*b - c' }, { kind: 'text', text: ' 와 ' }, { kind: 'code', text: 'x**2' },
     ])
     expect(parseMemo('$-x$ 는 음수').map((b) => b.kind)).toEqual(['para'])
+  })
+
+  it('``` 코드 블록은 줄을 그대로 두고 언어를 적는다 (닫지 않았으면 끝까지)', () => {
+    expect(parseMemo('설치:\n```bash\npnpm install --frozen-lockfile\n  ls -a\n```\n끝')).toEqual([
+      { kind: 'para', lines: [[{ kind: 'text', text: '설치:' }]] },
+      { kind: 'pre', lang: 'bash', text: 'pnpm install --frozen-lockfile\n  ls -a' },
+      { kind: 'para', lines: [[{ kind: 'text', text: '끝' }]] },
+    ])
+    expect(parseMemo('- 목록\n  ```\n  ls -a\n  ```')[1]).toEqual({ kind: 'pre', lang: '', text: 'ls -a' })
+    expect(parseMemo('````\n```\n$x$\n````')).toEqual([{ kind: 'pre', lang: '', text: '```\n$x$' }])
+    expect(parseMemo('```sh\necho 오는 중')).toEqual([{ kind: 'pre', lang: 'sh', text: 'echo 오는 중' }])
+  })
+
+  it('표: 머리 줄 다음 구분 줄이 있으면 표로 읽고, 정렬과 칸 속 수식 · 코드를 지킨다', () => {
+    const blocks = parseMemo('결과\n| 경우 | 값 | 비고 |\n|:--|--:|:-:|\n| $|x|$ | `a|b` | x \\| y |\n| 둘 | 2 |\n\n뒤 문단')
+    expect(blocks.map((b) => b.kind)).toEqual(['para', 'table', 'para'])
+    const table = blocks[1] as Extract<MemoBlock, { kind: 'table' }>
+    expect(table.align).toEqual(['left', 'right', 'center'])
+    expect(table.head).toEqual([[{ kind: 'text', text: '경우' }], [{ kind: 'text', text: '값' }], [{ kind: 'text', text: '비고' }]])
+    expect(table.rows[0]).toEqual([[{ kind: 'math', tex: '|x|' }], [{ kind: 'code', text: 'a|b' }], [{ kind: 'text', text: 'x | y' }]])
+    // 모자란 칸은 빈 칸으로 채운다
+    expect(table.rows[1]![2]).toEqual([])
+  })
+
+  it('표가 아닌 것: 구분 줄이 없거나 칸 수가 다르면 문단, 돈 표시는 칸을 나눈다', () => {
+    expect(parseMemo('a | b\nc | d').map((b) => b.kind)).toEqual(['para'])
+    expect(parseMemo('| a | b |\n|---|').map((b) => b.kind)).toEqual(['para'])
+    expect(memoTableCells('| $5 | $6 |')).toEqual(['$5', '$6'])
+    expect(memoTableCells('a | b')).toEqual(['a', 'b'])
+  })
+
+  it('제목: # 뒤에 빈칸이 있으면 제목 (닫는 #은 뗀다), 문단을 끊고 안의 코드를 읽는다', () => {
+    expect(parseMemo('앞 문단\n## 보고 ##\n- 바꾼 것: `a.ts`\n### 셋째')).toEqual([
+      { kind: 'para', lines: [[{ kind: 'text', text: '앞 문단' }]] },
+      { kind: 'heading', level: 2, inline: [{ kind: 'text', text: '보고' }] },
+      { kind: 'list', ordered: false, items: [{ depth: 0, ordered: false, inline: [{ kind: 'text', text: '바꾼 것: ' }, { kind: 'code', text: 'a.ts' }] }] },
+      { kind: 'heading', level: 3, inline: [{ kind: 'text', text: '셋째' }] },
+    ])
+    expect(parseMemo('#1 이슈\n####### 일곱').map((b) => b.kind)).toEqual(['para'])
+    expect(parseInline('`` a`b `` 와 `c`')).toEqual([{ kind: 'code', text: 'a`b' }, { kind: 'text', text: ' 와 ' }, { kind: 'code', text: 'c' }])
   })
 })
 

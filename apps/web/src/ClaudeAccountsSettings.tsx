@@ -1,4 +1,4 @@
-// 설정 › 에이전트 › Claude 계정 (11/16 사용자 "pro 계정을 주로 답변용으로" · "로그인 정보를 담아두고 쉽게 로그인 · 전환"):
+// 계정 › Claude 계정 (11/16 사용자 "pro 계정을 주로 답변용으로" · "로그인 정보를 담아두고 쉽게 로그인 · 전환"):
 // 계정마다 한 번 로그인해 두면(계정마다 따로 된 폴더), 대화 종류마다 어느 계정으로 돌지 고른다. 대화 하나만 바꾸려면 입력란 아래 계정 고르기
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'

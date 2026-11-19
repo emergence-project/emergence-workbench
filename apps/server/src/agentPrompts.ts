@@ -5,14 +5,20 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Attach, Chat, ChatItem, ChatMode, ChatScope, ChatWrite, ImageIn } from '@rw/core/contract/agentChats'
-import { APP_CHECKS, APP_SUBMIT, clip, EXPLORE_AGENT, FEEDBACK_ANSWER, PLAN_TOOL, scopeDir } from './agentPolicy.js'
+import { APP_CHECKS, APP_MERGE, APP_SUBMIT, clip, EXPLORE_AGENT, FEEDBACK_ANSWER, HELP_TOOL, PLAN_TOOL, scopeDir } from './agentPolicy.js'
 import type { FeedbackListItem } from './feedback.js'
 import { t } from './i18n.js'
 
 // ---------- 안내 (대화를 열 때 한 번, 짧게) ----------
 
+/**
+ * 중앙이 연 하위 대화가 차례 끝에 남기는 보고 (11/19 사용자 "하위대화가 너에게 요약해서 보고하는게 좋지 않겠냐").
+ * 앱이 마지막 글의 「## 보고」 절을 읽어 중앙의 깨우기 · chat_list에 그대로 싣는다(agentCentralDigest.ts kidReport, KID_REPORT_MAX자까지)
+ */
+export const REPORT_BRIEF = 'End every turn with a report for the central conversation: a last section headed exactly "## 보고", in Korean, with these lines: "- 바꾼 것:" what changed, on the screen or in behavior (or what you found); "- 위치:" pull request number, main files, feedback record; "- 판단:" the decision or answer in one line (없음 if none); "- 남은 일:" what is left and what the user must do (없음 if nothing). Keep it under 1500 characters; the app hands it to the central conversation as it is.'
+
 /** 앱 고치기 대화의 안내 */
-export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean; agent?: string }): string {
+export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean; agent?: string; parent?: boolean }): string {
   const claude = !o.agent || o.agent === 'claude-code'
   const lines = [
     `You are fixing the Emergence Workbench app itself, from inside the app. The current folder is a separate git worktree of the app repository on branch ${o.branch}, made from origin/main. The running app and the user's own checkout are elsewhere.`,
@@ -25,26 +31,36 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
       : 'Edit files directly inside this folder (the user sees each change; files changed by commands show up from git diff at the end of your turn) and run commands here. Start with `pnpm install --frozen-lockfile --prefer-offline` if node_modules is missing. Read large files in parts instead of whole.',
     ...(claude ? [`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`,
       'This conversation stays open between turns: a long command can run in the background (run_in_background) and you continue when it finishes, even after your turn ends. Never sleep to wait.'] : []),
+    // 시안 (11/19): 대화 화면이 mockups/ 경로를 찾아 그림과 새 창 링크로 보인다 (routes/agentMockups.ts, 화면 Mockups.tsx)
+    'Put screen mockups in mockups/ of this folder (not committed) as <name>.png, plus <name>.html with its css and pictures inline if you made one, and write their absolute path (…/agent-worktrees/<this folder>/mockups/<name>.png) in your text and report: the app shows the picture under that text and links the html.',
     'Check your own work before submitting: `pnpm type-check`, `pnpm test` (or the one test file you touched, e.g. `pnpm --filter @rw/server exec vitest run src/<file>.test.ts`), and for screen changes `pnpm shots` and look at the pictures in shots/ yourself (SHOTS_PORT is already set for this conversation). Fix what fails before submitting.',
-    `Do not push, open or merge PRs yourself and do not touch the running app service: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes this conversation's own branch and opens or updates its pull request (other open PRs do not block it). GitHub CI then runs again. Call ${APP_CHECKS} with wait (minutes) to wait for the result; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
-    'Update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
+    `Do not push, open or merge PRs with git or gh yourself and do not touch the running app service: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the PR template; the app commits, pushes this conversation's own branch and opens or updates its pull request (other open PRs do not block it). GitHub CI then runs again. Call ${APP_CHECKS} with wait (minutes) to wait for the result; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
+    // 공개 저장소라 (11/19 개인정보 점검)
+    'The app repository is public: PR, commit and issue text and committed files never name real research projects, people, personal emails or local paths. Say "a real repository" or similar instead.',
+    ...(o.feedback ? [] : [`When every check is green, call ${APP_MERGE} to squash-merge your own pull request, unless the user asked to look at it before merging. The app refuses while CI is not green or the branch conflicts with main.`]),
+    'Update tests and docs that the change touches (about sections, uiNames.en.json, design-system.md) as CLAUDE.md says; app_submit adds the PR number to the about sections you changed.',
     'Research projects are read-only here: do not change notes, records, tasks or problems.',
   ]
   if (o.feedback) lines.push(
-    `This conversation handles one app feedback item (the first message). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Its picture (the screen at the moment the user left it) is attached to the first message, and its spot is the data-ui name: find it with \`grep -rn 'data-ui="<spot>"' apps/web/src\`.`,
-    `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures.`,
+    `This conversation handles the app feedback item(s) in the first message (several items come bundled: handle them one by one, and pass key to ${FEEDBACK_ANSWER} for each). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Its picture (the screen at the moment the user left it) is attached to the first message, and its spot is the data-ui name: find it with \`grep -rn 'data-ui="<spot>"' apps/web/src\`.`,
+    `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures. When you made mockups for the user to choose from, pass their names as mockups (on the handling, or replies[].mockups on a reply) instead of only writing the path: the feedback screen shows them as pictures the user can page through and decide on.`,
   )
+  // 중앙이 연 하위 대화 (11/18): 중앙이 끝남 · CI · 합쳐짐에 저절로 깨어 이어 받으므로, 「나중에 하겠다」로 끝내지 않는다
+  if (o.parent) lines.push(`The central conversation opened this one and is woken by the app when your turn ends. Do not end a turn promising to continue later: finish the work in this turn. Wait for CI with ${APP_CHECKS} wait. If you must wait for something outside this conversation, say what you wait for in one line and end the turn; the central conversation wakes you.`, REPORT_BRIEF)
   if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
   lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps. Write to the user in Korean, briefly: result first.`)
   return lines.join('\n')
 }
 
-export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[]; agent?: string }): string {
+export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[]; agent?: string; parent?: boolean }): string {
   const claude = !o.agent || o.agent === 'claude-code'
-  const scope = o.scope.kind === 'project' ? 'the whole project' : o.scope.kind === 'all' ? 'every registered project and the knowledge library (this conversation belongs to this project)' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
+  const also = o.scope.kind === 'project' ? o.scope.also ?? [] : []
+  const scope = o.scope.kind === 'project' ? (also.length ? `the whole project, and also the projects ${also.join(', ')} (pass project to the workbench tools)` : 'the whole project') : o.scope.kind === 'all' ? 'every registered project and the knowledge library (this conversation belongs to this project)' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
+  // 고른 프로젝트만 고치고, 그 밖의 프로젝트 · 개념노트 · 앱 버그는 중앙 대화에 넘긴다 (11/19 사용자 결정)
+  const outside = `You cannot change anything outside the scope (other projects and concept notes are read-only). When the work needs a change there, or you find a bug in the app itself, call the workbench MCP tool ${HELP_TOOL} with what should change, where and why: the central conversation mediates (if it says there is none, tell the user instead). Then go on with your own work.`
   const lines = [
     `You are working inside Emergence Workbench on the project "${o.title}" (project id ${o.rid}). The current folder is its repository.`,
-    `Scope: ${scope}. ${o.scope.kind === 'all' ? 'Read any project when the work needs it. Changing another project or a concept note asks the user each time; change only what the work needs there.' : 'Read outside the scope only when the work needs it. You cannot change anything outside the scope: say what should change, where and why, and stop there.'}`,
+    `Scope: ${scope}. ${o.scope.kind === 'all' ? 'Read any project when the work needs it. Changing another project or a concept note asks the user each time; change only what the work needs there.' : `Read outside the scope only when the work needs it. ${outside}`}`,
     o.write === 'read'
       ? 'This conversation is read-only: do not change notes, records or files. Commands that change files are blocked; reading and running commands follow the user\'s permission switches (the app may ask).'
       : 'Change notes only with the workbench MCP tool edit_note (read_note first, pass its hash as baseHash); the user reviews each changed paragraph. Records: add_record / answer_record. Editing files directly is blocked; prefer edit_note over shell edits so the user can review them. Commands follow the user\'s permission switches: deleting and anything outside the project folders (git push, installs, downloads) always asks.',
@@ -53,6 +69,7 @@ export function briefFor(o: { rid: string; title: string; scope: ChatScope; writ
   if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
   lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps: the user sees the list live. `)
   if (claude) lines.push(`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`)
+  if (o.parent) lines.push('The central conversation opened this one and is woken by the app when your turn ends. Finish the work in this turn.', REPORT_BRIEF)
   const busy = o.others.filter((c) => c.claims.length)
   if (busy.length) lines.push(`Other conversations are changing these files now; do not change them: ${busy.map((c) => `${c.title}: ${c.claims.join(', ')}`).join('; ')}.`)
   lines.push('Write to the user in Korean, briefly: result first. Write math as $…$ inside a sentence and $$…$$ on its own lines; the conversation renders them.')
@@ -69,20 +86,46 @@ export function promptOf(text: string, attach?: Attach[]): string {
   if (!attach?.length) return text
   const how: Record<Attach['kind'], string> = {
     note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)', connector: 'connector (MCP server; its tools are mcp__<name>__*, use them for this)',
+    element: 'app screen element (data-ui names, outermost first; the attached image shows it)', terminal: 'terminal output (the user\'s own shell)',
+    screen: 'the screen the user is looking at (answer about it)',
   }
-  const lines = attach.map((a) => a.kind === 'selection'
-    ? `- ${how.selection} from ${a.ref}:\n${(a.text ?? '').split('\n').map((l) => `  > ${l}`).join('\n')}`
+  const quote = (s?: string) => (s ?? '').split('\n').map((l) => `  > ${l}`).join('\n')
+  const lines = attach.map((a) => a.kind === 'selection' || a.kind === 'terminal' ? `- ${how[a.kind]} from ${a.ref}:\n${quote(a.text)}`
+    : a.kind === 'element' ? `- ${how.element} on ${a.ref}:\n${quote(a.text ?? a.label)}`
+    : a.kind === 'screen' ? `- ${how.screen}: ${a.text ?? a.label} (${a.ref})`
     : `- ${how[a.kind]}: ${a.ref}${a.label && a.label !== a.ref ? ` (${a.label})` : ''}`)
   return `${text}\n\nAttached by the user (read these first, nothing else unless needed):\n${lines.join('\n')}`
+}
+
+/** 에이전트에게 넘길 글 (prompt가 없으면 promptOf). 보낸 기기의 지금 화면 한 줄은 그 대화에 마지막으로 붙인 것과 다를 때만 뒤에 붙인다
+ *  (여러 기기면 마지막으로 말을 보낸 기기의 화면이 된다) */
+export function promptFor(c: { view?: string }, m: { text: string; attach?: Attach[]; view?: string }, prompt?: string): string {
+  const base = prompt ?? promptOf(m.text, m.attach)
+  if (!m.view || m.view === c.view || CC_COMMAND.test(base.trim())) return base
+  c.view = m.view
+  return `${base}\n\nUser's screen now: ${m.view}`
 }
 
 // ---------- 지시 ----------
 
 /** 피드백을 맡길 때 대화의 첫 지시: 그 항목의 글 · 자리 · 그림과 차례인 이유 (처리 규칙은 안내에) */
 export function feedbackPrompt(e: FeedbackListItem, reasons: string[], picture?: string): string {
+  return [t('이 피드백 하나를 피드백 처리 규칙대로 처리해 주세요.', 'Handle this one feedback item by the feedback rules.'), '', ...feedbackLines(e, reasons, picture)].join('\n')
+}
+
+/**
+ * 묶어 맡긴 피드백 (feedbackGroups.ts): 항목마다 같은 줄을 늘어놓고, 하나씩 처리해 키를 붙여 기록하라고 한다.
+ * code = 고치는 묶음(같은 화면, PR 하나), 아니면 답만 하는 묶음(질문 · 제안)
+ */
+export function feedbackBundlePrompt(list: { e: FeedbackListItem; reasons: string[]; picture?: string }[], code: boolean): string {
+  const head = code
+    ? t(`같은 화면의 피드백 ${list.length}개입니다. 피드백 처리 규칙대로 하나씩 처리하되, 고친 것은 이 작업 폴더에 모아 PR 하나로 올려 주세요. 처리 기록은 항목마다 feedback_answer에 key를 붙여 적습니다.`, `${list.length} feedback items on the same screen. Handle each by the feedback rules, put all fixes in this folder and submit them as one PR. Record each item with feedback_answer and its key.`)
+    : t(`코드를 고치지 않는 피드백(질문 · 제안) ${list.length}개입니다. 피드백 처리 규칙대로 하나씩 답하고, 처리 기록은 항목마다 feedback_answer에 key를 붙여 적습니다.`, `${list.length} feedback items that need no code change (questions · suggestions). Answer each by the feedback rules and record each with feedback_answer and its key.`)
+  return [head, ...list.flatMap((x, i) => ['', `## ${i + 1}`, ...feedbackLines(x.e, x.reasons, x.picture)])].join('\n')
+}
+
+function feedbackLines(e: FeedbackListItem, reasons: string[], picture?: string): string[] {
   const lines = [
-    t('이 피드백 하나를 피드백 처리 규칙대로 처리해 주세요.', 'Handle this one feedback item by the feedback rules.'),
-    '',
     `- key: ${e.key}`,
     `- ${t('유형', 'Kind')}: ${e.status?.kind ?? e.kind}`,
     `- ${t('부위', 'Spot')}: ${e.target}${e.route ? ` (${e.route})` : ''}`,
@@ -96,8 +139,32 @@ export function feedbackPrompt(e: FeedbackListItem, reasons: string[], picture?:
   ]
   if (e.status) lines.push('', `${t('지금 처리 기록', 'Current record')}: ${e.status.state}${e.status.note ? ` — ${e.status.note}` : ''}`)
   if (e.review) lines.push(`${t('사용자 답', 'User answer')}: ${e.review.verdict} (${e.review.at})${e.review.note ? ` — ${e.review.note}` : ''}`)
+  return [...lines, ...unanswered(e)]
+}
+
+const unanswered = (e: FeedbackListItem): string[] => {
   const answered = new Set((e.status?.replies ?? []).map((r) => r.to))
-  for (const c of e.comments ?? []) if (!answered.has(c.at)) lines.push(`${t('답 없는 코멘트', 'Unanswered comment')} (at ${c.at}): ${c.note}`)
+  return (e.comments ?? []).filter((c) => !answered.has(c.at)).map((c) => `${t('답 없는 코멘트', 'Unanswered comment')} (at ${c.at}): ${c.note}`)
+}
+
+/**
+ * 같은 항목을 앞서 맡은 대화에 다시 맡길 때의 지시 (11/20): 항목은 이미 읽었으니 새로 온 것만.
+ * 앞 PR이 합쳐졌으면 그 가지는 main 뒤에 있으므로 고치기 전에 main에서 다시 시작하게 한다
+ */
+export function feedbackAgainPrompt(e: FeedbackListItem, reasons: string[], merged?: { pr?: number; branch?: string }): string {
+  const lines = [
+    t('이 대화가 맡은 피드백 항목에 새 글이 왔습니다. 피드백 처리 규칙대로 이어서 처리해 주세요.', 'There is something new on the feedback item this conversation handles. Continue handling it by the feedback rules.'),
+    '',
+    `- key: ${e.key}`,
+    ...reasons.map((r) => `- ${t('차례인 이유', 'Why now')}: ${r}`),
+  ]
+  if (e.status) lines.push(`- ${t('지금 처리 기록', 'Current record')}: ${e.status.state}${e.status.note ? ` — ${e.status.note}` : ''}`)
+  if (e.review) lines.push(`- ${t('사용자 답', 'User answer')}: ${e.review.verdict} (${e.review.at})${e.review.note ? ` — ${e.review.note}` : ''}`)
+  lines.push(...unanswered(e).map((l) => `- ${l}`))
+  if (merged) lines.push('', t(
+    `앞 PR${merged.pr ? ` #${merged.pr}` : ''}은 이미 main에 합쳐졌습니다. 코드를 다시 고치려면 먼저 \`git fetch origin main && git checkout -B ${merged.branch ?? '<this branch>'} origin/main\`으로 main에서 시작하세요. app_submit은 새 PR을 엽니다.`,
+    `The earlier PR${merged.pr ? ` #${merged.pr}` : ''} is already merged into main. Before changing code again, start from main with \`git fetch origin main && git checkout -B ${merged.branch ?? '<this branch>'} origin/main\`. app_submit then opens a new PR.`,
+  ))
   return lines.join('\n')
 }
 

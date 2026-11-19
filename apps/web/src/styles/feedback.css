@@ -3,6 +3,9 @@
 body.feedback-on, body.feedback-on * { cursor: help !important; }
 body.feedback-on [data-feedback-ui], body.feedback-on [data-feedback-ui] * { cursor: auto !important; }
 body.feedback-on [data-feedback-ui] button, body.feedback-on [data-feedback-ui] button * { cursor: pointer !important; }
+/* 한 번 고르는 고르기 (기록의 가리키기, 대화에 화면 요소 붙이기: elementPicker.tsx) */
+body.element-picking, body.element-picking * { cursor: crosshair !important; }
+body.element-picking [data-picker-ui], body.element-picking [data-picker-ui] * { cursor: auto !important; }
 .fb-box { position: fixed; z-index: var(--z-feedback); pointer-events: none; border: 2px solid var(--focus-line); border-radius: var(--r-sm); background: color-mix(in srgb, var(--focus) 35%, transparent); transition: all .06s; }
 .fb-label { position: fixed; z-index: calc(var(--z-feedback) + 1); pointer-events: none; max-width: min(560px, calc(100vw - 8px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-strong); padding: 3px var(--sp-2); border-radius: var(--r-sm); box-shadow: var(--shadow); }
 .fb-bar { position: fixed; z-index: calc(var(--z-feedback) + 2); left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: var(--sp-3); max-width: calc(100vw - 32px); background: var(--bg); color: var(--text-2); border: 1px solid var(--focus-line); border-radius: var(--r-md); box-shadow: var(--shadow); padding: 7px var(--sp-2) 7px 14px; font-size: var(--fs-sm); }
@@ -36,6 +39,8 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-pick .mini-select { max-width: none; }
 .fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; font-size: var(--fs-xs); }
 .fbp-tools { display: flex; justify-self: end; justify-content: flex-end; align-items: center; gap: var(--sp-2); min-width: 0; }
+.fbp-instant { margin-right: var(--sp-2); }
+.fbp-instant.paused { opacity: 0.5; }
 .fbp-picks { display: flex; align-items: center; gap: var(--sp-4); }
 .fbp-filters { justify-self: start; justify-content: flex-start; flex-wrap: nowrap; }
 @media (max-width: 900px) {
@@ -186,3 +191,8 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbp-now-act { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
 .fbp-thread-cap { font-size: var(--fs-xs); }
 .fbp-opinion { align-self: flex-start; }
+/* 피드백 시안 (11/19 FeedbackMockups.tsx): 지금 처리 카드 · 대화 글 아래 작은 그림. 크게 본 채로 「이 시안으로 진행」 · 「논의」 */
+.fbp-summary > .fbp-mockups { grid-column: 1 / -1; }
+.fbp-mockup-decide { display: flex; flex-direction: column; gap: var(--sp-1); }
+.fbp-mockup-decide .fbp-input { min-height: 0; }
+.fbp-mockup-decide-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }

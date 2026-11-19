@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, LIBRARY_RID, runProgram, type ChatAutoValues, type ChatKind } from '@rw/core'
+import { autoOf, commandKind, LIBRARY_RID, neverBypass, runProgram, stateOnlyCommand, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 
@@ -32,6 +32,8 @@ export const RESEARCH_WRITES = new Set([...MCP_WRITES, 'add_task', 'report_task'
 /** 앱 고치기 대화만 쓰는 앱 MCP 도구: 커밋해 PR 열기 · CI 결과 */
 export const APP_SUBMIT = 'app_submit'
 export const APP_CHECKS = 'app_checks'
+/** 앱 고치기 대화가 자기 PR을 CI 통과 뒤 squash로 합친다 (11/19). gh pr merge를 바로 쓰는 것은 APP_OWNED가 계속 막는다 */
+export const APP_MERGE = 'app_merge'
 /** 맡은 피드백의 처리 기록 (앱이 status.yaml에 적는다) */
 export const FEEDBACK_ANSWER = 'feedback_answer'
 
@@ -46,7 +48,7 @@ export interface PolicyCtx {
   /** 묻지 않고 읽는 다른 폴더 (공용 라이브러리 · 등록한 다른 프로젝트) */
   readable: string[]
   /** 다른 대화가 잡은 파일이면 그 대화 이름 */
-  claimedBy: (file: string) => string | undefined
+  claimedBy: (file: string, project?: string) => string | undefined
   /** 「자동 허용」 토글 (읽기 · 실행 · 웹 보기, 지금 값: 차례 중에 「늘」로 켜면 바로) */
   auto?: () => ChatAutoValues
   /** 「늘」로 허락한 실행 프로그램 열쇠 (run:<프로그램>) */
@@ -57,9 +59,10 @@ export type Verdict =
   | { kind: 'allow'; claim?: string }
   /**
    * label = 「늘 허락」했을 때 보일 이름, claim = 허락하면 잡을 파일, plan = 계획 승인 카드,
-   * does = 명령이 하는 일, once = 「늘」 없이 (삭제 · 외부), turnOn = 「늘」이 켜는 토글(편집은 맡기는 정도)
+   * does = 명령이 하는 일, once = 「늘」 없이 (삭제 · 외부), turnOn = 「늘」이 켜는 토글(편집은 맡기는 정도),
+   * bypass = 중앙 대화가 막힌 명령을 사용자 허락으로 돌리는 우회 (허락하면 대화에 기록한다)
    */
-  | { kind: 'ask'; summary: string; key: string; label: string; claim?: string; plan?: string; does?: ChatKind; once?: boolean; turnOn?: 'read' | 'web' | 'edit' }
+  | { kind: 'ask'; summary: string; key: string; label: string; claim?: string; plan?: string; does?: ChatKind; once?: boolean; turnOn?: 'read' | 'web' | 'edit'; bypass?: string }
   /** reason = 사용자에게 보일 말, message = 에이전트에게 돌려줄 말 (영어) */
   | { kind: 'deny'; reason: string; message: string }
 
@@ -78,6 +81,14 @@ export function scopeDir(scope: ChatScope): string {
   return ''
 }
 
+/** 새 대화의 범위: 함께 고칠 프로젝트(also)는 겹치지 않게, 이 대화의 프로젝트는 빼고, 하나씩 check(등록 안 했으면 던짐)로 본다 (11/19) */
+export function withAlso(asked: ChatScope, rid: string, check: (rid: string) => unknown): ChatScope {
+  const also = asked.kind === 'project' ? [...new Set(asked.also ?? [])].filter((r) => r !== rid) : []
+  for (const r of also) check(r)
+  const { also: _drop, ...scope } = asked
+  return also.length ? { ...scope, also } : scope
+}
+
 /** 저장소 기준 경로가 범위 안인지 */
 export function inScope(scope: ChatScope, rel: string): boolean {
   const d = scopeDir(scope)
@@ -90,12 +101,22 @@ export function inScope(scope: ChatScope, rel: string): boolean {
 export const pathOf = (input: Record<string, unknown>) => str(input.file_path) || str(input.notebook_path) || str(input.path)
 
 /** 에이전트가 쓴 도구 한 줄 요약과 범위 밖인지 (대화에 보일 것) */
+/** 이 대화가 고칠 수 있는 프로젝트: 제 프로젝트와 함께 고른 것 (11/19 사용자 결정, 그 밖은 읽기만) */
+export function changeable(ctx: Pick<PolicyCtx, 'rid' | 'scope'>): string[] {
+  return [ctx.rid, ...(ctx.scope.kind === 'project' ? ctx.scope.also ?? [] : [])]
+}
+function canChange(ctx: Pick<PolicyCtx, 'rid' | 'scope'>, project: string): boolean {
+  return changeable(ctx).includes(project)
+}
+/** 범위 밖 일 · 앱 버그를 중앙 대화에 넘기는 도구 (mcp.ts) */
+export const HELP_TOOL = 'central_help'
+
 export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, tool: string, input: Record<string, unknown>): { tool: string; summary: string; outside?: boolean } {
   if (tool.startsWith(MCP)) {
     const name = tool.slice(MCP.length)
     const project = str(input.project)
     const file = str(input.file)
-    const outside = (project && project !== ctx.rid && ctx.scope.kind !== 'all') || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
+    const outside = (project && project !== ctx.rid && ctx.scope.kind !== 'all' && !canChange(ctx, project)) || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
     const what = [project && project !== ctx.rid ? project : '', file || str(input.id) || str(input.target) || str(input.query) || str(input.section) || str(input.title) || str(input.state)].filter(Boolean).join(' · ')
     return { tool: name, summary: clip(what), ...(outside && { outside }) }
   }
@@ -119,24 +140,61 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
 }
 
 /**
- * 앱 고치기 대화에서 에이전트가 직접 하지 않는 명령: 올리기 · PR · 합치기는 앱이(app_submit, 합치기 설정),
+ * 앱 고치기 대화에서 에이전트가 직접 하지 않는 명령: 올리기 · PR · 합치기는 앱이(app_submit · app_merge, 합치기 설정),
  * 실사용 앱 서비스는 사용자가 다룬다. 나머지(시험 · 형식 검사 · 화면 그림 · 커밋 · main 받기)는 작업 폴더에서 돌린다.
  */
 export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b|\bservice:|\blaunchctl\b|\bgit\s+worktree\b/
 
 /**
  * 중앙 대화 (11/16 "중앙 에이전트"): 읽기와 하위 대화 열기 · 보내기 · 닫기만. 고치기 · 명령 · 기록 쓰기는 막고,
- * 하위 대화(chat_open)에 맡기라고 돌려준다. 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로
+ * 하위 대화(chat_open)에 맡기라고 돌려준다. 상태만 보는 명령(11/18, stateOnlyCommand)은 묻지 않고 돌리고,
+ * 비밀이 든 곳을 보면 한 번 묻는다. git · gh로 커밋 · 브랜치 · 푸시 · PR 만들기 · squash 합치기(11/19 "중앙은 깃 편집 권한")도
+ * 묻지 않는다. 강제 푸시 · reset --hard · branch -D 같은 되돌리기 어려운 것과, 실사용 앱 체크아웃(중앙의 작업 폴더)의
+ * 파일을 바꾸는 checkout · merge · pull · stash 등은 막힌다. 중앙이 띄운 보조 에이전트도 같은 판정을 거친다.
+ * 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로.
+ * 우회 (11/20 "언제나 막기보다 사용자 허락으로 푸는 길"): 목록에 없는 명령은 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다.
+ * 허락은 한 번, 또는 이 대화에서 바로 그 명령만 늘. 자동 허락 · 시간 초과 기본값은 없고, neverBypass는 허락해도 막는다
  */
-function judgeCentral(tool: string): Verdict | undefined {
+function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict | undefined {
   const name = tool.startsWith(MCP) ? tool.slice(MCP.length) : ''
-  const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
+  if (tool === 'Bash') {
+    const cmd = str(input.command)
+    const seen = stateOnlyCommand(cmd, { gitWrites: true })
+    if (seen === 'ok') return { kind: 'allow' }
+    if (seen === 'sensitive') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`비밀이 든 곳 읽기 · ${clip(cmd, 80)}`, `Read secrets · ${clip(cmd, 80)}`), does: 'read', once: true }
+    const never = neverBypass(cmd)
+    if (never) return neverVerdict(never)
+    if (cmd.trim()) return bypassAsk(ctx, cmd, str(input.description))
+  }
+  const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === APP_MERGE || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
   if (!writes) return name ? { kind: 'allow' } : undefined
   return {
     kind: 'deny',
-    reason: t('중앙 대화는 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다', 'The central conversation does not edit or run commands; it hands work to a sub-conversation'),
-    message: `You are the central conversation: you only read and orchestrate. To change or run anything, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
+    reason: t('중앙 대화는 파일을 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다 (상태 보기와 git · gh 커밋 · 푸시 · PR · 합치기는 됩니다)', 'The central conversation does not edit files or run commands; it hands work to a sub-conversation (looking at state and git/gh commit, push, PR and merge are fine)'),
+    message: `You are the central conversation: you read and orchestrate. Commands that only look at state run directly (ls, cat, grep, find without -exec, which, ps, sysctl -n, vm_stat, top -l 1, git log/status/diff/show, git -C <dir> remote get-url, gh pr view/checks, gh run view --log, gh repo list/view, gh api GET without -f/-F unless -X GET, npm ls), joined with |, && or ;, without writing redirects (> file), heredocs, env-variable prefixes or command-running programs (xargs, sh -c, awk, sed). Git and gh changes also run directly: git add/commit -m/branch/push/fetch/tag, gh pr create/edit/comment/ready, gh pr merge --squash. Blocked: force pushes, deleting remote branches, git branch -D, reset, clean, and anything that changes files in your folder (checkout, switch, merge, rebase, pull, stash, restore), because your folder is the running app's checkout. To change or run anything else, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
   }
+}
+
+const NEVER: Record<NeverBypass, [string, string]> = {
+  'force-push': ['강제 푸시', 'force push'],
+  'reset-hard': ['git reset --hard', 'git reset --hard'],
+  'delete-main': ['main 브랜치 지우기', 'deleting the main branch'],
+  'rm-outside-temp': ['임시 폴더 밖 rm -rf', 'rm -rf outside temp folders'],
+  'workbench-write': ['연구 저장소 workbench/ 쓰기', 'writing under workbench/ of a research repository'],
+}
+function neverVerdict(why: NeverBypass): Verdict {
+  const [ko, en] = NEVER[why]
+  return {
+    kind: 'deny',
+    reason: t(`허락으로도 풀 수 없는 명령입니다: ${ko}`, `Not allowed even with permission: ${en}`),
+    message: `This command never runs from the central conversation, even with the user's permission (${en}). Do not try it another way: tell the user what should be done, or hand it to a sub-conversation whose own rules apply.`,
+  }
+}
+
+/** 우회 묻기: 명령 · 까닭(Bash의 description) · 폴더를 보인다. 「늘」은 이 대화에서 바로 그 명령만 */
+function bypassAsk(ctx: PolicyCtx, cmd: string, reason: string): Verdict {
+  const summary = [cmd, `${t('까닭', 'Why')}: ${clip(reason.trim() || t('(적지 않음)', '(not given)'), 600)}`, `${t('폴더', 'Folder')}: ${ctx.repo}`].join('\n')
+  return { kind: 'ask', summary, key: `bypass:${cmd}`, label: t(`우회 · ${clip(cmd, 80)}`, `Bypass · ${clip(cmd, 80)}`), bypass: cmd }
 }
 
 /** 앱 고치기 대화의 도구 판정 (judge가 부른다) */
@@ -170,7 +228,7 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
       return {
         kind: 'deny',
         reason: t('올리기 · PR · 합치기와 앱 서비스는 앱이 맡습니다', 'Pushing, PRs, merging and the app service are left to the app'),
-        message: `The app does this, not you: call ${MCP}${APP_SUBMIT} to commit, push and open or update the pull request, and ${MCP}${APP_CHECKS} for CI. Do not touch the running app service or other worktrees.`,
+        message: `The app does this, not you: call ${MCP}${APP_SUBMIT} to commit, push and open or update the pull request, ${MCP}${APP_CHECKS} for CI, and ${MCP}${APP_MERGE} to squash-merge your own pull request once CI is green. Do not touch the running app service or other worktrees.`,
       }
     }
     if (ctx.write === 'read') return readOnly
@@ -185,6 +243,12 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
       if (ctx.write === 'read') return readOnly
       if (gated) return notYet
       if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`PR 올리기: ${clip(str(input.title), 120)}`, `Open PR: ${clip(str(input.title), 120)}`), key: APP_SUBMIT, label: t('PR 올리기', 'Open PR') }
+      return { kind: 'allow' }
+    }
+    if (name === APP_MERGE) {
+      if (ctx.write === 'read') return readOnly
+      if (gated) return notYet
+      if (ctx.mode === 'ask') return { kind: 'ask', summary: t('PR 합치기 (squash)', 'Merge PR (squash)'), key: APP_MERGE, label: t('PR 합치기', 'Merge PR') }
       return { kind: 'allow' }
     }
     if (!RESEARCH_WRITES.has(name)) return { kind: 'allow' }
@@ -207,7 +271,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     return { kind: 'ask', summary: t(`등록한 폴더 밖 읽기: ${abs}`, `Read outside registered folders: ${abs}`), key: `${tool}:${abs}`, label: t(`읽기 · ${abs}`, `Read · ${abs}`) }
   }
   if (ctx.scope.kind === 'app') return judgeApp(ctx, tool, input)
-  if (ctx.rid === CENTRAL_RID) { const v = judgeCentral(tool); if (v) return v }
+  if (ctx.rid === CENTRAL_RID) { const v = judgeCentral(ctx, tool, input); if (v) return v }
   if ((FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
     return {
       kind: 'deny',
@@ -229,9 +293,10 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
       }
     }
     const project = str(input.project)
+    const other = !!project && project !== ctx.rid
     // 지식 라이브러리의 대화(개념노트 기록에서 연 대화)는 개념노트가 제 범위다
-    if ((name === 'edit_concept' && ctx.rid !== LIBRARY_RID) || (project && project !== ctx.rid)) {
-      // 전체 범위: 이 대화의 프로젝트 밖을 고칠 때마다 묻는다 (고친 것은 여전히 수정 검토를 거친다)
+    if ((name === 'edit_concept' && ctx.rid !== LIBRARY_RID) || (other && !canChange(ctx, project))) {
+      // 전체 범위(중앙 대화 · 옛 대화): 이 대화의 프로젝트 밖을 고칠 때마다 묻는다 (고친 것은 여전히 수정 검토를 거친다)
       if (ctx.scope.kind === 'all') {
         const where = name === 'edit_concept' ? t('개념노트', 'Concept note') : project
         const what = describeStep(ctx, tool, input).summary
@@ -239,29 +304,31 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
       }
       return {
         kind: 'deny',
-        reason: t('이 대화의 범위 밖이라 고치지 않습니다', 'Outside this conversation\'s scope'),
-        message: `That is outside this conversation's scope (project ${ctx.rid}). Do not change it; tell the user what should change and where, so the conversation that owns it can do it.`,
+        reason: t('이 대화가 고치는 프로젝트 밖이라 읽기만 합니다', 'Outside the projects this conversation changes: read only'),
+        message: `That is outside the projects this conversation may change (${changeable(ctx).join(', ')}); other projects and concept notes are read-only here. Do not change it. If the work needs it, call ${HELP_TOOL} so the central conversation can hand it to the right conversation, or tell the user what should change and where.`,
       }
     }
     if (name === 'edit_note') {
       const file = str(input.file)
-      if (!inScope(ctx.scope, file)) {
+      if (!other && !inScope(ctx.scope, file)) {
         return {
           kind: 'deny',
           reason: t(`범위 밖 노트라 고치지 않습니다: ${file}`, `Note outside this conversation's scope: ${file}`),
           message: `${file} is outside this conversation's scope (${scopeDir(ctx.scope)}). Do not change it; tell the user what should change there and why.`,
         }
       }
-      const other = ctx.claimedBy(file)
-      if (other) {
+      const by = other ? ctx.claimedBy(file, project) : ctx.claimedBy(file)
+      if (by) {
         return {
           kind: 'deny',
-          reason: t(`다른 대화(「${other}」)가 고치는 중인 파일입니다: ${file}`, `Another conversation ("${other}") is changing ${file}`),
-          message: `Another conversation ("${other}") is changing ${file} right now. Do not change it; finish what you can and tell the user.`,
+          reason: t(`다른 대화(「${by}」)가 고치는 중인 파일입니다: ${file}`, `Another conversation ("${by}") is changing ${file}`),
+          message: `Another conversation ("${by}") is changing ${file} right now. Do not change it; finish what you can and tell the user.`,
         }
       }
-      if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`노트 고치기: ${file}`, `Edit note: ${file}`), key: `edit_note:${file}`, label: t(`노트 고치기 · ${file}`, `Edit note · ${file}`), claim: file }
-      return { kind: 'allow', claim: file }
+      const claim = other ? `${project}:${file}` : file
+      const at = other ? `${project} · ${file}` : file
+      if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`노트 고치기: ${at}`, `Edit note: ${at}`), key: `edit_note:${claim}`, label: t(`노트 고치기 · ${at}`, `Edit note · ${at}`), claim }
+      return { kind: 'allow', claim }
     }
     if (ctx.mode === 'ask') return { kind: 'ask', summary: `${name} · ${describeStep(ctx, tool, input).summary}`, key: name, label: name }
     return { kind: 'allow' }

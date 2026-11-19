@@ -1,4 +1,4 @@
-// 계정: 앱 안의 GitHub 로그인 (githubAccount.ts, 설정 › 계정)과 계정으로 맞추기 (accountSync.ts, 설치판만)
+// 계정: 앱 안의 GitHub 로그인 (githubAccount.ts, 계정)과 계정으로 맞추기 (accountSync.ts, 설치판만)
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/account'
 import { AccountSync } from '../accountSync.js'

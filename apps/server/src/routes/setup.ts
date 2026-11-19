@@ -1,4 +1,4 @@
-// 시작 준비 (설정 › 계정, 홈의 시작 준비 카드): 공개 저장소에서 앱을 받은 사람이 쓸 준비를 한 화면에서 마친다 (10/20 15:35 피드백)
+// 시작 준비 (계정, 홈의 시작 준비 카드): 공개 저장소에서 앱을 받은 사람이 쓸 준비를 한 화면에서 마친다 (10/20 15:35 피드백)
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -14,8 +14,8 @@ import { claudeDesktopConfigs, desktopRegistered, registerCli, registerDesktop }
 import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { adoptOtherProfiles } from '../profileSync.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
-import { realIO } from '../githubRepos.js'
-import { getFallbackIdentity, git, gitRun, GIT_TIMEOUT, setFallbackIdentity } from '../git.js'
+import { githubIdentity, realIO } from '../githubRepos.js'
+import { getFallbackIdentity, git, gitRun, GIT_TIMEOUT, hasAppIdentity, setAppIdentity } from '../git.js'
 import { remoteOf, sameRepo } from './google.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
 import { WorkbenchError } from '../workbench.js'
@@ -71,7 +71,8 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
   const { registry, opts, ensureWatch } = ctx
   // 예제 모드는 이 컴퓨터의 git 설정을 바꾸지 않는다: 이름 · 이메일을 메모리에만 둔다
   let sampleGit = { name: 'Sample Researcher', email: 'sample@example.com' }
-  const gitIdentity = async () => (opts.sandbox ? sampleGit : { name: await gitGlobal('user.name'), email: await gitGlobal('user.email') })
+  // 커밋 이름 창에 적은 것(앱 설정)이 먼저, 없으면 git 전체 설정 (11/19 피드백 22:11)
+  const gitIdentity = async () => (opts.sandbox ? sampleGit : registry.gitIdentity ?? { name: await gitGlobal('user.name'), email: await gitGlobal('user.email') })
 
   // 예제 모드는 이 컴퓨터의 에이전트 설정을 보지 않는다 (그림이 컴퓨터마다 달라지지 않게)
   /** 등록할 명령의 실행 파일: Claude Code는 PATH의 claude, Codex는 앱이 받은 것 → PATH → 맥 ChatGPT 앱 안 (codexCli.ts) */
@@ -111,6 +112,28 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     return (dir ? otherMachineLibraries(dir) : []).map((n) => path.join(cloneDir, n)).find((p) => fs.existsSync(p) && fs.statSync(p).isDirectory()) ?? null
   }
 
+  // GitHub 계정 이름 · noreply 이메일: 네트워크를 타므로 5분 동안 기억한다 (못 찾은 것도)
+  let ghIdentity: { at: number; value: Promise<{ name: string; email: string } | null> } | null = null
+  const fromGitHub = async (git: { name: string; email: string }): Promise<{ name: string; email: string } | undefined> => {
+    // 실사용(앱 저장소에서 돎) 또는 바깥을 바꿔 낀 테스트만 GitHub에 묻는다
+    if (opts.sandbox || (git.name && git.email) || !(opts.repoIO || opts.appRepo)) return undefined
+    if (!ghIdentity || Date.now() - ghIdentity.at > 5 * 60_000) ghIdentity = { at: Date.now(), value: ctx.account.token().then((tok) => githubIdentity(opts.repoIO ?? realIO, tok)).catch(() => null) }
+    const got = await ghIdentity.value
+    return got ? { name: git.name || got.name, email: git.email || got.email } : undefined
+  }
+
+  /**
+   * 개인 저장소는 앱을 시작할 때만 받고, 피드백 · 백업 폴더도 그때 정해진다. 그래서 바꾸면 서비스로 돌 때 바로 다시 시작한다
+   * (11/19 맥 스튜디오: "다시 시작하면 받아 둡니다"만 적혀 있고 버튼이 없어, 다른 컴퓨터의 프로젝트가 뜨지 않았다).
+   * 일하는 에이전트 대화가 있으면 끊지 않게 다시 시작하지 않는다(화면은 전처럼 다시 시작하라고 적는다)
+   */
+  const restartForPersonal = (v: C.SetupView): C.SetupView => {
+    if (opts.sandbox || !v.personal.remote || v.personal.active) return v
+    const steps = opts.appRepo?.steps
+    if (!steps?.canRestart() || ctx.agentChats?.work().chats.some((c) => c.state === 'running')) return v
+    return steps.restart() ? { ...v, personal: { ...v.personal, restarting: true } } : v
+  }
+
   const view = async (): Promise<C.SetupView> => {
     const cloneDir = defaultCloneDir(registry.list().map((r) => r.path))
     const remote = opts.sandbox ? registry.personalRepo ?? null : await personalRemote(opts.configDir)
@@ -120,9 +143,12 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     if (remote && copy) {
       try { active = (await git(copy, ['remote', 'get-url', 'origin'], { timeout: GIT_TIMEOUT.read })) === remote } catch { /* 사본이 없으면 아직 받지 않은 것 */ }
     }
+    const gitNow = await gitIdentity()
+    const gitFromGitHub = getFallbackIdentity() ? undefined : await fromGitHub(gitNow)
     return {
-      git: await gitIdentity(),
-      ...(!opts.sandbox && getFallbackIdentity() && { gitAuto: getFallbackIdentity()! }),
+      git: gitNow,
+      ...(!opts.sandbox && getFallbackIdentity() && !hasAppIdentity() && { gitAuto: getFallbackIdentity()! }),
+      ...(gitFromGitHub && { gitFromGitHub }),
       projects: registry.list().length,
       personal: { remote, active },
       agents: agentRows(),
@@ -166,10 +192,10 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     const dest = path.join(parent, folder)
     if (fs.existsSync(dest)) {
       if (!sameRepo(await remoteOf(dest), repo.url)) throw new WorkbenchError(409, t(`${dest}에 다른 폴더가 있습니다. 홈의 "＋ 프로젝트 등록"으로 다른 곳에 받으세요.`, `${dest} holds a different folder. Use "＋ Register project" on Home to download it elsewhere.`))
-      // 예전에 받아 둔 사본이 뒤처져 workbench/가 아직 없을 수 있다 (10/30 맥미니 Faraday disk: 첫 커밋 둘에 멈춤). 고친 것이 없을 때만 앞으로 받는다
+      // 예전에 받아 둔 사본이 뒤처져 workbench/가 아직 없을 수 있다 (10/30 맥미니의 실제 저장소: 첫 커밋 둘에 멈춤). 고친 것이 없을 때만 앞으로 받는다
       if (!fs.existsSync(path.join(dest, 'workbench'))) await git(dest, ['pull', '--ff-only'], { timeout: GIT_TIMEOUT.remote }).catch(() => undefined)
     } else await cloneInto(repo.url, parent, folder)
-    // 연구 저장소가 workbench/를 올리지 않는 프로젝트는 개인 저장소 백업(<id>/workbench/)에서 가져온다 (10/22 맥미니 Faraday disk).
+    // 연구 저장소가 workbench/를 올리지 않는 프로젝트는 개인 저장소 백업(<id>/workbench/)에서 가져온다 (10/22 맥미니의 실제 저장소).
     // 빈 workbench/를 새로 만들면 첫 맞추기에서 다른 컴퓨터의 것을 덮을 수 있어 만들지 않는다
     if (!fs.existsSync(path.join(dest, 'workbench'))) {
       const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))
@@ -199,9 +225,9 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     if (!/^[^\s@]+@[^\s@]+$/.test(email)) throw new WorkbenchError(400, t('이메일 주소가 아닙니다', 'Not an email address'))
     if (opts.sandbox) sampleGit = { name, email }
     else {
-      await gitRun(['config', '--global', 'user.name', name], { timeout: GIT_TIMEOUT.read })
-      await gitRun(['config', '--global', 'user.email', email], { timeout: GIT_TIMEOUT.read })
-      setFallbackIdentity(null)
+      // git 전체 설정은 바꾸지 않고 앱 설정에 둔다: 이 앱의 커밋과 앱 안 에이전트 대화의 커밋에만 쓰인다
+      registry.setGitIdentity({ name, email })
+      setAppIdentity({ name, email })
     }
     return view()
   })
@@ -229,7 +255,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       if (!githubRepoOf(url)) throw new WorkbenchError(502, t(`GitHub가 돌려준 주소를 알아보지 못했습니다: ${url}`, `Could not read the address GitHub returned: ${url}`))
     }
     registry.setPersonalRepo(url)
-    return view()
+    return restartForPersonal(await view())
   })
 
   app.put('/api/setup/personal', replies(C.SetupView), async (req): Promise<C.SetupView> => {
@@ -241,6 +267,6 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       if (await isPublicOnGitHub(repo)) throw new WorkbenchError(400, t(`${repo}는 공개 저장소입니다. 비공개 저장소를 적어 주세요.`, `${repo} is a public repository. Enter a private one.`))
     }
     registry.setPersonalRepo(remote)
-    return view()
+    return restartForPersonal(await view())
   })
 }

@@ -4,7 +4,7 @@
  *   저장소 규칙(AGENTS.md · 공통 규칙)은 앱 MCP의 rules 도구로 읽는다.
  * - 앱 MCP를 같은 프로세스에서 붙인다(mcpFor). 그래서 에이전트는 화면과 같은 API · hash · 수정 검토를 거친다.
  * - 모드 · 모델 · 생각 깊이는 차례마다 대화의 값으로 (화면에서 바꾸면 다음 차례부터). 붙여 넣은 그림은 지시와 함께 보낸다.
- * - 앱 고치기 대화(appChat)는 작업 폴더의 파일 고치기 도구와 명령을 연다(허락은 judge). 앱 MCP에 app_submit · app_checks가 붙는다.
+ * - 앱 고치기 대화(appChat)는 작업 폴더의 파일 고치기 도구와 명령을 연다(허락은 judge). 앱 MCP에 app_submit · app_checks · app_merge가 붙는다.
  * - 고를 수 있는 모델은 맥의 Claude Code에게 묻는다(models, GET /agent-chats/models). 기본 모델 = 그 계정의 Claude Code 기본값(사용자 설정은 읽지 않으므로).
  * - SDK는 처음 쓸 때 불러온다(dynamic import): 대화를 쓰지 않으면 앱 시작에 들지 않는다.
  * - Claude Code처럼 차례가 끝나도 닫지 않는다(input.inbox): 다음 지시를 같은 프로세스에 넘기고, 일하는 중에 보낸 말은 SDK가 그 차례에 섞어 읽는다.
@@ -19,6 +19,9 @@ import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contra
 import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+import { gitIdentityEnv } from './git.js'
+import crypto from 'node:crypto'
+import { Unread } from './agentInbox.js'
 
 /** 묶은 앱이면 이 컴퓨터의 claude를 쓴다 (ask.ts의 claudeExecutable) */
 const executable = (): { pathToClaudeCodeExecutable?: string } => { const p = claudeExecutable(); return p ? { pathToClaudeCodeExecutable: p } : {} }
@@ -36,7 +39,7 @@ const inputOf = (u: Usage) => (u.input_tokens ?? 0) + (u.cache_read_input_tokens
 export const AUTO_COMPACT_WINDOW = 120_000
 
 type Sdk = {
-  type: string; uuid?: string; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean
+  type: string; uuid?: string; user_message_uuid?: string; user_message_uuids?: string[]; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean
   total_cost_usd?: number; duration_ms?: number; errors?: string[]; result?: string; usage?: Usage; modelUsage?: Record<string, { contextWindow?: number }>
   event?: { type?: string; delta?: { type?: string; text?: string } }
   status?: string | null; compact_metadata?: { trigger?: string; pre_tokens?: number; post_tokens?: number }; tasks?: { ambient?: boolean }[]
@@ -143,16 +146,20 @@ const exploreAgent = {
   prompt: 'You search and read for another agent. Do not change anything. Answer with only what was asked: the relevant file paths with line numbers, short quotes, and a few lines of conclusion. Do not paste whole files.',
 }
 
-export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean) => McpServer): AgentRunner {
+export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, chat?: string) => McpServer): AgentRunner {
   return Object.assign(async function* run(input: RunInput): AsyncIterable<RunEvent> {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
     let done!: () => void
     const finished = new Promise<void>((r) => { done = r })
+    // 넘긴 지시마다 uuid: 주 에이전트의 답이 읽었다고 알리기 전에 닫히면 앱이 되돌린다(input.control의 unread)
+    const unread = new Unread<Turn>()
     const userMsg = (x: Turn) => {
       const content = x.images?.length
         ? [{ type: 'text' as const, text: x.prompt }, ...x.images.map((i) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: i.type, data: i.data } }))]
         : x.prompt
-      return { type: 'user' as const, message: { role: 'user' as const, content }, parent_tool_use_id: null }
+      const uuid = crypto.randomUUID()
+      unread.add(x, uuid)
+      return { type: 'user' as const, message: { role: 'user' as const, content }, parent_tool_use_id: null, uuid }
     }
     // 입력 흐름 방식 (앱 MCP를 같은 프로세스에 붙이려면): 첫 지시 뒤 inbox의 지시를 넘기고, inbox가 닫히면 입력을 끝낸다.
     // inbox가 없으면 지시 하나의 차례가 끝날 때까지만 연다
@@ -175,7 +182,7 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean) 
         settingSources: [],
         strictMcpConfig: true,
         // 맥의 Claude Code 커넥터(사용자 범위 MCP 서버)와 스킬 (10/21 22:40). 사용자 설정 파일은 여전히 읽지 않는다
-        mcpServers: { ...userConnectors(MCP_NAME) as Record<string, McpServerConfig>, [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor(input.appChat, input.central) } },
+        mcpServers: { ...userConnectors(MCP_NAME) as Record<string, McpServerConfig>, [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor(input.appChat, input.central, input.chat) } },
         ...(() => { const dir = skillsPluginDir(); return dir ? { plugins: [{ type: 'local' as const, path: dir }], skills: 'all' as const } : {} })(),
         disallowedTools: input.appChat ? [] : [...FILE_WRITE_TOOLS],
         systemPrompt: { type: 'preset', preset: 'claude_code', append: input.brief },
@@ -189,18 +196,26 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean) 
           return d.allow ? { behavior: 'allow', updatedInput: toolInput } : { behavior: 'deny', message: d.message }
         },
         abortController,
-        env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(AUTO_COMPACT_WINDOW), ...claudeEnv(), ...input.env },
+        env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(AUTO_COMPACT_WINDOW), ...claudeEnv(), ...gitIdentityEnv(), ...input.env },
         ...executable(),
       },
     })
     // 생각은 요약으로 받는다 (모델마다 기본이 '보이지 않음'일 수 있다). 못 바꾸면 그대로 둔다
     void q.setMaxThinkingTokens(null, 'summarized').catch(() => undefined)
-    // 멈춤: 하던 차례만 끊는다. 이미 넘긴 지시가 남아 이어 돌면(still_queued) false라 앱이 에이전트를 닫는다
-    input.control?.({ interrupt: async () => { const r = await q.interrupt(); return !(r && 'still_queued' in r && Array.isArray(r.still_queued) && r.still_queued.length) } })
+    // 멈춤: 하던 차례만 끊는다. 이미 넘긴 지시가 남아 이어 돌면(still_queued) false라 앱이 에이전트를 닫는다.
+    // 그 지시는 아직 읽히지 않았으니 unread로 「다음에 보냄」에 되돌아간다
+    input.control?.({ interrupt: async () => {
+      const r = await q.interrupt()
+      const ok = !(r && 'still_queued' in r && Array.isArray(r.still_queued) && r.still_queued.length)
+      // 남은 지시 없이 끊겼으면 끊긴 차례의 지시는 사용자가 멈춘 것이다 (다시 보내지 않는다)
+      if (ok) unread.clear()
+      return ok
+    }, unread: () => unread.left() })
     let context = 0
     try {
       for await (const m of q) {
         const msg = m as Parameters<typeof eventsOf>[0] & { message?: { usage?: Usage } }
+        if (msg.type === 'assistant' && !msg.parent_tool_use_id) unread.read(msg.user_message_uuids ?? (msg.user_message_uuid ? [msg.user_message_uuid] : []))
         if (msg.type === 'assistant' && !msg.parent_tool_use_id && msg.message?.usage) context = inputOf(msg.message.usage) + (msg.message.usage.output_tokens ?? 0)
         for (const e of eventsOf(msg, context)) {
           yield e

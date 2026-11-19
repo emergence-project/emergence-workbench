@@ -55,8 +55,10 @@ import { registerFigures } from './routes/figures.js'
 import { registerTasks } from './routes/tasks.js'
 import { registerChanges } from './routes/changes.js'
 import { registerAgentEdits } from './routes/agentEdits.js'
+import { registerAgentMockups } from './routes/agentMockups.js'
 import { registerAgentChats } from './routes/agentChats.js'
 import { registerAgentHooks } from './routes/agentHooks.js'
+import { registerTerminal } from './routes/terminal.js'
 import type { AgentRunner } from './agentChats.js'
 import { appWorktrees, type AppWork } from './appWorktree.js'
 import { registerCommonRules } from './routes/commonRules.js'
@@ -99,6 +101,8 @@ export interface AppOptions {
   personalDir?: string
   /** 앱 자신의 업데이트(설정 화면). 실사용만: 저장소 위치, 지금 돌고 있는 커밋, 설치·빌드·재시작 방법 */
   appRepo?: { root: string; running: string; steps: UpdateSteps }
+  /** 소개의 업데이트 날짜 · 제목을 읽는 앱 저장소 (없으면 appRepo). 예제 모드도 지금 코드의 git 기록을 읽기만 한다 */
+  aboutRepo?: { root: string; running: string }
   /** 앱 자동 업데이트 (실사용 서비스만): 이만큼마다 받고 빌드해 두고, 열린 화면이 없고 쓰기 요청이 idleMs 동안 없으면 다시 시작한다 */
   appAutoUpdate?: { everyMs: number; idleMs: number }
   /** 연구 저장소의 기록(workbench/comments/)을 쓴 뒤 이만큼(ms) 조용하면 저절로 GitHub에 올린다 (실사용만, routes/feedback.ts). 없으면 버튼으로만 올린다 */
@@ -174,7 +178,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   // 설치 파일로 깐 앱: 창이 넘긴 열쇠가 없는 요청은 받지 않는다 (appKey.ts). 창은 /__open으로 한 번 들어와 쿠키를 받는다
   if (opts.key) registerKeyGate(app, opts.key, opts.port ?? 0)
 
-  // 에이전트 연결 확인 (설정 › 계정 › 시작 준비): MCP 입구가 붙이는 머리
+  // 에이전트 연결 확인 (계정 › 시작 준비): MCP 입구가 붙이는 머리
   app.addHook('onRequest', (req, _reply, done) => { const a = req.headers['x-rw-agent']; if (typeof a === 'string' && a) noteAgentCall(opts.configDir, a); done() })
 
   // 맥 밖의 웹 페이지가 보낸 요청은 받지 않는다 (hostGuard.ts)
@@ -207,7 +211,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const broadcast = (e: WorkbenchEvent) => {
     // 라이브러리 알림은 바뀐 갈래의 캐시만 비운다 (아래 watchLibraryNow). 프로젝트 알림은 그 프로젝트와 프로젝트를 읽는 목록만 (10/15)
     // 에이전트 대화 알림은 파일이 바뀐 것이 아니라 캐시를 그대로 둔다
-    if (e.type === 'agent-chat' || e.type === 'agent-draft' || e.type === 'agent-hooks' || e.type === 'feedback' || e.type === 'account') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
+    if (e.type === 'agent-chat' || e.type === 'agent-draft' || e.type === 'agent-hooks' || e.type === 'feedback' || e.type === 'account' || e.type === 'app') { /* 캐시 그대로 */ } else if (e.type !== 'library') { if (e.research) libraryReads?.invalidateProject(e.research); else libraryReads?.invalidate() }
     const data = JSON.stringify(e)
     for (const s of sockets) if (s.readyState === 1) s.send(data)
   }
@@ -389,9 +393,11 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerTasks(app, ctx)
   registerChanges(app, ctx)
   registerAgentEdits(app, ctx)
+  registerAgentMockups(app, path.join(opts.configDir, 'agent-worktrees'))
   // 앱 고치기 · 피드백 맡기기는 관리자 앱(피드백을 직접 받는 앱)에서만: 중계 서버로 보내는 앱은 앱 저장소가 있어도 끈다 (11/13)
   registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo && !opts.feedbackRelay ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined))
   registerAgentHooks(app, ctx)
+  registerTerminal(app, ctx)
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))
 
   return app

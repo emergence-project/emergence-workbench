@@ -29,7 +29,20 @@ export function allowedRequest(headers: { host?: string; origin?: string; site?:
   } catch { return false }
 }
 
-export const extraHosts = (env = process.env.RW_ALLOWED_HOSTS): string[] =>
+/**
+ * 이 컴퓨터의 화면에서 바로 온 요청인지 (터미널처럼 셸을 여는 곳만 쓴다, terminal.ts).
+ * 주소가 localhost · 127.0.0.1 · [::1]이고(RW_ALLOWED_HOSTS는 다른 기기의 이름이라 아니다), 연결이 이 컴퓨터에서 왔고,
+ * 앞에서 전해 준 프록시가 없어야 한다. Tailscale serve도 이 컴퓨터에서 이어 오므로 그 머리(tailscale-user-login · x-forwarded-for)로 가린다
+ */
+export function sameComputer(req: { headers: Record<string, string | string[] | undefined>; remoteAddress?: string }): boolean {
+  const host = req.headers.host
+  if (typeof host !== 'string' || !LOCAL.has(hostnameOf(host))) return false
+  if (req.headers['tailscale-user-login'] !== undefined || req.headers['x-forwarded-for'] !== undefined || req.headers.forwarded !== undefined) return false
+  const a = req.remoteAddress ?? ''
+  return a === '::1' || a.startsWith('127.') || a.startsWith('::ffff:127.')
+}
+
+export const extraHosts =(env = process.env.RW_ALLOWED_HOSTS): string[] =>
   (env ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
 
 /**

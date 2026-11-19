@@ -86,46 +86,66 @@ export const DEFAULT_SCREENS = [
   ['agent-changes', '#/agent/{done}', '바뀐 곳'],
   // 앱 고치기 대화 (2단계 10/21): 작업 폴더에서 파일 하나를 고치고 PR을 연 대화 (shots.mjs, {appchat})
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
+  // 대화 머리 「>_」로 오른쪽 칸을 터미널로 바꾼 모습 (11/19 B1)
+  ['agent-terminal', '#/agent/{done}', '터미널 칸', '터미널 버튼'],
   // Codex 검토 카드 (11/9): 끝난 대화에 붙은 검토 (shots.mjs가 검토를 부른다)
   ['agent-review', '#/agent/{done}', '검토 카드'],
-  // 새 대화의 프로젝트 고르기 (11/8 14:16 제안): 입력란 아래 알약 버튼의 메뉴(찾기 · 프로젝트 한 목록 · 범위)
+  // 확인하지 않은 대화 (11/16 피드백): 본 기록을 비우고 계획 대화를 열어, 끝난 두 대화의 줄 앞 주황 점 · 「내 차례 3」 · 레일 배지 (shots.mjs가 비운다)
+  ['agent-unseen', '#/agent/{chat}', '대화 목록'],
+  // 보관함을 연 사이드바 (11/19 피드백 09:23): 맨 아래 상자 아이콘이 눌린 모양, 위는 「보관함 n」 제목만 (shots.mjs가 끝난 대화 하나를 보관했다가 되돌린다)
+  ['agent-archive', '#/agent/{done}', '대화 목록'],
+  // 새 대화의 프로젝트 고르기 (11/8 14:16 제안): 입력란 아래 알약 버튼의 메뉴(찾기 · 여럿 고르는 프로젝트 목록 · 고칠 곳 안내, 11/19)
   ['agent-new', '#/agent', '대화 프로젝트 고르기 항목', ['대화 프로젝트 고르기']],
   // 사이드바를 닫은 에이전트 화면 (같은 제안 안 A): 새 대화 아래 최근 대화 (shots.mjs가 찍기 전에 닫고 뒤에 되돌린다)
   ['agent-recent', '#/agent', '최근 대화'],
-  // 보관함 (11/16 정리 · 압축): 보관한 대화마다 작은 모델이 쓴 결과 요약 첫 줄 (shots.mjs가 대화 하나를 만들어 보관한다)
-  ['agent-archive', '#/agent', '결과 요약', '보관함 열기'],
   ['agent-panel', '#/r/{rid}', '에이전트 패널', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)'],
   // 에이전트 고르기 (10/30 Codex · Gemini): 새 대화의 모델 메뉴 맨 위 에이전트 줄 (예제 맥에는 Codex · Gemini가 없어 「설치 안 됨」)
   ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '모델 고르기']],
+  // 입력란 ＋ 메뉴 (11/19 지금 화면 · 고른 글 붙이기): 고른 글이 없어 「고른 글 붙이기」는 흐리다
+  ['agent-attach', '#/r/{rid}', '붙이기 버튼 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '붙이기 버튼']],
+  // 노트 본문에서 글을 끌어 고른 메뉴 (11/19 「? 질문」): 4색 · 코멘트 · 질문 (shots.mjs가 첫 문단을 세 번 눌러 고른다)
+  ['note-select', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '고른 글 질문'],
   // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
   ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)']],
   ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
   // 중앙 대화 (11/16 "중앙 에이전트"): 처음 말하는 화면, 그리고 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연 중앙 (shots.mjs, {central})
   ['agent-central-start', '#/agent/central', '중앙 시작'],
-  ['agent-central', '#/agent/{central}', '하위 대화'],
+  ['agent-central', '#/agent/{central}', '작업 현황'],
   // 어느 화면에서나 오른쪽 사이드바의 에이전트 (11/16): 소개 화면에서 사이드바를 열면 맨 위 「중앙」, 최근 대화, 중앙에게 말하는 입력란
   ['agent-side', '#/about', '에이전트 사이드바', '맥락 칸 켜고 끄기'],
+  // 터미널을 한 번 연 뒤 에이전트로 돌아온 모습 (11/19): 열린 셸은 숨어 있고 에이전트만 보인다
+  ['agent-side-back', '#/about', '에이전트 사이드바', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:text-matches("^(터미널|Terminal)")', '[data-ui="오른쪽 사이드바 갈래"] button:text-matches("^(에이전트|Agents?)")']],
   // 자기 오른쪽 사이드바가 있는 지식 첫 화면: 사이드바 맨 위 「정보 | 에이전트」에서 에이전트
   ['knowledge-agent', '#/library', '에이전트 사이드바', '[data-ui="오른쪽 사이드바 갈래"] button:text-matches("^(에이전트|Agent)")'],
   // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
   ['feedback-agent', '#/feedback', '에이전트 진행', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 10:15"]']],
   ['about', '#/about', '소개'],
+  // 소개 수정 모드 (11/19 "모드전환식"): 툴바 연필로 켜고 화면 구조 절을 눌러 그 자리에서 고치는 중
+  ['about-fix', '#/about', '고치는 중', ['수정 모드', '[data-ui="화면 구조"] .about-sec-body']],
   // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
   ['about-tags', '#/about/symbols/tags', '대화 태그'],
   // 소개 › 프로젝트 화면 쪽의 흐름 절 (절 제목 옆 "업데이트 #n")
   ['about-flow', '#/about/project/flow', '흐름'],
+  // 소개 › 정의와 원칙 쪽의 정의 절: 글의 짜임 그림에 흐름 · 맡긴 일, 정의에 흐름 · 주장 · 시도 (11/19)
+  ['about-principles', '#/about/principles', '정의'],
   // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
+  // 소개 › 단축키와 파일 위치의 「다른 앱에 옮기기」 (11/19): 이식 안내서 docs/ports 목록과 소개 동기화
+  ['about-ports', '#/about/reference/ports', '다른 앱에 옮기기'],
+  // 기능 소개 절 맨 아래의 이식 안내서 줄 (11/19): 에이전트 대화 절 → docs/ports/agent-chat.md
+  ['about-port-link', '#/about/agents/conversations', '이식 안내서'],
+  // 확인 항목 알림의 업데이트 줄을 누르면 오른쪽 「이력」이 그 업데이트를 고른 채 열린다 (11/19). 이력 보기가 기억되므로 소개 화면 맨 끝
+  ['about-check-history', '#/about/principles', '소개 이력', '[data-ui="고친 업데이트 목록"] [data-ui="고친 업데이트"]'],
   ['settings', '#/settings', '설정'],
   // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)
-  ['settings-accounts', '#/settings/google', '시작 준비 요약'],
+  ['settings-accounts', '#/account', '시작 준비 요약'],
   // 앱 안 GitHub 로그인 (11/8): 「GitHub로 로그인」을 누르면 코드와 GitHub 쪽 링크가 보인다 (예제 모드는 가짜 GitHub)
-  ['settings-github-login', '#/settings/google', 'GitHub 로그인 코드', 'GitHub로 로그인'],
+  ['settings-github-login', '#/account', 'GitHub 로그인 코드', 'GitHub로 로그인'],
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],
   // Claude 계정 (11/16): 기본 · 더한 Pro 계정, 대화 종류마다 계정 (예제는 server.ts가 Pro 계정 하나를 넣는다)
-  ['settings-claude-accounts', '#/settings/agents', '계정 고르기'],
+  ['settings-claude-accounts', '#/account', '계정 고르기'],
   // 중앙 메모 (11/16): 사용자가 정한 오래 갈 사실, 중앙이 새 대화를 열 때 읽는다 (예제는 설정 폴더의 메모)
   ['settings-central-memo', '#/settings/agents', '중앙 메모'],
   // 설정 › 에이전트 › 에이전트 자세히 (11/9): Codex 줄을 눌러 들어간 모양 (계정 · 시작 권한 · 자동 허용 · 하는 일)
@@ -224,6 +244,7 @@ export const SUBJECT_SCREENS = [
   ['subjects-figures-filtered', '#/figures/subject%3Amath', '그림 카드'],
   ['subjects-figure-picker', '#/figures/list', '분류 고르기 메뉴', ['[data-ui="그림 카드"][data-ui-item="세 나라 지도"], [data-ui="그림 카드"][data-ui-item="Three-country map"]', '분류 더하기']],
   ['subjects-papers-filtered', '#/papers/subject%3Amath', '논문 줄'],
+  ['subjects-papers-home', '#/papers', '관심 분야'],
   ['subjects-paper-picker', '#/papers/list', '분류 고르기 메뉴', ['[data-ui="논문 줄"][data-ui-item="readerGraph2010"]', '분류 더하기']],
 ]
 export const selectScreens = (sample) => sample === 'subjects' ? SUBJECT_SCREENS : DEFAULT_SCREENS

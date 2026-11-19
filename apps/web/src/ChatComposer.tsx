@@ -2,11 +2,17 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, typ
 import { useQuery } from '@tanstack/react-query'
 import { agentChatsApi, api, APP_RID, CENTRAL_RID, notesApi, type Attach, type AttachKind, type ChatEffort, type ChatMessageBody, type ChatMode, type ChatModel, type ChatSettings, type ImageIn } from './api'
 import { useCmdEnter } from './cmdEnter'
+import { onListKey } from './listInput'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { qk } from './queries'
 import { href } from './router'
 import { useDismiss } from './useDismiss'
+import { ElementPicker, type Picked } from './elementPicker'
+import { captureScreen, cropShot } from './screenCapture'
+import { placeOf, screenLine } from './screenView'
+import { lastRecordSelection } from './RecordContext'
+import { uiShown } from './uiNames'
 import { accountLabel, useClaudeAccounts } from './ClaudeAccountsSettings'
 import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
 
@@ -16,7 +22,8 @@ import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, 
  */
 
 /** 입력란을 바깥에서 채울 때 (기다리는 지시 고치기). n이 바뀌면 채운다 */
-export type Fill = { text: string; n: number; attach?: Attach[]; images?: ImageIn[] }
+/** 바깥에서 입력란을 채울 것. text가 없으면 쓰던 글은 두고 붙일 것만 더한다 (대화에서 고른 글 「답글」) */
+export type Fill = { text?: string; n: number; attach?: Attach[]; images?: ImageIn[] }
 
 // ---------- 권한 · 모델 · 생각 깊이 ----------
 
@@ -55,7 +62,8 @@ export interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; 
 
 // ---------- / 명령 ----------
 
-const COMMANDS: { cmd: string; label: string; text: string }[] = [
+/** send: 고르면 바로 보낸다 (뒤에 쓸 말이 없는 Claude Code 명령. 일하는 중이면 다음 차례로 줄 선다, 11/19 피드백 22:14) */
+const COMMANDS: { cmd: string; label: string; text: string; send?: boolean }[] = [
   { cmd: t('/계산', '/run'), label: t('노트의 계산을 다시 돌리고 확인 절과 맞추기', 'Rerun the note\'s computation and match its checks'), text: t('이 노트의 계산을 다시 돌리고 결과를 확인(Checks) 절과 맞춰 줘. 다르면 고치고 무엇이 달랐는지 알려 줘.', 'Rerun the computation in this note and match the result with its Checks section. If it differs, fix it and tell me what changed.') },
   { cmd: t('/검토', '/review'), label: t('노트의 수식 · 논리 단계 검토', 'Review the note\'s equations and steps'), text: t('이 노트의 수식과 논리 단계를 검토해 줘. 틀리거나 빠진 단계는 그 자리에 기록(질문)으로 남기고, 노트는 고치지 마.', 'Review the equations and logical steps in this note. Leave a record (question) where a step is wrong or missing; do not change the note.') },
   { cmd: t('/기록', '/records'), label: t('답할 차례인 기록에 답하기', 'Answer the records waiting for an agent'), text: t('이 프로젝트에서 에이전트가 답할 차례인 기록에 답해 줘.', 'Answer the records in this project that wait for an agent.') },
@@ -64,8 +72,8 @@ const COMMANDS: { cmd: string; label: string; text: string }[] = [
   { cmd: t('/요약', '/summary'), label: t('오늘 이 프로젝트에서 한 일', 'What happened in this project today'), text: t('오늘 이 프로젝트에서 한 일을 짧게 요약해 줘.', 'Summarize briefly what happened in this project today.') },
   // Claude Code 명령: 그대로 보낸다 (에이전트가 아니라 Claude Code가 처리)
   { cmd: t('/곁', '/btw'), label: t('하던 일을 멈추지 않고 짧게 묻기 (작은 모델이 대화 요약만 보고 답함)', 'Ask a quick side question without interrupting (a small model answers from a summary)'), text: t('/곁 ', '/btw ') },
-  { cmd: '/compact', label: t('앞 내용을 요약해 맥락 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact' },
-  { cmd: '/context', label: t('맥락이 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context' },
+  { cmd: '/compact', label: t('앞 내용을 요약해 맥락 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact', send: true },
+  { cmd: '/context', label: t('맥락이 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context', send: true },
 ]
 
 /** 곁 질문이면 묻는 글 (/곁 · /btw 뒤), 아니면 없음 */
@@ -74,7 +82,9 @@ export function sideQuestion(text: string): string | undefined {
   return m?.[2]!.trim() || undefined
 }
 
-export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector') }
+export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector'), element: t('화면 요소', 'Screen element'), terminal: t('터미널', 'Terminal'), screen: t('지금 화면', 'Current screen') }
+
+export { ChatQuoteMenu } from './ChatQuote'
 
 // ---------- 노트에서 「에이전트에게」 (고른 글 메뉴) ----------
 
@@ -208,6 +218,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   const [busy, setBusy] = useState(false)
   const [hi, setHi] = useState(0)
   const [closed, setClosed] = useState<number | null>(null)
+  const [picking, setPicking] = useState(false)
   const box = useRef<HTMLTextAreaElement>(null)
   const file = useRef<HTMLInputElement>(null)
   useInbox(rid, (got) => { setAttach((a) => [...a, ...got]); box.current?.focus() })
@@ -215,9 +226,9 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   useEffect(() => setAutoOff(false), [autoKey])
   useEffect(() => {
     if (!fill) return
-    setText(fill.text); setCaret(fill.text.length)
+    if (fill.text !== undefined) { setText(fill.text); setCaret(fill.text.length) }
     // 기다리던 지시를 고칠 때 붙인 것 · 그림도 함께 돌아온다
-    if (fill.attach?.length) setAttach((a) => [...a, ...fill.attach!])
+    if (fill.attach?.length) setAttach((a) => [...a, ...fill.attach!.filter((x) => !a.some((y) => y.kind === x.kind && y.ref === x.ref && y.text === x.text))])
     if (fill.images?.length) setImages((xs) => [...xs, ...fill.images!.map((im, i) => ({ ...im, name: t(`그림 ${i + 1}`, `Image ${i + 1}`) }))].slice(0, 4))
     box.current?.focus()
   }, [fill?.n]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -230,6 +241,20 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   // 맥의 Claude Code 스킬 · 커넥터 (10/21 22:40): / 메뉴 · @ 메뉴에 함께 보인다
   const extras = useQuery({ queryKey: qk.agentExtras, queryFn: () => agentChatsApi.extras(), enabled: !!menu, staleTime: 60_000 }).data
   const tree = useQuery({ queryKey: qk.repoTree(rid), queryFn: () => api.research(rid).repoTree(), enabled: research && menu?.kind === '@' && (menu.query.length >= 2) }).data
+
+  // 화면 요소 붙이기 (11/18): 피드백 모드와 같은 고르기로 한 곳을 누르면 부위 이름 · 글자와 그 둘레 그림을 붙인다
+  const pickElement = async (p: Picked) => {
+    setPicking(false)
+    const text = p.snippet ? `${p.path}\n${p.snippet}` : p.path
+    setAttach((a) => [...a, { kind: 'element', ref: location.hash || '#/', label: uiShown(p.path).split(' › ').pop()!.slice(0, 200), text: text.slice(0, 4000) }])
+    box.current?.focus()
+    if (images.length >= 4) return
+    // 고르기 상자가 지워진 뒤 찍는다
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r)))
+    const shot = await captureScreen()
+    const im = shot && await cropShot(shot, p.rect)
+    if (im) setImages((xs) => [...xs, { ...im, name: t('화면 요소', 'Screen element') }].slice(0, 4))
+  }
 
   const focusAt = (at: number) => requestAnimationFrame(() => { box.current?.focus(); box.current?.setSelectionRange(at, at) })
   const replaceToken = (insert: string) => {
@@ -246,9 +271,10 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (!menu) return []
     const q = menu.query.toLowerCase()
     if (menu.kind === '/') {
-      const fill = (v: string) => { setText(v); setCaret(v.length); requestAnimationFrame(() => box.current?.focus()) }
+      // 고르면 메뉴를 닫는다 (/compact처럼 글이 명령 그대로면 메뉴가 다시 맞아 열려 있었다)
+      const fill = (v: string) => { setText(v); setCaret(v.length); setClosed(menu.start); requestAnimationFrame(() => box.current?.focus()) }
       const cmds = COMMANDS.filter((c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.label.toLowerCase().includes(q))
-        .map((c) => ({ key: c.cmd, label: c.cmd, meta: c.label, run: () => fill(c.text) }))
+        .map((c) => ({ key: c.cmd, label: c.cmd, meta: c.label, run: () => { fill(c.text); if (c.send) void submit(c.text) } }))
       // 스킬: 고르면 그 스킬을 쓰라는 글로 시작한다 (에이전트가 Skill 도구로 읽는다)
       const skills = (extras?.skills ?? []).filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
         .map((s) => ({ key: `s:${s.name}`, label: s.name, meta: `${t('스킬', 'Skill')}${s.description ? ` · ${s.description}` : ''}`, run: () => fill(t(`「${s.name}」 스킬로 `, `Using the ${s.name} skill, `)) }))
@@ -286,12 +312,12 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   }
 
   const all = [...(auto && !autoOff ? [auto] : []), ...attach]
-  const submit = async () => {
-    const v = text.trim()
+  const submit = async (value = text) => {
+    const v = value.trim()
     if (!v || busy) return
     setBusy(true); setFail(null)
     try {
-      const ok = await onSubmit({ text: v, ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data }) => ({ type, data })) }) })
+      const ok = await onSubmit({ text: v, view: screenLine(), ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data }) => ({ type, data })) }) })
       if (ok) { setText(''); setCaret(0); setAttach([]); setImages([]) }
     } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
   }
@@ -304,10 +330,13 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); picks[hi]?.run(); return }
     }
     if (menu && e.key === 'Escape') { e.preventDefault(); setClosed(menu.start); return }
+    // 목록 줄에서 Enter는 다음 항목, Tab · Shift+Tab은 들여쓰기 · 내어쓰기 (목록 줄이 아니면 Shift+Tab은 허락 단계)
+    if (onListKey(e, setText)) { setCaret(e.currentTarget.selectionStart); return }
     if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust, isClaude(settings.agent)) }); return }
     if (e.key === 'Escape' && onStop && !text) { e.preventDefault(); onStop(); return }
     sendKey.onKeyDown(e)
   }
+  // 입력란 밖(모델 · 권한 고르기 등)으로 옮겨 간 뒤에도 ⌘↵로 보낸다 (11/19 피드백 09:04). 입력란 안은 onKey가 받는다
   const startToken = (ch: '@' | '/') => {
     if (ch === '/') { setText('/'); setCaret(1); setClosed(null); focusAt(1); return }
     const at = box.current?.selectionStart ?? text.length
@@ -331,7 +360,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   const thinkingNow = variants.length > 1 ? (settings.model === 'default' ? t(`${effortLabel(fam.suffix)} (기본)`, `${effortLabel(fam.suffix)} (default)`) : effortLabel(fam.suffix)) : EFFORT_NAME[settings.effort]
 
   return (
-    <div className="ac-composer" data-ui="에이전트 입력란" onDrop={onDrop} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}>
+    <div className="ac-composer" data-ui="에이전트 입력란" onKeyDown={(e) => { if (e.target !== box.current) sendKey.onKeyDown(e) }} onDrop={onDrop} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}>
       {(all.length > 0 || images.length > 0) && (
         <div className="ac-chips">
           {auto && !autoOff && <span className="tag ac-chip" title={auto.ref}>{ATTACH_NAME[auto.kind]} · {auto.label}<button className="ac-chip-x" aria-label={t('제거', 'Remove')} onClick={() => setAutoOff(true)}>{Icon.x}</button></span>}
@@ -357,12 +386,23 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         )}
       </div>
       {shownFail && <span className="error-text ac-hint">{shownFail}</span>}
+      {picking && <ElementPicker title={t('화면 요소', 'Screen element')} hint={t('대화에 붙일 화면 한 곳을 누르세요 · Esc 취소', 'Click the part of the screen to attach · Esc to cancel')}
+        skip=".ac-composer" onPick={(p) => void pickElement(p)} onCancel={() => setPicking(false)} />}
       <div className="ac-compose-row">
         <PopButton ui="붙이기 버튼" tip={t('붙이기 · 명령 · 그림', 'Attach · commands · images')} label={<span className="ac-pop-ico">{Icon.plus}</span>}>
           {(close) => <>
             <button role="menuitem" onClick={() => { close(); startToken('@') }}>{t('노트 · 주제 · 파일 · 커넥터 붙이기', 'Attach a note, topic, file or connector')}<span className="muted mono ac-key">@</span></button>
             <button role="menuitem" onClick={() => { close(); startToken('/') }}>{t('명령 · 스킬', 'Commands and skills')}<span className="muted mono ac-key">/</span></button>
             <button role="menuitem" onClick={() => { close(); file.current?.click() }}>{t('그림 고르기', 'Choose images')}<span className="muted ac-key">{t('붙여넣기도', 'or paste')}</span></button>
+            <button role="menuitem" onClick={() => { close(); setPicking(true) }}>{t('화면 요소 고르기', 'Pick a screen element')}<span className="muted ac-key">{t('그림도', 'with image')}</span></button>
+            <button role="menuitem" onClick={() => { close(); addAttach({ kind: 'screen', ref: (location.hash || '#/').slice(0, 400), label: (placeOf(document.title).at(-1) ?? t('첫 화면', 'Start')).slice(0, 200), text: screenLine() }) }}>{t('지금 화면 붙이기', 'Attach current screen')}</button>
+            {(() => {
+              // 마지막으로 고른 글 (노트 · 보고서와 그 밖의 모든 화면, 선택이 풀리거나 그 화면이 닫혀도 남는다, RecordContext). 없으면 흐리게
+              const sel = lastRecordSelection()
+              const where = sel && `${!sel.rid || sel.rid === rid ? '' : `${sel.rid}:`}${sel.target}${sel.line ? `:${sel.line}` : ''}`
+              return <button role="menuitem" disabled={!sel} data-tip={sel ? undefined : t('화면에서 글을 고르면 붙일 수 있습니다', 'Select some text on a screen first')}
+                onClick={() => { close(); if (sel) addAttach({ kind: 'selection', ref: where!.slice(0, 400), label: sel.quote.replace(/\s+/g, ' ').slice(0, 40), text: sel.quote.slice(0, 4000) }) }}>{t('고른 글 붙이기', 'Attach selected text')}</button>
+            })()}
           </>}
         </PopButton>
         {lead}

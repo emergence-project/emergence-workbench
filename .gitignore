@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-next/
+dist-old/
 .build/
 *.log
 .DS_Store
@@ -9,6 +10,8 @@ dist-next/
 .sandbox-shots/
 .sandbox-shots-en/
 /shots/
+# 앱 고치기 대화가 만든 시안 (대화 화면이 보여 준다, routes/agentMockups.ts)
+/mockups/
 # 내려받는 앱에 묶을 서버 · Node (scripts/bundle-app.mjs)
 /desktop/standalone/
 

@@ -2,7 +2,7 @@
 import { enc, json, req, send } from './http'
 
 // 타입은 서버와 같은 계약에서 (packages/core/src/contract/agentChats.ts)
-import type { AskAnswer, CentralMemo, CentralState, ChatAgents, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, NewChatBody, RecordDraft, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
+import type { AskAnswer, CentralMemo, CentralState, ChatAgents, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, MockupFiles, NewChatBody, RecordDraft, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
 export type { AgentKind, CentralKid, CentralMemo, CentralState, AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 
 /** 앱 고치기 대화의 rid (계약의 APP_RID와 같은 값. 값을 가져오면 화면 번들에 zod가 들어가서 여기 다시 적는다) */
@@ -12,7 +12,12 @@ export const CENTRAL_RID = '_central'
 
 const base = '/api/agent-chats'
 const one = (r: Response) => json<ChatOne>(r).then((x) => x.chat)
+/** 시안 파일 하나의 주소 (그림 · 새 창) */
+export const mockupUrl = (dir: string, file: string) => `/api/agent-mockups/${enc(dir)}/${enc(file)}`
+
 export const agentChatsApi = {
+  /** 앱 고치기 대화 작업 폴더의 mockups/ 파일 이름 (11/19 시안을 화면에서 바로). dir은 작업 폴더 이름(대화 id) */
+  mockups: (dir: string) => req(`/api/agent-mockups/${enc(dir)}`).then((r) => json<MockupFiles>(r)),
   /** rid가 없으면 모든 프로젝트의 대화 */
   list: (rid?: string) => req(`${base}${rid ? `?rid=${enc(rid)}` : ''}`).then((r) => json<ChatList>(r)),
   get: (id: string) => req(`${base}/${enc(id)}`).then(one),
@@ -29,7 +34,7 @@ export const agentChatsApi = {
   memo: () => req('/api/agent-central/memo').then((r) => json<CentralMemo>(r)),
   setMemo: (text: string) => req('/api/agent-central/memo', send('POST', { text })).then((r) => json<CentralMemo>(r)),
   /** 중앙에게 말하기 (중앙이 없으면 연다) */
-  talk: (text: string) => req('/api/agent-central/messages', send('POST', { text })).then(one),
+  talk: (text: string, view?: string) => req('/api/agent-central/messages', send('POST', { text, view })).then(one),
   /** 이어서 지시 (일하는 중이면 다음 차례에 읽는다) */
   send: (id: string, body: ChatMessageBody) => req(`${base}/${enc(id)}/messages`, send('POST', body)).then(one),
   /** 곁 질문 (하던 일을 멈추지 않고 작은 모델이 대화 요약만 보고 답한다) */

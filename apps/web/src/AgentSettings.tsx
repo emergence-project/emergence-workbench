@@ -1,4 +1,5 @@
 import { FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES, type FeedbackMerge, type FeedbackPick, type InstructionMode } from '@rw/core'
+import { CentralMemoSettings } from './CentralMemoSettings'
 import type { AgentSettings as Settings } from '@rw/core/contract/settings'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -13,8 +14,6 @@ import { CopyButton, Row, when } from './SetupChecklist'
 import { AiKeyRow } from './AiKeySettings'
 import { AgentPrefs } from './AgentPrefs'
 import { useAdmin } from './admin'
-import { ClaudeAccountsSettings } from './ClaudeAccountsSettings'
-import { CentralMemoSettings } from './CentralMemoSettings'
 
 const PICK: Record<FeedbackPick, () => string> = {
   off: () => t('끔', 'Off'),
@@ -48,10 +47,9 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
   }
   return (<>
     <AgentConnections onSaved={onSaved} />
-    <ClaudeAccountsSettings onSaved={onSaved} />
-    <CentralMemoSettings onSaved={onSaved} />
     <AgentPrefs onSaved={onSaved} />
     <AgentHooks onSaved={onSaved} />
+    <CentralMemoSettings onSaved={onSaved} />
     <h3 className="set-h3">{t(`${HERE.onKo} 하는 일`, `On ${HERE.en}`)}</h3>
     {!s ? <p className="muted">{err ?? t('설정을 읽는 중…', 'Reading settings…')}</p> :
     <div className="set-rows" data-ui="에이전트">
@@ -150,7 +148,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
       <div className="set-row" data-ui="피드백 맡기기">
         <div>
           <div className="set-name">{t('맡기기', 'Hand off')}</div>
-          <div className="set-desc">{t('에이전트 차례인 피드백을 이 맥의 Claude가 언제 맡을지 고릅니다. 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 바로면 새 차례가 생길 때 앱이 맡깁니다(동시에 셋까지). 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude on this Mac takes feedback that is the agent\'s turn. "When I press" uses Hand to agent on the Feedback screen; "Right away" lets the app hand items off as they come (up to three at once). Questions and suggestions are only answered, without code changes.')}</div>
+          <div className="set-desc">{t('에이전트 차례인 피드백을 이 맥의 Claude가 언제 맡을지 고릅니다. 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 바로면 새 차례가 생길 때 · 코멘트를 저장할 때 앱이 맡깁니다(남은 메모리만큼 동시에, 앞서 맡은 대화가 있으면 그 대화에 이어). 피드백 화면 툴바의 「바로 맡기기」 켜기 · 끄기도 이 값을 바꿉니다. 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude on this Mac takes feedback that is the agent\'s turn. "When I press" uses Hand to agent on the Feedback screen; "Right away" lets the app hand items off as they come and as comments are saved (as many at once as free memory allows, continuing the earlier conversation if there is one). Right-away hand-off on the Feedback screen toolbar switches this value too. Questions and suggestions are only answered, without code changes.')}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {FEEDBACK_PICKS.map((m) => <button key={m} role="radio" aria-checked={s.feedback === m} className={s.feedback === m ? 'on' : ''} onClick={() => save({ feedback: m })}>{PICK[m]()}</button>)}

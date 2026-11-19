@@ -4,7 +4,8 @@ import * as C from '@rw/core/contract/feedback'
 import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import path from 'node:path'
-import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, feedbackAsks, feedbackStatusError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback } from '../feedback.js'
+import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, feedbackStatusError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback } from '../feedback.js'
+import { feedbackVerdictError } from '../feedbackVerdict.js'
 import { WorkbenchError, assertRealInside } from '../workbench.js'
 import { commitChecker } from '../commitsInApp.js'
 import { appIssuesUrl } from '../appupdate.js'
@@ -14,7 +15,8 @@ import { syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
 import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
 import { CLAIM_TTL_MS, isLiveClaim, lastTouched, readClaims, releaseClaims } from '../feedbackClaims.js'
-import { exportFeedback, importFeedback, PICTURE_NAME } from '../feedbackBundle.js'
+import { exportFeedback, importFeedback } from '../feedbackBundle.js'
+import { MOCKUP_FILE, mockupType } from '../feedbackMockups.js'
 import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
 import { revealInFinder } from '../materials.js'
 import { repoInfo } from '../gitsync.js'
@@ -43,7 +45,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   let autoTimer: NodeJS.Timeout | null = null
   let lastAuto: { at: number; error: string | null } | null = null
   // 중계 서버로 바로 보내기 (11/8): 개인 저장소 없이 쓰는 앱. 한 번에 하나씩
-  // 보내는 이름: 설정 › 계정의 내 이름, 없으면 로그인한 GitHub 계정의 이름이나 아이디, 그것도 없으면 이 컴퓨터 사용자 이름(윈도우는 흔히 USER) (11/9)
+  // 보내는 이름: 계정의 내 이름, 없으면 로그인한 GitHub 계정의 이름이나 아이디, 그것도 없으면 이 컴퓨터 사용자 이름(윈도우는 흔히 USER) (11/9)
   const named = () => ctx.registry.authors[0]?.name || ctx.account.account?.name || ctx.account.account?.login || ''
   const sender = () => named() || os.userInfo().username
   let relaying: Promise<unknown> = Promise.resolve()
@@ -113,8 +115,11 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   let issues: Promise<string | null> | null = null
   const issuesUrl = () => (issues ??= process.env.RW_ISSUES_URL ? Promise.resolve(process.env.RW_ISSUES_URL) : opts.appRepo ? appIssuesUrl(opts.appRepo.root) : Promise.resolve(null))
 
+  const repo = opts.appRepo
+  // 화면만 바꿔 끼운 업데이트는 다시 시작하지 않고 돌고 있는 커밋을 바꾼다 (routes/settings.ts)
+  const appVersion = () => repo?.running.slice(0, 7) ?? opts.appVersion
   app.get('/api/feedback', replies(C.FeedbackToday), async (): Promise<C.FeedbackToday> => ({
-    issues: await issuesUrl(), version: opts.appVersion ?? null,
+    issues: await issuesUrl(), version: appVersion() ?? null,
     enabled: !!opts.feedbackDir, publishable: !!opts.feedbackDir && !!opts.feedbackPublish,
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
     delay: (() => { const d = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
@@ -123,7 +128,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     entries: opts.feedbackDir ? listFeedback(opts.feedbackDir) : [],
   }))
 
-  const inApp = opts.appRepo ? commitChecker(opts.appRepo.root, opts.appRepo.running) : null
+  const inApp = repo ? commitChecker(repo.root, () => repo.running) : null
   let account: Promise<string | null> | null = null
   app.get('/api/feedback/all', replies(C.FeedbackAll), async (): Promise<C.FeedbackAll> => {
     syncSoon()
@@ -165,7 +170,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   })
   /**
    * 피드백 파일로 보내기 (11/8): GitHub 없이 쓰는 사람이 남긴 피드백을 한 파일로 묶어 내려받기 폴더에 두고 탐색기 · Finder에서 보여 준다.
-   * 보낸 사람 이름은 설정 › 계정의 첫 저자, 없으면 이 컴퓨터의 사용자 이름
+   * 보낸 사람 이름은 계정의 첫 저자, 없으면 이 컴퓨터의 사용자 이름
    */
   app.post('/api/feedback/export', replies(C.FeedbackExported), async (): Promise<C.FeedbackExported> => {
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
@@ -186,12 +191,12 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     scheduleAutoPublish()
     return r
   })
-  /** 피드백의 그림 (feedback/pictures/ 안의 파일만): 남길 때의 화면, 처리 전후 그림 */
+  /** 피드백의 그림 (feedback/pictures/ 안의 파일만): 남길 때의 화면, 처리 전후 그림, 처리 · 답에 붙인 시안(그림 · html. html은 /api/ 응답 머리의 sandbox로 연다) */
   app.get<{ Querystring: { path?: string } }>('/api/feedback/picture', async (req, reply) => {
     const rel = req.query.path ?? ''
-    if (!opts.feedbackDir || !new RegExp(`^pictures/${PICTURE_NAME}$`, 'u').test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
+    if (!opts.feedbackDir || !new RegExp(`^pictures/${MOCKUP_FILE}$`, 'u').test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
     const file = assertRealInside(path.join(opts.feedbackDir, 'pictures'), path.join(opts.feedbackDir, rel), t('그림이 없음', 'No picture'))
-    return reply.type(rel.endsWith('.png') ? 'image/png' : 'image/jpeg').send(fs.readFileSync(file))
+    return reply.type(mockupType(rel)).send(fs.readFileSync(file))
   })
   /** 코멘트: 처리를 바꾸지 않고 묻거나 덧붙인다. reviews.yaml comments에 적고 피드백처럼 올린다 */
   app.post('/api/feedback/comment', replies(C.FeedbackCommented), async (req): Promise<C.FeedbackCommented> => {
@@ -201,6 +206,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!listAllFeedback(opts.feedbackDir).some((e) => e.key === b.key)) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     const comment = addFeedbackComment(opts.feedbackDir, b.key, b.note.slice(0, 4000))
     scheduleAutoPublish()
+    ctx.feedbackSaved?.()
     return { comment }
   })
   /** 내가 쓴 글(수정 요청 · 승인 · 코멘트) 고치기: at으로 찾는다 */
@@ -235,22 +241,20 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const b = parseBody(C.FeedbackReviewBody, req.body)
     const item = listAllFeedback(opts.feedbackDir).find((e) => e.key === b.key)
     if (!item) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
-    if (b.verdict !== null && !item.status) throw new WorkbenchError(400, t('아직 처리하지 않은 항목입니다', 'This item has not been handled yet'))
-    // 결정을 묻는 답에는 진행 · 중단 · 논의로, 결과를 알린 답에는 승인 · 진행 · 반려 · 논의로 답한다 (10/9, 11/8 안 C). 예전 보류에 단 반려는 그대로 받는다
-    const asks = feedbackAsks(item.status)
-    if (b.verdict === '승인' && (asks || item.status?.state === '보류')) throw new WorkbenchError(400, t('묻는 답은 승인하지 않고 진행이나 중단으로 답합니다', 'An answer that asks you is not approved: answer it with Proceed or Stop'))
-    if (b.verdict === '중단' && !asks) throw new WorkbenchError(400, t('중단은 에이전트가 물은 답에만 씁니다', 'Stop is only for answers where the agent asks you'))
-    if (b.verdict === '논의' && !b.note?.trim()) throw new WorkbenchError(400, t('논의는 무엇을 이야기할지 글을 적어 보냅니다', 'Write what to discuss before sending Discuss'))
+    const bad = b.verdict !== null && feedbackVerdictError(item, b.verdict, b.note)
+    if (bad) throw new WorkbenchError(400, bad)
     const review = setFeedbackReview(opts.feedbackDir, b.key, b.verdict, b.note)
     scheduleAutoPublish()
+    ctx.feedbackSaved?.()
     return { review }
   })
   app.post('/api/feedback', replies(C.FeedbackAdded), async (req): Promise<C.FeedbackAdded> => {
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
     const b = parseBody(C.NewFeedbackBody, req.body)
     if (!b.text.trim()) throw new WorkbenchError(400, t('내용이 필요함', 'text is required'))
-    const entry = appendFeedback(opts.feedbackDir, { ...b, version: opts.appVersion })
+    const entry = appendFeedback(opts.feedbackDir, { ...b, version: appVersion() })
     scheduleAutoPublish()
+    ctx.feedbackSaved?.()
     return { entry }
   })
 }

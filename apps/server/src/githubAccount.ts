@@ -11,7 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { AccountView } from '@rw/core/contract/account'
 import { writeAtomic } from './fsutil.js'
-import { getFallbackIdentity, setFallbackIdentity, setGithubToken } from './git.js'
+import { getFallbackIdentity, hasAppIdentity, setFallbackIdentity, setGithubToken } from './git.js'
 import { t } from './i18n.js'
 import type { SecretStore } from './secretStore.js'
 import { WorkbenchError } from './workbench.js'
@@ -162,7 +162,7 @@ export class GithubAccount {
   private apply(u: GithubUser, token: string): void {
     this.user = u
     setGithubToken(token)
-    if (getFallbackIdentity()) setFallbackIdentity({ name: u.name || u.login, email: noreplyEmail(u) })
+    if (getFallbackIdentity() && !hasAppIdentity()) setFallbackIdentity({ name: u.name || u.login, email: noreplyEmail(u) })
   }
 
   /**
@@ -171,7 +171,7 @@ export class GithubAccount {
    */
   async createPrivateRepo(name: string, description: string, init = true): Promise<string> {
     const token = await this.token()
-    if (!token) throw new WorkbenchError(400, t('먼저 설정 › 계정에서 GitHub로 로그인해 주세요', 'Sign in with GitHub in Settings › Accounts first'))
+    if (!token) throw new WorkbenchError(400, t('먼저 계정에서 GitHub로 로그인해 주세요', 'Sign in with GitHub on the Account page first'))
     const res = await this.f('https://api.github.com/user/repos', {
       method: 'POST', headers: { ...UA, accept: 'application/vnd.github+json', authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify({ name, private: true, auto_init: init, description }), signal: AbortSignal.timeout(30_000),

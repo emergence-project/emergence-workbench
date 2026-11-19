@@ -19,7 +19,7 @@ import { DEFAULT_AUTHORS } from '@rw/core'
 import { COMMON_RULES_FILE } from './agentRules.js'
 import { Registry } from './registry.js'
 import { prepareStarter } from './starter.js'
-import { setFallbackIdentity } from './git.js'
+import { setAppIdentity, setFallbackIdentity } from './git.js'
 import { serveStatic } from './static.js'
 import { writeServerInfo } from './appKey.js'
 
@@ -148,11 +148,15 @@ if (process.env.RW_SANDBOX === '1') {
   const openedFile = path.join(configDir, 'papers-opened.json')
   if (!fs.existsSync(openedFile)) cpSample(path.join(repoRoot, 'fixtures/sandbox-papers/opened.json'), openedFile)
   const sampleRecommend = fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/recommend.json'), 'utf8')
+  const sampleRecommendJson: unknown = JSON.parse(sampleRecommend)
+  const sampleRecommendList = sampleRecommendJson && typeof sampleRecommendJson === 'object' && 'recommendedPapers' in sampleRecommendJson && Array.isArray(sampleRecommendJson.recommendedPapers) ? sampleRecommendJson.recommendedPapers : []
+  const sampleRecommendReversed = JSON.stringify({ recommendedPapers: [...sampleRecommendList].reverse() })
   // 넣기 전에 읽기 (11/5): 추천 논문의 arXiv 정보 · PDF와 Crossref 초록도 정해 둔 답으로
   const samplePeek: Record<string, { title: string; authors: string[]; abstract: string }> = JSON.parse(fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/peek.json'), 'utf8'))
   const samplePdf = path.join(repoRoot, 'fixtures/sandbox-papers/pdf/doeStructurePlanar2004.pdf')
   usePaperFetcher((url, init) => {
-    if (url.includes('/recommendations/')) return Promise.resolve(new Response(sampleRecommend))
+    // 분류 예제(관심 분야 두 개)에서는 둘째 기준 논문의 답을 거꾸로 돌려 줄 끝 분야 표시가 번갈아 보이게 한다
+    if (url.includes('/recommendations/')) return Promise.resolve(new Response(process.env.RW_SUBJECTS_FIXTURE === '1' && url.includes('0000.00003') ? sampleRecommendReversed : sampleRecommend))
     const ax = /export\.arxiv\.org\/api\/query\?id_list=([^&]+)/.exec(url)?.[1]
     const pdf = /arxiv\.org\/pdf\/(.+)$/.exec(url)?.[1]
     const doi = /api\.crossref\.org\/works\/(10\.[^?]+)$/.exec(url)?.[1]
@@ -237,8 +241,11 @@ if (process.env.RW_SANDBOX === '1') {
 const backup = bundled && process.env.RW_SANDBOX !== '1'
   ? { dir: path.join(configDir, 'backup'), remote: null, intervalMs: 10 * 60_000, settings: path.join(configDir, 'config.yaml') }
   : appRepo && personal ? { dir: path.join(configDir, 'backup'), remote: personal, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
-// 내려받은 앱: git 전체 설정에 이름 · 이메일이 없으면 이 컴퓨터의 사용자 이름으로 커밋한다 (git.ts setFallbackIdentity, 설정 › 계정에서 바꿈)
-if (bundled && process.env.RW_SANDBOX !== '1') {
+// 계정 › 커밋 이름에 적은 것이 있으면 앱의 커밋에 그것을 쓴다 (git.ts setAppIdentity, 11/19)
+const ownIdentity = process.env.RW_SANDBOX === '1' ? undefined : new Registry(configDir).gitIdentity
+if (ownIdentity) setAppIdentity(ownIdentity)
+// 내려받은 앱: git 전체 설정에 이름 · 이메일이 없으면 이 컴퓨터의 사용자 이름으로 커밋한다 (git.ts setFallbackIdentity, 계정에서 바꿈)
+else if (bundled && process.env.RW_SANDBOX !== '1') {
   const global = (key: string) => { try { return execFileSync('git', ['config', '--global', key], { windowsHide: true }).toString().trim() } catch { return '' } }
   if (!global('user.name') || !global('user.email')) {
     const user = (() => { try { return os.userInfo().username } catch { return '' } })() || 'workbench'
@@ -254,7 +261,7 @@ if (bundled && process.env.RW_SANDBOX !== '1') {
 }
 // 설치 파일로 깐 앱: 창이 켤 때마다 만든 열쇠(appKey.ts). 예제 모드는 쓰지 않는다
 const serverKey = process.env.RW_SANDBOX !== '1' && process.env.RW_KEY ? process.env.RW_KEY : undefined
-const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackRelay: process.env.RW_SANDBOX === '1' || personal || process.env.RW_FEEDBACK_DIR ? undefined : (process.env.RW_FEEDBACK_RELAY ?? FEEDBACK_RELAY_URL) || undefined, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), ...(bundled && { bundled: { commit: bundled.commit ?? '', builtAt: bundled.builtAt ?? '', ...(bundled.version && { version: bundled.version }) } }), backup, port, ...(serverKey && { key: serverKey }) })
+const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', ...(process.env.RW_SANDBOX === '1' && running && { aboutRepo: { root: repoRoot, running } }), feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackRelay: process.env.RW_SANDBOX === '1' || personal || process.env.RW_FEEDBACK_DIR ? undefined : (process.env.RW_FEEDBACK_RELAY ?? FEEDBACK_RELAY_URL) || undefined, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), ...(bundled && { bundled: { commit: bundled.commit ?? '', builtAt: bundled.builtAt ?? '', ...(bundled.version && { version: bundled.version }) } }), backup, port, ...(serverKey && { key: serverKey }) })
 
 // RW_STATIC=1 (실사용 서비스): 빌드한 화면을 이 서버가 함께 내보낸다
 if (process.env.RW_STATIC === '1') {

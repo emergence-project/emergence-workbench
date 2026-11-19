@@ -4,11 +4,12 @@ import os from 'node:os'
 import path from 'node:path'
 import YAML from 'yaml'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { AgentChats, appBriefFor, feedbackPrompt, pictureImage, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
+import { appBriefFor, feedbackPrompt, pictureImage, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
+import { FeedbackChats } from './agentFeedbackTick.js'
 import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from '@rw/core'
 import { sampleAppWork, type AppWork } from './appWorktree.js'
-import { listAllFeedback, writeFeedbackAnswer } from './feedback.js'
+import { addFeedbackComment, listAllFeedback, writeFeedbackAnswer } from './feedback.js'
 import { writeFeedbackCloud } from './feedbackCloud.js'
 
 const FIX = path.resolve(import.meta.dirname, '../../../fixtures/sandbox-feedback')
@@ -113,6 +114,33 @@ describe('피드백 맡기기 API', () => {
     expect((await app.inject({ method: 'POST', url: '/api/feedback/hand-off', payload: { key: REWORK } })).statusCode).toBe(400)
   })
 
+  it('새 코멘트가 오면 같은 항목의 앞 대화를 이어서 맡긴다 (새 대화를 열지 않는다, 11/20)', async () => {
+    const before = (await app.inject({ method: 'GET', url: '/api/agent-chats' })).json().chats.length as number
+    const first = (await app.inject({ method: 'GET', url: '/api/agent-chats' })).json().chats.find((c: { feedback?: string }) => c.feedback === REWORK) as { id: string }
+    expect((await app.inject({ method: 'POST', url: '/api/feedback/comment', payload: { key: REWORK, note: '좁은 창에서는?' } })).statusCode).toBe(200)
+    const res = await app.inject({ method: 'POST', url: '/api/feedback/hand-off', payload: { key: REWORK } })
+    expect(res.statusCode, res.body).toBe(200)
+    expect(res.json().chat.id).toBe(first.id)
+    expect(res.json().chat.handed).toBeTruthy()
+    await vi.waitFor(async () => expect((await get(first.id)).state).toBe('idle'))
+    expect(seen.at(-1)!.prompt).toContain('좁은 창에서는?')
+    expect((await app.inject({ method: 'GET', url: '/api/agent-chats' })).json().chats.length).toBe(before)
+  })
+
+  it('사용자가 대화에서 말한 판정을 verdict로 적는다: 화면과 같은 규칙, 새 처리보다 먼저', async () => {
+    const id = ((await app.inject({ method: 'GET', url: '/api/agent-chats' })).json().chats.find((c: { feedback?: string }) => c.feedback === REWORK) as { id: string }).id
+    // 결과를 알린 답에는 중단을 쓰지 않고, 논의는 말이 있어야 한다
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '중단' } })).statusCode).toBe(400)
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '논의' } })).statusCode).toBe(400)
+    const r = await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '진행', verdictNote: '좁은 폭도 맞춰 줘', state: '반영', note: '수정 완료 (#234)\n좁은 폭도 맞춘다.' } })
+    expect(r.statusCode, r.body).toBe(200)
+    expect(r.json()).toMatchObject({ verdict: '진행', state: '반영' })
+    const item = listAllFeedback(fb).find((x) => x.key === REWORK)!
+    expect(item.review).toMatchObject({ verdict: '진행', note: '좁은 폭도 맞춰 줘' })
+    // 판정을 먼저 적었으니 새 처리는 그 진행에 답한 것: 앞 처리는 revised로
+    expect(statusOf(fb)[REWORK]!.rework).toBe(item.review!.at)
+  })
+
   it('같은 피드백을 맡은 대화가 도는 동안 그 항목은 다시 맡기지 않는다. 모르는 키 · 맡지 않은 대화도 거절', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/feedback/hand-off', payload: { key: NEW } })
     expect(res.statusCode, res.body).toBe(200)
@@ -150,6 +178,7 @@ describe('피드백 맡기기 API', () => {
     expect(p).toContain('/fb/pictures/x.png')
     expect(p).toContain(e.review!.verdict)
     expect(appBriefFor({ branch: 'b', write: 'notes' })).not.toContain('feedback_answer')
+    expect(appBriefFor({ branch: 'b', write: 'notes' })).toContain('never name real research projects, people, personal emails or local paths')
     expect(appBriefFor({ branch: 'b', write: 'notes', feedback: true })).toContain('feedback_answer')
   })
 })
@@ -157,12 +186,13 @@ describe('피드백 맡기기 API', () => {
 describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")', () => {
   let tmp: string
   let fb: string
-  let chats: AgentChats
+  let chats: FeedbackChats
   const prompts: string[] = []
   let ci: { done: boolean; ok: boolean; log?: string; link: string } = { done: false, ok: false, link: 'r1' }
   const merged: string[] = []
   let inApp: boolean | undefined
   let conflicted = false
+  let userMerged: string | undefined
   let settings: AgentSettings = { ...DEFAULT_AGENT_SETTINGS }
   const runner: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     prompts.push(input.prompt)
@@ -183,8 +213,9 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
       },
       async merge(_dir, branch) { merged.push(branch); return { number: 234, sha: 'abc1234def' } },
       async conflicted() { return conflicted },
+      async prMerged() { return userMerged ? { number: 77, sha: userMerged } : undefined },
     }
-    chats = new AgentChats({
+    chats = new FeedbackChats({
       dir: path.join(tmp, 'chats'), runner, limit: 2,
       project: () => ({ repo: tmp, title: 'x' }), readable: () => [], extraDirs: () => [], notify: () => {},
       app: work, feedback: { dir: fb }, settings: () => settings, inApp: async () => inApp,
@@ -246,6 +277,29 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     inApp = true
     await chats.tickFeedback()
     expect(chats.list().find((c) => c.id === id)!.shipped).toBe(true)
+    // 사용자가 그 답을 승인하지 않았으면 보관하지 않는다
+    expect(chats.list().find((c) => c.id === id)!.archived).toBeFalsy()
+  })
+
+  it('앱 고치기 대화는 사용자가 PR을 합치고 앱에 들어오면 저절로 보관하고, 꺼내면 다시 넣지 않는다', async () => {
+    const id = chats.create({ rid: '_app', text: '메뉴가 잘린다' }).id
+    await idle(id)
+    await chats.appSubmit(id, { title: '메뉴', body: '' })
+    inApp = false
+    await chats.tickFeedback()
+    expect(chats.get(id).archived).toBeFalsy()
+    userMerged = 'fff0001'
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ merged: 'fff0001', archived: false })
+    expect(merged).toHaveLength(1)
+    inApp = true
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ shipped: true, archived: true })
+    expect(chats.get(id).items.at(-1)).toMatchObject({ kind: 'text', text: expect.stringContaining('보관') })
+    chats.archive(id, false)
+    await chats.tickFeedback()
+    expect(chats.get(id).archived).toBe(false)
+    userMerged = undefined
   })
 
   it('클라우드 처리를 켜 두면(cloud.yaml) 바로 맡기기도 맡지 않는다 (11/4)', async () => {
@@ -275,6 +329,22 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     const keys = new Set(chats.list().map((c) => c.feedback))
     await chats.tickFeedback()
     for (const c of chats.list()) expect(keys.has(c.feedback)).toBe(true)
+    settings = { ...settings, feedback: 'manual' }
+  })
+
+  it('바로 맡기기에서 코멘트를 저장하면(pickFeedback) 그 항목의 앞 대화를 이어 맡기고, 합쳐진 PR은 새로 시작한다', async () => {
+    settings = { ...settings, feedback: 'instant' }
+    const made = chats.list().find((c) => c.feedback && c.feedback !== REWORK)!
+    const stored = (chats as unknown as { chats: Map<string, { merged?: string; pr?: unknown }> }).chats.get(made.id)!
+    stored.merged = 'abc'; stored.pr = { number: 91, url: 'u' }
+    const before = chats.list().length
+    addFeedbackComment(fb, made.feedback!, '하나 더') // 맡은 분과 같은 분의 코멘트
+    await chats.pickFeedback()
+    expect(chats.list().length).toBe(before)
+    await idle(made.id)
+    expect(prompts.at(-1)).toContain('하나 더')
+    expect(prompts.at(-1)).toContain('origin/main')
+    expect(stored.merged).toBeUndefined()
     settings = { ...settings, feedback: 'manual' }
   })
 })

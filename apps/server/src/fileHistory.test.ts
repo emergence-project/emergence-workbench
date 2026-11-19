@@ -7,7 +7,7 @@ import { coAuthors, fileHistory, fileVersions, isAgent } from './fileHistory.js'
 
 let dir: string
 const g = (name: string, email: string, ...args: string[]) => execFileSync('git', ['-c', `user.name=${name}`, '-c', `user.email=${email}`, '-c', 'commit.gpgsign=false', ...args], { cwd: dir, encoding: 'utf8' })
-const save = (file: string, text: string, msg: string, who: [string, string] = ['박성민', 'me@example.com'], body?: string) => {
+const save = (file: string, text: string, msg: string, who: [string, string] = ['홍길동', 'me@example.com'], body?: string) => {
   fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true })
   fs.writeFileSync(path.join(dir, file), text)
   g(...who, 'add', '-A')
@@ -24,7 +24,7 @@ describe('노트 이력 (11/16 시안 N7ik 2절 ③′)', () => {
   it('에이전트 이름 · 메일과 Co-Authored-By를 읽는다', () => {
     expect(isAgent('Claude')).toBe(true)
     expect(isAgent('누구', 'x@agents.emergence-workbench')).toBe(true)
-    expect(isAgent('박성민', 'me@example.com')).toBe(false)
+    expect(isAgent('홍길동', 'me@example.com')).toBe(false)
     expect(coAuthors('본문\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n')).toEqual([{ name: 'Claude', email: 'noreply@anthropic.com' }])
   })
 
@@ -32,12 +32,12 @@ describe('노트 이력 (11/16 시안 N7ik 2절 ③′)', () => {
     save('workbench/notes/a/note.md', '하나\n', '처음 씀')
     save('workbench/other.md', '딴 파일\n', '다른 파일')
     save('workbench/notes/a/note.md', '하나 둘\n', 'Claude: 고침', ['Claude', 'claude@agents.emergence-workbench'])
-    g('박성민', 'me@example.com', 'mv', 'workbench/notes/a/note.md', 'workbench/notes/a/b.md')
-    g('박성민', 'me@example.com', 'commit', '-qm', '옮김')
+    g('홍길동', 'me@example.com', 'mv', 'workbench/notes/a/note.md', 'workbench/notes/a/b.md')
+    g('홍길동', 'me@example.com', 'commit', '-qm', '옮김')
     save('workbench/notes/a/b.md', '하나 둘 셋\n', '셋 더함', undefined, 'Co-Authored-By: Codex <codex@agents.emergence-workbench>')
     const h = await fileHistory(dir, 'workbench/notes/a/b.md')
     expect(h.commits.map((c) => c.subject)).toEqual(['셋 더함', '옮김', 'Claude: 고침', '처음 씀'])
-    expect(h.commits[0]!.authors).toEqual([{ name: '박성민', agent: false }, { name: 'Codex', agent: true }])
+    expect(h.commits[0]!.authors).toEqual([{ name: '홍길동', agent: false }, { name: 'Codex', agent: true }])
     expect(h.commits[2]!.authors).toEqual([{ name: 'Claude', agent: true }])
     expect(h.commits[3]!.path).toBe('workbench/notes/a/note.md')
 

@@ -7,7 +7,7 @@ import { adoptOtherProfiles } from './profileSync.js'
 import { Registry } from './registry.js'
 
 // 10/22 09:44: 맥북에서 완료로 바꾼 프로젝트가 맥미니에서 진행으로 남았다. 컴퓨터 사이에 진행 상태 · 띠 · 색을 맞춘다
-const REMOTE = 'https://github.com/someone/gamc.git'
+const REMOTE = 'https://github.com/someone/sample-project.git'
 const tmps: string[] = []
 afterEach(() => { for (const d of tmps.splice(0)) fs.rmSync(d, { recursive: true, force: true }) })
 
@@ -16,10 +16,10 @@ function setup(mine: Record<string, unknown>, theirs: Record<string, unknown>[])
   tmps.push(root)
   const config = path.join(root, 'config')
   fs.mkdirSync(config)
-  fs.writeFileSync(path.join(config, 'config.yaml'), YAML.stringify({ researches: [{ id: 'gamc', path: path.join(root, 'gamc'), kind: 'research', fields: ['Bootstrap'], ...mine }] }))
+  fs.writeFileSync(path.join(config, 'config.yaml'), YAML.stringify({ researches: [{ id: 'sample-project', path: path.join(root, 'sample-project'), kind: 'research', fields: ['Bootstrap'], ...mine }] }))
   const personal = path.join(root, 'personal')
   fs.mkdirSync(path.join(personal, '_settings', 'MacBook'), { recursive: true })
-  fs.writeFileSync(path.join(personal, '_settings', 'MacBook', 'projects.yaml'), YAML.stringify(theirs.map((t) => ({ id: 'gamc', title: 'GAMC', remote: REMOTE, folder: 'gamc', tags: [], ...t }))))
+  fs.writeFileSync(path.join(personal, '_settings', 'MacBook', 'projects.yaml'), YAML.stringify(theirs.map((t) => ({ id: 'sample-project', title: 'Sample project', remote: REMOTE, folder: 'sample-project', tags: [], ...t }))))
   const registry = new Registry(config)
   const deps = { remoteOf: async () => REMOTE, sameRepo: (a: string | null, b: string | null) => a === b, machine: 'Macmini' }
   return { registry, run: () => adoptOtherProfiles(registry, personal, deps) }
@@ -30,10 +30,10 @@ describe('컴퓨터 사이 프로젝트 설정 맞추기', () => {
     const { registry, run } = setup({ profileAt: '2026-10-21T10:00:00.000Z' }, [
       { state: 'done', profile: { kind: 'research', fields: ['Bootstrap'], state: 'done', rail: true, color: 'teal' }, profileAt: '2026-10-22T00:00:00.000Z' },
     ])
-    expect(await run()).toEqual(['gamc'])
+    expect(await run()).toEqual(['sample-project'])
     const r = registry.list()[0]!
     expect([r.state, r.rail, r.color]).toEqual(['done', true, 'teal'])
-    expect(registry.sharedProfile('gamc')?.profileAt).toBe('2026-10-22T00:00:00.000Z')
+    expect(registry.sharedProfile('sample-project')?.profileAt).toBe('2026-10-22T00:00:00.000Z')
     expect(await run()).toEqual([])
   })
 
@@ -47,14 +47,14 @@ describe('컴퓨터 사이 프로젝트 설정 맞추기', () => {
 
   it('고친 때가 없는 예전 기록끼리는 멈춤 · 완료를 따른다 (진행은 기본값)', async () => {
     const { registry, run } = setup({}, [{ state: 'done' }])
-    expect(await run()).toEqual(['gamc'])
+    expect(await run()).toEqual(['sample-project'])
     expect(registry.list()[0]!.state).toBe('done')
     expect(registry.list()[0]!.fields).toEqual(['Bootstrap'])
   })
 
   it('앱에서 고치면 고친 때를 적는다', () => {
     const { registry } = setup({}, [])
-    registry.setProfile('gamc', { state: 'paused' })
-    expect(Date.parse(registry.sharedProfile('gamc')!.profileAt!)).toBeGreaterThan(Date.now() - 60_000)
+    registry.setProfile('sample-project', { state: 'paused' })
+    expect(Date.parse(registry.sharedProfile('sample-project')!.profileAt!)).toBeGreaterThan(Date.now() - 60_000)
   })
 })

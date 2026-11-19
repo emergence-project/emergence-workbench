@@ -28,6 +28,8 @@ export interface AppConfig {
   pdfFolders?: string[]
   /** 개인 저장소 주소 (personalRepo.ts가 이 파일에서 바로 읽는다). 저장할 때 잃지 않도록 함께 둔다 */
   personalRepo?: string
+  /** 계정 › 커밋 이름: 앱이 하는 커밋에만 쓴다 (git.ts setAppIdentity, 11/19). 없으면 git 전체 설정 */
+  gitIdentity?: { name: string; email: string }
   researches: RegisteredResearch[]
   /** 설정 화면의 화면 설정 (테마, 글자 크기, 편집기 글꼴 등) */
   ui: UiSettings
@@ -176,6 +178,12 @@ export class Registry {
     this.save()
   }
 
+  get gitIdentity(): { name: string; email: string } | undefined { return this.config.gitIdentity }
+  setGitIdentity(id: { name: string; email: string }): void {
+    this.config.gitIdentity = id
+    this.save()
+  }
+
   /** 논문 PDF 폴더 중 지금 있는 것 */
   get pdfFolders(): string[] { return (this.config.pdfFolders ?? []).filter((p) => fs.existsSync(p)) }
   /** 설정에 적힌 PDF 폴더 전부 (없어진 폴더도: 설정 화면에서 "찾을 수 없음"으로 보인다) */
@@ -231,7 +239,7 @@ export class Registry {
   }
 
   get personalRepo(): string | undefined { return this.config.personalRepo }
-  /** 개인 저장소 주소 (설정 › 계정 › 시작 준비). 빈 글이면 지운다. 앱을 다시 시작할 때 받는다(server.ts) */
+  /** 개인 저장소 주소 (계정 › 시작 준비). 빈 글이면 지운다. 앱을 다시 시작할 때 받는다(server.ts) */
   setPersonalRepo(remote: string): void {
     const r = remote.trim()
     if (r) this.config.personalRepo = r

@@ -1,6 +1,7 @@
 import type { UiSettings } from '@rw/core'
 import type { ReactNode } from 'react'
 import { AgentRailCount, AgentSide } from './AgentChats'
+import { AccountPage, AccountRailIcon } from './AccountPage'
 import { AboutPage, aboutRailRoute, AboutRailCount, AboutSidebar } from './AboutPage'
 import type { LibraryInfo } from './api'
 import { AgentEditsPage, Lazy } from './lazyPages'
@@ -126,7 +127,7 @@ export const GLOBAL_PAGES: {
   // 폰의 프로젝트 탭 (10/31 2단계 "프로젝트와 노트 읽기"): 띠 버튼 없이 폰 아래 탭에서 연다
   { page: 'projects', label: '프로젝트', name: t('프로젝트', 'Projects'), aria: t('프로젝트', 'Projects'), tip: t('프로젝트 — 주제 · 기록 · 맡긴 일', 'Projects: topics, records and tasks'), icon: Icon.research, rail: 'none',
     render: (p) => p.route.page === 'projects' ? <PhoneProjects rid={p.route.project} view={p.route.view} tid={p.route.tid} onSaved={p.onSaved} /> : null },
-  { page: 'feedback', label: '피드백', name: t('피드백', 'Feedback'), aria: t('피드백 모아 보기', 'All feedback'), tip: t('피드백 모아 보기 — 반영 여부', 'All feedback and whether it was applied'), icon: Icon.feedback, rail: 'bottom', render: () => <FeedbackPage />,
+  { page: 'feedback', label: '피드백', name: t('피드백', 'Feedback'), aria: t('피드백 모아 보기', 'All feedback'), tip: t('피드백 모아 보기 — 반영 여부', 'All feedback and whether it was applied'), icon: Icon.feedback, rail: 'bottom', render: (p) => <FeedbackPage focus={p.route.page === 'feedback' ? p.route.key : undefined} />,
     badge: () => <FeedbackRailCount /> },
   // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)
   { page: 'review', label: '고침 검토', name: t('수정 검토', 'Edit review'), aria: t('개념노트 수정 검토', 'Review concept note edits'), tip: t('개념노트 수정 검토', 'Review concept note edits'), icon: Icon.review, rail: 'none',
@@ -134,6 +135,9 @@ export const GLOBAL_PAGES: {
   { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },
+  // 계정 (11/19 사용자 "설정 톱니 위에 두고, 계정 페이지는 유일한 페이지로"): GitHub · 동기화 · 구글 · Claude 계정을 한 페이지에서
+  { page: 'account', label: '계정', name: t('계정', 'Account'), aria: t('계정', 'Account'), tip: t('계정 — GitHub · Claude · 구글 연결', 'Account: GitHub, Claude and Google'), icon: <AccountRailIcon />, rail: 'bottom',
+    render: (p) => <AccountPage onUi={p.onUi} onSaved={p.onSaved} /> },
   { page: 'settings', label: '설정', name: t('설정', 'Settings'), aria: t('설정', 'Settings'), tip: t('설정', 'Settings'), icon: Icon.settings, rail: 'bottom', side: (p) => <SettingsSide part={p.route.page === 'settings' ? p.route.part : undefined} />,
     render: (p) => <SettingsPage ui={p.ui} onChange={p.onUi} part={p.route.page === 'settings' ? p.route.part : undefined} pr={p.route.page === 'settings' ? p.route.pr : undefined} onSaved={p.onSaved} /> },
 ]

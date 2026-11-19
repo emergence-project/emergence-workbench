@@ -11,6 +11,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { z } from 'zod'
 import { git, GIT_TIMEOUT } from './git.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -38,6 +39,8 @@ export interface AppWork {
   merge(dir: string, branch: string): Promise<{ number: number; sha: string }>
   /** 그 브랜치의 PR이 main과 부딪혀 합칠 수 없는지 (모르면 false) */
   conflicted?(dir: string, branch: string): Promise<boolean>
+  /** 그 브랜치의 PR을 누가(사용자 · 다른 대화) 이미 합쳤으면 그 번호와 합친 커밋 (중앙이 하위 대화를 닫으려고). 아니면 없음 */
+  prMerged?(dir: string, branch: string): Promise<{ number: number; sha: string } | undefined>
   /** 그 브랜치의 마지막 CI가 찍은 화면 그림 하나 (산출물 shots의 <name>.png). 없으면 null */
   shot(dir: string, branch: string, name: string): Promise<Buffer | null>
   /** 관리자 개인 규칙 파일 (맥 사본이 있으면 안내에 적는다) */
@@ -62,8 +65,62 @@ async function gh(dir: string, args: string[]): Promise<string> {
 /** CI 기록에서 보일 끝부분 (에이전트가 읽기에 충분하게, 너무 길지 않게) */
 const tail = (s: string, n = 12000) => (s.length > n ? s.slice(-n) : s)
 
+/** 올리기 전에 작업 폴더에서 돌리는 빠른 검사 (CI에서 떨어져 한 번 더 오가는 일을 줄인다, 11/20). 파일이 없는 저장소에서는 건너뛴다 */
+export const LOCAL_CHECKS: { name: string; needs: string; cmd: string; args: string[] }[] = [
+  { name: 'type-check', needs: 'package.json', cmd: 'pnpm', args: ['type-check'] },
+  { name: 'check-ports', needs: 'scripts/ci/check-ports.mjs', cmd: 'node', args: ['scripts/ci/check-ports.mjs'] },
+  { name: 'check-about', needs: 'scripts/ci/check-about.mjs', cmd: 'node', args: ['scripts/ci/check-about.mjs'] },
+  { name: 'check-ratchet', needs: 'scripts/ci/check-ratchet.mjs', cmd: 'node', args: ['scripts/ci/check-ratchet.mjs'] },
+]
+export type CheckRun = (cmd: string, args: string[], cwd: string) => Promise<unknown>
+const runCheck: CheckRun = (cmd, args, cwd) => exec(cmd, args, { cwd, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' } })
+
+/** 빠른 검사들을 돌려 떨어진 것의 출력 끝부분을 모은다 (모두 통과면 undefined). 명령이 없으면(ENOENT) 그 검사는 건너뛴다 */
+export async function localChecks(dir: string, run: CheckRun = runCheck): Promise<string | undefined> {
+  const failed: string[] = []
+  for (const c of LOCAL_CHECKS) {
+    if (!fs.existsSync(path.join(dir, c.needs))) continue
+    try {
+      await run(c.cmd, c.args, dir)
+    } catch (e) {
+      const { code, stdout, stderr, message } = Object.assign({ code: '', stdout: '', stderr: '', message: '' }, e)
+      if (code === 'ENOENT') continue
+      failed.push(`✗ ${[c.cmd, ...c.args].join(' ')}\n${tail(`${stdout ?? ''}\n${stderr ?? ''}`.trim() || (message ?? ''), 4000)}`)
+    }
+  }
+  return failed.length ? failed.join('\n\n') : undefined
+}
+
+/**
+ * 소개 이력의 PR 번호 조각 (11/20): 이 PR이 고친 소개 절 파일 about/<쪽>/<절>.tsx → about/prs/<번호>.json에 ["<쪽>/<절>", ...].
+ * 절마다 prs 줄을 PR들이 같이 고쳐 부딪히던 것을 PR마다 다른 파일로. 고친 절이 없거나 "소개: 그대로"면 없음
+ */
+export function aboutFragment(files: string[], message: string, pr: number): { file: string; text: string } | undefined {
+  if (/^(?:소개: 그대로|About: unchanged)/m.test(message)) return undefined
+  const keys = [...new Set(files.flatMap((f) => {
+    const m = f.match(/^apps\/web\/src\/about\/([^/]+)\/([^/]+)\.tsx$/)
+    return m && m[1] !== 'prs' ? [`${m[1]}/${m[2]}`] : []
+  }))].sort()
+  return keys.length ? { file: `apps/web/src/about/prs/${pr}.json`, text: `${JSON.stringify(keys)}\n` } : undefined
+}
+
 const DONE = new Set(['SUCCESS', 'FAILURE', 'CANCELLED', 'SKIPPED', 'NEUTRAL', 'TIMED_OUT', 'ACTION_REQUIRED', 'STALE', 'ERROR'])
 const OK = new Set(['SUCCESS', 'SKIPPED', 'NEUTRAL'])
+type CheckRow = { name: string; state: string; link?: string }
+/**
+ * gh pr checks가 오류로 끝났을 때의 검사 목록.
+ * - 실패한 검사가 있으면 1로 끝나지만 JSON은 낸다 → 그 JSON.
+ * - PR을 막 열어 CI가 아직 없으면 "no checks reported"로 끝난다 → 빈 목록 (아직 안 끝남, wait 동안 더 기다린다).
+ * - 그 밖은 그대로 던진다.
+ */
+export function checkRowsOfError(e: unknown): CheckRow[] {
+  const { stdout, stderr, message } = e as { stdout?: string; stderr?: string; message?: string }
+  if (stdout?.trim()) return JSON.parse(stdout) as CheckRow[]
+  if (/no checks reported/i.test(`${stderr ?? ''}\n${message ?? ''}`)) return []
+  throw e
+}
+/** gh pr list --state merged --json number,mergeCommit */
+const MergedPrs = z.array(z.object({ number: z.number(), mergeCommit: z.object({ oid: z.string() }).nullish() }))
 
 /** 실제: 앱 저장소(root)의 worktree를 base/<대화 id>에, PR은 gh로 */
 export function appWorktrees(root: string, base: string, rules?: string): AppWork {
@@ -99,25 +156,41 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       if (staged) await git(dir, ['commit', '-m', `${o.title}\n\n${o.body}`.trim()])
       const ahead = (await git(dir, ['rev-list', '--count', 'origin/main..HEAD'])).trim()
       if (ahead === '0') throw new WorkbenchError(400, t('바뀐 것이 없어 올리지 않았습니다', 'Nothing changed, so nothing was pushed'))
+      // 형식 검사 · 이식 안내서 · 소개 · 구조 래칫 검사를 먼저: 떨어지면 방금 한 커밋을 풀고(고친 것은 그대로) 오류를 대화에 돌려준다
+      const failed = await localChecks(dir)
+      if (failed) {
+        if (staged) await git(dir, ['reset', '--soft', 'HEAD~1'])
+        throw new WorkbenchError(400, `${t('올리기 전 검사에서 떨어져 올리지 않았습니다. 고친 뒤 다시 app_submit 하세요', 'Local checks failed, so nothing was pushed. Fix and call app_submit again')}\n\n${failed}`)
+      }
       await git(dir, ['push', '-u', 'origin', `HEAD:refs/heads/${branch}`])
       const had = await prOf(dir, branch)
-      if (had) return { ...had, created: false }
-      await gh(dir, ['pr', 'create', '--base', 'main', '--head', branch, '--title', o.title, '--body', o.body])
-      const made = await prOf(dir, branch)
-      if (!made) throw new WorkbenchError(500, t('PR을 열었는지 확인하지 못했습니다', 'Could not confirm the PR was opened'))
-      return { ...made, created: true }
+      const pr = had ?? await (async () => {
+        await gh(dir, ['pr', 'create', '--base', 'main', '--head', branch, '--title', o.title, '--body', o.body])
+        const made = await prOf(dir, branch)
+        if (!made) throw new WorkbenchError(500, t('PR을 열었는지 확인하지 못했습니다', 'Could not confirm the PR was opened'))
+        return made
+      })()
+      // 번호를 안 뒤: 고친 소개 절을 그 번호의 조각 파일에 적어 한 번 더 올린다 (CI는 앞 실행을 멈추고 새로 돈다)
+      const files = (await git(dir, ['diff', '--name-only', 'origin/main...HEAD'])).split('\n').filter(Boolean)
+      const frag = aboutFragment(files, await git(dir, ['log', '--format=%B', 'origin/main..HEAD']), pr.number)
+      const at = frag && path.join(dir, frag.file)
+      if (frag && at && (!fs.existsSync(at) || fs.readFileSync(at, 'utf8') !== frag.text)) {
+        fs.mkdirSync(path.dirname(at), { recursive: true })
+        fs.writeFileSync(at, frag.text)
+        await git(dir, ['add', frag.file])
+        await git(dir, ['commit', '-m', `소개 이력: #${pr.number}이 고친 절`])
+        await git(dir, ['push', '-u', 'origin', `HEAD:refs/heads/${branch}`])
+      }
+      return { ...pr, created: !had }
     },
     async checks(dir, branch) {
       const pr = await prOf(dir, branch)
       if (!pr) return { checks: [], done: false, ok: false }
-      let rows: { name: string; state: string; link?: string }[] = []
+      let rows: CheckRow[] = []
       try {
-        rows = JSON.parse(await gh(dir, ['pr', 'checks', String(pr.number), '--json', 'name,state,link'])) as typeof rows
+        rows = JSON.parse(await gh(dir, ['pr', 'checks', String(pr.number), '--json', 'name,state,link'])) as CheckRow[]
       } catch (e) {
-        // gh pr checks는 실패한 검사가 있으면 1로 끝나지만 JSON은 낸다
-        const out = (e as { stdout?: string }).stdout
-        if (!out) throw e
-        rows = JSON.parse(out) as typeof rows
+        rows = checkRowsOfError(e)
       }
       const checks = rows.map((r) => ({ name: r.name, state: r.state.toUpperCase(), ...(r.link && { link: r.link }) }))
       const done = checks.length > 0 && checks.every((c) => DONE.has(c.state))
@@ -143,6 +216,11 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       if (!pr) return false
       const v = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'mergeable'])) as { mergeable?: string }
       return v.mergeable === 'CONFLICTING'
+    },
+    async prMerged(dir, branch) {
+      // 오래된 대화는 작업 폴더가 지워졌을 수 있다: 그때는 앱 저장소에서 묻는다 (11/20, 10/22 대화가 합쳐진 PR로 파일을 계속 잡음)
+      const m = MergedPrs.parse(JSON.parse(await gh(fs.existsSync(dir) ? dir : root, ['pr', 'list', '--state', 'merged', '--head', branch, '--json', 'number,mergeCommit'])))[0]
+      return m && { number: m.number, sha: m.mergeCommit?.oid ?? '' }
     },
     async shot(dir, branch, name) {
       if (!/^[\w-]+$/.test(name)) return null

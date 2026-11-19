@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { appBriefFor, fileEditOf, judge, partsOfPatch, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
-import { appBranch, appWorktrees, sampleAppWork, type AppWork } from './appWorktree.js'
+import { aboutFragment, appBranch, appWorktrees, checkRowsOfError, localChecks, sampleAppWork, type AppWork } from './appWorktree.js'
 
 const repo = '/w/app-1'
 const W = 'mcp__workbench__'
@@ -44,6 +44,11 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx({ write: 'read' }), 'Edit', { file_path: 'a.ts' }).kind).toBe('deny')
     expect(judge(ctx({ write: 'read' }), `${W}app_submit`, { title: '고침' }).kind).toBe('deny')
     expect(judge(ctx({ write: 'read' }), `${W}app_checks`, {}).kind).toBe('allow')
+    // 자기 PR squash 합치기 (11/19): 고치기 바로는 그대로, 묻고 하기는 묻고, 승인 전 · 읽기만은 막는다
+    expect(judge(ctx(), `${W}app_merge`, {}).kind).toBe('allow')
+    expect(judge(ctx({ mode: 'ask' }), `${W}app_merge`, {})).toMatchObject({ kind: 'ask', key: 'app_merge' })
+    expect(judge(ctx({ mode: 'plan' }), `${W}app_merge`, {}).kind).toBe('deny')
+    expect(judge(ctx({ write: 'read' }), `${W}app_merge`, {}).kind).toBe('deny')
   })
   it('연구 프로젝트는 읽기만 한다 (노트 · 기록 · 맡긴 일 · 일지 · 흐름 고치기를 막는다)', () => {
     for (const tool of ['edit_note', 'add_record', 'add_task', 'report_task', 'add_journal', 'attempt_add']) expect(judge(ctx(), `${W}${tool}`, { project: 'p' }).kind).toBe('deny')
@@ -135,6 +140,12 @@ describe('앱 고치기 대화 API', () => {
     const checks = await app.inject({ method: 'GET', url: `/api/agent-chats/${id}/app/checks` })
     expect(checks.statusCode, checks.body).toBe(200)
     expect(checks.json()).toMatchObject({ done: true, ok: true })
+    // CI가 통과했으니 자기 PR을 squash로 합치고 (11/19), 두 번은 합치지 않는다
+    const merged = await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/app/merge`, payload: {} })
+    expect(merged.statusCode, merged.body).toBe(200)
+    expect(merged.json()).toEqual({ number: 234, sha: '0000000000000000000000000000000000000234' })
+    expect((await get(id)).merged).toBe('0000000000000000000000000000000000000234')
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/app/merge`, payload: {} })).statusCode).toBe(409)
     expect((await app.inject({ method: 'DELETE', url: `/api/agent-chats/${id}` })).statusCode).toBe(200)
     await vi.waitFor(() => expect(disposed).toEqual([input.cwd]))
   })
@@ -150,6 +161,42 @@ describe('앱 고치기 대화 API', () => {
     expect((await other.inject({ method: 'GET', url: '/api/agent-chats' })).json().app).toBe(false)
     expect((await other.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: '_app', text: 'x' } })).statusCode).toBe(404)
     await other.close()
+  })
+})
+
+describe('CI 검사 오류 읽기', () => {
+  it('실패한 검사는 JSON을 읽고, CI가 아직 없으면 빈 목록(기다림), 그 밖은 던진다', () => {
+    const rows = [{ name: 'ci', state: 'FAILURE', link: 'x' }]
+    expect(checkRowsOfError(Object.assign(new Error('exit 1'), { stdout: JSON.stringify(rows) }))).toEqual(rows)
+    expect(checkRowsOfError(Object.assign(new Error('Command failed'), { stdout: '', stderr: "no checks reported on the 'feature' branch\n" }))).toEqual([])
+    const other = Object.assign(new Error('Command failed'), { stdout: '', stderr: 'HTTP 502' })
+    expect(() => checkRowsOfError(other)).toThrow(other)
+  })
+})
+
+describe('올리기 전 (11/20 토큰 아끼기)', () => {
+  it('빠른 검사: 있는 검사만 돌리고, 떨어진 것의 출력을 모으고, 명령이 없으면 건너뛴다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chk-'))
+    fs.writeFileSync(path.join(dir, 'package.json'), '{}')
+    const ran: string[] = []
+    expect(await localChecks(dir, async (cmd, args) => { ran.push([cmd, ...args].join(' ')) })).toBeUndefined()
+    expect(ran).toEqual(['pnpm type-check'])
+    fs.mkdirSync(path.join(dir, 'scripts', 'ci'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'scripts', 'ci', 'check-ports.mjs'), '')
+    const out = await localChecks(dir, async (cmd) => {
+      if (cmd === 'pnpm') throw Object.assign(new Error('exit 2'), { stdout: "src/a.ts(3,1): error TS2322: Type 'x'", stderr: '' })
+      throw Object.assign(new Error('spawn node ENOENT'), { code: 'ENOENT' })
+    })
+    expect(out).toContain('✗ pnpm type-check')
+    expect(out).toContain('error TS2322')
+    expect(out).not.toContain('check-ports')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+  it('소개 번호 조각: 고친 절 파일만 "<쪽>/<절>"로, 없거나 "소개: 그대로"면 없음', () => {
+    const files = ['apps/web/src/FlowView.tsx', 'apps/web/src/about/project/flow.tsx', 'apps/web/src/about/agents/app.tsx', 'apps/web/src/about/project.tsx', 'apps/web/src/about/prs/7.json']
+    expect(aboutFragment(files, '흐름 고침', 501)).toEqual({ file: 'apps/web/src/about/prs/501.json', text: '["agents/app","project/flow"]\n' })
+    expect(aboutFragment(files, '정리\n\n소개: 그대로 — 옮김', 501)).toBeUndefined()
+    expect(aboutFragment(['apps/server/src/app.ts'], '', 501)).toBeUndefined()
   })
 })
 

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { api, type FeedbackItem } from './api'
 import { PictureGallery, type GalleryPicture } from './PictureGallery'
+import { FeedbackMockups } from './FeedbackMockups'
+import { latestReply } from './feedbackThread'
 import { ComposeBox } from './Conversation'
 import { asksUser, feedbackBucket, stateOf } from './feedbackBuckets'
 import { t } from './i18n'
@@ -39,10 +41,26 @@ export function ApproveButton({ e, onOpinion }: { e: FeedbackItem; onOpinion?():
   )
 }
 
-/** 지금 처리의 전후 그림: 누르면 크게 띄워 ← →로 넘겨 본다 (10/13 진행) */
+export { FeedbackMockups }
+
+/**
+ * 지금 처리의 전후 그림: 누르면 크게 띄워 ← →로 넘겨 본다 (10/13 진행).
+ * 그 아래 지금 처리와 그 뒤 답에 붙은 시안 (11/19): 답할 수 있으면 크게 본 채로 「이 시안으로 진행」 · 「논의」
+ */
 export function HandlingPictures({ e }: { e: FeedbackItem }) {
+  const mockups = e.status && [...(e.status.mockups ?? []), ...(latestReply(e.status)?.mockups ?? [])]
+  return (
+    <>
+      <BeforeAfter pictures={e.status?.pictures} />
+      <FeedbackMockups e={e} paths={mockups} decide={answerable(e)} />
+    </>
+  )
+}
+
+/** 한 처리의 전후 그림 [전, 후]: 지금 처리와 고친 이력이 함께 쓴다 */
+export function BeforeAfter({ pictures }: { pictures?: string[] }) {
   const [big, setBig] = useState<number | null>(null)
-  const gallery: GalleryPicture[] = (e.status?.pictures ?? []).slice(0, 2).map((p, k) => ({
+  const gallery: GalleryPicture[] = (pictures ?? []).slice(0, 2).map((p, k) => ({
     src: `/api/feedback/picture?path=${encodeURIComponent(p)}`,
     label: k ? t('후', 'After') : t('전', 'Before'),
     alt: k ? t('고친 뒤 화면', 'Screen after the fix') : t('수정 전 화면', 'Screen before the fix'),

@@ -38,8 +38,8 @@ describe('flows: question, claims and attempts (workbench/problems/)', () => {
     expect(early.json().error).toContain('독자')
     // 에이전트는 메시지를 쓰지 못하고, 문헌 대조 · 첫 시험 · 채점은 더한다
     expect((await call('PATCH', `${P}/${p.id}`, { baseHash: p.hash, set: { if_yes: 'x' } }, CLAUDE)).statusCode).toBe(403)
-    const { problem: lit } = await ok('PATCH', `${P}/${p.id}`, { baseHash: p.hash, set: { literature: [{ ref: 'tothLinear2015', fact: 'Computes the same band at zero field.' }], grading: 'gap below 1e-6 at L = 24, 36, 48' } }, CLAUDE)
-    expect(lit.literature[0]).toMatchObject({ ref: 'tothLinear2015', by: 'claude-code' })
+    const { problem: lit } = await ok('PATCH', `${P}/${p.id}`, { baseHash: p.hash, set: { literature: [{ ref: 'doeSample2015', fact: 'Computes the same band at zero field.' }], grading: 'gap below 1e-6 at L = 24, 36, 48' } }, CLAUDE)
+    expect(lit.literature[0]).toMatchObject({ ref: 'doeSample2015', by: 'claude-code' })
     const { problem: q } = await ok('PATCH', `${P}/${p.id}`, { baseHash: lit.hash, set: { if_yes: 'The order is gapless.', if_no: 'The order is gapped.', reader: 'Spin-wave people' } })
     expect((await call('POST', `${P}/${p.id}/open`, { baseHash: q.hash }, CLAUDE)).statusCode).toBe(403)
     // 열기 전에는 시도를 두지 못한다
@@ -139,7 +139,7 @@ describe('flows: question, claims and attempts (workbench/problems/)', () => {
 
   it('keeps the run and test of a report, asks agents for the rerun result, and marks files changed after a holds verdict', async () => {
     const { id } = await opened('Is the gap closed at the M point?')
-    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'LSWT on a 24x24 mesh' }] }, CLAUDE)
+    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'Mean field on a 24x24 mesh' }] }, CLAUDE)
     await ok('POST', `${P}/${id}/attempts/a/start`, undefined, CLAUDE)
     fs.mkdirSync(path.join(repo, 'code', 'data'), { recursive: true })
     fs.writeFileSync(path.join(repo, 'code', 'gap.py'), 'print(0.0)\n')

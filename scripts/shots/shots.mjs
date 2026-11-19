@@ -65,6 +65,8 @@ try {
   const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
   // Start in the capture language, so the first screen does not load in the browser language and reload (i18n.ts)
   await page.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
+  // Sample conversations finished before the page opened: count them as not checked yet, so the agent screens show the unread dot and badge (agentSeen.ts)
+  await page.addInitScript(() => { try { if (!localStorage.getItem('rw-agent-seen')) localStorage.setItem('rw-agent-seen', JSON.stringify({ since: '2000-01-01T00:00:00.000Z', ids: {} })) } catch { /* ignore */ } })
   let current = ''
   page.on('pageerror', (e) => problems.push(`${current}: ${e.message}`))
   // 아직 컴파일하지 않은 노트의 PDF는 404가 정상이다 (TeX가 없는 곳에서는 늘 그렇다)
@@ -100,27 +102,9 @@ try {
     // 앞 화면(노트 고치기)과 주소가 같아 편집기가 남지 않게 새로 연다
     if (name === 'figure-zoom') await page.goto('about:blank')
     // 앱 고치기 대화는 찍기 직전에 만들어, 앞 화면에서 받아 둔 대화 목록이 남지 않게 새로 연다
-    if (name === 'agent-app') await page.goto('about:blank')
+    // 중앙도: 작업 현황이 앞 화면에서 받아 둔 (하위 대화 없는) 상태로 남지 않게
+    if (name === 'agent-app' || name === 'agent-central') await page.goto('about:blank')
     if (name === 'settings-phone') await fetch(`${base}api/phone/on`, { method: 'POST' })
-    if (name === 'agent-archive') {
-      // 끝난 대화 하나를 보관하면 예제 실행기의 작은 모델이 결과 요약을 쓰고 원문을 압축한다 (11/16)
-      const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Run the Kempe check up to degree 5' : '켐페 확인 계산을 차수 5까지 돌려 줘', scope: { kind: 'project' }, mode: 'edit' }) })
-      const id = res.ok ? (await res.json()).chat.id : ''
-      if (!id) problems.push(`${name}: 예제 대화를 만들지 못함 (${res.status})`)
-      for (let i = 0; id && i < 80; i++) {
-        const c = (await (await fetch(`${base}api/agent-chats/${id}`)).json()).chat
-        const open = c.items.find((x) => x.kind === 'ask' && !x.answer)
-        if (open) await fetch(`${base}api/agent-chats/${id}/answer`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ask: open.id, answer: 'allow' }) })
-        else if (c.state === 'idle') break
-        await new Promise((r) => setTimeout(r, 100))
-      }
-      if (id) await fetch(`${base}api/agent-chats/${id}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: true }) })
-      for (let i = 0; id && i < 40; i++) {
-        const list = (await (await fetch(`${base}api/agent-chats`)).json()).chats
-        if (list.find((x) => x.id === id)?.summary) break
-        await new Promise((r) => setTimeout(r, 100))
-      }
-    }
     if (hash.includes('{chat}') && !chat) {
       // 허락을 기다리는 대화 하나 (예제 실행기가 "계산"을 보면 명령을 묻는다)
       const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Rerun the check computation in the Kempe note' : '켐페 노트의 확인 계산을 다시 돌려 줘', scope: { kind: 'project' }, mode: 'plan' }) })
@@ -224,7 +208,9 @@ try {
       }, { rid, done, bottom: name === 'agent-dock' })
       await page.goto('about:blank')
     }
+    if (name === 'agent-unseen') { await page.goto(base); await page.evaluate(() => localStorage.removeItem('rw-agent-seen')); await page.goto('about:blank') }
     if (name === 'agent-recent') { await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-side-agent', 'false')); await page.goto('about:blank') }
+    if (name === 'agent-archive' && done) { await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: true }) }); await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-agent-filter', '"archived"')); await page.goto('about:blank') }
     await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)).replace('{central}', encodeURIComponent(central)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')
@@ -249,12 +235,15 @@ try {
       // 숨은 탭(열어 둔 다른 노트)에도 같은 부위가 있으니 보이는 것을 누른다
       await page.locator(sel).filter({ visible: true }).first().click({ timeout: 10_000, force }).catch(() => problems.push(`${name}: ${sel}를 누르지 못함`))
     }
+    if (name === 'note-select') await page.locator('.note-ask p').filter({ visible: true }).first().click({ clickCount: 3, timeout: 10_000 }).catch(() => problems.push(`${name}: 본문 글을 고르지 못함`))
     const uiSel = ui && (ui.startsWith('[') ? ui : `[data-ui="${ui}"]`)
     if (uiSel) await page.locator(uiSel).filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${uiSel} 없음`))
     // 대화 화면: 왼쪽 목록은 대화보다 늦게 와서, 연 대화의 줄이 빠진 채 찍히곤 했다 (11/8)
     if (hash.startsWith('#/agent/')) await page.locator('[data-ui="대화 줄"].on, [data-ui="중앙 대화 줄"].on').filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: 왼쪽 목록에 연 대화 줄 없음`))
     // 대화는 줄 아래에 열려 첫 화면 밖이라, 그 바뀐 곳부터 보이게 내린다
     if (name === 'review-talk') await page.locator('[data-ui="바뀐 곳"]').filter({ has: page.locator('[data-ui="고친 이유"]') }).first().evaluate((el) => el.scrollIntoView({ block: 'start' })).catch(() => problems.push(`${name}: 대화까지 내리지 못함`))
+    // 이식 안내서 (11/19): 절 아래쪽에 있어 그 부위가 화면 가운데 오게 내린다
+    if (name === 'about-ports' || name === 'about-port-link') await page.locator(String(uiSel)).filter({ visible: true }).first().evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => problems.push(`${name}: ${uiSel}까지 내리지 못함`))
     if (name === 'project') {
       await page.locator('[data-ui="최근 손댄 노트"] [data-ui="노트 카드"]').filter({ visible: true }).first().waitFor({ timeout: 10_000 })
         .catch(() => problems.push(`${name}: 노트 자료가 아직 없음`))
@@ -329,6 +318,7 @@ try {
     }
     if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
     if (name === 'agent-recent') { await page.evaluate(() => localStorage.removeItem('rw-side-agent')); await page.goto('about:blank') }
+    if (name === 'agent-archive') { if (done) await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: false }) }); await page.evaluate(() => localStorage.removeItem('rw-agent-filter')); await page.goto('about:blank') }
     if (name === 'knowledge-agent') await page.goto('about:blank')
     if (name === 'agent-side') { await page.evaluate(() => { localStorage.removeItem('rw-agent-side'); localStorage.removeItem('rw-agent-panel-all') }); await page.goto('about:blank') }
     console.log(`찍음 ${name}`)

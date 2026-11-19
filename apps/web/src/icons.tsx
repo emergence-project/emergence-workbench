@@ -91,6 +91,11 @@ export const Icon = {
   card: <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2.5" /><path d="M8 10.5h8M8 13.5h5" /></svg>,
   /** 라이브러리 목록 (사이드바 "목록" 줄): 점 셋과 줄 셋 */
   list: <svg viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" /><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" /></svg>,
+  /** 터미널: 「>_」 (에이전트 대화 머리, 11/19) */
+  terminal: <svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5M12.5 17.5h6.5" /></svg>,
+  /** 칸을 크게 · 원래대로 */
+  maximize: <svg viewBox="0 0 24 24"><path d="M14 4.5h5.5V10M10 19.5H4.5V14M19.5 4.5l-6 6M4.5 19.5l6-6" /></svg>,
+  minimize: <svg viewBox="0 0 24 24"><path d="M19.5 10H14V4.5M4.5 14H10v5.5M14 10l5.5-5.5M10 14l-5.5 5.5" /></svg>,
   /** 질문(기록 종류): 물음표가 든 말풍선. 말풍선은 기록 묶음의 그림이다 (10/16) */
   ask: <svg viewBox="0 0 24 24"><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5z" /><path d="M10 9.3a2 2 0 1 1 2.6 1.9c-.5.2-.6.6-.6 1v.4M12 14.4v.1" /></svg>,
   /** 지시(기록 종류): 종이비행기, 에이전트에게 보낸다 (10/16) */
@@ -117,4 +122,6 @@ export const Icon = {
   swap: <svg viewBox="0 0 24 24"><path d="M8 3.5L4 7.5l4 4M4 7.5h16M16 12.5l4 4-4 4M20 16.5H4" /></svg>,
   /** 확인 전 (개념노트): 빈 동그라미. 확인함은 체크 `check` */
   unchecked: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" /></svg>,
+  /** 보관함 (에이전트 대화 목록 맨 아래): 뚜껑 덮인 상자 */
+  archive: <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="4" rx="1" /><path d="M5 8.5v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-10M10 12.5h4" /></svg>,
 }

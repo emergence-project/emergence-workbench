@@ -14,7 +14,7 @@ import type { UiSettings } from '@rw/core'
 
 /**
  * 시작 준비 (10/20 15:35 피드백 "공개한 앱을 누가 받아도 바로 쓸 수 있게", 10/21 시안대로):
- * 설정 › 계정을 꼭 할 것(커밋 이름 · 내 이름과 소속 · 첫 프로젝트)과 선택(GitHub · 개인 저장소 · 에이전트 · TeX · 구글) 목록으로 보인다.
+ * 계정을 꼭 할 것(커밋 이름 · 내 이름과 소속 · 첫 프로젝트)과 선택(GitHub · 개인 저장소 · 에이전트 · TeX · 구글) 목록으로 보인다.
  * GitHub 로그인은 10/30 "누구나 쓰는 공개 앱"부터 선택: 「새로 만들기」로 GitHub 없이 시작할 수 있다.
  * 점 색은 상태 색 그대로: 청록 됨, 주황 할 차례, 회색 고리 선택(안 해도 됨). 홈은 꼭 할 것이 남았을 때만 카드 하나.
  * GitHub는 앱 안에서 로그인한다(기기 코드, 11/8). 이 컴퓨터의 gh · 키체인 로그인이 있으면 그것도 쓴다.
@@ -68,7 +68,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
   const put = (v: SetupView) => client.setQueryData(qk.setup, v)
   const left = must.filter((m) => !m.ok)
   const connected = s?.agents.filter((a) => a.registered || a.at).length ?? 0
-  // 커밋 이름이 비어 있고 구글 계정 이름 · 이메일을 알면 한 번에 채운다 (git 전체 설정이라 저절로 바꾸지 않는다)
+  // 커밋 이름이 비어 있고 구글 계정 이름 · 이메일을 알면 한 번에 채운다 (사용자가 적은 이름을 저절로 바꾸지 않는다)
   const google = useQuery({ queryKey: qk.googleStatus, queryFn: googleApi.status })
   const fromGoogle = google.data?.name && google.data.email && !(s?.git.name && s.git.email) ? { name: s?.git.name || google.data.name, email: s?.git.email || google.data.email } : null
   return (
@@ -84,6 +84,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <div className="set-rows">
         <Row ok={!!(s?.git.name && s.git.email) || !!s?.gitAuto} name={t('커밋에 적힐 이름·이메일', 'Name and email on commits')} ui="커밋 이름"
           action={<>
+            {s?.gitFromGitHub && <button className="btn" data-ui="GitHub 계정으로 채우기" onClick={() => void setupApi.setGit(s.gitFromGitHub!).then((v) => { put(v); onSaved(t('GitHub 계정의 이름과 noreply 이메일로 채웠습니다', 'Filled in with your GitHub name and noreply email')) }).catch((e: Error) => onSaved(e.message))}>{t('GitHub 계정으로 채우기', 'Fill from GitHub')}</button>}
             {fromGoogle && <button className="btn" data-ui="구글 계정으로 채우기" onClick={() => void setupApi.setGit(fromGoogle).then((v) => { put(v); onSaved(t('구글 계정의 이름 · 이메일로 채웠습니다', 'Filled in from your Google account')) }).catch((e: Error) => onSaved(e.message))}>{t('구글 계정으로 채우기', 'Fill from Google')}</button>}
             <Edit label={t('수정', 'Edit')} onClick={() => setEditing('git')} />
           </>}>
@@ -141,11 +142,23 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <GoogleSettings onUiRestored={onUiRestored} />
 
       {editing === 'git' && s && <GitDialog init={s.git} me={me} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(t('커밋 이름을 저장했습니다', 'Commit name saved')) }} />}
-      {editing === 'personal' && s && <PersonalDialog init={s.personal.remote ?? ''} repos={github.data?.ok ? github.data.repos : []} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(v.personal.remote ? t('개인 저장소를 저장했습니다', 'Personal repository saved') : t('개인 저장소를 뺐습니다', 'Personal repository removed')) }} />}
+      {editing === 'personal' && s && <PersonalDialog init={s.personal.remote ?? ''} repos={github.data?.ok ? github.data.repos : []} onClose={() => setEditing(null)} onDone={(v) => {
+        put(v); setEditing(null)
+        if (v.personal.restarting) { onSaved(t('개인 저장소를 저장했습니다. 받아 오려고 앱을 다시 시작합니다', 'Personal repository saved. The app restarts to download it')); void reloadAfterRestart() }
+        else onSaved(v.personal.remote ? t('개인 저장소를 저장했습니다', 'Personal repository saved') : t('개인 저장소를 뺐습니다', 'Personal repository removed'))
+      }} />}
       {editing === 'library' && s && <LibraryDialog init={s.library.path ?? ''} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(t('공용 라이브러리를 저장했습니다', 'Shared library saved')) }} />}
       {editing === 'me' && people && <PersonEditDialog person={me ?? blankAuthor} people={people} location={`${t('설정', 'Settings')} › ${t('계정', 'Accounts')}`} onSaved={onSaved} onDone={() => { setEditing(null); announce() }} />}
     </div>
   )
+}
+
+/** 서버가 꺼졌다가(최대 15초 기다림) 다시 답하면 화면을 새로 읽는다. 2분이 지나면 그만둔다 */
+async function reloadAfterRestart(): Promise<void> {
+  const up = async () => { try { return (await fetch('/api/app/status')).ok } catch { return false } }
+  const wait = () => new Promise((r) => setTimeout(r, 1000))
+  for (let i = 0; i < 15 && await up(); i++) await wait()
+  for (let i = 0; i < 120; i++) { if (await up()) { location.reload(); return } await wait() }
 }
 
 /** 이 컴퓨터에 설치 (scripts/install.sh): 앱 아이콘 · Dock · 서비스. 빠진 것이 있으면 설치 명령을 보인다. 에이전트 등록도 그 명령이 한다 */
@@ -272,7 +285,7 @@ function GitDialog({ init, me, onClose, onDone }: { init: SetupView['git']; me?:
     </>}>
       <label className="field"><span>{t('이름', 'Name')}</span><input value={name} autoFocus onChange={(e) => setName(e.target.value)} /></label>
       <label className="field"><span>{t('이메일', 'Email')}</span><input value={email} type="email" onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void save() }} /></label>
-      <p className="setup-desc">{t('이 컴퓨터의 git 전체 설정(git config --global)에 적습니다. 다른 git 작업에도 같은 이름이 쓰입니다.', 'Written to this computer\'s global git settings (git config --global), so other git work uses the same name.')}</p>
+      <p className="setup-desc">{t('이 앱이 하는 커밋(기록 · 피드백 올리기, 앱 안 에이전트 대화)에만 씁니다. 이 컴퓨터의 git 전체 설정은 바꾸지 않습니다.', 'Used only for commits this app makes (records, feedback, in-app agent conversations). Your computer\'s global git settings stay as they are.')}</p>
       {error && <p className="error-text">{error}</p>}
     </Dialog>
   )
@@ -359,7 +372,7 @@ export function SetupHomeCard() {
     <div className="setup-home card" data-ui="시작 준비 카드">
       <span className="set-name">{t('시작 준비', 'Getting started')} <b className="setup-left">{done} / {must.length}</b></span>
       <span className="setup-desc">{t(`${left.map((m) => m.label).join(', ')}${subjectParticle(left[left.length - 1]!.label)} 남았습니다.`, `Left: ${left.map((m) => m.label.toLowerCase()).join(', ')}.`)}</span>
-      <button className="a" onClick={() => go({ page: 'settings', part: 'google' })}>{t('설정 › 계정 열기', 'Open Settings › Accounts')}</button>
+      <button className="a" onClick={() => go({ page: 'account' })}>{t('계정 열기', 'Open Account')}</button>
     </div>
     <ElsewhereHomeCard setup={setup.data} />
   </>)

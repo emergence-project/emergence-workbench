@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { PaperTitle } from './PaperTitle'
 import { InfoOrAgent } from './AgentSide'
 import { figuresApi, LIBRARY_SCOPE, papersApi, type FigureBrief, type LibraryInfo, type PaperBrief, type PaperPick, type PaperRecommend, type PaperRow } from './api'
 import { FIGURES_CHANGED } from './figureEmbed'
@@ -88,7 +89,7 @@ function Home({ ui, kind, recentTitle, recentText, recentTip, onRecent, cards, c
 }
 
 /** 서버가 센 숫자를 읽고, 목록이 바뀌면(더하기 · 바깥에서 고침) 다시 읽는다 */
-function useBrief<T>(load: () => Promise<T>, event: string, info: unknown): [T | null, string | null] {
+function useBrief<T>(load: () => Promise<T>, event: string, info: unknown): [T | null, string | null, () => void] {
   const [brief, setBrief] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
   const read = useCallback(() => { load().then((b) => { setBrief(b); setError(null) }).catch((e: Error) => setError(e.message)) }, [load])
@@ -97,7 +98,7 @@ function useBrief<T>(load: () => Promise<T>, event: string, info: unknown): [T |
     window.addEventListener(event, read)
     return () => window.removeEventListener(event, read)
   }, [read, event, info])
-  return [brief, error]
+  return [brief, error, read]
 }
 
 const loadPapers = () => papersApi.brief(RECENT)
@@ -116,7 +117,18 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
   const [all, setAll] = useState<PaperRow[] | null>(null)
   useEffect(() => { if (q.trim() && !all) void papersApi.list().then((l) => setAll(l.papers)).catch(() => setAll([])) }, [q, all])
   useEffect(() => { const reset = () => setAll(null); window.addEventListener(PAPERS_CHANGED, reset); return () => window.removeEventListener(PAPERS_CHANGED, reset) }, [])
-  const [rec, recError] = useBrief<PaperRecommend>(papersApi.recommend, PAPERS_CHANGED, info)
+  const [rec, recError, reask] = useBrief<PaperRecommend>(papersApi.recommend, PAPERS_CHANGED, info)
+  // 관심 분야 (11/20): 칩을 누르면 바로 적고 다시 묻는다. 답이 올 때까지 누른 대로 보인다
+  const [picked, setPicked] = useState<string[] | null>(null)
+  useEffect(() => setPicked(null), [rec])
+  const chosen = picked ?? rec?.interests?.chosen ?? []
+  const fieldName = (id: string) => rec?.interests?.choices.find((c) => c.id === id)?.name.split(' › ').pop() ?? id
+  const toggleInterest = async (id: string) => {
+    if (!rec?.interests) return
+    const next = chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]
+    setPicked(next)
+    try { await papersApi.setInterests(next, rec.interests.hash); reask() } catch (e) { setPicked(null); onSaved(e instanceof Error ? e.message : String(e)) }
+  }
   const [busy, setBusy] = useState<string | null>(null)
   const add = async (id: string) => {
     setBusy(id)
@@ -148,7 +160,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
               <div className="kh-rows">
                 {opened.map((p) => (
                   <button key={p.key} className="kh-row lh-row" data-ui="최근 확인한 논문 줄" onClick={() => showPaper(p.key)}>
-                    <span className="lh-row-text"><span className="kh-title">{p.title}</span><span className="kh-subject">{shortAuthors(p.authors)}{p.year ? ` · ${p.year}` : ''}</span></span>
+                    <span className="lh-row-text"><span className="kh-title"><PaperTitle title={p.title} /></span><span className="kh-subject">{shortAuthors(p.authors)}{p.year ? ` · ${p.year}` : ''}</span></span>
                     {p.answered > 0
                       ? <span className="kh-when kh-turn">{t(`답이 온 질문 ${p.answered}`, `${p.answered} answered`)}</span>
                       : <span className="kh-when">{p.opened ? relativeTime(p.opened) : ''}</span>}
@@ -157,19 +169,29 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
               </div>
             </section>
             <section className="kh-sec" data-ui="추천 논문">
-              <h2 className="kh-h">{t('추천 논문', 'Recommended papers')}{rec && rec.seeds > 0 && <span className="kh-h-n">{t(`내 논문 ${rec.seeds}편과 가까운 새 논문`, `New papers close to ${rec.seeds} of your papers`)}</span>}</h2>
+              <h2 className="kh-h">{t('추천 논문', 'Recommended papers')}{rec && rec.seeds > 0 && <span className="kh-h-n">{[chosen.length > 0 && t(`관심 분야 ${chosen.length}개`, plural(chosen.length, 'interest')), t(`내 논문 ${rec.seeds}편과 가까운 새 논문`, `New papers close to ${rec.seeds} of your papers`)].filter(Boolean).join(' · ')}</span>}</h2>
+              {/* 관심 분야: 라이브러리 분류(맨 위 분류)를 켜고 끈다. 아무것도 켜지 않으면 최근 연 · 더한 논문이 기준 */}
+              {rec?.interests && rec.interests.choices.length > 0 && (
+                <div className="lh-interests" data-ui="관심 분야" role="group" aria-label={t('관심 분야', 'Interests')}>
+                  {rec.interests.choices.map((c) => (
+                    <button key={c.id} className={`memo-chip${chosen.includes(c.id) ? ' on' : ''}`} aria-pressed={chosen.includes(c.id)} title={chosen.includes(c.id) ? t('이 분야를 추천 기준에서 제거', 'Stop basing recommendations on this subject') : t('이 분야의 내 논문을 추천 기준으로', 'Base recommendations on your papers in this subject')} onClick={() => void toggleInterest(c.id)}>{c.name}</button>
+                  ))}
+                </div>
+              )}
               {!rec && !recError && <p className="empty kh-empty">{t('추천을 받는 중…', 'Getting recommendations…')}</p>}
               {recError && <p className="empty kh-empty">{t(`추천을 읽지 못했습니다: ${recError}`, `Could not read recommendations: ${recError}`)}</p>}
               {/* 받지 못한 까닭을 가른다: 연결 없음 | Semantic Scholar가 오류로 답함(429 = 요청이 많음). 서버는 받지 못한 뒤 5분 동안 다시 묻지 않는다 */}
               {rec?.offline && !recError && <p className="empty kh-empty">{rec.status
                 ? t(`Semantic Scholar가 답하지 않아 추천을 받지 못했습니다 (HTTP ${rec.status}). 몇 분 뒤에 이 화면을 다시 열면 다시 묻습니다.`, `Semantic Scholar did not answer, so no recommendations (HTTP ${rec.status}). Open this page again in a few minutes to retry.`)
                 : t('인터넷에 연결되지 않아 추천을 받지 못했습니다.', 'Not connected to the internet, so no recommendations.')}</p>}
-              {rec && !rec.offline && rec.seeds === 0 && <p className="empty kh-empty">{t('arXiv 번호나 DOI가 있는 논문을 더하면 추천이 보입니다.', 'Add a paper with an arXiv number or DOI to see recommendations.')}</p>}
+              {rec && !rec.offline && rec.seeds === 0 && <p className="empty kh-empty">{rec.interests?.chosen.length
+                ? t('고른 분야에 arXiv 번호나 DOI가 있는 논문이 없습니다. 다른 분야를 고르거나 모두 끄면 추천이 보입니다.', 'No paper in the chosen subjects has an arXiv number or DOI. Choose another subject or turn them all off to see recommendations.')
+                : t('arXiv 번호나 DOI가 있는 논문을 더하면 추천이 보입니다.', 'Add a paper with an arXiv number or DOI to see recommendations.')}</p>}
               {rec && !rec.offline && rec.seeds > 0 && rec.picks.length === 0 && <p className="empty kh-empty">{t('지금 추천할 새 논문이 없습니다.', 'No new papers to recommend now.')}</p>}
               <div className="kh-rows">
                 {rec?.picks.map((p) => (
                   <div key={p.id} className="kh-row lh-row" data-ui="추천 논문 줄">
-                    <button className="lh-row-text lh-row-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => readPaper(p)}><span className="kh-title">{p.title}</span><span className="kh-subject">{[shortAuthors(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></button>
+                    <button className="lh-row-text lh-row-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => readPaper(p)}><span className="kh-title"><PaperTitle title={p.title} /></span><span className="kh-subject">{p.from && <span className="lh-row-from" title={t('이 분야의 내 논문과 가까운 논문', 'Close to your papers in this subject')}>{fieldName(p.from)}</span>}{[shortAuthors(p.authors), p.venue || (/^10\./.test(p.id) ? '' : 'arXiv'), pickWhen(p)].filter(Boolean).join(' · ')}</span></button>
                     <button className="btn small" disabled={busy !== null} onClick={() => void add(p.id)}>{busy === p.id ? t('추가 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
                   </div>
                 ))}

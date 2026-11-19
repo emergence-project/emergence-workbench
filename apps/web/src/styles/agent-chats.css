@@ -129,6 +129,7 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-pop-menu { left: 0; bottom: calc(100% + var(--sp-1)); min-width: 200px; }
 .ac-pop-menu.wide { min-width: 280px; }
 .ac-pop-menu button { align-items: flex-start; }
+.ac-pop-menu button:disabled { color: var(--text-3); cursor: default; background: transparent; }
 .ac-pop-h { padding: var(--sp-1) 10px 2px; font-size: var(--fs-2xs); color: var(--text-3); }
 .ac-pop-check { flex: none; width: 14px; display: inline-flex; color: var(--text); }
 .ac-pop-check svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -144,8 +145,8 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-new { display: flex; flex-direction: column; gap: var(--sp-2); }
 .ac-h { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-strong); }
 
-/* 세부 패널 (에이전트 화면 오른쪽, 바뀐 곳 · 작업 버튼으로 여닫는다) */
-.ac-work { flex: none; width: 360px; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-3) var(--sp-3); border-left: 1px solid var(--line); background: var(--bg-side); font-size: var(--fs-sm); }
+/* 세부 패널 (에이전트 화면 오른쪽, 바뀐 곳 · 대화 머리의 세부 패널 아이콘으로 여닫는다. 「>_」는 이 자리를 터미널로 바꾼다) */
+.ac-work { flex: none; width: 360px; max-width: 50vw; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-3) var(--sp-3); border-left: 1px solid var(--line); background: var(--bg-side); font-size: var(--fs-sm); }
 .ac-work section { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .ac-work h3 { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
 .ac-work-row { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
@@ -168,11 +169,16 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-head-menu { right: 0; top: calc(100% + var(--sp-1)); }
 .ac-head-menu button.danger { color: var(--danger); }
 .ac-head-menu button:disabled { color: var(--text-3); cursor: default; }
+/* 왼쪽 경계 손잡이: 경계선 위에 겹쳐 놓고, 끌 때 · 올렸을 때 굵게 (사이드바 폭 조절과 같은 모양) */
+.ac-work-resize { flex: none; position: relative; width: 6px; margin: 0 -3px; cursor: col-resize; z-index: 2; }
+.ac-work-resize:hover, body.resizing .ac-work-resize { background: var(--line-strong); }
 @media (max-width: 1100px) { .ac-work { width: 300px; } }
-@media (max-width: 900px) { .ac-work { display: none; } }
+.ac-work[hidden], .ac-work-resize[hidden] { display: none; }
+@media (max-width: 900px) { .ac-work, .ac-work-resize { display: none; } }
 
 /* 사이드바 목록: 이름과 상태 점, 아래 줄에 상태 · 바뀐 파일 · 시각 */
-.ac-side-h { font-size: var(--fs-xs); color: var(--text-3); padding: var(--sp-3) var(--sp-2) var(--sp-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 절 머리(워크벤치 전체 · 프로젝트 · 지식)는 위에 선을 긋고 진하고 굵게: 줄 아래 상태 글(옅고 작음)과 갈린다 (11/19 피드백) */
+.ac-side-h { margin-top: var(--sp-2); border-top: 1px solid var(--line); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); padding: var(--sp-3) var(--sp-2) var(--sp-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-line { flex-direction: column; align-items: stretch; gap: 1px; height: auto; padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
 .ac-line-top { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .ac-line .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -185,7 +191,12 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-line-meta { padding-left: calc(10px + var(--sp-2)); }
 /* 보관한 대화의 결과 요약 첫 줄 (11/16 정리 · 압축) */
 .ac-line-sum { font-size: var(--fs-2xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; padding-left: calc(10px + var(--sp-2)); }
-.ac-archive-link, .ac-archive-back { align-self: flex-start; margin: var(--sp-3) var(--sp-2) 0; font-size: var(--fs-xs); }
+/* 보관함: 사이드바 맨 아래에 붙은 상자 아이콘 하나로 열고 닫는다. 목록이 짧으면 바닥에, 길면 스크롤해도 아래에 붙음 */
+.side-scroll:has(> .ac-list) { display: flex; flex-direction: column; }
+.side-scroll > .ac-list { flex: 1 0 auto; }
+.ac-side-foot { margin-top: auto; position: sticky; bottom: 0; display: flex; padding-top: var(--sp-1); background: var(--bg-side); border-top: 1px solid var(--line); }
+.ac-archive-btn { width: auto; padding: 0 6px; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); }
+.ac-archive-h { padding: var(--sp-1) var(--sp-2) 0; font-weight: var(--fw-strong); }
 
 /* 상단바 패널: 머리에 대화 고르기 · 새 대화 · 넓게 보기 */
 .ac-panel { min-width: 0; }
@@ -327,3 +338,11 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-record-answers { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: 1px solid var(--line); max-height: 40vh; overflow-y: auto; }
 .ac-record-who { font-size: var(--fs-xs); }
 .ac-edit-inline { flex-basis: 100%; min-width: 0; font-size: var(--fs-sm); color: var(--text); }
+
+/* 시안 (11/19 Mockups.tsx): 글 아래 작은 그림 + 이름 · 새 창 링크. 누르면 그림 크게 보기 */
+.ac-mockups { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+.ac-mockup { margin: 0; display: flex; flex-direction: column; gap: 2px; max-width: 360px; min-width: 0; }
+.ac-mockup-pic { padding: 0; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); cursor: zoom-in; overflow: hidden; }
+.ac-mockup-pic img { display: block; max-width: 100%; max-height: 240px; object-fit: contain; }
+.ac-mockup figcaption { display: flex; gap: var(--sp-2); align-items: baseline; font-size: var(--fs-xs); min-width: 0; }
+.ac-mockup-name { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -20,6 +20,7 @@ import type { ConceptCheck, ConceptIssue } from './api/concepts'
  *   #/network             네트워킹 (저자와 소속, 더한 사람)
  *   #/network/<사람>       사람 한 명의 페이지 (노트 참고 문헌에 있는 그 사람의 논문)
  *   #/feedback            피드백 모아 보기
+ *   #/feedback/<키>       그 피드백 항목을 펼쳐 처리 기록 · 답까지 (키는 "날짜 시각 대상")
  *   #/agent[/<대화>]       에이전트 대화 (모든 프로젝트, 10/21)
  *   #/turns               내 차례 (폰의 첫 화면, 10/31: 모든 프로젝트의 피드백 답 · 에이전트 질문 · 맡긴 일 결과 · 수정 검토)
  *   #/review[?key=]       개념노트의 에이전트 고침 검토 (key = concept:<id>, 그 노트를 연 채). scope=<연구>는 그 프로젝트의 고침 검토 탭으로 간다
@@ -46,7 +47,8 @@ export type Route =
   | { page: 'about'; part?: string; anchor?: string }
   | { page: 'settings'; part?: string; /** 업데이트 이력에서 보일 PR (소개 절의 "업데이트 #n") */ pr?: number }
   | { page: 'network'; person?: string }
-  | { page: 'feedback' }
+  | { page: 'feedback'; key?: string }
+  | { page: 'account' }
   /** 에이전트 대화 (10/21). id가 없으면 새 대화 */
   | { page: 'agent'; id?: string }
   | { page: 'turns' }
@@ -133,10 +135,12 @@ export function parseRoute(hash: string): Route {
     return { page: 'overview', rid: parts[1], anchor }
   }
   if (parts[0] === 'about') return parts[1] ? { page: 'about', part: parts[1], ...(parts[2] && { anchor: parts[2] }) } : { page: 'about' }
+  // 계정은 설정 밖 한 페이지 (11/19). 옛 주소 설정 › 계정도 여기로
+  if (parts[0] === 'account' || (parts[0] === 'settings' && parts[1] === 'google')) return { page: 'account' }
   if (parts[0] === 'settings') return parts[1] ? { page: 'settings', part: parts[1], ...(Number(parts[2]) > 0 && { pr: Number(parts[2]) }) } : { page: 'settings' }
   if (parts[0] === 'latex') return { page: 'settings', part: 'latex' }
   if (parts[0] === 'network') return parts[1] ? { page: 'network', person: parts[1] } : { page: 'network' }
-  if (parts[0] === 'feedback') return { page: 'feedback' }
+  if (parts[0] === 'feedback') return parts[1] ? { page: 'feedback', key: parts.slice(1).join('/') } : { page: 'feedback' }
   if (parts[0] === 'turns') return { page: 'turns' }
   if (parts[0] === 'repos') return { page: 'repos' }
   if (parts[0] === 'projects') {
@@ -191,7 +195,8 @@ export function href(r: Route): string {
     case 'about': return `#/about${r.part ? `/${e(r.part)}${r.anchor ? `/${e(r.anchor)}` : ''}` : ''}`
     case 'settings': return `#/settings${r.part ? `/${e(r.part)}${r.pr ? `/${r.pr}` : ''}` : ''}`
     case 'network': return `#/network${r.person ? `/${e(r.person)}` : ''}`
-    case 'feedback': return '#/feedback'
+    case 'feedback': return `#/feedback${r.key ? '/' + e(r.key) : ''}`
+    case 'account': return '#/account'
     case 'turns': return '#/turns'
     case 'repos': return '#/repos'
     case 'projects': return `#/projects${r.project ? `/${e(r.project)}${r.tid ? `/t/${e(r.tid)}` : r.view ? `/${r.view}` : ''}` : ''}`

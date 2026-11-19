@@ -1,0 +1,18 @@
+/* 오른쪽 사이드바 › 터미널 (TerminalPane.tsx): 이 컴퓨터의 셸. 글자 색은 xterm이 tokens.css 값을 읽어 그린다 */
+.term { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg-sunken); }
+.term-bar { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--input-h-lg); padding: var(--sp-1) var(--sp-3); border-bottom: 1px solid var(--line); background: var(--bg); }
+.term-where, .term-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
+.term-screen { flex: 1; min-height: 0; padding: var(--sp-1) 0 0 var(--sp-2); overflow: hidden; }
+.term-screen .xterm { height: 100%; }
+.agent-side > .side-tabbar { flex: none; }
+.agent-side > .rs-col:not([hidden]) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.agent-side > .ac-panel { flex: 1; min-height: 0; }
+.kh-side-agent > .rs-col { flex: 1; min-height: 0; }
+.term-title { flex: none; font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
+.term-empty { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-1); padding: var(--sp-4); text-align: center; font-size: var(--fs-sm); }
+.term-empty .muted { font-size: var(--fs-xs); }
+.term-empty .btn { margin-top: var(--sp-2); }
+.term-empty-icon { display: inline-flex; color: var(--text-2); }
+.term-empty-icon svg { width: 22px; height: 22px; }
+/* 에이전트 화면 오른쪽 칸을 바꾼 터미널 (WorkAside.tsx의 TerminalColumn): 칸 안을 다 채운다 */
+.ac-work.ac-term-col { padding: 0; gap: 0; background: var(--bg-sunken); }

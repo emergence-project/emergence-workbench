@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ChatScope } from '@rw/core/contract/agentChats'
-import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
+import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptFor, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput, type Turn } from './agentChats.js'
 import { choicesOf, eventsOf } from './agentRunner.js'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
@@ -39,9 +39,23 @@ describe('모드', () => {
     const p = promptOf('봐 줘', [{ kind: 'note', ref: 'workbench/notes/a/note.md', label: 'A' }, { kind: 'selection', ref: 'workbench/notes/a/note.md', label: '고른 글', text: '첫 줄\n둘째 줄' }])
     expect(p).toContain('note (read_note): workbench/notes/a/note.md (A)')
     expect(p).toContain('  > 둘째 줄')
+    // 화면 요소: 화면 주소와 부위 이름 · 글자
+    const el = promptOf('고쳐 줘', [{ kind: 'element', ref: '#/agents', label: '보내기', text: '에이전트 입력란 › 지시 보내기\n보내기' }])
+    expect(el).toContain('app screen element (data-ui names, outermost first; the attached image shows it) on #/agents:\n  > 에이전트 입력란 › 지시 보내기\n  > 보내기')
+    // 지금 화면: 화면 한 줄과 주소
+    expect(promptOf('이거 뭐야', [{ kind: 'screen', ref: '#/p/r1/n/a.md', label: '지금 화면', text: '노트 · r1 · a.md' }])).toContain('the screen the user is looking at (answer about it): 노트 · r1 · a.md (#/p/r1/n/a.md)')
     expect(editOf({ edits: [{ old: 'a\nb', new: 'c', reason: '고침' }] })).toEqual({ parts: [{ old: 'a\nb', new: 'c' }], added: 1, removed: 2, reason: '고침' })
     expect(todosOf({ todos: [{ content: '읽기', status: 'completed' }, { content: '계산', status: 'in_progress' }, { content: '?', status: 'odd' }] }))
       .toEqual([{ text: '읽기', state: 'completed' }, { text: '계산', state: 'in_progress' }, { text: '?', state: 'pending' }])
+  })
+  it('보낸 기기의 화면 한 줄은 그 대화에서 바뀔 때만 붙인다', () => {
+    const c: { view?: string } = {}
+    expect(promptFor(c, { text: '봐 줘', view: '홈 (#/)' })).toBe("봐 줘\n\nUser's screen now: 홈 (#/)")
+    expect(promptFor(c, { text: '또', view: '홈 (#/)' })).toBe('또')
+    // 다른 기기에서 다른 화면으로 보내면 다시 붙는다. 넘길 글이 따로 있으면 그 뒤에
+    expect(promptFor(c, { text: '이건', view: '노트 · r1 · a.md (#/p/r1/n/a.md)' }, 'BRIEF\n\n이건')).toBe("BRIEF\n\n이건\n\nUser's screen now: 노트 · r1 · a.md (#/p/r1/n/a.md)")
+    expect(promptFor(c, { text: '/compact', view: '설정 (#/settings)' })).toBe('/compact')
+    expect(c.view).toBe('노트 · r1 · a.md (#/p/r1/n/a.md)')
   })
 })
 
@@ -93,6 +107,20 @@ describe('허락 규칙', () => {
     expect(judge(ctx({ scope: all, write: 'read' }), `${W}edit_concept`, {}).kind).toBe('deny')
     expect(describeStep(ctx({ scope: all }), `${W}read_note`, { project: 'other', file: 'a.md' }).outside).toBeUndefined()
   })
+  it('고른 프로젝트 여럿 (11/19): also 프로젝트는 고치고, 그 밖은 막고 central_help를 알려 준다', () => {
+    const also: ChatScope = { kind: 'project', also: ['two'] }
+    const file = 'workbench/notes/x/note.md'
+    expect(judge(ctx({ scope: also }), `${W}edit_note`, { project: 'two', file })).toEqual({ kind: 'allow', claim: `two:${file}` })
+    expect(judge(ctx({ scope: also }), `${W}add_record`, { project: 'two' }).kind).toBe('allow')
+    const out = judge(ctx({ scope: also }), `${W}edit_note`, { project: 'other', file })
+    expect(out.kind).toBe('deny')
+    expect(out.kind === 'deny' && out.message).toContain('central_help')
+    expect(judge(ctx({ scope: also }), `${W}edit_concept`, { id: 'gauge' }).kind).toBe('deny')
+    expect(describeStep(ctx({ scope: also }), `${W}read_note`, { project: 'two', file: 'a.md' }).outside).toBeUndefined()
+    expect(describeStep(ctx({ scope: also }), `${W}read_note`, { project: 'other', file: 'a.md' }).outside).toBeDefined()
+    const taken = judge(ctx({ scope: also, claimedBy: (f, r) => r === 'two' && f === file ? '다른 일' : undefined }), `${W}edit_note`, { project: 'two', file })
+    expect(taken.kind).toBe('deny')
+  })
   it('명령은 하는 일로 나눠 토글대로: 읽기 · 편집은 맡기는 정도, 실행은 프로그램마다, 삭제 · 외부는 늘 한 번씩', () => {
     expect(judge(ctx(), 'Bash', { command: 'python run.py' })).toMatchObject({ kind: 'ask', key: 'run:python', does: 'run', summary: 'python run.py' })
     expect(judge(ctx({ always: (k) => k === 'run:python' }), 'Bash', { command: 'python other.py' }).kind).toBe('allow')
@@ -127,6 +155,8 @@ describe('허락 규칙', () => {
     expect(b).toContain('read-only')
     expect(b).toContain('다른 일: a.md')
     expect(b).not.toContain('빈 일')
+    expect(b).not.toContain('## 보고')
+    expect(briefFor({ rid: 'proj', title: 'P', scope: topic, write: 'read', others: [], parent: true })).toContain('"## 보고"')
   })
 })
 
@@ -220,6 +250,16 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
       yield { type: 'text', text: `got ${x.prompt}` }
       yield { type: 'result', ok: true }
     }
+    return
+  } else if (input.prompt === 'eager') {
+    // 실제 SDK처럼 일하는 중에 받은 지시를 inbox에서 곧바로 가져가 제 줄에 둔다. 멈추면 줄에 남은 것이 있어(still_queued) 끊지 못한다
+    const taken: Turn[] = []
+    let cut!: () => void
+    const cutP = new Promise<void>((r) => { cut = r })
+    input.control?.({ interrupt: async () => { cut(); return !taken.length }, unread: () => [...taken] })
+    void (async () => { for await (const x of input.inbox!) taken.push(x) })()
+    yield { type: 'text', text: 'long' }
+    await Promise.race([cutP, new Promise<void>((r) => input.signal.addEventListener('abort', () => r(), { once: true }))])
     return
   } else if (input.prompt === 'wait') {
     await new Promise<void>((r) => { gate = r; input.signal.addEventListener('abort', () => r(), { once: true }) })
@@ -503,6 +543,21 @@ describe('대화 API', () => {
     await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '다시' } })
     await vi.waitFor(async () => expect((await get(c.id)).items.at(-2)).toMatchObject({ kind: 'text', text: 'got 다시' }))
     expect(seen.length).toBe(runs)
+  })
+
+  it('일하는 중에 보낸 지시를 실행기가 가져간 뒤 멈추면, 읽히지 않은 그 지시는 「다음에 보냄」으로 남아 다음 지시와 함께 간다', async () => {
+    const c = await create({ text: 'eager' })
+    await settle(c.id, 'running')
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이것도 봐 줘' } })
+    // 실행기가 가져가 inbox는 비었다
+    await vi.waitFor(async () => expect((await get(c.id)).items.at(-1)).toMatchObject({ kind: 'user', text: '이것도 봐 줘' }))
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/stop`, payload: {} })
+    await settle(c.id, 'stopped')
+    expect((await get(c.id)).items.at(-1)).toMatchObject({ kind: 'user', text: '이것도 봐 줘', queued: true })
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이어서' } })
+    await settle(c.id)
+    expect(seen.at(-1)!.prompt).toContain('이것도 봐 줘')
+    expect(seen.at(-1)!.prompt).toContain('이어서')
   })
 
   it('일하는 중에 보낸 지시는 다음 차례에 읽고, 모드 · 모델은 다음 차례부터 바뀐다. 그림 · 붙인 것은 에이전트에게 간다', async () => {

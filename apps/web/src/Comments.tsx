@@ -6,6 +6,7 @@ import { PdfView, type PdfMark, type PdfPaint, type PdfSelection } from './PdfVi
 import { MemoText } from './memo'
 import type { Tab } from './Workspace'
 import { onListKey } from './listInput'
+import { isSendKey } from './cmdEnter'
 import { Icon } from './icons'
 import { AskButton } from './AskButton'
 import type { LearnFrom } from './api'
@@ -367,13 +368,11 @@ export function Composer({ rid, target, draft, onClose, onSaved }: { rid: string
       if (parts.some(([k]) => k === '질문')) window.dispatchEvent(new Event(OPEN_CONTEXT))
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
-  const keys = (set: (v: string) => void) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() }
-    else if (e.key === 'Escape') onClose()
-    else onListKey(e, set)
-  }
+  const keys = (set: (v: string) => void) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => { onListKey(e, set) }
+  // ⌘↵ · Esc는 칸 전체에서: 종류 단추로 옮겨 간 뒤에도 (11/19 피드백 09:04)
+  const formKeys = (e: React.KeyboardEvent) => { if (isSendKey(e)) { e.preventDefault(); void save() } else if (e.key === 'Escape') onClose() }
   return (
-    <div className={`pdf-pop composer ${kind === '질문' && !quote ? 'question' : 'comment'}`} data-ui="코멘트 쓰기">
+    <div className={`pdf-pop composer ${kind === '질문' && !quote ? 'question' : 'comment'}`} data-ui="코멘트 쓰기" onKeyDown={formKeys}>
       <div className="pdf-pop-head">{quote ? <b>{t('메모 · 질문', 'Note · question')}</b> : <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>
         {(['메모', '질문'] as const).map((k) => <button key={k} type="button" className={kind === k || (kind === '코멘트' && k === '메모') ? 'on' : ''} aria-pressed={kind === k || (kind === '코멘트' && k === '메모')} onClick={() => setKind(k)}>{kindLabel(k)}</button>)}
       </div>} <span className="muted">{draft.page ? t(`· ${draft.page}쪽`, `· p. ${draft.page}`) : rid === LIBRARY ? t('· 논문 전체', '· Whole paper') : `· ${target.title}`}</span></div>
@@ -583,8 +582,10 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
         <RecordMenu anchor={sel} owner={box.current} onClose={() => setSel(null)} onDefault={() => add(color)}>
           <PaintDots color={color} onChange={add} disabled={busy} />
           <span className="record-menu-sep" />
-          {/* 메뉴는 코멘트 하나: 종류(메모 · 할 일 · 질문 · 지시)는 적기 칸에서 고르고, 질문 · 지시면 에이전트가 답한다 (10/30 17:06, 시안 4절 안 A) */}
+          {/* 코멘트는 종류(메모 · 할 일 · 질문 · 지시)를 적기 칸에서 고르고 (10/30 17:06 안 A), 질문은 PDF 메뉴처럼 적기 칸을 질문으로 연다 (11/19 01:00). 보내기 전에 적는 것은 같다 */}
           <button disabled={busy} onClick={() => { openRecordComposer(rid, target, { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color, part: sel.part, partText: sel.partText }); done() }}><span className="ico">{Icon.comment}</span> {t('코멘트', 'Comment')}</button>
+          <button disabled={busy} data-ui="고른 글 질문" title={t('고른 글에 대해 에이전트에게 묻습니다', 'Ask the agent about the selected text')}
+            onClick={() => { openRecordComposer(rid, target, { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color, part: sel.part, partText: sel.partText }, { text: '', kind: '질문' }); done() }}>? {t('질문', 'Question')}</button>
         </RecordMenu>
       )}
       {active && selected && <RecordMenu anchor={active} highlight owner={box.current} onClose={() => setActive(null)}>

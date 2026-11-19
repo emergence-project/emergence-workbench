@@ -13,10 +13,12 @@ export const SetupView = z.object({
   git: z.object({ name: z.string(), email: z.string() }).strict(),
   /** git 설정이 비어 있어 앱이 대신 적는 이름 · 이메일 (내려받은 앱, git.ts setFallbackIdentity). 있으면 커밋 이름은 할 일이 아니다 */
   gitAuto: z.object({ name: z.string(), email: z.string() }).strict().optional(),
+  /** 커밋 이름이 비어 있을 때 이 컴퓨터가 로그인한 GitHub 계정의 이름 · noreply 이메일 (「GitHub 계정으로 채우기」, 11/19). 못 찾으면 없음 */
+  gitFromGitHub: z.object({ name: z.string(), email: z.string() }).strict().optional(),
   /** 등록한 프로젝트 수 */
   projects: z.number(),
-  /** 개인 저장소 주소 (없으면 null). active: 이번에 앱을 시작할 때 받아 둔 주소와 같으면 true (아니면 다시 시작해야 쓴다) */
-  personal: z.object({ remote: z.string().nullable(), active: z.boolean() }).strict(),
+  /** 개인 저장소 주소 (없으면 null). active: 이번에 앱을 시작할 때 받아 둔 주소와 같으면 true (아니면 다시 시작해야 쓴다). restarting: 정한 직후 앱이 그것을 받으러 스스로 다시 시작하는 중 (11/19) */
+  personal: z.object({ remote: z.string().nullable(), active: z.boolean(), restarting: z.boolean().optional() }).strict(),
   /**
    * 이 앱을 MCP로 부르는 에이전트마다 (Claude 앱 · Claude Code · Codex, 10/21 "에이전트 연결을 구분해서", 11/8 Claude 앱과 「연결」 버튼):
    * installed = 그 에이전트의 명령(claude · codex)이 이 컴퓨터에 깔려 있는지, registered = 그 에이전트 설정에 이 앱의 MCP 입구가 있는지, at = 마지막으로 앱을 부른 때(없으면 null), command = 등록 명령.

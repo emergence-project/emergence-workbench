@@ -9,7 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
-import { CENTRAL_RID, type ChatItem } from '@rw/core/contract/agentChats'
+import { CENTRAL_RID, type CentralMemo, type ChatItem } from '@rw/core/contract/agentChats'
 
 /** 끝난 대화를 보관할 때까지 (일) */
 export const TIDY_DAYS = 7
@@ -44,4 +44,36 @@ export function unpack(dir: string, c: Tidyable): void {
     if (Array.isArray(items)) c.items = items
   } catch { /* 압축 파일이 없거나 깨졌으면 빈 대화로 */ }
   delete c.packed
+}
+
+// ---------- 중앙 메모 (시안 §9 ⑤) ----------
+
+/** 중앙 메모 파일: 개인 저장소가 있으면 거기(두 맥이 함께 읽음), 없으면 이 컴퓨터 설정 폴더. publish = 쓴 뒤 올리기 */
+export interface CentralMemoDeps { file: string; where: 'personal' | 'local'; publish?: () => Promise<unknown> }
+/** 중앙 메모 길이 한도 (매 대화 처음에 읽는 글이라 짧게) */
+export const MEMO_MAX = 4000
+
+/** 중앙 메모 (없으면 빈 글) */
+export function readMemo(d?: CentralMemoDeps): CentralMemo {
+  if (!d) return { text: '', where: 'local' }
+  try {
+    const st = fs.statSync(d.file)
+    return { text: fs.readFileSync(d.file, 'utf8').trim(), where: d.where, updated: st.mtime.toISOString() }
+  } catch { return { text: '', where: d.where } }
+}
+
+/** 중앙 메모를 통째로 바꾼다. 개인 저장소면 저절로 올린다. 너무 길면 false */
+export function writeMemo(d: CentralMemoDeps, text: string): boolean {
+  const body = text.trim()
+  if (body.length > MEMO_MAX) return false
+  fs.mkdirSync(path.dirname(d.file), { recursive: true })
+  fs.writeFileSync(d.file, body ? `${body}\n` : '')
+  void d.publish?.().catch(() => undefined)
+  return true
+}
+
+/** 안내 뒤에 붙이는 메모 (없으면 빈 글). first = 안내 바로 뒤 (아니면 바뀐 메모) */
+export function memoBlock(m: string, first = true): string {
+  if (!m) return first ? '' : '[Central memo: now empty]'
+  return `${first ? '\n\n' : ''}[Central memo${first ? '' : ' (updated)'}]\n${m}`
 }

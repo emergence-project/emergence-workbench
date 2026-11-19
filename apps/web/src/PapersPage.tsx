@@ -1,4 +1,5 @@
 import { PaperFind } from './PaperFind'
+import { PaperTitle, titleText } from './PaperTitle'
 import { PdfElsewhere } from './PdfElsewhere'
 import { SubjectPicker, useSubjects, LibrarySubjectSide } from './SubjectPicker'
 import { subjectsApi, matchesSubject } from './api/subjects'
@@ -272,7 +273,7 @@ export function PaperCard({ paper: p, projectTitle, on, onClick, compact = false
     <button className={`pl-card card-link lh-card${on ? ' on' : ''}`} data-ui="논문 카드" data-ui-item={p.key} onClick={onClick} onDoubleClick={() => openPdf(p)}>
       <PaperCover paper={p} />
       <span className="lh-card-text">
-        <span className="lh-card-title" title={p.title}>{p.title}</span>
+        <span className="lh-card-title" title={titleText(p.title)}><PaperTitle title={p.title} /></span>
         <span className="lh-card-meta" title={[p.authors.join(', '), p.year].filter(Boolean).join(' · ')}>{[authorLine(p.authors), p.year].filter(Boolean).join(' · ')}</span>
       </span>
     </button>
@@ -280,7 +281,7 @@ export function PaperCard({ paper: p, projectTitle, on, onClick, compact = false
   return (
     <button className={`pl-card card-link${on ? ' on' : ''}`} data-ui="논문 카드" data-ui-item={p.key} onClick={onClick} onDoubleClick={() => openPdf(p)}>
       <PaperCover paper={p} />
-      <span className="pl-card-title">{p.title}</span>
+      <span className="pl-card-title"><PaperTitle title={p.title} /></span>
       <span className="pl-card-sub">
         <span className="pl-card-authors" title={p.authors.join(', ')}>{authorLine(p.authors)}</span>
         {p.year && <span className="pl-card-year">{p.authors.length ? ' · ' : ''}{p.year}</span>}
@@ -466,7 +467,7 @@ function PaperInfo({ paper, projects, ctx, opened, onSaved }: { paper: PaperRow;
   const free = projects.filter((p) => !paper.projects.includes(p.id))
   return (
       <div className="rs-scroll rs-pad pl-rs-body">
-        <h3 className="pl-rs-title">{paper.title}</h3>
+        <h3 className="pl-rs-title"><PaperTitle title={paper.title} /></h3>
         <p className="pl-rs-sub">{paper.authors.join(', ')}{paper.year ? ` · ${paper.year}` : ''}</p>
         {paper.venue && <p className="pl-rs-sub muted">{paper.venue}</p>}
         <div className="pl-rs-links">
@@ -535,7 +536,7 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
     <main className="stage full pl with-side pl-open" data-ui="논문 열기">
       <section className="pane">
         <div className="pane-head" data-ui="머리줄">
-          <span className="crumb"><button className="a" onClick={() => go({ page: 'shelf' })}>{t('논문', 'Papers')}</button> › <b title={paper.title}>{paper.title}</b></span>
+          <span className="crumb"><button className="a" onClick={() => go({ page: 'shelf' })}>{t('논문', 'Papers')}</button> › <b title={titleText(paper.title)}><PaperTitle title={paper.title} /></b></span>
           <span className="sp" />
           <span className="muted">{paper.pdf.where === 'cloud' ? t('클라우드 (여는 동안 받아 옵니다)', 'Cloud (downloads while opening)') : t(`${HERE.ko}에 있음`, `On ${HERE.en}`)}</span>
         </div>
