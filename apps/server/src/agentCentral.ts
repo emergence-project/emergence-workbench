@@ -5,7 +5,7 @@
  *   (앱 고치기 · 프로젝트 작성 · 피드백 처리). 고치기 · 명령 · 기록 쓰기는 agentPolicy.ts의 judgeCentral이 막는다.
  * - 하위 대화는 보통 대화와 같다(같은 권한 · 작업 폴더 · 잡기). 다른 점은 parent(중앙 대화 id)뿐이고, 하위 대화는 다시 대화를 열지 못한다.
  * - 중앙은 하위 대화의 원문을 읽지 않는다: 사용자가 중앙에게 말할 때마다 하위 대화의 상태와 마지막 글 한 줄(digest)을 앞에 붙인다 (토큰 아끼기).
- * - 앱 고치기 대화는 동시에 APP_LIVE_MAX개까지 (시안 §9 ③). 피드백은 열기 전에 맡기(handoff.yaml)를 적어 올려
+ * - 앱 고치기 대화를 더 열지는 남은 메모리로 정한다 (appMemory.ts, 11/19. 처음에는 동시에 2개, 시안 §9 ③). 피드백은 열기 전에 맡기(handoff.yaml)를 적어 올려
  *   클라우드 루틴 · 다른 맥과 같은 항목을 함께 처리하지 않는다 (11/8에 있었던 일).
  * - 저절로 깨우기 (11/18): 하위 대화가 차례를 끝내거나 · 계획 승인 · 허락을 기다리거나 · CI가 실패하거나 · PR이 합쳐지면 앱이 중앙을 깨운다.
  *   10초 모아 한 차례로, 중앙이 일하는 중이면 그 차례가 끝난 뒤에, 그 사이 사용자가 말하면 그 말 앞에 붙인다.
@@ -18,11 +18,10 @@ import { APP_RID, CENTRAL_RID, type CentralAnswerBody, type CentralFeedback, typ
 import { APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
+import { appRoom, APP_LIVE_CAP, APP_LIVE_MIN, FRESH_MS, MEM_FREE_GB, MEM_FREE_MIN, memLine, readMemory, roomRule, type Mem, type Room } from './appMemory.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 
-/** 동시에 일하는 앱 고치기 대화 수 (맥 메모리 · 합칠 때 부딪힘, 시안 §9 ③). 차면 새 일은 기다리게 두었다가(held) 자리가 나면 연다 */
-export const APP_LIVE_MAX = 2
 /** 중앙에게 넘기는 하위 대화 한 줄의 마지막 글 길이 */
 const REPORT_CHARS = 300
 /** 하위 대화가 차례 끝에 남기는 보고(「## 보고」 절)의 길이 상한. 깨우기 · chat_list에 이 안에서 자르지 않고 싣는다 (11/19) */
@@ -59,7 +58,7 @@ export const CENTRAL_BRIEF = [
   'You read and orchestrate. You cannot edit files or write notes and records, and you run only commands that look at state plus git/gh commands that commit, branch, push, open pull requests and squash-merge them: the app blocks the rest, including force pushes, git reset, branch -D and anything that changes files in your folder (checkout, switch, merge, rebase, pull, stash, restore), because your folder is the running app\'s checkout. Put commit messages in -m, not heredocs.',
   '- Answer questions yourself by reading: workbench MCP tools (list_projects, project_status, overview, read_note, list_records, search_library, rules) and Read/Grep/Glob on the app repository (your working folder) and registered projects.',
   '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; it squash-merges its own pull request with app_merge once CI is green, or you squash-merge it; restarting stays with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
-  `- At most ${APP_LIVE_MAX} app sub-conversations work at once. If chat_open says the task is held, the app opens it by itself when a slot frees; do not open it again.`,
+  `- How many app sub-conversations work at once depends on free memory: the app opens one while at least ${MEM_FREE_MIN * 100}% and ${MEM_FREE_GB} GB of memory stay free (always at least ${APP_LIVE_MIN}, at most ${APP_LIVE_CAP}). If chat_open says the task is held, the app opens it by itself when memory frees or one ends; do not open it again.`,
   '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per item).',
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
@@ -150,7 +149,7 @@ export function kidOf(c: Stored): CentralKid {
 /** 중앙에게 넘기는 하위 대화 요약 (보관한 것은 빼고). held = 자리를 기다리는 앱 고치기 수 */
 export function digestOf(kids: CentralKid[], held = 0): string {
   const open = kids.filter((k) => !k.archived)
-  const wait = held ? `\n[Held app tasks waiting for a free slot: ${held}; the app opens them]` : ''
+  const wait = held ? `\n[Held app tasks waiting for free memory: ${held}; the app opens them]` : ''
   if (!open.length) return `[Sub-conversations: none open]${wait}`
   return ['[Sub-conversations]', ...open.map((k) => {
     const pr = k.pr ? ` · PR #${k.pr.number}${k.merged ? ' merged' : ''}` : ''
@@ -166,6 +165,9 @@ type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[
 export class CentralChats extends FeedbackChats {
   /** 하위 대화가 바뀐 뒤 중앙을 깨우기까지 모으는 시간 (시험은 줄인다) */
   wakeMs = 10_000
+  /** 남은 메모리 읽기 (시험은 값을 넣는다) */
+  memory: () => Promise<Mem> = readMemory
+  private opening?: Promise<void>
   // 부모 생성자가 touch를 부를 수 있어 필드 초기값 대신 처음 쓸 때 만든다
   private wakeState?: WakeState
 
@@ -233,7 +235,7 @@ export class CentralChats extends FeedbackChats {
       if (ended && w.events.size) this.wakeLater()
       return
     }
-    if (c.rid === APP_RID && ended && central.held?.length) queueMicrotask(() => this.openHeld())
+    if (c.rid === APP_RID && ended && central.held?.length) queueMicrotask(() => void this.openHeld())
     if (c.parent !== central.id || c.archived) return
     const a = c.state === 'waiting' ? openAsk(c) : undefined
     if (a) this.note(c.id, { kind: 'ask' }, `ask:${a.id}`)
@@ -321,12 +323,12 @@ export class CentralChats extends FeedbackChats {
     }
   }
 
-  /** 1분마다: 중앙의 앱 하위 대화 PR이 합쳐졌는지 · CI가 실패했는지 보고 깨운다. 앱 고치기 자리가 났으면 기다리던 일을 연다 */
+  /** 1분마다: 중앙의 앱 하위 대화 PR이 합쳐졌는지 · CI가 실패했는지 보고 깨운다. 메모리가 풀렸으면 기다리던 앱 고치기를 연다 */
   async tickCentral(): Promise<void> {
     const app = this.deps.app
     const c = this.central()
     if (!app || !c) return
-    this.openHeld()
+    await this.openHeld()
     for (const k of [...this.chats.values()].filter((x) => x.parent === c.id && !x.archived && !LIVE.has(x.state))) {
       try {
         if (!k.merged && k.pr && k.worktree && k.branch && app.prMerged) {
@@ -351,41 +353,67 @@ export class CentralChats extends FeedbackChats {
     return [...this.chats.values()].filter((k) => k.rid === APP_RID && LIVE.has(k.state))
   }
 
-  /** 앱 고치기 자리가 나면 기다리던 일을 차례로 열고, 연 것을 중앙 대화에 적는다 */
-  private openHeld(): void {
+  /** 앱 고치기를 하나 더 열 수 있는지 (남은 메모리, appMemory.ts). 메모리를 못 읽으면 최소 개수만 */
+  private async room(): Promise<{ ok: boolean; why?: 'cap' | 'memory'; live: Stored[]; mem?: Mem }> {
+    const live = this.appLive()
+    const fresh = live.filter((k) => Date.now() - new Date(k.created).getTime() < FRESH_MS).length
+    const mem = await this.memory().catch(() => undefined)
+    const r: Room = mem ? appRoom(live.length, fresh, mem) : live.length < APP_LIVE_MIN ? { ok: true } : { ok: false, why: 'memory' }
+    return { ...r, live, ...(mem && { mem }) }
+  }
+
+  /** 기다리게 둔 까닭 한 줄 (몇 개가 일하는지 · 남은 메모리) */
+  private roomWhy(r: { why?: 'cap' | 'memory'; live: Stored[]; mem?: Mem }): string {
+    const now = r.mem ? memLine(r.live.length, r.mem) : t(`앱 고치기 ${r.live.length}개 일함 · 메모리를 읽지 못함`, `${r.live.length} app conversations working · memory unknown`)
+    return r.why === 'cap' ? `${now} · ${t(`상한 ${APP_LIVE_CAP}개`, `cap ${APP_LIVE_CAP}`)}` : now
+  }
+
+  /** 메모리가 풀리거나 앱 고치기가 끝나면 기다리던 일을 차례로 열고, 연 것을 중앙 대화에 적는다 (겹쳐 부르면 앞의 것을 기다린다) */
+  private openHeld(): Promise<void> {
+    return (this.opening ??= this.openHeldNow().finally(() => { this.opening = undefined }))
+  }
+
+  private async openHeldNow(): Promise<void> {
     const c = this.central()
-    while (c?.held?.length && this.appLive().length < APP_LIVE_MAX) {
+    while (c?.held?.length) {
+      const r = await this.room()
+      if (!r.ok) break
       const b = c.held.shift()!
       try {
         const kid = this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'edit' }, { parent: c.id })
-        c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 앱 고치기 자리가 나서 기다리던 「${b.title}」을 열었습니다 (${kid.id})`, `Automatic: a slot freed, opened the held "${b.title}" (${kid.id})`) })
+        c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 기다리던 「${b.title}」을 열었습니다 (${kid.id}, ${this.roomWhy(r)})`, `Automatic: opened the held "${b.title}" (${kid.id}, ${this.roomWhy(r)})`) })
       } catch { /* 열지 못하면 버리지 않고 다음 차례에 */ c.held.unshift(b); break }
       this.touch(c)
     }
   }
 
-  /** 중앙이 하위 대화를 연다 (chat_open). 앱 고치기 자리가 차 있으면 기다리게 두고(held) 그 순서를 돌려준다 */
+  /** 중앙이 하위 대화를 연다 (chat_open). 남은 메모리가 모자라면 기다리게 두고(held) 그 순서를 돌려준다 */
   async openOrHold(b: CentralOpenBody): Promise<CentralOpened> {
     const c = this.central()
-    if (c && b.role === 'app' && this.appLive().length >= APP_LIVE_MAX) {
-      c.held = [...(c.held ?? []), b]
-      c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 앱 고치기 대화가 이미 ${APP_LIVE_MAX}개 일하는 중이라 「${b.title}」을 기다리게 두었습니다 (${c.held.length}번째). 자리가 나면 엽니다`, `Automatic: ${APP_LIVE_MAX} app conversations are working, so "${b.title}" is held (#${c.held.length}). It opens when a slot frees`) })
-      this.touch(c)
-      return { held: c.held.length }
+    if (c && b.role === 'app') {
+      const r = await this.room()
+      if (!r.ok) {
+        c.held = [...(c.held ?? []), b]
+        const why = this.roomWhy(r)
+        c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 「${b.title}」을 기다리게 두었습니다 (${c.held.length}번째, ${why}). ${roomRule()}`, `Automatic: "${b.title}" is held (#${c.held.length}, ${why}). It ${roomRule()}`) })
+        this.touch(c)
+        return { held: c.held.length }
+      }
     }
     return { kid: await this.openKid(b) }
   }
 
-  /** 하위 대화를 바로 연다. 앱 고치기 자리가 차 있으면 409 (기다리게 두기는 openOrHold) */
+  /** 하위 대화를 바로 연다. 앱 고치기에 남은 메모리가 모자라면 409 (기다리게 두기는 openOrHold) */
   async openKid(b: CentralOpenBody): Promise<CentralKid> {
     const c = this.central()
     if (!c) throw new WorkbenchError(409, t('중앙 대화가 없습니다', 'There is no central conversation'))
     if (b.role === 'app') {
-      const live = this.appLive()
-      if (live.length >= APP_LIVE_MAX) {
+      const r = await this.room()
+      if (!r.ok) {
+        const names = r.live.map((k) => `「${k.title}」 ${k.id}`).join(', ')
         throw new WorkbenchError(409, t(
-          `앱 고치기 대화가 이미 ${live.length}개 일하는 중입니다 (${live.map((k) => `「${k.title}」 ${k.id}`).join(', ')}). 끝나기를 기다리거나 그 대화에 이어 보내세요`,
-          `${live.length} app conversations are already working (${live.map((k) => `"${k.title}" ${k.id}`).join(', ')}). Wait for one to finish or send to it with chat_send`,
+          `지금은 앱 고치기를 더 열지 않습니다 (${this.roomWhy(r)}: ${names}). 끝나기를 기다리거나 그 대화에 이어 보내세요`,
+          `No room for another app conversation (${this.roomWhy(r)}: ${names}). Wait for one to finish or send to it with chat_send`,
         ))
       }
       return kidOf(this.must(this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'edit' }, { parent: c.id }).id))

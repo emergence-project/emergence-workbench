@@ -4,9 +4,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { APP_RID } from '@rw/core/contract/agentChats'
-import { APP_LIVE_MAX, CENTRAL_BRIEF, CentralChats, criticalOf, digestOf, KID_REPORT_MAX, kidReport, lastReport } from './agentCentral.js'
+import { CENTRAL_BRIEF, CentralChats, criticalOf, digestOf, KID_REPORT_MAX, kidReport, lastReport } from './agentCentral.js'
 import { judge, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
+import { APP_LIVE_CAP, appRoom, memLine, MEM_FREE_GB, PER_CHAT_GB } from './appMemory.js'
 import { sampleAppWork } from './appWorktree.js'
+
+const GB = 1024 ** 3
 import { ClaudeAccounts } from './claudeAccounts.js'
 
 const W = 'mcp__workbench__'
@@ -78,7 +81,9 @@ describe('중앙과 하위 대화', () => {
   const make = () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-central-'))
     dirs.push(dir)
-    return new CentralChats({ dir, runner: fake, limit: 4, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {}, app: sampleAppWork(path.join(dir, 'wt')) })
+    const chats = new CentralChats({ dir, runner: fake, limit: 4, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {}, app: sampleAppWork(path.join(dir, 'wt')) })
+    chats.memory = async () => ({ free: 0.9, total: 32 * GB })
+    return chats
   }
   afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); seen.length = 0 })
 
@@ -132,7 +137,21 @@ describe('중앙과 하위 대화', () => {
     chats.stopAll()
   })
 
-  it(`앱 고치기 대화는 동시에 ${APP_LIVE_MAX}개까지`, async () => {
+  it('앱 고치기를 더 열지는 남은 메모리로 정한다 (최소 1 · 최대 상한)', () => {
+    const big = { free: 0.6, total: 32 * GB }
+    expect(appRoom(0, 0, { free: 0.01, total: 32 * GB })).toEqual({ ok: true })
+    expect(appRoom(2, 0, big)).toEqual({ ok: true })
+    expect(appRoom(2, 0, { free: 0.2, total: 32 * GB })).toEqual({ ok: false, why: 'memory' })
+    // 작은 맥은 비율보다 GB가 기준
+    expect(appRoom(1, 0, { free: 0.4, total: 8 * GB })).toEqual({ ok: false, why: 'memory' })
+    expect(appRoom(1, 0, { free: (MEM_FREE_GB + 0.5) / 16, total: 16 * GB })).toEqual({ ok: true })
+    // 막 연 대화는 아직 덜 쓰니 하나마다 미리 빼 둔다: 60%(19.2GB) − 4 × 3GB < 8GB
+    expect(appRoom(4, Math.ceil((0.6 * 32 - 8) / PER_CHAT_GB), big)).toEqual({ ok: false, why: 'memory' })
+    expect(appRoom(APP_LIVE_CAP, 0, { free: 1, total: 128 * GB })).toEqual({ ok: false, why: 'cap' })
+    expect(memLine(2, { free: 0.18, total: 32 * GB })).toBe('앱 고치기 2개 일함 · 남은 메모리 18%(5.8GB)')
+  })
+
+  it(`앱 고치기 대화는 메모리가 넉넉해도 ${APP_LIVE_CAP}개까지`, async () => {
     let release!: () => void
     const hold = new Promise<void>((r) => { release = r })
     const slow: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
@@ -146,8 +165,9 @@ describe('중앙과 하위 대화', () => {
     const chats = new CentralChats({ dir, runner: slow, limit: 5, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {}, app: sampleAppWork(path.join(dir, 'wt')) })
     const c = chats.talk('셋 다 고쳐')
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
-    for (let i = 0; i < APP_LIVE_MAX; i++) await chats.openKid({ role: 'app', title: `고침 ${i}`, task: '고쳐' })
-    await expect(chats.openKid({ role: 'app', title: '하나 더', task: '고쳐' })).rejects.toThrow(/chat_send|이어 보내/)
+    chats.memory = async () => ({ free: 1, total: 128 * GB })
+    for (let i = 0; i < APP_LIVE_CAP; i++) await chats.openKid({ role: 'app', title: `고침 ${i}`, task: '고쳐' })
+    await expect(chats.openKid({ role: 'app', title: '하나 더', task: '고쳐' })).rejects.toThrow(/상한 6개.*이어 보내|cap 6.*chat_send/)
     release()
     chats.stopAll()
   })

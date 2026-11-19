@@ -501,7 +501,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
 
   // 중앙 대화에서만 (11/16 "중앙 에이전트"): 하위 대화 열기 · 이어 보내기 · 닫기 · 목록
   if (opts.central) {
-    const APP_HELD = 'app work slots are full, so the app holds it and opens it by itself when one frees. Do not open it again.'
+    const APP_HELD = 'not enough free memory for another app conversation, so the app holds it and opens it by itself when memory frees or one ends. Do not open it again.'
     const kidLine = (k: { id: string; title: string; state: string; pr?: { number: number } }) => `${k.id} · "${k.title}" · ${k.state}${k.pr ? ` · PR #${k.pr.number}` : ''}`
     const kidCall = async (url: string, body: unknown, verb: string): Promise<Text> => {
       const r = await post(base, f, url, body)
