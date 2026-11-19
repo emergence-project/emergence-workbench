@@ -739,9 +739,8 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const app = rid === APP_RID
   // 고른 프로젝트만 고치고 다른 프로젝트 · 개념노트는 읽기만 (11/19 사용자 결정, '전체' 범위는 없앰). 함께 고칠 프로젝트는 also
   const [also, setAlso] = useState(() => store.get<string[]>('rw-agent-also', []))
-  const more = fixed || app ? [] : also.filter((r) => r !== rid && projects?.some((p) => p.id === r))
   const [settings, change] = useChatSettings()
-  const scope: ChatScope = app ? { kind: 'app' } : { kind: 'project', ...(more.length && { also: more }) }
+  const more = fixed || app ? [] : also.filter((r) => r !== rid && projects?.some((p) => p.id === r)), scope: ChatScope = app ? { kind: 'app' } : { kind: 'project', ...(more.length && { also: more }) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()
@@ -755,8 +754,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
     <div className="ac-new" data-ui="새 대화"><p className="muted">{t('대화는 프로젝트 하나에서 엽니다. 등록한 프로젝트가 아직 없습니다: 레일의 ＋로 프로젝트를 등록하세요.', 'A conversation opens in one project, and no project is registered yet. Register one with ＋ on the rail.')}</p></div>
   )
   // 고칠 프로젝트는 입력란 아래 줄의 알약 버튼 하나 (11/8 14:16 제안, 시안 1-2절). 프로젝트가 정해진 좁은 패널은 그 프로젝트만
-  const onPick = ([r = '', ...rest]: string[]) => { setPick(r); store.set('rw-agent-project', r); setAlso(rest); store.set('rw-agent-also', rest) }
-  const lead = !fixed && <ProjectPick picked={rid ? [rid, ...more] : []} projects={projects ?? []} appOk={appOk} onPick={onPick} />
+  const lead = !fixed && <ProjectPick picked={rid ? [rid, ...more] : []} projects={projects ?? []} appOk={appOk} onPick={([r = '', ...rest]) => { setPick(r); store.set('rw-agent-project', r); setAlso(rest); store.set('rw-agent-also', rest) }} />
   return (
     <div className="ac-new" data-ui="새 대화">
       {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}

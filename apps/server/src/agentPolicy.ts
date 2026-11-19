@@ -80,6 +80,14 @@ export function scopeDir(scope: ChatScope): string {
   return ''
 }
 
+/** 새 대화의 범위: 함께 고칠 프로젝트(also)는 겹치지 않게, 이 대화의 프로젝트는 빼고, 하나씩 check(등록 안 했으면 던짐)로 본다 (11/19) */
+export function withAlso(asked: ChatScope, rid: string, check: (rid: string) => unknown): ChatScope {
+  const also = asked.kind === 'project' ? [...new Set(asked.also ?? [])].filter((r) => r !== rid) : []
+  for (const r of also) check(r)
+  const { also: _drop, ...scope } = asked
+  return also.length ? { ...scope, also } : scope
+}
+
 /** 저장소 기준 경로가 범위 안인지 */
 export function inScope(scope: ChatScope, rel: string): boolean {
   const d = scopeDir(scope)

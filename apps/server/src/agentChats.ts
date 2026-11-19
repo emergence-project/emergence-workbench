@@ -43,10 +43,8 @@ export interface RunInput {
   /** 대화를 열 때 주는 짧은 안내 (범위 · 단계 · 다른 대화가 잡은 파일) */
   brief: string
   write: ChatWrite
-  /** 앱 고치기 대화: 그 대화 id (앱 MCP에 app_submit · app_checks를 붙이고, 파일 고치기 도구와 명령을 연다). central = 중앙 대화 (chat_* 도구) */
-  appChat?: string; central?: boolean
-  /** 중앙이 아닌 대화: 그 대화 id (central_help로 중앙에게 중재를 청한다, 11/19) */
-  chat?: string
+  /** 앱 고치기 대화: 그 대화 id (앱 MCP에 app_submit · app_checks를 붙이고, 파일 고치기 도구와 명령을 연다). central = 중앙 대화 (chat_* 도구). chat = 중앙이 아닌 대화의 id (central_help로 중앙에게 중재를 청한다, 11/19) */
+  appChat?: string; central?: boolean; chat?: string
   /** 에이전트 프로세스에 더할 환경 변수 (앱 고치기 대화: 화면 그림 포트 등) */
   env?: Record<string, string>
   /**
@@ -93,7 +91,7 @@ import { Inbox } from './agentInbox.js'
 export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: { prompt: string; cwd: string }) => Promise<string>; review?: (o: { prompt: string; cwd: string }) => Promise<string> }
 
 export * from './agentPolicy.js'
-import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, type PolicyCtx } from './agentPolicy.js'
+import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, withAlso, type PolicyCtx } from './agentPolicy.js'
 export * from './agentPrompts.js'
 import { appBriefFor, briefFor, feedbackPrompt, pictureImage, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
 
@@ -292,13 +290,7 @@ export class AgentChats {
     if (app && !this.deps.app) throw new WorkbenchError(404, t(`${HERE.ko}에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다`, `No app repository on ${HERE.en}, so app conversations are not available`))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
     if (!app) this.deps.project(b.rid) // 등록하지 않은 프로젝트면 404
-    const asked: ChatScope = app ? { kind: 'app' } : b.scope ?? { kind: 'project' }
-    // 함께 고칠 프로젝트: 등록한 것만, 이 대화의 프로젝트와 겹치지 않게 (없으면 404)
-    const also = asked.kind === 'project' ? [...new Set(asked.also ?? [])].filter((r) => r !== b.rid) : []
-    for (const r of also) this.deps.project(r)
-    const scope: ChatScope = { ...asked }
-    delete scope.also
-    if (also.length) scope.also = also
+    const scope = withAlso(app ? { kind: 'app' } : b.scope ?? { kind: 'project' }, b.rid, (r) => this.deps.project(r)) // 함께 고칠 프로젝트는 등록한 것만 (없으면 404)
     if ((scope.kind === 'topic' || scope.kind === 'note') && !scope.target) throw new WorkbenchError(400, t('주제 · 노트 범위에는 대상이 필요합니다', 'A topic or note scope needs a target'))
     if (scope.target && (scope.target.includes('..') || path.isAbsolute(scope.target))) throw new WorkbenchError(400, t('범위 대상이 맞지 않음', 'Invalid scope target'))
     const at = now()
@@ -850,16 +842,9 @@ export class AgentChats {
     }
   }
 
-  /** 앱 고치기 대화끼리는 일하는 중이거나 PR이 아직 합쳐지지 않은 다른 대화가 고친 파일도 (합칠 때 부딪힘, 11/16 "중앙 에이전트" 2단계) */
-  /** 함께 고칠 프로젝트(scope.also)의 파일은 `프로젝트:파일`로 잡는다: 그 프로젝트의 대화가 잡은 같은 파일과 부딪힌다 */
-  private claimedBy(self: string, file: string, project?: string): string | undefined {
-    const rid = project ?? this.chats.get(self)?.rid
-    const key = `${rid}:${file}`
-    for (const o of this.chats.values()) {
-      if (o.id === self) continue
-      if (LIVE.has(o.state) && (o.rid === rid ? o.claims.includes(file) : o.claims.includes(key))) return o.title
-      if (o.rid === rid && o.rid === APP_RID && (LIVE.has(o.state) || !!o.pr) && !o.merged && !o.archived && o.changed.includes(file)) return o.title
-    }
+  /** 앱 고치기 대화끼리는 일하는 중이거나 PR이 아직 합쳐지지 않은 다른 대화가 고친 파일도 (합칠 때 부딪힘, 11/16 "중앙 에이전트" 2단계). 함께 고칠 프로젝트(scope.also)의 파일은 `프로젝트:파일`로 잡는다 (11/19) */
+  private claimedBy(self: string, file: string, rid = this.chats.get(self)?.rid): string | undefined {
+    for (const o of this.chats.values()) if (o.id !== self && (LIVE.has(o.state) && o.claims.includes(o.rid === rid ? file : `${rid}:${file}`) || o.rid === rid && o.rid === APP_RID && (LIVE.has(o.state) || !!o.pr) && !o.merged && !o.archived && o.changed.includes(file))) return o.title
     return undefined
   }
 
@@ -906,7 +891,7 @@ export class AgentChats {
       // 앱 고치기 대화는 작업 폴더만, 피드백을 맡았으면 피드백 폴더(그림)도 묻지 않고 읽는다
       const readable = app ? (c.feedback && this.deps.feedback ? [this.deps.feedback.dir] : []) : this.deps.readable().filter((d) => d !== p.repo)
       const mode = c.mode
-      const ctx: PolicyCtx = { rid: c.rid, write: c.write, mode, planOk: false, scope: c.scope, repo: p.repo, readable, claimedBy: (f, r) => this.claimedBy(c.id, f, r), auto: () => autoOf({ write: c.write, mode: ctx.mode, ...(c.auto && { auto: c.auto }) }), always: (k) => !!c.alwaysKeys?.some((a) => a.key === k) }
+      const ctx: PolicyCtx = { rid: c.rid, write: c.write, mode, planOk: false, scope: c.scope, repo: p.repo, readable, claimedBy: (f, r) => this.claimedBy(c.id, f, r ?? c.rid), auto: () => autoOf({ write: c.write, mode: ctx.mode, ...(c.auto && { auto: c.auto }) }), always: (k) => !!c.alwaysKeys?.some((a) => a.key === k) }
       const claim = (file?: string) => {
         if (!file) return
         if (!c.claims.includes(file)) c.claims.push(file)
