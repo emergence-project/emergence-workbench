@@ -23,7 +23,7 @@ const ROUTES: Route[] = [
   { page: 'figures' },
   { page: 'figures', list: true },
   { page: 'figures', filter: 'project:alpha' },
-  { page: 'figures', open: 'geometric-additivity/gamc-fig3.pdf' },
+  { page: 'figures', open: 'sample-project/sample-fig3.pdf' },
   { page: 'library' },
   { page: 'library', list: true },
   { page: 'library', list: true, subjectPrefix: '수학 › A_% / B?', issue: 'todo', check: 'unchecked', showEmpty: true },

@@ -264,7 +264,7 @@ describe('기록을 쓰면 저절로 올린다 (recordsAutoPublishMs)', () => {
   })
 })
 
-describe('일지는 항목 단위로 합친다 (10/20 점검: LSWT 10/3 일지)', () => {
+describe('일지는 항목 단위로 합친다 (10/20 점검: 실제 저장소의 10/3 일지)', () => {
   it('이웃한 두 항목을 이 컴퓨터와 GitHub가 하나씩 지워도 합쳐서 올린다', async () => {
     const { remote, mac, cloud } = setup('log-entries')
     const day = 'workbench/log/2026-10-03.md'
@@ -284,10 +284,10 @@ describe('올리기 실패는 앱을 다시 켜도 남는다 (10/20 점검)', ()
   it('앱 설정 폴더의 records-publish.json을 읽어 기록 탭에 알린다', async () => {
     const configDir = path.join(tmp, 'persist-config')
     fs.mkdirSync(configDir, { recursive: true })
-    fs.writeFileSync(path.join(configDir, 'records-publish.json'), JSON.stringify({ lswt: { at: 1, error: 'same files also changed on GitHub' } }))
+    fs.writeFileSync(path.join(configDir, 'records-publish.json'), JSON.stringify({ sample: { at: 1, error: 'same files also changed on GitHub' } }))
     const app = buildApp({ configDir, recordsAutoPublishMs: 30_000 })
     try {
-      expect((await app.inject({ method: 'GET', url: '/api/researches/lswt/records/publish' })).json()).toMatchObject({ autoPublish: true, last: { at: 1, error: 'same files also changed on GitHub' } })
+      expect((await app.inject({ method: 'GET', url: '/api/researches/sample/records/publish' })).json()).toMatchObject({ autoPublish: true, last: { at: 1, error: 'same files also changed on GitHub' } })
     } finally { await app.close() }
   })
 })

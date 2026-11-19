@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { mergeJournalText } from './journal.js'
 
-const memo = '## 09:40 · 메모 · 연구\n10/2 요약\n- NBCP 노트'
+const memo = '## 09:40 · 메모 · 연구\n10/2 요약\n- 예제 노트'
 const todo = '## 09:47 · 할 일 · 연구\n- [ ] 일괄 검토'
 const doc = (...entries: string[]) => ['# 2026-10-03', ...entries].join('\n\n') + '\n'
 
 describe('일지 항목 단위 합치기', () => {
-  it('이웃한 두 항목을 양쪽에서 하나씩 지우면 둘 다 지운다 (LSWT 10/3)', () => {
+  it('이웃한 두 항목을 양쪽에서 하나씩 지우면 둘 다 지운다 (실제 저장소의 10/3 일지)', () => {
     expect(mergeJournalText(doc(memo, todo), doc(memo), doc(todo))).toBe('# 2026-10-03\n')
   })
   it('양쪽이 더한 항목을 모두 두고, 저쪽 것은 저쪽 자리에', () => {
