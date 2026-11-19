@@ -6,7 +6,7 @@
 .ac-central-send { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); }
 .ac-central-kids { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); max-height: 40%; flex: none; min-height: 0; }
 /* 하위 대화는 한 줄씩 (11/19 "최대한 좁게"): 머리 한 줄 + 점 · 제목 · 짧은 상태 · 시각 */
-.ac-kids-head { display: flex; align-items: center; gap: 4px; width: 100%; padding: var(--sp-1) var(--sp-3); border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.ac-kids-head { display: flex; align-items: center; gap: var(--sp-1); width: 100%; padding: var(--sp-1) var(--sp-3); border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
 .ac-kids-head b { color: var(--text); font-weight: var(--fw-strong); }
 .ac-kids-head:hover { background: var(--bg-hover); }
 .ac-kids-fold { margin-left: auto; color: var(--text-3); }
