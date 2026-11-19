@@ -146,11 +146,13 @@ if (process.env.RW_SANDBOX === '1') {
   const openedFile = path.join(configDir, 'papers-opened.json')
   if (!fs.existsSync(openedFile)) cpSample(path.join(repoRoot, 'fixtures/sandbox-papers/opened.json'), openedFile)
   const sampleRecommend = fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/recommend.json'), 'utf8')
+  const sampleRecommendReversed = JSON.stringify({ recommendedPapers: [...(JSON.parse(sampleRecommend) as { recommendedPapers: unknown[] }).recommendedPapers].reverse() })
   // 넣기 전에 읽기 (11/5): 추천 논문의 arXiv 정보 · PDF와 Crossref 초록도 정해 둔 답으로
   const samplePeek: Record<string, { title: string; authors: string[]; abstract: string }> = JSON.parse(fs.readFileSync(path.join(repoRoot, 'fixtures/sandbox-papers/peek.json'), 'utf8'))
   const samplePdf = path.join(repoRoot, 'fixtures/sandbox-papers/pdf/doeStructurePlanar2004.pdf')
   usePaperFetcher((url, init) => {
-    if (url.includes('/recommendations/')) return Promise.resolve(new Response(sampleRecommend))
+    // 분류 예제(관심 분야 두 개)에서는 둘째 기준 논문의 답을 거꾸로 돌려 줄 끝 분야 표시가 번갈아 보이게 한다
+    if (url.includes('/recommendations/')) return Promise.resolve(new Response(process.env.RW_SUBJECTS_FIXTURE === '1' && url.includes('0000.00003') ? sampleRecommendReversed : sampleRecommend))
     const ax = /export\.arxiv\.org\/api\/query\?id_list=([^&]+)/.exec(url)?.[1]
     const pdf = /arxiv\.org\/pdf\/(.+)$/.exec(url)?.[1]
     const doi = /api\.crossref\.org\/works\/(10\.[^?]+)$/.exec(url)?.[1]

@@ -446,6 +446,7 @@ workbench/notes/
 | `comments/<키>/c-*.md` | 논문 코멘트 (§10.3) |
 | `figures/`, `figures/figures.yaml` | 공용 그림 (§8) |
 | `subjects.yaml` | 분류 나무 (§10.2) |
+| `recommend.yaml` | 추천 논문의 관심 분야 (`interests: [분류 id]`, 11/20~). 논문 첫 화면의 칩으로 고치며, 분류 나무에 없는 id는 읽을 때 무시한다. 없으면 최근 연 · 더한 논문을 기준으로 추천한다 |
 | `study/<id>.yaml` | 공부: 책 · 강의 하나 (§10.6, 11/10~) |
 | `to-learn.yaml` | 공부할 것 (`items: [{id, term, at, note?, from?, concept?}]`). 앱은 YAML 문서로 읽어 고친 항목만 바꾼다. 주석, 다른 키, 앱이 못 읽는 항목(id 없는 것 등)은 남는다 |
 | `preamble/*.tex` | 컴파일 머리. 이름 `^[a-z0-9-]+\.tex$`, 머리 `% place: first|last` |
