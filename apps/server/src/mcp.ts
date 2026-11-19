@@ -466,7 +466,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async () => {
       const r = await post(base, f, `/api/agent-chats/${chat}/app/merge`, {})
       if (!r.ok) return r.error
-      const b = r.body as { number: number; sha: string }
+      const b = z.object({ number: z.number(), sha: z.string() }).parse(r.body)
       return text(`Merged PR #${b.number} by squash (${b.sha.slice(0, 7)}). The app restarts with it when idle.`)
     })
     server.registerTool('app_checks', {
