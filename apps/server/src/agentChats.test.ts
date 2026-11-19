@@ -107,6 +107,20 @@ describe('허락 규칙', () => {
     expect(judge(ctx({ scope: all, write: 'read' }), `${W}edit_concept`, {}).kind).toBe('deny')
     expect(describeStep(ctx({ scope: all }), `${W}read_note`, { project: 'other', file: 'a.md' }).outside).toBeUndefined()
   })
+  it('고른 프로젝트 여럿 (11/19): also 프로젝트는 고치고, 그 밖은 막고 central_help를 알려 준다', () => {
+    const also: ChatScope = { kind: 'project', also: ['two'] }
+    const file = 'workbench/notes/x/note.md'
+    expect(judge(ctx({ scope: also }), `${W}edit_note`, { project: 'two', file })).toEqual({ kind: 'allow', claim: `two:${file}` })
+    expect(judge(ctx({ scope: also }), `${W}add_record`, { project: 'two' }).kind).toBe('allow')
+    const out = judge(ctx({ scope: also }), `${W}edit_note`, { project: 'other', file })
+    expect(out.kind).toBe('deny')
+    expect(out.kind === 'deny' && out.message).toContain('central_help')
+    expect(judge(ctx({ scope: also }), `${W}edit_concept`, { id: 'gauge' }).kind).toBe('deny')
+    expect(describeStep(ctx({ scope: also }), `${W}read_note`, { project: 'two', file: 'a.md' }).outside).toBeUndefined()
+    expect(describeStep(ctx({ scope: also }), `${W}read_note`, { project: 'other', file: 'a.md' }).outside).toBeDefined()
+    const taken = judge(ctx({ scope: also, claimedBy: (f, r) => r === 'two' && f === file ? '다른 일' : undefined }), `${W}edit_note`, { project: 'two', file })
+    expect(taken.kind).toBe('deny')
+  })
   it('명령은 하는 일로 나눠 토글대로: 읽기 · 편집은 맡기는 정도, 실행은 프로그램마다, 삭제 · 외부는 늘 한 번씩', () => {
     expect(judge(ctx(), 'Bash', { command: 'python run.py' })).toMatchObject({ kind: 'ask', key: 'run:python', does: 'run', summary: 'python run.py' })
     expect(judge(ctx({ always: (k) => k === 'run:python' }), 'Bash', { command: 'python other.py' }).kind).toBe('allow')

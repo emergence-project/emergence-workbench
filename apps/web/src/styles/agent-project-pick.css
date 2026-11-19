@@ -15,3 +15,4 @@
 .ac-new-row .segmented button { white-space: nowrap; }
 .ac-pop-btn.pill { flex: 0 1 auto; }
 .ac-pop-btn.pill .ac-pick-name { min-width: 3em; }
+.ac-pick-hint { white-space: normal; max-width: 300px; line-height: 1.4; padding-bottom: var(--sp-1); }

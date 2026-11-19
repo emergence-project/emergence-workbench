@@ -20,7 +20,7 @@ import { useRecords } from './projectQueries'
 import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
 import { GroupPick } from './AgentGroupPick'
-import { ProjectPick, RecentChats, ScopeRow } from './AgentProjectPick'
+import { ProjectPick, RecentChats } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { CENTRAL_PAGE, CentralKids, CentralLine, CentralStart } from './CentralChat'
@@ -93,7 +93,7 @@ const useChat = (id: string) => useQuery({ queryKey: qk.agentChat(id), queryFn: 
 const useProjects = () => useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
 
 function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): string {
-  if (s.kind === 'project') return t('프로젝트 전체', 'Whole project')
+  if (s.kind === 'project') return s.also?.length ? t(`프로젝트 ${s.also.length + 1}개`, `${s.also.length + 1} projects`) : t('프로젝트 전체', 'Whole project')
   if (s.kind === 'all') return t('전체', 'Everything')
   if (s.kind === 'app') return t('앱 수정', 'Fix the app')
   if (s.kind === 'topic') return `${t('주제', 'Topic')} · ${topics?.find((x) => x.id === s.target)?.title ?? s.target}`
@@ -722,7 +722,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
 
 // ---------- 새 대화 ----------
 
-/** 새 대화: 프로젝트(rid가 없을 때) · 범위(지금 보는 곳에서) · 입력란 하나 */
+/** 새 대화: 고칠 프로젝트(rid가 없을 때, 여럿) · 입력란 하나 */
 export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: { file: string; title: string }; onCreated(c: Chat): void }) {
   const client = useQueryClient()
   const projects = useProjects()
@@ -737,10 +737,11 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   }, [])
   const rid = fixed ?? (projects?.some((p) => p.id === pick) || (appOk && pick === APP_RID) ? pick : projects?.[0]?.id ?? '')
   const app = rid === APP_RID
-  // 범위는 프로젝트 · 전체 둘 (10/31 사용자 결정: 주제는 너무 좁다). 옛 주제 · 노트 대화는 그대로 읽는다
-  const [kind, setKind] = useState<'project' | 'all'>('project')
+  // 고른 프로젝트만 고치고 다른 프로젝트 · 개념노트는 읽기만 (11/19 사용자 결정, '전체' 범위는 없앰). 함께 고칠 프로젝트는 also
+  const [also, setAlso] = useState(() => store.get<string[]>('rw-agent-also', []))
+  const more = fixed || app ? [] : also.filter((r) => r !== rid && projects?.some((p) => p.id === r))
   const [settings, change] = useChatSettings()
-  const scope: ChatScope = app ? { kind: 'app' } : { kind }
+  const scope: ChatScope = app ? { kind: 'app' } : { kind: 'project', ...(more.length && { also: more }) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()
@@ -753,10 +754,11 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   if (!fixed && projects && !projects.length && !appOk) return (
     <div className="ac-new" data-ui="새 대화"><p className="muted">{t('대화는 프로젝트 하나에서 엽니다. 등록한 프로젝트가 아직 없습니다: 레일의 ＋로 프로젝트를 등록하세요.', 'A conversation opens in one project, and no project is registered yet. Register one with ＋ on the rail.')}</p></div>
   )
-  // 프로젝트 · 범위는 입력란 아래 줄의 알약 버튼 하나 (11/8 14:16 제안, 시안 1-2절). 프로젝트가 정해진 좁은 패널은 예전처럼 입력란 위에 범위만
-  const lead = !fixed && <ProjectPick rid={rid} projects={projects ?? []} appOk={appOk} scope={kind} onPick={(r) => { setPick(r); store.set('rw-agent-project', r) }} onScope={setKind} />
+  // 고칠 프로젝트는 입력란 아래 줄의 알약 버튼 하나 (11/8 14:16 제안, 시안 1-2절). 프로젝트가 정해진 좁은 패널은 그 프로젝트만
+  const onPick = ([r = '', ...rest]: string[]) => { setPick(r); store.set('rw-agent-project', r); setAlso(rest); store.set('rw-agent-also', rest) }
+  const lead = !fixed && <ProjectPick picked={rid ? [rid, ...more] : []} projects={projects ?? []} appOk={appOk} onPick={onPick} />
   return (
-    <div className="ac-new" data-ui="새 대화">{fixed && !app && <ScopeRow scope={kind} onScope={setKind} />}
+    <div className="ac-new" data-ui="새 대화">
       {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
       {app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
