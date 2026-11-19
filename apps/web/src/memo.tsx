@@ -12,19 +12,21 @@ import { askConfirm } from './askText'
 import { journalDeletePrompt, journalEntryActions } from './journalActions'
 import { isNoteTarget, journalTargetRoute, type NoteOf } from './journalTargets'
 import { shown, t } from './i18n'
-import { CodeText, RepoPathContext } from './repoPaths'
+import { RepoPathContext } from './repoPaths'
 import { textLinks } from './textLinks'
+import { AppLinkCode, AppLinkText } from './AppLinkText'
 export { isNoteTarget } from './journalTargets'
+export { AppLinkProvider } from './AppLinkText'
 
 function InlineText({ parts }: { parts: Inline[] }) {
   return <>{parts.map((p, i) => {
     switch (p.kind) {
       case 'math': return <span key={i} className={p.display ? 'memo-math-block' : undefined} dangerouslySetInnerHTML={{ __html: katex.renderToString(p.tex, { throwOnError: false, displayMode: !!p.display }) }} />
       case 'bold': return <strong key={i}>{p.text}</strong>
-      case 'code': return <CodeText key={i} text={p.text} />
+      case 'code': return <AppLinkCode key={i} text={p.text} />
       default: return <span key={i}>{textLinks(p.text).map((x, j) => x.kind === 'url'
         ? <a key={j} className="a memo-link" href={x.text} target="_blank" rel="noreferrer">{x.text}</a>
-        : x.text)}</span>
+        : <AppLinkText key={j} text={x.text} />)}</span>
     }
   })}</>
 }

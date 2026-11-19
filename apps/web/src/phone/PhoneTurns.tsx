@@ -120,7 +120,7 @@ function TurnSheet({ x, onClose, onSaved }: { x: TurnItem; onClose(): void; onSa
       ))}</div>}
       <ApproveButton e={e} />
       <Compose e={e} />
-      <button className="a ph-more" onClick={() => go({ page: 'feedback' })}>{t('피드백 화면에서 전체 대화 보기', 'See the whole thread on the feedback screen')}</button>
+      <button className="a ph-more" onClick={() => go({ page: 'feedback', key: e.key })}>{t('피드백 화면에서 전체 대화 보기', 'See the whole thread on the feedback screen')}</button>
     </>
   } else if (x.kind === 'record') {
     const { file, entry } = x.rec
