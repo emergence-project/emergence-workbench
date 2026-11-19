@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { appBriefFor, fileEditOf, judge, partsOfPatch, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
-import { appBranch, appWorktrees, checkRowsOfError, sampleAppWork, type AppWork } from './appWorktree.js'
+import { aboutFragment, appBranch, appWorktrees, checkRowsOfError, localChecks, sampleAppWork, type AppWork } from './appWorktree.js'
 
 const repo = '/w/app-1'
 const W = 'mcp__workbench__'
@@ -171,6 +171,32 @@ describe('CI 검사 오류 읽기', () => {
     expect(checkRowsOfError(Object.assign(new Error('Command failed'), { stdout: '', stderr: "no checks reported on the 'feature' branch\n" }))).toEqual([])
     const other = Object.assign(new Error('Command failed'), { stdout: '', stderr: 'HTTP 502' })
     expect(() => checkRowsOfError(other)).toThrow(other)
+  })
+})
+
+describe('올리기 전 (11/20 토큰 아끼기)', () => {
+  it('빠른 검사: 있는 검사만 돌리고, 떨어진 것의 출력을 모으고, 명령이 없으면 건너뛴다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chk-'))
+    fs.writeFileSync(path.join(dir, 'package.json'), '{}')
+    const ran: string[] = []
+    expect(await localChecks(dir, async (cmd, args) => { ran.push([cmd, ...args].join(' ')) })).toBeUndefined()
+    expect(ran).toEqual(['pnpm type-check'])
+    fs.mkdirSync(path.join(dir, 'scripts', 'ci'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'scripts', 'ci', 'check-ports.mjs'), '')
+    const out = await localChecks(dir, async (cmd) => {
+      if (cmd === 'pnpm') throw Object.assign(new Error('exit 2'), { stdout: "src/a.ts(3,1): error TS2322: Type 'x'", stderr: '' })
+      throw Object.assign(new Error('spawn node ENOENT'), { code: 'ENOENT' })
+    })
+    expect(out).toContain('✗ pnpm type-check')
+    expect(out).toContain('error TS2322')
+    expect(out).not.toContain('check-ports')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+  it('소개 번호 조각: 고친 절 파일만 "<쪽>/<절>"로, 없거나 "소개: 그대로"면 없음', () => {
+    const files = ['apps/web/src/FlowView.tsx', 'apps/web/src/about/project/flow.tsx', 'apps/web/src/about/agents/app.tsx', 'apps/web/src/about/project.tsx', 'apps/web/src/about/prs/7.json']
+    expect(aboutFragment(files, '흐름 고침', 501)).toEqual({ file: 'apps/web/src/about/prs/501.json', text: '["agents/app","project/flow"]\n' })
+    expect(aboutFragment(files, '정리\n\n소개: 그대로 — 옮김', 501)).toBeUndefined()
+    expect(aboutFragment(['apps/server/src/app.ts'], '', 501)).toBeUndefined()
   })
 })
 

@@ -58,7 +58,7 @@ export const CENTRAL_BRIEF = [
   '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per item).',
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
-  '- Each message starts with a short status of your sub-conversations. Mention one only when the user must act or it finished.',
+  '- Each message starts with a short status of your sub-conversations: ones that changed since your last turn in full, the rest in one line marked unchanged (you saw them before; chat_list shows them again). Mention one only when the user must act or it finished.',
   '- The app wakes you by itself (a message marked "Automatic wake-up", not written by the user) when a sub-conversation ends its turn, waits for plan approval or permission, its pull request check fails, or its pull request is merged, and when any conversation asks you to mediate (central_help). Do the routine work then without asking:',
   '  - asks to mediate: a conversation changes only the projects it was given; work in another project or a concept note, and app bugs it found, come to you. Open the sub-conversation that owns it (role project or role app) with the user\'s goal and what it asked, or tell the user when they must decide.',
   '  - check failed: chat_send it "Find the cause and fix it" with what the log shows.',
@@ -143,12 +143,20 @@ export function kidOf(c: Stored): CentralKid {
   }
 }
 
-/** 중앙에게 넘기는 하위 대화 요약 (보관한 것은 빼고). held = 자리를 기다리는 앱 고치기 수 */
-export function digestOf(kids: CentralKid[], held = 0): string {
+/** 하위 대화 한 줄의 표지: 상태 · 기다림 · PR · 보고가 같으면 같다 (digestOf가 바뀐 것만 자세히 싣는다) */
+export const kidSig = (k: CentralKid) => JSON.stringify([k.state, k.wait, k.ask?.id, k.pr?.number, k.merged, k.report])
+
+/**
+ * 중앙에게 넘기는 하위 대화 요약 (보관한 것은 빼고). held = 자리를 기다리는 앱 고치기 수.
+ * seen(대화 id → 지난 차례에 넘긴 kidSig)을 주면 그 뒤 바뀐 대화만 자세히(PR · 보고), 나머지는 id · 제목 · 상태 한 줄 (토큰 아끼기, 11/20)
+ */
+export function digestOf(kids: CentralKid[], held = 0, seen?: ReadonlyMap<string, string>): string {
   const open = kids.filter((k) => !k.archived)
   const wait = held ? `\n[Held app tasks waiting for free memory: ${held}; the app opens them]` : ''
   if (!open.length) return `[Sub-conversations: none open]${wait}`
-  return ['[Sub-conversations]', ...open.map((k) => {
+  const same = seen ? open.filter((k) => seen.get(k.id) === kidSig(k)).length : 0
+  return [same ? '[Sub-conversations; "unchanged" = same as your last turn]' : '[Sub-conversations]', ...open.map((k) => {
+    if (seen?.get(k.id) === kidSig(k)) return `- ${k.id} · "${k.title}" · ${stateWord[k.state] ?? k.state} · unchanged`
     const pr = k.pr ? ` · PR #${k.pr.number}${k.merged ? ' merged' : ''}` : ''
     const w = k.wait ? `waiting for ${k.wait === 'plan' ? 'plan approval' : 'permission'}${k.ask ? ` (ask ${k.ask.id}${k.ask.critical ? ', critical: leave to the user' : ''})` : ''}` : stateWord[k.state] ?? k.state
     return `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}" · ${w}${pr}${k.report ? ` · ${k.reported ? 'report' : 'last'}: ${oneLine(k.report, REPORT_CHARS)}` : ''}`
@@ -157,7 +165,7 @@ export function digestOf(kids: CentralKid[], held = 0): string {
 
 /** 깨울 까닭 하나 */
 type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help'; log?: string; text?: string }
-type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number> }
+/** digested: 중앙 대화 id별로 마지막으로 넘긴 하위 대화마다의 kidSig */ type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number>; digested: Map<string, Map<string, string>> }
 
 export class CentralChats extends FeedbackChats {
   /** 하위 대화가 바뀐 뒤 중앙을 깨우기까지 모으는 시간 (시험은 줄인다) */
@@ -169,7 +177,7 @@ export class CentralChats extends FeedbackChats {
   private wakeState?: WakeState
 
   private w(): WakeState {
-    return (this.wakeState ??= { prev: new Map(), events: new Map(), seen: new Set(), auto: false, sends: new Map() })
+    return (this.wakeState ??= { prev: new Map(), events: new Map(), seen: new Set(), auto: false, sends: new Map(), digested: new Map() })
   }
 
   /** 중앙 대화 (보관하지 않은 것 가운데 가장 최근) */
@@ -186,8 +194,11 @@ export class CentralChats extends FeedbackChats {
     return [...this.chats.values()].filter((k) => k.parent === parent).sort((a, b) => b.updated.localeCompare(a.updated)).map(kidOf)
   }
 
+  /** 중앙에게 보낼 하위 대화 요약. 지난번에 넘긴 것과 같은 대화는 한 줄로. 세션이 새로 열리면(앱을 다시 켬 등) 모두 자세히 */
   private digest(c: Stored): string {
-    return `${digestOf(this.kidsOf(c.id), c.held?.length)}${this.feedbackLine()}`
+    const kids = this.kidsOf(c.id), all = this.w().digested, seen = c.sessionId ? all.get(c.id) : undefined
+    all.set(c.id, new Map(kids.filter((k) => !k.archived).map((k) => [k.id, kidSig(k)])))
+    return `${digestOf(kids, c.held?.length, seen)}${this.feedbackLine()}`
   }
 
   /** 사용자가 중앙에게 말한다: 중앙이 없으면 연다 (Opus, 읽기만). 붙인 것 · 지금 화면 한 줄도 함께 */

@@ -450,7 +450,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     const chat = encodeURIComponent(opts.appChat)
     server.registerTool('app_submit', {
       title: 'Commit and open PR',
-      description: 'Commit every change in the work folder, push the branch and open the pull request (or add to it if already open). The app refuses while another pull request is open. Title: one Korean line the user reads in the update history. Body: follow the PR template (Before / After / How / Checks).',
+      description: 'Commit every change in the work folder, push the branch and open the pull request (or add to it if already open). Before pushing, the app runs pnpm type-check and the ports-guide, about and structure-ratchet checks (scripts/ci/check-ports.mjs, check-about.mjs, check-ratchet.mjs) in the work folder; if one fails it undoes its commit, pushes nothing and returns the errors, so fix them and call app_submit again. After the pull request number is known, the app writes the about sections you changed to apps/web/src/about/prs/<number>.json and pushes once more (do not add the number to a section\'s prs yourself). Title: one Korean line the user reads in the update history. Body: follow the PR template (Before / After / How / Checks).',
       inputSchema: { title: z.string().describe('One-line Korean PR title'), body: z.string().describe('PR body following the template') },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     }, async (a) => {

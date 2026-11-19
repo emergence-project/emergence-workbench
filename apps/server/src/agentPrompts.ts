@@ -38,7 +38,7 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     // 공개 저장소라 (11/19 개인정보 점검)
     'The app repository is public: PR, commit and issue text and committed files never name real research projects, people, personal emails or local paths. Say "a real repository" or similar instead.',
     ...(o.feedback ? [] : [`When every check is green, call ${APP_MERGE} to squash-merge your own pull request, unless the user asked to look at it before merging. The app refuses while CI is not green or the branch conflicts with main.`]),
-    'Update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
+    'Update tests and docs that the change touches (about sections, uiNames.en.json, design-system.md) as CLAUDE.md says; app_submit adds the PR number to the about sections you changed.',
     'Research projects are read-only here: do not change notes, records, tasks or problems.',
   ]
   if (o.feedback) lines.push(
