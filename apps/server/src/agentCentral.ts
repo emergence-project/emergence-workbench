@@ -16,6 +16,7 @@ import { agentTurnReasons, agentTurns } from '@rw/core'
 import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
 import { APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
+import { bundlesOf, keysOf } from './feedbackGroups.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
 import { appRoom, APP_LIVE_CAP, APP_LIVE_MIN, FRESH_MS, MEM_FREE_GB, MEM_FREE_MIN, memLine, readMemory, roomRule, type Mem, type Room } from './appMemory.js'
 import { t } from './i18n.js'
@@ -55,7 +56,7 @@ export const CENTRAL_BRIEF = [
   '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; it squash-merges its own pull request with app_merge once CI is green, or you squash-merge it; restarting stays with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
   `- How many app sub-conversations work at once depends on free memory: the app opens one while at least ${MEM_FREE_MIN * 100}% and ${MEM_FREE_GB} GB of memory stay free (always at least ${APP_LIVE_MIN}, at most ${APP_LIVE_CAP}). If chat_open says the task is held, the app opens it by itself when memory frees or one ends; do not open it again.`,
   '- Only when the app itself is broken or stuck (an app bug, the app not responding, sub-conversations not starting), open the fix with chat_open urgent: true: it starts at once whatever the memory and queue (one at a time; you yourself never wait in the queue). Never use urgent for ordinary features or fixes.',
-  '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per item).',
+  '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per group: pass all keys of a group as feedbacks, since items of the same screen or questions · suggestions are handled together in one conversation).',
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
   '- Each message starts with a short status of your sub-conversations: ones that changed since your last turn in full, the rest in one line marked unchanged (you saw them before; chat_list shows them again). Mention one only when the user must act or it finished.',
@@ -138,7 +139,7 @@ export function kidOf(c: Stored): CentralKid {
   return {
     id: c.id, rid: c.rid, title: c.title, state: c.state, ...(c.state === 'waiting' && wait && { wait }),
     ...(c.state === 'waiting' && a && { ask: { id: a.id, ...(crit && { critical: crit.ko }) } }),
-    ...(c.pr && { pr: { ...c.pr } }), ...(c.merged && { merged: c.merged }), ...(c.feedback && { feedback: c.feedback }),
+    ...(c.pr && { pr: { ...c.pr } }), ...(c.merged && { merged: c.merged }), ...(c.feedback && { feedback: c.feedback }), ...(c.bundle && { bundle: [...c.bundle] }),
     archived: !!c.archived, ...(c.summary && { summary: c.summary }), ...(report && { report }), ...(own && { reported: true }), updated: c.updated,
   }
 }
@@ -467,17 +468,20 @@ export class CentralChats extends FeedbackChats {
       return kidOf(this.must(this.create({ rid: b.project, text: b.task, title: b.title, scope: { kind: 'project' }, write: 'notes', mode: 'edit' }, { parent: c.id }).id))
     }
     // 피드백: 다른 컴퓨터 · 클라우드 루틴이 이번 차례에 맡았으면 열지 않고, 맡기를 적어 올린 뒤에 연다
-    const key = b.feedback
-    if (!key) throw new WorkbenchError(400, t('피드백 처리에는 feedback(피드백 키)가 필요합니다', 'role feedback needs feedback (the feedback key)'))
+    // 여러 키면 한 대화에 묶는다 (11/19 "둘 다 묶기": feedback_turns의 group이 같은 것끼리)
+    const keys = b.feedbacks?.length ? b.feedbacks : b.feedback ? [b.feedback] : []
+    if (!keys.length) throw new WorkbenchError(400, t('피드백 처리에는 feedback(피드백 키) 또는 feedbacks가 필요합니다', 'role feedback needs feedback (the feedback key) or feedbacks'))
     const fb = this.deps.feedback
-    const e = fb ? listAllFeedback(fb.dir).find((x) => x.key === key) : undefined
-    if (fb?.claims && e) {
+    const all = fb ? listAllFeedback(fb.dir) : []
+    for (const key of keys) {
+      const e = all.find((x) => x.key === key)
+      if (!fb?.claims || !e) continue
       const since = lastTouched(e)
       if (fb.claims.taken(key, since) || !(await fb.claims.claim(key, since).catch(() => false))) {
-        throw new WorkbenchError(409, t('다른 컴퓨터나 클라우드 루틴이 이 피드백을 맡았습니다', 'Another computer or the cloud routine has claimed this feedback'))
+        throw new WorkbenchError(409, t(`다른 컴퓨터나 클라우드 루틴이 이 피드백(${key})을 맡았습니다`, `Another computer or the cloud routine has claimed this feedback (${key})`))
       }
     }
-    const kid = this.handOff(key, c.id)
+    const kid = this.handOff(keys, c.id)
     // 맡길 일에 사용자의 말이 더 있으면 이어 보낸다 (피드백 안내는 handOff가 만든다)
     if (b.task.trim()) this.send(kid.id, { text: b.task })
     return kidOf(this.must(kid.id))
@@ -494,12 +498,14 @@ export class CentralChats extends FeedbackChats {
   feedbackTurns(): CentralFeedback {
     const fb = this.deps.feedback
     if (!fb) return { items: [] }
-    const items = listAllFeedback(fb.dir).filter((e) => agentTurns(e).length).map((e) => {
+    const rows = listAllFeedback(fb.dir).filter((e) => agentTurns(e).length).map((e) => {
       const since = lastTouched(e)
-      const chat = [...this.chats.values()].find((c) => c.feedback === e.key && new Date(c.created).getTime() >= since)
-      return { key: e.key, ...(e.kind && { kind: e.kind }), target: e.target, text: e.text.replace(/\s+/g, ' ').trim().slice(0, 300), reasons: agentTurnReasons(e), taken: !!fb.claims?.taken(e.key, since), ...(chat && { chat: chat.id }) }
+      const chat = [...this.chats.values()].find((c) => keysOf(c).includes(e.key) && new Date(c.created).getTime() >= since)
+      return { e, row: { key: e.key, ...(e.kind && { kind: e.kind }), target: e.target, text: e.text.replace(/\s+/g, ' ').trim().slice(0, 300), reasons: agentTurnReasons(e), taken: !!fb.claims?.taken(e.key, since), ...(chat && { chat: chat.id }) } }
     })
-    return { items }
+    // 맡을 수 있는 것을 묶는다 (feedbackGroups.ts): 같은 group끼리 한 대화에
+    const group = new Map(bundlesOf(rows.filter((r) => !r.row.taken && !r.row.chat).map((r) => r.e)).flatMap((b, i) => b.items.map((e) => [e.key, i + 1] as const)))
+    return { items: rows.map((r) => ({ ...r.row, ...(group.has(r.e.key) && { group: group.get(r.e.key) }) })) }
   }
 
   /** 중앙이 하위 대화에 이어 보낸다 (chat_send). 저절로 깨어난 차례에는 사용자가 다시 말할 때까지 AUTO_SEND_MAX번까지 */
