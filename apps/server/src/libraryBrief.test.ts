@@ -30,7 +30,8 @@ describe('논문 첫 화면 (GET /api/papers/brief)', () => {
     const b = (await app.inject({ method: 'GET', url: '/api/papers/brief?recent=2' })).json()
     expect(b.total).toBe(3)
     expect(b.recent.map((p: { key: string }) => p.key)).toEqual(['new2024', 'book2010'])
-    expect(b.check).toEqual({ noFolder: true, answered: 1 })
+    // PDF 폴더를 적지 않아도 라이브러리의 pdfs가 기본 폴더라 「폴더 없음」이 아니다 (11/20)
+    expect(b.check).toEqual({ noFolder: false, answered: 1 })
     expect(b.stats).toEqual({ noPdf: 3, arxiv: 1, unlinked: 2, papers: 2, books: 1 })
     // 최근 확인한 논문: 답이 온 질문이 있는 것 먼저(열지 않았어도), 그다음 연 순
     expect(b.opened.map((p: { key: string }) => p.key)).toEqual(['new2024', 'book2010'])
