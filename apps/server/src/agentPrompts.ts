@@ -13,7 +13,7 @@ import { t } from './i18n.js'
 
 /**
  * 중앙이 연 하위 대화가 차례 끝에 남기는 보고 (11/19 사용자 "하위대화가 너에게 요약해서 보고하는게 좋지 않겠냐").
- * 앱이 마지막 글의 「## 보고」 절을 읽어 중앙의 깨우기 · chat_list에 그대로 싣는다(agentCentral.ts kidReport, KID_REPORT_MAX자까지)
+ * 앱이 마지막 글의 「## 보고」 절을 읽어 중앙의 깨우기 · chat_list에 그대로 싣는다(agentCentralDigest.ts kidReport, KID_REPORT_MAX자까지)
  */
 export const REPORT_BRIEF = 'End every turn with a report for the central conversation: a last section headed exactly "## 보고", in Korean, with these lines: "- 바꾼 것:" what changed, on the screen or in behavior (or what you found); "- 위치:" pull request number, main files, feedback record; "- 판단:" the decision or answer in one line (없음 if none); "- 남은 일:" what is left and what the user must do (없음 if nothing). Keep it under 1500 characters; the app hands it to the central conversation as it is.'
 
