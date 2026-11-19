@@ -1,0 +1,62 @@
+---
+about:
+  - apps/web/src/about/feedback/leaving-feedback.tsx
+  - apps/web/src/about/feedback/overview.tsx
+  - apps/web/src/about/feedback/answers.tsx
+  - apps/web/src/about/feedback/handling-and-shipping.tsx
+code:
+  - packages/core/src/feedback-buckets.ts
+  - packages/core/src/feedback-lessons.ts
+  - packages/core/src/contract/feedback.ts
+  - apps/server/src/feedback.ts
+  - apps/web/src/FeedbackMode.tsx
+  - apps/web/src/FeedbackSend.tsx
+  - apps/web/src/FeedbackPage.tsx
+  - apps/web/src/FeedbackAnswer.tsx
+  - apps/web/src/feedbackDraft.ts
+---
+
+# 피드백 옮기기
+
+## 무엇
+
+사용자가 화면의 한 부위를 가리켜 피드백(수정 · 질문 · 제안)을 남기면, 코딩 에이전트가 처리 기록을 쓰고, 사용자가 그 처리에 승인 · 반려 · 코멘트로 다시 답한다. 누구 차례인지는 세 파일을 견주어 계산한다. 자세한 동작은 소개 › 피드백의 네 절(위 `about:`)이 정본이다.
+
+## 규약이 먼저
+
+이 기능은 앱에 묶이지 않는 규약이 따로 있다. 옮길 때는 이 순서로 읽는다.
+
+1. [../feedback/README.md](../feedback/README.md) — 세 파일(원문 · 처리 기록 · 사용자 답), 키, 모듈 지도, 차례 규칙
+2. [../feedback/new-app.md](../feedback/new-app.md) — 새 앱에 넣는 단계와 점검 목록
+3. [../feedback/agent.md](../feedback/agent.md) — 에이전트가 처리할 때 지키는 규칙 (새 앱의 `CLAUDE.md` · `AGENTS.md`가 가리킨다)
+4. [../feedback/cases.json](../feedback/cases.json) — 차례 계산의 공통 시험. 고치지 않고 복사한다
+
+## 파일 지도
+
+| 층 | 파일 | 맡은 일 |
+| --- | --- | --- |
+| core | `packages/core/src/feedback-buckets.ts` | 차례 계산(사용자 차례 · 에이전트 차례 · 끝남). 타입 말고 가져오는 것이 없어 그대로 옮긴다 |
+| core | `packages/core/src/feedback-lessons.ts` | 다시 처리한 이력의 `miss` · `lesson`을 세어 에이전트에게 보이는 교훈 |
+| core | `packages/core/src/contract/feedback.ts` | API 몸통 · 답의 모양 (zod) |
+| server | `apps/server/src/feedback.ts` | 원문 · 처리 기록 · 사용자 답 파일 읽고 쓰기, 답 받기, 목록 |
+| web | `apps/web/src/FeedbackMode.tsx` | 피드백 모드: 부위(`data-ui`) 강조, 누른 부위 · 화면 그림 · 고른 글 모으기 |
+| web | `apps/web/src/FeedbackSend.tsx` | 남기기 창: 유형 고르기(필수) · 글 · 그림 |
+| web | `apps/web/src/FeedbackPage.tsx` | 모아 보기 표: 확인 필요 · 대기 · 완료 · 전체, 줄 펼치기 |
+| web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 |
+| web | `apps/web/src/feedbackDraft.ts` | 적던 글 보존 |
+
+## 옮기는 순서
+
+[../feedback/new-app.md](../feedback/new-app.md)의 1단계(최소 묶음) → 2단계(쌓이면 더함)를 그대로 따른다. 화면 부위 이름은 `data-ui` 같은 바꾸지 않을 이름으로 붙이고, 영어 이름 표(이 앱은 `apps/web/src/uiNames.en.json`)를 함께 둔다.
+
+## 이 앱에만 있는 것
+
+- 저절로 맡기기와 컴퓨터 사이 맡음 표시(`apps/server/src/agentFeedbackTick.ts`, `feedbackClaims.ts`) — 에이전트 대화([agent-chat.md](agent-chat.md))가 있어야 한다
+- 중계 서버로 다른 사람의 피드백 받기(`relay/`, `feedbackRelay.ts`)
+- 소개 절 확인(`feedback/about.yaml`, `aboutChecks.ts`)
+
+## 점검
+
+- [ ] [../feedback/new-app.md](../feedback/new-app.md)의 점검 목록을 모두 통과한다
+- [ ] 화면의 부위마다 바꾸지 않을 이름이 있다
+- [ ] 에이전트 규칙 파일(`CLAUDE.md` 등)이 [../feedback/agent.md](../feedback/agent.md)를 가리킨다

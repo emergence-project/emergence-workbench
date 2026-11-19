@@ -128,6 +128,10 @@ export const DEFAULT_SCREENS = [
   ['about-principles', '#/about/principles', '정의'],
   // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
+  // 소개 › 단축키와 파일 위치의 「다른 앱에 옮기기」 (11/19): 이식 안내서 docs/ports 목록과 소개 동기화
+  ['about-ports', '#/about/reference/ports', '다른 앱에 옮기기'],
+  // 기능 소개 절 맨 아래의 이식 안내서 줄 (11/19): 에이전트 대화 절 → docs/ports/agent-chat.md
+  ['about-port-link', '#/about/agents/conversations', '이식 안내서'],
   // 확인 항목 알림의 업데이트 줄을 누르면 오른쪽 「이력」이 그 업데이트를 고른 채 열린다 (11/19). 이력 보기가 기억되므로 소개 화면 맨 끝
   ['about-check-history', '#/about/principles', '소개 이력', '[data-ui="고친 업데이트 목록"] [data-ui="고친 업데이트"]'],
   ['settings', '#/settings', '설정'],
