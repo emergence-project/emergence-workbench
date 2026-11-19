@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { req, type AppStatus } from './api'
+import { req, type AppStatus, type WorkbenchEvent } from './api'
 import type { NewRelease } from '@rw/core/contract/app'
 import { anyPending } from './autosave'
 import { go } from './router'
@@ -73,8 +73,16 @@ export async function checkAppUpdate(): Promise<void> {
   } catch (e) { set({ error: (e as Error).message }) } finally { set({ phase: 'idle' }) }
 }
 
+/** App.tsx의 알림 처리: 앱 알림(화면을 바꿔 끼움 · 다시 시작 대기)이면 다 다루었다고 true. 에이전트 대화가 바뀌면 다시 시작을 기다리는 대화 수만 새로 읽는다 */
+export function appUpdateEvent(e: WorkbenchEvent): boolean {
+  if (e.type === 'agent-chat') void refreshAppStatus(true)
+  if (e.type !== 'app') return false
+  void refreshAppStatus()
+  return true
+}
+
 /** 서버의 알림(app)이나 에이전트 대화가 바뀔 때: GitHub는 다시 확인하지 않고 상태만 다시 읽는다 (다시 시작 대기 중인 대화 수 등) */
-export async function refreshAppStatus(onlyWaiting = false): Promise<void> {
+async function refreshAppStatus(onlyWaiting = false): Promise<void> {
   if (state.phase !== 'idle' || !state.enabled || onlyWaiting && state.status?.waitingAgents === undefined) return
   try { applyStatus(await (await req('/api/app/status')).json()) } catch { /* 다음 확인에서 */ }
 }
@@ -112,7 +120,7 @@ export async function restartNow(): Promise<void> {
     const res = await req('/api/app/restart', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ force: true }) })
     if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? t(`다시 시작하지 못했습니다 (${res.status})`, `Could not restart (${res.status})`))
     if (!(await waitForRestart(status))) throw new Error(RESTART_TIMEOUT)
-  } catch (e) { set({ phase: 'idle' }); await checkAppUpdate(); set({ failed: (e as Error).message }) }
+  } catch (e) { set({ phase: 'idle' }); await checkAppUpdate(); set({ failed: e instanceof Error ? e.message : String(e) }) }
 }
 
 export async function runAppUpdate(): Promise<void> {
