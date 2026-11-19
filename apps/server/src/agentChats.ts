@@ -291,9 +291,9 @@ export class AgentChats {
   get handOffOk(): boolean { return !!this.deps.app && !!this.deps.feedback && this.deps.settings?.().feedback !== 'off' }
 
   list(rid?: string): ChatRow[] {
-    return [...this.chats.values()].filter((c) => !rid || c.rid === rid).sort((a, b) => b.updated.localeCompare(a.updated)).map(rowOf)
+    const at = new Map(this.queue.map((q, i) => [q.id, i + 1])) // 줄 선 차례 (목록의 「대기 n번째」)
+    return [...this.chats.values()].filter((c) => !rid || c.rid === rid).sort((a, b) => b.updated.localeCompare(a.updated)).map((c) => ({ ...rowOf(c), ...(c.state === 'queued' && at.has(c.id) && { queue: at.get(c.id) }) }))
   }
-
   get(id: string): Chat {
     return wireOf(this.must(id))
   }

@@ -179,6 +179,8 @@ export const ChatRow = z.object({
   compacting: z.boolean().optional(),
   /** 에이전트가 지금 쓰는 중인 글 (다 쓰면 대화 줄이 되고 지워진다. 기록에는 남기지 않는다) */
   draft: z.string().optional(),
+  /** 줄 선(queued) 대화의 차례: 1 = 다음에 시작 (대화 목록 「대기」 묶음, 11/20 시안 1절) */
+  queue: z.number().int().positive().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
