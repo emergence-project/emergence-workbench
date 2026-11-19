@@ -151,8 +151,9 @@ export const ChatRow = z.object({
   /** 앱 고치기 대화: 작업 폴더의 브랜치와 연 PR */
   branch: z.string().optional(),
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(),
-  /** 앱 고치기 대화가 맡은 피드백 (status.yaml · reviews.yaml의 키) */
+  /** 앱 고치기 대화가 맡은 피드백 (status.yaml · reviews.yaml의 키). 묶어 맡겼으면 첫 항목이고 bundle에 모두 (11/19) */
   feedback: z.string().optional(),
+  bundle: z.array(z.string()).optional(),
   /** 기록의 질문 · 지시가 연 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ: 기록에는 결과만, 대화는 에이전트 탭에) */
   record: z.object({ target: z.string(), id: z.string() }).strict().optional(),
   /** 중앙 대화가 연 하위 대화면 중앙 대화 id, 중앙이 닫으며 남긴 결과 요약 (11/16) */
@@ -277,7 +278,11 @@ export const AppMerged = z.object({ number: z.number(), sha: z.string() }).stric
 // ---------- 피드백 맡기기: 피드백 하나를 앱 고치기 대화에 넘기고, 그 대화가 처리 기록을 앱을 거쳐 적는다 ----------
 
 /** POST /feedback/hand-off: 에이전트 차례인 피드백 하나를 새 앱 고치기 대화에 맡긴다 (한 번에 하나) */
-export const HandOffBody = z.object({ key: z.string().min(1) }).strict()
+export const HandOffBody = z.object({
+  key: z.string().min(1).optional(),
+  /** 묶어 맡기기 (11/19): 같은 화면의 수정끼리, 질문 · 제안끼리 한 대화에 */
+  keys: z.array(z.string().min(1)).min(1).max(5).optional(),
+}).strict().refine((b) => !!b.key || !!b.keys?.length, { message: 'key or keys' })
 /** 처리 기록에 적을 state (status.yaml과 같은 값) */
 const ANSWER_STATES = ['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류'] as const
 /**
@@ -290,6 +295,8 @@ const ANSWER_STATES = ['반영', '거절', '확인 필요', '답변', '동의', 
  */
 const MockupNames = z.array(z.string().regex(/^[\w.-]+$/).max(120)).max(12)
 export const FeedbackAnswerBody = z.object({
+  /** 묶어 맡긴 대화에서 어느 항목의 기록인지 (하나만 맡았으면 없어도 됨) */
+  key: z.string().optional(),
   state: z.enum(ANSWER_STATES).optional(),
   note: z.string().trim().min(1).max(4000).optional(),
   understood: z.string().trim().max(2000).optional(),
@@ -357,7 +364,7 @@ export const CentralKid = z.object({
   id: z.string(), rid: z.string(), title: z.string(), state: z.enum(CHAT_STATES), wait: z.enum(['plan', 'ask']).optional(),
   ask: z.object({ id: z.string(), critical: z.string().optional() }).strict().optional(),
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(), merged: z.string().optional(),
-  feedback: z.string().optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), reported: z.boolean().optional(), updated: z.string(),
+  feedback: z.string().optional(), bundle: z.array(z.string()).optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), reported: z.boolean().optional(), updated: z.string(),
   ci: z.enum(['pending', 'failed', 'passed']).optional(), todos: z.object({ done: z.number(), total: z.number() }).strict().optional(),
 }).strict()
 /**
@@ -375,6 +382,8 @@ export const CentralMessageBody = z.object({ text: message.text, attach: message
 export const CentralOpenBody = z.object({
   role: z.enum(CENTRAL_ROLES), title: z.string().trim().min(1).max(60), task: z.string().trim().min(1).max(20000),
   project: z.string().optional(), feedback: z.string().optional(),
+  /** 피드백 처리: 여러 키를 한 대화에 묶어 맡긴다 (feedback 대신, 11/19) */
+  feedbacks: z.array(z.string()).max(5).optional(),
   /** 앱 고치기만: 앱 버그 · 앱이 멈춘 때 메모리 · 줄과 상관없이 바로 연다 (한 번에 하나, 11/19) */
   urgent: z.boolean().optional(),
 }).strict()
@@ -391,9 +400,9 @@ export const CentralHelpBody = z.object({ chat: z.string(), text: z.string().tri
 export const CentralHelped = z.object({ central: z.string() }).strict()
 /** POST /agent-central/open: 연 하위 대화, 또는 앱 고치기 자리가 차서 기다리게 둔 순서 (held, 1부터. 자리가 나면 앱이 연다) */
 export const CentralOpened = z.object({ kid: CentralKid.optional(), held: z.number().optional() }).strict()
-/** GET /agent-central/feedback: 에이전트 차례인 피드백 (pnpm agent:feedback --peek와 같은 계산). taken = 다른 컴퓨터 · 클라우드 루틴이 맡음, chat = 이미 맡은 이 앱의 대화 */
+/** GET /agent-central/feedback: 에이전트 차례인 피드백 (pnpm agent:feedback --peek와 같은 계산). taken = 다른 컴퓨터 · 클라우드 루틴이 맡음, chat = 이미 맡은 이 앱의 대화, group = 한 대화에 묶어 맡길 묶음 번호 (맡을 수 있는 것만, 11/19) */
 export const CentralFeedback = z.object({
-  items: z.array(z.object({ key: z.string(), kind: z.string().optional(), target: z.string(), text: z.string(), reasons: z.array(z.string()), taken: z.boolean(), chat: z.string().optional() }).strict()),
+  items: z.array(z.object({ key: z.string(), kind: z.string().optional(), target: z.string(), text: z.string(), reasons: z.array(z.string()), taken: z.boolean(), chat: z.string().optional(), group: z.number().optional() }).strict()),
 }).strict()
 export type CentralFeedback = z.infer<typeof CentralFeedback>
 export type CentralKid = z.infer<typeof CentralKid>
