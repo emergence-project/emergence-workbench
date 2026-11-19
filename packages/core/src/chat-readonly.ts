@@ -21,7 +21,13 @@ const versionOnly: Rule = (args) => args.length === 1 && /^(-v|-V|--version)$/.t
 
 const GIT: Record<string, Rule> = {
   log: any, status: any, diff: any, show: any, blame: any, 'ls-files': any, 'rev-parse': any, describe: any, shortlog: any, 'ls-tree': any,
-  'cat-file': any, 'merge-base': any, 'name-rev': any, whatchanged: any,
+  'cat-file': any, 'merge-base': any, 'name-rev': any, whatchanged: any, 'rev-list': any, 'for-each-ref': any, 'show-ref': any,
+  'show-branch': any, 'count-objects': any, cherry: any, 'range-diff': any, 'check-ignore': any, 'check-attr': any, 'verify-commit': any,
+  'verify-tag': any, version: any,
+  // --upload-pack은 지정한 프로그램을 돌린다
+  'ls-remote': (a) => !a.some((x) => /^--upload-pack/.test(x)),
+  worktree: (a) => a[0] === 'list',
+  submodule: (a) => a.length === 0 || a[0] === 'status',
   // -O · --open-files-in-pager는 지정한 프로그램을 돌린다
   grep: (a) => !a.some((x) => /^(-O|--open-files-in-pager)/.test(x)),
   branch: (a) => a.every((x) => /^(-a|-r|-v|-vv|--all|--remotes|--list|-l|--show-current|--verbose)$/.test(x)),
@@ -31,11 +37,23 @@ const GIT: Record<string, Rule> = {
   tag: (a) => a.length === 0 || a.some((x) => x === '-l' || x === '--list'),
   config: (a) => a.some((x) => /^(--get|--get-all|--get-regexp|--list|-l)$/.test(x)),
 }
+/** gh api: GET만. 몸을 붙이는 -f · -F · --input은 POST가 되므로 -X GET을 적었을 때만, graphql은 mutation이 없을 때만 */
+const ghApi: Rule = (a) => {
+  const method = a.flatMap((x, i) => x === '-X' || x === '--method' ? [a[i + 1] ?? ''] : x.startsWith('--method=') ? [x.slice(9)] : x.startsWith('-X') && x.length > 2 ? [x.slice(2)] : [])
+  if (method.some((m) => m.toUpperCase() !== 'GET') || a.some((x) => /^--input/.test(x))) return false
+  if (a.includes('graphql')) return !a.some((x) => /\bmutation\b/i.test(x))
+  return method.length > 0 || !a.some((x) => /^(-f|-F|--field|--raw-field)/.test(x))
+}
+const LOOK: Rule = sub({ view: any, list: any })
 const GH: Record<string, Rule> = {
   pr: sub({ view: any, list: any, diff: any, checks: any, status: any }),
-  run: sub({ view: any, list: any }),
-  issue: sub({ view: any, list: any }),
-  repo: sub({ view: any }),
+  run: sub({ view: any, list: any, watch: any }),
+  issue: sub({ view: any, list: any, status: any }),
+  repo: LOOK, release: LOOK, workflow: LOOK, label: sub({ list: any }), gist: LOOK, cache: sub({ list: any }),
+  search: sub({ repos: any, issues: any, prs: any, commits: any, code: any }),
+  status: any,
+  auth: sub({ status: without('--show-token', '-t') }),
+  api: ghApi,
 }
 
 /**
@@ -80,7 +98,12 @@ function gitRule(table: Record<string, Rule>): Rule {
   }
 }
 function ghRule(table: Record<string, Rule>): Rule {
-  return (a) => versionOnly(a) || (!a.some((x) => x === '--web' || x === '-w') && sub(table)(a))
+  return (a) => {
+    if (versionOnly(a)) return true
+    if (a.some((x) => x === '--web' || x === '-w')) return false
+    // gh api -X GET <경로>: 첫 낱말이 api면 옵션 값(GET)을 하위 명령으로 읽지 않게 따로 본다
+    return a[0] === 'api' ? ghApi(a.slice(1)) : sub(table)(a)
+  }
 }
 const PKG: Record<string, Rule> = { ls: any, list: any, view: any, info: any, why: any, outdated: any, root: any }
 
