@@ -498,7 +498,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }
     server.registerTool('chat_list', {
       title: 'Sub-conversations',
-      description: 'Your sub-conversations: id, project (_app = the app itself), title, state, wait (plan / ask = the user must answer), pull request, last agent text (report) and, for closed ones, the summary. Check it before opening a new one.',
+      description: 'Your sub-conversations: id, project (_app = the app itself), title, state, wait (plan / ask = the user must answer), pull request, report (with reported: true its own report section from the last turn, whole: what changed, where, decision, what is left; otherwise its last agent text, cut) and, for closed ones, the summary. Check it before opening a new one.',
       inputSchema: {},
       annotations: ro,
     }, async () => call('/api/agent-central', (b: { kids: unknown[] }) => b.kids))

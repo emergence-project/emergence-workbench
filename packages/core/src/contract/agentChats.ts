@@ -344,7 +344,7 @@ export const CentralKid = z.object({
   id: z.string(), rid: z.string(), title: z.string(), state: z.enum(CHAT_STATES), wait: z.enum(['plan', 'ask']).optional(),
   ask: z.object({ id: z.string(), critical: z.string().optional() }).strict().optional(),
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(), merged: z.string().optional(),
-  feedback: z.string().optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), updated: z.string(),
+  feedback: z.string().optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), reported: z.boolean().optional(), updated: z.string(),
 }).strict()
 /** GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화 */
 export const CentralState = z.object({ id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean() }).strict()

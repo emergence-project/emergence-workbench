@@ -26,7 +26,8 @@ describe('중앙을 저절로 깨우기', () => {
       yield { type: 'text', text: d.allow ? 'removed' : 'kept' }
     } else {
       if (input.prompt.includes('[hold]')) await new Promise<void>((r) => { release = r })
-      yield { type: 'text', text: `받음: ${input.prompt.split('\n').at(-1)}` }
+      if (input.prompt.includes('[report]')) yield { type: 'text', text: `고쳤습니다.\n\n## 보고\n- 바꾼 것: 2절 문장 다듬기\n- 위치: notes/2절\n- 판단: 없음\n- 남은 일: 편집 검토에서 확인 ${'가'.repeat(400)}` }
+      else yield { type: 'text', text: `받음: ${input.prompt.split('\n').at(-1)}` }
     }
     yield { type: 'result', ok: true }
   }
@@ -53,7 +54,7 @@ describe('중앙을 저절로 깨우기', () => {
     const p = centralPrompts()[1]!
     expect(p).toContain('[Automatic wake-up from the app, not written by the user.')
     expect(p).toContain(`- ${kid.id} · chiral · "2절"`)
-    expect(p).toContain('last report: 받음: 다듬어')
+    expect(p).toContain('last text (no report section): 받음: 다듬어')
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
     expect(chats.get(c.id).items.find((i) => i.kind === 'user' && i.auto)).toMatchObject({ text: expect.stringContaining('「2절」 차례 끝남') })
     chats.stopAll()

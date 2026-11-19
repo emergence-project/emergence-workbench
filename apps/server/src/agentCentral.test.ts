@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { APP_LIVE_MAX, CENTRAL_BRIEF, CentralChats, digestOf, lastReport } from './agentCentral.js'
+import { APP_LIVE_MAX, CENTRAL_BRIEF, CentralChats, digestOf, KID_REPORT_MAX, kidReport, lastReport } from './agentCentral.js'
 import { judge, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { sampleAppWork } from './appWorktree.js'
 import { ClaudeAccounts } from './claudeAccounts.js'
@@ -36,6 +36,25 @@ describe('하위 대화 요약', () => {
     expect(d).toContain('waiting for plan approval')
     expect(d).not.toContain('끝난 것')
     expect(digestOf([])).toContain('none open')
+  })
+})
+
+describe('하위 대화의 보고 (11/19)', () => {
+  const report = '끝났습니다.\n\n## 보고\n- 바꾼 것: 목록이 이어짐\n- 위치: PR #9\n- 판단: 없음\n- 남은 일: 없음'
+  it('마지막 글의 「## 보고」 절을 줄바꿈 그대로 꺼낸다', () => {
+    expect(kidReport([{ kind: 'text', at: '', text: report }])).toBe('- 바꾼 것: 목록이 이어짐\n- 위치: PR #9\n- 판단: 없음\n- 남은 일: 없음')
+    expect(kidReport([{ kind: 'text', at: '', text: '**보고:**\n- 바꾼 것: 가' }])).toBe('- 바꾼 것: 가')
+    expect(kidReport([{ kind: 'text', at: '', text: '보고만 하고 절은 없음' }])).toBeUndefined()
+  })
+  it('앱이 덧붙인 글(합침 알림)에 가리지 않고, 그 뒤에 사용자가 말했으면 지난 보고는 쓰지 않는다. 상한에서 자른다', () => {
+    const merged = { kind: 'text' as const, at: '', text: 'Merged PR #9. The app picks up the new version and restarts when idle.' }
+    expect(kidReport([{ kind: 'text', at: '', text: report }, merged])).toContain('- 위치: PR #9')
+    expect(kidReport([{ kind: 'text', at: '', text: report }, { kind: 'user', at: '', text: '더 고쳐' }, merged])).toBeUndefined()
+    expect(kidReport([{ kind: 'text', at: '', text: `## 보고\n${'가'.repeat(KID_REPORT_MAX + 10)}` }])).toHaveLength(KID_REPORT_MAX + 1)
+  })
+  it('요약 줄에는 보고를 한 줄로 줄여 싣는다', () => {
+    const d = digestOf([{ id: 'a', rid: '_app', title: '목록', state: 'idle', archived: false, report: '- 바꾼 것: 가\n- 위치: 나', reported: true, updated: '' }])
+    expect(d).toContain('· done with its turn · report: - 바꾼 것: 가 - 위치: 나')
   })
 })
 
