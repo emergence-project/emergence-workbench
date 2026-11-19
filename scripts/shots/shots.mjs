@@ -210,6 +210,7 @@ try {
     }
     if (name === 'agent-unseen') { await page.goto(base); await page.evaluate(() => localStorage.removeItem('rw-agent-seen')); await page.goto('about:blank') }
     if (name === 'agent-recent') { await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-side-agent', 'false')); await page.goto('about:blank') }
+    if (name === 'agent-archive' && done) { await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: true }) }); await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-agent-filter', '"archived"')); await page.goto('about:blank') }
     await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)).replace('{central}', encodeURIComponent(central)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')
@@ -313,6 +314,7 @@ try {
     }
     if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
     if (name === 'agent-recent') { await page.evaluate(() => localStorage.removeItem('rw-side-agent')); await page.goto('about:blank') }
+    if (name === 'agent-archive') { if (done) await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: false }) }); await page.evaluate(() => localStorage.removeItem('rw-agent-filter')); await page.goto('about:blank') }
     if (name === 'knowledge-agent') await page.goto('about:blank')
     if (name === 'agent-side') { await page.evaluate(() => { localStorage.removeItem('rw-agent-side'); localStorage.removeItem('rw-agent-panel-all') }); await page.goto('about:blank') }
     console.log(`찍음 ${name}`)

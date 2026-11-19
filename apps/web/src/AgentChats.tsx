@@ -973,7 +973,7 @@ const FOLD_KEY = 'rw-agent-fold'
 
 /**
  * 사이드바 (10/22 "프로젝트별로, 워크벤치 전역은 따로"): 새 대화, 걸러 보기(내 차례 · 일하는 중 · 모두),
- * 맨 위 「워크벤치」(앱 자체를 고치는 대화 · 피드백 처리), 그 아래 등록한 프로젝트마다 접는 묶음(＋로 그 프로젝트에서 새 대화), 맨 아래 보관함
+ * 맨 위 「워크벤치」(앱 자체를 고치는 대화 · 피드백 처리), 그 아래 등록한 프로젝트마다 접는 묶음(＋로 그 프로젝트에서 새 대화), 맨 아래 보관함 아이콘(다시 누르면 닫힘)
  */
 export function AgentSide({ id }: { id?: string }) {
   const listed = useChatList().data
@@ -1037,7 +1037,7 @@ export function AgentSide({ id }: { id?: string }) {
           {(['mine', 'live', 'all'] as const).map((f) => <button key={f} role="radio" aria-checked={filter === f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{FILTER_NAME[f]}{f !== 'all' && count(f) ? ` ${count(f)}` : ''}</button>)}
         </div>
       )}
-      {filter === 'archived' && <button className="a ac-archive-back" data-ui="보관함 닫기" onClick={() => { stopPicking(); setFilter('all') }}>‹ {t('보관함', 'Archive')} {archived}</button>}
+      {filter === 'archived' && <div className="ac-archive-h" data-ui="보관함 머리">{t('보관함', 'Archive')} {archived}</div>}
       {!!shown.length && (picking
         ? <div className="ac-pickbar" data-ui="대화 고르기 툴바">
           <b>{t(`${picked.length}개 고름`, `${picked.length} picked`)}</b>
@@ -1060,7 +1060,8 @@ export function AgentSide({ id }: { id?: string }) {
       )}
       {!!rids.length && <div className="ac-side-h">{t('프로젝트', 'Projects')}</div>}
       {rids.map((rid) => group(rid, projectName(rid, projects)))}{by.has(LIBRARY_RID) && <><div className="ac-side-h">{t('지식', 'Knowledge')}</div>{group(LIBRARY_RID, t('개념노트 기록', 'Concept-note records'))}</>}
-      {filter !== 'archived' && archived > 0 && <button className="a ac-archive-link" data-ui="보관함 열기" onClick={() => { stopPicking(); setFilter('archived') }}>{t(`보관함 ${archived} ›`, `Archive ${archived} ›`)}</button>}
+      {/* 보관함은 맨 아래 아이콘 하나로 열고 닫는다 (11/19 피드백 09:23 "보관함은 빼고 하단에 보관함 아이콘으로"): ›는 묶음 접기에만 */}
+      {(filter === 'archived' || archived > 0) && <div className="ac-side-foot"><button className={`icon-btn ac-archive-btn${filter === 'archived' ? ' on' : ''}`} data-ui="보관함 아이콘" aria-pressed={filter === 'archived'} data-tip={filter === 'archived' ? t('보관함 닫기', 'Close archive') : t(`보관함 ${archived}`, `Archive ${archived}`)} aria-label={filter === 'archived' ? t('보관함 닫기', 'Close archive') : t(`보관함 열기 (${archived})`, `Open archive (${archived})`)} onClick={() => { stopPicking(); setFilter(filter === 'archived' ? 'all' : 'archived') }}>{Icon.archive}{archived > 0 && <span className="n">{archived}</span>}</button></div>}
     </div>
   )
 }
