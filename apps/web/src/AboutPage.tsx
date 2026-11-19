@@ -74,7 +74,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
           </PartTitle.Provider>
         </div>
       </section>
-      {side && <AboutHistorySide part={p} picked={picked} onPick={pick} onClose={() => showHistory(false)} />}
+      {side && <AboutHistorySide part={p} at={at} picked={picked} onPick={pick} onClose={() => showHistory(false)} />}
     </main>
   )
 }

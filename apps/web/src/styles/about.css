@@ -212,6 +212,7 @@
 .about-ver-title { color: var(--text); }
 .about-ver-secs { color: var(--text-2); font-size: var(--fs-xs); }
 .about-ver-secs .a { color: var(--text-2); }
+.about-ver-here { color: var(--text); }
 .about section.about-picked { outline: 1.5px solid var(--line-strong); outline-offset: var(--sp-2); border-radius: var(--r-sm); }
 .about section.about-dim .about-sec-body { opacity: .5; }
 .about-dim-note { margin: calc(-1 * var(--sp-1)) 0 var(--sp-2); font-size: var(--fs-sm); }
