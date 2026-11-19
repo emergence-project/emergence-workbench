@@ -12,8 +12,8 @@
  *   중앙은 일상 일(CI 고치기 · 닫기 · 크리티컬하지 않은 허락)은 스스로 하고, CRITICAL만 사용자에게 「지금 확인할 것」으로 남긴다.
  *   앱이 다시 켜지면 아직 보내지 않은 깨우기는 사라진다 (CI · 합쳐짐은 1분마다 tickCentral이 다시 찾는다).
  */
-import { agentTurnReasons, agentTurns } from '@rw/core'
-import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
+import { agentTurnReasons, agentTurns, userTurn } from '@rw/core'
+import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
 import { APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
@@ -67,7 +67,8 @@ export const CENTRAL_BRIEF = [
   `  - Send at most ${AUTO_SEND_MAX} automatic messages to the same sub-conversation before the user speaks again; after that the app refuses and you ask the user.`,
   `- Critical, always left to the user (never chat_answer them, the app refuses): ${CRITICAL.map((c) => c.en).join('; ')}. A plan whose steps include one of these is also left to the user.`,
   '- Sub-conversations end each turn with a report section (바꾼 것 · 위치 · 판단 · 남은 일). The wake-up and chat_list carry it whole; without one they carry only the last text, so ask for a report with chat_send when you need it.',
-  '- After an automatic wake-up, reply in a few short lines: for each sub-conversation that finished, was merged or waits, tell the user from its report what changed (on the screen or in behavior), where (pull request, files, feedback record), the decision, and what is left; then what you did on your own. Do not just say it finished. If the user must act, end with one line "지금 확인할 것: …" (what to check, where). Otherwise do not ask anything.',
+  '- The user follows every sub-conversation on the screen\'s task checklist (작업 현황: stage, pull request, check, to-dos, stalls), so the chat need not narrate progress. After an automatic wake-up, do the routine work, then reply as short as possible: if the user must act, only lines "지금 확인할 것: …" (what to check, where); for a merged one, one line on what changed; otherwise one short line on what you did yourself (for example "CI 실패 → 고치라고 보냄"). Do not repeat the status or ask anything.',
+  '- Do not list sub-conversations in TodoWrite: the checklist already shows them. Use TodoWrite only for your own steps.',
   '- Close a sub-conversation with chat_close only when its work ended (pull request merged, edits reviewed, answer given), with a three-line summary.',
   '- Reply in the user\'s language (usually Korean), short and plain. Do not judge research value or pick research topics for the user.',
 ].join('\n')
@@ -139,6 +140,7 @@ export function kidOf(c: Stored): CentralKid {
     ...(c.state === 'waiting' && a && { ask: { id: a.id, ...(crit && { critical: crit.ko }) } }),
     ...(c.pr && { pr: { ...c.pr } }), ...(c.merged && { merged: c.merged }), ...(c.feedback && { feedback: c.feedback }),
     archived: !!c.archived, ...(c.summary && { summary: c.summary }), ...(report && { report }), ...(own && { reported: true }), updated: c.updated,
+    ...(c.pr && c.ci && !c.merged && { ci: c.ci }), ...(c.todos.length && { todos: { done: c.todos.filter((x) => x.state === 'completed').length, total: c.todos.length } }),
   }
 }
 
@@ -176,9 +178,29 @@ export class CentralChats extends FeedbackChats {
     return [...this.chats.values()].filter((c) => c.rid === CENTRAL_RID && !c.archived).sort((a, b) => b.updated.localeCompare(a.updated))[0]
   }
 
-  centralState(): { id?: string; kids: CentralKid[]; app: boolean } {
+  centralState(): CentralState {
     const c = this.central()
-    return { ...(c && { id: c.id }), kids: c ? this.kidsOf(c.id) : [], app: this.app }
+    if (!c) return { kids: [], app: this.app }
+    const kids = this.kidsOf(c.id), held = (c.held ?? []).map((b) => ({ title: b.title, ...(b.at && { at: b.at }) }))
+    // 사용자가 답할 피드백. 하위 대화가 맡은 것은 그 줄이 대신한다
+    const owned = new Set(kids.filter((k) => !k.archived && k.feedback).map((k) => k.feedback!))
+    const feedback = this.userFeedback().filter((f) => !owned.has(f.key))
+    return { id: c.id, kids, app: this.app, ...(held.length && { held }), ...(feedback.length && { feedback }) }
+  }
+
+  private fbCache?: { at: number; items: NonNullable<CentralState['feedback']> }
+  /** 사용자가 답할 피드백 (확인 필요 가운데 물음이 남은 것). 대화가 바뀔 때마다 불리므로 10초 모아 읽는다 */
+  private userFeedback(): NonNullable<CentralState['feedback']> {
+    const fb = this.deps.feedback
+    if (!fb || (this.fbCache && Date.now() - this.fbCache.at < 10_000)) return this.fbCache?.items ?? []
+    let items: NonNullable<CentralState['feedback']> = []
+    try {
+      items = listAllFeedback(fb.dir).filter((e) => userTurn(e) === 'answer')
+        .map((e) => ({ key: e.key, target: e.target, text: oneLine(e.text, 120), at: new Date(lastTouched(e)).toISOString() }))
+        .sort((a, b) => a.at.localeCompare(b.at))
+    } catch { /* 피드백 폴더를 못 읽으면 줄 없이 */ }
+    this.fbCache = { at: Date.now(), items }
+    return items
   }
 
   private kidsOf(parent: string): CentralKid[] {
@@ -338,27 +360,30 @@ export class CentralChats extends FeedbackChats {
     return {
       ko: `${t('자동 알림', 'Automatic')} · ${ko.join(' · ')}`,
       en: ['[Automatic wake-up from the app, not written by the user. Sub-conversations changed:]', ...en,
-        '[Do the routine work yourself as the brief says (check failed: chat_send a fix; merged: chat_close; non-critical wait: chat_answer). Then tell the user in a few short lines what each one did, from its report (what changed, where, the decision, what is left); if the user must act, end with "지금 확인할 것: …"]'].join('\n'),
+        '[Do the routine work yourself as the brief says (check failed: chat_send a fix; merged: chat_close; non-critical wait: chat_answer). The user sees the stages on the task checklist, so reply as short as possible: "지금 확인할 것: …" lines only if the user must act, one line per merged one on what changed, else one short line on what you did]'].join('\n'),
     }
   }
 
-  /** 1분마다: 중앙의 앱 하위 대화 PR이 합쳐졌는지 · CI가 실패했는지 보고 깨운다. 메모리가 풀렸으면 기다리던 앱 고치기를 연다 */
+  /** 1분마다: 하위 대화 PR의 합침 · CI를 본다(바뀌면 작업 현황 줄이 바로 바뀌고, 실패 · 합침은 깨운다). 메모리가 풀렸으면 기다리던 앱 고치기를 연다 */
   async tickCentral(): Promise<void> {
     const app = this.deps.app
     const c = this.central()
     if (!app || !c) return
     await this.openHeld()
-    for (const k of [...this.chats.values()].filter((x) => x.parent === c.id && !x.archived && !LIVE.has(x.state))) {
+    for (const k of [...this.chats.values()].filter((x) => x.parent === c.id && !x.archived)) {
       try {
-        if (!k.merged && k.pr && k.worktree && k.branch && app.prMerged) {
+        const live = LIVE.has(k.state)
+        if (!live && !k.merged && k.pr && k.worktree && k.branch && app.prMerged) {
           const m = await app.prMerged(k.worktree, k.branch)
           if (m) { k.merged = m.sha || 'merged'; this.touch(k) }
         }
-        if (k.merged) { this.note(k.id, { kind: 'merged' }, `merged:${k.id}`); continue }
-        // 피드백 대화의 CI는 tickFeedback이 그 대화에 바로 다시 보낸다
-        if (k.feedback || !k.pr || !k.worktree || !k.branch) continue
+        if (k.merged) { if (!live) this.note(k.id, { kind: 'merged' }, `merged:${k.id}`); continue }
+        if (!k.pr || !k.worktree || !k.branch) continue
         const ck = await app.checks(k.worktree, k.branch)
-        if (!ck.done || ck.ok) continue
+        const ci = !ck.done ? 'pending' : ck.ok ? 'passed' : 'failed'
+        if (ci !== k.ci) { k.ci = ci; this.touch(k) }
+        // 피드백 대화의 CI는 tickFeedback이 그 대화에 바로 다시 보낸다. 일하는 중이면 끝난 뒤에 본다
+        if (k.feedback || live || ci !== 'failed') continue
         const sig = ck.checks.map((x) => `${x.name}:${x.state}:${x.link ?? ''}`).join('|')
         if (sig === k.ciSeen) continue
         k.ciSeen = sig
@@ -412,7 +437,7 @@ export class CentralChats extends FeedbackChats {
     if (c && b.role === 'app') {
       const r = await this.room()
       if (!r.ok) {
-        c.held = [...(c.held ?? []), b]
+        c.held = [...(c.held ?? []), { ...b, at: new Date().toISOString() }]
         const why = this.roomWhy(r)
         c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 「${b.title}」을 기다리게 두었습니다 (${c.held.length}번째, ${why}). ${roomRule()}`, `Automatic: "${b.title}" is held (#${c.held.length}, ${why}). It ${roomRule()}`) })
         this.touch(c)

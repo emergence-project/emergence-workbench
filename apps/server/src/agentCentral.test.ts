@@ -193,6 +193,9 @@ describe('중앙의 계정과 피드백 수', () => {
     expect(seen[0]!.prompt).toContain(`[Feedback waiting for the agent: ${waiting}.`)
     expect(seen[0]!.prompt).toContain('Feedback is always handled by feedback sub-conversations, never by you')
     expect(chats.centralState().kids).toEqual([])
+    // 작업 현황의 「내 차례」: 사용자가 답할 피드백 (오래된 것부터)
+    const mineFb = chats.centralState().feedback ?? []
+    expect(mineFb.every((f, i) => i === 0 || mineFb[i - 1]!.at <= f.at)).toBe(true)
     chats.stopAll()
     fs.rmSync(dir, { recursive: true, force: true })
   })

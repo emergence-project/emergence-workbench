@@ -3,7 +3,7 @@
     "apps/server/src/agentChats.ts": 1144,
     "apps/server/src/comments.ts": 643,
     "apps/server/src/feedback.ts": 652,
-    "apps/web/src/AgentChats.tsx": 1347,
+    "apps/web/src/AgentChats.tsx": 1310,
     "apps/web/src/App.tsx": 633,
     "apps/web/src/FeedbackPage.tsx": 604,
     "apps/web/src/Workspace.tsx": 641
@@ -85,7 +85,7 @@
     "apps/web/src/about/project/work-and-records.tsx": 1,
     "apps/web/src/AboutPage.tsx": 2,
     "apps/web/src/AddNotesDialog.tsx": 1,
-    "apps/web/src/AgentChats.tsx": 16,
+    "apps/web/src/AgentChats.tsx": 15,
     "apps/web/src/AgentEditsPage.tsx": 8,
     "apps/web/src/api/comments.ts": 2,
     "apps/web/src/api/http.ts": 3,

@@ -106,7 +106,7 @@ export const DEFAULT_SCREENS = [
   ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
   // 중앙 대화 (11/16 "중앙 에이전트"): 처음 말하는 화면, 그리고 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연 중앙 (shots.mjs, {central})
   ['agent-central-start', '#/agent/central', '중앙 시작'],
-  ['agent-central', '#/agent/{central}', '하위 대화'],
+  ['agent-central', '#/agent/{central}', '작업 현황'],
   // 어느 화면에서나 오른쪽 사이드바의 에이전트 (11/16): 소개 화면에서 사이드바를 열면 맨 위 「중앙」, 최근 대화, 중앙에게 말하는 입력란
   ['agent-side', '#/about', '에이전트 사이드바', '맥락 칸 켜고 끄기'],
   // 터미널을 한 번 연 뒤 에이전트로 돌아온 모습 (11/19): 열린 셸은 숨어 있고 에이전트만 보인다

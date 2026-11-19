@@ -1,31 +1,30 @@
 // 중앙 대화 (11/16 사용자 결정 "중앙 에이전트", 시안 https://claude.ai/artifact/9x2Bud4dVQyYkS6RhdnbAG §2):
-// 대화 목록 맨 위에 고정한 「중앙」 줄, 처음 말하는 화면, 중앙 대화 안의 하위 대화 줄. 하위 대화는 보통 대화와 같은 화면으로 연다
-import { useState } from 'react'
+// 대화 목록 맨 위에 고정한 「중앙」 줄, 처음 말하는 화면, 중앙 오른쪽 칸의 작업 현황. 하위 대화는 보통 대화와 같은 화면으로 연다
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { agentChatsApi, api, APP_RID, type CentralKid, type ChatRow } from './api'
+import { agentChatsApi, type ChatRow } from './api'
 import { ChatStateMark, stateName } from './AgentChats'
+import { boardCounts, boardRows, STALL_MIN, type BoardGroup, type BoardRow } from './centralBoard'
 import { t } from './i18n'
 import { screenLine } from './screenView'
-import { mockupRefs } from './Mockups'
 import { relativeTime } from './format'
 import { qk } from './queries'
 import { go } from './router'
+import { useDismiss } from './useDismiss'
 
 /** 중앙 대화가 아직 없을 때 여는 화면의 주소 id (#/agent/central) */
 export const CENTRAL_PAGE = 'central'
 
 const useCentral = () => useQuery({ queryKey: qk.agentCentral, queryFn: () => agentChatsApi.central() })
-const mine = (k: Pick<CentralKid, 'state'>) => k.state === 'waiting' || k.state === 'error'
 
-/** 대화 목록 맨 위의 「중앙」 줄: 하위 대화 수와 내 차례 수 */
+/** 대화 목록 맨 위의 「중앙」 줄: 작업 현황의 남음 · 내 차례 · 정체 */
 export function CentralLine({ row, on, onOpen }: { row?: ChatRow; on: boolean; onOpen?(id: string): void }) {
-  const kids = (useCentral().data?.kids ?? []).filter((k) => !k.archived)
-  const turn = kids.filter(mine).length
+  const { counts } = useBoard()
   return (
     <button className={`nav ac-line ac-central${on ? ' on' : ''}`} data-ui="중앙 대화 줄" onClick={() => (onOpen ? row && onOpen(row.id) : go({ page: 'agent', id: row?.id ?? CENTRAL_PAGE }))}>
       <span className="ac-line-top"><span className="ac-line-dot">{row && <ChatStateMark state={row.state} name={stateName(row)} />}</span><span className="label">{t('중앙', 'Central')}</span></span>
       <span className="ac-line-meta">
-        {row ? <>{t(`하위 대화 ${kids.length}`, `${kids.length} sub-conversation${kids.length === 1 ? '' : 's'}`)}{turn > 0 && <> · <span className="ac-central-turn">{t(`내 차례 ${turn}`, `${turn} for you`)}</span></>}</>
+        {row ? <CountLine counts={counts} />
           : onOpen ? t('아래 입력란에 말하면 중앙이 열립니다', 'Type below to start the central conversation') : t('질문 · 앱 고치기 · 프로젝트 작성을 한곳에서', 'Questions, app fixes and project writing in one place')}
       </span>
     </button>
@@ -67,48 +66,96 @@ export function CentralStart() {
   )
 }
 
-/** 하위 대화 머리를 접었는지 (브라우저에 남긴다) */
-const KIDS_FOLD = 'rw.centralKidsFolded'
+/** 작업 현황의 시각 · 정체를 1분마다 다시 센다 */
+function useMinute() {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { const h = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(h) }, [])
+  return now
+}
+
+function useBoard() {
+  const s = useCentral().data
+  const now = useMinute()
+  const b = s ? boardRows(s, now) : { rows: [], moreFeedback: 0 }
+  return { ...b, counts: boardCounts(b.rows, b.moreFeedback) }
+}
+
+const GROUP_NAME: Record<BoardGroup, string> = { turn: t('내 차례', 'Your turn'), doing: t('진행 중', 'In progress'), ready: t('합칠 준비', 'Ready to merge'), done: t('끝남 · 오늘', 'Done today') }
+
+/** 머리 한 줄: 남음 n · 내 차례 n · 정체 n */
+function CountLine({ counts: n }: { counts: ReturnType<typeof boardCounts> }) {
+  return (
+    <span className="cb-counts">
+      {t(`남음 ${n.left}`, `${n.left} left`)} · <span className={n.turn ? 'ac-central-turn' : undefined}>{t(`내 차례 ${n.turn}`, `${n.turn} for you`)}</span>
+      {n.stalled > 0 && <> · <span className="ac-central-turn">{t(`정체 ${n.stalled}`, `${n.stalled} stalled`)}</span></>}
+    </span>
+  )
+}
 
 /**
- * 중앙 대화 위의 하위 대화: 머리 한 줄(수 · 내 차례, 눌러 접기)과 대화마다 한 줄(상태 점 · 제목 · 짧은 상태 · 시각) (11/19 피드백 "최대한 좁게", 시안 안 A).
- * 보고 글 · 어디서 · 시안 그림은 줄을 눌러 그 대화에서 본다. 내 차례가 위, 닫은 것은 접어 둔다
+ * 중앙의 작업 현황 (11/19 피드백 "뭐가 남아있고, 뭐가 정체되어 있는지", 시안 2026-11-19-central-checklist 안 A):
+ * 맡긴 하위 대화 · 자리 기다림 · 사용자가 답할 피드백을 묶음(내 차례 → 진행 중 → 합칠 준비 → 끝남 · 오늘)마다 한 줄씩.
+ * 줄은 서버가 대화를 바꿀 때마다(차례 끝 · 허락 · CI · 합침 · 사용자 고름) 바로 바뀐다
  */
-export function CentralKids() {
-  const kids = useCentral().data?.kids ?? []
-  const projects = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
-  const [closedOpen, setClosedOpen] = useState(false)
-  const [folded, setFolded] = useState(() => { try { return localStorage.getItem(KIDS_FOLD) === '1' } catch { return false } })
-  if (!kids.length) return null
-  const open = kids.filter((k) => !k.archived).sort((a, b) => Number(mine(b)) - Number(mine(a)))
-  const closed = kids.filter((k) => k.archived)
-  const turn = open.filter(mine).length
-  const where = (rid: string) => (rid === APP_RID ? t('앱', 'App') : projects?.find((p) => p.id === rid)?.title ?? rid)
-  const fold = () => { try { localStorage.setItem(KIDS_FOLD, folded ? '0' : '1') } catch { /* 기억하지 못해도 지금 화면은 바뀐다 */ } setFolded(!folded) }
-  const row = (k: CentralKid) => {
-    const pr = k.pr && `#${k.pr.number}${k.merged ? t(' 합침', ' merged') : ''}`
-    const mock = !!k.report && mockupRefs(k.report, k.id).length > 0
+export function CentralBoard({ onPick }: { onPick?(): void }) {
+  const { rows, moreFeedback, counts } = useBoard()
+  const [doneOpen, setDoneOpen] = useState(false)
+  const pick = (to: () => void) => () => { to(); onPick?.() }
+  const row = (r: BoardRow) => {
+    const open = r.id ? pick(() => go({ page: 'agent', id: r.id! })) : r.feedback ? pick(() => go({ page: 'feedback' })) : undefined
+    const body = <>
+      <span className={`cb-mark ${r.mark}`} role="img" aria-label={r.stage} />
+      <span className="cb-title" title={r.title}>{r.title}</span>
+      {r.at && <span className={`cb-time${r.stalled !== undefined ? ' stalled' : ''}`}>{relativeTime(Date.parse(r.at))}</span>}
+      <span className="cb-sub">
+        {r.feedback && <span className="tag">{t('피드백', 'Feedback')}</span>}
+        <span className={r.mark === 'user' && r.group === 'turn' ? 'cb-stage turn' : 'cb-stage'}>{r.stage}</span>
+        {r.extras.map((x) => <span key={x}>· {x}</span>)}
+        {r.stalled !== undefined && <span className="cb-stall">{t(`정체 · ${r.stalled}분 그대로`, `Stalled · ${r.stalled} min unchanged`)}</span>}
+      </span>
+    </>
+    return open
+      ? <button key={r.key} className="cb-row" data-ui="작업 현황 줄" data-ui-item={r.title} onClick={open}>{body}</button>
+      : <div key={r.key} className="cb-row" data-ui="작업 현황 줄" data-ui-item={r.title}>{body}</div>
+  }
+  const group = (g: BoardGroup) => {
+    const list = rows.filter((r) => r.group === g)
+    const n = list.length + (g === 'turn' ? moreFeedback : 0)
+    if (!n) return null
+    const folded = g === 'done' && !doneOpen
     return (
-      <button key={k.id} className="ac-kid" data-ui="하위 대화 줄" data-ui-item={k.title} title={`${where(k.rid)} · ${k.title}`} onClick={() => go({ page: 'agent', id: k.id })}>
-        <span className="ac-line-dot"><ChatStateMark state={k.state} name={stateName(k)} /></span>
-        <span className="ac-kid-title">{k.title}</span>
-        <span className={`ac-kid-state${mine(k) ? ' turn' : ''}`}>{[stateName(k), pr, mock && t('시안', 'mockup')].filter(Boolean).join(' · ')}</span>
-        <span className="ac-kid-time">{relativeTime(Date.parse(k.updated))}</span>
-      </button>
+      <div key={g} className="cb-group" data-ui={`작업 현황 ${GROUP_NAME[g]}`}>
+        <div className="cb-group-head">
+          <b>{GROUP_NAME[g]}</b>{g === 'turn' ? <span className="rail-count">{n}</span> : <span className="muted">{n}</span>}
+          {g === 'done' && <button className="a cb-fold" aria-expanded={doneOpen} onClick={() => setDoneOpen(!doneOpen)}>{doneOpen ? t('접기 ‹', 'Hide ‹') : t('펼치기 ›', 'Show ›')}</button>}
+        </div>
+        {!folded && list.map(row)}
+        {g === 'turn' && moreFeedback > 0 && <button className="a cb-more" data-ui="피드백 모두 보기" onClick={pick(() => go({ page: 'feedback' }))}>{t(`피드백 ${moreFeedback}개 더 · 모두 보기 ›`, `${moreFeedback} more feedback · see all ›`)}</button>}
+      </div>
     )
   }
   return (
-    <div className="ac-central-kids" data-ui="하위 대화">
-      <button className="ac-kids-head" aria-expanded={!folded} onClick={fold}>
-        <b>{t(`하위 대화 ${open.length}`, `${open.length} sub-conversation${open.length === 1 ? '' : 's'}`)}</b>
-        {turn > 0 && <> · <span className="ac-central-turn">{t(`내 차례 ${turn}`, `${turn} for you`)}</span></>}
-        <span className="ac-kids-fold">{folded ? t('펼치기 ▾', 'Show ▾') : t('접기 ▴', 'Hide ▴')}</span>
+    <section className="cb" data-ui="작업 현황">
+      <div className="cb-head"><h3>{t('작업 현황', 'Work status')}</h3><CountLine counts={counts} /></div>
+      {rows.length || moreFeedback ? (['turn', 'doing', 'ready', 'done'] as const).map(group)
+        : <span className="muted ac-hint">{t('맡긴 일이 없습니다. 중앙에게 말하면 하위 대화를 열어 여기에 한 줄씩 보입니다', 'Nothing handed off. Ask Central and each sub-conversation shows here as a row')}</span>}
+      <span className="muted ac-hint cb-rule">{t(`정체: 진행 중 ${STALL_MIN.run}분 · CI ${STALL_MIN.ci}분 · 합칠 준비 ${STALL_MIN.ready}분 동안 움직임 없음`, `Stalled: no move for ${STALL_MIN.run} min working, ${STALL_MIN.ci} min on checks, ${STALL_MIN.ready} min ready to merge`)}</span>
+    </section>
+  )
+}
+
+/** 중앙 대화 머리의 「작업 현황 n 남음」: 오른쪽 칸이 닫혔거나 좁은 화면(900px 아래, 칸이 숨음)에서 팝오버로 */
+export function CentralBoardButton({ narrowOnly }: { narrowOnly: boolean }) {
+  const { counts } = useBoard()
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLSpanElement>(null)
+  useDismiss(open, box, () => setOpen(false))
+  return (
+    <span className={`cb-pop-wrap${narrowOnly ? ' narrow-only' : ''}`} ref={box}>
+      <button className={`btn sm${open ? ' on' : ''}`} data-ui="작업 현황 버튼" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {t('작업 현황', 'Work status')}{counts.left > 0 && <span className={counts.turn ? 'ac-central-turn' : 'muted'}>{t(` ${counts.left} 남음`, ` ${counts.left} left`)}</span>}
       </button>
-      {!folded && <div className="ac-kids-list">
-        {open.map(row)}
-        {!!closed.length && <button className="a ac-kid-closed" aria-expanded={closedOpen} onClick={() => setClosedOpen(!closedOpen)}>{t(`닫은 대화 ${closed.length}`, `${closed.length} closed`)} {closedOpen ? '‹' : '›'}</button>}
-        {closedOpen && closed.map(row)}
-      </div>}
-    </div>
+      {open && <div className="cb-pop" data-ui="작업 현황 팝오버"><CentralBoard onPick={() => setOpen(false)} /></div>}
+    </span>
   )
 }

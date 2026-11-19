@@ -4,20 +4,52 @@
 .ac-central-what { margin: 0; max-width: 60ch; }
 .ac-central-input { width: 100%; resize: vertical; font: inherit; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); color: var(--text); }
 .ac-central-send { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); }
-.ac-central-kids { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); max-height: 40%; flex: none; min-height: 0; }
-/* 하위 대화는 한 줄씩 (11/19 "최대한 좁게"): 머리 한 줄 + 점 · 제목 · 짧은 상태 · 시각 */
-.ac-kids-head { display: flex; align-items: center; gap: var(--sp-1); width: 100%; padding: var(--sp-1) var(--sp-3); border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
-.ac-kids-head b { color: var(--text); font-weight: var(--fw-strong); }
-.ac-kids-head:hover { background: var(--bg-hover); }
-.ac-kids-fold { margin-left: auto; color: var(--text-3); }
-.ac-kids-list { display: flex; flex-direction: column; overflow-y: auto; padding-bottom: var(--sp-1); }
-.ac-kid { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; height: 24px; padding: 0 var(--sp-3); border: 0; background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; flex: none; }
-.ac-kid:hover { background: var(--bg-hover); }
-.ac-kid-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-kid-state { flex: none; max-width: 45%; font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-kid-state.turn { color: var(--s-blocked); font-weight: var(--fw-strong); }
-.ac-kid-time { flex: none; font-size: var(--fs-2xs); color: var(--text-3); }
-.ac-kid-closed { align-self: flex-start; font-size: var(--fs-xs); margin: 2px var(--sp-3) 0 calc(var(--sp-3) + 10px + var(--sp-2)); }
+/* 작업 현황 (11/19 "뭐가 남아있고, 뭐가 정체되어 있는지", 시안 2026-11-19-central-checklist 안 A): 오른쪽 칸 맨 위, 줄 하나 = 맡긴 일 하나 */
+.ac-work .cb { gap: var(--sp-2); }
+.cb-head { display: flex; align-items: baseline; gap: var(--sp-2); }
+.cb-counts { margin-left: auto; font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
+.cb-head .cb-counts { margin-left: auto; }
+.ac-line-meta .cb-counts { margin-left: 0; }
+.cb-group { display: flex; flex-direction: column; }
+.cb-group-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; font-size: var(--fs-sm); }
+.cb-group-head b { font-weight: var(--fw-strong); }
+.cb-group-head .muted { font-size: var(--fs-xs); }
+.cb-fold { margin-left: auto; font-size: var(--fs-xs); }
+.cb-row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; column-gap: var(--sp-2); row-gap: 1px; align-items: center; width: 100%; padding: var(--sp-1) var(--sp-1); border: 0; border-radius: var(--r-sm); background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; }
+button.cb-row { cursor: pointer; }
+button.cb-row:hover { background: var(--bg-hover); }
+.cb-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-time { font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; }
+.cb-time.stalled { color: var(--s-blocked); }
+.cb-sub { grid-column: 2 / 4; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-1); font-size: var(--fs-2xs); color: var(--text-3); min-width: 0; }
+.cb-sub .tag { font-size: var(--fs-2xs); padding: 0 var(--sp-1); }
+.cb-stage.turn { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.cb-stall { padding: 0 var(--sp-1); border: 1px solid var(--s-blocked); border-radius: var(--r-pill); color: var(--s-blocked); }
+/* 상태 표시: 점 = 그 자리에 있음, 고리 = 남이(CI · 자리) 기다림. 파랑 진행 · 청록 합침 · 주황 사용자 · 회색 멈춤 */
+.cb-mark { width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; justify-self: center; }
+.cb-mark.run { background: var(--s-progress); }
+.cb-mark.ci { border: 2px solid var(--s-progress); }
+.cb-mark.ready { border: 2px solid var(--s-solved); }
+.cb-mark.merged { background: var(--s-solved); }
+.cb-mark.user, .cb-mark.error { background: var(--s-blocked); }
+.cb-mark.held { border: 2px solid var(--s-stopped); }
+.cb-mark.idle { background: var(--s-stopped); }
+.cb-more { align-self: flex-start; margin: 2px 0 0 calc(10px + var(--sp-2) + var(--sp-1)); font-size: var(--fs-xs); }
+.cb-rule { margin-top: var(--sp-1); }
+.ac-info-fold { border-top: 1px solid var(--line); padding-top: var(--sp-2); margin-top: auto; }
+.ac-info-fold summary { cursor: pointer; font-size: var(--fs-sm); font-weight: var(--fw-strong); }
+.ac-info-fold summary .muted { font-weight: normal; font-size: var(--fs-xs); }
+.ac-info-fold .ac-info { margin-top: var(--sp-2); }
+.ac-info-fold .ac-info h3 { display: none; }
+/* 대화 머리의 「작업 현황」 팝오버: 오른쪽 칸이 열려 있으면 칸이 숨는 좁은 화면에서만 */
+.cb-pop-wrap { position: relative; flex: none; }
+.cb-pop { position: absolute; right: 0; top: calc(100% + var(--sp-1)); z-index: var(--z-menu); width: min(360px, 90vw); max-height: 70vh; overflow: auto; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); box-shadow: var(--shadow); display: flex; flex-direction: column; font-size: var(--fs-sm); }
+.cb-pop .cb { display: flex; flex-direction: column; }
+.cb-pop h3 { margin: 0; font-size: var(--fs-sm); }
+@media (min-width: 901px) { .cb-pop-wrap.narrow-only { display: none; } }
+/* 중앙을 저절로 깨운 알림: 옅은 한 줄 */
+.ac-auto { min-width: 0; }
+.ac-auto-text { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 어느 화면에서나 오른쪽 사이드바로 에이전트 (11/16, AgentSide.tsx): 프로젝트 밖 화면의 오른쪽 열 */
 .body.with-agent { grid-template-columns: 52px var(--side-w, 244px) minmax(0, 1fr) 340px; }

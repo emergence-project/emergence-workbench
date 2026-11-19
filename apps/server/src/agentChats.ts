@@ -111,8 +111,7 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   planOk?: boolean
   archived?: boolean
   /** 마지막으로 지시에 붙인 사용자 화면 한 줄 (promptFor: 바뀔 때만 다시 붙인다) */ view?: string
-  /** 앱 고치기 대화의 작업 폴더 */
-  worktree?: string
+  /** 앱 고치기 대화의 작업 폴더 */ worktree?: string
   /** 피드백 대화: CI가 빨개 실패 기록을 다시 보낸 횟수와 마지막으로 본 실패 (같은 실패를 두 번 보내지 않게) */
   ciRetries?: number
   ciSeen?: string
@@ -132,7 +131,8 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   recordSent?: number
   recordTurn?: boolean
   /** 중앙 대화: 남은 메모리가 모자라 기다리는 앱 고치기 (appMemory.ts). 메모리가 풀리거나 하나가 끝나면 agentCentral.ts가 차례로 연다 */
-  held?: CentralOpenBody[]
+  held?: (CentralOpenBody & { at?: string })[]
+  ci?: 'pending' | 'failed' | 'passed' // 중앙의 앱 하위 대화: PR 검사 (올리면 pending, tickCentral이 1분마다 고친다)
   /** 앱 고치기 · 피드백 대화: 끝나서 저절로 보관했는지 (한 번만. 사용자가 꺼내면 다시 넣지 않는다) */
   closed?: boolean
 }
@@ -637,7 +637,7 @@ export class AgentChats {
   async appSubmit(id: string, b: AppSubmitBody): Promise<AppSubmitted> {
     const { c, w } = this.appOf(id)
     const pr = await w.submit(c.worktree!, c.branch!, { title: b.title, body: b.body })
-    c.pr = { number: pr.number, url: pr.url }
+    c.pr = { number: pr.number, url: pr.url }; c.ci = 'pending'
     this.touch(c)
     return pr
   }
