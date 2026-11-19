@@ -73,7 +73,7 @@ function Decide({ e, name }: { e: FeedbackItem; name: string }) {
       )}
       <div className="fbp-mockup-decide-row">
         {error && <span className="error-text">{error}</span>}
-        <button type="button" className="btn" data-ui="시안 논의" disabled={busy || (talk && !text.trim())} title={t('고치기 전에 이 시안을 두고 이야기합니다', 'Talk this mockup over before any change')} onClick={() => (talk ? send('논의') : setTalk(true))}>
+        <button type="button" className="btn" data-ui="시안 논의" disabled={busy || (talk && !text.trim())} title={t('수정 전에 이 시안을 두고 이야기합니다', 'Talk this mockup over before any change')} onClick={() => (talk ? send('논의') : setTalk(true))}>
           {talk ? t('논의 보내기 (⌘↵)', 'Send discussion (⌘↵)') : t('논의', 'Discuss')}
         </button>
         <button type="button" className="btn primary" data-ui="시안으로 진행" disabled={busy} title={t('이 시안대로 만들게 합니다', 'Have it built as this mockup shows')} onClick={() => send('진행')}>{t('이 시안으로 진행', 'Go ahead with this mockup')}</button>
