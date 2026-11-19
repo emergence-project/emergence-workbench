@@ -6,6 +6,8 @@
  *   $$수식$$ · \[수식\]   가운데 한 줄 수식 (여러 줄에 걸쳐도 된다. 에이전트 대화의 답, 10/28 19:02 피드백)
  *   ```언어 … ```       코드 블록 (에이전트 대화의 답에 오는 셸 명령 등, 11/19. 닫지 않았으면 끝까지: 답이 오는 중)
  *   | 머리 | 머리 |       표 (GFM: 머리 줄 다음에 |---|:--:| 줄. 에이전트 대화의 답, 11/18 피드백)
+ *   # 제목 · ## 제목 …   제목 (# 여섯 개까지. 에이전트 대화의 답, 11/19 피드백)
+ *   ``코드 ` 든 코드``  백틱이 든 코드는 백틱 둘로 감싼다
  * 그 밖의 줄은 문단이며, 문단 안 줄바꿈은 그대로 둔다.
  */
 
@@ -21,6 +23,7 @@ export type MemoBlock =
   | { kind: 'math'; tex: string }
   | { kind: 'pre'; lang: string; text: string }
   | { kind: 'table'; align: TableAlign[]; head: Inline[][]; rows: Inline[][][] }
+  | { kind: 'heading'; level: number; inline: Inline[] }
 
 /** 목록 항목. 하위 항목은 바깥 목록과 종류가 달라도 같은 목록에 든다. num은 번호 항목이 보일 번호 (첫 항목의 번호부터 하나씩) */
 export type ListItem = { depth: number; inline: Inline[]; ordered: boolean; num?: number }
@@ -29,10 +32,12 @@ export type TableAlign = 'left' | 'center' | 'right' | null
 
 const BULLET = /^(\s*)[-*]\s+(.*)$/
 const NUMBER = /^(\s*)\d+[.)]\s+(.*)$/
+// 닫는 #은 떼어 낸다 (## 제목 ##)
+const HEADING = /^ {0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/
 
 export function parseInline(text: string): Inline[] {
   const out: Inline[] = []
-  const re = /(\$\$[^$\n]+\$\$)|(\\\[.+?\\\])|(\\\(.+?\\\))|(\$[^$\n]+\$)|(`[^`\n]+`)|(\*\*[^*\n]+\*\*)/g
+  const re = /(\$\$[^$\n]+\$\$)|(\\\[.+?\\\])|(\\\(.+?\\\))|(\$[^$\n]+\$)|(``[^\n]+?``|`[^`\n]+`)|(\*\*[^*\n]+\*\*)/g
   let last = 0
   for (const m of text.matchAll(re)) {
     if (m.index! > last) out.push({ kind: 'text', text: text.slice(last, m.index) })
@@ -40,7 +45,7 @@ export function parseInline(text: string): Inline[] {
     if (m[1] || m[2]) out.push({ kind: 'math', tex: tok.slice(2, -2), display: true })
     else if (m[3]) out.push({ kind: 'math', tex: tok.slice(2, -2) })
     else if (m[4]) out.push({ kind: 'math', tex: tok.slice(1, -1) })
-    else if (m[5]) out.push({ kind: 'code', text: tok.slice(1, -1) })
+    else if (m[5]) out.push({ kind: 'code', text: tok.startsWith('``') ? tok.slice(2, -2).trim() : tok.slice(1, -1) })
     else out.push({ kind: 'bold', text: tok.slice(2, -2) })
     last = m.index! + tok.length
   }
@@ -127,6 +132,8 @@ export function parseMemo(text: string): MemoBlock[] {
     if (table) { blocks.push(table.table); i = table.next - 1; continue }
     const whole = /^\s*(?:\$\$([^$]+)\$\$|\\\[((?:(?!\\\]).)+)\\\])\s*$/.exec(raw)
     if (whole) { blocks.push({ kind: 'math', tex: (whole[1] ?? whole[2]!).trim() }); continue }
+    const h = HEADING.exec(raw)
+    if (h) { blocks.push({ kind: 'heading', level: h[1]!.length, inline: parseInline(h[2]!) }); continue }
     const b = BULLET.exec(raw)
     const n = b ? null : NUMBER.exec(raw)
     const item = b ?? n

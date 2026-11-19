@@ -6,6 +6,7 @@ import { CodeBlock } from './CodeBlock'
 import { journalWhen } from './format'
 import { go } from './router'
 import { onListKey } from './listInput'
+import { isSendKey } from './cmdEnter'
 import { Icon } from './icons'
 import { askConfirm } from './askText'
 import { journalDeletePrompt, journalEntryActions } from './journalActions'
@@ -31,7 +32,7 @@ function InlineText({ parts }: { parts: Inline[] }) {
 /** 같은 이름의 줄 단추를 가려 부르게 이름 뒤에 붙이는 글 (도구·화면 읽기 프로그램용) */
 const short = (t: string) => { const x = t.replace(/\s+/g, ' ').trim(); return x.length > 40 ? `${x.slice(0, 40)}…` : x }
 
-/** 메모 본문: 목록(-, *, 1.)·굵게·코드·코드 블록·수식·표를 그린다 */
+/** 메모 본문: 제목(#)·목록(-, *, 1.)·굵게·코드·코드 블록·수식·표를 그린다 */
 export function MemoText({ text }: { text: string }) {
   const blocks = useMemo(() => parseMemo(text), [text])
   return (
@@ -39,6 +40,8 @@ export function MemoText({ text }: { text: string }) {
       {blocks.map((b, i) => b.kind === 'math'
         ? <div key={i} className="memo-math-block" dangerouslySetInnerHTML={{ __html: katex.renderToString(b.tex, { throwOnError: false, displayMode: true }) }} />
         : b.kind === 'pre' ? <CodeBlock key={i} lang={b.lang} text={b.text} />
+        // 짧은 글 속 제목이라 h1은 쓰지 않고 h3부터 (# · ## → h3, ### → h4, 그 밑은 h5)
+        : b.kind === 'heading' ? (() => { const H = b.level <= 2 ? 'h3' : b.level === 3 ? 'h4' : 'h5'; return <H key={i} className="memo-h"><InlineText parts={b.inline} /></H> })()
         : b.kind === 'para'
         ? <p key={i}>{b.lines.map((line, j) => <span key={j}>{j > 0 && <br />}<InlineText parts={line} /></span>)}</p>
         : b.kind === 'table'
@@ -85,15 +88,15 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, onSave, 
   }
   const has = text.trim() !== ''
   return (
-    <div className={`memo${compact ? ' compact' : ''}${has ? ' has-text' : ''}`} data-ui="메모 입력">
+    <div className={`memo${compact ? ' compact' : ''}${has ? ' has-text' : ''}`} data-ui="메모 입력" onKeyDown={(e) => {
+      // ⌘↵ · Esc는 칸 전체에서: 할 일로 단추로 옮겨 간 뒤에도 (11/19 피드백 09:04)
+      if (isSendKey(e)) { e.preventDefault(); void save() }
+      else if (e.key === 'Escape') onEscape?.()
+    }}>
       <textarea ref={ta} rows={compact ? 1 : 3} value={text} aria-label={t('메모', 'Memo')}
         placeholder={compact ? t(`${targetLabel}에 메모 — 생각, 의문, 다음 할 일 (- 목록, $수식$)`, `Memo on ${targetLabel}: thoughts, doubts, next steps (- list, $math$)`) : t('떠오른 생각을 적고 ⌘↵ — Esc로 닫기. - 로 목록, $…$로 수식', 'Write a thought and press ⌘↵. Esc closes. - for a list, $…$ for math')}
         onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() }
-          else if (e.key === 'Escape') onEscape?.()
-          else onListKey(e, setText)
-        }} />
+        onKeyDown={(e) => onListKey(e, setText)} />
       <div className="memo-bar">
         <span className="memo-chip" data-ui="붙는 곳" title={t('이 메모가 붙는 곳', 'Where this memo is attached')}>↳ {targetLabel}</span>
         <button data-ui="할 일로 버튼" className={`memo-chip${todo ? ' on' : ''}`} onClick={() => setTodo((v) => !v)} aria-pressed={todo}>{t('할 일로', 'As to-do')}</button>
@@ -173,10 +176,9 @@ function MemoItem({ e, rid, noteOf, onToggle, onEdit, onDelete, hideTodoKind }: 
       {e.kind === 'todo'
         ? <button className={`mi-icon todo${e.done ? ' done' : ''}`} aria-label={`${e.done ? t('할 일 되돌리기', 'Mark to-do undone') : t('할 일 완료', 'Complete to-do')}: ${short(e.text)}`} onClick={() => onToggle(e)}>{e.done && Icon.check}</button>
         : <span className={`mi-icon ${e.kind === 'status' ? 'status' : 'note'}`} />}
-      <div>
+      <div onKeyDown={draft === null ? undefined : (ev) => { if (ev.key === 'Escape') setDraft(null); if (isSendKey(ev)) save() }}>
         {draft !== null
-          ? <textarea className="mi-edit" autoFocus value={draft} rows={Math.min(8, draft.split('\n').length + 1)} onChange={(ev) => setDraft(ev.target.value)}
-              onKeyDown={(ev) => { if (ev.key === 'Escape') setDraft(null); if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) save() }} />
+          ? <textarea className="mi-edit" autoFocus value={draft} rows={Math.min(8, draft.split('\n').length + 1)} onChange={(ev) => setDraft(ev.target.value)} />
           : <div className="mi-text"><MemoText text={e.text} /></div>}
         <div className="mi-meta" data-ui="시각·붙은 곳">
           <span>

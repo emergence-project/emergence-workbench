@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { autoCustom, autoOf, LIBRARY_RID, type ChatAutoValues } from '@rw/core'
 import { agentChatsApi, api, APP_RID, CENTRAL_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type Todo } from './api'
 import { askConfirm } from './askText'
+import { isSendKey } from './cmdEnter'
 import { relativeTime } from './format'
 import { t } from './i18n'
 import { Icon } from './icons'
@@ -289,14 +290,11 @@ function Choices({ choices, say, busy }: { choices: Choice[]; say?: { label: str
         </button>
       ))}
       {say && saying && (
-        <div className="ac-say-box">
-          <textarea rows={2} autoFocus value={note} placeholder={say.placeholder} aria-label={say.placeholder}
-            onChange={(e) => setNote(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.nativeEvent.isComposing) return
-              if (e.key === 'Escape') { e.preventDefault(); setSaying(false) }
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); say.send(note.trim()) }
-            }} />
+        <div className="ac-say-box" onKeyDown={(e) => { // 칸 전체에서: 단추로 옮겨 간 뒤에도 (11/19 피드백 09:04)
+          if (e.nativeEvent.isComposing) return
+          if (e.key === 'Escape') { e.preventDefault(); setSaying(false) } else if (isSendKey(e)) { e.preventDefault(); say.send(note.trim()) }
+        }}>
+          <textarea rows={2} autoFocus value={note} placeholder={say.placeholder} aria-label={say.placeholder} onChange={(e) => setNote(e.target.value)} />
           <div className="ac-card-row"><span className="sp" /><button className="btn sm" onClick={() => setSaying(false)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" data-ui="다르게 말하기 보내기" disabled={busy} onClick={() => say.send(note.trim())}>{t('보내기', 'Send')}</button></div>
         </div>
       )}

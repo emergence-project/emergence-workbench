@@ -229,6 +229,17 @@ describe('메모 마크다운', () => {
     expect(memoTableCells('| $5 | $6 |')).toEqual(['$5', '$6'])
     expect(memoTableCells('a | b')).toEqual(['a', 'b'])
   })
+
+  it('제목: # 뒤에 빈칸이 있으면 제목 (닫는 #은 뗀다), 문단을 끊고 안의 코드를 읽는다', () => {
+    expect(parseMemo('앞 문단\n## 보고 ##\n- 바꾼 것: `a.ts`\n### 셋째')).toEqual([
+      { kind: 'para', lines: [[{ kind: 'text', text: '앞 문단' }]] },
+      { kind: 'heading', level: 2, inline: [{ kind: 'text', text: '보고' }] },
+      { kind: 'list', ordered: false, items: [{ depth: 0, ordered: false, inline: [{ kind: 'text', text: '바꾼 것: ' }, { kind: 'code', text: 'a.ts' }] }] },
+      { kind: 'heading', level: 3, inline: [{ kind: 'text', text: '셋째' }] },
+    ])
+    expect(parseMemo('#1 이슈\n####### 일곱').map((b) => b.kind)).toEqual(['para'])
+    expect(parseInline('`` a`b `` 와 `c`')).toEqual([{ kind: 'code', text: 'a`b' }, { kind: 'text', text: ' 와 ' }, { kind: 'code', text: 'c' }])
+  })
 })
 
 describe('Markdown 보조 노트 머리말', () => {

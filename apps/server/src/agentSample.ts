@@ -78,7 +78,7 @@ async function* sampleApp(input: Parameters<AgentRunner>[0]): AsyncIterable<RunE
     // 피드백을 맡은 대화: 처리 기록은 앱이 적는다 (feedback_answer, 예제 화면 그림에서는 shots.mjs가 대신 부른다)
     if (input.prompt.includes('- key: ')) yield { type: 'tool', tool: 'mcp__workbench__feedback_answer', input: { state: '반영' } }
   }
-  yield { type: 'text', text: s.allow ? t('메뉴를 오른쪽 끝에 맞췄습니다. PR #234를 열었고 CI가 모두 통과했습니다.', 'The menu now aligns to the right edge. Opened PR #234; CI passed.') : t('고친 것을 올리지 않았습니다.', 'I did not submit the change.') }
+  yield { type: 'text', text: s.allow ? t('메뉴를 오른쪽 끝에 맞췄습니다. PR #234를 열었고 CI가 모두 통과했습니다.\n\n## 보고\n- 바꾼 것: 메뉴를 오른쪽 끝에 맞춤\n- 위치: `apps/web/src/styles/menu.css`', 'The menu now aligns to the right edge. Opened PR #234; CI passed.\n\n## Report\n- Changed: the menu aligns to the right edge\n- Where: `apps/web/src/styles/menu.css`') : t('고친 것을 올리지 않았습니다.', 'I did not submit the change.') }
   yield { type: 'mark', uuid: crypto.randomUUID() }
   yield { type: 'result', ok: true, cost: 0.61, seconds: 4, tokens: { in: 72_900, out: 3_100 }, context: { used: 44_800, window: 200_000 } }
 }

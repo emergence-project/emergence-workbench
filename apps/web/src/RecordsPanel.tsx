@@ -177,7 +177,7 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
   // 질문 · 지시는 에이전트에게 보내는 것이라 「보내기」, 메모 · 할 일은 「저장」 (10/28 피드백 22:18)
   const sends = draft.kind === '질문' || draft.kind === '지시'
   const where = target.target === 'project' ? t('이 프로젝트', 'This project') : target.title
-  return <div className="record-composer" data-ui="적기 칸">
+  return <div className="record-composer" data-ui="적기 칸" onKeyDown={sendKey.onKeyDown} onCompositionEnd={sendKey.onCompositionEnd}>
     <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>{RECORD_KINDS.map((k) => <button key={k} className={draft.kind === k ? 'on' : ''} aria-pressed={draft.kind === k} disabled={busy} onClick={() => setDraft({ ...draft, kind: k })}>{kindChoice(k)}</button>)}</div>
     {pointing && <RecordPointer onPick={pick} onCancel={cancelPointing} />}
     {a.part && <div className="record-attached"><span title={a.part}>{t('가리킨 곳', 'Pointed at')} · {uiShown(a.part)}{a.partText && ` “${a.partText}”`}</span><button className="icon-btn sm" aria-label={t('가리킨 곳 제거', 'Remove pointed part')} title={t('제거', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: { ...a, part: undefined, partText: undefined } })}>×</button></div>}
@@ -186,7 +186,7 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
       <div className="record-attached"><PaintPicker color={draft.color} disabled={busy} onChange={(color) => setDraft({ ...draft, color })} /><span title={a.quote}>{t('고른 글', 'Selection')}{a.line ? t(` · ${a.line}줄`, ` · line ${a.line}`) : a.page ? t(` · ${a.page}쪽`, ` · p. ${a.page}`) : ''} “{a.quote}”</span><button className="icon-btn sm" aria-label={t('고른 글 제거', 'Remove selection')} title={t('제거', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: {} })}>×</button></div>
     </>}
     <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('무엇이 궁금한가요? 에이전트가 답합니다. 노트를 고치게 하려면 지시로 남기세요.', 'What do you want to know? An agent will answer it. To have the note changed, leave an instruction.') : t('무엇이 궁금한가요? 에이전트가 답합니다.', 'What do you want to know? An agent will answer it.')) : draft.kind === '지시' ? t('에이전트가 할 일을 적으세요. 하고 나서 답을 답니다.', 'What should an agent do? It answers when done.') : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : target.target.startsWith('topic-') ? t('이 주제에 남길 기록', 'A record for this topic') : target.target.startsWith('concept-') ? t('이 개념노트에 남길 기록', 'A record for this concept note') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
-      onChange={(e) => setDraft({ ...draft, text: e.target.value })} onCompositionEnd={sendKey.onCompositionEnd} onKeyDown={(e) => { if (!sendKey.onKeyDown(e)) onListKey(e, (text) => setDraft({ ...draft, text })) }} />
+      onChange={(e) => setDraft({ ...draft, text: e.target.value })} onKeyDown={(e) => onListKey(e, (text) => setDraft({ ...draft, text }))} />
     {error && <div className="banner danger" role="alert">{error}</div>}
     <div className="record-composer-actions">
       {/* 아랫줄 왼쪽: 가리키기와 남길 곳 (10/15 사용자 코멘트), 오른쪽: 저장 */}

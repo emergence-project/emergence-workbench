@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { isSendKey } from './cmdEnter'
 import { ConflictError, notesApi, type NoteCategory, type NoteHeadPatch, type NoteLinks, type NoteRow, type ProjectKind, type Statement, type Topic, LIMITS } from './api'
 import { descriptionLines, MathText } from './cardParts'
 import { useConceptMacros } from './conceptMacros'
@@ -130,6 +131,8 @@ function NoteInfoBody({ rid, row, topics, proves = [], projectKind, version, onC
   }
   /** 설명 저장: 저장된 뒤에만 입력 칸을 닫는다 (실패하면 적던 글이 남는다) */
   const saveDesc = (v: string) => { void patch({ description: v }, t('설명을 적었습니다', 'Saved the description')).then((ok) => { if (ok) setDesc((d) => (d === v ? null : d)) }) }
+  // 설명 칸과 그 아래 취소 · 저장 단추에서 같이 받는다 (11/19 피드백 09:04)
+  const descKeys = (e: KeyboardEvent) => { if (desc === null) return; if (e.key === 'Escape') setDesc(null); if (isSendKey(e) && lengthOf(desc) <= LIMITS.description) saveDesc(desc) }
   const titleOfTopic = (id: string) => topics.find((t) => t.id === id)?.title ?? id
   const rest = topics.filter((t) => !row.topics.includes(t.id))
   const moveUp = (i: number) => { const next = [...row.topics]; [next[i - 1], next[i]] = [next[i]!, next[i - 1]!]; void patch({ topics: next }, i === 1 ? t(`주 주제를 "${titleOfTopic(next[0]!)}"로 바꿨습니다`, `Main topic is now "${titleOfTopic(next[0]!)}"`) : t('주제 순서를 바꿨습니다', 'Changed the topic order')) }
@@ -171,9 +174,8 @@ function NoteInfoBody({ rid, row, topics, proves = [], projectKind, version, onC
             : <p className="empty rs-empty" title={t('연필을 눌러 설명을 적습니다', 'Click the pencil to write a description')}>{t('없음', 'None')}</p>
           : <>
             <textarea className="rs-desc-input" autoFocus rows={4} value={desc} aria-label={t('설명', 'Description')} placeholder={t('여러 줄로 적고 "- "로 목록을 만듭니다. 비우면 본문 첫 문단을 씁니다.', 'Write several lines. Start a line with "- " for a list. Leave empty to use the first paragraph.')}
-              onChange={(e) => setDesc(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Escape') setDesc(null); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && lengthOf(desc) <= LIMITS.description) saveDesc(desc) }} />
-            <div className="rs-desc-bar">
+              onChange={(e) => setDesc(e.target.value)} onKeyDown={descKeys} />
+            <div className="rs-desc-bar" onKeyDown={descKeys}>
               <span className={`rs-count${lengthOf(desc) > LIMITS.description ? ' over' : ''}`}>{lengthOf(desc)}/{LIMITS.description}</span>
               <span className="sp" />
               <button className="btn sm" onClick={() => setDesc(null)}>{t('취소', 'Cancel')}</button>

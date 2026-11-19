@@ -331,6 +331,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (e.key === 'Escape' && onStop && !text) { e.preventDefault(); onStop(); return }
     sendKey.onKeyDown(e)
   }
+  // 입력란 밖(모델 · 권한 고르기 등)으로 옮겨 간 뒤에도 ⌘↵로 보낸다 (11/19 피드백 09:04). 입력란 안은 onKey가 받는다
   const startToken = (ch: '@' | '/') => {
     if (ch === '/') { setText('/'); setCaret(1); setClosed(null); focusAt(1); return }
     const at = box.current?.selectionStart ?? text.length
@@ -354,7 +355,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   const thinkingNow = variants.length > 1 ? (settings.model === 'default' ? t(`${effortLabel(fam.suffix)} (기본)`, `${effortLabel(fam.suffix)} (default)`) : effortLabel(fam.suffix)) : EFFORT_NAME[settings.effort]
 
   return (
-    <div className="ac-composer" data-ui="에이전트 입력란" onDrop={onDrop} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}>
+    <div className="ac-composer" data-ui="에이전트 입력란" onKeyDown={(e) => { if (e.target !== box.current) sendKey.onKeyDown(e) }} onDrop={onDrop} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}>
       {(all.length > 0 || images.length > 0) && (
         <div className="ac-chips">
           {auto && !autoOff && <span className="tag ac-chip" title={auto.ref}>{ATTACH_NAME[auto.kind]} · {auto.label}<button className="ac-chip-x" aria-label={t('제거', 'Remove')} onClick={() => setAutoOff(true)}>{Icon.x}</button></span>}
