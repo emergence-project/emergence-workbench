@@ -478,7 +478,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async ({ wait }) => call(`/api/agent-chats/${chat}/app/checks${wait ? `?wait=${wait}` : ''}`))
     server.registerTool('feedback_answer', {
       title: 'Record feedback handling',
-      description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only.',
+      description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only. mockups = names of mockups in this folder\'s mockups/ (<name>.png and <name>.html, with or without extension): the app copies them into the feedback folder and shows them as thumbnails on the handling (or on a reply via replies[].mockups) so the user can page through them, open the html and choose 진행 / 논의 there; send mockups without state to add them to the current handling.',
       inputSchema: {
         state: z.enum(['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류']).optional().describe('Handling state'),
         note: z.string().optional().describe('The answer the user reads; first line is the fixed phrase (수정 완료 (#PR) · 확인 필요 · 답변: 있음/없음/일부 · 의견에 동의 (크기) · 나중에 · 거절)'),
@@ -489,7 +489,8 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
         miss: z.enum(FEEDBACK_MISSES).optional().describe('When redoing a revision request: why the previous handling was sent back'),
         lesson: z.string().optional().describe('When redoing: one line on what to do differently next time'),
         after: z.string().optional().describe('Screen picture name from scripts/shots/screens.mjs, after CI is green'),
-        replies: z.array(z.object({ to: z.string(), note: z.string() })).optional().describe('Answers to unanswered comments'),
+        mockups: z.array(z.string()).optional().describe('Mockup names in mockups/ of this folder to attach to the handling (e.g. ["nav-tabs"])'),
+        replies: z.array(z.object({ to: z.string(), note: z.string(), mockups: z.array(z.string()).optional() })).optional().describe('Answers to unanswered comments, each with optional mockups'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => {

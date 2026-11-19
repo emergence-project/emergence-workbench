@@ -2,7 +2,7 @@
   "lines": {
     "apps/server/src/agentChats.ts": 1144,
     "apps/server/src/comments.ts": 643,
-    "apps/server/src/feedback.ts": 652,
+    "apps/server/src/feedback.ts": 634,
     "apps/web/src/AgentChats.tsx": 1347,
     "apps/web/src/App.tsx": 633,
     "apps/web/src/FeedbackPage.tsx": 604,
@@ -29,7 +29,7 @@
     "apps/server/src/comments.ts": 13,
     "apps/server/src/conceptIndex.ts": 45,
     "apps/server/src/conceptNotes.ts": 5,
-    "apps/server/src/feedback.ts": 38,
+    "apps/server/src/feedback.ts": 31,
     "apps/server/src/feedbackClaims.ts": 2,
     "apps/server/src/feedbackMerge.ts": 4,
     "apps/server/src/figureEmbeds.ts": 1,
