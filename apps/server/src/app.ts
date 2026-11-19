@@ -178,7 +178,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   // 설치 파일로 깐 앱: 창이 넘긴 열쇠가 없는 요청은 받지 않는다 (appKey.ts). 창은 /__open으로 한 번 들어와 쿠키를 받는다
   if (opts.key) registerKeyGate(app, opts.key, opts.port ?? 0)
 
-  // 에이전트 연결 확인 (설정 › 계정 › 시작 준비): MCP 입구가 붙이는 머리
+  // 에이전트 연결 확인 (계정 › 시작 준비): MCP 입구가 붙이는 머리
   app.addHook('onRequest', (req, _reply, done) => { const a = req.headers['x-rw-agent']; if (typeof a === 'string' && a) noteAgentCall(opts.configDir, a); done() })
 
   // 맥 밖의 웹 페이지가 보낸 요청은 받지 않는다 (hostGuard.ts)

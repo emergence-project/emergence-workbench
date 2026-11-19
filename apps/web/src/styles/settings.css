@@ -14,7 +14,7 @@
 .editor-sample .m { color: var(--code-math); }
 .editor-sample .c { color: var(--code-comment); font-style: italic; }
 
-/* 설정 › 계정의 GitHub·구글 소제목 (10/4 19:43) */
+/* 계정의 GitHub·구글 소제목 (10/4 19:43) */
 .set-h3 { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); margin: var(--sp-4) 0 var(--sp-2); }
 /* 설정 › 동기화 (10/19): 오른쪽에 수동 | 자동, 아래 간격 셋과 직접. 좁으면 설명 아래로 */
 .set-row:has(.sync-pick) { align-items: flex-start; flex-wrap: wrap; }
@@ -24,7 +24,7 @@
 .sync-own input { width: 5em; }
 .sync-warn { margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--s-blocked); }
 
-/* 설정 › 계정 › 시작 준비 (10/21): 점 · 이름과 설명 · 행동. 점은 상태 색(청록 됨 · 주황 할 차례 · 회색 고리 선택) */
+/* 계정 › 시작 준비 (10/21): 점 · 이름과 설명 · 행동. 점은 상태 색(청록 됨 · 주황 할 차례 · 회색 고리 선택) */
 .setup { display: flex; flex-direction: column; }
 .setup-ready { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg-sunken); }
 .setup-left { color: var(--s-blocked); }
@@ -65,5 +65,5 @@
 .phone-url { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .phone-url code { word-break: break-all; }
 .phone-qr { flex: none; width: 128px; height: 128px; background: var(--qr-bg); fill: var(--qr-ink); border-radius: var(--r-md); }
-/* GitHub 로그인 코드 (설정 › 계정, 11/8): 옮겨 적기 쉽게 크게 */
+/* GitHub 로그인 코드 (계정, 11/8): 옮겨 적기 쉽게 크게 */
 .setup-code { font-size: var(--fs-md); font-weight: var(--fw-strong); letter-spacing: .08em; }

@@ -97,7 +97,7 @@ export function WeekCalendar({ byDay, deadlines, now = new Date(), onCopied }: {
       </div>
       <div className="legend-row week-legend"><span><MarkIcon k="done" /> {t('끝낸 할 일', 'Done to-do')}</span><span><MarkIcon k="edit" /> {t('노트 고침', 'Note edited')}</span><span><MarkIcon k="status" /> {t('상태 바꿈', 'Status changed')}</span><span><MarkIcon k="memo" /> {t('메모', 'Memo')}</span><span><MarkIcon k="due" /> {t('마감 (앞으로의 날)', 'Due (upcoming days)')}</span>
         {gcal ? <span>{t('시각 · 구글 캘린더 일정', 'Time · Google Calendar event')}</span>
-          : expired ? <span className="week-gnote" data-ui="구글 연결 끊김">{t('구글 연결이 끊겼습니다', 'Google connection expired')} · <a href="#/settings/google">{t('다시 연결', 'Reconnect')}</a></span>
+          : expired ? <span className="week-gnote" data-ui="구글 연결 끊김">{t('구글 연결이 끊겼습니다', 'Google connection expired')} · <a href="#/account">{t('다시 연결', 'Reconnect')}</a></span>
           : gcal === null && <span className="week-gnote"><a href="#/settings">{t('구글 캘린더 연결', 'Connect Google Calendar')}</a></span>}</div>
     </section>
   )

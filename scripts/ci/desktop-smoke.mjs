@@ -144,7 +144,7 @@ async function takeShots(rid, key) {
   page.on('pageerror', (e) => errors.push(e.message))
   // 창처럼 처음 한 번 열쇠를 건네 쿠키를 받는다
   await page.goto(`${base}/__open?k=${KEY}&to=%2F`, { waitUntil: 'networkidle' })
-  const screens = [['home', '/'], ...(rid ? [['project', `/#/r/${rid}`]] : []), ['papers', '/#/papers/list'], ...(key ? [['paper', `/#/papers/open/${key}`]] : []), ['settings', '/#/settings'], ['agents', '/#/settings/agents'], ['accounts', '/#/settings/google']]
+  const screens = [['home', '/'], ...(rid ? [['project', `/#/r/${rid}`]] : []), ['papers', '/#/papers/list'], ...(key ? [['paper', `/#/papers/open/${key}`]] : []), ['settings', '/#/settings'], ['agents', '/#/settings/agents'], ['accounts', '/#/account']]
   for (const [name, url] of screens) {
     await page.goto(base + url, { waitUntil: 'networkidle' })
     await page.waitForTimeout(800)
