@@ -21,6 +21,7 @@ import { agentTurnReasons, autoCustom, autoOf, localDate, localTime, type AgentS
 import { answerMockups, listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
+import { FRESH_MS } from './appMemory.js'
 import { accountForNew, switchAccount, type ClaudeAccounts } from './claudeAccounts.js'
 
 // ---------- 에이전트 실행기 (실제는 agentRunner.ts의 Claude Agent SDK, 테스트는 가짜) ----------
@@ -186,8 +187,10 @@ export interface AgentChatsDeps {
   /** Claude 대화의 실행기, others = Codex · Gemini (ACP, 없으면 runner가 모두 맡는다: 시험) */
   runner: AgentRunner
   others?: Partial<Record<'codex' | 'gemini', AgentRunner>>
-  /** 동시에 도는 대화 수 */
+  /** 동시에 도는 대화 수의 상한 (맥이면 컴퓨터 크기로, appMemory.ts의 chatCap) */
   limit: number
+  /** 상한 안에서 하나 더 시작해도 되는가 (남은 메모리, chatRoom. live = 일하는 수, fresh = 그 가운데 막 시작한 수). 없으면 상한까지 */
+  room?: (live: number, fresh: number) => boolean
   /** 프로젝트의 저장소와 이름 */
   project: (rid: string) => { repo: string; title: string }
   /** 묻지 않고 읽는 폴더 (공용 라이브러리 · 등록한 다른 프로젝트) */
@@ -376,7 +379,7 @@ export class AgentChats {
         n++
       } catch { /* 이어 가지 못하면 멈춤 그대로 (사용자가 이어서 지시한다) */ }
     }
-    while (this.queue.length && this.running() < this.deps.limit) this.next()
+    this.drain()
     return n
   }
 
@@ -808,7 +811,27 @@ export class AgentChats {
   protected unlimited(_c: Stored): boolean { return false }
 
   protected running(): number {
-    return [...this.chats.values()].filter((c) => (c.state === 'running' || c.state === 'waiting') && !this.unlimited(c)).length
+    return this.counted().length
+  }
+
+  private counted(): Stored[] {
+    return [...this.chats.values()].filter((c) => (c.state === 'running' || c.state === 'waiting') && !this.unlimited(c))
+  }
+
+  /** 차례를 시작한 때 (막 시작한 대화는 메모리를 덜 쓴 것으로 보고 appMemory.ts의 PER_CHAT_GB를 미리 뺀다) */
+  private readonly startedAt = new Map<string, number>()
+
+  /** 하나 더 시작해도 되는가: 상한(limit) 안에서 남은 메모리(room) */
+  private canStart(): boolean {
+    const live = this.counted()
+    return live.length < this.deps.limit && (!this.deps.room || this.deps.room(live.length, live.filter((c) => Date.now() - (this.startedAt.get(c.id) ?? 0) < FRESH_MS).length))
+  }
+
+  /** 줄 선 대화를 자리가 나는 만큼 시작한다 (메모리가 풀리면 routes/agentChats.ts가 몇 초마다 부른다). 시작한 수 */
+  drain(): number {
+    let n = 0
+    for (; this.queue.length && this.canStart(); n++) this.next()
+    return n
   }
 
   private start(c: Stored, m: ChatMessageBody, prompt?: string): void {
@@ -820,11 +843,12 @@ export class AgentChats {
   }
 
   private begin(c: Stored, prompt: string, images?: ImageIn[]): void {
-    if (!this.unlimited(c) && this.running() >= this.deps.limit) {
+    if (!this.unlimited(c) && (this.queue.length || !this.canStart())) {
       c.state = 'queued'
       c.turn = { prompt, ...(images?.length && { images }) }
       this.queue.push({ id: c.id, ...c.turn })
       this.touch(c)
+      this.drain()
       return
     }
     void this.run(c, prompt, images)
@@ -848,7 +872,7 @@ export class AgentChats {
 
   /** 자리가 비었으면 줄 선 대화 하나를 시작한다 (줄 선 대화를 멈춘 때처럼 자리가 비지 않았으면 시작하지 않는다) */
   private next(): void {
-    if (this.running() >= this.deps.limit) return
+    if (!this.canStart()) return
     const next = this.queue.shift()
     if (next) {
       const n = this.chats.get(next.id)
@@ -867,6 +891,7 @@ export class AgentChats {
    * 다음 지시는 send가 inbox로 바로 넘기고, 뒤에서 돌던 명령이 끝나 에이전트가 스스로 이어 가면 다시 일하는 중이 된다.
    */
   private async run(c: Stored, prompt: string, images?: ImageIn[]): Promise<void> {
+    this.startedAt.set(c.id, Date.now())
     const abort = new AbortController()
     this.aborts.set(c.id, abort)
     const inbox = new Inbox<Turn>()
