@@ -14,7 +14,7 @@ import { claudeDesktopConfigs, desktopRegistered, registerCli, registerDesktop }
 import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { adoptOtherProfiles } from '../profileSync.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
-import { realIO } from '../githubRepos.js'
+import { githubIdentity, realIO } from '../githubRepos.js'
 import { getFallbackIdentity, git, gitRun, GIT_TIMEOUT, setFallbackIdentity } from '../git.js'
 import { remoteOf, sameRepo } from './google.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
@@ -111,6 +111,28 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     return (dir ? otherMachineLibraries(dir) : []).map((n) => path.join(cloneDir, n)).find((p) => fs.existsSync(p) && fs.statSync(p).isDirectory()) ?? null
   }
 
+  // GitHub 계정 이름 · noreply 이메일: 네트워크를 타므로 5분 동안 기억한다 (못 찾은 것도)
+  let ghIdentity: { at: number; value: Promise<{ name: string; email: string } | null> } | null = null
+  const fromGitHub = async (git: { name: string; email: string }): Promise<{ name: string; email: string } | undefined> => {
+    // 실사용(앱 저장소에서 돎) 또는 바깥을 바꿔 낀 테스트만 GitHub에 묻는다
+    if (opts.sandbox || (git.name && git.email) || !(opts.repoIO || opts.appRepo)) return undefined
+    if (!ghIdentity || Date.now() - ghIdentity.at > 5 * 60_000) ghIdentity = { at: Date.now(), value: ctx.account.token().then((tok) => githubIdentity(opts.repoIO ?? realIO, tok)).catch(() => null) }
+    const got = await ghIdentity.value
+    return got ? { name: git.name || got.name, email: git.email || got.email } : undefined
+  }
+
+  /**
+   * 개인 저장소는 앱을 시작할 때만 받고, 피드백 · 백업 폴더도 그때 정해진다. 그래서 바꾸면 서비스로 돌 때 바로 다시 시작한다
+   * (11/19 맥 스튜디오: "다시 시작하면 받아 둡니다"만 적혀 있고 버튼이 없어, 다른 컴퓨터의 프로젝트가 뜨지 않았다).
+   * 일하는 에이전트 대화가 있으면 끊지 않게 다시 시작하지 않는다(화면은 전처럼 다시 시작하라고 적는다)
+   */
+  const restartForPersonal = (v: C.SetupView): C.SetupView => {
+    if (opts.sandbox || !v.personal.remote || v.personal.active) return v
+    const steps = opts.appRepo?.steps
+    if (!steps?.canRestart() || ctx.agentChats?.work().chats.some((c) => c.state === 'running')) return v
+    return steps.restart() ? { ...v, personal: { ...v.personal, restarting: true } } : v
+  }
+
   const view = async (): Promise<C.SetupView> => {
     const cloneDir = defaultCloneDir(registry.list().map((r) => r.path))
     const remote = opts.sandbox ? registry.personalRepo ?? null : await personalRemote(opts.configDir)
@@ -120,9 +142,12 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     if (remote && copy) {
       try { active = (await git(copy, ['remote', 'get-url', 'origin'], { timeout: GIT_TIMEOUT.read })) === remote } catch { /* 사본이 없으면 아직 받지 않은 것 */ }
     }
+    const gitNow = await gitIdentity()
+    const gitFromGitHub = getFallbackIdentity() ? undefined : await fromGitHub(gitNow)
     return {
-      git: await gitIdentity(),
+      git: gitNow,
       ...(!opts.sandbox && getFallbackIdentity() && { gitAuto: getFallbackIdentity()! }),
+      ...(gitFromGitHub && { gitFromGitHub }),
       projects: registry.list().length,
       personal: { remote, active },
       agents: agentRows(),
@@ -229,7 +254,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       if (!githubRepoOf(url)) throw new WorkbenchError(502, t(`GitHub가 돌려준 주소를 알아보지 못했습니다: ${url}`, `Could not read the address GitHub returned: ${url}`))
     }
     registry.setPersonalRepo(url)
-    return view()
+    return restartForPersonal(await view())
   })
 
   app.put('/api/setup/personal', replies(C.SetupView), async (req): Promise<C.SetupView> => {
@@ -241,6 +266,6 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
       if (await isPublicOnGitHub(repo)) throw new WorkbenchError(400, t(`${repo}는 공개 저장소입니다. 비공개 저장소를 적어 주세요.`, `${repo} is a public repository. Enter a private one.`))
     }
     registry.setPersonalRepo(remote)
-    return view()
+    return restartForPersonal(await view())
   })
 }

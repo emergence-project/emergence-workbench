@@ -84,6 +84,7 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <div className="set-rows">
         <Row ok={!!(s?.git.name && s.git.email) || !!s?.gitAuto} name={t('커밋에 적힐 이름·이메일', 'Name and email on commits')} ui="커밋 이름"
           action={<>
+            {s?.gitFromGitHub && <button className="btn" data-ui="GitHub 계정으로 채우기" onClick={() => void setupApi.setGit(s.gitFromGitHub!).then((v) => { put(v); onSaved(t('GitHub 계정의 이름과 noreply 이메일로 채웠습니다', 'Filled in with your GitHub name and noreply email')) }).catch((e: Error) => onSaved(e.message))}>{t('GitHub 계정으로 채우기', 'Fill from GitHub')}</button>}
             {fromGoogle && <button className="btn" data-ui="구글 계정으로 채우기" onClick={() => void setupApi.setGit(fromGoogle).then((v) => { put(v); onSaved(t('구글 계정의 이름 · 이메일로 채웠습니다', 'Filled in from your Google account')) }).catch((e: Error) => onSaved(e.message))}>{t('구글 계정으로 채우기', 'Fill from Google')}</button>}
             <Edit label={t('수정', 'Edit')} onClick={() => setEditing('git')} />
           </>}>
@@ -141,11 +142,23 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
       <GoogleSettings onUiRestored={onUiRestored} />
 
       {editing === 'git' && s && <GitDialog init={s.git} me={me} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(t('커밋 이름을 저장했습니다', 'Commit name saved')) }} />}
-      {editing === 'personal' && s && <PersonalDialog init={s.personal.remote ?? ''} repos={github.data?.ok ? github.data.repos : []} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(v.personal.remote ? t('개인 저장소를 저장했습니다', 'Personal repository saved') : t('개인 저장소를 뺐습니다', 'Personal repository removed')) }} />}
+      {editing === 'personal' && s && <PersonalDialog init={s.personal.remote ?? ''} repos={github.data?.ok ? github.data.repos : []} onClose={() => setEditing(null)} onDone={(v) => {
+        put(v); setEditing(null)
+        if (v.personal.restarting) { onSaved(t('개인 저장소를 저장했습니다. 받아 오려고 앱을 다시 시작합니다', 'Personal repository saved. The app restarts to download it')); void reloadAfterRestart() }
+        else onSaved(v.personal.remote ? t('개인 저장소를 저장했습니다', 'Personal repository saved') : t('개인 저장소를 뺐습니다', 'Personal repository removed'))
+      }} />}
       {editing === 'library' && s && <LibraryDialog init={s.library.path ?? ''} onClose={() => setEditing(null)} onDone={(v) => { put(v); setEditing(null); onSaved(t('공용 라이브러리를 저장했습니다', 'Shared library saved')) }} />}
       {editing === 'me' && people && <PersonEditDialog person={me ?? blankAuthor} people={people} location={`${t('설정', 'Settings')} › ${t('계정', 'Accounts')}`} onSaved={onSaved} onDone={() => { setEditing(null); announce() }} />}
     </div>
   )
+}
+
+/** 서버가 꺼졌다가(최대 15초 기다림) 다시 답하면 화면을 새로 읽는다. 2분이 지나면 그만둔다 */
+async function reloadAfterRestart(): Promise<void> {
+  const up = async () => { try { return (await fetch('/api/app/status')).ok } catch { return false } }
+  const wait = () => new Promise((r) => setTimeout(r, 1000))
+  for (let i = 0; i < 15 && await up(); i++) await wait()
+  for (let i = 0; i < 120; i++) { if (await up()) { location.reload(); return } await wait() }
 }
 
 /** 이 컴퓨터에 설치 (scripts/install.sh): 앱 아이콘 · Dock · 서비스. 빠진 것이 있으면 설치 명령을 보인다. 에이전트 등록도 그 명령이 한다 */
