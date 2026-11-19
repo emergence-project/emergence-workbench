@@ -151,6 +151,7 @@ describe('피드백 맡기기 API', () => {
     expect(p).toContain('/fb/pictures/x.png')
     expect(p).toContain(e.review!.verdict)
     expect(appBriefFor({ branch: 'b', write: 'notes' })).not.toContain('feedback_answer')
+    expect(appBriefFor({ branch: 'b', write: 'notes' })).toContain('never name real research projects, people, personal emails or local paths')
     expect(appBriefFor({ branch: 'b', write: 'notes', feedback: true })).toContain('feedback_answer')
   })
 })

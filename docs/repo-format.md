@@ -573,7 +573,7 @@ chapters:
 
 ```
 workbench/
-  decisions/2026-10-08-lswt-research-notes.md   결정 하나 (왜 그렇게 정했나)
+  decisions/2026-10-08-research-notes-layout.md  결정 하나 (왜 그렇게 정했나)
   rules/writing-style.md                        이 프로젝트에만 해당하는 규칙 하나
 ```
 
