@@ -14,11 +14,10 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { readFeedbackCloud } from './feedbackCloud.js'
 import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, FileDiff, Snap } from './appWorktree.js'
-import { agentTurnReasons, agentTurns, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
+import { agentTurnReasons, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
 import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -133,6 +132,8 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   recordTurn?: boolean
   /** 중앙 대화: 앱 고치기 자리(APP_LIVE_MAX)가 차서 기다리는 하위 대화. 자리가 나면 agentCentral.ts가 차례로 연다 */
   held?: CentralOpenBody[]
+  /** 앱 고치기 · 피드백 대화: 끝나서 저절로 보관했는지 (한 번만. 사용자가 꺼내면 다시 넣지 않는다) */
+  closed?: boolean
 }
 
 /** 내 지시 하나 앞으로 되돌릴 때 쓰는 것. session이 없으면 처음부터 */
@@ -217,7 +218,7 @@ export class AgentChats {
   private readonly aborts = new Map<string, AbortController>()
   private readonly asks = new Map<string, (a: Answer) => void>()
   /** 줄 선 대화의 지시 (순서대로) */
-  private readonly queue: { id: string; prompt: string; images?: ImageIn[] }[] = []
+  protected readonly queue: { id: string; prompt: string; images?: ImageIn[] }[] = []
   /** 열어 둔 에이전트 */
   private readonly sessions = new Map<string, Session>()
   private readonly draftTimers = new Map<string, NodeJS.Timeout>()
@@ -631,65 +632,6 @@ export class AgentChats {
     return { key: c.feedback, ...(r.state && { state: r.state }), ...(pictures && { pictures }), replies: r.replies }
   }
 
-  /**
-   * 피드백 대화 돌보기 (1분마다, 설정 › 에이전트 "앱 피드백"):
-   * 1. 맡은 대화의 PR이 CI 빨강이면 실패 기록을 그 대화에 다시 보내 고치게 한다 (두 번까지).
-   * 2. CI 초록이면 설정대로 합친다: green = 바로, approved = 사용자가 그 답을 승인한 뒤, never = 합치지 않음.
-   * 3. 합친 커밋이 지금 도는 앱에 들어오면 shipped (상단바 "#n 반영됨").
-   *    main과 부딪혀 합치지 못하면 그 대화에 main을 받아 풀라고 한 번 보낸다.
-   * 4. 저절로 맡기기(instant)면, 도는 대화가 한도보다 적을 때 가장 오래된 에이전트 차례 하나를 맡긴다.
-   */
-  async tickFeedback(): Promise<void> {
-    const app = this.deps.app
-    const fb = this.deps.feedback
-    const s = this.deps.settings?.()
-    if (!app || !fb || !s) return
-    const items = new Map(listAllFeedback(fb.dir).map((e) => [e.key, e]))
-    for (const c of [...this.chats.values()].filter((x) => x.feedback && !LIVE.has(x.state))) {
-      try {
-        if (c.merged) {
-          if (!c.shipped && this.deps.inApp && (await this.deps.inApp(c.merged))) { c.shipped = true; this.touch(c) }
-          continue
-        }
-        if (!c.pr || !c.worktree || !c.branch) continue
-        const ck = await app.checks(c.worktree, c.branch)
-        if (!ck.done) continue
-        if (!ck.ok) {
-          const sig = ck.checks.map((x) => `${x.name}:${x.state}:${x.link ?? ''}`).join('|')
-          if (sig === c.ciSeen || (c.ciRetries ?? 0) >= 2) continue
-          c.ciSeen = sig
-          c.ciRetries = (c.ciRetries ?? 0) + 1
-          this.send(c.id, { text: t(`CI가 실패했습니다 (${c.ciRetries}/2). 아래 기록을 읽고 고친 뒤 다시 올려 주세요.\n\n${ck.log ?? ''}`.trim(), `CI failed (${c.ciRetries}/2). Read the log below, fix it and submit again.\n\n${ck.log ?? ''}`.trim()) })
-          continue
-        }
-        const e = items.get(c.feedback!)
-        const approved = !!e?.review && e.review.verdict === '승인' && (!e.status?.handled_at || e.review.at > e.status.handled_at)
-        if (s.merge === 'never' || (s.merge === 'approved' && !approved)) continue
-        if (app.conflicted && (await app.conflicted(c.worktree, c.branch))) {
-          const sig = `conflict:${ck.checks.map((x) => x.link ?? x.name).join('|')}`
-          if (sig !== c.ciSeen) {
-            c.ciSeen = sig
-            this.send(c.id, { text: t('PR이 main과 부딪혀 합치지 못했습니다. `git fetch origin main && git merge origin/main`으로 받아 풀고, 확인한 뒤 다시 올려 주세요.', 'The PR conflicts with main, so it was not merged. Run `git fetch origin main && git merge origin/main`, resolve, check and submit again.') })
-          }
-          continue
-        }
-        const m = await app.merge(c.worktree, c.branch)
-        c.merged = m.sha || 'merged'
-        c.items.push({ kind: 'text', at: now(), text: t(`PR #${m.number}을 합쳤습니다. 앱이 새 버전을 받아 쓰지 않는 틈에 다시 시작합니다.`, `Merged PR #${m.number}. The app picks up the new version and restarts when idle.`) })
-        this.touch(c)
-      } catch { /* gh · git 오류는 다음 차례에 다시 본다 */ }
-    }
-    if (s.feedback !== 'instant' || readFeedbackCloud(fb.dir).enabled || this.running() + this.queue.length >= this.deps.limit) return // 클라우드가 맡는 동안(cloud.yaml)은 쉰다 (11/4)
-    const next = [...items.values()]
-      .filter((e) => agentTurns(e).length && ![...this.chats.values()].some((c) => c.feedback === e.key && new Date(c.created).getTime() >= lastTouched(e)))
-      .filter((e) => !fb.claims?.taken(e.key, lastTouched(e)))
-      .sort((a, b) => lastTouched(a) - lastTouched(b))[0]
-    if (!next) return
-    // 다른 컴퓨터도 저절로 맡기기를 켰으면 먼저 적어 올린 쪽만 맡는다
-    if (fb.claims && !(await fb.claims.claim(next.key, lastTouched(next)).catch(() => false))) return
-    try { this.handOff(next.key) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ }
-  }
-
   /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */
   async appSubmit(id: string, b: AppSubmitBody): Promise<AppSubmitted> {
     const { c, w } = this.appOf(id)
@@ -851,7 +793,7 @@ export class AgentChats {
     this.touch(c)
   }
 
-  private running(): number {
+  protected running(): number {
     return [...this.chats.values()].filter((c) => c.state === 'running' || c.state === 'waiting').length
   }
 

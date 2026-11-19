@@ -10,6 +10,7 @@
 //   git/                              윈도우만: MinGit(앱에 넣으라고 Git for Windows가 내는 작은 git). git이 없는 윈도우에서도 프로젝트를 만들고 올리게 한다
 //   app/vendor/codex-acp/             Codex 연결부(@agentclientprotocol/codex-acp, Apache-2.0, 의존성까지 묶인 한 파일 2MB). 앱 대화의 Codex를
 //                                     앱에 든 node로 띄우고, 앱이 받은 codex 실행 파일(codexCli.ts)을 CODEX_PATH로 넘긴다 (agentKinds.ts)
+//   app/node_modules/@lydell/node-pty*  터미널(오른쪽 사이드바 › 터미널)의 셸 부품. 네이티브라 묶지 않고, 플랫폼 부품은 npm에서 받아 lock의 SHA-512를 맞춘다
 // 서버는 자기 파일 위치에서 세 단계 위를 앱 폴더로 본다(server.ts의 repoRoot). 그래서 저장소와 같은 모양으로 둔다.
 // Claude Code 실행 파일(플랫폼마다 200MB 남짓)은 넣지 않는다: 에이전트는 이 컴퓨터에 깐 claude를 쓴다(agentRunner.ts).
 import { execFileSync } from 'node:child_process'
@@ -50,6 +51,8 @@ const common = {
   bundle: true, platform: 'node', format: 'esm', target: 'node22', logLevel: 'warning',
   // 묶은 파일 안의 CommonJS 의존성이 require를 쓴다
   banner: { js: "import { createRequire as __rwRequire } from 'node:module'; const require = __rwRequire(import.meta.url);" },
+  // 네이티브 부품(.node)은 묶지 못한다: 아래 3-2에서 app/node_modules에 둔다
+  external: ['@lydell/node-pty'],
 }
 step('서버 묶기')
 await esbuild.build({ ...common, entryPoints: [path.join(root, 'apps/server/src/server.ts')], outfile: path.join(app, 'apps/server/dist/server.mjs') })
@@ -117,6 +120,30 @@ async function download(url, what) {
   // package.json도 둔다: index.js가 ES 모듈("type": "module")이고 버전이 거기 있다
   fs.copyFileSync(path.join(tmp, 'package/dist/index.js'), path.join(dest, 'index.js'))
   for (const f of ['LICENSE', 'package.json']) fs.copyFileSync(path.join(tmp, 'package', f), path.join(dest, f))
+  fs.rmSync(tmp, { recursive: true, force: true })
+}
+
+// 3-2. 터미널 부품 (@lydell/node-pty): 이 판의 index.js가 플랫폼 부품(@lydell/node-pty-<플랫폼>-<arch>)을 require한다.
+// 플랫폼 부품은 만드는 기계와 칩이 다를 수 있어(--arch) npm에서 받고, pnpm-lock.yaml의 SHA-512를 맞춘다
+{
+  // Windows에서는 git이 CRLF로 꺼낼 수 있다
+  const lock = fs.readFileSync(path.join(root, 'pnpm-lock.yaml'), 'utf8').replace(/\r\n/g, '\n')
+  const version = lock.match(/^  '@lydell\/node-pty@([^']+)':$/m)?.[1]
+  if (!version) throw new Error('pnpm-lock.yaml에 @lydell/node-pty가 없습니다')
+  const name = `node-pty-${platform}-${arch}`
+  const integrity = lock.match(new RegExp(`^  '@lydell/${name}@${version.replace(/\./g, '\\.')}':\n    resolution: \\{integrity: (sha512-[^}]+)\\}`, 'm'))?.[1]
+  if (!integrity) throw new Error(`pnpm-lock.yaml에 @lydell/${name}@${version}의 SHA-512가 없습니다`)
+  step(`터미널 부품 ${version} 받기 (${name})`)
+  const dest = path.join(app, 'node_modules/@lydell')
+  fs.mkdirSync(dest, { recursive: true })
+  fs.cpSync(fs.realpathSync(path.join(root, 'apps/server/node_modules/@lydell/node-pty')), path.join(dest, 'node-pty'), { recursive: true, dereference: true })
+  const buf = await download(`https://registry.npmjs.org/@lydell/${name}/-/${name}-${version}.tgz`, '터미널 부품')
+  const got = `sha512-${createHash('sha512').update(buf).digest('base64')}`
+  if (got !== integrity) throw new Error(`터미널 부품의 SHA-512가 다릅니다: ${got} ≠ ${integrity}`)
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-node-pty-'))
+  fs.writeFileSync(path.join(tmp, 'a.tgz'), buf)
+  execFileSync(windowsTar(), ['-xzf', 'a.tgz'], { cwd: tmp })
+  fs.cpSync(path.join(tmp, 'package'), path.join(dest, name), { recursive: true })
   fs.rmSync(tmp, { recursive: true, force: true })
 }
 

@@ -71,10 +71,10 @@ export function promptOf(text: string, attach?: Attach[]): string {
   if (!attach?.length) return text
   const how: Record<Attach['kind'], string> = {
     note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)', connector: 'connector (MCP server; its tools are mcp__<name>__*, use them for this)',
-    element: 'app screen element (data-ui names, outermost first; the attached image shows it)',
+    element: 'app screen element (data-ui names, outermost first; the attached image shows it)', terminal: 'terminal output (the user\'s own shell)',
   }
   const quote = (s?: string) => (s ?? '').split('\n').map((l) => `  > ${l}`).join('\n')
-  const lines = attach.map((a) => a.kind === 'selection' ? `- ${how.selection} from ${a.ref}:\n${quote(a.text)}`
+  const lines = attach.map((a) => a.kind === 'selection' || a.kind === 'terminal' ? `- ${how[a.kind]} from ${a.ref}:\n${quote(a.text)}`
     : a.kind === 'element' ? `- ${how.element} on ${a.ref}:\n${quote(a.text ?? a.label)}`
     : `- ${how[a.kind]}: ${a.ref}${a.label && a.label !== a.ref ? ` (${a.label})` : ''}`)
   return `${text}\n\nAttached by the user (read these first, nothing else unless needed):\n${lines.join('\n')}`

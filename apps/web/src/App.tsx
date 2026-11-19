@@ -5,7 +5,7 @@ import { api, subscribeEvents, type Chat, type LibraryInfo, type ManuscriptInfo,
 import { useFeedbackNotify } from './feedbackNotify'
 import { AGENT_OPEN, AgentBelow, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
-import { GlobalAgentPanel } from './AgentSide'
+import { AgentSideBody, useTerminalAvailable } from './AgentSide'
 import { FeedbackMode } from './FeedbackMode'
 import { AskTextHost } from './askText'
 import { partOf } from './aboutContent'
@@ -122,7 +122,7 @@ export function App() {
   const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true), globalRightHere = useRef(false), [agentSide, setAgentSide] = useStoredFlag('rw-agent-side', false), agentSideHere = useRef(false) // 아래 globalRightAble · agentSideAble
   // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT). 지식 화면 등은 그 화면의 것 (11/5 19:50)
   useEffect(() => {
-    const openCtx = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true })), open = () => { if (globalRightHere.current) setGlobalRight(true); else openCtx() }
+    const openCtx = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true })), open = () => { if (agentSideHere.current) setAgentSide(true); else if (globalRightHere.current) setGlobalRight(true); else openCtx() }
     const ask = () => { setRightMode('records'); open() }
     // 노트의 고른 글 메뉴 「에이전트에게」 (ChatComposer.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 탭(아래 자리면 아래 패널)을 연다
     const agent = () => { setRightMode('agent'); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') openCtx(); else setAgentPanel(true) }
@@ -130,7 +130,7 @@ export function App() {
     window.addEventListener(OPEN_RIGHT, open)
     window.addEventListener(AGENT_OPEN, agent)
     return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(AGENT_OPEN, agent) }
-  }, [setLayout, setGlobalRight])
+  }, [setLayout, setGlobalRight, setAgentSide])
   const [sideOpen, setSideOpen, closeSides] = useLeftSide(route.page === 'agent')
   usePhoneCloses(usePhone(), JSON.stringify(route), () => { closeSides(); setGlobalRight(false); setAgentSide(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
   const onGlobalPage = useRef(false)
@@ -253,8 +253,8 @@ export function App() {
   /** 사이드바를 쓰는 전역 화면 (지식: 개념노트 목록) */
   const globalSide = globalPageOf(route.page)?.side
   const globalRightAble = globalRightHere.current = !!globalPageOf(route.page)?.right?.(route)
-  // 오른쪽 사이드바가 없는 전역 화면은 그 자리에서 에이전트와 대화한다 (11/16 "모든 페이지에서 오른쪽 사이드바로", AgentSide.tsx). 에이전트 화면은 빼고
-  const agentSideAble = agentSideHere.current = globalPage && !globalRightAble && route.page !== 'agent', agentSideShown = agentSideAble && agentSide
+  // 오른쪽 사이드바가 없는 전역 화면은 그 자리에서 에이전트와 대화한다 (11/16 "모든 페이지에서 오른쪽 사이드바로", AgentSide.tsx). 에이전트 화면은 터미널만 (이 컴퓨터에서 연 화면, 11/19)
+  const terminalHere = useTerminalAvailable(), agentSideAble = agentSideHere.current = globalPage && !globalRightAble && (route.page !== 'agent' || terminalHere), agentSideShown = agentSideAble && agentSide
   const showSide = (!globalPage && !!rid && sideOpen) || (!!globalSide && sideOpen)
   // 왼쪽 사이드바 폭: 오른쪽 경계를 끌어 바꾸고, 두 번 누르면 처음 폭 (10/29 09:15 피드백: 오른쪽처럼 폭 조절)
   const [sideW, setSideW] = useState(() => { try { const v = Number(localStorage.getItem('rw-side-width')); return v >= SIDE_MIN && v <= SIDE_MAX ? v : SIDE_W } catch { return SIDE_W } })
@@ -542,14 +542,14 @@ export function App() {
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
               // 에이전트 탭 (10/22 안 A): 자리가 아래면 그 패널을 가리킨다
               const agent = agentPlace === 'right' ? (cmd ? agentPanelOf(LIBRARY_RID, undefined, LIBRARY_RID) : agentPanelOf(rid, ct ?? { target: 'project', title: summary.research.title })) : <AgentBelow open={agentPanel} onOpen={setAgentPanel} onHere={() => setAgentPlace('right')} />
-              return <RightSidebar info={info} agent={agent}
+              return <RightSidebar info={info} agent={agent} terminalRid={rid}
                 records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${ct?.target ?? 'project'}`} rid={rid}
                   target={ct ?? { target: 'project', title: summary.research.title }}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
           {agentPanel && agentPlace === 'bottom' && <AgentDock>{agentPanelOf(`${rid}-dock`)}</AgentDock>}</div>
         )}
-        {agentSideShown && <aside className="agent-side" data-ui="에이전트 사이드바"><GlobalAgentPanel onSaved={flash} /></aside>}
+        {agentSideShown && <aside className="agent-side" data-ui="에이전트 사이드바"><AgentSideBody onSaved={flash} terminalOnly={route.page === 'agent'} /></aside>}
       </div>
 
       {quickMemo && rapi && summary && (() => {

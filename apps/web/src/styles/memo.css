@@ -37,6 +37,15 @@ button.memo-chip:hover { border-color: var(--line-strong); color: var(--text); }
 /* 가운데 한 줄 수식 ($$…$$ · \[…\]): 넓으면 그 안에서 옆으로 넘긴다 */
 .memo-text .memo-math-block { display: block; overflow-x: auto; overflow-y: hidden; margin: var(--sp-1) 0; }
 .memo-text .memo-math-block .katex-display { margin: 0; }
+/* ``` 코드 블록 (CodeBlock.tsx): 위 줄에 언어 · 복사 · 터미널에서 실행, 넓으면 그 안에서 옆으로 넘긴다 */
+.memo-text .memo-pre { margin: var(--sp-1) 0; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-sunken); overflow: hidden; }
+.memo-pre-bar { display: flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-1) 2px var(--sp-2); border-bottom: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text-3); }
+.memo-pre-bar .sp { flex: 1; }
+.memo-pre-btn { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 1px var(--sp-2); border-radius: var(--r-xs); color: var(--text-2); font-size: var(--fs-xs); white-space: nowrap; }
+.memo-pre-btn:hover { background: var(--bg-hover); color: var(--text); }
+.memo-pre-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.memo-text .memo-pre pre { margin: 0; padding: var(--sp-2); overflow-x: auto; font: var(--fs-sm)/1.5 "SF Mono", Menlo, monospace; color: var(--text); white-space: pre; }
+
 /* 표 (| 머리 | … 다음 |---|): 노트의 표처럼 가로선 셋(위 · 머리 아래 · 아래), 넓으면 그 안에서 옆으로 넘긴다 */
 .memo-text .memo-table-wrap { overflow-x: auto; margin: 6px 0; }
 .memo-text .memo-table-wrap:first-child { margin-top: 0; }

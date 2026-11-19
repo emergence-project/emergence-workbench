@@ -192,6 +192,17 @@ describe('메모 마크다운', () => {
     expect(parseMemo('$-x$ 는 음수').map((b) => b.kind)).toEqual(['para'])
   })
 
+  it('``` 코드 블록은 줄을 그대로 두고 언어를 적는다 (닫지 않았으면 끝까지)', () => {
+    expect(parseMemo('설치:\n```bash\npnpm install --frozen-lockfile\n  ls -a\n```\n끝')).toEqual([
+      { kind: 'para', lines: [[{ kind: 'text', text: '설치:' }]] },
+      { kind: 'pre', lang: 'bash', text: 'pnpm install --frozen-lockfile\n  ls -a' },
+      { kind: 'para', lines: [[{ kind: 'text', text: '끝' }]] },
+    ])
+    expect(parseMemo('- 목록\n  ```\n  ls -a\n  ```')[1]).toEqual({ kind: 'pre', lang: '', text: 'ls -a' })
+    expect(parseMemo('````\n```\n$x$\n````')).toEqual([{ kind: 'pre', lang: '', text: '```\n$x$' }])
+    expect(parseMemo('```sh\necho 오는 중')).toEqual([{ kind: 'pre', lang: 'sh', text: 'echo 오는 중' }])
+  })
+
   it('표: 머리 줄 다음 구분 줄이 있으면 표로 읽고, 정렬과 칸 속 수식 · 코드를 지킨다', () => {
     const blocks = parseMemo('결과\n| 경우 | 값 | 비고 |\n|:--|--:|:-:|\n| $|x|$ | `a|b` | x \\| y |\n| 둘 | 2 |\n\n뒤 문단')
     expect(blocks.map((b) => b.kind)).toEqual(['para', 'table', 'para'])
