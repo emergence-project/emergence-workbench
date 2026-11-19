@@ -14,7 +14,8 @@ import { syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
 import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
 import { CLAIM_TTL_MS, isLiveClaim, lastTouched, readClaims, releaseClaims } from '../feedbackClaims.js'
-import { exportFeedback, importFeedback, PICTURE_NAME } from '../feedbackBundle.js'
+import { exportFeedback, importFeedback } from '../feedbackBundle.js'
+import { MOCKUP_FILE, mockupType } from '../feedbackMockups.js'
 import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
 import { revealInFinder } from '../materials.js'
 import { repoInfo } from '../gitsync.js'
@@ -189,12 +190,12 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     scheduleAutoPublish()
     return r
   })
-  /** 피드백의 그림 (feedback/pictures/ 안의 파일만): 남길 때의 화면, 처리 전후 그림 */
+  /** 피드백의 그림 (feedback/pictures/ 안의 파일만): 남길 때의 화면, 처리 전후 그림, 처리 · 답에 붙인 시안(그림 · html. html은 /api/ 응답 머리의 sandbox로 연다) */
   app.get<{ Querystring: { path?: string } }>('/api/feedback/picture', async (req, reply) => {
     const rel = req.query.path ?? ''
-    if (!opts.feedbackDir || !new RegExp(`^pictures/${PICTURE_NAME}$`, 'u').test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
+    if (!opts.feedbackDir || !new RegExp(`^pictures/${MOCKUP_FILE}$`, 'u').test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
     const file = assertRealInside(path.join(opts.feedbackDir, 'pictures'), path.join(opts.feedbackDir, rel), t('그림이 없음', 'No picture'))
-    return reply.type(rel.endsWith('.png') ? 'image/png' : 'image/jpeg').send(fs.readFileSync(file))
+    return reply.type(mockupType(rel)).send(fs.readFileSync(file))
   })
   /** 코멘트: 처리를 바꾸지 않고 묻거나 덧붙인다. reviews.yaml comments에 적고 피드백처럼 올린다 */
   app.post('/api/feedback/comment', replies(C.FeedbackCommented), async (req): Promise<C.FeedbackCommented> => {
