@@ -270,12 +270,22 @@ function CheckNotice({ part }: { part: AboutPart }) {
       <b>{t(`이 쪽의 확인 항목 ${list.length}`, `To review on this page: ${list.length}`)}</b>
       <ul>
         {list.map((s) => {
-          const prs = prsSince(s.sec, s.rec).map((n) => `#${n}`).join(' · ')
+          // 번호만이 아니라 그 업데이트가 무엇을 바꿨는지(업데이트 제목)까지 (11/16 12:45 "어디를 어떻게 바꾼 것인지"). 최근이 위
+          const prs = prsSince(s.sec, s.rec).sort((a, b) => b - a)
           return (
             <li key={s.key} className="about-ask-row">
               <span className="about-ask-q">
                 <a className="a" href={href({ page: 'about', part: part.id, ...(s.i > 0 && { anchor: sectionAnchor(s.sec, s.i) }) })}>{s.sec.title}</a><span className="muted"> · </span>
-                {t(`${prs}이 이 절을 고쳤습니다.`, `${prs} changed this section.`)}{s.sec.ask && <> {s.sec.ask}</>}
+                {t(`이 절을 고친 업데이트 ${prs.length}`, `${prs.length} update${prs.length > 1 ? 's' : ''} changed this section`)}{s.sec.ask && <> · {s.sec.ask}</>}
+                <ul className="about-ask-prs" data-ui="고친 업데이트 목록">
+                  {prs.map((n) => (
+                    <li key={n}>
+                      <a className="a" href={href({ page: 'settings', part: 'update', pr: n })} title={t('이 업데이트를 설정 › 업데이트 이력에서 봅니다', 'See this update in Settings › Update history')}>#{n}</a>
+                      {checks.prDates[n] && <span className="muted"> {shortDate(checks.prDates[n])}</span>}
+                      {checks.prTitles[n] && <> {checks.prTitles[n]}</>}
+                    </li>
+                  ))}
+                </ul>
               </span>
               <span className="about-ask-tools">
                 <button className="btn" data-ui="맞아요" title={t('읽어 보니 맞습니다. 이 절을 확인함으로 둡니다', 'You read it and it is right. Marks this section as reviewed')} onClick={() => void confirm(s)}>{t('맞아요', 'That is right')}</button>

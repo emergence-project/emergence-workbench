@@ -185,6 +185,15 @@ describe('메모 마크다운', () => {
     expect((blocks[2] as Extract<MemoBlock, { kind: 'list' }>).ordered).toBe(true)
   })
 
+  it('번호 목록은 하위 항목 · 빈 줄 · 들여쓴 이어진 줄을 건너 이어지고, 번호는 첫 항목부터 하나씩', () => {
+    const blocks = parseMemo('1. 하나\n   - 하위\n   이어서\n\n1. 둘\n   1. 안쪽\n   1. 안쪽 둘\n1. 셋\n\n문단\n\n4. 넷')
+    expect(blocks.map((b) => b.kind)).toEqual(['list', 'para', 'list'])
+    const list = blocks[0] as Extract<MemoBlock, { kind: 'list' }>
+    expect(list.items.map((i) => [i.depth, i.ordered, i.num])).toEqual([[0, true, 1], [1, false, undefined], [0, true, 2], [1, true, 1], [1, true, 2], [0, true, 3]])
+    expect(list.items[1]!.inline).toEqual([{ kind: 'text', text: '하위' }, { kind: 'text', text: ' ' }, { kind: 'text', text: '이어서' }])
+    expect((blocks[2] as Extract<MemoBlock, { kind: 'list' }>).items[0]!.num).toBe(4)
+  })
+
   it('수식 안의 *나 -는 목록·굵게로 읽지 않는다', () => {
     expect(parseInline('$a*b - c$ 와 `x**2`')).toEqual([
       { kind: 'math', tex: 'a*b - c' }, { kind: 'text', text: ' 와 ' }, { kind: 'code', text: 'x**2' },

@@ -11,7 +11,8 @@ export function registerAbout(app: FastifyInstance, ctx: RouteContext): void {
   const { opts } = ctx
   // PR 날짜 · 제목은 앱이 도는 동안 바뀌지 않는다(새 버전은 다시 시작한 뒤): 한 번만 읽는다
   let info: ReturnType<typeof prInfo> | null = null
-  const infoOnce = () => (info ??= opts.appRepo ? prInfo(opts.appRepo.root, opts.appRepo.running) : Promise.resolve({ prDates: {}, prTitles: {} }))
+  const repo = opts.aboutRepo ?? opts.appRepo
+  const infoOnce = () => (info ??= repo ? prInfo(repo.root, repo.running) : Promise.resolve({ prDates: {}, prTitles: {} }))
 
   app.get('/api/about/checks', replies(C.AboutChecks), async (): Promise<C.AboutChecks> => {
     const dir = opts.feedbackDir

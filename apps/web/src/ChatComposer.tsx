@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, typ
 import { useQuery } from '@tanstack/react-query'
 import { agentChatsApi, api, APP_RID, CENTRAL_RID, notesApi, type Attach, type AttachKind, type ChatEffort, type ChatMessageBody, type ChatMode, type ChatModel, type ChatSettings, type ImageIn } from './api'
 import { useCmdEnter } from './cmdEnter'
+import { onListKey } from './listInput'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { qk } from './queries'
@@ -322,6 +323,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); picks[hi]?.run(); return }
     }
     if (menu && e.key === 'Escape') { e.preventDefault(); setClosed(menu.start); return }
+    // 목록 줄에서 Enter는 다음 항목, Tab · Shift+Tab은 들여쓰기 · 내어쓰기 (목록 줄이 아니면 Shift+Tab은 허락 단계)
+    if (onListKey(e, setText)) { setCaret(e.currentTarget.selectionStart); return }
     if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust, isClaude(settings.agent)) }); return }
     if (e.key === 'Escape' && onStop && !text) { e.preventDefault(); onStop(); return }
     sendKey.onKeyDown(e)

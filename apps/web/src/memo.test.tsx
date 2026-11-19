@@ -18,6 +18,14 @@ describe('MemoText list markers', () => {
     expect(html).toContain('<ol>')
     expect(html).not.toContain('list-style-type:')
   })
+
+  it('numbers items across sub-items and blank lines instead of restarting at 1', () => {
+    const html = renderToStaticMarkup(<MemoText text={'1. 하나\n   - 하위\n\n1. 둘'} />)
+    expect(html.match(/<ol>/g)).toHaveLength(1)
+    expect(html).toContain('<li value="1"')
+    expect(html).toContain('<li value="2"')
+    expect(html).toContain('list-style-type:circle')
+  })
 })
 
 // React가 실제로 사용하는 중첩 자식 key 경로로 편집 중인 항목의 정체성을 확인한다.

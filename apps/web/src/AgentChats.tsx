@@ -11,6 +11,7 @@ import { qk } from './queries'
 import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
+import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
 import { openRecordComposer } from './RecordContext'
@@ -84,7 +85,7 @@ export { AGENT_OPEN, sendToAgent } from './ChatComposer'
 
 // ---------- 목록 ----------
 
-export const useChatList = (rid?: string) => useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) })
+export const useChatList = (rid?: string) => { useSeen(); return useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) }) }
 /** 탭 이름 (App.tsx tabTitle, 나란히 연 대화): 불러온 대화의 이름 */
 export const chatTitles = new Map<string, string>()
 const useChat = (id: string) => useQuery({ queryKey: qk.agentChat(id), queryFn: () => agentChatsApi.get(id).then((c) => { chatTitles.set(c.id, c.title); return c }) })
@@ -101,8 +102,6 @@ function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): stri
 /** 대화 목록 · 머리에 보일 프로젝트 이름 (앱 고치기 대화는 「앱」) */
 const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : rid === CENTRAL_RID ? t('중앙', 'Central') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projects?.find((p) => p.id === rid)?.title ?? rid)
 
-/** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화 */
-const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error'
 /** 대화의 묶음 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 2절): 기록의 질문 · 지시가 연 대화와 직접 연 대화를 섞지 않는다 */
 export const chatGroupName = (c: Pick<ChatRow, 'record'>) => c.record ? t('기록의 질문 · 지시', 'Record questions and instructions') : t('직접 연 대화', 'Conversations you opened')
 export function ChatGroups({ chats, line }: { chats: ChatRow[]; line(c: ChatRow): ReactNode }) {
@@ -125,7 +124,7 @@ export function ChatLine({ c, on, onOpen, actions = false, pick }: { c: ChatRow;
   const line = (
     <button className={`nav ac-line${on && !pick ? ' on' : ''}${pick?.on ? ' picked' : ''}`} data-ui="대화 줄" data-ui-item={c.title} title={pick?.disabled ?? c.title}
       disabled={!!pick?.disabled} aria-pressed={pick ? pick.on : undefined} onClick={pick ? pick.toggle : onOpen}>
-      <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot"><ChatStateMark state={c.state} name={stateName(c)} /></span>
+      <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot">{isUnseen(c) ? <span className="turn-dot" role="img" aria-label={t('확인하지 않음', 'Not checked')} title={t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} /> : <ChatStateMark state={c.state} name={stateName(c)} />}</span>
         <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
         {!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{stateName(c)}
@@ -629,6 +628,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const saving = useRef({ chain: Promise.resolve(), n: 0 })
   // 대화는 마지막 400줄만 두어 줄 수가 그대로일 수 있다: 바뀐 시각으로 본다
   const changed = chat?.updated
+  useMarkSeen(id, changed)
   useEffect(() => { setOver({}); atEnd.current = true; setBehind(false) }, [id])
   useEffect(() => {
     const el = listRef.current
@@ -1177,7 +1177,7 @@ export function useAgentNotify(): void {
 export function AgentRailCount() {
   const list = useChatList().data?.chats
   const n = list?.filter(myTurn).length ?? 0
-  return n ? <span className="rail-count" title={t(`답을 기다리는 대화 ${n}개`, `${n} conversation(s) waiting for you`)}>{n}</span> : null
+  return n ? <span className="rail-count" title={t(`내 차례인 대화 ${n}개 (답을 기다리거나 끝났는데 확인하지 않은 대화)`, `${n} conversation(s) for you (waiting for you, or finished and not checked)`)}>{n}</span> : null
 }
 
 // ---------- 오른쪽 사이드바의 에이전트 탭 패널 ----------
