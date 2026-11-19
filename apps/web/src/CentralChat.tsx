@@ -6,6 +6,7 @@ import { agentChatsApi, api, APP_RID, type CentralKid, type ChatRow } from './ap
 import { ChatStateMark, stateName } from './AgentChats'
 import { t } from './i18n'
 import { screenLine } from './screenView'
+import { Mockups } from './Mockups'
 import { qk } from './queries'
 import { go } from './router'
 
@@ -75,7 +76,7 @@ export function CentralKids() {
   const closed = kids.filter((k) => k.archived)
   const where = (rid: string) => (rid === APP_RID ? t('앱', 'App') : projects?.find((p) => p.id === rid)?.title ?? rid)
   const card = (k: CentralKid) => (
-    <button key={k.id} className="ac-kid" data-ui="하위 대화 줄" data-ui-item={k.title} onClick={() => go({ page: 'agent', id: k.id })}>
+    <button className="ac-kid" data-ui="하위 대화 줄" data-ui-item={k.title} onClick={() => go({ page: 'agent', id: k.id })}>
       <span className="ac-kid-top">
         <span className="ac-line-dot"><ChatStateMark state={k.state} name={stateName(k)} /></span>
         <span className="ac-kid-title">{k.title}</span>
@@ -85,11 +86,13 @@ export function CentralKids() {
       {(k.summary ?? k.report) && <span className="ac-kid-report">{k.summary ?? k.report}</span>}
     </button>
   )
+  // 하위 대화 보고에 나온 시안은 줄 아래에 (11/19). 줄이 버튼이라 그 밖에 둔다
+  const row = (k: CentralKid) => <div key={k.id} className="ac-kid-row">{card(k)}<Mockups text={k.report} chat={k.id} /></div>
   return (
     <div className="ac-central-kids" data-ui="하위 대화">
-      {open.map(card)}
+      {open.map(row)}
       {!!closed.length && <button className="a ac-kid-closed" aria-expanded={closedOpen} onClick={() => setClosedOpen(!closedOpen)}>{t(`닫은 대화 ${closed.length}`, `${closed.length} closed`)} {closedOpen ? '‹' : '›'}</button>}
-      {closedOpen && closed.map(card)}
+      {closedOpen && closed.map(row)}
     </div>
   )
 }

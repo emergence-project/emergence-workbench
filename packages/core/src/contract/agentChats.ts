@@ -378,3 +378,9 @@ export type CentralOpenBody = z.infer<typeof CentralOpenBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
 export type CentralOpened = z.infer<typeof CentralOpened>
 export type CentralAnswerBody = z.infer<typeof CentralAnswerBody>
+
+// ---------- 시안 (11/19 "시안을 화면에서 바로") ----------
+
+/** GET /agent-mockups/:dir: 앱 고치기 대화 작업 폴더의 mockups/ 안 파일 이름 (그림 · html · css) */
+export const MockupFiles = z.object({ files: z.array(z.string()) }).strict()
+export type MockupFiles = z.infer<typeof MockupFiles>
