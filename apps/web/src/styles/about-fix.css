@@ -1,6 +1,7 @@
-/* 소개 글 고치기 (10/4 14:51): 칸 머리의 "고치기"와 고친 글 상자 */
-.about .sec-head .about-fix { font-size: var(--fs-sm); color: var(--text-3); }
-.about .sec-head .about-fix:hover { color: var(--text); }
+/* 소개 글 고치기 (10/4 14:51): 툴바 연필로 켜는 수정 모드(11/19)와 고친 글 상자 */
+.about section.about-fixable .about-sec-body { cursor: text; border-radius: var(--r-sm); outline: 1.5px dashed transparent; outline-offset: var(--sp-2); }
+.about section.about-fixable .about-sec-body:hover { outline-color: var(--line); }
+.about section.about-fixable .about-sec-body a { cursor: text; }
 .about-fix-box { display: flex; flex-direction: column; gap: var(--sp-2); }
 .about-fix-box p { margin: 0; font-size: var(--fs-sm); }
 .about-fix-tools { display: flex; justify-content: flex-end; gap: var(--sp-2); }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { api, setAboutCheck } from './api'
 import { AboutFixBar, prepareFix, type FixUnit } from './AboutFix'
 import { AboutHistorySide } from './AboutHistorySide'
@@ -32,6 +32,8 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
   const prev = pages[i - 1]
   const next = pages[i + 1]
   const [history, setHistory] = useState(historyOn)
+  // 수정 모드 (11/19 "모드전환식이 어떨까? 연필을 모든 곳마다 두는 것은 번잡해질 것 같아"): 켜면 절 본문을 눌러 그 자리에서 고친다
+  const [fixMode, setFixMode] = useState(false)
   const [picked, setPicked] = useState<number | null>(null)
   useEffect(() => { setPicked(null) }, [p.id])
   const sec = at >= 0 ? p.sections![at] : undefined
@@ -47,11 +49,14 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
       <section className="pane">
         <div className="pane-head about-tools" data-ui="머리줄">
           <span className="crumb"><b>{sec ? sec.title : p.title}</b></span><span className="sp" />
+          <button className={`icon-btn${fixMode ? ' on' : ''}`} data-ui="수정 모드" data-tip={fixMode ? t('수정 끄기', 'Stop editing') : t('수정: 절을 눌러 그 자리에서 고칩니다', 'Edit: click a section to edit it in place')} aria-pressed={fixMode}
+            aria-label={t('수정 모드', 'Edit mode')} onClick={() => setFixMode(!fixMode)}>{Icon.pencil}</button>
           <HistoryButton on={history} onChange={showHistory} />
         </div>
         <div className="scroll" ref={scroll}>
           <PartTitle.Provider value={p.ui ?? p.title}>
-            <article className="page-body about" data-ui={`소개 › ${p.ui ?? p.title}`}>
+            <FixMode.Provider value={fixMode}>
+            <article className={`page-body about${fixMode ? ' about-fix-mode' : ''}`} data-ui={`소개 › ${p.ui ?? p.title}`}>
               <header>
                 {p.id === 'intro' ? <h1 className="h-title" data-ui="제목">Emergence Workbench</h1> : <h1 className="h-title">{p.title}</h1>}
                 {at <= 0 && <p className="h-sub" data-ui="부제">{p.id === 'intro' ? INTRO_SUB : p.sub}</p>}
@@ -65,6 +70,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
                 {next ? <a className="about-step next" href={pageHref(next)}><span className="k">{t('다음', 'Next')} ›</span><b>{pageLabel(next, p)}</b></a> : <span />}
               </footer>
             </article>
+            </FixMode.Provider>
           </PartTitle.Provider>
         </div>
       </section>
@@ -148,8 +154,8 @@ function Intro() {
       <Section name={t('화면 구조', 'Screen layout')} ui="화면 구조">
         <p className="about-lead">{t('한 창이 다섯 영역으로 나뉩니다. 영역을 누르면 그 설명으로 갑니다.', 'One window is divided into five areas. Click an area to go to its description.')}</p>
         <div className="about-map" role="img" aria-label={t('화면 구조: 위에 상단바, 왼쪽에 레일과 왼쪽 사이드바, 가운데 작업 패널, 오른쪽에 오른쪽 사이드바', 'Screen layout: top bar on top, rail and left sidebar on the left, work panel in the middle, right sidebar on the right')}>
-          <a className="m-title" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('(새 버전) · 검색 · 두 패널 · 피드백 · 오른쪽 사이드바 여닫기', '(New version) · Search · Two panes · Feedback · Toggle right sidebar')}</span></a>
-          <div className="m-rail">
+          <a className="m-title" data-ui="상단바" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('(새 버전) · 검색 · 두 패널 · 피드백 · 오른쪽 사이드바 여닫기', '(New version) · Search · Two panes · Feedback · Toggle right sidebar')}</span></a>
+          <div className="m-rail" data-ui="레일">
             <a href={toPart('home')}>{t('홈', 'Home')}</a>
             <a href={toPart('agents')}>{t('에이전트', 'Agents')}</a>
             <a href={toPart('home')}>{t('저장소', 'Repositories')}</a>
@@ -164,7 +170,7 @@ function Intro() {
             <a href={toPart('settings')}>{t('설정', 'Settings')}</a>
             <i>{t('레일', 'Rail')}</i>
           </div>
-          <div className="m-side">
+          <div className="m-side" data-ui="왼쪽 사이드바">
             <a href={toPart('project')}>{t('프로젝트 | 파일 | 목차', 'Project | Files | Outline')}<small>{t('위의 탭. 목차는 지금 연 노트 · 보고서의 절', 'Tabs on top. Outline is the sections of the open note or report')}</small></a>
             <a href={toPart('project')}>{t('프로젝트 정보', 'Project info')}<small>{t('현황 · 변경사항 · 규칙', 'Status · Changes · Rules')}</small></a>
             <a href={toPart('project')}>{t('기록', 'Records')}<small>{t('판단 · 맡긴 일 · 할 일 · 메모 · 질문', 'Decide · Delegated tasks · To-dos · Memos · Questions')}</small></a>
@@ -173,9 +179,9 @@ function Intro() {
             <a href={toPart('reading')}>{t('자료', 'Materials')}<small>{t('원고 · 참고 자료', 'Manuscripts · Reference materials')}</small></a>
             <i>{t('왼쪽 사이드바', 'Left sidebar')}</i>
           </div>
-          <a className="m-main" href={toPart('project')}><b>{t('주 패널 (왼쪽)', 'Main pane (left)')}</b><span>{t('고른 노트·화면. 탭이 없으면 프로젝트 첫 화면. 노트는 늘 여기', 'The chosen note or screen. With no tabs, the project home screen. Notes always open here')}</span></a>
-          <a className="m-other" href={toPart('reading')}><b>{t('옆 패널 (오른쪽)', 'Side pane (right)')}</b><span>{t('노트의 PDF, 함께 볼 논문·진술', 'The note\'s PDF, papers and statements to view alongside')}</span></a>
-          <a className="m-ctx" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('정보 | 기록 (메모 · 할 일 · 질문)', 'Info | Records (memos · to-dos · questions)')}</span></a>
+          <a className="m-main" data-ui="주 패널" href={toPart('project')}><b>{t('주 패널 (왼쪽)', 'Main pane (left)')}</b><span>{t('고른 노트·화면. 탭이 없으면 프로젝트 첫 화면. 노트는 늘 여기', 'The chosen note or screen. With no tabs, the project home screen. Notes always open here')}</span></a>
+          <a className="m-other" data-ui="옆 패널" href={toPart('reading')}><b>{t('옆 패널 (오른쪽)', 'Side pane (right)')}</b><span>{t('노트의 PDF, 함께 볼 논문·진술', 'The note\'s PDF, papers and statements to view alongside')}</span></a>
+          <a className="m-ctx" data-ui="오른쪽 사이드바" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('정보 | 기록 (메모 · 할 일 · 질문)', 'Info | Records (memos · to-dos · questions)')}</span></a>
         </div>
         <p className="about-note">{t('프로젝트 화면의 구조입니다. 상단바의 두 패널 버튼은 프로젝트 화면에만, 오른쪽 사이드바 버튼은 프로젝트와 지식·논문·그림 첫 화면에 있습니다. 홈·지식·논문·그림·네트워킹·피드백·소개·설정은 프로젝트 밖 화면이고, 지식·논문·그림·네트워킹·소개·설정은 자기 왼쪽 사이드바가 있습니다.', 'This is the layout of the project screen. The Two panes button in the top bar is only on project screens, and the right sidebar button is on projects and on the Knowledge, Papers and Figures home screens. Home, Knowledge, Papers, Figures, Networking, Feedback, About and Settings are screens outside projects, and Knowledge, Papers, Figures, Networking, About and Settings have their own left sidebar.')}</p>
       </Section>
@@ -185,18 +191,18 @@ function Intro() {
           <p className="about-lead">
             이 소개는 Claude(코딩 에이전트)가 지금까지의 대화와 피드백에서 무엇을 알아들었고 그것을 화면에 어떻게 만들었는지 보여 드리는 곳입니다.
             쪽마다 화면 하나를 다루고, 지금 앱이 어떤지를 화면의 짜임대로 적습니다. 승인하신 피드백은 여기 설명으로 옮기고 피드백 목록에서는 지웁니다.
-            틀린 곳이 있으면 절 제목 오른쪽 연필(수정)로 글을 직접 고쳐 보내 주세요.
+            틀린 곳이 있으면 툴바 오른쪽 연필로 수정 모드를 켜고 그 절을 눌러 글을 직접 고쳐 보내 주세요. 그림의 칸은 피드백 모드로 가리켜 적습니다.
           </p>
         ) : (
           <p className="about-lead">
             This page is where Claude (the coding agent) shows what it understood from the conversations and feedback so far, and how it built that into the screens.
             Each part covers one screen and describes how the app works now, following the layout of the screen. Feedback you approve moves into these descriptions and is deleted from the feedback list.
-            If something is wrong, edit the text directly with the pencil (Edit) at the right of a section heading and send it.
+            If something is wrong, turn on editing with the pencil at the right of the toolbar, click the section, edit the text directly and send it. Point at a box in a figure with feedback mode and write about it.
           </p>
         )}
         <div className="about-legend">
           <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('내가 확인한 뒤 그 절을 고친 업데이트가 있는 절. 그 쪽 맨 위 「이 쪽의 확인 항목」에서 「맞아요」로 확인함이 되고, 왼쪽 목록에 "확인 N"으로 표시됩니다', 'A section that an update changed after you reviewed it. "That is right" in "To review on this page" at the top marks it reviewed, and the list on the left shows "Review N"')}</span>
-          <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('연필로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited with the pencil and sent. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
+          <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('수정 모드로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
           <span><b>{Icon.history}</b> {t('툴바 오른쪽 시계로 이력 보기를 켜면, 오른쪽 사이드바에 이 쪽을 고친 업데이트가 최근 것부터 열립니다. 하나를 고르면 그 업데이트가 고친 절에 테두리가 둘립니다', 'Turn on history with the clock at the right of the toolbar, and the right sidebar lists the updates that changed this page, newest first. Choosing one draws a border around the sections it changed')}</span>
         </div>
       </Section>
@@ -296,7 +302,7 @@ function CheckNotice({ part }: { part: AboutPart }) {
         })}
       </ul>
       {error && <p className="muted">{error}</p>}
-      <p className="muted">{t('"답하기"로 보낸 답은 피드백으로 남고 다음 피드백 처리 때 반영됩니다. 글을 직접 고치려면 절 제목 오른쪽 연필(수정)을 누르세요.', 'Answers sent with "Reply" are saved as feedback and applied at the next round of feedback handling. To edit the text directly, press the pencil (Edit) at the right of a section heading.')}</p>
+      <p className="muted">{t('"답하기"로 보낸 답은 피드백으로 남고 다음 피드백 처리 때 반영됩니다. 글을 직접 고치려면 툴바 오른쪽 연필로 수정 모드를 켜고 그 절을 누르세요.', 'Answers sent with "Reply" are saved as feedback and applied at the next round of feedback handling. To edit the text directly, turn on editing with the pencil at the right of the toolbar and click the section.')}</p>
     </aside>
   )
 }
@@ -506,6 +512,8 @@ function Next() {
 }
 
 const PartTitle = createContext('')
+/** 툴바의 수정 모드가 켜졌는지. 켜진 동안만 절을 눌러 고친다 */
+const FixMode = createContext(false)
 
 /** 절 머리의 확인 상태와 이력 보기에 쓰는 것 */
 interface SectionCheckView { key: string; rec?: AboutCheck; prs: number[]; dates: Record<string, string>; enabled: boolean; history: boolean; state: AboutCheckState }
@@ -515,6 +523,7 @@ const shortDate = (d?: string) => { const m = d && /^\d{4}-(\d{2})-(\d{2})/.exec
 
 function Section({ name, ui, id, check, picked, children }: { name: string; ui: string; id?: string; check?: SectionCheckView; picked?: number | null; children: ReactNode }) {
   const part = useContext(PartTitle)
+  const fixMode = useContext(FixMode)
   const body = useRef<HTMLDivElement>(null)
   // 고치기 (시안 1-2절 안 C): 본문을 그 자리에서 고친다. 끝나면 round를 올려 본문을 새로 그린다(고친 글 · 잠금 표시를 지움)
   const [fix, setFix] = useState<{ units: FixUnit[]; figures: number } | null>(null)
@@ -529,18 +538,21 @@ function Section({ name, ui, id, check, picked, children }: { name: string; ui: 
   const checked = check?.rec?.checked !== undefined
   // 이력 사이드바에서 고른 업데이트가 이 절을 고쳤는지
   const mark = picked == null ? '' : check?.prs.includes(picked) ? ' about-picked' : ' about-dim'
+  // 수정 모드에서 본문을 누르면 그 절을 고친다. 그 누름은 링크로 넘어가지 않는다
+  const fixable = fixMode && !editing
+  const start = (e: MouseEvent) => { if (!fixable) return; e.preventDefault(); e.stopPropagation(); setEditing(true) }
   return (
-    <section data-ui={ui} id={id && `about-${id}`} className={`${editing ? 'about-editing' : ''}${mark}`}>
+    <section data-ui={ui} id={id && `about-${id}`} className={`${editing ? 'about-editing' : fixable ? 'about-fixable' : ''}${mark}`}>
       <div className="sec-head">
         <h2>{name}</h2><span className="sp" />
         {editing && <span className="about-pending" data-ui="고치는 중">{t('고치는 중', 'Editing')}</span>}
         {check?.state === 'unchecked' && <span className="about-unsure" data-ui="확인 전">{t('확인 전', 'Not reviewed')}</span>}
         {check?.state === 'pending' && <span className="about-pending" data-ui="반영 대기" title={t('고쳐 보낸 글을 아직 반영하지 않았습니다', 'The text you sent has not been applied yet')}>{t('반영 대기', 'Waiting to apply')}</span>}
         {check?.history && check.state === 'checked' && checked && <span className="about-checked" data-ui="확인함"><i className="mark-ico" aria-hidden>{Icon.check}</i>{t(`확인함 ${shortDate(check.rec!.at)}`, `Reviewed ${shortDate(check.rec!.at)}`)}{check.rec!.checked ? ` · #${check.rec!.checked}` : ''}</span>}
-        {!editing && <button className="icon-btn about-fix" data-ui="고치기" data-tip={t('수정', 'Edit')} aria-label={t(`수정 — ${name}`, `Edit: ${name}`)} onClick={() => setEditing(true)}>{Icon.pencil}</button>}
       </div>
       {mark === ' about-dim' && <p className="muted about-dim-note">{t(`고른 업데이트 #${picked}은 이 절을 고치지 않았습니다.`, `The selected update #${picked} did not change this section.`)}</p>}
-      <div key={round} ref={body} className="about-sec-body" contentEditable={editing || undefined} suppressContentEditableWarning spellCheck={false}>{children}</div>
+      <div key={round} ref={body} className="about-sec-body" contentEditable={editing || undefined} suppressContentEditableWarning spellCheck={false}
+        onClickCapture={start} title={fixable ? t(`눌러서 「${name}」 수정`, `Click to edit "${name}"`) : undefined}>{children}</div>
       {editing && fix && <AboutFixBar part={part} name={ui} root={body} units={fix.units} figures={fix.figures} check={check} onClose={stop} />}
     </section>
   )
