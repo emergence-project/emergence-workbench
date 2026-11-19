@@ -171,6 +171,50 @@ describe('중앙과 하위 대화', () => {
     release()
     chats.stopAll()
   })
+
+  it('중앙과 급한 앱 고치기는 줄을 서지 않고 메모리도 보지 않는다 (급한 것은 한 번에 하나), 줄 선 차례는 앱이 다시 켜져도 남는다', async () => {
+    let release!: () => void
+    const hold = new Promise<void>((r) => { release = r })
+    const slow: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
+      seen.push(input)
+      yield { type: 'session', id: `s${seen.length}` }
+      if (input.appChat) await hold
+      yield { type: 'result', ok: true }
+    }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-central-'))
+    dirs.push(dir)
+    const opts = { dir, runner: slow, limit: 1, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {}, app: sampleAppWork(path.join(dir, 'wt')) }
+    const chats = new CentralChats(opts)
+    chats.memory = async () => ({ free: 1, total: 128 * GB })
+    const c = chats.talk('고쳐')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    const a = await chats.openKid({ role: 'app', title: '하나', task: '고쳐' })
+    await vi.waitFor(() => expect(chats.get(a.id).state).toBe('running'))
+    const b = await chats.openKid({ role: 'app', title: '둘', task: '두 번째 지시' })
+    expect(chats.get(b.id).state).toBe('queued')
+    // 자리가 다 찼어도 중앙은 바로 돈다
+    chats.talk('어떻게 됐어?')
+    expect(chats.get(c.id).state).toBe('running')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    // 메모리가 바닥나도 급한 앱 고치기는 바로 열고, 둘째는 막는다
+    chats.memory = async () => ({ free: 0.01, total: 32 * GB })
+    const u = await chats.openOrHold({ role: 'app', title: '앱 멈춤', task: '앱이 멈췄어', urgent: true })
+    expect(chats.get(u.kid!.id)).toMatchObject({ state: 'running' })
+    await expect(chats.openKid({ role: 'app', title: '또', task: '고쳐', urgent: true })).rejects.toThrow(/한 번에 하나|one urgent/)
+    chats.stopAll()
+    release()
+    await vi.waitFor(() => expect(chats.get(a.id).state).not.toBe('running'))
+
+    // 다시 켜면: 줄 선 대화는 받은 지시 그대로 다시 줄을 서고, 자리가 나면 그 지시로 돈다
+    const again = new CentralChats(opts)
+    expect(again.get(b.id).state).toBe('queued')
+    expect(again.get(b.id).items.some((it) => it.kind === 'error')).toBe(false)
+    seen.length = 0
+    again.resumeRestarted()
+    await vi.waitFor(() => expect(again.get(b.id).state).toBe('idle'))
+    expect(seen.find((s) => s.appChat === b.id)!.prompt).toContain('두 번째 지시')
+    again.stopAll()
+  })
 })
 
 describe('중앙의 계정과 피드백 수', () => {

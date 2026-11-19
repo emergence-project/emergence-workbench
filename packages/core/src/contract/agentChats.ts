@@ -366,6 +366,8 @@ export const CentralMessageBody = z.object({ text: message.text, attach: message
 export const CentralOpenBody = z.object({
   role: z.enum(CENTRAL_ROLES), title: z.string().trim().min(1).max(60), task: z.string().trim().min(1).max(20000),
   project: z.string().optional(), feedback: z.string().optional(),
+  /** 앱 고치기만: 앱 버그 · 앱이 멈춘 때 메모리 · 줄과 상관없이 바로 연다 (한 번에 하나, 11/19) */
+  urgent: z.boolean().optional(),
 }).strict()
 export const CentralSendBody = z.object({ id: z.string(), text: z.string().trim().min(1).max(20000) }).strict()
 export const CentralCloseBody = z.object({ id: z.string(), summary: z.string().trim().min(1).max(2000) }).strict()
