@@ -18,6 +18,22 @@ describe('상태만 보는 명령 (중앙 대화)', () => {
       'git branch -D x', 'rm a', 'curl x', 'ps eww', 'env', 'cat <(ls)', 'diff <(ls) a', 'top',
     ]) expect(stateOnlyCommand(c), c).toBe('no')
   })
+  it('git -C · gh repo list · gh api GET 같은 읽기는 묻지 않는다 (중앙과 그가 띄운 보조 에이전트)', () => {
+    for (const w of [{}, { gitWrites: true }]) for (const c of [
+      'gh repo list emergence-project --json name,visibility', 'git -C ~/GitHub/research-library remote get-url origin; gh repo list emergence-project',
+      'gh api repos/x/y/pulls', 'gh api repos/x/y/pulls --paginate --jq ".[].number"', 'gh api -X GET search/issues -f q=x', 'gh api --method=GET a -F per_page=100',
+      'gh api graphql -f query="{ viewer { login } }"', 'gh pr checks 3', 'gh pr list --state open', 'gh pr diff 3', 'gh run list -L 5', 'gh repo view',
+      'gh release list', 'gh workflow list', 'gh auth status', 'gh search prs x', 'git ls-remote origin', 'git worktree list', 'git rev-list --count HEAD',
+    ]) expect(stateOnlyCommand(c, w), c).toBe('ok')
+  })
+  it('gh api 쓰기 · 비밀 보이기는 막는다', () => {
+    for (const w of [{}, { gitWrites: true }]) for (const c of [
+      'gh api -X POST repos/x/y/issues', 'gh api -XDELETE repos/x/y', 'gh api --method PATCH a', 'gh api repos/x/y/issues -f title=x', 'gh api a -F x=1',
+      'gh api a --input f.json', 'gh api graphql -f query="mutation { x }"', 'gh api -X GET graphql -f query="mutation { x }"', 'gh auth status --show-token',
+      'gh auth token', 'gh repo delete x', 'gh repo create x', 'gh release create v1', 'gh workflow run x', 'git ls-remote --upload-pack=sh x', 'git worktree add x',
+      'git worktree remove x', 'git submodule update',
+    ]) expect(stateOnlyCommand(c, w), c).toBe('no')
+  })
   it('비밀이 든 곳을 보면 한 번 묻는다', () => {
     for (const c of ['cat ~/.ssh/id_ed25519', 'ls ~/.aws', 'cat .env', 'grep -r token ~/.config/gh']) expect(stateOnlyCommand(c), c).toBe('sensitive')
   })
