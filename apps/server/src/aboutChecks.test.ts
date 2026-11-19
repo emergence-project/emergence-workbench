@@ -65,4 +65,9 @@ describe('소개 절 확인 기록 (about.yaml, 11/11 안 C′)', () => {
     expect(changedSentences(diff)).toEqual(['줄마다 맞아요 를 누릅니다.'])
     expect(summaryLines('* 소개 이력 표\n\n* 고치기 탭\n\nCo-Authored-By: X <x@y>\nhttps://claude.ai/code/1')).toEqual(['소개 이력 표', '고치기 탭'])
   })
+
+  it('PR 서식의 Before · After 머리는 전 · 후로, How부터는 읽지 않는다', () => {
+    const body = '* 정의 고치기\n\nBefore:\n흐름이 없었다.\n\nAfter:\n- 흐름을 더했다.\n\nHow:\napps/web/src/a.tsx\n\n## Checks\n- [x] pnpm test'
+    expect(summaryLines(body)).toEqual(['정의 고치기', '전', '흐름이 없었다.', '후', '흐름을 더했다.'])
+  })
 })
