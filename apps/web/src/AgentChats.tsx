@@ -26,7 +26,7 @@ import { ProjectPick, RecentChats } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { CENTRAL_PAGE, CentralKids, CentralLine, CentralStart } from './CentralChat'
-import { APP_HINT, ATTACH_NAME, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
+import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
  * 에이전트 대화 (10/21 "프로젝트 관리 먼저", 같은 날 "에이전트 창 구조 다시" · "코덱스와 Claude 앱 더 참고"):
@@ -706,7 +706,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('일하는 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
         {canResume && <li className="ac-note"><button className="btn sm" data-ui="이어 하기" onClick={() => void resume()}>{t('이어 하기', 'Continue')}</button><span className="muted ac-hint">{t('같은 대화에서 멈춘 곳부터', 'From where it stopped, in the same conversation')}</span></li>}
-      </ol>
+      </ol><ChatQuoteMenu list={listRef} onQuote={(a) => setFill({ attach: [a], n: Date.now() })} />
       <div className="ac-compose">
         {behind && <button className="btn sm ac-latest" data-ui="최신으로" onClick={toEnd}>{Icon.down}{t('최신으로', 'Latest')}</button>}
         {showTodos && <TodoBar todos={chat.todos} />}

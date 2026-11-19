@@ -32,6 +32,7 @@ code:
 | web | `apps/web/src/api/agentChats.ts` | 위 경로의 클라이언트 |
 | web | `apps/web/src/AgentChats.tsx` | 대화 화면: 목록 · 항목 그리기 · 허락 카드 · 고친 파일 |
 | web | `apps/web/src/ChatComposer.tsx` | 입력란: 붙이기 · `/` 명령 · `@` 파일 · 권한 · 모델 · 생각 깊이 |
+| web | `apps/web/src/ChatQuote.tsx` | 대화 줄에서 고른 글을 「질문에 붙이기」로 입력란 칩(`selection`)에 더하는 메뉴. 보낼 때 서버가 인용으로 넣는다 |
 
 ## 저장 모양
 
