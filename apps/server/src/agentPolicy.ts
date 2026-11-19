@@ -32,7 +32,7 @@ export const RESEARCH_WRITES = new Set([...MCP_WRITES, 'add_task', 'report_task'
 /** 앱 고치기 대화만 쓰는 앱 MCP 도구: 커밋해 PR 열기 · CI 결과 */
 export const APP_SUBMIT = 'app_submit'
 export const APP_CHECKS = 'app_checks'
-/** 앱 고치기 대화가 자기 PR을 CI 통과 뒤 squash로 합친다 (11/19) */
+/** 앱 고치기 대화가 자기 PR을 CI 통과 뒤 squash로 합친다 (11/19). gh pr merge를 바로 쓰는 것은 APP_OWNED가 계속 막는다 */
 export const APP_MERGE = 'app_merge'
 /** 맡은 피드백의 처리 기록 (앱이 status.yaml에 적는다) */
 export const FEEDBACK_ANSWER = 'feedback_answer'
