@@ -118,6 +118,8 @@ export const DEFAULT_SCREENS = [
   ['about-tags', '#/about/symbols/tags', '대화 태그'],
   // 소개 › 프로젝트 화면 쪽의 흐름 절 (절 제목 옆 "업데이트 #n")
   ['about-flow', '#/about/project/flow', '흐름'],
+  // 소개 › 정의와 원칙 쪽의 정의 절: 글의 짜임 그림에 흐름 · 맡긴 일, 정의에 흐름 · 주장 · 시도 (11/19)
+  ['about-principles', '#/about/principles', '정의'],
   // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
   ['settings', '#/settings', '설정'],
