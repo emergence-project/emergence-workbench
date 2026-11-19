@@ -11,7 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { AccountView } from '@rw/core/contract/account'
 import { writeAtomic } from './fsutil.js'
-import { getFallbackIdentity, setFallbackIdentity, setGithubToken } from './git.js'
+import { getFallbackIdentity, hasAppIdentity, setFallbackIdentity, setGithubToken } from './git.js'
 import { t } from './i18n.js'
 import type { SecretStore } from './secretStore.js'
 import { WorkbenchError } from './workbench.js'
@@ -162,7 +162,7 @@ export class GithubAccount {
   private apply(u: GithubUser, token: string): void {
     this.user = u
     setGithubToken(token)
-    if (getFallbackIdentity()) setFallbackIdentity({ name: u.name || u.login, email: noreplyEmail(u) })
+    if (getFallbackIdentity() && !hasAppIdentity()) setFallbackIdentity({ name: u.name || u.login, email: noreplyEmail(u) })
   }
 
   /**

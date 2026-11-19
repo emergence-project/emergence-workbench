@@ -19,6 +19,7 @@ import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contra
 import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+import { gitIdentityEnv } from './git.js'
 
 /** 묶은 앱이면 이 컴퓨터의 claude를 쓴다 (ask.ts의 claudeExecutable) */
 const executable = (): { pathToClaudeCodeExecutable?: string } => { const p = claudeExecutable(); return p ? { pathToClaudeCodeExecutable: p } : {} }
@@ -189,7 +190,7 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
           return d.allow ? { behavior: 'allow', updatedInput: toolInput } : { behavior: 'deny', message: d.message }
         },
         abortController,
-        env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(AUTO_COMPACT_WINDOW), ...claudeEnv(), ...input.env },
+        env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(AUTO_COMPACT_WINDOW), ...claudeEnv(), ...gitIdentityEnv(), ...input.env },
         ...executable(),
       },
     })

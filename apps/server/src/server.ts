@@ -19,7 +19,7 @@ import { DEFAULT_AUTHORS } from '@rw/core'
 import { COMMON_RULES_FILE } from './agentRules.js'
 import { Registry } from './registry.js'
 import { prepareStarter } from './starter.js'
-import { setFallbackIdentity } from './git.js'
+import { setAppIdentity, setFallbackIdentity } from './git.js'
 import { serveStatic } from './static.js'
 import { writeServerInfo } from './appKey.js'
 
@@ -239,8 +239,11 @@ if (process.env.RW_SANDBOX === '1') {
 const backup = bundled && process.env.RW_SANDBOX !== '1'
   ? { dir: path.join(configDir, 'backup'), remote: null, intervalMs: 10 * 60_000, settings: path.join(configDir, 'config.yaml') }
   : appRepo && personal ? { dir: path.join(configDir, 'backup'), remote: personal, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
+// 계정 › 커밋 이름에 적은 것이 있으면 앱의 커밋에 그것을 쓴다 (git.ts setAppIdentity, 11/19)
+const ownIdentity = process.env.RW_SANDBOX === '1' ? undefined : new Registry(configDir).gitIdentity
+if (ownIdentity) setAppIdentity(ownIdentity)
 // 내려받은 앱: git 전체 설정에 이름 · 이메일이 없으면 이 컴퓨터의 사용자 이름으로 커밋한다 (git.ts setFallbackIdentity, 계정에서 바꿈)
-if (bundled && process.env.RW_SANDBOX !== '1') {
+else if (bundled && process.env.RW_SANDBOX !== '1') {
   const global = (key: string) => { try { return execFileSync('git', ['config', '--global', key], { windowsHide: true }).toString().trim() } catch { return '' } }
   if (!global('user.name') || !global('user.email')) {
     const user = (() => { try { return os.userInfo().username } catch { return '' } })() || 'workbench'
