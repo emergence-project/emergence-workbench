@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { AboutPart } from './aboutContent'
 import { sectionAnchor } from './aboutContent'
 import { checkKey, checkState, useAboutChecks } from './aboutChecks'
@@ -37,6 +38,9 @@ export function AboutHistorySide({ part, picked, onPick, onClose }: { part: Abou
   const checks = useAboutChecks()
   const rows = historyRows(part, checks)
   const secs = part.sections ?? []
+  // 확인 항목 알림에서 업데이트를 눌러 열면 그 줄이 보이게 (11/19 09:27 진행)
+  const on = useRef<HTMLLIElement>(null)
+  useEffect(() => { on.current?.scrollIntoView({ block: 'nearest' }) }, [picked])
   const secLink = (i: number) => (
     <a key={i} className="a" href={href({ page: 'about', part: part.id, ...(i > 0 && { anchor: sectionAnchor(secs[i]!, i) }) })} onClick={(e) => e.stopPropagation()}>{secs[i]!.title}</a>
   )
@@ -55,7 +59,7 @@ export function AboutHistorySide({ part, picked, onPick, onClose }: { part: Abou
               <span className="about-ver-secs">{join(r.secs)}</span>
             </li>
           ) : (
-            <li key={r.n} className={`about-ver${picked === r.n ? ' on' : ''}`} data-ui="고친 업데이트" data-ui-item={`#${r.n}`}
+            <li key={r.n} ref={picked === r.n ? on : undefined} className={`about-ver${picked === r.n ? ' on' : ''}`} data-ui="고친 업데이트" data-ui-item={`#${r.n}`}
               role="button" tabIndex={0} aria-pressed={picked === r.n}
               onClick={() => onPick(picked === r.n ? null : r.n, r.secs[0]!)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(picked === r.n ? null : r.n, r.secs[0]!) } }}>
               <span className="about-ver-head">

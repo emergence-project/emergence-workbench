@@ -62,7 +62,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
                 {at <= 0 && <p className="h-sub" data-ui="부제">{p.id === 'intro' ? INTRO_SUB : p.sub}</p>}
                 {at <= 0 && p.open && <p className="about-open">{p.open.map((o) => <button key={o.label} className="a" onClick={() => go(o.to)}>{o.label} ›</button>)}</p>}
               </header>
-              <CheckNotice part={p} />
+              <CheckNotice part={p} onOpen={(n, first) => { showHistory(true); pick(n, first) }} />
               {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} history={history} picked={side ? picked : null} />}
               <footer className="about-pager" data-ui="소개 앞뒤">
                 {/* 앞뒤 넘기기: 본문과 띄운 두 칸 (10/15 15:03 제안) */}
@@ -250,8 +250,10 @@ const uncheckedCount = (x: AboutPart, c: AboutChecks) => sectionChecks(x, c).fil
 /**
  * 쪽 맨 위 알림: 이 쪽의 확인 항목 (10/4 17:03, 11/11 안 C′ 절마다 한 줄).
  * 「맞아요」는 그 절을 확인함으로 적고(그때의 PR 번호와 날짜), 「답하기」는 지금처럼 피드백으로 남는다.
+ * 업데이트 한 줄을 누르면 쪽을 떠나지 않고 오른쪽 「이력」이 그 업데이트를 고른 채 열린다 (11/19 09:27 제안 → 16:53 진행).
+ * 설정 › 업데이트 이력으로 가는 번호 링크는 이력 줄에 있다.
  */
-function CheckNotice({ part }: { part: AboutPart }) {
+function CheckNotice({ part, onOpen }: { part: AboutPart; onOpen(n: number, firstSection: number): void }) {
   const checks = useAboutChecks()
   const [error, setError] = useState('')
   const list = sectionChecks(part, checks).filter((s) => s.state === 'unchecked')
@@ -286,9 +288,12 @@ function CheckNotice({ part }: { part: AboutPart }) {
                 <ul className="about-ask-prs" data-ui="고친 업데이트 목록">
                   {prs.map((n) => (
                     <li key={n}>
-                      <a className="a" href={href({ page: 'settings', part: 'update', pr: n })} title={t('이 업데이트를 설정 › 업데이트 이력에서 봅니다', 'See this update in Settings › Update history')}>#{n}</a>
-                      {checks.prDates[n] && <span className="muted"> {shortDate(checks.prDates[n])}</span>}
-                      {checks.prTitles[n] && <> {checks.prTitles[n]}</>}
+                      <button className="about-ask-pr" data-ui="고친 업데이트" data-ui-item={`#${n}`} title={t('오른쪽 이력에서 이 업데이트가 고친 절을 봅니다', 'See the sections this update changed in History on the right')}
+                        onClick={() => onOpen(n, Math.max(0, (part.sections ?? []).findIndex((x) => x.prs?.includes(n))))}>
+                        <span className="a">#{n}</span>
+                        {checks.prDates[n] && <span className="muted"> {shortDate(checks.prDates[n])}</span>}
+                        {checks.prTitles[n] && <> {checks.prTitles[n]}</>}
+                      </button>
                     </li>
                   ))}
                 </ul>
