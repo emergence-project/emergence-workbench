@@ -18,6 +18,8 @@ PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)�
 
 **피드백 규약:** 피드백의 파일 · 칸 · 차례 규칙과 에이전트 처리 규칙은 앱과 상관없는 규약으로 `docs/feedback/`에 있다(README 규약 · `agent.md` 처리 규칙 · `new-app.md` 새 앱에 넣기 · `cases.json` 차례 시험 사례). 차례 규칙을 바꾸면 `cases.json`부터 고친다. 퀀텀캐드 · Telos 같은 다른 앱도 이 규약을 따른다.
 
+**이식 안내서 (2026-11-19 사용자 결정 "이식 안내서와 앱 소개가 동기화되게"):** 기능을 다른 앱에 옮기는 안내서가 `docs/ports/<이름>.md`에 있다(목록 `docs/ports/README.md`). 안내서 머리의 `about:`은 그 기능의 소개 절 파일, `code:`는 핵심 구현 파일이다. 그 소개 절은 ko · en에 `port: '<이름>'`을 갖고 절 맨 아래에 안내서 링크를 그린다. `code:`의 파일을 바꾼 PR은 그 안내서와 소개 절도 고치고, 그대로 맞으면 커밋 메시지에 `이식 안내서: 그대로 — 이유` · `소개: 그대로 — 이유` 한 줄을 쓴다. 파일을 옮기면 안내서 경로도 고친다. `pnpm test`의 `scripts/ci/check-ports.mjs`가 짝 · 경로 · 이 동기화를 잡는다.
+
 **관리자 개인 규칙:** 앱 피드백 처리(규약에 더하는 것), 실험 기간, 누가 구현하나, 지금 이어서 할 일은 관리자의 비공개 개인 저장소 `CLAUDE.md`에 있다. 맥에서는 `~/.config/research-workspace/personal/CLAUDE.md`(`apps/server/src/personalRepo.ts`가 받아 두는 사본)가 있으면 이 파일 다음에 읽고 따른다. 둘이 다르면 개인 규칙이 앞선다.
 
 ## 용어: 주제와 노트 (2026-10-05 결정)

@@ -58,9 +58,10 @@ export const FeedbackRevision = z.object({
   /** 이 처리가 반려된 까닭과, 다음에 다르게 할 것 한 줄 (다시 처리한 에이전트가 적는다) */
   miss: z.enum(FEEDBACK_MISSES).optional(),
   lesson: z.string().optional(),
+  mockups: z.array(z.string()).optional(),
 }).strict()
-/** 코멘트에 단 답 (status.yaml replies). to = 그 코멘트의 at */
-export const FeedbackReply = z.object({ at: z.string(), to: z.string(), note: z.string(), by: z.string().optional() }).strict()
+/** 코멘트에 단 답 (status.yaml replies). to = 그 코멘트의 at. mockups = 이 답에 붙인 시안 (feedback/ 기준 그림 · html 경로) */
+export const FeedbackReply = z.object({ at: z.string(), to: z.string(), note: z.string(), by: z.string().optional(), mockups: z.array(z.string()).optional() }).strict()
 /** 처리 기록 (feedback/status.yaml 한 항목) */
 export const FeedbackStatus = z.object({
   state: z.enum(FEEDBACK_STATES),
@@ -82,6 +83,8 @@ export const FeedbackStatus = z.object({
   by: z.string().optional(),
   version: z.string().optional(),
   pictures: z.array(z.string()).optional(),
+  /** 이 처리에 붙인 시안: feedback/ 기준 그림과 같은 이름의 .html (11/19 피드백에서 시안 보기) */
+  mockups: z.array(z.string()).optional(),
   replies: z.array(FeedbackReply).optional(),
 }).strict()
 

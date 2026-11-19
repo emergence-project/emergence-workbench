@@ -62,7 +62,7 @@ The interface is in English and Korean. It follows your browser language at firs
 | `packages/core` | Pure functions shared by both |
 | `fixtures/` | Sample data for `pnpm dev` and tests |
 | `templates/` | Starting templates for a shared library and LaTeX formats |
-| `docs/` | Design system and working rules for agents |
+| `docs/` | Design system and working rules for agents; `docs/ports/` guides for building a feature (feedback, agent chat, PDF comments) in another app |
 
 Agents working on this repository start from [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md). The screen reference is [docs/design-system.md](docs/design-system.md).
 

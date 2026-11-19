@@ -16,6 +16,7 @@
 .about-vision { color: var(--text); font-size: var(--fs-lg); font-weight: var(--fw-medium); line-height: 1.6; margin: 0 0 var(--sp-2); }
 .about-note { color: var(--text-3); font-size: var(--fs-xs); margin: var(--sp-2) 0 0; }
 .about-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); line-height: 1.6; }
+.about-port { margin: var(--sp-3) 0 0; font-size: var(--fs-sm); color: var(--text-2); }
 /* 10/4 17:56 "볼드 글씨가 붕 뜬다": 이름표가 글 기준선에 얹혀 떠 보였다. 줄 가운데에 맞춘다 */
 .about-unsure { display: inline-block; vertical-align: middle; line-height: 1.5; position: relative; top: -1px; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; margin: 0 6px 0 0; background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
 
@@ -72,10 +73,14 @@
 .about-ask p { margin: 0; font-size: var(--fs-sm); }
 
 /* 확인할 것: 질문마다 맞아요·답하기 (10/4 17:55) */
-.about-ask-row { display: flex; align-items: flex-start; gap: var(--sp-3); }
-.about-ask-q { flex: 1; min-width: 0; }
+.about-ask-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-2) var(--sp-3); }
+/* 오른쪽 「이력」을 열어 가운데 칸이 좁으면 단추가 글 아래로 내려간다 (글이 한 글자씩 세로로 서지 않게, 11/19) */
+.about-ask-q { flex: 1 1 14em; min-width: 0; }
 .about-ask .about-ask-prs { margin: var(--sp-1) 0 0; padding-left: 0; list-style: none; font-size: var(--fs-sm); color: var(--text-2); }
 .about-ask .about-ask-prs li { margin: 2px 0; }
+.about-ask-pr { all: unset; cursor: pointer; border-radius: var(--r-xs); }
+.about-ask-pr:hover .a { text-decoration: underline; }
+.about-ask-pr:focus-visible { outline: 2px solid var(--focus-line); outline-offset: 2px; }
 .about-ask-tools { display: flex; gap: var(--sp-2); flex: none; }
 .about-ask-row.sent .about-ask-q { color: var(--text-3); }
 .about-ask-sent { flex: none; font-size: var(--fs-sm); }
@@ -208,6 +213,7 @@
 .about-ver-title { color: var(--text); }
 .about-ver-secs { color: var(--text-2); font-size: var(--fs-xs); }
 .about-ver-secs .a { color: var(--text-2); }
+.about-ver-here { color: var(--text); }
 .about section.about-picked { outline: 1.5px solid var(--line-strong); outline-offset: var(--sp-2); border-radius: var(--r-sm); }
 .about section.about-dim .about-sec-body { opacity: .5; }
 .about-dim-note { margin: calc(-1 * var(--sp-1)) 0 var(--sp-2); font-size: var(--fs-sm); }
