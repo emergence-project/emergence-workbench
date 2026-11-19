@@ -86,6 +86,8 @@ export const DEFAULT_SCREENS = [
   ['agent-changes', '#/agent/{done}', '바뀐 곳'],
   // 앱 고치기 대화 (2단계 10/21): 작업 폴더에서 파일 하나를 고치고 PR을 연 대화 (shots.mjs, {appchat})
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
+  // 대화 머리 「>_」로 오른쪽 칸을 터미널로 바꾼 모습 (11/19 B1)
+  ['agent-terminal', '#/agent/{done}', '터미널 칸', '터미널 버튼'],
   // Codex 검토 카드 (11/9): 끝난 대화에 붙은 검토 (shots.mjs가 검토를 부른다)
   ['agent-review', '#/agent/{done}', '검토 카드'],
   // 확인하지 않은 대화 (11/16 피드백): 본 기록을 비우고 계획 대화를 열어, 끝난 두 대화의 줄 앞 주황 점 · 「내 차례 3」 · 레일 배지 (shots.mjs가 비운다)

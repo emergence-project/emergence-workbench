@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type Chat, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { useFeedbackNotify } from './feedbackNotify'
-import { AGENT_OPEN, AgentBelow, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
+import { AGENT_OPEN, AgentBelow, AgentDock, AgentPanel, CENTRAL_PAGE, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
 import { AppUpdateRail } from './AppUpdate'
 import { AgentSideBody, useTerminalAvailable } from './AgentSide'
 import { FeedbackMode } from './FeedbackMode'
@@ -119,10 +119,10 @@ export function App() {
   const [recordOpenRequest, setRecordOpenRequest] = useState<WorkspaceOpenRequest | null>(null)
   const workspaceDragging = useWorkspaceDragging()
   // 프로젝트 밖 화면의 오른쪽 사이드바 (라이브러리 정보 등, globalPages.tsx의 right). 프로젝트의 것(layout.ctx)과 따로 기억한다
-  const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true), globalRightHere = useRef(false), [agentSide, setAgentSide] = useStoredFlag('rw-agent-side', false), agentSideHere = useRef(false) // 아래 globalRightAble · agentSideAble
+  const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true), globalRightHere = useRef(false), [agentSide, setAgentSide] = useStoredFlag('rw-agent-side', false), agentSideHere = useRef(false), agentColHere = useRef(false) // 아래 globalRightAble · agentSideAble
   // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT). 지식 화면 등은 그 화면의 것 (11/5 19:50)
   useEffect(() => {
-    const openCtx = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true })), open = () => { if (agentSideHere.current) setAgentSide(true); else if (globalRightHere.current) setGlobalRight(true); else openCtx() }
+    const openCtx = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true })), open = () => { if (agentColHere.current) return; if (agentSideHere.current) setAgentSide(true); else if (globalRightHere.current) setGlobalRight(true); else openCtx() }
     const ask = () => { setRightMode('records'); open() }
     // 노트의 고른 글 메뉴 「에이전트에게」 (ChatComposer.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 탭(아래 자리면 아래 패널)을 연다
     const agent = () => { setRightMode('agent'); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') openCtx(); else setAgentPanel(true) }
@@ -253,8 +253,8 @@ export function App() {
   /** 사이드바를 쓰는 전역 화면 (지식: 개념노트 목록) */
   const globalSide = globalPageOf(route.page)?.side
   const globalRightAble = globalRightHere.current = !!globalPageOf(route.page)?.right?.(route)
-  // 오른쪽 사이드바가 없는 전역 화면은 그 자리에서 에이전트와 대화한다 (11/16 "모든 페이지에서 오른쪽 사이드바로", AgentSide.tsx). 에이전트 화면은 터미널만 (이 컴퓨터에서 연 화면, 11/19)
-  const terminalHere = useTerminalAvailable(), agentSideAble = agentSideHere.current = globalPage && !globalRightAble && (route.page !== 'agent' || terminalHere), agentSideShown = agentSideAble && agentSide
+  // 오른쪽 사이드바가 없는 전역 화면은 그 자리에서 에이전트와 대화한다 (11/16 "모든 페이지에서 오른쪽 사이드바로", AgentSide.tsx). 에이전트 화면(새 대화 · 중앙)은 터미널만 (이 컴퓨터에서 연 화면, 11/19). 대화를 연 에이전트 화면은 대화 머리의 「>_」가 오른쪽 칸을 터미널로 바꾸고 「터미널에서 실행」도 그 칸이 받는다 (WorkAside.tsx의 useSideColumn, 11/19 B1)
+  const terminalHere = useTerminalAvailable(), agentCol = agentColHere.current = route.page === 'agent' && !!route.id && route.id !== CENTRAL_PAGE, agentSideAble = agentSideHere.current = globalPage && !globalRightAble && (route.page !== 'agent' || (terminalHere && !agentCol)), agentSideShown = agentSideAble && agentSide
   const showSide = (!globalPage && !!rid && sideOpen) || (!!globalSide && sideOpen)
   // 왼쪽 사이드바 폭: 오른쪽 경계를 끌어 바꾸고, 두 번 누르면 처음 폭 (10/29 09:15 피드백: 오른쪽처럼 폭 조절)
   const [sideW, setSideW] = useState(() => { try { const v = Number(localStorage.getItem('rw-side-width')); return v >= SIDE_MIN && v <= SIDE_MAX ? v : SIDE_W } catch { return SIDE_W } })

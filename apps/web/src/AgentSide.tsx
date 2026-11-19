@@ -100,7 +100,7 @@ export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: 
 }
 
 /** 프로젝트 밖 화면의 에이전트 사이드바 (App.tsx): 이 컴퓨터에서 연 화면이면 맨 위 「에이전트 | 터미널」.
- *  에이전트 화면(terminalOnly)은 대화가 가운데 있으니 터미널만 (대화 코드 블록의 「터미널에서 실행」이 여기로 온다). 터미널은 그 대화의 프로젝트 폴더, 그 밖은 중앙(앱 저장소)에서 연다 */
+ *  에이전트 화면(terminalOnly: 새 대화 · 중앙)은 터미널만. 대화를 연 화면은 대화 머리 「>_」가 오른쪽 칸을 터미널로 바꾼다(AgentChats.tsx의 AgentPage). 터미널은 그 대화의 프로젝트 폴더, 그 밖은 중앙(앱 저장소)에서 연다 */
 export function AgentSideBody({ onSaved, terminalOnly, chatId }: { onSaved(m: string): void; terminalOnly?: boolean; chatId?: string }) {
   const chosen = useRightMode()
   const chatRid = useChatRid(terminalOnly ? chatId : undefined)
