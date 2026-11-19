@@ -191,12 +191,13 @@ export class CentralChats extends FeedbackChats {
     return `${digestOf(this.kidsOf(c.id), c.held?.length)}${this.feedbackLine()}`
   }
 
-  /** 사용자가 중앙에게 말한다: 중앙이 없으면 연다 (Opus, 읽기만) */
-  talk(text: string): Chat {
+  /** 사용자가 중앙에게 말한다: 중앙이 없으면 연다 (Opus, 읽기만). 붙인 것 · 지금 화면 한 줄도 함께 */
+  talk(body: string | ChatMessageBody): Chat {
+    const m = typeof body === 'string' ? { text: body } : body
     const c = this.central()
-    if (c) return this.send(c.id, { text })
+    if (c) return this.send(c.id, m)
     const digest = `${digestOf([])}${this.feedbackLine()}`
-    return this.create({ rid: CENTRAL_RID, text, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}\n\n${digest}\n\n${text}`)
+    return this.create({ rid: CENTRAL_RID, ...m, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}\n\n${digest}\n\n${promptOf(m.text, m.attach)}`)
   }
 
   /**

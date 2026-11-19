@@ -26,7 +26,7 @@ export const agentChatsApi = {
   /** 중앙 대화 id와 하위 대화 (11/16) */
   central: () => req('/api/agent-central').then((r) => json<CentralState>(r)),
   /** 중앙에게 말하기 (중앙이 없으면 연다) */
-  talk: (text: string) => req('/api/agent-central/messages', send('POST', { text })).then(one),
+  talk: (text: string, view?: string) => req('/api/agent-central/messages', send('POST', { text, view })).then(one),
   /** 이어서 지시 (일하는 중이면 다음 차례에 읽는다) */
   send: (id: string, body: ChatMessageBody) => req(`${base}/${enc(id)}/messages`, send('POST', body)).then(one),
   /** 곁 질문 (하던 일을 멈추지 않고 작은 모델이 대화 요약만 보고 답한다) */

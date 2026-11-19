@@ -82,12 +82,23 @@ export function promptOf(text: string, attach?: Attach[]): string {
   const how: Record<Attach['kind'], string> = {
     note: 'note (read_note)', topic: 'topic (project_status / list_notes)', file: 'file (Read)', selection: 'selected text', paper: 'paper (library)', record: 'record (read_records)', connector: 'connector (MCP server; its tools are mcp__<name>__*, use them for this)',
     element: 'app screen element (data-ui names, outermost first; the attached image shows it)', terminal: 'terminal output (the user\'s own shell)',
+    screen: 'the screen the user is looking at (answer about it)',
   }
   const quote = (s?: string) => (s ?? '').split('\n').map((l) => `  > ${l}`).join('\n')
   const lines = attach.map((a) => a.kind === 'selection' || a.kind === 'terminal' ? `- ${how[a.kind]} from ${a.ref}:\n${quote(a.text)}`
     : a.kind === 'element' ? `- ${how.element} on ${a.ref}:\n${quote(a.text ?? a.label)}`
+    : a.kind === 'screen' ? `- ${how.screen}: ${a.text ?? a.label} (${a.ref})`
     : `- ${how[a.kind]}: ${a.ref}${a.label && a.label !== a.ref ? ` (${a.label})` : ''}`)
   return `${text}\n\nAttached by the user (read these first, nothing else unless needed):\n${lines.join('\n')}`
+}
+
+/** 에이전트에게 넘길 글 (prompt가 없으면 promptOf). 보낸 기기의 지금 화면 한 줄은 그 대화에 마지막으로 붙인 것과 다를 때만 뒤에 붙인다
+ *  (여러 기기면 마지막으로 말을 보낸 기기의 화면이 된다) */
+export function promptFor(c: { view?: string }, m: { text: string; attach?: Attach[]; view?: string }, prompt?: string): string {
+  const base = prompt ?? promptOf(m.text, m.attach)
+  if (!m.view || m.view === c.view || CC_COMMAND.test(base.trim())) return base
+  c.view = m.view
+  return `${base}\n\nUser's screen now: ${m.view}`
 }
 
 // ---------- 지시 ----------

@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ChatScope } from '@rw/core/contract/agentChats'
-import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
+import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptFor, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { choicesOf, eventsOf } from './agentRunner.js'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
@@ -42,9 +42,20 @@ describe('모드', () => {
     // 화면 요소: 화면 주소와 부위 이름 · 글자
     const el = promptOf('고쳐 줘', [{ kind: 'element', ref: '#/agents', label: '보내기', text: '에이전트 입력란 › 지시 보내기\n보내기' }])
     expect(el).toContain('app screen element (data-ui names, outermost first; the attached image shows it) on #/agents:\n  > 에이전트 입력란 › 지시 보내기\n  > 보내기')
+    // 지금 화면: 화면 한 줄과 주소
+    expect(promptOf('이거 뭐야', [{ kind: 'screen', ref: '#/p/r1/n/a.md', label: '지금 화면', text: '노트 · r1 · a.md' }])).toContain('the screen the user is looking at (answer about it): 노트 · r1 · a.md (#/p/r1/n/a.md)')
     expect(editOf({ edits: [{ old: 'a\nb', new: 'c', reason: '고침' }] })).toEqual({ parts: [{ old: 'a\nb', new: 'c' }], added: 1, removed: 2, reason: '고침' })
     expect(todosOf({ todos: [{ content: '읽기', status: 'completed' }, { content: '계산', status: 'in_progress' }, { content: '?', status: 'odd' }] }))
       .toEqual([{ text: '읽기', state: 'completed' }, { text: '계산', state: 'in_progress' }, { text: '?', state: 'pending' }])
+  })
+  it('보낸 기기의 화면 한 줄은 그 대화에서 바뀔 때만 붙인다', () => {
+    const c: { view?: string } = {}
+    expect(promptFor(c, { text: '봐 줘', view: '홈 (#/)' })).toBe("봐 줘\n\nUser's screen now: 홈 (#/)")
+    expect(promptFor(c, { text: '또', view: '홈 (#/)' })).toBe('또')
+    // 다른 기기에서 다른 화면으로 보내면 다시 붙는다. 넘길 글이 따로 있으면 그 뒤에
+    expect(promptFor(c, { text: '이건', view: '노트 · r1 · a.md (#/p/r1/n/a.md)' }, 'BRIEF\n\n이건')).toBe("BRIEF\n\n이건\n\nUser's screen now: 노트 · r1 · a.md (#/p/r1/n/a.md)")
+    expect(promptFor(c, { text: '/compact', view: '설정 (#/settings)' })).toBe('/compact')
+    expect(c.view).toBe('노트 · r1 · a.md (#/p/r1/n/a.md)')
   })
 })
 

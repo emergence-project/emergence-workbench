@@ -10,6 +10,8 @@ import { href } from './router'
 import { useDismiss } from './useDismiss'
 import { ElementPicker, type Picked } from './elementPicker'
 import { captureScreen, cropShot } from './screenCapture'
+import { placeOf, screenLine } from './screenView'
+import { lastRecordSelection } from './RecordContext'
 import { uiShown } from './uiNames'
 import { accountLabel, useClaudeAccounts } from './ClaudeAccountsSettings'
 import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
@@ -78,7 +80,7 @@ export function sideQuestion(text: string): string | undefined {
   return m?.[2]!.trim() || undefined
 }
 
-export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector'), element: t('화면 요소', 'Screen element'), terminal: t('터미널', 'Terminal') }
+export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector'), element: t('화면 요소', 'Screen element'), terminal: t('터미널', 'Terminal'), screen: t('지금 화면', 'Current screen') }
 
 // ---------- 노트에서 「에이전트에게」 (고른 글 메뉴) ----------
 
@@ -310,7 +312,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (!v || busy) return
     setBusy(true); setFail(null)
     try {
-      const ok = await onSubmit({ text: v, ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data }) => ({ type, data })) }) })
+      const ok = await onSubmit({ text: v, view: screenLine(), ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data }) => ({ type, data })) }) })
       if (ok) { setText(''); setCaret(0); setAttach([]); setImages([]) }
     } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
   }
@@ -387,6 +389,14 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
             <button role="menuitem" onClick={() => { close(); startToken('/') }}>{t('명령 · 스킬', 'Commands and skills')}<span className="muted mono ac-key">/</span></button>
             <button role="menuitem" onClick={() => { close(); file.current?.click() }}>{t('그림 고르기', 'Choose images')}<span className="muted ac-key">{t('붙여넣기도', 'or paste')}</span></button>
             <button role="menuitem" onClick={() => { close(); setPicking(true) }}>{t('화면 요소 고르기', 'Pick a screen element')}<span className="muted ac-key">{t('그림도', 'with image')}</span></button>
+            <button role="menuitem" onClick={() => { close(); addAttach({ kind: 'screen', ref: (location.hash || '#/').slice(0, 400), label: (placeOf(document.title).at(-1) ?? t('첫 화면', 'Start')).slice(0, 200), text: screenLine() }) }}>{t('지금 화면 붙이기', 'Attach current screen')}</button>
+            {(() => {
+              // 마지막으로 고른 글 (선택이 풀리거나 그 화면이 닫혀도 남는다, RecordContext). 없으면 흐리게
+              const sel = lastRecordSelection()
+              const where = sel && `${sel.rid === rid ? '' : `${sel.rid}:`}${sel.target}${sel.line ? `:${sel.line}` : ''}`
+              return <button role="menuitem" disabled={!sel} data-tip={sel ? undefined : t('노트에서 글을 고르면 붙일 수 있습니다', 'Select text in a note first')}
+                onClick={() => { close(); if (sel) addAttach({ kind: 'selection', ref: where!.slice(0, 400), label: sel.quote.replace(/\s+/g, ' ').slice(0, 40), text: sel.quote.slice(0, 4000) }) }}>{t('고른 글 붙이기', 'Attach selected text')}</button>
+            })()}
           </>}
         </PopButton>
         {lead}

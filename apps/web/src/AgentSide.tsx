@@ -7,6 +7,7 @@ import { agentChatsApi, CENTRAL_RID } from './api'
 import { ChatLine, PanelChat, rank, useChatList } from './AgentChats'
 import { CENTRAL_PAGE, CentralLine } from './CentralChat'
 import { t } from './i18n'
+import { screenLine } from './screenView'
 import { Icon } from './icons'
 import { setRightMode, useRightMode, type RightMode } from './noteScreen'
 import { qk } from './queries'
@@ -123,7 +124,7 @@ function TalkToCentral({ onOpened }: { onOpened(id: string): void }) {
     setBusy(true)
     setFail(null)
     try {
-      const c = await agentChatsApi.talk(text.trim())
+      const c = await agentChatsApi.talk(text.trim(), screenLine())
       client.setQueryData(qk.agentChat(c.id), c)
       void client.invalidateQueries({ queryKey: qk.agentChatLists })
       setText('')
