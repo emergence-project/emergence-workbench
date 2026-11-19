@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type Chat, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { useFeedbackNotify } from './feedbackNotify'
 import { AGENT_OPEN, AgentBelow, AgentDock, AgentPanel, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
-import { AppUpdateRail } from './AppUpdate'
+import { AppUpdateRail, refreshAppStatus } from './AppUpdate'
 import { AgentSideBody, useTerminalAvailable } from './AgentSide'
 import { FeedbackMode } from './FeedbackMode'
 import { AskTextHost } from './askText'
@@ -222,6 +222,10 @@ export function App() {
   onWorkbenchEvent.current = (e: WorkbenchEvent) => {
     // 에이전트가 쓰는 중인 글: 열린 대화에 그대로 붙인다 (다시 받지 않는다)
     if (e.type === 'agent-draft') { client.setQueryData<Chat>(qk.agentChat(e.id), (c) => (c?.state === 'running' ? { ...c, draft: e.text } : c)); return }
+    // 앱 업데이트: 화면을 바꿔 끼웠거나 다시 시작을 기다린다 (AppUpdate.tsx)
+    if (e.type === 'app') { void refreshAppStatus(); return }
+    // 다시 시작이 에이전트 대화를 기다리는 중이면 남은 대화 수를 새로 보인다
+    if (e.type === 'agent-chat') void refreshAppStatus(true)
     figuresMaybeChanged()
     // 화면 캐시: 알림이 바꾸는 자료만 (어느 프로젝트의 것이든. 홈의 프로젝트별 자료도 이것으로 새로워진다)
     invalidation.add(invalidationKeys(e))

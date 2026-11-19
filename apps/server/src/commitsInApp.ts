@@ -6,13 +6,16 @@ import { git } from './git.js'
  * - true: 앱에 들어 있다 · false: 저장소에는 있지만 앱이 더 옛것이다 (업데이트 필요) · undefined: 이 저장소가 모르는 커밋
  * 목록은 잠깐(1분) 기억한다. 업데이트 확인(fetch)이 새 커밋을 들여오면 그다음에 반영된다.
  */
-export function commitChecker(root: string, running: string, ttlMs = 60_000) {
-  let cached: { at: number; inApp: string[]; known: string[] } | null = null
+export function commitChecker(root: string, running: string | (() => string), ttlMs = 60_000) {
+  // 화면만 바꿔 끼우면(appupdate.ts swapNextBuild) 다시 시작하지 않고도 돌고 있는 커밋이 바뀐다
+  const now = () => typeof running === 'function' ? running() : running
+  let cached: { at: number; head: string; inApp: string[]; known: string[] } | null = null
   const revs = async (...args: string[]) => (await git(root, ['rev-list', ...args])).split('\n').filter(Boolean)
   const load = async () => {
-    if (cached && Date.now() - cached.at < ttlMs) return cached
-    const [inApp, known] = await Promise.all([revs(running), revs('--all')])
-    cached = { at: Date.now(), inApp, known }
+    const head = now()
+    if (cached && cached.head === head && Date.now() - cached.at < ttlMs) return cached
+    const [inApp, known] = await Promise.all([revs(head), revs('--all')])
+    cached = { at: Date.now(), head, inApp, known }
     return cached
   }
   const has = (list: string[], short: string) => list.some((h) => h.startsWith(short))
