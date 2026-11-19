@@ -1,6 +1,7 @@
 import type { UiSettings } from '@rw/core'
 import type { ReactNode } from 'react'
 import { AgentRailCount, AgentSide } from './AgentChats'
+import { AccountPage, AccountRailIcon } from './AccountPage'
 import { AboutPage, aboutRailRoute, AboutRailCount, AboutSidebar } from './AboutPage'
 import type { LibraryInfo } from './api'
 import { AgentEditsPage, Lazy } from './lazyPages'
@@ -134,6 +135,9 @@ export const GLOBAL_PAGES: {
   { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },
+  // 계정 (11/19 사용자 "설정 톱니 위에 두고, 계정 페이지는 유일한 페이지로"): GitHub · 동기화 · 구글 · Claude 계정을 한 페이지에서
+  { page: 'account', label: '계정', name: t('계정', 'Account'), aria: t('계정', 'Account'), tip: t('계정 — GitHub · Claude · 구글 연결', 'Account: GitHub, Claude and Google'), icon: <AccountRailIcon />, rail: 'bottom',
+    render: (p) => <AccountPage onUi={p.onUi} onSaved={p.onSaved} /> },
   { page: 'settings', label: '설정', name: t('설정', 'Settings'), aria: t('설정', 'Settings'), tip: t('설정', 'Settings'), icon: Icon.settings, rail: 'bottom', side: (p) => <SettingsSide part={p.route.page === 'settings' ? p.route.part : undefined} />,
     render: (p) => <SettingsPage ui={p.ui} onChange={p.onUi} part={p.route.page === 'settings' ? p.route.part : undefined} pr={p.route.page === 'settings' ? p.route.pr : undefined} onSaved={p.onSaved} /> },
 ]

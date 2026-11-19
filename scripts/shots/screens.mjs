@@ -128,14 +128,14 @@ export const DEFAULT_SCREENS = [
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
   ['settings', '#/settings', '설정'],
   // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)
-  ['settings-accounts', '#/settings/google', '시작 준비 요약'],
+  ['settings-accounts', '#/account', '시작 준비 요약'],
   // 앱 안 GitHub 로그인 (11/8): 「GitHub로 로그인」을 누르면 코드와 GitHub 쪽 링크가 보인다 (예제 모드는 가짜 GitHub)
-  ['settings-github-login', '#/settings/google', 'GitHub 로그인 코드', 'GitHub로 로그인'],
+  ['settings-github-login', '#/account', 'GitHub 로그인 코드', 'GitHub로 로그인'],
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],
   // Claude 계정 (11/16): 기본 · 더한 Pro 계정, 대화 종류마다 계정 (예제는 server.ts가 Pro 계정 하나를 넣는다)
-  ['settings-claude-accounts', '#/settings/agents', '계정 고르기'],
+  ['settings-claude-accounts', '#/account', '계정 고르기'],
   // 설정 › 에이전트 › 에이전트 자세히 (11/9): Codex 줄을 눌러 들어간 모양 (계정 · 시작 권한 · 자동 허용 · 하는 일)
   ['settings-agent-detail', '#/settings/agents', '에이전트 자세히', ['[data-ui="대화 에이전트"]:nth-of-type(2)']],
   // 폰에서 보기 (10/30): 예제 모드의 가짜 Tailscale을 켜 둔 화면(주소 · QR)

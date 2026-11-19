@@ -231,7 +231,7 @@ export class Registry {
   }
 
   get personalRepo(): string | undefined { return this.config.personalRepo }
-  /** 개인 저장소 주소 (설정 › 계정 › 시작 준비). 빈 글이면 지운다. 앱을 다시 시작할 때 받는다(server.ts) */
+  /** 개인 저장소 주소 (계정 › 시작 준비). 빈 글이면 지운다. 앱을 다시 시작할 때 받는다(server.ts) */
   setPersonalRepo(remote: string): void {
     const r = remote.trim()
     if (r) this.config.personalRepo = r

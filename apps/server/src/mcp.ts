@@ -130,7 +130,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
   const target = opts.baseUrl ? { url: opts.baseUrl, key: opts.key } : serverTarget()
   const base = target.url.replace(/\/$/, '')
   const f0 = opts.fetch ?? fetch
-  // 앱이 에이전트 연결을 알아보게 (설정 › 계정 › 시작 준비, agentSeen.ts)
+  // 앱이 에이전트 연결을 알아보게 (계정 › 시작 준비, agentSeen.ts)
   // Claude 계정 id도 붙인다: 변경사항의 기준이 계정마다 (한 맥에 계정이 둘이어도 섞이지 않게, 10/27)
   const account = opts.account !== undefined ? opts.account || undefined : claudeAccount()
   const f: Fetch = (url, init) => {

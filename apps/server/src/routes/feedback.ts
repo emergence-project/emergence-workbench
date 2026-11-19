@@ -43,7 +43,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   let autoTimer: NodeJS.Timeout | null = null
   let lastAuto: { at: number; error: string | null } | null = null
   // 중계 서버로 바로 보내기 (11/8): 개인 저장소 없이 쓰는 앱. 한 번에 하나씩
-  // 보내는 이름: 설정 › 계정의 내 이름, 없으면 로그인한 GitHub 계정의 이름이나 아이디, 그것도 없으면 이 컴퓨터 사용자 이름(윈도우는 흔히 USER) (11/9)
+  // 보내는 이름: 계정의 내 이름, 없으면 로그인한 GitHub 계정의 이름이나 아이디, 그것도 없으면 이 컴퓨터 사용자 이름(윈도우는 흔히 USER) (11/9)
   const named = () => ctx.registry.authors[0]?.name || ctx.account.account?.name || ctx.account.account?.login || ''
   const sender = () => named() || os.userInfo().username
   let relaying: Promise<unknown> = Promise.resolve()
@@ -165,7 +165,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   })
   /**
    * 피드백 파일로 보내기 (11/8): GitHub 없이 쓰는 사람이 남긴 피드백을 한 파일로 묶어 내려받기 폴더에 두고 탐색기 · Finder에서 보여 준다.
-   * 보낸 사람 이름은 설정 › 계정의 첫 저자, 없으면 이 컴퓨터의 사용자 이름
+   * 보낸 사람 이름은 계정의 첫 저자, 없으면 이 컴퓨터의 사용자 이름
    */
   app.post('/api/feedback/export', replies(C.FeedbackExported), async (): Promise<C.FeedbackExported> => {
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))

@@ -13,7 +13,6 @@ import { CopyButton, Row, when } from './SetupChecklist'
 import { AiKeyRow } from './AiKeySettings'
 import { AgentPrefs } from './AgentPrefs'
 import { useAdmin } from './admin'
-import { ClaudeAccountsSettings } from './ClaudeAccountsSettings'
 
 const PICK: Record<FeedbackPick, () => string> = {
   off: () => t('끔', 'Off'),
@@ -47,7 +46,6 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
   }
   return (<>
     <AgentConnections onSaved={onSaved} />
-    <ClaudeAccountsSettings onSaved={onSaved} />
     <AgentPrefs onSaved={onSaved} />
     <AgentHooks onSaved={onSaved} />
     <h3 className="set-h3">{t(`${HERE.onKo} 하는 일`, `On ${HERE.en}`)}</h3>
