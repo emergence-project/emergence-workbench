@@ -129,6 +129,7 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-pop-menu { left: 0; bottom: calc(100% + var(--sp-1)); min-width: 200px; }
 .ac-pop-menu.wide { min-width: 280px; }
 .ac-pop-menu button { align-items: flex-start; }
+.ac-pop-menu button:disabled { color: var(--text-3); cursor: default; background: transparent; }
 .ac-pop-h { padding: var(--sp-1) 10px 2px; font-size: var(--fs-2xs); color: var(--text-3); }
 .ac-pop-check { flex: none; width: 14px; display: inline-flex; color: var(--text); }
 .ac-pop-check svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

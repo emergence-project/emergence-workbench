@@ -20,9 +20,14 @@ let composerRequest: RecordComposerRequest | null = null
 let requestNonce = 0
 const requestListeners = new Set<() => void>()
 const selections = new Map<string, RecordDraft>()
+/** 마지막으로 고른 글: 선택이 풀리거나 화면이 닫혀도 남긴다 (입력란 ＋「고른 글 붙이기」가 옮기는 사이 사라지지 않게) */
+export interface LastSelection { rid: string; target: string; quote: string; line?: number }
+let lastSelection: LastSelection | null = null
+export const lastRecordSelection = () => lastSelection
 export function setRecordSelectionDraft(rid: string, target: string, draft: RecordDraft | null) {
   const key = `${rid}|${target}`
   if (draft) selections.set(key, draft); else selections.delete(key)
+  if (draft?.quote?.trim()) lastSelection = { rid, target, quote: draft.quote, ...(draft.line && { line: draft.line }) }
 }
 /** Keep the quote until a sidebar that was closed has mounted and consumed it. */
 export function openRecordComposer(rid: string, target: RecordDraftTarget, draft?: RecordDraft, fill?: RecordComposerRequest['fill']) {

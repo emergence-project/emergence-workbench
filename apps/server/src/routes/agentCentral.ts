@@ -12,7 +12,7 @@ export function registerAgentCentral(app: FastifyInstance, chats: CentralChats):
   app.get('/api/agent-central/feedback', replies(C.CentralFeedback), async (): Promise<C.CentralFeedback> => chats.feedbackTurns())
 
   /** 사용자가 중앙에게 말하기 (중앙이 없으면 연다) */
-  app.post('/api/agent-central/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.talk(parseBody(C.CentralMessageBody, req.body).text) }))
+  app.post('/api/agent-central/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.talk(parseBody(C.CentralMessageBody, req.body)) }))
 
   /** 중앙 에이전트가 하위 대화를 연다 · 이어 보낸다 · 허락에 답한다 · 닫는다 (chat_open · chat_send · chat_answer · chat_close) */
   app.post('/api/agent-central/open', replies(C.CentralOpened), async (req): Promise<C.CentralOpened> => chats.openOrHold(parseBody(C.CentralOpenBody, req.body)))

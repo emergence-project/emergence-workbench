@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentChatsApi, api, APP_RID, type CentralKid, type ChatRow } from './api'
 import { ChatStateMark, stateName } from './AgentChats'
 import { t } from './i18n'
+import { screenLine } from './screenView'
 import { qk } from './queries'
 import { go } from './router'
 
@@ -40,7 +41,7 @@ export function CentralStart() {
     setBusy(true)
     setFail(null)
     try {
-      const c = await agentChatsApi.talk(text.trim())
+      const c = await agentChatsApi.talk(text.trim(), screenLine())
       client.setQueryData(qk.agentChat(c.id), c)
       void client.invalidateQueries({ queryKey: qk.agentChatLists })
       go({ page: 'agent', id: c.id })

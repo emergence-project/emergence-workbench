@@ -93,7 +93,7 @@ export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { mod
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, type PolicyCtx } from './agentPolicy.js'
 export * from './agentPrompts.js'
-import { appBriefFor, briefFor, feedbackPrompt, pictureImage, promptOf, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
+import { appBriefFor, briefFor, feedbackPrompt, pictureImage, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
 
 export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
 import { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
@@ -110,6 +110,7 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   /** 이번 차례의 계획을 승인했는지 */
   planOk?: boolean
   archived?: boolean
+  /** 마지막으로 지시에 붙인 사용자 화면 한 줄 (promptFor: 바뀔 때만 다시 붙인다) */ view?: string
   /** 앱 고치기 대화의 작업 폴더 */
   worktree?: string
   /** 피드백 대화: CI가 빨개 실패 기록을 다시 보낸 횟수와 마지막으로 본 실패 (같은 실패를 두 번 보내지 않게) */
@@ -326,9 +327,9 @@ export class AgentChats {
    */
   /** prompt = 에이전트에게 넘길 글이 보일 글과 다를 때 (기록 대화: 보이는 것은 기록 글, 넘기는 것은 지침까지) */
   send(id: string, m: ChatMessageBody, prompt?: string): Chat {
-    const c = this.must(id)
-    const s = this.sessions.get(id)
-    if (s && s.key === keyOf(c) && !(c.pending ?? []).length && s.inbox.push({ prompt: (prompt ?? promptOf(m.text, m.attach)), ...(m.images?.length && { images: m.images }) })) {
+    const c = this.must(id), s = this.sessions.get(id)
+    const p = { prompt: promptFor(c, m, prompt), ...(m.images?.length && { images: m.images }) }
+    if (s && s.key === keyOf(c) && !(c.pending ?? []).length && s.inbox.push(p)) {
       if (s.idle) { clearTimeout(s.idle); s.idle = undefined }
       s.last = Date.now()
       // 쉬던 에이전트에 보낸 지시는 새 차례를 연다: 되돌릴 자리 (일하는 중에 섞여 읽힌 지시는 아니다)
@@ -339,7 +340,7 @@ export class AgentChats {
     }
     if (s && !LIVE.has(c.state)) {
       // 쉬는 에이전트를 설정이 바뀌어 닫는다: 닫히면(finish) 이 지시로 다시 연다
-      c.pending = [...(c.pending ?? []), { prompt: (prompt ?? promptOf(m.text, m.attach)), ...(m.images?.length && { images: m.images }) }]
+      c.pending = [...(c.pending ?? []), p]
       c.items.push(userItem(m, false, this.point(c)))
       c.state = 'running'
       this.touch(c)
@@ -347,11 +348,11 @@ export class AgentChats {
       return wireOf(c)
     }
     if (LIVE.has(c.state)) {
-      c.pending = [...(c.pending ?? []), { prompt: (prompt ?? promptOf(m.text, m.attach)), ...(m.images?.length && { images: m.images }) }]
+      c.pending = [...(c.pending ?? []), p]
       this.push(c, userItem(m, true))
       return wireOf(c)
     }
-    this.start(c, m, prompt)
+    this.start(c, m, p.prompt)
     return wireOf(c)
   }
 
@@ -799,11 +800,10 @@ export class AgentChats {
 
   private start(c: Stored, m: ChatMessageBody, prompt?: string): void {
     // 멈추거나 실패해 읽지 못한 지시가 있으면 먼저 읽는다
-    const pending = c.pending ?? []
-    c.pending = []
+    const pending = c.pending?.splice(0) ?? []
     for (const it of c.items) if (it.kind === 'user' && it.queued) delete it.queued
     c.items.push(userItem(m, false, pending.length ? undefined : this.point(c)))
-    this.begin(c, [...pending.map((p) => p.prompt), (prompt ?? promptOf(m.text, m.attach))].join('\n\n'), [...pending.flatMap((p) => p.images ?? []), ...(m.images ?? [])].slice(0, 4))
+    this.begin(c, [...pending.map((p) => p.prompt), promptFor(c, m, prompt)].join('\n\n'), [...pending.flatMap((p) => p.images ?? []), ...(m.images ?? [])].slice(0, 4))
   }
 
   private begin(c: Stored, prompt: string, images?: ImageIn[]): void {

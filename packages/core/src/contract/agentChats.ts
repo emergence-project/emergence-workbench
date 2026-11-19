@@ -50,8 +50,8 @@ export const ChatModel = z.string().regex(/^[a-z][a-z0-9._:/\-[\]]{0,79}$/i)
 export const AGENT_KINDS = ['claude-code', 'codex', 'gemini'] as const
 /** 생각 깊이 (xhigh · max는 그것을 받는 모델만) */
 export const CHAT_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
-/** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 · 커넥터 · 화면 요소 (ref는 화면 주소, text는 부위 이름과 글자) · 터미널 출력 */
-export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record', 'connector', 'element', 'terminal'] as const
+/** 지시에 붙이는 것: 노트 · 주제 · 파일 · 고른 글 · 문헌 · 기록 · 커넥터 · 화면 요소 (ref는 화면 주소, text는 부위 이름과 글자) · 터미널 출력 · 지금 화면 (ref는 화면 주소, text는 화면 한 줄) */
+export const ATTACH_KINDS = ['note', 'topic', 'file', 'selection', 'paper', 'record', 'connector', 'element', 'terminal', 'screen'] as const
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
 export const TODO_STATES = ['pending', 'in_progress', 'completed'] as const
 
@@ -220,6 +220,8 @@ const message = {
   text: z.string().trim().min(1).max(20000),
   attach: z.array(Attach).max(20).optional(),
   images: z.array(ImageIn).max(4).optional(),
+  /** 보낸 기기의 지금 화면 한 줄 (앱 화면 · 프로젝트 · 노트나 파일 · 주소). 서버는 대화마다 마지막 것과 다를 때만 지시에 붙인다 */
+  view: z.string().trim().max(400).optional(),
 }
 /** auto: 토글 값(권한 이름을 바꾸면 빠지고 그 이름의 기본값으로, 같이 보내면 그대로 둔다) */
 export const ChatSettings = z.object({ write: z.enum(CHAT_WRITE).optional(), mode: z.enum(CHAT_MODES).optional(), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional(), auto: ChatAuto.optional(), account: z.string().min(1).max(40).optional() }).strict()
@@ -349,7 +351,7 @@ export const CentralKid = z.object({
 /** GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화 */
 export const CentralState = z.object({ id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean() }).strict()
 /** POST /agent-central/messages: 중앙에게 말하기 (중앙이 없으면 연다) */
-export const CentralMessageBody = z.object({ text: z.string().trim().min(1).max(20000) }).strict()
+export const CentralMessageBody = z.object({ text: message.text, attach: message.attach, view: message.view }).strict()
 /** POST /agent-central/open: 중앙이 하위 대화를 연다. project = 프로젝트 작성, feedback = 피드백 키, task = 맡길 일 (사용자 원문을 그대로 붙인다) */
 export const CentralOpenBody = z.object({
   role: z.enum(CENTRAL_ROLES), title: z.string().trim().min(1).max(60), task: z.string().trim().min(1).max(20000),
