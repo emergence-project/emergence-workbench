@@ -17,7 +17,7 @@ import { useAdmin } from './admin'
 const PICK: Record<FeedbackPick, () => string> = {
   off: () => t('끔', 'Off'),
   manual: () => t('누를 때', 'When I press'),
-  instant: () => t('바로', 'Right away'),
+  instant: () => t('자동', 'Automatic'),
 }
 const MERGE: Record<FeedbackMerge, () => string> = {
   green: () => t('CI 초록이면', 'When CI is green'),
@@ -146,7 +146,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
       <div className="set-row" data-ui="피드백 맡기기">
         <div>
           <div className="set-name">{t('맡기기', 'Hand off')}</div>
-          <div className="set-desc">{t('에이전트 차례인 피드백을 이 맥의 Claude가 언제 맡을지 고릅니다. 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 바로면 새 차례가 생길 때 · 코멘트를 저장할 때 앱이 맡깁니다(남은 메모리만큼 동시에, 앞서 맡은 대화가 있으면 그 대화에 이어). 피드백 화면 툴바의 「바로 맡기기」 켜기 · 끄기도 이 값을 바꿉니다. 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude on this Mac takes feedback that is the agent\'s turn. "When I press" uses Hand to agent on the Feedback screen; "Right away" lets the app hand items off as they come and as comments are saved (as many at once as free memory allows, continuing the earlier conversation if there is one). Right-away hand-off on the Feedback screen toolbar switches this value too. Questions and suggestions are only answered, without code changes.')}</div>
+          <div className="set-desc">{t('에이전트 차례인 피드백을 이 맥의 Claude가 언제 맡을지 고릅니다. 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 자동이면 새 차례가 생길 때 · 코멘트를 저장할 때 앱이 맡깁니다(남은 메모리만큼 동시에, 앞서 맡은 대화가 있으면 그 대화에 이어). 피드백 화면 툴바의 「자동 처리」 스위치도 이 값을 바꿉니다. 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude on this Mac takes feedback that is the agent\'s turn. "When I press" uses Hand to agent on the Feedback screen; "Automatic" lets the app hand items off as they come and as comments are saved (as many at once as free memory allows, continuing the earlier conversation if there is one). The Auto handling switch on the Feedback screen toolbar changes this value too. Questions and suggestions are only answered, without code changes.')}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {FEEDBACK_PICKS.map((m) => <button key={m} role="radio" aria-checked={s.feedback === m} className={s.feedback === m ? 'on' : ''} onClick={() => save({ feedback: m })}>{PICK[m]()}</button>)}
@@ -155,7 +155,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
       <div className="set-row" data-ui="클라우드 피드백 처리">
         <div>
           <div className="set-name">{t('클라우드에서 처리', 'Handle in the cloud')}</div>
-          <div className="set-desc">{t('켜면 claude.ai의 정기 작업이 한 시간마다 에이전트 차례인 피드백을 답하고 고쳐 PR을 합칩니다(맥이 꺼져 있어도). 켜 둔 동안 이 맥의 「바로」 맡기기는 쉽니다. 두 맥이 같은 값을 씁니다.', 'When on, a scheduled task on claude.ai answers and fixes feedback that is the agent\'s turn every hour and merges the PR, even with the Macs off. While it is on, "Right away" on this Mac pauses. Both Macs share this value.')}</div>
+          <div className="set-desc">{t('켜면 claude.ai의 정기 작업이 한 시간마다 에이전트 차례인 피드백을 답하고 고쳐 PR을 합칩니다(맥이 꺼져 있어도). 켜 둔 동안 이 맥의 자동 처리는 쉽니다. 두 맥이 같은 값을 씁니다.', 'When on, a scheduled task on claude.ai answers and fixes feedback that is the agent\'s turn every hour and merges the PR, even with the Macs off. While it is on, automatic handling on this Mac pauses. Both Macs share this value.')}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {[false, true].map((on) => <button key={String(on)} role="radio" aria-checked={cloudOn === on} className={cloudOn === on ? 'on' : ''} disabled={!cloud.data || setCloud.isPending} onClick={() => setCloud.mutate(on)}>{on ? t('켜기', 'On') : t('끄기', 'Off')}</button>)}

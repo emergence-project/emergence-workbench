@@ -39,8 +39,7 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-pick .mini-select { max-width: none; }
 .fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; font-size: var(--fs-xs); }
 .fbp-tools { display: flex; justify-self: end; justify-content: flex-end; align-items: center; gap: var(--sp-2); min-width: 0; }
-.fbp-instant { margin-right: var(--sp-2); }
-.fbp-instant.paused { opacity: 0.5; }
+.fbp-auto { margin-right: var(--sp-2); }
 .fbp-picks { display: flex; align-items: center; gap: var(--sp-4); }
 .fbp-filters { justify-self: start; justify-content: flex-start; flex-wrap: nowrap; }
 @media (max-width: 900px) {

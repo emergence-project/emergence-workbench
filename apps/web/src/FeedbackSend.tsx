@@ -1,4 +1,4 @@
-// 피드백 화면 툴바의 버튼들: 바로 맡기기 켜기 · 끄기, GitHub 이슈로 보내기, 피드백 파일로 보내기 · 가져오기 (FeedbackPage.tsx에서 나눔)
+// 피드백 화면 툴바의 버튼들: 자동 처리 스위치, GitHub 이슈로 보내기, 피드백 파일로 보내기 · 가져오기 (FeedbackPage.tsx에서 나눔)
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type FeedbackItem } from './api'
@@ -106,9 +106,10 @@ export function FeedbackFileButtons() {
 }
 
 /**
- * 바로 맡기기 켜기 · 끄기 (11/19 제안 "바로 답변하는 모드를 on/off로"): 설정 › 에이전트 › 앱 피드백 「맡기기」와 같은 값.
- * 켜기 = 바로, 끄기 = 누를 때 (설정에서 끔이면 끄기에 불이 들어오고, 끄기를 눌러도 끔을 그대로 둔다). 앱 저장소가 있는 맥에서만 보인다.
- * 클라우드에서 처리하는 동안은 바로 맡기기가 쉬므로 흐리게 두고 까닭을 띄운다.
+ * 「자동 처리」 스위치 (11/20 시안 4절, 11/19 22:32 제안 "On/off 디자인이 조금 더 깔끔하면" · 10:55 코멘트 "자동 처리 모드"):
+ * 설정 › 에이전트 › 앱 피드백 「맡기기」와 같은 값. 켬 = 자동(instant), 끔 = 누를 때(설정에서 끔이면 꺼진 채로 보이고, 끄기를 눌러도 끔을 그대로 둔다).
+ * 앱 저장소가 있는 맥에서만 보인다. 클라우드에서 처리하는 동안은 자동 처리가 쉬므로 스위치를 흐리게 두고 툴팁에 까닭을 띄운다.
+ * 예전(11/19)에는 「바로 맡기기 끄기 · 켜기」 두 칸 고르기였다. data-ui 이름은 피드백 기록과 맞추려고 그대로 둔다.
  */
 export function InstantToggle() {
   const client = useQueryClient()
@@ -118,26 +119,20 @@ export function InstantToggle() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   if (!list.data?.app || !settings.data) return null
-  const pick = settings.data.feedback
-  const on = pick === 'instant'
+  const on = settings.data.feedback === 'instant'
   const cloudOn = cloud.data?.enabled === true
   const set = (next: boolean) => {
-    if (next === on) return
     setBusy(true); setError(null)
-    api.saveAgentSettings({ feedback: next ? 'instant' : 'manual' })
+    api.saveAgentSettings({ feedback: next ? 'instant' : settings.data.feedback === 'off' ? 'off' : 'manual' })
       .then((v) => client.setQueryData(qk.agentSettings, v))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false))
   }
-  const title = cloudOn
-    ? t('클라우드에서 처리하는 동안은 바로 맡기기가 쉽니다 (설정 › 에이전트 › 앱 피드백)', 'Right-away hand-off pauses while the cloud handles feedback (Settings › Agents › App feedback)')
-    : t('켜면 에이전트 차례인 피드백이 생길 때 앱이 바로 대화에 맡깁니다. 끄면 「에이전트에게 맡기기」를 누를 때만 맡깁니다. 설정 › 에이전트 › 앱 피드백의 「맡기기」와 같은 값입니다', 'When on, the app hands feedback that is the agent\'s turn to a conversation as soon as it comes. When off, only Hand to agent does. Same value as Hand off in Settings › Agents › App feedback')
+  const tip = error ?? (cloudOn ? t('클라우드 처리 중', 'Handled in the cloud') : t('이 맥의 Claude가 바로 처리', 'Claude on this Mac handles it right away'))
   return (
-    <span className={`fbp-pick fbp-instant${cloudOn ? ' paused' : ''}`} data-ui="바로 맡기기" title={error ?? title}>
-      {t('바로 맡기기', 'Right-away hand-off')}
-      <span className="segmented small" role="radiogroup" aria-label={t('바로 맡기기', 'Right-away hand-off')}>
-        {[false, true].map((v) => <button key={String(v)} role="radio" aria-checked={on === v} className={on === v ? 'on' : ''} disabled={busy} onClick={() => set(v)}>{v ? t('켜기', 'On') : t('끄기', 'Off')}</button>)}
-      </span>
+    <span className="fbp-pick fbp-auto tip-end" data-ui="바로 맡기기" data-tip={tip}>
+      <span id="fbp-auto-label">{t('자동 처리', 'Auto handling')}</span>
+      <button type="button" role="switch" className="switch" aria-labelledby="fbp-auto-label" aria-checked={on && !cloudOn} disabled={busy || cloudOn} onClick={() => set(!on)} />
       {error && <span className="error-text">{error}</span>}
     </span>
   )
