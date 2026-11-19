@@ -6,6 +6,7 @@ import { agentTurns } from '@rw/core'
 import { AgentChats, LIVE, lastTouched, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { readFeedbackCloud } from './feedbackCloud.js'
+import { bundlesOf, keysOf } from './feedbackGroups.js'
 import { t } from './i18n.js'
 
 const now = () => new Date().toISOString()
@@ -17,7 +18,8 @@ export class FeedbackChats extends AgentChats {
    * 2. CI 초록이면 설정대로 합친다: green = 바로, approved = 사용자가 그 답을 승인한 뒤, never = 합치지 않음.
    * 3. 합친 커밋이 지금 도는 앱에 들어오면 shipped (상단바 "#n 반영됨").
    *    main과 부딪혀 합치지 못하면 그 대화에 main을 받아 풀라고 한 번 보낸다.
-   * 4. 저절로 맡기기(instant)면, 도는 대화가 한도보다 적을 때 가장 오래된 에이전트 차례 하나를 맡긴다.
+   * 4. 저절로 맡기기(instant)면, 도는 대화가 한도보다 적을 때 가장 오래된 에이전트 차례가 든 묶음 하나를 맡긴다
+   *    (같은 화면의 수정끼리, 질문 · 제안끼리, feedbackGroups.ts, 11/19).
    * 5. 끝난 대화는 저절로 보관한다 (closeDone): 합친 커밋이 앱에 들어왔고(shipped) 사용자가 확인했을 때.
    *    앱 고치기 대화는 사용자가 PR을 합친 것이, 피드백 대화는 그 답을 승인한 것이 확인이다 (PR 없이 끝난 답은 승인만으로)
    */
@@ -30,8 +32,9 @@ export class FeedbackChats extends AgentChats {
     const watched = (x: Stored) => !LIVE.has(x.state) && (!!x.feedback || x.scope.kind === 'app' && !!x.pr && !x.archived && !x.closed)
     for (const c of [...this.chats.values()].filter(watched)) {
       try {
-        const e = c.feedback ? items.get(c.feedback) : undefined
-        const approved = !!e?.review && e.review.verdict === '승인' && (!e.status?.handled_at || e.review.at > e.status.handled_at)
+        // 묶어 맡긴 대화(11/19)는 모든 항목을 승인해야 승인으로 본다
+        const es = keysOf(c).map((k) => items.get(k))
+        const approved = es.length > 0 && es.every((e) => !!e?.review && e.review.verdict === '승인' && (!e.status?.handled_at || e.review.at > e.status.handled_at))
         // 앱 고치기 대화는 저절로 합치지 않으므로, 사용자가 합쳤는지 본다
         if (!c.feedback && !c.merged && c.worktree && c.branch && app.prMerged) {
           const m = await app.prMerged(c.worktree, c.branch)
@@ -42,7 +45,7 @@ export class FeedbackChats extends AgentChats {
           if (c.shipped && (!c.feedback || approved || s.merge === 'approved')) this.closeDone(c)
           continue
         }
-        if (c.feedback && !c.pr && approved && e?.status?.state !== '반영') { this.closeDone(c); continue }
+        if (c.feedback && !c.pr && approved && es.every((e) => e?.status?.state !== '반영')) { this.closeDone(c); continue }
         if (!c.feedback || !c.pr || !c.worktree || !c.branch) continue
         const ck = await app.checks(c.worktree, c.branch)
         if (!ck.done) continue
@@ -70,14 +73,16 @@ export class FeedbackChats extends AgentChats {
       } catch { /* gh · git 오류는 다음 차례에 다시 본다 */ }
     }
     if (s.feedback !== 'instant' || readFeedbackCloud(fb.dir).enabled || this.running() + this.queue.length >= this.deps.limit) return // 클라우드가 맡는 동안(cloud.yaml)은 쉰다 (11/4)
-    const next = [...items.values()]
-      .filter((e) => agentTurns(e).length && ![...this.chats.values()].some((c) => c.feedback === e.key && new Date(c.created).getTime() >= lastTouched(e)))
+    const waiting = [...items.values()]
+      .filter((e) => agentTurns(e).length && ![...this.chats.values()].some((c) => keysOf(c).includes(e.key) && new Date(c.created).getTime() >= lastTouched(e)))
       .filter((e) => !fb.claims?.taken(e.key, lastTouched(e)))
-      .sort((a, b) => lastTouched(a) - lastTouched(b))[0]
+    const next = bundlesOf(waiting)[0]
     if (!next) return
-    // 다른 컴퓨터도 저절로 맡기기를 켰으면 먼저 적어 올린 쪽만 맡는다
-    if (fb.claims && !(await fb.claims.claim(next.key, lastTouched(next)).catch(() => false))) return
-    try { this.handOff(next.key) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ }
+    // 다른 컴퓨터도 저절로 맡기기를 켰으면 먼저 적어 올린 쪽만 맡는다 (묶음 안에서 맡은 것만)
+    const mine: string[] = []
+    for (const e of next.items) if (!fb.claims || (await fb.claims.claim(e.key, lastTouched(e)).catch(() => false))) mine.push(e.key)
+    if (!mine.length) return
+    try { this.handOff(mine) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ }
   }
 
   /** 목표를 이루고 확인을 받은 대화를 보관한다 (한 번만: 사용자가 꺼내면 다시 넣지 않는다) */

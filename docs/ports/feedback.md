@@ -55,6 +55,7 @@ code:
 ## 이 앱에만 있는 것
 
 - 저절로 맡기기와 컴퓨터 사이 맡음 표시(`apps/server/src/agentFeedbackTick.ts`, `feedbackClaims.ts`) — 에이전트 대화([agent-chat.md](agent-chat.md))가 있어야 한다
+- 묶어 맡기기(`apps/server/src/feedbackGroups.ts`, 11/19): 같은 화면의 수정끼리, 질문 · 제안끼리 한 대화에(5개까지). 대화마다 작업 폴더 · 규칙 읽기 · PR · CI를 다시 하지 않으려고
 - 중계 서버로 다른 사람의 피드백 받기(`relay/`, `feedbackRelay.ts`)
 - 소개 절 확인(`feedback/about.yaml`, `aboutChecks.ts`)
 

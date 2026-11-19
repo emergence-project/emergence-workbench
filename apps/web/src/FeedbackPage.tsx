@@ -302,7 +302,7 @@ function AgentLine({ e, part }: { e: FeedbackItem; part: 'button' | 'line' }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   if (!list.data?.app) return null
-  const chat: ChatRow | undefined = list.data.chats.find((c) => c.feedback === e.key)
+  const chat: ChatRow | undefined = list.data.chats.find((c) => c.feedback === e.key || !!c.bundle?.includes(e.key))
   const live = !!chat && isLive(chat.state)
   const turn = agentTurns(e).length > 0
   const answeredAfter = !!chat && !!e.review && new Date(e.review.at).getTime() > new Date(chat.updated).getTime()
