@@ -19,8 +19,9 @@ export interface OtherMe { machine: string; authors: Author[]; gitIdentity?: { n
 
 /** 설정 파일의 커밋 이름 (이름 · 이메일 둘 다 있어야) */
 export function identityOf(v: unknown): { name: string; email: string } | undefined {
-  const r = v as { name?: unknown; email?: unknown } | null
-  return r && typeof r.name === 'string' && r.name.trim() && typeof r.email === 'string' && r.email.trim() ? { name: r.name.trim(), email: r.email.trim() } : undefined
+  if (!v || typeof v !== 'object' || !('name' in v) || !('email' in v)) return undefined
+  const { name, email } = v
+  return typeof name === 'string' && name.trim() && typeof email === 'string' && email.trim() ? { name: name.trim(), email: email.trim() } : undefined
 }
 
 const time = (at?: string) => (at && Number.isFinite(Date.parse(at)) ? Date.parse(at) : 0)
@@ -32,8 +33,9 @@ export function otherMachineMe(dir: string, machine = machineName()): OtherMe[] 
   try { names = fs.readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== machine).map((d) => d.name).sort() } catch { return [] }
   const out: OtherMe[] = []
   for (const m of names) {
-    let raw: Record<string, unknown>
-    try { raw = (YAML.parse(fs.readFileSync(path.join(root, m, 'config.yaml'), 'utf8')) ?? {}) as Record<string, unknown> } catch { continue }
+    let parsed: unknown
+    try { parsed = YAML.parse(fs.readFileSync(path.join(root, m, 'config.yaml'), 'utf8')) } catch { continue }
+    const raw: Record<string, unknown> = parsed && typeof parsed === 'object' ? { ...parsed } : {}
     const gitIdentity = identityOf(raw.gitIdentity)
     out.push({
       machine: m, authors: normalizeAuthors(raw.authors, []),
