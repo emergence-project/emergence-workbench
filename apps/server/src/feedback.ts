@@ -179,6 +179,19 @@ export const STATUS_FILE = 'status.yaml'
 export const feedbackAsks = (st: FeedbackStatus | undefined): boolean => asksUser({ status: st })
 
 /**
+ * 그 항목에 이 판정을 적을 수 없으면 그 까닭 (피드백 화면 PUT /api/feedback/review와 에이전트 feedback_answer의 verdict가 같이 쓴다).
+ * 결정을 묻는 답에는 진행 · 중단 · 논의로, 결과를 알린 답에는 승인 · 진행 · 반려 · 논의로 답한다 (10/9, 11/8 안 C). 예전 보류에 단 반려는 그대로 받는다
+ */
+export function feedbackVerdictError(item: Pick<FeedbackListItem, 'status'>, verdict: FeedbackVerdict, note?: string): string | null {
+  if (!item.status) return t('아직 처리하지 않은 항목입니다', 'This item has not been handled yet')
+  const asks = feedbackAsks(item.status)
+  if (verdict === '승인' && (asks || item.status.state === '보류')) return t('묻는 답은 승인하지 않고 진행이나 중단으로 답합니다', 'An answer that asks you is not approved: answer it with Proceed or Stop')
+  if (verdict === '중단' && !asks) return t('중단은 에이전트가 물은 답에만 씁니다', 'Stop is only for answers where the agent asks you')
+  if (verdict === '논의' && !note?.trim()) return t('논의는 무엇을 이야기할지 글을 적어 보냅니다', 'Write what to discuss before sending Discuss')
+  return null
+}
+
+/**
  * 사용자의 확인: 반영·답변한 처리를 사용자가 승인하거나 반려한다 (10/4 08:37 피드백 3, 10/4 14:40 "승인/반려로 만들자").
  * feedback/reviews.yaml에 맥 앱만 쓴다 (status.yaml은 Claude만 쓰니 서로 부딪히지 않는다). 키는 status.yaml과 같다.
  *

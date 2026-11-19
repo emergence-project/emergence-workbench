@@ -89,6 +89,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   ctx.agentChats = chats
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
   if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
+  if (appWork && ctx.opts.feedbackDir) ctx.feedbackSaved = () => void chats.pickFeedback().catch(() => undefined)
   // 중앙 대화 깨우기 (11/18): 하위 대화의 PR이 합쳐졌는지 · CI가 실패했는지 1분마다
   if (appWork) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickCentral() })
   app.addHook('onClose', async () => chats.stopAll())

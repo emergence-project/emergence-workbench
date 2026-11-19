@@ -14,7 +14,7 @@
  */
 import { agentTurnReasons, agentTurns } from '@rw/core'
 import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
-import { APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
+import { APP_CHECKS, APP_SUBMIT, LIVE, handedAt, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
 import { appRoom, APP_LIVE_CAP, APP_LIVE_MIN, FRESH_MS, MEM_FREE_GB, MEM_FREE_MIN, memLine, readMemory, roomRule, type Mem, type Room } from './appMemory.js'
@@ -472,7 +472,7 @@ export class CentralChats extends FeedbackChats {
     if (!fb) return { items: [] }
     const items = listAllFeedback(fb.dir).filter((e) => agentTurns(e).length).map((e) => {
       const since = lastTouched(e)
-      const chat = [...this.chats.values()].find((c) => c.feedback === e.key && new Date(c.created).getTime() >= since)
+      const chat = [...this.chats.values()].find((c) => c.feedback === e.key && handedAt(c) >= since)
       return { key: e.key, ...(e.kind && { kind: e.kind }), target: e.target, text: e.text.replace(/\s+/g, ' ').trim().slice(0, 300), reasons: agentTurnReasons(e), taken: !!fb.claims?.taken(e.key, since), ...(chat && { chat: chat.id }) }
     })
     return { items }

@@ -10,6 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { FEEDBACK_MISSES, LIBRARY_RID, noteRecordTarget } from '@rw/core'
+import { FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
 import { recordRows } from './recordRows.js'
 import { registerTaskTools } from './mcpTasks.js'
 import { PROBLEM_INSTRUCTIONS, registerProblemTools } from './mcpProblems.js'
@@ -478,7 +479,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async ({ wait }) => call(`/api/agent-chats/${chat}/app/checks${wait ? `?wait=${wait}` : ''}`))
     server.registerTool('feedback_answer', {
       title: 'Record feedback handling',
-      description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only.',
+      description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only. verdict = the user\'s own verdict on the current handling when they said it in this conversation (진행 · 승인 · 반려 · 중단 · 논의, with verdictNote = their words): the app records it as if they chose it on the feedback screen, before the new handling; send it with the new state, or alone right when they say it.',
       inputSchema: {
         state: z.enum(['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류']).optional().describe('Handling state'),
         note: z.string().optional().describe('The answer the user reads; first line is the fixed phrase (수정 완료 (#PR) · 확인 필요 · 답변: 있음/없음/일부 · 의견에 동의 (크기) · 나중에 · 거절)'),
@@ -490,13 +491,15 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
         lesson: z.string().optional().describe('When redoing: one line on what to do differently next time'),
         after: z.string().optional().describe('Screen picture name from scripts/shots/screens.mjs, after CI is green'),
         replies: z.array(z.object({ to: z.string(), note: z.string() })).optional().describe('Answers to unanswered comments'),
+        verdict: z.enum(FEEDBACK_VERDICTS).optional().describe('The user\'s verdict said in this conversation (never your own judgement)'),
+        verdictNote: z.string().optional().describe('The user\'s words with that verdict (needed for 논의)'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => {
       const r = await post(base, f, `/api/agent-chats/${chat}/feedback/answer`, a)
       if (!r.ok) return r.error
-      const b = r.body as { state?: string; pictures?: string[]; replies: number }
-      return text(`Recorded${b.state ? ` ${b.state}` : ''}${b.pictures ? ` with pictures ${b.pictures.join(', ')}` : ''}${b.replies ? `, ${b.replies} replies` : ''}. The feedback screen shows it now.`)
+      const b = r.body as { state?: string; verdict?: string; pictures?: string[]; replies: number }
+      return text(`Recorded${b.verdict ? ` the user's ${b.verdict}` : ''}${b.state ? ` ${b.state}` : ''}${b.pictures ? ` with pictures ${b.pictures.join(', ')}` : ''}${b.replies ? `, ${b.replies} replies` : ''}. The feedback screen shows it now.`)
     })
   }
 

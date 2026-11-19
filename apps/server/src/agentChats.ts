@@ -18,7 +18,7 @@ import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, FileDiff, Snap } from './appWorktree.js'
 import { agentTurnReasons, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
-import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
+import { feedbackVerdictError, listAllFeedback, setFeedbackReview, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 import { accountForNew, switchAccount, type ClaudeAccounts } from './claudeAccounts.js'
@@ -93,7 +93,7 @@ export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { mod
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, withAlso, type PolicyCtx } from './agentPolicy.js'
 export * from './agentPrompts.js'
-import { appBriefFor, briefFor, feedbackPrompt, pictureImage, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
+import { appBriefFor, briefFor, feedbackAgainPrompt, feedbackPrompt, pictureImage, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
 
 export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
 import { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
@@ -135,7 +135,12 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   held?: CentralOpenBody[]
   /** 앱 고치기 · 피드백 대화: 끝나서 저절로 보관했는지 (한 번만. 사용자가 꺼내면 다시 넣지 않는다) */
   closed?: boolean
+  /** 피드백 대화: 같은 항목을 이 대화에 다시 맡긴 시각 (코멘트마다 새 대화를 열지 않고 이어 쓴다. 이 시각 뒤의 글만 다시 맡긴다) */
+  handed?: string
 }
+
+/** 피드백 대화가 그 항목을 마지막으로 맡은 시각 (이어 맡았으면 그때, 아니면 연 때) */
+export const handedAt = (c: Pick<Stored, 'created' | 'handed'>): number => new Date(c.handed ?? c.created).getTime()
 
 /** 내 지시 하나 앞으로 되돌릴 때 쓰는 것. session이 없으면 처음부터 */
 interface Point { session?: string; resumeAt?: string; snap?: Snap }
@@ -574,8 +579,8 @@ export class AgentChats {
   }
 
   /**
-   * 피드백 하나를 새 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」). 같은 항목은 한 대화만:
-   * 그 피드백을 맡은 대화가 도는 중이면 거절한다. 에이전트 차례가 아닌 항목(사용자 차례 · 완료)도 거절한다.
+   * 피드백 하나를 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」 · 저절로 맡기기). 같은 항목은 한 대화만:
+   * 그 피드백을 맡은 대화가 도는 중이면 거절하고, 끝난 대화가 있으면 새로 열지 않고 그 대화에 이어 보낸다. 에이전트 차례가 아닌 항목(사용자 차례 · 완료)도 거절한다.
    */
   handOff(key: string, parent?: string): Chat {
     const fb = this.deps.feedback
@@ -587,6 +592,18 @@ export class AgentChats {
     if (!e) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     const reasons = agentTurnReasons(e)
     if (!reasons.length) throw new WorkbenchError(400, t('에이전트 차례가 아닌 피드백입니다', 'This feedback is not the agent\'s turn'))
+    // 앞서 이 항목을 맡은 대화가 있으면 그 대화에 이어 맡긴다: 맥락을 그대로 두고, 대화 목록에 항목마다 한 줄 (11/20)
+    const earlier = [...this.chats.values()].filter((c) => c.feedback === key).sort((a, b) => b.updated.localeCompare(a.updated))[0]
+    if (earlier) {
+      const merged = earlier.merged ? { ...(earlier.pr && { pr: earlier.pr.number }), ...(earlier.branch && { branch: earlier.branch }) } : undefined
+      // 합친 PR은 끝난 일: 새 PR · CI를 처음부터 본다
+      if (merged) { delete earlier.merged; delete earlier.shipped; delete earlier.pr; delete earlier.ciSeen; delete earlier.ciRetries }
+      earlier.archived = false
+      delete earlier.closed
+      earlier.handed = now()
+      if (parent) earlier.parent = parent
+      return this.send(earlier.id, { text: feedbackAgainPrompt(e, reasons, merged) })
+    }
     const picture = e.picture ? path.join(fb.dir, e.picture) : undefined
     const title = `${t('피드백', 'Feedback')} · ${(e.status?.clean ?? e.text).replace(/\s+/g, ' ').trim()}`.slice(0, 60)
     const has = picture && fs.existsSync(picture) ? picture : undefined
@@ -597,6 +614,7 @@ export class AgentChats {
   /**
    * 맡은 피드백의 처리 기록을 적는다 (에이전트의 feedback_answer). after가 있으면 그 PR의 CI 그림을 받아
    * 그림 폴더에 두고 pictures: [전(남길 때 그림), 후]. 반영이고 PR이 있으면 commit: "#n".
+   * verdict = 사용자가 이 대화에서 말한 판정: 피드백 화면과 같은 규칙으로 먼저 적는다 (그다음 새 처리가 그 판정에 답한다)
    */
   async feedbackAnswer(id: string, b: FeedbackAnswerBody): Promise<FeedbackAnswered> {
     const c = this.must(id)
@@ -604,6 +622,8 @@ export class AgentChats {
     if (!c.feedback || !fb) throw new WorkbenchError(400, t('피드백을 맡은 대화가 아닙니다', 'This conversation has no feedback item'))
     const e = listAllFeedback(fb.dir).find((x) => x.key === c.feedback)
     if (!e) throw new WorkbenchError(404, t('맡은 피드백을 찾지 못했습니다', 'The feedback item was not found'))
+    const bad = b.verdict && feedbackVerdictError(e, b.verdict, b.verdictNote)
+    if (bad) throw new WorkbenchError(400, bad)
     let pictures: string[] | undefined
     if (b.after) {
       if (!this.deps.app || !c.worktree || !c.branch || !c.pr) throw new WorkbenchError(409, t('PR을 연 뒤에 고친 뒤 그림을 받을 수 있습니다', 'Open the PR before asking for the after picture'))
@@ -615,6 +635,7 @@ export class AgentChats {
       fs.writeFileSync(path.join(fb.dir, name), png)
       pictures = e.picture && fs.existsSync(path.join(fb.dir, e.picture)) ? [e.picture, name] : undefined
     }
+    if (b.verdict) setFeedbackReview(fb.dir, c.feedback, b.verdict, b.verdictNote || undefined)
     const r = writeFeedbackAnswer(fb.dir, c.feedback, {
       ...(b.state && { state: b.state }),
       ...(b.note && { note: b.note }),
@@ -630,7 +651,7 @@ export class AgentChats {
     })
     fb.written?.()
     this.touch(c)
-    return { key: c.feedback, ...(r.state && { state: r.state }), ...(pictures && { pictures }), replies: r.replies }
+    return { key: c.feedback, ...(r.state && { state: r.state }), ...(b.verdict && { verdict: b.verdict }), ...(pictures && { pictures }), replies: r.replies }
   }
 
   /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */
@@ -1138,7 +1159,7 @@ export const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

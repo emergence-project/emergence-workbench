@@ -3,12 +3,14 @@
  * agentChats.ts가 길어 나눴다. CentralChats(agentCentral.ts)가 이 클래스를 잇는다
  */
 import { agentTurns } from '@rw/core'
-import { AgentChats, LIVE, lastTouched, type Stored } from './agentChats.js'
-import { listAllFeedback } from './feedback.js'
+import { AgentChats, LIVE, handedAt, lastTouched, type Stored } from './agentChats.js'
+import { listAllFeedback, type FeedbackListItem } from './feedback.js'
 import { readFeedbackCloud } from './feedbackCloud.js'
 import { t } from './i18n.js'
 
 const now = () => new Date().toISOString()
+
+const mark = (e: FeedbackListItem): string => `${lastTouched(e)}|${e.comments?.length ?? 0}|${e.review?.at ?? ''}`
 
 export class FeedbackChats extends AgentChats {
   /**
@@ -17,7 +19,7 @@ export class FeedbackChats extends AgentChats {
    * 2. CI 초록이면 설정대로 합친다: green = 바로, approved = 사용자가 그 답을 승인한 뒤, never = 합치지 않음.
    * 3. 합친 커밋이 지금 도는 앱에 들어오면 shipped (상단바 "#n 반영됨").
    *    main과 부딪혀 합치지 못하면 그 대화에 main을 받아 풀라고 한 번 보낸다.
-   * 4. 저절로 맡기기(instant)면, 도는 대화가 한도보다 적을 때 가장 오래된 에이전트 차례 하나를 맡긴다.
+   * 4. 저절로 맡기기(instant)면 pickFeedback.
    * 5. 끝난 대화는 저절로 보관한다 (closeDone): 합친 커밋이 앱에 들어왔고(shipped) 사용자가 확인했을 때.
    *    앱 고치기 대화는 사용자가 PR을 합친 것이, 피드백 대화는 그 답을 승인한 것이 확인이다 (PR 없이 끝난 답은 승인만으로)
    */
@@ -69,14 +71,30 @@ export class FeedbackChats extends AgentChats {
         this.touch(c)
       } catch { /* gh · git 오류는 다음 차례에 다시 본다 */ }
     }
+    await this.pickFeedback()
+  }
+
+  /**
+   * 저절로 맡기기(instant): 도는 대화가 한도보다 적으면 에이전트 차례 하나를 맡긴다: 사용자가 가장 최근에 손댄 항목부터 (방금 남긴 코멘트에 바로 답하게, 11/20).
+   * 1분마다와, 사용자가 피드백 · 코멘트 · 답을 저장한 바로 뒤에 (routes/feedback.ts의 feedbackSaved, 11/20: 1분을 기다리지 않게)
+   */
+  /** 저절로 맡긴 항목 → 그때의 글 표시 (마지막 손댄 분 · 코멘트 수: 같은 분에 단 새 코멘트는 다르게) */
+  private picked = new Map<string, string>()
+
+  async pickFeedback(): Promise<void> {
+    const fb = this.deps.feedback
+    const s = this.deps.settings?.()
+    if (!this.deps.app || !fb || !s) return
     if (s.feedback !== 'instant' || readFeedbackCloud(fb.dir).enabled || this.running() + this.queue.length >= this.deps.limit) return // 클라우드가 맡는 동안(cloud.yaml)은 쉰다 (11/4)
-    const next = [...items.values()]
-      .filter((e) => agentTurns(e).length && ![...this.chats.values()].some((c) => c.feedback === e.key && new Date(c.created).getTime() >= lastTouched(e)))
+    const next = listAllFeedback(fb.dir)
+      // 글 시각은 분 단위라 맡은 분과 같은 분에 남긴 코멘트도 새 것으로 본다 (같은 글로 두 번 맡지 않게 picked)
+      .filter((e) => agentTurns(e).length && this.picked.get(e.key) !== mark(e) && ![...this.chats.values()].some((c) => c.feedback === e.key && (LIVE.has(c.state) || Math.floor(handedAt(c) / 60_000) * 60_000 > lastTouched(e))))
       .filter((e) => !fb.claims?.taken(e.key, lastTouched(e)))
-      .sort((a, b) => lastTouched(a) - lastTouched(b))[0]
+      .sort((a, b) => lastTouched(b) - lastTouched(a))[0]
     if (!next) return
     // 다른 컴퓨터도 저절로 맡기기를 켰으면 먼저 적어 올린 쪽만 맡는다
     if (fb.claims && !(await fb.claims.claim(next.key, lastTouched(next)).catch(() => false))) return
+    this.picked.set(next.key, mark(next))
     try { this.handOff(next.key) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ }
   }
 

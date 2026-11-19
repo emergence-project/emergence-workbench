@@ -4,7 +4,7 @@ import * as C from '@rw/core/contract/feedback'
 import { parseBody, replies } from '../contract.js'
 import fs from 'node:fs'
 import path from 'node:path'
-import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, feedbackAsks, feedbackStatusError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback } from '../feedback.js'
+import { addFeedbackComment, appendFeedback, editFeedback, editFeedbackNote, feedbackAccount, feedbackStatusError, feedbackVerdictError, listAllFeedback, listFeedback, publishFeedback, PublishError, setFeedbackReview, unpublishedFeedback } from '../feedback.js'
 import { WorkbenchError, assertRealInside } from '../workbench.js'
 import { commitChecker } from '../commitsInApp.js'
 import { appIssuesUrl } from '../appupdate.js'
@@ -201,6 +201,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!listAllFeedback(opts.feedbackDir).some((e) => e.key === b.key)) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
     const comment = addFeedbackComment(opts.feedbackDir, b.key, b.note.slice(0, 4000))
     scheduleAutoPublish()
+    ctx.feedbackSaved?.()
     return { comment }
   })
   /** 내가 쓴 글(수정 요청 · 승인 · 코멘트) 고치기: at으로 찾는다 */
@@ -235,14 +236,11 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     const b = parseBody(C.FeedbackReviewBody, req.body)
     const item = listAllFeedback(opts.feedbackDir).find((e) => e.key === b.key)
     if (!item) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
-    if (b.verdict !== null && !item.status) throw new WorkbenchError(400, t('아직 처리하지 않은 항목입니다', 'This item has not been handled yet'))
-    // 결정을 묻는 답에는 진행 · 중단 · 논의로, 결과를 알린 답에는 승인 · 진행 · 반려 · 논의로 답한다 (10/9, 11/8 안 C). 예전 보류에 단 반려는 그대로 받는다
-    const asks = feedbackAsks(item.status)
-    if (b.verdict === '승인' && (asks || item.status?.state === '보류')) throw new WorkbenchError(400, t('묻는 답은 승인하지 않고 진행이나 중단으로 답합니다', 'An answer that asks you is not approved: answer it with Proceed or Stop'))
-    if (b.verdict === '중단' && !asks) throw new WorkbenchError(400, t('중단은 에이전트가 물은 답에만 씁니다', 'Stop is only for answers where the agent asks you'))
-    if (b.verdict === '논의' && !b.note?.trim()) throw new WorkbenchError(400, t('논의는 무엇을 이야기할지 글을 적어 보냅니다', 'Write what to discuss before sending Discuss'))
+    const bad = b.verdict !== null && feedbackVerdictError(item, b.verdict, b.note)
+    if (bad) throw new WorkbenchError(400, bad)
     const review = setFeedbackReview(opts.feedbackDir, b.key, b.verdict, b.note)
     scheduleAutoPublish()
+    ctx.feedbackSaved?.()
     return { review }
   })
   app.post('/api/feedback', replies(C.FeedbackAdded), async (req): Promise<C.FeedbackAdded> => {
@@ -251,6 +249,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!b.text.trim()) throw new WorkbenchError(400, t('내용이 필요함', 'text is required'))
     const entry = appendFeedback(opts.feedbackDir, { ...b, version: opts.appVersion })
     scheduleAutoPublish()
+    ctx.feedbackSaved?.()
     return { entry }
   })
 }
