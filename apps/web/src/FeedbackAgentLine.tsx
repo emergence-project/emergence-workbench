@@ -35,7 +35,7 @@ export function AgentLine({ e, part }: { e: FeedbackItem; part: 'button' | 'line
     try {
       await agentChatsApi.handOff(e.key)
       await client.invalidateQueries({ queryKey: qk.agentChats })
-    } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)) } finally { setBusy(false) }
   }
   const handed = chat && new Date(chat.handed ?? chat.created)
   const stop = () => void agentChatsApi.stop(chat!.id).then(() => client.invalidateQueries({ queryKey: qk.agentChats }), (err: Error) => setError(err.message))
