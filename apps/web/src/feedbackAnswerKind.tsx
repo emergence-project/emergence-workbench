@@ -20,17 +20,20 @@ export interface AnswerParts {
   kind: AnswerKind
   /** 상태 칸: 반영 · 답변 · 동의 · 확인 필요 · 나중에 · 거절 · 대기 · 끝남 */
   state: FeedbackState | '대기' | '끝남'
-  /** 결론 칸: PR 번호 · 있음/없음/일부 · 구현 크기(크기 중간). 없으면 '' */
+  /** 결론 칸: PR 번호 · 지금 앱에 있음/없음/일부 · 구현 크기(크기 중간). 없으면 '' */
   result: string
   /** 끝남이면 승인인지 중단인지 */
   tip?: string
 }
 
+const ANSWER_SHOWN: Record<string, string> = { 있음: t('지금 앱에 있음', 'In the app now'), 없음: t('지금 앱에 없음', 'Not in the app yet'), 일부: t('지금 앱에 일부', 'Partly in the app') }
+
 /** 처리 첫 줄에서 결론을 읽는다: 「수정 완료 (#414)」 · 「답변: 없음」 · 「의견에 동의 (중간)」 */
 export function resultOf(state: FeedbackState, note = '', commit = ''): string {
   const first = note.split('\n')[0]!.trim()
   if (state === '반영') return first.match(/\(#(\d+)\)/)?.[0].slice(1, -1) ?? (/^#\d+$/.test(commit) ? commit : commit.slice(0, 7))
-  if (state === '답변') return first.match(/^답변:\s*(있음|없음|일부)/)?.[1] ?? ''
+  // 「없음」만으로는 "답이 없다"로 읽혀서(11/8 20:38), 무엇이 있고 없는지 붙여 보인다. 기록은 그대로 「답변: 없음」
+  if (state === '답변') { const v = first.match(/^답변:\s*(있음|없음|일부)/)?.[1]; return v ? (ANSWER_SHOWN[v] ?? '') : '' }
   if (state === '동의') { const size = first.match(/\((작음|중간|큼)\)/)?.[1]; return size ? `${t('크기', 'Size')} ${size}` : '' }
   return ''
 }
@@ -62,4 +65,10 @@ export function AnswerCells({ e }: { e: FeedbackItem }) {
     <td className="fbp-cell-state" title={a.tip}><span className={`fbp-state${turn ? ' turn' : ''}`}>{answerKindName(a.state)}</span></td>
     <td className="fbp-cell">{a.result || <span className="muted">—</span>}</td>
   </>
+}
+
+/** 펼친 카드 머리의 결론 (11/8 20:38 → 11/20 진행 「추천대로」): 상태 옆에 표의 결론 칸과 같은 말 */
+export function AnswerResult({ e }: { e: FeedbackItem }) {
+  const r = answerParts(e).result
+  return r ? <span className="fbp-result" data-ui="결론">{r}</span> : null
 }
