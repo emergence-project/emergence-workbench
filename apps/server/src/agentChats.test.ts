@@ -686,5 +686,40 @@ describe('앱이 다시 켜지면', () => {
     chats.stopAll()
     fs.rmSync(dir, { recursive: true, force: true })
   })
+
+  it('줄 선 대화는 두 번 다시 켜져도 지시를 지닌 채 줄에 남아 결국 돌고, 재시작 횟수는 실제로 돈 차례만 센다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-queued-'))
+    const at = new Date().toISOString()
+    const chat = (id: string, more: object) => fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({ id, rid: 'p', title: id, agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', claims: [], created: at, updated: at, items: [{ kind: 'user', at, text: `지시 ${id}` }], ...more }))
+    chat('q', { state: 'queued', turn: { prompt: '줄 선 지시' }, restarts: 2 })
+    const open = (limit: number) => new AgentChats({ dir, runner: fake, limit, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    for (const _ of [1, 2]) {
+      const c = open(0)
+      expect(c.get('q').state).toBe('queued')
+      c.stopAll()
+    }
+    chat('old', { state: 'queued' }) // 차례를 저장하기 전 버전에서 줄 선, 세션도 없는 새 대화
+    chat('run', { state: 'running', sessionId: 'old-run' })
+    const chats = open(3)
+    const before = seen.length
+    expect(chats.resumeRestarted()).toBe(2) // old · run (q는 줄에서)
+    await vi.waitFor(() => ['q', 'old', 'run'].forEach((id) => expect(chats.get(id).state).toBe('idle')))
+    const prompts = seen.slice(before).map((s) => s.prompt)
+    expect(prompts).toContainEqual(expect.stringContaining('줄 선 지시'))
+    expect(prompts).toContainEqual(expect.stringContaining('지시 old'))
+    expect(prompts).toContainEqual(expect.stringMatching(/멈춘 차례의 마지막 지시:\n> 지시 run/))
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('끝난 대화 · 사용자 답을 기다리던 대화는 깨우지 않는다', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-quiet-'))
+    const at = new Date().toISOString()
+    for (const [id, state] of [['i', 'idle'], ['w', 'waiting']]) fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({ id, rid: 'p', title: id, agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', state, claims: [], created: at, updated: at, items: [], sessionId: `s-${id}` }))
+    const chats = new AgentChats({ dir, runner: fake, limit: 3, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    expect(chats.resumeRestarted()).toBe(0)
+    expect(chats.get('i').state).toBe('idle')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
 })
 

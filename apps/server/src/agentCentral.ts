@@ -112,10 +112,7 @@ export class CentralChats extends FeedbackChats {
     return this.create({ rid: CENTRAL_RID, ...m, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}\n\n${digest}\n\n${promptOf(m.text, m.attach)}`)
   }
 
-  /**
-   * 중앙 대화에 보내는 말에는 하위 대화 요약을 앞에 붙인다 (화면의 입력란에서 보내도).
-   * 사용자의 말이면 아직 보내지 않은 깨우기를 그 앞에 붙여 함께 보내고, 저절로 보낸 횟수를 처음부터 센다
-   */
+  /** 중앙 대화에 보내는 말에는 하위 대화 요약을 앞에 붙인다 (화면의 입력란에서 보내도). 사용자의 말이면 아직 보내지 않은 깨우기를 그 앞에 붙여 함께 보내고, 저절로 보낸 횟수를 처음부터 센다 */
   override send(id: string, m: ChatMessageBody, prompt?: string): Chat {
     const c = this.must(id)
     if (c.rid === CENTRAL_RID && prompt === undefined) {
@@ -161,10 +158,7 @@ export class CentralChats extends FeedbackChats {
     this.wakeLater()
   }
 
-  /**
-   * 대화가 중앙에게 중재를 청한다 (central_help, 11/19): 고칠 수 없는 다른 프로젝트 · 개념노트의 일이나 앱 버그.
-   * 그 대화가 일하는 중이어도 바로 알린다. 중앙 대화가 없으면 409 (에이전트는 사용자에게 말한다)
-   */
+  /** 대화가 중앙에게 중재를 청한다 (central_help, 11/19): 고칠 수 없는 다른 프로젝트 · 개념노트의 일이나 앱 버그. 그 대화가 일하는 중이어도 바로 알린다. 중앙 대화가 없으면 409 (에이전트는 사용자에게 말한다) */
   help(id: string, text: string): string {
     const k = this.must(id)
     const c = this.central()
