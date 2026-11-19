@@ -70,6 +70,7 @@
   note: 폴더를 지우면 되돌릴 수 없어 아직 고치지 않았다.
   ask: 폴더까지 지우는 것이 맞나요? 등록만 빼는 지금 방식은 폴더를 지키려고 정한 것입니다.
   handled_at: 2026-10-04T14:40
+  mockups: [2026-10-04-1440-mockup-card-delete.png, 2026-10-04-1440-mockup-card-delete.html, 2026-10-04-1440-mockup-card-keep.png]
   by: claude
 2026-10-04 15:00 노트 화면 › 툴바:
   state: 동의

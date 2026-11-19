@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ABOUT_PARTS_EN, ABOUT_PARTS_KO, COLOR_ROWS_EN, COLOR_ROWS_KO, SYMBOL_GROUPS_EN, SYMBOL_GROUPS_KO, type AboutPart } from './aboutContent'
+import { ABOUT_PARTS_EN, ABOUT_PARTS_KO, COLOR_ROWS_EN, COLOR_ROWS_KO, SYMBOL_GROUPS_EN, SYMBOL_GROUPS_KO, type AboutPart, withPrFragments } from './aboutContent'
 
 // 소개 글은 절 파일마다 두 언어(ko · en)가 함께 있다. 영어 쪽 data-ui는 같은 자리의 한국어 제목을 쓰므로(withUi) 모양이 같아야 한다
 const shape = (parts: AboutPart[]) => parts.map((p) => ({
@@ -27,5 +27,32 @@ describe('소개와 업데이트 1대1', () => {
     const refs = aboutChangesOf(94)
     expect(refs).toContainEqual({ part: 'symbols', anchor: 'tags', label: '기호와 의미 › 대화 태그' })
     expect(aboutChangesOf(1)).toEqual([])
+  })
+})
+
+describe('PR 번호 조각 about/prs/<번호>.json (11/20)', () => {
+  const sec = { title: '흐름', id: 'flow', prs: [90, 12], items: [] }
+  const other = { title: '편집', items: [] }
+  const parts = [{ id: 'project', title: '과제', sub: '', sections: [sec, other] }] as AboutPart[]
+  const files = { './about/project/flow.tsx': { ko: sec }, './about/project/edits.tsx': { ko: other } }
+  it('조각의 번호를 그 절의 prs에 합친다 (차례대로, 겹치면 하나)', () => {
+    const out = withPrFragments(parts, files, { './about/prs/95.json': ['project/flow'], './about/prs/90.json': ['project/flow'] })
+    expect(out[0]!.sections![0]!.prs).toEqual([12, 90, 95])
+    expect(out[0]!.sections![1]!.prs).toBeUndefined()
+  })
+  it('조각이 없으면 그대로', () => {
+    expect(withPrFragments(parts, files, {})).toBe(parts)
+  })
+  it('있는 조각은 모두 있는 절을 가리키고 그 절에 번호가 붙는다', () => {
+    const frags = import.meta.glob<string[]>('./about/prs/*.json', { eager: true, import: 'default' })
+    const sections = Object.keys(import.meta.glob('./about/*/*.tsx')).map((f) => f.match(/([^/]+\/[^/]+)\.tsx$/)![1])
+    for (const [f, keys] of Object.entries(frags)) {
+      const n = Number(f.match(/(\d+)\.json$/)![1])
+      for (const k of keys) {
+        expect(sections, `${f}: ${k}`).toContain(k)
+        const [part] = k.split('/')
+        expect(ABOUT_PARTS_KO.find((p) => p.id === part)?.sections?.some((s) => s.prs?.includes(n)), `${f}: ${k}`).toBe(true)
+      }
+    }
   })
 })

@@ -43,7 +43,7 @@ test('the existing CI scope stays 124 screens with exactly two dark captures', (
   const screens = selectScreens(defaults.sample)
   assert.equal(screens.length, 124)
   assert.deepEqual(screens.filter(([name]) => screenScheme(defaults.theme, name) === 'dark').map(([name]) => name), ['dark-topic', 'dark-note-info'])
-  assert.equal(selectScreens('subjects').length, 10)
+  assert.equal(selectScreens('subjects').length, 11)
   assert.ok(selectScreens('subjects').every(([name]) => name.startsWith('subjects-')))
   assert.ok(screens.every(([name]) => screenScheme('light', name) === 'light'))
   assert.ok(screens.every(([name]) => screenScheme('dark', name) === 'dark'))

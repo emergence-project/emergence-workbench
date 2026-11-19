@@ -54,10 +54,11 @@ export const CENTRAL_BRIEF = [
   '- Answer questions yourself by reading: workbench MCP tools (list_projects, project_status, overview, read_note, list_records, search_library, rules) and Read/Grep/Glob on the app repository (your working folder) and registered projects.',
   '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; it squash-merges its own pull request with app_merge once CI is green, or you squash-merge it; restarting stays with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
   `- How many app sub-conversations work at once depends on free memory: the app opens one while at least ${MEM_FREE_MIN * 100}% and ${MEM_FREE_GB} GB of memory stay free (always at least ${APP_LIVE_MIN}, at most ${APP_LIVE_CAP}). If chat_open says the task is held, the app opens it by itself when memory frees or one ends; do not open it again.`,
+  '- Only when the app itself is broken or stuck (an app bug, the app not responding, sub-conversations not starting), open the fix with chat_open urgent: true: it starts at once whatever the memory and queue (one at a time; you yourself never wait in the queue). Never use urgent for ordinary features or fixes.',
   '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per item).',
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
-  '- Each message starts with a short status of your sub-conversations. Mention one only when the user must act or it finished.',
+  '- Each message starts with a short status of your sub-conversations: ones that changed since your last turn in full, the rest in one line marked unchanged (you saw them before; chat_list shows them again). Mention one only when the user must act or it finished.',
   '- The app wakes you by itself (a message marked "Automatic wake-up", not written by the user) when a sub-conversation ends its turn, waits for plan approval or permission, its pull request check fails, or its pull request is merged, and when any conversation asks you to mediate (central_help). Do the routine work then without asking:',
   '  - asks to mediate: a conversation changes only the projects it was given; work in another project or a concept note, and app bugs it found, come to you. Open the sub-conversation that owns it (role project or role app) with the user\'s goal and what it asked, or tell the user when they must decide.',
   '  - check failed: chat_send it "Find the cause and fix it" with what the log shows.',
@@ -142,12 +143,20 @@ export function kidOf(c: Stored): CentralKid {
   }
 }
 
-/** 중앙에게 넘기는 하위 대화 요약 (보관한 것은 빼고). held = 자리를 기다리는 앱 고치기 수 */
-export function digestOf(kids: CentralKid[], held = 0): string {
+/** 하위 대화 한 줄의 표지: 상태 · 기다림 · PR · 보고가 같으면 같다 (digestOf가 바뀐 것만 자세히 싣는다) */
+export const kidSig = (k: CentralKid) => JSON.stringify([k.state, k.wait, k.ask?.id, k.pr?.number, k.merged, k.report])
+
+/**
+ * 중앙에게 넘기는 하위 대화 요약 (보관한 것은 빼고). held = 자리를 기다리는 앱 고치기 수.
+ * seen(대화 id → 지난 차례에 넘긴 kidSig)을 주면 그 뒤 바뀐 대화만 자세히(PR · 보고), 나머지는 id · 제목 · 상태 한 줄 (토큰 아끼기, 11/20)
+ */
+export function digestOf(kids: CentralKid[], held = 0, seen?: ReadonlyMap<string, string>): string {
   const open = kids.filter((k) => !k.archived)
   const wait = held ? `\n[Held app tasks waiting for free memory: ${held}; the app opens them]` : ''
   if (!open.length) return `[Sub-conversations: none open]${wait}`
-  return ['[Sub-conversations]', ...open.map((k) => {
+  const same = seen ? open.filter((k) => seen.get(k.id) === kidSig(k)).length : 0
+  return [same ? '[Sub-conversations; "unchanged" = same as your last turn]' : '[Sub-conversations]', ...open.map((k) => {
+    if (seen?.get(k.id) === kidSig(k)) return `- ${k.id} · "${k.title}" · ${stateWord[k.state] ?? k.state} · unchanged`
     const pr = k.pr ? ` · PR #${k.pr.number}${k.merged ? ' merged' : ''}` : ''
     const w = k.wait ? `waiting for ${k.wait === 'plan' ? 'plan approval' : 'permission'}${k.ask ? ` (ask ${k.ask.id}${k.ask.critical ? ', critical: leave to the user' : ''})` : ''}` : stateWord[k.state] ?? k.state
     return `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}" · ${w}${pr}${k.report ? ` · ${k.reported ? 'report' : 'last'}: ${oneLine(k.report, REPORT_CHARS)}` : ''}`
@@ -156,7 +165,7 @@ export function digestOf(kids: CentralKid[], held = 0): string {
 
 /** 깨울 까닭 하나 */
 type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help'; log?: string; text?: string }
-type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number> }
+/** digested: 중앙 대화 id별로 마지막으로 넘긴 하위 대화마다의 kidSig */ type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number>; digested: Map<string, Map<string, string>> }
 
 export class CentralChats extends FeedbackChats {
   /** 하위 대화가 바뀐 뒤 중앙을 깨우기까지 모으는 시간 (시험은 줄인다) */
@@ -168,7 +177,7 @@ export class CentralChats extends FeedbackChats {
   private wakeState?: WakeState
 
   private w(): WakeState {
-    return (this.wakeState ??= { prev: new Map(), events: new Map(), seen: new Set(), auto: false, sends: new Map() })
+    return (this.wakeState ??= { prev: new Map(), events: new Map(), seen: new Set(), auto: false, sends: new Map(), digested: new Map() })
   }
 
   /** 중앙 대화 (보관하지 않은 것 가운데 가장 최근) */
@@ -185,8 +194,11 @@ export class CentralChats extends FeedbackChats {
     return [...this.chats.values()].filter((k) => k.parent === parent).sort((a, b) => b.updated.localeCompare(a.updated)).map(kidOf)
   }
 
+  /** 중앙에게 보낼 하위 대화 요약. 지난번에 넘긴 것과 같은 대화는 한 줄로. 세션이 새로 열리면(앱을 다시 켬 등) 모두 자세히 */
   private digest(c: Stored): string {
-    return `${digestOf(this.kidsOf(c.id), c.held?.length)}${this.feedbackLine()}`
+    const kids = this.kidsOf(c.id), all = this.w().digested, seen = c.sessionId ? all.get(c.id) : undefined
+    all.set(c.id, new Map(kids.filter((k) => !k.archived).map((k) => [k.id, kidSig(k)])))
+    return `${digestOf(kids, c.held?.length, seen)}${this.feedbackLine()}`
   }
 
   /** 사용자가 중앙에게 말한다: 중앙이 없으면 연다 (Opus, 읽기만). 붙인 것 · 지금 화면 한 줄도 함께 */
@@ -368,8 +380,14 @@ export class CentralChats extends FeedbackChats {
     }
   }
 
+  /** 중앙 대화와 그것이 급히 연 앱 고치기는 줄을 서지 않고 동시에 도는 수에도 들지 않는다 (11/19 "중앙대화는 메모리 부족과 관계없이 작업을 할 수 있어야") */
+  protected override unlimited(c: Stored): boolean {
+    return c.rid === CENTRAL_RID || !!c.urgent
+  }
+
+  /** 메모리로 세는 앱 고치기 (급한 것은 따로 하나) */
   private appLive(): Stored[] {
-    return [...this.chats.values()].filter((k) => k.rid === APP_RID && LIVE.has(k.state))
+    return [...this.chats.values()].filter((k) => k.rid === APP_RID && LIVE.has(k.state) && !k.urgent)
   }
 
   /** 앱 고치기를 하나 더 열 수 있는지 (남은 메모리, appMemory.ts). 메모리를 못 읽으면 최소 개수만 */
@@ -409,7 +427,7 @@ export class CentralChats extends FeedbackChats {
   /** 중앙이 하위 대화를 연다 (chat_open). 남은 메모리가 모자라면 기다리게 두고(held) 그 순서를 돌려준다 */
   async openOrHold(b: CentralOpenBody): Promise<CentralOpened> {
     const c = this.central()
-    if (c && b.role === 'app') {
+    if (c && b.role === 'app' && !b.urgent) {
       const r = await this.room()
       if (!r.ok) {
         c.held = [...(c.held ?? []), b]
@@ -426,6 +444,12 @@ export class CentralChats extends FeedbackChats {
   async openKid(b: CentralOpenBody): Promise<CentralKid> {
     const c = this.central()
     if (!c) throw new WorkbenchError(409, t('중앙 대화가 없습니다', 'There is no central conversation'))
+    if (b.role === 'app' && b.urgent) {
+      // 앱 버그 · 앱이 멈춘 때만: 메모리 · 줄과 상관없이 바로 연다. 한 번에 하나
+      const busy = [...this.chats.values()].find((k) => k.urgent && LIVE.has(k.state))
+      if (busy) throw new WorkbenchError(409, t(`급한 앱 고치기는 한 번에 하나입니다 (「${busy.title}」 ${busy.id}). 그 대화에 이어 보내세요`, `Only one urgent app conversation at a time ("${busy.title}" ${busy.id}). Send to it with chat_send`))
+      return kidOf(this.must(this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'edit' }, { parent: c.id, urgent: true }).id))
+    }
     if (b.role === 'app') {
       const r = await this.room()
       if (!r.ok) {

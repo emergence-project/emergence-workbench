@@ -450,7 +450,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     const chat = encodeURIComponent(opts.appChat)
     server.registerTool('app_submit', {
       title: 'Commit and open PR',
-      description: 'Commit every change in the work folder, push the branch and open the pull request (or add to it if already open). The app refuses while another pull request is open. Title: one Korean line the user reads in the update history. Body: follow the PR template (Before / After / How / Checks).',
+      description: 'Commit every change in the work folder, push the branch and open the pull request (or add to it if already open). Before pushing, the app runs pnpm type-check and the ports-guide, about and structure-ratchet checks (scripts/ci/check-ports.mjs, check-about.mjs, check-ratchet.mjs) in the work folder; if one fails it undoes its commit, pushes nothing and returns the errors, so fix them and call app_submit again. After the pull request number is known, the app writes the about sections you changed to apps/web/src/about/prs/<number>.json and pushes once more (do not add the number to a section\'s prs yourself). Title: one Korean line the user reads in the update history. Body: follow the PR template (Before / After / How / Checks).',
       inputSchema: { title: z.string().describe('One-line Korean PR title'), body: z.string().describe('PR body following the template') },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     }, async (a) => {
@@ -478,7 +478,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async ({ wait }) => call(`/api/agent-chats/${chat}/app/checks${wait ? `?wait=${wait}` : ''}`))
     server.registerTool('feedback_answer', {
       title: 'Record feedback handling',
-      description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only.',
+      description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only. mockups = names of mockups in this folder\'s mockups/ (<name>.png and <name>.html, with or without extension): the app copies them into the feedback folder and shows them as thumbnails on the handling (or on a reply via replies[].mockups) so the user can page through them, open the html and choose 진행 / 논의 there; send mockups without state to add them to the current handling.',
       inputSchema: {
         state: z.enum(['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류']).optional().describe('Handling state'),
         note: z.string().optional().describe('The answer the user reads; first line is the fixed phrase (수정 완료 (#PR) · 확인 필요 · 답변: 있음/없음/일부 · 의견에 동의 (크기) · 나중에 · 거절)'),
@@ -489,7 +489,8 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
         miss: z.enum(FEEDBACK_MISSES).optional().describe('When redoing a revision request: why the previous handling was sent back'),
         lesson: z.string().optional().describe('When redoing: one line on what to do differently next time'),
         after: z.string().optional().describe('Screen picture name from scripts/shots/screens.mjs, after CI is green'),
-        replies: z.array(z.object({ to: z.string(), note: z.string() })).optional().describe('Answers to unanswered comments'),
+        mockups: z.array(z.string()).optional().describe('Mockup names in mockups/ of this folder to attach to the handling (e.g. ["nav-tabs"])'),
+        replies: z.array(z.object({ to: z.string(), note: z.string(), mockups: z.array(z.string()).optional() })).optional().describe('Answers to unanswered comments, each with optional mockups'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => {
@@ -536,13 +537,14 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async () => call('/api/agent-central/feedback', (b: { items: unknown[] }) => b.items))
     server.registerTool('chat_open', {
       title: 'Open sub-conversation',
-      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; at most 2 work at once, more are held and opened by the app when a slot frees). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle one app feedback item (pass feedback = its key; refused if another computer or the cloud routine claimed it). task = the user\'s words verbatim plus the context needed. It starts working right away.',
+      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; opened while memory is free, otherwise held and opened by the app when memory frees; urgent: true opens one at once for an app bug or a stuck app). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle one app feedback item (pass feedback = its key; refused if another computer or the cloud routine claimed it). task = the user\'s words verbatim plus the context needed. It starts working right away.',
       inputSchema: {
         role: z.enum(['app', 'project', 'feedback']),
         title: z.string().max(60).describe('Short Korean title the user sees'),
         task: z.string().describe('What to do: the user\'s own words verbatim, then needed context'),
         project: z.string().optional().describe('Project id for role project (from list_projects)'),
         feedback: z.string().optional().describe('Feedback key for role feedback'),
+        urgent: z.boolean().optional().describe('role app only, and only when the app itself is broken or stuck (an app bug, the app not responding): opens at once whatever the memory and queue, one at a time'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => {

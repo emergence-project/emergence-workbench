@@ -95,9 +95,14 @@ export const AddPaperFileBody = z.object({ file: z.string() })
 export const PaperDriveHit = z.object({ file: z.string(), name: z.string(), folder: z.string(), cloud: z.enum(CLOUD_KINDS), id: z.string().optional() }).strict()
 export const PaperWebHit = z.object({ source: z.enum(['arxiv', 's2', 'crossref']), id: z.string(), title: z.string(), authors: z.array(z.string()), year: z.string().optional(), venue: z.string().optional() }).strict()
 /** 추천 논문 하나 (Semantic Scholar 추천의 최근 논문, 라이브러리에 없는 것). id = 더할 때 보낼 arXiv 번호나 DOI */
-export const PaperPick = z.object({ id: z.string(), title: z.string(), authors: z.array(z.string()), year: z.string().optional(), venue: z.string().optional(), date: z.string().optional() }).strict()
-/** GET /papers/recommend. seeds = 기준으로 쓴 라이브러리 논문 수, offline = 받지 못함, status = 바깥(Semantic Scholar)이 오류로 답했으면 그 HTTP 상태(429 = 요청이 많음) */
-export const PaperRecommend = z.object({ picks: z.array(PaperPick), seeds: z.number(), offline: z.boolean(), status: z.number().optional() }).strict()
+export const PaperPick = z.object({ id: z.string(), title: z.string(), authors: z.array(z.string()), year: z.string().optional(), venue: z.string().optional(), date: z.string().optional(), from: z.string().optional() }).strict()
+/** 추천 논문의 관심 분야 (11/20): 라이브러리 분류 가운데 고른 것(shared-library/recommend.yaml). choices = 고를 수 있는 분류(맨 위 분류와 이미 고른 것), hash = recommend.yaml의 해시 */
+export const PaperInterests = z.object({ chosen: z.array(z.string()), choices: z.array(z.object({ id: z.string(), name: z.string() }).strict()), hash: z.string() }).strict()
+/** GET /papers/recommend. seeds = 기준으로 쓴 라이브러리 논문 수, offline = 받지 못함, status = 바깥(Semantic Scholar)이 오류로 답했으면 그 HTTP 상태(429 = 요청이 많음).
+ * interests = 분류 나무가 있을 때만. 관심 분야를 골랐으면 그 분류(하위 포함)의 논문만 기준으로 삼고, 각 추천의 from = 그 기준의 분류 ID */
+export const PaperRecommend = z.object({ picks: z.array(PaperPick), seeds: z.number(), offline: z.boolean(), status: z.number().optional(), interests: PaperInterests.optional() }).strict()
+/** PUT /papers/interests: 고른 관심 분야 (빈 목록 = 고르지 않음, 최근 연 · 더한 논문 기준) */
+export const SetPaperInterestsBody = z.object({ interests: z.array(z.string()), baseHash: z.string() })
 /** GET /papers/peek?id= (11/5): 라이브러리에 넣기 전에 읽어 볼 논문. arxiv면 /papers/peek/pdf?id=로 PDF, offline = 바깥에서 받지 못함 */
 export const PaperPeek = z.object({ arxiv: z.string().optional(), doi: z.string().optional(), title: z.string().optional(), authors: z.array(z.string()), abstract: z.string().optional(), offline: z.boolean() }).strict()
 /** POST /papers/:key/opened (11/5): 정보 칸이나 프로젝트 참고 자료에서 본 논문도 최근 확인한 논문에 */
@@ -127,6 +132,7 @@ export type LibraryBib = z.infer<typeof LibraryBib>
 export type PaperBrief = z.infer<typeof PaperBrief>
 export type PaperPick = z.infer<typeof PaperPick>
 export type PaperRecommend = z.infer<typeof PaperRecommend>
+export type PaperInterests = z.infer<typeof PaperInterests>
 export type PaperPeek = z.infer<typeof PaperPeek>
 export type PaperOpened = z.infer<typeof PaperOpened>
 export type PaperFolder = z.infer<typeof PaperFolder>
@@ -140,6 +146,7 @@ export type PaperHighlight = z.infer<typeof PaperHighlight>
 export type PaperCommentFile = z.infer<typeof PaperCommentFile>
 export type PaperNoteAdded = z.infer<typeof PaperNoteAdded>
 export type SetPaperProjectsBody = z.input<typeof SetPaperProjectsBody>
+export type SetPaperInterestsBody = z.input<typeof SetPaperInterestsBody>
 export type AddPaperBody = z.input<typeof AddPaperBody>
 export type PaperDriveHit = z.infer<typeof PaperDriveHit>
 export type PaperWebHit = z.infer<typeof PaperWebHit>

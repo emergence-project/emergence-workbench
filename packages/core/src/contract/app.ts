@@ -36,6 +36,10 @@ export const AppStatus = z.object({
   resolved: z.array(ResolvedFeedback),
   /** 받은 커밋(head)을 미리 빌드해 두어 다시 시작만 하면 되는지 */
   prepared: z.boolean(),
+  /** 이 서버 프로세스가 켜질 때의 커밋. 화면만 바꿔 끼운 업데이트는 running만 바꾸고 이것은 그대로 둔다 */
+  started: z.string().optional(),
+  /** 다시 시작이 일하는 에이전트 대화를 기다리는 중이면 그 대화 수 (모두 쉬면 저절로 다시 시작) */
+  waitingAgents: z.number().optional(),
 }).strict()
 
 /** GET /app/status. 앱 저장소가 없는 모드(예제·개발)면 enabled: false */
@@ -77,7 +81,10 @@ export const AppInfoReply = z.union([
 ])
 
 /** POST /app/update: 받고 빌드한 결과. 다시 시작까지 했으면 restarting */
-export const AppUpdateResult = z.object({ status: AppStatus, restarting: z.boolean(), message: z.string() }).strict()
+/** swapped: 화면만 바뀐 새 버전이라 서버를 다시 켜지 않고 화면을 바꿔 끼웠다 (열린 창은 새로 고치면 된다) */
+export const AppUpdateResult = z.object({ status: AppStatus, restarting: z.boolean(), message: z.string(), swapped: z.boolean().optional() }).strict()
+/** POST /app/restart의 몸: force면 일하는 에이전트 대화를 기다리지 않는다 (돌던 차례는 다시 켜진 뒤 같은 세션으로 이어 간다) */
+export const AppRestartBody = z.object({ force: z.boolean().optional() }).strict()
 /** POST /app/restart: 미리 빌드한 새 버전으로 다시 시작한다. 할 수 없으면 409 */
 export const AppRestarted = z.object({ restarting: z.literal(true) }).strict()
 
@@ -91,4 +98,5 @@ export type AppHistoryItem = z.infer<typeof AppHistoryItem>
 export type AppInfo = z.infer<typeof AppInfo>
 export type AppInfoReply = z.infer<typeof AppInfoReply>
 export type AppUpdateResult = z.infer<typeof AppUpdateResult>
+export type AppRestartBody = z.infer<typeof AppRestartBody>
 export type AppRestarted = z.infer<typeof AppRestarted>

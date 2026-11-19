@@ -240,6 +240,7 @@ export const SUBJECT_SCREENS = [
   ['subjects-figures-filtered', '#/figures/subject%3Amath', '그림 카드'],
   ['subjects-figure-picker', '#/figures/list', '분류 고르기 메뉴', ['[data-ui="그림 카드"][data-ui-item="세 나라 지도"], [data-ui="그림 카드"][data-ui-item="Three-country map"]', '분류 더하기']],
   ['subjects-papers-filtered', '#/papers/subject%3Amath', '논문 줄'],
+  ['subjects-papers-home', '#/papers', '관심 분야'],
   ['subjects-paper-picker', '#/papers/list', '분류 고르기 메뉴', ['[data-ui="논문 줄"][data-ui-item="readerGraph2010"]', '분류 더하기']],
 ]
 export const selectScreens = (sample) => sample === 'subjects' ? SUBJECT_SCREENS : DEFAULT_SCREENS

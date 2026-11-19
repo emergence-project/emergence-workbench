@@ -33,3 +33,6 @@
 /* 추천 논문 줄: 누르면 넣기 전에 읽기 (11/5) */
 .lh-row-open { text-align: left; border-radius: var(--r-sm); }
 .lh-row-open:hover .kh-title { text-decoration: underline; }
+/* 관심 분야 (11/20): 절 제목 아래 분류 칩(.memo-chip · 고른 것 .on), 추천 줄 끝에 어느 분야에서 왔는지 */
+.lh-interests { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: calc(-1 * var(--sp-1)) 0 var(--sp-2); }
+.lh-row-from { font-size: var(--fs-xs); color: var(--text-3); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 0 6px; margin-right: var(--sp-1); white-space: nowrap; max-width: 140px; display: inline-block; vertical-align: bottom; overflow: hidden; text-overflow: ellipsis; }

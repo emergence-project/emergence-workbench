@@ -14,7 +14,8 @@ import { syncDelayMs } from '../syncTiming.js'
 import { repeat } from '../scheduler.js'
 import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
 import { CLAIM_TTL_MS, isLiveClaim, lastTouched, readClaims, releaseClaims } from '../feedbackClaims.js'
-import { exportFeedback, importFeedback, PICTURE_NAME } from '../feedbackBundle.js'
+import { exportFeedback, importFeedback } from '../feedbackBundle.js'
+import { MOCKUP_FILE, mockupType } from '../feedbackMockups.js'
 import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
 import { revealInFinder } from '../materials.js'
 import { repoInfo } from '../gitsync.js'
@@ -113,8 +114,11 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   let issues: Promise<string | null> | null = null
   const issuesUrl = () => (issues ??= process.env.RW_ISSUES_URL ? Promise.resolve(process.env.RW_ISSUES_URL) : opts.appRepo ? appIssuesUrl(opts.appRepo.root) : Promise.resolve(null))
 
+  const repo = opts.appRepo
+  // 화면만 바꿔 끼운 업데이트는 다시 시작하지 않고 돌고 있는 커밋을 바꾼다 (routes/settings.ts)
+  const appVersion = () => repo?.running.slice(0, 7) ?? opts.appVersion
   app.get('/api/feedback', replies(C.FeedbackToday), async (): Promise<C.FeedbackToday> => ({
-    issues: await issuesUrl(), version: opts.appVersion ?? null,
+    issues: await issuesUrl(), version: appVersion() ?? null,
     enabled: !!opts.feedbackDir, publishable: !!opts.feedbackDir && !!opts.feedbackPublish,
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
     delay: (() => { const d = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
@@ -123,7 +127,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     entries: opts.feedbackDir ? listFeedback(opts.feedbackDir) : [],
   }))
 
-  const inApp = opts.appRepo ? commitChecker(opts.appRepo.root, opts.appRepo.running) : null
+  const inApp = repo ? commitChecker(repo.root, () => repo.running) : null
   let account: Promise<string | null> | null = null
   app.get('/api/feedback/all', replies(C.FeedbackAll), async (): Promise<C.FeedbackAll> => {
     syncSoon()
@@ -186,12 +190,12 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     scheduleAutoPublish()
     return r
   })
-  /** 피드백의 그림 (feedback/pictures/ 안의 파일만): 남길 때의 화면, 처리 전후 그림 */
+  /** 피드백의 그림 (feedback/pictures/ 안의 파일만): 남길 때의 화면, 처리 전후 그림, 처리 · 답에 붙인 시안(그림 · html. html은 /api/ 응답 머리의 sandbox로 연다) */
   app.get<{ Querystring: { path?: string } }>('/api/feedback/picture', async (req, reply) => {
     const rel = req.query.path ?? ''
-    if (!opts.feedbackDir || !new RegExp(`^pictures/${PICTURE_NAME}$`, 'u').test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
+    if (!opts.feedbackDir || !new RegExp(`^pictures/${MOCKUP_FILE}$`, 'u').test(rel)) throw new WorkbenchError(404, t('그림이 없음', 'No picture'))
     const file = assertRealInside(path.join(opts.feedbackDir, 'pictures'), path.join(opts.feedbackDir, rel), t('그림이 없음', 'No picture'))
-    return reply.type(rel.endsWith('.png') ? 'image/png' : 'image/jpeg').send(fs.readFileSync(file))
+    return reply.type(mockupType(rel)).send(fs.readFileSync(file))
   })
   /** 코멘트: 처리를 바꾸지 않고 묻거나 덧붙인다. reviews.yaml comments에 적고 피드백처럼 올린다 */
   app.post('/api/feedback/comment', replies(C.FeedbackCommented), async (req): Promise<C.FeedbackCommented> => {
@@ -249,7 +253,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
     const b = parseBody(C.NewFeedbackBody, req.body)
     if (!b.text.trim()) throw new WorkbenchError(400, t('내용이 필요함', 'text is required'))
-    const entry = appendFeedback(opts.feedbackDir, { ...b, version: opts.appVersion })
+    const entry = appendFeedback(opts.feedbackDir, { ...b, version: appVersion() })
     scheduleAutoPublish()
     return { entry }
   })

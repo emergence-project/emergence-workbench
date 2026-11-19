@@ -6,7 +6,7 @@ import { Icon } from './icons'
 import { MemoText } from './memo'
 import { onListKey } from './listInput'
 import { SayCard } from './Conversation'
-import { ApproveButton, ClaimLine, Compose, HandlingPictures, resultToApprove } from './FeedbackAnswer'
+import { ApproveButton, ClaimLine, Compose, FeedbackMockups, HandlingPictures, resultToApprove } from './FeedbackAnswer'
 import { askConfirm } from './askText'
 import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
@@ -460,7 +460,7 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
           ? <span>{(s.note ?? '').split('\n')[0]} <span className="muted">→ {t('내용은 위 「지금 처리」', 'see Current handling above')}</span></span>
           : s.note && <MemoText text={s.note} />}
       {handling && !pointer && 'commit' in s && s.commit && <span className="mono muted fbp-say-version">{s.commit}</span>}
-      {error && <span className="error-text">{error}</span>}
+      {!pointer && 'mockups' in s && <FeedbackMockups e={e} paths={s.mockups} />}{error && <span className="error-text">{error}</span>}
     </SayCard>
   )
 }
