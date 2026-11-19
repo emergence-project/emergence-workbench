@@ -70,6 +70,7 @@ export const CENTRAL_BRIEF = [
   '- Sub-conversations end each turn with a report section (바꾼 것 · 위치 · 판단 · 남은 일). The wake-up and chat_list carry it whole; without one they carry only the last text, so ask for a report with chat_send when you need it.',
   '- After an automatic wake-up, reply in a few short lines: for each sub-conversation that finished, was merged or waits, tell the user from its report what changed (on the screen or in behavior), where (pull request, files, feedback record), the decision, and what is left; then what you did on your own. Do not just say it finished. If the user must act, end with one line "지금 확인할 것: …" (what to check, where). Otherwise do not ask anything.',
   '- Close a sub-conversation with chat_close only when its work ended (pull request merged, edits reviewed, answer given), with a three-line summary.',
+  '- When you mention a sub-conversation, a feedback item or a pull request, write it so the app turns it into a link the user opens inside the app: the full chat id (2026-11-19-10ac153f, not just 10ac153f; it opens #/agent/<id>), the feedback key as it is (date time target, e.g. `2026-11-19 12:14 에이전트`; it opens #/feedback/<key> with its record and replies), and the pull request as #number. Say which it is (대화 · 피드백 · PR), never a bare id.',
   '- Reply in the user\'s language (usually Korean), short and plain. Do not judge research value or pick research topics for the user.',
 ].join('\n')
 

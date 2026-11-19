@@ -8,7 +8,8 @@ import { onListKey } from './listInput'
 import { SayCard } from './Conversation'
 import { ApproveButton, ClaimLine, Compose, FeedbackMockups, HandlingPictures, resultToApprove } from './FeedbackAnswer'
 import { askConfirm } from './askText'
-import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, type ThreadStep } from './feedbackThread'
+import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, tagKey, type ThreadStep } from './feedbackThread'
+import { FeedbackFocus, FocusMissing, useFeedbackFocus, useFocusOpen, useIsFocus } from './feedbackFocus'
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
 import { FeedbackFileButtons, InstantToggle, IssueButton } from './FeedbackSend'
@@ -21,8 +22,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
 import { agentChatsApi, type ChatRow } from './api/agentChats'
 import { ChatStateMark, isLive, stateName as chatStateName } from './AgentChats'
-const FEEDBACK_STATE = [...qk.feedback, 'state'] as const
-const FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
+const FEEDBACK_STATE = [...qk.feedback, 'state'] as const, FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
 export { Compose } from './FeedbackAnswer'
@@ -47,11 +47,6 @@ const headName = (e: FeedbackItem, st: FeedbackState | '대기') => (st === '승
 const ELEMENTS = ['디자인', '버그', '기능']
 const TYPES = ['수정', '질문', '제안']
 const verdictName = (v: string) => REPLY[v] ?? label(v)
-const tagKey = (s: ThreadStep): string | null => {
-  if (s.kind === '대기') return null
-  if (s.who === 'Claude') return s.kind === '답' ? '답만 함' : 'commit' in s && s.commit ? '앱에 반영됨' : '답만 함'
-  return s.kind
-}
 /** 종류는 Claude가 처리하며 가린다 (status.yaml의 kind). 아직이면 날짜 파일의 종류(새 코멘트는 미분류) */
 const kindOf = (e: FeedbackItem): string => e.status?.kind ?? e.kind
 const matches = (f: Filter, e: FeedbackItem) => f === '전체' || feedbackBucket(e) === f
@@ -83,7 +78,7 @@ export function groupFeedback(entries: FeedbackItem[], g: GroupBy): [string, Fee
 
 const readGroup = (): GroupBy => { try { const raw = localStorage.getItem(GROUP_KEY); const v = (raw === '주제' ? '테마' : raw) as GroupBy | null; return v && GROUPS.includes(v) ? v : '시각' } catch { return '시각' } }
 
-export function FeedbackPage() {
+export function FeedbackPage({ focus }: { focus?: string } = {}) {
   const client = useQueryClient()
   // 피드백은 프로젝트 파일이 아니라 프로젝트 알림과 상관없다: 화면을 열 때와 피드백을 남기거나 고칠 때(FEEDBACK_EVENT) 다시 읽는다
   const all = useQuery({ queryKey: qk.feedbackAll, queryFn: () => api.feedbackAll(), refetchOnMount: 'always' })
@@ -109,12 +104,13 @@ export function FeedbackPage() {
     picked.current = true
     if (entries.some((e) => matches('확인 필요', e))) setFilter('확인 필요')
   }, [entries])
+  const missing = useFeedbackFocus(focus, entries, setFilter, setKind, picked)
 
   const shown = useMemo(() => (entries ?? []).filter((e) => matches(filter, e) && matchesKind(kind, e)), [entries, filter, kind])
   const groups = useMemo(() => (group === '시각' ? [] : groupFeedback(shown, group)), [shown, group])
 
   return (
-    <Account.Provider value={user}>
+    <Account.Provider value={user}><FeedbackFocus.Provider value={focus}>
     <main className="stage full" data-ui="피드백">
       <section className="pane">
         <div className="pane-head bar3 fbp-toolbar" data-ui="머리줄">
@@ -138,6 +134,7 @@ export function FeedbackPage() {
         <div className="scroll">
           <div className={`page-body${group === '시각' ? ' fbp-wide' : ''}`}>
             {error && <p className="error-text">{error}</p>}
+            {missing && <FocusMissing focus={focus!} />}
             {statusError && <div className="banner danger" data-ui="처리 기록 오류">{t('feedback/status.yaml을 읽지 못해 처리 기록 없이 보여 줍니다 (모두 대기로 보임)', 'Could not read feedback/status.yaml, so items are shown without handling records (all appear as waiting)')}: {statusError}</div>}
             {!entries && !error && <p className="muted">{t('불러오는 중…', 'Loading…')}</p>}
             {entries && shown.length === 0 && <p className="muted">{filter === '대기' ? t('처리를 기다리는 피드백이 없습니다.', 'No feedback is waiting.') : t('없습니다.', 'None.')}</p>}
@@ -147,7 +144,7 @@ export function FeedbackPage() {
         </div>
       </section>
     </main>
-    </Account.Provider>
+    </FeedbackFocus.Provider></Account.Provider>
   )
 }
 
@@ -163,6 +160,7 @@ const keyOf = (e: FeedbackItem) => `${e.source ?? ''} ${e.date} ${e.time} ${e.ta
 function FeedbackTable({ list }: { list: FeedbackItem[] }) {
   const [newest, setNewest] = useState(true)
   const [open, setOpen] = useState<string | null>(null)
+  useFocusOpen(list, setOpen, keyOf)
   const rows = [...list].sort((a, b) => { const d = `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`) || a.n - b.n; return newest ? -d : d })
   return (
     <div className="fbp-table-box"><table className="fbp-table" data-ui="피드백 표">
@@ -177,7 +175,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
           const k = keyOf(e)
           const text = feedbackSummary(e.status?.clean ?? e.text)
           return [
-            <tr key={k} className={`fbp-row${open === k ? ' on' : ''}`} data-ui="피드백 줄" data-ui-item={`${e.date} ${e.time} ${e.target}`} onClick={() => setOpen(open === k ? null : k)}>
+            <tr key={k} className={`fbp-row${open === k ? ' on' : ''}`} data-ui="피드백 줄" data-ui-item={`${e.date} ${e.time} ${e.target}`} data-fb-key={e.key} onClick={() => setOpen(open === k ? null : k)}>
               <td className="mono fbp-when"><button type="button" className="fbp-open" aria-expanded={open === k} aria-label={`${open === k ? t('접기', 'Collapse') : t('펼치기', 'Expand')}: ${e.date} ${e.time} ${text.slice(0, 40)}`}>{feedbackWhen(e.date, e.time)}</button></td>
               <td className="fbp-cell">{ELEMENTS.includes(kindOf(e)) ? kindName(kindOf(e)) : ''}</td>
               <td className="fbp-cell">{TYPES.includes(kindOf(e)) ? kindName(kindOf(e)) : ''}</td>
@@ -209,7 +207,7 @@ function InApp({ e }: { e: FeedbackItem }) {
 const FOLD_AT = 3
 function Group({ name, list, showDate }: { name: string; list: FeedbackItem[]; showDate: boolean }) {
   const open = list.filter((e) => stateOf(e) === '대기')
-  const done = list.filter((e) => stateOf(e) !== '대기')
+  const done = list.filter((e) => stateOf(e) !== '대기'), focus = useContext(FeedbackFocus)
   const counts = (['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류', '승인'] as const).map((s) => [s, done.filter((e) => stateOf(e) === s).length] as const).filter(([, n]) => n > 0)
   return (
     <section data-ui="피드백 묶음" data-ui-item={name} className="fbp-group">
@@ -221,7 +219,7 @@ function Group({ name, list, showDate }: { name: string; list: FeedbackItem[]; s
         {open.map((e) => <Entry key={`${e.source ?? ''} ${e.date} ${e.time} ${e.target} ${e.n}`} e={e} showDate={showDate} />)}
         {done.length > 0 && (done.length > FOLD_AT && open.length > 0
           ? (
-            <details className="fbp-fold" data-ui="처리한 피드백 접기">
+            <details className="fbp-fold" data-ui="처리한 피드백 접기" open={done.some((x) => x.key === focus) || undefined}>
               <summary>{t(`처리한 것 ${done.length}건`, `Handled ${done.length}`)}</summary>
               {done.map((e) => <Short key={`${e.source ?? ''} ${e.date} ${e.time} ${e.target} ${e.n}`} e={e} showDate={showDate} />)}
             </details>
@@ -234,12 +232,12 @@ function Group({ name, list, showDate }: { name: string; list: FeedbackItem[]; s
 
 /** 처리한 피드백 한 줄: 상태 · 교정문(없으면 원문) · 눌러서 펼침 */
 function Short({ e, showDate }: { e: FeedbackItem; showDate: boolean }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(useIsFocus(e))
   if (open) return <Entry e={e} showDate={showDate} onFold={() => setOpen(false)} />
   const st = stateOf(e)
   const text = feedbackSummary(e.status?.clean ?? e.text)
   return (
-    <button className="fbp-short" data-ui="피드백 한 줄" data-ui-item={`${e.time} ${e.target}`} onClick={() => setOpen(true)} title={e.status?.understood ?? text}>
+    <button className="fbp-short" data-ui="피드백 한 줄" data-ui-item={`${e.time} ${e.target}`} data-fb-key={e.key} onClick={() => setOpen(true)} title={e.status?.understood ?? text}>
       <span className="tag">{kindName(kindOf(e))}</span>
       <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
       <span className="fbp-short-text">{text}</span>
@@ -251,10 +249,10 @@ function Short({ e, showDate }: { e: FeedbackItem; showDate: boolean }) {
 
 function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; onFold?(): void }) {
   const st = stateOf(e)
-  const [talk, setTalk] = useState<'closed' | 'open' | 'focus'>('closed')
+  const [talk, setTalk] = useState<'closed' | 'open' | 'focus'>(useIsFocus(e) ? 'open' : 'closed')
   const showTalk = !(resultToApprove(e) || st === '승인') || talk !== 'closed' // 승인 기다림 · 끝남은 대화를 접는다. 「의견 남기기」가 펴고 입력란으로 (11/9 N7ik 3절)
   return (
-    <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`}>
+    <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`} data-fb-key={e.key}>
       <div className="fbp-head">
         <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
         <span className="tag">{kindName(kindOf(e))}</span>

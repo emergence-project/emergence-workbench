@@ -7,7 +7,7 @@ import { isSendKey } from './cmdEnter'
 import { relativeTime } from './format'
 import { t } from './i18n'
 import { Icon } from './icons'
-import { MemoText } from './memo'
+import { AppLinkProvider, MemoText } from './memo'
 import { Mockups } from './Mockups'
 import { qk } from './queries'
 import { go, href } from './router'
@@ -696,7 +696,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const showTodos = chat.todos.length > 0 && (live || chat.todos.some((x) => x.state !== 'completed'))
   const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
   return (
-    <div className="ac-chat" data-ui="에이전트 대화">
+    <AppLinkProvider feedback={chat.rid === CENTRAL_RID || chat.rid === APP_RID}><div className="ac-chat" data-ui="에이전트 대화">
       {head && <ChatHead chat={chat} pane={pane} onPane={onPane} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}{chat.rid === CENTRAL_RID && <CentralKids />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
@@ -715,7 +715,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
           placeholder={placeholder} fail={fail} fill={fill} />
         <div className="muted ac-keys">{t('⇧⇥ 권한 · ⌘↵ 보내기', '⇧⇥ permissions · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
       </div>
-    </div>
+    </div></AppLinkProvider>
   )
 }
 
@@ -1117,7 +1117,7 @@ export function ShippedNotice() {
   const close = () => { const next = [...seen, ...fresh.map((c) => c.id)].slice(-200); store.set(SHIPPED_SEEN, next); setSeen(next) }
   return (
     <span className="tb-shipped" data-ui="반영됨 알림">
-      <button type="button" className="a" title={t('피드백 화면에서 보기', 'See it on the Feedback screen')} onClick={() => go({ page: 'feedback' })}>{t(`${names} 반영됨`, `${names} shipped`)}</button>
+      <button type="button" className="a" title={t('피드백 화면에서 보기', 'See it on the Feedback screen')} onClick={() => go({ page: 'feedback', ...(fresh.length === 1 && fresh[0]!.feedback && { key: fresh[0]!.feedback }) })}>{t(`${names} 반영됨`, `${names} shipped`)}</button>
       <button type="button" className="icon-btn sm" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={close}>{Icon.x}</button>
     </span>
   )

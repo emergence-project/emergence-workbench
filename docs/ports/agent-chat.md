@@ -32,6 +32,7 @@ code:
 | web | `apps/web/src/api/agentChats.ts` | 위 경로의 클라이언트 |
 | web | `apps/web/src/AgentChats.tsx` | 대화 화면: 목록 · 항목 그리기 · 허락 카드 · 고친 파일 |
 | web | `apps/web/src/ChatComposer.tsx` | 입력란: 붙이기 · `/` 명령 · `@` 파일 · 권한 · 모델 · 생각 깊이 |
+| web | `apps/web/src/appLinks.ts` · `AppLinkText.tsx` | 대화 글 속 대화 id · 피드백 키 · PR 번호를 앱 안 링크로 (순수 함수 + 대화 화면을 감싸는 맥락) |
 
 ## 저장 모양
 
