@@ -37,7 +37,7 @@ export function RightSidebar({ info, records, agent, terminalRid }: { info: Reac
       {mode === 'info' && <div className="rs-scroll">{info}</div>}
       <div className="rs-col" hidden={mode !== 'records'}>{records}</div>
       {mode === 'agent' && agent && <div className="rs-col">{agent}</div>}
-      {terminal && (termOpened || mode === 'terminal') && <div className="rs-col" hidden={mode !== 'terminal'}><TerminalPane key={terminalRid} rid={terminalRid} /></div>}
+      {terminal && (termOpened || mode === 'terminal') && <div className="rs-col" hidden={mode !== 'terminal'}><TerminalPane key={terminalRid} rid={terminalRid} attach /></div>}
     </div>
   )
 }

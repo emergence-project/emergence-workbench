@@ -5,7 +5,7 @@ import type { IPty } from '@lydell/node-pty'
 import { replies } from '../contract.js'
 import { sameComputer } from '../hostGuard.js'
 import { t } from '../i18n.js'
-import { loadPty, messageOf, openShell, startDir } from '../terminal.js'
+import { folderFor, loadPty, messageOf, openShell, startDir } from '../terminal.js'
 import type { RouteContext } from './context.js'
 
 /** 한꺼번에 여는 셸 수 (창을 여러 개 열어 둘 때) */
@@ -36,10 +36,8 @@ export function registerTerminal(app: FastifyInstance, ctx: RouteContext): void 
       const pty = await loadPty()
       if (typeof pty === 'string') return fail(t(`터미널 부품을 읽지 못했습니다: ${pty}`, `Could not load the terminal module: ${pty}`))
       if (shells.size >= MAX_SHELLS) return fail(t(`터미널은 ${MAX_SHELLS}개까지 엽니다`, `Up to ${MAX_SHELLS} terminals can be open`))
-      let dir: string | null = null
-      try { if (req.query.rid) dir = ctx.repoPath(req.query.rid) } catch { /* 없는 연구: 홈에서 연다 */ }
       const size = (v: string | undefined, d: number) => Math.min(1000, Math.max(2, Number(v) || d))
-      const cwd = startDir(dir)
+      const cwd = startDir(folderFor(req.query.rid, { appRoot: ctx.opts.appRepo?.root, repoPath: ctx.repoPath }))
       let proc: IPty
       let shell: string
       try { ({ proc, shell } = openShell(pty, cwd, { cols: size(req.query.cols, 80), rows: size(req.query.rows, 24) })) } catch (e) {
