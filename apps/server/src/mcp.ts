@@ -478,8 +478,9 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async ({ wait }) => call(`/api/agent-chats/${chat}/app/checks${wait ? `?wait=${wait}` : ''}`))
     server.registerTool('feedback_answer', {
       title: 'Record feedback handling',
-      description: 'Only when this conversation handles an app feedback item: the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only. mockups = names of mockups in this folder\'s mockups/ (<name>.png and <name>.html, with or without extension): the app copies them into the feedback folder and shows them as thumbnails on the handling (or on a reply via replies[].mockups) so the user can page through them, open the html and choose 진행 / 논의 there; send mockups without state to add them to the current handling.',
+      description: 'Only when this conversation handles app feedback (one item, or several bundled: pass key for each): the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only. mockups = names of mockups in this folder\'s mockups/ (<name>.png and <name>.html, with or without extension): the app copies them into the feedback folder and shows them as thumbnails on the handling (or on a reply via replies[].mockups) so the user can page through them, open the html and choose 진행 / 논의 there; send mockups without state to add them to the current handling.',
       inputSchema: {
+        key: z.string().optional().describe('Which feedback item, when this conversation handles several (required then)'),
         state: z.enum(['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류']).optional().describe('Handling state'),
         note: z.string().optional().describe('The answer the user reads; first line is the fixed phrase (수정 완료 (#PR) · 확인 필요 · 답변: 있음/없음/일부 · 의견에 동의 (크기) · 나중에 · 거절)'),
         understood: z.string().optional().describe('The request as understood'),
@@ -531,19 +532,20 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async () => call('/api/agent-central', (b: { kids: unknown[] }) => b.kids))
     server.registerTool('feedback_turns', {
       title: 'Feedback for the agent',
-      description: 'App feedback items that are the agent\'s turn now (new items, revise requests, unanswered comments): key, kind, screen part (target), text, reasons, taken (another computer or the cloud routine claimed it: skip), chat (a conversation here already handles it). Use it when the user asks to handle new feedback, then open one feedback sub-conversation per item with chat_open.',
+      description: 'App feedback items that are the agent\'s turn now (new items, revise requests, unanswered comments): key, kind, screen part (target), text, reasons, taken (another computer or the cloud routine claimed it: skip), chat (a conversation here already handles it), group (items with the same group go to one conversation: fixes on the same screen, or questions · suggestions). Use it when the user asks to handle new feedback, then open one feedback sub-conversation per group with chat_open (feedbacks = the keys of that group).',
       inputSchema: {},
       annotations: ro,
     }, async () => call('/api/agent-central/feedback', (b: { items: unknown[] }) => b.items))
     server.registerTool('chat_open', {
       title: 'Open sub-conversation',
-      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; opened while memory is free, otherwise held and opened by the app when memory frees; urgent: true opens one at once for an app bug or a stuck app). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle one app feedback item (pass feedback = its key; refused if another computer or the cloud routine claimed it). task = the user\'s words verbatim plus the context needed. It starts working right away.',
+      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; opened while memory is free, otherwise held and opened by the app when memory frees; urgent: true opens one at once for an app bug or a stuck app). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle app feedback (pass feedbacks = the keys of one group from feedback_turns, or feedback = one key; refused if another computer or the cloud routine claimed one). task = the user\'s words verbatim plus the context needed. It starts working right away.',
       inputSchema: {
         role: z.enum(['app', 'project', 'feedback']),
         title: z.string().max(60).describe('Short Korean title the user sees'),
         task: z.string().describe('What to do: the user\'s own words verbatim, then needed context'),
         project: z.string().optional().describe('Project id for role project (from list_projects)'),
-        feedback: z.string().optional().describe('Feedback key for role feedback'),
+        feedback: z.string().optional().describe('One feedback key for role feedback'),
+        feedbacks: z.array(z.string()).max(5).optional().describe('Keys of one feedback group (same group in feedback_turns) for role feedback, handled together in one conversation'),
         urgent: z.boolean().optional().describe('role app only, and only when the app itself is broken or stuck (an app bug, the app not responding): opens at once whatever the memory and queue, one at a time'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },

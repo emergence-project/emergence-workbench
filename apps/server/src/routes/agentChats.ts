@@ -177,10 +177,11 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.get<{ Params: { id: string }; Querystring: { wait?: string } }>('/api/agent-chats/:id/app/checks', replies(C.AppChecks), async (req): Promise<C.AppChecks> => chats.appChecks(req.params.id, Number(req.query.wait) || 0))
   // 피드백 맡기기 (2단계 나): 피드백 화면의 「에이전트에게 맡기기」와, 맡은 대화가 처리 기록을 앱을 거쳐 적는 feedback_answer
   app.post('/api/feedback/hand-off', replies(C.ChatOne), async (req): Promise<C.ChatOne> => {
-    const { key } = parseBody(C.HandOffBody, req.body)
-    const chat = chats.handOff(key)
+    const b = parseBody(C.HandOffBody, req.body)
+    const keys = b.keys ?? [b.key!]
+    const chat = chats.handOff(keys)
     // 손으로 맡긴 것도 적어 올려 다른 컴퓨터의 저절로 맡기기가 같은 항목을 맡지 않게 한다 (기다리지 않는다)
-    void claims?.claim(key, 0).catch(() => undefined)
+    for (const key of keys) void claims?.claim(key, 0).catch(() => undefined)
     return { chat }
   })
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/feedback/answer', replies(C.FeedbackAnswered), async (req): Promise<C.FeedbackAnswered> => chats.feedbackAnswer(req.params.id, parseBody(C.FeedbackAnswerBody, req.body)))
