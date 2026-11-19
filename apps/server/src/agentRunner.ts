@@ -19,6 +19,7 @@ import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contra
 import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+import { gitIdentityEnv } from './git.js'
 import crypto from 'node:crypto'
 import { Unread } from './agentInbox.js'
 
@@ -195,7 +196,7 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
           return d.allow ? { behavior: 'allow', updatedInput: toolInput } : { behavior: 'deny', message: d.message }
         },
         abortController,
-        env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(AUTO_COMPACT_WINDOW), ...claudeEnv(), ...input.env },
+        env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(AUTO_COMPACT_WINDOW), ...claudeEnv(), ...gitIdentityEnv(), ...input.env },
         ...executable(),
       },
     })

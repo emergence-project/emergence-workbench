@@ -111,8 +111,7 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   planOk?: boolean
   archived?: boolean
   /** 마지막으로 지시에 붙인 사용자 화면 한 줄 (promptFor: 바뀔 때만 다시 붙인다) */ view?: string
-  /** 앱 고치기 대화의 작업 폴더 */
-  worktree?: string
+  /** 앱 고치기 대화의 작업 폴더 */ worktree?: string
   /** 피드백 대화: CI가 빨개 실패 기록을 다시 보낸 횟수와 마지막으로 본 실패 (같은 실패를 두 번 보내지 않게) */
   ciRetries?: number
   ciSeen?: string
@@ -134,7 +133,8 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   recordSent?: number
   recordTurn?: boolean
   /** 중앙 대화: 남은 메모리가 모자라 기다리는 앱 고치기 (appMemory.ts). 메모리가 풀리거나 하나가 끝나면 agentCentral.ts가 차례로 연다 */
-  held?: CentralOpenBody[]
+  held?: (CentralOpenBody & { at?: string })[]
+  ci?: 'pending' | 'failed' | 'passed' // 중앙의 앱 하위 대화: PR 검사 (올리면 pending, tickCentral이 1분마다 고친다)
   /** 앱 고치기 · 피드백 대화: 끝나서 저절로 보관했는지 (한 번만. 사용자가 꺼내면 다시 넣지 않는다) */
   closed?: boolean
   /** 피드백 대화: 같은 항목을 이 대화에 다시 맡긴 시각 (코멘트마다 새 대화를 열지 않고 이어 쓴다. 이 시각 뒤의 글만 다시 맡긴다) */
@@ -594,7 +594,7 @@ export class AgentChats {
   async appSubmit(id: string, b: AppSubmitBody): Promise<AppSubmitted> {
     const { c, w } = this.appOf(id)
     const pr = await w.submit(c.worktree!, c.branch!, { title: b.title, body: b.body })
-    c.pr = { number: pr.number, url: pr.url }
+    c.pr = { number: pr.number, url: pr.url }; c.ci = 'pending'
     this.touch(c)
     return pr
   }
@@ -902,9 +902,10 @@ export class AgentChats {
           this.push(c, { kind: 'blocked', at: now(), tool: tool.replace(MCP, ''), reason: v.reason })
           return { allow: false, message: v.message }
         }
+        // 허락한 일: 잡기 · 고친 파일. 우회는 돌릴 때마다 대화에 남긴다 (언제 · 어느 대화 · 무슨 명령)
+        const ran = (how: 'once' | 'always') => { claim(v.claim); edited(tool, input); if (v.bypass !== undefined) this.push(c, { kind: 'bypass', at: now(), command: v.bypass, how }) }
         if (c.alwaysKeys?.some((a) => a.key === v.key)) {
-          claim(v.claim)
-          edited(tool, input)
+          ran('always')
           return { allow: true }
         }
         const id = crypto.randomBytes(6).toString('hex')
@@ -934,8 +935,7 @@ export class AgentChats {
             // 승인하며 고른 맡기는 정도로 이어 간다 (묻고 하기 = 노트도 하나씩 묻기, 고치기 바로)
             if (got.mode) { ctx.mode = got.mode; c.mode = got.mode }
           }
-          claim(v.claim)
-          edited(tool, input)
+          ran(a === 'always' ? 'always' : 'once')
         }
         this.touch(c)
         const said = got.note ? ` The user said: ${got.note}` : ''

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>시안 · 중앙 작업 현황 (2026-11-19)</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg-side: #f9f9f8; --bg-sunken: #f4f4f3; --bg-hover: #efefee;
+    --line: #ebebea; --line-strong: #dcdcda;
+    --text: #0d0d0d; --text-2: #474744; --text-3: #6a6a66;
+    --s-progress: #1d5fd6; --s-blocked: #b45309; --s-stopped: #4b5563; --s-solved: #0f766e;
+    --fs-2xs: 10.5px; --fs-xs: 11.5px; --fs-sm: 12.5px; --fs-md: 13.5px; --fs-lg: 16px; --fs-xl: 21px;
+    --r-xs: 4px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-pill: 999px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e7e7e5; font: var(--fs-md)/1.5 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: var(--text); }
+  .sheet { padding: 28px 32px 40px; width: 1504px; }
+  h1 { font-size: var(--fs-xl); margin: 0 0 4px; }
+  .lead { color: var(--text-2); margin: 0 0 20px; max-width: 1100px; }
+  .cap { font-weight: 600; margin: 22px 0 8px; font-size: var(--fs-lg); }
+  .cap small { font-weight: 400; color: var(--text-2); font-size: var(--fs-sm); margin-left: 8px; }
+  .rec { display: inline-block; background: var(--text); color: #fff; font-size: var(--fs-2xs); border-radius: var(--r-pill); padding: 1px 8px; margin-left: 6px; vertical-align: 2px; }
+
+  /* 앱 틀 */
+  .app { display: grid; grid-template-columns: 44px 248px 1fr 340px; height: 640px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+  .app.b { grid-template-columns: 44px 300px 1fr; }
+  .rail { background: var(--bg-side); border-right: 1px solid var(--line); }
+  .rail i { display: block; width: 22px; height: 22px; margin: 12px auto; border-radius: var(--r-sm); background: var(--bg-hover); }
+  .list { background: var(--bg-side); border-right: 1px solid var(--line); padding: 10px 8px; overflow: hidden; }
+  .seg { display: flex; background: var(--bg-sunken); border-radius: var(--r-sm); padding: 2px; margin: 6px 0 10px; font-size: var(--fs-xs); }
+  .seg span { flex: 1; text-align: center; padding: 2px 0; border-radius: var(--r-xs); color: var(--text-2); }
+  .seg .on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .newbtn { font-size: var(--fs-sm); color: var(--text-2); padding: 4px 6px; }
+  .line { padding: 6px 8px; border-radius: var(--r-sm); }
+  .line.on { background: var(--bg-hover); }
+  .line .t { display: flex; align-items: center; gap: 7px; font-weight: 500; }
+  .line .m { color: var(--text-3); font-size: var(--fs-xs); padding-left: 15px; }
+  .grp { color: var(--text-3); font-size: var(--fs-xs); margin: 12px 8px 4px; }
+  .turn { color: var(--s-blocked); }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .d-run { background: var(--s-progress); }
+  .d-ci { border: 2px solid var(--s-progress); background: transparent; }
+  .d-user { background: var(--s-blocked); }
+  .d-ready { border: 2px solid var(--s-solved); background: transparent; }
+  .d-done { background: var(--s-solved); }
+  .d-wait { border: 2px solid var(--s-stopped); background: transparent; }
+
+  /* 가운데 대화 */
+  .chat { display: flex; flex-direction: column; min-width: 0; }
+  .chat-head { height: 44px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 16px; gap: 10px; font-weight: 600; }
+  .chat-head .r { margin-left: auto; font-weight: 400; color: var(--text-2); font-size: var(--fs-sm); }
+  .chat-head .r b { border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 2px 8px; font-weight: 400; background: var(--bg-hover); }
+  .chat-body { flex: 1; padding: 18px 28px; overflow: hidden; color: var(--text-2); }
+  .me { margin-left: auto; max-width: 70%; background: var(--bg-sunken); border-radius: var(--r-lg); padding: 8px 12px; color: var(--text); margin-bottom: 14px; width: fit-content; }
+  .ag { margin-bottom: 12px; }
+  .ag .bar { height: 9px; border-radius: 5px; background: var(--bg-sunken); margin: 7px 0; }
+  .tool { font-size: var(--fs-xs); color: var(--text-3); margin: 6px 0 12px; }
+  .composer { margin: 0 20px 16px; border: 1px solid var(--line-strong); border-radius: var(--r-lg); height: 74px; padding: 10px 12px; color: var(--text-3); position: relative; }
+  .todo-bar { margin: 0 22px 6px; font-size: var(--fs-xs); color: var(--text-3); }
+
+  /* 오른쪽: 작업 현황 */
+  .work { border-left: 1px solid var(--line); background: var(--bg); display: flex; flex-direction: column; min-width: 0; }
+  .work-head { height: 44px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 14px; gap: 8px; }
+  .work-head b { font-size: var(--fs-md); }
+  .work-head .sum { margin-left: auto; font-size: var(--fs-xs); color: var(--text-2); }
+  .work-list { flex: 1; overflow: hidden; padding: 4px 0 8px; }
+  .wg { display: flex; align-items: baseline; gap: 6px; padding: 12px 14px 4px; font-size: var(--fs-sm); font-weight: 600; }
+  .wg .n { color: var(--text-3); font-weight: 400; }
+  .wg .pill { background: var(--s-blocked); color: #fff; border-radius: var(--r-pill); font-size: var(--fs-2xs); padding: 0 6px; font-weight: 600; }
+  .wg .fold { margin-left: auto; color: var(--text-3); font-weight: 400; font-size: var(--fs-xs); }
+  .row { display: grid; grid-template-columns: 14px 1fr auto; column-gap: 6px; padding: 6px 14px; align-items: start; }
+  .row:hover, .row.hl { background: var(--bg-hover); }
+  .row .dot { margin-top: 6px; }
+  .row .ti { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .tm { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; padding-top: 2px; }
+  .row .st { grid-column: 2 / 4; font-size: var(--fs-xs); color: var(--text-2); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .row .st .who { color: var(--s-blocked); font-weight: 600; }
+  .stall { font-size: var(--fs-2xs); border: 1px solid var(--s-blocked); color: var(--s-blocked); border-radius: var(--r-pill); padding: 0 6px; }
+  .tag { font-size: var(--fs-2xs); background: var(--bg-sunken); color: var(--text-2); border-radius: var(--r-pill); padding: 0 6px; }
+  .row .tm.old { color: var(--s-blocked); }
+  .act { font-size: var(--fs-2xs); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 6px; color: var(--text); background: var(--bg); }
+  .work-foot { border-top: 1px solid var(--line); padding: 8px 14px; font-size: var(--fs-xs); color: var(--text-3); }
+
+  /* 시안 B: 왼쪽 목록에 하위 대화 들여쓰기 */
+  .kid { padding: 4px 8px 4px 22px; border-radius: var(--r-sm); }
+  .kid .t { display: flex; align-items: center; gap: 7px; font-size: var(--fs-sm); }
+  .kid .t .tm { margin-left: auto; color: var(--text-3); font-size: var(--fs-2xs); }
+  .kid .m { font-size: var(--fs-2xs); color: var(--text-2); padding-left: 15px; }
+
+  /* 표 */
+  table { border-collapse: collapse; width: 1440px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); font-size: var(--fs-sm); }
+  th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--bg-sunken); font-weight: 600; }
+  td:first-child { white-space: nowrap; }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 1440px; }
+  .note { background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 12px 16px; font-size: var(--fs-sm); }
+  .note h3 { margin: 0 0 6px; font-size: var(--fs-md); }
+  .note ul { margin: 0; padding-left: 18px; }
+  .note li { margin: 3px 0; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>시안 · 중앙의 작업 현황 (2026-11-19)</h1>
+  <p class="lead">중앙이 맡긴 하위 대화를 한 줄씩 모은 체크리스트. 긴 답을 읽지 않아도 남은 것 · 막힌 것 · 내 차례가 보이게 한다. 줄 하나 = 하위 대화 하나 (+ 결정을 기다리는 피드백 항목).</p>
+
+  <div class="cap">A. 중앙 대화의 오른쪽 세부 패널 = 「작업 현황」<span class="rec">추천</span><small>1440 폭. 중앙은 파일을 고치지 않아 세부 패널의 바뀐 곳 · 사용 중인 파일이 늘 비어 있으므로 그 자리를 쓴다. 지금 대화 위에 붙어 스크롤과 함께 사라지는 하위 대화 카드를 이리로 옮긴다</small></div>
+  <div class="app">
+    <div class="rail"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="list">
+      <div class="newbtn">＋ 새 대화</div>
+      <div class="seg"><span class="on">내 차례</span><span>일하는 중</span><span>모두</span></div>
+      <div class="line on"><div class="t"><span class="dot d-run"></span>중앙</div><div class="m">하위 대화 7 · <span class="turn">내 차례 3</span></div></div>
+      <div class="grp">앱</div>
+      <div class="line"><div class="t"><span class="dot d-user"></span>그림이 안 보임</div><div class="m">계획 승인 기다림 · 3분</div></div>
+      <div class="line"><div class="t"><span class="dot d-run"></span>터미널 경로</div><div class="m">일하는 중 · +42 −8 · 1분</div></div>
+      <div class="grp">예제 연구</div>
+      <div class="line"><div class="t"><span class="dot d-run"></span>켐페 노트 2절</div><div class="m">일하는 중 · 41분</div></div>
+    </div>
+    <div class="chat">
+      <div class="chat-head">중앙 <span class="r"><b>작업 현황 4 남음</b></span></div>
+      <div class="chat-body">
+        <div class="me">그림 문제 고쳐 주고, 켐페 노트 2절도 다듬어 줘. 사이드바 터미널도 봐 줘</div>
+        <div class="ag"><div class="bar" style="width:92%"></div><div class="bar" style="width:80%"></div><div class="bar" style="width:64%"></div></div>
+        <div class="tool">12초 동안 일함 · 도구 6번 ›</div>
+        <div class="ag"><div class="bar" style="width:88%"></div><div class="bar" style="width:95%"></div><div class="bar" style="width:70%"></div><div class="bar" style="width:84%"></div><div class="bar" style="width:40%"></div></div>
+        <div class="tool">8초 동안 일함 · 도구 3번 ›</div>
+        <div class="ag"><div class="bar" style="width:90%"></div><div class="bar" style="width:76%"></div><div class="bar" style="width:58%"></div></div>
+      </div>
+      <div class="todo-bar">☐ 중앙의 할 일 2/4 · 하위 대화 셋 열기 ›</div>
+      <div class="composer">중앙에게 말하기…</div>
+    </div>
+    <div class="work">
+      <div class="work-head"><b>작업 현황</b><span class="sum">남음 4 · 내 차례 3 · 정체 1</span></div>
+      <div class="work-list">
+        <div class="wg">내 차례 <span class="pill">3</span></div>
+        <div class="row hl"><span class="dot d-user"></span><span class="ti">그림이 안 보임</span><span class="tm">3분</span>
+          <span class="st"><span class="who">사용자 결정 기다림</span>· 계획 승인 <span class="act">열기</span></span></div>
+        <div class="row"><span class="dot d-user"></span><span class="ti">피드백: 기록 탭 글자 작음</span><span class="tm">2시간</span>
+          <span class="st"><span class="tag">피드백</span><span class="who">사용자 결정 기다림</span>· 두 안 중 고르기</span></div>
+        <div class="row"><span class="dot d-run"></span><span class="ti">켐페 노트 2절 다듬기</span><span class="tm old">41분</span>
+          <span class="st">진행 중 · 할 일 2/5 <span class="stall">정체 · 41분 그대로</span></span></div>
+
+        <div class="wg">진행 중 <span class="n">3</span></div>
+        <div class="row"><span class="dot d-run"></span><span class="ti">오른쪽 사이드바 터미널 경로</span><span class="tm">1분</span>
+          <span class="st">진행 중 · 할 일 3/5</span></div>
+        <div class="row"><span class="dot d-ci"></span><span class="ti">app_checks 기다리기</span><span class="tm">6분</span>
+          <span class="st">CI 기다림 · PR #462</span></div>
+        <div class="row"><span class="dot d-wait"></span><span class="ti">에이전트 읽기 명령 허용</span><span class="tm">9분</span>
+          <span class="st">자리 기다림 · 순서 1</span></div>
+
+        <div class="wg">합칠 준비 <span class="n">1</span></div>
+        <div class="row"><span class="dot d-ready"></span><span class="ti">하위 대화 차례 끝 보고</span><span class="tm">2분</span>
+          <span class="st">CI 통과 · PR #458 · 중앙이 합침</span></div>
+
+        <div class="wg">끝남 · 오늘 <span class="n">4</span><span class="fold">펼치기 ›</span></div>
+      </div>
+      <div class="wg" style="border-top:1px solid var(--line)">이 대화 <span class="fold">모델 · 토큰 · 파일 · 권한 ›</span></div>
+      <div class="work-foot">정체: 진행 중 20분 · CI 30분 · 합칠 준비 10분 동안 움직임 없음</div>
+    </div>
+  </div>
+
+  <div class="cap">B. 왼쪽 대화 목록의 「중앙」 아래에 하위 대화를 들여 씀<small>어느 대화를 보든 늘 보이지만, 목록이 프로젝트 묶음과 겹치고(같은 대화가 두 번) 폭 248px에 단계 · 시각 · 정체가 다 들어가지 않는다</small></div>
+  <div class="app b" style="height:420px; width:980px">
+    <div class="rail"><i></i><i></i><i></i><i></i></div>
+    <div class="list">
+      <div class="newbtn">＋ 새 대화</div>
+      <div class="seg"><span class="on">내 차례</span><span>일하는 중</span><span>모두</span></div>
+      <div class="line on"><div class="t"><span class="dot d-run"></span>중앙</div><div class="m">남음 4 · <span class="turn">내 차례 3</span> · 정체 1</div></div>
+      <div class="kid"><div class="t"><span class="dot d-user"></span>그림이 안 보임<span class="tm">3분</span></div><div class="m"><span class="turn">사용자 결정 기다림</span></div></div>
+      <div class="kid"><div class="t"><span class="dot d-user"></span>피드백: 기록 탭 글자<span class="tm">2시간</span></div><div class="m"><span class="turn">사용자 결정 기다림</span></div></div>
+      <div class="kid"><div class="t"><span class="dot d-run"></span>켐페 노트 2절<span class="tm turn">41분</span></div><div class="m">진행 중 · <span class="turn">정체</span></div></div>
+      <div class="kid"><div class="t"><span class="dot d-run"></span>터미널 경로<span class="tm">1분</span></div><div class="m">진행 중 · 3/5</div></div>
+      <div class="kid"><div class="t"><span class="dot d-ci"></span>app_checks 기다리기<span class="tm">6분</span></div><div class="m">CI 기다림 · #462</div></div>
+      <div class="kid"><div class="t"><span class="dot d-ready"></span>차례 끝 보고<span class="tm">2분</span></div><div class="m">합칠 준비 · #458</div></div>
+      <div class="grp">앱</div>
+      <div class="line"><div class="t"><span class="dot d-user"></span>그림이 안 보임</div><div class="m">계획 승인 기다림 · 3분</div></div>
+    </div>
+    <div class="chat">
+      <div class="chat-head">중앙</div>
+      <div class="chat-body"><div class="ag"><div class="bar" style="width:90%"></div><div class="bar" style="width:70%"></div><div class="bar" style="width:84%"></div></div></div>
+      <div class="composer">중앙에게 말하기…</div>
+    </div>
+  </div>
+
+  <div class="cap">정할 것과 제안</div>
+  <table>
+    <tr><th>항목</th><th>제안</th><th>근거 · 다른 안</th></tr>
+    <tr><td>위치</td><td><b>A. 중앙 대화의 오른쪽 세부 패널</b>(360px) 맨 위에 「작업 현황」, 지금의 「이 대화」(모델 · 토큰 · 파일 · 권한)는 그 아래 접힌 칸으로. 머리의 「작업」 버튼으로 여닫는 것은 그대로, 처음은 열림. 왼쪽 「중앙」 줄 둘째 줄은 「남음 n · 내 차례 n · 정체 n」. 오른쪽 사이드바의 에이전트 탭(다른 화면)에서도 중앙을 고르면 같은 목록을 대화 위 접는 칸으로</td><td>중앙은 파일을 고치지 않아 세부 패널이 거의 비어 있다. 대화 위 하위 대화 카드는 긴 답과 함께 스크롤되어 사라진다(지금 문제). B는 늘 보이지만 폭이 좁고 같은 대화가 프로젝트 묶음에 또 나온다</td></tr>
+    <tr><td>줄 하나</td><td>상태 점 · 제목 · 마지막으로 움직인 시각(오른쪽, 「3분」) / 둘째 줄 단계 · 덧붙임(PR #n, 할 일 n/m, 계획 승인 · 허락)</td><td>시각은 그 대화의 마지막 이벤트(updated). 누르면 그 하위 대화로</td></tr>
+    <tr><td>단계</td><td>진행 중(파랑 점) · CI 기다림(파랑 고리) · 합칠 준비(청록 고리) · 사용자 결정 기다림(주황 점) · 합쳐짐(청록 점) · 자리 기다림(회색 고리, held) · 오류(주황, 내 차례)</td><td>지금 있는 칸으로 계산: state · wait · pr · merged · CI 결과(앱이 app_checks로 이미 받는 값을 하위 대화에 남김)</td></tr>
+    <tr><td>정체</td><td>진행 중 <b>20분</b>, CI 기다림 <b>30분</b>, 합칠 준비 <b>10분</b> 동안 움직임이 없으면 「정체 · n분 그대로」 테두리 태그와 시각을 주황으로, 그 줄을 내 차례 묶음으로 올림. 사용자 결정 기다림은 정체로 치지 않음(이미 내 차례)</td><td>CI는 보통 8–12분, 하위 대화 한 차례 도구 사이 간격은 대개 몇 분. 기준은 설정 › 에이전트에서 바꾸지 않고 고정으로 시작</td></tr>
+    <tr><td>묶음</td><td>내 차례(주황 알약 수) → 진행 중 → 합칠 준비 → 끝남 · 오늘(접힘). 묶음 안은 오래된 것이 위</td><td>기록 화면과 같은 「내 차례 맨 위」 규칙</td></tr>
+    <tr><td>피드백</td><td><b>함께 보임</b>: 피드백 항목 중 사용자 결정을 기다리는 것을 내 차례 묶음에 「피드백」 태그로. 다섯 개 + 「피드백에서 모두 보기 ›」</td><td>사용자가 결정할 것이 한곳에 모인다. 이미 하위 대화가 맡은 피드백은 그 대화 줄 하나로만(겹치지 않게)</td></tr>
+    <tr><td>할 일 도구(TodoWrite)</td><td>섞지 않는다. 작업 현황은 <b>대화 단위</b>, TodoWrite는 <b>한 대화 안의 단계</b>. 하위 대화의 TodoWrite는 그 줄에 「할 일 2/5」로만 보이고, 중앙 자신의 TodoWrite는 지금처럼 입력란 위 한 줄</td><td>중앙이 TodoWrite로 하위 대화를 따로 적으면 같은 것을 두 번 관리하게 된다. 중앙 규칙에 「하위 대화는 작업 현황이 보여 주니 TodoWrite에 다시 적지 않는다」 한 줄</td></tr>
+    <tr><td>좁은 폭</td><td>900px 아래(세부 패널이 숨는 폭)에서는 대화 머리 버튼이 「작업 현황」 팝오버를 연다</td><td>폰 폭에서도 남은 것을 볼 수 있게</td></tr>
+  </table>
+</div>
+</body>
+</html>

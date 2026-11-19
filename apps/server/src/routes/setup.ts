@@ -15,7 +15,7 @@ import { otherMachineLibraries, otherMachineProjects } from '../backup.js'
 import { adoptOtherProfiles } from '../profileSync.js'
 import { cloneInto, defaultCloneDir, parseGitHubRepo } from '../clone.js'
 import { githubIdentity, realIO } from '../githubRepos.js'
-import { getFallbackIdentity, git, gitRun, GIT_TIMEOUT, setFallbackIdentity } from '../git.js'
+import { getFallbackIdentity, git, gitRun, GIT_TIMEOUT, hasAppIdentity, setAppIdentity } from '../git.js'
 import { remoteOf, sameRepo } from './google.js'
 import { githubRepoOf, isPublicOnGitHub, personalRemote } from '../personalRepo.js'
 import { WorkbenchError } from '../workbench.js'
@@ -71,7 +71,8 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
   const { registry, opts, ensureWatch } = ctx
   // 예제 모드는 이 컴퓨터의 git 설정을 바꾸지 않는다: 이름 · 이메일을 메모리에만 둔다
   let sampleGit = { name: 'Sample Researcher', email: 'sample@example.com' }
-  const gitIdentity = async () => (opts.sandbox ? sampleGit : { name: await gitGlobal('user.name'), email: await gitGlobal('user.email') })
+  // 커밋 이름 창에 적은 것(앱 설정)이 먼저, 없으면 git 전체 설정 (11/19 피드백 22:11)
+  const gitIdentity = async () => (opts.sandbox ? sampleGit : registry.gitIdentity ?? { name: await gitGlobal('user.name'), email: await gitGlobal('user.email') })
 
   // 예제 모드는 이 컴퓨터의 에이전트 설정을 보지 않는다 (그림이 컴퓨터마다 달라지지 않게)
   /** 등록할 명령의 실행 파일: Claude Code는 PATH의 claude, Codex는 앱이 받은 것 → PATH → 맥 ChatGPT 앱 안 (codexCli.ts) */
@@ -146,7 +147,7 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     const gitFromGitHub = getFallbackIdentity() ? undefined : await fromGitHub(gitNow)
     return {
       git: gitNow,
-      ...(!opts.sandbox && getFallbackIdentity() && { gitAuto: getFallbackIdentity()! }),
+      ...(!opts.sandbox && getFallbackIdentity() && !hasAppIdentity() && { gitAuto: getFallbackIdentity()! }),
       ...(gitFromGitHub && { gitFromGitHub }),
       projects: registry.list().length,
       personal: { remote, active },
@@ -224,9 +225,9 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     if (!/^[^\s@]+@[^\s@]+$/.test(email)) throw new WorkbenchError(400, t('이메일 주소가 아닙니다', 'Not an email address'))
     if (opts.sandbox) sampleGit = { name, email }
     else {
-      await gitRun(['config', '--global', 'user.name', name], { timeout: GIT_TIMEOUT.read })
-      await gitRun(['config', '--global', 'user.email', email], { timeout: GIT_TIMEOUT.read })
-      setFallbackIdentity(null)
+      // git 전체 설정은 바꾸지 않고 앱 설정에 둔다: 이 앱의 커밋과 앱 안 에이전트 대화의 커밋에만 쓰인다
+      registry.setGitIdentity({ name, email })
+      setAppIdentity({ name, email })
     }
     return view()
   })

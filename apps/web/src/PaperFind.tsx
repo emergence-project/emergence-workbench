@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { PaperTitle } from './PaperTitle'
 import { papersApi, type PaperProject, type PaperRow, type PaperSearch } from './api'
 import { t } from './i18n'
 import { PAPERS_CHANGED, matchPaper, showPaper } from './PapersPage'
@@ -110,7 +111,7 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
             <Group title={t('라이브러리', 'Library')} n={lib.length}>
               {lib.slice(0, EACH).map((p) => (
                 <button key={p.key} className="pf-row" onClick={() => pick(() => showPaper(p.key))}>
-                  <span className="pf-title">{p.title}</span><span className="pf-meta">{shortAuthors(p.authors)}{p.year ? ` · ${p.year}` : ''}</span>
+                  <span className="pf-title"><PaperTitle title={p.title} /></span><span className="pf-meta">{shortAuthors(p.authors)}{p.year ? ` · ${p.year}` : ''}</span>
                 </button>
               ))}
               {lib.length > EACH && <button className="a pf-more" onClick={() => pick(() => go({ page: 'shelf', list: true }))}>{t(`목록에서 ${lib.length}편 모두 보기`, `See all ${lib.length} in the list`)}</button>}
@@ -138,7 +139,7 @@ export function PaperFind({ value, onChange, papers, projects, onSaved }: {
             <Group title={t('인터넷', 'Internet')}>
               {web.map((w) => (
                 <div key={`${w.source}:${w.id}`} className="pf-row pf-out">
-                  <button className="pf-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => pick(() => readPaper(w))}><span className="pf-title">{w.title}</span><span className="pf-meta">{shortAuthors(w.authors)}{w.year ? ` · ${w.year}` : ''} · {SOURCE[w.source]}</span></button>
+                  <button className="pf-open" title={t('넣기 전에 열어 읽기', 'Open to read before adding')} onClick={() => pick(() => readPaper(w))}><span className="pf-title"><PaperTitle title={w.title} /></span><span className="pf-meta">{shortAuthors(w.authors)}{w.year ? ` · ${w.year}` : ''} · {SOURCE[w.source]}</span></button>
                   <button className="btn small" disabled={busy !== null} onClick={() => void add(w.id, () => papersApi.add(w.id))}>{busy === w.id ? t('더하는 중…', 'Adding…') : t('＋ 추가', '＋ Add')}</button>
                 </div>
               ))}

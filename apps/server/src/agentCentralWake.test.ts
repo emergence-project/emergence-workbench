@@ -192,7 +192,9 @@ describe('중앙을 저절로 깨우기', () => {
     await chats.appSubmit(kid.id, { title: '그림 고침', body: 'b' })
     chats.talk('알겠어') // 끝남 알림을 비운다
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    expect(chats.centralState().kids.find((k) => k.id === kid.id)?.ci).toBe('pending')
     await chats.tickCentral()
+    expect(chats.centralState().kids.find((k) => k.id === kid.id)?.ci).toBe('failed') // 작업 현황 줄이 바로 바뀐다
     expect(chats.flushWakes()).toBe(true)
     expect(centralPrompts().at(-1)).toContain('expected 1 to be 2')
     expect(chats.get(c.id).items.at(-1)).toMatchObject({ kind: 'user', auto: true, text: expect.stringContaining('「그림」 CI 실패') })
@@ -203,6 +205,8 @@ describe('중앙을 저절로 깨우기', () => {
     await chats.tickCentral()
     expect(chats.flushWakes()).toBe(true)
     expect(centralPrompts().at(-1)).toContain('its pull request was merged')
+    expect(chats.centralState().kids.find((k) => k.id === kid.id)).toMatchObject({ merged: 'abc' })
+    expect(chats.centralState().kids.find((k) => k.id === kid.id)?.ci).toBeUndefined()
     chats.stopAll()
   })
 

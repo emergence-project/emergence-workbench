@@ -102,7 +102,8 @@ try {
     // 앞 화면(노트 고치기)과 주소가 같아 편집기가 남지 않게 새로 연다
     if (name === 'figure-zoom') await page.goto('about:blank')
     // 앱 고치기 대화는 찍기 직전에 만들어, 앞 화면에서 받아 둔 대화 목록이 남지 않게 새로 연다
-    if (name === 'agent-app') await page.goto('about:blank')
+    // 중앙도: 작업 현황이 앞 화면에서 받아 둔 (하위 대화 없는) 상태로 남지 않게
+    if (name === 'agent-app' || name === 'agent-central') await page.goto('about:blank')
     if (name === 'settings-phone') await fetch(`${base}api/phone/on`, { method: 'POST' })
     if (hash.includes('{chat}') && !chat) {
       // 허락을 기다리는 대화 하나 (예제 실행기가 "계산"을 보면 명령을 묻는다)

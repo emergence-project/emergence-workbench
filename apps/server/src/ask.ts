@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { applyNoteFixes, parseNoteFixes } from '@rw/core'
 import fs from 'node:fs'
@@ -63,12 +63,43 @@ function claudeEnvOf(platform: NodeJS.Platform): NodeJS.ProcessEnv {
  * 에이전트 대화(Agent SDK)가 띄울 Claude Code 실행 파일. undefined면 SDK가 자기 플랫폼 패키지의 것을 쓴다.
  * 내려받은 앱(scripts/bundle-app.mjs)에는 그 패키지(200MB 남짓)가 없으므로 이 컴퓨터에 깐 claude를 찾는다. RW_CLAUDE_BIN이 먼저.
  */
-export function claudeExecutable(resolve: (id: string) => string = createRequire(import.meta.url).resolve): string | undefined {
+export function claudeExecutable(resolve: (id: string) => string = createRequire(import.meta.url).resolve, versionOf: (bin: string) => string | undefined = claudeVersion): string | undefined {
   if (process.env.RW_CLAUDE_BIN) return process.env.RW_CLAUDE_BIN
-  try { resolve(`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/package.json`); return undefined } catch { /* 묶은 앱 */ }
   // 윈도우는 claude.exe만 (npm이 까는 claude.cmd는 Agent SDK가 띄우지 못한다)
   const name = process.platform === 'win32' ? 'claude.exe' : 'claude'
-  return pathDirs(claudeEnv()).map((d) => path.join(d, name)).find((p) => { try { fs.accessSync(p, fs.constants.X_OK); return fs.statSync(p).isFile() } catch { return false } })
+  const own = pathDirs(claudeEnv()).map((d) => path.join(d, name)).find((p) => { try { fs.accessSync(p, fs.constants.X_OK); return fs.statSync(p).isFile() } catch { return false } })
+  try { resolve(`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/package.json`) } catch { return own /* 묶은 앱 */ }
+  // SDK에 든 것보다 이 컴퓨터에 깐 claude가 새것이면 그것을 쓴다 (11/19 피드백 22:17: Claude Code는 스스로 업데이트되므로
+  // 새 모델 · 스킬이 앱의 SDK 버전을 올리기 전에도 모델 고르기와 명령 메뉴에 바로 보이게)
+  return own && isNewer(versionOf(own), bundledClaudeVersion(resolve)) ? own : undefined
+}
+
+/** "2.1.328 (Claude Code)"처럼 버전이 든 글의 숫자 셋. a가 b보다 새것인가 (b를 모르면 아니다) */
+export function isNewer(a?: string, b?: string): boolean {
+  const n = (s?: string) => s?.match(/(\d+)\.(\d+)\.(\d+)/)?.slice(1).map(Number)
+  const x = n(a), y = n(b)
+  if (!x || !y) return false
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i]! > y[i]!
+  return false
+}
+
+/** Agent SDK에 든 Claude Code의 버전 (SDK package.json의 claudeCodeVersion) */
+function bundledClaudeVersion(resolve: (id: string) => string): string | undefined {
+  try {
+    const pkg: unknown = JSON.parse(fs.readFileSync(path.join(path.dirname(resolve('@anthropic-ai/claude-agent-sdk')), 'package.json'), 'utf8'))
+    return pkg && typeof pkg === 'object' && 'claudeCodeVersion' in pkg && typeof pkg.claudeCodeVersion === 'string' ? pkg.claudeCodeVersion : undefined
+  } catch { return undefined }
+}
+
+/** 깐 claude의 버전 (claude --version). 스스로 업데이트되므로 10분만 기억한다 */
+const versions = new Map<string, { at: number; v?: string }>()
+function claudeVersion(bin: string): string | undefined {
+  const got = versions.get(bin)
+  if (got && Date.now() - got.at < 10 * 60_000) return got.v
+  const r = spawnSync(bin, ['--version'], { encoding: 'utf8', timeout: 5000, env: claudeEnv() })
+  const v = r.status === 0 ? r.stdout.trim() : undefined
+  versions.set(bin, { at: Date.now(), v })
+  return v
 }
 
 /** Claude Code를 쓸 수 있나: 저장소에서 돌면 Agent SDK에 든 것, 묶은 앱이면 이 컴퓨터에 깐 claude */

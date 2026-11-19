@@ -1,5 +1,6 @@
 // 계정 › 시작 준비: 커밋 이름 · 이메일, 개인 저장소 주소, 에이전트 연결, TeX
 import { execFileSync } from 'node:child_process'
+import { gitIdentityEnv, setAppIdentity } from './git.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -48,12 +49,17 @@ describe('시작 준비', () => {
       expect(v.gitFromGitHub).toEqual({ name: 'Kim Researcher', email: '42+kim@users.noreply.github.com' })
     } finally { await a.close() }
   })
-  it('커밋 이름 · 이메일을 git 전역 설정에 쓴다', async () => {
+  it('커밋 이름 · 이메일은 앱 설정에 두고 이 앱의 git에만 쓴다 (git 전역 설정은 그대로, 11/19 피드백 22:11)', async () => {
     const bad = await app.inject({ method: 'PUT', url: '/api/setup/git', payload: { name: 'Kim', email: 'no-at' } })
     expect(bad.statusCode).toBe(400)
+    const before = fs.existsSync(gitConfig) ? fs.readFileSync(gitConfig, 'utf8') : ''
     const v = (await app.inject({ method: 'PUT', url: '/api/setup/git', payload: { name: '  Kim  Researcher ', email: 'kim@example.com' } })).json()
     expect(v.git).toEqual({ name: 'Kim Researcher', email: 'kim@example.com' })
-    expect(fs.readFileSync(gitConfig, 'utf8')).toContain('email = kim@example.com')
+    expect(v.gitAuto).toBeUndefined()
+    expect(fs.existsSync(gitConfig) ? fs.readFileSync(gitConfig, 'utf8') : '').toBe(before)
+    expect(fs.readFileSync(path.join(tmp, 'config/config.yaml'), 'utf8')).toContain('email: kim@example.com')
+    expect(gitIdentityEnv()).toMatchObject({ GIT_AUTHOR_NAME: 'Kim Researcher', GIT_COMMITTER_EMAIL: 'kim@example.com' })
+    setAppIdentity(null)
   })
   it('개인 저장소는 비공개 GitHub 주소만 받고 설정에 저장한다', async () => {
     expect((await app.inject({ method: 'PUT', url: '/api/setup/personal', payload: { remote: 'not a url' } })).statusCode).toBe(400)
