@@ -122,4 +122,6 @@ export const Icon = {
   swap: <svg viewBox="0 0 24 24"><path d="M8 3.5L4 7.5l4 4M4 7.5h16M16 12.5l4 4-4 4M20 16.5H4" /></svg>,
   /** 확인 전 (개념노트): 빈 동그라미. 확인함은 체크 `check` */
   unchecked: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" /></svg>,
+  /** 보관함 (에이전트 대화 목록 맨 아래): 뚜껑 덮인 상자 */
+  archive: <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="4" rx="1" /><path d="M5 8.5v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-10M10 12.5h4" /></svg>,
 }

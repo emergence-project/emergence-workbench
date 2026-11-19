@@ -189,7 +189,12 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-line-dot { flex: none; width: 10px; display: inline-flex; justify-content: center; }
 .ac-line-dot .g-name { display: none; }
 .ac-line-meta { padding-left: calc(10px + var(--sp-2)); }
-.ac-archive-link, .ac-archive-back { align-self: flex-start; margin: var(--sp-3) var(--sp-2) 0; font-size: var(--fs-xs); }
+/* 보관함: 사이드바 맨 아래에 붙은 상자 아이콘 하나로 열고 닫는다. 목록이 짧으면 바닥에, 길면 스크롤해도 아래에 붙음 */
+.side-scroll:has(> .ac-list) { display: flex; flex-direction: column; }
+.side-scroll > .ac-list { flex: 1 0 auto; }
+.ac-side-foot { margin-top: auto; position: sticky; bottom: 0; display: flex; padding-top: var(--sp-1); background: var(--bg-side); border-top: 1px solid var(--line); }
+.ac-archive-btn { width: auto; padding: 0 6px; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); }
+.ac-archive-h { padding: var(--sp-1) var(--sp-2) 0; font-weight: var(--fw-strong); }
 
 /* 상단바 패널: 머리에 대화 고르기 · 새 대화 · 넓게 보기 */
 .ac-panel { min-width: 0; }
