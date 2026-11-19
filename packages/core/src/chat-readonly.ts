@@ -37,6 +37,51 @@ const GH: Record<string, Rule> = {
   issue: sub({ view: any, list: any }),
   repo: sub({ view: any }),
 }
+
+/**
+ * 중앙의 git · gh 쓰기 (11/19 사용자 결정 "중앙은 깃 편집 권한"): 커밋 · 브랜치 · 푸시 · PR 만들기 · squash 합치기.
+ * 되돌리기 어려운 것(강제 푸시 · 원격 브랜치 지우기 · branch -D · 강제 태그)과, 중앙의 작업 폴더인 실사용 앱 체크아웃의
+ * 파일을 바꾸는 것(checkout · switch · merge · rebase · pull · stash · restore · reset · clean)은 목록에 없어 막힌다
+ */
+const flagsOnly = (ok: RegExp): Rule => (args) => args.every((x) => !x.startsWith('-') || ok.test(x))
+const GIT_WRITE: Record<string, Rule> = {
+  ...GIT,
+  add: any,
+  commit: any,
+  // --upload-pack은 지정한 프로그램을 돌린다
+  fetch: (a) => !a.some((x) => /^--upload-pack/.test(x)),
+  branch: flagsOnly(/^(-a|-r|-v|-vv|--all|--remotes|--list|-l|--show-current|--verbose|-d|--delete|-m|--move|-c|--copy|-t|--track|--no-track|-u|--set-upstream-to(=.*)?|--unset-upstream)$/),
+  tag: flagsOnly(/^(-l|--list|-a|--annotate|-m|--message(=.*)?|-s|--sign)$/),
+  // + 강제 refspec · :지우기 refspec도 막는다
+  push: (a) => flagsOnly(/^(-u|--set-upstream|--tags|--follow-tags|--no-verify|--dry-run|-n|-v|--verbose|-q|--quiet)$/)(a) && !positional(a).some((x) => x.startsWith('+') || x.startsWith(':')),
+}
+const GH_WRITE: Record<string, Rule> = {
+  ...GH,
+  pr: sub({
+    view: any, list: any, diff: any, checks: any, status: any,
+    create: any, edit: any, comment: any, ready: any,
+    // squash로만. --admin은 검사를 건너뛰고, -d는 이 폴더의 브랜치를 바꾼다
+    merge: (a) => a.some((x) => x === '--squash' || x === '-s') && flagsOnly(/^(--squash|-s|--auto|--subject(=.*)?|-t|--body(=.*)?|-b|--match-head-commit(=.*)?)$/)(a),
+  }),
+}
+
+function gitRule(table: Record<string, Rule>): Rule {
+  return (a) => {
+    // 앞 옵션: -C <폴더> · --no-pager만 (-c 설정은 프로그램을 바꿔 돌릴 수 있다)
+    let i = 0
+    while (i < a.length && a[i]!.startsWith('-')) {
+      if (a[i] === '-C') i += 2
+      else if (a[i] === '--no-pager') i++
+      else return versionOnly(a)
+    }
+    const rule = table[a[i] ?? '']
+    const rest = a.slice(i + 1)
+    return !!rule && !rest.some((x) => /^(--output|--ext-diff)/.test(x)) && rule(rest)
+  }
+}
+function ghRule(table: Record<string, Rule>): Rule {
+  return (a) => versionOnly(a) || (!a.some((x) => x === '--web' || x === '-w') && sub(table)(a))
+}
 const PKG: Record<string, Rule> = { ls: any, list: any, view: any, info: any, why: any, outdated: any, root: any }
 
 const PROGRAMS: Record<string, Rule> = {
@@ -63,19 +108,8 @@ const PROGRAMS: Record<string, Rule> = {
   diskutil: (a) => /^(list|info)$/.test(a[0] ?? ''),
   defaults: (a) => /^(read|domains)$/.test(a[0] ?? ''),
   command: (a) => /^-[vV]$/.test(a[0] ?? ''),
-  git: (a) => {
-    // 앞 옵션: -C <폴더> · --no-pager만 (-c 설정은 프로그램을 바꿔 돌릴 수 있다)
-    let i = 0
-    while (i < a.length && a[i]!.startsWith('-')) {
-      if (a[i] === '-C') i += 2
-      else if (a[i] === '--no-pager') i++
-      else return versionOnly(a)
-    }
-    const rule = GIT[a[i] ?? '']
-    const rest = a.slice(i + 1)
-    return !!rule && !rest.some((x) => /^(--output|--ext-diff)/.test(x)) && rule(rest)
-  },
-  gh: (a) => versionOnly(a) || (!a.some((x) => x === '--web' || x === '-w') && sub(GH)(a)),
+  git: gitRule(GIT),
+  gh: ghRule(GH),
   npm: (a) => versionOnly(a) || sub(PKG)(a),
   pnpm: (a) => versionOnly(a) || sub(PKG)(a),
   yarn: (a) => versionOnly(a) || sub({ list: any, info: any, why: any })(a),
@@ -101,13 +135,17 @@ function bare(cmd: string): string {
   return out
 }
 
-export function stateOnlyCommand(cmd: string, depth = 0): StateOnly {
+const WRITE_PROGRAMS: Record<string, Rule> = { ...PROGRAMS, git: gitRule(GIT_WRITE), gh: ghRule(GH_WRITE) }
+
+/** gitWrites: 중앙용. 상태 보기에 더해 git · gh로 커밋 · 푸시 · PR 만들기 · squash 합치기까지 ok */
+export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, depth = 0): StateOnly {
   if (depth > 2) return 'no'
+  const programs = o.gitWrites ? WRITE_PROGRAMS : PROGRAMS
   let worst: StateOnly = 'ok'
   // $( … ) · ` … `: 안쪽도 같은 목록으로 보고, 자리표 낱말로 바꾼다 (겹친 것은 해석하지 않고 막는다)
   const subst = /\$\(([^()`]*)\)|`([^`]*)`/g
   for (const m of cmd.matchAll(subst)) {
-    const inner = stateOnlyCommand(m[1] ?? m[2] ?? '', depth + 1)
+    const inner = stateOnlyCommand(m[1] ?? m[2] ?? '', o, depth + 1)
     if (inner === 'no') return 'no'
     if (inner === 'sensitive') worst = 'sensitive'
   }
@@ -125,7 +163,7 @@ export function stateOnlyCommand(cmd: string, depth = 0): StateOnly {
     // 환경 변수 앞말(PAGER=… git log)이나 변수 · 저장소 안 스크립트(./ls)를 프로그램으로 돌리지 않는다
     if (prog.includes('=') || prog.includes('$')) return 'no'
     if (prog.includes('/') && !/^\/(usr\/)?s?bin\/[^/]+$/.test(prog)) return 'no'
-    const rule = PROGRAMS[prog.split('/').pop()!]
+    const rule = programs[prog.split('/').pop()!]
     if (!rule || !rule(w.slice(1))) return 'no'
     if (w.some((x) => SECRET.test(x))) worst = 'sensitive'
   }
