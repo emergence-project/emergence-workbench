@@ -686,5 +686,25 @@ describe('앱이 다시 켜지면', () => {
     chats.stopAll()
     fs.rmSync(dir, { recursive: true, force: true })
   })
+
+  it('줄 서 있던 지시와 그동안 보낸 지시를 둘 다 읽는다 (11/19 중앙 대화에서 줄 선 지시 하나가 사라짐)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-queued-'))
+    const at = new Date().toISOString()
+    fs.writeFileSync(path.join(dir, 'q.json'), JSON.stringify({
+      id: 'q', rid: 'p', title: 'q', agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', state: 'queued', claims: [], created: at, updated: at, sessionId: 'old-q',
+      items: [{ kind: 'user', at, text: '첫 지시' }, { kind: 'user', at, text: '둘째 지시', queued: true }],
+      turn: { prompt: '첫 지시' }, pending: [{ prompt: '둘째 지시' }],
+    }))
+    const chats = new AgentChats({ dir, runner: fake, limit: 3, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    expect(chats.get('q').state).toBe('queued')
+    const before = seen.length
+    chats.resumeRestarted()
+    await vi.waitFor(() => expect(chats.get('q').state).toBe('idle'))
+    const read = seen.slice(before).map((s) => s.prompt).join('\n')
+    expect(read).toContain('첫 지시')
+    expect(read).toContain('둘째 지시')
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
 })
 
