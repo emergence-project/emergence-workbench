@@ -4,7 +4,7 @@
  * 바꿀 수 있는 문법(파일로 돌려보내기 · 히어독 · 백그라운드 · 환경 변수 앞말 · 다른 명령을 돌리는 프로그램)은 막는다.
  * ok = 묻지 않고, sensitive = 비밀이 든 곳(~/.ssh · .env …)을 보니 한 번 묻고, no = 막는다
  */
-import { segments, words } from './chat-auto.js'
+import { segments, substitutions, words } from './chat-auto.js'
 
 export type StateOnly = 'ok' | 'sensitive' | 'no'
 
@@ -24,8 +24,8 @@ const GIT: Record<string, Rule> = {
   'cat-file': any, 'merge-base': any, 'name-rev': any, whatchanged: any, 'rev-list': any, 'for-each-ref': any, 'show-ref': any,
   'show-branch': any, 'count-objects': any, cherry: any, 'range-diff': any, 'check-ignore': any, 'check-attr': any, 'verify-commit': any,
   'verify-tag': any, version: any,
-  // --upload-pack은 지정한 프로그램을 돌린다
-  'ls-remote': (a) => !a.some((x) => /^--upload-pack/.test(x)),
+  // --upload-pack · -u 는 지정한 프로그램을 돌린다
+  'ls-remote': (a) => !a.some((x) => /^(--upload-pack|-u)/.test(x)),
   worktree: (a) => a[0] === 'list',
   submodule: (a) => a.length === 0 || a[0] === 'status',
   // -O · --open-files-in-pager는 지정한 프로그램을 돌린다
@@ -35,13 +35,17 @@ const GIT: Record<string, Rule> = {
   reflog: (a) => a.length === 0 || a[0] === 'show' || a[0]!.startsWith('-'),
   stash: (a) => /^(list|show)$/.test(a[0] ?? ''),
   tag: (a) => a.length === 0 || a.some((x) => x === '-l' || x === '--list'),
-  config: (a) => a.some((x) => /^(--get|--get-all|--get-regexp|--list|-l)$/.test(x)),
+  // 읽기만: 쓰는 옵션 · 하위 명령(set · unset · edit …)이 하나라도 있으면 막는다 (설정은 프로그램을 바꿔 돌릴 수 있다)
+  config: (a) => (a.some((x) => /^(--get|--get-all|--get-regexp|--list|-l)$/.test(x)) || /^(get|list)$/.test(positional(a)[0] ?? ''))
+    && !a.some((x) => /^(--add|--replace-all|--unset|--unset-all|--rename-section|--remove-section|--edit|-e|--file|-f|--blob)(=|$)/.test(x))
+    && !/^(set|unset|edit|rename-section|remove-section)$/.test(positional(a)[0] ?? ''),
 }
 /** gh api: GET만. 몸을 붙이는 -f · -F · --input은 POST가 되므로 -X GET을 적었을 때만, graphql은 mutation이 없을 때만 */
 const ghApi: Rule = (a) => {
   const method = a.flatMap((x, i) => x === '-X' || x === '--method' ? [a[i + 1] ?? ''] : x.startsWith('--method=') ? [x.slice(9)] : x.startsWith('-X') && x.length > 2 ? [x.slice(2)] : [])
   if (method.some((m) => m.toUpperCase() !== 'GET') || a.some((x) => /^--input/.test(x))) return false
-  if (a.includes('graphql')) return !a.some((x) => /\bmutation\b/i.test(x))
+  // graphql: mutation이 없을 때만. 파일에서 읽는 질의(-F query=@파일)는 안을 볼 수 없어 막는다
+  if (a.includes('graphql')) return !a.some((x) => /\bmutation\b/i.test(x) || /=@/.test(x))
   return method.length > 0 || !a.some((x) => /^(-f|-F|--field|--raw-field)/.test(x))
 }
 const LOOK: Rule = sub({ view: any, list: any })
@@ -109,14 +113,17 @@ const PKG: Record<string, Rule> = { ls: any, list: any, view: any, info: any, wh
 
 const PROGRAMS: Record<string, Rule> = {
   ...Object.fromEntries([
-    'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'egrep', 'fgrep', 'which', 'type', 'file', 'stat', 'du', 'df', 'pwd', 'whoami', 'id', 'uname',
+    'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'egrep', 'fgrep', 'which', 'type', 'stat', 'du', 'df', 'pwd', 'whoami', 'id', 'uname',
     'sw_vers', 'uptime', 'vm_stat', 'nproc', 'diff', 'cmp', 'jq', 'cut', 'tr', 'nl', 'column', 'echo', 'printf', 'cd', 'basename', 'dirname',
     'realpath', 'readlink', 'true', 'false', 'test', '[', 'system_profiler',
   ].map((p) => [p, any])),
-  // 파일을 쓰거나 다른 프로그램을 돌리는 옵션은 뺀다
-  sort: without('-o', '--output'),
-  tree: without('-o'),
-  rg: without('--pre'),
+  // 파일을 쓰거나 다른 프로그램을 돌리는 옵션은 뺀다. 짧은 옵션은 붙여 쓴 꼴(-ofile · -uo)도 막는다
+  sort: (a) => !a.some((x) => /^--output(=|$)/.test(x) || /^-[a-zA-Z]*o/.test(x)),
+  // -R은 폴더마다 -o 00Tree.html을 쓴다
+  tree: (a) => !a.some((x) => /^-(o|R)/.test(x)),
+  rg: without('--pre', '--hostname-bin'),
+  // -C는 magic 파일을 컴파일해 쓴다
+  file: (a) => !a.some((x) => /^-[a-zA-Z]*C/.test(x) || x === '--compile'),
   uniq: (a) => positional(a).length <= 1,
   date: (a) => positional(a).every((x) => x.startsWith('+')) && !a.includes('-s'),
   hostname: (a) => positional(a).length === 0,
@@ -146,12 +153,19 @@ const SECRET = /(^|\/)\.(ssh|aws|gnupg|netrc|docker|kube)(\/|$)|\.config\/gh(\/|
 /** 파일로 쓰지 않는 돌려보내기 (오류를 합치기 · 버리기) */
 const HARMLESS_REDIRECT = /(?:\d?>&\d|&>\s*\/dev\/null|\d?>>?\s*\/dev\/null)/g
 
-/** 따옴표 안을 지운 글 (문법 기호를 찾을 때) */
+/** 따옴표 안과 \\ 뒤 글자를 지운 글 (문법 기호를 찾을 때). \\" 는 따옴표를 열지 않는다 */
 function bare(cmd: string): string {
   let out = ''
   let q: string | null = null
-  for (const ch of cmd) {
-    if (q) { if (ch === q) { q = null; out += ch } else out += '_'; continue }
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i]!
+    if (q) {
+      if (q === '"' && ch === '\\' && i + 1 < cmd.length) { out += '__'; i++ }
+      else if (ch === q) { q = null; out += ch }
+      else out += '_'
+      continue
+    }
+    if (ch === '\\' && i + 1 < cmd.length) { out += '__'; i++; continue }
     if (ch === '"' || ch === "'") q = ch
     out += ch
   }
@@ -165,14 +179,16 @@ export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, d
   if (depth > 2) return 'no'
   const programs = o.gitWrites ? WRITE_PROGRAMS : PROGRAMS
   let worst: StateOnly = 'ok'
-  // $( … ) · ` … `: 안쪽도 같은 목록으로 보고, 자리표 낱말로 바꾼다 (겹친 것은 해석하지 않고 막는다)
-  const subst = /\$\(([^()`]*)\)|`([^`]*)`/g
-  for (const m of cmd.matchAll(subst)) {
-    const inner = stateOnlyCommand(m[1] ?? m[2] ?? '', o, depth + 1)
+  // $'…' · $"…" (따옴표 안의 \\' 를 다르게 읽는 문법)은 해석하지 않고 막는다
+  if (/\$['"]/.test(cmd)) return 'no'
+  // $( … ) · ` … `: 안쪽도 같은 목록으로 보고, 자리표 낱말로 바꾼다 (겹친 것은 안쪽부터, 다 풀지 못하면 막는다)
+  const { inner: inners, flat, left } = substitutions(cmd)
+  if (left) return 'no'
+  for (const part of inners) {
+    const inner = stateOnlyCommand(part, o, depth + 1)
     if (inner === 'no') return 'no'
     if (inner === 'sensitive') worst = 'sensitive'
   }
-  const flat = cmd.replace(subst, 'SUBST')
   const b = bare(flat)
   if (/\$\(|`|<<|<\(|>\(/.test(b)) return 'no'
   const noRedirect = b.replace(HARMLESS_REDIRECT, ' ')

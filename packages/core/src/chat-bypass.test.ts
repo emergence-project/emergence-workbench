@@ -43,3 +43,11 @@ describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => 
     expect(inTemp('/var/folders/ab/cd/T')).toBe(false)
   })
 })
+
+describe('이음표와 겹친 치환 (11/20 보안 검토)', () => {
+  it('& 뒤 · 겹친 $( ) 안의 명령도 본다', () => {
+    expect(neverBypass('ls & git push --force')).toBe('force-push')
+    expect(neverBypass('echo "$(echo $(git reset --hard))"')).toBe('reset-hard')
+    expect(neverBypass('make 2>&1 | tail')).toBeUndefined()
+  })
+})
