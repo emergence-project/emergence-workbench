@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { appBriefFor, fileEditOf, judge, partsOfPatch, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
-import { appBranch, appWorktrees, sampleAppWork, type AppWork } from './appWorktree.js'
+import { appBranch, appWorktrees, checkRowsOfError, sampleAppWork, type AppWork } from './appWorktree.js'
 
 const repo = '/w/app-1'
 const W = 'mcp__workbench__'
@@ -161,6 +161,16 @@ describe('앱 고치기 대화 API', () => {
     expect((await other.inject({ method: 'GET', url: '/api/agent-chats' })).json().app).toBe(false)
     expect((await other.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: '_app', text: 'x' } })).statusCode).toBe(404)
     await other.close()
+  })
+})
+
+describe('CI 검사 오류 읽기', () => {
+  it('실패한 검사는 JSON을 읽고, CI가 아직 없으면 빈 목록(기다림), 그 밖은 던진다', () => {
+    const rows = [{ name: 'ci', state: 'FAILURE', link: 'x' }]
+    expect(checkRowsOfError(Object.assign(new Error('exit 1'), { stdout: JSON.stringify(rows) }))).toEqual(rows)
+    expect(checkRowsOfError(Object.assign(new Error('Command failed'), { stdout: '', stderr: "no checks reported on the 'feature' branch\n" }))).toEqual([])
+    const other = Object.assign(new Error('Command failed'), { stdout: '', stderr: 'HTTP 502' })
+    expect(() => checkRowsOfError(other)).toThrow(other)
   })
 })
 

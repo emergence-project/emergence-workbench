@@ -141,6 +141,8 @@ describe('허락 규칙', () => {
     expect(b).toContain('read-only')
     expect(b).toContain('다른 일: a.md')
     expect(b).not.toContain('빈 일')
+    expect(b).not.toContain('## 보고')
+    expect(briefFor({ rid: 'proj', title: 'P', scope: topic, write: 'read', others: [], parent: true })).toContain('"## 보고"')
   })
 })
 

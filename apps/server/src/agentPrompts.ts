@@ -11,6 +11,12 @@ import { t } from './i18n.js'
 
 // ---------- 안내 (대화를 열 때 한 번, 짧게) ----------
 
+/**
+ * 중앙이 연 하위 대화가 차례 끝에 남기는 보고 (11/19 사용자 "하위대화가 너에게 요약해서 보고하는게 좋지 않겠냐").
+ * 앱이 마지막 글의 「## 보고」 절을 읽어 중앙의 깨우기 · chat_list에 그대로 싣는다(agentCentral.ts kidReport, KID_REPORT_MAX자까지)
+ */
+export const REPORT_BRIEF = 'End every turn with a report for the central conversation: a last section headed exactly "## 보고", in Korean, with these lines: "- 바꾼 것:" what changed, on the screen or in behavior (or what you found); "- 위치:" pull request number, main files, feedback record; "- 판단:" the decision or answer in one line (없음 if none); "- 남은 일:" what is left and what the user must do (없음 if nothing). Keep it under 1500 characters; the app hands it to the central conversation as it is.'
+
 /** 앱 고치기 대화의 안내 */
 export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean; agent?: string; parent?: boolean }): string {
   const claude = !o.agent || o.agent === 'claude-code'
@@ -36,13 +42,13 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures.`,
   )
   // 중앙이 연 하위 대화 (11/18): 중앙이 끝남 · CI · 합쳐짐에 저절로 깨어 이어 받으므로, 「나중에 하겠다」로 끝내지 않는다
-  if (o.parent) lines.push(`The central conversation opened this one and is woken by the app when your turn ends. Do not end a turn promising to continue later: finish the work in this turn. Wait for CI with ${APP_CHECKS} wait. If you must wait for something outside this conversation, say what you wait for in one line and end the turn; the central conversation wakes you.`)
+  if (o.parent) lines.push(`The central conversation opened this one and is woken by the app when your turn ends. Do not end a turn promising to continue later: finish the work in this turn. Wait for CI with ${APP_CHECKS} wait. If you must wait for something outside this conversation, say what you wait for in one line and end the turn; the central conversation wakes you.`, REPORT_BRIEF)
   if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
   lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps. Write to the user in Korean, briefly: result first.`)
   return lines.join('\n')
 }
 
-export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[]; agent?: string }): string {
+export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[]; agent?: string; parent?: boolean }): string {
   const claude = !o.agent || o.agent === 'claude-code'
   const scope = o.scope.kind === 'project' ? 'the whole project' : o.scope.kind === 'all' ? 'every registered project and the knowledge library (this conversation belongs to this project)' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
   const lines = [
@@ -56,6 +62,7 @@ export function briefFor(o: { rid: string; title: string; scope: ChatScope; writ
   if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
   lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps: the user sees the list live. `)
   if (claude) lines.push(`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`)
+  if (o.parent) lines.push('The central conversation opened this one and is woken by the app when your turn ends. Finish the work in this turn.', REPORT_BRIEF)
   const busy = o.others.filter((c) => c.claims.length)
   if (busy.length) lines.push(`Other conversations are changing these files now; do not change them: ${busy.map((c) => `${c.title}: ${c.claims.join(', ')}`).join('; ')}.`)
   lines.push('Write to the user in Korean, briefly: result first. Write math as $…$ inside a sentence and $$…$$ on its own lines; the conversation renders them.')

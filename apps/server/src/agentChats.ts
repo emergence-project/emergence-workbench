@@ -970,7 +970,7 @@ export class AgentChats {
         extraDirs: app ? [] : this.deps.extraDirs(),
         brief: app
           ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback, agent: c.agent, parent: !!c.parent })
-          : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })), agent: c.agent }),
+          : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })), agent: c.agent, parent: !!c.parent }),
         write: c.write,
         ...(app ? { appChat: c.id } : c.rid === CENTRAL_RID && { central: true }), env: { ...(app && appEnv(c.id)), ...this.deps.accounts?.env(c.account) },
         canUseTool,

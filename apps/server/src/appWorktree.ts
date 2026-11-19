@@ -67,6 +67,19 @@ const tail = (s: string, n = 12000) => (s.length > n ? s.slice(-n) : s)
 
 const DONE = new Set(['SUCCESS', 'FAILURE', 'CANCELLED', 'SKIPPED', 'NEUTRAL', 'TIMED_OUT', 'ACTION_REQUIRED', 'STALE', 'ERROR'])
 const OK = new Set(['SUCCESS', 'SKIPPED', 'NEUTRAL'])
+type CheckRow = { name: string; state: string; link?: string }
+/**
+ * gh pr checks가 오류로 끝났을 때의 검사 목록.
+ * - 실패한 검사가 있으면 1로 끝나지만 JSON은 낸다 → 그 JSON.
+ * - PR을 막 열어 CI가 아직 없으면 "no checks reported"로 끝난다 → 빈 목록 (아직 안 끝남, wait 동안 더 기다린다).
+ * - 그 밖은 그대로 던진다.
+ */
+export function checkRowsOfError(e: unknown): CheckRow[] {
+  const { stdout, stderr, message } = e as { stdout?: string; stderr?: string; message?: string }
+  if (stdout?.trim()) return JSON.parse(stdout) as CheckRow[]
+  if (/no checks reported/i.test(`${stderr ?? ''}\n${message ?? ''}`)) return []
+  throw e
+}
 /** gh pr list --state merged --json number,mergeCommit */
 const MergedPrs = z.array(z.object({ number: z.number(), mergeCommit: z.object({ oid: z.string() }).nullish() }))
 
@@ -115,14 +128,11 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
     async checks(dir, branch) {
       const pr = await prOf(dir, branch)
       if (!pr) return { checks: [], done: false, ok: false }
-      let rows: { name: string; state: string; link?: string }[] = []
+      let rows: CheckRow[] = []
       try {
-        rows = JSON.parse(await gh(dir, ['pr', 'checks', String(pr.number), '--json', 'name,state,link'])) as typeof rows
+        rows = JSON.parse(await gh(dir, ['pr', 'checks', String(pr.number), '--json', 'name,state,link'])) as CheckRow[]
       } catch (e) {
-        // gh pr checks는 실패한 검사가 있으면 1로 끝나지만 JSON은 낸다
-        const out = (e as { stdout?: string }).stdout
-        if (!out) throw e
-        rows = JSON.parse(out) as typeof rows
+        rows = checkRowsOfError(e)
       }
       const checks = rows.map((r) => ({ name: r.name, state: r.state.toUpperCase(), ...(r.link && { link: r.link }) }))
       const done = checks.length > 0 && checks.every((c) => DONE.has(c.state))
