@@ -99,6 +99,8 @@ export const DEFAULT_SCREENS = [
   ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '모델 고르기']],
   // 입력란 ＋ 메뉴 (11/19 지금 화면 · 고른 글 붙이기): 고른 글이 없어 「고른 글 붙이기」는 흐리다
   ['agent-attach', '#/r/{rid}', '붙이기 버튼 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '붙이기 버튼']],
+  // 노트 본문에서 글을 끌어 고른 메뉴 (11/19 「? 질문」): 4색 · 코멘트 · 질문 (shots.mjs가 첫 문단을 세 번 눌러 고른다)
+  ['note-select', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '고른 글 질문'],
   // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
   ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)']],
   ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
