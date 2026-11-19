@@ -391,10 +391,10 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
             <button role="menuitem" onClick={() => { close(); setPicking(true) }}>{t('화면 요소 고르기', 'Pick a screen element')}<span className="muted ac-key">{t('그림도', 'with image')}</span></button>
             <button role="menuitem" onClick={() => { close(); addAttach({ kind: 'screen', ref: (location.hash || '#/').slice(0, 400), label: (placeOf(document.title).at(-1) ?? t('첫 화면', 'Start')).slice(0, 200), text: screenLine() }) }}>{t('지금 화면 붙이기', 'Attach current screen')}</button>
             {(() => {
-              // 마지막으로 고른 글 (선택이 풀리거나 그 화면이 닫혀도 남는다, RecordContext). 없으면 흐리게
+              // 마지막으로 고른 글 (노트 · 보고서와 그 밖의 모든 화면, 선택이 풀리거나 그 화면이 닫혀도 남는다, RecordContext). 없으면 흐리게
               const sel = lastRecordSelection()
-              const where = sel && `${sel.rid === rid ? '' : `${sel.rid}:`}${sel.target}${sel.line ? `:${sel.line}` : ''}`
-              return <button role="menuitem" disabled={!sel} data-tip={sel ? undefined : t('노트에서 글을 고르면 붙일 수 있습니다', 'Select text in a note first')}
+              const where = sel && `${!sel.rid || sel.rid === rid ? '' : `${sel.rid}:`}${sel.target}${sel.line ? `:${sel.line}` : ''}`
+              return <button role="menuitem" disabled={!sel} data-tip={sel ? undefined : t('화면에서 글을 고르면 붙일 수 있습니다', 'Select some text on a screen first')}
                 onClick={() => { close(); if (sel) addAttach({ kind: 'selection', ref: where!.slice(0, 400), label: sel.quote.replace(/\s+/g, ' ').slice(0, 40), text: sel.quote.slice(0, 4000) }) }}>{t('고른 글 붙이기', 'Attach selected text')}</button>
             })()}
           </>}
