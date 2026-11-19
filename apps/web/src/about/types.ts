@@ -20,6 +20,8 @@ export interface AboutSection {
   ask?: string
   /** 이 절을 고친 업데이트(PR 번호), 오래된 것부터. 한국어 쪽에만 적고 영어는 같은 자리의 것을 쓴다 (10/15 "소개와 업데이트 1대1") */
   prs?: number[]
+  /** 이 기능을 다른 앱에 옮기는 이식 안내서 docs/ports/<port>.md (11/19 "이식 안내서와 소개를 동기화"). 안내서 머리 about:에 이 절 파일이 있어야 한다 (scripts/ci/check-ports.mjs) */
+  port?: string
 }
 
 export interface AboutPart {
