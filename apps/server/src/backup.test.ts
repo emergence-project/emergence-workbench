@@ -158,7 +158,7 @@ describe('workbench 백업', () => {
 
   it('컴퓨터 이름은 호스트 이름에서 .local을 떼고 파일 이름에 쓸 글자만 남긴다', () => {
     expect(machineName('Davidui-MacBookPro.local')).toBe('Davidui-MacBookPro')
-    expect(machineName('성민의 Mac mini')).toBe('Mac-mini')
+    expect(machineName('홍길동의 Mac mini')).toBe('Mac-mini')
     expect(machineName('...')).toBe('computer')
   })
 
