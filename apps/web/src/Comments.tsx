@@ -370,10 +370,7 @@ export function Composer({ rid, target, draft, onClose, onSaved }: { rid: string
   }
   const keys = (set: (v: string) => void) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => { onListKey(e, set) }
   // ⌘↵ · Esc는 칸 전체에서: 종류 단추로 옮겨 간 뒤에도 (11/19 피드백 09:04)
-  const formKeys = (e: React.KeyboardEvent) => {
-    if (isSendKey(e)) { e.preventDefault(); void save() }
-    else if (e.key === 'Escape') onClose()
-  }
+  const formKeys = (e: React.KeyboardEvent) => { if (isSendKey(e)) { e.preventDefault(); void save() } else if (e.key === 'Escape') onClose() }
   return (
     <div className={`pdf-pop composer ${kind === '질문' && !quote ? 'question' : 'comment'}`} data-ui="코멘트 쓰기" onKeyDown={formKeys}>
       <div className="pdf-pop-head">{quote ? <b>{t('메모 · 질문', 'Note · question')}</b> : <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>
