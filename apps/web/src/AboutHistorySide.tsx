@@ -34,16 +34,17 @@ export function historyRows(part: AboutPart, checks: ReturnType<typeof useAboutC
 
 const shortDate = (d: string) => { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(d); return m ? `${Number(m[1])}/${Number(m[2])}` : '' }
 
-export function AboutHistorySide({ part, picked, onPick, onClose }: { part: AboutPart; picked: number | null; onPick(n: number | null, firstSection: number): void; onClose(): void }) {
+export function AboutHistorySide({ part, at, picked, onPick, onClose }: { part: AboutPart; at: number; picked: number | null; onPick(n: number | null, firstSection: number): void; onClose(): void }) {
   const checks = useAboutChecks()
   const rows = historyRows(part, checks)
   const secs = part.sections ?? []
   // 확인 항목 알림에서 업데이트를 눌러 열면 그 줄이 보이게 (11/19 09:27 진행)
   const on = useRef<HTMLLIElement>(null)
   useEffect(() => { on.current?.scrollIntoView({ block: 'nearest' }) }, [picked])
-  const secLink = (i: number) => (
-    <a key={i} className="a" href={href({ page: 'about', part: part.id, ...(i > 0 && { anchor: sectionAnchor(secs[i]!, i) }) })} onClick={(e) => e.stopPropagation()}>{secs[i]!.title}</a>
-  )
+  // 지금 보는 절은 링크로 두지 않는다: 같은 주소라 눌러도 아무 일이 없었다 (11/19 21:52 "링크가 작동안하는 것 같아"). 누르면 그 줄 고르기로 이어진다
+  const secLink = (i: number) => i === at
+    ? <span key={i} className="about-ver-here" title={t('지금 보는 절', 'The section you are viewing')}>{secs[i]!.title}</span>
+    : <a key={i} className="a" href={href({ page: 'about', part: part.id, ...(i > 0 && { anchor: sectionAnchor(secs[i]!, i) }) })} onClick={(e) => e.stopPropagation()}>{secs[i]!.title}</a>
   const join = (at: number[]) => at.flatMap((i, k) => (k ? [<span key={`s${i}`} className="muted"> · </span>, secLink(i)] : [secLink(i)]))
   return (
     <aside className="pane about-rs" data-ui="소개 이력" aria-label={t('이 쪽의 이력', 'History of this page')}>
