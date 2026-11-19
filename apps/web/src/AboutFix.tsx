@@ -2,135 +2,172 @@ import { useEffect, useState, type RefObject } from 'react'
 import { api, setAboutCheck } from './api'
 import { putAboutChecks } from './aboutChecks'
 import { t } from './i18n'
+import { Icon } from './icons'
 
 /**
- * 소개 글 제자리 고치기 (11/13 23:41 질문 → 11/16 「시안은 다 추천대로」, 시안 1-2절 안 C).
- * 연필을 누르면 그 절 본문이 그 자리에서 고치기 모드가 된다: 보이는 글 · 표 칸을 그대로 고치고, 그림은 잠근다.
- * 소개 글은 앱 코드(about/<쪽>/<절>.tsx)에 있어 바로 저장하지 않고, 바뀐 곳만(어디 · 전 · 후) 뽑아 피드백으로 남긴다.
- * 다음 피드백 처리 때 에이전트가 코드에 반영한다. 예전에는 절 전체 글(그림 속 글자 · 탭으로 이은 표 칸까지)을 입력란에 넣었다.
+ * 소개 고치기 탭 (11/20 시안 3절 안 C, 「시안대로 구현하자」).
+ * 탭을 열면 본문이 피드백 모드처럼 고르기가 된다: 올리면 노란 테두리와 이름표, 누르면 그곳의 지금 글이 사이드바 칸에 들어온다.
+ * 그림 속 상자 · 표 칸 · 문단 어디든 고를 수 있고, 본문은 편집 상태가 되지 않는다. 고친 글을 「담기」로 여러 곳 모아 한 번에 피드백으로 보낸다.
+ * 소개 글은 앱 코드(about/<쪽>/<절>.tsx)에 있어 바로 저장하지 않고, 다음 피드백 처리 때 에이전트가 반영한다.
+ * 예전(11/16–11/19)에는 툴바 연필로 수정 모드를 켜고 절 본문을 그 자리에서 고쳤다.
  */
 
-/** 글 단위: 목록 항목 · 표 칸 · 문단. 다른 단위를 품은 것과 그림 안의 것은 뺀다 */
-const UNIT = 'li, td, th, p, dt, dd, h3, h4, caption'
-const LOCK = 'figure, svg, img'
+/** 글 단위: 목록 항목 · 표 칸 · 문단 · 제목 */
+const UNIT = 'li, td, th, p, dt, dd, h2, h3, h4, caption'
+const FIGURE = 'figure, svg, .about-figs'
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim()
 const clip = (s: string, n = 14) => (s.length > n ? `${s.slice(0, n)}…` : s)
+const textOf = (el: Element) => norm(el instanceof HTMLElement ? el.innerText : el.textContent ?? '')
 
-export interface FixUnit { el: HTMLElement; before: string; where: string }
-export interface FixChange { where: string; before: string; after: string }
+export interface FixChange { where: string; before: string; after: string; key?: string; pr?: number }
 
-/** 고치기를 시작할 때: 그림을 잠그고 글 단위마다 처음 글과 자리 이름을 적어 둔다 */
-export function prepareFix(root: HTMLElement): { units: FixUnit[]; figures: number } {
-  const locked = [...root.querySelectorAll<HTMLElement>(LOCK)].filter((el) => !el.parentElement?.closest(LOCK))
-  for (const el of locked) { el.contentEditable = 'false'; el.classList.add('about-locked') }
-  const units = [...root.querySelectorAll<HTMLElement>(UNIT)].filter((el) => !el.closest(LOCK) && !el.querySelector(UNIT)).map((el, i) => {
-    el.dataset.fixUnit = String(i)
-    const before = norm(el.innerText)
-    return { el, before, where: whereOf(el, before) }
-  })
-  return { units, figures: locked.filter((el) => el.tagName.toLowerCase() === 'figure' || !el.closest('figure')).length }
+/** 누른 곳에서 고를 요소: 그림 안이면 글이 있는 가장 작은 상자(같은 글을 감싼 겉은 하나로), 밖이면 가장 가까운 글 단위 */
+export function pickTarget(from: Element, root: Element): Element | null {
+  if (!root.contains(from)) return null
+  const fig = from.closest(FIGURE)
+  if (fig && root.contains(fig)) {
+    let el: Element | null = from
+    while (el && el !== fig && !textOf(el)) el = el.parentElement
+    if (!el || !textOf(el)) return null
+    while (el.parentElement && el !== fig && el.parentElement !== fig && textOf(el.parentElement) === textOf(el)) el = el.parentElement
+    return el
+  }
+  const unit = from.closest(UNIT)
+  return unit && root.contains(unit) && textOf(unit) ? unit : null
 }
 
-/** 사용자가 찾을 수 있는 자리 이름: 표는 줄(첫 칸) · 칸(머리), 목록은 몇째 항목, 그 밖은 문단 첫 말 */
-function whereOf(el: HTMLElement, before: string): string {
+/** 사용자가 찾을 수 있는 자리 이름: <절> › 그림 › 상자 글, 표는 줄(첫 칸) · 칸(머리), 목록은 몇째 항목, 그 밖은 문단 첫 말 */
+export function whereOf(el: Element): string {
+  const sec = el.closest('section')?.querySelector('h2')?.textContent?.trim()
+  const head = sec ? `${sec} › ` : ''
+  const before = textOf(el)
+  if (el.closest(FIGURE)) return `${head}${t('그림', 'Figure')} › ${clip(before, 20)}`
   const cell = el.closest('td, th')
   const row = cell?.parentElement
   if (cell instanceof HTMLTableCellElement && row instanceof HTMLTableRowElement) {
-    if (row.parentElement?.tagName === 'THEAD') return t(`표 머리 「${clip(before)}」 칸`, `Table header "${clip(before)}"`)
-    const head = norm(cell.closest('table')?.querySelector('thead tr')?.children[cell.cellIndex]?.textContent ?? '')
+    if (row.parentElement?.tagName === 'THEAD') return head + t(`표 머리 「${clip(before)}」 칸`, `Table header "${clip(before)}"`)
+    const col = norm(cell.closest('table')?.querySelector('thead tr')?.children[cell.cellIndex]?.textContent ?? '')
     const name = norm(row.cells[0]?.innerText ?? '')
-    return head ? t(`표 「${clip(name)}」 줄 · 「${clip(head)}」 칸`, `Table row "${clip(name)}", column "${clip(head)}"`) : t(`표 「${clip(name)}」 줄 ${cell.cellIndex + 1}번째 칸`, `Table row "${clip(name)}", cell ${cell.cellIndex + 1}`)
+    return head + (col ? t(`표 「${clip(name)}」 줄 · 「${clip(col)}」 칸`, `Table row "${clip(name)}", column "${clip(col)}"`) : t(`표 「${clip(name)}」 줄 ${cell.cellIndex + 1}번째 칸`, `Table row "${clip(name)}", cell ${cell.cellIndex + 1}`))
   }
   if (el.tagName === 'LI') {
     const k = [...(el.parentElement?.children ?? [])].indexOf(el) + 1
-    return t(`목록 ${k}번째 항목 「${clip(before)}」`, `List item ${k} "${clip(before)}"`)
+    return head + t(`목록 ${k}번째 항목 「${clip(before)}」`, `List item ${k} "${clip(before)}"`)
   }
-  return t(`문단 「${clip(before)}」`, `Paragraph "${clip(before)}"`)
-}
-
-/** 지금 바뀐 곳: 글이 달라진 단위, 지운 단위, 새로 생긴 문단. 바뀐 단위에는 표시를 단다 */
-export function collectFix(root: HTMLElement, units: FixUnit[]): FixChange[] {
-  const out: FixChange[] = []
-  let last = ''
-  for (const u of units) {
-    const alive = root.contains(u.el)
-    const after = alive ? norm(u.el.innerText) : ''
-    if (alive) u.el.classList.toggle('about-fix-changed', after !== u.before)
-    if (after !== u.before) out.push({ where: u.where, before: u.before, after })
-    if (alive) last = u.before
-  }
-  // Enter로 생긴 새 문단: 어느 단위에도 속하지 않은 글. 브라우저는 Enter로 항목을 나눌 때 표시(data-fix-unit)까지 복사하므로 처음 그 요소인지로 가린다
-  const own = new Set(units.map((u) => u.el))
-  const inOwn = (el: HTMLElement) => { for (let x: HTMLElement | null = el; x && x !== root; x = x.parentElement) if (own.has(x)) return true; return false }
-  const fresh = new Set([...root.querySelectorAll<HTMLElement>(`p, div, li, ${UNIT}`)].filter((el) =>
-    !inOwn(el) && !el.closest(LOCK) && !el.querySelector(LOCK) && ![...own].some((u) => el.contains(u)) && norm(el.innerText)))
-  // 새 요소 안의 새 요소는 바깥 것 하나로
-  const added = [...fresh].filter((el) => { for (let x = el.parentElement; x && x !== root; x = x.parentElement) if (fresh.has(x)) return false; return true })
-  for (const el of added) {
-    const prev = el.previousElementSibling
-    const near = prev instanceof HTMLElement && own.has(prev) ? units[Number(prev.dataset.fixUnit)]?.before ?? last : last
-    out.push({ where: near ? t(`새 문단 (「${clip(near)}」 다음)`, `New paragraph (after "${clip(near)}")`) : t('새 문단', 'New paragraph'), before: '', after: norm(el.innerText) })
-  }
-  return out
+  if (el.tagName === 'H2') return head + t('절 제목', 'Section title')
+  return head + t(`문단 「${clip(before)}」`, `Paragraph "${clip(before)}"`)
 }
 
 /** 피드백으로 남길 글 (에이전트가 읽는다: 한국어 그대로) */
-export function fixText(changes: FixChange[], figure: string, wish: string): string {
-  const lines = [`소개 글을 이렇게 고쳐 줘. (제자리 고치기, 변경사항 ${changes.length})`, '']
+export function fixText(changes: FixChange[], wish: string): string {
+  const lines = [`소개 글을 이렇게 고쳐 줘. (고치기 탭, 고친 곳 ${changes.length})`, '']
   changes.forEach((c, i) => lines.push(`${i + 1}. ${c.where}`, `   전: ${c.before || '(없음)'}`, `   후: ${c.after || '(지움)'}`, ''))
-  if (figure.trim()) lines.push(`그림에 대한 말: ${figure.trim()}`)
   if (wish.trim()) lines.push(`바라는 점: ${wish.trim()}`)
   return lines.join('\n').trim()
 }
 
-export interface FixCheck { key: string; enabled: boolean; prs: number[] }
-
-/** 고치는 중인 절 아래의 칸: 그림에 대한 말 · 바라는 점 · 취소 · 보내기 */
-export function AboutFixBar({ part, name, root, units, figures, check, onClose }: {
-  part: string; name: string; root: RefObject<HTMLDivElement | null>; units: FixUnit[]; figures: number; check?: FixCheck; onClose(): void
-}) {
-  const [count, setCount] = useState(0)
-  const [figure, setFigure] = useState('')
-  const [wish, setWish] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+/** 고르기: 탭이 열린 동안 본문에 올린 곳을 테두리와 이름표로 보이고, 누르면 onPick. 누름은 본문의 링크로 넘어가지 않는다 */
+function usePicking(root: RefObject<HTMLElement | null>, on: boolean, onPick: (el: Element) => void) {
+  const [hover, setHover] = useState<{ box: DOMRect; name: string } | null>(null)
   useEffect(() => {
     const el = root.current
-    if (!el) return
-    const on = () => setCount(collectFix(el, units).length)
-    el.addEventListener('input', on)
-    return () => el.removeEventListener('input', on)
-  }, [root, units])
-  const ready = count > 0 || !!figure.trim() || !!wish.trim()
-  const submit = async () => {
-    const el = root.current
-    if (!el) return
-    const changes = collectFix(el, units)
-    setBusy(true); setError('')
+    if (!on || !el) { setHover(null); return }
+    const over = (e: Event) => {
+      const x = e.target instanceof Element ? pickTarget(e.target, el) : null
+      setHover(x ? { box: x.getBoundingClientRect(), name: whereOf(x) } : null)
+    }
+    const click = (e: Event) => {
+      const x = e.target instanceof Element ? pickTarget(e.target, el) : null
+      if (!x) return
+      e.preventDefault(); e.stopPropagation()
+      onPick(x)
+    }
+    const leave = () => setHover(null)
+    el.classList.add('about-picking')
+    el.addEventListener('mouseover', over)
+    el.addEventListener('click', click, true)
+    el.addEventListener('mouseleave', leave)
+    const scroller = el.closest('.scroll')
+    scroller?.addEventListener('scroll', leave)
+    return () => {
+      el.classList.remove('about-picking')
+      el.removeEventListener('mouseover', over)
+      el.removeEventListener('click', click, true)
+      el.removeEventListener('mouseleave', leave)
+      scroller?.removeEventListener('scroll', leave)
+    }
+  }, [root, on, onPick])
+  return hover
+}
+
+/** 고치기 탭: 고른 곳 · 지금 글 · 고친 글 · 담기, 담은 곳 목록 · 바라는 점 · 피드백으로 보내기 */
+export function AboutFixTab({ root, partName, sectionKey }: {
+  root: RefObject<HTMLElement | null>; partName: string
+  /** 고른 요소가 속한 절의 확인 키와 그 절의 마지막 PR (보낸 뒤 「반영 대기」) */
+  sectionKey(el: Element): { key: string; pr: number; name: string } | undefined
+}) {
+  const [cur, setCur] = useState<{ where: string; before: string; key?: string; pr?: number; name?: string } | null>(null)
+  const [draft, setDraft] = useState('')
+  const [basket, setBasket] = useState<(FixChange & { name?: string })[]>([])
+  const [wish, setWish] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const [pick] = useState(() => (el: Element) => {
+    const before = textOf(el)
+    const s = sectionKey(el)
+    setCur({ where: whereOf(el), before, ...(s && { key: s.key, pr: s.pr, name: s.name }) })
+    setDraft(before); setNote('')
+  })
+  const hover = usePicking(root, true, pick)
+  const add = () => {
+    if (!cur || draft.trim() === cur.before) return
+    setBasket((b) => [...b.filter((x) => x.where !== cur.where), { where: cur.where, before: cur.before, after: norm(draft), ...(cur.key && { key: cur.key, pr: cur.pr, name: cur.name }) }])
+    setCur(null); setDraft('')
+  }
+  const send = async () => {
+    setBusy(true); setNote('')
     try {
+      const names = [...new Set(basket.map((c) => c.name).filter(Boolean))]
       await api.addFeedback({
-        kind: '미분류', target: `소개 › ${part} › ${name}`, route: location.hash.slice(1) || undefined,
-        snippet: (changes[0] ? `${changes[0].where}: ${changes[0].after}` : wish || figure).slice(0, 120),
-        text: fixText(changes, figure, wish),
+        kind: '미분류', target: `소개 › ${partName}${names.length === 1 ? ` › ${names[0]}` : ''} › 고치기`, route: location.hash.slice(1) || undefined,
+        snippet: (basket[0] ? `${basket[0].where}: ${basket[0].after}` : wish).slice(0, 120),
+        text: fixText(basket, wish),
       })
-      // 고쳐 보낸 절은 반영될 때까지 「반영 대기」 (11/11 안 C′ ⑤)
-      if (check?.enabled) await setAboutCheck({ key: check.key, action: 'sent', pr: check.prs[check.prs.length - 1] ?? 0 }).then(putAboutChecks).catch(() => undefined)
-      onClose()
-      alert(t('고친 곳을 피드백으로 남겼습니다. 다음 피드백 처리 때 소개에 반영합니다.', 'Your edits were saved as feedback. They will be applied to this page at the next round of feedback handling.'))
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false) }
+      // 고쳐 보낸 절은 반영될 때까지 「반영 대기」
+      for (const k of new Map(basket.filter((c) => c.key).map((c) => [c.key!, c.pr ?? 0]))) await setAboutCheck({ key: k[0], action: 'sent', pr: k[1] }).then(putAboutChecks).catch(() => undefined)
+      setBasket([]); setWish('')
+      setNote(t('피드백으로 보냈습니다. 다음 피드백 처리 때 소개에 반영하고, 고친 업데이트가 이력 표에 한 줄로 생깁니다.', 'Sent as feedback. It will be applied at the next round of feedback handling, and the update that applies it appears as a row in History.'))
+    } catch (e) { setNote(e instanceof Error ? e.message : String(e)) }
+    setBusy(false)
   }
   return (
-    <div className="about-fix-box" data-ui="소개 고치기">
-      <p className="muted">{t('본문을 그 자리에서 고치세요. 보내면 변경사항만 피드백으로 남고, 다음 피드백 처리 때 소개에 반영됩니다.', 'Edit the text in place. When you send, only the changed parts are saved as feedback and applied at the next round of feedback handling.')}</p>
-      {figures > 0 && <input className="about-fix-line" data-ui="그림에 대한 말" value={figure} onChange={(e) => setFigure(e.target.value)} disabled={busy}
-        placeholder={t('그림에 대한 말 (그림은 고칠 수 없습니다)', 'About the figure (figures cannot be edited)')} aria-label={t('그림에 대한 말', 'About the figure')} />}
-      <input className="about-fix-line" data-ui="바라는 점" value={wish} onChange={(e) => setWish(e.target.value)} disabled={busy}
-        placeholder={t('바라는 점 (표의 줄 추가 · 순서 변경처럼 글로 하기 어려운 것)', 'Other wishes (things hard to do as text, such as adding a table row or reordering)')} aria-label={t('바라는 점', 'Other wishes')} />
-      {error && <p className="muted">{error}</p>}
-      <div className="about-fix-tools">
-        <span className="muted about-fix-count">{t(`변경사항 ${count}`, `${count} changes`)}</span><span className="sp" />
-        <button className="btn" onClick={onClose} disabled={busy}>{t('취소', 'Cancel')}</button>
-        <button className="btn primary" onClick={() => void submit()} disabled={busy || !ready}>{t('보내기', 'Send')}</button>
+    <div className="about-fix" data-ui="소개 고치기">
+      {hover && <>
+        <div className="fb-box" style={{ left: hover.box.left - 2, top: hover.box.top - 2, width: hover.box.width + 4, height: hover.box.height + 4 }} />
+        <div className="fb-label" style={{ left: hover.box.left, top: Math.max(4, hover.box.top - 24) }}>{hover.name}</div>
+      </>}
+      {!cur && <p className="muted">{t('본문에서 고칠 곳을 누르세요. 그림 속 상자 · 표 칸 · 문단 어디든 됩니다.', 'Click the place to edit in the text: a box in a figure, a table cell or a paragraph.')}</p>}
+      {cur && <>
+        <b className="about-fix-where">{cur.where}</b>
+        <p className="about-fix-old" data-ui="지금 글">{cur.before}</p>
+        <textarea className="about-fix-new" data-ui="고친 글" value={draft} rows={4} onChange={(e) => setDraft(e.target.value)} aria-label={t('고친 글', 'Edited text')} autoFocus />
+        <div className="about-fix-tools"><span className="sp" />
+          <button className="btn" onClick={() => setCur(null)}>{t('취소', 'Cancel')}</button>
+          <button className="btn" data-ui="담기" disabled={draft.trim() === cur.before} onClick={add}>{t('담기', 'Add')}</button>
+        </div>
+      </>}
+      <div className="about-fix-basket" data-ui="담은 곳">
+        <b>{t(`담은 곳 ${basket.length}`, `${basket.length} added`)}</b>
+        {basket.length > 0 && <ul>{basket.map((c) => (
+          <li key={c.where}><span title={`${c.before} → ${c.after}`}>{c.where}</span>
+            <button className="icon-btn" aria-label={t('제거', 'Remove')} data-tip={t('제거', 'Remove')} onClick={() => setBasket((b) => b.filter((x) => x !== c))}>{Icon.x}</button></li>
+        ))}</ul>}
+        <input className="about-fix-line" data-ui="바라는 점" value={wish} onChange={(e) => setWish(e.target.value)} disabled={busy}
+          placeholder={t('바라는 점 (줄 추가 · 순서 변경처럼 글로 하기 어려운 것)', 'Other wishes (things hard to do as text, such as adding a row or reordering)')} aria-label={t('바라는 점', 'Other wishes')} />
+        <div className="about-fix-tools"><span className="sp" />
+          <button className="btn primary" data-ui="피드백으로 보내기" disabled={busy || (!basket.length && !wish.trim())} onClick={() => void send()}>{t('피드백으로 보내기', 'Send as feedback')}</button>
+        </div>
+        {note && <p className="muted">{note}</p>}
       </div>
     </div>
   )

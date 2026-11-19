@@ -2,7 +2,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/about'
 import { parseBody, replies } from '../contract.js'
-import { prInfo, readAboutChecks, writeAboutCheck } from '../aboutChecks.js'
+import { prChanges, prInfo, readAboutChecks, writeAboutCheck } from '../aboutChecks.js'
 import { WorkbenchError } from '../workbench.js'
 import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
@@ -18,6 +18,14 @@ export function registerAbout(app: FastifyInstance, ctx: RouteContext): void {
     const dir = opts.feedbackDir
     const r = dir ? readAboutChecks(dir) : { exists: false, sections: {} }
     return { enabled: !!dir, ...r, ...(await infoOnce()) }
+  })
+  // 업데이트 하나가 바꾼 소개 문장과 요약 (11/20 시안 2절). 합친 PR은 바뀌지 않으니 한 번 읽은 것은 둔다
+  const changes = new Map<number, ReturnType<typeof prChanges>>()
+  app.get('/api/about/changes', replies(C.AboutChanges), async (req): Promise<C.AboutChanges> => {
+    const { pr } = parseBody(C.AboutChangesQuery, req.query)
+    if (!repo) return { pr, sentences: [], summary: [] }
+    if (!changes.has(pr)) changes.set(pr, prChanges(repo.root, repo.running, pr))
+    return { pr, ...(await changes.get(pr)!) }
   })
   app.put('/api/about/checks', replies(C.AboutChecks), async (req): Promise<C.AboutChecks> => {
     const dir = opts.feedbackDir
