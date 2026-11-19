@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-next/
+dist-old/
 .build/
 *.log
 .DS_Store
