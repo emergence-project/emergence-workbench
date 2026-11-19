@@ -99,6 +99,8 @@ export const DEFAULT_SCREENS = [
   ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '모델 고르기']],
   // 입력란 ＋ 메뉴 (11/19 지금 화면 · 고른 글 붙이기): 고른 글이 없어 「고른 글 붙이기」는 흐리다
   ['agent-attach', '#/r/{rid}', '붙이기 버튼 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '붙이기 버튼']],
+  // 노트 본문에서 글을 끌어 고른 메뉴 (11/19 「? 질문」): 4색 · 코멘트 · 질문 (shots.mjs가 첫 문단을 세 번 눌러 고른다)
+  ['note-select', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '고른 글 질문'],
   // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
   ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)']],
   ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
@@ -112,10 +114,14 @@ export const DEFAULT_SCREENS = [
   // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
   ['feedback-agent', '#/feedback', '에이전트 진행', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 10:15"]']],
   ['about', '#/about', '소개'],
+  // 소개 수정 모드 (11/19 "모드전환식"): 툴바 연필로 켜고 화면 구조 절을 눌러 그 자리에서 고치는 중
+  ['about-fix', '#/about', '고치는 중', ['수정 모드', '[data-ui="화면 구조"] .about-sec-body']],
   // 피드백 대화의 태그 표 (10/14): 태그 설명 줄 끝 ?가 여는 절 (10/15부터 기호와 의미 쪽)
   ['about-tags', '#/about/symbols/tags', '대화 태그'],
   // 소개 › 프로젝트 화면 쪽의 흐름 절 (절 제목 옆 "업데이트 #n")
   ['about-flow', '#/about/project/flow', '흐름'],
+  // 소개 › 정의와 원칙 쪽의 정의 절: 글의 짜임 그림에 흐름 · 맡긴 일, 정의에 흐름 · 주장 · 시도 (11/19)
+  ['about-principles', '#/about/principles', '정의'],
   // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
   ['settings', '#/settings', '설정'],

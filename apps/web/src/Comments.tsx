@@ -583,8 +583,10 @@ function NoteRecords({ rid, target, source, contentOffset, children }: { rid: st
         <RecordMenu anchor={sel} owner={box.current} onClose={() => setSel(null)} onDefault={() => add(color)}>
           <PaintDots color={color} onChange={add} disabled={busy} />
           <span className="record-menu-sep" />
-          {/* 메뉴는 코멘트 하나: 종류(메모 · 할 일 · 질문 · 지시)는 적기 칸에서 고르고, 질문 · 지시면 에이전트가 답한다 (10/30 17:06, 시안 4절 안 A) */}
+          {/* 코멘트는 종류(메모 · 할 일 · 질문 · 지시)를 적기 칸에서 고르고 (10/30 17:06 안 A), 질문은 PDF 메뉴처럼 적기 칸을 질문으로 연다 (11/19 01:00). 보내기 전에 적는 것은 같다 */}
           <button disabled={busy} onClick={() => { openRecordComposer(rid, target, { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color, part: sel.part, partText: sel.partText }); done() }}><span className="ico">{Icon.comment}</span> {t('코멘트', 'Comment')}</button>
+          <button disabled={busy} data-ui="고른 글 질문" title={t('고른 글에 대해 에이전트에게 묻습니다', 'Ask the agent about the selected text')}
+            onClick={() => { openRecordComposer(rid, target, { quote: sel.quote, line: sel.line, prefix: sel.prefix, suffix: sel.suffix, color, part: sel.part, partText: sel.partText }, { text: '', kind: '질문' }); done() }}>? {t('질문', 'Question')}</button>
         </RecordMenu>
       )}
       {active && selected && <RecordMenu anchor={active} highlight owner={box.current} onClose={() => setActive(null)}>

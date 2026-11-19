@@ -43,6 +43,12 @@
   "고른 노트 내보내기": "Export selected notes",
   "고쳐서 승인": "Edit and approve",
   "고치기": "Edit",
+  "수정 모드": "Edit mode",
+  "옆 패널": "Side pane",
+  "주 패널": "Main pane",
+  "왼쪽 사이드바": "Left sidebar",
+  "레일": "Rail",
+  "상단바": "Top bar",
   "고치기 버튼": "Edit button",
   "고치기 잠금": "Edit lock",
   "고치기·지우기": "Edit and delete",
@@ -809,6 +815,7 @@
   "피드백 한도": "Feedback time limit",
   "클라우드 피드백 처리": "Cloud feedback handling",
   "반영됨 알림": "Shipped notice",
+  "GitHub 계정으로 채우기": "Fill from GitHub",
   "구글 계정으로 채우기": "Fill from Google",
   "구글에서 채운 것": "Filled from Google",
   "글 복사": "Copy text",
@@ -1074,5 +1081,7 @@
   "터미널 사이드바": "Terminal sidebar",
   "코드 블록": "Code block",
   "코드 복사": "Copy code",
-  "터미널에서 실행": "Run in terminal"
+  "터미널에서 실행": "Run in terminal",
+  "시안": "Mockup",
+  "시안 새 창": "Open mockup in new window"
 }

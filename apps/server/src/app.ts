@@ -55,6 +55,7 @@ import { registerFigures } from './routes/figures.js'
 import { registerTasks } from './routes/tasks.js'
 import { registerChanges } from './routes/changes.js'
 import { registerAgentEdits } from './routes/agentEdits.js'
+import { registerAgentMockups } from './routes/agentMockups.js'
 import { registerAgentChats } from './routes/agentChats.js'
 import { registerAgentHooks } from './routes/agentHooks.js'
 import { registerTerminal } from './routes/terminal.js'
@@ -392,6 +393,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerTasks(app, ctx)
   registerChanges(app, ctx)
   registerAgentEdits(app, ctx)
+  registerAgentMockups(app, path.join(opts.configDir, 'agent-worktrees'))
   // 앱 고치기 · 피드백 맡기기는 관리자 앱(피드백을 직접 받는 앱)에서만: 중계 서버로 보내는 앱은 앱 저장소가 있어도 끈다 (11/13)
   registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo && !opts.feedbackRelay ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined))
   registerAgentHooks(app, ctx)

@@ -40,6 +40,14 @@ describe('시작 준비', () => {
     expect(v.agents[1].command).toMatch(/^claude mcp add --scope user emergence-workbench -- node .*scripts\/mcp\.mjs$/)
     expect(v.agents[2].command).toMatch(/^codex mcp add emergence-workbench -- node .*scripts\/mcp\.mjs$/)
   })
+  it('커밋 이름이 비어 있으면 이 컴퓨터의 GitHub 로그인으로 채울 값을 보인다', async () => {
+    const io = { run: async (cmd: string) => { if (cmd !== 'gh') throw new Error('none'); return JSON.stringify({ login: 'kim', id: 42, name: 'Kim Researcher' }) }, getJson: async () => { throw new Error('none') }, exists: () => false }
+    const a = buildApp({ configDir: path.join(tmp, 'config-gh'), repoIO: io })
+    try {
+      const v = (await a.inject({ method: 'GET', url: '/api/setup' })).json()
+      expect(v.gitFromGitHub).toEqual({ name: 'Kim Researcher', email: '42+kim@users.noreply.github.com' })
+    } finally { await a.close() }
+  })
   it('커밋 이름 · 이메일을 git 전역 설정에 쓴다', async () => {
     const bad = await app.inject({ method: 'PUT', url: '/api/setup/git', payload: { name: 'Kim', email: 'no-at' } })
     expect(bad.statusCode).toBe(400)
