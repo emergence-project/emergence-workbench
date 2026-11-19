@@ -75,7 +75,7 @@ export const qk = {
   /** 대화 작업 폴더의 시안 파일 (11/19). agent-chats 아래라 대화 알림 때 함께 다시 받는다 */
   agentMockups: (dir: string) => ['agent-chats', 'mockups', dir] as const,
   agentWork: ['agent-work'] as const,
-  /** 밖에서 도는 에이전트의 상태 (훅, 10/30) */
+  /** 터미널 세션(터미널에서 띄운 Claude Code · Codex)의 상태 (훅, 10/30) */
   agentHooks: ['agent-hooks'] as const,
   /** 고를 수 있는 모델 (맥의 Claude Code에게 묻는다. 대화 알림으로 다시 받지 않게 agent-chats 밖에 둔다) */
   agentModels: (agent = 'claude-code') => ['agent-models', agent] as const,

@@ -1,4 +1,4 @@
-// 밖에서 도는 에이전트의 상태 (10/30): 훅 넣기 · 빼기, 받은 알림
+// 터미널 세션(터미널에서 띄운 Claude Code · Codex)의 상태 (10/30): 훅 넣기 · 빼기, 받은 알림
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'

@@ -34,7 +34,7 @@ export type WorkbenchEvent =
   | { type: 'records-publish'; research: string }
   /** 에이전트 대화가 바뀜 (routes/agentChats.ts). 파일 변경이 아니다 */
   | { type: 'agent-chat'; research: string; id: string }
-  /** 밖에서 도는 에이전트의 상태가 바뀜 (훅, routes/agentHooks.ts). 파일 변경이 아니다 */
+  /** 터미널 세션(터미널에서 띄운 Claude Code · Codex)의 상태가 바뀜 (훅, routes/agentHooks.ts). 파일 변경이 아니다 */
   | { type: 'agent-hooks'; research: null }
   /** 개인 저장소에서 피드백 처리 기록(status.yaml 등)을 새로 받음 (routes/feedback.ts). 앱을 다시 시작하지 않아도 피드백 화면이 다시 읽는다 (11/4) */
   | { type: 'feedback'; research: null }

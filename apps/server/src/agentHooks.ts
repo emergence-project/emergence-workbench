@@ -1,5 +1,5 @@
 /**
- * 밖에서 도는 에이전트의 상태 (10/30, 오르카에서 가져옴): 터미널의 Claude Code · Codex가 앱 MCP를 부르지 않아도 앱이 안다.
+ * 터미널 세션(터미널에서 띄운 Claude Code · Codex)의 상태 (10/30, 오르카에서 가져옴): 터미널의 Claude Code · Codex가 앱 MCP를 부르지 않아도 앱이 안다.
  * - 앱이 설정 폴더에 알림 스크립트(agent-hooks/emergence-workbench-hook.sh)와 서버 주소 파일(endpoint.env)을 쓴다.
  *   스크립트는 부를 때마다 주소 파일을 다시 읽어, 앱이 다른 포트로 다시 켜져도 오래 돈 세션이 계속 닿는다.
  * - 켜면 Claude Code 사용자 설정(~/.claude/settings.json)의 hooks와 Codex 설정(~/.codex/config.toml)의 notify에 그 스크립트를 넣는다.

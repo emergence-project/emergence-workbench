@@ -17,7 +17,7 @@ const sample = (): C.HookSession[] => {
   ]
 }
 
-/** 밖에서 도는 에이전트의 상태 (10/30): 훅이 알리는 곳 · 설정 › 에이전트 › 상태 알리기 */
+/** 터미널 세션(터미널에서 띄운 Claude Code · Codex)의 상태 (10/30): 훅이 알리는 곳 · 설정 › 에이전트 › 상태 알리기 */
 export function registerAgentHooks(app: FastifyInstance, ctx: RouteContext): void {
   const { registry, opts } = ctx
   const home = opts.agentHome ?? os.homedir()
