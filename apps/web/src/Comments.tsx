@@ -6,6 +6,7 @@ import { PdfView, type PdfMark, type PdfPaint, type PdfSelection } from './PdfVi
 import { MemoText } from './memo'
 import type { Tab } from './Workspace'
 import { onListKey } from './listInput'
+import { isSendKey } from './cmdEnter'
 import { Icon } from './icons'
 import { AskButton } from './AskButton'
 import type { LearnFrom } from './api'
@@ -367,13 +368,14 @@ export function Composer({ rid, target, draft, onClose, onSaved }: { rid: string
       if (parts.some(([k]) => k === '질문')) window.dispatchEvent(new Event(OPEN_CONTEXT))
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
-  const keys = (set: (v: string) => void) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() }
+  const keys = (set: (v: string) => void) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => { onListKey(e, set) }
+  // ⌘↵ · Esc는 칸 전체에서: 종류 단추로 옮겨 간 뒤에도 (11/19 피드백 09:04)
+  const formKeys = (e: React.KeyboardEvent) => {
+    if (isSendKey(e)) { e.preventDefault(); void save() }
     else if (e.key === 'Escape') onClose()
-    else onListKey(e, set)
   }
   return (
-    <div className={`pdf-pop composer ${kind === '질문' && !quote ? 'question' : 'comment'}`} data-ui="코멘트 쓰기">
+    <div className={`pdf-pop composer ${kind === '질문' && !quote ? 'question' : 'comment'}`} data-ui="코멘트 쓰기" onKeyDown={formKeys}>
       <div className="pdf-pop-head">{quote ? <b>{t('메모 · 질문', 'Note · question')}</b> : <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>
         {(['메모', '질문'] as const).map((k) => <button key={k} type="button" className={kind === k || (kind === '코멘트' && k === '메모') ? 'on' : ''} aria-pressed={kind === k || (kind === '코멘트' && k === '메모')} onClick={() => setKind(k)}>{kindLabel(k)}</button>)}
       </div>} <span className="muted">{draft.page ? t(`· ${draft.page}쪽`, `· p. ${draft.page}`) : rid === LIBRARY ? t('· 논문 전체', '· Whole paper') : `· ${target.title}`}</span></div>

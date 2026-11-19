@@ -8,6 +8,7 @@ import { PickHighlight, usePickElement } from './elementPicker'
 import { FeedbackText } from './FeedbackPage'
 import { go } from './router'
 import { onListKey } from './listInput'
+import { isSendKey } from './cmdEnter'
 import { MemoText } from './memo'
 import { hasFeedbackList } from './feedbackFormat'
 import { shown, t } from './i18n'
@@ -151,11 +152,15 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
       {!pending && <PickHighlight hover={hover} />}
 
       {pending && pop && (
-        <div className="fb-pop" data-feedback-ui style={{ ...pop, maxHeight: `calc(100dvh - ${pop.top}px - var(--sp-3))` }} role="dialog" aria-label={t('피드백 남기기', 'Leave feedback')}>
+        <div className="fb-pop" data-feedback-ui style={{ ...pop, maxHeight: `calc(100dvh - ${pop.top}px - var(--sp-3))` }} role="dialog" aria-label={t('피드백 남기기', 'Leave feedback')}
+          onKeyDown={(e) => {
+            // ⌘↵는 창 전체에서: Tab으로 유형 단추에 간 뒤에도 등록 (11/19 피드백 09:04)
+            if (isSendKey(e)) { e.preventDefault(); if (kind && text.trim() && !busy) void save(kind) }
+          }}>
           <div className="fb-pop-head"><div className="fb-target">{targetName(pending.path)}</div><button className="icon-btn" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={() => setPending(null)}>{Icon.x}</button></div>
           {pending.snippet && <div className="fb-snippet">“{pending.snippet}”</div>}
           <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={t('무엇이 어떤지, 어떻게 되면 좋겠는지 (- 로 목록, Tab 들여쓰기 · ⌘↵ 저장)', 'What is wrong and how it should be (- for a list, Tab to indent · ⌘↵ to save)')}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (kind) void save(kind) } else onListKey(e, setText) }} />
+            onKeyDown={(e) => onListKey(e, setText)} />
           {hasFeedbackList(text) && <div className="fb-preview" aria-label={t('피드백 미리보기', 'Feedback preview')}><MemoText text={text} /></div>}
           {error && <div className="error-text">{error}</div>}
           <div className="fb-actions">

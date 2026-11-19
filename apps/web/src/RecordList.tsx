@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useCmdEnter } from './cmdEnter'
+import { isSendKey, useCmdEnter } from './cmdEnter'
 import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
 import { agentChatsApi, type ChatRow, type CommentEntry, type CommentKind, type RecordFile } from './api'
@@ -179,10 +179,10 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {todoText && <div className="record-part" title={todoText}>{Icon.todo}<span>{t('할 일', 'To-do')} “{todoText.split('\n')[0]}”</span></div>}
       {c.part && <div className="record-part" title={c.part}>{Icon.point}<span>{uiShown(c.part)}{c.partText && ` “${c.partText}”`}</span></div>}
       {c.quote && <blockquote className="record-quote" style={c.color ? { borderColor: `var(--paint-${c.color})` } : undefined}>{c.quote}</blockquote>}
-      {edit ? <div className="record-edit">
+      {edit ? <div className="record-edit" onKeyDown={(e) => { if (isSendKey(e)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null) }}>
         {conflict && <div className="record-conflict" role="alert"><p>{t('다른 곳에서 글을 고쳤습니다. 새 글을 확인한 뒤 적던 글로 저장할 수 있습니다.', 'The text was edited elsewhere. Review the new text, then you can save yours.')}</p><MemoText text={c.body} /><button className="btn sm" disabled={busy} onClick={() => setEdit({ ...edit, original: c.body, hash })}>{t('새 글 확인함', 'Reviewed new text')}</button></div>}
         <textarea autoFocus aria-label={t('기록 수정', 'Edit record')} rows={3} value={edit.text} disabled={busy} onChange={(e) => setEdit({ ...edit, text: e.target.value })}
-          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null); else onListKey(e, (text) => setEdit({ ...edit, text })) }} />
+          onKeyDown={(e) => onListKey(e, (text) => setEdit({ ...edit, text }))} />
         <div className="record-edit-actions">
           {kindEditable && <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')} data-ui="기록 종류 바꾸기">{EDIT_KINDS.map((k) => <button key={k} type="button" className={editKind === k ? 'on' : ''} aria-pressed={editKind === k} disabled={busy} onClick={() => setEditKind(k)}>{kindLabel(k)}</button>)}</div>}
           <span className="sp" />
@@ -360,9 +360,9 @@ function RecordReply({ busy, asked, onReply, onCancel }: { busy: boolean; asked:
   const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) setText('') }
   const sendKey = useCmdEnter(() => void send())
   const label = asked ? t('에이전트에게 답하기', 'Answer the agent') : t('이어서 묻거나 덧붙이기', 'Ask more or add to it')
-  return <div className="fbp-compose record-reply" data-ui="이어 쓰기">
+  return <div className="fbp-compose record-reply" data-ui="이어 쓰기" onKeyDown={sendKey.onKeyDown} onCompositionEnd={sendKey.onCompositionEnd}>
     <textarea rows={2} value={text} disabled={busy} aria-label={label} placeholder={label}
-      onChange={(e) => setText(e.target.value)} onCompositionEnd={sendKey.onCompositionEnd} onKeyDown={(e) => { if (!sendKey.onKeyDown(e)) onListKey(e, setText) }} />
+      onChange={(e) => setText(e.target.value)} onKeyDown={(e) => onListKey(e, setText)} />
     <div className="fbp-compose-row"><span className="sp" />{onCancel && <button className="btn sm" disabled={busy} onClick={onCancel}>{t('취소', 'Cancel')}</button>}<button className="btn primary sm" data-tip={t('답하기 (⌘↵)', 'Reply (⌘↵)')} disabled={busy || !text.trim()} onClick={() => void send()}>{t('답하기', 'Reply')}</button></div>
   </div>
 }
