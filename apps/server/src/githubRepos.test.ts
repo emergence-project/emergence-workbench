@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
-import { fromApi, fromGh, listGitHubRepos, tokenFrom, type RepoIO } from './githubRepos.js'
+import { fromApi, fromGh, githubIdentity, listGitHubRepos, tokenFrom, type RepoIO } from './githubRepos.js'
 
 const TOKEN = 'gho_' + 'x'.repeat(36)
 
@@ -55,6 +55,24 @@ describe('parsing', () => {
   it('reads only the password line of git credential fill', () => {
     expect(tokenFrom(`protocol=https\nhost=github.com\nusername=me\npassword=${TOKEN}\n`)).toBe(TOKEN)
     expect(tokenFrom('protocol=https\nhost=github.com\n')).toBeNull()
+  })
+})
+
+describe('githubIdentity', () => {
+  const user = { login: 'kim', id: 42, name: 'Kim Researcher' }
+  const io = (over: Partial<RepoIO>): RepoIO => ({ run: async () => { throw new Error('none') }, getJson: async () => { throw new Error('none') }, exists: () => false, ...over })
+  it('앱 로그인 열쇠가 있으면 그것으로 계정 이름과 noreply 이메일을 만든다', async () => {
+    expect(await githubIdentity(io({ getJson: async (url, token) => { expect([url, token]).toEqual(['https://api.github.com/user', TOKEN]); return user } }), TOKEN))
+      .toEqual({ name: 'Kim Researcher', email: '42+kim@users.noreply.github.com' })
+  })
+  it('없으면 gh, 그다음 git 로그인. 이름이 비면 로그인 이름', async () => {
+    expect(await githubIdentity(io({ run: async (cmd, args) => { expect([cmd, ...args]).toEqual(['gh', 'api', 'user']); return JSON.stringify({ ...user, name: null }) } })))
+      .toEqual({ name: 'kim', email: '42+kim@users.noreply.github.com' })
+    expect(await githubIdentity(io({ run: async (cmd) => { if (cmd === 'gh') throw new Error('no gh'); return `password=${TOKEN}\n` }, getJson: async () => user })))
+      .toEqual({ name: 'Kim Researcher', email: '42+kim@users.noreply.github.com' })
+  })
+  it('로그인을 찾지 못하면 null', async () => {
+    expect(await githubIdentity(io({}))).toBeNull()
   })
 })
 

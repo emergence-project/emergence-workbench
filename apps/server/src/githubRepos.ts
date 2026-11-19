@@ -152,3 +152,28 @@ export async function listGitHubRepos(io: RepoIO, registered: Array<{ id: string
   if ('reason' in got) return { ok: false, reason: got.reason }
   return { ok: true, source: got.source, repos: await markRepos(io, got.repos, registered, cloneDir) }
 }
+
+/**
+ * 커밋 이름 · 이메일로 쓸 GitHub 계정 (시작 준비의 「GitHub 계정으로 채우기」, 11/19 맥 스튜디오: gh로 로그인돼 있는데 커밋 이름 칸이 비어 있었다).
+ * 이름은 계정의 이름(없으면 로그인 이름), 이메일은 GitHub가 주는 noreply 주소: 커밋이 그 계정에 이어지고 실제 메일 주소는 드러나지 않는다.
+ * 저장소 목록과 같은 순서로 로그인을 찾는다(앱 로그인 → gh → git 로그인). 못 찾으면 null
+ */
+export async function githubIdentity(io: RepoIO, appToken: string | null = null): Promise<{ name: string; email: string } | null> {
+  const from = (u: unknown): { name: string; email: string } | null => {
+    if (!u || typeof u !== 'object') return null
+    const r: { login?: unknown; id?: unknown; name?: unknown } = u
+    const login = str(r.login)
+    const id = r.id
+    if (!login || typeof id !== 'number' || !Number.isInteger(id) || id <= 0) return null
+    return { name: str(r.name).trim() || login, email: `${id}+${login}@users.noreply.github.com` }
+  }
+  if (appToken) {
+    try { const got = from(await io.getJson('https://api.github.com/user', appToken)); if (got) return got } catch { /* 다음 방법 */ }
+  }
+  try { const got = from(JSON.parse(await io.run('gh', ['api', 'user']))); if (got) return got } catch { /* gh가 없거나 로그인 안 됨 */ }
+  let token: string | null = null
+  try {
+    token = tokenFrom(await io.run('git', ['credential', 'fill'], 'protocol=https\nhost=github.com\n\n'))
+    return token ? from(await io.getJson('https://api.github.com/user', token)) : null
+  } catch { return null } finally { token = null }
+}
