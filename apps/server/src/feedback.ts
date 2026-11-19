@@ -7,6 +7,8 @@ import { feedbackMergeFor } from './feedbackMerge.js'
 import { importedDayFiles } from './feedbackBundle.js'
 import { currentBranch, locate, pendingPaths, PathSyncError, publishPaths, upstreamText } from './pathsync.js'
 import { t } from './i18n.js'
+import { readMockups, readReplies, readRevisions } from './feedbackMockups.js'
+export { answerMockups } from './feedbackMockups.js'
 import { git, GIT_TIMEOUT } from './git.js'
 
 /**
@@ -25,7 +27,7 @@ import { git, GIT_TIMEOUT } from './git.js'
 export { FEEDBACK_KINDS, FEEDBACK_MISSES, FEEDBACK_STATES, FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
 export type { FeedbackKind, FeedbackState, FeedbackVerdict, FeedbackEntry, FeedbackStatus, FeedbackRevision, FeedbackReply, FeedbackVerdictEntry, FeedbackReview, FeedbackComment, MergedFeedback, FeedbackItem as FeedbackListItem, FeedbackPublished as PublishResult } from '@rw/core/contract/feedback'
 import { agentTurns, asksUser, stamp as coreStamp } from '@rw/core'
-import { FEEDBACK_KINDS, FEEDBACK_MISSES, FEEDBACK_STATES, FEEDBACK_VERDICTS, type FeedbackComment, type FeedbackEntry, type FeedbackItem as FeedbackListItem, type FeedbackKind, type FeedbackMiss, type FeedbackPickableKind, type FeedbackPublished as PublishResult, type FeedbackReply, type FeedbackRevision, type FeedbackReview, type FeedbackState, type FeedbackStatus, type FeedbackVerdict, type FeedbackVerdictEntry } from '@rw/core/contract/feedback'
+import { FEEDBACK_KINDS, FEEDBACK_STATES, FEEDBACK_VERDICTS, type FeedbackComment, type FeedbackEntry, type FeedbackItem as FeedbackListItem, type FeedbackKind, type FeedbackMiss, type FeedbackPickableKind, type FeedbackPublished as PublishResult, type FeedbackReview, type FeedbackState, type FeedbackStatus, type FeedbackVerdict, type FeedbackVerdictEntry } from '@rw/core/contract/feedback'
 
 export interface FeedbackInput {
   kind: FeedbackKind
@@ -144,52 +146,12 @@ export function parseFeedback(md: string, date: string): FeedbackEntry[] {
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : undefined)
 
-function readReplies(v: unknown): FeedbackReply[] | undefined {
-  if (!Array.isArray(v)) return undefined
-  const out = (v as Record<string, unknown>[]).flatMap((r) => (r && typeof r === 'object' && r.at != null && r.to != null && str(r.note)
-    ? [{ at: String(r.at), to: String(r.to), note: r.note as string, ...(str(r.by) && { by: r.by as string }) }]
-    : []))
-  return out.length ? out : undefined
-}
-
-function readRevisions(v: unknown): FeedbackRevision[] | undefined {
-  if (!Array.isArray(v)) return undefined
-  const out: FeedbackRevision[] = []
-  for (const r of v as Record<string, unknown>[]) {
-    if (!r || typeof r !== 'object' || r.at == null) continue
-    out.push({
-      at: String(r.at),
-      ...(typeof r.understood === 'string' && { understood: r.understood }),
-      ...(typeof r.cause === 'string' && { cause: r.cause }),
-      ...(typeof r.note === 'string' && { note: r.note }),
-      ...(r.commit != null && { commit: String(r.commit) }),
-      ...(r.handled_at != null && { handled_at: String(r.handled_at) }),
-      ...(str(r.by) && { by: r.by as string }),
-      ...((FEEDBACK_MISSES as readonly unknown[]).includes(r.miss) && { miss: r.miss as FeedbackMiss }),
-      ...(str(r.lesson) && { lesson: (r.lesson as string).trim() }),
-    })
-  }
-  return out.length ? out : undefined
-}
 export const STATUS_FILE = 'status.yaml'
 /**
  * 사용자의 결정을 묻는 답 (10/9): 수정의 확인 필요, 제안의 동의, 물음(ask)이 붙은 보류 · 답변.
  * 이 답에는 진행 · 중단으로 답하고, 결과를 알린 답(반영 · 답변 · 거절 · 나중에)에는 승인 · 반려로 답한다.
  */
 export const feedbackAsks = (st: FeedbackStatus | undefined): boolean => asksUser({ status: st })
-
-/**
- * 그 항목에 이 판정을 적을 수 없으면 그 까닭 (피드백 화면 PUT /api/feedback/review와 에이전트 feedback_answer의 verdict가 같이 쓴다).
- * 결정을 묻는 답에는 진행 · 중단 · 논의로, 결과를 알린 답에는 승인 · 진행 · 반려 · 논의로 답한다 (10/9, 11/8 안 C). 예전 보류에 단 반려는 그대로 받는다
- */
-export function feedbackVerdictError(item: Pick<FeedbackListItem, 'status'>, verdict: FeedbackVerdict, note?: string): string | null {
-  if (!item.status) return t('아직 처리하지 않은 항목입니다', 'This item has not been handled yet')
-  const asks = feedbackAsks(item.status)
-  if (verdict === '승인' && (asks || item.status.state === '보류')) return t('묻는 답은 승인하지 않고 진행이나 중단으로 답합니다', 'An answer that asks you is not approved: answer it with Proceed or Stop')
-  if (verdict === '중단' && !asks) return t('중단은 에이전트가 물은 답에만 씁니다', 'Stop is only for answers where the agent asks you')
-  if (verdict === '논의' && !note?.trim()) return t('논의는 무엇을 이야기할지 글을 적어 보냅니다', 'Write what to discuss before sending Discuss')
-  return null
-}
 
 /**
  * 사용자의 확인: 반영·답변한 처리를 사용자가 승인하거나 반려한다 (10/4 08:37 피드백 3, 10/4 14:40 "승인/반려로 만들자").
@@ -360,7 +322,7 @@ export function readFeedbackStatus(dir: string): Map<string, FeedbackStatus> {
   try { raw = YAML.parse(fs.readFileSync(file, 'utf8')) } catch { return out }
   if (!raw || typeof raw !== 'object') return out
   for (const [key, v] of Object.entries(raw as Record<string, unknown>)) {
-    const st = v as { state?: unknown; commit?: unknown; note?: unknown; theme?: unknown; clean?: unknown; understood?: unknown; cause?: unknown; merged_into?: unknown; area?: unknown; kind?: unknown; rework?: unknown; ask?: unknown; revised?: unknown; handled_at?: unknown; by?: unknown; version?: unknown; pictures?: unknown; replies?: unknown } | null
+    const st = v as { state?: unknown; commit?: unknown; note?: unknown; theme?: unknown; clean?: unknown; understood?: unknown; cause?: unknown; merged_into?: unknown; area?: unknown; kind?: unknown; rework?: unknown; ask?: unknown; revised?: unknown; handled_at?: unknown; by?: unknown; version?: unknown; pictures?: unknown; mockups?: unknown; replies?: unknown } | null
     if (!st || !FEEDBACK_STATES.includes(st.state as FeedbackState)) continue
     out.set(key, {
       state: st.state as FeedbackState,
@@ -381,6 +343,7 @@ export function readFeedbackStatus(dir: string): Map<string, FeedbackStatus> {
       ...(st.version != null && { version: String(st.version) }),
       // 전후 그림은 feedback/ 기준 경로. 폴더를 빼고 파일 이름만 적었어도 pictures/ 안에서 찾는다 (10/10 15:07)
       ...(Array.isArray(st.pictures) && st.pictures.every((x) => typeof x === 'string') && st.pictures.length && { pictures: (st.pictures as string[]).map((x) => (x.includes('/') ? x : `pictures/${x}`)) }),
+      ...(readMockups(st.mockups) && { mockups: readMockups(st.mockups) }),
       ...(readReplies(st.replies) && { replies: readReplies(st.replies) }),
     })
   }
@@ -444,7 +407,9 @@ export interface FeedbackAnswer {
   commit?: string
   /** feedback/ 기준 [전, 후] */
   pictures?: string[]
-  replies?: { to: string; note: string }[]
+  /** 붙인 시안 (feedback/ 기준, feedbackMockups.ts). state가 없으면 지금 처리에 더한다 */
+  mockups?: string[]
+  replies?: { to: string; note: string; mockups?: string[] }[]
 }
 
 /**
@@ -464,7 +429,7 @@ export function writeFeedbackAnswer(dir: string, key: string, a: FeedbackAnswer,
       const revised = Array.isArray(raw?.revised) ? [...(raw!.revised as unknown[])] : []
       if (back && raw?.state) {
         const keep = (k: string) => (raw[k] != null && raw[k] !== '' ? { [k]: String(raw[k]) } : {})
-        revised.push({ at: back, ...keep('understood'), ...keep('cause'), ...keep('note'), ...keep('commit'), ...keep('handled_at'), ...keep('by'), ...(a.miss && { miss: a.miss }), ...(a.lesson && { lesson: a.lesson }) })
+        revised.push({ at: back, ...keep('understood'), ...keep('cause'), ...keep('note'), ...keep('commit'), ...keep('handled_at'), ...keep('by'), ...(Array.isArray(raw.mockups) && { mockups: raw.mockups }), ...(a.miss && { miss: a.miss }), ...(a.lesson && { lesson: a.lesson }) })
       }
       const next: Record<string, unknown> = {
         state: a.state,
@@ -480,17 +445,21 @@ export function writeFeedbackAnswer(dir: string, key: string, a: FeedbackAnswer,
         by,
         ...((back ?? raw?.rework) != null && { rework: back ?? raw!.rework }),
         ...(a.pictures?.length && { pictures: a.pictures }),
+        ...(a.mockups?.length && { mockups: a.mockups }),
         ...(revised.length && { revised }),
         ...(Array.isArray(raw?.replies) && { replies: raw!.replies }),
         ...(raw?.merged_into != null && { merged_into: raw.merged_into }),
       }
       doc.set(key, doc.createNode(next))
+    } else if (a.mockups?.length) {
+      if (!raw?.state) throw new Error(t('시안을 붙일 처리가 아직 없습니다. state와 함께 보내세요', 'There is no handling to attach mockups to yet. Send them with a state'))
+      doc.setIn([key, 'mockups'], doc.createNode([...(Array.isArray(raw.mockups) ? raw.mockups : []), ...a.mockups]))
     }
     const replies = a.replies ?? []
     if (replies.length) {
       const before = (doc.toJS() as Record<string, { replies?: unknown[] }>)[key]?.replies ?? []
       if (!doc.has(key)) doc.set(key, doc.createNode({}))
-      doc.setIn([key, 'replies'], doc.createNode([...before, ...replies.map((r) => ({ at, to: r.to, note: r.note, by }))]))
+      doc.setIn([key, 'replies'], doc.createNode([...before, ...replies.map((r) => ({ at, to: r.to, note: r.note, by, ...(r.mockups?.length && { mockups: r.mockups }) }))]))
     }
     return { ...(a.state && { state: a.state }), replies: replies.length }
   })

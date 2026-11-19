@@ -21,6 +21,7 @@ import { parseBody, replies } from '../contract.js'
 import { createMcpServer } from '../mcp.js'
 import { commitChecker } from '../commitsInApp.js'
 import { repeat } from '../scheduler.js'
+import { chatCap, chatRoom, MemoryGauge } from '../appMemory.js'
 import { machineName } from '../backup.js'
 import { publishFeedback } from '../feedback.js'
 import { claimedElsewhere, claimFeedback } from '../feedbackClaims.js'
@@ -28,8 +29,10 @@ import { agentAnswer } from '../ask.js'
 import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
 
-/** 동시에 도는 대화 수 (맥 메모리가 바닥났던 일, 10/14) */
+/** 동시에 도는 대화 수: 예제 · 시험 (맥에서는 컴퓨터 크기와 남은 메모리로, appMemory.ts의 chatCap · chatRoom, 11/19) */
 export const CHAT_LIMIT = 3
+/** 남은 메모리를 다시 재고 줄 선 대화를 시작해 보는 간격 */
+const MEMORY_EVERY = 15_000
 
 /** 앱 MCP가 같은 프로세스에서 앱 API를 부를 때: 네트워크 대신 fastify inject */
 function injectFetch(app: FastifyInstance): typeof fetch {
@@ -64,11 +67,15 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   const centralDir = () => { const d = ctx.opts.appRepo?.root ?? path.join(registry.configDir, 'central'); fs.mkdirSync(d, { recursive: true }); return d }
   // Claude 계정 여럿 (11/16): 대화 종류마다 계정 폴더. 예제 · 시험은 이 컴퓨터의 claude 대신 아무것도 하지 않는 명령을 띄운다
   const accounts = new ClaudeAccounts(registry.configDir, runner ? { cli: () => (process.platform === 'win32' ? undefined : '/bin/true') } : { global: true })
+  // 실제 맥: 상한은 이 컴퓨터 크기로, 그 안에서는 남은 메모리로 연다 (예제 · 시험은 고정 CHAT_LIMIT)
+  const gauge = runner ? undefined : new MemoryGauge()
+  const cap = runner ? CHAT_LIMIT : chatCap()
   const chats = new CentralChats({
     dir: path.join(registry.configDir, 'agent-chats'),
     runner: runner ?? claudeAgentRunner(mcpFor),
     ...(!runner && { others: { codex: acpAgentRunner(ACP_AGENTS.codex, chatMcp, registry.configDir), gemini: acpAgentRunner(ACP_AGENTS.gemini, chatMcp, registry.configDir) } }),
-    limit: CHAT_LIMIT,
+    limit: cap,
+    ...(gauge && { room: (live: number, fresh: number) => { const m = gauge.current; return m ? chatRoom(live, fresh, m, cap).ok : live < CHAT_LIMIT } }),
     project: (rid) => rid === C.CENTRAL_RID ? { repo: centralDir(), title: t('중앙', 'Central') } : ({ repo: repoPath(rid), title: rid === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : registry.list().find((r) => r.id === rid)?.title ?? rid }),
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
@@ -80,7 +87,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     accounts,
     // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것
     ...(runner ? runner.review && { review: runner.review } : { review: (o: { prompt: string; cwd: string }) => codexAsk(registry.configDir, o.cwd, o.prompt) }),
-    ...(ctx.opts.appRepo && { inApp: commitChecker(ctx.opts.appRepo.root, ctx.opts.appRepo.running) }),
+    ...(ctx.opts.appRepo && { inApp: ((repo) => commitChecker(repo.root, () => repo.running))(ctx.opts.appRepo) }),
     recordAnswer: (rid, rec, text, edits) => {
       const changed = edits.length ? [t('고친 곳 (아래 「고친 곳 검토」에서 승인):', 'Changed (approve under "Review changes" below):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''
       agentAnswer(ctx.recordsRoot(rid), rec.target, rec.id, 'claude', [text, changed].filter(Boolean).join('\n\n'))
@@ -90,6 +97,11 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
   if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
   if (appWork && ctx.opts.feedbackDir) ctx.feedbackSaved = () => void chats.pickFeedback().catch(() => undefined)
+  // 남은 메모리를 재고, 풀렸으면 줄 선 대화를 시작한다 (11/19)
+  if (gauge) {
+    void gauge.refresh()
+    repeat(app, { first: MEMORY_EVERY, every: MEMORY_EVERY, run: async () => { await gauge.refresh(); chats.drain() } })
+  }
   // 중앙 대화 깨우기 (11/18): 하위 대화의 PR이 합쳐졌는지 · CI가 실패했는지 1분마다
   if (appWork) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickCentral() })
   app.addHook('onClose', async () => chats.stopAll())
@@ -166,10 +178,11 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.get<{ Params: { id: string }; Querystring: { wait?: string } }>('/api/agent-chats/:id/app/checks', replies(C.AppChecks), async (req): Promise<C.AppChecks> => chats.appChecks(req.params.id, Number(req.query.wait) || 0))
   // 피드백 맡기기 (2단계 나): 피드백 화면의 「에이전트에게 맡기기」와, 맡은 대화가 처리 기록을 앱을 거쳐 적는 feedback_answer
   app.post('/api/feedback/hand-off', replies(C.ChatOne), async (req): Promise<C.ChatOne> => {
-    const { key } = parseBody(C.HandOffBody, req.body)
-    const chat = chats.handOff(key)
+    const b = parseBody(C.HandOffBody, req.body)
+    const keys = b.keys ?? [b.key!]
+    const chat = chats.handOff(keys)
     // 손으로 맡긴 것도 적어 올려 다른 컴퓨터의 저절로 맡기기가 같은 항목을 맡지 않게 한다 (기다리지 않는다)
-    void claims?.claim(key, 0).catch(() => undefined)
+    for (const key of keys) void claims?.claim(key, 0).catch(() => undefined)
     return { chat }
   })
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/feedback/answer', replies(C.FeedbackAnswered), async (req): Promise<C.FeedbackAnswered> => chats.feedbackAnswer(req.params.id, parseBody(C.FeedbackAnswerBody, req.body)))

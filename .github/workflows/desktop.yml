@@ -33,9 +33,10 @@ on:
         type: string
         default: ''
 
+# 같은 브랜치에 새로 올리면 앞서 돌던 8–10분짜리 실행을 멈춘다. 릴리스(손으로 돌림 · 태그)는 멈추지 않는다
 concurrency:
-  group: desktop-${{ github.ref }}
-  cancel-in-progress: true
+  group: desktop-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

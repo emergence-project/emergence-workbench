@@ -38,12 +38,12 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     // 공개 저장소라 (11/19 개인정보 점검)
     'The app repository is public: PR, commit and issue text and committed files never name real research projects, people, personal emails or local paths. Say "a real repository" or similar instead.',
     ...(o.feedback ? [] : [`When every check is green, call ${APP_MERGE} to squash-merge your own pull request, unless the user asked to look at it before merging. The app refuses while CI is not green or the branch conflicts with main.`]),
-    'Update tests and docs that the change touches (about section prs, uiNames.en.json, design-system.md) as CLAUDE.md says.',
+    'Update tests and docs that the change touches (about sections, uiNames.en.json, design-system.md) as CLAUDE.md says; app_submit adds the PR number to the about sections you changed.',
     'Research projects are read-only here: do not change notes, records, tasks or problems.',
   ]
   if (o.feedback) lines.push(
-    `This conversation handles one app feedback item (the first message). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Its picture (the screen at the moment the user left it) is attached to the first message, and its spot is the data-ui name: find it with \`grep -rn 'data-ui="<spot>"' apps/web/src\`.`,
-    `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures.`,
+    `This conversation handles the app feedback item(s) in the first message (several items come bundled: handle them one by one, and pass key to ${FEEDBACK_ANSWER} for each). Follow docs/feedback/agent.md and the personal rules for its kind: fix only a 수정, answer a 질문 without changing that code, judge a 제안 without building it. Its picture (the screen at the moment the user left it) is attached to the first message, and its spot is the data-ui name: find it with \`grep -rn 'data-ui="<spot>"' apps/web/src\`.`,
+    `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures. When you made mockups for the user to choose from, pass their names as mockups (on the handling, or replies[].mockups on a reply) instead of only writing the path: the feedback screen shows them as pictures the user can page through and decide on.`,
   )
   // 중앙이 연 하위 대화 (11/18): 중앙이 끝남 · CI · 합쳐짐에 저절로 깨어 이어 받으므로, 「나중에 하겠다」로 끝내지 않는다
   if (o.parent) lines.push(`The central conversation opened this one and is woken by the app when your turn ends. Do not end a turn promising to continue later: finish the work in this turn. Wait for CI with ${APP_CHECKS} wait. If you must wait for something outside this conversation, say what you wait for in one line and end the turn; the central conversation wakes you.`, REPORT_BRIEF)
@@ -110,9 +110,22 @@ export function promptFor(c: { view?: string }, m: { text: string; attach?: Atta
 
 /** 피드백을 맡길 때 대화의 첫 지시: 그 항목의 글 · 자리 · 그림과 차례인 이유 (처리 규칙은 안내에) */
 export function feedbackPrompt(e: FeedbackListItem, reasons: string[], picture?: string): string {
+  return [t('이 피드백 하나를 피드백 처리 규칙대로 처리해 주세요.', 'Handle this one feedback item by the feedback rules.'), '', ...feedbackLines(e, reasons, picture)].join('\n')
+}
+
+/**
+ * 묶어 맡긴 피드백 (feedbackGroups.ts): 항목마다 같은 줄을 늘어놓고, 하나씩 처리해 키를 붙여 기록하라고 한다.
+ * code = 고치는 묶음(같은 화면, PR 하나), 아니면 답만 하는 묶음(질문 · 제안)
+ */
+export function feedbackBundlePrompt(list: { e: FeedbackListItem; reasons: string[]; picture?: string }[], code: boolean): string {
+  const head = code
+    ? t(`같은 화면의 피드백 ${list.length}개입니다. 피드백 처리 규칙대로 하나씩 처리하되, 고친 것은 이 작업 폴더에 모아 PR 하나로 올려 주세요. 처리 기록은 항목마다 feedback_answer에 key를 붙여 적습니다.`, `${list.length} feedback items on the same screen. Handle each by the feedback rules, put all fixes in this folder and submit them as one PR. Record each item with feedback_answer and its key.`)
+    : t(`코드를 고치지 않는 피드백(질문 · 제안) ${list.length}개입니다. 피드백 처리 규칙대로 하나씩 답하고, 처리 기록은 항목마다 feedback_answer에 key를 붙여 적습니다.`, `${list.length} feedback items that need no code change (questions · suggestions). Answer each by the feedback rules and record each with feedback_answer and its key.`)
+  return [head, ...list.flatMap((x, i) => ['', `## ${i + 1}`, ...feedbackLines(x.e, x.reasons, x.picture)])].join('\n')
+}
+
+function feedbackLines(e: FeedbackListItem, reasons: string[], picture?: string): string[] {
   const lines = [
-    t('이 피드백 하나를 피드백 처리 규칙대로 처리해 주세요.', 'Handle this one feedback item by the feedback rules.'),
-    '',
     `- key: ${e.key}`,
     `- ${t('유형', 'Kind')}: ${e.status?.kind ?? e.kind}`,
     `- ${t('부위', 'Spot')}: ${e.target}${e.route ? ` (${e.route})` : ''}`,
@@ -126,7 +139,7 @@ export function feedbackPrompt(e: FeedbackListItem, reasons: string[], picture?:
   ]
   if (e.status) lines.push('', `${t('지금 처리 기록', 'Current record')}: ${e.status.state}${e.status.note ? ` — ${e.status.note}` : ''}`)
   if (e.review) lines.push(`${t('사용자 답', 'User answer')}: ${e.review.verdict} (${e.review.at})${e.review.note ? ` — ${e.review.note}` : ''}`)
-  return [...lines, ...unanswered(e)].join('\n')
+  return [...lines, ...unanswered(e)]
 }
 
 const unanswered = (e: FeedbackListItem): string[] => {

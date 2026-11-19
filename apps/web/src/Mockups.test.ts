@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mockupRefs } from './Mockups'
+import { groupMockups } from './FeedbackMockups'
 
 describe('mockupRefs (글에 나온 시안 경로)', () => {
   it('작업 폴더가 든 경로는 그 대화, 없는 경로는 이 대화의 시안', () => {
@@ -11,5 +12,14 @@ describe('mockupRefs (글에 나온 시안 경로)', () => {
   })
   it('시안 폴더가 아니거나 다른 종류는 고르지 않는다', () => {
     expect(mockupRefs('docs/a.png mockups/notes.md mockups/a.pngx shots/mockups.png', 'me')).toEqual([])
+  })
+})
+
+describe('groupMockups (피드백 시안 묶기)', () => {
+  it('같은 이름의 그림과 html은 한 시안, 이름 앞 날짜-시각-mockup-은 뺀다', () => {
+    expect(groupMockups(['pictures/2026-11-19-1432-mockup-tabs.png', 'pictures/2026-11-19-1432-mockup-tabs.html', 'pictures/only.html', 'pictures/x.txt'])).toEqual([
+      { stem: 'pictures/2026-11-19-1432-mockup-tabs', name: 'tabs', pic: 'pictures/2026-11-19-1432-mockup-tabs.png', html: 'pictures/2026-11-19-1432-mockup-tabs.html' },
+      { stem: 'pictures/only', name: 'only', html: 'pictures/only.html' },
+    ])
   })
 })

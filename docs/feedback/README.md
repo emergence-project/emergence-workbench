@@ -67,10 +67,11 @@
 | ask | 사용자에게 묻는 것 한 문장. 붙으면 결정을 묻는 답이 된다 |
 | clean · understood · cause · note | 문법을 고친 원문, 읽어 낸 요구, 원인, 처리(답). note 첫 줄은 [agent.md](agent.md) 3의 정한 말 |
 | commit · version · pictures | 고친 곳, 그 고침이 들어간 앱 버전, 전후 그림 `[전, 후]` |
+| mockups | 시안 그림 · html 경로 (그림 폴더 안, 같은 이름은 한 시안). 다시 처리하면 `revised`로 함께 옮긴다 |
 | handled_at · by | 처리한 시각과 에이전트(`claude` · `codex`) |
 | rework | 다시 처리한 사용자 답의 시각(그 답의 `at`과 같은 글자) |
 | revised[] | 다시 처리하기 전의 처리: `at`(돌려보낸 답의 시각), understood · cause · note · commit · handled_at · by, 그리고 `miss`(까닭) · `lesson`(한 줄 교훈) |
-| replies[] | 코멘트에 단 답: `{ at, to: 그 코멘트의 at, note, by }` |
+| replies[] | 코멘트에 단 답: `{ at, to: 그 코멘트의 at, note, by, mockups? }` |
 | merged_into | 같은 지적이라 합친 대표 항목의 키 |
 | theme · area · kind | 에이전트가 묶은 갈래, 화면 영역, 다시 가린 종류 |
 

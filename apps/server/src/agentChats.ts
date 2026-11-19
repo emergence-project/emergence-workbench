@@ -15,12 +15,12 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
-import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
-import type { AppWork, FileDiff, Snap } from './appWorktree.js'
-import { agentTurnReasons, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
-import { feedbackVerdictError, listAllFeedback, setFeedbackReview, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
+import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AppWork, Snap } from './appWorktree.js'
+import { autoCustom, autoOf, type AgentSettings } from '@rw/core'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
+import { FRESH_MS } from './appMemory.js'
 import { accountForNew, switchAccount, type ClaudeAccounts } from './claudeAccounts.js'
 
 // ---------- 에이전트 실행기 (실제는 agentRunner.ts의 Claude Agent SDK, 테스트는 가짜) ----------
@@ -93,10 +93,10 @@ export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { mod
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, withAlso, type PolicyCtx } from './agentPolicy.js'
 export * from './agentPrompts.js'
-import { appBriefFor, briefFor, feedbackAgainPrompt, feedbackPrompt, pictureImage, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
+import { appBriefFor, briefFor, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
 
 export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
-import { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
+import { commandEdits, editOf, fileEditOf, todosOf } from './agentItems.js'
 
 // ---------- 대화들 ----------
 
@@ -128,6 +128,8 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   resumeAt?: string
   /** 앱이 다시 켜져 저절로 이어 간 횟수 (차례가 잘 끝나면 지운다. 같은 대화가 재시작마다 되풀이되지 않게) */
   restarts?: number
+  /** 줄 서서 기다리는 차례 (앱이 다시 켜져도 사용자의 지시가 사라지지 않게 파일에 둔다, 11/19) · 중앙이 급히 연 앱 고치기 (줄 · 메모리와 상관없이 연다) */
+  turn?: { prompt: string; images?: ImageIn[] }; urgent?: boolean
   /** 기록 대화: 마지막으로 넘긴 기록 글의 수 (같은 글을 두 번 넘기지 않게), 지금 차례가 기록에서 왔는지 (끝나면 답을 기록에 적는다) */
   recordSent?: number
   recordTurn?: boolean
@@ -189,8 +191,10 @@ export interface AgentChatsDeps {
   /** Claude 대화의 실행기, others = Codex · Gemini (ACP, 없으면 runner가 모두 맡는다: 시험) */
   runner: AgentRunner
   others?: Partial<Record<'codex' | 'gemini', AgentRunner>>
-  /** 동시에 도는 대화 수 */
+  /** 동시에 도는 대화 수의 상한 (맥이면 컴퓨터 크기로, appMemory.ts의 chatCap) */
   limit: number
+  /** 상한 안에서 하나 더 시작해도 되는가 (남은 메모리, chatRoom. live = 일하는 수, fresh = 그 가운데 막 시작한 수). 없으면 상한까지 */
+  room?: (live: number, fresh: number) => boolean
   /** 프로젝트의 저장소와 이름 */
   project: (rid: string) => { repo: string; title: string }
   /** 묻지 않고 읽는 폴더 (공용 라이브러리 · 등록한 다른 프로젝트) */
@@ -243,14 +247,20 @@ export class AgentChats {
         delete c.compacting
         delete c.draft
         for (const it of c.items) if ((it.kind === 'side' && it.answer === undefined || it.kind === 'review' && it.text === undefined) && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
-        if (LIVE.has(c.state)) {
+        // 줄 선 대화는 저장해 둔 차례로 다시 줄을 선다 (예전엔 "이어서"만 받아 사용자의 새 지시를 잃고 "이미 답했다"고 끝났다, 11/19)
+        if (c.state === 'queued' && c.turn) this.queue.push({ id: c.id, ...c.turn })
+        else if (LIVE.has(c.state)) {
           // 앱이 다시 켜지면 돌던 차례는 이어지지 않는다
+          const was = c.state
+          // 차례를 저장하기 전에 줄 선 대화: 마지막 지시를 다음에 함께 읽는다
+          const u = was === 'queued' ? [...c.items].reverse().find((it) => it.kind === 'user') : undefined
+          if (u?.kind === 'user') (c.pending ??= []).push({ prompt: u.text })
           c.state = 'stopped'
           c.claims = []
           // 도는 동안 보낸 지시는 그대로 두었다가 다음 지시와 함께 읽는다 (사라지지 않게)
           for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true }
-          // 세션이 있으면 같은 대화로 저절로 이어 간다 (10/30, 오르카의 세션 이어 열기): 업데이트 · 재시작이 일을 끊지 않게
-          const again = !!c.sessionId && !c.archived && (c.restarts ?? 0) < RESTART_RESUMES
+          // 일하던 대화만 같은 세션으로 저절로 이어 간다 (10/30). 사용자 답을 기다리던 대화는 깨우지 않는다 (11/19)
+          const again = was !== 'waiting' && !!c.sessionId && !c.archived && (c.restarts ?? 0) < RESTART_RESUMES
           if (again) this.restarted.push(c.id)
           c.items.push({ kind: 'error', at: now(), text: again
             ? t('앱이 다시 켜져 멈췄습니다. 같은 대화로 저절로 이어 갑니다', 'Stopped because the app restarted. Continuing the same conversation by itself')
@@ -290,7 +300,7 @@ export class AgentChats {
     return { chats: [...this.chats.values()].filter((c) => LIVE.has(c.state)).map((c) => ({ id: c.id, rid: c.rid, title: c.title, state: c.state, scope: c.scope, claims: c.claims })) }
   }
 
-  create(b: NewChatBody, link: { feedback?: string; record?: { target: string; id: string }; parent?: string } = {}, prompt?: string): Chat {
+  create(b: NewChatBody, link: { feedback?: string; bundle?: string[]; record?: { target: string; id: string }; parent?: string; urgent?: boolean } = {}, prompt?: string): Chat {
     const app = b.rid === APP_RID
     if (app && !this.deps.app) throw new WorkbenchError(404, t(`${HERE.ko}에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다`, `No app repository on ${HERE.en}, so app conversations are not available`))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
@@ -317,8 +327,8 @@ export class AgentChats {
       created: at,
       updated: at,
       items: [],
-      ...(link.feedback && { feedback: link.feedback }),
-      ...(link.record && { record: { ...link.record } }), ...(link.parent && { parent: link.parent }),
+      ...(link.feedback && { feedback: link.feedback }), ...(link.bundle && link.bundle.length > 1 && { bundle: [...link.bundle] }),
+      ...(link.record && { record: { ...link.record } }), ...(link.parent && { parent: link.parent }), ...(link.urgent && { urgent: true }),
     }
     const account = accountForNew(this.deps.accounts, { rid: b.rid, agent: c.agent, feedback: link.feedback, account: b.account, app, central: b.rid === CENTRAL_RID }); if (account) c.account = account
     this.chats.set(c.id, c)
@@ -373,6 +383,7 @@ export class AgentChats {
         n++
       } catch { /* 이어 가지 못하면 멈춤 그대로 (사용자가 이어서 지시한다) */ }
     }
+    this.drain()
     return n
   }
 
@@ -505,6 +516,7 @@ export class AgentChats {
     const qi = this.queue.findIndex((q) => q.id === id)
     if (qi >= 0) {
       this.queue.splice(qi, 1)
+      delete c.turn
       this.finish(c, 'stopped')
     }
     // 열어 둔 에이전트는 하던 차례만 끊고 맥락은 그대로 둔다 (다음 지시를 처음부터 다시 읽지 않게)
@@ -576,82 +588,6 @@ export class AgentChats {
     c.recordSent = o.count
     c.recordTurn = true
     return o.reply ? this.send(c.id, { text: o.reply.shown }, o.reply.prompt) : this.send(c.id, { text: o.shown }, o.first)
-  }
-
-  /**
-   * 피드백 하나를 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」 · 저절로 맡기기). 같은 항목은 한 대화만:
-   * 그 피드백을 맡은 대화가 도는 중이면 거절하고, 끝난 대화가 있으면 새로 열지 않고 그 대화에 이어 보낸다. 에이전트 차례가 아닌 항목(사용자 차례 · 완료)도 거절한다.
-   */
-  handOff(key: string, parent?: string): Chat {
-    const fb = this.deps.feedback
-    if (!this.deps.app || !fb) throw new WorkbenchError(404, t(`${HERE.ko}에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)`, `Feedback cannot be handed to an agent on ${HERE.en} (needs the app repository and a feedback folder)`))
-    if (this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
-    const busy = [...this.chats.values()].find((c) => c.feedback === key && LIVE.has(c.state))
-    if (busy) throw new WorkbenchError(409, t(`이 피드백을 맡은 대화(「${busy.title}」)가 일하는 중입니다`, `A conversation ("${busy.title}") is already working on this feedback`))
-    const e = listAllFeedback(fb.dir).find((x) => x.key === key)
-    if (!e) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
-    const reasons = agentTurnReasons(e)
-    if (!reasons.length) throw new WorkbenchError(400, t('에이전트 차례가 아닌 피드백입니다', 'This feedback is not the agent\'s turn'))
-    // 앞서 이 항목을 맡은 대화가 있으면 그 대화에 이어 맡긴다: 맥락을 그대로 두고, 대화 목록에 항목마다 한 줄 (11/20)
-    const earlier = [...this.chats.values()].filter((c) => c.feedback === key).sort((a, b) => b.updated.localeCompare(a.updated))[0]
-    if (earlier) {
-      const merged = earlier.merged ? { ...(earlier.pr && { pr: earlier.pr.number }), ...(earlier.branch && { branch: earlier.branch }) } : undefined
-      // 합친 PR은 끝난 일: 새 PR · CI를 처음부터 본다
-      if (merged) { delete earlier.merged; delete earlier.shipped; delete earlier.pr; delete earlier.ciSeen; delete earlier.ciRetries }
-      earlier.archived = false
-      delete earlier.closed
-      earlier.handed = now()
-      if (parent) earlier.parent = parent
-      return this.send(earlier.id, { text: feedbackAgainPrompt(e, reasons, merged) })
-    }
-    const picture = e.picture ? path.join(fb.dir, e.picture) : undefined
-    const title = `${t('피드백', 'Feedback')} · ${(e.status?.clean ?? e.text).replace(/\s+/g, ' ').trim()}`.slice(0, 60)
-    const has = picture && fs.existsSync(picture) ? picture : undefined
-    const images = has ? pictureImage(has) : undefined
-    return this.create({ rid: APP_RID, text: feedbackPrompt(e, reasons, has), title, mode: 'edit', ...(images && { images }) }, { feedback: key, ...(parent && { parent }) })
-  }
-
-  /**
-   * 맡은 피드백의 처리 기록을 적는다 (에이전트의 feedback_answer). after가 있으면 그 PR의 CI 그림을 받아
-   * 그림 폴더에 두고 pictures: [전(남길 때 그림), 후]. 반영이고 PR이 있으면 commit: "#n".
-   * verdict = 사용자가 이 대화에서 말한 판정: 피드백 화면과 같은 규칙으로 먼저 적는다 (그다음 새 처리가 그 판정에 답한다)
-   */
-  async feedbackAnswer(id: string, b: FeedbackAnswerBody): Promise<FeedbackAnswered> {
-    const c = this.must(id)
-    const fb = this.deps.feedback
-    if (!c.feedback || !fb) throw new WorkbenchError(400, t('피드백을 맡은 대화가 아닙니다', 'This conversation has no feedback item'))
-    const e = listAllFeedback(fb.dir).find((x) => x.key === c.feedback)
-    if (!e) throw new WorkbenchError(404, t('맡은 피드백을 찾지 못했습니다', 'The feedback item was not found'))
-    const bad = b.verdict && feedbackVerdictError(e, b.verdict, b.verdictNote)
-    if (bad) throw new WorkbenchError(400, bad)
-    let pictures: string[] | undefined
-    if (b.after) {
-      if (!this.deps.app || !c.worktree || !c.branch || !c.pr) throw new WorkbenchError(409, t('PR을 연 뒤에 고친 뒤 그림을 받을 수 있습니다', 'Open the PR before asking for the after picture'))
-      const png = await this.deps.app.shot(c.worktree, c.branch, b.after)
-      if (!png) throw new WorkbenchError(409, t(`CI 그림 ${b.after}을 받지 못했습니다. CI가 끝났는지, 그 화면 이름이 맞는지 확인하세요`, `Could not get the CI picture ${b.after}. Check that CI finished and the screen name is right`))
-      const d = new Date()
-      const name = `pictures/${localDate(d)}-${localTime(d).replace(':', '')}-${b.after}-after.png`
-      fs.mkdirSync(path.join(fb.dir, 'pictures'), { recursive: true })
-      fs.writeFileSync(path.join(fb.dir, name), png)
-      pictures = e.picture && fs.existsSync(path.join(fb.dir, e.picture)) ? [e.picture, name] : undefined
-    }
-    if (b.verdict) setFeedbackReview(fb.dir, c.feedback, b.verdict, b.verdictNote || undefined)
-    const r = writeFeedbackAnswer(fb.dir, c.feedback, {
-      ...(b.state && { state: b.state }),
-      ...(b.note && { note: b.note }),
-      ...(b.understood && { understood: b.understood }),
-      ...(b.cause && { cause: b.cause }),
-      ...(b.clean && { clean: b.clean }),
-      ...(b.ask && { ask: b.ask }),
-      ...(b.miss && { miss: b.miss }),
-      ...(b.lesson && { lesson: b.lesson }),
-      ...(b.state === '반영' && c.pr && { commit: `#${c.pr.number}` }),
-      ...(pictures && { pictures }),
-      ...(b.replies && { replies: b.replies }),
-    })
-    fb.written?.()
-    this.touch(c)
-    return { key: c.feedback, ...(r.state && { state: r.state }), ...(b.verdict && { verdict: b.verdict }), ...(pictures && { pictures }), replies: r.replies }
   }
 
   /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */
@@ -815,8 +751,31 @@ export class AgentChats {
     this.touch(c)
   }
 
+  /** 줄 · 동시에 도는 수와 상관없이 도는 대화 (중앙 대화와 그것이 급히 연 앱 고치기, agentCentral.ts) */
+  protected unlimited(_c: Stored): boolean { return false }
+
   protected running(): number {
-    return [...this.chats.values()].filter((c) => c.state === 'running' || c.state === 'waiting').length
+    return this.counted().length
+  }
+
+  private counted(): Stored[] {
+    return [...this.chats.values()].filter((c) => (c.state === 'running' || c.state === 'waiting') && !this.unlimited(c))
+  }
+
+  /** 차례를 시작한 때 (막 시작한 대화는 메모리를 덜 쓴 것으로 보고 appMemory.ts의 PER_CHAT_GB를 미리 뺀다) */
+  private readonly startedAt = new Map<string, number>()
+
+  /** 하나 더 시작해도 되는가: 상한(limit) 안에서 남은 메모리(room) */
+  private canStart(): boolean {
+    const live = this.counted()
+    return live.length < this.deps.limit && (!this.deps.room || this.deps.room(live.length, live.filter((c) => Date.now() - (this.startedAt.get(c.id) ?? 0) < FRESH_MS).length))
+  }
+
+  /** 줄 선 대화를 자리가 나는 만큼 시작한다 (메모리가 풀리면 routes/agentChats.ts가 몇 초마다 부른다). 시작한 수 */
+  drain(): number {
+    let n = 0
+    for (; this.queue.length && this.canStart(); n++) this.next()
+    return n
   }
 
   private start(c: Stored, m: ChatMessageBody, prompt?: string): void {
@@ -828,10 +787,12 @@ export class AgentChats {
   }
 
   private begin(c: Stored, prompt: string, images?: ImageIn[]): void {
-    if (this.running() >= this.deps.limit) {
+    if (!this.unlimited(c) && (this.queue.length || !this.canStart())) {
       c.state = 'queued'
-      this.queue.push({ id: c.id, prompt, ...(images?.length && { images }) })
+      c.turn = { prompt, ...(images?.length && { images }) }
+      this.queue.push({ id: c.id, ...c.turn })
       this.touch(c)
+      this.drain()
       return
     }
     void this.run(c, prompt, images)
@@ -855,11 +816,11 @@ export class AgentChats {
 
   /** 자리가 비었으면 줄 선 대화 하나를 시작한다 (줄 선 대화를 멈춘 때처럼 자리가 비지 않았으면 시작하지 않는다) */
   private next(): void {
-    if (this.running() >= this.deps.limit) return
+    if (!this.canStart()) return
     const next = this.queue.shift()
     if (next) {
       const n = this.chats.get(next.id)
-      if (n) void this.run(n, next.prompt, next.images)
+      if (n) { delete n.turn; void this.run(n, next.prompt, next.images) }
     }
   }
 
@@ -874,6 +835,7 @@ export class AgentChats {
    * 다음 지시는 send가 inbox로 바로 넘기고, 뒤에서 돌던 명령이 끝나 에이전트가 스스로 이어 가면 다시 일하는 중이 된다.
    */
   private async run(c: Stored, prompt: string, images?: ImageIn[]): Promise<void> {
+    this.startedAt.set(c.id, Date.now())
     const abort = new AbortController()
     this.aborts.set(c.id, abort)
     const inbox = new Inbox<Turn>()
@@ -1036,7 +998,7 @@ export class AgentChats {
           this.undraft(c)
           if (limit) clearTimeout(limit)
           limit = undefined
-          if (app && c.write !== 'read') await this.commandEdits(c, app, p.repo, touched)
+          if (app && c.write !== 'read') await commandEdits(c, app, p.repo, touched)
           // 다음 지시의 되돌릴 자리
           if (app?.snapshot) c.snap = await app.snapshot(p.repo).catch(() => c.snap)
           touched = new Set()
@@ -1113,24 +1075,6 @@ export class AgentChats {
       c.items.push({ kind: 'error', at: now(), text: t(`답을 기록에 적지 못했습니다: ${(e as Error).message}`, `Could not write the answer to the record: ${(e as Error).message}`).slice(0, MAX_TEXT) })
     }
   }
-
-  /** 앱 고치기 대화: 고치기 도구를 거치지 않고(명령 · 스크립트) 바뀐 파일을 작업 폴더의 git diff에서 찾아 고친 줄로 보인다 */
-  private async commandEdits(c: Stored, app: AppWork, repo: string, touched: Set<string>): Promise<void> {
-    if (!app.diff) return
-    let files: FileDiff[]
-    try { files = await app.diff(repo) } catch { return }
-    const seen = c.diffSeen ?? {}
-    const next: Record<string, string> = {}
-    for (const f of files) {
-      const sig = `${f.added}/${f.removed}`
-      next[f.file] = sig
-      if (seen[f.file] === sig || touched.has(f.file)) continue
-      const [a0 = 0, r0 = 0] = (seen[f.file] ?? '0/0').split('/').map(Number)
-      c.items.push({ kind: 'edit', at: now(), file: f.file, parts: partsOfPatch(f.patch), added: Math.max(0, f.added - a0), removed: Math.max(0, f.removed - r0), via: 'command' })
-      if (!c.changed.includes(f.file)) c.changed.push(f.file)
-    }
-    c.diffSeen = next
-  }
 }
 
 /** 앱 고치기 대화의 환경: 대화마다 다른 화면 그림 포트, 맥의 Chrome (playwright 브라우저를 받지 않아도 되게) */
@@ -1159,7 +1103,7 @@ export const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

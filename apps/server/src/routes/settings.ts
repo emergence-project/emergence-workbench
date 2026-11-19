@@ -86,7 +86,7 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   const newRelease = opts.bundled && !opts.sandbox ? releaseChecker(opts.bundled, opts.releaseFetch) : null
   app.get<{ Querystring: { fetch?: string } }>('/api/app/status', replies(A.AppStatusReply), async (req): Promise<A.AppStatusReply> => {
     if (!opts.appRepo) return { enabled: false, ...(opts.bundled && { bundled: opts.bundled, release: newRelease ? await newRelease(req.query.fetch === '1') : null }) }
-    return { enabled: true, status: await appStatus(opts.appRepo.root, opts.appRepo.running, { fetch: req.query.fetch === '1' }) }
+    return { enabled: true, status: { ...await appStatus(opts.appRepo.root, opts.appRepo.running, { fetch: req.query.fetch === '1' }), started, ...(waiting && { waitingAgents: agentsWorking() }) } }
   })
   app.get<{ Querystring: { pr?: string } }>('/api/app/info', replies(A.AppInfoReply), async (req): Promise<A.AppInfoReply> => {
     if (!opts.appRepo) return { enabled: false, ...(opts.bundled && { bundled: opts.bundled }) }
@@ -94,6 +94,14 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     return { enabled: true, info: await appInfo(opts.appRepo.root, opts.appRepo.running, 20, Number.isInteger(pr) && pr > 0 ? pr : undefined) }
   })
   let updating: Promise<unknown> | null = null
+  /** 이 프로세스가 켜질 때의 커밋. 화면만 바꿔 끼우면 opts.appRepo.running만 새 커밋으로 바뀐다 */
+  const started = opts.appRepo?.running
+  /** 화면만 바뀐 새 버전을 바꿔 끼웠으면: 서버 코드는 그대로라 돌고 있는 커밋만 옮기고, 열린 창에 알린다 */
+  function swapped(r: { swapped?: boolean; status: { running: string } }): void {
+    if (!r.swapped || !opts.appRepo) return
+    opts.appRepo.running = r.status.running
+    ctx.broadcast({ type: 'app', research: null })
+  }
   app.post('/api/app/update', replies(A.AppUpdateResult), async (): Promise<A.AppUpdateResult> => {
     const repo = opts.appRepo
     if (!repo) throw new WorkbenchError(404, t('이 모드에서는 앱을 업데이트하지 않습니다', 'The app does not update in this mode'))
@@ -104,6 +112,7 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     updating = run
     try {
       const r = await run
+      swapped(r)
       if (!busy || r.status.head === r.status.running) return r
       restartAfterAgents()
       return { ...r, message: t(`새 버전을 받아 두었습니다. 일하는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `The new version is ready. It restarts once the ${busy} working agent conversation(s) finish`) }
@@ -137,36 +146,49 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   })
 
   /** 미리 빌드한 새 버전으로 다시 시작한다. 할 수 없으면 이유 */
-  async function restartIfReady(): Promise<{ restarting: boolean; reason?: string }> {
+  async function restartIfReady(force = false): Promise<{ restarting: boolean; reason?: string }> {
     const repo = opts.appRepo
     if (!repo) return { restarting: false, reason: t('이 모드에서는 앱을 업데이트하지 않습니다', 'The app does not update in this mode') }
     if (updating) return { restarting: false, reason: t('업데이트 중입니다', 'Updating') }
-    if (inflight > 0) return { restarting: false, reason: t('처리 중인 일이 있습니다', 'Work is in progress') }
-    const busy = agentsWorking()
+    if (inflight > 0 && !force) return { restarting: false, reason: t('처리 중인 일이 있습니다', 'Work is in progress') }
+    const busy = force ? 0 : agentsWorking()
     if (busy) return { restarting: false, reason: t(`일하는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `Restarts once the ${busy} working agent conversation(s) finish`) }
     const status = await appStatus(repo.root, repo.running)
     if (!status.prepared) return { restarting: false, reason: t('다시 시작할 새 버전이 없습니다', 'No new version to restart into') }
-    return { restarting: repo.steps.restart() }
+    const restarting = repo.steps.restart()
+    if (restarting) stopWaiting()
+    return { restarting }
   }
   /** 일하는 에이전트 대화 수 (차례가 도는 중인 것만. 사용자 답을 기다리는 대화는 다시 켜진 뒤 그대로 이어진다) */
   function agentsWorking(): number { return ctx.agentChats?.work().chats.filter((c) => c.state === 'running').length ?? 0 }
-  /** 에이전트가 끝나기를 기다렸다가 다시 시작한다. 30분이 지나면 기다리지 않는다(다시 켜진 뒤 돌던 대화를 잇는다) */
+  /**
+   * 에이전트가 모두 쉬기를 기다렸다가 다시 시작한다 (11/19 사용자 결정 "앱에서 에이전트가 동작하면서 앱이 업데이트": 끊지 않고 쉬는 틈에).
+   * 기다리는 동안 창은 「업데이트 대기 중 (일하는 대화 n개 …)」을 보이고 「지금 다시 시작」으로 앞당길 수 있다.
+   * 차례가 끝나자마자 이어지는 일(중앙 대화를 깨우기 등)이 있어 두 번 잇달아(약 20초) 쉬어야 다시 시작한다. 중앙 대화도 같은 규칙이다.
+   */
   let waiting: NodeJS.Timeout | null = null
-  function restartAfterAgents(): void {
+  function restartAfterAgents(everyMs = 10_000): void {
     if (waiting) return
-    const until = Date.now() + 30 * 60_000
+    let quiet = 0
     waiting = setInterval(() => {
-      if (agentsWorking() && Date.now() < until) return
-      if (waiting) clearInterval(waiting)
-      waiting = null
+      quiet = agentsWorking() || inflight > 0 || updating ? 0 : quiet + 1
+      if (quiet < 2) return
+      stopWaiting()
       if (opts.appRepo) opts.appRepo.steps.restart()
-    }, 10_000)
+    }, everyMs)
     waiting.unref()
+    ctx.broadcast({ type: 'app', research: null })
   }
-  app.addHook('onClose', async () => { if (waiting) clearInterval(waiting) })
-  app.post('/api/app/restart', replies(A.AppRestarted), async (): Promise<A.AppRestarted> => {
-    if (agentsWorking()) { restartAfterAgents(); throw new WorkbenchError(409, t(`일하는 에이전트 대화 ${agentsWorking()}개가 끝나면 저절로 다시 시작합니다`, `Restarts by itself once the ${agentsWorking()} working agent conversation(s) finish`)) }
-    const r = await restartIfReady()
+  function stopWaiting(): void {
+    if (waiting) clearInterval(waiting)
+    waiting = null
+  }
+  app.addHook('onClose', async () => stopWaiting())
+  app.post('/api/app/restart', replies(A.AppRestarted), async (req): Promise<A.AppRestarted> => {
+    const { force } = parseBody(A.AppRestartBody, req.body)
+    // 「지금 다시 시작」: 일하는 대화를 기다리지 않는다. 돌던 차례는 다시 켜진 뒤 같은 세션으로 이어 간다 (agentChats.ts resumeRestarted)
+    if (!force && agentsWorking()) { restartAfterAgents(); throw new WorkbenchError(409, t(`일하는 에이전트 대화 ${agentsWorking()}개가 끝나면 저절로 다시 시작합니다`, `Restarts by itself once the ${agentsWorking()} working agent conversation(s) finish`)) }
+    const r = await restartIfReady(force)
     if (!r.restarting) throw new WorkbenchError(409, r.reason ?? t('다시 시작하지 못했습니다', 'Could not restart'))
     return { restarting: true }
   })
@@ -182,12 +204,16 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
       const run = updateApp(repo.root, repo.running, repo.steps, { restart: false })
       updating = run
       try {
-        await run
+        swapped(await run)
         log.ok()
       } catch (e) {
         log.fail(e)
       } finally { updating = null }
-      if (ctx.clients() === 0 && Date.now() - lastWrite >= idleMs) await restartIfReady()
+      if (ctx.clients() === 0 && Date.now() - lastWrite >= idleMs) {
+        // 열린 창이 없어도 일하는 에이전트 대화는 끊지 않는다: 모두 쉬면 다시 시작한다
+        if (agentsWorking() && (await appStatus(repo.root, repo.running)).prepared) restartAfterAgents()
+        else await restartIfReady()
+      }
     }
     // 간격은 설정 › 동기화의 업데이트 칸 (바꾸면 1분 안에 적용, 10/19). 수동이면 확인하지 않는다.
     // 새 버전이 없으면 updateApp은 확인만 하고 받기 · 빌드 · 다시 켜기를 하지 않는다
