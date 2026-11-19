@@ -4,7 +4,7 @@ import type { AboutSection } from '../types'
 // 소개 › home › 한 일 달력. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
-  title: '한 일 달력', prs: [192, 269],
+  title: '한 일 달력', prs: [192, 269, 470],
   figure: <HomeMarksTable />,
   items: [
     { text: <>한 주(일–토)를 보여 주고, ‹ · 이번 주 · ›로 주를 옮깁니다. 지난 날에는 끝낸 할 일 · 노트 고침 · 상태 바꿈 · 메모가, 앞으로의 날에는 마감 ⚑만 있습니다. 기록 › 내 차례의 달력도 같은 기호를 씁니다.</> },
