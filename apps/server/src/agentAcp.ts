@@ -42,7 +42,8 @@ export class AcpConnection {
     readline.createInterface({ input: proc.stdout! }).on('line', (line) => this.line(line))
     proc.stderr?.on('data', (d: Buffer) => { this.err = (this.err + d.toString()).slice(-2000) })
     proc.on('error', (e) => this.end(e))
-    proc.on('exit', (code) => this.end(new Error(this.err.trim().split('\n').slice(-3).join('\n') || t(`에이전트가 끝났습니다 (코드 ${code})`, `The agent exited (code ${code})`))))
+    // 비정상 종료 알림(agentCrash.ts)에 코드와 stderr 마지막 줄을 함께 싣는다
+    proc.on('exit', (code, signal) => { const err = this.err.trim().split('\n').slice(-5).join('\n'); this.end(new Error(`${t(`에이전트가 끝났습니다 (${code ?? signal})`, `The agent exited (${code ?? signal})`)}${err ? `. stderr: ${err}` : ''}`)) })
   }
 
   private end(e: Error): void {
