@@ -12,6 +12,7 @@ import { qk } from './queries'
 import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
+import { WorkAside } from './WorkAside'
 import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
@@ -921,9 +922,8 @@ function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) 
 }
 
 const PERM_OPEN_KEY = 'rw-agent-perm-open'
-
 /** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */
-export function WorkColumn({ id, onSaved, width }: { id: string; onSaved(m: string): void; width?: number }) {
+export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
   const client = useQueryClient()
   const [permOpen, setPermOpen] = useState(() => store.get<boolean>(PERM_OPEN_KEY, false))
   const setPerm = (v: boolean) => { setPermOpen(v); store.set(PERM_OPEN_KEY, v) }
@@ -936,7 +936,7 @@ export function WorkColumn({ id, onSaved, width }: { id: string; onSaved(m: stri
   const trust = trustOf(chat)
   const hasEdits = chat.items.some((i) => i.kind === 'edit')
   return (
-    <aside className="ac-work" data-ui="작업 상태" style={width ? { '--ac-work-w': `${width}px` } as React.CSSProperties : undefined}>
+    <WorkAside>
       <ChatInfo chat={chat} />
       {hasEdits && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
@@ -968,46 +968,24 @@ export function WorkColumn({ id, onSaved, width }: { id: string; onSaved(m: stri
           {agents.map((s, i) => <div key={i} className="ac-work-row"><span className="ac-file" title={s.summary}>{s.summary}</span></div>)}
         </section>
       )}
-    </aside>
+    </WorkAside>
   )
 }
 
 // ---------- 레일 "에이전트" 화면 ----------
 
 const PANE_KEY = 'rw-agent-pane'
-// 작업 상태 칸 폭: 왼쪽 경계를 끌어 280px ~ 화면 절반, 두 번 누르면 처음 폭(0 = CSS 기본 360px) (11/19 09:03 피드백)
-const WORK_W_KEY = 'rw-agent-work-width', WORK_MIN = 280
-
-/** 작업 상태 칸 왼쪽 경계 손잡이 */
-function WorkResize({ width, onWidth }: { width: number; onWidth(w: number, save: boolean): void }) {
-  const drag = (e: React.PointerEvent) => {
-    e.preventDefault()
-    const aside = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement | null
-    const x0 = e.clientX, w0 = width || aside?.offsetWidth || 360
-    let w = w0
-    const onMove = (ev: PointerEvent) => { w = Math.round(Math.min(window.innerWidth / 2, Math.max(WORK_MIN, w0 - (ev.clientX - x0)))); onWidth(w, false) }
-    const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); document.body.classList.remove('resizing'); onWidth(w, true) }
-    document.body.classList.add('resizing')
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
-  return <div className="ac-work-resize" data-ui="작업 상태 폭 조절" role="separator" aria-orientation="vertical" title={t('끌어 폭 바꾸기 · 두 번 누르면 처음 폭', 'Drag to resize · double-click to reset')}
-    onPointerDown={drag} onDoubleClick={() => onWidth(0, true)} />
-}
 
 export function AgentPage({ id, onSaved, side }: { id?: string; onSaved(m: string): void; side?: { open: boolean; onOpen(): void } }) {
   const [pane, setPaneState] = useState(() => store.get<boolean>(PANE_KEY, true))
   const setPane = (v: boolean) => { setPaneState(v); store.set(PANE_KEY, v) }
-  const [workW, setWorkW] = useState(() => store.get<number>(WORK_W_KEY, 0))
-  const onWorkW = (w: number, save: boolean) => { setWorkW(w); if (save) store.set(WORK_W_KEY, w) }
   return (
     <main className="stage full" data-ui="에이전트">
       <section className="pane">
         {id === CENTRAL_PAGE ? <CentralStart /> : id
           ? <div className="ac-page">
             <ChatView key={id} id={id} pane={pane} onPane={() => setPane(!pane)} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
-            {pane && <WorkResize width={workW} onWidth={onWorkW} />}
-            {pane && <WorkColumn id={id} onSaved={onSaved} width={workW} />}
+            {pane && <WorkColumn id={id} onSaved={onSaved} />}
           </div>
           : <div className="scroll"><div className="page-body ac-start">
             <h1 className="ac-h">{t('새 대화', 'New conversation')}</h1>
