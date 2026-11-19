@@ -55,8 +55,8 @@ export function AgentHooks({ onSaved }: { onSaved(message: string): void }) {
       {err && <p className="error-text">{err}</p>}
       <div className="set-row" data-ui="밖에서 도는 에이전트">
         <div>
-          <div className="set-name">{t('밖에서 도는 에이전트', 'Agents running outside the app')}</div>
-          <div className="set-desc">{t('최근 12시간에 알린 세션입니다. 세션을 닫으면 빠집니다.', 'Sessions that reported in the last 12 hours. A session leaves the list when it closes.')}</div>
+          <div className="set-name">{t('터미널 세션', 'Terminal sessions')}</div>
+          <div className="set-desc">{t('터미널에서 띄운 Claude Code · Codex 가운데 최근 12시간에 알린 것입니다. 세션을 닫으면 빠집니다.', 'Claude Code and Codex started in a terminal that reported in the last 12 hours. A session leaves the list when it closes.')}</div>
           {v && !v.sessions.length && <div className="muted">{t('아직 알린 세션이 없습니다.', 'No session has reported yet.')}</div>}
           {v?.sessions.map((s) => (
             <div key={`${s.agent}-${s.session}`} className="hook-row" data-ui="밖 세션" data-ui-item={s.session}>
