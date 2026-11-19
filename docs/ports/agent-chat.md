@@ -41,7 +41,7 @@ code:
 
 - 머리: `id` · `rid`(프로젝트) · `title` · `state`(`running` · `waiting` · `queued` · `idle` · `stopped` · `error`) · `mode`(`ask` · `plan` · `edit`) · `model` · `effort` · `created` · `updated`
 - 서버만: `sessionId`(SDK 세션, 이어 가기) · `alwaysKeys`(이 대화에서 늘 허락한 것) · `pending`(일하는 중에 보낸 말) · `points`(되감기 자리)
-- `items`: 종류(`kind`)로 나뉜 항목 목록 — `user`(내 말) · `text`(에이전트 글) · `step`(도구 사용 한 줄) · `ask`(허락 카드, 답하면 `answer`) · `bypass`(중앙 대화가 허락으로 우회해 돌린 명령: 명령 · 한 번/늘 · 시각) · `edit`(고친 파일 +n −n) · `result`(차례 끝: 성공 · 비용 · 토큰) · `error`
+- `items`: 종류(`kind`)로 나뉜 항목 목록 — `user`(내 말) · `text`(에이전트 글) · `step`(도구 사용 한 줄) · `ask`(허락 카드, 답하면 `answer`) · `bypass`(중앙 대화가 허락으로 우회해 돌린 명령: 명령 · 한 번/늘 · 시각) · `edit`(고친 파일 +n −n) · `result`(차례 끝: 성공 · 비용 · 토큰) · `error`(사용자가 멈추지 않았는데 프로세스가 끝났으면 `crash: true`. 대화 기록에 남아 다시 켜도 비정상 종료 이력을 센다)
 
 ## 옮기는 순서
 

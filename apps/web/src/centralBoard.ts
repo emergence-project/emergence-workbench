@@ -1,5 +1,5 @@
 // 중앙의 작업 현황 (11/19 피드백 "뭐가 남아있고, 뭐가 정체되어 있는지", 시안 2026-11-19-central-checklist 안 A):
-// 하위 대화 · 자리 기다림 · 사용자가 답할 피드백을 한 줄씩 단계와 묶음으로 나누고, 오래 그대로인 줄은 정체로 내 차례에 올린다
+// 하위 대화 · 자리 기다림 · 사용자가 답할 피드백 · 다른 대화의 비정상 종료(11/20)를 한 줄씩 단계와 묶음으로 나누고, 오래 그대로인 줄은 정체로 내 차례에 올린다
 import type { CentralState } from './api'
 import { t } from './i18n'
 
@@ -42,7 +42,7 @@ function kidRow(k: Kid, now: number): BoardRow | undefined {
   if (k.state === 'waiting' && (!k.ask || k.ask.critical))
     return { ...base, stage: t('사용자 결정 기다림', 'Waits for your decision'), mark: 'user', group: 'turn', extras: [...extras, k.ask?.critical ? `${wait} · ${k.ask.critical}` : wait] }
   if (k.state === 'waiting') return { ...base, stage: t(`${wait} 기다림 (중앙이 답함)`, `Waits for ${wait} (Central answers)`), mark: 'user', group: 'doing', stalled: stall(STALL_MIN.ask), extras }
-  if (k.state === 'error') return { ...base, stage: t('오류', 'Error'), mark: 'error', group: 'turn', extras }
+  if (k.state === 'error') return { ...base, stage: k.crashes ? t('비정상 종료', 'Crashed') : t('오류', 'Error'), mark: 'error', group: 'turn', extras: k.crashes && k.crashes > 1 ? [...extras, t(`${k.crashes}번째`, `${k.crashes} times`)] : extras }
   if (k.state === 'running' || k.state === 'queued') return { ...base, stage: k.state === 'queued' ? t('줄 섬', 'Queued') : t('진행 중', 'Working'), mark: 'run', group: 'doing', stalled: stall(STALL_MIN.run), extras }
   if (k.ci === 'failed') return { ...base, stage: t('CI 실패', 'Check failed'), mark: 'error', group: 'doing', stalled: stall(STALL_MIN.ask), extras }
   if (k.ci === 'pending') return { ...base, stage: t('CI 기다림', 'Waiting for checks'), mark: 'ci', group: 'doing', stalled: stall(STALL_MIN.ci), extras }
@@ -52,10 +52,12 @@ function kidRow(k: Kid, now: number): BoardRow | undefined {
 }
 
 /** 작업 현황의 줄: 묶음마다 오래된 것이 위. 정체는 내 차례로 */
-export function boardRows(s: Pick<CentralState, 'kids' | 'held' | 'feedback'>, now = Date.now()): { rows: BoardRow[]; moreFeedback: number } {
+export function boardRows(s: Pick<CentralState, 'kids' | 'held' | 'feedback' | 'crashed'>, now = Date.now()): { rows: BoardRow[]; moreFeedback: number } {
   const rows = s.kids.map((k) => kidRow(k, now)).filter((r): r is BoardRow => !!r)
     .map((r) => (r.stalled !== undefined ? { ...r, group: 'turn' as const } : r))
   ;(s.held ?? []).forEach((h, i) => rows.push({ key: `held:${i}`, title: h.title, stage: t('자리 기다림', 'Waiting for room'), mark: 'held', group: 'doing', ...(h.at && { at: h.at }), extras: [t(`순서 ${i + 1}`, `#${i + 1} in line`)] }))
+  // 하위 대화가 아닌 대화의 비정상 종료 (11/20): 내 차례에
+  for (const x of s.crashed ?? []) rows.push({ key: `crash:${x.id}`, id: x.id, title: x.title, stage: t('비정상 종료', 'Crashed'), mark: 'error', group: 'turn', at: x.at, extras: x.count > 1 ? [t(`${x.count}번째`, `${x.count} times`)] : [] })
   const fb = s.feedback ?? []
   fb.slice(0, FEEDBACK_MAX).forEach((f) => rows.push({ key: `fb:${f.key}`, title: f.text, stage: t('사용자 결정 기다림', 'Waits for your decision'), mark: 'user', group: 'turn', at: f.at, extras: [], feedback: true }))
   const order: BoardGroup[] = ['turn', 'doing', 'ready', 'done']

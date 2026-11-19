@@ -47,4 +47,14 @@ describe('중앙의 작업 현황', () => {
     expect(rows.map((r) => r.key)).toEqual(['end', 'fb:f0', 'fb:f1', 'fb:f2', 'fb:f3', 'fb:f4', 'held:0'])
     expect(boardCounts(rows, moreFeedback)).toEqual({ left: 9, turn: 8, stalled: 0 })
   })
+
+  it('비정상 종료: 하위 대화는 「비정상 종료」와 횟수, 하위 대화가 아닌 대화도 내 차례에 그 대화로 가는 줄', () => {
+    const { rows } = boardRows({
+      kids: [kid('k', { state: 'error', crashes: 2 }), kid('e', { state: 'error' })],
+      crashed: [{ id: 'p1', rid: 'proj', title: '다른 대화', at: ago(5), text: 'Claude Code process exited with code 1', count: 1 }],
+    }, NOW)
+    expect(rows.find((r) => r.key === 'k')).toMatchObject({ stage: '비정상 종료', group: 'turn', extras: ['2번째'] })
+    expect(rows.find((r) => r.key === 'e')!.stage).toBe('오류')
+    expect(rows.find((r) => r.key === 'crash:p1')).toMatchObject({ id: 'p1', stage: '비정상 종료', mark: 'error', group: 'turn', extras: [] })
+  })
 })

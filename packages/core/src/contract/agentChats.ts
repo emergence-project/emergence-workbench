@@ -108,7 +108,8 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * context = 마지막 요청의 맥락 크기와 그 모델의 맥락 창
    */
   z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number() }).strict().optional() }).strict(),
-  z.object({ kind: z.literal('error'), at: z.string(), text: z.string() }).strict(),
+  /** crash = Claude Code 프로세스가 비정상으로 끝남 (사용자가 멈춘 것 밖, 11/20). 같은 대화의 이력으로 세어 중앙에게 알린다 */
+  z.object({ kind: z.literal('error'), at: z.string(), text: z.string(), crash: z.boolean().optional() }).strict(),
   /** 앞 내용을 요약해 이어 감 (Claude Code의 맥락 줄이기). auto = 맥락이 커져 저절로, before · after = 줄이기 전후 맥락 토큰 */
   z.object({ kind: z.literal('compact'), at: z.string(), auto: z.boolean(), before: z.number(), after: z.number().optional() }).strict(),
   /** 에이전트가 생각한 것의 요약 (Claude Code의 생각 보기, 접어서 보인다) */
@@ -374,6 +375,8 @@ export const CentralKid = z.object({
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(), merged: z.string().optional(),
   feedback: z.string().optional(), bundle: z.array(z.string()).optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), reported: z.boolean().optional(), updated: z.string(),
   ci: z.enum(['pending', 'failed', 'passed']).optional(), todos: z.object({ done: z.number(), total: z.number() }).strict().optional(),
+  /** 지금 오류가 비정상 종료면 이 대화가 비정상 종료된 횟수 (11/20) */
+  crashes: z.number().optional(),
 }).strict()
 /**
  * GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화.
@@ -383,6 +386,8 @@ export const CentralState = z.object({
   id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean(),
   held: z.array(z.object({ title: z.string(), at: z.string().optional() }).strict()).optional(),
   feedback: z.array(z.object({ key: z.string(), target: z.string(), text: z.string(), at: z.string() }).strict()).optional(),
+  /** 중앙의 하위 대화가 아닌 대화 가운데 비정상 종료로 멈춘 것 (작업 현황의 「내 차례」, 11/20). count = 그 대화의 비정상 종료 횟수 */
+  crashed: z.array(z.object({ id: z.string(), rid: z.string(), title: z.string(), at: z.string(), text: z.string(), count: z.number() }).strict()).optional(),
 }).strict()
 /** POST /agent-central/messages: 중앙에게 말하기 (중앙이 없으면 연다) */
 export const CentralMessageBody = z.object({ text: message.text, attach: message.attach, view: message.view }).strict()
