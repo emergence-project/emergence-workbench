@@ -437,7 +437,13 @@ describe('승인·반려', () => {
     expect(pic.headers['content-type']).toBe('image/png')
     fs.writeFileSync(path.join(dir, 'pictures', '2026-11-12-소개-전.png'), 'x')
     expect((await fb.inject({ method: 'GET', url: `/api/feedback/picture?path=${encodeURIComponent('pictures/2026-11-12-소개-전.png')}` })).statusCode).toBe(200)
-    for (const bad of ['pictures/b.png', '../status.yaml', 'pictures/../status.yaml', 'status.yaml']) {
+    // 시안 html (11/19): html로 내주되 /api/ 응답 머리(sandbox)로 앱과 떨어뜨린다
+    fs.writeFileSync(path.join(dir, 'pictures', '2026-11-19-1432-mockup-a.html'), '<p>시안</p>')
+    const html = await fb.inject({ method: 'GET', url: '/api/feedback/picture?path=pictures/2026-11-19-1432-mockup-a.html' })
+    expect(html.statusCode).toBe(200)
+    expect(html.headers['content-type']).toMatch(/^text\/html/)
+    expect(String(html.headers['content-security-policy'])).toContain('sandbox')
+    for (const bad of ['pictures/b.png', 'pictures/a.svg', '../status.yaml', 'pictures/../status.yaml', 'status.yaml']) {
       expect((await fb.inject({ method: 'GET', url: `/api/feedback/picture?path=${encodeURIComponent(bad)}` })).statusCode).toBe(404)
     }
     await fb.close()
