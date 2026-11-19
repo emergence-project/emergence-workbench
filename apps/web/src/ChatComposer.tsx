@@ -22,7 +22,8 @@ import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, 
  */
 
 /** 입력란을 바깥에서 채울 때 (기다리는 지시 고치기). n이 바뀌면 채운다 */
-export type Fill = { text: string; n: number; attach?: Attach[]; images?: ImageIn[] }
+/** 바깥에서 입력란을 채울 것. text가 없으면 쓰던 글은 두고 붙일 것만 더한다 (대화에서 고른 글 「답글」) */
+export type Fill = { text?: string; n: number; attach?: Attach[]; images?: ImageIn[] }
 
 // ---------- 권한 · 모델 · 생각 깊이 ----------
 
@@ -82,6 +83,8 @@ export function sideQuestion(text: string): string | undefined {
 }
 
 export const ATTACH_NAME: Record<AttachKind, string> = { note: t('노트', 'Note'), topic: t('주제', 'Topic'), file: t('파일', 'File'), selection: t('고른 글', 'Selection'), paper: t('문헌', 'Paper'), record: t('기록', 'Record'), connector: t('커넥터', 'Connector'), element: t('화면 요소', 'Screen element'), terminal: t('터미널', 'Terminal'), screen: t('지금 화면', 'Current screen') }
+
+export { ChatQuoteMenu } from './ChatQuote'
 
 // ---------- 노트에서 「에이전트에게」 (고른 글 메뉴) ----------
 
@@ -223,9 +226,9 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   useEffect(() => setAutoOff(false), [autoKey])
   useEffect(() => {
     if (!fill) return
-    setText(fill.text); setCaret(fill.text.length)
+    if (fill.text !== undefined) { setText(fill.text); setCaret(fill.text.length) }
     // 기다리던 지시를 고칠 때 붙인 것 · 그림도 함께 돌아온다
-    if (fill.attach?.length) setAttach((a) => [...a, ...fill.attach!])
+    if (fill.attach?.length) setAttach((a) => [...a, ...fill.attach!.filter((x) => !a.some((y) => y.kind === x.kind && y.ref === x.ref && y.text === x.text))])
     if (fill.images?.length) setImages((xs) => [...xs, ...fill.images!.map((im, i) => ({ ...im, name: t(`그림 ${i + 1}`, `Image ${i + 1}`) }))].slice(0, 4))
     box.current?.focus()
   }, [fill?.n]) // eslint-disable-line react-hooks/exhaustive-deps
