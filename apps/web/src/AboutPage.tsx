@@ -13,6 +13,8 @@ import { lang, t } from './i18n'
 import { Icon } from './icons'
 import { ProofMark, StatusDot } from './StatusDot'
 import { go, href, type Route } from './router'
+import { portUrl } from './about/code'
+import * as portingGuides from './about/reference/porting-guides'
 
 /**
  * 이 앱 소개: 앱의 왼쪽 사이드바에서 한 쪽을 고른다 (#/about/<쪽>).
@@ -74,7 +76,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
           </PartTitle.Provider>
         </div>
       </section>
-      {side && <AboutHistorySide part={p} picked={picked} onPick={pick} onClose={() => showHistory(false)} />}
+      {side && <AboutHistorySide part={p} at={at} picked={picked} onPick={pick} onClose={() => showHistory(false)} />}
     </main>
   )
 }
@@ -347,6 +349,8 @@ function Sections({ part, at, history, picked }: { part: AboutPart; at: number; 
         <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} check={check} picked={picked}>
           {part.id !== 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
           <ul className="about-list">{sec.items.map((it, n) => <li key={n}>{it.text}</li>)}</ul>
+          {/* 이 기능을 다른 앱에 옮기는 이식 안내서 (11/19) */}
+          {sec.port && <p className="about-port" data-ui="이식 안내서">{t('다른 앱에 옮기기: ', 'Port to another app: ')}<a className="a" href={portUrl(sec.port)} target="_blank" rel="noreferrer">{`docs/ports/${sec.port}.md`}</a>{t(' — 관련 코드와 옮기는 순서', ' — the code and the steps to port it')}</p>}
           {/* 기호와 의미 쪽은 설명 한 줄 다음에 표 */}
           {part.id === 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
           {part.id === 'symbols' && sec.id && <SymbolTable id={sec.id} />}
@@ -435,6 +439,10 @@ function Reference() {
       <Section name={t('파일 위치', 'Where files are')} ui="파일이 있는 곳">
         <FileTreeFigure />
         <p className="about-note">{lang === 'ko' ? <>원고는 <code>research.yaml</code>의 <code>sources.manuscript</code>에 적은 자리에 그대로 있고, 앱 컴파일 결과는 <code>workbench/.build/</code>에만 둡니다. 옮기지 않은 Study 노트는 iCloud Obsidian의 Study vault에서 읽기만 합니다.</> : <>Manuscripts stay where <code>sources.manuscript</code> in <code>research.yaml</code> says, and the app's compile output goes only in <code>workbench/.build/</code>. Study notes not moved yet are read only from the Study vault in iCloud Obsidian.</>}</p>
+      </Section>
+      {/* 이식 안내서 목록 (11/19): 글은 about/reference/porting-guides.tsx */}
+      <Section name={(lang === 'ko' ? portingGuides.ko : portingGuides.en).title} ui="다른 앱에 옮기기" id="ports">
+        <ul className="about-list">{(lang === 'ko' ? portingGuides.ko : portingGuides.en).items.map((it, n) => <li key={n}>{it.text}</li>)}</ul>
       </Section>
     </>
   )
