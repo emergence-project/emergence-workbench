@@ -27,6 +27,7 @@ import { ProjectPick, RecentChats } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
+import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom } from './CentralRoom'
 import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
@@ -448,7 +449,7 @@ function AttachChips({ attach, images }: { attach?: Attach[]; images?: number })
   )
 }
 
-function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
+function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; who?: boolean; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
     // 중앙을 저절로 깨운 알림은 옅은 한 줄 (11/19: 진행은 작업 현황에서 보고, 대화에는 짧게)
@@ -461,7 +462,7 @@ function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Ch
         )}
       </li>
     )
-    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} /></li>
+    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{who && <HostWho />}{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} /></li>
     case 'ask': return it.plan !== undefined ? <PlanCard chat={chat} it={it} onError={onError} /> : <AskCard chat={chat} it={it} onError={onError} />
     case 'todos': return null
     case 'edit': return <EditLine chat={chat} it={it} onChanges={onChanges} />
@@ -485,6 +486,7 @@ function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Ch
       </li>
     )
     case 'review': return <ReviewCard chat={chat} it={it} onPass={onPass} onError={onError} />
+    case 'member': return <MemberItem it={it} />; case 'room': return <RoomItem it={it} />
     case 'compact': return (
       <li className="ac-note muted" data-ui="앞 내용 요약" title={when}>
         {it.auto ? t('앞 내용을 요약해 이어 갑니다', 'Summarized earlier messages to keep going') : t('앞 내용을 요약했습니다', 'Summarized earlier messages')}
@@ -648,9 +650,9 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
     atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
     if (atEnd.current) setBehind(false)
   }
-  const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }
+  const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }, room = useComposerRoom(chat?.rid === CENTRAL_RID)
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
-  const live = isLive(chat.state)
+  const live = isLive(chat.state), blocks = blocksOf(chat.items)
   const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, agent: chat.agent, account: chat.account ?? 'default', ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
   const change = (s: Partial<Settings>) => {
     setOver((o) => ({ ...o, ...s }))
@@ -703,11 +705,11 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
   const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
   return (
     <AppLinkProvider feedback={chat.rid === CENTRAL_RID || chat.rid === APP_RID}><div className="ac-chat" data-ui="에이전트 대화">
-      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
+      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}{head && chat.rid === CENTRAL_RID && <RoomStrip />}
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
-        {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
+        {blocks.map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('일하는 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
@@ -718,7 +720,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
         {showTodos && <TodoBar todos={chat.todos} />}
         <QueuedBar chat={chat} onEdit={(f) => setFill({ ...f, n: Date.now() })} onError={setFail} />
         <Composer rid={chat.rid} auto={auto} settings={settings} agentFixed onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
-          placeholder={placeholder} fail={fail} fill={fill} />
+          placeholder={placeholder} fail={fail} fill={fill} room={room} />
         <div className="muted ac-keys">{t('⇧⇥ 권한 · ⌘↵ 보내기', '⇧⇥ permissions · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
       </div>
     </div></AppLinkProvider>
@@ -894,7 +896,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
   if (chat.rid === CENTRAL_RID) return (
     <WorkAside>
-      <CentralBoard />
+      <CentralBoard /><RoomManage />
       <details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('모델 · 토큰 · 권한 ›', 'model · tokens · permissions ›')}</span></summary><ChatInfo chat={chat} /></details>
     </WorkAside>
   )

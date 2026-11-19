@@ -65,6 +65,7 @@ code:
 - 중앙 오른쪽 칸의 작업 현황(`centralBoard.ts` · `CentralChat.tsx`): 하위 대화 · 자리 기다림 · 피드백을 묶음과 정체 시간으로 한 줄씩. 세부 칸의 절 모양은 `SideSection.tsx`
 - 앱 MCP 도구(노트 · 기록 · 맡긴 일). 다른 앱은 자기 MCP를 `mcpFor` 자리에 붙인다
 - Codex · Gemini 대화(`agentAcp.ts`)와 Codex 검토
+- 중앙 방(`agentRoom.ts` · `CentralRoom.tsx`, 11/20): 방장(수정) 하나와 읽기만 · 발언 사람, 받는 이(그냥 = 방장, @이름 = 그 사람만, @모두 = 모두 · 방장 마지막, `@rw/core` `routeOf`). 방 사람은 세션 없이 부를 때마다 최근 방 대화를 한 번 읽고 답하고(`ChatItem` `member`), 방이 바뀌면 `room` 줄이 남는다. 방장은 MCP `room_ask` · `room_invite` · `room_remove`(`mcpRoom.ts`). 다른 앱은 한 번 묻기(`review` · `side`) 자리만 있으면 옮길 수 있다
 - 오래된 대화 정리와 중앙 메모(`agentTidy.ts`): 끝나고 7일 손대지 않은 대화를 보관 · 요약 · 압축하고, 중앙이 읽는 오래 갈 규칙을 한 파일에 둔다. 옮길 때는 보관 · 압축만 가져가도 된다
 
 ## 점검

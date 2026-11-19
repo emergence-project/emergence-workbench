@@ -1,0 +1,28 @@
+/* 중앙 방 (11/20 "중앙 = 여럿이 말하는 방", 시안 1e4G2p1cQjgVNSSAZ9RFHr): 방 사람 줄 · 방 사람 답 · 방 소식 · 방 관리 · 받는 이 */
+.room-crown { width: 13px; height: 10px; flex: none; fill: var(--text); }
+.room-who { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; white-space: nowrap; }
+.room-who b { font-weight: var(--fw-strong); }
+.room-perm { display: inline-flex; align-items: center; gap: 2px; font-size: var(--fs-xs); color: var(--text-3); }
+.room-perm svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+.room-strip { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.room-strip > .muted { font-size: var(--fs-xs); }
+.room-chip { display: inline-flex; align-items: center; padding: 1px var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--bg); }
+.room-chip.asking { border-color: var(--s-progress); }
+.room-invite svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+.room-row { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.room-row-top { display: flex; align-items: center; gap: var(--sp-2); }
+.room-x { margin-left: auto; }
+.room-sub { font-size: var(--fs-xs); }
+.room-row .segmented button svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; margin-right: 2px; vertical-align: -1px; }
+.room-rules { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) 0; font-size: var(--fs-sm); }
+.room-rules b { font-weight: var(--fw-strong); }
+.room-rule { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.room-rule > span { color: var(--text-2); }
+.room-member { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card-bg); }
+.room-member-h { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); margin-bottom: var(--sp-1); min-width: 0; }
+.room-member-h > .muted { font-size: var(--fs-xs); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-note .room-crown { margin-right: var(--sp-1); vertical-align: -1px; }
+.room-note { align-items: center; }
+.room-note .icon-btn { margin-left: auto; }
+.room-to { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); padding: 0 var(--sp-1); }
+.room-to .room-who b { font-weight: var(--fw-medium); color: var(--text-2); }
