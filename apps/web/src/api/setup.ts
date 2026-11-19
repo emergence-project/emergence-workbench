@@ -1,4 +1,4 @@
-// ---------- 시작 준비 (설정 › 계정, 홈 카드, 서버 routes/setup.ts) ----------
+// ---------- 시작 준비 (계정, 홈 카드, 서버 routes/setup.ts) ----------
 import type { McpAgentKey, SetupFetchBody, SetupGitBody, SetupLibraryBody, SetupPersonalBody, SetupPersonalCreateBody, SetupView } from '@rw/core/contract/setup'
 import { json, req, send } from './http'
 

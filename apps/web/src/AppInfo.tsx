@@ -31,7 +31,7 @@ export function AppInfo({ update, pr: focus }: { update?: ReactNode; pr?: number
         {!bundled && <><dt>{t('버전 관리', 'Version control')}</dt><dd><span>{t('', 'The main branch of ')}{info?.remote ? <a className="a" href={info.remote} target="_blank" rel="noreferrer">{info.remote.replace(/^https:\/\//, '')}</a> : 'GitHub emergence-workbench'}{t('의 main이 정본입니다. ', ' is the source of truth. ')}<span className="muted">{t('새 버전이 main에 합쳐지면 이 컴퓨터는 아래 업데이트로 받습니다.', 'When a new version is merged into main, this computer gets it with the update below.')}</span></span></dd></>}
         {info && <><dt>{t('앱 폴더', 'App folder')}</dt><dd><code>{info.root}</code></dd></>}
         <dt>{t('앱 설정', 'App settings')}</dt><dd><code>~/.config/research-workspace/config.yaml</code></dd>
-        {!bundled && <><dt>{t('피드백', 'Feedback')}</dt><dd><code>~/.config/research-workspace/personal/feedback/</code><span className="muted">{t('(개인 저장소를 정했으면 그 사본 안에 두고 올림, 아니면 ', ' (inside the personal repository copy and pushed, if you set one; otherwise ')}<code>~/.config/research-workspace/feedback/</code>{t('에만 남음. 설정 › 계정)', ' only. Settings › Accounts)')}</span></dd></>}
+        {!bundled && <><dt>{t('피드백', 'Feedback')}</dt><dd><code>~/.config/research-workspace/personal/feedback/</code><span className="muted">{t('(개인 저장소를 정했으면 그 사본 안에 두고 올림, 아니면 ', ' (inside the personal repository copy and pushed, if you set one; otherwise ')}<code>~/.config/research-workspace/feedback/</code>{t('에만 남음. 계정)', ' only. Account)')}</span></dd></>}
       </dl>
       {update}
       {info && info.history.length > 0 && (

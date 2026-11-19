@@ -47,6 +47,7 @@ export type Route =
   | { page: 'settings'; part?: string; /** 업데이트 이력에서 보일 PR (소개 절의 "업데이트 #n") */ pr?: number }
   | { page: 'network'; person?: string }
   | { page: 'feedback' }
+  | { page: 'account' }
   /** 에이전트 대화 (10/21). id가 없으면 새 대화 */
   | { page: 'agent'; id?: string }
   | { page: 'turns' }
@@ -133,6 +134,8 @@ export function parseRoute(hash: string): Route {
     return { page: 'overview', rid: parts[1], anchor }
   }
   if (parts[0] === 'about') return parts[1] ? { page: 'about', part: parts[1], ...(parts[2] && { anchor: parts[2] }) } : { page: 'about' }
+  // 계정은 설정 밖 한 페이지 (11/19). 옛 주소 설정 › 계정도 여기로
+  if (parts[0] === 'account' || (parts[0] === 'settings' && parts[1] === 'google')) return { page: 'account' }
   if (parts[0] === 'settings') return parts[1] ? { page: 'settings', part: parts[1], ...(Number(parts[2]) > 0 && { pr: Number(parts[2]) }) } : { page: 'settings' }
   if (parts[0] === 'latex') return { page: 'settings', part: 'latex' }
   if (parts[0] === 'network') return parts[1] ? { page: 'network', person: parts[1] } : { page: 'network' }
@@ -192,6 +195,7 @@ export function href(r: Route): string {
     case 'settings': return `#/settings${r.part ? `/${e(r.part)}${r.pr ? `/${r.pr}` : ''}` : ''}`
     case 'network': return `#/network${r.person ? `/${e(r.person)}` : ''}`
     case 'feedback': return '#/feedback'
+    case 'account': return '#/account'
     case 'turns': return '#/turns'
     case 'repos': return '#/repos'
     case 'projects': return `#/projects${r.project ? `/${e(r.project)}${r.tid ? `/t/${e(r.tid)}` : r.view ? `/${r.view}` : ''}` : ''}`

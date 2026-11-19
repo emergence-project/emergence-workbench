@@ -1,4 +1,4 @@
-// 설정 › 계정 › 시작 준비: 커밋 이름 · 이메일, 개인 저장소 주소, 에이전트 연결, TeX
+// 계정 › 시작 준비: 커밋 이름 · 이메일, 개인 저장소 주소, 에이전트 연결, TeX
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'

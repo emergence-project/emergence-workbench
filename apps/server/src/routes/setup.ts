@@ -1,4 +1,4 @@
-// 시작 준비 (설정 › 계정, 홈의 시작 준비 카드): 공개 저장소에서 앱을 받은 사람이 쓸 준비를 한 화면에서 마친다 (10/20 15:35 피드백)
+// 시작 준비 (계정, 홈의 시작 준비 카드): 공개 저장소에서 앱을 받은 사람이 쓸 준비를 한 화면에서 마친다 (10/20 15:35 피드백)
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'

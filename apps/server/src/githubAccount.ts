@@ -171,7 +171,7 @@ export class GithubAccount {
    */
   async createPrivateRepo(name: string, description: string, init = true): Promise<string> {
     const token = await this.token()
-    if (!token) throw new WorkbenchError(400, t('먼저 설정 › 계정에서 GitHub로 로그인해 주세요', 'Sign in with GitHub in Settings › Accounts first'))
+    if (!token) throw new WorkbenchError(400, t('먼저 계정에서 GitHub로 로그인해 주세요', 'Sign in with GitHub on the Account page first'))
     const res = await this.f('https://api.github.com/user/repos', {
       method: 'POST', headers: { ...UA, accept: 'application/vnd.github+json', authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify({ name, private: true, auto_init: init, description }), signal: AbortSignal.timeout(30_000),

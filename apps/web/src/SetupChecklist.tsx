@@ -14,7 +14,7 @@ import type { UiSettings } from '@rw/core'
 
 /**
  * 시작 준비 (10/20 15:35 피드백 "공개한 앱을 누가 받아도 바로 쓸 수 있게", 10/21 시안대로):
- * 설정 › 계정을 꼭 할 것(커밋 이름 · 내 이름과 소속 · 첫 프로젝트)과 선택(GitHub · 개인 저장소 · 에이전트 · TeX · 구글) 목록으로 보인다.
+ * 계정을 꼭 할 것(커밋 이름 · 내 이름과 소속 · 첫 프로젝트)과 선택(GitHub · 개인 저장소 · 에이전트 · TeX · 구글) 목록으로 보인다.
  * GitHub 로그인은 10/30 "누구나 쓰는 공개 앱"부터 선택: 「새로 만들기」로 GitHub 없이 시작할 수 있다.
  * 점 색은 상태 색 그대로: 청록 됨, 주황 할 차례, 회색 고리 선택(안 해도 됨). 홈은 꼭 할 것이 남았을 때만 카드 하나.
  * GitHub는 앱 안에서 로그인한다(기기 코드, 11/8). 이 컴퓨터의 gh · 키체인 로그인이 있으면 그것도 쓴다.
@@ -359,7 +359,7 @@ export function SetupHomeCard() {
     <div className="setup-home card" data-ui="시작 준비 카드">
       <span className="set-name">{t('시작 준비', 'Getting started')} <b className="setup-left">{done} / {must.length}</b></span>
       <span className="setup-desc">{t(`${left.map((m) => m.label).join(', ')}${subjectParticle(left[left.length - 1]!.label)} 남았습니다.`, `Left: ${left.map((m) => m.label.toLowerCase()).join(', ')}.`)}</span>
-      <button className="a" onClick={() => go({ page: 'settings', part: 'google' })}>{t('설정 › 계정 열기', 'Open Settings › Accounts')}</button>
+      <button className="a" onClick={() => go({ page: 'account' })}>{t('계정 열기', 'Open Account')}</button>
     </div>
     <ElsewhereHomeCard setup={setup.data} />
   </>)

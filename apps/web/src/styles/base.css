@@ -228,3 +228,10 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 /* 좁은 칸에서는 항목 행동을 늘 보여 준다. 넓은 본문 목록은 가리킬 때만 보인다. */
 :is(.rs, .pl-rs, .fg-rs) .hover-actions { opacity: 1; color: var(--text-3); }
 :is(.rs, .pl-rs, .fg-rs) .hover-actions .icon-btn:not(:hover):not(:focus-visible) { color: var(--text-3); }
+
+/* 계정 단추 (11/19): GitHub 사진 또는 이름 머리글자 동그라미, 끊긴 연결이 있으면 오른쪽 아래 빨간 점 */
+.rail-account { position: relative; width: 22px; height: 22px; display: grid; place-items: center; }
+.rail-account img, .rail-account-letters { width: 22px; height: 22px; border-radius: 50%; }
+.rail-account img { object-fit: cover; box-shadow: 0 0 0 1px var(--line); }
+.rail-account-letters { display: grid; place-items: center; background: var(--bg-sunken); color: var(--text-2); font-size: 10px; font-weight: var(--fw-strong); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.rail-account-dot { position: absolute; right: -2px; bottom: -2px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 2px var(--bg-side); }
