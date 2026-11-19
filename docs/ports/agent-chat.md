@@ -31,6 +31,7 @@ code:
 | server | `apps/server/src/routes/agentChats.ts` | HTTP 경로 `/api/agent-chats/*` |
 | web | `apps/web/src/api/agentChats.ts` | 위 경로의 클라이언트 |
 | web | `apps/web/src/AgentChats.tsx` | 대화 화면: 목록 · 항목 그리기 · 허락 카드 · 고친 파일 |
+| web | `apps/web/src/WorkAside.tsx` | 대화 오른쪽 칸: 세부 패널과 터미널 중 하나(`useSideColumn`, 머리의 목록 · `>_` 아이콘). 터미널은 옮길 앱에 셸이 있을 때만 |
 | web | `apps/web/src/ChatComposer.tsx` | 입력란: 붙이기 · `/` 명령 · `@` 파일 · 권한 · 모델 · 생각 깊이 |
 
 ## 저장 모양
@@ -49,6 +50,7 @@ code:
 4. **상태 기계.** `agentChats.ts`의 차례 돌리기: 보내기 → `running` → (허락 대기 `waiting`) → `idle`. 일하는 중 보낸 말은 `pending`에서 다음 차례로. 멈춤은 `interrupt()` 뒤 시간이 지나면 abort.
 5. **경로와 화면.** `routes/agentChats.ts`의 만들기 · 보내기 · 답하기 · 멈추기 · 이어 하기, 화면은 서버가 알리는 줄(SSE 등)로 다시 그린다.
 5-1. **동시에 도는 수.** 고정된 수 대신 컴퓨터 크기로 상한(`limit`, `appMemory.ts`의 `chatCap`)을 정하고, 그 안에서 남은 메모리로 하나 더 열지(`room`, `chatRoom`) 정한다. 메모리는 몇 초마다 재어 두고(`MemoryGauge`) 대화를 시작할 때는 그 값을 바로 쓴다. 줄 선 대화는 새 대화에 앞지르지 않고, 메모리가 풀리면 `drain()`이 시작한다.
+5-2. **묶어 맡긴 피드백.** 대화 하나가 피드백 여러 개를 맡을 수 있다(`feedback` = 첫 키, `bundle` = 모든 키, 11/19). 처리 기록을 쓰는 도구는 그때 `key`로 항목을 받는다. 묶는 규칙과 첫 지시는 `feedbackGroups.ts`.
 6. **다시 켰을 때.** 줄 선(`queued`) 대화는 줄 설 때 파일에 적어 둔 차례(`turn`)로 다시 줄을 선다(사용자의 새 지시를 잃지 않게). 일하던(`running`) 대화는 `stopped`로 두고 앱이 뜬 뒤 같은 `sessionId`로 "이어서" 한 번 보낸다(횟수 제한). 사용자 답을 기다리던(`waiting`) 대화는 깨우지 않는다. 동시에 도는 수(`limit`)에 들지 않는 대화(이 앱에서는 중앙 대화와 급한 앱 고치기)는 줄을 서지 않는다.
 
 ## 이 앱에만 있는 것

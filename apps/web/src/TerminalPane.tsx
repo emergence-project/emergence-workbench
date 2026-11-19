@@ -1,12 +1,13 @@
 // 오른쪽 사이드바 › 터미널: 이 컴퓨터의 셸 (서버 routes/terminal.ts). 사용자가 직접 치는 창이라 에이전트 권한과 상관없다.
 // 폰 · 다른 기기에서 연 화면은 서버가 막으므로 탭을 보이지 않는다. 고른 출력은 「대화에 붙이기」로 이 프로젝트의 에이전트 입력란에 붙인다
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Terminal, type ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { TerminalOutput, terminalApi, type TerminalInput } from './api'
 import { sendToAgent } from './ChatComposer'
 import { t } from './i18n'
+import { Icon } from './icons'
 import { openRight } from './noteScreen'
 import { qk } from './queries'
 
@@ -43,7 +44,7 @@ function parse(raw: unknown): TerminalOutput | null {
 /** 셸 하나. 열 때(다시 열기 포함)의 rid 폴더에서 연다: 프로젝트는 그 저장소, 중앙은 앱 저장소, 없거나 못 찾으면 홈 (서버 folderFor).
  *  rid가 바뀌어도 열린 셸은 그대로 둔다(사용자가 cd한 것을 바꾸지 않는다). 그때 「터미널에서 실행」은 넣기만 하고 열린 폴더를 알린다.
  *  attach면 고른 출력을 그 프로젝트 대화에 붙인다 */
-export function TerminalPane({ rid, attach: canAttach = false }: { rid?: string; attach?: boolean }) {
+export function TerminalPane({ rid, attach: canAttach = false, title = false, tools }: { rid?: string; attach?: boolean; title?: boolean; tools?: ReactNode }) {
   const box = useRef<HTMLDivElement>(null)
   const ridRef = useRef(rid)
   ridRef.current = rid
@@ -116,18 +117,25 @@ export function TerminalPane({ rid, attach: canAttach = false }: { rid?: string;
   return (
     <div className="term" data-ui="터미널">
       <div className="term-bar">
+        {title && <span className="term-title">{t('터미널', 'Terminal')}</span>}
         <span className="term-where mono" title={state.k === 'open' ? state.cwd : undefined}>
-          {state.k === 'open' ? folderName(state.cwd)
-            : state.k === 'connecting' ? t('여는 중…', 'Starting…')
-            : state.k === 'exit' ? t(`끝남 (${state.code})`, `Exited (${state.code})`)
-            : state.k === 'error' ? state.message : t('끊김', 'Disconnected')}
+          {state.k === 'open' ? folderName(state.cwd) : state.k === 'connecting' ? t('여는 중…', 'Starting…') : ''}
         </span>
         {note && <span className="term-note">{note}</span>}
         <span className="sp" />
         {rid && canAttach && <button className="btn sm" data-ui="터미널 출력 대화에 붙이기" disabled={!picked} title={t('고른 출력을 이 프로젝트의 에이전트 입력란에 붙입니다', 'Attach the selected output to this project\'s agent input')} onClick={attach}>{t('대화에 붙이기', 'Attach to chat')}</button>}
-        {ended && <button className="btn sm" data-ui="터미널 다시 열기" onClick={() => setSession((n) => n + 1)}>{t('다시 열기', 'Restart')}</button>}
+        {tools}
       </div>
-      <div className="term-screen" ref={box} />
+      <div className="term-screen" ref={box} hidden={ended} />
+      {/* 셸이 끝나면 가운데에 >_ · 까닭 · 「새 세션」 (11/19, Claude Code 앱의 빈 터미널 모양) */}
+      {ended && (
+        <div className="term-empty" data-ui="터미널 끝남">
+          <span className="term-empty-icon" aria-hidden>{Icon.terminal}</span>
+          <b>{state.k === 'exit' ? t(`셸이 끝났습니다 (${state.code})`, `The shell exited (${state.code})`) : state.k === 'error' ? state.message : t('셸과 연결이 끊겼습니다', 'The shell was disconnected')}</b>
+          <span className="muted">{t('새 세션은 지금 보는 프로젝트 폴더에서 엽니다', 'A new session opens in the folder of what you are viewing')}</span>
+          <button className="btn sm" data-ui="터미널 다시 열기" onClick={() => setSession((n) => n + 1)}>{t('새 세션', 'New session')}</button>
+        </div>
+      )}
     </div>
   )
 }

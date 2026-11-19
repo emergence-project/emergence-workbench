@@ -29,6 +29,8 @@ const mode = tiny<RightMode>(normalizeRightMode(store.get<string>(MODE_KEY, 'inf
 /** 에이전트 · 터미널 탭은 기억하지 않는다: 다시 열면 정보나 기록에서 시작한다(예전 패널도 닫힌 채 시작했다) */
 export function setRightMode(m: RightMode) { mode.set(m); if (m === 'info' || m === 'records') store.set(MODE_KEY, m) }
 export const useRightMode = () => useSyncExternalStore(mode.subscribe, mode.get)
+/** 지금 고른 갈래 (OPEN_RIGHT를 듣는 쪽이 읽는다) */
+export const rightModeNow = () => mode.get()
 
 /** 오른쪽 사이드바를 열고 그 갈래를 보여 달라 (App.tsx가 듣는다) */
 export const OPEN_RIGHT = 'rw:open-right'

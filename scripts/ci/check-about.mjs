@@ -1,7 +1,8 @@
 // 소개와 업데이트 1대1 (10/15 사용자 결정): 화면을 바꾼 PR은 소개도 같은 PR에서 고친다.
 // 소개 글은 절마다 파일 하나다: apps/web/src/about/<쪽>/<절>.tsx (한국어 ko와 영어 en이 한 파일에, prs는 ko에). 쪽 머리는 about/<쪽>.tsx.
 // - 화면 파일이 바뀌었는데 소개가 그대로면, 커밋 메시지에 "소개: 그대로 — 이유" 한 줄이 있어야 한다 (설정 › 업데이트 이력에 이유가 보인다)
-// - 소개를 고쳤고 PR 번호를 알면(CI), 고친 절의 prs에 그 번호가 있어야 한다 (소개 이력 보기의 업데이트 번호와 이력의 "소개" 칸이 서로 가리킨다)
+// - 소개를 고쳤고 PR 번호를 알면(CI), 고친 절에 그 번호가 있어야 한다 (소개 이력 보기의 업데이트 번호와 이력의 "소개" 칸이 서로 가리킨다):
+//   조각 파일 about/prs/<번호>.json(고친 절 "<쪽>/<절>" 목록, 11/20 · PR끼리 prs 줄에서 부딪히지 않게)이나 절 ko의 prs
 // 비교 기준: ABOUT_BASE(CI의 PR 기준 커밋), 없으면 origin/main과 갈라진 곳. 둘 다 없으면 건너뛴다.
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -11,8 +12,11 @@ import { fileURLToPath } from 'node:url'
 const ABOUT_DIR = 'apps/web/src/about'
 const ABOUT_FILES = ['apps/web/src/aboutContent.tsx', 'apps/web/src/aboutFigures.tsx']
 
-/** 소개 글 파일인가 (절·쪽 파일과 그것을 모으는 aboutContent.tsx) */
-export const isAboutText = (f) => f.startsWith(`${ABOUT_DIR}/`) || f === ABOUT_FILES[0]
+/** PR 번호 조각 파일 about/prs/<번호>.json의 번호 (아니면 undefined) */
+export const fragmentPr = (f) => Number(f.match(/^apps\/web\/src\/about\/prs\/(\d+)\.json$/)?.[1]) || undefined
+
+/** 소개 글 파일인가 (절·쪽 파일과 그것을 모으는 aboutContent.tsx; 번호 조각은 글이 아니다) */
+export const isAboutText = (f) => (f.startsWith(`${ABOUT_DIR}/`) && !f.startsWith(`${ABOUT_DIR}/prs/`)) || f === ABOUT_FILES[0]
 
 /** 사용자가 보는 화면 파일인가 (테스트와 소개 자체는 뺀다) */
 export const isScreenFile = (f) =>
@@ -29,12 +33,13 @@ export function checkAbout({ files, messages, aboutSource, pr }) {
   const problems = []
   const screens = files.filter(isScreenFile)
   const aboutChanged = files.some((f) => ABOUT_FILES.includes(f) || isAboutText(f))
+  const numbered = files.some((f) => fragmentPr(f) === pr) || prsIn(aboutSource).has(pr)
   if (screens.length && !aboutChanged && !sameNote(messages)) {
     problems.push(`화면 파일이 바뀌었는데 소개를 고치지 않았습니다 (${screens.slice(0, 5).join(', ')}${screens.length > 5 ? ' …' : ''}).\n  바뀐 화면을 설명하는 소개 절을 ${ABOUT_DIR}/<쪽>/<절>.tsx(한국어 ko · 영어 en)에서 고치거나, 소개가 그대로 맞으면 커밋 메시지에 "소개: 그대로 — 이유" 한 줄을 쓰세요.`)
   }
   // "소개: 그대로"를 쓴 PR(글을 옮기기만 한 정리 등)은 PR 번호를 적지 않는다
-  if (files.some(isAboutText) && pr && !sameNote(messages) && !prsIn(aboutSource).has(pr)) {
-    problems.push(`소개를 고쳤는데 어느 절에도 이 PR 번호가 없습니다. 고친 절 파일(${ABOUT_DIR}/<쪽>/<절>.tsx)의 ko prs에 ${pr}을 더하세요 (예: title: '흐름', id: 'flow', prs: [${pr}],).`)
+  if (files.some(isAboutText) && pr && !sameNote(messages) && !numbered) {
+    problems.push(`소개를 고쳤는데 어느 절에도 이 PR 번호가 없습니다. ${ABOUT_DIR}/prs/${pr}.json에 고친 절을 적으세요 (예: ["project/flow"]; 앱 고치기 대화는 app_submit이 적는다).`)
   }
   return problems
 }

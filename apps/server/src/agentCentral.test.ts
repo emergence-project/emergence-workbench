@@ -4,7 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { APP_RID } from '@rw/core/contract/agentChats'
-import { CENTRAL_BRIEF, CentralChats, criticalOf, digestOf, KID_REPORT_MAX, kidReport, lastReport } from './agentCentral.js'
+import { CENTRAL_BRIEF, CentralChats, criticalOf } from './agentCentral.js'
+import { digestOf, KID_REPORT_MAX, kidReport, kidSig, lastReport } from './agentCentralDigest.js'
 import { judge, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { APP_LIVE_CAP, appRoom, memLine, MEM_FREE_GB, PER_CHAT_GB } from './appMemory.js'
 import { sampleAppWork } from './appWorktree.js'
@@ -48,6 +49,15 @@ describe('하위 대화 요약', () => {
     expect(d).toContain('waiting for plan approval')
     expect(d).not.toContain('끝난 것')
     expect(digestOf([])).toContain('none open')
+  })
+  it('지난 차례 뒤 바뀌지 않은 대화는 id · 제목 · 상태 한 줄만 (11/20 토큰 아끼기)', () => {
+    const a = { id: 'a', rid: '_app', title: '그림', state: 'idle' as const, archived: false, pr: { number: 7, url: 'u' }, report: '- 바꾼 것: 가', reported: true, updated: '' }
+    const b = { ...a, id: 'b', title: '목록', report: '- 바꾼 것: 나' }
+    const d = digestOf([a, b], 0, new Map([['a', kidSig(a)], ['b', kidSig({ ...b, report: '옛 보고' })]]))
+    expect(d).toContain('- a · "그림" · done with its turn · unchanged')
+    expect(d).not.toContain('바꾼 것: 가')
+    expect(d).toContain('b · app · "목록" · done with its turn · PR #7 · report: - 바꾼 것: 나')
+    expect(digestOf([a], 0, new Map([['a', kidSig({ ...a, state: 'running' })]]))).not.toContain('unchanged')
   })
 })
 
@@ -114,6 +124,13 @@ describe('중앙과 하위 대화', () => {
     expect(p).toContain(`${kid.id} · app · "그림 안 보임" · done with its turn`)
     expect(p).not.toContain(CENTRAL_BRIEF.split('\n')[0]) // 세션이 이어지면 안내는 한 번만
     expect(p.endsWith('어떻게 됐어?')).toBe(true)
+
+    // 그 사이 바뀐 것이 없으면 다음 차례에는 한 줄만
+    chats.talk('그래서?')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    const p2 = seen.filter((s) => s.central).at(-1)!.prompt
+    expect(p2).toContain(`${kid.id} · "그림 안 보임" · done with its turn · unchanged`)
+    expect(p2).not.toContain('받음: 앱 그림이 안 보여')
     chats.stopAll()
   })
 

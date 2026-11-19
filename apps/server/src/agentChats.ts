@@ -94,6 +94,7 @@ export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { mod
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, withAlso, type PolicyCtx } from './agentPolicy.js'
 export * from './agentPrompts.js'
+import { handOffPlan, keysOf } from './feedbackGroups.js'
 import { appBriefFor, briefFor, feedbackPrompt, pictureImage, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
 
 export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
@@ -296,7 +297,7 @@ export class AgentChats {
     return { chats: [...this.chats.values()].filter((c) => LIVE.has(c.state)).map((c) => ({ id: c.id, rid: c.rid, title: c.title, state: c.state, scope: c.scope, claims: c.claims })) }
   }
 
-  create(b: NewChatBody, link: { feedback?: string; record?: { target: string; id: string }; parent?: string; urgent?: boolean } = {}, prompt?: string): Chat {
+  create(b: NewChatBody, link: { feedback?: string; bundle?: string[]; record?: { target: string; id: string }; parent?: string; urgent?: boolean } = {}, prompt?: string): Chat {
     const app = b.rid === APP_RID
     if (app && !this.deps.app) throw new WorkbenchError(404, t(`${HERE.ko}에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다`, `No app repository on ${HERE.en}, so app conversations are not available`))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
@@ -323,7 +324,7 @@ export class AgentChats {
       created: at,
       updated: at,
       items: [],
-      ...(link.feedback && { feedback: link.feedback }),
+      ...(link.feedback && { feedback: link.feedback }), ...(link.bundle && link.bundle.length > 1 && { bundle: [...link.bundle] }),
       ...(link.record && { record: { ...link.record } }), ...(link.parent && { parent: link.parent }), ...(link.urgent && { urgent: true }),
     }
     const account = accountForNew(this.deps.accounts, { rid: b.rid, agent: c.agent, feedback: link.feedback, account: b.account, app, central: b.rid === CENTRAL_RID }); if (account) c.account = account
@@ -587,24 +588,15 @@ export class AgentChats {
   }
 
   /**
-   * 피드백 하나를 새 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」). 같은 항목은 한 대화만:
-   * 그 피드백을 맡은 대화가 도는 중이면 거절한다. 에이전트 차례가 아닌 항목(사용자 차례 · 완료)도 거절한다.
+   * 피드백을 새 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」, 저절로 맡기기, 중앙). 여럿이면 한 대화에 묶는다
+   * (feedbackGroups.ts, 11/19). 같은 항목은 한 대화만: 그 피드백을 맡은 대화가 도는 중이면 거절한다. 에이전트 차례가 아닌 항목도 거절한다.
    */
-  handOff(key: string, parent?: string): Chat {
+  handOff(keys: string | string[], parent?: string): Chat {
     const fb = this.deps.feedback
     if (!this.deps.app || !fb) throw new WorkbenchError(404, t(`${HERE.ko}에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)`, `Feedback cannot be handed to an agent on ${HERE.en} (needs the app repository and a feedback folder)`))
     if (this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
-    const busy = [...this.chats.values()].find((c) => c.feedback === key && LIVE.has(c.state))
-    if (busy) throw new WorkbenchError(409, t(`이 피드백을 맡은 대화(「${busy.title}」)가 일하는 중입니다`, `A conversation ("${busy.title}") is already working on this feedback`))
-    const e = listAllFeedback(fb.dir).find((x) => x.key === key)
-    if (!e) throw new WorkbenchError(404, t('그 피드백을 찾지 못했습니다', 'That feedback was not found'))
-    const reasons = agentTurnReasons(e)
-    if (!reasons.length) throw new WorkbenchError(400, t('에이전트 차례가 아닌 피드백입니다', 'This feedback is not the agent\'s turn'))
-    const picture = e.picture ? path.join(fb.dir, e.picture) : undefined
-    const title = `${t('피드백', 'Feedback')} · ${(e.status?.clean ?? e.text).replace(/\s+/g, ' ').trim()}`.slice(0, 60)
-    const has = picture && fs.existsSync(picture) ? picture : undefined
-    const images = has ? pictureImage(has) : undefined
-    return this.create({ rid: APP_RID, text: feedbackPrompt(e, reasons, has), title, mode: 'edit', ...(images && { images }) }, { feedback: key, ...(parent && { parent }) })
+    const p = handOffPlan(listAllFeedback(fb.dir), fb.dir, typeof keys === 'string' ? [keys] : keys, (key) => [...this.chats.values()].find((c) => keysOf(c).includes(key) && LIVE.has(c.state))?.title)
+    return this.create({ rid: APP_RID, text: p.text, title: p.title, mode: 'edit', ...(p.images.length && { images: p.images }) }, { feedback: p.keys[0], bundle: p.keys, ...(parent && { parent }) })
   }
 
   /**
@@ -615,7 +607,10 @@ export class AgentChats {
     const c = this.must(id)
     const fb = this.deps.feedback
     if (!c.feedback || !fb) throw new WorkbenchError(400, t('피드백을 맡은 대화가 아닙니다', 'This conversation has no feedback item'))
-    const e = listAllFeedback(fb.dir).find((x) => x.key === c.feedback)
+    const key = b.key ?? c.feedback
+    if (!keysOf(c).includes(key)) throw new WorkbenchError(400, t(`이 대화가 맡은 피드백이 아닙니다 (맡은 것: ${keysOf(c).join(', ')})`, `Not a feedback item of this conversation (its items: ${keysOf(c).join(', ')})`))
+    if (!b.key && keysOf(c).length > 1) throw new WorkbenchError(400, t('묶어 맡긴 대화는 key로 어느 항목인지 적어 주세요', 'This conversation has several items: pass key'))
+    const e = listAllFeedback(fb.dir).find((x) => x.key === key)
     if (!e) throw new WorkbenchError(404, t('맡은 피드백을 찾지 못했습니다', 'The feedback item was not found'))
     let pictures: string[] | undefined
     if (b.after) {
@@ -628,7 +623,7 @@ export class AgentChats {
       fs.writeFileSync(path.join(fb.dir, name), png)
       pictures = e.picture && fs.existsSync(path.join(fb.dir, e.picture)) ? [e.picture, name] : undefined
     }
-    const r = writeFeedbackAnswer(fb.dir, c.feedback, {
+    const r = writeFeedbackAnswer(fb.dir, key, {
       ...(b.state && { state: b.state }),
       ...(b.note && { note: b.note }),
       ...(b.understood && { understood: b.understood }),
@@ -643,7 +638,7 @@ export class AgentChats {
     })
     fb.written?.()
     this.touch(c)
-    return { key: c.feedback, ...(r.state && { state: r.state }), ...(pictures && { pictures }), replies: r.replies }
+    return { key, ...(r.state && { state: r.state }), ...(pictures && { pictures }), replies: r.replies }
   }
 
   /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */
@@ -1163,7 +1158,7 @@ export const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })
