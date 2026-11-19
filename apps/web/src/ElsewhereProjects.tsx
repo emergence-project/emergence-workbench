@@ -13,7 +13,7 @@ type Item = SetupView['elsewhere'][number]
 /**
  * 다른 컴퓨터의 프로젝트 (10/21 사용자 "새 컴퓨터에 원래 프로젝트가 나와야, 최소한 받을지 물어야" → 결정 "목록을 보이고 묻기").
  * 개인 저장소에 올린 다른 컴퓨터의 목록 중 이 컴퓨터에 없는 것. 프로젝트마다 받기(이미 받을 곳에 있으면 등록), 모두 받기.
- * 설정 › 계정 › 시작 준비에 늘, 홈에는 카드로(닫으면 목록이 바뀔 때까지 숨김).
+ * 계정 › 시작 준비에 늘, 홈에는 카드로(닫으면 목록이 바뀔 때까지 숨김).
  */
 export function useElsewhere() {
   const client = useQueryClient()
@@ -67,7 +67,7 @@ function ProjectRow({ p, busy, error, onFetch }: { p: Item; busy: string | null;
   )
 }
 
-/** 설정 › 계정 › 시작 준비의 절 */
+/** 계정 › 시작 준비의 절 */
 export function ElsewhereSection({ setup }: { setup?: SetupView }) {
   const { busy, errors, fetch, fetchAll } = useElsewhere()
   const items = setup?.elsewhere ?? []
@@ -110,7 +110,7 @@ export function ElsewhereHomeCard({ setup }: { setup?: SetupView }) {
         {shown.map((p) => <ProjectRow key={p.folder} p={p} busy={busy} error={errors[p.folder]} onFetch={() => void fetch(p)} />)}
       </div>
       <div className="elsewhere-foot">
-        {items.length > shown.length && <button className="a" onClick={() => go({ page: 'settings', part: 'google' })}>{t(`${items.length - shown.length}개 더 보기`, `${items.length - shown.length} more`)}</button>}
+        {items.length > shown.length && <button className="a" onClick={() => go({ page: 'account' })}>{t(`${items.length - shown.length}개 더 보기`, `${items.length - shown.length} more`)}</button>}
         <span className="sp" />
         <button className="btn primary" disabled={!!busy} onClick={() => void fetchAll(items)}>{busy === '*' ? t('받는 중…', 'Downloading…') : allLabel(items)}</button>
       </div>

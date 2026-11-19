@@ -126,11 +126,12 @@ export function claudeAccount(env: NodeJS.ProcessEnv = process.env, home = os.ho
 
 /** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_merge · app_checks · feedback_answer를 더한다) */
 /** central = 중앙 대화 안에서 열 때 (chat_list · chat_open · chat_send · chat_close를 더한다, 11/16) */
-export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; central?: boolean; account?: string } = {}): McpServer {
+/** chat = 중앙이 아닌 앱 안 대화의 id (central_help를 더한다, 11/19) */
+export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; central?: boolean; chat?: string; account?: string } = {}): McpServer {
   const target = opts.baseUrl ? { url: opts.baseUrl, key: opts.key } : serverTarget()
   const base = target.url.replace(/\/$/, '')
   const f0 = opts.fetch ?? fetch
-  // 앱이 에이전트 연결을 알아보게 (설정 › 계정 › 시작 준비, agentSeen.ts)
+  // 앱이 에이전트 연결을 알아보게 (계정 › 시작 준비, agentSeen.ts)
   // Claude 계정 id도 붙인다: 변경사항의 기준이 계정마다 (한 맥에 계정이 둘이어도 섞이지 않게, 10/27)
   const account = opts.account !== undefined ? opts.account || undefined : claudeAccount()
   const f: Fetch = (url, init) => {
@@ -496,6 +497,20 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
       if (!r.ok) return r.error
       const b = r.body as { state?: string; pictures?: string[]; replies: number }
       return text(`Recorded${b.state ? ` ${b.state}` : ''}${b.pictures ? ` with pictures ${b.pictures.join(', ')}` : ''}${b.replies ? `, ${b.replies} replies` : ''}. The feedback screen shows it now.`)
+    })
+  }
+
+  // 중앙이 아닌 앱 안 대화 (11/19 사용자 "대화중에 다른 영역 · 앱 버그가 발생하면 중앙에 중재를 요청"): 고칠 수 없는 곳의 일을 중앙에게 넘긴다
+  if (opts.chat && !opts.central) {
+    const chat = opts.chat
+    server.registerTool('central_help', {
+      title: 'Ask the central conversation',
+      description: 'Ask the central conversation to mediate when the work needs something this conversation cannot do: a change in a project it may not change or in a concept note (those are read-only here), or a bug in the app itself. Say what should change, where and why, in a few lines. The central conversation is woken right away and opens the conversation that owns it or asks the user. Keep doing the rest of your own work.',
+      inputSchema: { text: z.string().max(4000).describe('What should change, where and why') },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    }, async ({ text: s }) => {
+      const r = await post(base, f, '/api/agent-central/help', { chat, text: s })
+      return r.ok ? text('Sent to the central conversation. Continue with your own work; it handles this.') : r.error
     })
   }
 

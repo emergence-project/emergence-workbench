@@ -58,7 +58,8 @@ export const CENTRAL_BRIEF = [
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
   '- Each message starts with a short status of your sub-conversations. Mention one only when the user must act or it finished.',
-  '- The app wakes you by itself (a message marked "Automatic wake-up", not written by the user) when a sub-conversation ends its turn, waits for plan approval or permission, its pull request check fails, or its pull request is merged. Do the routine work then without asking:',
+  '- The app wakes you by itself (a message marked "Automatic wake-up", not written by the user) when a sub-conversation ends its turn, waits for plan approval or permission, its pull request check fails, or its pull request is merged, and when any conversation asks you to mediate (central_help). Do the routine work then without asking:',
+  '  - asks to mediate: a conversation changes only the projects it was given; work in another project or a concept note, and app bugs it found, come to you. Open the sub-conversation that owns it (role project or role app) with the user\'s goal and what it asked, or tell the user when they must decide.',
   '  - check failed: chat_send it "Find the cause and fix it" with what the log shows.',
   '  - pull request merged: chat_close it with a three-line summary from its report: what was done, where the result is, what is left.',
   '  - it waits for plan approval or permission that is not critical: decide from what the user asked and answer with chat_answer (allow, or deny with a note on what to do instead). The app records that you answered.',
@@ -154,7 +155,7 @@ export function digestOf(kids: CentralKid[], held = 0): string {
 }
 
 /** 깨울 까닭 하나 */
-type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged'; log?: string }
+type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help'; log?: string; text?: string }
 type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number> }
 
 export class CentralChats extends FeedbackChats {
@@ -237,13 +238,27 @@ export class CentralChats extends FeedbackChats {
     else if (ended) this.note(c.id, { kind: 'end' }, `end:${c.id}:${c.items.length}`)
   }
 
-  /** 깨울 까닭 하나를 적는다 (같은 것은 한 번만) */
+  /** 깨울 까닭 하나를 적는다 (같은 것은 한 번만. 중재 요청은 쌓는다) */
   private note(id: string, e: Wake, sig: string): void {
     const w = this.w()
     if (w.seen.has(sig)) return
     w.seen.add(sig)
-    w.events.set(id, [...(w.events.get(id) ?? []).filter((x) => x.kind !== e.kind), e])
+    w.events.set(id, [...(w.events.get(id) ?? []).filter((x) => x.kind === 'help' || x.kind !== e.kind), e])
     this.wakeLater()
+  }
+
+  /**
+   * 대화가 중앙에게 중재를 청한다 (central_help, 11/19): 고칠 수 없는 다른 프로젝트 · 개념노트의 일이나 앱 버그.
+   * 그 대화가 일하는 중이어도 바로 알린다. 중앙 대화가 없으면 409 (에이전트는 사용자에게 말한다)
+   */
+  help(id: string, text: string): string {
+    const k = this.must(id)
+    const c = this.central()
+    if (!c) throw new WorkbenchError(409, t('중앙 대화가 아직 없습니다. 사용자에게 직접 말하세요', 'There is no central conversation yet. Tell the user instead'))
+    if (k.id === c.id) throw new WorkbenchError(400, t('중앙 대화 자신은 중재를 청하지 않습니다', 'The central conversation does not ask itself'))
+    const w = this.w()
+    this.note(id, { kind: 'help', text }, `help:${id}:${w.seen.size}:${text}`)
+    return c.id
   }
 
   private wakeLater(): void {
@@ -277,8 +292,12 @@ export class CentralChats extends FeedbackChats {
     const en: string[] = []
     for (const [id, evs] of w.events) {
       const k = this.chats.get(id)
-      if (k && (k.state === 'running' || k.state === 'queued')) continue
-      w.events.delete(id)
+      // 다시 일하는 대화는 끝날 때 다시 알린다. 중재 요청은 일하는 중에 보낸 것이라 바로
+      const busy = !!k && (k.state === 'running' || k.state === 'queued')
+      if (busy && !evs.some((e) => e.kind === 'help')) continue
+      const later = busy ? evs.filter((e) => e.kind !== 'help') : []
+      if (later.length) w.events.set(id, later)
+      else w.events.delete(id)
       if (!k || k.archived) continue
       const head = `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}"${k.pr ? ` · PR #${k.pr.number}` : ''}`
       // 보고 절이 있으면 그것을 줄바꿈 그대로, 없으면 마지막 글 (보고를 빠뜨린 대화)
@@ -286,7 +305,12 @@ export class CentralChats extends FeedbackChats {
       const report = own ? undefined : lastReport(k.items, REPORT_FULL)
       const lines: string[] = []
       for (const e of evs) {
-        if (e.kind === 'end') {
+        if (busy && e.kind !== 'help') continue
+        if (e.kind === 'help') {
+          ko.push(`「${k.title}」 중재 요청`)
+          lines.push(`asks you to mediate (outside the projects it may change, or an app bug)${k.parent === this.central()?.id ? '' : ' — not your sub-conversation, so chat_send cannot reach it'}: ${cut(e.text ?? '', REPORT_FULL)}`)
+          lines.push('Open a sub-conversation for it (role app for an app bug, role project for another project; check chat_list first), or tell the user when the user must decide.')
+        } else if (e.kind === 'end') {
           if (k.state === 'waiting') continue
           ko.push(`「${k.title}」 ${k.state === 'error' ? '실패' : k.state === 'stopped' ? '멈춤' : '차례 끝남'}`)
           lines.push(`ended its turn (${stateWord[k.state] ?? k.state})`)

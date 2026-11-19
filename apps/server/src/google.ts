@@ -38,7 +38,7 @@ const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3'
 export const SYNC_FILE = 'research-workspace.json'
 
 interface ClientConfig { clientId: string; clientSecret: string }
-const EXPIRED = () => tx('구글 연결이 끊겼습니다(로그인이 만료됨). 설정 › 계정에서 다시 연결해 주세요.', 'The Google connection expired. Connect again in Settings › Accounts.')
+const EXPIRED = () => tx('구글 연결이 끊겼습니다(로그인이 만료됨). 계정에서 다시 연결해 주세요.', 'The Google connection expired. Connect again on the Account page.')
 
 interface TokenFile {
   access_token: string
@@ -49,7 +49,7 @@ interface TokenFile {
   /** 구글 계정의 이름과 사진 주소 (profile 권한) */
   name?: string
   picture?: string
-  /** 로그인 때 구글 계정으로 채운 것 (설정 › 계정에 한 줄로 보인다) */
+  /** 로그인 때 구글 계정으로 채운 것 (계정에 한 줄로 보인다) */
   filled?: { at: string; items: ('name' | 'email' | 'photo')[] }
   /** 동기화를 한 번이라도 맞췄는지 (불러오기 또는 올리기). 그 전에는 저절로 올리지 않는다: 새 컴퓨터의 빈 설정이 구글의 설정을 덮지 않게 */
   synced?: boolean
@@ -68,7 +68,7 @@ export interface GoogleStatus {
   mock: boolean
   synced: boolean
   clientId?: string
-  /** 로그인이 만료되었거나 끊김: 설정 › 계정에서 다시 연결해야 한다 */
+  /** 로그인이 만료되었거나 끊김: 계정에서 다시 연결해야 한다 */
   expired?: true
 }
 

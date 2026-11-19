@@ -5,7 +5,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Attach, Chat, ChatItem, ChatMode, ChatScope, ChatWrite, ImageIn } from '@rw/core/contract/agentChats'
-import { APP_CHECKS, APP_MERGE, APP_SUBMIT, clip, EXPLORE_AGENT, FEEDBACK_ANSWER, PLAN_TOOL, scopeDir } from './agentPolicy.js'
+import { APP_CHECKS, APP_MERGE, APP_SUBMIT, clip, EXPLORE_AGENT, FEEDBACK_ANSWER, HELP_TOOL, PLAN_TOOL, scopeDir } from './agentPolicy.js'
 import type { FeedbackListItem } from './feedback.js'
 import { t } from './i18n.js'
 
@@ -54,10 +54,13 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
 
 export function briefFor(o: { rid: string; title: string; scope: ChatScope; write: ChatWrite; mode?: ChatMode; others: { title: string; claims: string[] }[]; agent?: string; parent?: boolean }): string {
   const claude = !o.agent || o.agent === 'claude-code'
-  const scope = o.scope.kind === 'project' ? 'the whole project' : o.scope.kind === 'all' ? 'every registered project and the knowledge library (this conversation belongs to this project)' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
+  const also = o.scope.kind === 'project' ? o.scope.also ?? [] : []
+  const scope = o.scope.kind === 'project' ? (also.length ? `the whole project, and also the projects ${also.join(', ')} (pass project to the workbench tools)` : 'the whole project') : o.scope.kind === 'all' ? 'every registered project and the knowledge library (this conversation belongs to this project)' : `${o.scope.kind} ${o.scope.target} (folder ${scopeDir(o.scope)})`
+  // 고른 프로젝트만 고치고, 그 밖의 프로젝트 · 개념노트 · 앱 버그는 중앙 대화에 넘긴다 (11/19 사용자 결정)
+  const outside = `You cannot change anything outside the scope (other projects and concept notes are read-only). When the work needs a change there, or you find a bug in the app itself, call the workbench MCP tool ${HELP_TOOL} with what should change, where and why: the central conversation mediates (if it says there is none, tell the user instead). Then go on with your own work.`
   const lines = [
     `You are working inside Emergence Workbench on the project "${o.title}" (project id ${o.rid}). The current folder is its repository.`,
-    `Scope: ${scope}. ${o.scope.kind === 'all' ? 'Read any project when the work needs it. Changing another project or a concept note asks the user each time; change only what the work needs there.' : 'Read outside the scope only when the work needs it. You cannot change anything outside the scope: say what should change, where and why, and stop there.'}`,
+    `Scope: ${scope}. ${o.scope.kind === 'all' ? 'Read any project when the work needs it. Changing another project or a concept note asks the user each time; change only what the work needs there.' : `Read outside the scope only when the work needs it. ${outside}`}`,
     o.write === 'read'
       ? 'This conversation is read-only: do not change notes, records or files. Commands that change files are blocked; reading and running commands follow the user\'s permission switches (the app may ask).'
       : 'Change notes only with the workbench MCP tool edit_note (read_note first, pass its hash as baseHash); the user reviews each changed paragraph. Records: add_record / answer_record. Editing files directly is blocked; prefer edit_note over shell edits so the user can review them. Commands follow the user\'s permission switches: deleting and anything outside the project folders (git push, installs, downloads) always asks.',

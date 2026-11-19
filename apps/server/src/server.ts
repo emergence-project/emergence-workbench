@@ -235,7 +235,7 @@ if (process.env.RW_SANDBOX === '1') {
 const backup = bundled && process.env.RW_SANDBOX !== '1'
   ? { dir: path.join(configDir, 'backup'), remote: null, intervalMs: 10 * 60_000, settings: path.join(configDir, 'config.yaml') }
   : appRepo && personal ? { dir: path.join(configDir, 'backup'), remote: personal, intervalMs: 60 * 60_000, settings: path.join(configDir, 'config.yaml') } : undefined
-// 내려받은 앱: git 전체 설정에 이름 · 이메일이 없으면 이 컴퓨터의 사용자 이름으로 커밋한다 (git.ts setFallbackIdentity, 설정 › 계정에서 바꿈)
+// 내려받은 앱: git 전체 설정에 이름 · 이메일이 없으면 이 컴퓨터의 사용자 이름으로 커밋한다 (git.ts setFallbackIdentity, 계정에서 바꿈)
 if (bundled && process.env.RW_SANDBOX !== '1') {
   const global = (key: string) => { try { return execFileSync('git', ['config', '--global', key], { windowsHide: true }).toString().trim() } catch { return '' } }
   if (!global('user.name') || !global('user.email')) {

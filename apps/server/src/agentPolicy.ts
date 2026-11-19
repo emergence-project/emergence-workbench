@@ -48,7 +48,7 @@ export interface PolicyCtx {
   /** 묻지 않고 읽는 다른 폴더 (공용 라이브러리 · 등록한 다른 프로젝트) */
   readable: string[]
   /** 다른 대화가 잡은 파일이면 그 대화 이름 */
-  claimedBy: (file: string) => string | undefined
+  claimedBy: (file: string, project?: string) => string | undefined
   /** 「자동 허용」 토글 (읽기 · 실행 · 웹 보기, 지금 값: 차례 중에 「늘」로 켜면 바로) */
   auto?: () => ChatAutoValues
   /** 「늘」로 허락한 실행 프로그램 열쇠 (run:<프로그램>) */
@@ -80,6 +80,14 @@ export function scopeDir(scope: ChatScope): string {
   return ''
 }
 
+/** 새 대화의 범위: 함께 고칠 프로젝트(also)는 겹치지 않게, 이 대화의 프로젝트는 빼고, 하나씩 check(등록 안 했으면 던짐)로 본다 (11/19) */
+export function withAlso(asked: ChatScope, rid: string, check: (rid: string) => unknown): ChatScope {
+  const also = asked.kind === 'project' ? [...new Set(asked.also ?? [])].filter((r) => r !== rid) : []
+  for (const r of also) check(r)
+  const { also: _drop, ...scope } = asked
+  return also.length ? { ...scope, also } : scope
+}
+
 /** 저장소 기준 경로가 범위 안인지 */
 export function inScope(scope: ChatScope, rel: string): boolean {
   const d = scopeDir(scope)
@@ -92,12 +100,22 @@ export function inScope(scope: ChatScope, rel: string): boolean {
 export const pathOf = (input: Record<string, unknown>) => str(input.file_path) || str(input.notebook_path) || str(input.path)
 
 /** 에이전트가 쓴 도구 한 줄 요약과 범위 밖인지 (대화에 보일 것) */
+/** 이 대화가 고칠 수 있는 프로젝트: 제 프로젝트와 함께 고른 것 (11/19 사용자 결정, 그 밖은 읽기만) */
+export function changeable(ctx: Pick<PolicyCtx, 'rid' | 'scope'>): string[] {
+  return [ctx.rid, ...(ctx.scope.kind === 'project' ? ctx.scope.also ?? [] : [])]
+}
+function canChange(ctx: Pick<PolicyCtx, 'rid' | 'scope'>, project: string): boolean {
+  return changeable(ctx).includes(project)
+}
+/** 범위 밖 일 · 앱 버그를 중앙 대화에 넘기는 도구 (mcp.ts) */
+export const HELP_TOOL = 'central_help'
+
 export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, tool: string, input: Record<string, unknown>): { tool: string; summary: string; outside?: boolean } {
   if (tool.startsWith(MCP)) {
     const name = tool.slice(MCP.length)
     const project = str(input.project)
     const file = str(input.file)
-    const outside = (project && project !== ctx.rid && ctx.scope.kind !== 'all') || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
+    const outside = (project && project !== ctx.rid && ctx.scope.kind !== 'all' && !canChange(ctx, project)) || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
     const what = [project && project !== ctx.rid ? project : '', file || str(input.id) || str(input.target) || str(input.query) || str(input.section) || str(input.title) || str(input.state)].filter(Boolean).join(' · ')
     return { tool: name, summary: clip(what), ...(outside && { outside }) }
   }
@@ -247,9 +265,10 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
       }
     }
     const project = str(input.project)
+    const other = !!project && project !== ctx.rid
     // 지식 라이브러리의 대화(개념노트 기록에서 연 대화)는 개념노트가 제 범위다
-    if ((name === 'edit_concept' && ctx.rid !== LIBRARY_RID) || (project && project !== ctx.rid)) {
-      // 전체 범위: 이 대화의 프로젝트 밖을 고칠 때마다 묻는다 (고친 것은 여전히 수정 검토를 거친다)
+    if ((name === 'edit_concept' && ctx.rid !== LIBRARY_RID) || (other && !canChange(ctx, project))) {
+      // 전체 범위(중앙 대화 · 옛 대화): 이 대화의 프로젝트 밖을 고칠 때마다 묻는다 (고친 것은 여전히 수정 검토를 거친다)
       if (ctx.scope.kind === 'all') {
         const where = name === 'edit_concept' ? t('개념노트', 'Concept note') : project
         const what = describeStep(ctx, tool, input).summary
@@ -257,29 +276,31 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
       }
       return {
         kind: 'deny',
-        reason: t('이 대화의 범위 밖이라 고치지 않습니다', 'Outside this conversation\'s scope'),
-        message: `That is outside this conversation's scope (project ${ctx.rid}). Do not change it; tell the user what should change and where, so the conversation that owns it can do it.`,
+        reason: t('이 대화가 고치는 프로젝트 밖이라 읽기만 합니다', 'Outside the projects this conversation changes: read only'),
+        message: `That is outside the projects this conversation may change (${changeable(ctx).join(', ')}); other projects and concept notes are read-only here. Do not change it. If the work needs it, call ${HELP_TOOL} so the central conversation can hand it to the right conversation, or tell the user what should change and where.`,
       }
     }
     if (name === 'edit_note') {
       const file = str(input.file)
-      if (!inScope(ctx.scope, file)) {
+      if (!other && !inScope(ctx.scope, file)) {
         return {
           kind: 'deny',
           reason: t(`범위 밖 노트라 고치지 않습니다: ${file}`, `Note outside this conversation's scope: ${file}`),
           message: `${file} is outside this conversation's scope (${scopeDir(ctx.scope)}). Do not change it; tell the user what should change there and why.`,
         }
       }
-      const other = ctx.claimedBy(file)
-      if (other) {
+      const by = other ? ctx.claimedBy(file, project) : ctx.claimedBy(file)
+      if (by) {
         return {
           kind: 'deny',
-          reason: t(`다른 대화(「${other}」)가 고치는 중인 파일입니다: ${file}`, `Another conversation ("${other}") is changing ${file}`),
-          message: `Another conversation ("${other}") is changing ${file} right now. Do not change it; finish what you can and tell the user.`,
+          reason: t(`다른 대화(「${by}」)가 고치는 중인 파일입니다: ${file}`, `Another conversation ("${by}") is changing ${file}`),
+          message: `Another conversation ("${by}") is changing ${file} right now. Do not change it; finish what you can and tell the user.`,
         }
       }
-      if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`노트 고치기: ${file}`, `Edit note: ${file}`), key: `edit_note:${file}`, label: t(`노트 고치기 · ${file}`, `Edit note · ${file}`), claim: file }
-      return { kind: 'allow', claim: file }
+      const claim = other ? `${project}:${file}` : file
+      const at = other ? `${project} · ${file}` : file
+      if (ctx.mode === 'ask') return { kind: 'ask', summary: t(`노트 고치기: ${at}`, `Edit note: ${at}`), key: `edit_note:${claim}`, label: t(`노트 고치기 · ${at}`, `Edit note · ${at}`), claim }
+      return { kind: 'allow', claim }
     }
     if (ctx.mode === 'ask') return { kind: 'ask', summary: `${name} · ${describeStep(ctx, tool, input).summary}`, key: name, label: name }
     return { kind: 'allow' }

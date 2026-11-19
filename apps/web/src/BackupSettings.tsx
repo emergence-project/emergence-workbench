@@ -14,11 +14,11 @@ export function BackupSettings() {
   const [err, setErr] = useState<string | null>(null)
   const load = () => backupApi.status().then(setSt).catch((e: Error) => setErr(e.message))
   useEffect(() => { void load() }, [])
-  // 설치판은 계정 동기화가 계정 저장소를 정한다 (설정 › 계정의 GitHub 로그인)
+  // 설치판은 계정 동기화가 계정 저장소를 정한다 (계정의 GitHub 로그인)
   const bundled = !!useQuery({ queryKey: qk.account, queryFn: accountApi.get }).data?.sync
   if (!st) return <p className="muted">{err ?? t('백업 상태를 읽는 중…', 'Reading backup status…')}</p>
-  if (!st.enabled && bundled) return <p className="set-desc" style={{ maxWidth: 'none' }}>{t('아직 백업하지 않습니다. 설정 › 계정에서 GitHub로 로그인하면 계정의 비공개 저장소에 앱 설정과 이 컴퓨터의 프로젝트 목록을 10분마다 올립니다.', 'Not backing up yet. Sign in with GitHub under Settings › Accounts, and app settings and this computer\'s project list go to a private repository in your account every 10 minutes.')}</p>
-  if (!st.enabled) return <p className="set-desc" style={{ maxWidth: 'none' }}>{t('개인 저장소를 정하지 않아 백업하지 않습니다. 설정 › 계정 › 시작 준비의 "개인 저장소"에서 정하면 다음에 앱을 다시 시작할 때부터 한 시간마다 맞춥니다. (개발용 예제 모드에서는 하지 않습니다.)', 'No personal repository is set, so nothing is backed up. Set one under Settings › Accounts › Getting started, "Personal repository"; syncing every hour starts the next time the app restarts. (Sample mode for development never backs up.)')}</p>
+  if (!st.enabled && bundled) return <p className="set-desc" style={{ maxWidth: 'none' }}>{t('아직 백업하지 않습니다. 계정에서 GitHub로 로그인하면 계정의 비공개 저장소에 앱 설정과 이 컴퓨터의 프로젝트 목록을 10분마다 올립니다.', 'Not backing up yet. Sign in with GitHub on the Account page, and app settings and this computer\'s project list go to a private repository in your account every 10 minutes.')}</p>
+  if (!st.enabled) return <p className="set-desc" style={{ maxWidth: 'none' }}>{t('개인 저장소를 정하지 않아 백업하지 않습니다. 계정 › 시작 준비의 "개인 저장소"에서 정하면 다음에 앱을 다시 시작할 때부터 한 시간마다 맞춥니다. (개발용 예제 모드에서는 하지 않습니다.)', 'No personal repository is set, so nothing is backed up. Set one on the Account page › Getting started, "Personal repository"; syncing every hour starts the next time the app restarts. (Sample mode for development never backs up.)')}</p>
   const last = st.last
   const every = st.minutes && st.minutes < 60 ? { ko: `${st.minutes}분마다`, en: `every ${st.minutes} minutes` } : { ko: '한 시간마다', en: 'every hour' }
   return (
