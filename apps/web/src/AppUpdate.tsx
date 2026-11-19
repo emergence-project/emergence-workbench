@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { req, type AppStatus } from './api'
+import { req, type AppStatus, type WorkbenchEvent } from './api'
 import type { NewRelease } from '@rw/core/contract/app'
 import { anyPending } from './autosave'
 import { go } from './router'
@@ -37,33 +37,65 @@ const UPDATE_WAIT_MS = 22 * 60_000
 /** 자동 업데이트 (10/9 "쉴 때 · 버튼"): 입력 없이 이만큼 지나고 저장할 것이 없으면, 빌드해 둔 새 버전으로 다시 시작한다 */
 export const IDLE_RESTART_MS = 5 * 60_000
 const IDLE_CHECK_MS = 30_000
+/** 화면만 바꿔 끼운 새 버전 (11/19): 입력 없이 이만큼 지나거나 창이 가려지면, 저장할 것이 없을 때 새로 고친다 */
+const SCREEN_IDLE_MS = 60_000
 
 let state: State = { enabled: null, status: null, phase: 'idle', message: null, error: null, failed: null, bundled: false, release: null }
 const listeners = new Set<() => void>()
 const set = (patch: Partial<State>) => { state = { ...state, ...patch }; listeners.forEach((l) => l()) }
 let lastCheck = 0
+/** 이 창이 읽은 화면의 커밋 (처음 받은 상태의 running). 서버가 화면만 바꿔 끼우면 running이 이것과 달라진다 */
+let loaded: string | null = null
+
+/** 서버 프로세스가 켜질 때의 커밋 (옛 서버는 started가 없어 running) */
+const startedOf = (s: AppStatus) => s.started ?? s.running
+/** 서버가 다시 켜지지 않은 채 화면만 새 버전으로 바뀌었는지: 새로 고치면 보인다 */
+export const newScreen = (s: AppStatus | null) => !!s && loaded !== null && s.running !== loaded
+
+/** 받은 상태를 적는다. 다른 창(또는 쉴 때)이 앱을 다시 시작했으면 새 코드로 화면을 다시 읽는다 */
+function applyStatus(b: { enabled?: boolean; status?: AppStatus; bundled?: unknown; release?: NewRelease | null }): boolean {
+  if (state.status && b.status && startedOf(b.status) !== startedOf(state.status) && !anyPending()) { location.reload(); return false }
+  if (b.status && loaded === null) loaded = b.status.running
+  set({ enabled: !!b.enabled, status: b.status ?? null, bundled: !!b.bundled, release: b.release ?? null })
+  if (newScreen(state.status) && document.visibilityState === 'hidden') reloadScreen()
+  return true
+}
+
+/** 화면만 바뀐 새 버전을 읽는다. 저장할 것이 있으면 미룬다 (레일의 「새로 고침」은 그대로 남는다) */
+export function reloadScreen(): void { if (!anyPending()) location.reload() }
 
 export async function checkAppUpdate(): Promise<void> {
   if (state.phase !== 'idle' || state.enabled === false && !state.bundled) return
   lastCheck = Date.now()
   set({ phase: 'checking', error: null })
   try {
-    const b = await (await req('/api/app/status?fetch=1')).json()
-    // 다른 창(또는 쉴 때)이 앱을 다시 시작했으면 새 코드로 화면을 다시 읽는다
-    if (state.status && b.status && b.status.running !== state.status.running && !anyPending()) { location.reload(); return }
-    set({ enabled: !!b.enabled, status: b.status ?? null, bundled: !!b.bundled, release: b.release ?? null })
+    applyStatus(await (await req('/api/app/status?fetch=1')).json())
   } catch (e) { set({ error: (e as Error).message }) } finally { set({ phase: 'idle' }) }
+}
+
+/** App.tsx의 알림 처리: 앱 알림(화면을 바꿔 끼움 · 다시 시작 대기)이면 다 다루었다고 true. 에이전트 대화가 바뀌면 다시 시작을 기다리는 대화 수만 새로 읽는다 */
+export function appUpdateEvent(e: WorkbenchEvent): boolean {
+  if (e.type === 'agent-chat') void refreshAppStatus(true)
+  if (e.type !== 'app') return false
+  void refreshAppStatus()
+  return true
+}
+
+/** 서버의 알림(app)이나 에이전트 대화가 바뀔 때: GitHub는 다시 확인하지 않고 상태만 다시 읽는다 (다시 시작 대기 중인 대화 수 등) */
+async function refreshAppStatus(onlyWaiting = false): Promise<void> {
+  if (state.phase !== 'idle' || !state.enabled || onlyWaiting && state.status?.waitingAgents === undefined) return
+  try { applyStatus(await (await req('/api/app/status')).json()) } catch { /* 다음 확인에서 */ }
 }
 
 const RESTART_TIMEOUT = t('2분 안에 다시 켜지지 않았습니다. 터미널에서 pnpm service:logs로 확인해 주세요', 'The app did not come back within 2 minutes. Check pnpm service:logs in a terminal')
 
 /** 새 코드로 다시 켜질 때까지 기다렸다가 화면을 새로 읽는다. 2분 안에 켜지지 않으면 false */
-async function waitForRestart(old: string): Promise<boolean> {
+async function waitForRestart(old: AppStatus): Promise<boolean> {
   for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 1000))
     try {
       const s = await (await fetch('/api/app/status')).json()
-      if (s.status && s.status.running !== old) { location.reload(); return true }
+      if (s.status && startedOf(s.status) !== startedOf(old)) { location.reload(); return true }
     } catch { /* 다시 시작하는 중 */ }
   }
   return false
@@ -76,7 +108,19 @@ async function restartWhenIdle(): Promise<void> {
   const res = await req('/api/app/restart', { method: 'POST' }).catch(() => null)
   if (!res?.ok) return
   set({ phase: 'restarting', message: t('쉬는 동안 새 버전으로 다시 시작합니다', 'Restarting into the new version while idle') })
-  if (!(await waitForRestart(status.running))) { set({ phase: 'idle' }); await checkAppUpdate(); set({ failed: RESTART_TIMEOUT }) }
+  if (!(await waitForRestart(status))) { set({ phase: 'idle' }); await checkAppUpdate(); set({ failed: RESTART_TIMEOUT }) }
+}
+
+/** 「지금 다시 시작」: 일하는 에이전트 대화를 기다리지 않는다. 돌던 차례는 다시 켜진 뒤 같은 세션으로 이어 간다 */
+export async function restartNow(): Promise<void> {
+  const status = state.status
+  if (!status || state.phase !== 'idle') return
+  set({ phase: 'restarting', error: null, failed: null, message: null })
+  try {
+    const res = await req('/api/app/restart', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ force: true }) })
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? t(`다시 시작하지 못했습니다 (${res.status})`, `Could not restart (${res.status})`))
+    if (!(await waitForRestart(status))) throw new Error(RESTART_TIMEOUT)
+  } catch (e) { set({ phase: 'idle' }); await checkAppUpdate(); set({ failed: e instanceof Error ? e.message : String(e) }) }
 }
 
 export async function runAppUpdate(): Promise<void> {
@@ -92,9 +136,11 @@ export async function runAppUpdate(): Promise<void> {
     const b = await res.json().catch(() => ({ error: t(`업데이트 요청이 실패했습니다 (${res.status})`, `Update request failed (${res.status})`) }))
     if (!res.ok) throw new Error(b.error)
     set({ message: b.message })
+    // 화면만 바뀐 새 버전: 서버는 그대로 돌고, 이 창만 새로 읽으면 된다
+    if (b.swapped) { set({ phase: 'idle' }); applyStatus({ enabled: true, status: b.status }); reloadScreen(); return }
     if (!b.restarting) { set({ status: b.status, phase: 'idle', failed: b.status && b.status.head !== b.status.running ? b.message : null }); return }
     set({ phase: 'restarting' })
-    if (!(await waitForRestart(status.running))) await fail(RESTART_TIMEOUT)
+    if (!(await waitForRestart(status))) await fail(RESTART_TIMEOUT)
   } catch (e) {
     await fail(abort.signal.aborted ? t(`${UPDATE_WAIT_MS / 60_000}분이 지나도 업데이트가 끝나지 않았습니다. 터미널에서 pnpm service:logs로 확인해 주세요`, `The update did not finish within ${UPDATE_WAIT_MS / 60_000} minutes. Check pnpm service:logs in a terminal`) : (e as Error).message)
   } finally { clearTimeout(timer) }
@@ -134,7 +180,10 @@ export function AppUpdateRail() {
     const onInput = () => { lastInput = Date.now() }
     const inputs = ['keydown', 'pointerdown', 'wheel'] as const
     for (const e of inputs) window.addEventListener(e, onInput, { passive: true, capture: true })
-    const idle = setInterval(() => { if (Date.now() - lastInput >= IDLE_RESTART_MS) void restartWhenIdle() }, IDLE_CHECK_MS)
+    const idle = setInterval(() => {
+      if (newScreen(state.status) && Date.now() - lastInput >= SCREEN_IDLE_MS) reloadScreen()
+      else if (Date.now() - lastInput >= IDLE_RESTART_MS) void restartWhenIdle()
+    }, IDLE_CHECK_MS)
     return () => {
       clearInterval(timer); clearInterval(idle)
       window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus)
@@ -155,27 +204,43 @@ export function AppUpdateRail() {
     )
   }
   const busy = s.phase === 'updating' || s.phase === 'restarting'
-  if (!busy && !hasNew(s.status)) return null
-
   const st = s.status
+  // 화면만 바꿔 끼운 새 버전 (11/19): 누르면 새로 고친다. 쉬거나 창을 가리면 저절로 새로 고친다
+  if (!busy && newScreen(st) && !hasNew(st)) {
+    const label = t('새 화면 · 새로 고침', 'New screens · Reload')
+    return (
+      <button className="rail-btn rail-update tip-right ready" data-ui="새 버전 버튼" data-tip={t(`${label}: 서버는 다시 켜지 않았습니다. 눌러서 새 화면 읽기`, `${label}: the server did not restart. Click to load the new screens`)} aria-label={label} onClick={() => location.reload()}>
+        {Icon.update}
+        <span className="rail-update-dot" aria-hidden />
+      </button>
+    )
+  }
+  if (!busy && !hasNew(st)) return null
+
   const ok = canUpdate(st)
   const fixed = st?.resolved?.length ?? 0
   let label = fixed ? t(`새 버전 · 피드백 ${fixed}건`, `New version · ${plural(fixed, 'feedback item')}`) : t('새 버전', 'New version')
   if (s.phase === 'updating') label = t('업데이트 중…', 'Updating…')
   else if (s.phase === 'restarting') label = t('다시 시작 중…', 'Restarting…')
   else if (s.failed) label = t('업데이트 안 됨 · 이유 보기', 'Update failed · See why')
+  else if (st?.waitingAgents !== undefined) label = t('업데이트 대기 중', 'Update waiting')
   else if (!ok) label = t('새 버전 · 확인 필요', 'New version · Needs review')
   else if (st?.prepared && !fixed) label = t('새 버전 · 다시 시작', 'New version · Restart')
   const tip = busy ? label : s.failed ?? s.error ?? st?.blocked ?? (st?.fetchError ? t(`GitHub를 확인하지 못했습니다: ${st.fetchError}`, `Could not check GitHub: ${st.fetchError}`) : null) ?? `${label}: ${st?.prepared ? t('눌러서 다시 시작', 'click to restart') : t('눌러서 받고 다시 시작', 'click to update and restart')}`
 
   return (
     <button className={`rail-btn rail-update tip-right${ok && !s.error && !s.failed ? ' ready' : ''}${busy ? ' busy' : ''}`} data-ui="새 버전 버튼" data-tip={tip} aria-label={label} disabled={busy}
-      onClick={() => { if (ok && !s.error && !s.failed) void runAppUpdate(); else go({ page: 'settings' }) }}>
+      onClick={() => { if (ok && !s.error && !s.failed && st?.waitingAgents === undefined) void runAppUpdate(); else go({ page: 'settings' }) }}>
       {Icon.update}
       {!busy && <span className="rail-update-dot" aria-hidden />}
     </button>
   )
 }
+/** 다시 시작이 일하는 에이전트 대화를 기다리는 동안 (11/19): 모두 쉬면 저절로 다시 시작한다 */
+const waitingLine = (n: number) => n > 0
+  ? t(`업데이트 대기 중 (일하는 대화 ${n}개 끝나면 다시 시작)`, `Update waiting (restarts once ${plural(n, 'working conversation')} finish)`)
+  : t('업데이트 대기 중 (곧 다시 시작)', 'Update waiting (restarting shortly)')
+
 export function AppUpdate() {
   const { enabled, status, phase, message, error, failed, bundled, release } = useAppUpdateState()
   useEffect(() => { void checkAppUpdate() }, [])
@@ -192,6 +257,8 @@ export function AppUpdate() {
   else if (phase === 'restarting') line = t('앱을 다시 시작하는 중… 켜지면 화면을 새로 읽습니다', 'Restarting the app… The page reloads when it is back')
   else if (!status) line = t('상태를 알 수 없습니다', 'Status unknown')
   else if (status.fetchError) line = t(`GitHub를 확인하지 못했습니다: ${status.fetchError}`, `Could not check GitHub: ${status.fetchError}`)
+  else if (status.waitingAgents !== undefined) line = waitingLine(status.waitingAgents)
+  else if (newScreen(status) && !pending && status.behind === 0) line = t('화면만 바뀐 새 버전으로 바꿨습니다. 새로 고치면 보입니다 (서버와 에이전트 대화는 그대로)', 'Swapped in a version that only changes the screens. Reload to see it (the server and agent conversations kept running)')
   else if (status.behind > 0) line = t(`새 버전이 있습니다 (커밋 ${status.behind}개)`, `A new version is available (${plural(status.behind, 'commit')})`)
   else if (pending && status.prepared) line = t('새 버전을 받아 두었습니다. 쉬는 동안 자동으로 다시 시작합니다', 'The new version is ready. It restarts on its own while you are idle')
   else if (pending) line = t('받은 새 버전이 아직 반영되지 않았습니다', 'The pulled version is not applied yet')
@@ -212,7 +279,12 @@ export function AppUpdate() {
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
           <button className="btn" disabled={busy} onClick={() => void checkAppUpdate()}>{t('다시 확인', 'Check again')}</button>
-          <button className="btn primary" disabled={busy || !canUpdate(status)} onClick={() => void runAppUpdate()}>{t('업데이트하고 다시 시작', 'Update and restart')}</button>
+          {status?.waitingAgents !== undefined
+            ? <button className="btn primary" data-ui="지금 다시 시작" disabled={busy} onClick={() => void restartNow()}
+                title={t('일하는 대화를 기다리지 않고 다시 시작합니다. 돌던 차례는 다시 켜진 뒤 이어 갑니다', 'Restart without waiting. Running turns resume after the restart')}>{t('지금 다시 시작', 'Restart now')}</button>
+            : newScreen(status) && !pending && status?.behind === 0
+              ? <button className="btn primary" onClick={() => location.reload()}>{t('새로 고침', 'Reload')}</button>
+              : <button className="btn primary" disabled={busy || !canUpdate(status)} onClick={() => void runAppUpdate()}>{t('업데이트하고 다시 시작', 'Update and restart')}</button>}
         </div>
       </div>
       {status?.resolved && status.resolved.length > 0 && (

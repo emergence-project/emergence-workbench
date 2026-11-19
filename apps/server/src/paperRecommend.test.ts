@@ -81,3 +81,35 @@ describe('추천 논문: 같은 논문 · 다시 묻기', () => {
     expect(calls).toBe(4)
   })
 })
+
+describe('추천 논문: 관심 분야 (분류에서 고르기)', () => {
+  const tagged = (key: string, eprint: string, subjects: string[], opened: number): PaperRow => ({ ...row(key, { eprint }, 0, opened), subjects })
+  it('고른 분야마다 그 분류(하위 포함)의 논문을 번갈아 기준으로 삼고, 추천에 어느 분야인지 붙인다', async () => {
+    usePaperFetcher(async (url) => url.includes('0000.00001') ? recs({ ArXiv: '0000.00011' }, { ArXiv: '0000.00012' })
+      : url.includes('0000.00003') ? recs({ ArXiv: '0000.00031' })
+      : recs({ ArXiv: '0000.00099' }))
+    const papers = [tagged('a', '0000.00001', ['math/graph'], 3), tagged('b', '0000.00002', ['phys'], 2), tagged('c', '0000.00003', ['cs/ml'], 1)]
+    const interests = { chosen: ['math', 'cs'], choices: [], hash: '' }
+    const r = await recommendPapers(papers, 0, interests)
+    expect(r.seeds).toBe(2)
+    expect(r.picks.map((p) => [p.id, p.from])).toEqual([['0000.00011', 'math'], ['0000.00031', 'cs'], ['0000.00012', 'math']])
+    expect(r.interests).toBe(interests)
+  })
+
+  it('분류 나무가 있으면 recommend.yaml에 고른 것을 적고, 나무에 없는 분류는 받지 않는다', async () => {
+    setup('interests')
+    const lib = app.registry.libraryPath!
+    fs.writeFileSync(path.join(lib, 'subjects.yaml'), 'math:\n  name: Mathematics\nmath/graph:\n  name: Graph Theory\ncs:\n  name: Computer Science\n')
+    usePaperFetcher(async () => new Response('', { status: 404 }))
+    const before = (await app.inject({ method: 'GET', url: '/api/papers/recommend' })).json()
+    expect(before.interests.chosen).toEqual([])
+    expect(before.interests.choices).toEqual([{ id: 'math', name: 'Mathematics' }, { id: 'cs', name: 'Computer Science' }])
+    expect((await app.inject({ method: 'PUT', url: '/api/papers/interests', payload: { interests: ['nope'], baseHash: before.interests.hash } })).statusCode).toBe(400)
+    const saved = (await app.inject({ method: 'PUT', url: '/api/papers/interests', payload: { interests: ['math/graph'], baseHash: before.interests.hash } })).json()
+    expect(saved.chosen).toEqual(['math/graph'])
+    expect(saved.choices.at(-1)).toEqual({ id: 'math/graph', name: 'Mathematics › Graph Theory' })
+    expect(fs.readFileSync(path.join(lib, 'recommend.yaml'), 'utf8')).toBe('interests:\n  - math/graph\n')
+    // 옛 해시로는 고치지 않는다 (다른 맥이 먼저 바꿨을 때)
+    expect((await app.inject({ method: 'PUT', url: '/api/papers/interests', payload: { interests: [], baseHash: before.interests.hash } })).statusCode).toBe(409)
+  })
+})

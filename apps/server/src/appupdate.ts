@@ -33,6 +33,10 @@ export interface AppStatus {
   resolved: ResolvedFeedback[]
   /** 받은 커밋(head)을 미리 빌드해 두어 다시 시작만 하면 되는지 */
   prepared: boolean
+  /** 이 서버 프로세스가 켜질 때의 커밋. 화면만 바꿔 끼우면 running만 바뀌고 이것은 그대로다 (routes/settings.ts가 채운다) */
+  started?: string
+  /** 다시 시작이 일하는 에이전트 대화를 기다리는 중이면 그 대화 수 (routes/settings.ts가 채운다) */
+  waitingAgents?: number
 }
 
 export interface ResolvedFeedback {
@@ -163,17 +167,45 @@ export function nextBuildOf(root: string): string | null {
 /** 서버가 켜질 때: 지금 커밋으로 미리 빌드해 둔 화면이 있으면 dist로 바꿔 단다. 바꿔 달았으면 true */
 export function promoteNextBuild(root: string, running: string): boolean {
   if (nextBuildOf(root) !== running) return false
-  const next = path.join(root, NEXT_DIR)
-  const dist = path.join(root, 'apps/web/dist')
-  fs.rmSync(nextMarker(root), { force: true })
-  fs.rmSync(dist, { recursive: true, force: true })
-  fs.renameSync(next, dist)
+  swapNextBuild(root, false)
   return true
 }
 
+/**
+ * dist-next를 dist로 바꿔 단다. keepAssets면 옛 dist의 assets/ 조각(이름에 해시가 붙어 겹치지 않는다)을 새 dist에 남겨,
+ * 아직 옛 화면을 연 창이 나중에 읽는 조각도 찾게 한다 (서버를 다시 켜지 않고 바꿔 끼울 때)
+ */
+export function swapNextBuild(root: string, keepAssets: boolean): void {
+  const next = path.join(root, NEXT_DIR)
+  const dist = path.join(root, 'apps/web/dist')
+  const old = path.join(root, 'apps/web/dist-old')
+  fs.rmSync(nextMarker(root), { force: true })
+  fs.rmSync(old, { recursive: true, force: true })
+  if (fs.existsSync(dist)) fs.renameSync(dist, old)
+  fs.renameSync(next, dist)
+  const oldAssets = path.join(old, 'assets')
+  if (keepAssets && fs.existsSync(oldAssets)) {
+    fs.mkdirSync(path.join(dist, 'assets'), { recursive: true })
+    for (const f of fs.readdirSync(oldAssets)) {
+      const to = path.join(dist, 'assets', f)
+      if (!fs.existsSync(to)) fs.renameSync(path.join(oldAssets, f), to)
+    }
+  }
+  fs.rmSync(old, { recursive: true, force: true })
+}
+
+/**
+ * 서버를 다시 켜지 않고 화면만 바꿔 끼워도 되는 파일 (11/19 사용자 결정 "앱에서 에이전트가 동작하면서 앱이 업데이트"):
+ * 화면 코드(apps/web, package.json은 빼고), 문서, 피드백, CI 설정, 맨 위의 .md. 서버가 돌면서 읽는 코드(apps/server · packages · scripts)와
+ * 의존성(package.json · 잠금 파일)이 하나라도 바뀌면 다시 시작한다.
+ */
+const WEB_ONLY = [/^apps\/web\/(?!package\.json$)/, /^docs\//, /^feedback\//, /^\.github\//, /^[^/]+\.md$/]
+export const webOnlyPaths = (paths: string[]): boolean => paths.filter(Boolean).every((p) => WEB_ONLY.some((r) => r.test(p)))
+
 export class UpdateError extends Error {}
 
-export interface UpdateResult { status: AppStatus; restarting: boolean; message: string }
+/** swapped: 화면만 바뀐 새 버전이라 다시 시작하지 않고 화면을 바꿔 끼웠다 (status.running이 새 커밋) */
+export interface UpdateResult { status: AppStatus; restarting: boolean; message: string; swapped?: boolean }
 
 /**
  * GitHub의 새 커밋을 받아 의존성·화면을 갖추고 다시 시작한다. 받을 것이 없어도 아직 반영 안 된 커밋이 있으면 다시 시작한다.
@@ -218,6 +250,11 @@ async function updateAppNow(root: string, running: string, steps: UpdateSteps, r
     } catch (e) {
       throw new UpdateError(t(`코드는 받았지만 ${deps ? '설치·' : ''}빌드에 실패했습니다. 지금 앱은 이전 버전으로 계속 돕니다: ${buildReason(e)}`, `The code was pulled, but the ${deps ? 'install or ' : ''}build failed. The app keeps running the previous version: ${buildReason(e)}`))
     }
+  }
+  // 화면만 바뀌었으면 서버를 다시 켜지 않는다: 에이전트 대화와 처리 중인 일이 그대로 이어진다
+  if (webOnlyPaths((await git(root, 'diff', '--name-only', running, head)).split('\n'))) {
+    swapNextBuild(root, true)
+    return { status: await inspect(root, head, false), restarting: false, swapped: true, message: t('화면만 바뀐 새 버전이라 다시 시작하지 않고 바꿨습니다', 'Only the screens changed, so they were swapped in without a restart') }
   }
   if (!restart) return { status: await inspect(root, running, false), restarting: false, message: t('새 버전을 받아 두었습니다. 다시 시작하면 반영됩니다', 'The new version is ready. Restart to apply it') }
   const restarting = steps.restart()
