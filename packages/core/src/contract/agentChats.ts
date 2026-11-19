@@ -426,6 +426,11 @@ export type CentralHelped = z.infer<typeof CentralHelped>
 export type CentralOpened = z.infer<typeof CentralOpened>
 export type CentralAnswerBody = z.infer<typeof CentralAnswerBody>
 
+/** GET · POST /agent-central/memo: 중앙 메모 (11/16 시안 §6 · §9 ⑤): 사용자가 정한 오래 갈 사실. where = personal(개인 저장소, 두 맥이 함께) · local(이 컴퓨터만) */
+export const CentralMemo = z.object({ text: z.string(), where: z.enum(['personal', 'local']), updated: z.string().optional() }).strict()
+export const CentralMemoBody = z.object({ text: z.string().max(4000) }).strict()
+export type CentralMemo = z.infer<typeof CentralMemo>
+
 // ---------- 시안 (11/19 "시안을 화면에서 바로") ----------
 
 /** GET /agent-mockups/:dir: 앱 고치기 대화 작업 폴더의 mockups/ 안 파일 이름 (그림 · html · css) */

@@ -6,6 +6,8 @@ import { LIBRARY_RID } from '@rw/core'
 import fs from 'node:fs'
 import { MCP_NAME, type AgentRunner } from '../agentChats.js'
 import { CentralChats } from '../agentCentral.js'
+import { publishPaths } from '../pathsync.js'
+import { assertPrivateRemote } from '../personalRepo.js'
 import { registerAgentCentral } from './agentCentral.js'
 import { registerClaudeAccounts } from './claudeAccounts.js'
 import { ClaudeAccounts } from '../claudeAccounts.js'
@@ -48,8 +50,15 @@ function injectFetch(app: FastifyInstance): typeof fetch {
   }) as typeof fetch
 }
 
+/** 중앙 메모 파일 (시안 §9 ⑤): 개인 저장소가 있으면 agent/central-memo.md로 두고 써지면 올린다, 없으면 이 컴퓨터 설정 폴더 */
+const MEMO_PATH = 'agent/central-memo.md'
+
 export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): CentralChats {
   const { registry, broadcast, repoPath } = ctx
+  const personal = ctx.opts.personalDir
+  const centralMemo = () => personal
+    ? { file: path.join(personal, MEMO_PATH), where: 'personal' as const, publish: async () => { await assertPrivateRemote(personal); await publishPaths(personal, [MEMO_PATH], { message: 'Update central memo' }) } }
+    : { file: path.join(registry.configDir, 'central-memo.md'), where: 'local' as const }
   // 저절로 맡기기는 한 컴퓨터만: 개인 저장소에 맡은 컴퓨터를 적어 올린 뒤 맡는다 (feedbackClaims.ts, 10/22). 개인 저장소가 없으면 이 컴퓨터만 쓰는 것으로 본다
   const fbDir = ctx.opts.feedbackDir
   const pull = ctx.opts.feedbackSync
@@ -92,8 +101,10 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
       const changed = edits.length ? [t('고친 곳 (아래 「고친 곳 검토」에서 승인):', 'Changed (approve under "Review changes" below):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''
       agentAnswer(ctx.recordsRoot(rid), rec.target, rec.id, 'claude', [text, changed].filter(Boolean).join('\n\n'))
     },
-  })
+  }, centralMemo())
   ctx.agentChats = chats
+  // 오래된 대화 정리 (11/16 시안 §6): 끝나고 7일 지난 대화를 보관하고 요약 · 압축한다. 1시간마다 (예제 · 시험은 돌리지 않는다)
+  if (!runner) repeat(app, { first: 5 * 60_000, every: 60 * 60_000, run: () => chats.tidy() })
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
   if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
   if (appWork && ctx.opts.feedbackDir) ctx.feedbackSaved = () => void chats.pickFeedback().catch(() => undefined)

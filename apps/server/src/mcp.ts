@@ -564,6 +564,12 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
       inputSchema: { id: z.string().describe('Sub-conversation id from chat_list'), text: z.string() },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => kidCall('/api/agent-central/send', a, 'Sent'))
+    server.registerTool('memo_write', {
+      title: 'Central memo',
+      description: 'Rewrite the central memo: lasting facts and rules the user set ("from now on X is Y"), read at the start of every central conversation and shown to the user in Settings › Agents. Send the whole memo (it replaces the old one): short lines, at most 4000 characters, no task progress.',
+      inputSchema: { text: z.string().max(4000).describe('The whole memo') },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    }, async (a) => { const r = await post(base, f, '/api/agent-central/memo', a); return r.ok ? text('Memo saved') : r.error })
     server.registerTool('chat_answer', {
       title: 'Answer for the user',
       description: 'Answer a plan approval or permission request a sub-conversation waits on (chat_list shows ask id), from what the user asked. Only non-critical ones: the app refuses critical ones (merging, restarting the app, deleting or overwriting, sending outside, changing research or concept notes, money or accounts) — leave those to the user. The card shows that you answered.',

@@ -240,6 +240,16 @@ export function recordDraftPrompt(c: Pick<Chat, 'title' | 'scope' | 'items' | 't
   ].join('\n')
 }
 
+/** 보관할 때 결과 요약 (11/16 시안 §6): 작은 모델이 서너 줄로. 정본이 아니라 색인이다 */
+export function endSummaryPrompt(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' | 'changed'>): string {
+  return [
+    'Summarize the finished agent conversation below (Emergence Workbench) for a list of old conversations, without tools.',
+    'Write in Korean, plain text, three short lines and nothing else: 1) what was asked and done, 2) where the result is (pull request, note, record, file), 3) what is left ("남은 일 없음" if nothing). Use only what is in the conversation.',
+    '',
+    ...chatDigest(c),
+  ].join('\n')
+}
+
 /** 대화를 작은 모델에게 줄 글로: 제목 · 범위 · 할 일 · 바뀐 파일과 뒤에서부터 지시 · 에이전트 글 (모두 SIDE_CHARS자 안으로) */
 function chatDigest(c: Pick<Chat, 'title' | 'scope' | 'items' | 'todos' | 'changed'>): string[] {
   const lines: string[] = []

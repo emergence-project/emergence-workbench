@@ -189,6 +189,8 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-line-dot { flex: none; width: 10px; display: inline-flex; justify-content: center; }
 .ac-line-dot .g-name { display: none; }
 .ac-line-meta { padding-left: calc(10px + var(--sp-2)); }
+/* 보관한 대화의 결과 요약 첫 줄 (11/16 정리 · 압축) */
+.ac-line-sum { font-size: var(--fs-2xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; padding-left: calc(10px + var(--sp-2)); }
 /* 보관함: 사이드바 맨 아래에 붙은 상자 아이콘 하나로 열고 닫는다. 목록이 짧으면 바닥에, 길면 스크롤해도 아래에 붙음 */
 .side-scroll:has(> .ac-list) { display: flex; flex-direction: column; }
 .side-scroll > .ac-list { flex: 1 0 auto; }

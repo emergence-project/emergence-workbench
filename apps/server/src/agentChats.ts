@@ -97,6 +97,7 @@ import { appBriefFor, briefFor, promptFor, recordDraftPrompt, reviewPrompt, side
 
 export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
 import { commandEdits, editOf, fileEditOf, todosOf } from './agentItems.js'
+import { packFile, unpack } from './agentTidy.js'
 
 // ---------- 대화들 ----------
 
@@ -110,6 +111,7 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   /** 이번 차례의 계획을 승인했는지 */
   planOk?: boolean
   archived?: boolean
+  /** 보관하며 압축해 둔 원문 줄 수 (agentTidy.ts): 열면 다시 푼다 */ packed?: number
   /** 마지막으로 지시에 붙인 사용자 화면 한 줄 (promptFor: 바뀔 때만 다시 붙인다) */ view?: string
   /** 앱 고치기 대화의 작업 폴더 */ worktree?: string
   /** 피드백 대화: CI가 빨개 실패 기록을 다시 보낸 횟수와 마지막으로 본 실패 (같은 실패를 두 번 보내지 않게) */
@@ -546,7 +548,7 @@ export class AgentChats {
     if (LIVE.has(c.state)) throw new WorkbenchError(409, t('도는 대화는 지울 수 없습니다. 먼저 멈춰 주세요', 'Stop the conversation before deleting it'))
     this.aborts.get(id)?.abort()
     this.chats.delete(id)
-    fs.rmSync(this.fileOf(id), { force: true })
+    for (const f of [this.fileOf(id), packFile(this.deps.dir, id)]) fs.rmSync(f, { force: true })
     if (c.worktree && this.deps.app) void this.deps.app.dispose(c.worktree).catch(() => undefined)
   }
 
@@ -659,6 +661,7 @@ export class AgentChats {
   protected must(id: string): Stored {
     const c = this.chats.get(id)
     if (!c) throw new WorkbenchError(404, t(`대화가 없음: ${id}`, `No such conversation: ${id}`))
+    if (c.packed) unpack(this.deps.dir, c)
     return c
   }
 
@@ -667,7 +670,7 @@ export class AgentChats {
     return path.join(this.deps.dir, `${id}.json`)
   }
 
-  private write(c: Stored): void {
+  protected write(c: Stored): void {
     if (c.items.length > MAX_ITEMS) c.trimmed = (c.trimmed ?? 0) + c.items.splice(0, c.items.length - MAX_ITEMS).length
     fs.writeFileSync(this.fileOf(c.id), JSON.stringify({ ...c, draft: undefined }, null, 1))
   }

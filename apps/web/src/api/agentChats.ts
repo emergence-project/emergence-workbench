@@ -2,8 +2,8 @@
 import { enc, json, req, send } from './http'
 
 // 타입은 서버와 같은 계약에서 (packages/core/src/contract/agentChats.ts)
-import type { AskAnswer, CentralState, ChatAgents, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, MockupFiles, NewChatBody, RecordDraft, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
-export type { AgentKind, CentralKid, CentralState, AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AskAnswer, CentralMemo, CentralState, ChatAgents, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, MockupFiles, NewChatBody, RecordDraft, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
+export type { AgentKind, CentralKid, CentralMemo, CentralState, AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 
 /** 앱 고치기 대화의 rid (계약의 APP_RID와 같은 값. 값을 가져오면 화면 번들에 zod가 들어가서 여기 다시 적는다) */
 export const APP_RID = '_app'
@@ -30,6 +30,9 @@ export const agentChatsApi = {
   create: (body: NewChatBody) => req(base, send('POST', body)).then(one),
   /** 중앙 대화 id와 하위 대화 (11/16) */
   central: () => req('/api/agent-central').then((r) => json<CentralState>(r)),
+  /** 중앙 메모: 사용자가 정한 오래 갈 사실 (11/16 시안 §6) */
+  memo: () => req('/api/agent-central/memo').then((r) => json<CentralMemo>(r)),
+  setMemo: (text: string) => req('/api/agent-central/memo', send('POST', { text })).then((r) => json<CentralMemo>(r)),
   /** 중앙에게 말하기 (중앙이 없으면 연다) */
   talk: (text: string, view?: string) => req('/api/agent-central/messages', send('POST', { text, view })).then(one),
   /** 이어서 지시 (일하는 중이면 다음 차례에 읽는다) */

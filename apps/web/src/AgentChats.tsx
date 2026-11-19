@@ -135,7 +135,7 @@ export function ChatLine({ c, on, onOpen, actions = false, pick }: { c: ChatRow;
         {!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{stateName(c)}
         {(c.added > 0 || c.removed > 0) && <> · <Delta added={c.added} removed={c.removed} /></>}
         {` · ${relativeTime(Date.parse(c.updated))}`}
-      </span>
+      </span>{c.archived && c.summary && <span className="ac-line-sum" data-ui="결과 요약">{c.summary.split('\n')[0]}</span>}
     </button>
   )
   if (!actions || pick) return line

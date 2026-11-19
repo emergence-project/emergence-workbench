@@ -13,8 +13,10 @@
  *   앱이 다시 켜지면 아직 보내지 않은 깨우기는 사라진다 (CI · 합쳐짐은 1분마다 tickCentral이 다시 찾는다).
  */
 import { agentTurnReasons, agentTurns, userTurn } from '@rw/core'
-import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
-import { APP_CHECKS, APP_SUBMIT, LIVE, handedAt, lastTouched, promptOf, type Stored } from './agentChats.js'
+import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralMemo, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
+import { APP_CHECKS, APP_SUBMIT, LIVE, handedAt, lastTouched, promptOf, rowOf, type AgentChatsDeps, type Stored } from './agentChats.js'
+import { endSummaryPrompt } from './agentPrompts.js'
+import { due, memoBlock, pack, readMemo, TIDY_SUMMARIES, writeMemo, type CentralMemoDeps } from './agentTidy.js'
 import { listAllFeedback } from './feedback.js'
 import { bundlesOf, keysOf } from './feedbackGroups.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
@@ -80,6 +82,9 @@ export class CentralChats extends FeedbackChats {
   private opening?: Promise<void>
   // 부모 생성자가 touch를 부를 수 있어 필드 초기값 대신 처음 쓸 때 만든다
   private wakeState?: WakeState
+  /** 중앙 세션에 마지막으로 넘긴 메모 (바뀌면 다음 말에 다시 붙인다) */
+  private memoSent = new Map<string, string>()
+  constructor(deps: AgentChatsDeps, private readonly memoDeps?: CentralMemoDeps) { super(deps) }
 
   private w(): WakeState {
     return (this.wakeState ??= { prev: new Map(), events: new Map(), seen: new Set(), auto: false, sends: new Map(), digested: new Map() })
@@ -124,6 +129,52 @@ export class CentralChats extends FeedbackChats {
     return items
   }
 
+  /** 중앙 메모 (설정 › 에이전트, memo_write) */
+  memo(): CentralMemo { return readMemo(this.memoDeps) }
+
+  /** 중앙 메모를 통째로 바꾼다 (사용자가 설정에서, 또는 중앙이 memo_write로) */
+  setMemo(text: string): CentralMemo {
+    if (!this.memoDeps) throw new WorkbenchError(404, t('여기서는 중앙 메모를 쓸 수 없습니다', 'The central memo is not available here'))
+    if (!writeMemo(this.memoDeps, text)) throw new WorkbenchError(400, t('중앙 메모가 너무 깁니다', 'The central memo is too long'))
+    return this.memo()
+  }
+
+  /** 오래된 대화 정리 (agentTidy.ts, 시안 §6): 끝나고 7일 손대지 않은 대화를 보관하고, 요약(작은 모델)을 남긴 뒤 원문을 압축한다. 압축한 대화 수 */
+  async tidy(now = Date.now()): Promise<number> {
+    for (const c of [...this.chats.values()]) if (due(c, now)) { c.archived = true; this.write(c); this.deps.notify(rowOf(c)) }
+    let n = 0
+    const budget = { summaries: TIDY_SUMMARIES }
+    for (const c of [...this.chats.values()]) if (await this.tidyOne(c, budget)) n++
+    return n
+  }
+
+  /** 보관함에 넣으면 바로 요약 · 압축한다 (사용자가 넣든, 중앙이 닫든, 저절로든) */
+  override archive(id: string, archived: boolean): Chat {
+    const out = super.archive(id, archived), c = this.chats.get(id)
+    if (archived && c) void this.tidyOne(c, { summaries: 1 }).catch(() => undefined)
+    return out
+  }
+
+  private tidying = new Set<string>()
+  /** 보관한 대화 하나: 요약이 없으면 쓰고(budget 안에서), 원문을 압축한다. 압축했으면 true */
+  private async tidyOne(c: Stored, budget: { summaries: number }): Promise<boolean> {
+    if (!c.archived || c.packed || !c.items.length || LIVE.has(c.state) || this.tidying.has(c.id)) return false
+    this.tidying.add(c.id)
+    try {
+      const ask = this.deps.runner.side
+      if (!c.summary && ask && budget.summaries > 0 && c.items.some((it) => it.kind === 'text' && !it.sub)) {
+        budget.summaries--
+        try { const s = (await ask({ prompt: endSummaryPrompt(c), cwd: this.deps.dir })).trim(); if (s) c.summary = s.slice(0, 2000) } catch { /* 요약 없이 압축만 */ }
+      }
+      // 요약을 기다리는 동안 꺼냈거나 지웠거나 다시 일하면 두지 않는다
+      if (!c.archived || LIVE.has(c.state) || this.chats.get(c.id) !== c) return false
+      const packed = pack(this.deps.dir, c)
+      this.write(c)
+      this.deps.notify(rowOf(c))
+      return packed
+    } finally { this.tidying.delete(c.id) }
+  }
+
   private kidsOf(parent: string): CentralKid[] {
     return [...this.chats.values()].filter((k) => k.parent === parent).sort((a, b) => b.updated.localeCompare(a.updated)).map(kidOf)
   }
@@ -141,7 +192,9 @@ export class CentralChats extends FeedbackChats {
     const c = this.central()
     if (c) return this.send(c.id, m)
     const digest = `${digestOf([])}${this.feedbackLine()}`
-    return this.create({ rid: CENTRAL_RID, ...m, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}\n\n${digest}\n\n${promptOf(m.text, m.attach)}`)
+    const made = this.create({ rid: CENTRAL_RID, ...m, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}${memoBlock(this.memo().text)}\n\n${digest}\n\n${promptOf(m.text, m.attach)}`)
+    this.memoSent.set(made.id, this.memo().text)
+    return made
   }
 
   /**
@@ -156,9 +209,11 @@ export class CentralChats extends FeedbackChats {
       if (!w.events.size && w.timer) { clearTimeout(w.timer); w.timer = undefined }
       w.auto = false
       w.sends.clear()
-      // 앱이 다시 켜져 세션이 없으면 안내도 다시
-      const brief = c.sessionId ? '' : `${CENTRAL_BRIEF}\n\n`
-      return super.send(id, m, `${brief}${this.digest(c)}\n\n${woke ? `${woke.en}\n\n[The user writes:]\n` : ''}${promptOf(m.text, m.attach)}`)
+      // 앱이 다시 켜져 세션이 없으면 안내도 다시. 메모는 세션을 새로 열 때와 메모가 바뀐 뒤에만 붙인다 (토큰 아끼기)
+      const memo = this.memo().text, brief = c.sessionId ? '' : CENTRAL_BRIEF
+      const head = `${brief}${!brief && this.memoSent.get(id) === memo ? '' : memoBlock(memo, !!brief)}`
+      this.memoSent.set(id, memo)
+      return super.send(id, m, `${head ? `${head}\n\n` : ''}${this.digest(c)}\n\n${woke ? `${woke.en}\n\n[The user writes:]\n` : ''}${promptOf(m.text, m.attach)}`)
     }
     return super.send(id, m, prompt)
   }

@@ -1,4 +1,5 @@
 import { FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES, type FeedbackMerge, type FeedbackPick, type InstructionMode } from '@rw/core'
+import { CentralMemoSettings } from './CentralMemoSettings'
 import type { AgentSettings as Settings } from '@rw/core/contract/settings'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -48,6 +49,7 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
     <AgentConnections onSaved={onSaved} />
     <AgentPrefs onSaved={onSaved} />
     <AgentHooks onSaved={onSaved} />
+    <CentralMemoSettings onSaved={onSaved} />
     <h3 className="set-h3">{t(`${HERE.onKo} 하는 일`, `On ${HERE.en}`)}</h3>
     {!s ? <p className="muted">{err ?? t('설정을 읽는 중…', 'Reading settings…')}</p> :
     <div className="set-rows" data-ui="에이전트">

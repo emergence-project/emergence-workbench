@@ -74,3 +74,10 @@ button.cb-row:hover { background: var(--bg-hover); }
 .ac-acct-code .input { flex: 1; min-width: 0; }
 .setup-row.ac-acct-add { display: flex; gap: var(--sp-2); align-items: center; }
 .ac-acct-add .input { flex: 1; min-width: 0; }
+/* 설정 › 에이전트 › 중앙 메모 (11/16): 보기는 글과 오른쪽 위 연필, 고치기는 입력란과 버튼 */
+.ac-memo-view { display: flex; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); }
+.ac-memo-view > p { flex: 1; min-width: 0; margin: 0; }
+.ac-memo-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ac-memo-edit { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); }
+.ac-memo-input { width: 100%; resize: vertical; font: inherit; }
+.ac-memo-edit .setup-acts { justify-content: flex-end; }

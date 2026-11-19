@@ -290,6 +290,10 @@ try {
       await page.locator('[data-ui="Claude 계정"]').first().evaluate((el) => el.scrollIntoView({ block: 'start' }))
         .catch(() => problems.push(`${name}: Claude 계정까지 내리지 못함`))
     }
+    if (name === 'settings-central-memo') {
+      await page.locator('[data-ui="중앙 메모"]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
+        .catch(() => problems.push(`${name}: 중앙 메모까지 내리지 못함`))
+    }
     // GitHub 로그인 줄은 설정 › 계정의 선택 절이라 첫 화면 아래에 있다 (11/8)
     if (name === 'settings-github-login') {
       await page.locator('[data-ui="GitHub 계정"]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
