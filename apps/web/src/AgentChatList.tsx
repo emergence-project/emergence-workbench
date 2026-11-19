@@ -21,7 +21,7 @@ import { useDismiss } from './useDismiss'
 type State = 'mine' | 'live' | 'queued' | 'done'
 const STATES: State[] = ['mine', 'live', 'queued', 'done']
 const STATE_GROUP: Record<State, string> = { mine: t('내 차례', 'Your turn'), live: t('작업 중', 'Working'), queued: t('대기', 'Queued'), done: t('종료', 'Done') }
-const STATE_EMPTY: Record<State, string> = { mine: t('답할 대화가 없습니다', 'Nothing waits for you'), live: t('작업 중인 대화가 없습니다', 'No conversation is working'), queued: t('줄 선 대화가 없습니다', 'Nothing is queued'), done: '' }
+const STATE_EMPTY: Record<State, string> = { mine: t('답할 대화가 없습니다', 'Nothing waits for you'), live: t('작업 중인 대화가 없습니다', 'No conversation is working'), queued: t('대기 중인 대화가 없습니다', 'Nothing is queued'), done: '' }
 /** 사용자 차례(허락 · 계획 · 오류 · 열어 보지 않은 끝) → 도는 것 → 줄 선 것 → 나머지 */
 export const stateOf = (c: ChatRow): State => (myTurn(c) ? 'mine' : c.state === 'running' || c.state === 'waiting' ? 'live' : c.state === 'queued' ? 'queued' : 'done')
 
@@ -85,7 +85,7 @@ export function AgentSide({ id }: { id?: string }) {
             <span className="n">{chats.length}</span>
           </button>
         </div>
-        {open && chats.map(line)}
+        {(open ? chats : chats.filter((c) => c.id === id)).map(line) /* 접혀도 연 대화 줄은 보인다 */}
         {open && !chats.length && empty && <div className="muted ac-group-empty">{empty}</div>}
       </div>
     )
