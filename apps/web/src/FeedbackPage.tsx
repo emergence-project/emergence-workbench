@@ -11,7 +11,7 @@ import { askConfirm } from './askText'
 import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, type ThreadStep } from './feedbackThread'
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
-import { FeedbackFileButtons, IssueButton } from './FeedbackSend'
+import { FeedbackFileButtons, InstantToggle, IssueButton } from './FeedbackSend'
 import { AnswerCells, AnswerHeads, answerKindName, KIND_FILTERS, matchesKind, type KindFilter } from './feedbackAnswerKind'
 import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
@@ -130,7 +130,7 @@ export function FeedbackPage() {
             </select>
           </label>
           <div className="fbp-tools">
-            <IssueButton list={shown} />
+            <InstantToggle /><IssueButton list={shown} />
             <FeedbackFileButtons />
             <PublishButton />
           </div>
