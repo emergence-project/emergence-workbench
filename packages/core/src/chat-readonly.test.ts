@@ -58,3 +58,21 @@ describe('git · gh 쓰기 (중앙 대화)', () => {
     ]) expect(stateOnlyCommand(c, w), c).toBe('no')
   })
 })
+
+describe('판정을 빠져나가던 문법 (11/20 보안 검토)', () => {
+  const w = { gitWrites: true }
+  it('\\" 뒤에 숨긴 돌려보내기 · $\'…\' 는 막는다', () => {
+    for (const c of [`echo 'x' \\" > /Users/a/.zshenv \\"`, `echo $'\\'' > /tmp/f $'\\''`, 'cat a\\ b > c', 'ls \; rm -rf x', 'echo "$(echo $(rm x))"']) expect(stateOnlyCommand(c, w), c).toBe('no')
+  })
+  it('\\로 지킨 글자는 그대로 읽는다', () => {
+    for (const c of ['ls My\\ Notes', 'grep "a\\"b" f', 'find . -name \\*.ts', 'echo "$(git log -1 --format=%s $(git rev-parse HEAD))"']) expect(stateOnlyCommand(c, w), c).toBe('ok')
+  })
+  it('붙여 쓴 짧은 옵션으로 파일을 쓰거나 프로그램을 돌리는 것', () => {
+    for (const c of [
+      'sort -o/Users/a/.zshenv x', 'sort -uo out in', 'sort --output=out in', 'tree -oout', 'tree -R -L 2', 'rg --hostname-bin ./x --hyperlink-format default a',
+      'file -C -m magic', 'git ls-remote -u ./x .', 'gh api graphql -F query=@m.graphql',
+      'git config --get a.b --global -e', 'git config --list --file x', 'git config set a.b c', 'git config --get a.b --add c',
+    ]) expect(stateOnlyCommand(c, w), c).toBe('no')
+    for (const c of ['sort -n -k2 x', 'sort -u x | head', 'tree -L 2', 'file a.png', 'git config --get user.name', 'git config get user.name', 'git config --list', 'git ls-remote origin']) expect(stateOnlyCommand(c, w), c).toBe('ok')
+  })
+})

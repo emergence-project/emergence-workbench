@@ -34,6 +34,15 @@ describe('중앙 대화의 명령', () => {
       expect(v.kind === 'deny' && v.message, c).toContain('even with the user')
     }
   })
+  it('상태 보기로 꾸민 쓰기 · 실행은 묻지 않고 돌지 않는다: 우회로 묻는다 (11/20 보안 검토)', () => {
+    for (const c of [`echo 'x' \\" > ~/.zshenv \\"`, 'printf x | sort -o/w/app/.git/hooks/pre-commit', 'rg --hostname-bin ./x --hyperlink-format default a', 'git config --get a.b --global -e', 'git ls-remote -u ./x .']) expect(bash(c).kind, c).toBe('ask')
+  })
+  it('읽기 전용 프로젝트 대화: 읽기로 꾸민 명령을 묻지 않고 돌리지 않는다 (11/20 보안 검토)', () => {
+    const p: PolicyCtx = { rid: 'p', write: 'read', mode: 'edit', planOk: false, scope: { kind: 'project' }, repo: '/w/p', readable: [], claimedBy: () => undefined }
+    for (const c of ['ls & rm -rf notes', 'sort -o a.md b.md', "sed -n 'w a.md' b.md"]) expect(judge(p, 'Bash', { command: c }).kind, c).toBe('deny')
+    for (const c of ["env sh -c 'rm -rf notes'", 'awk \'BEGIN{"rm -rf notes" | getline}\'']) expect(judge(p, 'Bash', { command: c }).kind, c).toBe('ask')
+    expect(judge(p, 'Bash', { command: 'ls workbench | sort | head' }).kind).toBe('allow')
+  })
   it('파일 고치기는 막고 하위 대화와 되는 명령을 알려 준다', () => {
     const v = judge(ctx, 'Write', { file_path: '/w/app/a.ts', content: 'x' })
     expect(v.kind === 'deny' && v.message).toContain('chat_open')
