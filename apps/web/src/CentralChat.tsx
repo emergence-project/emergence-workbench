@@ -6,7 +6,8 @@ import { agentChatsApi, api, APP_RID, type CentralKid, type ChatRow } from './ap
 import { ChatStateMark, stateName } from './AgentChats'
 import { t } from './i18n'
 import { screenLine } from './screenView'
-import { Mockups } from './Mockups'
+import { mockupRefs } from './Mockups'
+import { relativeTime } from './format'
 import { qk } from './queries'
 import { go } from './router'
 
@@ -66,33 +67,48 @@ export function CentralStart() {
   )
 }
 
-/** 중앙 대화 위의 하위 대화 줄: 상태 · 이름 · 어디서 · PR · 마지막 글. 닫은 것은 접어 둔다 */
+/** 하위 대화 머리를 접었는지 (브라우저에 남긴다) */
+const KIDS_FOLD = 'rw.centralKidsFolded'
+
+/**
+ * 중앙 대화 위의 하위 대화: 머리 한 줄(수 · 내 차례, 눌러 접기)과 대화마다 한 줄(상태 점 · 제목 · 짧은 상태 · 시각) (11/19 피드백 "최대한 좁게", 시안 안 A).
+ * 보고 글 · 어디서 · 시안 그림은 줄을 눌러 그 대화에서 본다. 내 차례가 위, 닫은 것은 접어 둔다
+ */
 export function CentralKids() {
   const kids = useCentral().data?.kids ?? []
   const projects = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
   const [closedOpen, setClosedOpen] = useState(false)
+  const [folded, setFolded] = useState(() => { try { return localStorage.getItem(KIDS_FOLD) === '1' } catch { return false } })
   if (!kids.length) return null
-  const open = kids.filter((k) => !k.archived)
+  const open = kids.filter((k) => !k.archived).sort((a, b) => Number(mine(b)) - Number(mine(a)))
   const closed = kids.filter((k) => k.archived)
+  const turn = open.filter(mine).length
   const where = (rid: string) => (rid === APP_RID ? t('앱', 'App') : projects?.find((p) => p.id === rid)?.title ?? rid)
-  const card = (k: CentralKid) => (
-    <button className="ac-kid" data-ui="하위 대화 줄" data-ui-item={k.title} onClick={() => go({ page: 'agent', id: k.id })}>
-      <span className="ac-kid-top">
+  const fold = () => { try { localStorage.setItem(KIDS_FOLD, folded ? '0' : '1') } catch { /* 기억하지 못해도 지금 화면은 바뀐다 */ } setFolded(!folded) }
+  const row = (k: CentralKid) => {
+    const pr = k.pr && `#${k.pr.number}${k.merged ? t(' 합침', ' merged') : ''}`
+    const mock = !!k.report && mockupRefs(k.report, k.id).length > 0
+    return (
+      <button key={k.id} className="ac-kid" data-ui="하위 대화 줄" data-ui-item={k.title} title={`${where(k.rid)} · ${k.title}`} onClick={() => go({ page: 'agent', id: k.id })}>
         <span className="ac-line-dot"><ChatStateMark state={k.state} name={stateName(k)} /></span>
         <span className="ac-kid-title">{k.title}</span>
-        <span className="ac-kid-open">{t('열기 ›', 'Open ›')}</span>
-      </span>
-      <span className={`ac-kid-meta${mine(k) ? ' turn' : ''}`}>{[where(k.rid), stateName(k), ...(k.pr ? [`PR #${k.pr.number}${k.merged ? t(' 합침', ' merged') : ''}`] : [])].join(' · ')}</span>
-      {(k.summary ?? k.report) && <span className="ac-kid-report">{k.summary ?? k.report}</span>}
-    </button>
-  )
-  // 하위 대화 보고에 나온 시안은 줄 아래에 (11/19). 줄이 버튼이라 그 밖에 둔다
-  const row = (k: CentralKid) => <div key={k.id} className="ac-kid-row">{card(k)}<Mockups text={k.report} chat={k.id} /></div>
+        <span className={`ac-kid-state${mine(k) ? ' turn' : ''}`}>{[stateName(k), pr, mock && t('시안', 'mockup')].filter(Boolean).join(' · ')}</span>
+        <span className="ac-kid-time">{relativeTime(Date.parse(k.updated))}</span>
+      </button>
+    )
+  }
   return (
     <div className="ac-central-kids" data-ui="하위 대화">
-      {open.map(row)}
-      {!!closed.length && <button className="a ac-kid-closed" aria-expanded={closedOpen} onClick={() => setClosedOpen(!closedOpen)}>{t(`닫은 대화 ${closed.length}`, `${closed.length} closed`)} {closedOpen ? '‹' : '›'}</button>}
-      {closedOpen && closed.map(row)}
+      <button className="ac-kids-head" aria-expanded={!folded} onClick={fold}>
+        <b>{t(`하위 대화 ${open.length}`, `${open.length} sub-conversation${open.length === 1 ? '' : 's'}`)}</b>
+        {turn > 0 && <> · <span className="ac-central-turn">{t(`내 차례 ${turn}`, `${turn} for you`)}</span></>}
+        <span className="ac-kids-fold">{folded ? t('펼치기 ▾', 'Show ▾') : t('접기 ▴', 'Hide ▴')}</span>
+      </button>
+      {!folded && <div className="ac-kids-list">
+        {open.map(row)}
+        {!!closed.length && <button className="a ac-kid-closed" aria-expanded={closedOpen} onClick={() => setClosedOpen(!closedOpen)}>{t(`닫은 대화 ${closed.length}`, `${closed.length} closed`)} {closedOpen ? '‹' : '›'}</button>}
+        {closedOpen && closed.map(row)}
+      </div>}
     </div>
   )
 }

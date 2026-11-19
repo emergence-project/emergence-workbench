@@ -13,6 +13,7 @@ import { qk } from './queries'
 import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
+import { WorkAside } from './WorkAside'
 import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
@@ -922,7 +923,6 @@ function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) 
 }
 
 const PERM_OPEN_KEY = 'rw-agent-perm-open'
-
 /** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */
 export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
   const client = useQueryClient()
@@ -937,7 +937,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   const trust = trustOf(chat)
   const hasEdits = chat.items.some((i) => i.kind === 'edit')
   return (
-    <aside className="ac-work" data-ui="작업 상태">
+    <WorkAside>
       <ChatInfo chat={chat} />
       {hasEdits && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
@@ -969,7 +969,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
           {agents.map((s, i) => <div key={i} className="ac-work-row"><span className="ac-file" title={s.summary}>{s.summary}</span></div>)}
         </section>
       )}
-    </aside>
+    </WorkAside>
   )
 }
 
