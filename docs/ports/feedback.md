@@ -45,6 +45,8 @@ code:
 | web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 |
 | web | `apps/web/src/feedbackDraft.ts` | 적던 글 보존 |
 
+처리 · 답에 붙인 시안(`mockups`)은 `apps/server/src/feedbackMockups.ts`가 에이전트 작업 폴더 `mockups/`에서 `pictures/`로 옮겨 적고, `apps/web/src/FeedbackMockups.tsx`가 작은 그림 · 크게 넘겨 보기 · html 새 창 · 「이 시안으로 진행」 · 「논의」로 보인다. 작업 폴더가 없는 앱이면 시안 파일을 `pictures/`에 바로 두고 `mockups`에 이름만 적어도 된다.
+
 ## 옮기는 순서
 
 [../feedback/new-app.md](../feedback/new-app.md)의 1단계(최소 묶음) → 2단계(쌓이면 더함)를 그대로 따른다. 화면 부위 이름은 `data-ui` 같은 바꾸지 않을 이름으로 붙이고, 영어 이름 표(이 앱은 `apps/web/src/uiNames.en.json`)를 함께 둔다.
