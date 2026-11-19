@@ -453,8 +453,7 @@ function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Ch
     case 'user': return (
       <li className="ac-me" data-ui="내 지시" title={when}>
         <MemoText text={it.text} />
-        <AttachChips attach={it.attach} images={it.images} /><Mockups text={it.text} chat={chat.id} />
-        <CopyButton text={it.text} />
+        <AttachChips attach={it.attach} images={it.images} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} />
         {it.point && onRewind && !isLive(chat.state) && (
           <button className="icon-btn sm ac-rewind" data-ui="여기로 되돌리기" data-tip={t('여기로 되돌리기', 'Rewind to here')} aria-label={t('여기로 되돌리기', 'Rewind to here')} onClick={() => onRewind(it.point!)}>{Icon.revert}</button>
         )}
@@ -465,6 +464,7 @@ function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Ch
     case 'todos': return null
     case 'edit': return <EditLine chat={chat} it={it} onChanges={onChanges} />
     case 'blocked': return <li className="ac-note" data-ui="막은 일"><span className="ac-tool mono">{it.tool}</span><span>{t('막음', 'Blocked')} · {it.reason}</span></li>
+    case 'bypass': return <li className="ac-note" data-ui="우회 실행" title={when}><span className="ac-tool mono">Bash</span><span>{it.how === 'once' ? t('허락으로 우회 (한 번)', 'Bypassed with permission (once)') : t('허락으로 우회 (이 대화에서 늘)', 'Bypassed with permission (always in this chat)')} · <code>{it.command}</code></span></li>
     case 'result': return (
       <li className="ac-note muted" data-ui="차례 끝" title={it.cost ? costName(it.cost) : undefined}>
         {it.ok ? `✓ ${t('이번 차례 끝', 'Turn done')}` : t('이번 차례 실패', 'Turn failed')}{it.seconds !== undefined && ` · ${secondsName(it.seconds)}`}{it.tokens && ` · ${t('토큰', 'Tokens')} ${tokensName(it.tokens.in + it.tokens.out)}`}

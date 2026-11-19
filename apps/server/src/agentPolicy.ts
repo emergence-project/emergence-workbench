@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, LIBRARY_RID, runProgram, stateOnlyCommand, type ChatAutoValues, type ChatKind } from '@rw/core'
+import { autoOf, commandKind, LIBRARY_RID, neverBypass, runProgram, stateOnlyCommand, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 
@@ -59,9 +59,10 @@ export type Verdict =
   | { kind: 'allow'; claim?: string }
   /**
    * label = 「늘 허락」했을 때 보일 이름, claim = 허락하면 잡을 파일, plan = 계획 승인 카드,
-   * does = 명령이 하는 일, once = 「늘」 없이 (삭제 · 외부), turnOn = 「늘」이 켜는 토글(편집은 맡기는 정도)
+   * does = 명령이 하는 일, once = 「늘」 없이 (삭제 · 외부), turnOn = 「늘」이 켜는 토글(편집은 맡기는 정도),
+   * bypass = 중앙 대화가 막힌 명령을 사용자 허락으로 돌리는 우회 (허락하면 대화에 기록한다)
    */
-  | { kind: 'ask'; summary: string; key: string; label: string; claim?: string; plan?: string; does?: ChatKind; once?: boolean; turnOn?: 'read' | 'web' | 'edit' }
+  | { kind: 'ask'; summary: string; key: string; label: string; claim?: string; plan?: string; does?: ChatKind; once?: boolean; turnOn?: 'read' | 'web' | 'edit'; bypass?: string }
   /** reason = 사용자에게 보일 말, message = 에이전트에게 돌려줄 말 (영어) */
   | { kind: 'deny'; reason: string; message: string }
 
@@ -150,15 +151,20 @@ export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b
  * 비밀이 든 곳을 보면 한 번 묻는다. git · gh로 커밋 · 브랜치 · 푸시 · PR 만들기 · squash 합치기(11/19 "중앙은 깃 편집 권한")도
  * 묻지 않는다. 강제 푸시 · reset --hard · branch -D 같은 되돌리기 어려운 것과, 실사용 앱 체크아웃(중앙의 작업 폴더)의
  * 파일을 바꾸는 checkout · merge · pull · stash 등은 막힌다. 중앙이 띄운 보조 에이전트도 같은 판정을 거친다.
- * 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로
+ * 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로.
+ * 우회 (11/20 "언제나 막기보다 사용자 허락으로 푸는 길"): 목록에 없는 명령은 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다.
+ * 허락은 한 번, 또는 이 대화에서 바로 그 명령만 늘. 자동 허락 · 시간 초과 기본값은 없고, neverBypass는 허락해도 막는다
  */
-function judgeCentral(tool: string, input: Record<string, unknown>): Verdict | undefined {
+function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict | undefined {
   const name = tool.startsWith(MCP) ? tool.slice(MCP.length) : ''
   if (tool === 'Bash') {
     const cmd = str(input.command)
     const seen = stateOnlyCommand(cmd, { gitWrites: true })
     if (seen === 'ok') return { kind: 'allow' }
     if (seen === 'sensitive') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`비밀이 든 곳 읽기 · ${clip(cmd, 80)}`, `Read secrets · ${clip(cmd, 80)}`), does: 'read', once: true }
+    const never = neverBypass(cmd)
+    if (never) return neverVerdict(never)
+    if (cmd.trim()) return bypassAsk(ctx, cmd, str(input.description))
   }
   const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === APP_MERGE || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
   if (!writes) return name ? { kind: 'allow' } : undefined
@@ -167,6 +173,28 @@ function judgeCentral(tool: string, input: Record<string, unknown>): Verdict | u
     reason: t('중앙 대화는 파일을 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다 (상태 보기와 git · gh 커밋 · 푸시 · PR · 합치기는 됩니다)', 'The central conversation does not edit files or run commands; it hands work to a sub-conversation (looking at state and git/gh commit, push, PR and merge are fine)'),
     message: `You are the central conversation: you read and orchestrate. Commands that only look at state run directly (ls, cat, grep, find without -exec, which, ps, sysctl -n, vm_stat, top -l 1, git log/status/diff/show, git -C <dir> remote get-url, gh pr view/checks, gh run view --log, gh repo list/view, gh api GET without -f/-F unless -X GET, npm ls), joined with |, && or ;, without writing redirects (> file), heredocs, env-variable prefixes or command-running programs (xargs, sh -c, awk, sed). Git and gh changes also run directly: git add/commit -m/branch/push/fetch/tag, gh pr create/edit/comment/ready, gh pr merge --squash. Blocked: force pushes, deleting remote branches, git branch -D, reset, clean, and anything that changes files in your folder (checkout, switch, merge, rebase, pull, stash, restore), because your folder is the running app's checkout. To change or run anything else, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
   }
+}
+
+const NEVER: Record<NeverBypass, [string, string]> = {
+  'force-push': ['강제 푸시', 'force push'],
+  'reset-hard': ['git reset --hard', 'git reset --hard'],
+  'delete-main': ['main 브랜치 지우기', 'deleting the main branch'],
+  'rm-outside-temp': ['임시 폴더 밖 rm -rf', 'rm -rf outside temp folders'],
+  'workbench-write': ['연구 저장소 workbench/ 쓰기', 'writing under workbench/ of a research repository'],
+}
+function neverVerdict(why: NeverBypass): Verdict {
+  const [ko, en] = NEVER[why]
+  return {
+    kind: 'deny',
+    reason: t(`허락으로도 풀 수 없는 명령입니다: ${ko}`, `Not allowed even with permission: ${en}`),
+    message: `This command never runs from the central conversation, even with the user's permission (${en}). Do not try it another way: tell the user what should be done, or hand it to a sub-conversation whose own rules apply.`,
+  }
+}
+
+/** 우회 묻기: 명령 · 까닭(Bash의 description) · 폴더를 보인다. 「늘」은 이 대화에서 바로 그 명령만 */
+function bypassAsk(ctx: PolicyCtx, cmd: string, reason: string): Verdict {
+  const summary = [cmd, `${t('까닭', 'Why')}: ${clip(reason.trim() || t('(적지 않음)', '(not given)'), 600)}`, `${t('폴더', 'Folder')}: ${ctx.repo}`].join('\n')
+  return { kind: 'ask', summary, key: `bypass:${cmd}`, label: t(`우회 · ${clip(cmd, 80)}`, `Bypass · ${clip(cmd, 80)}`), bypass: cmd }
 }
 
 /** 앱 고치기 대화의 도구 판정 (judge가 부른다) */
@@ -243,7 +271,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     return { kind: 'ask', summary: t(`등록한 폴더 밖 읽기: ${abs}`, `Read outside registered folders: ${abs}`), key: `${tool}:${abs}`, label: t(`읽기 · ${abs}`, `Read · ${abs}`) }
   }
   if (ctx.scope.kind === 'app') return judgeApp(ctx, tool, input)
-  if (ctx.rid === CENTRAL_RID) { const v = judgeCentral(tool, input); if (v) return v }
+  if (ctx.rid === CENTRAL_RID) { const v = judgeCentral(ctx, tool, input); if (v) return v }
   if ((FILE_WRITE_TOOLS as readonly string[]).includes(tool)) {
     return {
       kind: 'deny',

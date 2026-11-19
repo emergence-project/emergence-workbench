@@ -100,6 +100,8 @@ export const ChatItem = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('edit'), at: z.string(), file: z.string(), parts: z.array(EditPart), added: z.number(), removed: z.number(), reason: z.string().optional(), via: z.literal('command').optional() }).strict(),
   /** 앱이 막은 일 (범위 밖 고치기, 다른 대화가 잡은 파일 등) */
   z.object({ kind: z.literal('blocked'), at: z.string(), tool: z.string(), reason: z.string() }).strict(),
+  /** 중앙 대화가 사용자 허락으로 우회해 돌린 명령 (11/20): how = 한 번 · 이 대화에서 늘 */
+  z.object({ kind: z.literal('bypass'), at: z.string(), command: z.string(), how: z.enum(['once', 'always']) }).strict(),
   /**
    * 차례 끝. cost = 쓴 토큰을 API 요금으로 친 값(구독 로그인이면 청구되지 않음), tokens = 이 차례에 넣고(in, 캐시 포함) 낸(out) 토큰,
    * context = 마지막 요청의 맥락 크기와 그 모델의 맥락 창
