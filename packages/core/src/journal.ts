@@ -191,7 +191,7 @@ function journalBlocks(markdown: string): { head: string; entries: string[] } {
 
 /**
  * 일지 파일 세 갈래 합치기 (항목 단위): 한쪽이 더한 항목은 더하고, 한쪽이 지운 항목은 지운다.
- * 줄 단위 합치기(git merge-file)는 이웃한 두 항목을 양쪽에서 하나씩 지워도 부딪힌다고 본다 (10/20 점검: LSWT 10/3 일지).
+ * 줄 단위 합치기(git merge-file)는 이웃한 두 항목을 양쪽에서 하나씩 지워도 부딪힌다고 본다 (10/20 점검: 실제 저장소의 10/3 일지).
  * 같은 머리 줄의 항목을 양쪽이 서로 다르게 고쳤거나, 파일 머리를 양쪽이 다르게 고쳤으면 null(사람이 합친다).
  */
 export function mergeJournalText(base: string, ours: string, theirs: string): string | null {

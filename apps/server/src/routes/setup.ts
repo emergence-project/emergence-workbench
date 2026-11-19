@@ -166,10 +166,10 @@ export function registerSetup(app: FastifyInstance, ctx: RouteContext): void {
     const dest = path.join(parent, folder)
     if (fs.existsSync(dest)) {
       if (!sameRepo(await remoteOf(dest), repo.url)) throw new WorkbenchError(409, t(`${dest}에 다른 폴더가 있습니다. 홈의 "＋ 프로젝트 등록"으로 다른 곳에 받으세요.`, `${dest} holds a different folder. Use "＋ Register project" on Home to download it elsewhere.`))
-      // 예전에 받아 둔 사본이 뒤처져 workbench/가 아직 없을 수 있다 (10/30 맥미니 Faraday disk: 첫 커밋 둘에 멈춤). 고친 것이 없을 때만 앞으로 받는다
+      // 예전에 받아 둔 사본이 뒤처져 workbench/가 아직 없을 수 있다 (10/30 맥미니의 실제 저장소: 첫 커밋 둘에 멈춤). 고친 것이 없을 때만 앞으로 받는다
       if (!fs.existsSync(path.join(dest, 'workbench'))) await git(dest, ['pull', '--ff-only'], { timeout: GIT_TIMEOUT.remote }).catch(() => undefined)
     } else await cloneInto(repo.url, parent, folder)
-    // 연구 저장소가 workbench/를 올리지 않는 프로젝트는 개인 저장소 백업(<id>/workbench/)에서 가져온다 (10/22 맥미니 Faraday disk).
+    // 연구 저장소가 workbench/를 올리지 않는 프로젝트는 개인 저장소 백업(<id>/workbench/)에서 가져온다 (10/22 맥미니의 실제 저장소).
     // 빈 workbench/를 새로 만들면 첫 맞추기에서 다른 컴퓨터의 것을 덮을 수 있어 만들지 않는다
     if (!fs.existsSync(path.join(dest, 'workbench'))) {
       const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))

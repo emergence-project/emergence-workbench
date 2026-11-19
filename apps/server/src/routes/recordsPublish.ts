@@ -49,7 +49,7 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
     const flows = files.filter((f) => /(^|\/)problems\//.test(f)).length
     return !flows ? RECORDS_MESSAGE : flows === files.length ? FLOWS_MESSAGE : 'Add comments and flows from the research workspace app'
   }
-  // 마지막 결과는 앱 설정 폴더에 둔다: 앱을 다시 켜도 실패가 화면(기록 탭 맨 위 줄)에 남는다 (10/20 점검: LSWT 기록이 하루 넘게 안 올라간 채 표시가 사라졌다)
+  // 마지막 결과는 앱 설정 폴더에 둔다: 앱을 다시 켜도 실패가 화면(기록 탭 맨 위 줄)에 남는다 (10/20 점검: 실제 저장소의 기록이 하루 넘게 안 올라간 채 표시가 사라졌다)
   const lastFile = path.join(ctx.registry.configDir, 'records-publish.json')
   const recordsLast = new Map<string, { at: number; error: string | null }>(Object.entries((() => {
     try { return JSON.parse(fs.readFileSync(lastFile, 'utf8')) as Record<string, { at: number; error: string | null }> } catch { return {} }
@@ -64,7 +64,7 @@ export function registerRecordsPublish(app: FastifyInstance, ctx: RouteContext):
       if (before !== error) ctx.broadcast({ type: 'records-publish', research: rid })
     }
     try {
-      // 연구 폴더가 main 같은 기본 브랜치가 아니면 올리지 않는다: 그 브랜치로 올라가 다른 컴퓨터에서 보이지 않는다 (10/22 맥미니 NBCP)
+      // 연구 폴더가 main 같은 기본 브랜치가 아니면 올리지 않는다: 그 브랜치로 올라가 다른 컴퓨터에서 보이지 않는다 (10/22 맥미니의 실제 저장소)
       const off = await offDefaultBranch(r.top)
       if (off) throw new PathSyncError(off)
       const out = await publishPaths(r.top, r.paths, { message: messageFor(await pendingPaths(r.top, r.paths).catch(() => [])), adopt: true, merge: true })

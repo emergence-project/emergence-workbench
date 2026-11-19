@@ -38,24 +38,24 @@ describe('MCP: 흐름 (질문 › 주장 › 시도)', () => {
     const proposed = textOf(await tool(claude, 'problem_propose', { question: 'Is the magnon gap closed by the DM term?', source: 'workbench/notes/x/note.md §2' }))
     expect(proposed).toContain('Proposed flow is-the-magnon-gap-closed-by-the-dm-term')
     const id = 'is-the-magnon-gap-closed-by-the-dm-term'
-    const early = await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'LSWT on 24x24' }] })
+    const early = await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'Mean field on 24x24' }] })
     expect(early.isError).toBe(true)
-    expect(textOf(await tool(claude, 'problem_prepare', { problem: id, literature: [{ ref: 'tothLinear2015', fact: 'Gives the gap without the DM term.' }], grading: 'gap < 1e-6 at three mesh sizes' }))).toContain('literature, grading')
+    expect(textOf(await tool(claude, 'problem_prepare', { problem: id, literature: [{ ref: 'doeSample2015', fact: 'Gives the gap without the DM term.' }], grading: 'gap < 1e-6 at three mesh sizes' }))).toContain('literature, grading')
     const listed = JSON.parse(textOf(await tool(claude, 'problems', {}))).problems.find((x: { id: string }) => x.id === id)
     expect(listed).toMatchObject({ state: 'proposed', by: 'claude-code' })
 
     // 사용자: 메시지와 독자를 쓰고 시작
     const p0 = (await app.inject({ url: `${P}/${id}` })).json().problem
-    const p1 = await user('PATCH', `${P}/${id}`, { baseHash: p0.hash, set: { if_yes: 'The DM term leaves a Goldstone mode.', if_no: 'The DM term gaps the spectrum.', reader: 'LSWT users', limit: 2 } })
+    const p1 = await user('PATCH', `${P}/${id}`, { baseHash: p0.hash, set: { if_yes: 'The DM term leaves a Goldstone mode.', if_no: 'The DM term gaps the spectrum.', reader: 'Model builders', limit: 2 } })
     await user('POST', `${P}/${id}/open`, { baseHash: p1.hash })
 
     // 주장을 먼저 세우고(점 하나), 그 주장을 겨눈 후보를 늘어놓는다. 질문 바로 아래의 주장에는 받치는 쪽이 있어야 한다
     expect((await tool(claude, 'claim_add', { problem: id, statement: 'The lowest band stays at zero at Gamma with the DM term.' })).isError).toBe(true)
     expect(textOf(await tool(claude, 'claim_add', { problem: id, statement: 'The lowest band stays at zero at Gamma with the DM term.', condition: 'D = 0.1, meshes 24 to 48', side: 'for_yes' }))).toMatch(/^Added claim 1\. /)
-    expect(textOf(await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'LSWT on 24x24', claim: '1' }, { method: 'Symmetry argument', claim: '1' }, { method: 'ED on 12 sites' }] }))).toMatch(/^Added A, B, C\. Attempts 0\/2\. Next: A \(a\) LSWT on 24x24\.$/)
-    expect(textOf(await tool(claude, 'attempt_start', { problem: id }))).toContain('Started A: LSWT on 24x24.')
+    expect(textOf(await tool(claude, 'attempt_add', { problem: id, attempts: [{ method: 'Mean field on 24x24', claim: '1' }, { method: 'Symmetry argument', claim: '1' }, { method: 'ED on 12 sites' }] }))).toMatch(/^Added A, B, C\. Attempts 0\/2\. Next: A \(a\) Mean field on 24x24\.$/)
+    expect(textOf(await tool(claude, 'attempt_start', { problem: id }))).toContain('Started A: Mean field on 24x24.')
     // 진술 없이 보고하면 겨눈 주장을 그대로 받친다
-    expect(textOf(await tool(claude, 'attempt_report', { problem: id, attempt: 'A', did: 'Ran solve_lswt at D = 0.1.', result: 'Lowest band 3e-9 at Gamma on 24, 36, 48.', files: ['code/dm.py'] }))).toContain('Awaiting verdict: A (by claude-code).')
+    expect(textOf(await tool(claude, 'attempt_report', { problem: id, attempt: 'A', did: 'Ran solve_mf at D = 0.1.', result: 'Lowest band 3e-9 at Gamma on 24, 36, 48.', files: ['code/dm.py'] }))).toContain('Awaiting verdict: A (by claude-code).')
     // 작업한 쪽은 판정하지 못한다
     const self = await tool(claude, 'attempt_verdict', { problem: id, attempt: 'a', result: 'holds', note: 'looks right', check: 'L = 60' })
     expect(self.isError).toBe(true)
