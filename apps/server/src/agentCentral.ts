@@ -21,8 +21,9 @@ import { FeedbackChats } from './agentFeedbackTick.js'
 import { appRoom, APP_LIVE_CAP, APP_LIVE_MIN, FRESH_MS, MEM_FREE_GB, MEM_FREE_MIN, memLine, readMemory, roomRule, type Mem, type Room } from './appMemory.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
-import { criticalOf, cut, CRITICAL, digestOf, kidOf, kidReport, lastReport, oneLine, openAsk, kidSig, stateWord, type Ask } from './agentCentralKids.js'
-export { criticalOf, CRITICAL, digestOf, KID_REPORT_MAX, kidOf, kidReport, kidSig, lastReport, type Critical } from './agentCentralKids.js'
+import { criticalOf, CRITICAL, kidOf, openAsk, type Ask } from './agentCentralKids.js'
+import { cut, digestOf, kidReport, kidSig, lastReport, oneLine, stateWord, tail } from './agentCentralDigest.js'
+export { criticalOf, CRITICAL, kidOf, type Critical } from './agentCentralKids.js'
 
 /** 중앙을 저절로 깨울 때 넘기는 마지막 글 · CI 기록 길이 (11/18) */
 const REPORT_FULL = 4000
@@ -383,23 +384,16 @@ export class CentralChats extends FeedbackChats {
       if (b.project === APP_RID || b.project === CENTRAL_RID) throw new WorkbenchError(400, t('연구 프로젝트 id가 아닙니다', 'Not a research project id'))
       return kidOf(this.must(this.create({ rid: b.project, text: b.task, title: b.title, scope: { kind: 'project' }, write: 'notes', mode: 'edit' }, { parent: c.id }).id))
     }
-    // 피드백: 다른 컴퓨터 · 클라우드 루틴이 이번 차례에 맡았으면 열지 않고, 맡기를 적어 올린 뒤에 연다
-    // 여러 키면 한 대화에 묶는다 (11/19 "둘 다 묶기": feedback_turns의 group이 같은 것끼리)
+    // 피드백: 다른 컴퓨터 · 클라우드 루틴이 이번 차례에 맡았으면 열지 않고, 맡기를 적어 올린 뒤에 연다. 여러 키면 한 대화에 묶는다 (11/19 "둘 다 묶기")
     const keys = b.feedbacks?.length ? b.feedbacks : b.feedback ? [b.feedback] : []
     if (!keys.length) throw new WorkbenchError(400, t('피드백 처리에는 feedback(피드백 키) 또는 feedbacks가 필요합니다', 'role feedback needs feedback (the feedback key) or feedbacks'))
-    const fb = this.deps.feedback
-    const all = fb ? listAllFeedback(fb.dir) : []
-    for (const key of keys) {
-      const e = all.find((x) => x.key === key)
-      if (!fb?.claims || !e) continue
+    const fb = this.deps.feedback, claims = fb?.claims
+    for (const e of fb && claims ? listAllFeedback(fb.dir).filter((x) => keys.includes(x.key)) : []) {
       const since = lastTouched(e)
-      if (fb.claims.taken(key, since) || !(await fb.claims.claim(key, since).catch(() => false))) {
-        throw new WorkbenchError(409, t(`다른 컴퓨터나 클라우드 루틴이 이 피드백(${key})을 맡았습니다`, `Another computer or the cloud routine has claimed this feedback (${key})`))
-      }
+      if (claims?.taken(e.key, since) || !(await claims?.claim(e.key, since).catch(() => false))) throw new WorkbenchError(409, t(`다른 컴퓨터나 클라우드 루틴이 이 피드백(${e.key})을 맡았습니다`, `Another computer or the cloud routine has claimed this feedback (${e.key})`))
     }
     const kid = this.handOff(keys, c.id)
-    // 맡길 일에 사용자의 말이 더 있으면 이어 보낸다 (피드백 안내는 handOff가 만든다)
-    if (b.task.trim()) this.send(kid.id, { text: b.task })
+    if (b.task.trim()) this.send(kid.id, { text: b.task }) // 사용자의 말이 더 있으면 이어 보낸다 (피드백 안내는 handOff가 만든다)
     return kidOf(this.must(kid.id))
   }
 
@@ -510,9 +504,4 @@ export class CentralChats extends FeedbackChats {
     if (w.timer) clearTimeout(w.timer)
     w.timer = undefined
   }
-}
-
-
-function tail(s: string, n: number): string {
-  return s.length > n ? `…${s.slice(-n)}` : s
 }

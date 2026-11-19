@@ -13,7 +13,7 @@ import { qk } from './queries'
 import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
-import { WorkAside } from './WorkAside'
+import { useSideColumn, WorkAside } from './WorkAside'
 import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
@@ -86,13 +86,14 @@ function CopyButton({ text }: { text: string }) {
 
 export { effortsOf, fitEffort, modelName } from './AgentPick'
 export { AGENT_OPEN, sendToAgent } from './ChatComposer'
+export { CENTRAL_PAGE } from './CentralChat'
 
 // ---------- 목록 ----------
 
 export const useChatList = (rid?: string) => { useSeen(); return useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) }) }
 /** 탭 이름 (App.tsx tabTitle, 나란히 연 대화): 불러온 대화의 이름 */
 export const chatTitles = new Map<string, string>()
-const useChat = (id: string) => useQuery({ queryKey: qk.agentChat(id), queryFn: () => agentChatsApi.get(id).then((c) => { chatTitles.set(c.id, c.title); return c }) })
+const useChat = (id: string, enabled = true) => useQuery({ queryKey: qk.agentChat(id), queryFn: () => agentChatsApi.get(id).then((c) => { chatTitles.set(c.id, c.title); return c }), enabled })
 const useProjects = () => useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
 
 function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): string {
@@ -559,7 +560,6 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           <Delta added={added} removed={removed} />{t('변경사항', 'Changes')}
         </button>
       )}
-      {onPane && !chat.changed.length && <button className={`btn sm${pane ? ' on' : ''}`} data-ui="작업 버튼" aria-pressed={!!pane} onClick={onPane}>{t('작업', 'Work')}</button>}
       {chat.rid === CENTRAL_RID && !compact && <CentralBoardButton narrowOnly={!!pane} />}
       <ReviewButton chat={chat} onError={onError} />{tools}
       <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} onRecord={onRecord} />
@@ -609,12 +609,14 @@ function QueuedBar({ chat, onEdit, onError }: { chat: Chat; onEdit(f: Omit<Fill,
 }
 
 /** 대화 하나: 머리, 주고받은 줄, 입력란 위의 할 일 · 다음에 보냄, 입력란 (auto = 지금 보는 노트) */
-export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDeleted, onSaved }: {
+export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, onDeleted, onSaved }: {
   id: string
   auto?: Attach
   head?: boolean
   pane?: boolean
   onPane?(): void
+  /** 머리 오른쪽 아이콘 단추 (에이전트 화면의 세부 패널 · 터미널) */
+  tools?: ReactNode
   onBack?(): void
   onDeleted(): void
   onSaved(m: string): void
@@ -701,7 +703,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
   return (
     <div className="ac-chat" data-ui="에이전트 대화">
-      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
+      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
@@ -935,18 +937,15 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
 
 // ---------- 레일 "에이전트" 화면 ----------
 
-const PANE_KEY = 'rw-agent-pane'
-
 export function AgentPage({ id, onSaved, side }: { id?: string; onSaved(m: string): void; side?: { open: boolean; onOpen(): void } }) {
-  const [pane, setPaneState] = useState(() => store.get<boolean>(PANE_KEY, true))
-  const setPane = (v: boolean) => { setPaneState(v); store.set(PANE_KEY, v) }
+  const chatPage = !!id && id !== CENTRAL_PAGE, col = useSideColumn(chatPage, useChat(id ?? '', chatPage).data?.rid) // 오른쪽 칸: 세부 패널 · 터미널
   return (
     <main className="stage full" data-ui="에이전트">
       <section className="pane">
         {id === CENTRAL_PAGE ? <CentralStart /> : id
           ? <div className="ac-page">
-            <ChatView key={id} id={id} pane={pane} onPane={() => setPane(!pane)} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
-            {pane && <WorkColumn id={id} onSaved={onSaved} />}
+            <ChatView key={id} id={id} pane={col.work} onPane={col.togglePane} tools={col.tools} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
+            {col.work && <WorkColumn id={id} onSaved={onSaved} />}{col.terminal}
           </div>
           : <div className="scroll"><div className="page-body ac-start">
             <h1 className="ac-h">{t('새 대화', 'New conversation')}</h1>
