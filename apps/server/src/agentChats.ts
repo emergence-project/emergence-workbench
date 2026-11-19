@@ -958,7 +958,10 @@ export class AgentChats {
           this.push(c, { kind: 'blocked', at: now(), tool: tool.replace(MCP, ''), reason: v.reason })
           return { allow: false, message: v.message }
         }
+        // 우회는 허락해 돌린 때마다 대화에 남긴다 (언제 · 어느 대화 · 무슨 명령)
+        const bypassed = (how: 'once' | 'always') => { if (v.bypass !== undefined) this.push(c, { kind: 'bypass', at: now(), command: v.bypass, how }) }
         if (c.alwaysKeys?.some((a) => a.key === v.key)) {
+          bypassed('always')
           claim(v.claim)
           edited(tool, input)
           return { allow: true }
@@ -992,6 +995,7 @@ export class AgentChats {
           }
           claim(v.claim)
           edited(tool, input)
+          bypassed(a === 'always' ? 'always' : 'once')
         }
         this.touch(c)
         const said = got.note ? ` The user said: ${got.note}` : ''
