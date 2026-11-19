@@ -233,5 +233,5 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 .rail-account { position: relative; width: 22px; height: 22px; display: grid; place-items: center; }
 .rail-account img, .rail-account-letters { width: 22px; height: 22px; border-radius: 50%; }
 .rail-account img { object-fit: cover; box-shadow: 0 0 0 1px var(--line); }
-.rail-account-letters { display: grid; place-items: center; background: var(--bg-sunken); color: var(--text-2); font-size: 10px; font-weight: var(--fw-strong); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.rail-account-letters { display: grid; place-items: center; background: var(--bg-sunken); color: var(--text-2); font-size: var(--fs-2xs); font-weight: var(--fw-strong); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .rail-account-dot { position: absolute; right: -2px; bottom: -2px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 2px var(--bg-side); }
