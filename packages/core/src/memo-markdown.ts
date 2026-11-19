@@ -17,10 +17,13 @@ export type Inline =
 
 export type MemoBlock =
   | { kind: 'para'; lines: Inline[][] }
-  | { kind: 'list'; ordered: boolean; items: Array<{ depth: number; inline: Inline[] }> }
+  | { kind: 'list'; ordered: boolean; items: ListItem[] }
   | { kind: 'math'; tex: string }
   | { kind: 'pre'; lang: string; text: string }
   | { kind: 'table'; align: TableAlign[]; head: Inline[][]; rows: Inline[][][] }
+
+/** 목록 항목. 하위 항목은 바깥 목록과 종류가 달라도 같은 목록에 든다. num은 번호 항목이 보일 번호 (첫 항목의 번호부터 하나씩) */
+export type ListItem = { depth: number; inline: Inline[]; ordered: boolean; num?: number }
 
 export type TableAlign = 'left' | 'center' | 'right' | null
 
@@ -93,6 +96,8 @@ export function parseMemo(text: string): MemoBlock[] {
   // 코드 블록: 연 울타리(``` · ~~~)와 같은 글자로 같은 길이 이상인 줄이 닫는다. 연 줄의 들여쓰기만큼 줄 앞을 덜어 낸다
   let pre: { fence: string; indent: number; lang: string; lines: string[] } | null = null
   const lines = text.replace(/\r\n/g, '\n').split('\n')
+  // 목록마다 깊이별 마지막 번호 (번호 항목이 아니면 undefined)
+  const counters = new Map<MemoBlock, Array<number | undefined>>()
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]!
     if (pre) {
@@ -128,9 +133,23 @@ export function parseMemo(text: string): MemoBlock[] {
     const last = blocks[blocks.length - 1]
     if (item) {
       const ordered = !!n
-      const entry = { depth: Math.floor(item[1]!.replace(/\t/g, '  ').length / 2), inline: parseInline(item[2]!) }
-      if (last?.kind === 'list' && last.ordered === ordered) last.items.push(entry)
-      else blocks.push({ kind: 'list', ordered, items: [entry] })
+      const depth = Math.floor(item[1]!.replace(/\t/g, '  ').length / 2)
+      // 빈 줄을 건너 바로 앞 목록을 잇는다: 하위 항목은 늘, 맨 바깥 항목은 같은 종류일 때 (번호 목록이 하위 항목·빈 줄에 끊겨 1부터 다시 서지 않게, 11/19 피드백)
+      let k = blocks.length - 1
+      for (let b = blocks[k]; b?.kind === 'para' && b.lines.length === 0; b = blocks[k]) k--
+      const prev = blocks[k]
+      const list = prev?.kind === 'list' && (depth > 0 || prev.ordered === ordered) ? prev : null
+      if (list) blocks.splice(k + 1)
+      const counts = list ? counters.get(list)! : []
+      counts.length = Math.min(counts.length, depth + 1)
+      const num = ordered ? (counts[depth] !== undefined ? counts[depth]! + 1 : Number(/\d+/.exec(raw)![0])) : undefined
+      counts[depth] = num
+      const entry: ListItem = { depth, inline: parseInline(item[2]!), ordered, ...(num !== undefined && { num }) }
+      if (list) list.items.push(entry)
+      else { const b: MemoBlock = { kind: 'list', ordered, items: [entry] }; counters.set(b, counts); blocks.push(b) }
+    } else if (last?.kind === 'list' && /^\s+\S/.test(raw)) {
+      // 항목 바로 밑의 들여쓴 줄은 그 항목에 잇는다
+      last.items[last.items.length - 1]!.inline.push({ kind: 'text', text: ' ' }, ...parseInline(raw.trim()))
     } else if (raw.trim() === '') {
       blocks.push({ kind: 'para', lines: [] }) // 빈 줄은 문단을 끊는다 (아래에서 정리)
     } else if (last?.kind === 'para' && last.lines.length > 0) {
