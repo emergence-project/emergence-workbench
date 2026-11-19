@@ -289,7 +289,7 @@ export const HandOffBody = z.object({
 const ANSWER_STATES = ['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류'] as const
 /**
  * 대화가 맡은 피드백의 처리 기록 (에이전트의 MCP feedback_answer). 앱이 status.yaml에 YAML로 적는다.
- * 수정 요청 · 진행을 다시 처리하면 앱이 그 전 처리를 revised로 옮기고 rework를 적는다(miss · lesson은 그 revised에).
+ * 수정 요청 · 진행 · 논의로 다시 처리하면 앱이 그 전 처리(전후 그림까지)를 revised로 옮기고 rework를 적는다(miss · lesson은 그 revised에).
  * after = 고친 뒤 화면: 그 PR의 CI가 찍은 그림 이름(shots의 파일 이름, .png 없이). 앱이 받아 그림 폴더에 두고 pictures: [전, 후].
  * replies = 답 없는 코멘트에 단 답 (to = 그 코멘트의 at). state 없이 replies만 보내면 처리는 그대로 두고 답만 더한다.
  * mockups = 이 대화 작업 폴더 mockups/의 시안 이름 (확장자 없이도). 앱이 그림과 같은 이름의 .html을 피드백 그림 폴더에 옮겨 적는다:
