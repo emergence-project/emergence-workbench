@@ -13,7 +13,7 @@ import { FeedbackFocus, FocusMissing, useFeedbackFocus, useFocusOpen, useIsFocus
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
 import { FeedbackFileButtons, InstantToggle, IssueButton } from './FeedbackSend'
-import { AnswerCells, AnswerHeads, answerKindName, KIND_FILTERS, matchesKind, type KindFilter } from './feedbackAnswerKind'
+import { AnswerCells, AnswerHeads, AnswerResult, answerKindName, KIND_FILTERS, matchesKind, type KindFilter } from './feedbackAnswerKind'
 import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
 import { feedbackKindName as kindName, feedbackLabel as label, feedbackStateName as stateName, REPLY, TAG_NOTES } from './feedbackTags'
@@ -253,7 +253,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
   return (
     <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`} data-fb-key={e.key}>
       <div className="fbp-head">
-        <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
+        <span className={`fbp-state st-${st}`}>{headName(e, st)}</span><AnswerResult e={e} />
         <span className="tag">{kindName(kindOf(e))}</span>
         {e.source && <span className="tag" title={e.source === '미리보기' ? t('채팅의 앱 미리보기에 남긴 댓글', 'Comment left in the app preview in chat') : `${t('피드백 파일로 받은 다른 사람의 피드백', 'Feedback from someone else, imported from a feedback file')}${e.sender ? ` · ${t('보낼 때 이름', 'Name when sent')}: ${e.source}` : ''}`}>{shown(e.sender ?? e.source)}</span>}
         {e.status?.theme && <span className="fbp-theme">#{e.status.theme}</span>}
