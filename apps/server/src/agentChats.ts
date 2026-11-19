@@ -243,17 +243,15 @@ export class AgentChats {
         // 줄 선 대화는 저장해 둔 차례로 다시 줄을 선다 (예전엔 "이어서"만 받아 사용자의 새 지시를 잃고 "이미 답했다"고 끝났다, 11/19)
         if (c.state === 'queued' && c.turn) this.queue.push({ id: c.id, ...c.turn })
         else if (LIVE.has(c.state)) {
-          // 앱이 다시 켜지면 돌던 차례는 이어지지 않는다
-          const was = c.state
-          // 차례를 저장하기 전에 줄 선 대화: 마지막 지시를 다음에 함께 읽는다
-          const u = was === 'queued' ? [...c.items].reverse().find((it) => it.kind === 'user') : undefined
+          const was = c.state // 앱이 다시 켜지면 돌던 차례는 이어지지 않는다
+          const u = was === 'queued' /* 차례를 저장하기 전에 줄 선 대화: 마지막 지시를 다음에 함께 읽는다 */ ? [...c.items].reverse().find((it) => it.kind === 'user') : undefined
           if (u?.kind === 'user') (c.pending ??= []).push({ prompt: u.text })
-          c.state = 'stopped'
-          c.claims = []
+          c.state = 'stopped'; c.claims = []
           // 도는 동안 보낸 지시는 그대로 두었다가 다음 지시와 함께 읽는다 (사라지지 않게)
           for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true }
-          // 일하던 대화만 같은 세션으로 저절로 이어 간다 (10/30). 사용자 답을 기다리던 대화는 깨우지 않는다 (11/19)
-          const again = was !== 'waiting' && !!c.sessionId && !c.archived && (c.restarts ?? 0) < RESTART_RESUMES
+          if (was === 'running') c.restarts = (c.restarts ?? 0) + 1 // 실제로 돌던 차례만 센다: 줄에서 겪은 재시작까지 세면 합치기가 잦은 날 다 써 버려 멈춘 채 남았다 (11/19)
+          // 일하던 대화 · 줄 선 대화만 저절로 이어 간다 (10/30). 사용자 답을 기다리던 대화는 깨우지 않는다. 줄 선 지시가 있으면 세션이 없어도 (11/19)
+          const again = was !== 'waiting' && (!!c.sessionId || !!u) && !c.archived && (c.restarts ?? 0) <= RESTART_RESUMES
           if (again) this.restarted.push(c.id)
           c.items.push({ kind: 'error', at: now(), text: again
             ? t('앱이 다시 켜져 멈췄습니다. 같은 대화로 저절로 이어 갑니다', 'Stopped because the app restarted. Continuing the same conversation by itself')
@@ -370,9 +368,11 @@ export class AgentChats {
     for (const id of this.restarted.splice(0)) {
       const c = this.chats.get(id)
       if (!c || c.state !== 'stopped' || c.archived) continue
-      c.restarts = (c.restarts ?? 0) + 1
+      // 멈춘 차례의 마지막 지시를 함께 넘긴다 (세션을 잃었어도 무엇을 하던 중인지 안다). 이미 줄 선 지시로 남았으면 그대로
+      const u = (c.pending ?? []).length ? undefined : [...c.items].reverse().find((it) => it.kind === 'user'), q = u?.kind === 'user' && u.text.trim() ? `\n> ${u.text.slice(0, 2000).replace(/\n/g, '\n> ')}` : ''
+      const text = t('앱이 다시 켜졌습니다. 멈춘 데서 이어서 해 주세요.', 'The app restarted. Please continue where you stopped.'), last = q && t(`\n\n멈춘 차례의 마지막 지시:${q}`, `\n\nThe last instruction of the stopped turn:${q}`)
       try {
-        this.send(id, { text: t('앱이 다시 켜졌습니다. 멈춘 데서 이어서 해 주세요.', 'The app restarted. Please continue where you stopped.') })
+        this.send(id, { text }, text + last)
         n++
       } catch { /* 이어 가지 못하면 멈춤 그대로 (사용자가 이어서 지시한다) */ }
     }
