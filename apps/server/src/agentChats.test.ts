@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ChatScope } from '@rw/core/contract/agentChats'
-import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptFor, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
+import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptFor, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput, type Turn } from './agentChats.js'
 import { choicesOf, eventsOf } from './agentRunner.js'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
@@ -250,6 +250,16 @@ const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
       yield { type: 'text', text: `got ${x.prompt}` }
       yield { type: 'result', ok: true }
     }
+    return
+  } else if (input.prompt === 'eager') {
+    // 실제 SDK처럼 일하는 중에 받은 지시를 inbox에서 곧바로 가져가 제 줄에 둔다. 멈추면 줄에 남은 것이 있어(still_queued) 끊지 못한다
+    const taken: Turn[] = []
+    let cut!: () => void
+    const cutP = new Promise<void>((r) => { cut = r })
+    input.control?.({ interrupt: async () => { cut(); return !taken.length }, unread: () => [...taken] })
+    void (async () => { for await (const x of input.inbox!) taken.push(x) })()
+    yield { type: 'text', text: 'long' }
+    await Promise.race([cutP, new Promise<void>((r) => input.signal.addEventListener('abort', () => r(), { once: true }))])
     return
   } else if (input.prompt === 'wait') {
     await new Promise<void>((r) => { gate = r; input.signal.addEventListener('abort', () => r(), { once: true }) })
@@ -533,6 +543,21 @@ describe('대화 API', () => {
     await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '다시' } })
     await vi.waitFor(async () => expect((await get(c.id)).items.at(-2)).toMatchObject({ kind: 'text', text: 'got 다시' }))
     expect(seen.length).toBe(runs)
+  })
+
+  it('일하는 중에 보낸 지시를 실행기가 가져간 뒤 멈추면, 읽히지 않은 그 지시는 「다음에 보냄」으로 남아 다음 지시와 함께 간다', async () => {
+    const c = await create({ text: 'eager' })
+    await settle(c.id, 'running')
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이것도 봐 줘' } })
+    // 실행기가 가져가 inbox는 비었다
+    await vi.waitFor(async () => expect((await get(c.id)).items.at(-1)).toMatchObject({ kind: 'user', text: '이것도 봐 줘' }))
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/stop`, payload: {} })
+    await settle(c.id, 'stopped')
+    expect((await get(c.id)).items.at(-1)).toMatchObject({ kind: 'user', text: '이것도 봐 줘', queued: true })
+    await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이어서' } })
+    await settle(c.id)
+    expect(seen.at(-1)!.prompt).toContain('이것도 봐 줘')
+    expect(seen.at(-1)!.prompt).toContain('이어서')
   })
 
   it('일하는 중에 보낸 지시는 다음 차례에 읽고, 모드 · 모델은 다음 차례부터 바뀐다. 그림 · 붙인 것은 에이전트에게 간다', async () => {

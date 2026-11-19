@@ -60,6 +60,14 @@ describe('하위 대화 요약', () => {
   })
 })
 
+describe('중앙 안내: 앱 안 링크 (11/19)', () => {
+  it('하위 대화 · 피드백 · PR을 말할 때 앱이 링크로 바꾸는 꼴(전체 대화 id · 피드백 키 · #번호)로 쓰라고 한다', () => {
+    expect(CENTRAL_BRIEF).toMatch(/full chat id .*#\/agent\/<id>/)
+    expect(CENTRAL_BRIEF).toContain('#/feedback/<key>')
+    expect(CENTRAL_BRIEF).toContain('pull request as #number')
+  })
+})
+
 describe('하위 대화의 보고 (11/19)', () => {
   const report = '끝났습니다.\n\n## 보고\n- 바꾼 것: 목록이 이어짐\n- 위치: PR #9\n- 판단: 없음\n- 남은 일: 없음'
   it('마지막 글의 「## 보고」 절을 줄바꿈 그대로 꺼낸다', () => {
