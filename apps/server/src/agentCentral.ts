@@ -24,6 +24,7 @@ import { WorkbenchError } from './workbench.js'
 import { AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, type Critical } from './centralBrief.js'
 export { AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, type Critical } from './centralBrief.js'
 import { cut, digestOf, kidReport, kidSig, lastReport, oneLine, stateWord, tail } from './agentCentralDigest.js'
+import { crashesOf, crashLines, lastCrash } from './agentCrash.js'
 
 /** 중앙을 저절로 깨울 때 넘기는 마지막 글 · CI 기록 길이 (11/18) */
 const REPORT_FULL = 4000
@@ -56,18 +57,19 @@ export function kidOf(c: Stored): CentralKid {
   const crit = a && criticalOf(a, c)
   const own = kidReport(c.items)
   const report = own ?? lastReport(c.items)
+  const crashes = c.state === 'error' && lastCrash(c.items) ? crashesOf(c.items).length : 0
   return {
     id: c.id, rid: c.rid, title: c.title, state: c.state, ...(c.state === 'waiting' && wait && { wait }),
     ...(c.state === 'waiting' && a && { ask: { id: a.id, ...(crit && { critical: crit.ko }) } }),
     ...(c.pr && { pr: { ...c.pr } }), ...(c.merged && { merged: c.merged }), ...(c.feedback && { feedback: c.feedback }), ...(c.bundle && { bundle: [...c.bundle] }),
     archived: !!c.archived, ...(c.summary && { summary: c.summary }), ...(report && { report }), ...(own && { reported: true }), updated: c.updated,
-    ...(c.pr && c.ci && !c.merged && { ci: c.ci }), ...(c.todos.length && { todos: { done: c.todos.filter((x) => x.state === 'completed').length, total: c.todos.length } }),
+    ...(c.pr && c.ci && !c.merged && { ci: c.ci }), ...(c.todos.length && { todos: { done: c.todos.filter((x) => x.state === 'completed').length, total: c.todos.length } }), ...(crashes && { crashes }),
   }
 }
 
 
 /** 깨울 까닭 하나 */
-type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help'; log?: string; text?: string }
+type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help' | 'crash'; log?: string; text?: string }
 /** digested: 중앙 대화 id별로 마지막으로 넘긴 하위 대화마다의 kidSig */ type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number>; digested: Map<string, Map<string, string>> }
 
 export class CentralChats extends FeedbackChats {
@@ -95,7 +97,16 @@ export class CentralChats extends FeedbackChats {
     // 사용자가 답할 피드백. 하위 대화가 맡은 것은 그 줄이 대신한다
     const owned = new Set(kids.filter((k) => !k.archived).flatMap((k) => [...(k.feedback ? [k.feedback] : []), ...(k.bundle ?? [])]))
     const feedback = this.userFeedback().filter((f) => !owned.has(f.key))
-    return { id: c.id, kids, app: this.app, ...(held.length && { held }), ...(feedback.length && { feedback }) }
+    const crashed = this.crashedOthers(c.id)
+    return { id: c.id, kids, app: this.app, ...(held.length && { held }), ...(feedback.length && { feedback }), ...(crashed.length && { crashed }) }
+  }
+
+  /** 중앙의 하위 대화가 아닌 대화 가운데 비정상 종료로 멈춘 것 (작업 현황의 「내 차례」, 11/20) */
+  private crashedOthers(central: string): NonNullable<CentralState['crashed']> {
+    return [...this.chats.values()].filter((k) => k.id !== central && k.parent !== central && !k.archived && k.state === 'error').flatMap((k) => {
+      const x = lastCrash(k.items)
+      return x ? [{ id: k.id, rid: k.rid, title: k.title, at: x.at, text: oneLine(x.text, 160), count: crashesOf(k.items).length }] : []
+    })
   }
 
   private fbCache?: { at: number; items: NonNullable<CentralState['feedback']> }
@@ -167,6 +178,9 @@ export class CentralChats extends FeedbackChats {
       return
     }
     if (c.rid === APP_RID && ended && central.held?.length) queueMicrotask(() => void this.openHeld())
+    // 비정상 종료 (11/20): 하위 대화가 아니어도 알린다. 사용자가 멈춘 것은 stopped라 오지 않는다
+    const crash = ended && c.state === 'error' && !c.archived ? lastCrash(c.items) : undefined
+    if (crash) this.note(c.id, { kind: 'crash' }, `crash:${c.id}:${crash.at}`)
     if (c.parent !== central.id || c.archived) return
     const a = c.state === 'waiting' ? openAsk(c) : undefined
     if (a) this.note(c.id, { kind: 'ask' }, `ask:${a.id}`)
@@ -239,14 +253,24 @@ export class CentralChats extends FeedbackChats {
       const own = kidReport(k.items)
       const report = own ? undefined : lastReport(k.items, REPORT_FULL)
       const lines: string[] = []
+      const crashed = evs.some((e) => e.kind === 'crash')
       for (const e of evs) {
         if (busy && e.kind !== 'help') continue
+        if (e.kind === 'crash') {
+          const x = lastCrash(k.items)
+          if (!x) continue
+          const n = crashesOf(k.items).length
+          ko.push(`「${k.title}」 비정상 종료${n > 1 ? ` (${n}번째)` : ''}`)
+          lines.push(...crashLines(k.id, k.items, x))
+          if (k.parent !== this.central()?.id) lines.push('not your sub-conversation, so chat_send cannot reach it: tell the user, or open an app sub-conversation for an app bug.')
+          continue
+        }
         if (e.kind === 'help') {
           ko.push(`「${k.title}」 중재 요청`)
           lines.push(`asks you to mediate (outside the projects it may change, or an app bug)${k.parent === this.central()?.id ? '' : ' — not your sub-conversation, so chat_send cannot reach it'}: ${cut(e.text ?? '', REPORT_FULL)}`)
           lines.push('Open a sub-conversation for it (role app for an app bug, role project for another project; check chat_list first), or tell the user when the user must decide.')
         } else if (e.kind === 'end') {
-          if (k.state === 'waiting') continue
+          if (k.state === 'waiting' || crashed) continue
           ko.push(`「${k.title}」 ${k.state === 'error' ? '실패' : k.state === 'stopped' ? '멈춤' : '차례 끝남'}`)
           lines.push(`ended its turn (${stateWord[k.state] ?? k.state})`)
         } else if (e.kind === 'ask') {
