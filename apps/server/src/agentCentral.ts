@@ -54,6 +54,7 @@ export const CENTRAL_BRIEF = [
   '- Answer questions yourself by reading: workbench MCP tools (list_projects, project_status, overview, read_note, list_records, search_library, rules) and Read/Grep/Glob on the app repository (your working folder) and registered projects.',
   '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; it squash-merges its own pull request with app_merge once CI is green, or you squash-merge it; restarting stays with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
   `- How many app sub-conversations work at once depends on free memory: the app opens one while at least ${MEM_FREE_MIN * 100}% and ${MEM_FREE_GB} GB of memory stay free (always at least ${APP_LIVE_MIN}, at most ${APP_LIVE_CAP}). If chat_open says the task is held, the app opens it by itself when memory frees or one ends; do not open it again.`,
+  '- Only when the app itself is broken or stuck (an app bug, the app not responding, sub-conversations not starting), open the fix with chat_open urgent: true: it starts at once whatever the memory and queue (one at a time; you yourself never wait in the queue). Never use urgent for ordinary features or fixes.',
   '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per item).',
   '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
   '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
@@ -393,8 +394,14 @@ export class CentralChats extends FeedbackChats {
     }
   }
 
+  /** 중앙 대화와 그것이 급히 연 앱 고치기는 줄을 서지 않고 동시에 도는 수에도 들지 않는다 (11/19 "중앙대화는 메모리 부족과 관계없이 작업을 할 수 있어야") */
+  protected override unlimited(c: Stored): boolean {
+    return c.rid === CENTRAL_RID || !!c.urgent
+  }
+
+  /** 메모리로 세는 앱 고치기 (급한 것은 따로 하나) */
   private appLive(): Stored[] {
-    return [...this.chats.values()].filter((k) => k.rid === APP_RID && LIVE.has(k.state))
+    return [...this.chats.values()].filter((k) => k.rid === APP_RID && LIVE.has(k.state) && !k.urgent)
   }
 
   /** 앱 고치기를 하나 더 열 수 있는지 (남은 메모리, appMemory.ts). 메모리를 못 읽으면 최소 개수만 */
@@ -434,7 +441,7 @@ export class CentralChats extends FeedbackChats {
   /** 중앙이 하위 대화를 연다 (chat_open). 남은 메모리가 모자라면 기다리게 두고(held) 그 순서를 돌려준다 */
   async openOrHold(b: CentralOpenBody): Promise<CentralOpened> {
     const c = this.central()
-    if (c && b.role === 'app') {
+    if (c && b.role === 'app' && !b.urgent) {
       const r = await this.room()
       if (!r.ok) {
         c.held = [...(c.held ?? []), { ...b, at: new Date().toISOString() }]
@@ -451,6 +458,12 @@ export class CentralChats extends FeedbackChats {
   async openKid(b: CentralOpenBody): Promise<CentralKid> {
     const c = this.central()
     if (!c) throw new WorkbenchError(409, t('중앙 대화가 없습니다', 'There is no central conversation'))
+    if (b.role === 'app' && b.urgent) {
+      // 앱 버그 · 앱이 멈춘 때만: 메모리 · 줄과 상관없이 바로 연다. 한 번에 하나
+      const busy = [...this.chats.values()].find((k) => k.urgent && LIVE.has(k.state))
+      if (busy) throw new WorkbenchError(409, t(`급한 앱 고치기는 한 번에 하나입니다 (「${busy.title}」 ${busy.id}). 그 대화에 이어 보내세요`, `Only one urgent app conversation at a time ("${busy.title}" ${busy.id}). Send to it with chat_send`))
+      return kidOf(this.must(this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'edit' }, { parent: c.id, urgent: true }).id))
+    }
     if (b.role === 'app') {
       const r = await this.room()
       if (!r.ok) {

@@ -537,13 +537,14 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async () => call('/api/agent-central/feedback', (b: { items: unknown[] }) => b.items))
     server.registerTool('chat_open', {
       title: 'Open sub-conversation',
-      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; at most 2 work at once, more are held and opened by the app when a slot frees). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle one app feedback item (pass feedback = its key; refused if another computer or the cloud routine claimed it). task = the user\'s words verbatim plus the context needed. It starts working right away.',
+      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; opened while memory is free, otherwise held and opened by the app when memory frees; urgent: true opens one at once for an app bug or a stuck app). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle one app feedback item (pass feedback = its key; refused if another computer or the cloud routine claimed it). task = the user\'s words verbatim plus the context needed. It starts working right away.',
       inputSchema: {
         role: z.enum(['app', 'project', 'feedback']),
         title: z.string().max(60).describe('Short Korean title the user sees'),
         task: z.string().describe('What to do: the user\'s own words verbatim, then needed context'),
         project: z.string().optional().describe('Project id for role project (from list_projects)'),
         feedback: z.string().optional().describe('Feedback key for role feedback'),
+        urgent: z.boolean().optional().describe('role app only, and only when the app itself is broken or stuck (an app bug, the app not responding): opens at once whatever the memory and queue, one at a time'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => {
