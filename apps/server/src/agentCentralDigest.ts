@@ -41,7 +41,7 @@ export function lastReport(items: ChatItem[], n = REPORT_CHARS): string | undefi
   return undefined
 }
 
-function oneLine(s: string, n: number): string {
+export function oneLine(s: string, n: number): string {
   return cut(s.replace(/\s+/g, ' ').trim(), n)
 }
 

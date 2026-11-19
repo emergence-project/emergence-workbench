@@ -359,16 +359,25 @@ export type FeedbackAnswered = z.infer<typeof FeedbackAnswered>
 export const CENTRAL_ROLES = ['app', 'project', 'feedback'] as const
 /**
  * 중앙 대화 아래의 하위 대화 한 줄: report = 마지막 에이전트 글 (줄임).
- * ask = 기다리는 허락 · 계획 카드 (중앙이 chat_answer로 답한다). critical = 사용자에게 남길 까닭 (있으면 중앙은 답하지 못한다)
+ * ask = 기다리는 허락 · 계획 카드 (중앙이 chat_answer로 답한다). critical = 사용자에게 남길 까닭 (있으면 중앙은 답하지 못한다).
+ * ci = PR 검사 (1분마다 tickCentral이 본다), todos = 할 일 목록의 끝낸 수 / 모두 (작업 현황 줄, 11/19)
  */
 export const CentralKid = z.object({
   id: z.string(), rid: z.string(), title: z.string(), state: z.enum(CHAT_STATES), wait: z.enum(['plan', 'ask']).optional(),
   ask: z.object({ id: z.string(), critical: z.string().optional() }).strict().optional(),
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(), merged: z.string().optional(),
   feedback: z.string().optional(), bundle: z.array(z.string()).optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), reported: z.boolean().optional(), updated: z.string(),
+  ci: z.enum(['pending', 'failed', 'passed']).optional(), todos: z.object({ done: z.number(), total: z.number() }).strict().optional(),
 }).strict()
-/** GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화 */
-export const CentralState = z.object({ id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean() }).strict()
+/**
+ * GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화.
+ * held = 자리를 기다리는 앱 고치기 (at = 맡긴 때), feedback = 사용자가 답할 피드백 가운데 하위 대화가 맡지 않은 것 (작업 현황의 「내 차례」, 11/19)
+ */
+export const CentralState = z.object({
+  id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean(),
+  held: z.array(z.object({ title: z.string(), at: z.string().optional() }).strict()).optional(),
+  feedback: z.array(z.object({ key: z.string(), target: z.string(), text: z.string(), at: z.string() }).strict()).optional(),
+}).strict()
 /** POST /agent-central/messages: 중앙에게 말하기 (중앙이 없으면 연다) */
 export const CentralMessageBody = z.object({ text: message.text, attach: message.attach, view: message.view }).strict()
 /** POST /agent-central/open: 중앙이 하위 대화를 연다. project = 프로젝트 작성, feedback = 피드백 키, task = 맡길 일 (사용자 원문을 그대로 붙인다) */

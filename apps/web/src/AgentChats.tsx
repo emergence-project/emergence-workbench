@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { autoCustom, autoOf, LIBRARY_RID, type ChatAutoValues } from '@rw/core'
-import { agentChatsApi, api, APP_RID, CENTRAL_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type Todo } from './api'
+import { autoCustom, LIBRARY_RID } from '@rw/core'
+import { agentChatsApi, api, APP_RID, CENTRAL_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatState, type Todo } from './api'
 import { askConfirm } from './askText'
 import { isSendKey } from './cmdEnter'
 import { relativeTime } from './format'
@@ -22,10 +22,11 @@ import { useRecords } from './projectQueries'
 import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
 import { GroupPick } from './AgentGroupPick'
+import { PermTable } from './AgentPermTable'
 import { ProjectPick, RecentChats } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
-import { CENTRAL_PAGE, CentralKids, CentralLine, CentralStart } from './CentralChat'
+import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
 import { APP_HINT, ATTACH_NAME, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
@@ -450,7 +451,8 @@ function AttachChips({ attach, images }: { attach?: Attach[]; images?: number })
 function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
-    case 'user': return (
+    // 중앙을 저절로 깨운 알림은 옅은 한 줄 (11/19: 진행은 작업 현황에서 보고, 대화에는 짧게)
+    case 'user': return it.auto ? <li className="ac-note muted ac-auto" data-ui="자동 알림" title={`${when}\n${it.text}`}><span className="ac-auto-text">{it.text}</span></li> : (
       <li className="ac-me" data-ui="내 지시" title={when}>
         <MemoText text={it.text} />
         <AttachChips attach={it.attach} images={it.images} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} />
@@ -543,6 +545,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           <span>·</span><span>{relativeTime(Date.parse(chat.updated))}</span>
           {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
         </div> : <div className="ac-meta">
+          {chat.parent && <><button className="a" data-ui="중앙 작업 현황으로" data-tip={t('중앙의 작업 현황에서 다른 맡긴 일과 함께 보기', 'See it with the other handed-off work in Central')} onClick={() => go({ page: 'agent', id: chat.parent })}>{t('‹ 중앙 · 작업 현황', '‹ Central · work status')}</button><span>·</span></>}
           {chat.rid === APP_RID || chat.rid === LIBRARY_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
@@ -557,6 +560,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           <Delta added={added} removed={removed} />{t('변경사항', 'Changes')}
         </button>
       )}
+      {chat.rid === CENTRAL_RID && !compact && <CentralBoardButton narrowOnly={!!pane} />}
       <ReviewButton chat={chat} onError={onError} />{tools}
       <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} onRecord={onRecord} />
     </div>
@@ -700,7 +704,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
   return (
     <AppLinkProvider feedback={chat.rid === CENTRAL_RID || chat.rid === APP_RID}><div className="ac-chat" data-ui="에이전트 대화">
       {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
-      {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}{chat.rid === CENTRAL_RID && <CentralKids />}
+      {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
         {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
@@ -873,54 +877,6 @@ function ChatInfo({ chat }: { chat: Chat }) {
   )
 }
 
-type PermRow = { ui: string; name: string; what: string; turn?: keyof ChatAutoValues | 'edit'; asks?: boolean }
-/** 권한 표 (10/28 사용자 결정 "권한을 명령 대신 하는 일로", 시안 4절): 앱이 명령을 하는 일로 나누고, 켠 것은 묻지 않는다 */
-const PERM_ROWS: PermRow[] = [
-  { ui: '읽기', name: t('읽기', 'Read'), what: t('ls · cat · grep · git log (프로젝트와 등록한 폴더 안)', 'ls · cat · grep · git log (inside the project and registered folders)'), turn: 'read' },
-  { ui: '편집', name: t('편집', 'Edit'), what: t('범위 안 노트 수정 · sed -i · mv', 'Edit notes in scope · sed -i · mv'), turn: 'edit' },
-  { ui: '지우기', name: t('삭제', 'Delete'), what: t('rm · 파일 삭제 · 고친 것 버리기', 'rm · deleting files · discarding changes'), asks: true },
-  { ui: '실행', name: t('실행', 'Run'), what: t('python · julia · pnpm test …', 'python · julia · pnpm test …'), turn: 'run' },
-  { ui: '웹 보기', name: t('웹 보기', 'Web'), what: t('웹 검색 · 페이지 읽기', 'Web search · reading pages'), turn: 'web' },
-  { ui: '외부', name: t('외부', 'Outside'), what: t('폴더 밖 · git push · 설치 · 내려받기', 'Outside the folders · git push · installs · downloads'), asks: true },
-]
-
-function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
-  const client = useQueryClient()
-  const [busy, setBusy] = useState(false)
-  const auto = autoOf(chat)
-  const readOnly = chat.write === 'read'
-  const set = async (row: PermRow, on: boolean) => {
-    setBusy(true)
-    try {
-      const body: ChatSettings = row.turn === 'edit'
-        ? { write: 'notes', mode: on ? 'edit' : 'ask', auto }
-        : { auto: { ...auto, [row.turn!]: on } }
-      client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.settings(chat.id, body))
-      if (isLive(chat.state) && row.turn === 'edit') onSaved(t('다음 차례부터 바뀝니다', 'Applies from the next turn'))
-    } catch (e) { onSaved((e as Error).message) } finally { setBusy(false) }
-  }
-  return (
-    <div className="ac-perm" role="table" aria-label={t('권한', 'Permissions')}>
-      <div className="ac-perm-row ac-perm-head" role="row"><span role="columnheader">{t('하는 일', 'Does')}</span><span role="columnheader">{t('자동 허용', 'Auto')}</span></div>
-      {PERM_ROWS.map((r) => {
-        const on = r.turn === 'edit' ? chat.mode === 'edit' && !readOnly : r.turn ? auto[r.turn] : false
-        const blocked = readOnly && (r.turn === 'edit' || r.ui === '삭제')
-        return (
-          <div key={r.ui} className="ac-perm-row" role="row" data-ui={`권한 ${r.ui}`}>
-            <span className="ac-perm-what" role="cell"><b>{r.name}</b><span className="muted">{r.what}</span></span>
-            <span role="cell" className="ac-perm-ctl">
-              {blocked ? <span className="muted">{t('막음', 'Blocked')}</span>
-                : r.asks ? <span className="muted">{t('늘 물음', 'Always asks')}</span>
-                : <button type="button" role="switch" className="switch" aria-checked={on} aria-label={r.name} disabled={busy} onClick={() => void set(r, !on)} />}
-            </span>
-          </div>
-        )
-      })}
-      {chat.mode === 'plan' && !readOnly && <span className="muted ac-hint">{t('계획 모드: 계획을 승인하기 전에는 편집 · 삭제를 막습니다', 'Plan mode: edits and deletes are blocked until you approve the plan')}</span>}
-    </div>
-  )
-}
-
 const PERM_OPEN_KEY = 'rw-agent-perm-open'
 /** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */
 export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
@@ -935,6 +891,13 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   const forget = async (label: string) => client.setQueryData(qk.agentChat(id), await agentChatsApi.forget(id, label))
   const trust = trustOf(chat)
   const hasEdits = chat.items.some((i) => i.kind === 'edit')
+  // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
+  if (chat.rid === CENTRAL_RID) return (
+    <WorkAside>
+      <CentralBoard />
+      <details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('모델 · 토큰 · 권한 ›', 'model · tokens · permissions ›')}</span></summary><ChatInfo chat={chat} /></details>
+    </WorkAside>
+  )
   return (
     <WorkAside>
       <ChatInfo chat={chat} />
