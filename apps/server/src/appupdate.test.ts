@@ -5,7 +5,7 @@ import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentRunner } from './agentChats.js'
 import { buildApp } from './app.js'
-import { aboutSameNote, appIssuesUrl, buildReason, nextBuildOf, numberVersions, parseSubject, promoteNextBuild, webRemote } from './appupdate.js'
+import { aboutSameNote, appIssuesUrl, buildReason, nextBuildOf, numberVersions, parseSubject, promoteNextBuild, webOnlyPaths, webRemote } from './appupdate.js'
 import { fixture, tmp, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -179,6 +179,9 @@ describe('앱 업데이트', () => {
       release()
       const id = talk.json().chat.id
       await vi.waitFor(async () => expect((await ub.inject({ method: 'GET', url: `/api/agent-chats/${id}` })).json().chat.state).toBe('idle'))
+      // 두 번 잇달아(약 20초) 쉬어야 다시 시작한다
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(calls).toEqual([])
       await vi.advanceTimersByTimeAsync(10_000)
       expect(calls).toEqual(['restart'])
     } finally { vi.useRealTimers() }
@@ -192,6 +195,72 @@ describe('앱 업데이트', () => {
     expect(fs.existsSync(path.join(mac, 'apps/web/dist-next'))).toBe(false)
     expect(fs.existsSync(path.join(mac, 'apps/web/dist/.commit'))).toBe(false)
     await ua.close()
+  })
+
+  it('화면만 바뀐 새 버전은 다시 시작하지 않고 dist를 바꿔 끼우며, 옛 화면의 조각도 남긴다 (11/19 "에이전트가 동작하면서 업데이트")', async () => {
+    expect(webOnlyPaths(['apps/web/src/App.tsx', 'docs/ports/x.md', 'feedback/status.yaml', 'README.md', ''])).toBe(true)
+    for (const p of ['apps/web/package.json', 'apps/server/src/app.ts', 'packages/core/src/x.ts', 'pnpm-lock.yaml', 'package.json', 'scripts/x.mjs']) expect(webOnlyPaths(['apps/web/src/App.tsx', p])).toBe(false)
+
+    const g = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd }).toString().trim()
+    const remote = path.join(tmp, 'web-remote.git')
+    const mac = path.join(tmp, 'web-mac')
+    const cloud = path.join(tmp, 'web-cloud')
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+    for (const d of [mac, cloud]) execFileSync('git', ['clone', '-q', remote, d])
+    for (const d of [mac, cloud]) { g(d, 'config', 'user.name', 't'); g(d, 'config', 'user.email', 't@t') }
+    fs.mkdirSync(path.join(mac, 'apps/web/src'), { recursive: true }); fs.writeFileSync(path.join(mac, 'apps/web/src/App.tsx'), 'v1\n'); fs.writeFileSync(path.join(mac, 'app.ts'), 'v1\n')
+    fs.writeFileSync(path.join(mac, '.gitignore'), 'apps/web/dist/\napps/web/dist-next/\n')
+    g(mac, 'add', '.'); g(mac, 'commit', '-qm', 'v1'); g(mac, 'push', '-q', '-u', 'origin', 'main')
+    const running = g(mac, 'rev-parse', 'HEAD')
+    fs.mkdirSync(path.join(mac, 'apps/web/dist/assets'), { recursive: true })
+    fs.writeFileSync(path.join(mac, 'apps/web/dist/index.html'), 'v1'); fs.writeFileSync(path.join(mac, 'apps/web/dist/assets/a-old.js'), 'old')
+    g(cloud, 'pull', '-q'); fs.writeFileSync(path.join(cloud, 'apps/web/src/App.tsx'), 'v2\n'); g(cloud, 'commit', '-qam', 'Screen only'); g(cloud, 'push', '-q')
+
+    const calls: string[] = []
+    const steps = {
+      install: async () => { calls.push('install') },
+      build: async (root: string) => {
+        calls.push('build')
+        fs.mkdirSync(path.join(root, 'apps/web/dist-next/assets'), { recursive: true })
+        fs.writeFileSync(path.join(root, 'apps/web/dist-next/index.html'), 'v2'); fs.writeFileSync(path.join(root, 'apps/web/dist-next/assets/a-new.js'), 'new')
+      },
+      restart: () => { calls.push('restart'); return true },
+      canRestart: () => true,
+    }
+    const appRepo = { root: mac, running, steps }
+    const ua = buildApp({ configDir: path.join(tmp, 'config-web'), appRepo })
+    const done = (await ua.inject({ method: 'POST', url: '/api/app/update' })).json()
+    const head = g(mac, 'rev-parse', 'HEAD')
+    expect(done).toMatchObject({ restarting: false, swapped: true, status: { running: head, head } })
+    expect(calls).toEqual(['build'])
+    // 새 화면이 dist에 있고, 옛 창이 나중에 읽을 조각도 남아 있다
+    expect(fs.readFileSync(path.join(mac, 'apps/web/dist/index.html'), 'utf8')).toBe('v2')
+    expect(fs.readdirSync(path.join(mac, 'apps/web/dist/assets')).sort()).toEqual(['a-new.js', 'a-old.js'])
+    expect(fs.existsSync(path.join(mac, 'apps/web/dist-next'))).toBe(false)
+    expect(fs.existsSync(path.join(mac, 'apps/web/dist-old'))).toBe(false)
+    // 서버는 그대로라 켜질 때의 커밋(started)은 남고, 돌고 있는 커밋만 옮겼다
+    expect(appRepo.running).toBe(head)
+    expect((await ua.inject({ method: 'GET', url: '/api/app/status' })).json().status).toMatchObject({ running: head, started: running, head })
+
+    // 서버 코드가 바뀌면 일하는 대화를 기다린다: 상태에 대화 수, 「지금 다시 시작」(force)이면 기다리지 않는다
+    g(cloud, 'pull', '-q'); fs.writeFileSync(path.join(cloud, 'app.ts'), 'v3\n'); g(cloud, 'commit', '-qam', 'Server'); g(cloud, 'push', '-q')
+    let release!: () => void
+    const hold = new Promise<void>((r) => { release = r })
+    const slow: AgentRunner = async function* () { yield { type: 'session', id: 's' }; await hold; yield { type: 'result', ok: true } }
+    const ub = buildApp({ configDir: path.join(tmp, 'config-web-agents'), appRepo, agentRunner: slow })
+    expect((await ub.inject({ method: 'POST', url: '/api/agent-central/messages', payload: { text: '일해 줘' } })).statusCode).toBe(200)
+    calls.length = 0
+    const waiting = (await ub.inject({ method: 'POST', url: '/api/app/update' })).json()
+    expect(waiting).toMatchObject({ restarting: false })
+    expect(waiting.swapped).toBeUndefined()
+    expect(calls).toEqual(['build'])
+    expect((await ub.inject({ method: 'GET', url: '/api/app/status' })).json().status).toMatchObject({ prepared: true, waitingAgents: 1 })
+    calls.length = 0
+    expect((await ub.inject({ method: 'POST', url: '/api/app/restart', payload: { force: true } })).json()).toEqual({ restarting: true })
+    expect(calls).toEqual(['restart'])
+    expect((await ub.inject({ method: 'GET', url: '/api/app/status' })).json().status.waitingAgents).toBeUndefined()
+    release()
+    await Promise.all([ua.close(), ub.close()])
   })
 })
 

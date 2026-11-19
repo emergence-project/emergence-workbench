@@ -114,8 +114,11 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
   let issues: Promise<string | null> | null = null
   const issuesUrl = () => (issues ??= process.env.RW_ISSUES_URL ? Promise.resolve(process.env.RW_ISSUES_URL) : opts.appRepo ? appIssuesUrl(opts.appRepo.root) : Promise.resolve(null))
 
+  const repo = opts.appRepo
+  // 화면만 바꿔 끼운 업데이트는 다시 시작하지 않고 돌고 있는 커밋을 바꾼다 (routes/settings.ts)
+  const appVersion = () => repo?.running.slice(0, 7) ?? opts.appVersion
   app.get('/api/feedback', replies(C.FeedbackToday), async (): Promise<C.FeedbackToday> => ({
-    issues: await issuesUrl(), version: opts.appVersion ?? null,
+    issues: await issuesUrl(), version: appVersion() ?? null,
     enabled: !!opts.feedbackDir, publishable: !!opts.feedbackDir && !!opts.feedbackPublish,
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
     delay: (() => { const d = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
@@ -124,7 +127,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     entries: opts.feedbackDir ? listFeedback(opts.feedbackDir) : [],
   }))
 
-  const inApp = opts.appRepo ? commitChecker(opts.appRepo.root, opts.appRepo.running) : null
+  const inApp = repo ? commitChecker(repo.root, () => repo.running) : null
   let account: Promise<string | null> | null = null
   app.get('/api/feedback/all', replies(C.FeedbackAll), async (): Promise<C.FeedbackAll> => {
     syncSoon()
@@ -250,7 +253,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!opts.feedbackDir) throw new WorkbenchError(404, t('피드백 폴더가 설정되지 않았음', 'No feedback folder is set'))
     const b = parseBody(C.NewFeedbackBody, req.body)
     if (!b.text.trim()) throw new WorkbenchError(400, t('내용이 필요함', 'text is required'))
-    const entry = appendFeedback(opts.feedbackDir, { ...b, version: opts.appVersion })
+    const entry = appendFeedback(opts.feedbackDir, { ...b, version: appVersion() })
     scheduleAutoPublish()
     return { entry }
   })
