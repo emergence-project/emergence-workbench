@@ -2,7 +2,7 @@
 import os from 'node:os'
 import { describe, expect, it } from 'vitest'
 import { sameComputer } from './hostGuard.js'
-import { shellEnv, shellOf, startDir } from './terminal.js'
+import { folderFor, shellEnv, shellOf, startDir } from './terminal.js'
 import { app, repo, useSampleApp } from './testkit.js'
 
 describe('sameComputer', () => {
@@ -35,6 +35,15 @@ describe('셸 준비', () => {
   it('없는 폴더면 홈에서 연다', () => {
     expect(startDir('/no/such/folder')).toBe(os.homedir())
     expect(startDir(null)).toBe(os.homedir())
+  })
+  it('중앙 · 앱 고치기는 앱 저장소, 연구는 그 저장소, 모르면 null(홈)', () => {
+    const where = { appRoot: '/app', repoPath: (rid: string) => { if (rid !== 'r1') throw new Error('없음'); return '/repos/r1' } }
+    expect(folderFor('_central', where)).toBe('/app')
+    expect(folderFor('_app', where)).toBe('/app')
+    expect(folderFor('r1', where)).toBe('/repos/r1')
+    expect(folderFor('nope', where)).toBeNull()
+    expect(folderFor(undefined, where)).toBeNull()
+    expect(folderFor('_central', { repoPath: where.repoPath })).toBeNull()
   })
 })
 

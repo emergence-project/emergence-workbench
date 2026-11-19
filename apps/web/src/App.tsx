@@ -549,7 +549,7 @@ export function App() {
             })()} />
           {agentPanel && agentPlace === 'bottom' && <AgentDock>{agentPanelOf(`${rid}-dock`)}</AgentDock>}</div>
         )}
-        {agentSideShown && <aside className="agent-side" data-ui="에이전트 사이드바"><AgentSideBody onSaved={flash} terminalOnly={route.page === 'agent'} /></aside>}
+        {agentSideShown && <aside className="agent-side" data-ui="에이전트 사이드바"><AgentSideBody onSaved={flash} terminalOnly={route.page === 'agent'} chatId={route.page === 'agent' ? route.id : undefined} /></aside>}
       </div>
 
       {quickMemo && rapi && summary && (() => {
