@@ -365,8 +365,7 @@ function Summary({ e, onOpinion }: { e: FeedbackItem; onOpinion?(): void }) {
           {[...revised].reverse().map((h) => (
             <div key={h.at} className="fbp-summary-old">
               <span className="muted">{whenOf(h.handled_at ?? h.at)}</span>
-              {(['understood', 'cause', 'note'] as const).map((f) => h[f] && <div key={f} className="fbp-summary-row"><b>{FIELD_NAME[f]}</b><span className="fbp-summary-text">{h[f]}</span><span /></div>)}
-              <BeforeAfter pictures={h.pictures} />
+              {(['understood', 'cause', 'note'] as const).map((f) => h[f] && <div key={f} className="fbp-summary-row"><b>{FIELD_NAME[f]}</b><span className="fbp-summary-text">{h[f]}</span><span /></div>)}<BeforeAfter pictures={h.pictures} />
             </div>
           ))}
         </details>

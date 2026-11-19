@@ -425,8 +425,7 @@ export function writeFeedbackAnswer(dir: string, key: string, a: FeedbackAnswer,
   return editYamlFile(dir, STATUS_FILE, (doc) => {
     const raw = ((doc.toJS() ?? {}) as Record<string, Record<string, unknown> | undefined>)[key]
     if (a.state) {
-      // 논의에 답하는 것도 다시 처리다: 그 전 처리(전후 그림까지)를 revised로 옮기지 않으면 덮여 사라지고, rework가 없어 계속 에이전트 차례로 남는다 (11/20)
-      const back = item.review && agentTurns(item, now.getTime()).some((x) => x === 'rework' || x === 'proceed' || x === 'discuss') ? item.review.at : undefined
+      const back = item.review && agentTurns(item, now.getTime()).some((x) => x === 'rework' || x === 'proceed' || x === 'discuss') ? item.review.at : undefined // 논의도 다시 처리: 안 옮기면 앞 처리가 덮여 사라진다 (11/20)
       const revised = Array.isArray(raw?.revised) ? [...(raw!.revised as unknown[])] : []
       if (back && raw?.state) {
         const keep = (k: string) => (raw[k] != null && raw[k] !== '' ? { [k]: String(raw[k]) } : {})
