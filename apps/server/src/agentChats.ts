@@ -55,7 +55,7 @@ export interface RunInput {
   /** 되돌리기 뒤: sessionId의 이 메시지까지만 이어 새 세션으로 가른다 (그 뒤 대화는 버린다) */
   resumeAt?: string
   /** 실행기가 하던 차례만 끊는 손잡이를 넘긴다 (Claude Code의 Esc). true = 끊겼고 기다리는 지시도 없음 */
-  control?: (c: { interrupt(): Promise<boolean> }) => void
+  /** unread = 실행기가 가져갔지만 에이전트가 아직 읽지 않은 지시 (닫힐 때 「다음에 보냄」으로 되돌린다) */ control?: (c: { interrupt(): Promise<boolean>; unread?: () => Turn[] }) => void
   canUseTool: (tool: string, input: Record<string, unknown>) => Promise<ToolDecision>
   signal: AbortSignal
 }
@@ -155,8 +155,8 @@ interface Session {
   idle?: NodeJS.Timeout
   /** 마지막으로 무엇이 오간 때 (뒤에서 도는 명령이 있어도 너무 오래 열어 두지 않게) */
   last: number
-  /** 하던 차례만 끊기 (실행기가 주면) */
-  interrupt?: () => Promise<boolean>
+  /** 하던 차례만 끊기 · 가져갔지만 읽지 않은 지시 (실행기가 주면) */
+  interrupt?: () => Promise<boolean>; unread?: () => Turn[]
   /** 멈춤을 눌러 차례를 끊는 중: 다음 result는 오류가 아니라 멈춤이다 */
   stopping?: boolean
 }
@@ -960,7 +960,7 @@ export class AgentChats {
         signal: abort.signal,
         inbox,
         ...(c.sessionId && c.resumeAt && { resumeAt: c.resumeAt }),
-        control: (x) => { session.interrupt = x.interrupt },
+        control: (x) => { session.interrupt = x.interrupt; session.unread = x.unread },
       }
       for await (const e of this.runnerFor(c)(input)) {
         session.last = Date.now()
@@ -1024,8 +1024,8 @@ export class AgentChats {
       this.aborts.delete(c.id)
       this.close(session)
       if (this.sessions.get(c.id) === session) this.sessions.delete(c.id)
-      // 에이전트가 읽지 못하고 닫힌 지시는 다음에 연 에이전트가 먼저 읽는다
-      const left = inbox.drain()
+      // 에이전트가 읽지 못하고 닫힌 지시(실행기가 가져갔지만 읽지 않은 것 · inbox에 남은 것)는 다음에 연 에이전트가 먼저 읽는다
+      const left = [...(session.unread?.() ?? []), ...inbox.drain()]
       if (left.length) {
         c.pending = [...left, ...(c.pending ?? [])]
         // 화면에는 「다음에 보냄」으로 (마지막에 보낸 것들이다)

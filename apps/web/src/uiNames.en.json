@@ -1099,5 +1099,9 @@
   "시안 논의": "Discuss mockup",
   "시안으로 진행": "Go ahead with mockup",
   "이식 안내서": "Porting guide",
-  "다른 앱에 옮기기": "Porting to another app"
+  "다른 앱에 옮기기": "Porting to another app",
+  "대화 링크": "Chat link",
+  "피드백 링크": "Feedback link",
+  "PR 링크": "PR link",
+  "못 찾은 피드백": "Feedback not found"
 }
