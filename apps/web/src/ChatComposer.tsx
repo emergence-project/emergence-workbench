@@ -22,7 +22,7 @@ import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, 
  */
 
 /** 입력란을 바깥에서 채울 때 (기다리는 지시 고치기). n이 바뀌면 채운다 */
-/** 바깥에서 입력란을 채울 것. text가 없으면 쓰던 글은 두고 붙일 것만 더한다 (대화에서 고른 글 「질문에 붙이기」) */
+/** 바깥에서 입력란을 채울 것. text가 없으면 쓰던 글은 두고 붙일 것만 더한다 (대화에서 고른 글 「답글」) */
 export type Fill = { text?: string; n: number; attach?: Attach[]; images?: ImageIn[] }
 
 // ---------- 권한 · 모델 · 생각 깊이 ----------

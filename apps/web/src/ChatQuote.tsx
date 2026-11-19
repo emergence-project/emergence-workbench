@@ -24,7 +24,7 @@ function readPick(list: HTMLElement): Picked | null {
 
 /**
  * 대화의 답 일부를 다음 질문에 붙이기 (11/19 "대화에 대한 질문에 컨텍스트 추가").
- * 대화 줄에서 글을 끌어 고르면 그 끝에 「질문에 붙이기」가 뜨고, 누르면 입력란 위에 「고른 글」 칩으로 붙는다.
+ * 대화 줄에서 글을 끌어 고르면 그 끝에 「답글」이 뜨고, 누르면 입력란 위에 「고른 글」 칩으로 붙는다.
  * 보내면 에이전트는 그 글을 인용(>)으로 받는다(서버 promptOf, 노트에서 고른 글과 같은 칩). 칩은 ×로 뺀다
  */
 export function ChatQuoteMenu({ list, onQuote }: { list: RefObject<HTMLElement | null>; onQuote(a: Attach): void }) {
@@ -52,8 +52,8 @@ export function ChatQuoteMenu({ list, onQuote }: { list: RefObject<HTMLElement |
   }
   return (
     <RecordMenu anchor={pick} owner={list.current} onClose={() => setPick(null)} onDefault={add}>
-      <button data-ui="질문에 붙이기" title={t('고른 글을 입력란에 붙여 이어서 묻습니다', 'Attach the selected text to your next message')} onClick={add}>
-        <span className="ico">{Icon.ask}</span> {t('질문에 붙이기', 'Attach to question')}
+      <button data-ui="답글" title={t('고른 글을 인용해 이어서 묻습니다', 'Quote the selected text in your next message')} onClick={add}>
+        <span className="ico">{Icon.ask}</span> {t('답글', 'Reply')}
       </button>
     </RecordMenu>
   )
