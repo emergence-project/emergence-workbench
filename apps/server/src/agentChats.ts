@@ -131,7 +131,7 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   /** 기록 대화: 마지막으로 넘긴 기록 글의 수 (같은 글을 두 번 넘기지 않게), 지금 차례가 기록에서 왔는지 (끝나면 답을 기록에 적는다) */
   recordSent?: number
   recordTurn?: boolean
-  /** 중앙 대화: 앱 고치기 자리(APP_LIVE_MAX)가 차서 기다리는 하위 대화. 자리가 나면 agentCentral.ts가 차례로 연다 */
+  /** 중앙 대화: 남은 메모리가 모자라 기다리는 앱 고치기 (appMemory.ts). 메모리가 풀리거나 하나가 끝나면 agentCentral.ts가 차례로 연다 */
   held?: CentralOpenBody[]
   /** 앱 고치기 · 피드백 대화: 끝나서 저절로 보관했는지 (한 번만. 사용자가 꺼내면 다시 넣지 않는다) */
   closed?: boolean

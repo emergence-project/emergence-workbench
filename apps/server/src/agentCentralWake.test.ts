@@ -4,14 +4,19 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { APP_LIVE_MAX, AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, CentralChats, criticalOf } from './agentCentral.js'
+import { AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, CentralChats, criticalOf } from './agentCentral.js'
 import { judge, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { sampleAppWork, type AppWork } from './appWorktree.js'
+import type { Mem } from './appMemory.js'
+
+const GB = 1024 ** 3
 
 const ctx: PolicyCtx = { rid: '_central', write: 'read', mode: 'edit', planOk: false, scope: { kind: 'all' }, repo: '/w/app', readable: [], claimedBy: () => undefined }
 
 describe('중앙을 저절로 깨우기', () => {
   const dirs: string[] = []
+  // 남은 메모리 (시험마다 넣는다. 기본은 넉넉하게)
+  let mem: Mem = { free: 0.9, total: 32 * GB }
   const seen: RunInput[] = []
   let release: (() => void) | undefined
   // [web] = 웹 읽기 허락을 기다림, [rm] = 지우기 허락을 기다림, [hold] = release까지 일하는 중
@@ -36,6 +41,7 @@ describe('중앙을 저절로 깨우기', () => {
     dirs.push(dir)
     const chats = new CentralChats({ dir, runner: fake, limit: 5, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {}, app })
     chats.wakeMs = wakeMs
+    chats.memory = async () => mem
     const c = chats.talk('시작')
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
     return { chats, c }
@@ -126,16 +132,34 @@ describe('중앙을 저절로 깨우기', () => {
     chats.stopAll()
   })
 
-  it(`앱 고치기 자리(${APP_LIVE_MAX})가 차면 기다리게 두었다가, 자리가 나면 열고 중앙 대화에 적는다`, async () => {
+  it('남은 메모리가 모자라면 기다리게 두었다가, 메모리가 풀리면 1분마다 확인할 때 열고 중앙 대화에 적는다', async () => {
+    mem = { free: 0.1, total: 32 * GB }
     const { chats, c } = await make(60_000)
-    for (let i = 0; i < APP_LIVE_MAX; i++) expect((await chats.openOrHold({ role: 'app', title: `고침 ${i}`, task: '[hold] 고쳐' })).kid).toBeDefined()
+    // 메모리가 모자라도 최소 하나는 연다
+    expect((await chats.openOrHold({ role: 'app', title: '고침 0', task: '[hold] 고쳐' })).kid).toBeDefined()
     await expect(chats.openKid({ role: 'app', title: '바로', task: '고쳐' })).rejects.toThrow(/chat_send|이어 보내/)
     expect(await chats.openOrHold({ role: 'app', title: '하나 더', task: '고쳐' })).toEqual({ held: 1 })
-    expect(chats.get(c.id).items.at(-1)).toMatchObject({ kind: 'text', text: expect.stringContaining('「하나 더」을 기다리게') })
+    expect(chats.get(c.id).items.at(-1)).toMatchObject({ kind: 'text', text: expect.stringMatching(/「하나 더」을 기다리게.*앱 고치기 1개 일함 · 남은 메모리 10%\(3\.2GB\)/) })
+    await chats.tickCentral()
+    expect(chats.centralState().kids.map((k) => k.title)).not.toContain('하나 더')
+    mem = { free: 0.6, total: 32 * GB }
+    await chats.tickCentral()
+    expect(chats.centralState().kids.map((k) => k.title)).toContain('하나 더')
+    expect(chats.get(c.id).items.some((i) => i.kind === 'text' && i.text.includes('기다리던 「하나 더」을 열었습니다'))).toBe(true)
+    release!()
+    chats.stopAll()
+    mem = { free: 0.9, total: 32 * GB }
+  })
+
+  it('메모리가 모자라도 앱 고치기가 모두 끝나면 기다리던 일을 연다', async () => {
+    mem = { free: 0.1, total: 32 * GB }
+    const { chats } = await make(60_000)
+    await chats.openOrHold({ role: 'app', title: '고침 0', task: '[hold] 고쳐' })
+    expect(await chats.openOrHold({ role: 'app', title: '하나 더', task: '고쳐' })).toEqual({ held: 1 })
     release!()
     await vi.waitFor(() => expect(chats.centralState().kids.map((k) => k.title)).toContain('하나 더'))
-    expect(chats.get(c.id).items.some((i) => i.kind === 'text' && i.text.includes('자리가 나서'))).toBe(true)
     chats.stopAll()
+    mem = { free: 0.9, total: 32 * GB }
   })
 
   it('1분마다 PR의 CI 실패와 합쳐짐을 찾아 깨운다', async () => {
