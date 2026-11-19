@@ -100,6 +100,8 @@ export interface AppOptions {
   personalDir?: string
   /** 앱 자신의 업데이트(설정 화면). 실사용만: 저장소 위치, 지금 돌고 있는 커밋, 설치·빌드·재시작 방법 */
   appRepo?: { root: string; running: string; steps: UpdateSteps }
+  /** 소개의 업데이트 날짜 · 제목을 읽는 앱 저장소 (없으면 appRepo). 예제 모드도 지금 코드의 git 기록을 읽기만 한다 */
+  aboutRepo?: { root: string; running: string }
   /** 앱 자동 업데이트 (실사용 서비스만): 이만큼마다 받고 빌드해 두고, 열린 화면이 없고 쓰기 요청이 idleMs 동안 없으면 다시 시작한다 */
   appAutoUpdate?: { everyMs: number; idleMs: number }
   /** 연구 저장소의 기록(workbench/comments/)을 쓴 뒤 이만큼(ms) 조용하면 저절로 GitHub에 올린다 (실사용만, routes/feedback.ts). 없으면 버튼으로만 올린다 */

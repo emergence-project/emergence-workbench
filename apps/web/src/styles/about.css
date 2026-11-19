@@ -72,8 +72,10 @@
 .about-ask p { margin: 0; font-size: var(--fs-sm); }
 
 /* 확인할 것: 질문마다 맞아요·답하기 (10/4 17:55) */
-.about-ask-row { display: flex; align-items: center; gap: var(--sp-3); }
+.about-ask-row { display: flex; align-items: flex-start; gap: var(--sp-3); }
 .about-ask-q { flex: 1; min-width: 0; }
+.about-ask .about-ask-prs { margin: var(--sp-1) 0 0; padding-left: 0; list-style: none; font-size: var(--fs-sm); color: var(--text-2); }
+.about-ask .about-ask-prs li { margin: 2px 0; }
 .about-ask-tools { display: flex; gap: var(--sp-2); flex: none; }
 .about-ask-row.sent .about-ask-q { color: var(--text-3); }
 .about-ask-sent { flex: none; font-size: var(--fs-sm); }
