@@ -91,7 +91,7 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
     <>
       {error && <p className="muted">{error}</p>}
       <table className="about-hist" data-ui="이력 표">
-        <thead><tr><th>{t('절', 'Section')}</th><th>{t('업데이트', 'Update')}</th><th>{t('바뀐 것', 'What changed')}</th><th aria-label={t('확인', 'Review')} /></tr></thead>
+        <thead><tr><th>{t('절', 'Section')}</th><th>{t('업데이트', 'Update')}</th><th>{t('변경사항', 'Changes')}</th><th aria-label={t('확인', 'Review')} /></tr></thead>
         <tbody>
           {rows.flatMap((r, k) => {
             const open = picked?.n === r.n && picked.sec === r.sec
