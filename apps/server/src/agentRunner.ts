@@ -4,7 +4,7 @@
  *   저장소 규칙(AGENTS.md · 공통 규칙)은 앱 MCP의 rules 도구로 읽는다.
  * - 앱 MCP를 같은 프로세스에서 붙인다(mcpFor). 그래서 에이전트는 화면과 같은 API · hash · 수정 검토를 거친다.
  * - 모드 · 모델 · 생각 깊이는 차례마다 대화의 값으로 (화면에서 바꾸면 다음 차례부터). 붙여 넣은 그림은 지시와 함께 보낸다.
- * - 앱 고치기 대화(appChat)는 작업 폴더의 파일 고치기 도구와 명령을 연다(허락은 judge). 앱 MCP에 app_submit · app_checks가 붙는다.
+ * - 앱 고치기 대화(appChat)는 작업 폴더의 파일 고치기 도구와 명령을 연다(허락은 judge). 앱 MCP에 app_submit · app_checks · app_merge가 붙는다.
  * - 고를 수 있는 모델은 맥의 Claude Code에게 묻는다(models, GET /agent-chats/models). 기본 모델 = 그 계정의 Claude Code 기본값(사용자 설정은 읽지 않으므로).
  * - SDK는 처음 쓸 때 불러온다(dynamic import): 대화를 쓰지 않으면 앱 시작에 들지 않는다.
  * - Claude Code처럼 차례가 끝나도 닫지 않는다(input.inbox): 다음 지시를 같은 프로세스에 넘기고, 일하는 중에 보낸 말은 SDK가 그 차례에 섞어 읽는다.

@@ -44,6 +44,11 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx({ write: 'read' }), 'Edit', { file_path: 'a.ts' }).kind).toBe('deny')
     expect(judge(ctx({ write: 'read' }), `${W}app_submit`, { title: '고침' }).kind).toBe('deny')
     expect(judge(ctx({ write: 'read' }), `${W}app_checks`, {}).kind).toBe('allow')
+    // 자기 PR squash 합치기 (11/19): 고치기 바로는 그대로, 묻고 하기는 묻고, 승인 전 · 읽기만은 막는다
+    expect(judge(ctx(), `${W}app_merge`, {}).kind).toBe('allow')
+    expect(judge(ctx({ mode: 'ask' }), `${W}app_merge`, {})).toMatchObject({ kind: 'ask', key: 'app_merge' })
+    expect(judge(ctx({ mode: 'plan' }), `${W}app_merge`, {}).kind).toBe('deny')
+    expect(judge(ctx({ write: 'read' }), `${W}app_merge`, {}).kind).toBe('deny')
   })
   it('연구 프로젝트는 읽기만 한다 (노트 · 기록 · 맡긴 일 · 일지 · 흐름 고치기를 막는다)', () => {
     for (const tool of ['edit_note', 'add_record', 'add_task', 'report_task', 'add_journal', 'attempt_add']) expect(judge(ctx(), `${W}${tool}`, { project: 'p' }).kind).toBe('deny')
@@ -135,6 +140,12 @@ describe('앱 고치기 대화 API', () => {
     const checks = await app.inject({ method: 'GET', url: `/api/agent-chats/${id}/app/checks` })
     expect(checks.statusCode, checks.body).toBe(200)
     expect(checks.json()).toMatchObject({ done: true, ok: true })
+    // CI가 통과했으니 자기 PR을 squash로 합치고 (11/19), 두 번은 합치지 않는다
+    const merged = await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/app/merge`, payload: {} })
+    expect(merged.statusCode, merged.body).toBe(200)
+    expect(merged.json()).toEqual({ number: 234, sha: '0000000000000000000000000000000000000234' })
+    expect((await get(id)).merged).toBe('0000000000000000000000000000000000000234')
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/app/merge`, payload: {} })).statusCode).toBe(409)
     expect((await app.inject({ method: 'DELETE', url: `/api/agent-chats/${id}` })).statusCode).toBe(200)
     await vi.waitFor(() => expect(disposed).toEqual([input.cwd]))
   })

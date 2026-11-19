@@ -65,13 +65,22 @@ function SideTabs({ modes, mode }: { modes: [RightMode, string][]; mode: RightMo
   )
 }
 
-/** 프로젝트 밖 화면의 터미널 (홈 폴더에서 연다). 한 번 열면 다른 갈래로 가도 셸을 그대로 둔다 */
-function useSideTerminal(mode: RightMode) {
+/** 프로젝트 밖 화면의 터미널: rid의 폴더(중앙은 앱 저장소, 못 찾으면 홈)에서 연다. rid를 아직 모르면(대화 목록을 받는 중) 기다린다.
+ *  한 번 열면 다른 갈래 · 다른 대화로 가도 셸을 그대로 둔다 */
+function useSideTerminal(mode: RightMode, rid: string | null = CENTRAL_RID) {
   const able = useTerminalAvailable()
   const [opened, setOpened] = useState(false)
-  useEffect(() => { if (able && mode === 'terminal') setOpened(true) }, [able, mode])
+  useEffect(() => { if (able && mode === 'terminal' && rid !== null) setOpened(true) }, [able, mode, rid])
   const on = able && mode === 'terminal'
-  return { able, on, pane: able && (opened || on) && <div className="rs-col" hidden={!on}><TerminalPane /></div> }
+  return { able, on, pane: able && opened && <div className="rs-col" hidden={!on}><TerminalPane rid={rid ?? undefined} /></div> }
+}
+
+/** 에이전트 화면에서 연 대화의 프로젝트 (중앙 · 대화를 고르지 않음은 중앙). 목록을 받는 중이면 null */
+function useChatRid(id: string | undefined): string | null {
+  const list = useChatList().data?.chats
+  if (!id || id === CENTRAL_PAGE) return CENTRAL_RID
+  if (!list) return null
+  return list.find((c) => c.id === id)?.rid ?? CENTRAL_RID
 }
 
 /** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 맨 위 「정보 | 에이전트 | 터미널」로 그 화면 정보와 에이전트를 오간다.
@@ -91,10 +100,11 @@ export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: 
 }
 
 /** 프로젝트 밖 화면의 에이전트 사이드바 (App.tsx): 이 컴퓨터에서 연 화면이면 맨 위 「에이전트 | 터미널」.
- *  에이전트 화면(terminalOnly)은 대화가 가운데 있으니 터미널만 (대화 코드 블록의 「터미널에서 실행」이 여기로 온다) */
-export function AgentSideBody({ onSaved, terminalOnly }: { onSaved(m: string): void; terminalOnly?: boolean }) {
+ *  에이전트 화면(terminalOnly)은 대화가 가운데 있으니 터미널만 (대화 코드 블록의 「터미널에서 실행」이 여기로 온다). 터미널은 그 대화의 프로젝트 폴더, 그 밖은 중앙(앱 저장소)에서 연다 */
+export function AgentSideBody({ onSaved, terminalOnly, chatId }: { onSaved(m: string): void; terminalOnly?: boolean; chatId?: string }) {
   const chosen = useRightMode()
-  const term = useSideTerminal(terminalOnly ? 'terminal' : chosen)
+  const chatRid = useChatRid(terminalOnly ? chatId : undefined)
+  const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid)
   if (terminalOnly) return term.pane
   return <>
     {term.able && <div className="rs-head side-tabbar"><SideTabs mode={term.on ? 'terminal' : 'agent'} modes={[['agent', t('에이전트', 'Agent')], ['terminal', t('터미널', 'Terminal')]]} /></div>}
