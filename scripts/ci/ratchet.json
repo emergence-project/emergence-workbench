@@ -1,6 +1,6 @@
 {
   "lines": {
-    "apps/server/src/agentChats.ts": 1165,
+    "apps/server/src/agentChats.ts": 1160,
     "apps/server/src/comments.ts": 643,
     "apps/server/src/feedback.ts": 634,
     "apps/web/src/AgentChats.tsx": 1347,
