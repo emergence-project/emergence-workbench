@@ -1,18 +1,23 @@
 /* 중앙 대화 (11/16 "중앙 에이전트", 시안 9x2Bud4dVQyYkS6RhdnbAG §2): 목록 맨 위 「중앙」 줄 · 첫 화면 · 하위 대화 줄 */
 .ac-central .label { font-weight: var(--fw-strong); }
-.ac-central-turn, .ac-kid-meta.turn { color: var(--s-blocked); }
+.ac-central-turn { color: var(--s-blocked); }
 .ac-central-what { margin: 0; max-width: 60ch; }
 .ac-central-input { width: 100%; resize: vertical; font: inherit; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); color: var(--text); }
 .ac-central-send { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); }
-.ac-central-kids { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); max-height: 40%; overflow-y: auto; flex: none; }
-.ac-kid { display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; text-align: left; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); color: var(--text); cursor: pointer; }
+.ac-central-kids { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); max-height: 40%; flex: none; min-height: 0; }
+/* 하위 대화는 한 줄씩 (11/19 "최대한 좁게"): 머리 한 줄 + 점 · 제목 · 짧은 상태 · 시각 */
+.ac-kids-head { display: flex; align-items: center; gap: 4px; width: 100%; padding: var(--sp-1) var(--sp-3); border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.ac-kids-head b { color: var(--text); font-weight: var(--fw-strong); }
+.ac-kids-head:hover { background: var(--bg-hover); }
+.ac-kids-fold { margin-left: auto; color: var(--text-3); }
+.ac-kids-list { display: flex; flex-direction: column; overflow-y: auto; padding-bottom: var(--sp-1); }
+.ac-kid { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; height: 24px; padding: 0 var(--sp-3); border: 0; background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; flex: none; }
 .ac-kid:hover { background: var(--bg-hover); }
-.ac-kid-top { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .ac-kid-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-kid-open { flex: none; font-size: var(--fs-xs); color: var(--text-3); }
-.ac-kid-meta { font-size: var(--fs-2xs); color: var(--text-3); padding-left: calc(10px + var(--sp-2)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-kid-report { font-size: var(--fs-xs); color: var(--text-2); padding-left: calc(10px + var(--sp-2)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
-.ac-kid-closed { align-self: flex-start; font-size: var(--fs-xs); }
+.ac-kid-state { flex: none; max-width: 45%; font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-kid-state.turn { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.ac-kid-time { flex: none; font-size: var(--fs-2xs); color: var(--text-3); }
+.ac-kid-closed { align-self: flex-start; font-size: var(--fs-xs); margin: 2px var(--sp-3) 0 calc(var(--sp-3) + 10px + var(--sp-2)); }
 
 /* 어느 화면에서나 오른쪽 사이드바로 에이전트 (11/16, AgentSide.tsx): 프로젝트 밖 화면의 오른쪽 열 */
 .body.with-agent { grid-template-columns: 52px var(--side-w, 244px) minmax(0, 1fr) 340px; }

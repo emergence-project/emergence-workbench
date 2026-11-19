@@ -334,4 +334,3 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-mockup-pic img { display: block; max-width: 100%; max-height: 240px; object-fit: contain; }
 .ac-mockup figcaption { display: flex; gap: var(--sp-2); align-items: baseline; font-size: var(--fs-xs); min-width: 0; }
 .ac-mockup-name { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ac-kid-row > .ac-mockups { padding: 0 var(--sp-3) var(--sp-1); }
