@@ -176,7 +176,8 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 @media (max-width: 900px) { .ac-work, .ac-work-resize { display: none; } }
 
 /* 사이드바 목록: 이름과 상태 점, 아래 줄에 상태 · 바뀐 파일 · 시각 */
-.ac-side-h { font-size: var(--fs-xs); color: var(--text-3); padding: var(--sp-3) var(--sp-2) var(--sp-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 절 머리(워크벤치 전체 · 프로젝트 · 지식)는 위에 선을 긋고 진하고 굵게: 줄 아래 상태 글(옅고 작음)과 갈린다 (11/19 피드백) */
+.ac-side-h { margin-top: var(--sp-2); border-top: 1px solid var(--line); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); padding: var(--sp-3) var(--sp-2) var(--sp-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-line { flex-direction: column; align-items: stretch; gap: 1px; height: auto; padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
 .ac-line-top { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .ac-line .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
