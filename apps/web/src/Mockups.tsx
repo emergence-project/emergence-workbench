@@ -40,7 +40,7 @@ export function Mockups({ text, chat }: { text?: string; chat: string }) {
     return pic || html ? [{ ...r, pic, html }] : []
   })
   if (!found.length) return null
-  const pictures: GalleryPicture[] = found.filter((m) => m.pic).map((m) => ({ src: mockupUrl(m.dir, m.pic!), label: `${t('시안', 'Mockup')} · ${m.stem}`, alt: m.stem }))
+  const pictures: GalleryPicture[] = found.filter((m) => m.pic).map((m) => ({ src: mockupUrl(m.dir, m.pic!), label: `${t('시안', 'Mockup')} · ${m.stem}`, alt: m.stem, ...(m.html && { html: mockupUrl(m.dir, m.html) }) }))
   return (
     <div className="ac-mockups">
       {found.map((m, i) => {

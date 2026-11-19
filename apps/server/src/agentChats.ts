@@ -18,7 +18,7 @@ import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, FileDiff, Snap } from './appWorktree.js'
 import { agentTurnReasons, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
-import { listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
+import { answerMockups, listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 import { accountForNew, switchAccount, type ClaudeAccounts } from './claudeAccounts.js'
@@ -626,7 +626,7 @@ export class AgentChats {
       ...(b.lesson && { lesson: b.lesson }),
       ...(b.state === '반영' && c.pr && { commit: `#${c.pr.number}` }),
       ...(pictures && { pictures }),
-      ...(b.replies && { replies: b.replies }),
+      ...answerMockups(b, c.worktree, fb.dir),
     })
     fb.written?.()
     this.touch(c)

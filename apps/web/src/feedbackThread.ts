@@ -8,16 +8,16 @@ import { reworked, sendsBack } from '@rw/core'
  * revised가 있으면(10/8~) 처리마다 그때의 글이 남는다.
  */
 export type ThreadStep =
-  | { who: 'Claude'; kind: '처리' | '다시 처리'; note?: string; commit?: string; changes?: ThreadChange[]; at?: string; by?: string }
+  | { who: 'Claude'; kind: '처리' | '다시 처리'; note?: string; commit?: string; changes?: ThreadChange[]; at?: string; by?: string; mockups?: string[] }
   | { who: '나'; kind: FeedbackVerdict | '코멘트'; at: string; note?: string; edited?: string }
-  | { who: 'Claude'; kind: '답'; at: string; note: string; by?: string }
+  | { who: 'Claude'; kind: '답'; at: string; note: string; by?: string; mockups?: string[] }
   | { who: 'Claude'; kind: '대기' }
 
 /** 다시 처리하며 고친 칸 (10/8 11:28 대화 형식): "이해한 요구 고침: 예전 → 지금". 빈 배열이면 둘 다 그대로 */
 export interface ThreadChange { field: 'understood' | 'cause'; from: string; to: string }
 
-type Handling = { understood?: string; cause?: string; note?: string; commit?: string; handled_at?: string; by?: string }
-const meta = (h: Handling) => ({ ...(h.handled_at && { at: h.handled_at }), ...(h.by && { by: h.by }) })
+type Handling = { understood?: string; cause?: string; note?: string; commit?: string; handled_at?: string; by?: string; mockups?: string[] }
+const meta = (h: Handling) => ({ ...(h.handled_at && { at: h.handled_at }), ...(h.by && { by: h.by }), ...(h.mockups && { mockups: h.mockups }) })
 const FIELDS = ['understood', 'cause'] as const
 
 const changesOf = (before: Handling, after: Handling): ThreadChange[] =>
@@ -50,7 +50,7 @@ export function feedbackThread(e: Pick<FeedbackItem, 'status' | 'review'>): Thre
 type Verdict = { verdict: FeedbackVerdict; at: string; note?: string; edited?: string }
 const mine = (v: Verdict): ThreadStep => ({ who: '나', kind: v.verdict, at: v.at, ...(v.note && { note: v.note }), ...(v.edited && { edited: v.edited }) })
 const handlingsOf = (st: NonNullable<FeedbackItem['status']>): Handling[] =>
-  [...(st.revised ?? []), { understood: st.understood, cause: st.cause, note: st.note, commit: st.commit, handled_at: st.handled_at, by: st.by }]
+  [...(st.revised ?? []), { understood: st.understood, cause: st.cause, note: st.note, commit: st.commit, handled_at: st.handled_at, by: st.by, mockups: st.mockups }]
 
 function revisedThread(st: NonNullable<FeedbackItem['status']>, verdicts: Verdict[]): ThreadStep[] {
   const revised = st.revised!
@@ -101,7 +101,7 @@ export function feedbackConversation(e: Pick<FeedbackItem, 'status' | 'review' |
   const waiting = base.filter((s) => s.kind === '대기')
   const extra: ThreadStep[] = [
     ...(e.comments ?? []).map((c): ThreadStep => ({ who: '나', kind: '코멘트', at: c.at, note: c.note, ...(c.edited && { edited: c.edited }) })),
-    ...(e.status?.replies ?? []).map((r): ThreadStep => ({ who: 'Claude', kind: '답', at: r.at, note: r.note, ...(r.by && { by: r.by }) })),
+    ...(e.status?.replies ?? []).map((r): ThreadStep => ({ who: 'Claude', kind: '답', at: r.at, note: r.note, ...(r.by && { by: r.by }), ...(r.mockups && { mockups: r.mockups }) })),
   ]
   if (!extra.length) return base
   let last = ''
@@ -128,7 +128,7 @@ export function summaryRows(st: NonNullable<FeedbackItem['status']>): SummaryRow
 }
 
 /** 지금 처리보다 뒤에 단 관리자의 마지막 답 (없으면 undefined) */
-export function latestReply(st: NonNullable<FeedbackItem['status']>): { at: string; note: string } | undefined {
+export function latestReply(st: NonNullable<FeedbackItem['status']>): { at: string; note: string; mockups?: string[] } | undefined {
   const last = [...(st.replies ?? [])].sort((a, b) => a.at.localeCompare(b.at)).at(-1)
   return last && last.at > (st.handled_at ?? '') ? last : undefined
 }
