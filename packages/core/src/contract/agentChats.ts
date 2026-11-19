@@ -268,6 +268,8 @@ export const AppChecks = z.object({
   ok: z.boolean(),
   log: z.string().optional(),
 }).strict()
+/** 자기 PR을 squash로 합친 결과 (app_merge): sha = main에 생긴 커밋 */
+export const AppMerged = z.object({ number: z.number(), sha: z.string() }).strict()
 
 // ---------- 피드백 맡기기: 피드백 하나를 앱 고치기 대화에 넘기고, 그 대화가 처리 기록을 앱을 거쳐 적는다 ----------
 
@@ -330,6 +332,7 @@ export type NewChatBody = z.input<typeof NewChatBody>
 export type AppSubmitBody = z.infer<typeof AppSubmitBody>
 export type AppSubmitted = z.infer<typeof AppSubmitted>
 export type AppChecks = z.infer<typeof AppChecks>
+export type AppMerged = z.infer<typeof AppMerged>
 export type HandOffBody = z.infer<typeof HandOffBody>
 export type FeedbackAnswerBody = z.infer<typeof FeedbackAnswerBody>
 export type FeedbackAnswered = z.infer<typeof FeedbackAnswered>

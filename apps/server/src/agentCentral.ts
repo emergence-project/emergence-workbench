@@ -13,8 +13,7 @@
  *   앱이 다시 켜지면 아직 보내지 않은 깨우기는 사라진다 (CI · 합쳐짐은 1분마다 tickCentral이 다시 찾는다).
  */
 import { agentTurnReasons, agentTurns } from '@rw/core'
-import { z } from 'zod'
-import { APP_RID, CENTRAL_RID, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
+import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralKid, type CentralOpenBody, type CentralOpened, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
 import { APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from './agentChats.js'
 import { listAllFeedback } from './feedback.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
@@ -47,10 +46,6 @@ export const CRITICAL = [
   { key: 'money', ko: '돈 · 계정', en: 'money or accounts', re: /billing|payment|subscri|password|credential|secret|api[ _-]?key|\btoken\b|\blogin\b|keychain|결제|구독|계정|비밀번호|토큰/i },
 ] as const
 export type Critical = (typeof CRITICAL)[number]
-
-/** 자기 PR을 squash로 합친 결과 (app_merge): sha = main에 생긴 커밋. 에이전트만 받으니 화면 계약(@rw/core)에 두지 않는다 */
-export const AppMerged = z.object({ number: z.number(), sha: z.string() }).strict()
-export type AppMerged = z.infer<typeof AppMerged>
 
 /** 중앙 대화를 처음 열 때 주는 안내 (영어: 에이전트가 읽는다). 사용자에게는 보이지 않는다 */
 export const CENTRAL_BRIEF = [
