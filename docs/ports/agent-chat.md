@@ -39,13 +39,13 @@ code:
 
 - 머리: `id` · `rid`(프로젝트) · `title` · `state`(`running` · `waiting` · `queued` · `idle` · `stopped` · `error`) · `mode`(`ask` · `plan` · `edit`) · `model` · `effort` · `created` · `updated`
 - 서버만: `sessionId`(SDK 세션, 이어 가기) · `alwaysKeys`(이 대화에서 늘 허락한 것) · `pending`(일하는 중에 보낸 말) · `points`(되감기 자리)
-- `items`: 종류(`kind`)로 나뉜 항목 목록 — `user`(내 말) · `text`(에이전트 글) · `step`(도구 사용 한 줄) · `ask`(허락 카드, 답하면 `answer`) · `edit`(고친 파일 +n −n) · `result`(차례 끝: 성공 · 비용 · 토큰) · `error`
+- `items`: 종류(`kind`)로 나뉜 항목 목록 — `user`(내 말) · `text`(에이전트 글) · `step`(도구 사용 한 줄) · `ask`(허락 카드, 답하면 `answer`) · `bypass`(중앙 대화가 허락으로 우회해 돌린 명령: 명령 · 한 번/늘 · 시각) · `edit`(고친 파일 +n −n) · `result`(차례 끝: 성공 · 비용 · 토큰) · `error`
 
 ## 옮기는 순서
 
 1. **기록 모양과 저장.** `contract/agentChats.ts`의 `Chat` · `ChatItem`을 옮기고, 대화 하나를 파일 하나로 쓰고 읽는다.
 2. **실행기.** `agentRunner.ts`처럼 SDK `query()`를 띄우고 메시지를 사건으로 바꾼다. 처음엔 글 · 도구 · 결과 셋이면 된다. 저장소의 사용자 설정은 읽지 않고(`settingSources: []`) 허락은 앱의 `canUseTool`이 정한다.
-3. **허락.** `agentPolicy.ts`의 판정 함수(읽기 · 고치기 · 지우기 · 명령 · 웹 · 작업 폴더 밖)를 옮기고, 묻는 것은 `ask` 항목으로 쌓아 답을 기다린다.
+3. **허락.** `agentPolicy.ts`의 판정 함수(읽기 · 고치기 · 지우기 · 명령 · 웹 · 작업 폴더 밖)를 옮기고, 묻는 것은 `ask` 항목으로 쌓아 답을 기다린다. 중앙 대화의 Bash는 상태 보기 목록 밖이라도 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다(우회, 「늘」은 바로 그 명령만, 열쇠 `bypass:<명령>`); 허락해 돌리면 `bypass` 항목을 남긴다. 강제 푸시 · reset --hard · main 지우기 · 임시 폴더 밖 rm -rf · workbench/ 쓰기는 허락해도 막는다(`packages/core/src/chat-bypass.ts`의 `neverBypass`, 셸 감싸기 안쪽도). 저절로 허락 · 시간 초과 허락은 없다.
 4. **상태 기계.** `agentChats.ts`의 차례 돌리기: 보내기 → `running` → (허락 대기 `waiting`) → `idle`. 일하는 중 보낸 말은 `pending`에서 다음 차례로. 멈춤은 `interrupt()` 뒤 시간이 지나면 abort.
 5. **경로와 화면.** `routes/agentChats.ts`의 만들기 · 보내기 · 답하기 · 멈추기 · 이어 하기, 화면은 서버가 알리는 줄(SSE 등)로 다시 그린다.
 5-1. **동시에 도는 수.** 고정된 수 대신 컴퓨터 크기로 상한(`limit`, `appMemory.ts`의 `chatCap`)을 정하고, 그 안에서 남은 메모리로 하나 더 열지(`room`, `chatRoom`) 정한다. 메모리는 몇 초마다 재어 두고(`MemoryGauge`) 대화를 시작할 때는 그 값을 바로 쓴다. 줄 선 대화는 새 대화에 앞지르지 않고, 메모리가 풀리면 `drain()`이 시작한다.
