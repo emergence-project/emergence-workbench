@@ -25,4 +25,10 @@ export function registerAgentCentral(app: FastifyInstance, chats: CentralChats):
     const b = parseBody(C.CentralCloseBody, req.body)
     return { kid: chats.closeKid(b.id, b.summary) }
   })
+
+  /** 다른 대화가 중앙에게 중재를 청한다 (central_help): 중앙을 깨운다 */
+  app.post('/api/agent-central/help', replies(C.CentralHelped), async (req): Promise<C.CentralHelped> => {
+    const b = parseBody(C.CentralHelpBody, req.body)
+    return { central: chats.help(b.chat, b.text) }
+  })
 }

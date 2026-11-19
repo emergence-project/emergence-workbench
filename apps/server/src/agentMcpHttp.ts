@@ -12,7 +12,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { MCP_NAME, type RunInput } from './agentChats.js'
 import type { ChatMcp } from './agentAcp.js'
 
-type Open = { appChat?: string; gate: RunInput['canUseTool'] }
+type Open = { appChat?: string; chat?: string; gate: RunInput['canUseTool'] }
 type Json = Record<string, unknown>
 const isRec = (v: unknown): v is Json => !!v && typeof v === 'object' && !Array.isArray(v)
 
@@ -25,7 +25,7 @@ export async function gateCall(gate: Open['gate'], msg: unknown): Promise<Json |
   return { jsonrpc: '2.0', id: msg.id ?? null, result: { content: [{ type: 'text', text: d.message }], isError: true } }
 }
 
-export function registerChatMcp(app: FastifyInstance, make: (appChat?: string) => McpServer): ChatMcp {
+export function registerChatMcp(app: FastifyInstance, make: (appChat?: string, central?: boolean, chat?: string) => McpServer): ChatMcp {
   const open = new Map<string, Open>()
 
   app.post<{ Params: { key: string } }>('/api/agent-mcp/:key', async (req, reply) => {
@@ -35,7 +35,7 @@ export function registerChatMcp(app: FastifyInstance, make: (appChat?: string) =
     if (Array.isArray(req.body)) return reply.status(400).send({ error: 'Batch requests are not supported' })
     const blocked = await gateCall(o.gate, req.body)
     if (blocked) return reply.send(blocked)
-    const server = make(o.appChat)
+    const server = make(o.appChat, undefined, o.chat)
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
     reply.hijack()
     reply.raw.on('close', () => { void transport.close(); void server.close() })

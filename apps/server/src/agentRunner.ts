@@ -143,7 +143,7 @@ const exploreAgent = {
   prompt: 'You search and read for another agent. Do not change anything. Answer with only what was asked: the relevant file paths with line numbers, short quotes, and a few lines of conclusion. Do not paste whole files.',
 }
 
-export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean) => McpServer): AgentRunner {
+export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, chat?: string) => McpServer): AgentRunner {
   return Object.assign(async function* run(input: RunInput): AsyncIterable<RunEvent> {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
     let done!: () => void
@@ -175,7 +175,7 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean) 
         settingSources: [],
         strictMcpConfig: true,
         // 맥의 Claude Code 커넥터(사용자 범위 MCP 서버)와 스킬 (10/21 22:40). 사용자 설정 파일은 여전히 읽지 않는다
-        mcpServers: { ...userConnectors(MCP_NAME) as Record<string, McpServerConfig>, [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor(input.appChat, input.central) } },
+        mcpServers: { ...userConnectors(MCP_NAME) as Record<string, McpServerConfig>, [MCP_NAME]: { type: 'sdk', name: MCP_NAME, instance: mcpFor(input.appChat, input.central, input.chat) } },
         ...(() => { const dir = skillsPluginDir(); return dir ? { plugins: [{ type: 'local' as const, path: dir }], skills: 'all' as const } : {} })(),
         disallowedTools: input.appChat ? [] : [...FILE_WRITE_TOOLS],
         systemPrompt: { type: 'preset', preset: 'claude_code', append: input.brief },

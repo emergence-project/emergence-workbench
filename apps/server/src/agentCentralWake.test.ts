@@ -66,6 +66,22 @@ describe('중앙을 저절로 깨우기', () => {
     chats.stopAll()
   })
 
+  it('대화가 중재를 청하면(central_help, 11/19) 그 대화가 일하는 중이어도 중앙을 바로 깨운다', async () => {
+    const { chats, c } = await make(5)
+    const kid = await chats.openKid({ role: 'project', project: 'chiral', title: '2절', task: '[hold] 다듬어' })
+    await vi.waitFor(() => expect(chats.get(kid.id).state).toBe('running'))
+    expect(chats.help(kid.id, '다른 프로젝트의 3절도 고쳐야 함')).toBe(c.id)
+    await vi.waitFor(() => expect(centralPrompts()).toHaveLength(2))
+    const p = centralPrompts()[1]!
+    expect(p).toContain('asks you to mediate')
+    expect(p).toContain('다른 프로젝트의 3절도 고쳐야 함')
+    expect(p).not.toContain('ended its turn')
+    expect(() => chats.help(c.id, '나')).toThrow()
+    release!()
+    await vi.waitFor(() => expect(chats.get(kid.id).state).toBe('idle'))
+    chats.stopAll()
+  })
+
   it('중앙이 일하는 중이면 그 차례가 끝난 뒤에 깨운다', async () => {
     const { chats, c } = await make(5)
     const kid = await chats.openKid({ role: 'project', project: 'chiral', title: '2절', task: '다듬어' })

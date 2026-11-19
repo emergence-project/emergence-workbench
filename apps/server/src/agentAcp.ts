@@ -153,7 +153,7 @@ function blocksOf(text: string, x: Turn, images: boolean): Json[] {
 // ---------- 실행기 ----------
 
 /** 대화마다 여는 앱 MCP 입구 (HTTP). 앱 서버가 듣는 중이 아니면(시험) 없음 */
-export type ChatMcp = (o: { appChat?: string; gate: RunInput['canUseTool'] }) => { url: string; close(): void } | undefined
+export type ChatMcp = (o: { appChat?: string; chat?: string; gate: RunInput['canUseTool'] }) => { url: string; close(): void } | undefined
 
 function launch(spec: AcpSpec, cwd: string, env?: Record<string, string>, configDir?: string): ChildProcess {
   const cmd = acpCommand(spec, configDir)
@@ -213,7 +213,7 @@ export function acpAgentRunner(spec: AcpSpec, mcp: ChatMcp, configDir?: string):
     const proc = launch(spec, input.cwd, input.env, configDir)
     const kill = () => { if (proc.exitCode === null) proc.kill() }
     input.signal.addEventListener('abort', kill, { once: true })
-    const server = mcp({ ...(input.appChat && { appChat: input.appChat }), gate: input.canUseTool })
+    const server = mcp({ ...(input.appChat && { appChat: input.appChat }), ...(input.chat && { chat: input.chat }), gate: input.canUseTool })
     let text = ''
     let thought = ''
     let loading = false
