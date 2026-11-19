@@ -25,6 +25,8 @@ import { WorkbenchError } from './workbench.js'
 export const APP_LIVE_MAX = 2
 /** 중앙에게 넘기는 하위 대화 한 줄의 마지막 글 길이 */
 const REPORT_CHARS = 300
+/** 하위 대화가 차례 끝에 남기는 보고(「## 보고」 절)의 길이 상한. 깨우기 · chat_list에 이 안에서 자르지 않고 싣는다 (11/19) */
+export const KID_REPORT_MAX = 2000
 /** 중앙을 저절로 깨울 때 넘기는 마지막 글 · CI 기록 길이 (11/18) */
 const REPORT_FULL = 4000
 const LOG_TAIL = 3000
@@ -64,28 +66,51 @@ export const CENTRAL_BRIEF = [
   '- Each message starts with a short status of your sub-conversations. Mention one only when the user must act or it finished.',
   '- The app wakes you by itself (a message marked "Automatic wake-up", not written by the user) when a sub-conversation ends its turn, waits for plan approval or permission, its pull request check fails, or its pull request is merged. Do the routine work then without asking:',
   '  - check failed: chat_send it "Find the cause and fix it" with what the log shows.',
-  '  - pull request merged: chat_close it with a three-line summary: what was done, where the result is, what is left.',
+  '  - pull request merged: chat_close it with a three-line summary from its report: what was done, where the result is, what is left.',
   '  - it waits for plan approval or permission that is not critical: decide from what the user asked and answer with chat_answer (allow, or deny with a note on what to do instead). The app records that you answered.',
   '  - it ended its turn with a question or promise: answer from the user\'s words with chat_send, or leave it to the user.',
   `  - Send at most ${AUTO_SEND_MAX} automatic messages to the same sub-conversation before the user speaks again; after that the app refuses and you ask the user.`,
   `- Critical, always left to the user (never chat_answer them, the app refuses): ${CRITICAL.map((c) => c.en).join('; ')}. A plan whose steps include one of these is also left to the user.`,
-  '- After an automatic wake-up, reply in a few short lines: what you did on your own. If the user must act, end with one line "지금 확인할 것: …" (what to check, where). Otherwise do not ask anything.',
+  '- Sub-conversations end each turn with a report section (바꾼 것 · 위치 · 판단 · 남은 일). The wake-up and chat_list carry it whole; without one they carry only the last text, so ask for a report with chat_send when you need it.',
+  '- After an automatic wake-up, reply in a few short lines: for each sub-conversation that finished, was merged or waits, tell the user from its report what changed (on the screen or in behavior), where (pull request, files, feedback record), the decision, and what is left; then what you did on your own. Do not just say it finished. If the user must act, end with one line "지금 확인할 것: …" (what to check, where). Otherwise do not ask anything.',
   '- Close a sub-conversation with chat_close only when its work ended (pull request merged, edits reviewed, answer given), with a three-line summary.',
   '- Reply in the user\'s language (usually Korean), short and plain. Do not judge research value or pick research topics for the user.',
 ].join('\n')
 
+/** 보고 절의 머리 줄: 「## 보고」 (굵게 · 쌍점도 받는다) */
+const REPORT_HEAD = /^\s*(#{1,4}\s*|\*\*)(보고|Report)[:：]?(\*\*)?\s*$/
+
+/**
+ * 하위 대화가 차례 끝에 남긴 보고 (agentPrompts.ts REPORT_BRIEF의 「## 보고」 절, 11/19 사용자 "하위대화가 요약해서 보고").
+ * 마지막 사용자 말 뒤의 에이전트 글 가운데 가장 늦은 것. 마지막 글만 보면 앱이 덧붙인 글(합침 알림 등)에 가려서 거슬러 찾는다
+ */
+export function kidReport(items: ChatItem[]): string | undefined {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i]!
+    if (it.kind === 'user') return undefined
+    if (it.kind !== 'text' || it.sub) continue
+    const lines = it.text.split('\n')
+    let h = -1
+    lines.forEach((l, j) => { if (REPORT_HEAD.test(l)) h = j })
+    const s = h < 0 ? '' : lines.slice(h + 1).join('\n').trim()
+    if (s) return cut(s, KID_REPORT_MAX)
+  }
+  return undefined
+}
+
 const stateWord: Record<string, string> = { running: 'working', waiting: 'waiting for the user', queued: 'queued', idle: 'done with its turn', stopped: 'stopped', error: 'failed' }
 
-/** 대화의 마지막 에이전트 글 (줄임) */
+/** 대화의 마지막 에이전트 글 (한 줄로 줄임). 보고 절이 없을 때 대신 쓴다 */
 export function lastReport(items: ChatItem[], n = REPORT_CHARS): string | undefined {
   for (let i = items.length - 1; i >= 0; i--) {
     const it = items[i]!
-    if (it.kind === 'text' && !it.sub && it.text.trim()) {
-      const s = it.text.replace(/\s+/g, ' ').trim()
-      return s.length > n ? `${s.slice(0, n)}…` : s
-    }
+    if (it.kind === 'text' && !it.sub && it.text.trim()) return oneLine(it.text, n)
   }
   return undefined
+}
+
+function oneLine(s: string, n: number): string {
+  return cut(s.replace(/\s+/g, ' ').trim(), n)
 }
 
 type Ask = Extract<ChatItem, { kind: 'ask' }>
@@ -112,12 +137,13 @@ export function kidOf(c: Stored): CentralKid {
   const a = openAsk(c)
   const wait = a && (a.plan !== undefined ? 'plan' : 'ask')
   const crit = a && criticalOf(a, c)
-  const report = lastReport(c.items)
+  const own = kidReport(c.items)
+  const report = own ?? lastReport(c.items)
   return {
     id: c.id, rid: c.rid, title: c.title, state: c.state, ...(c.state === 'waiting' && wait && { wait }),
     ...(c.state === 'waiting' && a && { ask: { id: a.id, ...(crit && { critical: crit.ko }) } }),
     ...(c.pr && { pr: { ...c.pr } }), ...(c.merged && { merged: c.merged }), ...(c.feedback && { feedback: c.feedback }),
-    archived: !!c.archived, ...(c.summary && { summary: c.summary }), ...(report && { report }), updated: c.updated,
+    archived: !!c.archived, ...(c.summary && { summary: c.summary }), ...(report && { report }), ...(own && { reported: true }), updated: c.updated,
   }
 }
 
@@ -129,7 +155,7 @@ export function digestOf(kids: CentralKid[], held = 0): string {
   return ['[Sub-conversations]', ...open.map((k) => {
     const pr = k.pr ? ` · PR #${k.pr.number}${k.merged ? ' merged' : ''}` : ''
     const w = k.wait ? `waiting for ${k.wait === 'plan' ? 'plan approval' : 'permission'}${k.ask ? ` (ask ${k.ask.id}${k.ask.critical ? ', critical: leave to the user' : ''})` : ''}` : stateWord[k.state] ?? k.state
-    return `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}" · ${w}${pr}${k.report ? ` · last: ${k.report}` : ''}`
+    return `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}" · ${w}${pr}${k.report ? ` · ${k.reported ? 'report' : 'last'}: ${oneLine(k.report, REPORT_CHARS)}` : ''}`
   })].join('\n') + wait
 }
 
@@ -257,7 +283,9 @@ export class CentralChats extends FeedbackChats {
       w.events.delete(id)
       if (!k || k.archived) continue
       const head = `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}"${k.pr ? ` · PR #${k.pr.number}` : ''}`
-      const report = lastReport(k.items, REPORT_FULL)
+      // 보고 절이 있으면 그것을 줄바꿈 그대로, 없으면 마지막 글 (보고를 빠뜨린 대화)
+      const own = kidReport(k.items)
+      const report = own ? undefined : lastReport(k.items, REPORT_FULL)
       const lines: string[] = []
       for (const e of evs) {
         if (e.kind === 'end') {
@@ -282,13 +310,13 @@ export class CentralChats extends FeedbackChats {
         }
       }
       if (!lines.length) continue
-      en.push(head, ...lines.map((l) => `  ${l}`), ...(report ? [`  last report: ${report}`] : []))
+      en.push(head, ...lines.map((l) => `  ${l}`), ...(own ? ['  report:', ...own.split('\n').map((l) => `    ${l}`)] : report ? [`  last text (no report section): ${report}`] : []))
     }
     if (!ko.length) return undefined
     return {
       ko: `${t('자동 알림', 'Automatic')} · ${ko.join(' · ')}`,
       en: ['[Automatic wake-up from the app, not written by the user. Sub-conversations changed:]', ...en,
-        '[Do the routine work yourself as the brief says (check failed: chat_send a fix; merged: chat_close; non-critical wait: chat_answer). Then reply in a few short lines; if the user must act, end with "지금 확인할 것: …"]'].join('\n'),
+        '[Do the routine work yourself as the brief says (check failed: chat_send a fix; merged: chat_close; non-critical wait: chat_answer). Then tell the user in a few short lines what each one did, from its report (what changed, where, the decision, what is left); if the user must act, end with "지금 확인할 것: …"]'].join('\n'),
     }
   }
 
