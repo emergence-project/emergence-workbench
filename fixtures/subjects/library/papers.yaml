@@ -3,3 +3,5 @@ doeStructurePlanar2004:
   subjects: [math/graph]
 readerGraph2010:
   subjects: [math/graph, cs/ml]
+ipsumListColoringPlanar2015:
+  subjects: [cs/ml]

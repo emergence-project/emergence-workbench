@@ -46,12 +46,49 @@ export async function readMemory(): Promise<Mem> {
 
 export type Room = { ok: true } | { ok: false; why: 'cap' | 'memory' }
 
-/** 앱 고치기 대화를 하나 더 열어도 되는가. live = 일하는 수, fresh = 그 가운데 막 연 수 */
-export function appRoom(live: number, fresh: number, m: Mem): Room {
-  if (live < APP_LIVE_MIN) return { ok: true }
-  if (live >= APP_LIVE_CAP) return { ok: false, why: 'cap' }
+/** 하나 더 열어도 되는가. live = 일하는 수, fresh = 그 가운데 막 연 수. min개까지는 늘 열고 cap개를 넘지 않는다 */
+function roomFor(live: number, fresh: number, m: Mem, min: number, cap: number): Room {
+  if (live < min) return { ok: true }
+  if (live >= cap) return { ok: false, why: 'cap' }
   const left = m.free * m.total - fresh * PER_CHAT_GB * GB
   return left >= Math.max(MEM_FREE_MIN * m.total, MEM_FREE_GB * GB) ? { ok: true } : { ok: false, why: 'memory' }
+}
+
+/** 앱 고치기 대화를 하나 더 열어도 되는가 */
+export function appRoom(live: number, fresh: number, m: Mem): Room {
+  return roomFor(live, fresh, m, APP_LIVE_MIN, APP_LIVE_CAP)
+}
+
+/**
+ * 모든 대화(프로젝트 · 앱 고치기 · 피드백)가 동시에 도는 수 (11/19 "램에 따른 제한 때문에 느린 것 같다").
+ * 전에는 컴퓨터와 상관없이 3개로 고정이라, 32GB 맥미니에서 메모리가 74% 남아도 넷째부터 줄을 섰다.
+ * 이제는 이 컴퓨터의 크기로 상한을 정하고(chatCap), 그 안에서 남은 메모리가 있으면 더 연다(chatRoom). 줄 선 대화는 메모리가 풀리면 저절로 시작한다.
+ */
+export const CHAT_MIN = 3
+export const CHAT_MAX = 8
+/** 대화 하나에 잡는 몫: 메모리 5GB(Claude 프로세스 + 작업 폴더의 시험 · 빌드), 코어 2개 */
+const CHAT_GB = 5
+const CHAT_CPUS = 2
+
+/** 이 컴퓨터가 동시에 돌릴 대화 상한 (16GB 맥북 → 3, 32GB · 12코어 맥미니 → 6, 64GB 이상 맥 스튜디오 → 8) */
+export function chatCap(total = os.totalmem(), cpus = os.availableParallelism()): number {
+  return Math.max(CHAT_MIN, Math.min(CHAT_MAX, Math.floor(total / (CHAT_GB * GB)), Math.floor(cpus / CHAT_CPUS)))
+}
+
+/** 대화를 하나 더 시작해도 되는가 (상한 cap 안에서 남은 메모리로. CHAT_MIN개까지는 늘) */
+export function chatRoom(live: number, fresh: number, m: Mem, cap: number): Room {
+  return roomFor(live, fresh, m, Math.min(CHAT_MIN, cap), cap)
+}
+
+/** 남은 메모리를 몇 초마다 재어 두고, 줄을 세울지 정할 때는 그 값을 바로 쓴다 (대화 시작은 재는 것을 기다리지 않는다) */
+export class MemoryGauge {
+  private last: Mem | undefined
+  constructor(private readonly read: () => Promise<Mem> = readMemory) {}
+  get current(): Mem | undefined { return this.last }
+  async refresh(): Promise<Mem | undefined> {
+    this.last = await this.read().catch(() => this.last)
+    return this.last
+  }
 }
 
 /** 짧은 상태: 「앱 고치기 2개 일함 · 남은 메모리 18%(5.8GB)」 */
