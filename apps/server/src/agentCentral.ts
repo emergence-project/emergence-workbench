@@ -144,9 +144,7 @@ export function kidOf(c: Stored): CentralKid {
 }
 
 /** 하위 대화 한 줄의 표지: 상태 · 기다림 · PR · 보고가 같으면 같다 (digestOf가 바뀐 것만 자세히 싣는다) */
-export function kidSig(k: CentralKid): string {
-  return JSON.stringify([k.state, k.wait, k.ask?.id, k.pr?.number, k.merged, k.report])
-}
+export const kidSig = (k: CentralKid) => JSON.stringify([k.state, k.wait, k.ask?.id, k.pr?.number, k.merged, k.report])
 
 /**
  * 중앙에게 넘기는 하위 대화 요약 (보관한 것은 빼고). held = 자리를 기다리는 앱 고치기 수.
@@ -167,8 +165,7 @@ export function digestOf(kids: CentralKid[], held = 0, seen?: ReadonlyMap<string
 
 /** 깨울 까닭 하나 */
 type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help'; log?: string; text?: string }
-/** digested: 중앙에게 마지막으로 넘긴 하위 대화마다의 kidSig (중앙 대화 id별) */
-type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number>; digested: Map<string, Map<string, string>> }
+/** digested: 중앙 대화 id별로 마지막으로 넘긴 하위 대화마다의 kidSig */ type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number>; digested: Map<string, Map<string, string>> }
 
 export class CentralChats extends FeedbackChats {
   /** 하위 대화가 바뀐 뒤 중앙을 깨우기까지 모으는 시간 (시험은 줄인다) */
@@ -199,9 +196,7 @@ export class CentralChats extends FeedbackChats {
 
   /** 중앙에게 보낼 하위 대화 요약. 지난번에 넘긴 것과 같은 대화는 한 줄로. 세션이 새로 열리면(앱을 다시 켬 등) 모두 자세히 */
   private digest(c: Stored): string {
-    const kids = this.kidsOf(c.id)
-    const all = this.w().digested
-    const seen = c.sessionId ? all.get(c.id) : undefined
+    const kids = this.kidsOf(c.id), all = this.w().digested, seen = c.sessionId ? all.get(c.id) : undefined
     all.set(c.id, new Map(kids.filter((k) => !k.archived).map((k) => [k.id, kidSig(k)])))
     return `${digestOf(kids, c.held?.length, seen)}${this.feedbackLine()}`
   }

@@ -70,6 +70,7 @@ export const LOCAL_CHECKS: { name: string; needs: string; cmd: string; args: str
   { name: 'type-check', needs: 'package.json', cmd: 'pnpm', args: ['type-check'] },
   { name: 'check-ports', needs: 'scripts/ci/check-ports.mjs', cmd: 'node', args: ['scripts/ci/check-ports.mjs'] },
   { name: 'check-about', needs: 'scripts/ci/check-about.mjs', cmd: 'node', args: ['scripts/ci/check-about.mjs'] },
+  { name: 'check-ratchet', needs: 'scripts/ci/check-ratchet.mjs', cmd: 'node', args: ['scripts/ci/check-ratchet.mjs'] },
 ]
 export type CheckRun = (cmd: string, args: string[], cwd: string) => Promise<unknown>
 const runCheck: CheckRun = (cmd, args, cwd) => exec(cmd, args, { cwd, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' } })
@@ -82,7 +83,7 @@ export async function localChecks(dir: string, run: CheckRun = runCheck): Promis
     try {
       await run(c.cmd, c.args, dir)
     } catch (e) {
-      const { code, stdout, stderr, message } = e as { code?: unknown; stdout?: string; stderr?: string; message?: string }
+      const { code, stdout, stderr, message } = Object.assign({ code: '', stdout: '', stderr: '', message: '' }, e)
       if (code === 'ENOENT') continue
       failed.push(`✗ ${[c.cmd, ...c.args].join(' ')}\n${tail(`${stdout ?? ''}\n${stderr ?? ''}`.trim() || (message ?? ''), 4000)}`)
     }
@@ -155,7 +156,7 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       if (staged) await git(dir, ['commit', '-m', `${o.title}\n\n${o.body}`.trim()])
       const ahead = (await git(dir, ['rev-list', '--count', 'origin/main..HEAD'])).trim()
       if (ahead === '0') throw new WorkbenchError(400, t('바뀐 것이 없어 올리지 않았습니다', 'Nothing changed, so nothing was pushed'))
-      // 형식 검사 · 이식 안내서 · 소개 검사를 먼저: 떨어지면 방금 한 커밋을 풀고(고친 것은 그대로) 오류를 대화에 돌려준다
+      // 형식 검사 · 이식 안내서 · 소개 · 구조 래칫 검사를 먼저: 떨어지면 방금 한 커밋을 풀고(고친 것은 그대로) 오류를 대화에 돌려준다
       const failed = await localChecks(dir)
       if (failed) {
         if (staged) await git(dir, ['reset', '--soft', 'HEAD~1'])
