@@ -96,6 +96,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   ctx.agentChats = chats
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
   if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
+  if (appWork && ctx.opts.feedbackDir) ctx.feedbackSaved = () => void chats.pickFeedback().catch(() => undefined)
   // 남은 메모리를 재고, 풀렸으면 줄 선 대화를 시작한다 (11/19)
   if (gauge) {
     void gauge.refresh()

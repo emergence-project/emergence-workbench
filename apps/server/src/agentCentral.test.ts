@@ -4,7 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { APP_RID } from '@rw/core/contract/agentChats'
-import { CENTRAL_BRIEF, CentralChats, criticalOf, digestOf, KID_REPORT_MAX, kidReport, kidSig, lastReport } from './agentCentral.js'
+import { CENTRAL_BRIEF, CentralChats, criticalOf } from './agentCentral.js'
+import { digestOf, KID_REPORT_MAX, kidReport, kidSig, lastReport } from './agentCentralDigest.js'
 import { judge, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { APP_LIVE_CAP, appRoom, memLine, MEM_FREE_GB, PER_CHAT_GB } from './appMemory.js'
 import { sampleAppWork } from './appWorktree.js'
@@ -16,10 +17,11 @@ const W = 'mcp__workbench__'
 const ctx = (o: Partial<PolicyCtx> = {}): PolicyCtx => ({ rid: '_central', write: 'read', mode: 'edit', planOk: false, scope: { kind: 'all' }, repo: '/w/app', readable: [], claimedBy: () => undefined, ...o })
 
 describe('중앙 대화의 허락 규칙', () => {
-  it('읽기 · 하위 대화 도구는 허락하고, 고치기 · 명령 · 기록 쓰기 · 앱 올리기는 하위 대화에 맡기라고 막는다', () => {
+  it('읽기 · 하위 대화 도구는 허락하고, 고치기 · 기록 쓰기 · 앱 올리기는 하위 대화에 맡기라고 막고, 목록 밖 명령은 우회 허락으로 묻는다', () => {
     for (const tool of ['read_note', 'project_status', 'chat_open', 'chat_send', 'chat_list', 'chat_close']) expect(judge(ctx(), `${W}${tool}`, {}).kind, tool).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: '/w/app/CLAUDE.md' }).kind).toBe('allow')
-    for (const [tool, input] of [['Bash', { command: 'npm i' }], ['Bash', { command: 'ls > a.txt' }], ['Edit', { file_path: '/w/app/a.ts' }], [`${W}edit_note`, {}], [`${W}add_record`, {}], [`${W}add_journal`, {}], [`${W}app_submit`, {}], [`${W}feedback_answer`, {}]] as const) {
+    for (const command of ['npm i', 'ls > a.txt']) expect(judge(ctx(), 'Bash', { command }).kind, command).toBe('ask')
+    for (const [tool, input] of [['Edit', { file_path: '/w/app/a.ts' }], [`${W}edit_note`, {}], [`${W}add_record`, {}], [`${W}add_journal`, {}], [`${W}app_submit`, {}], [`${W}feedback_answer`, {}]] as const) {
       const v = judge(ctx(), tool, input)
       expect(v.kind, tool).toBe('deny')
       expect(v.kind === 'deny' && v.message).toContain('chat_open')
@@ -56,6 +58,14 @@ describe('하위 대화 요약', () => {
     expect(d).not.toContain('바꾼 것: 가')
     expect(d).toContain('b · app · "목록" · done with its turn · PR #7 · report: - 바꾼 것: 나')
     expect(digestOf([a], 0, new Map([['a', kidSig({ ...a, state: 'running' })]]))).not.toContain('unchanged')
+  })
+})
+
+describe('중앙 안내: 앱 안 링크 (11/19)', () => {
+  it('하위 대화 · 피드백 · PR을 말할 때 앱이 링크로 바꾸는 꼴(전체 대화 id · 피드백 키 · #번호)로 쓰라고 한다', () => {
+    expect(CENTRAL_BRIEF).toMatch(/full chat id .*#\/agent\/<id>/)
+    expect(CENTRAL_BRIEF).toContain('#/feedback/<key>')
+    expect(CENTRAL_BRIEF).toContain('pull request as #number')
   })
 })
 
@@ -253,6 +263,9 @@ describe('중앙의 계정과 피드백 수', () => {
     expect(seen[0]!.prompt).toContain(`[Feedback waiting for the agent: ${waiting}.`)
     expect(seen[0]!.prompt).toContain('Feedback is always handled by feedback sub-conversations, never by you')
     expect(chats.centralState().kids).toEqual([])
+    // 작업 현황의 「내 차례」: 사용자가 답할 피드백 (오래된 것부터)
+    const mineFb = chats.centralState().feedback ?? []
+    expect(mineFb.every((f, i) => i === 0 || mineFb[i - 1]!.at <= f.at)).toBe(true)
     chats.stopAll()
     fs.rmSync(dir, { recursive: true, force: true })
   })

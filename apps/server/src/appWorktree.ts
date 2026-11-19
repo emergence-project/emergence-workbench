@@ -218,7 +218,8 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       return v.mergeable === 'CONFLICTING'
     },
     async prMerged(dir, branch) {
-      const m = MergedPrs.parse(JSON.parse(await gh(dir, ['pr', 'list', '--state', 'merged', '--head', branch, '--json', 'number,mergeCommit'])))[0]
+      // 오래된 대화는 작업 폴더가 지워졌을 수 있다: 그때는 앱 저장소에서 묻는다 (11/20, 10/22 대화가 합쳐진 PR로 파일을 계속 잡음)
+      const m = MergedPrs.parse(JSON.parse(await gh(fs.existsSync(dir) ? dir : root, ['pr', 'list', '--state', 'merged', '--head', branch, '--json', 'number,mergeCommit'])))[0]
       return m && { number: m.number, sha: m.mergeCommit?.oid ?? '' }
     },
     async shot(dir, branch, name) {

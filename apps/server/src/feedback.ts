@@ -414,7 +414,7 @@ export interface FeedbackAnswer {
 
 /**
  * 처리 기록(status.yaml) 한 항목을 앱이 대신 적는다: 에이전트는 이 파일을 직접 고치지 않는다 (10/21 "앱 안 대화 + CI가 시험").
- * - state가 있으면 처리를 새로 적는다. 수정 요청 · 진행으로 다시 처리하는 것이면 그 전 처리를 revised에 { at: 그 답의 at, … }로 옮기고 rework를 적는다.
+ * - state가 있으면 처리를 새로 적는다. 수정 요청 · 진행 · 논의로 다시 처리하는 것이면 그 전 처리를 revised에 { at: 그 답의 at, … }로 옮기고 rework를 적는다.
  * - replies는 코멘트에 단 답으로 더한다 (처리는 그대로).
  * handled_at · replies.at은 이 컴퓨터의 시간대로 시간대 표기 없이 (규약 6절). 다른 항목과 칸은 그대로 둔다.
  */
@@ -425,11 +425,11 @@ export function writeFeedbackAnswer(dir: string, key: string, a: FeedbackAnswer,
   return editYamlFile(dir, STATUS_FILE, (doc) => {
     const raw = ((doc.toJS() ?? {}) as Record<string, Record<string, unknown> | undefined>)[key]
     if (a.state) {
-      const back = item.review && agentTurns(item, now.getTime()).some((x) => x === 'rework' || x === 'proceed') ? item.review.at : undefined
+      const back = item.review && agentTurns(item, now.getTime()).some((x) => x === 'rework' || x === 'proceed' || x === 'discuss') ? item.review.at : undefined // 논의도 다시 처리: 안 옮기면 앞 처리가 덮여 사라진다 (11/20)
       const revised = Array.isArray(raw?.revised) ? [...(raw!.revised as unknown[])] : []
       if (back && raw?.state) {
         const keep = (k: string) => (raw[k] != null && raw[k] !== '' ? { [k]: String(raw[k]) } : {})
-        revised.push({ at: back, ...keep('understood'), ...keep('cause'), ...keep('note'), ...keep('commit'), ...keep('handled_at'), ...keep('by'), ...(Array.isArray(raw.mockups) && { mockups: raw.mockups }), ...(a.miss && { miss: a.miss }), ...(a.lesson && { lesson: a.lesson }) })
+        revised.push({ at: back, ...keep('understood'), ...keep('cause'), ...keep('note'), ...keep('commit'), ...keep('handled_at'), ...keep('by'), ...(Array.isArray(raw.pictures) && { pictures: raw.pictures }), ...(Array.isArray(raw.mockups) && { mockups: raw.mockups }), ...(a.miss && { miss: a.miss }), ...(a.lesson && { lesson: a.lesson }) })
       }
       const next: Record<string, unknown> = {
         state: a.state,

@@ -62,7 +62,8 @@ export interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; 
 
 // ---------- / 명령 ----------
 
-const COMMANDS: { cmd: string; label: string; text: string }[] = [
+/** send: 고르면 바로 보낸다 (뒤에 쓸 말이 없는 Claude Code 명령. 일하는 중이면 다음 차례로 줄 선다, 11/19 피드백 22:14) */
+const COMMANDS: { cmd: string; label: string; text: string; send?: boolean }[] = [
   { cmd: t('/계산', '/run'), label: t('노트의 계산을 다시 돌리고 확인 절과 맞추기', 'Rerun the note\'s computation and match its checks'), text: t('이 노트의 계산을 다시 돌리고 결과를 확인(Checks) 절과 맞춰 줘. 다르면 고치고 무엇이 달랐는지 알려 줘.', 'Rerun the computation in this note and match the result with its Checks section. If it differs, fix it and tell me what changed.') },
   { cmd: t('/검토', '/review'), label: t('노트의 수식 · 논리 단계 검토', 'Review the note\'s equations and steps'), text: t('이 노트의 수식과 논리 단계를 검토해 줘. 틀리거나 빠진 단계는 그 자리에 기록(질문)으로 남기고, 노트는 고치지 마.', 'Review the equations and logical steps in this note. Leave a record (question) where a step is wrong or missing; do not change the note.') },
   { cmd: t('/기록', '/records'), label: t('답할 차례인 기록에 답하기', 'Answer the records waiting for an agent'), text: t('이 프로젝트에서 에이전트가 답할 차례인 기록에 답해 줘.', 'Answer the records in this project that wait for an agent.') },
@@ -71,8 +72,8 @@ const COMMANDS: { cmd: string; label: string; text: string }[] = [
   { cmd: t('/요약', '/summary'), label: t('오늘 이 프로젝트에서 한 일', 'What happened in this project today'), text: t('오늘 이 프로젝트에서 한 일을 짧게 요약해 줘.', 'Summarize briefly what happened in this project today.') },
   // Claude Code 명령: 그대로 보낸다 (에이전트가 아니라 Claude Code가 처리)
   { cmd: t('/곁', '/btw'), label: t('하던 일을 멈추지 않고 짧게 묻기 (작은 모델이 대화 요약만 보고 답함)', 'Ask a quick side question without interrupting (a small model answers from a summary)'), text: t('/곁 ', '/btw ') },
-  { cmd: '/compact', label: t('앞 내용을 요약해 맥락 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact' },
-  { cmd: '/context', label: t('맥락이 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context' },
+  { cmd: '/compact', label: t('앞 내용을 요약해 맥락 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact', send: true },
+  { cmd: '/context', label: t('맥락이 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context', send: true },
 ]
 
 /** 곁 질문이면 묻는 글 (/곁 · /btw 뒤), 아니면 없음 */
@@ -270,9 +271,10 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (!menu) return []
     const q = menu.query.toLowerCase()
     if (menu.kind === '/') {
-      const fill = (v: string) => { setText(v); setCaret(v.length); requestAnimationFrame(() => box.current?.focus()) }
+      // 고르면 메뉴를 닫는다 (/compact처럼 글이 명령 그대로면 메뉴가 다시 맞아 열려 있었다)
+      const fill = (v: string) => { setText(v); setCaret(v.length); setClosed(menu.start); requestAnimationFrame(() => box.current?.focus()) }
       const cmds = COMMANDS.filter((c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.label.toLowerCase().includes(q))
-        .map((c) => ({ key: c.cmd, label: c.cmd, meta: c.label, run: () => fill(c.text) }))
+        .map((c) => ({ key: c.cmd, label: c.cmd, meta: c.label, run: () => { fill(c.text); if (c.send) void submit(c.text) } }))
       // 스킬: 고르면 그 스킬을 쓰라는 글로 시작한다 (에이전트가 Skill 도구로 읽는다)
       const skills = (extras?.skills ?? []).filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
         .map((s) => ({ key: `s:${s.name}`, label: s.name, meta: `${t('스킬', 'Skill')}${s.description ? ` · ${s.description}` : ''}`, run: () => fill(t(`「${s.name}」 스킬로 `, `Using the ${s.name} skill, `)) }))
@@ -310,8 +312,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   }
 
   const all = [...(auto && !autoOff ? [auto] : []), ...attach]
-  const submit = async () => {
-    const v = text.trim()
+  const submit = async (value = text) => {
+    const v = value.trim()
     if (!v || busy) return
     setBusy(true); setFail(null)
     try {

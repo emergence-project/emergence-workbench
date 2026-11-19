@@ -38,12 +38,13 @@ code:
 | core | `packages/core/src/feedback-buckets.ts` | 차례 계산(사용자 차례 · 에이전트 차례 · 끝남). 타입 말고 가져오는 것이 없어 그대로 옮긴다 |
 | core | `packages/core/src/feedback-lessons.ts` | 다시 처리한 이력의 `miss` · `lesson`을 세어 에이전트에게 보이는 교훈 |
 | core | `packages/core/src/contract/feedback.ts` | API 몸통 · 답의 모양 (zod) |
-| server | `apps/server/src/feedback.ts` | 원문 · 처리 기록 · 사용자 답 파일 읽고 쓰기, 답 받기, 목록 |
+| server | `apps/server/src/feedback.ts` | 원문 · 처리 기록 · 사용자 답 파일 읽고 쓰기, 답 받기, 목록. 반려 · 진행 · 논의로 다시 처리하면 그 전 처리(전후 그림까지)를 `revised`로 옮기고 `rework`를 적는다(11/20: 논의에 답할 때 덮여 사라지지 않게) |
 | web | `apps/web/src/FeedbackMode.tsx` | 피드백 모드: 부위(`data-ui`) 강조, 누른 부위 · 화면 그림 · 고른 글 모으기 |
 | web | `apps/web/src/FeedbackSend.tsx` | 남기기 창: 유형 고르기(필수) · 글 · 그림 |
 | web | `apps/web/src/FeedbackPage.tsx` | 모아 보기 표: 확인 필요 · 대기 · 완료 · 전체, 줄 펼치기 |
 | web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 |
 | web | `apps/web/src/feedbackDraft.ts` | 적던 글 보존 |
+| web | `apps/web/src/feedbackFocus.tsx` | 항목 하나의 주소 `#/feedback/<키>`: 필터를 풀고 그 항목을 펼쳐 그 자리로 내리기 |
 
 처리 · 답에 붙인 시안(`mockups`)은 `apps/server/src/feedbackMockups.ts`가 에이전트 작업 폴더 `mockups/`에서 `pictures/`로 옮겨 적고, `apps/web/src/FeedbackMockups.tsx`가 작은 그림 · 크게 넘겨 보기 · html 새 창 · 「이 시안으로 진행」 · 「논의」로 보인다. 작업 폴더가 없는 앱이면 시안 파일을 `pictures/`에 바로 두고 `mockups`에 이름만 적어도 된다.
 
@@ -55,6 +56,7 @@ code:
 
 - 저절로 맡기기와 컴퓨터 사이 맡음 표시(`apps/server/src/agentFeedbackTick.ts`, `feedbackClaims.ts`) — 에이전트 대화([agent-chat.md](agent-chat.md))가 있어야 한다
 - 묶어 맡기기(`apps/server/src/feedbackGroups.ts`, 11/19): 같은 화면의 수정끼리, 질문 · 제안끼리 한 대화에(5개까지). 대화마다 작업 폴더 · 규칙 읽기 · PR · CI를 다시 하지 않으려고
+- 저절로 맡기기에서 코멘트 · 답을 저장하면 그 항목의 앞 대화에 이어 바로 답한다(11/20). 줄 밑 「답하는 중 · 대화 보기」는 `apps/web/src/FeedbackAgentLine.tsx`, 대화에서 사용자가 말한 판정(진행 · 승인 · 반려 · 중단 · 논의)은 `feedback_answer`의 `verdict`로 적는다(`apps/server/src/feedbackVerdict.ts`)
 - 중계 서버로 다른 사람의 피드백 받기(`relay/`, `feedbackRelay.ts`)
 - 소개 절 확인(`feedback/about.yaml`, `aboutChecks.ts`)
 

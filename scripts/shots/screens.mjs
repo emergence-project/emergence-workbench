@@ -86,10 +86,14 @@ export const DEFAULT_SCREENS = [
   ['agent-changes', '#/agent/{done}', '바뀐 곳'],
   // 앱 고치기 대화 (2단계 10/21): 작업 폴더에서 파일 하나를 고치고 PR을 연 대화 (shots.mjs, {appchat})
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
+  // 대화 머리 「>_」로 오른쪽 칸을 터미널로 바꾼 모습 (11/19 B1)
+  ['agent-terminal', '#/agent/{done}', '터미널 칸', '터미널 버튼'],
   // Codex 검토 카드 (11/9): 끝난 대화에 붙은 검토 (shots.mjs가 검토를 부른다)
   ['agent-review', '#/agent/{done}', '검토 카드'],
   // 확인하지 않은 대화 (11/16 피드백): 본 기록을 비우고 계획 대화를 열어, 끝난 두 대화의 줄 앞 주황 점 · 「내 차례 3」 · 레일 배지 (shots.mjs가 비운다)
   ['agent-unseen', '#/agent/{chat}', '대화 목록'],
+  // 보관함을 연 사이드바 (11/19 피드백 09:23): 맨 아래 상자 아이콘이 눌린 모양, 위는 「보관함 n」 제목만 (shots.mjs가 끝난 대화 하나를 보관했다가 되돌린다)
+  ['agent-archive', '#/agent/{done}', '대화 목록'],
   // 새 대화의 프로젝트 고르기 (11/8 14:16 제안): 입력란 아래 알약 버튼의 메뉴(찾기 · 여럿 고르는 프로젝트 목록 · 고칠 곳 안내, 11/19)
   ['agent-new', '#/agent', '대화 프로젝트 고르기 항목', ['대화 프로젝트 고르기']],
   // 사이드바를 닫은 에이전트 화면 (같은 제안 안 A): 새 대화 아래 최근 대화 (shots.mjs가 찍기 전에 닫고 뒤에 되돌린다)
@@ -106,7 +110,7 @@ export const DEFAULT_SCREENS = [
   ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
   // 중앙 대화 (11/16 "중앙 에이전트"): 처음 말하는 화면, 그리고 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연 중앙 (shots.mjs, {central})
   ['agent-central-start', '#/agent/central', '중앙 시작'],
-  ['agent-central', '#/agent/{central}', '하위 대화'],
+  ['agent-central', '#/agent/{central}', '작업 현황'],
   // 어느 화면에서나 오른쪽 사이드바의 에이전트 (11/16): 소개 화면에서 사이드바를 열면 맨 위 「중앙」, 최근 대화, 중앙에게 말하는 입력란
   ['agent-side', '#/about', '에이전트 사이드바', '맥락 칸 켜고 끄기'],
   // 터미널을 한 번 연 뒤 에이전트로 돌아온 모습 (11/19): 열린 셸은 숨어 있고 에이전트만 보인다

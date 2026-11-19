@@ -26,6 +26,8 @@ export function readMockups(v: unknown): string[] | undefined {
   return out.length ? out : undefined
 }
 const withMockups = (v: unknown) => { const m = readMockups(v); return m ? { mockups: m } : {} }
+/** 그 처리의 전후 그림 (경로는 시안과 같이 읽는다) */
+const withPictures = (v: unknown) => { const m = readMockups(v); return m ? { pictures: m } : {} }
 
 const isRec = (r: unknown): r is Record<string, unknown> => !!r && typeof r === 'object'
 
@@ -55,6 +57,7 @@ export function readRevisions(v: unknown): FeedbackRevision[] | undefined {
       ...(by && { by }),
       ...(miss && { miss }),
       ...(lesson && { lesson: lesson.trim() }),
+      ...withPictures(r.pictures),
       ...withMockups(r.mockups),
     }
   })

@@ -10,6 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { FEEDBACK_MISSES, LIBRARY_RID, noteRecordTarget } from '@rw/core'
+import { FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
 import { recordRows } from './recordRows.js'
 import { registerTaskTools } from './mcpTasks.js'
 import { PROBLEM_INSTRUCTIONS, registerProblemTools } from './mcpProblems.js'
@@ -478,7 +479,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async ({ wait }) => call(`/api/agent-chats/${chat}/app/checks${wait ? `?wait=${wait}` : ''}`))
     server.registerTool('feedback_answer', {
       title: 'Record feedback handling',
-      description: 'Only when this conversation handles app feedback (one item, or several bundled: pass key for each): the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only. mockups = names of mockups in this folder\'s mockups/ (<name>.png and <name>.html, with or without extension): the app copies them into the feedback folder and shows them as thumbnails on the handling (or on a reply via replies[].mockups) so the user can page through them, open the html and choose 진행 / 논의 there; send mockups without state to add them to the current handling.',
+      description: 'Only when this conversation handles app feedback (one item, or several bundled: pass key for each): the app writes its handling record (status.yaml) for you; never edit the feedback files. state + note write a new handling (note first line: one fixed answer phrase from docs/feedback/agent.md §3). When redoing a revision request the app moves the previous handling to revised and adds miss / lesson there. after = screen picture name (scripts/shots/screens.mjs) that shows the fix, taken by this PR\'s CI: the app saves it with the picture left with the feedback as 전/후. replies = answers to unanswered comments (to = the comment\'s at); send replies without state to answer only. mockups = names of mockups in this folder\'s mockups/ (<name>.png and <name>.html, with or without extension): the app copies them into the feedback folder and shows them as thumbnails on the handling (or on a reply via replies[].mockups) so the user can page through them, open the html and choose 진행 / 논의 there; send mockups without state to add them to the current handling. verdict = the user\'s own verdict on the current handling when they said it in this conversation (진행 · 승인 · 반려 · 중단 · 논의, with verdictNote = their words): the app records it as if they chose it on the feedback screen, before the new handling; send it with the new state, or alone right when they say it.',
       inputSchema: {
         key: z.string().optional().describe('Which feedback item, when this conversation handles several (required then)'),
         state: z.enum(['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류']).optional().describe('Handling state'),
@@ -492,13 +493,15 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
         after: z.string().optional().describe('Screen picture name from scripts/shots/screens.mjs, after CI is green'),
         mockups: z.array(z.string()).optional().describe('Mockup names in mockups/ of this folder to attach to the handling (e.g. ["nav-tabs"])'),
         replies: z.array(z.object({ to: z.string(), note: z.string(), mockups: z.array(z.string()).optional() })).optional().describe('Answers to unanswered comments, each with optional mockups'),
+        verdict: z.enum(FEEDBACK_VERDICTS).optional().describe('The user\'s verdict said in this conversation (never your own judgement)'),
+        verdictNote: z.string().optional().describe('The user\'s words with that verdict (needed for 논의)'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => {
       const r = await post(base, f, `/api/agent-chats/${chat}/feedback/answer`, a)
       if (!r.ok) return r.error
-      const b = r.body as { state?: string; pictures?: string[]; replies: number }
-      return text(`Recorded${b.state ? ` ${b.state}` : ''}${b.pictures ? ` with pictures ${b.pictures.join(', ')}` : ''}${b.replies ? `, ${b.replies} replies` : ''}. The feedback screen shows it now.`)
+      const b = r.body as { state?: string; verdict?: string; pictures?: string[]; replies: number }
+      return text(`Recorded${b.verdict ? ` the user's ${b.verdict}` : ''}${b.state ? ` ${b.state}` : ''}${b.pictures ? ` with pictures ${b.pictures.join(', ')}` : ''}${b.replies ? `, ${b.replies} replies` : ''}. The feedback screen shows it now.`)
     })
   }
 

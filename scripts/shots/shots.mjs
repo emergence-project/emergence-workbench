@@ -102,7 +102,8 @@ try {
     // 앞 화면(노트 고치기)과 주소가 같아 편집기가 남지 않게 새로 연다
     if (name === 'figure-zoom') await page.goto('about:blank')
     // 앱 고치기 대화는 찍기 직전에 만들어, 앞 화면에서 받아 둔 대화 목록이 남지 않게 새로 연다
-    if (name === 'agent-app') await page.goto('about:blank')
+    // 중앙도: 작업 현황이 앞 화면에서 받아 둔 (하위 대화 없는) 상태로 남지 않게
+    if (name === 'agent-app' || name === 'agent-central') await page.goto('about:blank')
     if (name === 'settings-phone') await fetch(`${base}api/phone/on`, { method: 'POST' })
     if (hash.includes('{chat}') && !chat) {
       // 허락을 기다리는 대화 하나 (예제 실행기가 "계산"을 보면 명령을 묻는다)
@@ -209,6 +210,7 @@ try {
     }
     if (name === 'agent-unseen') { await page.goto(base); await page.evaluate(() => localStorage.removeItem('rw-agent-seen')); await page.goto('about:blank') }
     if (name === 'agent-recent') { await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-side-agent', 'false')); await page.goto('about:blank') }
+    if (name === 'agent-archive' && done) { await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: true }) }); await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-agent-filter', '"archived"')); await page.goto('about:blank') }
     await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)).replace('{central}', encodeURIComponent(central)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')
@@ -312,6 +314,7 @@ try {
     }
     if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
     if (name === 'agent-recent') { await page.evaluate(() => localStorage.removeItem('rw-side-agent')); await page.goto('about:blank') }
+    if (name === 'agent-archive') { if (done) await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: false }) }); await page.evaluate(() => localStorage.removeItem('rw-agent-filter')); await page.goto('about:blank') }
     if (name === 'knowledge-agent') await page.goto('about:blank')
     if (name === 'agent-side') { await page.evaluate(() => { localStorage.removeItem('rw-agent-side'); localStorage.removeItem('rw-agent-panel-all') }); await page.goto('about:blank') }
     console.log(`찍음 ${name}`)

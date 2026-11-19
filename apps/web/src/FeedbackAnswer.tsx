@@ -48,28 +48,34 @@ export { FeedbackMockups }
  * 그 아래 지금 처리와 그 뒤 답에 붙은 시안 (11/19): 답할 수 있으면 크게 본 채로 「이 시안으로 진행」 · 「논의」
  */
 export function HandlingPictures({ e }: { e: FeedbackItem }) {
-  const [big, setBig] = useState<number | null>(null)
   const mockups = e.status && [...(e.status.mockups ?? []), ...(latestReply(e.status)?.mockups ?? [])]
-  const gallery: GalleryPicture[] = (e.status?.pictures ?? []).slice(0, 2).map((p, k) => ({
+  return (
+    <>
+      <BeforeAfter pictures={e.status?.pictures} />
+      <FeedbackMockups e={e} paths={mockups} decide={answerable(e)} />
+    </>
+  )
+}
+
+/** 한 처리의 전후 그림 [전, 후]: 지금 처리와 고친 이력이 함께 쓴다 */
+export function BeforeAfter({ pictures }: { pictures?: string[] }) {
+  const [big, setBig] = useState<number | null>(null)
+  const gallery: GalleryPicture[] = (pictures ?? []).slice(0, 2).map((p, k) => ({
     src: `/api/feedback/picture?path=${encodeURIComponent(p)}`,
     label: k ? t('후', 'After') : t('전', 'Before'),
     alt: k ? t('고친 뒤 화면', 'Screen after the fix') : t('수정 전 화면', 'Screen before the fix'),
   }))
-  const shown = <FeedbackMockups e={e} paths={mockups} decide={answerable(e)} />
-  if (!gallery.length) return shown
+  if (!gallery.length) return null
   return (
-    <>
-      <div className="fbp-pictures" data-ui="전후 그림">
-        {gallery.map((g, k) => (
-          <figure key={g.src}>
-            <button type="button" className="fbp-picture" data-tip={t('크게 보기', 'View larger')} aria-label={`${t('크게 보기', 'View larger')}: ${g.alt}`} onClick={() => setBig(k)}><img src={g.src} alt={g.alt} /></button>
-            <figcaption className="muted">{g.label}</figcaption>
-          </figure>
-        ))}
-        {big !== null && <PictureGallery pictures={gallery} start={big} onClose={() => setBig(null)} />}
-      </div>
-      {shown}
-    </>
+    <div className="fbp-pictures" data-ui="전후 그림">
+      {gallery.map((g, k) => (
+        <figure key={g.src}>
+          <button type="button" className="fbp-picture" data-tip={t('크게 보기', 'View larger')} aria-label={`${t('크게 보기', 'View larger')}: ${g.alt}`} onClick={() => setBig(k)}><img src={g.src} alt={g.alt} /></button>
+          <figcaption className="muted">{g.label}</figcaption>
+        </figure>
+      ))}
+      {big !== null && <PictureGallery pictures={gallery} start={big} onClose={() => setBig(null)} />}
+    </div>
   )
 }
 

@@ -145,7 +145,7 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-new { display: flex; flex-direction: column; gap: var(--sp-2); }
 .ac-h { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-strong); }
 
-/* 세부 패널 (에이전트 화면 오른쪽, 바뀐 곳 · 작업 버튼으로 여닫는다) */
+/* 세부 패널 (에이전트 화면 오른쪽, 바뀐 곳 · 대화 머리의 세부 패널 아이콘으로 여닫는다. 「>_」는 이 자리를 터미널로 바꾼다) */
 .ac-work { flex: none; width: 360px; max-width: 50vw; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-3) var(--sp-3); border-left: 1px solid var(--line); background: var(--bg-side); font-size: var(--fs-sm); }
 .ac-work section { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .ac-work h3 { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
@@ -173,6 +173,7 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-work-resize { flex: none; position: relative; width: 6px; margin: 0 -3px; cursor: col-resize; z-index: 2; }
 .ac-work-resize:hover, body.resizing .ac-work-resize { background: var(--line-strong); }
 @media (max-width: 1100px) { .ac-work { width: 300px; } }
+.ac-work[hidden], .ac-work-resize[hidden] { display: none; }
 @media (max-width: 900px) { .ac-work, .ac-work-resize { display: none; } }
 
 /* 사이드바 목록: 이름과 상태 점, 아래 줄에 상태 · 바뀐 파일 · 시각 */
@@ -188,7 +189,12 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-line-dot { flex: none; width: 10px; display: inline-flex; justify-content: center; }
 .ac-line-dot .g-name { display: none; }
 .ac-line-meta { padding-left: calc(10px + var(--sp-2)); }
-.ac-archive-link, .ac-archive-back { align-self: flex-start; margin: var(--sp-3) var(--sp-2) 0; font-size: var(--fs-xs); }
+/* 보관함: 사이드바 맨 아래에 붙은 상자 아이콘 하나로 열고 닫는다. 목록이 짧으면 바닥에, 길면 스크롤해도 아래에 붙음 */
+.side-scroll:has(> .ac-list) { display: flex; flex-direction: column; }
+.side-scroll > .ac-list { flex: 1 0 auto; }
+.ac-side-foot { margin-top: auto; position: sticky; bottom: 0; display: flex; padding-top: var(--sp-1); background: var(--bg-side); border-top: 1px solid var(--line); }
+.ac-archive-btn { width: auto; padding: 0 6px; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); }
+.ac-archive-h { padding: var(--sp-1) var(--sp-2) 0; font-weight: var(--fw-strong); }
 
 /* 상단바 패널: 머리에 대화 고르기 · 새 대화 · 넓게 보기 */
 .ac-panel { min-width: 0; }

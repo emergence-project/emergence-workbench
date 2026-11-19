@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import { FEEDBACK_MISSES } from '../feedback-lessons.js'
+import { FEEDBACK_VERDICTS } from './feedback.js'
 
 /** 대화가 고칠 수 있는 단계. read = 읽기만(계산은 허락받고 돌림), notes = 노트 · 기록을 앱 MCP로 고침 */
 export const CHAT_WRITE = ['read', 'notes'] as const
@@ -100,12 +101,15 @@ export const ChatItem = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('edit'), at: z.string(), file: z.string(), parts: z.array(EditPart), added: z.number(), removed: z.number(), reason: z.string().optional(), via: z.literal('command').optional() }).strict(),
   /** 앱이 막은 일 (범위 밖 고치기, 다른 대화가 잡은 파일 등) */
   z.object({ kind: z.literal('blocked'), at: z.string(), tool: z.string(), reason: z.string() }).strict(),
+  /** 중앙 대화가 사용자 허락으로 우회해 돌린 명령 (11/20): how = 한 번 · 이 대화에서 늘 */
+  z.object({ kind: z.literal('bypass'), at: z.string(), command: z.string(), how: z.enum(['once', 'always']) }).strict(),
   /**
    * 차례 끝. cost = 쓴 토큰을 API 요금으로 친 값(구독 로그인이면 청구되지 않음), tokens = 이 차례에 넣고(in, 캐시 포함) 낸(out) 토큰,
    * context = 마지막 요청의 맥락 크기와 그 모델의 맥락 창
    */
   z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number() }).strict().optional() }).strict(),
-  z.object({ kind: z.literal('error'), at: z.string(), text: z.string() }).strict(),
+  /** crash = Claude Code 프로세스가 비정상으로 끝남 (사용자가 멈춘 것 밖, 11/20). 같은 대화의 이력으로 세어 중앙에게 알린다 */
+  z.object({ kind: z.literal('error'), at: z.string(), text: z.string(), crash: z.boolean().optional() }).strict(),
   /** 앞 내용을 요약해 이어 감 (Claude Code의 맥락 줄이기). auto = 맥락이 커져 저절로, before · after = 줄이기 전후 맥락 토큰 */
   z.object({ kind: z.literal('compact'), at: z.string(), auto: z.boolean(), before: z.number(), after: z.number().optional() }).strict(),
   /** 에이전트가 생각한 것의 요약 (Claude Code의 생각 보기, 접어서 보인다) */
@@ -154,6 +158,8 @@ export const ChatRow = z.object({
   /** 앱 고치기 대화가 맡은 피드백 (status.yaml · reviews.yaml의 키). 묶어 맡겼으면 첫 항목이고 bundle에 모두 (11/19) */
   feedback: z.string().optional(),
   bundle: z.array(z.string()).optional(),
+  /** 피드백 대화를 같은 항목에 다시 맡긴 시각 (코멘트마다 새 대화를 열지 않고 이어 쓴다, 11/20) */
+  handed: z.string().optional(),
   /** 기록의 질문 · 지시가 연 대화 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ: 기록에는 결과만, 대화는 에이전트 탭에) */
   record: z.object({ target: z.string(), id: z.string() }).strict().optional(),
   /** 중앙 대화가 연 하위 대화면 중앙 대화 id, 중앙이 닫으며 남긴 결과 요약 (11/16) */
@@ -287,9 +293,10 @@ export const HandOffBody = z.object({
 const ANSWER_STATES = ['반영', '거절', '확인 필요', '답변', '동의', '나중에', '보류'] as const
 /**
  * 대화가 맡은 피드백의 처리 기록 (에이전트의 MCP feedback_answer). 앱이 status.yaml에 YAML로 적는다.
- * 수정 요청 · 진행을 다시 처리하면 앱이 그 전 처리를 revised로 옮기고 rework를 적는다(miss · lesson은 그 revised에).
+ * 수정 요청 · 진행 · 논의로 다시 처리하면 앱이 그 전 처리(전후 그림까지)를 revised로 옮기고 rework를 적는다(miss · lesson은 그 revised에).
  * after = 고친 뒤 화면: 그 PR의 CI가 찍은 그림 이름(shots의 파일 이름, .png 없이). 앱이 받아 그림 폴더에 두고 pictures: [전, 후].
  * replies = 답 없는 코멘트에 단 답 (to = 그 코멘트의 at). state 없이 replies만 보내면 처리는 그대로 두고 답만 더한다.
+ * verdict = 사용자가 이 대화에서 말한 판정 (verdictNote = 그 말). 피드백 화면에서 고른 것처럼 reviews.yaml에 적고, state가 함께 오면 판정을 먼저 적는다 (11/20).
  * mockups = 이 대화 작업 폴더 mockups/의 시안 이름 (확장자 없이도). 앱이 그림과 같은 이름의 .html을 피드백 그림 폴더에 옮겨 적는다:
  * state가 있으면 새 처리에, 없으면 지금 처리에 붙는다. replies[].mockups는 그 답에.
  */
@@ -308,8 +315,10 @@ export const FeedbackAnswerBody = z.object({
   after: z.string().regex(/^[\w-]+$/).max(80).optional(),
   mockups: MockupNames.optional(),
   replies: z.array(z.object({ to: z.string().min(1), note: z.string().trim().min(1).max(4000), mockups: MockupNames.optional() }).strict()).max(20).optional(),
-}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length || !!b.mockups?.length, { message: 'state needs note; without state send replies or mockups' })
-export const FeedbackAnswered = z.object({ key: z.string(), state: z.string().optional(), pictures: z.array(z.string()).optional(), replies: z.number() }).strict()
+  verdict: z.enum(FEEDBACK_VERDICTS).optional(),
+  verdictNote: z.string().trim().max(4000).optional(),
+}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length || !!b.mockups?.length || !!b.verdict, { message: 'state needs note; without state send replies, mockups or verdict' })
+export const FeedbackAnswered = z.object({ key: z.string(), state: z.string().optional(), verdict: z.string().optional(), pictures: z.array(z.string()).optional(), replies: z.number() }).strict()
 
 export type ChatScope = z.infer<typeof ChatScope>
 export type ChatAuto = z.infer<typeof ChatAuto>
@@ -357,16 +366,29 @@ export type FeedbackAnswered = z.infer<typeof FeedbackAnswered>
 export const CENTRAL_ROLES = ['app', 'project', 'feedback'] as const
 /**
  * 중앙 대화 아래의 하위 대화 한 줄: report = 마지막 에이전트 글 (줄임).
- * ask = 기다리는 허락 · 계획 카드 (중앙이 chat_answer로 답한다). critical = 사용자에게 남길 까닭 (있으면 중앙은 답하지 못한다)
+ * ask = 기다리는 허락 · 계획 카드 (중앙이 chat_answer로 답한다). critical = 사용자에게 남길 까닭 (있으면 중앙은 답하지 못한다).
+ * ci = PR 검사 (1분마다 tickCentral이 본다), todos = 할 일 목록의 끝낸 수 / 모두 (작업 현황 줄, 11/19)
  */
 export const CentralKid = z.object({
   id: z.string(), rid: z.string(), title: z.string(), state: z.enum(CHAT_STATES), wait: z.enum(['plan', 'ask']).optional(),
   ask: z.object({ id: z.string(), critical: z.string().optional() }).strict().optional(),
   pr: z.object({ number: z.number(), url: z.string() }).strict().optional(), merged: z.string().optional(),
   feedback: z.string().optional(), bundle: z.array(z.string()).optional(), archived: z.boolean(), summary: z.string().optional(), report: z.string().optional(), reported: z.boolean().optional(), updated: z.string(),
+  ci: z.enum(['pending', 'failed', 'passed']).optional(), todos: z.object({ done: z.number(), total: z.number() }).strict().optional(),
+  /** 지금 오류가 비정상 종료면 이 대화가 비정상 종료된 횟수 (11/20) */
+  crashes: z.number().optional(),
 }).strict()
-/** GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화 */
-export const CentralState = z.object({ id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean() }).strict()
+/**
+ * GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화.
+ * held = 자리를 기다리는 앱 고치기 (at = 맡긴 때), feedback = 사용자가 답할 피드백 가운데 하위 대화가 맡지 않은 것 (작업 현황의 「내 차례」, 11/19)
+ */
+export const CentralState = z.object({
+  id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean(),
+  held: z.array(z.object({ title: z.string(), at: z.string().optional() }).strict()).optional(),
+  feedback: z.array(z.object({ key: z.string(), target: z.string(), text: z.string(), at: z.string() }).strict()).optional(),
+  /** 중앙의 하위 대화가 아닌 대화 가운데 비정상 종료로 멈춘 것 (작업 현황의 「내 차례」, 11/20). count = 그 대화의 비정상 종료 횟수 */
+  crashed: z.array(z.object({ id: z.string(), rid: z.string(), title: z.string(), at: z.string(), text: z.string(), count: z.number() }).strict()).optional(),
+}).strict()
 /** POST /agent-central/messages: 중앙에게 말하기 (중앙이 없으면 연다) */
 export const CentralMessageBody = z.object({ text: message.text, attach: message.attach, view: message.view }).strict()
 /** POST /agent-central/open: 중앙이 하위 대화를 연다. project = 프로젝트 작성, feedback = 피드백 키, task = 맡길 일 (사용자 원문을 그대로 붙인다) */

@@ -15,10 +15,9 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
-import type { AppChecks, AppSubmitBody, AppSubmitted, FeedbackAnswerBody, FeedbackAnswered, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, Snap } from './appWorktree.js'
-import { agentTurnReasons, autoCustom, autoOf, localDate, localTime, type AgentSettings } from '@rw/core'
-import { answerMockups, listAllFeedback, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
+import { autoCustom, autoOf, type AgentSettings } from '@rw/core'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 import { FRESH_MS } from './appMemory.js'
@@ -56,7 +55,7 @@ export interface RunInput {
   /** 되돌리기 뒤: sessionId의 이 메시지까지만 이어 새 세션으로 가른다 (그 뒤 대화는 버린다) */
   resumeAt?: string
   /** 실행기가 하던 차례만 끊는 손잡이를 넘긴다 (Claude Code의 Esc). true = 끊겼고 기다리는 지시도 없음 */
-  control?: (c: { interrupt(): Promise<boolean> }) => void
+  /** unread = 실행기가 가져갔지만 에이전트가 아직 읽지 않은 지시 (닫힐 때 「다음에 보냄」으로 되돌린다) */ control?: (c: { interrupt(): Promise<boolean>; unread?: () => Turn[] }) => void
   canUseTool: (tool: string, input: Record<string, unknown>) => Promise<ToolDecision>
   signal: AbortSignal
 }
@@ -94,8 +93,7 @@ export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { mod
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, withAlso, type PolicyCtx } from './agentPolicy.js'
 export * from './agentPrompts.js'
-import { handOffPlan, keysOf } from './feedbackGroups.js'
-import { appBriefFor, briefFor, feedbackPrompt, pictureImage, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
+import { appBriefFor, briefFor, promptFor, recordDraftPrompt, reviewPrompt, sidePrompt } from './agentPrompts.js'
 
 export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
 import { commandEdits, editOf, fileEditOf, todosOf } from './agentItems.js'
@@ -113,8 +111,7 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   planOk?: boolean
   archived?: boolean
   /** 마지막으로 지시에 붙인 사용자 화면 한 줄 (promptFor: 바뀔 때만 다시 붙인다) */ view?: string
-  /** 앱 고치기 대화의 작업 폴더 */
-  worktree?: string
+  /** 앱 고치기 대화의 작업 폴더 */ worktree?: string
   /** 피드백 대화: CI가 빨개 실패 기록을 다시 보낸 횟수와 마지막으로 본 실패 (같은 실패를 두 번 보내지 않게) */
   ciRetries?: number
   ciSeen?: string
@@ -136,10 +133,16 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   recordSent?: number
   recordTurn?: boolean
   /** 중앙 대화: 남은 메모리가 모자라 기다리는 앱 고치기 (appMemory.ts). 메모리가 풀리거나 하나가 끝나면 agentCentral.ts가 차례로 연다 */
-  held?: CentralOpenBody[]
+  held?: (CentralOpenBody & { at?: string })[]
+  ci?: 'pending' | 'failed' | 'passed' // 중앙의 앱 하위 대화: PR 검사 (올리면 pending, tickCentral이 1분마다 고친다)
   /** 앱 고치기 · 피드백 대화: 끝나서 저절로 보관했는지 (한 번만. 사용자가 꺼내면 다시 넣지 않는다) */
   closed?: boolean
+  /** 피드백 대화: 같은 항목을 이 대화에 다시 맡긴 시각 (코멘트마다 새 대화를 열지 않고 이어 쓴다. 이 시각 뒤의 글만 다시 맡긴다) */
+  handed?: string
 }
+
+/** 피드백 대화가 그 항목을 마지막으로 맡은 시각 (이어 맡았으면 그때, 아니면 연 때) */
+export const handedAt = (c: Pick<Stored, 'created' | 'handed'>): number => new Date(c.handed ?? c.created).getTime()
 
 /** 내 지시 하나 앞으로 되돌릴 때 쓰는 것. session이 없으면 처음부터 */
 interface Point { session?: string; resumeAt?: string; snap?: Snap }
@@ -152,8 +155,8 @@ interface Session {
   idle?: NodeJS.Timeout
   /** 마지막으로 무엇이 오간 때 (뒤에서 도는 명령이 있어도 너무 오래 열어 두지 않게) */
   last: number
-  /** 하던 차례만 끊기 (실행기가 주면) */
-  interrupt?: () => Promise<boolean>
+  /** 하던 차례만 끊기 · 가져갔지만 읽지 않은 지시 (실행기가 주면) */
+  interrupt?: () => Promise<boolean>; unread?: () => Turn[]
   /** 멈춤을 눌러 차례를 끊는 중: 다음 result는 오류가 아니라 멈춤이다 */
   stopping?: boolean
 }
@@ -587,65 +590,11 @@ export class AgentChats {
     return o.reply ? this.send(c.id, { text: o.reply.shown }, o.reply.prompt) : this.send(c.id, { text: o.shown }, o.first)
   }
 
-  /**
-   * 피드백을 새 앱 고치기 대화에 맡긴다 (피드백 화면의 「에이전트에게 맡기기」, 저절로 맡기기, 중앙). 여럿이면 한 대화에 묶는다
-   * (feedbackGroups.ts, 11/19). 같은 항목은 한 대화만: 그 피드백을 맡은 대화가 도는 중이면 거절한다. 에이전트 차례가 아닌 항목도 거절한다.
-   */
-  handOff(keys: string | string[], parent?: string): Chat {
-    const fb = this.deps.feedback
-    if (!this.deps.app || !fb) throw new WorkbenchError(404, t(`${HERE.ko}에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)`, `Feedback cannot be handed to an agent on ${HERE.en} (needs the app repository and a feedback folder)`))
-    if (this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
-    const p = handOffPlan(listAllFeedback(fb.dir), fb.dir, typeof keys === 'string' ? [keys] : keys, (key) => [...this.chats.values()].find((c) => keysOf(c).includes(key) && LIVE.has(c.state))?.title)
-    return this.create({ rid: APP_RID, text: p.text, title: p.title, mode: 'edit', ...(p.images.length && { images: p.images }) }, { feedback: p.keys[0], bundle: p.keys, ...(parent && { parent }) })
-  }
-
-  /**
-   * 맡은 피드백의 처리 기록을 적는다 (에이전트의 feedback_answer). after가 있으면 그 PR의 CI 그림을 받아
-   * 그림 폴더에 두고 pictures: [전(남길 때 그림), 후]. 반영이고 PR이 있으면 commit: "#n".
-   */
-  async feedbackAnswer(id: string, b: FeedbackAnswerBody): Promise<FeedbackAnswered> {
-    const c = this.must(id)
-    const fb = this.deps.feedback
-    if (!c.feedback || !fb) throw new WorkbenchError(400, t('피드백을 맡은 대화가 아닙니다', 'This conversation has no feedback item'))
-    const key = b.key ?? c.feedback
-    if (!keysOf(c).includes(key)) throw new WorkbenchError(400, t(`이 대화가 맡은 피드백이 아닙니다 (맡은 것: ${keysOf(c).join(', ')})`, `Not a feedback item of this conversation (its items: ${keysOf(c).join(', ')})`))
-    if (!b.key && keysOf(c).length > 1) throw new WorkbenchError(400, t('묶어 맡긴 대화는 key로 어느 항목인지 적어 주세요', 'This conversation has several items: pass key'))
-    const e = listAllFeedback(fb.dir).find((x) => x.key === key)
-    if (!e) throw new WorkbenchError(404, t('맡은 피드백을 찾지 못했습니다', 'The feedback item was not found'))
-    let pictures: string[] | undefined
-    if (b.after) {
-      if (!this.deps.app || !c.worktree || !c.branch || !c.pr) throw new WorkbenchError(409, t('PR을 연 뒤에 고친 뒤 그림을 받을 수 있습니다', 'Open the PR before asking for the after picture'))
-      const png = await this.deps.app.shot(c.worktree, c.branch, b.after)
-      if (!png) throw new WorkbenchError(409, t(`CI 그림 ${b.after}을 받지 못했습니다. CI가 끝났는지, 그 화면 이름이 맞는지 확인하세요`, `Could not get the CI picture ${b.after}. Check that CI finished and the screen name is right`))
-      const d = new Date()
-      const name = `pictures/${localDate(d)}-${localTime(d).replace(':', '')}-${b.after}-after.png`
-      fs.mkdirSync(path.join(fb.dir, 'pictures'), { recursive: true })
-      fs.writeFileSync(path.join(fb.dir, name), png)
-      pictures = e.picture && fs.existsSync(path.join(fb.dir, e.picture)) ? [e.picture, name] : undefined
-    }
-    const r = writeFeedbackAnswer(fb.dir, key, {
-      ...(b.state && { state: b.state }),
-      ...(b.note && { note: b.note }),
-      ...(b.understood && { understood: b.understood }),
-      ...(b.cause && { cause: b.cause }),
-      ...(b.clean && { clean: b.clean }),
-      ...(b.ask && { ask: b.ask }),
-      ...(b.miss && { miss: b.miss }),
-      ...(b.lesson && { lesson: b.lesson }),
-      ...(b.state === '반영' && c.pr && { commit: `#${c.pr.number}` }),
-      ...(pictures && { pictures }),
-      ...answerMockups(b, c.worktree, fb.dir),
-    })
-    fb.written?.()
-    this.touch(c)
-    return { key, ...(r.state && { state: r.state }), ...(pictures && { pictures }), replies: r.replies }
-  }
-
   /** 앱 고치기 대화: 바뀐 것을 커밋해 올리고 PR을 연다 (에이전트의 app_submit. 허락 판정은 judge가 이미 했다) */
   async appSubmit(id: string, b: AppSubmitBody): Promise<AppSubmitted> {
     const { c, w } = this.appOf(id)
     const pr = await w.submit(c.worktree!, c.branch!, { title: b.title, body: b.body })
-    c.pr = { number: pr.number, url: pr.url }
+    c.pr = { number: pr.number, url: pr.url }; c.ci = 'pending'
     this.touch(c)
     return pr
   }
@@ -953,9 +902,10 @@ export class AgentChats {
           this.push(c, { kind: 'blocked', at: now(), tool: tool.replace(MCP, ''), reason: v.reason })
           return { allow: false, message: v.message }
         }
+        // 허락한 일: 잡기 · 고친 파일. 우회는 돌릴 때마다 대화에 남긴다 (언제 · 어느 대화 · 무슨 명령)
+        const ran = (how: 'once' | 'always') => { claim(v.claim); edited(tool, input); if (v.bypass !== undefined) this.push(c, { kind: 'bypass', at: now(), command: v.bypass, how }) }
         if (c.alwaysKeys?.some((a) => a.key === v.key)) {
-          claim(v.claim)
-          edited(tool, input)
+          ran('always')
           return { allow: true }
         }
         const id = crypto.randomBytes(6).toString('hex')
@@ -985,8 +935,7 @@ export class AgentChats {
             // 승인하며 고른 맡기는 정도로 이어 간다 (묻고 하기 = 노트도 하나씩 묻기, 고치기 바로)
             if (got.mode) { ctx.mode = got.mode; c.mode = got.mode }
           }
-          claim(v.claim)
-          edited(tool, input)
+          ran(a === 'always' ? 'always' : 'once')
         }
         this.touch(c)
         const said = got.note ? ` The user said: ${got.note}` : ''
@@ -1011,7 +960,7 @@ export class AgentChats {
         signal: abort.signal,
         inbox,
         ...(c.sessionId && c.resumeAt && { resumeAt: c.resumeAt }),
-        control: (x) => { session.interrupt = x.interrupt },
+        control: (x) => { session.interrupt = x.interrupt; session.unread = x.unread },
       }
       for await (const e of this.runnerFor(c)(input)) {
         session.last = Date.now()
@@ -1067,7 +1016,7 @@ export class AgentChats {
       if (abort.signal.aborted) ended = 'stopped'
       else {
         ended = 'error'
-        c.items.push({ kind: 'error', at: now(), text: (e as Error).message.slice(0, MAX_TEXT) })
+        c.items.push({ kind: 'error', at: now(), text: (e as Error).message.slice(0, MAX_TEXT), crash: true }) // 프로세스가 비정상으로 끝남: 중앙이 알린다 (agentCrash.ts)
       }
     } finally {
       if (limit) clearTimeout(limit)
@@ -1075,8 +1024,8 @@ export class AgentChats {
       this.aborts.delete(c.id)
       this.close(session)
       if (this.sessions.get(c.id) === session) this.sessions.delete(c.id)
-      // 에이전트가 읽지 못하고 닫힌 지시는 다음에 연 에이전트가 먼저 읽는다
-      const left = inbox.drain()
+      // 에이전트가 읽지 못하고 닫힌 지시(실행기가 가져갔지만 읽지 않은 것 · inbox에 남은 것)는 다음에 연 에이전트가 먼저 읽는다
+      const left = [...(session.unread?.() ?? []), ...inbox.drain()]
       if (left.length) {
         c.pending = [...left, ...(c.pending ?? [])]
         // 화면에는 「다음에 보냄」으로 (마지막에 보낸 것들이다)
@@ -1154,7 +1103,7 @@ export const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

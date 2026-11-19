@@ -1,9 +1,10 @@
+import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from './app.js'
-import { appendAnswer, askPrompt, claudeClassifierRunner, claudeEnv, claudeExecutable, claudeInstalled, claudeRunner, pathDirs, withPath, type AskRunner } from './ask.js'
+import { appendAnswer, askPrompt, claudeClassifierRunner, claudeEnv, claudeExecutable, claudeInstalled, claudeRunner, isNewer, pathDirs, withPath, type AskRunner } from './ask.js'
 import { addComment, readComments } from './comments.js'
 import { app, makeRepo, R, tmp, useSampleApp } from './testkit.js'
 
@@ -97,6 +98,22 @@ describe('에이전트 대화가 띄울 Claude Code', () => {
     vi.stubEnv('RW_CLAUDE_BIN', '')
     expect(claudeExecutable(() => '/x/package.json')).toBeUndefined()
     vi.unstubAllEnvs()
+  })
+  it('SDK에 든 것보다 PATH의 claude가 새것이면 그것을 쓴다 (새 모델 · 스킬이 바로 보이게)', () => {
+    const dir = path.join(tmp, 'claude-new')
+    fs.mkdirSync(dir)
+    fs.writeFileSync(path.join(dir, 'claude'), '#!/bin/sh\n', { mode: 0o755 })
+    vi.stubEnv('RW_CLAUDE_BIN', '')
+    vi.stubEnv('PATH', dir)
+    const real = createRequire(import.meta.url).resolve
+    const resolve = (id: string) => id.endsWith('/package.json') ? '/x/package.json' : real(id)
+    expect(claudeExecutable(resolve, () => '99.0.0 (Claude Code)')).toBe(path.join(dir, 'claude'))
+    expect(claudeExecutable(resolve, () => '0.0.1 (Claude Code)')).toBeUndefined()
+    expect(claudeExecutable(resolve, () => undefined)).toBeUndefined()
+    vi.unstubAllEnvs()
+    expect(isNewer('2.1.328 (Claude Code)', '2.1.291')).toBe(true)
+    expect(isNewer('2.1.291', '2.1.291')).toBe(false)
+    expect(isNewer('2.2.0', undefined)).toBe(false)
   })
   it('묶은 앱(패키지 없음)은 PATH에서 claude를 찾는다', () => {
     const dir = path.join(tmp, 'claude-bin')

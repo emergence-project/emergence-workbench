@@ -29,6 +29,9 @@ describe('중앙을 저절로 깨우기', () => {
     } else if (input.prompt.includes('[rm]')) {
       const d = await input.canUseTool('Bash', { command: 'rm out.txt' })
       yield { type: 'text', text: d.allow ? 'removed' : 'kept' }
+    } else if (input.prompt.startsWith('[crash]')) {
+      yield { type: 'tool', tool: 'Read', input: { file_path: 'notes/a.md' } }
+      throw new Error('Claude Code process exited with code 1. stderr: boom')
     } else {
       if (input.prompt.includes('[hold]')) await new Promise<void>((r) => { release = r })
       if (input.prompt.includes('[report]')) yield { type: 'text', text: `고쳤습니다.\n\n## 보고\n- 바꾼 것: 2절 문장 다듬기\n- 위치: notes/2절\n- 판단: 없음\n- 남은 일: 편집 검토에서 확인 ${'가'.repeat(400)}` }
@@ -63,6 +66,35 @@ describe('중앙을 저절로 깨우기', () => {
     expect(p).toContain('last text (no report section): 받음: 다듬어')
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
     expect(chats.get(c.id).items.find((i) => i.kind === 'user' && i.auto)).toMatchObject({ text: expect.stringContaining('「2절」 차례 끝남') })
+    chats.stopAll()
+  })
+
+  it('비정상 종료(11/20): 하위 대화든 아니든 오류 · 하던 일 · 이력을 중앙에게 알리고, 이력은 대화 기록에 남는다', async () => {
+    const { chats, c } = await make(5)
+    const kid = await chats.openKid({ role: 'project', project: 'chiral', title: '2절', task: '[crash] 다듬어' })
+    await vi.waitFor(() => expect(centralPrompts()).toHaveLength(2))
+    let p = centralPrompts()[1]!
+    expect(p).toContain(`crashed: the agent process ended abnormally (the user did not stop it). Open it: #/agent/${kid.id}`)
+    expect(p).toContain('error: Claude Code process exited with code 1. stderr: boom')
+    expect(p).toMatch(/last instruction: .*\[crash\] 다듬어/)
+    expect(p).toContain('last tool calls: Read')
+    expect(p).toContain('history: first crash in this conversation')
+    expect(p).not.toContain('ended its turn')
+    expect(chats.centralState().kids[0]!.crashes).toBe(1)
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.send(kid.id, { text: '[crash] 다시' })
+    await vi.waitFor(() => expect(centralPrompts()).toHaveLength(3))
+    p = centralPrompts()[2]!
+    expect(p).toMatch(/history: crashed 1 time before in this conversation \(\d{4}-/)
+    expect(p).toContain('It crashed again')
+    expect(chats.get(kid.id).items.filter((i) => i.kind === 'error' && i.crash)).toHaveLength(2)
+    expect(chats.get(c.id).items.some((i) => i.kind === 'user' && i.auto && i.text.includes('「2절」 비정상 종료 (2번째)'))).toBe(true)
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    // 하위 대화가 아닌 대화: 작업 현황의 내 차례 줄과 알림
+    const other = chats.create({ rid: 'chiral', text: '[crash] 혼자' })
+    await vi.waitFor(() => expect(centralPrompts()).toHaveLength(4))
+    expect(centralPrompts()[3]).toContain('not your sub-conversation')
+    expect(chats.centralState().crashed).toEqual([expect.objectContaining({ id: other.id, count: 1 })])
     chats.stopAll()
   })
 
@@ -192,7 +224,9 @@ describe('중앙을 저절로 깨우기', () => {
     await chats.appSubmit(kid.id, { title: '그림 고침', body: 'b' })
     chats.talk('알겠어') // 끝남 알림을 비운다
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    expect(chats.centralState().kids.find((k) => k.id === kid.id)?.ci).toBe('pending')
     await chats.tickCentral()
+    expect(chats.centralState().kids.find((k) => k.id === kid.id)?.ci).toBe('failed') // 작업 현황 줄이 바로 바뀐다
     expect(chats.flushWakes()).toBe(true)
     expect(centralPrompts().at(-1)).toContain('expected 1 to be 2')
     expect(chats.get(c.id).items.at(-1)).toMatchObject({ kind: 'user', auto: true, text: expect.stringContaining('「그림」 CI 실패') })
@@ -203,6 +237,8 @@ describe('중앙을 저절로 깨우기', () => {
     await chats.tickCentral()
     expect(chats.flushWakes()).toBe(true)
     expect(centralPrompts().at(-1)).toContain('its pull request was merged')
+    expect(chats.centralState().kids.find((k) => k.id === kid.id)).toMatchObject({ merged: 'abc' })
+    expect(chats.centralState().kids.find((k) => k.id === kid.id)?.ci).toBeUndefined()
     chats.stopAll()
   })
 

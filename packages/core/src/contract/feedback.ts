@@ -58,6 +58,8 @@ export const FeedbackRevision = z.object({
   /** 이 처리가 반려된 까닭과, 다음에 다르게 할 것 한 줄 (다시 처리한 에이전트가 적는다) */
   miss: z.enum(FEEDBACK_MISSES).optional(),
   lesson: z.string().optional(),
+  /** 그 처리의 전후 그림 [전, 후] (feedback/ 기준) */
+  pictures: z.array(z.string()).optional(),
   mockups: z.array(z.string()).optional(),
 }).strict()
 /** 코멘트에 단 답 (status.yaml replies). to = 그 코멘트의 at. mockups = 이 답에 붙인 시안 (feedback/ 기준 그림 · html 경로) */

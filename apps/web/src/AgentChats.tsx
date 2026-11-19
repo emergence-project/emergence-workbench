@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { autoCustom, autoOf, LIBRARY_RID, type ChatAutoValues } from '@rw/core'
-import { agentChatsApi, api, APP_RID, CENTRAL_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatSettings, type ChatState, type Todo } from './api'
+import { autoCustom, LIBRARY_RID } from '@rw/core'
+import { agentChatsApi, api, APP_RID, CENTRAL_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatState, type Todo } from './api'
 import { askConfirm } from './askText'
 import { isSendKey } from './cmdEnter'
 import { relativeTime } from './format'
 import { t } from './i18n'
 import { Icon } from './icons'
-import { MemoText } from './memo'
+import { AppLinkProvider, MemoText } from './memo'
 import { Mockups } from './Mockups'
 import { qk } from './queries'
 import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
-import { WorkAside } from './WorkAside'
+import { useSideColumn, WorkAside } from './WorkAside'
 import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
@@ -22,10 +22,11 @@ import { useRecords } from './projectQueries'
 import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
 import { GroupPick } from './AgentGroupPick'
+import { PermTable } from './AgentPermTable'
 import { ProjectPick, RecentChats } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
-import { CENTRAL_PAGE, CentralKids, CentralLine, CentralStart } from './CentralChat'
+import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
 import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
@@ -85,13 +86,14 @@ function CopyButton({ text }: { text: string }) {
 
 export { effortsOf, fitEffort, modelName } from './AgentPick'
 export { AGENT_OPEN, sendToAgent } from './ChatComposer'
+export { CENTRAL_PAGE } from './CentralChat'
 
 // ---------- 목록 ----------
 
 export const useChatList = (rid?: string) => { useSeen(); return useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) }) }
 /** 탭 이름 (App.tsx tabTitle, 나란히 연 대화): 불러온 대화의 이름 */
 export const chatTitles = new Map<string, string>()
-const useChat = (id: string) => useQuery({ queryKey: qk.agentChat(id), queryFn: () => agentChatsApi.get(id).then((c) => { chatTitles.set(c.id, c.title); return c }) })
+const useChat = (id: string, enabled = true) => useQuery({ queryKey: qk.agentChat(id), queryFn: () => agentChatsApi.get(id).then((c) => { chatTitles.set(c.id, c.title); return c }), enabled })
 const useProjects = () => useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
 
 function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): string {
@@ -449,11 +451,11 @@ function AttachChips({ attach, images }: { attach?: Attach[]; images?: number })
 function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
-    case 'user': return (
+    // 중앙을 저절로 깨운 알림은 옅은 한 줄 (11/19: 진행은 작업 현황에서 보고, 대화에는 짧게)
+    case 'user': return it.auto ? <li className="ac-note muted ac-auto" data-ui="자동 알림" title={`${when}\n${it.text}`}><span className="ac-auto-text">{it.text}</span></li> : (
       <li className="ac-me" data-ui="내 지시" title={when}>
         <MemoText text={it.text} />
-        <AttachChips attach={it.attach} images={it.images} /><Mockups text={it.text} chat={chat.id} />
-        <CopyButton text={it.text} />
+        <AttachChips attach={it.attach} images={it.images} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} />
         {it.point && onRewind && !isLive(chat.state) && (
           <button className="icon-btn sm ac-rewind" data-ui="여기로 되돌리기" data-tip={t('여기로 되돌리기', 'Rewind to here')} aria-label={t('여기로 되돌리기', 'Rewind to here')} onClick={() => onRewind(it.point!)}>{Icon.revert}</button>
         )}
@@ -464,6 +466,7 @@ function ItemView({ chat, it, onError, onChanges, onRewind, onPass }: { chat: Ch
     case 'todos': return null
     case 'edit': return <EditLine chat={chat} it={it} onChanges={onChanges} />
     case 'blocked': return <li className="ac-note" data-ui="막은 일"><span className="ac-tool mono">{it.tool}</span><span>{t('막음', 'Blocked')} · {it.reason}</span></li>
+    case 'bypass': return <li className="ac-note" data-ui="우회 실행" title={when}><span className="ac-tool mono">Bash</span><span>{it.how === 'once' ? t('허락으로 우회 (한 번)', 'Bypassed with permission (once)') : t('허락으로 우회 (이 대화에서 늘)', 'Bypassed with permission (always in this chat)')} · <code>{it.command}</code></span></li>
     case 'result': return (
       <li className="ac-note muted" data-ui="차례 끝" title={it.cost ? costName(it.cost) : undefined}>
         {it.ok ? `✓ ${t('이번 차례 끝', 'Turn done')}` : t('이번 차례 실패', 'Turn failed')}{it.seconds !== undefined && ` · ${secondsName(it.seconds)}`}{it.tokens && ` · ${t('토큰', 'Tokens')} ${tokensName(it.tokens.in + it.tokens.out)}`}
@@ -542,6 +545,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           <span>·</span><span>{relativeTime(Date.parse(chat.updated))}</span>
           {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
         </div> : <div className="ac-meta">
+          {chat.parent && <><button className="a" data-ui="중앙 작업 현황으로" data-tip={t('중앙의 작업 현황에서 다른 맡긴 일과 함께 보기', 'See it with the other handed-off work in Central')} onClick={() => go({ page: 'agent', id: chat.parent })}>{t('‹ 중앙 · 작업 현황', '‹ Central · work status')}</button><span>·</span></>}
           {chat.rid === APP_RID || chat.rid === LIBRARY_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
@@ -556,7 +560,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           <Delta added={added} removed={removed} />{t('변경사항', 'Changes')}
         </button>
       )}
-      {onPane && !chat.changed.length && <button className={`btn sm${pane ? ' on' : ''}`} data-ui="작업 버튼" aria-pressed={!!pane} onClick={onPane}>{t('작업', 'Work')}</button>}
+      {chat.rid === CENTRAL_RID && !compact && <CentralBoardButton narrowOnly={!!pane} />}
       <ReviewButton chat={chat} onError={onError} />{tools}
       <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} onRecord={onRecord} />
     </div>
@@ -605,12 +609,14 @@ function QueuedBar({ chat, onEdit, onError }: { chat: Chat; onEdit(f: Omit<Fill,
 }
 
 /** 대화 하나: 머리, 주고받은 줄, 입력란 위의 할 일 · 다음에 보냄, 입력란 (auto = 지금 보는 노트) */
-export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDeleted, onSaved }: {
+export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, onDeleted, onSaved }: {
   id: string
   auto?: Attach
   head?: boolean
   pane?: boolean
   onPane?(): void
+  /** 머리 오른쪽 아이콘 단추 (에이전트 화면의 세부 패널 · 터미널) */
+  tools?: ReactNode
   onBack?(): void
   onDeleted(): void
   onSaved(m: string): void
@@ -696,9 +702,9 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
   const showTodos = chat.todos.length > 0 && (live || chat.todos.some((x) => x.state !== 'completed'))
   const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
   return (
-    <div className="ac-chat" data-ui="에이전트 대화">
-      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
-      {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}{chat.rid === CENTRAL_RID && <CentralKids />}
+    <AppLinkProvider feedback={chat.rid === CENTRAL_RID || chat.rid === APP_RID}><div className="ac-chat" data-ui="에이전트 대화">
+      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}
+      {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
         {blocksOf(chat.items).map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
@@ -715,7 +721,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, onBack, onDelete
           placeholder={placeholder} fail={fail} fill={fill} />
         <div className="muted ac-keys">{t('⇧⇥ 권한 · ⌘↵ 보내기', '⇧⇥ permissions · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
       </div>
-    </div>
+    </div></AppLinkProvider>
   )
 }
 
@@ -871,54 +877,6 @@ function ChatInfo({ chat }: { chat: Chat }) {
   )
 }
 
-type PermRow = { ui: string; name: string; what: string; turn?: keyof ChatAutoValues | 'edit'; asks?: boolean }
-/** 권한 표 (10/28 사용자 결정 "권한을 명령 대신 하는 일로", 시안 4절): 앱이 명령을 하는 일로 나누고, 켠 것은 묻지 않는다 */
-const PERM_ROWS: PermRow[] = [
-  { ui: '읽기', name: t('읽기', 'Read'), what: t('ls · cat · grep · git log (프로젝트와 등록한 폴더 안)', 'ls · cat · grep · git log (inside the project and registered folders)'), turn: 'read' },
-  { ui: '편집', name: t('편집', 'Edit'), what: t('범위 안 노트 수정 · sed -i · mv', 'Edit notes in scope · sed -i · mv'), turn: 'edit' },
-  { ui: '지우기', name: t('삭제', 'Delete'), what: t('rm · 파일 삭제 · 고친 것 버리기', 'rm · deleting files · discarding changes'), asks: true },
-  { ui: '실행', name: t('실행', 'Run'), what: t('python · julia · pnpm test …', 'python · julia · pnpm test …'), turn: 'run' },
-  { ui: '웹 보기', name: t('웹 보기', 'Web'), what: t('웹 검색 · 페이지 읽기', 'Web search · reading pages'), turn: 'web' },
-  { ui: '외부', name: t('외부', 'Outside'), what: t('폴더 밖 · git push · 설치 · 내려받기', 'Outside the folders · git push · installs · downloads'), asks: true },
-]
-
-function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
-  const client = useQueryClient()
-  const [busy, setBusy] = useState(false)
-  const auto = autoOf(chat)
-  const readOnly = chat.write === 'read'
-  const set = async (row: PermRow, on: boolean) => {
-    setBusy(true)
-    try {
-      const body: ChatSettings = row.turn === 'edit'
-        ? { write: 'notes', mode: on ? 'edit' : 'ask', auto }
-        : { auto: { ...auto, [row.turn!]: on } }
-      client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.settings(chat.id, body))
-      if (isLive(chat.state) && row.turn === 'edit') onSaved(t('다음 차례부터 바뀝니다', 'Applies from the next turn'))
-    } catch (e) { onSaved((e as Error).message) } finally { setBusy(false) }
-  }
-  return (
-    <div className="ac-perm" role="table" aria-label={t('권한', 'Permissions')}>
-      <div className="ac-perm-row ac-perm-head" role="row"><span role="columnheader">{t('하는 일', 'Does')}</span><span role="columnheader">{t('자동 허용', 'Auto')}</span></div>
-      {PERM_ROWS.map((r) => {
-        const on = r.turn === 'edit' ? chat.mode === 'edit' && !readOnly : r.turn ? auto[r.turn] : false
-        const blocked = readOnly && (r.turn === 'edit' || r.ui === '삭제')
-        return (
-          <div key={r.ui} className="ac-perm-row" role="row" data-ui={`권한 ${r.ui}`}>
-            <span className="ac-perm-what" role="cell"><b>{r.name}</b><span className="muted">{r.what}</span></span>
-            <span role="cell" className="ac-perm-ctl">
-              {blocked ? <span className="muted">{t('막음', 'Blocked')}</span>
-                : r.asks ? <span className="muted">{t('늘 물음', 'Always asks')}</span>
-                : <button type="button" role="switch" className="switch" aria-checked={on} aria-label={r.name} disabled={busy} onClick={() => void set(r, !on)} />}
-            </span>
-          </div>
-        )
-      })}
-      {chat.mode === 'plan' && !readOnly && <span className="muted ac-hint">{t('계획 모드: 계획을 승인하기 전에는 편집 · 삭제를 막습니다', 'Plan mode: edits and deletes are blocked until you approve the plan')}</span>}
-    </div>
-  )
-}
-
 const PERM_OPEN_KEY = 'rw-agent-perm-open'
 /** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */
 export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
@@ -933,6 +891,13 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   const forget = async (label: string) => client.setQueryData(qk.agentChat(id), await agentChatsApi.forget(id, label))
   const trust = trustOf(chat)
   const hasEdits = chat.items.some((i) => i.kind === 'edit')
+  // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
+  if (chat.rid === CENTRAL_RID) return (
+    <WorkAside>
+      <CentralBoard />
+      <details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('모델 · 토큰 · 권한 ›', 'model · tokens · permissions ›')}</span></summary><ChatInfo chat={chat} /></details>
+    </WorkAside>
+  )
   return (
     <WorkAside>
       <ChatInfo chat={chat} />
@@ -972,18 +937,15 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
 
 // ---------- 레일 "에이전트" 화면 ----------
 
-const PANE_KEY = 'rw-agent-pane'
-
 export function AgentPage({ id, onSaved, side }: { id?: string; onSaved(m: string): void; side?: { open: boolean; onOpen(): void } }) {
-  const [pane, setPaneState] = useState(() => store.get<boolean>(PANE_KEY, true))
-  const setPane = (v: boolean) => { setPaneState(v); store.set(PANE_KEY, v) }
+  const chatPage = !!id && id !== CENTRAL_PAGE, col = useSideColumn(chatPage, useChat(id ?? '', chatPage).data?.rid) // 오른쪽 칸: 세부 패널 · 터미널
   return (
     <main className="stage full" data-ui="에이전트">
       <section className="pane">
         {id === CENTRAL_PAGE ? <CentralStart /> : id
           ? <div className="ac-page">
-            <ChatView key={id} id={id} pane={pane} onPane={() => setPane(!pane)} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
-            {pane && <WorkColumn id={id} onSaved={onSaved} />}
+            <ChatView key={id} id={id} pane={col.work} onPane={col.togglePane} tools={col.tools} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
+            {col.work && <WorkColumn id={id} onSaved={onSaved} />}{col.terminal}
           </div>
           : <div className="scroll"><div className="page-body ac-start">
             <h1 className="ac-h">{t('새 대화', 'New conversation')}</h1>
@@ -1011,7 +973,7 @@ const FOLD_KEY = 'rw-agent-fold'
 
 /**
  * 사이드바 (10/22 "프로젝트별로, 워크벤치 전역은 따로"): 새 대화, 걸러 보기(내 차례 · 일하는 중 · 모두),
- * 맨 위 「워크벤치」(앱 자체를 고치는 대화 · 피드백 처리), 그 아래 등록한 프로젝트마다 접는 묶음(＋로 그 프로젝트에서 새 대화), 맨 아래 보관함
+ * 맨 위 「워크벤치」(앱 자체를 고치는 대화 · 피드백 처리), 그 아래 등록한 프로젝트마다 접는 묶음(＋로 그 프로젝트에서 새 대화), 맨 아래 보관함 아이콘(다시 누르면 닫힘)
  */
 export function AgentSide({ id }: { id?: string }) {
   const listed = useChatList().data
@@ -1075,7 +1037,7 @@ export function AgentSide({ id }: { id?: string }) {
           {(['mine', 'live', 'all'] as const).map((f) => <button key={f} role="radio" aria-checked={filter === f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{FILTER_NAME[f]}{f !== 'all' && count(f) ? ` ${count(f)}` : ''}</button>)}
         </div>
       )}
-      {filter === 'archived' && <button className="a ac-archive-back" data-ui="보관함 닫기" onClick={() => { stopPicking(); setFilter('all') }}>‹ {t('보관함', 'Archive')} {archived}</button>}
+      {filter === 'archived' && <div className="ac-archive-h" data-ui="보관함 머리">{t('보관함', 'Archive')} {archived}</div>}
       {!!shown.length && (picking
         ? <div className="ac-pickbar" data-ui="대화 고르기 툴바">
           <b>{t(`${picked.length}개 고름`, `${picked.length} picked`)}</b>
@@ -1098,7 +1060,8 @@ export function AgentSide({ id }: { id?: string }) {
       )}
       {!!rids.length && <div className="ac-side-h">{t('프로젝트', 'Projects')}</div>}
       {rids.map((rid) => group(rid, projectName(rid, projects)))}{by.has(LIBRARY_RID) && <><div className="ac-side-h">{t('지식', 'Knowledge')}</div>{group(LIBRARY_RID, t('개념노트 기록', 'Concept-note records'))}</>}
-      {filter !== 'archived' && archived > 0 && <button className="a ac-archive-link" data-ui="보관함 열기" onClick={() => { stopPicking(); setFilter('archived') }}>{t(`보관함 ${archived} ›`, `Archive ${archived} ›`)}</button>}
+      {/* 보관함은 맨 아래 아이콘 하나로 열고 닫는다 (11/19 피드백 09:23 "보관함은 빼고 하단에 보관함 아이콘으로"): ›는 묶음 접기에만 */}
+      {(filter === 'archived' || archived > 0) && <div className="ac-side-foot"><button className={`icon-btn ac-archive-btn${filter === 'archived' ? ' on' : ''}`} data-ui="보관함 아이콘" aria-pressed={filter === 'archived'} data-tip={filter === 'archived' ? t('보관함 닫기', 'Close archive') : t(`보관함 ${archived}`, `Archive ${archived}`)} aria-label={filter === 'archived' ? t('보관함 닫기', 'Close archive') : t(`보관함 열기 (${archived})`, `Open archive (${archived})`)} onClick={() => { stopPicking(); setFilter(filter === 'archived' ? 'all' : 'archived') }}>{Icon.archive}{archived > 0 && <span className="n">{archived}</span>}</button></div>}
     </div>
   )
 }
@@ -1117,7 +1080,7 @@ export function ShippedNotice() {
   const close = () => { const next = [...seen, ...fresh.map((c) => c.id)].slice(-200); store.set(SHIPPED_SEEN, next); setSeen(next) }
   return (
     <span className="tb-shipped" data-ui="반영됨 알림">
-      <button type="button" className="a" title={t('피드백 화면에서 보기', 'See it on the Feedback screen')} onClick={() => go({ page: 'feedback' })}>{t(`${names} 반영됨`, `${names} shipped`)}</button>
+      <button type="button" className="a" title={t('피드백 화면에서 보기', 'See it on the Feedback screen')} onClick={() => go({ page: 'feedback', ...(fresh.length === 1 && fresh[0]!.feedback && { key: fresh[0]!.feedback }) })}>{t(`${names} 반영됨`, `${names} shipped`)}</button>
       <button type="button" className="icon-btn sm" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={close}>{Icon.x}</button>
     </span>
   )
