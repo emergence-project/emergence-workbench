@@ -146,3 +146,10 @@ function rowsOf(hs: Handling[], cur: Handling): SummaryRow[] {
     return [{ field: f, text, ...(at && { at }) }]
   })
 }
+
+/** 대화 한 걸음의 표 이름 (TAG_NOTES의 키): 대기는 없음 */
+export const tagKey = (s: ThreadStep): string | null => {
+  if (s.kind === '대기') return null
+  if (s.who === 'Claude') return s.kind === '답' ? '답만 함' : 'commit' in s && s.commit ? '앱에 반영됨' : '답만 함'
+  return s.kind
+}

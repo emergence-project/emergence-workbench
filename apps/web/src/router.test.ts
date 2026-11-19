@@ -14,6 +14,7 @@ const ROUTES: Route[] = [
   { page: 'network' },
   { page: 'network', person: 'Ada Example' },
   { page: 'feedback' },
+  { page: 'feedback', key: '2026-11-19 12:14 에이전트 › 대화' },
   { page: 'shelf' },
   { page: 'shelf', filter: 'project:alpha' },
   { page: 'shelf', open: 'exampleDischarging2022' },

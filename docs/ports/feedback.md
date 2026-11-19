@@ -44,6 +44,7 @@ code:
 | web | `apps/web/src/FeedbackPage.tsx` | 모아 보기 표: 확인 필요 · 대기 · 완료 · 전체, 줄 펼치기 |
 | web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 |
 | web | `apps/web/src/feedbackDraft.ts` | 적던 글 보존 |
+| web | `apps/web/src/feedbackFocus.tsx` | 항목 하나의 주소 `#/feedback/<키>`: 필터를 풀고 그 항목을 펼쳐 그 자리로 내리기 |
 
 처리 · 답에 붙인 시안(`mockups`)은 `apps/server/src/feedbackMockups.ts`가 에이전트 작업 폴더 `mockups/`에서 `pictures/`로 옮겨 적고, `apps/web/src/FeedbackMockups.tsx`가 작은 그림 · 크게 넘겨 보기 · html 새 창 · 「이 시안으로 진행」 · 「논의」로 보인다. 작업 폴더가 없는 앱이면 시안 파일을 `pictures/`에 바로 두고 `mockups`에 이름만 적어도 된다.
 

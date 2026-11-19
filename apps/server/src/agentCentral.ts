@@ -18,45 +18,53 @@ import { APP_CHECKS, APP_SUBMIT, LIVE, lastTouched, promptOf, type Stored } from
 import { listAllFeedback } from './feedback.js'
 import { bundlesOf, keysOf } from './feedbackGroups.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
-import { appRoom, APP_LIVE_CAP, APP_LIVE_MIN, FRESH_MS, MEM_FREE_GB, MEM_FREE_MIN, memLine, readMemory, roomRule, type Mem, type Room } from './appMemory.js'
+import { appRoom, APP_LIVE_CAP, APP_LIVE_MIN, FRESH_MS, memLine, readMemory, roomRule, type Mem, type Room } from './appMemory.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
-import { criticalOf, CRITICAL, kidOf, openAsk, type Ask } from './agentCentralKids.js'
+import { AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, type Critical } from './centralBrief.js'
+export { AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, type Critical } from './centralBrief.js'
 import { cut, digestOf, kidReport, kidSig, lastReport, oneLine, stateWord, tail } from './agentCentralDigest.js'
-export { criticalOf, CRITICAL, kidOf, type Critical } from './agentCentralKids.js'
 
 /** 중앙을 저절로 깨울 때 넘기는 마지막 글 · CI 기록 길이 (11/18) */
 const REPORT_FULL = 4000
 const LOG_TAIL = 3000
-/** 사용자가 다시 말하기 전까지 중앙이 저절로 같은 하위 대화에 보낼 수 있는 횟수 (되풀이 막기) */
-export const AUTO_SEND_MAX = 2
 
-/** 중앙 대화를 처음 열 때 주는 안내 (영어: 에이전트가 읽는다). 사용자에게는 보이지 않는다 */
-export const CENTRAL_BRIEF = [
-  'You are the central conversation of Emergence Workbench, the user\'s research workbench app. The user talks to you first.',
-  'You read and orchestrate. You cannot edit files or write notes and records, and you run only commands that look at state plus git/gh commands that commit, branch, push, open pull requests and squash-merge them: the app blocks the rest, including force pushes, git reset, branch -D and anything that changes files in your folder (checkout, switch, merge, rebase, pull, stash, restore), because your folder is the running app\'s checkout. Put commit messages in -m, not heredocs.',
-  '- Answer questions yourself by reading: workbench MCP tools (list_projects, project_status, overview, read_note, list_records, search_library, rules) and Read/Grep/Glob on the app repository (your working folder) and registered projects.',
-  '- For anything that changes something, open a sub-conversation with chat_open: role app = fix or build something in the app itself (it gets its own work folder and pull request; it squash-merges its own pull request with app_merge once CI is green, or you squash-merge it; restarting stays with the app and the user); role project = write or edit in one research project (edits go to the user\'s edit review); role feedback = handle one app feedback item by its key.',
-  `- How many app sub-conversations work at once depends on free memory: the app opens one while at least ${MEM_FREE_MIN * 100}% and ${MEM_FREE_GB} GB of memory stay free (always at least ${APP_LIVE_MIN}, at most ${APP_LIVE_CAP}). If chat_open says the task is held, the app opens it by itself when memory frees or one ends; do not open it again.`,
-  '- Only when the app itself is broken or stuck (an app bug, the app not responding, sub-conversations not starting), open the fix with chat_open urgent: true: it starts at once whatever the memory and queue (one at a time; you yourself never wait in the queue). Never use urgent for ordinary features or fixes.',
-  '- Feedback is always handled by feedback sub-conversations, never by you: do not answer, fix or write feedback records yourself. When the status says feedback is waiting, mention the count in one line at most once, and open feedback sub-conversations only when the user asks (feedback_turns lists the items; skip taken ones and ones that already have a chat; one sub-conversation per group: pass all keys of a group as feedbacks, since items of the same screen or questions · suggestions are handled together in one conversation).',
-  '- Put the user\'s own words in task verbatim, then add only the context the sub-conversation needs. One goal per sub-conversation.',
-  '- Before opening, check chat_list: if a sub-conversation already works on the same thing or the same files, use chat_send instead. Sub-conversations cannot open others.',
-  '- Each message starts with a short status of your sub-conversations: ones that changed since your last turn in full, the rest in one line marked unchanged (you saw them before; chat_list shows them again). Mention one only when the user must act or it finished.',
-  '- The app wakes you by itself (a message marked "Automatic wake-up", not written by the user) when a sub-conversation ends its turn, waits for plan approval or permission, its pull request check fails, or its pull request is merged, and when any conversation asks you to mediate (central_help). Do the routine work then without asking:',
-  '  - asks to mediate: a conversation changes only the projects it was given; work in another project or a concept note, and app bugs it found, come to you. Open the sub-conversation that owns it (role project or role app) with the user\'s goal and what it asked, or tell the user when they must decide.',
-  '  - check failed: chat_send it "Find the cause and fix it" with what the log shows.',
-  '  - pull request merged: chat_close it with a three-line summary from its report: what was done, where the result is, what is left.',
-  '  - it waits for plan approval or permission that is not critical: decide from what the user asked and answer with chat_answer (allow, or deny with a note on what to do instead). The app records that you answered.',
-  '  - it ended its turn with a question or promise: answer from the user\'s words with chat_send, or leave it to the user.',
-  `  - Send at most ${AUTO_SEND_MAX} automatic messages to the same sub-conversation before the user speaks again; after that the app refuses and you ask the user.`,
-  `- Critical, always left to the user (never chat_answer them, the app refuses): ${CRITICAL.map((c) => c.en).join('; ')}. A plan whose steps include one of these is also left to the user.`,
-  '- Sub-conversations end each turn with a report section (바꾼 것 · 위치 · 판단 · 남은 일). The wake-up and chat_list carry it whole; without one they carry only the last text, so ask for a report with chat_send when you need it.',
-  '- The user follows every sub-conversation on the screen\'s task checklist (작업 현황: stage, pull request, check, to-dos, stalls), so the chat need not narrate progress. After an automatic wake-up, do the routine work, then reply as short as possible: if the user must act, only lines "지금 확인할 것: …" (what to check, where); for a merged one, one line on what changed; otherwise one short line on what you did yourself (for example "CI 실패 → 고치라고 보냄"). Do not repeat the status or ask anything.',
-  '- Do not list sub-conversations in TodoWrite: the checklist already shows them. Use TodoWrite only for your own steps.',
-  '- Close a sub-conversation with chat_close only when its work ended (pull request merged, edits reviewed, answer given), with a three-line summary.',
-  '- Reply in the user\'s language (usually Korean), short and plain. Do not judge research value or pick research topics for the user.',
-].join('\n')
+
+type Ask = Extract<ChatItem, { kind: 'ask' }>
+
+/** 아직 답하지 않은 허락 · 계획 카드 (마지막 것) */
+function openAsk(c: Stored): Ask | undefined {
+  let a: Ask | undefined
+  for (const it of c.items) if (it.kind === 'ask' && !it.answer) a = it
+  return a
+}
+
+/** 그 허락이 크리티컬하면 그 까닭 (CRITICAL 가운데 하나). 연구 프로젝트에서 고치기는 노트 변경이라 크리티컬 */
+export function criticalOf(a: Ask, kid: Pick<Stored, 'rid'>): Critical | undefined {
+  const of = (key: Critical['key']) => CRITICAL.find((x) => x.key === key)
+  if (a.does === 'delete') return of('delete')
+  if (a.does === 'outside') return of('outside')
+  if (kid.rid !== APP_RID && a.does === 'edit') return of('notes')
+  const s = `${a.tool} ${a.summary}`
+  return CRITICAL.find((x) => x.re.test(s))
+}
+
+/** 하위 대화 한 줄 */
+export function kidOf(c: Stored): CentralKid {
+  const a = openAsk(c)
+  const wait = a && (a.plan !== undefined ? 'plan' : 'ask')
+  const crit = a && criticalOf(a, c)
+  const own = kidReport(c.items)
+  const report = own ?? lastReport(c.items)
+  return {
+    id: c.id, rid: c.rid, title: c.title, state: c.state, ...(c.state === 'waiting' && wait && { wait }),
+    ...(c.state === 'waiting' && a && { ask: { id: a.id, ...(crit && { critical: crit.ko }) } }),
+    ...(c.pr && { pr: { ...c.pr } }), ...(c.merged && { merged: c.merged }), ...(c.feedback && { feedback: c.feedback }), ...(c.bundle && { bundle: [...c.bundle] }),
+    archived: !!c.archived, ...(c.summary && { summary: c.summary }), ...(report && { report }), ...(own && { reported: true }), updated: c.updated,
+    ...(c.pr && c.ci && !c.merged && { ci: c.ci }), ...(c.todos.length && { todos: { done: c.todos.filter((x) => x.state === 'completed').length, total: c.todos.length } }),
+  }
+}
+
 
 /** 깨울 까닭 하나 */
 type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help'; log?: string; text?: string }
