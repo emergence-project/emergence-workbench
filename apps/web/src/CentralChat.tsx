@@ -50,8 +50,8 @@ export function CentralStart() {
     <div className="scroll"><div className="page-body ac-start" data-ui="중앙 시작">
       <h1 className="ac-h">{t('중앙', 'Central')}</h1>
       <p className="muted ac-central-what">{t(
-        '무엇이든 여기에 먼저 말하세요. 질문에는 바로 답하고, 앱 고치기 · 프로젝트 작성 · 피드백 처리는 하위 대화를 열어 맡깁니다. 중앙은 읽기만 하고, 합치기와 다시 시작은 내가 합니다.',
-        'Say anything here first. It answers questions directly and hands app fixes, project writing and feedback to sub-conversations. Central only reads; merging and restarting stay with you.',
+        '무엇이든 여기에 먼저 말하세요. 질문에는 바로 답하고, 앱 고치기 · 프로젝트 작성 · 피드백 처리는 하위 대화를 열어 맡깁니다. 중앙은 파일을 고치지 않지만 커밋 · 푸시 · PR 합치기(squash)는 직접 하고, 다시 시작은 내가 합니다.',
+        'Say anything here first. It answers questions directly and hands app fixes, project writing and feedback to sub-conversations. Central does not edit files but commits, pushes and squash-merges PRs itself; restarting stays with you.',
       )}</p>
       <textarea id="central-first" className="ac-central-input" rows={4} value={text} autoFocus placeholder={t('예: 피드백에서 그림이 안 보인대. 고쳐 줘', 'Example: pictures do not show in feedback. Fix it')}
         aria-label={t('중앙에게 말하기', 'Talk to Central')} onChange={(e) => setText(e.target.value)}

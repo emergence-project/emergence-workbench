@@ -3,7 +3,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { APP_LIVE_MAX, CENTRAL_BRIEF, CentralChats, digestOf, KID_REPORT_MAX, kidReport, lastReport } from './agentCentral.js'
+import { APP_RID } from '@rw/core/contract/agentChats'
+import { APP_LIVE_MAX, CENTRAL_BRIEF, CentralChats, criticalOf, digestOf, KID_REPORT_MAX, kidReport, lastReport } from './agentCentral.js'
 import { judge, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { sampleAppWork } from './appWorktree.js'
 import { ClaudeAccounts } from './claudeAccounts.js'
@@ -20,6 +21,13 @@ describe('중앙 대화의 허락 규칙', () => {
       expect(v.kind, tool).toBe('deny')
       expect(v.kind === 'deny' && v.message).toContain('chat_open')
     }
+  })
+  it('squash 합치기는 크리티컬이 아니고, squash가 아닌 합치기 · main 푸시는 크리티컬 (11/19)', () => {
+    const ask = (summary: string) => ({ kind: 'ask', at: '', id: 'a', tool: 'Bash', summary }) as Parameters<typeof criticalOf>[0]
+    expect(criticalOf(ask('gh pr merge 3 --squash'), { rid: APP_RID })).toBeUndefined()
+    expect(criticalOf(ask('PR 합치기 (squash)'), { rid: APP_RID })).toBeUndefined()
+    expect(criticalOf(ask('gh pr merge 3 --merge'), { rid: APP_RID })?.key).toBe('merge')
+    expect(criticalOf(ask('git push origin main'), { rid: APP_RID })?.key).toBe('merge')
   })
 })
 

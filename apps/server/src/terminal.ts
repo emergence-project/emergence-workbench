@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import type { IPty } from '@lydell/node-pty'
+import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
 
 export type PtyModule = Pick<typeof import('@lydell/node-pty'), 'spawn'>
 
@@ -27,6 +28,13 @@ export function shellEnv(env: NodeJS.ProcessEnv = process.env): Record<string, s
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(env)) if (v !== undefined && !k.startsWith('RW_')) out[k] = v
   return { ...out, TERM: 'xterm-256color', COLORTERM: 'truecolor' }
+}
+
+/** 보고 있는 것의 폴더: 중앙(_central) · 앱 고치기(_app)는 앱 저장소(appRoot, 내려받은 앱 · 예제 모드는 없음), 연구 · 지식 라이브러리는 그 저장소. 모르면 null (홈에서 연다) */
+export function folderFor(rid: string | undefined, where: { appRoot?: string; repoPath(rid: string): string }): string | null {
+  if (!rid) return null
+  if (rid === CENTRAL_RID || rid === APP_RID) return where.appRoot ?? null
+  try { return where.repoPath(rid) } catch { return null }
 }
 
 /** 시작 폴더: 있는 폴더면 그곳, 아니면 홈 */

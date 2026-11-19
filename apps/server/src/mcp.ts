@@ -124,7 +124,7 @@ export function claudeAccount(env: NodeJS.ProcessEnv = process.env, home = os.ho
   } catch { return undefined }
 }
 
-/** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_checks · feedback_answer를 더한다) */
+/** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_merge · app_checks · feedback_answer를 더한다) */
 /** central = 중앙 대화 안에서 열 때 (chat_list · chat_open · chat_send · chat_close를 더한다, 11/16) */
 export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; central?: boolean; account?: string } = {}): McpServer {
   const target = opts.baseUrl ? { url: opts.baseUrl, key: opts.key } : serverTarget()
@@ -457,6 +457,17 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
       if (!r.ok) return r.error
       const b = r.body as { number: number; url: string; created: boolean }
       return text(`${b.created ? 'Opened' : 'Updated'} PR #${b.number}: ${b.url}. CI runs now (about 3 minutes); call app_checks to read the result.`)
+    })
+    server.registerTool('app_merge', {
+      title: 'Merge own PR',
+      description: 'Squash-merge this conversation\'s own pull request into main. The app merges only when every check on the last commit passed and the branch does not conflict with main; otherwise it says what to do (wait with app_checks, fix and app_submit again, or merge origin/main). Feedback conversations do not call this: the app merges their pull requests by the merge setting. After merging, the app picks up the new version and restarts when idle.',
+      inputSchema: {},
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    }, async () => {
+      const r = await post(base, f, `/api/agent-chats/${chat}/app/merge`, {})
+      if (!r.ok) return r.error
+      const b = z.object({ number: z.number(), sha: z.string() }).parse(r.body)
+      return text(`Merged PR #${b.number} by squash (${b.sha.slice(0, 7)}). The app restarts with it when idle.`)
     })
     server.registerTool('app_checks', {
       title: 'PR checks',
