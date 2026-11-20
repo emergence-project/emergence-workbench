@@ -75,6 +75,7 @@ button.a { text-align: inherit; }
 .nav:hover { background: var(--bg-hover); }
 .nav.on { background: var(--bg-hover); font-weight: var(--fw-strong); }
 .nav .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav .label .katex { font-size: 1.05em; }
 .nav .meta { font-size: var(--fs-xs); color: var(--text-3); }
 .nav .meta.warn { color: var(--s-blocked); font-weight: var(--fw-strong); }
 .nav.muted { color: var(--text-3); cursor: default; }

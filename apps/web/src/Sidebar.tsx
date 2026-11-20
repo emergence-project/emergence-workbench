@@ -7,6 +7,7 @@ import { openPart } from './Manuscript'
 import { isOwnWriting } from './Materials'
 import { LOOSE_NOTES_LABEL, LOOSE_NOTES_UI, LOOSE_TOPIC_ID } from './noteKinds'
 import { partNumber } from './OverviewPage'
+import { TitleText } from './cardParts'
 import { FileTree } from './FileTree'
 import { useRepoCurrent, wantRepoFile } from './noteScreen'
 import { routeOfNote } from './RightSidebar'
@@ -84,7 +85,7 @@ export function ResearchNav({ rid, route, materials, askCount = 0, taskCount = 0
     return (
       <button key={n.file} className={`nav tree-note${on ? ' on' : ''}${also ? ' also' : ''}`} aria-current={on ? 'page' : undefined} data-ui="나무 노트" data-ui-item={n.title}
         title={home ? t(`${n.title} — 주 주제: ${home}`, `${n.title}. Main topic: ${home}`) : n.title}
-        onClick={() => go(routeOfNote(rid, n))}><StatusDot s={n.status} /><span className="label">{n.title}</span></button>
+        onClick={() => go(routeOfNote(rid, n))}><StatusDot s={n.status} /><span className="label"><TitleText text={n.title} /></span></button>
     )
   }
   const branch = (g: Group, label: string, onName: () => void, star = false) => {

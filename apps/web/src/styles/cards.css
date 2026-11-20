@@ -83,3 +83,4 @@
 
 /* 설명 속 수식 (KaTeX): 글자와 같은 높이로 */
 .kc-desc .katex { font-size: 1.05em; }
+.kc-title .katex { font-size: 1.05em; }

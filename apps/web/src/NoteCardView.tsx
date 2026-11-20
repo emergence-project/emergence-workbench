@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from 'react'
 import type { NoteRow } from './api'
-import { CardDescription, CardStar, cardTime, TagLine } from './cardParts'
+import { CardDescription, CardStar, cardTime, TagLine, TitleText } from './cardParts'
 import { statusLabel } from './format'
 import { LOOSE_NOTES_LABEL, LOOSE_TOPIC_ID, noteKindLabel } from './noteKinds'
 import { t } from './i18n'
@@ -27,7 +27,7 @@ export function NoteCardView({ row, topicTitle, onOpen, onStar }: {
       onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}>
       <div className="kc-top">
         <span className="kc-kind-eb" title={row.kindAuto ? t('폴더에서 정한 성격입니다', 'Kind set from the folder') : undefined}>{noteKindLabel(row.kind)}</span>
-        <div className="kc-head"><b className="kc-title">{row.title}</b><CardStar on={row.star} onToggle={onStar} name={row.title} /></div>
+        <div className="kc-head"><b className="kc-title"><TitleText text={row.title} /></b><CardStar on={row.star} onToggle={onStar} name={row.title} /></div>
         <CardDescription text={row.description} lines={2} className={row.descriptionAuto ? 'auto' : ''} />
       </div>
       <TagLine tags={tags} className="kc-topics" />

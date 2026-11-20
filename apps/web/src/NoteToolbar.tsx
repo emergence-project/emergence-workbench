@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { TitleText } from './cardParts'
 import { relativeTime } from './format'
 import { Icon } from './icons'
 import { t } from './i18n'
@@ -136,7 +137,7 @@ export function NoteHead({ title, editing, draft, onDraft, children }: {
     <div className="note-head" data-ui="노트 머리">
       {editing && onDraft
         ? <NoteTitleInput title={title} draft={draft} onDraft={onDraft} />
-        : <h1 className="note-title">{title}</h1>}
+        : <h1 className="note-title"><TitleText text={title} /></h1>}
       {children}
     </div>
   )
