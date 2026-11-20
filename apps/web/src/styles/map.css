@@ -24,7 +24,7 @@
 .map-node:hover { border-color: var(--text-3); box-shadow: var(--shadow); }
 .map-node-t { min-width: 0; flex: 1; }
 .map-node-t b { display: block; font-size: var(--fs-sm); }
-.map-node-t span { display: block; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.map-node-t > span { display: block; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .map-more { flex: none; font-size: var(--fs-2xs); color: var(--text-3); }
 .map-arrow { text-align: center; color: var(--text-3); font-size: var(--fs-lg); pointer-events: none; }
 .map-center { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3) 14px; background: var(--bg-hover); display: flex; flex-direction: column; gap: 6px; }
