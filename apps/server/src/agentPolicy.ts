@@ -266,8 +266,14 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
   }
   if (READ_TOOLS.has(tool)) {
     const p = pathOf(input)
-    const abs = p ? path.resolve(ctx.repo, p) : ctx.repo
-    if (isInside(ctx.repo, abs) || abs === ctx.repo || ctx.readable.some((d) => abs === d || isInside(d, abs))) return { kind: 'allow' }
+    const base = p ? path.resolve(ctx.repo, p) : ctx.repo
+    const ok = (at: string) => isInside(ctx.repo, at) || at === ctx.repo || ctx.readable.some((d) => at === d || isInside(d, at))
+    // Glob의 무늬가 폴더를 벗어나면(/etc/** · ../../**) 그 자리를 본다: 별표 앞까지가 찾는 폴더다
+    const pat = tool === 'Glob' ? str(input.pattern).replace(/^~(?=\/|$)/, os.homedir()) : ''
+    const wild = pat.split('/').findIndex((seg) => /[*?[{]/.test(seg))
+    const fixed = wild < 0 ? pat : pat.split('/').slice(0, wild).join('/') || (path.isAbsolute(pat) ? '/' : '')
+    const abs = ok(base) && fixed && !ok(path.resolve(base, fixed)) ? path.resolve(base, fixed) : base
+    if (ok(abs)) return { kind: 'allow' }
     return { kind: 'ask', summary: t(`등록한 폴더 밖 읽기: ${abs}`, `Read outside registered folders: ${abs}`), key: `${tool}:${abs}`, label: t(`읽기 · ${abs}`, `Read · ${abs}`) }
   }
   if (ctx.scope.kind === 'app') return judgeApp(ctx, tool, input)
