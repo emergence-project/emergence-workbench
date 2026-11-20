@@ -11,7 +11,7 @@ import { href } from './router'
 import { t, HERE } from './i18n'
 import { qk } from './queries'
 import { CopyButton, Row, when } from './SetupChecklist'
-import { AiKeyRow } from './AiKeySettings'
+import { AiPickRow } from './AiKeySettings'
 import { AgentPrefs } from './AgentPrefs'
 import { AgentAccountRoles } from './AgentAccountRoles'
 import { useAdmin } from './admin'
@@ -190,7 +190,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
 /**
  * 연결 (10/21 사용자 "Codex 연결이랑 Claude 연결이랑 Claude API 연결까지 구분해서"): 에이전트마다 한 줄.
  * Claude Code · Codex는 이 앱을 MCP로 부른다: 등록됐는지와 마지막으로 부른 때, 등록 안 됐으면 명령 한 줄.
- * AI 키(11/8): 앱이 직접 Claude나 Gemini를 불러 질문에 답한다(claude 명령이 없는 컴퓨터). 계정 › 시작 준비에는 몇 개 연결됐는지만 보인다.
+ * 질문에 답할 AI(11/8): 앱이 직접 Codex · Gemini · Claude API를 불러 질문에 답한다. 여기서는 고르기만, 연결과 키 넣기는 계정 페이지 (11/20 사용자 "옮기자").
  */
 function AgentConnections({ onSaved }: { onSaved(message: string): void }) {
   const setup = useQuery({ queryKey: qk.setup, queryFn: setupApi.get, refetchOnMount: 'always' })
@@ -199,7 +199,7 @@ function AgentConnections({ onSaved }: { onSaved(message: string): void }) {
     <div className="setup set-rows" data-ui="에이전트 연결 묶음">
       {setup.data ? setup.data.agents.map((a) => <McpRow key={a.key} a={a} onSaved={onSaved} />)
         : <p className="muted setup-row">{setup.error?.message ?? t('읽는 중…', 'Reading…')}</p>}
-      <AiKeyRow onSaved={onSaved} />
+      <AiPickRow onSaved={onSaved} />
     </div>
   </>)
 }

@@ -148,6 +148,8 @@ export const DEFAULT_SCREENS = [
   ['settings-agents', '#/settings/agents', '지시 처리'],
   // Claude 계정 (11/16): 기본 · 더한 Pro 계정과 쓰임, 대화 종류마다 계정은 설정 › 에이전트 (11/20) (예제는 server.ts가 Pro 계정 하나를 넣는다)
   ['settings-claude-accounts', '#/account', 'Claude 계정'],
+  ['settings-ai-keys', '#/account', 'AI API 키'],
+  ['settings-ai-pick', '#/settings/agents', '질문에 답할 AI'],
   ['settings-agent-account-roles', '#/settings/agents', '계정 고르기'],
   // 중앙 메모 (11/16): 사용자가 정한 오래 갈 사실, 중앙이 새 대화를 열 때 읽는다 (예제는 설정 폴더의 메모)
   ['settings-central-memo', '#/settings/agents', '중앙 메모'],

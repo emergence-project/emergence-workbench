@@ -93,3 +93,8 @@ button.cb-row:hover { background: var(--bg-hover); }
 .acct-meter i { display: block; height: 100%; background: var(--text-2); }
 .acct-meter.high i { background: var(--s-blocked); }
 .acct-limit-num { font-variant-numeric: tabular-nums; }
+/* 계정 › Codex 「이 컴퓨터」 줄의 「ChatGPT로 연결」 · AI API 키 넣기 (11/20) */
+.chatgpt-connect { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.a.nowrap { white-space: nowrap; }
+.ai-key-form { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.ai-key-form .input { width: 100%; }

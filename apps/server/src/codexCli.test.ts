@@ -77,12 +77,12 @@ describe.skipIf(process.platform === 'win32')('ChatGPT로 답하기 (Codex)', ()
     const app = buildApp({ configDir })
     try {
       process.env.PATH = '/nonexistent'
-      expect((await app.inject({ method: 'PUT', url: '/api/settings/ai-key', payload: { provider: 'chatgpt' } })).statusCode).toBe(409)
+      expect((await app.inject({ method: 'PUT', url: '/api/settings/ai-key/use', payload: { provider: 'chatgpt' } })).statusCode).toBe(409)
       expect((await app.inject({ method: 'PUT', url: '/api/settings/ai-key', payload: { provider: 'chatgpt', key: 'abcdefghij' } })).statusCode).toBe(400)
       process.env.RW_CODEX_BIN = fakeCodex()
       expect((await app.inject({ method: 'GET', url: '/api/settings/codex' })).json()).toMatchObject({ installed: true, login: true })
-      const put = await app.inject({ method: 'PUT', url: '/api/settings/ai-key', payload: { provider: 'chatgpt' } })
-      expect(put.json()).toEqual({ key: { provider: 'chatgpt', model: 'Codex', hint: '' } })
+      const put = await app.inject({ method: 'PUT', url: '/api/settings/ai-key/use', payload: { provider: 'chatgpt' } })
+      expect(put.json()).toEqual({ key: { provider: 'chatgpt', model: 'Codex', hint: '' }, saved: { claude: null, gemini: null } })
       expect(readAiKey(configDir)).toEqual({ provider: 'chatgpt', key: '' })
       expect(await questionRunner(configDir)({ cwd: tmp(), prompt: '질문' })).toBe('글 없이 답함')
     } finally { await app.close() }

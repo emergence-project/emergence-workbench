@@ -5,7 +5,7 @@
  *   Gemini CLI는 `gemini --acp`로 직접, Codex는 공개 연결부 codex-acp(@agentclientprotocol/codex-acp)로. 둘 다 그 컴퓨터의 로그인을 그대로 쓴다.
  * 실행 파일은 PATH(claudeEnv)와 npm 전역 폴더에서 찾고, RW_CODEX_ACP_BIN · RW_GEMINI_BIN이 먼저다 (시험은 가짜 에이전트를 넣는다).
  * Codex는 앱의 연결부(설치 파일로 깐 앱은 앱 안 vendor/codex-acp, 저장소에서 도는 앱은 설정 폴더에 받은 것, codexAcp.ts)를
- * 앱의 node로 띄우고, 앱이 쓰는 codex(설정 › 에이전트의 「ChatGPT로 연결」, codexCli.ts)를 CODEX_PATH로 넘긴다.
+ * 앱의 node로 띄우고, 앱이 쓰는 codex(계정 페이지 Codex 「이 컴퓨터」 줄의 「ChatGPT로 연결」, codexCli.ts)를 CODEX_PATH로 넘긴다.
  * 그래서 어느 앱이든 「ChatGPT로 연결」 하나로 묻기와 대화가 같은 codex · 같은 로그인을 쓴다 (11/8 "장점만 취하자"). npm은 필요 없다.
  */
 import { spawnSync } from 'node:child_process'
@@ -85,7 +85,7 @@ export interface AcpCommand { file: string; args: string[]; shell: boolean; env?
 
 /**
  * 그 에이전트를 띄우는 명령 (없으면 undefined). 차례: 환경 변수(시험) → 앱의 Codex 연결부 + 앱이 쓰는 codex → PATH의 실행 파일.
- * 연결부는 있는데 codex가 아직 없으면 undefined (설정 › 에이전트에서 「ChatGPT로 연결」을 누르면 생긴다)
+ * 연결부는 있는데 codex가 아직 없으면 undefined (계정 페이지에서 「ChatGPT로 연결」을 누르면 생긴다)
  */
 export function acpCommand(spec: AcpSpec, configDir?: string): AcpCommand | undefined {
   if (!process.env[spec.envBin] && spec.id === 'codex' && configDir) {

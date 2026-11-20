@@ -6,7 +6,7 @@ import { parseBody, replies } from '../contract.js'
 import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
-import { aiKeyView, readAiKey, writeAiKey } from '../aiKey.js'
+import { aiKeyView, readAiKeys, removeAiKey, saveAiKey, useAi } from '../aiKey.js'
 import { installCodexAcp } from '../codexAcp.js'
 import { codexStatus, installCodex, loginCodex, switchCodex } from '../codexCli.js'
 import { releaseChecker } from '../releaseCheck.js'
@@ -49,17 +49,29 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   })
 
   // 앱이 직접 묻는 AI의 키 (11/8): 이 컴퓨터의 설정 폴더에만 두고 화면에는 끝 네 자만
-  app.get('/api/settings/ai-key', replies(C.AiKeyView), async (): Promise<C.AiKeyView> => ({ key: aiKeyView(readAiKey(registry.configDir)) }))
+  app.get('/api/settings/ai-key', replies(C.AiKeyView), async (): Promise<C.AiKeyView> => aiKeyView(registry.configDir))
+  // 키 넣기 · 지우기는 계정 페이지, 고르기는 설정 › 에이전트 (11/20)
   app.put('/api/settings/ai-key', replies(C.AiKeyView), async (req): Promise<C.AiKeyView> => {
     const body = parseBody(C.AiKeyBody, req.body)
-    if (body.provider === 'chatgpt') {
-      const s = codexStatus(registry.configDir)
-      if (!s.installed || !s.login) throw new WorkbenchError(409, t('Codex를 받고 ChatGPT로 로그인한 뒤에 고를 수 있습니다', 'Install Codex and sign in with ChatGPT first'))
-    }
-    writeAiKey(registry.configDir, body)
-    return { key: aiKeyView(readAiKey(registry.configDir)) }
+    saveAiKey(registry.configDir, body.provider, body.key)
+    return aiKeyView(registry.configDir)
   })
-  app.delete('/api/settings/ai-key', replies(C.AiKeyView), async (): Promise<C.AiKeyView> => { writeAiKey(registry.configDir, null); return { key: null } })
+  app.delete<{ Params: { provider: string } }>('/api/settings/ai-key/:provider', replies(C.AiKeyView), async (req): Promise<C.AiKeyView> => {
+    const p = req.params.provider
+    if (p !== 'claude' && p !== 'gemini') throw new WorkbenchError(400, t('지울 수 있는 키는 claude · gemini입니다', 'Only claude and gemini keys can be removed'))
+    removeAiKey(registry.configDir, p)
+    return aiKeyView(registry.configDir)
+  })
+  app.put('/api/settings/ai-key/use', replies(C.AiKeyView), async (req): Promise<C.AiKeyView> => {
+    const { provider } = parseBody(C.AiUseBody, req.body)
+    if (provider === 'chatgpt') {
+      const s = codexStatus(registry.configDir)
+      if (!s.installed || !s.login) throw new WorkbenchError(409, t('계정 페이지에서 Codex에 ChatGPT로 로그인한 뒤에 고를 수 있습니다', 'Sign in to Codex with ChatGPT on the Account page first'))
+    }
+    if ((provider === 'claude' || provider === 'gemini') && !readAiKeys(registry.configDir).keys[provider]) throw new WorkbenchError(400, t('계정 페이지에서 이 AI의 키를 먼저 넣으세요', 'Add this AI\'s key on the Account page first'))
+    useAi(registry.configDir, provider)
+    return aiKeyView(registry.configDir)
+  })
   // ChatGPT로 답하기 (11/8): 앱이 Codex를 받아 두고 ChatGPT 계정으로 로그인한다. 둘 다 오래 걸려 시작만 하고 GET으로 본다
   app.get('/api/settings/codex', replies(C.CodexStatus), async (): Promise<C.CodexStatus> => codexStatus(registry.configDir))
   app.post('/api/settings/codex/install', replies(C.CodexStatus), async (): Promise<C.CodexStatus> => {

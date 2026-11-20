@@ -1,15 +1,16 @@
 // ---------- 화면 설정 (서버 routes/settings.ts) ----------
-import type { AgentSettings, AgentSettingsBody, AiKeyBody, AiKeyView, CodexStatus, CommonRulesSaved, CommonRulesView, SettingsBody, SettingsView, SyncSettingsBody, SyncSettingsView } from '@rw/core/contract/settings'
+import type { AgentSettings, AgentSettingsBody, AiKeyBody, AiKeyView, AiUseBody, CodexStatus, CommonRulesSaved, CommonRulesView, SettingsBody, SettingsView, SyncSettingsBody, SyncSettingsView } from '@rw/core/contract/settings'
 import { json, req, send } from './http'
 
 export type { CommonRulesView } from '@rw/core/contract/settings'
 
 export const settingsCalls = {
   settings: () => req('/api/settings').then((r) => json<SettingsView>(r)).then((r) => r.ui),
-  /** 설정 › 에이전트 › AI 키 (11/8): 키는 보내기만 하고 받을 때는 끝 네 자만 */
-  aiKey: () => req('/api/settings/ai-key').then((r) => json<AiKeyView>(r)).then((r) => r.key),
-  saveAiKey: (body: AiKeyBody) => req('/api/settings/ai-key', send('PUT', body)).then((r) => json<AiKeyView>(r)).then((r) => r.key),
-  removeAiKey: () => req('/api/settings/ai-key', { method: 'DELETE' }).then((r) => json<AiKeyView>(r)).then((r) => r.key),
+  /** AI 키 (11/8): 넣기 · 지우기는 계정 페이지, 고르기는 설정 › 에이전트 (11/20). 키는 보내기만 하고 받을 때는 끝 네 자만 */
+  aiKey: () => req('/api/settings/ai-key').then((r) => json<AiKeyView>(r)),
+  saveAiKey: (body: AiKeyBody) => req('/api/settings/ai-key', send('PUT', body)).then((r) => json<AiKeyView>(r)),
+  removeAiKey: (provider: AiKeyBody['provider']) => req(`/api/settings/ai-key/${provider}`, { method: 'DELETE' }).then((r) => json<AiKeyView>(r)),
+  useAi: (provider: AiUseBody['provider']) => req('/api/settings/ai-key/use', send('PUT', { provider })).then((r) => json<AiKeyView>(r)),
   codexStatus: () => req('/api/settings/codex').then((r) => json<CodexStatus>(r)),
   installCodex: () => req('/api/settings/codex/install', { method: 'POST' }).then((r) => json<CodexStatus>(r)),
   loginCodex: () => req('/api/settings/codex/login', { method: 'POST' }).then((r) => json<CodexStatus>(r)),
