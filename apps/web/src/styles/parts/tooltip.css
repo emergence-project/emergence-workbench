@@ -11,6 +11,8 @@
 [data-tip][data-tip-x="start"]:hover::after, [data-tip][data-tip-x="start"]:focus-visible::after { left: 0; right: auto; transform: none; }
 [data-tip][data-tip-x="end"]:hover::after, [data-tip][data-tip-x="end"]:focus-visible::after { left: auto; right: 0; transform: none; }
 [data-tip][data-tip-up]:hover::after, [data-tip][data-tip-up]:focus-visible::after { top: auto; bottom: calc(100% + 2px); }
+/* 메뉴를 연 버튼은 툴팁을 띄우지 않는다: 열린 메뉴 위로 툴팁이 겹쳐 보였다 (11/21) */
+[data-tip][aria-haspopup][aria-expanded="true"]:hover::after, [data-tip][aria-haspopup][aria-expanded="true"]:focus-visible::after { content: none; }
 /* 자리를 재는 자 (tipPlace.ts): 툴팁과 같은 글자 · 여백, 보이지 않는다 */
 .tip-ruler { position: fixed; left: -9999px; top: 0; visibility: hidden; pointer-events: none; font-size: var(--fs-xs); font-weight: var(--fw-normal); letter-spacing: 0; padding: 2px var(--sp-2); white-space: nowrap; }
 .tip-ruler.wrap { width: max-content; max-width: 280px; white-space: normal; line-height: 1.45; padding: var(--sp-1) var(--sp-2); }
