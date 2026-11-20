@@ -150,8 +150,9 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
   const tasks = scan.data?.tasks
   // 받지 못했으면 「읽는 중…」에 머물지 않고 이유를 보인다 (11/21)
   const reading = scan.error ? t(`맡긴 일을 읽지 못했습니다: ${scan.error.message}`, `Could not read delegated work: ${scan.error.message}`) : t('읽는 중…', 'Loading…')
-  const overview = useTopicsOverview(rid).data
-  const { entries, loaded } = useJournal(rapi)
+  const overviewQ = useTopicsOverview(rid)
+  const overview = overviewQ.data
+  const { entries, loaded, error: journalError } = useJournal(rapi)
   const text = useStatusText(rid, rapi)
   const turn = tasks ? judgeOrder(tasks) : []
   // 사이드바 기록 줄의 수와 같게: 판단할 맡긴 일 + 결정을 기다리는 흐름 + 에이전트가 물은 기록 (11/21: 맡긴 일만 세어 수가 달랐다)
@@ -207,11 +208,12 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
             </button></li>}
           </ul>
         ) : <p className="muted">{t('주제와 노트가 없습니다', 'No topics or notes')}</p>)}
+        {!overview && overviewQ.error && <p className="muted">{t(`주제를 읽지 못했습니다: ${overviewQ.error.message}`, `Could not read the topics: ${overviewQ.error.message}`)}</p>}
       </section>
 
       <section className="info-sec" data-ui="최근 기록">
         <h2>{t('최근 기록', 'Recent journal')} <span className="muted">{t(`${RECENT_DAYS}일`, `${RECENT_DAYS} days`)}</span><button className="a info-more" onClick={() => go({ page: 'log', rid })}>{t('작업 일지 ›', 'Journal ›')}</button></h2>
-        {!loaded && !entries.length ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : !recent.length ? <p className="muted">{t('최근 기록이 없습니다', 'No recent entries')}</p> : (
+        {!loaded && !entries.length ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : journalError && !entries.length ? <p className="muted">{t(`일지를 읽지 못했습니다: ${journalError}`, `Could not read the journal: ${journalError}`)}</p> : !recent.length ? <p className="muted">{t('최근 기록이 없습니다', 'No recent entries')}</p> : (
           <ul className="info-list">
             {recent.map((e) => <li key={`${e.date}-${e.index}`} className="info-row static"><span className="info-row-title">{e.text.split('\n')[0]}</span><span className="muted info-row-meta">{monthDay(e.date, true)} {e.time}</span></li>)}
           </ul>

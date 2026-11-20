@@ -3,7 +3,7 @@
 // 늘 펼쳐 두지 않고 필요할 때 들어가 본다 (11/9 코멘트)
 import { AGENT_ROLES, presetAuto, type AgentPref, type AgentRole, type AgentTrust } from '@rw/core'
 import type { AgentSettings, AgentSettingsBody } from '@rw/core/contract/settings'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { api, type AgentKind } from './api'
 import { AgentLogo } from './agentLogos'
@@ -31,6 +31,8 @@ export function AgentPrefs({ onSaved }: { onSaved(message: string): void }) {
   const kinds = useAgentKinds()
   const prefs = useAgentPrefs()
   const client = useQueryClient()
+  // 같은 캐시 키로 읽지 못한 것만 알아낸다: 받지 못하면 「읽는 중…」에 머물렀다 (11/21)
+  const failed = useQuery({ queryKey: qk.agentSettings, queryFn: api.agentSettings, staleTime: 5 * 60_000 }).error
   const [open, setOpen] = useState<AgentKind | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const save = (patch: AgentSettingsBody) => {
@@ -41,7 +43,7 @@ export function AgentPrefs({ onSaved }: { onSaved(message: string): void }) {
   return (<>
     <h3 className="set-h3">{t('대화를 맡는 에이전트', 'Agents for conversations')}</h3>
     {err && <div className="error-text">{err}</div>}
-    {!kinds || !prefs ? <p className="muted">{t('읽는 중…', 'Reading…')}</p>
+    {!kinds || !prefs ? <p className="muted">{failed && !prefs ? t(`설정을 읽지 못했습니다: ${failed.message}`, `Could not read the settings: ${failed.message}`) : t('읽는 중…', 'Reading…')}</p>
       : k ? <AgentDetail k={k} pref={prefs.per[k.id]} onBack={() => setOpen(null)} save={(p) => save({ per: { [k.id]: p } })} onSaved={onSaved} />
       : <div className="set-rows ap-list" data-ui="대화 에이전트 묶음">
         {kinds.map((a) => {
