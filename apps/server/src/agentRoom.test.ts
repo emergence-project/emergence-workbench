@@ -12,6 +12,8 @@ describe('받는 이', () => {
   it('@이름 · @모두를 읽는다 (메일 주소 · 글 속 @는 아니다)', () => {
     expect(mentionsOf('@Codex 이거 봐 줘')).toEqual(['codex'])
     expect(mentionsOf('@모두, 의견 주세요')).toEqual(['all'])
+    expect(mentionsOf('@all 의견 주세요')).toEqual(['all'])
+    expect(mentionsOf('@All, 어때?')).toEqual(['all'])
     expect(mentionsOf('a@codex.io 로 보내')).toEqual([])
     expect(mentionsOf('@claude @gemini?')).toEqual(['claude-code', 'gemini'])
   })
@@ -20,6 +22,7 @@ describe('받는 이', () => {
     expect(routeOf('@Codex 봐 줘', room)).toEqual({ others: ['codex'], host: false, all: false })
     expect(routeOf('@Codex @Claude 둘 다', room)).toEqual({ others: ['codex'], host: true, all: false })
     expect(routeOf('@모두 어때?', room)).toEqual({ others: ['codex'], host: true, all: true })
+    expect(routeOf('@all 어때?', room)).toEqual({ others: ['codex'], host: true, all: true })
     expect(routeOf('@Gemini 어때?', room)).toEqual({ others: [], host: true, all: false })
   })
 })
@@ -84,6 +87,35 @@ describe('중앙 방', () => {
     const tail = items.slice(items.findIndex((x) => x.kind === 'user' && x.text === '@모두 어떻게 생각해?'))
     expect(items.filter((x) => x.kind === 'user' && x.text === '@모두 어떻게 생각해?')).toHaveLength(1)
     expect(tail.map((x) => x.kind).filter((k) => k === 'user' || k === 'member' || k === 'text')).toEqual(['user', 'member', 'text'])
+  })
+
+  it('@모두에서 방 사람은 가려서 동시에 답한다: 서로의 답은 보지 않고, 방장만 다 나온 뒤 모두의 답을 본다', async () => {
+    const { chats } = make()
+    const c = chats.talk('시작')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.invite('gemini', 'user', 'talk')
+    chats.send(c.id, { text: '@all 어떻게 생각해?' })
+    await vi.waitFor(() => expect(turns).toHaveLength(2))
+    expect(asked).toHaveLength(2)
+    for (const q of asked) { expect(q).toContain('User: @all 어떻게 생각해?'); expect(q).not.toContain('Codex 답'); expect(q).not.toContain('곁 답') }
+    expect(turns[1]).toContain('Codex 답')
+    expect(turns[1]).toContain('곁 답')
+    expect(turns[1]).toContain('without seeing the others')
+  })
+
+  it('토론 모드에서는 부른 차례대로, 앞사람의 답을 보고 이어 답한다. 규칙은 파일에 남는다', async () => {
+    const { chats, dir } = make()
+    const c = chats.talk('시작')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.invite('gemini', 'user', 'talk')
+    expect(chats.roomState().rules.mode).toBe('independent')
+    chats.setRules({ mode: 'debate' })
+    chats.send(c.id, { text: '@모두 어떻게 생각해?' })
+    await vi.waitFor(() => expect(turns).toHaveLength(2))
+    expect(asked[0]).not.toContain('곁 답')
+    expect(asked[1]).toContain('Codex: Codex 답')
+    expect(turns[1]).toContain('debate mode')
+    expect(JSON.parse(fs.readFileSync(path.join(dir, 'agent-room.json'), 'utf8')).rules.mode).toBe('debate')
   })
 
   it('초대 · 권한 · 내보내기: 사용자는 수정 말고, 방장은 규칙 안에서 까닭과 함께 읽기만 · 발언까지. 방 소식이 남고 파일에 남는다', async () => {
