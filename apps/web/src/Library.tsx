@@ -11,7 +11,7 @@ import { PaperNoteMd } from './PaperNoteMd'
 import { go } from './router'
 import { Icon } from './icons'
 import { useAutosave } from './autosave'
-import { t } from './i18n'
+import { shown, t } from './i18n'
 import { LibraryLink } from './LibraryLink'
 /** 저장하고 이만큼 더 손을 멈추면 PDF를 다시 만든다 */
 const COMPILE_AFTER_MS = 1500
@@ -170,7 +170,7 @@ export function LibraryNoteEditor({ kind, id, info, rid, project, onChanged, onS
           <select className="tex-pick" data-ui="PDF 서식" title={t('PDF를 만들 LaTeX 서식 (설정 › LaTeX 서식)', 'LaTeX template for the PDF (Settings › LaTeX templates)')} value={template}
             onChange={(e) => { setTemplate(e.target.value); writePick(kind, id, e.target.value); void compile(e.target.value) }}>
             <option value="">{t('기본 (라이브러리 서식만)', 'Default (library template only)')}</option>
-            {templates.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            {templates.map((x) => <option key={x.id} value={x.id}>{shown(x.name)}</option>)}
           </select>
           <button className="btn btn-icon" data-ui="개념노트 컴파일" title={t('컴파일 — PDF를 다시 만듭니다 (⌘↵)', 'Compile: make the PDF again (⌘↵)')} aria-label={t('컴파일', 'Compile')} disabled={compiling} onClick={() => void compile()}>{compiling ? t('컴파일 중…', 'Compiling…') : Icon.play}</button>
           <span className={`save-state ${state}`}>{{ saved: t('저장됨', 'Saved'), dirty: t('고치는 중…', 'Editing…'), saving: t('저장 중…', 'Saving…'), conflict: t('저장 멈춤', 'Save paused'), error: t('저장 실패', 'Save failed') }[state]}</span>
