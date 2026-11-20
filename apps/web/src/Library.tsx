@@ -203,7 +203,7 @@ export function LibraryPage({ info, topic, rightOpen = true, onChanged, onSaved 
     <main className="kn-page" data-ui="지식">
       {error && <div className="banner danger">{t('개념노트 목록을 읽지 못했습니다', 'Could not read the concept note list')}: {error}</div>}
       <section className="lib-view" data-ui="지식 보기">
-        {!sel ? <div className="empty center">{data ? t('이 개념노트를 찾지 못했습니다. 왼쪽 목록에서 고르세요.', 'Concept note not found. Pick one from the list on the left.') : t('읽는 중…', 'Loading…')}</div>
+        {!sel ? <div className="empty center">{data ? t('이 개념노트를 찾지 못했습니다. 왼쪽 목록에서 고르세요.', 'Concept note not found. Pick one from the list on the left.') : error ? t('목록을 읽지 못해 이 개념노트를 열 수 없습니다.', 'The list could not be read, so this concept note cannot be opened.') : t('읽는 중…', 'Loading…')}</div>
           : sel.concept?.format === 'md' ? <ConceptNoteView key={sel.concept.id} id={sel.concept.id} info={info} rightOpen={rightOpen} tocOwner={`knowledge/${sel.concept.id}`} onChanged={onChanged} onSaved={onSaved} />
           : sel.concept ? <LibraryNoteEditor key={sel.concept.id} kind="concept" id={sel.concept.id} info={info} onChanged={onChanged} onSaved={onSaved} />
           : sel.study ? <ReadOnlyMd key={sel.key} load={() => api.studyNote(sel.study!.path)} path={t(`Study: ${sel.study.path} · 아직 옮기지 않음 (읽기만)`, `Study: ${sel.study.path} · Not moved yet (read only)`)} onClick={(e) => followLink(e, topics)} />

@@ -240,7 +240,9 @@ const ENDED = new Set(['superseded', 'closed'])
 export function AgentsPage({ rid, rapi, version }: { rid: string; rapi: ResearchApi; version: number }) {
   const text = useStatusText(rid, rapi)
   const [got, setGot] = useState<AgentRules | null | undefined>(undefined)
-  useEffect(() => { rapi.agentRules().then(setGot).catch(() => setGot(null)) }, [rapi, version])
+  // 읽지 못한 것을 "AGENTS.md가 없습니다 · 결정 기록이 없습니다"로 보이면 없는 것으로 읽힌다 (11/21)
+  const [failed, setFailed] = useState<string | null>(null)
+  useEffect(() => { rapi.agentRules().then((r) => { setGot(r); setFailed(null) }).catch((e: Error) => { setGot(null); setFailed(e.message) }) }, [rapi, version])
   const files = got === undefined ? undefined : got?.files ?? null
   const decisions = got?.decisions ?? []
   const rules = text ? splitStatus(text).rules : ''
@@ -249,6 +251,7 @@ export function AgentsPage({ rid, rapi, version }: { rid: string; rapi: Research
       <SubHead title={t('규칙', 'Rules')} desc={t('에이전트가 이 저장소에서 일하기 전에 읽는 규칙입니다. 고치려면 저장소의 파일을 고칩니다.', 'Rules agents read before working in this repository. To change them, edit the files in the repository.')} />
       <div className="info-status">
         {files === undefined ? <p className="muted">{t('읽는 중…', 'Loading…')}</p>
+          : failed ? <p className="error-text">{t(`규칙을 읽지 못했습니다: ${failed}`, `Could not read the rules: ${failed}`)}</p>
           : !files?.length ? <p className="muted">{t('저장소 맨 위에 AGENTS.md가 없습니다', 'No AGENTS.md at the top of the repository')}</p>
           : files.map((f) => <div key={f.file} className="info-rule-file"><h3><code>{f.file}</code></h3><ObsidianMarkdown text={f.text} /></div>)}
         {rules && <div className="info-rule-file"><h3>{t('함께 읽는 규칙', 'Rules read with it')} <span className="muted">{t('STATUS.md의 규칙 절', 'Rule sections of STATUS.md')}</span></h3><ObsidianMarkdown text={rules} /></div>}
@@ -267,6 +270,7 @@ export function AgentsPage({ rid, rapi, version }: { rid: string; rapi: Research
             })}
           </ul>
         ) : <p className="muted">{t('이 프로젝트에는 결정 기록이 없습니다', 'This project has no decision records')}</p>)}
+        {failed && <p className="error-text">{t('결정 기록을 읽지 못했습니다.', 'Could not read the decision records.')}</p>}
       </section>
     </InfoShell>
   )
