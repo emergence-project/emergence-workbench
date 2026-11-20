@@ -44,3 +44,20 @@ describe('토글 기본값', () => {
     expect(autoCustom({ write: 'notes', mode: 'edit', auto: { run: true } })).toBe(true)
   })
 })
+
+describe('읽기로 보이던 쓰기 · 실행 (11/20 보안 검토)', () => {
+  it('뒤에서 돌리기(&) · 겹친 $( ) · env 앞말 뒤의 명령도 본다', () => {
+    expect(k('ls & rm -rf build')).toBe('delete')
+    expect(k('echo "$(echo $(rm a.md))"')).toBe('delete')
+    expect(k("env sh -c 'rm -rf notes'")).toBe('run')
+    expect(k('FOO=1 env -i python x.py')).toBe('run')
+    expect(k('env')).toBe('read')
+    expect(k('wc -l a 2>&1 | head')).toBe('read')
+  })
+  it('읽는 프로그램의 쓰는 쓰임', () => {
+    for (const c of ["sed -n 'w out.txt' a.md", 'sort -o a b', 'sort -uo a b', 'uniq a b', 'xxd -r a b', "yq -i '.a=1' f.yaml", 'find . -fprint out', 'tree -o out', 'pdftotext a.pdf', 'echo x 1> y', 'echo x &> y', 'ls 2> err.txt'])
+      expect(k(c), c).toBe('edit')
+    for (const c of ['awk \'BEGIN{"rm -rf x" | getline}\'', 'awk \'{print | "sh"}\' f']) expect(k(c), c).toBe('run')
+    for (const c of ["awk '$3 == 100 {n++} END{print n}' f", "sed -n '2p' a.md", 'sort -n -k2 a', 'uniq -c a', 'xxd a | head', 'pdftotext a.pdf -', "yq '.a' f.yaml"]) expect(k(c), c).toBe('read')
+  })
+})

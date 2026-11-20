@@ -50,7 +50,7 @@ function InviteMenu({ room, onError }: { room: RoomState; onError(m: string): vo
   if (!left.length || room.members.length >= ROOM_MAX) return null
   return (
     <span className="ac-pop" ref={box}>
-      <button className="btn sm room-invite" data-ui="방 초대" aria-expanded={open} onClick={() => setOpen(!open)}>{Icon.plus}{t('초대', 'Invite')}</button>
+      <button className="a room-invite" data-ui="방 초대" aria-expanded={open} onClick={() => setOpen(!open)}>{Icon.plus}{t('초대', 'Invite')}</button>
       {open && <div className="menu" role="menu" data-ui="방 초대 메뉴">
         {left.map((a) => <button key={a} role="menuitem" onClick={() => { setOpen(false); void change(() => agentChatsApi.roomInvite(a)) }}><Who agent={a} /> <span className="muted">{PERM_NAME[room.rules.defaultPerm]}</span></button>)}
       </div>}
@@ -91,28 +91,27 @@ export function RoomManage() {
   if (!room) return null
   const perms = (['read', 'talk', 'edit'] as const)
   return (
-    <SideSection title={t('방 관리', 'Room')} ui="방 관리" aside={<span className="cb-counts">{t(`${room.members.length}명 · 나 빼고 ${ROOM_MAX}명까지`, `${room.members.length} · up to ${ROOM_MAX} besides you`)}</span>}>
-      {room.members.map((m) => {
-        const host = m.agent === room.host
-        return (
-          <div key={m.agent} className="room-row" data-ui="방 관리 사람" data-ui-item={ROOM_NAME[m.agent]}>
-            <div className="room-row-top"><Who agent={m.agent} host={host} />
-              {!host && <button className="icon-btn sm room-x" data-ui="방에서 내보내기" data-tip={t('방에서 내보내기', 'Remove from the room')} aria-label={t('방에서 내보내기', 'Remove from the room')} onClick={() => void change(() => agentChatsApi.roomRemove(m.agent))}>{Icon.x}</button>}
+    <SideSection title={t('에이전트 관리', 'Agents')} ui="에이전트 관리" aside={<span className="cb-counts">{t(`${room.members.length}명 · 나 빼고 ${ROOM_MAX}명까지`, `${room.members.length} · up to ${ROOM_MAX} besides you`)}</span>}>
+      <div className="room-list">
+        {room.members.map((m) => {
+          const host = m.agent === room.host
+          return (
+            <div key={m.agent} className="room-row" data-ui="방 관리 사람" data-ui-item={ROOM_NAME[m.agent]} title={sub(m, host)}>
+              <Who agent={m.agent} host={host} />
+              <Seg value={m.perm} name={t('권한', 'Permission')} ui="방 사람 권한" disabled={host ? NEXT_STEP : undefined} onPick={(p) => void change(() => agentChatsApi.roomPerm(m.agent, p))}
+                options={perms.map((p) => ({ v: p, label: <>{p === 'edit' && Icon.pencil}{PERM_NAME[p]}</>, ...(p === 'edit' && !host && { off: NEXT_STEP }) }))} />
+              {host ? <span className="room-x" /> : <button className="icon-btn sm room-x" data-ui="방에서 내보내기" data-tip={t('방에서 내보내기', 'Remove from the room')} aria-label={t('방에서 내보내기', 'Remove from the room')} onClick={() => void change(() => agentChatsApi.roomRemove(m.agent))}>{Icon.x}</button>}
+              {m.by === 'host' && m.reason && <span className="muted room-sub">{t('방장이 초대', 'Invited by the host')} · {m.reason}</span>}
             </div>
-            <span className="muted room-sub">{sub(m, host)}</span>
-            <Seg value={m.perm} name={t('권한', 'Permission')} ui="방 사람 권한" disabled={host ? NEXT_STEP : undefined} onPick={(p) => void change(() => agentChatsApi.roomPerm(m.agent, p))}
-              options={perms.map((p) => ({ v: p, label: <>{p === 'edit' && Icon.pencil}{PERM_NAME[p]}</>, ...(p === 'edit' && !host && { off: NEXT_STEP }) }))} />
-          </div>
-        )
-      })}
-      <div className="room-rules" data-ui="방 규칙">
-        <b>{t('방 규칙', 'Room rules')}</b>
-        <label className="room-rule"><input type="checkbox" checked={room.rules.hostInvite} onChange={(e) => void change(() => agentChatsApi.roomRules({ hostInvite: e.target.checked }))} />{t('방장이 초대할 수 있음 (읽기만 · 발언까지)', 'The host may invite (read only or talk)')}</label>
-        <div className="room-rule"><span>{t('새 사람 기본 권한', 'Default for newcomers')}</span><Seg value={room.rules.defaultPerm} name={t('새 사람 기본 권한', 'Default for newcomers')} ui="방 기본 권한" onPick={(p) => void change(() => agentChatsApi.roomRules({ defaultPerm: p }))} options={(['read', 'talk'] as const).map((p) => ({ v: p, label: PERM_NAME[p] }))} /></div>
-        <div className="room-rule"><span>{t('방장이 한 번에 부르는 수', 'Host calls at once')}</span><Seg value={room.rules.callMax} name={t('방장이 한 번에 부르는 수', 'Host calls at once')} ui="방장 부르기 한도" onPick={(n) => void change(() => agentChatsApi.roomRules({ callMax: n }))} options={[1, 2, 3].map((n) => ({ v: n, label: String(n) }))} /></div>
-        <span className="muted ac-hint">{t('그냥 말하면 방장만, @이름은 그 사람만, @모두는 모두 받습니다. @모두면 방장이 마지막에 정리합니다', 'A plain message goes to the host, @name only to them, @모두 to everyone; with @모두 the host answers last to sum up')}</span>
+          )
+        })}
       </div>
       <InviteMenu room={room} onError={setFail} />
+      <div className="room-rules" data-ui="방 규칙">
+        <label className="room-rule"><span>{t('방장이 초대 (읽기만 · 발언까지)', 'Host may invite (read only, talk)')}</span><input type="checkbox" checked={room.rules.hostInvite} onChange={(e) => void change(() => agentChatsApi.roomRules({ hostInvite: e.target.checked }))} /></label>
+        <div className="room-rule"><span>{t('새로 들어올 때 권한', 'Permission for newcomers')}</span><Seg value={room.rules.defaultPerm} name={t('새로 들어올 때 권한', 'Permission for newcomers')} ui="방 기본 권한" onPick={(p) => void change(() => agentChatsApi.roomRules({ defaultPerm: p }))} options={(['read', 'talk'] as const).map((p) => ({ v: p, label: PERM_NAME[p] }))} /></div>
+        <div className="room-rule"><span>{t('방장이 한 번에 부르는 수', 'Host calls at once')}</span><Seg value={room.rules.callMax} name={t('방장이 한 번에 부르는 수', 'Host calls at once')} ui="방장 부르기 한도" onPick={(n) => void change(() => agentChatsApi.roomRules({ callMax: n }))} options={[1, 2, 3].map((n) => ({ v: n, label: String(n) }))} /></div>
+      </div>
       {fail && <span className="error-text ac-hint">{fail}</span>}
     </SideSection>
   )

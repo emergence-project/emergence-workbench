@@ -1,6 +1,7 @@
 import type { UiSettings } from '@rw/core'
 import { useEffect, useState } from 'react'
 import { api, googleApi, req, type GoogleStatus, type GoogleSync, type SyncedResearch } from './api'
+import { flash } from './flash'
 import { parseGoogleClient } from './googleClient'
 import { t, plural, locale, HERE } from './i18n'
 
@@ -12,7 +13,6 @@ import { t, plural, locale, HERE } from './i18n'
 export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings): void }) {
   const [st, setSt] = useState<GoogleStatus | null>(null)
   const [sync, setSync] = useState<GoogleSync | null>(null)
-  const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [editClient, setEditClient] = useState(false)
@@ -29,8 +29,9 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
   useEffect(() => { void load() }, [])
 
   const run = async (f: () => Promise<string | void>) => {
-    setBusy(true); setErr(null); setMsg(null)
-    try { const m = await f(); if (m) setMsg(m); await load() } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+    setBusy(true); setErr(null)
+    // 결과 글은 화면 아래 알림으로 (11/20 시안 2절). 오류는 이 묶음 안에 남긴다
+    try { const m = await f(); if (m) flash(m); await load() } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
 
   if (!st) return <p className="muted">{err ?? t('구글 연결 상태를 읽는 중…', 'Checking Google connection…')}</p>
@@ -125,11 +126,10 @@ export function GoogleSettings({ onUiRestored }: { onUiRestored(ui: UiSettings):
       {sync && sync.missing.length > 0 && (
         <div className="g-missing" data-ui="없는 프로젝트">
           <div className="set-name">{t('이 컴퓨터에 없는 프로젝트', 'Projects not on this computer')}</div>
-          {sync.missing.map((r) => <MissingRow key={r.id} r={r} onDone={(m) => { setMsg(m); void load() }} onError={setErr} />)}
+          {sync.missing.map((r) => <MissingRow key={r.id} r={r} onDone={(m) => { flash(m); void load() }} onError={setErr} />)}
         </div>
       )}
 
-      {msg && <p className="g-msg" role="status">{msg}</p>}
       {err && <p className="g-err" role="alert">{err}</p>}
 
       {!st.mock && !st.configured && (

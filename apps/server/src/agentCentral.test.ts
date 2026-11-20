@@ -253,7 +253,7 @@ describe('중앙의 계정과 피드백 수', () => {
     fs.cpSync(FIX, fb, { recursive: true })
     const accounts = new ClaudeAccounts(path.join(dir, 'config'), { cli: () => '/bin/true', home: path.join(dir, 'home') })
     const pro = accounts.add('Pro').accounts[1]!.id
-    const chats = new CentralChats({ dir, runner: fake, limit: 4, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {}, accounts, feedback: { dir: fb } })
+    const chats = new CentralChats({ dir, runner: fake, limit: 4, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {}, accounts: { claude: accounts }, feedback: { dir: fb } })
     const waiting = chats.feedbackTurns().items.filter((i) => !i.taken && !i.chat).length
     expect(waiting).toBeGreaterThan(0)
     const c = chats.talk('안녕')

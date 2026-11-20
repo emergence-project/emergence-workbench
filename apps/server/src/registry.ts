@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { identityOf } from './meSync.js'
 import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, newTemplateId, normalizeAuthors, normalizePeople, normalizeTemplate, normalizeTemplates, normalizeUi, normalizeAgentSettings, normalizeSyncSettings, type AgentSettings, type SyncSettings, type Author, type LatexTemplate, type Person, type UiSettings } from '@rw/core'
 import { isLatexSafePath } from './fsutil.js'
 import { readYaml, writeYaml } from './yamlFile.js'
@@ -14,7 +15,7 @@ import { PROJECT_COLORS, type ProjectColor, type ProjectKind, type ProjectState,
  * 연구 저장소 경로는 기기마다 다르므로 git 저장소가 아니라 여기에 둔다.
  */
 /** load()가 읽어 AppConfig로 옮기는 키. latex는 예전 서식 하나(latexTemplates로 옮김). 이 밖의 키는 저장할 때 그대로 둔다 */
-const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex', 'agents', 'sync'])
+const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex', 'agents', 'sync', 'gitIdentity', 'meAt', 'peopleAt'])
 
 export interface AppConfig {
   engine: Engine
@@ -30,6 +31,8 @@ export interface AppConfig {
   personalRepo?: string
   /** 계정 › 커밋 이름: 앱이 하는 커밋에만 쓴다 (git.ts setAppIdentity, 11/19). 없으면 git 전체 설정 */
   gitIdentity?: { name: string; email: string }
+  /** 내 정보(저자 · 커밋 이름)를 마지막으로 고친 때. 컴퓨터 사이에 더 늦게 고친 쪽을 따른다 (meSync.ts, 11/20) */
+  meAt?: string
   researches: RegisteredResearch[]
   /** 설정 화면의 화면 설정 (테마, 글자 크기, 편집기 글꼴 등) */
   ui: UiSettings
@@ -45,8 +48,8 @@ export interface AppConfig {
   latexBuiltins: string[]
   /** 저자와 소속. 내보낼 때 \author·\affiliation 줄로 넣는다 */
   authors: Author[]
-  /** 네트워킹에 따로 더한 사람 (저자와 소속에 있는 사람은 저절로 들어간다) */
-  people: Person[]
+  /** 네트워킹에 따로 더한 사람 (저자와 소속에 있는 사람은 저절로 들어간다). peopleAt은 마지막으로 고친 때: 컴퓨터 사이에 더 늦게 고친 쪽을 따른다 (meSync.ts, 11/20) */
+  people: Person[]; peopleAt?: string
 }
 
 export interface Inspection {
@@ -117,7 +120,6 @@ export function profileOf(r: RegisteredResearch): ProjectProfile {
 }
 
 const isColor = (v: unknown): v is ProjectColor => PROJECT_COLORS.includes(v as ProjectColor)
-
 /** 예전 태그 하나 목록 모양 (구글 동기화 · 검색이 아직 쓴다): 업무면 "업무"를 앞에, 그 뒤에 분야 */
 const legacyTags = (p: ProjectProfile) => [...(p.kind === 'work' ? [LEGACY_WORK_TAG] : []), ...p.fields.filter((f) => f !== LEGACY_WORK_TAG)]
 
@@ -181,13 +183,27 @@ export class Registry {
   get gitIdentity(): { name: string; email: string } | undefined { return this.config.gitIdentity }
   setGitIdentity(id: { name: string; email: string }): void {
     this.config.gitIdentity = id
+    this.config.meAt = new Date().toISOString()
+    this.save()
+  }
+  get meAt(): string | undefined { return this.config.meAt }
+  get peopleAt(): string | undefined { return this.config.peopleAt }
+  /** 다른 컴퓨터의 내 정보 · 네트워킹 사람 목록을 그대로 적는다 (meSync.ts). 고친 때는 그쪽 것 */
+  adoptMe(me: { authors?: Author[]; gitIdentity?: { name: string; email: string }; meAt?: string; people?: Person[]; peopleAt?: string }): void {
+    Object.assign(this.config, me.authors && { authors: normalizeAuthors(me.authors) }, me.gitIdentity && { gitIdentity: me.gitIdentity }, me.meAt && { meAt: me.meAt }, me.people && { people: normalizePeople(me.people) }, me.peopleAt && { peopleAt: me.peopleAt })
     this.save()
   }
 
-  /** 논문 PDF 폴더 중 지금 있는 것 */
-  get pdfFolders(): string[] { return (this.config.pdfFolders ?? []).filter((p) => fs.existsSync(p)) }
-  /** 설정에 적힌 PDF 폴더 전부 (없어진 폴더도: 설정 화면에서 "찾을 수 없음"으로 보인다) */
-  get pdfFoldersSet(): string[] { return this.config.pdfFolders ?? [] }
+  /** 논문 PDF 폴더 중 지금 있는 것. 하나도 적지 않았으면 기본 폴더 (11/20 피드백 22:33) */
+  get pdfFolders(): string[] { return this.config.pdfFolders?.length ? this.config.pdfFolders.filter((p) => fs.existsSync(p)) : this.defaultPdfFolder(true) }
+  /** 설정에 적힌 PDF 폴더 전부 (없어진 폴더도: 설정 화면에서 "찾을 수 없음"으로 보인다). 없으면 기본 폴더 */
+  get pdfFoldersSet(): string[] { return this.config.pdfFolders?.length ? this.config.pdfFolders : this.defaultPdfFolder(false) }
+  get pdfFoldersSetByUser(): boolean { return !!this.config.pdfFolders?.length }
+  /** 기본 PDF 폴더: 라이브러리 안의 pdfs (라이브러리 .gitignore가 이미 뺀다, 모든 컴퓨터에 있다). make면 없을 때 만든다 */
+  defaultPdfFolder(make: boolean): string[] {
+    const dir = this.libraryPath && path.join(this.libraryPath, 'pdfs')
+    try { if (dir && make) fs.mkdirSync(dir, { recursive: true }); return dir ? [dir] : [] } catch { return [] }
+  }
 
   setPdfFolders(list: unknown): string[] {
     if (!Array.isArray(list) || list.some((p) => typeof p !== 'string')) throw new WorkbenchError(400, tl('PDF 폴더 목록이 아닙니다.', 'Not a list of PDF folders.'))
@@ -303,7 +319,7 @@ export class Registry {
   /** 네트워킹에 더한 사람 목록 전체를 바꾼다 */
   setPeople(list: unknown): Person[] {
     if (!Array.isArray(list)) throw new WorkbenchError(400, tl('사람 목록이 아닙니다.', 'Not a list of people.'))
-    this.config.people = normalizePeople(list)
+    Object.assign(this.config, { people: normalizePeople(list), peopleAt: new Date().toISOString() })
     this.save()
     return this.config.people
   }
@@ -312,6 +328,7 @@ export class Registry {
   setAuthors(list: unknown): Author[] {
     if (!Array.isArray(list)) throw new WorkbenchError(400, tl('저자 목록이 아닙니다.', 'Not a list of authors.'))
     this.config.authors = normalizeAuthors(list)
+    this.config.meAt = new Date().toISOString()
     this.save()
     return this.config.authors
   }
@@ -323,6 +340,8 @@ export class Registry {
     const study = typeof raw.study === 'string' ? raw.study : undefined
     const reviews = typeof raw.reviews === 'string' ? raw.reviews : undefined
     const personalRepo = typeof raw.personalRepo === 'string' && raw.personalRepo.trim() ? raw.personalRepo : undefined
+    const gitIdentity = identityOf(raw.gitIdentity)
+    const [meAt, peopleAt] = [raw.meAt, raw.peopleAt].map((v: unknown) => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : undefined))
     const pdfFolders = Array.isArray(raw.pdfFolders) ? raw.pdfFolders.filter((p: unknown): p is string => typeof p === 'string' && path.isAbsolute(p)) : []
     const researches: RegisteredResearch[] = Array.isArray(raw.researches)
       ? raw.researches
@@ -347,7 +366,7 @@ export class Registry {
     // 예전 설정의 latex:(서식 하나)는 PRL 서식으로 옮긴다
     const latexTemplates = normalizeTemplates(raw.latexTemplates, raw.latex, raw.latexBuiltins)
     const latexBuiltins = BUILTIN_TEMPLATES.map((t) => t.id)
-    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), sync: normalizeSyncSettings(raw.sync), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors, []), people: normalizePeople(raw.people) }
+    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), ...(gitIdentity && { gitIdentity }), ...(meAt && { meAt }), ...(peopleAt && { peopleAt }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), sync: normalizeSyncSettings(raw.sync), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors, []), people: normalizePeople(raw.people) }
   }
 
   private save(): void {

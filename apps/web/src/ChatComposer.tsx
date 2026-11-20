@@ -13,7 +13,7 @@ import { captureScreen, cropShot } from './screenCapture'
 import { placeOf, screenLine } from './screenView'
 import { lastRecordSelection } from './RecordContext'
 import { uiShown } from './uiNames'
-import { accountLabel, useClaudeAccounts } from './ClaudeAccountsSettings'
+import { accountLabel, useAgentAccounts } from './ClaudeAccountsSettings'
 import type { ComposerRoom } from './CentralRoom'
 import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
 
@@ -73,8 +73,8 @@ const COMMANDS: { cmd: string; label: string; text: string; send?: boolean }[] =
   { cmd: t('/요약', '/summary'), label: t('오늘 이 프로젝트에서 한 일', 'What happened in this project today'), text: t('오늘 이 프로젝트에서 한 일을 짧게 요약해 줘.', 'Summarize briefly what happened in this project today.') },
   // Claude Code 명령: 그대로 보낸다 (에이전트가 아니라 Claude Code가 처리)
   { cmd: t('/곁', '/btw'), label: t('하던 일을 멈추지 않고 짧게 묻기 (작은 모델이 대화 요약만 보고 답함)', 'Ask a quick side question without interrupting (a small model answers from a summary)'), text: t('/곁 ', '/btw ') },
-  { cmd: '/compact', label: t('앞 내용을 요약해 맥락 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact', send: true },
-  { cmd: '/context', label: t('맥락이 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context', send: true },
+  { cmd: '/compact', label: t('앞 내용을 요약해 컨텍스트 줄이기', 'Summarize earlier messages to shrink the context'), text: '/compact', send: true },
+  { cmd: '/context', label: t('컨텍스트가 무엇에 얼마나 쓰였는지 보기', 'Show what fills the context'), text: '/context', send: true },
 ]
 
 /** 곁 질문이면 묻는 글 (/곁 · /btw 뒤), 아니면 없음 */
@@ -354,7 +354,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   const stopping = !!onStop && !text.trim()
   const shownFail = fail ?? outerFail
   const models = useModels(settings.agent)
-  const accounts = useClaudeAccounts().data?.accounts.filter((a) => a.login) ?? []
+  const claudeAccounts = useAgentAccounts('claude').data, codexAccounts = useAgentAccounts('codex').data
+  const accounts = ((settings.agent === 'codex' ? codexAccounts : claudeAccounts)?.accounts ?? []).filter((a) => a.login)
   const efforts = effortsOf(settings.model, models)
   const fam = familyOf(settings.model, models)
   // 생각 깊이 고르기: Claude는 effort 칸, Codex는 모델 id 뒤의 깊이(gpt-…/high). 기본 모델이면 실제로 도는 모델의 깊이를 고르면 그 모델로 바뀐다
@@ -434,7 +435,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
               return <button key={f.base} role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => { close(); onSettings({ model: value, ...fitEffort(settings.effort, effortsOf(value, models)) }) }}><span className="ac-pop-check" aria-hidden>{on ? Icon.check : null}</span>{f.base === 'default' ? modelName('default', models).replace(/ \(.*\)$/, '') : f.name}</button>
             })}
             {/* 계정 (11/16 "계정 전환을 쉽게"): 이 대화만 다른 Claude 계정으로. 다음 차례부터, 일하는 중에는 서버가 막는다 */}
-            {settings.account !== undefined && isClaude(settings.agent) && accounts.length > 1 && <>
+            {settings.account !== undefined && (isClaude(settings.agent) || settings.agent === 'codex') && accounts.length > 1 && <>
               <div className="ac-pop-h">{t('계정', 'Account')}</div>
               {accounts.map((a) => <button key={a.id} role="menuitemradio" aria-checked={settings.account === a.id} className={settings.account === a.id ? 'on' : ''} onClick={() => { close(); if (settings.account !== a.id) onSettings({ account: a.id }) }}><span className="ac-pop-check" aria-hidden>{settings.account === a.id ? Icon.check : null}</span>{accountLabel(a)}</button>)}
             </>}

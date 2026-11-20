@@ -26,11 +26,12 @@ export const COLOR_ROWS_KO: ColorRow[] = [
   { token: '--banner-bg', color: '노랑', name: '예제 모드', meaning: '개발용 예제 연구를 보고 있음', where: '맨 위 배너' },
 ]
 
-export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'share' | 'update' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
+export const SYMBOL_GROUPS_KO = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'share' | 'update' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude' | 'compose', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
   {
     title: '행동', note: '늘 무채색입니다. 한 행동에 이름 하나·기호 하나.',
     rows: [
       { mark: g.icons.plus, name: '추가', meaning: '새로 만들거나 넣기', where: '모든 목록' },
+      { mark: g.icons.compose, name: '새 대화', meaning: '고른 대상(프로젝트 · 앱 개발)에서 에이전트 대화를 새로 열기. 항목 수정 연필과 달리 네모 위에 연필', where: '에이전트 화면 대화 목록의 ☰ 대상 줄 오른쪽 (11/20)' },
       { mark: g.icons.pencil, name: '수정', meaning: '그 항목의 입력란 열기', where: '항목 오른쪽 위 (좁은 칸은 늘 보임)' },
       { mark: g.icons.trash, name: '삭제', meaning: '사라짐. 되돌릴 수 없는 삭제는 무엇이 남는지 적고 확인합니다', where: '항목 오른쪽 위 (좁은 칸은 늘 보임)' },
       { mark: g.icons.x, name: '제거·닫기', meaning: '여기서만 빠짐, 파일은 그대로', where: '태그, 목록, 창' },
@@ -88,11 +89,12 @@ export const COLOR_ROWS_EN: ColorRow[] = [
   { token: '--banner-bg', color: 'Yellow', name: 'Sample mode', meaning: 'You are looking at the sample research for development', where: 'Banner at the very top' },
 ]
 
-export const SYMBOL_GROUPS_EN = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'share' | 'update' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
+export const SYMBOL_GROUPS_EN = (g: { icons: Record<'pencil' | 'trash' | 'play' | 'share' | 'update' | 'comment' | 'approve' | 'sendBack' | 'memo' | 'feedback' | 'panelLeft' | 'more' | 'reopen' | 'search' | 'plus' | 'x' | 'up' | 'down' | 'todo' | 'ask' | 'send' | 'spark' | 'star' | 'check' | 'unchecked' | 'flag' | 'swap' | 'claude' | 'compose', ReactNode> }): { title: string; note: string; rows: SymbolRow[] }[] => [
   {
     title: 'Actions', note: 'Always neutral. One name and one symbol per action.',
     rows: [
       { mark: g.icons.plus, name: 'Add', meaning: 'Create or insert something new', where: 'Every list' },
+      { mark: g.icons.compose, name: 'New conversation', meaning: 'Open a new agent conversation in the picked target (a project or app development). Unlike the edit pencil, the pencil sits over a square', where: 'Right of the ☰ target row in the Agents conversation list (11/20)' },
       { mark: g.icons.pencil, name: 'Edit', meaning: 'Open the item\'s input', where: 'Item top right (always shown in narrow areas)' },
       { mark: g.icons.trash, name: 'Delete', meaning: 'Gone. A delete that cannot be undone says what stays and asks for confirmation', where: 'Item top right (always shown in narrow areas)' },
       { mark: g.icons.x, name: 'Remove/Close', meaning: 'Taken out only here; the file stays', where: 'Tags, lists, dialogs' },

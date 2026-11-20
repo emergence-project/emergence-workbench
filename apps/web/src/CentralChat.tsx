@@ -81,7 +81,7 @@ function useBoard() {
   return { ...b, counts: boardCounts(b.rows, b.moreFeedback) }
 }
 
-const GROUP_NAME: Record<BoardGroup, string> = { turn: t('내 차례', 'Your turn'), doing: t('진행 중', 'In progress'), ready: t('합칠 준비', 'Ready to merge'), done: t('끝남 · 오늘', 'Done today') }
+const GROUP_NAME: Record<BoardGroup, string> = { turn: t('내 차례', 'Your turn'), doing: t('진행 중', 'In progress'), ready: t('합칠 준비', 'Ready to merge'), done: t('종료 · 오늘', 'Done today') }
 
 /** 머리 한 줄: 남음 n · 내 차례 n · 정체 n */
 function CountLine({ counts: n }: { counts: ReturnType<typeof boardCounts> }) {
@@ -95,7 +95,7 @@ function CountLine({ counts: n }: { counts: ReturnType<typeof boardCounts> }) {
 
 /**
  * 중앙의 작업 현황 (11/19 피드백 "뭐가 남아있고, 뭐가 정체되어 있는지", 시안 2026-11-19-central-checklist 안 A):
- * 맡긴 하위 대화 · 자리 기다림 · 사용자가 답할 피드백을 묶음(내 차례 → 진행 중 → 합칠 준비 → 끝남 · 오늘)마다 한 줄씩.
+ * 맡긴 하위 대화 · 자리 기다림 · 사용자가 답할 피드백을 묶음(내 차례 → 진행 중 → 합칠 준비 → 종료 · 오늘)마다 한 줄씩.
  * 줄은 서버가 대화를 바꿀 때마다(차례 끝 · 허락 · CI · 합침 · 사용자 고름) 바로 바뀐다
  */
 export function CentralBoard({ onPick }: { onPick?(): void }) {

@@ -13,7 +13,7 @@ import { FeedbackFocus, FocusMissing, useFeedbackFocus, useFocusOpen, useIsFocus
 import { jumpToFeedbackTarget } from './feedbackJump'
 import { feedbackSummary, feedbackWhen } from './feedbackFormat'
 import { FeedbackFileButtons, InstantToggle, IssueButton } from './FeedbackSend'
-import { AnswerCells, AnswerHeads, answerKindName, KIND_FILTERS, matchesKind, type KindFilter } from './feedbackAnswerKind'
+import { AnswerCells, AnswerHeads, AnswerResult, answerKindName, KIND_FILTERS, matchesKind, type KindFilter } from './feedbackAnswerKind'
 import { asksUser, feedbackBucket, needsAnswer, railCount, stateOf, type FeedbackBucket } from './feedbackBuckets'
 import { plural, shown, t } from './i18n'
 import { feedbackKindName as kindName, feedbackLabel as label, feedbackStateName as stateName, REPLY, TAG_NOTES } from './feedbackTags'
@@ -21,6 +21,7 @@ import { href } from './router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
 import { AgentLine } from './FeedbackAgentLine'
+import { flash } from './flash'
 const FEEDBACK_STATE = [...qk.feedback, 'state'] as const, FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
@@ -253,7 +254,7 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
   return (
     <article className={`fbp-entry st-${st}`} data-ui="피드백 항목" data-ui-item={`${e.time} ${e.target}`} data-fb-key={e.key}>
       <div className="fbp-head">
-        <span className={`fbp-state st-${st}`}>{headName(e, st)}</span>
+        <span className={`fbp-state st-${st}`}>{headName(e, st)}</span><AnswerResult e={e} />
         <span className="tag">{kindName(kindOf(e))}</span>
         {e.source && <span className="tag" title={e.source === '미리보기' ? t('채팅의 앱 미리보기에 남긴 댓글', 'Comment left in the app preview in chat') : `${t('피드백 파일로 받은 다른 사람의 피드백', 'Feedback from someone else, imported from a feedback file')}${e.sender ? ` · ${t('보낼 때 이름', 'Name when sent')}: ${e.source}` : ''}`}>{shown(e.sender ?? e.source)}</span>}
         {e.status?.theme && <span className="fbp-theme">#{e.status.theme}</span>}
@@ -530,22 +531,27 @@ function PublishButton() {
   /** 올릴 피드백 항목 수 (파일 수가 아니다: 답 여럿도 reviews.yaml 한 파일) */
   const count = unpublished.data ? unpublished.data.count ?? unpublished.data.files.length : 0
   const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState<{ text: string; error: boolean } | null>(null)
   const publishable = !!state.data?.publishable
   const delay = state.data?.delay ?? null
   const auto = { on: !!state.data?.autoPublish && delay !== null, error: state.data?.lastAutoPublish?.error ?? null }
+  // 자동 등록이 실패하면 한 번 알린다(같은 까닭은 다시 띄우지 않음). 닫을 때까지 남고 「다시 등록」
+  const shownError = useRef<string | null>(null)
+  useEffect(() => {
+    if (!auto.error || files.length === 0 || shownError.current === auto.error) return
+    shownError.current = auto.error
+    flash(`${t('자동으로 등록하지 못했습니다', 'Automatic registration failed')}: ${auto.error}`, { label: t('다시 등록', 'Register again'), run: () => void publish() }, { error: true })
+  })
 
   const publish = async () => {
-    setBusy(true); setNote(null)
-    try { setNote({ text: (await records.publishFeedback()).message, error: false }) } catch (e) { setNote({ text: (e as Error).message, error: true }) } finally {
+    setBusy(true)
+    // 결과는 화면 아래 알림으로 (11/20 시안 2절: 툴바에 글이 끼면 배치가 밀린다). 실패는 닫을 때까지 남기고 「다시 등록」
+    try { flash((await records.publishFeedback()).message) } catch (e) { flash(e instanceof Error ? e.message : String(e), { label: t('다시 등록', 'Register again'), run: () => void publish() }, { error: true }) } finally {
       setBusy(false); void client.invalidateQueries({ queryKey: qk.feedback })
     }
   }
 
   return (
     <>
-      {!note && auto.error && files.length > 0 && <span className="error-text fbp-pubnote" data-ui="올리기 결과">{t('자동으로 등록하지 못했습니다', 'Automatic registration failed')}: {auto.error}</span>}
-      {note && <span className={`${note.error ? 'error-text' : 'muted'} fbp-pubnote`} data-ui="올리기 결과">{note.text}</span>}
       {publishable && (
         <button className={`btn${files.length > 0 ? ' primary' : ''}`} data-ui="GitHub에 올리기" disabled={busy || files.length === 0} style={{ marginRight: 'var(--sp-2)' }} onClick={() => void publish()}
           title={files.length > 0 ? `${auto.on ? t(`남긴 뒤 ${syncEveryLabel(delay ?? 30)} 지나면 자동으로 등록됩니다. 지금 바로 등록하려면 누르세요.\n`, `Feedback is registered automatically ${syncEveryLabel(delay ?? 30, false)} after you leave it. Click to register now.\n`) : ''}${t('아직 GitHub에 없는 피드백만 GitHub에 올려 등록합니다. 다른 파일은 올리지 않습니다', 'Pushes only feedback not yet on GitHub. No other files are pushed')}\n\n${files.join('\n')}` : t('남긴 피드백이 모두 GitHub에 등록되어 있습니다', 'All feedback is registered on GitHub')}>

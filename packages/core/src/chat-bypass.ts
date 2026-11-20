@@ -4,7 +4,7 @@
  * 강제 푸시 · reset --hard · main 지우기, 임시 폴더 밖 rm -rf, 연구 저장소 workbench/(노트 · 기록) 쓰기.
  * 셸 감싸기(sh -c · eval · xargs · env · sudo …)와 $( … ) 안쪽도 같은 규칙으로 본다
  */
-import { segments, words } from './chat-auto.js'
+import { segments, substitutions, words } from './chat-auto.js'
 
 export type NeverBypass = 'force-push' | 'reset-hard' | 'delete-main' | 'rm-outside-temp' | 'workbench-write'
 
@@ -78,8 +78,9 @@ function segment(w: string[], depth: number): NeverBypass | undefined {
 /** 허락해도 돌리지 않는 명령이면 그 까닭, 아니면 undefined */
 export function neverBypass(cmd: string, depth = 0): NeverBypass | undefined {
   if (depth > 4) return undefined
-  for (const m of cmd.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) {
-    const r = neverBypass(m[1] ?? m[2] ?? '', depth + 1)
+  // 겹친 $( $( … ) )도 안쪽부터 본다
+  for (const part of substitutions(cmd).inner) {
+    const r = neverBypass(part, depth + 1)
     if (r) return r
   }
   // 파일로 돌려보내기: 받는 곳이 workbench/ 안이면

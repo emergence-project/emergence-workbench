@@ -183,8 +183,18 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-line-top { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .ac-line .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-line-meta { font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
-.ac-filter { margin: var(--sp-1) 0; }
-.ac-filter button { white-space: nowrap; }
+.ac-target-line { display: flex; align-items: center; gap: var(--sp-1); margin: var(--sp-1) 0; }
+.ac-target-box { position: relative; flex: 1; min-width: 0; }
+.ac-target { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; padding: var(--sp-1) var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--text); font-size: var(--fs-sm); cursor: pointer; text-align: left; }
+.ac-target:hover, .ac-target[aria-expanded='true'] { background: var(--bg-hover); }
+.ac-target .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-target-ic { display: inline-flex; color: var(--text-3); }
+.ac-target-ic svg { width: 16px; height: 16px; }
+.ac-target-cv { color: var(--text-3); }
+.ac-target-menu { left: 0; right: 0; top: calc(100% + 2px); max-height: 60vh; overflow-y: auto; }
+.ac-target-menu .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-target-menu .n { color: var(--text-3); font-size: var(--fs-xs); }
+.ac-target-sep { border: 0; border-top: 1px solid var(--line); margin: var(--sp-1) 0; }
 .ac-list .empty { padding: var(--sp-2); }
 .ac-line-dot { flex: none; width: 10px; display: inline-flex; justify-content: center; }
 .ac-line-dot .g-name { display: none; }

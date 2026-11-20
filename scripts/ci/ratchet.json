@@ -3,8 +3,8 @@
     "apps/server/src/agentChats.ts": 1112,
     "apps/server/src/comments.ts": 643,
     "apps/server/src/feedback.ts": 634,
-    "apps/web/src/AgentChats.tsx": 1312,
-    "apps/web/src/App.tsx": 633,
+    "apps/web/src/AgentChats.tsx": 1212,
+    "apps/web/src/App.tsx": 627,
     "apps/web/src/Workspace.tsx": 641
   },
   "casts": {
@@ -89,7 +89,7 @@
     "apps/web/src/api/http.ts": 3,
     "apps/web/src/api/library.ts": 1,
     "apps/web/src/api/research.ts": 3,
-    "apps/web/src/App.tsx": 10,
+    "apps/web/src/App.tsx": 9,
     "apps/web/src/AppUpdate.tsx": 2,
     "apps/web/src/autosave.ts": 2,
     "apps/web/src/CardEditDialog.tsx": 2,
@@ -106,7 +106,7 @@
     "apps/web/src/feedbackDraft.ts": 3,
     "apps/web/src/feedbackJump.ts": 1,
     "apps/web/src/FeedbackMode.tsx": 2,
-    "apps/web/src/FeedbackPage.tsx": 2,
+    "apps/web/src/FeedbackPage.tsx": 1,
     "apps/web/src/feedbackThread.ts": 1,
     "apps/web/src/FieldTags.tsx": 1,
     "apps/web/src/FigurePreview.tsx": 1,

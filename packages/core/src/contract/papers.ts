@@ -60,9 +60,10 @@ export const PaperBrief = z.object({
   stats: z.object({ noPdf: z.number(), arxiv: z.number(), unlinked: z.number(), papers: z.number(), books: z.number(), unclassified: z.number().optional() }).strict(),
   folders: z.array(z.object({ path: z.string(), cloud: z.enum(CLOUD_KINDS) }).strict()),
 }).strict()
-export const PaperFolder = z.object({ path: z.string(), exists: z.boolean(), cloud: z.enum(CLOUD_KINDS) }).strict()
-/** GET · PUT /papers/folders */
-export const PaperFolders = z.object({ folders: z.array(PaperFolder) }).strict()
+/** fallback = 하나도 적지 않아 쓰는 기본 폴더(라이브러리의 pdfs, 11/20) */
+export const PaperFolder = z.object({ path: z.string(), exists: z.boolean(), cloud: z.enum(CLOUD_KINDS), fallback: z.boolean().optional() }).strict()
+/** GET · PUT /papers/folders. others = 다른 컴퓨터에 적어 둔 폴더 가운데 이 컴퓨터에도 있고 아직 더하지 않은 것 */
+export const PaperFolders = z.object({ folders: z.array(PaperFolder), others: z.array(z.object({ path: z.string(), cloud: z.enum(CLOUD_KINDS) }).strict()) }).strict()
 /** POST /papers · PUT /papers/upload */
 export const PaperAdded = z.object({ key: z.string(), existed: z.boolean(), pdf: z.string().optional(), pdfError: z.string().optional() }).strict()
 /** arXiv 판 후보 하나. match: doi = arXiv에 적힌 DOI가 bib와 같음, title = 제목·첫 저자로 찾음 */

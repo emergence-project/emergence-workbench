@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { AgentPage, AgentSide, NewChat } from '../AgentChats'
+import { AgentPage, NewChat } from '../AgentChats'
+import { AgentSide } from '../AgentChatList'
 import { t } from '../i18n'
 import { usePhone } from '../phoneLayout'
 import { go } from '../router'

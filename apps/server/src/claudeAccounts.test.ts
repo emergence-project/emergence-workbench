@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { accountForNew, ClaudeAccounts, loginUrl, moveSession, switchAccount } from './claudeAccounts.js'
+import { accountEnv, accountForNew, ClaudeAccounts, loginUrl, moveCodexSession, moveSession, switchAccount } from './claudeAccounts.js'
 
 let tmp = ''
 const make = () => {
@@ -36,13 +36,13 @@ describe('Claude 계정', () => {
     const id = a.add('Pro').accounts[1]!.id
     a.setRole('app', id)
     const base = { rid: 'r', agent: 'claude-code', app: false, central: false }
-    expect(accountForNew(a, { ...base, central: true })).toBe(id)
-    expect(accountForNew(a, { ...base, feedback: 'k' })).toBe(id)
-    expect(accountForNew(a, { ...base, app: true })).toBe(id)
-    expect(accountForNew(a, base)).toBeUndefined()
-    expect(accountForNew(a, { ...base, agent: 'codex', central: true })).toBeUndefined()
+    expect(accountForNew({ claude: a }, { ...base, central: true })).toBe(id)
+    expect(accountForNew({ claude: a }, { ...base, feedback: 'k' })).toBe(id)
+    expect(accountForNew({ claude: a }, { ...base, app: true })).toBe(id)
+    expect(accountForNew({ claude: a }, base)).toBeUndefined()
+    expect(accountForNew({ claude: a }, { ...base, agent: 'codex', central: true })).toBeUndefined()
     a.setRole('central', 'default')
-    expect(accountForNew(a, { ...base, central: true })).toBeUndefined()
+    expect(accountForNew({ claude: a }, { ...base, central: true })).toBeUndefined()
     expect(() => a.setRole('central', 'a123456')).toThrow()
   })
 
@@ -76,20 +76,60 @@ describe('Claude 계정', () => {
     fs.mkdirSync(from, { recursive: true })
     fs.writeFileSync(path.join(from, 's1.jsonl'), '{}\n')
     const c: { account?: string; sessionId?: string; agent: string; state: string } = { sessionId: 's1', agent: 'claude-code', state: 'idle' }
-    switchAccount(c, id, a)
+    switchAccount(c, id, { claude: a })
     expect(c).toMatchObject({ account: id, sessionId: 's1' })
     expect(fs.existsSync(path.join(a.dirOf(id)!, 'projects', '-w-app', 's1.jsonl'))).toBe(true)
-    expect(() => switchAccount({ ...c, state: 'running' }, 'default', a)).toThrow(/일하는 중/)
+    expect(() => switchAccount({ ...c, state: 'running' }, 'default', { claude: a })).toThrow(/일하는 중/)
     // 세션 파일이 없으면 새 세션으로
     const d = { sessionId: 'nope', agent: 'claude-code', state: 'idle', account: id }
-    switchAccount(d, 'default', a)
+    switchAccount(d, 'default', { claude: a })
     expect(d).toEqual({ agent: 'claude-code', state: 'idle' })
-    expect(() => switchAccount({ agent: 'codex', state: 'idle' }, id, a)).toThrow()
+    expect(() => switchAccount({ agent: 'codex', state: 'idle' }, id, { claude: a })).toThrow()
   })
 
   it('로그인 출력에서 주소를 찾는다', () => {
     expect(loginUrl('Opening browser…\nhttps://claude.ai/oauth/authorize?code=true&x=1\nPaste code here if prompted >')).toBe('https://claude.ai/oauth/authorize?code=true&x=1')
     expect(loginUrl('nothing')).toBeUndefined()
     expect(moveSession('/nope', '/nope2', 'x')).toBe(false)
+  })
+})
+
+describe('Codex 계정 (11/20 시안 4절)', () => {
+  const makeCodex = () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-acct-'))
+    return new ClaudeAccounts(path.join(tmp, 'config'), { cli: () => '/bin/true', home: path.join(tmp, 'home'), kind: 'codex' })
+  }
+  const jwt = (claims: object) => `x.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.y`
+
+  it('계정 폴더를 CODEX_HOME으로 주고, 이 컴퓨터 설정(config.toml)을 복사하며, auth.json에서 이메일 · 한도를 읽는다', () => {
+    const a = makeCodex()
+    fs.mkdirSync(path.join(tmp, 'home', '.codex'), { recursive: true })
+    fs.writeFileSync(path.join(tmp, 'home', '.codex', 'config.toml'), 'model = "gpt-x"\n')
+    const s = a.add('Plus')
+    expect(s.kind).toBe('codex')
+    const id = s.accounts[1]!.id
+    const dir = a.dirOf(id)!
+    expect(dir).toBe(path.join(tmp, 'config', 'codex-accounts', id))
+    expect(a.env(id)).toEqual({ CODEX_HOME: dir })
+    expect(fs.readFileSync(path.join(dir, 'config.toml'), 'utf8')).toContain('gpt-x')
+    expect(fs.existsSync(path.join(dir, 'auth.json'))).toBe(false)
+    fs.writeFileSync(path.join(dir, 'auth.json'), JSON.stringify({ tokens: { id_token: jwt({ email: 'c@example.com', 'https://api.openai.com/auth': { chatgpt_plan_type: 'plus' } }) } }))
+    const day = path.join(dir, 'sessions', '2026', '11', '20')
+    fs.mkdirSync(day, { recursive: true })
+    const later = Math.floor(Date.now() / 1000) + 3600
+    fs.writeFileSync(path.join(day, 'rollout-2026-11-20T01-00-00-s9.jsonl'), `${JSON.stringify({ timestamp: new Date().toISOString(), type: 'event_msg', payload: { type: 'token_count', rate_limits: { primary: { used_percent: 12.5, window_minutes: 300, resets_at: later }, secondary: { used_percent: 81, window_minutes: 10080, resets_at: later } } } })}\n`)
+    expect(a.state().accounts[1]).toMatchObject({ email: 'c@example.com', plan: 'Plus', login: true, limits: { five: { used: 12.5 }, week: { used: 81 } } })
+    // Codex 대화는 Codex 계정으로, 환경은 CODEX_HOME
+    const book = { codex: a }
+    a.setRole('project', id)
+    expect(accountForNew(book, { rid: 'r', agent: 'codex', app: false, central: false })).toBe(id)
+    expect(accountForNew(book, { rid: 'r', agent: 'claude-code', app: false, central: false })).toBeUndefined()
+    expect(accountEnv(book, { agent: 'codex', account: id })).toEqual({ CODEX_HOME: dir })
+    // 대화를 옮기면 rollout 파일을 같은 자리로
+    const c: { account?: string; sessionId?: string; agent: string; state: string } = { agent: 'codex', state: 'idle', account: id, sessionId: 's9' }
+    switchAccount(c, 'default', book)
+    expect(c).toEqual({ agent: 'codex', state: 'idle', sessionId: 's9' })
+    expect(fs.existsSync(path.join(tmp, 'home', '.codex', 'sessions', '2026', '11', '20', 'rollout-2026-11-20T01-00-00-s9.jsonl'))).toBe(true)
+    expect(moveCodexSession(dir, path.join(tmp, 'x'), 'nope')).toBe(false)
   })
 })

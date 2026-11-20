@@ -34,9 +34,9 @@ export function jwtClaims(token: unknown): Record<string, unknown> {
   try { return obj(JSON.parse(Buffer.from(part, 'base64url').toString('utf8'))) } catch { return {} }
 }
 
-/** Codex: CODEX_HOME(기본 ~/.codex)의 auth.json에 든 id_token의 email과 chatgpt_plan_type. API 키로 로그인했으면 없음 */
-export function codexAccount(home = os.homedir()): Account {
-  const auth = readJson(path.join(process.env.CODEX_HOME || path.join(home, '.codex'), 'auth.json'))
+/** Codex: CODEX_HOME(기본 ~/.codex)의 auth.json에 든 id_token의 email과 chatgpt_plan_type. API 키로 로그인했으면 없음. dir을 주면 그 폴더(더한 계정, claudeAccounts.ts)에서 */
+export function codexAccount(home = os.homedir(), dir = process.env.CODEX_HOME || path.join(home, '.codex')): Account {
+  const auth = readJson(path.join(dir, 'auth.json'))
   const claims = jwtClaims(obj(auth.tokens).id_token)
   const email = str(claims.email)
   const plan = planName(str(obj(claims['https://api.openai.com/auth']).chatgpt_plan_type))

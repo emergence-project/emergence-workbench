@@ -9,14 +9,15 @@ const CLOUD_LABEL = { icloud: 'iCloud', drive: 'Google Drive', local: t(HERE.ko,
 /** 설정 › 라이브러리 관리 › 논문. 더한 논문의 PDF는 첫 폴더에 받는다. */
 export function PdfFolderSettings({ onSaved, onReady }: { onSaved(m: string): void; onReady?(): void }) {
   const [folders, setFolders] = useState<PaperFolder[] | null>(null)
+  const [others, setOthers] = useState<{ path: string; cloud: PaperFolder['cloud'] }[]>([])
   const [text, setText] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => { papersApi.folders().then((v) => setFolders(v.folders)).catch((e: Error) => setErr(e.message)) }, [])
+  useEffect(() => { papersApi.folders().then((v) => { setFolders(v.folders); setOthers(v.others) }).catch((e: Error) => setErr(e.message)) }, [])
   useEffect(() => { if (folders || err) onReady?.() }, [folders, err, onReady])
   const save = async (next: string[], msg: string) => {
     setBusy(true)
-    try { setFolders((await papersApi.setFolders(next)).folders); setErr(''); window.dispatchEvent(new Event(PAPERS_CHANGED)); onSaved(msg); return true } catch (e) { setErr((e as Error).message); return false } finally { setBusy(false) }
+    try { const v = await papersApi.setFolders(next); setFolders(v.folders); setOthers(v.others); setErr(''); window.dispatchEvent(new Event(PAPERS_CHANGED)); onSaved(msg); return true } catch (e) { setErr((e as Error).message); return false } finally { setBusy(false) }
   }
   const list = folders ?? []
   return (
@@ -27,10 +28,22 @@ export function PdfFolderSettings({ onSaved, onReady }: { onSaved(m: string): vo
           <div key={f.path} className="set-row pl-folder" data-ui="PDF 폴더 줄" data-ui-item={f.path}>
             <span className="mono" title={f.path}>{f.path.split('/').filter(Boolean).pop() || f.path}</span>
             <span className="muted">{CLOUD_LABEL[f.cloud]}</span>
+            {f.fallback && <span className="tag" title={t('폴더를 하나도 적지 않아 라이브러리 안의 pdfs 폴더를 씁니다', 'No folder is set, so the pdfs folder inside the library is used')}>{t('기본', 'Default')}</span>}
             {i === 0 && <span className="tag">{t('저장 위치', 'Downloads here')}</span>}
             {!f.exists && <span className="muted">{t(`(${HERE.ko}에 없음)`, `(not on ${HERE.en})`)}</span>}
             <span className="sp" />
-            <button className="icon-btn" aria-label={t('제거', 'Remove')} data-tip={t('제거', 'Remove')} disabled={busy} onClick={() => void save(list.filter((x) => x.path !== f.path).map((x) => x.path), t('PDF 폴더를 뺐습니다 (폴더와 PDF는 그대로 있습니다)', 'Removed the PDF folder (the folder and its PDFs stay as they are)'))}>{Icon.x}</button>
+            {!f.fallback && <button className="icon-btn" aria-label={t('제거', 'Remove')} data-tip={t('제거', 'Remove')} disabled={busy} onClick={() => void save(list.filter((x) => x.path !== f.path).map((x) => x.path), t('PDF 폴더를 뺐습니다 (폴더와 PDF는 그대로 있습니다)', 'Removed the PDF folder (the folder and its PDFs stay as they are)'))}>{Icon.x}</button>}
+          </div>
+        ))}
+      </div>}
+      {others.length > 0 && <div className="set-rows" data-ui="다른 컴퓨터 PDF 폴더">
+        <p className="set-desc">{t('다른 컴퓨터에서 쓰는 폴더 (이 컴퓨터에도 있음)', 'Folders used on your other computers (also on this one)')}</p>
+        {others.map(({ path: p, cloud }) => (
+          <div key={p} className="set-row pl-folder" data-ui-item={p}>
+            <span className="mono" title={p}>{p.split('/').filter(Boolean).pop() || p}</span>
+            <span className="muted">{CLOUD_LABEL[cloud]}</span>
+            <span className="sp" />
+            <button className="btn" disabled={busy} onClick={() => void save([...list.map((x) => x.path), p], t('PDF 폴더를 더했습니다', 'Added the PDF folder'))}>＋ {t('추가', 'Add')}</button>
           </div>
         ))}
       </div>}

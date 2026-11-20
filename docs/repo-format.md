@@ -546,7 +546,7 @@ chapters:
 
 | 파일 | 무엇 |
 |---|---|
-| `config.yaml` | 등록한 연구(`researches: [{id, path, kind?, fields?, state?, rail?}]`; `rail: true`면 멈춤 · 완료여도 레일에 보인다), `library`, `pdfFolders`, `personalRepo`, `engine`, `ui`, 서식, 사람. 앱이 저장할 때 전체를 다시 쓰므로 주석은 사라진다. 앱이 모르는 맨 위 키(다른 맥의 새 버전이 더한 설정 등)는 저장할 때 그대로 남긴다 |
+| `config.yaml` | 등록한 연구(`researches: [{id, path, kind?, fields?, state?, rail?}]`; `rail: true`면 멈춤 · 완료여도 레일에 보인다), `library`, `pdfFolders`(비면 라이브러리의 `pdfs/`), `personalRepo`, `engine`, `ui`, 서식, 내 정보(`authors` · `gitIdentity`, 고친 때 `meAt`)와 네트워킹 사람(`people`, 고친 때 `peopleAt`): 둘 다 개인 저장소의 `_settings/<컴퓨터>/config.yaml`을 거쳐 더 늦게 고친 컴퓨터를 따른다(`meSync.ts`. 사람 목록은 고친 때가 없던 예전 목록끼리 합친다). 앱이 저장할 때 전체를 다시 쓰므로 주석은 사라진다. 앱이 모르는 맨 위 키(다른 맥의 새 버전이 더한 설정 등)는 저장할 때 그대로 남긴다 |
 | `latex-files/` | 앱에 싣지 않는 서식 스타일 파일. `config.yaml` 서식의 `files:`에 적은 이름을 앱의 `templates/latex/`에서 먼저, 없으면 여기서 찾는다 |
 | `index/concepts-*.sqlite` | 개념 색인 (지워도 다시 만듦) |
 | `figure-cache/` | tikz 그림 캐시 (지워도 됨) |

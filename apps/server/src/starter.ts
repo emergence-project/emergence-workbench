@@ -36,6 +36,6 @@ export function prepareStarter(registry: Registry, template: string, home = os.h
   if (!fs.existsSync(library)) fs.cpSync(template, library, { recursive: true })
   fs.mkdirSync(papers, { recursive: true })
   registry.setLibrary(library)
-  if (registry.pdfFoldersSet.length === 0) registry.setPdfFolders([papers])
+  if (!registry.pdfFoldersSetByUser) registry.setPdfFolders([papers])
   return library
 }

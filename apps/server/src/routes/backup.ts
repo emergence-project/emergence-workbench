@@ -7,6 +7,8 @@ import path from 'node:path'
 import { backupWorkbenches, type BackupResult } from '../backup.js'
 import { remoteOf, sameRepo } from './google.js'
 import { adoptOtherProfiles } from '../profileSync.js'
+import { adoptOtherMe } from '../meSync.js'
+import { setAppIdentity } from '../git.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
@@ -30,6 +32,8 @@ export function registerBackup(app: FastifyInstance, ctx: RouteContext): (() => 
         if (r.settingsPulled) registry.reload()
         // 다른 컴퓨터에서 더 늦게 고친 진행 상태 · 띠 · 색 등을 따른다 (10/22 09:44). 다음 맞추기에서 이 컴퓨터 목록에도 올라간다
         await adoptOtherProfiles(registry, cfg.dir, { remoteOf, sameRepo }).catch(() => [])
+        // 내 정보(저자 · 소속 · 커밋 이름)도 더 늦게 고친 컴퓨터를 따른다 (meSync.ts, 11/20)
+        try { if (adoptOtherMe(registry, cfg.dir).includes('gitIdentity') && registry.gitIdentity) setAppIdentity(registry.gitIdentity) } catch { /* 다음 맞추기에서 */ }
         last = r
         return r
       })

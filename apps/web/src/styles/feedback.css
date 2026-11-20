@@ -37,7 +37,6 @@ body.feedback-on .toast { bottom: 76px; }
 .fbp-toolbar { height: auto; min-height: calc(var(--input-h) + var(--sp-4)); padding-block: var(--sp-2); white-space: nowrap; }
 /* 오른쪽 행동이 길어도(자동 처리 · 보내기 · 가져오기 · 올리기 결과 · 등록) 가운데 「보기」를 덮지 않게: 양옆이 남는 폭에 들어가면 가운데는 그대로 가운데, 넘치면 그 칸이 늘고 가운데가 비켜난다. 올리기 결과 글은 좁은 폭에서 두 줄로 접고, 1100px 아래에서는 줄을 바꾼다 (11/20 02:36 피드백) */
 .fbp-toolbar.bar3 { grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); column-gap: var(--sp-4); }
-.fbp-pubnote { max-width: 15em; white-space: normal; font-size: var(--fs-xs); line-height: 1.3; margin-right: var(--sp-2); }
 .fbp-pick { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
 .fbp-pick .mini-select { max-width: none; }
 .fbp-toolbar .fbp-groupby { margin: 0; flex-wrap: nowrap; font-size: var(--fs-xs); }
@@ -83,6 +82,7 @@ body.feedback-on .toast { bottom: 76px; }
 @container (max-width: 680px) { .fbp-table :is(th, td):is(:nth-child(2), :nth-child(7)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
 @container (max-width: 540px) { .fbp-table :is(th, td):is(:nth-child(6), :nth-child(10), :nth-child(12)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
 @container (max-width: 380px) { .fbp-table :is(th, td):nth-child(3) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+.fbp-result { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); white-space: nowrap; }
 .fbp-state.turn { background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
 .fbp-table td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: baseline; }
 .fbp-row { cursor: pointer; }

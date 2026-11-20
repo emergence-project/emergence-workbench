@@ -385,6 +385,9 @@ describe('대화 API', () => {
     const c = await create({ text: '요약' })
     const d = await create({ text: '요약' })
     await settle(d.id, 'queued')
+    // 목록은 줄 선 차례를 준다 (대화 목록 「대기 n번째」)
+    const rows = (await app.inject({ method: 'GET', url: '/api/agent-chats' })).json().chats as { id: string; queue?: number }[]
+    expect([rows.find((r) => r.id === c.id)?.queue, rows.find((r) => r.id === d.id)?.queue, rows.find((r) => r.id === running[0]!.id)?.queue]).toEqual([1, 2, undefined])
     await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/stop` })
     await settle(c.id, 'stopped')
     expect((await get(d.id)).state).toBe('queued')

@@ -73,3 +73,18 @@ export function attentionOf(issues: number, behind: number): AttentionMark {
 export function railProjects<T extends Pick<ResearchListItem, 'id' | 'state' | 'rail'>>(list: T[], open?: string | null): T[] {
   return list.filter((r) => r.state === 'active' || r.rail || r.id === open)
 }
+
+/**
+ * 띠의 프로젝트를 화면 높이에 맞게 자른다 (11/20 피드백 "레일에 나타나는 프로젝트 수를 화면 크기에 따라 제한").
+ * slots = 프로젝트 칸에 들어가는 버튼 수(＋ 등록 포함). 다 들어가면 그대로, 넘치면 「더 보기」 버튼 자리를 하나 남기고
+ * 앞에서부터 보인다. 지금 연 프로젝트는 되도록 숨기지 않는다(마지막 자리에). 자리가 아주 좁으면 ＋ 등록도 「더 보기」 메뉴로 간다(add: false).
+ */
+export function railFit(ids: string[], slots: number, open?: string | null): { shown: string[]; hidden: string[]; add: boolean } {
+  if (ids.length + 1 <= slots) return { shown: ids, hidden: [], add: true }
+  const room = Math.max(0, slots - 1)
+  const add = room >= 2
+  const n = add ? room - 1 : room
+  let shown = ids.slice(0, n)
+  if (n > 0 && open && ids.includes(open) && !shown.includes(open)) shown = [...shown.slice(0, n - 1), open]
+  return { shown, hidden: ids.filter((id) => !shown.includes(id)), add }
+}
