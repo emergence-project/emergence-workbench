@@ -25,14 +25,14 @@ export function TaskReport({ rid, id, version, project, topics, onSaved, tocOwne
   /** 이 보고서가 지금 칸에서 보이면 그 탭 key: 절(요약과 결론 · 근거 · 남은 문제 · 다음 지시)을 왼쪽 사이드바 맨 아래 목차에 알린다 */
   tocOwner?: string | null
 }) {
-  const { tasks, loaded, reload } = useTasks(rid)
+  const { tasks, loaded, error, reload } = useTasks(rid)
   const t = tasks.find((x) => x.id === id)
   const opened = useRef(Date.now())
   const scroller = useRef<HTMLDivElement>(null)
   useNoteSections(scroller, t ? tocOwner : null, t ? `${t.hash}` : '', '.tk-sec > h2')
   const [sendBack, setSendBack] = useState(false)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
-  if (!t) return <div className="ws-doc"><section className="pane"><p className="empty tk-empty tk-pad">{loaded ? `${tr('맡긴 일을 찾지 못했습니다', 'Delegated task not found')}: workbench/tasks/${id}.md` : tr('불러오는 중…', 'Loading…')}</p></section></div>
+  if (!t) return <div className="ws-doc"><section className="pane"><p className="empty tk-empty tk-pad">{loaded ? `${tr('맡긴 일을 찾지 못했습니다', 'Delegated task not found')}: workbench/tasks/${id}.md` : error ? tr(`맡긴 일을 읽지 못했습니다: ${error}`, `Could not read delegated work: ${error}`) : tr('불러오는 중…', 'Loading…')}</p></section></div>
   const seconds = () => (Date.now() - opened.current) / 1000
   const judge = (verdict: 'approve' | 'send-back' | 'pause' | 'discard', note?: string) => sendJudgment(rid, t, verdict, { note, seconds: seconds() }, onSaved, reload)
   const canJudge = t.state === 'result' || t.state === 'proposed'
