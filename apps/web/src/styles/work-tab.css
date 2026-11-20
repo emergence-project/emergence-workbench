@@ -176,3 +176,9 @@
 /* 내 차례의 묶음 머리 ("맡긴 일 결과 n")와 그 옆 작은 설명 */
 .jq-h { display: flex; align-items: baseline; gap: var(--sp-2); }
 .jq-tip { font-size: var(--fs-xs); font-weight: var(--fw-normal); }
+/* 폰: 하루 칸이 51px라 "일 11/15"가 "일 11…"로 잘려 날짜가 안 보였다. 요일과 날짜를 두 줄로 */
+@media (max-width: 600px) {
+  .tk-wd { padding: 6px var(--sp-1); }
+  .tk-wh { white-space: normal; overflow: visible; }
+  .tk-wh b { display: block; }
+}
