@@ -1,10 +1,15 @@
 // 중앙 방 (11/20 사용자 결정 "중앙 = 여럿이 말하는 방"): 사용자의 방 관리(초대 · 권한 · 내보내기 · 규칙)와 방장의 MCP 도구(room_ask · room_invite · room_remove)
 import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/agentChats'
-import type { RoomChats } from '../agentRoom.js'
+import type { DebateChats } from '../agentDebate.js'
 import { parseBody, replies } from '../contract.js'
 
-export function registerAgentRoom(app: FastifyInstance, chats: RoomChats): void {
+export function registerAgentRoom(app: FastifyInstance, chats: DebateChats): void {
+  // 토론 대화 (11/20 「토론 + 정해진 4단계」): 열기(사용자 · 방장) · 설정 · 끝내기. 더 묻기와 멈추기는 보통 대화의 messages · stop
+  app.post('/api/agent-debate', replies(C.DebateOpened), async (req): Promise<C.DebateOpened> => { const b = parseBody(C.DebateOpenBody, req.body); return { id: chats.openDebate(b.q, 'user', b.agents).id } })
+  app.post('/api/agent-debate/host', replies(C.DebateOpened), async (req): Promise<C.DebateOpened> => { const b = parseBody(C.DebateOpenBody, req.body); return { id: chats.openDebate(b.q, 'host', b.agents).id } })
+  app.post<{ Params: { id: string } }>('/api/agent-debate/:id/settings', replies(C.Chat), async (req): Promise<C.Chat> => chats.debateSettings(req.params.id, parseBody(C.DebateSettingsBody, req.body)))
+  app.post<{ Params: { id: string } }>('/api/agent-debate/:id/end', replies(C.Chat), async (req): Promise<C.Chat> => chats.endDebate(req.params.id))
   app.get('/api/agent-room', replies(C.RoomState), async (): Promise<C.RoomState> => chats.roomState())
   app.post('/api/agent-room/invite', replies(C.RoomState), async (req): Promise<C.RoomState> => { const b = parseBody(C.RoomInviteBody, req.body); return chats.invite(b.agent, 'user', b.perm) })
   app.post('/api/agent-room/perm', replies(C.RoomState), async (req): Promise<C.RoomState> => { const b = parseBody(C.RoomPermBody, req.body); return chats.setPerm(b.agent, b.perm) })

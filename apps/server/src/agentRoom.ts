@@ -7,12 +7,12 @@
  * - 방 사람은 대화 세션을 열지 않는다: 부를 때마다 최근 방 대화와 물음을 한 번 읽고 답한다(읽기만). 방장은 아직 못 본 답을 다음 차례 앞에 받는다.
  * - 1단계: 방장은 Claude(중앙 대화)로 고정이다. 수정을 다른 에이전트에게 넘기기와 그때 하위 대화 마무리(§7-5)는 미룬다(11/20 "판정 · 검증에만 씀").
  * - 2단계(11/20, 시안 https://claude.ai/artifact/R88teWLKuf7DgokaYQA61n): 판정을 물으면 방 사람은 첫 줄을 「판정: 맞음 | 틀림 | 모름 — 근거」로 답하고 앱이 읽어 칩으로 보인다.
- *   방장 정리는 세 줄까지, 토론에서 판정을 바꾸면 prev가 남고, 여럿을 부른 차례의 판정은 판정 기록(agent-room-log.json)에 남아 사용자가 「뒤집힘」을 표시한다.
+ *   방장 정리는 세 줄까지, 여럿을 부른 차례의 판정은 토론 기록(agent-room-log.json)에 남아 사용자가 「뒤집힘」을 표시한다. 서로 비판하는 토론은 따로 연 토론 대화가 맡는다(agentDebate.ts).
  * 방 상태는 설정 폴더 agent-room.json (대화 파일 폴더 agent-chats/ 옆).
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { CENTRAL_RID, RoomState as RoomStateSchema, VerdictEntry as VerdictEntrySchema, type AgentKind, type VerdictEntry, type Chat, type ChatItem, type ChatMessageBody, type CentralState, type RoomMember, type RoomPerm, type RoomRules, type RoomState } from '@rw/core/contract/agentChats'
+import { CENTRAL_RID, DEBATE_DEFAULT, RoomState as RoomStateSchema, VerdictEntry as VerdictEntrySchema, type AgentKind, type VerdictEntry, type Chat, type ChatItem, type ChatMessageBody, type CentralState, type DebateSeat, type RoomMember, type RoomPerm, type RoomRules, type RoomState } from '@rw/core/contract/agentChats'
 import { clip, LIVE, type AgentChatsDeps, type Stored } from './agentChats.js'
 import { CentralChats } from './agentCentral.js'
 import type { CentralMemoDeps } from './agentTidy.js'
@@ -34,7 +34,8 @@ const LOG_MAX = 500
 export const ROOM_DEFAULT: Saved = {
   host: 'claude-code',
   members: [{ agent: 'claude-code', perm: 'edit', by: 'user', at: '2026-11-20T00:00:00.000Z' }, { agent: 'codex', perm: 'talk', by: 'user', at: '2026-11-20T00:00:00.000Z' }],
-  rules: { hostInvite: true, defaultPerm: 'talk', callMax: 2, mode: 'independent' },
+  rules: { hostInvite: true, defaultPerm: 'talk', callMax: 2 },
+  debate: structuredClone(DEBATE_DEFAULT),
 }
 
 export { mentionsOf, routeOf } from '@rw/core'
@@ -63,12 +64,14 @@ export function memberPrompt(c: Pick<Stored, 'items'>, me: RoomMember, host: Age
 }
 
 export class RoomChats extends CentralChats {
-  private saved: Saved
-  private readonly asking = new Map<AgentKind, number>()
+  protected saved: Saved
+  protected readonly asking = new Map<AgentKind, number>()
   /** 중앙 대화마다 방장에게 넘긴 마지막 항목 수 (그 뒤의 방 사람 답 · 방 소식을 다음 차례 앞에 붙인다) */
   private readonly fed = new Map<string, number>()
   /** 이번 차례에 방장에게 덧붙일 말 (@모두: 마지막에 정리) */
   private hostLine = ''
+  /** 방장이 아직 못 본 토론 결과 (다음 차례 앞에 붙인다) */
+  protected readonly news: string[] = []
 
   constructor(deps: AgentChatsDeps, memoDeps?: CentralMemoDeps) {
     super(deps, memoDeps)
@@ -78,12 +81,15 @@ export class RoomChats extends CentralChats {
   private file(): string { return path.join(path.dirname(this.deps.dir), 'agent-room.json') }
   private load(): Saved {
     try {
-      const s = SAVED.safeParse(JSON.parse(fs.readFileSync(this.file(), 'utf8')))
+      const raw: unknown = JSON.parse(fs.readFileSync(this.file(), 'utf8'))
+      // 11/20 「독립 | 토론」 고르기는 토론 대화로 옮겼다: 옛 파일의 rules.mode는 버린다
+      if (raw && typeof raw === 'object' && 'rules' in raw && raw.rules && typeof raw.rules === 'object') Reflect.deleteProperty(raw.rules, 'mode')
+      const s = SAVED.safeParse(raw)
       if (s.success) return s.data
     } catch { /* 처음이거나 못 읽으면 기본 방 */ }
     return structuredClone(ROOM_DEFAULT)
   }
-  private save(): void { fs.writeFileSync(this.file(), `${JSON.stringify(this.saved, null, 2)}\n`) }
+  protected save(): void { fs.writeFileSync(this.file(), `${JSON.stringify(this.saved, null, 2)}\n`) }
 
   roomState(): RoomState {
     const log = this.readLog()
@@ -100,7 +106,7 @@ export class RoomChats extends CentralChats {
     return this.roomState()
   }
 
-  private member(agent: AgentKind): RoomMember {
+  protected member(agent: AgentKind): RoomMember {
     const m = this.saved.members.find((x) => x.agent === agent)
     if (!m) throw new WorkbenchError(404, t(`${nameOf(agent)}는 방에 없습니다`, `${nameOf(agent)} is not in the room`))
     return m
@@ -156,7 +162,7 @@ export class RoomChats extends CentralChats {
   }
 
   /** 방 사람 하나에게 묻고 답을 방에 남긴다 */
-  private async ask(c: Stored, m: RoomMember, q: string, from: 'user' | 'host', seen: Pick<Stored, 'items'> = c): Promise<Member> {
+  protected async ask(c: Stored, m: RoomMember, q: string, from: 'user' | 'host', seen: Pick<Stored, 'items'> = c): Promise<Member> {
     const it: Member = { kind: 'member', at: now(), by: m.agent, ...(from === 'host' && { q: clip(q, 2000), from: 'host' }), ...(m.perm === 'read' && { fold: true }) }
     c.items.push(it)
     this.asking.set(m.agent, (this.asking.get(m.agent) ?? 0) + 1)
@@ -179,13 +185,13 @@ export class RoomChats extends CentralChats {
   }
 
   /** 한 번 묻고 답 글을 받는다: Codex는 읽기만 하는 codex exec(검토와 같은 것), Gemini는 그 실행기를 읽기만으로. 예제 · 시험은 곁 질문 실행기 */
-  private async oneShot(agent: AgentKind, prompt: string): Promise<string> {
-    const cwd = this.deps.project(CENTRAL_RID).repo
-    if (agent === 'codex' && this.deps.review) return this.deps.review({ prompt, cwd })
+  protected async oneShot(agent: AgentKind, prompt: string, seat?: Omit<DebateSeat, 'agent'>): Promise<string> {
+    const cwd = this.deps.project(CENTRAL_RID).repo, pick = { ...(seat?.model && seat.model !== 'default' && { model: seat.model }), ...(seat?.effort && { effort: seat.effort }) }
+    if (agent === 'codex' && this.deps.review) return this.deps.review({ prompt, cwd, ...pick })
     const run = agent !== 'claude-code' ? this.deps.others?.[agent] : undefined
     if (run) {
       const ac = new AbortController(), out: string[] = []
-      for await (const e of run({ prompt, mode: 'edit', model: 'default', effort: 'medium', cwd, extraDirs: [], brief: '', write: 'read', signal: ac.signal, canUseTool: async () => ({ allow: false, message: 'Read only in the room: answer in text.' }) })) {
+      for await (const e of run({ prompt, mode: 'edit', model: seat?.model ?? 'default', effort: seat?.effort ?? 'medium', cwd, extraDirs: [], brief: '', write: 'read', signal: ac.signal, canUseTool: async () => ({ allow: false, message: 'Read only in the room: answer in text.' }) })) {
         if (e.type === 'text' && !e.sub) out.push(e.text)
         if (e.type === 'result' && !e.ok && e.error && !out.length) throw new Error(e.error)
       }
@@ -193,7 +199,7 @@ export class RoomChats extends CentralChats {
     }
     const side = this.deps.runner.side
     if (!side) throw new WorkbenchError(404, t(`여기서는 ${nameOf(agent)}에게 물을 수 없습니다`, `${nameOf(agent)} cannot be asked here`))
-    return side({ prompt, cwd })
+    return side({ prompt, cwd, ...pick })
   }
 
   /** 방장이 아직 못 본 방 사람의 답 · 방 소식 (agentCentral.ts의 send가 다음 차례 앞에 붙인다) */
@@ -206,11 +212,11 @@ export class RoomChats extends CentralChats {
       if (it.kind === 'room') lines.push(`[Room: ${it.by === 'host' ? 'you' : 'the user'} ${it.act === 'rules' ? 'changed the room rules' : `${it.act === 'invite' ? 'invited' : it.act === 'remove' ? 'removed' : 'changed the permission of'} ${it.agent ? nameOf(it.agent) : ''}${it.perm ? ` (${PERM_EN[it.perm]})` : ''}`}]`)
     }
     const r = this.saved
-    const roster = `[Room members: ${r.members.map((m) => `${nameOf(m.agent)} ${PERM_EN[m.perm]}${m.agent === r.host ? ', you' : ''}`).join(' · ')}. Rules: you ${r.rules.hostInvite ? 'may invite (read-only or talk, with a reason)' : 'may not invite'}, ask at most ${r.rules.callMax} at once. When the user calls several, they answer ${r.rules.mode === 'debate' ? 'in turn, seeing earlier answers (debate)' : 'independently, without seeing each other (independent)'}.]`
+    const roster = `[Room members: ${r.members.map((m) => `${nameOf(m.agent)} ${PERM_EN[m.perm]}${m.agent === r.host ? ', you' : ''}`).join(' · ')}. Rules: you ${r.rules.hostInvite ? 'may invite (read-only or talk, with a reason)' : 'may not invite'}, ask at most ${r.rules.callMax} at once. When the user calls several, they answer independently, without seeing each other.]`
     const head = from === 0 || lines.some((l) => l.startsWith('[Room:')) ? [roster] : []
-    const line = this.hostLine
+    const line = this.hostLine, news = this.news.splice(0)
     this.hostLine = ''
-    return [...head, ...lines, ...(line ? [line] : [])].join('\n')
+    return [...head, ...lines, ...news, ...(line ? [line] : [])].join('\n')
   }
 
   /** 받는 이 (그냥 → 방장, @이름 → 그 사람, @모두 → 모두, 방장은 마지막) */
@@ -224,15 +230,14 @@ export class RoomChats extends CentralChats {
     c.items.push(mine)
     this.touch(c)
     const members = r.others.map((a) => this.member(a))
-    // 독립(기본, 11/20 "독립적인 답"): 모두 이 말까지의 같은 대화만 보고 서로의 답을 가린 채 동시에, 방장만 다 나온 뒤 모두의 답을 본다.
-    // 토론: 부른 차례대로, 앞사람의 답을 보고 이어 답한다
-    const debate = this.saved.rules.mode === 'debate', seen = { items: c.items.slice() }
+    // 독립(11/20 "독립적인 답"): 모두 이 말까지의 같은 대화만 보고 서로의 답을 가린 채 동시에, 방장만 다 나온 뒤 모두의 답을 본다.
+    // 서로 비판하는 일은 토론 대화가 맡는다 (/토론, agentDebate.ts)
+    const seen = { items: c.items.slice() }
     void (async () => {
-      const got = debate ? [] as Member[] : await Promise.all(members.map((x) => this.ask(c, x, m.text, 'user', seen)))
-      if (debate) for (const x of members) got.push(this.stance(c, mine, await this.ask(c, x, m.text, 'user')))
-      this.record(c, mine, m.text, debate, got)
+      const got = await Promise.all(members.map((x) => this.ask(c, x, m.text, 'user', seen)))
+      this.record(mine.at, m.text, got)
       if (!r.host || this.chats.get(id) !== c) return
-      if (r.all) this.hostLine = `[The user called everyone (@모두). ${members.map((x) => nameOf(x.agent)).join(', ')} answered above, ${debate ? 'in turn, each seeing the earlier answers (debate mode)' : 'each on its own without seeing the others'}. Answer last and sum up in at most three short lines: who said what and where they differ; your own judgment; what to do.${debate ? ' If they agree, add that agreement reached in debate is weaker than independent agreement.' : ''}]`
+      if (r.all) this.hostLine = `[The user called everyone (@모두). ${members.map((x) => nameOf(x.agent)).join(', ')} answered above, each on its own without seeing the others. Answer last and sum up in at most three short lines: who said what and where they differ; your own judgment; what to do. If it is a costly judgment and they disagree, suggest a debate (/토론).]`
       super.send(id, m)
       const at = c.items.lastIndexOf(mine), last = c.items.map((x) => x.kind).lastIndexOf('user')
       if (at >= 0 && last > at) { const [u] = c.items.splice(last, 1); c.items[at] = u!; this.touch(c) }
@@ -240,31 +245,27 @@ export class RoomChats extends CentralChats {
     return this.get(id)
   }
 
-  /** 토론에서 앞 차례(바로 앞 사용자 말 뒤)와 판정이 달라졌으면 prev를 남긴다 */
-  private stance(c: Stored, mine: ChatItem, it: Member): Member {
-    const at = c.items.indexOf(mine), before = c.items.slice(0, at), pu = before.map((x) => x.kind).lastIndexOf('user')
-    const last = before.slice(pu + 1).reverse().find((x): x is Member => x.kind === 'member' && x.by === it.by && !!x.verdict)
-    if (it.verdict && last?.verdict && last.verdict !== it.verdict) { it.prev = last.verdict; this.touch(c) }
-    return it
-  }
-
   private logFile(): string { return path.join(path.dirname(this.deps.dir), 'agent-room-log.json') }
-  private readLog(): VerdictEntry[] {
+  protected readLog(): VerdictEntry[] {
     try { const s = LOG.safeParse(JSON.parse(fs.readFileSync(this.logFile(), 'utf8'))); if (s.success) return s.data } catch { /* 처음 */ }
     return []
   }
-  /** 여럿을 부른 차례에 판정이 하나라도 있으면 판정 기록에 남긴다 (최근 것이 앞) */
-  private record(c: Stored, mine: ChatItem, text: string, debate: boolean, got: Member[]): void {
+  /** 기록에 한 줄을 더한다 (최근 것이 앞) */
+  protected addLog(e: VerdictEntry): void {
+    fs.writeFileSync(this.logFile(), `${JSON.stringify([e, ...this.readLog()].slice(0, LOG_MAX), null, 2)}\n`)
+    const c = this.central()
+    if (c) this.touch(c)
+  }
+  /** @모두 · 여럿을 부른 차례에 판정이 하나라도 있으면 기록에 남긴다 */
+  private record(at: string, text: string, got: Member[]): void {
     const votes = got.flatMap((x) => (x.verdict ? [{ agent: x.by, v: x.verdict }] : []))
     if (got.length < 2 || !votes.length) return
-    const q = clip(text.replace(/(^|\s)@\S+/g, ' ').replace(/\s+/g, ' ').trim(), 200)
-    fs.writeFileSync(this.logFile(), `${JSON.stringify([{ at: mine.at, q, mode: debate ? 'debate' : 'independent', votes, flipped: false }, ...this.readLog()].slice(0, LOG_MAX), null, 2)}\n`)
-    this.touch(c)
+    this.addLog({ at, q: clip(text.replace(/(^|\s)@\S+/g, ' ').replace(/\s+/g, ' ').trim(), 200), mode: 'independent', votes, flipped: false })
   }
   /** 사용자가 판정 기록 한 줄에 「뒤집힘」을 표시하거나 지운다 */
   flip(at: string, flipped: boolean): RoomState {
     const log = this.readLog(), e = log.find((x) => x.at === at)
-    if (!e) throw new WorkbenchError(404, t('그 판정 기록이 없습니다', 'No such verdict record'))
+    if (!e) throw new WorkbenchError(404, t('그 토론 기록이 없습니다', 'No such debate record'))
     e.flipped = flipped
     fs.writeFileSync(this.logFile(), `${JSON.stringify(log, null, 2)}\n`)
     return this.roomState()

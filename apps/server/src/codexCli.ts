@@ -179,8 +179,17 @@ export async function fileText(file: string): Promise<string> {
   return text.map((p, i) => `[${t(`${i + 1}쪽`, `page ${i + 1}`)}]\n${p}`).join('\n\n').slice(0, MAX)
 }
 
-/** `codex exec`로 답 하나: 읽기 전용 샌드박스, 마지막 답만 파일로 받는다 */
-export async function codexAsk(configDir: string, cwd: string, prompt: string, file?: string): Promise<string> {
+/** 토론 자리의 모델 · 생각 수준을 codex exec 인자로: 모델 값은 「이름/깊이」(ACP 목록과 같은 꼴)이고, 깊이가 없으면 생각 수준을 쓴다 (max → xhigh) */
+export function codexPickArgs(o: { model?: string; effort?: string }): string[] {
+  if (!o.model && !o.effort) return []
+  const i = o.model ? o.model.lastIndexOf('/') : -1
+  const base = o.model && i > 0 ? o.model.slice(0, i) : o.model, depth = (o.model && i > 0 ? o.model.slice(i + 1) : '') || o.effort
+  const effort = depth === 'max' ? 'xhigh' : depth
+  return [...(base && base !== 'default' ? ['-m', base] : []), ...(effort && /^(minimal|low|medium|high|xhigh)$/.test(effort) ? ['-c', `model_reasoning_effort="${effort}"`] : [])]
+}
+
+/** `codex exec`로 답 하나: 읽기 전용 샌드박스, 마지막 답만 파일로 받는다. pick = 토론 자리의 모델 · 생각 수준 */
+export async function codexAsk(configDir: string, cwd: string, prompt: string, file?: string, pick: { model?: string; effort?: string } = {}): Promise<string> {
   const bin = codexBin(configDir)
   if (!bin) throw new WorkbenchError(503, t('Codex가 없습니다. 계정 페이지의 Codex 「이 컴퓨터」 줄에서 ChatGPT로 다시 연결해 주세요', 'Codex is missing. Connect ChatGPT again in the Codex "This computer" row on the Account page'))
   if (!process.env.RW_CODEX_BIN && !codexLoggedIn(bin)) throw new WorkbenchError(401, t('ChatGPT 로그인이 필요합니다. 계정 페이지의 Codex 「이 컴퓨터」 줄에서 ChatGPT로 연결해 주세요', 'ChatGPT sign-in is needed. Connect ChatGPT in the Codex "This computer" row on the Account page'))
@@ -193,7 +202,7 @@ export async function codexAsk(configDir: string, cwd: string, prompt: string, f
   const out = path.join(tmp, 'answer.md')
   try {
     return await new Promise<string>((resolve, reject) => {
-      const p = spawn(bin, ['exec', '--skip-git-repo-check', '--ephemeral', '--sandbox', 'read-only', '--color', 'never', '--cd', cwd, '--output-last-message', out, '-'], { cwd, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+      const p = spawn(bin, ['exec', '--skip-git-repo-check', '--ephemeral', '--sandbox', 'read-only', '--color', 'never', ...codexPickArgs(pick), '--cd', cwd, '--output-last-message', out, '-'], { cwd, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
       let err = ''
       p.stdout.resume()
       p.stderr.on('data', (d: Buffer) => { err = (err + d.toString()).slice(-4000) })

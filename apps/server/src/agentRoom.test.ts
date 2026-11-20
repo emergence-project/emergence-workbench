@@ -104,21 +104,6 @@ describe('중앙 방', () => {
     expect(turns[1]).toContain('without seeing the others')
   })
 
-  it('토론 모드에서는 부른 차례대로, 앞사람의 답을 보고 이어 답한다. 규칙은 파일에 남는다', async () => {
-    const { chats, dir } = make()
-    const c = chats.talk('시작')
-    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
-    chats.invite('gemini', 'user', 'talk')
-    expect(chats.roomState().rules.mode).toBe('independent')
-    chats.setRules({ mode: 'debate' })
-    chats.send(c.id, { text: '@모두 어떻게 생각해?' })
-    await vi.waitFor(() => expect(turns).toHaveLength(2))
-    expect(asked[0]).not.toContain('곁 답')
-    expect(asked[1]).toContain('Codex: Codex 답')
-    expect(turns[1]).toContain('debate mode')
-    expect(JSON.parse(fs.readFileSync(path.join(dir, 'agent-room.json'), 'utf8')).rules.mode).toBe('debate')
-  })
-
   it('판정: 첫 줄 「판정: …」을 읽어 칩으로, 여럿을 부른 차례는 판정 기록에 남고 사용자가 뒤집힘을 표시한다', async () => {
     expect(verdictOf('판정: 맞음 — 식이 따라 나옴')).toBe('yes')
     expect(verdictOf('**판정:** 틀림 — 부등호')).toBe('no')
@@ -139,22 +124,6 @@ describe('중앙 방', () => {
     expect(log).toMatchObject({ total: 1, flipped: 0, recent: [{ q: '식 (3)이 맞는지 판정해 줘', mode: 'independent', votes: [{ agent: 'codex', v: 'yes' }], flipped: false }] })
     expect(chats.flip(log.recent[0]!.at, true).log).toMatchObject({ total: 1, flipped: 1 })
     expect(() => chats.flip('없음', true)).toThrow(/없습니다/)
-  })
-
-  it('토론에서 앞 차례와 판정이 달라지면 입장 바꿈(prev)을 남긴다', async () => {
-    const { chats, review } = make()
-    const says = ['판정: 틀림 — 부등호', '판정: 맞음 — 다시 보니']
-    review.mockImplementation(async () => says.shift() ?? '판정: 맞음')
-    const c = chats.talk('시작')
-    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
-    chats.setRules({ mode: 'debate' })
-    chats.send(c.id, { text: '@Codex 판정해 줘' })
-    await vi.waitFor(() => expect(chats.get(c.id).items.some((x) => x.kind === 'member' && x.verdict)).toBe(true))
-    chats.send(c.id, { text: '@Codex 다시 판정해 줘' })
-    await vi.waitFor(() => expect(chats.get(c.id).items.filter((x) => x.kind === 'member' && x.verdict)).toHaveLength(2))
-    const last = chats.get(c.id).items.filter((x) => x.kind === 'member').at(-1)
-    expect(last).toMatchObject({ verdict: 'yes', prev: 'no' })
-    expect(chats.roomState().log.total).toBe(0)
   })
 
   it('초대 · 권한 · 내보내기: 사용자는 수정 말고, 방장은 규칙 안에서 까닭과 함께 읽기만 · 발언까지. 방 소식이 남고 파일에 남는다', async () => {

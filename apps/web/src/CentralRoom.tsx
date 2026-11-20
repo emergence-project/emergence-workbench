@@ -12,6 +12,7 @@ import { t } from './i18n'
 import { qk } from './queries'
 import { SideSection } from './SideSection'
 import { useDismiss } from './useDismiss'
+import { go } from './router'
 
 const AGENTS: AgentKind[] = ['claude-code', 'codex', 'gemini']
 /** 사용자 말고 방에 둘 수 있는 수 (§7-3, 서버 ROOM_MAX) */
@@ -25,7 +26,7 @@ const PERM_TIP: Record<RoomPerm, string> = {
   edit: t('방장: 하위 대화 · 파일 · PR을 맡습니다', 'Host: runs sub-conversations, files and pull requests'),
 }
 /** 판정 (2단계 11/20, 시안 https://claude.ai/artifact/R88teWLKuf7DgokaYQA61n) */
-const V_NAME: Record<RoomVerdict, string> = { yes: t('맞음', 'Right'), no: t('틀림', 'Wrong'), unsure: t('모름', 'Unsure') }
+export const V_NAME: Record<RoomVerdict, string> = { yes: t('맞음', 'Right'), no: t('틀림', 'Wrong'), unsure: t('모름', 'Unsure') }
 /** 한 차례 판정의 한 마디: 일치 · 맞음 2/2, 엇갈림 · 맞음 1 · 틀림 1 */
 export function tallyText(votes: RoomVerdict[]): { text: string; split: boolean } | undefined {
   const r = tallyOf(votes)
@@ -86,13 +87,7 @@ export function RoomStrip() {
   )
 }
 
-/** 여럿을 부를 때 답하는 방식 (11/20 사용자 제안 "모드 전환"): 독립 = 서로의 답을 가린 채 동시에, 토론 = 앞사람의 답을 보고 차례로 */
-function ModeSeg({ room, change }: { room: RoomState; change: ReturnType<typeof useRoomChange> }) {
-  return <Seg value={room.rules.mode} name={t('여럿이 답하는 방식', 'How several answer')} ui="방 답하는 방식" onPick={(mode) => void change(() => agentChatsApi.roomRules({ mode }))}
-    options={[{ v: 'independent' as const, label: t('독립', 'Independent'), tip: t('서로의 답을 보지 않고 동시에 답함 · 방장만 모아 정리', 'Answer at once without seeing each other · host sums up') }, { v: 'debate' as const, label: t('토론', 'Debate'), tip: t('앞사람의 답을 보고 차례로 이어 답함', 'Answer in turn, seeing earlier answers') }].map(({ tip, ...o }) => ({ ...o, label: <span data-tip={tip}>{o.label}</span> }))} />
-}
-
-function Seg<T extends string | number>({ value, options, name, onPick, ui, disabled }: { value: T; options: { v: T; label: ReactNode; off?: string }[]; name: string; onPick(v: T): void; ui: string; disabled?: string }) {
+export function Seg<T extends string | number>({ value, options, name, onPick, ui, disabled }: { value: T; options: { v: T; label: ReactNode; off?: string }[]; name: string; onPick(v: T): void; ui: string; disabled?: string }) {
   return (
     <div className="segmented small" role="radiogroup" aria-label={name} data-ui={ui} title={disabled}>
       {options.map((o) => <button key={o.v} role="radio" aria-checked={value === o.v} className={value === o.v ? 'on' : ''} disabled={!!disabled || !!o.off} title={o.off} onClick={() => value !== o.v && onPick(o.v)}>{o.label}</button>)}
@@ -127,7 +122,6 @@ export function RoomManage() {
       </div>
       <InviteMenu room={room} onError={setFail} />
       <div className="room-rules" data-ui="방 규칙">
-        <div className="room-rule"><span>{t('여럿이 답하는 방식', 'How several answer')}</span><ModeSeg room={room} change={change} /></div>
         <label className="room-rule"><span>{t('방장이 초대 (읽기 · 답변까지)', 'Host may invite (read, answer)')}</span><input type="checkbox" checked={room.rules.hostInvite} onChange={(e) => void change(() => agentChatsApi.roomRules({ hostInvite: e.target.checked }))} /></label>
         <div className="room-rule"><span>{t('새로 들어올 때 권한', 'Permission for newcomers')}</span><Seg value={room.rules.defaultPerm} name={t('새로 들어올 때 권한', 'Permission for newcomers')} ui="방 기본 권한" onPick={(p) => void change(() => agentChatsApi.roomRules({ defaultPerm: p }))} options={(['read', 'talk'] as const).map((p) => ({ v: p, label: PERM_NAME[p] }))} /></div>
         <div className="room-rule"><span>{t('방장이 한 번에 부르는 수', 'Host calls at once')}</span><Seg value={room.rules.callMax} name={t('방장이 한 번에 부르는 수', 'Host calls at once')} ui="방장 부르기 한도" onPick={(n) => void change(() => agentChatsApi.roomRules({ callMax: n }))} options={[1, 2, 3].map((n) => ({ v: n, label: String(n) }))} /></div>
@@ -202,15 +196,15 @@ export function VerdictLog() {
   const { total, flipped, recent } = room.log
   const shown = all ? recent : recent.slice(0, 3)
   return (
-    <SideSection title={t('판정 기록', 'Verdicts')} ui="판정 기록" aside={<span className="cb-counts">{t(`${total}번 · 나중에 뒤집힘 ${flipped}`, `${total} · flipped later ${flipped}`)}{total ? ` (${Math.round((flipped / total) * 100)}%)` : ''}</span>}>
+    <SideSection title={t('토론 기록', 'Debates')} ui="판정 기록" aside={<span className="cb-counts">{t(`${total}번 · 나중에 뒤집힘 ${flipped}`, `${total} · flipped later ${flipped}`)}{total ? ` (${Math.round((flipped / total) * 100)}%)` : ''}</span>}>
       <div className="verdict-log">
         {shown.map((e) => {
           const tally = tallyText(e.votes.map((x) => x.v))
           return (
             <div key={e.at} className="verdict-row" data-ui="판정 기록 줄" title={e.votes.map((x) => `${ROOM_NAME[x.agent]} ${V_NAME[x.v]}`).join(' · ')}>
-              <span className="verdict-q">{e.q || t('(물음 없음)', '(no question)')}</span>
+              {e.chat ? <button className="a verdict-q" data-ui="토론 기록 열기" title={e.line} onClick={() => go({ page: 'agent', id: e.chat })}>{e.q}</button> : <span className="verdict-q">{e.q || t('(물음 없음)', '(no question)')}</span>}
               <span className="verdict-when">{new Date(e.at).toLocaleDateString()}</span>
-              <span className={`verdict-res${tally?.split ? ' split' : ''}`}>{tally?.text} · {e.mode === 'debate' ? t('토론', 'Debate') : t('독립', 'Independent')}</span>
+              <span className={`verdict-res${tally?.split ? ' split' : ''}`}>{tally?.text} · {e.mode === 'debate' ? t(`토론 · 비판 ${e.rounds ?? 0}번${e.changed ? ` · 바꿈 ${e.changed}` : ''}`, `Debate · ${e.rounds ?? 0} rounds${e.changed ? ` · ${e.changed} changed` : ''}`) : t('각자 답', 'Answer alone')}</span>
               {e.flipped
                 ? <button className="verdict-chip" data-ui="뒤집힘 지우기" data-tip={t('뒤집힘 표시를 지웁니다', 'Clear the flipped mark')} onClick={() => void change(() => agentChatsApi.roomVerdictFlip(e.at, false))}>{t('나중에 뒤집힘', 'Flipped later')}</button>
                 : <button className="a" data-ui="뒤집힘 표시" data-tip={t('이 판정이 나중에 틀린 것으로 드러났을 때 누릅니다', 'Mark when this verdict later turned out wrong')} onClick={() => void change(() => agentChatsApi.roomVerdictFlip(e.at, true))}>{t('뒤집힘 표시', 'Mark flipped')}</button>}
@@ -224,17 +218,17 @@ export function VerdictLog() {
 }
 
 /** 입력란: @ 메뉴 맨 위의 방 사람과 「모두」, 아래 「받는 이」 */
-export type ComposerRoom = { people: { label: string; meta: string; aka?: string }[]; hint(text: string): ReactNode }
+export type ComposerRoom = { people: { label: string; meta: string; aka?: string }[]; hint(text: string): ReactNode; /** 설정(권한 · 모델 · 생각) 없이 (토론) */ plain?: boolean; /** / 메뉴 맨 위에 더할 명령 */ commands?: { cmd: string; label: string; text: string; send?: boolean }[] }
 export function useComposerRoom(on: boolean): ComposerRoom | undefined {
   const room = useRoom()
-  const change = useRoomChange()
   if (!on || !room) return undefined
   const others = room.members.filter((m) => m.agent !== room.host)
   return {
     people: [...room.members.map((m) => ({ label: ROOM_NAME[m.agent], meta: `${m.agent === room.host ? `${t('방장', 'Host')} · ` : ''}${PERM_NAME[m.perm]}` })), ...(others.length ? [{ label: t('모두', 'all'), aka: t('all', '모두'), meta: t('방 전체 · 방장이 마지막에 정리 · @all도 같음', 'Everyone · host sums up last · same as @모두') }] : [])],
+    commands: [{ cmd: t('/토론', '/debate'), label: t('여럿이 서로 비판하며 답 찾기 · 따로 연 대화에서 네 단계로 (/토론 물음 @Codex @Gemini)', 'Several agents critique each other in four steps, in a separate conversation (/debate question @Codex @Gemini)'), text: t('/토론 ', '/debate ') }],
     hint: (text) => {
       const r = routeOf(text, room)
-      return <span className="room-to" data-ui="받는 이">{t('받는 이', 'To')}{r.others.map((a) => <Who key={a} agent={a} />)}{r.host && <Who agent={room.host} host />}{r.others.length >= 2 && <ModeSeg room={room} change={change} />}</span>
+      return <span className="room-to" data-ui="받는 이">{t('받는 이', 'To')}{r.others.map((a) => <Who key={a} agent={a} />)}{r.host && <Who agent={room.host} host />}{r.others.length >= 2 && <span data-tip={t('서로의 답을 보지 않고 동시에 답합니다. 서로 비판하게 하려면 /토론', 'They answer at once without seeing each other. For critique, use /토론')}>· {t('각자 답', 'answer alone')}</span>}</span>
     },
   }
 }
