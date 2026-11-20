@@ -1,4 +1,4 @@
-/* 서버 › 기기 (ServerPage.tsx, 11/20 시안 1단계). 줄 틀은 계정 화면과 같은 setup-row */
+/* 설정 › 서버 › 기기 (DeviceList.tsx, 11/20). 줄 틀은 계정 화면과 같은 setup-row */
 .dev-row .g { margin-top: 6px; }
 .dev-row.off .set-name, .dev-row.off .dev-accts { opacity: .6; }
 .dev-meta { display: flex; flex-wrap: wrap; gap: 0 var(--sp-3); }
