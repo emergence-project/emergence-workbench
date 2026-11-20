@@ -3,7 +3,7 @@ import { LIBRARY_RID } from '@rw/core'
 import { APP_RID, CENTRAL_RID, type ChatRow } from './api'
 import { ChatLine, isLive, newChatIn, projectName, useBulkChats, useChatList, useProjects } from './AgentChats'
 import { GroupPick } from './AgentGroupPick'
-import { myTurn } from './agentSeen'
+import { inBackground, myTurn } from './agentSeen'
 import { CENTRAL_PAGE, CentralLine } from './CentralChat'
 import { t } from './i18n'
 import { Icon } from './icons'
@@ -23,7 +23,7 @@ const STATES: State[] = ['mine', 'live', 'queued', 'done']
 const STATE_GROUP: Record<State, string> = { mine: t('내 차례', 'Your turn'), live: t('작업 중', 'Working'), queued: t('대기', 'Queued'), done: t('종료', 'Done') }
 const STATE_EMPTY: Record<State, string> = { mine: t('답할 대화가 없습니다', 'Nothing waits for you'), live: t('작업 중인 대화가 없습니다', 'No conversation is working'), queued: t('대기 중인 대화가 없습니다', 'Nothing is queued'), done: '' }
 /** 사용자 차례(허락 · 계획 · 오류 · 열어 보지 않은 끝) → 도는 것 → 줄 선 것 → 나머지 */
-export const stateOf = (c: ChatRow): State => (myTurn(c) ? 'mine' : c.state === 'running' || c.state === 'waiting' ? 'live' : c.state === 'queued' ? 'queued' : 'done')
+export const stateOf = (c: ChatRow): State => (myTurn(c) ? 'mine' : c.state === 'running' || c.state === 'waiting' || inBackground(c) ? 'live' : c.state === 'queued' ? 'queued' : 'done')
 
 const ALL = 'all'
 const TARGET_KEY = 'rw-agent-target'

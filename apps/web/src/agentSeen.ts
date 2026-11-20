@@ -4,16 +4,21 @@
  * 처음 쓰는 날(since) 전의 대화는 이미 본 것으로 친다.
  */
 import { useEffect, useSyncExternalStore } from 'react'
-import type { ChatRow } from './api/agentChats'
+import type { ChatRow, ChatState } from './api/agentChats'
 import { store } from './store'
+
+/** 차례는 끝났지만 백그라운드 명령이 돌아 끝나면 저절로 이어 갈 대화: 「종료」가 아니라 「작업 중」으로 보인다 (11/20 피드백). 넓은 대화 머리는 「작업 중」만 보이고 명령 수는 제목 아래 줄에 둔다(긴 상태 글이 제목을 누르지 않게) */
+export const inBackground = (c: Pick<ChatRow, 'state' | 'tasks'>) => c.state === 'idle' && !!c.tasks
+/** 표시 상태 (백그라운드 명령이 돌면 작업 중) */
+export const shownState = (c: Pick<ChatRow, 'state' | 'tasks'>): ChatState => (inBackground(c) ? 'running' : c.state)
 
 const KEY = 'rw-agent-seen'
 const MAX = 400
 export type Seen = { since: string; ids: Record<string, string> }
 
-/** 순수 판단: 보관하지 않은 끝난 대화가 마지막으로 본 뒤에 바뀌었는가 */
-export const isUnseenIn = (seen: Seen, c: Pick<ChatRow, 'id' | 'state' | 'archived' | 'updated'>) =>
-  !c.archived && c.state === 'idle' && c.updated > (seen.ids[c.id] ?? seen.since)
+/** 순수 판단: 보관하지 않은 끝난 대화가 마지막으로 본 뒤에 바뀌었는가 (백그라운드 명령이 도는 대화는 아직 끝나지 않은 것) */
+export const isUnseenIn = (seen: Seen, c: Pick<ChatRow, 'id' | 'state' | 'archived' | 'updated' | 'tasks'>) =>
+  !c.archived && c.state === 'idle' && !c.tasks && c.updated > (seen.ids[c.id] ?? seen.since)
 
 /** 순수 기록: 이 대화를 updated 시각까지 봤다 (오래된 것부터 MAX개를 넘으면 버린다) */
 export function seenWith(seen: Seen, id: string, updated: string): Seen {

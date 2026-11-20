@@ -222,6 +222,19 @@ try {
       }, { rid, done, bottom: name === 'agent-dock' })
       await page.goto('about:blank')
     }
+    if (name === 'agent-background' && done) {
+      // 끝난 대화에 백그라운드 명령 2개가 도는 것처럼: 목록과 대화 응답의 tasks만 바꾼다
+      const withTasks = (c) => (c.id === done ? { ...c, tasks: 2 } : c)
+      await page.route(/\/api\/agent-chats(\?|\/|$)/, async (route) => {
+        const url = new URL(route.request().url())
+        if (route.request().method() !== 'GET') return route.fallback()
+        const res = await route.fetch()
+        const body = await res.json().catch(() => null)
+        if (body?.chats) return route.fulfill({ response: res, json: { ...body, chats: body.chats.map(withTasks) } })
+        if (body?.chat && url.pathname.endsWith(`/${encodeURIComponent(done)}`)) return route.fulfill({ response: res, json: { chat: withTasks(body.chat) } })
+        return route.fulfill({ response: res, json: body })
+      })
+    }
     if (name === 'agent-unseen') { await page.goto(base); await page.evaluate(() => localStorage.removeItem('rw-agent-seen')); await page.goto('about:blank') }
     if (name === 'agent-recent') { await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-side-agent', 'false')); await page.goto('about:blank') }
     if (name === 'agent-archive' && done) { await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: true }) }); await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-agent-filter', '"archived"')); await page.goto('about:blank') }
@@ -336,6 +349,7 @@ try {
       await page.goto('about:blank')
     }
     if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
+    if (name === 'agent-background') await page.unrouteAll({ behavior: 'ignoreErrors' })
     if (name === 'agent-recent') { await page.evaluate(() => localStorage.removeItem('rw-side-agent')); await page.goto('about:blank') }
     if (name === 'agent-archive') { if (done) await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: false }) }); await page.evaluate(() => localStorage.removeItem('rw-agent-filter')); await page.goto('about:blank') }
     if (name === 'knowledge-agent') await page.goto('about:blank')

@@ -15,7 +15,7 @@ import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { useSideColumn, WorkAside } from './WorkAside'
 import { chatLog, isAgentStep, ProcLine, secondsName, type Step } from './WorkLog'
-import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
+import { inBackground, isUnseen, myTurn, shownState, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
 import { openRecordComposer } from './RecordContext'
@@ -56,7 +56,7 @@ const STATE_NAME: Record<ChatState, string> = {
 }
 const WAIT_NAME: Record<NonNullable<ChatRow['wait']>, string> = { plan: t('계획 승인 기다림', 'Plan waits for you'), ask: t('허락 기다림', 'Needs approval') }
 /** 줄 선 대화는 「대기 n번째」 (11/20 시안 1절: 상태 이름 「일하는 중」→「작업 중」 · 「끝남」→「종료」 · 「줄 섬」→「대기」) */
-export const stateName = (c: Pick<ChatRow, 'state' | 'wait' | 'queue'>) => (c.state === 'waiting' && c.wait ? WAIT_NAME[c.wait] : c.state === 'queued' && c.queue ? t(`대기 ${c.queue}번째`, `Queued #${c.queue}`) : STATE_NAME[c.state])
+export const stateName = (c: Pick<ChatRow, 'state' | 'wait' | 'queue' | 'tasks'>) => (c.state === 'waiting' && c.wait ? WAIT_NAME[c.wait] : c.state === 'queued' && c.queue ? t(`대기 ${c.queue}번째`, `Queued #${c.queue}`) : inBackground(c) ? t(`작업 중 · 백그라운드 명령 ${c.tasks}개`, `Working · ${c.tasks} background command${c.tasks! > 1 ? 's' : ''}`) : STATE_NAME[c.state])
 
 /** 대화 상태: 작업 중은 진행 점, 사용자 차례(허락 · 계획)는 주황 점, 오류는 위험 색 글자, 나머지는 옅은 이름 */
 export function ChatStateMark({ state, label, name: given }: { state: ChatState; label?: boolean; name?: string }) {
@@ -124,7 +124,7 @@ export function ChatGroups({ chats, line }: { chats: ChatRow[]; line(c: ChatRow)
     {direct.map(line)}
   </>
 }
-export const rank = (c: ChatRow) => (myTurn(c) ? 0 : isLive(c.state) ? 1 : 2)
+export const rank = (c: ChatRow) => (myTurn(c) ? 0 : isLive(c.state) || inBackground(c) ? 1 : 2)
 
 /** 목록 한 줄: 상태 점 · 이름, 아래 줄에 무엇을 기다리는지(상태) · +n −n · 시각 */
 /** where = 줄의 상태 글 뒤에 붙일 대상 이름 (대화 목록 대상 「전체」에서, 11/20 시안 1절) */
@@ -134,7 +134,7 @@ export function ChatLine({ c, on, onOpen, actions = false, pick, where }: { c: C
   const line = (
     <button className={`nav ac-line${on && !pick ? ' on' : ''}${pick?.on ? ' picked' : ''}`} data-ui="대화 줄" data-ui-item={c.title} title={pick?.disabled ?? c.title}
       disabled={!!pick?.disabled} aria-pressed={pick ? pick.on : undefined} onClick={pick ? pick.toggle : onOpen}>
-      <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot">{isUnseen(c) ? <span className="turn-dot" role="img" aria-label={t('확인하지 않음', 'Not checked')} title={t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} /> : <ChatStateMark state={c.state} name={stateName(c)} />}</span>
+      <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot">{isUnseen(c) ? <span className="turn-dot" role="img" aria-label={t('확인하지 않음', 'Not checked')} title={t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} /> : <ChatStateMark state={shownState(c)} name={stateName(c)} />}</span>
         <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
         {c.local && <><span className="tag ac-here" data-ui="이 맥 태그" title={t('서버가 아닌 이 컴퓨터에서 도는 대화', 'Runs on this computer, not on the server')}>{t('이 맥', 'This Mac')}</span> </>}{!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{c.machine ?? stateName(c)}{where && ` · ${where}`}
@@ -468,7 +468,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
   const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
   const context = [...results].reverse().find((r) => r.context)?.context
   const cost = results.reduce((s, r) => s + (r.cost ?? 0), 0)
-  const sname = stateName({ state: chat.state, wait: chat.items.some((i) => i.kind === 'ask' && !i.answer && i.plan !== undefined) ? 'plan' : 'ask' })
+  const sname = stateName({ state: chat.state, tasks: chat.tasks, wait: chat.items.some((i) => i.kind === 'ask' && !i.answer && i.plan !== undefined) ? 'plan' : 'ask' })
   return (
     <div className="ac-head" data-ui="대화 헤더">
       {onBack && <button className="icon-btn sm" data-ui="대화 목록으로" data-tip={t('대화 목록', 'Conversations')} aria-label={t('대화 목록으로', 'Back to conversations')} onClick={onBack}>{Icon.back}</button>}
@@ -476,7 +476,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
         {renaming ? <TitleInput value={chat.title} onDone={(v) => { setRenaming(false); if (v !== null) void actions.rename(v) }} />
           : <div className="ac-title" title={chat.title}>{chat.title}</div>}
         {compact ? <div className="ac-meta compact" data-ui="대화 묶음 줄">
-          <span>{chat.rid === APP_RID ? project : chatGroupName(chat)}</span><span>·</span><span>{stateName({ state: chat.state, wait: chat.items.some((i) => i.kind === 'ask' && !i.answer && i.plan !== undefined) ? 'plan' : 'ask' })}</span>
+          <span>{chat.rid === APP_RID ? project : chatGroupName(chat)}</span><span>·</span><span>{sname}</span>
           <span>·</span><span>{relativeTime(Date.parse(chat.updated))}</span>
           {chat.archived && <span className="tag">{chat.machine ?? t('보관함', 'Archived')}</span>}
         </div> : <div className="ac-meta">
@@ -484,11 +484,11 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           {chat.rid === APP_RID || chat.rid === LIBRARY_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
-          {context && <><span>·</span><span data-ui="대화 맥락" title={[isClaude(chat.agent) ? t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized') : t('지금 에이전트가 들고 있는 앞 내용의 크기 (에이전트가 알려 준 값)', 'How much earlier conversation the agent holds (as the agent reports it)'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('컨텍스트', 'Context')} {tokensName(context.used)}</span></>}
+          {context && <><span>·</span><span data-ui="대화 맥락" title={[isClaude(chat.agent) ? t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized') : t('지금 에이전트가 들고 있는 앞 내용의 크기 (에이전트가 알려 준 값)', 'How much earlier conversation the agent holds (as the agent reports it)'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('컨텍스트', 'Context')} {tokensName(context.used)}</span></>}{inBackground(chat) && <><span>·</span><span data-ui="대화 백그라운드 명령">{t(`백그라운드 명령 ${chat.tasks}개`, `${chat.tasks} background command${chat.tasks! > 1 ? 's' : ''}`)}</span></>}
           {chat.archived && <span className="tag">{chat.machine ?? t('보관함', 'Archived')}</span>}
         </div>}
       </div>
-      <ChatStateMark state={chat.state} label={!compact} name={sname} />
+      <ChatStateMark state={shownState(chat)} label={!compact} name={!compact && inBackground(chat) ? STATE_NAME.running : sname} />
       {!!chat.changed.length && !compact && (
         <button className={`btn sm ac-changes-btn${pane ? ' on' : ''}`} data-ui="바뀐 곳 버튼" aria-pressed={onPane ? !!pane : undefined} data-tip={onPane ? t('변경사항 · 작업 패널 여닫기', 'Show or hide changes and work') : t('에이전트 화면에서 변경사항 보기', 'View changes in the agent page')}
           onClick={() => (onPane ? onPane() : go({ page: 'agent', id: chat.id }))}>
@@ -645,7 +645,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
         {blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={live && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('작업 중', 'Working')} label /></li>}
-        {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
+        {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`백그라운드 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
         {canResume && <li className="ac-note"><button className="btn sm" data-ui="이어 하기" onClick={() => void resume()}>{t('이어 하기', 'Continue')}</button><span className="muted ac-hint">{t('같은 대화에서 멈춘 곳부터', 'From where it stopped, in the same conversation')}</span></li>}
       </ol><ChatQuoteMenu list={listRef} onQuote={(a) => setFill({ attach: [a], n: Date.now() })} />
       {chat.machine ? <ForeignBar chat={chat} /> : <div className="ac-compose">
