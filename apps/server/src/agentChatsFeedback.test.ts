@@ -350,10 +350,10 @@ describe('자동 처리: 쌓인 대기를 한 번에 맡기기 (11/20 22:37 제�
     await new Promise<void>((r) => hold.push(r))
     yield { type: 'result', ok: true } as RunEvent
   }
-  const make = (limit: number) => new FeedbackChats({
-    dir: path.join(tmp, `chats-${limit}`), runner, limit,
+  const make = (limit: number, elsewhere?: () => boolean) => new FeedbackChats({
+    dir: path.join(tmp, `chats-${limit}${elsewhere ? '-away' : ''}`), runner, limit,
     project: () => ({ repo: tmp, title: 'x' }), readable: () => [], extraDirs: () => [], notify: () => {},
-    app: sampleAppWork(path.join(tmp, `wt-${limit}`)), feedback: { dir: fb }, settings: () => ({ ...DEFAULT_AGENT_SETTINGS, feedback: 'instant' }),
+    app: sampleAppWork(path.join(tmp, `wt-${limit}`)), feedback: { dir: fb, ...(elsewhere && { elsewhere }) }, settings: () => ({ ...DEFAULT_AGENT_SETTINGS, feedback: 'instant' }),
   })
   const keysIn = (c: FeedbackChats) => c.list().flatMap((x) => x.bundle ?? (x.feedback ? [x.feedback] : []))
 
@@ -385,5 +385,11 @@ describe('자동 처리: 쌓인 대기를 한 번에 맡기기 (11/20 22:37 제�
     const chats = make(1)
     await chats.pickFeedback()
     expect(chats.list().length).toBe(1)
+  })
+
+  it('서버로 정한 컴퓨터가 따로 있으면 이 컴퓨터는 저절로 맡지 않는다 (11/20)', async () => {
+    const chats = make(8, () => true)
+    await chats.pickFeedback()
+    expect(chats.list()).toHaveLength(0)
   })
 })

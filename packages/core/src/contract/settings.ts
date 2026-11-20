@@ -45,11 +45,13 @@ export const AgentSettings = z.object({
   per: z.record(z.enum(AGENT_PREF_KINDS), AgentPref),
   /** 저절로 검토 (11/9) */
   review: z.enum(REVIEW_MODES),
+  /** 서버로 정한 컴퓨터가 따로 있으면 (11/20): 피드백 맡기기 · 합치기 · 한도는 그 서버의 값. error = 서버에 닿지 않음 (그때 그 칸은 이 맥의 값이고 바꿀 수 없다) */
+  place: z.object({ server: z.string(), error: z.string().optional() }).strict().optional(),
 }).strict()
 /** 바꿀 것만 보낸다. 고를 수 없는 값은 서버(normalizeAgentSettings)가 무시한다 */
 /** per는 바꾼 에이전트 · 칸만, auto: null은 권한 이름의 기본값으로 (normalizePrefs) */
 type AgentPrefPatch = { trust?: AgentTrust; auto?: { read: boolean; run: boolean; web: boolean } | null; role?: AgentRole }
-export const AgentSettingsBody = z.custom<Partial<Omit<z.infer<typeof AgentSettings>, 'per'>> & { per?: Partial<Record<AgentPrefKind, AgentPrefPatch>> }>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' })
+export const AgentSettingsBody = z.custom<Partial<Omit<z.infer<typeof AgentSettings>, 'per' | 'place'>> & { per?: Partial<Record<AgentPrefKind, AgentPrefPatch>> }>((v) => !!v && typeof v === 'object' && !Array.isArray(v), { message: 'Expected an object' })
 
 /** GET · PUT /settings/sync (설정 › 동기화, 10/19). 지금 쓰는 값(저장 안 한 칸은 앱을 켤 때 정한 값)과, 이 앱에서 그 일을 하는지 */
 const SyncChoice = z.object({ mode: z.enum(SYNC_MODES), every: z.number().int().positive() }).strict()
