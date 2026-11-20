@@ -8,6 +8,7 @@ import {
 } from './notes'
 import { go } from './router'
 import { t } from './i18n'
+import { MathText } from './cardParts'
 
 /**
  * 지도: 진술(과 그 증명 노트)이 무엇에 기대고 어디까지 했나.
@@ -84,7 +85,7 @@ function DerivationCard({ b, onClick, more }: { b: NoteRow; onClick(): void; mor
   return (
     <button className="map-node" onClick={onClick} title={`${t('노트', 'Note')} · ${statusLabel(s)}${b.resume ? `\n${t('다시 시작할 조건', 'Resume when')}: ${b.resume}` : ''}`} data-ui="작업노트 카드" data-ui-item={b.title}>
       <span className="kind-chip deriv">{t('노트', 'Note')}</span>
-      <span className="map-node-t"><b>{b.title}</b><span>{statusLabel(s)}{b.description ? ` · ${b.description}` : ''}</span></span>
+      <span className="map-node-t"><b>{b.title}</b><span>{statusLabel(s)}{b.description && <> · <MathText text={b.description} /></>}</span></span>
       <StatusDot s={s} />
       {more && <span className="map-more">{more}</span>}
     </button>
@@ -145,7 +146,7 @@ function FocusView({ ctx, notes, rid, focus, onFocus }: { ctx: ProofCtx; notes: 
       <div className="map-center" data-ui="초점 작업노트">
         <div><span className="kind-chip deriv">{t('노트', 'Note')}</span></div>
         <h3><button className="a tip-start" data-tip={t('노트 열기', 'Open note')} onClick={() => go({ page: 'part', rid, file: b.file })}>{b.title}</button></h3>
-        <p><StatusDot s={s} /> {statusLabel(s)}{b.description && <><br /><span className="muted">{b.description}</span></>}</p>
+        <p><StatusDot s={s} /> {statusLabel(s)}{b.description && <><br /><span className="muted"><MathText text={b.description} /></span></>}</p>
         {s === 'blocked' && b.resume && <p className="muted">{t('다시 시작할 조건', 'Resume when')}: {b.resume}</p>}
       </div>
       <div className="map-arrow">→</div>
@@ -198,7 +199,7 @@ function ListView({ ctx, notes, rid, onFocus, focus }: { ctx: ProofCtx; notes: N
             return (
               <tr key={b.file} className={focus.k === 'derivation' && focus.id === b.id ? 'sel' : ''}>
                 <td><button className="link-like" onClick={() => onFocus({ k: 'derivation', id: b.id })} onDoubleClick={() => go({ page: 'part', rid, file: b.file })}><span className="ico" aria-hidden>{Icon.block}</span> {b.title}</button></td>
-                <td className="muted">{b.description}</td>
+                <td className="muted">{b.description && <MathText text={b.description} />}</td>
                 <td><StatusDot s={s} /> {statusLabel(s)}</td>
                 <td>{provesOf(ctx, b.id).map((x) => <button key={x.id} className="dep-chip" onClick={() => onFocus({ k: 'statement', id: x.id })}>{shortLabel(x)}</button>)}</td>
               </tr>
