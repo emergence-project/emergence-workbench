@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as C from '@rw/core/contract/backup'
 import { buildApp } from './app.js'
 import { backupWorkbenches, machineName, otherMachineProjects } from './backup.js'
+import { readServerConfig, writeServerConfig } from './deviceServer.js'
 
 let tmp: string
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-C', cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args]).toString().trim()
@@ -151,6 +152,19 @@ describe('workbench 백업', () => {
     expect(await run('book', { 'c-2': '{"b":3}' })).toMatchObject({ pushed: true })
     expect(git(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n')).toEqual(['_chats/book/c-2.json', '_chats/mini/m-1.json'])
     expect(git(remote, 'show', 'main:_chats/book/c-2.json')).toBe('{"b":3}')
+  })
+
+  it('서버로 정한 컴퓨터가 쓴 _settings/server.yaml도 함께 올려 다른 컴퓨터가 받는다 (11/20)', async () => {
+    const remote = path.join(tmp, 'server.git')
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+    const dir = (m: string) => path.join(tmp, `server-${m}`)
+    const run = (machine: string) => backupWorkbenches({ dir: dir(machine), remote, targets: [], machine, chats: { [`${machine}-1`]: '{}' } })
+    expect(await run('studio')).toMatchObject({ pushed: true })
+    writeServerConfig(dir('studio'), { machine: 'studio', url: 'https://studio.tail0000.ts.net' })
+    expect(await run('studio')).toMatchObject({ pushed: true })
+    expect(git(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n')).toContain('_settings/server.yaml')
+    await run('book')
+    expect(readServerConfig([dir('book')])).toMatchObject({ machine: 'studio', url: 'https://studio.tail0000.ts.net' })
   })
 
   it('컴퓨터마다 프로젝트 목록(GitHub 주소 · 폴더 이름)을 올리고, 다른 컴퓨터의 목록을 저장소 하나에 한 번씩 읽는다', async () => {
