@@ -1,7 +1,6 @@
 /* 중앙 대화 (11/16 "중앙 에이전트", 시안 9x2Bud4dVQyYkS6RhdnbAG §2): 목록 맨 위 「중앙」 줄 · 첫 화면 · 하위 대화 줄 */
 .ac-central .label { font-weight: var(--fw-strong); }
 .ac-central-turn { color: var(--s-blocked); }
-.ac-central-what { margin: 0; max-width: 60ch; }
 .ac-central-input { width: 100%; resize: vertical; font: inherit; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); color: var(--text); }
 .ac-central-send { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
 .ac-central-picks { display: flex; align-items: center; gap: var(--sp-1); margin-right: auto; }
