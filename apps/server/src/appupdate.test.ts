@@ -183,7 +183,8 @@ describe('앱 업데이트', () => {
       await vi.advanceTimersByTimeAsync(10_000)
       expect(calls).toEqual([])
       await vi.advanceTimersByTimeAsync(10_000)
-      expect(calls).toEqual(['restart'])
+      // 「지금 다시 시작」처럼 빌드가 준비됐는지(git) 본 뒤에 다시 시작한다
+      await vi.waitFor(() => expect(calls).toEqual(['restart']))
     } finally { vi.useRealTimers() }
     await ub.close()
 
@@ -271,6 +272,12 @@ describe('앱 업데이트', () => {
     expect(held.json().error).toContain('허락을 기다리는')
     expect(calls).toEqual([])
     expect((await uc.inject({ method: 'GET', url: '/api/app/status' })).json().status.waitingAgents).toBe(1)
+    // 받았지만 빌드가 아직이면 「새 버전 없음」이 아니라 빌드가 준비되지 않았다고 말한다 (11/20 피드백 23:23)
+    fs.rmSync(path.join(mac, 'apps/web/dist-next/.commit'))
+    const unbuilt = await uc.inject({ method: 'POST', url: '/api/app/restart', payload: { force: true } })
+    expect(unbuilt.statusCode).toBe(409)
+    expect(unbuilt.json().error).toContain('빌드가 아직')
+    expect(calls).toEqual([])
     await Promise.all([ua.close(), ub.close(), uc.close()])
   })
 })
