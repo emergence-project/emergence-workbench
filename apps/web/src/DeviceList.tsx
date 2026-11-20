@@ -52,6 +52,7 @@ function ServerRow({ server, me, busy, onMake }: { server: DeviceServer | null; 
   return (
     <div className="setup set-rows dev-server" data-ui="서버 컴퓨터">
       <div className="setup-row">
+        <span aria-hidden />
         <div className="setup-main">
           <div className="set-name">{t('서버', 'Server')}</div>
           <div className="setup-desc dev-meta">
@@ -81,7 +82,6 @@ function DeviceRow({ d, onLogout }: { d: Device; onLogout?: () => void }) {
         </div>
         {d.accounts.length > 0 && <div className="dev-accts" data-ui="기기 계정">{d.accounts.map((a, i) => <span key={i} className="tag">{accountName(a)}</span>)}</div>}
       </div>
-      {onLogout && <button className="btn" data-ui="기기 로그아웃" onClick={onLogout}>{t('로그아웃', 'Sign out')}</button>}
       {onLogout && <button className="btn" data-ui="기기 로그아웃" onClick={onLogout}>{t('로그아웃', 'Sign out')}</button>}
     </div>
   )
