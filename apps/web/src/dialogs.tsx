@@ -7,7 +7,7 @@ export function Dialog({ title, ui, children, onClose, footer, wide }: {
   ui?: string
 }) {
   useEffect(() => {
-    const on = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const on = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.isComposing) onClose() }
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
   }, [onClose])

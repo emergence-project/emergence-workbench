@@ -61,20 +61,26 @@ export function MemoText({ text }: { text: string }) {
 }
 
 /** 메모 입력칸. 빠른 메모 창과 메모 탭이 함께 쓴다 */
-export function MemoComposer({ target, targetLabel, autoFocus, compact, onSave, onEscape }: {
+/** 빠른 메모를 Esc · 바깥 누르기로 닫아도 적던 글이 남게: 붙는 곳마다 하나, 저장하면 지운다 (화면을 새로 열면 없어진다) */
+const quickDrafts = new Map<string, string>()
+
+export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraft, onSave, onEscape }: {
   target: string
   targetLabel: string
   autoFocus?: boolean
   compact?: boolean
+  /** 닫았다 다시 열어도 적던 글을 되살린다 (빠른 메모) */
+  keepDraft?: boolean
   onSave(kind: 'memo' | 'todo', text: string, target: string): Promise<void>
   onEscape?(): void
 }) {
-  const [text, setText] = useState('')
+  const [text, setText] = useState(() => (keepDraft ? quickDrafts.get(target) ?? '' : ''))
+  useEffect(() => { if (!keepDraft) return; if (text.trim()) quickDrafts.set(target, text); else quickDrafts.delete(target) }, [keepDraft, target, text])
   const [todo, setTodo] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ta = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => { if (autoFocus) ta.current?.focus() }, [autoFocus])
+  useEffect(() => { if (!autoFocus || !ta.current) return; ta.current.focus(); const n = ta.current.value.length; ta.current.setSelectionRange(n, n) }, [autoFocus])
 
   const save = async () => {
     if (!text.trim() || busy) return
@@ -93,7 +99,7 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, onSave, 
     <div className={`memo${compact ? ' compact' : ''}${has ? ' has-text' : ''}`} data-ui="메모 입력" onKeyDown={(e) => {
       // ⌘↵ · Esc는 칸 전체에서: 할 일로 단추로 옮겨 간 뒤에도 (11/19 피드백 09:04)
       if (isSendKey(e)) { e.preventDefault(); void save() }
-      else if (e.key === 'Escape') onEscape?.()
+      else if (e.key === 'Escape' && !e.nativeEvent.isComposing) onEscape?.()
     }}>
       <textarea ref={ta} rows={compact ? 1 : 3} value={text} aria-label={t('메모', 'Memo')}
         placeholder={compact ? t(`${targetLabel}에 메모 — 생각, 의문, 다음 할 일 (- 목록, $수식$)`, `Memo on ${targetLabel}: thoughts, doubts, next steps (- list, $math$)`) : t('떠오른 생각을 적고 ⌘↵ — Esc로 닫기. - 로 목록, $…$로 수식', 'Write a thought and press ⌘↵. Esc closes. - for a list, $…$ for math')}
@@ -127,7 +133,7 @@ export function QuickMemo({ target, targetLabel, onClose, onSave }: {
     <div className="quick" data-ui="빠른 메모" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="quick-box">
         <span className="quick-label">{t('빠른 메모', 'Quick memo')}</span>
-        <MemoComposer autoFocus target={target} targetLabel={targetLabel} onEscape={onClose}
+        <MemoComposer autoFocus keepDraft target={target} targetLabel={targetLabel} onEscape={onClose}
           onSave={async (k, t, g) => { await onSave(k, t, g); onClose() }} />
       </div>
     </div>
