@@ -166,6 +166,19 @@ describe('중앙 방', () => {
     expect(() => chats.flip('없음', true)).toThrow(/없습니다/)
   })
 
+  it('@모두에서 답하지 못한 사람은 방장에게 "답했다"고 하지 않고 못 했다고 알린다', async () => {
+    const { chats, review } = make()
+    review.mockRejectedValue(new Error('연결 안 됨'))
+    const c = chats.talk('시작')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.invite('gemini', 'user', 'talk')
+    chats.send(c.id, { text: '@모두 식 (3)이 맞는지 봐 줘' })
+    await vi.waitFor(() => expect(turns).toHaveLength(2))
+    expect(turns[1]).toContain('Gemini answered above')
+    expect(turns[1]).toContain('Codex could not answer')
+    expect(turns[1]).not.toMatch(/Codex[^.]*answered above/)
+  })
+
   it('초대 · 권한 · 내보내기: 사용자는 수정 말고, 방장은 규칙 안에서 까닭과 함께 읽기만 · 발언까지. 방 소식이 남고 파일에 남는다', async () => {
     const { chats, dir } = make()
     const c = chats.talk('시작')
