@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { blocksOf, commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, modelName, stepsSummary } from './AgentChats'
+import { commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, modelName } from './AgentChats'
+import { chatLog, procName, procSummary, stepsSummary } from './WorkLog'
 import { fitMenu, menuAt, nextTrust, sideQuestion, trustOf } from './ChatComposer'
 import { familyName, familyOf, modelFamilies, pickFamily, readyAgent } from './AgentPick'
 
@@ -83,10 +84,28 @@ describe('에이전트 입력란', () => {
       { kind: 'step' as const, at, tool: 'Bash', summary: 'c' },
     ]
     const later = '2026-10-21T10:00:12Z'
-    const blocks = blocksOf([...items, { kind: 'todos', at, todos: [] }, { kind: 'text', at: later, text: '끝' }, items[0]!])
-    expect(blocks.map((b) => b.kind)).toEqual(['steps', 'one', 'steps'])
-    expect(blocks[0]).toMatchObject({ until: later })
+    const { blocks, log } = chatLog([...items, { kind: 'todos', at, todos: [] }, { kind: 'text', at: later, text: '끝' }, items[0]!])
+    expect(blocks.map((b) => b.kind)).toEqual(['proc', 'one', 'proc'])
+    expect(log[0]).toMatchObject({ kind: 'steps', until: later })
     expect(stepsSummary(items, later)).toBe('12초 동안 일함 · 읽기 2번 · 도구 1번 · 하위 에이전트 1 · 범위 밖 1')
+  })
+  it('생각 · 도구는 작업 로그로 빼고, 이어진 과정은 대화에 「과정 n–m」 한 줄로 남긴다', () => {
+    const at = (s: number) => `2026-11-20T10:00:${String(s).padStart(2, '0')}Z`
+    const step = (s: number) => ({ kind: 'step' as const, at: at(s), tool: 'Read', summary: `r${s}` })
+    const { blocks, log } = chatLog([
+      { kind: 'user', at: at(0), text: '해 줘' },
+      { kind: 'think', at: at(1), text: '먼저 읽자' },
+      step(2), step(3),
+      { kind: 'think', at: at(5), text: '고치자' },
+      step(6),
+      { kind: 'text', at: at(9), text: '끝냈습니다' },
+    ])
+    expect(log.map((e) => [e.n, e.kind])).toEqual([[1, 'think'], [2, 'steps'], [3, 'think'], [4, 'steps']])
+    expect(log[1]).toMatchObject({ until: at(5) })
+    expect(log[3]).toMatchObject({ until: at(9) })
+    expect(blocks.map((b) => (b.kind === 'proc' ? `${b.from}-${b.to}` : b.item.kind))).toEqual(['user', '1-4', 'text'])
+    expect(procName(1, 4)).toBe('과정 1–4')
+    expect(procSummary(log)).toBe('8초 동안 일함 · 읽기 3번')
   })
 })
 
