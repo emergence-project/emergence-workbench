@@ -507,7 +507,7 @@ export function App() {
                     <p className="h-sub">{t('아래 「프로젝트 등록」에서 새로 만들거나, 쓰던 GitHub 저장소나 폴더를 가져와 시작하세요. 가져온 저장소는 옮기지 않고 그 안에 workbench/ 폴더만 만듭니다.', 'Start with Register project below: start a new one, or bring in a GitHub repository or folder you already have. A repository you bring in stays where it is; only a workbench/ folder is created inside it.')}</p>
                     <div><button className="btn primary" onClick={() => setDialog('register')}>{t('프로젝트 등록', 'Register project')}</button></div>
                   </>
-                  : <p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p>}
+                  : <p className="muted">{error ? <>{error} · <a className="a" href="#/">{t('홈으로 가기', 'Go to Home')}</a></> : t('불러오는 중…', 'Loading…')}</p>}
               </div>
             </section>
           </main>

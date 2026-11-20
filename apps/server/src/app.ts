@@ -309,7 +309,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const repoPath = (rid: string) => {
     if (rid === LIBRARY_RID) return libraryRepo()
     const r = registry.list().find((x) => x.id === rid)
-    if (!r) throw new WorkbenchError(404, t(`등록되지 않은 연구: ${rid}`, `Project not registered: ${rid}`))
+    if (!r) throw new WorkbenchError(404, t(`등록되지 않은 프로젝트: ${rid}`, `Project not registered: ${rid}`))
     return r.path
   }
   /** 지식 라이브러리 폴더 (기록 장치에서 LIBRARY_RID의 저장소, 10/18) */
