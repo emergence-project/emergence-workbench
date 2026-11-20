@@ -129,6 +129,14 @@ function leading(words: string[]): { rest: string[]; env: boolean } {
       w = w.slice(1)
     }
     else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) w = w.slice(1)
+    // timeout 5 rm x · nice -n 5 rm x · caffeinate -i rm x · stdbuf -oL rm x: 옵션과 시간 값을 건너뛰고 뒤의 명령을 본다
+    else if (w.length > 1 && /^(timeout|gtimeout|caffeinate|stdbuf)$/.test(w[0]!.split('/').pop()!)) {
+      const timed = /timeout$/.test(w[0]!)
+      w = w.slice(1)
+      while (w.length && w[0]!.startsWith('-')) w = w.slice(/^-[ks]$/.test(w[0]!) ? 2 : 1)
+      if (timed && w.length && /^\d+(\.\d+)?[smhd]?$/.test(w[0]!)) w = w.slice(1)
+    }
+    else if (w.length > 1 && /^-n$/.test(w[0]!) && /^-?\d+$/.test(w[1]!)) w = w.slice(2)
     else if (w.length > 1 && w[0]!.split('/').pop() === 'env') { w = w.slice(1); while (w.length && w[0]!.startsWith('-')) w = w.slice(1) }
     else if (w.length && /^(if|then|else|elif|do|while|until|!|\{|\()$/.test(w[0]!)) w = w.slice(1)
     else if (w.length && /^[({]+[^({]/.test(w[0]!)) w = [w[0]!.replace(/^[({]+/, ''), ...w.slice(1)]
@@ -168,11 +176,44 @@ export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): 
     const prog = w[0]!.split('/').pop()!
     const args = w.slice(1)
     bump(kindOf(prog, args))
+    // 다른 명령을 감싸 돌리는 것은 안의 명령도 본다: 실행을 자동 허용해도 삭제 · 외부는 묻게 (bash -c "rm -rf x" · find -exec rm · eval)
+    for (const inner of wrapped(prog, args)) bump(typeof inner === 'string' ? commandKind(inner, o) : kindOf(inner[0]!.split('/').pop()!, inner.slice(1)))
     // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
     for (const a of args) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
     if (prog === 'cd' && args[0] && touchesOutside(args[0], o)) bump('outside')
   }
   return worst
+}
+
+/** 감싸 돌리는 안의 명령: 글 한 줄(sh -c · eval)이면 string, 낱말들(find -exec · xargs)이면 string[] */
+function wrapped(prog: string, args: string[]): (string | string[])[] {
+  if (/^(sh|bash|zsh|dash|ksh|fish)$/.test(prog)) {
+    const i = args.findIndex((a) => /^-[a-zA-Z]*c$/.test(a))
+    return i >= 0 && args[i + 1] ? [args[i + 1]!] : []
+  }
+  if (prog === 'eval') return args.length ? [args.join(' ')] : []
+  if (prog === 'find') {
+    const out: string[][] = []
+    for (let i = 0; i < args.length; i++) {
+      if (!/^-(exec|execdir|ok|okdir)$/.test(args[i]!)) continue
+      const end = args.findIndex((a, j) => j > i && (a === ';' || a === '+'))
+      const inner = args.slice(i + 1, end < 0 ? undefined : end)
+      if (inner.length) out.push(inner)
+    }
+    return out
+  }
+  if (prog === 'xargs') {
+    const inner = xargsCommand(args)
+    return inner.length ? [inner] : []
+  }
+  return []
+}
+
+/** xargs 뒤의 명령: 값을 받는 옵션(-n 1 · -I {} · -P 4 …)의 값은 건너뛴다 */
+function xargsCommand(args: string[]): string[] {
+  let i = 0
+  while (i < args.length && args[i]!.startsWith('-')) i += /^-[nIPLsdEa]$/.test(args[i]!) ? 2 : 1
+  return args.slice(i)
 }
 
 function kindOf(prog: string, args: string[]): ChatKind {
@@ -181,11 +222,13 @@ function kindOf(prog: string, args: string[]): ChatKind {
     if (GIT_OUTSIDE.has(sub)) return 'outside'
     if (GIT_DELETE.has(sub)) {
       // checkout <브랜치>는 바꾸기, checkout -- <파일> · reset --hard · restore는 고친 것을 버린다
-      if (sub === 'checkout' && !args.includes('--') && !args.includes('.')) return 'edit'
+      // checkout -f · checkout <커밋> <파일>도 고친 것을 버린다
+      if (sub === 'checkout' && !args.includes('--') && !args.includes('.') && !args.some((a) => /^(-f|--force)$/.test(a)) && (args.filter((a) => !a.startsWith('-')).length <= 2 || args.some((a) => /^(-b|-B|-t|--track|--orphan)$/.test(a)))) return 'edit'
       if (sub === 'reset' && !args.includes('--hard')) return 'edit'
       if (sub === 'stash' && /^(list|show)$/.test(args[args.indexOf('stash') + 1] ?? '')) return 'read'
       return 'delete'
     }
+    if (sub === 'switch' && args.some((a) => /^(-f|--force|--discard-changes)$/.test(a))) return 'delete'
     if (GIT_EDIT.has(sub)) return 'edit'
     // 읽는 하위 명령의 쓰는 쓰임: 가지 · 태그 지우기와 만들기, 설정 쓰기, 원격 바꾸기, --output 파일
     const rest = args.slice(args.indexOf(sub) + 1)
@@ -195,6 +238,8 @@ function kindOf(prog: string, args: string[]): ChatKind {
       if (rest.some((a) => (sub === 'branch' ? /^-[a-zA-Z]*[mMcCfu]/ : /^-[a-zA-Z]*[asfmuF]/).test(a) || /^--(move|copy|force|set-upstream|unset-upstream|edit-description|annotate|sign)/.test(a))) return 'edit'
       if (named.length && !rest.some((a) => /^(-l|--list|--contains|--merged|--no-merged|--points-at|-n\d*|--sort)/.test(a))) return 'edit'
     }
+    // 모든 저장소의 설정을 바꾸는 것은 폴더 밖이다
+    if (sub === 'config' && rest.some((a) => /^--(global|system)$/.test(a)) && !rest.some((a) => /^(--get|--get-all|--get-regexp|--list|-l)$/.test(a)) && named.length > 1) return 'outside'
     if (sub === 'config' && !rest.some((a) => /^(--get|--get-all|--get-regexp|--list|-l|--show-origin|--show-scope)$/.test(a)) && (named.length > 1 || rest.some((a) => /^--(unset|add|replace-all|remove-section|rename-section|edit)|^-e$/.test(a)))) return 'edit'
     if (sub === 'remote' && /^(add|remove|rm|rename|set-url|set-head|set-branches|prune|update)$/.test(named[0] ?? '')) return 'edit'
     // 다른 프로그램을 돌리는 옵션: grep -O<명령> · --ext-diff
@@ -224,7 +269,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
   if (prog === 'xxd' && shortHas('r')) return 'edit'
   if (prog === 'yq' && (shortHas('i') || args.some((a) => /^--inplace/.test(a)))) return 'edit'
   if (prog === 'pdftotext' && positional.length > 0 && positional[positional.length - 1] !== '-' && !args.includes('-')) return 'edit'
-  if (prog === 'xargs') return args.length ? kindOf(args.find((a) => !a.startsWith('-')) ?? 'echo', args.slice(1)) : 'read'
+  if (prog === 'xargs') { const inner = xargsCommand(args); return inner.length ? kindOf(inner[0]!.split('/').pop()!, inner.slice(1)) : 'read' }
   if (READS.has(prog)) return 'read'
   if (EDITS.has(prog)) return 'edit'
   if (DELETES.has(prog)) return 'delete'

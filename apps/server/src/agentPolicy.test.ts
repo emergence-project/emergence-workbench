@@ -41,8 +41,9 @@ describe('중앙 대화의 명령', () => {
   })
   it('읽기 전용 프로젝트 대화: 읽기로 꾸민 명령을 묻지 않고 돌리지 않는다 (11/20 보안 검토)', () => {
     const p: PolicyCtx = { rid: 'p', write: 'read', mode: 'edit', planOk: false, scope: { kind: 'project' }, repo: '/w/p', readable: [], claimedBy: () => undefined }
-    for (const c of ['ls & rm -rf notes', 'sort -o a.md b.md', "sed -n 'w a.md' b.md"]) expect(judge(p, 'Bash', { command: c }).kind, c).toBe('deny')
-    for (const c of ["env sh -c 'rm -rf notes'", 'awk \'BEGIN{"rm -rf notes" | getline}\'']) expect(judge(p, 'Bash', { command: c }).kind, c).toBe('ask')
+    // 감싸 돌리는 명령(sh -c)도 안의 삭제를 보고 막는다
+    for (const c of ['ls & rm -rf notes', 'sort -o a.md b.md', "sed -n 'w a.md' b.md", "env sh -c 'rm -rf notes'"]) expect(judge(p, 'Bash', { command: c }).kind, c).toBe('deny')
+    for (const c of ['awk \'BEGIN{"rm -rf notes" | getline}\'']) expect(judge(p, 'Bash', { command: c }).kind, c).toBe('ask')
     expect(judge(p, 'Bash', { command: 'ls workbench | sort | head' }).kind).toBe('allow')
   })
   it('파일 고치기는 막고 하위 대화와 되는 명령을 알려 준다', () => {

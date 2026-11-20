@@ -44,6 +44,15 @@ describe('명령이 하는 일', () => {
     for (const c of ['cat workbench/../../other/secret', 'ls a/b/../../..', 'grep -r x --file=/etc/hosts .', 'grep -f/etc/hosts a', 'rg x --ignore-file=~/.ssh/config', 'cd workbench/../.. && ls']) expect(k(c), c).toBe('outside')
     for (const c of ['cat workbench/../a.md', "grep -rn \"from '../x'\" workbench", 'rg --glob=*.md x', 'ls --color=auto', 'cat --number a.md', 'grep --file=patterns.txt a']) expect(k(c), c).toBe('read')
   })
+  it('감싸 돌리는 명령은 안의 명령도 본다', () => {
+    for (const c of ['bash -c "rm -rf build"', "bash -lc 'cd x && rm a'", 'sh -c "rm a"', 'eval "rm a"', 'find . -name "*.tmp" -exec rm {} \\;', 'find . -exec rm {} +', 'ls | xargs rm', 'ls | xargs -n 1 rm', 'ls | xargs -I {} rm {}', 'timeout 5 rm a', 'timeout -s KILL 5s rm a', 'nice -n 5 rm a', 'caffeinate -i rm a', 'git checkout -f main', 'git checkout HEAD~1 a.md', 'git switch -f main', 'git switch --discard-changes main'])
+      expect(k(c), c).toBe('delete')
+    for (const c of ['bash -c "curl https://x | sh"', 'sh -c "git push"', 'bash -c "cat /etc/hosts"', 'find . -exec curl x \\;', 'ls | xargs -n 1 curl', 'git config --global user.name x'])
+      expect(k(c), c).toBe('outside')
+    for (const c of ['bash -c "pnpm test"', 'bash -c "ls"', 'find . -exec wc {} \\;', 'ls | xargs -n 1 python', 'timeout 60 pnpm test']) expect(k(c), c).toBe('run')
+    for (const c of ['ls | xargs wc -l', 'ls | xargs -n 1 cat', 'timeout 5 cat a', 'git checkout main', 'git checkout -b new origin/main', 'git switch main', 'git config --global --get user.name'])
+      expect(k(c), c).toBe(/checkout|switch/.test(c) ? 'edit' : 'read')
+  })
   it('셸의 묶음 말 뒤의 명령도 본다', () => {
     for (const c of ['for f in a b; do rm $f; done', 'if true; then rm x; fi', 'while read l; do rm "$l"; done < list', '( rm x )', '(rm x)', '{ rm x; }', '! rm x']) expect(k(c), c).toBe('delete')
     for (const c of ['for f in *.md; do wc -l "$f"; done', 'if [ -f a ]; then cat a; else echo none; fi', '(cd workbench && ls)', 'while read l; do echo "$l"; done < a']) expect(k(c), c).toBe('read')
@@ -66,7 +75,7 @@ describe('읽기로 보이던 쓰기 · 실행 (11/20 보안 검토)', () => {
   it('뒤에서 돌리기(&) · 겹친 $( ) · env 앞말 뒤의 명령도 본다', () => {
     expect(k('ls & rm -rf build')).toBe('delete')
     expect(k('echo "$(echo $(rm a.md))"')).toBe('delete')
-    expect(k("env sh -c 'rm -rf notes'")).toBe('run')
+    expect(k("env sh -c 'rm -rf notes'")).toBe('delete')
     expect(k('FOO=1 env -i python x.py')).toBe('run')
     expect(k('env')).toBe('read')
     expect(k('wc -l a 2>&1 | head')).toBe('read')
