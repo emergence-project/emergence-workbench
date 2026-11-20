@@ -6,6 +6,7 @@ import { agentChatsApi, CENTRAL_RID, type ChatEffort, type ChatMessageBody, type
 import { Composer } from './ChatComposer'
 import { Icon } from './icons'
 import { ChatStateMark, stateName } from './AgentChats'
+import { shownState } from './agentSeen'
 import { boardCounts, boardRows, STALL_MIN, type BoardGroup, type BoardRow } from './centralBoard'
 import { t } from './i18n'
 import { screenLine } from './screenView'
@@ -25,7 +26,7 @@ export function CentralLine({ row, on, onOpen }: { row?: ChatRow; on: boolean; o
   const { counts } = useBoard()
   return (
     <button className={`nav ac-line ac-central${on ? ' on' : ''}`} data-ui="중앙 대화 줄" onClick={() => (onOpen ? row && onOpen(row.id) : go({ page: 'agent', id: row?.id ?? CENTRAL_PAGE }))}>
-      <span className="ac-line-top"><span className="ac-line-dot">{row && <ChatStateMark state={row.state} name={stateName(row)} />}</span><span className="label">{t('중앙', 'Central')}</span></span>
+      <span className="ac-line-top"><span className="ac-line-dot">{row && <ChatStateMark state={shownState(row)} name={stateName(row)} />}</span><span className="label">{t('중앙', 'Central')}</span></span>
       <span className="ac-line-meta">
         {row ? <CountLine counts={counts} />
           : onOpen ? t('아래 입력란에 말하면 중앙이 열립니다', 'Type below to start the central conversation') : t('질문 · 앱 고치기 · 프로젝트 작성을 한곳에서', 'Questions, app fixes and project writing in one place')}
