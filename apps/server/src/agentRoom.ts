@@ -240,7 +240,10 @@ export class RoomChats extends CentralChats {
       const got = await Promise.all(members.map((x) => this.ask(c, x, m.text, 'user', seen)))
       this.record(mine.at, m.text, got)
       if (!r.host || this.chats.get(id) !== c) return
-      if (r.all) this.hostLine = `[The user called everyone (@모두). ${members.map((x) => nameOf(x.agent)).join(', ')} answered above, each on its own without seeing the others. Answer last and sum up in at most three short lines: who said what and where they differ; your own judgment; what to do. If it is a costly judgment and they disagree, suggest a debate (/토론).]`
+      // 답하지 못한 사람(연결 안 됨 등)을 "answered above"에 넣으면 방장이 없는 답을 있는 것처럼 정리한다
+      const ok = got.filter((x) => x.text).map((x) => nameOf(x.by)), failed = got.filter((x) => !x.text).map((x) => nameOf(x.by))
+      const who = `${ok.length ? `${ok.join(', ')} answered above, each on its own without seeing the others.` : 'Nobody else could answer.'}${failed.length ? ` ${failed.join(', ')} could not answer (error): say so, and do not guess what they would have said.` : ''}`
+      if (r.all) this.hostLine = `[The user called everyone (@모두). ${who} Answer last and sum up in at most three short lines: who said what and where they differ; your own judgment; what to do. If it is a costly judgment and they disagree, suggest a debate (/토론).]`
       super.send(id, m)
       const at = c.items.lastIndexOf(mine), last = c.items.map((x) => x.kind).lastIndexOf('user')
       if (at >= 0 && last > at) { const [u] = c.items.splice(last, 1); c.items[at] = u!; this.touch(c) }
