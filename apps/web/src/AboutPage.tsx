@@ -3,7 +3,7 @@ import { AboutFixTab } from './AboutFix'
 import { AboutSide, markChanges, useAboutChanges, type Picked, type SideTab } from './AboutHistorySide'
 import { HistoryButton } from './NoteHistory'
 import { ABOUT_PARTS, type AboutPart, type AboutSection, COLOR_ROWS, partOf, sectionAnchor, SYMBOL_GROUPS } from './aboutContent'
-import { checkKey, checkState, lastPr, useAboutChecks, type AboutCheckState } from './aboutChecks'
+import { checkKey, checkState, lastPr, prsSince, useAboutChecks, type AboutCheckState } from './aboutChecks'
 import type { AboutCheck, AboutChecks } from './api'
 import { queryClient, qk } from './queries'
 import { FileTreeFigure } from './aboutFigures'
@@ -20,7 +20,12 @@ import * as portingGuides from './about/reference/porting-guides'
  * 툴바 오른쪽 시계로 오른쪽 사이드바를 연다 (11/20 시안 2 · 3절, AboutHistorySide.tsx): 탭 「이력」은 이 쪽을 고친 (절, 업데이트) 표로
  * 줄마다 확인을 받고, 줄을 누르면 그 절로 가서 그 업데이트가 바꾼 문장에 하이라이트를 붙인다. 탭 「수정」은 본문의 한 곳을 눌러 고친 글을 담아 보낸다(AboutFix.tsx).
  * 확인 전인 절은 절 제목 옆 「확인 전」과 왼쪽 목록의 「확인 n」으로 보인다(본문 위 확인 항목 상자는 11/20에 없앰).
+ * 둘 다 누르면 이력 탭을 열고 그 절의 가장 최근 확인 전 줄을 고른다 (11/20 피드백 08:54 「클릭하면 오른쪽 사이드바가 뜨거나 알려 줘야」).
  */
+const REVIEW_EVENT = 'rw-about-review'
+/** 「확인 전」 · 「확인 n」을 눌렀을 때: 그 쪽의 그 절(없으면 첫 확인 전 절)을 이력에서 연다 */
+export function openReview(part: string, sec?: number) { window.dispatchEvent(new CustomEvent(REVIEW_EVENT, { detail: { part, sec } })) }
+
 export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) {
   const p = partOf(part)
   // 절이 있는 쪽은 절 하나씩 따로 연다 (10/15 14:12 "서브섹션보다 서브페이지 구조로, 스크롤이 힘들다"). #/about/<쪽>은 첫 절
@@ -34,7 +39,28 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
   const [side, setSide] = useState(historyOn)
   const [tab, setTab] = useState<SideTab>(tabOn)
   const [picked, setPicked] = useState<Picked | null>(null)
-  useEffect(() => { setPicked(null) }, [p.id])
+  // 다른 쪽의 「확인 n」을 누르면 쪽을 옮긴 뒤 고를 줄
+  const pending = useRef<Picked | null>(null)
+  useEffect(() => { setPicked(pending.current); pending.current = null }, [p.id])
+  const checks = useAboutChecks()
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = e instanceof CustomEvent ? e.detail : undefined
+      const x = ABOUT_PARTS.find((y) => y.id === d?.part)
+      if (!x?.sections) return
+      const todo = (i: number) => prsSince(x.sections![i]!, checks.sections[checkKey(x, sectionAnchor(x.sections![i]!, i))])
+      const i = typeof d.sec === 'number' ? d.sec : x.sections.findIndex((_, j) => todo(j).length > 0)
+      const ns = i >= 0 ? todo(i) : []
+      if (!ns.length) return
+      const v = { n: Math.max(...ns), sec: i }
+      setSide(true); keepHistory(true); setTab('history'); keepTab('history')
+      if (x.id !== p.id) pending.current = v
+      else setPicked(v)
+      if (x.id !== p.id || i !== at) go({ page: 'about', part: x.id, ...(i > 0 && { anchor: sectionAnchor(x.sections[i]!, i) }) })
+    }
+    window.addEventListener(REVIEW_EVENT, on)
+    return () => window.removeEventListener(REVIEW_EVENT, on)
+  }, [checks, p.id, at])
   const sec = at >= 0 ? p.sections![at] : undefined
   const showSide = (v: boolean) => { setSide(v); keepHistory(v); if (!v) setPicked(null) }
   const showTab = (v: SideTab) => { setTab(v); keepTab(v); if (v === 'fix') setPicked(null) }
@@ -133,7 +159,9 @@ export function AboutSidebar({ part, anchor }: { part?: string; anchor?: string 
                 <div key={p.id}>
                   <a href={href({ page: 'about', part: p.id })} className={`nav about-nav-row${on && at < 0 ? ' on' : ''}`} aria-current={on && at < 0 ? 'page' : undefined} title={p.title}>
                     <span className="n">{ABOUT_PARTS.indexOf(p) + 1}</span><span className="label">{p.title}</span>
-                    {count > 0 && <span className="about-nav-flag" title={t(`확인 전인 절 ${count}`, `Sections not reviewed: ${count}`)} data-ui="확인 필요 표시">{t(`확인 ${count}`, `Review ${count}`)}</span>}
+                    {count > 0 && <span role="button" tabIndex={0} className="about-nav-flag" title={t(`확인 전인 절 ${count}: 눌러 이력에서 보기`, `Sections not reviewed: ${count}. Click to see them in History`)} data-ui="확인 필요 표시"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); openReview(p.id) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openReview(p.id) } }}>{t(`확인 ${count}`, `Review ${count}`)}</span>}
                   </a>
                   {on && (p.sections ?? []).map((sec, i) => {
                     const a = sectionAnchor(sec, i)
@@ -211,7 +239,7 @@ function Intro() {
           </p>
         )}
         <div className="about-legend">
-          <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절. 오른쪽 「이력」 표의 그 줄에서 ✓(맞아요)를 누르면 확인함이 되고, 왼쪽 목록에 "확인 N"으로 표시됩니다', 'A section with an update you have not reviewed. ✓ (That is right) on that row of the "History" table on the right marks it reviewed, and the list on the left shows "Review N"')}</span>
+          <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절(왼쪽 목록에는 "확인 N"). 누르면 오른쪽 「이력」이 열려 그 줄로 가고, 그 줄의 ✓(맞아요)를 누르면 확인함이 됩니다', 'A section with an update you have not reviewed (the list on the left shows "Review N"). Click it to open "History" on the right at that row; ✓ (That is right) on the row marks it reviewed')}</span>
           <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('「수정」 탭으로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent from the "Edit" tab. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
           <span><b>{Icon.history}</b> {t('툴바 오른쪽 시계로 오른쪽 사이드바(이력 · 수정)를 엽니다. 이력 표의 줄을 누르면 그 절로 가서 그 업데이트가 바꾼 문장에 하이라이트가 붙습니다', 'The clock at the right of the toolbar opens the right sidebar (History · Edit). Clicking a row of the history table goes to that section and highlights the sentences that update changed')}</span>
         </div>
@@ -292,7 +320,7 @@ function Sections({ part, at, history }: { part: AboutPart; at: number; history:
         const rec = checks.sections[key]
         const check: SectionCheckView = { key, rec, prs: sec.prs ?? [], dates: checks.prDates, enabled: checks.enabled, history, state: checks.enabled ? checkState(sec, rec, checks.exists) : 'checked' }
         return (
-        <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} check={check}>
+        <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} check={check} onReview={() => openReview(part.id, i)}>
           {part.id !== 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
           <ul className="about-list">{sec.items.map((it, n) => <li key={n}>{it.text}</li>)}</ul>
           {/* 이 기능을 다른 앱에 옮기는 이식 안내서 (11/19) */}
@@ -459,7 +487,7 @@ function Next() {
       </Section>
       <Section name={t('답을 기다리는 것', 'Waiting for your answer')} ui="답을 기다리는 것">
         <ul className="about-list">
-          <li>{t('각 쪽 맨 위 "확인해 주실 것" (왼쪽 목록에 "확인 N"으로 표시)', '"To review" at the top of each page (shown as "Review N" in the list on the left)')}</li>
+          <li>{t('절 제목 옆 "확인 전" (왼쪽 목록에 "확인 N"으로 표시, 누르면 이력에서 확인)', '"Not reviewed" next to a section title (shown as "Review N" in the list on the left; click to review in History)')}</li>
           <li>{t('피드백 화면의 "확인 필요"', '"Needs review" on the Feedback screen')}</li>
           <li>{t('구글 연결용 클라이언트를 설정에 넣기', 'Enter the client for the Google connection in Settings')}</li>
           <li>{t('작업 탭 첫 시험 (맥에서 읽기만 하는 일 하나를 맡겨 보기)', 'First trial of the Work tab (delegate one read-only task on the Mac)')}</li>
@@ -477,13 +505,13 @@ interface SectionCheckView { key: string; rec?: AboutCheck; prs: number[]; dates
 /** 2026-11-03 → 11/3 */
 const shortDate = (d?: string) => { const m = d && /^\d{4}-(\d{2})-(\d{2})/.exec(d); return m ? `${Number(m[1])}/${Number(m[2])}` : '' }
 
-function Section({ name, ui, id, check, children }: { name: string; ui: string; id?: string; check?: SectionCheckView; children: ReactNode }) {
+function Section({ name, ui, id, check, onReview, children }: { name: string; ui: string; id?: string; check?: SectionCheckView; onReview?: () => void; children: ReactNode }) {
   const checked = check?.rec?.checked !== undefined && check.state === 'checked'
   return (
     <section data-ui={ui} id={id && `about-${id}`}>
       <div className="sec-head">
         <h2>{name}</h2><span className="sp" />
-        {check?.state === 'unchecked' && <span className="about-unsure" data-ui="확인 전">{t('확인 전', 'Not reviewed')}</span>}
+        {check?.state === 'unchecked' && <button type="button" className="about-unsure" data-ui="확인 전" data-tip={t('이력에서 확인하기', 'Review in History')} onClick={onReview}>{t('확인 전 ›', 'Not reviewed ›')}</button>}
         {check?.state === 'pending' && <span className="about-pending" data-ui="반영 대기" title={t('고쳐 보낸 글을 아직 반영하지 않았습니다', 'The text you sent has not been applied yet')}>{t('반영 대기', 'Waiting to apply')}</span>}
         {check?.history && checked && <span className="about-checked" data-ui="확인함"><i className="mark-ico" aria-hidden>{Icon.check}</i>{t(`확인함 ${shortDate(check.rec!.at)}`, `Reviewed ${shortDate(check.rec!.at)}`)}</span>}
       </div>
